@@ -289,10 +289,26 @@ class RuntimeSource:
             raise ValueError("runtime source must not contain an absolute path")
         if not _SHA256_RE.fullmatch(str(self.content_hash or "")):
             raise ValueError("runtime source content_hash must be lowercase SHA-256")
-        try:
-            date.fromisoformat(source_date)
-        except ValueError:
-            raise ValueError("runtime source_date must be ISO date") from None
+        # 空串 = **这条来源本来就没有日期**，不是格式写错。生产侧
+        # ``conversation_orchestrator`` 落投影时写的是
+        # ``str(citation.get("date") or "")``——估值题、知识题引用的资料
+        # 常常压根没有行情日期，于是这里拿到 ""。
+        #
+        # 旧代码对 "" 也走 ``date.fromisoformat``，直接抛异常，而异常发生在
+        # 投影阶段 → **整道题判死、空答案、arm 里连 diagnostics 都是空的**。
+        # 2026-08-18 冻结 30 题实测挂了 3 道（瑞华泰估值 / 立新能源贵不贵 /
+        # 美联储降息），每道还各烧掉 73～137 秒墙钟，重跑逐条复现。
+        #
+        # 这是跨层口径不对账：两边各自都自洽，中间没人对过「没有日期」怎么表示。
+        # 判分侧不该因为一条无日期引用就把整道题的读数丢掉。
+        #
+        # **但不能静默放过**：无日期来源没法参与时点泄漏检查，所以它们要能被
+        # 数出来（``undated_source_count``），由报告如实写「N 条未参与泄漏检查」。
+        if source_date:
+            try:
+                date.fromisoformat(source_date)
+            except ValueError:
+                raise ValueError("runtime source_date must be ISO date") from None
         object.__setattr__(self, "source_id", source_id)
         object.__setattr__(self, "tool", tool)
         object.__setattr__(self, "source_date", source_date)
@@ -522,7 +538,13 @@ class RuntimeArmResult:
                 cutoff_date = date.fromisoformat(self.data_cutoff)
             except ValueError:
                 raise ValueError("data_cutoff must be an ISO date") from None
-            if any(date.fromisoformat(item.source_date) > cutoff_date for item in sources):
+            # 无日期来源跳过泄漏检查——**跳过不等于通过**，它们由
+            # ``undated_source_count`` 数出来，报告必须自陈这批没被检查。
+            if any(
+                date.fromisoformat(item.source_date) > cutoff_date
+                for item in sources
+                if item.source_date
+            ):
                 raise ValueError("runtime source_date is after data_cutoff")
         claims = tuple(self.claims)
         if any(not isinstance(item, RuntimeClaim) for item in claims):
@@ -557,6 +579,12 @@ class RuntimeArmResult:
             "published_answer": self.answer,
             "claims": [item.to_dict() for item in self.claims],
             "sources": [item.to_dict() for item in self.sources],
+            # 无日期来源数：这些证据**没有参与时点泄漏检查**（没日期没法比）。
+            # 落进 artifact 是为了让报告能如实写出「N 条未被检查」，
+            # 而不是让「泄漏检查通过」这句话把它们盖过去。
+            "undated_source_count": sum(
+                1 for item in self.sources if not item.source_date
+            ),
             "status": self.status,
             "structural_status": self.structural_status,
             "semantic_status": self.semantic_status,
