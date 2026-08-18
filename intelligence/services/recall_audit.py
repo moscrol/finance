@@ -43,6 +43,17 @@ class RecallAudit:
         return tuple(f"{DISCLOSURE_PREFIX}{gap}" for gap in self.gaps)
 
 
+def count_independent_sources(lines: Sequence[str] | None) -> int:
+    """按 source 文档去重。同源多条计 1，抽不出文档名的行不计。"""
+    sources: set[str] = set()
+    for raw in lines or ():
+        line = str(raw or "").strip()
+        if _is_meta(line):
+            continue
+        sources |= _sources_in(line)
+    return len(sources)
+
+
 def parse_as_of(*candidates: str | None) -> date | None:
     """从交易日/选项日期里取第一个可解析的 YYYY-MM-DD。"""
     for raw in candidates:
@@ -117,6 +128,14 @@ def _parse_date(raw: str) -> date | None:
         return None
 
 
+def _unwrap_source_name(raw: str) -> str:
+    name = raw.strip()
+    wrapped = _WIKI_PAGE_RE.fullmatch(name)
+    if wrapped is not None:
+        return wrapped.group(1).strip()
+    return name
+
+
 def _sources_in(line: str) -> set[str]:
     found: set[str] = set()
     for match in _WIKI_PAGE_RE.finditer(line):
@@ -124,7 +143,7 @@ def _sources_in(line: str) -> set[str]:
         if name:
             found.add(name)
     for match in _R_SOURCE_RE.finditer(line):
-        name = match.group(1).strip()
+        name = _unwrap_source_name(match.group(1))
         if name and not name.startswith("相关度"):
             found.add(name)
     title = _WIKI_TITLE_RE.search(line)
