@@ -157,11 +157,11 @@ Phase 3（埋点）  ──┘        ↓
 | 4.2 EvidenceAtom | `bind_measured_value`；中期趋势填 `double_red_days` | 单测：2.96万亿 → 29600 亿元 + provenance |
 | 4.3 C3 | `empty_caliber_disclosure` 罐头空表，不换价格表 | **新 run ✅**。原文声明 0 行 / 数据不可用，不用价格表 |
 | 4.4 C4/C5 | `quick_fact` + `lane=research` | **不再 knowledge_lane_answer**。4.5 之前仍 ❌（全市总览+web） |
-| 4.5 标的口径 | `bound_caliber_disclosure`：板块成交额 / 两日股价 / 题材涨停热度 | 注入测试绿。现场库：C5 两日复制可检出；A5 储能 40；C4 07-21 行已洗成 611.26，冻结算子 6112588.6 对不上 |
+| 4.5 标的口径 | `bound_caliber_disclosure`：板块成交额 / 两日股价 / 题材涨停热度 | sidecar：C5 ✅；A5 正文储能 40 但 overlay 仍 ❔；C4 现库 611.26 vs 冻结算子 6112588.6 ❌ |
 
 **还没做完、不要写成已绿：**
 
 - Criterion I（可判分母 ≥22）未过：6/15。剩下的不可判主要是 semantic_required / 缺 observation。
 - C4 冻结算子仍是 `amount_raw=6112588.6`；主库 07-21 MLCC 现为 611.26。脏行只剩 06-18 / 06-22。不要伪造 6112588.6。
-- A5 overlay 仍 `semantic_required`，正文有储能 40 也可能停在 ❔。
+- A5 overlay 仍 `semantic_required`，正文有储能 40 也停在 ❔。
 - B6 本跑 ❌：要材料的澄清没打中 overlay 短语。
