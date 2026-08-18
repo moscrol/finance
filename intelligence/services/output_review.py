@@ -25,6 +25,10 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
 
+from intelligence.services.conclusion_five_element_lint import (
+    ELEMENT_LABELS,
+    lint_conclusion_five_elements,
+)
 from intelligence.services.research_brief import CounterEvidencePlan, EvidenceAudit
 
 PASS = "PASS"
@@ -48,9 +52,15 @@ class ReviewCheck:
     name: str
     status: str
     note: str = ""
+    advisory_only: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        return {"name": self.name, "status": self.status, "note": self.note}
+        return {
+            "name": self.name,
+            "status": self.status,
+            "note": self.note,
+            "advisory_only": self.advisory_only,
+        }
 
 
 @dataclass
@@ -61,11 +71,15 @@ class OutputReviewGate:
 
     @property
     def status(self) -> str:
-        return WARN if any(c.status == WARN for c in self.checks) else PASS
+        return WARN if self.warn_count else PASS
 
     @property
     def warn_count(self) -> int:
-        return sum(1 for c in self.checks if c.status == WARN)
+        return sum(
+            1
+            for c in self.checks
+            if c.status == WARN and not c.advisory_only
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -76,8 +90,11 @@ class OutputReviewGate:
         }
 
     def summary_lines(self) -> list[str]:
+        actionable = [check for check in self.checks if not check.advisory_only]
+        passed = sum(1 for check in actionable if check.status == PASS)
         lines = [
-            f"输出质检助手：{self.status}（{len(self.checks) - self.warn_count}/{len(self.checks)} 项通过；仅提示，不阻断）"
+            f"输出质检助手：{self.status}（{passed}/{len(actionable)} 项通过；"
+            "结论五元素只提示，不阻断、不进修订轮）"
         ]
         for c in self.checks:
             mark = "✓" if c.status == PASS else "⚠️"
@@ -177,4 +194,21 @@ def review_output(
     gate.checks.append(_check_verifiable(follow_ups))
     visible_lines = [final_answer] if final_answer else conclusion_lines
     gate.checks.append(_check_overclaim(audit, visible_lines))
+    gate.checks.extend(_five_element_checks(visible_lines))
     return gate
+
+
+def _five_element_checks(visible_lines: list[str] | None) -> list[ReviewCheck]:
+    text = "\n".join(str(item or "") for item in (visible_lines or []))
+    lint = lint_conclusion_five_elements(text)
+    checks: list[ReviewCheck] = []
+    present = set(lint.present_ids)
+    for element_id, label in ELEMENT_LABELS.items():
+        name = f"结论五元素·{label}"
+        if element_id in present:
+            checks.append(ReviewCheck(name, PASS, f"在场：{label}", advisory_only=True))
+        else:
+            checks.append(
+                ReviewCheck(name, WARN, f"缺{label}（只提示，不进修订轮）", advisory_only=True)
+            )
+    return checks
