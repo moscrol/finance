@@ -41,6 +41,7 @@ REGISTRY: tuple[ProviderSpec, ...] = (
     ProviderSpec("D11", "个股走势类比", "个股自身历史相似量价结构窗口及后续多窗口实际走法（小样本历史事实）", "include_stock_analog_block"),
     ProviderSpec("D7", "逐季财报", "东财 F10 / 新浪三表 / AKShare 逐季营收/净利/毛利率 + 现金流/合同负债/存货/股东户数", "include_financials_block"),
     ProviderSpec("W7", "web 事件检索", "东财资讯 + web 全网近 N 天新闻（只列不编，消息面存在性证据）", "include_news_block"),
+    ProviderSpec("D17", "隔夜美股映射", "fph2026 隔夜美股主题热度/涨跌 → 对照 A 股板块 → 当日 A 股实际（只列映射事实，不表示必然跟涨）", "include_overnight_block"),
     ProviderSpec("M", "用户记忆检索", "相关性召回的用户既有核心判断/纠偏原则/回检胜率", "include_memory_block"),
     # 与 M（用户记忆）严格区分：MARKET_DAILY 是同日结构化市场总览。
     ProviderSpec("MARKET_DAILY", "最新市场总览", "fact_market_daily 同日结构化盘面事实", ""),
@@ -84,6 +85,7 @@ def getattr_legacy(options: "AskOptions", legacy_option: str) -> bool:
         "include_stock_analog_block": options.include_stock_analog_block,
         "include_financials_block": options.include_financials_block,
         "include_news_block": options.include_news_block,
+        "include_overnight_block": options.include_overnight_block,
         "include_memory_block": options.include_memory_block,
         "include_recall_block": options.include_recall_block,
         "include_market_value_block": options.include_market_value_block,
