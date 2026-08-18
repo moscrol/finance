@@ -1729,7 +1729,8 @@ def test_finance_query_runtime_failure_returns_safe_repairable_gap(
 def test_deterministic_fast_path_preserves_subsecond_timeout(monkeypatch) -> None:
     received: list[float] = []
 
-    def fake_resolve(_question: str, *, timeout: float):
+    def fake_resolve(_question: str, *, timeout: float, as_of=None):
+        del as_of
         received.append(timeout)
         return episode_tools.market_technical.TechnicalGap(
             subject="科创50",

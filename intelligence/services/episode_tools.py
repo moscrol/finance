@@ -1281,6 +1281,7 @@ def run_deterministic_fast_path(
     frame: TaskFrame,
     *,
     timeout: float,
+    as_of: str | None = None,
 ) -> dict[str, object]:
     """Execute a preserved deterministic lane without entering AgentEpisode."""
 
@@ -1311,6 +1312,7 @@ def run_deterministic_fast_path(
     outcome = market_technical.resolve_market_technical(
         frame.raw_question,
         timeout=bounded_timeout,
+        as_of=as_of,
     )
     if isinstance(outcome, market_technical.TechnicalGap):
         return {
@@ -1365,6 +1367,7 @@ def run_deterministic_fast_path(
         "execution_kind": "deterministic_fast_path",
         "status": "completed",
         "answer": answer,
+        "as_of": outcome.as_of,
         "gaps": list(outcome.warnings),
         "traces": [
             ProviderTrace(
