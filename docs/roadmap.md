@@ -75,7 +75,7 @@
 | 2026-08-18 | stale_notes 旁路 **D 已落地**：#165 合并（`3b01c623`），ADR `docs/adr/0003-stale-notes-bypass.md`。验收方独立复算：四件套全绿（pytest 5378/0/12，webapp 四件套 OK；初跑 16 红为验收侧 umask 077 环境因素，umask 022 后归零）+ live llm_context 提醒行/286.69/359.62 缺席逐项核对。8792 未切（当前 d1be2d0c 不含 #165，追切与否待裁决） | 已落地 | L1-8792 |
 | 2026-08-18 | 数据资产审计（01:10）：四张零消费表（竞价 9107 行/研报目录 458/事件 2455 含 13 条未来/技术特征 200 万行日更）+ 两个死 JSON（catalyst_calendar 07-28 停更、fupanhui_panorama 06-22 一次性）。执行单已派：`docs/handoffs/2026-08-18-dead-assets-consumption-wiring.md`（四表进语义层照 dragon 先例；两 JSON 归档裁决不接线；上游停更另单） | 已派 | L1-8792 |
 | 2026-08-18 | 评估在线环取证（02:00）：六个 `com.financeworkspace.*` launchd 日更任务最后退出全非零，五种病因（CLT 系统 Python ×2、死快照路径 ×2、pit manifest 缺字段、DuckDB 撞锁 ×2 且无重试）；复盘会管线 08-13 停摆与撞锁吻合，锁已自释放但无人重跑无回补。修复单已派：`docs/handoffs/2026-08-18-eval-launchd-loop-repair.md`（修接线不修判分；回补须走原管线重放；黑暗期如实记账） | 已派 | L1-8792 |
-| 2026-08-18 | 答案质量评估断档两周（合成回放停 08-04、28 题验收台 08-09 时代；近两周新增评估全在检索层与运行时层）。重启单已派：`docs/handoffs/2026-08-18-frozen-thirty-live-baseline.md`（冻结 30 题 live + rubric 异源判分出回归锚；先决 #164 落地；泄漏局限自陈；十题窗独立出题人仍是 open item 等用户裁决） | 已派 | L1-8792 |
+| 2026-08-18 | 冻结 30 题 live 基线已落（回归锚，非绝对质量）：sidecar `4a3bb313` grounded=1，30/30 三件套，infra 0，rubric 23 pass / 7 fail（7 个全在盘面子集；无「无市场数据」）。机读 `intelligence/eval/measurements/2026-08-18-frozen-thirty-live-4a3bb313.json`；人读 `docs/verification/2026-08-18-frozen-thirty-live-baseline.md`。后续对比必须同参。 | 基线锚 | L1-8792 |
 | 2026-08-18 | ai-agent-book 第 5 章判定更正（⚪→🟡，章审追记）：「代码=元能力」开发层已具备、运行时层有意缺口。三档补法用户已裁决执行第 1 档：工具饥饿信号单已派 `docs/handoffs/2026-08-18-tool-hunger-telemetry.md`（只观测不造工具；解释器押后件先决=30 题基线+饥饿数据；自改工具环明确不做） | 已派 | L1-8792 |
 
 Phase 3 挂载面未入列（等 Phase 1 体感，现在不要裁决）。
