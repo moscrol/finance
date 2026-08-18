@@ -22,6 +22,9 @@
 
 ## 2. 逐张验收
 
+0. **别信 Gitea 的 `mergeable`**（2026-08-18 实测补入）：#178–#194 十张全报 `mergeable=true`，实际 #190/#194 有真冲突，与 patch-checker 队列故障同源。自己探：
+   `git merge-tree --write-tree gitea/main <branch>`，exit 0 = 干净，非 0 时输出里有 `CONFLICT` 行。
+   另外先确认队列是不是**堆叠链**：`git rev-list --left-right --count <前一张>...<后一张>`，左侧为 0 = 后者含前者，此时链内不能改序、也不能单独打回中间任一张。
 1. 有效增量看三点 diff；怀疑改动已被别的 PR 抢先合入时用**树对树**：`git diff <branch> gitea/main -- <files>` 逐文件零差 = superseded，关闭并留裁决（#120 先例）。
 2. 定向测试：只跑该单触碰模块的 tests；全量留给批次门禁。
 3. handoff 写了 live 判据的，**独立复算读数**，不抄执行方数字。
@@ -41,6 +44,11 @@
 链切用下面五步。`scripts/deploy_workbench_runtime.sh` 面向的是「rsync 进现有快照」的旧形态，只在快照目录不换时用。
 
 ```bash
+# ⚠️ 这条 fetch 不能省（2026-08-18 实测补入）：验收 session 总是刚合完 PR 才切，
+# 那一刻 finance-workspace-private 的 gitea/main **必然落后**（本次落后 10 次合并）。
+# 少了它，rev-parse 拿到旧 sha，8792 会被钉在合并前的 revision，而三项验证全会通过
+# ——因为它们只校验「加载的代码 == 那个 sha」，不校验「那个 sha == 主干最新」。
+git -C /Users/a77/finance-workspace-private fetch gitea main
 sha=$(git -C /Users/a77/finance-workspace-private rev-parse gitea/main)
 git -C /Users/a77/finance-workspace-private worktree add --detach \
   ~/.finance-runtime/finance-workspace-${sha:0:12} "$sha"
