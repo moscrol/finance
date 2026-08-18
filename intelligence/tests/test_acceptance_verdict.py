@@ -988,3 +988,15 @@ def test_relative_time_cohort_is_outside_main_truth_denominator() -> None:
     assert not a8.in_main_truth_denominator()
     assert not c6.in_main_truth_denominator()
     assert a1.in_main_truth_denominator()
+
+
+def test_scorer_unions_metric_spec_aliases_without_replacing_overlay() -> None:
+    overlay = load_verdict_overlay()
+    doc = json.loads(CASES_PATH.read_text(encoding="utf-8"))
+    case = next(item for item in doc["cases"] if item["id"] == "A1-market-overview")
+    contract = compile_case_contract(case, overlay["A1-market-overview"])
+    aliases = contract.fact_aliases["total_amount"]
+    assert aliases[0] == "成交额"
+    assert "全市成交额" in aliases
+    assert "总成交" in aliases
+    assert contract.fact_aliases["amount_vs_yesterday_pct"][0] == "环比"

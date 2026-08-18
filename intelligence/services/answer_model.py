@@ -10,6 +10,7 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path
 
+from intelligence.services.metric_spec import bind_measured_value
 from intelligence.services.recall_audit import count_independent_sources
 from intelligence.services.research_contract import (
     EvidenceAtom,
@@ -2668,29 +2669,33 @@ def evidence_atoms_from_answer_spec(
                 continue
             seen.add(atom_id)
             source = sources.get(evidence_id)
+            bound = bind_measured_value(claim.text)
+            provenance: dict[str, object] = {
+                "claim_id": claim.claim_id,
+                "source": source.source if source is not None else "",
+                "detail": source.detail if source is not None else "",
+                "content_hash": (
+                    source.content_hash if source is not None else ""
+                ),
+                "source_revision": (
+                    source.source_revision if source is not None else ""
+                ),
+            }
+            if bound is not None and bound[3]:
+                provenance.update(bound[3])
             atoms.append(
                 EvidenceAtom(
                     atom_id=atom_id,
                     claim_text=claim.text,
                     entity_id=claim.company,
-                    metric=None,
-                    value=None,
-                    unit=None,
+                    metric=bound[0] if bound is not None else None,
+                    value=bound[1] if bound is not None else None,
+                    unit=bound[2] if bound is not None else None,
                     period=claim.freshness,
                     evidence_tier=claim.evidence_tier,
                     source_id=evidence_id,
                     source_date=source.source_date if source is not None else None,
-                    provenance={
-                        "claim_id": claim.claim_id,
-                        "source": source.source if source is not None else "",
-                        "detail": source.detail if source is not None else "",
-                        "content_hash": (
-                            source.content_hash if source is not None else ""
-                        ),
-                        "source_revision": (
-                            source.source_revision if source is not None else ""
-                        ),
-                    },
+                    provenance=provenance,
                 )
             )
     return tuple(atoms)

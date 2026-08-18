@@ -1,8 +1,9 @@
 """Delivery-layer facts the model must not be asked to recite.
 
-Calendar closure, retired table names, and a question-stated information
-cutoff are deterministic. Prompting the model to mention them has failed in
-production (R16/R18 C1; 2026-08-13 C2/C7/C8).
+Calendar closure, retired table names, empty-caliber disclosure, and a
+question-stated information cutoff are deterministic. Prompting the model
+to mention them has failed in production (R16/R18 C1; 2026-08-13 C2/C7/C8;
+2026-08-18 C3).
 """
 
 from __future__ import annotations
@@ -49,6 +50,59 @@ def with_calendar_disclosure(answer: str, frame: TaskFrame) -> str:
     if disclosure is None or not answer.strip() or "休市" in answer:
         return answer
     return f"{disclosure}。\n{answer}"
+
+
+_TECHNICAL_SNAPSHOT_RE = re.compile(r"技术面快照|技术快照")
+_EMPTY_CALIBER_TABLE = "fact_stock_technical_snapshot"
+
+
+def _count_table_rows(table: str) -> int | None:
+    """Return row count, 0 if the table is missing, None if the DB cannot be probed."""
+
+    from intelligence.paths import default_market_db_path
+
+    path = default_market_db_path()
+    if not path.is_file():
+        return None
+    try:
+        import duckdb
+    except Exception:
+        return None
+    con = None
+    try:
+        con = duckdb.connect(str(path), read_only=True)
+        row = con.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()
+        return int(row[0] or 0) if row else 0
+    except Exception as exc:
+        text = str(exc).lower()
+        if "does not exist" in text or "catalog" in text or "not found" in text:
+            return 0
+        return None
+    finally:
+        if con is not None:
+            con.close()
+
+
+def empty_caliber_disclosure(
+    query: str,
+    *,
+    row_count: int | None = None,
+    table: str = _EMPTY_CALIBER_TABLE,
+) -> str | None:
+    """目标口径空表时必须声明不可用，不得静默换表交付。
+
+    缺表 ≡ 空表（C3）。库文件不存在或锁定时 fail-open，交给后面的车道。
+    """
+
+    if not _TECHNICAL_SNAPSHOT_RE.search(str(query or "")):
+        return None
+    counted = _count_table_rows(table) if row_count is None else row_count
+    if counted is None or counted > 0:
+        return None
+    return (
+        f"{table} 当前是空表（0 行），该技术面快照数据不可用。"
+        "不会用价格表或其他口径替代。"
+    )
 
 
 def retired_table_disclosure(query: str) -> str | None:

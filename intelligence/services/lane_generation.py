@@ -10,6 +10,7 @@ from intelligence.services.longtail_baseline import lane_suffix
 from intelligence.services.ask import AskResult
 from intelligence.services.honesty_gates import (
     calendar_disclosure,
+    empty_caliber_disclosure,
     retired_table_disclosure,
 )
 from intelligence.services.turn_controller import TurnDecision
@@ -40,6 +41,9 @@ def deterministic_lane_answer(query: str, decision: TurnDecision) -> str | None:
     retired = retired_table_disclosure(query)
     if retired is not None:
         return retired
+    empty = empty_caliber_disclosure(query)
+    if empty is not None:
+        return empty
     frame = decision.task_frame
     if frame is not None:
         # 休市是日历事实，不限 quick_fact。C2 已走这条；C1「2026-07-25 市场

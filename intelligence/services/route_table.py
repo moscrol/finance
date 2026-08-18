@@ -8,7 +8,7 @@ LLM Turn Controller 只能在这张表里选一行（受约束选择），
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal, TypeAlias
 
 # 快速事实（取值）查询的词面识别。放在本表而不是各分类器里，是因为本仓有两条
@@ -42,6 +42,38 @@ def is_quick_fact_query(query: str) -> bool:
     """
     text = str(query or "")
     return bool(QUICK_FACT_PATTERN.search(text)) and not JUDGMENT_REQUEST_PATTERN.search(text)
+
+
+_DATED_METRIC_WORDS = re.compile(
+    r"(成交额|成交量|收盘价|收盘|开盘价|涨幅|跌幅|涨了多少|跌了多少)"
+)
+_ISO_DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def is_dated_metric_query(query: str) -> bool:
+    """带 ISO 日期的指标取值：仍是 quick_fact，但不得走 knowledge 车道。
+
+    C4/C5 的失败形态是 ``knowledge_lane_answer``。题型保持取值，车道改 research。
+    「茅台现在股价多少」没有日期锚，继续 knowledge。
+    """
+
+    text = str(query or "")
+    if JUDGMENT_REQUEST_PATTERN.search(text):
+        return False
+    if not _ISO_DATE_RE.search(text):
+        return False
+    return bool(_DATED_METRIC_WORDS.search(text))
+
+
+def research_lane_for_dated_quick_fact(
+    row: RouteRow | None, query: str
+) -> RouteRow | None:
+    if row is None or row.route_id != "quick_fact":
+        return row
+    if is_dated_metric_query(query):
+        return replace(row, lane="research")
+    return row
+
 
 RouteLane: TypeAlias = Literal[
     "chat",

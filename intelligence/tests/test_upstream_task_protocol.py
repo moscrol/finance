@@ -90,6 +90,8 @@ def test_dated_single_metric_goes_to_direct_query(query: str, metric_key: str) -
     decision = decide_turn(query)
     assert decision.question_type == "quick_fact"
     assert decision.lane != "workflow"
+    if query[:4].isdigit():
+        assert decision.lane == "research"
 
 
 @pytest.mark.parametrize(
