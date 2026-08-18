@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal
 
@@ -18,7 +18,12 @@ from intelligence.services.entity_anchor import (
     entity_concept_names,
     resolve_entity_anchor,
 )
-from intelligence.services.query_understanding import QueryEnvelope, understand_query
+from intelligence.services.query_understanding import (
+    QueryEnvelope,
+    cjk_span_embedding_term,
+    has_clean_theme_occurrence,
+    understand_query,
+)
 
 
 ReferenceKind = Literal[
@@ -30,6 +35,30 @@ ReferenceKind = Literal[
     "market_change",
     "continuation",
 ]
+ResolveStatus = Literal["resolved", "candidate", "unresolved"]
+SuggestedAction = Literal["proceed", "clarify", "disclose"]
+ResolveCandidateKind = Literal["company", "theme"]
+
+_DETERMINED_QUESTION_TYPES = frozenset(
+    {
+        "market_watch",
+        "dated_market_review",
+        "market_forecast",
+        "market_cause",
+        "market_technical",
+        "external_market",
+        "methodology_discussion",
+        "comparison",
+        "event_forecast",
+        "concept_definition",
+        "stock_deep_dive",
+        "theme_analysis",
+        "news_impact",
+        "financial_analysis",
+        "valuation_estimate",
+        "quick_fact",
+    }
+)
 
 _CHAIN_REFERENCE_RE = re.compile(r"(?:这|那|该|上述|前述)(?:条)?(?:产业)?链")
 _LOGIC_REFERENCE_RE = re.compile(r"(?:这|那|该|上述|前述)(?:个)?逻辑")
@@ -48,11 +77,21 @@ _CONTINUATION_RE = re.compile(
 
 
 @dataclass(frozen=True)
+class ResolveCandidate:
+    name: str
+    kind: ResolveCandidateKind
+    ticker: str | None = None
+
+
+@dataclass(frozen=True)
 class QueryResolution:
     envelope: QueryEnvelope
     anchor: EntityAnchor | None
     reference_kind: ReferenceKind = "none"
     context_dependent: bool = False
+    status: ResolveStatus = "resolved"
+    candidates: tuple[ResolveCandidate, ...] = ()
+    suggested_action: SuggestedAction = "proceed"
 
 
 @dataclass(frozen=True)
@@ -132,50 +171,170 @@ class QueryResolver:
         anchor = resolve_entity_anchor(cleaned, self.knowledge)
         matched_theme = None if anchor is not None else self._resolve_theme(cleaned)
         reference_kind = classify_reference(cleaned)
+        envelope = understand_query(
+            cleaned,
+            matched_theme=matched_theme,
+            anchor=anchor,
+        )
+        status, action, candidates = _resolve_tristate(
+            query=cleaned,
+            knowledge=self.knowledge,
+            anchor=anchor,
+            matched_theme=matched_theme,
+            envelope=envelope,
+            reference_kind=reference_kind,
+        )
         return QueryResolution(
-            envelope=understand_query(
-                cleaned,
-                matched_theme=matched_theme,
-                anchor=anchor,
-            ),
+            envelope=envelope,
             anchor=anchor,
             reference_kind=reference_kind,
             context_dependent=reference_kind != "none",
+            status=status,
+            candidates=candidates,
+            suggested_action=action,
         )
 
     def _resolve_theme(self, query: str) -> str | None:
         folded = query.casefold()
         for term, canonical in _theme_terms(self.knowledge):
-            if _has_clean_occurrence(folded, term.casefold()):
+            if has_clean_theme_occurrence(folded, term.casefold()):
                 return canonical
         return None
 
 
-_CJK_CHAR_RE = re.compile(r"[\u4e00-\u9fff]")
+def format_resolve_clarification(resolution: QueryResolution) -> str:
+    company = next((item for item in resolution.candidates if item.kind == "company"), None)
+    theme = next((item for item in resolution.candidates if item.kind == "theme"), None)
+    if company is not None and theme is not None:
+        label = (
+            f"{company.name}({company.ticker})"
+            if company.ticker
+            else company.name
+        )
+        return f"你问的是{label}还是{theme.name}板块？"
+    names = "、".join(item.name for item in resolution.candidates if item.name)
+    return f"你问的是哪一个：{names}？" if names else "你问的是哪家公司，还是哪个板块？"
 
 
-def _has_clean_occurrence(folded_query: str, folded_term: str) -> bool:
-    """主题词在问句里是否有一次非后缀嵌入的出现（左邻不是 CJK 字符）。
+def apply_entity_tristate_answer(frame: object, answer: str):
+    """把「公司名还是主题」这一轮澄清收成确定主体。
 
-    生产事故（2026-08-13 R13-A3）：「立新能源怎么看」问的是个股 001258，
-    实体锚定因 wiki 未登记而落空后，主题词典把「新能源」从「立新能源」
-    肚子里抠了出来——theme_analysis 路由、theme-research owner、零证据终局。
-    同形状地雷不止一颗：国新能源、宝新能源、华润新能源全是「X+新能源」
-    后缀嵌入。
-
-    规则刻意不对称：只 veto **左邻 CJK**（后缀嵌入是公司名的形状），
-    不 veto 右邻延伸（「新能源汽车」是主题短语的形状，且更长的别名按
-    长度降序先匹配）。取舍依据：主题词把个股问题偷走是零证据灾难，
-    veto 过头只是降级到 general QA——后者仍能检索。
+    在线预算只有一轮。认不出的回答默认取更长的公司名，避免再把问题
+    偷回主题（R13-A3 的原事故）。
     """
 
-    if not folded_term:
+    from intelligence.services.task_frame import TaskFrame, rebase_task_frame
+
+    if not isinstance(frame, TaskFrame):
+        raise TypeError("apply_entity_tristate_answer expects a TaskFrame")
+    match = _ENTITY_TRISTATE_QUESTION_RE.search(frame.clarification_question or "")
+    if match is None:
+        return frame
+    company = match.group("company")
+    theme = match.group("theme")
+    cleaned = re.sub(r"\s+", "", str(answer or ""))
+    prefer_theme = (
+        bool(theme)
+        and theme in cleaned
+        and company not in cleaned
+    ) or (
+        company not in cleaned
+        and any(token in cleaned for token in ("板块", "主题", "题材"))
+    )
+    if prefer_theme:
+        subject, subject_kind, question_type = theme, "theme", "theme_analysis"
+    else:
+        subject, subject_kind, question_type = company, "company", "stock_deep_dive"
+    assumption = (
+        f"用户在唯一一次澄清中确认主体为{subject}"
+        if cleaned
+        else f"澄清预算已用尽，按公司名{subject}继续"
+    )
+    rebased = rebase_task_frame(
+        frame,
+        question_type=question_type,
+        subject=subject,
+        subject_kind=subject_kind,
+    )
+    return replace(
+        rebased,
+        assumptions=tuple(dict.fromkeys((*rebased.assumptions, assumption))),
+        ambiguities=(),
+        clarification_question=None,
+    )
+
+
+def is_entity_tristate_clarification(frame: object) -> bool:
+    question = getattr(frame, "clarification_question", None)
+    return bool(question) and _ENTITY_TRISTATE_QUESTION_RE.search(str(question)) is not None
+
+
+def _resolve_tristate(
+    *,
+    query: str,
+    knowledge: KnowledgeAdapter,
+    anchor: EntityAnchor | None,
+    matched_theme: str | None,
+    envelope: QueryEnvelope,
+    reference_kind: ReferenceKind,
+) -> tuple[ResolveStatus, SuggestedAction, tuple[ResolveCandidate, ...]]:
+    if anchor is not None:
+        return "resolved", "proceed", ()
+    if matched_theme:
+        return "resolved", "proceed", ()
+    conflict = _embedded_theme_conflict(query, knowledge)
+    if conflict is not None:
+        token, theme = conflict
+        if envelope.subject_kind == "theme" and envelope.subject == token:
+            return "resolved", "proceed", ()
+        ticker = anchor.ticker if anchor is not None and anchor.ticker else None
+        return (
+            "candidate",
+            "clarify",
+            (
+                ResolveCandidate(name=token, kind="company", ticker=ticker),
+                ResolveCandidate(name=theme, kind="theme"),
+            ),
+        )
+    if reference_kind != "none":
+        return "resolved", "proceed", ()
+    if envelope.subject_kind in {"company", "theme", "index", "external_market"} and envelope.subject:
+        return "resolved", "proceed", ()
+    if envelope.question_type in _DETERMINED_QUESTION_TYPES:
+        return "resolved", "proceed", ()
+    return "unresolved", "disclose", ()
+
+
+def _embedded_theme_conflict(
+    query: str,
+    knowledge: KnowledgeAdapter,
+) -> tuple[str, str] | None:
+    terms = _theme_terms(knowledge)
+    registered = {term for term, _canonical in terms} | {canonical for _term, canonical in terms}
+    for term, canonical in terms:
+        if sum(1 for char in term if "\u4e00" <= char <= "\u9fff") < 2:
+            continue
+        token = cjk_span_embedding_term(query, term)
+        if not token or token == term or token == canonical:
+            continue
+        if token in registered:
+            continue
+        if not _looks_like_company_token(token):
+            continue
+        return token, canonical
+    return None
+
+
+_COMPANY_TOKEN_NOISE_RE = re.compile(r"[和与或的是在及、，？?。！!]")
+
+
+def _looks_like_company_token(token: str) -> bool:
+    if _COMPANY_TOKEN_NOISE_RE.search(token):
         return False
-    start = 0
-    while True:
-        index = folded_query.find(folded_term, start)
-        if index < 0:
-            return False
-        if index == 0 or not _CJK_CHAR_RE.match(folded_query[index - 1]):
-            return True
-        start = index + 1
+    cjk = sum(1 for char in token if "\u4e00" <= char <= "\u9fff")
+    return 3 <= cjk <= 8 and cjk * 10 >= len(token) * 7
+
+
+_ENTITY_TRISTATE_QUESTION_RE = re.compile(
+    r"你问的是(?P<company>.+?)(?:\((?P<ticker>[^)]+)\))?还是(?P<theme>.+?)板块"
+)

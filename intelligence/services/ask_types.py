@@ -23,7 +23,7 @@ from intelligence.services import (
 from intelligence.services.answer_orchestrator import (
     QuestionPlan,
 )
-from intelligence.paths import default_market_db_path
+from intelligence.paths import data_repo_root, default_market_db_path
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     ResearchDeadline,
@@ -38,21 +38,11 @@ from intelligence.services import event_transmission, evidence_gap_radar, market
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-
-def _data_repo_root() -> Path:
-    """盘面/exports/DuckDB 等数据根目录。
-
-    双根架构：PYTHONPATH 指向 runtime 代码快照，真实数据在
-    WORKBENCH_REPO_ROOT / FINANCE_WS（private 仓）。未设置环境变量时回退代码根。
-    """
-    for name in ("WORKBENCH_REPO_ROOT", "FINANCE_WS", "FINANCE_ROOT"):
-        value = os.environ.get(name)
-        if value:
-            return Path(value).expanduser().resolve()
-    return REPO_ROOT
-
-
-DATA_REPO_ROOT = _data_repo_root()
+# 数据根唯一来源是 intelligence.paths。这里曾经复制了一份
+# WORKBENCH_REPO_ROOT → FINANCE_WS 查找，和 paths 分叉——生产 launcher
+# 把 WORKBENCH_REPO_ROOT 指到代码快照，盘面层就静默消失。
+_data_repo_root = data_repo_root
+DATA_REPO_ROOT = data_repo_root()
 DEFAULT_EXPORTS_DIR = DATA_REPO_ROOT / "market_feature_store" / "exports"
 # 盘面 DuckDB 默认路径的唯一来源在 intelligence.paths（叶子模块，四个 market_*
 # 模块也要用，从这里导入会成环）。此处重导出，保持既有调用方不变。
@@ -188,6 +178,11 @@ class AskOptions:
     # D9 L2 大单资金流数据块：仅当问题命中「资金流/大单/主买/量化单」意图时生成，直查
     # l2-moneyflow 盘后特征表；榜单只扫涨停股+成交额 top100，缺行≠无资金流入，块内强制声明口径。
     include_moneyflow_block: bool = True
+    # D12 资金面三件套：仅当问题命中「两融/融资盘/大宗/解禁」且能解析到个股时生成。
+    include_capital_block: bool = True
+    # D13 龙虎榜席位块：仅当问题命中「龙虎榜/席位/游资/机构专用」且能解析到个股时生成。
+    # Spec 曾写 [D10]，但 D10 已是市场情绪类比；D12 留给 KC-04 资金面三件套。
+    include_dragon_block: bool = True
     # 固定日报工作流需把 L2 作为显式模块，即使用户问题没有重复写“资金流”也要取数。
     force_moneyflow_block: bool = False
     # 情景树/推演表达层：推演类问题命中时向 synthesis prompt 注入「变量表→情景分支→监控信号」

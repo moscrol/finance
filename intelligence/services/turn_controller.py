@@ -7,7 +7,13 @@ from dataclasses import asdict, dataclass, replace
 from typing import Literal, TypeAlias, cast
 
 from intelligence.services import ask_clarify, llm_refine
-from intelligence.services.query_resolution import QueryResolution, QueryResolver
+from intelligence.services.query_resolution import (
+    QueryResolution,
+    QueryResolver,
+    apply_entity_tristate_answer,
+    format_resolve_clarification,
+    is_entity_tristate_clarification,
+)
 from intelligence.services.query_understanding import (
     QueryEnvelope,
     envelope_from_task_frame,
@@ -921,7 +927,11 @@ def decide_turn(
         and previous_intent is not None
         and previous_intent.clarification_rounds >= 1
     ):
-        task_frame = resolve_task_frame_clarification(pending_frame, query)
+        task_frame = (
+            apply_entity_tristate_answer(pending_frame, query)
+            if is_entity_tristate_clarification(pending_frame)
+            else resolve_task_frame_clarification(pending_frame, query)
+        )
         envelope = envelope_from_task_frame(
             task_frame,
             operators=previous_intent.operators,
@@ -1070,6 +1080,39 @@ def decide_turn(
     if deterministic is not None:
         task_frame = _rebase_frame_for_decision(task_frame, deterministic)
         return _attach_turn_intent(deterministic, intent, task_frame=task_frame)
+    if resolution.status == "candidate" and resolution.candidates:
+        question = format_resolve_clarification(resolution)
+        task_frame = replace(
+            task_frame,
+            ambiguities=tuple(
+                dict.fromkeys(
+                    (
+                        *task_frame.ambiguities,
+                        "主体可能是公司名，也可能是已登记主题，硬锚会改工具和结论",
+                    )
+                )
+            ),
+            clarification_question=question,
+        )
+        envelope = project_task_frame(task_frame, envelope)
+        resolution = replace(resolution, envelope=envelope)
+        intent = replace(
+            intent,
+            pending_task_frame=task_frame.to_dict(),
+            clarification_rounds=1,
+            task_frame_hash=task_frame.task_frame_hash,
+        )
+        return _attach_turn_intent(
+            _decision(
+                "clarify",
+                envelope=envelope,
+                confidence=task_frame.confidence,
+                reason="实体解析处于 candidate，硬锚会改主体和工具，追问一次",
+                clarification_questions=(question,),
+            ),
+            intent,
+            task_frame=task_frame,
+        )
     complete = llm_refine.complete if llm_complete is None else llm_complete
     try:
         content, _provider, failure_detail = complete(

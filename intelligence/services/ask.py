@@ -59,6 +59,8 @@ from intelligence.services import (
     task_fulfillment,
     market_midterm,
     market_moneyflow,
+    market_capital,
+    market_dragon,
     market_news,
     overnight_map,
     market_technical,
@@ -2646,7 +2648,9 @@ def _revise_synthesis_on_warn(result: AskResult, options: AskOptions) -> None:
     ):
         return
     warn_notes = [
-        f"{c.name}：{c.note}" for c in result.review_gate.checks if c.status == output_review.WARN
+        f"{c.name}：{c.note}"
+        for c in result.review_gate.checks
+        if c.status == output_review.WARN and not c.advisory_only
     ]
     revision_user = {"role": "user", "content": llm_refine.gate_revision_user_content(warn_notes)}
     revised, rev_reason = llm_refine.synthesize_messages(
@@ -3918,6 +3922,44 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
 
         providers.append(ask_planner.DataBlockProvider("D9", "L2 大单资金流", _d9_applies, _build_d9))
 
+        def _d12_applies() -> bool:
+            return evidence_registry.provider_enabled(options, "D12") and bool(
+                market_capital.parse_capital_intent(options.query)
+            )
+
+        def _build_d12():
+            block = market_capital.capital_block_for_llm(
+                options.query,
+                options.market_db_path,
+                as_of=options.date,
+                timeout=_stage_timeout(options, 8),
+            )
+            return block, Citation(
+                "D12",
+                "东财资金面三件套数据块",
+                "个股两融/大宗/未来90天解禁时间表（只列事实，解禁是待验证时点）",
+            )
+
+        providers.append(ask_planner.DataBlockProvider("D12", "资金面三件套", _d12_applies, _build_d12))
+
+        def _d13_applies() -> bool:
+            return evidence_registry.provider_enabled(options, "D13") and bool(
+                market_dragon.parse_dragon_intent(options.query)
+            )
+
+        def _build_d13():
+            block = market_dragon.dragon_block_for_llm(
+                options.query,
+                options.market_db_path,
+            )
+            return block, Citation(
+                "D13",
+                "本地 DuckDB 龙虎榜席位数据块",
+                "个股近 N 个上榜日买卖前五席位类型分布（营业部/游资/机构，只列事实不跟单）",
+            )
+
+        providers.append(ask_planner.DataBlockProvider("D13", "龙虎榜席位", _d13_applies, _build_d13))
+
         def _d8_applies() -> bool:
             return evidence_registry.provider_enabled(options, "D8") and bool(
                 market_analogs.parse_analog_intent(options.query)
@@ -4325,7 +4367,9 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         )
         stage["warn_count"] = result.review_gate.warn_count
     result.warnings.extend(
-        f"输出质检：{c.name}——{c.note}" for c in result.review_gate.checks if c.status == output_review.WARN
+        f"输出质检：{c.name}——{c.note}"
+        for c in result.review_gate.checks
+        if c.status == output_review.WARN and not c.advisory_only
     )
     _revise_synthesis_on_warn(result, options)
     result.sections = {

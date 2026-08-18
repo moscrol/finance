@@ -1198,6 +1198,30 @@ class ReviseSynthesisOnWarnTests(unittest.TestCase):
             any("保留初稿" in warning for warning in result.warnings)
         )
 
+    def test_advisory_five_element_warn_does_not_revise(self) -> None:
+        from intelligence.services import output_review
+        from intelligence.services.ask import _revise_synthesis_on_warn
+
+        result, options = self._result_and_options()
+        result.review_gate = output_review.OutputReviewGate(
+            checks=[
+                output_review.ReviewCheck(
+                    name="结论五元素·定性≤40字",
+                    status=output_review.WARN,
+                    note="缺定性≤40字（只提示，不进修订轮）",
+                    advisory_only=True,
+                )
+            ]
+        )
+        with mock.patch.object(
+            llm_refine,
+            "synthesize_messages",
+            side_effect=AssertionError("advisory five-element WARN must not revise"),
+        ):
+            _revise_synthesis_on_warn(result, options)
+        self.assertEqual(result.synthesis, "初稿全文")
+        self.assertEqual(len(result.synthesis_messages), 2)
+
     def test_nonempty_revision_replaces_the_draft(self) -> None:
         result = self._run("修订后的结论。")
 
