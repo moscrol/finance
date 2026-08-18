@@ -1,14 +1,16 @@
 """Delivery-layer facts the model must not be asked to recite.
 
-Calendar closure, retired table names, empty-caliber disclosure, and a
-question-stated information cutoff are deterministic. Prompting the model
-to mention them has failed in production (R16/R18 C1; 2026-08-13 C2/C7/C8;
-2026-08-18 C3).
+Calendar closure, retired table names, empty-caliber disclosure,
+subject-scoped caliber bind (dirty sector amount / copied stock rows /
+theme limit heat), and a question-stated information cutoff are
+deterministic. Prompting the model to mention them has failed in
+production (R16/R18 C1; 2026-08-13 C2/C7/C8; 2026-08-18 C3/C4/C5/A5).
 """
 
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from datetime import date
 
 from intelligence.services.research_contract import InformationCutoff
@@ -152,3 +154,313 @@ def requested_information_cutoff(
     if runtime_date is not None and requested_date > runtime_date:
         requested_date = runtime_date
     return InformationCutoff(requested_date, "requested")
+
+
+UNREADABLE = object()
+_LIVE = object()
+_AMOUNT_OUTLIER = 100_000.0
+_AMOUNT_VS_MEDIAN = 50.0
+_MARKET_WIDE_NAMES = frozenset({"全市", "大盘", "a股", "市场", "全市场"})
+_SECTOR_AMOUNT_RE = re.compile(
+    r"(?P<date>\d{4}-\d{2}-\d{2})\s+(?P<name>.+?)\s*板块?\s*成交额"
+)
+_STOCK_TWO_DAY_RE = re.compile(
+    r"(?P<name>.+?)\s+(?P<d1>\d{4}-\d{2}-\d{2})\s*和\s*"
+    r"(?P<d2>(?:\d{4}-)?\d{1,2}-\d{1,2}).{0,24}(?:涨了多少|收盘)"
+)
+_THEME_HEAT_RE = re.compile(
+    r"(?P<date>\d{4}-\d{2}-\d{2}).{0,24}(?:涨停集中|题材热度)"
+)
+
+
+@dataclass(frozen=True)
+class SectorAmountRow:
+    sector_name: str
+    trade_date: str
+    amount: float
+    median_amount: float | None = None
+    caliber: str = "fact_sector_daily.amount"
+
+
+@dataclass(frozen=True)
+class StockDailyRow:
+    stock_name: str
+    trade_date: str
+    close: float
+    pct_chg: float
+    caliber: str = "fact_stock_daily"
+
+
+@dataclass(frozen=True)
+class ThemeHeatRow:
+    sector_name: str
+    limit_up_count: int
+    trade_date: str
+    caliber: str = "fact_theme_limit_heat_daily"
+
+
+def _parse_sector_amount_query(query: str) -> tuple[str, str] | None:
+    text = str(query or "").strip()
+    match = _SECTOR_AMOUNT_RE.search(text)
+    if match is None:
+        return None
+    name = match.group("name").strip()
+    if not name or name.casefold() in _MARKET_WIDE_NAMES:
+        return None
+    return match.group("date"), name
+
+
+def _probe_sector_amount(trade_date: str, sector_name: str) -> SectorAmountRow | object | None:
+    from intelligence.paths import default_market_db_path
+
+    path = default_market_db_path()
+    if not path.is_file():
+        return UNREADABLE
+    try:
+        import duckdb
+    except Exception:
+        return UNREADABLE
+    con = None
+    try:
+        con = duckdb.connect(str(path), read_only=True)
+        row = con.execute(
+            """
+            SELECT sector_name, amount
+            FROM fact_sector_daily
+            WHERE trade_date = ?
+              AND (
+                  sector_name = ?
+                  OR sector_name ILIKE '%' || ? || '%'
+              )
+            ORDER BY CASE WHEN sector_name = ? THEN 0 ELSE 1 END, amount DESC
+            LIMIT 1
+            """,
+            [trade_date, sector_name, sector_name, sector_name],
+        ).fetchone()
+        if row is None or row[1] is None:
+            return None
+        median_row = con.execute(
+            "SELECT median(amount) FROM fact_sector_daily WHERE trade_date = ?",
+            [trade_date],
+        ).fetchone()
+        median = float(median_row[0]) if median_row and median_row[0] is not None else None
+        return SectorAmountRow(
+            sector_name=str(row[0]),
+            trade_date=trade_date,
+            amount=float(row[1]),
+            median_amount=median,
+        )
+    except Exception:
+        return UNREADABLE
+    finally:
+        if con is not None:
+            con.close()
+
+
+def _format_sector_amount(row: SectorAmountRow) -> str:
+    amount = row.amount
+    amount_text = (
+        f"{amount:.0f}" if float(amount).is_integer() else format(amount, ".10g")
+    )
+    head = (
+        f"fact_sector_daily {row.trade_date} {row.sector_name} "
+        f"成交额 amount={amount_text}（表内原值，未换算）。"
+    )
+    outlier = amount >= _AMOUNT_OUTLIER
+    if row.median_amount not in (None, 0) and amount > _AMOUNT_VS_MEDIAN * row.median_amount:
+        outlier = True
+    if not outlier:
+        return head
+    median_bit = ""
+    if row.median_amount is not None:
+        median_bit = f"同日板块成交额中位数 {format(row.median_amount, '.10g')}。"
+    return (
+        f"{head}{median_bit}"
+        "该值偏离正常量级，单位异常，不会按亿元或万亿报出。"
+    )
+
+
+def _complete_iso_date(raw: str, anchor: str) -> str | None:
+    text = str(raw or "").strip()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+        return text
+    match = re.fullmatch(r"(\d{1,2})-(\d{1,2})", text)
+    if match is None or len(anchor) < 4:
+        return None
+    return f"{anchor[:4]}-{int(match.group(1)):02d}-{int(match.group(2)):02d}"
+
+
+def _parse_two_day_stock_query(query: str) -> tuple[str, str, str] | None:
+    text = str(query or "").strip()
+    match = _STOCK_TWO_DAY_RE.search(text)
+    if match is None:
+        return None
+    name = match.group("name").strip()
+    first = match.group("d1")
+    second = _complete_iso_date(match.group("d2"), first)
+    if not name or second is None:
+        return None
+    return name, first, second
+
+
+def _probe_two_day_stock(
+    stock_name: str, first: str, second: str
+) -> tuple[StockDailyRow, ...] | object | None:
+    from intelligence.paths import default_market_db_path
+
+    path = default_market_db_path()
+    if not path.is_file():
+        return UNREADABLE
+    try:
+        import duckdb
+    except Exception:
+        return UNREADABLE
+    con = None
+    try:
+        con = duckdb.connect(str(path), read_only=True)
+        rows = con.execute(
+            """
+            SELECT stock_name, CAST(trade_date AS VARCHAR), close, pct_chg
+            FROM fact_stock_daily
+            WHERE stock_name = ? AND trade_date IN (?, ?)
+            ORDER BY trade_date
+            """,
+            [stock_name, first, second],
+        ).fetchall()
+        parsed = tuple(
+            StockDailyRow(str(row[0]), str(row[1])[:10], float(row[2]), float(row[3]))
+            for row in rows
+            if row[2] is not None and row[3] is not None
+        )
+        return parsed if parsed else None
+    except Exception:
+        return UNREADABLE
+    finally:
+        if con is not None:
+            con.close()
+
+
+def _format_number(value: float) -> str:
+    return f"{value:.0f}" if float(value).is_integer() else format(value, ".10g")
+
+
+def _format_stock_days(rows: tuple[StockDailyRow, ...]) -> str:
+    parts = [
+        f"{row.trade_date} close={_format_number(row.close)} "
+        f"pct_chg={_format_number(row.pct_chg)}"
+        for row in rows
+    ]
+    head = f"fact_stock_daily {rows[0].stock_name} " + "；".join(parts) + "。"
+    if len(rows) < 2:
+        return head
+    copied = (
+        rows[0].close == rows[1].close and rows[0].pct_chg == rows[1].pct_chg
+    )
+    if not copied:
+        return head
+    return head + "两日收盘与涨幅完全相同，口径内部不一致。"
+
+
+def _parse_theme_heat_query(query: str) -> str | None:
+    match = _THEME_HEAT_RE.search(str(query or ""))
+    if match is None:
+        return None
+    return match.group("date")
+
+
+def _probe_theme_heat(trade_date: str) -> tuple[ThemeHeatRow, ...] | object | None:
+    from intelligence.paths import default_market_db_path
+
+    path = default_market_db_path()
+    if not path.is_file():
+        return UNREADABLE
+    try:
+        import duckdb
+    except Exception:
+        return UNREADABLE
+    con = None
+    try:
+        con = duckdb.connect(str(path), read_only=True)
+        rows = con.execute(
+            """
+            SELECT sector_name, limit_up_count
+            FROM fact_theme_limit_heat_daily
+            WHERE trade_date = ? AND COALESCE(limit_up_count, 0) >= 2
+            ORDER BY limit_up_count DESC, market_share DESC
+            LIMIT 8
+            """,
+            [trade_date],
+        ).fetchall()
+        parsed = tuple(
+            ThemeHeatRow(str(row[0]), int(row[1]), trade_date)
+            for row in rows
+            if row[0] and row[1] is not None
+        )
+        return parsed if parsed else None
+    except Exception:
+        return UNREADABLE
+    finally:
+        if con is not None:
+            con.close()
+
+
+def _format_theme_heat(rows: tuple[ThemeHeatRow, ...]) -> str:
+    ranking = "、".join(
+        f"{row.sector_name} {row.limit_up_count} 家" for row in rows
+    )
+    return (
+        f"fact_theme_limit_heat_daily {rows[0].trade_date} 涨停集中：{ranking}。"
+    )
+
+
+def bound_caliber_disclosure(
+    query: str,
+    *,
+    sector_row: SectorAmountRow | object | None = _LIVE,
+    stock_rows: tuple[StockDailyRow, ...] | object | None = _LIVE,
+    heat_rows: tuple[ThemeHeatRow, ...] | object | None = _LIVE,
+) -> str | None:
+    """Subject-scoped 口径取值：取到原值，脏数必须标单位异常或内部矛盾。
+
+    全市/大盘成交额不走这条——那是 fact_market_daily。库不可读 fail-open。
+    """
+
+    parsed_sector = _parse_sector_amount_query(query)
+    if parsed_sector is not None:
+        trade_date, sector_name = parsed_sector
+        row = sector_row
+        if row is _LIVE:
+            row = _probe_sector_amount(trade_date, sector_name)
+        if row is UNREADABLE or row is None:
+            return None
+        if not isinstance(row, SectorAmountRow):
+            return None
+        return _format_sector_amount(row)
+
+    parsed_stock = _parse_two_day_stock_query(query)
+    if parsed_stock is not None:
+        stock_name, first, second = parsed_stock
+        rows = stock_rows
+        if rows is _LIVE:
+            rows = _probe_two_day_stock(stock_name, first, second)
+        if rows is UNREADABLE or rows is None:
+            return None
+        if not isinstance(rows, tuple) or not rows:
+            return None
+        if not all(isinstance(item, StockDailyRow) for item in rows):
+            return None
+        return _format_stock_days(rows)
+
+    parsed_heat = _parse_theme_heat_query(query)
+    if parsed_heat is not None:
+        rows = heat_rows
+        if rows is _LIVE:
+            rows = _probe_theme_heat(parsed_heat)
+        if rows is UNREADABLE or rows is None:
+            return None
+        if not isinstance(rows, tuple) or not rows:
+            return None
+        if not all(isinstance(item, ThemeHeatRow) for item in rows):
+            return None
+        return _format_theme_heat(rows)
+    return None

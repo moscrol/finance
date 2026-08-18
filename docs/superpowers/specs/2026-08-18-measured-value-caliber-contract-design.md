@@ -2,7 +2,7 @@
 
 - 日期：2026-08-18
 - 触发：28 题验收集 trace-first 分诊（`docs/verification/2026-08-18-kc-acceptance-triage.md`）
-- 状态：Phase 1–4 已接线（#199–#202）。28 题 sidecar `20260818T1749Z-caliber-p4` 已出板：C3 ✅；C4/C5 离开 knowledge 车道但仍失败；可判 6/15，I 未过。
+- 状态：Phase 1–4 已接线（#199–#202）。4.5 口径绑定交付叠在 #202：C4/C5/A5 在 `deterministic_lane_answer` 取标的级表。C3 ✅；可判 6/15，I 未过。
 - 前置阅读：`docs/trace-profile.md` §2 新增两条字段陷阱；`docs/prediction-ledger.md` `R-20260818-01..04`
 
 ## 0. 一句话
@@ -156,11 +156,12 @@ Phase 3（埋点）  ──┘        ↓
 | 4.1 注册表 | `intelligence/services/metric_spec.py`；判分器并入 aliases | 代码门绿。没有第二份注册表 |
 | 4.2 EvidenceAtom | `bind_measured_value`；中期趋势填 `double_red_days` | 单测：2.96万亿 → 29600 亿元 + provenance |
 | 4.3 C3 | `empty_caliber_disclosure` 罐头空表，不换价格表 | **新 run ✅**。原文声明 0 行 / 数据不可用，不用价格表 |
-| 4.4 C4/C5 | `quick_fact` + `lane=research` | **不再 knowledge_lane_answer**（C4 controller `lane=research`，合成 `validated`）。两题仍 ❌：没取到板块成交额/没标矛盾 |
+| 4.4 C4/C5 | `quick_fact` + `lane=research` | **不再 knowledge_lane_answer**。4.5 之前仍 ❌（全市总览+web） |
+| 4.5 标的口径 | `bound_caliber_disclosure`：板块成交额 / 两日股价 / 题材涨停热度 | 注入测试绿。现场库：C5 两日复制可检出；A5 储能 40；C4 07-21 行已洗成 611.26，冻结算子 6112588.6 对不上 |
 
 **还没做完、不要写成已绿：**
 
 - Criterion I（可判分母 ≥22）未过：6/15。剩下的不可判主要是 semantic_required / 缺 observation。
-- A5：`theme_limit_heat_daily` 已注册，本跑仍查 `mainline_sector_daily`。提示文案提到了热度表，查询没改过去。
-- C4 离开 knowledge 车道 ≠ 读到 `fact_sector_daily.amount=6112588.6`。本跑取的是 08-17 全市总览 + 网页。
+- C4 冻结算子仍是 `amount_raw=6112588.6`；主库 07-21 MLCC 现为 611.26。脏行只剩 06-18 / 06-22。不要伪造 6112588.6。
+- A5 overlay 仍 `semantic_required`，正文有储能 40 也可能停在 ❔。
 - B6 本跑 ❌：要材料的澄清没打中 overlay 短语。

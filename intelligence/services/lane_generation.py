@@ -9,6 +9,7 @@ from intelligence.services import ask_clarify, llm_refine
 from intelligence.services.longtail_baseline import lane_suffix
 from intelligence.services.ask import AskResult
 from intelligence.services.honesty_gates import (
+    bound_caliber_disclosure,
     calendar_disclosure,
     empty_caliber_disclosure,
     retired_table_disclosure,
@@ -51,6 +52,9 @@ def deterministic_lane_answer(query: str, decision: TurnDecision) -> str | None:
         disclosure = calendar_disclosure(frame)
         if disclosure:
             return disclosure if disclosure.endswith("。") else f"{disclosure}。"
+    bound = bound_caliber_disclosure(query)
+    if bound is not None:
+        return bound
     if decision.lane == "chat" and decision.reason == "明确寒暄":
         return "你好，我是 Foresight。你可以直接聊天，也可以让我做需要证据的金融研究。"
     if decision.lane == "chat" and _THANKS_PATTERN.fullmatch(query):
