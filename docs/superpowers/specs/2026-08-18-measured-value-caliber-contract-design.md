@@ -9,7 +9,7 @@
 
 一个数值被生产出来时，它的**量纲 / 口径 / 来源**没有作为结构化字段跟着走，全靠自然语言承载；本 spec 把已经存在于 D0 和 `EvidenceAtom` 的契约接通到全链，并让判分器消费同一份注册表。
 
-**这是接线，不是新建。** 两处地基已在且已被证明有效，见 §3。
+**这是接线，不是新建。** 两处地基已在。C4 证明的是标签可读，不是检索闸已建，见 §3.1。
 
 ---
 
@@ -43,7 +43,7 @@
 
 ## 3. 已有地基（禁止重造）
 
-### 3.1 `market_timeseries.MetricSpec` —— 设计已验证有效
+### 3.1 `market_timeseries.MetricSpec` —— 标签可读，闸未建
 
 ```python
 @dataclass(frozen=True)
@@ -57,9 +57,9 @@ class MetricSpec:
 
 注册表注释写着：「新增指标只允许在这里登记（key → 固定查询口径），**不允许把用户问题文本拼进 SQL**」。
 
-**有效性证据（不是推断）**：C4 那道题，产品正是靠读到 caliber 是「全市成交额」而非 MLCC 板块口径，**正确识别不匹配并诚实拒答**，没把脏数当亿元报出。设计是对的。
+**C4 证明的是标签可读，不是闸已建。** 题要的是：看到 `fact_sector_daily.amount=6112588.6` 这行脏数，并质疑单位。产品实际走知识库车道 + D0「全市成交额」；模型读到口径散文后拒答，避免了把全市成交额当 MLCC 报出。检索请求从未带「我要 MLCC 板块成交额」，所以没碰到那行脏数，评测仍红（`amount_raw` 未观察 + `knowledge_lane_answer`）。
 
-**当前边界**：只通了三行——`:283` 缺口告警、`:324` 渲染进数据块。不进证据行、不进合成上下文、判分器完全不知道它存在。
+**当前边界**：只通了两处——`:283` 缺口告警、`:324` 渲染进数据块。不进证据行、不进合成上下文、判分器不知道它存在；**检索请求也不带 caliber**。Phase 4.1 要补的是检索期 fail-closed，不是把这段散文再写厚。
 
 ### 3.2 `research_contract.EvidenceAtom` —— schema 已正确，未接线
 
@@ -91,6 +91,8 @@ class EvidenceAtom:
 
 **验收**：同一份 `20260818T051630Z.json` 重跑 board，B7 两条 fact 与 C1 转 PASS，其余 26 题真值列**逐题不变**；08-15 baseline 同样重跑，除这两题外不变。
 
+B7 / C1 的 overlay 现为 `semantic_required`：只修量纲/措辞、不改 coverage，假红消掉后会停在「不可判」，到不了通过。Phase 1 须把这两题 overlay 改成 `structured`（与已绿的 C2 同形）。这不是改题问什么，是承认结构化规则已经够判。
+
 ### Phase 2 — 题集契约（`EVAL_ONLY`）
 
 1. **日期锚必须下达**：`date` 与 `query` 分离导致 9 题产品按「今天」作答，该组 **0/9 通过**。二选一——拼进 `query`，或 runner 把 `date` 作为显式时间上下文传入。**两种都不改产品。**
@@ -101,11 +103,11 @@ class EvidenceAtom:
 
 ### Phase 3 — 观测：把「判不出来」变成「判得出来」（`HARNESS_FIX`）
 
-`tool_result` 落盘增加 `payload_field_names`（字符串数组，非空）与 `payload_sha256`，**不落正文**（避体积与脱敏）。
+`tool_result` 落盘增加 `dataset`、`caliber`、`payload_field_names`（字符串数组，非空）与 `payload_sha256`，**不落正文**（避体积与脱敏）。
 
-**这一条解锁的是归因能力**：期望字段名在工具返回字段集里 → 合成侧丢失；不在 → 检索侧未取。当前 A5 / A9 / A10 / C4 / C5 的「检索 vs 合成」全部卡在这里判不了。
+字段名清单只能切开「取到了但没写进答案」和「根本没取到」。**切不开错表**：错表也可能有「家数」「成交额」这种同名字段。A5 这种「选错表」要靠 `dataset` / `caliber` 才能判。
 
-**验收**：下一批同形 run 中，每条 fact 失败都能给出「retrieve 侧 / synthesize 侧」二选一，不再有 `DEPTH_INSUFFICIENT`。
+**验收**：下一批同形 run 中，每条 fact 失败都能给出「retrieve 侧 / synthesize 侧」二选一，不再有 `DEPTH_INSUFFICIENT`；A5 能标出实际 dataset 与期望 caliber 不一致。
 
 ### Phase 4 — 产品侧接线（`DATA_CONTRACT_FIX`，前三阶段出数后再动）
 
@@ -129,7 +131,7 @@ Phase 3（埋点）  ──┘        ↓
 
 ## 6. 明确不做
 
-- **不为满足指标制造事件**：`trace-profile.md` §8 已有先例——`route` 在 codex 侧是结构性不存在，把结构差异写成埋点缺口会诱导造假事件。本 spec 的 Phase 3 只加字段名清单，不造 span。
+- **不为满足指标制造事件**：`trace-profile.md` §8 已有先例——`route` 在 codex 侧是结构性不存在，把结构差异写成埋点缺口会诱导造假事件。本 spec 的 Phase 3 加 `dataset` / `caliber` / 字段名清单，不造 span。
 - **不改题集本体的题面语义**：Phase 2 只补日期锚与附件，不改题目问什么、不改判分器判什么。题面 sha256 前后入台账。
 - **不在 Phase 1 之前动产品**：见 §5。
 - **不引入第二份指标注册表**：Phase 4.1 是把 `MetricSpec` **提升**，不是在别处新建一份（本仓「不要另建第二份清单」纪律）。
@@ -138,6 +140,6 @@ Phase 3（埋点）  ──┘        ↓
 
 | 项 | 当前判不了的原因 | 补齐路径 |
 |---|---|---|
-| A5 / A9 / A10 / C4 / C5 是检索侧还是合成侧 | `tool_result` 只落话术摘要 | Phase 3 |
+| A5 / A9 / A10 / C4 / C5 是检索侧还是合成侧 | `tool_result` 只落话术摘要 | Phase 3（`dataset` + `caliber` + 字段名） |
 | 其余 11 道失败是否也踩量纲/措辞盲区 | 本次只逐条查了 12 道中的 12 道，但只有 B7/C1 做到 leaf 级 | Phase 1.3 的 `extracted_numbers` 输出一次扫完 |
 | 7 道「不可判」（A2/A4/A6/B4/B5/B8/C9）的成因 | 本次未查 | Phase 1 后重跑，看还剩几道 |

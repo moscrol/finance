@@ -26,7 +26,7 @@
 | # | 任务 | 落点 |
 |---|---|---|
 | 1.1 | 数值分支补中文数量级候选（万亿/亿/万 → 同量纲展开），**只加候选不改原值** | `_fact_rule` 数值分支，手法对齐既有 `_decrease_signed_numbers` |
-| 1.2 | 拒答 alternatives 与 `must_mention` 同义词外置成 `intelligence/eval/cases/verdict_equivalence.json` | 与 `MetricSpec.aliases` 同一等价类语义；C1 的「无行情数据」「休市」进拒答类 |
+| 1.2 | 拒答 alternatives 与 `must_mention` 同义词外置成 `intelligence/eval/cases/verdict_equivalence.json` | 与 `MetricSpec.aliases` 同一等价类语义；C1 的「无行情数据」「休市」进拒答类。B7 / C1 overlay 从 `semantic_required` 改为 `structured`，否则假红消掉后停在「不可判」 |
 | 1.3 | verdict FAIL 时附 `extracted_numbers`（前 20）与 `matched_aliases` | FAIL 分支；**本项价值最高，让「产品没答」与「判官没认出」一眼可分** |
 | 1.4 | `pass_rule` 与 `expect_facts` 自洽门禁 | 新增 CI 断言；A7 是现成反例（`pass_rule` 写「之一」，`expect_facts` 要两个精确值同时命中） |
 
@@ -90,15 +90,17 @@ FORESIGHT_USERS_DIR=/Users/a77/.finance-runtime/live-probe-traceability/users \
 
 ## Phase 3 — 埋点解锁归因（`HARNESS_FIX`）
 
-`episode_tool_batch` 的 `tool_result` 落盘增加 `payload_field_names`（字符串数组）与 `payload_sha256`，**不落正文**。
+`episode_tool_batch` 的 `tool_result` 落盘增加 `dataset`、`caliber`、`payload_field_names`（字符串数组）与 `payload_sha256`，**不落正文**。
+
+只记字段名切不开错表（A5：错表也可能有「家数」）。`dataset` / `caliber` 是最小增量。
 
 ### Phase 3 验收
 
 | 判据 | 通过读数 | 打回条件 |
 |---|---|---|
-| **M. 字段非空且脱敏** | 新 run 的每条 `tool_result` 有非空 `payload_field_names`；**不含正文、不含 `/Users/` 或 `/home/`** | 出现绝对路径或正文片段 = 打回（红线） |
+| **M. 字段非空且脱敏** | 新 run 的每条 `tool_result` 有非空 `dataset`（或显式 `unknown`）和 `payload_field_names`；**不含正文、不含 `/Users/` 或 `/home/`** | 出现绝对路径或正文片段 = 打回（红线） |
 | **N. 体积可控** | artifact 体积增幅 **<5%** | 超过即打回，改为只记字段名不记 hash |
-| **O. 真的解锁了归因** | 对 A5/A9/A10/C4/C5 五题，每条 fact 失败能给出「retrieve 侧 / synthesize 侧」二选一，不再是 `DEPTH_INSUFFICIENT` | 仍判不了 = 埋点埋错了位置（应在工具返回消费点，不是发起点） |
+| **O. 真的解锁了归因** | 对 A5/A9/A10/C4/C5 五题，每条 fact 失败能给出「retrieve 侧 / synthesize 侧」二选一；A5 能标出实际 dataset 与期望 caliber 不一致 | 仍判不了 = 埋点埋错了位置（应在工具返回消费点，不是发起点） |
 
 ---
 
