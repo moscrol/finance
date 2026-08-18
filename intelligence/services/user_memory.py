@@ -24,6 +24,9 @@ from intelligence.services import checkpoints, corrections, judgments
 
 DEFAULT_LOAD_WINDOW = 200
 DEFAULT_LIMIT = 5
+# KC-11：同类已裁决数不足 N 不展示胜率行。与 checkpoint 校准同一闸，不是召回次数。
+PEER_HIT_MIN_N = checkpoints.DEFAULT_CALIBRATION_MIN_N
+PEER_HIT_LINE = "同类判断历史 {hits}/{n} 命中（分母=已裁决数）"
 
 
 def _norm(text: Any) -> str:
@@ -87,9 +90,75 @@ def select_relevant(
     return [r for _, r in ranked[:limit]]
 
 
-def _judgment_lines(records: list[dict[str, Any]]) -> list[str]:
+def peer_hit_line(
+    stat: checkpoints.CategoryStat | None,
+    *,
+    min_n: int = PEER_HIT_MIN_N,
+) -> str | None:
+    """类别已裁决数 ≥N 才出一行。只用 hit/n，不用召回次数或 confidence。"""
+    if stat is None or stat.n < min_n:
+        return None
+    return PEER_HIT_LINE.format(hits=stat.hits, n=stat.n)
+
+
+def resolve_judgment_category(
+    record: dict[str, Any],
+    checkpoint_rows: list[dict[str, Any]],
+) -> str | None:
+    explicit = str(record.get("category") or "").strip()
+    if explicit:
+        return explicit
+    jid = str(record.get("id") or "").strip()
+    jts = str(record.get("ts") or "").strip()
+    for ck in checkpoint_rows:
+        if jid and str(ck.get("session_id") or "") == jid:
+            cat = str(ck.get("category") or "").strip()
+            return cat or None
+        if jts and str(ck.get("source_judgment_ts") or "") == jts:
+            cat = str(ck.get("category") or "").strip()
+            return cat or None
+    if record.get("record_type") == "foresight_judgment":
+        return "前瞻判断"
+    return None
+
+
+def peer_hit_for_judgment(
+    record: dict[str, Any],
+    checkpoint_rows: list[dict[str, Any]],
+    cal: checkpoints.Calibration,
+    *,
+    min_n: int = PEER_HIT_MIN_N,
+) -> str | None:
+    category = resolve_judgment_category(record, checkpoint_rows)
+    if not category:
+        return None
+    stat = next((item for item in cal.by_category if item.category == category), None)
+    return peer_hit_line(stat, min_n=min_n)
+
+
+def judgment_peer_hits(
+    records: list[dict[str, Any]],
+    *,
+    user: str | None = None,
+    users_root: str | Path | None = None,
+    min_n: int = PEER_HIT_MIN_N,
+) -> list[str | None]:
+    _j_path, _c_path, ck_path, v_path = _ledger_paths(user, users_root)
+    checkpoint_rows, _ = checkpoints.load_checkpoints(ck_path)
+    cal, _ = checkpoints.load_calibration(ck_path, v_path)
+    return [
+        peer_hit_for_judgment(record, checkpoint_rows, cal, min_n=min_n)
+        for record in records
+    ]
+
+
+def _judgment_lines(
+    records: list[dict[str, Any]],
+    peer_lines: list[str | None] | None = None,
+) -> list[str]:
     lines: list[str] = []
-    for rec in records:
+    extras = list(peer_lines or [])
+    for index, rec in enumerate(records):
         memo = str(rec.get("memo") or "").strip()
         if not memo:
             continue
@@ -99,6 +168,9 @@ def _judgment_lines(records: list[dict[str, Any]]) -> list[str]:
         head = "、".join(tags)
         suffix = f"（{date}）" if date else ""
         lines.append(f"- 核心判断{f'[{head}]' if head else ''}：{memo}{suffix}")
+        peer = extras[index] if index < len(extras) else None
+        if peer:
+            lines.append(f"  {peer}")
     return lines
 
 
@@ -120,9 +192,10 @@ def build_memory_block(
     judgment_records: list[dict[str, Any]],
     correction_records: list[dict[str, Any]],
     calibration_text: str = "",
+    peer_lines: list[str | None] | None = None,
 ) -> str:
     """渲染 [M] 块；判断与纠偏都为空时返回空串（不追加块）。"""
-    j_lines = _judgment_lines(judgment_records)
+    j_lines = _judgment_lines(judgment_records, peer_lines)
     c_lines = _correction_lines(correction_records)
     if not j_lines and not c_lines:
         return ""
@@ -259,10 +332,17 @@ def memory_block_for_query(
     j_hit = recall.judgments
     c_hit = recall.corrections
     calibration_text = ""
-    if j_hit:
+    peer_lines: list[str | None] = []
+    if j_hit or c_hit:
         try:
+            checkpoint_rows, _ = checkpoints.load_checkpoints(ck_path)
             cal, _warn = checkpoints.load_calibration(ck_path, v_path)
             calibration_text = checkpoints.render_calibration_for_prompt(cal)
+            peer_lines = [
+                peer_hit_for_judgment(record, checkpoint_rows, cal)
+                for record in j_hit
+            ]
         except Exception:
             calibration_text = ""
-    return build_memory_block(j_hit, c_hit, calibration_text)
+            peer_lines = []
+    return build_memory_block(j_hit, c_hit, calibration_text, peer_lines)

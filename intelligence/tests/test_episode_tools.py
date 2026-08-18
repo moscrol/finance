@@ -2032,6 +2032,57 @@ def test_memory_lookup_recalls_user_judgements_as_prior_not_fact(tmp_path) -> No
     assert all(str(users_root) in item.internal_locator for item in result.evidence)
 
 
+def test_memory_lookup_appends_peer_hit_when_category_has_enough_verdicts(tmp_path) -> None:
+    root = tmp_path / "users" / "peer"
+    root.mkdir(parents=True)
+    (root / "judgments.jsonl").write_text(
+        json.dumps(
+            {
+                "ts": "2026-07-01T10:00:00",
+                "memo": "光刻胶国产替代要看客户验证进度，不看产能公告",
+                "themes": ["光刻胶"],
+                "category": "生命周期推演",
+            },
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (root / "checkpoints.jsonl").write_text(
+        "\n".join(
+            json.dumps(
+                {"id": f"c{i}", "claim": f"光刻胶{i}", "category": "生命周期推演", "due": "2026-06-01"},
+                ensure_ascii=False,
+            )
+            for i in range(1, 4)
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (root / "verdicts.jsonl").write_text(
+        "\n".join(
+            json.dumps({"id": f"c{i}", "verdict": verdict}, ensure_ascii=False)
+            for i, verdict in enumerate(("hit", "hit", "miss"), start=1)
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    registry, context = _memory_registry(
+        tmp_path,
+        users_root=root,
+        task_id="memory-lookup-peer-hit",
+    )
+    result = registry.execute(
+        "memory_lookup",
+        "光刻胶，现在怎么看",
+        context=context,
+        step_id="memory-lookup-peer-hit:1",
+    )
+    details = [item.detail for item in result.evidence]
+    assert any("同类判断历史 2/3 命中（分母=已裁决数）" in detail for detail in details)
+    assert all("99" not in detail for detail in details)
+
+
 def test_memory_lookup_reports_empty_recall_instead_of_staying_silent(tmp_path) -> None:
     """No memory must be an explicit signal, not an empty success."""
 
