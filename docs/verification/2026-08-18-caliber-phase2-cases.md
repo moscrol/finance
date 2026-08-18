@@ -62,9 +62,15 @@ B6 `pass_rule` 改为澄清要求；`must_mention` 删除。
 
 ## 收据
 
-```
-ls /tmp/caliber-p2/after-0818.txt /tmp/caliber-p2/after-0815.txt
-```
+复算输出**已入库，不再指 `/tmp`**：
+
+| 用途 | 路径 |
+|---|---|
+| Phase 1+2 尺子复算 08-18 | `docs/verification/2026-08-18-caliber-phase2-board-0818.txt` |
+| Phase 1+2 尺子复算 08-15 | `docs/verification/2026-08-18-caliber-phase2-board-0815.txt` |
+
+与 Phase 1 复算（`2026-08-18-caliber-phase1-recheck-board-0818.txt`，#198 入库）
+逐题比对，**差异只有 B6 一题**（❌ 失败 → ✅ 通过），与上表读数一致。
 
 artifact：`20260818T051630Z.json`（#198 树）、`20260815T1005Z-r5-clean-baseline-3.json`（本树）。
 
