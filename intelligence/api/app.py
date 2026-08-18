@@ -24,7 +24,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, SecretStr, field_validator
 
 from intelligence import userspace
-from intelligence.paths import default_market_db_path, default_paths
+from intelligence.paths import data_repo_root, default_market_db_path, default_paths
 from intelligence.api.artifacts import ArtifactRegistry
 from intelligence.api.daily_reports import (
     project_daily_agent,
@@ -108,6 +108,13 @@ from intelligence.services.workbench_overview import build_workbench_overview
 from intelligence.workbench_skills.registry import SKILL_REGISTRY
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+# 代码根：runtime_provenance / ArtifactRegistry / skill context.repo_root。
+# 不是数据根。盘面 DuckDB、exports、日报投影走 data_repo_root() /
+# default_market_db_path()。审计（2026-08-18）：_run_ask 里 daily_projection
+# 曾把本变量当 exports 根，蓝绿快照没有私有仓 daily-review；已改走数据根。
+# 其余下游保持代码语义——health.source_revision、docs/learning 台账、
+# 工作台制品相对路径。conversation_orchestrator 的 local_path 是测试夹具
+# 优先、再回退 default_paths().finance_root，不在本变量上改。
 REPO_ROOT = Path(
     os.environ.get("WORKBENCH_REPO_ROOT", Path(__file__).resolve().parents[2])
 )
@@ -1397,7 +1404,6 @@ def _run_ask(
     from intelligence.services.ask_llm_context import maybe_persist_llm_context
     from intelligence.services.llm_refine import detect_provider
 
-    repo_root = req.repo_root or REPO_ROOT
     report = new_structured_report(
         run_id=run_id,
         question=req.question,
@@ -1427,7 +1433,7 @@ def _run_ask(
     if req.task_type == "daily":
         try:
             report_date, daily_modules, daily_warnings = daily_projection_modules(
-                repo_root
+                data_repo_root()
             )
             report["as_of"] = report_date
             report_warnings.extend(daily_warnings)

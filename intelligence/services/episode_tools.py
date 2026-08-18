@@ -694,7 +694,7 @@ def build_episode_registry(
         evidence, observation = agent_research.block_lines_to_evidence(
             "financial_data",
             block,
-            "东财 F10 / AKShare · D7 逐季财报",
+            "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报",
             limit=12,
             detail_chars=1000,
         )

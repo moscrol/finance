@@ -60,6 +60,7 @@ from intelligence.services import (
     market_midterm,
     market_moneyflow,
     market_capital,
+    market_dragon,
     market_news,
     market_technical,
     market_timeseries,
@@ -3915,6 +3916,24 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             )
 
         providers.append(ask_planner.DataBlockProvider("D12", "资金面三件套", _d12_applies, _build_d12))
+
+        def _d13_applies() -> bool:
+            return evidence_registry.provider_enabled(options, "D13") and bool(
+                market_dragon.parse_dragon_intent(options.query)
+            )
+
+        def _build_d13():
+            block = market_dragon.dragon_block_for_llm(
+                options.query,
+                options.market_db_path,
+            )
+            return block, Citation(
+                "D13",
+                "本地 DuckDB 龙虎榜席位数据块",
+                "个股近 N 个上榜日买卖前五席位类型分布（营业部/游资/机构，只列事实不跟单）",
+            )
+
+        providers.append(ask_planner.DataBlockProvider("D13", "龙虎榜席位", _d13_applies, _build_d13))
 
         def _d8_applies() -> bool:
             return evidence_registry.provider_enabled(options, "D8") and bool(
