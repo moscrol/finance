@@ -160,6 +160,20 @@ class RenderForPromptTests(unittest.TestCase):
     def test_empty_records_render_empty(self) -> None:
         self.assertEqual(judgments.render_for_prompt([]), "")
 
+    def test_expired_ttl_is_annotated_not_dropped(self) -> None:
+        rendered = judgments.render_for_prompt(
+            [
+                {
+                    "memo": "扩产逻辑仍在。复核期限：2026-07-01。",
+                    "ts": "2026-06-18T00:00:00",
+                    "valid_until": "2026-07-01",
+                }
+            ],
+            as_of="2026-08-19",
+        )
+        self.assertIn("扩产逻辑仍在", rendered)
+        self.assertIn("已过期，待复核", rendered)
+
 
 if __name__ == "__main__":
     unittest.main()

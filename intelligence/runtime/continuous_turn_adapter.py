@@ -50,6 +50,11 @@ from intelligence.services.research_tool_registry import (
 )
 from intelligence.services.run_store import redact, redact_value
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.track_contract import (
+    contract_receipt,
+    is_contract_rewrite_only,
+    merge_track_missing_outputs,
+)
 from intelligence.runtime.turn_control_core import TurnControlResult
 
 
@@ -532,7 +537,7 @@ class ContinuousTurnAdapter:
                 raise TypeError(
                     "structural verifier must return VerifiedEpisodeOutcome"
                 )
-            structural = structural_candidate
+            structural = _with_track_contract_gaps(structural_candidate, context)
             episode_evidence_ledger = (
                 getattr(session, "evidence_ledger", None)
                 if session is not None
@@ -588,6 +593,7 @@ class ContinuousTurnAdapter:
                     break
                 previous_snapshot = current_snapshot
                 outcome, structural, delivery_only = repaired
+                structural = _with_track_contract_gaps(structural, context)
                 delivery_repair_attempted = (
                     delivery_repair_attempted or delivery_only
                 )
@@ -613,7 +619,12 @@ class ContinuousTurnAdapter:
             )
             if not isinstance(semantic_candidate, SemanticEpisodeOutcome):
                 raise TypeError("semantic verifier must return SemanticEpisodeOutcome")
-            semantic = semantic_candidate
+            semantic = replace(
+                semantic_candidate,
+                verified=_with_track_contract_gaps(
+                    semantic_candidate.verified, context
+                ),
+            )
             while (
                 session is not None
                 and (
@@ -648,6 +659,7 @@ class ContinuousTurnAdapter:
                     break
                 previous_snapshot = current_snapshot
                 outcome, structural, delivery_only = repaired
+                structural = _with_track_contract_gaps(structural, context)
                 delivery_repair_attempted = (
                     delivery_repair_attempted or delivery_only
                 )
@@ -678,7 +690,12 @@ class ContinuousTurnAdapter:
                     raise TypeError(
                         "semantic verifier must return SemanticEpisodeOutcome"
                     )
-                semantic = semantic_candidate
+                semantic = replace(
+                    semantic_candidate,
+                    verified=_with_track_contract_gaps(
+                        semantic_candidate.verified, context
+                    ),
+                )
             if self._is_cancelled():
                 return _cancelled_result()
             self._publish_progress(
@@ -868,6 +885,12 @@ class ContinuousTurnAdapter:
             "semantic_verifier_stale": semantic_verifier_stale,
             "repair_attempts": repair_attempts,
             "repair_cycles": repair_cycles,
+            "track_contract": contract_receipt(
+                outcome.draft,
+                query=context.contract.question,
+                question_type=context.contract.question_type,
+                as_of=context.today,
+            ),
             "metrics": _episode_metrics(
                 outcome,
                 attempts_before=attempts_before,
@@ -944,8 +967,14 @@ class ContinuousTurnAdapter:
             ),
             max(0.0, float(delivery_deadline.remaining())),
         )
+        structural = _with_track_contract_gaps(structural, context)
         missing_outputs = tuple(
             dict.fromkeys((*structural.missing_outputs, *semantic_gap_outputs))
+        )
+        contract_rewrite_candidate = is_contract_rewrite_only(
+            missing_outputs,
+            rejected_claims=rejected_claims,
+            semantic_gap_outputs=semantic_gap_outputs,
         )
         delivery_candidate = (
             allow_delivery_repair
@@ -979,6 +1008,7 @@ class ContinuousTurnAdapter:
             tools_open=tools_open,
             allow_delivery_repair=allow_delivery_repair,
             delivery_candidate=bool(delivery_candidate),
+            contract_rewrite_candidate=contract_rewrite_candidate,
             cold_restart_candidate=cold_restart_candidate,
             evidence_count=len(outcome.evidence),
             seconds_cap=self._repair_seconds_cap,
@@ -1008,6 +1038,25 @@ class ContinuousTurnAdapter:
         if not isinstance(verified, VerifiedEpisodeOutcome):
             raise TypeError("structural verifier must return VerifiedEpisodeOutcome")
         return candidate, verified, admission.delivery_only
+
+
+def _with_track_contract_gaps(
+    structural: VerifiedEpisodeOutcome,
+    context: ResearchRunContext,
+) -> VerifiedEpisodeOutcome:
+    """Merge track-contract expression gaps into missing_outputs only.
+
+    Do not touch ``issues``: the #224 release gate matches issue prefixes.
+    """
+    merged = merge_track_missing_outputs(
+        structural.missing_outputs,
+        structural.outcome.draft,
+        query=context.contract.question,
+        question_type=context.contract.question_type,
+    )
+    if merged == structural.missing_outputs:
+        return structural
+    return replace(structural, missing_outputs=merged)
 
 
 def _empty_repair_snapshot(context: ResearchRunContext) -> EvidenceLedgerSnapshot:

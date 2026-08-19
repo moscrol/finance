@@ -177,8 +177,14 @@ def load_judgments(
     return records, None
 
 
-def render_for_prompt(records: list[dict[str, Any]]) -> str:
+def render_for_prompt(
+    records: list[dict[str, Any]],
+    *,
+    as_of: str | None = None,
+) -> str:
     """把核心判断渲染成注入系统提示词的要点列表（最近的在前，带题材/日期标签）。"""
+    from intelligence.services.track_contract import downgrade_expired_text
+
     lines: list[str] = []
     for rec in reversed(records):  # 最近的判断放最前
         if not isinstance(rec, dict):
@@ -186,6 +192,11 @@ def render_for_prompt(records: list[dict[str, Any]]) -> str:
         memo = str(rec.get("memo") or "").strip()
         if not memo:
             continue
+        memo = downgrade_expired_text(
+            memo,
+            valid_until=str(rec.get("valid_until") or "") or None,
+            as_of=as_of,
+        )
         tags = [str(t).strip() for t in (rec.get("themes") or []) if str(t).strip()]
         tags += [str(s).strip() for s in (rec.get("stocks") or []) if str(s).strip()]
         date = str(rec.get("ts") or "")[:10]

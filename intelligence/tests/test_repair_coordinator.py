@@ -685,6 +685,49 @@ def test_cold_restart_fails_closed_without_root_headroom() -> None:
     assert root.allocated_seconds == 30.0
 
 
+def test_contract_rewrite_candidate_uses_tool_closed_delivery_not_progress() -> None:
+    """跟踪契约缺件是表达层缺口：即使工具窗还开着、首轮已有证据进展，
+    也不得走 grant_for_progress（那会再开工具）。必须 tool-closed delivery。
+    """
+    before = _snap(evidence=(), covered=(), gaps=("direct",), family="market")
+    after = _snap(
+        evidence=("e1",), covered=("direct",), gaps=(), family="news"
+    )
+    progress = progress_from_ledger(before, after)
+    assert progress.coverage_delta.progressed
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-track-rewrite",
+        initial_calls=2,
+        hard_calls_cap=4,
+        initial_seconds=20.0,
+        hard_seconds_cap=40.0,
+    )
+
+    admission = admit_repair(
+        episode_id="episode-track-rewrite",
+        missing_outputs=("track_quad_or_baseline", "track_ttl"),
+        previous_progress=progress,
+        remaining_calls=2,
+        remaining_seconds=20.0,
+        cycle=1,
+        root_budget=root,
+        research_tier="standard",
+        tools_open=True,
+        allow_delivery_repair=True,
+        contract_rewrite_candidate=True,
+        evidence_count=1,
+    )
+
+    assert isinstance(admission, RepairAdmission)
+    assert admission.delivery_only is True
+    assert admission.grant.calls_granted == 0
+    assert admission.goal.remaining_calls == 0
+    assert admission.goal.missing_answer_elements == (
+        "track_quad_or_baseline",
+        "track_ttl",
+    )
+
+
 def test_delivery_candidate_never_falls_through_to_cold_restart() -> None:
     """delivery 候选（有证据没答案）与冷启动（有尝试零证据）互斥。
 

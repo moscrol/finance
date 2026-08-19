@@ -471,6 +471,7 @@ def admit_repair(
     tools_open: bool = True,
     allow_delivery_repair: bool = True,
     delivery_candidate: bool = False,
+    contract_rewrite_candidate: bool = False,
     cold_restart_candidate: bool = False,
     evidence_count: int = 0,
     seconds_cap: float | None = None,
@@ -480,6 +481,10 @@ def admit_repair(
     The coordinator owns the policy choice between evidence-progress repair and
     tool-closed delivery repair. Callers receive one immutable decision and do
     not need to duplicate cycle, tier, or root-budget rules.
+
+    ``contract_rewrite_candidate`` is the track-contract expression seam
+    (四态 / TTL / 下期关注): rewrite the draft from already collected
+    evidence, do not reopen tools even if the research window is still open.
     """
 
     goal = build_repair_goal(
@@ -496,7 +501,7 @@ def admit_repair(
     grant: BudgetGrant | None = None
     delivery_only = False
     cold_restart = False
-    if not delivery_candidate:
+    if not delivery_candidate and not contract_rewrite_candidate:
         grant = grant_for_progress(
             goal,
             previous_progress,
@@ -508,7 +513,7 @@ def admit_repair(
     if (
         grant is None
         and allow_delivery_repair
-        and (not tools_open or delivery_candidate)
+        and (not tools_open or delivery_candidate or contract_rewrite_candidate)
         and evidence_count > 0
         and missing_outputs
     ):
@@ -523,6 +528,7 @@ def admit_repair(
     if (
         grant is None
         and not delivery_candidate
+        and not contract_rewrite_candidate
         and cold_restart_candidate
         and evidence_count == 0
         and missing_outputs

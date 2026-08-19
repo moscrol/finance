@@ -173,6 +173,99 @@ class ContractMissingOutputsTests(unittest.TestCase):
         )
         self.assertEqual(goal.missing_answer_elements, missing)
 
+    def test_merge_track_gaps_into_existing_missing_outputs(self) -> None:
+        from intelligence.services.track_contract import merge_track_missing_outputs
+
+        merged = merge_track_missing_outputs(
+            ("direct_assessment",),
+            self._BARE,
+            query="固态电池最新进展如何",
+        )
+        self.assertEqual(
+            merged,
+            (
+                "direct_assessment",
+                "track_quad_or_baseline",
+                "track_ttl",
+                "track_next_watch",
+            ),
+        )
+        self.assertEqual(
+            merge_track_missing_outputs(
+                ("direct_assessment",),
+                self._BARE,
+                query="固态电池产业链全景",
+            ),
+            ("direct_assessment",),
+        )
+
+    def test_contract_rewrite_only_when_gaps_are_track_ids(self) -> None:
+        from intelligence.services.track_contract import is_contract_rewrite_only
+
+        self.assertTrue(
+            is_contract_rewrite_only(
+                ("track_quad_or_baseline", "track_ttl", "track_next_watch")
+            )
+        )
+        self.assertFalse(
+            is_contract_rewrite_only(
+                ("direct_assessment", "track_ttl"),
+            )
+        )
+        self.assertFalse(
+            is_contract_rewrite_only(
+                ("track_ttl",),
+                rejected_claims=("claim_index:0",),
+            )
+        )
+        self.assertFalse(is_contract_rewrite_only(()))
+
+    def test_receipt_exposes_machine_readable_verdict_and_ttl(self) -> None:
+        from intelligence.services.track_contract import contract_receipt
+
+        receipt = contract_receipt(
+            self._COMPLETE,
+            query="光伏产业链",
+            question_type="theme_track",
+            as_of="2026-08-19",
+        )
+        self.assertEqual(receipt["prior_verdict_check"], "信息不足")
+        self.assertEqual(receipt["valid_until"], "2026-09-12")
+        self.assertEqual(receipt["ttl_status"], "current")
+        self.assertTrue(receipt["baseline_declared"])
+
+        expired = contract_receipt(
+            "毛利率判断：削弱 [D7]。复核期限：2026-07-01。\n"
+            "## 下期关注清单\n- 若中报毛利率 <20% 则削弱扩产逻辑",
+            query="固态电池最新进展如何",
+            as_of="2026-08-19",
+        )
+        self.assertEqual(expired["prior_verdict_check"], "削弱")
+        self.assertEqual(expired["valid_until"], "2026-07-01")
+        self.assertEqual(expired["ttl_status"], "expired")
+
+        missing = contract_receipt(self._BARE, query="固态电池最新进展如何")
+        self.assertIsNone(missing["prior_verdict_check"])
+        self.assertIsNone(missing["valid_until"])
+        self.assertEqual(missing["ttl_status"], "missing")
+
+    def test_expired_ttl_is_annotated_not_deleted(self) -> None:
+        from intelligence.services.track_contract import annotate_expired_conclusions
+
+        text = "毛利率判断：信息不足 [D7]。复核期限：2026-07-01。扩产逻辑仍写在这里。"
+        annotated = annotate_expired_conclusions(text, as_of="2026-08-19")
+        self.assertIn("毛利率判断：信息不足 [D7]", annotated)
+        self.assertIn("扩产逻辑仍写在这里", annotated)
+        self.assertIn("复核期限：2026-07-01", annotated)
+        self.assertIn("已过期，待复核", annotated)
+        again = annotate_expired_conclusions(annotated, as_of="2026-08-19")
+        self.assertEqual(again.count("已过期，待复核"), 1)
+        current = annotate_expired_conclusions(
+            "毛利率判断：支持 [D7]。复核期限：2026-09-12。",
+            as_of="2026-08-19",
+        )
+        self.assertNotIn("已过期", current)
+
 
 class ContractGateTests(unittest.TestCase):
     def test_complete_answer_has_no_missing_elements(self) -> None:

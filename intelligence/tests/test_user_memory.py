@@ -65,6 +65,22 @@ class BuildMemoryBlockTests(unittest.TestCase):
         self.assertIn("相比上次发生了什么变化", block)
         self.assertIn("价格、产能、订单等易变项必须以本轮检索为准", block)
 
+    def test_expired_judgment_ttl_is_annotated_in_memory_block(self) -> None:
+        block = build_memory_block(
+            [
+                {
+                    "memo": "扩产逻辑仍在。复核期限：2026-07-01。",
+                    "themes": ["固态电池"],
+                    "ts": "2026-06-18T00:00:00Z",
+                    "valid_until": "2026-07-01",
+                }
+            ],
+            [],
+            as_of="2026-08-19",
+        )
+        self.assertIn("扩产逻辑仍在", block)
+        self.assertIn("已过期，待复核", block)
+
     def test_correction_falls_back_to_correction_text(self) -> None:
         block = build_memory_block([], [{"correction": "应该看板块容量", "ts": "2026-07-02T00:00:00Z"}])
         self.assertIn("纠偏原则：应该看板块容量", block)

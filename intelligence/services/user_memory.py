@@ -155,13 +155,22 @@ def judgment_peer_hits(
 def _judgment_lines(
     records: list[dict[str, Any]],
     peer_lines: list[str | None] | None = None,
+    *,
+    as_of: str | None = None,
 ) -> list[str]:
+    from intelligence.services.track_contract import downgrade_expired_text
+
     lines: list[str] = []
     extras = list(peer_lines or [])
     for index, rec in enumerate(records):
         memo = str(rec.get("memo") or "").strip()
         if not memo:
             continue
+        memo = downgrade_expired_text(
+            memo,
+            valid_until=str(rec.get("valid_until") or "") or None,
+            as_of=as_of,
+        )
         tags = [str(t).strip() for t in (rec.get("themes") or []) if str(t).strip()]
         tags += [str(s).strip() for s in (rec.get("stocks") or []) if str(s).strip()]
         date = str(rec.get("ts") or "")[:10]
@@ -193,9 +202,11 @@ def build_memory_block(
     correction_records: list[dict[str, Any]],
     calibration_text: str = "",
     peer_lines: list[str | None] | None = None,
+    *,
+    as_of: str | None = None,
 ) -> str:
     """渲染 [M] 块；判断与纠偏都为空时返回空串（不追加块）。"""
-    j_lines = _judgment_lines(judgment_records, peer_lines)
+    j_lines = _judgment_lines(judgment_records, peer_lines, as_of=as_of)
     c_lines = _correction_lines(correction_records)
     if not j_lines and not c_lines:
         return ""
