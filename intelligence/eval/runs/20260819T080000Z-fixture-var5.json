@@ -202,7 +202,7 @@
         {
           "question_id": "Q-judge",
           "primary_outcome": "degraded",
-          "judge_status": "timeout",
+          "judge_status": "unavailable",
           "judge_unavailable": true,
           "verified_status": null,
           "terminal_outcome": null,

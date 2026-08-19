@@ -22,6 +22,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from intelligence.services.gate_receipt import extract_gate_receipt
+
 REPO = Path(__file__).resolve().parents[2]
 RUNS_DIR = REPO / "intelligence" / "eval" / "runs"
 CASES_PATH = REPO / "intelligence" / "eval" / "cases" / "acceptance_cases.json"
@@ -34,16 +36,10 @@ QC28_DEFAULT_SUBSET: tuple[str, ...] = (
     "C1-future-date-no-data",
 )
 
-# W2 落地前：用现有字段把判官不可用单列。W2 会换成显式 degrade 分类。
-# 不要把 ask 引擎的 not_applicable（本就没有判官）算进这个桶，否则
-# W3 gate_receipt 一落地，整条 ask 对照会被记成 100% judge_unavailable。
-JUDGE_UNAVAILABLE_STATUSES = frozenset(
-    {
-        "unavailable",
-        "timeout",
-        "none",
-    }
-)
+# 单一真本源：与 W2 ``judge_degrade.classify_degrade_counts`` 同口径。
+# 只有显式 ``unavailable`` 进判官桶。不要把 ask 的 ``not_applicable``、
+# 缺失字段、或历史 ``timeout`` 字符串算进去。
+JUDGE_UNAVAILABLE_STATUSES = frozenset({"unavailable"})
 
 FLIP_RATE_FORMULA = (
     "per_question_flip_rate = count(primary_outcome != mode) / N; "
@@ -69,11 +65,11 @@ def utc_stamp(now: datetime | None = None) -> str:
 
 
 def is_judge_unavailable(judge_status: Any) -> bool:
-    """W2 前的桶：``judge_status in {unavailable, None}`` 或 timeout。"""
+    """Only explicit ``unavailable``. Missing / ask ``not_applicable`` are not."""
     if judge_status is None:
-        return True
+        return False
     text = str(judge_status).strip().lower()
-    return text in JUDGE_UNAVAILABLE_STATUSES or text == ""
+    return text in JUDGE_UNAVAILABLE_STATUSES
 
 
 def mode_of(values: Sequence[str]) -> str:
@@ -155,20 +151,27 @@ def extract_from_run_dir(run_dir: Path) -> dict[str, Any]:
     run = _read_json_object(run_dir / "run.json")
     episode = _read_json_object(run_dir / "continuous-episode.json")
     report = _read_json_object(run_dir / "report.json")
+    summary = _read_json_object(run_dir / "summary.json")
     smoke = _read_json_object(run_dir / "smoke.json")
 
     verified = None
     judge_status: Any = None
+    receipt = extract_gate_receipt(report, summary)
+    receipt_judge = receipt.get("judge_status")
+    if isinstance(receipt_judge, str) and receipt_judge:
+        judge_status = receipt_judge
+
     if episode:
         structural = episode.get("structural_verifier") or episode.get("verifier")
         if isinstance(structural, dict):
             verified = structural.get("verified_status")
-        semantic = episode.get("semantic_verifier")
-        if isinstance(semantic, dict):
-            judge_status = semantic.get("judge_status")
-        metrics = episode.get("metrics")
-        if judge_status is None and isinstance(metrics, dict):
-            judge_status = metrics.get("semantic_status") or metrics.get("judge_status")
+        if judge_status is None:
+            semantic = episode.get("semantic_verifier")
+            if isinstance(semantic, dict):
+                judge_status = semantic.get("judge_status")
+            metrics = episode.get("metrics")
+            if judge_status is None and isinstance(metrics, dict):
+                judge_status = metrics.get("semantic_status") or metrics.get("judge_status")
 
     if smoke:
         return normalize_repeat(

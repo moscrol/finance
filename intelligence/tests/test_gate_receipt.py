@@ -17,8 +17,12 @@ from intelligence.services.gate_receipt import (
     build_ask_receipt,
     build_episode_receipt,
     build_gate_receipt,
+    classify_degrade_counts,
     extract_gate_receipt,
     table_row,
+)
+from intelligence.services.judge_degrade import (
+    classify_degrade_counts as classify_degrade_counts_w2,
 )
 
 
@@ -147,6 +151,52 @@ def test_simulated_artifact_files_diff_on_gate_receipt(tmp_path: Path) -> None:
     assert episode_row["verified_status"] == "completed"
     assert episode_row["judge_status"] == "passed"
     assert ask_row["rev"] == episode_row["rev"] == "deadbeef"
+
+
+def test_none_plus_timeout_is_not_judge_unavailable() -> None:
+    """Missing judge_status is not an outage. Only explicit unavailable counts.
+
+    W3 used to infer unavailable from None + timeout_asked; W2 does not.
+    After merge both builders must share W2's rule.
+    """
+
+    ju, cd = classify_degrade_counts(
+        judge_status=None,
+        exc_class=None,
+        timeout_asked=25.0,
+        extra_degrade_count=1,
+    )
+    assert (ju, cd) == (0, 1)
+    assert (ju, cd) == classify_degrade_counts_w2(
+        judge_status=None,
+        extra_degrade_count=1,
+        timeout_asked=25.0,
+    )
+
+
+def test_gate_and_w2_classify_agree_on_the_status_matrix() -> None:
+    cases = (
+        ("unavailable", None, None, 0, (1, 0)),
+        ("unavailable", "TimeoutError", 25.0, 1, (1, 0)),
+        ("not_applicable", None, 25.0, 1, (0, 1)),
+        ("passed", None, 25.0, 2, (0, 2)),
+        (None, "TimeoutError", 25.0, 1, (0, 1)),
+        (None, None, None, 0, (0, 0)),
+    )
+    for status, exc, timeout, extra, expected in cases:
+        gate = classify_degrade_counts(
+            judge_status=status,
+            exc_class=exc,
+            timeout_asked=timeout,
+            extra_degrade_count=extra,
+        )
+        w2 = classify_degrade_counts_w2(
+            judge_status=status,
+            extra_degrade_count=extra,
+            exc_class=exc,
+            timeout_asked=timeout,
+        )
+        assert gate == expected == w2, (status, exc, timeout, extra, gate, w2)
 
 
 def test_missing_block_still_emits_the_same_table_columns() -> None:
