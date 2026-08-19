@@ -170,6 +170,14 @@ P0-B 完成前，不把「写出闪迪 / 美光 / 英伟达领跌表」写成 P0
 - 相对 P1-C live：同一领跌相对强弱，本发读成「英伟达抗跌 → 情绪回吐」，P1-C 更偏存储周期并立。两边都把缺新闻归因写成缺口。n=1 波动，不是回退。
 - **残留 Knevo 缺口是隔夜新闻未挂上，不是 P1-D。** overnight news hang（`feat/overnight-news-hang`）在 `market_data` 已跑时顺挂东财 `news_search` 证据，同形于 P0-B Yahoo 领跌。不是预执行工具（#215 否决）。
 
+## 四.5 overnight news hang live（2026-08-19 sidecar :8796）
+
+读数：`docs/verification/2026-08-19-overnight-news-hang-live.md` + PR #221。生产 8792 未切。
+
+- 首发 `run_20260819_113527_705804` @ `d969cc51`：挂载空。`as_of` 误用 A 股 `served_date=2026-08-18`，隔夜东财标题是 08-19；检索词「美股科技」标题整词不命中。
+- 复跑 `run_20260819_114317_390006` @ `87f3c5c0`：第一次 `market_data` 观察 27 条里有 6 条 `news_search`（E22–E27，全 2026-08-19）。模型不再另调 `news_search`。公开稿用 E23 新闻 + E18–E21 相对强弱写互斥因果（存储周期 vs AI 基建抛售）。
+- **本刀 live 关闭。** 不升 P1-D。不合、不切 8792。
+
 ## 五、边界与不做的事
 
 - **不放宽 verification**：partial 是纪律不是故障。本发裁掉的发明阈值说明闸是对的。目标是「让它有料可深」，不是「让它敢说」。
