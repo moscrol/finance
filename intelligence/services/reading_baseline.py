@@ -25,6 +25,20 @@ SPT-Molmansk 与风远两份画像里切出，用户 2026-08-19 逐组勾选确�
 ⚠ 顺序不是随意的：``FY-A10``（框架自身可被证伪）排第一是刻意的。它是唯一一条
 **约束其他内置规则**的规则；先装自限阀再装规则，反过来会有一段时间里所有判读
 不带失效条件地生效。
+
+⚠⚠ **与 ``intelligence/foresight_methodology.md`` 有已知重叠**（2026-08-19 发现）。
+
+那份 76 行的「思考宪法」只注入 foresight（盘面主动发问）一条路，本模块只注入
+问答两条路（ask 合成 / continuous episode）。**同一套判读此前只覆盖了发问路径，
+问答路径是裸的**——本模块补的是这个缺口，代价是七条全局规则里有五条与那份文件
+语义重合（措辞不同，个别地方那边写得更全，如六步复盘路径 vs 本模块 CR-01 的三步）。
+
+没有合并成一份，是因为两者形态不同且都有存在理由：那份是散文体、含大量 foresight
+专用内容（发问落点、认同度阶梯），整份塞进问答 prompt 会稀释并浪费预算；本模块是
+结构化、带 id、可 A/B、有测试守着。**但重叠必须登记**——见 ``_METHODOLOGY_OVERLAP``
+与 ``test_reading_baseline.py`` 的漂移门禁：那边改了措辞或删了条目，这边测试会红，
+强制回来对账。这条纪律的出处是本仓 CLAUDE.md「同一份清单存两处必漂，且漂的时候
+没人知道」。
 """
 
 from __future__ import annotations
@@ -116,6 +130,25 @@ _BATCH1_RULES: tuple[ReadingRule, ...] = (
         source="SPT 画像 reasoning_patterns",
     ),
 )
+
+
+#: 与 ``intelligence/foresight_methodology.md`` 的重叠登记：``规则 id -> 那份文件里
+#: 的锚点原文``。锚点必须是文件里逐字存在的短语——测试据此反查，那边改措辞或删条目
+#: 就会红，强制两边回来对账。值为 ``None`` 表示本模块独有、那份文件没有。
+#:
+#: 新增全局规则时**必须**在这里登记（登记 None 也算登记），否则守门测试不通过。
+_METHODOLOGY_OVERLAP: dict[str, str | None] = {
+    "FY-A10": "禁止把单次观察写成定律或硬规则",
+    "FY-A09": None,  # 反顺从检查：那份文件没有等价条目
+    "CR-01": "标准复盘路径不可跳步",
+    "CR-02": "证据硬度分层",
+    "CR-03": "可证伪：点明领先指标",
+    "CR-04": "累积成台账，单点是噪音",
+    "SPT-A10": None,  # 基本面定地图/交易面定买卖：那份文件未拆出这一层
+}
+
+#: 那份方法论文件的仓内路径（漂移门禁与文档交叉引用共用）。
+METHODOLOGY_DOC = "intelligence/foresight_methodology.md"
 
 
 _ANALOG_RULE = ReadingRule(
@@ -355,6 +388,12 @@ def baseline_guidance(env: dict[str, str] | None = None) -> str:
     if not rules:
         return ""
     return "\n".join(f"- [{r.id}] {r.title}：{r.rule}" for r in rules)
+
+
+def methodology_overlap() -> dict[str, str | None]:
+    """每条全局规则在 foresight 方法论文件里的锚点原文（``None``＝本模块独有）。"""
+
+    return dict(_METHODOLOGY_OVERLAP)
 
 
 def pending_rules() -> tuple[tuple[ReadingRule, str, str], ...]:
