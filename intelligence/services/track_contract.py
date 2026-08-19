@@ -17,6 +17,11 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import date, timedelta
+from pathlib import Path
+from typing import Any
+
 import re
 
 # 跟踪类词面：持续性 + 增量性表述。刻意不收「最近怎么样」这类泛化问法——
@@ -227,3 +232,176 @@ def contract_receipt(
         "track_intent": track_intent,
         "missing_outputs": list(missing),
     }
+
+
+# —— P1-E4：下期关注消费端。产出侧已有 prompt + stub；缺口是次日流程不读。
+# 只登记可证伪条目到既有 checkpoints.jsonl（不新开台账），foresight 发问时强制对照。
+# 补全 stub 本身不是观察项，解析时丢掉。直写 checkpoint 不是 memory_gate 晋升。
+NEXT_WATCH_SOURCE = "track_next_watch"
+NEXT_WATCH_CATEGORY = "下期关注"
+_DATE_RE = re.compile(r"(20\d{2}-\d{2}-\d{2})")
+_DAYS_RE = re.compile(r"(\d+)\s*天")
+_BULLET_RE = re.compile(r"^\s*(?:[-*•]|\d+[.)、])\s+(.+)$")
+_FALSIFIABLE_MARKERS = ("若", "则", "低于", "高于", "<", ">", "跌破", "突破", "到期")
+_VAGUE_WATCH = ("持续关注市场情绪", "持续关注", "继续观察")
+
+
+@dataclass(frozen=True)
+class NextWatchItem:
+    claim: str
+    due: str
+
+
+def _as_of_date(as_of: str | None) -> date:
+    raw = str(as_of or "").strip()[:10]
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return date.today()
+
+
+def _item_due(line: str, as_of: str | None) -> str:
+    found = _DATE_RE.search(line)
+    if found:
+        return found.group(1)
+    base = _as_of_date(as_of)
+    days = _DAYS_RE.search(line)
+    if days:
+        return (base + timedelta(days=int(days.group(1)))).isoformat()
+    return (base + timedelta(days=30)).isoformat()
+
+
+def _is_registerable_watch(line: str) -> bool:
+    text = str(line or "").strip()
+    if len(text) < 8:
+        return False
+    if any(vague in text and "则" not in text for vague in _VAGUE_WATCH):
+        return False
+    return any(marker in text for marker in _FALSIFIABLE_MARKERS) or bool(
+        _DATE_RE.search(text)
+    )
+
+
+def _watch_section_body(answer: str) -> str:
+    text = str(answer or "")
+    if CONTRACT_STUB_HEADING in text:
+        text = text.split(CONTRACT_STUB_HEADING, 1)[0]
+    start = -1
+    for marker in ("## 下期关注清单", "## 下期关注", "下期关注清单", "下期关注"):
+        found = text.find(marker)
+        if found >= 0:
+            start = found
+            break
+    if start < 0:
+        return ""
+    body = text[start:]
+    lines = body.splitlines()
+    kept: list[str] = []
+    for index, line in enumerate(lines):
+        if index == 0:
+            continue
+        if line.startswith("## ") and "下期关注" not in line:
+            break
+        kept.append(line)
+    return "\n".join(kept)
+
+
+def parse_next_watch_items(
+    answer: str, *, as_of: str | None = None
+) -> tuple[NextWatchItem, ...]:
+    """从跟踪题正文抽出可证伪的下期关注项。忽略契约补全 stub。"""
+    items: list[NextWatchItem] = []
+    seen: set[str] = set()
+    for line in _watch_section_body(answer).splitlines():
+        match = _BULLET_RE.match(line)
+        claim = (match.group(1) if match else "").strip()
+        if not _is_registerable_watch(claim):
+            continue
+        key = re.sub(r"\s+", "", claim)
+        if key in seen:
+            continue
+        seen.add(key)
+        items.append(NextWatchItem(claim=claim, due=_item_due(claim, as_of)))
+    return tuple(items)
+
+
+def ingest_next_watch(
+    checkpoints_path: str | Path,
+    answer: str,
+    *,
+    query: str = "",
+    question_type: str | None = None,
+    as_of: str | None = None,
+    theme: str | None = None,
+    session_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """把可证伪的下期关注登记进 checkpoints.jsonl。非跟踪题 / 无条目时空操作。"""
+    from intelligence.services.checkpoints import (
+        load_checkpoints,
+        load_verdicts,
+        register_checkpoint,
+    )
+
+    if not parse_track_intent(query, question_type):
+        return []
+    items = parse_next_watch_items(answer, as_of=as_of)
+    if not items:
+        return []
+    path = Path(checkpoints_path).expanduser()
+    existing, _ = load_checkpoints(path)
+    verdicts, _ = load_verdicts(path.with_name("verdicts.jsonl"))
+    open_claims = {
+        re.sub(r"\s+", "", str(row.get("claim") or ""))
+        for row in open_next_watch_records(existing, verdicts)
+    }
+    written: list[dict[str, Any]] = []
+    themes = [theme] if theme and str(theme).strip() else None
+    for item in items:
+        key = re.sub(r"\s+", "", item.claim)
+        if key in open_claims:
+            continue
+        _, record = register_checkpoint(
+            path,
+            claim=item.claim,
+            due=item.due,
+            category=NEXT_WATCH_CATEGORY,
+            source=NEXT_WATCH_SOURCE,
+            themes=themes,
+            session_id=session_id,
+            metric={"type": "manual"},
+        )
+        open_claims.add(key)
+        written.append(record)
+    return written
+
+
+def open_next_watch_records(
+    checkpoint_rows: list[dict[str, Any]],
+    verdict_rows: list[dict[str, Any]],
+) -> tuple[dict[str, Any], ...]:
+    """尚未拿到终态裁决的下期关注条目（到期与未到期都要对照）。"""
+    from intelligence.services.checkpoints import TERMINAL_VERDICTS
+
+    scored = {
+        str(row.get("id") or "")
+        for row in verdict_rows
+        if row.get("verdict") in TERMINAL_VERDICTS
+    }
+    return tuple(
+        row
+        for row in checkpoint_rows
+        if row.get("source") == NEXT_WATCH_SOURCE
+        and str(row.get("id") or "") not in scored
+        and str(row.get("claim") or "").strip()
+    )
+
+
+def render_next_watch_for_prompt(records: tuple[dict[str, Any], ...] | list[dict[str, Any]]) -> str:
+    if not records:
+        return ""
+    lines = []
+    for row in records:
+        due = str(row.get("due") or "未标到期")
+        claim = str(row.get("claim") or "").strip()
+        lines.append(f"- [due={due}] {claim}")
+    return "\n".join(lines)
