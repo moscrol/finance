@@ -327,6 +327,73 @@ def test_extract_falls_back_to_private_semantic_when_receipt_omits_flag(
     assert row["correlated_judge"] is True
 
 
+def test_extract_keeps_explicit_receipt_null_over_private_false(
+    tmp_path: Path,
+) -> None:
+    """Skip-path stamp is JSON null. Private default False must not revive it."""
+
+    run_dir = tmp_path / "episode-skipped-judge"
+    run_dir.mkdir()
+    (run_dir / "report.json").write_text(
+        json.dumps(
+            {
+                "gate_receipt": {
+                    "engine": "episode",
+                    "judge_status": "unavailable",
+                    "verified_status": "partial",
+                    "correlated_judge": None,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "continuous-episode.json").write_text(
+        json.dumps(
+            {
+                "semantic_verifier": {
+                    "judge_status": "unavailable",
+                    "correlated_judge": False,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "run.json").write_text(json.dumps({"status": "completed"}), encoding="utf-8")
+    row = extract_from_run_dir(run_dir)
+    assert row["correlated_judge"] is None
+
+
+def test_extract_legacy_skip_false_is_unknown(tmp_path: Path) -> None:
+    run_dir = tmp_path / "episode-legacy-skip"
+    run_dir.mkdir()
+    (run_dir / "report.json").write_text(
+        json.dumps(
+            {
+                "gate_receipt": {
+                    "engine": "episode",
+                    "judge_status": "unavailable",
+                    "verified_status": "partial",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "continuous-episode.json").write_text(
+        json.dumps(
+            {
+                "semantic_verifier": {
+                    "judge_status": "unavailable",
+                    "correlated_judge": False,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "run.json").write_text(json.dumps({"status": "completed"}), encoding="utf-8")
+    row = extract_from_run_dir(run_dir)
+    assert row["correlated_judge"] is None
+
+
 def test_reserved_port_refused() -> None:
     result = subprocess.run(
         [PYTHON, str(SCRIPT), "--live", "--port", "8792", "--n", "1"],

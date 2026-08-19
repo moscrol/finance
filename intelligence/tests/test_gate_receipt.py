@@ -125,6 +125,36 @@ def test_missing_correlated_judge_is_unknown_not_independent() -> None:
     assert extracted["correlated_judge"] is None
 
 
+def test_skipped_judge_default_false_is_unknown_not_independent() -> None:
+    """Private dataclass defaults False when the judge never ran. Public ≠ independent."""
+
+    skipped = build_episode_receipt(
+        rev="deadbeef",
+        private_artifact={
+            "structural_verifier": {"verified_status": "partial", "issues": []},
+            "semantic_verifier": {
+                "judge_status": "unavailable",
+                "issues": ["empty public draft"],
+                "correlated_judge": False,
+            },
+        },
+    )
+    independent_unavailable = build_episode_receipt(
+        rev="deadbeef",
+        private_artifact={
+            "structural_verifier": {"verified_status": "completed", "issues": []},
+            "semantic_verifier": {
+                "judge_status": "unavailable",
+                "issues": ["semantic judge unavailable"],
+                "correlated_judge": False,
+                "timeout_asked": 20.0,
+            },
+        },
+    )
+    assert skipped["correlated_judge"] is None
+    assert independent_unavailable["correlated_judge"] is False
+
+
 def test_episode_judge_unavailable_splits_from_content_degrade() -> None:
     receipt = build_episode_receipt(
         rev="deadbeef",

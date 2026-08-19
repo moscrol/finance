@@ -22,7 +22,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from intelligence.services.gate_receipt import extract_gate_receipt, optional_bool
+from intelligence.services.gate_receipt import (
+    episode_public_correlated_judge,
+    extract_gate_receipt,
+    optional_bool,
+)
 
 REPO = Path(__file__).resolve().parents[2]
 RUNS_DIR = REPO / "intelligence" / "eval" / "runs"
@@ -191,7 +195,16 @@ def extract_from_run_dir(run_dir: Path) -> dict[str, Any]:
     receipt_judge = receipt.get("judge_status")
     if isinstance(receipt_judge, str) and receipt_judge:
         judge_status = receipt_judge
-    correlated_judge = optional_bool(receipt.get("correlated_judge"))
+    raw_receipt = None
+    for payload in (report, summary):
+        block = payload.get("gate_receipt") if isinstance(payload, dict) else None
+        if isinstance(block, dict):
+            raw_receipt = block
+            break
+    if raw_receipt is not None and "correlated_judge" in raw_receipt:
+        correlated_judge = optional_bool(raw_receipt.get("correlated_judge"))
+    else:
+        correlated_judge = None
 
     if episode:
         structural = episode.get("structural_verifier") or episode.get("verifier")
@@ -205,8 +218,8 @@ def extract_from_run_dir(run_dir: Path) -> dict[str, Any]:
             metrics = episode.get("metrics")
             if judge_status is None and isinstance(metrics, dict):
                 judge_status = metrics.get("semantic_status") or metrics.get("judge_status")
-        if correlated_judge is None:
-            correlated_judge = optional_bool(semantic.get("correlated_judge"))
+        if raw_receipt is None or "correlated_judge" not in raw_receipt:
+            correlated_judge = episode_public_correlated_judge(semantic)
 
     if smoke:
         return normalize_repeat(

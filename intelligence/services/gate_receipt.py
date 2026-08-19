@@ -137,6 +137,29 @@ def optional_bool(value: object) -> bool | None:
     return value if isinstance(value, bool) else None
 
 
+def episode_public_correlated_judge(semantic: Mapping[str, Any] | None) -> bool | None:
+    """Map private semantic ``correlated_judge`` onto the public receipt.
+
+    ``SemanticEpisodeOutcome.correlated_judge`` defaults to ``False`` even when
+    the judge never ran (empty draft, missing contract).  Public eval must not
+    treat that default as an independent L4 sample.  A real independent
+    attempt is clocked (``timeout_asked`` present) or finishes
+    passed/repaired/rejected.
+    """
+
+    block = semantic if isinstance(semantic, Mapping) else {}
+    raw = optional_bool(block.get("correlated_judge"))
+    if raw is not False:
+        return raw
+    timeout_asked = block.get("timeout_asked")
+    clocked = isinstance(timeout_asked, (int, float)) and not isinstance(
+        timeout_asked, bool
+    )
+    if block.get("judge_status") == "unavailable" and not clocked:
+        return None
+    return False
+
+
 def _issues_list(issues: Sequence[object] | None) -> list[str]:
     out: list[str] = []
     if not issues:
@@ -275,7 +298,7 @@ def build_episode_receipt(
         timings=merged_timings,
         judge_exc_class=str(exc_class) if exc_class else None,
         timeout_asked=asked,
-        correlated_judge=optional_bool(semantic.get("correlated_judge")),
+        correlated_judge=episode_public_correlated_judge(semantic),
     )
 
 
