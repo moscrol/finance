@@ -16,6 +16,15 @@ import urllib.request
 from pathlib import Path
 from typing import BinaryIO
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from intelligence.services.gate_receipt import (  # noqa: E402
+    extract_gate_receipt,
+    table_row,
+)
+
 TERMINAL_RUN_STATUSES = {"completed", "failed", "cancelled"}
 ANSWER_PHASES = {
     "verified_draft",
@@ -1160,6 +1169,8 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
                     ),
                 },
                 "retrieval": _retrieval_summary(trace),
+                "gate_receipt": extract_gate_receipt(report_payload),
+                "gate_receipt_table": table_row(extract_gate_receipt(report_payload)),
             }
         )
         exit_code = 0 if run_status == "completed" else 1

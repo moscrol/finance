@@ -57,6 +57,11 @@ from intelligence.services.forecast_learning import (
     reject_reflection,
     set_rule_status,
 )
+from intelligence.services.gate_receipt import (
+    attach_gate_receipt,
+    build_ask_receipt,
+    source_revision,
+)
 from intelligence.runtime.conversation_orchestrator import (
     TurnOrchestrator,
     sanitize_user_visible_artifact_text,
@@ -1404,6 +1409,7 @@ def _run_ask(
     from intelligence.services.ask_llm_context import maybe_persist_llm_context
     from intelligence.services.llm_refine import detect_provider
 
+    run_started_mono = time.monotonic()
     report = new_structured_report(
         run_id=run_id,
         question=req.question,
@@ -1471,7 +1477,9 @@ def _run_ask(
         input_summary=req.question,
         started_at=started_at,
     )
+    retrieve_seconds: float | None = None
     try:
+        retrieve_started_mono = time.monotonic()
         result = answer_query(
             AskOptions(
                 query=req.question,
@@ -1483,6 +1491,7 @@ def _run_ask(
                 force_moneyflow_block=req.task_type == "daily",
             )
         )
+        retrieve_seconds = round(time.monotonic() - retrieve_started_mono, 3)
         rag_telemetry = (
             asdict(result.wiki_rag_telemetry)
             if result.wiki_rag_telemetry is not None
@@ -1585,6 +1594,20 @@ def _run_ask(
         "llm_composed": bool(result.synthesis),
         "warnings": list(result.warnings),
     }
+    issue_warnings = [*report_warnings, *result.warnings]
+    if req.compose and not (result.llm_refined or result.synthesis):
+        if "llm_unavailable_template_answer" not in issue_warnings:
+            issue_warnings.append("llm_unavailable_template_answer")
+    receipt = build_ask_receipt(
+        rev=source_revision(req.repo_root),
+        issues=issue_warnings,
+        extra_degrade_count=len(issue_warnings),
+        timings={
+            "elapsed_seconds": round(time.monotonic() - run_started_mono, 3),
+            "retrieve_seconds": retrieve_seconds,
+        },
+    )
+    attach_gate_receipt(summary, receipt)
     store.add_artifact(
         run_id,
         "summary.json",
@@ -1618,6 +1641,7 @@ def _run_ask(
         # 即「没有任何东西检查过答案，报告照报 complete」。coverage 现在能
         # 量出这个洞有多大，但要不要让它影响状态，等有分布数据再定。
     )
+    attach_gate_receipt(report, receipt)
     store.add_artifact(
         run_id,
         "report.json",

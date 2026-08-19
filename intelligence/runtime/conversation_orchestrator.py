@@ -31,6 +31,10 @@ from intelligence.services.status_projection import (
     episode_status_from_turn,
     project_artifact_statuses,
 )
+from intelligence.services.gate_receipt import (
+    build_episode_receipt,
+    source_revision,
+)
 from intelligence.services.ask import (
     AskOptions,
     AskResult,
@@ -1589,6 +1593,23 @@ class TurnOrchestrator:
         self.cancellation_reason = cancellation_reason or (lambda: None)
         self.event_id_prefix = event_id_prefix
         self.continuous_turn_adapter = continuous_turn_adapter
+
+    def _stamp_gate_receipt(
+        self,
+        report: dict,
+        *,
+        private_artifact: object = None,
+        extra_degrade_count: int = 0,
+        timings: dict[str, object] | None = None,
+    ) -> dict:
+        artifact = private_artifact if isinstance(private_artifact, dict) else None
+        report["gate_receipt"] = build_episode_receipt(
+            rev=source_revision(self.repo_root),
+            private_artifact=artifact,
+            extra_degrade_count=extra_degrade_count,
+            timings=timings,
+        )
+        return report
 
     def _market_db_path(self) -> Path:
         """Resolve the data root separately from the runtime code checkout.
@@ -3329,6 +3350,10 @@ class TurnOrchestrator:
                         renderer="markdown",
                         title="Grounded Composer 影子答案",
                     )
+            self._stamp_gate_receipt(
+                report,
+                extra_degrade_count=len(warnings),
+            )
             self.run_store.add_artifact(
                 run_id,
                 "report.json",
@@ -3503,6 +3528,10 @@ class TurnOrchestrator:
             redact(answer_text),
             renderer="markdown",
             title=redact(f"对话回答：{query[:24]}"),
+        )
+        self._stamp_gate_receipt(
+            report,
+            extra_degrade_count=len(warnings),
         )
         self.run_store.add_artifact(
             run_id,
@@ -3679,11 +3708,19 @@ class TurnOrchestrator:
                 renderer="markdown",
                 title=redact(f"对话回答：{query[:24]}"),
             )
+            public_failure_report = _redact_object(report)
+            if isinstance(public_failure_report, dict):
+                report = public_failure_report
+            self._stamp_gate_receipt(
+                report,
+                private_artifact=result.private_artifact,
+                extra_degrade_count=len(warnings),
+            )
             self.run_store.add_artifact(
                 run_id,
                 "report.json",
                 json.dumps(
-                    _redact_object(report),
+                    report,
                     ensure_ascii=False,
                     indent=2,
                 ),
@@ -3840,6 +3877,11 @@ class TurnOrchestrator:
             visibility="internal",
             previewable=False,
             downloadable=False,
+        )
+        self._stamp_gate_receipt(
+            report,
+            private_artifact=result.private_artifact,
+            extra_degrade_count=len(warnings),
         )
         self.run_store.add_artifact(
             run_id,
@@ -4323,10 +4365,17 @@ class TurnOrchestrator:
             renderer="markdown",
             title="已取消的对话回答",
         )
+        public_cancel_report = _redact_object(report)
+        if isinstance(public_cancel_report, dict):
+            report = public_cancel_report
+        self._stamp_gate_receipt(
+            report,
+            extra_degrade_count=len(warnings),
+        )
         self.run_store.add_artifact(
             run_id,
             "report.json",
-            json.dumps(_redact_object(report), ensure_ascii=False, indent=2),
+            json.dumps(report, ensure_ascii=False, indent=2),
             renderer="structured_report",
             title="已取消的结构化对话报告",
         )

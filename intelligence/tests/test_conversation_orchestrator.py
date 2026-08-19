@@ -781,6 +781,9 @@ def test_continuous_handled_turn_bypasses_legacy_and_persists_public_result(
     )
     assert report["answer_status"] == "complete"
     assert report["answer_marker_coverage"]["marker_coverage"] == "incomplete"
+    assert report["gate_receipt"]["engine"] == "episode"
+    assert "verified_status" in report["gate_receipt"]
+    assert "judge_status" in report["gate_receipt"]
 
 
 def test_continuous_turn_injects_selected_perspective_and_headers_answer(
