@@ -182,8 +182,14 @@ def record_startup(
     )
 
 
-def last_relevant_row(path: Path) -> dict[str, Any] | None:
-    """最后一条 ``startup`` / ``switch``。坏行跳过，认不出来当没有。"""
+def last_relevant_row(path: Path, port: int | None = None) -> dict[str, Any] | None:
+    """最后一条 ``startup`` / ``switch``。坏行跳过，认不出来当没有。
+
+    ``port`` 给定时只统计该端口的行——sidecar（如 8796）与生产（8792）共用
+    同一本账，不过滤会拿 sidecar 启动行去对生产 health（实测 2026-08-19 假
+    ``rev_mismatch``）。``port`` 为 ``None`` 的行（旧版 switch 未记端口、或
+    infer 失败）计入任何端口：宁可误报生产切换，也不因缺字段漏报。
+    """
 
     if not path.is_file():
         return None
@@ -202,8 +208,13 @@ def last_relevant_row(path: Path) -> dict[str, Any] | None:
             continue
         if not isinstance(row, dict):
             continue
-        if row.get("action") in RELEVANT_ACTIONS:
-            last = row
+        if row.get("action") not in RELEVANT_ACTIONS:
+            continue
+        if port is not None:
+            row_port = row.get("port")
+            if row_port is not None and row_port != port:
+                continue
+        last = row
     return last
 
 
@@ -229,11 +240,15 @@ def health_revision(payload: dict[str, Any]) -> str:
 
 
 def check_against_health(
-    ledger_path: Path, health: dict[str, Any]
+    ledger_path: Path, health: dict[str, Any], port: int | None = None
 ) -> dict[str, Any]:
-    """账本最后相关行 vs health 实报 rev。不一致 / 缺账本 → ok=False。"""
+    """账本最后相关行 vs health 实报 rev。不一致 / 缺账本 → ok=False。
 
-    row = last_relevant_row(ledger_path)
+    ``port`` 给定时按端口过滤账本行（见 ``last_relevant_row``），避免其他
+    端口的 sidecar 启动行顶掉被检服务的尾行。
+    """
+
+    row = last_relevant_row(ledger_path, port=port)
     live_rev = health_revision(health)
     ledger_rev = "" if row is None else str(row.get("rev") or "")
     if row is None:
@@ -255,4 +270,5 @@ def check_against_health(
         "ledger_rev": ledger_rev,
         "ledger_action": None if row is None else row.get("action"),
         "health_rev": live_rev,
+        "port": port,
     }
