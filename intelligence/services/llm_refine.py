@@ -109,6 +109,7 @@ class LLMProvider:
     api_key: str = field(repr=False)
     base_url: str
     model: str
+    transport: str = "http"
 
 
 _PROVIDER_OVERRIDE: ContextVar[LLMProvider | None] = ContextVar(
@@ -237,10 +238,31 @@ def judge_provider() -> LLMProvider | None:
     背景（双审查 ③）：composer 与 judge 走同一 provider 存在相关性失败——
     同一模型的系统性偏差会同时骗过创作与审稿。配置以下 env 后语义审走
     独立模型；未配置返回 None，调用方回落主 provider（行为不变）：
+    - ``LLM_JUDGE_BACKEND=grok-cli``（别名 ``grok`` / ``cli``）：Grok Build TUI
+      无头 ``-p``，与 HTTP 合成模型解耦。PATH 上有 ``grok`` 不会自动开。
     - ``LLM_JUDGE_API_KEY``（+ ``LLM_JUDGE_BASE_URL`` + ``LLM_JUDGE_MODEL``）：
       完全独立的 judge 端点；
     - 仅 ``LLM_JUDGE_MODEL``：同 key/端点、不同模型（次优但仍降低相关性）。
+
+    显式 ``LLM_JUDGE_BACKEND=grok-cli`` 优先于 ``LLM_JUDGE_API_KEY``。
+    后端已声明但二进制缺失时仍返回 CLI provider：调用失败记 unavailable，
+    不静默退回相关自审。
     """
+    from intelligence.services.grok_cli_judge import (
+        CLI_GROK_URL,
+        DEFAULT_MODEL as GROK_DEFAULT_MODEL,
+        grok_cli_backend_enabled,
+    )
+
+    if grok_cli_backend_enabled():
+        model = os.environ.get("LLM_JUDGE_MODEL") or GROK_DEFAULT_MODEL
+        return LLMProvider(
+            name="grok-cli-judge",
+            api_key="",
+            base_url=CLI_GROK_URL,
+            model=model,
+            transport="cli",
+        )
     key = os.environ.get("LLM_JUDGE_API_KEY")
     base = os.environ.get("LLM_JUDGE_BASE_URL")
     model = os.environ.get("LLM_JUDGE_MODEL")
@@ -629,6 +651,26 @@ def _build_user_prompt(query: str, theme: str, evidence_text: str) -> str:
     )
 
 
+def _complete_cli_judge(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: float,
+) -> str:
+    """CLI judge still goes through the turn-level call ledger."""
+
+    from intelligence.services.grok_cli_judge import complete_grok_cli
+
+    _reserve_llm_call()
+    started = time.monotonic()
+    try:
+        content = complete_grok_cli(provider, messages, timeout)
+    except Exception as exc:
+        _record_llm_call("chat", provider, "failed", started, _failure_reason(exc))
+        raise
+    _record_llm_call("chat", provider, "success", started)
+    return content
+
+
 def _post_chat(
     provider: LLMProvider,
     messages: list[dict],
@@ -727,10 +769,15 @@ def complete(
         return None, None, insufficient
     deadline = Deadline.from_timeout(timeout)
     failures: list[tuple[LLMProvider, str]] = []
+    from intelligence.services.grok_cli_judge import is_cli_judge_provider
+
     for provider in providers:
         try:
             remaining = deadline.require_remaining(0.001)
-            content = _post_chat(provider, messages, remaining, temperature)
+            if is_cli_judge_provider(provider):
+                content = _complete_cli_judge(provider, messages, remaining)
+            else:
+                content = _post_chat(provider, messages, remaining, temperature)
         except LLMCallBudgetExceeded as exc:
             return None, None, str(exc)
         except urllib.error.HTTPError as exc:  # pragma: no cover - network
