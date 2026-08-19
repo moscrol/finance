@@ -33,6 +33,14 @@
 
 **完成判据**：该单验收标准每一条都有你自己复算的读数；PR 状态 = merged，或带裁决关闭。
 
+### 方差门
+
+单次探针没有显著性（N=1 的 `degrade_count` / 判官超时都能翻结果）。同 rev 同题 N 次翻转率由 `scripts/eval_variance_baseline.py` 出收据（`intelligence/eval/runs/*-varN.json`）。翻转率只许在干净的同 rev 同题复跑上算，禁止跨一次修复比。
+
+**观测差异小于基线翻转率，不得下回归/改善结论。** 公式：每题 `flip_rate = count(primary_outcome ≠ mode) / N`，基线翻转率 = 各题均值。`--decide --observed-delta D --baseline-flip R` 在 `D < R` 时返回 `no_call`。内容质量对照用收据里的 `content_flip_rate`（已剔除判官桶）；含判官噪声的门用 `baseline_flip_rate`。
+
+`judge_unavailable` 类 degrade 单列，不计入内容质量（W2 分类；W2 落地前把 `judge_status ∈ {unavailable, None}` 或 timeout 记入该桶，用现有字段，不上新的 LLM 判官）。
+
 ## 3. 批次门禁
 
 全部合并后在 main tip 上跑 AGENTS.md「合并纪律」节的四件套命令（webapp 没被动到也照跑）。数字对照台账最近一次门禁行，只允许持平或增长。
