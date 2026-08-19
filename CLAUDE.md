@@ -283,6 +283,7 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 | perspective-distill | 蒸馏视角、视角蒸馏、KOL蒸馏、学这个博主、喂文章、把这篇文章喂给视角、新建视角、perspective distill |
 | finance-longtail-baseline | （待补：SKILL.md 无触发词字段） |
 | finance-degraded-fallback | （待补：SKILL.md 无触发词字段） |
+| code-map | 代码地图、code-map、code-review-graph、deepwiki、造轮子、现有实现 |
 
 跨仓引用（规范源在知识库仓，本仓不放正文）：
 

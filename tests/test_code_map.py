@@ -559,3 +559,20 @@ def test_structure_probe_daily_full():
     assert "market_feature_store" in blob
     assert "cli" in blob.lower()
 
+
+def test_code_map_skill_and_discovery_symlink():
+    skill = ROOT / "skills" / "code-map" / "SKILL.md"
+    text = skill.read_text(encoding="utf-8")
+    assert "name: code-map" in text
+    desc = text.split("---", 2)[1]
+    trigger_seg = desc.split("触发词", 1)[1]
+    for word in ("代码地图", "code-map", "code-review-graph", "deepwiki", "造轮子", "现有实现"):
+        assert word in trigger_seg
+    # 收窄触发词：不要用这些当 dispatcher 钩子
+    assert "我们有没有" not in trigger_seg
+    link = ROOT / ".claude" / "skills" / "code-map"
+    assert link.is_symlink()
+    assert link.readlink().as_posix() == "../../skills/code-map"
+    assert "scripts/code_map.py query" in text
+    assert "research_tool_registry" not in text
+
