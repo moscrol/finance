@@ -20,6 +20,7 @@ from intelligence.services import (
     forecast_preflight,
     llm_refine,
     perspective_lab,
+    reading_baseline,
     scenario_tree,
     track_contract,
 )
@@ -867,6 +868,7 @@ def _prepare_answer_spec_synthesis(
         experience_guidance=experience_guidance,
         exemplar_guidance=exemplar_guidance,
         contract_guidance="\n\n".join(contract_parts),
+        baseline_guidance=reading_baseline.baseline_guidance(),
     )
     messages[0]["content"] = (
         f"{messages[0]['content']}\n\n## 本轮视角约束\n"
