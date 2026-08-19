@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import asdict, dataclass
 
+from intelligence.services.route_table import LANE_COMPOSITION_RULES
 from intelligence.services.task_frame import (
     TaskFrame,
     has_explicit_date,
@@ -91,24 +92,6 @@ _HISTORICAL_MARKERS = ("2025", "2024", "历史上", "过去几年", "去年")
 _DECISION_METHOD_RE = re.compile(
     r"(?:应该|应当|该|如何|怎么|怎样).{0,20}(?:判断|区分|识别|设计|实现|构造)"
 )
-# 隔夜 / 外盘前提。只用市场专名，不用单独的「今晚」——「今晚复盘」仍是纯 A 股预测。
-# 与 query_understanding._EXTERNAL_MARKET_TERMS 对齐，并补上外盘/隔夜（那边把隔夜
-# 放在报价词里，单独不够把混合预测改道到 external_market）。
-_OVERNIGHT_EXTERNAL_MARKERS = (
-    "美股",
-    "纳指",
-    "纳斯达克",
-    "费半",
-    "费城半导体",
-    "道指",
-    "标普",
-    "外盘",
-    "隔夜",
-    "soxx",
-    "qqq",
-    "海外",
-)
-
 _RUNTIME_CAPABILITY_FLOOR: dict[str, tuple[str, ...]] = {
     "current_a_share_market": ("market_data", "mainline_context"),
     "dated_a_share_market": ("market_data", "mainline_context"),
@@ -235,10 +218,32 @@ _PLAN_CAPABILITY_TO_RUNTIME: dict[str, str] = {
     "l3_lookup": "l3_lookup",
 }
 
+# overlay 追加行的 (provider, mandatory, freshness)。mandatory 必须与 overnight
+# 既有行为一致：news_search / web_search 都是 required=False。
+_OVERLAY_REQUIREMENT_TEMPLATE: dict[str, tuple[str, bool, str]] = {
+    "news_search": ("W7", False, "current"),
+    "web_search": ("WEB", False, "current"),
+}
 
-def _has_overnight_external_premise(query: str) -> bool:
-    normalized = re.sub(r"\s+", "", str(query or "")).casefold()
-    return any(marker.casefold() in normalized for marker in _OVERNIGHT_EXTERNAL_MARKERS)
+_OVERLAY_REASONS: dict[tuple[str, str], str] = {
+    ("overnight_external_premise", "news_search"): "核验隔夜/外盘前提",
+    ("overnight_external_premise", "web_search"): "外盘结构与海外来源",
+    (
+        "external_macro_event_local_inference",
+        "news_search",
+    ): "核验外部宏观事件前提",
+    (
+        "external_macro_event_local_inference",
+        "web_search",
+    ): "外部决议与海外来源",
+}
+
+# episode_tools 仍从本模块读这个私有名；与组合表第一条共用同一谓词对象。
+_has_overnight_external_premise = next(
+    rule.predicate
+    for rule in LANE_COMPOSITION_RULES
+    if rule.rule_name == "overnight_external_premise"
+)
 
 
 def is_current_market_query(query: str) -> bool:
@@ -279,6 +284,41 @@ def is_current_market_query(query: str) -> bool:
     return has_state
 
 
+def _overlay_requirement(capability: str, rule_name: str) -> EvidenceRequirement:
+    spec = _OVERLAY_REQUIREMENT_TEMPLATE.get(capability)
+    if spec is None:
+        raise ValueError(
+            f"lane composition overlay has no requirement template for {capability!r}"
+        )
+    provider_name, mandatory, freshness = spec
+    reason = _OVERLAY_REASONS.get((rule_name, capability), "")
+    return EvidenceRequirement(
+        provider_name,
+        capability,
+        mandatory,
+        freshness,
+        reason,
+    )
+
+
+def _apply_lane_composition(
+    query: str,
+    requirements: tuple[EvidenceRequirement, ...],
+) -> tuple[EvidenceRequirement, ...]:
+    """按组合表追加缺失 capabilities。只加不删；后规则撞上已有 cap 则跳过。"""
+    present = {item.capability for item in requirements}
+    extras: list[EvidenceRequirement] = []
+    for rule in LANE_COMPOSITION_RULES:
+        if not rule.predicate(query):
+            continue
+        for capability in rule.extra_capabilities:
+            if capability in present:
+                continue
+            extras.append(_overlay_requirement(capability, rule.rule_name))
+            present.add(capability)
+    return (*requirements, *extras)
+
+
 def resolve_evidence_plan(
     query: str,
     *,
@@ -289,7 +329,7 @@ def resolve_evidence_plan(
     # 标签吞掉后半句。这里增加证据需求而不增加 route-table 题型：定义和
     # 当日事实仍由同一个 Generic Owner/ResearchState 合成。
     if question_type == "concept_definition" and is_current_market_query(query):
-        return EvidencePlan(
+        plan = EvidencePlan(
             "current_market_fact",
             (
                 EvidenceRequirement(
@@ -302,6 +342,11 @@ def resolve_evidence_plan(
             ),
             "current",
         )
+        return EvidencePlan(
+            plan.profile,
+            _apply_lane_composition(query, plan.requirements),
+            plan.freshness,
+        )
     # 纯方法论/纯概念解释里的“市场、主线、当前”等词是讨论对象，不是要求
     # 当前盘面事实；能力层排除避免金融数据泄漏进知识题。
     if question_type in {"methodology_discussion", "answer_review", "concept_definition"}:
@@ -311,31 +356,13 @@ def resolve_evidence_plan(
             EvidenceRequirement("MARKET_DAILY", "market_data", True, "current", "最新市场总览"),
             EvidenceRequirement("D4", "mainline_context", False, "current", "主线结构补充"),
         )
-        if _has_overnight_external_premise(query):
-            requirements = (
-                *requirements,
-                EvidenceRequirement(
-                    "W7",
-                    "news_search",
-                    False,
-                    "current",
-                    "核验隔夜/外盘前提",
-                ),
-                EvidenceRequirement(
-                    "WEB",
-                    "web_search",
-                    False,
-                    "current",
-                    "外盘结构与海外来源",
-                ),
-            )
         return EvidencePlan(
             "market_forecast",
-            requirements,
+            _apply_lane_composition(query, requirements),
             "current",
         )
     if freshness == "current" and is_current_market_query(query):
-        return EvidencePlan(
+        plan = EvidencePlan(
             "mainline_current",
             (
                 EvidenceRequirement("MARKET_DAILY", "market_data", True, "current", "同日市场总览"),
@@ -345,6 +372,11 @@ def resolve_evidence_plan(
                 EvidenceRequirement("W7", "news_search", False, "current", "消息面补充"),
             ),
             "current",
+        )
+        return EvidencePlan(
+            plan.profile,
+            _apply_lane_composition(query, plan.requirements),
+            plan.freshness,
         )
     return EvidencePlan("general", (), freshness)
 
