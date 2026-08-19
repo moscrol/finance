@@ -246,11 +246,27 @@
 
 裁定是「全收」，但激活受数据缺口与常驻预算约束，故分批。**批次划分是工程判断，不是对裁定的打折**——三批最终都要落地。
 
-### 批一：立即可落（无数据依赖、全局元规则，10 条）
+### 批一：✅ 已落地（2026-08-19，8 条）
+
+> 初稿此处写「10 条」是**数错了**：CR-01～04（4）+ SPT-A10/A11（2）+ FY-A09/A10（2）= 8。
 
 CR-01～04、SPT-A10（基本面定地图/交易面定买卖）、SPT-A11（历史同构类比，挂现成的 D8/D10/D11）、FY-A09（反顺从检查）、FY-A10（框架可证伪）。
 
 先落 FY-A10 —— 它是唯一约束其他内置规则的规则，**先装自限阀再装规则**，顺序反了就会有一段时间里 25 条规则不带失效条件地生效。
+
+**落地形态**（commit `789916f5`，分支 `feat/reading-rules-baseline-batch1`）：
+
+| 件 | 落点 |
+|---|---|
+| 规则源 | `intelligence/services/reading_baseline.py`（7 条全局 + `_BLOCK_RULES` 装 SPT-A11） |
+| legacy 引擎 | `llm_refine.build_synthesis_messages(baseline_guidance=...)` → 系统提示词「## 判读基线」段，**排在经验卡片与样板之前**、标签写明强制 |
+| continuous 引擎 | `episode_protocol.build_episode_input` → payload `reading_baseline` + `reading_baseline_rule` |
+| SPT-A11 | `market_analogs.py` / `market_regime_analogs.py` / `stock_analogs.py` 三个块头各一行，共用同一份规则文本 |
+| 总开关 | `FINANCE_READING_BASELINE=0` 整块关掉，两处注入同时归零 |
+| 守门测试 | `intelligence/tests/test_reading_baseline.py`（7 例）+ `test_episode_protocol.py` 新增 1 例 |
+
+**验收**：`.venv-workbench` 全量 `intelligence/tests` **4357 passed / 2 skipped**（收据 `20260819T032930Z-789916f5`）。
+四处变异测试全部转红后还原（挪走自限阀 / 塞入数字阈值 / 抽掉 legacy 注入 / 抽掉 continuous 注入），门禁非假绿。
 
 ### 批二：需挂具体块（有数据，11 条）
 
