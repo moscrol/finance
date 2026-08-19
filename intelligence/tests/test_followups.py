@@ -176,6 +176,38 @@ class AngleComposerTests(unittest.TestCase):
         self.assertIn("不要重复列出已有替代名单", bees[0].full_prompt)
         _cross_cut(result.followups)
 
+    def test_project_ask_state_carries_d3_structure(self) -> None:
+        """ask 路径 D3 结构直通投影：P0 进 alternatives(d3_p0)，P2 进 bottlenecks。"""
+
+        state = followups.project_ask_state(
+            "深挖一下顺络电子",
+            subject="顺络电子",
+            alternatives=(
+                ("超声电子", "(元件) 10.01%、成交18.0亿"),
+                ("", "空名字必须丢弃"),
+            ),
+            bottlenecks=("TLVR", "  ", "钽电容"),
+        )
+        self.assertEqual(len(state.alternatives), 1)
+        self.assertEqual(state.alternatives[0].name, "超声电子")
+        self.assertEqual(state.alternatives[0].source, "d3_p0")
+        self.assertEqual(state.bottlenecks, ("TLVR", "钽电容"))
+        self.assertIn("超声电子", state.listed_names)
+
+        result = followups.compose_followups(state, polish=False)
+        bees = [item for item in result.followups if item.angle == "B"]
+        self.assertEqual(len(bees), 1)
+        self.assertIn("超声电子", bees[0].full_prompt)
+        _cross_cut(result.followups)
+
+    def test_project_ask_state_without_d3_keeps_template_b(self) -> None:
+        """无 D3 结构时行为不变：B 槽退回 subject 级模板，不假装有队列。"""
+
+        state = followups.project_ask_state("深挖一下顺络电子", subject="顺络电子")
+        self.assertEqual(state.alternatives, ())
+        self.assertEqual(state.bottlenecks, ())
+        self.assertEqual(state.listed_names, frozenset())
+
     def test_no_action_room_asks_for_window(self) -> None:
         state = followups.FollowupState(
             subject="液冷",

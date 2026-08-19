@@ -247,18 +247,41 @@ def project_ask_state(
     subject: str | None = None,
     open_gaps: tuple[str, ...] = (),
     parent_followup_prompt: str | None = None,
+    alternatives: tuple[tuple[str, str], ...] = (),
+    bottlenecks: tuple[str, ...] = (),
 ) -> FollowupState:
+    """``alternatives``/``bottlenecks`` 来自 ask 的 D3 结构对象（AskResult.d3_*）。
+
+    spec 2026-08-17 §5：P0 行进 alternatives(source=d3_p0)，P2 词进 bottlenecks，
+    公司名进 listed_names——B 槽由此点名下一跳，且不得把已列名单当新发现。
+    """
+
     anchor = str(subject or "").strip() or str(question or "").strip()[:16] or "该问题"
     kind = infer_question_kind(question, anchor, enable_methodology=True)
     skip = frozenset({"recheck"} if kind == "track" or parse_track_intent(question) else ())
     cleaned = tuple(str(gap).strip() for gap in open_gaps if str(gap).strip())
+    alt_items = tuple(
+        AlternativeItem(
+            name=str(name).strip(),
+            reason=str(note or "").strip(),
+            source="d3_p0",
+        )
+        for name, note in alternatives
+        if str(name).strip()
+    )
+    cleaned_bottlenecks = tuple(
+        str(term).strip() for term in bottlenecks if str(term).strip()
+    )
     return FollowupState(
         subject=anchor,
         question=str(question or "").strip(),
         question_kind=kind,
         open_gaps=cleaned,
+        alternatives=alt_items,
+        bottlenecks=cleaned_bottlenecks,
         no_action_room=compute_no_action_room(open_gaps=cleaned),
         produced_framework=kind == "methodology",
+        listed_names=frozenset(item.name for item in alt_items),
         skip_types=skip,
         parent_followup_prompt=parent_followup_prompt,
     )
@@ -677,6 +700,8 @@ def generate_followups(
     use_llm: bool = True,
     open_gaps: tuple[str, ...] = (),
     parent_followup_prompt: str | None = None,
+    alternatives: tuple[tuple[str, str], ...] = (),
+    bottlenecks: tuple[str, ...] = (),
 ) -> FollowupResult:
     """选题走 compose；LLM 只润色。条数合同 2–4。"""
     _ = answer_excerpt
@@ -685,6 +710,8 @@ def generate_followups(
         subject=matched_theme,
         open_gaps=open_gaps,
         parent_followup_prompt=parent_followup_prompt,
+        alternatives=alternatives,
+        bottlenecks=bottlenecks,
     )
     if os.environ.get(FETCH_ENV_FLAG, "1") == "0":
         return NullComposer().compose(state, polish=False)

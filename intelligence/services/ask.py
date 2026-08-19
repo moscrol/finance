@@ -152,9 +152,9 @@ from intelligence.services.ask_blocks import (  # noqa: F401
     _market_value_block_for_llm,
     _populate_market_index_comparison,
     _quoted_topic,
-    _second_derivative_queue_block_for_llm,
     _theme_research_framing,
     _valuation_block_for_llm,
+    second_derivative_queue_for_llm,
 )
 from intelligence.services.evidence_window import (
     is_time_aligned_evidence,
@@ -4235,12 +4235,15 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             evidence_registry.provider_enabled(options, "D3")
             and not is_market_overview
         ):
-            second_derivative_block = _second_derivative_queue_block_for_llm(
+            second_derivative_block, d3_structure = second_derivative_queue_for_llm(
                 options.query,
                 theme,
                 options.market_db_path,
                 evidence_text,
             )
+            # 结构对象随文本同源产出：followup 选角只吃结构，不反解析 Markdown。
+            result.d3_alternatives = d3_structure.alternatives
+            result.d3_bottlenecks = d3_structure.bottlenecks
             result.d_block_stats.append(_d_block_stat("D3", "二阶导研究队列", second_derivative_block))
             if second_derivative_block:
                 structured_claims.extend(
