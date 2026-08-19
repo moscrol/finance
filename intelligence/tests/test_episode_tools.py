@@ -1109,6 +1109,215 @@ def test_local_forecast_market_data_does_not_fetch_us_leaders(
     assert "闪迪" not in blob
 
 
+def test_overnight_hybrid_market_data_attaches_eastmoney_news(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from intelligence.services.market_news import NewsFetchResult, NewsItem
+
+    frame = _overnight_hybrid_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="overnight-news",
+        capabilities=("market_data", "news_search"),
+        timeout=30.0,
+        today="2026-08-19",
+        latest_data_date="2026-08-18",
+    )
+    monkeypatch.setattr(
+        episode_tools,
+        "_market_block",
+        lambda *_args: (
+            "全市场成交额：24006.36 亿元",
+            "本地 DuckDB · 预测盘面窗口",
+            "market_forecast_window",
+        ),
+    )
+    monkeypatch.setattr(
+        episode_tools.ask_blocks,
+        "_market_data_asof",
+        lambda *_args, **_kwargs: "2026-08-18",
+    )
+
+    def empty_leaders(*_args, **_kwargs):
+        return episode_tools.external_market.ExternalMarketResult(
+            target_trade_date="2026-08-18",
+            source_trade_date="2026-08-18",
+            selected_provider=episode_tools.external_market.YAHOO_PROVIDER,
+            quotes=(),
+            provider_traces=(),
+        )
+
+    monkeypatch.setattr(
+        episode_tools.external_market,
+        "resolve_overnight_leaders",
+        empty_leaders,
+    )
+    called: dict[str, object] = {"n": 0, "keyword": None, "as_of": None}
+
+    def fake_news(keyword: str, **_kwargs):
+        called["n"] = int(called["n"]) + 1
+        called["keyword"] = keyword
+        called["as_of"] = _kwargs.get("as_of")
+        return NewsFetchResult(
+            (
+                NewsItem(
+                    "2026-08-18 22:00:00",
+                    "证券时报",
+                    "费城半导体指数大跌，存储链领跌",
+                    "http://eastmoney.test/sox-1",
+                ),
+                NewsItem(
+                    "2026-08-18 23:00:00",
+                    "财联社",
+                    "存储周期担忧升温，海力士闪迪齐跌",
+                    "http://eastmoney.test/memory-2",
+                ),
+            ),
+            ProviderTrace(
+                provider="eastmoney",
+                capability="directional_news",
+                status="success",
+                result_count=2,
+            ),
+        )
+
+    monkeypatch.setattr(
+        episode_tools.market_news,
+        "fetch_eastmoney_news_result",
+        fake_news,
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+    observation = registry.execute(
+        "market_data",
+        {},
+        context=context,
+        step_id="overnight-news:1",
+    )
+    blob = " ".join(
+        f"{item.title} {item.detail}" for item in observation.evidence
+    )
+    as_of = called["as_of"]
+    as_of_text = (
+        as_of.isoformat() if hasattr(as_of, "isoformat") else str(as_of or "")[:10]
+    )
+    assert called["n"] == 1
+    assert called["keyword"] == "美股"
+    assert as_of_text == "2026-08-19"
+    assert any(item.tool == "news_search" for item in observation.evidence)
+    assert "费城半导体" in blob
+    assert "存储" in blob
+
+
+def test_local_forecast_market_data_does_not_fetch_overnight_news(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    frame = _market_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="local-no-news",
+        capabilities=("market_data", "news_search"),
+        timeout=30.0,
+        latest_data_date="2026-07-23",
+    )
+    monkeypatch.setattr(
+        episode_tools,
+        "_market_block",
+        lambda *_args: (
+            "当前成交额21949亿元",
+            "本地 DuckDB · 预测盘面窗口",
+            "market_forecast_window",
+        ),
+    )
+    monkeypatch.setattr(
+        episode_tools.ask_blocks,
+        "_market_data_asof",
+        lambda *_args, **_kwargs: "2026-07-23",
+    )
+
+    def fail_news(*_args, **_kwargs):
+        raise AssertionError("local forecast must not fetch overnight news")
+
+    monkeypatch.setattr(
+        episode_tools.market_news,
+        "fetch_eastmoney_news_result",
+        fail_news,
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+    observation = registry.execute(
+        "market_data",
+        {},
+        context=context,
+        step_id="local-no-news:1",
+    )
+    assert not any(item.tool == "news_search" for item in observation.evidence)
+
+
+def test_overnight_hybrid_skips_news_when_external_search_disabled(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    frame = _overnight_hybrid_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="overnight-news-sealed",
+        capabilities=("market_data", "news_search"),
+        timeout=30.0,
+        latest_data_date="2026-08-18",
+    )
+    monkeypatch.setattr(
+        episode_tools,
+        "_market_block",
+        lambda *_args: (
+            "全市场成交额：24006.36 亿元",
+            "本地 DuckDB · 预测盘面窗口",
+            "market_forecast_window",
+        ),
+    )
+    monkeypatch.setattr(
+        episode_tools.ask_blocks,
+        "_market_data_asof",
+        lambda *_args, **_kwargs: "2026-08-18",
+    )
+
+    def fail_news(*_args, **_kwargs):
+        raise AssertionError("sealed fixture must not fetch overnight news")
+
+    monkeypatch.setattr(
+        episode_tools.market_news,
+        "fetch_eastmoney_news_result",
+        fail_news,
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+        fixture_policy=episode_tools.SealedFixturePolicy(),
+    )
+    observation = registry.execute(
+        "market_data",
+        {},
+        context=context,
+        step_id="overnight-news-sealed:1",
+    )
+    assert not any(item.tool == "news_search" for item in observation.evidence)
+
+
 def test_episode_registry_exposes_and_executes_model_owned_research_tools(
     tmp_path: Path,
     monkeypatch,

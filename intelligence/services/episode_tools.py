@@ -249,6 +249,53 @@ def _overnight_leader_evidence(
     return evidence, result.gap
 
 
+_OVERNIGHT_NEWS_QUERY = "美股"
+
+
+def _should_attach_overnight_news(
+    frame: TaskFrame,
+    fixture_policy: SealedFixturePolicy | None,
+    allowed_capabilities,
+) -> bool:
+    if "news_search" not in allowed_capabilities:
+        return False
+    if frame.question_type != "market_forecast":
+        return False
+    if fixture_policy is not None and not fixture_policy.external_search_enabled:
+        return False
+    return evidence_capabilities._has_overnight_external_premise(frame.raw_question)
+
+
+def _overnight_news_evidence(
+    *,
+    as_of,
+    timeout,
+) -> tuple[list[agent_research.AgentEvidence], str]:
+    result = market_news.fetch_eastmoney_news_result(
+        _OVERNIGHT_NEWS_QUERY,
+        timeout=timeout,
+        as_of=as_of,
+    )
+    evidence = [
+        agent_research.AgentEvidence(
+            tool="news_search",
+            title=item.title,
+            detail=f"{item.date} {item.source}",
+            source=item.url,
+            source_date=item.date[:10] or None,
+            evidence_tier="news",
+            independent_key=item.url,
+        )
+        for item in result.items[:6]
+    ]
+    evidence = [
+        replace(item, content_hash=agent_research.evidence_content_hash(item))
+        for item in evidence
+    ]
+    observation = "；".join(f"{item.detail}《{item.title}》" for item in evidence)
+    return evidence, observation
+
+
 def _structured_as_of(context: ResearchRunContext) -> str:
     """盘面查询上界：有快照用 min(快照, cutoff)，没有快照也必须夹在 cutoff 内。
 
@@ -743,6 +790,26 @@ def build_episode_registry(
                     observation = "；".join(
                         part for part in (observation, *extras) if part
                     )
+        if _should_attach_overnight_news(
+            frame,
+            fixture_policy,
+            context.contract.allowed_capabilities,
+        ) and not any(item.tool == "news_search" for item in evidence):
+            news_timeout = tool_context.deadline.stage_timeout(8.0)
+            if news_timeout > 0.001:
+                news_evidence, news_obs = _overnight_news_evidence(
+                    as_of=market_news.query_date_cutoff(
+                        _OVERNIGHT_NEWS_QUERY,
+                        upper_bound=context.information_cutoff.as_of_date,
+                    ),
+                    timeout=news_timeout,
+                )
+                if news_evidence:
+                    evidence.extend(news_evidence)
+                    if news_obs:
+                        observation = "；".join(
+                            part for part in (observation, news_obs) if part
+                        )
         return (
             evidence,
             observation or "结构化行情无可用结果",

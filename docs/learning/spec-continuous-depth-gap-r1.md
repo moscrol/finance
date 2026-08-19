@@ -1,9 +1,9 @@
 # Spec：continuous runtime 深度差距（R2）——第五轮同题对比归因与优化项
 
-> 分支：`spec/continuous-depth-gap-r1` ｜ 日期：2026-08-19 ｜ 状态：R2 + P0-A/P0-B live 对照
+> 分支：`spec/continuous-depth-gap-r1` ｜ 日期：2026-08-19 ｜ 状态：R2 + P0-A/P0-B/P1-C live + 第六轮 live @ 15510ad7 + overnight news hang
 > 触发：第五轮 Knevo vs Workbench 同题对比（外盘传导题），Knevo 内容实质明显胜出。
 > 性质：问题定义 + 优化清单。不含实现。P0-A 代码在 `feat/overnight-forecast-auth`。
-> 修订：R1 把「授权被收窄」写成「工具没挂上」。R2 对照 `run_20260819_000940_130301` 一手契约改诊断与优先级。P0-A live：`run_20260819_011622_893108` 通过；P1-C 不取消。
+> 修订：R1 把「授权被收窄」写成「工具没挂上」。R2 对照 `run_20260819_000940_130301` 一手契约改诊断与优先级。P0-A live：`run_20260819_011622_893108` 通过；P1-C 已关闭并经 `15510ad7` 落到 8792。第六轮 live `run_20260819_105845_919694` 通过 §四 1–5；overnight news hang 补 Knevo 新闻缺口（非 P1-D）。
 
 ## 一、背景：第五轮对比事实
 
@@ -159,7 +159,24 @@ P0-B 完成前，不把「写出闪迪 / 美光 / 英伟达领跌表」写成 P0
 读数：`docs/verification/2026-08-19-scenario-causal-hypotheses-live.md` + PR #216。
 
 - `run_20260819_095742_377275` @ `da0731ba`：公开稿【互斥因果假说】H1 存储周期 vs H2 AI 整体回调，裁决带 E18–E21 / E17，缺新闻归因写并立。
-- **P1-C 关闭。** 不升 P1-D。不合、不切 8792。
+- **P1-C 关闭。** 不升 P1-D。已合入 #216；8792 后来切到含 P1-C 的 `15510ad7`。不为文档追切。
+
+## 四.4 第六轮 live 补记（2026-08-19 sidecar :8796）
+
+读数：`docs/verification/2026-08-19-sixth-round-live.md`（生产快照 `15510ad7`，含 P0-A/B + P1-C + #215）。不为文档追切 8792。
+
+- 主发 `run_20260819_105845_919694` @ `15510ad7`：spec §四 条 1–5 通过。Yahoo 五票全绑定，含 HYNIX −8.51%（2026-08-18）。公开稿【互斥因果假说】A 存储见顶 vs B 情绪回吐，倾向 B。`news_search` / `web_search` 已授权未调用。主发未发明 2.2万亿 / 60 / 27%。
+- 对照 `run_20260819_110003_775678`「昨天的反弹能持续多久」：无 news/web 授权（条 6 过）；公开稿发明「约2.2万亿」。
+- 相对 P1-C live：同一领跌相对强弱，本发读成「英伟达抗跌 → 情绪回吐」，P1-C 更偏存储周期并立。两边都把缺新闻归因写成缺口。n=1 波动，不是回退。
+- **残留 Knevo 缺口是隔夜新闻未挂上，不是 P1-D。** overnight news hang（`feat/overnight-news-hang`）在 `market_data` 已跑时顺挂东财 `news_search` 证据，同形于 P0-B Yahoo 领跌。不是预执行工具（#215 否决）。
+
+## 四.5 overnight news hang live（2026-08-19 sidecar :8796）
+
+读数：`docs/verification/2026-08-19-overnight-news-hang-live.md` + PR #221。生产 8792 未切。
+
+- 首发 `run_20260819_113527_705804` @ `d969cc51`：挂载空。`as_of` 误用 A 股 `served_date=2026-08-18`，隔夜东财标题是 08-19；检索词「美股科技」标题整词不命中。
+- 复跑 `run_20260819_114317_390006` @ `87f3c5c0`：第一次 `market_data` 观察 27 条里有 6 条 `news_search`（E22–E27，全 2026-08-19）。模型不再另调 `news_search`。公开稿用 E23 新闻 + E18–E21 相对强弱写互斥因果（存储周期 vs AI 基建抛售）。
+- **本刀 live 关闭。** 不升 P1-D。不合、不切 8792。
 
 ## 五、边界与不做的事
 
