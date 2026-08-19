@@ -127,6 +127,43 @@ def test_pending_rules_declare_their_data_gap() -> None:
         assert len(gap_note) > 10, (rule.id, gap_note)
 
 
+def _methodology_text() -> str:
+    repo = pathlib.Path(__file__).resolve().parents[2]
+    return (repo / reading_baseline.METHODOLOGY_DOC).read_text(encoding="utf-8")
+
+
+def test_every_global_rule_registers_its_methodology_overlap() -> None:
+    """新增全局规则必须登记它与 foresight 方法论文件的重叠关系（登记 None 也算）。
+
+    守的是「同一套判读在两处各写一份、谁也不知道对方改了」——本仓 CLAUDE.md
+    删负面断言抄件时记过这个教训。不登记就不让加规则。
+    """
+    overlap = reading_baseline.methodology_overlap()
+    rule_ids = {r.id for r in reading_baseline.baseline_rules()}
+    unregistered = sorted(rule_ids - set(overlap))
+    stale = sorted(set(overlap) - rule_ids)
+    assert not unregistered, f"这些规则没登记与方法论文件的重叠：{unregistered}"
+    assert not stale, f"这些登记项对应的规则已不存在，清理它：{stale}"
+
+
+def test_methodology_anchors_still_present() -> None:
+    """登记的锚点必须在方法论文件里逐字存在——否则两边已经漂了。
+
+    红了不代表代码坏了，代表 foresight_methodology.md 改了措辞或删了条目：
+    去确认那条判读是否仍然成立，然后同步两边，而不是直接改锚点糊弄过去。
+    """
+    text = _methodology_text()
+    missing = [
+        f"{rule_id}→「{anchor}」"
+        for rule_id, anchor in reading_baseline.methodology_overlap().items()
+        if anchor is not None and anchor not in text
+    ]
+    assert not missing, (
+        "方法论文件已改动，以下锚点找不到了，需两边对账："
+        + "；".join(missing)
+    )
+
+
 def test_ranking_rule_defers_to_existing_skill_rubric() -> None:
     """FY-A03' 必须写明「不替代既有排序口径」。
 
