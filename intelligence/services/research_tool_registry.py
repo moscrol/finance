@@ -83,7 +83,14 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
         "news_search",
         "财经新闻检索",
         "current",
-        frozenset({"supporting_evidence", "event_facts", "impact_transmission"}),
+        frozenset(
+            {
+                "supporting_evidence",
+                "event_facts",
+                "impact_transmission",
+                "prime_news",
+            }
+        ),
     ),
     "graph_lookup": (
         "graph_lookup",
@@ -101,10 +108,9 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
         "memory_lookup",
         "用户自己过去的判断与纠偏原则（历史先验，不是市场事实）",
         "stable",
-        # 有意留空：produces 词表里的 id 全是市场事实类产出，而本工具按定义只回
-        # 历史先验。没有 episode 证据支持它 fulfill 过任何一项，按 fail-open
-        # 约定空集只让它退出预检（漏抓），不会误拦。将来实测到再补。
-        frozenset(),
+        # 只声明先验专用槽。市场事实类 id（supporting_evidence / event_facts
+        # …）按定义不是本工具的产出；残差地板的 prime_memory 才是它能填的格子。
+        frozenset({"prime_memory"}),
     ),
     "l3_lookup": (
         "l3_lookup",
@@ -116,7 +122,15 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
         "market_data",
         "结构化行情与市场时序",
         "current",
-        frozenset({"current_baseline", "market_summary", "supporting_evidence", "data_date"}),
+        frozenset(
+            {
+                "current_baseline",
+                "market_summary",
+                "supporting_evidence",
+                "data_date",
+                "prime_quote",
+            }
+        ),
     ),
     "financial_data": (
         "financial_data",

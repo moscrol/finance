@@ -837,7 +837,12 @@ def _enforce_task_frame_route(
     if not task_frame_requires_retrieval(task_frame):
         return decision
     capability_floor: dict[str, tuple[str, ...]] = {
-        "general_finance_evidence": ("memory", "web_search"),
+        "general_finance_evidence": (
+            "memory",
+            "market_quote",
+            "market_news",
+            "web_search",
+        ),
         "current_public_knowledge": ("web_search",),
         "current_a_share_market": ("market_quote", "market_news"),
         "dated_a_share_market": ("market_quote", "market_news"),
