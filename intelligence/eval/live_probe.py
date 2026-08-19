@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from intelligence.services.ask_llm_context import LLM_CONTEXT_FILENAME
+from intelligence.services.gate_receipt import extract_gate_receipt, table_row
 from intelligence.services.judge_degrade import split_degrade_from_payloads
 
 STALE_MARK = "⚠️已被新证据取代"
@@ -152,6 +153,26 @@ def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8") if path.is_file() else ""
 
 
+def _load_json_object(path: Path) -> dict[str, Any]:
+    text = _read_text(path)
+    if not text.strip():
+        return {}
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def gate_receipt_table_from_run_dir(run_dir: Path) -> dict[str, Any]:
+    """Same table shape as smoke_workbench_self_use (reads gate_receipt)."""
+
+    report = _load_json_object(run_dir / "report.json")
+    summary = _load_json_object(run_dir / "summary.json")
+    receipt = extract_gate_receipt(report, summary)
+    return table_row(receipt)
+
+
 def inspect_run_dir(run_dir: Path) -> ProbeInspection:
     llm_text = _read_text(run_dir / LLM_CONTEXT_FILENAME)
     trace_text = _read_text(run_dir / "trace.jsonl")
@@ -225,16 +246,6 @@ def inspect_run_dir(run_dir: Path) -> ProbeInspection:
         steps=steps,
         tools=tools,
     )
-
-
-def _load_json_object(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        return {}
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return {}
-    return payload if isinstance(payload, dict) else {}
 
 
 def degrade_counts_from_run_dir(run_dir: Path) -> dict[str, int]:
@@ -527,6 +538,10 @@ def main(argv: list[str] | None = None) -> int:
         dest = args.out_dir / args.slug
         artifacts = copy_run_artifacts(run_dir, dest)
         inspection = inspect_run_dir(dest if artifacts else run_dir)
+        receipt_table = gate_receipt_table_from_run_dir(dest if artifacts else run_dir)
+        report_payload = _load_json_object((dest if artifacts else run_dir) / "report.json")
+        summary_payload = _load_json_object((dest if artifacts else run_dir) / "summary.json")
+        gate_receipt = extract_gate_receipt(report_payload, summary_payload)
         receipt = args.out_dir / f"{args.slug}.json"
         degrade_split = degrade_counts_from_run_dir(dest if artifacts else run_dir)
         write_receipt(
@@ -545,6 +560,8 @@ def main(argv: list[str] | None = None) -> int:
                 "evidence_grade": inspection.evidence_grade,
                 "judge_unavailable_count": degrade_split["judge_unavailable_count"],
                 "content_degraded_count": degrade_split["content_degraded_count"],
+                "gate_receipt": gate_receipt,
+                "gate_receipt_table": receipt_table,
             },
         )
         print(
@@ -561,6 +578,7 @@ def main(argv: list[str] | None = None) -> int:
                     "answer_mentions_stale": inspection.answer_mentions_stale,
                     "judge_unavailable_count": degrade_split["judge_unavailable_count"],
                     "content_degraded_count": degrade_split["content_degraded_count"],
+                    "gate_receipt_table": receipt_table,
                     "steps": [
                         {
                             "step_id": step.get("step_id"),

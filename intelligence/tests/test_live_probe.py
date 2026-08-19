@@ -112,6 +112,29 @@ def test_inspect_grades_stale_marker_from_llm_context_not_answer(tmp_path: Path)
     assert inspection.tools[0]["provider"] == "knowledge"
 
 
+def test_gate_receipt_table_from_run_dir_uses_stable_columns(tmp_path: Path) -> None:
+    run_dir = _write_run_dir(
+        tmp_path,
+        with_llm_context=False,
+        stale_in_context=False,
+        stale_in_answer=False,
+    )
+    row = probe.gate_receipt_table_from_run_dir(run_dir)
+    assert tuple(row) == (
+        "engine",
+        "rev",
+        "verified_status",
+        "judge_status",
+        "issue_count",
+        "judge_unavailable_count",
+        "content_degraded_count",
+        "elapsed_seconds",
+        "retrieve_seconds",
+        "judge_seconds",
+    )
+    assert row["engine"] is None
+
+
 def test_inspect_does_not_treat_answer_body_as_first_hand(tmp_path: Path) -> None:
     run_dir = _write_run_dir(
         tmp_path,
@@ -341,6 +364,16 @@ def test_run_ask_persists_llm_context_when_env_on(
     path = store.run_dir(run.run_id) / LLM_CONTEXT_FILENAME
     assert path.is_file()
     assert STALE in path.read_text(encoding="utf-8")
+    report = json.loads(
+        (store.run_dir(run.run_id) / "report.json").read_text(encoding="utf-8")
+    )
+    summary = json.loads(
+        (store.run_dir(run.run_id) / "summary.json").read_text(encoding="utf-8")
+    )
+    assert report["gate_receipt"]["engine"] == "ask"
+    assert report["gate_receipt"]["verified_status"] == "not_applicable"
+    assert report["gate_receipt"]["judge_status"] == "not_applicable"
+    assert summary["gate_receipt"] == report["gate_receipt"]
 
 
 def test_post_ask_and_wait_reads_run_id() -> None:
