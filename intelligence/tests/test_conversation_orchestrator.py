@@ -8,7 +8,7 @@ from threading import Event
 import pytest
 
 from intelligence import userspace
-from intelligence.services import agent_research, answer_model, llm_refine
+from intelligence.services import agent_research, answer_model, llm_refine, output_review
 from intelligence.runtime import conversation_orchestrator as orchestrator_service
 from intelligence.services import perspective_lab
 from intelligence.services.ask import (
@@ -865,6 +865,216 @@ def test_complete_continuous_turn_registers_next_watch(tmp_path, monkeypatch) ->
     assert call["as_of"] == "2026-08-19"
     assert call["theme"] == "光伏"
     assert call["session_id"] == run_id
+
+
+def test_complete_continuous_turn_puts_review_after_revised_body(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """E2：会话口终稿 = 修订正文在前，审查意见进「输出质检」附录。
+
+    验证器的 public_answer 仍是修订正文；呈现顺序由编排器接通，避免把
+    issue 写进 semantic public_answer 砸既有精确相等测试。
+    """
+    query = "光伏产业链近况跟踪一下"
+    (
+        conversation_store,
+        run_store,
+        conversation,
+        run_id,
+        assistant_message_id,
+        frame,
+        intent,
+        controller,
+    ) = _continuous_forecast_fixture(
+        tmp_path,
+        query,
+        question_type="theme_track",
+        subject="光伏",
+    )
+    revised = "修订后的光伏跟踪结论：扩产兑现仍取决于中报毛利率。"
+
+    class Adapter:
+        def handle(self, *, frame: TaskFrame, control):
+            del frame, control
+            return ContinuousTurnResult(
+                handled=True,
+                status="completed",
+                answer=revised,
+                as_of="2026-08-19",
+                citations=(),
+                warnings=(),
+                private_artifact={
+                    "semantic_verifier": {
+                        "judge_status": "repaired",
+                        "issues": [
+                            "弱证据硬写：无 L3 硬证据却出现确定性措辞",
+                        ],
+                    }
+                },
+                events=(),
+            )
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("legacy dependency must not run")
+
+    monkeypatch.setattr(TurnOrchestrator, "_ingest_track_next_watch", lambda *a, **k: None)
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=forbidden,
+        route_skills_fn=forbidden,
+        lane_answer_fn=forbidden,
+        turn_controller_fn=controller,
+        continuous_turn_adapter=Adapter(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.content.startswith(revised)
+    assert "## 输出质检" in result.content
+    assert result.content.index(revised) < result.content.index("## 输出质检")
+    assert "弱证据硬写：无 L3 硬证据却出现确定性措辞" in result.content
+    snapshots = [
+        event["payload"]
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "answer.snapshot"
+    ]
+    assert snapshots[0]["phase"] == "verified_draft"
+    assert snapshots[0]["text"] == revised
+    assert snapshots[0]["final"] is False
+    assert snapshots[-1]["final"] is True
+    assert snapshots[-1]["text"] == result.content
+    assert "## 输出质检" in snapshots[-1]["text"]
+
+
+def test_research_compose_revises_on_warn_and_keeps_review_as_appendix(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """E2 Engine B：编排器不再显式关掉 compose_revise_on_warn。
+
+    synthesize=False 时 answer_query 里还没有终稿可改；必须在合成之后回灌，
+    且 stream_text_delta 不得把修订跳掉。终稿正文是修订版，意见进附录。
+    """
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "液冷板块最近一个月有什么新变化"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    captured: list[AskOptions] = []
+    draft = "初稿全文确定受益。"
+    revised = "修订后的结论：现有证据只能支持观察，不能写成确定受益。"
+
+    def warn_answer(options: AskOptions) -> AskResult:
+        captured.append(options)
+        result = AskResult(
+            query=options.query,
+            trade_date="2026-08-18",
+            matched_theme="液冷",
+            candidate_tier="A",
+            priority_score=1.0,
+            synthesis=draft,
+            sections={"结论": [draft], "引用来源": ["[S1] fixture"]},
+        )
+        result.synthesis_messages = [
+            {"role": "user", "content": "evidence"},
+            {"role": "assistant", "content": draft},
+        ]
+        result.answer_spec = answer_model.AnswerSpec(
+            research_spec=answer_model.resolve_answer_profile(
+                options.query, "液冷", "theme"
+            ),
+            summary=(),
+            verified_facts=(),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(),
+            triggers=(),
+            next_actions=(),
+            sources=(),
+            system_notices=(),
+        )
+        result.review_gate = output_review.OutputReviewGate(
+            checks=[
+                output_review.ReviewCheck(
+                    name="弱证据硬写",
+                    status=output_review.WARN,
+                    note="无 L3 硬证据却出现确定性措辞",
+                )
+            ]
+        )
+        return result
+
+    def fake_synthesize_messages(messages, **_kwargs):
+        del messages
+        return (
+            llm_refine.SynthesisResult(
+                answer=revised,
+                provider="fixture",
+                model="fixture-model",
+            ),
+            "",
+        )
+
+    monkeypatch.setattr(llm_refine, "synthesize_messages", fake_synthesize_messages)
+    monkeypatch.setattr(
+        "intelligence.services.ask.answer_model.validate_llm_answer",
+        lambda *_args, **_kwargs: (),
+    )
+    monkeypatch.setattr(
+        "intelligence.services.ask.answer_model.present_llm_answer",
+        lambda proposed, *_args, **_kwargs: proposed,
+    )
+
+    def research_controller(controller_query: str, **kwargs: object) -> TurnDecision:
+        del kwargs
+        return TurnDecision(
+            lane="research",
+            needs_retrieval=True,
+            needs_memory=False,
+            needs_template=True,
+            question_type="theme_analysis",
+            confidence=0.9,
+            reason=f"fixture research: {controller_query}",
+            capabilities=("market_quote",),
+        )
+
+    turn = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=warn_answer,
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult(
+            (), fallback_to_ask=True, base_finance_fallback=False
+        ),
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=research_controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert captured and captured[0].compose_revise_on_warn is True
+    assert revised in turn.content
+    assert "## 输出质检" in turn.content
+    assert turn.content.index(revised) < turn.content.index("## 输出质检")
+    assert "弱证据硬写" in turn.content
 
 
 def test_continuous_turn_injects_selected_perspective_and_headers_answer(

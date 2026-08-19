@@ -2645,6 +2645,7 @@ def _revise_synthesis_on_warn(result: AskResult, options: AskOptions) -> None:
         and options.stream_text_delta is None
         and result.synthesis is not None
         and result.synthesis_messages is not None
+        and result.review_gate is not None
         and result.review_gate.warn_count > 0
     ):
         return

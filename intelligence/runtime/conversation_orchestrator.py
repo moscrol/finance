@@ -37,6 +37,7 @@ from intelligence.services.ask import (
     Citation,
     PreparedAnswer,
     SynthesisDiagnostic,
+    _revise_synthesis_on_warn,
     answer_query,
     prepare_existing_answer,
     render_conversation_answer,
@@ -64,6 +65,7 @@ from intelligence.services.conversation_store import (
 )
 from intelligence.runtime.continuous_turn_adapter import ContinuousTurnResult
 from intelligence.services import llm_refine
+from intelligence.services import output_review
 from intelligence.services import query_ledger
 from intelligence.services.llm_refine import LLMStreamCancelled
 from intelligence.services.lane_generation import (
@@ -1387,6 +1389,47 @@ def _apply_readable_replacements(
     return text
 
 
+_REVIEW_APPENDIX_HEADING = "输出质检"
+
+
+def _with_review_appendix(body: str, notes: Sequence[str]) -> str:
+    """修订版在前、审查意见进「输出质检」附录。无意见时正文逐字节不变。"""
+
+    cleaned = [str(note).strip() for note in notes if str(note).strip()]
+    if not cleaned:
+        return body
+    heading = f"## {_REVIEW_APPENDIX_HEADING}"
+    if heading in body:
+        return body
+    bullets = "\n".join(
+        note
+        if note.startswith(("- ", "✓ ", "⚠️ "))
+        else f"- {note}"
+        for note in cleaned
+    )
+    return f"{body.rstrip()}\n\n{heading}\n{bullets}\n"
+
+
+def _review_notes_from_gate(result: AskResult) -> tuple[str, ...]:
+    gate = result.review_gate
+    if gate is None:
+        return ()
+    return tuple(
+        f"{check.name}：{check.note}" if check.note else check.name
+        for check in gate.checks
+        if check.status == output_review.WARN and not check.advisory_only
+    )
+
+
+def _continuous_review_notes(result: ContinuousTurnResult) -> tuple[str, ...]:
+    artifact = result.private_artifact or {}
+    semantic = artifact.get("semantic_verifier")
+    if not isinstance(semantic, dict):
+        return ()
+    issues = semantic.get("issues") or ()
+    return tuple(str(item).strip() for item in issues if str(item).strip())
+
+
 def sanitize_conversation_answer(text: str) -> str:
     cleaned = _JSON_BLOCK_PATTERN.sub("", text)
     cleaned = re.sub(
@@ -2614,7 +2657,7 @@ class TurnOrchestrator:
                 user=self.run_store.user_id,
                 compose=True,
                 synthesize=False,
-                compose_revise_on_warn=False,
+                compose_revise_on_warn=True,
                 market_db_path=self._market_db_path(),
                 conversation_context=context.to_prompt_block(),
                 wiki_rag_cache_scope=(
@@ -2864,6 +2907,13 @@ class TurnOrchestrator:
                         result=result,
                     )
                 )
+            # synthesize=False 时 answer_query 里还没有终稿；stream_text_delta
+            # 会让 _revise_synthesis_on_warn 直接 return。合成后再回灌一次，
+            # 用户看到的终稿才是修订版。
+            _revise_synthesis_on_warn(
+                result,
+                replace(ask_options, stream_text_delta=None),
+            )
             self._check_cancelled()
             self._trace(
                 run_id,
@@ -3087,6 +3137,10 @@ class TurnOrchestrator:
                 fallback = "llm_unavailable_template_answer"
                 warnings.append(fallback)
                 self.run_store.add_degrade(run_id, fallback)
+            answer_text = _with_review_appendix(
+                answer_text,
+                _review_notes_from_gate(result),
+            )
             if has_answer_snapshot:
                 text_chunks.append(answer_text)
                 self._emit(
@@ -3734,10 +3788,9 @@ class TurnOrchestrator:
             coverage,
         )
         # 视角答案头与 legacy 路径同源（runtime_answer_header）。只在用户显式
-        # 选择了视角时前置：neutral 保持 Episode 答案原样透传，这是既有契约
-        # （result.content 逐字节等于引擎输出）。放在 coverage 之后是刻意的——
-        # 覆盖率度量的是模型正文，不是交付层加的头。异常兜底与注入原语同理：
-        # profile 在验证与交付之间被删时降级为无头，不让整轮失败。
+        # 选择了视角时前置：neutral 且无审查意见时，Episode 答案原样透传。
+        # 有 semantic issues 时编排器接通「修订版在前、意见进输出质检附录」；
+        # 覆盖率仍度量模型正文，所以 appendix 加在 coverage 之后。
         if (
             perspective_mode != perspective_lab.PERSPECTIVE_MODE_NEUTRAL
             and selected_perspective_ids
@@ -3752,6 +3805,11 @@ class TurnOrchestrator:
                 perspective_header = ""
             if perspective_header:
                 answer_text = f"{perspective_header}\n\n{answer_text}"
+        draft_text = answer_text
+        answer_text = _with_review_appendix(
+            answer_text,
+            _continuous_review_notes(result),
+        )
         # 上下文增长只在私有 artifact 的事件流里有据可查，而那份 artifact 不进
         # 用户可见面。token 计数本身不是敏感信息（不含问题、证据或提示词），
         # 所以读未脱敏的那份，避免 redact 把整数换成占位符。
@@ -3883,7 +3941,7 @@ class TurnOrchestrator:
             AnswerSnapshot(
                 revision=1,
                 phase="verified_draft",
-                text=answer_text,
+                text=draft_text,
                 final=False,
             ).payload(),
             conversation_id,
