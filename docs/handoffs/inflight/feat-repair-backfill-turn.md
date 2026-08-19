@@ -10,10 +10,10 @@ W5：`numeric_unsupported` / `financial_anchor_missing` 阻断时，episode 层�
 - 解释器 `.venv-workbench`；ruff 绿。
 - 定向 **269 passed**（issues / repair_coordinator / adapter / semantic verifier）—— #237。
 - 本跟进：`test_empty_market_data_miss_does_not_block_backfill_retry` + 参考日夹具 + 原 duplicate/adapter 回归。
+- sidecar 重放：`docs/verification/2026-08-19-w5-backfill-duplicate-live.md`——duplicate=0，`market_data` requested=served=08-18、8 条；终态仍 partial（缺 `mainline_context`）。
 
 ## 未验证
-sidecar 阈值题重放（不打 8792）。不要把 `track_*` 槽并进 `BACKFILL_TRIGGER_CODES`。
+不要把 `track_*` 或 `mainline_context` 并进 `BACKFILL_TRIGGER_CODES`。
 
 ## 下一步
-1. sidecar 重放阈值题，看能否 `completed`。
-2. 读数 #244 另合，不搭本流。
+要合再说。不切 8792。
