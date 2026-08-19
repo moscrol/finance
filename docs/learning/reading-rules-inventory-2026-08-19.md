@@ -310,7 +310,7 @@ SPT-A01/A03/A04/A05/A07/A08/A09、FY-A01/A02/A06/A07/A08、FY-A03'。
 
 ### 批三：✅ 已落地为「挂缺口待激活」（4 条 A）
 
-SPT-A02（G5 分钟级）、SPT-A06（G1 封板时间）、FY-A04（G3 产业链价格）、FY-A05（G3 产能/扩产周期）。
+SPT-A02（G5 分钟级）、SPT-A06（G1a 有数无块 + G1b open_times 空壳）、FY-A04（G3 产业链价格）、FY-A05（G3 产能/扩产周期）。
 
 落在 `reading_baseline._PENDING_RULES`，每条与**缺口 id + 缺什么**同处存放，`pending_rules()` 暴露给上游。**永不进 prompt**——注入模型拿不到数据的判读会诱发编造，这条由测试守住。
 
