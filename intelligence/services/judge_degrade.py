@@ -30,7 +30,7 @@ def classify_degrade_counts(
     * Any remaining degrade count is ``content_degraded``.
     """
 
-    del exc_class, timeout_asked  # kept for W3-compatible call sites
+    del exc_class, timeout_asked  # signature kept; evidence does not infer status
     extra = max(0, int(extra_degrade_count))
     if judge_status == NOT_APPLICABLE:
         return 0, extra

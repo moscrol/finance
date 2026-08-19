@@ -26,6 +26,16 @@ def test_unavailable_with_timeout_triplet_stays_judge_class() -> None:
     assert (ju, cd) == (1, 0)
 
 
+def test_none_plus_timeout_is_not_judge_unavailable() -> None:
+    ju, cd = classify_degrade_counts(
+        judge_status=None,
+        extra_degrade_count=1,
+        exc_class="TimeoutError",
+        timeout_asked=25.0,
+    )
+    assert (ju, cd) == (0, 1)
+
+
 def test_not_applicable_is_not_judge_unavailable() -> None:
     ju, cd = classify_degrade_counts(
         judge_status="not_applicable",

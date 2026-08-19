@@ -21,6 +21,9 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from intelligence.services.judge_degrade import (
+    classify_degrade_counts as classify_degrade_counts_canonical,
+)
 from intelligence.services.runtime_provenance import _git_output
 
 SCHEMA_VERSION = 1
@@ -105,26 +108,20 @@ def classify_degrade_counts(
     timeout_asked: float | None,
     extra_degrade_count: int,
 ) -> tuple[int, int]:
-    """Split degrade into judge_unavailable vs content_degraded.
+    """Same buckets as W2 ``judge_degrade.classify_degrade_counts``.
 
-    W2 will refine this.  Current rule: ``judge_status`` in {unavailable, None}
-    *with* timeout/exc evidence → judge_unavailable; ``unavailable`` itself
-    also counts (window skipped, provider down).  Ask uses
+    Only explicit ``judge_status == "unavailable"`` increments the judge
+    class. Missing status plus timeout/exc is not an outage: production
+    writes ``unavailable`` when the provider actually failed. Ask uses
     ``not_applicable`` and never increments the judge class.
     """
 
-    extra = max(0, int(extra_degrade_count))
-    if judge_status == NOT_APPLICABLE:
-        return 0, extra
-    timeout_or_exc = bool(exc_class) or timeout_asked is not None
-    judge_unavailable = judge_status == "unavailable" or (
-        judge_status is None and timeout_or_exc
+    return classify_degrade_counts_canonical(
+        judge_status=judge_status,
+        extra_degrade_count=extra_degrade_count,
+        exc_class=exc_class,
+        timeout_asked=timeout_asked,
     )
-    judge_count = 1 if judge_unavailable else 0
-    content_count = extra - 1 if judge_count and extra else extra
-    if content_count < 0:
-        content_count = 0
-    return judge_count, content_count
 
 
 def _issues_list(issues: Sequence[object] | None) -> list[str]:
