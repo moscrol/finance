@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "code_map.py"
 PY = sys.executable
@@ -247,10 +249,10 @@ def test_exports_do_not_count_as_code_dirty(tmp_path):
 
 
 def test_status_does_not_implement_build():
-    result = _run("build", "--full")
-    assert result.returncode != 0
-    combined = (result.stdout + result.stderr).lower()
-    assert "invalid" in combined or "unrecognized" in combined or "unknown" in combined
+    result = _run("build", "--help")
+    assert result.returncode == 0
+    assert "--full" in result.stdout
+    assert "--postprocess" in result.stdout
 
 
 def test_inner_gitignore_is_explicit_list():
@@ -340,8 +342,8 @@ def test_query_empty_graph_exits_0_and_refuses_structure():
     assert payload["completeness_claim"]["recall"] == "untested"
     assert payload["completeness_claim"]["structure"] == "unavailable"
     assert payload["completeness_claim"]["narrative"] == "unavailable"
-    assert "scripts/code_map.py build" not in payload["next_action"]
-    assert "build" not in payload["next_action"]
+    assert "python3 scripts/code_map.py build --full" in payload["next_action"]
+    assert "禁止把空图写成架构结论" in payload["next_action"]
 
 
 def test_query_daily_full_doors_probe():
@@ -433,3 +435,127 @@ def test_code_map_has_no_home_path_literal():
     src = (ROOT / "scripts" / "code_map.py").read_text(encoding="utf-8")
     assert "/Users/" not in src
     assert "/home/" not in src
+
+
+def _cm():
+    scripts_dir = str(ROOT / "scripts")
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+    import code_map as cm
+
+    return cm
+
+
+def _fake_crg_ok(recorded):
+    def fake(args, cwd):
+        recorded.append(list(args))
+        return subprocess.CompletedProcess(["uvx"], 0, "ok", "")
+
+    return fake
+
+
+def test_build_update_uses_receipt_sha_and_skip_flows(tmp_path, monkeypatch):
+    cm = _cm()
+    root = _init_repo(tmp_path)
+    (root / ".code-review-graphignore").write_text("*.duckdb\n", encoding="utf-8")
+    crg = root / ".code-review-graph"
+    crg.mkdir()
+    (crg / "status.json").write_text(
+        json.dumps(
+            {
+                "built_at_sha": "abc1234deadbeef",
+                "node_count": 10,
+                "postprocess": "full",
+                "wiki_generated": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+    recorded: list[list[str]] = []
+    monkeypatch.setattr(cm, "_uvx_path", lambda: "/usr/bin/uvx")
+    monkeypatch.setattr(cm, "run_crg_cli", _fake_crg_ok(recorded))
+    payload, code = cm.collect_build(root, full=False, postprocess="minimal")
+    assert code == 0, payload
+    assert recorded, payload
+    cmd = recorded[0]
+    assert cmd[0] == "update"
+    assert "--base" in cmd
+    assert "abc1234deadbeef" in cmd
+    assert "--skip-flows" in cmd
+    assert "--postprocess" not in cmd
+    assert "init" not in cmd
+    assert "install" not in cmd
+
+
+def test_build_full_when_no_receipt(tmp_path, monkeypatch):
+    cm = _cm()
+    root = _init_repo(tmp_path)
+    (root / ".code-review-graphignore").write_text("*.duckdb\n", encoding="utf-8")
+    recorded: list[list[str]] = []
+    monkeypatch.setattr(cm, "_uvx_path", lambda: "/usr/bin/uvx")
+    monkeypatch.setattr(cm, "run_crg_cli", _fake_crg_ok(recorded))
+    payload, code = cm.collect_build(root, full=False, postprocess="full")
+    assert code == 0, payload
+    cmd = recorded[0]
+    assert cmd[0] == "build"
+    assert "--base" not in cmd
+    assert "--skip-flows" not in cmd
+    assert "--postprocess" not in cmd
+    assert "init" not in cmd
+
+
+def test_build_none_uses_skip_postprocess(tmp_path, monkeypatch):
+    cm = _cm()
+    root = _init_repo(tmp_path)
+    (root / ".code-review-graphignore").write_text("*.duckdb\n", encoding="utf-8")
+    recorded: list[list[str]] = []
+    monkeypatch.setattr(cm, "_uvx_path", lambda: "/usr/bin/uvx")
+    monkeypatch.setattr(cm, "run_crg_cli", _fake_crg_ok(recorded))
+    _, code = cm.collect_build(root, full=True, postprocess="none")
+    assert code == 0
+    assert "--skip-postprocess" in recorded[0]
+    assert "--postprocess" not in recorded[0]
+
+
+def test_build_without_uvx_fail_closed(tmp_path, monkeypatch, capsys):
+    cm = _cm()
+    root = _init_repo(tmp_path)
+    (root / ".code-review-graphignore").write_text("*.duckdb\n", encoding="utf-8")
+    monkeypatch.setattr(cm, "_uvx_path", lambda: None)
+    payload, code = cm.collect_build(root, full=True, postprocess="full")
+    assert code != 0
+    err = capsys.readouterr().err
+    assert "https://docs.astral.sh/uv/" in err
+    assert "MCP" in err
+
+
+def test_build_without_git_refuses(tmp_path, monkeypatch):
+    cm = _cm()
+    root = tmp_path / "not-git"
+    root.mkdir()
+    (root / ".code-review-graphignore").write_text("*.duckdb\n", encoding="utf-8")
+    monkeypatch.setattr(cm, "_uvx_path", lambda: "/usr/bin/uvx")
+    recorded: list[list[str]] = []
+    monkeypatch.setattr(cm, "run_crg_cli", _fake_crg_ok(recorded))
+    payload, code = cm.collect_build(root, full=True, postprocess="full")
+    assert code != 0
+    assert recorded == []
+
+
+def _status_is_ready() -> bool:
+    result = _run("status", "--json")
+    if result.returncode != 0:
+        return False
+    try:
+        return json.loads(result.stdout).get("status") == "ready"
+    except json.JSONDecodeError:
+        return False
+
+
+@pytest.mark.skipif(not _status_is_ready(), reason="CI 不上传 graph.db；本机 status=ready 才跑结构探针")
+def test_structure_probe_daily_full():
+    payload, _ = _query_json("daily-full")
+    blob = json.dumps(payload["layers"]["structure"]["hits"])
+    assert "market_feature_store" in blob
+    assert "cli" in blob.lower()
+
