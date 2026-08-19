@@ -61,6 +61,10 @@ from intelligence.services.episode_verifier import (
     VerifiedEpisodeOutcome,
     verify_episode_outcome,
 )
+from intelligence.services.judge_degrade import (
+    classify_degrade_counts,
+    degrade_class_for_status,
+)
 from intelligence.services.judge_source_recheck import recheck_draft, recheck_enabled
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
@@ -95,6 +99,10 @@ JudgeStatus = Literal["passed", "repaired", "rejected", "unavailable"]
 # 提高首窗成功率优先于保留一个够不着的重试窗口。
 DEFAULT_JUDGE_TIMEOUT_SECONDS = 30.0
 MAX_SEMANTIC_JUDGE_WINDOW_SECONDS = 60.0
+# 剩余窗不足一次完整尝试时不再发起半截调用（W2）。不要靠再抬窗口罩尾部。
+LEFTOVER_WINDOW_ISSUE = (
+    "semantic judge leftover window below one complete attempt"
+)
 
 
 def semantic_judge_window_seconds(policy: ResearchPolicy | None = None) -> float:
@@ -392,6 +400,7 @@ class SemanticEpisodeOutcome:
     exc_class: str | None = None
     http_status: int | None = None
     judge_attempt_index: int | None = None
+    judge_request: dict[str, object] | None = None
 
     def __post_init__(self) -> None:
         if not self.repair_output_ids:
@@ -426,7 +435,14 @@ class SemanticEpisodeOutcome:
     def to_dict(self) -> dict[str, object]:
         """Return the private artifact shape (public text stays sanitized)."""
 
-        return {
+        degrade_class = degrade_class_for_status(self.judge_status)
+        judge_count, content_count = classify_degrade_counts(
+            judge_status=self.judge_status,
+            extra_degrade_count=0,
+            exc_class=self.exc_class,
+            timeout_asked=self.timeout_asked,
+        )
+        payload: dict[str, object] = {
             "status": self.status,
             "public_answer": self.public_answer,
             "judge_status": self.judge_status,
@@ -441,8 +457,15 @@ class SemanticEpisodeOutcome:
             "exc_class": self.exc_class,
             "http_status": self.http_status,
             "judge_attempt_index": self.judge_attempt_index,
+            "degrade_class": degrade_class,
+            "judge_unavailable_count": judge_count,
+            "content_degraded_count": content_count,
+            "pending_rejudge": self.judge_status == "unavailable",
             "verified": self.verified.to_dict(),
         }
+        if self.judge_request is not None:
+            payload["judge_request"] = self.judge_request
+        return payload
 
 
 @dataclass(frozen=True)
@@ -463,6 +486,7 @@ class _JudgeCall:
     exc_class: str | None = None
     http_status: int | None = None
     judge_attempt_index: int | None = None
+    request: dict[str, object] | None = None
 
 
 def _judge_failure_identity(value: object) -> tuple[str | None, int | None]:
@@ -510,6 +534,11 @@ def _attach_judge_clock(
     outcome: SemanticEpisodeOutcome,
     call: _JudgeCall,
 ) -> SemanticEpisodeOutcome:
+    pending_request = (
+        dict(call.request)
+        if outcome.judge_status == "unavailable" and call.request is not None
+        else None
+    )
     return replace(
         outcome,
         timeout_asked=call.timeout_asked,
@@ -518,6 +547,7 @@ def _attach_judge_clock(
         exc_class=call.exc_class,
         http_status=call.http_status,
         judge_attempt_index=call.judge_attempt_index,
+        judge_request=pending_request,
     )
 
 
@@ -710,7 +740,7 @@ class SemanticEpisodeVerifier:
             sentences = _numbered_sentences(structural.outcome.draft)
 
         request = self._judge_request(frame, structural, sentences)
-        first = self._run_judge(request, deadline)
+        first = replace(self._run_judge(request, deadline), request=request)
         if deadline.expired:
             deadline_release_safe = (
                 first.report is None
@@ -732,6 +762,7 @@ class SemanticEpisodeVerifier:
             if first.monotonic_release_safe and issue in {
                 "semantic judge deadline exhausted",
                 "semantic judge transient provider error",
+                LEFTOVER_WINDOW_ISSUE,
             }:
                 candidate = self._transient_failure_candidate(
                     frame,
@@ -881,9 +912,12 @@ class SemanticEpisodeVerifier:
 
         # The re-judge sees the repaired draft but exactly the same evidence.
         repaired_sentences = _numbered_sentences(repaired_verified.outcome.draft)
-        second = self._run_judge(
-            self._judge_request(frame, repaired_verified, repaired_sentences),
-            deadline,
+        second_request = self._judge_request(
+            frame, repaired_verified, repaired_sentences
+        )
+        second = replace(
+            self._run_judge(second_request, deadline),
+            request=second_request,
         )
         second = _apply_optional_rejudge_deadline(second, deadline)
         second = _apply_numeric_condition_gate(
@@ -981,13 +1015,14 @@ class SemanticEpisodeVerifier:
                     twice_sentences = _numbered_sentences(
                         twice_verified.outcome.draft
                     )
-                    third = self._run_judge(
-                        self._judge_request(
-                            frame,
-                            twice_verified,
-                            twice_sentences,
-                        ),
-                        deadline,
+                    third_request = self._judge_request(
+                        frame,
+                        twice_verified,
+                        twice_sentences,
+                    )
+                    third = replace(
+                        self._run_judge(third_request, deadline),
+                        request=third_request,
                     )
                     third = _apply_optional_rejudge_deadline(third, deadline)
                     third = _apply_numeric_condition_gate(
@@ -1332,6 +1367,19 @@ class SemanticEpisodeVerifier:
         except Exception:
             provider = None
         if provider is not None:
+            leftover = _deadline_remaining_seconds(deadline)
+            if leftover_window_blocks_complete_attempt(
+                leftover, self._judge_timeout
+            ):
+                return self._clocked_judge_call(
+                    asked=0.0,
+                    remaining=leftover,
+                    correlated=False,
+                    unavailable=True,
+                    issue=LEFTOVER_WINDOW_ISSUE,
+                    root_deadline_exhausted=True,
+                    monotonic_release_safe=True,
+                )
             messages = [
                 {"role": "system", "content": _judge_system_prompt(request)},
                 {
@@ -1342,6 +1390,19 @@ class SemanticEpisodeVerifier:
             prior_failures_release_safe = True
             for attempt, timeout_limit in enumerate(attempt_timeouts):
                 remaining_at_entry = _deadline_remaining_seconds(deadline)
+                if leftover_window_blocks_complete_attempt(
+                    remaining_at_entry, self._judge_timeout
+                ):
+                    return self._clocked_judge_call(
+                        asked=0.0,
+                        judge_attempt_index=attempt,
+                        remaining=remaining_at_entry,
+                        correlated=False,
+                        unavailable=True,
+                        issue=LEFTOVER_WINDOW_ISSUE,
+                        root_deadline_exhausted=True,
+                        monotonic_release_safe=True,
+                    )
                 attempt_timeout = deadline.synthesis_timeout(timeout_limit)
                 if attempt_timeout <= 0.001:
                     failure_chain_release_safe = (
@@ -3308,6 +3369,30 @@ def _stable_semantic_judge_error(value: object) -> tuple[str, bool, bool]:
     ):
         return "semantic judge transient provider error", True, False
     return "semantic judge provider error", False, False
+
+
+def complete_judge_attempt_seconds(configured_attempt_timeout: float) -> float:
+    """One complete first attempt under a full window, not a leftover sliver."""
+
+    per_attempt_cap = max(0.1, float(configured_attempt_timeout))
+    full_window = min(
+        semantic_judge_window_seconds(),
+        per_attempt_cap * MAX_SEMANTIC_JUDGE_ATTEMPTS,
+    )
+    return min(per_attempt_cap, full_window * 0.5)
+
+
+def leftover_window_blocks_complete_attempt(
+    remaining_seconds: float | None,
+    configured_attempt_timeout: float,
+) -> bool:
+    """True when the leftover window cannot fit one complete judge attempt."""
+
+    if remaining_seconds is None:
+        return False
+    return float(remaining_seconds) + 1e-9 < complete_judge_attempt_seconds(
+        configured_attempt_timeout
+    )
 
 
 def _semantic_attempt_timeouts(

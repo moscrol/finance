@@ -16,6 +16,8 @@ import urllib.request
 from pathlib import Path
 from typing import BinaryIO
 
+from intelligence.services.judge_degrade import split_degrade_from_payloads
+
 TERMINAL_RUN_STATUSES = {"completed", "failed", "cancelled"}
 ANSWER_PHASES = {
     "verified_draft",
@@ -1131,12 +1133,15 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
         outcome = (
             "degraded" if run_status == "completed" and degrades else str(run_status)
         )
+        degrade_split = split_degrade_from_payloads(degrades, report_payload)
         summary.update(
             {
                 "run_id": run_id,
                 "run_status": run_status,
                 "terminal_outcome": outcome,
                 "degrade_count": len(degrades),
+                "judge_unavailable_count": degrade_split["judge_unavailable_count"],
+                "content_degraded_count": degrade_split["content_degraded_count"],
                 "sse": sse_summary,
                 "answer_stream": answer_stream,
                 "report": {
