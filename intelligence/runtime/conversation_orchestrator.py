@@ -3929,6 +3929,16 @@ class TurnOrchestrator:
             {"message": asdict(assistant)},
             conversation_id,
         )
+        # 挂在消息终稿之后，不挤 claim→revise 窗口（见上方写序注释）。
+        # 失败不挡回答；pytest / test 用户由 helper 自己跳过。
+        self._ingest_track_next_watch(
+            query=query,
+            answer=answer_text,
+            question_type=turn_intent.question_type,
+            as_of=result.as_of,
+            theme=task_frame.subject,
+            session_id=run_id,
+        )
         return TurnResult(
             status=projected.run,
             content=assistant.content,

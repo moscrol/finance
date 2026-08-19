@@ -508,7 +508,13 @@ def test_orchestrator_records_not_prepared_when_synthesis_messages_are_absent(
     assert diagnostic["reason_code"] == "no_prepared_messages"
 
 
-def _continuous_forecast_fixture(tmp_path, query: str):
+def _continuous_forecast_fixture(
+    tmp_path,
+    query: str,
+    *,
+    question_type: str = "market_forecast",
+    subject: str = "A股市场",
+):
     conversation_store = ConversationStore(
         "alice",
         root=tmp_path / "conversations",
@@ -524,8 +530,8 @@ def _continuous_forecast_fixture(tmp_path, query: str):
     frame = TaskFrame(
         raw_question=query,
         user_goal="判断市场后续走势",
-        question_type="market_forecast",
-        subject="A股市场",
+        question_type=question_type,
+        subject=subject,
         subject_kind="market_pattern",
         market_scope="A股",
         timeframe="最近交易日",
@@ -781,6 +787,84 @@ def test_continuous_handled_turn_bypasses_legacy_and_persists_public_result(
     )
     assert report["answer_status"] == "complete"
     assert report["answer_marker_coverage"]["marker_coverage"] == "incomplete"
+
+
+def test_complete_continuous_turn_registers_next_watch(tmp_path, monkeypatch) -> None:
+    """会话口跟踪题走 continuous_episode，收尾必须登记下期关注。
+
+    2026-08-19 第二轮 live：parse 已认正文，checkpoints 仍 0。根因是
+    ingest 只挂在 legacy ask-compose，`_complete_continuous_turn` 从不调用。
+    helper 在 pytest 下是 no-op，本条钉的是收尾会调用。
+    """
+    query = "光伏最近一个月有什么新变化"
+    (
+        conversation_store,
+        run_store,
+        conversation,
+        run_id,
+        assistant_message_id,
+        frame,
+        intent,
+        controller,
+    ) = _continuous_forecast_fixture(
+        tmp_path,
+        query,
+        question_type="theme_track",
+        subject="光伏",
+    )
+    captured: list[dict[str, object]] = []
+
+    class Adapter:
+        def handle(self, *, frame: TaskFrame, control):
+            return ContinuousTurnResult(
+                handled=True,
+                status="completed",
+                answer=(
+                    "无上期基线，本期建立基线。"
+                    "下期关注清单：若 2026-09-12 中报毛利率 <20% 则削弱扩产逻辑。"
+                ),
+                as_of="2026-08-19",
+                citations=(),
+                warnings=(),
+                private_artifact=None,
+                events=(),
+            )
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("legacy dependency must not run")
+
+    def capture_ingest(self, **kwargs):
+        captured.append(kwargs)
+
+    monkeypatch.setattr(TurnOrchestrator, "_ingest_track_next_watch", capture_ingest)
+    orchestrator = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=forbidden,
+        route_skills_fn=forbidden,
+        lane_answer_fn=forbidden,
+        turn_controller_fn=controller,
+        continuous_turn_adapter=Adapter(),
+    )
+    result = orchestrator.run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == "completed"
+    assert captured, "continuous 收尾必须调用 _ingest_track_next_watch"
+    call = captured[0]
+    assert call["query"] == query
+    assert "下期关注" in str(call["answer"])
+    assert call["question_type"] == "theme_track"
+    assert call["as_of"] == "2026-08-19"
+    assert call["theme"] == "光伏"
+    assert call["session_id"] == run_id
 
 
 def test_continuous_turn_injects_selected_perspective_and_headers_answer(
