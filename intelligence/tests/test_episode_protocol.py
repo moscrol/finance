@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import os
+from unittest import mock
 
 import pytest
 
@@ -223,6 +225,27 @@ def test_episode_input_carries_perspective_context_only_when_active() -> None:
         "只允许使用下方这一位 KOL 的画像与原文召回。"
     )
     assert "不得当作事实证据" in active_input["perspective_context_rule"]
+
+
+def test_episode_input_carries_reading_baseline_by_default() -> None:
+    """判读基线默认进 continuous 输入，且能被 env 总开关整块关掉。
+
+    与 perspective_context 的契约相反：视角是观点层、默认不注入；判读基线是领域
+    方法层、**默认注入**——关掉它 agent 就退化成查数机器人。两个引擎都必须接，
+    只接 legacy 会重演 2026-08-14「视角配置生效、模型没看到」那次事故。
+    """
+    frame = _frame()
+    context = _context(frame)
+
+    on = json.loads(build_episode_input(frame, context))
+    assert "FY-A10" in on["reading_baseline"], "默认应注入判读基线"
+    assert "以证据为准" in on["reading_baseline_rule"]
+
+    # 总开关关掉后，payload 里两个键都不得出现（逐字节回到未内置状态）
+    with mock.patch.dict(os.environ, {"FINANCE_READING_BASELINE": "0"}):
+        off = json.loads(build_episode_input(frame, context))
+    assert "reading_baseline" not in off
+    assert "reading_baseline_rule" not in off
 
 
 def _static_contract_text() -> str:

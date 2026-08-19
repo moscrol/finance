@@ -1029,6 +1029,7 @@ def build_synthesis_messages(
     experience_guidance: str = "",
     exemplar_guidance: str = "",
     contract_guidance: str = "",
+    baseline_guidance: str = "",
 ) -> list[dict]:
     """Assemble the turn-1 synthesis ``[system, user]`` messages.
 
@@ -1046,6 +1047,16 @@ def build_synthesis_messages(
     evidence given here — follow-ups must not introduce new sources)."""
     # Build the static system prompt: base instructions + optional static blocks
     system_content = _SYNTHESIS_SYSTEM_PROMPT
+    if baseline_guidance:
+        # 判读基线排在经验卡片/样板之前：它是「怎么读数据」的强制方法，不是参考
+        # 经验。顺序与标签都照 contract_guidance 的教训办——语义标签给错，模型
+        # 会把强制项当可选参考（2026-08-13 workbench 实测，见本函数 docstring）。
+        system_content += (
+            "\n\n## 判读基线（领域方法，强制；优先级高于下方经验卡片与样板）\n"
+            "以下是本领域「数据该怎么读」的方法约束，适用于全部证据块。"
+            "与本轮证据冲突时以证据为准，但必须显式说明冲突，不得沉默跳过。\n"
+            f"{baseline_guidance}"
+        )
     if experience_guidance:
         system_content += (
             "\n\n## 历史经验卡片（用于避免重复犯错）\n"
