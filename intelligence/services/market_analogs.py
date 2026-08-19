@@ -448,9 +448,7 @@ def analog_block_for_llm(
         if not themes:
             return ""
         lines = ["## 历史类比检索块 [D8]"]
-        _analog_rule = reading_baseline.block_rule_line("SPT-A11")
-        if _analog_rule:
-            lines.append(_analog_rule)
+        lines.extend(reading_baseline.block_rule_lines("D8"))
         lines.append(
             f"- 口径：题材自身历史上与「最近 {window} 个交易日形态」（双红天数/成交额首末比/均涨）"
             "加权距离最近的窗口，及其后续 5/10/20 日实际走法；"
