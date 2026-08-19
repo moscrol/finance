@@ -249,7 +249,7 @@ def _overnight_leader_evidence(
     return evidence, result.gap
 
 
-_OVERNIGHT_NEWS_QUERY = "美股科技"
+_OVERNIGHT_NEWS_QUERY = "美股"
 
 
 def _should_attach_overnight_news(
@@ -798,7 +798,10 @@ def build_episode_registry(
             news_timeout = tool_context.deadline.stage_timeout(8.0)
             if news_timeout > 0.001:
                 news_evidence, news_obs = _overnight_news_evidence(
-                    as_of=served_date,
+                    as_of=market_news.query_date_cutoff(
+                        _OVERNIGHT_NEWS_QUERY,
+                        upper_bound=context.information_cutoff.as_of_date,
+                    ),
                     timeout=news_timeout,
                 )
                 if news_evidence:

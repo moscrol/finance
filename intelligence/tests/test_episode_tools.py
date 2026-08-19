@@ -1121,6 +1121,7 @@ def test_overnight_hybrid_market_data_attaches_eastmoney_news(
         task_id="overnight-news",
         capabilities=("market_data", "news_search"),
         timeout=30.0,
+        today="2026-08-19",
         latest_data_date="2026-08-18",
     )
     monkeypatch.setattr(
@@ -1152,11 +1153,12 @@ def test_overnight_hybrid_market_data_attaches_eastmoney_news(
         "resolve_overnight_leaders",
         empty_leaders,
     )
-    called: dict[str, object] = {"n": 0, "keyword": None}
+    called: dict[str, object] = {"n": 0, "keyword": None, "as_of": None}
 
     def fake_news(keyword: str, **_kwargs):
         called["n"] = int(called["n"]) + 1
         called["keyword"] = keyword
+        called["as_of"] = _kwargs.get("as_of")
         return NewsFetchResult(
             (
                 NewsItem(
@@ -1201,8 +1203,13 @@ def test_overnight_hybrid_market_data_attaches_eastmoney_news(
     blob = " ".join(
         f"{item.title} {item.detail}" for item in observation.evidence
     )
+    as_of = called["as_of"]
+    as_of_text = (
+        as_of.isoformat() if hasattr(as_of, "isoformat") else str(as_of or "")[:10]
+    )
     assert called["n"] == 1
-    assert called["keyword"] == "美股科技"
+    assert called["keyword"] == "美股"
+    assert as_of_text == "2026-08-19"
     assert any(item.tool == "news_search" for item in observation.evidence)
     assert "费城半导体" in blob
     assert "存储" in blob
