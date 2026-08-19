@@ -120,20 +120,19 @@ P0-A/B 对照已跑完（四.1 / 四.2）：只开授权没有长出 AI 证伪 v
 
 | 子项 | 08-13 已有 | 还缺 |
 |---|---|---|
-| E1 四态对照 | prompt + stub + `contract_missing_outputs` 收据（可并入 repair 词表）；episode 有 `episode_track_rule` | 没有 `prior_verdict_check` 字段；episode **运行时**接线仍是 2 档（注释写明归缝持有者） |
-| E2 修订版在前 | ask 路径 `compose_revise_on_warn`：WARN 回灌修订，正文换修订版，意见进「输出质检」附录 | **continuous 编排器显式 `compose_revise_on_warn=False`**；issue 格式是「检查名 + note」，不是 Knevo 四件套 |
-| E3 判断 TTL | 「复核期限：YYYY-MM-DD」文案，30/90 天 | 没有机器可读 `valid_until`，没有过期降级程序 |
-| E4 下期关注 | 答案侧已要求「指标+时间+触发」 | **消费端没有**：`followups.py` 对跟踪题跳过 recheck；foresight checkpoint 不读这份清单 |
+| E1 四态对照 | prompt + stub + `contract_missing_outputs` 收据；episode 有 `episode_track_rule` | **已合 #240**：adapter 把缺件并入 `missing_outputs`；纯表达缺口走 `contract_rewrite_candidate`（tool-closed），不写进 verifier `issues`。不要再造第二套文案，也不要接到 W5 取数补证（那是 numeric/财务锚） |
+| E2 修订版在前 | ask 路径 `compose_revise_on_warn`：WARN 回灌修订，正文换修订版，意见进「输出质检」附录 | **编排器已开 #239**。残留：issue 格式仍是「检查名 + note」，不是 Knevo 四件套；`research_owner` 仍显式 `False` |
+| E3 判断 TTL | 「复核期限：YYYY-MM-DD」文案，30/90 天 | **已合 #240**：收据 `valid_until` / `ttl_status`；过期只标注「已过期，待复核」，不删结论 |
+| E4 下期关注 | 答案侧已要求「指标+时间+触发」 | **消费端已合 #229**：parse → checkpoint `source=track_next_watch`。`followups.py` 对跟踪题跳过 recheck 是有意保留 |
 | E5 框架资产 | #216 已写入 `foresight_methodology.md` §八「竞争假说排除」 | `reading_baseline.py` 还在 `feat/reading-rules-baseline-batch1`，未入 main。那支合入时必须把 §八登记进 `_METHODOLOGY_OVERLAP`，否则漂移门禁红 |
 
 **证据链**：附录 A（q4/q8 原文）+ 2026-08-19 三 run（液冷/今日复盘/陶瓷纤维）证明「信息在、骨架不显形」。注意：这三发**不是** `theme_track`——「今日复盘」走市场复盘，液冷/陶瓷纤维多半是 `theme_analysis`。现有 `track_contract` 对它们本来就不会注入。四.3 不能当「跟踪契约没落地」的证据，只能当「非跟踪题的散文终稿」观察。
 
 **下一刀（只做未落地增量，另开验收，禁止与预测题捆一次）**：
 
-- **E4（先做）**：只做消费端——从跟踪题答案 parse「下期关注」→ `checkpoints.register_checkpoint`（`category=下期关注`，`source=track_next_watch`）→ 次日 foresight 系统提示词强制对照。不要再产出第二份清单。`followups.py` 对跟踪题跳过 recheck 的行为保留，但必须有 checkpoint 消费补上。
-- **E2（其后）**：只接通 continuous 呈现顺序（修订版在前）。**不换**仓内 `output_review` 的 6 项。附录 A.1 缺口 ②③ 不在本项。
-- **E1/E3（更后）**：`contract_missing_outputs` 已有收据；缺的是 episode 运行时真正送进 repair。禁止再注入第二套文案。
-- **E5**：已写，不要再写一遍。
+- **E4 / E2 / E1 / E3**：已分别合 #229 / #239 / #240。不要再做一遍运行时接线。
+- **E5**：已写，不要再写一遍。合 `feat/reading-rules-baseline-batch1` 时把 §八登记进 `_METHODOLOGY_OVERLAP`。
+- **残留（不是新管道）**：#240 纯 contract-rewrite 只有单测、没有单独 live；公开稿仍可被零证据门禁收成模板。
 
 **验收（另备题，禁止套第五轮隔夜预测题）**：1 道 `theme_track`（最好带上期 [M]/[V]）+ 1 道无基线跟踪题。看四态或「无上期基线」、TTL、下期关注是否进入次日输入。E 覆盖率不回退。
 
