@@ -79,7 +79,10 @@ def test_non_financial_residual_keeps_empty_runtime() -> None:
 
 
 def test_residual_episode_contract_opens_narrow_prime_slots() -> None:
-    """能力定稿后才开槽；行情/新闻槽收窄到单工具，先验槽可选且 user_premise。"""
+    """能力定稿后才开槽；三格全部可选：窄 evidence_types 负责把模型引向对应
+    工具，缺口只降级为 gap 行。required=True 的实际后果是
+    run_20260819_130854——prime_quote 混绑一条 finance_query 就把整篇换成
+    「现有证据不足」，controller 没点名的格不该有这个权力。"""
 
     frame = _frame("超纯应材估值怎么看")
     context = build_episode_context(frame, task_id="residual-prime-slots")
@@ -90,11 +93,11 @@ def test_residual_episode_contract_opens_narrow_prime_slots() -> None:
     assert "prime_memory" in slots
 
     assert slots["prime_quote"].evidence_types == ("market_data",)
-    assert slots["prime_quote"].required is True
+    assert slots["prime_quote"].required is False
     assert slots["prime_quote"].grounding_mode == "evidence"
 
     assert slots["prime_news"].evidence_types == ("news_search",)
-    assert slots["prime_news"].required is True
+    assert slots["prime_news"].required is False
     assert slots["prime_news"].grounding_mode == "evidence"
 
     assert slots["prime_memory"].evidence_types == ("memory_lookup",)
