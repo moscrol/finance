@@ -2,7 +2,7 @@
 
 - 日期：2026-08-19
 - 修订：2026-08-19 预审后修订——P0 附「已核验事实」；P3 的 terminal claim / late result 由「建立」改为「审计既有机制的覆盖边界」（`run_store.claim_terminal_run` 与 `QueryPublishGuard` 已存在且有测试）
-- 状态：待 agent 审阅执行
+- 状态：已执行并合 Gitea #245（`e5ca01d9`）。质检收尾见 `docs/verification/2026-08-19-workbench-runtime-hardening-closeout.md`
 - 范围：审查并逐步加固 Workbench/Benchwork 的 Agent runtime loop
 - 目标：把当前“生产候选级 runtime”推进到“单机/小规模自用场景的生产级 Agent runtime”
 - 非目标：本轮不更换 Agent SDK，不重写领域服务，不建设分布式多租户平台，不把所有问题合并成一次大重构
