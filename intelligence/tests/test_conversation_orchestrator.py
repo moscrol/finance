@@ -657,6 +657,11 @@ def test_continuous_handled_turn_bypasses_legacy_and_persists_public_result(
                     "system_prompt": "PRIVATE_SYSTEM_PROMPT",
                     "Authorization": "Bearer PRIVATE_SECRET_VALUE",
                     "api_key": "PRIVATE_API_KEY_VALUE",
+                    "semantic_verifier": {
+                        "judge_status": "passed",
+                        "issues": [],
+                        "correlated_judge": True,
+                    },
                 },
                 events=(
                     {
@@ -790,6 +795,7 @@ def test_continuous_handled_turn_bypasses_legacy_and_persists_public_result(
     assert report["gate_receipt"]["engine"] == "episode"
     assert "verified_status" in report["gate_receipt"]
     assert "judge_status" in report["gate_receipt"]
+    assert report["gate_receipt"]["correlated_judge"] is True
 
 
 def test_complete_continuous_turn_registers_next_watch(tmp_path, monkeypatch) -> None:

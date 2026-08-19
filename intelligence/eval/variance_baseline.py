@@ -22,7 +22,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from intelligence.services.gate_receipt import extract_gate_receipt
+from intelligence.services.gate_receipt import (
+    episode_public_correlated_judge,
+    extract_gate_receipt,
+    optional_bool,
+)
 
 REPO = Path(__file__).resolve().parents[2]
 RUNS_DIR = REPO / "intelligence" / "eval" / "runs"
@@ -46,12 +50,15 @@ FLIP_RATE_FORMULA = (
     "baseline_flip_rate = mean(per_question_flip_rate); "
     "mode = most frequent primary_outcome, ties broken by lexicographically smallest label; "
     "judge_unavailable_rate is mean(count(judge_unavailable)/N) and is NOT folded into "
-    "content quality or into the A/B pass/fail call."
+    "content quality or into the A/B pass/fail call; "
+    "correlated_judge_rate / independent_judge_rate are independence buckets "
+    "and are NOT folded into content quality."
 )
 
 AB_RULE = (
     "观测差异小于基线翻转率，不得下回归/改善结论。"
     "judge_unavailable 类 degrade 单列，不计入内容质量。"
+    "independent_n=0 时不得把判官结果当成独立验证（相关自审 / 缺字段都算）。"
 )
 
 
@@ -87,6 +94,16 @@ def per_question_flip_rate(outcomes: Sequence[str]) -> float:
     return sum(1 for item in outcomes if item != mode) / len(outcomes)
 
 
+def judge_independence_label(correlated_judge: Any) -> str:
+    """Only an explicit bool is known. Missing stays ``unknown``, not independent."""
+
+    if correlated_judge is True:
+        return "correlated"
+    if correlated_judge is False:
+        return "independent"
+    return "unknown"
+
+
 def ab_decision(observed_delta: float, baseline_flip_rate: float) -> str:
     """A/B 方差门：差异小于基线翻转率则不得下结论。
 
@@ -96,6 +113,23 @@ def ab_decision(observed_delta: float, baseline_flip_rate: float) -> str:
     if abs(float(observed_delta)) < float(baseline_flip_rate):
         return "no_call"
     return "callable"
+
+
+def judge_verification_decision(
+    *,
+    observed_delta: float,
+    baseline_flip_rate: float,
+    independent_n: int,
+) -> str:
+    """Judge-quality A/B is only callable on independent-judge samples.
+
+    Correlated self-review and missing ``correlated_judge`` stay ``no_call``
+    even when the content delta exceeds the flip-rate floor.
+    """
+
+    if int(independent_n) <= 0:
+        return "no_call"
+    return ab_decision(observed_delta, baseline_flip_rate)
 
 
 def primary_outcome_from_fields(
@@ -139,6 +173,7 @@ def normalize_repeat(raw: Mapping[str, Any], *, default_qid: str = "") -> dict[s
         "primary_outcome": primary,
         "judge_status": judge_status,
         "judge_unavailable": unavailable,
+        "correlated_judge": optional_bool(raw.get("correlated_judge")),
         "verified_status": raw.get("verified_status"),
         "terminal_outcome": raw.get("terminal_outcome"),
         "run_id": raw.get("run_id"),
@@ -160,18 +195,31 @@ def extract_from_run_dir(run_dir: Path) -> dict[str, Any]:
     receipt_judge = receipt.get("judge_status")
     if isinstance(receipt_judge, str) and receipt_judge:
         judge_status = receipt_judge
+    raw_receipt = None
+    for payload in (report, summary):
+        block = payload.get("gate_receipt") if isinstance(payload, dict) else None
+        if isinstance(block, dict):
+            raw_receipt = block
+            break
+    if raw_receipt is not None and "correlated_judge" in raw_receipt:
+        correlated_judge = optional_bool(raw_receipt.get("correlated_judge"))
+    else:
+        correlated_judge = None
 
     if episode:
         structural = episode.get("structural_verifier") or episode.get("verifier")
         if isinstance(structural, dict):
             verified = structural.get("verified_status")
+        semantic = episode.get("semantic_verifier")
+        if not isinstance(semantic, dict):
+            semantic = {}
         if judge_status is None:
-            semantic = episode.get("semantic_verifier")
-            if isinstance(semantic, dict):
-                judge_status = semantic.get("judge_status")
+            judge_status = semantic.get("judge_status")
             metrics = episode.get("metrics")
             if judge_status is None and isinstance(metrics, dict):
                 judge_status = metrics.get("semantic_status") or metrics.get("judge_status")
+        if raw_receipt is None or "correlated_judge" not in raw_receipt:
+            correlated_judge = episode_public_correlated_judge(semantic)
 
     if smoke:
         return normalize_repeat(
@@ -182,6 +230,7 @@ def extract_from_run_dir(run_dir: Path) -> dict[str, Any]:
                 "status": smoke.get("run_status") or run.get("status"),
                 "degrades": run.get("degrades") or [],
                 "judge_status": judge_status,
+                "correlated_judge": correlated_judge,
                 "run_id": smoke.get("run_id") or run.get("run_id") or run_dir.name,
             }
         )
@@ -200,6 +249,7 @@ def extract_from_run_dir(run_dir: Path) -> dict[str, Any]:
             "status": run.get("status"),
             "degrades": degrades,
             "judge_status": judge_status,
+            "correlated_judge": correlated_judge,
             "run_id": run.get("run_id") or run_dir.name,
         }
     )
@@ -387,6 +437,9 @@ def score_distribution(fixture: Mapping[str, Any]) -> dict[str, Any]:
     flip_rates: list[float] = []
     content_flip_rates: list[float] = []
     judge_rates: list[float] = []
+    correlated_rates: list[float] = []
+    independent_rates: list[float] = []
+    unknown_independence_rates: list[float] = []
 
     for block in fixture.get("questions") or []:
         qid = str(block.get("question_id") or "")
@@ -398,7 +451,16 @@ def score_distribution(fixture: Mapping[str, Any]) -> dict[str, Any]:
         flip = per_question_flip_rate(outcomes)
         n = len(repeats)
         unavailable_n = sum(1 for item in repeats if item["judge_unavailable"])
+        labels = [
+            judge_independence_label(item.get("correlated_judge")) for item in repeats
+        ]
+        correlated_n = sum(1 for label in labels if label == "correlated")
+        independent_n = sum(1 for label in labels if label == "independent")
+        unknown_n = sum(1 for label in labels if label == "unknown")
         judge_rate = unavailable_n / n
+        correlated_rate = correlated_n / n
+        independent_rate = independent_n / n
+        unknown_rate = unknown_n / n
         content = [item for item in repeats if not item["judge_unavailable"]]
         content_outcomes = [str(item["primary_outcome"]) for item in content]
         content_flip: float | None
@@ -412,6 +474,9 @@ def score_distribution(fixture: Mapping[str, Any]) -> dict[str, Any]:
             content_flip = None
         flip_rates.append(flip)
         judge_rates.append(judge_rate)
+        correlated_rates.append(correlated_rate)
+        independent_rates.append(independent_rate)
+        unknown_independence_rates.append(unknown_rate)
         per_question.append(
             {
                 "question_id": qid,
@@ -421,6 +486,12 @@ def score_distribution(fixture: Mapping[str, Any]) -> dict[str, Any]:
                 "flip_rate": _rate(flip),
                 "judge_unavailable_count": unavailable_n,
                 "judge_unavailable_rate": _rate(judge_rate),
+                "correlated_judge_count": correlated_n,
+                "correlated_judge_rate": _rate(correlated_rate),
+                "independent_judge_count": independent_n,
+                "independent_judge_rate": _rate(independent_rate),
+                "unknown_judge_independence_count": unknown_n,
+                "unknown_judge_independence_rate": _rate(unknown_rate),
                 "content_n": len(content_outcomes),
                 "content_flip_rate": None if content_flip is None else _rate(content_flip),
                 "repeats": repeats,
@@ -435,6 +506,10 @@ def score_distribution(fixture: Mapping[str, Any]) -> dict[str, Any]:
     content_mean = (
         _rate(statistics.fmean(content_flip_rates)) if content_flip_rates else None
     )
+    correlated_mean = _rate(statistics.fmean(correlated_rates))
+    independent_mean = _rate(statistics.fmean(independent_rates))
+    unknown_mean = _rate(statistics.fmean(unknown_independence_rates))
+    independent_total = sum(item["independent_judge_count"] for item in per_question)
     n_repeats = per_question[0]["n"]
     if any(item["n"] != n_repeats for item in per_question):
         n_repeats = max(item["n"] for item in per_question)
@@ -447,6 +522,10 @@ def score_distribution(fixture: Mapping[str, Any]) -> dict[str, Any]:
         "n": n_repeats,
         "baseline_flip_rate": baseline,
         "judge_unavailable_rate": judge_mean,
+        "correlated_judge_rate": correlated_mean,
+        "independent_judge_rate": independent_mean,
+        "unknown_judge_independence_rate": unknown_mean,
+        "independent_n": independent_total,
         "content_flip_rate": content_mean,
         "questions": per_question,
         "rev": fixture.get("rev") or "",
@@ -490,6 +569,10 @@ def build_receipt(
         "question_count": scored.get("question_count"),
         "baseline_flip_rate": scored["baseline_flip_rate"],
         "judge_unavailable_rate": scored["judge_unavailable_rate"],
+        "correlated_judge_rate": scored.get("correlated_judge_rate"),
+        "independent_judge_rate": scored.get("independent_judge_rate"),
+        "unknown_judge_independence_rate": scored.get("unknown_judge_independence_rate"),
+        "independent_n": scored.get("independent_n"),
         "content_flip_rate": scored.get("content_flip_rate"),
         "formula": scored.get("formula") or FLIP_RATE_FORMULA,
         "ab_rule": scored.get("ab_rule") or AB_RULE,
@@ -529,6 +612,9 @@ def _render_summary_md(payload: Mapping[str, Any]) -> str:
         f"- N: {payload.get('n')} · 题数 {payload.get('question_count')}",
         f"- baseline_flip_rate: **{payload.get('baseline_flip_rate')}**",
         f"- judge_unavailable_rate: {payload.get('judge_unavailable_rate')}",
+        f"- correlated_judge_rate: {payload.get('correlated_judge_rate')}",
+        f"- independent_judge_rate: {payload.get('independent_judge_rate')}",
+        f"- independent_n: {payload.get('independent_n')}",
         f"- content_flip_rate: {payload.get('content_flip_rate')}",
         "",
         AB_RULE,
@@ -541,6 +627,8 @@ def _render_summary_md(payload: Mapping[str, Any]) -> str:
             f"- `{item.get('question_id')}` n={item.get('n')} "
             f"mode={item.get('mode')} flip={item.get('flip_rate')} "
             f"judge_unavailable={item.get('judge_unavailable_rate')} "
+            f"correlated={item.get('correlated_judge_rate')} "
+            f"independent={item.get('independent_judge_rate')} "
             f"counts={item.get('primary_outcome_counts')}"
         )
     lines.append("")
@@ -733,6 +821,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--observed-delta", type=float, default=None)
     parser.add_argument("--baseline-flip", type=float, default=None)
+    parser.add_argument(
+        "--independent-n",
+        type=int,
+        default=None,
+        help="独立判官样本数；传入后走 verification 判定（0 则 no_call）",
+    )
     return parser
 
 
@@ -743,13 +837,21 @@ def main(argv: list[str] | None = None) -> int:
     if args.decide:
         if args.observed_delta is None or args.baseline_flip is None:
             parser.error("--decide 需要 --observed-delta 与 --baseline-flip")
-        decision = ab_decision(args.observed_delta, args.baseline_flip)
+        if args.independent_n is None:
+            decision = ab_decision(args.observed_delta, args.baseline_flip)
+        else:
+            decision = judge_verification_decision(
+                observed_delta=args.observed_delta,
+                baseline_flip_rate=args.baseline_flip,
+                independent_n=args.independent_n,
+            )
         print(
             json.dumps(
                 {
                     "decision": decision,
                     "observed_delta": args.observed_delta,
                     "baseline_flip_rate": args.baseline_flip,
+                    "independent_n": args.independent_n,
                     "ab_rule": AB_RULE,
                 },
                 ensure_ascii=False,

@@ -214,7 +214,11 @@ def test_slo_module_stays_in_services_and_does_not_import_runtime() -> None:
 
 
 def test_gate_receipt_keyset_is_frozen_against_slo_projection() -> None:
-    """P4 aggregates receipts; it must not grow the ask/episode dict-diff contract."""
+    """P4 aggregates receipts; growing the key set must stay dual-engine.
+
+    ``correlated_judge`` is L6 observation (eval can split same-model vs
+    independent judge). Ask stays JSON null; do not fake ``false``.
+    """
 
     assert RECEIPT_KEYS == (
         "schema_version",
@@ -226,4 +230,5 @@ def test_gate_receipt_keyset_is_frozen_against_slo_projection() -> None:
         "judge_unavailable_count",
         "content_degraded_count",
         "timings",
+        "correlated_judge",
     )
