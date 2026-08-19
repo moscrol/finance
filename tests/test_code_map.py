@@ -53,6 +53,14 @@ def _run(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str
     )
 
 
+def _graph_searchable() -> bool:
+    result = _run("status", "--json")
+    try:
+        return json.loads(result.stdout).get("status") in {"ready", "stale"}
+    except json.JSONDecodeError:
+        return False
+
+
 def _git(root: Path, *args: str) -> str:
     out = subprocess.run(
         ["git", *args],
@@ -105,6 +113,7 @@ def _collect(root: Path):
     return cm.collect_status(root)
 
 
+@pytest.mark.skipif(_graph_searchable(), reason="本机已有图；空图 CLI 由 tmp 夹具覆盖")
 def test_cli_empty_tree_exits_2_and_one_line_forbids_overview():
     result = _run("status", "--one-line")
     assert result.returncode == 2
@@ -115,6 +124,7 @@ def test_cli_empty_tree_exits_2_and_one_line_forbids_overview():
     assert "scripts/code_map.py build" not in result.stderr
 
 
+@pytest.mark.skipif(_graph_searchable(), reason="本机已有图；空图 CLI 由 tmp 夹具覆盖")
 def test_cli_empty_json_status_empty():
     result = _run("status", "--json")
     assert result.returncode == 2
@@ -323,7 +333,10 @@ def test_session_facts_hook_emits_code_map_line_and_exits_0():
     lines = [ln for ln in ctx.splitlines() if ln.startswith("代码地图:")]
     assert lines, ctx
     assert len(lines[0]) <= 80
-    assert "禁止空图架构结论" in lines[0]
+    status_line = _run("status", "--one-line").stdout.strip()
+    assert lines[0] == status_line
+    if "empty" in lines[0]:
+        assert "禁止空图架构结论" in lines[0]
 
 
 def _query_json(*args: str) -> tuple[dict, subprocess.CompletedProcess[str]]:
@@ -332,6 +345,7 @@ def _query_json(*args: str) -> tuple[dict, subprocess.CompletedProcess[str]]:
     return json.loads(result.stdout), result
 
 
+@pytest.mark.skipif(_graph_searchable(), reason="本机已有图；空图 query 由 tmp 夹具覆盖")
 def test_query_empty_graph_exits_0_and_refuses_structure():
     payload, result = _query_json("daily-full", "--json")
     assert payload["status"] == "empty"
@@ -542,22 +556,48 @@ def test_build_without_git_refuses(tmp_path, monkeypatch):
     assert recorded == []
 
 
-def _status_is_ready() -> bool:
-    result = _run("status", "--json")
-    if result.returncode != 0:
-        return False
-    try:
-        return json.loads(result.stdout).get("status") == "ready"
-    except json.JSONDecodeError:
-        return False
-
-
-@pytest.mark.skipif(not _status_is_ready(), reason="CI 不上传 graph.db；本机 status=ready 才跑结构探针")
+@pytest.mark.skipif(not _graph_searchable(), reason="CI 不上传 graph.db；本机有图才跑结构探针")
 def test_structure_probe_daily_full():
     payload, _ = _query_json("daily-full")
     blob = json.dumps(payload["layers"]["structure"]["hits"])
     assert "market_feature_store" in blob
     assert "cli" in blob.lower()
+
+
+def test_search_graph_parses_crg_json_results(tmp_path, monkeypatch):
+    cm = _cm()
+    root = _init_repo(tmp_path)
+    stdout = json.dumps(
+        {
+            "status": "ok",
+            "results": [
+                {
+                    "name": "cmd_daily_full",
+                    "file_path": str(root / "market_feature_store" / "cli.py"),
+                    "qualified_name": "market_feature_store/cli.py::cmd_daily_full",
+                    "signature": "def cmd_daily_full(args) -> int",
+                },
+                {
+                    "name": str(root / "tests" / "test_daily_full_preflight.py"),
+                    "file_path": str(root / "tests" / "test_daily_full_preflight.py"),
+                    "qualified_name": "tests/test_daily_full_preflight.py",
+                },
+            ],
+        }
+    )
+
+    def fake(args, cwd):
+        return subprocess.CompletedProcess(["uvx"], 0, stdout, "")
+
+    monkeypatch.setattr(cm, "run_crg_cli", fake)
+    hits = cm.search_graph("daily-full", root)
+    assert hits
+    assert hits[0]["symbol"] == "cmd_daily_full"
+    assert hits[0]["path"].endswith("market_feature_store/cli.py")
+    assert "cli.py::cmd_daily_full" in hits[0]["excerpt"]
+    assert hits[1]["symbol"] is None
+    assert hits[1]["path"].endswith("tests/test_daily_full_preflight.py")
+    assert hits[1]["title"] == "test_daily_full_preflight.py"
 
 
 def test_code_map_skill_and_discovery_symlink():
@@ -575,4 +615,5 @@ def test_code_map_skill_and_discovery_symlink():
     assert link.readlink().as_posix() == "../../skills/code-map"
     assert "scripts/code_map.py query" in text
     assert "research_tool_registry" not in text
+
 

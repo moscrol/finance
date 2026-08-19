@@ -487,30 +487,57 @@ def run_crg_cli(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
-def search_graph(question: str, cwd: Path | None = None) -> list[dict[str, Any]]:
-    """可搜时才调用。测试 monkeypatch 此函数以断言空图/error 不碰 CRG。"""
+def _is_path_like(value: str) -> bool:
+    return bool(value) and ("/" in value or "\\" in value)
+
+
+def _relpath(path: str, root: Path) -> str:
+    raw = Path(path)
+    if not raw.is_absolute():
+        raw = root / raw
     try:
-        proc = run_crg_cli(["search", question], cwd or repo_root())
+        return raw.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return Path(path).name or Path(path).as_posix()
+
+
+def search_graph(question: str, cwd: Path | None = None) -> list[dict[str, Any]]:
+    """可搜时才调用。解析 CRG search 的 JSON results，不按行切开。"""
+    root = cwd or repo_root()
+    try:
+        proc = run_crg_cli(["search", question], root)
     except UvxMissing:
         return []
     if proc.returncode != 0 or not proc.stdout.strip():
         return []
+    try:
+        data = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return []
+    rows = data.get("results") if isinstance(data, dict) else None
+    if not isinstance(rows, list):
+        return []
     hits: list[dict[str, Any]] = []
-    for line in proc.stdout.splitlines():
-        stripped = line.strip()
-        if not stripped:
+    for item in rows[:DOORS_HIT_CAP]:
+        if not isinstance(item, dict):
             continue
+        name = str(item.get("name") or "")
+        file_path = str(item.get("file_path") or "")
+        excerpt = str(item.get("qualified_name") or item.get("signature") or name)
+        rel = _relpath(file_path, root) if file_path else ""
+        if not rel and _is_path_like(name):
+            rel = _relpath(name, root)
+        symbol = None if _is_path_like(name) else (name or None)
+        title_src = symbol or Path(rel).name or Path(name).name or excerpt
         hits.append(
             {
-                "title": stripped[:TITLE_MAX],
-                "path": "",
-                "symbol": None,
-                "excerpt": stripped,
+                "title": title_src[:TITLE_MAX],
+                "path": rel,
+                "symbol": symbol,
+                "excerpt": excerpt,
                 "retired": [],
             }
         )
-        if len(hits) >= DOORS_HIT_CAP:
-            break
     return hits
 
 
