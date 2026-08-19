@@ -207,13 +207,28 @@
 
 | id | 缺什么 | 卡住哪些规则 | 现状 |
 |---|---|---|---|
-| G1 | 封板时间、一字板/秒板 vs 换手板 | SPT-A06、FY-A01（高度锚质量） | `fact_limit_advance_daily` 只有 boards/promotion_rate；`fact_theme_limit_heat_daily` 只有涨停家数/占比/排名 |
+| ~~G1~~ **G1 已更正** | 见下方更正块 | SPT-A06、FY-A01（高度锚质量） | **不是没抓，是抓了没送到 agent 面前 + 一列全空** |
 | G2 | 集合竞价数据 | FY-B01 | 无 |
 | G3 | 渗透率、产业链价格（现货/合约价）、交期、产能利用率 | SPT-B01、FY-A04、FY-A05 | 无结构化来源；部分可从研报/知识库文本取，但非结构化 |
 | G4 | 社融 / M1M2 / GDP / PPI / 汇率 | SPT-B02 | 无 |
 | G5 | 分钟级 K 线与技术形态（30 分钟底背离） | SPT-A02 | 主库无；`fph2026` 旁路库有 MACD 背离/缠论三买，需确认能否跨库引用 |
 
-**建议**：G1 优先——它卡住的是两人都强调的「涨停质量」判读，且数据源（fupanhui 连板梯队）已在用，属补字段而非接新源。
+> **[更正 2026-08-19] G1 原写「缺封板时间」是错的**——我只看了 `fact_limit_advance_daily`
+> 的 schema 就下了结论，犯的正是本仓 CLAUDE.md 那条「负面断言只搜一个文件证明不了」。
+> 实测（`db/market_feature_store.duckdb` 只读）：
+>
+> | 事实 | 状态 |
+> |---|---|
+> | `fact_theme_limit_stock_daily` 有 `first_limit_time` / `last_limit_time` | ✅ 143,193 行非空，覆盖 2025-01-02 ~ **2026-08-18**，格式如 `100031`＝10:00:31 |
+> | 同表 `open_times`（炸板次数） | ❌ **143,346 行全 NULL**：列在、`sync_fupanhui_limit_heat_daily.py:290` 的抓取表达式里也写了 `open_times:s.open_times`，但上游对象没有该属性或叫别的名，落库恒空 |
+> | 有没有数据块把这三列送到 agent 面前 | ❌ **没有**。消费方全是 skills 与报表（`daily_review.py`、`theme-fermentation-tracer` 等），`intelligence/services/` 无一处引用 |
+>
+> 所以 G1 拆成两个独立问题：
+>
+> - **G1a（可自己做）**：封板时间数据齐全且新鲜，只是 agent 看不到——需要一个数据块把它输出。做完可激活 SPT-A06 的「秒板识别」半边。
+> - **G1b（需你在场）**：`open_times` 恒空是**静默降级**，正是 CLAUDE.md 警告的形状——行数与覆盖率审计全绿、值是空壳。查证要外呼 fupanhui 比对真实 payload 字段名，需 CDP proxy + 登录态。**在它修好前，SPT-A06 的「换手是否充分」半边无论如何都做不了**，故该规则整体留在 `_PENDING_RULES`。
+
+**建议**：G1a 优先——数据齐全新鲜，只差一个输出块；但注意它只解决半条规则，G1b 不修则 SPT-A06 仍不能激活。
 
 ---
 
