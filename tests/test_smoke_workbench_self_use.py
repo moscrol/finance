@@ -377,6 +377,18 @@ def test_completed_smoke_replays_sse_and_writes_redacted_summary(
         "effective_mode": "bm25",
         "fallback_reason": "dense_dependency_missing",
     }
+    assert set(summary["gate_receipt_table"]) == {
+        "engine",
+        "rev",
+        "verified_status",
+        "judge_status",
+        "issue_count",
+        "judge_unavailable_count",
+        "content_degraded_count",
+        "elapsed_seconds",
+        "retrieve_seconds",
+        "judge_seconds",
+    }
     assert summary["secret_scan"]["hit_count"] == 0
     assert summary["public_scan"]["hit_count"] == 0
     assert "今天市场怎么样" not in raw_summary
@@ -392,6 +404,8 @@ def test_degraded_completed_smoke_returns_zero(tmp_path: Path) -> None:
     assert exit_code == 0
     assert summary["terminal_outcome"] == "degraded"
     assert summary["degrade_count"] == 1
+    assert summary["judge_unavailable_count"] == 0
+    assert summary["content_degraded_count"] == 1
 
 
 @pytest.mark.parametrize("status", ["failed", "cancelled"])

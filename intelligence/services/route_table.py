@@ -8,6 +8,7 @@ LLM Turn Controller 只能在这张表里选一行（受约束选择），
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Literal, TypeAlias
 
@@ -414,3 +415,87 @@ def render_route_table_prompt() -> str:
         examples = "；".join(row.examples)
         lines.append(f"- {row.route_id}：{row.description}（例：{examples}）")
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# 主车道 + overlay：不改 RouteRow / question_type，只追加证据 capabilities。
+# resolve_evidence_plan 通吃整表；新混合形状加一行，不再在 plan 里堆 if。
+# ---------------------------------------------------------------------------
+
+# 隔夜 / 外盘前提。只用市场专名，不用单独的「今晚」——「今晚复盘」仍是纯 A 股预测。
+# 与 query_understanding._EXTERNAL_MARKET_TERMS 对齐，并补上外盘/隔夜（那边把隔夜
+# 放在报价词里，单独不够把混合预测改道到 external_market）。
+_OVERNIGHT_EXTERNAL_MARKERS = (
+    "美股",
+    "纳指",
+    "纳斯达克",
+    "费半",
+    "费城半导体",
+    "道指",
+    "标普",
+    "外盘",
+    "隔夜",
+    "soxx",
+    "qqq",
+    "海外",
+)
+
+# 外部宏观事件词必须收紧：单独「新闻」「CPI」不触发。CPI 只认「同比」这种事件口径。
+_EXTERNAL_MACRO_EVENT_MARKERS = (
+    "美联储",
+    "fomc",
+    "非农",
+    "cpi同比",
+)
+
+# 本地推演侧：必须问 A 股/板块/推演，纯「美联储会不会降息」走 event_forecast，不加 overlay。
+_LOCAL_INFERENCE_MARKERS = (
+    "a股",
+    "板块",
+    "推演",
+)
+
+
+def _normalize_query_markers(query: str) -> str:
+    return re.sub(r"\s+", "", str(query or "")).casefold()
+
+
+def _has_overnight_external_premise(query: str) -> bool:
+    """隔夜/外盘专名是否出现。episode_tools 与组合表第一条共用此实现。"""
+    normalized = _normalize_query_markers(query)
+    return any(marker.casefold() in normalized for marker in _OVERNIGHT_EXTERNAL_MARKERS)
+
+
+def _has_external_macro_event_local_inference(query: str) -> bool:
+    """外部宏观事件 + 本地 A 股/板块推演。两翼都要，避免每条新闻题开火。"""
+    normalized = _normalize_query_markers(query)
+    has_event = any(
+        marker.casefold() in normalized for marker in _EXTERNAL_MACRO_EVENT_MARKERS
+    )
+    has_local = any(
+        marker.casefold() in normalized for marker in _LOCAL_INFERENCE_MARKERS
+    )
+    return has_event and has_local
+
+
+@dataclass(frozen=True)
+class LaneCompositionRule:
+    """(谓词, 追加 capabilities, 规则名)。overlay 只追加、不删、不改主车道。"""
+
+    predicate: Callable[[str], bool]
+    extra_capabilities: tuple[str, ...]
+    rule_name: str
+
+
+LANE_COMPOSITION_RULES: tuple[LaneCompositionRule, ...] = (
+    LaneCompositionRule(
+        _has_overnight_external_premise,
+        ("news_search", "web_search"),
+        "overnight_external_premise",
+    ),
+    LaneCompositionRule(
+        _has_external_macro_event_local_inference,
+        ("news_search", "web_search"),
+        "external_macro_event_local_inference",
+    ),
+)

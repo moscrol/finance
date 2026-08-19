@@ -1,0 +1,18 @@
+{
+  "run_id": "fixture-unavailable-20260819",
+  "judge_status": "unavailable",
+  "exc_class": "TimeoutError",
+  "timeout_asked": 25.0,
+  "timeout_configured": 30.0,
+  "remaining_seconds_at_entry": 25.1,
+  "published_answer": "市场当前偏弱。本次未完成独立复核（复核服务超时）",
+  "judge_request": {
+    "question": "当前市场怎么看？",
+    "sentences": [{"index": 1, "text": "市场当前偏弱。"}]
+  },
+  "replay_report": {
+    "passed": true,
+    "rejected_sentence_indexes": [],
+    "issues": []
+  }
+}

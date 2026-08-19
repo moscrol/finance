@@ -28,6 +28,9 @@ from intelligence.services.research_contract import RootBudgetLedger
 # 本常数仍是 `seconds_cap=None` 时的回退值，故未传参的调用方行为逐字节不变。
 # **禁止把这个 30 调成新常数**（R-20260816-07 / R-21）。
 _REPAIR_SECONDS_CAP = 30.0
+# W5 窄补证：不超过原回合（root hard cap）的这一比例。比「再给满 30s」更
+# 紧，避免补证把下游语义窗挤掉；低于 1s 仍 fail closed。
+BACKFILL_BUDGET_FRACTION = 0.25
 
 
 def _resolve_seconds_cap(seconds_cap: float | None) -> float:
@@ -187,6 +190,7 @@ class RepairAdmission:
     goal: RepairGoal
     grant: BudgetGrant
     delivery_only: bool = False
+    backfill: bool = False
 
 
 def _unique(values: tuple[str, ...] | list[str] | None) -> tuple[str, ...]:
@@ -554,14 +558,104 @@ def admit_repair(
     )
 
 
+def grant_for_backfill(
+    goal: RepairGoal,
+    *,
+    root_budget: RootBudgetLedger,
+    original_seconds: float,
+    tools_open: bool = True,
+    seconds_cap: float | None = None,
+) -> BudgetGrant | None:
+    """Grant one narrow evidence-fetch turn. No progress-gate, no extra cycles.
+
+    进度闸 ``should_reenter`` 要求主路径已经有独立新证据——数字型阻断常常
+    是「证据在、数字不在」，会被误判成不配再修。补证自己的闸是：工具开着、
+    指定了 capability、预算 ≤ 原回合 25%、且至少留得下一整次调用。
+    """
+
+    if not tools_open:
+        return None
+    if not goal.missing_evidence_modes:
+        return None
+    if goal.remaining_calls < 1:
+        return None
+    fraction_cap = max(0.0, float(original_seconds)) * BACKFILL_BUDGET_FRACTION
+    seconds = min(
+        goal.remaining_seconds,
+        fraction_cap,
+        _resolve_seconds_cap(seconds_cap),
+    )
+    if seconds < 1.0:
+        return None
+    grant = BudgetGrant(
+        grant_id=f"backfill-{goal.repair_goal_id}",
+        episode_id=goal.episode_id,
+        cycle=goal.cycle,
+        calls_granted=1,
+        seconds_granted=seconds,
+    )
+    return grant if root_budget.grant(grant) else None
+
+
+def admit_backfill_repair(
+    *,
+    episode_id: str,
+    missing_outputs: tuple[str, ...] = (),
+    missing_capabilities: tuple[str, ...] = (),
+    attempted_actions: tuple[str, ...] = (),
+    previous_progress: ProgressSnapshot,
+    remaining_calls: int,
+    remaining_seconds: float,
+    cycle: int,
+    root_budget: RootBudgetLedger,
+    tools_open: bool = True,
+    seconds_cap: float | None = None,
+) -> RepairAdmission | None:
+    """Admit exactly one IssueCode-triggered backfill turn."""
+
+    if not missing_capabilities:
+        return None
+    goal = build_repair_goal(
+        episode_id=episode_id,
+        missing_outputs=missing_outputs,
+        missing_capabilities=missing_capabilities,
+        previous_progress=previous_progress,
+        remaining_calls=remaining_calls,
+        remaining_seconds=remaining_seconds,
+        cycle=cycle,
+        attempted_actions=attempted_actions,
+    )
+    grant = grant_for_backfill(
+        goal,
+        root_budget=root_budget,
+        original_seconds=float(root_budget.hard_seconds_cap),
+        tools_open=tools_open,
+        seconds_cap=seconds_cap,
+    )
+    if grant is None:
+        return None
+    return RepairAdmission(
+        goal=replace(
+            goal,
+            remaining_calls=grant.calls_granted,
+            remaining_seconds=grant.seconds_granted,
+        ),
+        grant=grant,
+        backfill=True,
+    )
+
+
 __all__ = [
+    "BACKFILL_BUDGET_FRACTION",
     "BudgetGrant",
     "CoverageDelta",
     "ProgressSnapshot",
     "RepairAdmission",
     "RepairGoal",
+    "admit_backfill_repair",
     "admit_repair",
     "build_repair_goal",
+    "grant_for_backfill",
     "grant_for_cold_restart",
     "grant_for_delivery_repair",
     "grant_for_progress",

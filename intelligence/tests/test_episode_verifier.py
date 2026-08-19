@@ -9,6 +9,7 @@ from intelligence.services.agent_runtime import (
     EpisodeEvent,
     OutputEvidenceBinding,
 )
+from intelligence.services.episode_issues import IssueCode
 from intelligence.services.episode_verifier import verify_episode_outcome
 from intelligence.services.evidence_capabilities import (
     EvidencePlan,
@@ -263,9 +264,11 @@ def test_mixed_binding_strips_illegal_type_and_keeps_legal_hashes() -> None:
     assert by_id["prime_quote"].status == "fulfilled"
     assert by_id["prime_quote"].evidence_ids == ("market-1",)
     assert by_id["direct_assessment"].evidence_ids == ("market-1", "finance-1")
-    assert verified.issues == (
-        "stripped unsupported evidence type for prime_quote: finance_query",
-    )
+    assert [item.code for item in verified.issue_items] == [
+        IssueCode.EVIDENCE_TYPE_STRIPPED,
+    ]
+    assert verified.issue_items[0].subject == "prime_quote"
+    assert "finance_query" in verified.issue_items[0].message
     assert verified.missing_outputs == ()
 
 
@@ -307,10 +310,11 @@ def test_financial_anchor_strip_keeps_real_financial_floor() -> None:
     anchor = verified.completion.outputs[1]
     assert anchor.status == "fulfilled"
     assert anchor.evidence_ids == ("financial-1",)
-    assert verified.issues == (
-        "stripped unsupported evidence type for financial_business_anchor: "
-        "market_data",
-    )
+    assert [item.code for item in verified.issue_items] == [
+        IssueCode.EVIDENCE_TYPE_STRIPPED,
+    ]
+    assert verified.issue_items[0].subject == "financial_business_anchor"
+    assert "market_data" in verified.issue_items[0].message
 
 
 def test_stripped_evidence_cannot_satisfy_mandatory_capability() -> None:
@@ -348,13 +352,19 @@ def test_stripped_evidence_cannot_satisfy_mandatory_capability() -> None:
     verified = verify_episode_outcome(contract, outcome)
 
     assert verified.verified_status == "partial"
-    assert (
-        "stripped unsupported evidence type for direct_assessment: "
-        "mainline_context"
-    ) in verified.issues
-    assert (
-        "missing mandatory capability evidence: mainline_context"
-    ) in verified.issues
+    codes = {item.code for item in verified.issue_items}
+    assert IssueCode.EVIDENCE_TYPE_STRIPPED in codes
+    assert IssueCode.MISSING_MANDATORY_CAPABILITY in codes
+    assert any(
+        item.subject == "direct_assessment" and "mainline_context" in item.message
+        for item in verified.issue_items
+        if item.code == IssueCode.EVIDENCE_TYPE_STRIPPED
+    )
+    assert any(
+        "mainline_context" in item.subject
+        for item in verified.issue_items
+        if item.code == IssueCode.MISSING_MANDATORY_CAPABILITY
+    )
 
 
 def test_explicit_gap_is_partial_not_fake_completed() -> None:
@@ -544,9 +554,11 @@ def test_financial_anchor_requires_own_financial_hash_even_with_business_context
 
     assert verified.verified_status == "partial"
     assert verified.completion.outputs[1].status == "missing"
-    assert (
-        "missing required evidence type for financial_business_anchor: financial_data"
-        in verified.issues
+    assert any(
+        item.code == IssueCode.FINANCIAL_ANCHOR_MISSING
+        and item.subject == "financial_business_anchor"
+        and "financial_data" in item.message
+        for item in verified.issue_items
     )
 
 

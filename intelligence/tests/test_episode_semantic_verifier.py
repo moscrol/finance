@@ -16,9 +16,13 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
     OutputEvidenceBinding,
 )
+from intelligence.services.episode_issues import IssueCode
 from intelligence.services.episode_semantic_verifier import (
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
+    LEFTOVER_WINDOW_ISSUE,
     SemanticEpisodeVerifier,
+    leftover_window_blocks_complete_attempt,
+    numeric_condition_unsupported,
     semantic_judge_window_seconds,
 )
 from intelligence.services.episode_verifier import verify_episode_outcome
@@ -690,9 +694,9 @@ def test_semantic_repair_cannot_remove_a_visible_required_output_marker() -> Non
     assert "继续成立条件" in result.public_answer
     assert result.gap_output_ids == ("continuation_conditions",)
     assert result.to_dict()["gap_output_ids"] == ["continuation_conditions"]
-    assert (
-        "semantic repair removed required output: continuation_conditions"
-        in result.issues
+    assert any(
+        "semantic repair removed required output: continuation_conditions" in issue
+        for issue in result.issues
     )
 
 
@@ -723,8 +727,9 @@ def test_initial_valuation_draft_requires_substantive_scenario_output(
     assert structural.verified_status == "partial"
     assert structural.completion.outputs[1].output_id == "scenario_range"
     assert structural.completion.outputs[1].status == "missing"
-    assert "required output lacks substantive answer: scenario_range" in (
-        structural.issues
+    assert any(
+        "required output lacks substantive answer: scenario_range" in issue
+        for issue in structural.issues
     )
 
 
@@ -1104,6 +1109,21 @@ def test_local_gate_allows_dates_and_numeric_conditions_present_in_bound_evidenc
     assert result.judge_status == "passed"
     assert "2026年7月17日低点" in result.public_answer
     assert "3876.78点" in result.public_answer
+
+
+def test_numeric_condition_unsupported_is_detectable_before_judge() -> None:
+    """W5 必须在判官删句之前就能看到这个缺口。"""
+
+    _frame, structural = _structural(
+        "我的基准判断是反弹仍可持续。若指数跌破3870点则失效。"
+    )
+    assert numeric_condition_unsupported(structural) is True
+
+    _ok_frame, ok_structural = _structural(
+        "条件1：若指数跌破3876.78点，则反弹失效。",
+        detail="上证指数收于3876.78点。",
+    )
+    assert numeric_condition_unsupported(ok_structural) is False
 
 
 def test_local_gate_removes_calendar_weekday_mismatch() -> None:
@@ -2223,7 +2243,7 @@ def test_independent_judge_provider_records_uncorrelated(monkeypatch) -> None:
     result = SemanticEpisodeVerifier().verify(
         frame=frame,
         structurally_verified=structural,
-        deadline=ResearchDeadline.from_timeout(5),
+        deadline=ResearchDeadline.from_timeout(60),
     )
     assert result.status == "completed"
     assert result.correlated_judge is False
@@ -2252,7 +2272,7 @@ def test_independent_judge_provider_takes_priority_over_injected_judge(
     ).verify(
         frame=frame,
         structurally_verified=structural,
-        deadline=ResearchDeadline.from_timeout(5),
+        deadline=ResearchDeadline.from_timeout(60),
     )
     assert result.status == "completed"
     assert result.correlated_judge is False
@@ -2282,13 +2302,51 @@ def test_independent_judge_retries_one_transient_failure(
     result = SemanticEpisodeVerifier().verify(
         frame=frame,
         structurally_verified=structural,
-        deadline=ResearchDeadline.from_timeout(5),
+        deadline=ResearchDeadline.from_timeout(60),
     )
 
     assert result.status == "completed"
     assert result.judge_status == "passed"
     assert len(calls) == 2
-    assert all(0.0 < timeout <= 5.0 for timeout in calls)
+    assert all(0.0 < timeout <= 60.0 for timeout in calls)
+
+
+def test_leftover_sliver_does_not_dispatch_independent_judge(monkeypatch) -> None:
+    frame, structural = _structural("市场当前偏弱。")
+    provider = llm_refine.LLMProvider(
+        "judge", "secret", "https://judge.invalid", "j"
+    )
+    calls: list[float] = []
+
+    def complete(*_args, **kwargs):
+        calls.append(float(kwargs["timeout"]))
+        return (
+            '{"passed":true,"rejected_sentence_indexes":[],"issues":[]}',
+            provider,
+            "",
+        )
+
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: provider)
+    monkeypatch.setattr(llm_refine, "complete", complete)
+
+    result = SemanticEpisodeVerifier(judge_timeout=12.0).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(0.5),
+    )
+    payload = result.to_dict()
+
+    assert calls == []
+    assert leftover_window_blocks_complete_attempt(0.5, 12.0) is True
+    assert leftover_window_blocks_complete_attempt(20.0, 12.0) is False
+    assert result.judge_status == "unavailable"
+    assert LEFTOVER_WINDOW_ISSUE in result.issues
+    assert payload["degrade_class"] == "judge_unavailable"
+    assert payload["judge_unavailable_count"] == 1
+    assert payload["content_degraded_count"] == 0
+    assert payload["pending_rejudge"] is True
+    assert payload["timeout_asked"] == 0.0
+    assert isinstance(payload.get("judge_request"), dict)
 
 
 def test_judge_outage_is_partial_and_never_exposes_raw_draft() -> None:
@@ -2326,7 +2384,7 @@ def test_independent_judge_outage_keeps_uncorrelated_audit_flag(monkeypatch) -> 
     result = SemanticEpisodeVerifier().verify(
         frame=frame,
         structurally_verified=structural,
-        deadline=ResearchDeadline.from_timeout(5),
+        deadline=ResearchDeadline.from_timeout(60),
     )
 
     assert result.status == "partial"
@@ -3807,9 +3865,10 @@ def test_missing_mandatory_news_can_release_judged_market_facts_as_partial() -> 
     )
 
     assert partial.verified_status == "partial"
-    assert partial.issues == (
-        "missing mandatory capability evidence: news_search",
-    )
+    assert [item.code for item in partial.issue_items] == [
+        IssueCode.MISSING_MANDATORY_CAPABILITY,
+    ]
+    assert "news_search" in partial.issue_items[0].subject
     assert result.status == "partial"
     assert result.judge_status == "passed"
     assert "本周实际上涨约3%" in result.public_answer
@@ -3862,9 +3921,11 @@ def test_wrong_type_prime_slot_releases_judged_rest_as_partial() -> None:
         ),
     )
     assert partial.verified_status == "partial"
-    assert partial.issues == (
-        "unsupported evidence type for prime_quote: finance_query",
-    )
+    assert [item.code for item in partial.issue_items] == [
+        IssueCode.EVIDENCE_TYPE_UNSUPPORTED,
+    ]
+    assert partial.issue_items[0].subject == "prime_quote"
+    assert "finance_query" in partial.issue_items[0].message
     judge = _judge(True)
 
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
@@ -3929,9 +3990,11 @@ def test_stripped_mixed_prime_binding_completes_and_releases_draft() -> None:
         ),
     )
     assert verified.verified_status == "completed"
-    assert verified.issues == (
-        "stripped unsupported evidence type for prime_quote: finance_query",
-    )
+    assert [item.code for item in verified.issue_items] == [
+        IssueCode.EVIDENCE_TYPE_STRIPPED,
+    ]
+    assert verified.issue_items[0].subject == "prime_quote"
+    assert "finance_query" in verified.issue_items[0].message
     judge = _judge(True)
 
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
@@ -3993,6 +4056,10 @@ def test_financial_floor_issue_still_fails_closed_without_judge() -> None:
         ),
     )
     assert partial.verified_status == "partial"
+    assert any(
+        item.code == IssueCode.FINANCIAL_ANCHOR_MISSING
+        for item in partial.issue_items
+    )
     calls: list[object] = []
 
     result = SemanticEpisodeVerifier(
