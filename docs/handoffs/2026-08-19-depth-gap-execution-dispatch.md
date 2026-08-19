@@ -22,8 +22,8 @@
 |---|---|---|---|
 | A | 门禁放行 live 验证（打生产 8792） | **已关闭 15:28** | 与 B/E 并行；**B 现可链切** |
 | B | E4 验收收口（sidecar live → 合并 → 切 8792） | 无，立即可开 | live 部分与 A/E 并行；**链切须在 A 重放完成后** |
-| C | E2 修订版在前（continuous 接通） | **B 合并后**（同文件 `conversation_orchestrator`） | 与 D 串行 |
-| D | E1 四态接 repair + E3 TTL 机器可读 | C 之后 | — |
+| C | E2 修订版在前（continuous 接通） | **已关闭 #239** | 与 D 曾串行 |
+| D | E1 四态接 repair + E3 TTL 机器可读 | **已关闭 #240** | — |
 | E | 验证器消融实验（只读，零合并） | 无 | 与 A/B 并行（sidecar 端口错开） |
 
 ## 轨道 A：门禁放行 live 验证
@@ -46,16 +46,13 @@
 
 ## 轨道 C：E2 修订版在前（B 合并后开工）
 
-- 从合并后的 `gitea/main` 新开 `feat/e2-revise-first`。
-- 施工缝与边界：R5 §三 P1-E「E2（其后）」行——只接通 continuous 编排器呈现顺序（现状 `compose_revise_on_warn=False`），**不换**仓内 `output_review` 的 6 项，附录 A.1 缺口②③不做。
-- 验收：另备 WARN 案例题（不是预测题），正文=修订版在前、审查意见进「输出质检」附录；测试先红后绿；sidecar live 一发。
-- 合并需用户确认。
+- **已关闭（#239，`2c8809c8`）**：读数 `docs/verification/2026-08-19-e2-revise-first-live.md`。编排器 `compose_revise_on_warn=True`。残留 issue 格式 / `research_owner` 仍 False，不归本轨道重开。
 
 ## 轨道 D：E1 四态接 repair + E3 TTL（C 之后）
 
-- E1：`contract_missing_outputs` 收据已有，缺的是 episode **运行时**真正送进 repair（R5 §三 E1 行）。禁止再注入第二套文案。⚠ #224 已改 verifier issues 语义（新增 `stripped unsupported evidence type` 前缀、类型缺口可 partial 放行），对接 repair 词表以 main 现状为准，别拿旧 run 的 issue 文案当契约。
-- E3：判断加机器可读 `valid_until` + 过期降级程序；过期只标注不删结论（R5 §三「边界」）。
-- 验收：同轨道 B 的题型纪律（theme_track 真题）；测试先红后绿。合并需用户确认。
+- **已关闭（#240，`30f98d73`）**：读数 `docs/verification/2026-08-19-e1-e3-repair-ttl-live.md`。E1 并入 `missing_outputs`，表达层-only 走 `contract_rewrite_candidate`；E3 收据 `valid_until`，过期只标注。
+- **不要**把跟踪缺件接到 W5 `admit_backfill_repair`：那条管道开 `market_data` / `financial_data` 取数；跟踪缺件是四态/TTL/下期关注的**表达缺口**。混进去会开工具、破坏 never-add。
+- 禁止再注入第二套文案。#224 放行门吃 issue 前缀，track 缺件不写进 `issues`。
 
 ## 轨道 E（可选）：验证器消融实验
 
@@ -72,7 +69,7 @@
 ## 用户拍板点
 
 1. 轨道 B 的合并与链切时机。
-2. 轨道 C / D 的合并。
+2. 轨道 C / D 的合并。**已发生**（#239 / #240）。
 3. `finance_query` 要不要正式进 `prime_quote` 白名单（轨道 A 一周 telemetry 后，数据口径决定）。
 4. 轨道 E 若证伪「无据数字触发线是负资产」的机制收窄表述 → R5 修订。
 
