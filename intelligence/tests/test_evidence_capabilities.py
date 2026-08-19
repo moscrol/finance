@@ -1,9 +1,15 @@
+import inspect
+
 import pytest
 
+from intelligence.services import evidence_capabilities as evidence_capabilities_mod
 from intelligence.services.evidence_capabilities import (
+    _OVERLAY_REQUIREMENT_TEMPLATE,
+    _has_overnight_external_premise,
     is_current_market_query,
     resolve_evidence_plan,
 )
+from intelligence.services.route_table import LANE_COMPOSITION_RULES
 
 # 一道盘面题拿不到行情数据时，答案看起来仍然是完整的——所以这类漏判不会自己
 # 暴露，只能靠一张固定的自然问法表守。表里每条都写明「为什么它曾经漏/曾经误
@@ -122,12 +128,153 @@ def test_tonight_review_without_external_marker_stays_local_forecast():
     }
 
 
+_FED_MACRO_LOCAL = "美联储决议后 A 股半导体板块怎么推演"
+
+# 每条组合规则至少一条问法。新增规则必须在此登记，否则穷尽测试红。
+_COMPOSITION_RULE_QUERIES: dict[str, str] = {
+    "overnight_external_premise": _FIFTH_ROUND_OVERNIGHT,
+    "external_macro_event_local_inference": _FED_MACRO_LOCAL,
+}
+
+
+def test_every_lane_composition_rule_has_a_forecast_overlay_case():
+    assert {rule.rule_name for rule in LANE_COMPOSITION_RULES} == set(
+        _COMPOSITION_RULE_QUERIES
+    )
+    for rule in LANE_COMPOSITION_RULES:
+        query = _COMPOSITION_RULE_QUERIES[rule.rule_name]
+        assert rule.predicate(query), rule.rule_name
+        plan = resolve_evidence_plan(query, question_type="market_forecast")
+        capabilities = {item.capability for item in plan.requirements}
+        assert plan.profile == "market_forecast"
+        assert plan.mandatory_provider_names == ("MARKET_DAILY",)
+        assert capabilities.issuperset(rule.extra_capabilities)
+
+
+def test_overnight_is_first_composition_rule_and_same_predicate():
+    first = LANE_COMPOSITION_RULES[0]
+    assert first.rule_name == "overnight_external_premise"
+    assert first.predicate is _has_overnight_external_premise
+
+
+def test_resolve_evidence_plan_has_no_overnight_special_case_if():
+    source = inspect.getsource(evidence_capabilities_mod.resolve_evidence_plan)
+    assert "if _has_overnight_external_premise" not in source
+    assert "_apply_lane_composition" in source
+    module_source = inspect.getsource(evidence_capabilities_mod)
+    assert "if _has_overnight_external_premise" not in module_source
+
+
+def test_fed_event_theme_analysis_also_overlays_news_and_web():
+    """第二条规则不能只在测试写死 market_forecast 时才生效。"""
+    plan = resolve_evidence_plan(
+        _FED_MACRO_LOCAL,
+        question_type="theme_analysis",
+    )
+    capabilities = {item.capability for item in plan.requirements}
+    assert capabilities == {"news_search", "web_search"}
+    assert all(item.mandatory is False for item in plan.requirements)
+
+
+def test_fed_event_local_inference_overlays_news_and_web_only():
+    plan = resolve_evidence_plan(
+        _FED_MACRO_LOCAL,
+        question_type="market_forecast",
+    )
+    capabilities = {item.capability for item in plan.requirements}
+    assert plan.profile == "market_forecast"
+    assert plan.mandatory_provider_names == ("MARKET_DAILY",)
+    assert capabilities == {
+        "market_data",
+        "mainline_context",
+        "news_search",
+        "web_search",
+    }
+    overlay = [
+        item
+        for item in plan.requirements
+        if item.capability in {"news_search", "web_search"}
+    ]
+    assert overlay and all(item.mandatory is False for item in overlay)
+
+
+def test_fomc_and_nfp_local_inference_also_overlay():
+    queries = (
+        "FOMC 决议后对 A 股半导体怎么推演",
+        "非农公布后 A 股怎么走",
+        "CPI 同比公布后 A 股银行板块怎么看",
+    )
+    for query in queries:
+        plan = resolve_evidence_plan(query, question_type="market_forecast")
+        capabilities = {item.capability for item in plan.requirements}
+        assert capabilities >= {"news_search", "web_search"}, query
+
+
+def test_macro_event_without_local_inference_does_not_overlay():
+    plan = resolve_evidence_plan(
+        "美联储今晚会不会降息",
+        question_type="market_forecast",
+    )
+    assert {item.capability for item in plan.requirements} == {
+        "market_data",
+        "mainline_context",
+    }
+
+
+def test_cpi_without_yoy_does_not_overlay_even_with_a_share():
+    plan = resolve_evidence_plan(
+        "CPI公布后A股银行板块怎么走",
+        question_type="market_forecast",
+    )
+    assert {item.capability for item in plan.requirements} == {
+        "market_data",
+        "mainline_context",
+    }
+
+
+def test_plain_news_forecast_does_not_overlay_macro_rule():
+    plan = resolve_evidence_plan(
+        "今天有什么财经新闻，明天盘面会怎么走",
+        question_type="market_forecast",
+    )
+    assert {item.capability for item in plan.requirements} == {
+        "market_data",
+        "mainline_context",
+    }
+
+
+def test_composition_overlay_does_not_duplicate_or_remove_base_caps():
+    query = "隔夜美股因美联储决议大跌，明天A股板块怎么推演"
+    plan = resolve_evidence_plan(query, question_type="market_forecast")
+    capabilities = [item.capability for item in plan.requirements]
+    assert capabilities[:2] == ["market_data", "mainline_context"]
+    assert capabilities.count("news_search") == 1
+    assert capabilities.count("web_search") == 1
+
+
+def test_every_composition_extra_capability_has_overlay_template():
+    for rule in LANE_COMPOSITION_RULES:
+        for capability in rule.extra_capabilities:
+            assert capability in _OVERLAY_REQUIREMENT_TEMPLATE, (
+                rule.rule_name,
+                capability,
+            )
+
+
 def test_methodology_query_does_not_inherit_market_capabilities():
     plan = resolve_evidence_plan(
         "市场主线判断的 agent 架构怎么实现？",
         question_type="methodology_discussion",
     )
     assert plan.profile == "general"
+    assert plan.requirements == ()
+
+
+def test_knowledge_lane_does_not_take_composition_overlay():
+    plan = resolve_evidence_plan(
+        _FED_MACRO_LOCAL,
+        question_type="methodology_discussion",
+    )
     assert plan.requirements == ()
 
 
