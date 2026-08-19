@@ -577,9 +577,11 @@ class SemanticEpisodeVerifier:
         ):
             # A semantic pass cannot promote a structural partial.  Avoid even
             # calling the judge when no useful required output survived or the
-            # partial was caused by anything other than an explicit evidence
-            # gap.  A mixed fulfilled/gap result may still be judged and
-            # released as partial, but can never be promoted to completed.
+            # partial was caused by anything outside the release allowlist
+            # (explicit evidence gap / missing mandatory capability / evidence
+            # type whitelist).  A mixed fulfilled/gap result may still be
+            # judged and released as partial, but can never be promoted to
+            # completed.
             status: SemanticStatus = (
                 "failed" if structural.verified_status == "failed" else "partial"
             )
@@ -2111,9 +2113,12 @@ def _can_semantically_release_partial(
 ) -> bool:
     """Allow a useful partial through the judge without weakening hard gates.
 
-    Only an explicit required-output evidence gap is eligible.  Missing
-    bindings, unknown hashes, frame mismatches, and every other structural
-    issue still fail closed before the semantic judge sees the draft.
+    Eligible issues are the ones where至少一个槽位已凭真实证据履行、缺口本身
+    可以诚实呈现：模型自报 gap、强制能力未绑上、以及证据**类型白名单**问题
+    （混绑已在结构层剔除非法哈希，整格非法则该槽已判 missing——两种情况下
+    正文引用的仍是证据池里真实采集的内容）。Unknown hashes、伪造、frame
+    mismatch、财务锚地板（"missing required evidence type for"）等其余结构
+    问题仍在语义裁判看到草稿之前 fail closed。
     """
 
     if verified.verified_status != "partial":
@@ -2140,6 +2145,12 @@ def _can_semantically_release_partial(
             (
                 "required output reports gap:",
                 "missing mandatory capability evidence:",
+                # 2026-08-19：门禁只设在最关键证据上。类型白名单问题不再
+                # 一票换掉整篇——已检索到、可溯源的内容以 partial 放行，
+                # 语义裁判仍逐句把关。注意 "stripped …" 不以 "unsupported"
+                # 开头，两个前缀都要列。
+                "unsupported evidence type for",
+                "stripped unsupported evidence type for",
             )
         )
         for issue in verified.issues

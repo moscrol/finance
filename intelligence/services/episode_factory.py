@@ -326,6 +326,13 @@ _RESIDUAL_PRIME_SLOTS: tuple[tuple[str, str], ...] = (
     ("memory_lookup", "prime_memory"),
 )
 
+# 契约里存在但缺了不判失败的槽位：装配层加的检索引导（prime_*）与用户先验
+# 召回（prior_recall）。它们的作用是让「调对应工具」对完成契约有贡献，
+# 不是用户点名要的产出，所以缺口降级为 gap 行，不进 missing_outputs。
+_ADVISORY_OUTPUT_IDS = frozenset(
+    {"prior_recall", "prime_memory", "prime_quote", "prime_news"}
+)
+
 
 def _with_residual_prime(
     output_ids: tuple[str, ...],
@@ -537,7 +544,15 @@ def build_episode_context(
                 # required=False 下它仍然完整存在于契约与提示词里，模型看得见、
                 # 可以绑、绑了会被校验（basis 必须是 user_premise）；只是没有
                 # 先验可取时不判失败。
-                required=output_id not in {"prior_recall", "prime_memory"},
+                #
+                # prime_quote / prime_news 同理改为可选（2026-08-19）：这两格
+                # 是装配层替 controller 加的检索引导，不是用户点名的产出。
+                # 描述文本本来就写着「取不到则写明缺口」——设计意图是 caveat
+                # 而非硬门。required=True 的实际后果是 run_20260819_130854：
+                # 混绑一条 finance_query 就整篇换成「现有证据不足」。可选后
+                # 槽位仍在契约里引导模型调 market_data / news_search，缺了
+                # 只降为 gap，不再单独打死整篇。
+                required=output_id not in _ADVISORY_OUTPUT_IDS,
                 grounding_mode=_grounding_mode(frame, output_id),
             )
             for output_id in output_ids

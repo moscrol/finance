@@ -155,9 +155,29 @@ def verify_episode_outcome(
             for item in evidence_items
             if required.evidence_types and item.tool not in required.evidence_types
         )
+        # 类型白名单按「剔除非法、保留合法」执行，不再整槽作废（2026-08-19，
+        # run_20260819_130854：prime_quote 绑了 market_data + finance_query
+        # 各若干条，旧判据把合法行情哈希一并清掉 → 整篇换缺口模板）。
+        # 混绑时剔掉非法哈希、槽位靠剩余合法证据继续成立；整格找不出一条
+        # 合法证据才判 missing。「拿行情洗白财务锚」不靠这条挡——它由下面的
+        # evidence floor（missing required evidence type）硬性拦住。
+        kept_hashes = tuple(
+            content_hash
+            for content_hash in binding.evidence_hashes
+            if content_hash in evidence_by_hash
+            and content_hash not in duplicate_hashes
+            and (
+                not required.evidence_types
+                or evidence_by_hash[content_hash].tool in required.evidence_types
+            )
+        )
+        kept_items = tuple(
+            evidence_by_hash[content_hash] for content_hash in kept_hashes
+        )
         if wrong_types:
+            prefix = "stripped " if kept_items else ""
             issues.append(
-                f"unsupported evidence type for {required.output_id}: "
+                f"{prefix}unsupported evidence type for {required.output_id}: "
                 + ",".join(wrong_types)
             )
 
@@ -165,7 +185,7 @@ def verify_episode_outcome(
         missing_floor = tuple(
             tool
             for tool in evidence_floor
-            if not any(item.tool == tool for item in evidence_items)
+            if not any(item.tool == tool for item in kept_items)
         )
         if missing_floor:
             issues.append(
@@ -176,22 +196,22 @@ def verify_episode_outcome(
         valid = bool(
             (
                 required.grounding_mode != "evidence"
-                or bool(binding.evidence_hashes)
+                or bool(kept_hashes)
             )
             and not unknown_hashes
             and not collided_hashes
-            and not wrong_types
+            and (not wrong_types or bool(kept_hashes))
             and not missing_floor
             and not basis_mismatch
             and len(evidence_items) == len(binding.evidence_hashes)
         )
         if valid:
-            bound_tools.update(item.tool for item in evidence_items)
+            bound_tools.update(item.tool for item in kept_items)
             statuses.append(
                 OutputStatus(
                     required.output_id,
                     "fulfilled",
-                    binding.evidence_hashes,
+                    kept_hashes,
                 )
             )
         else:

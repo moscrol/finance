@@ -3815,6 +3815,200 @@ def test_missing_mandatory_news_can_release_judged_market_facts_as_partial() -> 
     assert "本周实际上涨约3%" in result.public_answer
 
 
+def test_wrong_type_prime_slot_releases_judged_rest_as_partial() -> None:
+    """类型白名单缺口进放行名单：整格非法的 prime 槽只降级，不换缺口模板。
+
+    run_20260819_130854 的第二种形态：模型给 prime_quote 只绑了
+    finance_query 的日频总览。槽位判 missing，但其余槽位已凭真实证据履行、
+    草稿仍应交给语义裁判以 partial 放行。
+    """
+
+    frame, structural = _structural("直接判断：市场结构中性偏强，量能维持在高位。")
+    evidence = structural.outcome.evidence[0]
+    overview = AgentEvidence(
+        tool="finance_query",
+        title="日频总览",
+        detail="同日行情总览",
+        source="本地库",
+        source_date="2026-07-22",
+        content_hash="finance-overview-1",
+    )
+    contract = ResearchTaskContract(
+        task_id="semantic-wrong-type-release",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type=frame.question_type,
+        required_outputs=(
+            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+            RequiredOutput("prime_quote", "最新行情要点", ("market_data",), True),
+        ),
+        allowed_capabilities=("market_data", "finance_query"),
+        evidence_plan=EvidencePlan(),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    partial = verify_episode_outcome(
+        contract,
+        replace(
+            structural.outcome,
+            evidence=(evidence, overview),
+            bindings=(
+                OutputEvidenceBinding(
+                    "direct_assessment",
+                    (evidence.content_hash,),
+                ),
+                OutputEvidenceBinding("prime_quote", ("finance-overview-1",)),
+            ),
+        ),
+    )
+    assert partial.verified_status == "partial"
+    assert partial.issues == (
+        "unsupported evidence type for prime_quote: finance_query",
+    )
+    judge = _judge(True)
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=partial,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "partial"
+    assert result.judge_status == "passed"
+    assert len(judge.calls) == 1  # type: ignore[attr-defined]
+    assert "市场结构中性偏强" in result.public_answer
+    assert "现有证据不足" not in result.public_answer
+
+
+def test_stripped_mixed_prime_binding_completes_and_releases_draft() -> None:
+    """SPT 端到端复现：prime 槽混绑合法行情 + 越界 finance_query。
+
+    结构层剔掉越界哈希后槽位照常履行，整篇按 completed 走语义裁判并公开
+    模型稿——这正是 run_20260819_130854 里被换成「现有证据不足」的那种答案。
+    """
+
+    frame, structural = _structural("直接判断：市场结构中性偏强，量能维持在高位。")
+    evidence = structural.outcome.evidence[0]
+    overview = AgentEvidence(
+        tool="finance_query",
+        title="日频总览",
+        detail="同日行情总览",
+        source="本地库",
+        source_date="2026-07-22",
+        content_hash="finance-overview-1",
+    )
+    contract = ResearchTaskContract(
+        task_id="semantic-stripped-release",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type=frame.question_type,
+        required_outputs=(
+            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+            RequiredOutput("prime_quote", "最新行情要点", ("market_data",), True),
+        ),
+        allowed_capabilities=("market_data", "finance_query"),
+        evidence_plan=EvidencePlan(),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    verified = verify_episode_outcome(
+        contract,
+        replace(
+            structural.outcome,
+            evidence=(evidence, overview),
+            bindings=(
+                OutputEvidenceBinding(
+                    "direct_assessment",
+                    (evidence.content_hash,),
+                ),
+                OutputEvidenceBinding(
+                    "prime_quote",
+                    (evidence.content_hash, "finance-overview-1"),
+                ),
+            ),
+        ),
+    )
+    assert verified.verified_status == "completed"
+    assert verified.issues == (
+        "stripped unsupported evidence type for prime_quote: finance_query",
+    )
+    judge = _judge(True)
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=verified,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert "市场结构中性偏强" in result.public_answer
+    assert "现有证据不足" not in result.public_answer
+
+
+def test_financial_floor_issue_still_fails_closed_without_judge() -> None:
+    """放宽只到类型白名单为止：财务锚地板（missing required evidence type）
+    不在放行名单，「拿行情洗白估值锚」仍整篇 fail closed。"""
+
+    frame, structural = _structural("当前PB为4.33倍，估值中性。")
+    evidence = structural.outcome.evidence[0]
+    contract = ResearchTaskContract(
+        task_id="semantic-floor-fail-closed",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type="valuation_estimate",
+        required_outputs=(
+            RequiredOutput(
+                "valuation_assessment",
+                "估值判断",
+                ("market_data",),
+                True,
+            ),
+            RequiredOutput(
+                "financial_business_anchor",
+                "财务或业务硬数据锚点",
+                ("financial_data",),
+                True,
+            ),
+        ),
+        allowed_capabilities=("market_data", "financial_data"),
+        evidence_plan=EvidencePlan(),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    partial = verify_episode_outcome(
+        contract,
+        replace(
+            structural.outcome,
+            bindings=(
+                OutputEvidenceBinding(
+                    "valuation_assessment",
+                    (evidence.content_hash,),
+                ),
+                OutputEvidenceBinding(
+                    "financial_business_anchor",
+                    (evidence.content_hash,),
+                ),
+            ),
+        ),
+    )
+    assert partial.verified_status == "partial"
+    calls: list[object] = []
+
+    result = SemanticEpisodeVerifier(
+        judge_fn=lambda request: calls.append(request)
+    ).verify(
+        frame=frame,
+        structurally_verified=partial,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert calls == []
+    assert result.status == "partial"
+    assert result.judge_status == "unavailable"
+    assert "现有证据不足" in result.public_answer
+
+
 def test_missing_structural_contract_fails_closed_without_judge() -> None:
     frame, structural = _structural("市场当前偏弱。")
     calls: list[object] = []

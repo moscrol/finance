@@ -228,6 +228,135 @@ def test_wrong_tool_type_cannot_launder_a_required_output() -> None:
     assert any("evidence type" in issue for issue in verified.issues)
 
 
+def test_mixed_binding_strips_illegal_type_and_keeps_legal_hashes() -> None:
+    """SPT 复现（run_20260819_130854）：prime 槽混绑合法行情 + 越界 finance_query。
+
+    剔除式判据：非法哈希被剔出槽位，合法行情哈希保住、槽位照常履行，
+    整篇不再因一条越界引用降级。剔除动作以 stripped 前缀留痕。
+    """
+
+    contract = _contract(
+        outputs=(
+            RequiredOutput(
+                "direct_assessment",
+                "直接判断",
+                ("market_data", "finance_query"),
+            ),
+            RequiredOutput("prime_quote", "最新行情要点", ("market_data",)),
+        ),
+        allowed_capabilities=("market_data", "finance_query"),
+    )
+    market = _evidence("market_data", "market-1")
+    overview = _evidence("finance_query", "finance-1")
+    outcome = _outcome(
+        evidence=(market, overview),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("market-1", "finance-1")),
+            OutputEvidenceBinding("prime_quote", ("market-1", "finance-1")),
+        ),
+    )
+
+    verified = verify_episode_outcome(contract, outcome)
+
+    assert verified.verified_status == "completed"
+    by_id = {item.output_id: item for item in verified.completion.outputs}
+    assert by_id["prime_quote"].status == "fulfilled"
+    assert by_id["prime_quote"].evidence_ids == ("market-1",)
+    assert by_id["direct_assessment"].evidence_ids == ("market-1", "finance-1")
+    assert verified.issues == (
+        "stripped unsupported evidence type for prime_quote: finance_query",
+    )
+    assert verified.missing_outputs == ()
+
+
+def test_financial_anchor_strip_keeps_real_financial_floor() -> None:
+    """混绑时财务锚照常成立：剔掉多绑的行情，真财务哈希满足地板。"""
+
+    contract = _contract(
+        outputs=(
+            RequiredOutput(
+                "valuation_assessment",
+                "估值判断",
+                ("market_data", "financial_data"),
+            ),
+            RequiredOutput(
+                "financial_business_anchor",
+                "财务或业务硬数据锚点",
+                ("financial_data", "kb_search"),
+            ),
+        ),
+        allowed_capabilities=("market_data", "financial_data", "kb_search"),
+    )
+    market = _evidence("market_data", "market-1")
+    financial = _evidence("financial_data", "financial-1")
+    outcome = _outcome(
+        draft="当前PB为4.33倍，Q2营收环比+18%。",
+        evidence=(market, financial),
+        bindings=(
+            OutputEvidenceBinding("valuation_assessment", ("market-1",)),
+            OutputEvidenceBinding(
+                "financial_business_anchor",
+                ("financial-1", "market-1"),
+            ),
+        ),
+    )
+
+    verified = verify_episode_outcome(contract, outcome)
+
+    assert verified.verified_status == "completed"
+    anchor = verified.completion.outputs[1]
+    assert anchor.status == "fulfilled"
+    assert anchor.evidence_ids == ("financial-1",)
+    assert verified.issues == (
+        "stripped unsupported evidence type for financial_business_anchor: "
+        "market_data",
+    )
+
+
+def test_stripped_evidence_cannot_satisfy_mandatory_capability() -> None:
+    """被剔除的越界哈希不得反过来给强制能力记账。"""
+
+    contract = _contract(
+        outputs=(
+            RequiredOutput(
+                "direct_assessment",
+                "直接判断",
+                ("market_data",),
+            ),
+        ),
+        evidence_plan=EvidencePlan(
+            "current_mainline",
+            (
+                EvidenceRequirement("MARKET_DAILY", "market_data", True),
+                EvidenceRequirement("D4", "mainline_context", True),
+            ),
+        ),
+        allowed_capabilities=("market_data", "mainline_context"),
+    )
+    market = _evidence("market_data", "market-1")
+    mainline = _evidence("mainline_context", "mainline-1")
+    outcome = _outcome(
+        evidence=(market, mainline),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                ("market-1", "mainline-1"),
+            ),
+        ),
+    )
+
+    verified = verify_episode_outcome(contract, outcome)
+
+    assert verified.verified_status == "partial"
+    assert (
+        "stripped unsupported evidence type for direct_assessment: "
+        "mainline_context"
+    ) in verified.issues
+    assert (
+        "missing mandatory capability evidence: mainline_context"
+    ) in verified.issues
+
+
 def test_explicit_gap_is_partial_not_fake_completed() -> None:
     outcome = _outcome(
         status="partial",
