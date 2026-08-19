@@ -3335,6 +3335,21 @@ class TurnOrchestrator:
             public_report = _redact_object(report)
             if isinstance(public_report, dict):
                 report = public_report
+            self._check_cancelled()
+            self._claim_terminal_run(run_id, rs.STATUS_COMPLETED)
+            assistant = self.conversation_store.revise_message(
+                conversation_id,
+                assistant_message_id,
+                content=answer_text,
+                status="completed",
+                selected_skill_ids=manual_selected,
+                invoked_skill_ids=invoked,
+                citations=citations,
+                degrades=warnings,
+                followups=followup_payload,
+                turn_intent=turn_intent.to_dict(),
+                research_plan=research_plan.to_dict(),
+            )
             self.run_store.add_artifact(
                 run_id,
                 "answer.md",
@@ -3423,20 +3438,6 @@ class TurnOrchestrator:
                 renderer="structured_report",
                 title="结构化对话报告",
             )
-            self._check_cancelled()
-            assistant = self.conversation_store.revise_message(
-                conversation_id,
-                assistant_message_id,
-                content=answer_text,
-                status="completed",
-                selected_skill_ids=manual_selected,
-                invoked_skill_ids=invoked,
-                citations=citations,
-                degrades=warnings,
-                followups=followup_payload,
-                turn_intent=turn_intent.to_dict(),
-                research_plan=research_plan.to_dict(),
-            )
             self._emit(
                 run_id,
                 assistant_message_id,
@@ -3453,7 +3454,6 @@ class TurnOrchestrator:
                 {"message": asdict(assistant)},
                 conversation_id,
             )
-            self.run_store.finish_run(run_id, rs.STATUS_COMPLETED)
             return TurnResult(
                 status=rs.STATUS_COMPLETED,
                 content=assistant.content,
@@ -3461,21 +3461,12 @@ class TurnOrchestrator:
                 invoked_skill_ids=tuple(invoked),
             )
         except RunTerminalClaimLost as claim:
-            current = next(
-                (
-                    message
-                    for message in self.conversation_store.load_messages(
-                        conversation_id
-                    )
-                    if message.message_id == assistant_message_id
-                ),
-                None,
-            )
-            return TurnResult(
+            return self._result_after_lost_terminal_claim(
+                conversation_id=conversation_id,
+                message_id=assistant_message_id,
                 status=claim.status,
-                content=current.content if current is not None else "",
-                selected_skill_ids=tuple(selected),
-                invoked_skill_ids=tuple(invoked),
+                selected=selected,
+                invoked=invoked,
             )
         except LLMStreamCancelled:
             if self.cancellation_reason() == "executor_timeout":
@@ -3584,6 +3575,20 @@ class TurnOrchestrator:
         public_report = _redact_object(report)
         if isinstance(public_report, dict):
             report = public_report
+        self._check_cancelled()
+        self._claim_terminal_run(run_id, rs.STATUS_COMPLETED)
+        assistant = self.conversation_store.revise_message(
+            conversation_id,
+            assistant_message_id,
+            content=answer_text,
+            status="completed",
+            selected_skill_ids=selected_skill_ids,
+            invoked_skill_ids=(),
+            citations=_sanitize_citation_list(list(citations)),
+            degrades=tuple(warnings),
+            turn_intent=turn_intent.to_dict(),
+            research_plan=research_plan.to_dict(),
+        )
         self.run_store.add_artifact(
             run_id,
             "answer.md",
@@ -3602,18 +3607,6 @@ class TurnOrchestrator:
             renderer="structured_report",
             title="结构化对话报告",
         )
-        assistant = self.conversation_store.revise_message(
-            conversation_id,
-            assistant_message_id,
-            content=answer_text,
-            status="completed",
-            selected_skill_ids=selected_skill_ids,
-            invoked_skill_ids=(),
-            citations=_sanitize_citation_list(list(citations)),
-            degrades=tuple(warnings),
-            turn_intent=turn_intent.to_dict(),
-            research_plan=research_plan.to_dict(),
-        )
         self._emit(
             run_id,
             assistant_message_id,
@@ -3630,7 +3623,6 @@ class TurnOrchestrator:
             {"message": asdict(assistant)},
             conversation_id,
         )
-        self.run_store.finish_run(run_id, rs.STATUS_COMPLETED)
         return TurnResult(
             status=rs.STATUS_COMPLETED,
             content=assistant.content,
@@ -4064,6 +4056,30 @@ class TurnOrchestrator:
             return
         raise RunTerminalClaimLost(terminal.status)
 
+    def _result_after_lost_terminal_claim(
+        self,
+        *,
+        conversation_id: str,
+        message_id: str,
+        status: str,
+        selected: Sequence[str],
+        invoked: Sequence[str],
+    ) -> TurnResult:
+        current = next(
+            (
+                message
+                for message in self.conversation_store.load_messages(conversation_id)
+                if message.message_id == message_id
+            ),
+            None,
+        )
+        return TurnResult(
+            status=status,
+            content=current.content if current is not None else "",
+            selected_skill_ids=tuple(selected),
+            invoked_skill_ids=tuple(invoked),
+        )
+
     def _emit(
         self,
         run_id: str,
@@ -4413,9 +4429,19 @@ class TurnOrchestrator:
         warning = "用户已取消本轮执行"
         if warning not in warnings:
             warnings.append(warning)
-        self.run_store.add_degrade(run_id, warning)
         report["status"] = rs.STATUS_CANCELLED
         report["warnings"] = list(dict.fromkeys(warnings))
+        try:
+            self._claim_terminal_run(run_id, rs.STATUS_CANCELLED)
+        except RunTerminalClaimLost as claim:
+            return self._result_after_lost_terminal_claim(
+                conversation_id=conversation_id,
+                message_id=message_id,
+                status=claim.status,
+                selected=selected,
+                invoked=invoked,
+            )
+        self.run_store.add_degrade(run_id, warning)
         content = self._ensure_terminal_safe_snapshot(
             run_id=run_id,
             message_id=message_id,
@@ -4463,7 +4489,6 @@ class TurnOrchestrator:
             {"status": rs.STATUS_CANCELLED, "message": asdict(assistant)},
             conversation_id,
         )
-        self.run_store.finish_run(run_id, rs.STATUS_CANCELLED)
         return TurnResult(
             status=rs.STATUS_CANCELLED,
             content=assistant.content,
@@ -4489,6 +4514,20 @@ class TurnOrchestrator:
         warnings.append(warning)
         report["status"] = rs.STATUS_FAILED
         report["warnings"] = list(dict.fromkeys(warnings))
+        try:
+            self._claim_terminal_run(
+                run_id,
+                rs.STATUS_FAILED,
+                error=warning,
+            )
+        except RunTerminalClaimLost as claim:
+            return self._result_after_lost_terminal_claim(
+                conversation_id=conversation_id,
+                message_id=message_id,
+                status=claim.status,
+                selected=selected,
+                invoked=invoked,
+            )
         content = self._ensure_terminal_safe_snapshot(
             run_id=run_id,
             message_id=message_id,
@@ -4529,11 +4568,6 @@ class TurnOrchestrator:
             "message.error",
             {"status": rs.STATUS_FAILED, "message": asdict(assistant)},
             conversation_id,
-        )
-        self.run_store.finish_run(
-            run_id,
-            rs.STATUS_FAILED,
-            error=warning,
         )
         return TurnResult(
             status=rs.STATUS_FAILED,

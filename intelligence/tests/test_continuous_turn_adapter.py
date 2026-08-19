@@ -2501,6 +2501,42 @@ def test_private_artifact_records_runtime_backend_without_public_leak() -> None:
     assert result.llm_provider == "zhipu"
 
 
+def test_private_artifact_phase_trace_has_one_public_terminal() -> None:
+    """phase_trace 是 sidecar：不影响答案，且公开终态只有一个。"""
+
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场状态",
+        detail="指数处于反弹修复",
+        source="市场快照",
+        source_date="2026-07-24",
+        content_hash="phase-trace-evidence",
+    )
+
+    result = _scripted_episode_result(
+        semantic_status="completed",
+        public_answer="当前更接近短周期修复。",
+        evidence=(evidence,),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                (evidence.content_hash,),
+            ),
+        ),
+    )
+
+    assert result.status == "completed"
+    assert result.private_artifact is not None
+    trace = result.private_artifact["phase_trace"]
+    assert trace["terminal_phases"] == ["completed"]
+    assert "anomalies" not in trace
+    phases = [item["to_phase"] for item in trace["transitions"]]
+    assert phases[0] == "planning"
+    assert "structural_verify" in phases
+    assert "semantic_verify" in phases
+    assert phases[-1] == "completed"
+
+
 def test_sdk_gpt_runtime_reports_openai_provider_without_model_turn_event() -> None:
     evidence = AgentEvidence(
         tool="market_data",
