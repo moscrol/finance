@@ -10,6 +10,7 @@ from intelligence.services.episode_issues import (
     IssueCode,
     ReleaseAction,
     allows_partial_release,
+    plan_issue_backfill,
     release_action,
 )
 from intelligence.services.episode_semantic_verifier import (
@@ -101,3 +102,37 @@ def test_g11_does_not_match_message_prefixes() -> None:
     source = inspect.getsource(_can_semantically_release_partial)
     assert "startswith" not in source
     assert "allows_partial_release" in source
+
+
+def test_backfill_plan_is_code_keyed_and_ignores_unrelated_blocks() -> None:
+    numeric = Issue(
+        IssueCode.NUMERIC_UNSUPPORTED,
+        "numeric_condition",
+        "any wording",
+    )
+    floor = Issue(
+        IssueCode.FINANCIAL_ANCHOR_MISSING,
+        "financial_business_anchor",
+        "any wording",
+    )
+    calendar = Issue(
+        IssueCode.CALENDAR_WEEKDAY_MISMATCH,
+        "weekday",
+        "any wording",
+    )
+
+    numeric_plan = plan_issue_backfill((numeric, calendar))
+    assert numeric_plan is not None
+    assert numeric_plan.missing_capabilities == ("market_data",)
+    assert numeric_plan.missing_outputs == ()
+
+    floor_plan = plan_issue_backfill((floor,))
+    assert floor_plan is not None
+    assert floor_plan.missing_capabilities == ("financial_data",)
+    assert floor_plan.missing_outputs == ("financial_business_anchor",)
+
+    both = plan_issue_backfill((numeric, floor))
+    assert both is not None
+    assert both.missing_capabilities == ("market_data", "financial_data")
+    assert plan_issue_backfill((calendar,)) is None
+    assert plan_issue_backfill(()) is None

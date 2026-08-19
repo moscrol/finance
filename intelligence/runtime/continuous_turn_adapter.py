@@ -21,9 +21,18 @@ from intelligence.services import llm_refine
 from intelligence.services.agent_runtime import AgentOutcome, AgentRuntime
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_factory import build_episode_context
+from intelligence.services.episode_issues import (
+    Issue,
+    IssueCode,
+    plan_issue_backfill,
+)
 from intelligence.services.episode_projection import project_durable_events
 from intelligence.services.episode_progress import EpisodeProgress
-from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
+from intelligence.services.episode_semantic_verifier import (
+    SemanticEpisodeOutcome,
+    draft_sentence_count,
+    numeric_condition_unsupported,
+)
 from intelligence.services.rejudge_pending import append_pending_from_artifact
 from intelligence.services.episode_tools import (
     build_episode_registry,
@@ -38,12 +47,13 @@ from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
 )
-from intelligence.services.research_contract import ResearchDeadline, ResearchRunContext
 from intelligence.services.repair_coordinator import (
+    admit_backfill_repair,
     admit_repair,
     max_repair_cycles_for_tier,
     progress_from_ledger,
 )
+from intelligence.services.research_contract import ResearchDeadline, ResearchRunContext
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
     SatisfiabilityCheck,
@@ -443,6 +453,7 @@ class ContinuousTurnAdapter:
         session: object | None = None
         repair_cycles = 0
         repair_attempts = 0
+        backfill_turns = 0
         delivery_repair_attempted = False
         semantic_verifier_stale = False
         attempts_before = _ledger_attempt_count()
@@ -563,6 +574,33 @@ class ContinuousTurnAdapter:
                 context.contract.research_tier
             )
             repair_terminal = False
+            backfill_plan = _issue_backfill_plan(structural)
+            if (
+                session is not None
+                and backfill_plan is not None
+                and not self._is_cancelled()
+                and not root_deadline.expired
+            ):
+                backfill_turns = 1
+                backfilled = self._resume_for_backfill(
+                    session=session,
+                    context=context,
+                    delivery_deadline=root_deadline,
+                    outcome=outcome,
+                    structural=structural,
+                    previous_snapshot=previous_snapshot,
+                    current_snapshot=current_snapshot,
+                    plan=backfill_plan,
+                )
+                if backfilled is not None:
+                    previous_snapshot = current_snapshot
+                    outcome, structural = backfilled
+                    current_snapshot = _repair_snapshot(
+                        outcome,
+                        structural,
+                        context,
+                        ledger=episode_evidence_ledger,
+                    )
             while (
                 session is not None
                 and structural.missing_outputs
@@ -700,6 +738,7 @@ class ContinuousTurnAdapter:
                 ),
                 "repair_attempts": repair_attempts,
                 "repair_cycles": repair_cycles,
+                "backfill_turns": backfill_turns,
                 "failure": {
                     "type": type(exc).__name__,
                     "message": str(exc),
@@ -869,6 +908,7 @@ class ContinuousTurnAdapter:
             "semantic_verifier_stale": semantic_verifier_stale,
             "repair_attempts": repair_attempts,
             "repair_cycles": repair_cycles,
+            "backfill_turns": backfill_turns,
             "metrics": _episode_metrics(
                 outcome,
                 attempts_before=attempts_before,
@@ -1015,6 +1055,94 @@ class ContinuousTurnAdapter:
         if not isinstance(verified, VerifiedEpisodeOutcome):
             raise TypeError("structural verifier must return VerifiedEpisodeOutcome")
         return candidate, verified, admission.delivery_only
+
+    def _resume_for_backfill(
+        self,
+        *,
+        session: object,
+        context: ResearchRunContext,
+        delivery_deadline: ResearchDeadline,
+        outcome: AgentOutcome,
+        structural: VerifiedEpisodeOutcome,
+        previous_snapshot: EvidenceLedgerSnapshot,
+        current_snapshot: EvidenceLedgerSnapshot,
+        plan: object,
+    ) -> tuple[AgentOutcome, VerifiedEpisodeOutcome] | None:
+        root_budget = context.root_budget
+        resume = getattr(session, "resume", None)
+        episode_id = str(getattr(session, "episode_id", "") or "").strip()
+        if root_budget is None or not callable(resume) or not episode_id:
+            return None
+        missing_outputs = tuple(getattr(plan, "missing_outputs", ()) or ())
+        missing_capabilities = tuple(getattr(plan, "missing_capabilities", ()) or ())
+        if not missing_capabilities:
+            return None
+        tools_open = (
+            not context.deadline.expired
+            and context.deadline.stage_timeout(1.0) > 0.001
+        )
+        remaining_calls = max(
+            0,
+            int(root_budget.hard_calls_cap) - int(root_budget.allocated_calls),
+        )
+        remaining_seconds = min(
+            max(
+                0.0,
+                float(root_budget.hard_seconds_cap)
+                - float(root_budget.allocated_seconds),
+            ),
+            max(0.0, float(delivery_deadline.remaining())),
+        )
+        admission = admit_backfill_repair(
+            episode_id=episode_id,
+            missing_outputs=missing_outputs,
+            missing_capabilities=missing_capabilities,
+            attempted_actions=tuple(
+                f"{trace.capability}:{trace.provider}" for trace in outcome.traces
+            ),
+            previous_progress=progress_from_ledger(
+                previous_snapshot, current_snapshot
+            ),
+            remaining_calls=remaining_calls,
+            remaining_seconds=remaining_seconds,
+            cycle=1,
+            root_budget=root_budget,
+            tools_open=tools_open,
+            seconds_cap=self._repair_seconds_cap,
+        )
+        if admission is None or not admission.backfill:
+            return None
+        candidate = resume(admission.goal)
+        if not isinstance(candidate, AgentOutcome):
+            raise TypeError("episode session resume must return AgentOutcome")
+        if outcome.draft.strip() and not candidate.draft.strip():
+            candidate = replace(
+                candidate,
+                draft=outcome.draft,
+                bindings=candidate.bindings or outcome.bindings,
+            )
+        if draft_sentence_count(candidate.draft) > draft_sentence_count(outcome.draft):
+            return None
+        verified = self._structural_verifier(context.contract, candidate)
+        if not isinstance(verified, VerifiedEpisodeOutcome):
+            raise TypeError("structural verifier must return VerifiedEpisodeOutcome")
+        return candidate, verified
+
+
+def _issue_backfill_plan(
+    structural: VerifiedEpisodeOutcome,
+):
+    items = structural.issue_items
+    if numeric_condition_unsupported(structural):
+        items = (
+            *items,
+            Issue(
+                IssueCode.NUMERIC_UNSUPPORTED,
+                "numeric_condition",
+                "unsupported numeric condition without bound evidence",
+            ),
+        )
+    return plan_issue_backfill(items)
 
 
 def _empty_repair_snapshot(context: ResearchRunContext) -> EvidenceLedgerSnapshot:
