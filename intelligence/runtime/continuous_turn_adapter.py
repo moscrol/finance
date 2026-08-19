@@ -24,6 +24,7 @@ from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_projection import project_durable_events
 from intelligence.services.episode_progress import EpisodeProgress
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
+from intelligence.services.rejudge_pending import append_pending_from_artifact
 from intelligence.services.episode_tools import (
     build_episode_registry,
     run_deterministic_fast_path,
@@ -881,6 +882,12 @@ class ContinuousTurnAdapter:
             artifact["events_projection_anomalies"] = (
                 event_projection.anomalies_to_dict()
             )
+        if semantic.judge_status == "unavailable":
+            artifact["pending_rejudge"] = True
+            try:
+                append_pending_from_artifact(artifact)
+            except Exception:
+                pass
         return ContinuousTurnResult(
             handled=True,
             status=status,
