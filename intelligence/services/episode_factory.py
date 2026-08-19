@@ -28,7 +28,7 @@ from intelligence.services.research_contract import (
 from intelligence.services.research_tool_registry import (
     DEFAULT_RESEARCH_CAPABILITIES,
 )
-from intelligence.services.task_frame import TaskFrame
+from intelligence.services.task_frame import TaskFrame, task_frame_requires_retrieval
 
 
 # 盘面类槽位的描述带「写出具体数值」的硬要求。这是 #289（composer 看得见
@@ -69,6 +69,11 @@ _OUTPUT_DESCRIPTIONS: dict[str, str] = {
     ),
     "scenario_paths": "给出条件化情景路径",
     "prior_recall": "复述用户此前对该主体的判断或纠偏原则，并说明与当前的差异",
+    "prime_quote": (
+        "给出本次问答所依据的最新可用行情要点与数据日期；取不到则在证据边界中写明缺口"
+    ),
+    "prime_news": "给出与问题相关的最新财经消息要点；未检索到则写明未取得",
+    "prime_memory": "复述用户此前对该主体的判断或纠偏原则；台账为空则跳过，不编造",
     "chain_mapping": "产业链层级、角色与关键环节",
     "financial_assessment": "公司财务表现的直接判断",
     "metric_evidence": "支撑财务判断的指标证据",
@@ -149,9 +154,10 @@ _PRIOR_REFERENCE_RE = re.compile(
     r"|(?:还|是否)(?:成立|站得住|有效))"
 )
 
-# 只在这三类问题上注入。判据是「用户很可能对这个主体表达过看法」——与
-# `_RUNTIME_CAPABILITY_FLOOR` 里给 `memory_lookup` 授权的那三条策略保持一致，
-# 否则会出现「有槽位但工具没授权」或反之的半截状态。
+# 只在这三类问题上注入 prior_recall。判据是「用户点名了自己过去的看法」——
+# 与公司深挖 / 题材分析 / 题材跟踪三条策略上的 memory_lookup 授权配对。
+# residual 的 general_finance_evidence 现在也授权 memory_lookup，但用的是
+# 另一格 prime_memory，不走这条题型闸门。
 _PRIOR_RECALL_QUESTION_TYPES = frozenset(
     {"stock_deep_dive", "theme_analysis", "theme_track"}
 )
@@ -314,11 +320,48 @@ def _with_prior_recall(
     return tuple(dict.fromkeys((*output_ids, "prior_recall")))
 
 
+_RESIDUAL_PRIME_SLOTS: tuple[tuple[str, str], ...] = (
+    ("market_data", "prime_quote"),
+    ("news_search", "prime_news"),
+    ("memory_lookup", "prime_memory"),
+)
+
+
+def _with_residual_prime(
+    output_ids: tuple[str, ...],
+    frame: TaskFrame,
+    capabilities: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Add Knevo-shaped retrieval slots only when the matching tool is authorized.
+
+    残差题没有子 skill 菜单。只扩大 allowed_capabilities、不给契约槽，模型从
+    契约里读不出「哪一格只能由行情/新闻/先验填」——`prior_recall` 已经证伪过
+    「全量 evidence_types + 提示词要求优先调用」。各槽独立注入：授权里没有
+    对应工具就不挂那一格，避免有格子没工具。
+
+    禁止把这些 id 写进 task_frame 默认产出：超出
+    {direct_answer, evidence_boundary} 会被当成研究信号，把笑话拖进检索。
+    """
+
+    if frame.question_type != "general_finance_qa":
+        return output_ids
+    if not task_frame_requires_retrieval(frame):
+        return output_ids
+    extras = tuple(
+        slot_id
+        for capability, slot_id in _RESIDUAL_PRIME_SLOTS
+        if capability in capabilities
+    )
+    if not extras:
+        return output_ids
+    return tuple(dict.fromkeys((*output_ids, *extras)))
+
+
 def _required_output_evidence_types(
     output_id: str,
     capabilities: tuple[str, ...],
 ) -> tuple[str, ...]:
-    if output_id == "prior_recall":
+    if output_id in {"prior_recall", "prime_memory"}:
         # 这一格只有 memory_lookup 的产出能填：它装的是用户自己的历史判断，
         # 市场侧工具（kb_search / graph_lookup / news_search ...）返回的都是
         # 当前世界事实，格式与 grounding_mode=user_premise 不兼容。
@@ -334,6 +377,16 @@ def _required_output_evidence_types(
         # 其余槽位的 evidence_types 不变，市场侧工具照常参与竞争。
         return tuple(
             capability for capability in ("memory_lookup",)
+            if capability in capabilities
+        )
+    if output_id == "prime_quote":
+        return tuple(
+            capability for capability in ("market_data",)
+            if capability in capabilities
+        )
+    if output_id == "prime_news":
+        return tuple(
+            capability for capability in ("news_search",)
             if capability in capabilities
         )
     if output_id == "financial_business_anchor":
@@ -353,7 +406,7 @@ def _required_output_evidence_types(
 def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
     """Project question semantics into the output grounding contract."""
 
-    if output_id == "prior_recall":
+    if output_id in {"prior_recall", "prime_memory"}:
         # 这一格装的是用户自己的历史判断，按定义不是当前世界事实，所以既不能
         # 要求它有市场证据支撑，也不能让它被当成证据去支撑别的结论。语义裁判
         # 已有对应契约：user_premise 题「用户明确给出的前提视为真的假设，不能
@@ -435,6 +488,7 @@ def build_episode_context(
     # （evidence_plan 的 mandatory_capabilities 会往里追加，
     # `_is_evidence_free_task` 会把它整个清空）。放在前面判断就会读到中间态。
     output_ids = _with_prior_recall(output_ids, frame, capability_tuple)
+    output_ids = _with_residual_prime(output_ids, frame, capability_tuple)
 
     base_policy = ResearchPolicy.for_tier(tier)
     effective_timeout = base_policy.total_seconds
@@ -483,7 +537,7 @@ def build_episode_context(
                 # required=False 下它仍然完整存在于契约与提示词里，模型看得见、
                 # 可以绑、绑了会被校验（basis 必须是 user_premise）；只是没有
                 # 先验可取时不判失败。
-                required=output_id != "prior_recall",
+                required=output_id not in {"prior_recall", "prime_memory"},
                 grounding_mode=_grounding_mode(frame, output_id),
             )
             for output_id in output_ids

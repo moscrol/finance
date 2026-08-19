@@ -18,6 +18,7 @@ RUNTIME_CAPABILITIES = {
     "news_search",
     "web_search",
     "l3_lookup",
+    "memory_lookup",
 }
 
 
@@ -538,11 +539,13 @@ def test_questions_without_a_prior_reference_get_no_recall_slot(
 
 
 def test_prior_recall_slot_is_scoped_to_subject_bearing_question_types() -> None:
-    """题型闸门：只有「用户可能对该主体表达过看法」的题才开这一格。
+    """题型闸门：只有「用户可能对该主体表达过看法」的题才开 prior_recall。
 
-    与 ``_RUNTIME_CAPABILITY_FLOOR`` 里给 ``memory_lookup`` 授权的三条策略同源。
-    取值查询和预测题即使句子里出现「我之前」，也不注入——前者的契约是
-    (值/口径日期/证据边界)，后者要的是条件化情景，都不该被一段历史先验占掉预算。
+    与公司深挖 / 题材 / 题材跟踪三条策略上的 memory_lookup 授权配对。
+    residual 的 general_finance_evidence 现在也授权 memory_lookup，但开的是
+    prime_memory，不是这一格。取值查询和预测题即使句子里出现「我之前」，
+    也不注入 prior_recall——前者的契约是 (值/口径日期/证据边界)，后者要的是
+    条件化情景，都不该被一段历史先验占掉预算。
     """
 
     for question_type, question in (
