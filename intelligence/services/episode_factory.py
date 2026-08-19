@@ -101,7 +101,10 @@ _OUTPUT_DESCRIPTIONS: dict[str, str] = {
     "limits_of_analogy": "说明类比的适用边界",
     "conditional_thesis": "给出条件化投资命题",
     "cause_attribution": "给出时间对齐的下跌或上涨归因",
-    "scenario_tree": "给出条件化情景树与分支条件",
+    "scenario_tree": (
+        "给出条件化情景树：路径分支 + 同一现象的互斥因果假说"
+        "（裁决须带证据编号，裁不了写并立）"
+    ),
     "historical_analogs": "列出可对照的历史相似阶段",
     "falsification_conditions": "列出可核验的证伪条件",
     "money_flow": "说明资金流向与结构变化",

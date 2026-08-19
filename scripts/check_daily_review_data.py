@@ -51,6 +51,10 @@ def _l2_allow_all_empty() -> bool:
         "yes",
     }
 
+
+def _l2_paused() -> bool:
+    return os.environ.get("L2_PAUSED", "").strip().lower() in {"1", "true", "yes"}
+
 TABLES = [
     "fact_market_daily",
     "fact_sector_daily",
@@ -361,6 +365,12 @@ def check_report(date: str) -> list[str]:
 def check_l2(date: str) -> list[str]:
     if not is_trading_day(date):
         print(f"CHECK L2 {date} 非交易日，自动放行")
+        return []
+    if _l2_paused():
+        print(
+            f"CHECK L2 {date} L2 已挂账暂停（L2_PAUSED=1），跳过检查；"
+            "欠账日期待鉴权恢复后用 run_l2_pipeline.sh 回补"
+        )
         return []
     missing: list[str] = []
     con = _connect_read_only()

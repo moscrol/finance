@@ -81,7 +81,17 @@ run_sync() {
 
 # L2 是独立 DAG 分支：同步段即使失败也会尝试，避免 SW-L1/复盘会故障截断资金流。
 # 返回 moneyflow_rc / l2_rc 两个全局变量。
+# L2 挂账暂停：state/l2-paused.flag 存在 → 不抓取、L2 门放行（check 脚本读 L2_PAUSED=1
+# 会跳过并留痕）。删除 flag 文件即恢复；欠账日期用 run_l2_pipeline.sh 按日回补。
+L2_PAUSED_FLAG="$WORKSPACE/state/l2-paused.flag"
 run_l2_branch() {
+  if [ -f "$L2_PAUSED_FLAG" ]; then
+    export L2_PAUSED=1
+    echo "[$(date '+%F %T')] L2 已挂账暂停（存在 $L2_PAUSED_FLAG），跳过资金流段与 L2 质量门"
+    moneyflow_rc=0
+    l2_rc=0
+    return 0
+  fi
   run_moneyflow
   moneyflow_rc=$?
   if [ "$moneyflow_rc" -ne 0 ]; then

@@ -572,6 +572,14 @@ def test_sync_plan_includes_mainline_sectors_and_features(monkeypatch):
     assert names.index("features") > names.index("theme-flow-daily")
 
 
+def test_sync_plan_includes_public_assets_between_theme_flow_and_features(monkeypatch):
+    monkeypatch.setattr(run_review_sync, "run_step", lambda *args, **kwargs: True)
+    names = [name for name, _runner in run_review_sync.build_plan(TRADE_DATE, 1, 2)]
+
+    assert names.index("public-assets") == names.index("theme-flow-daily") + 1
+    assert names.index("features") == names.index("public-assets") + 1
+
+
 def test_sync_plan_omits_retired_sector_feishu_step(monkeypatch):
     monkeypatch.setattr(run_review_sync, "run_step", lambda *args, **kwargs: True)
     names = [name for name, _runner in run_review_sync.build_plan(TRADE_DATE, 1, 2)]
