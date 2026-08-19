@@ -123,6 +123,17 @@ else
   LINES+=("解释器: ⚠ ${py} 不存在或不可执行 —— 环境本身需要修")
 fi
 
+# ── 2b. 代码地图新鲜度（仅 Claude/Devin 增强；Grok/子 agent 靠 AGENTS）──
+# status 在 empty 时 exit 2，stdout 仍有一行。观测失败不得阻断会话。
+map_line="$(python3 "$REPO/scripts/code_map.py" status --one-line 2>/dev/null || true)"
+if [ -z "$map_line" ]; then
+  map_line="代码地图: error ← 状态未知，禁止假装 ready"
+fi
+if [ "${#map_line}" -gt 80 ]; then
+  map_line="${map_line:0:80}"
+fi
+LINES+=("$map_line")
+
 # ── 3. 代码是否有未提交改动 ────────────────────────────────────────────
 # 只列**影响被测行为**的路径。本仓工作区长期有 40+ 个脏文件（复盘台账、
 # market_feature_store/exports、复盘/ 下 HTML），全是每日 ingest 的正常产物；

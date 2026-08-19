@@ -32,6 +32,10 @@
 
 本仓写出的通用件（SessionStart 事实注入、棘轮式路径门禁、带条件的测试收据、按分支归属而非 mtime 的交接判定等）属于「搭建」那一件；新增或改动后**回写 `KIT.md`，不另建第二份清单**。
 
+## 🗺️ 本地代码地图（编码任务先走这里）
+
+编码任务先 `python3 scripts/code_map.py query "<问题>"`。禁止把空图 `get_architecture_overview` 写成架构结论；禁止 `code-review-graph init|install`；禁止 DeepWiki `generate_wiki` / 对本仓 private index。MCP 已连接 ≠ 地图可用。
+
 ## 🗺️ Agent 能力现状（断言"我们没有 X"之前必读）
 
 > 2026-08-04 加入。起因：一次会话里连续三次把「已存在的能力」和「刻意的设计约束」
@@ -43,7 +47,7 @@
 
 ### 金融问答正门
 
-默认：`python3 -m intelligence.cli ask "<问题>"`。追问 `chat`；模型选工具才用 `agent`。Workbench 走 Episode，不要用 CLI 冒充 UI 合同。评接口 / 找入口读 `docs/agent-product-door.md`（门 / 两条引擎 / 积木；注册表不是门）。`--kb-mode` / `--wiki-rag-mode` / `--modules` 是逃生口。问能力个数时点名 `skills/` / `.claude/skills/` / 工具注册表，不要加总、不要写死个数。技能桥只开一个、飞书 Bitable 写入退役、飞书 IM（`feishu-bot`）退役、`fact_sector_daily` 是 VIEW、`daily-full` 是写入正门——这些是约束不是缺口。编码检索门面见 `docs/superpowers/specs/2026-08-19-local-code-map-design.md`。
+默认：`python3 -m intelligence.cli ask "<问题>"`。追问 `chat`；模型选工具才用 `agent`。Workbench 走 Episode，不要用 CLI 冒充 UI 合同。评接口 / 找入口读 `docs/agent-product-door.md`（门 / 两条引擎 / 积木；注册表不是门）。`--kb-mode` / `--wiki-rag-mode` / `--modules` 是逃生口。问能力个数时点名 `skills/` / `.claude/skills/` / 工具注册表，不要加总、不要写死个数。技能桥只开一个、飞书 Bitable 写入退役、飞书 IM（`feishu-bot`）退役、`fact_sector_daily` 是 VIEW、`daily-full` 是写入正门——这些是约束不是缺口。编码任务走上一节代码地图 CLI，不要用问答正门冒充。
 
 ### Agent 可调工具：12 个
 

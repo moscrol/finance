@@ -281,3 +281,44 @@ def test_crg_ignore_blacklist_present():
     text = (ROOT / ".code-review-graphignore").read_text(encoding="utf-8")
     for item in CRG_IGNORE_MUST_CONTAIN:
         assert item in text
+
+
+POINTER_NEEDLES = (
+    "python3 scripts/code_map.py query",
+    "get_architecture_overview",
+    "code-review-graph init|install",
+    "generate_wiki",
+    "private index",
+    "MCP 已连接",
+)
+
+
+def test_agents_and_claude_carry_code_map_pointer():
+    for path in (ROOT / "AGENTS.md", ROOT / "CLAUDE.md"):
+        text = path.read_text(encoding="utf-8")
+        for needle in POINTER_NEEDLES:
+            assert needle in text, f"{path.name} missing {needle!r}"
+
+
+def test_session_facts_calls_status_one_line_after_interpreter():
+    text = (ROOT / "scripts" / "session_facts.sh").read_text(encoding="utf-8")
+    interp_at = text.index("解释器:")
+    map_at = text.index("status --one-line")
+    assert map_at > interp_at
+
+
+def test_session_facts_hook_emits_code_map_line_and_exits_0():
+    result = subprocess.run(
+        ["bash", str(ROOT / "scripts" / "session_facts.sh")],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    ctx = payload["hookSpecificOutput"]["additionalContext"]
+    lines = [ln for ln in ctx.splitlines() if ln.startswith("代码地图:")]
+    assert lines, ctx
+    assert len(lines[0]) <= 80
+    assert "禁止空图架构结论" in lines[0]
