@@ -2845,6 +2845,14 @@ class TurnOrchestrator:
                 )
             )
             draft_text = _sanitize_market_cause_answer_text(draft_text, query)
+            self._ingest_track_next_watch(
+                query=query,
+                answer=draft_text,
+                question_type=turn_intent.question_type,
+                as_of=getattr(result, "trade_date", None),
+                theme=getattr(result, "matched_theme", None),
+                session_id=run_id,
+            )
             has_answer_snapshot = result.answer_spec is not None and decision.lane in {
                 "research",
                 "workflow",
@@ -3963,6 +3971,16 @@ class TurnOrchestrator:
             {"message": asdict(assistant)},
             conversation_id,
         )
+        # 挂在消息终稿之后，不挤 claim→revise 窗口（见上方写序注释）。
+        # 失败不挡回答；pytest / test 用户由 helper 自己跳过。
+        self._ingest_track_next_watch(
+            query=query,
+            answer=answer_text,
+            question_type=turn_intent.question_type,
+            as_of=result.as_of,
+            theme=task_frame.subject,
+            session_id=run_id,
+        )
         return TurnResult(
             status=projected.run,
             content=assistant.content,
@@ -4611,3 +4629,34 @@ class TurnOrchestrator:
                 "generated_by": "turn_orchestrator",
             },
         }
+
+    def _ingest_track_next_watch(
+        self,
+        *,
+        query: str,
+        answer: str,
+        question_type: str | None,
+        as_of: str | None,
+        theme: str | None,
+        session_id: str,
+    ) -> None:
+        """跟踪题下期关注写入 checkpoint。测试/default 用户不写；失败不挡回答。"""
+        if os.environ.get("PYTEST_CURRENT_TEST"):
+            return
+        user_id = self.run_store.user_id
+        if not user_id or user_id in {"golden-test", "tester", "default"}:
+            return
+        try:
+            from intelligence.services.track_contract import ingest_next_watch
+
+            ingest_next_watch(
+                userspace.user_space(user_id).checkpoints_path,
+                answer,
+                query=query,
+                question_type=question_type,
+                as_of=as_of,
+                theme=theme,
+                session_id=session_id,
+            )
+        except Exception:
+            return

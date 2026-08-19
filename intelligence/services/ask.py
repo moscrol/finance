@@ -4394,6 +4394,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     }
     result.citations = citations
     _propose_foresight_judgments(options, result)
+    _register_track_next_watch(options, result)
     return result
 
 
@@ -4427,6 +4428,32 @@ def _propose_foresight_judgments(options: AskOptions, result: AskResult) -> None
             )
     except Exception as exc:
         result.warnings.append(f"前瞻判断抽取未入账：{exc}")
+
+
+def _register_track_next_watch(options: AskOptions, result: AskResult) -> None:
+    """跟踪题下期关注 → checkpoint。测试/default 用户不写台账。"""
+    if not options.include_track_guidance or not _should_propose_foresight_judgments(options):
+        return
+    try:
+        from intelligence.services.track_contract import ingest_next_watch
+
+        question_type = (
+            result.question_plan.question_type if result.question_plan is not None else None
+        )
+        written = ingest_next_watch(
+            userspace.user_space(options.user).checkpoints_path,
+            result.synthesis or "",
+            query=options.query,
+            question_type=question_type,
+            as_of=result.trade_date or options.date,
+            theme=result.matched_theme,
+        )
+        if written:
+            result.warnings.append(
+                f"下期关注已登记 {len(written)} 条 checkpoint，次日 foresight 强制对照"
+            )
+    except Exception as exc:
+        result.warnings.append(f"下期关注未入账：{exc}")
 
 
 def _deadline_partial_result(query: str) -> AskResult:

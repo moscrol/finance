@@ -404,6 +404,8 @@ def test_degraded_completed_smoke_returns_zero(tmp_path: Path) -> None:
     assert exit_code == 0
     assert summary["terminal_outcome"] == "degraded"
     assert summary["degrade_count"] == 1
+    assert summary["judge_unavailable_count"] == 0
+    assert summary["content_degraded_count"] == 1
 
 
 @pytest.mark.parametrize("status", ["failed", "cancelled"])

@@ -1960,6 +1960,20 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
+        try:
+            from intelligence.runtime.deploy_ledger import record_startup
+
+            record_startup(
+                rev=str(runtime_provenance.get("source_revision") or ""),
+                snapshot_path=str(runtime_provenance.get("loaded_code_root") or ""),
+                repo_root=root,
+            )
+        except Exception as exc:  # noqa: BLE001 - 账本 IO 不得打崩 KeepAlive
+            import logging
+
+            logging.getLogger("intelligence.api.app").warning(
+                "deploy ledger startup record failed: %s", exc
+            )
         if kb_rag.rag_worker.enabled():
             try:
                 kb_rag.prewarm(

@@ -165,6 +165,16 @@ print(f"      loaded_code_root : {r.get('loaded_code_root')}")
 print(f"      code_matches_repo: {r.get('code_matches_repo')}")
 print(f"      continuous mode  : {mode}")
 PY
+    # rsync 不换 symlink，但成功部署仍是一次生产切换。账本必须机器写，
+    # 不能靠人改 inflight/main.md（8792 的 a7e2d74f 无记录切换就是这样漏的）。
+    # 失败不阻断：闸门已经过了，账本 IO 不该把一次健康部署判成失败。
+    if ! FINANCE_WS="${FINANCE_WS:-$REPO}" "$PYTHON" "$REPO/scripts/audit_deploy_ledger.py" record \
+      --action switch \
+      --health-json "$health" \
+      --snapshot-path "$SNAP" \
+      --port "${PORT:-8792}"; then
+      print -u2 -- "⚠️  部署账本写入失败（不阻断本次部署）"
+    fi
     print -- "\n✅ 部署完成"
     exit 0
   fi
