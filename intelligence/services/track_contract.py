@@ -241,7 +241,14 @@ NEXT_WATCH_SOURCE = "track_next_watch"
 NEXT_WATCH_CATEGORY = "下期关注"
 _DATE_RE = re.compile(r"(20\d{2}-\d{2}-\d{2})")
 _DAYS_RE = re.compile(r"(\d+)\s*天")
-_BULLET_RE = re.compile(r"^\s*(?:[-*•]|\d+[.)、])\s+(.+)$")
+_BULLET_RE = re.compile(r"^\s*(?:[-*•]|\d+[.)、）])\s+(.+)$")
+# live 模型常写成「下期关注清单：1）…。2）…」或标题行内联若干「若/则」。
+# lookbehind 定长：行首 / 句号 / 分号之后的项目符号或 1. 1) 1、1）
+_ITEM_START = re.compile(
+    r"(?:(?<=^)|(?<=[\n。；;]))\s*(?:[-*•]|\d+[.)、）])\s*"
+)
+_WATCH_HEADINGS = ("## 下期关注清单", "## 下期关注", "下期关注清单", "下期关注")
+_SECTION_STOP_PREFIXES = ("证据边界",)
 _FALSIFIABLE_MARKERS = ("若", "则", "低于", "高于", "<", ">", "跌破", "突破", "到期")
 _VAGUE_WATCH = ("持续关注市场情绪", "持续关注", "继续观察")
 
@@ -282,28 +289,57 @@ def _is_registerable_watch(line: str) -> bool:
     )
 
 
+def _strip_watch_heading(line: str) -> str:
+    text = str(line or "")
+    for marker in _WATCH_HEADINGS:
+        found = text.find(marker)
+        if found >= 0:
+            return text[found + len(marker) :].lstrip("：: \t")
+    return text
+
+
 def _watch_section_body(answer: str) -> str:
     text = str(answer or "")
     if CONTRACT_STUB_HEADING in text:
         text = text.split(CONTRACT_STUB_HEADING, 1)[0]
     start = -1
-    for marker in ("## 下期关注清单", "## 下期关注", "下期关注清单", "下期关注"):
+    for marker in _WATCH_HEADINGS:
         found = text.find(marker)
         if found >= 0:
             start = found
             break
     if start < 0:
         return ""
-    body = text[start:]
-    lines = body.splitlines()
+    lines = text[start:].splitlines()
     kept: list[str] = []
     for index, line in enumerate(lines):
         if index == 0:
+            rest = _strip_watch_heading(line).strip()
+            if rest:
+                kept.append(rest)
             continue
+        stripped = line.strip()
         if line.startswith("## ") and "下期关注" not in line:
+            break
+        if any(stripped.startswith(prefix) for prefix in _SECTION_STOP_PREFIXES):
             break
         kept.append(line)
     return "\n".join(kept)
+
+
+def _split_watch_claims(body: str) -> tuple[str, ...]:
+    chunks: list[str] = []
+    for raw_line in str(body or "").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        parts = [part.strip(" \t；;") for part in _ITEM_START.split(line)]
+        parts = [part.strip(" 。；;") for part in parts if part.strip(" 。；;")]
+        if len(parts) <= 1 and line.count("若") >= 2 and "。" in line:
+            parts = [part.strip(" \t；;") for part in line.split("。")]
+            parts = [part.strip(" 。；;") for part in parts if part.strip(" 。；;")]
+        chunks.extend(parts)
+    return tuple(chunks)
 
 
 def parse_next_watch_items(
@@ -312,9 +348,12 @@ def parse_next_watch_items(
     """从跟踪题正文抽出可证伪的下期关注项。忽略契约补全 stub。"""
     items: list[NextWatchItem] = []
     seen: set[str] = set()
-    for line in _watch_section_body(answer).splitlines():
-        match = _BULLET_RE.match(line)
-        claim = (match.group(1) if match else "").strip()
+    for claim in _split_watch_claims(_watch_section_body(answer)):
+        match = _BULLET_RE.match(claim)
+        if match:
+            claim = match.group(1).strip()
+        if any(claim.startswith(prefix) for prefix in _SECTION_STOP_PREFIXES):
+            continue
         if not _is_registerable_watch(claim):
             continue
         key = re.sub(r"\s+", "", claim)
