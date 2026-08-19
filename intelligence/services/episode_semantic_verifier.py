@@ -2331,6 +2331,27 @@ def _novel_numeric_condition_indexes(
     return tuple(sorted(rejected))
 
 
+def draft_sentence_count(draft: str) -> int:
+    """Public sentence count for W5 anti-regression (new sentences fail closed)."""
+
+    return len(_numbered_sentences(draft))
+
+
+def numeric_condition_unsupported(verified: VerifiedEpisodeOutcome) -> bool:
+    """True when the draft has a novel numeric condition G11 would redact.
+
+    Adapter runs this *before* the judge so a backfill turn can fetch the
+    missing market_data instead of thinning the answer.
+    """
+
+    return bool(
+        _novel_numeric_condition_indexes(
+            _numbered_sentences(verified.outcome.draft),
+            verified,
+        )
+    )
+
+
 def _mismatched_weekday_indexes(
     sentences: list[dict[str, object]],
     verified: VerifiedEpisodeOutcome,
@@ -3403,4 +3424,9 @@ def _contains_private_token(value: object, private_tokens: frozenset[str]) -> bo
     return any(token in folded for token in private_tokens)
 
 
-__all__ = ["SemanticEpisodeOutcome", "SemanticEpisodeVerifier"]
+__all__ = [
+    "SemanticEpisodeOutcome",
+    "SemanticEpisodeVerifier",
+    "draft_sentence_count",
+    "numeric_condition_unsupported",
+]

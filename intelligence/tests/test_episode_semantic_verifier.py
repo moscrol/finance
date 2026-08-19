@@ -20,6 +20,7 @@ from intelligence.services.episode_issues import IssueCode
 from intelligence.services.episode_semantic_verifier import (
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
     SemanticEpisodeVerifier,
+    numeric_condition_unsupported,
     semantic_judge_window_seconds,
 )
 from intelligence.services.episode_verifier import verify_episode_outcome
@@ -1106,6 +1107,21 @@ def test_local_gate_allows_dates_and_numeric_conditions_present_in_bound_evidenc
     assert result.judge_status == "passed"
     assert "2026年7月17日低点" in result.public_answer
     assert "3876.78点" in result.public_answer
+
+
+def test_numeric_condition_unsupported_is_detectable_before_judge() -> None:
+    """W5 必须在判官删句之前就能看到这个缺口。"""
+
+    _frame, structural = _structural(
+        "我的基准判断是反弹仍可持续。若指数跌破3870点则失效。"
+    )
+    assert numeric_condition_unsupported(structural) is True
+
+    _ok_frame, ok_structural = _structural(
+        "条件1：若指数跌破3876.78点，则反弹失效。",
+        detail="上证指数收于3876.78点。",
+    )
+    assert numeric_condition_unsupported(ok_structural) is False
 
 
 def test_local_gate_removes_calendar_weekday_mismatch() -> None:
