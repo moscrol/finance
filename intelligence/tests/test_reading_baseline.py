@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import pathlib
 import re
 
 from intelligence.services import llm_refine, reading_baseline
@@ -57,7 +58,8 @@ def test_kill_switch_restores_byte_identical_input() -> None:
     off = {"FINANCE_READING_BASELINE": "0"}
     assert reading_baseline.baseline_rules(off) == ()
     assert reading_baseline.baseline_guidance(off) == ""
-    assert reading_baseline.block_rule_line("SPT-A11", off) == ""
+    for block in reading_baseline.registered_blocks():
+        assert reading_baseline.block_rule_lines(block, off) == [], block
 
     # 缺省与显式真值都算开启
     assert reading_baseline.enabled({})
@@ -65,10 +67,78 @@ def test_kill_switch_restores_byte_identical_input() -> None:
     assert not reading_baseline.enabled({"FINANCE_READING_BASELINE": "off"})
 
 
-def test_block_rule_line_only_for_registered_id() -> None:
-    """未登记的 id 返回空串，不得静默造一条规则出来。"""
-    assert reading_baseline.block_rule_line("SPT-A11").startswith("- 判读[SPT-A11]：")
-    assert reading_baseline.block_rule_line("NOPE-999") == ""
+def test_block_rule_lines_only_for_registered_block() -> None:
+    """未登记的块返回空列表，不得静默造一条规则出来。"""
+    assert reading_baseline.block_rule_lines("D8")[0].startswith("- 判读[SPT-A11]：")
+    assert reading_baseline.block_rule_lines("NOPE-999") == []
+
+
+def test_every_registered_block_is_actually_wired() -> None:
+    """登记了规则的块必须真的在某个数据块里被 extend——否则是「配置生效、模型没看到」。
+
+    这道门守的是本批最容易出的错：规则表加了一项，但忘了在渲染函数里接线，
+    单测全绿、模型永远看不到。用源码搜接线点，不依赖跑通数据库。
+    """
+    services = pathlib.Path(__file__).resolve().parents[1] / "services"
+    wired = set()
+    for path in services.glob("*.py"):
+        wired.update(
+            re.findall(r'block_rule_lines\(\s*"([^"]+)"', path.read_text(encoding="utf-8"))
+        )
+    missing = sorted(set(reading_baseline.registered_blocks()) - wired)
+    assert not missing, f"这些块登记了判读规则但没有接线：{missing}"
+
+
+def test_block_rules_carry_id_and_provenance() -> None:
+    """块级规则同样要带 id 与来源；且不得混入未回测数字阈值。"""
+    numeric = re.compile(r"\d+\s*(?:%|倍|日均|分位)")
+    for block in reading_baseline.registered_blocks():
+        for rule in reading_baseline.block_rules(block):
+            assert rule.id and rule.rule and rule.source, (block, rule)
+            assert not numeric.search(rule.rule), f"{rule.id} 混入数字阈值"
+
+
+def test_pending_rules_never_reach_the_prompt() -> None:
+    """批三规则已裁定采纳，但缺数据源——绝不能注入。
+
+    注入一条模型拿不到数据的判读，等于要求它按不存在的输入做判断，
+    诱发编造。这道门守的是「补数据的人顺手把规则挪进 _BLOCK_RULES 却没接数据」。
+    """
+    pending_ids = {rule.id for rule, _, _ in reading_baseline.pending_rules()}
+    assert pending_ids, "批三清单不应为空"
+
+    injected = set(reading_baseline.baseline_guidance())
+    live_ids = {r.id for r in reading_baseline.baseline_rules()}
+    for block in reading_baseline.registered_blocks():
+        live_ids |= {r.id for r in reading_baseline.block_rules(block)}
+
+    overlap = pending_ids & live_ids
+    assert not overlap, f"这些规则缺数据源却已注入：{sorted(overlap)}"
+    for rule_id in pending_ids:
+        assert rule_id not in reading_baseline.baseline_guidance()
+    del injected
+
+
+def test_pending_rules_declare_their_data_gap() -> None:
+    """每条待激活规则必须写明卡在哪个缺口 id 与缺什么——否则补数据的人无从下手。"""
+    for rule, gap_id, gap_note in reading_baseline.pending_rules():
+        assert rule.id and rule.rule and rule.source, rule
+        assert re.fullmatch(r"G\d+", gap_id), (rule.id, gap_id)
+        assert len(gap_note) > 10, (rule.id, gap_note)
+
+
+def test_ranking_rule_defers_to_existing_skill_rubric() -> None:
+    """FY-A03' 必须写明「不替代既有排序口径」。
+
+    2026-08-19 对表结论：整条五维排序内置会用 5 维稀释掉 serenity-alpha
+    ranking-rubric 的 4 条硬禁止（禁止只因涨得少／龙头最强／概念相关／卖方
+    强推排第一）。故只取降解版，且必须显式让位。
+    """
+    rule = next(
+        r for r in reading_baseline.block_rules("D1") if r.id == "FY-A03'"
+    )
+    assert "serenity-alpha" in rule.rule
+    assert "不替代" in rule.rule
 
 
 def test_baseline_outranks_experience_cards_in_system_prompt() -> None:

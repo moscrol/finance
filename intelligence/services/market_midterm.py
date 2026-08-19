@@ -35,6 +35,7 @@ from intelligence.services import retrieval_cache
 
 from market_feature_store.signals import is_double_red
 from intelligence.paths import default_market_db_path
+from intelligence.services import reading_baseline
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -413,6 +414,7 @@ def midterm_trend_block_for_llm(
     missing = list(artifact.missing_themes)
     try:
         lines = ["## 多日/中期趋势数据块 [D6]"]
+        lines.extend(reading_baseline.block_rule_lines("D6"))
         lines.append(
             f"- 查询口径：近 {window} 个交易日（{trends[0]['first_date']} ~ {trends[0]['last_date']}），"
             "本地 DuckDB fact_sector_daily / fact_theme_limit_heat_daily 参数化直查，非 LLM 生成。"
