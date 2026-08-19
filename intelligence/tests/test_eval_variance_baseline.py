@@ -13,6 +13,8 @@ from intelligence.eval.variance_baseline import (
     ab_decision,
     extract_from_run_dir,
     is_judge_unavailable,
+    judge_independence_label,
+    judge_verification_decision,
     load_replay,
     main,
     score_distribution,
@@ -56,6 +58,10 @@ def test_replay_fixture_flip_rate(tmp_path: Path) -> None:
     assert scored["baseline_flip_rate"] == pytest.approx(0.2)
     assert scored["judge_unavailable_rate"] == pytest.approx(0.133333, abs=1e-6)
     assert scored["content_flip_rate"] == pytest.approx(0.066667, abs=1e-6)
+    assert scored["correlated_judge_rate"] == pytest.approx(0.0)
+    assert scored["independent_judge_rate"] == pytest.approx(0.0)
+    assert scored["unknown_judge_independence_rate"] == pytest.approx(1.0)
+    assert scored["independent_n"] == 0
     assert scored["live"] is False
 
     dest = tmp_path / "out.json"
@@ -100,6 +106,91 @@ def test_ab_helper_returns_no_call_below_baseline() -> None:
     assert result.returncode == 0
     payload = json.loads(result.stdout)
     assert payload["decision"] == "no_call"
+
+
+def test_correlated_samples_cannot_call_verification_improvement() -> None:
+    assert judge_independence_label(True) == "correlated"
+    assert judge_independence_label(False) == "independent"
+    assert judge_independence_label(None) == "unknown"
+    assert judge_independence_label("false") == "unknown"
+    # 内容差已经超过翻转率，但没有独立判官样本 → 仍不得下「验证变好了」
+    assert (
+        judge_verification_decision(
+            observed_delta=0.5,
+            baseline_flip_rate=0.2,
+            independent_n=0,
+        )
+        == "no_call"
+    )
+    assert (
+        judge_verification_decision(
+            observed_delta=0.5,
+            baseline_flip_rate=0.2,
+            independent_n=3,
+        )
+        == "callable"
+    )
+    result = subprocess.run(
+        [
+            PYTHON,
+            str(SCRIPT),
+            "--decide",
+            "--observed-delta",
+            "0.5",
+            "--baseline-flip",
+            "0.2",
+            "--independent-n",
+            "0",
+        ],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["decision"] == "no_call"
+    assert payload["independent_n"] == 0
+
+
+def test_score_distribution_splits_correlated_from_independent() -> None:
+    scored = score_distribution(
+        {
+            "questions": [
+                {
+                    "question_id": "Q-mix",
+                    "repeats": [
+                        {
+                            "primary_outcome": "completed",
+                            "judge_status": "passed",
+                            "correlated_judge": True,
+                        },
+                        {
+                            "primary_outcome": "completed",
+                            "judge_status": "passed",
+                            "correlated_judge": True,
+                        },
+                        {
+                            "primary_outcome": "completed",
+                            "judge_status": "passed",
+                            "correlated_judge": False,
+                        },
+                        {
+                            "primary_outcome": "completed",
+                            "judge_status": "passed",
+                        },
+                    ],
+                }
+            ]
+        }
+    )
+    row = scored["questions"][0]
+    assert row["correlated_judge_count"] == 2
+    assert row["independent_judge_count"] == 1
+    assert row["unknown_judge_independence_count"] == 1
+    assert row["flip_rate"] == pytest.approx(0.0)
+    assert scored["independent_n"] == 1
+    assert scored["content_flip_rate"] == pytest.approx(0.0)
 
 
 def test_ask_not_applicable_is_not_judge_unavailable() -> None:
