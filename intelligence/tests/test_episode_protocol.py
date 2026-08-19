@@ -340,6 +340,46 @@ def test_non_track_questions_keep_instructions_unchanged() -> None:
     assert "跟踪表达契约" not in instructions
 
 
+def test_forecast_episode_gets_causal_hypothesis_contract() -> None:
+    """第五轮路径是 continuous episode，不是 ask_synthesis。
+
+    scenario_tree 在预测题上被别名到 rebound_case，只改槽位描述到不了模型。
+    因果假说必须像跟踪契约一样条件注入指令。
+    """
+    overnight = dataclasses.replace(
+        _frame(),
+        raw_question=(
+            "基于周二的盘面数据，你认为主线是什么。"
+            "今晚美股科技调整较多，你认为明天盘面会怎么走，哪个方向可能有机会"
+        ),
+    )
+    local = dataclasses.replace(
+        _frame(),
+        raw_question="昨天的反弹能持续多久",
+    )
+    valuation = dataclasses.replace(
+        _frame(),
+        raw_question="深信服最近一期毛利率是多少",
+        question_type="valuation",
+    )
+
+    overnight_text = build_episode_instructions(
+        overnight, _context(overnight), _registry()
+    )
+    local_text = build_episode_instructions(local, _context(local), _registry())
+    valuation_text = build_episode_instructions(
+        valuation, _context(valuation), _registry()
+    )
+
+    assert "互斥因果假说" in overnight_text
+    assert "证据不足，两假说并立" in overnight_text
+    assert "领跌相对强弱" in overnight_text
+    assert "互斥因果假说" in local_text
+    assert "互斥因果假说" not in valuation_text
+    for legacy_marker in ("[M]", "[V]", "[D0]", "[D6]", "[W7]"):
+        assert legacy_marker not in overnight_text
+
+
 def test_validate_finish_rejects_unknown_evidence_hash() -> None:
     frame = _frame()
     context = _context(frame)

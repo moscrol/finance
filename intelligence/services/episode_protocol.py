@@ -25,6 +25,7 @@ from intelligence.services.degraded_fallback import (
     episode_rule as degraded_episode_rule,
 )
 from intelligence.services.longtail_baseline import episode_rule
+from intelligence.services.scenario_tree import episode_scenario_rule
 from intelligence.services.track_contract import episode_track_rule
 
 
@@ -132,6 +133,9 @@ def build_episode_instructions(
     # 非跟踪题得到空串，指令逐字节不变。从模块导入的文本不进本函数的
     # 静态契约指纹（test_episode_protocol 只提取本函数体内的字符串常量）。
     track_rule = episode_track_rule(
+        task_frame.raw_question,
+        task_frame.question_type,
+    ) + episode_scenario_rule(
         task_frame.raw_question,
         task_frame.question_type,
     )
