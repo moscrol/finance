@@ -12,7 +12,7 @@ W7：同 rev 同题 N 次翻转率基线 + A/B 方差门，避免 N=1 探针被�
 ## 未验证 / 已知边界
 - 未 live，无 `441c60f2` 真基线。`~/fwp-wt-live-verify/state/live-verify/20260819T06*` 不存在。
 - 仓内收据 `intelligence/eval/runs/20260819T080000Z-fixture-var5.json`：`live=false` `fixture=true`。
-- 与 W2 未共存：判官桶现用 `judge_status ∈ {unavailable, None}` / timeout。
+- 与 W2 未共存：判官桶现用 `unavailable` / `None` / `timeout`。ask 的 `not_applicable` **不算** 该桶（W3 落地后否则 100% 假阳性）。
 
 ## 下一步
 对 `441c60f2` sidecar（端口 8796，禁 8792）：

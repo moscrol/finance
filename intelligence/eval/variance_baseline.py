@@ -35,12 +35,13 @@ QC28_DEFAULT_SUBSET: tuple[str, ...] = (
 )
 
 # W2 落地前：用现有字段把判官不可用单列。W2 会换成显式 degrade 分类。
+# 不要把 ask 引擎的 not_applicable（本就没有判官）算进这个桶，否则
+# W3 gate_receipt 一落地，整条 ask 对照会被记成 100% judge_unavailable。
 JUDGE_UNAVAILABLE_STATUSES = frozenset(
     {
         "unavailable",
         "timeout",
         "none",
-        "not_applicable",
     }
 )
 

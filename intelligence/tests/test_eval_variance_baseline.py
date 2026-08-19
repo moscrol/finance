@@ -11,6 +11,7 @@ import pytest
 
 from intelligence.eval.variance_baseline import (
     ab_decision,
+    is_judge_unavailable,
     load_replay,
     main,
     score_distribution,
@@ -98,6 +99,14 @@ def test_ab_helper_returns_no_call_below_baseline() -> None:
     assert result.returncode == 0
     payload = json.loads(result.stdout)
     assert payload["decision"] == "no_call"
+
+
+def test_ask_not_applicable_is_not_judge_unavailable() -> None:
+    assert is_judge_unavailable("unavailable") is True
+    assert is_judge_unavailable(None) is True
+    assert is_judge_unavailable("timeout") is True
+    assert is_judge_unavailable("not_applicable") is False
+    assert is_judge_unavailable("passed") is False
 
 
 def test_reserved_port_refused() -> None:
