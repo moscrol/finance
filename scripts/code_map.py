@@ -7,7 +7,9 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
+import re
 import sqlite3
 import subprocess
 import sys
@@ -251,30 +253,338 @@ def collect_status(root: Path) -> tuple[dict[str, Any], int]:
     )
 
 
+DOORS_HIT_CAP = 20
+TITLE_MAX = 40
+RETIRED_RE = re.compile(r"退役|禁止|已废弃|刻意|不要跑|停用")
+HEADING_RE = re.compile(r"^(#{1,6})\s+")
+VAULT_GRAPH = Path(".agent-memory") / "10_knowledge" / "finance-agent-capability-graph.md"
+VAULT_AUDIT = Path(".agent-memory") / "scripts" / "graph_audit.py"
+EMPTY_NEXT_ACTION = "structure 层不可用：禁止把空图写成架构结论。正门见 layers.doors。"
+
+
+def tokenize(question: str) -> list[str]:
+    """按空白与标点切 token，但保留 [_-]。ASCII 做 casefold；丢掉长度 < 2。"""
+    tokens: list[str] = []
+    buf: list[str] = []
+
+    def flush() -> None:
+        if not buf:
+            return
+        raw = "".join(buf)
+        folded = raw.casefold() if raw.isascii() else raw
+        buf.clear()
+        if len(folded) >= 2:
+            tokens.append(folded)
+
+    for ch in question:
+        if ch in "_-" or ch.isalnum():
+            buf.append(ch)
+        else:
+            flush()
+    flush()
+    return tokens
+
+
+def _tokens_in_line(line: str, tokens: list[str]) -> list[str]:
+    hay = line.casefold()
+    return [tok for tok in tokens if tok in hay or tok in line]
+
+
+def _heading_level(line: str) -> int | None:
+    m = HEADING_RE.match(line)
+    return len(m.group(1)) if m else None
+
+
+def _retired_for(line: str) -> list[str]:
+    if RETIRED_RE.search(line):
+        return [line]
+    return []
+
+
+def _door_hit(rel: str, excerpt: str, matched: list[str], symbol: str | None = None) -> dict[str, Any]:
+    return {
+        "title": excerpt[:TITLE_MAX],
+        "path": rel,
+        "symbol": symbol,
+        "excerpt": excerpt,
+        "retired": _retired_for(excerpt),
+        "_matched": matched,
+    }
+
+
+def _source_rank(rel: str) -> int:
+    if rel == "AGENTS.md":
+        return 0
+    if rel == "CLAUDE.md":
+        return 1
+    if rel.startswith(".agent-memory/"):
+        return 2
+    return 3
+
+
+def _scan_markdown_doors(root: Path, rel: str, tokens: list[str]) -> list[dict[str, Any]]:
+    path = root / rel
+    if not path.is_file():
+        return []
+    lines = path.read_text(encoding="utf-8").splitlines()
+    hits: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    i = 0
+    while i < len(lines):
+        raw = lines[i]
+        stripped = raw.strip()
+        matched = _tokens_in_line(raw, tokens)
+        if matched and stripped and stripped not in seen:
+            hits.append(_door_hit(rel, stripped, matched))
+            seen.add(stripped)
+        level = _heading_level(raw) if matched else None
+        if level is not None:
+            j = i + 1
+            while j < len(lines):
+                nxt = lines[j]
+                nxt_level = _heading_level(nxt)
+                if nxt_level is not None and nxt_level <= level:
+                    break
+                body = nxt.strip()
+                if body and body not in seen:
+                    hits.append(_door_hit(rel, body, matched))
+                    seen.add(body)
+                j += 1
+            i = j
+            continue
+        i += 1
+    return hits
+
+
+def _scan_spec_titles(root: Path, tokens: list[str]) -> list[dict[str, Any]]:
+    specs_dir = root / "docs" / "superpowers" / "specs"
+    if not specs_dir.is_dir():
+        return []
+    hits: list[dict[str, Any]] = []
+    for path in sorted(specs_dir.glob("*.md")):
+        rel = path.relative_to(root).as_posix()
+        stem = path.stem
+        heading = ""
+        try:
+            for line in path.read_text(encoding="utf-8").splitlines():
+                if line.startswith("# "):
+                    heading = line.strip()
+                    break
+        except OSError:
+            continue
+        for excerpt in (stem, heading):
+            if not excerpt:
+                continue
+            matched = _tokens_in_line(excerpt, tokens)
+            if matched:
+                hits.append(_door_hit(rel, excerpt, matched))
+    return hits
+
+
+def _fallback_parse_node_table(text: str) -> list[tuple[str, str, str]]:
+    rows: list[tuple[str, str, str]] = []
+    in_table = False
+    for line in text.splitlines():
+        if line.startswith("## 节点清单"):
+            in_table = True
+            continue
+        if in_table and line.startswith("## "):
+            break
+        if not in_table or not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 3 or cells[0] in {"节点", ""}:
+            continue
+        if set(cells[0]) <= {"-", " "}:
+            continue
+        rows.append((cells[0], cells[1], cells[2]))
+    return rows
+
+
+def _scan_vault_doors(root: Path, tokens: list[str]) -> tuple[str, list[dict[str, Any]]]:
+    graph = root / VAULT_GRAPH
+    if not graph.is_file():
+        return "unavailable", []
+    text = graph.read_text(encoding="utf-8")
+    rows: list[tuple[str, str, str]] = []
+    audit = root / VAULT_AUDIT
+    parse = None
+    if audit.is_file():
+        spec = importlib.util.spec_from_file_location("_code_map_graph_audit", audit)
+        if spec is not None and spec.loader is not None:
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            parse = getattr(mod, "parse_node_table", None)
+    if parse is not None:
+        for node, _repo, specs in parse(text):
+            paths = " ".join(getattr(s, "path", str(s)) for s in specs)
+            rows.append((node, paths, f"{node} {paths}"))
+    else:
+        for node, _repo, path_cell in _fallback_parse_node_table(text):
+            rows.append((node, path_cell, f"{node} {path_cell}"))
+    rel = VAULT_GRAPH.as_posix()
+    hits: list[dict[str, Any]] = []
+    for node, path_cell, excerpt in rows:
+        matched = _tokens_in_line(node, tokens) + _tokens_in_line(path_cell, tokens)
+        # 去重 token 但保序
+        seen_tok: list[str] = []
+        for tok in matched:
+            if tok not in seen_tok:
+                seen_tok.append(tok)
+        if seen_tok:
+            hits.append(_door_hit(rel, excerpt.strip(), seen_tok))
+    return "ok", hits
+
+
+def search_doors(root: Path, tokens: list[str]) -> tuple[str, list[dict[str, Any]]]:
+    vault_state, vault_hits = _scan_vault_doors(root, tokens)
+    hits = (
+        _scan_markdown_doors(root, "AGENTS.md", tokens)
+        + _scan_markdown_doors(root, "CLAUDE.md", tokens)
+        + vault_hits
+        + _scan_spec_titles(root, tokens)
+    )
+    hits.sort(
+        key=lambda h: (
+            -len(set(h["_matched"])),
+            _source_rank(h["path"]),
+            h["path"],
+            h["excerpt"],
+        )
+    )
+    trimmed = hits[:DOORS_HIT_CAP]
+    for hit in trimmed:
+        hit.pop("_matched", None)
+    return vault_state, trimmed
+
+
+def search_graph(question: str) -> list[dict[str, Any]]:
+    """PR3 可搜时才调用。测试 monkeypatch 此函数以断言空图/error 不碰 CRG。"""
+    proc = subprocess.run(
+        [
+            "uvx",
+            "--from",
+            "code-review-graph",
+            "code-review-graph",
+            "search",
+            question,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return []
+    hits: list[dict[str, Any]] = []
+    for line in proc.stdout.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        hits.append(
+            {
+                "title": stripped[:TITLE_MAX],
+                "path": "",
+                "symbol": None,
+                "excerpt": stripped,
+                "retired": [],
+            }
+        )
+        if len(hits) >= DOORS_HIT_CAP:
+            break
+    return hits
+
+
+def _doors_claim(tokens: list[str], hits: list[dict[str, Any]]) -> str:
+    if not hits:
+        return "missing"
+    hay = "\n".join(h["excerpt"] for h in hits)
+    hay_cf = hay.casefold()
+    if tokens and all((tok in hay_cf or tok in hay) for tok in tokens):
+        return "ok"
+    return "partial"
+
+
+def collect_query(root: Path, question: str) -> tuple[dict[str, Any], int]:
+    status_payload, _status_code = collect_status(root)
+    status = status_payload["status"]
+    tokens = tokenize(question)
+    vault_state, door_hits = search_doors(root, tokens)
+    doors_state = "ok" if door_hits else "missing"
+
+    if status == "empty":
+        structure_state, structure_hits = "refused_empty", []
+    elif status == "error":
+        structure_state, structure_hits = "refused_error", []
+    else:
+        structure_hits = search_graph(question)
+        if status == "stale":
+            structure_state = "stale"
+        elif structure_hits:
+            structure_state = "ok"
+        else:
+            structure_state = "missing"
+
+    if structure_state in {"refused_empty", "refused_error"}:
+        structure_claim = "unavailable"
+    else:
+        structure_claim = structure_state if structure_state != "ok" else (
+            "ok" if structure_hits else "missing"
+        )
+
+    next_action = EMPTY_NEXT_ACTION if status in {"empty", "error"} else "正门见 layers.doors。"
+    payload = {
+        "query": question,
+        "status": status,
+        "vault": vault_state,
+        "layers": {
+            "doors": {"state": doors_state, "hits": door_hits},
+            "structure": {"state": structure_state, "hits": structure_hits},
+            "narrative": {"state": "missing", "hits": []},
+        },
+        "conflicts": [],
+        "completeness_claim": {
+            "doors": _doors_claim(tokens, door_hits),
+            "structure": structure_claim,
+            "narrative": "unavailable",
+            "recall": "untested",
+        },
+        "next_action": next_action,
+    }
+    return payload, 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="code_map.py",
-        description="本地代码地图门面（status / query / build）。PR1 仅 status。",
+        description="本地代码地图门面（status / query / build）。PR4 前无 build。",
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
     p_status = sub.add_parser("status", help="空图 fail-closed 的新鲜度")
     flags = p_status.add_mutually_exclusive_group()
     flags.add_argument("--json", action="store_true", help="打印 JSON")
     flags.add_argument("--one-line", action="store_true", help="打印 ≤80 字一行")
+    p_query = sub.add_parser("query", help="先正门、再结构、再叙事")
+    p_query.add_argument("question", help="用户问题 / 拟实现的能力名")
+    p_query.add_argument("--json", action="store_true", help="打印 JSON（query 默认就是 JSON）")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-    if args.cmd != "status":
-        parser.error(f"invalid choice: {args.cmd}")
-    payload, code = collect_status(repo_root())
-    if args.json:
+    if args.cmd == "status":
+        payload, code = collect_status(repo_root())
+        if args.json:
+            sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        else:
+            sys.stdout.write(payload["one_line"] + "\n")
+        return code
+    if args.cmd == "query":
+        payload, code = collect_query(repo_root(), args.question)
         sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
-    else:
-        sys.stdout.write(payload["one_line"] + "\n")
-    return code
+        return code
+    parser.error(f"invalid choice: {args.cmd}")
+    return 2
 
 
 if __name__ == "__main__":

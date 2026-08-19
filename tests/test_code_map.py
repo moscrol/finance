@@ -322,3 +322,114 @@ def test_session_facts_hook_emits_code_map_line_and_exits_0():
     assert lines, ctx
     assert len(lines[0]) <= 80
     assert "禁止空图架构结论" in lines[0]
+
+
+def _query_json(*args: str) -> tuple[dict, subprocess.CompletedProcess[str]]:
+    result = _run("query", *args)
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout), result
+
+
+def test_query_empty_graph_exits_0_and_refuses_structure():
+    payload, result = _query_json("daily-full", "--json")
+    assert payload["status"] == "empty"
+    assert payload["layers"]["structure"]["state"] == "refused_empty"
+    assert payload["layers"]["structure"]["hits"] == []
+    assert payload["layers"]["narrative"]["state"] == "missing"
+    assert payload["conflicts"] == []
+    assert payload["completeness_claim"]["recall"] == "untested"
+    assert payload["completeness_claim"]["structure"] == "unavailable"
+    assert payload["completeness_claim"]["narrative"] == "unavailable"
+    assert "scripts/code_map.py build" not in payload["next_action"]
+    assert "build" not in payload["next_action"]
+
+
+def test_query_daily_full_doors_probe():
+    payload, _ = _query_json("daily-full")
+    hits = payload["layers"]["doors"]["hits"]
+    assert any(
+        "CLAUDE.md" in h["path"]
+        and "daily-full" in h["excerpt"]
+        and "market_feature_store.cli" in h["excerpt"]
+        for h in hits
+    )
+    cmd_hits = [
+        h
+        for h in hits
+        if "market_feature_store.cli" in h["excerpt"] and "daily-full" in h["excerpt"]
+    ]
+    assert cmd_hits
+    assert cmd_hits[0]["retired"] == []
+    retired_lines = [r for h in hits for r in h["retired"]]
+    assert any("已废弃" in r or "停用" in r for r in retired_lines)
+    assert payload["completeness_claim"]["recall"] == "untested"
+    assert payload["completeness_claim"]["doors"] in ("ok", "partial")
+
+
+def test_query_skill_bridge_hits_are_a_set_not_merged_lines():
+    payload, _ = _query_json("技能桥")
+    hits = payload["layers"]["doors"]["hits"]
+    excerpts = [h["excerpt"] for h in hits]
+    assert any("intelligence/services/skill_tools.py" in e for e in excerpts)
+    assert any("刻意" in e or "只开一个" in e for e in excerpts)
+    assert any(
+        "intelligence/services/skill_tools.py" in e and "刻意" not in e
+        for e in excerpts
+    ), "禁止把标题行与 skill_tools.py 合并成一条 excerpt"
+
+
+def test_query_fact_sector_daily_is_view():
+    payload, _ = _query_json("fact_sector_daily")
+    hits = payload["layers"]["doors"]["hits"]
+    assert any("CLAUDE.md" in h["path"] for h in hits)
+    assert any(
+        "VIEW" in h["excerpt"] or "_generation" in h["excerpt"] or "snapshot" in h["excerpt"]
+        for h in hits
+    )
+
+
+def test_query_error_does_not_call_search(tmp_path, monkeypatch):
+    scripts_dir = str(ROOT / "scripts")
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+    import code_map as cm
+
+    root = _init_repo(tmp_path)
+    db_dir = root / ".code-review-graph"
+    db_dir.mkdir()
+    (db_dir / "graph.db").write_bytes(b"not a sqlite database")
+    called = []
+
+    def boom(question: str):
+        called.append(question)
+        raise AssertionError("empty/error must not call CRG search")
+
+    monkeypatch.setattr(cm, "search_graph", boom)
+    payload, code = cm.collect_query(root, "daily-full")
+    assert code == 0
+    assert payload["status"] == "error"
+    assert payload["layers"]["structure"]["state"] == "refused_error"
+    assert called == []
+
+
+def test_query_empty_tmp_repo_does_not_call_search(tmp_path, monkeypatch):
+    scripts_dir = str(ROOT / "scripts")
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+    import code_map as cm
+
+    root = _init_repo(tmp_path)
+    (root / "AGENTS.md").write_text("daily-full gate\n", encoding="utf-8")
+    (root / "CLAUDE.md").write_text("daily-full gate\n", encoding="utf-8")
+    called = []
+    monkeypatch.setattr(cm, "search_graph", lambda q: called.append(q) or [])
+    payload, code = cm.collect_query(root, "daily-full")
+    assert code == 0
+    assert payload["layers"]["structure"]["state"] == "refused_empty"
+    assert called == []
+
+
+def test_code_map_has_no_home_path_literal():
+    src = (ROOT / "scripts" / "code_map.py").read_text(encoding="utf-8")
+    assert "/Users/" not in src
+    assert "/home/" not in src
