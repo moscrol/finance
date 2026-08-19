@@ -20,7 +20,7 @@
 
 | 轨道 | 内容 | 前置 | 可并行性 |
 |---|---|---|---|
-| A | 门禁放行 live 验证（打生产 8792） | 无，立即可开 | 与 B/E 并行 |
+| A | 门禁放行 live 验证（打生产 8792） | **已关闭 15:28** | 与 B/E 并行；**B 现可链切** |
 | B | E4 验收收口（sidecar live → 合并 → 切 8792） | 无，立即可开 | live 部分与 A/E 并行；**链切须在 A 重放完成后** |
 | C | E2 修订版在前（continuous 接通） | **B 合并后**（同文件 `conversation_orchestrator`） | 与 D 串行 |
 | D | E1 四态接 repair + E3 TTL 机器可读 | C 之后 | — |
@@ -31,7 +31,7 @@
 - 清单真本源：`docs/handoffs/inflight/fix-gate-partial-release.md`「下一步」节（原题重放 / 财务锚 fail-closed / 一周 telemetry）。
 - 本轨道是唯一**允许打生产 8792** 的：重放就是要验生产行为。run 产物在 `~/.local/share/finance-workbench/users/<id>/runs/`。
 - 交付：`docs/verification/2026-08-19-gate-partial-release-live.md`（预期读数 vs 实测：verified=completed 或 partial 放行正文；issues 至多剩 `stripped unsupported evidence type`；不再出「现有证据不足」模板）+ 更新该 inflight handoff。
-- 完成后知会轨道 B 可以链切。
+- **已关闭（2026-08-19 15:28）**：读数见 verification。SPT 重放 `run_20260819_152316_348138` 放行正文；估值 `run_20260819_152635_937314` 仍 fail-closed。**轨道 B 可以链切**（当时无 in-flight；链切前再确认一次）。一周 telemetry / A3 不归本轨道收口。
 
 ## 轨道 B：E4 验收收口（验收方角色，独立复算）
 
