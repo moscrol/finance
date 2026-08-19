@@ -261,7 +261,7 @@ HEADING_RE = re.compile(r"^(#{1,6})\s+")
 VAULT_GRAPH = Path(".agent-memory") / "10_knowledge" / "finance-agent-capability-graph.md"
 VAULT_AUDIT = Path(".agent-memory") / "scripts" / "graph_audit.py"
 EMPTY_NEXT_ACTION = (
-    "structure 层不可用：禁止把空图写成架构结论。正门见 layers.doors。"
+    "structure 层不可用：禁止把空图写成架构结论。正门见 layers.doors。 "
     "python3 scripts/code_map.py build --full"
 )
 DRIFT_NEXT_ACTION = "正门赢，见 conflicts。生成页不得覆盖 AGENTS。"

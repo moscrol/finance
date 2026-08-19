@@ -443,6 +443,8 @@ def test_query_empty_tmp_repo_does_not_call_search(tmp_path, monkeypatch):
     assert code == 0
     assert payload["layers"]["structure"]["state"] == "refused_empty"
     assert called == []
+    assert "doors。python3" not in payload["next_action"]
+    assert "layers.doors。 python3 scripts/code_map.py build --full" in payload["next_action"]
 
 
 def test_code_map_has_no_home_path_literal():
