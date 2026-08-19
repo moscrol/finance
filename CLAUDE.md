@@ -41,6 +41,10 @@
 （有 `graph_audit.py` 硬门禁，跑它拿当前节点数，别抄这里写死的数）。改能力时回写它，
 **不要另建第二份清单**。
 
+### 金融问答正门
+
+默认：`python3 -m intelligence.cli ask "<问题>"`。追问 `chat`；模型选工具才用 `agent`。Workbench 走 Episode，不要用 CLI 冒充 UI 合同。`--kb-mode` / `--wiki-rag-mode` / `--modules` 是逃生口。问能力个数时点名 `skills/` / `.claude/skills/` / 工具注册表，不要加总、不要写死个数。技能桥只开一个、飞书写入退役、`fact_sector_daily` 是 VIEW、`daily-full` 是写入正门——这些是约束不是缺口。编码检索门面见 `docs/superpowers/specs/2026-08-19-local-code-map-design.md`。
+
 ### Agent 可调工具：12 个
 
 全部在 `intelligence/services/research_tool_registry.py` 的 `_DEFAULT_TOOL_METADATA`：

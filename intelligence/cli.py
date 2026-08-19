@@ -38,41 +38,90 @@ def _resolve_kb_mode(
     return rag_mode, index_dir, ""
 
 
+_WIKI_RAG_MODES = ("bm25", "dense", "hybrid", "rerank")
+
+
+def add_shared_retrieval_arguments(
+    parser: argparse.ArgumentParser,
+    *,
+    with_module_fanout: bool = True,
+) -> None:
+    """Retrieval knobs shared by ask / chat / agent. Escape hatches, not the default door."""
+
+    parser.add_argument(
+        "--date",
+        default=None,
+        help="theme-candidates export date YYYY-MM-DD; defaults to latest",
+    )
+    parser.add_argument(
+        "--exports-dir", default=None, help="Override market_feature_store/exports dir"
+    )
+    parser.add_argument(
+        "--kb-wiki",
+        default=None,
+        help="Knowledge-base wiki root (contains relations/); defaults to env/auto",
+    )
+    parser.add_argument(
+        "--top-companies", type=int, default=12, help="Max exposed companies to recall"
+    )
+    if with_module_fanout:
+        parser.add_argument(
+            "--modules",
+            default=None,
+            help="Comma-separated theme-radar backends to fan out to "
+            "(brief,front-map,deep-dive,replay,scan,migrate). Default: auto-route by query.",
+        )
+        parser.add_argument(
+            "--no-modules",
+            action="store_true",
+            help="Disable theme-radar module fan-out (graph+盘面 only)",
+        )
+        parser.add_argument(
+            "--no-wiki-rag",
+            action="store_true",
+            help="Disable the W source (knowledge-base hybrid 向量语义召回 wiki 候选页). "
+            "Auto-skips anyway when the KB repo / rag_index.py / 向量索引 is unavailable.",
+        )
+    parser.add_argument(
+        "--module-timeout",
+        type=int,
+        default=180,
+        help="Per-module subprocess timeout in seconds",
+    )
+    parser.add_argument(
+        "--wiki-rag-k",
+        type=int,
+        default=6,
+        help="Max wiki pages to recall via vector search (W source)",
+    )
+    parser.add_argument(
+        "--wiki-rag-mode",
+        default="hybrid",
+        choices=list(_WIKI_RAG_MODES),
+        help="Retrieval mode for the W source (default hybrid = BM25 + dense RRF; rerank = 全文版专用)",
+    )
+    parser.add_argument(
+        "--wiki-rag-timeout",
+        type=int,
+        default=90,
+        help="W source rag_index.py subprocess timeout in seconds",
+    )
+    parser.add_argument(
+        "--kb-mode",
+        default=None,
+        metavar="MODE",
+        help="W 源查询模式：structured(默认，别名 fast/结构/速查)=.rag_index+hybrid；"
+        "full(别名 deep/全文/深度)=.rag_index_full+rerank。不指定则按问句自然语言触发词"
+        "(深挖/看原文/原文/权威/完整版/深度)自动判定；无触发词时为 structured（与历史逐字节一致）。",
+    )
+
+
 def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "ask", help="Unified multi-source ask: KB graph (G/R) + market 盘面 snapshot (S) + wiki 向量语义召回 (W)"
     )
     parser.add_argument("query", help="Question / theme term, e.g. 液冷服务器")
-    parser.add_argument("--date", default=None, help="theme-candidates export date YYYY-MM-DD; defaults to latest")
-    parser.add_argument("--exports-dir", default=None, help="Override market_feature_store/exports dir")
-    parser.add_argument("--kb-wiki", default=None, help="Knowledge-base wiki root (contains relations/); defaults to env/auto")
-    parser.add_argument("--top-companies", type=int, default=12, help="Max exposed companies to recall")
-    parser.add_argument(
-        "--modules",
-        default=None,
-        help="Comma-separated theme-radar backends to fan out to "
-        "(brief,front-map,deep-dive,replay,scan,migrate). Default: auto-route by query.",
-    )
-    parser.add_argument("--no-modules", action="store_true", help="Disable theme-radar module fan-out (graph+盘面 only)")
-    parser.add_argument("--module-timeout", type=int, default=180, help="Per-module subprocess timeout in seconds")
-    parser.add_argument(
-        "--no-wiki-rag",
-        action="store_true",
-        help="Disable the W source (knowledge-base hybrid 向量语义召回 wiki 候选页). "
-        "Auto-skips anyway when the KB repo / rag_index.py / 向量索引 is unavailable.",
-    )
-    parser.add_argument("--wiki-rag-k", type=int, default=6, help="Max wiki pages to recall via vector search (W source)")
-    parser.add_argument(
-        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid", "rerank"],
-        help="Retrieval mode for the W source (default hybrid = BM25 + dense RRF; rerank = 全文版专用)",
-    )
-    parser.add_argument("--wiki-rag-timeout", type=int, default=90, help="W source rag_index.py subprocess timeout in seconds")
-    parser.add_argument(
-        "--kb-mode", default=None, metavar="MODE",
-        help="W 源查询模式：structured(默认，别名 fast/结构/速查)=.rag_index+hybrid；"
-        "full(别名 deep/全文/深度)=.rag_index_full+rerank。不指定则按问句自然语言触发词"
-        "(深挖/看原文/原文/权威/完整版/深度)自动判定；无触发词时为 structured（与历史逐字节一致）。",
-    )
+    add_shared_retrieval_arguments(parser)
     parser.add_argument(
         "--llm",
         action="store_true",
@@ -137,29 +186,7 @@ def add_chat_parser(subparsers: argparse._SubParsersAction) -> None:
         "（带记忆，仍守 grounding/引用、不重新检索）。需 LLM key；无 key 无法进入多轮、退回模板。",
     )
     parser.add_argument("query", help="首轮问题 / 题材词，如 液冷")
-    parser.add_argument("--date", default=None, help="theme-candidates export date YYYY-MM-DD; defaults to latest")
-    parser.add_argument("--exports-dir", default=None, help="Override market_feature_store/exports dir")
-    parser.add_argument("--kb-wiki", default=None, help="Knowledge-base wiki root (contains relations/); defaults to env/auto")
-    parser.add_argument("--top-companies", type=int, default=12, help="Max exposed companies to recall")
-    parser.add_argument(
-        "--modules",
-        default=None,
-        help="Comma-separated theme-radar backends (brief,front-map,deep-dive,replay,scan,migrate). Default: auto-route.",
-    )
-    parser.add_argument("--no-modules", action="store_true", help="Disable theme-radar module fan-out (graph+盘面 only)")
-    parser.add_argument("--module-timeout", type=int, default=180, help="Per-module subprocess timeout in seconds")
-    parser.add_argument("--no-wiki-rag", action="store_true", help="Disable the W source (wiki 向量语义召回)")
-    parser.add_argument("--wiki-rag-k", type=int, default=6, help="Max wiki pages to recall via vector search (W source)")
-    parser.add_argument(
-        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid", "rerank"],
-        help="Retrieval mode for the W source (default hybrid = BM25 + dense RRF; rerank = 全文版专用)",
-    )
-    parser.add_argument("--wiki-rag-timeout", type=int, default=90, help="W source rag_index.py subprocess timeout in seconds")
-    parser.add_argument(
-        "--kb-mode", default=None, metavar="MODE",
-        help="W 源查询模式：structured(默认，别名 fast/结构/速查)=.rag_index+hybrid；"
-        "full(别名 deep/全文/深度)=.rag_index_full+rerank。不指定则按问句自然语言触发词自动判定；无触发词时为 structured。",
-    )
+    add_shared_retrieval_arguments(parser)
     parser.add_argument("--llm-model", default=None, help="Override LLM model id (else provider default / LLM_MODEL)")
     parser.add_argument("--llm-timeout", type=int, default=60, help="LLM HTTP timeout in seconds")
     parser.add_argument("--user", default=None, help="用户 id；首轮 compose 时读取该用户的 experience_cards.jsonl")
@@ -268,25 +295,10 @@ def add_agent_parser(subparsers: argparse._SubParsersAction) -> None:
         "需 LLM key；无 key/失败优雅降级。默认与现有 ask/chat 互不影响。",
     )
     parser.add_argument("query", help="问题 / 题材词，如 液冷")
-    parser.add_argument("--date", default=None, help="theme-candidates export date YYYY-MM-DD; defaults to latest")
-    parser.add_argument("--exports-dir", default=None, help="Override market_feature_store/exports dir")
-    parser.add_argument("--kb-wiki", default=None, help="Knowledge-base wiki root (contains relations/); defaults to env/auto")
+    add_shared_retrieval_arguments(parser, with_module_fanout=False)
     parser.add_argument(
         "--market-db-path", default=None,
         help="本地 market_feature_store DuckDB 路径；提供且可打开时启用 opt-in 实时盘面工具 search_market_live（默认关闭，不影响其余工具）",
-    )
-    parser.add_argument("--top-companies", type=int, default=12, help="Max exposed companies to recall per graph tool call")
-    parser.add_argument("--module-timeout", type=int, default=180, help="Per-module subprocess timeout in seconds")
-    parser.add_argument("--wiki-rag-k", type=int, default=6, help="Default wiki pages per search_wiki call (W source)")
-    parser.add_argument(
-        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid", "rerank"],
-        help="Retrieval mode for the wiki tool (default hybrid = BM25 + dense RRF; rerank = 全文版专用)",
-    )
-    parser.add_argument("--wiki-rag-timeout", type=int, default=90, help="search_wiki rag_index.py subprocess timeout in seconds")
-    parser.add_argument(
-        "--kb-mode", default=None, metavar="MODE",
-        help="wiki 工具查询模式：structured(默认，别名 fast/结构/速查)=.rag_index+hybrid；"
-        "full(别名 deep/全文/深度)=.rag_index_full+rerank。不指定则按问句自然语言触发词自动判定。",
     )
     parser.add_argument("--max-steps", type=int, default=6, help="Max agent tool-calling rounds before a forced final answer")
     parser.add_argument("--llm-model", default=None, help="Override LLM model id (else provider default / LLM_MODEL)")
@@ -1269,7 +1281,8 @@ def add_l3_ingest_parser(subparsers: argparse._SubParsersAction) -> None:
 
 
 def cmd_ask(args: argparse.Namespace) -> int:
-    from intelligence.workflows.ask import AskWorkflowOptions, run_ask
+    from intelligence.services.ask import AskOptions
+    from intelligence.workflows.ask import run_ask
 
     modules = tuple(m.strip() for m in args.modules.split(",") if m.strip()) if args.modules else None
     rag_mode, kb_index_dir, kb_err = _resolve_kb_mode(args.query, args.kb_mode, args.wiki_rag_mode)
@@ -1277,7 +1290,7 @@ def cmd_ask(args: argparse.Namespace) -> int:
         print(kb_err, file=sys.stderr)
         return 2
     summary, _result, answer = run_ask(
-        AskWorkflowOptions(
+        AskOptions(
             query=args.query,
             date=args.date,
             exports_dir=args.exports_dir,
