@@ -2043,8 +2043,13 @@ def test_deep_repair_timeout_with_new_coverage_may_use_next_cycle() -> None:
         bindings=(
             OutputEvidenceBinding("direct_assessment", (direct.content_hash,)),
             OutputEvidenceBinding("counterpoint", (), "缺少反方证据"),
+            # market_forecast 的失效条件槽现在签 model_reasoning（前瞻假设槽），
+            # 绑定 basis 必须随契约走，否则 basis mismatch 把 completed 打成 partial。
             OutputEvidenceBinding(
-                "invalidation_conditions", (), "缺少失效条件"
+                "invalidation_conditions",
+                (),
+                "缺少失效条件",
+                basis="model_reasoning",
             ),
         ),
         usage=AgentUsage(1, 1, 0),
@@ -2059,7 +2064,10 @@ def test_deep_repair_timeout_with_new_coverage_may_use_next_cycle() -> None:
             OutputEvidenceBinding("direct_assessment", (direct.content_hash,)),
             OutputEvidenceBinding("counterpoint", (counter.content_hash,)),
             OutputEvidenceBinding(
-                "invalidation_conditions", (), "缺少失效条件"
+                "invalidation_conditions",
+                (),
+                "缺少失效条件",
+                basis="model_reasoning",
             ),
         ),
         usage=AgentUsage(2, 2, 1),
@@ -2078,7 +2086,9 @@ def test_deep_repair_timeout_with_new_coverage_may_use_next_cycle() -> None:
             OutputEvidenceBinding("direct_assessment", (direct.content_hash,)),
             OutputEvidenceBinding("counterpoint", (counter.content_hash,)),
             OutputEvidenceBinding(
-                "invalidation_conditions", (invalidation.content_hash,)
+                "invalidation_conditions",
+                (invalidation.content_hash,),
+                basis="model_reasoning",
             ),
         ),
         usage=AgentUsage(3, 3, 1),

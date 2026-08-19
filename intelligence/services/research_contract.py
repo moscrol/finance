@@ -725,6 +725,20 @@ def release_root_budget(episode_id: str) -> None:
         _LIVE_ROOT_BUDGETS.pop(episode, None)
 
 
+# 前瞻假设槽：这些输出的本体是「对未来的条件化判断」——情景路径、持续/证伪
+# 阈值不可能出现在既有证据里（证据不含未来）。episode_factory 在前瞻类题型下
+# 据此把槽签成 model_reasoning，episode_semantic_verifier 的数值门禁据此豁免
+# 条件句里模型提出的新阈值。两处共用本集合：各存一份词表必漂（route_table
+# 的 QUICK_FACT_PATTERN 注释里有同款事故）。
+FORWARD_HYPOTHESIS_OUTPUT_IDS = frozenset(
+    {
+        "scenario_paths",
+        "continuation_conditions",
+        "invalidation_conditions",
+    }
+)
+
+
 @dataclass(frozen=True)
 class RequiredOutput:
     output_id: str
