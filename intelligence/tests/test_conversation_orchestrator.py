@@ -2007,6 +2007,69 @@ def test_continuous_terminal_cas_prevents_cancelled_run_completed_message_race(
     assert "这个答案不应覆盖" not in assistant.content
 
 
+def test_cancel_does_not_overwrite_artifacts_after_lost_claim(tmp_path) -> None:
+    """G5：cancel 认领失败时不得覆盖赢家已经写好的 answer.md。"""
+
+    conversation_store = ConversationStore(
+        "alice",
+        root=tmp_path / "conversations",
+    )
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "目前市场的主线是什么"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    conversation_store.revise_message(
+        conversation.conversation_id,
+        assistant_message_id,
+        content="赢家答案",
+        status="completed",
+    )
+    run_store.add_artifact(
+        run_id,
+        "answer.md",
+        "赢家答案",
+        renderer="markdown",
+        title="答案",
+    )
+    run_store.finish_run(run_id, "completed")
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+    )._cancel(
+        conversation.conversation_id,
+        run_id,
+        assistant_message_id,
+        {"status": "running", "warnings": []},
+        [],
+        [],
+        [],
+        [],
+        [],
+        ["草稿不应发表"],
+    )
+
+    assistant = next(
+        message
+        for message in conversation_store.load_messages(conversation.conversation_id)
+        if message.message_id == assistant_message_id
+    )
+    assert result.status == "completed"
+    assert result.content == "赢家答案"
+    assert run_store.load_run(run_id).status == "completed"
+    assert (run_store.run_dir(run_id) / "answer.md").read_text(
+        encoding="utf-8"
+    ) == "赢家答案"
+    assert assistant.content == "赢家答案"
+    assert assistant.status == "completed"
+
+
 def test_continuous_terminal_cas_does_not_duplicate_executor_timeout_revision(
     tmp_path,
     monkeypatch,

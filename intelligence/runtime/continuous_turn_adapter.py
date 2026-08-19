@@ -26,6 +26,7 @@ from intelligence.services.episode_issues import (
     IssueCode,
     plan_issue_backfill,
 )
+from intelligence.services.episode_phase import PhaseRecorder
 from intelligence.services.episode_projection import project_durable_events
 from intelligence.services.episode_progress import EpisodeProgress
 from intelligence.services.episode_semantic_verifier import (
@@ -462,6 +463,7 @@ class ContinuousTurnAdapter:
         delivery_repair_attempted = False
         semantic_verifier_stale = False
         attempts_before = _ledger_attempt_count()
+        phase_recorder = PhaseRecorder()
         try:
             root_timeout = self._remaining_timeout()
             root_deadline = ResearchDeadline.from_timeout(root_timeout)
@@ -550,6 +552,31 @@ class ContinuousTurnAdapter:
                     "structural verifier must return VerifiedEpisodeOutcome"
                 )
             structural = _with_track_contract_gaps(structural_candidate, context)
+            _phase_ingest(
+                phase_recorder,
+                context=context,
+                outcome=outcome,
+                repair_attempts=repair_attempts,
+            )
+            if phase_recorder.current_phase in {None, "planning"}:
+                _phase_note(
+                    phase_recorder,
+                    "research",
+                    trigger="episode_returned",
+                    reason_code="episode_returned",
+                    context=context,
+                    outcome=outcome,
+                    repair_attempts=repair_attempts,
+                )
+            _phase_note(
+                phase_recorder,
+                "structural_verify",
+                trigger="structural_verifier",
+                reason_code="structural_verify",
+                context=context,
+                outcome=outcome,
+                repair_attempts=repair_attempts,
+            )
             episode_evidence_ledger = (
                 getattr(session, "evidence_ledger", None)
                 if session is not None
@@ -587,6 +614,15 @@ class ContinuousTurnAdapter:
                 and not root_deadline.expired
             ):
                 backfill_turns = 1
+                _phase_note(
+                    phase_recorder,
+                    "repair",
+                    trigger="resume_for_backfill",
+                    reason_code="backfill",
+                    context=context,
+                    outcome=outcome,
+                    repair_attempts=repair_attempts,
+                )
                 backfilled = self._resume_for_backfill(
                     session=session,
                     context=context,
@@ -606,6 +642,21 @@ class ContinuousTurnAdapter:
                         context,
                         ledger=episode_evidence_ledger,
                     )
+                    _phase_ingest(
+                        phase_recorder,
+                        context=context,
+                        outcome=outcome,
+                        repair_attempts=repair_attempts,
+                    )
+                    _phase_note(
+                        phase_recorder,
+                        "structural_verify",
+                        trigger="structural_verifier",
+                        reason_code="structural_recheck",
+                        context=context,
+                        outcome=outcome,
+                        repair_attempts=repair_attempts,
+                    )
             while (
                 session is not None
                 and structural.missing_outputs
@@ -615,6 +666,15 @@ class ContinuousTurnAdapter:
                 and not root_deadline.expired
             ):
                 repair_attempts += 1
+                _phase_note(
+                    phase_recorder,
+                    "repair",
+                    trigger="resume_for_gap",
+                    reason_code="structural_gap",
+                    context=context,
+                    outcome=outcome,
+                    repair_attempts=repair_attempts,
+                )
                 repaired = self._resume_for_gap(
                     session=session,
                     context=context,
@@ -647,6 +707,21 @@ class ContinuousTurnAdapter:
                 )
                 if outcome.stop_reason in _SUCCESSFUL_REPAIR_STOP_REASONS:
                     repair_cycles += 1
+                _phase_ingest(
+                    phase_recorder,
+                    context=context,
+                    outcome=outcome,
+                    repair_attempts=repair_attempts,
+                )
+                _phase_note(
+                    phase_recorder,
+                    "structural_verify",
+                    trigger="structural_verifier",
+                    reason_code="structural_recheck",
+                    context=context,
+                    outcome=outcome,
+                    repair_attempts=repair_attempts,
+                )
             if self._is_cancelled():
                 return _cancelled_result()
             if root_deadline.expired:
@@ -664,6 +739,15 @@ class ContinuousTurnAdapter:
                     semantic_candidate.verified, context
                 ),
             )
+            _phase_note(
+                phase_recorder,
+                "semantic_verify",
+                trigger="semantic_verifier",
+                reason_code=str(semantic.judge_status or "semantic_verify"),
+                context=context,
+                outcome=outcome,
+                repair_attempts=repair_attempts,
+            )
             while (
                 session is not None
                 and (
@@ -677,6 +761,15 @@ class ContinuousTurnAdapter:
                 and not root_deadline.expired
             ):
                 repair_attempts += 1
+                _phase_note(
+                    phase_recorder,
+                    "repair",
+                    trigger="resume_for_gap",
+                    reason_code="semantic_gap",
+                    context=context,
+                    outcome=outcome,
+                    repair_attempts=repair_attempts,
+                )
                 repaired = self._resume_for_gap(
                     session=session,
                     context=context,
@@ -713,6 +806,21 @@ class ContinuousTurnAdapter:
                 )
                 if outcome.stop_reason in _SUCCESSFUL_REPAIR_STOP_REASONS:
                     repair_cycles += 1
+                _phase_ingest(
+                    phase_recorder,
+                    context=context,
+                    outcome=outcome,
+                    repair_attempts=repair_attempts,
+                )
+                _phase_note(
+                    phase_recorder,
+                    "structural_verify",
+                    trigger="structural_verifier",
+                    reason_code="structural_recheck",
+                    context=context,
+                    outcome=outcome,
+                    repair_attempts=repair_attempts,
+                )
                 if (
                     repair_terminal
                     or self._is_cancelled()
@@ -734,6 +842,15 @@ class ContinuousTurnAdapter:
                     verified=_with_track_contract_gaps(
                         semantic_candidate.verified, context
                     ),
+                )
+                _phase_note(
+                    phase_recorder,
+                    "semantic_verify",
+                    trigger="semantic_verifier",
+                    reason_code=str(semantic.judge_status or "semantic_verify"),
+                    context=context,
+                    outcome=outcome,
+                    repair_attempts=repair_attempts,
                 )
             if self._is_cancelled():
                 return _cancelled_result()
@@ -778,6 +895,25 @@ class ContinuousTurnAdapter:
             partial_artifact["structural_verifier"] = (
                 structural.to_dict() if structural is not None else None
             )
+            _phase_ingest(
+                phase_recorder,
+                context=context,
+                outcome=outcome,
+                repair_attempts=repair_attempts,
+            )
+            degraded_delivery = bool(
+                outcome is not None and outcome.evidence and context is not None
+            )
+            _phase_note(
+                phase_recorder,
+                "degraded" if degraded_delivery else "failed",
+                trigger="public_outcome",
+                reason_code=type(exc).__name__,
+                context=context,
+                outcome=outcome,
+                repair_attempts=repair_attempts,
+            )
+            partial_artifact["phase_trace"] = _phase_trace_payload(phase_recorder)
             if outcome is not None and outcome.evidence and context is not None:
                 partial_artifact["contract"] = context.contract.to_dict()
                 trusted_structural = (
@@ -900,6 +1036,15 @@ class ContinuousTurnAdapter:
             status = "degraded"
         else:
             status = "failed"
+        _phase_note(
+            phase_recorder,
+            status,
+            trigger="public_outcome",
+            reason_code=status,
+            context=context,
+            outcome=outcome,
+            repair_attempts=repair_attempts,
+        )
         if not answer and final_outcome.evidence:
             answer = _episode_gap_answer(frame, structural)
         answer = _with_calendar_disclosure(answer, frame)
@@ -945,6 +1090,7 @@ class ContinuousTurnAdapter:
             artifact["events_projection_anomalies"] = (
                 event_projection.anomalies_to_dict()
             )
+        artifact["phase_trace"] = _phase_trace_payload(phase_recorder)
         if semantic.judge_status == "unavailable":
             artifact["pending_rejudge"] = True
             try:
@@ -1644,6 +1790,69 @@ def _episode_warnings(
 
 def _redact_private(value: object) -> object:
     return redact_value(value)
+
+
+def _phase_note(
+    recorder: PhaseRecorder,
+    to_phase: str,
+    *,
+    trigger: str,
+    reason_code: str,
+    context: ResearchRunContext | None,
+    outcome: AgentOutcome | None,
+    repair_attempts: int,
+) -> None:
+    """Observability only: a broken phase seam must not abort research."""
+
+    try:
+        root = getattr(context, "root_budget", None) if context is not None else None
+        recorder.record(
+            to_phase,
+            trigger=trigger,
+            reason_code=reason_code,
+            remaining_calls=int(root.remaining_calls) if root is not None else None,
+            remaining_seconds=(
+                float(root.remaining_seconds) if root is not None else None
+            ),
+            evidence_count=len(outcome.evidence) if outcome is not None else 0,
+            repair_attempts=repair_attempts,
+        )
+    except Exception:
+        return
+
+
+def _phase_ingest(
+    recorder: PhaseRecorder,
+    *,
+    context: ResearchRunContext | None,
+    outcome: AgentOutcome | None,
+    repair_attempts: int,
+) -> None:
+    if outcome is None:
+        return
+    try:
+        root = getattr(context, "root_budget", None) if context is not None else None
+        recorder.ingest_events(
+            outcome.events,
+            remaining_calls=int(root.remaining_calls) if root is not None else None,
+            remaining_seconds=(
+                float(root.remaining_seconds) if root is not None else None
+            ),
+            evidence_count=len(outcome.evidence),
+            repair_attempts=repair_attempts,
+        )
+    except Exception:
+        return
+
+
+def _phase_trace_payload(recorder: PhaseRecorder) -> dict[str, object]:
+    try:
+        return recorder.trace().to_dict()
+    except Exception:
+        return {
+            "transitions": [],
+            "anomalies": {"recorder_failed": ["1"]},
+        }
 
 
 def _private_outcome(outcome: AgentOutcome) -> dict[str, object]:
