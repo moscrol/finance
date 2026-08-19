@@ -19,7 +19,9 @@ from intelligence.services.agent_runtime import (
 from intelligence.services.episode_issues import IssueCode
 from intelligence.services.episode_semantic_verifier import (
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
+    LEFTOVER_WINDOW_ISSUE,
     SemanticEpisodeVerifier,
+    leftover_window_blocks_complete_attempt,
     semantic_judge_window_seconds,
 )
 from intelligence.services.episode_verifier import verify_episode_outcome
@@ -2225,7 +2227,7 @@ def test_independent_judge_provider_records_uncorrelated(monkeypatch) -> None:
     result = SemanticEpisodeVerifier().verify(
         frame=frame,
         structurally_verified=structural,
-        deadline=ResearchDeadline.from_timeout(5),
+        deadline=ResearchDeadline.from_timeout(60),
     )
     assert result.status == "completed"
     assert result.correlated_judge is False
@@ -2254,7 +2256,7 @@ def test_independent_judge_provider_takes_priority_over_injected_judge(
     ).verify(
         frame=frame,
         structurally_verified=structural,
-        deadline=ResearchDeadline.from_timeout(5),
+        deadline=ResearchDeadline.from_timeout(60),
     )
     assert result.status == "completed"
     assert result.correlated_judge is False
@@ -2284,13 +2286,51 @@ def test_independent_judge_retries_one_transient_failure(
     result = SemanticEpisodeVerifier().verify(
         frame=frame,
         structurally_verified=structural,
-        deadline=ResearchDeadline.from_timeout(5),
+        deadline=ResearchDeadline.from_timeout(60),
     )
 
     assert result.status == "completed"
     assert result.judge_status == "passed"
     assert len(calls) == 2
-    assert all(0.0 < timeout <= 5.0 for timeout in calls)
+    assert all(0.0 < timeout <= 60.0 for timeout in calls)
+
+
+def test_leftover_sliver_does_not_dispatch_independent_judge(monkeypatch) -> None:
+    frame, structural = _structural("市场当前偏弱。")
+    provider = llm_refine.LLMProvider(
+        "judge", "secret", "https://judge.invalid", "j"
+    )
+    calls: list[float] = []
+
+    def complete(*_args, **kwargs):
+        calls.append(float(kwargs["timeout"]))
+        return (
+            '{"passed":true,"rejected_sentence_indexes":[],"issues":[]}',
+            provider,
+            "",
+        )
+
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: provider)
+    monkeypatch.setattr(llm_refine, "complete", complete)
+
+    result = SemanticEpisodeVerifier(judge_timeout=12.0).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(0.5),
+    )
+    payload = result.to_dict()
+
+    assert calls == []
+    assert leftover_window_blocks_complete_attempt(0.5, 12.0) is True
+    assert leftover_window_blocks_complete_attempt(20.0, 12.0) is False
+    assert result.judge_status == "unavailable"
+    assert LEFTOVER_WINDOW_ISSUE in result.issues
+    assert payload["degrade_class"] == "judge_unavailable"
+    assert payload["judge_unavailable_count"] == 1
+    assert payload["content_degraded_count"] == 0
+    assert payload["pending_rejudge"] is True
+    assert payload["timeout_asked"] == 0.0
+    assert isinstance(payload.get("judge_request"), dict)
 
 
 def test_judge_outage_is_partial_and_never_exposes_raw_draft() -> None:
@@ -2328,7 +2368,7 @@ def test_independent_judge_outage_keeps_uncorrelated_audit_flag(monkeypatch) -> 
     result = SemanticEpisodeVerifier().verify(
         frame=frame,
         structurally_verified=structural,
-        deadline=ResearchDeadline.from_timeout(5),
+        deadline=ResearchDeadline.from_timeout(60),
     )
 
     assert result.status == "partial"
