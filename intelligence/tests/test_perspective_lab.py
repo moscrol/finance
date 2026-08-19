@@ -253,11 +253,34 @@ class RuntimePerspectiveTests(unittest.TestCase):
                 query="复盘",
             )
 
-        self.assertIn("先单列“数据中立”", context.prompt)
+        self.assertIn("数据中立的事实底座", context.prompt)
+        self.assertIn("不得互相污染", context.prompt)
         self.assertIn("视角冲突", context.prompt)
+        self.assertIn("AI 推理", context.prompt)
+        self.assertNotIn("先单列“数据中立”", context.prompt)
+        self.assertNotIn("按以下结构输出", context.prompt)
         self.assertIn("风远94", context.prompt)
         self.assertIn("其他博主", context.prompt)
         self.assertIn("多视角并列", context.answer_header())
+
+    def test_single_context_uses_narrative_elements_not_section_order(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            perspective_lab.init_perspective(
+                us, "fengyuan94", display_name="风远94", ptype="blogger"
+            )
+            context = perspective_lab.build_runtime_context(
+                us,
+                mode="single",
+                perspective_ids=["fengyuan94"],
+                query="行情怎么看",
+            )
+
+        self.assertIn("第一句判断句", context.prompt)
+        self.assertIn("不要重复输出当前视角/来源范围", context.prompt)
+        self.assertIn("禁止把七要素做成独立小标题", context.prompt)
+        self.assertIn("原文未覆盖的问题必须写“该视角未知”", context.prompt)
+        self.assertNotIn("按以下结构输出", context.prompt)
 
     def test_article_bm25_orders_more_relevant_article_first(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
