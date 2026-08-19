@@ -32,6 +32,10 @@
 
 本仓写出的通用件（SessionStart 事实注入、棘轮式路径门禁、带条件的测试收据、按分支归属而非 mtime 的交接判定等）属于「搭建」那一件；新增或改动后**回写 `KIT.md`，不另建第二份清单**。
 
+## 🗺️ 本地代码地图（编码任务先走这里）
+
+编码任务先 `python3 scripts/code_map.py query "<问题>"`。禁止把空图 `get_architecture_overview` 写成架构结论；禁止 `code-review-graph init|install`；禁止 DeepWiki `generate_wiki` / 对本仓 private index。MCP 已连接 ≠ 地图可用。
+
 ## 🗺️ Agent 能力现状（断言"我们没有 X"之前必读）
 
 > 2026-08-04 加入。起因：一次会话里连续三次把「已存在的能力」和「刻意的设计约束」
