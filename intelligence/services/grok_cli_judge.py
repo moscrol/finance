@@ -11,6 +11,7 @@ flipping production without that env would silently change repair quality.
 Isolation (judge must not peek at the repo or browse the web):
 
 - empty temp ``--cwd`` (not the finance checkout; AGENTS.md would leak)
+- ``--prompt-file`` is ``request.txt`` (``*.json`` is parsed as ACP and rejected)
 - ``--system-prompt-override`` (skip default system prompt)
 - no shell / web / subagents; ``--max-turns 1``
 - ``--json-schema`` so stdout ``text`` is the judge object
@@ -185,7 +186,9 @@ def complete_grok_cli(
     sandbox = str(os.environ.get("LLM_JUDGE_GROK_SANDBOX") or DEFAULT_SANDBOX)
     limit = max(1.0, float(timeout))
     with tempfile.TemporaryDirectory(prefix="grok-judge-") as cwd:
-        prompt_path = os.path.join(cwd, "request.json")
+        # Grok treats *.json --prompt-file as an ACP session object and
+        # requires {"type": "acp", ...}. A judge payload is plain text.
+        prompt_path = os.path.join(cwd, "request.txt")
         with open(prompt_path, "w", encoding="utf-8") as handle:
             handle.write(user)
         argv = build_grok_judge_argv(

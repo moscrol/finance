@@ -48,7 +48,7 @@ def test_argv_isolates_empty_cwd_and_forbids_tools() -> None:
     argv = grok_cli.build_grok_judge_argv(
         binary="/tmp/fake-grok",
         cwd="/tmp/grok-judge-empty",
-        prompt_file="/tmp/grok-judge-empty/request.json",
+        prompt_file="/tmp/grok-judge-empty/request.txt",
         model="grok-4.6",
         system_prompt="judge-system",
     )
@@ -108,6 +108,9 @@ def test_complete_grok_cli_reads_json_text_and_does_not_hit_http(
     argv = captured["argv"]
     assert isinstance(argv, list)
     assert "--cwd" in argv
+    prompt_file = argv[argv.index("--prompt-file") + 1]
+    assert prompt_file.endswith("request.txt")
+    assert not prompt_file.endswith(".json")
     env = captured["env"]
     assert isinstance(env, dict)
     assert env["GROK_CLAUDE_SKILLS_ENABLED"] == "false"
