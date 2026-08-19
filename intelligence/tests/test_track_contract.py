@@ -224,5 +224,133 @@ class ContractGateTests(unittest.TestCase):
         self.assertNotIn(CONTRACT_STUB_HEADING, off.synthesis)
 
 
+class NextWatchConsumeTests(unittest.TestCase):
+    def test_parse_skips_stub_and_vague_lines(self) -> None:
+        from intelligence.services.track_contract import (
+            CONTRACT_STUB_HEADING,
+            parse_next_watch_items,
+        )
+
+        text = (
+            "## 下期关注清单\n"
+            "- 若 2026-09-12 中报毛利率 <20% 则削弱扩产逻辑\n"
+            "- 持续关注市场情绪\n"
+            f"\n{CONTRACT_STUB_HEADING}\n"
+            "- **下期关注清单**：正文未给出「指标 + 时间节点 + 触发条件」。\n"
+        )
+        items = parse_next_watch_items(text, as_of="2026-08-19")
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].due, "2026-09-12")
+        self.assertIn("毛利率", items[0].claim)
+
+    def test_parse_defaults_ttl_when_no_date(self) -> None:
+        from intelligence.services.track_contract import parse_next_watch_items
+
+        text = "## 下期关注清单\n- 若周度排产低于 8 万辆则削弱景气判断"
+        items = parse_next_watch_items(text, as_of="2026-08-19")
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].due, "2026-09-18")
+
+    def test_parse_live_inline_prose_after_heading(self) -> None:
+        """2026-08-19 Q2 原文：标题行内联若干「若/则」，下一行是证据边界。"""
+        from intelligence.services.track_contract import parse_next_watch_items
+
+        text = (
+            "无上期基线，本期建立基线。\n"
+            "下期关注清单：月度动力电池装车量公布时，若同比增速转负或环比继续回落，"
+            "则削弱需求改善线索；若公布数据维持增长，仍须结合原始发布材料复核。"
+            "下一交易日及其后，若锂电池概念转强且进入主线清单，同时电池、材料、回收等"
+            "至少多个环节由跌转涨并有成交放大，则支持盘面修复；若继续未入主线且核心板块走弱，"
+            "则维持非主线判断。公司中报/公告披露期，若出现经公告确认的出货、订单或盈利改善，"
+            "则支持产业传导；若未见该类一手材料，维持待核验。\n"
+            "证据边界：盘面数据截至2026-08-18；装车量仅有新闻来源，不能替代行业协会原始材料。"
+        )
+        items = parse_next_watch_items(text, as_of="2026-08-19")
+        claims = "\n".join(item.claim for item in items)
+        self.assertGreaterEqual(len(items), 3)
+        self.assertTrue(any("装车量" in item.claim and "则" in item.claim for item in items))
+        self.assertTrue(any("锂电池概念" in item.claim and "则" in item.claim for item in items))
+        self.assertTrue(any("公告" in item.claim and "则" in item.claim for item in items))
+        self.assertNotIn("证据边界", claims)
+        self.assertNotIn("2026-08-18", claims)
+        self.assertTrue(all(item.due == "2026-09-18" for item in items))
+
+    def test_parse_live_fullwidth_numbered_on_heading_line(self) -> None:
+        """2026-08-19 Q1 原文：下期关注清单：1）…2）… 全角编号跟标题同一行。"""
+        from intelligence.services.track_contract import parse_next_watch_items
+
+        text = (
+            "条件化基准判断：未来一个月光伏更可能维持震荡修复。"
+            "下期关注清单：1）组件/硅料现货报价，未来数周；若涨价不能延续或被一手数据否定，"
+            "则削弱价格触底判断。2）上市公司排产、订单与中报/季报，下一次披露节点；"
+            "若排产回升但订单和现金流未同步改善，则削弱需求拐点判断。"
+            "3）国内光伏装机数据，下一次官方披露节点；若旺季装机未改善，则排产回升逻辑待证伪。"
+            "4）光伏板块相对主线表现，未来数周；若仍无主线地位且持续承压，则削弱交易修复判断。"
+        )
+        items = parse_next_watch_items(text, as_of="2026-08-19")
+        self.assertEqual(len(items), 4)
+        self.assertTrue(any("现货报价" in item.claim for item in items))
+        self.assertTrue(any("排产" in item.claim for item in items))
+        self.assertTrue(any("装机" in item.claim for item in items))
+        self.assertTrue(any("主线" in item.claim for item in items))
+        self.assertTrue(all("则" in item.claim for item in items))
+
+    def test_non_track_query_does_not_ingest(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        from intelligence.services.track_contract import ingest_next_watch
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "checkpoints.jsonl"
+            written = ingest_next_watch(
+                path,
+                "## 下期关注清单\n- 若毛利率 <20% 则削弱扩产逻辑",
+                query="固态电池产业链全景",
+                as_of="2026-08-19",
+            )
+            self.assertEqual(written, [])
+            self.assertFalse(path.exists())
+
+    def test_ingest_dedupes_open_claims_and_foresight_renders(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        from intelligence.services.checkpoints import load_checkpoints
+        from intelligence.services.track_contract import (
+            ingest_next_watch,
+            open_next_watch_records,
+            render_next_watch_for_prompt,
+        )
+
+        answer = (
+            "## 下期关注清单\n"
+            "- 若 2026-09-12 中报毛利率 <20% 则削弱扩产逻辑"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "checkpoints.jsonl"
+            first = ingest_next_watch(
+                path,
+                answer,
+                query="固态电池最新进展如何",
+                as_of="2026-08-19",
+                theme="固态电池",
+            )
+            second = ingest_next_watch(
+                path,
+                answer,
+                query="固态电池最新进展如何",
+                as_of="2026-08-19",
+            )
+            self.assertEqual(len(first), 1)
+            self.assertEqual(second, [])
+            rows, _ = load_checkpoints(path)
+            open_rows = open_next_watch_records(rows, [])
+            self.assertEqual(len(open_rows), 1)
+            rendered = render_next_watch_for_prompt(open_rows)
+            self.assertIn("due=2026-09-12", rendered)
+            self.assertIn("毛利率", rendered)
+
+
 if __name__ == "__main__":
     unittest.main()
