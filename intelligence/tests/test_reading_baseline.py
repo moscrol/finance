@@ -121,10 +121,17 @@ def test_pending_rules_never_reach_the_prompt() -> None:
 
 def test_pending_rules_declare_their_data_gap() -> None:
     """每条待激活规则必须写明卡在哪个缺口 id 与缺什么——否则补数据的人无从下手。"""
+    notes = {}
     for rule, gap_id, gap_note in reading_baseline.pending_rules():
         assert rule.id and rule.rule and rule.source, rule
         assert re.fullmatch(r"G\d+", gap_id), (rule.id, gap_id)
         assert len(gap_note) > 10, (rule.id, gap_note)
+        notes[rule.id] = gap_note
+    # G1 更正：不是「缺封板时间」，是有数无块 + open_times 空壳。
+    a06 = notes["SPT-A06"]
+    assert "缺封板时间" not in a06
+    assert "open_times" in a06
+    assert "fact_theme_limit_stock_daily" in a06
 
 
 def _methodology_text() -> str:
