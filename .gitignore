@@ -55,6 +55,10 @@ tmp/
 temp/
 *.tmp
 
+# 部署切换审计账本（启动路径自报；必须落数据仓根，不能跟 snapshot）
+# 只用 /state/：skills/*/state/ 仍被跟踪，无锚点的 state/ 会误伤。
+/state/
+
 # Generated market review exports
 market_feature_store/exports/*-daily-review.md
 market_feature_store/exports/*-advancers-ma5.png

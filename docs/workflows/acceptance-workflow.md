@@ -54,6 +54,7 @@ git -C /Users/a77/finance-workspace-private worktree add --detach \
   ~/.finance-runtime/finance-workspace-${sha:0:12} "$sha"
 launchctl bootout "gui/$(id -u)/com.a77.finance-workbench"
 /bin/ln -sfh ~/.finance-runtime/finance-workspace-${sha:0:12} /Users/a77/finance-workspace-runtime
+FINANCE_WS=/Users/a77/finance-workspace-private /Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/finance-workspace-private/scripts/audit_deploy_ledger.py record --action switch --rev "$sha" --snapshot-path ~/.finance-runtime/finance-workspace-${sha:0:12}
 launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.a77.finance-workbench.plist
 ```
 
