@@ -54,6 +54,19 @@
 
 ## 遗留
 
-- 本分支未合 main，等 77 确认；部署副本已直接改，功能即时生效
-- 明晚 18:30 起链路应自愈：public-assets 步回归 + L2 flag 跳过
-- agent-memory 已写一行交接（`20_projects/finance-workspace-private.md`）
+- L2 欠账仍等鉴权：最后 complete=08-07；failed=08-10/08-13/08-18
+- 明晚 18:30 才是 public-assets 步第一次被夜跑执行（08-18 成功轮是 CLI 回补后 clone）
+- 主仓脏树不要切走；`state/l2-paused.flag` 留着
+- 不要为这单切 8792
+
+## 轮次记录
+
+### 检阅批注 · Round 1（2026-08-19，检阅方）
+- **判定**：PASS。干净树只拣 `1df6844d`，不要整支落后 518 的分支快进。
+- 18:30/20:06 败因是 cross-day 7 表断档，不是撞锁。成功 S7 未跑到 public-assets 步。
+- 三文件原 35 绿没有夹住新行为。
+
+### Round 2 收尾（2026-08-19）
+- 树 `/Users/a77/fwp-wt-l2-pause-main` `fix/l2-pause-public-assets-onto-main`，基线 `gitea/main`。
+- 夹具先红后绿：`test_sync_plan_includes_public_assets_between_theme_flow_and_features`、`test_check_l2_paused_skips_without_touching_db`。
+- 相关三文件 + 新夹具 39 passed。未切 8792，未动主仓脏树。
