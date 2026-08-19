@@ -31,6 +31,7 @@ from typing import Any
 
 from intelligence.paths import default_market_db_path
 from intelligence.services import retrieval_cache
+from intelligence.services import reading_baseline
 
 DEFAULT_MARKET_DB_PATH = default_market_db_path()
 
@@ -482,6 +483,9 @@ def regime_block_for_llm(
     if not artifact.available:
         return ""
     lines = ["## 市场情绪环境类比块 [D10]"]
+    _analog_rule = reading_baseline.block_rule_line("SPT-A11")
+    if _analog_rule:
+        lines.append(_analog_rule)
     lines.append(
         f"- 口径：把最近 {window} 个交易日的市场情绪向量（成交额/涨家数/涨停/跌停/偏离度/"
         "指数涨跌/连板高度/双红题材数/题材集中度/新高家数，逐特征对全历史 z 标准化）"
