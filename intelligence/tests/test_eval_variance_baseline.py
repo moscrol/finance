@@ -136,6 +136,7 @@ def test_extract_from_run_dir_reads_ask_gate_receipt(tmp_path: Path) -> None:
     row = extract_from_run_dir(run_dir)
     assert row["judge_status"] == "not_applicable"
     assert row["judge_unavailable"] is False
+    assert row["correlated_judge"] is None
 
 
 def test_extract_prefers_gate_receipt_over_missing_semantic(tmp_path: Path) -> None:
@@ -166,6 +167,73 @@ def test_extract_prefers_gate_receipt_over_missing_semantic(tmp_path: Path) -> N
     row = extract_from_run_dir(run_dir)
     assert row["judge_status"] == "unavailable"
     assert row["judge_unavailable"] is True
+    assert row["correlated_judge"] is None
+
+
+def test_extract_reads_correlated_judge_from_public_report(tmp_path: Path) -> None:
+    run_dir = tmp_path / "episode-correlated"
+    run_dir.mkdir()
+    (run_dir / "report.json").write_text(
+        json.dumps(
+            {
+                "gate_receipt": {
+                    "engine": "episode",
+                    "judge_status": "passed",
+                    "verified_status": "completed",
+                    "correlated_judge": True,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "continuous-episode.json").write_text(
+        json.dumps(
+            {
+                "structural_verifier": {"verified_status": "completed"},
+                "semantic_verifier": {
+                    "judge_status": "passed",
+                    "correlated_judge": False,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "run.json").write_text(json.dumps({"status": "completed"}), encoding="utf-8")
+    row = extract_from_run_dir(run_dir)
+    assert row["correlated_judge"] is True
+
+
+def test_extract_falls_back_to_private_semantic_when_receipt_omits_flag(
+    tmp_path: Path,
+) -> None:
+    run_dir = tmp_path / "episode-legacy"
+    run_dir.mkdir()
+    (run_dir / "report.json").write_text(
+        json.dumps(
+            {
+                "gate_receipt": {
+                    "engine": "episode",
+                    "judge_status": "passed",
+                    "verified_status": "completed",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "continuous-episode.json").write_text(
+        json.dumps(
+            {
+                "semantic_verifier": {
+                    "judge_status": "passed",
+                    "correlated_judge": True,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "run.json").write_text(json.dumps({"status": "completed"}), encoding="utf-8")
+    row = extract_from_run_dir(run_dir)
+    assert row["correlated_judge"] is True
 
 
 def test_reserved_port_refused() -> None:

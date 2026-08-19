@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from intelligence.services.gate_receipt import extract_gate_receipt
+from intelligence.services.gate_receipt import extract_gate_receipt, optional_bool
 
 REPO = Path(__file__).resolve().parents[2]
 RUNS_DIR = REPO / "intelligence" / "eval" / "runs"
@@ -139,6 +139,7 @@ def normalize_repeat(raw: Mapping[str, Any], *, default_qid: str = "") -> dict[s
         "primary_outcome": primary,
         "judge_status": judge_status,
         "judge_unavailable": unavailable,
+        "correlated_judge": optional_bool(raw.get("correlated_judge")),
         "verified_status": raw.get("verified_status"),
         "terminal_outcome": raw.get("terminal_outcome"),
         "run_id": raw.get("run_id"),
@@ -160,18 +161,22 @@ def extract_from_run_dir(run_dir: Path) -> dict[str, Any]:
     receipt_judge = receipt.get("judge_status")
     if isinstance(receipt_judge, str) and receipt_judge:
         judge_status = receipt_judge
+    correlated_judge = optional_bool(receipt.get("correlated_judge"))
 
     if episode:
         structural = episode.get("structural_verifier") or episode.get("verifier")
         if isinstance(structural, dict):
             verified = structural.get("verified_status")
+        semantic = episode.get("semantic_verifier")
+        if not isinstance(semantic, dict):
+            semantic = {}
         if judge_status is None:
-            semantic = episode.get("semantic_verifier")
-            if isinstance(semantic, dict):
-                judge_status = semantic.get("judge_status")
+            judge_status = semantic.get("judge_status")
             metrics = episode.get("metrics")
             if judge_status is None and isinstance(metrics, dict):
                 judge_status = metrics.get("semantic_status") or metrics.get("judge_status")
+        if correlated_judge is None:
+            correlated_judge = optional_bool(semantic.get("correlated_judge"))
 
     if smoke:
         return normalize_repeat(
@@ -182,6 +187,7 @@ def extract_from_run_dir(run_dir: Path) -> dict[str, Any]:
                 "status": smoke.get("run_status") or run.get("status"),
                 "degrades": run.get("degrades") or [],
                 "judge_status": judge_status,
+                "correlated_judge": correlated_judge,
                 "run_id": smoke.get("run_id") or run.get("run_id") or run_dir.name,
             }
         )
@@ -200,6 +206,7 @@ def extract_from_run_dir(run_dir: Path) -> dict[str, Any]:
             "status": run.get("status"),
             "degrades": degrades,
             "judge_status": judge_status,
+            "correlated_judge": correlated_judge,
             "run_id": run.get("run_id") or run_dir.name,
         }
     )
