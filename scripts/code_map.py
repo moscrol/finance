@@ -966,7 +966,7 @@ def collect_build(
         sys.stderr.write(proc.stderr or proc.stdout or "code-review-graph 失败\n")
         return {"ok": False, "error": "crg", "argv": args}, proc.returncode or 2
 
-    wiki_generated = False
+    wiki_generated = bool(receipt.get("wiki_generated"))
     if postprocess == "full":
         wiki_generated = _generate_wiki(root)
 

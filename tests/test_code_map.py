@@ -480,7 +480,7 @@ def test_build_update_uses_receipt_sha_and_skip_flows(tmp_path, monkeypatch):
                 "built_at_sha": "abc1234deadbeef",
                 "node_count": 10,
                 "postprocess": "full",
-                "wiki_generated": False,
+                "wiki_generated": True,
             }
         ),
         encoding="utf-8",
@@ -500,6 +500,7 @@ def test_build_update_uses_receipt_sha_and_skip_flows(tmp_path, monkeypatch):
     assert "init" not in cmd
     assert "install" not in cmd
     assert all(row[0] != "wiki" for row in recorded)
+    assert payload.get("wiki_generated") is True
 
 
 def test_build_full_when_no_receipt(tmp_path, monkeypatch):
