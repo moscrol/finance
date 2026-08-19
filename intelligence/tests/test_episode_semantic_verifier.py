@@ -16,6 +16,7 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
     OutputEvidenceBinding,
 )
+from intelligence.services.episode_issues import IssueCode
 from intelligence.services.episode_semantic_verifier import (
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
     SemanticEpisodeVerifier,
@@ -690,9 +691,9 @@ def test_semantic_repair_cannot_remove_a_visible_required_output_marker() -> Non
     assert "继续成立条件" in result.public_answer
     assert result.gap_output_ids == ("continuation_conditions",)
     assert result.to_dict()["gap_output_ids"] == ["continuation_conditions"]
-    assert (
-        "semantic repair removed required output: continuation_conditions"
-        in result.issues
+    assert any(
+        "semantic repair removed required output: continuation_conditions" in issue
+        for issue in result.issues
     )
 
 
@@ -723,8 +724,9 @@ def test_initial_valuation_draft_requires_substantive_scenario_output(
     assert structural.verified_status == "partial"
     assert structural.completion.outputs[1].output_id == "scenario_range"
     assert structural.completion.outputs[1].status == "missing"
-    assert "required output lacks substantive answer: scenario_range" in (
-        structural.issues
+    assert any(
+        "required output lacks substantive answer: scenario_range" in issue
+        for issue in structural.issues
     )
 
 
@@ -3807,9 +3809,10 @@ def test_missing_mandatory_news_can_release_judged_market_facts_as_partial() -> 
     )
 
     assert partial.verified_status == "partial"
-    assert partial.issues == (
-        "missing mandatory capability evidence: news_search",
-    )
+    assert [item.code for item in partial.issue_items] == [
+        IssueCode.MISSING_MANDATORY_CAPABILITY,
+    ]
+    assert "news_search" in partial.issue_items[0].subject
     assert result.status == "partial"
     assert result.judge_status == "passed"
     assert "本周实际上涨约3%" in result.public_answer
@@ -3862,9 +3865,11 @@ def test_wrong_type_prime_slot_releases_judged_rest_as_partial() -> None:
         ),
     )
     assert partial.verified_status == "partial"
-    assert partial.issues == (
-        "unsupported evidence type for prime_quote: finance_query",
-    )
+    assert [item.code for item in partial.issue_items] == [
+        IssueCode.EVIDENCE_TYPE_UNSUPPORTED,
+    ]
+    assert partial.issue_items[0].subject == "prime_quote"
+    assert "finance_query" in partial.issue_items[0].message
     judge = _judge(True)
 
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
@@ -3929,9 +3934,11 @@ def test_stripped_mixed_prime_binding_completes_and_releases_draft() -> None:
         ),
     )
     assert verified.verified_status == "completed"
-    assert verified.issues == (
-        "stripped unsupported evidence type for prime_quote: finance_query",
-    )
+    assert [item.code for item in verified.issue_items] == [
+        IssueCode.EVIDENCE_TYPE_STRIPPED,
+    ]
+    assert verified.issue_items[0].subject == "prime_quote"
+    assert "finance_query" in verified.issue_items[0].message
     judge = _judge(True)
 
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
@@ -3993,6 +4000,10 @@ def test_financial_floor_issue_still_fails_closed_without_judge() -> None:
         ),
     )
     assert partial.verified_status == "partial"
+    assert any(
+        item.code == IssueCode.FINANCIAL_ANCHOR_MISSING
+        for item in partial.issue_items
+    )
     calls: list[object] = []
 
     result = SemanticEpisodeVerifier(
