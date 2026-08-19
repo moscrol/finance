@@ -11,10 +11,11 @@ description: 编码任务先查本地代码地图门面，避免空图总览和�
 
 ```bash
 python3 scripts/code_map.py query "<问题>"
+python3 scripts/code_map.py ask "<问题>"
 python3 scripts/code_map.py status --one-line
 ```
 
-顺序已经写进门面：先设计正门，再结构图，再叙事页。空图会说结构层不可用；不要把空壳写成架构总览。
+顺序已经写进门面：先设计正门，再结构图，再叙事页。`ask` 只是把这三层拼成可读段落，不调模型。空图会说结构层不可用；不要把空壳写成架构总览。叙事页在 `.code-review-graph/wiki/`（生成物）；目录由 `wiki-steering.json` 转向。社区页是算法捆簇，不是分层审计。
 
 ## 禁止
 

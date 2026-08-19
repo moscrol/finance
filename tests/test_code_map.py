@@ -499,6 +499,7 @@ def test_build_update_uses_receipt_sha_and_skip_flows(tmp_path, monkeypatch):
     assert "--postprocess" not in cmd
     assert "init" not in cmd
     assert "install" not in cmd
+    assert all(row[0] != "wiki" for row in recorded)
 
 
 def test_build_full_when_no_receipt(tmp_path, monkeypatch):
@@ -516,6 +517,10 @@ def test_build_full_when_no_receipt(tmp_path, monkeypatch):
     assert "--skip-flows" not in cmd
     assert "--postprocess" not in cmd
     assert "init" not in cmd
+    wiki_cmds = [row for row in recorded if row and row[0] == "wiki"]
+    assert wiki_cmds
+    assert "--force" in wiki_cmds[0]
+    assert payload.get("wiki_generated") is True
 
 
 def test_build_none_uses_skip_postprocess(tmp_path, monkeypatch):
@@ -529,6 +534,7 @@ def test_build_none_uses_skip_postprocess(tmp_path, monkeypatch):
     assert code == 0
     assert "--skip-postprocess" in recorded[0]
     assert "--postprocess" not in recorded[0]
+    assert all(row[0] != "wiki" for row in recorded)
 
 
 def test_build_without_uvx_fail_closed(tmp_path, monkeypatch, capsys):
@@ -614,6 +620,164 @@ def test_code_map_skill_and_discovery_symlink():
     assert link.is_symlink()
     assert link.readlink().as_posix() == "../../skills/code-map"
     assert "scripts/code_map.py query" in text
+    assert "scripts/code_map.py ask" in text
     assert "research_tool_registry" not in text
+
+
+def test_wiki_steering_is_narrative_only_and_tracked():
+    path = ROOT / ".code-review-graph" / "wiki-steering.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert data["purpose"] == "steer narrative pages only; not a capability inventory"
+    ids = [p["id"] for p in data["pages"]]
+    assert "daily-review-door" in ids
+    assert "run-scripts" in ids
+    proc = subprocess.run(
+        ["git", "check-ignore", "-q", ".code-review-graph/wiki-steering.json"],
+        cwd=str(ROOT),
+        check=False,
+    )
+    assert proc.returncode == 1
+
+
+def test_detect_conflicts_marks_narrative_drift():
+    cm = _cm()
+    doors = [
+        {
+            "excerpt": "飞书 Bitable 写入已废弃",
+            "retired": ["飞书 Bitable"],
+        }
+    ]
+    narrative = [{"excerpt": "继续用飞书 Bitable 写复盘", "path": "wiki/x.md"}]
+    conflicts = cm.detect_conflicts(doors, [], narrative)
+    assert conflicts == [
+        {
+            "layer": "narrative",
+            "retired_item": "飞书 Bitable",
+            "resolution": "doors_win",
+        }
+    ]
+
+
+def test_detect_conflicts_skips_when_excerpt_has_retired_context():
+    cm = _cm()
+    conflicts = cm.detect_conflicts(
+        [{"retired": ["飞书 Bitable"]}],
+        [],
+        [{"excerpt": "飞书 Bitable 写入已废弃"}],
+    )
+    assert conflicts == []
+
+
+def test_query_narrative_hits_steered_wiki_page(tmp_path, monkeypatch):
+    cm = _cm()
+    root = _init_repo(tmp_path)
+    head = _git(root, "rev-parse", "HEAD")
+    _make_graph(root, n_nodes=3, git_head_sha=head)
+    (root / "AGENTS.md").write_text("daily-full gate\n", encoding="utf-8")
+    (root / "CLAUDE.md").write_text("daily-full gate\n", encoding="utf-8")
+    wiki = root / ".code-review-graph" / "wiki" / "doors"
+    wiki.mkdir(parents=True)
+    (wiki / "daily-review-door.md").write_text(
+        "# 复盘写入正门\n\nquery: daily-full\n正门是 market_feature_store.cli\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cm, "search_graph", lambda *a, **k: [])
+    payload, code = cm.collect_query(root, "daily-full")
+    assert code == 0
+    assert payload["layers"]["narrative"]["state"] == "ok"
+    hits = payload["layers"]["narrative"]["hits"]
+    assert any("daily-review-door.md" in h["path"] for h in hits)
+    assert payload["completeness_claim"]["narrative"] == "ok"
+    assert payload["conflicts"] == []
+
+
+def test_query_narrative_drift_sets_conflicts(tmp_path, monkeypatch):
+    cm = _cm()
+    root = _init_repo(tmp_path)
+    head = _git(root, "rev-parse", "HEAD")
+    _make_graph(root, n_nodes=2, git_head_sha=head)
+    (root / "AGENTS.md").write_text("daily-full\n", encoding="utf-8")
+    (root / "CLAUDE.md").write_text("飞书 Bitable 写入已废弃\n", encoding="utf-8")
+    wiki = root / ".code-review-graph" / "wiki" / "doors"
+    wiki.mkdir(parents=True)
+    (wiki / "oops.md").write_text("继续用飞书 Bitable 写复盘\n", encoding="utf-8")
+    monkeypatch.setattr(cm, "search_graph", lambda *a, **k: [])
+    monkeypatch.setattr(
+        cm,
+        "search_doors",
+        lambda root, tokens: (
+            "ok",
+            [
+                {
+                    "title": "飞书",
+                    "path": "CLAUDE.md",
+                    "symbol": None,
+                    "excerpt": "飞书 Bitable 写入已废弃",
+                    "retired": ["飞书 Bitable"],
+                }
+            ],
+        ),
+    )
+    payload, code = cm.collect_query(root, "飞书")
+    assert code == 0
+    assert payload["layers"]["narrative"]["state"] == "drift"
+    assert payload["completeness_claim"]["narrative"] == "drift"
+    assert payload["conflicts"]
+    assert payload["conflicts"][0]["resolution"] == "doors_win"
+    assert "正门赢" in payload["next_action"]
+
+
+def test_ask_is_extractive_markdown(tmp_path, monkeypatch):
+    cm = _cm()
+    root = _init_repo(tmp_path)
+    (root / "AGENTS.md").write_text("daily-full 正门\n", encoding="utf-8")
+    (root / "CLAUDE.md").write_text("daily-full 正门\n", encoding="utf-8")
+    monkeypatch.setattr(cm, "search_graph", lambda *a, **k: [])
+    text, code = cm.collect_ask(root, "daily-full")
+    assert code == 0
+    assert text.startswith("# daily-full")
+    assert "## doors" in text
+    assert "daily-full 正门" in text
+    assert "openai" not in text.lower()
+    assert "llm" not in text.lower()
+
+
+def test_full_build_writes_steering_door_pages(tmp_path, monkeypatch):
+    cm = _cm()
+    root = _init_repo(tmp_path)
+    (root / ".code-review-graphignore").write_text("*.duckdb\n", encoding="utf-8")
+    (root / "AGENTS.md").write_text("daily-full 正门\n", encoding="utf-8")
+    (root / "CLAUDE.md").write_text("daily-full 正门\n飞书 Bitable 写入已废弃\n", encoding="utf-8")
+    crg = root / ".code-review-graph"
+    crg.mkdir(exist_ok=True)
+    (crg / "wiki-steering.json").write_text(
+        json.dumps(
+            {
+                "purpose": "steer narrative pages only; not a capability inventory",
+                "pages": [
+                    {
+                        "id": "daily-review-door",
+                        "title": "复盘写入正门",
+                        "queries": ["daily-full"],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cm, "_uvx_path", lambda: "/usr/bin/uvx")
+    recorded: list[list[str]] = []
+    monkeypatch.setattr(cm, "run_crg_cli", _fake_crg_ok(recorded))
+    payload, code = cm.collect_build(root, full=True, postprocess="full")
+    assert code == 0, payload
+    page = crg / "wiki" / "doors" / "daily-review-door.md"
+    text = page.read_text(encoding="utf-8")
+    assert "投影" in text
+    assert "daily-full" in text
+    assert "AGENTS.md" in text
+    index = (crg / "wiki" / "index.md").read_text(encoding="utf-8")
+    assert "算法捆簇" in index
+    assert "daily-review-door.md" in index
+    assert payload.get("wiki_generated") is True
 
 
