@@ -104,12 +104,66 @@ def serialize_issues(items: tuple[Issue, ...]) -> tuple[str, ...]:
     return tuple(item.serialize() for item in items)
 
 
+# W5：这两种 BLOCK 不是「答案只能越修越薄」，而是缺一次对应能力的取数。
+# 映射必须跟 code 走，不能从 message 里抠 capability 名。
+BACKFILL_TRIGGER_CODES = frozenset(
+    {
+        IssueCode.NUMERIC_UNSUPPORTED,
+        IssueCode.FINANCIAL_ANCHOR_MISSING,
+    }
+)
+BACKFILL_CAPABILITY_BY_CODE: dict[IssueCode, str] = {
+    IssueCode.NUMERIC_UNSUPPORTED: "market_data",
+    IssueCode.FINANCIAL_ANCHOR_MISSING: "financial_data",
+}
+
+
+@dataclass(frozen=True)
+class BackfillPlan:
+    codes: tuple[IssueCode, ...]
+    missing_outputs: tuple[str, ...]
+    missing_capabilities: tuple[str, ...]
+
+
+def plan_issue_backfill(items: tuple[Issue, ...]) -> BackfillPlan | None:
+    """Return a narrow backfill plan, or None when no trigger code is present."""
+
+    matched = tuple(item for item in items if item.code in BACKFILL_TRIGGER_CODES)
+    if not matched:
+        return None
+    outputs = tuple(
+        dict.fromkeys(
+            item.subject
+            for item in matched
+            if item.code == IssueCode.FINANCIAL_ANCHOR_MISSING and item.subject
+        )
+    )
+    capabilities = tuple(
+        dict.fromkeys(
+            BACKFILL_CAPABILITY_BY_CODE[item.code]
+            for item in matched
+            if item.code in BACKFILL_CAPABILITY_BY_CODE
+        )
+    )
+    if not capabilities:
+        return None
+    return BackfillPlan(
+        codes=tuple(dict.fromkeys(item.code for item in matched)),
+        missing_outputs=outputs,
+        missing_capabilities=capabilities,
+    )
+
+
 __all__ = [
+    "BACKFILL_CAPABILITY_BY_CODE",
+    "BACKFILL_TRIGGER_CODES",
+    "BackfillPlan",
     "Issue",
     "IssueCode",
     "RELEASE_POLICY",
     "ReleaseAction",
     "allows_partial_release",
+    "plan_issue_backfill",
     "release_action",
     "serialize_issues",
 ]

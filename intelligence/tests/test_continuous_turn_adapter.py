@@ -50,6 +50,7 @@ from intelligence.services.research_tool_registry import (
     ToolSpec,
 )
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.repair_coordinator import BACKFILL_BUDGET_FRACTION
 from intelligence.runtime.turn_control_core import TurnControlResult
 
 
@@ -4800,3 +4801,208 @@ def test_fast_path_forwards_round_anchor_to_runner() -> None:
         semantic_verifier=_Semantic(),
     ).handle(frame=frame, control=_control(frame, terminal_kind="research"))
     assert seen.get("as_of") == "2026-07-24"
+
+
+def test_numeric_unsupported_triggers_one_narrow_backfill_turn() -> None:
+    """缺数字锚时先补一次 market_data，而不是立刻让判官删句。"""
+
+    frame = _frame()
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-w5-numeric",
+        capabilities=control.capabilities,
+        timeout=90.0,
+    )
+    initial_evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复。",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="w5-market-1",
+        supports=("direct_assessment",),
+        independent_key="market",
+    )
+    filled_evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复；上证指数收于3870点。",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="w5-market-2",
+        supports=("direct_assessment",),
+        independent_key="market",
+    )
+    draft = "我的基准判断是反弹仍可持续。若指数跌破3870点则失效。"
+    initial_events = (
+        EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        EpisodeEvent(2, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft=draft,
+        evidence=(initial_evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=initial_events,
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("w5-market-1",), ""),
+        ),
+        usage=AgentUsage(1, 1, 0),
+    )
+    repaired = replace(
+        initial,
+        evidence=(filled_evidence,),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("w5-market-2",), ""),
+        ),
+        events=(
+            *initial_events,
+            EpisodeEvent(3, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+        ),
+        usage=AgentUsage(2, 2, 0),
+    )
+    captured: dict[str, object] = {}
+
+    class Runtime:
+        def run(self, **_kwargs):
+            raise AssertionError("resumable runtime must not receive a second run")
+
+        def start(self, task_frame, *, context, registry):
+            del task_frame, registry
+
+            def resume(previous, goal):
+                assert previous is initial
+                captured["goal"] = goal
+                return repaired
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=initial,
+                resume_callback=resume,
+            )
+
+    class Semantic:
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        repair_seconds_cap=30.0,
+    ).handle(frame=frame, control=control)
+
+    goal = captured["goal"]
+    assert result.status == "completed"
+    assert result.private_artifact["backfill_turns"] == 1
+    assert result.private_artifact["repair_cycles"] == 0
+    assert goal.missing_evidence_modes == ("market_data",)
+    assert goal.remaining_calls == 1
+    assert goal.remaining_seconds <= (
+        float(context.root_budget.hard_seconds_cap) * BACKFILL_BUDGET_FRACTION
+    )
+    assert "3870点" in result.answer
+
+
+def test_backfill_turn_rejects_candidate_that_adds_sentences() -> None:
+    """回填只许补证据或改写被阻断句，新增句子 fail closed。"""
+
+    frame = _frame()
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-w5-new-claims",
+        capabilities=control.capabilities,
+        timeout=90.0,
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复。",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="w5-claim-1",
+        supports=("direct_assessment",),
+        independent_key="market",
+    )
+    draft = "我的基准判断是反弹仍可持续。若指数跌破3870点则失效。"
+    initial_events = (
+        EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        EpisodeEvent(2, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft=draft,
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=initial_events,
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("w5-claim-1",), ""),
+        ),
+        usage=AgentUsage(1, 1, 0),
+    )
+    bloated = replace(
+        initial,
+        draft=draft + "另外再给一个新结论。",
+        events=(
+            *initial_events,
+            EpisodeEvent(3, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+        ),
+    )
+
+    class Runtime:
+        def run(self, **_kwargs):
+            raise AssertionError("resumable runtime must not receive a second run")
+
+        def start(self, task_frame, *, context, registry):
+            del task_frame, registry
+
+            def resume(previous, goal):
+                del previous, goal
+                return bloated
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=initial,
+                resume_callback=resume,
+            )
+
+    class Semantic:
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        repair_seconds_cap=30.0,
+    ).handle(frame=frame, control=control)
+
+    assert result.private_artifact["backfill_turns"] == 1
+    assert "另外再给一个新结论" not in result.answer
+    assert result.private_artifact["outcome"]["draft"] == draft
