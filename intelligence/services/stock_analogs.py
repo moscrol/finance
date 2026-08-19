@@ -340,9 +340,7 @@ def stock_analog_block_for_llm(
     if artifact.stock_code is None:
         return ""
     lines = ["## 个股走势类比块 [D11]"]
-    _analog_rule = reading_baseline.block_rule_line("SPT-A11")
-    if _analog_rule:
-        lines.append(_analog_rule)
+    lines.extend(reading_baseline.block_rule_lines("D11"))
     lines.append(
         f"- 口径：{artifact.stock_name}（{artifact.stock_code}）自身历史上与"
         f"「最近 {window} 个交易日形态」（强势天数[≥{STRONG_DAY_PCT:.0f}%]/成交额首末比/均涨）"

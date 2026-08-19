@@ -24,6 +24,7 @@ from intelligence.services.trading_calendar import non_trading_day_note
 
 from market_feature_store.signals import DOUBLE_RED_DESCRIPTION, DOUBLE_RED_SQL
 from intelligence.paths import default_market_db_path
+from intelligence.services import reading_baseline
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -316,6 +317,7 @@ def timeseries_block_for_llm(
     values: dict[str, dict[str, Any]] = fetched["values"]
     specs = intent.metrics
     lines = ["## 盘面时序直查数据块 [D0]"]
+    lines.extend(reading_baseline.block_rule_lines("D0"))
     lines.append(
         f"- 查询口径：过去 {len(dates)} 个交易日（{dates[0]} ~ {dates[-1]}），"
         "本地 DuckDB market_feature_store 白名单指标参数化直查，非 LLM 生成。"

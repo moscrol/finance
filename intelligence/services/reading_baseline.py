@@ -8,8 +8,12 @@
   少一个观点，所以留在可开关、可并列、可归因的 persona 层。
 
 规则来源与裁定见 ``docs/learning/reading-rules-inventory-2026-08-19.md``：从
-SPT-Molmansk 与风远两份画像里切出，用户 2026-08-19 逐组勾选确认。本模块只装
-**批一**（无数据依赖的全局元规则）；批二/批三按该文件 §7 落到具体数据块。
+SPT-Molmansk 与风远两份画像里切出，用户 2026-08-19 逐组勾选确认，共 25 条 A 类。
+本模块按数据依赖分三档存放：
+
+- ``_BATCH1_RULES``：无数据依赖的全局元规则，进两个引擎的系统提示词；
+- ``_BLOCK_RULES``：贴具体数据块，检索到哪块才带哪条；
+- ``_PENDING_RULES``：已裁定采纳但本地缺数据源，**不注入**，与缺口 id 同处存放。
 
 三条设计约束（同一文件 §7「三批共同要求」）：
 
@@ -45,7 +49,7 @@ class ReadingRule:
     source: str
 
 
-#: 批一：无数据依赖的全局元规则。新增前先读 inventory §7 的分批依据。
+#: 批一：无数据依赖的全局元规则，进两个引擎的系统提示词。
 _BATCH1_RULES: tuple[ReadingRule, ...] = (
     ReadingRule(
         id="FY-A10",
@@ -114,20 +118,219 @@ _BATCH1_RULES: tuple[ReadingRule, ...] = (
 )
 
 
-#: 挂具体数据块的规则：贴着数据走，检索到什么才带什么规则——不占常驻预算，
-#: 也不会张冠李戴（问财务时不会带盘面判读）。单一真本源：三个类比块共用这一份，
-#: 不各抄一句，否则改一处漏两处。
-_BLOCK_RULES: dict[str, ReadingRule] = {
-    "SPT-A11": ReadingRule(
-        id="SPT-A11",
-        title="历史同构类比",
-        rule=(
-            "类比的是结构与节点（所处阶段、量价形态、演化位置），不是标的本身；"
-            "不得因历史窗口相似就推断本次会有相同结果"
-        ),
-        source="SPT 画像 reasoning_patterns",
+_ANALOG_RULE = ReadingRule(
+    id="SPT-A11",
+    title="历史同构类比",
+    rule=(
+        "类比的是结构与节点（所处阶段、量价形态、演化位置），不是标的本身；"
+        "不得因历史窗口相似就推断本次会有相同结果"
     ),
+    source="SPT 画像 reasoning_patterns",
+)
+
+
+#: 批二：挂具体数据块的规则。贴着数据走，检索到什么才带什么规则——不占常驻预算，
+#: 也不会张冠李戴（问财务时不会带盘面判读）。按**块**索引而不是按规则索引：
+#: 一个块可以挂多条，同一条也可以挂多个块（如三个类比块共用 SPT-A11），
+#: 但规则文本只有这一份，不各抄一句，否则改一处漏两处。
+#:
+#: 键用逻辑块名而非裸 D 编号：``[D4]`` 由两个物理块共用（ask_blocks 的主线题材
+#: 结构、market_timeseries 的双红快照，见 ask.py:1668-1673 是有意合并引用号），
+#: 裸编号会让两个块拿到同一批规则。
+_BLOCK_RULES: dict[str, tuple[ReadingRule, ...]] = {
+    "D0": (
+        ReadingRule(
+            id="SPT-A01",
+            title="量能状态机定阶段",
+            rule=(
+                "先用成交额中枢与指数箱体位置确定市场阶段；新主线只有在市场出现极小量"
+                "（老主线筹码躺平）之后才可能发育，在此之前的板块启动不得断言为新主线"
+            ),
+            source="SPT 画像 market_lenses「量能状态机」+ anti_patterns 第 1 条",
+        ),
+        ReadingRule(
+            id="FY-A02",
+            title="出清形态两分",
+            rule=(
+                "区分 A 型出清（恐慌放量后 V 型回抽）与 B 型出清（买盘枯竭、缩量阴跌）；"
+                "两种形态的买点条件完全不同，不得混用同一套判据"
+            ),
+            source="风远画像 market_lenses「出清形态判别」",
+        ),
+    ),
+    "D1": (
+        ReadingRule(
+            id="FY-A08",
+            title="纯叙事无业绩锚则出局",
+            rule=(
+                "纯叙事标的若无业绩锚、且估值锚定在极远期，在排序中直接出局，"
+                "不进入横向比较，而不是排在末位"
+            ),
+            source="风远画像 risk_triggers",
+        ),
+        ReadingRule(
+            id="FY-A03'",
+            title="排序权重随场景变化",
+            rule=(
+                "排序维度的权重不是固定的，需随市场场景（恐慌反弹／主升／高位拥挤）"
+                "调整并说明本轮按哪种场景取权；命中一票否决项的候选直接出局。"
+                "本条只修饰既有排序口径，不替代它——已有 skill 口径（如 serenity-alpha "
+                "的 12 项优先级与 4 条禁止）仍然优先适用"
+            ),
+            source=(
+                "风远画像「五维排序」降解版。2026-08-19 与 serenity-alpha "
+                "ranking-rubric 对表：整条内置会用 5 维稀释掉那 4 条硬禁止，"
+                "故只取 serenity 没有的「场景调权重＋一票否决出局」"
+            ),
+        ),
+    ),
+    "D4_mainline": (
+        ReadingRule(
+            id="FY-A01",
+            title="双锚模型",
+            rule=(
+                "方向锚（板块方向股）与高度锚（连板高标）同时恶化，且最后一龙冲高回落，"
+                "才构成全板块逆转信号；单锚恶化不成立"
+            ),
+            source="风远画像 market_lenses「双锚模型」",
+        ),
+        ReadingRule(
+            id="FY-A07",
+            title="利多不涨＋连板高标＝踩踏前兆",
+            rule="利多不涨与连板高标同时出现，读作板块抱团踩踏的前兆信号",
+            source="风远画像 risk_triggers（识别部分；仓位动作归 persona 层）",
+        ),
+        ReadingRule(
+            id="SPT-A07",
+            title="题材容量决定持续性",
+            rule=(
+                "题材本质是故事，容量越大、可整合的要素越多则走得越远；"
+                "宏大叙事必须能自上而下落到千亿／万亿级赛道且逻辑闭环，否则降权"
+            ),
+            source="SPT 画像 market_lenses「故事容量与定价权」+ anti_patterns 第 4 条",
+        ),
+        ReadingRule(
+            id="SPT-A08",
+            title="无全球定价权则降权",
+            rule="缺乏全球定价权的事件驱动题材直接降权，筹码结构差时进一步降权",
+            source="SPT 画像 market_lenses + anti_patterns 第 3 条",
+        ),
+        ReadingRule(
+            id="SPT-A09",
+            title="拥挤度反向使用",
+            rule=(
+                "卖方年度策略取交集当地图使用；一致性拥挤度作为反向指标——"
+                "周末被一致吹爆的题材，周一大概率被兑现"
+            ),
+            source="SPT 画像 market_lenses + anti_patterns 第 2 条",
+        ),
+    ),
+    "D6": (
+        ReadingRule(
+            id="SPT-A03",
+            title="承接板块的识别形态",
+            rule=(
+                "老主线做完日线大型顶部后，承接板块的形态特征是：底部 N 字"
+                "（否定日线下跌趋势）＋明显放量＋距上方压力位有较大距离"
+            ),
+            source="SPT 画像 opportunity_preferences 第 1 条（判读部分）",
+        ),
+    ),
+    "D9": (
+        ReadingRule(
+            id="SPT-A04",
+            title="异向性异常放量＝冷门轮动早期信号",
+            rule=(
+                "日线底部结构下的异向性异常放量，读作冷门方向轮动的**早期发现**信号，"
+                "不是确认信号，不得据此直接给方向结论"
+            ),
+            source="SPT 画像 opportunity_preferences 第 8 条",
+        ),
+        ReadingRule(
+            id="SPT-A05",
+            title="顶部信号的两种形态",
+            rule=(
+                "见顶信号有二：量价不匹配的大阴量；单一行业短期净流入极端放量后的结构"
+                "超级顶值——后者次日一旦量价不匹配即为分歧确认"
+            ),
+            source="SPT 画像 market_lenses + risk_triggers 第 4 条（识别部分）",
+        ),
+        ReadingRule(
+            id="FY-A06",
+            title="资金结构归因",
+            rule=(
+                "暴跌先归因再应对：区分基本面恶化与多类资金共振卖出"
+                "（主动减仓／止损／割肉／ETF 赎回），不可一律读作基本面恶化"
+            ),
+            source="风远画像 reasoning_patterns",
+        ),
+    ),
+    "D8": (_ANALOG_RULE,),
+    "D10": (_ANALOG_RULE,),
+    "D11": (_ANALOG_RULE,),
 }
+
+
+#: 批三：用户已裁定采纳、但**本地缺数据源**，因此不注入。
+#:
+#: 为什么写在代码里而不是只留在文档：规则和它卡住的数据缺口放在同一处可见，
+#: 补完数据的人不需要回头重新推导「当初要补这个是为了支持哪条判读」。
+#: ``requires`` 对应 docs/learning/reading-rules-inventory-2026-08-19.md §5 的缺口 id。
+_PENDING_RULES: tuple[tuple[ReadingRule, str, str], ...] = (
+    (
+        ReadingRule(
+            id="SPT-A02",
+            title="板块回流的前置形态",
+            rule=(
+                "主线做完复杂顶后必有回流，但回流需先满足：大幅缩量＋回到支撑位＋"
+                "30 分钟级别底背离；三者不全不算回流"
+            ),
+            source="SPT 画像 market_lenses + falsification_style 第 4 条",
+        ),
+        "G5",
+        "主库无分钟级 K 线；fph2026 旁路库有 MACD 背离/缠论，需先确认可否跨库引用",
+    ),
+    (
+        ReadingRule(
+            id="SPT-A06",
+            title="秒板未换手则后排无价值",
+            rule=(
+                "事件催化后核心标的若以秒板完成而未经充分换手，"
+                "则后排标的不具备参与价值"
+            ),
+            source="SPT 画像 risk_triggers 第 3 条",
+        ),
+        "G1",
+        "缺封板时间与一字板/换手板区分；fact_limit_advance_daily 只有 boards/promotion_rate",
+    ),
+    (
+        ReadingRule(
+            id="FY-A04",
+            title="三级信号体系定周期位置",
+            rule=(
+                "按层级判断产业周期位置：领先指标（CapEx／交期／产能利用率）→"
+                "确认指标（现货价／涨幅收敛）→滞后指标（合约价转负／库存）；"
+                "不得用滞后指标做领先判断"
+            ),
+            source="风远画像 market_lenses + anti_patterns 第 3 条",
+        ),
+        "G3",
+        "缺产业链价格（现货/合约）、交期、产能利用率的结构化来源",
+    ),
+    (
+        ReadingRule(
+            id="FY-A05",
+            title="供给侧通胀四条件",
+            rule=(
+                "涨价确定性排序看四条件是否齐备：全球寡头格局＋零新增产能＋"
+                "扩产周期长＋需求爆发 → 供给弹性趋近零的环节确定性最高"
+            ),
+            source="风远画像 market_lenses「供给侧通胀框架」",
+        ),
+        "G3",
+        "同上：缺产能与扩产周期的结构化来源",
+    ),
+)
 
 
 def enabled(env: dict[str, str] | None = None) -> bool:
@@ -140,7 +343,7 @@ def enabled(env: dict[str, str] | None = None) -> bool:
 
 
 def baseline_rules(env: dict[str, str] | None = None) -> tuple[ReadingRule, ...]:
-    """当前生效的判读规则；关掉开关时返回空元组。"""
+    """当前生效的全局判读规则；关掉开关时返回空元组。"""
 
     return _BATCH1_RULES if enabled(env) else ()
 
@@ -154,15 +357,35 @@ def baseline_guidance(env: dict[str, str] | None = None) -> str:
     return "\n".join(f"- [{r.id}] {r.title}：{r.rule}" for r in rules)
 
 
-def block_rule_line(rule_id: str, env: dict[str, str] | None = None) -> str:
-    """渲染成数据块内的一行（含前导 ``- 判读：``）；开关关闭或 id 未登记返回空串。
+def pending_rules() -> tuple[tuple[ReadingRule, str, str], ...]:
+    """已裁定采纳但因数据缺口未激活的规则：``(规则, 缺口 id, 缺口说明)``。
 
-    调用方模式固定为「非空才 append」，这样关掉开关时块内容逐字节回到未内置状态。
+    **永远不进 prompt**——注入它们等于让模型按它拿不到的数据去判读，
+    会诱发编造。补齐对应缺口后，移进 ``_BLOCK_RULES`` 才算激活。
     """
 
+    return _PENDING_RULES
+
+
+def registered_blocks() -> tuple[str, ...]:
+    """所有登记了判读规则的块 id。守门测试据此反查「登记了但没接线」。"""
+
+    return tuple(_BLOCK_RULES)
+
+
+def block_rules(block_id: str, env: dict[str, str] | None = None) -> tuple[ReadingRule, ...]:
+    """某个数据块上挂的判读规则；开关关闭或块未登记时返回空元组。"""
+
     if not enabled(env):
-        return ""
-    rule = _BLOCK_RULES.get(rule_id)
-    if rule is None:
-        return ""
-    return f"- 判读[{rule.id}]：{rule.rule}。"
+        return ()
+    return _BLOCK_RULES.get(block_id, ())
+
+
+def block_rule_lines(block_id: str, env: dict[str, str] | None = None) -> list[str]:
+    """渲染成数据块内的若干行；开关关闭或块未登记返回空列表。
+
+    调用方模式固定为 ``lines.extend(block_rule_lines(...))``——空列表时块内容
+    逐字节回到未内置状态，不需要调用方再写 if。
+    """
+
+    return [f"- 判读[{r.id}]：{r.rule}。" for r in block_rules(block_id, env)]
