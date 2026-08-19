@@ -11,6 +11,7 @@ import pytest
 
 from intelligence.eval.variance_baseline import (
     ab_decision,
+    extract_from_run_dir,
     is_judge_unavailable,
     load_replay,
     main,
@@ -103,10 +104,68 @@ def test_ab_helper_returns_no_call_below_baseline() -> None:
 
 def test_ask_not_applicable_is_not_judge_unavailable() -> None:
     assert is_judge_unavailable("unavailable") is True
-    assert is_judge_unavailable(None) is True
-    assert is_judge_unavailable("timeout") is True
+    assert is_judge_unavailable(None) is False
+    assert is_judge_unavailable("timeout") is False
     assert is_judge_unavailable("not_applicable") is False
     assert is_judge_unavailable("passed") is False
+    assert is_judge_unavailable("") is False
+
+
+def test_extract_from_run_dir_reads_ask_gate_receipt(tmp_path: Path) -> None:
+    run_dir = tmp_path / "ask-run"
+    run_dir.mkdir()
+    (run_dir / "report.json").write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "gate_receipt": {
+                    "engine": "ask",
+                    "judge_status": "not_applicable",
+                    "verified_status": "not_applicable",
+                    "judge_unavailable_count": 0,
+                    "content_degraded_count": 0,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "run.json").write_text(
+        json.dumps({"status": "completed", "degrades": []}),
+        encoding="utf-8",
+    )
+    row = extract_from_run_dir(run_dir)
+    assert row["judge_status"] == "not_applicable"
+    assert row["judge_unavailable"] is False
+
+
+def test_extract_prefers_gate_receipt_over_missing_semantic(tmp_path: Path) -> None:
+    run_dir = tmp_path / "episode-run"
+    run_dir.mkdir()
+    (run_dir / "report.json").write_text(
+        json.dumps(
+            {
+                "gate_receipt": {
+                    "engine": "episode",
+                    "judge_status": "unavailable",
+                    "verified_status": "partial",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "continuous-episode.json").write_text(
+        json.dumps(
+            {
+                "structural_verifier": {"verified_status": "partial"},
+                "semantic_verifier": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "run.json").write_text(json.dumps({"status": "completed"}), encoding="utf-8")
+    row = extract_from_run_dir(run_dir)
+    assert row["judge_status"] == "unavailable"
+    assert row["judge_unavailable"] is True
 
 
 def test_reserved_port_refused() -> None:

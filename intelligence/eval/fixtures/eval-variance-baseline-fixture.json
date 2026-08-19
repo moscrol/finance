@@ -31,7 +31,7 @@
         {"primary_outcome": "completed", "judge_status": "passed"},
         {"primary_outcome": "degraded", "judge_status": "unavailable"},
         {"primary_outcome": "completed", "judge_status": "passed"},
-        {"primary_outcome": "degraded", "judge_status": "timeout"}
+        {"primary_outcome": "degraded", "judge_status": "unavailable"}
       ]
     }
   ]
