@@ -519,10 +519,11 @@ def _run_ask_workflow(
     ``use_modules`` 为 None / ``detail`` 为 False 时沿用 ``config`` 默认（与 B-S2/B-S3a 行为一致）；
     「深钻」按钮回调会显式传 ``use_modules=True, detail=True`` 跑更深一层。
     """
-    from intelligence.workflows.ask import AskWorkflowOptions, run_ask
+    from intelligence.services.ask import AskOptions
+    from intelligence.workflows.ask import run_ask
 
     _summary, result, _answer = run_ask(
-        AskWorkflowOptions(
+        AskOptions(
             query=query,
             kb_wiki=config.kb_wiki,
             exports_dir=config.exports_dir,

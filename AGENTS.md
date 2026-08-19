@@ -9,6 +9,14 @@
 
 > 📒 **台账地图**：所有台账（复盘验证/晨汇/卖方研报等）的 canonical 路径、格式与唯一写入者，见 `docs/learning/ledger-map.md`；新增台账先在那登记。
 
+## 🚪 金融问答正门
+
+默认只收一句话：`python3 -m intelligence.cli ask "<问题>"`。追问用 `chat`；要模型自己选工具才用 `agent`（opt-in）。Workbench UI 走 Episode（`TurnOrchestrator.run_turn`），不要用 CLI 冒充那套会话 id 合同。
+
+检索旗标（`--kb-mode` / `--wiki-rag-mode` / `--modules`）是逃生口，不要写进日常口令。问「有多少能力」时点名分母：`skills/`、`.claude/skills/`、或工具注册表——三套不是同一张表，不要加总。
+
+已决策、不是缺口：技能桥只开一个、飞书 Bitable 写入退役、`fact_sector_daily` 是 VIEW、写入正门是 `python3 -m market_feature_store.cli daily-full`。编码任务另走代码地图 spec（`docs/superpowers/specs/2026-08-19-local-code-map-design.md`），未合入前不要当已有 CLI。
+
 ## 🔁 用户纠偏必落 correction（强制，任何 agent 会话）
 
 用户在对话里对系统的判断/解读表达纠正时（信号词如「不对」「应该是」「不是这样」「你理解错了」等否定/修正表述，**不需要用户使用任何固定格式**），agent 必须当场把纠偏落进台账：
