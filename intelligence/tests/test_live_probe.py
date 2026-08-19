@@ -386,6 +386,40 @@ def test_post_ask_and_wait_reads_run_id() -> None:
         server.server_close()
 
 
+def test_degrade_counts_from_run_dir_split_unavailable_vs_content(
+    tmp_path: Path,
+) -> None:
+    judge_dir = tmp_path / "judge"
+    judge_dir.mkdir()
+    (judge_dir / "run.json").write_text(
+        json.dumps({"degrades": ["semantic judge leftover window"]}),
+        encoding="utf-8",
+    )
+    (judge_dir / "report.json").write_text(
+        json.dumps({"semantic_verifier": {"judge_status": "unavailable"}}),
+        encoding="utf-8",
+    )
+    assert probe.degrade_counts_from_run_dir(judge_dir) == {
+        "judge_unavailable_count": 1,
+        "content_degraded_count": 0,
+    }
+
+    ask_dir = tmp_path / "ask"
+    ask_dir.mkdir()
+    (ask_dir / "run.json").write_text(
+        json.dumps({"degrades": ["llm_unavailable_template_answer"]}),
+        encoding="utf-8",
+    )
+    (ask_dir / "report.json").write_text(
+        json.dumps({"judge_status": "not_applicable"}),
+        encoding="utf-8",
+    )
+    assert probe.degrade_counts_from_run_dir(ask_dir) == {
+        "judge_unavailable_count": 0,
+        "content_degraded_count": 1,
+    }
+
+
 def test_port_is_listening_detects_bound_socket() -> None:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from intelligence.services.ask_llm_context import LLM_CONTEXT_FILENAME
+from intelligence.services.judge_degrade import split_degrade_from_payloads
 
 STALE_MARK = "⚠️已被新证据取代"
 RESERVED_PORTS = frozenset({8792, 8793, 8795, 8799, 8801})
@@ -224,6 +225,26 @@ def inspect_run_dir(run_dir: Path) -> ProbeInspection:
         steps=steps,
         tools=tools,
     )
+
+
+def _load_json_object(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def degrade_counts_from_run_dir(run_dir: Path) -> dict[str, int]:
+    """Split probe degrades so vendor jitter does not pollute content A/B."""
+
+    report = _load_json_object(run_dir / "report.json")
+    summary = _load_json_object(run_dir / "summary.json")
+    run = _load_json_object(run_dir / "run.json")
+    degrades = run.get("degrades") or summary.get("degrades") or []
+    return split_degrade_from_payloads(degrades, report, summary, run)
 
 
 def _request_json(
@@ -507,6 +528,7 @@ def main(argv: list[str] | None = None) -> int:
         artifacts = copy_run_artifacts(run_dir, dest)
         inspection = inspect_run_dir(dest if artifacts else run_dir)
         receipt = args.out_dir / f"{args.slug}.json"
+        degrade_split = degrade_counts_from_run_dir(dest if artifacts else run_dir)
         write_receipt(
             receipt,
             query=args.question,
@@ -521,6 +543,8 @@ def main(argv: list[str] | None = None) -> int:
                 "grounded_presenter": "0",
                 "repo_root": str(repo_root),
                 "evidence_grade": inspection.evidence_grade,
+                "judge_unavailable_count": degrade_split["judge_unavailable_count"],
+                "content_degraded_count": degrade_split["content_degraded_count"],
             },
         )
         print(
@@ -535,6 +559,8 @@ def main(argv: list[str] | None = None) -> int:
                     "evidence_grade": inspection.evidence_grade,
                     "first_hand": inspection.first_hand,
                     "answer_mentions_stale": inspection.answer_mentions_stale,
+                    "judge_unavailable_count": degrade_split["judge_unavailable_count"],
+                    "content_degraded_count": degrade_split["content_degraded_count"],
                     "steps": [
                         {
                             "step_id": step.get("step_id"),
