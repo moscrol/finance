@@ -10,6 +10,7 @@ import argparse
 import importlib.util
 import json
 import re
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -259,7 +260,12 @@ RETIRED_RE = re.compile(r"退役|禁止|已废弃|刻意|不要跑|停用")
 HEADING_RE = re.compile(r"^(#{1,6})\s+")
 VAULT_GRAPH = Path(".agent-memory") / "10_knowledge" / "finance-agent-capability-graph.md"
 VAULT_AUDIT = Path(".agent-memory") / "scripts" / "graph_audit.py"
-EMPTY_NEXT_ACTION = "structure 层不可用：禁止把空图写成架构结论。正门见 layers.doors。"
+EMPTY_NEXT_ACTION = (
+    "structure 层不可用：禁止把空图写成架构结论。正门见 layers.doors。"
+    "python3 scripts/code_map.py build --full"
+)
+UVX_HINT = "需要 uv/uvx（https://docs.astral.sh/uv/），不要改去直调 MCP build"
+FULL_POSTPROCESS_MIN_FILES = 30
 
 
 def tokenize(question: str) -> list[str]:
@@ -458,21 +464,35 @@ def search_doors(root: Path, tokens: list[str]) -> tuple[str, list[dict[str, Any
     return vault_state, trimmed
 
 
-def search_graph(question: str) -> list[dict[str, Any]]:
-    """PR3 可搜时才调用。测试 monkeypatch 此函数以断言空图/error 不碰 CRG。"""
-    proc = subprocess.run(
-        [
-            "uvx",
-            "--from",
-            "code-review-graph",
-            "code-review-graph",
-            "search",
-            question,
-        ],
+class UvxMissing(Exception):
+    """PATH 上没有 uvx。门面 fail closed，不猜测 Python API。"""
+
+
+def _uvx_path() -> str | None:
+    return shutil.which("uvx")
+
+
+def run_crg_cli(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    if any(part in {"init", "install"} for part in args):
+        raise RuntimeError("禁止 code-review-graph init|install")
+    uvx = _uvx_path()
+    if not uvx:
+        raise UvxMissing(UVX_HINT)
+    return subprocess.run(
+        [uvx, "--from", "code-review-graph", "code-review-graph", *args],
+        cwd=str(cwd),
         capture_output=True,
         text=True,
         check=False,
     )
+
+
+def search_graph(question: str, cwd: Path | None = None) -> list[dict[str, Any]]:
+    """可搜时才调用。测试 monkeypatch 此函数以断言空图/error 不碰 CRG。"""
+    try:
+        proc = run_crg_cli(["search", question], cwd or repo_root())
+    except UvxMissing:
+        return []
     if proc.returncode != 0 or not proc.stdout.strip():
         return []
     hits: list[dict[str, Any]] = []
@@ -516,7 +536,7 @@ def collect_query(root: Path, question: str) -> tuple[dict[str, Any], int]:
     elif status == "error":
         structure_state, structure_hits = "refused_error", []
     else:
-        structure_hits = search_graph(question)
+        structure_hits = search_graph(question, root)
         if status == "stale":
             structure_state = "stale"
         elif structure_hits:
@@ -553,10 +573,105 @@ def collect_query(root: Path, question: str) -> tuple[dict[str, Any], int]:
     return payload, 0
 
 
+def _read_receipt(root: Path) -> dict[str, Any]:
+    path = root / ".code-review-graph" / "status.json"
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _write_receipt(root: Path, **fields: Any) -> None:
+    folder = root / ".code-review-graph"
+    folder.mkdir(parents=True, exist_ok=True)
+    current = _read_receipt(root)
+    current.update(fields)
+    (folder / "status.json").write_text(
+        json.dumps(current, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _hot_file_count(root: Path, since_sha: str) -> int:
+    names = _git_ok(root, "diff", "--name-only", f"{since_sha}..HEAD")
+    if not names:
+        return 0
+    return sum(
+        1
+        for path in names.splitlines()
+        if any(path.startswith(prefix) for prefix in STALE_HEAVY_PATHS)
+    )
+
+
+def collect_build(
+    root: Path,
+    *,
+    full: bool = False,
+    postprocess: str | None = None,
+) -> tuple[dict[str, Any], int]:
+    if not _is_git_work_tree(root):
+        sys.stderr.write("code_map build 拒绝：不是 git 工作树，避免 walk 扫到密钥\n")
+        return {"ok": False, "error": "not_git"}, 2
+    if not (root / ".code-review-graphignore").is_file():
+        sys.stderr.write("code_map build 拒绝：缺少 .code-review-graphignore\n")
+        return {"ok": False, "error": "no_ignore"}, 2
+    if _uvx_path() is None:
+        sys.stderr.write(UVX_HINT + "\n")
+        return {"ok": False, "error": "no_uvx"}, 2
+
+    receipt = _read_receipt(root)
+    built_at = receipt.get("built_at_sha")
+    if not isinstance(built_at, str) or not built_at:
+        built_at = None
+    use_full = full or built_at is None
+
+    if postprocess is None:
+        if use_full:
+            postprocess = "full"
+        elif built_at and _hot_file_count(root, built_at) >= FULL_POSTPROCESS_MIN_FILES:
+            postprocess = "full"
+        else:
+            postprocess = "minimal"
+
+    if use_full:
+        args = ["build"]
+    else:
+        args = ["update", "--base", built_at]
+    if postprocess == "minimal":
+        args.append("--skip-flows")
+    elif postprocess == "none":
+        args.append("--skip-postprocess")
+
+    try:
+        proc = run_crg_cli(args, root)
+    except UvxMissing:
+        sys.stderr.write(UVX_HINT + "\n")
+        return {"ok": False, "error": "no_uvx"}, 2
+    if proc.returncode != 0:
+        sys.stderr.write(proc.stderr or proc.stdout or "code-review-graph 失败\n")
+        return {"ok": False, "error": "crg", "argv": args}, proc.returncode or 2
+
+    graph = _read_graph(root)
+    head = _git_ok(root, "rev-parse", "HEAD")
+    node_count = graph["node_count"] if graph["node_count"] is not None else 0
+    _write_receipt(
+        root,
+        built_at_sha=head,
+        node_count=node_count,
+        postprocess=postprocess,
+        wiki_generated=False,
+        worktree_dirty_code=_worktree_dirty_code(root),
+    )
+    return {"ok": True, "argv": args, "built_at_sha": head, "node_count": node_count}, 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="code_map.py",
-        description="本地代码地图门面（status / query / build）。PR4 前无 build。",
+        description="本地代码地图门面（status / query / build）。",
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
     p_status = sub.add_parser("status", help="空图 fail-closed 的新鲜度")
@@ -566,6 +681,14 @@ def _build_parser() -> argparse.ArgumentParser:
     p_query = sub.add_parser("query", help="先正门、再结构、再叙事")
     p_query.add_argument("question", help="用户问题 / 拟实现的能力名")
     p_query.add_argument("--json", action="store_true", help="打印 JSON（query 默认就是 JSON）")
+    p_build = sub.add_parser("build", help="包装 CRG build/update，禁止 init")
+    p_build.add_argument("--full", action="store_true", help="忽略收据，跑全量 build")
+    p_build.add_argument(
+        "--postprocess",
+        choices=("full", "minimal", "none"),
+        default=None,
+        help="门面旗标，翻译成 --skip-flows / --skip-postprocess",
+    )
     return parser
 
 
@@ -581,6 +704,14 @@ def main(argv: list[str] | None = None) -> int:
         return code
     if args.cmd == "query":
         payload, code = collect_query(repo_root(), args.question)
+        sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        return code
+    if args.cmd == "build":
+        payload, code = collect_build(
+            repo_root(),
+            full=args.full,
+            postprocess=args.postprocess,
+        )
         sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
         return code
     parser.error(f"invalid choice: {args.cmd}")
