@@ -4,7 +4,7 @@
 轨道 C / E2：会话口「修订版在前，审查意见进输出质检附录」。不换 `output_review` 6 项。
 
 ## 当前状态
-HEAD `441c92da`，树 `~/fwp-wt-e2-revise-first`。live 过。**可合。未合 main，不切 8792。**
+HEAD `71b26df7`，树 `~/fwp-wt-e2-revise-first`。PR **#239**。live 过。**可合。未合 main，不切 8792。**
 
 ## 未验证 / 已知边界
 - Engine B 回灌只跑了单测，live 走 Engine A。
@@ -12,7 +12,7 @@ HEAD `441c92da`，树 `~/fwp-wt-e2-revise-first`。live 过。**可合。未合 
 - W3 同改 `conversation_orchestrator`，后合方 rebase。
 
 ## 下一步
-1. 用户确认后合本分支（pathspec，勿 `git add -A`）。
+1. 用户确认后合 #239（pathspec，勿 `git add -A`）。
 2. 不要因可合就切 8792。轨道 D 等 C 合入。
 
 ## 踩过的坑
