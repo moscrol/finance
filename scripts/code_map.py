@@ -264,8 +264,16 @@ EMPTY_NEXT_ACTION = (
     "structure 层不可用：禁止把空图写成架构结论。正门见 layers.doors。"
     "python3 scripts/code_map.py build --full"
 )
+DRIFT_NEXT_ACTION = "正门赢，见 conflicts。生成页不得覆盖 AGENTS。"
 UVX_HINT = "需要 uv/uvx（https://docs.astral.sh/uv/），不要改去直调 MCP build"
 FULL_POSTPROCESS_MIN_FILES = 30
+STEERING_REL = Path(".code-review-graph") / "wiki-steering.json"
+WIKI_REL = Path(".code-review-graph") / "wiki"
+PAGE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,80}$")
+COMMUNITY_BANNER = (
+    "算法捆簇，不是 intelligence 分层审计。正门见 AGENTS.md 与 wiki/doors/。"
+)
+DRIFT_CONTEXT_RE = re.compile(r"退役|禁止|已废弃|刻意|不要跑|停用|废弃")
 
 
 def tokenize(question: str) -> list[str]:
@@ -527,6 +535,9 @@ def search_graph(question: str, cwd: Path | None = None) -> list[dict[str, Any]]
         rel = _relpath(file_path, root) if file_path else ""
         if not rel and _is_path_like(name):
             rel = _relpath(name, root)
+        root_s = str(root.resolve())
+        if root_s and root_s in excerpt:
+            excerpt = excerpt.replace(root_s + "/", "").replace(root_s, "")
         symbol = None if _is_path_like(name) else (name or None)
         title_src = symbol or Path(rel).name or Path(name).name or excerpt
         hits.append(
@@ -539,6 +550,127 @@ def search_graph(question: str, cwd: Path | None = None) -> list[dict[str, Any]]
             }
         )
     return hits
+
+
+def detect_conflicts(
+    door_hits: list[dict[str, Any]],
+    structure_hits: list[dict[str, Any]],
+    narrative_hits: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    """机械 drift：excerpt 含 retired 字面且没有退役语境词。禁止 LLM。"""
+    retired_items: list[str] = []
+    for hit in door_hits:
+        for item in hit.get("retired") or []:
+            if item and item not in retired_items:
+                retired_items.append(str(item))
+    needles: list[tuple[str, str]] = []
+    for item in retired_items:
+        needles.append((item, item))
+        stripped = DRIFT_CONTEXT_RE.sub("", item)
+        stripped = re.sub(r"\s+", " ", stripped).strip()
+        if stripped and stripped != item:
+            needles.append((item, stripped))
+    conflicts: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for layer, hits in (
+        ("structure", structure_hits),
+        ("narrative", narrative_hits),
+    ):
+        for hit in hits:
+            excerpt = str(hit.get("excerpt") or "")
+            if not excerpt or DRIFT_CONTEXT_RE.search(excerpt):
+                continue
+            for original, needle in needles:
+                if needle and needle in excerpt:
+                    key = (layer, original, excerpt)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    conflicts.append(
+                        {
+                            "layer": layer,
+                            "retired_item": original,
+                            "resolution": "doors_win",
+                        }
+                    )
+    return conflicts
+
+
+def _read_steering(root: Path) -> dict[str, Any]:
+    path = root / STEERING_REL
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def search_narrative(
+    root: Path,
+    tokens: list[str],
+    question: str = "",
+) -> list[dict[str, Any]]:
+    wiki = root / WIKI_REL
+    if not wiki.is_dir():
+        return []
+    hits: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    q = question.casefold()
+    steering = _read_steering(root)
+    for page in steering.get("pages") or []:
+        if not isinstance(page, dict):
+            continue
+        pid = str(page.get("id") or "")
+        queries = [str(item) for item in (page.get("queries") or []) if item]
+        title = str(page.get("title") or "")
+        steered = any(
+            item in question or item.casefold() in q for item in queries
+        ) or (title and title in question)
+        path = wiki / "doors" / f"{pid}.md"
+        if steered and path.is_file():
+            excerpt = title or pid
+            key = f"{path}:{excerpt}"
+            if key not in seen:
+                seen.add(key)
+                rel = path.relative_to(root).as_posix()
+                hits.append(
+                    {
+                        "title": excerpt[:TITLE_MAX],
+                        "path": rel,
+                        "symbol": None,
+                        "excerpt": excerpt,
+                        "retired": [],
+                    }
+                )
+    for path in sorted(wiki.rglob("*.md")):
+        rel = path.relative_to(root).as_posix()
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue
+        for raw in lines:
+            stripped = raw.strip()
+            if not stripped or stripped in seen:
+                continue
+            if tokens and not _tokens_in_line(raw, tokens):
+                continue
+            if not tokens:
+                continue
+            seen.add(stripped)
+            hits.append(
+                {
+                    "title": stripped[:TITLE_MAX],
+                    "path": rel,
+                    "symbol": None,
+                    "excerpt": stripped,
+                    "retired": [],
+                }
+            )
+            if len(hits) >= DOORS_HIT_CAP:
+                return hits
+    return hits[:DOORS_HIT_CAP]
 
 
 def _doors_claim(tokens: list[str], hits: list[dict[str, Any]]) -> str:
@@ -578,7 +710,30 @@ def collect_query(root: Path, question: str) -> tuple[dict[str, Any], int]:
             "ok" if structure_hits else "missing"
         )
 
-    next_action = EMPTY_NEXT_ACTION if status in {"empty", "error"} else "正门见 layers.doors。"
+    if status in {"empty", "error"}:
+        narrative_hits: list[dict[str, Any]] = []
+        narrative_state = "missing"
+        narrative_claim = "unavailable"
+        conflicts: list[dict[str, str]] = []
+    else:
+        narrative_hits = search_narrative(root, tokens, question)
+        conflicts = detect_conflicts(door_hits, structure_hits, narrative_hits)
+        if any(item["layer"] == "narrative" for item in conflicts):
+            narrative_state = "drift"
+            narrative_claim = "drift"
+        elif narrative_hits:
+            narrative_state = "ok"
+            narrative_claim = "ok"
+        else:
+            narrative_state = "missing"
+            narrative_claim = "missing"
+
+    if conflicts:
+        next_action = DRIFT_NEXT_ACTION
+    elif status in {"empty", "error"}:
+        next_action = EMPTY_NEXT_ACTION
+    else:
+        next_action = "正门见 layers.doors。叙事见 layers.narrative 或 ask。"
     payload = {
         "query": question,
         "status": status,
@@ -586,13 +741,13 @@ def collect_query(root: Path, question: str) -> tuple[dict[str, Any], int]:
         "layers": {
             "doors": {"state": doors_state, "hits": door_hits},
             "structure": {"state": structure_state, "hits": structure_hits},
-            "narrative": {"state": "missing", "hits": []},
+            "narrative": {"state": narrative_state, "hits": narrative_hits},
         },
-        "conflicts": [],
+        "conflicts": conflicts,
         "completeness_claim": {
             "doors": _doors_claim(tokens, door_hits),
             "structure": structure_claim,
-            "narrative": "unavailable",
+            "narrative": narrative_claim,
             "recall": "untested",
         },
         "next_action": next_action,
@@ -631,6 +786,136 @@ def _hot_file_count(root: Path, since_sha: str) -> int:
         for path in names.splitlines()
         if any(path.startswith(prefix) for prefix in STALE_HEAVY_PATHS)
     )
+
+
+def _render_door_page(
+    page: dict[str, Any],
+    query_hits: list[tuple[str, list[dict[str, Any]]]],
+) -> str:
+    title = str(page.get("title") or page.get("id") or "page")
+    pid = str(page.get("id") or "")
+    lines = [
+        f"# {title}",
+        "",
+        "> 本页是 `scripts/code_map.py query` 的投影，不是模型撰写。正门压过本页。社区页是算法捆簇，不是分层审计。",
+        "",
+        f"id: `{pid}`",
+        "",
+    ]
+    for question, hits in query_hits:
+        lines.append(f"## query: {question}")
+        lines.append("")
+        if not hits:
+            lines.append("（正门无命中）")
+            lines.append("")
+            continue
+        for hit in hits:
+            mark = " ⚠️" if hit.get("retired") else ""
+            path = hit.get("path") or ""
+            excerpt = hit.get("excerpt") or ""
+            lines.append(f"- `{path}`{mark}: {excerpt}")
+        lines.append("")
+    return "\n".join(lines) + "\n"
+
+
+def _write_steering_pages(root: Path) -> int:
+    steering = _read_steering(root)
+    pages = steering.get("pages") or []
+    out = root / WIKI_REL / "doors"
+    out.mkdir(parents=True, exist_ok=True)
+    written = 0
+    for page in pages:
+        if not isinstance(page, dict):
+            continue
+        pid = str(page.get("id") or "").strip()
+        if not PAGE_ID_RE.match(pid):
+            continue
+        queries = [str(item) for item in (page.get("queries") or []) if item]
+        query_hits: list[tuple[str, list[dict[str, Any]]]] = []
+        for question in queries:
+            _vault, hits = search_doors(root, tokenize(question))
+            query_hits.append((question, hits))
+        (out / f"{pid}.md").write_text(
+            _render_door_page(page, query_hits),
+            encoding="utf-8",
+        )
+        written += 1
+    return written
+
+
+def _annotate_community_wiki(root: Path) -> None:
+    wiki = root / WIKI_REL
+    if not wiki.is_dir():
+        return
+    banner = f"> {COMMUNITY_BANNER}\n\n"
+    for path in wiki.glob("*.md"):
+        if path.name == "index.md":
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if COMMUNITY_BANNER in text:
+            continue
+        path.write_text(banner + text, encoding="utf-8")
+
+
+def _write_wiki_index(root: Path) -> None:
+    wiki = root / WIKI_REL
+    wiki.mkdir(parents=True, exist_ok=True)
+    doors_dir = wiki / "doors"
+    lines = [
+        "# 本地代码地图",
+        "",
+        f"> 正门压过生成页。{COMMUNITY_BANNER}",
+        "",
+        "## 正门页",
+        "",
+    ]
+    door_pages = sorted(doors_dir.glob("*.md")) if doors_dir.is_dir() else []
+    if door_pages:
+        for path in door_pages:
+            rel = path.relative_to(wiki).as_posix()
+            heading = path.stem
+            try:
+                for raw in path.read_text(encoding="utf-8").splitlines():
+                    if raw.startswith("# "):
+                        heading = raw[2:].strip()
+                        break
+            except OSError:
+                pass
+            lines.append(f"- [{heading}]({rel})")
+    else:
+        lines.append("（还没有正门页）")
+    lines.extend(["", "## 社区（算法捆簇）", ""])
+    community_pages = [
+        path
+        for path in sorted(wiki.glob("*.md"))
+        if path.name != "index.md"
+    ]
+    if community_pages:
+        for path in community_pages:
+            lines.append(f"- [{path.stem}]({path.name})")
+    else:
+        lines.append("（还没有社区页；需要 `build --postprocess full` 调 CRG wiki）")
+    lines.append("")
+    (wiki / "index.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _generate_wiki(root: Path) -> bool:
+    wiki_cli_ok = False
+    try:
+        proc = run_crg_cli(["wiki", "--force"], root)
+        wiki_cli_ok = proc.returncode == 0
+        if not wiki_cli_ok:
+            sys.stderr.write(proc.stderr or proc.stdout or "code-review-graph wiki 失败\n")
+    except UvxMissing:
+        sys.stderr.write(UVX_HINT + "\n")
+        return False
+    _annotate_community_wiki(root)
+    _write_steering_pages(root)
+    _write_wiki_index(root)
+    return wiki_cli_ok or (root / WIKI_REL / "doors").is_dir()
 
 
 def collect_build(
@@ -681,6 +966,10 @@ def collect_build(
         sys.stderr.write(proc.stderr or proc.stdout or "code-review-graph 失败\n")
         return {"ok": False, "error": "crg", "argv": args}, proc.returncode or 2
 
+    wiki_generated = False
+    if postprocess == "full":
+        wiki_generated = _generate_wiki(root)
+
     graph = _read_graph(root)
     head = _git_ok(root, "rev-parse", "HEAD")
     node_count = graph["node_count"] if graph["node_count"] is not None else 0
@@ -689,16 +978,60 @@ def collect_build(
         built_at_sha=head,
         node_count=node_count,
         postprocess=postprocess,
-        wiki_generated=False,
+        wiki_generated=wiki_generated,
         worktree_dirty_code=_worktree_dirty_code(root),
     )
-    return {"ok": True, "argv": args, "built_at_sha": head, "node_count": node_count}, 0
+    return {
+        "ok": True,
+        "argv": args,
+        "built_at_sha": head,
+        "node_count": node_count,
+        "wiki_generated": wiki_generated,
+    }, 0
+
+
+def collect_ask(root: Path, question: str) -> tuple[str, int]:
+    """抽取式拼接 query JSON，默认不调 LLM。"""
+    payload, code = collect_query(root, question)
+    lines = [
+        f"# {question}",
+        "",
+        f"status: {payload['status']}",
+        f"next_action: {payload['next_action']}",
+        "",
+    ]
+    for name in ("doors", "structure", "narrative"):
+        layer = payload["layers"][name]
+        lines.append(f"## {name} ({layer['state']})")
+        lines.append("")
+        hits = layer.get("hits") or []
+        if not hits:
+            lines.append("（无命中）")
+            lines.append("")
+            continue
+        for hit in hits:
+            path = hit.get("path") or ""
+            symbol = hit.get("symbol") or ""
+            excerpt = hit.get("excerpt") or ""
+            extra = f" `{symbol}`" if symbol else ""
+            lines.append(f"- `{path}`{extra}: {excerpt}")
+        lines.append("")
+    conflicts = payload.get("conflicts") or []
+    if conflicts:
+        lines.append("## conflicts（正门赢）")
+        lines.append("")
+        for item in conflicts:
+            lines.append(
+                f"- {item.get('layer')}: {item.get('retired_item')} → {item.get('resolution')}"
+            )
+        lines.append("")
+    return "\n".join(lines), code
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="code_map.py",
-        description="本地代码地图门面（status / query / build）。",
+        description="本地代码地图门面（status / query / build / ask）。",
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
     p_status = sub.add_parser("status", help="空图 fail-closed 的新鲜度")
@@ -716,6 +1049,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="门面旗标，翻译成 --skip-flows / --skip-postprocess",
     )
+    p_ask = sub.add_parser("ask", help="抽取式拼接三层命中，默认不调 LLM")
+    p_ask.add_argument("question", help="用户问题 / 拟了解的模块名")
     return parser
 
 
@@ -740,6 +1075,12 @@ def main(argv: list[str] | None = None) -> int:
             postprocess=args.postprocess,
         )
         sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        return code
+    if args.cmd == "ask":
+        text, code = collect_ask(repo_root(), args.question)
+        sys.stdout.write(text)
+        if not text.endswith("\n"):
+            sys.stdout.write("\n")
         return code
     parser.error(f"invalid choice: {args.cmd}")
     return 2

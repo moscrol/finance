@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 给本仓编码 agent 一条 CLI 查询门面 `scripts/code_map.py`：空图 fail-closed 的 `status`、正门优先的 `query`、正确 `--base` 的 `build` 包装、跨 harness AGENTS 指针与 skill 软链。第一期不生成 wiki、不上传代码、不加用户级 hook。
+**Goal:** 给本仓编码 agent 一条 CLI 查询门面 `scripts/code_map.py`：空图 fail-closed 的 `status`、正门优先的 `query`、正确 `--base` 的 `build` 包装、跨 harness AGENTS 指针与 skill 软链、第二期本地 wiki/`ask`。不上传代码、不加用户级 hook。
 
 **Architecture:** 门面只编排，不把能力图谱抄进 SQLite，也不把 CRG 节点抄进 markdown。`status` 读 `.code-review-graph/graph.db`（只读 URI、50ms 超时）；`query` 先 rg 仓内正门，空图/error 不调 CRG；`build` 只包装 `uvx --from code-review-graph`，禁止 `init|install`。实现在干净分支 `feat/code-map-facade`（worktree `.worktrees/feat-code-map-facade`），基线 `gitea/main`。
 
@@ -461,7 +461,7 @@ Commit: `feat: code-map skill 与 .claude/skills 软链`
 | §6.2 / §8.2 / §13.2 query 正门探针 | T3 |
 | §8.3 / §13.4 build argv | T4 |
 | §7 skill 软链 | T5 |
-| PR6 wiki / 用户级 hook / intelligence.cli | 明确不做 |
+| PR6 wiki / 用户级 hook / intelligence.cli | T6 wiki+ask（用户 2026-08-20 执行）；用户级 hook / intelligence.cli 仍不做 |
 
 ## Placeholder scan
 
