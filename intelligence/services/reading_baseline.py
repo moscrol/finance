@@ -334,7 +334,7 @@ _PENDING_RULES: tuple[tuple[ReadingRule, str, str], ...] = (
             source="SPT 画像 risk_triggers 第 3 条",
         ),
         "G1",
-        "缺封板时间与一字板/换手板区分；fact_limit_advance_daily 只有 boards/promotion_rate",
+        "G1a：fact_theme_limit_stock_daily 有封板时间但无块输出；G1b：同表 open_times 恒 NULL（静默降级）",
     ),
     (
         ReadingRule(
