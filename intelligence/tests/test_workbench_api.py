@@ -1740,6 +1740,35 @@ def test_continuous_adapter_receives_runtime_and_snapshot_dates(
     assert adapter._latest_data_date == "2026-07-16"
 
 
+def test_runtime_market_reference_date_does_not_outrun_duckdb(monkeypatch) -> None:
+    """快照日超前 DuckDB 时，参考日必须落到库里真有的那天。
+
+    否则 market_data 首轮就被判 stale（所需 08-19、供给 08-18），W5 回填再打
+    同一空查询也补不到数。readiness 已经红，查询路径不能再用那个不可供给的日期。
+    """
+
+    monkeypatch.setattr(
+        app_module,
+        "default_paths",
+        lambda: SimpleNamespace(
+            finance_root=Path("/tmp/unused-finance"),
+            market_snapshot_dir=Path("/tmp/unused-snapshot"),
+        ),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "validate_market_snapshot_root",
+        lambda _root: {
+            "ready": True,
+            "date": "2026-08-19",
+            "summary": {"served_trade_date": "2026-08-19"},
+        },
+    )
+    monkeypatch.setattr(app_module, "latest_market_date", lambda *_a, **_k: "2026-08-18")
+
+    assert app_module._runtime_market_reference_date() == "2026-08-18"
+
+
 def test_continuous_readiness_rejects_snapshot_newer_than_market_database(
     tmp_path: Path,
     monkeypatch,

@@ -182,6 +182,7 @@ def _continuous_runtime_mode() -> str:
 
 def _runtime_market_reference_date() -> str | None:
     paths = default_paths()
+    snapshot_date: str | None = None
     snapshot = validate_market_snapshot_root(paths.market_snapshot_dir)
     if snapshot.get("ready") is True:
         summary = snapshot.get("summary")
@@ -192,8 +193,13 @@ def _runtime_market_reference_date() -> str | None:
         )
         value = str(served or snapshot.get("date") or "").strip()
         if value:
-            return value[:10]
-    return latest_market_date(paths.finance_root)
+            snapshot_date = value[:10]
+    db_date = latest_market_date(paths.finance_root)
+    if snapshot_date and db_date:
+        # 快照超前 DuckDB 一天时，用快照日当 floor 会让每条结构化查询 stale。
+        # 两边都有日期时取较早的那天——那是供给方真能端上来的上限。
+        return min(snapshot_date, db_date)
+    return snapshot_date or db_date
 
 
 def _zero_inner_synthesis_reserve(
