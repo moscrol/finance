@@ -165,6 +165,17 @@ def test_resolve_evidence_plan_has_no_overnight_special_case_if():
     assert "if _has_overnight_external_premise" not in module_source
 
 
+def test_fed_event_theme_analysis_also_overlays_news_and_web():
+    """第二条规则不能只在测试写死 market_forecast 时才生效。"""
+    plan = resolve_evidence_plan(
+        _FED_MACRO_LOCAL,
+        question_type="theme_analysis",
+    )
+    capabilities = {item.capability for item in plan.requirements}
+    assert capabilities == {"news_search", "web_search"}
+    assert all(item.mandatory is False for item in plan.requirements)
+
+
 def test_fed_event_local_inference_overlays_news_and_web_only():
     plan = resolve_evidence_plan(
         _FED_MACRO_LOCAL,
@@ -256,6 +267,14 @@ def test_methodology_query_does_not_inherit_market_capabilities():
         question_type="methodology_discussion",
     )
     assert plan.profile == "general"
+    assert plan.requirements == ()
+
+
+def test_knowledge_lane_does_not_take_composition_overlay():
+    plan = resolve_evidence_plan(
+        _FED_MACRO_LOCAL,
+        question_type="methodology_discussion",
+    )
     assert plan.requirements == ()
 
 

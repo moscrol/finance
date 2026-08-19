@@ -378,7 +378,15 @@ def resolve_evidence_plan(
             _apply_lane_composition(query, plan.requirements),
             plan.freshness,
         )
-    return EvidencePlan("general", (), freshness)
+    # 知识题（methodology / answer_review / 纯 concept_definition）已在上面
+    # 空计划返回。研究题落到 general 时仍要吃组合表——「美联储决议后 A 股
+    # XX 板块」真实路由经常是 theme_analysis，不是测试里写死的 market_forecast。
+    # overlay 只追加 capabilities，不发明 required_outputs，也不改 question_type。
+    return EvidencePlan(
+        "general",
+        _apply_lane_composition(query, ()),
+        freshness,
+    )
 
 
 def runtime_capabilities_for_frame(frame: TaskFrame) -> tuple[str, ...]:
