@@ -45,6 +45,11 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
     OutputEvidenceBinding,
 )
+from intelligence.services.episode_issues import (
+    Issue,
+    IssueCode,
+    allows_partial_release,
+)
 from intelligence.services.episode_output_substance import (
     JUDGMENT_OUTPUT_IDS,
     contract_has_model_reasoning_judgment,
@@ -199,9 +204,21 @@ _PREFIXED_LIST_COUNT_RE = re.compile(
 _PAREN_LIST_NUMBER_RE = re.compile(
     r"(?P<open>[(（])(?P<number>\d{1,2})(?P<close>[)）])"
 )
-_NUMERIC_CONDITION_ISSUE = "unsupported numeric condition without bound evidence"
-_CALENDAR_WEEKDAY_ISSUE = "calendar weekday mismatch with bound evidence"
-_PATH_TREND_ISSUE = "path trend mismatch with bound evidence"
+_NUMERIC_CONDITION_ISSUE = Issue(
+    IssueCode.NUMERIC_UNSUPPORTED,
+    "numeric_condition",
+    "unsupported numeric condition without bound evidence",
+)
+_CALENDAR_WEEKDAY_ISSUE = Issue(
+    IssueCode.CALENDAR_WEEKDAY_MISMATCH,
+    "weekday",
+    "calendar weekday mismatch with bound evidence",
+)
+_PATH_TREND_ISSUE = Issue(
+    IssueCode.PATH_TREND_MISMATCH,
+    "path_trend",
+    "path trend mismatch with bound evidence",
+)
 _FULL_ISO_DATE_RE = re.compile(
     r"(?<!\d)(?P<year>20\d{2})-(?P<month>\d{1,2})-(?P<day>\d{1,2})(?!\d)"
 )
@@ -653,13 +670,15 @@ class SemanticEpisodeVerifier:
                     public_answer=self._gap_answer(frame, structural),
                     judge_status="rejected",
                     issues=tuple(
-                        dict.fromkeys((*structural.issues, _NUMERIC_CONDITION_ISSUE))
+                        dict.fromkeys(
+                            (*structural.issues, _NUMERIC_CONDITION_ISSUE.serialize())
+                        )
                     ),
                     correlated_judge=False,
                 )
             structural, _preflight_frame = preflight
             preflight_issues = tuple(
-                issue
+                issue.serialize()
                 for indexes, issue in (
                     (numeric_rejected, _NUMERIC_CONDITION_ISSUE),
                     (weekday_rejected, _CALENDAR_WEEKDAY_ISSUE),
@@ -2080,7 +2099,12 @@ def _shrink_verified_for_marker_loss(
             )
 
     extra_issues = tuple(
-        f"{_MARKER_LOSS_GAP}: {output_id}" for output_id in actionable
+        Issue(
+            IssueCode.MARKER_LOSS,
+            output_id,
+            f"{_MARKER_LOSS_GAP}: {output_id}",
+        )
+        for output_id in actionable
     )
     return replace(
         verified,
@@ -2095,7 +2119,7 @@ def _shrink_verified_for_marker_loss(
         ),
         verified_status="partial",
         missing_outputs=tuple(dict.fromkeys((*verified.missing_outputs, *actionable))),
-        issues=tuple(dict.fromkeys((*verified.issues, *extra_issues))),
+        issue_items=tuple(dict.fromkeys((*verified.issue_items, *extra_issues))),
     )
 
 
@@ -2117,8 +2141,9 @@ def _can_semantically_release_partial(
     可以诚实呈现：模型自报 gap、强制能力未绑上、以及证据**类型白名单**问题
     （混绑已在结构层剔除非法哈希，整格非法则该槽已判 missing——两种情况下
     正文引用的仍是证据池里真实采集的内容）。Unknown hashes、伪造、frame
-    mismatch、财务锚地板（"missing required evidence type for"）等其余结构
-    问题仍在语义裁判看到草稿之前 fail closed。
+    mismatch、财务锚地板（FINANCIAL_ANCHOR_MISSING）等其余结构问题仍在语义
+    裁判看到草稿之前 fail closed。放行只查 ``Issue.code`` / ``RELEASE_POLICY``，
+    不匹配文案。
     """
 
     if verified.verified_status != "partial":
@@ -2131,30 +2156,14 @@ def _can_semantically_release_partial(
         return False
     if (
         verified.outcome.status == "partial"
-        and not verified.issues
+        and not verified.issue_items
         and verified.completion.factual_grounding == "fulfilled"
         and verified.completion.task_coverage == "fulfilled"
     ):
         # The runtime declared an honest partial even though every structural
         # binding is present. Judge the prose, but preserve the partial status.
         return True
-    if not verified.issues:
-        return False
-    return all(
-        issue.startswith(
-            (
-                "required output reports gap:",
-                "missing mandatory capability evidence:",
-                # 2026-08-19：门禁只设在最关键证据上。类型白名单问题不再
-                # 一票换掉整篇——已检索到、可溯源的内容以 partial 放行，
-                # 语义裁判仍逐句把关。注意 "stripped …" 不以 "unsupported"
-                # 开头，两个前缀都要列。
-                "unsupported evidence type for",
-                "stripped unsupported evidence type for",
-            )
-        )
-        for issue in verified.issues
-    )
+    return allows_partial_release(verified.issue_items)
 
 
 def _numbered_sentences(draft: str) -> list[dict[str, object]]:
@@ -2223,7 +2232,7 @@ def _apply_numeric_condition_gate(
     rejected.update(_novel_numeric_condition_indexes(sentences, verified))
     if rejected == set(report.rejected_sentence_indexes):
         return call
-    issues = tuple(dict.fromkeys((*report.issues, _NUMERIC_CONDITION_ISSUE)))
+    issues = tuple(dict.fromkeys((*report.issues, _NUMERIC_CONDITION_ISSUE.message)))
     return replace(
         call,
         report=answer_model.GroundingJudgeReport(
@@ -3008,7 +3017,11 @@ def _renumber_parenthesized_list_items(source: str) -> str:
 
 def _marker_loss_issues(output_ids: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(
-        f"semantic repair removed required output: {output_id}"
+        Issue(
+            IssueCode.MARKER_LOSS,
+            output_id,
+            f"{_MARKER_LOSS_GAP}: {output_id}",
+        ).serialize()
         for output_id in output_ids
     )
 

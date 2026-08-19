@@ -25,6 +25,7 @@ from intelligence.services.episode_protocol import (
     strip_hashes_for_model,
     validate_episode_finish,
 )
+from intelligence.services.episode_issues import IssueCode
 from intelligence.services.episode_verifier import verify_episode_outcome
 from intelligence.services.evidence_capabilities import EvidencePlan
 from intelligence.services.provider_observability import ProviderTrace
@@ -586,7 +587,7 @@ def test_validate_finish_relocates_all_slot_caveats_so_verifier_can_fulfill() ->
     verified = verify_episode_outcome(context.contract, outcome)
     assert {item.status for item in verified.completion.outputs} == {"fulfilled"}
     assert not any(
-        issue.startswith("required output reports gap:") for issue in verified.issues
+        item.code == IssueCode.REQUIRED_OUTPUT_GAP for item in verified.issue_items
     )
 
 
@@ -1145,8 +1146,8 @@ def test_r001_fixture_b7_mixed_true_gap_still_missing() -> None:
     assert status_by_id["direct_answer"] == "missing"
     assert status_by_id["evidence_boundary"] == "fulfilled"
     assert any(
-        issue.startswith("required output reports gap: direct_answer")
-        for issue in verified.issues
+        item.code == IssueCode.REQUIRED_OUTPUT_GAP and item.subject == "direct_answer"
+        for item in verified.issue_items
     )
 
 
