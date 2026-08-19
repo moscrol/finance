@@ -66,6 +66,7 @@ def _structural(
     source: str = "行情快照",
     gaps: tuple[str, ...] = (),
     traces: tuple[ProviderTrace, ...] = (),
+    required_outputs: tuple[RequiredOutput, ...] | None = None,
 ):
     frame = _frame()
     evidence = AgentEvidence(
@@ -76,15 +77,17 @@ def _structural(
         source_date="2026-07-22",
         content_hash="HASH_PRIVATE_SENTINEL",
     )
+    if required_outputs is None:
+        required_outputs = (
+            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+        )
     contract = ResearchTaskContract(
         task_id="semantic-test",
         question=frame.raw_question,
         subject=frame.subject,
         subject_kind=frame.subject_kind,
         question_type=frame.question_type,
-        required_outputs=(
-            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
-        ),
+        required_outputs=required_outputs,
         allowed_capabilities=("market_data",),
         evidence_plan=EvidencePlan(),
         task_frame_hash=frame.task_frame_hash,
@@ -104,8 +107,17 @@ def _structural(
                 {"task_frame_hash": frame.task_frame_hash},
             ),
         ),
-        bindings=(
-            OutputEvidenceBinding("direct_assessment", (evidence.content_hash,)),
+        bindings=tuple(
+            # 绑定跟着契约槽的 grounding_mode 走：evidence 槽绑住快照证据，
+            # 推理槽按协议规定空哈希 + basis=model_reasoning。
+            OutputEvidenceBinding(
+                item.output_id,
+                (evidence.content_hash,)
+                if item.grounding_mode == "evidence"
+                else (),
+                basis=item.grounding_mode,
+            )
+            for item in required_outputs
         ),
         usage=AgentUsage(llm_calls=1, tool_calls=1),
     )
@@ -1109,6 +1121,73 @@ def test_local_gate_allows_dates_and_numeric_conditions_present_in_bound_evidenc
     assert result.judge_status == "passed"
     assert "2026年7月17日低点" in result.public_answer
     assert "3876.78点" in result.public_answer
+
+
+def test_local_gate_exempts_novel_thresholds_when_condition_slots_are_reasoning() -> (
+    None
+):
+    """契约把证伪条件签成推理层时，模型提出的新阈值整句存活。
+
+    2026-08-19 分层审查实锤：门禁此前只认「全契约非 evidence」的整体豁免，
+    market_forecast 这类混合契约（边界槽是 evidence）下，invalidation_conditions
+    明明签了 model_reasoning，「若指数跌破3870点则失效」仍被整句砍掉——模型学会
+    只输出「相对变化描述」自保。条件槽由契约点名要判断，阈值不是走私的事实。
+    """
+
+    judge = _judge(True)
+    frame, structural = _structural(
+        "我的基准判断是反弹仍可持续2至5个交易日。若指数跌破3870点则失效。",
+        required_outputs=(
+            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+            RequiredOutput(
+                "invalidation_conditions",
+                "证伪条件",
+                (),
+                True,
+                "model_reasoning",
+            ),
+        ),
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert "3870点" in result.public_answer
+    assert "2至5个交易日" in result.public_answer
+
+
+def test_local_gate_still_redacts_when_condition_slot_is_evidence_bound() -> None:
+    """条件槽仍签 evidence（如 market_technical 失效位）时，门禁照旧连坐。"""
+
+    judge = _judge(True)
+    frame, structural = _structural(
+        "我的基准判断是反弹仍可持续。若指数跌破3870点则失效。",
+        required_outputs=(
+            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+            RequiredOutput(
+                "invalidation_conditions",
+                "失效位",
+                ("market_data",),
+                True,
+            ),
+        ),
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    # 砍掉唯一的失效句后，evidence 签约的必需槽被清空 → partial。
+    # 这正是修复前前瞻题的生产病灶形状；guard 保证 evidence 槽不吃豁免。
+    assert result.status == "partial"
+    assert "3870点" not in result.public_answer
 
 
 def test_numeric_condition_unsupported_is_detectable_before_judge() -> None:
