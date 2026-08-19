@@ -128,6 +128,23 @@ def test_public_sanitizer_removes_marker_shells_and_unstable_heading_ordinals() 
     assert "L4_structured" not in sanitize_conversation_answer("L4_structured")
 
 
+def test_public_sanitizer_spares_prose_mentioning_script_names() -> None:
+    # 旧行为：任何含 .py 的行整行替换为占位句——正文提个脚本名就被吞。
+    # 新契约：.py 行只有同行还带仪表痕迹（=/--/耗时/python 调用）才隐藏。
+    prose = "该拐点信号由 detect_turning_points.py 按无前视确认日算法产出。"
+    cleaned = sanitize_conversation_answer(prose)
+    assert "detect_turning_points.py" in cleaned
+
+    leak_flag = "radar.py --mode deep-dive 题材深拆"
+    assert "radar.py" not in sanitize_conversation_answer(leak_flag)
+
+    leak_timing = "backfill.py 耗时=1200ms 完成回填"
+    assert "backfill.py" not in sanitize_conversation_answer(leak_timing)
+
+    leak_invoke = "python3 scripts/audit_coverage.py 覆盖审计通过"
+    assert "audit_coverage.py" not in sanitize_conversation_answer(leak_invoke)
+
+
 def test_research_owner_contract_honors_declared_question_types() -> None:
     """A skill may expose a contract, but only for its declared research type."""
     from types import SimpleNamespace
