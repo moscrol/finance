@@ -74,6 +74,7 @@ inflight 文档是给**接手干活的 agent** 读的，不是给事后追溯的
 - **不贴整段代码 diff** —— 记结论和决策，代码看 commit/PR。
 - **不删别的 agent 的交接记录**；inflight 只覆写**你自己分支**的那份。
 - **在动作完成之后写**——先写"未提交"再去提交，文档当场失效（2026-08-11 实测踩过）。
+- **合入状态不要手抄**——哪些枝的补丁已经进 main、哪些 worktree 只是 leftover，跑 `python3 scripts/worktree_board.py`（看 `git cherry`，不是 ahead 提交数）。不要写进 `inflight/main.md` 或项目笔记「交接记录」；那两处会漂，SessionStart 也不会扫全仓。inflight 只写**本分支**卡点。
 
 ## 与项目笔记「交接记录」的分工
 

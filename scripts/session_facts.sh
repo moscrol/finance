@@ -95,6 +95,19 @@ else
 fi
 LINES+=("树: ${here##*/} @ ${branch} (${rev}) — ${kind}，全仓共 ${wt_count} 棵")
 
+# ── 1b. 本枝合入状态（生成，不读手抄 inflight/main.md）────────────────
+# 失败形状：70 棵树 + 过期交接让人把「已经进 main 的补丁」当成没合。
+# 全仓看板主动跑 `python3 scripts/worktree_board.py`；这里只对当前 HEAD
+# 做一次 cherry，两三行，不扫全仓（全扫要数秒，会挤爆 SessionStart 预算）。
+if [ -f "$REPO/scripts/worktree_board.py" ]; then
+  board_out="$(python3 "$REPO/scripts/worktree_board.py" --this 2>/dev/null || true)"
+  if [ -n "$board_out" ]; then
+    while IFS= read -r board_line; do
+      [ -n "$board_line" ] && LINES+=("$board_line")
+    done <<< "$board_out"
+  fi
+fi
+
 # ── 2. 用哪个解释器 ────────────────────────────────────────────────────
 # 从 test-environment.json 读（与 conftest.py / check_agent_workspace_facts.py
 # 同一份真本源），不在这里写第二份路径。
