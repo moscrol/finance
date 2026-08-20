@@ -297,12 +297,13 @@ _EVENT_FORECAST_RE = re.compile(
     r"(?:降息|加息|政策|发布|推出|落地)[^。？！]{0,20}"
     r"(?:影响|受益|推动|证伪|可能)"
 )
-_MARKET_CAUSE_RE = re.compile(
-    r"(?:(?:本周|这一周|这周|近一周|过去一周|一周内).{0,20}"
-    r"(?:行情|大盘|市场|指数).{0,16}(?:下跌|上涨|回撤|走弱|走强).{0,16}"
-    r"(?:主要原因|原因|为什么|驱动|归因))"
-    r"|(?:(?:行情|大盘|市场|指数).{0,12}(?:下跌|上涨|回撤|走弱|走强).{0,12}"
-    r"(?:主要原因|原因|为什么|驱动|归因))"
+_CAUSE_VERB_RE = re.compile(r"为什么|原因|驱动|归因")
+_CAUSE_MOVE_RE = re.compile(r"走强|走弱|上涨|下跌|回撤|涨|跌")
+_CAUSE_MARKET_NOUN_RE = re.compile(r"行情|大盘|市场|指数")
+_CAUSE_LAYER_TOKEN_RE = re.compile(r"板块|题材|行业")
+_LAYER_NAME_SEPS = ("为什么", "为何", "研究", "分析一下", "分析", "请问", "帮我")
+_GENERIC_LAYER_SUBJECTS = frozenset(
+    {"哪些", "什么", "哪个", "哪种", "这种", "那种", "有些", "相关"}
 )
 _MONTH_HORIZON_RE = re.compile(
     r"(?:未来|接下来)?\s*(\d{1,2})\s*(?:[-~—到至]\s*(\d{1,2})\s*)?个?月"
@@ -607,8 +608,8 @@ def _theme_aliases() -> tuple[str, ...]:
     return tuple(sorted(dict.fromkeys(aliases), key=len, reverse=True))
 
 
-def _decision_goal(query: str) -> str:
-    if is_market_cause_query(query):
+def _decision_goal(query: str, *, matched_theme: str | None = None) -> str:
+    if is_market_cause_query(query, matched_theme=matched_theme):
         return "解释指定时间窗口内市场涨跌的主要原因并形成可回查因果链"
     if _is_external_market_query(query):
         return "核对海外指数收盘点位与涨跌幅"
@@ -676,10 +677,82 @@ def is_event_forecast_query(query: str) -> bool:
     return _EVENT_FORECAST_RE.search(text) is not None
 
 
-def is_market_cause_query(query: str) -> bool:
-    """确定性识别「市场涨跌 + 时间窗口 + 原因/驱动」归因问题。"""
+def is_market_cause_query(
+    query: str,
+    *,
+    matched_theme: str | None = None,
+    anchor: EntityAnchor | None = None,
+) -> bool:
+    """无序合取：归因动词 ∧ 涨跌事件 ∧ 主语锚点。主语锚点含 matched_theme。"""
+    return _market_cause_hit(
+        query,
+        matched_theme=matched_theme,
+        anchor=anchor,
+    ) is not None
+
+
+def _theme_alias_in_query(text: str) -> str | None:
+    folded = text.casefold()
+    for alias in _theme_aliases():
+        if alias.casefold() in folded:
+            return alias
+    return None
+
+
+def _layer_subject(text: str) -> str | None:
+    for match in _CAUSE_LAYER_TOKEN_RE.finditer(text):
+        prefix = text[: match.start()]
+        for sep in _LAYER_NAME_SEPS:
+            if sep in prefix:
+                prefix = prefix.rsplit(sep, 1)[-1]
+        named = re.search(r"(?:A股|沪深)([\u4e00-\u9fff]{1,6})$", prefix)
+        if named is None:
+            named = re.search(r"([\u4e00-\u9fff]{1,6})$", prefix)
+        if named is None:
+            continue
+        name = named.group(1).strip()
+        if (
+            not name
+            or name in _GENERIC_EXPLICIT_SUBJECTS
+            or name in _GENERIC_LAYER_SUBJECTS
+            or name.startswith(_GENERIC_EXPLICIT_PREFIXES)
+        ):
+            continue
+        return name
+    return None
+
+
+def _market_cause_hit(
+    query: str,
+    *,
+    matched_theme: str | None = None,
+    anchor: EntityAnchor | None = None,
+) -> tuple[SubjectKind, str | None, MatchedBy] | None:
     text = re.sub(r"\s+", "", str(query or "").strip())
-    return bool(text and _MARKET_CAUSE_RE.search(text))
+    if not text:
+        return None
+    if (
+        anchor is not None
+        or _TICKER_RE.search(text) is not None
+        or _explicit_company_subject(text) is not None
+    ):
+        return None
+    if _CAUSE_VERB_RE.search(text) is None or _CAUSE_MOVE_RE.search(text) is None:
+        return None
+    theme = str(matched_theme or "").strip()
+    alias = _theme_alias_in_query(text)
+    layer_name = _layer_subject(text)
+    has_layer = _CAUSE_LAYER_TOKEN_RE.search(text) is not None
+    has_market_noun = _CAUSE_MARKET_NOUN_RE.search(text) is not None
+    if not (theme or alias or has_layer or has_market_noun):
+        return None
+    if theme:
+        return ("theme", theme, "candidate")
+    if alias:
+        return ("theme", alias, "alias")
+    if layer_name is not None:
+        return ("theme", layer_name, "explicit")
+    return ("market_pattern", None, "market_anchor")
 
 
 def _valuation_subject(query: str) -> str | None:
@@ -777,7 +850,12 @@ def _time_horizon(query: str) -> TimeHorizon:
     return "unspecified"
 
 
-def _research_operators(query: str) -> tuple[ResearchOperator, ...]:
+def _research_operators(
+    query: str,
+    *,
+    matched_theme: str | None = None,
+    anchor: EntityAnchor | None = None,
+) -> tuple[ResearchOperator, ...]:
     operators: list[ResearchOperator] = []
     if parse_analog_intent(query) or parse_regime_intent(query):
         operators.append("history_analog")
@@ -795,7 +873,11 @@ def _research_operators(query: str) -> tuple[ResearchOperator, ...]:
         operators.append("company_mapping")
     if _MARKET_CHANGE_RE.search(query):
         operators.append("market_change")
-    if is_market_cause_query(query):
+    if is_market_cause_query(
+        query,
+        matched_theme=matched_theme,
+        anchor=anchor,
+    ):
         operators.append("cause_attribution")
     return tuple(operators)
 
@@ -1027,7 +1109,11 @@ def understand_query(
     anchor: EntityAnchor | None = None,
 ) -> QueryEnvelope:
     text = str(query or "").strip()
-    operators = _research_operators(text)
+    operators = _research_operators(
+        text,
+        matched_theme=matched_theme,
+        anchor=anchor,
+    )
     time_horizon = _time_horizon(text)
     required_outputs = _required_outputs(operators)
 
@@ -1077,14 +1163,20 @@ def understand_query(
         )
     )
 
-    if is_market_cause_query(text):
+    cause_hit = _market_cause_hit(
+        text,
+        matched_theme=matched_theme,
+        anchor=anchor,
+    )
+    if cause_hit is not None:
+        subject_kind, subject, matched_by = cause_hit
         return envelope(
             "market_cause",
-            "market_pattern",
-            None,
+            subject_kind,
+            subject,
             "解释指定时间窗口内市场涨跌的主要原因并形成可回查因果链",
             timeframe,
-            "market_anchor",
+            matched_by,
             0.96,
         )
 
