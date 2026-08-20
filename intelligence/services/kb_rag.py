@@ -750,10 +750,16 @@ def retrieve(
     res = WikiRagResult()
     tel = res.telemetry
     requested_mode = str(mode)
-    tel.mode = requested_mode
     tel.requested_mode = requested_mode
-    tel.effective_mode = requested_mode
-    tel.recall_desc = _MODE_RECALL_DESC.get(requested_mode, "")
+    planned_mode, budget_reason = select_mode_for_remaining(
+        requested_mode, float(timeout)
+    )
+    tel.effective_mode = planned_mode
+    tel.mode = planned_mode
+    tel.recall_desc = _MODE_RECALL_DESC.get(planned_mode, "")
+    if budget_reason:
+        tel.fallback_reason = budget_reason
+        tel.degraded = True
     tel.k = int(k)
     tel.display_excerpt_chars = int(excerpt_chars)
     if not kb_wiki:
@@ -851,10 +857,10 @@ def retrieve(
         if cached is not None:
             return cached
     legacy_options = _LEGACY_QUERY_OPTIONS.get(str(script), frozenset())
-    effective_mode = requested_mode
+    effective_mode = planned_mode
     dense_disabled_until = _DENSE_UNAVAILABLE_UNTIL.get(str(script), 0.0)
     if (
-        requested_mode in _DENSE_MODES
+        effective_mode in _DENSE_MODES
         and dense_disabled_until
         and dense_disabled_until > time.monotonic()
     ):
@@ -862,7 +868,8 @@ def retrieve(
         tel.mode = "bm25"
         tel.effective_mode = "bm25"
         tel.recall_desc = _MODE_RECALL_DESC["bm25"]
-        tel.fallback_reason = "dense_dependency_cached_unavailable"
+        if tel.fallback_reason != REMAINING_BUDGET_FALLBACK:
+            tel.fallback_reason = "dense_dependency_cached_unavailable"
         tel.degraded = True
     cmd = [
         rag_python,
@@ -1081,13 +1088,14 @@ def retrieve(
 
     if (
         proc.returncode != 0
-        and requested_mode in _DENSE_MODES
+        and effective_mode in _DENSE_MODES
         and _dense_dependency_failure(proc.stderr)
     ):
         _DENSE_UNAVAILABLE_UNTIL[str(script)] = (
             _t0 + _DENSE_FAILURE_TTL_SECONDS
         )
-        tel.fallback_reason = "dense_dependency_missing"
+        if tel.fallback_reason != REMAINING_BUDGET_FALLBACK:
+            tel.fallback_reason = "dense_dependency_missing"
         remaining = float(timeout) - (time.monotonic() - _t0)
         if remaining < 1:
             tel.latency_ms = int((time.monotonic() - _t0) * 1000)
