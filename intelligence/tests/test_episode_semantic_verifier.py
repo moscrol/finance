@@ -7,6 +7,7 @@ import time
 import pytest
 
 from intelligence.services import answer_model, llm_refine
+import intelligence.services.research_contract as research_contract_module
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
     AgentOutcome,
@@ -20,7 +21,12 @@ from intelligence.services.episode_issues import IssueCode
 from intelligence.services.episode_semantic_verifier import (
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
     LEFTOVER_WINDOW_ISSUE,
+    MAX_SEMANTIC_JUDGE_ATTEMPTS,
     SemanticEpisodeVerifier,
+    _semantic_attempt_timeouts,
+    compact_judge_payload,
+    complete_judge_attempt_seconds,
+    dumps_judge_request,
     leftover_window_blocks_complete_attempt,
     numeric_condition_unsupported,
     semantic_judge_window_seconds,
@@ -256,14 +262,7 @@ def test_judge_receives_typed_claim_policy_for_requested_forecast(
     assert len(sent["tools"]) == 1
     assert sent["tools"][0]["function"]["name"] == "submit_grounding_report"
     request = json.loads(sent["messages"][1]["content"])
-    policy = request["claim_policy"]
-    assert policy["observed_facts_require_direct_evidence"] is True
-    assert policy["labelled_analytical_inference_allowed"] is True
-    assert policy["requested_conditional_estimate_allowed"] is True
-    assert policy["unsupported_external_cause_rejected"] is True
-    assert policy["unsupported_historical_probability_rejected"] is True
-    assert policy["unsupported_supporting_statistics_rejected"] is True
-    assert policy["unsupported_numeric_trigger_rejected"] is True
+    assert "claim_policy" not in request
     system_prompt = sent["messages"][0]["content"]
     assert "不要要求 evidence 原文已经包含预测结论" in system_prompt
     assert "“据此判断”“这说明”“这意味着”" in system_prompt
@@ -539,6 +538,80 @@ def test_judge_receives_sanitized_tool_status_for_empty_retrieval(
     assert "不能支持市场事实或因果结论" in system_prompt
 
 
+def test_judge_request_omits_agent_loop_and_default_padding(monkeypatch) -> None:
+    """Wire JSON must not pad grok with harness traces or duplicated policy.
+
+    Production 液冷 payload was 4488 chars; claim_policy + empty gap/tier +
+    agent_loop rows were not load-bearing for the review rules already in
+    the system prompt.
+    """
+
+    frame, structural = _structural("当前市场偏弱。")
+    structural = replace(
+        structural,
+        outcome=replace(
+            structural.outcome,
+            traces=(
+                ProviderTrace(
+                    provider="episode",
+                    capability="agent_loop",
+                    status="success",
+                    result_count=5,
+                ),
+                ProviderTrace(
+                    provider="private:eastmoney",
+                    capability="directional_news",
+                    status="empty",
+                    source_trade_date="2026-07-23",
+                    result_count=0,
+                ),
+            ),
+        ),
+    )
+    model = _RecordingJudgeModel()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+
+    SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    raw = model.calls[0]["messages"][1]["content"]
+    request = json.loads(raw)
+    assert "claim_policy" not in request
+    assert "required" not in request["required_outputs"][0]
+    assert "gap" not in request["output_bindings"][0]
+    capabilities = [
+        row["capability"] for row in request.get("tool_status_registry") or []
+    ]
+    assert "agent_loop" not in capabilities
+    assert "directional_news" in capabilities
+    assert raw == dumps_judge_request(request)
+
+
+def test_compact_judge_payload_keeps_empty_evidence_ids_and_zero_counts() -> None:
+    payload = {
+        "claim_policy": {"observed_facts_require_direct_evidence": True},
+        "output_bindings": [{"output_id": "direct_assessment", "evidence_ids": [], "gap": ""}],
+        "tool_status_registry": [
+            {"capability": "agent_loop", "status": "success", "result_count": 5},
+            {"capability": "directional_news", "status": "empty", "result_count": 0},
+        ],
+        "required_outputs": [{"output_id": "direct_assessment", "required": True}],
+    }
+    compacted = compact_judge_payload(payload)
+    assert isinstance(compacted, dict)
+    assert "claim_policy" not in compacted
+    assert compacted["output_bindings"] == [
+        {"output_id": "direct_assessment", "evidence_ids": []}
+    ]
+    assert compacted["tool_status_registry"] == [
+        {"capability": "directional_news", "status": "empty", "result_count": 0}
+    ]
+    assert compacted["required_outputs"] == [{"output_id": "direct_assessment"}]
+
+
 def test_judge_receives_only_bound_evidence_with_compact_semantic_fields(
     monkeypatch,
 ) -> None:
@@ -576,7 +649,6 @@ def test_judge_receives_only_bound_evidence_with_compact_semantic_fields(
         {
             "output_id": "direct_assessment",
             "evidence_ids": ["E1"],
-            "gap": "",
         }
     ]
     assert request["evidence_registry"] == [
@@ -585,7 +657,6 @@ def test_judge_receives_only_bound_evidence_with_compact_semantic_fields(
             "tool": "market_data",
             "detail": "市场成交额与结构观察",
             "source_date": "2026-07-22",
-            "evidence_tier": "",
             "supports": ["量价判断"],
             "contradicts": ["趋势反转"],
             "independent_key": "market-snapshot",
@@ -2752,7 +2823,14 @@ def test_primary_judge_shared_semantic_deadline_bounds_transient_attempts(
     # The invariant is "all attempts together stay inside the one shared
     # window", not any particular number of seconds — express it that way so
     # recalibrating the window does not read as a broken bound.
-    assert sum(model.calls) <= semantic_judge_window_seconds() + 0.01
+    #
+    # 这里断言的是**报价**上限，不再是报价之和：窗口现在由 ``_run_judge`` 的
+    # 余额账按真实耗时封顶（本例的假判官瞬时返回，一秒都没花）。真正的
+    # 「合计不超窗」由 test_judge_attempts_never_exceed_the_shared_window_in_wall_clock
+    # 用会走钟的假判官证明。报价之和曾是那条不变式的代理，静态划分取消后它不再等价。
+    assert max(model.calls) <= complete_judge_attempt_seconds(
+        DEFAULT_JUDGE_TIMEOUT_SECONDS
+    ) + 0.01
     assert model.calls[0] >= model.calls[1]
 
 
@@ -4421,3 +4499,90 @@ def test_repaired_judge_after_transient_retry_keeps_clock_and_attempt_index(
     assert payload["timeout_asked"] == pytest.approx(model.calls[1])
     assert payload["judge_attempt_index"] == 1
     assert payload["exc_class"] is None
+
+
+def test_every_dispatched_judge_attempt_is_a_complete_attempt() -> None:
+    """派发口径必须和守卫口径一致：查 25 就不能发 12.5。
+
+    生产 ``run_20260820_105405_479375``：剩余 216s 过了
+    ``leftover_window_blocks_complete_attempt``（阈值 25s），随后被派了个
+    12.5s 的尝试并 TimeoutError。判官后端最短一次往返实测 16–26s，
+    12.5s 不是机会小而是零。
+    """
+
+    complete = complete_judge_attempt_seconds(DEFAULT_JUDGE_TIMEOUT_SECONDS)
+    attempts = _semantic_attempt_timeouts(
+        ResearchDeadline.from_timeout(216.0),
+        configured_attempt_timeout=DEFAULT_JUDGE_TIMEOUT_SECONDS,
+    )
+
+    assert attempts, "充裕时钟下必须至少发一次"
+    # 每一发都够一次完整尝试——不存在守卫会拦、却仍被派出去的窗口。
+    for asked in attempts:
+        assert not leftover_window_blocks_complete_attempt(
+            asked, DEFAULT_JUDGE_TIMEOUT_SECONDS
+        ), f"派发了守卫本会拦下的半截调用：{asked}s < {complete}s"
+    assert len(attempts) <= MAX_SEMANTIC_JUDGE_ATTEMPTS
+
+
+def test_judge_attempts_never_exceed_the_shared_window_in_wall_clock(
+    monkeypatch,
+) -> None:
+    """真不变式：三发合计的**墙钟**不超总窗口，且不比旧划分更费。
+
+    旧划分靠「报价之和 = 窗口」来保证这条；取消静态划分后，保证改由
+    ``_run_judge`` 的余额账承担，所以必须用会走钟的假判官直接测墙钟。
+    """
+
+    frame, structural = _structural("市场当前偏弱。")
+    window = semantic_judge_window_seconds()
+    now = [1000.0]
+
+    def monotonic() -> float:
+        return now[0]
+
+    monkeypatch.setattr(research_contract_module.time, "monotonic", monotonic)
+
+    class BurnsItsWholeGrant:
+        def __init__(self) -> None:
+            self.calls: list[float] = []
+
+        def complete(self, *, messages, tools, timeout):
+            del messages, tools
+            self.calls.append(float(timeout))
+            now[0] += float(timeout)  # 每发都吃满自己的窗口
+            return ModelTurn("", (), "glm", "LLM 调用 HTTP 503")
+
+    model = BurnsItsWholeGrant()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    start = now[0]
+    SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(600.0),
+    )
+    spent = now[0] - start
+
+    assert model.calls, "至少要发一次"
+    assert spent <= window + 0.01, f"判官烧了 {spent}s，超出共享窗口 {window}s"
+    # 每一发都够一次完整尝试——不存在守卫会拦、却仍被派出去的半截调用。
+    for asked in model.calls:
+        assert not leftover_window_blocks_complete_attempt(
+            asked, DEFAULT_JUDGE_TIMEOUT_SECONDS
+        ), f"派发了守卫本会拦下的半截调用：{asked}s"
+
+
+def test_tight_clock_keeps_a_retry_and_does_not_halve_it() -> None:
+    """紧窗下重试不能被挤掉——修首窗问题时最容易顺手砍掉的就是它。
+
+    余量按需支取而不是预先除以 (MAX-1)：20s 窗给 (10, 10)，不是 (10, 5, 5)。
+    第三发只在 release-grade 瞬态才走得到，不该让第二发替它垫背。
+    """
+
+    attempts = _semantic_attempt_timeouts(
+        ResearchDeadline.from_timeout(20.0),
+        configured_attempt_timeout=DEFAULT_JUDGE_TIMEOUT_SECONDS,
+    )
+
+    assert len(attempts) >= 2, "瞬态重试必须还在"
+    assert attempts[1] == pytest.approx(attempts[0]), "重试不得只有首发的一半"

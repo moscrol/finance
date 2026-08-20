@@ -354,7 +354,7 @@ _JUDGE_SYSTEM_PROMPT = (
     "answer_grounding_mode 为 model_reasoning，不得仅因方法步骤、T+N 观察窗口或"
     "定性判断没有 evidence_ids 而拒绝；只有它把外部事实、历史胜率或当前行情冒充"
     "已核验事实时才拒绝。若为 user_premise，用户明确给出的条件视为假设前提，不要求"
-    "先证明该前提为真。遵循 claim_policy。只输出一个严格 "
+    "先证明该前提为真。只输出一个严格 "
     "JSON 对象，字段必须是 "
     "passed(boolean)、rejected_sentence_indexes(integer list)、issues(string list)。"
     "passed=true 时 rejected_sentence_indexes 必须为空；发现违反上述边界的句子时"
@@ -389,6 +389,55 @@ _CLAIM_POLICY = {
     "unsupported_supporting_statistics_rejected": True,
     "unsupported_numeric_trigger_rejected": True,
 }
+# Episode harness traces, not retrieval process status. The judge prompt
+# already says tool_status_registry cannot support market facts; sending
+# agent_loop success rows only pads the JSON.
+_JUDGE_HIDDEN_STATUS_CAPABILITIES = frozenset({"agent_loop"})
+_JUDGE_JSON_SEPARATORS = (",", ":")
+
+
+def compact_judge_payload(value: object) -> object:
+    """Drop blanks and duplicated defaults from the judge JSON.
+
+    Kept: ``0`` / ``False`` / empty lists (``evidence_ids: []`` is a
+    finding). Dropped: ``None``, ``""``, ``required: true`` (the default),
+    and ``claim_policy`` (already written in the system prompt).
+    """
+
+    if isinstance(value, dict):
+        compacted: dict[str, object] = {}
+        for key, item in value.items():
+            if key == "required" and item is True:
+                continue
+            if key == "claim_policy":
+                continue
+            nested = compact_judge_payload(item)
+            if key == "tool_status_registry" and isinstance(nested, list):
+                nested = [
+                    row
+                    for row in nested
+                    if not (
+                        isinstance(row, dict)
+                        and str(row.get("capability") or "")
+                        in _JUDGE_HIDDEN_STATUS_CAPABILITIES
+                    )
+                ]
+            if nested is None or nested == "":
+                continue
+            if key == "tool_status_registry" and nested == []:
+                continue
+            compacted[key] = nested
+        return compacted
+    if isinstance(value, list):
+        return [compact_judge_payload(item) for item in value]
+    return value
+
+
+def dumps_judge_request(request: Mapping[str, object]) -> str:
+    """Wire JSON for the judge: compact separators, no default padding."""
+
+    payload = compact_judge_payload(dict(request))
+    return json.dumps(payload, ensure_ascii=False, separators=_JUDGE_JSON_SEPARATORS)
 
 
 @dataclass(frozen=True)
@@ -1307,16 +1356,18 @@ class SemanticEpisodeVerifier:
             "answer_grounding_mode": answer_grounding_mode,
             "output_bindings": output_bindings,
             "evidence_registry": evidence_registry,
-            "tool_status_registry": _semantic_tool_status_registry(
-                verified.outcome.traces
-            ),
-            "claim_policy": dict(_CLAIM_POLICY),
+            "tool_status_registry": [
+                row
+                for row in _semantic_tool_status_registry(verified.outcome.traces)
+                if str(row.get("capability") or "")
+                not in _JUDGE_HIDDEN_STATUS_CAPABILITIES
+            ],
             "sentences": sentences,
         }
         if recheck_enabled():
             draft = " ".join(str(item.get("text") or "") for item in sentences)
             payload["source_recheck"] = recheck_draft(draft)
-        return payload
+        return cast(dict[str, object], compact_judge_payload(payload))
 
     def _clocked_judge_call(
         self,
@@ -1357,8 +1408,11 @@ class SemanticEpisodeVerifier:
         request: dict[str, object],
         deadline: ResearchDeadline,
     ) -> _JudgeCall:
-        attempt_timeouts = _semantic_attempt_timeouts(
-            deadline,
+        total_window = semantic_total_judge_window(
+            deadline, configured_attempt_timeout=self._judge_timeout
+        )
+        attempt_timeouts = semantic_attempts_for_window(
+            total_window,
             configured_attempt_timeout=self._judge_timeout,
         )
         if not attempt_timeouts:
@@ -1395,12 +1449,20 @@ class SemanticEpisodeVerifier:
                 {"role": "system", "content": _judge_system_prompt(request)},
                 {
                     "role": "user",
-                    "content": json.dumps(request, ensure_ascii=False),
+                    "content": dumps_judge_request(request),
                 },
             ]
             prior_failures_release_safe = True
+            # 窗口余额账：报价是「一次完整尝试」，真正的封顶是这里。
+            # 用 deadline 读数扣账而不是另起时钟——冻结时间的测试才不会两套钟打架。
+            window_left = total_window
+            previous_remaining: float | None = None
             for attempt, timeout_limit in enumerate(attempt_timeouts):
                 remaining_at_entry = _deadline_remaining_seconds(deadline)
+                if previous_remaining is not None and remaining_at_entry is not None:
+                    window_left -= max(0.0, previous_remaining - remaining_at_entry)
+                previous_remaining = remaining_at_entry
+                timeout_limit = min(timeout_limit, max(0.0, window_left))
                 if leftover_window_blocks_complete_attempt(
                     remaining_at_entry, self._judge_timeout
                 ):
@@ -1549,13 +1611,21 @@ class SemanticEpisodeVerifier:
             {"role": "system", "content": _judge_system_prompt(request)},
             {
                 "role": "user",
-                "content": json.dumps(request, ensure_ascii=False),
+                "content": dumps_judge_request(request),
             },
         ]
         prior_failures_release_safe = True
+        # 与 provider 分支同一本窗口余额账，见 _semantic_attempt_timeouts。
+        window_left = total_window
+        previous_remaining: float | None = None
         for attempt, timeout_limit in enumerate(attempt_timeouts):
             remaining_at_entry = _deadline_remaining_seconds(deadline)
-            attempt_timeout = deadline.synthesis_timeout(timeout_limit)
+            if previous_remaining is not None and remaining_at_entry is not None:
+                window_left -= max(0.0, previous_remaining - remaining_at_entry)
+            previous_remaining = remaining_at_entry
+            attempt_timeout = deadline.synthesis_timeout(
+                min(timeout_limit, max(0.0, window_left))
+            )
             if attempt_timeout <= 0.001:
                 failure_chain_release_safe = (
                     attempt == 0 or prior_failures_release_safe
@@ -3368,8 +3438,8 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             answer_grounding_mode=request["answer_grounding_mode"],
             output_bindings=request["output_bindings"],
             evidence_registry=request["evidence_registry"],
-            tool_status_registry=request["tool_status_registry"],
-            claim_policy=request["claim_policy"],
+            tool_status_registry=request.get("tool_status_registry") or [],
+            claim_policy=request.get("claim_policy") or dict(_CLAIM_POLICY),
             sentences=request["sentences"],
             timeout=timeout,
         )
@@ -3381,12 +3451,14 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             "answer_grounding_mode",
             "output_bindings",
             "evidence_registry",
-            "tool_status_registry",
-            "claim_policy",
             "sentences",
         )
         if name in parameters
     }
+    if "tool_status_registry" in parameters:
+        named["tool_status_registry"] = request.get("tool_status_registry") or []
+    if "claim_policy" in parameters:
+        named["claim_policy"] = request.get("claim_policy") or dict(_CLAIM_POLICY)
     if "timeout" in parameters:
         named["timeout"] = timeout
     required_positional = [
@@ -3410,9 +3482,9 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             "evidence_registry": request["evidence_registry"],
             "evidence": request["evidence_registry"],
             "registry": request["evidence_registry"],
-            "tool_status_registry": request["tool_status_registry"],
-            "tool_statuses": request["tool_status_registry"],
-            "claim_policy": request["claim_policy"],
+            "tool_status_registry": request.get("tool_status_registry") or [],
+            "tool_statuses": request.get("tool_status_registry") or [],
+            "claim_policy": request.get("claim_policy") or dict(_CLAIM_POLICY),
             "sentences": request["sentences"],
             "answer_sentences": request["sentences"],
             "timeout": timeout,
@@ -3534,24 +3606,80 @@ def _semantic_attempt_timeouts(
     *,
     configured_attempt_timeout: float,
 ) -> tuple[float, ...]:
-    """Reserve one bounded semantic window across all provider attempts."""
+    """Reserve one bounded semantic window; spend it without pre-splitting.
+
+    同一个窗口，只改怎么切——``semantic_judge_window_seconds``、
+    ``DEFAULT_JUDGE_TIMEOUT_SECONDS``、``MAX_SEMANTIC_JUDGE_ATTEMPTS`` 一律不动
+    （``R-20260816-07`` 绊线：禁止靠上调数字收场）。总窗口与首窗都不变。
+
+    改的是余量怎么分。旧式 ``retry = (window - first) / (MAX - 1)`` 预先把余量
+    除以 2，**为一个通常不会发生的第三发买单**：standard 窗 50s 下发出
+    ``(25, 12.5, 12.5)``，而第三发只在 release-grade 瞬态时才可能走到
+    （见 ``_should_retry_semantic_judge``）。代价是**第二发必然只有半程**。
+
+    这在 grok-cli 后端下是致命的：直调 grok-4.6 三发实测 19.7 / 16.2 / 26.2 秒，
+    而且只是「回答一个字」。12.5s 不是「机会小」，是零。
+    ``run_20260820_105405_479375`` 就是这么死的：首发 25s 超时、次发 12.5s 超时，
+    ``judge_status=unavailable``——**而当时 episode 还剩 216 秒没用**。
+
+    它还和守卫自相矛盾：``leftover_window_blocks_complete_attempt`` 按
+    ``complete_judge_attempt_seconds``（=25s）放行，剩余 216s 顺利过闸，
+    然后本函数发了个 12.5s 的调用——**查的是 25、发的是 12.5**。而
+    ``LEFTOVER_WINDOW_ISSUE`` 的原则原文正是「不足一次完整尝试时不再发起
+    半截调用」。半截调用不该由余量除法凭空造出来。
+
+    现在每一发都按守卫那个口径报价，**真正的封顶交给窗口余额**（``_run_judge``
+    按 deadline 读数扣账）：能走到第三发的失败都是快失败（502/连接重置，零点几秒），
+    它们不吃窗口，三级阶梯照走；而吃满窗口的慢失败自然停在第二发——窗口余额
+    归零，第三发拿到 0 秒，走既有的 deadline-exhausted 分支。
+
+    静态预分配的根本毛病就在这：它替快失败预留，却让慢失败付账。
+    """
 
     per_attempt_cap = max(0.1, float(configured_attempt_timeout))
-    total_window = deadline.synthesis_timeout(
+    return semantic_attempts_for_window(
+        semantic_total_judge_window(
+            deadline, configured_attempt_timeout=per_attempt_cap
+        ),
+        configured_attempt_timeout=per_attempt_cap,
+    )
+
+
+def semantic_attempts_for_window(
+    total_window: float,
+    *,
+    configured_attempt_timeout: float,
+) -> tuple[float, ...]:
+    """Attempt quotes for an already-measured window.
+
+    ``_run_judge`` 用这个变体，好让 ``synthesis_timeout`` 每轮只被调用一次——
+    有测试用「数 synthesis_timeout 次数」的假 deadline 来关闭重试窗，多调一次
+    就会把它的计数器错开。
+    """
+
+    per_attempt_cap = max(0.1, float(configured_attempt_timeout))
+    if total_window <= 0.001:
+        return ()
+    complete = min(complete_judge_attempt_seconds(per_attempt_cap), total_window)
+    if complete <= 0.001:
+        return ()
+    return tuple(complete for _ in range(MAX_SEMANTIC_JUDGE_ATTEMPTS))
+
+
+def semantic_total_judge_window(
+    deadline: ResearchDeadline,
+    *,
+    configured_attempt_timeout: float,
+) -> float:
+    """Total wall clock all judge attempts may share. Unchanged by the repartition."""
+
+    per_attempt_cap = max(0.1, float(configured_attempt_timeout))
+    return deadline.synthesis_timeout(
         min(
             semantic_judge_window_seconds(),
             per_attempt_cap * MAX_SEMANTIC_JUDGE_ATTEMPTS,
         )
     )
-    if total_window <= 0.001:
-        return ()
-    first = min(per_attempt_cap, total_window * 0.5)
-    retry = min(
-        per_attempt_cap,
-        max(0.0, total_window - first)
-        / max(1, MAX_SEMANTIC_JUDGE_ATTEMPTS - 1),
-    )
-    return (first, retry, retry)
 
 
 def _should_retry_semantic_judge(
