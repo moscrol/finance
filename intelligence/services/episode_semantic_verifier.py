@@ -345,6 +345,10 @@ _JUDGE_SYSTEM_PROMPT = (
     "市场事实或因果结论。答案不得暴露 capability、工具、provider 或哈希等内部标识，"
     "只能用“本轮资讯检索未命中”等自然语言。evidence_registry 使用本次裁判内的 "
     "E 编号，output_bindings.evidence_ids 与其对应。required_outputs 中的 "
+    "答案对自身证据边界或推理层级的披露句（如“原文未覆盖某时段，此段映射为"
+    "推理层”“以下为视角层推断”）是降低断言强度的元陈述，不是外部事实，"
+    "不要求证据也不得拒绝；但披露句若同时断言具体行情数字或外部事件，仍按"
+    "事实句审查。"
     "grounding_mode 是硬边界：evidence 只能引用直接证据，user_premise 只能评估用户"
     "给出的条件，model_reasoning 可以在不伪造证据的前提下给出方法论推理。若 "
     "answer_grounding_mode 为 model_reasoning，不得仅因方法步骤、T+N 观察窗口或"
@@ -796,6 +800,7 @@ class SemanticEpisodeVerifier:
             )
 
         first = _apply_numeric_condition_gate(first, sentences, structural)
+        first = _apply_meta_disclosure_exemption(first, sentences)
         assert first.report is not None
         if first.report.passed:
             if marker_loss_outputs:
@@ -930,6 +935,7 @@ class SemanticEpisodeVerifier:
             repaired_sentences,
             repaired_verified,
         )
+        second = _apply_meta_disclosure_exemption(second, repaired_sentences)
         correlated = first.correlated or second.correlated
         if second.report is not None and second.report.passed:
             return self._completed_public(
@@ -2336,6 +2342,62 @@ def _apply_numeric_condition_gate(
             passed=False,
             rejected_sentence_indexes=tuple(sorted(rejected)),
             issues=issues,
+        ),
+    )
+
+
+_META_DISCLOSURE_RE = re.compile(
+    r"映射为推理层|视角层推断|视角层判断|属于?推理层|原文未覆盖|语料未覆盖"
+)
+# 带具体价值断言的句子不豁免：披露句只允许降低断言强度，不允许顺带夹带行情事实。
+_META_DISCLOSURE_VALUE_RE = re.compile(
+    r"[0-9]+(?:\.[0-9]+)?\s*(?:%|％|亿|万元|万手|元|倍|家|个点)|涨停|跌停|新高|新低"
+)
+
+
+def _is_meta_disclosure(sentence: str) -> bool:
+    text = str(sentence or "")
+    return bool(_META_DISCLOSURE_RE.search(text)) and not _META_DISCLOSURE_VALUE_RE.search(text)
+
+
+def _apply_meta_disclosure_exemption(
+    call: _JudgeCall,
+    sentences: list[dict[str, object]],
+) -> _JudgeCall:
+    """豁免「答案对自身证据边界/推理层级的披露句」的判定拒绝。
+
+    这类句子（如“KOL原文未覆盖8月盘面，映射为推理层”）是视角层按规则输出的
+    诚实声明，作用是降低断言强度；证据注册表里结构性不存在“语料覆盖范围”
+    这类证据，按外部事实句审查等于要求它必死，repair 随之把对用户最有价值的
+    边界声明从公开答案里删掉（2026-08-19 生产 run 实锤）。带具体行情数字或
+    涨跌停等价值断言的句子不豁免，防止借披露句夹带事实。
+    """
+
+    report = call.report
+    if report is None or not report.rejected_sentence_indexes:
+        return call
+    text_by_index = {int(item["index"]): str(item["text"]) for item in sentences}
+    exempted = {
+        index
+        for index in report.rejected_sentence_indexes
+        if _is_meta_disclosure(text_by_index.get(int(index), ""))
+    }
+    if not exempted:
+        return call
+    kept = tuple(
+        index for index in report.rejected_sentence_indexes if index not in exempted
+    )
+    kept_issues = tuple(
+        issue
+        for issue in report.issues
+        if not any(f"第{index}句" in issue for index in exempted)
+    )
+    return replace(
+        call,
+        report=answer_model.GroundingJudgeReport(
+            passed=not kept,
+            rejected_sentence_indexes=kept,
+            issues=kept_issues,
         ),
     )
 
