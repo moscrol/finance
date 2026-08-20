@@ -111,7 +111,7 @@ def verify_episode_outcome(
         )
 
     statuses: list[OutputStatus] = []
-    bound_tools: set[str] = set()
+    stripped_hashes: set[str] = set()
     for required in contract.required_outputs:
         binding = bindings.get(required.output_id)
         if binding is None:
@@ -244,6 +244,13 @@ def verify_episode_outcome(
                     type_message,
                 )
             )
+            stripped_hashes.update(
+                item.content_hash
+                for item in evidence_items
+                if required.evidence_types
+                and item.tool not in required.evidence_types
+                and item.content_hash.strip()
+            )
 
         evidence_floor = required_output_evidence_floor(required.output_id)
         missing_floor = tuple(
@@ -276,7 +283,6 @@ def verify_episode_outcome(
             and len(evidence_items) == len(binding.evidence_hashes)
         )
         if valid:
-            bound_tools.update(item.tool for item in kept_items)
             statuses.append(
                 OutputStatus(
                     required.output_id,
@@ -295,10 +301,18 @@ def verify_episode_outcome(
                 )
             )
 
+    available_tools = {
+        item.tool
+        for item in outcome.evidence
+        if item.content_hash.strip()
+        and item.content_hash not in stripped_hashes
+        and str(item.detail or "").strip()
+        and "预取失败" not in str(item.detail)
+    }
     mandatory_missing = tuple(
         capability
         for capability in contract.evidence_plan.mandatory_capabilities
-        if capability not in bound_tools
+        if capability not in available_tools
     )
     if mandatory_missing:
         joined = ",".join(mandatory_missing)

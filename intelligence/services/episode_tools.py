@@ -527,6 +527,57 @@ def _roots(
     )
 
 
+def _is_fermentation_prefetch(frame: TaskFrame) -> bool:
+    from intelligence.services.asof_prefetch import is_fermentation_query
+
+    return is_fermentation_query(frame.raw_question)
+
+
+def _asof_prefetch_text(
+    frame: TaskFrame,
+    context: ResearchRunContext,
+    market_db_path: Path,
+) -> str:
+    from intelligence.services.asof_prefetch import collect_prefetch_items
+
+    try:
+        as_of = date.fromisoformat(_structured_as_of(context))
+        items = collect_prefetch_items(
+            question=frame.raw_question,
+            question_type=frame.question_type,
+            subject=frame.subject or "",
+            as_of=as_of,
+            market_db_path=market_db_path,
+        )
+    except Exception:
+        return ""
+    return "\n".join(item.detail for item in items if str(item.detail or "").strip())
+
+
+def _opening_prefetch_evidence(
+    frame: TaskFrame,
+    context: ResearchRunContext,
+    market_db_path: Path,
+) -> tuple[agent_research.AgentEvidence, ...]:
+    from intelligence.services.asof_prefetch import (
+        collect_prefetch_items,
+        evidence_from_prefetch,
+    )
+
+    try:
+        as_of = date.fromisoformat(_structured_as_of(context))
+        items = collect_prefetch_items(
+            question=frame.raw_question,
+            question_type=frame.question_type,
+            subject=frame.subject or "",
+            as_of=as_of,
+            market_db_path=market_db_path,
+        )
+    except Exception:
+        return ()
+    return evidence_from_prefetch(items)
+
+
 def latest_market_date(
     finance_root: str | Path | None = None,
     *,
@@ -550,6 +601,9 @@ def _market_block(
     valuation_fetcher: object | None = None,
 ) -> tuple[str, str, str]:
     as_of_value = _structured_as_of(context)
+    prefetch_text = _asof_prefetch_text(frame, context, market_db_path)
+    if _is_fermentation_prefetch(frame) and prefetch_text:
+        return prefetch_text, "本地 DuckDB · 问句日预取", "fermentation_timeline"
     if frame.question_type == "market_forecast":
         block = "\n".join(
             part
@@ -565,6 +619,8 @@ def _market_block(
             )
             if part
         )
+        if prefetch_text:
+            block = "\n".join(part for part in (block, prefetch_text) if part)
         return block, "本地 DuckDB · 预测盘面窗口", "market_forecast_window"
     if frame.question_type == "market_cause":
         return (
@@ -1382,7 +1438,10 @@ def build_episode_registry(
             )
         )
 
-    return ResearchToolRegistry(tuple(specs))
+    return ResearchToolRegistry(
+        tuple(specs),
+        opening_prefetch=_opening_prefetch_evidence(frame, context, market_db_path),
+    )
 
 
 def _finance_query_failure_result(
