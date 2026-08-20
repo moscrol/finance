@@ -671,3 +671,44 @@ Notes:
 | cross-day-gate | ok | 0 |  |
 | export-increment | ok | 0 |  |
 | quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-08-19 | run 2026-08-19 19:06
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 4 |  |
+| market-overview | ok | 7 |  |
+| market-daily | ok | 3 |  |
+| index-daily | ok | 2 |  |
+| sw-l1-daily | timeout | 300 | [retry r1] |
+| market-deviation | ok | 16 |  |
+| sector-daily | ok | 117 |  |
+| sector-stocks | partial | 0 | 2026-08-19 snapshot=d22acd5399c9 success=403/403 rel=52779+88/52867 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=fact_sector_daily mismatch=daily_identities after 20 loops |
+| limit-heat | ok | 62 | heat=121 stock=223 retried=0 still_empty=0 |
+| stock-high | ok | 132 |  |
+| limit-advance | ok | 4 |  |
+| stock-daily | ok | 33 | eastmoney snapshot ok |
+| mainline-daily | ok | 12 |  |
+| mainline-sector-daily | ok | 12 |  |
+| theme-flow-daily | ok | 8 |  |
+| public-assets | ok | 524 |  |
+| features | ok | 1 |  |
+| same-day-gate | fail | 1 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：sw-l1-daily, sector-stocks, same-day-gate
+
+## 2026-08-19 | repair 2026-08-20 10:27（staging 补洞后换名）
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| sw-l1-daily | ok | 2 | 官方 hist/分析报告 08-19 尚未发布；用 index_realtime_sw 昨收盘写 close/pct_chg（与 08-18 同一序列）。amount 暂沿用 08-18，source=`...:prev_close`。今晚 --days 20 hist 有数会覆盖 |
+| public-assets | ok | 2 | 只补 dragon_summary（昨夜 `/data/dragon/all` 超时）；regulation 仍超时，不进断档门 |
+| same-day-gate | ok | 1 | COMPLETE（生产库换名后复检） |
+| cross-day-gate | ok | 1 | PASS，近 20 日无断档 |
+| export-increment | ok | 1 | 29 表 / 120269 行，3.1 MB |
+| quality-gate | COMPLETE | - | check_daily 通过；备份 `db/market_feature_store.duckdb.pre-0819-swap` |
+
+> 夜跑 19:06 same-day 败于 sw-l1 超时 → 不换名。08-20 盘中补洞后原子换进生产。
+

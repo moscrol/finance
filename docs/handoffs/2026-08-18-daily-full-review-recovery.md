@@ -70,3 +70,30 @@
 - 树 `/Users/a77/fwp-wt-l2-pause-main` `fix/l2-pause-public-assets-onto-main`，基线 `gitea/main`。
 - 夹具先红后绿：`test_sync_plan_includes_public_assets_between_theme_flow_and_features`、`test_check_l2_paused_skips_without_touching_db`。
 - 相关三文件 + 新夹具 39 passed。未切 8792，未动主仓脏树。
+
+### 检阅批注 · 08-19 夜跑质检（2026-08-20，检阅方）
+
+- **判定**：FAIL / INCOMPLETE。08-19 全量复盘未完成；无报告产物；生产库仍停在 08-18。
+- 独立复核：
+  - 18:30 S7 开跑 `s7=418515c03833`，`workspace` 工作树 `78391e8e`（`feat/reading-rules-baseline-batch1`），clonefile staging 3.4G
+  - **public-assets 步当晚第一次真正夜跑执行**：`>>> public-assets` 524.3s / rc=0；core 50、dragon 74、seats 675、global 5/194 已进 staging。失败子任务：`dragon_summary`、`regulation`（公开 API read timeout）。CLI 设计是「至少一个成功则 ok」，所以整步不重试这两个子任务
+  - 19:06 `[staging] 夜跑 sync 未全绿, 不换名`；生产库 mtime 仍 08-18 21:39；`ops_sync_run` 最近成功换名仍是 `ad4c312586aa`（08-18）
+  - 20:40 finalize 读**生产** same-day rc=2（18 张表全无 08-19），生成段未跑。`复盘/daily/2026-08-19/`、exports `2026-08-19*`、`quality-2026-08-19.json` 均不存在
+  - 亲手读库：生产 18 张 same-day + 7 张 GAP public-assets 均 max=08-18；staging same-day 除 `fact_sw_l1_daily` 外都有 08-19；`fact_dragon_summary_daily` staging 也停在 08-18
+  - 官方闸门重跑：生产 08-19 data rc=2；staging data rc=2（只报 sw_l1 0/31）；staging cross-day rc=2（`fact_sw_l1_daily` + `fact_dragon_summary_daily` 断档）
+  - `l2-paused.flag` 仍在（08-18 22:00）。L2 特征表 max=08-07。生产上 L2 门把 08-19 判成「非交易日」是因为 `fact_stock_daily` 还没有 08-19 行（`is_trading_day` 用日线≥3000 当日历），不是真休市
+  - #217 已在 `gitea/main`（`02be2ca1`）；`run_review_sync.py` 含 public-assets。夜跑吃的是 private 脏树，不是 8792
+- 根因（PRIMARY）：`sync-sw-l1-daily --days 20` 两次都 300s timeout、零 stdout。same-day 因此 INCOMPLETE。08-18 同模块 288s 擦边过；300s 轻模块预算对 akshare 31 行业历史拉取系统性偏紧，收尾重试用同一 timeout 救不回来
+- 潜伏第二门（换名仍会被拦）：即便补上 sw_l1，cross-day 仍会因 `fact_dragon_summary_daily` 缺 08-19 不换名。蓝绿当晚按设计工作
+- 次要：`sector-stocks` 标 partial（20 圈后仍 `missing_tables=fact_sector_daily mismatch=daily_identities`），实际 403/403、52779 行；`fact_sector_daily` 08-19=402，缺「半导体封测」一名，连续性 99.75% 过 95% 门。limit-heat 121 / 涨停 37 / 跌停 144 与上证 -2.40% 的市况一致，不是缺数
+- Round 2 指派（修复，未做）：
+  1. 在 staging 上单独跑 `sync-sw-l1-daily`（建议 timeout≥600s）+ `sync-fupanhui-public-assets --only dragon_summary`（regulation 不在 GAP，可顺手）
+  2. staging 双门绿后再换名，然后 `nightly_full_review.sh finalize`（保留 `l2-paused.flag`）
+  3. 不要在 `feat/reading-rules-baseline-batch1` 脏树上改编排；sw-l1 改 heavy_timeout、public-assets 失败子任务纳入收尾重试，另开干净树
+  4. 勿把 staging 在双门未绿时换进生产
+
+### 收口 · 08-19 补洞（2026-08-20 10:37；11:06 复验仍 PASS）
+
+- **判定**：上节 FAIL 已被盘中补洞 supersede。生产 `fact_market_daily` max=08-19；日报已落；独立复跑 same-day/cross-day **PASS**（11:06 再打一遍，无漂移）。
+- 修复按 Round 2 的 1/2/4 做了（昨收盘兜底而非拉长 timeout；regulation 仍超时未补）。编排债（3）仍未做。
+- 正文：`docs/handoffs/2026-08-20-daily-full-review-0819-repair.md`
