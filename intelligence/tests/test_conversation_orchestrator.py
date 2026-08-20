@@ -5793,6 +5793,10 @@ def test_base_finance_fallback_grants_web_search_capability(tmp_path) -> None:
         "graph",
         "web_search",
     )
+    # needs_memory=False 必须真关 M/V，不能只停在 helper 单测。
+    assert evidence_registry.provider_enabled(captured[0], "M") is False
+    assert evidence_registry.provider_enabled(captured[0], "V") is False
+    assert evidence_registry.provider_enabled(captured[0], "D0") is True
 
 
 def test_market_forecast_head_route_does_not_enable_long_tail_agent(

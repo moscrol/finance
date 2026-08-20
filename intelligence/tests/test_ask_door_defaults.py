@@ -1,7 +1,7 @@
 """Lock the zero-flag ask door: retrieval knobs stay optional.
 
-See docs/superpowers/specs/2026-08-20-finance-agent-door-depth-design.md PR3.
-Defaults follow the baseline AskOptions / argparse values; do not flip products.
+正文见 docs/agent-product-door.md。Defaults follow the baseline AskOptions /
+argparse values; do not flip products.
 """
 
 from __future__ import annotations
