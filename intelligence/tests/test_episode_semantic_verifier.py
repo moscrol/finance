@@ -2571,6 +2571,12 @@ def test_leftover_sliver_does_not_dispatch_independent_judge(monkeypatch) -> Non
     assert calls == []
     assert leftover_window_blocks_complete_attempt(0.5, 12.0) is True
     assert leftover_window_blocks_complete_attempt(20.0, 12.0) is False
+    assert leftover_window_blocks_complete_attempt(
+        49.0, DEFAULT_JUDGE_TIMEOUT_SECONDS
+    ) is True
+    assert leftover_window_blocks_complete_attempt(
+        50.0, DEFAULT_JUDGE_TIMEOUT_SECONDS
+    ) is False
     assert result.judge_status == "unavailable"
     assert LEFTOVER_WINDOW_ISSUE in result.issues
     assert payload["degrade_class"] == "judge_unavailable"
@@ -2776,23 +2782,18 @@ def test_primary_judge_default_attempt_reserves_retry_window(
     )
 
     assert result.status == "completed"
-    # Assert the *rule*, not the number: the opening attempt takes at most half
-    # the shared window so the two retries still have somewhere to live.  The
-    # window was recalibrated 30.0 → 60.0 on 2026-08-10 (judge measured at
-    # 13.3–24.1s; a 15s opening attempt failed 6/6, 25s succeeded 6/6), and a
-    # hard-coded 15.0 here made a deliberate change look like a regression.
+    # Opening attempt is one complete try: min(cap, window). The 0.5 pre-split
+    # was retired after the 08-20 grok tail (46.7s) could not fit in half of
+    # the 50s floor. Retries share the leftover, they do not own a reserved
+    # half-window.
     window = semantic_judge_window_seconds()
     # 绝对容差，不用 approx 的默认相对容差（2026-08-11 改）：
     # 这个 timeout 是从**活的 deadline** 现算的，`from_timeout(60)` 到判定发生之间
-    # 真实流逝的时间会被减掉，实测得到 29.99995141645195。而 approx 默认 rel=1e-6
-    # 对 30.0 就是 ±3e-5 —— 差 4.9e-5 即判失败，等于把「断言规则」又写回成
-    # 「断言精确值」（正是上面注释想避免的），于是**机器忙一点就红**：
-    # 单独跑 5/5 失败、全量跑里反而过，是典型的时钟敏感偶发。
-    # 50ms 对负载抖动足够宽，对真回归足够紧——真回归会把它挪几秒（如 15 vs 30）。
+    # 真实流逝的时间会被减掉。50ms 对负载抖动足够宽，对真回归足够紧。
     assert model.calls[0]["timeout"] == pytest.approx(
-        min(DEFAULT_JUDGE_TIMEOUT_SECONDS, window * 0.5), abs=0.05
+        min(DEFAULT_JUDGE_TIMEOUT_SECONDS, window), abs=0.05
     )
-    assert model.calls[0]["timeout"] <= window * 0.5 + 0.01
+    assert model.calls[0]["timeout"] <= window + 0.01
 
 
 def test_primary_judge_shared_semantic_deadline_bounds_transient_attempts(
@@ -4502,12 +4503,11 @@ def test_repaired_judge_after_transient_retry_keeps_clock_and_attempt_index(
 
 
 def test_every_dispatched_judge_attempt_is_a_complete_attempt() -> None:
-    """派发口径必须和守卫口径一致：查 25 就不能发 12.5。
+    """派发口径必须和守卫口径一致：查 50 就不能发半截。
 
-    生产 ``run_20260820_105405_479375``：剩余 216s 过了
-    ``leftover_window_blocks_complete_attempt``（阈值 25s），随后被派了个
-    12.5s 的尝试并 TimeoutError。判官后端最短一次往返实测 16–26s，
-    12.5s 不是机会小而是零。
+    生产 ``run_20260820_105405_479375``：剩余 216s 过了守卫（当时阈值 25s），
+    随后被派了个 12.5s 的尝试并 TimeoutError。08-20 压 prompt 后 grok 尾巴
+    46.7s，完整尝试必须是整窗。
     """
 
     complete = complete_judge_attempt_seconds(DEFAULT_JUDGE_TIMEOUT_SECONDS)
@@ -4573,10 +4573,10 @@ def test_judge_attempts_never_exceed_the_shared_window_in_wall_clock(
 
 
 def test_tight_clock_keeps_a_retry_and_does_not_halve_it() -> None:
-    """紧窗下重试不能被挤掉——修首窗问题时最容易顺手砍掉的就是它。
+    """紧窗下重试报价仍与首发相等——修首窗时最容易顺手砍掉的就是它。
 
-    余量按需支取而不是预先除以 (MAX-1)：20s 窗给 (10, 10)，不是 (10, 5, 5)。
-    第三发只在 release-grade 瞬态才走得到，不该让第二发替它垫背。
+    余量按需支取：20s 窗给 (20, 20, 20)，不是 (10, 5, 5)。守卫按完整尝试
+    （50s）拦发，所以 20s 剩余在生产路径会 skip；本测试只锁报价形状。
     """
 
     attempts = _semantic_attempt_timeouts(
