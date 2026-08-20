@@ -5,5 +5,5 @@
 - 正文 `docs/agent-product-door.md`：产品门 / 引擎 A·B / 积木。
 - `AskOptions` 去掉 `include_*_block`，关块走 `enabled_providers`。
 - 定向 315 passed @ `fa65ead3`（收据 `20260820T025948Z-fa65ead3.json`）。
-- 不切 8792。主仓脏树没动。
+- 8792 已切 `b58a7a9b9f1a`（回滚 `be7c1e7eac81`）。主仓脏树没动。
 - 能力图谱暂钉 `docs/agent-product-door.md@gitea/main`：默认工作树还在 `feat/reading-rules-baseline-batch1`，去掉 `@branch` 会 STALE。
