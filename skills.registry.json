@@ -1,13 +1,13 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-08-16T08:26:12Z",
+  "generated_at": "2026-08-19T16:59:01Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 35
+      "skills": 36
     },
     {
       "name": "knowledge-base-private",
@@ -94,6 +94,32 @@
       "computedHash": "sha256:7b4291da4b849793347e7402039a7cd5b1ce76d48e438b3226f8f94d3e04d59a",
       "agentOnly": false,
       "views": []
+    },
+    "ws/code-map": {
+      "name": "code-map",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/code-map/SKILL.md",
+      "description": "编码任务先查本地代码地图门面，避免空图总览和造轮子。触发词：代码地图、code-map、code-review-graph、deepwiki、造轮子、现有实现。注意：dispatcher 不是 Grok 默认第一步；本 skill 不替代 AGENTS.md 指针。",
+      "triggers": [
+        "代码地图",
+        "code-map",
+        "code-review-graph",
+        "deepwiki",
+        "造轮子",
+        "现有实现"
+      ],
+      "note": "dispatcher 不是 Grok 默认第一步；本 skill 不替代 AGENTS.md 指针。",
+      "entrypoint": null,
+      "computedHash": "sha256:38b775eb4bcc202ef0c6086e6c240f8ddb562ac1dbbc4de43300d5dd718cc8ee",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/code-map",
+          "type": "symlink",
+          "target": "../../skills/code-map"
+        }
+      ]
     },
     "ws/daily-full-review": {
       "name": "daily-full-review",

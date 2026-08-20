@@ -17,7 +17,13 @@
 
 检索旗标（`--kb-mode` / `--wiki-rag-mode` / `--modules`）是逃生口，不要写进日常口令。问「有多少能力」时点名分母：`skills/`、`.claude/skills/`、或工具注册表——三套不是同一张表，不要加总。
 
-已决策、不是缺口：技能桥只开一个、飞书 Bitable 写入退役、飞书 IM（`intelligence.cli feishu-bot`）退役、`fact_sector_daily` 是 VIEW、写入正门是 `python3 -m market_feature_store.cli daily-full`。编码任务另走代码地图 spec（`docs/superpowers/specs/2026-08-19-local-code-map-design.md`），未合入前不要当已有 CLI。
+写入正门是 `python3 -m market_feature_store.cli daily-full`。`fact_sector_daily` 是 VIEW。编码任务走下一节代码地图 CLI，不要用问答正门冒充。
+
+已决策、不是缺口：技能桥只开一个、飞书 Bitable 写入退役、飞书 IM（`intelligence.cli feishu-bot`）退役。
+
+## 🗺️ 本地代码地图（编码任务先走这里）
+
+编码任务先 `python3 scripts/code_map.py query "<问题>"`。禁止把空图 `get_architecture_overview` 写成架构结论；禁止 `code-review-graph init|install`；禁止 DeepWiki `generate_wiki` / 对本仓 private index。MCP 已连接 ≠ 地图可用。
 
 ## 🔁 用户纠偏必落 correction（强制，任何 agent 会话）
 

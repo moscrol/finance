@@ -83,25 +83,17 @@ from intelligence.services.task_frame import TaskFrame
 
 SemanticStatus = Literal["completed", "partial", "failed"]
 JudgeStatus = Literal["passed", "repaired", "rejected", "unavailable"]
-# 25.0 → 30.0（2026-08-10 晚，5 次 live 的实测重标定）。
+# 30.0 → 50.0（2026-08-20，压 prompt 后仍罩不住 grok 尾巴）。
 #
-# 上一次把它定在 25.0 时，观测到的 judge 耗时是 13.3–24.1s，25s 刚好罩住尾部。
-# 本轮 5 次 live 的 judge 调用把尾部推到了窗口之外，而且形态非常一致：
+# 压缩后的液冷同形 payload + 适配器 argv（``--max-turns 1`` /
+# ``--json-schema`` / ``effort=low``）串行 N=5：18.9 / 23.4 / 23.6 / 26.2 /
+# 46.7s。中位数已回 25s 内，但尾巴 46.7 > ``min(30, 窗×0.5)=25``。
+# ``#269`` 只改余量切法，首发公式仍是半窗，50s 共享窗永远发不出 47s。
+# 把 cap 提到与窗齐平，一次完整尝试 = 整窗；快失败仍由余额账给重试。
 #
-#   成功：11.33 / 16.36 / 17.95 / 22.43 / 22.85 / 23.69s
-#   失败：25.60 / 25.67 / 25.68s   ← 全部紧贴 25.0 的窗口，是**被截断**的
-#
-# 三次独立失败都落在 25.6–25.7s，说明真实需求 ≥25.7s，只差窗口一点点——
-# 这正是「刚好不够」那一档，和当初 15s 失败 6/6 是同一个形状。
-# 上游变慢是合理解释（本轮探针实测长输出 ≈39 tok/s，上一轮记录 45–52）。
-#
-# 代价看清楚了再改：``_semantic_attempt_timeouts`` 里
-# ``first = min(cap, window*0.5)``、``retry = min(cap, (window-first)/2)``，
-# 所以 25→30 会把充裕时钟下的三次窗口从 (25, 17.5, 17.5) 变成 (30, 15, 15)。
-# **重试窗口变小不构成损失**：观测中重试失败都在 18.1–18.4s，17.5 和 15 都不够，
-# 它本来就救不回来；而首窗成功就根本不会走到重试。
-# 提高首窗成功率优先于保留一个够不着的重试窗口。
-DEFAULT_JUDGE_TIMEOUT_SECONDS = 30.0
+# 未动 T / ``_REPAIR_SECONDS_CAP`` / 档位 total/reserve / 工具批（R-07：
+# 有 08-20 延迟实测才抬这个 30）。窗地板仍 50（R-10 的窗侧不变）。
+DEFAULT_JUDGE_TIMEOUT_SECONDS = 50.0
 MAX_SEMANTIC_JUDGE_WINDOW_SECONDS = 60.0
 # 剩余窗不足一次完整尝试时不再发起半截调用（W2）。不要靠再抬窗口罩尾部。
 LEFTOVER_WINDOW_ISSUE = (
@@ -114,8 +106,9 @@ def semantic_judge_window_seconds(policy: ResearchPolicy | None = None) -> float
 
     Bookgap S3: the source of truth is ``derive_stage_caps`` (a fraction of
     synthesis reserve).  ``ASK_SEMANTIC_JUDGE_WINDOW`` can only lower it.
-    First attempt remains ``min(per_attempt_cap, window * 0.5)``; deep's
-    derived window is 50s so that first attempt is 25s (08-10 arm C).
+    One complete attempt is ``min(per_attempt_cap, window)`` — the 0.5
+    pre-split was retired after the 08-20 grok tail (46.7s) could not fit
+    in half of the 50s floor.
     """
 
     caps = derive_stage_caps(policy or policy_for_env())
@@ -3585,7 +3578,7 @@ def complete_judge_attempt_seconds(configured_attempt_timeout: float) -> float:
         semantic_judge_window_seconds(),
         per_attempt_cap * MAX_SEMANTIC_JUDGE_ATTEMPTS,
     )
-    return min(per_attempt_cap, full_window * 0.5)
+    return min(per_attempt_cap, full_window)
 
 
 def leftover_window_blocks_complete_attempt(
@@ -3608,32 +3601,15 @@ def _semantic_attempt_timeouts(
 ) -> tuple[float, ...]:
     """Reserve one bounded semantic window; spend it without pre-splitting.
 
-    同一个窗口，只改怎么切——``semantic_judge_window_seconds``、
-    ``DEFAULT_JUDGE_TIMEOUT_SECONDS``、``MAX_SEMANTIC_JUDGE_ATTEMPTS`` 一律不动
-    （``R-20260816-07`` 绊线：禁止靠上调数字收场）。总窗口与首窗都不变。
+    ``#269`` 取消了 ``(25, 12.5, 12.5)`` 预切，每一发按一次完整尝试报价，
+    由 ``_run_judge`` 窗口余额账封顶。``#272`` 压过 payload 后 grok 尾巴
+    仍是 46.7s，半窗 25s 罩不住。本轮只动两处：cap 30→50，完整尝试 =
+    ``min(cap, 窗)`` 不再 ``×0.5``。窗地板仍 50；T / ``_REPAIR_SECONDS_CAP``
+    / 档位 / 工具批不动（R-07：有 08-20 N=5 延迟实测才抬这个 30）。
 
-    改的是余量怎么分。旧式 ``retry = (window - first) / (MAX - 1)`` 预先把余量
-    除以 2，**为一个通常不会发生的第三发买单**：standard 窗 50s 下发出
-    ``(25, 12.5, 12.5)``，而第三发只在 release-grade 瞬态时才可能走到
-    （见 ``_should_retry_semantic_judge``）。代价是**第二发必然只有半程**。
-
-    这在 grok-cli 后端下是致命的：直调 grok-4.6 三发实测 19.7 / 16.2 / 26.2 秒，
-    而且只是「回答一个字」。12.5s 不是「机会小」，是零。
-    ``run_20260820_105405_479375`` 就是这么死的：首发 25s 超时、次发 12.5s 超时，
-    ``judge_status=unavailable``——**而当时 episode 还剩 216 秒没用**。
-
-    它还和守卫自相矛盾：``leftover_window_blocks_complete_attempt`` 按
-    ``complete_judge_attempt_seconds``（=25s）放行，剩余 216s 顺利过闸，
-    然后本函数发了个 12.5s 的调用——**查的是 25、发的是 12.5**。而
-    ``LEFTOVER_WINDOW_ISSUE`` 的原则原文正是「不足一次完整尝试时不再发起
-    半截调用」。半截调用不该由余量除法凭空造出来。
-
-    现在每一发都按守卫那个口径报价，**真正的封顶交给窗口余额**（``_run_judge``
-    按 deadline 读数扣账）：能走到第三发的失败都是快失败（502/连接重置，零点几秒），
-    它们不吃窗口，三级阶梯照走；而吃满窗口的慢失败自然停在第二发——窗口余额
-    归零，第三发拿到 0 秒，走既有的 deadline-exhausted 分支。
-
-    静态预分配的根本毛病就在这：它替快失败预留，却让慢失败付账。
+    快失败（502/连接重置）几乎不吃窗，余额账仍给下一发接近整窗；慢失败
+    吃满 50s 后第三发拿 0，走既有 deadline-exhausted。episode 剩余 < 50s
+    时守卫拒发——对 grok 来说那本就是半截。
     """
 
     per_attempt_cap = max(0.1, float(configured_attempt_timeout))

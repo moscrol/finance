@@ -406,13 +406,13 @@ class StageCaps:
 
 
 # Shared judge window per second of synthesis reserve.  Current deep reserve
-# is 48s; 50/48 makes the existing half-window first attempt 25s (08-10 arm C).
+# is 48s; 50/48 pins the shared window at 50s (08-10 arm C / R-10 floor).
 # Spec numbers (75s reserve / 60s standard reserve) are stale vs for_tier().
 _JUDGE_WINDOW_PER_RESERVE = 50.0 / 48.0
-# R-06 / 2026-08-16: standard reserve is 20s → derived window ≈20.83s → first
-# attempt 10.4s. Live asked=5.208 (retry) timed out 11/11; terra judge-shaped
-# p95=10.75s (N=8). Floor standard to deep's 50s so first=25s. Does not change
-# synthesis_reserve or tool_batch; judge spends leftover after draft.
+# R-06 / 2026-08-16: standard reserve is 20s → derived window ≈20.83s. Live
+# asked=5.208 (retry) timed out 11/11; terra judge-shaped p95=10.75s (N=8).
+# Floor standard to deep's 50s. 08-20: first attempt uses the full window
+# (cap 50), not window×0.5. Does not change synthesis_reserve or tool_batch.
 _STANDARD_JUDGE_WINDOW_FLOOR = 50.0
 
 
