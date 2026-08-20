@@ -62,7 +62,11 @@ git -C /Users/a77/finance-workspace-private worktree add --detach \
   ~/.finance-runtime/finance-workspace-${sha:0:12} "$sha"
 launchctl bootout "gui/$(id -u)/com.a77.finance-workbench"
 /bin/ln -sfh ~/.finance-runtime/finance-workspace-${sha:0:12} /Users/a77/finance-workspace-runtime
-FINANCE_WS=/Users/a77/finance-workspace-private /Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/finance-workspace-private/scripts/audit_deploy_ledger.py record --action switch --rev "$sha" --snapshot-path ~/.finance-runtime/finance-workspace-${sha:0:12}
+# ⚠️ 脚本从**新快照**里取，不要从主检出取（2026-08-21 实测补入）：主检出常年停在别的任务分支上，
+# 那个分支不一定有 scripts/audit_deploy_ledger.py（本次停在 feat/reading-rules-baseline-batch1，就没有），
+# 结果是账本静默漏记一次 switch——而切换本身已经生效，事后没人看得出来漏了。
+# FINANCE_WS 仍指主仓（数据仓），只有解释器和脚本路径跟着快照走。
+FINANCE_WS=/Users/a77/finance-workspace-private /Users/a77/finance-workspace-private/.venv-workbench/bin/python ~/.finance-runtime/finance-workspace-${sha:0:12}/scripts/audit_deploy_ledger.py record --action switch --rev "$sha" --snapshot-path ~/.finance-runtime/finance-workspace-${sha:0:12}
 launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.a77.finance-workbench.plist
 ```
 
@@ -114,6 +118,8 @@ launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.a77.finance-workbe
 
 ## 坑（都踩过）
 
+- **`smoke_workbench_self_use.py` 的收据 schema 会漂，别照旧收据抄字段名**（2026-08-21 实测补入，与上面 §4 那条「字段找不到 = 假红」同型）。现版本**不再发** `source_revision` / `code_root` / `grounded` / `question` / `user`，换成了 `gate_receipt` / `gate_receipt_table` / `readiness` / `retrieval` / `content_degraded_count` / `judge_unavailable_count`。拿 08-19 的 `20260819-post-d2ebf693-changdian.json` 当模板去读 `source_revision`，会得到 `None` 并误报成「切换没生效」。**revision 一律以验证 ② 的 health 三读为准**，收据只用来看 degrade / secret_scan / 口径。
+- **live 探针要先确认打的是哪条引擎链**（2026-08-21 实测补入）。`intelligence.eval.live_probe ask` 走 `POST /api/runs`，落中立泳道，产物目录里**没有** `continuous-episode.json`——挂在 episode 判官链上的东西（语义判官、公开稿护栏等）一个字段都不会产，但 run 照样 `completed`，**看起来像跑过了**。要验 episode 链必须走 `POST /api/conversations` + `POST /api/conversations/{id}/messages`（`skill_mode` 必填，`perspective_mode=neutral` 走中立）。判据：产物里有没有 `continuous-episode.json`。
 - 并发 session 可能正在交付下一批：只动自己队列里的分支；发现冲突提醒对方，不代解。
 - pre-commit 有层级 / 路径字面量 / 字段契约等门禁，docs-only 提交也会全跑，属正常。
 - 台账/handoff 里引用的收据路径要真实存在——写行前先 `ls` 一遍。
