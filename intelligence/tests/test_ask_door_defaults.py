@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import argparse
 
+from dataclasses import fields
+
 from intelligence.cli import build_parser
 from intelligence.services.ask_types import AskOptions
 
@@ -41,6 +43,15 @@ def test_ask_options_query_only_is_deep_path() -> None:
     assert options.use_llm is False
     assert options.wiki_rag_index_dir is None
     assert options.modules is None
+
+
+def test_ask_options_has_no_per_block_include_flags() -> None:
+    leaked = {
+        item.name
+        for item in fields(AskOptions)
+        if item.name.startswith("include_") and item.name.endswith("_block")
+    }
+    assert leaked == set(), leaked
 
 
 def test_cli_ask_parses_without_retrieval_escape_hatches() -> None:

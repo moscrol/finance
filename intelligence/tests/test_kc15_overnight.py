@@ -126,12 +126,15 @@ def test_empty_themes_discloses_gap() -> None:
     assert "CPO概念" not in block
 
 
-def test_registry_gating_via_legacy_flag() -> None:
+def test_registry_gating_via_enabled_providers() -> None:
     from intelligence.services import evidence_registry
     from intelligence.services.ask import AskOptions
 
     on = AskOptions(query="q")
-    off = AskOptions(query="q", include_overnight_block=False)
+    off = AskOptions(
+        query="q",
+        enabled_providers=evidence_registry.without_providers("D17"),
+    )
     assert evidence_registry.provider_enabled(on, "D17") is True
     assert evidence_registry.provider_enabled(off, "D17") is False
 
