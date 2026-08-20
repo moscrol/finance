@@ -1,0 +1,11 @@
+{
+  "run_id": "run_20260820_032014_595378",
+  "source_revision": "be7c1e7eac81fd2312c81efc6e617f7c61524775",
+  "seq23_content_chars": 1586,
+  "seq23_draft_chars": 814,
+  "evidence_count": 33,
+  "required_output_count": 4,
+  "observed_seq25_carried_draft_chars": 0,
+  "observed_seq25_stop_reason": "repair_deadline_exhausted",
+  "observed_outcome_draft_chars": 0
+}
