@@ -1,7 +1,7 @@
 # 设计：按剩余预算选择 kb_search 检索档位
 
 - 日期：2026-08-20
-- 状态：Draft，代码地图已核（2026-08-20）；切点与真值表成立，实施前见 §12
+- 状态：已合 Gitea #275（`c6af3ec2`，2026-08-20）
 - 取代：`2026-08-20-dsh-absorption-remaining-fixes.md`（已作废，根因写错）
 - 真本源：`docs/prediction-ledger.md` 的 `R-20260817-02`；形状见 `docs/handoffs/2026-08-17-dispatch-d-retrieval-budget.md`
 - 父稿：`docs/superpowers/specs/2026-08-15-agent-base-dsh-absorption-design.md` §4.2 第 6 条（机制在、分配策略未验证）
@@ -184,7 +184,7 @@ def select_mode_for_remaining(
 - [x] `test_retrieval_tier_by_remaining_budget.py`：4s / 11.955 / 20s / 变异 / 已是 bm25
 - [x] 次数闸与能力降档回归绿
 - [x] `test_kb_rag.py` 能力降档夹具 `timeout=5` → `20`
-- [ ] 本 spec 实施收据（合入后勾选，不改真值表）
+- [x] 本 spec 实施收据（合入后勾选，不改真值表）
 
 ## 12. 代码地图核对（2026-08-20）
 
