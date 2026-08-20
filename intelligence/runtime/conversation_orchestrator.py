@@ -1441,7 +1441,16 @@ def sanitize_conversation_answer(text: str) -> str:
         r"检索方式=hybrid|BM25|BGE-m3|RRF|"
         r"\bchunk(?:_id)?=|\bhash=|\bindex=|\bk=\d+|"
         r"耗时=\d+ms|状态=empty|[DMVW]\s*源|命中来源分布|"
-        r"检索质量裁定|公告等硬证据覆盖|--mode\b|\b\w+\.py\b).*$",
+        r"检索质量裁定|公告等硬证据覆盖|--mode\b).*$",
+        "（内部检索诊断信息已隐藏。）",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    # .py 行单独收窄：只有同行还带仪表痕迹（赋值/命令行开关/耗时/调用前缀）
+    # 才算诊断泄漏。此前任何提到脚本名的正文行都被整行吞掉——比如回答
+    # 「该信号由 detect_turning_points.py 产出」会变成占位句，属误伤。
+    cleaned = re.sub(
+        r"(?m)^(?=.*\b\w+\.py\b)(?=.*(?:=|--|耗时|chunk|hash|python3?\s|\$\s)).*$",
         "（内部检索诊断信息已隐藏。）",
         cleaned,
         flags=re.IGNORECASE,
