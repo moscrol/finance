@@ -1139,6 +1139,49 @@ def test_local_gate_redacts_all_novel_numeric_conditions_in_one_pass() -> None:
     ]
 
 
+def test_meta_disclosure_rejection_is_exempted_and_sentence_survives() -> None:
+    # 2026-08-19 生产实锤：视角层按规则输出的披露句「KOL原文未覆盖8月盘面，
+    # 映射为推理层」被判成无证据外部事实，repair 把最有价值的边界声明删出
+    # 公开答案。豁免后：句子保留、无残留 issue、状态 completed。
+    draft = "市场处于反弹阶段。KOL原文未覆盖8月盘面，本段映射为推理层。"
+    judge = _judge(
+        False,
+        rejected=(2,),
+        issues=("第2句：无直接证据支持的外部事实陈述",),
+    )
+    frame, structural = _structural(draft)
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert "映射为推理层" in result.public_answer
+    assert all("第2句" not in issue for issue in result.issues)
+
+
+def test_meta_disclosure_with_value_claim_is_not_exempted() -> None:
+    # 披露句夹带行情断言（涨停）时不豁免：照常拒绝并修复删除。
+    draft = "市场处于反弹阶段。原文未覆盖该股，但其已连续涨停，本段映射为推理层。"
+    judge = _judge(
+        False,
+        rejected=(2,),
+        issues=("第2句：无证据的行情断言",),
+    )
+    frame, structural = _structural(draft)
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert "涨停" not in result.public_answer
+    assert result.judge_status == "repaired"
+
+
 def test_local_gate_allows_dates_and_numeric_conditions_present_in_bound_evidence() -> (
     None
 ):
