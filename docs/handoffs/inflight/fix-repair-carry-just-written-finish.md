@@ -7,8 +7,14 @@
 
 ## 当前状态
 
-**离线全绿，live 臂未跑。** 5776 passed / 12 skipped；9 道 pre-commit 全过。
+**离线全绿；live 臂跑了一发但未同形，不算数。** 5776 passed / 12 skipped；
+9 道 pre-commit 全过。已推 `gitea`，PR **#263** open（未合）。
 账本新开 `R-20260820-01`（`pending`）。
+
+live 那发（sidecar 8798 钉 `f029b58a`，`run_20260820_103042_376640`，同题面）
+**根本没进修复轮**，走的是 `run()` 侧那条路径，本分支改的两处未被执行。
+只证明了两件事：改动不伤正常路径（交付 650 字稿）；有稿 ⇒ 公开
+`correlated_judge=false`（与液冷的 `null` 对照成立）。
 
 改动只有三处：新增 `_carry_repair_finish`（`agent_episode.py:2495`），接在
 `resume()` 两条「模型刚返回、预算随即耗尽」的路径上（`:1533` / `:1647`）。
