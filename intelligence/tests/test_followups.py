@@ -45,9 +45,14 @@ class TemplateFallbackTests(unittest.TestCase):
         self.assertFalse(any("双红" in item.question and "最近" in item.question for item in result.followups))
         _cross_cut(result.followups)
 
-    def test_no_theme_falls_back_to_question_prefix(self) -> None:
+    def test_no_theme_uses_placeholder_not_question_slice(self) -> None:
+        # 旧行为：无 matched_theme 时把原句（或其 [:16] 切片）塞进每条追问，
+        # 长问题会被拦腰切出病句。新契约：展示兜底只用「该问题」。
         result = followups.generate_followups("英维克现在贵不贵", use_llm=False)
-        self.assertTrue(all("英维克现在贵不贵" in item.question for item in result.followups))
+        self.assertGreaterEqual(len(result.followups), 2)
+        for item in result.followups:
+            self.assertNotIn("英维克现在贵不贵", item.full_prompt)
+        self.assertTrue(any("该问题" in item.full_prompt for item in result.followups))
 
     def test_llm_failure_degrades_to_template_with_warning(self) -> None:
         with mock.patch.object(followups.llm_refine, "complete", return_value=(None, None, "无可用 provider")):
@@ -138,6 +143,37 @@ class GapMirrorTests(unittest.TestCase):
     def test_blank_subject_gets_placeholder(self) -> None:
         result = followups.gap_mirror_followups("  ", ("反方证据",))
         self.assertIn("该问题", result.followups[0].full_prompt)
+
+    def test_blank_subject_never_slices_question(self) -> None:
+        # 2026-08-19 生产实锤：subject 为空时曾拿 question[:16] 填模板，
+        # 把「…2026-08-18的盘面数据…」切成「用SPT视角看2026-08-1」直接进
+        # 用户可见追问。展示兜底只允许「该问题」，禁止切原句。
+        question = (
+            "用SPT视角看2026-08-18的盘面数据，给出次日8月19日的看法："
+            "当前量能状态处于哪一段、板块表现该读成主线发育还是轮动脉冲"
+        )
+        state = followups.project_continuous_state(
+            subject="",
+            question=question,
+            open_gaps=("量能判断依据",),
+            status="partial",
+        )
+        result = followups.compose_followups(state)
+        self.assertTrue(result.followups)
+        sliced = question[:16]
+        for item in result.followups:
+            self.assertNotIn(sliced, item.full_prompt)
+
+    def test_project_ask_state_subjectless_kind_not_stuffed(self) -> None:
+        # anchor 兜底曾被喂给 infer_question_kind，任何无主语问题都被
+        # 判成 theme/stock，methodology 与 other 永远不可达。
+        method_state = followups.project_ask_state("这套框架怎么回测过去三个月的胜率")
+        self.assertEqual(method_state.question_kind, "methodology")
+        other_state = followups.project_ask_state("明天大盘怎么看")
+        self.assertEqual(other_state.question_kind, "other")
+        self.assertEqual(other_state.subject, "该问题")
+        themed = followups.project_ask_state("液冷怎么看", subject="液冷")
+        self.assertEqual(themed.question_kind, "theme")
 
 
 class AngleComposerTests(unittest.TestCase):
