@@ -1433,7 +1433,9 @@ class ContinuousAgentEpisode:
                 "timeout_asked": repair_timeout_asked,
                 "timeout_configured": float(self._llm_timeout),
                 "research_tools_open": research_tools_open,
-                # 这一轮拿什么去冒险：失败时它会被原样结转，不再归零。
+                # 这一轮拿什么去冒险：失败时它是**兜底**，不再归零。
+                # 修复轮自己写出合法 FINAL_JSON 时优先用新的那份
+                # （_carry_repair_finish）；这里为 0 不代表失败就一定交白卷。
                 "previous_draft_chars": len(previous.draft),
             },
         )
@@ -1528,6 +1530,13 @@ class ContinuousAgentEpisode:
             )
         performed_tool_action = False
         if not budget_alive:
+            carried_draft, carried_bindings = self._carry_repair_finish(
+                turn=turn,
+                previous=previous,
+                context=context,
+                evidence=tuple(accumulator.evidence),
+                registry=registry,
+            )
             return self._stopped_outcome(
                 task_frame=task_frame,
                 status="partial" if accumulator.evidence else "failed",
@@ -1540,8 +1549,8 @@ class ContinuousAgentEpisode:
                 llm_calls=llm_calls,
                 tool_calls=tool_calls,
                 invalid_actions=invalid_actions,
-                carried_draft=previous.draft,
-                carried_bindings=previous.bindings,
+                carried_draft=carried_draft,
+                carried_bindings=carried_bindings,
             )
         if turn.error:
             ledger.add("model_error", {"reason": turn.error})
@@ -1635,6 +1644,13 @@ class ContinuousAgentEpisode:
             )
             messages.append(self._assistant_message(turn))
             if not budget_alive:
+                carried_draft, carried_bindings = self._carry_repair_finish(
+                    turn=turn,
+                    previous=previous,
+                    context=context,
+                    evidence=tuple(accumulator.evidence),
+                    registry=registry,
+                )
                 return self._stopped_outcome(
                     task_frame=task_frame,
                     status="partial" if accumulator.evidence else "failed",
@@ -1647,8 +1663,8 @@ class ContinuousAgentEpisode:
                     llm_calls=llm_calls,
                     tool_calls=tool_calls,
                     invalid_actions=invalid_actions,
-                    carried_draft=previous.draft,
-                    carried_bindings=previous.bindings,
+                    carried_draft=carried_draft,
+                    carried_bindings=carried_bindings,
                 )
         if turn.error or turn.tool_calls:
             invalid_actions += len(turn.tool_calls)
@@ -2475,6 +2491,38 @@ class ContinuousAgentEpisode:
             draft=finish.draft,
         )
         return finish.draft, bindings
+
+    @staticmethod
+    def _carry_repair_finish(
+        *,
+        turn: ModelTurn,
+        previous: AgentOutcome,
+        context: ResearchRunContext,
+        evidence: tuple[AgentEvidence, ...],
+        registry: ResearchToolRegistry,
+    ) -> tuple[str, tuple[OutputEvidenceBinding, ...]]:
+        """Prefer the repair turn's own FINAL_JSON, else keep the previous answer.
+
+        修复轮的截止路径原本一律结转 ``previous.draft``。那假设「上一轮已经有
+        稿」——首轮合成超时（空稿）时假设破了，修复轮**刚写出来**的合法
+        FINAL_JSON 会被当成从没发生过。液冷 ``run_20260820_032014_595378``
+        就是这个形状：seq23 写出 814 字 draft、四格 bindings 全绑上证据，
+        seq25 ``carried_draft_chars=0``，公开答卷降级成「现有证据不足」。
+
+        取舍顺序固定：刚写出的合法稿 > 上一轮的稿。校验不过、报错、还在调
+        工具的 turn 一律落回 ``previous``——这条路径不负责发明答案，也不负责
+        把已有答案丢掉。
+        """
+
+        draft, bindings = ContinuousAgentEpisode._carry_just_written_finish(
+            turn=turn,
+            context=context,
+            evidence=evidence,
+            registry=registry,
+        )
+        if draft:
+            return draft, bindings
+        return previous.draft, previous.bindings
 
     @staticmethod
     def _stopped_outcome(
