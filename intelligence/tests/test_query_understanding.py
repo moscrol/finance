@@ -742,3 +742,87 @@ def test_dated_stock_picking_question_is_not_comparison() -> None:
 
     assert "comparison" not in envelope.operators
     assert envelope.question_type != "comparison"
+
+
+# --- 2026-08-20 market_cause 板块归因入口（路由稿 §5 / §7） ---
+
+_ALUMINUM_CAUSE = "2026-07-23 A股铝板块为什么涨，给出证据来源"
+_GRID_CAUSE = "2026-07-23 电网设备为什么涨，给出证据来源"
+
+
+def test_weekly_market_cause_word_order_variants() -> None:
+    """F1：归因在涨跌之前也必须命中。现役有序正则会把这三句判否。"""
+
+    for query in (
+        "大盘为什么下跌",
+        "行情为什么走弱",
+        "近一周大盘为什么走弱",
+    ):
+        envelope = understand_query(query)
+        assert envelope.question_type == "market_cause", query
+        assert envelope.subject is None, query
+        assert envelope.matched_by == "market_anchor", query
+
+
+def test_aluminum_sector_cause_envelope_is_market_cause() -> None:
+    envelope = understand_query(_ALUMINUM_CAUSE)
+
+    assert envelope.question_type == "market_cause"
+    assert envelope.subject == "铝"
+    assert envelope.subject_kind == "theme"
+    assert envelope.matched_by == "explicit"
+    assert envelope.task_frame is not None
+    assert "causal_chain" in envelope.task_frame.required_outputs
+    assert envelope.task_frame.subject == "铝"
+
+
+def test_grid_equipment_cause_envelope_without_matched_theme_may_miss() -> None:
+    """F2/F3：信封层不带参允许不命中；禁止把电网设备写进题材包别名。"""
+
+    envelope = understand_query(_GRID_CAUSE)
+
+    assert envelope.question_type != "market_cause"
+    assert "电网设备" not in query_understanding._theme_aliases()
+
+
+def test_grid_equipment_cause_envelope_with_matched_theme() -> None:
+    envelope = understand_query(_GRID_CAUSE, matched_theme="电网设备")
+
+    assert envelope.question_type == "market_cause"
+    assert envelope.subject == "电网设备"
+    assert envelope.matched_by == "candidate"
+    assert envelope.task_frame is not None
+    assert "causal_chain" in envelope.task_frame.required_outputs
+
+
+def test_liquid_cooling_sector_cause_envelope_uses_alias() -> None:
+    envelope = understand_query("液冷板块今天为什么涨")
+
+    assert envelope.question_type == "market_cause"
+    assert envelope.subject == "液冷"
+    assert envelope.matched_by == "alias"
+
+
+def test_market_cause_does_not_steal_non_move_or_stock_queries() -> None:
+    """§5.2：两层都不得是 market_cause。信封层只锁「不是因果」。"""
+
+    cases = (
+        "固态电池为什么是主线",
+        "立新能源为什么涨",
+        "液冷怎么看",
+        "电网设备怎么看",
+        "液冷服务器题材：产业链怎么拆解",
+        "2026-02-17 涨停家数多少",
+        "什么是双红，现在哪些板块双红",
+        "2026-07-23 铝为什么涨，给出证据来源",
+        "2026-07-23 收盘，盛新锂能怎么看",
+    )
+    for query in cases:
+        envelope = understand_query(query)
+        assert envelope.question_type != "market_cause", query
+
+    assert understand_query("液冷怎么看").question_type == "theme_analysis"
+    assert (
+        understand_query("电网设备怎么看", matched_theme="电网设备").question_type
+        == "theme_analysis"
+    )
