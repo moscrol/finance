@@ -17,6 +17,7 @@ from intelligence.services.evidence_capabilities import (
 )
 from intelligence.services.honesty_gates import requested_information_cutoff
 from intelligence.services.research_contract import (
+    FORWARD_HYPOTHESIS_OUTPUT_IDS,
     InformationCutoff,
     RequiredOutput,
     ResearchDeadline,
@@ -190,6 +191,9 @@ _OUTLOOK_JUDGMENT_OUTPUTS = frozenset({"direct_answer", "direct_assessment"})
 _OUTLOOK_JUDGMENT_RE = re.compile(
     r"(?:你认为|你觉得|怎么看|机会在哪|会怎么走)"
 )
+# 只圈前瞻类题型：market_technical 的失效位应来自行情数据（支撑/均线是可查的），
+# 继续按 evidence 签约，不进本名单。
+_FORWARD_HYPOTHESIS_QUESTION_TYPES = frozenset({"market_forecast", "event_forecast"})
 
 
 def _authorized_capabilities(
@@ -437,6 +441,16 @@ def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
         # 却仍 completed（2026-08-16 两轮生产 run）。只改判断槽：边界槽继续
         # evidence，整题也不标 evidence-free，检索与硬事实闸门保持。
         # 不能用 user_goal==「形成条件化判断」当键——那是默认 decision_goal。
+        return "model_reasoning"
+    if (
+        output_id in FORWARD_HYPOTHESIS_OUTPUT_IDS
+        and frame.question_type in _FORWARD_HYPOTHESIS_QUESTION_TYPES
+    ):
+        # 前瞻题的条件槽是向前的假设。押进 evidence 硬边界后，数值门禁把
+        # 「若指数跌破3870点则失效」这类可操作阈值整句砍掉，模型学会只输出
+        # 「相对变化描述，具体阈值以盘面为准」自保（2026-08-19 生产 run +
+        # 分层审查实锤）。只改条件槽：direct_assessment / evidence_boundary
+        # 等事实、边界槽继续 evidence，检索与硬事实闸门不动。
         return "model_reasoning"
     return "evidence"
 
