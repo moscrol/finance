@@ -1604,8 +1604,8 @@ def add_feishu_bot_parser(subparsers: argparse._SubParsersAction) -> None:
 
     parser = subparsers.add_parser(
         "feishu-bot",
-        help="飞书 chat bot（B-S2，长连接 + in-process 调 ask 回六段；--echo 退回 B-S0 自检；"
-        "凭证走 env / ~/.claude/shared/feishu_config.json）",
+        help="飞书 IM 入口（已退役；调用 exit 2。问答用 ask / Workbench Episode）",
+        description="飞书 IM 入口（已退役）。不连 WebSocket；问答用 ask / Workbench Episode。",
     )
     feishu_bot.add_arguments(parser)
     parser.set_defaults(func=cmd_feishu_bot)
@@ -1614,7 +1614,8 @@ def add_feishu_bot_parser(subparsers: argparse._SubParsersAction) -> None:
 def cmd_feishu_bot(args: argparse.Namespace) -> int:
     from intelligence.chat import feishu_bot
 
-    return feishu_bot.run(feishu_bot.build_config(args))
+    _ = args  # 旧旗标仍可解析，退役闸不读凭据、不连 WebSocket
+    return feishu_bot.run()
 
 
 def add_dream_collect_parser(subparsers: argparse._SubParsersAction) -> None:

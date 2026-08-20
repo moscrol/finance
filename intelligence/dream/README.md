@@ -26,7 +26,7 @@
 
 ```
 对话源原始 jsonl（每行一个事件/消息/会话/observation，视源而定）
-  · feishu     —— feishu_bot.py --transcript-log 产出
+  · feishu     —— 历史 transcript jsonl（飞书 IM 已退役，不再新采集）
   · claude-code—— Claude Code 会话历史 jsonl（逐行 message）
   · claude-mem —— get_observations 产出（逐行 observation）
   · windsurf   —— Cascade 会话（一行 = 一个含 messages 的会话）
@@ -43,12 +43,7 @@
 
 ## 用法
 
-1）让常驻飞书 bot 产出燃料（默认关闭，避免改变 B-S0 回声行为）：
-
-```bash
-# 用 flag 开启（或设 env FEISHU_TRANSCRIPT_LOG）
-python3 -m intelligence.cli feishu-bot --transcript-log ~/feishu-bot-bs0/transcripts/feishu-events.jsonl
-```
+1）飞书 IM bot 已退役（`feishu-bot` exit 2），不要再跑采集。若本地已有历史 jsonl，直接给下一步：
 
 2）采集归一化 + 脱敏 + 摘要：
 
