@@ -354,7 +354,7 @@ _JUDGE_SYSTEM_PROMPT = (
     "answer_grounding_mode 为 model_reasoning，不得仅因方法步骤、T+N 观察窗口或"
     "定性判断没有 evidence_ids 而拒绝；只有它把外部事实、历史胜率或当前行情冒充"
     "已核验事实时才拒绝。若为 user_premise，用户明确给出的条件视为假设前提，不要求"
-    "先证明该前提为真。遵循 claim_policy。只输出一个严格 "
+    "先证明该前提为真。只输出一个严格 "
     "JSON 对象，字段必须是 "
     "passed(boolean)、rejected_sentence_indexes(integer list)、issues(string list)。"
     "passed=true 时 rejected_sentence_indexes 必须为空；发现违反上述边界的句子时"
@@ -389,6 +389,55 @@ _CLAIM_POLICY = {
     "unsupported_supporting_statistics_rejected": True,
     "unsupported_numeric_trigger_rejected": True,
 }
+# Episode harness traces, not retrieval process status. The judge prompt
+# already says tool_status_registry cannot support market facts; sending
+# agent_loop success rows only pads the JSON.
+_JUDGE_HIDDEN_STATUS_CAPABILITIES = frozenset({"agent_loop"})
+_JUDGE_JSON_SEPARATORS = (",", ":")
+
+
+def compact_judge_payload(value: object) -> object:
+    """Drop blanks and duplicated defaults from the judge JSON.
+
+    Kept: ``0`` / ``False`` / empty lists (``evidence_ids: []`` is a
+    finding). Dropped: ``None``, ``""``, ``required: true`` (the default),
+    and ``claim_policy`` (already written in the system prompt).
+    """
+
+    if isinstance(value, dict):
+        compacted: dict[str, object] = {}
+        for key, item in value.items():
+            if key == "required" and item is True:
+                continue
+            if key == "claim_policy":
+                continue
+            nested = compact_judge_payload(item)
+            if key == "tool_status_registry" and isinstance(nested, list):
+                nested = [
+                    row
+                    for row in nested
+                    if not (
+                        isinstance(row, dict)
+                        and str(row.get("capability") or "")
+                        in _JUDGE_HIDDEN_STATUS_CAPABILITIES
+                    )
+                ]
+            if nested is None or nested == "":
+                continue
+            if key == "tool_status_registry" and nested == []:
+                continue
+            compacted[key] = nested
+        return compacted
+    if isinstance(value, list):
+        return [compact_judge_payload(item) for item in value]
+    return value
+
+
+def dumps_judge_request(request: Mapping[str, object]) -> str:
+    """Wire JSON for the judge: compact separators, no default padding."""
+
+    payload = compact_judge_payload(dict(request))
+    return json.dumps(payload, ensure_ascii=False, separators=_JUDGE_JSON_SEPARATORS)
 
 
 @dataclass(frozen=True)
@@ -1307,16 +1356,18 @@ class SemanticEpisodeVerifier:
             "answer_grounding_mode": answer_grounding_mode,
             "output_bindings": output_bindings,
             "evidence_registry": evidence_registry,
-            "tool_status_registry": _semantic_tool_status_registry(
-                verified.outcome.traces
-            ),
-            "claim_policy": dict(_CLAIM_POLICY),
+            "tool_status_registry": [
+                row
+                for row in _semantic_tool_status_registry(verified.outcome.traces)
+                if str(row.get("capability") or "")
+                not in _JUDGE_HIDDEN_STATUS_CAPABILITIES
+            ],
             "sentences": sentences,
         }
         if recheck_enabled():
             draft = " ".join(str(item.get("text") or "") for item in sentences)
             payload["source_recheck"] = recheck_draft(draft)
-        return payload
+        return cast(dict[str, object], compact_judge_payload(payload))
 
     def _clocked_judge_call(
         self,
@@ -1398,7 +1449,7 @@ class SemanticEpisodeVerifier:
                 {"role": "system", "content": _judge_system_prompt(request)},
                 {
                     "role": "user",
-                    "content": json.dumps(request, ensure_ascii=False),
+                    "content": dumps_judge_request(request),
                 },
             ]
             prior_failures_release_safe = True
@@ -1560,7 +1611,7 @@ class SemanticEpisodeVerifier:
             {"role": "system", "content": _judge_system_prompt(request)},
             {
                 "role": "user",
-                "content": json.dumps(request, ensure_ascii=False),
+                "content": dumps_judge_request(request),
             },
         ]
         prior_failures_release_safe = True
@@ -3387,8 +3438,8 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             answer_grounding_mode=request["answer_grounding_mode"],
             output_bindings=request["output_bindings"],
             evidence_registry=request["evidence_registry"],
-            tool_status_registry=request["tool_status_registry"],
-            claim_policy=request["claim_policy"],
+            tool_status_registry=request.get("tool_status_registry") or [],
+            claim_policy=request.get("claim_policy") or dict(_CLAIM_POLICY),
             sentences=request["sentences"],
             timeout=timeout,
         )
@@ -3400,12 +3451,14 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             "answer_grounding_mode",
             "output_bindings",
             "evidence_registry",
-            "tool_status_registry",
-            "claim_policy",
             "sentences",
         )
         if name in parameters
     }
+    if "tool_status_registry" in parameters:
+        named["tool_status_registry"] = request.get("tool_status_registry") or []
+    if "claim_policy" in parameters:
+        named["claim_policy"] = request.get("claim_policy") or dict(_CLAIM_POLICY)
     if "timeout" in parameters:
         named["timeout"] = timeout
     required_positional = [
@@ -3429,9 +3482,9 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             "evidence_registry": request["evidence_registry"],
             "evidence": request["evidence_registry"],
             "registry": request["evidence_registry"],
-            "tool_status_registry": request["tool_status_registry"],
-            "tool_statuses": request["tool_status_registry"],
-            "claim_policy": request["claim_policy"],
+            "tool_status_registry": request.get("tool_status_registry") or [],
+            "tool_statuses": request.get("tool_status_registry") or [],
+            "claim_policy": request.get("claim_policy") or dict(_CLAIM_POLICY),
             "sentences": request["sentences"],
             "answer_sentences": request["sentences"],
             "timeout": timeout,

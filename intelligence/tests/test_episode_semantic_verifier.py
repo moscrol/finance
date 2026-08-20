@@ -24,7 +24,9 @@ from intelligence.services.episode_semantic_verifier import (
     MAX_SEMANTIC_JUDGE_ATTEMPTS,
     SemanticEpisodeVerifier,
     _semantic_attempt_timeouts,
+    compact_judge_payload,
     complete_judge_attempt_seconds,
+    dumps_judge_request,
     leftover_window_blocks_complete_attempt,
     numeric_condition_unsupported,
     semantic_judge_window_seconds,
@@ -260,14 +262,7 @@ def test_judge_receives_typed_claim_policy_for_requested_forecast(
     assert len(sent["tools"]) == 1
     assert sent["tools"][0]["function"]["name"] == "submit_grounding_report"
     request = json.loads(sent["messages"][1]["content"])
-    policy = request["claim_policy"]
-    assert policy["observed_facts_require_direct_evidence"] is True
-    assert policy["labelled_analytical_inference_allowed"] is True
-    assert policy["requested_conditional_estimate_allowed"] is True
-    assert policy["unsupported_external_cause_rejected"] is True
-    assert policy["unsupported_historical_probability_rejected"] is True
-    assert policy["unsupported_supporting_statistics_rejected"] is True
-    assert policy["unsupported_numeric_trigger_rejected"] is True
+    assert "claim_policy" not in request
     system_prompt = sent["messages"][0]["content"]
     assert "不要要求 evidence 原文已经包含预测结论" in system_prompt
     assert "“据此判断”“这说明”“这意味着”" in system_prompt
@@ -543,6 +538,80 @@ def test_judge_receives_sanitized_tool_status_for_empty_retrieval(
     assert "不能支持市场事实或因果结论" in system_prompt
 
 
+def test_judge_request_omits_agent_loop_and_default_padding(monkeypatch) -> None:
+    """Wire JSON must not pad grok with harness traces or duplicated policy.
+
+    Production 液冷 payload was 4488 chars; claim_policy + empty gap/tier +
+    agent_loop rows were not load-bearing for the review rules already in
+    the system prompt.
+    """
+
+    frame, structural = _structural("当前市场偏弱。")
+    structural = replace(
+        structural,
+        outcome=replace(
+            structural.outcome,
+            traces=(
+                ProviderTrace(
+                    provider="episode",
+                    capability="agent_loop",
+                    status="success",
+                    result_count=5,
+                ),
+                ProviderTrace(
+                    provider="private:eastmoney",
+                    capability="directional_news",
+                    status="empty",
+                    source_trade_date="2026-07-23",
+                    result_count=0,
+                ),
+            ),
+        ),
+    )
+    model = _RecordingJudgeModel()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+
+    SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    raw = model.calls[0]["messages"][1]["content"]
+    request = json.loads(raw)
+    assert "claim_policy" not in request
+    assert "required" not in request["required_outputs"][0]
+    assert "gap" not in request["output_bindings"][0]
+    capabilities = [
+        row["capability"] for row in request.get("tool_status_registry") or []
+    ]
+    assert "agent_loop" not in capabilities
+    assert "directional_news" in capabilities
+    assert raw == dumps_judge_request(request)
+
+
+def test_compact_judge_payload_keeps_empty_evidence_ids_and_zero_counts() -> None:
+    payload = {
+        "claim_policy": {"observed_facts_require_direct_evidence": True},
+        "output_bindings": [{"output_id": "direct_assessment", "evidence_ids": [], "gap": ""}],
+        "tool_status_registry": [
+            {"capability": "agent_loop", "status": "success", "result_count": 5},
+            {"capability": "directional_news", "status": "empty", "result_count": 0},
+        ],
+        "required_outputs": [{"output_id": "direct_assessment", "required": True}],
+    }
+    compacted = compact_judge_payload(payload)
+    assert isinstance(compacted, dict)
+    assert "claim_policy" not in compacted
+    assert compacted["output_bindings"] == [
+        {"output_id": "direct_assessment", "evidence_ids": []}
+    ]
+    assert compacted["tool_status_registry"] == [
+        {"capability": "directional_news", "status": "empty", "result_count": 0}
+    ]
+    assert compacted["required_outputs"] == [{"output_id": "direct_assessment"}]
+
+
 def test_judge_receives_only_bound_evidence_with_compact_semantic_fields(
     monkeypatch,
 ) -> None:
@@ -580,7 +649,6 @@ def test_judge_receives_only_bound_evidence_with_compact_semantic_fields(
         {
             "output_id": "direct_assessment",
             "evidence_ids": ["E1"],
-            "gap": "",
         }
     ]
     assert request["evidence_registry"] == [
@@ -589,7 +657,6 @@ def test_judge_receives_only_bound_evidence_with_compact_semantic_fields(
             "tool": "market_data",
             "detail": "市场成交额与结构观察",
             "source_date": "2026-07-22",
-            "evidence_tier": "",
             "supports": ["量价判断"],
             "contradicts": ["趋势反转"],
             "independent_key": "market-snapshot",
