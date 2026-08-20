@@ -485,7 +485,8 @@ def test_evidence_has_semantic_lineage_without_public_physical_schema(
     assert item.tool == "finance_query"
     assert item.evidence_tier == "L4_structured"
     assert item.source == "本地结构化数据 · 市场日频总览"
-    assert item.independent_key == "duckdb:market_daily:2026-07-21"
+    # time_range + 日期升序 + LIMIT 1：取数倒序保住窗口末端（07-24），不是窗口起点。
+    assert item.independent_key == "duckdb:market_daily:2026-07-24"
     assert item.internal_locator.startswith("finance-query:")
     assert item.content_hash
     assert "fact_market_daily" not in item.detail

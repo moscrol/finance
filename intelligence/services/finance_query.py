@@ -172,6 +172,85 @@ class FinanceQueryAudit:
     row_count: int
     output_bytes: int
     elapsed_seconds: float
+    requested_time_range: tuple[str | None, str | None] | None = None
+
+
+def covered_date_range(source_dates: Sequence[str | None]) -> str | None:
+    dates = sorted({item for item in source_dates if item})
+    if not dates:
+        return None
+    if dates[0] == dates[-1]:
+        return dates[0]
+    return f"{dates[0]}..{dates[-1]}"
+
+
+def truncation_notice(
+    audit: FinanceQueryAudit,
+    *,
+    covered_range: str | None = None,
+) -> str | None:
+    """撞顶就提示。不再要求「harness 压低了 limit」——模型自设 limit 撞顶是主路径。
+
+    T1b 把时间维升序改成倒序取数后，LIMIT 切掉的是窗口**前端**，不是末端。
+    提示必须同时给出请求窗口和未覆盖侧，否则模型会以为「还差更多行」而把
+    limit 调大——Agent 路径上限仍是 25，调大无效。
+    """
+
+    if audit.row_count < audit.applied_limit:
+        return None
+    text = (
+        f"查询结果已按 Agent 上下文预算截断至 {audit.applied_limit} 条；"
+        "未覆盖的日期请收窄 time_range 再查，不要靠调大 limit"
+    )
+    if covered_range:
+        text += f"；实际覆盖 {covered_range}"
+    requested = audit.requested_time_range
+    if requested is not None:
+        req_start, req_end = requested
+        text += f"；请求窗口 {_format_date_range(req_start, req_end)}"
+        gap = _uncovered_window_notice(requested, covered_range)
+        if gap:
+            text += f"；{gap}"
+    return text
+
+
+def _format_date_range(start: str | None, end: str | None) -> str:
+    if start and end and start != end:
+        return f"{start}..{end}"
+    return start or end or "?"
+
+
+def _uncovered_window_notice(
+    requested: tuple[str | None, str | None],
+    covered_range: str | None,
+) -> str | None:
+    if not covered_range:
+        return None
+    req_start, req_end = requested
+    if ".." in covered_range:
+        cov_start, cov_end = covered_range.split("..", 1)
+    else:
+        cov_start = cov_end = covered_range
+    parts: list[str] = []
+    if req_start and cov_start > req_start:
+        parts.append(f"窗口前端未覆盖（请求从 {req_start} 起，实际从 {cov_start} 起）")
+    if req_end and cov_end < req_end:
+        parts.append(f"窗口末端未覆盖（实际到 {cov_end}，请求到 {req_end}）")
+    return "；".join(parts) if parts else None
+
+
+def _requested_time_range(
+    spec: FinanceQuerySpec,
+) -> tuple[str | None, str | None] | None:
+    if spec.time_range is None:
+        return None
+    start = (
+        spec.time_range.start.isoformat() if spec.time_range.start is not None else None
+    )
+    end = spec.time_range.end.isoformat() if spec.time_range.end is not None else None
+    if start is None and end is None:
+        return None
+    return (start, end)
 
 
 @dataclass(frozen=True)
@@ -271,7 +350,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         metrics={
             "index_close": _metric("sh_index_close", "上证收盘"),
             "index_return_pct": _metric("sh_index_pct_chg", "上证涨跌幅"),
-            "total_amount": _metric("total_amount", "市场成交额"),
+            "total_amount": _metric("total_amount", "市场成交额亿"),
             "amount_change_pct": _metric("amount_vs_yesterday_pct", "成交额环比"),
             "amount_ma20": _metric("amount_ma20", "20日平均成交额"),
             "volume_ratio": _metric("volume_ratio", "量比"),
@@ -300,7 +379,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "close": _metric("close", "收盘价"),
             "pre_close": _metric("pre_close", "前收盘价"),
             "return_pct": _metric("pct_chg", "涨跌幅"),
-            "amount": _metric("amount", "成交额", "sum"),
+            "amount": _metric("amount", "成交额亿", "sum"),
             "turnover": _metric("turnover", "换手率"),
         },
     ),
@@ -323,7 +402,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         },
         metrics={
             "return_pct": _metric("pct_chg", "涨跌幅"),
-            "amount": _metric("amount", "成交额", "sum"),
+            "amount": _metric("amount", "成交额亿", "sum"),
             "marginal_volume_pct": _metric("diff_ratio", "边际量"),
             "strength": _metric("strength", "强度"),
         },
@@ -353,7 +432,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "return_5d_pct": _metric("pct_chg_5d", "5日涨跌幅"),
             "return_10d_pct": _metric("pct_chg_10d", "10日涨跌幅"),
             "return_20d_pct": _metric("pct_chg_20d", "20日涨跌幅"),
-            "amount": _metric("amount", "成交额", "sum"),
+            "amount": _metric("amount", "成交额亿", "sum"),
             "fund_flow_1d": _metric("fund_flow_1d", "1日资金流"),
             "fund_flow_5d": _metric("fund_flow_5d", "5日资金流"),
             "float_market_cap_yi": _metric("float_mcap_yi", "流通市值亿元"),
@@ -389,7 +468,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "price": _metric("price", "价格"),
             "return_pct": _metric("pct_chg", "涨跌幅"),
             "return_10d_pct": _metric("pct_chg_10d", "10日涨跌幅"),
-            "amount": _metric("amount", "成交额", "sum"),
+            "amount": _metric("amount", "成交额亿", "sum"),
             "market_cap": _metric("market_cap", "总市值"),
             "fund_today": _metric("fund_today", "当日资金", "sum"),
             "limit_times": _metric("limit_times", "连板数", "max", "integer"),
@@ -440,7 +519,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "max_limit_height": _metric(
                 "max_limit_height", "最高连板", "max", "integer"
             ),
-            "amount": _metric("amount", "成交额", "sum"),
+            "amount": _metric("amount", "成交额亿", "sum"),
             "relative_amount": _metric("amount_relative_ratio", "相对成交额"),
             "net_inflow_1d": _metric("net_inflow_1d", "1日净流入", "sum"),
             "strength": _metric("strength", "强度"),
@@ -1233,6 +1312,7 @@ class _CompiledQuery:
     output_fields: tuple[str, ...]
     source_date_index: int
     applied_limit: int
+    reverse_after_fetch: bool = False
 
 
 DuckDbConnect = Callable[..., Any]
@@ -1320,6 +1400,9 @@ class FinanceQuery:
                     compiled,
                     cancelled=cancelled,
                 )
+                if compiled.reverse_after_fetch:
+                    rows = tuple(reversed(rows))
+                    source_dates = tuple(reversed(source_dates))
             except Exception as exc:
                 if interrupted_for:
                     if interrupted_for[0] == "cancelled":
@@ -1369,6 +1452,7 @@ class FinanceQuery:
             row_count=len(rows),
             output_bytes=output_bytes,
             elapsed_seconds=round(elapsed, 6),
+            requested_time_range=_requested_time_range(spec),
         )
         return FinanceQueryResult(
             rows=rows,
@@ -1594,9 +1678,35 @@ def _compile_query(
         sql += " GROUP BY " + ", ".join(
             _quote(fields[name].column) for name in group_by
         )
-    if spec.order_by:
+    # T1b：time_range + 按日期升序 + LIMIT 会先丢掉窗口末端（问句锚定日）。
+    # 取数改倒序，返回前再翻回升序，观察顺序不变。只在「全部 order 都是时间维
+    # 升序」时翻转，避免打乱 amount desc 这类次键。
+    time_dimension = next(
+        (
+            name
+            for name, field in dataset.dimensions.items()
+            if field.column == dataset.time_field
+        ),
+        None,
+    )
+    fetch_orders = spec.order_by
+    reverse_after_fetch = False
+    if (
+        spec.time_range is not None
+        and time_dimension is not None
+        and spec.order_by
+        and all(
+            item.field == time_dimension and item.direction == "asc"
+            for item in spec.order_by
+        )
+    ):
+        fetch_orders = tuple(
+            replace(item, direction="desc") for item in spec.order_by
+        )
+        reverse_after_fetch = True
+    if fetch_orders:
         sql += " ORDER BY " + ", ".join(
-            f"{aliases[item.field]} {item.direction.upper()}" for item in spec.order_by
+            f"{aliases[item.field]} {item.direction.upper()}" for item in fetch_orders
         )
     elif dataset.time_field in aliases:
         sql += f" ORDER BY {aliases[dataset.time_field]} DESC"
@@ -1609,6 +1719,7 @@ def _compile_query(
         output_fields=selected,
         source_date_index=len(selected),
         applied_limit=applied_limit,
+        reverse_after_fetch=reverse_after_fetch,
     )
 
 

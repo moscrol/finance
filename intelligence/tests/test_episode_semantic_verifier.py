@@ -616,24 +616,41 @@ def test_judge_receives_only_bound_evidence_with_compact_semantic_fields(
     monkeypatch,
 ) -> None:
     frame, structural = _structural("当前市场偏弱。")
-    unbound = AgentEvidence(
+    unbound_a = AgentEvidence(
         tool="web_search",
-        title="不应发送给裁判的未绑定标题",
+        title="不应发送给裁判的未绑定标题甲",
         detail="UNBOUND_EVIDENCE_SENTINEL",
-        source="https://example.invalid/unbound",
-        content_hash="unbound-hash",
+        source="https://example.invalid/unbound-a",
+        content_hash="unbound-hash-a",
+    )
+    unbound_b = AgentEvidence(
+        tool="web_search",
+        title="不应发送给裁判的未绑定标题乙",
+        detail="UNBOUND_PADDING",
+        source="https://example.invalid/unbound-b",
+        content_hash="unbound-hash-b",
     )
     bound = replace(
         structural.outcome.evidence[0],
+        tool="news_search",
+        title="许继电气：中标国家电网特高压项目 金额合计约12.45亿元",
+        detail="2026-07-22 18:13:19 界面新闻",
         supports=("量价判断",),
         contradicts=("趋势反转",),
         independent_key="market-snapshot",
     )
     expanded = replace(
         structural.outcome,
-        evidence=(bound, unbound),
+        evidence=(unbound_a, unbound_b, bound),
     )
-    structural = verify_episode_outcome(structural.contract, expanded)
+    contract = replace(
+        structural.contract,
+        allowed_capabilities=("market_data", "news_search", "web_search"),
+        required_outputs=(
+            RequiredOutput("direct_assessment", "直接判断", ("news_search",), True),
+        ),
+    )
+    structural = verify_episode_outcome(contract, expanded)
     model = _RecordingJudgeModel()
     monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
 
@@ -648,14 +665,15 @@ def test_judge_receives_only_bound_evidence_with_compact_semantic_fields(
     assert request["output_bindings"] == [
         {
             "output_id": "direct_assessment",
-            "evidence_ids": ["E1"],
+            "evidence_ids": ["E3"],
         }
     ]
     assert request["evidence_registry"] == [
         {
-            "evidence_id": "E1",
-            "tool": "market_data",
-            "detail": "市场成交额与结构观察",
+            "evidence_id": "E3",
+            "tool": "news_search",
+            "title": "许继电气：中标国家电网特高压项目 金额合计约12.45亿元",
+            "detail": "2026-07-22 18:13:19 界面新闻",
             "source_date": "2026-07-22",
             "supports": ["量价判断"],
             "contradicts": ["趋势反转"],
@@ -666,8 +684,10 @@ def test_judge_receives_only_bound_evidence_with_compact_semantic_fields(
     assert "UNBOUND_EVIDENCE_SENTINEL" not in serialized
     assert "unbound-hash" not in serialized
     assert "HASH_PRIVATE_SENTINEL" not in serialized
-    assert '"title"' not in serialized
+    assert '"title"' in serialized
     assert '"source"' not in serialized
+    assert '"internal_locator"' not in serialized
+    assert '"content_hash"' not in serialized
     assert '"freshness"' not in serialized
 
 
@@ -1924,9 +1944,14 @@ def test_terminal_redaction_releases_remaining_verified_sentences_without_fourth
     assert result.public_answer == "市场下跌。"
 
 
-def test_terminal_redaction_preserves_reviewed_remainder_when_marker_is_removed() -> (
-    None
-):
+def test_terminal_redaction_withholds_when_last_required_slot_would_vanish() -> None:
+    """One-slot contracts use the same wipe-all floor as B4's three-slot wipe.
+
+    Terminal repair would drop 【当前判断】, emptying every evidence-grounded
+    required output. Keep the pre-repair draft rather than publish a gap-only
+    remainder the judge never reviewed as a complete answer.
+    """
+
     frame, structural = _structural(
         "【当前判断】市场下跌。政策导致下跌。外资将持续流入。行业一定反转。"
     )
@@ -1951,11 +1976,11 @@ def test_terminal_redaction_preserves_reviewed_remainder_when_marker_is_removed(
     assert calls == 3
     assert result.status == "partial"
     assert result.judge_status == "repaired"
-    assert "【当前判断】市场下跌" not in result.public_answer
+    assert result.repair_withheld is True
+    assert "repair_wiped_all_outputs" in " ".join(result.issues)
+    assert "【当前判断】市场下跌" in result.public_answer
     assert "行业一定反转" in result.public_answer
-    assert "证据缺口" in result.public_answer
-    assert "直接判断" in result.public_answer
-    assert result.gap_output_ids == ("direct_assessment",)
+    assert result.gap_output_ids == ()
 
 
 def test_outlook_relabel_lets_bare_inference_survive_judge() -> None:

@@ -742,13 +742,48 @@ class ResearchToolRegistry:
             ):
                 rejected.extend(evidence)
                 evidence = []
+            remaining_after_cutoff_filter = list(evidence)
             if rejected:
-                observation = (
-                    "；".join(
+                cutoff_iso = effective_context.information_cutoff.as_of_date.isoformat()
+                if remaining_after_cutoff_filter:
+                    observation = (
+                        "；".join(
+                            f"{item.title}：{item.detail[:80]}"
+                            for item in remaining_after_cutoff_filter
+                        )
+                        or observation
+                    )
+                else:
+                    # T2-a：全滤时空手会让模型以为「源里没有」。把越界条目标注后交还。
+                    evidence = [
+                        replace(
+                            item,
+                            title=(
+                                item.title
+                                if "晚于问句日" in item.title
+                                else f"晚于问句日 {cutoff_iso}｜{item.title}"
+                            ),
+                            detail=(
+                                f"{item.detail}（晚于问句日 {cutoff_iso}，不是源里没有）"
+                            ),
+                            content_hash="",
+                        )
+                        for item in rejected
+                    ]
+                    evidence = [
+                        replace(
+                            item,
+                            content_hash=agent_research.evidence_content_hash(item),
+                        )
+                        for item in evidence
+                    ]
+                    listed = "；".join(
                         f"{item.title}：{item.detail[:80]}" for item in evidence
                     )
-                    or "检索结果均因 future_of_cutoff 被过滤"
-                )
+                    observation = (
+                        f"源返回 {len(evidence)} 条，全部晚于问句日 {cutoff_iso}，"
+                        f"已标注后交付；不是源里没有。{listed}"
+                    )
             evidence = [
                 item
                 if item.content_hash
@@ -762,7 +797,7 @@ class ResearchToolRegistry:
                 trace,
                 status=(
                     "future_of_cutoff"
-                    if rejected and not evidence
+                    if rejected and not remaining_after_cutoff_filter
                     else trace.status
                 ),
                 detail=(

@@ -463,22 +463,38 @@ def build_default_tools(
             as_of=query_cutoff,
         )
         context.check_cancelled()
+        cutoff_text = query_cutoff.isoformat() if query_cutoff is not None else None
+        after_cutoff = bool(not news.items and news.after_cutoff_items)
+        source_items = news.items[:6] or news.after_cutoff_items[:6]
         evidence = [
             AgentEvidence(
                 tool="news_search",
-                title=item.title,
+                title=(
+                    f"晚于问句日 {cutoff_text}｜{item.title}"
+                    if after_cutoff and cutoff_text
+                    else item.title
+                ),
                 detail=f"{item.date} {item.source}",
                 source=item.url,
                 source_date=item.date[:10] or None,
                 evidence_tier="news",
                 independent_key=item.url,
             )
-            for item in news.items[:6]
+            for item in source_items
         ]
-        observation = (
-            "；".join(f"{item.detail}《{item.title}》" for item in evidence)
-            or describe_no_result("资讯", "无资讯", news.trace.status, news.trace.detail)
-        )
+        if after_cutoff and cutoff_text:
+            listed = "；".join(
+                f"{item.detail}《{item.title}》" for item in evidence
+            )
+            observation = (
+                f"源返回 {len(evidence)} 条，全部晚于问句日 {cutoff_text}，"
+                f"已标注后交付；不是源里没有。{listed}"
+            )
+        else:
+            observation = (
+                "；".join(f"{item.detail}《{item.title}》" for item in evidence)
+                or describe_no_result("资讯", "无资讯", news.trace.status, news.trace.detail)
+            )
         return evidence, observation, news.trace
 
     return {

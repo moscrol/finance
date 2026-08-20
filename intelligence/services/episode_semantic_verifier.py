@@ -48,6 +48,7 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
     OutputEvidenceBinding,
 )
+from intelligence.services.episode_protocol import evidence_ordinal_table
 from intelligence.services.episode_issues import (
     Issue,
     IssueCode,
@@ -79,6 +80,7 @@ from intelligence.services.research_contract import (
     policy_for_env,
 )
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.tool_result_budget import MAX_EVIDENCE_TITLE_CHARS
 
 
 SemanticStatus = Literal["completed", "partial", "failed"]
@@ -336,8 +338,8 @@ _JUDGE_SYSTEM_PROMPT = (
     "给出带不确定性和条件的主观区间；但发明外部原因、支持性统计或任意触发阈值仍"
     "应拒绝。tool_status_registry 只支持检索过程状态，例如本轮是否命中；它不能支持"
     "市场事实或因果结论。答案不得暴露 capability、工具、provider 或哈希等内部标识，"
-    "只能用“本轮资讯检索未命中”等自然语言。evidence_registry 使用本次裁判内的 "
-    "E 编号，output_bindings.evidence_ids 与其对应。required_outputs 中的 "
+    "只能用“本轮资讯检索未命中”等自然语言。evidence_registry 的 E 编号与正文引用"
+    "同一空间，可不连续；output_bindings.evidence_ids 与其对应。required_outputs 中的 "
     "答案对自身证据边界或推理层级的披露句（如“原文未覆盖某时段，此段映射为"
     "推理层”“以下为视角层推断”）是降低断言强度的元陈述，不是外部事实，"
     "不要求证据也不得拒绝；但披露句若同时断言具体行情数字或外部事件，仍按"
@@ -451,6 +453,7 @@ class SemanticEpisodeOutcome:
     http_status: int | None = None
     judge_attempt_index: int | None = None
     judge_request: dict[str, object] | None = None
+    repair_withheld: bool = False
 
     def __post_init__(self) -> None:
         if not self.repair_output_ids:
@@ -492,6 +495,9 @@ class SemanticEpisodeOutcome:
             exc_class=self.exc_class,
             timeout_asked=self.timeout_asked,
         )
+        _bindings, _registry, telemetry = _project_semantic_evidence(
+            self.verified.outcome
+        )
         payload: dict[str, object] = {
             "status": self.status,
             "public_answer": self.public_answer,
@@ -507,6 +513,11 @@ class SemanticEpisodeOutcome:
             "exc_class": self.exc_class,
             "http_status": self.http_status,
             "judge_attempt_index": self.judge_attempt_index,
+            "repair_withheld": self.repair_withheld,
+            "projection_dropped_field_chars": telemetry.dropped_field_chars,
+            "projection_truncated_field_chars": telemetry.truncated_field_chars,
+            "projection_ordinal_mismatch_count": telemetry.ordinal_mismatch_count,
+            "evidence_alias_offset": telemetry.alias_offset,
             "degrade_class": degrade_class,
             "judge_unavailable_count": judge_count,
             "content_degraded_count": content_count,
@@ -714,6 +725,7 @@ class SemanticEpisodeVerifier:
 
         preflight_issues: tuple[str, ...] = ()
         marker_loss_outputs: tuple[str, ...] = ()
+        preflight_source = structural
         numeric_rejected = _novel_numeric_condition_indexes(
             sentences,
             structural,
@@ -739,6 +751,7 @@ class SemanticEpisodeVerifier:
         )
         if preflight_rejected:
             before_repair = structural.outcome.draft
+            preflight_source = structural
             preflight = self._repair(
                 frame=frame,
                 structural=structural,
@@ -846,10 +859,11 @@ class SemanticEpisodeVerifier:
         assert first.report is not None
         if first.report.passed:
             if marker_loss_outputs:
-                return self._marker_loss_partial_public(
+                return self._marker_loss_or_withhold(
                     frame,
-                    structural,
-                    marker_loss_outputs,
+                    source=preflight_source,
+                    wiped=structural,
+                    marker_loss=marker_loss_outputs,
                     judge_issues=tuple(
                         dict.fromkeys(
                             (
@@ -862,6 +876,8 @@ class SemanticEpisodeVerifier:
                     ),
                     correlated_judge=first.correlated,
                     call=first,
+                    issue_code="preflight_wiped_all_outputs",
+                    issue_message="preflight repair removed every required output",
                 )
             return self._completed_public(
                 frame,
@@ -928,13 +944,19 @@ class SemanticEpisodeVerifier:
                     )
                 )
             )
-            return self._marker_loss_partial_public(
+            return self._marker_loss_or_withhold(
                 frame,
-                repaired_verified,
-                marker_loss,
+                source=structural,
+                wiped=repaired_verified,
+                marker_loss=marker_loss,
                 judge_issues=issues,
                 correlated_judge=first.correlated,
                 call=first,
+                issue_code="repair_wiped_all_outputs",
+                issue_message=(
+                    "semantic repair removed every required output; "
+                    "judge verdict treated as suspect"
+                ),
             )
         if (
             repaired_verified.verified_status != "completed"
@@ -1053,13 +1075,19 @@ class SemanticEpisodeVerifier:
                             )
                         )
                     )
-                    return self._marker_loss_partial_public(
+                    return self._marker_loss_or_withhold(
                         frame,
-                        twice_verified,
-                        second_marker_loss,
+                        source=repaired_verified,
+                        wiped=twice_verified,
+                        marker_loss=second_marker_loss,
                         judge_issues=issues,
                         correlated_judge=correlated,
                         call=second,
+                        issue_code="repair_wiped_all_outputs",
+                        issue_message=(
+                            "semantic repair removed every required output; "
+                            "judge verdict treated as suspect"
+                        ),
                     )
                 if (
                     twice_verified.verified_status == "completed"
@@ -1159,10 +1187,11 @@ class SemanticEpisodeVerifier:
                                     terminal_verified
                                 )
                             ):
-                                return self._marker_loss_partial_public(
+                                return self._marker_loss_or_withhold(
                                     frame,
-                                    terminal_verified,
-                                    terminal_marker_loss,
+                                    source=twice_verified,
+                                    wiped=terminal_verified,
+                                    marker_loss=terminal_marker_loss,
                                     judge_issues=tuple(
                                         dict.fromkeys(
                                             (
@@ -1179,6 +1208,11 @@ class SemanticEpisodeVerifier:
                                     ),
                                     correlated_judge=correlated,
                                     call=third,
+                                    issue_code="repair_wiped_all_outputs",
+                                    issue_message=(
+                                        "semantic repair removed every required output; "
+                                        "judge verdict treated as suspect"
+                                    ),
                                 )
                             if not terminal_marker_loss and (
                                 terminal_verified.verified_status == "completed"
@@ -1975,6 +2009,69 @@ class SemanticEpisodeVerifier:
                 correlated_judge=correlated_judge,
             )
         return _attach_judge_clock(outcome, call) if call is not None else outcome
+
+    def _marker_loss_or_withhold(
+        self,
+        frame: TaskFrame,
+        *,
+        source: VerifiedEpisodeOutcome,
+        wiped: VerifiedEpisodeOutcome,
+        marker_loss: tuple[str, ...],
+        judge_issues: tuple[str, ...],
+        correlated_judge: bool,
+        call: _JudgeCall | None,
+        issue_code: str,
+        issue_message: str,
+    ) -> SemanticEpisodeOutcome:
+        """Keep the pre-repair draft when deletion would empty every required slot."""
+
+        if _repair_wiped_all_required(source.contract, marker_loss):
+            public = _sanitize_public_answer(
+                source.outcome.draft,
+                source.outcome.evidence,
+                source.outcome.traces,
+            )
+            issues = tuple(
+                dict.fromkeys(
+                    (
+                        *judge_issues,
+                        f"code={issue_code} :: {issue_message}",
+                    )
+                )
+            )
+            if not public:
+                outcome = SemanticEpisodeOutcome(
+                    verified=source,
+                    status="partial",
+                    public_answer=self._gap_answer(frame, source),
+                    judge_status="repaired",
+                    issues=issues,
+                    correlated_judge=correlated_judge,
+                    gap_output_ids=(),
+                    repair_withheld=True,
+                )
+            else:
+                outcome = SemanticEpisodeOutcome(
+                    verified=source,
+                    status="partial",
+                    public_answer=view(
+                        TerminalFacts(cause=CAUSE_VERIFIED, public=public)
+                    ),
+                    judge_status="repaired",
+                    issues=issues,
+                    correlated_judge=correlated_judge,
+                    gap_output_ids=(),
+                    repair_withheld=True,
+                )
+            return _attach_judge_clock(outcome, call) if call is not None else outcome
+        return self._marker_loss_partial_public(
+            frame,
+            wiped,
+            marker_loss,
+            judge_issues=judge_issues,
+            correlated_judge=correlated_judge,
+            call=call,
+        )
 
     def _marker_loss_partial_public(
         self,
@@ -3320,6 +3417,24 @@ def _semantic_evidence_projection(
 ) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
     """Alias and project only answer-bound evidence for semantic judging."""
 
+    bindings, registry, _telemetry = _project_semantic_evidence(outcome)
+    return bindings, registry
+
+
+@dataclass(frozen=True)
+class _ProjectionTelemetry:
+    dropped_field_chars: int
+    truncated_field_chars: int
+    ordinal_mismatch_count: int
+    alias_offset: int
+
+
+def _project_semantic_evidence(
+    outcome: AgentOutcome,
+) -> tuple[list[dict[str, object]], list[dict[str, object]], _ProjectionTelemetry]:
+    """Project bound evidence using the episode ordinal table as the only id issuer."""
+
+    ordinals = evidence_ordinal_table(outcome.evidence)
     bound_hashes = {
         evidence_hash
         for binding in outcome.bindings
@@ -3327,18 +3442,27 @@ def _semantic_evidence_projection(
     }
     alias_by_hash: dict[str, str] = {}
     registry: list[dict[str, object]] = []
+    dropped_field_chars = 0
+    truncated_field_chars = 0
     for item in outcome.evidence:
         if not item.content_hash or item.content_hash not in bound_hashes:
             continue
-        evidence_id = f"E{len(registry) + 1}"
+        evidence_id = ordinals[item.content_hash]
         alias_by_hash[item.content_hash] = evidence_id
         projected: dict[str, object] = {
             "evidence_id": evidence_id,
             "tool": item.tool,
-            "detail": item.detail or item.title,
             "source_date": item.source_date,
             "evidence_tier": item.evidence_tier,
         }
+        title = str(item.title or "")
+        if title:
+            if len(title) > MAX_EVIDENCE_TITLE_CHARS:
+                truncated_field_chars += len(title) - MAX_EVIDENCE_TITLE_CHARS
+            projected["title"] = title[:MAX_EVIDENCE_TITLE_CHARS]
+        detail = str(item.detail or "")
+        if detail:
+            projected["detail"] = detail
         if item.freshness and item.freshness != "unknown":
             projected["freshness"] = item.freshness
         if item.supports:
@@ -3347,6 +3471,10 @@ def _semantic_evidence_projection(
             projected["contradicts"] = list(item.contradicts)
         if item.independent_key:
             projected["independent_key"] = item.independent_key
+        if title and "title" not in projected:
+            dropped_field_chars += len(title)
+        if detail and "detail" not in projected:
+            dropped_field_chars += len(detail)
         registry.append(projected)
     bindings: list[dict[str, object]] = []
     for binding in outcome.bindings:
@@ -3365,7 +3493,31 @@ def _semantic_evidence_projection(
         if binding.basis != "evidence":
             projected_binding["basis"] = binding.basis
         bindings.append(projected_binding)
-    return bindings, registry
+    emitted_ids = {str(row["evidence_id"]) for row in registry}
+    bound_issued = {
+        ordinals[digest]
+        for digest in bound_hashes
+        if digest in ordinals
+    }
+    telemetry = _ProjectionTelemetry(
+        dropped_field_chars=dropped_field_chars,
+        truncated_field_chars=truncated_field_chars,
+        ordinal_mismatch_count=len(bound_issued.symmetric_difference(emitted_ids)),
+        alias_offset=len(outcome.evidence) - len(registry),
+    )
+    return bindings, registry, telemetry
+
+
+def _repair_wiped_all_required(contract: object, marker_loss: tuple[str, ...]) -> bool:
+    """Return whether repair emptied every evidence-grounded required output."""
+
+    required = {
+        str(item.output_id)
+        for item in getattr(contract, "required_outputs", ())
+        if getattr(item, "required", True)
+        and str(getattr(item, "grounding_mode", "evidence")) == "evidence"
+    }
+    return bool(required) and required <= set(marker_loss)
 
 
 def _answer_grounding_mode(contract: object) -> str:

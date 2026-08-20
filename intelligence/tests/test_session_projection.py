@@ -164,6 +164,7 @@ _VIEW_CALLERS = frozenset(
         "services/ask_synthesis.py::_judge_outage_release",
         "services/episode_semantic_verifier.py::_transient_failure_candidate",
         "services/episode_semantic_verifier.py::_completed_public",
+        "services/episode_semantic_verifier.py::_marker_loss_or_withhold",
         "services/episode_semantic_verifier.py::_marker_loss_partial_public",
         "services/episode_semantic_verifier.py::_gap_answer",
         "services/episode_semantic_verifier.py::_generic_gap_answer",

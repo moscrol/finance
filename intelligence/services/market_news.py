@@ -94,6 +94,7 @@ class NewsItem:
 class NewsFetchResult:
     items: tuple[NewsItem, ...]
     trace: ProviderTrace
+    after_cutoff_items: tuple[NewsItem, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -358,9 +359,9 @@ def _news_at_or_before_cutoff(
     *,
     cutoff: date,
     within_days: int,
-) -> tuple[tuple[NewsItem, ...], int]:
+) -> tuple[tuple[NewsItem, ...], tuple[NewsItem, ...]]:
     eligible: list[NewsItem] = []
-    future_count = 0
+    rejected: list[NewsItem] = []
     earliest = cutoff - timedelta(days=max(0, within_days))
     for item in items:
         try:
@@ -368,12 +369,12 @@ def _news_at_or_before_cutoff(
         except ValueError:
             continue
         if item_date > cutoff:
-            future_count += 1
+            rejected.append(item)
             continue
         if within_days > 0 and item_date < earliest:
             continue
         eligible.append(item)
-    return tuple(eligible), future_count
+    return tuple(eligible), tuple(rejected)
 
 
 def fetch_eastmoney_news_result(
@@ -497,6 +498,7 @@ def _fetch_eastmoney_news_with_fallback(
         )
         future_count = 0
         last_trace: ProviderTrace | None = None
+        after_cutoff: list[NewsItem] = []
         for page_index in range(1, max_pages + 1):
             remaining = configured_timeout - (time.monotonic() - started)
             if remaining <= 0.001:
@@ -510,14 +512,17 @@ def _fetch_eastmoney_news_with_fallback(
                 as_of=as_of,
             )
             last_trace = result.trace
-            if as_of is None or not result.items:
+            if as_of is None:
                 return result
+            if not result.items:
+                break
             eligible, rejected_future = _news_at_or_before_cutoff(
                 result.items,
                 cutoff=as_of,
                 within_days=within_days,
             )
-            future_count += rejected_future
+            after_cutoff.extend(rejected_future)
+            future_count += len(rejected_future)
             if eligible:
                 return NewsFetchResult(
                     eligible[:page_size],
@@ -533,13 +538,14 @@ def _fetch_eastmoney_news_with_fallback(
                         result_count=min(len(eligible), page_size),
                     ),
                 )
-            if rejected_future == 0:
+            if not rejected_future:
                 break
         trace = last_trace or ProviderTrace(
             provider=PROVIDER_EASTMONEY,
             capability="directional_news",
             status="empty",
         )
+        disclosed = tuple(after_cutoff[:page_size])
         return NewsFetchResult(
             (),
             replace(
@@ -552,6 +558,7 @@ def _fetch_eastmoney_news_with_fallback(
                 requested_date=as_of.isoformat() if as_of else None,
                 result_count=0,
             ),
+            after_cutoff_items=disclosed,
         )
 
     original = str(keyword or "").strip()
@@ -603,6 +610,7 @@ def _fetch_eastmoney_news_with_fallback(
     else:
         status = "empty"
     evidence_trace = successful_trace or last_trace
+    after_cutoff = first.after_cutoff_items if not items else ()
     return NewsFetchResult(
         tuple(items),
         ProviderTrace(
@@ -617,6 +625,7 @@ def _fetch_eastmoney_news_with_fallback(
             result_count=len(items),
             requested_date=as_of.isoformat() if as_of else None,
         ),
+        after_cutoff_items=after_cutoff,
     )
 
 
