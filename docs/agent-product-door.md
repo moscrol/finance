@@ -40,6 +40,20 @@
 
 不要把 `ask.answer_query` 写成「金融 Agent 的唯一深模块」。它是引擎 B。也不要为「少学零件」再加 `answer_door` / `EpisodeBuilder`：组装已经在 `GLMAgentRuntime` 和 `episode_factory`。
 
+### 生产里谁在拼 `AskOptions`（为什么不加 `answer_door`）
+
+不含测试。再加一层 `resolve_answer_door(query)` 通不过删除测试：删掉它，调用方仍要自带策略字段。
+
+| 调用方 | 怎么进 | 是不是「只传 query」 |
+|---|---|---|
+| `cli ask` | `AskWorkflowOptions` → `run_ask` → 再填 `AskOptions`（浅拷贝还在） | 否，经 CLI 默认填充 |
+| `cli chat` / `cli agent` | 直接 `AskOptions` | 否 |
+| 飞书 IM | `feishu-bot` **exit 2**；文件里还留着 `_run_ask_workflow`，`run()` 到不了 | 已退役，不是门 |
+| `research_owner.py` | 直接 `AskOptions`，带 `compose` / `deadline` / `question_type_override` 等 | 否，策略调用方 |
+| Workbench `app.py` `_run_ask` | 直接 `AskOptions` + `answer_query`，走 run/store | 否，UI 合同 |
+
+编码 agent 的正门是 CLI 子进程 `python3 -m intelligence.cli ask`，或能力图谱 / 代码地图。仓库里没有第三套 Python `answer_door`。真浅的若还要收，是删掉 `AskWorkflowOptions` 那次字段拷贝，不是再加转发。
+
 ## 积木（常见误判）
 
 这些可以很深，但**调用方不是人，是引擎**：
