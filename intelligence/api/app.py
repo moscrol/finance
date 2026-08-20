@@ -137,7 +137,7 @@ def _continuous_turn_timeout_seconds() -> float:
     延迟分布**的物理约束，而 provider 是按部署换的。链路是
 
         回合预算 T
-          → verification_reserve = min(40, T/3)          （continuous_turn_adapter.py:66,399）
+          → verification_reserve = min(60, T/3)          （continuous_turn_adapter.py:100,470）
           → runtime_timeout      = T − verification_reserve
           → 再扣 synthesis_reserve
           → stage_timeout        = min(llm_timeout, remaining − reserve)

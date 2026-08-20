@@ -3136,7 +3136,12 @@ def test_episode_reserves_root_deadline_for_semantic_verification() -> None:
 
 
 def test_default_episode_budget_leaves_judge_timeout_plus_transport_grace() -> None:
-    """Slow OpenAI-compatible transports must not consume the judge reserve."""
+    """Research must not eat the verification carve-out.
+
+    Reserve is ``min(judge+grace, T/3)``. Default T=120 caps that at 40, which
+    is below the 50s first attempt — a known bound, not a reason to raise T.
+    Production T≥180 is what actually leaves a full grok attempt.
+    """
 
     frame = _frame()
     control = _control(frame)
@@ -3200,9 +3205,8 @@ def test_default_episode_budget_leaves_judge_timeout_plus_transport_grace() -> N
     ).handle(frame=frame, control=control)
 
     assert result.status == "completed", result.private_artifact
-    assert captured["runtime_timeout"] <= (
-        120.0 - DEFAULT_JUDGE_TIMEOUT_SECONDS - 10.0 + 0.1
-    )
+    reserve = min(DEFAULT_JUDGE_TIMEOUT_SECONDS + 10.0, 120.0 / 3.0)
+    assert captured["runtime_timeout"] == pytest.approx(120.0 - reserve, abs=0.1)
 
 
 def test_private_artifact_counts_physical_attempts_and_duplicate_queries() -> None:

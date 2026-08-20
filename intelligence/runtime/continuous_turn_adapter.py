@@ -30,6 +30,7 @@ from intelligence.services.episode_phase import PhaseRecorder
 from intelligence.services.episode_projection import project_durable_events
 from intelligence.services.episode_progress import EpisodeProgress
 from intelligence.services.episode_semantic_verifier import (
+    DEFAULT_JUDGE_TIMEOUT_SECONDS,
     SemanticEpisodeOutcome,
     draft_sentence_count,
     numeric_condition_unsupported,
@@ -92,12 +93,11 @@ _DELIVERY_REPAIR_STOP_REASONS = frozenset(
 _COLD_RESTART_STOP_REASONS = frozenset(
     {"deadline_exhausted", "model_unavailable"}
 )
-# The semantic judge itself is bounded to 25 seconds, but OpenAI-compatible
-# transports can return a few seconds after their client timeout while the
-# socket/request stack unwinds.  Reserve explicit transport grace so a valid
-# late report is not discarded merely because research consumed the rest of
-# the shared turn deadline.
-DEFAULT_VERIFICATION_RESERVE_SECONDS = 40.0
+# First judge attempt is the shared window (50s after the 08-20 grok tail
+# of 46.7s). OpenAI-compatible transports can return a few seconds after
+# their client timeout while the socket unwinds. Reserve judge + 10s grace
+# so a full research burn still leaves one dispatchable attempt.
+DEFAULT_VERIFICATION_RESERVE_SECONDS = DEFAULT_JUDGE_TIMEOUT_SECONDS + 10.0
 DETERMINISTIC_OWNER_TYPES = frozenset(
     {"external_market", "quick_fact", "dated_market_review"}
 )
