@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-20（新开 `R-20260820-06`…`-11`：公开答案质量 P0/P1/P2。既有 `-03/04/05` 判官投影、`-01` 结转稿、`-02` 判官整窗 50s 不动号）
+- last_updated: 2026-08-21（P1 Q1/Q3 离线已绿：`R-20260820-09`/`-10`。live 未部署，不得 confirmed。`-11` Q2 仍未实施）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -65,8 +65,8 @@
 | `R-20260820-06` | 质量稿 P0 T1（锂矿现场 + 代码审计；非本轮标准 M1） | `HARNESS_FIX` | 模型自设 `limit=applied_limit=row_count=25` 时 observation **仍**含截断提示与实际覆盖区间；窗口 `ORDER BY` 时间维升序 + LIMIT 不得丢掉锚定日；`trace.requested_time_range.end` 等于问句日且不等于 `requested_date` | **离线已绿**：`intelligence/tests/test_finance_query_truncation.py` §7.1–7.4。T1b 选定「时间维 asc 时倒序取数、返回前翻回升序」，不是端点保底。live §7.15 无 sidecar 记 `not_run`。单测绿 ≠ confirmed | `pending` |
 | `R-20260820-07` | 质量稿 P0 T2（电网/铝资讯 as_of 全滤；路由稿前置） | `HARNESS_FIX` | as_of=问句日、源只回晚于问句日的标题时，不得静默 0 条；observation 可区分「源里没有」与「被时点门滤掉」；trace.status 仍为 `future_of_cutoff` | **离线已绿**：`test_news_cutoff_disclosure.py`。选定 **T2-a**（标注后交付越界条），不选 T2-c 放开 as_of。live §7.17 无 sidecar 记 `not_run`。单测绿 ≠ confirmed。本行是路由稿合入前置 | `pending` |
 | `R-20260820-08` | 质量稿 P0 T3（铝案单位；代码审计） | `DATA_CONTRACT_FIX` | `amount` 度量对外 label 带「亿」；模型写「226.41 亿」不再被判成「数字扩写」删句 | **离线已绿**：`test_amount_metric_labels_carry_unit`。`dragon_tiger_daily` / `core_stock_daily` 已是「成交额亿」，不得改成「亿亿」。live §7.16 无 sidecar 记 `not_run`。单测绿 ≠ confirmed | `pending` |
-| `R-20260820-09` | 质量稿 P1 Q1（缺口声称对账） | `HARNESS_FIX` | 有 `directional_news` / 截断 `finance_query` 收据时，draft 写「未返回」不得改口；traces 完全没有资讯 capability 时才改口。判据用 capability 不是工具名 | **本次未实施**（等路由后再做，避免先造谣言门禁） | `pending` |
-| `R-20260820-10` | 质量稿 P1 Q3（铝残稿回退） | `HARNESS_FIX` | repair 塌成残句则 withhold；回退是「修前稿减去判官点名句」，不是整篇 `view(before)` | **本次未实施**（铝 Q3 夹具等路由后重冻，现在冻的是即将作废的 `general_finance_qa` 形状） | `pending` |
+| `R-20260820-09` | 质量稿 P1 Q1（缺口声称对账） | `HARNESS_FIX` | 有 `directional_news` / 截断 `finance_query` 收据时，draft 写「未返回」不得改口；traces 完全没有资讯 capability 时才改口。判据用 capability 不是工具名 | **离线已绿**：`intelligence/tests/test_episode_answer_hygiene.py` §7.7–7.10。电网/锂矿形 `unattempted_claim_count=0`；无资讯 trace 才改口「本次未查询 directional_news」。变异：判据换成工具名 `news_search` → §7.7 会从 0 变成命中。live §7.15–7.17 未跑，单测绿 ≠ confirmed | `pending` |
+| `R-20260820-10` | 质量稿 P1 Q3（铝残稿回退） | `HARNESS_FIX` | repair 塌成残句则 withhold；回退是「修前稿减去判官点名句」，不是整篇 `view(before)` | **离线已绿**：同文件 §7.11–7.14。闸门 type 含 `market_cause`；合入闸不冻 `general_finance_qa` 的 384→43 整包。减完 ≥2 句且 ≥80 字 → `minus_flagged_sentences`，否则 `whole_pre_repair`。C3 必填格全灭仍走整篇修前稿，不和 Q3 减句混用。live §7.16 未跑，不得 confirmed | `pending` |
 | `R-20260820-11` | 质量稿 P2 Q2（锚定日补枪兜底） | `HARNESS_FIX` | 若 P0-T1 后 live 锂矿稿已含问句日盘面，本行记 `deferred` 不撤号；否则合成前补一枪 | **本次未实施**。live §7.15 未跑，不得把 T1 单测绿写成 Q2 已自愈 | `pending` |
 | `R-20260820-12` | 问句日预取日历（asof-prefetch 第 1 刀；非本轮标准 M1） | `HARNESS_FIX` | 「锂矿…发酵到 2026-07-23」的 `information_cutoff` 为 `requested` 7/23，不是 `runtime_default` 今天；「1日至5日」区间题仍不得把起点当 cutoff | 离线：`test_asof_prefetch_dual_red.py` / `test_honesty_gates.py`。live 对照 Cursor SQL，不拿新旧店互比 | `pending` |
 | `R-20260820-13` | forecast 双红个数序列（asof-prefetch 第 2 刀） | `HARNESS_FIX` | `market_forecast` 预取含问句日及前两个有数据交易日的双红个数；当日板块表 0 行写 `缺数`，不得写成 0 | 离线假库 2/1/0。live：8.19 题预取含 75→21→0 形 | `pending` |

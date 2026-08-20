@@ -583,6 +583,21 @@ def has_explicit_date(question: str) -> bool:
     return _EXPLICIT_DATE_RE.search(str(question or "")) is not None
 
 
+def last_explicit_iso_date(question: str) -> str | None:
+    """Last calendar date in the question, as ``YYYY-MM-DD``.
+
+    ``has_explicit_date`` is a boolean. Coverage and Q1 both need the actual
+    day, and they must keep using this same pattern so a written-out 7 月 23
+    day cannot drift from a hyphenated ``2026-07-23``.
+    """
+
+    matches = tuple(_EXPLICIT_DATE_RE.finditer(str(question or "")))
+    if not matches:
+        return None
+    year, month, day = matches[-1].groups()
+    return f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
+
+
 def _user_goal(question_type: str, question: str, fallback: str) -> str:
     if question_type == "market_forecast" and _REBOUND_HORIZON_RE.search(question):
         return "判断最近一次市场反弹的可持续时间、继续条件与失效条件"
