@@ -8,7 +8,7 @@ from threading import Event
 import pytest
 
 from intelligence import userspace
-from intelligence.services import agent_research, answer_model, llm_refine, output_review
+from intelligence.services import agent_research, answer_model, evidence_registry, llm_refine, output_review
 from intelligence.runtime import conversation_orchestrator as orchestrator_service
 from intelligence.services import perspective_lab
 from intelligence.services.ask import (
@@ -3397,8 +3397,8 @@ def test_fresh_knowledge_retrieves_without_skill_router_or_memory(tmp_path) -> N
 
     assert result.content == "PQC 的最新进展集中在标准落地与迁移准备。"
     assert len(calls) == 1
-    assert calls[0].include_memory_block is False
-    assert calls[0].include_recall_block is False
+    assert evidence_registry.provider_enabled(calls[0], "M") is False
+    assert evidence_registry.provider_enabled(calls[0], "V") is False
     assert calls[0].question_type_override == "news_impact"
     assert calls[0].question_type_override != "concept_definition"
     route_step = next(
@@ -3456,8 +3456,9 @@ def test_three_turns_retrieve_fresh_and_include_bounded_context(tmp_path) -> Non
     assert len(calls) == 3
     assert calls[0].perspective_mode == "neutral"
     assert calls[0].perspective_ids == ()
-    assert calls[0].include_memory_block is True
-    assert calls[0].include_recall_block is True
+    assert calls[0].enabled_providers is None
+    assert evidence_registry.provider_enabled(calls[0], "M") is True
+    assert evidence_registry.provider_enabled(calls[0], "V") is True
     # 标题必须如实说是截断而非摘要：模型把「摘要」读成「已概括全部较早内容」，
     # 就不会知道最早那几轮已经不在了（ai-agent-book ch2：静默截断危险）。
     assert "较早消息（原文，超预算时从最早处截断）" in calls[1].conversation_context
@@ -5792,6 +5793,10 @@ def test_base_finance_fallback_grants_web_search_capability(tmp_path) -> None:
         "graph",
         "web_search",
     )
+    # needs_memory=False 必须真关 M/V，不能只停在 helper 单测。
+    assert evidence_registry.provider_enabled(captured[0], "M") is False
+    assert evidence_registry.provider_enabled(captured[0], "V") is False
+    assert evidence_registry.provider_enabled(captured[0], "D0") is True
 
 
 def test_market_forecast_head_route_does_not_enable_long_tail_agent(

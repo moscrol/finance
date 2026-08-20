@@ -331,12 +331,15 @@ class LoaderAndBlockTests(unittest.TestCase):
 class WiringTests(unittest.TestCase):
     """D10 接线断言（slice 2）：注册表门控 / claim 状态 / 路由 / 研究操作符。"""
 
-    def test_registry_gating_via_legacy_flag(self) -> None:
+    def test_registry_gating_via_enabled_providers(self) -> None:
         from intelligence.services import evidence_registry
         from intelligence.services.ask import AskOptions
 
         on = AskOptions(query="q")
-        off = AskOptions(query="q", include_regime_block=False)
+        off = AskOptions(
+            query="q",
+            enabled_providers=evidence_registry.without_providers("D10"),
+        )
         self.assertTrue(evidence_registry.provider_enabled(on, "D10"))
         self.assertFalse(evidence_registry.provider_enabled(off, "D10"))
 

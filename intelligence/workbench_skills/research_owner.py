@@ -120,8 +120,6 @@ class ResearchOwnerSkill:
             # 会让题材研究的盘面证据在蓝绿运行时静默变空。
             market_db_path=default_market_db_path(),
             conversation_context=context.conversation_context,
-            include_memory_block=True,
-            include_recall_block=True,
             question_type_override=(
                 envelope.question_type
                 if context.task_frame is not None

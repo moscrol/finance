@@ -13,6 +13,8 @@
 
 默认只收一句话：`python3 -m intelligence.cli ask "<问题>"`。追问用 `chat`；要模型自己选工具才用 `agent`（opt-in）。Workbench UI 走 Episode（`TurnOrchestrator.run_turn`），不要用 CLI 冒充那套会话 id 合同。
 
+评接口深浅、找产品入口：读 `docs/agent-product-door.md`（门 / 两条引擎 / 积木）。工具注册表和 `AskOptions` 数据块开关是积木，不是门。
+
 检索旗标（`--kb-mode` / `--wiki-rag-mode` / `--modules`）是逃生口，不要写进日常口令。问「有多少能力」时点名分母：`skills/`、`.claude/skills/`、或工具注册表——三套不是同一张表，不要加总。
 
 已决策、不是缺口：技能桥只开一个、飞书 Bitable 写入退役、`fact_sector_daily` 是 VIEW、写入正门是 `python3 -m market_feature_store.cli daily-full`。编码任务另走代码地图 spec（`docs/superpowers/specs/2026-08-19-local-code-map-design.md`），未合入前不要当已有 CLI。

@@ -25,6 +25,7 @@ from intelligence.api.structured_reports import (
 )
 from intelligence.services import answer_model, followups as followups_svc
 from intelligence.services import context_growth
+from intelligence.services import evidence_registry
 from intelligence.services import task_fulfillment
 from intelligence.services import run_store as rs
 from intelligence.services.status_projection import (
@@ -2023,8 +2024,9 @@ class TurnOrchestrator:
                                 synthesize=False,
                                 market_db_path=(self._market_db_path()),
                                 conversation_context=context.to_prompt_block(),
-                                include_memory_block=decision.needs_memory,
-                                include_recall_block=decision.needs_memory,
+                                enabled_providers=evidence_registry.providers_allowing_memory(
+                                    decision.needs_memory
+                                ),
                                 question_type_override=turn_intent.question_type,
                                 deadline=research_deadline,
                             )
@@ -2696,8 +2698,9 @@ class TurnOrchestrator:
                 supplemental_evidence=self._skill_evidence(skill_outputs),
                 supplemental_claims=skill_claims,
                 supplemental_citations=skill_citations,
-                include_memory_block=decision.needs_memory,
-                include_recall_block=decision.needs_memory,
+                enabled_providers=evidence_registry.providers_allowing_memory(
+                    decision.needs_memory
+                ),
                 question_type_override=(
                     QUESTION_MARKET_REVIEW
                     if turn_intent.question_type
