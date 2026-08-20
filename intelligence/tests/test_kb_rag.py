@@ -399,7 +399,7 @@ class KbRagTelemetryTests(unittest.TestCase):
                         "光刻机",
                         root / "wiki",
                         mode="hybrid",
-                        timeout=5,
+                        timeout=20,
                     )
 
             self.assertTrue(res.ok)
@@ -407,7 +407,7 @@ class KbRagTelemetryTests(unittest.TestCase):
             self.assertIn("hybrid", run.call_args_list[0].args[0])
             self.assertIn("bm25", run.call_args_list[1].args[0])
             self.assertGreaterEqual(run.call_args_list[1].kwargs["timeout"], 1)
-            self.assertLessEqual(run.call_args_list[1].kwargs["timeout"], 5)
+            self.assertLessEqual(run.call_args_list[1].kwargs["timeout"], 20)
             self.assertEqual(res.telemetry.requested_mode, "hybrid")
             self.assertEqual(res.telemetry.effective_mode, "bm25")
             self.assertEqual(res.telemetry.mode, "bm25")
@@ -451,13 +451,13 @@ class KbRagTelemetryTests(unittest.TestCase):
                             "光刻机",
                             root / "wiki",
                             mode="hybrid",
-                            timeout=5,
+                            timeout=20,
                         )
                         second = kb_rag.retrieve(
                             "半导体设备",
                             root / "wiki",
                             mode="hybrid",
-                            timeout=5,
+                            timeout=20,
                         )
             finally:
                 kb_rag.clear_result_cache()
@@ -502,7 +502,7 @@ class KbRagTelemetryTests(unittest.TestCase):
                         "光刻机",
                         root / "wiki",
                         mode="hybrid",
-                        timeout=5,
+                        timeout=20,
                     )
 
             self.assertTrue(res.ok)
@@ -546,7 +546,7 @@ class KbRagTelemetryTests(unittest.TestCase):
                         "光刻机",
                         root / "wiki",
                         mode="rerank",
-                        timeout=5,
+                        timeout=20,
                     )
 
             self.assertFalse(res.ok)
@@ -573,13 +573,13 @@ class KbRagTelemetryTests(unittest.TestCase):
                 with mock.patch("subprocess.run", return_value=failed) as run:
                     with mock.patch(
                         "time.monotonic",
-                        side_effect=[10.0, 14.5, 14.5],
+                        side_effect=[10.0, 29.5, 29.5],
                     ):
                         res = kb_rag.retrieve(
                             "光刻机",
                             root / "wiki",
                             mode="dense",
-                            timeout=5,
+                            timeout=20,
                         )
 
             self.assertEqual(run.call_count, 1)
@@ -608,7 +608,7 @@ class KbRagTelemetryTests(unittest.TestCase):
                         "光刻机",
                         root / "wiki",
                         mode="hybrid",
-                        timeout=5,
+                        timeout=20,
                     )
 
             self.assertEqual(run.call_count, 1)
