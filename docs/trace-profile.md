@@ -1,8 +1,8 @@
 # Trace Profile: finance-workspace-private
 
-- last_updated: 2026-08-20
-- updated_by_run: `2026-08-20 公开答案质量 P0`（截断可见 / cutoff 滤空 / 成交额单位）。
-  前值：`2026-08-20 判官证据投影`；再前：`2026-08-17 同题两发 M2`
+- last_updated: 2026-08-21
+- updated_by_run: `2026-08-21 公开答案质量 P1`（未尝试声称 / 残稿回退模式）。
+  前值：`2026-08-20 公开答案质量 P0`；再前：`2026-08-20 判官证据投影`
 - 配套账本：[prediction-ledger.md](prediction-ledger.md) —— 分诊**开工第一步**先回填那里的 pending 预测，再开始新归因
 
 ## 1. 产物位置与结构
@@ -49,6 +49,8 @@
 | 判官 `evidence_registry` 的 `E4` | 就是写手草稿里的 E4 | **修复前**判官在 bound 子集上另编密排号，写手用 `evidence_ordinal_table()` 全表发放。未绑定条数=错位幅度：A3 密排 E4 = 写手 E9（07-13 -2.84），写手 E4（07-20 +10%）未绑定、不在判官表里。B3 草稿引 E37，密排表只到 E30。修好后投影必须引用 ordinal table，不得 `E{len(registry)+1}`。哨兵 `projection_ordinal_mismatch_count`（issued vs emitted 对称差），不是 `evidence_alias_offset`（未绑定条数，修好后 A3 仍=9） | 五题分诊 `run_20260820_131240_381743` 等；`docs/judge-evidence-projection-contract-spec.md`；`R-20260820-03` |
 | 判官 payload 无 `title` / 据卡片 title 反驳 issue | 判官否证「注册表无公司名与金额」= 写手捏造 | **修复前**投影丢掉 `title`，新闻类正文只活在 title（detail 是「日期 媒体」）。B4 句 16/17/22 否证的「22交21直 / 许继电气 / 12.45」都在 title 里。用卡片 title 反驳判官 issue 会得出「判官在胡说」，其实是入参盲。覆盖率类审计永远发现不了——字段还在卡片上。修好后 title 进 payload，上限 `MAX_EVIDENCE_TITLE_CHARS`。哨兵 `projection_dropped_field_chars` | 同上 B4 `run_20260820_130200_500233`；`R-20260820-03` |
 | `semantic_verifier.rejected_claim_indexes=[]` | 判官没拒任何句 | repair 之后该字段会被清空。B4 落盘是 `[]`，第一发 `GroundingJudgeReport.rejected_sentence_indexes` 实际是 10 句。测 H5 必须读第一发 report，不能读终态落盘，也不能跑 `grounded_replay.py`（那是 Composer 链） | 同上；spec §6 第 7 例 |
+| `semantic_verifier.unattempted_claim_count>0` | 抓到模型谎称「没查到」 | 只在 traces **没有**对应 capability 收据时才 >0。电网 `directional_news` + `future_of_cutoff`、锂矿窗口覆盖锚定日但截断，修完后必须是 **0**——那两句是真话。判据字段是 capability 名（`directional_news`），不是工具名 `news_search`。`asked_date_coverage=truncated` 也不是 `missing` | `R-20260820-09`；`episode_answer_hygiene.py` |
+| `semantic_verifier.repair_rollback_mode=whole_pre_repair` | 公开稿就是修前整篇 | Q3 残稿才走 withhold。减完 ≥2 句且 ≥80 字是 `minus_flagged_sentences`（不含判官点名的越界句）。C3 必填格全灭仍是整篇修前稿，**不要**和 Q3 减句混读。`repair_collapsed_to_stub` 只在语义 repair 后一句残稿时为真，preflight 数字门删条件句不算 | `R-20260820-10`；INV-7 |
 | 多条 `kind=finish` | 取任意一条即可读 `caveat_slips` / `stop_reason` | 同一 episode 常有**两条** finish：第一条多是检索截止 `deadline_exhausted` 且 `slips=0`，第二条才是修复轮终态。数 slips / 判 `invalid_repair_finish` 必须取**最后一条**。批 #2 若取首条，8 个 slips>0 窗口会全部读成 0 | `20260815T0302Z-r4-clean-baseline-2` A9/B2/B3/B4/B7/C1/C6/C10；B5/C7 末条才是 `invalid_repair_finish` |
 | `execution_state_tally` | 每题一个态，等于 case 终态分布 | **`< R-20260815-11` 的产物按 `turns[0]` 计**，多轮题会被首轮掩蔽（C10 三轮 delivered/clarification/bound_but_dropped，tally 计 delivered，末轮却是 bound_but_dropped）。此后 tally **按轮**，case 级另立 `execution_state_aggregate`（写死 `last_turn`），并带 `execution_state_case_tally` / `execution_state_turn_rows`。读旧产物前先看有没有 `execution_state_aggregate_rule` | `20260814T1926Z-r3-clean-baseline` C10；`summarize_execution_states` |
 | `evidence_bound` | 与 episode 已 fulfilled 且带哈希的格同义 | 验收台从 `/api/runs/<id>/context` 计 `status=hit`。B3@批#2：episode `direct_assessment`/`chain_mapping` 共 11 哈希且 struct=fulfilled，context 证据列表为空 → `evidence_bound=0`。R-10 交付率仍按冻结的 `evidence_bound>0` 口径，不得事后改口；并行读 `episode_fulfilled_hashed` | `run_20260815_111907_054023` |

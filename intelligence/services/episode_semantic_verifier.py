@@ -48,6 +48,13 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
     OutputEvidenceBinding,
 )
+from intelligence.services.episode_answer_hygiene import (
+    choose_repair_rollback,
+    classify_asked_date_coverage,
+    find_unattempted_claims,
+    repair_collapsed_to_stub,
+    rewrite_unattempted_claims,
+)
 from intelligence.services.episode_protocol import evidence_ordinal_table
 from intelligence.services.episode_issues import (
     Issue,
@@ -79,7 +86,7 @@ from intelligence.services.research_contract import (
     derive_stage_caps,
     policy_for_env,
 )
-from intelligence.services.task_frame import TaskFrame
+from intelligence.services.task_frame import TaskFrame, last_explicit_iso_date
 from intelligence.services.tool_result_budget import MAX_EVIDENCE_TITLE_CHARS
 
 
@@ -454,6 +461,10 @@ class SemanticEpisodeOutcome:
     judge_attempt_index: int | None = None
     judge_request: dict[str, object] | None = None
     repair_withheld: bool = False
+    unattempted_claim_count: int = 0
+    asked_date_coverage: str = "not_applicable"
+    repair_collapsed_to_stub: bool = False
+    repair_rollback_mode: str | None = None
 
     def __post_init__(self) -> None:
         if not self.repair_output_ids:
@@ -514,6 +525,10 @@ class SemanticEpisodeOutcome:
             "http_status": self.http_status,
             "judge_attempt_index": self.judge_attempt_index,
             "repair_withheld": self.repair_withheld,
+            "unattempted_claim_count": self.unattempted_claim_count,
+            "asked_date_coverage": self.asked_date_coverage,
+            "repair_collapsed_to_stub": self.repair_collapsed_to_stub,
+            "repair_rollback_mode": self.repair_rollback_mode,
             "projection_dropped_field_chars": telemetry.dropped_field_chars,
             "projection_truncated_field_chars": telemetry.truncated_field_chars,
             "projection_ordinal_mismatch_count": telemetry.ordinal_mismatch_count,
@@ -527,6 +542,13 @@ class SemanticEpisodeOutcome:
         if self.judge_request is not None:
             payload["judge_request"] = self.judge_request
         return payload
+
+
+@dataclass(frozen=True)
+class _HygieneSnapshot:
+    unattempted_claim_count: int = 0
+    asked_date_coverage: str = "not_applicable"
+    issues: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -635,6 +657,33 @@ class SemanticEpisodeVerifier:
         self._primary_judge = primary_judge or judge_client
         self._finalizer = finalizer
         self._judge_timeout = max(0.1, float(judge_timeout))
+        self._active_hygiene: _HygieneSnapshot | None = None
+
+    def _finalize_outcome(
+        self,
+        outcome: SemanticEpisodeOutcome,
+        call: _JudgeCall | None = None,
+        *,
+        repair_collapsed_to_stub: bool | None = None,
+        repair_rollback_mode: str | None = None,
+    ) -> SemanticEpisodeOutcome:
+        hygiene = self._active_hygiene
+        extras: dict[str, object] = {}
+        if hygiene is not None:
+            extras["unattempted_claim_count"] = hygiene.unattempted_claim_count
+            extras["asked_date_coverage"] = hygiene.asked_date_coverage
+            extras["issues"] = tuple(
+                dict.fromkeys((*outcome.issues, *hygiene.issues))
+            )
+        if repair_collapsed_to_stub is not None:
+            extras["repair_collapsed_to_stub"] = repair_collapsed_to_stub
+        if repair_rollback_mode is not None:
+            extras["repair_rollback_mode"] = repair_rollback_mode
+        if extras:
+            outcome = replace(outcome, **extras)
+        if call is not None:
+            outcome = _attach_judge_clock(outcome, call)
+        return outcome
 
     def verify(
         self,
@@ -803,6 +852,19 @@ class SemanticEpisodeVerifier:
                 )
             sentences = _numbered_sentences(structural.outcome.draft)
 
+        structural, claim_issues, claim_count = self._apply_unattempted_claim_rewrite(
+            frame, structural
+        )
+        self._active_hygiene = _HygieneSnapshot(
+            unattempted_claim_count=claim_count,
+            asked_date_coverage=classify_asked_date_coverage(
+                frame.raw_question,
+                frame.question_type,
+                structural.outcome.traces,
+            ),
+            issues=claim_issues,
+        )
+        sentences = _numbered_sentences(structural.outcome.draft)
         request = self._judge_request(frame, structural, sentences)
         first = replace(self._run_judge(request, deadline), request=request)
         if deadline.expired:
@@ -839,8 +901,8 @@ class SemanticEpisodeVerifier:
                     correlated_judge=first.correlated,
                 )
                 if candidate is not None:
-                    return _attach_judge_clock(candidate, first)
-            return _attach_judge_clock(
+                    return self._finalize_outcome(candidate, first)
+            return self._finalize_outcome(
                 SemanticEpisodeOutcome(
                     verified=structural,
                     status="partial",
@@ -878,6 +940,7 @@ class SemanticEpisodeVerifier:
                     call=first,
                     issue_code="preflight_wiped_all_outputs",
                     issue_message="preflight repair removed every required output",
+                    rejected_sentence_indexes=preflight_rejected,
                 )
             return self._completed_public(
                 frame,
@@ -912,7 +975,7 @@ class SemanticEpisodeVerifier:
                     )
                 )
             )
-            return _attach_judge_clock(
+            return self._finalize_outcome(
                 SemanticEpisodeOutcome(
                     verified=structural,
                     status="partial",
@@ -933,31 +996,33 @@ class SemanticEpisodeVerifier:
         marker_loss = tuple(
             dict.fromkeys((*marker_loss_outputs, *marker_loss))
         )
-        if marker_loss:
-            issues = tuple(
-                dict.fromkeys(
-                    (
-                        *repaired_verified.issues,
-                        *preflight_issues,
-                        *first.report.issues,
-                        *_marker_loss_issues(marker_loss),
-                    )
+        first_issues = tuple(
+            dict.fromkeys(
+                (
+                    *repaired_verified.issues,
+                    *preflight_issues,
+                    *first.report.issues,
+                    *_marker_loss_issues(marker_loss),
                 )
             )
-            return self._marker_loss_or_withhold(
-                frame,
-                source=structural,
-                wiped=repaired_verified,
-                marker_loss=marker_loss,
-                judge_issues=issues,
-                correlated_judge=first.correlated,
-                call=first,
-                issue_code="repair_wiped_all_outputs",
-                issue_message=(
-                    "semantic repair removed every required output; "
-                    "judge verdict treated as suspect"
-                ),
-            )
+        )
+        withheld = self._maybe_withhold_after_repair(
+            frame,
+            source=structural,
+            wiped=repaired_verified,
+            rejected_sentence_indexes=first.report.rejected_sentence_indexes,
+            marker_loss=marker_loss,
+            judge_issues=first_issues,
+            correlated_judge=first.correlated,
+            call=first,
+            issue_code="repair_wiped_all_outputs",
+            issue_message=(
+                "semantic repair removed every required output; "
+                "judge verdict treated as suspect"
+            ),
+        )
+        if withheld is not None:
+            return withheld
         if (
             repaired_verified.verified_status != "completed"
             and not _can_semantically_release_partial(repaired_verified)
@@ -972,7 +1037,7 @@ class SemanticEpisodeVerifier:
                     )
                 )
             )
-            return _attach_judge_clock(
+            return self._finalize_outcome(
                 SemanticEpisodeOutcome(
                     verified=repaired_verified,
                     status="partial",
@@ -1063,32 +1128,36 @@ class SemanticEpisodeVerifier:
                     repaired_verified.outcome.draft,
                     twice_verified.outcome.draft,
                 )
-                if second_marker_loss:
-                    issues = tuple(
-                        dict.fromkeys(
-                            (
-                                *twice_verified.issues,
-                                *preflight_issues,
-                                *first.report.issues,
-                                *second.report.issues,
-                                *_marker_loss_issues(second_marker_loss),
-                            )
+                second_issues = tuple(
+                    dict.fromkeys(
+                        (
+                            *twice_verified.issues,
+                            *preflight_issues,
+                            *first.report.issues,
+                            *second.report.issues,
+                            *_marker_loss_issues(second_marker_loss),
                         )
                     )
-                    return self._marker_loss_or_withhold(
-                        frame,
-                        source=repaired_verified,
-                        wiped=twice_verified,
-                        marker_loss=second_marker_loss,
-                        judge_issues=issues,
-                        correlated_judge=correlated,
-                        call=second,
-                        issue_code="repair_wiped_all_outputs",
-                        issue_message=(
-                            "semantic repair removed every required output; "
-                            "judge verdict treated as suspect"
-                        ),
-                    )
+                )
+                withheld = self._maybe_withhold_after_repair(
+                    frame,
+                    source=repaired_verified,
+                    wiped=twice_verified,
+                    rejected_sentence_indexes=(
+                        second.report.rejected_sentence_indexes
+                    ),
+                    marker_loss=second_marker_loss,
+                    judge_issues=second_issues,
+                    correlated_judge=correlated,
+                    call=second,
+                    issue_code="repair_wiped_all_outputs",
+                    issue_message=(
+                        "semantic repair removed every required output; "
+                        "judge verdict treated as suspect"
+                    ),
+                )
+                if withheld is not None:
+                    return withheld
                 if (
                     twice_verified.verified_status == "completed"
                     or _can_semantically_release_partial(twice_verified)
@@ -1181,40 +1250,40 @@ class SemanticEpisodeVerifier:
                                 twice_verified.outcome.draft,
                                 terminal_verified.outcome.draft,
                             )
-                            if terminal_marker_loss and (
-                                terminal_verified.verified_status == "completed"
-                                or _can_semantically_release_partial(
-                                    terminal_verified
+                            terminal_issues = tuple(
+                                dict.fromkeys(
+                                    (
+                                        *terminal_verified.issues,
+                                        *preflight_issues,
+                                        *first.report.issues,
+                                        *second.report.issues,
+                                        *third.report.issues,
+                                        *_marker_loss_issues(
+                                            terminal_marker_loss
+                                        ),
+                                    )
                                 )
-                            ):
-                                return self._marker_loss_or_withhold(
-                                    frame,
-                                    source=twice_verified,
-                                    wiped=terminal_verified,
-                                    marker_loss=terminal_marker_loss,
-                                    judge_issues=tuple(
-                                        dict.fromkeys(
-                                            (
-                                                *terminal_verified.issues,
-                                                *preflight_issues,
-                                                *first.report.issues,
-                                                *second.report.issues,
-                                                *third.report.issues,
-                                                *_marker_loss_issues(
-                                                    terminal_marker_loss
-                                                ),
-                                            )
-                                        )
-                                    ),
-                                    correlated_judge=correlated,
-                                    call=third,
-                                    issue_code="repair_wiped_all_outputs",
-                                    issue_message=(
-                                        "semantic repair removed every required output; "
-                                        "judge verdict treated as suspect"
-                                    ),
-                                )
-                            if not terminal_marker_loss and (
+                            )
+                            withheld = self._maybe_withhold_after_repair(
+                                frame,
+                                source=twice_verified,
+                                wiped=terminal_verified,
+                                rejected_sentence_indexes=(
+                                    third.report.rejected_sentence_indexes
+                                ),
+                                marker_loss=terminal_marker_loss,
+                                judge_issues=terminal_issues,
+                                correlated_judge=correlated,
+                                call=third,
+                                issue_code="repair_wiped_all_outputs",
+                                issue_message=(
+                                    "semantic repair removed every required output; "
+                                    "judge verdict treated as suspect"
+                                ),
+                            )
+                            if withheld is not None:
+                                return withheld
+                            if (
                                 terminal_verified.verified_status == "completed"
                                 or _can_semantically_release_partial(
                                     terminal_verified
@@ -1255,7 +1324,7 @@ class SemanticEpisodeVerifier:
                             )
                         )
                     )
-                    return _attach_judge_clock(
+                    return self._finalize_outcome(
                         SemanticEpisodeOutcome(
                             verified=twice_verified,
                             status="partial",
@@ -1287,7 +1356,7 @@ class SemanticEpisodeVerifier:
                 )
             )
         )
-        return _attach_judge_clock(
+        return self._finalize_outcome(
             SemanticEpisodeOutcome(
                 verified=repaired_verified,
                 status="partial",
@@ -1929,6 +1998,172 @@ class SemanticEpisodeVerifier:
         except Exception:
             return None
 
+    def _apply_unattempted_claim_rewrite(
+        self,
+        frame: TaskFrame,
+        structural: VerifiedEpisodeOutcome,
+    ) -> tuple[VerifiedEpisodeOutcome, tuple[str, ...], int]:
+        asked_date = last_explicit_iso_date(frame.raw_question)
+        claims = find_unattempted_claims(
+            structural.outcome.draft,
+            structural.outcome.traces,
+            asked_date=asked_date,
+        )
+        if not claims:
+            return structural, (), 0
+        rewritten = rewrite_unattempted_claims(structural.outcome.draft, claims)
+        if rewritten != structural.outcome.draft:
+            structural = replace(
+                structural,
+                outcome=replace(structural.outcome, draft=rewritten),
+            )
+        issues = tuple(
+            f"code=unattempted_claim :: 本次未查询 {claim.capability}"
+            + (f" {claim.asked_date}" if claim.asked_date else "")
+            for claim in claims
+        )
+        return structural, issues, len(claims)
+
+    def _withhold_public_source(
+        self,
+        before: str,
+        rejected_sentence_indexes: tuple[int, ...],
+    ) -> tuple[str, str, tuple[str, ...]]:
+        minus = (
+            _drop_rejected_sentences(before, rejected_sentence_indexes)
+            if rejected_sentence_indexes
+            else ""
+        )
+        public_source, mode = choose_repair_rollback(before, minus)
+        extra: tuple[str, ...] = ()
+        if mode == "whole_pre_repair" and rejected_sentence_indexes:
+            extra = (
+                "code=repair_collapsed_to_stub :: "
+                "已回退至未经语义修复的稿，其中含 "
+                f"{len(rejected_sentence_indexes)} 条未通过判官的表述",
+            )
+        return public_source, mode, extra
+
+    def _maybe_withhold_stub(
+        self,
+        frame: TaskFrame,
+        *,
+        source: VerifiedEpisodeOutcome,
+        wiped: VerifiedEpisodeOutcome,
+        rejected_sentence_indexes: tuple[int, ...],
+        judge_issues: tuple[str, ...],
+        correlated_judge: bool,
+        call: _JudgeCall | None,
+    ) -> SemanticEpisodeOutcome | None:
+        if not repair_collapsed_to_stub(
+            source.outcome.draft,
+            wiped.outcome.draft,
+            frame.question_type,
+        ):
+            return None
+        return self._emit_withheld_repair(
+            frame,
+            source=source,
+            rejected_sentence_indexes=rejected_sentence_indexes,
+            judge_issues=judge_issues,
+            correlated_judge=correlated_judge,
+            call=call,
+            collapsed=True,
+        )
+
+    def _maybe_withhold_after_repair(
+        self,
+        frame: TaskFrame,
+        *,
+        source: VerifiedEpisodeOutcome,
+        wiped: VerifiedEpisodeOutcome,
+        rejected_sentence_indexes: tuple[int, ...],
+        marker_loss: tuple[str, ...],
+        judge_issues: tuple[str, ...],
+        correlated_judge: bool,
+        call: _JudgeCall | None,
+        issue_code: str,
+        issue_message: str,
+    ) -> SemanticEpisodeOutcome | None:
+        if marker_loss:
+            return self._marker_loss_or_withhold(
+                frame,
+                source=source,
+                wiped=wiped,
+                marker_loss=marker_loss,
+                judge_issues=judge_issues,
+                correlated_judge=correlated_judge,
+                call=call,
+                issue_code=issue_code,
+                issue_message=issue_message,
+                rejected_sentence_indexes=rejected_sentence_indexes,
+            )
+        return self._maybe_withhold_stub(
+            frame,
+            source=source,
+            wiped=wiped,
+            rejected_sentence_indexes=rejected_sentence_indexes,
+            judge_issues=judge_issues,
+            correlated_judge=correlated_judge,
+            call=call,
+        )
+
+    def _emit_withheld_repair(
+        self,
+        frame: TaskFrame,
+        *,
+        source: VerifiedEpisodeOutcome,
+        rejected_sentence_indexes: tuple[int, ...],
+        judge_issues: tuple[str, ...],
+        correlated_judge: bool,
+        call: _JudgeCall | None,
+        collapsed: bool,
+    ) -> SemanticEpisodeOutcome:
+        public_source, mode, extra_issues = self._withhold_public_source(
+            source.outcome.draft,
+            rejected_sentence_indexes,
+        )
+        public = _sanitize_public_answer(
+            public_source,
+            source.outcome.evidence,
+            source.outcome.traces,
+        )
+        issues = tuple(dict.fromkeys((*judge_issues, *extra_issues)))
+        if not public:
+            outcome = SemanticEpisodeOutcome(
+                verified=source,
+                status="partial",
+                public_answer=self._gap_answer(frame, source),
+                judge_status="repaired",
+                issues=issues,
+                correlated_judge=correlated_judge,
+                gap_output_ids=(),
+                repair_withheld=True,
+                repair_collapsed_to_stub=collapsed,
+                repair_rollback_mode=mode,
+            )
+        else:
+            outcome = SemanticEpisodeOutcome(
+                verified=source,
+                status="partial",
+                public_answer=view(
+                    TerminalFacts(cause=CAUSE_VERIFIED, public=public)
+                ),
+                judge_status="repaired",
+                issues=issues,
+                correlated_judge=correlated_judge,
+                gap_output_ids=(),
+                repair_withheld=True,
+                repair_collapsed_to_stub=collapsed,
+                repair_rollback_mode=mode,
+            )
+        return self._finalize_outcome(
+            outcome,
+            call,
+            repair_collapsed_to_stub=collapsed,
+            repair_rollback_mode=mode,
+        )
+
     def _repair(
         self,
         *,
@@ -2008,7 +2243,7 @@ class SemanticEpisodeVerifier:
                 issues=judge_issues,
                 correlated_judge=correlated_judge,
             )
-        return _attach_judge_clock(outcome, call) if call is not None else outcome
+        return self._finalize_outcome(outcome, call)
 
     def _marker_loss_or_withhold(
         self,
@@ -2022,48 +2257,37 @@ class SemanticEpisodeVerifier:
         call: _JudgeCall | None,
         issue_code: str,
         issue_message: str,
+        rejected_sentence_indexes: tuple[int, ...] = (),
     ) -> SemanticEpisodeOutcome:
-        """Keep the pre-repair draft when deletion would empty every required slot."""
+        """Keep the pre-repair draft when deletion would empty every required slot.
+
+        Flagged-sentence rollback belongs to the stub path, not this one: C3
+        withholds because the remainder lost required-slot substance, so
+        publishing that remainder would recreate the wipe.
+        """
 
         if _repair_wiped_all_required(source.contract, marker_loss):
-            public = _sanitize_public_answer(
+            collapsed = repair_collapsed_to_stub(
                 source.outcome.draft,
-                source.outcome.evidence,
-                source.outcome.traces,
+                wiped.outcome.draft,
+                frame.question_type,
             )
-            issues = tuple(
-                dict.fromkeys(
-                    (
-                        *judge_issues,
-                        f"code={issue_code} :: {issue_message}",
+            return self._emit_withheld_repair(
+                frame,
+                source=source,
+                rejected_sentence_indexes=(),
+                judge_issues=tuple(
+                    dict.fromkeys(
+                        (
+                            *judge_issues,
+                            f"code={issue_code} :: {issue_message}",
+                        )
                     )
-                )
+                ),
+                correlated_judge=correlated_judge,
+                call=call,
+                collapsed=collapsed,
             )
-            if not public:
-                outcome = SemanticEpisodeOutcome(
-                    verified=source,
-                    status="partial",
-                    public_answer=self._gap_answer(frame, source),
-                    judge_status="repaired",
-                    issues=issues,
-                    correlated_judge=correlated_judge,
-                    gap_output_ids=(),
-                    repair_withheld=True,
-                )
-            else:
-                outcome = SemanticEpisodeOutcome(
-                    verified=source,
-                    status="partial",
-                    public_answer=view(
-                        TerminalFacts(cause=CAUSE_VERIFIED, public=public)
-                    ),
-                    judge_status="repaired",
-                    issues=issues,
-                    correlated_judge=correlated_judge,
-                    gap_output_ids=(),
-                    repair_withheld=True,
-                )
-            return _attach_judge_clock(outcome, call) if call is not None else outcome
         return self._marker_loss_partial_public(
             frame,
             wiped,
@@ -2104,7 +2328,7 @@ class SemanticEpisodeVerifier:
                 correlated_judge=correlated_judge,
                 gap_output_ids=output_ids,
             )
-            return _attach_judge_clock(outcome, call) if call is not None else outcome
+            return self._finalize_outcome(outcome, call)
         descriptions = {
             item.output_id: item.description.strip() or item.output_id
             for item in (
@@ -2141,7 +2365,7 @@ class SemanticEpisodeVerifier:
             correlated_judge=correlated_judge,
             gap_output_ids=output_ids,
         )
-        return _attach_judge_clock(outcome, call) if call is not None else outcome
+        return self._finalize_outcome(outcome, call)
 
     @staticmethod
     def _gap_answer(
