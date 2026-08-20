@@ -362,6 +362,58 @@ def test_outlook_judgment_direct_answer_uses_model_reasoning() -> None:
     assert context.contract.allowed_capabilities != ()
 
 
+def test_forecast_condition_slots_use_model_reasoning() -> None:
+    """前瞻题的条件槽是向前假设，签 model_reasoning；事实与边界槽保持 evidence。
+
+    2026-08-19 分层审查：情景路径与持续/证伪条件按定义不可能出现在既有证据里
+    （证据不含未来），押进 evidence 后数值门禁把「若指数跌破3870点则失效」这类
+    可操作阈值整句砍掉，模型学会只输出「相对变化描述」自保。只改条件槽。
+    """
+
+    control = TurnControlCore().control(
+        "昨天的反弹能持续多久",
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+    context = build_episode_context(
+        control.task_frame,
+        task_id="forecast-condition-slots",
+        capabilities=control.capabilities,
+    )
+
+    modes = {
+        item.output_id: item.grounding_mode
+        for item in context.contract.required_outputs
+    }
+    assert control.task_frame.question_type == "market_forecast"
+    assert modes["continuation_conditions"] == "model_reasoning"
+    assert modes["invalidation_conditions"] == "model_reasoning"
+    # 事实槽与边界槽不动：现状基线、持续性评估仍要求行情证据。
+    assert modes["current_baseline"] == "evidence"
+    assert modes["duration_assessment"] == "evidence"
+    assert modes["evidence_boundary"] == "evidence"
+
+
+def test_technical_invalidation_slot_stays_evidence() -> None:
+    """market_technical 的失效位来自行情数据（支撑/均线可查），不吃前瞻豁免。"""
+
+    control = TurnControlCore().control(
+        "科创50的支撑点位在哪",
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+    context = build_episode_context(
+        control.task_frame,
+        task_id="technical-invalidation-evidence",
+        capabilities=control.capabilities,
+    )
+
+    modes = {
+        item.output_id: item.grounding_mode
+        for item in context.contract.required_outputs
+    }
+    assert control.task_frame.question_type == "market_technical"
+    assert modes["invalidation_conditions"] == "evidence"
+
+
 def test_default_conditional_goal_does_not_flip_fact_or_valuation_slots() -> None:
     """``形成条件化判断`` 是 query_understanding 的默认 decision_goal，不能当路由键。"""
 
@@ -387,7 +439,14 @@ def test_default_conditional_goal_does_not_flip_fact_or_valuation_slots() -> Non
         assert "model_reasoning" not in set(modes.values())
 
 
-def test_outlook_phrasing_on_forecast_only_flips_the_judgment_slot() -> None:
+def test_outlook_forecast_flips_judgment_and_condition_slots_not_boundaries() -> None:
+    """观点措辞翻判断槽，前瞻题型翻条件槽；边界/结构槽两条规则都不碰。
+
+    2026-08-16 第一刀只改判断槽（scenario_paths 当时保持 evidence）；
+    2026-08-19 分层审查加了第二刀：前瞻条件槽按题型签 model_reasoning。
+    scenario_tree / evidence_boundary 仍是 evidence，证明两条规则都没扩散。
+    """
+
     control = TurnControlCore().control(
         "你觉得a股明天会怎么走",
         llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
@@ -403,8 +462,11 @@ def test_outlook_phrasing_on_forecast_only_flips_the_judgment_slot() -> None:
         for item in context.contract.required_outputs
     }
     assert modes["direct_assessment"] == "model_reasoning"
+    assert modes["scenario_paths"] == "model_reasoning"
+    assert modes["continuation_conditions"] == "model_reasoning"
+    assert modes["invalidation_conditions"] == "model_reasoning"
     assert modes["evidence_boundary"] == "evidence"
-    assert modes["scenario_paths"] == "evidence"
+    assert modes["scenario_tree"] == "evidence"
     assert context.contract.allowed_capabilities != ()
 
 

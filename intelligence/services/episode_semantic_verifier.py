@@ -71,6 +71,7 @@ from intelligence.services.judge_degrade import (
 from intelligence.services.judge_source_recheck import recheck_draft, recheck_enabled
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
+    FORWARD_HYPOTHESIS_OUTPUT_IDS,
     ResearchDeadline,
     ResearchPolicy,
     apply_env_ceiling,
@@ -2387,12 +2388,27 @@ def _novel_numeric_condition_indexes(
     """Return conditional sentences containing quantities absent from evidence."""
 
     contract = verified.contract
-    if contract is not None and contract.required_outputs and all(
-        item.grounding_mode != "evidence"
-        for item in contract.required_outputs
-        if item.required
-    ):
-        return ()
+    if contract is not None and contract.required_outputs:
+        if all(
+            item.grounding_mode != "evidence"
+            for item in contract.required_outputs
+            if item.required
+        ):
+            return ()
+        # 条件槽粒度豁免：契约把前瞻假设槽（情景/持续/证伪条件）签成
+        # model_reasoning 时，条件句里的新阈值是模型受契约委托提出的判断，
+        # 不再按「证据里没有的数量」连坐整句。此前门禁只认「全契约非
+        # evidence」的整体豁免，混合契约（如 market_forecast 带 evidence 的
+        # 边界槽）下证伪阈值必死。事实句仍由语义判官逐句审。
+        condition_items = tuple(
+            item
+            for item in contract.required_outputs
+            if item.required and item.output_id in FORWARD_HYPOTHESIS_OUTPUT_IDS
+        )
+        if condition_items and all(
+            item.grounding_mode != "evidence" for item in condition_items
+        ):
+            return ()
 
     rejected: set[int] = set()
     evidence_quantities = _bound_evidence_quantities(verified.outcome)
