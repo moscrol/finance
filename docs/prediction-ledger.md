@@ -68,6 +68,10 @@
 | `R-20260820-09` | 质量稿 P1 Q1（缺口声称对账） | `HARNESS_FIX` | 有 `directional_news` / 截断 `finance_query` 收据时，draft 写「未返回」不得改口；traces 完全没有资讯 capability 时才改口。判据用 capability 不是工具名 | **本次未实施**（等路由后再做，避免先造谣言门禁） | `pending` |
 | `R-20260820-10` | 质量稿 P1 Q3（铝残稿回退） | `HARNESS_FIX` | repair 塌成残句则 withhold；回退是「修前稿减去判官点名句」，不是整篇 `view(before)` | **本次未实施**（铝 Q3 夹具等路由后重冻，现在冻的是即将作废的 `general_finance_qa` 形状） | `pending` |
 | `R-20260820-11` | 质量稿 P2 Q2（锚定日补枪兜底） | `HARNESS_FIX` | 若 P0-T1 后 live 锂矿稿已含问句日盘面，本行记 `deferred` 不撤号；否则合成前补一枪 | **本次未实施**。live §7.15 未跑，不得把 T1 单测绿写成 Q2 已自愈 | `pending` |
+| `R-20260820-12` | 问句日预取日历（asof-prefetch 第 1 刀；非本轮标准 M1） | `HARNESS_FIX` | 「锂矿…发酵到 2026-07-23」的 `information_cutoff` 为 `requested` 7/23，不是 `runtime_default` 今天；「1日至5日」区间题仍不得把起点当 cutoff | 离线：`test_asof_prefetch_dual_red.py` / `test_honesty_gates.py`。live 对照 Cursor SQL，不拿新旧店互比 | `pending` |
+| `R-20260820-13` | forecast 双红个数序列（asof-prefetch 第 2 刀） | `HARNESS_FIX` | `market_forecast` 预取含问句日及前两个有数据交易日的双红个数；当日板块表 0 行写 `缺数`，不得写成 0 | 离线假库 2/1/0。live：8.19 题预取含 75→21→0 形 | `pending` |
+| `R-20260820-14` | 发酵精确名+双红戳（asof-prefetch 第 3 刀） | `HARNESS_FIX` | 触发词命中且能锚定板块时，预取 `sector_name` 精确名时间轴且行上 `双红=是\|否`；禁止 `contains` 近义名；「固态电池有什么新进展」不强制窗口 | 离线：锂矿 7/23 的 4.4/628.5/11.73 → 双红=是，同日锂电池不进。live 对照 Cursor | `pending` |
+| `R-20260820-15` | 预取满足必填能力（asof-prefetch 第 4 刀） | `HARNESS_FIX` | outcome 里未绑定、未被 strip 的预取 tool 满足 `mandatory_capabilities`；`test_stripped_evidence_cannot_satisfy_mandatory_capability` 仍红 | 离线 verifier。stripped 哈希不得记账 | `pending` |
 
 `outcome` 只能是 `pending` / `confirmed` / `refuted`。**部分验证不要写 `confirmed`。**
 

@@ -496,8 +496,14 @@ class ToolSpec:
 
 
 class ResearchToolRegistry:
-    def __init__(self, specs: tuple[ToolSpec, ...]) -> None:
+    def __init__(
+        self,
+        specs: tuple[ToolSpec, ...],
+        *,
+        opening_prefetch: tuple[agent_research.AgentEvidence, ...] = (),
+    ) -> None:
         self._specs = {spec.name: spec for spec in specs}
+        self.opening_prefetch = tuple(opening_prefetch)
 
     def resolve(self, name: str) -> ToolSpec:
         spec = self._specs.get(str(name).strip())

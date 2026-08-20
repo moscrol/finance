@@ -15,6 +15,7 @@ from datetime import date
 
 from intelligence.services.research_contract import InformationCutoff
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.asof_prefetch import standing_iso_from_query
 
 # 主库已退役、既非表也非视图的旧名 → canonical fact_*。问句命中旧名时，
 # 交付层必须明说「表不存在」并给出替代，不能让模型改口成「把表贴过来」。
@@ -133,9 +134,13 @@ def requested_information_cutoff(
     """
 
     match = _STANDING_CUTOFF_RE.search(str(query or ""))
-    if match is None:
+    raw = None
+    if match is not None:
+        raw = match.group("iso") or match.group("cn")
+    else:
+        raw = standing_iso_from_query(str(query or ""))
+    if raw is None:
         return None
-    raw = match.group("iso") or match.group("cn")
     try:
         if "年" in raw:
             requested_date = date(

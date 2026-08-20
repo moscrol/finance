@@ -195,6 +195,18 @@ def test_undated_question_keeps_runtime_cutoff() -> None:
     )
 
 
+def test_fermentation_end_date_becomes_requested_cutoff() -> None:
+    query = "锂矿从7月初发酵到 2026-07-23，逐步涨幅、成交额和环比怎么走"
+    cutoff = requested_information_cutoff(query, today="2026-08-20")
+    assert cutoff == InformationCutoff(date(2026, 7, 23), "requested")
+
+
+def test_leading_iso_date_becomes_requested_cutoff() -> None:
+    query = "2026-07-23 电网设备为什么涨"
+    cutoff = requested_information_cutoff(query, today="2026-08-20")
+    assert cutoff == InformationCutoff(date(2026, 7, 23), "requested")
+
+
 def test_calendar_disclosure_still_prepends_when_model_omits_it() -> None:
     decision = decide_turn("2026-02-17 涨停家数多少")
     answer = with_calendar_disclosure("未知。材料没有给出数值。", decision.task_frame)

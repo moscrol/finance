@@ -539,6 +539,37 @@ class _EpisodeToolAccumulator:
                 self.evidence.append(item)
 
 
+def _seed_opening_prefetch(
+    accumulator: _EpisodeToolAccumulator,
+    messages: list[dict[str, object]],
+    registry: ResearchToolRegistry,
+) -> None:
+    """把 harness 预取放进证据账本和开场 user 消息，不伪造 tool_call_id。"""
+
+    evidence = tuple(getattr(registry, "opening_prefetch", ()) or ())
+    if not evidence:
+        return
+    from intelligence.services.asof_prefetch import format_opening_prefetch_message
+
+    for item in evidence:
+        digest = str(item.content_hash or "").strip()
+        if not digest or digest in accumulator.evidence_hashes:
+            continue
+        accumulator.evidence_hashes.add(digest)
+        accumulator.evidence.append(item)
+        accumulator.evidence_ledger.append(item)
+    message = format_opening_prefetch_message(evidence)
+    if message:
+        messages.append({"role": "user", "content": message})
+        accumulator.ledger.add(
+            "prefetch",
+            {
+                "count": len(evidence),
+                "tools": [item.tool for item in evidence],
+            },
+        )
+
+
 @dataclass
 class _EpisodeContinuationState:
     task_frame: TaskFrame
@@ -671,6 +702,7 @@ class ContinuousAgentEpisode:
             ledger=ledger,
             evidence_ledger=evidence_ledger,
         )
+        _seed_opening_prefetch(accumulator, messages, registry)
         continuation_state: _EpisodeContinuationState | None = None
         if _continuation_sink is not None:
             continuation_state = _EpisodeContinuationState(
@@ -705,7 +737,9 @@ class ContinuousAgentEpisode:
                 )
             # 首轮向 reserve 借超出「一次合成」的余量：那时一条证据都没有，
             # reserve 保护的对象还不存在，而预扣会让唯一能启动检索的调用饿死。
-            is_opening_call = llm_calls == 0 and not accumulator.evidence
+            # 开场超时只看「模型还没跑、工具还没成功」。harness 预取会先把
+            # 观察值放进 accumulator.evidence，但不能因此取消首轮向 reserve 借窗。
+            is_opening_call = llm_calls == 0 and not accumulator.successful_tools
             planning_timeout = (
                 self._opening_planning_timeout(context)
                 if is_opening_call
