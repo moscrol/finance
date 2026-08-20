@@ -1,31 +1,36 @@
 # fix/prefetch-evidence-id
 
 ## 这个分支做什么
-成功路径稿 **子单 C（挪约束）**：给开场预取行打 `[E<n>]`，让模型引用得到，判官不再把预取来的真话判成「发明历史行情」。改一处呈现层 + 5 条离线测试 + Gate 1 落档。
+成功路径稿**子单 C**：给开场预取行打 `[E<n>]`，模型才引用得到，判官不再把预取来的真话判成「发明历史行情」。
 
 ## 当前状态
-已提交未推。基线 `gitea/main@dfc25221`。生产 **8792 未切**，仍 `dfc25221b07b`。
-产物：`intelligence/services/asof_prefetch.py`（+24/-2）、`intelligence/tests/test_prefetch_evidence_ordinal.py`（新）、`docs/verification/2026-08-21-gate1-prefetch-evidence-id.md`（新）、台账新号 `R-20260821-03`。
+已推，**PR #288 open 未合**。基线 `gitea/main@dfc25221`，head `0cedd44f`，树 0 处未提交。生产 8792 **未切**（仍 `dfc25221b07b`）。
+只改一处：`asof_prefetch.format_opening_prefetch_message`（+24/-2）。**判官侧未动**。
+
+## 怎么验收
+1. `pytest intelligence/tests/test_prefetch_evidence_ordinal.py` → 5 passed
+2. 变异：`evidence_ordinal_table(hashed)` → `(tuple(reversed(hashed)))` 必须 **3 failed**；前后各清 `__pycache__`
+3. 调 `format_opening_prefetch_message(evidence_from_prefetch(items))`，输出须含 `[E1]`
+4. 比读数：修后 `run_20260821_021724_077535`（sidecar）vs 修前 `run_20260821_015459_794701`（生产）
+展开全在 `docs/verification/2026-08-21-gate1-prefetch-evidence-id.md`。
 
 ## 未验证 / 已知边界
-- **n=1，没过方差门**，`R-20260821-03` 记 `pending` 不得 `confirmed`。
-- 只验了创新药一题。其他发酵题、`market_forecast` 题未跑。
-- `[E1]` 标签**不落盘**（开场 user 消息不进 `continuous-episode.json`），靠直接调函数 + 模型引用行为双向确认。下一个人别去 episode 产物里 grep `[E1]` 然后以为没生效。
-- ⚠ **台账会冲突**：`docs/8792-dfc25221-cutover` 分支（也未推）同样改了 `docs/prediction-ledger.md` 的行 3 与 `-06`…`-11`。两条都从 `dfc25221` 长出，后合方 rebase 重解。这是 acceptance-workflow 写明的常态热点。
+n=1 未过方差门 → `R-20260821-03` 记 `pending`，**不得 `confirmed`**。只验了创新药一题，`market_forecast` 未跑。
+⚠ 与 `docs/8792-dfc25221-cutover`（PR #287）同改 `docs/prediction-ledger.md`，**后合方要 rebase 重解**。
 
 ## 下一步
-1. push + 开 PR（**未做，等用户拍**）。合并等确认，不切 8792。
-2. 合完再看要不要开 **子单 A**（发酵轴起涨/补涨分层）。§6.1 第二触发条件确实成立，但**必须在 C 之后**——C 之前加行只会被同一把刀删掉。
-3. 遗留见 verification 文档「遗留」节，都不是本改动引入。
+1. 等用户确认合 #288。不切 8792。
+2. **合后**才开子单 A：§6 一次只开一条，§5 要求换一道没用过的新题重跑 Gate——创新药已是本单夹具，不能复用。
+3. `CLAUDE.md:27` 写「七个模式+16 零件」，实际九个+17，已漂两代，待单开小 PR。
 
 ## 踩过的坑
-- **初判根因错了一次**：写成「E1/E2 从没发号」。实际用 `evidence_ordinal_table` 复算，预取两条 hash 齐全、稳拿 E1/E2。误读来源是 `outcome.evidence[].evidence_id` 全 `None`——**那个字段本来就不落盘，号是终局现算的**。拿它当「没发号」的证据不成立。缺口在下一层（呈现层没写号）。
-- 号只能有一处来源。变异测试专门锁这个：`evidence_ordinal_table(reversed(...))` 必须转红——错号比没号更危险，会把引用落到别人证据上。
-- 变异前后各清一次 `__pycache__`，否则同长度改回会假绿。
-- `resolve_theme_alias` 的 `None` 是双关（「解析不到」与「本来就是精确名」同值）。spec §6.1 让预取按「解析不到就 fail closed」，若照这个 `None` 判断，精确名会被误判。本次未触发，但迟早会咬人。
+- **根因误判过一次**：初判「E1/E2 从没发号」。复算发现预取两条 hash 齐全、稳拿 E1/E2。误读源是 `outcome.evidence[].evidence_id` 全 `None`——**那字段本来就不落盘，号是终局现算的**。缺口在下一层：呈现层没写号。
+- `[E1]` **不进 `continuous-episode.json`**（开场是 user 消息，不是 tool 事件）。别 grep 产物然后以为没生效。
+- 错号比没号危险（会引到别人证据上）。变异要锁**发号顺序**，只锁「有没有号」不够。
+- `resolve_theme_alias` 的 `None` 双关：「解析不到」与「本来就是精确名」同值。§6.1 让预取按前者 fail closed，迟早咬人。本次未触发。
 
 ## 已验证
-TDD 修前 3F/2P → 修后 5P；宽集 381 passed（收据 `20260820T181642Z-dfc25221`）；ruff 绿；变异 3F/还原 5P；live `run_20260821_021724_077535` 四组数与分析师侧逐位对齐。
+TDD 修前 3F/2P → 修后 5P；宽集 **381 passed**（收据 `20260820T181642Z-dfc25221`）；ruff 绿；变异 3F / 还原 5P；live 公开稿 **894→1027 字**，四段发酵弧保住，`E1` 引用 117 次（修前 0 且模型自陈「无证据序号」），6-29 / 7-15 / 8-3 / 8-7 四组数与分析师侧逐位对齐。
 
 ## 工具沉淀
-可迁移的一条：**跨信任边界投递事实时，事实和它的凭据必须同时发放**。harness 把数据放上桌却没给引用把手，下游验证器只认把手不认数据，于是自家投递的真话被自家判成伪造。任何「注入上下文 + 引用校验」的 RAG/agent 系统都会犯——注入片段没进 citation registry，模型引用它就被判 hallucination。够格进 `BUILD.md`（换项目仍会犯），**待用户拍板再写**。
+模式已归位 `~/harness-reference/BUILD.md` 第 9 条「投递事实必须连同引用把手一起投递」，`KIT.md` 同步（八→九）。未抽脚本：判「注入片段有没有引用把手」要读具体注册表语义，样本仅 1，先留模式。
