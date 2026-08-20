@@ -87,6 +87,70 @@ def test_audit_fail_when_ledger_missing(tmp_path: Path) -> None:
     assert report["reason"] == "missing_ledger_row"
 
 
+def test_check_filters_sidecar_rows_by_port(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """实测失败形状（2026-08-19）：8796 sidecar 启动行顶掉 8792 生产对账。"""
+
+    ledger = tmp_path / "deploy-ledger.jsonl"
+    monkeypatch.setenv("FINANCE_DEPLOY_LEDGER", str(ledger))
+    deploy_ledger.record_event(action="startup", rev="a" * 12, port=8792)
+    deploy_ledger.record_event(action="startup", rev="b" * 12, port=8796)
+
+    health = {"runtime": {"source_revision": "a" * 12}}
+    filtered = deploy_ledger.check_against_health(ledger, health, port=8792)
+    assert filtered["ok"] is True
+    assert filtered["port"] == 8792
+
+    unfiltered = deploy_ledger.check_against_health(ledger, health)
+    assert unfiltered["ok"] is False
+    assert unfiltered["reason"] == "rev_mismatch"
+
+
+def test_check_counts_portless_rows_for_any_port(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """旧版 switch 行没记端口：必须计入任何端口，否则漏报失败的重启。"""
+
+    ledger = tmp_path / "deploy-ledger.jsonl"
+    monkeypatch.setenv("FINANCE_DEPLOY_LEDGER", str(ledger))
+    deploy_ledger.record_event(action="startup", rev="a" * 12, port=8792)
+    deploy_ledger.record_event(action="switch", rev="c" * 12, port=None)
+
+    switched = deploy_ledger.check_against_health(
+        ledger, {"runtime": {"source_revision": "c" * 12}}, port=8792
+    )
+    assert switched["ok"] is True
+    assert switched["ledger_action"] == "switch"
+
+    stale = deploy_ledger.check_against_health(
+        ledger, {"runtime": {"source_revision": "a" * 12}}, port=8792
+    )
+    assert stale["ok"] is False
+    assert stale["reason"] == "rev_mismatch"
+
+
+def test_cli_check_derives_port_from_url(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import sys
+
+    sys.path.insert(0, str(REPO))
+    from scripts import audit_deploy_ledger as cli
+
+    ledger = tmp_path / "deploy-ledger.jsonl"
+    monkeypatch.setenv("FINANCE_DEPLOY_LEDGER", str(ledger))
+    deploy_ledger.record_event(action="startup", rev="a" * 12, port=8792)
+    deploy_ledger.record_event(action="startup", rev="b" * 12, port=8796)
+
+    monkeypatch.setattr(
+        cli,
+        "fetch_health",
+        lambda url, timeout=5.0: {"runtime": {"source_revision": "a" * 12}},
+    )
+    assert cli.main(["check", "--url", "http://127.0.0.1:8792/api/health"]) == 0
+
+
 def test_record_from_app_fail_open_on_unwritable_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
