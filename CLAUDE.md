@@ -47,7 +47,11 @@
 
 ### 金融问答正门
 
-默认：`python3 -m intelligence.cli ask "<问题>"`。追问 `chat`；模型选工具才用 `agent`。Workbench 走 Episode，不要用 CLI 冒充 UI 合同。评接口 / 找入口读 `docs/agent-product-door.md`（门 / 两条引擎 / 积木；注册表不是门）。`--kb-mode` / `--wiki-rag-mode` / `--modules` 是逃生口。问能力个数时点名 `skills/` / `.claude/skills/` / 工具注册表，不要加总、不要写死个数。技能桥只开一个、飞书 Bitable 写入退役、飞书 IM（`feishu-bot`）退役、`fact_sector_daily` 是 VIEW、`daily-full` 是写入正门——这些是约束不是缺口。编码任务走上一节代码地图 CLI，不要用问答正门冒充。
+默认：`python3 -m intelligence.cli ask "<问题>"`。追问 `chat`；模型选工具才用 `agent`。Workbench 走 Episode，不要用 CLI 冒充 UI 合同。评接口 / 找入口读 `docs/agent-product-door.md`（门 / 两条引擎 / 积木；注册表不是门）。`--kb-mode` / `--wiki-rag-mode` / `--modules` 是逃生口。问能力个数时点名 `skills/` / `.claude/skills/` / 工具注册表，不要加总、不要写死个数。
+
+写入正门是 `python3 -m market_feature_store.cli daily-full`。`fact_sector_daily` 是 VIEW。编码任务走上一节代码地图 CLI，不要用问答正门冒充。
+
+技能桥只开一个、飞书 Bitable 写入退役、飞书 IM（`feishu-bot`）退役——这些是约束不是缺口。
 
 ### Agent 可调工具：12 个
 
