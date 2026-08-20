@@ -38,6 +38,8 @@ RAG_SCRIPT_REL = Path("scripts") / "rag_index.py"
 DEFAULT_RAG_TIMEOUT = 90
 DEFAULT_RAG_K = 6
 DEFAULT_RAG_MODE = "hybrid"
+HYBRID_MIN_REMAINING_SECONDS = 15.0
+REMAINING_BUDGET_FALLBACK = "remaining_budget"
 DEFAULT_EXCERPT_CHARS = 200
 DEFAULT_LLM_EVIDENCE_CHARS = 1200
 DEFAULT_LLM_EVIDENCE_TOTAL_CHARS = 4800
@@ -262,6 +264,22 @@ _MODE_RECALL_DESC = {
 }
 
 _DENSE_MODES = frozenset({"hybrid", "dense", "rerank"})
+
+
+def select_mode_for_remaining(
+    requested: str,
+    remaining_seconds: float,
+) -> tuple[str, str | None]:
+    """Map remaining wall-clock seconds to a retrieval mode. No I/O."""
+    requested_mode = str(requested or "")
+    if (
+        requested_mode in _DENSE_MODES
+        and float(remaining_seconds) < HYBRID_MIN_REMAINING_SECONDS
+    ):
+        return "bm25", REMAINING_BUDGET_FALLBACK
+    return requested_mode, None
+
+
 _DENSE_DEPENDENCY_FAILURES = (
     "flagembedding",
     "bgem3flagmodel",
