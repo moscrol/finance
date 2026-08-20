@@ -276,23 +276,44 @@ def _overnight_news_evidence(
         timeout=timeout,
         as_of=as_of,
     )
+    if as_of is None:
+        cutoff_text = None
+    elif hasattr(as_of, "isoformat"):
+        cutoff_text = as_of.isoformat()
+    else:
+        cutoff_text = str(as_of)[:10]
+    after_cutoff = bool(not result.items and result.after_cutoff_items)
+    source_items = result.items[:6] or result.after_cutoff_items[:6]
     evidence = [
         agent_research.AgentEvidence(
             tool="news_search",
-            title=item.title,
+            title=(
+                f"晚于问句日 {cutoff_text}｜{item.title}"
+                if after_cutoff and cutoff_text
+                else item.title
+            ),
             detail=f"{item.date} {item.source}",
             source=item.url,
             source_date=item.date[:10] or None,
             evidence_tier="news",
             independent_key=item.url,
         )
-        for item in result.items[:6]
+        for item in source_items
     ]
     evidence = [
         replace(item, content_hash=agent_research.evidence_content_hash(item))
         for item in evidence
     ]
-    observation = "；".join(f"{item.detail}《{item.title}》" for item in evidence)
+    if after_cutoff and cutoff_text and evidence:
+        listed = "；".join(f"{item.detail}《{item.title}》" for item in evidence)
+        observation = (
+            f"源返回 {len(evidence)} 条，全部晚于问句日 {cutoff_text}，"
+            f"已标注后交付；不是源里没有。{listed}"
+        )
+    else:
+        observation = "；".join(
+            f"{item.detail}《{item.title}》" for item in evidence
+        )
     return evidence, observation
 
 
@@ -1137,15 +1158,14 @@ def build_episode_registry(
                 else (f"{value.dataset} 在指定条件与时点内没有结构化结果",)
             )
             observation = result.observation
-            if (
-                normalized.limit > result.audit.applied_limit
-                and result.audit.row_count >= result.audit.applied_limit
-            ):
-                observation = (
-                    f"{observation}；查询结果已按 Agent 上下文预算截断至 "
-                    f"{result.audit.applied_limit} 条；如需更多，请增加筛选、"
-                    "分组或排序后继续查询"
-                )
+            notice = finance_query.truncation_notice(
+                result.audit,
+                covered_range=finance_query.covered_date_range(
+                    tuple(item.source_date for item in result.evidence)
+                ),
+            )
+            if notice:
+                observation = f"{observation}；{notice}"
             # 代偿必须让模型看见：查询成功但写法被改过，不说它下一轮还会照原样写。
             # 放在结论之后、和截断提示同层——都是「结果可用，但有一条关于写法的话」。
             if normalization_notes:
@@ -1170,6 +1190,7 @@ def build_episode_registry(
                     ),
                     source_trade_date=result.served_date,
                     result_count=len(result.evidence),
+                    requested_time_range=result.audit.requested_time_range,
                 ),
                 gaps=gaps,
                 **_finance_payload_kwargs(bounded_value, result),
