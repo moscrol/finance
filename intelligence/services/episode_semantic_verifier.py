@@ -10,7 +10,10 @@ The module is provider-neutral.  Tests and canary callers can inject a small
 ``judge_fn``/primary model; production can use the independent provider chosen
 by :func:`llm_refine.judge_provider`.  No NLI model or second retrieval path is
 introduced here: a semantic judge may reject or narrow an answer, never add
-evidence or upgrade a structurally partial outcome.  Optional numeric-claim
+evidence.  Mixed/blocked structural partials stay partial.  An honest runtime
+partial whose contracted slots are already fulfilled (the 2026-08-19
+deadline_exhausted shape) may be reported completed after a judge pass.
+Optional numeric-claim
 recheck (bookgap S2) may attach ``source_recheck`` when ``ASK_JUDGE_RECHECK``
 is on; the default remains off.
 """
@@ -622,13 +625,14 @@ class SemanticEpisodeVerifier:
             structural.verified_status != "completed"
             and not _can_semantically_release_partial(structural)
         ):
-            # A semantic pass cannot promote a structural partial.  Avoid even
+            # Mixed/blocked structural partials are not promoted.  Avoid even
             # calling the judge when no useful required output survived or the
             # partial was caused by anything outside the release allowlist
             # (explicit evidence gap / missing mandatory capability / evidence
             # type whitelist).  A mixed fulfilled/gap result may still be
-            # judged and released as partial, but can never be promoted to
-            # completed.
+            # judged and released as partial.  Honest runtime-partial with
+            # every slot fulfilled is the exception: see
+            # ``_contract_slots_all_fulfilled``.
             status: SemanticStatus = (
                 "failed" if structural.verified_status == "failed" else "partial"
             )
@@ -1887,7 +1891,10 @@ class SemanticEpisodeVerifier:
                 verified=verified,
                 status=(
                     "completed"
-                    if verified.verified_status == "completed"
+                    if (
+                        verified.verified_status == "completed"
+                        or _contract_slots_all_fulfilled(verified)
+                    )
                     else "partial"
                 ),
                 public_answer=view(
@@ -2193,6 +2200,39 @@ def _gap_task_context(frame: TaskFrame) -> str:
     }.get(frame.question_type, "")
 
 
+def _contract_slots_all_fulfilled(verified: VerifiedEpisodeOutcome) -> bool:
+    """True when every contracted slot is fulfilled and the structure has no issue.
+
+    This is the 2026-08-19 production shape: runtime declared partial
+    (``deadline_exhausted``) while bindings, coverage and draft were already
+    complete. Structural verification never upgrades runtime status; after a
+    judge pass the semantic gate may report completed — the deadline is an
+    operational fact, not a missing required output.
+    """
+
+    if not verified.outcome.draft.strip():
+        return False
+    if verified.issue_items:
+        return False
+    if verified.completion.factual_grounding != "fulfilled":
+        return False
+    if verified.completion.task_coverage != "fulfilled":
+        return False
+    required_ids = {
+        item.output_id
+        for item in (verified.contract.required_outputs if verified.contract else ())
+        if item.required
+    }
+    outputs = verified.completion.outputs
+    if required_ids:
+        return all(
+            item.status == "fulfilled"
+            for item in outputs
+            if item.output_id in required_ids
+        )
+    return any(item.status == "fulfilled" for item in outputs)
+
+
 def _can_semantically_release_partial(
     verified: VerifiedEpisodeOutcome,
 ) -> bool:
@@ -2215,14 +2255,9 @@ def _can_semantically_release_partial(
         item.status == "fulfilled" for item in verified.completion.outputs
     ):
         return False
-    if (
-        verified.outcome.status == "partial"
-        and not verified.issue_items
-        and verified.completion.factual_grounding == "fulfilled"
-        and verified.completion.task_coverage == "fulfilled"
+    if verified.outcome.status == "partial" and _contract_slots_all_fulfilled(
+        verified
     ):
-        # The runtime declared an honest partial even though every structural
-        # binding is present. Judge the prose, but preserve the partial status.
         return True
     return allows_partial_release(verified.issue_items)
 
