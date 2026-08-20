@@ -248,8 +248,12 @@ def project_ask_state(
     open_gaps: tuple[str, ...] = (),
     parent_followup_prompt: str | None = None,
 ) -> FollowupState:
-    anchor = str(subject or "").strip() or str(question or "").strip()[:16] or "该问题"
-    kind = infer_question_kind(question, anchor, enable_methodology=True)
+    # 分类与展示分离：主语未知时让 infer 看到空主语（否则永远判不出
+    # methodology/other），展示兜底用「该问题」。不切原句——[:16] 曾把
+    # 「…2026-08-18…」拦腰切成「2026-08-1」直接进用户可见的追问。
+    subject_clean = str(subject or "").strip()
+    kind = infer_question_kind(question, subject_clean, enable_methodology=True)
+    anchor = subject_clean or "该问题"
     skip = frozenset({"recheck"} if kind == "track" or parse_track_intent(question) else ())
     cleaned = tuple(str(gap).strip() for gap in open_gaps if str(gap).strip())
     return FollowupState(
@@ -313,7 +317,7 @@ def select_angles(state: FollowupState) -> tuple[str, ...]:
 
 
 def _subject(state: FollowupState) -> str:
-    return state.subject.strip() or state.question.strip()[:16] or "该问题"
+    return state.subject.strip() or "该问题"
 
 
 def _is_echo(state: FollowupState, prompt: str) -> bool:
