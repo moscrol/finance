@@ -591,6 +591,12 @@ def test_judge_receives_only_bound_evidence_with_compact_semantic_fields(
 def test_fulfilled_partial_model_finish_still_reaches_semantic_judge(
     monkeypatch,
 ) -> None:
+    """契约槽全齐的 runtime-partial：判官仍要跑，过审后对外 completed。
+
+    结构层继续保持 verified_status=partial（永不升级 runtime 自报）。
+    语义层过审才把用户可见 status 升成 completed；gaps 仍原样保留。
+    """
+
     frame, structural = _structural(
         "我的判断是反弹仍有数日窗口，但外部催化仍待核验。",
         status="partial",
@@ -606,10 +612,43 @@ def test_fulfilled_partial_model_finish_still_reaches_semantic_judge(
     )
 
     assert len(model.calls) == 1
-    assert result.status == "partial"
+    assert structural.verified_status == "partial"
+    assert result.status == "completed"
     assert result.judge_status == "passed"
     assert result.verified.completion.task_coverage == "fulfilled"
     assert result.verified.outcome.gaps == ("本轮资讯检索未命中",)
+
+
+def test_semantic_pass_promotes_deadline_partial_when_contract_is_fulfilled() -> None:
+    """生产 run_20260819_104536：deadline_exhausted 但槽位全齐，过审后 completed。
+
+    runtime 自报「研究截止时间已到，仍有必需输出未覆盖」，结构层 issues 空、
+    factual_grounding/task_coverage 都 fulfilled。截止是操作事实，不是内容缺口。
+    """
+
+    frame, structural = _structural(
+        "基准判断：量能处于修复中段。失效条件：上涨家数再度明显回落则证伪。",
+        status="partial",
+        gaps=("研究截止时间已到，仍有必需输出未覆盖",),
+    )
+    structural = replace(
+        structural,
+        outcome=replace(structural.outcome, stop_reason="deadline_exhausted"),
+    )
+    judge = _judge(True)
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert structural.verified_status == "partial"
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert "量能处于修复中段" in result.public_answer
+    assert result.verified.outcome.stop_reason == "deadline_exhausted"
+    assert result.verified.outcome.gaps == ("研究截止时间已到，仍有必需输出未覆盖",)
 
 
 def test_unsupported_causality_is_removed_before_public_completion() -> None:
