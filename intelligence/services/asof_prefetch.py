@@ -317,8 +317,30 @@ def evidence_from_prefetch(items: tuple[PrefetchItem, ...]) -> tuple[AgentEviden
 
 
 def format_opening_prefetch_message(items: tuple[PrefetchItem, ...] | tuple[AgentEvidence, ...]) -> str:
+    """开场预取消息。带 E 号，否则模型引用不到、判官按无出处删真话。
+
+    号不是这里新编的：``evidence_ordinal_table`` 与终局注册表同一张表，
+    而 ``_seed_opening_prefetch`` 把预取**先**放进证据账本，故此处算出的
+    ``E1..En`` 就是终局解析得到的那几个。认不出 hash 的条目不发号
+    （fail closed），绝不自己编——编出来的号会解析到别人头上。
+    """
+
     if not items:
         return ""
-    return "问句日预取（harness 进场事实，不是工具调用）：\n" + "\n\n".join(
-        f"{item.title}\n{item.detail}" for item in items
+    from intelligence.services.episode_protocol import evidence_ordinal_table
+
+    hashed = tuple(
+        item for item in items if str(getattr(item, "content_hash", "") or "").strip()
+    )
+    table = evidence_ordinal_table(hashed)
+    blocks: list[str] = []
+    for item in items:
+        digest = str(getattr(item, "content_hash", "") or "").strip()
+        eid = table.get(digest)
+        head = f"[{eid}] {item.title}" if eid else item.title
+        blocks.append(f"{head}\n{item.detail}")
+    return (
+        "问句日预取（harness 进场事实，不是工具调用；"
+        "下列 [E 号] 与证据注册表同号，写结论时可直接引用）：\n"
+        + "\n\n".join(blocks)
     )
