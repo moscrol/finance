@@ -59,6 +59,7 @@ from intelligence.services.episode_answer_hygiene import (
     find_unattempted_claims,
     repair_collapsed_to_stub,
     rewrite_unattempted_claims,
+    rewrite_unverified_kb_gap_claims,
 )
 from intelligence.services.episode_protocol import (
     cited_evidence_ordinals,
@@ -870,6 +871,7 @@ class SemanticEpisodeVerifier:
         structural, claim_issues, claim_count = self._apply_unattempted_claim_rewrite(
             frame, structural
         )
+        structural = self._apply_kb_gap_proof_rewrite(structural)
         self._active_hygiene = _HygieneSnapshot(
             unattempted_claim_count=claim_count,
             asked_date_coverage=classify_asked_date_coverage(
@@ -2039,6 +2041,21 @@ class SemanticEpisodeVerifier:
             for claim in claims
         )
         return structural, issues, len(claims)
+
+    def _apply_kb_gap_proof_rewrite(
+        self,
+        structural: VerifiedEpisodeOutcome,
+    ) -> VerifiedEpisodeOutcome:
+        rewritten = rewrite_unverified_kb_gap_claims(
+            structural.outcome.draft,
+            structural.outcome.traces,
+        )
+        if rewritten == structural.outcome.draft:
+            return structural
+        return replace(
+            structural,
+            outcome=replace(structural.outcome, draft=rewritten),
+        )
 
     def _withhold_public_source(
         self,
