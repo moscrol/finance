@@ -120,7 +120,7 @@ ev, obs, _=tools['kb_search']('长电科技怎么看', ctx)
 legacy=sum(len((h.get('excerpt') or '')[:160]) for h in hits[:5])
 print('n', len(ev), 'legacy', legacy, 'new', sum(len(i.detail) for i in ev))
 print('hit1_has_q1_report', '长电科技2026年一季报' in ev[0].detail)
-print('hit3_not_path_only', ev[2].detail.strip() != '- \`raw/cninfo-baseline/长电科技.json\`')
+print('hit3_has_baseline_meta', 'annual_report_baseline' in ev[2].detail or 'L2' in ev[2].detail)
 "
 
 # live RAG 重放（需 worker；~20–40s；索引会漂，只作人工对照）
