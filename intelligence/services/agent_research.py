@@ -32,6 +32,7 @@ from intelligence.services import (
     market_news,
     web_research,
 )
+from intelligence.services.kb_selection_noise import filter_structural_noise
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import InformationCutoff, ResearchDeadline
 from intelligence.services.research_state import EvidenceObservation, ResearchState
@@ -396,7 +397,11 @@ def kb_search_delivery_limits(
 
 
 def kb_search_hit_text(hit: object, *, detail_chars: int | None = None) -> str:
-    """kb_search 送达正文：接 llm_evidence 粗管道，与 evidence_search 同规格。"""
+    """kb_search 送达正文：接 llm_evidence 粗管道，再剥结构噪声（V5）。
+
+    过滤在截断之前：窗口若被截，截到的应是正文头而不是标签汤。
+    ``detail_chars=0`` 仍表示送达层不二次截断，过滤本身不加长度上限。
+    """
 
     text = str(
         getattr(hit, "llm_evidence", "")
@@ -404,6 +409,7 @@ def kb_search_hit_text(hit: object, *, detail_chars: int | None = None) -> str:
         or getattr(hit, "excerpt", "")
         or ""
     )
+    text = filter_structural_noise(text)
     limit = KB_SEARCH_DETAIL_CHARS if detail_chars is None else detail_chars
     if limit > 0:
         return text[:limit]
