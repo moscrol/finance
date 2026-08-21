@@ -2337,18 +2337,8 @@ class SemanticEpisodeVerifier:
         correlated_judge: bool,
         call: _JudgeCall | None = None,
     ) -> SemanticEpisodeOutcome:
-        """Keep reviewed remainder and expose only the deleted slot as a gap."""
+        """Keep reviewed remainder; required slots degrade instead of vanishing."""
 
-        # 收缩之前先记下：这些格在**代码侧结构核验**里本来是不是达标的。
-        # 收缩会把它们改成 missing，之后就分不出「本来就缺证据」和
-        # 「证据够、是质检重写把表述删了」——而这两种缺口给用户的指引相反。
-        fulfilled_before_loss = frozenset(
-            str(item.output_id)
-            for item in (
-                verified.completion.outputs if verified.completion else ()
-            )
-            if str(getattr(item, "status", "")) == "fulfilled"
-        )
         verified = _shrink_verified_for_marker_loss(verified, output_ids)
         public = _sanitize_public_answer(
             remove_lost_output_scaffolding(
@@ -2358,17 +2348,6 @@ class SemanticEpisodeVerifier:
             verified.outcome.evidence,
             verified.outcome.traces,
         )
-        if not public:
-            outcome = SemanticEpisodeOutcome(
-                verified=verified,
-                status="partial",
-                public_answer=self._gap_answer(frame, verified),
-                judge_status="repaired",
-                issues=judge_issues,
-                correlated_judge=correlated_judge,
-                gap_output_ids=output_ids,
-            )
-            return self._finalize_outcome(outcome, call)
         descriptions = {
             item.output_id: item.description.strip() or item.output_id
             for item in (
@@ -2381,26 +2360,23 @@ class SemanticEpisodeVerifier:
                 for output_id in output_ids
             )
         )
-        context = _gap_task_context(frame)
-        context_prefix = f"{context}的" if context else ""
-        gap = _marker_loss_gap_sentence(
-            labels=labels,
-            context_prefix=context_prefix,
-            all_were_fulfilled=bool(output_ids)
-            and all(
-                str(output_id) in fulfilled_before_loss for output_id in output_ids
-            ),
-        )
+        if not public:
+            outcome = SemanticEpisodeOutcome(
+                verified=verified,
+                status="partial",
+                public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public="")),
+                judge_status="repaired",
+                issues=judge_issues,
+                correlated_judge=correlated_judge,
+                gap_output_ids=output_ids,
+            )
+            return self._finalize_outcome(outcome, call)
+        annotated = _with_required_output_degrade_mark(public, labels)
         outcome = SemanticEpisodeOutcome(
             verified=verified,
             status="partial",
             public_answer=view(
-                TerminalFacts(
-                    cause=CAUSE_EVIDENCE_GAP,
-                    question=frame.raw_question,
-                    public=public,
-                    gap_body=gap,
-                )
+                TerminalFacts(cause=CAUSE_VERIFIED, public=annotated)
             ),
             judge_status="repaired",
             issues=judge_issues,
@@ -2541,6 +2517,27 @@ def _latest_evidence_date(evidence: tuple) -> str:
 
 _ISO_DATE_RE = re.compile(r"^20\d{2}-\d{2}-\d{2}$")
 _MARKER_LOSS_GAP = "semantic repair removed required output"
+REQUIRED_OUTPUT_DEGRADED_MARK = "【质检降级】"
+
+
+def _required_output_degraded_note(labels: tuple[str, ...]) -> str:
+    body = "、".join(labels) if labels else "必需输出"
+    return (
+        f"{REQUIRED_OUTPUT_DEGRADED_MARK}{body}"
+        "在质检后不完整或存疑，残块保留但判断强度降级，详见「输出质检」。"
+    )
+
+
+def _with_required_output_degrade_mark(
+    public: str,
+    labels: tuple[str, ...],
+) -> str:
+    text = str(public or "").strip()
+    if not text or not labels:
+        return str(public or "")
+    if REQUIRED_OUTPUT_DEGRADED_MARK in text:
+        return str(public or "")
+    return f"{_required_output_degraded_note(labels)}\n{text}"
 
 
 def _shrink_verified_for_marker_loss(
@@ -2941,7 +2938,8 @@ def numeric_condition_unsupported(verified: VerifiedEpisodeOutcome) -> bool:
     """True when the draft has a novel numeric condition G11 would redact.
 
     Adapter runs this *before* the judge so a backfill turn can fetch the
-    missing market_data instead of thinning the answer.
+    missing number via the subject-anchored capability instead of thinning
+    the answer.
     """
 
     return bool(
@@ -4342,6 +4340,7 @@ def _contains_private_token(value: object, private_tokens: frozenset[str]) -> bo
 
 
 __all__ = [
+    "REQUIRED_OUTPUT_DEGRADED_MARK",
     "SemanticEpisodeOutcome",
     "SemanticEpisodeVerifier",
     "draft_sentence_count",
