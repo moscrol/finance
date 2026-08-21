@@ -18,6 +18,7 @@ from intelligence.services.episode_protocol import (
     EpisodeFinishRejection,
     build_episode_input,
     build_episode_instructions,
+    cited_evidence_ordinals,
     evidence_ordinal_table,
     finish_json_schema,
     finish_rejection_fields,
@@ -1304,6 +1305,26 @@ def test_strip_hashes_for_model_keeps_ordinals_only() -> None:
     assert "evidence_hashes" not in facing
     assert "content_hash" not in facing["evidence"][0]
     assert facing["evidence"][0]["evidence_id"] == "E1"
+
+
+def test_cited_evidence_ordinals_extracts_prose_refs_in_order() -> None:
+    # R-20260821-06：正文 E 引用是答案对依赖的显式声明。识别语法与
+    # _EVIDENCE_ORDINAL_RE 同一套（E1..E999、无前导零），首现顺序去重。
+    assert cited_evidence_ordinals("结论（E3）成立；E1 与 e12 支持，E3 重复。") == (
+        "E3",
+        "E1",
+        "E12",
+    )
+
+
+def test_cited_evidence_ordinals_rejects_lookalike_tokens() -> None:
+    # 左界排除字母数字：PE10 是估值倍数、1.5E8 是科学计数、CE4 是认证名，
+    # 都不是证据引用。右界排除续位数字：E41 不得拆成 E4。
+    assert cited_evidence_ordinals("PE10 高估；市值 1.5E8；CE4 认证；E41 有效。") == (
+        "E41",
+    )
+    assert cited_evidence_ordinals("") == ()
+    assert cited_evidence_ordinals("E0 与 E1000 越格式") == ()
 
 
 def test_finish_rejection_fields_present_when_absent() -> None:
