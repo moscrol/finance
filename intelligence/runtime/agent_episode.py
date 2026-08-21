@@ -30,13 +30,13 @@ from intelligence.runtime.episode_finalizer import (
 )
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_protocol import (
+    SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
     attach_evidence_ordinals,
-    build_episode_input,
-    build_episode_instructions,
     evidence_ordinal_table,
     expand_episode_snapshot_bindings,
     finish_rejection_fields,
     rejection_response,
+    split_episode_prompt,
     strip_hashes_for_model,
     validate_episode_finish,
 )
@@ -698,19 +698,13 @@ class ContinuousAgentEpisode:
         finish_failures = 0
         plan_failures = 0
         plan_turns = 0
+        system, user = split_episode_prompt(task_frame, context, registry)
+        # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: system is byte-stable; user/tool
+        # rebuild each turn. cache_control is not implemented this increment.
+        _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
         messages: list[dict[str, object]] = [
-            {
-                "role": "system",
-                "content": build_episode_instructions(
-                    task_frame,
-                    context,
-                    registry,
-                ),
-            },
-            {
-                "role": "user",
-                "content": build_episode_input(task_frame, context),
-            },
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
         ]
         evidence_ledger = EvidenceLedger(
             information_cutoff=context.information_cutoff.as_of_date,

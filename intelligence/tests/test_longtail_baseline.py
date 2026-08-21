@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from intelligence.services.episode_protocol import build_episode_instructions
+import json
+
+from intelligence.services.episode_protocol import (
+    build_episode_input,
+    build_episode_instructions,
+)
 from intelligence.services.episode_semantic_verifier import _JUDGE_SYSTEM_PROMPT
 from intelligence.services.lane_generation import _system_prompt
 from intelligence.services.longtail_baseline import (
@@ -124,7 +129,9 @@ def test_episode_instructions_unchanged_when_off(monkeypatch) -> None:
     monkeypatch.delenv(ENV_NAME, raising=False)
     frame = _frame()
     off_text = build_episode_instructions(frame, _context(frame), _registry())
+    payload = json.loads(build_episode_input(frame, _context(frame), _registry()))
     assert HEADING not in off_text
+    assert HEADING not in payload["question_type_rules"]
     assert episode_rule(frame) == ""
 
 
@@ -132,9 +139,11 @@ def test_episode_instructions_inject_when_on(monkeypatch) -> None:
     monkeypatch.setenv(ENV_NAME, "on")
     frame = _general_frame()
     text = build_episode_instructions(frame, _context(frame), _registry())
-    assert HEADING in text
+    payload = json.loads(build_episode_input(frame, _context(frame), _registry()))
+    assert HEADING not in text
+    assert HEADING in payload["question_type_rules"]
     for marker in ANALYTICAL_MARKERS:
-        assert marker in text
+        assert marker in payload["question_type_rules"]
 
 
 def test_lane_prompt_unchanged_when_off(monkeypatch) -> None:
