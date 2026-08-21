@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import replace
 import json
@@ -337,6 +338,76 @@ def test_tool_result_ledger_persists_payload_meta_without_row_bodies() -> None:
     )
     assert "/Users/" not in persisted
     assert "/home/" not in persisted
+
+
+def test_kb_tool_result_persists_delivery_telemetry() -> None:
+    """V7：kb_search 的 tool_result.telemetry 必须落盘（送达字符/命中/来源页）。"""
+
+    def kb_runner(query: str, _context: AgentToolContext):
+        evidence = AgentEvidence(
+            tool="kb_search",
+            title="钙钛矿",
+            detail=f"{query}：链路角色与市占率",
+            source="本地知识库",
+            internal_locator="wiki/concepts/钙钛矿.md",
+            source_date="2026-07-21",
+            evidence_tier="L1",
+            content_hash="kb-evidence-1",
+        )
+        observation = f"{evidence.title}：{evidence.detail}"
+        return (
+            [evidence],
+            observation,
+            ProviderTrace(
+                provider="agent:kb_search",
+                capability="agent_loop",
+                status="success",
+                result_count=1,
+            ),
+        )
+
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _plan_turn(),
+            _tool_turn("钙钛矿链路", name="kb_search"),
+            _finish_turn(),
+        ]
+    )
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="kb_search",
+                capability="kb_search",
+                description="本地知识库",
+                cost="local",
+                freshness="current",
+                runner=kb_runner,
+            ),
+        )
+    )
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame, allowed_capabilities=("kb_search",)),
+        registry=registry,
+    )
+    results = [event for event in outcome.events if event.kind == "tool_result"]
+    assert len(results) == 1
+    telemetry = results[0].payload.get("telemetry")
+    observation = str(results[0].payload.get("observation") or "")
+    assert isinstance(telemetry, Mapping)
+    assert telemetry["hit_count"] == 1
+    assert telemetry["delivered_chars"] == len(observation)
+    assert list(telemetry["source_pages"]) == ["wiki/concepts/钙钛矿.md"]
+    assert telemetry["delivered_chars"] != 800
+    for call in model.calls:
+        for message in call["messages"]:
+            if message.get("role") != "tool":
+                continue
+            raw = message.get("content")
+            body = json.loads(raw) if isinstance(raw, str) else raw
+            if isinstance(body, dict):
+                assert "telemetry" not in body
 
 
 def test_glm_episode_session_resume_keeps_original_model_history() -> None:

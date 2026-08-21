@@ -770,3 +770,55 @@ class TestRetrievalDegradationReachesTheModel:
 
         assert evidence, "前提：这条用例要覆盖的是**有命中**的路径"
         assert "已降级" in observation
+
+
+class TestKbSearchDeliveryTelemetry:
+    """V7：kb tool_result 的送达遥测按实际 observation/evidence 计，不写死 800。"""
+
+    def test_counts_actual_observation_chars_not_hardcoded_800(self) -> None:
+        from intelligence.services.agent_research import (
+            AgentEvidence,
+            kb_delivery_telemetry,
+        )
+
+        evidence = [
+            AgentEvidence(
+                tool="kb_search",
+                title="长电科技",
+                detail="来源清单头部+半个 URL",
+                source="本地知识库",
+                internal_locator="wiki/entities/长电科技.md",
+            )
+        ]
+        observation = "长电科技：来源清单头部+半个 URL"
+        telemetry = kb_delivery_telemetry(evidence, observation)
+
+        assert telemetry["delivered_chars"] == len(observation)
+        assert telemetry["delivered_chars"] != 800
+        assert telemetry["hit_count"] == 1
+        assert telemetry["source_pages"] == ["wiki/entities/长电科技.md"]
+
+    def test_kb_search_runner_matches_helper(self) -> None:
+        from intelligence.services.agent_research import kb_delivery_telemetry
+
+        class _Hit:
+            title = "瑞华泰"
+            excerpt = "聚酰亚胺薄膜"
+            file_path = "wiki/entities/瑞华泰.md"
+            source_date = None
+
+        class _Rag:
+            hits = [_Hit()]
+            telemetry = None
+
+        tools = agent_research.build_default_tools(lambda *_a, **_k: _Rag())
+        context = agent_research.AgentToolContext(
+            ResearchDeadline.from_timeout(5.0),
+            lambda: False,
+            InformationCutoff(date(2026, 7, 24), "requested"),
+        )
+        evidence, observation, _trace = tools["kb_search"]("瑞华泰", context)
+        telemetry = kb_delivery_telemetry(evidence, observation)
+        assert telemetry["hit_count"] == len(evidence)
+        assert telemetry["delivered_chars"] == len(observation)
+        assert "wiki/entities/瑞华泰.md" in telemetry["source_pages"]

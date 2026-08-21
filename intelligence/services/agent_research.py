@@ -344,6 +344,31 @@ def describe_no_result(
     return f"{miss_text}（{status}{tail}）"
 
 
+def kb_delivery_telemetry(
+    evidence: Sequence[AgentEvidence],
+    observation: str,
+) -> dict[str, object]:
+    """kb_search 送达遥测：按**实际送给模型的**字符/条数/来源页计，不写死 800。
+
+    V3 会改 ``_kb_search`` 管道（``excerpt[:160]`` → ``llm_evidence``）。本函数
+    吃的是已经组装好的 observation 和 evidence，管道变粗读数自动上去——
+    传感器和落盘共用这一处，避免两套量纲。
+    """
+
+    pages: list[str] = []
+    for item in evidence:
+        page = str(getattr(item, "internal_locator", "") or "").strip()
+        if not page:
+            page = str(getattr(item, "title", "") or "").strip()
+        if page:
+            pages.append(page)
+    return {
+        "delivered_chars": len(observation or ""),
+        "hit_count": len(tuple(evidence)),
+        "source_pages": pages,
+    }
+
+
 def build_default_tools(
     kb_retrieve: Callable[[str, float], object],
 ) -> dict[str, ToolRunner]:
@@ -415,6 +440,8 @@ def build_default_tools(
         degraded_note = _describe_retrieval_degradation(telemetry)
         if degraded_note:
             observation = "；".join(part for part in (observation, degraded_note) if part)
+        # 送达遥测：kb_delivery_telemetry(evidence, observation)。registry 在
+        # cutoff 改写后用同一函数落盘 tool_result.telemetry，按实际字符计、不写死 800。
         trace = ProviderTrace(
             provider="agent:kb_search",
             capability="agent_loop",
