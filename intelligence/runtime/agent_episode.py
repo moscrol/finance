@@ -88,6 +88,7 @@ from intelligence.runtime.sub_research import (
     SubResearchResult,
 )
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.tool_observation_noise import prune_tool_observation
 from intelligence.services.tool_result_budget import budget_tool_observation
 
 
@@ -382,6 +383,7 @@ class _EpisodeToolAccumulator:
     successful_tools: set[str] = field(default_factory=set)
     traces: list[ProviderTrace] = field(default_factory=list)
     gaps: list[str] = field(default_factory=list)
+    seen_observation_prose: set[str] = field(default_factory=set)
 
     def consume(
         self,
@@ -483,13 +485,18 @@ class _EpisodeToolAccumulator:
             self.ledger.add("tool_result", {**public_observation, **timing})
             model_view = dict(public_observation)
             model_view.pop("telemetry", None)
+            pruned, seen = prune_tool_observation(
+                model_view,
+                seen_prose=self.seen_observation_prose,
+            )
+            self.seen_observation_prose = set(seen)
             self.messages.append(
                 {
                     "role": "tool",
                     "tool_call_id": call.call_id,
                     "content": json.dumps(
                         strip_hashes_for_model(
-                            budget_tool_observation(model_view)
+                            budget_tool_observation(pruned)
                         ),
                         ensure_ascii=False,
                     ),
