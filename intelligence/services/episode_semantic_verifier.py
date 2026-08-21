@@ -2335,6 +2335,16 @@ class SemanticEpisodeVerifier:
     ) -> SemanticEpisodeOutcome:
         """Keep reviewed remainder and expose only the deleted slot as a gap."""
 
+        # 收缩之前先记下：这些格在**代码侧结构核验**里本来是不是达标的。
+        # 收缩会把它们改成 missing，之后就分不出「本来就缺证据」和
+        # 「证据够、是质检重写把表述删了」——而这两种缺口给用户的指引相反。
+        fulfilled_before_loss = frozenset(
+            str(item.output_id)
+            for item in (
+                verified.completion.outputs if verified.completion else ()
+            )
+            if str(getattr(item, "status", "")) == "fulfilled"
+        )
         verified = _shrink_verified_for_marker_loss(verified, output_ids)
         public = _sanitize_public_answer(
             remove_lost_output_scaffolding(
@@ -2369,11 +2379,13 @@ class SemanticEpisodeVerifier:
         )
         context = _gap_task_context(frame)
         context_prefix = f"{context}的" if context else ""
-        gap = (
-            "证据缺口："
-            + context_prefix
-            + "、".join(labels)
-            + "中的未核验表述已删除，需补充直接证据后再判断。"
+        gap = _marker_loss_gap_sentence(
+            labels=labels,
+            context_prefix=context_prefix,
+            all_were_fulfilled=bool(output_ids)
+            and all(
+                str(output_id) in fulfilled_before_loss for output_id in output_ids
+            ),
         )
         outcome = SemanticEpisodeOutcome(
             verified=verified,
@@ -3722,6 +3734,39 @@ def _renumber_parenthesized_list_items(source: str) -> str:
     for start, end, replacement in reversed(replacements):
         source = f"{source[:start]}{replacement}{source[end:]}"
     return source
+
+
+def _marker_loss_gap_sentence(
+    *,
+    labels: tuple[str, ...],
+    context_prefix: str,
+    all_were_fulfilled: bool,
+) -> str:
+    """按**丢失原因**给缺口文案分流，别把 harness 的问题甩锅给数据。
+
+    生产实测 `run_20260821_114642_385979`（诊断见
+    `docs/verification/2026-08-21-judge-quantity-blindspot.md`）：
+    `structural_verifier` 判四个必填格全部 `fulfilled`、零 gap，随后语义质检
+    重写公开稿丢掉两格，用户看到的却是「**需补充直接证据**后再判断」——
+    让人去补一份根本不缺的证据。归因错了，指引也就错了。
+
+    两种缺口的处置相反，必须分开说：
+
+    - 本来就没取到证据 → 补数据是对的
+    - 代码侧已判达标、是质检把表述删了 → **不要补数据**，该重做那一格
+
+    这不改判官的任何权力，只让它造成的后果被如实归因。
+    """
+
+    body = context_prefix + "、".join(labels)
+    if all_were_fulfilled:
+        return (
+            "结构缺口："
+            + body
+            + "在结构核验中已判达标，但本轮质检重写时删除了其表述。"
+            "这不是证据不足——不需要补充数据，应重做这些部分。"
+        )
+    return "证据缺口：" + body + "中的未核验表述已删除，需补充直接证据后再判断。"
 
 
 def _marker_loss_issues(output_ids: tuple[str, ...]) -> tuple[str, ...]:
