@@ -261,46 +261,51 @@ def test_judge_prompt_forbids_rejecting_verified_quantities() -> None:
 
 
 # ── 第 8 刀：缺口按丢失原因分流，不把 harness 的问题甩锅给数据 ──────
+# W1（R-20260821-07）后，横幅句换成【待复核】块级标注，但归因分流不动：
+# 达标格被质检删掉，绝不能写成「证据不足」让用户去补一份根本不缺的证据。
 
 
 def test_gap_wording_when_code_had_judged_it_fulfilled() -> None:
-    """代码判达标、质检删了表述 → 必须说「不需要补数据，应重做」。
+    """代码判达标、质检删了表述 → 标注必须写明「非证据不足」。
 
     生产 run_20260821_114642_385979：structural_verifier 判四格全 fulfilled、
     零 gap，用户却看到「需补充直接证据后再判断」——去补一份根本不缺的证据。
     """
 
     from intelligence.services.episode_semantic_verifier import (
-        _marker_loss_gap_sentence,
+        _marker_loss_block_annotation,
     )
 
-    s = _marker_loss_gap_sentence(
+    s = _marker_loss_block_annotation(
         labels=("直接回答", "反证"), context_prefix="", all_were_fulfilled=True
     )
-    assert "不需要补充数据" in s
-    assert "应重做" in s
+    assert s.startswith("【待复核】")
+    assert "非证据不足" in s
     assert "需补充直接证据" not in s, "达标格被删不得报成证据不足"
+    assert "应重做" not in s, "块级标注是状态陈述，不下行动指令（W1 去道歉横幅）"
 
 
 def test_gap_wording_when_evidence_really_was_missing() -> None:
-    """本来就没取到证据 → 仍然让用户补数据，这条指引是对的，不能一刀切改掉。"""
+    """本来就没核验过 → 标注如实说缺证据，不能把归因一刀切成质检问题。"""
 
     from intelligence.services.episode_semantic_verifier import (
-        _marker_loss_gap_sentence,
+        _marker_loss_block_annotation,
     )
 
-    s = _marker_loss_gap_sentence(
+    s = _marker_loss_block_annotation(
         labels=("直接回答",), context_prefix="", all_were_fulfilled=False
     )
-    assert "需补充直接证据" in s
+    assert s.startswith("【待复核】")
+    assert "缺少直接证据" in s
+    assert "非证据不足" not in s
 
 
 def test_gap_wording_keeps_task_context_prefix() -> None:
     from intelligence.services.episode_semantic_verifier import (
-        _marker_loss_gap_sentence,
+        _marker_loss_block_annotation,
     )
 
-    s = _marker_loss_gap_sentence(
+    s = _marker_loss_block_annotation(
         labels=("直接回答",), context_prefix="钙钛矿电池的", all_were_fulfilled=True
     )
-    assert s.startswith("结构缺口：钙钛矿电池的直接回答")
+    assert s.startswith("【待复核】钙钛矿电池的直接回答")

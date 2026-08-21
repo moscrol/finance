@@ -831,11 +831,15 @@ def test_semantic_repair_cannot_remove_a_visible_required_output_marker() -> Non
     assert result.status == "partial"
     assert result.judge_status == "repaired"
     assert "【当前判断】市场处于反弹修复" in result.public_answer
+    # 钉②：numeric_unsupported 是机械硬违规白名单，删句纪律不动。
     assert "99999亿元" not in result.public_answer
-    # 代码侧已判达标、是质检重写删掉的 → 归因必须是结构缺口，
-    # 且不得让用户去补一份根本不缺的证据（见 _marker_loss_gap_sentence）。
-    assert "结构缺口" in result.public_answer
+    # 钉③（W1，R-20260821-07）：残块为空 → 道歉横幅不得出现；
+    # 归因（质检删除、非证据不足）改由块级【待复核】标注承载。
+    assert "结构缺口" not in result.public_answer
+    assert "应重做" not in result.public_answer
     assert "需补充直接证据" not in result.public_answer
+    assert "【待复核】" in result.public_answer
+    assert "非证据不足" in result.public_answer
     assert "继续成立条件" in result.public_answer
     assert result.gap_output_ids == ("continuation_conditions",)
     assert result.to_dict()["gap_output_ids"] == ["continuation_conditions"]
@@ -2182,10 +2186,12 @@ def test_outlook_repair_that_leaves_only_boundary_is_partial_with_gap() -> None:
     assert result.status == "partial"
     assert result.judge_status == "repaired"
     assert "基准判断" not in result.public_answer
-    # 代码侧已判达标、是质检重写删掉的 → 归因必须是结构缺口，
-    # 且不得让用户去补一份根本不缺的证据（见 _marker_loss_gap_sentence）。
-    assert "结构缺口" in result.public_answer
+    # W1（R-20260821-07）：道歉横幅不再出现；归因（质检删除、非证据不足）
+    # 由块级【待复核】标注承载，不得让用户去补一份根本不缺的证据。
+    assert "结构缺口" not in result.public_answer
+    assert "应重做" not in result.public_answer
     assert "需补充直接证据" not in result.public_answer
+    assert "【待复核】" in result.public_answer
     assert "直接回答" in result.public_answer
     assert result.gap_output_ids == ("direct_answer",)
 
@@ -2475,8 +2481,135 @@ def test_valuation_marker_loss_gap_keeps_task_context() -> None:
     )
 
     assert result.status == "partial"
-    assert "证据缺口：估值的" in result.public_answer
+    # W1（R-20260821-07）：横幅换块级标注后，任务上下文前缀仍要保留。
+    assert "证据缺口：估值的" not in result.public_answer
+    assert "【待复核】估值的" in result.public_answer
     assert result.gap_output_ids == ("evidence_boundary",)
+
+
+def _counterpoint_remainder_structural(draft: str):
+    """W1 shape: three fulfilled hashed cells, counterpoint carries two sentences."""
+
+    frame = replace(
+        _frame(),
+        raw_question="2026-07-23 电网设备为什么涨，给出反证",
+        user_goal="判断上涨驱动并给出主要反证",
+        question_type="theme_analysis",
+        subject="电网设备",
+        subject_kind="theme",
+        required_outputs=("direct_assessment", "counterpoint"),
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="电网设备盘面",
+        detail="2026-07-23 电网设备上涨，电力设备成交集中，申万电力设备指数同期涨幅可查。",
+        source="行情快照",
+        source_date="2026-07-23",
+        content_hash="HASH_W1_REMAINDER",
+    )
+    contract = ResearchTaskContract(
+        task_id="w1-counterpoint-remainder",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type=frame.question_type,
+        required_outputs=(
+            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+            RequiredOutput("counterpoint", "反证", ("market_data",), True),
+        ),
+        allowed_capabilities=("market_data",),
+        evidence_plan=EvidencePlan(),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft=draft,
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        ),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", (evidence.content_hash,)),
+            OutputEvidenceBinding("counterpoint", (evidence.content_hash,)),
+        ),
+        usage=AgentUsage(llm_calls=1, tool_calls=1),
+    )
+    return frame, verify_episode_outcome(contract, outcome)
+
+
+def test_partial_block_deletion_keeps_remainder_and_annotates() -> None:
+    """W1 钉①⑤：块内两句、判官合法删一句 → 残块保留 + missing + 批评在案 + 块级标注。
+
+    错误是句级的，破坏也必须是句级的：judge 删掉 counterpoint 的 marker 句后，
+    该格按 r24 口径记 missing/清绑定，但块内没被否决的句子必须留在公开稿，
+    并由 harness 结构化生成【待复核】块级标注；道歉横幅不得出现。
+    """
+
+    frame, structural = _counterpoint_remainder_structural(
+        "【当前判断】电网设备当日上涨显著。"
+        "【反证】上涨完全由政策消息导致，与盘面无关。"
+        "申万电力设备指数同期涨幅需另行核对以排除大盘因素。"
+    )
+    assert _fulfilled_ids(structural) == {"direct_assessment", "counterpoint"}
+    calls = 0
+
+    def judge(request):
+        nonlocal calls
+        calls += 1
+        rejected = [
+            int(item["index"])
+            for item in request["sentences"]
+            if "政策消息导致" in str(item["text"])
+        ]
+        if rejected:
+            return {
+                "passed": False,
+                "rejected_sentence_indexes": rejected,
+                "issues": ["第2句以无据外部因果解释上涨，证据不支持"],
+            }
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "partial"
+    assert result.judge_status == "repaired"
+    # 句级删除照常执行：被否决句消失。
+    assert "政策消息导致" not in result.public_answer
+    # 残块正文保留：块内未被否决的句子仍在公开稿。
+    assert "申万电力设备指数同期涨幅需另行核对" in result.public_answer
+    assert "【当前判断】电网设备当日上涨显著" in result.public_answer
+    # r24 记账口径不变：missing + gap + 清绑定。
+    assert result.gap_output_ids == ("counterpoint",)
+    lost = next(
+        item
+        for item in result.verified.completion.outputs
+        if item.output_id == "counterpoint"
+    )
+    assert lost.status == "missing"
+    assert lost.evidence_ids == ()
+    lost_binding = next(
+        item
+        for item in result.verified.outcome.bindings
+        if item.output_id == "counterpoint"
+    )
+    assert lost_binding.evidence_hashes == ()
+    # 判官批评保留在 issues（orchestrator 由此拼「输出质检」段）。
+    assert any("无据外部因果" in issue for issue in result.issues)
+    # 块级显式质疑标注：harness 结构化生成、点名格 label、公开稿可见。
+    assert "【待复核】" in result.public_answer
+    assert "反证" in result.public_answer
+    # 道歉横幅不得出现：不道歉、不叫用户重做、不叫用户补根本不缺的数据。
+    assert "结构缺口" not in result.public_answer
+    assert "应重做" not in result.public_answer
+    assert "需补充直接证据" not in result.public_answer
 
 
 def test_injected_passing_judge_records_correlated_limit() -> None:

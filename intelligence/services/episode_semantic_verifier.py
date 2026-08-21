@@ -2383,7 +2383,7 @@ class SemanticEpisodeVerifier:
         )
         context = _gap_task_context(frame)
         context_prefix = f"{context}的" if context else ""
-        gap = _marker_loss_gap_sentence(
+        gap = _marker_loss_block_annotation(
             labels=labels,
             context_prefix=context_prefix,
             all_were_fulfilled=bool(output_ids)
@@ -3740,37 +3740,42 @@ def _renumber_parenthesized_list_items(source: str) -> str:
     return source
 
 
-def _marker_loss_gap_sentence(
+def _marker_loss_block_annotation(
     *,
     labels: tuple[str, ...],
     context_prefix: str,
     all_were_fulfilled: bool,
 ) -> str:
-    """按**丢失原因**给缺口文案分流，别把 harness 的问题甩锅给数据。
+    """降级块的显式质疑标注：状态陈述 + 如实归因，不道歉、不下行动指令。
 
-    生产实测 `run_20260821_114642_385979`（诊断见
-    `docs/verification/2026-08-21-judge-quantity-blindspot.md`）：
-    `structural_verifier` 判四个必填格全部 `fulfilled`、零 gap，随后语义质检
-    重写公开稿丢掉两格，用户看到的却是「**需补充直接证据**后再判断」——
-    让人去补一份根本不缺的证据。归因错了，指引也就错了。
+    W1（R-20260821-07）：post-repair 判官对必需输出块只有降级权。块级后果
+    从「道歉横幅收场」改为可识别的【待复核】标注——残块正文照常发布，
+    标注点名哪些格被降级；道歉横幅只归 C3 全灭闸。
 
-    两种缺口的处置相反，必须分开说：
+    归因分流沿 r24 教训（`run_20260821_114642_385979`，诊断见
+    `docs/verification/2026-08-21-judge-quantity-blindspot.md`）保留：
+    `structural_verifier` 判达标后被质检删掉的格，绝不能写成「证据不足」——
+    那会让用户去补一份根本不缺的证据。归因错了，指引也就错了。
 
-    - 本来就没取到证据 → 补数据是对的
-    - 代码侧已判达标、是质检把表述删了 → **不要补数据**，该重做那一格
+    - 代码侧已判达标、是质检把表述删了 → 标「非证据不足」
+    - 本来就没核验过 → 标「缺少直接证据支持」
 
-    这不改判官的任何权力，只让它造成的后果被如实归因。
+    标注文本由 harness 结构化生成（判官只产 issue 不产正文，never-add 不破）。
     """
 
     body = context_prefix + "、".join(labels)
     if all_were_fulfilled:
         return (
-            "结构缺口："
+            "【待复核】"
             + body
-            + "在结构核验中已判达标，但本轮质检重写时删除了其表述。"
-            "这不是证据不足——不需要补充数据，应重做这些部分。"
+            + "：相关表述在质检复核中被移除，已按缺口记账"
+            "（结构核验原判达标，非证据不足，无需补充数据）。"
         )
-    return "证据缺口：" + body + "中的未核验表述已删除，需补充直接证据后再判断。"
+    return (
+        "【待复核】"
+        + body
+        + "：未通过核验的表述已移除，已按缺口记账（缺少直接证据支持）。"
+    )
 
 
 def _marker_loss_issues(output_ids: tuple[str, ...]) -> tuple[str, ...]:
