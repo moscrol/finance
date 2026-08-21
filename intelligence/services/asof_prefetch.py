@@ -117,6 +117,69 @@ def format_dual_red_counts(counts: dict[str, str]) -> str:
     return "双红个数（口径 " + _CALIBER + "）：" + "；".join(parts)
 
 
+_TIMELINE_METRICS = ("pct_chg", "amount", "diff_ratio")
+
+
+def sector_timeline_observations(
+    rows: list[dict[str, Any]],
+    *,
+    sector_name: str,
+    start: str,
+    end: str,
+) -> tuple[PrefetchObservation, ...]:
+    """与 ``format_sector_timeline`` 同源同窗，只是不拼成文本。
+
+    取数与格式化分开：格式化改措辞不该动到槽里的数，槽换口径也不该动文案。
+    """
+
+    out: list[PrefetchObservation] = []
+    for row in rows:
+        day = str(row.get("trade_date") or "")[:10]
+        if day < start or day > end:
+            continue
+        for metric in _TIMELINE_METRICS:
+            raw = row.get(metric)
+            if raw is None:
+                continue
+            try:
+                value = float(raw)
+            except (TypeError, ValueError):
+                continue
+            out.append(
+                PrefetchObservation(
+                    sector_name=sector_name,
+                    trade_date=day,
+                    metric=metric,
+                    value=value,
+                )
+            )
+    return tuple(out)
+
+
+def observation_value(
+    items: tuple[PrefetchItem, ...],
+    *,
+    trade_date: str,
+    metric: str,
+    sector_name: str | None = None,
+) -> float | None:
+    """从预取行取一个格子的真值。**精确匹配，缺数返 None。**
+
+    禁止回退到邻近交易日、另一板块或近似指标：静默近似会让「没有数据」
+    和「数据是这个」在下游长得一样，覆盖率审计永远抓不到。
+    None 的正确处置是标结构缺口，不是拿别的数顶上。
+    """
+
+    for item in items:
+        for obs in item.observations:
+            if obs.trade_date != trade_date or obs.metric != metric:
+                continue
+            if sector_name is not None and obs.sector_name != sector_name:
+                continue
+            return obs.value
+    return None
+
+
 def format_sector_timeline(
     rows: list[dict[str, Any]],
     *,
@@ -209,12 +272,28 @@ def resolve_prefetch_sector(con: Any, query: str, subject: str) -> str | None:
 
 
 @dataclass(frozen=True)
+class PrefetchObservation:
+    """预取行里的一个结构化观察值，供必填格直接填数。
+
+    存在的理由：``detail`` 是给模型看的格式化文本，下游若从文本里回头解析
+    数字，等于让代码去解析自由文本（本仓明令的反模式）。这里把格式化**之前**
+    就有的结构化值原样留下，槽和门禁都读它，不读 ``detail``。
+    """
+
+    sector_name: str
+    trade_date: str
+    metric: str
+    value: float
+
+
+@dataclass(frozen=True)
 class PrefetchItem:
     tool: str
     title: str
     detail: str
     source: str = "本地 DuckDB · 问句日预取"
     source_date: str | None = None
+    observations: tuple[PrefetchObservation, ...] = ()
 
     def to_evidence(self) -> AgentEvidence:
         item = AgentEvidence(
@@ -288,6 +367,9 @@ def collect_prefetch_items(
                                 rows, sector_name=sector, start=start, end=end
                             ),
                             source_date=as_of_iso,
+                            observations=sector_timeline_observations(
+                                rows, sector_name=sector, start=start, end=end
+                            ),
                         )
                     )
                     items.append(
