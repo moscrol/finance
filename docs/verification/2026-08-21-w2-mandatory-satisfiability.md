@@ -36,7 +36,14 @@
 1. 预检判定反转（空库仍 `required=True`）→ `test_precheck_inversion_would_keep_empty_theme_mandatory` 红。
 2. 兜底拆除（unreachable 仍压 mandatory / 仍写入模型侧 `missing_answer_elements`）→ `test_unreachable_fallback_inversion_would_keep_pressure` 红。
 
-离线全量（脏树、本单未提交时）：`5904 passed, 13 skipped, 0 failed` @ `0ed258b5` dirty，收据 `~/.finance-runtime/test-receipts/20260821T140928Z-0ed258b5.json`。干净树收据在提交后另跑。
+离线全量（提交前脏树）：`5904 passed, 13 skipped, 0 failed` @ `0ed258b5` dirty，收据 `~/.finance-runtime/test-receipts/20260821T140928Z-0ed258b5.json`。
+
+变异实锤（提交 `634e0de1` 之后动手，避免 `git checkout` 冲掉实现）：
+
+1. `apply_static_chain_mapping_precheck`：`if present is not False` 反转为 `if present is False` → `test_precheck_inversion_would_keep_empty_theme_mandatory` 红（`预检反转：空库题材 chain_mapping 仍 mandatory`）。
+2. `apply_unreachable_downgrade`：`or goal.reopen_tools` 反转为 `or not goal.reopen_tools` → `test_unreachable_fallback_inversion_would_keep_pressure` 红（`兜底拆除：unreachable 仍压 chain_mapping mandatory`）。
+
+两钉同时红后 `git checkout --` 还原。收据 `~/.finance-runtime/test-receipts/20260821T141048Z-634e0de1.json`（2 failed，变异态，不作基线）。
 
 ## 4. 接缝与文件
 
