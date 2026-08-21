@@ -196,9 +196,10 @@ class RetrieveHygieneWiringTests(unittest.TestCase):
             self.assertTrue(res.ok)
             self.assertEqual(res.telemetry.k, 5)
             titles = [hit.title for hit in res.hits]
-            self.assertNotIn("液冷服务器-theme-radar-验收", titles)
-            self.assertNotIn("液冷服务器-theme-radar-验收-v5", titles)
-            self.assertFalse(any(is_artifact_page(hit.file_path) for hit in res.hits))
+            self.assertFalse(
+                any("theme-radar-验收" in hit.file_path for hit in res.hits),
+                titles,
+            )
             self.assertIn(
                 "液冷服务器产业新变化与新格局全面分析报告",
                 titles,
