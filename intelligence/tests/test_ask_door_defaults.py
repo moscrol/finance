@@ -63,6 +63,7 @@ def test_cli_ask_parses_without_retrieval_escape_hatches() -> None:
     assert args.llm is False
     assert args.modules is None
     assert args.kb_mode is None
+    assert build_parser().parse_args(["ask", "液冷", "--llm"]).llm is True
 
 
 def test_ask_chat_agent_share_retrieval_flag_names() -> None:

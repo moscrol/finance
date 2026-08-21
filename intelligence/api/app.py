@@ -1702,7 +1702,7 @@ def _run_ask(
             req.question,
             matched_theme=result.matched_theme,
             answer_excerpt=result.synthesis or answer_md,
-            use_llm=req.task_type != "daily",
+            use_llm=False,
         )
         store.add_artifact(
             run_id,
@@ -1711,8 +1711,6 @@ def _run_ask(
             renderer="json",
             title="猜你想问",
         )
-        if not followups.llm_used:
-            store.add_degrade(run_id, "llm_unavailable_template_followups")
         store.append_step(
             run_id,
             step_id="s03",
