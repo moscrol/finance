@@ -593,6 +593,47 @@ def test_shape_iii_reads_actual_delivered_chars_not_800() -> None:
     assert 800 not in verdict["III"]["delivered_chars"]
 
 
+def test_shape_iii_collects_detail_chars_when_present() -> None:
+    """detail_chars 是 evidence 通道（V3 粗管道）的送达计数，与 observation 串分开。"""
+
+    verdict = inspect_episode(
+        _kb_episode(
+            events=[
+                _kb_tool_result(
+                    telemetry={
+                        "delivered_chars": 580,
+                        "detail_chars": 3000,
+                        "hit_count": 6,
+                        "source_pages": ["页A"],
+                    }
+                )
+            ]
+        )
+    )
+    assert verdict["III"]["status"] == "judgeable"
+    assert verdict["III"]["detail_chars"] == [3000]
+
+
+def test_shape_iii_missing_detail_chars_stays_judgeable_marked_none() -> None:
+    """老 episode 没有 detail_chars：不得翻成 unjudgeable，记 None 不记 0。"""
+
+    verdict = inspect_episode(
+        _kb_episode(
+            events=[
+                _kb_tool_result(
+                    telemetry={
+                        "delivered_chars": 247,
+                        "hit_count": 2,
+                        "source_pages": ["页A", "页B"],
+                    }
+                )
+            ]
+        )
+    )
+    assert verdict["III"]["status"] == "judgeable"
+    assert verdict["III"]["detail_chars"] == [None]
+
+
 def test_audit_aggregates_shape_i_by_question_type(tmp_path: Path) -> None:
     _write_run(tmp_path, "run_20260821_010000_a", _kb_episode(question_type="theme_analysis"))
     _write_run(tmp_path, "run_20260821_010000_b", _kb_episode(question_type="theme_analysis"))
