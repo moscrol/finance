@@ -70,3 +70,9 @@
   intelligence/tests/test_continuous_turn_adapter.py::test_numeric_unsupported_unknown_subject_skips_backfill \
   -q
 ```
+
+## 7. 全量门禁
+
+- ruff 全仓绿
+- pytest **5894 passed / 0 failed / 13 skipped**（基线 5888 + 本单 6 钉）
+- 收据 `~/.finance-runtime/test-receipts/20260821T135845Z-a6c682e1.json`（`dirty=false`，`revision=a6c682e1`，`check_test_receipt.py` 可采信）
