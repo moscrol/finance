@@ -141,20 +141,27 @@ ModuleNotFoundError: No module named 'intelligence.services.kb_index_hygiene'
 
 ## 7. 变异击杀
 
-变异前已 commit（见 git log）。把 `_path_is_artifact` 里两条路径规则删掉（函数恒 `return False`），再跑夹具：
+变异前 commit：`c3988701`（实现）→ `0f2cd121`（retrieve 钉改为路径子串，避免自指断言）。
+在 `0f2cd121` 上把 `_path_is_artifact` 改成恒 `return False`（排除规则删掉），已提交树未用 `git checkout --` 当删除器。
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest \
   intelligence/tests/test_kb_index_hygiene.py -q --tb=line
 ```
 
-预期红（击杀清单，落地后回填实际 traceback）：
+击杀 3 条（4 passed / 3 failed）：
 
-- `test_index_build_entry_excludes_theme_radar_acceptance_pages`
-- `test_sanitize_drops_artifacts_and_fills_top5_with_knowledge`
-- `test_retrieve_excludes_artifact_paths_and_overfetches`
+| 钉 | 红因 |
+|---|---|
+| `test_index_build_entry_excludes_theme_radar_acceptance_pages` | `indexable_paths` 仍含 4 个验收路径，`Lists differ` |
+| `test_sanitize_drops_artifacts_and_fills_top5_with_knowledge` | 夹具重放 `3 != 2`（工件页未被丢掉，折叠后仍留验收族） |
+| `test_retrieve_excludes_artifact_paths_and_overfetches` | `True is not false`，titles 含 `液冷服务器-theme-radar-验收-v7` |
 
-`git checkout -- intelligence/services/kb_index_hygiene.py` 后复绿。
+未击杀（与排除规则无关，属预期）：frontmatter 钉、产业词 fail-open、同族折叠、认不出 fail-open。
+
+`git checkout -- intelligence/services/kb_index_hygiene.py` 后 7 passed 复绿。
+
+第一次变异（`c3988701`、retrieve 断言还调用 `is_artifact_page`）只红 2 条：接线钉因同族折叠收成 `-v7` + 自指断言仍绿。故把断言改成路径子串后再杀一次。
 
 ## 8. 不做什么
 
