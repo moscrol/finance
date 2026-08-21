@@ -27,8 +27,10 @@
 
 ## 未验证 / 已知边界
 
-- 代码一行没写，TDD 红都还没起。
-- `PrefetchItem.detail` 是格式化文本，取数需要新的解析或让 `collect_prefetch_items` 额外产出结构化值——**两条路都没选**，先做的人定。
+- **只做完取数原语，槽还没消费它**：`observation_value` 已可用，但必填格与
+  `agent_episode.py:2144` 那句提示词都没动，公开稿行为**未变**。
+- 从未 live。第 1 刀是纯离线单元，spec §8.1 的 3/4 步（新题 live、公开稿数字 ⊆ 桌上的行）都没跑。
+- `dual_red_counts` 那条预取行还没出 observations，只有时间轴出了。
 - 与 #288 不叠：本树从 `gitea/main` 长出，#288 未合。**机制**独立（B 管槽、C 管锚谁），
   但**同一题上 B 的口径正确性依赖 C**——本树默认锚仍落短名 `PCB`，槽会忠实投递 8.71。
   测试因此锁「槽不混口径」（tree-independent），长名口径另用显式 subject 固定锚来验。
