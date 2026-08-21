@@ -81,6 +81,15 @@
 > 在**代码等于 `gitea/main` 的隔离臂**上同样失败于 `scenario_tree` 预检，故失败不可归因于本单四刀。
 > 四臂对照与环境爬坑记录见 `docs/verification/2026-08-21-slot-fill-live-attempt.md`。
 > 离线侧有效读数：`observation_value` 对 08-18 直接给出 `0.15 / 775.76`，与分析师第一刀逐字一致。
+>
+> **基线侧样本 +1（2026-08-21 午后，生产 8792@`dfc25221`，非本单代码）**：
+> `run_20260821_152044_472523`（CXO概念发酵题，Cursor 直调组件对照臂 + trace diff 全程见主检出树
+> `docs/verification/2026-08-21-tracediff-cxo-ceiling.md`）——judge `repaired` 把 1259 字草稿删至 437，
+> 被删数字（**工具行**来源，非预取行）逐条对库全真。该 run 同时证明投影 C1–C4（`82a9fac6`）已在 main live
+> （`projection_ordinal_mismatch_count=0`），残余机制为投影 spec §4/§8 留下的 A3 写手 binding 缺口
+> （`evidence_alias_offset=29`，未绑卡不送判官→真引用被判不存在）。对 `-04` 记 **adjacent shape**，
+> 不冒充 exact（exact 口径=预取行数字）；族内 n=2，不结案。`-02` 验收口径的「有收据的工具行」半边
+> 由第 10 刀 `f0ad6cfb` 落地（离线绿；live 臂依旧待能进 episode 的 sidecar）。
 
 `outcome` 只能是 `pending` / `confirmed` / `refuted`。**部分验证不要写 `confirmed`。**
 
