@@ -161,3 +161,53 @@ def test_no_restore_when_values_survived() -> None:
     )
     assert restored == ()
     assert draft == AFTER
+
+
+# ── 第 4 刀：数值门禁认结构化观察值，不因忘绑引用就判真话为编造 ──────
+
+
+def _outcome_with(evidence, *, bindings=()):
+    """``_bound_evidence_quantities`` 只读 ``.evidence`` / ``.bindings`` 两个属性。
+
+    真 ``AgentOutcome`` 对 events 序列有强校验，为这两个属性去造合法 events
+    只会把夹具写成噪声；替身在此是**窄接口**，不是绕过契约。
+    """
+
+    from types import SimpleNamespace
+
+    return SimpleNamespace(evidence=tuple(evidence), bindings=tuple(bindings))
+
+
+def test_structured_observation_counts_without_binding() -> None:
+    """observations 是 harness 投递上桌的事实，真伪与模型记没记得绑引用无关。
+
+    没有这条，模型写对了 4.74 却忘了绑 E 号，条件句会被判成
+    「证据里没有的数量」整句删掉——拿引用卫生当真伪判据。
+    """
+
+    from intelligence.services.episode_semantic_verifier import (
+        _bound_evidence_quantities,
+    )
+
+    quantities = _bound_evidence_quantities(_outcome_with((TIMELINE,)))
+    assert "4.74" in quantities and "3432.59" in quantities
+
+
+def test_unbound_evidence_text_still_needs_binding() -> None:
+    """只放宽到结构化值，不放宽到未绑定证据的**文本**。
+
+    后者仍需引用卫生把关；一并放宽等于把门禁拆了（筛 2：变错，必须硬）。
+    """
+
+    from intelligence.services.agent_research import AgentEvidence
+    from intelligence.services.episode_semantic_verifier import (
+        _bound_evidence_quantities,
+    )
+
+    text_only = AgentEvidence(
+        tool="web_search",
+        title="某研报",
+        detail="预计三季度增长 61.8%",
+        source="https://example.com/a",
+    )
+    assert "61.8" not in _bound_evidence_quantities(_outcome_with((text_only,)))

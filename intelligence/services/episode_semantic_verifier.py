@@ -3181,14 +3181,28 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
             )
         )
     corpus = " ".join(fields)
-    return frozenset(
+    quantities = {
         _normalize_quantity(quantity)
         for quantity in (
             *_ARABIC_QUANTITY_RE.findall(corpus),
             *_CHINESE_QUANTITY_RE.findall(corpus),
         )
         if _normalize_quantity(quantity)
-    )
+    }
+    # 结构化观察值**不受 binding 约束**。上面那段只认被 binding 引用过的证据，
+    # 是引用卫生；而 observations 是 harness 自己投递上桌的事实，它是不是真的
+    # 与模型有没有记得绑引用无关。少了这一段，模型写对了数却忘了绑，真话会被
+    # 判成「证据里没有的数量」连坐删句——那是拿引用卫生当真伪判据，模型越强
+    # （写得越细、数字越多）被误删越多。
+    #
+    # 只放宽到结构化值，不放宽到未绑定证据的**文本**：前者是机器可核的投递物，
+    # 后者仍需引用卫生把关。
+    for item in outcome.evidence:
+        for obs in item.observations:
+            token = _normalize_quantity(f"{obs.value:g}")
+            if token:
+                quantities.add(token)
+    return frozenset(quantities)
 
 
 def _normalize_quantity(value: object) -> str:
