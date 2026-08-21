@@ -75,3 +75,56 @@ print([e['payload']['observation'][:120] for e in d['events'] if e.get('kind')==
 ```
 
 探针会话落在 `probe-r05a-0821` / `probe-r05b-0821` 两个独立用户下，主用户会话列表无新增（`user` 字段修复的首次实战验证）。
+
+## 7. 修复落地与 live 验证（同日 19:38，#296）
+
+### 7.1 根因比 §0 归因再深一层
+
+实现侦察发现失配的**源头**不在 `company_multi_layer_evidence` 的能力表（它根本没有
+`mainline_context`），而在 `evidence_capabilities.is_current_market_query` 的第三入口
+「盘面度量词独立成立」：个股题的「涨跌幅/成交额」命中 `_MARKET_STATE_MARKERS` 的
+「涨跌」「成交」→ `resolve_evidence_plan` 套上 `mainline_current` **市场级**计划
+（MARKET_DAILY+D4 双 mandatory 组合事实约束）。「要看数据」被误判成「要看大盘总览」。
+两条消费链同时中招：episode_factory（`_episode_evidence_plan` 对 market_cause/
+valuation_estimate 都有题形覆盖，唯独个股漏网）与 conversation_orchestrator:232
+（`profile=="mainline_current"` 直接套市场主线 required_outputs + 呈现模板）。
+
+### 7.2 修法（#296，`00336f0d`）
+
+`stock_deep_dive` / `valuation_estimate` / `financial_analysis` 三个公司主体题形命中
+盘面度量词时改走 `company_current_backdrop` 降级计划：同五条 requirements，
+`market_data` 与 `mainline_context` 降为 optional——能力经
+`runtime_capabilities_for_frame` 的 planned 并集保持授权（背景放大器可取），只去掉
+义务与修复追逐。市场主体题形不动（seam ladder `ROUTED_FACTS` 三条钉住）。
+测试：4 颗新钉（resolve 层 3 + factory 层直接构造 live 形状 frame 1）先红后绿；
+变异 ×2 击杀；全量 5882P/0F（基线 5877P + 新增 5 条）。
+已知边界：`quick_fact` 分不出主体（「茅台多少钱」vs「涨停家数多少」），另行立项。
+
+### 7.3 同题重放读数（成对照：daily-full 未跑，数据态与 §2 全同）
+
+| | 太辰光 after（`run_20260821_193811_659329`） | 莲花控股 after（`run_20260821_193811_659172`） |
+|---|---|---|
+| profile | `company_current_backdrop` | 同 |
+| mandatory | 空 | 空 |
+| `missing_mandatory_capability` | **0（before: mainline_context）** | **0（before: market_data,mainline_context）** |
+| 公开稿 | **转折日 8-10/11/12/14/18/19/20 全带涨跌幅+成交额**（before 194 字残稿数值全丢）；市场数字以显式「市场背景」块出现并服务反证②（强势股抱团β竞争解释） | 满稿：逐日 E 引用 + 8-6/8-7、8-13/8-14 数据重复异常主动声明 + 条件化判断 |
+| repair | 2 轮：①W5 issue-backfill 追 `market_data`（见 7.4）②counterpoint 补齐 | 无 repair_goal（`model_finish`） |
+| usage | llm=5, tool=2, draft 829 | llm=2, tool=1, draft 620 |
+
+台账判据「同形 run 该 issue 归零，且 direct_assessment 不再因此路径缺失」达成，
+`-05` → `confirmed`。
+
+### 7.4 残留观察（不立案）
+
+A 臂修复轮那次 `market_data` 调用来自 **W5 issue-backfill**（`episode_issues.py`
+`BACKFILL_CAPABILITY_BY_CODE: NUMERIC_UNSUPPORTED → market_data`），与 mandatory
+无关。本次结果良性（市场数字被明确标注为背景块并用于反证），但「个股数值缺证 →
+回填市场总览」是形状错配（个股数值该回填 `finance_query`），候选后续观察。
+
+### 7.5 部署取证
+
+rsync 就地部署（`deploy_workbench_runtime.sh`，REPO=干净工作树@`00336f0d`）：
+生效以指纹为准——loaded_tree_fingerprint `16595e41ba72…` = `00336f0d` 树指纹；
+health `source_revision` 标签仍显示快照建立时的 `6320b3bc`（rsync 不改快照名），
+取证时**勿以该标签判代码版本**。收据
+`~/.finance-runtime/live-probe-traceability/20260821-r05-fix-verify/summary.json`。
