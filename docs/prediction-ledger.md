@@ -76,6 +76,12 @@
 | `R-20260821-03` | 子单 C 预取行带 E 号 + 问句精确名优先（#288 `fix/prefetch-evidence-id`） | `DATA_CONTRACT_FIX` | ① 开场预取行带 `[E<n>]`，真话不再被判成发明历史行情；② 问句里出现且表中存在的 `sector_name` 长名优先于被 `decide_turn` 收短的 subject——预取标题与数字跟问句口径走 | 离线**已绿**：`test_prefetch_evidence_ordinal.py` 5P + `test_asof_prefetch_dual_red.py`，合计 13 passed；变异（候选改回 subject 优先）转红。live 预取层**已过**（`run_20260821_031715_726466`，sidecar `33b4ca95` dirty=true）：预取标题 `PCB概念 双红时间轴`、E1 08-07=`4.74/3432.59` 单轨。**公开稿未过**（仍 `8.71/1295`），掉在工具旁路/写稿/判官三层——那是 `R-20260821-02` 与 `-04` 的范围，本行不代结。dirty 树的 live 不得写 `confirmed` | `pending` |
 | `R-20260821-04` | Gate 1 三筛：判官整段删（`docs/verification/2026-08-21-gate1-pcb-exact-name.md` §Live 第 3 层） | `HARNESS_FIX` | 三筛判该约束为「拦输出 → 封上限」，据此预测：**模型能力越强，被判官整段删连坐的真话越多**。落地 `R-20260821-02` 的槽位后，判官对槽内数字**无删除权**，同形 run 不再出现「整段含真数字被删、活下来的是错口径句」；`judge_status=repaired` 的稿件里，预取行数字留存率上升 | **n=1 不得结案**——当前仅 `run_20260821_031004/031715` 一对。需 ≥3 个同形样本（判官 `repaired` + 段内含预取行数字）才可 confirmed。反向证伪：槽位落地后仍出现槽内数字被删 → `refuted`，说明封上限点不在判官层，按 triage 升格线质疑架构。审查侧判据见 `harness-reference/PLAYBOOK.md` §约束三筛 与 `harness-architecture-review` C2；归因侧标注 `harness_direction: over_constrained` | `pending` |
 
+> `R-20260821-02` / `-04` 的 **live 臂 2026-08-21 尝试过，记 `not_run`**（不是 `refuted`）：
+> 手搭 worktree sidecar 与生产环境不等价，同一道反过拟合题（钙钛矿电池→2026-08-18）
+> 在**代码等于 `gitea/main` 的隔离臂**上同样失败于 `scenario_tree` 预检，故失败不可归因于本单四刀。
+> 四臂对照与环境爬坑记录见 `docs/verification/2026-08-21-slot-fill-live-attempt.md`。
+> 离线侧有效读数：`observation_value` 对 08-18 直接给出 `0.15 / 775.76`，与分析师第一刀逐字一致。
+
 `outcome` 只能是 `pending` / `confirmed` / `refuted`。**部分验证不要写 `confirmed`。**
 
 > `R-20260820-01` 与 `R-20260817-01` 是**同一失败家族的两条分支，不要合并计数**：
