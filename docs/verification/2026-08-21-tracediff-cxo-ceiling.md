@@ -28,6 +28,7 @@
 - **未绑定卡不送判官**（INV-2 刻意保留的纪律）→ 判官 registry 里真没有 E7/E18/E19/E35 → 按它的入参「引用不存在」句句为真 → 整句删。判官和写手仍然都没错，这次错在**绑定步是模型依赖的、有损的**。
 - **数字侧的解已经写好**：#289 第 4 刀明文「结构化观察值不受 binding 约束——模型写对了数却忘了绑，真话会被判成连坐删句」；本 doc 促成的第 10 刀（`f0ad6cfb`）把工具行也纳入观察值。两者合围后，数字不再依赖模型记得绑定。
 - **仍无保护的残余类**：非数字散文引用未绑卡（叙事句、角色句）依旧会被删。候选修法：正文 E 引用经 `resolve_evidence_refs()`（已存在）自动 resolve 进 binding——是否破坏「only answer-bound evidence」纪律需单独论证，未实施。
+  **【已结 2026-08-21 #298，`R-20260821-06`】** 实施形状与候选修法不同：不改写 bindings（draft 无结构分段，归属不可机械判定），改在**投影层**把「正文可反解引用」并进判官注册表选集——引用即答案对依赖的显式声明，未引用未绑定仍不送，纪律未放宽。上一行的函数名当时也写错了：`resolve_evidence_refs()` 是绑定数组的 E→hash 反解器，不做散文扫描；散文扫描是本次新增的 `cited_evidence_ordinals()`。
 - **D3 侧**：`chain_mapping` 必填被删后 `marker_loss` 记账（repair_withheld 机制已 live 但本 run 未触发全灭闸——只灭了一格，不是全部）。契约层矛盾（evidence 模式禁权重知识 + 契约必填 chain_mapping + KB 无该题材链路证据）仍开放。
 
 ## 约束三筛判定（哪些封上限、哪些保下限）
@@ -128,7 +129,7 @@ python3 -c "import json;d=json.load(open('<run>/continuous-episode.json'));print
 
 ### 探针抓到的形状特有问题（均非本次合并的回归）
 
-1. **残余①（散文引未绑卡）live 复现**：模型散文两处引 `E4`（反式钙钛矿产业化验证，**注册表里真有**）但忘写进 bindings → 判官按「未注册」删掉两句真因果。= `R-20260821-04` 判据的对偶面：槽内数字保住了，非数字散文的引用把手仍缺 binding 自动 resolve。
+1. **残余①（散文引未绑卡）live 复现**：模型散文两处引 `E4`（反式钙钛矿产业化验证，**注册表里真有**）但忘写进 bindings → 判官按「未注册」删掉两句真因果。= `R-20260821-04` 判据的对偶面：槽内数字保住了，非数字散文的引用把手仍缺 binding 自动 resolve。**【已结 2026-08-21 #298，`R-20260821-06` confirmed：本 run 即机制证明工件（重放 after E4 入表）+ 冻结夹具 `pv-perovskite-e4.json`】**
 2. **残余②（marker_loss）跨形状复现，机制看清了**：post-repair 的判官删除**没有第二次修复窗**（repair 已耗尽）。板块题 chain_mapping 因「行情行证明不了链路角色」被删（契约矛盾——必填格结构性不可满足）；个股题 direct_assessment 因直接判断句里有真算术错被删（**删对了，但整块强制输出跟着没了**）。两题都以道歉横幅收场。
 3. **新发现（个股形状）**：`company_multi_layer_evidence` 契约把 `market_data`+`mainline_context` 定为 mandatory，但 90s 档预算 + 个股无预取覆盖 → `repair_goal.unreachable_without_tools` 且 `reopen_tools=False` → 注定 `missing_mandatory_capability`。→ 立案 `R-20260821-05`。
 4. **预算观察**：两 run 主稿阶段都在第 3 轮 LLM `TimeoutError` → `deadline_exhausted`（`carried_draft_chars=0`），**全稿一发成于 40s 修复窗**。数字纪律在这条极限路径下仍全对，但它放大了 2 的暴露面：修复窗产的稿再被删就没有救场手段。
