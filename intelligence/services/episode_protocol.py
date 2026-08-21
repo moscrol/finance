@@ -108,12 +108,17 @@ def finish_json_schema() -> dict[str, object]:
     }
 
 
-def build_episode_instructions(
+# Borrowed name only. Marks the seam: above = byte-stable system (cache
+# candidate); below = per-turn user/tool. cache_control is not implemented
+# in this increment. Do not copy CC TTL / Blake2b / 87% / scope:'global'.
+SYSTEM_PROMPT_DYNAMIC_BOUNDARY = "SYSTEM_PROMPT_DYNAMIC_BOUNDARY"
+
+
+def _question_type_rules(
     task_frame: TaskFrame,
     context: ResearchRunContext,
-    registry: ResearchToolRegistry,
 ) -> str:
-    """Build one outcome-first instruction contract shared by all runtimes."""
+    """Per-question rule tail. Wording is a verbatim move from the old system."""
 
     valuation_rule = (
         "估值题专用完成规则：scenario_range 必须给出保守、中性、乐观"
@@ -130,8 +135,8 @@ def build_episode_instructions(
     )
     # 跟踪题表达契约（knevo q8 回灌，episode 版）：文本住在 track_contract
     # （单一真本源，与 legacy ask_synthesis 版同模块），此处只做条件注入——
-    # 非跟踪题得到空串，指令逐字节不变。从模块导入的文本不进本函数的
-    # 静态契约指纹（test_episode_protocol 只提取本函数体内的字符串常量）。
+    # 非跟踪题得到空串。从模块导入的文本不进 build_episode_instructions 的
+    # 静态契约指纹（test_episode_protocol 只提取该函数体内的字符串常量）。
     track_rule = episode_track_rule(
         task_frame.raw_question,
         task_frame.question_type,
@@ -140,7 +145,7 @@ def build_episode_instructions(
         task_frame.question_type,
     )
     longtail_rule = episode_rule(task_frame)
-    # ASK_DEGRADED_FALLBACK（默认 off）：降级回答章法，off 时空串、指令不变。
+    # ASK_DEGRADED_FALLBACK（默认 off）：降级回答章法，off 时空串。
     degraded_rule = degraded_episode_rule(task_frame)
     # prior_recall 槽位专用规则：只在该格出现于契约时注入。
     #
@@ -163,6 +168,28 @@ def build_episode_instructions(
         )
         else ""
     )
+    return (
+        f"{prior_recall_rule}\n"
+        f"{valuation_rule}\n"
+        f"{track_rule}\n"
+        f"{longtail_rule}"
+        f"{degraded_rule}"
+    )
+
+
+def build_episode_instructions(
+    task_frame: TaskFrame,
+    context: ResearchRunContext,
+    registry: ResearchToolRegistry,
+) -> str:
+    """Build the static constitution shared by all runtimes.
+
+    Per-turn hash, tool table, and question-type rules live in
+    ``build_episode_input``. The three arguments stay for call-site
+    compatibility; they must not change the returned text.
+    """
+
+    del task_frame, context, registry
     # 只改形状，一个字不改：本函数的静态契约文本去掉全部空白后，sha256 与重排前
     # 逐字节相同（`test_episode_protocol` 里那条指纹测试锁住这一点）。所以下面新增
     # 的只有换行和六个分组标题，**约束的措辞与前后顺序都没动**。
@@ -234,21 +261,15 @@ def build_episode_instructions(
         "若 output 已由证据序号支持并完成，binding.gap 必须为空，"
         "限制条件写入顶层 gaps 或 draft。\n"
         "completed 必须覆盖所有 required outputs；partial 必须明确缺口。\n"
-        f"{prior_recall_rule}\n"
-        f"{valuation_rule}\n"
-        f"{track_rule}\n"
-        f"{longtail_rule}"
-        f"{degraded_rule}"
-        f"任务哈希：{task_frame.task_frame_hash}\n"
-        f"可用工具：\n{registry.prompt_block(context.contract.allowed_capabilities)}"
     )
 
 
 def build_episode_input(
     task_frame: TaskFrame,
     context: ResearchRunContext,
+    registry: ResearchToolRegistry,
 ) -> str:
-    """Serialize the immutable task and deterministic execution contract."""
+    """Serialize the per-turn task, cutoff, rules, and tool table."""
 
     payload: dict[str, object] = {
         "task_frame": task_frame.to_dict(),
@@ -264,6 +285,11 @@ def build_episode_input(
             "today 不是行情日期；information_cutoff 是所有查询与引用事实的"
             "不可变日期上限；市场事实还须服从 latest_data_date 和证据日期"
         ),
+        "task_frame_hash": task_frame.task_frame_hash,
+        "available_tools": registry.prompt_block(
+            context.contract.allowed_capabilities
+        ),
+        "question_type_rules": _question_type_rules(task_frame, context),
     }
     if context.perspective_context:
         # 视角约束只在激活时出现：neutral 轮的模型输入逐字节不变。
@@ -276,6 +302,23 @@ def build_episode_input(
             "不得当作事实证据，不得越过 research_contract 的证据边界"
         )
     return json.dumps(payload, ensure_ascii=False)
+
+
+def split_episode_prompt(
+    task_frame: TaskFrame,
+    context: ResearchRunContext,
+    registry: ResearchToolRegistry,
+) -> tuple[str, str]:
+    """Return ``(system, user)`` split at ``SYSTEM_PROMPT_DYNAMIC_BOUNDARY``.
+
+    System is byte-stable across requests. User rebuilds each turn.
+    cache_control is not implemented in this increment.
+    """
+
+    return (
+        build_episode_instructions(task_frame, context, registry),
+        build_episode_input(task_frame, context, registry),
+    )
 
 
 
@@ -952,8 +995,10 @@ __all__ = [
     "REPAIR_PROTOCOL_REJECTION_CODES",
     "RejectionKind",
     "RejectionResponse",
+    "SYSTEM_PROMPT_DYNAMIC_BOUNDARY",
     "build_episode_input",
     "build_episode_instructions",
+    "split_episode_prompt",
     "expand_comparison_set_bindings",
     "expand_episode_snapshot_bindings",
     "attach_evidence_ordinals",

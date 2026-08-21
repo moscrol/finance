@@ -2116,6 +2116,27 @@ def test_tool_batch_completes_in_reverse_but_returns_original_transcript_order()
     ] == ["tool_request", "tool_result", "tool_request", "tool_result"]
 
 
+def test_evidence_injection_does_not_mutate_system_message() -> None:
+    """L2 学会了 ③：本轮证据注入只改 user/后续 tool，不改 system。"""
+
+    frame = _frame()
+    model = ScriptedModel([_tool_turn("A股 最新行情"), _finish_turn()])
+
+    ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame, max_steps=1),
+        registry=_market_registry(_successful_runner),
+    )
+
+    first = model.calls[0]["messages"]
+    second = model.calls[1]["messages"]
+    assert first[0]["role"] == "system"
+    assert first[0]["content"] == second[0]["content"]
+    assert any(item["role"] == "tool" for item in second)
+    assert not any(item["role"] == "tool" for item in first)
+    assert first[0]["content"] == second[0]["content"]
+
+
 def test_model_contract_separates_output_gaps_from_answer_caveats() -> None:
     frame = _frame()
     model = ScriptedModel(
@@ -2219,14 +2240,15 @@ def test_valuation_model_contract_explains_scenario_and_financial_bindings() -> 
         registry=_market_registry(_successful_runner),
     )
 
-    system_prompt = model.calls[0]["messages"][0]["content"]
-    assert "scenario_range" in system_prompt
-    assert "保守、中性、乐观" in system_prompt
-    assert "financial_data" in system_prompt
-    assert "补充证据" in system_prompt
-    assert "PB 情景计算锚" in system_prompt
-    assert "不得另造倍数" in system_prompt
-    assert "没有直接 evidence 的项目" in system_prompt
+    user_payload = json.loads(model.calls[0]["messages"][1]["content"])
+    rules = user_payload["question_type_rules"]
+    assert "scenario_range" in rules
+    assert "保守、中性、乐观" in rules
+    assert "financial_data" in rules
+    assert "补充证据" in rules
+    assert "PB 情景计算锚" in rules
+    assert "不得另造倍数" in rules
+    assert "没有直接 evidence 的项目" in rules
 
 
 def test_finalization_reminder_prefers_decisive_evidence_without_new_thresholds() -> None:

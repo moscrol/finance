@@ -166,12 +166,20 @@ def test_tool_definitions_use_each_specs_own_json_schema() -> None:
     )
 
     definitions = registry.tool_definitions()
+    by_name = {
+        item["function"]["name"]: item["function"]["parameters"]
+        for item in definitions
+    }
 
     # 断言的是「用了 spec 自己的 schema」，不是 schema 的具体内容——
     # 手抄一份字面量会让每次改参数描述都无谓地变红（2026-08-12 就这么红过 3 条）。
     # 比对真本源（BUILD 模式 6：单一真本源，且生成而非手抄）。
-    assert definitions[0]["function"]["parameters"] == QUERY_TOOL_PARAMETERS
-    assert definitions[1]["function"]["parameters"] == typed_schema
+    assert [item["function"]["name"] for item in definitions] == [
+        "finance_query",
+        "kb_search",
+    ]
+    assert by_name["kb_search"] == QUERY_TOOL_PARAMETERS
+    assert by_name["finance_query"] == typed_schema
 
 
 def test_tool_spec_deep_freezes_its_schema_contract() -> None:
@@ -935,7 +943,7 @@ def test_available_tool_names_remove_collected_episode_snapshot() -> None:
     assert session.available_tool_names(
         registry=registry,
         context=context,
-    ) == ("market_data", "kb_search")
+    ) == ("kb_search", "market_data")
 
     first = session.execute(
         (ModelToolCall("market", "market_data", {"query": "current"}),),

@@ -524,16 +524,23 @@ class ResearchToolRegistry:
         self,
         allowed: tuple[str, ...] | None = None,
     ) -> tuple[ToolSpec, ...]:
-        """Return registered tools whose declared capability is authorized."""
+        """Return registered tools whose declared capability is authorized.
+
+        Order is sorted by ``name`` so ``prompt_block`` and
+        ``tool_definitions`` stay stable if registration insertion order
+        changes.
+        """
 
         if allowed is None:
-            return tuple(self._specs.values())
-        allowed_set = set(allowed)
-        return tuple(
-            spec
-            for spec in self._specs.values()
-            if spec.capability in allowed_set
-        )
+            specs = tuple(self._specs.values())
+        else:
+            allowed_set = set(allowed)
+            specs = tuple(
+                spec
+                for spec in self._specs.values()
+                if spec.capability in allowed_set
+            )
+        return tuple(sorted(specs, key=lambda spec: spec.name))
 
     def tool_definitions(
         self,
