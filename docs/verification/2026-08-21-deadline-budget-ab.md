@@ -99,40 +99,59 @@ R-10 已证：近 8 日 410 run 里 `deadline_exhausted` 占 79%，`carried=0` �
 
 候选① sidecar 通路验证（**不计入实验 n**）：8803 `healthy`，启动日志 `MIN_PLANNING_TURN_SECONDS 8.0 -> 60.0`，`source_revision=dd6ca952` dirty。试发 `run_20260822_002306_795111`（减肥药发酵题）：有 `continuous-episode.json`、`model_turn=2`、`finish=deadline_exhausted`、`carried=355`、`judge=passed`，**零 `tool_request`**——planning 地板抬到 60 后提早 finalize 的预期形状，不是 URLError。正式 n≥50 未开。
 
-## 5. 每臂 n 与五项指标
+## 5. 每臂 n 与五项指标（2026-08-22 01:01–04:00 采满）
 
-冒烟行记在 `phase=smoke`，**不计入**实验臂 n（预注册口径是分臂对照，n=1 不得当对照基线）。
+冒烟行记在 `phase=smoke`，**不计入**实验臂 n。正式批 `phase=run`，题池 10 道 × 每臂各 5 遍，
+两臂题分布逐题相同（同题配对）。分段交替执行（每段 10 发换臂），横跨全夜，无时段聚集。
 
 | 臂 | 实验 n | 走到 episode | model_finish 率 | carried>0 率 | 修复窗依赖率 | 答案长度中位数 | judge_status |
 |---|---|---|---|---|---|---|---|
-| control | **0** | — | 不可判 | 不可判 | 不可判 | 不可判 | — |
-| reserve60 | **0** | — | 不可判 | 不可判 | 不可判 | 不可判 | — |
+| control | **50** | 50/50 | **44%** | 60.7%（n_judgeable=28） | **64%** | **752.5** | repaired 39 / passed 4 / unavailable 7 |
+| reserve60 | **50** | 50/50 | **90%** | 100%（n_judgeable=5） | **42%** | **705.5** | repaired 31 / passed 13 / unavailable 6 |
 
-参考（不计入 n）：对照冒烟 1 发 = model_finish=0、carried>0=1、修复窗依赖=1、draft=529、judge=unavailable。
+进程身份（对照臂）：8792 快照目录 `finance-workspace-6320b3bcbf82`（目录名滞后），
+内容为 R-06 部署（rsync 指纹 `56270d7329b69c34` = `59ec4294` 树，2026-08-21 20:21 部署），
+批期间无再部署，`/api/health` 全程 healthy。候选臂 sidecar 逐段拉起：前 10 发加载本分支
+`0a28a48f`（clean），断点续跑后各段加载 `60eb4bbd`（clean，只多健康窗修复，影子行为不变）。
 
 台账：`~/.finance-runtime/v6-deadline-budget-ab/trials.jsonl`（仓外，不提交）。
 复算：`python scripts/v6_deadline_budget_ab.py score`
 
+### 执行事故（如实记录）
+
+原批（`--arm both` 改为分段单臂交替）跑到第 4 段（reserve60 第 10–19 发）时 sidecar
+健康等待 90s 超时（`Connection refused`），链式止损生效，30/100 处中断。分诊：app lifespan
+启动在当夜负载下实测 65–110s（faulthandler 探针 + 手动复现各一次），90s 窗擦线——
+01:12 那段侥幸过线，01:53 越线即死。修复 `60eb4bbd`（健康窗 90→300s），02:09 从断点
+续跑（reserve60 自第 10 发），04:00 满 100 发收官，全程再无 sidecar 失败。
+
 ## 6. 判据比对
 
-结论：**进行中/未达标样本量**。
+**结论：未达标（预注册判据为合取，长度守门被触发）。读数已留，不改参数、不温判据。**
 
-对照实验 n=0、候选实验 n=0，未过预注册每臂 n≥50。不得写达标/未达标，不得把 R-10 的 410 run 历史混进本实验对照（用户/题形混杂，且不是 `probe-v6-0821`）。不得把冒烟 n=1 写成对照读数。
+- model_finish 提升 **+46.0pp**（44%→90%），远超 +15pp 门槛 ✅
+- 答案长度**下降**：中位 752.5 → 705.5（−6.2%），均值 737.1 → 682.8（−7.4%）❌
 
-续跑（验收方/网络窗口允许时）：
+判据是「+15pp 且长度不降」的合取，第二支不成立 → 按预注册记**未达标**。
+候选①不进实施立项。生产参数一个字未动（§9 清单复核不变）。
 
-```bash
-.venv-workbench/bin/python scripts/v6_deadline_budget_ab.py run --arm both --n 100 --start 0
-.venv-workbench/bin/python scripts/v6_deadline_budget_ab.py score
-```
+### 事后探索（labeled exploration，不参与判定）
 
-每发约 3 分钟，100 发交替约 5 小时，须分批。
+同题配对：10 题配对中位差 −55 字，6/10 题变短（最大：创新药 −238、固态电池 −190、
+PCB −140），4/10 变长或持平。变短最狠的题恰是对照 model_finish 最低的题
+（创新药对照 1/5 完稿、固态电池 3/5），提示对照的长答案部分来自**修复窗改写膨胀**而非
+更充分的成稿——与 judge 分布互证：候选 passed 13 vs 对照 4，repaired 31 vs 39。
+候选臂 carried 案例几乎消失（28→5），即成稿轮真的拿到了预算、不再靠残稿续命。
 
-## 7. 阻塞项
+含义：长度守门本为拦「reserve 饿死生成、产出残段」设计；观测到的 −6% 中位 +
+judge 变好 + 修复依赖 −22pp **不是残段坍缩的形状**。若要复核「长度降的是水分还是内容」，
+需按信息密度/判官通过率加权的新判据——那是**新预注册**（另立台账行），不是本行的温判。
 
-- **样本量**：实验臂尚未开跑，卡在「harness + 冒烟已通、n≥50 未采」。不是网络阻断。
-- **生产 8792 dirty**：冒烟打在 `6320b3bc` dirty 树上，不是本分支。对照臂正式采数时须在报告写明当时 health 指纹；本实验不切 8792。
-- **候选 sidecar dirty**：8803 加载本实验树 `dd6ca952` dirty=true（多了 harness 文件）。影子只改本进程 `MIN_PLANNING_TURN_SECONDS`。采满 n 前不要把 sidecar 当「干净生产对照」。
+## 7. 阻塞项（全部解除）
+
+- ~~样本量~~：已采满 50/50。
+- ~~对照臂指纹~~：已记录（见 §5 进程身份）。
+- ~~候选 sidecar dirty~~：正式批全程 clean 树（`0a28a48f` / `60eb4bbd`）。
 - R-07 绊线未触：本 PR 无 T / `_REPAIR_SECONDS_CAP` / 档位 / `_BALANCED_SYNTHESIS_RESERVE` 改动。
 
 ## 8. Harness
