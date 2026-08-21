@@ -59,10 +59,43 @@ observation_value(08-18, amount)  = 775.76
 
 四条都修完，依赖全绿，`scenario_tree` 仍复现。**剩余差异未定位。**
 
+## 定位尝试：六条假设逐条排除，根因仍未命中
+
+`scenario_tree` 缺口在我手搭的 sidecar 上 **7 次复现，0 次通过**，稳定复现。
+八次 live 逐条排除（每条都有对照读数，不是推断）：
+
+| # | 假设 | 怎么排除的 | 结论 |
+|---|---|---|---|
+| 1 | 本单四刀导致 | 隔离臂 8798 = `2099718e`（代码 == `gitea/main`，零代码改动）同样失败 | **排除，四刀摘清** |
+| 2 | worktree sidecar 天生不行 | 8796 也是 worktree sidecar，正常出稿 | 排除 |
+| 3 | 缺 `db/` / `market_snapshot` | 显式指两者，deps 全绿，仍失败 | 排除 |
+| 4 | 环境变量抄漏（尤其 LLM key） | 按名逐项验：55 个变量含 `OPENAI_API_KEY` 等全部带到 | 排除 |
+| 5 | RAG / worker 冷启动 | 等满 4 分钟 + 先打一发弃用暖机问，degrades 逐字不变 | 排除 |
+| 6 | 用户画像空（LLM 配置住画像里） | 从生产画像 rsync 出专用探针画像，仍失败 | 排除 |
+| 7 | agent shell 注入 `FORESIGHT_USER` | `env -u` 摘掉，仍失败 | 排除 |
+
+**稳定的 degrades 指纹**（七次一字不差）：
+
+```
+wiki-rag 超时(>13.8~14.2s)，已跳过
+counter retrieval skipped: remaining budget below observed query cost
+broad retrieval empty after 1 attempts
+company_mapping 超过阶段时限 40 秒
+最终回答未完成任务契约，已按部分完成标记
+```
+
+`wiki-rag` 卡在 ~14s 且**与是否预热无关**，是最可疑的一处：像是 RAG worker
+被 8792/8796 独占（单例/端口/锁），第三个 sidecar 拿不到，每次都等到超时。
+**这条没验**——验它要停一个既有 sidecar，那会影响用户在用的服务，未经同意不做。
+
+`_precheck_satisfiability` 已排除为拦截方：它是观测器，源码明写「不得影响执行结果」、异常全吞，
+那句「工具目录里没有该输出对应的 claim」只是附在 gap 上的诊断注解。
+
 ## 未做 / 下一个人
 
-- `scenario_tree` 预检为何在手搭环境下必败：**未定位**。8796 能过、8798 不能过，
-  两者都是 worktree sidecar，差别在代码版本（8796 含 #288 等）与启动环境细节。
-- 正确做法可能是走 `scripts/deploy_workbench_runtime.sh` 建独立部署快照，
-  **但那个脚本会切生产 8792**，未经用户明确同意不得跑。
+- **别再逐个试环境变量**，上面七条已排完。下一步该验的是「RAG worker 是否单例、
+  第三个 sidecar 能不能拿到」——需要用户同意暂停 8796 才能做干净对照。
+- 另一条路：`scripts/deploy_workbench_runtime.sh` 建独立部署快照，
+  **但它会切生产 8792**，未经用户明确同意不得跑。
 - 本单 live 臂记 `not_run`。账本规矩：单测绿 ≠ `confirmed`；环境不等价的失败也不得写 `refuted`。
+- 探针画像 `/Users/a77/.finance-runtime/live-probe-traceability/20260821-slot-fill`（17M）可删。
