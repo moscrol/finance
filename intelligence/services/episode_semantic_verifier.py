@@ -29,7 +29,12 @@ from datetime import date
 from typing import Literal, Protocol, cast, runtime_checkable
 
 from intelligence.services import answer_model, llm_refine
-from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.agent_research import (
+    AgentEvidence,
+    StructuredObservation,
+    describe_lost_observation,
+    grounded_values_in_text,
+)
 from intelligence.services.degraded_fallback import (
     gap_transparency,
     is_model_service_unavailable,
@@ -345,7 +350,13 @@ _JUDGE_SYSTEM_PROMPT = (
     "给出带不确定性和条件的主观区间；但发明外部原因、支持性统计或任意触发阈值仍"
     "应拒绝。tool_status_registry 只支持检索过程状态，例如本轮是否命中；它不能支持"
     "市场事实或因果结论。答案不得暴露 capability、工具、provider 或哈希等内部标识，"
-    "只能用“本轮资讯检索未命中”等自然语言。evidence_registry 的 E 编号与正文引用"
+    "只能用“本轮资讯检索未命中”等自然语言。"
+    "verified_quantities 是**已由确定性核对确认**来自 evidence_registry 的数值清单"
+    "（逐字节相等才入列）：其中出现的数**不得**判为“未注册数字”“无直接证据”"
+    "或“注册表无对应条目”，也不得因此摘除 required output。你要审的是这些数被"
+    "用来支撑的**语义**（因果是否成立、口径有没有混用、日期是否对得上），"
+    "不是它们在不在证据里——那一半已经查过了。清单之外的数仍按原规则审查。"
+    "evidence_registry 的 E 编号与正文引用"
     "同一空间，可不连续；output_bindings.evidence_ids 与其对应。required_outputs 中的 "
     "答案对自身证据边界或推理层级的披露句（如“原文未覆盖某时段，此段映射为"
     "推理层”“以下为视角层推断”）是降低断言强度的元陈述，不是外部事实，"
@@ -1452,6 +1463,7 @@ class SemanticEpisodeVerifier:
             "answer_grounding_mode": answer_grounding_mode,
             "output_bindings": output_bindings,
             "evidence_registry": evidence_registry,
+            "verified_quantities": _verified_quantities_for_judge(verified.outcome),
             "tool_status_registry": [
                 row
                 for row in _semantic_tool_status_registry(verified.outcome.traces)
@@ -2181,13 +2193,27 @@ class SemanticEpisodeVerifier:
         )
         if not draft:
             return None
+        # 先按槽补回被连坐的真值，再算缺口。补回成功时缺口自然为空
+        # （真值已在稿里）；缺口这条留作兜底——补不回来时它仍会记账，
+        # 不让真值静默消失。
+        draft, _restored = _restore_lost_observations(
+            draft=draft,
+            before=original.draft,
+            evidence=original.evidence,
+        )
+        gaps = _gaps_with_lost_observations(
+            gaps=original.gaps,
+            before=original.draft,
+            after=draft,
+            evidence=original.evidence,
+        )
         repaired_outcome = AgentOutcome(
             task_frame_hash=original.task_frame_hash,
             status=original.status,
             draft=draft,
             evidence=original.evidence,
             traces=original.traces,
-            gaps=original.gaps,
+            gaps=gaps,
             stop_reason="semantic_repair",
             events=original.events,
             bindings=original.bindings,
@@ -2309,6 +2335,16 @@ class SemanticEpisodeVerifier:
     ) -> SemanticEpisodeOutcome:
         """Keep reviewed remainder and expose only the deleted slot as a gap."""
 
+        # 收缩之前先记下：这些格在**代码侧结构核验**里本来是不是达标的。
+        # 收缩会把它们改成 missing，之后就分不出「本来就缺证据」和
+        # 「证据够、是质检重写把表述删了」——而这两种缺口给用户的指引相反。
+        fulfilled_before_loss = frozenset(
+            str(item.output_id)
+            for item in (
+                verified.completion.outputs if verified.completion else ()
+            )
+            if str(getattr(item, "status", "")) == "fulfilled"
+        )
         verified = _shrink_verified_for_marker_loss(verified, output_ids)
         public = _sanitize_public_answer(
             remove_lost_output_scaffolding(
@@ -2343,11 +2379,13 @@ class SemanticEpisodeVerifier:
         )
         context = _gap_task_context(frame)
         context_prefix = f"{context}的" if context else ""
-        gap = (
-            "证据缺口："
-            + context_prefix
-            + "、".join(labels)
-            + "中的未核验表述已删除，需补充直接证据后再判断。"
+        gap = _marker_loss_gap_sentence(
+            labels=labels,
+            context_prefix=context_prefix,
+            all_were_fulfilled=bool(output_ids)
+            and all(
+                str(output_id) in fulfilled_before_loss for output_id in output_ids
+            ),
         )
         outcome = SemanticEpisodeOutcome(
             verified=verified,
@@ -3162,14 +3200,28 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
             )
         )
     corpus = " ".join(fields)
-    return frozenset(
+    quantities = {
         _normalize_quantity(quantity)
         for quantity in (
             *_ARABIC_QUANTITY_RE.findall(corpus),
             *_CHINESE_QUANTITY_RE.findall(corpus),
         )
         if _normalize_quantity(quantity)
-    )
+    }
+    # 结构化观察值**不受 binding 约束**。上面那段只认被 binding 引用过的证据，
+    # 是引用卫生；而 observations 是 harness 自己投递上桌的事实，它是不是真的
+    # 与模型有没有记得绑引用无关。少了这一段，模型写对了数却忘了绑，真话会被
+    # 判成「证据里没有的数量」连坐删句——那是拿引用卫生当真伪判据，模型越强
+    # （写得越细、数字越多）被误删越多。
+    #
+    # 只放宽到结构化值，不放宽到未绑定证据的**文本**：前者是机器可核的投递物，
+    # 后者仍需引用卫生把关。
+    for item in outcome.evidence:
+        for obs in item.observations:
+            token = _normalize_quantity(f"{obs.value:g}")
+            if token:
+                quantities.add(token)
+    return frozenset(quantities)
 
 
 def _normalize_quantity(value: object) -> str:
@@ -3281,6 +3333,96 @@ def _rounded_quantity_matches(
     if len(candidate_values) == 1 and len(observed_values) > 1:
         return any(matches)
     return all(matches)
+
+
+_SLOT_METRIC_LABELS = {
+    "pct_chg": "涨跌幅",
+    "amount": "成交额亿",
+    "diff_ratio": "边际量",
+}
+
+_SLOT_HEADING = "【预取事实】"
+
+
+def slot_line_for_observations(
+    observations: tuple[StructuredObservation, ...],
+) -> str:
+    """把观察值渲染成一行系统填的事实，**模型一个字没写**。
+
+    这是「槽」的最小形态：内容全部来自已投递的预取观察值，判官无据可删——
+    它要驳的是模型的未核验表述，而这一行不是模型写的。
+
+    与判官的分工由此变成结构性的，不再靠提示词自觉：
+    数字住在槽里（系统填、必真），叙述住在格间（模型写、判官可删）。
+    删叙述永远删不掉数字。
+    """
+
+    if not observations:
+        return ""
+    grouped: dict[tuple[str, str], list[StructuredObservation]] = {}
+    for obs in observations:
+        grouped.setdefault((obs.subject, obs.as_of), []).append(obs)
+    parts: list[str] = []
+    for (subject, as_of), items in grouped.items():
+        fields = "；".join(
+            f"{_SLOT_METRIC_LABELS.get(obs.metric, obs.metric)}={obs.value:g}"
+            for obs in items
+        )
+        parts.append(f"{subject} {as_of}：{fields}")
+    return _SLOT_HEADING + "｜".join(parts)
+
+
+def _restore_lost_observations(
+    *,
+    draft: str,
+    before: str,
+    evidence: tuple[AgentEvidence, ...],
+) -> tuple[str, tuple[StructuredObservation, ...]]:
+    """判官删完之后，把被连坐掉的有据数值以槽的形态补回稿件。
+
+    只补**数值本身**，不补任何被驳回的叙述——被删的因果/判断不会借尸还魂。
+    Gate 1 现场活下来的是错口径的主线句，真值 4.74/3432.59 陪葬；
+    补回之后真值一定在稿子里，与它原先绑的那句叙述死活无关。
+    """
+
+    lost = grounded_values_in_text(before, evidence)
+    if not lost:
+        return draft, ()
+    survivors = {obs.value for obs in grounded_values_in_text(draft, evidence)}
+    missing = tuple(obs for obs in lost if obs.value not in survivors)
+    if not missing:
+        return draft, ()
+    return f"{draft.rstrip()}\n\n{slot_line_for_observations(missing)}", missing
+
+
+def _gaps_with_lost_observations(
+    *,
+    gaps: tuple[str, ...],
+    before: str,
+    after: str,
+    evidence: tuple[AgentEvidence, ...],
+) -> tuple[str, ...]:
+    """判官删句后，把被连坐掉的**有据数值**补记成缺口。
+
+    Gate 1 实锤（`docs/verification/2026-08-21-gate1-pcb-exact-name.md`）：判官
+    把「缩量洗盘后主升」整段判未核验删掉，真值 4.74/3432.59 绑在那段里一起没
+    了，活下来的反而是错口径的句子。**真话和编造绑同一段，一刀切下去真话陪葬。**
+
+    这里不改删除决定——给含真值的句子发免死金牌会让编造搭便车（那是「变错」，
+    必须硬）。改的是：删掉的真值**不再静默消失**，而是落成缺口，下游可按槽
+    重新呈现。拦的是信息丢失，不是模型的表达，所以是保下限不是封上限。
+    """
+
+    lost = grounded_values_in_text(before, evidence)
+    if not lost:
+        return gaps
+    survivors = {obs.value for obs in grounded_values_in_text(after, evidence)}
+    notes = tuple(
+        describe_lost_observation(obs) for obs in lost if obs.value not in survivors
+    )
+    if not notes:
+        return gaps
+    return tuple(dict.fromkeys((*gaps, *notes)))
 
 
 def _drop_rejected_sentences(
@@ -3594,6 +3736,39 @@ def _renumber_parenthesized_list_items(source: str) -> str:
     return source
 
 
+def _marker_loss_gap_sentence(
+    *,
+    labels: tuple[str, ...],
+    context_prefix: str,
+    all_were_fulfilled: bool,
+) -> str:
+    """按**丢失原因**给缺口文案分流，别把 harness 的问题甩锅给数据。
+
+    生产实测 `run_20260821_114642_385979`（诊断见
+    `docs/verification/2026-08-21-judge-quantity-blindspot.md`）：
+    `structural_verifier` 判四个必填格全部 `fulfilled`、零 gap，随后语义质检
+    重写公开稿丢掉两格，用户看到的却是「**需补充直接证据**后再判断」——
+    让人去补一份根本不缺的证据。归因错了，指引也就错了。
+
+    两种缺口的处置相反，必须分开说：
+
+    - 本来就没取到证据 → 补数据是对的
+    - 代码侧已判达标、是质检把表述删了 → **不要补数据**，该重做那一格
+
+    这不改判官的任何权力，只让它造成的后果被如实归因。
+    """
+
+    body = context_prefix + "、".join(labels)
+    if all_were_fulfilled:
+        return (
+            "结构缺口："
+            + body
+            + "在结构核验中已判达标，但本轮质检重写时删除了其表述。"
+            "这不是证据不足——不需要补充数据，应重做这些部分。"
+        )
+    return "证据缺口：" + body + "中的未核验表述已删除，需补充直接证据后再判断。"
+
+
 def _marker_loss_issues(output_ids: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(
         Issue(
@@ -3634,6 +3809,41 @@ def _semantic_tool_status_registry(
             }
         )
     return statuses
+
+
+def _verified_quantities_for_judge(
+    outcome: AgentOutcome,
+) -> list[dict[str, object]]:
+    """投递给判官：稿件里哪些数**已由确定性核对确认来自已投递观察值**。
+
+    为什么要投递而不是让判官自己查（2026-08-21 生产实测，
+    `docs/verification/2026-08-21-judge-quantity-blindspot.md`）：
+
+    判官拿到了完整的 E1（2285 字符、43 行逐日行情，含 `成交额亿=775.76`），
+    投影不截 `detail`、压缩也不动它——**它看得见**。但它仍写下「证据注册表无
+    该题材量价时间轴」，把 `0.15 / 775.76 / 13.78 / 2.81` 全判成「未注册数字」，
+    连带摘掉 `direct_assessment` 与 `counterpoint` 两个必填输出。
+
+    同一份稿件 + 同一份证据，确定性逐字核对这四个数**全部判对**。
+    「这个数在不在证据里」是可判定的机械问题，交给 LLM 等于把必然正确换成
+    概率正确——按约束三筛（`harness-reference/PLAYBOOK.md`）：拦输出、
+    答题模型越强写得越精确被误伤越多，是典型的封上限。
+
+    因此把机械那半从判官手里拿走、直接投递结论，判官只留语义判断
+    （因果是否成立、口径有没有混用）。这不放宽任何东西：只有与已投递观察值
+    **逐字节相等**的数才会进这份清单，编造的数进不来。
+    """
+
+    values = grounded_values_in_text(outcome.draft, outcome.evidence)
+    return [
+        {
+            "value": obs.value,
+            "subject": obs.subject,
+            "as_of": obs.as_of,
+            "metric": obs.metric,
+        }
+        for obs in values
+    ]
 
 
 def _semantic_evidence_projection(
@@ -3735,13 +3945,18 @@ def _project_semantic_evidence(
 def _repair_wiped_all_required(contract: object, marker_loss: tuple[str, ...]) -> bool:
     """Return whether repair emptied every evidence-grounded required output."""
 
-    required = {
+    return bool(_required_evidence_outputs(contract)) and _required_evidence_outputs(
+        contract
+    ) <= set(marker_loss)
+
+
+def _required_evidence_outputs(contract: object) -> set[str]:
+    return {
         str(item.output_id)
         for item in getattr(contract, "required_outputs", ())
         if getattr(item, "required", True)
         and str(getattr(item, "grounding_mode", "evidence")) == "evidence"
     }
-    return bool(required) and required <= set(marker_loss)
 
 
 def _answer_grounding_mode(contract: object) -> str:

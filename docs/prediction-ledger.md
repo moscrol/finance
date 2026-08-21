@@ -73,6 +73,24 @@
 | `R-20260820-14` | 发酵精确名+双红戳（asof-prefetch 第 3 刀） | `HARNESS_FIX` | 触发词命中且能锚定板块时，预取 `sector_name` 精确名时间轴且行上 `双红=是\|否`；禁止 `contains` 近义名；「固态电池有什么新进展」不强制窗口 | 离线：锂矿 7/23 的 4.4/628.5/11.73 → 双红=是，同日锂电池不进。live 对照 Cursor | `pending` |
 | `R-20260821-03` | 成功路径稿 子单 C（预取行拿不到引用把手；Gate 1 创新药现场） | `HARNESS_FIX` | 开场预取消息每条带 `[E<n>]`，且该号 == 终局 `evidence_ordinal_table` 解析到同一 `content_hash`；模型引用后判官不再判「无 evidence_id / 发明历史行情」；认不出 hash 的条目不发号 | **离线已绿**：`test_prefetch_evidence_ordinal.py` 5 条（TDD 修前 3F/2P → 修后 5P）；宽集 381 passed，收据 `~/.finance-runtime/test-receipts/20260820T181642Z-dfc25221.json`。变异「发号顺序反转」→ 3F。live `run_20260821_021724_077535`：公开稿 894→1027 字，四段发酵弧保住，`E1` 引用 117 次（修前 0 次且模型自陈「无证据序号」），6-29/7-15/8-3/8-7 四组数与分析师侧逐位对齐。**只改呈现层，判官「数字要有出处」那条未动**。n=1 未过方差门，不得 `confirmed`。详见 `docs/verification/2026-08-21-gate1-prefetch-evidence-id.md` | `pending` |
 | `R-20260820-15` | 预取满足必填能力（asof-prefetch 第 4 刀） | `HARNESS_FIX` | outcome 里未绑定、未被 strip 的预取 tool 满足 `mandatory_capabilities`；`test_stripped_evidence_cannot_satisfy_mandatory_capability` 仍红 | 离线 verifier。stripped 哈希不得记账 | `pending` |
+| `R-20260821-02` | 子单 B 槽位填数（spec §6.2） | `DATA_CONTRACT_FIX` | 必填格的数字与日期改由预取行/带收据的工具行填入、模型只写格间句子后：公开稿问句日的涨幅/成交额/双红个数能在预取观察值或 traces 里**精确对上**；对不上时输出结构缺口，不得用散文圆过去。Gate 1 PCB概念题的 08-07 由 `8.71%/1295亿`（主线短名）转为 `4.74%/3432.59亿`（E1 长口径） | 离线：定向 pytest 先红后绿；变异——把槽改回自由作文必须转红。live：新题（非本 spec 正文题）走 `POST /api/conversations/{id}/messages`，比对公开稿数字 ⊆ 桌上的行 ∪ 有收据的工具行。**n=1 不结案**，`live_probe ask` 不算（中立泳道无 `continuous-episode.json`） | `pending` |
+| `R-20260821-03` | 子单 C 预取行带 E 号 + 问句精确名优先（#288 `fix/prefetch-evidence-id`） | `DATA_CONTRACT_FIX` | ① 开场预取行带 `[E<n>]`，真话不再被判成发明历史行情；② 问句里出现且表中存在的 `sector_name` 长名优先于被 `decide_turn` 收短的 subject——预取标题与数字跟问句口径走 | 离线**已绿**：`test_prefetch_evidence_ordinal.py` 5P + `test_asof_prefetch_dual_red.py`，合计 13 passed；变异（候选改回 subject 优先）转红。live 预取层**已过**（`run_20260821_031715_726466`，sidecar `33b4ca95` dirty=true）：预取标题 `PCB概念 双红时间轴`、E1 08-07=`4.74/3432.59` 单轨。**公开稿未过**（仍 `8.71/1295`），掉在工具旁路/写稿/判官三层——那是 `R-20260821-02` 与 `-04` 的范围，本行不代结。dirty 树的 live 不得写 `confirmed` | `pending` |
+| `R-20260821-04` | Gate 1 三筛：判官整段删（`docs/verification/2026-08-21-gate1-pcb-exact-name.md` §Live 第 3 层） | `HARNESS_FIX` | 三筛判该约束为「拦输出 → 封上限」，据此预测：**模型能力越强，被判官整段删连坐的真话越多**。落地 `R-20260821-02` 的槽位后，判官对槽内数字**无删除权**，同形 run 不再出现「整段含真数字被删、活下来的是错口径句」；`judge_status=repaired` 的稿件里，预取行数字留存率上升 | **n=1 不得结案**——当前仅 `run_20260821_031004/031715` 一对。需 ≥3 个同形样本（判官 `repaired` + 段内含预取行数字）才可 confirmed。反向证伪：槽位落地后仍出现槽内数字被删 → `refuted`，说明封上限点不在判官层，按 triage 升格线质疑架构。审查侧判据见 `harness-reference/PLAYBOOK.md` §约束三筛 与 `harness-architecture-review` C2；归因侧标注 `harness_direction: over_constrained` | `pending` |
+
+> `R-20260821-02` / `-04` 的 **live 臂 2026-08-21 尝试过，记 `not_run`**（不是 `refuted`）：
+> 手搭 worktree sidecar 与生产环境不等价，同一道反过拟合题（钙钛矿电池→2026-08-18）
+> 在**代码等于 `gitea/main` 的隔离臂**上同样失败于 `scenario_tree` 预检，故失败不可归因于本单四刀。
+> 四臂对照与环境爬坑记录见 `docs/verification/2026-08-21-slot-fill-live-attempt.md`。
+> 离线侧有效读数：`observation_value` 对 08-18 直接给出 `0.15 / 775.76`，与分析师第一刀逐字一致。
+>
+> **基线侧样本 +1（2026-08-21 午后，生产 8792@`dfc25221`，非本单代码）**：
+> `run_20260821_152044_472523`（CXO概念发酵题，Cursor 直调组件对照臂 + trace diff 全程见主检出树
+> `docs/verification/2026-08-21-tracediff-cxo-ceiling.md`）——judge `repaired` 把 1259 字草稿删至 437，
+> 被删数字（**工具行**来源，非预取行）逐条对库全真。该 run 同时证明投影 C1–C4（`82a9fac6`）已在 main live
+> （`projection_ordinal_mismatch_count=0`），残余机制为投影 spec §4/§8 留下的 A3 写手 binding 缺口
+> （`evidence_alias_offset=29`，未绑卡不送判官→真引用被判不存在）。对 `-04` 记 **adjacent shape**，
+> 不冒充 exact（exact 口径=预取行数字）；族内 n=2，不结案。`-02` 验收口径的「有收据的工具行」半边
+> 由第 10 刀 `f0ad6cfb` 落地（离线绿；live 臂依旧待能进 episode 的 sidecar）。
 
 `outcome` 只能是 `pending` / `confirmed` / `refuted`。**部分验证不要写 `confirmed`。**
 

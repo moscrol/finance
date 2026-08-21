@@ -62,6 +62,7 @@ from intelligence.services.provider_latency import (
 from intelligence.services.repair_coordinator import (
     RepairGoal,
     grant_for_transient_model_retry,
+    unreachable_repair_goal,
 )
 from intelligence.services.research_contract import (
     ResearchDeadline,
@@ -222,6 +223,18 @@ def _settle_batch_calls(
             root_budget.consume_call(seconds=seconds_per_call)
         except ValueError:
             root_budget.settle_seconds(seconds=seconds_per_call)
+def _evidence_required_output_ids(context: object) -> frozenset[str]:
+    """契约里 evidence 口径的必填输出 id。model_reasoning 格不在此列。"""
+
+    contract = getattr(context, "contract", None)
+    return frozenset(
+        str(getattr(item, "output_id", ""))
+        for item in getattr(contract, "required_outputs", ())
+        if getattr(item, "required", True)
+        and str(getattr(item, "grounding_mode", "evidence")) == "evidence"
+    )
+
+
 
 
 class _EpisodeLedger:
@@ -1448,7 +1461,19 @@ class ContinuousAgentEpisode:
             repair_tool_deadline = repair_deadline
         repair_tool_context = replace(context, deadline=repair_tool_deadline)
         research_tools_open = not repair_tool_deadline.expired
-        ledger.add("repair_goal", goal.to_dict())
+        goal_payload = goal.to_dict()
+        # 把「这一轮结构性不可能补上」的格显式投递进 trace。纯观测，不改执行：
+        # 生产 run_20260821_114642_385979 里修复轮被要求补两个 evidence 必填格，
+        # 同时 remaining_calls=0 / reopen_tools=false——禁止取证。它空转 40 秒后
+        # 残稿发布，读数上却表现成「repair 跑过了但没修好」，把不可能的任务
+        # 误读成模型能力问题。有了这个字段，trace diff 一眼能分开这两件事。
+        unreachable = unreachable_repair_goal(
+            goal,
+            evidence_output_ids=_evidence_required_output_ids(context),
+        )
+        if unreachable:
+            goal_payload["unreachable_without_tools"] = list(unreachable)
+        ledger.add("repair_goal", goal_payload)
         # 修复轮的时钟账，记在动手之前。
         #
         # 这三个数是 judge 那次诊断里 ``timeout_asked`` 的同位物：judge 看着像元凶，

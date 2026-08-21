@@ -1767,6 +1767,75 @@ def _filter_clause(
     return f"{column} LIKE ? ESCAPE '\\'", (f"%{escaped}%",)
 
 
+# 哪些数据集的行产结构化观察值：subject 维度字段 + 指标白名单（**底层列名**，
+# 与预取观察值同一指标空间，槽/门禁两侧才能对上）。只登记行级明细数据集；
+# 聚合类/无主体数据集不产——没有主体的数进槽只会制造错绑。
+_OBSERVATION_SUBJECT_FIELDS: dict[str, str] = {
+    "sector_daily": "sector_name",
+    "sector_stock_daily": "stock_name",
+}
+_OBSERVATION_METRIC_COLUMNS: dict[str, tuple[str, ...]] = {
+    "sector_daily": ("pct_chg", "amount", "diff_ratio"),
+    "sector_stock_daily": ("pct_chg", "amount"),
+}
+
+
+def _row_observations(
+    rows: tuple[dict[str, object], ...],
+    *,
+    source_dates: tuple[str | None, ...],
+    dataset_name: str,
+    dataset: _DatasetDefinition,
+) -> tuple[tuple[agent_research.StructuredObservation, ...], ...]:
+    """把工具行里的数以机器可读形态挂回各自的证据卡。
+
+    动机（生产实锤 run_20260821_152044_472523）：预取锚空表时模型靠本工具
+    拿回全对的行写稿，但这些数没有 observations，删句连坐检测 / 槽补回 /
+    数值门禁全都看不见它们，判官一刀下去真值随句子静默消失。带收据的
+    工具行必须与预取行同权。
+
+    同 (主体, 日期, 指标) 出现矛盾值时**该格不产观察值**——与
+    ``asof_prefetch.sector_timeline_observations`` 同规则：把矛盾当事实
+    投递，下游会把「有分歧」写成「就是这个数」。值相同的重复格照常产出。
+    """
+
+    subject_field = _OBSERVATION_SUBJECT_FIELDS.get(dataset_name)
+    if subject_field is None:
+        return tuple(() for _ in rows)
+    metric_columns = _OBSERVATION_METRIC_COLUMNS[dataset_name]
+    fields = dataset.fields
+    seen: dict[tuple[str, str, str], set[float]] = {}
+    per_row: list[list[tuple[str, str, str, float]]] = []
+    for index, row in enumerate(rows):
+        as_of = source_dates[index] or ""
+        subject = row.get(subject_field)
+        cells: list[tuple[str, str, str, float]] = []
+        if as_of and isinstance(subject, str) and subject:
+            for name, value in row.items():
+                field = fields.get(name)
+                if field is None or field.column not in metric_columns:
+                    continue
+                if value is None or isinstance(value, bool):
+                    continue
+                try:
+                    number = float(value)  # type: ignore[arg-type]
+                except (TypeError, ValueError):
+                    continue
+                seen.setdefault((subject, as_of, field.column), set()).add(number)
+                cells.append((subject, as_of, field.column, number))
+        per_row.append(cells)
+    return tuple(
+        tuple(
+            agent_research.StructuredObservation(
+                subject=subject, as_of=as_of, metric=metric, value=value
+            )
+            for subject, as_of, metric, value in cells
+            if len(seen[(subject, as_of, metric)]) == 1
+        )
+        for cells in per_row
+    )
+
+
 def _rows_to_evidence(
     rows: tuple[dict[str, object], ...],
     *,
@@ -1777,6 +1846,12 @@ def _rows_to_evidence(
 ) -> tuple[agent_research.AgentEvidence, ...]:
     evidence: list[agent_research.AgentEvidence] = []
     fields = dataset.fields
+    observations = _row_observations(
+        rows,
+        source_dates=source_dates,
+        dataset_name=dataset_name,
+        dataset=dataset,
+    )
     for index, row in enumerate(rows, start=1):
         source_date = source_dates[index - 1]
         detail = "；".join(
@@ -1794,6 +1869,7 @@ def _rows_to_evidence(
             evidence_tier=dataset.evidence_tier,
             independent_key=f"duckdb:{dataset_name}:{source_date or 'undated'}",
             freshness="current",
+            observations=observations[index - 1],
         )
         evidence.append(
             replace(
