@@ -185,10 +185,49 @@ def _connect(db_path: Path) -> Any | None:
     return result.connection
 
 
-def resolve_prefetch_sector(con: Any, query: str, subject: str) -> str | None:
-    """精确板块名优先；禁止 SQL ``contains`` 近义名。"""
+def _exact_sector_names_in_query(con: Any, query: str) -> tuple[str, ...]:
+    """问句里作为子串出现的 ``sector_name``，长名优先。
 
-    candidates = [item for item in (str(subject or "").strip(),) if item]
+    不含 ``resolve_query_themes`` 的宽松轮：口语别名仍走 subject → alias。
+    宽松命中若抢在精确长名之前，会把「PCB概念」收成短名「PCB」。
+    """
+
+    compact = re.sub(r"\s+", "", str(query or ""))
+    if not compact:
+        return ()
+    try:
+        names = [
+            str(row[0])
+            for row in con.execute(
+                "select distinct sector_name from fact_sector_daily "
+                "where sector_name is not null"
+            ).fetchall()
+        ]
+    except Exception:
+        return ()
+    hit: list[str] = []
+    remaining = compact
+    for name in sorted({item for item in names if item}, key=len, reverse=True):
+        if name in remaining:
+            hit.append(name)
+            remaining = remaining.replace(name, "□")
+    return tuple(hit)
+
+
+def resolve_prefetch_sector(con: Any, query: str, subject: str) -> str | None:
+    """问句里已出现且表中存在的精确板块名优先；禁止 SQL ``contains`` 近义名。
+
+    ``decide_turn`` 常把「PCB概念」收成 subject=「PCB」。短名在表里也有行，
+    若先查 subject 会把问句点名的长口径挤掉。
+    """
+
+    candidates: list[str] = []
+    for name in _exact_sector_names_in_query(con, query):
+        if name not in candidates:
+            candidates.append(name)
+    subject_text = str(subject or "").strip()
+    if subject_text and subject_text not in candidates:
+        candidates.append(subject_text)
     for candidate in candidates:
         rows = load_theme_daily_rows(con, candidate)
         if rows:
@@ -317,8 +356,30 @@ def evidence_from_prefetch(items: tuple[PrefetchItem, ...]) -> tuple[AgentEviden
 
 
 def format_opening_prefetch_message(items: tuple[PrefetchItem, ...] | tuple[AgentEvidence, ...]) -> str:
+    """开场预取消息。带 E 号，否则模型引用不到、判官按无出处删真话。
+
+    号不是这里新编的：``evidence_ordinal_table`` 与终局注册表同一张表，
+    而 ``_seed_opening_prefetch`` 把预取**先**放进证据账本，故此处算出的
+    ``E1..En`` 就是终局解析得到的那几个。认不出 hash 的条目不发号
+    （fail closed），绝不自己编——编出来的号会解析到别人头上。
+    """
+
     if not items:
         return ""
-    return "问句日预取（harness 进场事实，不是工具调用）：\n" + "\n\n".join(
-        f"{item.title}\n{item.detail}" for item in items
+    from intelligence.services.episode_protocol import evidence_ordinal_table
+
+    hashed = tuple(
+        item for item in items if str(getattr(item, "content_hash", "") or "").strip()
+    )
+    table = evidence_ordinal_table(hashed)
+    blocks: list[str] = []
+    for item in items:
+        digest = str(getattr(item, "content_hash", "") or "").strip()
+        eid = table.get(digest)
+        head = f"[{eid}] {item.title}" if eid else item.title
+        blocks.append(f"{head}\n{item.detail}")
+    return (
+        "问句日预取（harness 进场事实，不是工具调用；"
+        "下列 [E 号] 与证据注册表同号，写结论时可直接引用）：\n"
+        + "\n\n".join(blocks)
     )
