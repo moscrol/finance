@@ -4,6 +4,8 @@
 子单 C 两刀：① 开场预取打 `[E<n>]`（#288 已推）；② 问句里的精确 `sector_name` 优先于缩短 subject（未提交）。
 
 ## 当前状态
+**已收口（2026-08-21）**：#288 已合入 main（merge `a68baee5`，含精确名刀），8792 已切 `6320b3bcbf82`。live 双臂（CXO 同题 / 减肥药新题）预取均锚精确名、判官零「发明历史行情」类 issue，台账 `R-20260821-03` → `confirmed`。收口详情见 `docs/handoffs/inflight/main.md` 2026-08-21 行与 `docs/verification/2026-08-21-tracediff-cxo-ceiling.md`。以下为合并前历史状态。
+
 #288 open 未合，head `33b4ca95`。本树另有未提交：`asof_prefetch.resolve_prefetch_sector` + 1 测 + Gate 1 诊断。生产 8792 **未切**（`dfc25221b07b`）。判官未动。
 
 ## 怎么验收
