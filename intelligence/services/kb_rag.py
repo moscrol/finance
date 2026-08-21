@@ -31,6 +31,7 @@ from pathlib import Path
 from threading import Lock
 
 from intelligence.services import rag_worker
+from intelligence.services.kb_index_hygiene import fetch_k, sanitize_hits
 
 # rag_index.py lives at <KB repo root>/scripts/rag_index.py; the KB repo root is
 # the parent of the wiki root (KnowledgeAdapter.resolved_wiki_root.parent).
@@ -760,7 +761,9 @@ def retrieve(
     if budget_reason:
         tel.fallback_reason = budget_reason
         tel.degraded = True
-    tel.k = int(k)
+    requested_k = int(k)
+    tel.k = requested_k
+    query_k = fetch_k(requested_k)
     tel.display_excerpt_chars = int(excerpt_chars)
     if not kb_wiki:
         res.warning = "wiki-rag 需要知识库 wiki 路径 (--kb-wiki / KNOWLEDGE_WIKI)"
@@ -841,7 +844,7 @@ def retrieve(
         str(chosen),
         tel.index_fingerprint,
         query,
-        int(k),
+        requested_k,
         requested_mode,
         int(excerpt_chars),
         int(llm_evidence_chars),
@@ -877,7 +880,7 @@ def retrieve(
         "query",
         str(query),
         "--k",
-        str(k),
+        str(query_k),
         "--mode",
         effective_mode,
     ]
@@ -909,7 +912,7 @@ def retrieve(
         else ""
     )
     res.command = (
-        f"rag_index.py query <q> --k {k} --mode {effective_mode}"
+        f"rag_index.py query <q> --k {query_k} --mode {effective_mode}"
         f"{evidence_chars_note}{filter_note} --json"
     )
     res.citation_source = (
@@ -1049,7 +1052,7 @@ def retrieve(
             "分层过滤未生效，本轮召回为未过滤结果"
         )
         res.command = (
-            f"rag_index.py query <q> --k {k} --mode {mode}{filter_note} --json"
+            f"rag_index.py query <q> --k {query_k} --mode {mode}{filter_note} --json"
         )
         try:
             if worker_enabled and not filters:
@@ -1111,7 +1114,7 @@ def retrieve(
         tel.recall_desc = _MODE_RECALL_DESC["bm25"]
         tel.degraded = True
         res.command = (
-            f"rag_index.py query <q> --k {k} --mode bm25"
+            f"rag_index.py query <q> --k {query_k} --mode bm25"
             f"{evidence_chars_note if '--evidence-chars' in fallback_cmd else ''}"
             f"{filter_note} --json"
         )
@@ -1264,6 +1267,7 @@ def retrieve(
             tel.degraded = True
             states = ",".join(sorted({hit.index_freshness for hit in hits}))
             warnings.append(f"wiki-rag 索引新鲜度={states}，探索模式保留降级证据")
+    hits = sanitize_hits(hits, k=requested_k)
     res.warning = "；".join(dict.fromkeys(warning for warning in warnings if warning))
     res.hits = hits
     apply_total_llm_budget(res.hits, int(llm_evidence_total_chars))
