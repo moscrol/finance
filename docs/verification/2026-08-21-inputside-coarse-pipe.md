@@ -78,7 +78,20 @@ test_delivery_limits_do_not_invent_a_second_ladder     AttributeError: kb_search
 
 ## 4. 变异击杀
 
-先把实现提交，再在已提交树上把 `kb_search_hit_text` 退回 `excerpt[:160]`（`git checkout --` 对未提交树是删除器）。击杀清单见提交后补录的 §4.1。
+基线提交 `89ce0159`（实现已在树上）。把 `kb_search_hit_text` 改成 `return excerpt[:160]`（其余接缝不动），然后：
+
+```
+FFFF.  4 failed, 1 passed
+test_same_query_delivery_chars_beat_legacy_800_cap     assert 960 == 4800
+test_max_hits_and_detail_chars_are_configurable        'EEE…' == 'LLL…'
+test_jcet_replay_delivers_body_not_half_url_or_path_line  assert 442 > 800
+test_legacy_160_truncation_is_not_the_default_pipe     detail == excerpt[:160]
+test_delivery_limits_do_not_invent_a_second_ladder     passed（本变异没碰 limits 接缝）
+```
+
+`git checkout -- intelligence/services/agent_research.py` 后 5 passed。
+
+击杀清单：退回 160 截断会红掉「字符数」「可配置源字段」「长电结构」「变异闸」四钉。limits 钉要另把 `(6, 0)` 改成按 remaining 分档才会红——那是「第二套降档」的闸，不是本变异。
 
 ## 5. 复算命令
 
