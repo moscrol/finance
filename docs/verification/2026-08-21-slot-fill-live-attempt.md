@@ -59,7 +59,45 @@ observation_value(08-18, amount)  = 775.76
 
 四条都修完，依赖全绿，`scenario_tree` 仍复现。**剩余差异未定位。**
 
-## 定位尝试：六条假设逐条排除，根因仍未命中
+## ⚠ 根因更正：前八次 live **根本没走 episode 引擎**，环境排查全在追错方向
+
+读 8796 成功那次的产物才发现关键差异——**不在环境，在引擎**：
+
+| | 8796（成功） | 我的八次（失败） |
+|---|---|---|
+| 关键产物 | **`continuous-episode.json`** | `answer_spec.json` + `theme-research-skill-result.json` |
+| 调起技能 | 无 | `theme-research` |
+| 引擎 | A：continuous episode | B：ask 管线 + 技能路径 |
+
+我发的 `skill_mode: "auto"` 被解析成 `hybrid` → 路由去调 `theme-research` 技能 → 走进 B 引擎。
+**本单四刀全长在 episode/判官那条路上，B 引擎根本碰不到它们。**
+
+spec §7 禁止里原话就写着：「`live_probe ask` 当本单 episode 验收（**中立泳道无
+`continuous-episode.json`**）」。我那八次 run 一个都没有这个文件——**从第一次起就不是
+episode 验收**。下面那张排除表因此全部作废，留作反面教材：**先看产物确认走对引擎，
+再谈环境**。
+
+改用 `skill_mode: "manual"` + 空技能后：技能不再被调起（75s / 2716 字 / 无 `scenario_tree` 缺口），
+但产物仍是 `answer_spec.json`，**仍未进 episode 引擎**，且出现新阻塞：
+
+```
+未配置 LLM key，有机合成降级为模板
+质检 WARN 回灌修订失败，保留初稿
+本轮没有连接本地市场数据，已使用截至 2026-07-15 的历史盘面快照
+```
+
+`OPENAI_API_KEY` 等 55 个变量按名验过确实带进了进程，却仍报「未配置 LLM key」——
+怀疑走的是 macOS Keychain（`FORESIGHT_LLM_KEYCHAIN`），而 Keychain 访问权限取决于
+**发起进程的签名**：Cursor 会话起的 8796 拿得到，我这个 Bash 工具起的拿不到。
+**未验证**（碰 Keychain 需用户在场）。
+
+### 下一步只有一条干净路
+
+**用 8796 那套已被证明能进 episode 引擎的启动方式，只把 `WORKBENCH_REPO_ROOT` 换成本树。**
+同启动器、同环境、单变量。需要用户同意停掉 8796（可原样恢复，它的完整环境已记录）。
+**别再手搭**——八次已证明手搭进不去 A 引擎。
+
+## 作废：六条假设逐条排除（追错方向的记录，保留作反面教材）
 
 `scenario_tree` 缺口在我手搭的 sidecar 上 **7 次复现，0 次通过**，稳定复现。
 八次 live 逐条排除（每条都有对照读数，不是推断）：
