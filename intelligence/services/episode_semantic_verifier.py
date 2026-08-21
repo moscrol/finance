@@ -350,7 +350,13 @@ _JUDGE_SYSTEM_PROMPT = (
     "给出带不确定性和条件的主观区间；但发明外部原因、支持性统计或任意触发阈值仍"
     "应拒绝。tool_status_registry 只支持检索过程状态，例如本轮是否命中；它不能支持"
     "市场事实或因果结论。答案不得暴露 capability、工具、provider 或哈希等内部标识，"
-    "只能用“本轮资讯检索未命中”等自然语言。evidence_registry 的 E 编号与正文引用"
+    "只能用“本轮资讯检索未命中”等自然语言。"
+    "verified_quantities 是**已由确定性核对确认**来自 evidence_registry 的数值清单"
+    "（逐字节相等才入列）：其中出现的数**不得**判为“未注册数字”“无直接证据”"
+    "或“注册表无对应条目”，也不得因此摘除 required output。你要审的是这些数被"
+    "用来支撑的**语义**（因果是否成立、口径有没有混用、日期是否对得上），"
+    "不是它们在不在证据里——那一半已经查过了。清单之外的数仍按原规则审查。"
+    "evidence_registry 的 E 编号与正文引用"
     "同一空间，可不连续；output_bindings.evidence_ids 与其对应。required_outputs 中的 "
     "答案对自身证据边界或推理层级的披露句（如“原文未覆盖某时段，此段映射为"
     "推理层”“以下为视角层推断”）是降低断言强度的元陈述，不是外部事实，"
@@ -1457,6 +1463,7 @@ class SemanticEpisodeVerifier:
             "answer_grounding_mode": answer_grounding_mode,
             "output_bindings": output_bindings,
             "evidence_registry": evidence_registry,
+            "verified_quantities": _verified_quantities_for_judge(verified.outcome),
             "tool_status_registry": [
                 row
                 for row in _semantic_tool_status_registry(verified.outcome.traces)
@@ -3757,6 +3764,41 @@ def _semantic_tool_status_registry(
             }
         )
     return statuses
+
+
+def _verified_quantities_for_judge(
+    outcome: AgentOutcome,
+) -> list[dict[str, object]]:
+    """投递给判官：稿件里哪些数**已由确定性核对确认来自已投递观察值**。
+
+    为什么要投递而不是让判官自己查（2026-08-21 生产实测，
+    `docs/verification/2026-08-21-judge-quantity-blindspot.md`）：
+
+    判官拿到了完整的 E1（2285 字符、43 行逐日行情，含 `成交额亿=775.76`），
+    投影不截 `detail`、压缩也不动它——**它看得见**。但它仍写下「证据注册表无
+    该题材量价时间轴」，把 `0.15 / 775.76 / 13.78 / 2.81` 全判成「未注册数字」，
+    连带摘掉 `direct_assessment` 与 `counterpoint` 两个必填输出。
+
+    同一份稿件 + 同一份证据，确定性逐字核对这四个数**全部判对**。
+    「这个数在不在证据里」是可判定的机械问题，交给 LLM 等于把必然正确换成
+    概率正确——按约束三筛（`harness-reference/PLAYBOOK.md`）：拦输出、
+    答题模型越强写得越精确被误伤越多，是典型的封上限。
+
+    因此把机械那半从判官手里拿走、直接投递结论，判官只留语义判断
+    （因果是否成立、口径有没有混用）。这不放宽任何东西：只有与已投递观察值
+    **逐字节相等**的数才会进这份清单，编造的数进不来。
+    """
+
+    values = grounded_values_in_text(outcome.draft, outcome.evidence)
+    return [
+        {
+            "value": obs.value,
+            "subject": obs.subject,
+            "as_of": obs.as_of,
+            "metric": obs.metric,
+        }
+        for obs in values
+    ]
 
 
 def _semantic_evidence_projection(

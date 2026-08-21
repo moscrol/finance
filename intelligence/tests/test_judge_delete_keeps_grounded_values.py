@@ -211,3 +211,50 @@ def test_unbound_evidence_text_still_needs_binding() -> None:
         source="https://example.com/a",
     )
     assert "61.8" not in _bound_evidence_quantities(_outcome_with((text_only,)))
+
+
+# ── 第 5 刀：数值核对从判官手里拿走，投递给它 ──────────────────────
+
+
+def test_verified_quantities_lists_only_exact_matches() -> None:
+    """投递给判官的清单只装逐字节相等的数——编造的数进不来。"""
+
+    from intelligence.services.episode_semantic_verifier import (
+        _verified_quantities_for_judge,
+    )
+
+    outcome = _outcome_with((TIMELINE,))
+    outcome.draft = "08-07 涨 4.74%，成交 3432.59 亿；另有传闻称成交 9999.99 亿。"
+    rows = _verified_quantities_for_judge(outcome)
+    values = {r["value"] for r in rows}
+    assert values == {4.74, 3432.59}
+    assert 9999.99 not in values, "未投递过的数不得进入已核对清单"
+
+
+def test_verified_quantities_carry_locator_for_semantic_check() -> None:
+    """每条要带 (subject, as_of, metric)，判官才能继续审语义（口径/日期对不对）。"""
+
+    from intelligence.services.episode_semantic_verifier import (
+        _verified_quantities_for_judge,
+    )
+
+    outcome = _outcome_with((TIMELINE,))
+    outcome.draft = "08-07 成交 3432.59 亿。"
+    row = _verified_quantities_for_judge(outcome)[0]
+    assert row["subject"] == "PCB概念"
+    assert row["as_of"] == "2026-08-07"
+    assert row["metric"] == "amount"
+
+
+def test_judge_prompt_forbids_rejecting_verified_quantities() -> None:
+    """提示词必须写明这份清单怎么用，否则就是「投递了没人读」。"""
+
+    from intelligence.services import episode_semantic_verifier as v
+
+    prompt = "".join(
+        str(getattr(v, name))
+        for name in dir(v)
+        if name.isupper() and isinstance(getattr(v, name), str)
+    )
+    assert "verified_quantities" in prompt
+    assert "未注册数字" in prompt
