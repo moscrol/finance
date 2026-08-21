@@ -36,7 +36,7 @@
 1. 预检判定反转（空库仍 `required=True`）→ `test_precheck_inversion_would_keep_empty_theme_mandatory` 红。
 2. 兜底拆除（unreachable 仍压 mandatory / 仍写入模型侧 `missing_answer_elements`）→ `test_unreachable_fallback_inversion_would_keep_pressure` 红。
 
-离线全量（提交前脏树）：`5904 passed, 13 skipped, 0 failed` @ `0ed258b5` dirty，收据 `~/.finance-runtime/test-receipts/20260821T140928Z-0ed258b5.json`。
+离线全量干净树：`5904 passed, 13 skipped, 0 failed` @ `a132f15f` dirty=false，收据 `~/.finance-runtime/test-receipts/20260821T141646Z-a132f15f.json`（`check_test_receipt.py` 可采信）。提交前脏树同读数：`20260821T140928Z-0ed258b5.json`。
 
 变异实锤（提交 `634e0de1` 之后动手，避免 `git checkout` 冲掉实现）：
 
