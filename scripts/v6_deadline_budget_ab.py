@@ -525,7 +525,9 @@ def start_candidate_sidecar(
             stderr=log,
             start_new_session=True,
         )
-    deadline = time.monotonic() + 90
+    # 2026-08-22 实测：app lifespan 启动在夜间负载下可达 65-110s，90s 健康窗擦线
+    # 失败（chunk-4 现场 + 手动复现各一次），300s 给足余量。
+    deadline = time.monotonic() + 300
     last_error = "not contacted"
     while time.monotonic() < deadline:
         if process.poll() is not None:
