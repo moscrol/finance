@@ -424,3 +424,255 @@ def test_live_gold_b_arm_is_clean() -> None:
     assert report["counts"]["C"] == 0
     assert report["counts"]["D"] == 0
     assert report["unjudgeable"]["A"] == 1
+
+
+# --- V7 输入侧形状 I / III -------------------------------------------------
+
+_KB_CAPS = ("kb_search", "evidence_search")
+_R11_GOLD = (
+    (
+        "减肥药",
+        Path.home()
+        / ".local/share/finance-workbench/users/probe-ledger-0821/runs"
+        / "run_20260821_165210_889002",
+        "general_finance_qa",
+    ),
+    (
+        "CXO-B",
+        Path.home()
+        / ".local/share/finance-workbench/users/probe-ab-0821-post/runs"
+        / "run_20260821_164659_624916",
+        "theme_analysis",
+    ),
+    (
+        "CXO-A",
+        Path.home()
+        / ".local/share/finance-workbench/users/probe-tracediff-0821/runs"
+        / "run_20260821_152044_472523",
+        "theme_analysis",
+    ),
+    (
+        "钙钛矿",
+        Path.home()
+        / ".local/share/finance-workbench/users/linxiaoqi5111/runs"
+        / "run_20260821_171744_929436",
+        "theme_analysis",
+    ),
+    (
+        "皇氏集团",
+        Path.home()
+        / ".local/share/finance-workbench/users/linxiaoqi5111/runs"
+        / "run_20260821_171744_955225",
+        "stock_deep_dive",
+    ),
+)
+
+
+def _kb_episode(
+    *,
+    question_type: str = "theme_analysis",
+    allowed: tuple[str, ...] = _KB_CAPS,
+    planned: tuple[str, ...] = ("market_data", "news_search"),
+    events: list | None = None,
+    traces: list | None = None,
+) -> dict:
+    return _episode(
+        task_frame={"question_type": question_type},
+        contract={
+            "question_type": question_type,
+            "allowed_capabilities": list(allowed),
+            "evidence_plan": {
+                "requirements": [{"capability": cap} for cap in planned]
+            },
+        },
+        events=events or [],
+        traces=traces or [],
+        outcome={"traces": traces or [], "evidence": []},
+    )
+
+
+def _kb_tool_result(*, telemetry: object | None, observation: str = "命中正文") -> dict:
+    payload: dict = {
+        "ok": True,
+        "tool": "kb_search",
+        "observation": observation,
+        "evidence": [{"title": "页A", "detail": "x" * 40}],
+    }
+    if telemetry is not None:
+        payload["telemetry"] = telemetry
+    return {"kind": "tool_result", "payload": payload}
+
+
+def test_shape_i_authorized_not_planned_not_called() -> None:
+    """R-11 手工扫描形态：授权躺着、计划不含 KB、零调用。"""
+
+    verdict = inspect_episode(_kb_episode())
+    assert verdict["I"]["authorized"] is True
+    assert verdict["I"]["planned"] is False
+    assert verdict["I"]["called"] is False
+    assert verdict["I"]["question_type"] == "theme_analysis"
+
+
+def test_shape_i_planned_and_called_layers() -> None:
+    verdict = inspect_episode(
+        _kb_episode(
+            planned=("market_data", "kb_search"),
+            events=[_kb_tool_result(telemetry={"delivered_chars": 12, "hit_count": 1, "source_pages": ["页A"]})],
+        )
+    )
+    assert verdict["I"]["planned"] is True
+    assert verdict["I"]["called"] is True
+
+
+def test_shape_i_called_uses_provider_not_capability() -> None:
+    """成功 trace 的 capability 是 agent_loop；按 capability 分组会漏计调用。"""
+
+    verdict = inspect_episode(
+        _kb_episode(
+            traces=[
+                {
+                    "provider": "agent:kb_search",
+                    "capability": "agent_loop",
+                    "status": "success",
+                    "result_count": 5,
+                }
+            ]
+        )
+    )
+    assert verdict["I"]["called"] is True
+
+
+def test_missing_kb_telemetry_is_unjudgeable_not_zero() -> None:
+    """历史 run 调过 kb_search 但 telemetry 缺字段：报不可判，不当 0。"""
+
+    verdict = inspect_episode(
+        _kb_episode(events=[_kb_tool_result(telemetry=None)])
+    )
+    assert verdict["III"]["status"] == "unjudgeable"
+    assert verdict["III"]["unjudgeable"] == 1
+    assert verdict["III"]["delivered_chars"] == []
+    assert "不可判" in verdict["III"]["summary"]
+
+
+def test_empty_kb_telemetry_dict_is_unjudgeable_not_zero() -> None:
+    """R-12 现状：telemetry 落盘空 dict。空 dict 不是 0 字符。"""
+
+    verdict = inspect_episode(_kb_episode(events=[_kb_tool_result(telemetry={})]))
+    assert verdict["III"]["status"] == "unjudgeable"
+    assert verdict["III"]["delivered_chars"] == []
+
+
+def test_shape_iii_no_call_is_not_zero_chars() -> None:
+    """没调 KB 是 no_call，不是送达 0——和「缺字段当 0」是同一条诚实线。"""
+
+    verdict = inspect_episode(_kb_episode())
+    assert verdict["III"]["status"] == "no_call"
+    assert verdict["III"]["delivered_chars"] == []
+    assert verdict["III"]["calls"] == 0
+
+
+def test_shape_iii_reads_actual_delivered_chars_not_800() -> None:
+    """V3 会改管道；计数按实际送达，不写死 800。"""
+
+    verdict = inspect_episode(
+        _kb_episode(
+            events=[
+                _kb_tool_result(
+                    telemetry={
+                        "delivered_chars": 247,
+                        "hit_count": 2,
+                        "source_pages": ["页A", "页B"],
+                    }
+                )
+            ]
+        )
+    )
+    assert verdict["III"]["status"] == "judgeable"
+    assert verdict["III"]["delivered_chars"] == [247]
+    assert verdict["III"]["hit_counts"] == [2]
+    assert 800 not in verdict["III"]["delivered_chars"]
+
+
+def test_audit_aggregates_shape_i_by_question_type(tmp_path: Path) -> None:
+    _write_run(tmp_path, "run_20260821_010000_a", _kb_episode(question_type="theme_analysis"))
+    _write_run(tmp_path, "run_20260821_010000_b", _kb_episode(question_type="theme_analysis"))
+    _write_run(
+        tmp_path,
+        "run_20260821_010000_c",
+        _kb_episode(question_type="stock_deep_dive"),
+    )
+    report = audit([tmp_path], since="2026-08-21", until="2026-08-21")
+    by_type = report["inputside"]["shape_I"]["by_question_type"]
+    assert by_type["theme_analysis"] == {
+        "n": 2,
+        "authorized": 2,
+        "planned": 0,
+        "called": 0,
+    }
+    assert by_type["stock_deep_dive"]["n"] == 1
+    assert report["inputside"]["shape_I"]["totals"]["authorized"] == 3
+    assert report["inputside"]["shape_III"]["unjudgeable"] == 0
+    assert report["inputside"]["shape_III"]["no_call_runs"] == 3
+
+
+def test_audit_shape_iii_unjudgeable_not_counted_as_zero(tmp_path: Path) -> None:
+    _write_run(
+        tmp_path,
+        "run_20260821_010000_d",
+        _kb_episode(events=[_kb_tool_result(telemetry={})]),
+    )
+    report = audit([tmp_path], since="2026-08-21", until="2026-08-21")
+    shape_iii = report["inputside"]["shape_III"]
+    assert shape_iii["unjudgeable"] == 1
+    assert shape_iii["judgeable"] == 0
+    assert shape_iii["delivered_chars"] == []
+    text = render_report(report)
+    assert "不可判" in text
+
+
+@pytest.mark.skipif(
+    not all((path / "continuous-episode.json").is_file() for _n, path, _t in _R11_GOLD),
+    reason="本机缺少 R-11 五案例金标 run",
+)
+def test_live_gold_r11_five_cases_match_manual_scan() -> None:
+    """docs/verification/2026-08-21-inputside-kb-dark-asset.md §1：5/5 授权、零计划、零调用。"""
+
+    roots = [path for _name, path, _qtype in _R11_GOLD]
+    report = audit(roots, since="2026-08-21", until="2026-08-21")
+    assert report["scanned"] == 5
+    totals = report["inputside"]["shape_I"]["totals"]
+    assert totals == {"n": 5, "authorized": 5, "planned": 0, "called": 0}
+    by_type = report["inputside"]["shape_I"]["by_question_type"]
+    assert by_type["theme_analysis"]["n"] == 3
+    assert by_type["theme_analysis"]["authorized"] == 3
+    assert by_type["theme_analysis"]["planned"] == 0
+    assert by_type["theme_analysis"]["called"] == 0
+    assert by_type["general_finance_qa"] == {
+        "n": 1,
+        "authorized": 1,
+        "planned": 0,
+        "called": 0,
+    }
+    assert by_type["stock_deep_dive"] == {
+        "n": 1,
+        "authorized": 1,
+        "planned": 0,
+        "called": 0,
+    }
+    assert report["inputside"]["shape_III"]["no_call_runs"] == 5
+    assert report["inputside"]["shape_III"]["judgeable"] == 0
+    assert report["inputside"]["shape_III"]["delivered_chars"] == []
+
+
+@pytest.mark.parametrize("name,path,question_type", _R11_GOLD)
+def test_live_gold_r11_each_case_layers(name: str, path: Path, question_type: str) -> None:
+    episode_path = path / "continuous-episode.json"
+    if not episode_path.is_file():
+        pytest.skip(f"本机没有 {name} 金标 run")
+    episode = json.loads(episode_path.read_text(encoding="utf-8"))
+    verdict = inspect_episode(episode)
+    assert verdict["I"]["authorized"] is True, name
+    assert verdict["I"]["planned"] is False, name
+    assert verdict["I"]["called"] is False, name
+    assert verdict["I"]["question_type"] == question_type, name
+    assert verdict["III"]["status"] == "no_call", name

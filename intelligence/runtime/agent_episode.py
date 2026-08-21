@@ -474,16 +474,22 @@ class _EpisodeToolAccumulator:
                 "payload_field_names": list(observation.payload_field_names),
                 "payload_sha256": observation.payload_sha256,
             }
+            telemetry = dict(getattr(observation, "telemetry", None) or {})
+            if telemetry:
+                # 控制面收据：只进 ledger，不进模型上下文。
+                public_observation["telemetry"] = telemetry
             # 审计留档拿全量（含 hash），模型上下文拿预算后的副本并去掉 hash，
             # 只留 E1..En——誊抄 16-hex 是 B1/B7 零绑定的根因。
             self.ledger.add("tool_result", {**public_observation, **timing})
+            model_view = dict(public_observation)
+            model_view.pop("telemetry", None)
             self.messages.append(
                 {
                     "role": "tool",
                     "tool_call_id": call.call_id,
                     "content": json.dumps(
                         strip_hashes_for_model(
-                            budget_tool_observation(public_observation)
+                            budget_tool_observation(model_view)
                         ),
                         ensure_ascii=False,
                     ),
