@@ -22,6 +22,7 @@ from intelligence.services.episode_semantic_verifier import (
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
     LEFTOVER_WINDOW_ISSUE,
     MAX_SEMANTIC_JUDGE_ATTEMPTS,
+    REQUIRED_OUTPUT_DEGRADED_MARK,
     SemanticEpisodeVerifier,
     _semantic_attempt_timeouts,
     compact_judge_payload,
@@ -832,9 +833,9 @@ def test_semantic_repair_cannot_remove_a_visible_required_output_marker() -> Non
     assert result.judge_status == "repaired"
     assert "【当前判断】市场处于反弹修复" in result.public_answer
     assert "99999亿元" not in result.public_answer
-    # 代码侧已判达标、是质检重写删掉的 → 归因必须是结构缺口，
-    # 且不得让用户去补一份根本不缺的证据（见 _marker_loss_gap_sentence）。
-    assert "结构缺口" in result.public_answer
+    assert REQUIRED_OUTPUT_DEGRADED_MARK in result.public_answer
+    assert "结构缺口" not in result.public_answer
+    assert "现有证据不足" not in result.public_answer
     assert "需补充直接证据" not in result.public_answer
     assert "继续成立条件" in result.public_answer
     assert result.gap_output_ids == ("continuation_conditions",)
@@ -2182,9 +2183,9 @@ def test_outlook_repair_that_leaves_only_boundary_is_partial_with_gap() -> None:
     assert result.status == "partial"
     assert result.judge_status == "repaired"
     assert "基准判断" not in result.public_answer
-    # 代码侧已判达标、是质检重写删掉的 → 归因必须是结构缺口，
-    # 且不得让用户去补一份根本不缺的证据（见 _marker_loss_gap_sentence）。
-    assert "结构缺口" in result.public_answer
+    assert REQUIRED_OUTPUT_DEGRADED_MARK in result.public_answer
+    assert "结构缺口" not in result.public_answer
+    assert "现有证据不足" not in result.public_answer
     assert "需补充直接证据" not in result.public_answer
     assert "直接回答" in result.public_answer
     assert result.gap_output_ids == ("direct_answer",)
@@ -2205,8 +2206,8 @@ def test_marker_loss_keeps_gap_audit_when_public_remainder_is_sanitized() -> Non
 
     assert result.status == "partial"
     assert result.judge_status == "repaired"
-    assert "现有证据不足" in result.public_answer
-    assert "直接判断" in result.public_answer
+    assert result.public_answer == ""
+    assert "现有证据不足" not in result.public_answer
     assert result.gap_output_ids == ("direct_assessment",)
 
 
@@ -2475,7 +2476,10 @@ def test_valuation_marker_loss_gap_keeps_task_context() -> None:
     )
 
     assert result.status == "partial"
-    assert "证据缺口：估值的" in result.public_answer
+    assert REQUIRED_OUTPUT_DEGRADED_MARK in result.public_answer
+    assert "瑞华泰当前PB约4.33" in result.public_answer
+    assert "证据缺口：" not in result.public_answer
+    assert "现有证据不足" not in result.public_answer
     assert result.gap_output_ids == ("evidence_boundary",)
 
 
