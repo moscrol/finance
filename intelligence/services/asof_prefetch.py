@@ -185,10 +185,49 @@ def _connect(db_path: Path) -> Any | None:
     return result.connection
 
 
-def resolve_prefetch_sector(con: Any, query: str, subject: str) -> str | None:
-    """精确板块名优先；禁止 SQL ``contains`` 近义名。"""
+def _exact_sector_names_in_query(con: Any, query: str) -> tuple[str, ...]:
+    """问句里作为子串出现的 ``sector_name``，长名优先。
 
-    candidates = [item for item in (str(subject or "").strip(),) if item]
+    不含 ``resolve_query_themes`` 的宽松轮：口语别名仍走 subject → alias。
+    宽松命中若抢在精确长名之前，会把「PCB概念」收成短名「PCB」。
+    """
+
+    compact = re.sub(r"\s+", "", str(query or ""))
+    if not compact:
+        return ()
+    try:
+        names = [
+            str(row[0])
+            for row in con.execute(
+                "select distinct sector_name from fact_sector_daily "
+                "where sector_name is not null"
+            ).fetchall()
+        ]
+    except Exception:
+        return ()
+    hit: list[str] = []
+    remaining = compact
+    for name in sorted({item for item in names if item}, key=len, reverse=True):
+        if name in remaining:
+            hit.append(name)
+            remaining = remaining.replace(name, "□")
+    return tuple(hit)
+
+
+def resolve_prefetch_sector(con: Any, query: str, subject: str) -> str | None:
+    """问句里已出现且表中存在的精确板块名优先；禁止 SQL ``contains`` 近义名。
+
+    ``decide_turn`` 常把「PCB概念」收成 subject=「PCB」。短名在表里也有行，
+    若先查 subject 会把问句点名的长口径挤掉。
+    """
+
+    candidates: list[str] = []
+    for name in _exact_sector_names_in_query(con, query):
+        if name not in candidates:
+            candidates.append(name)
+    subject_text = str(subject or "").strip()
+    if subject_text and subject_text not in candidates:
+        candidates.append(subject_text)
     for candidate in candidates:
         rows = load_theme_daily_rows(con, candidate)
         if rows:
