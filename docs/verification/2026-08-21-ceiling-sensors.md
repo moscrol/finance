@@ -46,10 +46,12 @@ D 那 1 条是传感器在扫历史窗时抓到的已知漏网，不是新故障
 
 ## 变异
 
-先提交再改（`git checkout --` 只能回到已提交态）：
+先提交 `08671566` 再改（`git checkout --` 只能回到已提交态）。两次都已亲手复现后还原：
 
-1. 缺字段当 0 → `test_missing_projection_field_is_unjudgeable_not_zero` 与金标 A 钉红
-2. C 只看 `rejected_claim_indexes`、忽略 `marker_loss` → `test_gold_e4_shape_via_fixture` / live E4 钉红
+1. 缺字段当 0（`semantic.get(..., 0)`）→ 3 红：`test_missing_projection_field_is_unjudgeable_not_zero`、`test_gold_e4_shape_via_fixture`、`test_live_gold_e4_reports_c_and_unjudgeable_a`
+2. C 只留 `rejected_claim_indexes`、关掉 `marker_loss` / `repair_wiped_all_outputs` → 4 红：上列金标两条 + `test_shape_c_from_marker_loss` + `test_shape_c_from_repair_wiped_all_outputs`
+
+还原后本文件 19 passed。全量门禁：ruff 绿，pytest **5907 passed / 0 failed / 13 skipped**（基线 5888 + 本单 19）。本文件收据 `~/.finance-runtime/test-receipts/20260821T135443Z-08671566.json`；全量在同树 `08671566` 上跑完。
 
 ## 落点
 
