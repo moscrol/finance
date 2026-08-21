@@ -111,6 +111,18 @@
 
 立 `R-20260821-08`，fix_type=`HARNESS_FIX`：「mandatory 可满足性两级对账：contract 下发时按 KB 链路证据在场性降级 chain_mapping；运行时 unreachable_without_tools && !reopen_tools 一律降级为缺口声明。预测：结构性不可满足的必填格不再显影为 marker_loss/道歉横幅/错口径污染，显影为显式缺口声明。」
 
+### ⚠ 验收方修订（2026-08-21 22:10，实施方必读——归因更正，影响重放案例与预检基准）
+
+输入侧排查（`docs/verification/2026-08-21-inputside-kb-dark-asset.md`）实证：**钙钛矿 chain_mapping 案的「KB 无该题材链路证据」不成立**——KB 概念图谱有奥特维/捷佳伟创/京山轻机带 role/strength/reason（`query_relations.py graph --concept 钙钛矿` 可复算）。死格真因是 `evidence_plan.requirements` 不含 KB 工具、模型顺计划走零调用（5/5 案例 run 全同形）——**供给通道不通，不是供给不存在**。据此修订：
+
+1. **静态预检的判定基准**：从「KB 里存了什么」改为「本次供给通道会送什么」。三段决策替换原二段：
+   - KB 无链路证据（如减肥药，概念层实测零节点）→ 降 optional + 预置缺口声明（原设计，保留）；
+   - KB 有证据**且**本次计划/预取会送 → 保持 mandatory（原设计，保留）；
+   - KB 有证据**但**计划不含 KB 检索 → **不属 W2a 范围**，挂 W2b（下）。本轮先按「本轮通道未检索知识库」出结构化缺口——**缺口文案必须区分「库无」与「未查」**（机械可判：有无 kb_search/evidence_search 调用收据）。
+2. **W2a 重放案例更换**：钙钛矿案（KB 有证据）不再是 W2a 的合法重放靶——换用**减肥药题**（`run_20260821_165210_889002`，KB 概念层真·零节点，`evidence --theme 减肥药` 0 条）。判据不变：after = 缺口声明、无 marker_loss。
+3. **新拆 W2b（通道打通，另行派单，本单不做）**：evidence_plan 对「KB 有该题材证据」的题形补 KB 检索引导（或预取补链路块）。前置：先量 KB 检索耗时分布——W4 已证预算紧张是常态，且在途 plan `retrieval-tier-by-remaining-budget` 会在 <15s 剩余时把 hybrid 降 BM25，通道打通必须带预算账，否则重演「满足契约反而污染/超时」。
+4. 动态兜底（`unreachable && !reopen` 降级）**不受本修订影响**，照原判据执行。
+
 ---
 
 ## W3（形状 D）：issue-backfill 回填目标按缺口主体反推，废静态映射
