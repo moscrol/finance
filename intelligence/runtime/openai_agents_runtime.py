@@ -28,9 +28,11 @@ from intelligence.services.episode_session import (
 )
 from intelligence.services.runtime_handle import RuntimeHandle
 from intelligence.services.episode_protocol import (
+    SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
     build_episode_input,
     build_episode_instructions,
     expand_episode_snapshot_bindings,
+    split_episode_prompt,
     validate_episode_finish,
 )
 from intelligence.services.provider_observability import ProviderTrace
@@ -1101,9 +1103,13 @@ class OpenAIAgentsRuntime:
                 gap="sdk_runtime_budget_exhausted",
                 llm_calls=0,
             )
+        system, user = split_episode_prompt(task_frame, context, registry)
+        # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: system is byte-stable; input rebuilds.
+        # cache_control is not implemented this increment.
+        _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
         request = AgentsSdkRequest(
-            instructions=build_episode_instructions(task_frame, context, registry),
-            input=build_episode_input(task_frame, context),
+            instructions=system,
+            input=user,
             tools=state.tools(),
             max_turns=max(2, context.policy.max_steps + 2),
             timeout=runtime_timeout,
@@ -1285,6 +1291,7 @@ class OpenAIAgentsRuntime:
                         build_episode_input(
                             state.task_frame,
                             repair_context,
+                            state.registry,
                         )
                     ),
                     "evidence": [
@@ -1298,6 +1305,9 @@ class OpenAIAgentsRuntime:
                     "existing_gaps": list(previous.gaps),
                 }
             )
+        # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: constitution stays system; repair
+        # suffix and user/task JSON are per-turn. No cache_control this increment.
+        _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
         request = AgentsSdkRequest(
             instructions=(
                 build_episode_instructions(

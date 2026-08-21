@@ -230,6 +230,11 @@ def _episode_evidence_plan(frame: TaskFrame) -> EvidencePlan:
         freshness="current",
     )
     if frame.question_type == "market_cause":
+        kb_extras = tuple(
+            item
+            for item in plan.requirements
+            if item.capability in {"kb_search", "evidence_search"}
+        )
         return EvidencePlan(
             profile="time_aligned_market_causal",
             requirements=(
@@ -254,6 +259,7 @@ def _episode_evidence_plan(frame: TaskFrame) -> EvidencePlan:
                     "current",
                     "明确标注为外部观点的竞争性解释",
                 ),
+                *kb_extras,
             ),
             freshness="current",
         )

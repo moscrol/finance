@@ -350,6 +350,7 @@ class ToolRunResult:
     caliber: str = ""
     payload_field_names: tuple[str, ...] = ()
     payload_sha256: str = ""
+    telemetry: dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         evidence = tuple(self.evidence)
@@ -377,6 +378,7 @@ class ToolRunResult:
         object.__setattr__(self, "caliber", caliber)
         object.__setattr__(self, "payload_field_names", names)
         object.__setattr__(self, "payload_sha256", digest)
+        object.__setattr__(self, "telemetry", dict(self.telemetry or {}))
 
 
 class ToolRunnerAdapter:
@@ -451,6 +453,7 @@ class ToolObservation:
     caliber: str = ""
     payload_field_names: tuple[str, ...] = ()
     payload_sha256: str = ""
+    telemetry: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -521,16 +524,23 @@ class ResearchToolRegistry:
         self,
         allowed: tuple[str, ...] | None = None,
     ) -> tuple[ToolSpec, ...]:
-        """Return registered tools whose declared capability is authorized."""
+        """Return registered tools whose declared capability is authorized.
+
+        Order is sorted by ``name`` so ``prompt_block`` and
+        ``tool_definitions`` stay stable if registration insertion order
+        changes.
+        """
 
         if allowed is None:
-            return tuple(self._specs.values())
-        allowed_set = set(allowed)
-        return tuple(
-            spec
-            for spec in self._specs.values()
-            if spec.capability in allowed_set
-        )
+            specs = tuple(self._specs.values())
+        else:
+            allowed_set = set(allowed)
+            specs = tuple(
+                spec
+                for spec in self._specs.values()
+                if spec.capability in allowed_set
+            )
+        return tuple(sorted(specs, key=lambda spec: spec.name))
 
     def tool_definitions(
         self,
@@ -823,25 +833,29 @@ class ResearchToolRegistry:
             # The content hash is the stable identifier carried into
             # AgentOutcome/verifier. Do not mint a second observation-only ID.
             hashes = tuple(item.content_hash for item in evidence)
+            telemetry = dict(run_result.telemetry) if run_result.telemetry else {}
+            if spec.name == "kb_search":
+                # 按 cutoff/规范化之后的实际送达计，不写死 800；V3 改管道读数跟上。
+                telemetry = agent_research.kb_delivery_telemetry(evidence, observation)
             if scope is not None:
-                scope.emit(
-                    TOOL_RESULT,
-                    {
-                        "tool": spec.name,
-                        "tool_call_id": tool_call_id,
-                        "step_id": step_id,
-                        "status": trace.status,
-                        "evidence_count": len(evidence),
-                        # hash 是带进 AgentOutcome/verifier 的稳定标识，
-                        # 事件里带上它，Trace/UI/评测三者才对得上账。
-                        "evidence_hashes": list(hashes),
-                        "gaps": list(gaps),
-                        "dataset": run_result.dataset,
-                        "caliber": run_result.caliber,
-                        "payload_field_names": list(run_result.payload_field_names),
-                        "payload_sha256": run_result.payload_sha256,
-                    },
-                )
+                emitted = {
+                    "tool": spec.name,
+                    "tool_call_id": tool_call_id,
+                    "step_id": step_id,
+                    "status": trace.status,
+                    "evidence_count": len(evidence),
+                    # hash 是带进 AgentOutcome/verifier 的稳定标识，
+                    # 事件里带上它，Trace/UI/评测三者才对得上账。
+                    "evidence_hashes": list(hashes),
+                    "gaps": list(gaps),
+                    "dataset": run_result.dataset,
+                    "caliber": run_result.caliber,
+                    "payload_field_names": list(run_result.payload_field_names),
+                    "payload_sha256": run_result.payload_sha256,
+                }
+                if telemetry:
+                    emitted["telemetry"] = telemetry
+                scope.emit(TOOL_RESULT, emitted)
             return ToolObservation(
                 tool=spec.name,
                 query=prepared.display_query,
@@ -854,6 +868,7 @@ class ResearchToolRegistry:
                 caliber=run_result.caliber,
                 payload_field_names=run_result.payload_field_names,
                 payload_sha256=run_result.payload_sha256,
+                telemetry=telemetry,
             )
 
         ledger_call = partial(

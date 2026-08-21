@@ -55,6 +55,12 @@ _CONFIGURE_CAPABILITIES = frozenset({"", "configure"})
 _MIN_ROLLBACK_SENTENCES = 2
 _MIN_ROLLBACK_CHARS = 80
 _STUB_CHAR_RATIO = 0.2
+# V2：本轮是否调过 KB 看 provider，不看 capability（成功路 capability=agent_loop）。
+_KB_QUERY_PROVIDERS = frozenset({"agent:kb_search", "agent:evidence_search"})
+_KB_ABSENCE_GAP_RE = re.compile(
+    r"(?:缺公告级证据|知识库暂无|知识库无|库无|暂无公告级)"
+)
+_UNVERIFIED_QUALIFIER = "（本轮未查证知识库）"
 
 
 @dataclass(frozen=True)
@@ -240,6 +246,68 @@ def rewrite_unattempted_claims(
         snippet = claim.snippet
         if snippet and snippet in rewritten:
             rewritten = rewritten.replace(snippet, rewrite_unattempted_claim(claim), 1)
+    return rewritten
+
+
+def traces_include_kb_query(traces: tuple[ProviderTrace, ...]) -> bool:
+    """本轮是否调过 KB。与 V7 ``test_shape_i_called_uses_provider_not_capability`` 同口径。"""
+
+    return any(
+        str(trace.provider or "") in _KB_QUERY_PROVIDERS and _attempted(trace)
+        for trace in traces or ()
+    )
+
+
+def kb_gap_claim_kind(traces: tuple[ProviderTrace, ...]) -> str:
+    """缺口声明二分：库无 vs 未查证。变异闸——恒返回「库无」必须让零调用钉红。"""
+
+    if traces_include_kb_query(traces):
+        return "库无"
+    return "未查证"
+
+
+def find_unverified_kb_gap_claims(
+    text: str,
+    traces: tuple[ProviderTrace, ...],
+) -> tuple[str, ...]:
+    """零 KB 查证下的断言性缺口句。已带「未查证」限定的不算。"""
+
+    if kb_gap_claim_kind(traces) != "未查证":
+        return ()
+    found: list[str] = []
+    for sentence in iter_sentences(text):
+        if "未查证" in sentence:
+            continue
+        if _KB_ABSENCE_GAP_RE.search(sentence):
+            found.append(sentence)
+    return tuple(found)
+
+
+def _qualify_unverified_gap_sentence(sentence: str) -> str:
+    """去掉断言性「库无/暂无」，并带上「未查证」限定。"""
+
+    text = sentence
+    text = text.replace("知识库暂无", "本轮未查证知识库是否有")
+    text = text.replace("知识库无", "本轮未查证知识库是否有")
+    text = text.replace("库无", "本轮未查证是否存在")
+    text = text.replace("暂无公告级", "本轮未查证公告级")
+    if "未查证" not in text:
+        text = text.rstrip("。！？!?") + f"{_UNVERIFIED_QUALIFIER}。"
+    return text
+
+
+def rewrite_unverified_kb_gap_claims(
+    text: str,
+    traces: tuple[ProviderTrace, ...],
+) -> str:
+    """零查证的断言性缺口改为「未查证」；有查证未命中则原样保留「库无」。"""
+
+    rewritten = str(text or "")
+    for snippet in find_unverified_kb_gap_claims(rewritten, traces):
+        if snippet in rewritten:
+            rewritten = rewritten.replace(
+                snippet, _qualify_unverified_gap_sentence(snippet), 1
+            )
     return rewritten
 
 

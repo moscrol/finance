@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import replace
 import json
@@ -337,6 +338,76 @@ def test_tool_result_ledger_persists_payload_meta_without_row_bodies() -> None:
     )
     assert "/Users/" not in persisted
     assert "/home/" not in persisted
+
+
+def test_kb_tool_result_persists_delivery_telemetry() -> None:
+    """V7：kb_search 的 tool_result.telemetry 必须落盘（送达字符/命中/来源页）。"""
+
+    def kb_runner(query: str, _context: AgentToolContext):
+        evidence = AgentEvidence(
+            tool="kb_search",
+            title="钙钛矿",
+            detail=f"{query}：链路角色与市占率",
+            source="本地知识库",
+            internal_locator="wiki/concepts/钙钛矿.md",
+            source_date="2026-07-21",
+            evidence_tier="L1",
+            content_hash="kb-evidence-1",
+        )
+        observation = f"{evidence.title}：{evidence.detail}"
+        return (
+            [evidence],
+            observation,
+            ProviderTrace(
+                provider="agent:kb_search",
+                capability="agent_loop",
+                status="success",
+                result_count=1,
+            ),
+        )
+
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _plan_turn(),
+            _tool_turn("钙钛矿链路", name="kb_search"),
+            _finish_turn(),
+        ]
+    )
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="kb_search",
+                capability="kb_search",
+                description="本地知识库",
+                cost="local",
+                freshness="current",
+                runner=kb_runner,
+            ),
+        )
+    )
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame, allowed_capabilities=("kb_search",)),
+        registry=registry,
+    )
+    results = [event for event in outcome.events if event.kind == "tool_result"]
+    assert len(results) == 1
+    telemetry = results[0].payload.get("telemetry")
+    observation = str(results[0].payload.get("observation") or "")
+    assert isinstance(telemetry, Mapping)
+    assert telemetry["hit_count"] == 1
+    assert telemetry["delivered_chars"] == len(observation)
+    assert list(telemetry["source_pages"]) == ["wiki/concepts/钙钛矿.md"]
+    assert telemetry["delivered_chars"] != 800
+    for call in model.calls:
+        for message in call["messages"]:
+            if message.get("role") != "tool":
+                continue
+            raw = message.get("content")
+            body = json.loads(raw) if isinstance(raw, str) else raw
+            if isinstance(body, dict):
+                assert "telemetry" not in body
 
 
 def test_glm_episode_session_resume_keeps_original_model_history() -> None:
@@ -2045,6 +2116,27 @@ def test_tool_batch_completes_in_reverse_but_returns_original_transcript_order()
     ] == ["tool_request", "tool_result", "tool_request", "tool_result"]
 
 
+def test_evidence_injection_does_not_mutate_system_message() -> None:
+    """L2 学会了 ③：本轮证据注入只改 user/后续 tool，不改 system。"""
+
+    frame = _frame()
+    model = ScriptedModel([_tool_turn("A股 最新行情"), _finish_turn()])
+
+    ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame, max_steps=1),
+        registry=_market_registry(_successful_runner),
+    )
+
+    first = model.calls[0]["messages"]
+    second = model.calls[1]["messages"]
+    assert first[0]["role"] == "system"
+    assert first[0]["content"] == second[0]["content"]
+    assert any(item["role"] == "tool" for item in second)
+    assert not any(item["role"] == "tool" for item in first)
+    assert first[0]["content"] == second[0]["content"]
+
+
 def test_model_contract_separates_output_gaps_from_answer_caveats() -> None:
     frame = _frame()
     model = ScriptedModel(
@@ -2148,14 +2240,15 @@ def test_valuation_model_contract_explains_scenario_and_financial_bindings() -> 
         registry=_market_registry(_successful_runner),
     )
 
-    system_prompt = model.calls[0]["messages"][0]["content"]
-    assert "scenario_range" in system_prompt
-    assert "保守、中性、乐观" in system_prompt
-    assert "financial_data" in system_prompt
-    assert "补充证据" in system_prompt
-    assert "PB 情景计算锚" in system_prompt
-    assert "不得另造倍数" in system_prompt
-    assert "没有直接 evidence 的项目" in system_prompt
+    user_payload = json.loads(model.calls[0]["messages"][1]["content"])
+    rules = user_payload["question_type_rules"]
+    assert "scenario_range" in rules
+    assert "保守、中性、乐观" in rules
+    assert "financial_data" in rules
+    assert "补充证据" in rules
+    assert "PB 情景计算锚" in rules
+    assert "不得另造倍数" in rules
+    assert "没有直接 evidence 的项目" in rules
 
 
 def test_finalization_reminder_prefers_decisive_evidence_without_new_thresholds() -> None:
