@@ -3900,13 +3900,18 @@ def _project_semantic_evidence(
 def _repair_wiped_all_required(contract: object, marker_loss: tuple[str, ...]) -> bool:
     """Return whether repair emptied every evidence-grounded required output."""
 
-    required = {
+    return bool(_required_evidence_outputs(contract)) and _required_evidence_outputs(
+        contract
+    ) <= set(marker_loss)
+
+
+def _required_evidence_outputs(contract: object) -> set[str]:
+    return {
         str(item.output_id)
         for item in getattr(contract, "required_outputs", ())
         if getattr(item, "required", True)
         and str(getattr(item, "grounding_mode", "evidence")) == "evidence"
     }
-    return bool(required) and required <= set(marker_loss)
 
 
 def _answer_grounding_mode(contract: object) -> str:

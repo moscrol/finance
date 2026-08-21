@@ -87,3 +87,54 @@ code=marker_loss subject=counterpoint     :: semantic repair removed required ou
 
 **下一刀**：预取遇同日多行必须显性化（按 `sector_ts_code` 拆开标口径，或 fail closed 报缺口），
 **不能把矛盾当事实投递**。修完模型就不必写区间，确定性核对也能覆盖这一半。
+
+---
+
+## 追加：契约层归属（2026-08-21，用户提出，已用生产数据验证）
+
+**问题**：判官该不该审「输出是否符合契约」？契约层是不是该交给代码？
+
+**答：不该，是。生产数据坐实。**
+
+同一个 run `run_20260821_114642_385979`：
+
+| 检查器 | 判定 |
+|---|---|
+| `structural_verifier`（**代码**） | `missing_outputs: []`，4/4 必填输出**全部达标**；`factual_grounding: fulfilled`、`task_coverage: fulfilled` |
+| `semantic_verifier`（**LLM 判官**） | 重写公开稿，`direct_assessment` / `counterpoint` 掉实质 |
+
+链条：
+
+```
+代码判 4/4 达标
+  → 判官重写，掉 2 格
+  → 兜底门槛 _repair_wiped_all_required 只认「全灭」，2/4 不触发
+  → repair_cycles = 0，一次没跑
+  → 残稿发布
+```
+
+**两个权威管同一件事，概率正确的那个覆盖了确定性的。**
+注意 `rejected_claim_indexes: []`——判官一句没删，是**整篇重写**时把两格写没了。
+
+### 修法尝试与回退（留作记录）
+
+试过把兜底门槛从「全灭」放宽到「掉任一 evidence 必填格」。**打红三条存量测试，已回退**：
+
+- `test_local_gate_still_redacts_when_condition_slot_is_evidence_bound`
+- `test_semantic_repair_cannot_remove_a_visible_required_output_marker`
+- `test_valuation_repair_cannot_leave_an_empty_scenario_table_completed`
+
+原因：现有 withhold 路径的语义是「**保留重写前的原稿**」（见其 docstring）。放宽门槛后，
+判官本该抹掉的无依据阈值（`3870点`）跟着原稿一起活了回来——**对的诊断配了错的兜底动作**。
+三条测试守的是真不变量，不是过时断言。
+
+### 正确形状（下一刀，未做）
+
+按「降级/空输出 + repair」而不是「回滚原稿」：
+
+1. 判官重写让代码侧已达标的必填格掉实质时，**该格**降级为显式空/缺口标记，
+   而不是整篇回滚——回滚会让被正确抹掉的编造复活
+2. 触发 repair 重做该格（当前 `repair_cycles=0`，说明这条链本身也没接上）
+3. 契约完整性的最终裁定权归 `structural_verifier`，判官不得让它判定达标的格消失
+
+第 3 条是本节的核心结论：**契约层交给代码，判官只做语义判断与兜底。**
