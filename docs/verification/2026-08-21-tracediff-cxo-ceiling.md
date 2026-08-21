@@ -104,3 +104,43 @@ python3 -c "import json;d=json.load(open('<run>/continuous-episode.json'));print
 ### 三筛判定的终态更新
 
 「判官按投影做引用存在性否证 + 整句删」这条**封上限主犯**，在数字侧已被第 4+10 刀合围拆除：判官对槽内数字无删除权后，两个 live run 均零删句，且判官的产出转向**真实的措辞级批评**——下限（不编数）与上限（真话全量交付）第一次同时成立。散文侧 binding 缺口（叙事句引未绑卡）仍是已知残余，本轮未触发（两 run 引用全部可解析）。
+
+---
+
+## 反过拟合换形探针（2026-08-21 17:20，8792@`6320b3bc`）
+
+收口章的两个 live run 与十刀甜区**同构**：同为板块发酵题形、同锚 08-20、同属医药链（CXO/减肥药）。为排除机制只在这一个形状上成立，加打两个换形探针（换板块族 + 换日期锚 + 白名单外数据集）。
+
+**烧题状态（诚实声明）**：探针 1（钙钛矿电池→08-18）是**二手题**——上午 `-02` 的 live 臂尝试用过同一题文（见台账 `-02/-04` 脚注与 `2026-08-21-slot-fill-live-attempt.md`），但当时四臂全死在 `scenario_tree` 预检、未产出任何答案、修复代码也非按它调的，机制验证价值基本保留；离线侧当时已读出 08-18 的 `0.15/775.76` 两值，本探针与之一致。教训：烧题检查 `rg` 必须跑在 **gitea/main 树**，主检出树是特性分支、缺当天已合并文档，会漏检。探针 2（皇氏集团）全仓零提及，全新。
+
+| | 探针 1 · 板块题换族换锚 | 探针 2 · 个股题（观察值白名单外） |
+|---|---|---|
+| 题目 | 钙钛矿电池到 2026-08-18 的发酵路径（新能源族；**库里 08-19 有 -6.13% 暴跌当泄漏陷阱**） | 皇氏集团 08-06..08-20 走势复盘（`stock_daily`/`dragon_tiger_daily` 均不在 `_OBSERVATION_SUBJECT_FIELDS`） |
+| run | `run_20260821_171744_929436` | `run_20260821_171744_955225` |
+| 判官 | `repaired`，mismatch=0 | `repaired`，mismatch=0 |
+
+### 泛化成立的部分
+
+- **数字全对**：两稿幸存数字 100% 逐位对库——板块 18+ 值（含 13 个工具行槽值在【主力个股】散文中原样幸存，第 10 刀的保护对象；5 个预取槽值经【预取事实】块送达），个股 9 交易日×2 指标 + 4 个龙虎榜净买入 + 区间收盘价。
+- **as-of 干净**：预取时间轴与工具查询都切 08-18，08-19 暴跌零泄漏。
+- **口径分歧 fail-closed 首次实战**：钙钛矿 07-08..07-24 库里真有双行脏数据（快照分代重叠），预取逐日标「不作为证据、禁合成」；模型仍合成「约千亿级降至 460-500 亿」→ 判官删——**合法删除**（合成值不是槽值，`numeric_unsupported` 打的是合成条件句）。
+- **判官删除全部合法**：删的是合成区间、引未绑卡、无据链路角色、算术错句（3.15→3.51 被写成「基本回吐全部涨幅」「接近归零」）、发明阈值（「京东方维持 200 亿级」）。**零槽值被删**。个股题模型还主动抓出库里 08-06/08-07 双日同值的口径疑点并声明缺口——没编。
+
+### 探针抓到的形状特有问题（均非本次合并的回归）
+
+1. **残余①（散文引未绑卡）live 复现**：模型散文两处引 `E4`（反式钙钛矿产业化验证，**注册表里真有**）但忘写进 bindings → 判官按「未注册」删掉两句真因果。= `R-20260821-04` 判据的对偶面：槽内数字保住了，非数字散文的引用把手仍缺 binding 自动 resolve。
+2. **残余②（marker_loss）跨形状复现，机制看清了**：post-repair 的判官删除**没有第二次修复窗**（repair 已耗尽）。板块题 chain_mapping 因「行情行证明不了链路角色」被删（契约矛盾——必填格结构性不可满足）；个股题 direct_assessment 因直接判断句里有真算术错被删（**删对了，但整块强制输出跟着没了**）。两题都以道歉横幅收场。
+3. **新发现（个股形状）**：`company_multi_layer_evidence` 契约把 `market_data`+`mainline_context` 定为 mandatory，但 90s 档预算 + 个股无预取覆盖 → `repair_goal.unreachable_without_tools` 且 `reopen_tools=False` → 注定 `missing_mandatory_capability`。→ 立案 `R-20260821-05`。
+4. **预算观察**：两 run 主稿阶段都在第 3 轮 LLM `TimeoutError` → `deadline_exhausted`（`carried_draft_chars=0`），**全稿一发成于 40s 修复窗**。数字纪律在这条极限路径下仍全对，但它放大了 2 的暴露面：修复窗产的稿再被删就没有救场手段。
+
+### 复算
+
+```bash
+ls ~/.local/share/finance-workbench/users/linxiaoqi5111/runs/run_20260821_171744_*
+# 泄漏陷阱基准（08-19 = -6.13 不得出现在到-08-18 的叙事里）
+.venv-workbench/bin/python -c "import duckdb;con=duckdb.connect('db/market_feature_store.duckdb',read_only=True);print(con.execute(\"SELECT trade_date,pct_chg,amount,diff_ratio FROM fact_sector_daily WHERE sector_name='钙钛矿电池' AND trade_date>=DATE '2026-08-12' ORDER BY trade_date\").fetchall())"
+# 个股基准
+.venv-workbench/bin/python -c "import duckdb;con=duckdb.connect('db/market_feature_store.duckdb',read_only=True);print(con.execute(\"SELECT trade_date,pct_chg,amount FROM fact_stock_daily WHERE stock_name='皇氏集团' AND trade_date>=DATE '2026-08-06' ORDER BY trade_date\").fetchall())"
+```
+
+> 操作注：两探针的会话落在主用户 `linxiaoqi5111` 名下（`POST /api/conversations` 的字段是 `user` 而非 `user_id`，传错键被 FastAPI 静默忽略、落回默认用户）——UI 会话列表里会看到两条 `antioverfit-*`，内容是真分析，可留可删。下次探针记得传 `user`。
