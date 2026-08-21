@@ -31,6 +31,7 @@ from typing import Literal, Protocol, cast, runtime_checkable
 from intelligence.services import answer_model, llm_refine
 from intelligence.services.agent_research import (
     AgentEvidence,
+    StructuredObservation,
     describe_lost_observation,
     grounded_values_in_text,
 )
@@ -2185,6 +2186,14 @@ class SemanticEpisodeVerifier:
         )
         if not draft:
             return None
+        # 先按槽补回被连坐的真值，再算缺口。补回成功时缺口自然为空
+        # （真值已在稿里）；缺口这条留作兜底——补不回来时它仍会记账，
+        # 不让真值静默消失。
+        draft, _restored = _restore_lost_observations(
+            draft=draft,
+            before=original.draft,
+            evidence=original.evidence,
+        )
         gaps = _gaps_with_lost_observations(
             gaps=original.gaps,
             before=original.draft,
@@ -3291,6 +3300,66 @@ def _rounded_quantity_matches(
     if len(candidate_values) == 1 and len(observed_values) > 1:
         return any(matches)
     return all(matches)
+
+
+_SLOT_METRIC_LABELS = {
+    "pct_chg": "涨跌幅",
+    "amount": "成交额亿",
+    "diff_ratio": "边际量",
+}
+
+_SLOT_HEADING = "【预取事实】"
+
+
+def slot_line_for_observations(
+    observations: tuple[StructuredObservation, ...],
+) -> str:
+    """把观察值渲染成一行系统填的事实，**模型一个字没写**。
+
+    这是「槽」的最小形态：内容全部来自已投递的预取观察值，判官无据可删——
+    它要驳的是模型的未核验表述，而这一行不是模型写的。
+
+    与判官的分工由此变成结构性的，不再靠提示词自觉：
+    数字住在槽里（系统填、必真），叙述住在格间（模型写、判官可删）。
+    删叙述永远删不掉数字。
+    """
+
+    if not observations:
+        return ""
+    grouped: dict[tuple[str, str], list[StructuredObservation]] = {}
+    for obs in observations:
+        grouped.setdefault((obs.subject, obs.as_of), []).append(obs)
+    parts: list[str] = []
+    for (subject, as_of), items in grouped.items():
+        fields = "；".join(
+            f"{_SLOT_METRIC_LABELS.get(obs.metric, obs.metric)}={obs.value:g}"
+            for obs in items
+        )
+        parts.append(f"{subject} {as_of}：{fields}")
+    return _SLOT_HEADING + "｜".join(parts)
+
+
+def _restore_lost_observations(
+    *,
+    draft: str,
+    before: str,
+    evidence: tuple[AgentEvidence, ...],
+) -> tuple[str, tuple[StructuredObservation, ...]]:
+    """判官删完之后，把被连坐掉的有据数值以槽的形态补回稿件。
+
+    只补**数值本身**，不补任何被驳回的叙述——被删的因果/判断不会借尸还魂。
+    Gate 1 现场活下来的是错口径的主线句，真值 4.74/3432.59 陪葬；
+    补回之后真值一定在稿子里，与它原先绑的那句叙述死活无关。
+    """
+
+    lost = grounded_values_in_text(before, evidence)
+    if not lost:
+        return draft, ()
+    survivors = {obs.value for obs in grounded_values_in_text(draft, evidence)}
+    missing = tuple(obs for obs in lost if obs.value not in survivors)
+    if not missing:
+        return draft, ()
+    return f"{draft.rstrip()}\n\n{slot_line_for_observations(missing)}", missing
 
 
 def _gaps_with_lost_observations(

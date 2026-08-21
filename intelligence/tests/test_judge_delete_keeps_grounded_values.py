@@ -110,3 +110,54 @@ def test_evidence_hash_unchanged_by_observations() -> None:
         source=TIMELINE.source,
     )
     assert evidence_content_hash(bare) == evidence_content_hash(TIMELINE)
+
+
+# ── 第 3 刀：槽把连坐掉的真值补回稿件 ───────────────────────────────
+
+
+def test_slot_line_is_system_written_facts_only() -> None:
+    """槽行只有数值，没有任何叙述——被驳回的因果不会借尸还魂。"""
+
+    from intelligence.services.episode_semantic_verifier import (
+        slot_line_for_observations,
+    )
+
+    line = slot_line_for_observations(TIMELINE.observations)
+    assert "PCB概念 2026-08-07" in line
+    assert "涨跌幅=4.74" in line and "成交额亿=3432.59" in line
+    # 被判官驳回的那句叙述不得随槽回来
+    assert "洗盘" not in line and "主升" not in line and "净流入" not in line
+
+
+def test_collateral_truth_is_restored_into_draft() -> None:
+    """Gate 1 的形状：整段被删后，真值必须以槽的形态回到稿子里。
+
+    这条直接对应账本 R-20260821-04 的验证条件。
+    """
+
+    from intelligence.services.episode_semantic_verifier import (
+        _restore_lost_observations,
+    )
+
+    draft, restored = _restore_lost_observations(
+        draft=AFTER_WIPED, before=BEFORE, evidence=(TIMELINE,)
+    )
+    assert {obs.value for obs in restored} == {4.74, 3432.59}
+    assert "4.74" in draft and "3432.59" in draft
+    # 原有内容不动，只在末尾追加槽行
+    assert draft.startswith(AFTER_WIPED)
+    assert "洗盘" not in draft and "净流入" not in draft
+
+
+def test_no_restore_when_values_survived() -> None:
+    """真值还在稿里就不补——不制造重复数字。"""
+
+    from intelligence.services.episode_semantic_verifier import (
+        _restore_lost_observations,
+    )
+
+    draft, restored = _restore_lost_observations(
+        draft=AFTER, before=BEFORE, evidence=(TIMELINE,)
+    )
+    assert restored == ()
+    assert draft == AFTER
