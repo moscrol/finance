@@ -16,6 +16,7 @@ from intelligence.services.evidence_capabilities import (
     runtime_capabilities_for_frame,
 )
 from intelligence.services.honesty_gates import requested_information_cutoff
+from intelligence.services.kb_satisfiability import CHAIN_EVIDENCE_GAP_NOTE
 from intelligence.services.research_contract import (
     FORWARD_HYPOTHESIS_OUTPUT_IDS,
     InformationCutoff,
@@ -477,6 +478,7 @@ def build_episode_context(
     conversation_context: str = "",
     information_cutoff: InformationCutoff | None = None,
     perspective_context: str = "",
+    kb_chain_evidence: bool | None = None,
 ) -> ResearchRunContext:
     """Freeze control output into one immutable research run contract."""
 
@@ -566,8 +568,28 @@ def build_episode_context(
                 # 混绑一条 finance_query 就整篇换成「现有证据不足」。可选后
                 # 槽位仍在契约里引导模型调 market_data / news_search，缺了
                 # 只降为 gap，不再单独打死整篇。
-                required=output_id not in _ADVISORY_OUTPUT_IDS,
+                #
+                # chain_mapping 的静态供给预检（W2a）：调用方在下发前机械查过
+                # KB relations 且确认无该题材链路证据（kb_chain_evidence=False）
+                # 时降为 optional 并预置缺口声明——evidence 模式禁权重知识写
+                # 产业链角色 + 必填 chain_mapping + KB 无链路证据是三约束联立
+                # 无解，模型必死一格，最终显影为 marker_loss/道歉横幅。未预检
+                # （None）或有证据（True）走原行为，直接调 factory 的旧调用方
+                # 一个字节不变。
+                required=(
+                    output_id not in _ADVISORY_OUTPUT_IDS
+                    and not (
+                        kb_chain_evidence is False
+                        and output_id == "chain_mapping"
+                    )
+                ),
                 grounding_mode=_grounding_mode(frame, output_id),
+                preset_gap=(
+                    CHAIN_EVIDENCE_GAP_NOTE
+                    if kb_chain_evidence is False
+                    and output_id == "chain_mapping"
+                    else ""
+                ),
             )
             for output_id in output_ids
         ),

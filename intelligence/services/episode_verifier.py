@@ -115,7 +115,9 @@ def verify_episode_outcome(
     for required in contract.required_outputs:
         binding = bindings.get(required.output_id)
         if binding is None:
-            gap = f"仍缺少：{required.description}"
+            # W2a：静态预检降级的格带预置缺口声明下发，无绑定时直接采用——
+            # 结构性无供给不是模型没干活，公开口径要把责任放对位置。
+            gap = required.preset_gap or f"仍缺少：{required.description}"
             statuses.append(
                 OutputStatus(
                     required.output_id,
@@ -291,7 +293,10 @@ def verify_episode_outcome(
                 )
             )
         else:
-            gap = f"{required.description}未绑定可验证证据"
+            # W2a：静态预检降级的格带着预置缺口声明下发，这里直接采用——
+            # 「未绑定可验证证据」把结构性无供给（KB 无链路证据）说成模型
+            # 没干活，预置声明才是把责任放对位置的公开口径。
+            gap = required.preset_gap or f"{required.description}未绑定可验证证据"
             statuses.append(
                 OutputStatus(
                     required.output_id,

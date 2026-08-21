@@ -612,3 +612,45 @@ def test_contract_and_outcome_task_hash_must_match() -> None:
 
     with pytest.raises(ValueError, match="task frame hash"):
         verify_episode_outcome(_contract(), outcome)
+
+
+def test_preset_gap_replaces_generic_gap_wording_for_unfilled_slot() -> None:
+    """W2a：预检降级格未填时，gap 文案用预置缺口声明而非泛化措辞。
+
+    「chain_mapping未绑定可验证证据」把结构性无供给说成模型没干活；
+    预置声明「知识库暂无该题材产业链证据」才是把责任放对位置的公开口径。
+    """
+
+    contract = _contract(
+        outputs=(
+            RequiredOutput(
+                "direct_assessment",
+                "直接判断",
+                ("market_data", "news_search"),
+            ),
+            RequiredOutput(
+                "chain_mapping",
+                "产业链层级、角色与关键环节",
+                ("market_data", "news_search"),
+                required=False,
+                preset_gap="知识库暂无该题材产业链证据",
+            ),
+        ),
+    )
+    market = _evidence("market_data", "market-1")
+    outcome = _outcome(
+        evidence=(market,),
+        bindings=(OutputEvidenceBinding("direct_assessment", ("market-1",)),),
+    )
+
+    verified = verify_episode_outcome(contract, outcome)
+
+    slot = next(
+        item
+        for item in verified.completion.outputs
+        if item.output_id == "chain_mapping"
+    )
+    assert slot.status == "gap", "optional 格未填应记 gap 而非 missing"
+    assert slot.gap == "知识库暂无该题材产业链证据"
+    # 未降级格保持泛化文案——preset 只属于机械预检确认过的格。
+    assert verified.verified_status == "completed"

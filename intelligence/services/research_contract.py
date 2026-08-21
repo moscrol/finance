@@ -746,6 +746,11 @@ class RequiredOutput:
     evidence_types: tuple[str, ...] = ()
     required: bool = True
     grounding_mode: GroundingMode = "evidence"
+    # W2a 静态供给预检的产物：contract 下发时就机械确认了该格结构性无供给
+    # （如 KB relations 无该题材链路证据）时，预置的公开缺口声明。非空意味着
+    # 该格已按「显式缺口」降级（required=False），verifier 的 gap 文案与公开
+    # 稿声明直接采用这句，不再把结构性死锁显影成 marker_loss/横幅。
+    preset_gap: str = ""
 
 
 @dataclass(frozen=True)

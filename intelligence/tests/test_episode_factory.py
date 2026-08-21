@@ -695,3 +695,90 @@ def test_prior_recall_stays_absent_where_the_tool_is_unauthorized() -> None:
         "在没有授权 memory_lookup 的题型上开了 prior_recall 槽位——"
         "模型会看到一格自己无法用工具填充的必需内容。"
     )
+
+
+def _theme_frame(question: str = "钙钛矿电池板块的发酵路径怎么走的？") -> TaskFrame:
+    return TaskFrame(
+        raw_question=question,
+        user_goal="拆解题材发酵路径与产业链",
+        question_type="theme_analysis",
+        subject="钙钛矿",
+        subject_kind="theme",
+        market_scope="A股",
+        timeframe=None,
+        required_outputs=("direct_assessment", "chain_mapping", "counterpoint"),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="theme_chain_evidence",
+        confidence=0.95,
+    )
+
+
+def test_kb_without_chain_evidence_downgrades_chain_mapping_to_optional() -> None:
+    """W2a 钉①：无链路证据题材 → chain_mapping optional + 缺口声明预置。
+
+    形状 B（tracediff §约束三筛）：evidence 模式禁权重知识写产业链角色 +
+    契约必填 chain_mapping + KB 无该题材链路证据 → 模型必死一格。
+    静态预检把「必死」翻译成「显式缺口」，在花预算之前。
+    """
+
+    context = build_episode_context(
+        _theme_frame(),
+        task_id="w2a-no-evidence",
+        kb_chain_evidence=False,
+    )
+
+    slot = next(
+        item
+        for item in context.contract.required_outputs
+        if item.output_id == "chain_mapping"
+    )
+    assert slot.required is False, "机械确认无链路证据后 chain_mapping 仍是 mandatory"
+    assert slot.preset_gap == "知识库暂无该题材产业链证据"
+    # 其余格不受牵连：预检只降它确认死锁的那一格。
+    others = [
+        item
+        for item in context.contract.required_outputs
+        if item.output_id in {"direct_assessment", "counterpoint"}
+    ]
+    assert all(item.required for item in others)
+    assert all(not item.preset_gap for item in others)
+
+
+def test_kb_with_chain_evidence_keeps_chain_mapping_mandatory() -> None:
+    """W2a 钉②：有链路证据 → 仍 mandatory，无预置声明。"""
+
+    context = build_episode_context(
+        _theme_frame(),
+        task_id="w2a-with-evidence",
+        kb_chain_evidence=True,
+    )
+
+    slot = next(
+        item
+        for item in context.contract.required_outputs
+        if item.output_id == "chain_mapping"
+    )
+    assert slot.required is True
+    assert slot.preset_gap == ""
+
+
+def test_kb_evidence_unchecked_keeps_chain_mapping_mandatory() -> None:
+    """W2a：未预检（缺省 None）= 现状行为，chain_mapping 保持 mandatory。
+
+    预检是 adapter 下发路径的增量；直接调 factory 的旧调用方一个字节不变。
+    """
+
+    context = build_episode_context(
+        _theme_frame(),
+        task_id="w2a-unchecked",
+    )
+
+    slot = next(
+        item
+        for item in context.contract.required_outputs
+        if item.output_id == "chain_mapping"
+    )
+    assert slot.required is True
+    assert slot.preset_gap == ""

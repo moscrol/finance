@@ -17,7 +17,7 @@ import time
 from typing import Literal, Protocol, cast
 from uuid import uuid4
 
-from intelligence.services import llm_refine
+from intelligence.services import kb_satisfiability, llm_refine
 from intelligence.services.agent_runtime import AgentOutcome, AgentRuntime
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_factory import build_episode_context
@@ -158,6 +158,7 @@ class ContinuousTurnAdapter:
         deadline_expires_at: float | None = None,
         progress_sink: Callable[[EpisodeProgress], None] | None = None,
         repair_seconds_cap: float | None = None,
+        kb_chain_evidence_checker: Callable[[str], bool] | None = None,
     ) -> None:
         selected_mode = (
             str(os.environ.get("ASK_CONTINUOUS_RUNTIME") or "off").strip().lower()
@@ -205,6 +206,14 @@ class ContinuousTurnAdapter:
             float(repair_seconds_cap)
             if repair_seconds_cap is not None
             else repair_seconds_cap_for(provider_name_from(runtime))
+        )
+        # W2a 静态供给预检的判定器。默认走 KB relations 的机械查询；测试注入
+        # 替身。放构造期而不是 _run_episode 内 import，是为了让「查什么」成为
+        # 可观察的装配决定。
+        self._kb_chain_evidence_checker = (
+            kb_chain_evidence_checker
+            if kb_chain_evidence_checker is not None
+            else kb_satisfiability.chain_evidence_present
         )
 
     @property
@@ -491,6 +500,16 @@ class ContinuousTurnAdapter:
             )
             if perspective_context:
                 context_kwargs["perspective_context"] = perspective_context
+            # W2a 静态供给预检：题材题在 contract 下发前机械查一次 KB relations。
+            # 只有「确认无该题材链路证据」才进 kwargs（chain_mapping 降 optional
+            # + 预置缺口声明）；有证据 / 查不了 / 非题材题的 factory 调用保持
+            # 逐字节不变——注入纪律与 perspective_context 相同。
+            if frame.question_type == "theme_analysis":
+                theme_subject = str(frame.subject or "").strip()
+                if theme_subject and not self._kb_chain_evidence_checker(
+                    theme_subject
+                ):
+                    context_kwargs["kb_chain_evidence"] = False
             if self._synthesis_reserve_for_task is not None:
                 context_kwargs["synthesis_reserve"] = max(
                     0.0,

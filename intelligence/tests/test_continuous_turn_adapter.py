@@ -253,6 +253,53 @@ def test_perspective_context_reaches_context_factory_only_when_active() -> None:
     )
 
 
+def test_kb_chain_precheck_reaches_factory_only_when_evidence_absent() -> None:
+    """W2a 静态预检的下发接线：无链路证据才注入 kb_chain_evidence=False。
+
+    有证据 / 非题材题的 context_factory kwargs 必须与改动前完全一致——
+    不认识该参数的注入式 factory 不得在存量路径被炸（与 perspective_context
+    的注入纪律同源）。非题材题连 relations 都不查：预检是 chain_mapping
+    专用的，别的题形没有这一格。
+    """
+
+    captured: list[dict[str, object]] = []
+    checked: list[str] = []
+
+    def factory(_frame, **kwargs):
+        captured.append(dict(kwargs))
+        raise RuntimeError("stop after capturing context kwargs")
+
+    def run_once(frame, checker) -> None:
+        ContinuousTurnAdapter(
+            runtime=_RuntimeThatRaises(),
+            mode="on",
+            context_factory=factory,
+            registry_factory=_raises,
+            semantic_verifier=_SemanticThatRaises(),
+            kb_chain_evidence_checker=checker,
+        ).handle(frame=frame, control=_control(frame))
+
+    theme = _frame(
+        question_type="theme_analysis",
+        required_outputs=("direct_assessment", "chain_mapping", "counterpoint"),
+    )
+
+    def absent(theme_term: str) -> bool:
+        checked.append(theme_term)
+        return False
+
+    run_once(theme, absent)
+    assert captured[0].get("kb_chain_evidence") is False
+    assert checked == [theme.subject]
+
+    run_once(theme, lambda _term: True)
+    assert "kb_chain_evidence" not in captured[1]
+
+    run_once(_frame(), lambda term: checked.append(term) or False)
+    assert "kb_chain_evidence" not in captured[2]
+    assert checked == [theme.subject], "非题材题不得触发 relations 预检"
+
+
 def test_satisfiability_precheck_survives_registry_without_authorized_specs() -> None:
     """registry 是鸭子类型注入点，预检不得因替身缺接口而杀掉整轮回答。
 
