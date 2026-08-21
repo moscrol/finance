@@ -7,8 +7,9 @@
 
 - ``transient_verifier_outage``：复核服务瞬时故障。决策保留（露出候选稿），
   措辞必须说「没人复核」，不得把基础设施故障写成内容质量问题。
-- ``evidence_gap``：证据不足 / 标记丢失后的缺口。``_gap_answer`` 中间档与
-  ``_generic_gap_answer`` 走开口句；有已核验剩余正文时走「剩余 + 缺口行」。
+- ``evidence_gap``：证据不足。``_gap_answer`` 中间档与 ``_generic_gap_answer``
+  走开口句。部分 marker_loss（W1）不再走本成因：残块保留走 ``verified`` +
+  降级标注；空残块交空串，不挂道歉横幅。
 - ``model_unavailable``：模型没服务成。判例已在 ``degraded_fallback.gap_opening``。
 
 ``verified`` 不是降级成因：核验通过后的正文也必须经本出口，避免再出现旁路。

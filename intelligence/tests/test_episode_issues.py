@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import inspect
+import json
+from pathlib import Path
 
 from intelligence.services.episode_issues import (
     RELEASE_POLICY,
@@ -121,18 +123,66 @@ def test_backfill_plan_is_code_keyed_and_ignores_unrelated_blocks() -> None:
         "any wording",
     )
 
-    numeric_plan = plan_issue_backfill((numeric, calendar))
-    assert numeric_plan is not None
-    assert numeric_plan.missing_capabilities == ("market_data",)
-    assert numeric_plan.missing_outputs == ()
-
     floor_plan = plan_issue_backfill((floor,))
     assert floor_plan is not None
     assert floor_plan.missing_capabilities == ("financial_data",)
     assert floor_plan.missing_outputs == ("financial_business_anchor",)
 
-    both = plan_issue_backfill((numeric, floor))
+    both = plan_issue_backfill((numeric, floor), subject_kind="market_pattern")
     assert both is not None
     assert both.missing_capabilities == ("market_data", "financial_data")
+    floor_only = plan_issue_backfill((numeric, floor))
+    assert floor_only is not None
+    assert floor_only.missing_capabilities == ("financial_data",)
     assert plan_issue_backfill((calendar,)) is None
     assert plan_issue_backfill(()) is None
+
+
+def _numeric_issue() -> Issue:
+    return Issue(
+        IssueCode.NUMERIC_UNSUPPORTED,
+        "numeric_condition",
+        "any wording",
+    )
+
+
+def test_numeric_unsupported_company_backfills_finance_query() -> None:
+    plan = plan_issue_backfill((_numeric_issue(),), subject_kind="company")
+    assert plan is not None
+    assert plan.missing_capabilities == ("finance_query",)
+    assert "market_data" not in plan.missing_capabilities
+
+
+def test_numeric_unsupported_market_backfills_market_data() -> None:
+    plan = plan_issue_backfill((_numeric_issue(),), subject_kind="market_pattern")
+    assert plan is not None
+    assert plan.missing_capabilities == ("market_data",)
+
+
+def test_numeric_unsupported_without_subject_does_not_backfill() -> None:
+    issue = _numeric_issue()
+    assert plan_issue_backfill((issue,)) is None
+    assert plan_issue_backfill((issue,), subject_kind="unknown") is None
+    assert plan_issue_backfill((issue,), subject_kind="") is None
+    assert plan_issue_backfill((issue,), subject_kind=None) is None
+
+
+def test_r05_a_arm_replay_company_numeric_does_not_plan_market_data() -> None:
+    """R-05 A 臂：个股数值缺证不得再回填市场总览。"""
+
+    fixture = json.loads(
+        Path(__file__)
+        .with_name("fixtures")
+        .joinpath("w3-r05-a-numeric-backfill.json")
+        .read_text(encoding="utf-8")
+    )
+    issue = Issue(
+        IssueCode.NUMERIC_UNSUPPORTED,
+        "numeric_condition",
+        "unsupported numeric condition without bound evidence",
+    )
+    plan = plan_issue_backfill((issue,), subject_kind=fixture["subject_kind"])
+    assert fixture["subject_kind"] == "company"
+    assert plan is not None
+    assert plan.missing_capabilities == ("finance_query",)
+    assert fixture["before_static_capability"] not in plan.missing_capabilities
