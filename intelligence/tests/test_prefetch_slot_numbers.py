@@ -157,3 +157,70 @@ def test_observation_value_does_not_touch_answer_text(tmp_path: Path) -> None:
     assert isinstance(value, float)
     # 返回标量而非 (文本, 值)：结构上就没有改写正文的入口
     assert not isinstance(value, tuple)
+
+
+# ── 同日多行：矛盾不得当事实投递 ────────────────────────────────
+
+DUP_ROWS = [
+    # 生产实锤形状：钙钛矿电池 撞 2 个 sector_ts_code，同日两行、值不一致
+    ("2026-08-07", "光伏", 1.20, 11.0, 922.49),
+    ("2026-08-07", "光伏", 1.20, 11.5, 914.50),
+    ("2026-08-06", "光伏", 2.10, 12.0, 700.00),
+]
+
+
+def _dup_db(path: Path) -> Path:
+    con = duckdb.connect(str(path))
+    con.execute(
+        "create table fact_sector_daily ("
+        "trade_date date, sector_name varchar, "
+        "pct_chg double, diff_ratio double, amount double)"
+    )
+    con.executemany("insert into fact_sector_daily values (?, ?, ?, ?, ?)", DUP_ROWS)
+    con.close()
+    return path
+
+
+def _dup_items(tmp_path: Path):
+    return collect_prefetch_items(
+        question="光伏这波是怎么发酵到 2026-08-07 的，涨幅、成交额和成交额环比",
+        question_type="theme_research",
+        subject="光伏",
+        as_of=date(2026, 8, 7),
+        market_db_path=_dup_db(tmp_path / "dup.duckdb"),
+    )
+
+
+def test_conflicting_same_day_values_yield_no_observation(tmp_path: Path) -> None:
+    """同日两行且值不一致 → 该 (日期,指标) **不产出观察值**。
+
+    生产实锤（run_20260821_114642_385979）：E1 里 13 个交易日同日两行，
+    模型只能诚实写成区间「约914-922亿」，判官按「不等于任何注册数字」判编造。
+    把矛盾当事实投递上桌，是这条链的第一次分叉。
+    """
+
+    items = _dup_items(tmp_path)
+    assert observation_value(items, trade_date="2026-08-07", metric="amount") is None
+    # 单轨那天不受影响
+    assert observation_value(
+        items, trade_date="2026-08-06", metric="amount"
+    ) == pytest.approx(700.00)
+
+
+def test_identical_duplicate_rows_still_yield_a_value(tmp_path: Path) -> None:
+    """同日两行但值相同不算矛盾——不能把无害重复也判成缺口。"""
+
+    items = _dup_items(tmp_path)
+    # pct_chg 两行都是 1.20，没有分歧
+    assert observation_value(
+        items, trade_date="2026-08-07", metric="pct_chg"
+    ) == pytest.approx(1.20)
+
+
+def test_timeline_text_marks_the_conflict(tmp_path: Path) -> None:
+    """时间轴正文必须把分歧标出来，不能并排列成两条事实。"""
+
+    items = _dup_items(tmp_path)
+    timeline = [i for i in items if "时间轴" in i.title][0]
+    assert "口径分歧" in timeline.detail
+    assert "2026-08-07" in timeline.detail

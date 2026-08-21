@@ -136,7 +136,7 @@ def sector_timeline_observations(
     取数与格式化分开：格式化改措辞不该动到槽里的数，槽换口径也不该动文案。
     """
 
-    out: list[StructuredObservation] = []
+    seen: dict[tuple[str, str], set[float]] = {}
     for row in rows:
         day = str(row.get("trade_date") or "")[:10]
         if day < start or day > end:
@@ -149,15 +149,24 @@ def sector_timeline_observations(
                 value = float(raw)
             except (TypeError, ValueError):
                 continue
-            out.append(
-                StructuredObservation(
-                    subject=sector_name,
-                    as_of=day,
-                    metric=metric,
-                    value=value,
-                )
-            )
-    return tuple(out)
+            seen.setdefault((day, metric), set()).add(value)
+    # 同一 (日期,指标) 出现互相矛盾的值 → **不产出观察值**。
+    #
+    # 生产实锤 run_20260821_114642_385979：`钙钛矿电池` 撞 2 个 sector_ts_code，
+    # E1 里 13 个交易日同日两行（922.49 与 914.5）。两行并排当事实端上桌，
+    # 模型只能诚实写成区间「约914-922亿」，判官再按「不等于任何注册数字」
+    # 判它编造。**把矛盾当事实投递，是那条质量下降链的第一次分叉。**
+    #
+    # 这里宁可少给（该格降为结构缺口）也不给一个随便挑的值：静默挑第一行
+    # 会让「有分歧」和「就是这个数」在下游长得一样，正是本模块一贯禁的近似。
+    # 值相同的重复行无害，照常产出。
+    return tuple(
+        StructuredObservation(
+            subject=sector_name, as_of=day, metric=metric, value=next(iter(values))
+        )
+        for (day, metric), values in seen.items()
+        if len(values) == 1
+    )
 
 
 def observation_value(
@@ -194,10 +203,29 @@ def format_sector_timeline(
     lines = [
         f"板块={sector_name}；窗口 {start}..{end}；口径 {_CALIBER}",
     ]
+    # 同日多行 = 供应商口径分歧（板块名撞多个 sector_ts_code）。并排列成两条
+    # 事实会逼模型写区间，再被判官按「不等于任何注册数字」判编造——生产实锤
+    # run_20260821_114642_385979。这里把分歧显式说出来，不当事实端上桌。
+    per_day: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
         day = str(row.get("trade_date") or "")[:10]
-        if day < start or day > end:
+        if start <= day <= end:
+            per_day.setdefault(day, []).append(row)
+    for day in sorted(per_day):
+        same_day = per_day[day]
+        if len(same_day) > 1:
+            variants = "；".join(
+                f"涨跌幅={r.get('pct_chg')}／成交额亿={r.get('amount')}"
+                f"／边际量={r.get('diff_ratio')}"
+                for r in same_day
+            )
+            lines.append(
+                f"交易日={day}；**口径分歧**：库中有 {len(same_day)} 条互不一致的行"
+                f"（{variants}）。该日数值不作为证据，"
+                "回答时请说明存在口径分歧，不要合成区间或任选其一。"
+            )
             continue
+        row = same_day[0]
         stamp = "是" if is_double_red(row) else "否"
         pct = row.get("pct_chg")
         amount = row.get("amount")
