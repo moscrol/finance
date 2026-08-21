@@ -92,7 +92,9 @@ def test_verified_pass_through_is_byte_identical() -> None:
     assert view(TerminalFacts(cause=CAUSE_VERIFIED, public=_PUBLIC)) == _PUBLIC
 
 
-def test_marker_loss_remainder_stays_remainder_plus_gap() -> None:
+def test_evidence_gap_with_remainder_does_not_replace_public() -> None:
+    """view() 仍能「剩余 + 缺口行」；W1 的 marker_loss 不再走这条成因。"""
+
     gap = "证据缺口：直接判断中的未核验表述已删除，需补充直接证据后再判断。"
     text = view(
         TerminalFacts(
