@@ -169,3 +169,9 @@ ModuleNotFoundError: No module named 'intelligence.services.kb_index_hygiene'
 - 不把「测试」当排除词（会误伤测试设备等产业页）。
 - 不折叠日期戳近重复页（认不出 `-vN` 就 fail open）。
 - 不标台账 `confirmed`。
+
+## 9. 全量门禁
+
+- `ruff check .` 绿
+- pytest **5945 passed / 0 failed / 13 skipped**（基线 5938 + 本单 7 钉）
+- 收据 `~/.finance-runtime/test-receipts/20260821T162329Z-55b519a3.json`（`dirty=false`，`revision=55b519a3`，`check_test_receipt.py` 可采信）
