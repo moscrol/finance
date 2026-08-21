@@ -45,6 +45,10 @@ from intelligence.services.episode_verifier import (
     verify_episode_outcome,
 )
 from intelligence.services.honesty_gates import with_calendar_disclosure
+from intelligence.services.mandatory_satisfiability import (
+    apply_unreachable_downgrade,
+    ensure_preplaced_gap_sections,
+)
 from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
@@ -1019,6 +1023,19 @@ class ContinuousTurnAdapter:
             semantic.public_answer,
             private_tokens=private_tokens,
         )
+        gap_contract = semantic.verified.contract or context.contract
+        unfilled = {
+            item.output_id
+            for item in semantic.verified.completion.outputs
+            if item.status != "fulfilled"
+        }
+        unfilled.update(semantic.gap_output_ids)
+        unfilled.update(semantic.verified.missing_outputs)
+        answer = ensure_preplaced_gap_sections(
+            answer,
+            gap_contract,
+            only_output_ids=unfilled,
+        )
         citations = _public_citation_projection(
             final_outcome,
             private_tokens,
@@ -1208,6 +1225,10 @@ class ContinuousTurnAdapter:
         )
         if admission is None:
             return None
+        verify_contract, _ = apply_unreachable_downgrade(
+            context.contract,
+            admission.goal,
+        )
         candidate = resume(admission.goal)
         if not isinstance(candidate, AgentOutcome):
             raise TypeError("episode session resume must return AgentOutcome")
@@ -1227,7 +1248,7 @@ class ContinuousTurnAdapter:
                 draft=outcome.draft,
                 bindings=candidate.bindings or outcome.bindings,
             )
-        verified = self._structural_verifier(context.contract, candidate)
+        verified = self._structural_verifier(verify_contract, candidate)
         if not isinstance(verified, VerifiedEpisodeOutcome):
             raise TypeError("structural verifier must return VerifiedEpisodeOutcome")
         return candidate, verified, admission.delivery_only
