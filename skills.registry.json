@@ -1,13 +1,13 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-08-21T16:48:07Z",
+  "generated_at": "2026-08-21T18:52:10Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 36
+      "skills": 37
     },
     {
       "name": "knowledge-base-private",
@@ -188,6 +188,32 @@
       "computedHash": "sha256:9d033dbb596b9c51a342a3d341f2b3b1c8776ca814a9dd3f059e2a12925ac512",
       "agentOnly": false,
       "views": []
+    },
+    "ws/divergence-distill": {
+      "name": "divergence-distill",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/divergence-distill/SKILL.md",
+      "description": "同题 A/B 对照（Workbench vs Fable/Knevo 等外部模型）trace diff 之后，把分叉蒸馏成分池资产并验证写回。触发词：蒸馏分叉、对照蒸馏、蒸 Fable、蒸 Knevo、trace diff 沉淀、diff 完沉淀。注意：定位「哪步先错」用 agent-run-triage；喂 KOL 原文进视角用 perspective-distill；本 skill 只消费已完成的同题对照。",
+      "triggers": [
+        "蒸馏分叉",
+        "对照蒸馏",
+        "蒸 Fable",
+        "蒸 Knevo",
+        "trace diff 沉淀",
+        "diff 完沉淀"
+      ],
+      "note": "定位「哪步先错」用 agent-run-triage；喂 KOL 原文进视角用 perspective-distill；本 skill 只消费已完成的同题对照。",
+      "entrypoint": null,
+      "computedHash": "sha256:add6659a917f64c2a70e45d93fb04280fb5f315825bfbdd314e955a14c2ba965",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/divergence-distill",
+          "type": "symlink",
+          "target": "../../skills/divergence-distill"
+        }
+      ]
     },
     "ws/duckdb-backfill": {
       "name": "duckdb-backfill",
