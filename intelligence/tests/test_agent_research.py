@@ -822,3 +822,32 @@ class TestKbSearchDeliveryTelemetry:
         assert telemetry["hit_count"] == len(evidence)
         assert telemetry["delivered_chars"] == len(observation)
         assert "wiki/entities/瑞华泰.md" in telemetry["source_pages"]
+
+    def test_detail_chars_counts_evidence_channel_not_observation_head(self) -> None:
+        """R-15 测量缝：observation 每条截 [:80]，正文走 evidence.detail 通道。
+
+        两通道必须分开计数，否则粗管道（V3）的送达量在传感器上永远显影不出来
+        （2026-08-22 钙钛矿 live 探针：delivered_chars=580 而 detail 实为正文级）。
+        """
+
+        from intelligence.services.agent_research import (
+            AgentEvidence,
+            kb_delivery_telemetry,
+        )
+
+        detail = "正" * 300
+        evidence = [
+            AgentEvidence(
+                tool="kb_search",
+                title="曼恩斯特",
+                detail=detail,
+                source="本地知识库",
+                internal_locator="wiki/entities/曼恩斯特.md",
+            )
+        ]
+        observation = f"曼恩斯特：{detail[:80]}"
+        telemetry = kb_delivery_telemetry(evidence, observation)
+
+        assert telemetry["detail_chars"] == 300
+        assert telemetry["delivered_chars"] == len(observation)
+        assert telemetry["detail_chars"] > telemetry["delivered_chars"]

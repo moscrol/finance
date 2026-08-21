@@ -16,7 +16,8 @@
 输入侧（spec ``2026-08-21-inputside-closeout-r2-design.md`` V7）：
 
     I  题形×KB 三层  authorized / planned / called
-    III kb_search 送达  telemetry.delivered_chars / hit_count / source_pages
+    III kb_search 送达  telemetry.delivered_chars / detail_chars / hit_count / source_pages
+                        （delivered=observation 串；detail=evidence 通道，V3 粗管道；两通道分开计）
                         缺字段或空 dict → 「不可判」，不报 0
                         零调用 → no_call（不是送达 0）
 
@@ -335,6 +336,7 @@ def inspect_shape_i(episode: dict[str, Any]) -> dict[str, Any]:
 
 def inspect_shape_iii(episode: dict[str, Any]) -> dict[str, Any]:
     delivered: list[int] = []
+    detail_chars: list[int | None] = []
     hit_counts: list[int] = []
     source_pages: list[list[str]] = []
     unjudgeable = 0
@@ -364,6 +366,13 @@ def inspect_shape_iii(episode: dict[str, Any]) -> dict[str, Any]:
         delivered.append(chars)
         hit_counts.append(hit_n)
         source_pages.append([str(page) for page in raw_pages])
+        # detail_chars 是后加的通道计数（evidence[].detail，V3 粗管道）。
+        # 老 episode 没有这个字段：记 None（传感器早于字段），不得记 0、
+        # 不得翻 unjudgeable——那会把存量全部打成不可判。
+        raw_detail = tel.get("detail_chars")
+        detail_chars.append(
+            int(raw_detail) if isinstance(raw_detail, (int, float)) else None
+        )
     if calls == 0:
         return {
             "status": "no_call",
@@ -371,6 +380,7 @@ def inspect_shape_iii(episode: dict[str, Any]) -> dict[str, Any]:
             "calls": 0,
             "unjudgeable": 0,
             "delivered_chars": [],
+            "detail_chars": [],
             "hit_counts": [],
             "source_pages": [],
             "summary": "no kb_search call",
@@ -382,6 +392,7 @@ def inspect_shape_iii(episode: dict[str, Any]) -> dict[str, Any]:
             "calls": calls,
             "unjudgeable": unjudgeable,
             "delivered_chars": delivered,
+            "detail_chars": detail_chars,
             "hit_counts": hit_counts,
             "source_pages": source_pages,
             "summary": f"不可判：{unjudgeable}/{calls} 次 kb_search 缺 telemetry 字段",
@@ -392,6 +403,7 @@ def inspect_shape_iii(episode: dict[str, Any]) -> dict[str, Any]:
         "calls": calls,
         "unjudgeable": 0,
         "delivered_chars": delivered,
+        "detail_chars": detail_chars,
         "hit_counts": hit_counts,
         "source_pages": source_pages,
         "summary": f"kb_search calls={calls} chars={delivered} hits={hit_counts}",
@@ -469,6 +481,8 @@ def audit(
     iii_judgeable = 0
     iii_no_call = 0
     iii_chars: list[int] = []
+    iii_detail: list[int] = []
+    iii_detail_missing = 0
     iii_hits: list[int] = []
     for run_dir in iter_run_dirs(runs_dirs):
         run_id = run_dir.name
@@ -507,6 +521,11 @@ def audit(
             iii_judgeable += complete
             iii_chars.extend(int(item) for item in shape_iii["delivered_chars"])
             iii_hits.extend(int(item) for item in shape_iii["hit_counts"])
+            for item in shape_iii.get("detail_chars", []):
+                if item is None:
+                    iii_detail_missing += 1
+                else:
+                    iii_detail.append(int(item))
     totals = {"n": 0, "authorized": 0, "planned": 0, "called": 0}
     for bucket in by_qtype.values():
         for key in totals:
@@ -529,6 +548,9 @@ def audit(
                 "unjudgeable": iii_unjudgeable,
                 "no_call_runs": iii_no_call,
                 "delivered_chars": iii_chars,
+                # evidence[].detail 通道（V3 粗管道）；missing = 字段落地前的存量调用
+                "detail_chars": iii_detail,
+                "detail_chars_missing": iii_detail_missing,
                 "hit_counts": iii_hits,
             },
         },
