@@ -319,6 +319,23 @@ def _apply_lane_composition(
     return (*requirements, *extras)
 
 
+# 公司主体题形：问题的主体是单一公司，同日大盘总览/主线结构只是背景放大器，
+# 不是答案本体。这些题形若因「涨跌幅/成交额/股价」等盘面度量词命中
+# is_current_market_query，套上市场级 mainline_current 计划就会把 market_data
+# （市场总览，非个股行情）与 mainline_context 设为 mandatory——个股走势本身走
+# finance_query，这两条组合事实约束在公司题形下要么结构性缺失（每答必记
+# missing_mandatory_capability，修复轮白白追逐），要么答非所问（修复轮被契约
+# 压着调 market_data，市场级数字混进个股稿）。R-20260821-05 生产 n=3 复现。
+# 处置：降级为 optional——能力经 runtime_capabilities_for_frame 的 planned 并集
+# 保持可用（背景可取），只去掉义务与修复追逐。valuation_estimate 在
+# episode_factory._episode_evidence_plan 已有同意图先例（剥掉 resolve 计划里的
+# market_data 再换公司级锚点）。已知边界：quick_fact 不在此列——「茅台多少钱」
+# 与「涨停家数多少」同题形不同主体，题形本身分不出主体，需另行立项。
+_COMPANY_SUBJECT_QUESTION_TYPES = frozenset(
+    {"stock_deep_dive", "valuation_estimate", "financial_analysis"}
+)
+
+
 def resolve_evidence_plan(
     query: str,
     *,
@@ -362,17 +379,42 @@ def resolve_evidence_plan(
             "current",
         )
     if freshness == "current" and is_current_market_query(query):
-        plan = EvidencePlan(
-            "mainline_current",
-            (
-                EvidenceRequirement("MARKET_DAILY", "market_data", True, "current", "同日市场总览"),
-                EvidenceRequirement("D4", "mainline_context", True, "current", "同日主线结构"),
-                EvidenceRequirement("D0", "market_timeseries", False, "current", "盘面时序补充"),
-                EvidenceRequirement("D6", "market_midterm", False, "current", "中期持续性补充"),
-                EvidenceRequirement("W7", "news_search", False, "current", "消息面补充"),
-            ),
-            "current",
-        )
+        if question_type in _COMPANY_SUBJECT_QUESTION_TYPES:
+            plan = EvidencePlan(
+                "company_current_backdrop",
+                (
+                    EvidenceRequirement(
+                        "MARKET_DAILY",
+                        "market_data",
+                        False,
+                        "current",
+                        "同日市场总览（公司主体题仅作背景放大器，非必填）",
+                    ),
+                    EvidenceRequirement(
+                        "D4",
+                        "mainline_context",
+                        False,
+                        "current",
+                        "同日主线结构（公司主体题仅作背景放大器，非必填）",
+                    ),
+                    EvidenceRequirement("D0", "market_timeseries", False, "current", "盘面时序补充"),
+                    EvidenceRequirement("D6", "market_midterm", False, "current", "中期持续性补充"),
+                    EvidenceRequirement("W7", "news_search", False, "current", "消息面补充"),
+                ),
+                "current",
+            )
+        else:
+            plan = EvidencePlan(
+                "mainline_current",
+                (
+                    EvidenceRequirement("MARKET_DAILY", "market_data", True, "current", "同日市场总览"),
+                    EvidenceRequirement("D4", "mainline_context", True, "current", "同日主线结构"),
+                    EvidenceRequirement("D0", "market_timeseries", False, "current", "盘面时序补充"),
+                    EvidenceRequirement("D6", "market_midterm", False, "current", "中期持续性补充"),
+                    EvidenceRequirement("W7", "news_search", False, "current", "消息面补充"),
+                ),
+                "current",
+            )
         return EvidencePlan(
             plan.profile,
             _apply_lane_composition(query, plan.requirements),
