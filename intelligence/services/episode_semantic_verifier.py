@@ -2938,7 +2938,8 @@ def numeric_condition_unsupported(verified: VerifiedEpisodeOutcome) -> bool:
     """True when the draft has a novel numeric condition G11 would redact.
 
     Adapter runs this *before* the judge so a backfill turn can fetch the
-    missing market_data instead of thinning the answer.
+    missing number via the subject-anchored capability instead of thinning
+    the answer.
     """
 
     return bool(
