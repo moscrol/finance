@@ -60,7 +60,10 @@ from intelligence.services.episode_answer_hygiene import (
     repair_collapsed_to_stub,
     rewrite_unattempted_claims,
 )
-from intelligence.services.episode_protocol import evidence_ordinal_table
+from intelligence.services.episode_protocol import (
+    cited_evidence_ordinals,
+    evidence_ordinal_table,
+)
 from intelligence.services.episode_issues import (
     Issue,
     IssueCode,
@@ -544,6 +547,7 @@ class SemanticEpisodeOutcome:
             "projection_truncated_field_chars": telemetry.truncated_field_chars,
             "projection_ordinal_mismatch_count": telemetry.ordinal_mismatch_count,
             "evidence_alias_offset": telemetry.alias_offset,
+            "projection_cited_unbound_count": telemetry.cited_unbound_count,
             "degrade_class": degrade_class,
             "judge_unavailable_count": judge_count,
             "content_degraded_count": content_count,
@@ -3861,12 +3865,19 @@ class _ProjectionTelemetry:
     truncated_field_chars: int
     ordinal_mismatch_count: int
     alias_offset: int
+    cited_unbound_count: int
 
 
 def _project_semantic_evidence(
     outcome: AgentOutcome,
 ) -> tuple[list[dict[str, object]], list[dict[str, object]], _ProjectionTelemetry]:
-    """Project bound evidence using the episode ordinal table as the only id issuer."""
+    """Project answer-relied evidence using the episode ordinal table as the only id issuer.
+
+    选集 = 绑定 ∪ 正文可反解引用（R-20260821-06）。正文显式引用是答案对依赖的
+    声明，比 bindings 记账数组更直接；漏记账不该让判官对真实证据做存在性否证。
+    未引用且未绑定的卡仍不送判官——绑定纪律只对「答案真的依赖」的证据放行。
+    表外引用（E 号反解不到卡）不做模糊纠正，照旧走判官删除路径。
+    """
 
     ordinals = evidence_ordinal_table(outcome.evidence)
     bound_hashes = {
@@ -3874,14 +3885,24 @@ def _project_semantic_evidence(
         for binding in outcome.bindings
         for evidence_hash in binding.evidence_hashes
     }
+    cited_ids = set(cited_evidence_ordinals(outcome.draft))
     alias_by_hash: dict[str, str] = {}
     registry: list[dict[str, object]] = []
     dropped_field_chars = 0
     truncated_field_chars = 0
+    cited_unbound_count = 0
+    bound_emitted_ids: set[str] = set()
     for item in outcome.evidence:
-        if not item.content_hash or item.content_hash not in bound_hashes:
+        if not item.content_hash:
             continue
         evidence_id = ordinals[item.content_hash]
+        is_bound = item.content_hash in bound_hashes
+        if not is_bound and evidence_id not in cited_ids:
+            continue
+        if is_bound:
+            bound_emitted_ids.add(evidence_id)
+        else:
+            cited_unbound_count += 1
         alias_by_hash[item.content_hash] = evidence_id
         projected: dict[str, object] = {
             "evidence_id": evidence_id,
@@ -3927,7 +3948,6 @@ def _project_semantic_evidence(
         if binding.basis != "evidence":
             projected_binding["basis"] = binding.basis
         bindings.append(projected_binding)
-    emitted_ids = {str(row["evidence_id"]) for row in registry}
     bound_issued = {
         ordinals[digest]
         for digest in bound_hashes
@@ -3936,8 +3956,12 @@ def _project_semantic_evidence(
     telemetry = _ProjectionTelemetry(
         dropped_field_chars=dropped_field_chars,
         truncated_field_chars=truncated_field_chars,
-        ordinal_mismatch_count=len(bound_issued.symmetric_difference(emitted_ids)),
+        # D2 哨兵只对绑定集合有语义：引用补送的行不属于发放对账范围。
+        ordinal_mismatch_count=len(
+            bound_issued.symmetric_difference(bound_emitted_ids)
+        ),
         alias_offset=len(outcome.evidence) - len(registry),
+        cited_unbound_count=cited_unbound_count,
     )
     return bindings, registry, telemetry
 

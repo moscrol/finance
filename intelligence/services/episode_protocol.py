@@ -437,6 +437,26 @@ def parse_evidence_ordinal(token: str) -> int | None:
     return int(match.group(1))
 
 
+_PROSE_EVIDENCE_REF_RE = re.compile(
+    r"(?<![A-Za-z0-9])[Ee]([1-9][0-9]{0,2})(?![0-9])"
+)
+
+
+def cited_evidence_ordinals(text: str) -> tuple[str, ...]:
+    """正文里显式引用的 E 序号（写手空间，首现顺序去重）。
+
+    数字语法与 ``_EVIDENCE_ORDINAL_RE`` 同一套（E1..E999、无前导零）。
+    左界排除字母数字（``PE10`` 估值倍数、``1.5E8`` 科学计数、``CE4`` 认证名
+    都不是引用），右界排除续位数字（``E41`` 不拆成 ``E4``）。
+    只识别、不校验：表外序号由消费方反解失败自然落回既有删除路径。
+    """
+
+    seen: dict[str, None] = {}
+    for match in _PROSE_EVIDENCE_REF_RE.finditer(str(text or "")):
+        seen.setdefault(f"E{match.group(1)}", None)
+    return tuple(seen)
+
+
 def resolve_evidence_refs(
     raw_refs: list[object],
     evidence: tuple[AgentEvidence, ...],
