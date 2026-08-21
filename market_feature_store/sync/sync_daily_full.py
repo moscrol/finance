@@ -197,7 +197,6 @@ def run_daily_update(
 
     from .sync_fupanhui_sectors import sync_dim_sector
     from .sync_fupanhui_market_daily import sync_fupanhui_market_overview
-    from .sync_feishu_market_daily import sync_fact_market_daily
     from .sync_akshare_index_daily import sync_akshare_index_daily
     from .sync_akshare_sw_l1_daily import sync_akshare_sw_l1_daily
     from .sync_fupanhui_market_deviation import sync_market_deviation
@@ -217,7 +216,6 @@ def run_daily_update(
     steps.append(_run_step("sync-market-overview", sync_fupanhui_market_overview, trade_date=td, days=60))
     if not td:
         td = str(steps[-1]["result"].get("trade_date")) if steps[-1]["ok"] and steps[-1]["result"] else _latest_trade_date()
-    steps.append(_run_step("sync-market-daily", sync_fact_market_daily))
     steps.append(_run_step("sync-index-daily", sync_akshare_index_daily, trade_date=td))
     steps.append(_run_step("sync-sw-l1-daily", sync_akshare_sw_l1_daily, trade_date=td, days=20))
     steps.append(_run_step("sync-market-deviation", sync_market_deviation, trade_date=td))

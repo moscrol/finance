@@ -585,6 +585,7 @@ def test_sync_plan_omits_retired_sector_feishu_step(monkeypatch):
     names = [name for name, _runner in run_review_sync.build_plan(TRADE_DATE, 1, 2)]
 
     assert "sector-resonance" not in names
+    assert "market-daily" not in names
 
 
 def test_cli_omits_retired_sector_feishu_commands():
@@ -595,6 +596,7 @@ def test_cli_omits_retired_sector_feishu_commands():
         "sync-sector-marginal",
         "sync-sector-daily-metrics",
         "sync-sector-resonance",
+        "sync-market-daily",
     }.isdisjoint(commands)
 
 
@@ -605,6 +607,8 @@ def test_daily_update_omits_retired_sector_feishu_module():
 
     assert "sync_feishu_sector_resonance" not in source
     assert "sync-sector-resonance" not in source
+    assert "sync_feishu_market_daily" not in source
+    assert "sync-market-daily" not in source
 
 
 def test_nightly_script_attempts_l2_before_sync_failure_exit():

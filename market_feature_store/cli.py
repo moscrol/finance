@@ -221,18 +221,6 @@ def cmd_sync_mainline_sector_daily(args) -> int:
     return 0 if stats["status"] == "complete" else 2
 
 
-def cmd_sync_market_daily(_args) -> int:
-    from .sync.sync_feishu_market_daily import sync_fact_market_daily
-
-    stats = sync_fact_market_daily()
-    print(f"飞书拉取: {stats['fetched']} 条 | 写入: {stats['written']} 条")
-    print(f"fact_market_daily 总数: {stats['table_total']} ({stats['date_min']} ~ {stats['date_max']})")
-    print(f"空成交额行: {stats['null_total_amount']}")
-    if stats["skipped"]:
-        print(f"跳过(无效日期) {len(stats['skipped'])}: " + ", ".join(str(s) for s in stats['skipped'][:10]))
-    return 0
-
-
 def cmd_sync_index_daily(args) -> int:
     from .sync.sync_akshare_index_daily import sync_akshare_index_daily
 
@@ -1146,8 +1134,6 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_ss.set_defaults(func=cmd_sync_sector_stocks)
-
-    sub.add_parser("sync-market-daily", help="同步飞书每日指标表到 fact_market_daily").set_defaults(func=cmd_sync_market_daily)
 
     p_idx = sub.add_parser("sync-index-daily", help="同步上证指数点位/涨跌幅到 fact_market_daily")
     p_idx.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD；指定后只写该日")
