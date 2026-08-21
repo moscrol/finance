@@ -59,6 +59,9 @@ from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
 )
+from intelligence.services.mandatory_satisfiability import (
+    apply_unreachable_downgrade,
+)
 from intelligence.services.repair_coordinator import (
     RepairGoal,
     grant_for_transient_model_retry,
@@ -1462,11 +1465,8 @@ class ContinuousAgentEpisode:
         repair_tool_context = replace(context, deadline=repair_tool_deadline)
         research_tools_open = not repair_tool_deadline.expired
         goal_payload = goal.to_dict()
-        # 把「这一轮结构性不可能补上」的格显式投递进 trace。纯观测，不改执行：
-        # 生产 run_20260821_114642_385979 里修复轮被要求补两个 evidence 必填格，
-        # 同时 remaining_calls=0 / reopen_tools=false——禁止取证。它空转 40 秒后
-        # 残稿发布，读数上却表现成「repair 跑过了但没修好」，把不可能的任务
-        # 误读成模型能力问题。有了这个字段，trace diff 一眼能分开这两件事。
+        # 把「这一轮结构性不可能补上」的格显式投递进 trace（#289 第 6 刀观测）。
+        # W2 在观测之后接裁决：降级 contract / 模型侧 goal，但不跳过本轮。
         unreachable = unreachable_repair_goal(
             goal,
             evidence_output_ids=_evidence_required_output_ids(context),
@@ -1474,6 +1474,20 @@ class ContinuousAgentEpisode:
         if unreachable:
             goal_payload["unreachable_without_tools"] = list(unreachable)
         ledger.add("repair_goal", goal_payload)
+        # 观测保留完整 goal；裁决后的契约/指令才降级。不跳过本轮——
+        # salvage 刚写出的 FINAL_JSON 仍然要跑。
+        downgraded_contract, prompt_goal = apply_unreachable_downgrade(
+            context.contract,
+            goal,
+        )
+        if downgraded_contract is not context.contract:
+            context = replace(context, contract=downgraded_contract)
+            state.context = context
+            repair_context = replace(repair_context, contract=downgraded_contract)
+            repair_tool_context = replace(
+                repair_tool_context,
+                contract=downgraded_contract,
+            )
         # 修复轮的时钟账，记在动手之前。
         #
         # 这三个数是 judge 那次诊断里 ``timeout_asked`` 的同位物：judge 看着像元凶，
@@ -1504,7 +1518,7 @@ class ContinuousAgentEpisode:
                 "content": json.dumps(
                     {
                         "kind": "REPAIR_GOAL",
-                        **goal.to_dict(),
+                        **prompt_goal.to_dict(),
                         "instruction": (
                             "保留最初任务、全部原始观察和当前工具账本。"
                             + (
