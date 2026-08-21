@@ -119,6 +119,21 @@ def should_run(controller_capabilities: tuple[str, ...]) -> bool:
 
 
 @dataclass(frozen=True)
+class StructuredObservation:
+    """证据里一个机器可读的观察值：(主体, 日期, 指标) → 数。
+
+    住在这一层而不是 ``asof_prefetch``，因为 ``asof_prefetch`` 依赖本模块；
+    反过来会成环。凡是能在格式化**之前**拿到结构化数的取数方，都该把数
+    原样挂上来，别让下游回头解析 ``detail`` 文本。
+    """
+
+    subject: str
+    as_of: str
+    metric: str
+    value: float
+
+
+@dataclass(frozen=True)
 class AgentEvidence:
     """一条 agent 补检索证据：来源可回查（kb 路径 / web url / 资讯链接）。"""
 
@@ -136,6 +151,11 @@ class AgentEvidence:
     # 内容主键贯通 ToolObservation → Citation → EvidenceAtom；空值仅表示
     # 旧 runner 未提供可稳定哈希的正文。
     content_hash: str = ""
+    # 结构化观察值：``detail`` 是给模型看的文本，这里是同一批数的机器可读形态。
+    # 下游（槽填数、删句连坐检测）读它，**不回头解析 detail 自由文本**。
+    # 不进 ``evidence_content_hash``（该哈希只吃 tool/title/detail/source），
+    # 因此补上本字段不会改变任何既有证据身份。
+    observations: tuple[StructuredObservation, ...] = ()
 
     def to_observation(self, evidence_id: str) -> EvidenceObservation:
         return EvidenceObservation(
@@ -660,6 +680,54 @@ def block_lines_to_evidence(
         evidence.append(replace(item, content_hash=evidence_content_hash(item)))
     observation = "；".join(lines[:limit])
     return evidence, observation
+
+
+_NUMBER_TOKEN_RE = re.compile(r"-?\d+(?:\.\d+)?")
+
+
+def grounded_values_in_text(
+    text: str,
+    evidence: tuple[AgentEvidence, ...] | list[AgentEvidence],
+) -> tuple[StructuredObservation, ...]:
+    """文本里出现过、且在证据结构化观察值里**有据**的那些数。
+
+    用途：判官删句之前问一句「这一刀会连坐掉哪些真值」。它**不阻止删除**——
+    删除决定仍归判官，绑在同一句里的编造照删（否则假话会拿真数当免死金牌）。
+    它只保证真值不随句子静默消失，好让下游按槽重新呈现。
+
+    这是「保下限不封上限」的落点：拦的是**信息丢失**，不是模型的表达。
+
+    刻意从严：只认与观察值逐字节相等的数字 token（``4.74`` 命中，``4.7``
+    与 ``约 4.74`` 不命中）。宁可少报几条（变笨）也不误报（变错）——
+    误报会把没被删的数当成缺口，反过来污染缺口统计。
+    """
+
+    tokens = {
+        float(match.group())
+        for match in _NUMBER_TOKEN_RE.finditer(str(text or ""))
+    }
+    if not tokens:
+        return ()
+    hits: list[StructuredObservation] = []
+    seen: set[tuple[str, str, str, float]] = set()
+    for item in evidence:
+        for obs in item.observations:
+            key = (obs.subject, obs.as_of, obs.metric, obs.value)
+            if key in seen or obs.value not in tokens:
+                continue
+            seen.add(key)
+            hits.append(obs)
+    return tuple(hits)
+
+
+def describe_lost_observation(obs: StructuredObservation) -> str:
+    """把连坐掉的观察值写成一条缺口，供 ``AgentOutcome.gaps`` 记账。"""
+
+    return (
+        f"删句连坐：{obs.subject} {obs.as_of} {obs.metric}={obs.value:g} "
+        "有据（预取观察值），随未通过核验的表述一并移除；"
+        "应按槽重新呈现，不得当作无数据。"
+    )
 
 
 def evidence_content_hash(item: AgentEvidence) -> str:

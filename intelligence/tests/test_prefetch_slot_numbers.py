@@ -96,7 +96,7 @@ def test_slot_numbers_come_from_the_anchored_sector_only(tmp_path: Path) -> None
 
     items = _items(tmp_path)
     timeline = [item for item in items if "时间轴" in item.title][0]
-    anchored = {obs.sector_name for obs in timeline.observations}
+    anchored = {obs.subject for obs in timeline.observations}
     assert len(anchored) == 1, f"槽混了多个板块口径：{anchored}"
 
     sector = anchored.pop()

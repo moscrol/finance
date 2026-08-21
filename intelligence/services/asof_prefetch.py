@@ -14,7 +14,11 @@ from pathlib import Path
 from typing import Any
 
 from intelligence.paths import default_market_db_path
-from intelligence.services.agent_research import AgentEvidence, evidence_content_hash
+from intelligence.services.agent_research import (
+    AgentEvidence,
+    StructuredObservation,
+    evidence_content_hash,
+)
 from intelligence.services.theme_lifecycle_timeline import (
     DOUBLE_RED_AMOUNT,
     DOUBLE_RED_DIFF,
@@ -126,13 +130,13 @@ def sector_timeline_observations(
     sector_name: str,
     start: str,
     end: str,
-) -> tuple[PrefetchObservation, ...]:
+) -> tuple[StructuredObservation, ...]:
     """与 ``format_sector_timeline`` 同源同窗，只是不拼成文本。
 
     取数与格式化分开：格式化改措辞不该动到槽里的数，槽换口径也不该动文案。
     """
 
-    out: list[PrefetchObservation] = []
+    out: list[StructuredObservation] = []
     for row in rows:
         day = str(row.get("trade_date") or "")[:10]
         if day < start or day > end:
@@ -146,9 +150,9 @@ def sector_timeline_observations(
             except (TypeError, ValueError):
                 continue
             out.append(
-                PrefetchObservation(
-                    sector_name=sector_name,
-                    trade_date=day,
+                StructuredObservation(
+                    subject=sector_name,
+                    as_of=day,
                     metric=metric,
                     value=value,
                 )
@@ -172,9 +176,9 @@ def observation_value(
 
     for item in items:
         for obs in item.observations:
-            if obs.trade_date != trade_date or obs.metric != metric:
+            if obs.as_of != trade_date or obs.metric != metric:
                 continue
-            if sector_name is not None and obs.sector_name != sector_name:
+            if sector_name is not None and obs.subject != sector_name:
                 continue
             return obs.value
     return None
@@ -272,28 +276,13 @@ def resolve_prefetch_sector(con: Any, query: str, subject: str) -> str | None:
 
 
 @dataclass(frozen=True)
-class PrefetchObservation:
-    """预取行里的一个结构化观察值，供必填格直接填数。
-
-    存在的理由：``detail`` 是给模型看的格式化文本，下游若从文本里回头解析
-    数字，等于让代码去解析自由文本（本仓明令的反模式）。这里把格式化**之前**
-    就有的结构化值原样留下，槽和门禁都读它，不读 ``detail``。
-    """
-
-    sector_name: str
-    trade_date: str
-    metric: str
-    value: float
-
-
-@dataclass(frozen=True)
 class PrefetchItem:
     tool: str
     title: str
     detail: str
     source: str = "本地 DuckDB · 问句日预取"
     source_date: str | None = None
-    observations: tuple[PrefetchObservation, ...] = ()
+    observations: tuple[StructuredObservation, ...] = ()
 
     def to_evidence(self) -> AgentEvidence:
         item = AgentEvidence(
@@ -303,6 +292,7 @@ class PrefetchItem:
             source=self.source,
             source_date=self.source_date,
             evidence_tier="L4_structured",
+            observations=self.observations,
         )
         return replace(item, content_hash=evidence_content_hash(item))
 

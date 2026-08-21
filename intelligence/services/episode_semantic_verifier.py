@@ -29,7 +29,11 @@ from datetime import date
 from typing import Literal, Protocol, cast, runtime_checkable
 
 from intelligence.services import answer_model, llm_refine
-from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.agent_research import (
+    AgentEvidence,
+    describe_lost_observation,
+    grounded_values_in_text,
+)
 from intelligence.services.degraded_fallback import (
     gap_transparency,
     is_model_service_unavailable,
@@ -2181,13 +2185,19 @@ class SemanticEpisodeVerifier:
         )
         if not draft:
             return None
+        gaps = _gaps_with_lost_observations(
+            gaps=original.gaps,
+            before=original.draft,
+            after=draft,
+            evidence=original.evidence,
+        )
         repaired_outcome = AgentOutcome(
             task_frame_hash=original.task_frame_hash,
             status=original.status,
             draft=draft,
             evidence=original.evidence,
             traces=original.traces,
-            gaps=original.gaps,
+            gaps=gaps,
             stop_reason="semantic_repair",
             events=original.events,
             bindings=original.bindings,
@@ -3281,6 +3291,36 @@ def _rounded_quantity_matches(
     if len(candidate_values) == 1 and len(observed_values) > 1:
         return any(matches)
     return all(matches)
+
+
+def _gaps_with_lost_observations(
+    *,
+    gaps: tuple[str, ...],
+    before: str,
+    after: str,
+    evidence: tuple[AgentEvidence, ...],
+) -> tuple[str, ...]:
+    """判官删句后，把被连坐掉的**有据数值**补记成缺口。
+
+    Gate 1 实锤（`docs/verification/2026-08-21-gate1-pcb-exact-name.md`）：判官
+    把「缩量洗盘后主升」整段判未核验删掉，真值 4.74/3432.59 绑在那段里一起没
+    了，活下来的反而是错口径的句子。**真话和编造绑同一段，一刀切下去真话陪葬。**
+
+    这里不改删除决定——给含真值的句子发免死金牌会让编造搭便车（那是「变错」，
+    必须硬）。改的是：删掉的真值**不再静默消失**，而是落成缺口，下游可按槽
+    重新呈现。拦的是信息丢失，不是模型的表达，所以是保下限不是封上限。
+    """
+
+    lost = grounded_values_in_text(before, evidence)
+    if not lost:
+        return gaps
+    survivors = {obs.value for obs in grounded_values_in_text(after, evidence)}
+    notes = tuple(
+        describe_lost_observation(obs) for obs in lost if obs.value not in survivors
+    )
+    if not notes:
+        return gaps
+    return tuple(dict.fromkeys((*gaps, *notes)))
 
 
 def _drop_rejected_sentences(
