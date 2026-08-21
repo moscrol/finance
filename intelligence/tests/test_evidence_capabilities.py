@@ -215,7 +215,7 @@ def test_fed_event_theme_analysis_also_overlays_news_and_web():
         question_type="theme_analysis",
     )
     capabilities = {item.capability for item in plan.requirements}
-    assert capabilities == {"news_search", "web_search"}
+    assert {"news_search", "web_search", "kb_search"} <= capabilities
     assert all(item.mandatory is False for item in plan.requirements)
 
 
