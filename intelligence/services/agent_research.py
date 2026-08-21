@@ -49,6 +49,15 @@ DEFAULT_LLM_TIMEOUT = 15
 NO_INFORMATION_GAIN_GAP = "连续两次检索未获得新增信息，无法继续补全证据。"
 DEFAULT_TOTAL_SECONDS = 60.0
 _MAX_OBSERVATION_CHARS = 900
+# kb_search 送达窗（V3 / R-20260821-15）。
+# 旧硬编码 hits[:5] + excerpt[:160] = 800 字符上限。默认与 retrieve() 对齐：
+# max_hits=6（episode_tools / kb_rag.DEFAULT_RAG_K），正文走 llm_evidence
+# （retrieve 已 apply_total_llm_budget，总预算 4800–8000）。
+# detail_chars=0 表示送达层不再二次截断。
+# retrieval-tier plan 的分档只覆盖检索 mode（remaining <15s → BM25），
+# 本模块不另建字符降档——见 kb_search_delivery_limits。
+KB_SEARCH_MAX_HITS = 6
+KB_SEARCH_DETAIL_CHARS = 0
 # 工具描述注册表：system prompt 按「实际注册的工具」动态生成——宣传清单与
 # 注册表不再可能漂移（此前静态 prompt 宣传未注册工具会触发"非法工具"中断）。
 _TOOL_DESCRIPTIONS = {
@@ -369,6 +378,38 @@ def kb_delivery_telemetry(
     }
 
 
+def kb_search_delivery_limits(
+    *,
+    remaining_seconds: float | None = None,
+) -> tuple[int, int]:
+    """Return ``(max_hits, detail_chars)`` for kb_search 送达.
+
+    ``remaining_seconds`` is accepted so callers can thread the episode
+    remainder through this seam. The retrieval-tier plan's only ladder is
+    remaining < 15s → BM25 (``kb_rag.select_mode_for_remaining``). This
+    function must not invent a parallel char-budget ladder: delivery always
+    uses ``KB_SEARCH_MAX_HITS`` / ``KB_SEARCH_DETAIL_CHARS``.
+    """
+
+    del remaining_seconds
+    return KB_SEARCH_MAX_HITS, KB_SEARCH_DETAIL_CHARS
+
+
+def kb_search_hit_text(hit: object, *, detail_chars: int | None = None) -> str:
+    """kb_search 送达正文：接 llm_evidence 粗管道，与 evidence_search 同规格。"""
+
+    text = str(
+        getattr(hit, "llm_evidence", "")
+        or getattr(hit, "display_excerpt", "")
+        or getattr(hit, "excerpt", "")
+        or ""
+    )
+    limit = KB_SEARCH_DETAIL_CHARS if detail_chars is None else detail_chars
+    if limit > 0:
+        return text[:limit]
+    return text
+
+
 def build_default_tools(
     kb_retrieve: Callable[[str, float], object],
 ) -> dict[str, ToolRunner]:
@@ -380,7 +421,10 @@ def build_default_tools(
     ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
         rag = kb_retrieve(query, context.timeout(DEFAULT_TOTAL_SECONDS))
         context.check_cancelled()
-        hits = list(getattr(rag, "hits", ()) or ())[:5]
+        max_hits, detail_chars = kb_search_delivery_limits(
+            remaining_seconds=context.deadline.remaining(),
+        )
+        hits = list(getattr(rag, "hits", ()) or ())[:max_hits]
         evidence = []
         for hit in hits:
             hit_date = closed_loop_retrieval.wiki_hit_source_date(hit)
@@ -388,7 +432,7 @@ def build_default_tools(
                 AgentEvidence(
                     tool="kb_search",
                     title=hit.title,
-                    detail=(hit.excerpt or "")[:160],
+                    detail=kb_search_hit_text(hit, detail_chars=detail_chars),
                     source="本地知识库",
                     internal_locator=hit.file_path,
                     source_date=hit_date.isoformat() if hit_date is not None else None,
