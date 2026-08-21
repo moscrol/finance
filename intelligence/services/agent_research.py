@@ -360,8 +360,14 @@ def kb_delivery_telemetry(
 ) -> dict[str, object]:
     """kb_search 送达遥测：按**实际送给模型的**字符/条数/来源页计，不写死 800。
 
-    V3 会改 ``_kb_search`` 管道（``excerpt[:160]`` → ``llm_evidence``）。本函数
-    吃的是已经组装好的 observation 和 evidence，管道变粗读数自动上去——
+    送达是**两条通道**，必须分开计数（2026-08-22 钙钛矿 live 探针实测）：
+
+    - ``delivered_chars`` = observation 串（agent loop 的工具消息，每条截
+      ``detail[:80]`` 作索引摘要）；
+    - ``detail_chars`` = ``evidence[].detail`` 总和（V3 粗管道拓宽的通道，
+      经证据注册表进 composer/verifier——答案里的正文级事实走这条）。
+
+    只看 delivered_chars 会把粗管道误判成没生效（580 字 vs 正文级 detail）。
     传感器和落盘共用这一处，避免两套量纲。
     """
 
@@ -374,6 +380,9 @@ def kb_delivery_telemetry(
             pages.append(page)
     return {
         "delivered_chars": len(observation or ""),
+        "detail_chars": sum(
+            len(str(getattr(item, "detail", "") or "")) for item in evidence
+        ),
         "hit_count": len(tuple(evidence)),
         "source_pages": pages,
     }
