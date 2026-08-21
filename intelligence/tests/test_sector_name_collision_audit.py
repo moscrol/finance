@@ -8,6 +8,8 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -33,11 +35,11 @@ def _module():
 def _db(path: Path, rows: list[tuple]) -> Path:
     con = duckdb.connect(str(path))
     con.execute(
-        "create table fact_sector_daily_generation ("
+        "create table fact_sector_daily ("
         "trade_date date, sector_name varchar, sector_ts_code varchar)"
     )
     con.executemany(
-        "insert into fact_sector_daily_generation values (?, ?, ?)", rows
+        "insert into fact_sector_daily values (?, ?, ?)", rows
     )
     con.close()
     return path
@@ -80,3 +82,67 @@ def test_single_code_is_not_flagged(tmp_path: Path) -> None:
         ("2026-08-06", "PCB概念", "990027.FP"),
     ])
     assert _module()._collisions(db) == {}
+
+
+def _run_main(mod, monkeypatch, db: Path, baseline: Path) -> int:
+    monkeypatch.setattr(mod, "BASELINE_PATH", baseline)
+    monkeypatch.setattr(mod, "_db_path", lambda: db)
+    monkeypatch.setattr(sys, "argv", ["audit_sector_name_collisions.py"])
+    return mod.main()
+
+
+def test_empty_baseline_flags_all_collisions(tmp_path: Path, monkeypatch, capsys) -> None:
+    """无 baseline → 现存重叠全报，exit 1。按代码数判会把换代也报进来。"""
+
+    db = _db(tmp_path / "d.duckdb", [
+        ("2026-08-07", "PCB", "885959.TI"),
+        ("2026-08-07", "PCB", "990026.FP"),
+        ("2026-07-01", "光伏", "OLD.TI"),
+        ("2026-08-01", "光伏", "NEW.FP"),
+    ])
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text("{}\n", encoding="utf-8")
+    assert _run_main(_module(), monkeypatch, db, baseline) == 1
+    out = capsys.readouterr().out
+    assert "PCB" in out
+    assert "光伏" not in out
+
+
+def test_matching_baseline_passes(tmp_path: Path, monkeypatch) -> None:
+    db = _db(tmp_path / "e.duckdb", [
+        ("2026-08-07", "PCB", "885959.TI"),
+        ("2026-08-07", "PCB", "990026.FP"),
+    ])
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(
+        json.dumps({"PCB": {"codes": ["885959.TI", "990026.FP"], "overlapping_days": 1}})
+        + "\n",
+        encoding="utf-8",
+    )
+    assert _run_main(_module(), monkeypatch, db, baseline) == 0
+
+
+def test_worsened_overlap_is_flagged(tmp_path: Path, monkeypatch, capsys) -> None:
+    db = _db(tmp_path / "f.duckdb", [
+        ("2026-08-07", "小金属", "A"),
+        ("2026-08-07", "小金属", "B"),
+        ("2026-08-06", "小金属", "A"),
+        ("2026-08-06", "小金属", "B"),
+    ])
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(
+        json.dumps({"小金属": {"codes": ["A", "B"], "overlapping_days": 1}}) + "\n",
+        encoding="utf-8",
+    )
+    assert _run_main(_module(), monkeypatch, db, baseline) == 1
+    out = capsys.readouterr().out
+    assert "恶化" in out
+    assert "1 → 2" in out
+
+
+def test_unreachable_db_skips_and_says_not_pass(monkeypatch, capsys) -> None:
+    mod = _module()
+    monkeypatch.setattr(mod, "_db_path", lambda: None)
+    monkeypatch.setattr(sys, "argv", ["audit_sector_name_collisions.py"])
+    assert mod.main() == 0
+    assert "不是通过" in capsys.readouterr().out

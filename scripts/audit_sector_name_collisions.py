@@ -3,9 +3,10 @@
 
 ## 这是什么故障
 
-`fact_sector_daily` 按 `sector_name` 查。当一个中文名同时挂在两个供应商代码上、
-且两者日期区间重叠时，同一天会返回**两行不同的数**。2026-08-21 生产实测
-（`docs/verification/2026-08-21-judge-quantity-blindspot.md`）的完整代价：
+`fact_sector_daily`（公开 VIEW，预取读口）按 `sector_name` 查。当一个中文名同时
+挂在两个供应商代码上、且两者日期区间重叠时，同一天会返回**两行不同的数**。
+2026-08-21 生产实测（`docs/verification/2026-08-21-judge-quantity-blindspot.md`）
+的完整代价：
 
     E1 预取行给了模型 2026-07-08 两条：成交额亿=922.49 与 914.5
       → 模型诚实写成区间「约914-922亿」
@@ -27,11 +28,22 @@
 存量写进 `sector-name-collisions-baseline.json`（本脚本生成，不手抄），
 **新增一个就拦**。
 
-## 为什么按「重叠天数」而不是「代码个数」
+## 为什么读公开 VIEW，不读 `*_generation`
+
+预取走 `fact_sector_daily`。物理表按 `sector_universe_snapshot_id` 分代，同日可
+以有 candidate / superseded / published 多行——那是快照机制，不是撞名。2026-08-21
+库里有 804 组 (名字,日期) 跨多个 snapshot_id；拿物理表当判据会把分代算进重叠。
+`check_sector_fact_access.py` 也禁止名单外文件读物理表。本脚本只读公开 VIEW。
+
+## 为什么按「重叠」而不是「代码个数」
 
 一个名字换过代码（旧代码停、新代码起）是**正常换代**，两段区间不重叠，查任何
 一天都只有一行，不产生歧义。真正致命的是**并存**——同一天两个代码都有数据。
-所以判据是「重叠交易日数 > 0」，不是「代码数 > 1」。这也让正常换代不会误报。
+所以判据是「同日多行」，不是「代码数 > 1」。这也让正常换代不会误报。
+
+`overlapping_days` 存的是多余行（`count(*) - count(distinct trade_date)`）：
+为 0 当且仅当没有同日多行。三代码同一天时该值会大于「有重叠的交易日数」，
+棘轮仍正确——多余行增加就是恶化。
 
 退出码：
   0  无新增撞名（或 --update-baseline 已写入，或库不可达而跳过）
@@ -78,7 +90,7 @@ def _collisions(db: Path) -> dict[str, dict[str, object]]:
                    count(distinct sector_ts_code) as codes,
                    count(*) as rows_total,
                    count(distinct trade_date) as days
-            from fact_sector_daily_generation
+            from fact_sector_daily
             group by 1
             having codes > 1 and rows_total > days
             order by 1
@@ -90,7 +102,7 @@ def _collisions(db: Path) -> dict[str, dict[str, object]]:
                 str(r[0])
                 for r in con.execute(
                     "select distinct sector_ts_code from "
-                    "fact_sector_daily_generation where sector_name = ? "
+                    "fact_sector_daily where sector_name = ? "
                     "order by 1",
                     [name],
                 ).fetchall()
