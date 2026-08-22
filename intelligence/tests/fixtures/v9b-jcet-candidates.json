@@ -1,0 +1,117 @@
+{
+  "query": "长电科技怎么看",
+  "k": 6,
+  "note": "V9b 冻结过采样候选：V3 长电 6 命中 + 4 条补位页。颀中/华天/莱宝打 via_neighbor=true 且 section=相关实体。禁扫 chunks.jsonl。",
+  "hits": [
+    {
+      "title": "长电科技_最新逻辑跟踪",
+      "file_path": "wiki/sources/长电科技_最新逻辑跟踪.md",
+      "excerpt": "1. **长电科技2025年度、2026年第一季度业绩暨现金分红说明会记录**（2026-05-08）- 公司官方 - https://www.cnfin.com/announ/detail/index.html?announ=lc&dannoun=lcdetail&id=831569840366",
+      "display_excerpt": "1. **长电科技2025年度、2026年第一季度业绩暨现金分红说明会记录**（2026-05-08）- 公司官方 - https://www.cnfin.com/announ/detail/index.html?announ=lc&dannoun=lcdetail&id=831569840366",
+      "llm_evidence": "命中块 wiki/sources/长电科技_最新逻辑跟踪.md::24: 1. **长电科技2025年度、2026年第一季度业绩暨现金分红说明会记录**",
+      "section": "原始资料链接",
+      "via_neighbor": false,
+      "score": 0.95,
+      "source_date": ""
+    },
+    {
+      "title": "长电科技（600584）",
+      "file_path": "wiki/entities/长电科技.md",
+      "excerpt": "- **一句话**：长电科技作为国内封测龙头，正站在AI算力驱动的先进封装爆发周期起点。",
+      "display_excerpt": "- **一句话**：长电科技作为国内封测龙头，正站在AI算力驱动的先进封装爆发周期起点。",
+      "llm_evidence": "命中块 wiki/entities/长电科技.md::38: - **一句话**：长电科技作为国内封测龙头，正站在AI算力驱动的先进封装爆发周期起点。",
+      "section": "IMA 最新逻辑跟踪",
+      "via_neighbor": false,
+      "score": 0.92,
+      "source_date": ""
+    },
+    {
+      "title": "长电科技 2025年度报告 baseline 2026-04-08",
+      "file_path": "wiki/sources/长电科技 2025年度报告 baseline 2026-04-08.md",
+      "excerpt": "- `raw/cninfo-baseline/长电科技.json`",
+      "display_excerpt": "- `raw/cninfo-baseline/长电科技.json`",
+      "llm_evidence": "命中块 wiki/sources/长电科技 2025年度报告 baseline 2026-04-08.md::2: - `raw/cninfo-baseline/长电科技.json`",
+      "section": "Raw / Manifest Trace",
+      "via_neighbor": false,
+      "score": 0.88,
+      "source_date": ""
+    },
+    {
+      "title": "颀中科技（688352）",
+      "file_path": "wiki/entities/颀中科技.md",
+      "excerpt": "[[长电科技]] · [[通富微电]] · [[华天科技]]",
+      "display_excerpt": "[[长电科技]] · [[通富微电]] · [[华天科技]]",
+      "llm_evidence": "命中块 wiki/entities/颀中科技.md::3: [[长电科技]] · [[通富微电]] · [[华天科技]]",
+      "section": "相关实体",
+      "via_neighbor": true,
+      "score": 0.86,
+      "source_date": ""
+    },
+    {
+      "title": "华天科技（002185）",
+      "file_path": "wiki/entities/华天科技.md",
+      "excerpt": "[[长电科技]] · [[通富微电]] · [[比亚迪]]",
+      "display_excerpt": "[[长电科技]] · [[通富微电]] · [[比亚迪]]",
+      "llm_evidence": "命中块 wiki/entities/华天科技.md::4: [[长电科技]] · [[通富微电]] · [[比亚迪]]",
+      "section": "相关实体",
+      "via_neighbor": true,
+      "score": 0.85,
+      "source_date": ""
+    },
+    {
+      "title": "莱宝高科（002106）",
+      "file_path": "wiki/entities/莱宝高科.md",
+      "excerpt": "[[京东方A]] · [[华勤技术]] · [[长电科技]]",
+      "display_excerpt": "[[京东方A]] · [[华勤技术]] · [[长电科技]]",
+      "llm_evidence": "命中块 wiki/entities/莱宝高科.md::3: [[京东方A]] · [[华勤技术]] · [[长电科技]]",
+      "section": "相关概念",
+      "via_neighbor": true,
+      "score": 0.84,
+      "source_date": ""
+    },
+    {
+      "title": "通富微电",
+      "file_path": "wiki/entities/通富微电.md",
+      "excerpt": "通富微电是封测同行，先进封装产能独立于邻页链接堆。",
+      "display_excerpt": "通富微电是封测同行，先进封装产能独立于邻页链接堆。",
+      "llm_evidence": "通富微电是封测同行，先进封装产能独立于邻页链接堆。",
+      "section": "公司简介",
+      "via_neighbor": false,
+      "score": 0.40,
+      "source_date": ""
+    },
+    {
+      "title": "先进封装",
+      "file_path": "wiki/concepts/先进封装.md",
+      "excerpt": "先进封装是 2.5D/3D/HBM 封测的产业概念页，不是邻页链接堆。",
+      "display_excerpt": "先进封装是 2.5D/3D/HBM 封测的产业概念页，不是邻页链接堆。",
+      "llm_evidence": "先进封装是 2.5D/3D/HBM 封测的产业概念页，不是邻页链接堆。",
+      "section": "核心逻辑",
+      "via_neighbor": false,
+      "score": 0.39,
+      "source_date": ""
+    },
+    {
+      "title": "封测",
+      "file_path": "wiki/concepts/封测.md",
+      "excerpt": "封测是封装测试赛道总览，长电/通富/华天同属此链。",
+      "display_excerpt": "封测是封装测试赛道总览，长电/通富/华天同属此链。",
+      "llm_evidence": "封测是封装测试赛道总览，长电/通富/华天同属此链。",
+      "section": "赛道定义",
+      "via_neighbor": false,
+      "score": 0.38,
+      "source_date": ""
+    },
+    {
+      "title": "晶方科技",
+      "file_path": "wiki/entities/晶方科技.md",
+      "excerpt": "晶方科技做 CIS 封装，正文页，不是相关实体链接堆。",
+      "display_excerpt": "晶方科技做 CIS 封装，正文页，不是相关实体链接堆。",
+      "llm_evidence": "晶方科技做 CIS 封装，正文页，不是相关实体链接堆。",
+      "section": "公司简介",
+      "via_neighbor": true,
+      "score": 0.37,
+      "source_date": ""
+    }
+  ]
+}
