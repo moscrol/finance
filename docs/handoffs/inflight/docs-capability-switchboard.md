@@ -11,19 +11,19 @@
 
 ## 当前状态
 
-树 `/Users/a77/fwp-wt-capability-switchboard` @ `1289f110`，已 rebase 到 `gitea/main@b4689295`。未推、未合 main。
+树 `/Users/a77/fwp-wt-capability-switchboard` @ `d98e504a`+，已 rebase 到 `gitea/main@b4689295`。未推、未合 main。
 
 对照树：`/Users/a77/fwp-wt-code-map-land`（干净 `main@b4689295`）。不要和主仓 `feat/reading-rules-baseline-batch1` 并。
 
 ### 质量棘轮（2026-08-22）
 
-验收口径：**默认空集合时，模型看见的层相对当前主链不能退步。** 「拧得动」是下一层；离线 43 绿只证明关得掉。
+验收口径：**默认空集合时，模型看见的层相对当前主链不能退步。** 「拧得动」是下一层；离线测试绿只证明关得掉。
 
 脚本：`scripts/align_default_box_quality.py`
-题：`episode_seam_ladder_cases.json` 三道，`as_of=2026-08-07`
+题：梯子 3 道 + 专有词探针 2 道（`dual-red-sectors` / `limit-cluster-themes`），`as_of=2026-08-07`
 库：主仓 `db/market_feature_store.duckdb`（worktree 没有 `db/`，不设 `MARKET_FEATURE_STORE_DB` 预取会空，对打必须 `--db`）
 
-**已跑：aligned=true，gaps=[]**
+**已跑：5 题 aligned=true，gaps=[]**
 
 | 项 | 值 |
 |---|---|
@@ -33,10 +33,20 @@
 | next-session-index | `market_forecast`，预取「双红个数序列」`0ebfc4614e8f8d05` |
 | current-mainline | `market_watch` + dated_market_review，prefetch=[] |
 | weekly-market-cause | `market_cause`，prefetch=[] |
+| dual-red-sectors | `general_finance_qa` + dated_market_review（问句含「双红」） |
+| limit-cluster-themes | `general_finance_qa` + dated_market_review（问句含「涨停」） |
 
-设计收紧（NULL 成交额、字符串/`True` 边界、开根 `GREATEST`）**没在这 3 题表面上露出来**，不要拿对照树去「修齐」它们。
+设计收紧（NULL 成交额、字符串/`True` 边界、开根 `GREATEST`）**没在这 5 题表面上露出来**，不要拿对照树去「修齐」它们。
 
 Live 答案字符串：本会话环境无 LLM key，**fail-closed**。表面对齐 ≠ 答案对齐；同一模型连跑两次也会漂，不能当解耦验收。有 key 再双 sidecar（不同 port + `--repo-root`）。
+
+### rebase 后全臂消融（2026-08-22）
+
+`run_capability_switchboard.py --all-arms`（scripted，失败 0）：
+
+**通过 32 ｜ 设计不可满足 5 ｜ 本题不适用 20 ｜ 未接线 3 ｜ 失败 0**
+
+比收口时的 17/5/20/24：未接线从 24 掉到 3（谓词面已接线，不再空过），通过数相应上去。`followup-composer` 仍不在 episode composition root。收据（gitignore）：`intelligence/eval/runs/switchboard/20260822T1536-all-arms-post-rebase.json`。
 
 ### 审查回修（2026-08-22，对照 spec 验收后）
 

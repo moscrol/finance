@@ -922,6 +922,16 @@ def test_default_box_diff_fails_closed_when_db_missing() -> None:
     assert any(item.startswith("db not connected") for item in gaps)
 
 
+def test_default_box_face_probes_cover_decoupled_terms() -> None:
+    """梯子三题不够：解耦动的是「双红 / 涨停」面，棘轮必须有专有词探针。"""
+
+    from scripts.align_default_box_quality import FACE_PROBES
+
+    questions = {item["id"]: item["question"] for item in FACE_PROBES}
+    assert "双红" in questions["dual-red-sectors"]
+    assert "涨停" in questions["limit-cluster-themes"]
+
+
 def test_default_box_diff_flags_prefetch_and_route_drift() -> None:
     from scripts.align_default_box_quality import _diff
 

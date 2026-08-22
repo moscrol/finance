@@ -27,6 +27,27 @@ from typing import Any
 
 CASES = Path("intelligence/tests/fixtures/episode_seam_ladder_cases.json")
 
+# 梯子三题不带「双红 / 涨停」专有词。谓词解耦动的是那几面，质量棘轮必须覆盖到。
+# 写在本脚本里，不另建对照树没有的 fixture——dump 在对照树 cwd 跑，题面仍从这份脚本读。
+FACE_PROBES = (
+    {
+        "id": "dual-red-sectors",
+        "question": "以 2026-08-07 收盘为准，哪些板块是双红",
+        "as_of": "2026-08-07",
+        "tier": "standard",
+        "timeout": 180.0,
+        "expected_stage_floor": "S2",
+    },
+    {
+        "id": "limit-cluster-themes",
+        "question": "以 2026-08-07 收盘为准，涨停集中在哪些题材",
+        "as_of": "2026-08-07",
+        "tier": "standard",
+        "timeout": 180.0,
+        "expected_stage_floor": "S2",
+    },
+)
+
 CASE_FIELDS = (
     "question_type",
     "subject",
@@ -66,14 +87,25 @@ def dump_surface() -> dict[str, Any]:
     )
     from intelligence.services.research_contract import release_root_budget
     from market_feature_store.signals import DOUBLE_RED_SQL
-    from scripts.run_episode_seam_ladder import load_cases, resolve_control
+    from scripts.run_episode_seam_ladder import SeamLadderCase, load_cases, resolve_control
 
     methodology, methodology_path, methodology_warn = load_methodology(ForesightOptions())
     db_path = default_market_db_path()
     con = _connect(db_path)
     cases: list[dict[str, Any]] = []
+    probes = list(load_cases(repo / CASES)) + [
+        SeamLadderCase(
+            case_id=str(raw["id"]),
+            question=str(raw["question"]),
+            as_of=str(raw["as_of"]),
+            tier=str(raw["tier"]),
+            timeout=float(raw["timeout"]),
+            expected_stage_floor=str(raw["expected_stage_floor"]),
+        )
+        for raw in FACE_PROBES
+    ]
     try:
-        for case in load_cases(repo / CASES):
+        for case in probes:
             envelope = understand_query(case.question)
             control = resolve_control(case)
             frame = control.task_frame
