@@ -168,6 +168,7 @@ _VIEW_CALLERS = frozenset(
         "services/episode_semantic_verifier.py::_completed_public",
         "services/episode_semantic_verifier.py::_emit_withheld_repair",
         "services/episode_semantic_verifier.py::_marker_loss_partial_public",
+        "services/episode_semantic_verifier.py::_project_semantic_quality_marks",
         "services/episode_semantic_verifier.py::_gap_answer",
         "services/episode_semantic_verifier.py::_generic_gap_answer",
     }

@@ -20,6 +20,7 @@ from intelligence.services.agent_runtime import (
 )
 from intelligence.services.episode_semantic_verifier import (
     REQUIRED_OUTPUT_DEGRADED_MARK,
+    SEMANTIC_QUALITY_DOUBT_MARK,
     SemanticEpisodeVerifier,
 )
 from intelligence.services.episode_verifier import verify_episode_outcome
@@ -96,26 +97,20 @@ def test_partial_mechanical_delete_keeps_remainder_and_degrades() -> None:
     """① 块内 N 句、合法删 1 句 → 残块保留 + missing + 质检 + 块级标注。"""
 
     draft = (
-        "【直接判断】当日主线仍是电网设备。"
+        "【直接判断】若指数跌破99999点则主线成立。"
         "成交额 530.96 亿来自问句日预取。"
         "据此判断延续观察。"
         "【证据边界】仅覆盖 2026-07-23 日频盘面。"
     )
     frame, structural = _two_slot_structural(draft)
-    judge = _judge(
-        False,
-        rejected=(1,),
-        issues=(
-            "code=numeric_unsupported subject=numeric_condition :: "
-            "第1句发明阈值无据数值",
-        ),
-    )
+    judge = _judge(True)
 
     result = _verify(frame, structural, judge)
 
     assert "成交额 530.96" in result.public_answer
     assert "【证据边界】" in result.public_answer
-    assert "【直接判断】当日主线仍是电网设备" not in result.public_answer
+    assert "99999" not in result.public_answer
+    assert "【直接判断】若指数跌破99999点则主线成立" not in result.public_answer
     assert result.gap_output_ids == ("direct_assessment",)
     lost = next(
         item
@@ -195,7 +190,7 @@ def test_full_wipe_still_keeps_c3_banner() -> None:
     """④ 全灭 → 横幅保留（C3 回归钉）。"""
 
     frame, structural = _structural(
-        "【当前判断】市场下跌。政策导致下跌。外资将持续流入。行业一定反转。"
+        "【当前判断】据E90，市场下跌。据E99显示下跌。据E98显示流入。据E97显示反转。"
     )
     calls = 0
 
@@ -213,7 +208,7 @@ def test_full_wipe_still_keeps_c3_banner() -> None:
 
     assert result.repair_withheld is True
     assert "repair_wiped_all_outputs" in " ".join(result.issues)
-    assert "【当前判断】市场下跌" in result.public_answer
+    assert "【当前判断】据E90，市场下跌" in result.public_answer
     assert result.gap_output_ids == ()
     assert REQUIRED_OUTPUT_DEGRADED_MARK not in result.public_answer
 
@@ -244,7 +239,7 @@ def test_degraded_block_annotation_is_visible_on_public_answer() -> None:
 
 
 def test_semantic_quality_reject_keeps_required_block_remainder() -> None:
-    """句级语义否决仍删该句；残块保留、不挂横幅、标注可见。"""
+    """V8 主钉：第 3 句语义否决留下 + 存疑标；残块保留、不挂横幅。"""
 
     draft = (
         "【直接判断】当日主线仍是电网设备。"
@@ -261,7 +256,8 @@ def test_semantic_quality_reject_keeps_required_block_remainder() -> None:
 
     result = _verify(frame, structural, judge)
 
-    assert "据此判断延续观察" not in result.public_answer
+    assert "据此判断延续观察" in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
     assert "【直接判断】当日主线仍是电网设备" in result.public_answer
     assert "成交额 530.96" in result.public_answer
     assert "质量不够" in " ".join(result.issues)
