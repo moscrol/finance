@@ -244,9 +244,9 @@ def test_repair_refuses_to_wipe_every_required_output() -> None:
         content_hash="wipe-news",
     )
     draft = (
-        "【当前判断】电网设备已发酵到高位。\n"
-        "【产业链】许继电气位于设备中游。\n"
-        "【反证】量能尚未确认放量。\n"
+        "【当前判断】据E99，电网设备已发酵到高位。\n"
+        "【产业链】据E98，许继电气位于设备中游。\n"
+        "【反证】据E97，量能尚未确认放量。\n"
         "以上内容供研究参考。"
     )
     contract = ResearchTaskContract(

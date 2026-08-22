@@ -37,6 +37,7 @@ class IssueCode(str, Enum):
     CALENDAR_WEEKDAY_MISMATCH = "calendar_weekday_mismatch"
     PATH_TREND_MISMATCH = "path_trend_mismatch"
     MARKER_LOSS = "marker_loss"
+    UNRESOLVED_EVIDENCE_ORDINAL = "unresolved_evidence_ordinal"
 
 
 class ReleaseAction(str, Enum):
@@ -75,6 +76,7 @@ RELEASE_POLICY: dict[IssueCode, ReleaseAction] = {
     IssueCode.CALENDAR_WEEKDAY_MISMATCH: ReleaseAction.BLOCK,
     IssueCode.PATH_TREND_MISMATCH: ReleaseAction.BLOCK,
     IssueCode.MARKER_LOSS: ReleaseAction.BLOCK,
+    IssueCode.UNRESOLVED_EVIDENCE_ORDINAL: ReleaseAction.BLOCK,
 }
 
 _PARTIAL_RELEASE_ACTIONS = frozenset(
