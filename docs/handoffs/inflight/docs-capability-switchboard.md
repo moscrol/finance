@@ -38,7 +38,18 @@
 
 设计收紧（NULL 成交额、字符串/`True` 边界、开根 `GREATEST`）**没在这 5 题表面上露出来**，不要拿对照树去「修齐」它们。
 
-Live 答案字符串：本会话环境无 LLM key，**fail-closed**。表面对齐 ≠ 答案对齐；同一模型连跑两次也会漂，不能当解耦验收。有 key 再双 sidecar（不同 port + `--repo-root`）。
+Live：本机 key 在 Keychain（`finance-workbench-glm` / `finance-workbench-test-relay`），由 `~/.local/bin/start-finance-workbench` 取出。**会话 process env 空 ≠ 机器没有。** 2026-08-22 已用同一份 launcher 起双 sidecar（8796 本树 / 8798 对照树 `fwp-wt-code-map-land`），**未碰 8792**。
+
+两道题都 `completed`，预取数字对齐，答案原文不对齐（预期）：
+
+| 题 | 两边共同看见的 |
+|---|---|
+| 明天大盘怎么看 | 题型 `market_forecast`；预取「双红个数序列」154/11/32（正典口径）；上证 3940.04、+1.02%、成交 26642 亿、涨停 74/跌停 4、前三行业 45.3% |
+| 哪些板块是双红 | 同一批板块量价（PCB 8.71/23.06、CXO 8.22/54.02、CPO 3.85/10.91…） |
+
+对照树把双红口头说成「涨且边际量为正」——这是主链就有的弱口径漏进散文，不是本树引入的。答案字符串不能当棘轮。
+
+sidecar 已停。收据：`~/.finance-runtime/switchboard-align-live/` 与两棵树的 `switchboard-align-{treated,control}/users/`。
 
 ### rebase 后全臂消融（2026-08-22）
 
@@ -219,7 +230,7 @@ parity 断言的是「每一处仍等于它改前那一份」（AST 从 `git sho
 
 ## 未验证 / 已知边界
 
-- 默认盒**表面**已与当前主链对齐；**答案字符串未 live**（本会话无 LLM key，fail-closed）。A/B 零数据。离线 scripted 臂已跑过，不代替线上，也不代替表面棘轮。
+- 默认盒表面已对齐；live 已用 Keychain+启动器双 sidecar 跑过 2 题（预取数字齐，答案原文不齐）。未做 5 题全 live、未做消融 live。A/B 仍无统计意义。
 - 门禁只覆盖**字面**三形状。具名常量的第二实现由 `test_double_red_thresholds_are_defined_in_exactly_one_module` 管。`daily_review` 🔥 图例已改引用 `DOUBLE_RED_DESCRIPTION`。
 - `dual_blind` 弱口径只改名不改公式（历史 verdict 可复现）：`pct>0 AND diff>0`，不得再叫双红。
 - 附录 E 刻意 4/6：`route_table` / `turn_controller` 不并入词表，不许削齐。
