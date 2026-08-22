@@ -18,7 +18,8 @@
     I  题形×KB 三层  authorized / planned / called
     III kb_search 送达  telemetry.delivered_chars / detail_chars / hit_count / source_pages
                         （delivered=observation 串；detail=evidence 通道，V3 粗管道；两通道分开计）
-                        缺字段或空 dict → 「不可判」，不报 0
+                        V9a 只读：pointer_dropped / reexcerpted；缺字段记 None，不报 0、不翻 unjudgeable
+                        缺 delivered/hit/pages 或空 dict → 「不可判」，不报 0
                         零调用 → no_call（不是送达 0）
 
 B/C 任一非零 → 退出码 1，可挂夜检。A 不可判、D 命中、输入侧只记账，不单独红。
@@ -337,6 +338,8 @@ def inspect_shape_i(episode: dict[str, Any]) -> dict[str, Any]:
 def inspect_shape_iii(episode: dict[str, Any]) -> dict[str, Any]:
     delivered: list[int] = []
     detail_chars: list[int | None] = []
+    pointer_dropped: list[int | None] = []
+    reexcerpted: list[object | None] = []
     hit_counts: list[int] = []
     source_pages: list[list[str]] = []
     unjudgeable = 0
@@ -373,6 +376,16 @@ def inspect_shape_iii(episode: dict[str, Any]) -> dict[str, Any]:
         detail_chars.append(
             int(raw_detail) if isinstance(raw_detail, (int, float)) else None
         )
+        raw_dropped = tel.get("pointer_dropped")
+        pointer_dropped.append(
+            int(raw_dropped) if isinstance(raw_dropped, (int, float)) else None
+        )
+        raw_reexcerpted = tel.get("reexcerpted")
+        reexcerpted.append(
+            raw_reexcerpted
+            if isinstance(raw_reexcerpted, (list, tuple, bool))
+            else None
+        )
     if calls == 0:
         return {
             "status": "no_call",
@@ -381,6 +394,8 @@ def inspect_shape_iii(episode: dict[str, Any]) -> dict[str, Any]:
             "unjudgeable": 0,
             "delivered_chars": [],
             "detail_chars": [],
+            "pointer_dropped": [],
+            "reexcerpted": [],
             "hit_counts": [],
             "source_pages": [],
             "summary": "no kb_search call",
@@ -393,6 +408,8 @@ def inspect_shape_iii(episode: dict[str, Any]) -> dict[str, Any]:
             "unjudgeable": unjudgeable,
             "delivered_chars": delivered,
             "detail_chars": detail_chars,
+            "pointer_dropped": pointer_dropped,
+            "reexcerpted": reexcerpted,
             "hit_counts": hit_counts,
             "source_pages": source_pages,
             "summary": f"不可判：{unjudgeable}/{calls} 次 kb_search 缺 telemetry 字段",
@@ -404,6 +421,8 @@ def inspect_shape_iii(episode: dict[str, Any]) -> dict[str, Any]:
         "unjudgeable": 0,
         "delivered_chars": delivered,
         "detail_chars": detail_chars,
+        "pointer_dropped": pointer_dropped,
+        "reexcerpted": reexcerpted,
         "hit_counts": hit_counts,
         "source_pages": source_pages,
         "summary": f"kb_search calls={calls} chars={delivered} hits={hit_counts}",
