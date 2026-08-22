@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
-from intelligence.services.query_resolution import QueryResolver
+from intelligence.services.query_resolution import QueryResolver, classify_reference
 
 
 @pytest.fixture
@@ -198,6 +198,15 @@ def test_complete_question_is_not_contextual_reference(resolver: QueryResolver) 
 
     assert resolution.context_dependent is False
     assert resolution.reference_kind == "none"
+
+
+def test_true_follow_ups_still_classify_as_contextual() -> None:
+    """检测器保持粗粒度。其中会不会被标成其，不在这层用词表钉死。"""
+
+    assert classify_reference("那它呢？") == "entity_pronoun"
+    assert classify_reference("那它的客户呢") == "entity_pronoun"
+    assert classify_reference("其客户是谁") == "entity_pronoun"
+    assert classify_reference("这个逻辑呢") == "logic"
 
 
 def test_relation_operators_are_structured_outputs(resolver: QueryResolver) -> None:

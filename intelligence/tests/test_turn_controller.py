@@ -840,6 +840,109 @@ def test_controller_is_unique_research_owner(query: str, owner: str) -> None:
     assert decision.turn_intent.answer_owner == owner
 
 
+def _theme_resolver(tmp_path, *themes: str) -> QueryResolver:
+    concepts = {theme: {} for theme in themes}
+    relations = tmp_path / "relations"
+    relations.mkdir()
+    (relations / "entity_exposures.json").write_text(
+        json.dumps(
+            {
+                "entities": {
+                    "主题载体": {
+                        "codes": ["000001.SZ"],
+                        "concepts": concepts,
+                    }
+                }
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    (relations / "aliases.json").write_text(
+        json.dumps({"aliases": {}}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    return QueryResolver(KnowledgeAdapter(wiki_root=tmp_path))
+
+
+def test_qizhong_medtech_question_researches_without_history(tmp_path) -> None:
+    question = "医药和科技是怎么演绎的，其中短线又是怎么穿插的"
+    decision = decide_turn(
+        question,
+        resolver=_theme_resolver(tmp_path, "医药", "科技"),
+        llm_complete=lambda _messages: pytest.fail(
+            "self-contained theme question must not call the controller LLM"
+        ),
+    )
+
+    assert decision.lane == "research"
+    assert decision.needs_retrieval is True
+    assert decision.question_type == "theme_analysis"
+    assert decision.subject == "医药"
+    assert decision.clarification_questions == ()
+    assert decision.task_frame is not None
+    assert decision.task_frame.ambiguities == ()
+    assert decision.task_frame.clarification_question is None
+
+
+def test_bare_pronoun_without_history_still_clarifies() -> None:
+    decision = decide_turn(
+        "那它呢？",
+        llm_complete=lambda _messages: pytest.fail(
+            "true pronoun without previous intent must stay deterministic"
+        ),
+    )
+
+    assert decision.lane == "clarify"
+    assert decision.needs_retrieval is False
+    assert decision.clarification_questions == (
+        "你指的是哪家公司、题材或上一条研究逻辑？",
+    )
+
+
+def test_logic_reference_without_history_still_clarifies() -> None:
+    decision = decide_turn(
+        "这个逻辑呢？",
+        llm_complete=lambda _messages: pytest.fail(
+            "logic follow-up without previous intent must stay deterministic"
+        ),
+    )
+
+    assert decision.lane == "clarify"
+    assert decision.needs_retrieval is False
+
+
+def test_false_entity_pronoun_does_not_override_resolved_theme_frame() -> None:
+    envelope = understand_query(
+        "医药和科技是怎么演绎的，其中短线又是怎么穿插的",
+        matched_theme="医药",
+    )
+
+    class ForcedPronounResolver:
+        def resolve(self, query: str) -> QueryResolution:
+            return QueryResolution(
+                envelope=envelope,
+                anchor=None,
+                reference_kind="entity_pronoun",
+                context_dependent=True,
+                status="resolved",
+                suggested_action="proceed",
+            )
+
+    decision = decide_turn(
+        "医药和科技是怎么演绎的，其中短线又是怎么穿插的",
+        resolver=ForcedPronounResolver(),  # type: ignore[arg-type]
+        llm_complete=lambda _messages: pytest.fail(
+            "resolved theme frame must not be vetoed by a pronoun false positive"
+        ),
+    )
+
+    assert decision.lane == "research"
+    assert decision.needs_retrieval is True
+    assert decision.subject == "医药"
+    assert decision.clarification_questions == ()
+
+
 def test_follow_up_inherits_subject_owner_and_evidence_set() -> None:
     previous = TurnIntent(
         primary_subject="英维克",
