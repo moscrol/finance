@@ -145,6 +145,43 @@ def test_public_sanitizer_spares_prose_mentioning_script_names() -> None:
     assert "audit_coverage.py" not in sanitize_conversation_answer(leak_invoke)
 
 
+def test_continuous_review_notes_drop_internal_issue_receipts() -> None:
+    """内部 gate 收据不得进公开「输出质检」；裁判中文意见仍可留。
+
+    生产 8796：``evidence_type_stripped`` 的 ``code=... :: ...`` 行被原样
+    拼进 answer.md。STRIP_OK 是契约层动作，不是给用户看的诊断。
+    """
+
+    result = ContinuousTurnResult(
+        handled=True,
+        status="partial",
+        answer="通信设备相对更有机会。",
+        as_of=None,
+        citations=(),
+        warnings=(),
+        private_artifact={
+            "semantic_verifier": {
+                "issues": [
+                    "code=evidence_type_stripped subject=prime_quote :: "
+                    "stripped unsupported evidence type for prime_quote: finance_query",
+                    "第3句质量不够，证明不了主线延续",
+                ]
+            }
+        },
+        events=(),
+    )
+    notes = conversation_orchestrator._continuous_review_notes(result)
+    public = conversation_orchestrator._with_review_appendix(
+        "通信设备相对更有机会。",
+        notes,
+    )
+
+    assert "质量不够" in " ".join(notes)
+    assert not any(item.startswith("code=") for item in notes)
+    assert "evidence_type_stripped" not in public
+    assert "质量不够" in public
+
+
 def test_research_owner_contract_honors_declared_question_types() -> None:
     """A skill may expose a contract, but only for its declared research type."""
     from types import SimpleNamespace
