@@ -166,6 +166,9 @@ class AgentEvidence:
     # 不进 ``evidence_content_hash``（该哈希只吃 tool/title/detail/source），
     # 因此补上本字段不会改变任何既有证据身份。
     observations: tuple[StructuredObservation, ...] = ()
+    # V9a 只读遥测。None = 未跑重摘录（历史 run 缺字段，报不可判不报 0）。
+    reexcerpted: bool | None = None
+    pointer_dropped: int | None = None
 
     def to_observation(self, evidence_id: str) -> EvidenceObservation:
         return EvidenceObservation(
@@ -378,7 +381,7 @@ def kb_delivery_telemetry(
             page = str(getattr(item, "title", "") or "").strip()
         if page:
             pages.append(page)
-    return {
+    payload: dict[str, object] = {
         "delivered_chars": len(observation or ""),
         "detail_chars": sum(
             len(str(getattr(item, "detail", "") or "")) for item in evidence
@@ -386,6 +389,20 @@ def kb_delivery_telemetry(
         "hit_count": len(tuple(evidence)),
         "source_pages": pages,
     }
+    dropped = next(
+        (
+            getattr(item, "pointer_dropped", None)
+            for item in evidence
+            if getattr(item, "pointer_dropped", None) is not None
+        ),
+        None,
+    )
+    if dropped is not None:
+        payload["pointer_dropped"] = int(dropped)
+    flags = [getattr(item, "reexcerpted", None) for item in evidence]
+    if any(flag is not None for flag in flags):
+        payload["reexcerpted"] = [bool(flag) for flag in flags]
+    return payload
 
 
 def kb_search_delivery_limits(
@@ -441,6 +458,8 @@ def build_default_tools(
         )
         hits = list(getattr(rag, "hits", ()) or ())[:max_hits]
         evidence = []
+        rag_telemetry = getattr(rag, "telemetry", None)
+        pointer_dropped = getattr(rag_telemetry, "pointer_dropped", None)
         for hit in hits:
             hit_date = closed_loop_retrieval.wiki_hit_source_date(hit)
             evidence.append(
@@ -451,9 +470,11 @@ def build_default_tools(
                     source="本地知识库",
                     internal_locator=hit.file_path,
                     source_date=hit_date.isoformat() if hit_date is not None else None,
+                    reexcerpted=getattr(hit, "reexcerpted", None),
+                    pointer_dropped=pointer_dropped,
                 )
             )
-        telemetry = getattr(rag, "telemetry", None)
+        telemetry = rag_telemetry
         status = str(getattr(telemetry, "status", "unknown") or "unknown")
         # 检索**失败**不等于知识库**没有** —— 这两件事必须让模型区分得开。
         #
