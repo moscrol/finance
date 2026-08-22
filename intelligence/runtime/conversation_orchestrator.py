@@ -1426,13 +1426,27 @@ def _review_notes_from_gate(result: AskResult) -> tuple[str, ...]:
     )
 
 
+def _is_internal_issue_receipt(note: str) -> bool:
+    """Issue.serialize() 收据行：code=... subject=... :: ...，不是给人看的。"""
+
+    return (
+        note.startswith("code=")
+        and " subject=" in note
+        and " :: " in note
+    )
+
+
 def _continuous_review_notes(result: ContinuousTurnResult) -> tuple[str, ...]:
     artifact = result.private_artifact or {}
     semantic = artifact.get("semantic_verifier")
     if not isinstance(semantic, dict):
         return ()
     issues = semantic.get("issues") or ()
-    return tuple(str(item).strip() for item in issues if str(item).strip())
+    return tuple(
+        item
+        for item in (str(raw).strip() for raw in issues)
+        if item and not _is_internal_issue_receipt(item)
+    )
 
 
 def sanitize_conversation_answer(text: str) -> str:

@@ -766,7 +766,7 @@ class ContinuousAgentEpisode:
             planning_timeout = (
                 self._opening_planning_timeout(context)
                 if is_opening_call
-                else context.deadline.stage_timeout(self._llm_timeout)
+                else self._followup_planning_timeout(context)
             )
             remaining_tool_slots = self._remaining_tool_slots(
                 context=context,
@@ -908,12 +908,48 @@ class ContinuousAgentEpisode:
                 },
             )
             if not _consume_root_seconds(context, model_elapsed):
+                if context.root_budget is not None:
+                    context.root_budget.settle_seconds(seconds=model_elapsed)
                 carried_draft, carried_bindings = self._carry_just_written_finish(
                     turn=turn,
                     context=context,
                     evidence=tuple(accumulator.evidence),
                     registry=registry,
                 )
+                if carried_draft:
+                    finish_status = "completed"
+                    declared_gaps: tuple[str, ...] = ()
+                    try:
+                        parsed = validate_episode_finish(
+                            turn.content,
+                            context=context,
+                            evidence=tuple(accumulator.evidence),
+                        )
+                        finish_status = parsed.status
+                        carried_draft = parsed.draft
+                        carried_bindings = expand_episode_snapshot_bindings(
+                            bindings=parsed.bindings,
+                            evidence=tuple(accumulator.evidence),
+                            registry=registry,
+                        )
+                        declared_gaps = parsed.gaps
+                    except ValueError:
+                        pass
+                    return self._stopped_outcome(
+                        task_frame=task_frame,
+                        status=finish_status,
+                        stop_reason="model_finish",
+                        gap="",
+                        ledger=ledger,
+                        evidence=accumulator.evidence,
+                        traces=accumulator.traces,
+                        gaps=list(self._finish_gaps(declared_gaps, carried_bindings)),
+                        llm_calls=llm_calls,
+                        tool_calls=tool_calls,
+                        invalid_actions=invalid_actions,
+                        carried_draft=carried_draft,
+                        carried_bindings=carried_bindings,
+                    )
                 return self._stopped_outcome(
                     task_frame=task_frame,
                     status="partial" if accumulator.evidence else "failed",
@@ -1927,6 +1963,27 @@ class ContinuousAgentEpisode:
         if borrowable <= 0.0:
             return baseline
         return max(0.0, min(float(self._llm_timeout), baseline + borrowable))
+
+    def _followup_planning_timeout(self, context: ResearchRunContext) -> float:
+        """证据到手后的规划窗：预扣后不够一次写作时，向 reserve 借到地板。
+
+        常规切法是 ``remaining − synthesis_reserve``。8796 第三次调用
+        remaining=72.27、reserve=60 → 只剩 12.27s，低于一次合成地板
+        （``MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS`` = 20s），写作超时；
+        同题 8792 实测写作 15.9s。借到地板，不把整段 reserve 交给还可能
+        再调工具的规划轮——第二次工具轮仍走 stage 切法。
+
+        不变量：借完之后至少还留一截合成地板（``remaining − grant ≥ floor``），
+        与首轮「只借余量」对称。
+        """
+
+        baseline = context.deadline.stage_timeout(self._llm_timeout)
+        floor = MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS
+        if baseline + 1e-9 >= floor:
+            return baseline
+        remaining = float(context.deadline.remaining())
+        protected = max(0.0, remaining - floor)
+        return max(0.0, min(float(self._llm_timeout), max(baseline, min(floor, protected))))
 
     def _decide_mode(
         self,

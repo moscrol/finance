@@ -819,13 +819,15 @@ def test_deadline_after_successful_finalize_keeps_the_just_written_draft(
     )
 
     assert runner_calls["n"] == 1
-    assert outcome.stop_reason == "deadline_exhausted"
+    assert outcome.status == "completed"
+    assert outcome.stop_reason == "model_finish"
     assert outcome.draft == draft
     assert outcome.bindings
     assert all(item.output_id == "direct_assessment" for item in outcome.bindings)
     finish = next(event for event in outcome.events if event.kind == "finish")
     assert finish.payload["carried_draft_chars"] == len(draft)
     assert finish.payload["rejection_code"] == "none"
+    assert "研究截止时间已到" not in " ".join(outcome.gaps)
 
 
 def test_deadline_after_tool_turn_does_not_invent_a_draft(
@@ -4133,6 +4135,46 @@ class TestOpeningCallBorrowsOnlyTheSurplus:
         assert opening == pytest.approx(60.0, abs=1.0)
         assert follow_up == pytest.approx(26.67, abs=1.0)
         assert opening > follow_up
+
+
+class TestFollowupWriteFloor:
+    """证据到手后，规划窗若被 reserve 预扣到不够一次写作，向 reserve 借到地板。
+
+    生产 run_20260823_014453_917828（8796）：第三次调用 remaining=72.27、
+    reserve=60 → stage_timeout=12.27，低于一次合成地板 20s，TimeoutError。
+    同题 8792 的写作实测 15.9s。借到 20s 不放开整段 reserve，第二次工具轮
+    仍走常规切法（见上一类 test_only_the_opening_call_borrows）。
+    """
+
+    def test_thin_followup_reproduces_the_run_8796_write_floor(self) -> None:
+        episode = ContinuousAgentEpisode(ScriptedModel([]), llm_timeout=75.0)
+        context = _borrow_context(_frame(), total=72.27, reserve=60.0)
+
+        baseline = context.deadline.stage_timeout(75.0)
+        followup = episode._followup_planning_timeout(context)
+
+        assert baseline == pytest.approx(12.27, abs=0.1)
+        assert followup == pytest.approx(20.0, abs=0.1)
+
+    def test_followup_at_or_above_the_floor_stays_on_stage_cut(self) -> None:
+        episode = ContinuousAgentEpisode(ScriptedModel([]), llm_timeout=75.0)
+        context = _borrow_context(_frame(), total=83.09, reserve=60.0)
+
+        baseline = context.deadline.stage_timeout(75.0)
+        followup = episode._followup_planning_timeout(context)
+
+        assert baseline == pytest.approx(23.09, abs=0.1)
+        assert followup == pytest.approx(baseline, abs=0.1)
+
+    def test_write_floor_never_eats_the_last_synthesis(self) -> None:
+        episode = ContinuousAgentEpisode(ScriptedModel([]), llm_timeout=75.0)
+        floor = agent_episode_module.MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS
+        context = _borrow_context(_frame(), total=25.0, reserve=20.0)
+
+        followup = episode._followup_planning_timeout(context)
+        remaining_for_synthesis = context.deadline.remaining() - followup
+
+        assert remaining_for_synthesis >= floor - 0.5
 
 
 def test_tiny_planning_window_skips_tools_and_starts_finalization() -> None:
