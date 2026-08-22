@@ -881,3 +881,53 @@ def test_declared_faces_reach_prefetch_route_and_methodology() -> None:
     assert "双红定义" not in off_text
     assert "双红题材边际量" not in off_text
     assert "双红题材首日" not in off_text
+
+
+def _align_surface(**overrides: object) -> dict:
+    case = {
+        "id": "next-session-index",
+        "question_type": "market_forecast",
+        "subject": "A股市场",
+        "dated_market_review": False,
+        "capabilities": ["market_data"],
+        "allowed_capabilities": ["market_data"],
+        "mandatory_capabilities": ["market_data"],
+        "prefetch": [{"title": "双红个数序列", "detail_sha": "abc"}],
+        "dual_red_counts": {"2026-08-07": "32"},
+    }
+    case.update({k: v for k, v in overrides.items() if k in case or k == "id"})
+    return {
+        "db_connected": True,
+        "db_path": "db",
+        "double_red_sql": "pct_chg > 0 AND diff_ratio > 10 AND amount > 500",
+        "methodology_sha": "same",
+        "methodology_chars": 4420,
+        "cases": [case],
+    }
+
+
+def test_default_box_diff_is_empty_when_surfaces_match() -> None:
+    from scripts.align_default_box_quality import _diff
+
+    left = _align_surface()
+    assert _diff(left, _align_surface()) == []
+
+
+def test_default_box_diff_fails_closed_when_db_missing() -> None:
+    from scripts.align_default_box_quality import _diff
+
+    treated = _align_surface()
+    treated["db_connected"] = False
+    gaps = _diff(treated, _align_surface())
+    assert any(item.startswith("db not connected") for item in gaps)
+
+
+def test_default_box_diff_flags_prefetch_and_route_drift() -> None:
+    from scripts.align_default_box_quality import _diff
+
+    gaps = _diff(
+        _align_surface(prefetch=[], question_type="market_watch"),
+        _align_surface(),
+    )
+    assert any(item.startswith("next-session-index.prefetch") for item in gaps)
+    assert any(item.startswith("next-session-index.question_type") for item in gaps)

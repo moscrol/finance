@@ -11,7 +11,32 @@
 
 ## 当前状态
 
-树 `/Users/a77/fwp-wt-capability-switchboard` @ `gitea/main@4e0c6bf5`。**全部未提交**，未合 main。
+树 `/Users/a77/fwp-wt-capability-switchboard` @ `1289f110`，已 rebase 到 `gitea/main@b4689295`。未推、未合 main。
+
+对照树：`/Users/a77/fwp-wt-code-map-land`（干净 `main@b4689295`）。不要和主仓 `feat/reading-rules-baseline-batch1` 并。
+
+### 质量棘轮（2026-08-22）
+
+验收口径：**默认空集合时，模型看见的层相对当前主链不能退步。** 「拧得动」是下一层；离线 43 绿只证明关得掉。
+
+脚本：`scripts/align_default_box_quality.py`
+题：`episode_seam_ladder_cases.json` 三道，`as_of=2026-08-07`
+库：主仓 `db/market_feature_store.duckdb`（worktree 没有 `db/`，不设 `MARKET_FEATURE_STORE_DB` 预取会空，对打必须 `--db`）
+
+**已跑：aligned=true，gaps=[]**
+
+| 项 | 值 |
+|---|---|
+| 宪法 | 4420 字，sha `773fcf4cfcb57023` |
+| 双红 SQL | `pct_chg > 0 AND diff_ratio > 10 AND amount > 500` |
+| 双红个数 | 08-05=154 / 08-06=11 / 08-07=32 |
+| next-session-index | `market_forecast`，预取「双红个数序列」`0ebfc4614e8f8d05` |
+| current-mainline | `market_watch` + dated_market_review，prefetch=[] |
+| weekly-market-cause | `market_cause`，prefetch=[] |
+
+设计收紧（NULL 成交额、字符串/`True` 边界、开根 `GREATEST`）**没在这 3 题表面上露出来**，不要拿对照树去「修齐」它们。
+
+Live 答案字符串：本会话环境无 LLM key，**fail-closed**。表面对齐 ≠ 答案对齐；同一模型连跑两次也会漂，不能当解耦验收。有 key 再双 sidecar（不同 port + `--repo-root`）。
 
 ### 审查回修（2026-08-22，对照 spec 验收后）
 
@@ -184,7 +209,7 @@ parity 断言的是「每一处仍等于它改前那一份」（AST 从 `git sho
 
 ## 未验证 / 已知边界
 
-- 从未 live；A/B 零数据。离线 scripted 臂已跑过，不代替线上。
+- 默认盒**表面**已与当前主链对齐；**答案字符串未 live**（本会话无 LLM key，fail-closed）。A/B 零数据。离线 scripted 臂已跑过，不代替线上，也不代替表面棘轮。
 - 门禁只覆盖**字面**三形状。具名常量的第二实现由 `test_double_red_thresholds_are_defined_in_exactly_one_module` 管。`daily_review` 🔥 图例已改引用 `DOUBLE_RED_DESCRIPTION`。
 - `dual_blind` 弱口径只改名不改公式（历史 verdict 可复现）：`pct>0 AND diff>0`，不得再叫双红。
 - 附录 E 刻意 4/6：`route_table` / `turn_controller` 不并入词表，不许削齐。
