@@ -11,9 +11,18 @@
 
 ## 当前状态
 
-树 `/Users/a77/fwp-wt-capability-switchboard` @ `d98e504a`+，已 rebase 到 `gitea/main@b4689295`。未推、未合 main。
+树 `/Users/a77/fwp-wt-capability-switchboard` @ `a82528a5`，已 rebase 到 `#342`/`411e05ae`。
+已推 `gitea/docs/capability-switchboard`（upstream 曾误指 `gitea/main`，已改回本分支）。**未合 main。**
 
-对照树：`/Users/a77/fwp-wt-code-map-land`（干净 `main@b4689295`）。不要和主仓 `feat/reading-rules-baseline-batch1` 并。
+对照树：`/Users/a77/fwp-wt-code-map-land`（本地 `main`=`411e05ae`）。`gitea/main` 仍 `b4689295`——#342 本地已快进，推 `main` 被本机红线拦住，需用户在该树执行 `git push gitea main`。
+不要和主仓 `feat/reading-rules-baseline-batch1` 并。
+
+### 8792 怎么切、怎么切回
+
+生产读的是软链 `/Users/a77/finance-workspace-runtime` → 某个 detached 快照。
+切到解耦 = 按 `docs/workbench/canonical-8792-cutover.md` 新建快照钉 `a82528a5`（或当时 tip），改软链，重启。
+切回主链 = 软链改回主链快照（现在的 `...6320b3bcbf82`，或当时最新 `main` 的新快照），再重启。
+旧目录不删就是回滚锚。**不要把 8792 指到开发工作树。本会话未切生产。**
 
 ### 质量棘轮（2026-08-22）
 
