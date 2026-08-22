@@ -24,6 +24,7 @@ from typing import Any
 
 from intelligence.services import retrieval_cache
 from intelligence.paths import default_market_db_path
+from intelligence.services import reading_baseline
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -314,6 +315,7 @@ def moneyflow_block_for_llm(
             return ""
         latest_date = str(latest[0])
         lines = ["## L2 大单资金流数据块 [D9]"]
+        lines.extend(reading_baseline.block_rule_lines("D9"))
         lines.append(
             f"- 口径：l2-moneyflow 盘后特征表（大单=同一委托单当日累计成交额过阈值，主买净额=主动买-主动卖；"
             f"最新扫描日 {latest_date}），本地 DuckDB feature_l2_capital_flow_daily / feature_l2_quant_orders_daily 直查，非 LLM 生成。"

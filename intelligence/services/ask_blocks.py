@@ -27,6 +27,7 @@ from intelligence.services.ask_types import (
     _normalize,
 )
 from intelligence.services.evidence_window import select_text_window
+from intelligence.services import reading_baseline
 from market_feature_store.signals import is_double_red
 
 
@@ -233,6 +234,7 @@ def _mainline_context_block_for_llm(
             history_params,
         ).fetchall()
         lines = ["## 主线题材结构数据块 [D4]"]
+        lines.extend(reading_baseline.block_rule_lines("D4_mainline"))
         matched = target_theme or "最新全市场主线"
         lines.append(f"- 最新主线日期：{latest}；匹配口径：{matched}；该块是 L4_market_signal，只能说明市场主线归因，不等同公司基本面兑现。")
         if history:
@@ -1417,6 +1419,7 @@ def _market_value_block_for_llm(
             "## 市场价值与替代队列数据块 [D1]",
             f"- 标的识别：{stock_name}（{stock_code}），最新有效交易日 {latest_date}，收盘 {latest_close}，当日涨跌幅 {latest_pct}%，成交额 {latest_amount} 亿。",
         ]
+        lines.extend(reading_baseline.block_rule_lines("D1"))
         lines.extend(value_lines)
         if sector_lines:
             lines.append("- 关联题材/行业状态：" + "；".join(sector_lines))

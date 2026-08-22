@@ -26,6 +26,7 @@ from typing import Any
 
 from intelligence.services import retrieval_cache
 from intelligence.paths import default_market_db_path
+from intelligence.services import reading_baseline
 from market_feature_store.signals import is_double_red
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -444,6 +445,7 @@ def analog_block_for_llm(
         if not themes:
             return ""
         lines = ["## 历史类比检索块 [D8]"]
+        lines.extend(reading_baseline.block_rule_lines("D8"))
         lines.append(
             f"- 口径：题材自身历史上与「最近 {window} 个交易日形态」（双红天数/成交额首末比/均涨）"
             "加权距离最近的窗口，及其后续 5/10/20 日实际走法；"
