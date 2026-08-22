@@ -211,3 +211,21 @@ def test_not_passing_baseline_leaves_prompt_unchanged() -> None:
     """不传 baseline_guidance 时系统提示词逐字节不变（旧调用方不受影响）。"""
     system = llm_refine.build_synthesis_messages("问题", "题材", "证据")[0]["content"]
     assert "判读基线" not in system
+
+
+def test_baseline_survives_perspective_prompt_suffix() -> None:
+    """legacy 合成：#222 的「本轮视角约束」接在系统提示词后面，判读基线还在且更靠前。"""
+    messages = llm_refine.build_synthesis_messages(
+        "问题",
+        "题材",
+        "证据",
+        baseline_guidance=reading_baseline.baseline_guidance(),
+    )
+    messages[0]["content"] = (
+        f"{messages[0]['content']}\n\n## 本轮视角约束\n"
+        "只允许使用下方这一位 KOL 的画像与原文召回。"
+    )
+    system = messages[0]["content"]
+    assert "[FY-A10]" in system
+    assert "本轮视角约束" in system
+    assert system.index("判读基线") < system.index("本轮视角约束")
