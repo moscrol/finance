@@ -102,3 +102,19 @@ fail-open / 6 页读预算两条在恒等下仍绿（它们锁的是「别误杀
 - 不扫 `chunks.jsonl` 进请求路径，不把 181MB 索引接进测试。
 - 不打 8792，不跑 live 探针，不把任何台账行标 confirmed。
 - 不开 V9c 跨仓重切。
+
+## live 回填（2026-08-22 11:50，验收方）
+
+台账 `R-20260822-01` 的 live 腿，兼收 `R-20260821-17` 第二腿。生产身份：#333/#334 合入后部署，8792 health `loaded_tree_fingerprint`==`repo_tree_fingerprint`==`160db3fa…`（634 模块），ready 全绿（`rag_worker=true`、`code_snapshot_matches_repo=true`），部署账本 `switch` 行对账 ok。
+
+探针：`probe-v9a-0822` / `run_20260822_115041_135880`，同题「长电科技怎么看」。
+
+| 判据 | 读数 | 结果 |
+|---|---|---|
+| 目标页换正文段 | #1 `长电科技_最新逻辑跟踪` excerpt 头=「长电科技作为国内封测龙头，正站在AI算力驱动的先进封装爆发周期起点…」；颀中/华天/莱宝各为本页「一句话」正文，不主张长电相关性 | ✅ |
+| 指针页丢弃+回补 | `pointer_dropped=1`（cninfo baseline 指针页），`先进封装` 页回补进 6 命中 | ✅ |
+| 遥测接线 | `reexcerpted=[T,F,F,T,T,T]`（#2/#3 本就是正文，如实 False）；非 KB 证据字段=None（不可判不报 0）；联动读数 `delivered=554/detail=2713/hit=6` | ✅ |
+| p95 增量 | live 未逐调用计时；离线收据：读 6 页 0.44ms + 重摘录 1.06ms ≪ 100ms（验证文档上文） | ✅（离线腿） |
+| 降档不变量 | `test_remaining_under_15s_stays_bm25` 离线钉 + `select_mode_for_remaining` 零改动（验收方 diff 复算） | ✅（离线腿） |
+
+台账行翻 `confirmed`。`R-20260821-17` 第二腿「长电 4 条零信息 excerpt 变正文段」由同一探针兑现（4/4 换窗），该行一并翻 `confirmed`。
