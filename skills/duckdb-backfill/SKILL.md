@@ -37,7 +37,7 @@ node ~/.claude/skills/web-access/scripts/cdp-proxy.mjs
 curl -s http://localhost:3456/targets
 ```
 
-如果不启动 CDP proxy，上述 7 个步骤会全部报错 `无法连接 CDP proxy`，但其余步骤（sync-market-daily、sync-index-daily、sync-sector-stocks、advancers-chart）不依赖 CDP，会正常完成。
+如果不启动 CDP proxy，上述 7 个步骤会全部报错 `无法连接 CDP proxy`，但其余步骤（sync-index-daily、sync-sector-stocks、advancers-chart）不依赖 CDP，会正常完成。飞书 `sync-market-daily` 已退役。
 
 ## Core rules
 
