@@ -1,0 +1,427 @@
+{
+  "switch_set": "seed",
+  "revision": "4e0c6bf5",
+  "note": "第 0 步种子表。default-v1 是第 2 步的生成物，不在本文件；本表只登记「有哪些开关、怎么关、拧了哪个字段必须变」。",
+  "candidate_cases": [
+    {"id": "next-session-index", "evidence_free": false},
+    {"id": "current-mainline", "evidence_free": false},
+    {"id": "weekly-market-cause", "evidence_free": false}
+  ],
+  "rows": [
+    {
+      "id": "market_data",
+      "kind": "capability",
+      "status": "active",
+      "seam": "intelligence/services/research_tool_registry.py::_DEFAULT_TOOL_METADATA",
+      "close_via": [
+        "allowed_capabilities:remove"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "offered_schemas",
+      "notes": "第 0 步扫过 FINANCE_* env 门与 fixture policy，未发现第二道门。"
+    },
+    {
+      "id": "financial_data",
+      "kind": "capability",
+      "status": "active",
+      "seam": "intelligence/services/research_tool_registry.py::_DEFAULT_TOOL_METADATA",
+      "close_via": [
+        "allowed_capabilities:remove",
+        "env:FINANCE_FINANCIALS_FETCH=0",
+        "env:FINANCE_VALUATION_FETCH=0"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "offered_schemas",
+      "notes": "两道 env 门在 runner 下游：market_financials.py:93、valuation_estimate.py:66（默认 '1'，置 '0'/'false'/'off' 即关）。capability 开着而 env 关着 = 表说 on 实际 off。"
+    },
+    {
+      "id": "mainline_context",
+      "kind": "capability",
+      "status": "active",
+      "seam": "intelligence/services/research_tool_registry.py::_DEFAULT_TOOL_METADATA",
+      "close_via": [
+        "allowed_capabilities:remove"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "offered_schemas",
+      "notes": "读 fact_mainline_*，不算容量前三（那是 predicate.capacity-top3）。未发现第二道门。"
+    },
+    {
+      "id": "finance_query",
+      "kind": "capability",
+      "status": "active",
+      "seam": "intelligence/services/research_tool_registry.py::_DEFAULT_TOOL_METADATA",
+      "close_via": [
+        "allowed_capabilities:remove"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "offered_schemas",
+      "notes": "第 0 步扫过 FINANCE_* env 门与 fixture policy，未发现第二道门。"
+    },
+    {
+      "id": "kb_search",
+      "kind": "capability",
+      "status": "active",
+      "seam": "intelligence/services/research_tool_registry.py::_DEFAULT_TOOL_METADATA",
+      "close_via": [
+        "allowed_capabilities:remove"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "offered_schemas",
+      "notes": "RAG_WORKER_ENABLED 影响的是同一颗内部的检索路径（降档），不是开关；勿登记成第二颗。"
+    },
+    {
+      "id": "evidence_search",
+      "kind": "capability",
+      "status": "active",
+      "seam": "intelligence/services/research_tool_registry.py::_DEFAULT_TOOL_METADATA",
+      "close_via": [
+        "allowed_capabilities:remove"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "offered_schemas",
+      "notes": "梯子 S3 与 news_search 同级一起上，开关板必须拆开单拧。"
+    },
+    {
+      "id": "evidence_lookup",
+      "kind": "capability",
+      "status": "active",
+      "seam": "intelligence/services/research_tool_registry.py::_DEFAULT_TOOL_METADATA",
+      "close_via": [
+        "allowed_capabilities:remove"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "offered_schemas",
+      "notes": "第 0 步扫过 FINANCE_* env 门与 fixture policy，未发现第二道门。"
+    },
+    {
+      "id": "news_search",
+      "kind": "capability",
+      "status": "active",
+      "seam": "intelligence/services/research_tool_registry.py::_DEFAULT_TOOL_METADATA",
+      "close_via": [
+        "allowed_capabilities:remove",
+        "env:FINANCE_NEWS_FETCH=0",
+        "env:FINANCE_NEWS_WEB_FETCH=0",
+        "env:FINANCE_NEWS_RSS_FETCH=0",
+        "fixture_policy:external_search_enabled=false"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "offered_schemas",
+      "notes": "⚠ 有效开启是合取，不只是授权面：episode_tools.py:256-266 还要求 question_type=='market_forecast' 且问句含隔夜外部前提，:783-785 fixture policy 关掉外部检索时直接 pop。非预测题它本来就不在 offered_schemas 里，差量会读成空操作——选题时按此排除，同 evidence-free 那条坑。"
+    },
+    {
+      "id": "web_search",
+      "kind": "capability",
+      "status": "active",
+      "seam": "intelligence/services/research_tool_registry.py::_DEFAULT_TOOL_METADATA",
+      "close_via": [
+        "allowed_capabilities:remove",
+        "env:FINANCE_WEB_SEARCH=0",
+        "fixture_policy:external_search_enabled=false"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "offered_schemas",
+      "notes": "env 门在 web_research.py:120；fixture policy 在 episode_tools.py:783-785 直接 pop 掉工具。"
+    },
+    {
+      "id": "graph_lookup",
+      "kind": "capability",
+      "status": "active",
+      "seam": "intelligence/services/research_tool_registry.py::_DEFAULT_TOOL_METADATA",
+      "close_via": [
+        "allowed_capabilities:remove"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "offered_schemas",
+      "notes": "第 0 步扫过 FINANCE_* env 门与 fixture policy，未发现第二道门。"
+    },
+    {
+      "id": "l3_lookup",
+      "kind": "capability",
+      "status": "active",
+      "seam": "intelligence/services/research_tool_registry.py::_DEFAULT_TOOL_METADATA",
+      "close_via": [
+        "allowed_capabilities:remove",
+        "env:FINANCE_L3_LOOKUP_ENABLED=0"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "offered_schemas",
+      "notes": "env 门在 l3_evidence.py:63（_env_bool，默认关；:158 的告警文案指向 ask --l3-lookup）。这一颗是「两处关法」的样板。"
+    },
+    {
+      "id": "memory_lookup",
+      "kind": "capability",
+      "status": "active",
+      "seam": "intelligence/services/research_tool_registry.py::_DEFAULT_TOOL_METADATA",
+      "close_via": [
+        "allowed_capabilities:remove"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "offered_schemas",
+      "notes": "episode_factory._with_prior_recall 依赖它真的在授权里；关它会连带去掉 prior_recall 输出槽，属预期内联动，不算一拧动两件。"
+    },
+    {
+      "id": "followup-composer",
+      "kind": "composer",
+      "status": "active",
+      "seam": "intelligence/services/followups.py::active_composer",
+      "close_via": [
+        "composer:NullComposer",
+        "env:FINANCE_FOLLOWUPS=0"
+      ],
+      "default": "on",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "followup_chip_count",
+      "notes": "两种关法是同一个开关：followups.py:126 读 env 后返回 NullComposer。polish 是另一维，生产已 False（conversation_orchestrator.py:3896），不算这一颗。"
+    },
+    {
+      "id": "semantic-verifier",
+      "kind": "verifier",
+      "status": "active",
+      "seam": "intelligence/runtime/continuous_turn_adapter.py::ContinuousTurnAdapter.__init__",
+      "close_via": [
+        "constructor_injection:semantic_verifier"
+      ],
+      "default": "on",
+      "singleton_when_on": true,
+      "chassis_survives": true,
+      "positive_control": "judge_status",
+      "notes": "关法是构造注入（:147，:173 校验 .verify 可调用）。禁止用过期 deadline 冒充 off：:731-732 是 raise TimeoutError → model_unavailable（:94 注释），那样拿到的是降级的一集，会把这颗误标 welded。"
+    },
+    {
+      "id": "structural-verifier",
+      "kind": "verifier",
+      "status": "welded",
+      "seam": "intelligence/runtime/continuous_turn_adapter.py::ContinuousTurnAdapter.__init__",
+      "close_via": [
+        "constructor_injection:structural_verifier"
+      ],
+      "default": "on",
+      "singleton_when_on": true,
+      "chassis_survives": false,
+      "positive_control": "",
+      "notes": "构造上可注入（:157 kwarg，默认 verify_episode_outcome），但修复/backfill 链消费它的返回值（:600-712 的 _repair_snapshot / _issue_backfill_plan）→ 行为耦合焊点。读代码即可定，不必跑实验。"
+    },
+    {
+      "id": "noop-prompt",
+      "kind": "prompt",
+      "status": "active",
+      "seam": "scripts/run_capability_switchboard.py::NoopPromptClient",
+      "close_via": [
+        "composition_root:model_client_decorator"
+      ],
+      "default": "off",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "prompt_segment_delivered",
+      "notes": "零行为零件：固定一小段说明书，不改工具、不改核验。挂在已有的 client 注入缝（runner 建 GLMAgentRuntime 时包一层），所以 agent_episode / 梯子 / Profile 一行不动。默认 off，进默认盒要另一次对照 + 用户确认。"
+    },
+    {
+      "id": "predicate.double-red",
+      "kind": "predicate",
+      "status": "active",
+      "canonical": "exists",
+      "seam": "market_feature_store/signals.py::DOUBLE_RED_SQL",
+      "close_via": [
+        "arith:import-canonical",
+        "prose:DOUBLE_RED_DESCRIPTION",
+        "route:dated-market-topic-term"
+      ],
+      "default": "on",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "prefetch_double_red_count",
+      "notes": "复印件：timeline 第二份 is_double_red + 三个 float；asof_prefetch 引那三个常量；daily_review 三处跨行 SQL + :478 内联 + :1228 散文图例；params.json 第三份阈值；regime_analogs 手写 SQL。弱口径 dual_blind_* 不得叫双红。"
+    },
+    {
+      "id": "predicate.single-red",
+      "kind": "predicate",
+      "status": "active",
+      "canonical": "exists",
+      "seam": "market_feature_store/signals.py::SINGLE_RED_SQL",
+      "close_via": [
+        "arith:import-canonical"
+      ],
+      "default": "on",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "single_red_rows",
+      "notes": "2026-08-22 建正典并定 NULL 口径：**成交额缺失既不算单红也不算双红**。此前日报把 NULL 算单红、ask_blocks 把 NULL 算双红（还贴「真正双红」标签）、矩阵标缺数——同一行进互斥两类。实测：库里 84 行 amount 为空，但同时满足「涨>0 且 边际量>10 且 amount 空」的是 0 行，所以这次变更影响 0 行。"
+    },
+    {
+      "id": "predicate.sqrt-weighted",
+      "kind": "predicate",
+      "status": "active",
+      "canonical": "exists",
+      "seam": "market_feature_store/signals.py::WEIGHTED_STRENGTH_SQL",
+      "close_via": [
+        "arith:import-canonical"
+      ],
+      "default": "on",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "weighted_rank",
+      "notes": "2026-08-22 建正典，amount 单位=**亿元**。⚠ 稿子 §3.5 说「D 是亿元再开根、A 与 D 量纲不可比」是错的：`daily_review` 里那个 amount_yi 只是 `max(amount) AS amount_yi` 的别名，同一列同一单位；四个变体读的都是 fact_sector_stock_daily.amount。真正的差别只在空值/负值怎么挡。正典取舍：缺值返 None 不返 0（返 0 会把「不知道」排成「中性」）；SQL 侧保留 GREATEST 夹负值。evolution/矩阵脚本是第二批，未收。"
+    },
+    {
+      "id": "predicate.limit-approx-9p8",
+      "kind": "predicate",
+      "status": "active",
+      "canonical": "exists",
+      "seam": "evolution/params.json::strategy4.limit_pct",
+      "close_via": [
+        "arith:read-params"
+      ],
+      "default": "on",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "limit_approx_hit_count",
+      "notes": "params.json:40 limit_pct=9.8；render 脚本焊死 >=9.8 不读参数。禁止并进 limit_up 表字段口径（那是 fact_market_daily.limit_up，不是 9.8）。"
+    },
+    {
+      "id": "predicate.limit-heat-min2",
+      "kind": "predicate",
+      "status": "active",
+      "canonical": "exists",
+      "seam": "intelligence/adapters/market.py::MarketAdapter",
+      "close_via": [
+        "arith:import-canonical"
+      ],
+      "default": "on",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "limit_heat_rows",
+      "notes": "adapters/market.py:278 与 honesty_gates.py:394 各写一次 COALESCE(limit_up_count,0)>=2。是「进榜门槛」，不是家数指标，勿与 9.8 合并。"
+    },
+    {
+      "id": "predicate.capacity-top3",
+      "kind": "predicate",
+      "status": "active",
+      "canonical": "exists",
+      "seam": "intelligence/adapters/market.py::MarketAdapter",
+      "close_via": [
+        "arith:import-canonical"
+      ],
+      "default": "on",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "in_capacity_top3_rows",
+      "notes": "派生布尔两个名字：in_capacity_top3（adapter :244/:354/:489，agent.py:575 消费）vs in_top3_industry（strategy4）。与 mainline_context 分 id，不许绑一起。"
+    },
+    {
+      "id": "predicate.dated-market-topic",
+      "kind": "predicate",
+      "status": "active",
+      "canonical": "exists",
+      "seam": "intelligence/services/query_understanding.py::_DATED_MARKET_TOPIC_RE",
+      "close_via": [
+        "route:regenerate-term-list"
+      ],
+      "default": "on",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "route_decision",
+      "notes": "整段交替全仓只此一份（:103），但词表拆抄六处。按 id 摘词的前置是正则可生成——第 2.5 步，别混进第 3 步。"
+    },
+    {
+      "id": "predicate.volume-surge-10",
+      "kind": "predicate",
+      "status": "active",
+      "canonical": "exists",
+      "seam": "market_feature_store/analysis/turning_points.py::VOLUME_SURGE_PCT",
+      "close_via": [
+        "arith:import-canonical"
+      ],
+      "default": "on",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "turning_point_signals",
+      "notes": "正典 :11 = 10.0，backtest_sector.py:34 已转引。日报转点日另用 amount_vs_yesterday_pct>10 且 volume_ratio vs 120，是另一族，勿与双红打包。"
+    },
+    {
+      "id": "param.boards-min",
+      "kind": "parameter",
+      "status": "active",
+      "seam": "market_feature_store/cli.py::--min-boards",
+      "close_via": [
+        "cli_arg:--min-boards"
+      ],
+      "default": "on",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "",
+      "notes": "2026-08-22 改判：**这不是谓词，是 CLI 参数的默认值**，所以「统一成一个数」是错的 move（与路由词表同形：外延本来不同的东西不该削齐）。抓取侧 skills/limit-advance/scripts/scrape.py:61 `min_boards = 3`（可 --min-boards 覆盖）；入库侧 market_feature_store/cli.py:1217/1224 `--min-boards default=2`。两个阶段各自的默认，不是同一个判据的两份复印件。⚠ 但**默认值不一致是真的**：抓取只抓 ≥3，入库却接受 ≥2，库里永远不会有 2 板行——入库那个默认是死的。这是配置一致性问题，不进开关板实验臂。"
+    },
+    {
+      "id": "predicate.mainup-consecutive-3",
+      "kind": "predicate",
+      "status": "active",
+      "canonical": "exists",
+      "seam": "intelligence/services/theme_lifecycle_timeline.py::MAINUP_CONSECUTIVE",
+      "close_via": [
+        "arith:import-canonical"
+      ],
+      "default": "on",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "mainup_segments",
+      "notes": ":49 = 3（连续双红天数下限）。策略1 的 dr_hits_min:3 是「命中题材个数」，两套 3 语义不同，禁止合并成一个 id。"
+    },
+    {
+      "id": "predicate.reading-baseline",
+      "kind": "predicate",
+      "status": "pending-other-branch",
+      "canonical": "other-branch",
+      "seam": "intelligence/services/reading_baseline.py",
+      "close_via": [
+        "arith:pending"
+      ],
+      "default": "off",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "",
+      "notes": "本底无此文件（在 feat/reading-rules-baseline-batch1）。合入 gitea/main 之后另开差量臂，不在本单偷挂。"
+    },
+    {
+      "id": "predicate.evidence-layers",
+      "kind": "predicate",
+      "status": "active",
+      "canonical": "contested",
+      "seam": "skills/theme-radar/references/evidence-layers.md",
+      "close_via": [
+        "prose:pick-one-table-first"
+      ],
+      "default": "on",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "",
+      "notes": "6 套词表 / 8 文件，且 L0 同名不同物（theme-radar L0=外部定义 vs research_judge.py LAYER_ORDER L0=图谱登记）。改层名会炸知识库，另开单；先禁止新抄套 3。 2026-08-22：仍是 contested（6 套词表 / L0 同名不同物），另开单。"
+    }
+  ]
+}

@@ -6,7 +6,13 @@ from datetime import datetime
 from pathlib import Path
 
 from ..db import PROJECT_DIR, connect
-from ..signals import DOUBLE_RED_SQL
+from ..signals import (
+    DOUBLE_RED_DESCRIPTION,
+    DOUBLE_RED_SQL,
+    SINGLE_RED_SQL,
+    is_double_red,
+    weighted_strength_sql,
+)
 
 
 def _fmt(value, digits: int = 2):
@@ -395,14 +401,12 @@ def _sw_l1_double_red_matrix(con, trade_date, sw_l1: str, days: int = 15):
     start, end = dates[0], dates[-1]
     sectors = [
         r[0] for r in con.execute(
-            """
+            f"""
             SELECT DISTINCT sector_name
             FROM fact_sector_daily
             WHERE trade_date BETWEEN ? AND ?
               AND sw_l1 = ?
-              AND pct_chg > 0
-              AND diff_ratio > 10
-              AND amount > 500
+              AND {DOUBLE_RED_SQL}
             ORDER BY sector_name
             """,
             [start, end, sw_l1],
@@ -475,7 +479,7 @@ def _sw_l1_double_red_matrix(con, trade_date, sw_l1: str, days: int = 15):
                 row.append("-")
                 continue
             cell = f"{_pct(pct, 1)}/{_fmt(diff, 1)}/{_fmt(amount, 0)}"
-            if pct is not None and pct > 0 and diff > 10 and amount > 500:
+            if is_double_red(pct, diff, amount):
                 cell = f"🔥{cell}"
             row.append(cell)
         rows.append(row)
@@ -603,15 +607,13 @@ def _high_status_text(primary_label, periods_json):
 
 def _sw_l1_stock_engines(con, trade_date, sw_l1: str, top: int = 20):
     rows = _dict_rows(con.execute(
-        """
+        f"""
         WITH double_sectors AS (
             SELECT DISTINCT sector_name
             FROM fact_sector_daily
             WHERE trade_date = ?
               AND sw_l1 = ?
-              AND pct_chg > 0
-              AND diff_ratio > 10
-              AND amount > 500
+              AND {DOUBLE_RED_SQL}
         ),
         stock_base AS (
             SELECT stock_ts_code,
@@ -640,9 +642,9 @@ def _sw_l1_stock_engines(con, trade_date, sw_l1: str, top: int = 20):
             WHERE trade_date = ?
         ),
         ranked AS (
-            SELECT row_number() OVER (ORDER BY sqrt(b.amount_yi) * b.pct_chg DESC NULLS LAST) AS rank,
+            SELECT row_number() OVER (ORDER BY {weighted_strength_sql("b.amount_yi", "b.pct_chg")} DESC NULLS LAST) AS rank,
                    b.stock_name, b.stock_ts_code, b.pct_chg, b.amount_yi,
-                   sqrt(b.amount_yi) * b.pct_chg AS weighted,
+                   {weighted_strength_sql("b.amount_yi", "b.pct_chg")} AS weighted,
                    h.primary_high_label, h.high_periods_json,
                    dh.double_sectors
             FROM stock_base b
@@ -699,14 +701,12 @@ def _startup_role(weighted, amount_yi, is_high120, is_limit):
 
 def _start_day_confirmation(con, start_date, sw_l1: str, top: int = 15):
     sector_rows = _dict_rows(con.execute(
-        """
+        f"""
         SELECT sector_name, pct_chg, diff_ratio, amount
         FROM fact_sector_daily
         WHERE trade_date = ?
           AND sw_l1 = ?
-          AND pct_chg > 0
-          AND diff_ratio > 10
-          AND amount > 500
+          AND {DOUBLE_RED_SQL}
         ORDER BY amount DESC
         LIMIT ?
         """,
@@ -798,7 +798,7 @@ def _start_day_confirmation(con, start_date, sw_l1: str, top: int = 15):
         )
         SELECT d.stock_name, d.stock_ts_code, s.sectors,
                d.pct_chg, d.amount AS amount_yi,
-               sqrt(d.amount) * d.pct_chg AS weighted,
+               {weighted_strength_sql("d.amount", "d.pct_chg")} AS weighted,
                h.high_periods_json IS NOT NULL AS is_high120,
                l.stock_ts_code IS NOT NULL AS is_limit
         FROM fact_stock_daily d
@@ -941,10 +941,10 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
             [td],
         ))
         single_red = _dict_rows(con.execute(
-            """
+            f"""
             SELECT sector_name, sw_l1, pct_chg, diff_ratio, amount
             FROM fact_sector_daily
-            WHERE trade_date = ? AND pct_chg > 0 AND diff_ratio > 10 AND (amount <= 500 OR amount IS NULL)
+            WHERE trade_date = ? AND {SINGLE_RED_SQL}
             ORDER BY sw_l1, diff_ratio DESC, amount DESC
             """,
             [td],
@@ -1225,7 +1225,7 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append("---")
         lines.append("")
         lines.append("## 6. 重点申万一级近15日子板块双红矩阵")
-        lines.append("> 子板块单元格格式：当日涨幅/边际量/成交额亿；母板块行格式：成交占比/涨跌幅；上证指数行格式：120日均量比/涨跌幅；🔥 表示当日满足双红（日涨幅 > 0、边际量 > 10 且成交额 > 500亿）。")
+        lines.append("> 子板块单元格格式：当日涨幅/边际量/成交额亿；母板块行格式：成交占比/涨跌幅；上证指数行格式：120日均量比/涨跌幅；🔥 表示当日满足双红（" + DOUBLE_RED_DESCRIPTION + "）。")
         lines.append("")
         for matrix in focus_matrices:
             if not matrix["dates"]:

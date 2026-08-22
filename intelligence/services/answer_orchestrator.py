@@ -9,6 +9,7 @@ from intelligence.services.answer_model import ThemeResearchSpec, resolve_theme_
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.query_understanding import QueryEnvelope, understand_query
 from intelligence.services.route_table import is_quick_fact_query
+from intelligence.services import market_topic_terms
 
 
 QUESTION_STOCK_DEEP_DIVE = "stock_deep_dive"
@@ -391,13 +392,7 @@ _MARKET_STATE_WORDS_NEEDING_SUBJECT: tuple[str, ...] = (
     "怎么样",
     "什么情况",
 )
-_MARKET_LEVEL_STATE_WORDS: tuple[str, ...] = (
-    "主线",
-    "赚钱效应",
-    "涨跌家数",
-    "涨停家数",
-    "市场情绪",
-)
+_MARKET_LEVEL_STATE_WORDS: tuple[str, ...] = market_topic_terms.MARKET_LEVEL_STATE
 _CLAUSE_SPLIT_RE = re.compile(r"[，。；？！、,;?!\s]+")
 
 

@@ -27,6 +27,7 @@ from intelligence.services.ask_types import (
     _normalize,
 )
 from intelligence.services.evidence_window import select_text_window
+from market_feature_store.signals import is_double_red
 
 
 def _evidence_text_for_llm(
@@ -674,8 +675,16 @@ def _classify_mainline_volume_state(pct_chg: Any, diff_ratio: Any, amount: Any) 
     pct = _safe_float(pct_chg)
     diff = _safe_float(diff_ratio)
     amt = _safe_float(amount)
-    if pct is not None and pct > 0 and diff is not None and diff > 10 and (amt is None or amt > 500):
+    # 成交额缺失既不算双红也不算单红（口径见 signals.SINGLE_RED_DESCRIPTION）。
+    # 此前这里写的是 `(amt is None or amt > 500)`——把「没抓到」当成「量很大」，
+    # 还贴上「真正双红」的标签给用户看。同一个 NULL 在日报那边被算进单红。
+    if is_double_red(pct, diff, amt):
         return "真正双红/增量启动"
+    if amt is None and pct is not None and pct > 0 and diff is not None and diff > 10:
+        # 涨了、边际量也够，只差成交额——而成交额恰好缺失。这一行到底是双红还是
+        # 单红，取决于那个不知道的数。落到下面的「弱放量修复」会把不确定说成确定
+        # （那句话隐含「量不大」），所以这里显式停在待确认。
+        return "量价状态待确认（成交额缺失）"
     if pct is not None and pct > 0 and diff is not None and diff < 0:
         return "缩量强修复/存量抱团"
     if pct is not None and pct > 0 and diff is not None and diff >= 0:

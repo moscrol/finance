@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Callable
 
 from intelligence.services.trading_calendar import question_non_trading_note
 from intelligence.services.user_task import UserTask
+from intelligence.services import market_topic_terms
 
 if TYPE_CHECKING:
     from intelligence.services.query_understanding import QueryEnvelope
@@ -535,7 +536,10 @@ def _is_financial_task(question_type: str, question: str) -> bool:
             # 这些是复盘工作流的一等公民词，缺席让日历事实注入整条落空。
             r"(?:市场|行情|大盘|[Aa]\s*股|港股|美股|股票|个股|题材|板块|"
             r"公司|指数|反弹|产业|趋势|财务|估值|订单|客户|收入|利润|"
-            r"涨停|跌停|连板|涨家数|成交额)",
+            + market_topic_terms.as_alternation(
+                market_topic_terms.FINANCIAL_TASK_MARKET
+            )
+            + r")",
             question,
         )
     )

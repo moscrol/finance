@@ -14,6 +14,7 @@ from intelligence.services.market_regime_analogs import parse_regime_intent
 from intelligence.services.market_midterm import parse_midterm_intent
 from intelligence.services.scenario_tree import parse_scenario_intent
 from intelligence.services.task_frame import TaskFrame, build_task_frame
+from intelligence.services import market_topic_terms
 
 
 SubjectKind = Literal[
@@ -101,8 +102,7 @@ _DATED_MARKET_REVIEW_RE = re.compile(
 # 的常用词，收进来会把 theme-research 的问题抢走（over-routing 比 under-routing 更难
 # 发现——答案看起来是有的，只是答错了层）。
 _DATED_MARKET_TOPIC_RE = re.compile(
-    r"双红|涨停|跌停|连板|梯队|断层|主线|新高|新低"
-    r"|涨家数|跌家数|量能|缩量|放量|成交额|市场阶段|市场情绪|赚钱效应"
+    market_topic_terms.as_alternation(market_topic_terms.DATED_MARKET_TOPIC)
 )
 _FULL_DATE_RE = re.compile(
     r"(?<!\d)(20\d{2})(?:年|[-/.])(\d{1,2})(?:月|[-/.])(\d{1,2})日?(?!\d)"
@@ -543,7 +543,19 @@ def is_dated_market_review(query: str, envelope: QueryEnvelope) -> bool:
     lowered = str(query or "").lower()
     if any(term in lowered for term in _EXTERNAL_MARKET_TERMS):
         return False
-    return _DATED_MARKET_TOPIC_RE.search(query) is not None
+    return _dated_market_topic_re().search(query) is not None
+
+
+def _dated_market_topic_re() -> re.Pattern[str]:
+    """当前拨法下的盘面主题词正则。默认等于模块级那份（生产空集合）。"""
+
+    from intelligence.services.predicate_faces import faces
+
+    alt = faces().route_alternation()
+    default = market_topic_terms.as_alternation(market_topic_terms.DATED_MARKET_TOPIC)
+    if alt == default:
+        return _DATED_MARKET_TOPIC_RE
+    return re.compile(alt)
 
 
 def market_review_requested_date(

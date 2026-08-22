@@ -16,6 +16,7 @@ import html as h
 from pathlib import Path
 
 import duckdb
+from market_feature_store.signals import DOUBLE_RED_SQL
 
 ROOT = Path(__file__).resolve().parents[1]
 DB = ROOT / "db/market_feature_store.duckdb"
@@ -30,12 +31,12 @@ def build(start: str, end: str | None):
     if end is None:
         end = con.execute("SELECT max(trade_date) FROM db.fact_stock_daily").fetchone()[0].isoformat()
 
-    con.execute("""
+    con.execute(f"""
     CREATE TEMP TABLE drd AS
     SELECT trade_date, count(*) dr_count,
       string_agg(sector_name, '、' ORDER BY amount DESC) dr_names
     FROM db.fact_sector_daily
-    WHERE pct_chg>0 AND diff_ratio>10 AND amount>500 GROUP BY 1""")
+    WHERE {DOUBLE_RED_SQL} GROUP BY 1""")
 
     con.execute("""
     CREATE TEMP TABLE mkt AS

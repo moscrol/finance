@@ -2,7 +2,8 @@
 
 不给模型 Shell / 任意 SQL。harness 在进场前跑分析师第一刀查询，
 观察值与 AgentEvidence 交给 episode。阈值只引用
-``theme_lifecycle_timeline`` 的双红常量。
+``market_feature_store.signals`` 的双红常量（正典）——2026-08-20 那版从
+``theme_lifecycle_timeline`` 引，那是复印件不是原件。
 """
 
 from __future__ import annotations
@@ -20,12 +21,14 @@ from intelligence.services.agent_research import (
     evidence_content_hash,
 )
 from intelligence.services.theme_lifecycle_timeline import (
-    DOUBLE_RED_AMOUNT,
-    DOUBLE_RED_DIFF,
-    DOUBLE_RED_PCT,
-    is_double_red,
     load_theme_daily_rows,
     resolve_theme_alias,
+)
+from market_feature_store.signals import (
+    DOUBLE_RED_AMOUNT_MIN,
+    DOUBLE_RED_DIFF_MIN,
+    DOUBLE_RED_PCT_MIN,
+    is_double_red_row,
 )
 
 FERMENTATION_MARKERS = (
@@ -46,8 +49,8 @@ _ISO_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _TIMELINE_LOOKBACK_DAYS = 30
 
 _CALIBER = (
-    f"pct_chg>{DOUBLE_RED_PCT:g} 且 diff_ratio>{DOUBLE_RED_DIFF:g} "
-    f"且 amount>{DOUBLE_RED_AMOUNT:g}"
+    f"pct_chg>{DOUBLE_RED_PCT_MIN:g} 且 diff_ratio>{DOUBLE_RED_DIFF_MIN:g} "
+    f"且 amount>{DOUBLE_RED_AMOUNT_MIN:g}"
 )
 
 
@@ -90,8 +93,16 @@ def dual_red_counts(
     con: Any,
     days: tuple[date, ...],
 ) -> dict[str, str]:
-    """每个交易日：双红个数，或 ``缺数``（当日板块表零行）。"""
+    """每个交易日：双红个数，或 ``缺数``（当日板块表零行）。
 
+    算数面关掉时返回空 dict——调用方不得再拼「双红个数」观察值。空集合（生产默认）
+    不走这支，行为与本函数不读开关时一致。
+    """
+
+    from intelligence.services.predicate_faces import faces
+
+    if not faces().counts_double_red():
+        return {}
     out: dict[str, str] = {}
     for day in days:
         iso = day.isoformat()
@@ -110,7 +121,7 @@ def dual_red_counts(
               and diff_ratio > ?
               and amount > ?
             """,
-            [iso, DOUBLE_RED_PCT, DOUBLE_RED_DIFF, DOUBLE_RED_AMOUNT],
+            [iso, DOUBLE_RED_PCT_MIN, DOUBLE_RED_DIFF_MIN, DOUBLE_RED_AMOUNT_MIN],
         ).fetchone()
         out[iso] = str(int(n[0]) if n else 0)
     return out
@@ -226,7 +237,7 @@ def format_sector_timeline(
             )
             continue
         row = same_day[0]
-        stamp = "是" if is_double_red(row) else "否"
+        stamp = "是" if is_double_red_row(row) else "否"
         pct = row.get("pct_chg")
         amount = row.get("amount")
         diff = row.get("diff_ratio")
@@ -388,14 +399,15 @@ def collect_prefetch_items(
                 days = _prior_trade_dates(con, as_of, 3)
                 if days:
                     counts = dual_red_counts(con, days)
-                    items.append(
-                        PrefetchItem(
-                            tool="market_data",
-                            title="双红个数序列",
-                            detail=format_dual_red_counts(counts),
-                            source_date=as_of_iso,
+                    if counts:
+                        items.append(
+                            PrefetchItem(
+                                tool="market_data",
+                                title="双红个数序列",
+                                detail=format_dual_red_counts(counts),
+                                source_date=as_of_iso,
+                            )
                         )
-                    )
             except Exception:
                 pass
         if is_fermentation_query(question):

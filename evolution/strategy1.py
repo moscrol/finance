@@ -6,7 +6,7 @@
 
 硬条件（全部 D0）：
   1. 个股主行业 ∈ 当日成交额前三申万一级行业（fact_market_daily.industry_1/2/3）
-  2. 个股所属题材当日"双红"（fact_sector_daily: pct_chg>0 且 diff_ratio>10 且 amount>500）且该题材 sw_l1 ∈ 前三行业
+  2. 个股所属题材当日"双红"（口径见 market_feature_store/signals.py::DOUBLE_RED_SQL；本策略的阈值取自 params.json，与正典由一致性测试对齐）且该题材 sw_l1 ∈ 前三行业
   3. 行业内"开根加权" weighted = pct_chg * sqrt(amount) 进入前 1/quintile 分位
   4. 新高（high_status_label 非空）或 双红命中题材数 >= dr_hits_min
 分层：ALL（满足 3 且 4）⊃ NEWHIGH（ALL 中新高）⊃ T1CORE6（NEWHIGH 中 weighted 前 t1core_size）。

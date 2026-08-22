@@ -9,7 +9,7 @@ import duckdb
 
 from market_feature_store import query as market_query
 from market_feature_store.db import DB_PATH
-from market_feature_store.signals import DOUBLE_RED_SQL
+from market_feature_store.signals import DOUBLE_RED_SQL, WEIGHTED_STRENGTH_SQL
 
 
 MARKET_DAILY_COLUMNS = [
@@ -710,9 +710,9 @@ class MarketAdapter:
 
     def _strong_stocks(self, con: duckdb.DuckDBPyConnection, trade_date: str, theme: str, limit: int) -> list[dict[str, Any]]:
         rows = self._rows(con.execute(
-                """
+                f"""
                 SELECT stock_name, stock_ts_code, pct_chg, amount, high_status_label,
-                       high_status, sqrt(amount) * pct_chg AS weighted, source, updated_at
+                       high_status, {WEIGHTED_STRENGTH_SQL} AS weighted, source, updated_at
                 FROM fact_sector_stock_daily
                 WHERE trade_date = ? AND sector_name = ? AND pct_chg IS NOT NULL AND amount IS NOT NULL
                 ORDER BY weighted DESC NULLS LAST

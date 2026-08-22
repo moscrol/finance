@@ -12,6 +12,7 @@ picks（计入名单、做前瞻收益打分）：
 口径全部使用"当日及以前"数据，无前视：prior7/hi5 都是 p.trade_date<当日 或 ≤当日的回看窗口。
 """
 import duckdb
+from market_feature_store.signals import DOUBLE_RED_SQL
 
 
 def _num(x):
@@ -42,12 +43,12 @@ def generate_range(db_path, dates, params):
 
     con = duckdb.connect()
     con.execute(f"ATTACH '{db_path}' AS db (READ_ONLY)")
-    con.execute("""
+    con.execute(f"""
     CREATE TEMP TABLE drd AS
     SELECT trade_date, count(*) dr_count,
       string_agg(sector_name, '、' ORDER BY amount DESC) dr_names
     FROM db.fact_sector_daily
-    WHERE pct_chg>0 AND diff_ratio>10 AND amount>500 GROUP BY 1""")
+    WHERE {DOUBLE_RED_SQL} GROUP BY 1""")
     con.execute("""
     CREATE TEMP TABLE mkt AS
     SELECT m.trade_date, m.market_stage, m.advancers, m.sh_index_pct_chg,

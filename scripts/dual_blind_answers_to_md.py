@@ -154,7 +154,7 @@ def market_section(answers: dict[str, dict], con=None, persp: str | None = None)
                 "and pct_chg > 0 and diff_ratio > 0 "
                 "order by diff_ratio desc limit 10"), [persp])
             if dbl:
-                lines += ["### 1.3 双红板块（涨幅>0 且 diff_ratio>0，按 diff 前 10）", ""]
+                lines += ["### 1.3 涨且边际量为正（弱口径，不是双红：无 amount>500；按 diff 前 10）", ""]
                 lines += _table(
                     [[r["sector_name"], _fmt(r["pct_chg"], pct=True),
                       _fmt(r["diff_ratio"]), _fmt(r["amount"])] for r in dbl],
@@ -356,7 +356,7 @@ def verification_section(date: str, answers: dict[str, dict], con) -> list[str]:
                           "✅" if dbl else "✖"])
         if srows:
             lines += ["### 7.2 方向路径实际结果（取两份答卷方向排序并集）", ""]
-            lines += _table(srows, ["方向", "涨跌幅", "diff_ratio", "涨停数", "双红"])
+            lines += _table(srows, ["方向", "涨跌幅", "diff_ratio", "涨停数", "涨且diff>0"])
             lines.append("")
     bench = actual.get("sh_index_pct_chg")
     prow_lines = []

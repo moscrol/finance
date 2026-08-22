@@ -26,6 +26,7 @@ from typing import Any
 
 from intelligence.services import retrieval_cache
 from intelligence.paths import default_market_db_path
+from market_feature_store.signals import is_double_red
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -109,11 +110,7 @@ def _signature(rows: list[tuple]) -> Signature:
     """rows 为升序 (trade_date, pct_chg, diff_ratio, amount)。"""
     amounts = [float(r[3]) for r in rows if r[3] is not None]
     pcts = [float(r[1]) for r in rows if r[1] is not None]
-    double_red = sum(
-        1 for r in rows
-        if r[1] is not None and r[2] is not None and r[3] is not None
-        and float(r[1]) > 0 and float(r[2]) > 10 and float(r[3]) > 500
-    )
+    double_red = sum(1 for r in rows if is_double_red(r[1], r[2], r[3]))
     ratio = (amounts[-1] / amounts[0]) if len(amounts) >= 2 and amounts[0] else None
     avg_pct = sum(pcts) / len(pcts) if pcts else None
     return Signature(double_red, ratio, avg_pct)

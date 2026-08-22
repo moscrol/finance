@@ -182,7 +182,7 @@ git branch --show-current
 | dim_sector | 板块维度（224 个：ts_code/name/sw_l1） | 配置 |
 | feature_*_window | 历史物化窗口特征（无活跃消费者，可能过期） | 已归档脚本 |
 
-严格双红定义（见 strategy1-matrix）：`pct_chg>0 且 diff_ratio>10 且 amount>500`。
+严格双红定义见 `market_feature_store/signals.py`（`DOUBLE_RED_SQL` / `is_double_red`）；不要手抄阈值，strategy1-matrix 是消费者。
 
 > ⚠️ **Legacy 残骸（勿直接跑、勿删，待迁移）**：旧库 `db/market.duckdb`（早期飞书同步阶段）**已退役、文件已移除**；旧表名 `advancers / daily_market / sector_marginal / stocks` 在主库**既非表也非视图、不存在**。当前仍停用、待另行迁移的旧入口是 `scripts/backfill_sector_marginal.py`；新分析一律用 `fact_*` 表。`detect_turning_points.py` 与 `backtest_sector.py` 已迁移为 canonical 只读 CLI，`render_daily_review_template.py` 是现役日报渲染入口，`sync_to_local.py` 已改为无副作用退役 shim。
 

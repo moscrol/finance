@@ -38,13 +38,18 @@ from typing import Any
 
 from intelligence.paths import default_market_db_path
 from intelligence.services import retrieval_cache
+from market_feature_store.signals import (
+    DOUBLE_RED_AMOUNT_MIN,
+    DOUBLE_RED_DIFF_MIN,
+    DOUBLE_RED_PCT_MIN,
+    is_double_red_row,
+)
 
 DEFAULT_MARKET_DB_PATH = default_market_db_path()
 
-# 严格双红口径（与 strategy1-matrix / D8 一致）
-DOUBLE_RED_PCT = 0.0
-DOUBLE_RED_DIFF = 10.0
-DOUBLE_RED_AMOUNT = 500.0
+# 严格双红口径：阈值与判定都在 `market_feature_store.signals`，本模块不留第二份。
+# 曾经这里自己写过三个 float，与正典**阈值相同但边界不同**（正典拒 bool/字符串，
+# 这里 float() 全收，`True` 会被当成 1.0），复印件就是这样开始漂的。
 
 MAINUP_CONSECUTIVE = 3   # 主升：连续双红天数下限
 EBB_BREAK_DAYS = 5       # 退潮：连续无双红天数下限
@@ -65,14 +70,9 @@ STAGE_REFLOW = "回流"
 
 
 def is_double_red(row: dict[str, Any]) -> bool:
-    pct, diff, amount = row.get("pct_chg"), row.get("diff_ratio"), row.get("amount")
-    if pct is None or diff is None or amount is None:
-        return False
-    return (
-        float(pct) > DOUBLE_RED_PCT
-        and float(diff) > DOUBLE_RED_DIFF
-        and float(amount) > DOUBLE_RED_AMOUNT
-    )
+    """薄包装：取字段，判定完全委托正典。保留本名是因为调用点用的是行形状。"""
+
+    return is_double_red_row(row)
 
 
 @dataclass
@@ -321,7 +321,7 @@ def derive_stages(
                 cycle_amount_max = float(amount) if amount is not None else None
                 open_segment(
                     STAGE_FERMENT, day,
-                    f"板块双红（pct>{DOUBLE_RED_PCT:g} & diff>{DOUBLE_RED_DIFF:g} & amount>{DOUBLE_RED_AMOUNT:g}）",
+                    f"板块双红（pct>{DOUBLE_RED_PCT_MIN:g} & diff>{DOUBLE_RED_DIFF_MIN:g} & amount>{DOUBLE_RED_AMOUNT_MIN:g}）",
                     prev_date,
                 )
             elif stage == STAGE_EBB and consecutive_dr >= reflow_confirm_days:
@@ -505,7 +505,7 @@ def load_theme_timeline_artifact(
         "ebb_break_days": ebb_break_days,
         "reflow_confirm_days": reflow_confirm_days,
         "min_phase_days": min_phase_days,
-        "double_red": f"pct>{DOUBLE_RED_PCT:g} & diff>{DOUBLE_RED_DIFF:g} & amount>{DOUBLE_RED_AMOUNT:g}",
+        "double_red": f"pct>{DOUBLE_RED_PCT_MIN:g} & diff>{DOUBLE_RED_DIFF_MIN:g} & amount>{DOUBLE_RED_AMOUNT_MIN:g}",
     }
     db_path = (
         Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH

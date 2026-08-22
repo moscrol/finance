@@ -6,7 +6,7 @@
 
 口径（对齐 skills/strategy1-matrix 标准口径，机械可算部分）:
 - 候选池: 成交前三申万一级行业内、行业开根加权(pct*sqrt(amount)) Top20、当日上涨
-- 双红命中: 个股所属板块中满足 pct_chg>0 AND diff_ratio>10 AND amount>500 的个数
+- 双红命中: 个股所属板块中满足双红的个数（口径见 market_feature_store/signals.py::DOUBLE_RED_SQL）
 - 强确认: 当日新高（fact_stock_high_daily）或 涨停/连板（fact_limit_advance_daily / limit_status）
 - 分层（机械近似）:
     T1  = 双红命中 且 行业加权前10 且 具备新高/多双红(>=3)/涨停之一
@@ -28,6 +28,7 @@ import sys
 from pathlib import Path
 
 import duckdb
+from market_feature_store.signals import DOUBLE_RED_SQL
 
 ROOT = Path(__file__).resolve().parents[1]
 DB = ROOT / "db/market_feature_store.duckdb"
@@ -45,7 +46,7 @@ def fetch(date: str) -> dict:
 
     dr_sectors = con.execute(
         "SELECT sector_ts_code, sector_name FROM db.fact_sector_daily "
-        "WHERE trade_date=? AND pct_chg>0 AND diff_ratio>10 AND amount>500", [date]).fetchall()
+        f"WHERE trade_date=? AND {DOUBLE_RED_SQL}", [date]).fetchall()
     dr_codes = [r[0] for r in dr_sectors]
 
     # 个股双红命中数 + 命中题材名

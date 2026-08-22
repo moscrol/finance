@@ -426,7 +426,10 @@ get_theme_daily(theme: str, date: str | None = None) -> dict
 
 ```text
 双红题材 = pct_chg > 0 AND diff_ratio > 10 AND amount > 500
-单红题材 = diff_ratio > 10 AND amount <= 500 或不满足 amount > 500
+单红题材 = pct_chg > 0 AND diff_ratio > 10 AND amount <= 500
+（正典：`market_feature_store/signals.py::SINGLE_RED_SQL`，勿在此处手抄阈值。
+ 旧版这一行漏了 `pct_chg > 0`，按它写会把**下跌**但边际量大的板块算成单红；
+ 「或不满足 amount > 500」也漏了成交额缺失的情况——缺数既不算单红也不算双红。）
 ```
 
 注意：

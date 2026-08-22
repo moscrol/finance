@@ -162,3 +162,7 @@ market_snapshot/
 .code-review-graph/graph.db-shm
 .code-review-graph/wiki/
 .code-review-graph/status.json
+
+# 开关板 runner 收据：一次消融跑一批，属实验产物不入库。
+# 夹具（capability_switchboard.json / switch_box_default_v1.json）要入库，故只忽略 runs/。
+intelligence/eval/runs/switchboard/

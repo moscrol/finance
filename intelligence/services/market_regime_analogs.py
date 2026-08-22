@@ -30,6 +30,7 @@ from typing import Any
 
 from intelligence.paths import default_market_db_path
 from intelligence.services import retrieval_cache
+from market_feature_store.signals import DOUBLE_RED_SQL
 
 DEFAULT_MARKET_DB_PATH = default_market_db_path()
 
@@ -313,7 +314,7 @@ _AUX_QUERIES: dict[str, str] = {
     ),
     "double_red_theme_count": (
         "select trade_date, count(*) from fact_sector_daily "
-        "where pct_chg > 0 and diff_ratio > 10 and amount > 500 group by trade_date"
+        f"where {DOUBLE_RED_SQL} group by trade_date"
     ),
     "top1_theme_share": (
         "select trade_date, max(market_share) from fact_theme_limit_heat_daily group by trade_date"

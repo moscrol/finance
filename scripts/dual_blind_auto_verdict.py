@@ -5,7 +5,7 @@
 - market / falsify：从 thresholds/hypotheses 文本抽取数值条件（涨家数/涨停/跌停/成交额/量比/历史新高，
   支持 >= <= > < 与区间 a-b、万亿/亿 单位），证伪条件触发即 miss；预期区间全满足即 hit；
   介于两者之间判 partial；抽不出条件判 unverifiable。
-- direction：从方向假设文本匹配当日 fact_sector_daily 板块名，按双红（pct>0 且 diff_ratio>0）比例裁定。
+- direction：从方向假设文本匹配当日 fact_sector_daily 板块名，按「涨且边际量为正」（pct>0 且 diff_ratio>0，**不是**严格双红）比例裁定。
 - target:<code>：优先抽取收盘阈值（站稳/不跌破/t1_close_min/破X），否则按 T+1 是否跑赢上证裁定。
 
 机判结果 failure_mode 标注「机判」，人工可在 verdict.json 上直接改判（人工优先）。
@@ -218,7 +218,7 @@ def judge_direction(texts: list[str], sectors: dict[str, dict[str, float]]) -> t
     matched = sorted(set(matched), key=blob.index)[:8]
     if not matched:
         return "unverifiable", "方向文本未匹配到板块名"
-    parts, double_red, positive = [], 0, 0
+    parts, weak_up_and_diff, positive = [], 0, 0
     for n in matched:
         s = sectors[n]
         pct, diff = s.get("pct_chg"), s.get("diff_ratio")
@@ -226,9 +226,9 @@ def judge_direction(texts: list[str], sectors: dict[str, dict[str, float]]) -> t
         if pct is not None and pct > 0:
             positive += 1
             if diff is not None and diff > 0:
-                double_red += 1
+                weak_up_and_diff += 1
     actual = "；".join(parts)
-    if double_red * 2 >= len(matched):
+    if weak_up_and_diff * 2 >= len(matched):
         return "hit", actual
     if positive == 0:
         return "miss", actual

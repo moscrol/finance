@@ -25,6 +25,7 @@ import re
 from pathlib import Path
 
 import duckdb
+from market_feature_store.signals import DOUBLE_RED_SQL
 
 ROOT = Path(__file__).resolve().parents[1]
 DB = ROOT / "db/market_feature_store.duckdb"
@@ -97,10 +98,10 @@ def fetch():
     WHERE d.trade_date >= DATE '2026-04-08'
     ORDER BY d.trade_date, abs(d.dev)""").fetchall()
 
-    con.execute("""
+    con.execute(f"""
     CREATE TEMP TABLE drd AS
     SELECT trade_date, count(*) dr_count FROM db.fact_sector_daily
-    WHERE pct_chg>0 AND diff_ratio>10 AND amount>500 GROUP BY 1""")
+    WHERE {DOUBLE_RED_SQL} GROUP BY 1""")
     mkt = con.execute("""
     SELECT m.trade_date, m.market_stage, m.advancers,
       round(AVG(m.advancers) OVER (ORDER BY m.trade_date ROWS BETWEEN 4 PRECEDING AND CURRENT ROW),0) adv_ma5,

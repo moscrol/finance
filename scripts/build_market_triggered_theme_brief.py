@@ -17,6 +17,7 @@ if str(ROOT) not in sys.path:
 
 # Direct execution needs the repository root on sys.path before project imports.
 from market_feature_store.db import connect  # noqa: E402
+from market_feature_store.signals import DOUBLE_RED_SQL  # noqa: E402
 
 EXPORT_DIR = ROOT / "market_feature_store" / "exports"
 DEFAULT_VAULT = Path("/Users/lbq/Desktop/c c/知识库/wiki")
@@ -403,10 +404,10 @@ def collect_market_context(con, trade_date: str) -> dict[str, Any]:
 
 def collect_double_red(con, trade_date: str, candidates: dict[str, dict[str, Any]], top_sw: set[str]) -> list[dict[str, Any]]:
     rows = dict_rows(con.execute(
-        """
+        f"""
         SELECT sector_ts_code, sector_name, sw_l1, pct_chg, diff_ratio, amount
         FROM fact_sector_daily
-        WHERE trade_date = ? AND pct_chg > 0 AND diff_ratio > 10 AND amount > 500
+        WHERE trade_date = ? AND {DOUBLE_RED_SQL}
         ORDER BY diff_ratio DESC, amount DESC
         """,
         [trade_date],

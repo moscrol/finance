@@ -12,6 +12,7 @@ if str(PROJECT_DIR) not in sys.path:
 
 # Direct execution needs the repository root on sys.path before project imports.
 from market_feature_store.db import connect  # noqa: E402
+from market_feature_store.signals import DOUBLE_RED_SQL, is_double_red, is_single_red  # noqa: E402
 
 DEFAULT_SW_L1 = ["电子", "通信", "电力设备", "机械设备"]
 DEFAULT_OUTPUT_DIR = Path("/Users/lbq/Desktop/复盘")
@@ -95,13 +96,13 @@ def market_map(con, start: str, end: str) -> dict[str, dict]:
 
 def sector_names(con, start: str, end: str, sw_l1: str) -> list[dict]:
     rows = con.execute(
-        """
+        f"""
         SELECT sector_name, COUNT(*) AS dr_days, MIN(trade_date) AS first_day, MAX(trade_date) AS last_day,
                MAX(amount) AS max_amount, AVG(amount) AS avg_amount
         FROM fact_sector_daily
         WHERE trade_date BETWEEN ? AND ?
           AND sw_l1 = ?
-          AND pct_chg > 0 AND diff_ratio > 10 AND amount > 500
+          AND {DOUBLE_RED_SQL}
         GROUP BY sector_name
         ORDER BY dr_days DESC, max_amount DESC, sector_name
         """,
@@ -172,9 +173,9 @@ def cell_payload(value) -> dict:
     pct, diff, amount = value
     if pct is None or diff is None or amount is None:
         return {"text": "-", "klass": "empty", "title": "无数据"}
-    is_double = pct > 0 and diff > 10 and amount > 500
-    is_divergence = pct < 0 and diff > 10 and amount > 500
-    is_single = pct > 0 and diff > 10 and amount <= 500
+    is_double = is_double_red(pct, diff, amount)
+    is_divergence = pct < 0 and diff > 10 and amount > 500  # 放量分歧，另一族谓词
+    is_single = is_single_red(pct, diff, amount)
     klass = "cell"
     if is_double:
         klass += " double"

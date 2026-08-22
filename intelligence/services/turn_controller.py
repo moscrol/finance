@@ -23,6 +23,7 @@ from intelligence.services.query_understanding import (
     project_task_frame,
 )
 from intelligence.services.evidence_capabilities import is_current_market_query
+from intelligence.services.market_topic_terms import DOUBLE_RED
 from intelligence.services.market_analogs import parse_analog_intent
 from intelligence.services.market_regime_analogs import parse_regime_intent
 from intelligence.services.market_timeseries import parse_single_metric_intent
@@ -86,7 +87,9 @@ _META_PATTERN = re.compile(
 _FINANCE_PATTERN = re.compile(
     r"(股票|公司|个股|题材|板块|估值|财报|研报|公告|市场|指数|行情|"
     r"涨跌|收盘|复盘|成交|涨停|跌停|资金|持仓|目标价|产业链|"
-    r"上涨空间|后续空间|还能涨|收入|利润|毛利率|净利率|双红|回撤榜)"
+    r"上涨空间|后续空间|还能涨|收入|利润|毛利率|净利率|"
+    + re.escape(DOUBLE_RED)
+    + r"|回撤榜)"
 )
 _WORKFLOW_PATTERN = re.compile(
     r"(今日复盘|每日复盘|生成报告|生成日报|执行工作流|运行工作流|"

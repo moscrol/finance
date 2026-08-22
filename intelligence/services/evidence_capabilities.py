@@ -15,6 +15,7 @@ from intelligence.services.task_frame import (
     has_explicit_date,
     task_frame_requires_retrieval,
 )
+from intelligence.services import market_topic_terms
 
 
 @dataclass(frozen=True)
@@ -61,9 +62,7 @@ _CURRENT_TIME_MARKERS = (
     "这两天", "这几天", "当下", "此刻", "本周", "截至",
 )
 # 主体词：问的是整个市场/板块层面的状态，命中后 mainline_context 才有意义。
-_MARKET_SUBJECT_MARKERS = (
-    "市场", "大盘", "行情", "板块", "主线", "盘面", "a股", "指数",
-)
+_MARKET_SUBJECT_MARKERS = market_topic_terms.MARKET_SUBJECT
 # 盘面度量词：本身就蕴含「要看数据」，可以在没有时间词时独立成立
 #（「涨停家数多少」「茅台多少钱」都没有时间词，但都必须查行情）。
 _MARKET_STATE_MARKERS = (

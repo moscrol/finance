@@ -501,6 +501,9 @@ def load_methodology(options: ForesightOptions) -> tuple[str, str | None, str | 
         text = p.read_text(encoding="utf-8").strip()
     except Exception as exc:  # pragma: no cover - defensive
         return "", None, f"方法论文件读取失败：{p}（{exc}）"
+    from intelligence.services.predicate_faces import faces
+
+    text = "\n".join(faces().prose_lines(tuple(text.splitlines()))).strip()
     return text, str(p), None
 
 
