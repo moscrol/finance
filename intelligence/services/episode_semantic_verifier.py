@@ -392,7 +392,8 @@ _JUDGE_SYSTEM_PROMPT = (
 
 _NON_EVIDENCE_JUDGE_SYSTEM_PROMPT = (
     "你是方法论与反事实边界审查器。只审查用户 JSON，不引入外部知识，不重写句子。"
-    "answer_grounding_mode 只会是 model_reasoning 或 user_premise。"
+    "按各 required_output 的 grounding_mode 审查；本题若为 model_reasoning 或 "
+    "user_premise，整题按方法论边界审。"
     "model_reasoning 允许模型给出分析框架、定性因果链、T+N 观察窗口、验证清单和"
     "启发式阈值；这些内容不要求 evidence_ids，不能仅因缺少证据而拒绝。"
     "user_premise 题中，用户明确给出的前提视为真的假设，不能要求先证明前提，也不能"
@@ -761,13 +762,9 @@ class SemanticEpisodeVerifier:
         if not texts:
             return outcome
         public = _annotate_semantic_rejects(outcome.public_answer, texts)
-        labels = _semantic_degrade_labels(outcome.verified)
-        if (
-            SEMANTIC_QUALITY_DOUBT_MARK in public
-            and REQUIRED_OUTPUT_DEGRADED_MARK not in public
-            and labels
-        ):
-            public = _with_required_output_degrade_mark(public, labels)
+        # 存疑 ≠ 槽被掏空。降级条幅只留给 marker_loss 路径
+        # （`_marker_loss_partial_public`）；混档下判断句被标存疑时，
+        # 不得因为契约里还有 evidence 槽就整篇【质检降级】。
         issues = tuple(
             dict.fromkeys((*outcome.issues, *self._semantic_reject_issues))
         )
@@ -3103,20 +3100,6 @@ def _annotate_semantic_rejects(
     return marked
 
 
-def _semantic_degrade_labels(verified: VerifiedEpisodeOutcome) -> tuple[str, ...]:
-    contract = verified.contract
-    required = _required_grounded_output_ids(contract)
-    if not required:
-        return ()
-    descriptions = {
-        item.output_id: item.description.strip() or item.output_id
-        for item in (contract.required_outputs if contract is not None else ())
-    }
-    return tuple(
-        dict.fromkeys(descriptions.get(output_id, output_id) for output_id in required)
-    )
-
-
 _META_DISCLOSURE_RE = re.compile(
     r"映射为推理层|视角层推断|视角层判断|属于?推理层|原文未覆盖|语料未覆盖"
 )
@@ -3242,6 +3225,21 @@ def _novel_numeric_condition_indexes(
             item.grounding_mode != "evidence" for item in condition_items
         ):
             return ()
+        # 判断槽粒度豁免：混档（direct_answer 是 model_reasoning，
+        # evidence_boundary 是 evidence）时，视角阈值（110–120%、2.6 万亿）
+        # 会被「阈值/若/跌破」预检整句砍掉，再叠【质检降级】。那是把方法层
+        # 收成封闭世界，不是漏检索。有 evidence 签约的前瞻条件槽时仍预检——
+        # 那些数是失效位，不是读法。
+        if contract_has_model_reasoning_judgment(contract):
+            evidence_bound_conditions = tuple(
+                item
+                for item in contract.required_outputs
+                if item.required
+                and item.output_id in FORWARD_HYPOTHESIS_OUTPUT_IDS
+                and item.grounding_mode == "evidence"
+            )
+            if not evidence_bound_conditions:
+                return ()
 
     rejected: set[int] = set()
     evidence_quantities = _bound_evidence_quantities(verified.outcome)
@@ -4313,11 +4311,26 @@ def _project_semantic_evidence(
 
 
 def _repair_wiped_all_required(contract: object, marker_loss: tuple[str, ...]) -> bool:
-    """Return whether repair emptied every evidence-grounded required output."""
+    """Return whether repair emptied every publishable required output.
 
-    return bool(_required_evidence_outputs(contract)) and _required_evidence_outputs(
-        contract
-    ) <= set(marker_loss)
+    Evidence slots alone are not the floor: mixed contracts keep a
+    model_reasoning judgment slot that the judge already reviewed. Withholding
+    the pre-repair draft in that case would put an unsupported invalidation
+    number back onto the public answer.
+    """
+
+    evidence = _required_evidence_outputs(contract)
+    if not evidence or not (evidence <= set(marker_loss)):
+        return False
+    remaining_reasoning = {
+        str(getattr(item, "output_id", ""))
+        for item in getattr(contract, "required_outputs", ())
+        if getattr(item, "required", True)
+        and str(getattr(item, "output_id", "")) in JUDGMENT_OUTPUT_IDS
+        and str(getattr(item, "grounding_mode", "evidence")) == "model_reasoning"
+        and str(getattr(item, "output_id", "")) not in marker_loss
+    }
+    return not remaining_reasoning
 
 
 def _required_evidence_outputs(contract: object) -> set[str]:
@@ -4366,12 +4379,27 @@ def _lost_grounded_output_substance(
     )
 
 
+_MIXED_JUDGE_SYSTEM_SUFFIX = (
+    "本题 answer_grounding_mode 为 mixed。required_outputs 里的 grounding_mode "
+    "是硬边界，不是把整篇收成封闭世界。"
+    "model_reasoning 槽沿用上方方法论审查：视角方法、启发式阈值、状态机和原文引用"
+    "不得仅因不在 evidence_registry 而拒绝，也不适用「任意触发阈值」整句拒绝。"
+    "evidence 槽上的本轮行情数字、外部事件和证据口径仍须注册表直接支持；"
+    "把视角原文写成今日已发生的盘面结构，或把数字绑到错误的 E 编号，仍拒绝。"
+)
+
+
 def _judge_system_prompt(request: Mapping[str, object]) -> str:
-    if request.get("answer_grounding_mode") in {
+    mode = request.get("answer_grounding_mode")
+    if mode in {
         "model_reasoning",
         "user_premise",
     }:
         return _NON_EVIDENCE_JUDGE_SYSTEM_PROMPT
+    if mode == "mixed":
+        # 天花板先开（方法论闸），证据槽轨道后挂。不得继承封闭世界整篇再在
+        # 文末开例外——限定语会被前半句「任意触发阈值仍应拒绝」盖掉。
+        return _NON_EVIDENCE_JUDGE_SYSTEM_PROMPT + _MIXED_JUDGE_SYSTEM_SUFFIX
     return _JUDGE_SYSTEM_PROMPT
 
 

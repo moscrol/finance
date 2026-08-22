@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import inspect
 import json
 import time
 
@@ -25,6 +26,12 @@ from intelligence.services.episode_semantic_verifier import (
     REQUIRED_OUTPUT_DEGRADED_MARK,
     SEMANTIC_QUALITY_DOUBT_MARK,
     SemanticEpisodeVerifier,
+    _JUDGE_SYSTEM_PROMPT,
+    _MIXED_JUDGE_SYSTEM_SUFFIX,
+    _NON_EVIDENCE_JUDGE_SYSTEM_PROMPT,
+    _judge_system_prompt,
+    _novel_numeric_condition_indexes,
+    _repair_wiped_all_required,
     _semantic_attempt_timeouts,
     compact_judge_payload,
     complete_judge_attempt_seconds,
@@ -324,10 +331,11 @@ def test_judge_receives_output_grounding_modes() -> None:
     assert "不能仅因缺少证据而拒绝" in system_prompt
 
 
-def test_mixed_answer_grounding_keeps_evidence_judge_prompt() -> None:
-    """判断槽 model_reasoning + 边界槽 evidence = mixed，仍走证据审查器。
+def test_mixed_answer_grounding_inherits_methodology_judge_prompt() -> None:
+    """判断槽 model_reasoning + 边界槽 evidence = mixed，继承方法论闸。
 
-    第一刀只改判断槽。若 mixed 被切到方法论审查器，硬事实闸门会松。
+    封闭世界整篇会封天花板。硬事实闸门改由后缀钉在 evidence 槽上，
+    不再靠「你是严格的语义证据审查器」盖住整题。
     """
 
     frame, structural = _structural("基准判断：周一优先观察有色金属的资金承接。")
@@ -386,8 +394,10 @@ def test_mixed_answer_grounding_keeps_evidence_judge_prompt() -> None:
         "evidence_boundary": "evidence",
     }
     system_prompt = model.calls[0]["messages"][0]["content"]
-    assert "严格的语义证据审查器" in system_prompt
-    assert "方法论与反事实边界审查器" not in system_prompt
+    assert "方法论与反事实边界审查器" in system_prompt
+    assert "严格的语义证据审查器" not in system_prompt
+    assert "evidence 槽" in system_prompt
+    assert "任意触发阈值仍应拒绝" not in system_prompt
 
 
 def test_model_reasoning_numeric_steps_are_not_treated_as_unsupported_facts() -> None:
@@ -1379,6 +1389,127 @@ def test_local_gate_still_redacts_when_condition_slot_is_evidence_bound() -> Non
     assert "3870点" not in result.public_answer
 
 
+def test_mixed_reasoning_judgment_keeps_perspective_threshold() -> None:
+    """混档推理判断槽：视角阈值不再被数字预检砍掉，也不因此整篇降级。"""
+
+    judge = _judge(True)
+    _frame, structural = _structural(
+        "按该视角，成交额远未达到MA20的110-120%主升阈值，因此不是主升。"
+        "若放量至2.6万亿以上则升级为主升确认。",
+        required_outputs=(
+            RequiredOutput(
+                "direct_answer",
+                "直接回答",
+                ("market_data",),
+                True,
+                "model_reasoning",
+            ),
+            RequiredOutput(
+                "evidence_boundary",
+                "证据边界",
+                ("market_data",),
+                True,
+                "evidence",
+            ),
+        ),
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=_frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert numeric_condition_unsupported(structural) is False
+    assert "110-120%" in result.public_answer
+    assert "2.6万亿" in result.public_answer
+    assert REQUIRED_OUTPUT_DEGRADED_MARK not in result.public_answer
+    assert result.judge_status == "passed"
+
+
+def test_mixed_judgment_still_redacts_evidence_bound_invalidation() -> None:
+    """推理判断 + evidence 签约失效位：失效位数字预检仍拦。"""
+
+    judge = _judge(True)
+    _frame, structural = _structural(
+        "按该视角当前不是主升。若指数跌破3870点则失效。",
+        required_outputs=(
+            RequiredOutput(
+                "direct_answer",
+                "直接回答",
+                ("market_data",),
+                True,
+                "model_reasoning",
+            ),
+            RequiredOutput(
+                "invalidation_conditions",
+                "失效位",
+                ("market_data",),
+                True,
+            ),
+        ),
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=_frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert "3870点" not in result.public_answer
+    assert "不是主升" in result.public_answer
+    assert result.repair_withheld is False
+    assert result.status == "partial"
+    assert REQUIRED_OUTPUT_DEGRADED_MARK in result.public_answer
+
+
+def test_ratchet_numeric_preflight_exemption_is_structural() -> None:
+    """棘轮：豁免按槽位 grounding_mode 判定，不得退化成题型白名单。"""
+
+    body = inspect.getsource(_novel_numeric_condition_indexes)
+    assert "contract_has_model_reasoning_judgment" in body
+    assert "FORWARD_HYPOTHESIS_OUTPUT_IDS" in body
+    assert "general_finance_qa" not in body
+    assert "question_type" not in body
+
+
+def test_ratchet_mixed_judge_prompt_is_not_folded() -> None:
+    """棘轮：mixed 继承方法论闸，不得继承封闭世界整篇；证据槽只加轨道。"""
+
+    mixed = _judge_system_prompt({"answer_grounding_mode": "mixed"})
+    evidence = _judge_system_prompt({"answer_grounding_mode": "evidence"})
+    reasoning = _judge_system_prompt({"answer_grounding_mode": "model_reasoning"})
+    assert evidence == _JUDGE_SYSTEM_PROMPT
+    assert reasoning == _NON_EVIDENCE_JUDGE_SYSTEM_PROMPT
+    assert mixed == _NON_EVIDENCE_JUDGE_SYSTEM_PROMPT + _MIXED_JUDGE_SYSTEM_SUFFIX
+    assert mixed.startswith(_NON_EVIDENCE_JUDGE_SYSTEM_PROMPT)
+    assert mixed != evidence
+    assert mixed != reasoning
+    assert "你是严格的语义证据审查器" not in mixed
+    assert "任意触发阈值仍应拒绝" not in mixed
+    assert "grounding_mode" in mixed
+    assert "evidence_registry" in mixed
+
+
+def test_ratchet_doubt_marks_do_not_auto_degrade() -> None:
+    """棘轮：存疑投影不再顺手盖【质检降级】；条幅只留 marker_loss。"""
+
+    body = inspect.getsource(SemanticEpisodeVerifier._project_semantic_quality_marks)
+    assert "_annotate_semantic_rejects" in body
+    assert "_with_required_output_degrade_mark" not in body
+    loss = inspect.getsource(SemanticEpisodeVerifier._marker_loss_partial_public)
+    assert "_with_required_output_degrade_mark" in loss
+
+
+def test_ratchet_mixed_remainder_does_not_withhold_invalidation_wipe() -> None:
+    """棘轮：混档剩判断句时，不得把失效位数整篇吞回公开稿。"""
+
+    body = inspect.getsource(_repair_wiped_all_required)
+    assert "JUDGMENT_OUTPUT_IDS" in body
+    assert "model_reasoning" in body
+    assert "remaining_reasoning" in body
+
+
 def test_numeric_condition_unsupported_is_detectable_before_judge() -> None:
     """W5 必须在判官删句之前就能看到这个缺口。"""
 
@@ -2208,7 +2339,7 @@ def test_outlook_repair_that_leaves_only_boundary_is_partial_with_gap() -> None:
     assert result.judge_status == "repaired"
     assert "基准判断" in result.public_answer
     assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
-    assert REQUIRED_OUTPUT_DEGRADED_MARK in result.public_answer
+    assert REQUIRED_OUTPUT_DEGRADED_MARK not in result.public_answer
     assert "结构缺口" not in result.public_answer
     assert "现有证据不足" not in result.public_answer
     assert "需补充直接证据" not in result.public_answer
