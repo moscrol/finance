@@ -169,6 +169,8 @@ class AgentEvidence:
     # V9a 只读遥测。None = 未跑重摘录（历史 run 缺字段，报不可判不报 0）。
     reexcerpted: bool | None = None
     pointer_dropped: int | None = None
+    # V9b 只读遥测。None = 未跑槽位重排（历史 run 缺字段，报不可判不报 0）。
+    structural_neighbor_demoted: int | None = None
 
     def to_observation(self, evidence_id: str) -> EvidenceObservation:
         return EvidenceObservation(
@@ -402,6 +404,16 @@ def kb_delivery_telemetry(
     flags = [getattr(item, "reexcerpted", None) for item in evidence]
     if any(flag is not None for flag in flags):
         payload["reexcerpted"] = [bool(flag) for flag in flags]
+    demoted = next(
+        (
+            getattr(item, "structural_neighbor_demoted", None)
+            for item in evidence
+            if getattr(item, "structural_neighbor_demoted", None) is not None
+        ),
+        None,
+    )
+    if demoted is not None:
+        payload["structural_neighbor_demoted"] = int(demoted)
     return payload
 
 
@@ -460,6 +472,9 @@ def build_default_tools(
         evidence = []
         rag_telemetry = getattr(rag, "telemetry", None)
         pointer_dropped = getattr(rag_telemetry, "pointer_dropped", None)
+        structural_neighbor_demoted = getattr(
+            rag_telemetry, "structural_neighbor_demoted", None
+        )
         for hit in hits:
             hit_date = closed_loop_retrieval.wiki_hit_source_date(hit)
             evidence.append(
@@ -472,6 +487,7 @@ def build_default_tools(
                     source_date=hit_date.isoformat() if hit_date is not None else None,
                     reexcerpted=getattr(hit, "reexcerpted", None),
                     pointer_dropped=pointer_dropped,
+                    structural_neighbor_demoted=structural_neighbor_demoted,
                 )
             )
         telemetry = rag_telemetry

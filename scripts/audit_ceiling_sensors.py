@@ -18,7 +18,7 @@
     I  题形×KB 三层  authorized / planned / called
     III kb_search 送达  telemetry.delivered_chars / detail_chars / hit_count / source_pages
                         （delivered=observation 串；detail=evidence 通道，V3 粗管道；两通道分开计）
-                        V9a 只读：pointer_dropped / reexcerpted；缺字段记 None，不报 0、不翻 unjudgeable
+                        V9a 只读：pointer_dropped / reexcerpted；V9b 只读：structural_neighbor_demoted；缺字段记 None，不报 0、不翻 unjudgeable
                         缺 delivered/hit/pages 或空 dict → 「不可判」，不报 0
                         零调用 → no_call（不是送达 0）
 
@@ -340,6 +340,7 @@ def inspect_shape_iii(episode: dict[str, Any]) -> dict[str, Any]:
     detail_chars: list[int | None] = []
     pointer_dropped: list[int | None] = []
     reexcerpted: list[object | None] = []
+    structural_neighbor_demoted: list[int | None] = []
     hit_counts: list[int] = []
     source_pages: list[list[str]] = []
     unjudgeable = 0
@@ -386,6 +387,10 @@ def inspect_shape_iii(episode: dict[str, Any]) -> dict[str, Any]:
             if isinstance(raw_reexcerpted, (list, tuple, bool))
             else None
         )
+        raw_demoted = tel.get("structural_neighbor_demoted")
+        structural_neighbor_demoted.append(
+            int(raw_demoted) if isinstance(raw_demoted, (int, float)) else None
+        )
     if calls == 0:
         return {
             "status": "no_call",
@@ -396,6 +401,7 @@ def inspect_shape_iii(episode: dict[str, Any]) -> dict[str, Any]:
             "detail_chars": [],
             "pointer_dropped": [],
             "reexcerpted": [],
+            "structural_neighbor_demoted": [],
             "hit_counts": [],
             "source_pages": [],
             "summary": "no kb_search call",
@@ -410,6 +416,7 @@ def inspect_shape_iii(episode: dict[str, Any]) -> dict[str, Any]:
             "detail_chars": detail_chars,
             "pointer_dropped": pointer_dropped,
             "reexcerpted": reexcerpted,
+            "structural_neighbor_demoted": structural_neighbor_demoted,
             "hit_counts": hit_counts,
             "source_pages": source_pages,
             "summary": f"不可判：{unjudgeable}/{calls} 次 kb_search 缺 telemetry 字段",
@@ -423,6 +430,7 @@ def inspect_shape_iii(episode: dict[str, Any]) -> dict[str, Any]:
         "detail_chars": detail_chars,
         "pointer_dropped": pointer_dropped,
         "reexcerpted": reexcerpted,
+        "structural_neighbor_demoted": structural_neighbor_demoted,
         "hit_counts": hit_counts,
         "source_pages": source_pages,
         "summary": f"kb_search calls={calls} chars={delivered} hits={hit_counts}",

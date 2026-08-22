@@ -32,6 +32,7 @@ from threading import Lock
 
 from intelligence.services import rag_worker
 from intelligence.services.kb_index_hygiene import fetch_k, sanitize_hits
+from intelligence.services.kb_slot_rerank import allocate_topk_slots
 from intelligence.services.kb_window_reexcerpt import reexcerpt_hits
 
 # rag_index.py lives at <KB repo root>/scripts/rag_index.py; the KB repo root is
@@ -355,6 +356,8 @@ class RetrievalTelemetry:
     model_loaded: bool = False
     # V9a：指针页丢弃数。None = 本条遥测未跑重摘录（历史 run 报不可判，不报 0）。
     pointer_dropped: int | None = None
+    # V9b：结构邻页代表块排后数。None = 未跑槽位重排（历史 run 报不可判，不报 0）。
+    structural_neighbor_demoted: int | None = None
 
     def summary_line(self) -> str:
         """一行可观测摘要，供回答 / 日志展示。"""
@@ -1273,6 +1276,8 @@ def retrieve(
             warnings.append(f"wiki-rag 索引新鲜度={states}，探索模式保留降级证据")
     hits, reexcerpt = reexcerpt_hits(hits, wiki_root=wiki_root)
     tel.pointer_dropped = reexcerpt.pointer_dropped
+    hits, slot_stats = allocate_topk_slots(hits)
+    tel.structural_neighbor_demoted = slot_stats.demoted
     hits = sanitize_hits(hits, k=requested_k)
     res.warning = "；".join(dict.fromkeys(warning for warning in warnings if warning))
     res.hits = hits
