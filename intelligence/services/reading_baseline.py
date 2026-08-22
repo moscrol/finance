@@ -49,6 +49,9 @@ from dataclasses import dataclass
 #: env 开关。设为 0/false/no/off 时整块不注入（模型输入逐字节回到未内置状态），
 #: 用于度量「加了判读基线，答案有没有变好」。缺省视为开启。
 ENV_FLAG = "FINANCE_READING_BASELINE"
+#: 开关板原子。runner 在 composition root 用 ``using({SWITCH_ID})`` 关掉；
+#: 生产不写 contextvar → 与本模块只看 env 时一致。
+SWITCH_ID = "predicate.reading-baseline"
 
 _FALSEY = {"0", "false", "no", "off"}
 
@@ -367,8 +370,16 @@ _PENDING_RULES: tuple[tuple[ReadingRule, str, str], ...] = (
 
 
 def enabled(env: dict[str, str] | None = None) -> bool:
-    """总开关。缺省开启；显式设成 0/false/no/off 才关。"""
+    """总开关。缺省开启；显式设成 0/false/no/off 才关。
 
+    开关板差量臂优先：composition root 把 ``SWITCH_ID`` 放进 disabled 集合时，
+    即使 env 没关也整包归零。生产不写那一集 → 只看 env。
+    """
+
+    from intelligence.services.predicate_faces import faces
+
+    if SWITCH_ID in faces().disabled:
+        return False
     raw = (env or os.environ).get(ENV_FLAG)
     if raw is None:
         return True

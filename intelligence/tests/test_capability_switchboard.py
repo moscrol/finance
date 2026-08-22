@@ -139,6 +139,7 @@ def test_non_existing_canonical_never_enters_an_arm(board) -> None:
     assert "predicate.double-red" in arm
     assert "predicate.sqrt-weighted" in arm
     assert "predicate.dated-market-topic" in arm
+    assert "predicate.reading-baseline" in arm
     assert "param.boards-min" not in arm
 
 
@@ -413,7 +414,8 @@ def test_default_box_keeps_welded_and_drops_workitems() -> None:
     assert "param.boards-min" in box["excluded"]
     assert "predicate.single-red" in box["non_tool_defaults"]  # 第 2 步后有正典了
     assert "param.boards-min" in box["excluded"]  # 参数不是开关
-    assert "predicate.reading-baseline" in box["excluded"]
+    assert box["non_tool_defaults"]["predicate.reading-baseline"] == "on"
+    assert "predicate.reading-baseline" not in box["excluded"]
     assert all(reason.strip() for reason in box["excluded"].values())
 
 
@@ -703,6 +705,7 @@ def test_unwired_arithmetic_predicates_do_not_get_a_checkmark() -> None:
         assert switch_id not in wired
     assert "predicate.double-red" in wired
     assert "predicate.dated-market-topic" in wired
+    assert "predicate.reading-baseline" in wired
 
 
 def test_predicate_off_changes_every_declared_face() -> None:
@@ -881,6 +884,19 @@ def test_declared_faces_reach_prefetch_route_and_methodology() -> None:
     assert "双红定义" not in off_text
     assert "双红题材边际量" not in off_text
     assert "双红题材首日" not in off_text
+
+
+def test_reading_baseline_pack_reaches_guidance_and_block() -> None:
+    """判读包的关法必须打到真注入，不能只改 faces 表。"""
+
+    from intelligence.services import reading_baseline
+    from intelligence.services.predicate_faces import using
+
+    assert "[FY-A10]" in reading_baseline.baseline_guidance()
+    assert any("SPT-A01" in line for line in reading_baseline.block_rule_lines("D0"))
+    with using({"predicate.reading-baseline"}):
+        assert reading_baseline.baseline_guidance() == ""
+        assert reading_baseline.block_rule_lines("D0") == []
 
 
 def _align_surface(**overrides: object) -> dict:

@@ -67,6 +67,21 @@ def test_kill_switch_restores_byte_identical_input() -> None:
     assert not reading_baseline.enabled({"FINANCE_READING_BASELINE": "off"})
 
 
+def test_composition_root_using_disables_pack_without_env() -> None:
+    """开关板在门口拧：using(SWITCH_ID) 时 env 仍开，整包也要归零。"""
+
+    from intelligence.services.predicate_faces import using
+
+    assert reading_baseline.enabled({})
+    assert "[FY-A10]" in reading_baseline.baseline_guidance()
+    assert reading_baseline.block_rule_lines("D0")
+    with using({reading_baseline.SWITCH_ID}):
+        assert not reading_baseline.enabled({})
+        assert reading_baseline.baseline_guidance() == ""
+        assert reading_baseline.block_rule_lines("D0") == []
+    assert "[FY-A10]" in reading_baseline.baseline_guidance()
+
+
 def test_block_rule_lines_only_for_registered_block() -> None:
     """未登记的块返回空列表，不得静默造一条规则出来。"""
     assert reading_baseline.block_rule_lines("D8")[0].startswith("- 判读[SPT-A11]：")

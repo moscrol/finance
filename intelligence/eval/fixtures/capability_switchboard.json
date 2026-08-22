@@ -396,17 +396,17 @@
     {
       "id": "predicate.reading-baseline",
       "kind": "predicate",
-      "status": "pending-other-branch",
-      "canonical": "other-branch",
-      "seam": "intelligence/services/reading_baseline.py",
+      "status": "active",
+      "canonical": "exists",
+      "seam": "intelligence/services/reading_baseline.py::SWITCH_ID",
       "close_via": [
-        "arith:pending"
+        "pack:contextvar"
       ],
-      "default": "off",
+      "default": "on",
       "singleton_when_on": false,
       "chassis_survives": true,
-      "positive_control": "",
-      "notes": "本底无此文件（在 feat/reading-rules-baseline-batch1）。合入 gitea/main 之后另开差量臂，不在本单偷挂。"
+      "positive_control": "reading_baseline_guidance",
+      "notes": "领域判读包。生产默认开；runner 在 composition root using({id}) 整包归零。env FINANCE_READING_BASELINE=0 仍是人用总闸。"
     },
     {
       "id": "predicate.evidence-layers",

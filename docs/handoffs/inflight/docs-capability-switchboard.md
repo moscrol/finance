@@ -11,11 +11,11 @@
 
 ## 当前状态
 
-树 `/Users/a77/fwp-wt-capability-switchboard` @ `a82528a5`，已 rebase 到 `#342`/`411e05ae`。
-已推 `gitea/docs/capability-switchboard`（upstream 曾误指 `gitea/main`，已改回本分支）。**未合 main。**
+树 `/Users/a77/fwp-wt-capability-switchboard`。已并入 `feat/reading-rules-baseline-r2`。
+`predicate.reading-baseline` 已从「他树候选」挂成真原子：`using({id})` 整包归零，默认盒 `on`。**未合 main。**
 
-对照树：`/Users/a77/fwp-wt-code-map-land`（本地 `main`=`411e05ae`）。`gitea/main` 仍 `b4689295`——#342 本地已快进，推 `main` 被本机红线拦住，需用户在该树执行 `git push gitea main`。
-不要和主仓 `feat/reading-rules-baseline-batch1` 并。
+对照树：`/Users/a77/fwp-wt-code-map-land`（本地 `main`=`411e05ae`）。`gitea/main` 仍可能停在 `b4689295`。
+不要和主仓 `feat/reading-rules-baseline-batch1` 脏区并。
 
 ### 8792 怎么切、怎么切回
 

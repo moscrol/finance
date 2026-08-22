@@ -69,8 +69,8 @@ def _in_default_box(row) -> tuple[bool, str]:
       会把它漏掉，盒子就不再等于生产。能不能拧是 `status` 那一列的事。
     - **canonical 不是 exists 的不进。** `predicate.single-red` 之流正典还不存在，
       把它记成 `on` 会让盒子里出现一个没有对应物的状态位，差量也无从作用。
-      它们是工单，不是开关（本表里是 `predicate.reading-baseline` /
-      `predicate.evidence-layers`）。
+      它们是工单，不是开关（本表里剩下 `predicate.evidence-layers`；
+      `predicate.reading-baseline` 已挂上，进盒子）。
     """
 
     if row.status == "retired":

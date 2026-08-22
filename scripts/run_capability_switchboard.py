@@ -347,6 +347,22 @@ def _run_arm(case, control, board, row, delta, adversarial_target: str = "") -> 
         return arm
 
 
+def _reading_pack_face_changed(switch_id: str) -> bool:
+    """判读包那一面：验真注入文本，不拿宪法行冒充。"""
+
+    if switch_id != "predicate.reading-baseline":
+        return False
+    from intelligence.services import reading_baseline
+    from intelligence.services.predicate_faces import using
+
+    on_text = reading_baseline.baseline_guidance()
+    on_block = reading_baseline.block_rule_lines("D0")
+    with using({switch_id}):
+        off_text = reading_baseline.baseline_guidance()
+        off_block = reading_baseline.block_rule_lines("D0")
+    return bool(on_text) and off_text == "" and bool(on_block) and off_block == []
+
+
 def _predicate_declared_faces_changed(switch_id: str) -> bool:
     """谓词的正控：**它声明的每一面都要变**，少一面就不算关掉。
 
@@ -360,6 +376,7 @@ def _predicate_declared_faces_changed(switch_id: str) -> bool:
     from intelligence.services import predicate_faces
     from intelligence.services.predicate_faces import (
         FACE_ARITHMETIC,
+        FACE_PACK,
         FACE_PROSE,
         FACE_ROUTE,
     )
@@ -381,6 +398,7 @@ def _predicate_declared_faces_changed(switch_id: str) -> bool:
         FACE_ARITHMETIC: on.arithmetic_enabled(switch_id) != off.arithmetic_enabled(switch_id),
         FACE_ROUTE: on.route_alternation() != off.route_alternation(),
         FACE_PROSE: on.prose_lines(lines) != off.prose_lines(lines),
+        FACE_PACK: _reading_pack_face_changed(switch_id),
     }
     return all(checks[face] for face in declared)
 

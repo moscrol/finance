@@ -46,6 +46,7 @@ _DISABLED: ContextVar[frozenset[str]] = ContextVar(
 FACE_ARITHMETIC = "arithmetic"
 FACE_PROSE = "prose"
 FACE_ROUTE = "route"
+FACE_PACK = "pack"
 
 
 @dataclass(frozen=True)
@@ -55,6 +56,7 @@ class PredicateOwnership:
     route_terms: tuple[str, ...] = ()
     prose_markers: tuple[str, ...] = ()
     has_arithmetic: bool = True
+    has_pack: bool = False
 
     @property
     def declared_faces(self) -> frozenset[str]:
@@ -63,6 +65,8 @@ class PredicateOwnership:
             faces.add(FACE_ROUTE)
         if self.prose_markers:
             faces.add(FACE_PROSE)
+        if self.has_pack:
+            faces.add(FACE_PACK)
         return frozenset(faces)
 
 
@@ -87,6 +91,11 @@ OWNERSHIP: dict[str, PredicateOwnership] = {
     "predicate.dated-market-topic": PredicateOwnership(
         route_terms=market_topic_terms.DATED_MARKET_TOPIC,
         has_arithmetic=False,
+    ),
+    # 整包注入（系统提示词 + 各数据块）。不是宪法里的说明书行。
+    "predicate.reading-baseline": PredicateOwnership(
+        has_arithmetic=False,
+        has_pack=True,
     ),
 }
 
