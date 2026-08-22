@@ -51,7 +51,7 @@ git diff gitea/main -- intelligence/services/episode_semantic_verifier.py
 - 函数体与 `gitea/main` **逐字节相同**。
 - `git diff gitea/main -- intelligence/services/episode_semantic_verifier.py` 的 hunk **零处与 `_repair` 起止行重叠**。
 
-`_project_semantic_quality_marks` 的 `public_answer=` 必须走 `view(TerminalFacts(...))`（`test_public_answer_assignments_all_go_through_view`）。全量首跑 1 红即此门；已补，不是改 `_repair`。
+`_project_semantic_quality_marks` 的 `public_answer=` 必须走 `view(TerminalFacts(...))`（`test_public_answer_assignments_all_go_through_view`），并登记进 `_VIEW_CALLERS`（`test_view_callers_are_registered`）。全量两轮各 1 红即此对门禁；已补，不是改 `_repair`。
 
 ## 钉手术对账
 
