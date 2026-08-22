@@ -930,6 +930,32 @@ def _rebase_frame_for_decision(
     )
 
 
+def _context_dependent_requires_clarify(
+    resolution: QueryResolution,
+    task_frame: TaskFrame,
+) -> bool:
+    """Bare follow-ups still clarify; a finished TaskFrame must reach downstream.
+
+    The pronoun regex is a coarse hint, not an authority. This function used to
+    hard-return `clarify` before `_deterministic_decision` / `llm_refine`, so
+    neither research nor the controller model could override a false hit.
+    Open-set Chinese (其中/其实/其他/…) is the model's job once the frame
+    already has a subject and no ambiguity. `那它呢` has no subject → still ask.
+    """
+
+    if resolution.reference_kind != "entity_pronoun":
+        return True
+    if resolution.suggested_action != "proceed":
+        return True
+    if resolution.status != "resolved":
+        return True
+    if task_frame.clarification_question is not None:
+        return True
+    if task_frame.ambiguities:
+        return True
+    return not task_frame.subject
+
+
 def decide_turn(
     query: str,
     *,
@@ -1029,7 +1055,11 @@ def decide_turn(
             intent,
             task_frame=task_frame,
         )
-    if resolution.context_dependent and previous_intent is None:
+    if (
+        resolution.context_dependent
+        and previous_intent is None
+        and _context_dependent_requires_clarify(resolution, task_frame)
+    ):
         intent = replace(
             build_turn_intent(
                 query,
