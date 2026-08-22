@@ -64,12 +64,12 @@ fail-open / 6 页读预算两条在恒等下仍绿（它们锁的是「别误杀
 
 ## 4. 变异击杀
 
-基线提交后（变异前必须先 commit）在已提交树上做：
+基线提交 `654c3f08`（实现已在树上）后做，击杀 **2/2**：
 
-1. `reexcerpt_hits` 恒等返回原文 → #1 钉红（`test_jcet1_*` / `test_identity_*`）。
-2. `STRUCTURAL_SECTIONS = frozenset()` → #1 钉红（结构节不再被跳过，清单不被替换）。
+1. `reexcerpt_hits` 函数开头恒等 `return items` → `test_jcet1_*` + `test_identity_*` 两钉红。收据 `~/.finance-runtime/test-receipts/20260822T025046Z-654c3f08.json`（dirty）。
+2. `STRUCTURAL_SECTIONS = frozenset()` → `test_jcet1_*` + `test_empty_blacklist_*` 两钉红（#1 仍是清单）。收据 `~/.finance-runtime/test-receipts/20260822T025057Z-654c3f08.json`（dirty）。
 
-击杀数与收据写在交付段；`git checkout --` 还原。
+`git checkout -- intelligence/services/kb_window_reexcerpt.py` 后 12 passed。
 
 ## 5. 预算读数
 
