@@ -175,3 +175,17 @@ ModuleNotFoundError: No module named 'intelligence.services.kb_index_hygiene'
 - `ruff check .` 绿
 - pytest **5945 passed / 0 failed / 13 skipped**（基线 5938 + 本单 7 钉）
 - 收据 `~/.finance-runtime/test-receipts/20260821T162329Z-55b519a3.json`（`dirty=false`，`revision=55b519a3`，`check_test_receipt.py` 可采信）
+
+## 10. live 复算（2026-08-22 10:18，验收方）
+
+台账 `R-20260821-16` 的 live 腿。生产身份：8792 health `loaded_tree_fingerprint`==`repo_tree_fingerprint`==`1816421c…`（V5 部署窗，快照标签 `6320b3bc` 滞后，按既有结论以指纹为准）。
+
+先澄清一个口径：记分板上「确认生产索引是否已按新排除规则重建」是伪问题——本单选的是 §3 方案 A（消费侧过滤），物理 `.rag_index` **按设计不重建**。live 复算的真判据是：①部署树代码含 V4 接线；②用部署树代码审计生产索引条目；③液冷 query 经部署树重放。
+
+| 判据 | 读数 | 结果 |
+|---|---|---|
+| 部署树 V4 接线 | `kb_index_hygiene.py` / `kb_rag.py` 与 gitea/main `diff -q` 逐字节一致 | ✅ |
+| 索引审计（部署树代码 × 生产 `chunks.jsonl`） | physical_pages=10478 / physical_artifact_pages=24 / served_pages=10454 / **served_artifact_pages=0** | ✅ |
+| 液冷重放（部署树 `kb_rag.retrieve`，同 §4 命令） | top-5=产业报告/英维克/申菱环境/工业富联/联创股份，artifact 0/5，与 §4 after 表逐行一致 | ✅ |
+
+复算命令与 §4/§5 相同，仅 `cd` 换成部署树 `~/.finance-runtime/finance-workspace-6320b3bcbf82`。台账行翻 `confirmed`。物理索引里的 24 个工件页仍在（`physical_artifact_paths` 全清单见审计输出），若知识库仓日后在构建侧排除（§3 方案 B），本节读数是 before 基线。
