@@ -47,9 +47,11 @@
 git diff gitea/main -- intelligence/services/episode_semantic_verifier.py
 ```
 
-- `gitea/main` 上 `_repair` 在 `:2200-:2249`；本树 `:2360-:2409`（上方插入分流函数，行号下移）。
+- `gitea/main` 上 `_repair` 在 `:2200-:2249`；本树 `:2362-:2411`（上方插入分流函数 + `view()` 包裹，行号下移）。
 - 函数体与 `gitea/main` **逐字节相同**。
-- 该 diff 共 17 个 hunk，**零 hunk 与 `_repair` 起止行重叠**。
+- `git diff gitea/main -- intelligence/services/episode_semantic_verifier.py` 的 hunk **零处与 `_repair` 起止行重叠**。
+
+`_project_semantic_quality_marks` 的 `public_answer=` 必须走 `view(TerminalFacts(...))`（`test_public_answer_assignments_all_go_through_view`）。全量首跑 1 红即此门；已补，不是改 `_repair`。
 
 ## 钉手术对账
 

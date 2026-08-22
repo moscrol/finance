@@ -776,7 +776,9 @@ class SemanticEpisodeVerifier:
             judge_status = "repaired"
         return replace(
             outcome,
-            public_answer=public,
+            public_answer=view(
+                TerminalFacts(cause=CAUSE_VERIFIED, public=public)
+            ),
             issues=issues,
             judge_status=judge_status,
         )
