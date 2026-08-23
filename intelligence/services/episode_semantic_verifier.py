@@ -2700,10 +2700,14 @@ REQUIRED_OUTPUT_DEGRADED_MARK = "【质检降级】"
 
 
 def _required_output_degraded_note(labels: tuple[str, ...]) -> str:
-    body = "、".join(labels) if labels else "必需输出"
+    # labels 只作「要不要挂标」的开关，不进公开稿。描述是给模型的合同说明，
+    # 拼进去会把「六位代码 / 互斥因果假说」端上桌；P0-A 已拆掉公开附录，
+    # 「详见输出质检」也变成指向不存在的段落。
+    if not labels:
+        return ""
     return (
-        f"{REQUIRED_OUTPUT_DEGRADED_MARK}{body}"
-        "在质检后不完整或存疑，残块保留但判断强度降级，详见「输出质检」。"
+        f"{REQUIRED_OUTPUT_DEGRADED_MARK}"
+        "部分必答格核验后不完整，残块保留，判断强度已降级。"
     )
 
 
