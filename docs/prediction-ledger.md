@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-24（D0 复验预注册并当场结案 `R-20260824-10` confirmed。号从 `-07` 起；`-01`…`06` 留给盘面包，本树不占。此前 2026-08-22 R3 live 回填：`R-20260822-02` V9b 检索层重放（部署指纹 `fb7a0d5d`）结构邻页占槽 0、机制开火 demoted=1 → confirmed；`R-20260822-04` 审计腿 13 盲区成立 + 电池首轮 9/9 基线（body_header_rate=1.0）→ confirmed。`R-20260821-07/-08/-09` 仍 pending。P1 Q1/Q3 仍 pending）
+- last_updated: 2026-08-24（D1 关单 `R-20260824-07` confirmed：有色 RuntimeError 非 timeout 漏标，零产品 diff。D0 `R-20260824-10` confirmed。号从 `-07` 起；`-01`…`06` 留给盘面包。`R-20260821-07/-08/-09` 仍 pending。P1 Q1/Q3 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -28,6 +28,7 @@
 | ID | 来源 | fix_type | verification_prediction | 怎么验 | outcome |
 |---|---|---|---|---|---|
 | `R-20260824-10` | spec 2026-08-24 D0（收口预注册，非标准四阶段分诊） | `EVAL_ONLY` | 周一原题复验收据存在，三变量有绿/红结论；不得用 Knevo A1 代替 | **2026-08-24 当场绿**：8792@`8688545b` live `run_20260824_014139_633829`，`subject=科技、医药`，`company_mapping` 在信封且公开稿含六位代码+角色；有色「下」债离线 `subject=有色金属`（与 8792 同 SHA）。Knevo A1 另记，不代本行。正文 `docs/verification/2026-08-24-p0c-monday-recheck.md` | `confirmed` |
+| `R-20260824-07` | spec 2026-08-24 D1（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | 若判官失败的 cause/HTTP/文案属于已有 transient 标记，则 issue 为 `semantic judge transient provider error` 且走已有候选口。若取证证明不属于这些标记，本行以「无漏标、保持 fail-closed」结案，禁止用「结构 completed」作为放稿条件 | **2026-08-24 取证关单**：有色 8796 `run_20260823_160445_064352` 为 `exc_class=RuntimeError` / `http_status=null` / 进场剩余 233s，走 `complete()` 返回 `LLM 调用失败（RuntimeError）` 的已有兜底，不是 timeout 漏标。#346 夹具 `test_unclassified_runtimeerror_holds_draft_without_evidence_lie` 已锁此路。零产品 diff。正文 `docs/verification/2026-08-24-judge-transient-unwrap.md` | `confirmed` |
 | `R-20260815-03` | 标准 M1 分诊 F-003 | `DATA_CONTRACT_FIX` | `answer_coverage` 与 `structural_verifier` 对同一 `output_id` 改用同一判据函数后，本轮 9 个 run 中的 6 处冲突全部消失或转为显式 warning；B8 的 `evidence_boundary` 不再同时是 present 与 missing | 用本轮冲突的 6 个 run 作回归夹具，断言无静默分歧 | `pending` |
 | `R-20260815-04` | 标准 M1 分诊 F-001 | `HARNESS_FIX` | `outcome` 落盘补 `draft_source ∈ {model_returned_empty, truncated_by_budget, provider_error}` 与合成入口 `remaining_ms` 后，下一次空 draft 的 turn 其 `draft_source` 非空，可据以在 REASONING 与 HARNESS 之间定夺 F-001 的 L0 | 字段存在性单测；**单次读数不得结案**，需 ≥3 个同形样本 | `pending` |
 | `R-20260804-10` | L7 finalization T3 | `HARNESS_FIX` | deadline-aligned per-tool handoff 能让超出安全窗口的 deterministic slow tool 在生效阈值返回一条可配对的 `research_stage_closed + instruction`；正常成功路径同 id 恰好一个 `tool_result`，handoff 路径同 id 恰好一个预期执行层 `tool_error` 且无迟到 `tool_result`；只发一次 finalization，归一化后 `unpaired_tool_requests=0`；finalization reason 与 budget payload 同时看见 root-ledger 耗尽，handoff window 来自 profile / 生效预算而非隐藏的 `initial×0.20` reserve | **主门只用离线** slow-tool fake clock/隔离测试，并另测 `policy calls>0、root ledger calls=0` 与 `floor_ratio=0`；按 request id 分开断言正常 `tool_result`、handoff 执行层 `tool_error` 和 late-result 不入账，`tool=mailbox,error=response_path_conflict` 作为独立 transport 诊断不计入执行终态基数；再断言配对计数、finalization 次数/余量与落盘生效值。全部通过后才跑一次瑞华泰 canary，单次 live 不能独立结案 | `pending` |

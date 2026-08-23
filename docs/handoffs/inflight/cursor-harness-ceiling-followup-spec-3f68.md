@@ -4,13 +4,13 @@
 Harness 后续规格（GitHub PR #3）。只改文档。纲领：增加输入必要就加，限制输出只做减法。
 
 ## 当前状态
-v3 已按用户判据改定。**D0 绿**（`R-20260824-10` confirmed）。树 `/Users/a77/fwp-wt-harness-ceiling-followup-spec`。不合 main。
+v3 已按用户判据改定。**D0 绿**（`R-20260824-10`）。**D1 关单**（`R-20260824-07` confirmed，零产品 diff）。树 `/Users/a77/fwp-wt-harness-ceiling-followup-spec`。不合 main。
 
 ## 未验证 / 已知边界
-产品代码未动。D1 尚未解包有色 8796 的 `__cause__`，可能取证后关单。
+D2 结案、D3 输入加法、D4 同 SHA 未做。
 
 ## 下一步
-D1 取证：有色 8796 `exc_class=RuntimeError` 能否贴进已有 transient 桶。另开 `gitea/main` 树 `fix/judge-transient-unwrap`。不要在本 spec 树改 runtime。
+D3（空池 fallback，必要的输入加法）或 D2 结案。不要在本 spec 树改 runtime。另开 `gitea/main` 树。
 
 ## 踩过的坑
 v1 没对 prediction-ledger。v2 给输出侧加了第三扇门。Knevo A1 ≠ 周一题。
