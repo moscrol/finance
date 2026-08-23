@@ -286,6 +286,12 @@ class _DatasetDefinition:
     evidence_tier: str = "L4_structured"
     population: Literal["full", "subset", "single"] = "full"
     coverage: str = ""
+    # 日程表的发生日可以晚于信息截止日。默认关：行情表继续用
+    # time_field <= cutoff，防止前视。只允许 event_daily 打开。
+    allow_future_time_range: bool = False
+    # 信息截止打在哪一列。None = 打在 time_field（行情默认）。
+    # event_daily 打在 updated_at：已经写入的未来日程可见，截止日后才写入的不可见。
+    cutoff_column: str | None = None
 
     @property
     def fields(self) -> dict[str, _FieldDefinition]:
@@ -656,6 +662,36 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "return_pct": _metric("pct_chg", "涨跌幅"),
         },
     ),
+    # 2026-08-13 曾故意不注册稀疏事件表以收敛工具面。2026-08-23
+    # 「下周大事」现场：表里已有英伟达/Jackson Hole，finance_query 却查不着，
+    # 模型去搜维基年历。入库 ≠ 可消费；只翻 event，不翻 auction/regulation。
+    "event_daily": _DatasetDefinition(
+        table="fact_event_daily",
+        label="复盘会事件日历（编辑催化）",
+        population="subset",
+        coverage=(
+            "复盘会**编辑**催化日历，不是 BEA / 公司 IR / 交易所官方日程全集。"
+            "event_date 是计划发生日，可以晚于信息截止日、也可以是周末；"
+            "缺行是编辑没收，不是库坏了。下周/周末大事先查这张，"
+            "不得把新闻标题或维基年历当日历真本源。"
+        ),
+        time_field="event_date",
+        allow_future_time_range=True,
+        cutoff_column="updated_at",
+        dimensions={
+            "event_date": _dimension("event_date", "事件日期", "date"),
+            "event_id": _dimension("event_id", "事件编号"),
+            "title": _dimension("title", "事件标题"),
+            "content": _dimension("content", "事件正文"),
+            "event_type": _dimension("event_type", "事件类型"),
+            "sectors": _dimension("sectors", "关联板块"),
+            "is_future": _dimension("is_future", "是否未来事件", "boolean"),
+            "source": _dimension("source", "来源"),
+        },
+        metrics={
+            "importance": _metric("importance", "重要性", "max", "integer"),
+        },
+    ),
     # A5：涨停集中题材的 canonical 表。未注册时模型只能借道主线/板块表，
     # 给出电力 8 家而不是储能 40 家（2026-08-18 实测）。
     "theme_limit_heat_daily": _DatasetDefinition(
@@ -1001,7 +1037,7 @@ _POPULATION_LABEL = {
 
 
 def _dataset_catalog_text() -> str:
-    """把 15 张表各自**覆盖多大人群**写进 schema，从注册表生成，不手抄。
+    """把注册表里每张表各自**覆盖多大人群**写进 schema，从注册表生成，不手抄。
 
     改这段之前先读 ``_DatasetDefinition.population`` 上方那段注释：模型此前
     看到的是 15 个**光秃秃的表名**，没有任何一句说明它们覆盖面差着两三个数量级
@@ -1611,11 +1647,19 @@ def _compile_query(
             )
     cutoff = information_cutoff.as_of_date
     if spec.time_range is not None:
-        if spec.time_range.start is not None and spec.time_range.start > cutoff:
+        if (
+            not dataset.allow_future_time_range
+            and spec.time_range.start is not None
+            and spec.time_range.start > cutoff
+        ):
             raise FinanceQueryValidationError(
                 "time range conflicts with information cutoff"
             )
-        if spec.time_range.end is not None and spec.time_range.end > cutoff:
+        if (
+            not dataset.allow_future_time_range
+            and spec.time_range.end is not None
+            and spec.time_range.end > cutoff
+        ):
             raise FinanceQueryValidationError(
                 "time range conflicts with information cutoff"
             )
@@ -1642,6 +1686,14 @@ def _compile_query(
         select_parts.append(f"{expression} AS {alias}")
     if dataset.time_field is None:
         select_parts.append("NULL AS __source_date")
+    elif dataset.cutoff_column:
+        # source_date 全仓语义是信息日。日历的 time_field 是发生日，
+        # 流进去会被 registry 的 filter_future_dated 整批标成越界。
+        cutoff_ident = _quote(dataset.cutoff_column)
+        source_expr = f"CAST({cutoff_ident} AS DATE)"
+        if group_by:
+            source_expr = f"MAX({source_expr})"
+        select_parts.append(f"{source_expr} AS __source_date")
     elif group_by:
         time_column = fields[dataset.time_field].column
         select_parts.append(f"MAX({_quote(time_column)}) AS __source_date")
@@ -1653,8 +1705,15 @@ def _compile_query(
     parameters: list[object] = []
     if dataset.time_field is not None:
         time_column = fields[dataset.time_field].column
-        where_parts.append(f"{_quote(time_column)} <= ?")
-        parameters.append(cutoff.isoformat())
+        if dataset.cutoff_column:
+            cutoff_ident = _quote(dataset.cutoff_column)
+            where_parts.append(
+                f"({cutoff_ident} IS NULL OR CAST({cutoff_ident} AS DATE) <= ?)"
+            )
+            parameters.append(cutoff.isoformat())
+        elif not dataset.allow_future_time_range:
+            where_parts.append(f"{_quote(time_column)} <= ?")
+            parameters.append(cutoff.isoformat())
         if spec.time_range is not None and spec.time_range.start is not None:
             where_parts.append(f"{_quote(time_column)} >= ?")
             parameters.append(spec.time_range.start.isoformat())

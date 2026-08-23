@@ -795,21 +795,26 @@ class KbRagResultCacheTests(unittest.TestCase):
                 stdout=json.dumps(payload, ensure_ascii=False),
                 stderr="",
             )
-            with mock.patch("subprocess.run", return_value=proc) as run:
-                kb_rag.retrieve(
-                    "同一查询",
-                    wiki,
-                    cache_scope="user:conv",
-                )
-                meta.write_text(
-                    '{"revision":"two","changed":true}',
-                    encoding="utf-8",
-                )
-                refreshed = kb_rag.retrieve(
-                    "同一查询",
-                    wiki,
-                    cache_scope="user:conv",
-                )
+            isolated = {
+                "RAG_INDEX_DIR": str(index_dir),
+                "VECTOR_INDEX_DIR": str(index_dir),
+            }
+            with mock.patch.dict("os.environ", isolated, clear=False):
+                with mock.patch("subprocess.run", return_value=proc) as run:
+                    kb_rag.retrieve(
+                        "同一查询",
+                        wiki,
+                        cache_scope="user:conv",
+                    )
+                    meta.write_text(
+                        '{"revision":"two","changed":true}',
+                        encoding="utf-8",
+                    )
+                    refreshed = kb_rag.retrieve(
+                        "同一查询",
+                        wiki,
+                        cache_scope="user:conv",
+                    )
 
             self.assertFalse(refreshed.telemetry.cache_hit)
             self.assertEqual(run.call_count, 2)

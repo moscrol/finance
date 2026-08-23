@@ -329,10 +329,231 @@ def test_fupanhui_assets_registered_as_datasets() -> None:
         "core_stock_daily": "fact_core_stock_daily",
         "leader_height_daily": "fact_leader_height_daily",
         "global_index_daily": "fact_global_index_daily",
+        "event_daily": "fact_event_daily",
     }
     for name, table in expected.items():
         assert name in _DATASETS, name
         assert _DATASETS[name].table == table
+    event = _DATASETS["event_daily"]
+    assert event.allow_future_time_range is True
+    assert event.cutoff_column == "updated_at"
+    assert event.coverage
+
+
+def test_event_daily_allows_scheduled_dates_beyond_cutoff(tmp_path: Path) -> None:
+    """事件发生日可以晚于信息截止日；信息时点打在 updated_at。
+
+    2026-08-23：周日问下周大事，cutoff 是上一个 A 股交易日。若不把
+    time_field 和信息日拆开，time_range 直接被拒，库里的英伟达/Jackson
+    Hole 永远查不到。
+    """
+    db_path = tmp_path / "market_feature_store.duckdb"
+    con = duckdb.connect(str(db_path))
+    try:
+        con.execute(
+            """
+            create table fact_event_daily(
+                event_date date, event_id varchar, title varchar, content varchar,
+                importance integer, event_type varchar, source_types varchar,
+                sectors varchar, is_future boolean, source varchar,
+                updated_at timestamp
+            )
+            """
+        )
+        con.executemany(
+            "insert into fact_event_daily values (?,?,?,?,?,?,?,?,?,?,?)",
+            [
+                (
+                    "2026-08-21", "e-past", "国常会", "", 5, None, None, None,
+                    False, "fupanhui", "2026-08-21 15:00:00",
+                ),
+                (
+                    "2026-08-26", "e-nvda", "英伟达2026Q2财报", "", 5, None,
+                    None, None, True, "fupanhui", "2026-08-21 15:43:00",
+                ),
+                (
+                    "2026-08-27", "e-jh", "杰克逊霍尔全球央行年会",
+                    "美联储主席讲话", 6, None, None, None, True, "fupanhui",
+                    "2026-08-21 15:43:00",
+                ),
+                (
+                    "2026-08-28", "e-late", "事后才知道的事件", "", 9, None,
+                    None, None, True, "fupanhui", "2026-08-24 10:00:00",
+                ),
+            ],
+        )
+    finally:
+        con.close()
+
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "event_daily",
+            "metrics": ["importance"],
+            "dimensions": ["event_date", "title", "is_future"],
+            "time_range": {"start": "2026-08-24", "end": "2026-08-28"},
+            "order_by": [{"field": "event_date", "direction": "asc"}],
+            "limit": 20,
+        }
+    )
+    result = FinanceQuery(db_path).run(
+        spec,
+        information_cutoff=InformationCutoff(date(2026, 8, 21), "requested"),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+    titles = [row["title"] for row in result.rows]
+    assert titles == ["英伟达2026Q2财报", "杰克逊霍尔全球央行年会"]
+    assert result.served_date == "2026-08-21"
+    assert {item.source_date for item in result.evidence} == {"2026-08-21"}
+
+
+def _write_event_daily(path: Path, rows: list[tuple[object, ...]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    con = duckdb.connect(str(path))
+    try:
+        con.execute(
+            """
+            create table fact_event_daily(
+                event_date date, event_id varchar, title varchar, content varchar,
+                importance integer, event_type varchar, source_types varchar,
+                sectors varchar, is_future boolean, source varchar,
+                updated_at timestamp
+            )
+            """
+        )
+        con.executemany(
+            "insert into fact_event_daily values (?,?,?,?,?,?,?,?,?,?,?)",
+            rows,
+        )
+    finally:
+        con.close()
+
+
+def test_event_daily_shared_last_touch_after_cutoff_returns_empty(
+    tmp_path: Path,
+) -> None:
+    """生产形态：future 行每次 sync 都把 updated_at 刷成同一次墙钟。
+
+    补跑若落在比 cutoff 更晚的日历日，整窗 0 行，长得像「稀疏表本来没有」。
+    """
+    db_path = tmp_path / "market_feature_store.duckdb"
+    _write_event_daily(
+        db_path,
+        [
+            (
+                "2026-08-26", "e-nvda", "英伟达2026Q2财报", "", 5, None,
+                None, None, True, "fupanhui", "2026-08-22 03:43:00",
+            ),
+            (
+                "2026-08-27", "e-jh", "杰克逊霍尔全球央行年会", "", 6, None,
+                None, None, True, "fupanhui", "2026-08-22 03:43:00",
+            ),
+        ],
+    )
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "event_daily",
+            "metrics": ["importance"],
+            "dimensions": ["event_date", "title"],
+            "time_range": {"start": "2026-08-24", "end": "2026-08-28"},
+            "limit": 20,
+        }
+    )
+    result = FinanceQuery(db_path).run(
+        spec,
+        information_cutoff=InformationCutoff(date(2026, 8, 21), "requested"),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+    assert result.rows == ()
+
+
+def test_event_daily_survives_registry_future_dated_filter(tmp_path: Path) -> None:
+    """产品路径：registry fetch 的 filter_future_dated 不得把发生日当信息日。"""
+    from intelligence.services.episode_factory import build_episode_context
+    from intelligence.services.episode_tools import build_episode_registry
+    from intelligence.services.task_frame import TaskFrame
+
+    db_path = tmp_path / "finance" / "db" / "market_feature_store.duckdb"
+    _write_event_daily(
+        db_path,
+        [
+            (
+                "2026-08-26", "e-nvda", "英伟达2026Q2财报", "", 5, None,
+                None, None, True, "fupanhui", "2026-08-21 15:43:00",
+            ),
+            (
+                "2026-08-27", "e-jh", "杰克逊霍尔全球央行年会", "", 6, None,
+                None, None, True, "fupanhui", "2026-08-21 15:43:00",
+            ),
+            (
+                "2026-08-28", "e-late", "事后才知道的事件", "", 9, None,
+                None, None, True, "fupanhui", "2026-08-24 10:00:00",
+            ),
+        ],
+    )
+    frame = TaskFrame(
+        raw_question="周末发酵了什么新闻？下周（8月24日-8月28日）有什么大事？",
+        user_goal="盘点周末消息与下周日程",
+        question_type="general_finance_qa",
+        subject="下周大事",
+        subject_kind="market_pattern",
+        market_scope="A股",
+        timeframe="8月",
+        required_outputs=("direct_answer", "evidence_boundary"),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="current_market_scenarios",
+        confidence=0.4,
+    )
+    context = build_episode_context(
+        frame,
+        task_id="event-daily-registry-path",
+        capabilities=("finance_query",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-08-23",
+        latest_data_date="2026-08-21",
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+    assert "event_daily" in registry.resolve("finance_query").description
+    observation = registry.execute(
+        "finance_query",
+        {
+            "dataset": "event_daily",
+            "metrics": ["importance"],
+            "dimensions": ["event_date", "title", "is_future"],
+            "time_range": {"start": "2026-08-24", "end": "2026-08-28"},
+            "order_by": [{"field": "event_date", "direction": "asc"}],
+            "limit": 20,
+        },
+        context=context,
+        step_id="event-daily-registry-path:1",
+    )
+    titles = [item.title for item in observation.evidence]
+    details = " ".join(item.detail for item in observation.evidence)
+    assert observation.trace.status != "future_of_cutoff"
+    assert "晚于问句日" not in observation.observation
+    assert "晚于问句日" not in "".join(titles)
+    assert "英伟达2026Q2财报" in details
+    assert "杰克逊霍尔全球央行年会" in details
+    assert "事后才知道的事件" not in details
+    assert {item.source_date for item in observation.evidence} == {"2026-08-21"}
+
+
+def test_market_daily_still_rejects_time_range_past_cutoff(market_db: Path) -> None:
+    """日历的未来窗不得演变成行情表也能查未来交易日。"""
+    with pytest.raises(FinanceQueryValidationError, match="information cutoff"):
+        FinanceQuery(market_db).run(
+            _market_spec(time_range={"start": "2026-07-20", "end": "2026-07-30"}),
+            information_cutoff=_cutoff(),
+            deadline=ResearchDeadline.from_timeout(2.0),
+        )
 
 
 def test_theme_limit_heat_and_empty_snapshot_are_registered() -> None:

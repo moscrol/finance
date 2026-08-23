@@ -459,6 +459,48 @@ def _clarification_for(ambiguities: tuple[str, ...]) -> str | None:
     return "你希望我围绕哪个明确主体继续判断？"
 
 
+# 周历/周末大事：窗口词 × 日程词。单独「周末发酵了什么新闻」不算，
+# 避免把主题发酵题或普通周末新闻收成跨市场日历。
+_CALENDAR_WINDOW_MARKERS = ("下周", "本周", "周末", "这周")
+_CALENDAR_EVENT_MARKERS = ("大事", "日历", "催化", "事件", "日程", "周历")
+_EXPLICIT_A_SHARE_MARKERS = ("a股", "沪市", "深市", "北交所")
+_A_SHARE_SEARCH_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9])A股(?![A-Za-z0-9])")
+
+
+def is_weekly_calendar_question(question: str) -> bool:
+    """「下周/周末 + 大事/日历」跨市场周历，不是默认 A 股复盘。"""
+
+    folded = re.sub(r"\s+", "", str(question or ""))
+    if not folded:
+        return False
+    has_window = any(marker in folded for marker in _CALENDAR_WINDOW_MARKERS)
+    has_event = any(marker in folded for marker in _CALENDAR_EVENT_MARKERS)
+    return has_window and has_event
+
+
+def question_has_explicit_a_share(question: str) -> bool:
+    folded = re.sub(r"\s+", "", str(question or "")).casefold()
+    return any(marker in folded for marker in _EXPLICIT_A_SHARE_MARKERS)
+
+
+def strip_default_a_share_search_token(query: str, question: str) -> tuple[str, str]:
+    """周历题且问句未点名 A 股时，去掉检索串里被默认范围塞进的「A股」。
+
+    返回 ``(query, note)``；未改动时 note 为空。显式「下周 A 股大事」不剥。
+    """
+
+    raw = str(query or "")
+    if not raw or not is_weekly_calendar_question(question):
+        return raw, ""
+    if question_has_explicit_a_share(question):
+        return raw, ""
+    cleaned = _A_SHARE_SEARCH_TOKEN_RE.sub(" ", raw)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    if cleaned == raw.strip():
+        return raw, ""
+    return cleaned, "已去掉默认市场词「A股」（问句未指定市场）"
+
+
 def _market_scope(question: str) -> tuple[str, bool]:
     folded = re.sub(r"\s+", "", question).casefold()
     if any(term in folded for term in ("美股", "美国股市", "纳指", "道指", "标普", "soxx", "qqq")):
@@ -467,7 +509,11 @@ def _market_scope(question: str) -> tuple[str, bool]:
         return "港股", False
     if "全球市场" in folded:
         return "全球", False
-    return "A股", not any(term in folded for term in ("a股", "沪市", "深市", "北交所"))
+    if question_has_explicit_a_share(question):
+        return "A股", False
+    if is_weekly_calendar_question(question):
+        return "跨市场", False
+    return "A股", True
 
 
 def _timeframe(raw_timeframe: str | None) -> tuple[str | None, str | None]:

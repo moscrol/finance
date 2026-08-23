@@ -1257,11 +1257,11 @@ def build_episode_registry(
                 name="finance_query",
                 capability="finance_query",
                 description=(
-                    "查询本地结构化金融数据。dataset 可选 market_daily、"
-                    "stock_daily、sector_daily、sector_stock_daily、"
-                    "mainline_theme_daily、mainline_sector_daily；由你选择"
-                    "指标、维度、筛选、分组、排序和时间范围。字段必须按"
-                    "dataset 对应关系选择，不要混用不同 dataset 的字段。"
+                    "查询本地结构化金融数据。dataset 必须选自当前注册表"
+                    f"（{ '、'.join(finance_query._PUBLIC_DATASETS) }）；"
+                    "周历/周末大事用 event_daily。"
+                    "由你选择指标、维度、筛选、分组、排序和时间范围。"
+                    "字段必须按 dataset 对应关系选择，不要混用不同 dataset 的字段。"
                     f"可用字段：{finance_query.dataset_field_hint()}"
                 ),
                 cost="local",
