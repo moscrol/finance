@@ -367,7 +367,35 @@ _COMPANY_CONFIRMATION_RE = re.compile(
     r"|(?:合作|供货|供应|客户关系|订单|合同|认证|定点)"
     r".{0,10}(?:是否|真假|属实|确认|官宣|披露)",
 )
-_COMPANY_MAPPING_RE = re.compile(r"(有哪些公司|哪些公司|受益公司|公司映射|核心公司)")
+_COMPANY_MAPPING_RE = re.compile(
+    r"(有哪些公司|哪些公司|受益公司|公司映射|核心公司"
+    r"|哪些个股|观察哪些个股|关注哪些个股|个股有哪些|个股的反馈)"
+)
+_KEEP_XIA_COMPOUNDS = ("下游", "下跌", "下旬", "下修", "下一代")
+_JOINT_BOARD_RE = re.compile(
+    r"([\u4e00-\u9fff]{2,6})(?:和|与|、)([\u4e00-\u9fff]{2,6})$"
+)
+_JOINT_LEFT_PREFIXES = (
+    "你认为",
+    "我认为",
+    "认为",
+    "周一",
+    "周二",
+    "周三",
+    "周四",
+    "周五",
+    "周六",
+    "周日",
+    "本周",
+    "下周",
+    "这周",
+    "今日",
+    "今天",
+    "明日",
+    "明天",
+    "次日",
+)
+_JOINT_BOARD_SUFFIX_RE = re.compile(r"(?:板块|题材)")
 _MARKET_CHANGE_RE = re.compile(r"(边际变化|最近变化|近期变化|预期差变化)")
 
 # 认识论分流：这些问题要回答的是系统/方法本身，而不是某个金融标的的
@@ -993,7 +1021,61 @@ def _normalize_explicit_tail(tail: str, timeframe: str | None) -> str:
                 break
         else:
             break
-    return normalized
+    return _strip_spoken_xia_prefix(normalized)
+
+
+def _strip_spoken_xia_prefix(text: str) -> str:
+    """Cue 后的口语「下」可以剥；「下游 / 下跌」这类复合词必须整段保留。"""
+
+    if any(text.startswith(compound) for compound in _KEEP_XIA_COMPOUNDS):
+        return text
+    if text.startswith("下"):
+        return text[1:]
+    return text
+
+
+def _joint_board_subject(
+    query: str,
+    *,
+    operators: tuple[ResearchOperator, ...],
+) -> str | None:
+    """句式路：A和B板块。先窄（两算子且含情景树），不查题材词表。"""
+
+    if len(operators) < 2 or "scenario_tree" not in operators:
+        return None
+    compact = re.sub(r"\s+", "", str(query or ""))
+    for suffix in _JOINT_BOARD_SUFFIX_RE.finditer(compact):
+        window = compact[max(0, suffix.start() - 16) : suffix.start()]
+        hit = _JOINT_BOARD_RE.search(window)
+        if hit is None:
+            continue
+        left, right = hit.group(1), hit.group(2)
+        left = _strip_joint_left_prefixes(left)
+        if (
+            len(left) < 2
+            or len(right) < 2
+            or left in _GENERIC_EXPLICIT_SUBJECTS
+            or right in _GENERIC_EXPLICIT_SUBJECTS
+            or left.startswith(_GENERIC_EXPLICIT_PREFIXES)
+            or right.startswith(_GENERIC_EXPLICIT_PREFIXES)
+        ):
+            continue
+        return f"{left}、{right}"
+    return None
+
+
+def _strip_joint_left_prefixes(text: str) -> str:
+    prefixes = sorted(_JOINT_LEFT_PREFIXES, key=len, reverse=True)
+    current = text
+    changed = True
+    while changed and current:
+        changed = False
+        for prefix in prefixes:
+            if current.startswith(prefix):
+                current = current[len(prefix) :]
+                changed = True
+                break
+    return current
 
 
 def _explicit_theme(text: str, timeframe: str | None) -> str | None:
@@ -1416,6 +1498,18 @@ def understand_query(
             "theme_analysis",
             "theme",
             explicit,
+            _decision_goal(text),
+            timeframe,
+            "explicit",
+            0.8,
+        )
+
+    joint = _joint_board_subject(text, operators=operators)
+    if joint is not None:
+        return envelope(
+            "general_finance_qa",
+            "theme",
+            joint,
             _decision_goal(text),
             timeframe,
             "explicit",

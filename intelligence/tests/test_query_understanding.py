@@ -826,3 +826,55 @@ def test_market_cause_does_not_steal_non_move_or_stock_queries() -> None:
         understand_query("电网设备怎么看", matched_theme="电网设备").question_type
         == "theme_analysis"
     )
+
+
+MONDAY_TECH_MED_QUERY = (
+    "站在spt视角下，你认为周一科技和医药板块的走势会怎么样，需要观察哪些个股的反馈"
+)
+YSJS_XIA_QUERY = (
+    "用spt的视角，分析下有色金属板块后续的走势，以及板块内有机会的个股有哪些"
+)
+
+
+def test_monday_tech_med_honors_dual_subject_and_stock_slot() -> None:
+    """P0-C §5.1：问句已点名科技+医药和观察个股，信封必须认领。"""
+
+    envelope = understand_query(MONDAY_TECH_MED_QUERY)
+    subject = envelope.subject or ""
+    compact = subject.replace(" ", "")
+
+    assert "scenario_tree" in envelope.operators
+    assert "company_mapping" in envelope.operators
+    assert "company_mapping" in envelope.required_outputs
+    assert "科技" in compact
+    assert "医药" in compact
+    assert envelope.question_type == "general_finance_qa"
+
+
+def test_ysjs_spoken_xia_is_not_part_of_subject() -> None:
+    """P0-C §5.2：分析下有色金属 → 有色金属，不得吃成「下有色金属」。"""
+
+    envelope = understand_query(YSJS_XIA_QUERY)
+
+    assert envelope.subject == "有色金属"
+    assert envelope.subject_kind == "theme"
+    assert not str(envelope.subject).startswith("下")
+    assert "company_mapping" in envelope.operators
+    assert "company_mapping" in envelope.required_outputs
+
+
+def test_downstream_chemicals_keeps_xia_compound() -> None:
+    """剥「下」的真实坏结果是「游化工」，不是「下游」。"""
+
+    envelope = understand_query("分析下游化工板块的机会")
+
+    assert envelope.subject == "下游化工"
+    assert envelope.subject != "游化工"
+
+
+def test_board_mention_without_forecast_and_names_does_not_invent_subject() -> None:
+    """无 cue、单算子的「X板块」不得开始产出 subject（§6.3 先窄后宽）。"""
+
+    envelope = understand_query("复盘今天的科技板块")
+
+    assert envelope.subject != "科技"
