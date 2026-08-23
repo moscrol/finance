@@ -1,259 +1,339 @@
 # 设计：盘面题由组件包当第一执行者
 
 - 日期：2026-08-24
-- 状态：Draft v1
-- 来源：Knevo 四臂 A1/C1（2026-08-23）agent-run / trace-diff。人话结论：和天花板的差距是接线，不是模型不够聪明。
+- 状态：Draft **v2**（核稿三洞已改定；未实施）
+- v1 → v2：落点从「拒收后走进 `_answer_market_review`」改成「四袋落在 owner 分叉之前」；`as_of` 从「传上界」改成「显式站立日必须精确命中当日」；C1 从「本单形状已对」改成「另一条路的回归锁」。见 §0.1。
+- 来源：Knevo 四臂 A1/C1（2026-08-23）agent-run / trace-diff。核稿复验 2026-08-24。
 - 实测目录：`~/.finance-runtime/four-arm-knevo-20260823/`
   - A1：`A1-market-overview/workbench-8792|8796|codex-component|live-toolkit/`
   - C1：`C1-future-date-no-data/` 同结构
   - 网页真源是 `continuous-episode.json` + `trace.jsonl`，不是 UI 的 `trace.json`
 - 代码树：从 `gitea/main` 开干净树 `feat/market-watch-component-first`。**禁止**在主检出 `feat/reading-rules-baseline-batch1` 脏树上改 runtime。**禁止**动 8792 / 8796 / 8802。
 - 相邻稿（本单不重做、不抢合）：
-  - `docs/superpowers/specs/2026-08-20-episode-public-answer-quality-design.md`（丢数 / 截断 / 单位标签）
-  - `docs/superpowers/specs/2026-08-20-market-cause-sector-routing-design.md`（板块「为什么涨」）
-  - `intelligence/services/honesty_gates.py`（休市句前置；C1 已走通）
+  - `docs/superpowers/specs/2026-08-20-episode-public-answer-quality-design.md`
+  - `docs/superpowers/specs/2026-08-20-market-cause-sector-routing-design.md`
+  - `intelligence/services/honesty_gates.py`（休市**判定**不改；Engine B **调用点**本单要补）
 
 ## 0. 一句话
 
 `market_watch` 已经认出「该走模板」，也已经有总览块、主线块、严格双红 SQL、涨停热度适配器。卡住的是 **Engine A（`continuous_glm`）抢了成文权**：第一轮 0 工具空转到 `deadline_exhausted`，修复轮再补两袋，然后自由写。本单把第一执行者换成已经存在的盘面组件包；模型只写格与格冲突的残差。
 
-**判别变量**（验收只锁这一条）：冻结题「2026-07-23 今天市场怎么样」在模型开口之前，必须已经跑完四袋规定查询（总量 / 主线 / 严格双红 / 涨停热度），格内数字进公开稿且不可被模型改口径。不是「多调一次工具」，不是「把稿子写得像 ReAct」。
+**判别变量**（验收只锁这一条，v1/v2 未改）：冻结题「2026-07-23 今天市场怎么样」在模型开口之前，必须已经跑完四袋规定查询（总量 / 主线 / 严格双红 / 涨停热度），格内数字进公开稿且不可被模型改口径。不是「多调一次工具」，不是「稿子像不像 ReAct」，也不是「一定走进 `_answer_market_review`」。
 
 人话：厨房里菜谱和食材都在。点菜员写了「要套餐」，后厨却让厨师先空等一分钟再随便抓两样。本单让套餐先出锅，厨师只解释两盘对不上的地方。
 
-### 0.1 不是加法悖论
+### 0.1 v2 核稿改定（[实测]，实施按本节不是按 v1 的 §5/§8）
 
-四臂里得分高的一侧（天花板 / 现场写）**没有多长新组件**。`FinanceQuery`、`fact_market_daily`、`DOUBLE_RED_SQL`、`get_limit_heat_themes` 产品里都有。8792/8796 修复轮也打到了其中两袋。分差来自谁先动手。
+方向与 §4 的 A/B/C 对照保留。v1 三个阻断级洞全部来自复验，不是推断：
 
-因此本单禁止用这些当「追上」手段：加 prompt「请先查双红」、加一轮 repair、加更严质检条、在产品里嵌完整 ReAct agent。那些是在「模型当老板」的环上叠层，和目标态相反。
+| ID | v1 会让 P0 落不了地 | v2 |
+|---|---|---|
+| **洞 1** | §7.1 #2「走到 `_answer_market_review`」。拒收 A 之后，`is_market_watch_query` 会插入 `daily-review`；该 skill `role=workflow` + `can_own_answer=True`，`lane=workflow` 时兼容闸只看 role。指定日若存在 `<date>-daily-review.md`（A1 冻结日主树有 `2026-07-23-daily-review.md`），走 `prepare_existing_answer`，`_run_answer_query_with_watchdog` 不执行。四袋零调用。 | **选 (a)**：四袋落在 `if owner_output is not None` **之前**的汇合处。不选 (b) 把 daily-review 降成证据贡献者——那会改 `dated_market_review` 现有行为，推翻 §1.2。 |
+| **洞 2** | 「把 `as_of` 传进两个块」不够。块查询是 `trade_date <= as_of ORDER BY desc LIMIT 1`。`<= 2026-07-25` 实测回到 `2026-07-24`。叠加 `_resolve_market_data_context`：有 `requested_date` 就原样返回、不查库，正文写「截至 07-25」、块里是 07-24 的数。§6.2「数来自该日行」抓不住——数确实来自真行，只是不是问句日。 | 显式站立日必须 `trade_date = ?`。0 行就是 0 行，禁止 `<=` 回落邻日。`_resolve_market_data_context` 是第四个日期解析点：库无该日行时不得回显问句日。 |
+| **洞 3** | §3 事实 1 把 A1/C1 写成同一个 `market_watch` 信封。`is_market_watch_query("2026-07-25 市场怎么样")` 实测 `False`（缺「今天/今日」）。C1 冻结 controller：`lane=research`，`question_type=general_finance_qa`，`generate=lane_direct_answer`。休市句在旧座位上：`lane_generation` 只对 `quick_fact` 调 `calendar_disclosure`；`with_calendar_disclosure` 的调用点在 `continuous_turn_adapter` 与 `lane_generation`，**Engine B 的 ask.py / ask_blocks.py / ask_synthesis.py 零调用**（负面断言，三处都查过）。真正会走进新座位的休市题是「2026-07-25 **今天**市场怎么样」，它会同时撞洞 2，且拿不到休市句。 | 事实 1 拆开。#5 保留为**另一路径**回归锁。P0 另加「2026-07-25 今天市场怎么样」。Engine B 补休市披露调用点，不改判定函数。 |
 
-追上天花板（供数）= 换座位。追上现场写多出来的那半档（「主线有半导体、双红全在电链」）= 残差写手看两张表。Knevo 的外盘叙事不追。
+换座位的可复用失败形状（已回写 `~/harness-reference/BUILD.md` 模式 5）：**先查被腾空的椅子上还坐着什么。** v1 只盘点「要搬走的四袋」，没盘点挂在旧座位上的 daily-review owner 权和 C1 休市句。这是「结论携带成立条件」的另一面——旧路径碰巧对，是因为椅子上还坐着别的东西。
+
+### 0.2 不是加法悖论
+
+四臂里得分高的一侧**没有多长新组件**。分差来自谁先动手。禁止用这些当「追上」：加 prompt「请先查双红」、加一轮 repair、加更严质检条、产品内嵌完整 ReAct。那些是在「模型当老板」的环上叠层。
+
+追上天花板 = 换座位 + 汇合处跑包。追上现场写多出来的那半档 = 残差写手看两张表。Knevo 外盘叙事不追。
 
 ## 1. 范围
 
 ### 1.1 做
 
-- 让 `question_type=market_watch` 走与 `dated_market_review` / `quick_fact` / `external_market` 同一类 **确定性 owner 拒收 Engine A** 的门，把取数交给已有 Engine B 盘面块。
-- 把问句日 / cutoff 传进总览块和主线块（函数已经收 `as_of`，现役调用没传）。
-- 在同一组件包里**规定**打齐四袋：总量、主线、严格双红名单、涨停热度。口径用现役 `DOUBLE_RED_SQL`（`pct_chg > 0 AND diff_ratio > 10 AND amount > 500`），不新发明阈值。
-- 0 行或休市：停，公开稿只留日历/无行情句。不改查邻日。C1 形状已经对，本单只锁死，不重写 `honesty_gates`。
-- 模型若还上场，只能写格外解释；格内数字只许填空。主线 ∩ 双红为空时必须写缺口，不许把「名单上有某题材」写成「该题材当天在加量」。
-- 未注册方法语言（MA20 区间、旗型、未在 reading baseline / 组件口径登记的支撑压力位）不得留在公开稿。质检条本身也不上桌。
+- 让 `question_type=market_watch` 加入 `DETERMINISTIC_OWNER_TYPES`，Engine A 拒收。拒收之后**不假设**下一站是 `_answer_market_review`。
+- 四袋在编排器 **owner 分叉之前**跑完（洞 1-(a)）。daily-review 仍可 own 人话结构；不得跳过包，不得用日报 md 顶替四袋收据。
+- 显式站立日用 `trade_date = ?` 精确查。禁止把现役块函数的 `<= as_of` 当作「当日」。块函数要么加 `strict_date=True`，要么只渲染、查询由包来做。
+- `_resolve_market_data_context` 纳入站立日清单：问句日在库中无行时返回「无该日」，禁止回显问句日当 `result.trade_date`。
+- 0 行或休市：公开稿只留日历/无行情句。不改查邻日。残差关：复用现役 `AskOptions.compose=False`（编排器今日硬编码 `True`，P0 必须在包跑完后 `replace`）。不新增第二套开关。
+- P0 休市题面是 `2026-07-25 今天市场怎么样`（`market_watch=True` 且 `requested_date=2026-07-25`）。Engine B 侧补 `calendar_disclosure` / `with_calendar_disclosure` 调用点。
+- 原题 `2026-07-25 市场怎么样`（C1）保持现役旁路，本单只加回归锁，不把它改路由成 `market_watch`。
+- 主线 ∩ 双红为空时必须写缺口，不许把「名单上有某题材」写成「该题材当天在加量」。
+- 未注册方法语言不得留在公开稿。质检条不上桌。
+- `AskOptions.date` 改成站立日后，`knowledge_anchor` 的时间边界跟着变——这是行为变更，进验收，不是顺手副作用。
 
 ### 1.2 不做
 
-- 不把 A1 改路由成 `dated_market_review`。题面「2026-07-23 今天市场怎么样」按现役正则就是 `market_watch`（有日期但没有复盘/双红等专有词）。改路由会碰 daily-review 工作流，超出本单。
+- 不把 A1 改路由成 `dated_market_review`。
+- **不**把 `daily-review` 在 `market_watch` 上下打成证据贡献者（洞 1-(b)）。那是另一单。
+- 不改 `honesty_gates` 里的休市**判定**；只补 Engine B **调用点**。
+- 不把 C1 原题改写成 `market_watch`，不把 `lane_generation` 的 `quick_fact` 休市句撤掉。
 - 不把 `market_cause` / `market_forecast` / 个股深挖收进这个包。
-- 不在产品里做完整 ReAct loop（自选下一工具、自评、多轮修理）。
+- 不在产品里做完整 ReAct loop。
 - 不追 Knevo 的谷歌财报 / 铜价 / 邻日午盘叙事。
-- 不改生产超时数字、不改 8792/8796 在跑实例、不在脏树 rebase。
-- 不重做质量稿的截断 / 时点滤空 / 单位标签。那些丢数路径与本单「谁先跑」正交。
-- 不把「写得像研报」或「像我现场那篇」写成验收。
+- 不改生产超时、不改 8792/8796、不在脏树改 runtime。
+- 不重做质量稿的截断 / 时点滤空 / 单位标签。
+- 不把「写得像研报」写成验收。
+- 不按 CLAUDE.md「`fact_mainline_sector_daily` 停在 06-30」写默认预期。核稿日实测该表已到 `2026-08-21`。07-23 有没有主线行，以当日查询为准。
 
 ## 2. 术语
 
 | 词 | 含义 |
 |---|---|
 | **Engine A** | `continuous_episode` / `continuous_glm`。模型自选工具。生产默认。 |
-| **Engine B** | `ask.answer_query` 写死流程。今日已接 `quick_fact` / `external_market` / `dated_market_review`。盘面成文入口是 `_answer_market_review`。 |
-| **拒收** | `continuous_turn_adapter` 见 `DETERMINISTIC_OWNER_TYPES` 就 `_declined_result()`，把题还给编排器走 Engine B。 |
-| **组件包** | 模型开口前必须跑完的确定性查询集合。本单四袋：总量、主线、严格双红、涨停热度。 |
-| **格** | 组件包产出的锁死字段（成交额、环比、涨停、跌停、上证涨跌、双红名单、热度名单、行数）。公开稿必须带这些值或显式「本袋 0 行」。 |
-| **残差写手** | 只解释格与格冲突、或声明「未开某袋」。不许改格内数字，不许发明未注册阈值。 |
-| **严格双红** | 单一真本源 `market_feature_store.signals.DOUBLE_RED_SQL`。与 strategy1-matrix / D0 `double_red_count` 同一句。 |
-| **synthesis-heavy** | `glm_agent_runtime._SYNTHESIS_HEAVY_QUESTION_TYPES` 现含 `market_watch`，预留约 60s 给成文。本单若 P0 拒收成功，这条对盘面题失效；若有人把盘面题再送回 A，必须同时移出该集合。 |
+| **Engine B** | 编排器拒收 A 之后的那条链：可能是 `daily-review` owner → `prepare_existing_answer`，也可能是 `_run_answer_query` → `_answer_market_review`。v1 把 Engine B 写成「就是 `_answer_market_review`」是错的。 |
+| **拒收** | `continuous_turn_adapter` 见 `DETERMINISTIC_OWNER_TYPES` 就 `_declined_result()`。 |
+| **汇合处** | `conversation_orchestrator` 里 `if owner_output is not None` **之前**。两条后续路径都能看见同一份包收据。 |
+| **组件包** | `run_market_watch_pack(standing_date) -> MarketWatchPack`。四袋：总量、主线、严格双红、涨停热度。services 层纯函数，禁止 import runtime。 |
+| **显式站立日** | 问句解析出的 ISO 日，或任务 `information_cutoff`。有它就必须精确命中该日。 |
+| **隐式站立日** | 问句只有「今天」且解析不出日历日：才允许 `max(trade_date) <= cutoff`。A1/P0 休市题都是显式，走精确命中。 |
+| **格** | 包产出的锁死字段。公开稿必须带这些值或显式「本袋 0 行」。`served_date` 必须等于显式站立日，或袋为 empty。 |
+| **残差写手** | 只解释格与格冲突。现役开关就是 `AskOptions.compose`，不另造 `residual_enabled`。 |
+| **严格双红** | `market_feature_store.signals.DOUBLE_RED_SQL`。 |
+| **C1 旁路** | 原题「2026-07-25 市场怎么样」：`general_finance_qa` + `lane_direct_answer`。不是本单换的座位。 |
+| **P0 休市题** | 「2026-07-25 今天市场怎么样」：`market_watch=True`。这才是新座位上的休市验收。 |
+| **synthesis-heavy** | 防回退进 A 时才改。P0 拒收成功后盘面题不应再走它。 |
 
 ## 3. 已核实事实（实施时不要再探一遍）
 
-均为 2026-08-23 四臂冻结迹，或同日读过的源码。行号以主仓当时工作树为准，导航用符号名。
+v1 事实经 2026-08-24 核稿复验。行号以核稿时主仓工作树为准，导航用符号名。
 
-1. A1 / C1 信封：`question_type=market_watch`，subject 空，operators 空。控制器 `lane=workflow`，`needs_template=true`，`decision_diverged_from_legacy=true`。
-2. `route_table.market_watch`：`needs_template=True`，`answer_owner=None`，capabilities 仍是 `memory, market_quote, graph`（不是 `market_data` / `finance_query`）。
-3. `DETERMINISTIC_OWNER_TYPES`（`continuous_turn_adapter`）= `{external_market, quick_fact, dated_market_review}`。**没有 `market_watch`**。命中则拒收；未命中则进 Engine A。这是 A1 进 `continuous_glm` 的直接原因。
-4. `needs_template=true` 在 `conversation_orchestrator` 收口处只用来记 `llm_unavailable_template_answer` 降级，**不是**组件包执行入口。
-5. A1 8792/8796 第一轮 `tool_calls=[]`、content 空，`stop_reason=deadline_exhausted`（约 72s）。然后 repair 各补 2 次工具：8792 = `finance_query/market_daily` + `mainline_context`；8796 = `finance_query/market_daily` + `theme_limit_heat_daily`。**两边都没有 `sector_daily` 严格双红**。
-6. 结构闸仍报 `missing_mandatory_capability: market_data`，尽管 `finance_query(market_daily)` 已成功且公开稿有总量数字。`satisfiability.enforced=false`。`finance_query.produces` 含 `supporting_evidence` 等，**不含** `market_summary` / `current_baseline`；那两格写在 `market_data` 工具上。
-7. `market_watch` 在 `_SYNTHESIS_HEAVY_QUESTION_TYPES` 里。这与「先成文、后取数」的空转同形。
-8. Engine B 已有 `_answer_market_review` → `_daily_market_overview_block_for_llm` + `_market_review_mainline_context_block_for_llm`。两函数都收 `as_of`。现役 `_answer_market_review` **没传 `as_of`**。编排器 `AskOptions.date` 只在 daily-review skill 给出 `as_of` 时有值，A1 这种题是 `None`。
-9. 严格双红 SQL 已在 `market_feature_store.signals`；涨停热度已在 `MarketAdapter.get_limit_heat_themes`。不需要新数据源。
-10. C1 四臂公开稿（产品 / 天花板）已是同一句周六无行情；`llm.used=false`。Knevo 那份把 7/27 午盘和 7/24 写进来，提问日与 cutoff 不对等，**不当产品缺口**。
-11. A1 天花板 / 现场写在库尖是 `2026-08-21` 的前提下，用 cutoff=`2026-07-23` 仍能打到 1 行。验收**不许**要求 `db_max == cutoff`。
+**复验通过（不要重探）：**
+
+2. `route_table.market_watch` capabilities = `memory, market_quote, graph`（`route_table.py` 该行；与 A1 冻结 `decision.capabilities` 一致）。`needs_template=True`，`answer_owner=None`。
+3. `DETERMINISTIC_OWNER_TYPES` 无 `market_watch`。命中即 `_declined_result()`。
+5. A1 修复轮各 2 次工具，无 `sector_daily`。8792 traces=`finance_query` + `mainline_context`；结构 `partial`，语义 `repaired`。
+6. `missing_mandatory_capability: market_data` 原文照录；`finance_query.produces` 不含 `market_summary`（`research_tool_registry.py` 两处对照）。`satisfiability.enforced=false`。
+7. `market_watch ∈ _SYNTHESIS_HEAVY_QUESTION_TYPES`。
+8. 两个块函数收 `as_of`；`_answer_market_review` 没传。`options.date` 今日只喂给 `knowledge_anchor`。
+11. 库尖 `2026-08-21` 时 cutoff=`2026-07-23` 仍有 1 行。验收不许要求 `db_max == cutoff`。
+- §6.2 冻结对照数逐个对上 DB：`21949.97` / `-17.27` / `116` / `2` / `0.2519` / 缩量观望 / 反弹阶段。
+- 07-23 四袋都有数：严格双红 7 个、涨停热度 138 行、主线 theme 5 行。live 可达成。不要按 CLAUDE.md 旧句假设主线表停在 06-30。
+
+**复验推翻 / 新钉死：**
+
+1. ~~A1 / C1 都是 `question_type=market_watch`。~~ **只对 A1 成立。** C1 冻结 controller：`lane=research`，`question_type=general_finance_qa`，`generate=lane_direct_answer`，约 2 秒、`provider=null`。`is_market_watch_query("2026-07-25 市场怎么样") is False`。`is_market_watch_query("2026-07-23 今天市场怎么样") is True`。`is_market_watch_query("2026-07-25 今天市场怎么样") is True` 且 `requested_date=2026-07-25`。
+4. `needs_template=true` 仍只用来记 `llm_unavailable_template_answer`，不是包入口。本条未推翻。
+9. 双红 SQL 与涨停热度适配器仍在。本条未推翻。
+10. C1 产品/天花板公开稿同句周六无行情，**成立条件是 C1 旁路**，不是 `market_watch` 换座。Knevo 邻日叙事仍不当产品缺口。
+12. **[新增，洞 1]** `workbench_skills/router.py`：`is_market_watch_query` 为真时插入 `daily-review`。`registry.py`：`role="workflow"`，`can_own_answer=True`。`_skill_output_compatible_with_turn` 在 `lane=="workflow"` 只看 role。有 `answer_contract` 则 `owner_output` 非空，走 `prepare_existing_answer`。代码自己写了 `is_market_review = owner_output is None and ...`。
+13. **[新增，洞 1]** `structured_reports.daily_projection_modules`：指定日没有 `<date>-daily-review.md` 则 `date_text=None`，skill 不带 `answer_contract`，才会落到 `_answer_market_review`。主树存在 `market_feature_store/exports/2026-07-23-daily-review.md`。A1 live 臂 `finance_root` 是主树时，#2 的 v1 判据必红，且红法随这个 md 漂。
+14. **[新增，洞 2]** `_daily_market_overview_block_for_llm`：`where trade_date <= as_of order by desc limit 1`。`_market_data_asof` 同样 `<=`。`<= DATE '2026-07-25'` 实测返回 `2026-07-24`。
+15. **[新增，洞 2]** `_resolve_market_data_context`：`requested_date` 原样返回，不查库。`result.trade_date` 可与块内 `served_date` 分裂。
+16. **[新增，洞 3]** `with_calendar_disclosure` 调用点：`continuous_turn_adapter`、`lane_generation`。`ask.py` / `ask_blocks.py` / `ask_synthesis.py` 零调用。`deterministic_lane_answer` 只在 `question_type=="quick_fact"` 时吐休市句。
 
 ## 4. 方案对比
 
 | 方案 | 做法 | 追上什么 | 追不上 / 代价 |
 |---|---|---|---|
-| **A. 拒收 A，Engine B 当 owner（推荐）** | `market_watch` 加入 `DETERMINISTIC_OWNER_TYPES`；编排器把问句日写入 `AskOptions.date`；`_answer_market_review` 先跑四袋再决定要不要残差 LLM | 天花板供数；C1 形状保持；第一轮空转消失 | Engine B 现役 `compose=True` 仍会叫模型写人话，必须加「格锁死」才不会再发明阈值 |
-| B. 留在 A，episode 前先跑包 | 在 `agent_episode` 第一轮前注入四袋观察 | 供数能齐 | 仍受 synthesis-heavy、repair、capability 错账、判官贴条；和「换座位」目标相反 |
-| C. 产品内嵌 ReAct | 模型自己决定下一查 | 偶尔写出冲突句 | 贵、不稳、现场写 5/5 自评偏斜；本单明确不做 |
+| **A. 拒收 A + 汇合处跑包（推荐）** | `market_watch` 加入拒收名单；包在 owner 分叉前跑；显式日精确命中；Engine B 补休市句；残差复用 `compose` | 天花板供数；A1 不空转；P0 休市题不回落 07-24 | daily-review 仍可 own 人话，必须把锁格并进公开稿；`compose=True` 仍可能发明阈值，P1 删句 |
+| B. 留在 A，episode 前先跑包 | 第一轮前注入四袋 | 供数能齐 | 仍受 synthesis-heavy / repair / 假缺口；和换座位相反 |
+| C. 产品内嵌 ReAct | 模型自选下一查 | 偶尔写出冲突句 | 贵、不稳；本单不做 |
 
-选 A。B 是给「暂时改不了拒收名单」的退路，不得当默认。C 出局。
+选 A。洞 1 的 (b)（降级 daily-review）不是第三方案，是 A 的错误落点，已否决。
 
 ## 5. 目标态
 
 ```
-intent（已有：is_market_watch_query → question_type=market_watch）
-  → 解析站立日：问句日期或 information_cutoff；无日期则用库内 ≤ cutoff 的最新交易日
-  → 休市 / 日历披露已在 task_frame.assumptions：公开稿只出该句，停
-  → 组件包（同步、确定性、计入 traces）：
-        1. fact_market_daily 总量（1 行或 0 行）
-        2. 主线（fact_mainline_* ，允许「该日无主线表」缺口）
-        3. fact_sector_daily 严格双红名单
-        4. fact_theme_limit_heat_daily 热度
-  → 0 行：公开稿 = 无该日行情。禁止改查邻日
-  → 有行：把四袋渲染成锁死格，写入将送给残差写手的材料，并直接进入公开稿骨架
-  → 残差写手（可关）：只解释冲突 / 人话连接；格内数字原样出现
-  → 交付闸：未注册方法语言删除；质检内部码不上桌
+intent（is_market_watch_query → question_type=market_watch）
+  → Engine A 拒收
+  → 解析显式站立日（问句日或 cutoff）
+  → 汇合处：run_market_watch_pack(standing_date)
+        精确查四袋；每袋收据 = 命中该日 或 empty
+        休市：calendar_disclosure 写入公开稿首句
+        0 行：compose=False，停
+  → 分叉（包已经跑完，两路都能读同一份收据）：
+        owner 是 daily-review → prepare_existing_answer，锁格必须进入公开稿
+        无 owner → _answer_market_review 只渲染包，不再用 <= as_of 自己查
+  → 有行且 compose=True：残差只解释冲突
+  → 交付闸：未注册方法语言删除；质检不上桌
 ```
 
-Engine A 对 `market_watch` 的第一动作必须是拒收，而不是开 `continuous_glm`。
+C1 旁路（无「今天」）不进上图。它继续 `lane_direct_answer`。#5 只保证没把它改坏。
 
 ## 6. 契约
 
-### 6.1 站立日
+### 6.1 站立日（四个解析点）
 
-优先级（先命中先用，禁止「库尖覆盖问句日」）：
+优先级：
 
-1. `market_review_requested_date(query)`（A1 = `2026-07-23`）
-2. 任务上的 `information_cutoff.as_of` / 评测 cutoff
-3. 库内 `max(trade_date)` 且 `<=` 上面两者之中已有的上界
+1. `market_review_requested_date(query)`（A1 = `2026-07-23`；P0 休市题 = `2026-07-25`）
+2. 任务 `information_cutoff.as_of` / 评测 cutoff
+3. **仅当 1、2 都空**（隐式「今天」）：库内 `max(trade_date) <=` 上界
+4. `_resolve_market_data_context`：这是第四个写入 `result.trade_date` 的点。有显式站立日时，库无该日行必须返回「无该日 / None」，**禁止**把问句日原样写回。有行则 `trade_date` 与包的 `served_date` 同一天。
 
-`AskOptions.date` 必须带上这个站立日。禁止继续只靠 daily-review skill 的 `as_of`。
+`AskOptions.date` 带显式站立日。禁止只靠 daily-review skill 的 `as_of`。
 
-`_daily_market_overview_block_for_llm(..., as_of=站立日)` 与主线块同样传 `as_of`。标题写「指定日盘面」，不写「最新」——除非站立日确实等于库尖。
+查询语义：
+
+| 情况 | SQL |
+|---|---|
+| 显式站立日 | `trade_date = ?`。0 行 = empty，不回落 |
+| 隐式站立日 | 允许 `<=` 取最新 |
+
+禁止：只把现役 `as_of` 塞进块函数、语义仍是 `<=`。两条落地任选其一，§8 写死选用哪条：**(i)** 块函数加 `strict_date=True`；**(ii)** 包负责查询，块只渲染传入的行。推荐 (ii)，避免第三条 `<=` 语义漏网。
+
+标题写「指定日盘面」，不写「最新」——除非隐式日且取到的就是库尖。
 
 ### 6.2 四袋规定查询
 
 | 袋 | 源 | 0 行时公开稿必须 |
 |---|---|---|
-| 总量 | `fact_market_daily` 该站立日 1 行 | 「该日无行情数据」（休市句优先） |
-| 主线 | 现役 `_market_review_mainline_context_block_for_llm` | 写「主线表该日无行 / 仅有题材汇总」，不得用邻日主线冒充当日 |
-| 严格双红 | `fact_sector_daily` + `DOUBLE_RED_SQL`，按成交或涨幅排序列出名称 | 写「严格双红 0 个」；不得改口径放宽 |
-| 涨停热度 | `MarketAdapter.get_limit_heat_themes(站立日)` 或等价 `fact_theme_limit_heat_daily` | 写「涨停热度该日无行」 |
+| 总量 | `fact_market_daily` **该站立日** 1 行 | 「该日无行情数据」（休市句优先） |
+| 主线 | 现役主线块改为读包行，或对**该日**精确查 | 「主线表该日无行 / 仅有题材汇总」。有行就列该日行。不得用邻日冒充。不要预设 07-23 无行。 |
+| 严格双红 | `fact_sector_daily` + `DOUBLE_RED_SQL`，该日 | 「严格双红 0 个」 |
+| 涨停热度 | `get_limit_heat_themes(站立日)` 或该日 `fact_theme_limit_heat_daily` | 「涨停热度该日无行」 |
 
-四袋都要有收据（成功或 empty）。缺收据 = 包没跑完 = 结构未完成，不能靠模型补一袋。
+每袋收据必须带 `requested_date` 与 `served_date`。显式站立日下：`served_date == requested_date` 或袋 status=`empty`。缺收据 = 包没跑完。
 
-总量格至少锁这些字段（有则原样，无则显式缺）：`total_amount`、`amount_vs_yesterday_pct`、`limit_up`、`limit_down`、`sh_index_pct_chg`、`volume_state`、`market_stage` + `stage_day`。A1 冻结日对照：`21949.97`、`-17.27`、`116`、`2`、`+0.25`、缩量、反弹阶段。验收锁「这些数来自该日行」，不锁措辞。
+总量锁字段（有则原样）：`total_amount`、`amount_vs_yesterday_pct`、`limit_up`、`limit_down`、`sh_index_pct_chg`、`volume_state`、`market_stage` + `stage_day`。A1 对照：`21949.97`、`-17.27`、`116`、`2`、`+0.25`（库内 `0.2519`）、缩量观望、反弹阶段。
 
-### 6.3 残差写手
+验收两锁，缺一不可：数字来自真行 **且** `served_date` 等于问句日。只锁数字会放过 07-25 问句吃 07-24 行。
 
-残差是可选的。包齐且 0 行时不上模型（C1）。
+### 6.3 残差写手与 `compose`
 
-有行时允许一轮成文，输入 = 锁死格 + 已授权视角 / reading baseline。输出约束：
+现役没有「残差可关」开关。`conversation_orchestrator` 硬编码 `compose=True`。`_answer_market_review` 只在 `compose=False` 时走 `_build_base_answer_spec_from_sections`。
 
-1. 格内数字必须在公开稿出现，数值与收据一致。
-2. 若主线名单含某题材、该题材不在双红名单：必须写缺口或并列，禁止写成该题材「当天加量 / 主升」。
-3. 禁止输出未在组件口径或已注入 reading baseline 登记过的方法阈值。现场已出现、必须删的形状：`MA20` 的 `110–120%`、旗型蓄能、未登记支撑/压力位、缩量新高需降权（若基线未注册）。
-4. `rejected_claim_indexes=[]` 但语义已标 invent 的句子，本单视为交付失败。删句，不要贴「【质检存疑】」上桌。
-5. 公开稿不含 `## 输出质检`、内部 gate code。
+本单复用 `compose`，不新增参数：
 
-### 6.4 能力记账（仅当题仍可能进 A）
+| 包结果 | `compose` | 模型 |
+|---|---|---|
+| 休市或总量袋 empty | `False`（包跑完后 `replace`） | 不上场 |
+| 有行 | 保持 `True` | 只写残差 |
 
-P0 拒收成功后，盘面题不应再撞 `missing_mandatory_capability: market_data`。若测试或回退路径仍进 episode：
+有行时约束不变：格内数字与收据一致；主线有、双红无则写缺口；未注册阈值删除；质检不上桌。
 
-- `finance_query` 且 `dataset=market_daily` 的成功迹，视为满足 `market_data` 对 `market_summary` / `data_date` 的贡献；**或**
-- 组件包自己记 `capability=market_data`。
+### 6.4 能力记账（P1 / 方案 B 退路，不是 P0 门禁）
 
-禁止只改文案、不改账。仪表红、料其实在，比缺料更危险。
+P0 拒收成功后，盘面题不应再撞 `missing_mandatory_capability: market_data`。**禁止**把「不报这条」写成 P0 必绿测试——那会永远绿。
 
-同时：`market_watch` 移出 `_SYNTHESIS_HEAVY_QUESTION_TYPES`。盘面题不是先写综述再补数。
+只在这两处验收：方案 B 退路仍进 episode 时；或 P1 专门测「若有人把 `market_watch` 移出拒收名单」。
+
+同时：`market_watch` 移出 `_SYNTHESIS_HEAVY_QUESTION_TYPES`，防回退。
+
+### 6.5 `knowledge_anchor` 时间边界（行为变更）
+
+今日 `knowledge_anchor` 吃 `options.date`，而 `options.date` 常常是 daily-review 的 `as_of` 或 `None`。本单把 `AskOptions.date` 改成立立日之后，锚点按站立日收口。
+
+验收：A1 的 knowledge 块 `as_of=2026-07-23`（或显式「该日无积累」），不得在站立日已钉死时按「最新」扫库。这是有意变更，写进 §7.3 #12。
+
+### 6.6 Engine B 休市披露
+
+判定仍只读 `honesty_gates.calendar_disclosure(frame)` / `task_frame.assumptions`。
+
+新调用点（§8 写死一处，不要两处各写各的）：
+
+- 汇合处包跑完后，若 disclosure 非空：公开稿首句 = 该句；`compose=False`；四袋收据仍在（empty）。
+- 不要指望 `lane_generation` 的 `quick_fact` 分支给 `market_watch` 休市句。
+- 不要改 C1 旁路现有调用。
 
 ## 7. 验收
 
-离线单测必须红→绿。Live 只在干净树、不覆盖四臂旧迹。
+离线单测必须红→绿。Live 只在干净树、不覆盖四臂旧迹。夹具必须自带「有 / 无 `2026-07-23-daily-review.md`」两种 owner 分叉，禁止依赖主树 exports 是否存在。
 
-### 7.1 拒收
+### 7.1 拒收与汇合处
 
 | # | 输入 | 必须 |
 |---|---|---|
-| 1 | `TaskFrame.question_type=market_watch` 进 `ContinuousTurnAdapter` | `handled=False`（与 `dated_market_review` 同形） |
-| 2 | 同题在编排器 | 走到 `_answer_market_review`，`execution_kind` 不是 `continuous_episode` |
-| 3 | 第一轮模型 | 不存在；若残差上场，其前方 traces 已有四袋 |
+| 1 | `TaskFrame.question_type=market_watch` 进 `ContinuousTurnAdapter` | `handled=False` |
+| 2 | A1 题面进编排器，**无论** owner 是不是 daily-review | 四袋收据齐；`requested_date=served_date=2026-07-23` 或该袋 empty。**不**断言一定走进 `_answer_market_review`，**不**断言 `execution_kind != continuous_episode`（owner 路径也满足这句话） |
+| 3 | 残差若上场 | 其前方已有四袋收据 |
+| 2a | 夹具有 `2026-07-23-daily-review.md`，daily-review 成为 owner | 仍满足 #2。锁格在公开稿，不被 md 顶掉 |
+| 2b | 夹具无该 md，无 owner | 仍满足 #2。走到 `_answer_market_review` 只渲染包 |
 
-变异：从 `DETERMINISTIC_OWNER_TYPES` 拿掉 `market_watch` → #1 必须红。
+变异：从拒收名单拿掉 `market_watch` → #1 红。汇合处调用删掉 → #2 / #2a 红。
 
 ### 7.2 站立日与 0 行
 
-| # | 输入 | 必须 |
-|---|---|---|
-| 4 | 问句 `2026-07-23 今天市场怎么样`，库里该日有行、库尖更新 | 总量袋 `served_date=2026-07-23`，不是库尖 |
-| 5 | 问句 `2026-07-25 市场怎么样`（周六），库 0 行 | 公开稿点名周六/休市；无 7/24 成交额/涨停数；`llm` 不上场 |
-| 6 | 总量袋 0 行且非休市 | 「该日无行情」；不改查邻日 |
+| # | 输入 | 必须 | 标注 |
+|---|---|---|---|
+| 4 | `2026-07-23 今天市场怎么样`，该日有行、库尖更新 | 总量袋 `served_date=2026-07-23`，不是库尖 | P0 |
+| 5 | `2026-07-25 市场怎么样`（C1 原题） | 公开稿点名周六/休市；无 7/24 盘面数；`llm` 不上场 | **另一路径**回归锁，不证明本单换座 |
+| 5a | `2026-07-25 今天市场怎么样` | `market_watch` 包跑完；总量袋 empty；公开稿休市句；无 7/24 成交额/涨停；`compose=False`；`result.trade_date` 不是 07-25 假有数、也不是 07-24 | **P0 本单分支** |
+| 6 | 显式站立日总量袋 0 行且非休市 | 「该日无行情」；`served_date` 空；不改查邻日 | P0 |
+
+变异：块查询仍用 `<=` 且把 07-25 当 as_of → #5a / #6 必须红（回到 07-24）。
 
 ### 7.3 四袋与锁格
 
 | # | 输入 | 必须 |
 |---|---|---|
-| 7 | A1 冻结日夹具（1 行总量 + 若干双红 + 热度） | 四袋都有收据；公开稿含总量锁字段与双红名、热度名 |
-| 8 | 主线含「半导体」、双红全在电链 | 残差不得写半导体当天加量；必须能看到并列或缺口 |
-| 9 | 修复轮只打了总量+主线的旧迹形状 | 本单路径下不得再出现「只有两袋」的完成态 |
+| 7 | A1 冻结日夹具（1 行总量 + 双红 + 热度） | 四袋收据；公开稿含锁字段、双红名、热度名；`served_date=2026-07-23` |
+| 8 | 主线含「半导体」、双红全在电链 | 残差不得写半导体当天加量 |
+| 9 | 旧迹「只有两袋」形状 | 本单路径不得以两袋完成 |
+| 12 | A1 + knowledge_anchor | 锚点 `as_of=2026-07-23` 或「该日无积累」，不按库尖扫 |
 
 ### 7.4 交付卫生
 
-| # | 输入 | 必须 |
-|---|---|---|
-| 10 | 残差稿含 `MA20` `110–120%` 或「旗型蓄能」 | 公开稿删除该句，不留质检条 |
-| 11 | 结构核验 | 不得在已有总量袋收据时报 `missing_mandatory_capability: market_data` |
+| # | 输入 | 必须 | 序 |
+|---|---|---|---|
+| 10 | 残差稿含 `MA20` `110–120%` 或「旗型蓄能」 | 公开稿删句，不留质检条 | P1 |
+| 11 | episode 仍被接住且已有总量袋 | 不得报 `missing_mandatory_capability: market_data` | **P1 / 方案 B，不是 P0 门禁** |
 
 ### 7.5 Live（干净树，新目录）
 
-复跑 A1/C1 网页臂各一次，对照四臂旧迹，不覆盖。
+不覆盖 `four-arm-knevo-20260823/`。
 
-A1 过线：第一动作不是 `deadline_exhausted`；公开稿有锁格数字；有双红名单；无未注册阈值上桌。不要求追齐现场写的全部措辞。
+| 题 | 过线 |
+|---|---|
+| A1 `2026-07-23 今天市场怎么样` | 第一动作不是 `deadline_exhausted`；四袋齐；锁格数字；双红名单；无未注册阈值上桌。不锁措辞。主树有无 07-23 md 都要过 #2 |
+| P0 休市 `2026-07-25 今天市场怎么样` | 休市句；无 07-24 盘面数 |
+| C1 原题 | 与实施前旁路兼容（#5）。不是本单过线主证 |
 
-C1 过线：与天花板同形（周六 + 无行情），与本单实施前产品句兼容。
-
-Knevo 快照只作对照，不纳入过线。
+Knevo 快照只对照，不纳入过线。
 
 ## 8. 落点与文件
 
+P0 四行（v1 的三行不够）。第 3 行是洞 1，必须在竖切站立日之前落地，否则测试切在不执行的路上。
+
 | 文件 | 职责 | 序 |
 |---|---|---|
-| Modify: `intelligence/runtime/continuous_turn_adapter.py` | `DETERMINISTIC_OWNER_TYPES` 加入 `market_watch` | P0 |
-| Modify: `intelligence/runtime/conversation_orchestrator.py` | `AskOptions.date` = 问句日 / cutoff，不单靠 daily-review skill | P0 |
-| Modify: `intelligence/services/ask.py` `_answer_market_review` | 传入 `as_of`；先跑四袋；0 行停；再决定残差 | P0 |
-| Modify: `intelligence/services/ask_blocks.py`（或紧邻新纯函数） | 双红名单块 + 热度块，只调现役 SQL/适配器 | P0 |
-| Modify: `intelligence/runtime/glm_agent_runtime.py` | `market_watch` 移出 `_SYNTHESIS_HEAVY_QUESTION_TYPES` | P0（防回退进 A） |
-| Modify: `intelligence/services/research_tool_registry.py` 或包收据 | `finance_query(market_daily)` 或组件包记入 `market_data` | P1 |
-| Modify: 交付闸（现役 semantic verifier / honesty 卫生，**先 rg 再改**） | 未注册阈值删句；质检不上桌 | P1 |
-| Test: `intelligence/tests/test_market_watch_component_first.py`（新） | §7.1–7.4 夹具 | P0/P1 |
-| 收尾: `docs/prediction-ledger.md` | `R-20260824-01`…`04` | 收尾 |
+| Modify: `intelligence/runtime/continuous_turn_adapter.py` | `DETERMINISTIC_OWNER_TYPES` 加入 `market_watch` | P0-1 拒收 |
+| Create: `intelligence/services/market_watch_pack.py` | `run_market_watch_pack`：显式日 `=` 查询四袋；产出 `MarketWatchPack`（每袋 `requested_date` / `served_date` / rows 或 empty） | P0-2 站立日 + P0-4 四袋 |
+| Modify: `intelligence/services/ask.py` `_resolve_market_data_context` | 显式日无行不得回显问句日 | P0-2 |
+| Modify: `intelligence/runtime/conversation_orchestrator.py` | **在 `if owner_output is not None` 之前**调包；休市/`empty` 则 `replace(compose=False)` 并写入公开稿首句；两分支都能读包 | P0-3 owner 分叉 |
+| Modify: `intelligence/services/ask.py` `_answer_market_review` | 只渲染包，不再自己 `<= as_of` 查库 | P0-3 / P0-4 |
+| Modify: `intelligence/services/ask_blocks.py` | 块改为渲染函数，或 `strict_date=True`。§6.1 选 (ii) 则块不再查库 | P0-2 / P0-4 |
+| Modify: 编排器或 `_answer_market_review` 收口 | Engine B 调 `calendar_disclosure` / `with_calendar_disclosure`（一处） | P0-3 |
+| Modify: `intelligence/runtime/glm_agent_runtime.py` | `market_watch` 移出 `_SYNTHESIS_HEAVY_QUESTION_TYPES` | P0 防回退 |
+| Test: `intelligence/tests/test_market_watch_component_first.py` | §7.1–7.3，含 #2a/#2b/#5/#5a | P0 |
+| Modify: 交付闸（先 rg） | 未注册阈值删句 | P1 |
+| Modify: registry 或包收据 | `market_data` 记账 | P1（#11） |
+| 收尾: `docs/prediction-ledger.md` | `R-20260824-01`…`06` | 收尾 |
 
-不要改 `honesty_gates.py` 的休市判定。C1 只加回归锁。
-
-不要新建第二份双红口径。引用 `DOUBLE_RED_SQL`。
+不要改 `honesty_gates.py` 的判定。不要新建第二份双红口径。不要改 `lane_generation` 的 `quick_fact` 休市句（C1 旁路依赖它或 `lane_direct_answer` 的现役链，#5 锁的是行为不是函数名）。
 
 ## 9. 账本
 
 | ID | 现象 | 类型 | 序 | 验证 |
 |---|---|---|---|---|
-| `R-20260824-01` | `market_watch` 进 Engine A，第一轮 0 工具 `deadline_exhausted` | `HARNESS_FIX` | P0 | §7.1、§7.5 A1 |
-| `R-20260824-02` | 问句日有数仍可能打到库尖；`as_of` 没传到总览块 | `HARNESS_FIX` | P0 | §7.2 #4 |
-| `R-20260824-03` | 规定四袋缺双红/热度，修复轮各补两袋且不一致 | `HARNESS_FIX` | P0 | §7.3 |
-| `R-20260824-04` | 发明阈值上桌；`rejected_claim_indexes=[]`；`market_data` 假缺口 | `HARNESS_FIX` | P1 | §7.4 |
+| `R-20260824-01` | `market_watch` 进 Engine A，第一轮 0 工具 `deadline_exhausted` | `HARNESS_FIX` | P0-1 | §7.1 #1、§7.5 A1 |
+| `R-20260824-02` | 显式日按 `<=` 回落邻日；`_resolve_market_data_context` 与块 `served_date` 分裂 | `HARNESS_FIX` | P0-2 | §7.2 #4/#5a/#6 |
+| `R-20260824-03` | 四袋缺双红/热度 | `HARNESS_FIX` | P0-4 | §7.3 |
+| `R-20260824-04` | 发明阈值上桌；`rejected_claim_indexes=[]` | `HARNESS_FIX` | P1 | §7.4 #10 |
+| `R-20260824-05` | 拒收后 daily-review 抢走 owner，包根本不跑（随 md 漂） | `HARNESS_FIX` | P0-3 | §7.1 #2/#2a/#2b |
+| `R-20260824-06` | 新座位上的休市题无披露、吃邻日数（休市句留在旧椅） | `HARNESS_FIX` | P0-3 | §7.2 #5a |
 
-结案：单测绿不够，A1/C1 live 收据要进新目录。禁止覆盖 `four-arm-knevo-20260823/`。
+`R-20260824-02` 的 v1 表述「没传 as_of」保留为子因；v2 主因是 `<=` + 日期回显。结案写明这点。
+
+#11 不单独占号。禁止覆盖 `four-arm-knevo-20260823/`。
 
 ## 10. 实施顺序
 
-1. 从 `gitea/main` 开干净树。本脏树只许 pathspec 留下这份 spec。
-2. 先写 §7.1 #1 失败测试（`market_watch` 今日会被 A 接住）→ 加入拒收名单 → 绿。
-3. 竖切站立日：#4 红（不传 `as_of` 打到库尖）→ 编排器 + `_answer_market_review` 传日 → 绿。
-4. 竖切四袋：#7/#8 红 → 双红/热度块进包 → 绿。0 行 #5/#6 锁 C1。
-5. P1：删句闸 + 能力记账。#10/#11。
-6. 干净树 live A1/C1。合 main 等用户确认。
+1. 从 `gitea/main` 开干净树。本脏树只许 pathspec 留 spec。
+2. §7.1 #1 失败测试 → 加入拒收名单 → 绿。
+3. **先落地洞 1（P0-3）**：#2a 红（有 md、owner 在、包未跑）→ 汇合处调包 → #2a/#2b 绿。**禁止**先竖切 `_answer_market_review` 传 `as_of`——那条路在有 md 时不执行。
+4. 竖切站立日（P0-2）：#5a/#6 用 `<=` 夹具红 → 精确查询 + 修 `_resolve_market_data_context` → 绿。
+5. 竖切四袋（P0-4）：#7/#8/#12 红 → 包齐四袋 → 绿。#5 锁 C1 旁路。
+6. P1：#10。#11 只挂方案 B / 回退测试。
+7. Live：A1 + P0 休市题。C1 原题只做旁路对照。合 main 等用户确认。
 
-反向执行的代价：先加 prompt / 先加严判官，会留下「模型仍是第一执行者」的绿测试，P0 换座位时还得拆掉。先做 P1 记账、不做拒收，A1 还会先空转 70s。
+反向执行的代价：先传 `as_of` 再处理 owner 分叉，会得到一套只在「没有 daily-review.md」时绿的测试，A1 冻结日主树上 live 全红。先加严判官同 v1。
 
 ## 11. 合入关系
 
-- 质量稿 P0（截断 / 滤空 / 单位）与本单文件冲突面小，可并行。本单不依赖那些修才换座位。
-- 路由稿改的是 `market_cause` 入口，本单不碰。
-- reading-rules / SPT 注入：残差写手可以读已注入的 baseline，但 **baseline 不是四袋的替代**。没跑双红袋，不许用视角句子补一张双红表。
+- 质量稿 P0 与本单文件冲突面小，可并行。
+- 路由稿不碰。
+- reading-rules / SPT：baseline 不是四袋的替代。
+- `knowledge_anchor` 边界收紧与本单同 PR，不要拆出去「以后再说」——拆出去会被当成回归。
 
 ## 12. 自检
 
-- 无 TBD。四袋、站立日优先级、拒收名单、验收题面均已钉死。
-- 方案 A 与 §5 目标态一致；B/C 只作对照。
-- 范围只有 `market_watch` 的第一执行者与四袋，不拆成第二份 spec。
-- 「追上 ReAct」在本文 = 组件包 + 冲突残差，不是产品内 ReAct agent。
+- 无 TBD。洞 1 选 (a)。查询语义选 §6.1 (ii)（包查、块渲染）。`compose` 复用，不新造开关。
+- 判别变量仍是「开口前四袋是否已齐」，#2 已改成正向断言。
+- 方案 A 的落点与 §5 一致：汇合处，不是 `_answer_market_review` 单点。
+- C1 原题与 P0 休市题已拆开。
+- #11 不进 P0 门禁。
