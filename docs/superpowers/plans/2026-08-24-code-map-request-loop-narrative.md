@@ -19,7 +19,7 @@ Tracked implementation files:
 
 Generated, ignored outputs rebuilt after the implementation commit:
 
-- `.code-review-graph/graph.sqlite`
+- `.code-review-graph/graph.db`
 - `.code-review-graph/status.json`
 - `.code-review-graph/wiki/`
 
@@ -225,7 +225,7 @@ Expected: one implementation commit containing exactly those two paths.
 
 **Files:**
 
-- Generate: `.code-review-graph/graph.sqlite` (ignored)
+- Generate: `.code-review-graph/graph.db` (ignored)
 - Generate: `.code-review-graph/status.json` (ignored)
 - Generate: `.code-review-graph/wiki/doors/agent-request-loop.md` (ignored)
 - Generate: `.code-review-graph/wiki/index.md` (ignored)
@@ -243,10 +243,10 @@ Expected: exit code `0`, post-processing reports success, the built SHA equals `
 ```bash
 python3 scripts/code_map.py status --json | jq -e '
   .status == "ready"
-  and .freshness.head_matches_build == true
-  and .freshness.commits_behind == 0
-  and .freshness.dirty == false
-  and .graph.node_count > 0
+  and .head_matches_build == true
+  and .commits_behind == 0
+  and .worktree_dirty_code == false
+  and .node_count > 0
 '
 ```
 
@@ -297,7 +297,7 @@ Expected: `true`.
 
 ```bash
 git check-ignore \
-  .code-review-graph/graph.sqlite \
+  .code-review-graph/graph.db \
   .code-review-graph/status.json \
   .code-review-graph/wiki/doors/agent-request-loop.md
 git diff --quiet
