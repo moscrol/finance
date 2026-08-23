@@ -27,11 +27,18 @@
 - `_with_review_appendix` 仍留给 V8/W1 单测拼内部附录；生产公开路径走 `_public_answer_text`。
 - 不修判官 provider 重试、不补「个股+代码」契约、不切 8796。
 
+## 伞形 spec
+
+`docs/superpowers/specs/2026-08-23-publication-and-contract-subtract-design.md` **Draft v1.1**（质检 F1–F6 已回写）
+
+本支只覆盖 spec 的 **P0-A**（灯 + 盘子）。质检：P0-A 可合。P0-B / P0-C 待另开切片，按 v1.1 施工——**不要按 v1 的 §6.2**（只改 cause 会留下「未完成核验绑定」）。不要在这支混写。
+
 ## 下一步
 
 1. 你确认后合 `gitea/main`（本机等价检查；那 4 条存量红需与 main 对照）。
 2. 只切 **8792**。8796 是另一包 revision。
 3. 有色题复跑一臂作验收。
+4. P0-B / P0-C 按伞形 spec 另开分支，不在本支续写。
 
 ## 踩过的坑
 
