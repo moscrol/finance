@@ -2,10 +2,24 @@
 
 ## 目标
 
-让 `main` 和解耦版（`docs/capability-switchboard`）**逐步对齐**，并用三/四臂 trace diff 量两件事：
+两件**不同性质**的事，不要混成一个实验：
 
-1. **服务层损耗**：组件臂（进程内直调）vs 服务臂（HTTP），代码相同，变量只有服务层。
-2. **分支差异**：main 服务臂 vs 解耦版服务臂，服务层相同，变量只有分支。
+1. **Workbench ↔ 组件臂：正交层归因。** 相交那层（同一份 DuckDB、`decide_turn`、D10、
+   `FinanceQuery`、`perspective_lab`、`reading_baseline`、`TurnControlCore`）P0 之后这道题
+   已经对齐，**不是质量差的来源**。差距只能出在正交层，即 Workbench 独有的三处：
+   **谁点下一刀 / 谁执笔 / 端上桌怎么剪**。
+2. **main ↔ 解耦版：等价性检查。** 目的不是质量，是「解耦版更干净、更好搭、组件能单独测」。
+   所以要验的是**行为没变**，不是**谁答得好**。
+
+### 相交 / 正交划分（本题成立，别再回头怪 D10 或题型信封）
+
+| | 内容 |
+|---|---|
+| **相交** | 数据事实（DuckDB `fact_*`）；积木（`decide_turn` / D10 / `FinanceQuery` / `perspective_lab` / `reading_baseline`）；薄适配器 `TurnControlCore`（只收成 `TaskFrame`，不跑工具不写答案） |
+| **正交 · Workbench 独有** | 入口（浏览器→FastAPI→会话）；底座 loop（`conversation_orchestrator` 管回合预算 / `agent_episode` 让模型自选工具 / `glm_agent_runtime` 执笔）；发布门（gate / 投影 / `business_status`）；技能层产品壳（`skill_mode` / 技能列表——组件臂根本没传这套旗标） |
+| **正交 · 组件臂独有** | 人手写死 10 次 `FinanceQuery`、人写 `answer.md`。**这是评测脚本，不是产品层** |
+
+管道层、策略回测、仓内三十来个 skill 在这道题上两边都不是主路径，**不算相交也不算正交打分项**。
 
 ## 已完成（本分支，`75de5ed3`）
 
@@ -73,56 +87,53 @@ test_capability_switchboard.py::test_noop_prompt_added_no_branch_to_the_loop
 
 ⛔ 不重启 8792/8796，不改它们的环境变量，不动 `finance-workspace-runtime` 这个 symlink。
 
-### 任务 C：把组件臂脚本固化进仓
+### 任务 C：正交层 trace diff（Workbench ↔ 组件臂）
 
-组件臂现在是一次性脚本，躺在产物目录里：
-```
-~/.finance-runtime/trace-diff-spt-fengyuan-history-20260823/codex-component/run_component_arm.py
-```
-
-它直调 `TurnControlCore` + `perspective_lab` / `reading_baseline` / `finance_query` /
-`market_regime_analogs` / `research_contract`，**不经 HTTP、不经会话编排**。
-
-问题：**每次重写就没法跨次比较**。对齐是持续过程，读数必须可比。
-按仓里「可复用组件必须归位，不留在一次性脚本里」的规矩，把它搬进 `scripts/`，
-参数化题面 / 用户 / 快照路径 / 输出目录，其余装配顺序**逐字不动**
-（改了装配顺序，它就不再是同一个地面真值）。
-
-### 任务 D：跑 2×2，先只看结构字段
+**不要重跑组件臂，不要把它固化进仓。** 组件臂的正交部分是「人编排 + 人执笔」，
+它是评测脚本不是产品层，重跑一次得到的还是同一类东西。直接拿**已冻结的产物**当参照：
 
 ```
-              组件臂(进程内)    服务臂(HTTP)
-main             A1               A2
-解耦版           B1               B2
+~/.finance-runtime/trace-diff-spt-fengyuan-history-20260823/codex-component/
+    answer.md  trace.jsonl  turn-control.json  evidence.json  run.json
 ```
 
-- `A1↔A2` = 服务层损耗 @main　　`B1↔B2` = 服务层损耗 @解耦版
-- `A2↔B2` = 分支差异（服务层）　`A1↔B1` = 分支差异（领域层）
+⛔ **不比相交层。** `question_type` / `operators` / D10 有没有——P0 之后已对齐，
+live 重放也验过。再去比是浪费，而且会把结论又引回 D10 和题型信封。
 
-**这一轮只比结构字段**，它们是确定性的，单次就能比：
+**只在正交的三个决策点上做 diff：**
+
+| # | 决策点 | Workbench 侧看什么 | 组件臂侧对照 |
+|---|---|---|---|
+| 1 | **谁点下一刀** | `agent_episode` 每一轮模型选了哪个工具、选了几次、有没有空转/重复 | 人写死的 10 次 `FinanceQuery` 调了什么 |
+| 2 | **谁执笔** | `glm_agent_runtime` 合成轮的输入（拿到多少证据）与输出（写了什么） | 人写的 `answer.md` |
+| 3 | **端上桌怎么剪** | gate / 投影 / `business_status` 前后的答案**逐字 diff** | 组件臂无此层，原文即终稿 |
+
+第 3 点是**首要嫌疑**：8796 那次的现象是「**菜还在、盘子被剥空**」——证据取到了，
+是发布层把它剪没了。先看这一刀，再看前两刀。
+
+### 任务 D：main ↔ 解耦版等价性检查（不是质量对比）
+
+目的是「解耦版更干净、更好搭、组件能单独测」，所以要验的是**行为没变**。
+
+同一道冻结题打两条服务臂，**只比结构字段**：
 `question_type` / `operators` / `retrieval_stages` / `evidence_plan.profile` /
-证据条数 / 是否有 `[D10]` 块或 gap 标记。
+证据条数 / 有没有 `[D10]` 块或 gap 标记。**差集应为空。**
 
-⛔ **这一轮不要比答案文本、不要打质量分。** 已实测：8792 与 8796 在**同一目录、
-同一份字节、请求 SHA 相同**的条件下，`answer_sha256` 仍然不同
-（`4042d5e8…` vs `a1d87472…`）。噪声地板非零，单次跑出来的「质量差」
-分不清是分支差异还是模型抖动。质量对比等结构对齐之后另立一单，那时才值得花 n 次跑。
+⛔ **不比答案文本、不打质量分。** 已实测：8792 与 8796 在**同一目录、同一份字节、
+请求 SHA 相同**的条件下 `answer_sha256` 仍不同（`4042d5e8…` vs `a1d87472…`）。
+噪声地板非零，文本差异说明不了任何事。
 
-输出按既有 `trace-diff-manifest-1` 格式（参考
-`~/.finance-runtime/trace-diff-spt-fengyuan-history-20260823/manifest.json`），
-并**新增一个 `arm_deltas` 字段**：明写本次每两臂之间的已知差量（revision / 依赖指纹 /
-配置 / 端口 / users_dir）。**差量 > 1 的配对不做因果归因，只记录现象。**
+「更干净、组件能单独测」这两条**不用跑题验**，用现成的结构手段即可：
+`scripts/run_capability_switchboard.py --all-arms`（每颗开关关一次，看正控/负控是否成立）
+加上每次 commit 都在跑的层级门禁。跑不动的那颗，就是还没解耦干净的那颗。
+
+输出按既有 `trace-diff-manifest-1` 格式，并**新增 `arm_deltas` 字段**：明写每两臂之间的
+已知差量（revision / 依赖指纹 / 配置 / 端口 / users_dir）。**差量 > 1 的配对不做因果归因。**
 
 题面用冻结题（照抄，禁止改写）：
 ```
 用spt和风远的结合视角，说一下目前的行情和之前的哪一段历史行情比较相似，个股怎么对标。
 ```
-
-### 任务 E：差集台账（对齐的收口物）
-
-对齐不要靠肉眼读报告。每次跑记下**哪些结构字段两臂不一致**，把这个集合往空里推。
-形状照抄 `scripts/replay_operator_routing.py`——它已经在做「两次运行的命中集合做差集，
-让『这次改动动了哪些 query』变成机械可查的事实」。
 
 ---
 
@@ -138,5 +149,11 @@ main             A1               A2
 - 本分支合并后**未跑 live**，只有离线测试。
 - 今天的 P0 只保证 **Engine A 预取路径**的 D10 无穿越；Engine B（`ask.py`）与
   `stock_analogs` 仍未按 as_of 截断。
-- 组件臂按设计**不走服务 harness，但走领域 harness**（它 import 的就是
-  `intelligence/services/*`）。所以它不是「无约束基准」，是「去掉服务层的同一套领域逻辑」。
+- 组件臂走**相交层**的领域积木（`TurnControlCore` / 判读基线 / 视角 / 信息截止日 / D10），
+  但整条正交栈都不走。实测 `run_component_arm.py`（492 行）对
+  `verifier` / `gate` / `business_status` / `allowed_capabilities` / `budget` /
+  `episode_tools` / `research_tool_registry` / `orchestrator` 的调用**全部为 0**。
+  所以它的答案**未经质检**——可以当「信封与供数」的地面真值，**不能**当质量天花板。
+- 「遵不遵守契约」是**调用路径**的属性，不是 agent 的属性。脚本 import 到哪儿，约束就到哪儿；
+  绕过的部分不会报错。这也是插件化的前提：**契约要下沉进零件**（如 D10 的 `as_of` 截断做在
+  取数层，下游谁调都绕不过），靠上层编排调用的约束，每条新装配路径都能静默绕开。
