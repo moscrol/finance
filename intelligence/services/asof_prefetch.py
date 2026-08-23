@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, replace
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +33,7 @@ from intelligence.services.market_regime_analogs import (
     regime_block_for_llm,
 )
 from intelligence.services.stock_analogs import parse_stock_analog_intent
+from intelligence.services.task_frame import is_weekly_calendar_question
 
 FERMENTATION_MARKERS = (
     "发酵",
@@ -49,6 +50,10 @@ _FERMENT_END_ISO_RE = re.compile(
 )
 _LEADING_ISO_RE = re.compile(r"^(?P<iso>\d{4}-\d{2}-\d{2})(?!\s*至)")
 _ISO_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_MD_RANGE_RE = re.compile(
+    r"(?P<m1>\d{1,2})月(?P<d1>\d{1,2})日\s*[-~—–～至到]+\s*"
+    r"(?:(?P<m2>\d{1,2})月)?(?P<d2>\d{1,2})日"
+)
 _TIMELINE_LOOKBACK_DAYS = 30
 
 _CALIBER = (
@@ -59,7 +64,31 @@ _CALIBER = (
 
 def is_fermentation_query(query: str) -> bool:
     text = str(query or "")
+    if is_weekly_calendar_question(text):
+        # 「周末发酵了什么新闻 + 下周大事」是跨市场周历，不是题材发酵链路。
+        return False
     return any(marker in text for marker in FERMENTATION_MARKERS)
+
+
+def calendar_event_window(question: str, as_of: date) -> tuple[str, str]:
+    """问句里的显式窗；没有就用 as_of 次日到 +7 日。"""
+
+    text = str(question or "")
+    isos = _ISO_RE.findall(text)
+    if len(isos) >= 2:
+        return min(isos), max(isos)
+    match = _MD_RANGE_RE.search(text)
+    if match is not None:
+        year = as_of.year
+        month2 = match.group("m2") or match.group("m1")
+        start = date(year, int(match.group("m1")), int(match.group("d1")))
+        end = date(year, int(month2), int(match.group("d2")))
+        if end < start:
+            end = date(year + 1, int(month2), int(match.group("d2")))
+        return start.isoformat(), end.isoformat()
+    start = as_of + timedelta(days=1)
+    end = as_of + timedelta(days=7)
+    return start.isoformat(), end.isoformat()
 
 
 def standing_iso_from_query(query: str) -> str | None:
@@ -370,6 +399,73 @@ class PrefetchItem:
         return replace(item, content_hash=evidence_content_hash(item))
 
 
+def _calendar_prefetch_items(
+    question: str,
+    as_of: date,
+    db_path: Path,
+) -> tuple[PrefetchItem, ...]:
+    """周历题进场先查 event_daily。空窗也落「查了、库无行」，不装没查。"""
+
+    if not is_weekly_calendar_question(question):
+        return ()
+    start, end = calendar_event_window(question, as_of)
+    title = f"事件日历 {start}..{end}"
+    as_of_iso = as_of.isoformat()
+    try:
+        from intelligence.services.finance_query import FinanceQuery, FinanceQuerySpec
+        from intelligence.services.research_contract import (
+            InformationCutoff,
+            ResearchDeadline,
+        )
+
+        result = FinanceQuery(db_path).run(
+            FinanceQuerySpec.from_arguments(
+                {
+                    "dataset": "event_daily",
+                    "metrics": ["importance"],
+                    "dimensions": [
+                        "event_date",
+                        "title",
+                        "content",
+                        "sectors",
+                        "is_future",
+                    ],
+                    "time_range": {"start": start, "end": end},
+                    "order_by": [{"field": "event_date", "direction": "asc"}],
+                    "limit": 25,
+                }
+            ),
+            information_cutoff=InformationCutoff(as_of, "requested"),
+            deadline=ResearchDeadline.from_timeout(2.0),
+        )
+    except Exception as exc:
+        return (
+            PrefetchItem(
+                tool="finance_query",
+                title=title,
+                detail=f"已查 event_daily，窗口 {start}..{end}，查询失败：{exc}",
+                source_date=as_of_iso,
+            ),
+        )
+    if result.rows:
+        detail = result.observation or "；".join(
+            f"{row.get('event_date')} {row.get('title')}" for row in result.rows
+        )
+    else:
+        detail = (
+            f"已查 event_daily，窗口 {start}..{end}，库无行"
+            "（复盘会编辑日历，不是官方全集）"
+        )
+    return (
+        PrefetchItem(
+            tool="finance_query",
+            title=title,
+            detail=detail,
+            source_date=result.served_date or as_of_iso,
+        ),
+    )
+
+
 def _history_analog_items(
     question: str,
     as_of: date,
@@ -475,6 +571,7 @@ def collect_prefetch_items(
                     )
             except Exception:
                 pass
+        items.extend(_calendar_prefetch_items(question, as_of, db_path))
         if is_fermentation_query(question):
             try:
                 sector = resolve_prefetch_sector(con, question, subject)

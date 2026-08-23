@@ -672,6 +672,42 @@ class ResearchToolRegistry:
             )
 
         prepared = self.prepare(name, arguments)
+        if spec.name in {"news_search", "web_search"}:
+            from intelligence.services.task_frame import (
+                strip_default_a_share_search_token,
+            )
+
+            query_text = (
+                prepared.runner_input
+                if isinstance(prepared.runner_input, str)
+                else prepared.display_query
+            )
+            cleaned, hygiene_note = strip_default_a_share_search_token(
+                str(query_text or ""),
+                context.contract.question,
+            )
+            if hygiene_note:
+                raw = dict(prepared.raw)
+                if "query" in raw:
+                    raw["query"] = cleaned
+                prepared = replace(
+                    prepared,
+                    raw=raw,
+                    runner_input=(
+                        cleaned
+                        if isinstance(prepared.runner_input, str)
+                        else prepared.runner_input
+                    ),
+                    display_query=cleaned or prepared.display_query,
+                    normalized_key=query_ledger.normalize_query(cleaned)
+                    if cleaned
+                    else prepared.normalized_key,
+                    normalization_note="；".join(
+                        part
+                        for part in (prepared.normalization_note, hygiene_note)
+                        if part
+                    ),
+                )
         normalized = prepared.normalized_key
         effective_context = context
         if spec.cutoff_resolver is not None:

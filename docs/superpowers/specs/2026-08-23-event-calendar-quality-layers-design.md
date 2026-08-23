@@ -1,7 +1,7 @@
 # 设计：8792 与手调对照的质量分层（日程 / 盘面输入槽）
 
 - 日期：2026-08-23
-- 状态：Draft **v1.1**（P0 补 B1 包装层 + B2 语义写明 + B3 验收解释器；P1/P2 未做）
+- 状态：Draft **v1.2**（P0 已提交本树；P1 窄范围/预取/检索卫生已做；P2 未做）
 - 触发：knevo「周末发酵 / 下周大事」对照；8792 产品路径 `run_20260823_222835_095674`；复盘会 `/workspace/review` 日历盘点
 - 代码树：`/Users/a77/fwp-wt-event-calendar-serving` @ `feat/event-calendar-serving`，底 `gitea/main`。禁止在主检出 `feat/reading-rules-baseline-batch1` 脏树上改
 - 相邻（不重叠）：
@@ -159,7 +159,9 @@ writer 是 `ON CONFLICT ... DO UPDATE SET updated_at = excluded.updated_at`，`_
 
 ---
 
-## 6. P1 / P2（本树不施工）
+## 6. P1 / P2
+
+P1 已落在本树（2026-08-23）：`is_weekly_calendar_question` 阻断默认 A 股；`asof_prefetch` 进场查 `event_daily`；`news_search`/`web_search` 剥默认「A股」。P2 仍未做。
 
 ### P1 减契约 + 强制上桌
 
