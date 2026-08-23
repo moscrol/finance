@@ -15,6 +15,7 @@ import pytest
 
 from intelligence.services.session_projection import (
     CAUSE_EVIDENCE_GAP,
+    CAUSE_JUDGE_UNAVAILABLE_HELD,
     CAUSE_MODEL_UNAVAILABLE,
     CAUSE_TRANSIENT_VERIFIER_OUTAGE,
     CAUSE_VERIFIED,
@@ -52,7 +53,7 @@ def _facts(cause: str) -> TerminalFacts:
 
 
 def test_three_causes_emit_distinct_first_sentences() -> None:
-    """同一份终局事实，三类成因各自产出不同的首句。"""
+    """同一份终局事实，各类成因各自产出不同的首句。"""
 
     rendered = {cause: view(_facts(cause)) for cause in DEGRADED_CAUSES}
     firsts = {cause: _first_sentence(text) for cause, text in rendered.items()}
@@ -60,13 +61,16 @@ def test_three_causes_emit_distinct_first_sentences() -> None:
     assert firsts[CAUSE_TRANSIENT_VERIFIER_OUTAGE] == (
         "本次未完成独立复核（复核服务超时）；内容与证据绑定已通过校验："
     )
+    assert firsts[CAUSE_JUDGE_UNAVAILABLE_HELD] == (
+        "本次未完成独立复核（复核服务不可用）。"
+    )
     assert firsts[CAUSE_EVIDENCE_GAP] == (
         "关于“当前市场怎么看？”，现有证据不足，暂不能可靠回答。"
     )
     assert firsts[CAUSE_MODEL_UNAVAILABLE] == (
         "关于“当前市场怎么看？”，模型服务不可用，暂不能可靠回答。"
     )
-    assert len(set(firsts.values())) == 3
+    assert len(set(firsts.values())) == len(DEGRADED_CAUSES)
 
 
 @pytest.mark.parametrize(

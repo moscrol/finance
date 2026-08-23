@@ -42,6 +42,7 @@ from intelligence.services.degraded_fallback import (
 )
 from intelligence.services.session_projection import (
     CAUSE_EVIDENCE_GAP,
+    CAUSE_JUDGE_UNAVAILABLE_HELD,
     CAUSE_MODEL_UNAVAILABLE,
     CAUSE_TRANSIENT_VERIFIER_OUTAGE,
     CAUSE_VERIFIED,
@@ -1007,7 +1008,11 @@ class SemanticEpisodeVerifier:
                 SemanticEpisodeOutcome(
                     verified=structural,
                     status="partial",
-                    public_answer=self._gap_answer(frame, structural),
+                    public_answer=self._gap_answer(
+                        frame,
+                        structural,
+                        judge_unavailable=True,
+                    ),
                     judge_status="unavailable",
                     issues=tuple(
                         dict.fromkeys((*structural.issues, *preflight_issues, issue))
@@ -2568,6 +2573,8 @@ class SemanticEpisodeVerifier:
     def _gap_answer(
         frame: TaskFrame,
         verified: VerifiedEpisodeOutcome,
+        *,
+        judge_unavailable: bool = False,
     ) -> str:
         """缺数三档的中间档：缺 X → 仍可判 Y → 验证窗口 Z。
 
@@ -2581,6 +2588,25 @@ class SemanticEpisodeVerifier:
         """
 
         question = frame.raw_question.strip() or "当前问题"
+        if judge_unavailable:
+            # 禁语在下面的 evidence 分支，不看 cause。判官挂了必须改这条
+            # body，不能只改开口。
+            parts: list[str] = []
+            evidence = verified.outcome.evidence
+            if evidence:
+                parts.append(
+                    f"本轮已取得 {len(evidence)} 条证据，暂不对外引用；可直接重试。"
+                )
+            window = _latest_evidence_date(evidence)
+            if window:
+                parts.append(f"证据数据截至 {window}。")
+            return view(
+                TerminalFacts(
+                    cause=CAUSE_JUDGE_UNAVAILABLE_HELD,
+                    question=question,
+                    gap_body="".join(parts),
+                )
+            )
         # 首句成因不跟 ASK_DEGRADED_FALLBACK：模型没服务成时不能写成「证据不足」。
         cause = (
             CAUSE_MODEL_UNAVAILABLE
