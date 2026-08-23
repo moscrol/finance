@@ -1,23 +1,28 @@
-# Code Map Request-Loop Narrative Implementation Plan
+# Code Map Agent Runtime Paths Correction Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add one versioned Code Map steering page that lets a reader follow the repository's L0–L4 agent request loop through five stable code anchors, while keeping the generated graph, status, and wiki as reproducible ignored artifacts.
+**Goal:** Replace the misleading L0–L4 request-loop narrative with a Code Map entry for real product doors and parallel runtime paths, then rebuild and verify the map without touching production runtime code or another worktree's in-flight Door document.
 
-**Architecture:** Extend only `.code-review-graph/wiki-steering.json`; the existing `scripts/code_map.py` build pipeline turns that tracked narrative intent into `doors/agent-request-loop.md`. Add one exact configuration test and one build/query integration test. Do not change production runtime code or the Code Map generator.
+**Architecture:** Keep `scripts/code_map.py` unchanged. Change only the tracked steering intent and its public-seam tests: human entry queries must project non-empty Door hits into one narrative page, while internal implementation symbols remain Structure concerns. The corrected Mermaid flow and responsibility table live in the approved design document; generated graph/wiki/status files remain ignored.
 
 **Tech Stack:** JSON, Python 3.12, pytest, `scripts/code_map.py`, Code Review Graph SQLite artifacts, `jq`, Git.
 
 ---
 
-## 文件边界
+## File boundaries
 
 Tracked implementation files:
 
 - Modify: `.code-review-graph/wiki-steering.json`
 - Modify: `tests/test_code_map.py`
 
-Generated, ignored outputs rebuilt after the implementation commit:
+Tracked documentation already approved for this correction:
+
+- Modify: `docs/superpowers/specs/2026-08-24-code-map-request-loop-narrative-design.md`
+- Modify: `docs/superpowers/plans/2026-08-24-code-map-request-loop-narrative.md`
+
+Generated, ignored outputs rebuilt after all tracked commits:
 
 - `.code-review-graph/graph.db`
 - `.code-review-graph/status.json`
@@ -27,87 +32,96 @@ Explicit non-goals:
 
 - No changes under `intelligence/`
 - No changes to `scripts/code_map.py`
-- No second source of truth for the L0–L4 model
-- No hand-written generated wiki page
+- No edits to `docs/agent-product-door.md`, `AGENTS.md`, or `CLAUDE.md`
+- No L0–L4 request-lifecycle model
+- No 5×3 Door / Structure / Narrative matrix
 
-## Task 1: Add the steering contract test-first
+## Task 1: Replace the tracked steering contract test-first
 
 **Files:**
 
-- Modify: `tests/test_code_map.py:630-642`
-- Add near: `tests/test_code_map.py:748-784`
-- Modify: `.code-review-graph/wiki-steering.json:24-28`
+- Modify: `tests/test_code_map.py:630-660`
+- Modify: `.code-review-graph/wiki-steering.json:29-41`
 
-- [ ] **Step 1: Tighten the tracked steering-file contract**
+- [ ] **Step 1: Write the failing tracked-config contract**
 
-Replace the existing steering test with this exact test:
+Replace the request-loop assertions inside `test_wiki_steering_is_narrative_only_and_tracked` with:
 
 ```python
-def test_wiki_steering_is_narrative_only_and_tracked():
-    path = ROOT / ".code-review-graph" / "wiki-steering.json"
-    data = json.loads(path.read_text(encoding="utf-8"))
-    assert data["purpose"] == "steer narrative pages only; not a capability inventory"
     ids = [page["id"] for page in data["pages"]]
     assert "daily-review-door" in ids
     assert "run-scripts" in ids
-    request_loop_pages = [
-        page for page in data["pages"] if page["id"] == "agent-request-loop"
+    assert "agent-request-loop" not in ids
+    runtime_path_pages = [
+        page for page in data["pages"] if page["id"] == "agent-runtime-paths"
     ]
-    assert request_loop_pages == [
+    assert runtime_path_pages == [
         {
-            "id": "agent-request-loop",
-            "title": "Agent 请求 Loop",
+            "id": "agent-runtime-paths",
+            "title": "Agent 产品入口与运行路径",
             "queries": [
-                "validate_runtime_selection",
-                "conversation_orchestrator",
-                "research_tool_registry",
-                "episode_semantic_verifier",
-                "experience_cards",
+                "产品入口",
+                "CLI ask",
+                "Workbench UI",
+                "CLI agent",
+                "TurnOrchestrator",
             ],
         }
     ]
-    proc = subprocess.run(
-        ["git", "check-ignore", "-q", ".code-review-graph/wiki-steering.json"],
-        cwd=str(ROOT),
-        check=False,
-    )
-    assert proc.returncode == 1
 ```
 
-Why: this makes the five anchors, their order, the page identity, and the fact that the steering file is tracked into one executable contract.
+Keep the existing `git check-ignore` assertion after this block. This seam protects the tracked public intent rather than generator internals.
 
-- [ ] **Step 2: Add an end-to-end build/query regression test**
+- [ ] **Step 2: Leave the steering JSON unchanged and add the integration test**
 
-Add this test next to the existing Code Map post-processing tests:
+Continue directly to Task 2 Step 1. Both tests must exist before the first RED run; do not change `.code-review-graph/wiki-steering.json` yet.
+
+## Task 2: Protect generated navigation and view separation
+
+**Files:**
+
+- Modify: `tests/test_code_map.py:803-850`
+
+- [ ] **Step 1: Replace the old anchor-routing integration test**
+
+Replace `test_request_loop_steering_generates_page_and_routes_all_anchors` with:
 
 ```python
-def test_request_loop_steering_generates_page_and_routes_all_anchors(
+def test_agent_runtime_paths_steering_routes_doors_without_claiming_structure(
     tmp_path, monkeypatch
 ):
     cm = _cm()
     root = _init_repo(tmp_path)
     head = _git(root, "rev-parse", "HEAD")
     _make_graph(root, n_nodes=5, git_head_sha=head)
-    (root / ".code-review-graphignore").write_text("*.duckdb\n", encoding="utf-8")
+    (root / ".code-review-graphignore").write_text(
+        "*.duckdb\n", encoding="utf-8"
+    )
 
     source = json.loads(
         (ROOT / ".code-review-graph" / "wiki-steering.json").read_text(
             encoding="utf-8"
         )
     )
-    request_loop_page = next(
-        page for page in source["pages"] if page["id"] == "agent-request-loop"
+    runtime_page = next(
+        page for page in source["pages"] if page["id"] == "agent-runtime-paths"
     )
-    anchors = request_loop_page["queries"]
-    (root / "AGENTS.md").write_text("\n".join(anchors) + "\n", encoding="utf-8")
-    (root / "CLAUDE.md").write_text("Agent 请求 Loop\n", encoding="utf-8")
+    human_queries = runtime_page["queries"]
+    (root / "AGENTS.md").write_text(
+        "评接口与产品入口读 docs/agent-product-door.md。\n"
+        "默认产品门是 CLI ask。\n"
+        "Workbench UI 走 TurnOrchestrator。\n"
+        "显式工具循环走 CLI agent。\n",
+        encoding="utf-8",
+    )
+    (root / "CLAUDE.md").write_text("正门约束见 AGENTS。\n", encoding="utf-8")
 
     crg = root / ".code-review-graph"
     (crg / "wiki-steering.json").write_text(
         json.dumps(
             {
                 "purpose": "steer narrative pages only; not a capability inventory",
-                "pages": [request_loop_page],
+                "pages": [runtime_page],
             }
         ),
         encoding="utf-8",
@@ -118,127 +132,132 @@ def test_request_loop_steering_generates_page_and_routes_all_anchors(
 
     build_payload, build_code = cm.collect_build(root, full=True, postprocess="full")
     assert build_code == 0, build_payload
-    page_path = crg / "wiki" / "doors" / "agent-request-loop.md"
+    page_path = crg / "wiki" / "doors" / "agent-runtime-paths.md"
     page_text = page_path.read_text(encoding="utf-8")
-    assert "# Agent 请求 Loop" in page_text
-    for query in anchors:
+    assert "# Agent 产品入口与运行路径" in page_text
+    assert "（正门无命中）" not in page_text
+
+    for query in human_queries:
         assert f"## query: {query}" in page_text
         payload, code = cm.collect_query(root, query)
         assert code == 0
+        assert payload["layers"]["doors"]["state"] == "ok"
         assert payload["layers"]["narrative"]["state"] == "ok"
         assert any(
-            hit["path"].endswith("doors/agent-request-loop.md")
+            hit["path"].endswith("doors/agent-runtime-paths.md")
             for hit in payload["layers"]["narrative"]["hits"]
         )
 
     index = (crg / "wiki" / "index.md").read_text(encoding="utf-8")
-    assert "doors/agent-request-loop.md" in index
-    title_payload, title_code = cm.collect_query(root, "Agent 请求 Loop")
+    assert "doors/agent-runtime-paths.md" in index
+    title_payload, title_code = cm.collect_query(root, "Agent 产品入口与运行路径")
     assert title_code == 0
     assert title_payload["layers"]["narrative"]["state"] == "ok"
+
+    symbol_payload, symbol_code = cm.collect_query(root, "ResearchToolRegistry")
+    assert symbol_code == 0
+    assert not any(
+        hit["path"].endswith("doors/agent-runtime-paths.md")
+        for hit in symbol_payload["layers"]["narrative"]["hits"]
+    )
 ```
 
-Why: the first test protects declarative intent; this one protects the actual transformation from JSON steering entry to generated page and query routing.
+Why: this tests the public transformation `wiki-steering.json → build → query`. It also proves that a tool implementation symbol is not mislabeled as the product-door narrative.
 
-- [ ] **Step 3: Run the two focused tests and confirm RED**
+- [ ] **Step 2: Run both focused tests and confirm RED**
 
 Run:
 
 ```bash
 .venv-workbench/bin/python -m pytest \
   tests/test_code_map.py::test_wiki_steering_is_narrative_only_and_tracked \
-  tests/test_code_map.py::test_request_loop_steering_generates_page_and_routes_all_anchors \
+  tests/test_code_map.py::test_agent_runtime_paths_steering_routes_doors_without_claiming_structure \
   -q
 ```
 
-Expected: both tests fail because `agent-request-loop` is not yet present in the steering file. If they fail for imports, syntax, or fixture setup instead, fix the test harness before changing production configuration.
+Expected: both FAIL because the old `agent-request-loop` page still exists and `agent-runtime-paths` is missing. A `StopIteration` from the integration test and an exact config mismatch from the contract test are the intended failures.
 
-- [ ] **Step 4: Add the minimum steering entry**
+- [ ] **Step 3: Apply the minimum steering change**
 
-Append this object to the existing `pages` array in `.code-review-graph/wiki-steering.json`:
+Replace the old page object with:
 
 ```json
 {
-  "id": "agent-request-loop",
-  "title": "Agent 请求 Loop",
+  "id": "agent-runtime-paths",
+  "title": "Agent 产品入口与运行路径",
   "queries": [
-    "validate_runtime_selection",
-    "conversation_orchestrator",
-    "research_tool_registry",
-    "episode_semantic_verifier",
-    "experience_cards"
+    "产品入口",
+    "CLI ask",
+    "Workbench UI",
+    "CLI agent",
+    "TurnOrchestrator"
   ]
 }
 ```
 
-These anchors represent:
+- [ ] **Step 4: Run both focused tests and confirm GREEN**
 
-| Layer | Anchor | Responsibility |
-|---|---|---|
-| L0 | `validate_runtime_selection` | Validate the request's runtime/mode selection before orchestration |
-| L1 | `conversation_orchestrator` | Own the request lifecycle and decide which path to take |
-| L2 | `research_tool_registry` | Expose optional research tools when the chosen path needs external work |
-| L3 | `episode_semantic_verifier` | Judge whether the produced answer satisfies semantic/evidence constraints |
-| L4 | `experience_cards` | Turn accepted outcomes and corrections into reusable learning material |
-
-- [ ] **Step 5: Re-run the focused tests and confirm GREEN**
-
-Run the same focused command from Step 3.
+```bash
+.venv-workbench/bin/python -m pytest \
+  tests/test_code_map.py::test_wiki_steering_is_narrative_only_and_tracked \
+  tests/test_code_map.py::test_agent_runtime_paths_steering_routes_doors_without_claiming_structure \
+  -q
+```
 
 Expected: `2 passed`.
 
-- [ ] **Step 6: Run the full Code Map test file**
+- [ ] **Step 5: Run the full Code Map test file**
 
 ```bash
 .venv-workbench/bin/python -m pytest tests/test_code_map.py -q
 ```
 
-Expected: all tests pass. Do not accept skips or unrelated failures as proof of completion.
+Expected: all runnable tests pass. Existing environment-gated skips must be named in the final receipt; no new skip is acceptable.
 
-- [ ] **Step 7: Review the implementation diff**
+- [ ] **Step 6: Run lint and JSON validation**
 
 ```bash
+.venv-workbench/bin/python -m ruff check tests/test_code_map.py
+.venv-workbench/bin/python -m json.tool .code-review-graph/wiki-steering.json >/dev/null
 git diff --check
-git diff --name-only
 ```
 
-Expected tracked implementation diff:
+Expected: all commands exit `0`.
+
+- [ ] **Step 7: Review and commit only the implementation paths**
+
+```bash
+git diff --name-only
+git diff --cached --name-only
+git commit -m "fix: correct Code Map runtime path narrative" -- \
+  .code-review-graph/wiki-steering.json tests/test_code_map.py
+```
+
+Expected implementation commit paths:
 
 ```text
 .code-review-graph/wiki-steering.json
 tests/test_code_map.py
 ```
 
-Review for accidental generator/runtime edits and remove any such changes.
-
-- [ ] **Step 8: Commit only the two implementation files**
-
-```bash
-git add .code-review-graph/wiki-steering.json tests/test_code_map.py
-git commit -m "feat: add Code Map request-loop narrative" -- \
-  .code-review-graph/wiki-steering.json tests/test_code_map.py
-```
-
-Expected: one implementation commit containing exactly those two paths.
-
-## Task 2: Rebuild and verify the current Code Map
+## Task 3: Rebuild and verify the current Code Map
 
 **Files:**
 
 - Generate: `.code-review-graph/graph.db` (ignored)
 - Generate: `.code-review-graph/status.json` (ignored)
-- Generate: `.code-review-graph/wiki/doors/agent-request-loop.md` (ignored)
+- Generate: `.code-review-graph/wiki/doors/agent-runtime-paths.md` (ignored)
 - Generate: `.code-review-graph/wiki/index.md` (ignored)
 
-- [ ] **Step 1: Build from the committed implementation revision**
+- [ ] **Step 1: Build from the final tracked revision**
 
 ```bash
 python3 scripts/code_map.py build --full --postprocess full
 ```
 
-Expected: exit code `0`, post-processing reports success, the built SHA equals `git rev-parse HEAD`, node count is positive, and wiki generation is enabled. `--full` is required because an incremental build can leave the graph metadata SHA behind after a docs-only commit even when `status.json` records the new SHA.
+Expected: exit `0`, positive node count, and wiki generation enabled. `--full` is required because a docs-only commit can otherwise advance `status.json` without advancing graph metadata SHA.
 
-- [ ] **Step 2: Prove freshness and repository cleanliness**
+- [ ] **Step 2: Prove freshness**
 
 ```bash
 python3 scripts/code_map.py status --json | jq -e '
@@ -250,117 +269,128 @@ python3 scripts/code_map.py status --json | jq -e '
 '
 ```
 
-Expected: `jq` exits `0` and prints `true`.
+Expected: `true` and exit `0`.
 
-- [ ] **Step 3: Verify all five anchors have both structural and narrative routes**
+- [ ] **Step 3: Verify the human-facing Door/Narrative routes**
 
 ```bash
-request_loop_queries=(
-  validate_runtime_selection
-  conversation_orchestrator
-  research_tool_registry
-  episode_semantic_verifier
-  experience_cards
+runtime_path_queries=(
+  "产品入口"
+  "CLI ask"
+  "Workbench UI"
+  "CLI agent"
+  "TurnOrchestrator"
 )
 
-for request_loop_query in "${request_loop_queries[@]}"; do
-  python3 scripts/code_map.py query "$request_loop_query" --json | jq -e '
+for runtime_path_query in "${runtime_path_queries[@]}"; do
+  python3 scripts/code_map.py query "$runtime_path_query" --json | jq -e '
     .status == "ready"
-    and .layers.structure.state == "ok"
+    and .layers.doors.state == "ok"
     and .layers.narrative.state == "ok"
     and (
       [.layers.narrative.hits[].path]
-      | any(endswith("doors/agent-request-loop.md"))
+      | any(endswith("doors/agent-runtime-paths.md"))
     )
   '
 done
 ```
 
-Expected: five successful `true` results. A missing structure result means the chosen anchor is stale or misspelled; a missing narrative result means page generation/routing regressed.
+Expected: five successful `true` results.
 
-- [ ] **Step 4: Verify the human-facing title route**
+- [ ] **Step 4: Verify internal symbols remain Structure concerns**
 
 ```bash
-python3 scripts/code_map.py query "Agent 请求 Loop" --json | jq -e '
-  .status == "ready"
-  and .layers.narrative.state == "ok"
+runtime_symbols=(
+  ContinuousAgentEpisode
+  ResearchToolRegistry
+  SemanticEpisodeVerifier
+  AgentSession
+)
+
+for runtime_symbol in "${runtime_symbols[@]}"; do
+  python3 scripts/code_map.py query "$runtime_symbol" --json | jq -e '
+    .status == "ready"
+    and .layers.structure.state == "ok"
+    and (
+      [.layers.narrative.hits[].path]
+      | all(endswith("doors/agent-runtime-paths.md") | not)
+    )
+  '
+done
+```
+
+Expected: four successful `true` results. Other narrative pages may legitimately match; the corrected product-path page must not.
+
+- [ ] **Step 5: Verify generated page content and title route**
+
+```bash
+test -f .code-review-graph/wiki/doors/agent-runtime-paths.md
+! rg -n "正门无命中|L0|L1|L2|L3|L4" \
+  .code-review-graph/wiki/doors/agent-runtime-paths.md
+python3 scripts/code_map.py query "Agent 产品入口与运行路径" --json | jq -e '
+  .layers.narrative.state == "ok"
   and (
     [.layers.narrative.hits[].path]
-    | any(endswith("doors/agent-request-loop.md"))
+    | any(endswith("doors/agent-runtime-paths.md"))
   )
 '
 ```
 
-Expected: `true`.
+Expected: the file exists, contains no empty section or request-layer labels, and the title query returns `true`.
 
-- [ ] **Step 5: Prove generated files stayed ignored**
+- [ ] **Step 6: Prove generated files stayed ignored and tracked files are clean**
 
 ```bash
 git check-ignore \
   .code-review-graph/graph.db \
   .code-review-graph/status.json \
-  .code-review-graph/wiki/doors/agent-request-loop.md
+  .code-review-graph/wiki/doors/agent-runtime-paths.md
 git diff --quiet
 git diff --cached --quiet
 git status --short
 ```
 
-Expected: the first command lists all three generated paths; both diff commands exit `0`; `git status --short` shows only the pre-existing untracked `.venv-workbench` symlink.
+Expected: generated paths are listed; both diff checks exit `0`; status shows only the pre-existing untracked `.venv-workbench` symlink.
 
-## Task 3: Produce the teaching handoff and two-dimensional overview
+## Task 4: Deliver the corrected teaching handoff
 
-**Files:** None. This is the final response, derived from verified repository evidence.
+**Files:** None. The final response is derived from the approved design and verified map.
 
-- [ ] **Step 1: Capture the verified two-axis matrix**
+- [ ] **Step 1: Present the runtime flow only as a flow**
 
-Use the five query results to record:
+Use the Mermaid diagram from the design document. Explicitly label tools optional, verifier Engine-A-specific, and learning cross-turn.
 
-| Request axis | Primary implementation path | Code Map narrative path |
-|---|---|---|
-| L0 entry/selection | `intelligence/perspective_lab.py` | `doors/agent-request-loop.md` |
-| L1 orchestration | `intelligence/runtime/conversation_orchestrator.py` | `doors/agent-request-loop.md` |
-| L2 optional tool work | `intelligence/services/research_tool_registry.py` | `doors/agent-request-loop.md` |
-| L3 verification/gate | `intelligence/services/episode_semantic_verifier.py` | `doors/agent-request-loop.md` |
-| L4 learning/write-back | `intelligence/services/experience_cards.py` | `doors/agent-request-loop.md` |
+- [ ] **Step 2: Present responsibilities as a table**
 
-If a query resolves a different primary path, use the verified query output rather than forcing this planned path.
+Use the five-row responsibility mapping from the design document. Do not call the rows L0–L4 and do not align them with Door / Structure / Narrative.
 
-- [ ] **Step 2: Draw the final two-dimensional diagram**
+- [ ] **Step 3: Explain Code Map from first principles**
 
-The diagram must show both dimensions at once:
+State:
 
-1. Horizontal request flow: `L0 → L1 → optional L2 → L3 → L4`, plus the direct `L1 → L3` bypass when tools are unnecessary.
-2. Vertical Code Map views for every layer: Door (where to enter), Structure (what code connects), Narrative (why the step exists).
+- Door is the normative entry contract;
+- Structure is the current code graph;
+- Narrative groups relevant Door results for reading;
+- the tracked JSON is steering intent, not the whole map;
+- the diagram is the online question-path slice, not an all-repository layer model.
 
-Use solid arrows for runtime flow, dotted vertical lines for map views, and label the diagram with the verified build SHA and node count. Do not imply that Code Map executes the request; it describes and navigates the code that does.
-
-- [ ] **Step 3: Teach the design from first principles**
-
-Explain in plain Chinese:
-
-- A request loop exists because a useful agent must repeatedly reduce uncertainty: understand → act if needed → verify → learn.
-- L2 is optional because tool use is a cost-bearing side effect, not the goal of every request.
-- L3 is separate from L1 because the actor should not be the sole judge of its own output.
-- L4 is after verification because storing an unverified result amplifies mistakes.
-- Code Map is not “just JSON”: the tracked JSON is steering intent; the generated SQLite/wiki/status artifacts are the navigable map; the underlying Python modules are the territory.
-- This approach was chosen over hand-writing a large diagram or modifying the generator because it adds the smallest durable source-of-truth change and lets existing generation/tests prevent drift.
-
-- [ ] **Step 4: State completion boundaries**
+- [ ] **Step 4: Report receipts and boundaries**
 
 Report:
 
-- implementation and test commit SHA;
-- Code Map build SHA, node count, edge count, flow count, and community count;
-- focused and full test results;
-- branch name `codex/code-map-request-loop`;
-- no merge into `main` and no push unless separately requested;
-- the only remaining untracked item is the pre-existing `.venv-workbench` symlink.
+- design, plan, and implementation commit SHAs;
+- Code Map build SHA and graph metrics;
+- focused and full test results, including named existing skips;
+- branch `codex/code-map-request-loop`;
+- no push and no merge into `main`;
+- no edits to the dirty `docs/request-loop-three-paths` worktree;
+- only remaining untracked item is `.venv-workbench`.
 
 ## Final self-review gate
 
-- [ ] Every approved design requirement maps to a task above.
-- [ ] No unresolved placeholder language remains.
-- [ ] Test code uses helpers and payload shapes that already exist in `tests/test_code_map.py`.
-- [ ] The only tracked implementation paths are the steering JSON and its tests.
-- [ ] Generated artifacts are rebuilt only after the implementation commit, so freshness can equal `HEAD`.
-- [ ] No command stages or commits unrelated user files.
+- [ ] Every approved requirement maps to a task above.
+- [ ] The plan contains no unresolved placeholders.
+- [ ] Tests exercise the tracked config and public build/query seam, not Mermaid layout.
+- [ ] No production runtime or Code Map generator file changes.
+- [ ] No edit overlaps the other worktree's in-flight Door document.
+- [ ] Generated artifacts are rebuilt only after all tracked commits.
