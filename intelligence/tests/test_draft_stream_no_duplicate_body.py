@@ -59,6 +59,52 @@ def test_another_message_in_the_same_run_is_not_confused(tmp_path) -> None:
     assert orchestrator._client_already_streamed(run_id, "msg_2") is False
 
 
+def test_every_bulk_text_delta_site_goes_through_the_guard() -> None:
+    """结构性回归：不许有第二条绕过闸的整段推送路径。
+
+    2026-08-23 live 实测（:8797 run_20260823_232446_100587）就栽在这上面——
+    闸只接进了 ask 车道的闭包，continuous 车道那条 ``continuous:text`` 直接
+    调 ``self._emit``，832 个分片共 1229 字之后又整段推了 1222 字，正文出去
+    两遍。紧随其后的 ``answer.snapshot`` 在同一秒内把它盖掉，肉眼几乎看不见，
+    所以逐个发射点数一遍才是有效的检查，盯着屏幕看没用。
+
+    这里数的是**源码里 text.delta 的发射点**，而不是某一次调用的行为：新增
+    车道时如果又直接调 ``_emit``，这条会红。
+    """
+
+    import ast
+    import inspect
+
+    from intelligence.runtime import conversation_orchestrator as module
+
+    tree = ast.parse(inspect.getsource(module))
+    # 闸自己那次 _emit 当然是直接调的，它就是唯一被允许的出口。
+    guard = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "_emit_bulk_text_delta"
+    )
+    allowed = {n.lineno for n in ast.walk(guard) if isinstance(n, ast.Call)}
+
+    raw_emits: list[int] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or node.lineno in allowed:
+            continue
+        func = node.func
+        if not (isinstance(func, ast.Attribute) and func.attr == "_emit"):
+            continue
+        if any(
+            isinstance(arg, ast.Constant) and arg.value == "text.delta"
+            for arg in node.args
+        ):
+            raw_emits.append(node.lineno)
+
+    assert raw_emits == [], (
+        "这些行直接用 _emit 推 text.delta，绕过了 _emit_bulk_text_delta 的"
+        f"「已流过就不再整段推」判断：{raw_emits}"
+    )
+
+
 def test_unreadable_stream_log_falls_back_to_emitting(tmp_path, monkeypatch) -> None:
     """读不到就当没流过——宁可重复一次，不可整段吞掉。"""
 

@@ -2616,14 +2616,11 @@ class TurnOrchestrator:
                 # ``_ensure_terminal_safe_snapshot`` 的两个调用点），无论有没有
                 # 流过都必须留住；重复的是"再整段推一次给客户端"这一半。
                 capture_safe_text(delta)
-                if self._client_already_streamed(run_id, assistant_message_id):
-                    return
-                self._emit(
+                self._emit_bulk_text_delta(
                     run_id,
                     assistant_message_id,
                     f"text:{len(text_chunks):06d}",
-                    "text.delta",
-                    {"delta": delta},
+                    delta,
                     conversation_id,
                 )
 
@@ -3583,12 +3580,11 @@ class TurnOrchestrator:
             ).payload(),
             conversation_id,
         )
-        self._emit(
+        self._emit_bulk_text_delta(
             run_id,
             assistant_message_id,
             "text:000001",
-            "text.delta",
-            {"delta": answer_text},
+            answer_text,
             conversation_id,
         )
         self._emit(
@@ -4022,12 +4018,11 @@ class TurnOrchestrator:
             ).payload(),
             conversation_id,
         )
-        self._emit(
+        self._emit_bulk_text_delta(
             run_id,
             assistant_message_id,
             "continuous:text",
-            "text.delta",
-            {"delta": answer_text},
+            answer_text,
             conversation_id,
         )
         self._emit(
@@ -4120,6 +4115,37 @@ class TurnOrchestrator:
             content=current.content if current is not None else "",
             selected_skill_ids=tuple(selected),
             invoked_skill_ids=tuple(invoked),
+        )
+
+    def _emit_bulk_text_delta(
+        self,
+        run_id: str,
+        message_id: str,
+        event_id: str,
+        text: str,
+        conversation_id: str,
+    ) -> None:
+        """Push the finished answer as one delta — unless it already streamed.
+
+        **All three** bulk emit sites must go through here.  2026-08-23 live on
+        :8797 the guard was only wired into the ``ask`` lane's closure, and the
+        continuous lane (``continuous:text``) sailed straight past it: 832
+        streamed fragments totalling 1,229 chars, then one more 1,222-char
+        delta — the whole answer twice.  The following ``answer.snapshot``
+        replaced it within the same second so it was nearly invisible, which is
+        precisely why a grep for every ``"text.delta"`` emit is the check that
+        matters here, not a live eyeball.
+        """
+
+        if self._client_already_streamed(run_id, message_id):
+            return
+        self._emit(
+            run_id,
+            message_id,
+            event_id,
+            "text.delta",
+            {"delta": text},
+            conversation_id,
         )
 
     def _client_already_streamed(self, run_id: str, message_id: str) -> bool:
