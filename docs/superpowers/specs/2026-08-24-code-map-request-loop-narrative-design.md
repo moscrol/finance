@@ -123,7 +123,7 @@ Tracked 文件：
 
 ### 本地收据
 
-1. `python3 scripts/code_map.py build --postprocess full` 成功；显式 full，不能依赖热点文件阈值碰巧触发叙事页重建。
+1. `python3 scripts/code_map.py build --full --postprocess full` 成功；图与叙事页都显式全量重建，不能依赖热点文件阈值，也不能依赖增量更新在纯文档提交后碰巧推进图元数据 SHA。
 2. `status=ready` 且 `head_matches_build=true`。
 3. 五个锚点分别得到 `structure.state=ok` 与 `narrative.state=ok`。
 4. tracked worktree 无意外改动，生成物继续被 ignore。

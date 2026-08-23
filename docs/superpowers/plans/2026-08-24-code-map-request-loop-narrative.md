@@ -233,10 +233,10 @@ Expected: one implementation commit containing exactly those two paths.
 - [ ] **Step 1: Build from the committed implementation revision**
 
 ```bash
-python3 scripts/code_map.py build --postprocess full
+python3 scripts/code_map.py build --full --postprocess full
 ```
 
-Expected: exit code `0`, post-processing reports success, the built SHA equals `git rev-parse HEAD`, node count is positive, and wiki generation is enabled.
+Expected: exit code `0`, post-processing reports success, the built SHA equals `git rev-parse HEAD`, node count is positive, and wiki generation is enabled. `--full` is required because an incremental build can leave the graph metadata SHA behind after a docs-only commit even when `status.json` records the new SHA.
 
 - [ ] **Step 2: Prove freshness and repository cleanliness**
 
