@@ -972,6 +972,8 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "新高家数/新高结构类问题用 stock_high_daily（表内只含当日创新高的个股，"
         "按 high_period/sw_l1 分组计数即新高结构）；"
         "sector_stock_daily.high_status 显示「非新高」是事实标注，不是数据缺失。"
+        "下周/周末大事、事件日历用 event_daily（复盘会编辑催化，不是官方日程全集；"
+        "event_date 可以晚于信息截止日）。"
     ),
     # 依据在 ``evidence_search._project_evidence``：它把 ``conclusion`` 与
     # ``counter_clues`` 合成同一个 evidence 列表，stance（"支持"/"反方"）**只出现在
