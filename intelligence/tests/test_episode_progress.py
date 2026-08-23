@@ -56,6 +56,62 @@ def test_projector_ignores_private_model_and_unknown_events() -> None:
     assert project_episode_progress(EpisodeEvent(3, TOOL_PRE_EXECUTE, {})) is None
 
 
+def test_tool_labels_cover_exactly_the_registered_tools() -> None:
+    """标签表与工具注册表必须一一对应，不能各自漂。
+
+    少一个：那个工具的进度会退回「正在核对计划所需资料。」——不报错、不刷屏，
+    只是用户永远看不到它，正是最难发现的一类退化。多一个：说明工具已删除或改名，
+    标签成了死条目。两边都锁，新增工具忘了登记就在这里变红。
+    """
+
+    from intelligence.services.episode_progress import _TOOL_LABELS
+    from intelligence.services.research_tool_registry import _DEFAULT_TOOL_METADATA
+
+    missing = sorted(set(_DEFAULT_TOOL_METADATA) - set(_TOOL_LABELS))
+    stale = sorted(set(_TOOL_LABELS) - set(_DEFAULT_TOOL_METADATA))
+
+    assert missing == [], f"这些工具没有用户可见标签，进度会静默退回通用句: {missing}"
+    assert stale == [], f"标签表里有注册表不认识的工具（已删或改名）: {stale}"
+
+
+def test_tool_events_render_distinct_labels_not_one_repeated_sentence() -> None:
+    """同一轮里两个不同工具必须给出两句不同的进度。
+
+    回归的是实测 run_20260823_221135_424228：market_data 与 mainline_context
+    两次调用在 UI 上都显示「正在核对计划所需资料。」，用户无法分辨 agent 在做什么。
+    """
+
+    market = project_episode_progress(
+        EpisodeEvent(4, "tool_request", {"name": "market_data", "arguments": {}})
+    )
+    mainline = project_episode_progress(
+        EpisodeEvent(6, "tool_request", {"name": "mainline_context", "arguments": {}})
+    )
+    result = project_episode_progress(
+        EpisodeEvent(5, "tool_result", {"ok": True, "tool": "market_data"})
+    )
+
+    assert market is not None and mainline is not None and result is not None
+    assert market.message == "正在查盘面快照。"
+    assert mainline.message == "正在查主线结构。"
+    assert result.message == "已取得盘面快照。"
+    assert market.message != mainline.message
+
+
+def test_unregistered_tool_falls_back_instead_of_leaking_its_name() -> None:
+    """认不出来就 fail closed：退回通用句，绝不把工具名透出去。"""
+
+    progress = project_episode_progress(
+        EpisodeEvent(9, "tool_request", {"name": "some_unregistered_tool"})
+    )
+
+    assert progress is not None
+    assert progress.message == "正在核对计划所需资料。"
+    assert "some_unregistered_tool" not in json.dumps(
+        progress.to_dict(), ensure_ascii=False
+    )
+
+
 def test_progress_kinds_are_registered_durable_kinds() -> None:
     """UI 进度只投影已登记的 durable kind，不另造一套词表。
 

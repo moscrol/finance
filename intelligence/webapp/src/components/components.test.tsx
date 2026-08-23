@@ -1328,6 +1328,87 @@ describe("Chat-first conversation components", () => {
     expect(screen.queryByText("正在检索本轮证据")).toBeNull();
   });
 
+  // 回归实测 run_20260823_221135_424228：那一轮流了 6 条 trace.step，UI 只显示
+  // 最后一条、且答案一到就整条消失，38 秒里用户只看得到一行不变的字。
+  const episodeSteps = [
+    {
+      step_id: "continuous:episode:3:plan",
+      name: "planning",
+      status: "completed" as const,
+      started_at: "2026-08-23T22:11:35+08:00",
+      finished_at: "2026-08-23T22:11:35+08:00",
+      input_summary: "",
+      output_summary: "已形成研究计划。",
+      warnings: [],
+    },
+    {
+      step_id: "continuous:episode:4:tool_request",
+      name: "research",
+      status: "completed" as const,
+      started_at: "2026-08-23T22:11:41+08:00",
+      finished_at: "2026-08-23T22:11:41+08:00",
+      input_summary: "",
+      output_summary: "正在查盘面快照。",
+      warnings: [],
+    },
+    {
+      step_id: "continuous:episode:6:tool_request",
+      name: "research",
+      status: "running" as const,
+      started_at: "2026-08-23T22:11:41+08:00",
+      finished_at: null,
+      input_summary: "",
+      output_summary: "正在查主线结构。",
+      warnings: [],
+    },
+  ];
+
+  const bubbleWithProgress = (
+    overrides: Partial<ChatMessage>,
+    progress: typeof episodeSteps,
+  ) => (
+    <MessageBubble
+      message={{ ...assistantMessage, degrades: [], ...overrides }}
+      skills={productSkills}
+      live={{
+        ...createLiveMessageState({
+          conversationId: "conv_recent",
+          messageId: "msg_assistant",
+          runId: "run_demo",
+        }),
+        status: overrides.status === "completed" ? "completed" : "streaming",
+        progress,
+      }}
+      bundle={null}
+      canRegenerate={false}
+      onRegenerate={vi.fn()}
+      onOpenArtifact={vi.fn()}
+      onFollowup={vi.fn()}
+    />
+  );
+
+  it("shows every episode milestone, not only the newest one", () => {
+    render(bubbleWithProgress({ content: "", status: "pending" }, episodeSteps));
+
+    expect(screen.getByText("已形成研究计划。")).toBeVisible();
+    expect(screen.getByText("正在查盘面快照。")).toBeVisible();
+    expect(screen.getByText("正在查主线结构。")).toBeVisible();
+  });
+
+  it("keeps the timeline available after the answer lands", () => {
+    render(
+      bubbleWithProgress(
+        { content: "最终回答正文。", status: "completed" },
+        episodeSteps,
+      ),
+    );
+
+    // 答案与过程并存：正文可见，过程折叠但仍在 DOM 里，可回查。
+    expect(screen.getByText("最终回答正文。")).toBeVisible();
+    expect(screen.getByText("研究过程（3 步）")).toBeVisible();
+    expect(screen.getByText("已形成研究计划。")).toBeInTheDocument();
+  });
+
   it("replays and upserts public trace steps in live message state", () => {
     const initial = createLiveMessageState({
       conversationId: "conv_recent",
