@@ -839,7 +839,8 @@ def test_semantic_repair_cannot_remove_a_visible_required_output_marker() -> Non
     assert "结构缺口" not in result.public_answer
     assert "现有证据不足" not in result.public_answer
     assert "需补充直接证据" not in result.public_answer
-    assert "继续成立条件" in result.public_answer
+    assert "详见「输出质检」" not in result.public_answer
+    assert "继续成立条件" not in result.public_answer
     assert result.gap_output_ids == ("continuation_conditions",)
     assert result.to_dict()["gap_output_ids"] == ["continuation_conditions"]
     assert any(
@@ -4090,7 +4091,9 @@ def test_public_gap_never_projects_adversarial_outcome_gap(judge_mode: str) -> N
     assert "PRIVATE_GAP_SENTINEL" not in result.public_answer
     if judge_mode == "unavailable":
         assert result.status == "partial"
-        assert "直接判断" in result.public_answer
+        assert "复核服务不可用" in result.public_answer
+        assert "现有证据不足" not in result.public_answer
+        assert "未完成核验绑定" not in result.public_answer
     else:
         assert "市场下跌" in result.public_answer
 
