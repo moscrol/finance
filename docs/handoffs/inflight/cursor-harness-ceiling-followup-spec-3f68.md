@@ -4,17 +4,18 @@
 Harness 后续规格（GitHub PR #3）。只改文档。纲领：增加输入必要就加，限制输出只做减法。
 
 ## 当前状态
-v3 已按用户判据改定。**D0 绿**（`R-20260824-10`）。**D1 关单**（`R-20260824-07` confirmed，零产品 diff）。树 `/Users/a77/fwp-wt-harness-ceiling-followup-spec`。不合 main。
+D0/D1 已结。D2：W2 `R-20260821-08` confirmed；W1 `R-20260821-07` 仍欠 `marker_loss>0`。正文 `docs/verification/2026-08-24-d2-w1-w2-natural-sample.md`。
+D3 已提交 `5b599223`（`feat/empty-pool-fallback-query`）。D4 第 1 步已提交 `a478ad55`（`feat/capability-switchboard`）。本树只改文档。
 
 ## 未验证 / 已知边界
-D2 结案、D3 输入加法、D4 同 SHA 未做。
+W1 自然样本未到。D3/D4 未开 PR、未合。同 SHA / 合 main / 切端口等用户。不要按审查开条件放稿门。
 
 ## 下一步
-D3（空池 fallback，必要的输入加法）或 D2 结案。不要在本 spec 树改 runtime。另开 `gitea/main` 树。
+push D3/D4 后开 Gitea PR。合 main / 切端口等用户。W1 等真 `marker_loss>0` 再结，别把结构水印当删格。
 
 ## 踩过的坑
-v1 没对 prediction-ledger。v2 给输出侧加了第三扇门。Knevo A1 ≠ 周一题。
-云端排查子代理 ID（会腐烂，只放这里）：`079a3f4b-6c91-40ce-969b-22381bcc58ce`。失效就重读 spec §0.3，不要写回 spec 正文。
+超集树 `2bac3633` 一次改了 30+ 已在 main 且已漂的文件，整树当解耦版会三向。`1c52e19f` 的 `agent_episode.py` 已与 main 相同，不要再拆。
+云端子代理 ID（会腐烂）：`079a3f4b-6c91-40ce-969b-22381bcc58ce`。失效重读 spec §0.3。
 
 ## 已验证
-R-05 confirmed；W1 #309+#334、W2 #307 在 main；开关板只在 `76ee1e89`。
+R-05 / W1 / W2 在 main。开关板模块仍不在 `gitea/main`。serving 不 import `capability_switchboard`。

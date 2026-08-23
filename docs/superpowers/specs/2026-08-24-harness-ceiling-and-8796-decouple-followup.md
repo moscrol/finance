@@ -1,7 +1,7 @@
 # 设计：输出闸减法 + 必要的输入加法 + 8796 同 SHA
 
 - 日期：2026-08-24
-- 状态：Draft **v3**（加减法判据已钉；未施工）
+- 状态：Draft **v3**（加减法判据已钉。D3=`5b599223`、D4 第 1 步=`a478ad55` 已提交未合）
 - v2 → v3：纲领改成「增加输入必要就加，限制输出只做减法」。D1 取消第三扇放稿门和无-report 数字闸，只补分类器；贴不上就关单。D3 留下并标明是输入加法。D4 本批完成定义停在同 SHA；live 注入是关输入的实验，不挡本批。见 §0.2 / §0.3。
 - v1 → v2 核稿洞（仍有效）：D2 是结案不是实现；D0 不用 Knevo A1 证 P0-C；unavailable 已有两形状；D3 继承 as-of 并与 issue-backfill 互斥；生产不读开关板；台账从 `R-20260824-07` 起。见 §0.2。
 - 分诊（Mac 只读实况，08-23/08-24）：
@@ -208,8 +208,8 @@ Cursor 臂看见空表就改查成交额前排，是人改查询策略。组件�
 | 行 | 实现 | 台账为何还 pending |
 |---|---|---|
 | R-05 | #296 confirmed | 已结，**不要再立** |
-| W1 | #309 + V8 #334；`test_ceiling_required_block_degrade.py` | 欠 marker_loss>0 的自然 live 样本。Knevo A1「质检降级…残块保留」是候选显影 |
-| W2 | #307；`test_mandatory_satisfiability.py` | 欠打到 `chain_mapping` 强路径的自然样本（减肥药探针契约没打上） |
+| W1 | #309 + V8 #334；`test_ceiling_required_block_degrade.py` | **仍欠** `marker_loss>0`。Knevo A1 / 08-24 指数×科技的「质检降级」是结构 `partial` 水印，不是删格残块。见 `docs/verification/2026-08-24-d2-w1-w2-natural-sample.md` |
+| W2 | #307；`test_mandatory_satisfiability.py` | **2026-08-24 已结**：指数×科技 8792 打上 `chain_mapping.required=False` + 预置缺口，公开稿【结构缺口】未剥盘。`R-20260821-08` confirmed |
 
 ### 6.2 步骤
 
@@ -222,6 +222,8 @@ Cursor 臂看见空表就改查成交额前排，是人改查询策略。组件�
 
 - 两行台账各有「为何 confirmed / 仍差哪条自然样本」的书面结论。
 - diff 不含 `intelligence/**/*.py`。
+
+2026-08-24 已写：`docs/verification/2026-08-24-d2-w1-w2-natural-sample.md`。W2 confirmed；W1 书面结论=仍差 `marker_loss>0`。本单不因 W1 未结而重开实现。
 
 ---
 
@@ -340,4 +342,4 @@ D4 先盘点 76ee1e89 非 docs 提交，再拆 PR，同 SHA
 
 ## 12. 给续跑代理的第一句话
 
-> 先重读 `docs/superpowers/specs/2026-08-24-harness-ceiling-and-8796-decouple-followup.md` **§0.1、§0.2、§0.3**。增加输入必要就加，限制输出只做减法。从 D0 开做。不要给端盘加第三扇门，不要把 D2 当实现单，不要在脏主树上施工，不要擅自合 main。
+> 先重读 `docs/superpowers/specs/2026-08-24-harness-ceiling-and-8796-decouple-followup.md` **§0.1、§0.2、§0.3**。增加输入必要就加，限制输出只做减法。D0/D1/D2(W2) 已结。D3=`5b599223`、D4 第 1 步=`a478ad55` 已提交未合。不要给端盘加第三扇门，不要把结构水印当 W1，不要在脏主树上施工，不要擅自合 main。
