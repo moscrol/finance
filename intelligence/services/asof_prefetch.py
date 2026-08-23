@@ -24,6 +24,12 @@ from intelligence.services.theme_lifecycle_timeline import (
     load_theme_daily_rows,
     resolve_theme_alias,
 )
+from intelligence.services.market_analogs import parse_analog_intent
+from intelligence.services.market_regime_analogs import (
+    parse_regime_intent,
+    regime_block_for_llm,
+)
+from intelligence.services.stock_analogs import parse_stock_analog_intent
 from market_feature_store.signals import (
     DOUBLE_RED_AMOUNT_MIN,
     DOUBLE_RED_DIFF_MIN,
@@ -375,6 +381,76 @@ class PrefetchItem:
         return replace(item, content_hash=evidence_content_hash(item))
 
 
+def _history_analog_items(
+    question: str,
+    as_of: date,
+    as_of_iso: str,
+    db_path: Path,
+) -> list[PrefetchItem]:
+    """算子命中即供数：D10 出块或 gap；D8 / D11 在 P0 只留 gap。
+
+    不变量：D10 取数按 as_of 截断（见 market_regime_analogs.load_market_regime_vectors），
+    禁止把问句截止日之后的行情写进历史窗口。
+    """
+    items: list[PrefetchItem] = []
+    wants_regime = parse_regime_intent(question)
+    wants_theme_analog = parse_analog_intent(question) and not wants_regime
+    if wants_regime:
+        block = regime_block_for_llm(db_path, as_of=as_of)
+        if str(block or "").strip():
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title="市场情绪环境类比 [D10]",
+                    detail=block,
+                    source="本地 DuckDB · D10",
+                    source_date=as_of_iso,
+                )
+            )
+        else:
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title="historical_analogs gap（D10 不可用）",
+                    detail=(
+                        "D10 市场情绪类比不可用（库缺失、历史不足或无可比窗口）。"
+                        "historical_analogs 必须标 gap，禁止用画像或框架原文冒充历史窗口。"
+                    ),
+                    source="本地 DuckDB · D10",
+                    source_date=as_of_iso,
+                )
+            )
+    elif wants_theme_analog:
+        items.append(
+            PrefetchItem(
+                tool="market_data",
+                title="historical_analogs gap（D8 未预取）",
+                detail=(
+                    "本题命中题材级历史类比算子，D10 市场环境块不适用；"
+                    "D8 未在 Engine A 开场预取接线。historical_analogs 标 gap，"
+                    "禁止编造未注册的历史阶段。"
+                ),
+                source="本地 DuckDB · D8 未预取",
+                source_date=as_of_iso,
+            )
+        )
+    if parse_stock_analog_intent(question):
+        items.append(
+            PrefetchItem(
+                tool="market_data",
+                title="个股对标 gap（D11 未预取）",
+                detail=(
+                    "本题含个股对标词面。D11 个股走势类比只在 Engine B 接线，"
+                    "且当前实现不按 as_of 截断，P0 不接入 Engine A 预取。"
+                    "个股对标必须标 gap，禁止用画像或题材原文冒充个股历史窗口。"
+                ),
+                source="D11 未预取",
+                source_date=as_of_iso,
+            )
+        )
+    return items
+
+
 def collect_prefetch_items(
     *,
     question: str,
@@ -388,11 +464,12 @@ def collect_prefetch_items(
         if market_db_path is not None
         else default_market_db_path()
     )
-    con = _connect(db_path)
-    if con is None:
-        return ()
     items: list[PrefetchItem] = []
     as_of_iso = as_of.isoformat()
+    items.extend(_history_analog_items(question, as_of, as_of_iso, db_path))
+    con = _connect(db_path)
+    if con is None:
+        return tuple(items)
     try:
         if question_type == "market_forecast":
             try:

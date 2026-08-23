@@ -313,7 +313,7 @@ def _deterministic_decision(
             reason=clarification.reason,
             clarification_questions=clarification.questions,
         )
-    if selected_skill_ids or skill_mode == "manual":
+    if selected_skill_ids:
         return _decision(
             "workflow",
             envelope=envelope,
