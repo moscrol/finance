@@ -1364,3 +1364,41 @@ def test_deterministic_route_records_no_failure() -> None:
 
     assert decision.llm_failure_reason == ""
     assert decision.llm_failure_detail == ""
+
+
+_FROZEN_ANALOG = (
+    "用spt和风远的结合视角，说一下目前的行情和之前的哪一段历史行情比较相似，个股怎么对标。"
+)
+
+
+def test_empty_manual_does_not_override_comparison_analog() -> None:
+    decision = decide_turn(
+        _FROZEN_ANALOG,
+        skill_mode="manual",
+        selected_skill_ids=(),
+        llm_complete=_no_llm,
+    )
+    assert decision.question_type == "comparison_analog"
+    assert decision.reason != "用户显式选择了工作流能力"
+    assert decision.turn_intent is not None
+    assert "history_analog" in decision.turn_intent.operators
+
+
+def test_nonempty_manual_skill_still_counts_as_explicit_choice() -> None:
+    decision = decide_turn(
+        _FROZEN_ANALOG,
+        skill_mode="manual",
+        selected_skill_ids=("daily-agent",),
+        llm_complete=_no_llm,
+    )
+    assert decision.reason == "用户显式选择了工作流能力"
+
+
+def test_empty_manual_does_not_reroute_quick_fact() -> None:
+    decision = decide_turn(
+        "宁德时代今天收盘多少",
+        skill_mode="manual",
+        selected_skill_ids=(),
+        llm_complete=_no_llm,
+    )
+    assert decision.question_type == "quick_fact"
