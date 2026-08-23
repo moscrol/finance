@@ -495,6 +495,11 @@ class ContinuousTurnAdapter:
             )
             if perspective_context:
                 context_kwargs["perspective_context"] = perspective_context
+            perspective_activation = getattr(
+                control, "perspective_activation", None
+            )
+            if perspective_activation is not None:
+                context_kwargs["perspective_activation"] = perspective_activation
             if self._synthesis_reserve_for_task is not None:
                 context_kwargs["synthesis_reserve"] = max(
                     0.0,
@@ -1576,11 +1581,21 @@ def _episode_context_provenance(
 ) -> dict[str, object]:
     """Persist the single cutoff/freshness context beside private diagnostics."""
 
+    from intelligence.services.activation_receipt import collect_run_activations
+
+    perspective_record, baseline_record = collect_run_activations(
+        perspective=getattr(context, "perspective_activation", None),
+        perspective_field=str(context.perspective_context or ""),
+    )
     return {
         "information_cutoff": context.information_cutoff.to_dict(),
         "today": context.today,
         "latest_data_date": context.latest_data_date,
         "trace_parent_id": context.trace_parent_id,
+        "activations": [
+            perspective_record.to_dict(),
+            baseline_record.to_dict(),
+        ],
     }
 
 

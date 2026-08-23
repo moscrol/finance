@@ -1762,6 +1762,14 @@ class TurnOrchestrator:
                 max(0.0, self.research_policy.synthesis_reserve_seconds),
             ),
         )
+        perspective_text, perspective_activation = (
+            perspective_lab.activate_runtime_perspective(
+                userspace.user_space(self.run_store.user_id),
+                mode=perspective_mode,
+                perspective_ids=tuple(selected_perspective_ids),
+                query=query,
+            )
+        )
         self._emit(
             run_id,
             assistant_message_id,
@@ -1975,17 +1983,10 @@ class TurnOrchestrator:
                     task_frame=task_frame,
                     turn_intent=turn_intent,
                     conversation_context=context.to_prompt_block(),
-                    # 视角约束在这里进入 continuous 引擎。此前只有 legacy 合成
-                    # 路径注入（ask_synthesis._active_perspective_prompt），
-                    # 生产 continuous 主路径上视角只在 API 层验证与存储，模型
-                    # prompt 永远看不到（2026-08-14 生产 smoke 实测）。
-                    # neutral 时该原语返回空串，episode 输入逐字节不变。
-                    perspective_context=perspective_lab.active_runtime_prompt(
-                        userspace.user_space(self.run_store.user_id),
-                        mode=perspective_mode,
-                        perspective_ids=tuple(selected_perspective_ids),
-                        query=query,
-                    ),
+                    # 视角约束在这里进入 continuous 引擎。与标题共用上面
+                    # 那一次 activate，禁止再按 mode/ids 算店名。
+                    perspective_context=perspective_text,
+                    perspective_activation=perspective_activation,
                 )
                 continuous_result = self.continuous_turn_adapter.handle(
                     frame=task_frame,
@@ -2004,8 +2005,7 @@ class TurnOrchestrator:
                         selected_skill_ids=manual_selected,
                         turn_intent=turn_intent,
                         research_plan=research_plan,
-                        perspective_mode=perspective_mode,
-                        selected_perspective_ids=selected_perspective_ids,
+                        perspective_activation=perspective_activation,
                     )
             if (
                 decision.lane in {"chat", "meta", "clarify"}
@@ -2732,6 +2732,7 @@ class TurnOrchestrator:
                 ),
                 perspective_mode=perspective_mode,
                 perspective_ids=tuple(selected_perspective_ids),
+                perspective_prompt_override=perspective_text,
                 stream_text_delta=capture_safe_text,
                 stream_cancel_check=self.is_cancelled,
                 deadline=generic_deadline,
@@ -2899,15 +2900,16 @@ class TurnOrchestrator:
                     modules=daily_review_output.modules,
                     warnings=daily_review_output.warnings,
                 )
-            perspective_header = (
-                perspective_lab.runtime_answer_header(
-                    userspace.user_space(self.run_store.user_id),
-                    mode=perspective_mode,
-                    perspective_ids=tuple(selected_perspective_ids),
+            if decision.lane not in {"research", "workflow"}:
+                perspective_header = ""
+            elif perspective_activation.status == "injected":
+                perspective_header = perspective_lab.runtime_answer_header(
+                    perspective_activation
                 )
-                if decision.lane in {"research", "workflow"}
-                else ""
-            )
+            elif perspective_activation.status == "inactive":
+                perspective_header = perspective_lab.runtime_neutral_banner()
+            else:
+                perspective_header = ""
             draft_text = sanitize_conversation_answer(
                 "\n\n".join(
                     block for block in (perspective_header, draft_text) if block
@@ -2998,7 +3000,7 @@ class TurnOrchestrator:
                     warnings=daily_review_output.warnings,
                 )
             fallback_notice = (
-                perspective_lab.runtime_fallback_notice(perspective_mode)
+                perspective_lab.runtime_fallback_notice(perspective_activation)
                 if (
                     decision.lane in {"research", "workflow"}
                     and result.synthesis is None
@@ -3669,8 +3671,7 @@ class TurnOrchestrator:
         selected_skill_ids: Sequence[str],
         turn_intent: TurnIntent,
         research_plan: ResearchPlan,
-        perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL,
-        selected_perspective_ids: Sequence[str] = (),
+        perspective_activation: perspective_lab.ActivationRecord | None = None,
     ) -> TurnResult:
         """Persist one Episode-owned terminal result without legacy synthesis."""
 
@@ -3842,24 +3843,20 @@ class TurnOrchestrator:
             "answer_marker_coverage",
             coverage,
         )
-        # 视角答案头与 legacy 路径同源（runtime_answer_header）。只在用户显式
-        # 选择了视角时前置：neutral 且无审查意见时，Episode 答案原样透传。
-        # 有 semantic issues 时编排器接通「修订版在前、意见进输出质检附录」；
-        # 覆盖率仍度量模型正文，所以 appendix 加在 coverage 之后。
-        if (
-            perspective_mode != perspective_lab.PERSPECTIVE_MODE_NEUTRAL
-            and selected_perspective_ids
-        ):
-            try:
-                perspective_header = perspective_lab.runtime_answer_header(
-                    userspace.user_space(self.run_store.user_id),
-                    mode=perspective_mode,
-                    perspective_ids=tuple(selected_perspective_ids),
-                )
-            except (ValueError, FileNotFoundError):
-                perspective_header = ""
-            if perspective_header:
-                answer_text = f"{perspective_header}\n\n{answer_text}"
+        # 标题只消费本轮那一张激活收据。degraded 可加固定句降级声明，
+        # 但不得按 mode/ids 再 load_profile 印店名。
+        if perspective_activation is not None:
+            perspective_header = perspective_lab.runtime_answer_header(
+                perspective_activation
+            )
+            fallback_notice = perspective_lab.runtime_fallback_notice(
+                perspective_activation
+            )
+            prefix = "\n\n".join(
+                block for block in (perspective_header, fallback_notice) if block
+            )
+            if prefix:
+                answer_text = f"{prefix}\n\n{answer_text}"
         draft_text = answer_text
         answer_text = _with_review_appendix(
             answer_text,

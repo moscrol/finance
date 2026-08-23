@@ -487,6 +487,7 @@ def build_episode_context(
     conversation_context: str = "",
     information_cutoff: InformationCutoff | None = None,
     perspective_context: str = "",
+    perspective_activation: object | None = None,
     knowledge: KnowledgeAdapter | None = None,
 ) -> ResearchRunContext:
     """Freeze control output into one immutable research run contract."""
@@ -616,6 +617,7 @@ def build_episode_context(
         information_cutoff=cutoff,
         root_budget=root_budget_for_policy(policy, episode_id=task_id),
         perspective_context=str(perspective_context or "").strip(),
+        perspective_activation=perspective_activation,
     )
 
 

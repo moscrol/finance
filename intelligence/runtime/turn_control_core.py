@@ -65,6 +65,7 @@ class TurnControlResult:
     # Prompt-only KOL perspective constraints (perspective_lab runtime prompt);
     # never evidence.  Empty string means neutral: legacy behavior byte-for-byte.
     perspective_context: str = ""
+    perspective_activation: object | None = None
 
 
 def project_turn_decision(
@@ -74,6 +75,7 @@ def project_turn_decision(
     turn_intent: TurnIntent | None = None,
     conversation_context: str = "",
     perspective_context: str = "",
+    perspective_activation: object | None = None,
 ) -> TurnControlResult:
     """Project one already-made decision without invoking understanding again."""
 
@@ -120,6 +122,7 @@ def project_turn_decision(
         clarification_questions=clarification_questions,
         conversation_context=str(conversation_context or "").strip(),
         perspective_context=str(perspective_context or "").strip(),
+        perspective_activation=perspective_activation,
     )
 
 

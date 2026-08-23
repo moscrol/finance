@@ -194,6 +194,9 @@ class AskOptions:
     supplemental_citations: tuple[Any, ...] = ()
     perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL
     perspective_ids: tuple[str, ...] = ()
+    # Frozen text from the turn's single activate(). None = rebuild;
+    # "" = already activated as empty (degraded / neutral).
+    perspective_prompt_override: str | None = None
     stream_text_delta: Callable[[str], None] | None = field(
         default=None, repr=False, compare=False
     )

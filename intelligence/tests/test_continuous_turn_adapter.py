@@ -3054,6 +3054,24 @@ def test_long_tail_runs_gates_without_calling_legacy_presenter(
     assert "semantic_verifier" in result.private_artifact
     assert result.private_artifact["research_context"]["information_cutoff"]
     assert result.private_artifact["research_context"]["trace_parent_id"]
+    activations = result.private_artifact["research_context"]["activations"]
+    assert {item["kind"] for item in activations} == {
+        "perspective",
+        "reading_baseline",
+    }
+    required_keys = {
+        "kind",
+        "requested",
+        "resolved",
+        "display_names",
+        "renderer",
+        "prompt_hash",
+        "injected",
+        "status",
+        "reason",
+    }
+    assert all(required_keys <= set(item) for item in activations)
+    assert all(item["prompt_hash"] == "" or item["injected"] for item in activations)
     assert "PRIVATE_HASH_SENTINEL" not in str(result.events)
 
 

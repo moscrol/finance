@@ -965,6 +965,8 @@ class ResearchRunContext:
     # never evidence.  Empty means neutral.  Trailing default keeps positional
     # construction in older integrations backwards compatible.
     perspective_context: str = ""
+    # Control-plane receipt. Not serialized into the model prompt.
+    perspective_activation: object | None = None
 
 
 @dataclass(frozen=True)

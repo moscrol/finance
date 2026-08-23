@@ -238,6 +238,16 @@ def test_episode_input_carries_perspective_context_only_when_active() -> None:
     assert active_input["perspective_context"] == (
         "只允许使用下方这一位 KOL 的画像与原文召回。"
     )
+    from intelligence.services.activation_receipt import (
+        collect_run_activations,
+        field_digest,
+    )
+
+    sealed, _baseline = collect_run_activations(
+        perspective=None,
+        perspective_field=active_input["perspective_context"],
+    )
+    assert sealed.prompt_hash == field_digest(active_input["perspective_context"])
     assert "不得当作事实证据" in active_input["perspective_context_rule"]
 
 

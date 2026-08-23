@@ -37,6 +37,8 @@ from datetime import date as date_cls, datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from intelligence.services import activation_receipt
+from intelligence.services.activation_receipt import ActivationRecord
 from intelligence.userspace import UserSpace
 
 PROFILE_SCHEMA_VERSION = 1
@@ -632,37 +634,141 @@ def build_runtime_context(
     )
 
 
-def runtime_answer_header(
-    us: UserSpace,
-    *,
-    mode: str,
-    perspective_ids: list[str] | tuple[str, ...],
-) -> str:
-    resolved = validate_runtime_selection(us, mode, perspective_ids)
-    display_names = tuple(
-        str(profile.get("display_name") or perspective_id)
-        for perspective_id in resolved
-        for profile in (load_profile(us, perspective_id),)
-    )
+def runtime_neutral_banner() -> str:
+    """Legacy research lane label when no KOL was requested.
+
+    Not a shop name. Continuous leaves this off so a neutral Episode
+    answer stays byte-identical to the engine output.
+    """
+
     return RuntimePerspectiveContext(
-        mode=mode,
-        perspective_ids=resolved,
-        display_names=display_names,
+        mode=PERSPECTIVE_MODE_NEUTRAL,
+        perspective_ids=(),
+        display_names=(),
         prompt="",
     ).answer_header()
 
 
-def runtime_fallback_notice(mode: str) -> str:
-    if mode == PERSPECTIVE_MODE_NEUTRAL:
+def runtime_answer_header(record: ActivationRecord) -> str:
+    """Print a KOL title only from a successful injection receipt.
+
+    Display names must already be frozen on the record from the same
+    ``build_runtime_context`` that wrote the prompt. This function must not
+    ``load_profile`` or accept bare mode/ids.
+    """
+
+    if record.status != "injected" or not record.display_names:
         return ""
-    if mode == PERSPECTIVE_MODE_SINGLE:
-        return (
+    return RuntimePerspectiveContext(
+        mode=activation_receipt.mode_from_requested(record.requested),
+        perspective_ids=record.resolved,
+        display_names=record.display_names,
+        prompt="",
+    ).answer_header()
+
+
+def runtime_fallback_notice(record: ActivationRecord) -> str:
+    """Fixed-sentence degrade copy. Must not name a KOL / SPT shop."""
+
+    if record.status != "degraded":
+        return ""
+    if activation_receipt.mode_from_requested(record.requested) == "compare":
+        notice = (
+            "各 KOL 原始判断：该视角未知（本轮未完成 LLM 多视角映射）。\n"
+            "下方内容仅为数据中立事实底座，不代表任何 KOL 的判断或共识。"
+        )
+    else:
+        notice = (
             "KOL原始判断：该视角未知（本轮未完成 LLM 视角映射）。\n"
             "下方内容仅为数据中立事实底座，不代表该 KOL 的判断。"
         )
-    return (
-        "各 KOL 原始判断：该视角未知（本轮未完成 LLM 多视角映射）。\n"
-        "下方内容仅为数据中立事实底座，不代表任何 KOL 的判断或共识。"
+    if activation_receipt.visible_text_leaks_brand(notice, record):
+        raise RuntimeError("fallback notice leaked activation branding")
+    return notice
+
+
+def activate_runtime_perspective(
+    us: UserSpace,
+    *,
+    mode: str,
+    perspective_ids: list[str] | tuple[str, ...],
+    query: str,
+) -> tuple[str, ActivationRecord]:
+    """One turn, one build. Returns (prompt_text, receipt).
+
+    ``prompt_hash`` stays empty here. ``episode_protocol`` seals it after
+    writing the payload field. ``injected`` means the text is ready to write
+    into that field, not that the model saw or followed it.
+    """
+
+    requested = activation_receipt.requested_perspective(mode, tuple(perspective_ids))
+    inactive = ActivationRecord(
+        kind="perspective",
+        requested="neutral",
+        resolved=(),
+        display_names=(),
+        renderer="activate_runtime_perspective",
+        prompt_hash="",
+        injected=False,
+        status="inactive",
+        reason="not_requested",
+    )
+    if mode == PERSPECTIVE_MODE_NEUTRAL or not perspective_ids:
+        return "", inactive
+    try:
+        context = build_runtime_context(
+            us,
+            mode=mode,
+            perspective_ids=list(perspective_ids),
+            query=query,
+        )
+    except FileNotFoundError:
+        return "", ActivationRecord(
+            kind="perspective",
+            requested=requested,
+            resolved=(),
+            display_names=(),
+            renderer="activate_runtime_perspective",
+            prompt_hash="",
+            injected=False,
+            status="degraded",
+            reason="build_failed",
+        )
+    except ValueError:
+        return "", ActivationRecord(
+            kind="perspective",
+            requested=requested,
+            resolved=(),
+            display_names=(),
+            renderer="activate_runtime_perspective",
+            prompt_hash="",
+            injected=False,
+            status="degraded",
+            reason="build_failed",
+        )
+    text = str(context.prompt or "")
+    if not text:
+        return "", ActivationRecord(
+            kind="perspective",
+            requested=requested,
+            resolved=context.perspective_ids,
+            display_names=(),
+            renderer="activate_runtime_perspective",
+            prompt_hash="",
+            injected=False,
+            status="degraded",
+            reason="empty_prompt",
+        )
+    return text, ActivationRecord(
+        kind="perspective",
+        requested=requested,
+        resolved=context.perspective_ids,
+        display_names=context.display_names,
+        renderer="activate_runtime_perspective",
+        prompt_hash="",
+        injected=True,
+        status="injected",
+        reason="",
     )
 
 
@@ -675,23 +781,16 @@ def active_runtime_prompt(
 ) -> str:
     """single/compare 时返回视角约束 prompt，neutral 或未选择返回空串。
 
-    通用注入原语：grounded composer 链与 continuous episode 输入共用一份语义。
-    neutral 不注入是刻意的——默认行为必须逐字节不变，只有用户显式选了 KOL
-    视角才改变模型输入。选择在 API 边界已做过 validate_runtime_selection，
-    这里的异常兜底只防构建期 profile 被手工删除的窗口：降级为无视角，
-    而不是让整轮回答失败。
+    委托 ``activate_runtime_perspective``，禁止第二份降级逻辑。
     """
-    if mode == PERSPECTIVE_MODE_NEUTRAL or not perspective_ids:
-        return ""
-    try:
-        return build_runtime_context(
-            us,
-            mode=mode,
-            perspective_ids=list(perspective_ids),
-            query=query,
-        ).prompt
-    except (ValueError, FileNotFoundError):
-        return ""
+
+    text, _record = activate_runtime_perspective(
+        us,
+        mode=mode,
+        perspective_ids=perspective_ids,
+        query=query,
+    )
+    return text
 
 
 def _save_profile(us: UserSpace, profile: dict[str, Any]) -> Path:

@@ -807,12 +807,15 @@ def _prepare_answer_spec_synthesis(
         for citation in citations
     )
     us = userspace.user_space(options.user)
-    perspective_context = perspective_lab.build_runtime_context(
-        us,
-        mode=options.perspective_mode,
-        perspective_ids=options.perspective_ids,
-        query=options.query,
-    )
+    if options.perspective_prompt_override is not None:
+        perspective_prompt = options.perspective_prompt_override
+    else:
+        perspective_prompt, _record = perspective_lab.activate_runtime_perspective(
+            us,
+            mode=options.perspective_mode,
+            perspective_ids=options.perspective_ids,
+            query=options.query,
+        )
     experience_guidance = ""
     if evidence_registry.provider_enabled(options, "M"):
         cards, card_warn = experience_cards.load_cards(
@@ -870,7 +873,7 @@ def _prepare_answer_spec_synthesis(
     )
     messages[0]["content"] = (
         f"{messages[0]['content']}\n\n## 本轮视角约束\n"
-        f"{perspective_context.prompt}"
+        f"{perspective_prompt}"
     )
     if options.conversation_context:
         messages.insert(
@@ -1959,16 +1962,18 @@ def _judge_outage_release(
 def _active_perspective_prompt(options: "AskOptions") -> str:
     """视角激活（single/compare）时返回视角约束 prompt，neutral 返回空串。
 
-    专供 grounded composer 链注入；语义与降级行为委托给
-    perspective_lab.active_runtime_prompt（continuous episode 输入同源），
-    两条执行路径不允许各养一份注入规则。
+    有 orchestrator 覆盖值时用覆盖值（同一轮只 activate 一次）。
+    否则委托 ``activate_runtime_perspective``。
     """
-    return perspective_lab.active_runtime_prompt(
+    if options.perspective_prompt_override is not None:
+        return options.perspective_prompt_override
+    text, _record = perspective_lab.activate_runtime_perspective(
         userspace.user_space(options.user),
         mode=options.perspective_mode,
         perspective_ids=options.perspective_ids,
         query=options.query,
     )
+    return text
 
 
 def synthesize_shadow_grounded_answer(

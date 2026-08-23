@@ -4,6 +4,7 @@ import time
 import urllib.error
 from dataclasses import asdict, replace
 from threading import Event
+from unittest import mock
 
 import pytest
 
@@ -1240,6 +1241,79 @@ def test_continuous_turn_injects_selected_perspective_and_headers_answer(
         encoding="utf-8"
     )
     assert answer_artifact.startswith("当前视角：测试老师")
+
+
+def test_continuous_build_failure_does_not_print_spt_shop_name(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """F3 at the orchestrator seam: patch build, keep profile on disk."""
+
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    us = userspace.user_space("alice")
+    perspective_lab.init_perspective(
+        us, "spt_molmansk", display_name="SPT-Molmansk", ptype="blogger"
+    )
+    query = "今天的市场适合加仓吗"
+    (
+        conversation_store,
+        run_store,
+        conversation,
+        run_id,
+        assistant_message_id,
+        frame,
+        intent,
+        controller,
+    ) = _continuous_forecast_fixture(tmp_path, query)
+
+    class Adapter:
+        def handle(self, *, frame: TaskFrame, control):
+            assert control.perspective_context == ""
+            return ContinuousTurnResult(
+                handled=True,
+                status="completed",
+                answer="通用盘面判断：等待放量确认。",
+                as_of="2026-07-22",
+                citations=(),
+                warnings=(),
+                private_artifact=None,
+                events=(),
+            )
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("legacy dependency must not run")
+
+    orchestrator = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=forbidden,
+        route_skills_fn=forbidden,
+        lane_answer_fn=forbidden,
+        turn_controller_fn=controller,
+        continuous_turn_adapter=Adapter(),
+    )
+    with mock.patch.object(
+        perspective_lab,
+        "build_runtime_context",
+        side_effect=FileNotFoundError("articles gone"),
+    ):
+        result = orchestrator.run_turn(
+            conversation_id=conversation.conversation_id,
+            run_id=run_id,
+            assistant_message_id=assistant_message_id,
+            query=query,
+            skill_mode="auto",
+            selected_skill_ids=[],
+            perspective_mode=perspective_lab.PERSPECTIVE_MODE_SINGLE,
+            selected_perspective_ids=["spt_molmansk"],
+        )
+
+    assert result.status == "completed"
+    assert "SPT-Molmansk" not in result.content
+    assert "sptfei" not in result.content.lower()
+    assert result.content.startswith("KOL原始判断：该视角未知")
+    assert "通用盘面判断" in result.content
 
 
 def test_continuous_answer_coverage_separates_uncheckable_from_absent() -> None:
