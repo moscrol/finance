@@ -20,6 +20,7 @@ from intelligence.services.market_watch_pack import (
     BAG_DUAL_RED,
     BAG_LIMIT_HEAT,
     BAG_MARKET,
+    REQUIRED_BAGS,
     merge_into_public_answer,
     run_market_watch_pack,
 )
@@ -77,7 +78,8 @@ def _db(tmp_path: Path) -> Path:
     )
     con.execute(
         "insert into fact_mainline_theme_daily values "
-        "('2026-07-23', '半导体', 4, 1), ('2026-07-23', 'AI', 3, 2)"
+        "('2026-07-23', '半导体', 4, 1), ('2026-07-23', 'AI', 3, 2),"
+        "('2026-07-24', '半导体', 2, 1)"
     )
     con.execute(
         """
@@ -167,6 +169,31 @@ def test_a1_lock_fields_and_four_bags(tmp_path: Path) -> None:
     assert "30000" not in rendered
 
 
+def test_render_writes_gap_when_mainline_misses_dual_red(tmp_path: Path) -> None:
+    # §7.3 #8：07-23 主线=半导体/AI，双红全在电链，交集为空必须写缺口。
+    db = _db(tmp_path)
+    pack = run_market_watch_pack(
+        "2026-07-23 今天市场怎么样",
+        market_db_path=db,
+    )
+    rendered = pack.render()
+    assert "缺口" in rendered
+    assert "半导体" in rendered
+    assert "不构成加量证据" in rendered
+
+
+def test_render_no_gap_when_mainline_overlaps_dual_red(tmp_path: Path) -> None:
+    # 07-24 主线=半导体且半导体当日双红，有交集就不写缺口。
+    db = _db(tmp_path)
+    pack = run_market_watch_pack(
+        "2026-07-24 今天市场怎么样",
+        market_db_path=db,
+    )
+    dual = pack.bag(BAG_DUAL_RED)
+    assert dual is not None and not dual.empty
+    assert "缺口" not in pack.render()
+
+
 def test_neighbor_day_dual_red_is_not_served_for_explicit_date(tmp_path: Path) -> None:
     db = _db(tmp_path)
     pack = run_market_watch_pack(
@@ -242,6 +269,41 @@ def test_implicit_watch_without_db_does_not_stop() -> None:
     assert pack.should_stop is False
     assert bound.compose is True
     assert bound.supplemental_evidence == ""
+    # §7.3 #9：包永远四袋齐（哪怕全 empty），本单路径不得以两袋完成。
+    assert pack.complete
+    assert {bag.name for bag in pack.bags} == set(REQUIRED_BAGS)
+
+
+def test_answer_market_review_anchors_knowledge_to_standing_date(
+    tmp_path: Path, monkeypatch
+) -> None:
+    # §7.3 #12：站立日钉死后，knowledge_anchor 按站立日收口，不按库尖扫。
+    db = _db(tmp_path)
+    options = AskOptions(
+        query="2026-07-23 今天市场怎么样",
+        market_db_path=db,
+        compose=True,
+    )
+    bound = bind_market_watch_pack(options, frame=None)
+    captured: dict[str, object] = {}
+
+    def fake_anchor(_db_path, *, as_of=None, kb_wiki=None, warnings=None):
+        captured["as_of"] = as_of
+        return ""
+
+    monkeypatch.setattr(
+        "intelligence.services.ask._market_review_knowledge_anchor_block_for_llm",
+        fake_anchor,
+    )
+    result = AskResult(
+        query=options.query,
+        trade_date=None,
+        matched_theme=None,
+        candidate_tier=None,
+        priority_score=None,
+    )
+    _answer_market_review(bound, result)
+    assert captured["as_of"] == "2026-07-23"
 
 
 def test_bind_does_not_need_owner_to_run_pack(tmp_path: Path) -> None:
@@ -328,7 +390,10 @@ def test_owner_daily_review_cannot_replace_pack_lock_cells(tmp_path: Path) -> No
             modules = [
                 {
                     "type": "summary",
-                    "summary": "日报正文：市场还行，没有锁格。",
+                    # 复刻 live 2026-07-23-daily-review.md 的形状：正文自带
+                    # 总量数字 21949.97 和另一套「双红 1 个」口径。合并逻辑
+                    # 不得因为正文出现锁格数字就跳过四袋（否则本测红）。
+                    "summary": "日报正文：全市场成交额 21949.97 亿元，双红 1 个。",
                     "metrics": [{"label": "涨家数", "value": "3000"}],
                     "items": [
                         {

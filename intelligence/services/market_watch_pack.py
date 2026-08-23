@@ -72,6 +72,46 @@ class MarketWatchPack:
         date = self.standing_date or "该日"
         return f"{date} 无行情数据。"
 
+    def mainline_dual_red_gap(self) -> str | None:
+        """主线 ∩ 严格双红为空时的缺口句（spec §1.1 / §7.3 #8）。
+
+        主线是题材名、双红是板块名，两个名字空间靠文本包含对齐；
+        对不上就必须写缺口，不许把「名单上有某题材」写成「当天在加量」。
+        """
+
+        mainline = self.bag(BAG_MAINLINE)
+        if mainline is None or mainline.empty:
+            return None
+        mainline_names = [
+            str(row.get("theme_name") or row.get("sector_name") or "")
+            for row in mainline.rows
+            if row.get("theme_name") or row.get("sector_name")
+        ]
+        if not mainline_names:
+            return None
+        dual = self.bag(BAG_DUAL_RED)
+        dual_names = (
+            [
+                str(row.get("sector_name") or "")
+                for row in dual.rows
+                if row.get("sector_name")
+            ]
+            if dual is not None and not dual.empty
+            else []
+        )
+        overlap = any(
+            m and d and (m in d or d in m)
+            for m in mainline_names
+            for d in dual_names
+        )
+        if overlap:
+            return None
+        names = "、".join(mainline_names)
+        return (
+            f"- 缺口：主线题材（{names}）当日无对应板块进入严格双红，"
+            "在榜不构成加量证据。"
+        )
+
     def render(self) -> str:
         lines = ["## 指定日盘面组件包"]
         if self.standing_date:
@@ -122,6 +162,9 @@ class MarketWatchPack:
                 f"- 严格双红 served_date={dual.served_date}："
                 f"{len(dual.rows)} 个（{names}）。"
             )
+        gap = self.mainline_dual_red_gap()
+        if gap:
+            lines.append(gap)
         heat = self.bag(BAG_LIMIT_HEAT)
         if heat is None or heat.empty:
             lines.append("- 涨停热度该日无行。")
@@ -152,10 +195,9 @@ def merge_into_public_answer(text: str, pack: MarketWatchPack | None) -> str:
         return body
     if rendered in body:
         return body
-    market = pack.bag(BAG_MARKET)
-    lock = market.rows[0].get("total_amount") if market and market.rows else None
-    if lock is not None and str(lock) in body:
-        return body
+    # 不能因为 owner 正文里出现了总量数字就跳过合并：live 的
+    # 2026-07-23-daily-review.md 含 21949.97，但它的「双红 1 个」是另一套
+    # 口径——据此去重会让严格双红名单、涨停热度被 md 顶掉（spec §7.1 #2a）。
     return f"{rendered}\n\n{body}".strip() if body else rendered
 
 
