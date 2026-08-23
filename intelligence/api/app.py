@@ -74,6 +74,10 @@ from intelligence.services.conversation_store import (
     ConversationStore,
 )
 from intelligence.runtime.episode_finalizer import EpisodeFinalizer
+from intelligence.services.draft_publisher import (
+    RunDraftDeltaPublisher,
+    draft_streaming_enabled,
+)
 from intelligence.services.episode_progress import (
     EpisodeProgress,
     RunEpisodeProgressPublisher,
@@ -338,10 +342,27 @@ def _build_continuous_turn_adapter(
             return
         progress_publisher.publish(progress)
 
+    draft_publisher: RunDraftDeltaPublisher | None = None
+    if run_store is not None and draft_streaming_enabled():
+        draft_publisher = RunDraftDeltaPublisher(
+            run_store=run_store,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            message_id=assistant_message_id,
+            event_id_prefix=event_id_prefix,
+        )
+
     selection = resolve_runtime_backend()
     client = GLMModelClient(
         providers=providers,
         is_cancelled=is_cancelled,
+        # 只在 continuous_glm 上接：sdk_glm 走 OpenAIAgentsRuntime，
+        # 它自己的流式语义还没对齐，这里不假装它也能流。
+        on_draft_delta=(
+            draft_publisher.publish
+            if draft_publisher is not None and selection.name == "continuous_glm"
+            else None
+        ),
     )
     finalizer = EpisodeFinalizer(
         client,

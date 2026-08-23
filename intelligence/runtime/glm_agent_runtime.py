@@ -18,6 +18,7 @@ from intelligence.services.agent_runtime import (
 )
 from intelligence.runtime.continuous_sub_research import ContinuousSubResearchWorker
 from intelligence.runtime.episode_finalizer import EpisodeFinalizer
+from intelligence.services.draft_stream import DraftStreamDecoder
 from intelligence.services.episode_session import CallbackEpisodeSession, EpisodeSession
 from intelligence.services.mode_governor import ModeGovernor, ModeSignals
 from intelligence.services.research_contract import ResearchRunContext
@@ -48,6 +49,35 @@ _BALANCED_SYNTHESIS_RESERVE = 60.0
 _UNCONFIGURED_PROVIDER_REASON = "未配置 LLM key，无法完成模型调用"
 
 
+class _DraftSink:
+    """Turn one turn's raw content stream into visible ``draft`` prose.
+
+    Owned per ``complete()`` call, never across turns.  The episode's first
+    turn usually emits a PLAN object or nothing at all; letting its bytes
+    accumulate in a shared decoder would spend the envelope-prefix budget
+    before the final turn ever starts, and the decoder would disarm exactly
+    when it was finally needed.
+    """
+
+    def __init__(self, emit: Callable[[str], None]) -> None:
+        self._emit = emit
+        self._decoder = DraftStreamDecoder()
+
+    def feed(self, raw: str) -> None:
+        text = self._decoder.feed(raw)
+        if text:
+            self._emit(text)
+
+    def finish(self) -> None:
+        text = self._decoder.flush()
+        if text:
+            self._emit(text)
+
+    @property
+    def emitted_chars(self) -> int:
+        return self._decoder.emitted_chars
+
+
 class GLMModelClient:
     """Translate provider-neutral responses into a stable model turn.
 
@@ -67,9 +97,11 @@ class GLMModelClient:
         providers: tuple[llm_refine.LLMProvider, ...] | None = None,
         complete_fn: ChatWithTools | None = None,
         is_cancelled: Callable[[], bool] | None = None,
+        on_draft_delta: Callable[[str], None] | None = None,
     ) -> None:
         self._model = model
         self._is_cancelled = is_cancelled or (lambda: False)
+        self._on_draft_delta = on_draft_delta
         self._retry_single_real_provider = False
         if providers is not None:
             self._providers = tuple(providers)
@@ -103,17 +135,40 @@ class GLMModelClient:
         tools: list[dict[str, object]],
         timeout: float,
     ) -> ModelTurn:
-        if self._providers is not None:
-            return self._complete_provider_chain(
+        sink = _DraftSink(self._on_draft_delta) if self._on_draft_delta else None
+        try:
+            if self._providers is not None:
+                return self._complete_provider_chain(
+                    messages=messages,
+                    tools=tools,
+                    timeout=timeout,
+                    sink=sink,
+                )
+            return self._complete_legacy(
                 messages=messages,
                 tools=tools,
                 timeout=timeout,
+                sink=sink,
             )
-        return self._complete_legacy(
-            messages=messages,
-            tools=tools,
-            timeout=timeout,
-        )
+        finally:
+            if sink is not None:
+                sink.finish()
+
+    def _stream_kwargs(self, sink: "_DraftSink | None") -> dict[str, object]:
+        """Only add the streaming keywords when a sink is actually wired.
+
+        Injected ``complete_fn`` doubles are fixed-arity across the test suite
+        (``lambda **kwargs`` is not the norm), so an unconditional new keyword
+        would break every one of them.  No sink means the call is byte-for-byte
+        what it was before streaming existed.
+        """
+
+        if sink is None:
+            return {}
+        return {
+            "on_content_delta": sink.feed,
+            "is_cancelled": self._is_cancelled,
+        }
 
     def _complete_legacy(
         self,
@@ -121,6 +176,7 @@ class GLMModelClient:
         messages: list[dict[str, object]],
         tools: list[dict[str, object]],
         timeout: float,
+        sink: "_DraftSink | None" = None,
     ) -> ModelTurn:
         """Preserve pre-chain behavior for compatibility callers."""
 
@@ -150,6 +206,7 @@ class GLMModelClient:
                 temperature=0.0,
                 tool_choice="auto",
                 disable_thinking=True,
+                **self._stream_kwargs(sink),
             )
             if message is None and _is_call_budget_rejection(reason):
                 # The legacy adapter can reject at its public entry before
@@ -224,6 +281,7 @@ class GLMModelClient:
         messages: list[dict[str, object]],
         tools: list[dict[str, object]],
         timeout: float,
+        sink: "_DraftSink | None" = None,
     ) -> ModelTurn:
         """Run one adapter attempt per injected provider in deterministic order."""
 
@@ -273,6 +331,7 @@ class GLMModelClient:
                         temperature=0.0,
                         tool_choice="auto",
                         disable_thinking=True,
+                        **self._stream_kwargs(sink),
                     )
             except llm_refine.LLMCallBudgetExceeded as exc:
                 last_reason = str(exc)
@@ -293,6 +352,22 @@ class GLMModelClient:
                 # ``chat_with_tools`` rejected this invocation before its HTTP
                 # boundary, so it is not a physical provider attempt.
                 last_reason = reason_text
+                break
+            if message is None and sink is not None and sink.emitted_chars:
+                # 正文已经到用户屏幕上了。``chat_with_tools`` 内部的 provider 链
+                # 已经因此停住（LLMStreamAlreadyEmitted），**外层这条链也必须停**
+                # ——否则换一家 provider 重跑一遍，用户会看到答案被写第二遍。
+                # 这是那道闸的第二半：闸开在传输层，重试意图在这一层。
+                attempts += 1
+                last_provider = provider
+                last_reason = reason_text or "stream_already_emitted"
+                trace.append(
+                    _provider_trace_entry(
+                        effective_provider,
+                        status="failed",
+                        reason=last_reason,
+                    )
+                )
                 break
             attempts += 1
             last_provider = provider
@@ -393,6 +468,7 @@ class GLMAgentRuntime:
         mode_signals: Callable[[TaskFrame, ResearchPlan], ModeSignals] | None = None,
         sub_research_coordinator: SubResearchCoordinator | None = None,
         event_sink: Callable[[EpisodeEvent], None] | None = None,
+        on_draft_delta: Callable[[str], None] | None = None,
     ) -> None:
         if client is not None and (
             model is not None or providers is not None or complete_fn is not None
@@ -400,11 +476,18 @@ class GLMAgentRuntime:
             raise ValueError(
                 "injected client cannot be combined with model/provider adapter settings"
             )
+        if client is not None and on_draft_delta is not None:
+            # 注入 client 时流式归 client 自己配（生产就是这条：app.py 先建
+            # client 再传进来）。两边都配会得到两个 sink 喂同一个出口，正文翻倍。
+            raise ValueError(
+                "injected client owns its own draft stream; pass on_draft_delta to it"
+            )
         selected_client = client or GLMModelClient(
             model,
             providers=providers,
             complete_fn=complete_fn,
             is_cancelled=is_cancelled,
+            on_draft_delta=on_draft_delta,
         )
         selected_coordinator = sub_research_coordinator or SubResearchCoordinator(
             ContinuousSubResearchWorker(

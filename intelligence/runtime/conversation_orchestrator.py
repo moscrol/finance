@@ -2611,7 +2611,13 @@ class TurnOrchestrator:
                     text_chunks.append(safe_text)
 
             def emit_text_delta(delta: str) -> None:
+                # 捕获与发射在这里是两件事，只有发射会被流式抑制：
+                # ``text_chunks[-1]`` 是崩溃/取消路径的兜底正文（见
+                # ``_ensure_terminal_safe_snapshot`` 的两个调用点），无论有没有
+                # 流过都必须留住；重复的是"再整段推一次给客户端"这一半。
                 capture_safe_text(delta)
+                if self._client_already_streamed(run_id, assistant_message_id):
+                    return
                 self._emit(
                     run_id,
                     assistant_message_id,
@@ -4114,6 +4120,33 @@ class TurnOrchestrator:
             content=current.content if current is not None else "",
             selected_skill_ids=tuple(selected),
             invoked_skill_ids=tuple(invoked),
+        )
+
+    def _client_already_streamed(self, run_id: str, message_id: str) -> bool:
+        """True when live draft deltas already reached this message's client.
+
+        The model transport may stream the draft while it is being written
+        (``draft_publisher``).  When it did, the whole draft is already on the
+        user's screen, and this layer's own bulk ``text.delta`` would append a
+        second copy of it.
+
+        Asked against the stream log rather than threaded down from the
+        composition root on purpose: the log **is** the answer to "did anything
+        already cross to this client", it survives a reconnect/replay, and it
+        stays correct if a future transport starts streaming too. A flag passed
+        through four layers would only describe what we intended to do.
+        """
+
+        try:
+            events = self.run_store.load_stream_events(run_id)
+        except Exception:
+            # 读不到就当没流过：最坏是恢复到改动前的整段推送（可能重复一次），
+            # 而不是把正文整段吞掉。这一侧的失败必须偏向"多说"而非"不说"。
+            return False
+        return any(
+            event.get("event_type") == "text.delta"
+            and event.get("message_id") == message_id
+            for event in events
         )
 
     def _emit(
