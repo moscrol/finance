@@ -631,9 +631,25 @@ def test_wiki_steering_is_narrative_only_and_tracked():
     path = ROOT / ".code-review-graph" / "wiki-steering.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     assert data["purpose"] == "steer narrative pages only; not a capability inventory"
-    ids = [p["id"] for p in data["pages"]]
+    ids = [page["id"] for page in data["pages"]]
     assert "daily-review-door" in ids
     assert "run-scripts" in ids
+    request_loop_pages = [
+        page for page in data["pages"] if page["id"] == "agent-request-loop"
+    ]
+    assert request_loop_pages == [
+        {
+            "id": "agent-request-loop",
+            "title": "Agent 请求 Loop",
+            "queries": [
+                "validate_runtime_selection",
+                "conversation_orchestrator",
+                "research_tool_registry",
+                "episode_semantic_verifier",
+                "experience_cards",
+            ],
+        }
+    ]
     proc = subprocess.run(
         ["git", "check-ignore", "-q", ".code-review-graph/wiki-steering.json"],
         cwd=str(ROOT),
@@ -783,4 +799,60 @@ def test_full_build_writes_steering_door_pages(tmp_path, monkeypatch):
     assert "daily-review-door.md" in index
     assert payload.get("wiki_generated") is True
 
+
+def test_request_loop_steering_generates_page_and_routes_all_anchors(
+    tmp_path, monkeypatch
+):
+    cm = _cm()
+    root = _init_repo(tmp_path)
+    head = _git(root, "rev-parse", "HEAD")
+    _make_graph(root, n_nodes=5, git_head_sha=head)
+    (root / ".code-review-graphignore").write_text("*.duckdb\n", encoding="utf-8")
+
+    source = json.loads(
+        (ROOT / ".code-review-graph" / "wiki-steering.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    request_loop_page = next(
+        page for page in source["pages"] if page["id"] == "agent-request-loop"
+    )
+    anchors = request_loop_page["queries"]
+    (root / "AGENTS.md").write_text("\n".join(anchors) + "\n", encoding="utf-8")
+    (root / "CLAUDE.md").write_text("Agent 请求 Loop\n", encoding="utf-8")
+
+    crg = root / ".code-review-graph"
+    (crg / "wiki-steering.json").write_text(
+        json.dumps(
+            {
+                "purpose": "steer narrative pages only; not a capability inventory",
+                "pages": [request_loop_page],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cm, "_uvx_path", lambda: "/usr/bin/uvx")
+    recorded: list[list[str]] = []
+    monkeypatch.setattr(cm, "run_crg_cli", _fake_crg_ok(recorded))
+
+    build_payload, build_code = cm.collect_build(root, full=True, postprocess="full")
+    assert build_code == 0, build_payload
+    page_path = crg / "wiki" / "doors" / "agent-request-loop.md"
+    page_text = page_path.read_text(encoding="utf-8")
+    assert "# Agent 请求 Loop" in page_text
+    for query in anchors:
+        assert f"## query: {query}" in page_text
+        payload, code = cm.collect_query(root, query)
+        assert code == 0
+        assert payload["layers"]["narrative"]["state"] == "ok"
+        assert any(
+            hit["path"].endswith("doors/agent-request-loop.md")
+            for hit in payload["layers"]["narrative"]["hits"]
+        )
+
+    index = (crg / "wiki" / "index.md").read_text(encoding="utf-8")
+    assert "doors/agent-request-loop.md" in index
+    title_payload, title_code = cm.collect_query(root, "Agent 请求 Loop")
+    assert title_code == 0
+    assert title_payload["layers"]["narrative"]["state"] == "ok"
 
