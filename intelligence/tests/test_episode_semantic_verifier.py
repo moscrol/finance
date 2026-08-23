@@ -839,7 +839,8 @@ def test_semantic_repair_cannot_remove_a_visible_required_output_marker() -> Non
     assert "结构缺口" not in result.public_answer
     assert "现有证据不足" not in result.public_answer
     assert "需补充直接证据" not in result.public_answer
-    assert "继续成立条件" in result.public_answer
+    assert "详见「输出质检」" not in result.public_answer
+    assert "继续成立条件" not in result.public_answer
     assert result.gap_output_ids == ("continuation_conditions",)
     assert result.to_dict()["gap_output_ids"] == ["continuation_conditions"]
     assert any(
@@ -2645,6 +2646,37 @@ def test_leftover_sliver_does_not_dispatch_independent_judge(monkeypatch) -> Non
     assert isinstance(payload.get("judge_request"), dict)
 
 
+def test_unclassified_runtimeerror_holds_draft_without_evidence_lie(
+    monkeypatch,
+) -> None:
+    """§5.3 B2：兜底 provider error 不得放稿，也不得说证据不足 / 未绑定。"""
+
+    frame, structural = _structural("市场当前偏弱，科技延续强于医药。")
+    provider = llm_refine.LLMProvider("judge", "secret", "https://judge.invalid", "j")
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: provider)
+
+    def boom(*_args, **_kwargs):
+        return None, provider, "RuntimeError"
+
+    monkeypatch.setattr(llm_refine, "complete", boom)
+    result = SemanticEpisodeVerifier().verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(60),
+    )
+    payload = result.to_dict()
+    public = result.public_answer
+
+    assert result.status == "partial"
+    assert result.judge_status == "unavailable"
+    assert payload["pending_rejudge"] is True
+    assert "semantic judge provider error" in result.issues
+    assert "复核服务不可用" in public
+    assert "现有证据不足" not in public
+    assert "未完成核验绑定" not in public
+    assert "科技延续强于医药" not in public
+
+
 def test_judge_outage_is_partial_and_never_exposes_raw_draft() -> None:
     frame, structural = _structural(
         "RAW_PROVIDER_SENTINEL market_data HASH_PRIVATE_SENTINEL。"
@@ -4059,7 +4091,9 @@ def test_public_gap_never_projects_adversarial_outcome_gap(judge_mode: str) -> N
     assert "PRIVATE_GAP_SENTINEL" not in result.public_answer
     if judge_mode == "unavailable":
         assert result.status == "partial"
-        assert "直接判断" in result.public_answer
+        assert "复核服务不可用" in result.public_answer
+        assert "现有证据不足" not in result.public_answer
+        assert "未完成核验绑定" not in result.public_answer
     else:
         assert "市场下跌" in result.public_answer
 

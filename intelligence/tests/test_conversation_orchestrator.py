@@ -146,7 +146,7 @@ def test_public_sanitizer_spares_prose_mentioning_script_names() -> None:
 
 
 def test_continuous_review_notes_drop_internal_issue_receipts() -> None:
-    """内部 gate 收据不得进公开「输出质检」；裁判中文意见仍可留。
+    """内部 gate 收据不得进公开答案；中文意见只留 notes，不拼进正文。
 
     生产 8796：``evidence_type_stripped`` 的 ``code=... :: ...`` 行被原样
     拼进 answer.md。STRIP_OK 是契约层动作，不是给用户看的诊断。
@@ -171,7 +171,7 @@ def test_continuous_review_notes_drop_internal_issue_receipts() -> None:
         events=(),
     )
     notes = conversation_orchestrator._continuous_review_notes(result)
-    public = conversation_orchestrator._with_review_appendix(
+    public = conversation_orchestrator._public_answer_text(
         "通信设备相对更有机会。",
         notes,
     )
@@ -179,7 +179,8 @@ def test_continuous_review_notes_drop_internal_issue_receipts() -> None:
     assert "质量不够" in " ".join(notes)
     assert not any(item.startswith("code=") for item in notes)
     assert "evidence_type_stripped" not in public
-    assert "质量不够" in public
+    assert "质量不够" not in public
+    assert "## 输出质检" not in public
 
 
 def test_research_owner_contract_honors_declared_question_types() -> None:
@@ -934,10 +935,10 @@ def test_complete_continuous_turn_puts_review_after_revised_body(
     tmp_path,
     monkeypatch,
 ) -> None:
-    """E2：会话口终稿 = 修订正文在前，审查意见进「输出质检」附录。
+    """公开终稿只留修订正文；审查意见不进 answer.md。
 
-    验证器的 public_answer 仍是修订正文；呈现顺序由编排器接通，避免把
-    issue 写进 semantic public_answer 砸既有精确相等测试。
+    验证器的 public_answer 仍是修订正文。issue 留在 gate_receipt / notes，
+    不拼「输出质检」附录。
     """
     query = "光伏产业链近况跟踪一下"
     (
@@ -1001,9 +1002,8 @@ def test_complete_continuous_turn_puts_review_after_revised_body(
     )
 
     assert result.content.startswith(revised)
-    assert "## 输出质检" in result.content
-    assert result.content.index(revised) < result.content.index("## 输出质检")
-    assert "弱证据硬写：无 L3 硬证据却出现确定性措辞" in result.content
+    assert "## 输出质检" not in result.content
+    assert "弱证据硬写：无 L3 硬证据却出现确定性措辞" not in result.content
     snapshots = [
         event["payload"]
         for event in run_store.load_stream_events(run_id)
@@ -1014,7 +1014,7 @@ def test_complete_continuous_turn_puts_review_after_revised_body(
     assert snapshots[0]["final"] is False
     assert snapshots[-1]["final"] is True
     assert snapshots[-1]["text"] == result.content
-    assert "## 输出质检" in snapshots[-1]["text"]
+    assert "## 输出质检" not in snapshots[-1]["text"]
 
 
 def test_research_compose_revises_on_warn_and_keeps_review_as_appendix(
@@ -1024,7 +1024,7 @@ def test_research_compose_revises_on_warn_and_keeps_review_as_appendix(
     """E2 Engine B：编排器不再显式关掉 compose_revise_on_warn。
 
     synthesize=False 时 answer_query 里还没有终稿可改；必须在合成之后回灌，
-    且 stream_text_delta 不得把修订跳掉。终稿正文是修订版，意见进附录。
+    且 stream_text_delta 不得把修订跳掉。终稿正文是修订版，意见不进公开答案。
     """
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
@@ -1135,9 +1135,8 @@ def test_research_compose_revises_on_warn_and_keeps_review_as_appendix(
 
     assert captured and captured[0].compose_revise_on_warn is True
     assert revised in turn.content
-    assert "## 输出质检" in turn.content
-    assert turn.content.index(revised) < turn.content.index("## 输出质检")
-    assert "弱证据硬写" in turn.content
+    assert "## 输出质检" not in turn.content
+    assert "弱证据硬写" not in turn.content
 
 
 def test_continuous_turn_injects_selected_perspective_and_headers_answer(
