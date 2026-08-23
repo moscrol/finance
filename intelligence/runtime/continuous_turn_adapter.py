@@ -610,7 +610,11 @@ class ContinuousTurnAdapter:
                 context.contract.research_tier
             )
             repair_terminal = False
-            backfill_plan = _issue_backfill_plan(structural, context)
+            backfill_plan = _issue_backfill_plan(
+                structural,
+                context,
+                events=outcome.events,
+            )
             if (
                 session is not None
                 and backfill_plan is not None
@@ -1329,6 +1333,7 @@ class ContinuousTurnAdapter:
 def _issue_backfill_plan(
     structural: VerifiedEpisodeOutcome,
     context: ResearchRunContext,
+    events: tuple[object, ...] = (),
 ):
     items = structural.issue_items
     if numeric_condition_unsupported(structural):
@@ -1343,6 +1348,7 @@ def _issue_backfill_plan(
     return plan_issue_backfill(
         items,
         subject_kind=context.contract.subject_kind,
+        events=events,
     )
 
 

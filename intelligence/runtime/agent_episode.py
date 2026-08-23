@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 import json
@@ -82,6 +82,12 @@ from intelligence.services.episode_event_lanes import LiveEventSink
 from intelligence.services.episode_scope import EpisodeScope
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
+)
+from intelligence.services.empty_pool_fallback import (
+    EmptyToolCall,
+    fallback_already_attempted,
+    prefetch_pool_is_empty,
+    propose_empty_pool_fallback,
 )
 from intelligence.runtime.sub_research import (
     SubResearchCoordinator,
@@ -389,13 +395,21 @@ class _EpisodeToolAccumulator:
         self,
         batch: ToolBatchResult,
         context: ResearchRunContext,
+        request_extras: Mapping[str, Mapping[str, object]] | None = None,
     ) -> int:
         invalid_actions = 0
+        extras_by_id = request_extras or {}
         for result in batch.items:
             call = result.call
             clock = _tool_dispatch_clock_payload(result)
             timing = {**_tool_timing_payload(result), **clock}
-            self.ledger.add("tool_request", {**call.to_dict(), **clock})
+            request_payload = {**call.to_dict(), **clock}
+            extra = extras_by_id.get(call.call_id)
+            if extra:
+                request_payload.update(extra)
+            elif call.call_id.startswith("empty-pool-fallback"):
+                request_payload["fallback_query"] = True
+            self.ledger.add("tool_request", request_payload)
 
             if result.status == "rejected":
                 invalid_actions += 1
@@ -1185,6 +1199,28 @@ class ContinuousAgentEpisode:
                     executed_count=batch.executed_count,
                     batch_elapsed=batch_elapsed,
                 )
+                fallback = self._maybe_execute_empty_pool_fallback(
+                    batch=batch,
+                    tool_session=tool_session,
+                    registry=registry,
+                    context=context,
+                    accumulator=accumulator,
+                    tool_calls=tool_calls,
+                    model_elapsed=model_elapsed,
+                )
+                if fallback is not None:
+                    fb_batch, extras, fb_elapsed = fallback
+                    tool_calls += fb_batch.executed_count
+                    invalid_actions += accumulator.consume(
+                        fb_batch,
+                        context,
+                        request_extras=extras,
+                    )
+                    _settle_batch_calls(
+                        context.root_budget,
+                        executed_count=fb_batch.executed_count,
+                        batch_elapsed=fb_elapsed,
+                    )
                 injected = self._append_tool_budget_state(
                     messages=messages,
                     remaining_seconds=(
@@ -1906,6 +1942,73 @@ class ContinuousAgentEpisode:
                 invalid_actions=invalid_actions,
             ),
             plan=ledger.plan,
+        )
+
+    def _maybe_execute_empty_pool_fallback(
+        self,
+        *,
+        batch: ToolBatchResult,
+        tool_session: EpisodeToolBatchSession,
+        registry: ResearchToolRegistry,
+        context: ResearchRunContext,
+        accumulator: _EpisodeToolAccumulator,
+        tool_calls: int,
+        model_elapsed: float,
+    ) -> tuple[ToolBatchResult, dict[str, Mapping[str, object]], float] | None:
+        remaining = self._remaining_tool_slots(
+            context=context,
+            tool_calls=tool_calls,
+        )
+        if remaining <= 0:
+            return None
+        cutoff = context.information_cutoff
+        available = frozenset(
+            tool_session.available_tool_names(
+                registry=registry,
+                context=context,
+            )
+        ) | frozenset(context.contract.allowed_capabilities)
+        proposal = propose_empty_pool_fallback(
+            question_type=context.contract.question_type,
+            as_of=cutoff.as_of_date.isoformat(),
+            cutoff_source=cutoff.source,
+            prefetch_empty=prefetch_pool_is_empty(
+                getattr(registry, "opening_prefetch", ()) or ()
+            ),
+            first_results=tuple(
+                EmptyToolCall(
+                    name=item.call.name,
+                    arguments=dict(item.call.arguments),
+                    empty=item.status == "empty",
+                )
+                for item in batch.items
+            ),
+            authorized_tools=available,
+            already_attempted=fallback_already_attempted(accumulator.ledger.events),
+            in_repair=False,
+            backfill_plan=None,
+        )
+        if proposal is None:
+            return None
+        started = monotonic()
+        fallback_batch = tool_session.execute(
+            (
+                ModelToolCall(
+                    proposal.call_id,
+                    proposal.tool,
+                    proposal.fallback_arguments,
+                ),
+            ),
+            registry=registry,
+            context=context,
+            remaining_slots=remaining,
+            is_cancelled=self._is_cancelled,
+            turn_elapsed_at_dispatch=model_elapsed,
+        )
+        return (
+            fallback_batch,
+            {proposal.call_id: proposal.request_extras()},
+            max(0.0, monotonic() - started),
         )
 
     @staticmethod
