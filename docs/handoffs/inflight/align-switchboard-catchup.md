@@ -11,13 +11,20 @@
 2. **main ↔ 解耦版：等价性检查。** 目的不是质量，是「解耦版更干净、更好搭、组件能单独测」。
    所以要验的是**行为没变**，不是**谁答得好**。
 
+⛔ **任务 A / B / D 与「对齐组件臂质量」无关，不得串读。** A 是棘轮基线卫生；B + D 是
+第 2 件事（main 和解耦版行为等不等价）。只有**任务 C** 服务于第 1 件事。把它们读成
+「对齐组件臂」的连续步骤，会把结论重新引回相交层。
+
+⛔ **本单只取证，不修。** 没有任何一条任务是「修发布门 / 修 complete 灯 / 让模型写出
+组件臂那样的答案」。取完证再决定修什么，顺序不能倒。
+
 ### 相交 / 正交划分（本题成立，别再回头怪 D10 或题型信封）
 
 | | 内容 |
 |---|---|
 | **相交** | 数据事实（DuckDB `fact_*`）；积木（`decide_turn` / D10 / `FinanceQuery` / `perspective_lab` / `reading_baseline`）；薄适配器 `TurnControlCore`（只收成 `TaskFrame`，不跑工具不写答案） |
 | **正交 · Workbench 独有** | 入口（浏览器→FastAPI→会话）；底座 loop（`conversation_orchestrator` 管回合预算 / `agent_episode` 让模型自选工具 / `glm_agent_runtime` 执笔）；发布门（gate / 投影 / `business_status`）；技能层产品壳（`skill_mode` / 技能列表——组件臂根本没传这套旗标） |
-| **正交 · 组件臂独有** | 人手写死 10 次 `FinanceQuery`、人写 `answer.md`。**这是评测脚本，不是产品层** |
+| **正交 · 组件臂独有** | 人手写死 10 次 `FinanceQuery`；`answer.md` 是编码时写死的 f-string 模板（零模型调用）。**这是评测脚本，不是产品层** |
 
 管道层、策略回测、仓内三十来个 skill 在这道题上两边都不是主路径，**不算相交也不算正交打分项**。
 
@@ -89,8 +96,32 @@ test_capability_switchboard.py::test_noop_prompt_added_no_branch_to_the_loop
 
 ### 任务 C：正交层 trace diff（Workbench ↔ 组件臂）
 
-**不要重跑组件臂，不要把它固化进仓。** 组件臂的正交部分是「人编排 + 人执笔」，
-它是评测脚本不是产品层，重跑一次得到的还是同一类东西。直接拿**已冻结的产物**当参照：
+#### 取证臂钉死（这条不写死，结论会被带回相交层）
+
+**Workbench 侧只准用这一次 run：**
+
+```
+run_id   run_20260823_114116_434045
+revision 3ac070a2   source_dirty=False   code_matches_repo=True   port 8798
+落盘     ~/.local/share/finance-workbench-prefetch-replay/users/
+           prefetch-replay-p0-20260823/runs/run_20260823_114116_434045/
+             answer.md 4.4KB / continuous-episode.json 190KB / trace.jsonl 13KB
+             stream.jsonl 53KB / report.json / run.json / followups.json
+```
+
+**第一步是把这个 run 目录捞进 `~/.finance-runtime/prefetch-replay-20260823/`。**
+重放那次只把信封和开场预取写进了产物目录，运行时落盘是完整的——
+`continuous-episode.json` 顶层含 `events` / `traces` / `phase_trace` /
+`structural_verifier` / `semantic_verifier` / `repair_attempts` / `repair_cycles`，
+且 `draft` ×11、`projection` ×4、`business_status` ×2、`tool_call` ×16。
+**投影前的稿和端上桌的稿都在，第 3 点能直接逐字 diff。不需要重跑。**
+
+⛔ **禁止**用 `trace-diff-spt-fengyuan-history-20260823/` 的 `workbench-8792` /
+`workbench-8796` 两臂做本任务。那两臂在 `1c52e19f`，**P0 之前**，空 manual 还在盖信封，
+相交层当时是坏的。拿它比第 3 点会重新看见「没 D10」，把结论又怪回题型信封。
+那个实验目录里**只有 `codex-component/` 可用**（它不受空 manual 影响）。
+
+**组件臂侧用已冻结产物，不重跑、不固化进仓：**
 
 ```
 ~/.finance-runtime/trace-diff-spt-fengyuan-history-20260823/codex-component/
@@ -100,16 +131,19 @@ test_capability_switchboard.py::test_noop_prompt_added_no_branch_to_the_loop
 ⛔ **不比相交层。** `question_type` / `operators` / D10 有没有——P0 之后已对齐，
 live 重放也验过。再去比是浪费，而且会把结论又引回 D10 和题型信封。
 
-**只在正交的三个决策点上做 diff：**
+#### 三个点，只有一个是修法目标
 
-| # | 决策点 | Workbench 侧看什么 | 组件臂侧对照 |
-|---|---|---|---|
-| 1 | **谁点下一刀** | `agent_episode` 每一轮模型选了哪个工具、选了几次、有没有空转/重复 | 人写死的 10 次 `FinanceQuery` 调了什么 |
-| 2 | **谁执笔** | `glm_agent_runtime` 合成轮的输入（拿到多少证据）与输出（写了什么） | 人写的 `answer.md` |
-| 3 | **端上桌怎么剪** | gate / 投影 / `business_status` 前后的答案**逐字 diff** | 组件臂无此层，原文即终稿 |
+| # | 决策点 | 怎么读 |
+|---|---|---|
+| 1 | **谁点下一刀** | **只记形状，不设对齐目标。** 模型自选工具 vs 人写死 10 次 `FinanceQuery`，本来就会不同，那是产品形状不是缺陷。**要找的是 loss**：某次 `tool_call` 有结果，但结果没进最终证据 |
+| 2 | **谁执笔** | **只记形状，不设对齐目标。** 组件臂那份是离线打磨的模板（见「已知边界」），不是同一种执笔方式。**要找的是 loss**：拿到 N 条证据，最后一盘菜被剥成两句 |
+| 3 | **端上桌怎么剪** | **唯一的修法目标。** `draft` → `projection` → 终稿逐字 diff，看被剪掉什么；`business_status` 是在什么条件下判成 complete 的 |
 
 第 3 点是**首要嫌疑**：8796 那次的现象是「**菜还在、盘子被剥空**」——证据取到了，
 是发布层把它剪没了。先看这一刀，再看前两刀。
+
+**该修的正交失败只有 loss 这一类**：点到了却端不上桌、一盘菜被剥成两句。
+「点得不一样、写得不一样」不是病。任何写成「让模型追齐组件臂」的结论，退回重写。
 
 ### 任务 D：main ↔ 解耦版等价性检查（不是质量对比）
 
@@ -153,7 +187,14 @@ live 重放也验过。再去比是浪费，而且会把结论又引回 D10 和�
   但整条正交栈都不走。实测 `run_component_arm.py`（492 行）对
   `verifier` / `gate` / `business_status` / `allowed_capabilities` / `budget` /
   `episode_tools` / `research_tool_registry` / `orchestrator` 的调用**全部为 0**。
-  所以它的答案**未经质检**——可以当「信封与供数」的地面真值，**不能**当质量天花板。
+- **组件臂的 `answer.md` 是 f-string 模板，不是运行时生成的。** 脚本第 396 行
+  `answer = f"""..."""`，全脚本**零模型调用**（openai / anthropic / glm / client / chat / llm
+  全为 0）。数据是现算插值的（D10 窗口、成交额、涨停数），**叙述是 Codex 编码时写死的**——
+  看过一次数据、想过、改过，才写进脚本；重跑数字会变、句子不变。
+  所以它是**「拿同样的料离线打磨出来的样品菜」**：
+  - ✅ 它证明**料够**——同一批证据能写成那样，问题在生成与发布环节（这是存在性证明）
+  - ⛔ 它**不走 harness 发布契约**，未经质检、未经投影。**不能当质量天花板，更不能当契约。**
+    拿它当基准等于拿一篇改过的稿子去比现场即兴，不公平也不可执行。
 - 「遵不遵守契约」是**调用路径**的属性，不是 agent 的属性。脚本 import 到哪儿，约束就到哪儿；
   绕过的部分不会报错。这也是插件化的前提：**契约要下沉进零件**（如 D10 的 `as_of` 截断做在
   取数层，下游谁调都绕不过），靠上层编排调用的约束，每条新装配路径都能静默绕开。
