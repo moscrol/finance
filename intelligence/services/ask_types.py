@@ -233,6 +233,8 @@ class AskOptions:
         repr=False,
         compare=False,
     )
+    # market_watch 组件包。编排器在 owner 分叉前写入；缺席 = 本题不是该包。
+    market_watch_pack: Any = field(default=None, repr=False, compare=False)
 
 
 @dataclass

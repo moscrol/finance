@@ -1,0 +1,429 @@
+"""Deterministic market_watch component pack.
+
+Four bags run before any owner/model fork. Explicit standing dates use
+``trade_date = ?``. Implicit "today" first resolves ``max(trade_date)``, then
+the same exact-day queries. Never fall back to a neighbor day.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from intelligence.services import retrieval_cache
+from intelligence.services.query_understanding import market_review_requested_date
+from market_feature_store.signals import DOUBLE_RED_SQL
+
+BAG_MARKET = "market_daily"
+BAG_MAINLINE = "mainline"
+BAG_DUAL_RED = "dual_red"
+BAG_LIMIT_HEAT = "limit_heat"
+REQUIRED_BAGS = (BAG_MARKET, BAG_MAINLINE, BAG_DUAL_RED, BAG_LIMIT_HEAT)
+
+
+@dataclass(frozen=True)
+class PackBag:
+    name: str
+    requested_date: str | None
+    served_date: str | None
+    status: str
+    rows: tuple[dict[str, Any], ...]
+
+    @property
+    def empty(self) -> bool:
+        return self.status != "hit"
+
+
+@dataclass(frozen=True)
+class MarketWatchPack:
+    standing_date: str | None
+    explicit: bool
+    calendar_disclosure: str | None
+    bags: tuple[PackBag, ...]
+
+    def bag(self, name: str) -> PackBag | None:
+        for item in self.bags:
+            if item.name == name:
+                return item
+        return None
+
+    @property
+    def complete(self) -> bool:
+        return {item.name for item in self.bags} >= set(REQUIRED_BAGS)
+
+    @property
+    def market_daily_empty(self) -> bool:
+        bag = self.bag(BAG_MARKET)
+        return bag is None or bag.empty
+
+    @property
+    def should_stop(self) -> bool:
+        if self.calendar_disclosure:
+            return True
+        # 只有显式站立日且库里确认无该日行才停。库打不开时袋也是 empty，
+        # 那是「没查成」不是「该日无行情」，停了会盖掉 daily-review / 旧答。
+        return self.explicit and self.market_daily_empty
+
+    def stop_text(self) -> str:
+        if self.calendar_disclosure:
+            text = self.calendar_disclosure
+            return text if text.endswith("。") else f"{text}。"
+        date = self.standing_date or "该日"
+        return f"{date} 无行情数据。"
+
+    def render(self) -> str:
+        lines = ["## 指定日盘面组件包"]
+        if self.standing_date:
+            kind = "显式站立日" if self.explicit else "隐式最新交易日"
+            lines.append(f"- {kind}：{self.standing_date}。")
+        if self.calendar_disclosure:
+            lines.append(f"- 日历：{self.stop_text()}")
+        market = self.bag(BAG_MARKET)
+        if market is None or market.empty:
+            lines.append("- 总量袋：empty。")
+        else:
+            row = market.rows[0]
+            lines.append(f"- 总量袋 served_date={market.served_date}。")
+            lines.append(
+                f"- 全市场成交额：{row.get('total_amount')} 亿元；"
+                f"较前一日 {row.get('amount_vs_yesterday_pct')}%；"
+                f"涨停 {row.get('limit_up')} 家；跌停 {row.get('limit_down')} 家；"
+                f"上证 {row.get('sh_index_pct_chg')}%；"
+                f"量能 {row.get('volume_state') or '未标注'}；"
+                f"阶段 {row.get('market_stage') or '未标注'}"
+                + (
+                    f"（第 {row.get('stage_day')} 天）"
+                    if row.get("stage_day") is not None
+                    else ""
+                )
+                + "。"
+            )
+        mainline = self.bag(BAG_MAINLINE)
+        if mainline is None or mainline.empty:
+            lines.append("- 主线袋：该日无行。")
+        else:
+            names = "、".join(
+                str(row.get("theme_name") or row.get("sector_name") or "")
+                for row in mainline.rows
+                if row.get("theme_name") or row.get("sector_name")
+            )
+            lines.append(f"- 主线袋 served_date={mainline.served_date}：{names}。")
+        dual = self.bag(BAG_DUAL_RED)
+        if dual is None or dual.empty:
+            lines.append("- 严格双红 0 个。")
+        else:
+            names = "、".join(
+                str(row.get("sector_name") or "")
+                for row in dual.rows
+                if row.get("sector_name")
+            )
+            lines.append(
+                f"- 严格双红 served_date={dual.served_date}："
+                f"{len(dual.rows)} 个（{names}）。"
+            )
+        heat = self.bag(BAG_LIMIT_HEAT)
+        if heat is None or heat.empty:
+            lines.append("- 涨停热度该日无行。")
+        else:
+            names = "、".join(
+                str(row.get("sector_name") or "")
+                for row in heat.rows
+                if row.get("sector_name")
+            )
+            lines.append(
+                f"- 涨停热度 served_date={heat.served_date}：{names}。"
+            )
+        return "\n".join(lines)
+
+
+def merge_into_public_answer(text: str, pack: MarketWatchPack | None) -> str:
+    """Lock cells must reach the public answer even if daily-review owns prose."""
+
+    if pack is None:
+        return text
+    if pack.should_stop:
+        return pack.stop_text()
+    if pack.market_daily_empty:
+        return text
+    rendered = pack.render()
+    body = text or ""
+    if not rendered:
+        return body
+    if rendered in body:
+        return body
+    market = pack.bag(BAG_MARKET)
+    lock = market.rows[0].get("total_amount") if market and market.rows else None
+    if lock is not None and str(lock) in body:
+        return body
+    return f"{rendered}\n\n{body}".strip() if body else rendered
+
+
+def resolve_standing_date(
+    query: str,
+    *,
+    cutoff: str | None = None,
+) -> tuple[str | None, bool]:
+    requested = market_review_requested_date(query)
+    if requested:
+        return requested, True
+    if cutoff:
+        return cutoff, True
+    return None, False
+
+
+def exact_market_daily_exists(
+    market_db_path: str | Path | None,
+    trade_date: str,
+) -> bool | None:
+    """True/False if the db is reachable; None if it cannot be opened."""
+
+    con = _connect(market_db_path)
+    if con is None:
+        return None
+    try:
+        if not _has_table(con, "fact_market_daily"):
+            return False
+        row = con.execute(
+            "select 1 from fact_market_daily where trade_date = cast(? as date) limit 1",
+            [trade_date],
+        ).fetchone()
+        return row is not None
+    except Exception:
+        return None
+    finally:
+        con.close()
+
+
+def run_market_watch_pack(
+    query: str,
+    *,
+    market_db_path: str | Path | None,
+    calendar_disclosure: str | None = None,
+    cutoff: str | None = None,
+) -> MarketWatchPack:
+    standing, explicit = resolve_standing_date(query, cutoff=cutoff)
+    con = _connect(market_db_path)
+    if con is None:
+        requested = standing
+        empty = tuple(
+            PackBag(name=name, requested_date=requested, served_date=None, status="empty", rows=())
+            for name in REQUIRED_BAGS
+        )
+        return MarketWatchPack(
+            standing_date=standing,
+            explicit=explicit,
+            calendar_disclosure=calendar_disclosure,
+            bags=empty,
+        )
+    try:
+        if not explicit:
+            standing = _latest_market_date(con)
+        bags = (
+            _query_market_daily(con, standing),
+            _query_mainline(con, standing),
+            _query_dual_red(con, standing),
+            _query_limit_heat(con, standing),
+        )
+        return MarketWatchPack(
+            standing_date=standing,
+            explicit=explicit,
+            calendar_disclosure=calendar_disclosure,
+            bags=bags,
+        )
+    finally:
+        con.close()
+
+
+def _connect(market_db_path: str | Path | None):
+    if not market_db_path:
+        return None
+    path = Path(market_db_path).expanduser()
+    if not path.exists():
+        return None
+    db_result = retrieval_cache.try_connect_readonly(path)
+    if not db_result.available:
+        return None
+    return db_result.connection
+
+
+def _has_table(con: Any, name: str) -> bool:
+    row = con.execute(
+        """
+        select 1 from information_schema.tables
+        where table_schema = 'main' and table_name = ?
+        """,
+        [name],
+    ).fetchone()
+    return row is not None
+
+
+def _latest_market_date(con: Any) -> str | None:
+    if not _has_table(con, "fact_market_daily"):
+        return None
+    row = con.execute("select max(trade_date) from fact_market_daily").fetchone()
+    return str(row[0]) if row and row[0] else None
+
+
+def _empty(name: str, requested: str | None) -> PackBag:
+    return PackBag(
+        name=name,
+        requested_date=requested,
+        served_date=None,
+        status="empty",
+        rows=(),
+    )
+
+
+def _query_market_daily(con: Any, standing: str | None) -> PackBag:
+    if standing is None or not _has_table(con, "fact_market_daily"):
+        return _empty(BAG_MARKET, standing)
+    columns = (
+        "trade_date",
+        "market_stage",
+        "stage_day",
+        "total_amount",
+        "amount_vs_yesterday_pct",
+        "volume_state",
+        "limit_up",
+        "limit_down",
+        "sh_index_pct_chg",
+    )
+    available = {
+        str(row[1])
+        for row in con.execute("pragma table_info('fact_market_daily')").fetchall()
+    }
+    select_columns = [
+        column if column in available else f"null as {column}" for column in columns
+    ]
+    row = con.execute(
+        f"select {', '.join(select_columns)} from fact_market_daily "
+        "where trade_date = cast(? as date) limit 1",
+        [standing],
+    ).fetchone()
+    if not row or not row[0]:
+        return _empty(BAG_MARKET, standing)
+    values = dict(zip(columns, row, strict=True))
+    served = str(values["trade_date"])
+    return PackBag(
+        name=BAG_MARKET,
+        requested_date=standing,
+        served_date=served,
+        status="hit",
+        rows=(values,),
+    )
+
+
+def _query_mainline(con: Any, standing: str | None) -> PackBag:
+    if standing is None:
+        return _empty(BAG_MAINLINE, standing)
+    rows: list[dict[str, Any]] = []
+    if _has_table(con, "fact_mainline_theme_daily"):
+        try:
+            fetched = con.execute(
+                """
+                select theme_name, sector_count
+                from fact_mainline_theme_daily
+                where trade_date = cast(? as date)
+                order by theme_name
+                limit 10
+                """,
+                [standing],
+            ).fetchall()
+        except Exception:
+            fetched = []
+        rows.extend(
+            {"theme_name": str(name), "sector_count": count}
+            for name, count in fetched
+            if name
+        )
+    if _has_table(con, "fact_mainline_sector_daily") and not rows:
+        try:
+            fetched = con.execute(
+                """
+                select sector_name
+                from fact_mainline_sector_daily
+                where trade_date = cast(? as date)
+                limit 10
+                """,
+                [standing],
+            ).fetchall()
+        except Exception:
+            fetched = []
+        rows.extend({"sector_name": str(name[0])} for name in fetched if name and name[0])
+    if not rows:
+        return _empty(BAG_MAINLINE, standing)
+    return PackBag(
+        name=BAG_MAINLINE,
+        requested_date=standing,
+        served_date=standing,
+        status="hit",
+        rows=tuple(rows),
+    )
+
+
+def _query_dual_red(con: Any, standing: str | None) -> PackBag:
+    if standing is None or not _has_table(con, "fact_sector_daily"):
+        return _empty(BAG_DUAL_RED, standing)
+    fetched = con.execute(
+        f"""
+        select sector_name, pct_chg, diff_ratio, amount
+        from fact_sector_daily
+        where trade_date = cast(? as date) and {DOUBLE_RED_SQL}
+        order by amount desc nulls last, pct_chg desc
+        limit 30
+        """,
+        [standing],
+    ).fetchall()
+    rows = tuple(
+        {
+            "sector_name": str(name),
+            "pct_chg": pct,
+            "diff_ratio": diff,
+            "amount": amount,
+        }
+        for name, pct, diff, amount in fetched
+        if name
+    )
+    if not rows:
+        return _empty(BAG_DUAL_RED, standing)
+    return PackBag(
+        name=BAG_DUAL_RED,
+        requested_date=standing,
+        served_date=standing,
+        status="hit",
+        rows=rows,
+    )
+
+
+def _query_limit_heat(con: Any, standing: str | None) -> PackBag:
+    if standing is None or not _has_table(con, "fact_theme_limit_heat_daily"):
+        return _empty(BAG_LIMIT_HEAT, standing)
+    fetched = con.execute(
+        """
+        select sector_name, limit_up_count, market_share
+        from fact_theme_limit_heat_daily
+        where trade_date = cast(? as date)
+        order by limit_up_count desc nulls last, market_share desc
+        limit 20
+        """,
+        [standing],
+    ).fetchall()
+    rows = tuple(
+        {
+            "sector_name": str(name),
+            "limit_up_count": count,
+            "market_share": share,
+        }
+        for name, count, share in fetched
+        if name
+    )
+    if not rows:
+        return _empty(BAG_LIMIT_HEAT, standing)
+    return PackBag(
+        name=BAG_LIMIT_HEAT,
+        requested_date=standing,
+        served_date=standing,
+        status="hit",
+        rows=rows,
+    )

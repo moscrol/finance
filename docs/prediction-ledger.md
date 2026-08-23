@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-22（R3 live 回填：`R-20260822-02` V9b 检索层重放（部署指纹 `fb7a0d5d`）结构邻页占槽 0、机制开火 demoted=1 → confirmed；`R-20260822-04` 审计腿 13 盲区成立 + 电池首轮 9/9 基线（body_header_rate=1.0）→ confirmed。此前：V10 预注册 `R-20260822-04` 入 Open 表；V9b 离线读数追加到 `R-20260822-02`「怎么验」。既有：V9a/V8 合入（#333/#334）并部署上生产（指纹 `160db3fa`），live 探针回填：`R-20260822-01` 长电换窗两腿判据成立 → confirmed；`R-20260821-17` 第二腿「长电 4 条零信息 excerpt 变正文段」由 V9a live 兑现 → confirmed；`R-20260821-19` 首个自然语义样本 3/3 留句+存疑标、机械对照半腿无样本，按「单发不得结案」保持 pending。既有：`R-20260821-16` confirmed；R2 live 回填 `R-20260821-11/-13/-14/-15` confirmed。`R-20260821-07/-08/-09` 仍 pending。P1 Q1/Q3 仍 pending）
+- last_updated: 2026-08-24（预注册 `R-20260824-01`…`06`：盘面组件包换座。2026-08-22 R3 live 回填：`R-20260822-02` V9b 检索层重放（部署指纹 `fb7a0d5d`）结构邻页占槽 0、机制开火 demoted=1 → confirmed；`R-20260822-04` 审计腿 13 盲区成立 + 电池首轮 9/9 基线（body_header_rate=1.0）→ confirmed。此前：V10 预注册 `R-20260822-04` 入 Open 表；V9b 离线读数追加到 `R-20260822-02`「怎么验」。既有：V9a/V8 合入（#333/#334）并部署上生产（指纹 `160db3fa`），live 探针回填：`R-20260822-01` 长电换窗两腿判据成立 → confirmed；`R-20260821-17` 第二腿「长电 4 条零信息 excerpt 变正文段」由 V9a live 兑现 → confirmed；`R-20260821-19` 首个自然语义样本 3/3 留句+存疑标、机械对照半腿无样本，按「单发不得结案」保持 pending。既有：`R-20260821-16` confirmed；R2 live 回填 `R-20260821-11/-13/-14/-15` confirmed。`R-20260821-07/-08/-09` 仍 pending。P1 Q1/Q3 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -27,6 +27,12 @@
 
 | ID | 来源 | fix_type | verification_prediction | 怎么验 | outcome |
 |---|---|---|---|---|---|
+| `R-20260824-01` | spec 2026-08-24 盘面包（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | `market_watch` 进 ContinuousTurnAdapter 得 `handled=False`；A1 第一动作不再是 `deadline_exhausted` | §7.1 #1 单测已绿；live A1 另验 | `pending` |
+| `R-20260824-02` | 同上 | `HARNESS_FIX` | 显式站立日 `trade_date = ?`；问 07-25 不得吃 07-24 行；`_resolve_market_data_context` 无该日行不得回显问句日 | §7.2 #4/#5a/#6 单测已绿；live 休市题另验 | `pending` |
+| `R-20260824-03` | 同上 | `HARNESS_FIX` | A1 冻结日开口前四袋齐；公开稿含锁字段、双红名、热度名；`served_date=2026-07-23` | §7.3 夹具已绿；live A1 另验 | `pending` |
+| `R-20260824-04` | 同上 P1 | `HARNESS_FIX` | 残差稿含 `MA20`/`110–120%`/「旗型蓄能」时公开稿删句，不留质检条 | §7.4 #10；P1 未做 | `pending` |
+| `R-20260824-05` | 同上 | `HARNESS_FIX` | 有 `2026-07-23-daily-review.md`、daily-review own 时包仍跑、锁格进公开稿，不被 md 顶掉 | §7.1 #2a/#2b 编排器夹具已绿；live 主树有 md 另验 | `pending` |
+| `R-20260824-06` | 同上 | `HARNESS_FIX` | `2026-07-25 今天市场怎么样` 公开稿休市句、总量袋 empty、无 07-24 成交额 | §7.2 #5a 已绿；live 另验。C1 原题不是本行 | `pending` |
 | `R-20260815-03` | 标准 M1 分诊 F-003 | `DATA_CONTRACT_FIX` | `answer_coverage` 与 `structural_verifier` 对同一 `output_id` 改用同一判据函数后，本轮 9 个 run 中的 6 处冲突全部消失或转为显式 warning；B8 的 `evidence_boundary` 不再同时是 present 与 missing | 用本轮冲突的 6 个 run 作回归夹具，断言无静默分歧 | `pending` |
 | `R-20260815-04` | 标准 M1 分诊 F-001 | `HARNESS_FIX` | `outcome` 落盘补 `draft_source ∈ {model_returned_empty, truncated_by_budget, provider_error}` 与合成入口 `remaining_ms` 后，下一次空 draft 的 turn 其 `draft_source` 非空，可据以在 REASONING 与 HARNESS 之间定夺 F-001 的 L0 | 字段存在性单测；**单次读数不得结案**，需 ≥3 个同形样本 | `pending` |
 | `R-20260804-10` | L7 finalization T3 | `HARNESS_FIX` | deadline-aligned per-tool handoff 能让超出安全窗口的 deterministic slow tool 在生效阈值返回一条可配对的 `research_stage_closed + instruction`；正常成功路径同 id 恰好一个 `tool_result`，handoff 路径同 id 恰好一个预期执行层 `tool_error` 且无迟到 `tool_result`；只发一次 finalization，归一化后 `unpaired_tool_requests=0`；finalization reason 与 budget payload 同时看见 root-ledger 耗尽，handoff window 来自 profile / 生效预算而非隐藏的 `initial×0.20` reserve | **主门只用离线** slow-tool fake clock/隔离测试，并另测 `policy calls>0、root ledger calls=0` 与 `floor_ratio=0`；按 request id 分开断言正常 `tool_result`、handoff 执行层 `tool_error` 和 late-result 不入账，`tool=mailbox,error=response_path_conflict` 作为独立 transport 诊断不计入执行终态基数；再断言配对计数、finalization 次数/余量与落盘生效值。全部通过后才跑一次瑞华泰 canary，单次 live 不能独立结案 | `pending` |

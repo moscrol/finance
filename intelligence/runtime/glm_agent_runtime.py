@@ -42,7 +42,6 @@ _GLM_SYNTHESIS_RESERVE = {
 _SYNTHESIS_HEAVY_QUESTION_TYPES = frozenset(
     {
         "market_cause",
-        "market_watch",
     }
 )
 _BALANCED_SYNTHESIS_RESERVE = 60.0
