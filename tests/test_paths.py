@@ -28,8 +28,14 @@ class DefaultPathsTest(unittest.TestCase):
             importlib.reload(paths)
             if home is not None:
                 with patch.object(paths.Path, "home", return_value=Path(home)):
-                    return paths.default_paths()
-            return paths.default_paths()
+                    result = paths.default_paths()
+            else:
+                result = paths.default_paths()
+            # 必须在干净 env 里先记下对照值。with 块外再调 data_repo_root()
+            # 会读到启动器的 FINANCE_WS，worktree 上必红。
+            self._clean_data_root = paths.data_repo_root()
+            self._clean_db_root = paths.default_market_db_path().parent.parent
+            return result
 
     def test_prefers_finance_ws_and_kb_vault(self):
         paths = self._default_paths_with_env({
@@ -83,8 +89,7 @@ class DefaultPathsTest(unittest.TestCase):
         paths = self._default_paths_with_env({}, home=home)
 
         # finance_root 落在代码根，不是 home
-        from intelligence.paths import data_repo_root
-        self.assertEqual(paths.finance_root, data_repo_root())
+        self.assertEqual(paths.finance_root, self._clean_data_root)
         self.assertNotIn("Desktop", str(paths.finance_root))
         self.assertNotIn("/Users/lbq", str(paths.finance_root))
 
@@ -100,11 +105,9 @@ class DefaultPathsTest(unittest.TestCase):
         # 两根一致是这次修复的核心约束。
         # finance_root 若指向另一棵树，_runtime_market_reference_date() 从旧仓
         # exports 取 floor，再拿它去查本仓 DuckDB，每条结构化查询都被判「数据旧」。
-        from intelligence.paths import default_market_db_path
         paths = self._default_paths_with_env({})
 
-        expected_db_root = default_market_db_path().parent.parent
-        self.assertEqual(paths.finance_root, expected_db_root,
+        self.assertEqual(paths.finance_root, self._clean_db_root,
                          "finance_root 和 DuckDB 所在根不一致，会导致盘面证据静默失真")
 
 

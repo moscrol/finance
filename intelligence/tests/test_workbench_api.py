@@ -1925,6 +1925,8 @@ def test_lifespan_prewarms_enabled_rag_before_ready(
     _write_market_snapshot_fixture(snapshot)
     monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(snapshot))
     monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+    # 启动器会把预热超时抬到 360；本用例锁的是默认 90。
+    monkeypatch.delenv("RAG_WORKER_PREWARM_TIMEOUT", raising=False)
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
     calls: list[tuple[Path, float]] = []
@@ -1973,6 +1975,7 @@ def test_rag_prewarm_failure_keeps_readiness_closed(
     _write_market_snapshot_fixture(snapshot)
     monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(snapshot))
     monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+    monkeypatch.delenv("RAG_WORKER_PREWARM_TIMEOUT", raising=False)
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
 
