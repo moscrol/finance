@@ -1398,7 +1398,11 @@ _REVIEW_APPENDIX_HEADING = "输出质检"
 
 
 def _with_review_appendix(body: str, notes: Sequence[str]) -> str:
-    """修订版在前、审查意见进「输出质检」附录。无意见时正文逐字节不变。"""
+    """修订版在前、审查意见进「输出质检」附录。无意见时正文逐字节不变。
+
+    内部拼法仍给 V8/W1 单测用。公开 answer.md / result.content 走
+    ``_public_answer_text``，不再调用本函数。
+    """
 
     cleaned = [str(note).strip() for note in notes if str(note).strip()]
     if not cleaned:
@@ -1413,6 +1417,13 @@ def _with_review_appendix(body: str, notes: Sequence[str]) -> str:
         for note in cleaned
     )
     return f"{body.rstrip()}\n\n{heading}\n{bullets}\n"
+
+
+def _public_answer_text(body: str, notes: Sequence[str]) -> str:
+    """公开答案只留正文。审查意见留 notes / gate_receipt，不拼附录。"""
+
+    _ = notes
+    return body
 
 
 def _review_notes_from_gate(result: AskResult) -> tuple[str, ...]:
@@ -3184,7 +3195,7 @@ class TurnOrchestrator:
                 fallback = "llm_unavailable_template_answer"
                 warnings.append(fallback)
                 self.run_store.add_degrade(run_id, fallback)
-            answer_text = _with_review_appendix(
+            answer_text = _public_answer_text(
                 answer_text,
                 _review_notes_from_gate(result),
             )
@@ -3844,8 +3855,7 @@ class TurnOrchestrator:
         )
         # 视角答案头与 legacy 路径同源（runtime_answer_header）。只在用户显式
         # 选择了视角时前置：neutral 且无审查意见时，Episode 答案原样透传。
-        # 有 semantic issues 时编排器接通「修订版在前、意见进输出质检附录」；
-        # 覆盖率仍度量模型正文，所以 appendix 加在 coverage 之后。
+        # 审查意见留 gate_receipt / notes，不拼进公开正文。覆盖率仍度量模型正文。
         if (
             perspective_mode != perspective_lab.PERSPECTIVE_MODE_NEUTRAL
             and selected_perspective_ids
@@ -3861,7 +3871,7 @@ class TurnOrchestrator:
             if perspective_header:
                 answer_text = f"{perspective_header}\n\n{answer_text}"
         draft_text = answer_text
-        answer_text = _with_review_appendix(
+        answer_text = _public_answer_text(
             answer_text,
             _continuous_review_notes(result),
         )
