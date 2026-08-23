@@ -169,6 +169,27 @@ class TestGapAnswerMiddleTier:
         assert "未完成核验绑定" in answer
         assert "本轮已核验" not in answer
 
+    def test_judge_unavailable_does_not_claim_unbound_or_empty_evidence(self):
+        """§5.3 B2：判官挂了证据却在，禁语不得进 gap_body。"""
+
+        from dataclasses import replace
+
+        frame, verified = _verified()
+        no_bindings = replace(
+            verified,
+            outcome=replace(verified.outcome, bindings=()),
+        )
+        answer = SemanticEpisodeVerifier._gap_answer(
+            frame,
+            no_bindings,
+            judge_unavailable=True,
+        )
+        assert "复核服务不可用" in answer
+        assert "现有证据不足" not in answer
+        assert "未完成核验绑定" not in answer
+        assert "已取得 2 条证据" in answer
+        assert "复核服务超时" not in answer
+
     def test_no_contract_keeps_the_bare_sentence(self):
         from dataclasses import replace
 
