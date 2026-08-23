@@ -2,11 +2,22 @@
 
 ## 这个分支做什么
 
-8792 Workbench 的三个体感问题里，本单收口两个：**排版一大坨**（A）和
-**38 秒只看到一行字**（B）。第三个「真流式」没做，见下面「未做/下一步」。
+8792 Workbench 的三个体感问题**全部收口**：排版一大坨（A）、38 秒只看到一行字
+（B）、非流式一股脑输出（C）。
 
 活代码树：`~/fwp-wt-stream-ux`，基线 `gitea/main@3ac070a2`。
-两个 commit：`4f6d6e6c`（A）、`9e7989cb`（B）。未推、未合。
+四个 commit：`4f6d6e6c`（A）、`9e7989cb`（B）、`d2a30e7c`（交接）、
+`fc36746c`（C）。未推、未合。
+
+用户可见的净效果（按 run_20260823_221135_424228 的真实时序算）：
+
+| | 改动前 | 改动后 |
+|---|---|---|
+| 首个字符出现 | 38.0s | **6.0s** |
+| 正文写完 | 38.0s | 30.0s |
+| 核验完/最终稿 | 38.0s | 38.0s |
+| 等待期看到什么 | 一行不变的字 | 每个工具一句进度 |
+| 正文形态 | 1218 字一整段 | Markdown 分段/列表/加粗 |
 
 ## 诊断依据（实测，不是推断）
 
@@ -39,15 +50,22 @@
 
 ## 已验证
 
-- intelligence 全量：**5483 passed / 11 skipped / 0 failed**（`-p no:randomly`）。
+- intelligence 全量：**5554 passed / 11 skipped / 0 failed**（`-p no:randomly`）。
+  基线 `3ac070a2` 是 5483，本分支净增 71 条测试。
   注意：旧 handoff 提到的 main 存量 4 红在 `3ac070a2` 上已不复现。
 - webapp：typecheck + eslint 干净，vitest **67 passed**（新增 2 条回归）。
 - ruff `intelligence/` 全绿；`layer_audit.py` ERROR 0；pre-commit 9 道全过。
 - **拿真实 payload 回放**过 projector（不只是单测夹具）：同一轮里
   `market_data` → 「正在查盘面快照。」、`mainline_context` → 「正在查主线结构。」，
   改动前两句都是「正在核对计划所需资料。」。
+- **拿真实 content 回放**过解码器：那次 run 模型吐的 1808 字符信封，按逐字节 /
+  随机 1-40 / 整块三种切法，解出的 1156 字与 `json.loads(...)["draft"]` 完全一致。
+- 整链验收（`test_draft_stream_end_to_end.py`）：假 SSE → `chat_with_tools` →
+  `GLMModelClient` → `run_store`，客户端拼接结果 == 模型正文，覆盖
+  1/3/11/64/4096 五种分片尺寸。
 - `pnpm build` 通过，产物已随 B 提交（`intelligence/api/static/` 是入库的，
   按 `faa8041b`/`64222cf0` 的既有惯例并进功能 commit，不单独开一条）。
+  C 不需要动前端：`streamEvents.ts` 本来就支持 `text.delta` 增量拼接。
 
 ## 关键设计（别退回去）
 
@@ -62,28 +80,43 @@
   `a6f450a1…` → `af870456…` 并在 commit 里写清改了哪一条。不要靠回退让它变绿。
 - `tool_request` 的工具名在 `name` 键，`tool_result`/`tool_error` 在 `tool` 键，
   两个都试，别赌某一个运行时的写法。
+- **重复正文是这条链最贵的失败形状，两道闸缺一不可**：传输层按「首个 delta
+  之前/之后」分抛两种异常（之后那种连 provider 链都不许再走）；编排层查
+  stream log 而不是穿一个 flag 下来——日志本身就是「有没有东西过到客户端」的
+  答案，还能扛住重连重放。捕获与发射要拆开：`text_chunks` 仍要写（它是崩溃
+  兜底正文），只抑制重复推送那一半。
+- **sink 必须按每次 model turn 重置解码器**。第一轮的 PLAN JSON 会吃掉信封
+  前缀预算（4096），共用一个解码器的话正好在终稿要用时 disarm。
+- **不传 `on_content_delta` 就一行流式代码都不走**。测试双桩多是固定参数
+  `lambda`，无条件加 kwarg 会把它们全打断——这也是 `_stream_kwargs` 存在的
+  唯一理由。
+- `draft_publisher` 与 `episode_progress` 是**两个 owner，契约相反**：后者禁止
+  模型 prose 过 seam，前者专门运模型 prose。不要合并成一个模块的两个分支，
+  否则「模型文本能不能过这条缝」只能靠读 event kind 来回答，下一个人必错。
 
 ## 未做 / 下一步
 
-**C：真流式**（未开工，建议单独开单）。收益最大——生成占 23.9/38 秒，做完首字
-从 38s 提到 ~6s。路径：
+**三条改动都没有 live 验证过。** 单测、整链验收、真实 payload 回放都做了，但
+没有真跑一次问答——8792 是用户正在用的进程，本会话没重启它。起 8793 并排比
+的命令见下。要看的三件事：
 
-1. `glm_agent_runtime` 终稿轮开 `stream=True`（现在走
-   `llm_refine.chat_with_tools`，非流式）
-2. 写增量 JSON 字符串字段扫描器，只提 `"draft":"` 之后的内容，处理
-   `\"` `\n` `\uXXXX`
-3. delta 接到 `emit_text_delta`（前端已就绪）
-4. **必须照抄 `llm_refine.py` 那道闸**：流式已吐字后失败禁止回退非流式，否则
-   用户看到重复正文（注释里记了 inc-4258 那次工具双执行的文本版）
+1. 正文是不是边写边出（应该 6 秒左右见第一个字）
+2. 等待期是不是每个工具一句话（「正在查盘面快照。」而不是通用句）
+3. 正文是不是有 markdown 结构（分段、列表、加粗）
 
-**已知张力**：语义核验在 draft 完成后才跑（那 8 秒），流式意味着先展示未过核验
-的文字。架构其实预留了位置——`answer.snapshot` rev1(`verified_draft`)/rev2(final)
-两阶段，前端 `MessageBubble` 已有「可核验草稿 · 模型精修中」文案。且实测本轮
-**rev1 与 rev2 逐字符完全相同**（1218==1218，`identical: True`），核验改文字是
-少数情况。
+**已知张力（设计上接受了，不是遗漏）**：语义核验在 draft 完成后才跑（30→38s
+那 8 秒），所以流式期间用户看到的是**未过核验**的文字。架构本来就预留了位置
+——`answer.snapshot` rev1(`verified_draft`)/rev2(final) 两阶段，前端
+`MessageBubble` 已有「可核验草稿 · 模型精修中」文案。且实测那轮 **rev1 与 rev2
+逐字符完全相同**（1218==1218，`identical: True`），核验改文字是少数情况。
+真出现核验改稿时，用户会看到正文被替换一次——这是有意的取舍。
 
-**A 的效果尚未 live 验证**：prompt 改动要真跑一次问答才看得到排版变化，本会话
-没重启 8792（那是用户正在用的进程）。重启命令见下。
+**`sdk_glm` / `sdk_gpt` 后端没接流式**：`OpenAIAgentsRuntime` 的流式语义还没
+对齐，`app.py` 里显式只在 `selection.name == "continuous_glm"` 上挂 sink。
+生产默认就是 continuous_glm，但换后端时这条会静默退回非流式。
+
+**一键回退**：`WORKBENCH_DRAFT_STREAM=off` 关掉流式，不用改代码、不用重新部署。
+这是三条改动里唯一动了模型传输层的，留了闸。
 
 ## 怎么起来看
 
@@ -110,3 +143,11 @@ cd ~/fwp-wt-stream-ux
   **根本没生效**。新增的排版约束因此放在 base lines，不放分支里。
 - 这棵树没有自己的 `.venv`，用主树的
   `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`。
+- **`RunStore` 的第一个位置参数是 `user_id`，不是根路径。** 写成
+  `RunStore(tmp_path)` 会得到一句「非法 user_id」，正确写法是
+  `RunStore("xxx", root=tmp_path / "runs")`。
+- 流式下 `usage` 只在最后一个 chunk 出现，且必须显式开
+  `stream_options.include_usage`。忘了它 episode 的 token 账会静默归零——
+  行数、覆盖率都正常，只有数值是空的。
+- 分片重组里 `name` 只能覆盖不能拼接：有的网关每片都重发 name，拼接会得到
+  `market_datamarket_data`，然后工具静默不执行。已加回归测试。
