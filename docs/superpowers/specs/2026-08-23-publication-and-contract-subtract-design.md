@@ -5,7 +5,7 @@
 - 质检：2026-08-23 本树实跑（`.venv-workbench`）。Q1/Q2 信封复现、P0-A `110 passed`（收据 `20260823T093846Z-2f0d8ce9.json`）。§4 原 14 条行号点查通过；本版补 15–20 并修正 9/11/12。
 - 分诊：`~/.finance-runtime/trace-diff-spt-tech-med-monday-20260823/`（五臂）
   辅证：`~/.finance-runtime/trace-diff-spt-ysjs-20260823/`（有色，8796 判官挂）
-- 代码树：P0-A `/Users/a77/fwp-wt-publication-gate`（`fix/publication-gate-lamp`）；P0-B `/Users/a77/fwp-wt-judge-honesty`（`fix/judge-honesty-p0b`）；P0-C `/Users/a77/fwp-wt-contract-honor`（`feat/contract-honor-p0c`）。底都是 `gitea/main@3ac070a2`。禁止在主检出脏树上改
+- 代码树：P0-A `/Users/a77/fwp-wt-publication-gate`（`fix/publication-gate-lamp`）；P0-B `/Users/a77/fwp-wt-judge-honesty`（`fix/judge-honesty-p0b`）；P0-C `/Users/a77/fwp-wt-contract-honor`（`feat/contract-honor-p0c`）。底都是 `gitea/main@3ac070a2`。禁止在主检出 `feat/reading-rules-baseline-batch1` 脏树上改
 - 相邻：`2026-08-23-operator-prefetch-os-design.md`（空 manual 覆盖 + D10，P0 已合 `#345`）；`docs/handoffs/inflight/fix-publication-gate-lamp.md`（本单 P0-A）
 - 账本：`docs/prediction-ledger.md` 的 `R-20260823-SPTTECH-*`（`-04` 仍 pending，本单不证）
 

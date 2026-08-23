@@ -115,7 +115,10 @@ _OUTPUT_DESCRIPTIONS: dict[str, str] = {
     "money_flow": "说明资金流向与结构变化",
     "comparison": "比较候选并给出差异",
     "relation_map": "说明主体之间的关系与传导",
-    "company_mapping": "列出主题相关的公司与角色",
+    "company_mapping": (
+        "列出观察名单：股票名称 + 六位代码 + 角色（机会 / 出清或风险），"
+        "不得只写行业形容词"
+    ),
     "market_change": "说明市场相对前一阶段的变化",
     "customer_validation": "给出客户或订单侧的可核验证据",
     "valuation_range": "给出估值区间与方法边界",
