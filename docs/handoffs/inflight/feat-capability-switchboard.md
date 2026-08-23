@@ -12,10 +12,10 @@
 - 路由/说明书面未接线（`query_understanding` / `foresight` / `ask_blocks` 不读 faces）。
 - 超集 960 行夹具、复印件棘轮、runner 正控未搬。
 - `run_capability_switchboard.py` 会 import `reading_baseline`，#343 未合时不要强行绿 reading 臂。
-- 未开 PR、未合、未切 8792/8796。
+- Gitea #350 已开。未合、未切 8792/8796。
 
 ## 下一步
-1. push 后开 Gitea PR。合 main / 切端口等用户。
+1. 合 main / 切端口等用户。
 2. 同 SHA 是 `R-20260824-09`，等本单进同一 main 且用户明示切端口。
 
 ## 踩过的坑
