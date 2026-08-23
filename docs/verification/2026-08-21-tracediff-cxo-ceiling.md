@@ -145,3 +145,18 @@ ls ~/.local/share/finance-workbench/users/linxiaoqi5111/runs/run_20260821_171744
 ```
 
 > 操作注：两探针的会话落在主用户 `linxiaoqi5111` 名下（`POST /api/conversations` 的字段是 `user` 而非 `user_id`，传错键被 FastAPI 静默忽略、落回默认用户）——UI 会话列表里会看到两条 `antioverfit-*`，内容是真分析，可留可删。下次探针记得传 `user`。
+
+---
+
+## 8-23 主犯换代（2026-08-24 补记，不改上文结论）
+
+上文写的是 **8-21** 的主犯：投影把真话送给判官删。那一层已拆（#289 / #298）。**不要**再按本章去修投影删句。
+
+8-23 之后还封上限的是另一道**输出闸**：判官未贴 transient 标签的 provider-error → 剥稿。现场指针：
+
+- 周一原题（合同债，不是投影债）：`~/.finance-runtime/trace-diff-spt-tech-med-monday-20260823/`
+- 有色 8796 判官 `RuntimeError` 剥稿：`~/.finance-runtime/trace-diff-spt-ysjs-20260823/`
+- Knevo A1（盘面题，不是周一题）：`~/.finance-runtime/four-arm-knevo-20260823/`
+
+后续单与加减法判据：`docs/superpowers/specs/2026-08-24-harness-ceiling-and-8796-decouple-followup.md`。
+周一原题复验（P0-C 三变量绿）：`docs/verification/2026-08-24-p0c-monday-recheck.md`。
