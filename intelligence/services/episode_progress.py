@@ -132,6 +132,30 @@ _TOOL_EVENT_TEMPLATES: dict[str, str] = {
 }
 
 
+# 本模块能产出的全部公开句子，闭集。
+#
+# 为什么要把它导出去：``api.app._public_trace_step`` 会**丢掉** step 的
+# output_summary、按 stage 重新合成一句话——它必须这么防，因为 trace 步骤还有
+# 别的生产者，那些 output_summary 可能带模型措辞。于是本模块辛苦区分出来的
+# 「正在查盘面快照。」在跨 seam 时又被拍回「已完成一项证据核对。」。
+#
+# 2026-08-23 live 实测（:8801 三轮）就是这么发现的：单测全绿、拿历史 payload
+# 回放也全绿，UI 上一个工具标签都没出现——**上游写了、下游不读**。
+#
+# 放行判据用「这句是不是我们自己生成的」而不是「这个 step 来自哪里」：后者要靠
+# step_id 前缀猜，前者是集合成员判断，且集合由同一份表生成，不会漂。
+def public_progress_messages() -> frozenset[str]:
+    """Every sentence this module can emit — the pass-through whitelist."""
+
+    fixed = {message for _stage, message, _status in _EVENT_PROJECTIONS.values()}
+    labelled = {
+        template.format(label=label)
+        for template in _TOOL_EVENT_TEMPLATES.values()
+        for label in _TOOL_LABELS.values()
+    }
+    return frozenset(fixed | labelled)
+
+
 def _tool_label(payload: object) -> str | None:
     """Resolve a payload's tool name against our own closed label table."""
 
@@ -233,4 +257,5 @@ __all__ = [
     "PROGRESS_EVENT_KINDS",
     "RunEpisodeProgressPublisher",
     "project_episode_progress",
+    "public_progress_messages",
 ]
