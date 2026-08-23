@@ -7,7 +7,7 @@ import pytest
 
 from intelligence.services.asof_prefetch import collect_prefetch_items
 from intelligence.services.market_regime_analogs import parse_regime_intent
-from intelligence.tests.test_market_regime_analogs import LoaderAndBlockTests, _day
+import intelligence.tests.test_market_regime_analogs as _mra
 
 try:
     import duckdb
@@ -20,8 +20,15 @@ _FROZEN_ANALOG = (
 
 
 def _make_market_db(path: Path, n: int = 200) -> None:
-    """复用 D10 既有夹具，避免第二份建表 SQL 漂移；_make_db 不使用 self。"""
-    LoaderAndBlockTests._make_db(None, path, n=n, hot_ranges=[(40, 60), (180, 200)])
+    """复用 D10 既有夹具，避免第二份建表 SQL 漂移；_make_db 不使用 self。
+
+    刻意用模块别名而不是 ``from ... import LoaderAndBlockTests``：后者会把那个
+    unittest 类带进本模块命名空间，pytest 会把它当本文件的测试**再收一遍**
+    （实测本文件从 6 条涨到 14 条，同名用例挂在两个文件下，失败时像两个问题）。
+    """
+    _mra.LoaderAndBlockTests._make_db(
+        None, path, n=n, hot_ranges=[(40, 60), (180, 200)]
+    )
 
 
 def _blob(items) -> str:
@@ -68,7 +75,7 @@ def test_regime_question_with_data_emits_real_d10_block(tmp_path: Path) -> None:
         question=_FROZEN_ANALOG,
         question_type="general_finance_qa",
         subject="",
-        as_of=date.fromisoformat(_day(120)),
+        as_of=date.fromisoformat(_mra._day(120)),
         market_db_path=db,
     )
     blob = _blob(items)
@@ -94,8 +101,8 @@ def test_d10_prefetch_honours_as_of(tmp_path: Path) -> None:
             )
         )
 
-    early = _run(_day(120))
-    late = _run(_day(199))
+    early = _run(_mra._day(120))
+    late = _run(_mra._day(199))
     assert "[D10]" in early and "[D10]" in late
     assert early != late
 
