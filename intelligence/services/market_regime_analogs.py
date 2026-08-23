@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -324,14 +325,28 @@ _AUX_QUERIES: dict[str, str] = {
 }
 
 
-def load_market_regime_vectors(con: Any) -> tuple[list[dict[str, Any]], list[str]]:
-    """从只读连接拼每日情绪向量。返回 (升序向量列表, 缺失特征名列表)。"""
+def load_market_regime_vectors(
+    con: Any, as_of: date | str | None = None
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """从只读连接拼每日情绪向量。返回 (升序向量列表, 缺失特征名列表)。
+
+    ``as_of`` 非空时只取 ``trade_date <= as_of``。这是 D10 唯一的截断点：
+    当前窗口签名、z 标准化系数、候选窗口、后续 5/10/20 日事实全部只消费本函数
+    的返回值，因此截在这里即可杜绝未来数据。辅表不必再加同一条件——辅表值按
+    日期键回查 base 行，as_of 之后的辅表行不可达。
+    """
+    base_sql = (
+        "select trade_date, total_amount, advancers, limit_up, limit_down, "
+        "sh_deviation_pct, sh_index_pct_chg "
+        "from fact_market_daily"
+    )
+    params: list[Any] = []
+    if as_of is not None:
+        base_sql += " where trade_date <= ?"
+        params.append(str(as_of))
+    base_sql += " order by trade_date asc"
     try:
-        base = con.execute(
-            "select trade_date, total_amount, advancers, limit_up, limit_down, "
-            "sh_deviation_pct, sh_index_pct_chg "
-            "from fact_market_daily order by trade_date asc"
-        ).fetchall()
+        base = con.execute(base_sql, params).fetchall()
     except Exception:
         return [], list(FEATURES)
     if not base:
@@ -368,6 +383,7 @@ def load_market_regime_vectors(con: Any) -> tuple[list[dict[str, Any]], list[str
 def load_market_regime_artifact(
     market_db_path: str | Path | None,
     window: int = DEFAULT_WINDOW,
+    as_of: date | str | None = None,
 ) -> MarketRegimeArtifact:
     db_path = (
         Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
@@ -383,7 +399,7 @@ def load_market_regime_artifact(
         )
     con = db_result.connection
     try:
-        vectors, missing = load_market_regime_vectors(con)
+        vectors, missing = load_market_regime_vectors(con, as_of=as_of)
         if not vectors:
             return MarketRegimeArtifact(
                 window, {}, (), tuple(missing),
@@ -459,9 +475,10 @@ _FEATURE_LABELS = {
 def regime_block_for_llm(
     market_db_path: str | Path | None,
     window: int = DEFAULT_WINDOW,
+    as_of: date | str | None = None,
 ) -> str:
     """把市场情绪环境类比渲染成带 [D10] 引用编号的确定性数据块（空串=未取到）。"""
-    artifact = load_market_regime_artifact(market_db_path, window=window)
+    artifact = load_market_regime_artifact(market_db_path, window=window, as_of=as_of)
     if not artifact.available:
         return ""
     lines = ["## 市场情绪环境类比块 [D10]"]
