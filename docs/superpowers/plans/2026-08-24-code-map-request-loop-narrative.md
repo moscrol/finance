@@ -15,6 +15,7 @@
 Tracked implementation files:
 
 - Modify: `.code-review-graph/wiki-steering.json`
+- Modify: `scripts/code_map.py`
 - Modify: `tests/test_code_map.py`
 
 Tracked documentation already approved for this correction:
@@ -31,7 +32,7 @@ Generated, ignored outputs rebuilt after all tracked commits:
 Explicit non-goals:
 
 - No changes under `intelligence/`
-- No changes to `scripts/code_map.py`
+- No Code Map schema, query ranking, Door scanning, or conflict-priority changes
 - No edits to `docs/agent-product-door.md`, `AGENTS.md`, or `CLAUDE.md`
 - No L0–L4 request-lifecycle model
 - No 5×3 Door / Structure / Narrative matrix
@@ -240,7 +241,87 @@ Expected implementation commit paths:
 tests/test_code_map.py
 ```
 
-## Task 3: Rebuild and verify the current Code Map
+## Task 3: Reconcile removed steering pages discovered during full build
+
+**Files:**
+
+- Modify: `tests/test_code_map.py:825-875`
+- Modify: `scripts/code_map.py:821-848`
+
+- [ ] **Step 1: Seed a stale generated page and assert full-build cleanup**
+
+In `test_agent_runtime_paths_steering_routes_doors_without_claiming_structure`, create the removed page before `collect_build`:
+
+```python
+    stale_page = crg / "wiki" / "doors" / "agent-request-loop.md"
+    stale_page.parent.mkdir(parents=True)
+    stale_page.write_text("# 已撤销的旧请求 Loop\n", encoding="utf-8")
+```
+
+After the build, assert both the file and its index entry are gone:
+
+```python
+    assert not stale_page.exists()
+    assert "doors/agent-request-loop.md" not in index
+```
+
+- [ ] **Step 2: Run the integration test and confirm RED**
+
+```bash
+.venv-workbench/bin/python -m pytest \
+  tests/test_code_map.py::test_agent_runtime_paths_steering_routes_doors_without_claiming_structure \
+  -q
+```
+
+Expected: FAIL at `assert not stale_page.exists()`. This proves current full build only adds/overwrites pages and does not reconcile removals.
+
+- [ ] **Step 3: Reconcile the generator-owned directory**
+
+In `_write_steering_pages`, collect valid page IDs first, remove Markdown files whose names are not in that set, then render current pages:
+
+```python
+    valid_pages: list[tuple[dict[str, Any], str]] = []
+    for page in pages:
+        if not isinstance(page, dict):
+            continue
+        pid = str(page.get("id") or "").strip()
+        if PAGE_ID_RE.match(pid):
+            valid_pages.append((page, pid))
+
+    expected_names = {f"{pid}.md" for _page, pid in valid_pages}
+    for path in out.glob("*.md"):
+        if path.name not in expected_names:
+            path.unlink()
+```
+
+Iterate `for page, pid in valid_pages` in the existing render loop. This is safe because `wiki/doors/` is created and exclusively populated by `_write_steering_pages()`.
+
+- [ ] **Step 4: Re-run the integration test and confirm GREEN**
+
+Run the command from Step 2.
+
+Expected: `1 passed`.
+
+- [ ] **Step 5: Run full tests, lint, and diff checks**
+
+```bash
+.venv-workbench/bin/python -m pytest tests/test_code_map.py -q -rs
+.venv-workbench/bin/python -m ruff check scripts/code_map.py tests/test_code_map.py
+git diff --check
+```
+
+Expected: all runnable tests pass, only the three pre-existing empty-map environment skips remain, and lint/diff checks pass.
+
+- [ ] **Step 6: Commit the durable stale-page fix**
+
+```bash
+git commit -m "fix: reconcile Code Map steering pages" -- \
+  scripts/code_map.py tests/test_code_map.py
+```
+
+Expected: the commit contains only the generator reconciliation and its regression assertions.
+
+## Task 4: Rebuild and verify the current Code Map
 
 **Files:**
 
@@ -352,7 +433,7 @@ git status --short
 
 Expected: generated paths are listed; both diff checks exit `0`; status shows only the pre-existing untracked `.venv-workbench` symlink.
 
-## Task 4: Deliver the corrected teaching handoff
+## Task 5: Deliver the corrected teaching handoff
 
 **Files:** None. The final response is derived from the approved design and verified map.
 
@@ -391,6 +472,6 @@ Report:
 - [ ] Every approved requirement maps to a task above.
 - [ ] The plan contains no unresolved placeholders.
 - [ ] Tests exercise the tracked config and public build/query seam, not Mermaid layout.
-- [ ] No production runtime or Code Map generator file changes.
+- [ ] No production runtime changes; the only generator change is steering-page set reconciliation.
 - [ ] No edit overlaps the other worktree's in-flight Door document.
 - [ ] Generated artifacts are rebuilt only after all tracked commits.

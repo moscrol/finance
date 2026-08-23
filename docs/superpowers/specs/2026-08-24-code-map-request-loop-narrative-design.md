@@ -90,6 +90,8 @@ Workbench 外环内部再分三种结果：
 
 这些查询应命中 AGENTS / CLAUDE 中的正门约束，并把读者引向 canonical 的 `docs/agent-product-door.md`。它们不承担结构图职责；`ResearchToolRegistry`、`ContinuousAgentEpisode`、`episode_semantic_verifier` 等实现符号继续由 Structure 实时查询。
 
+full build 还必须把 `wiki/doors/` 对账成当前有效 steering IDs 的文件集合。该目录只由 `_write_steering_pages()` 生成；删除配置中的页面时，旧 Markdown 必须同时回收，不能继续被 index 或全文 Narrative 检索命中。
+
 ### 5.2 请求运行图
 
 ```mermaid
@@ -156,6 +158,7 @@ flowchart TB
 Tracked 文件：
 
 - `.code-review-graph/wiki-steering.json`
+- `scripts/code_map.py`
 - `tests/test_code_map.py`
 - 本设计文档
 - 对应实施计划
@@ -166,9 +169,13 @@ Tracked 文件：
 - `.code-review-graph/status.json`
 - `.code-review-graph/wiki/`
 
+生成器改动只允许：
+
+- `_write_steering_pages()` 删除不再属于当前有效 steering IDs 的旧生成页；
+- 不改变 JSON schema、查询排序、Door 扫描或冲突优先级。
+
 明确不修改：
 
-- `scripts/code_map.py`
 - `intelligence/` 生产代码
 - 另一工作树正在修改的 `docs/agent-product-door.md`、`AGENTS.md`、`CLAUDE.md`
 
@@ -187,6 +194,7 @@ Tracked 文件：
 2. 五个查询词和页面标题都能命中该 narrative 页。
 3. 生成页的每个查询都有真实 Door 命中，不生成全空目录。
 4. `ResearchToolRegistry` 不因本 steering 页被误标为 Narrative；它只在可用时由 Structure 回答。
+5. 预先存在的旧 `agent-request-loop.md` 会被 full build 删除，index 也不再引用它。
 
 ### 7.3 本地收据
 
@@ -199,7 +207,7 @@ Tracked 文件：
 - 某个人类查询没有 Door 命中：先修正查询词或等待 canonical Door 文档落地，不用内部符号伪造命中。
 - Structure 为空或 stale：拒绝据此下架构结论，执行 full build 后重查。
 - Narrative 与 Door 冲突：沿用 `doors_win`，不调整优先级。
-- 回滚只需恢复 steering 条目和测试；重新 full build 即可重生 ignored 产物。
+- 回滚只需恢复 steering 条目、生成集合对账逻辑和测试；重新 full build 即可重生 ignored 产物。
 
 ## 9. 非目标
 
