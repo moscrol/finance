@@ -829,6 +829,9 @@ def test_agent_runtime_paths_steering_routes_doors_without_claiming_structure(
     (root / "CLAUDE.md").write_text("正门约束见 AGENTS。\n", encoding="utf-8")
 
     crg = root / ".code-review-graph"
+    stale_page = crg / "wiki" / "doors" / "agent-request-loop.md"
+    stale_page.parent.mkdir(parents=True)
+    stale_page.write_text("# 已撤销的旧请求 Loop\n", encoding="utf-8")
     (crg / "wiki-steering.json").write_text(
         json.dumps(
             {
@@ -848,6 +851,7 @@ def test_agent_runtime_paths_steering_routes_doors_without_claiming_structure(
     page_text = page_path.read_text(encoding="utf-8")
     assert "# Agent 产品入口与运行路径" in page_text
     assert "（正门无命中）" not in page_text
+    assert not stale_page.exists()
 
     for query in human_queries:
         assert f"## query: {query}" in page_text
@@ -862,6 +866,7 @@ def test_agent_runtime_paths_steering_routes_doors_without_claiming_structure(
 
     index = (crg / "wiki" / "index.md").read_text(encoding="utf-8")
     assert "doors/agent-runtime-paths.md" in index
+    assert "doors/agent-request-loop.md" not in index
     title_payload, title_code = cm.collect_query(root, "Agent 产品入口与运行路径")
     assert title_code == 0
     assert title_payload["layers"]["narrative"]["state"] == "ok"

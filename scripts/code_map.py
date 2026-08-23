@@ -823,13 +823,21 @@ def _write_steering_pages(root: Path) -> int:
     pages = steering.get("pages") or []
     out = root / WIKI_REL / "doors"
     out.mkdir(parents=True, exist_ok=True)
-    written = 0
+    valid_pages: list[tuple[dict[str, Any], str]] = []
     for page in pages:
         if not isinstance(page, dict):
             continue
         pid = str(page.get("id") or "").strip()
-        if not PAGE_ID_RE.match(pid):
-            continue
+        if PAGE_ID_RE.match(pid):
+            valid_pages.append((page, pid))
+
+    expected_names = {f"{pid}.md" for _page, pid in valid_pages}
+    for path in out.glob("*.md"):
+        if path.name not in expected_names:
+            path.unlink()
+
+    written = 0
+    for page, pid in valid_pages:
         queries = [str(item) for item in (page.get("queries") or []) if item]
         query_hits: list[tuple[str, list[dict[str, Any]]]] = []
         for question in queries:
