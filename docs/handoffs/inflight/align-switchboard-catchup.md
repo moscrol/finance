@@ -1,5 +1,7 @@
 # align/switchboard-catchup
 
+> 已让位。P0 对齐 + 8796 切流看 `align-switchboard-p0.md`。本文是并 `#345` 时的取证派工，不要当当前切流。
+
 ## 目标
 
 两件**不同性质**的事，不要混成一个实验：
