@@ -56,6 +56,130 @@ def test_projector_ignores_private_model_and_unknown_events() -> None:
     assert project_episode_progress(EpisodeEvent(3, TOOL_PRE_EXECUTE, {})) is None
 
 
+def test_tool_labels_cover_exactly_the_registered_tools() -> None:
+    """标签表与工具注册表必须一一对应，不能各自漂。
+
+    少一个：那个工具的进度会退回「正在核对计划所需资料。」——不报错、不刷屏，
+    只是用户永远看不到它，正是最难发现的一类退化。多一个：说明工具已删除或改名，
+    标签成了死条目。两边都锁，新增工具忘了登记就在这里变红。
+    """
+
+    from intelligence.services.episode_progress import _TOOL_LABELS
+    from intelligence.services.research_tool_registry import _DEFAULT_TOOL_METADATA
+
+    missing = sorted(set(_DEFAULT_TOOL_METADATA) - set(_TOOL_LABELS))
+    stale = sorted(set(_TOOL_LABELS) - set(_DEFAULT_TOOL_METADATA))
+
+    assert missing == [], f"这些工具没有用户可见标签，进度会静默退回通用句: {missing}"
+    assert stale == [], f"标签表里有注册表不认识的工具（已删或改名）: {stale}"
+
+
+def test_tool_events_render_distinct_labels_not_one_repeated_sentence() -> None:
+    """同一轮里两个不同工具必须给出两句不同的进度。
+
+    回归的是实测 run_20260823_221135_424228：market_data 与 mainline_context
+    两次调用在 UI 上都显示「正在核对计划所需资料。」，用户无法分辨 agent 在做什么。
+    """
+
+    market = project_episode_progress(
+        EpisodeEvent(4, "tool_request", {"name": "market_data", "arguments": {}})
+    )
+    mainline = project_episode_progress(
+        EpisodeEvent(6, "tool_request", {"name": "mainline_context", "arguments": {}})
+    )
+    result = project_episode_progress(
+        EpisodeEvent(5, "tool_result", {"ok": True, "tool": "market_data"})
+    )
+
+    assert market is not None and mainline is not None and result is not None
+    assert market.message == "正在查盘面快照。"
+    assert mainline.message == "正在查主线结构。"
+    assert result.message == "已取得盘面快照。"
+    assert market.message != mainline.message
+
+
+def test_unregistered_tool_falls_back_instead_of_leaking_its_name() -> None:
+    """认不出来就 fail closed：退回通用句，绝不把工具名透出去。"""
+
+    progress = project_episode_progress(
+        EpisodeEvent(9, "tool_request", {"name": "some_unregistered_tool"})
+    )
+
+    assert progress is not None
+    assert progress.message == "正在核对计划所需资料。"
+    assert "some_unregistered_tool" not in json.dumps(
+        progress.to_dict(), ensure_ascii=False
+    )
+
+
+def test_tool_labels_survive_the_public_trace_projection() -> None:
+    """跨到客户端那一层不许把标签拍回通用句。
+
+    ``api.app._public_trace_step`` 会丢掉 step 的 output_summary、按 stage 重新
+    合成。2026-08-23 live（:8801 三轮）就栽在这——单测全绿、历史 payload 回放
+    全绿，UI 上一个工具标签都没出现。**上游写了、下游不读**：新字段的验收点
+    必须放在真正被消费的那一层，不是产出的那一层。
+    """
+
+    from intelligence.api import app as app_module
+
+    progress = project_episode_progress(
+        EpisodeEvent(4, "tool_request", {"name": "market_data"})
+    )
+    assert progress is not None
+    step = {
+        "step_id": "continuous:episode:4:tool_request",
+        "name": progress.stage,
+        "status": progress.status,
+        "started_at": "2026-08-23T22:11:41+08:00",
+        "finished_at": None,
+        "output_summary": progress.message,
+        "warnings": [],
+    }
+
+    public = app_module._public_trace_step(step)
+
+    assert public["output_summary"] == "正在查盘面快照。"
+
+
+def test_public_trace_projection_still_refuses_foreign_prose() -> None:
+    """白名单只放行我们自己生成的句子，seam 没有被放宽。"""
+
+    from intelligence.api import app as app_module
+
+    public = app_module._public_trace_step(
+        {
+            "step_id": "some:other:producer",
+            "name": "research",
+            "status": "completed",
+            "output_summary": "模型说：我调用了 finance_query 查 hidden_table。",
+            "warnings": [],
+        }
+    )
+
+    assert public["output_summary"] == "已完成一项证据核对。"
+    assert "finance_query" not in json.dumps(public, ensure_ascii=False)
+    assert "hidden_table" not in json.dumps(public, ensure_ascii=False)
+
+
+def test_whitelist_is_generated_from_the_same_tables_it_guards() -> None:
+    """白名单必须由那两张表生成，不能是手抄的第二份清单。"""
+
+    from intelligence.services.episode_progress import (
+        _EVENT_PROJECTIONS,
+        _TOOL_LABELS,
+        public_progress_messages,
+    )
+
+    allowed = public_progress_messages()
+
+    for _stage, message, _status in _EVENT_PROJECTIONS.values():
+        assert message in allowed
+    for label in _TOOL_LABELS.values():
+        assert f"正在查{label}。" in allowed
+        assert f"已取得{label}。" in allowed
+
+
 def test_progress_kinds_are_registered_durable_kinds() -> None:
     """UI 进度只投影已登记的 durable kind，不另造一套词表。
 

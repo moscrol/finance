@@ -74,10 +74,15 @@ from intelligence.services.conversation_store import (
     ConversationStore,
 )
 from intelligence.runtime.episode_finalizer import EpisodeFinalizer
+from intelligence.services.draft_publisher import (
+    RunDraftDeltaPublisher,
+    draft_streaming_enabled,
+)
 from intelligence.services.episode_progress import (
     EpisodeProgress,
     RunEpisodeProgressPublisher,
     project_episode_progress,
+    public_progress_messages,
 )
 from intelligence.services.episode_tools import (
     build_episode_registry,
@@ -338,10 +343,27 @@ def _build_continuous_turn_adapter(
             return
         progress_publisher.publish(progress)
 
+    draft_publisher: RunDraftDeltaPublisher | None = None
+    if run_store is not None and draft_streaming_enabled():
+        draft_publisher = RunDraftDeltaPublisher(
+            run_store=run_store,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            message_id=assistant_message_id,
+            event_id_prefix=event_id_prefix,
+        )
+
     selection = resolve_runtime_backend()
     client = GLMModelClient(
         providers=providers,
         is_cancelled=is_cancelled,
+        # 只在 continuous_glm 上接：sdk_glm 走 OpenAIAgentsRuntime，
+        # 它自己的流式语义还没对齐，这里不假装它也能流。
+        on_draft_delta=(
+            draft_publisher.publish
+            if draft_publisher is not None and selection.name == "continuous_glm"
+            else None
+        ),
     )
     finalizer = EpisodeFinalizer(
         client,
@@ -547,6 +569,7 @@ _PUBLIC_PROGRESS_MESSAGES = {
     "verification": "正在核验证据绑定与回答完整性。",
     "finalizing": "正在基于核验结果形成公开回答。",
 }
+_EPISODE_PROGRESS_MESSAGES = public_progress_messages()
 _PUBLIC_HIDDEN_CONTROL_KEYS = frozenset(
     {
         "task_frame_hash",
@@ -663,7 +686,17 @@ def _public_trace_step(step: dict[str, object]) -> dict[str, object]:
         status = "completed"
     message = _PUBLIC_TRACE_MESSAGE_BY_PRIVATE_NAME.get(raw_name)
     if message is None:
-        if status == "failed":
+        # episode_progress 已经投影过的句子直接放行，别按 stage 再拍平一次。
+        # 它区分了「正在查盘面快照。」和「正在查主线结构。」，而按 stage 合成
+        # 只会得到同一句「已完成一项证据核对。」——上游写了、下游不读，实测
+        # （:8801 三轮）UI 上一个工具标签都没出现。
+        #
+        # 放行判据是**集合成员**：只有本进程自己那张表生成过的句子才过，模型
+        # 措辞或别的 trace 生产者的 output_summary 一律不过，seam 不放宽。
+        already_projected = str(step.get("output_summary") or "").strip()
+        if already_projected in _EPISODE_PROGRESS_MESSAGES:
+            message = already_projected
+        elif status == "failed":
             message = "一项研究步骤未完成，相关结果未纳入结论。"
         elif status == "running":
             message = _PUBLIC_PROGRESS_MESSAGES[stage].replace("已完成", "正在完成")
