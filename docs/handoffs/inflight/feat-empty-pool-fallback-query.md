@@ -14,7 +14,7 @@
 - live 单发不得 confirmed。未合 main、未切端口。
 
 ## 下一步
-1. push 后开 Gitea PR。合 main 等用户。
+1. Gitea #349 已开。合 main 等用户。
 2. live 空池题看 `fallback_query=true` + as-of = 问句日。
 
 ## 踩过的坑
