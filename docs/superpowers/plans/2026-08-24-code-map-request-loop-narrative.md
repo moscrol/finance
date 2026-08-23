@@ -406,8 +406,8 @@ Expected: four successful `true` results. Other narrative pages may legitimately
 
 ```bash
 test -f .code-review-graph/wiki/doors/agent-runtime-paths.md
-! rg -n "正门无命中|L0|L1|L2|L3|L4" \
-  .code-review-graph/wiki/doors/agent-runtime-paths.md
+test ! -e .code-review-graph/wiki/doors/agent-request-loop.md
+! rg -n "正门无命中" .code-review-graph/wiki/doors/agent-runtime-paths.md
 python3 scripts/code_map.py query "Agent 产品入口与运行路径" --json | jq -e '
   .layers.narrative.state == "ok"
   and (
@@ -417,7 +417,7 @@ python3 scripts/code_map.py query "Agent 产品入口与运行路径" --json | j
 '
 ```
 
-Expected: the file exists, contains no empty section or request-layer labels, and the title query returns `true`.
+Expected: the new file exists, the removed page is absent, every query section has a Door hit, and the title query returns `true`. Do not grep for bare `L0`–`L4`: generated Door excerpts may legitimately mention Harness or evidence-layer coordinates such as `L1_L3_candidate`.
 
 - [ ] **Step 6: Prove generated files stayed ignored and tracked files are clean**
 
