@@ -1,0 +1,39 @@
+{
+  "ambient_ids": [
+    "evidence_lookup",
+    "evidence_search",
+    "finance_query",
+    "financial_data",
+    "graph_lookup",
+    "kb_search",
+    "l3_lookup",
+    "mainline_context",
+    "market_data",
+    "memory_lookup",
+    "news_search",
+    "web_search"
+  ],
+  "capability_source": "intelligence.services.episode_factory.build_episode_context",
+  "excluded": {
+    "param.boards-min": "CLI 参数默认值，不是开关位",
+    "predicate.evidence-layers": "canonical=contested，是待建正典的工单不是开关",
+    "predicate.reading-baseline": "代码不在本底"
+  },
+  "generated_from": "intelligence/eval/fixtures/capability_switchboard.json",
+  "non_tool_defaults": {
+    "followup-composer": "on",
+    "noop-prompt": "off",
+    "predicate.capacity-top3": "on",
+    "predicate.dated-market-topic": "on",
+    "predicate.double-red": "on",
+    "predicate.limit-approx-9p8": "on",
+    "predicate.limit-heat-min2": "on",
+    "predicate.mainup-consecutive-3": "on",
+    "predicate.single-red": "on",
+    "predicate.sqrt-weighted": "on",
+    "predicate.volume-surge-10": "on",
+    "semantic-verifier": "on",
+    "structural-verifier": "on"
+  },
+  "switch_set": "default-v1"
+}

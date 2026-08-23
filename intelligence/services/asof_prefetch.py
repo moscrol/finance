@@ -125,8 +125,16 @@ def dual_red_counts(
     con: Any,
     days: tuple[date, ...],
 ) -> dict[str, str]:
-    """每个交易日：双红个数，或 ``缺数``（当日板块表零行）。"""
+    """每个交易日：双红个数，或 ``缺数``（当日板块表零行）。
 
+    算数面关掉时返回空 dict——调用方不得再拼「双红个数」观察值。空集合（生产默认）
+    不走这支，行为与本函数不读开关时一致。
+    """
+
+    from intelligence.services.predicate_faces import faces
+
+    if not faces().counts_double_red():
+        return {}
     out: dict[str, str] = {}
     for day in days:
         iso = day.isoformat()
