@@ -27,14 +27,14 @@
       "queries": ["daily-full", "pytest", "code_map"]
     },
     {
-      "id": "agent-request-loop",
-      "title": "Agent 请求 Loop",
+      "id": "agent-runtime-paths",
+      "title": "Agent 产品入口与运行路径",
       "queries": [
-        "validate_runtime_selection",
-        "conversation_orchestrator",
-        "research_tool_registry",
-        "episode_semantic_verifier",
-        "experience_cards"
+        "产品入口",
+        "CLI ask",
+        "Workbench UI",
+        "CLI agent",
+        "TurnOrchestrator"
       ]
     }
   ]

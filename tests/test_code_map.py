@@ -634,19 +634,20 @@ def test_wiki_steering_is_narrative_only_and_tracked():
     ids = [page["id"] for page in data["pages"]]
     assert "daily-review-door" in ids
     assert "run-scripts" in ids
-    request_loop_pages = [
-        page for page in data["pages"] if page["id"] == "agent-request-loop"
+    assert "agent-request-loop" not in ids
+    runtime_path_pages = [
+        page for page in data["pages"] if page["id"] == "agent-runtime-paths"
     ]
-    assert request_loop_pages == [
+    assert runtime_path_pages == [
         {
-            "id": "agent-request-loop",
-            "title": "Agent 请求 Loop",
+            "id": "agent-runtime-paths",
+            "title": "Agent 产品入口与运行路径",
             "queries": [
-                "validate_runtime_selection",
-                "conversation_orchestrator",
-                "research_tool_registry",
-                "episode_semantic_verifier",
-                "experience_cards",
+                "产品入口",
+                "CLI ask",
+                "Workbench UI",
+                "CLI agent",
+                "TurnOrchestrator",
             ],
         }
     ]
@@ -800,7 +801,7 @@ def test_full_build_writes_steering_door_pages(tmp_path, monkeypatch):
     assert payload.get("wiki_generated") is True
 
 
-def test_request_loop_steering_generates_page_and_routes_all_anchors(
+def test_agent_runtime_paths_steering_routes_doors_without_claiming_structure(
     tmp_path, monkeypatch
 ):
     cm = _cm()
@@ -814,19 +815,25 @@ def test_request_loop_steering_generates_page_and_routes_all_anchors(
             encoding="utf-8"
         )
     )
-    request_loop_page = next(
-        page for page in source["pages"] if page["id"] == "agent-request-loop"
+    runtime_page = next(
+        page for page in source["pages"] if page["id"] == "agent-runtime-paths"
     )
-    anchors = request_loop_page["queries"]
-    (root / "AGENTS.md").write_text("\n".join(anchors) + "\n", encoding="utf-8")
-    (root / "CLAUDE.md").write_text("Agent 请求 Loop\n", encoding="utf-8")
+    human_queries = runtime_page["queries"]
+    (root / "AGENTS.md").write_text(
+        "评接口与产品入口读 docs/agent-product-door.md。\n"
+        "默认产品门是 CLI ask。\n"
+        "Workbench UI 走 TurnOrchestrator。\n"
+        "显式工具循环走 CLI agent。\n",
+        encoding="utf-8",
+    )
+    (root / "CLAUDE.md").write_text("正门约束见 AGENTS。\n", encoding="utf-8")
 
     crg = root / ".code-review-graph"
     (crg / "wiki-steering.json").write_text(
         json.dumps(
             {
                 "purpose": "steer narrative pages only; not a capability inventory",
-                "pages": [request_loop_page],
+                "pages": [runtime_page],
             }
         ),
         encoding="utf-8",
@@ -837,22 +844,31 @@ def test_request_loop_steering_generates_page_and_routes_all_anchors(
 
     build_payload, build_code = cm.collect_build(root, full=True, postprocess="full")
     assert build_code == 0, build_payload
-    page_path = crg / "wiki" / "doors" / "agent-request-loop.md"
+    page_path = crg / "wiki" / "doors" / "agent-runtime-paths.md"
     page_text = page_path.read_text(encoding="utf-8")
-    assert "# Agent 请求 Loop" in page_text
-    for query in anchors:
+    assert "# Agent 产品入口与运行路径" in page_text
+    assert "（正门无命中）" not in page_text
+
+    for query in human_queries:
         assert f"## query: {query}" in page_text
         payload, code = cm.collect_query(root, query)
         assert code == 0
+        assert payload["layers"]["doors"]["state"] == "ok"
         assert payload["layers"]["narrative"]["state"] == "ok"
         assert any(
-            hit["path"].endswith("doors/agent-request-loop.md")
+            hit["path"].endswith("doors/agent-runtime-paths.md")
             for hit in payload["layers"]["narrative"]["hits"]
         )
 
     index = (crg / "wiki" / "index.md").read_text(encoding="utf-8")
-    assert "doors/agent-request-loop.md" in index
-    title_payload, title_code = cm.collect_query(root, "Agent 请求 Loop")
+    assert "doors/agent-runtime-paths.md" in index
+    title_payload, title_code = cm.collect_query(root, "Agent 产品入口与运行路径")
     assert title_code == 0
     assert title_payload["layers"]["narrative"]["state"] == "ok"
 
+    symbol_payload, symbol_code = cm.collect_query(root, "ResearchToolRegistry")
+    assert symbol_code == 0
+    assert not any(
+        hit["path"].endswith("doors/agent-runtime-paths.md")
+        for hit in symbol_payload["layers"]["narrative"]["hits"]
+    )
