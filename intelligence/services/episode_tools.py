@@ -609,14 +609,14 @@ def _opening_prefetch_evidence(
         return ()
     evidence = list(evidence_from_prefetch(items))
     if frame.question_type == "market_forecast":
-        evidence.extend(
-            _live_weekly_opening_evidence(
-                items,
-                user_space=user_space,
-                perspective_ids=perspective_ids,
-                perspective_mode=perspective_mode,
-            )
-        )
+        for item in _live_weekly_opening_evidence(
+            items,
+            user_space=user_space,
+            perspective_ids=perspective_ids,
+            perspective_mode=perspective_mode,
+        ):
+            digest = str(item.content_hash or "").strip() or agent_research.evidence_content_hash(item)
+            evidence.append(replace(item, content_hash=digest))
     return tuple(evidence)
 
 

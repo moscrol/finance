@@ -17,6 +17,7 @@ from intelligence.services.perspective_live_weekly import (
     EXCERPT_CHARS,
     bind_live_weekly,
     is_live_weekly_evidence,
+    live_weekly_evidence,
     retrieve_analog_snippets,
 )
 from intelligence.services.task_frame import TaskFrame
@@ -182,6 +183,9 @@ def test_bind_live_weekly_uses_max_date(tmp_path: Path) -> None:
     assert "3880" in receipt.excerpt
     assert "4060" not in receipt.excerpt
     assert len(receipt.excerpt) <= EXCERPT_CHARS
+    hashed = live_weekly_evidence(receipt)
+    assert hashed
+    assert all(str(item.content_hash or "").strip() for item in hashed)
 
 
 def test_bind_live_weekly_missing_and_neutral(tmp_path: Path) -> None:
@@ -283,6 +287,7 @@ def test_opening_evidence_includes_weekly_and_live(tmp_path: Path) -> None:
     live = next(item for item in evidence if is_live_weekly_evidence(item))
     assert live.source_date == "2026-08-17"
     assert "3880" in live.detail
+    assert all(str(item.content_hash or "").strip() for item in evidence)
 
 
 def test_neutral_skips_live_but_keeps_week_pack(tmp_path: Path) -> None:

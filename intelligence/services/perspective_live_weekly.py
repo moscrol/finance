@@ -6,12 +6,12 @@ Services layer only. Do not import runtime. Do not open DuckDB.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal
 
 from intelligence.services import perspective_lab
-from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.agent_research import AgentEvidence, evidence_content_hash
 from intelligence.userspace import UserSpace
 
 EXCERPT_CHARS = 360
@@ -171,7 +171,9 @@ def live_weekly_evidence(
                 freshness="historical",
             )
         )
-    return tuple(items)
+    return tuple(
+        replace(item, content_hash=evidence_content_hash(item)) for item in items
+    )
 
 
 def is_live_weekly_evidence(item: object) -> bool:
