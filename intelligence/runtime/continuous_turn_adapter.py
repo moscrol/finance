@@ -47,7 +47,6 @@ from intelligence.services.episode_verifier import (
 from intelligence.services.honesty_gates import with_calendar_disclosure
 from intelligence.services.mandatory_satisfiability import (
     apply_unreachable_downgrade,
-    ensure_preplaced_gap_sections,
 )
 from intelligence.services.provider_latency import (
     provider_name_from,
@@ -1026,19 +1025,6 @@ class ContinuousTurnAdapter:
         answer = _safe_public_text(
             semantic.public_answer,
             private_tokens=private_tokens,
-        )
-        gap_contract = semantic.verified.contract or context.contract
-        unfilled = {
-            item.output_id
-            for item in semantic.verified.completion.outputs
-            if item.status != "fulfilled"
-        }
-        unfilled.update(semantic.gap_output_ids)
-        unfilled.update(semantic.verified.missing_outputs)
-        answer = ensure_preplaced_gap_sections(
-            answer,
-            gap_contract,
-            only_output_ids=unfilled,
         )
         citations = _public_citation_projection(
             final_outcome,

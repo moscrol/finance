@@ -45,6 +45,7 @@ from intelligence.services.session_projection import (
     CAUSE_JUDGE_UNAVAILABLE_HELD,
     CAUSE_MODEL_UNAVAILABLE,
     CAUSE_TRANSIENT_VERIFIER_OUTAGE,
+    CAUSE_VERIFICATION_INCOMPLETE,
     CAUSE_VERIFIED,
     TerminalFacts,
     view,
@@ -2583,8 +2584,10 @@ class SemanticEpisodeVerifier:
         「从不输出裸的不知道」那条；08-01 验收 C 组的诚实度失分同源）。
 
         「仍可判 Y」的取材红线：**只用结构性事实**——契约里的槽位描述、
-        binding 里去重后的证据哈希数、证据的来源日期。一个字都不从 draft 捞：
-        gap 答案出现的场合正是 draft 被拒的场合，捞正文等于绕过语义门禁。
+        binding 里去重后的证据哈希数、证据的来源日期。普通 ``evidence_gap``
+        一个字都不从 draft 捞。``invalid_repair_finish`` 且证据非空改走
+        ``verification_incomplete``：已兑现槽在拒稿前写入 ``public=``，未兑现
+        槽交给 ``unknown_slots``，由 ``view()`` 渲成用户语言。
         """
 
         question = frame.raw_question.strip() or "当前问题"
@@ -2608,11 +2611,17 @@ class SemanticEpisodeVerifier:
                 )
             )
         # 首句成因不跟 ASK_DEGRADED_FALLBACK：模型没服务成时不能写成「证据不足」。
-        cause = (
-            CAUSE_MODEL_UNAVAILABLE
-            if is_model_service_unavailable(verified)
-            else CAUSE_EVIDENCE_GAP
+        # invalid_repair_finish + 证据非空不是「没查到」，不得贴 evidence_gap。
+        incomplete_repair = (
+            str(verified.outcome.stop_reason or "") == "invalid_repair_finish"
+            and bool(verified.outcome.evidence)
         )
+        if is_model_service_unavailable(verified):
+            cause = CAUSE_MODEL_UNAVAILABLE
+        elif incomplete_repair:
+            cause = CAUSE_VERIFICATION_INCOMPLETE
+        else:
+            cause = CAUSE_EVIDENCE_GAP
         contract = verified.contract
         if contract is None:
             return view(TerminalFacts(cause=cause, question=question))
@@ -2633,9 +2642,6 @@ class SemanticEpisodeVerifier:
                 _gap_label(item) for item in targets if _gap_label(item)
             )
         )
-        parts: list[str] = []
-        if labels:
-            parts.append("仍需核验：" + "、".join(labels[:3]) + "。")
         bound_counts = {
             binding.output_id: len(dict.fromkeys(binding.evidence_hashes))
             for binding in verified.outcome.bindings
@@ -2647,6 +2653,9 @@ class SemanticEpisodeVerifier:
             if status_by_id.get(item.output_id) == "fulfilled"
             and bound_counts.get(item.output_id)
         )
+        parts: list[str] = []
+        if cause != CAUSE_VERIFICATION_INCOMPLETE and labels:
+            parts.append("仍需核验：" + "、".join(labels[:3]) + "。")
         if kept:
             parts.append(
                 "本轮已核验（供参考，不构成完整结论）："
@@ -2673,11 +2682,19 @@ class SemanticEpisodeVerifier:
         transparency = gap_transparency(verified)
         if transparency:
             parts.append(transparency)
+        public = ""
+        unknown_slots: tuple[str, ...] = ()
+        if cause == CAUSE_VERIFICATION_INCOMPLETE:
+            unknown_slots = labels
+            if kept:
+                public = str(verified.outcome.draft or "").strip()
         return view(
             TerminalFacts(
                 cause=cause,
                 question=question,
+                public=public,
                 gap_body="".join(parts),
+                unknown_slots=unknown_slots,
             )
         )
 

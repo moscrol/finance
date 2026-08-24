@@ -218,6 +218,26 @@ _PLAN_CAPABILITY_TO_RUNTIME: dict[str, str] = {
     "l3_lookup": "l3_lookup",
 }
 
+# 工具身份 → 计划能力。finance_query 是结构化行情/板块事实的语义入口，
+# 不是「名字里有 daily 就算行情」的字符串启发。
+_TOOL_RECEIPT_PLAN_CAPABILITIES: dict[str, frozenset[str]] = {
+    "finance_query": frozenset({"finance_query", "market_data", "mainline_context"}),
+    "market_data": frozenset({"market_data"}),
+    "mainline_context": frozenset({"mainline_context"}),
+    "financial_data": frozenset({"financial_data"}),
+}
+
+# dataset id 是注册表键，精确查找。空 dataset 不加能力，只靠工具身份。
+_DATASET_PLAN_CAPABILITIES: dict[str, frozenset[str]] = {
+    "sector_daily": frozenset({"market_data", "mainline_context"}),
+    "market_daily": frozenset({"market_data"}),
+    "stock_daily": frozenset({"market_data"}),
+    "sector_stock_daily": frozenset({"market_data", "mainline_context"}),
+    "mainline_theme_daily": frozenset({"market_data", "mainline_context"}),
+    "mainline_sector_daily": frozenset({"market_data", "mainline_context"}),
+    "theme_limit_heat_daily": frozenset({"market_data", "mainline_context"}),
+}
+
 # overlay 追加行的 (provider, mandatory, freshness)。mandatory 必须与 overnight
 # 既有行为一致：news_search / web_search 都是 required=False。
 _OVERLAY_REQUIREMENT_TEMPLATE: dict[str, tuple[str, bool, str]] = {
@@ -542,3 +562,39 @@ def runtime_capabilities_for_frame(frame: TaskFrame) -> tuple[str, ...]:
             )
         )
     )
+
+
+def plan_capabilities_from_receipt(*, tool: str, dataset: str = "") -> frozenset[str]:
+    """把一条 typed tool receipt 投影成计划能力 id。
+
+    只做精确查找：工具名、注册 dataset id。禁止对 dataset 做子串启发。
+    """
+
+    tool_key = str(tool or "").strip()
+    dataset_key = str(dataset or "").strip()
+    caps: set[str] = set()
+    if tool_key:
+        caps.add(tool_key)
+        caps.update(_TOOL_RECEIPT_PLAN_CAPABILITIES.get(tool_key, ()))
+    if dataset_key:
+        caps.update(_DATASET_PLAN_CAPABILITIES.get(dataset_key, ()))
+    return frozenset(caps)
+
+
+def collect_satisfied_plan_capabilities(
+    evidence,
+    traces=(),
+) -> frozenset[str]:
+    """桌上有效收据（证据 + trace）并集投影到计划能力。"""
+
+    caps: set[str] = set()
+    for item in evidence:
+        caps.update(plan_capabilities_from_receipt(tool=getattr(item, "tool", "")))
+    for trace in traces:
+        caps.update(
+            plan_capabilities_from_receipt(
+                tool=str(getattr(trace, "capability", "") or ""),
+                dataset=str(getattr(trace, "dataset", "") or ""),
+            )
+        )
+    return frozenset(caps)

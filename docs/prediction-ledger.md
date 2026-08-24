@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-24（#352 切 8792=`af71f048`。用户纠偏：8796 是解耦树，`R-20260824-09` 同 SHA → refuted，8796 已拨回 `76ee1e89`。盘面包 `R-01/-02/-03/-05/-06` confirmed、`R-04` P1 pending；main 已合 #349 D3 `R-08` + #350 D4 第 1 步 `R-11`。`R-20260821-07/-08/-09` 仍 pending）
+- last_updated: 2026-08-24（P0-A 加深 `view()` 开 `R-20260824-12`…`19`。#352 切 8792=`af71f048`。用户纠偏：8796 是解耦树，`R-20260824-09` 同 SHA → refuted，8796 已拨回 `76ee1e89`。盘面包 `R-01/-02/-03/-05/-06` confirmed、`R-04` P1 pending；main 已合 #349 D3 `R-08` + #350 D4 第 1 步 `R-11`。`R-20260821-07/-08/-09` 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -27,6 +27,14 @@
 
 | ID | 来源 | fix_type | verification_prediction | 怎么验 | outcome |
 |---|---|---|---|---|---|
+| `R-20260824-12` | knevo28 P0-A（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | B2 形：`invalid_repair_finish` + 证据非空 → 开口不是「现有证据不足」；已兑现槽公开句保留；未兑现槽用户语言 unknown；无 `【结构缺口】` | **离线已绿**（2026-08-24）：`test_publication_view_deepen.py` n=3 + `test_gap_answer_middle_tier.py` 新成因。live/矿重放未跑，单测绿 ≠ confirmed | `pending` |
+| `R-20260824-13` | knevo28 P0-A（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | 28 题重放 QC marker=0（靠不拼接，不靠禁语表）。judge unavailable 同 SHA 仍走已有两成因之一，不新开第三扇门 | 离线重放 knevo28 矿。禁止用本行重开 D1。adapter 缝合已拆，矿重放未跑 | `pending` |
+| `R-20260824-14` | knevo28 P0-A（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | false capability 10/11→0：capability 来自 typed tool receipt 投影，不再 dataset 字符串启发 | **离线已绿**：`plan_capabilities_from_receipt(tool=finance_query)` 含 `market_data`；`verify_episode_outcome` 不再因工具名≠计划能力误报。矿 10/11→0 重放未跑，不得 confirmed | `pending` |
+| `R-20260824-15` | knevo28 P0-B（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | A4/C6/B5 改写 100% 注册定义+`.TI` universe | 封存改写组。P0-A 合入后再动 | `pending` |
+| `R-20260824-16` | knevo28 P0-B（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | A10 走 aggregate；C8 走 catalog 快路 | 封存改写组 + latency | `pending` |
+| `R-20260824-17` | knevo28 P1（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | B1–B3 单槽缺不丢整篇；stale≠no-hit | P1；绑定 `ThemeResearchSpec` | `pending` |
+| `R-20260824-18` | knevo28 P1（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | 有证据零公开=0；ReAct 空稿 `draft_source` 必填。reserve 在租用循环工具缝执行，不新加 schema 字段 | 重放 A3/B1/B3/B4/B8 | `pending` |
+| `R-20260824-19` | knevo28 P2（收口预注册，非标准四阶段分诊） | `EVAL_ONLY` | 2×2 四格按预注册判读出结论；Both 不以盲评追平组件臂为门 | 消融批；盲评可附观察 | `pending` |
 | `R-20260824-01` | spec 2026-08-24 盘面包（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | `market_watch` 进 ContinuousTurnAdapter 得 `handled=False`；A1 第一动作不再是 `deadline_exhausted` | §7.1 #1 单测绿；live A1 双态（run_20260824_034205 / run_20260824_035503）首动作 turn_assembly、非 `deadline_exhausted`，答案 14s 内交付；收据 ~/.finance-runtime/mwcf-live-20260823/receipts/probe-a1*.{log,json} | `confirmed` |
 | `R-20260824-02` | 同上 | `HARNESS_FIX` | 显式站立日 `trade_date = ?`；问 07-25 不得吃 07-24 行；`_resolve_market_data_context` 无该日行不得回显问句日 | §7.2 #4/#5a/#6 单测绿；live A1 显式站立日=2026-07-23、四袋 served_date 一致；live P0（07-25 周六）公开稿只有休市句、无 07-24 行回显；收据 ~/.finance-runtime/mwcf-live-20260823/receipts/probe-p0.log | `confirmed` |
 | `R-20260824-03` | 同上 | `HARNESS_FIX` | A1 冻结日开口前四袋齐；公开稿含锁字段、双红名、热度名；`served_date=2026-07-23` | §7.3 夹具绿；live A1 公开稿四袋齐：总量 21949.97 亿、主线 5 方向、严格双红 7 个（名单在稿）、涨停热度 20 题材，全部 served_date=2026-07-23；收据 ~/.finance-runtime/mwcf-live-20260823/receipts/probe-a1*.{log,json} | `confirmed` |
