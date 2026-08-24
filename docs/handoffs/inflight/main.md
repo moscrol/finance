@@ -1,5 +1,7 @@
 # 在途交接 · main
 
+更新：2026-08-24 12:29 CST · **8792 已切 `48601e08`（#354+#355）**。health 三读 `48601e08ca4b` / dirty=false / match=true；readiness 13/13。8796 仍 `76ee1e89`。回滚=`af71f0480889`。长电 `run_20260824_122741_120845` completed、口径 `fact_stock_daily`×4、数据日 08-21。公开稿仍有 `【质检`×2（`-13` 未 confirmed）。正文 `docs/handoffs/2026-08-24-8792-48601e08-cutover.md`。主仓脏树没动。
+
 更新：2026-08-24 12:10 CST · **#354 已合 `e8ed9e11`（P0-A）；P0-B 在途**。未切 8792/8796。P0-B 树 `fwp-wt-research-program-compiler` / `feat/research-program-compiler`。`compile_research_program` 唯一写 operators；market_watch 四袋逐字节回归；prefetch 改读 operator；`program.research-program` 只登 eval 表。台账 `-15`/`-16` 仍 pending（离线绿≠confirmed）。交接 `docs/handoffs/inflight/feat-research-program-compiler.md`。主仓脏树没动。
 
 更新：2026-08-24 11:52 CST · **P0-A 加深 `view()` 待合**：树 `fwp-wt-publication-view-deepen` / `fix/publication-view-deepen`，基线 `b07259c0`。`invalid_repair_finish`+证据非空不再贴「现有证据不足」；adapter 不再缝 `【结构缺口】`；`finance_query` typed receipt 投影。全仓 6281P/13S。台账开 `R-20260824-12`…`19`（12/14 离线绿≠confirmed；15–19 占号）。未切端口。交接 `docs/handoffs/inflight/fix-publication-view-deepen.md`。主仓脏树没动。
