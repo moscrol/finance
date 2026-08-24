@@ -1203,7 +1203,6 @@ class ContinuousAgentEpisode:
                     batch_errors=tuple(item.error for item in batch.items),
                 )
                 if halt and not finalization_started:
-                    ledger.add("degrade", {"reason": halt})
                     finalization_started = True
                     self._begin_finalization(
                         messages=messages,
