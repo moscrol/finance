@@ -46,6 +46,9 @@ from intelligence.runtime.episode_tool_batch import (
     ToolBatchResult,
     ToolCallResult,
 )
+from intelligence.services.forecast_residual_budget import (
+    forecast_residual_halt_reason,
+)
 from intelligence.services.mode_governor import (
     ModeDecision,
     ModeGovernor,
@@ -1194,6 +1197,19 @@ class ContinuousAgentEpisode:
                 batch_elapsed = max(0.0, monotonic() - batch_started)
                 tool_calls += batch.executed_count
                 invalid_actions += accumulator.consume(batch, context)
+                halt = forecast_residual_halt_reason(
+                    question_type=context.contract.question_type,
+                    research_tier=context.contract.research_tier,
+                    batch_errors=tuple(item.error for item in batch.items),
+                )
+                if halt and not finalization_started:
+                    ledger.add("degrade", {"reason": halt})
+                    finalization_started = True
+                    self._begin_finalization(
+                        messages=messages,
+                        ledger=ledger,
+                        reason=halt,
+                    )
                 _settle_batch_calls(
                     context.root_budget,
                     executed_count=batch.executed_count,
