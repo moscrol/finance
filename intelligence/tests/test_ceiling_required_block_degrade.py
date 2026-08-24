@@ -118,7 +118,7 @@ def test_partial_mechanical_delete_keeps_remainder_and_degrades() -> None:
         if item.output_id == "direct_assessment"
     )
     assert lost.status == "missing"
-    assert REQUIRED_OUTPUT_DEGRADED_MARK in result.public_answer
+    assert REQUIRED_OUTPUT_DEGRADED_MARK not in result.public_answer
     for banner in _APOLOGY_MARKERS:
         assert banner not in result.public_answer
     joined = " ".join(result.issues)
@@ -214,7 +214,7 @@ def test_full_wipe_still_keeps_c3_banner() -> None:
 
 
 def test_degraded_block_annotation_is_visible_on_public_answer() -> None:
-    """⑤ 降级块标注在公开稿可见。"""
+    """⑤ 残块保留；降级进 issues，公开稿不再盖质检章。"""
 
     draft = (
         "【直接判断】当日主线仍是电网设备。"
@@ -232,7 +232,7 @@ def test_degraded_block_annotation_is_visible_on_public_answer() -> None:
         correlated_judge=True,
     )
 
-    assert REQUIRED_OUTPUT_DEGRADED_MARK in result.public_answer
+    assert REQUIRED_OUTPUT_DEGRADED_MARK not in result.public_answer
     assert "成交额 530.96" in result.public_answer
     for banner in _APOLOGY_MARKERS:
         assert banner not in result.public_answer
@@ -316,7 +316,7 @@ def test_degrade_note_does_not_dump_contract_or_point_at_removed_appendix() -> N
         correlated_judge=True,
     )
 
-    assert REQUIRED_OUTPUT_DEGRADED_MARK in result.public_answer
+    assert REQUIRED_OUTPUT_DEGRADED_MARK not in result.public_answer
     assert "成交额 530.96" in result.public_answer
     assert "详见「输出质检」" not in result.public_answer
     assert "六位代码" not in result.public_answer
@@ -343,7 +343,7 @@ def test_semantic_quality_reject_keeps_required_block_remainder() -> None:
     result = _verify(frame, structural, judge)
 
     assert "据此判断延续观察" in result.public_answer
-    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
     assert "【直接判断】当日主线仍是电网设备" in result.public_answer
     assert "成交额 530.96" in result.public_answer
     assert "质量不够" in " ".join(result.issues)
@@ -374,7 +374,7 @@ def test_replay_huangshi_keeps_remainder_without_apology_banner() -> None:
     payload, result = _replay_marker_loss("huangshi-direct-assessment.json")
     assert payload["before_had_banner"] is True
     assert result.gap_output_ids == tuple(payload["lost_output_ids"])
-    assert REQUIRED_OUTPUT_DEGRADED_MARK in result.public_answer
+    assert REQUIRED_OUTPUT_DEGRADED_MARK not in result.public_answer
     for snippet in payload["must_keep"]:
         assert snippet in result.public_answer
     for banner in _APOLOGY_MARKERS:
@@ -385,7 +385,7 @@ def test_replay_taichenguang_keeps_remainder_without_apology_banner() -> None:
     payload, result = _replay_marker_loss("taichenguang-counterpoint.json")
     assert payload["before_had_banner"] is True
     assert result.gap_output_ids == tuple(payload["lost_output_ids"])
-    assert REQUIRED_OUTPUT_DEGRADED_MARK in result.public_answer
+    assert REQUIRED_OUTPUT_DEGRADED_MARK not in result.public_answer
     for snippet in payload["must_keep"]:
         assert snippet in result.public_answer
     for banner in _APOLOGY_MARKERS:
