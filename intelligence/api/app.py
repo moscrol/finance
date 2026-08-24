@@ -220,6 +220,9 @@ def _zero_inner_synthesis_reserve(
 
 def _memory_bound_registry_factory(
     memory_user: str | None,
+    *,
+    perspective_ids: tuple[str, ...] = (),
+    perspective_mode: str = "neutral",
 ) -> Callable[..., object]:
     """把 memory 身份绑进装配工厂，并断言身份真的穿透到了装配产物。
 
@@ -264,10 +267,27 @@ def _memory_bound_registry_factory(
     """
 
     if not memory_user:
-        return build_episode_registry
+        if not perspective_ids:
+            return build_episode_registry
+
+        def perspective_only_factory(frame, context):
+            return build_episode_registry(
+                frame,
+                context,
+                perspective_ids=perspective_ids,
+                perspective_mode=perspective_mode,
+            )
+
+        return perspective_only_factory
 
     def registry_factory(frame, context):
-        registry = build_episode_registry(frame, context, memory_user=memory_user)
+        registry = build_episode_registry(
+            frame,
+            context,
+            memory_user=memory_user,
+            perspective_ids=perspective_ids,
+            perspective_mode=perspective_mode,
+        )
         if (
             "memory_lookup" in context.contract.allowed_capabilities
             and "memory_lookup" not in registry.names()
@@ -294,6 +314,8 @@ def _build_continuous_turn_adapter(
     timeout: float = 90.0,
     deadline_expires_at: float | None = None,
     memory_user: str | None = None,
+    perspective_ids: tuple[str, ...] = (),
+    perspective_mode: str = "neutral",
 ) -> ContinuousTurnAdapter:
     """Compose one provider chain into a shared continuous research kernel.
 
@@ -451,7 +473,11 @@ def _build_continuous_turn_adapter(
     # （`continuous_turn_adapter.py` 里的 `self._registry_factory(frame, context)`）
     # 保持两个位置参数不变——测试替身里有固定参数的 `lambda frame, context: ...`，
     # 在调用点加 kwarg 会把它们全打断。
-    registry_factory = _memory_bound_registry_factory(memory_user)
+    registry_factory = _memory_bound_registry_factory(
+        memory_user,
+        perspective_ids=perspective_ids,
+        perspective_mode=perspective_mode,
+    )
     return ContinuousTurnAdapter(
         runtime=runtime,
         semantic_verifier=semantic_verifier,
@@ -1337,6 +1363,8 @@ def _run_conversation_turn(
                 # `runtime_providers_for(run_store.user_id)` 用的就是它），
                 # 所以这里不需要新增参数或改上游签名。
                 memory_user=run_store.user_id,
+                perspective_ids=tuple(selected_perspective_ids or ()),
+                perspective_mode=perspective_mode,
             ),
         ).run_turn(
             conversation_id=conversation_id,

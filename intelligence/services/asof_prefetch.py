@@ -577,17 +577,38 @@ def collect_prefetch_items(
     try:
         if question_type == "market_forecast":
             try:
-                days = _prior_trade_dates(con, as_of, 3)
-                if days:
-                    counts = dual_red_counts(con, days)
-                    items.append(
-                        PrefetchItem(
-                            tool="market_data",
-                            title="双红个数序列",
-                            detail=format_dual_red_counts(counts),
-                            source_date=as_of_iso,
+                from intelligence.services.weekly_watch_pack import (
+                    day_bag_details,
+                    run_weekly_watch_pack,
+                )
+
+                weekly = run_weekly_watch_pack(
+                    as_of_iso,
+                    market_db_path=db_path,
+                    window=5,
+                )
+                if weekly.days:
+                    for title, detail in day_bag_details(weekly):
+                        items.append(
+                            PrefetchItem(
+                                tool="market_data",
+                                title=title,
+                                detail=detail,
+                                source_date=as_of_iso if title == "先验周量能序列" else title[:10],
+                            )
                         )
-                    )
+                else:
+                    days = _prior_trade_dates(con, as_of, 3)
+                    if days:
+                        counts = dual_red_counts(con, days)
+                        items.append(
+                            PrefetchItem(
+                                tool="market_data",
+                                title="双红个数序列",
+                                detail=format_dual_red_counts(counts),
+                                source_date=as_of_iso,
+                            )
+                        )
             except Exception:
                 pass
         items.extend(_calendar_prefetch_items(question, as_of, db_path))
