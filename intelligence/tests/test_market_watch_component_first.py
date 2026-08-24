@@ -514,3 +514,28 @@ def test_no_owner_still_exposes_pack_lock_cells(tmp_path: Path) -> None:
     assert "21949.97" in result.content
     assert "模型残差" in result.content
     assert "18000" not in result.content
+
+
+def test_writer_lock_is_not_rendered_as_no_data(tmp_path: Path, monkeypatch) -> None:
+    from intelligence.services import retrieval_cache
+    from intelligence.services.retrieval_cache import DuckDBConnectionResult
+
+    db = _db(tmp_path)
+
+    def fake_connect(_path):
+        return DuckDBConnectionResult("open_failed", error_type="IOException", reason="locked")
+
+    monkeypatch.setattr(retrieval_cache, "try_connect_readonly", fake_connect)
+    pack = run_market_watch_pack(
+        "2026-07-23 今天市场怎么样",
+        market_db_path=db,
+    )
+    market = pack.bag(BAG_MARKET)
+    assert market is not None
+    assert market.status == "locked"
+    assert market.empty is False
+    assert pack.should_stop is False
+    rendered = pack.render()
+    assert "复盘写入中" in rendered
+    assert "无行情数据" not in rendered
+    assert "该日无行" not in rendered
