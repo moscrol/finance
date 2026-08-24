@@ -136,6 +136,10 @@ _OUTPUT_DESCRIPTIONS: dict[str, str] = {
         "主线题材当日无严格双红匹配时，给出带「出清/分歧观察」标签的替补池"
         "（板块+个股，非机会）；开口预取已带则引用其 E 号，无缺口则写明主线已被双红覆盖"
     ),
+    "verification_timepoints": (
+        "给出验证时点：核心判断在什么时间窗、看哪个可观察指标即可回验"
+        "（如「9 月中报看订单兑现」）；写不出可核验的指标×时点就不绑，不要硬凑"
+    ),
 }
 
 
@@ -206,7 +210,9 @@ _MARKET_CAUSE_REASONING_OUTPUTS = frozenset(
 )
 _OUTLOOK_JUDGMENT_OUTPUTS = frozenset({"direct_answer", "direct_assessment"})
 _OUTLOOK_JUDGMENT_RE = re.compile(
-    r"(?:你认为|你觉得|怎么看|机会在哪|会怎么走)"
+    # 「后续走势 / 后市」：theme_analysis「分析下 X 板块后续的走势」此前不入闸，
+    # 推翻条件/验证时点整组缺席（2026-08-25 生产契约冻结实测，SPT 有色题）。
+    r"(?:你认为|你觉得|怎么看|机会在哪|会怎么走|后续的?走势|后市)"
 )
 # 只圈前瞻类题型：market_technical 的失效位应来自行情数据（支撑/均线是可查的），
 # 继续按 evidence 签约，不进本名单。

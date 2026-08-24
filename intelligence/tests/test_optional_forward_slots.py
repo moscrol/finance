@@ -255,7 +255,12 @@ def test_native_forward_question_type_is_untouched() -> None:
     assert len(context.contract.required_outputs) == len(
         set(context.contract.required_outputs)
     )
-    for output_id in FORWARD_HYPOTHESIS_OUTPUT_IDS:
+    # 交集遍历：verification_timepoints（2026-08-25 新前瞻槽）不在
+    # market_forecast 默认格里，交集判据下也不会补挂——钉的语义是
+    # 「已有的必选前瞻槽不被降级」，不是「全集都在场」。
+    mounted = FORWARD_HYPOTHESIS_OUTPUT_IDS & set(outputs)
+    assert mounted, "market_forecast 至少携带原生前瞻槽"
+    for output_id in mounted:
         item = outputs[output_id]
         assert item.required is True, "必选前瞻槽不得被本单降级"
         assert item.grounding_mode == "model_reasoning"
