@@ -469,3 +469,163 @@ def _query_limit_heat(con: Any, standing: str | None) -> PackBag:
         status="hit",
         rows=rows,
     )
+
+
+@dataclass(frozen=True)
+class StrictSignalHit:
+    operator: str
+    status: str
+    detail: str
+    rows: tuple[dict[str, Any], ...] = ()
+
+
+def run_strict_signal_pack(
+    program: Any,
+    *,
+    query: str,
+    market_db_path: str | Path | None,
+) -> tuple[StrictSignalHit, ...]:
+    """Execute compiled operators by reusing the four-bag queries. No new SQL."""
+
+    from intelligence.services.research_contract import (
+        OPERATOR_AGGREGATE_COUNT,
+        OPERATOR_CATALOG_PREFLIGHT,
+        OPERATOR_CONTRADICTION_AUDIT,
+        OPERATOR_CROSS_TABLE,
+        OPERATOR_DETAIL_ROWS,
+        OPERATOR_STRICT_DOUBLE_RED,
+    )
+
+    operators = tuple(getattr(program, "operators", ()) or ())
+    if not operators:
+        return ()
+    standing, explicit = resolve_standing_date(query)
+    con = _connect(market_db_path)
+    hits: list[StrictSignalHit] = []
+    try:
+        if con is not None and standing is None and not explicit:
+            standing = _latest_market_date(con)
+        for operator in operators:
+            if operator == OPERATOR_CATALOG_PREFLIGHT:
+                hits.append(_catalog_preflight(con, standing))
+            elif operator == OPERATOR_STRICT_DOUBLE_RED:
+                hits.append(_signal_from_bag(operator, _query_dual_red(con, standing) if con else None))
+            elif operator == OPERATOR_AGGREGATE_COUNT:
+                bag = _query_dual_red(con, standing) if con else None
+                count = len(bag.rows) if bag is not None else 0
+                hits.append(
+                    StrictSignalHit(
+                        operator=operator,
+                        status="hit" if bag is not None and not bag.empty else "empty",
+                        detail=f"count={count}",
+                        rows=bag.rows if bag is not None else (),
+                    )
+                )
+            elif operator == OPERATOR_DETAIL_ROWS:
+                hits.append(_signal_from_bag(operator, _query_dual_red(con, standing) if con else None))
+            elif operator == OPERATOR_CROSS_TABLE:
+                hits.append(_cross_table_hit(con, standing))
+            elif operator == OPERATOR_CONTRADICTION_AUDIT:
+                hits.append(_contradiction_hit(con, standing))
+    finally:
+        if con is not None:
+            try:
+                con.close()
+            except Exception:
+                pass
+    return tuple(hits)
+
+
+def render_strict_signal_pack(hits: tuple[StrictSignalHit, ...]) -> str:
+    if not hits:
+        return ""
+    lines = ["## 研究程序信号包"]
+    for hit in hits:
+        lines.append(f"- {hit.operator}：{hit.status}。{hit.detail}")
+    return "\n".join(lines)
+
+
+def _signal_from_bag(operator: str, bag: PackBag | None) -> StrictSignalHit:
+    if bag is None:
+        return StrictSignalHit(operator, "empty", "库不可用")
+    return StrictSignalHit(
+        operator=operator,
+        status=bag.status,
+        detail=f"{len(bag.rows)} 行",
+        rows=bag.rows,
+    )
+
+
+def _catalog_preflight(con: Any, standing: str | None) -> StrictSignalHit:
+    from intelligence.services.research_contract import OPERATOR_CATALOG_PREFLIGHT
+
+    if con is None:
+        return StrictSignalHit(OPERATOR_CATALOG_PREFLIGHT, "empty", "库不可用")
+    if not _has_table(con, "fact_market_daily"):
+        return StrictSignalHit(OPERATOR_CATALOG_PREFLIGHT, "empty", "fact_market_daily 不存在")
+    if standing is None:
+        return StrictSignalHit(OPERATOR_CATALOG_PREFLIGHT, "empty", "无站立日")
+    row = con.execute(
+        "select 1 from fact_market_daily where trade_date = cast(? as date) limit 1",
+        [standing],
+    ).fetchone()
+    if row is None:
+        return StrictSignalHit(
+            OPERATOR_CATALOG_PREFLIGHT,
+            "empty",
+            f"{standing} 无行情行",
+        )
+    return StrictSignalHit(
+        OPERATOR_CATALOG_PREFLIGHT,
+        "hit",
+        f"{standing} fact_market_daily 有行",
+    )
+
+
+def _cross_table_hit(con: Any, standing: str | None) -> StrictSignalHit:
+    from intelligence.services.research_contract import OPERATOR_CROSS_TABLE
+
+    if con is None or standing is None:
+        return StrictSignalHit(OPERATOR_CROSS_TABLE, "empty", "库或站立日不可用")
+    mainline = _query_mainline(con, standing)
+    dual = _query_dual_red(con, standing)
+    mainline_names = [
+        str(row.get("theme_name") or row.get("sector_name") or "")
+        for row in mainline.rows
+    ]
+    dual_names = [str(row.get("sector_name") or "") for row in dual.rows]
+    overlap = tuple(
+        {"name": m}
+        for m in mainline_names
+        if m and any(m in d or d in m for d in dual_names if d)
+    )
+    return StrictSignalHit(
+        OPERATOR_CROSS_TABLE,
+        "hit" if overlap else "empty",
+        f"交集 {len(overlap)} 项",
+        overlap,
+    )
+
+
+def _contradiction_hit(con: Any, standing: str | None) -> StrictSignalHit:
+    from intelligence.services.research_contract import OPERATOR_CONTRADICTION_AUDIT
+
+    if con is None or standing is None:
+        return StrictSignalHit(OPERATOR_CONTRADICTION_AUDIT, "empty", "库或站立日不可用")
+    pack = MarketWatchPack(
+        standing_date=standing,
+        explicit=True,
+        calendar_disclosure=None,
+        bags=(
+            _query_market_daily(con, standing),
+            _query_mainline(con, standing),
+            _query_dual_red(con, standing),
+            _query_limit_heat(con, standing),
+        ),
+    )
+    gap = pack.mainline_dual_red_gap()
+    return StrictSignalHit(
+        OPERATOR_CONTRADICTION_AUDIT,
+        "hit" if gap else "empty",
+        gap or "主线与双红无冲突声明",
+    )

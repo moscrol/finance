@@ -44,7 +44,7 @@ from intelligence.services.ask import (
     SynthesisDiagnostic,
     _revise_synthesis_on_warn,
     answer_query,
-    bind_market_watch_pack,
+    bind_research_program,
     prepare_existing_answer,
     render_conversation_answer,
     repair_unfulfilled_answer,
@@ -2773,14 +2773,17 @@ class TurnOrchestrator:
                     grounded_budget_profile=grounded_profile,
                 )
             if turn_intent.question_type == "market_watch":
-                ask_options = bind_market_watch_pack(
+                ask_options = bind_research_program(
                     ask_options,
                     frame=task_frame,
                     query=contextual_query,
                 )
                 pack = ask_options.market_watch_pack
+                program = ask_options.research_program
                 if pack is not None and pack.should_stop:
                     self.run_store.add_degrade(run_id, "market_watch_pack_stop")
+                if program is not None:
+                    _ = (program.program_id, program.operators)
             if owner_output is not None:
                 result = _resolve_owner_result(query, owner_output, retrieval_cache)
                 prepared = prepare_existing_answer(ask_options, result)

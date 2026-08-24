@@ -528,9 +528,27 @@ def _roots(
 
 
 def _is_fermentation_prefetch(frame: TaskFrame) -> bool:
-    from intelligence.services.asof_prefetch import is_fermentation_query
+    from intelligence.services.query_understanding import (
+        SIGNAL_FERMENTATION,
+        surface_research_signals,
+    )
+    from intelligence.services.research_contract import (
+        OPERATOR_STRICT_DOUBLE_RED,
+        compile_research_program,
+    )
 
-    return is_fermentation_query(frame.raw_question)
+    program = compile_research_program(
+        frame.raw_question,
+        question_class=frame.question_type,
+    )
+    signals = surface_research_signals(
+        frame.raw_question,
+        question_class=frame.question_type,
+    )
+    return (
+        OPERATOR_STRICT_DOUBLE_RED in program.operators
+        and SIGNAL_FERMENTATION in signals
+    )
 
 
 def _asof_prefetch_text(

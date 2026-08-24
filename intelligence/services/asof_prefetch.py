@@ -563,6 +563,17 @@ def collect_prefetch_items(
     con = _connect(db_path)
     if con is None:
         return tuple(items)
+    from intelligence.services.query_understanding import (
+        SIGNAL_FERMENTATION,
+        surface_research_signals,
+    )
+    from intelligence.services.research_contract import (
+        OPERATOR_STRICT_DOUBLE_RED,
+        compile_research_program,
+    )
+
+    program = compile_research_program(question, question_class=question_type)
+    has_double_red = OPERATOR_STRICT_DOUBLE_RED in program.operators
     try:
         if question_type == "market_forecast":
             try:
@@ -580,7 +591,10 @@ def collect_prefetch_items(
             except Exception:
                 pass
         items.extend(_calendar_prefetch_items(question, as_of, db_path))
-        if is_fermentation_query(question):
+        ferment = SIGNAL_FERMENTATION in surface_research_signals(
+            question, question_class=question_type
+        )
+        if has_double_red and ferment:
             try:
                 sector = resolve_prefetch_sector(con, question, subject)
                 if sector is None:

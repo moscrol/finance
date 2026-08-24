@@ -692,6 +692,55 @@ def is_market_watch_query(query: str) -> bool:
     return _MARKET_WATCH_RE.search(text) is not None
 
 
+SIGNAL_MARKET_WATCH = "market_watch"
+SIGNAL_DOUBLE_RED = "double_red"
+SIGNAL_FERMENTATION = "fermentation"
+SIGNAL_AGGREGATE = "aggregate"
+SIGNAL_DETAIL = "detail"
+SIGNAL_CROSS_TABLE = "cross_table"
+SIGNAL_CONTRADICTION = "contradiction"
+
+_PROGRAM_AGGREGATE_RE = re.compile(r"(多少|几个|几家|家数|数量|有多少)")
+_PROGRAM_DETAIL_RE = re.compile(r"(列出|名单|明细|哪些)")
+_PROGRAM_CROSS_RE = re.compile(r"(交集|同时属于|既是.+又|既在.+又)")
+_PROGRAM_CONTRADICTION_RE = re.compile(r"(矛盾|冲突|不一致)")
+
+
+def surface_research_signals(
+    query: str,
+    *,
+    question_class: str = "",
+) -> frozenset[str]:
+    """词面触发。只返回信号名，不写 ResearchProgram.operators。"""
+
+    from intelligence.services.asof_prefetch import is_fermentation_query
+
+    text = re.sub(r"\s+", "", str(query or "").strip())
+    klass = str(question_class or "").strip()
+    signals: set[str] = set()
+    # 路由已经定了别的题型时，不再用盘面词面覆写。否则
+    # market_forecast 夹具句「目前市场结构如何」会多出 catalog/双红槽。
+    routed_watch = klass == "market_watch"
+    inferred_watch = klass in {"", "general_finance_qa"} and is_market_watch_query(query)
+    if routed_watch or inferred_watch:
+        signals.add(SIGNAL_MARKET_WATCH)
+        signals.add(SIGNAL_DOUBLE_RED)
+    if "双红" in text:
+        signals.add(SIGNAL_DOUBLE_RED)
+    if is_fermentation_query(query):
+        signals.add(SIGNAL_FERMENTATION)
+        signals.add(SIGNAL_DOUBLE_RED)
+    if _PROGRAM_AGGREGATE_RE.search(text):
+        signals.add(SIGNAL_AGGREGATE)
+    elif _PROGRAM_DETAIL_RE.search(text):
+        signals.add(SIGNAL_DETAIL)
+    if _PROGRAM_CROSS_RE.search(text):
+        signals.add(SIGNAL_CROSS_TABLE)
+    if _PROGRAM_CONTRADICTION_RE.search(text):
+        signals.add(SIGNAL_CONTRADICTION)
+    return frozenset(signals)
+
+
 def is_market_forecast_query(query: str) -> bool:
     """识别明确的全市场后市展望；不把泛泛“市场怎么样”误当预测。"""
 

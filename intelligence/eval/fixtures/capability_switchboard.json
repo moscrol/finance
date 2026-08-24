@@ -365,6 +365,20 @@
       "notes": "正典 :11 = 10.0，backtest_sector.py:34 已转引。日报转点日另用 amount_vs_yesterday_pct>10 且 volume_ratio vs 120，是另一族，勿与双红打包。"
     },
     {
+      "id": "program.research-program",
+      "kind": "parameter",
+      "status": "active",
+      "seam": "intelligence/services/research_contract.py::compile_research_program",
+      "close_via": [
+        "composition_root:research_program"
+      ],
+      "default": "off",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "program_id",
+      "notes": "P0-B 输入加法。生产路径只调用 compile_research_program，不 import 本表。消融开关只在 eval runner 拧。"
+    },
+    {
       "id": "param.boards-min",
       "kind": "parameter",
       "status": "active",

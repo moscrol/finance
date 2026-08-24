@@ -77,6 +77,8 @@ def _in_default_box(row) -> tuple[bool, str]:
         return False, "retired"
     if row.status == "pending-other-branch":
         return False, "代码不在本底"
+    if row.id.startswith("program."):
+        return False, "消融开关，生产不读本表"
     if row.kind == "parameter":
         # CLI 参数的默认值不是「开关位」。放进盒子会让人以为拨它就能改行为，
         # 实际它只是某条命令的 argparse default（`param.boards-min` 就是这样）。

@@ -441,6 +441,51 @@ def bind_market_watch_pack(
     )
 
 
+def bind_research_program(
+    options: AskOptions,
+    *,
+    frame: Any = None,
+    query: str | None = None,
+) -> AskOptions:
+    """Compile a ResearchProgram; market_watch still binds the four-bag pack first."""
+
+    from intelligence.services.query_understanding import is_market_watch_query
+    from intelligence.services.research_contract import compile_research_program
+
+    text = query or options.query
+    question_class = ""
+    if frame is not None:
+        question_class = str(getattr(frame, "question_type", "") or "")
+    program = compile_research_program(text, question_class=question_class)
+    _ = program.to_dict()
+    if is_market_watch_query(text) or question_class == "market_watch":
+        bound = bind_market_watch_pack(options, frame=frame, query=query)
+        return replace(bound, research_program=program)
+    from intelligence.services.market_watch_pack import (
+        render_strict_signal_pack,
+        run_strict_signal_pack,
+    )
+
+    hits = run_strict_signal_pack(
+        program,
+        query=text,
+        market_db_path=options.market_db_path,
+    )
+    rendered = render_strict_signal_pack(hits)
+    supplemental = options.supplemental_evidence
+    if rendered:
+        supplemental = (
+            f"{rendered}\n\n{options.supplemental_evidence}".strip()
+            if options.supplemental_evidence
+            else rendered
+        )
+    return replace(
+        options,
+        research_program=program,
+        supplemental_evidence=supplemental,
+    )
+
+
 def _forecast_preflight_for_options(
     options: AskOptions,
     market_doc: dict[str, Any],
