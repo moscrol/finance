@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-24（#362 合切 8792=`a7a8ba9f`。展望句尾座位改 `R-20260824-31`，`-20` 留给 optional-forward-slots。`-21`…`24` 仍 pending。#352 后 8796 仍解耦 `76ee1e89`；`R-09` refuted。盘面包 `-01/-02/-03/-05/-06` confirmed、`-04` P1 pending）
+- last_updated: 2026-08-24（P1 展望残差升档立案 `R-20260824-30`。#362 合切 8792=`a7a8ba9f`。句尾展望 `-31`；`-20` 归 optional-forward-slots。`-21`…`24` 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -49,6 +49,7 @@
 | `R-20260824-22` | 同上 | `HARNESS_FIX` | `run_weekly_watch_pack(end=库尖, window=5)` 每日四袋 + 双红 COUNT；`collect_prefetch_items(question_type=market_forecast)` 开口含周四主线袋。`general_finance_qa` 不进该支 | **离线已绿**。sidecar live 同 run 五日包 08-18…08-24。生产未再跑，不得 confirmed | `pending` |
 | `R-20260824-23` | 同上 | `HARNESS_FIX` | 包进 Engine A `_opening_prefetch_evidence` / `_seed_opening_prefetch`，不挂 compose。缺周四主线袋 = 包没跑完 | **离线已绿**。sidecar live 包在 opening evidence。compose 未挂。生产未再跑，不得 confirmed | `pending` |
 | `R-20260824-24` | 同上 P1 / 可用稿 | `HARNESS_FIX` | 隔板新闻不得写「已验证」；无格阈值删句；路由加严后公开稿仍可用（非空、有判断或一条情景） | 隔板闸 + `locked` 单测已绿；sidecar live 可用稿 1613 字。P1 无格阈值未做。生产冻结展望未再跑，不得 confirmed | `pending` |
+| `R-20260824-30` | spec 2026-08-24 品质残差 v1.1（审查 PASS-WITH-NITS；非标准四阶段分诊） | `HARNESS_FIX` | `market_forecast` 仅在开口五日包已齐时升 `ResearchPolicy.for_tier("deep")`（12×240s）。`DETERMINISTIC_OWNER_TYPES` 与 `quick` 档字节不变。深档连打同问句 → `forecast_residual_duplicate_spin` 停机。禁止用全局 `WORKBENCH_CONTINUOUS_TURN_TIMEOUT_SECONDS` 当主杠杆 | **离线已绿**（`test_forecast_residual_budget.py`）。live 未跑，不得 confirmed | `pending` |
 | `R-20260815-03` | 标准 M1 分诊 F-003 | `DATA_CONTRACT_FIX` | `answer_coverage` 与 `structural_verifier` 对同一 `output_id` 改用同一判据函数后，本轮 9 个 run 中的 6 处冲突全部消失或转为显式 warning；B8 的 `evidence_boundary` 不再同时是 present 与 missing | 用本轮冲突的 6 个 run 作回归夹具，断言无静默分歧 | `pending` |
 | `R-20260815-04` | 标准 M1 分诊 F-001 | `HARNESS_FIX` | `outcome` 落盘补 `draft_source ∈ {model_returned_empty, truncated_by_budget, provider_error}` 与合成入口 `remaining_ms` 后，下一次空 draft 的 turn 其 `draft_source` 非空，可据以在 REASONING 与 HARNESS 之间定夺 F-001 的 L0 | 字段存在性单测；**单次读数不得结案**，需 ≥3 个同形样本 | `pending` |
 | `R-20260804-10` | L7 finalization T3 | `HARNESS_FIX` | deadline-aligned per-tool handoff 能让超出安全窗口的 deterministic slow tool 在生效阈值返回一条可配对的 `research_stage_closed + instruction`；正常成功路径同 id 恰好一个 `tool_result`，handoff 路径同 id 恰好一个预期执行层 `tool_error` 且无迟到 `tool_result`；只发一次 finalization，归一化后 `unpaired_tool_requests=0`；finalization reason 与 budget payload 同时看见 root-ledger 耗尽，handoff window 来自 profile / 生效预算而非隐藏的 `initial×0.20` reserve | **主门只用离线** slow-tool fake clock/隔离测试，并另测 `policy calls>0、root ledger calls=0` 与 `floor_ratio=0`；按 request id 分开断言正常 `tool_result`、handoff 执行层 `tool_error` 和 late-result 不入账，`tool=mailbox,error=response_path_conflict` 作为独立 transport 诊断不计入执行终态基数；再断言配对计数、finalization 次数/余量与落盘生效值。全部通过后才跑一次瑞华泰 canary，单次 live 不能独立结案 | `pending` |

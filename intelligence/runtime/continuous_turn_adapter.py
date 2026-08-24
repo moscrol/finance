@@ -515,6 +515,15 @@ class ContinuousTurnAdapter:
                 ResearchToolRegistry,
                 self._registry_factory(frame, context),
             )
+            from intelligence.services.forecast_residual_budget import (
+                maybe_promote_forecast_residual,
+            )
+
+            context = maybe_promote_forecast_residual(
+                context,
+                question_type=frame.question_type,
+                opening_prefetch=getattr(registry, "opening_prefetch", ()),
+            )
             # 事前可满足性预检：这套授权工具的 produces 并集能否覆盖每项
             # required_output。**只观测，不参与任何决策**——`check_satisfiability`
             # 自身是 fail-open 的（三态全部放行），这里同样只把结果写进私有
