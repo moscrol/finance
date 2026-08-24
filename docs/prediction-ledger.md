@@ -951,3 +951,38 @@ main42 +5.3pp 未入 ±5），outcome 仍 pending；收据
 **旁记（不立案，留待判据成熟）**：`judge_status='repaired'` 与
 `repair_attempts=0` 并存是状态字段自述与实际动作不符；本单未动该字段，
 若要立案需先定「repaired 在该词表里是否本就指『已删除拒句』」。
+
+### 2026-08-24 回填（切流后当日结算，8792 已切 `9d204ad6`）
+
+canary 8807 两跑 + 生产切流。收据 `~/.finance-runtime/cutover-20260824-8792.md`。
+
+| ID | outcome | 证据 |
+|---|---|---|
+| `R-20260824-01` | **confirmed** | 两跑 `backfill_turns` 均 = 1（修复前恒 0），`contract.subject=None` / `subject_kind='unknown'` 与原件同；跑 1 events seq7 实际调用 `market_data`。草稿质量可见改善：显式声明「周一 8-24 收盘数据尚未入库」、调用 `news_search` 取得周一实况并标注二手待验证 |
+| `R-20260824-02` | **refuted** | 公开稿仍短于草稿（729 → 612，structural→semantic 段），两条带阈值的条件建议仍被删：「若成交继续萎缩至 1.8 万亿下方…」「若放量重回 2 万亿上方且涨停回升至 70 家以上…」 |
+
+**R-02 refuted 的根因（[实测]，本单未覆盖该层）**：
+
+`_novel_numeric_condition_indexes` 把条件句里**证据中不存在的数量**一律连坐整句。
+但**前瞻性触发阈值按定义就不在历史证据里**——「若成交回到 2 万亿」这种数是模型
+提出的判断，不是对既有事实的引用。**补多少数都绑不上**，所以 W5 那条
+「BLOCK 不是要削薄答案而是要去取数」的前提对 `numeric_condition` 不成立。
+
+该函数本就有豁免闸（`episode_semantic_verifier.py` 内 `FORWARD_HYPOTHESIS_OUTPUT_IDS`
+签成非 `evidence` 时整句豁免），但：
+
+- `FORWARD_HYPOTHESIS_OUTPUT_IDS = {scenario_paths, continuation_conditions, invalidation_conditions}`
+- 本题契约（`general_finance_qa`）的 required_outputs 只有
+  `direct_answer` / `evidence_boundary` / `prime_quote` / `prime_news` / `prime_memory`，
+  **一个前瞻槽都没有**，`grounding_mode` 全是 `evidence`（`prime_memory` 为 `user_premise`）
+
+→ 豁免永不触发。「周一该怎么操作」这类**本质前瞻**的问题被路由成
+`general_finance_qa`，于是它每提一个触发阈值就被删一句。
+
+**这才是「答案被削薄」的那一层。** 本单的 backfill 修复是必要不充分。
+
+| ID | fix_type | verification_prediction | outcome |
+|---|---|---|---|
+| `R-20260824-03` | `ROUTING_FIX` | 前瞻类问句（「明天/下周该怎么操作」）的契约带上 `continuation_conditions` / `invalidation_conditions` 且签成 `model_reasoning` 后，同题公开稿保留带阈值的条件建议，`answer.md` 与 `outcome.draft` 的 sha 一致 | `pending`（未实现） |
+
+- `fix_type_refuted_streak`（本项目累计）：`DATA_CONTRACT_FIX` = 1（未达 ≥3 升格线）
