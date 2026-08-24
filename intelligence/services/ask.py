@@ -358,6 +358,18 @@ def _resolve_market_data_context(
     requested_date: str | None = None,
 ) -> tuple[str | None, str, str | None, list[str]]:
     if requested_date:
+        from intelligence.services.market_watch_pack import exact_market_daily_exists
+
+        exact = exact_market_daily_exists(market_db_path, requested_date)
+        if exact is True:
+            return requested_date, "requested_date", None, []
+        if exact is False:
+            return (
+                None,
+                "requested_date_missing",
+                f"{requested_date} 无行情数据。",
+                [],
+            )
         return requested_date, "requested_date", None, []
 
     market_date = _market_data_asof(market_db_path)
@@ -391,6 +403,42 @@ def _resolve_market_data_context(
     return None, "unavailable", notice, [
         "本轮没有连接本地市场数据，也没有可用的历史盘面快照。"
     ]
+
+
+def bind_market_watch_pack(
+    options: AskOptions,
+    *,
+    frame: Any = None,
+    query: str | None = None,
+) -> AskOptions:
+    """Run the market_watch pack before owner/model fork and lock AskOptions."""
+
+    from intelligence.services.honesty_gates import calendar_disclosure
+    from intelligence.services.market_watch_pack import run_market_watch_pack
+
+    disclosure = calendar_disclosure(frame) if frame is not None else None
+    pack = run_market_watch_pack(
+        query or options.query,
+        market_db_path=options.market_db_path,
+        calendar_disclosure=disclosure,
+    )
+    inject = pack.should_stop or not pack.market_daily_empty
+    rendered = pack.render() if inject else ""
+    supplemental = options.supplemental_evidence
+    if rendered:
+        supplemental = (
+            f"{rendered}\n\n{options.supplemental_evidence}".strip()
+            if options.supplemental_evidence
+            else rendered
+        )
+    return replace(
+        options,
+        date=pack.standing_date if pack.standing_date is not None else options.date,
+        compose=False if pack.should_stop else options.compose,
+        synthesize=False if pack.should_stop else options.synthesize,
+        supplemental_evidence=supplemental,
+        market_watch_pack=pack,
+    )
 
 
 def _forecast_preflight_for_options(
@@ -620,6 +668,79 @@ def _answer_market_review(
     result.matched_theme = None
     result.candidate_tier = None
     result.priority_score = None
+    pack = getattr(options, "market_watch_pack", None)
+    if pack is not None:
+        result.market_summary = pack.render()
+        if pack.should_stop:
+            result.trade_date = None if pack.market_daily_empty else pack.standing_date
+            result.found_market = not pack.market_daily_empty
+            result.answer_spec = _build_base_answer_spec_from_sections(
+                result,
+                theme="市场复盘",
+                direct_lines=(pack.stop_text(),),
+                evidence_blocks=(pack.render(),),
+                risk_lines=(),
+                action_lines=(),
+            )
+            return result
+        mainline_context = ""
+        knowledge_anchor = (
+            _market_review_knowledge_anchor_block_for_llm(
+                options.market_db_path,
+                as_of=pack.standing_date or options.date or None,
+                kb_wiki=options.kb_wiki or None,
+                warnings=result.warnings,
+            )
+            if evidence_registry.provider_enabled(options, "MAINLINE_KB")
+            else ""
+        )
+        if knowledge_anchor:
+            result.citations.append(
+                Citation(
+                    "MAINLINE_KB",
+                    "主线方向的知识库积累",
+                    "按当日主线方向逐个取概念页/公司暴露/已入库证据；含知识库尚无积累的方向",
+                )
+            )
+        evidence_parts = [
+            part
+            for part in (
+                options.supplemental_evidence.strip(),
+                result.market_summary or "",
+                knowledge_anchor,
+            )
+            if part
+        ]
+        result.found_market = True
+        if not options.compose:
+            result.answer_spec = _build_base_answer_spec_from_sections(
+                result,
+                theme="市场复盘",
+                evidence_blocks=tuple(evidence_parts),
+                direct_lines=(
+                    f"截至 {pack.standing_date}，"
+                    "本轮只确认资料覆盖的市场变化，未覆盖部分保持未知。",
+                ),
+                risk_lines=(),
+                action_lines=(
+                    "下一交易日复核量能、涨跌结构和主线承接是否同时改善。",
+                ),
+            )
+            return result
+        result.answer_spec = _build_base_answer_spec_from_sections(
+            result,
+            theme="市场复盘",
+            evidence_blocks=tuple(evidence_parts),
+            direct_lines=(
+                f"截至 {pack.standing_date}，"
+                "本轮只确认资料覆盖的市场变化，未覆盖部分保持未知。",
+            ),
+            risk_lines=(),
+            action_lines=(
+                "下一交易日复核量能、涨跌结构和主线承接是否同时改善。",
+            ),
+        )
+        return result
     result.market_summary = _daily_market_overview_block_for_llm(
         options.market_db_path
     )

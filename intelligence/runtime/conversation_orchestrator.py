@@ -44,12 +44,14 @@ from intelligence.services.ask import (
     SynthesisDiagnostic,
     _revise_synthesis_on_warn,
     answer_query,
+    bind_market_watch_pack,
     prepare_existing_answer,
     render_conversation_answer,
     repair_unfulfilled_answer,
     synthesize_prepared_answer,
     synthesize_shadow_grounded_answer,
 )
+from intelligence.services.market_watch_pack import merge_into_public_answer
 from intelligence.services.answer_stream import AnswerSnapshot
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.answer_orchestrator import (
@@ -2770,6 +2772,15 @@ class TurnOrchestrator:
                     # 准入地板与授时读同一套生效 profile，不再读模块级常量。
                     grounded_budget_profile=grounded_profile,
                 )
+            if turn_intent.question_type == "market_watch":
+                ask_options = bind_market_watch_pack(
+                    ask_options,
+                    frame=task_frame,
+                    query=contextual_query,
+                )
+                pack = ask_options.market_watch_pack
+                if pack is not None and pack.should_stop:
+                    self.run_store.add_degrade(run_id, "market_watch_pack_stop")
             if owner_output is not None:
                 result = _resolve_owner_result(query, owner_output, retrieval_cache)
                 prepared = prepare_existing_answer(ask_options, result)
@@ -2817,10 +2828,20 @@ class TurnOrchestrator:
                 and daily_review_output is not None
                 and market_review_requested
             )
+            pack = getattr(ask_options, "market_watch_pack", None)
+            if pack is not None and pack.should_stop:
+                result.synthesis = pack.stop_text()
+                result.trade_date = None
+                result.market_summary = pack.render()
+                prepared = prepare_existing_answer(
+                    replace(ask_options, compose=False, synthesize=False),
+                    result,
+                )
             if (
                 is_market_review
                 and daily_review_output is not None
                 and result.trade_date is None
+                and (pack is None or not pack.should_stop)
             ):
                 result.trade_date = daily_review_output.as_of
             self._record_retrieval(
@@ -2913,6 +2934,7 @@ class TurnOrchestrator:
                     modules=daily_review_output.modules,
                     warnings=daily_review_output.warnings,
                 )
+            draft_text = merge_into_public_answer(draft_text, pack)
             perspective_header = (
                 perspective_lab.runtime_answer_header(
                     userspace.user_space(self.run_store.user_id),
@@ -3011,6 +3033,7 @@ class TurnOrchestrator:
                     modules=daily_review_output.modules,
                     warnings=daily_review_output.warnings,
                 )
+            answer_text = merge_into_public_answer(answer_text, pack)
             fallback_notice = (
                 perspective_lab.runtime_fallback_notice(perspective_mode)
                 if (

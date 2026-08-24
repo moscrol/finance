@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-24（合入 #349 D3 `R-20260824-08` + 本 PR D4 第 1 步 `R-20260824-11`。此前 2026-08-22：R3 live 回填 `R-20260822-02` / `-04` confirmed。`R-20260821-07/-08/-09` 仍 pending。P1 Q1/Q3 仍 pending）
+- last_updated: 2026-08-24（盘面包 live 回填 `R-20260824-01/-02/-03/-05/-06` confirmed、`R-04` P1 仍 pending；main 已合 #349 D3 `R-20260824-08` + #350 D4 第 1 步 `R-20260824-11`。此前 2026-08-22：R3 live 回填 `R-20260822-02` / `-04` confirmed。`R-20260821-07/-08/-09` 仍 pending。P1 Q1/Q3 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -27,6 +27,12 @@
 
 | ID | 来源 | fix_type | verification_prediction | 怎么验 | outcome |
 |---|---|---|---|---|---|
+| `R-20260824-01` | spec 2026-08-24 盘面包（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | `market_watch` 进 ContinuousTurnAdapter 得 `handled=False`；A1 第一动作不再是 `deadline_exhausted` | §7.1 #1 单测绿；live A1 双态（run_20260824_034205 / run_20260824_035503）首动作 turn_assembly、非 `deadline_exhausted`，答案 14s 内交付；收据 ~/.finance-runtime/mwcf-live-20260823/receipts/probe-a1*.{log,json} | `confirmed` |
+| `R-20260824-02` | 同上 | `HARNESS_FIX` | 显式站立日 `trade_date = ?`；问 07-25 不得吃 07-24 行；`_resolve_market_data_context` 无该日行不得回显问句日 | §7.2 #4/#5a/#6 单测绿；live A1 显式站立日=2026-07-23、四袋 served_date 一致；live P0（07-25 周六）公开稿只有休市句、无 07-24 行回显；收据 ~/.finance-runtime/mwcf-live-20260823/receipts/probe-p0.log | `confirmed` |
+| `R-20260824-03` | 同上 | `HARNESS_FIX` | A1 冻结日开口前四袋齐；公开稿含锁字段、双红名、热度名；`served_date=2026-07-23` | §7.3 夹具绿；live A1 公开稿四袋齐：总量 21949.97 亿、主线 5 方向、严格双红 7 个（名单在稿）、涨停热度 20 题材，全部 served_date=2026-07-23；收据 ~/.finance-runtime/mwcf-live-20260823/receipts/probe-a1*.{log,json} | `confirmed` |
+| `R-20260824-04` | 同上 P1 | `HARNESS_FIX` | 残差稿含 `MA20`/`110–120%`/「旗型蓄能」时公开稿删句，不留质检条 | §7.4 #10；P1 未做 | `pending` |
+| `R-20260824-05` | 同上 | `HARNESS_FIX` | 有 `2026-07-23-daily-review.md`、daily-review own 时包仍跑、锁格进公开稿，不被 md 顶掉 | §7.1 #2a/#2b 编排器夹具绿；live 双态过洞 1：无 md 时 daily-review 降级、包仍上桌（run_20260824_034205）；有 md 时 daily-review own、正文含同名数字（21949.97）仍未顶掉锁格（run_20260824_035503）；收据 ~/.finance-runtime/mwcf-live-20260823/receipts/probe-a1-owner.json | `confirmed` |
+| `R-20260824-06` | 同上 | `HARNESS_FIX` | `2026-07-25 今天市场怎么样` 公开稿休市句、总量袋 empty、无 07-24 成交额 | §7.2 #5a 绿；live P0『2026-07-25 今天市场怎么样』公开稿=休市句、无 07-24 成交额（live 走 lane_generation 短路，包 should_stop 为二道防线由单测覆盖）；C1 原题旁路一致未改路由；收据 ~/.finance-runtime/mwcf-live-20260823/receipts/probe-p0.log、probe-c1.log | `confirmed` |
 | `R-20260824-11` | spec 2026-08-24 D4 第 1 步（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | 从今日 `gitea/main` 开 `feat/capability-switchboard`：只加盘点 §1.B 新文件 + 在 `asof_prefetch.dual_red_counts` 重贴最小 `faces()` 接线。生产 `intelligence/{services,runtime,adapters,api}` 除登记表自身外不含 `capability_switchboard`。`predicate.reading-baseline` 为 `pending-other-branch`，本底无 `reading_baseline.py`。默认 `faces()` 下双红预取与改前一致；`using({predicate.double-red})` 时 `dual_red_counts` 返回 `{}`。`query_understanding` / `foresight` / `ask_blocks` 仍不读 `predicate_faces`。 | 离线：`intelligence/tests/test_capability_switchboard.py` + 既有 `test_asof_prefetch_dual_red.py`。禁止 `git checkout 76ee1e89 --` 已漂路径。同 SHA / 合 main / 切 8796 不在本行，见 `R-20260824-09`。live 不得 confirmed | `pending` |
 | `R-20260815-03` | 标准 M1 分诊 F-003 | `DATA_CONTRACT_FIX` | `answer_coverage` 与 `structural_verifier` 对同一 `output_id` 改用同一判据函数后，本轮 9 个 run 中的 6 处冲突全部消失或转为显式 warning；B8 的 `evidence_boundary` 不再同时是 present 与 missing | 用本轮冲突的 6 个 run 作回归夹具，断言无静默分歧 | `pending` |
 | `R-20260815-04` | 标准 M1 分诊 F-001 | `HARNESS_FIX` | `outcome` 落盘补 `draft_source ∈ {model_returned_empty, truncated_by_budget, provider_error}` 与合成入口 `remaining_ms` 后，下一次空 draft 的 turn 其 `draft_source` 非空，可据以在 REASONING 与 HARNESS 之间定夺 F-001 的 L0 | 字段存在性单测；**单次读数不得结案**，需 ≥3 个同形样本 | `pending` |
