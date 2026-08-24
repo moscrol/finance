@@ -539,13 +539,63 @@ function phaseIndexFor(name: string): number | null {
 
 function phaseStatus(
   steps: TraceStep[],
-  terminal: boolean,
+  terminalStatus: LiveMessageState["status"],
 ): ResearchPhaseStatus {
   if (steps.some((step) => step.status === "failed")) return "attention";
-  if (steps.some((step) => step.status === "running")) return "running";
+  if (steps.some((step) => step.status === "running")) {
+    return terminalStatus === "failed" || terminalStatus === "cancelled"
+      ? "attention"
+      : "running";
+  }
   if (steps.some((step) => step.status === "completed")) return "completed";
   if (steps.some((step) => step.status === "skipped")) return "skipped";
-  return terminal ? "skipped" : "waiting";
+  return terminalStatus === "completed" ||
+    terminalStatus === "failed" ||
+    terminalStatus === "cancelled"
+    ? "skipped"
+    : "waiting";
+}
+
+function latestInputIndexes(progress: TraceStep[]): Map<string, number> {
+  return progress.reduce((indexes, step, index) => {
+    indexes.set(step.step_id, index);
+    return indexes;
+  }, new Map<string, number>());
+}
+
+function replayOrderedTrace(progress: TraceStep[]): TraceStep[] {
+  const indexes = latestInputIndexes(progress);
+  return [...deduplicateTrace(progress)].sort(
+    (left, right) => (indexes.get(left.step_id) ?? -1) -
+      (indexes.get(right.step_id) ?? -1),
+  );
+}
+
+function lifecycleGroup(step: TraceStep): string {
+  const phaseIndex = phaseIndexFor(step.name);
+  return phaseIndex === null ? `stage:${step.name}` : `phase:${phaseIndex}`;
+}
+
+function closeSupersededRunnings(trace: TraceStep[]): TraceStep[] {
+  const unmatchedRunnings = new Map<string, number[]>();
+  const closedRunnings = new Set<number>();
+
+  trace.forEach((step, index) => {
+    const group = lifecycleGroup(step);
+    if (step.status === "running") {
+      unmatchedRunnings.set(group, [
+        ...(unmatchedRunnings.get(group) ?? []),
+        index,
+      ]);
+      return;
+    }
+    const [runningIndex, ...remaining] = unmatchedRunnings.get(group) ?? [];
+    if (runningIndex === undefined) return;
+    closedRunnings.add(runningIndex);
+    unmatchedRunnings.set(group, remaining);
+  });
+
+  return trace.filter((_, index) => !closedRunnings.has(index));
 }
 
 function parseTime(value: string | null): number | null {
@@ -608,15 +658,12 @@ export function buildResearchJourney({
   answerPhase,
   terminalStatus,
 }: BuildResearchJourneyInput): ResearchJourneyModel {
-  const steps = deduplicateTrace(progress);
-  const terminal =
-    terminalStatus === "completed" ||
-    terminalStatus === "failed" ||
-    terminalStatus === "cancelled";
+  const trace = replayOrderedTrace(progress);
+  const steps = closeSupersededRunnings(trace);
   const phaseSteps = RESEARCH_PHASES.map((_, index) =>
     steps.filter((step) => phaseIndexFor(step.name) === index),
   );
-  const statuses = phaseSteps.map((items) => phaseStatus(items, terminal));
+  const statuses = phaseSteps.map((items) => phaseStatus(items, terminalStatus));
   const explicitConclusionFailed = phaseSteps[3].some(
     (step) => step.status === "failed",
   );
@@ -636,13 +683,6 @@ export function buildResearchJourney({
   const selectedPhaseIndex = selectedStep
     ? phaseIndexFor(selectedStep.name)
     : null;
-  const interrupted =
-    terminalStatus === "failed" || terminalStatus === "cancelled";
-  const interruptedPhaseIndex = selectedPhaseIndex ?? (answerPhase ? 3 : null);
-  if (interrupted && interruptedPhaseIndex !== null) {
-    statuses[interruptedPhaseIndex] = "attention";
-  }
-
   const explicitUrgentStep =
     selectedStep?.status === "failed" || selectedStep?.status === "running";
   let currentPhaseIndex =
@@ -676,7 +716,7 @@ export function buildResearchJourney({
     currentPhaseIndex,
     currentAction,
     runLabel: runLabel(terminalStatus),
-    hasObservedTrace: steps.length > 0,
+    hasObservedTrace: trace.length > 0,
   };
 }
 
