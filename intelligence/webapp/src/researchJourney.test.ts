@@ -41,16 +41,25 @@ const bundle = (overrides: Partial<RunBundle> = {}): RunBundle => ({
 });
 
 describe("buildResearchJourney", () => {
-  it("defines four stable phase ids and maps every known trace stage", () => {
+  it("defines four stable phase ids", () => {
     expect(RESEARCH_PHASES.map((phase) => phase.id)).toEqual([
       "understand", "research", "verify", "conclude",
     ]);
-    const progress = [
-      "understanding", "planning", "route_skills", "research", "ask_current_turn",
-      "ask_retrieve_compose", "repair", "verification", "finalizing", "render_artifacts", "foresight_followups",
-    ].map((name) => step(name, "completed"));
-    expect(buildResearchJourney({ progress, answerPhase: null, terminalStatus: "completed" }).phases)
-      .toEqual(RESEARCH_PHASES.map((phase) => ({ ...phase, status: "completed" })));
+  });
+
+  it.each<[string, number]>([
+    ["understanding", 0], ["planning", 0], ["route_skills", 0],
+    ["research", 1], ["ask_current_turn", 1], ["ask_retrieve_compose", 1],
+    ["repair", 2], ["verification", 2],
+    ["finalizing", 3], ["render_artifacts", 3], ["foresight_followups", 3],
+  ])("maps known stage %s to its only active phase", (name, expectedIndex) => {
+    const result = buildResearchJourney({
+      progress: [step(name, "running")], answerPhase: null, terminalStatus: "streaming",
+    });
+    expect(result.phases.map((phase) => phase.status)).toEqual(
+      RESEARCH_PHASES.map((_, index) => index === expectedIndex ? "running" : "waiting"),
+    );
+    expect(result.currentPhaseIndex).toBe(expectedIndex);
   });
 
   it("replays updates by step_id before deriving phase status", () => {
@@ -59,6 +68,25 @@ describe("buildResearchJourney", () => {
     const result = buildResearchJourney({ progress: [running, completed], answerPhase: null, terminalStatus: "streaming" });
     expect(result.phases[1].status).toBe("completed");
     expect(result.currentAction).toBe("新进度");
+  });
+
+  it("closes stale production milestones with different step ids", () => {
+    const research = buildResearchJourney({
+      progress: [
+        step("research", "running", { step_id: "continuous:episode:10:tool_request", output_summary: "正在查资料" }),
+        step("research", "completed", { step_id: "continuous:episode:11:tool_result", output_summary: "已取得资料", finished_at: "2026-08-24T10:02:00Z" }),
+      ], answerPhase: null, terminalStatus: "streaming",
+    });
+    const conclude = buildResearchJourney({
+      progress: [
+        step("finalizing", "running", { step_id: "continuous:episode:20:finalization", output_summary: "正在组织回答" }),
+        step("finalizing", "completed", { step_id: "continuous:episode:21:finish", output_summary: "最终核验完成", finished_at: "2026-08-24T10:02:00Z" }),
+      ], answerPhase: "validated_synthesis", terminalStatus: "streaming",
+    });
+    expect(research.phases[1].status).toBe("completed");
+    expect(research.currentAction).toBe("已取得资料");
+    expect(conclude.phases[3].status).toBe("completed");
+    expect(conclude.currentAction).toBe("自然语言精修完成");
   });
 
   it("does not mark an earlier phase complete merely because a later phase began", () => {
@@ -150,6 +178,19 @@ describe("buildResearchReceipt", () => {
       "自然语言综合暂时不可用，已保留可核验数据与研究产物。",
       "知识库索引已过期；相关证据仅供参考。",
     ]);
+  });
+
+  it("counts only gaps independent from raw degrades and warnings", () => {
+    const result = buildResearchReceipt(bundle({
+      run: { ...bundle().run, degrades: ["llm_unavailable_template_answer"] },
+      context: {
+        ...bundle().context,
+        warnings: ["  warning-1  "],
+        gaps: ["llm_unavailable_template_answer", "warning-1", "independent-gap"],
+      },
+    }));
+    expect(result.gapCount).toBe(1);
+    expect(result.degradeCount).toBe(1);
   });
 
   it("falls back through metadata cutoff fields and then null", () => {

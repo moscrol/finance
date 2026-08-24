@@ -98,6 +98,50 @@ function parsedTime(value: string | null): number | null {
   return Number.isNaN(timestamp) ? null : timestamp;
 }
 
+function latestInputIndexes(progress: TraceStep[]): Map<string, number> {
+  return progress.reduce((indexes, step, index) => {
+    indexes.set(step.step_id, index);
+    return indexes;
+  }, new Map<string, number>());
+}
+
+function isLater(
+  candidate: TraceStep,
+  candidateIndex: number,
+  previous: TraceStep,
+  previousIndex: number,
+): boolean {
+  const candidateTime = parsedTime(actionTime(candidate));
+  const previousTime = parsedTime(actionTime(previous));
+  if (candidateTime === null || previousTime === null) {
+    return candidateIndex > previousIndex;
+  }
+  return candidateTime > previousTime ||
+    (candidateTime === previousTime && candidateIndex > previousIndex);
+}
+
+function closeSupersededKnownRunnings(
+  trace: TraceStep[],
+  progress: TraceStep[],
+): TraceStep[] {
+  const indexes = latestInputIndexes(progress);
+  return trace.filter((step) => {
+    const phase = phaseByStage[step.name];
+    if (!phase || step.status !== "running") return true;
+    const stepIndex = indexes.get(step.step_id) ?? -1;
+    return !trace.some((candidate) =>
+      phaseByStage[candidate.name] === phase &&
+      candidate.status !== "running" &&
+      isLater(
+        candidate,
+        indexes.get(candidate.step_id) ?? -1,
+        step,
+        stepIndex,
+      ),
+    );
+  });
+}
+
 function newestAction(steps: TraceStep[]): TraceStep | null {
   return steps.reduce<TraceStep | null>((current, candidate) => {
     if (current === null) return candidate;
@@ -148,8 +192,9 @@ export function buildResearchJourney({
   terminalStatus: LiveMessageState["status"];
 }): ResearchJourneyModel {
   const trace = deduplicateTrace(progress);
+  const normalizedTrace = closeSupersededKnownRunnings(trace, progress);
   const byPhase = new Map<ResearchPhaseId, TraceStep[]>();
-  for (const step of trace) {
+  for (const step of normalizedTrace) {
     const phase = phaseByStage[step.name];
     if (!phase) continue;
     byPhase.set(phase, [...(byPhase.get(phase) ?? []), step]);
@@ -168,7 +213,7 @@ export function buildResearchJourney({
     : null;
   if (answerUpdate) phases[3] = { ...phases[3], status: answerUpdate.status };
 
-  const selected = newestAction(trace);
+  const selected = newestAction(normalizedTrace);
   const selectedPhase = selected ? phaseByStage[selected.name] : undefined;
   const answerCanDescribeAction = answerUpdate !== null &&
     (selected === null || actionRank(selected.status) === 1);
@@ -203,6 +248,9 @@ export function buildResearchReceipt(bundle: RunBundle): ResearchReceiptModel {
     bundle.context.metadata.duckdb_cutoff,
   ].map(nonBlank).find((value): value is string => value !== null) ?? null;
   const degradeLabels = [...new Set(bundle.run.degrades.map(userFacingIssue))];
+  const nonGapIssues = new Set(
+    [...bundle.run.degrades, ...bundle.context.warnings].map((item) => item.trim()),
+  );
 
   return {
     evidenceCount: bundle.context.evidence.filter(
@@ -210,7 +258,9 @@ export function buildResearchReceipt(bundle: RunBundle): ResearchReceiptModel {
     ).length,
     cutoff,
     artifactCount: bundle.run.artifacts.length,
-    gapCount: bundle.context.gaps.length,
+    gapCount: bundle.context.gaps.filter(
+      (gap) => !nonGapIssues.has(gap.trim()),
+    ).length,
     degradeCount: degradeLabels.length,
     degradeLabels,
     runStatus: bundle.run.status,
