@@ -1,22 +1,25 @@
 # 2026-08-24 #352 盘面包链切
 
-用户明示切端口。先合 Gitea #352，再把 8792 / 8796 钉到同一 SHA。
+用户明示切 8792。#352 合进 main 后，**只切主港**。8796 是解耦树，不合 main、不跟 8792 同 SHA。
 
 ## 读数
 
 | 项 | 值 |
 |---|---|
 | 合入 | #352 merged `af71f048`（含 `5840e537`） |
-| 快照 | `~/.finance-runtime/finance-workspace-af71f0480889` |
+| 8792 | `af71f048` / dirty=false / match=true；readiness 13/13 |
+| 8796 | `76ee1e89`（解耦树 LaunchAgent）。误切到 `af71f048` 后已拨回 |
+| 快照 8792 | `~/.finance-runtime/finance-workspace-af71f0480889` |
+| 快照 8796 | `~/.finance-runtime/finance-workspace-76ee1e89ed8a` |
 | 回滚 8792 | `ln -sfh ~/.finance-runtime/finance-workspace-8688545b9104 /Users/a77/finance-workspace-runtime` + kickstart |
-| 回滚 8796 | 启动器 `runtime_tree` 改回 `…/finance-workspace-76ee1e89ed8a` + kickstart sidecar |
-| 8792 health | `rev=af71f0480889 / dirty=false / match=true`；readiness 13/13、`missing_critical=[]` |
-| 8796 health | 同 SHA；用户目录仍是 `finance-workbench-capability-sidecar/users` |
-| 长电 | `run_20260824_102946_149967` completed / 61.6s / degrade=0 / secret=0 / glm-5.2@zhipu；`fact_stock_daily`×4、`dataset=stock_daily`×16；无「没有连接本地市场数据」。个股检索超时，稿走条件化判断——不是切失败 |
+| 回滚 8796 | 启动器 `runtime_tree` 改回 `…/76ee1e89ed8a` + kickstart sidecar（本次已做） |
+| 长电（8792） | `run_20260824_102946_149967` completed / 61.6s / degrade=0 / secret=0 |
 
 ## 坑
 
-8796 不是临时 sidecar，是 LaunchAgent `com.a77.finance-workbench-capability-sidecar`。启动脚本把 `runtime_tree` **写死**。只 `kill` 旧进程会被 KeepAlive 拉回旧 SHA，账本会记成假切。
+8796 不是临时 sidecar，是 LaunchAgent `com.a77.finance-workbench-capability-sidecar`。启动脚本写死 `runtime_tree`。只 `kill` 会被 KeepAlive 拉回旧 SHA。
+
+**合 main ≠ 两港对齐。** 主港跟主干，对照港跟实验树。
 
 ## 未做
 
