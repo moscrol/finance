@@ -929,3 +929,25 @@ main42 +5.3pp 未入 ±5），outcome 仍 pending；收据
 - [docs/verification/2026-08-04-improvement-loop-design-review.md](verification/2026-08-04-improvement-loop-design-review.md)
 - [docs/trace-profile.md](trace-profile.md) §2 字段陷阱、§6 投影契约、§8 仪器覆盖矩阵
 - commit `09657e2a`
+
+---
+
+## 2026-08-24 · 无主语市场级问题的数值 backfill（`R-20260824-01`..`02`）
+
+来源：8792 `run_20260824_160340_773829` 事后分诊（trace-first）。
+代码 `fix/numeric-backfill-market-scope` @ `3d5d80c2`，基线 `34fcbaaa`。
+收据 `docs/verification/2026-08-24-numeric-backfill-market-scope.md`。
+**生产未切，两条均 `pending`，不得据离线 A/B 写 `confirmed`。**
+
+| ID | fix_type | verification_prediction | outcome | 备注 |
+|---|---|---|---|---|
+| `R-20260824-01` | `DATA_CONTRACT_FIX` | 部署后重问同题（`subject=None` / `subject_kind='unknown'`），`private_artifact.backfill_turns` 由 0 变 1，且 `repair_goal.missing_evidence_modes == ('market_data',)` | `pending` | 离线 A/B 已显示计划从 `None` → `('market_data',)`，但计划 ≠ 真跑；live 未验 |
+| `R-20260824-02` | `DATA_CONTRACT_FIX` | 同上一次 run 的公开稿**保留**含可判阈值的那条建议（不再只剩 deletion-only 出路），且 `outcome.draft` 与 `answer.md` 的 sha256 一致 | `pending` | 反向绊线：若部署后公开稿仍比草稿短且 repair 计数为 0，说明删除来自本单未覆盖的第二条路径（语义分支），本单判据不成立 |
+
+**不得据本单 `confirmed` 的相邻结论**：
+语义分支那两句（恒真阈值「跌停回升至两位数」、事件因果）本单未改，
+部署后它们**仍会原样发布**。看到它们还在，不构成本单 refuted。
+
+**旁记（不立案，留待判据成熟）**：`judge_status='repaired'` 与
+`repair_attempts=0` 并存是状态字段自述与实际动作不符；本单未动该字段，
+若要立案需先定「repaired 在该词表里是否本就指『已删除拒句』」。
