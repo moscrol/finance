@@ -441,6 +441,30 @@ def bind_market_watch_pack(
     )
 
 
+def v_block_for_ask(
+    options: AskOptions,
+    theme: str | None = None,
+    entity: str | None = None,
+) -> str:
+    """[V] 投影：有 StancePack 只渲染袋，禁止再查台账。"""
+
+    pack = getattr(options, "stance_pack", None)
+    if pack is not None:
+        from intelligence.services.stance_pack import render_prior_bag
+
+        return render_prior_bag(
+            pack.prior_bag,
+            data_asof=_market_data_asof(options.market_db_path),
+        )
+    return checkpoint_recall.recall_block_for_query(
+        options.query,
+        theme,
+        entity,
+        user=options.user,
+        data_asof=_market_data_asof(options.market_db_path),
+    )
+
+
 def bind_research_program(
     options: AskOptions,
     *,
@@ -903,11 +927,7 @@ def _answer_market_review(
                 f"{card_guidance}"
             )
     if evidence_registry.provider_enabled(options, "V"):
-        recall_block = checkpoint_recall.recall_block_for_query(
-            options.query,
-            user=options.user,
-            data_asof=_market_data_asof(options.market_db_path),
-        )
+        recall_block = v_block_for_ask(options)
         if recall_block:
             prior_parts.append(recall_block)
             result.citations.append(
@@ -4268,11 +4288,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         )
 
         def _build_v():
-            block = checkpoint_recall.recall_block_for_query(
-                options.query, theme, anchored_name,
-                user=options.user,
-                data_asof=_market_data_asof(options.market_db_path),
-            )
+            block = v_block_for_ask(options, theme, anchored_name)
             return block, Citation(
                 "V",
                 "回检块（历史可证伪判断×裁决）",

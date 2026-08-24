@@ -89,7 +89,15 @@ from intelligence.services.query_understanding import (
     project_task_frame,
     understand_query,
 )
-from intelligence.services.evidence_capabilities import resolve_evidence_plan
+from intelligence.services.evidence_capabilities import (
+    resolve_evidence_plan,
+    runtime_capabilities_for_frame,
+)
+from intelligence.services.stance_pack import (
+    lint_public_answer,
+    run_stance_pack,
+    should_run_stance_pack,
+)
 from intelligence.services.research_policy import (
     ResearchExecutionBudget,
     ResearchExecutionPolicy,
@@ -1762,6 +1770,7 @@ class TurnOrchestrator:
         manual_selected = list(dict.fromkeys(selected_skill_ids))
         invoked: list[str] = []
         warnings: list[str] = []
+        stance_pack = None
         citations: list[dict[str, object]] = []
         text_chunks: list[str] = []
         skill_outputs: list[SkillOutput] = []
@@ -1982,6 +1991,19 @@ class TurnOrchestrator:
                 },
             )
             self._check_cancelled()
+            stance_pack = None
+            if should_run_stance_pack(
+                lane=decision.lane,
+                question_type=task_frame.question_type or decision.question_type,
+                query=query,
+            ):
+                stance_pack = run_stance_pack(
+                    query,
+                    user=self.run_store.user_id,
+                    subject=task_frame.subject,
+                    market_db_path=self._market_db_path(),
+                    capabilities=runtime_capabilities_for_frame(task_frame),
+                )
             canned = deterministic_lane_answer(query, decision)
             if canned is None and self.continuous_turn_adapter is not None:
                 continuous_control = project_turn_decision(
@@ -2001,6 +2023,10 @@ class TurnOrchestrator:
                         query=query,
                     ),
                 )
+                if stance_pack is not None:
+                    continuous_control = replace(
+                        continuous_control, stance_pack=stance_pack
+                    )
                 continuous_result = self.continuous_turn_adapter.handle(
                     frame=task_frame,
                     control=continuous_control,
@@ -2020,6 +2046,7 @@ class TurnOrchestrator:
                         research_plan=research_plan,
                         perspective_mode=perspective_mode,
                         selected_perspective_ids=selected_perspective_ids,
+                        stance_pack=stance_pack,
                     )
             if (
                 decision.lane in {"chat", "meta", "clarify"}
@@ -2722,6 +2749,7 @@ class TurnOrchestrator:
                 synthesize=False,
                 compose_revise_on_warn=True,
                 market_db_path=self._market_db_path(),
+                stance_pack=stance_pack,
                 conversation_context=context.to_prompt_block(),
                 wiki_rag_cache_scope=(
                     f"{self.run_store.user_id}:{conversation_id or run_id}"
@@ -3711,6 +3739,7 @@ class TurnOrchestrator:
         research_plan: ResearchPlan,
         perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL,
         selected_perspective_ids: Sequence[str] = (),
+        stance_pack: object | None = None,
     ) -> TurnResult:
         """Persist one Episode-owned terminal result without legacy synthesis."""
 
@@ -3775,6 +3804,16 @@ class TurnOrchestrator:
             )
 
         answer_text = redact(result.answer).strip()
+        if stance_pack is not None and answer_text:
+            answer_text, lint_flags = lint_public_answer(
+                answer_text,
+                stance_pack,  # type: ignore[arg-type]
+                query=query,
+            )
+            if "prior_promoted_to_fact" in lint_flags:
+                warning = "stance_lint:prior_promoted_to_fact"
+                warnings.append(warning)
+                self.run_store.add_degrade(run_id, warning)
         projected = project_artifact_statuses(episode_status_from_turn(result))
         if projected.run == rs.STATUS_FAILED or not answer_text:
             failure_text = answer_text or "本轮连续研究未取得可公开答案。"
@@ -3953,6 +3992,11 @@ class TurnOrchestrator:
                 open_gaps=result.open_gaps,
                 status=result.status,
                 subject_kind=str(task_frame.subject_kind or ""),
+                same_bind=stance_pack is not None,
+                standing_date=str(
+                    getattr(stance_pack, "standing_date", "") or ""
+                ),
+                question_type=str(task_frame.question_type or ""),
             )
             gap_followups = followups_svc.active_composer().compose(
                 followup_state,

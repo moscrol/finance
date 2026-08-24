@@ -173,7 +173,7 @@ _PRIOR_REFERENCE_RE = re.compile(
 # residual 的 general_finance_evidence 现在也授权 memory_lookup，但用的是
 # 另一格 prime_memory，不走这条题型闸门。
 _PRIOR_RECALL_QUESTION_TYPES = frozenset(
-    {"stock_deep_dive", "theme_analysis", "theme_track"}
+    {"stock_deep_dive", "theme_analysis", "theme_track", "trade_advice"}
 )
 
 _VALUATION_REQUIRED_OUTPUTS = (
@@ -305,7 +305,11 @@ def _references_prior_judgement(frame: TaskFrame) -> bool:
 
     if frame.question_type not in _PRIOR_RECALL_QUESTION_TYPES:
         return False
-    return bool(_PRIOR_REFERENCE_RE.search(frame.raw_question))
+    if _PRIOR_REFERENCE_RE.search(frame.raw_question):
+        return True
+    from intelligence.services.stance_pack import detect_stance_kinds
+
+    return bool(detect_stance_kinds(frame.raw_question))
 
 
 def _required_output_ids(frame: TaskFrame) -> tuple[str, ...]:
@@ -528,6 +532,7 @@ def build_episode_context(
     information_cutoff: InformationCutoff | None = None,
     perspective_context: str = "",
     knowledge: KnowledgeAdapter | None = None,
+    stance_pack: object | None = None,
 ) -> ResearchRunContext:
     """Freeze control output into one immutable research run contract."""
 
@@ -656,6 +661,7 @@ def build_episode_context(
         information_cutoff=cutoff,
         root_budget=root_budget_for_policy(policy, episode_id=task_id),
         perspective_context=str(perspective_context or "").strip(),
+        stance_pack=stance_pack,
     )
 
 

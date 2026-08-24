@@ -970,6 +970,8 @@ class ResearchRunContext:
     # 本轮已经交付过的交易日。窗口闸门认这个集合，不认题型。
     # 可变 set：同一 context 对象在多次 execute 之间累加。
     authorized_trade_dates: set[str] = field(default_factory=set)
+    # 个性化接合核。缺席 = 本题未触发 StancePack；只作锁格，不是证据。
+    stance_pack: object | None = None
 
 
 @dataclass(frozen=True)
