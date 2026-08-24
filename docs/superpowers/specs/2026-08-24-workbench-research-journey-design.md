@@ -1,7 +1,7 @@
 # Workbench Research Journey 原生进度与研究收据设计
 
 - 日期：2026-08-24
-- 状态：已确认方向，待用户复核书面规格
+- 状态：用户已确认，可进入实施
 - 实施分支：`codex/feat-workbench-research-journey`
 - 基线：`gitea/main@62e273376740dc763b574fe70959f65792a07f33`
 - 范围：`intelligence/webapp/` 前端与相关测试
