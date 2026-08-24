@@ -112,6 +112,9 @@ def run_weekly_watch_pack(
                 "盘面",
                 market_db_path=market_db_path,
                 cutoff=day,
+                # 替补观察只开在最新交易日袋（spec 2026-08-25 §8 P1-a）：
+                # 历史日的观察池没有行动意义，开了只稀释开口预算。
+                substitute_probes=(day == days[-1]),
             )
         )
         energy.append(_energy_row(market_db_path, day))
@@ -247,6 +250,11 @@ def _render_day(day: str, pack: MarketWatchPack, energy: DailyEnergy | None) -> 
         lines.append(
             f"- {name}: hit requested={bag.requested_date} served={bag.served_date}{extra}"
         )
+    if pack.probes:
+        from intelligence.services.market_watch_pack import render_probe_lines
+
+        lines.append("替补观察（出清/分歧观察，非机会）：")
+        lines.extend(render_probe_lines(pack.probes))
     return "\n".join(lines)
 
 

@@ -1,7 +1,7 @@
 # 设计：空袋替补观察探针（残差自适应补查·第一片）
 
 - 日期：2026-08-25
-- 状态：**v1.1**（P0 已实施合入 #371 并切 8792=`cd6f9e0dffce`；P1-b 落点修正后已实施，见 §8.1；P1-a weekly 未做）
+- 状态：**v1.2**（P0=#371、P1-b=#372 均已合并切流；P1-a weekly 已实施：仅最新交易日袋开探针、`_render_day` 标签先行尾接、历史日逐字节不变。三片全落，余生产自然样本回读）
 - 来源：五臂对照 live-toolkit 决策记录（`~/.finance-runtime/trace-diff-spt-tech-med-monday-20260823/live-toolkit/decisions.json`）+ 五臂报告结论 2（同目录 `one-page-report.md`）+ `gitea/main@760bf79b` 代码核验（2026-08-25 凌晨，快照 `~/.finance-runtime/finance-workspace-760bf79bea64`）。
 - 代码树：从 `gitea/main` 开干净树 `feat/substitute-observation-probe`。**禁止**在主检出 `feat/reading-rules-baseline-batch1` 脏树改 runtime（本稿允许 pathspec 落在脏树）。**禁止**动 8792 / 8796 / 8802。
 - 相邻稿（本单不重做、不抢合）：
