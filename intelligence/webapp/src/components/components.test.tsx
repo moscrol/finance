@@ -19,7 +19,10 @@ import {
   userFacingStage,
   userFacingText,
 } from "../displayText";
-import { buildResearchJourney } from "../researchJourney";
+import {
+  buildResearchJourney,
+  buildResearchReceipt,
+} from "../researchJourney";
 import { upsertStructuredReportModule } from "../structuredReport";
 import { upsertTraceStep } from "../trace";
 import type {
@@ -45,6 +48,7 @@ import { PerspectivePicker } from "./PerspectivePicker";
 import { ResearchHome } from "./ResearchHome";
 import { ResearchInspector } from "./ResearchInspector";
 import { ResearchJourney } from "./ResearchJourney";
+import { ResearchReceipt } from "./ResearchReceipt";
 import { RunView } from "./RunView";
 import { SkillInvocation } from "./SkillInvocation";
 import { SkillPicker } from "./SkillPicker";
@@ -1063,6 +1067,52 @@ describe("Chat-first conversation components", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       "可核验草稿已形成，正在精修",
     );
+  });
+
+  it("renders a terminal research receipt from context issues", () => {
+    const receiptBundle: RunBundle = {
+      ...bundle,
+      run: {
+        ...bundle.run,
+        source_date: null,
+        duckdb_cutoff: null,
+        degrades: ["llm_unavailable_template_answer"],
+        artifacts: [
+          ...bundle.run.artifacts,
+          { ...bundle.run.artifacts[0], artifact_id: "second" },
+        ],
+      },
+      context: {
+        ...bundle.context,
+        evidence: [
+          ...bundle.context.evidence,
+          {
+            id: "bound",
+            label: "公司公告",
+            kind: "source",
+            classification: "bound_evidence",
+            detail: "已绑定到正文",
+            status: "hit",
+          },
+        ],
+        gaps: ["缺少客户口径"],
+        metadata: {
+          ...bundle.context.metadata,
+          source_date: null,
+          duckdb_cutoff: null,
+        },
+      },
+    };
+
+    render(<ResearchReceipt model={buildResearchReceipt(receiptBundle)} />);
+
+    const receipt = screen.getByLabelText("研究收据");
+    expect(receipt).toHaveTextContent("Foresight · 已完成");
+    expect(receipt).toHaveTextContent("1 条可验证引用");
+    expect(receipt).toHaveTextContent("数据日期未记录");
+    expect(receipt).toHaveTextContent("2 个产物");
+    expect(receipt).toHaveTextContent("1 项限制/缺口");
+    expect(receipt).toHaveAttribute("data-issue-summary", "缺少客户口径");
   });
 
   it("restores, switches and archives conversations in the mobile drawer", async () => {
