@@ -1,7 +1,7 @@
 # 设计：品质优先的残差预算 —— 逼近对照会话，不加无效长循环
 
 - 日期：2026-08-24
-- 状态：Draft **v1.1**（v1 审查 **PASS-WITH-NITS** 已收。P1 升档在 `feat/forecast-residual-deep`；P2 未做）
+- 状态：Draft **v1.1**（v1 审查 **PASS-WITH-NITS** 已收。P1 升档已合 `#366`；P2 在 `feat/forecast-residual-followup`）
 - 性质：产品策略稿。前序组件稿 `2026-08-24-outlook-live-weekly-pack-design.md`（v2）已落地大半；本单回答「加预算会不会更好」和「怎样灵活而不穷尽」。
 - 来源：同日对照会话（Cursor ReAct vs 生产 `run_20260824_164201_040215`）+ 干净树 live（`~/.finance-runtime/outlook-live-20260824/receipts/`）+ 用户三轮纠偏 + 2026-08-24 审查。
 - 代码树：继续 `/Users/a77/fwp-wt-outlook-live-weekly-pack` @ `feat/outlook-live-weekly-pack`。文档入仓：`docs/workbench-quality-residual-ux`（从 `gitea/main` 只提本稿）。**禁止**在主检出 `feat/reading-rules-baseline-batch1` 脏树上改 runtime。**禁止**动 8792 / 8796 / 8802。
@@ -226,6 +226,7 @@ Live 新目录，不覆盖 `four-arm-knevo-20260823/`、不覆盖 `run_20260824_
 | `R-20260824-28` | 活周报进了 prefetch 计数，公开账本无 E 号（无 hash） | `HARNESS_FIX` | P0-a | §9.1 #1/#2 |
 | `R-20260824-29` | 主库写锁被写成 empty / 「该日无数据」 | `HARNESS_FIX` | P0 诚实 | §9.1 #5 |
 | `R-20260824-30` | 全局加超时当品质杠杆；或展望残差空转 | `HARNESS_FIX` | P1 | §9.2 #6–#9 |
+| `R-20260824-36` | 首轮不露未核验格；或追问把五日包当新菜 | `HARNESS_FIX` | P2 | §9.3 #10–#11 |
 
 **编号协调（审查 nit，合 main 前消歧，本稿不改号）：**
 
