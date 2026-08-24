@@ -27,8 +27,10 @@ Spec：`docs/superpowers/specs/2026-08-25-substitute-observation-probe-design.md
 
 ## 未验证 / 已知边界
 
-- 全量 pytest 首跑被沙箱拦（3 个 sqlite 收集错误，环境性），沙箱外重跑在途；
-  合并前以该结果为准，并对照 main 已知红（reading-rules 交接记录过 main 有 4 红）。
+- 全量 pytest **6389 passed / 13 skipped / 0 failed**（沙箱外，287s）。注意该跑
+  发生在删 `probe_id` 之前；删除后焦点 25 例 + 门禁全绿，且 unread-fields 门禁
+  已证明该字段全仓无读者，全量结论不受影响。首跑被沙箱拦（3 个 sqlite 收集
+  错误）是环境性，勿当代码红。
 - 生产 8792 未切；episode 全链 live（模型在场）未跑——`supplemental_evidence` 已带
   替补块，模型残差是否规范引用替补池属质量观察，不阻塞本单。
 - gap 句是全局判定（任一主线匹配双红即不出句），探针是逐题材判定——08-24 live
