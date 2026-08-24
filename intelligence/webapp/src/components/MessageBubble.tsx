@@ -37,6 +37,12 @@ function isTerminalBundle(bundle: RunBundle): bundle is TerminalRunBundle {
   );
 }
 
+function isTerminalMessageStatus(
+  status: string,
+): status is TerminalResearchStatus {
+  return status === "completed" || status === "failed" || status === "cancelled";
+}
+
 function publicMessageStatus(status: string): LiveMessageState["status"] {
   return status === "pending" ||
     status === "streaming" ||
@@ -70,11 +76,18 @@ export function MessageBubble({
   onOpenArtifact,
   onFollowup,
 }: MessageBubbleProps) {
-  const content = live?.narrative || message.content;
+  const persistedMessageStatus = publicMessageStatus(message.status);
+  const persistedMessageTerminal = isTerminalMessageStatus(message.status);
+  const content = persistedMessageTerminal
+    ? message.content
+    : live?.narrative || message.content;
   const progressSteps = live?.progress ?? EMPTY_PROGRESS_STEPS;
   const terminalBundle = useMemo(
-    () => (bundle && isTerminalBundle(bundle) ? bundle : null),
-    [bundle],
+    () =>
+      persistedMessageTerminal && bundle && isTerminalBundle(bundle)
+        ? bundle
+        : null,
+    [bundle, persistedMessageTerminal],
   );
   const receiptModel = useMemo(
     () =>
@@ -97,8 +110,9 @@ export function MessageBubble({
   ) as Record<string, SkillInvocationStatus>;
   const researchStatus: LiveMessageState["status"] =
     terminalBundle?.run.status ??
-    live?.status ??
-    publicMessageStatus(message.status);
+    (persistedMessageTerminal
+      ? persistedMessageStatus
+      : (live?.status ?? persistedMessageStatus));
   const terminalStatus = researchStatus;
   const runInFlight =
     researchStatus === "pending" || researchStatus === "streaming";
@@ -210,7 +224,9 @@ export function MessageBubble({
         {journeyModel && (
           <ResearchJourney
             model={journeyModel}
-            connection={live?.connection ?? "connected"}
+            connection={
+              runInFlight ? (live?.connection ?? "connected") : "connected"
+            }
             compact={Boolean(content)}
             announce={announcesProgress}
           />

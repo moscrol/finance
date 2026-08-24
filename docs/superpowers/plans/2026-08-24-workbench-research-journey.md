@@ -1702,7 +1702,7 @@ expect(screen.queryByText("已形成研究计划。")).toBeNull();
 expect(screen.queryByText("正在查盘面快照。")).toBeNull();
 ```
 
-保留既有 `keeps the timeline available after the answer lands` 测试：它锁定终态 bundle 尚未成功加载时 `ProgressTimeline` 的终态审计兜底。另加 App 恢复回归：pending assistant 即使已预取到 `run.status=running` 的 bundle，仍必须显示 Journey，不得显示 Receipt / RunView。
+保留既有 `keeps the timeline available after the answer lands` 测试：它锁定终态 bundle 尚未成功加载时 `ProgressTimeline` 的终态审计兜底。另加 App 恢复与竞态回归：pending assistant 即使已预取到 running bundle，或轮询已提前看到终态 Run，仍必须显示 Journey、保持 EventSource/轮询，不得显示错误、Receipt 或 RunView；只有下一次 reconciliation 同时读到终态持久化 assistant message 与终态 bundle 才完成互换。再锁定 reload 终态 bundle 失败可见、终态正文覆盖旧 live 草稿、failed/cancelled fallback 不显示假重连，且全局加载错误不抢占 Journey 的 live region。
 
 - [ ] **Step 2：运行 Chat-first 测试并确认新安装规则失败**
 
@@ -1728,11 +1728,24 @@ import { ResearchJourney } from "./ResearchJourney";
 import { ResearchReceipt } from "./ResearchReceipt";
 ```
 
-把 `terminalStatus` 和 `runInFlight` 的计算替换为收窄后的公开状态。先把 bundle 按 `completed | failed | cancelled` 收窄为 `terminalBundle`；`queued | running` bundle 只是预取快照，不能触发终态 UI。所有 `useMemo` 必须在用户消息提前返回之前无条件调用：
+把 `terminalStatus` 和 `runInFlight` 的计算替换为收窄后的公开状态。先确认持久化 assistant message 已终态，再把 bundle 按 `completed | failed | cancelled` 收窄为 `terminalBundle`；`queued | running` bundle 或“Run 已终态但 message 仍 pending”都只是预取快照，不能触发终态 UI。所有 `useMemo` 必须在用户消息提前返回之前无条件调用：
 
 ```tsx
+const persistedMessageTerminal = isTerminalMessageStatus(message.status);
+const content = persistedMessageTerminal
+  ? message.content
+  : live?.narrative || message.content;
+const terminalBundle = useMemo(
+  () => persistedMessageTerminal && bundle && isTerminalBundle(bundle)
+    ? bundle
+    : null,
+  [bundle, persistedMessageTerminal],
+);
 const researchStatus: LiveMessageState["status"] =
-  terminalBundle?.run.status ?? live?.status ?? publicMessageStatus(message.status);
+  terminalBundle?.run.status ??
+  (persistedMessageTerminal
+    ? publicMessageStatus(message.status)
+    : live?.status ?? publicMessageStatus(message.status));
 const terminalStatus = researchStatus;
 const runInFlight =
   researchStatus === "pending" || researchStatus === "streaming";
@@ -1782,7 +1795,7 @@ const receiptModel = useMemo(
 {journeyModel && (
   <ResearchJourney
     model={journeyModel}
-    connection={live?.connection ?? "connected"}
+    connection={runInFlight ? (live?.connection ?? "connected") : "connected"}
     compact={Boolean(content)}
   />
 )}
@@ -1794,11 +1807,11 @@ const receiptModel = useMemo(
 
 保持该块位于 `MarkdownView` 之前；保持 `terminalNotice`、`RunView`、followups 和 regenerate 的相对顺序不变。
 
-`ResearchReceipt`、`RunView` 和公司证据 warning 只消费 `terminalBundle`。失败/取消是主状态，必须覆盖 `answerPhase` 的交付版本标签。`MessageThread` 只把最新助手消息标为播报 owner：该消息的 Journey 才使用 `role=status`；历史 Journey 与 terminal notice 保持可见但使用 `role=note`。顶栏状态只做视觉文本，workflow / evidence warning、RunView 的终态 error/degrade，以及 Inspector 内 StructuredReport 的 warning/loading 都使用 `role=note`；StructuredReport wrapper 不设置 `aria-live`。只有播报 owner 没有 Journey 时，它的终态 notice 才使用 `role=status`。
+`ResearchReceipt`、`RunView` 和公司证据 warning 只消费由“持久化 assistant message 已终态 + bundle 已终态”共同收窄出的 `terminalBundle`。失败/取消是主状态，必须覆盖 `answerPhase` 的交付版本标签。`MessageThread` 只把最新助手消息标为播报 owner：该消息的 Journey 才使用 `role=status`；历史 Journey 与 terminal notice 保持可见但使用 `role=note`。顶栏状态只做视觉文本，workflow / evidence warning、RunView 的终态 error/degrade，以及 Inspector 内 StructuredReport 的 warning/loading 都使用 `role=note`；StructuredReport wrapper 不设置 `aria-live`。retained failed/cancelled Journey 存在时，全局 bundle 错误也使用 `role=note`；无 Journey 时继续使用 `role=alert`。只有播报 owner 没有 Journey 时，它的终态 notice 才使用 `role=status`。
 
-`loadConversationData()` 必须返回 `{ messages, appliedToCurrentConversation, appliedBundles }`；`appliedBundles` 只包含通过 conversation generation 检查、已安装进当前会话状态的 bundle。`finalizeRun()` 只有在 `appliedToCurrentConversation=true` 且目标 run 的终态 bundle 出现于 `appliedBundles` 后才能删除 live state；加载失败时保留终态 live progress，显示简短错误，让 Timeline / Journey 继续作为审计兜底。安装成功后无条件清理该 run 的 stale live state，不再由 `answerPhase` 延长其生命周期。
+`loadConversationData()` 必须返回 `{ messages, appliedToCurrentConversation, appliedBundles, failedRunIds }`；后三者只对通过 conversation generation 检查并安装到当前会话的结果有效。`finalizeRun()` 收到轮询/SSE 的终态 Run 后，先重载会话并按 `message_id + run_id` 确认目标持久化 assistant message 也已终态；若仍 pending/streaming 或读取失败，保持 EventSource、轮询和 live 原状，由后续 reconciliation 重试，不显示错误。确认消息终态后才关闭 transport、写 live 终态；目标终态 bundle 出现于 `appliedBundles` 时清理 live，否则保留 progress/workflow，显示简短错误，让 Timeline / Journey 继续作为审计兜底。安装成功后无条件清理 stale live state，不再由 `answerPhase` 延长其生命周期。会话 restore 若 `failedRunIds` 命中持久化终态 assistant message，则显示可重试的最终结果加载错误；只命中 running/pending message 时保持安静。
 
-`connection` 只表达 EventSource 链路：仅 `onerror` 写 `reconnecting`，`onopen` 写 `connected`。cancel 接口成功只写 `cancelRequested=true`；轮询失败、finalize 和 cancel 都不得伪造连接状态。
+`connection` 只表达 EventSource 链路：仅 `onerror` 写 `reconnecting`，`onopen` 写 `connected`。cancel 接口成功只写 `cancelRequested=true`；轮询失败、finalize 和 cancel 都不得伪造连接状态。Journey 只有在 `pending|streaming` 时消费 reconnecting；终态 retained fallback 固定按 connected 渲染，避免把已结束误报成「连接恢复中」。
 
 - [ ] **Step 4：运行完整组件测试并修正任何旧断言冲突**
 
@@ -1842,7 +1855,7 @@ if ((page.viewportSize()?.width ?? 1_000) < 720) {
 }
 ```
 
-在 completed answer 数量与助手消息数量断言之后加入（此处 completed 必须已成功加载终态 bundle，不得把 running bundle 当成收据）：
+在 completed answer 数量与助手消息数量断言之后加入（此处必须同时确认终态 Run、终态持久化 assistant message 与终态 bundle，不得把 running bundle 或提前终态的 Run 当成收据）：
 
 ```ts
 await expect(page.getByLabel("研究收据").last()).toBeVisible({

@@ -91,17 +91,25 @@ interface ConversationLoadResult {
   messages: ChatMessage[];
   appliedToCurrentConversation: boolean;
   appliedBundles: Record<string, RunBundle>;
+  failedRunIds: string[];
 }
 
 const FINAL_RESULT_LOAD_ERROR =
   "运行已结束，但最终结果暂时无法加载";
 
-function isTerminalRun(run: Run): boolean {
-  return (
-    run.status === "completed" ||
-    run.status === "failed" ||
-    run.status === "cancelled"
-  );
+type TerminalStatus = Extract<
+  LiveMessageState["status"],
+  "completed" | "failed" | "cancelled"
+>;
+
+function isTerminalStatus(status: string): status is TerminalStatus {
+  return status === "completed" || status === "failed" || status === "cancelled";
+}
+
+function isTerminalRun(
+  run: Run,
+): run is Run & { status: TerminalStatus } {
+  return isTerminalStatus(run.status);
 }
 
 export default function App() {
@@ -209,18 +217,21 @@ export default function App() {
             .filter((runId): runId is string => Boolean(runId)),
         ),
       ];
-      const bundles = await Promise.all(
-        runIds.map((runId) =>
-          fetchRunBundle(runId)
-            .then((bundle) => [runId, bundle] as const)
-            .catch(() => null),
-        ),
+      const bundleResults = await Promise.all(
+        runIds.map(async (runId) => {
+          try {
+            return { runId, bundle: await fetchRunBundle(runId) };
+          } catch {
+            return { runId, bundle: null };
+          }
+        }),
       );
-      const nextBundles = Object.fromEntries(
-        bundles.filter(
-          (item): item is readonly [string, RunBundle] => item !== null,
-        ),
-      ) as Record<string, RunBundle>;
+      const nextBundles: Record<string, RunBundle> = {};
+      const failedRunIds: string[] = [];
+      bundleResults.forEach(({ runId, bundle }) => {
+        if (bundle) nextBundles[runId] = bundle;
+        else failedRunIds.push(runId);
+      });
       const appliesToCurrentConversation =
         activeConversationRef.current === conversationId &&
         conversationGeneration.current === generation;
@@ -232,6 +243,7 @@ export default function App() {
         messages: nextMessages,
         appliedToCurrentConversation: appliesToCurrentConversation,
         appliedBundles: appliesToCurrentConversation ? nextBundles : {},
+        failedRunIds: appliesToCurrentConversation ? failedRunIds : [],
       };
     },
     [fetchRunBundle, user],
@@ -248,30 +260,39 @@ export default function App() {
   const finalizeRun = useCallback(
     async (
       identity: StreamIdentity,
-      status: "completed" | "failed" | "cancelled",
       events: EventSource,
     ) => {
       if (eventSourceRef.current !== events) return;
       if (finalizingRunRef.current === identity.runId) return;
       finalizingRunRef.current = identity.runId;
-      setLiveMessages((current) => {
-        const state = current[identity.messageId];
-        return state?.runId === identity.runId
-          ? {
-              ...current,
-              [identity.messageId]: {
-                ...state,
-                status,
-              },
-            }
-          : current;
-      });
-      clearRunPolling();
-      events.close();
-      eventSourceRef.current = null;
       try {
         const loaded = await loadConversationData(identity.conversationId);
         if (!loaded.appliedToCurrentConversation) return;
+        if (eventSourceRef.current !== events) return;
+        const targetMessage = loaded.messages.find(
+          (message) =>
+            message.role === "assistant" &&
+            message.message_id === identity.messageId &&
+            message.run_id === identity.runId,
+        );
+        if (!targetMessage || !isTerminalStatus(targetMessage.status)) return;
+        const persistedTerminalStatus = targetMessage.status;
+
+        clearRunPolling();
+        events.close();
+        eventSourceRef.current = null;
+        setLiveMessages((current) => {
+          const state = current[identity.messageId];
+          return state?.runId === identity.runId
+            ? {
+                ...current,
+                [identity.messageId]: {
+                  ...state,
+                  status: persistedTerminalStatus,
+                },
+              }
+            : current;
+        });
         const targetBundle = loaded.appliedBundles[identity.runId];
         const terminalBundleApplied = Boolean(
           targetBundle && isTerminalRun(targetBundle.run),
@@ -299,7 +320,8 @@ export default function App() {
           }
         }
       } catch {
-        setError(FINAL_RESULT_LOAD_ERROR);
+        // Persisted terminal readiness is still unknown; keep transport alive
+        // so the next poll or SSE event can reconcile again.
       } finally {
         if (finalizingRunRef.current === identity.runId) {
           finalizingRunRef.current = null;
@@ -365,11 +387,7 @@ export default function App() {
           const run = await getRun(identity.runId, user);
           if (eventSourceRef.current !== events) return;
           if (isTerminalRun(run)) {
-            await finalizeRun(
-              identity,
-              run.status as "completed" | "failed" | "cancelled",
-              events,
-            );
+            await finalizeRun(identity, events);
           }
         } catch {
           // Polling is best-effort; only EventSource open/error owns connection.
@@ -404,11 +422,7 @@ export default function App() {
           ) as Run;
           if (nextRun.run_id !== identity.runId) return;
           if (isTerminalRun(nextRun)) {
-            void finalizeRun(
-              identity,
-              nextRun.status as "completed" | "failed" | "cancelled",
-              events,
-            );
+            void finalizeRun(identity, events);
           }
         } catch {
           setError("运行结束事件格式无效");
@@ -442,6 +456,14 @@ export default function App() {
         const loaded = await loadConversationData(conversationId);
         if (!loaded.appliedToCurrentConversation) return;
         const nextMessages = loaded.messages;
+        const failedRunIds = new Set(loaded.failedRunIds);
+        const terminalBundleLoadFailed = nextMessages.some(
+          (message) =>
+            message.role === "assistant" &&
+            isTerminalStatus(message.status) &&
+            message.run_id !== null &&
+            failedRunIds.has(message.run_id),
+        );
         const lastUserMessage = [...nextMessages]
           .reverse()
           .find((message) => message.role === "user");
@@ -469,7 +491,9 @@ export default function App() {
             runId: pending.run_id,
           });
         }
-        setError(null);
+        setError(
+          terminalBundleLoadFailed ? FINAL_RESULT_LOAD_ERROR : null,
+        );
       } catch (caught) {
         setError(
           caught instanceof Error ? caught.message : "无法恢复会话",
@@ -755,6 +779,34 @@ export default function App() {
       message.conversationId === activeConversationId &&
       (message.status === "pending" || message.status === "streaming"),
   );
+  const latestAssistantMessage = [...messages]
+    .reverse()
+    .find((message) => message.role === "assistant");
+  const latestAssistantLive = latestAssistantMessage
+    ? liveMessages[latestAssistantMessage.message_id]
+    : undefined;
+  const latestAssistantBundle = latestAssistantMessage?.run_id
+    ? runBundles[latestAssistantMessage.run_id]
+    : undefined;
+  const latestTerminalBundleReady = Boolean(
+    latestAssistantMessage &&
+      isTerminalStatus(latestAssistantMessage.status) &&
+      latestAssistantBundle &&
+      isTerminalRun(latestAssistantBundle.run),
+  );
+  const latestAnnouncementStatus =
+    latestAssistantMessage && isTerminalStatus(latestAssistantMessage.status)
+      ? latestAssistantMessage.status
+      : (latestAssistantLive?.status ?? latestAssistantMessage?.status);
+  const journeyOwnsAnnouncements = Boolean(
+    latestAssistantMessage &&
+      !latestTerminalBundleReady &&
+      (latestAnnouncementStatus === "pending" ||
+        latestAnnouncementStatus === "streaming" ||
+        ((latestAnnouncementStatus === "failed" ||
+          latestAnnouncementStatus === "cancelled") &&
+          (latestAssistantLive?.progress.length ?? 0) > 0)),
+  );
 
   const stopGeneration = () => {
     if (runningLive && !runningLive.cancelRequested) {
@@ -996,7 +1048,10 @@ export default function App() {
         </header>
 
         {error && (
-          <div className="global-error" role="alert">
+          <div
+            className="global-error"
+            role={journeyOwnsAnnouncements ? "note" : "alert"}
+          >
             <span>{userFacingIssue(error)}</span>
             <button type="button" onClick={() => window.location.reload()}>
               <RefreshCw aria-hidden="true" size={15} />

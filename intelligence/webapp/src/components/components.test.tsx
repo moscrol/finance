@@ -2315,7 +2315,12 @@ describe("Chat-first conversation components", () => {
 
     render(
       <MessageBubble
-        message={assistantMessage}
+        message={{
+          ...assistantMessage,
+          content: "",
+          status: "pending",
+          degrades: [],
+        }}
         skills={productSkills}
         live={loaded}
         bundle={null}
@@ -2690,6 +2695,124 @@ describe("Workbench navigation reliability", () => {
     expect(screen.getAllByRole("status")).toHaveLength(1);
   });
 
+  it("shows a retryable error when a restored terminal bundle cannot load", async () => {
+    const restoredMessage: ChatMessage = {
+      ...assistantMessage,
+      message_id: "msg_assistant_restored",
+      content: "已持久化的历史回答。",
+      status: "completed",
+      run_id: "run_restored",
+      degrades: [],
+    };
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getConversationMessages.mockResolvedValue([
+      {
+        ...assistantMessage,
+        message_id: "msg_user_restored",
+        role: "user",
+        content: "恢复历史终态",
+        status: "completed",
+        run_id: "run_restored",
+      },
+      restoredMessage,
+    ]);
+    apiMocks.getRun.mockResolvedValue({
+      ...bundle.run,
+      run_id: "run_restored",
+      status: "completed",
+      artifacts: [],
+    });
+    apiMocks.getTrace.mockRejectedValue(new Error("trace unavailable"));
+    apiMocks.getRunContext.mockRejectedValue(new Error("context unavailable"));
+    apiMocks.listArtifacts.mockResolvedValue([]);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "问答" }));
+
+    expect(await screen.findByText("已持久化的历史回答。")).toBeVisible();
+    expect(screen.queryByLabelText("研究收据")).toBeNull();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "运行已结束，但最终结果暂时无法加载",
+    );
+    expect(screen.getByRole("button", { name: "重试" })).toBeVisible();
+  });
+
+  it("waits for the persisted assistant terminal state before publishing a polled run", async () => {
+    const pendingMessage: ChatMessage = {
+      ...assistantMessage,
+      message_id: "msg_assistant_new",
+      content: "",
+      status: "pending",
+      run_id: "run_created",
+      degrades: [],
+    };
+    const finalMessage: ChatMessage = {
+      ...pendingMessage,
+      content: "终态消息和产物现已落盘。",
+      status: "completed",
+    };
+    const persistedUserMessage: ChatMessage = {
+      ...assistantMessage,
+      message_id: "msg_user_new",
+      role: "user",
+      content: "请验证终态发布边界",
+      status: "completed",
+      run_id: "run_created",
+    };
+    let messagePersisted = false;
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getConversationMessages
+      .mockResolvedValueOnce([])
+      .mockImplementation(async () => [
+        persistedUserMessage,
+        messagePersisted ? finalMessage : pendingMessage,
+      ]);
+    apiMocks.getRun.mockImplementation(async () => ({
+      ...bundle.run,
+      run_id: "run_created",
+      status: "completed",
+      artifacts: messagePersisted ? bundle.run.artifacts : [],
+    }));
+    apiMocks.listArtifacts.mockResolvedValue([]);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "问答" }));
+    await user.type(
+      screen.getByLabelText("输入研究问题"),
+      "请验证终态发布边界",
+    );
+    await user.click(screen.getByRole("button", { name: "发送研究问题" }));
+    const events = mockEventSources.at(-1);
+    expect(events).toBeDefined();
+
+    await waitFor(() =>
+      expect(apiMocks.getConversationMessages.mock.calls.length).toBeGreaterThanOrEqual(
+        2,
+      ),
+    );
+    expect(await screen.findByLabelText("研究进度")).toBeVisible();
+    expect(screen.queryByLabelText("研究收据")).toBeNull();
+    expect(
+      screen.queryByText("运行已结束，但最终结果暂时无法加载"),
+    ).toBeNull();
+    expect(events?.close).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("正在研究", { selector: ".agent-status" }),
+    ).toBeVisible();
+
+    messagePersisted = true;
+    await act(async () => events?.fail());
+
+    const receipt = await screen.findByLabelText("研究收据");
+    expect(receipt).toBeVisible();
+    expect(within(receipt).getByText("1 个产物")).toBeVisible();
+    expect(screen.queryByLabelText("研究进度")).toBeNull();
+    expect(screen.getByText("终态消息和产物现已落盘。")).toBeVisible();
+    expect(events?.close).toHaveBeenCalledTimes(1);
+  });
+
   it("recovers a persisted terminal run after the stream disconnects", async () => {
     const finalMessage: ChatMessage = {
       ...assistantMessage,
@@ -2846,8 +2969,25 @@ describe("Workbench navigation reliability", () => {
           },
         },
       });
+      events?.emit("answer.snapshot", {
+        schema_version: 1,
+        event_id: "answer:2",
+        event_type: "answer.snapshot",
+        run_id: "run_created",
+        conversation_id: "conv_recent",
+        message_id: "msg_assistant_new",
+        seq: 2,
+        created_at: "2026-08-24T10:00:01+08:00",
+        payload: {
+          revision: 1,
+          phase: "verified_fallback",
+          text: "过时的可验证草稿。",
+          final: true,
+        },
+      });
     });
     expect(screen.getByText("正在核对终态资料。")).toBeVisible();
+    expect(screen.getByText("过时的可验证草稿。")).toBeVisible();
 
     await waitFor(() => expect(apiMocks.getRun).toHaveBeenCalled());
     runStatus = "completed";
@@ -2861,11 +3001,100 @@ describe("Workbench navigation reliability", () => {
     });
 
     expect(await screen.findByText("最终回答已持久化。")).toBeVisible();
+    expect(screen.queryByText("过时的可验证草稿。")).toBeNull();
     expect(screen.getByText("研究过程（1 步）")).toBeVisible();
     expect(screen.queryByLabelText("研究收据")).toBeNull();
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "运行已结束，但最终结果暂时无法加载",
     );
+  });
+
+  it("keeps a failed fallback as the sole announcer without a false reconnect", async () => {
+    const failedMessage: ChatMessage = {
+      ...assistantMessage,
+      message_id: "msg_assistant_new",
+      content: "已保留失败前生成的回答。",
+      status: "failed",
+      run_id: "run_created",
+      degrades: [],
+    };
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getConversationMessages
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          ...assistantMessage,
+          message_id: "msg_user_new",
+          role: "user",
+          content: "请核对失败终态",
+          status: "completed",
+          run_id: "run_created",
+        },
+        failedMessage,
+      ]);
+    let runStatus: Run["status"] = "running";
+    apiMocks.getRun.mockImplementation(async () => ({
+      ...bundle.run,
+      run_id: "run_created",
+      status: runStatus,
+      artifacts: [],
+    }));
+    apiMocks.getTrace.mockRejectedValue(new Error("trace unavailable"));
+    apiMocks.getRunContext.mockRejectedValue(new Error("context unavailable"));
+    apiMocks.listArtifacts.mockResolvedValue([]);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "问答" }));
+    await user.type(screen.getByLabelText("输入研究问题"), "请核对失败终态");
+    await user.click(screen.getByRole("button", { name: "发送研究问题" }));
+    const events = mockEventSources.at(-1);
+    expect(events).toBeDefined();
+
+    await act(async () => {
+      events?.emit("trace.step", {
+        schema_version: 1,
+        event_id: "trace:failed",
+        event_type: "trace.step",
+        run_id: "run_created",
+        conversation_id: "conv_recent",
+        message_id: "msg_assistant_new",
+        seq: 1,
+        created_at: "2026-08-24T10:00:00+08:00",
+        payload: {
+          step: {
+            step_id: "verification-failed",
+            name: "verification",
+            status: "failed",
+            started_at: "2026-08-24T10:00:00+08:00",
+            finished_at: "2026-08-24T10:00:10+08:00",
+            input_summary: "",
+            output_summary: "引用核验未完成。",
+            warnings: [],
+          },
+        },
+      });
+    });
+    await waitFor(() => expect(apiMocks.getRun).toHaveBeenCalled());
+    runStatus = "failed";
+    await act(async () => events?.fail());
+
+    const journey = await screen.findByLabelText("研究进度");
+    expect(within(journey).getByRole("status")).toHaveTextContent(
+      "引用核验未完成。",
+    );
+    expect(within(journey).getByRole("status")).not.toHaveTextContent(
+      "连接恢复中",
+    );
+    expect(screen.queryByText(/连接恢复中/)).toBeNull();
+    expect(screen.getAllByRole("status")).toHaveLength(1);
+    expect(document.querySelectorAll("[aria-live]")).toHaveLength(1);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(
+      (await screen.findByText("运行已结束，但最终结果暂时无法加载")).closest(
+        '[role="note"]',
+      ),
+    ).toBeVisible();
   });
 
   it("keeps cancel pending until polling confirms the cancelled state", async () => {
