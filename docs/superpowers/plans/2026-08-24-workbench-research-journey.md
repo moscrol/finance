@@ -406,7 +406,8 @@ describe("buildResearchReceipt", () => {
       runStatus: "completed",
     });
     expect(receipt.issueLabels).toEqual([
-      "自然语言综合暂时不可用，已保留可核验数据与研究产物。",
+      "缺少客户口径",
+      "缺少下一交易日验证",
     ]);
   });
 
@@ -1273,7 +1274,7 @@ import { ResearchReceipt } from "./ResearchReceipt";
 在 `describe("Chat-first conversation components", ...)` 中加入：
 
 ```tsx
-it("renders a terminal research receipt without merging gaps and limits", () => {
+it("renders a terminal research receipt from context issues", () => {
   const receiptBundle: RunBundle = {
     ...bundle,
     run: {
@@ -1315,7 +1316,7 @@ it("renders a terminal research receipt without merging gaps and limits", () => 
   expect(receipt).toHaveTextContent("1 项限制/缺口");
   expect(receipt).toHaveAttribute(
     "data-issue-summary",
-    "自然语言综合暂时不可用，已保留可核验数据与研究产物。",
+    "缺少客户口径",
   );
 });
 ```

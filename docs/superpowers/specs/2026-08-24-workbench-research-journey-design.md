@@ -235,7 +235,7 @@ Run 结束后重载
 - terminal 时未出现阶段为 skipped。
 - 未知阶段保留摘要但不改动四阶段。
 - verified draft 与四种终态 answer phase 映射正确。
-- 收据只计 `bound_evidence`，缺口和 degrade 分开。
+- 收据只计 `bound_evidence`；限制/缺口仅从 `context.gaps` 经 `userFacingIssue` 去重生成。
 - 截止日优先级与空值文案正确。
 
 ### 14.2 组件
