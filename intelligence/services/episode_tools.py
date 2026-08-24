@@ -369,6 +369,16 @@ def _task_authorizes_historical_window(
     )
 
 
+def _window_anchored_on_episode_dates(
+    spec: finance_query.FinanceQuerySpec,
+    authorized_trade_dates: set[str] | frozenset[str],
+) -> bool:
+    """窗口起点已在本轮证据里 → 允许查那一天，不看题型。"""
+
+    start = spec.time_range.start if spec.time_range is not None else None
+    return bool(start is not None and start.isoformat() in authorized_trade_dates)
+
+
 def _requests_earlier_window(
     spec: finance_query.FinanceQuerySpec,
     *,
@@ -1145,6 +1155,9 @@ def build_episode_registry(
             historical_authorized = _task_authorizes_historical_window(
                 frame,
                 floor=freshness_floor,
+            ) or _window_anchored_on_episode_dates(
+                bounded_value,
+                context.authorized_trade_dates,
             )
             if _requests_earlier_window(
                 bounded_value,
