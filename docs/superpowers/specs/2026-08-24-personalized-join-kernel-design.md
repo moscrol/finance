@@ -7,7 +7,7 @@
 - 代码树：从 `gitea/main` 开干净树 `feat/personalized-join-kernel`。**禁止**在主检出 `feat/reading-rules-baseline-batch1` 脏树上改 runtime。**禁止**动 8792 / 8796 / 8802。
 - 相邻稿（本单不重做、不抢合）：
   - `docs/superpowers/specs/2026-08-24-market-watch-component-first-design.md` —— 盘面题换座位、四袋锁数
-  - `docs/superpowers/specs/2026-08-24-outlook-live-weekly-pack-design.md` —— 展望五日包 **v2**：同族洞已改到 Engine A 开口预取（`collect_prefetch_items` + `_opening_prefetch_evidence`），台账号 `R-20260824-20`…`24`。本单椅子仍是 `handle()` 之前（买卖题没有现成 forecast 预取支）。两包都不要挂 compose
+  - `docs/superpowers/specs/2026-08-24-outlook-live-weekly-pack-design.md` —— 展望五日包 **v2**：同族洞已改到 Engine A 开口预取（`collect_prefetch_items` + `_opening_prefetch_evidence`），台账号 `R-20260824-31` + `-21`…`24`（`-20` 已归 optional-forward-slots）。本单椅子仍是 `handle()` 之前（买卖题没有现成 forecast 预取支）。两包都不要挂 compose
   - `docs/superpowers/specs/2026-08-17-followup-angle-composer-design.md` —— 选角 A/B/C/D
   - `docs/superpowers/specs/2026-08-13-memory-analog-lifecycle-design.md` —— 四平面 + 记忆门；**已划掉**「按记忆条数决定检索深度」
   - `intelligence/services/checkpoint_recall.py` —— V 块 loader + 渲染（main 已有）
