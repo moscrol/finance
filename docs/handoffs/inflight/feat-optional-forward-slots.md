@@ -20,16 +20,14 @@ V8 结论与 `test_numeric_unsupported_sentence_is_still_deleted` 原样不改�
 | commit | 内容 | 可否独立回滚 |
 |---|---|---|
 | `a89584ef` | verifier 豁免去掉 `item.required and` | ✅ 对现存契约零行为变化 |
-| `4e71851c` | factory 挂槽 + protocol 动态提示规则 | ⚠ 两者不可拆，见下 |
+| `4e71851c` | factory 挂槽 + protocol 动态提示规则 | ✅ 两者可分（初版说不可拆，已撤，见下） |
 | `3802f3f8` | 钉 9 修正（变异 M3 暴露） | — |
 
-**挂槽与动态提示规则必须同生共死**。`grounding_mode` 在**主循环**里到不了模型：
-`generic_research_owner.py` 的 `required_outputs` 块只发
-`id / description / evidence_types / required`。（**恢复器
-`intelligence/runtime/episode_finalizer.py:175` 是发的**——所以准确说法是「主循环不给、
-恢复路径给」，不是「压根不进提示词」。）而 `episode_protocol` 要求模型让 `basis` 与
-`grounding_mode` 一致、`basis` 默认值又是 `evidence`。只挂槽不给提示规则 = 模型只能猜，
-猜错就 `basis_mismatch` 整份拒、回灌重来。别把这两个 commit 拆开挑一个合。
+**挂槽与动态提示规则的关系（2026-08-24 三次更正后）**：两者**可以分开**。初版交接写的
+「不可拆，否则模型被 basis_mismatch 整份拒」**是错的**，理由已撤——`grounding_mode` 本来
+就在 episode 逐回合载荷里（`build_episode_input` 发 `contract.to_dict()`，`RequiredOutput`
+走 `asdict`，实测一次载荷 8 处）。动态规则保留，但它的作用是**行为引导**：让模型敢在这三格
+写具体可核验阈值而不是「以盘面为准」自保，并说明可选、不必硬凑。
 
 ## 未验证 / 已知边界
 
@@ -49,23 +47,19 @@ V8 结论与 `test_numeric_unsupported_sentence_is_still_deleted` 原样不改�
 1. 合 `docs/optional-forward-slots-addendum`（设计文档）与本分支——**要合就一起合**，
    否则 main 上会有实现没设计，或反之。合 main 需用户确认。
 2. 验收方跑 live 探针 `probe-fwd-<mmdd>`，按 §8.3 四条腿回填台账。
-3. **本单留下的技术债（不是可选优化，未立案）**：把 `grounding_mode` 加进
-   `generic_research_owner.py` 的契约渲染，一次修好所有 model_reasoning 槽。
+3. **~~技术债~~ 已撤销（2026-08-24 三次更正）**：初版记的「把 `grounding_mode` 加进
+   `generic_research_owner.py` 的契约渲染」**不需要做**。三条依据全部被实测推翻：
 
-   **[实测]** 这事已在生产发生：`intelligence/eval/measurements/2026-08-18-frozen-thirty-live-3d30b2c5.json`
-   里有两次 `grounding basis mismatch for direct_answer: expected evidence, got model_reasoning`
-   → `stop_reason=invalid_model_finish` → 落恢复器。恢复器的提示词带 `grounding_mode`，
-   所以第二轮就对——**系统在靠「先让你摔一跤，摔完再告诉你答案」工作，每次白烧一个来回。**
-   猜错方向是反的（模型报 model_reasoning、契约签 evidence），方向随机正说明病因是
-   「没告诉它」而不是「它偏好某一侧」。
+   - 生产逐回合载荷 `build_episode_input`（`codex_headless_runtime` / `openai_agents_runtime`
+     都调）发 `research_contract.to_dict()`，`RequiredOutput` 走 `asdict`——**`grounding_mode`
+     在里面**，实测一次 general_finance_qa 载荷出现 8 处；
+   - `generic_research_owner.py` 是 **ownerless 长尾**那条路，不是 episode 主循环；该文件全文
+     `basis` 出现 **0 次**、不走 `validate_episode_finish`——**没有 basis 闸，少这个字段不是缺陷**；
+   - 2026-08-18 live 那两次 `basis_mismatch` 是模型**看得见字段却没照做**的普通 FORMAT 滑档，
+     回灌自愈，证明不了投递缺口。
 
-   **架构判词**（`harness-architecture-review` C2 三筛）：约束「basis 必须匹配
-   grounding_mode」本身是**真下限**，烂的是它被实现成**拦输出**（审已产出的 FINAL_JSON
-   且拒整份）——判「**可改写成拦输入**」，正确动作是让约束由构造即满足，**不是**再加一条
-   逐槽手写规则。本单加的那条规则是补丁；债在这里。修完之后，`_question_type_rules` 里
-   凡是只为传达 `grounding_mode` 的手写规则（prior_recall 那条、本单这条）都可以删。
-
-   仍未在本单做的理由：会动到所有任务的提示词，需单独立案 + 单独 live，**别搭本单车**。
+   基于该前提做出的 `harness-architecture-review` L1/L3 缺口判定与三筛判词一并作废
+   （三筛方法没问题，是喂给它的事实错了）。
 
 ## 踩过的坑
 

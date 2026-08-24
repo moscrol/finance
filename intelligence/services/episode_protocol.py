@@ -171,36 +171,39 @@ def _question_type_rules(
         )
         else ""
     )
-    # 可选前瞻槽专用规则（R-20260824-20）：装配层给前瞻信号题挂上三槽后必须注入。
+    # 可选前瞻槽专用规则（R-20260824-20）：装配层给前瞻信号题挂上三槽时注入。
     #
-    # 这条**不是**可选的润色，因为 `grounding_mode` 在主循环里到不了模型：
+    # 这条规则要做的事**只有一件**：告诉模型这三格欢迎具体的可核验阈值，别写
+    # 「以盘面为准」自保；同时说明它们可选，别为了填格硬凑情景。这正是本单的
+    # 行为目标——挂槽只是给阈值一个合法落点，愿不愿意写出来得靠这句话。
     #
-    # - 主循环渲染契约的地方（`generic_research_owner.py` 的 required_outputs
-    #   块）只发 id / description / evidence_types / required，**没有
-    #   grounding_mode**；
-    # - 恢复器（`intelligence/runtime/episode_finalizer.py:175`）**发**它。
+    # ⚠ **本规则最初的那套「必须加否则整份被拒」的理由是错的，2026-08-24 已撤。**
+    # 当时写的是「grounding_mode 到不了模型 → 模型只能猜 basis → basis_mismatch
+    # 拒整份」。实测三条都不成立：
     #
-    # 于是本文件那条通用规则（`basis 必须与对应 required output 的 grounding_mode
-    # 一致`）在主循环里要求模型对齐一个它看不见的字段，而 basis 的默认值是
-    # "evidence"。模型只能猜，猜错 → `basis_mismatch` → FORMAT → 整份 FINAL_JSON
-    # 回灌重来 → 落到恢复器，而恢复器的提示词里恰好带着这个字段，于是第二轮就对。
-    # **系统在靠「先让你摔一跤，摔完再告诉你答案」工作。**
+    # 1. 生产逐回合载荷是 `build_episode_input`（`codex_headless_runtime` 与
+    #    `openai_agents_runtime` 都调它），它发 `research_contract.to_dict()`，
+    #    而 `RequiredOutput` 是 dataclass、走 `asdict`——**`grounding_mode` 在里面**。
+    #    实测一次 general_finance_qa 载荷里出现 8 处。
+    # 2. 当时指认的缺字段渲染点在 `generic_research_owner.py`，那是 **ownerless
+    #    长尾**那条路，不是 episode 主循环；且该文件里 "basis" 出现 **0 次**、不走
+    #    `validate_episode_finish`——**它没有 basis 闸，少这个字段不是缺陷**。
+    # 3. 2026-08-18 frozen-thirty live 里的
+    #    `grounding basis mismatch for direct_answer: expected evidence, got
+    #    model_reasoning`，是模型**看得见字段却没照做**的普通 FORMAT 滑档，
+    #    经回灌自愈，不是信息投递缺口。
     #
-    # 不是推断：2026-08-18 frozen-thirty live
-    # （`intelligence/eval/measurements/2026-08-18-frozen-thirty-live-3d30b2c5.json`）
-    # 里有两次 `grounding basis mismatch for direct_answer: expected evidence,
-    # got model_reasoning` + `stop_reason=invalid_model_finish`。注意猜错方向是
-    # 反的（模型报了 model_reasoning、契约签的是 evidence）——方向随机正说明
-    # 病因是「没告诉它」而不是「它偏好某一侧」。
+    # 教训（比结论值钱）：查「字段有没有送到模型」要从**实际发出去的载荷**反查，
+    # 不能盯着某一处 render 的字段列表推断。多入口系统里，你盯的那个 render 很
+    # 可能压根不在被测那条路上。当时只要把 `build_episode_input` 的输出打印一次
+    # 就能立刻证伪——一条 print 抵三轮推理。
+    #
+    # 因此：本规则与挂槽**可以分开**，删了它只是模型少一句鼓励、更可能写回
+    # 「阈值以盘面为准」，**不会**导致 FINAL_JSON 被拒。钉 11 仍钉这条规则在场，
+    # 但它钉的是行为引导，不是防拒收。
     #
     # 判据只认「可选 + model_reasoning + 前瞻槽 id」这个组合——它唯一对应装配层
     # 本次挂上的槽。
-    #
-    # ⚠ 本规则是**补丁不是修复**（技术债，非可选优化）。结构修法是给主循环的契约
-    # 渲染补上 `grounding_mode`（照抄恢复器已有写法），让约束由构造即满足；那之后
-    # 本规则里讲 basis 的那半句可以删。按约束三筛：这条约束拦的是**输出**（审已产
-    # 出的 FINAL_JSON 且拒整份），失效时变笨，模型变强也照样挡路——判「可改写成拦
-    # 输入」，而正确动作是减契约管辖权，不是像这里一样再加一条逐槽手写规则。
     # 之所以仍先加规则：结构修法会动到所有任务的提示词，需独立立案 + 独立 live。
     forward_slot_rule = (
         "本任务包含可选前瞻槽（scenario_paths / continuation_conditions / "

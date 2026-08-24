@@ -369,9 +369,11 @@ def test_mounted_slots_do_not_block_completed() -> None:
 def test_binding_forward_slot_with_evidence_basis_is_rejected() -> None:
     """钉 10：可选前瞻槽绑 basis=evidence 仍被 basis_mismatch 拒。
 
-    闸门是既有的；本钉确认挂槽没把它绕过去。**模型知不知道该报
-    model_reasoning 是另一回事**，那由钉 11 管——两条缺一，这一格就从
-    「闸门回归」变成生产必经的失败路径。
+    闸门是既有的；本钉确认挂槽没把它绕过去。模型侧不缺信息——生产逐回合载荷
+    `build_episode_input` 发的 `research_contract.to_dict()` 里带 `grounding_mode`
+    （`RequiredOutput` 走 `asdict`），所以这是一条纯闸门回归，不是「生产必经的
+    失败路径」。初版 docstring 的后半句已撤，理由见 `episode_protocol` 里那条
+    规则上方的注释。
     """
 
     frame = _task_frame(
@@ -408,11 +410,15 @@ def test_binding_forward_slot_with_evidence_basis_is_rejected() -> None:
 
 
 def test_prompt_tells_the_model_which_basis_to_use() -> None:
-    """钉 11：提示词必须带得动 basis——§3.2 的坑本坑。
+    """钉 11：挂槽时必须注入那条行为引导规则。
 
-    契约渲染只发 id/description/evidence_types/required，`grounding_mode`
-    不在其中；模型对齐不了一个它看不见的字段，而 basis 默认是 evidence。
-    没有这条动态规则，模型每绑一次这三格就被整份拒一次。
+    钉的是**行为引导**不是防拒收：规则要让模型敢在这三格写具体阈值（而不是
+    「以盘面为准」自保），并且知道不写不算失败、不必硬凑情景。这是本单的行为
+    目标本身。
+
+    （初版 docstring 说「模型看不见 grounding_mode、没这条规则就被整份拒」，
+    **是错的**，2026-08-24 已撤：生产载荷 `build_episode_input` 带这个字段。
+    详见 `episode_protocol` 里规则上方的注释。）
     """
 
     frame = _task_frame(
