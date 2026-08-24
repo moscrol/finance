@@ -146,7 +146,7 @@ Run 结束后重载
 ## 8. 状态归并契约
 
 1. 先按 `step_id` 保留最新事件，并按该 `step_id` 最后一次 replay 输入位置排列，与现有 `upsertTraceStep` 的 replay 语义一致。
-2. 归并时每个终态事件只关闭同一生命周期组中一个更早、尚未关闭的 running：已知阶段按阶段分组，未知步骤按原始 `name` 分组；不得由摘要文本猜关联，也不得一项终态关闭并行分支。
+2. 归并时每个不同 `step_id` 的终态事件只关闭同一生命周期组中一个更早、尚未关闭的 running：已知阶段按阶段分组，未知步骤按原始 `name` 分组。若终态 `step_id` 自己在 replay 历史中已有 running，它只闭合自身，不能再消费并行 running；不得由摘要文本猜关联，也不得一项终态关闭并行分支。
 3. 每阶段状态为 `waiting | running | completed | skipped | attention`。
 4. 同一阶段内优先级：`failed → attention`，其次 `running`，再次 `completed`，最后 `skipped`。
 5. 只有真实完成事件才能把阶段标为 `completed`。不得因后一阶段已开始，就伪造前一阶段完成。
@@ -163,7 +163,7 @@ Run 结束后重载
 | 可验证引用数 | `context.evidence` 中 `classification=bound_evidence` | 只计可绑定证据，不把检索候选当引用 |
 | 数据截止日 | `run.source_date ?? run.duckdb_cutoff ?? context.metadata.source_date ?? context.metadata.duckdb_cutoff` | 无数据显示「未记录」，不回显当天伪装新鲜 |
 | 产物数 | `run.artifacts.length` | 真实 Run 产物数，不把尚未注册的文件算入 |
-| 限制/缺口 | `context.gaps` 经 `userFacingIssue` 去重后数量 | `context.gaps` 是该 Run 的原始、合并问题事实源；不与已脱敏的 `run.degrades` 分别计数 |
+| 限制/缺口 | `context.gaps` 经 `userFacingIssue`、trim、去空白和去重后数量 | `context.gaps` 是该 Run 的原始、合并问题事实源；不与已脱敏的 `run.degrades` 分别计数 |
 
 收据是研究交付的索引，不是质量总分。它不宣称「可发布」、「高置信」或「高质量」。
 
@@ -235,7 +235,7 @@ Run 结束后重载
 - terminal 时未出现阶段为 skipped。
 - 未知阶段保留摘要但不改动四阶段。
 - verified draft 与四种终态 answer phase 映射正确。
-- 收据只计 `bound_evidence`；限制/缺口仅从 `context.gaps` 经 `userFacingIssue` 去重生成。
+- 收据只计 `bound_evidence`；限制/缺口仅从 `context.gaps` 经 `userFacingIssue`、trim、去空白和去重生成。
 - 截止日优先级与空值文案正确。
 
 ### 14.2 组件

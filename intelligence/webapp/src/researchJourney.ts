@@ -112,6 +112,19 @@ function replayOrderedTrace(progress: TraceStep[]): TraceStep[] {
   );
 }
 
+function terminalStepIdsWithPriorRunning(progress: TraceStep[]): Set<string> {
+  const runningStepIds = new Set<string>();
+  const replayClosedStepIds = new Set<string>();
+  for (const step of progress) {
+    if (step.status === "running") {
+      runningStepIds.add(step.step_id);
+    } else if (runningStepIds.has(step.step_id)) {
+      replayClosedStepIds.add(step.step_id);
+    }
+  }
+  return replayClosedStepIds;
+}
+
 function lifecycleGroup(step: TraceStep): string {
   const phase = phaseByStage[step.name];
   return phase ? `phase:${phase}` : `stage:${step.name}`;
@@ -119,6 +132,7 @@ function lifecycleGroup(step: TraceStep): string {
 
 function closeSupersededRunnings(
   trace: TraceStep[],
+  replayClosedStepIds: Set<string>,
 ): TraceStep[] {
   const unmatchedRunnings = new Map<string, number[]>();
   const closedRunnings = new Set<number>();
@@ -129,6 +143,7 @@ function closeSupersededRunnings(
       unmatchedRunnings.set(group, [...(unmatchedRunnings.get(group) ?? []), index]);
       return;
     }
+    if (replayClosedStepIds.has(step.step_id)) return;
     const [runningIndex, ...remaining] = unmatchedRunnings.get(group) ?? [];
     if (runningIndex === undefined) return;
     closedRunnings.add(runningIndex);
@@ -188,7 +203,10 @@ export function buildResearchJourney({
   terminalStatus: LiveMessageState["status"];
 }): ResearchJourneyModel {
   const trace = replayOrderedTrace(progress);
-  const normalizedTrace = closeSupersededRunnings(trace);
+  const normalizedTrace = closeSupersededRunnings(
+    trace,
+    terminalStepIdsWithPriorRunning(progress),
+  );
   const byPhase = new Map<ResearchPhaseId, TraceStep[]>();
   for (const step of normalizedTrace) {
     const phase = phaseByStage[step.name];
@@ -243,7 +261,12 @@ export function buildResearchReceipt(bundle: RunBundle): ResearchReceiptModel {
     bundle.context.metadata.source_date,
     bundle.context.metadata.duckdb_cutoff,
   ].map(nonBlank).find((value): value is string => value !== null) ?? null;
-  const issueLabels = [...new Set(bundle.context.gaps.map(userFacingIssue))];
+  const issueLabels = [...new Set(
+    bundle.context.gaps
+      .map(userFacingIssue)
+      .map((label) => label.trim())
+      .filter((label) => label.length > 0),
+  )];
 
   return {
     evidenceCount: bundle.context.evidence.filter(

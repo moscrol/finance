@@ -32,7 +32,7 @@
 - Create: `intelligence/webapp/src/researchJourney.ts`
 - Create: `intelligence/webapp/src/researchJourney.test.ts`
 
-归并补充契约：去重后的唯一 step 按其最后一次 replay 输入位置排列；每个 completed/failed/skipped 仅关闭同一生命周期组内一个更早、未关闭的 running（已知步骤按阶段分组，未知步骤按原始 `name` 分组），绝不从摘要文本推断关联。收据的 `issueCount` / `issueLabels` 只从原始 `context.gaps` 经 `userFacingIssue` 去重得出，UI 统一显示「N 项限制/缺口」。
+归并补充契约：去重后的唯一 step 按其最后一次 replay 输入位置排列；每个 completed/failed/skipped 仅关闭同一生命周期组内一个更早、未关闭的 running（已知步骤按阶段分组，未知步骤按原始 `name` 分组），但自身 replay 历史已有 running 的同 `step_id` 终态只闭合自身，绝不从摘要文本推断关联。收据的 `issueCount` / `issueLabels` 只从原始 `context.gaps` 经 `userFacingIssue`、trim、去空白和去重得出，UI 统一显示「N 项限制/缺口」。
 
 - [ ] **Step 1：先写阶段与收据契约的失败测试**
 
@@ -571,12 +571,28 @@ function replayOrderedTrace(progress: TraceStep[]): TraceStep[] {
   );
 }
 
+function terminalStepIdsWithPriorRunning(progress: TraceStep[]): Set<string> {
+  const runningStepIds = new Set<string>();
+  const replayClosedStepIds = new Set<string>();
+  for (const step of progress) {
+    if (step.status === "running") {
+      runningStepIds.add(step.step_id);
+    } else if (runningStepIds.has(step.step_id)) {
+      replayClosedStepIds.add(step.step_id);
+    }
+  }
+  return replayClosedStepIds;
+}
+
 function lifecycleGroup(step: TraceStep): string {
   const phaseIndex = phaseIndexFor(step.name);
   return phaseIndex === null ? `stage:${step.name}` : `phase:${phaseIndex}`;
 }
 
-function closeSupersededRunnings(trace: TraceStep[]): TraceStep[] {
+function closeSupersededRunnings(
+  trace: TraceStep[],
+  replayClosedStepIds: Set<string>,
+): TraceStep[] {
   const unmatchedRunnings = new Map<string, number[]>();
   const closedRunnings = new Set<number>();
 
@@ -589,6 +605,7 @@ function closeSupersededRunnings(trace: TraceStep[]): TraceStep[] {
       ]);
       return;
     }
+    if (replayClosedStepIds.has(step.step_id)) return;
     const [runningIndex, ...remaining] = unmatchedRunnings.get(group) ?? [];
     if (runningIndex === undefined) return;
     closedRunnings.add(runningIndex);
@@ -659,7 +676,10 @@ export function buildResearchJourney({
   terminalStatus,
 }: BuildResearchJourneyInput): ResearchJourneyModel {
   const trace = replayOrderedTrace(progress);
-  const steps = closeSupersededRunnings(trace);
+  const steps = closeSupersededRunnings(
+    trace,
+    terminalStepIdsWithPriorRunning(progress),
+  );
   const phaseSteps = RESEARCH_PHASES.map((_, index) =>
     steps.filter((step) => phaseIndexFor(step.name) === index),
   );
@@ -728,7 +748,11 @@ export function buildResearchReceipt(
   bundle: RunBundle,
 ): ResearchReceiptModel {
   const issueLabels = [
-    ...new Set(bundle.context.gaps.map((issue) => userFacingIssue(issue))),
+    ...new Set(
+      bundle.context.gaps
+        .map((issue) => userFacingIssue(issue).trim())
+        .filter((issue) => issue.length > 0),
+    ),
   ];
 
   return {

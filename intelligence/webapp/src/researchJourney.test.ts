@@ -70,6 +70,18 @@ describe("buildResearchJourney", () => {
     expect(result.currentAction).toBe("新进度");
   });
 
+  it("does not let a replayed terminal consume a parallel running milestone", () => {
+    const result = buildResearchJourney({
+      progress: [
+        step("research", "running", { step_id: "A", output_summary: "A 进行中" }),
+        step("research", "running", { step_id: "B", output_summary: "B 进行中" }),
+        step("research", "completed", { step_id: "A", output_summary: "A 已完成" }),
+      ], answerPhase: null, terminalStatus: "streaming",
+    });
+    expect(result.phases[1].status).toBe("running");
+    expect(result.currentAction).toBe("B 进行中");
+  });
+
   it("uses a step's last replay position when bad timestamps tie", () => {
     const result = buildResearchJourney({
       progress: [
@@ -249,6 +261,14 @@ describe("buildResearchReceipt", () => {
     expect(result.issueLabels).toEqual([
       "自然语言综合暂时不可用，已保留可核验数据与研究产物。",
     ]);
+  });
+
+  it("drops blank context issue labels before deduplication", () => {
+    const result = buildResearchReceipt(bundle({
+      context: { ...bundle().context, gaps: ["", "   "] },
+    }));
+    expect(result.issueCount).toBe(0);
+    expect(result.issueLabels).toEqual([]);
   });
 
   it("falls back through metadata cutoff fields and then null", () => {
