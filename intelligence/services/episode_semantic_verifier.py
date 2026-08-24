@@ -3249,6 +3249,11 @@ def _novel_numeric_condition_indexes(
 
     contract = verified.contract
     if contract is not None and contract.required_outputs:
+        # 整体豁免问的是「这份契约是不是压根不靠证据」，所以**保留** required
+        # 过滤：prior_recall / prime_* 这类可选 advisory 槽签的不是 evidence，
+        # 但它们不该把一份必需槽全 evidence 的契约说成 evidence-free。下面那块
+        # 条件槽豁免问的是另一个问题，故不带这个过滤——两块不对称是有意的，
+        # 别为了「统一风格」把这里也放宽。
         if all(
             item.grounding_mode != "evidence"
             for item in contract.required_outputs
@@ -3260,10 +3265,16 @@ def _novel_numeric_condition_indexes(
         # 不再按「证据里没有的数量」连坐整句。此前门禁只认「全契约非
         # evidence」的整体豁免，混合契约（如 market_forecast 带 evidence 的
         # 边界槽）下证伪阈值必死。事实句仍由语义判官逐句审。
+        #
+        # 这里**不看 required**：required 回答「缺了算不算失败」，grounding_mode
+        # 回答「谁授权这个阈值」，是两根正交的轴，豁免只该看后者。装配层给前瞻
+        # 信号题挂的可选前瞻槽（required=False + model_reasoning）因此同享豁免
+        # ——否则契约明示「你可以在这格提阈值」、运行时照删，等于授权没传到执行
+        # 者手上（R-20260824-20）。混合签约仍由下面的 all() 一票否决向证据侧。
         condition_items = tuple(
             item
             for item in contract.required_outputs
-            if item.required and item.output_id in FORWARD_HYPOTHESIS_OUTPUT_IDS
+            if item.output_id in FORWARD_HYPOTHESIS_OUTPUT_IDS
         )
         if condition_items and all(
             item.grounding_mode != "evidence" for item in condition_items
