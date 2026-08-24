@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 import time
@@ -1325,3 +1327,178 @@ def _secondary_topics(
 
 def _merge_topics(*groups: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(item for group in groups for item in group if item))
+
+
+OPERATOR_STRICT_DOUBLE_RED = "market.strict_double_red_snapshot"
+OPERATOR_CROSS_TABLE = "market.cross_table_exact_intersection"
+OPERATOR_AGGREGATE_COUNT = "market.aggregate_count"
+OPERATOR_DETAIL_ROWS = "market.detail_rows"
+OPERATOR_CATALOG_PREFLIGHT = "catalog.preflight"
+OPERATOR_CONTRADICTION_AUDIT = "market.contradiction_audit"
+
+QueryRecipeIntent = Literal["aggregate", "detail", "timeseries", "cross_table"]
+
+
+@dataclass(frozen=True)
+class DefinitionReceipt:
+    definition_id: str
+    face_id: str = ""
+    version: str = ""
+
+
+@dataclass(frozen=True)
+class QueryRecipe:
+    intent: QueryRecipeIntent
+    dataset: str = ""
+    strict_date: bool = True
+
+
+@dataclass(frozen=True)
+class FactSlot:
+    slot_id: str
+    required: bool = True
+
+
+@dataclass(frozen=True)
+class ResearchProgram:
+    """输入侧研究程序。operators 只许 ``compile_research_program`` 写入。"""
+
+    program_id: str
+    question_class: str
+    operators: tuple[str, ...]
+    definition_receipts: tuple[DefinitionReceipt, ...] = ()
+    query_recipes: tuple[QueryRecipe, ...] = ()
+    required_fact_slots: tuple[FactSlot, ...] = ()
+    stop_rules: tuple[str, ...] = ()
+    fallback_policy: str = ""
+    publication_policy: str = "verified"
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "program_id": self.program_id,
+            "question_class": self.question_class,
+            "operators": list(self.operators),
+            "definition_receipts": [
+                {
+                    "definition_id": item.definition_id,
+                    "face_id": item.face_id,
+                    "version": item.version,
+                }
+                for item in self.definition_receipts
+            ],
+            "query_recipes": [
+                {
+                    "intent": item.intent,
+                    "dataset": item.dataset,
+                    "strict_date": item.strict_date,
+                }
+                for item in self.query_recipes
+            ],
+            "required_fact_slots": [
+                {
+                    "slot_id": item.slot_id,
+                    "required": item.required,
+                }
+                for item in self.required_fact_slots
+            ],
+            "stop_rules": list(self.stop_rules),
+            "fallback_policy": self.fallback_policy,
+            "publication_policy": self.publication_policy,
+        }
+
+
+_SLOT_BY_OPERATOR = {
+    OPERATOR_STRICT_DOUBLE_RED: FactSlot("dual_red_snapshot", required=False),
+    OPERATOR_AGGREGATE_COUNT: FactSlot("aggregate_count", required=False),
+    OPERATOR_DETAIL_ROWS: FactSlot("detail_rows", required=False),
+    OPERATOR_CROSS_TABLE: FactSlot("cross_table_intersection", required=False),
+    OPERATOR_CATALOG_PREFLIGHT: FactSlot("catalog_preflight", required=False),
+    OPERATOR_CONTRADICTION_AUDIT: FactSlot("contradiction_audit", required=False),
+}
+
+
+def compile_research_program(
+    query: str,
+    *,
+    question_class: str = "",
+) -> ResearchProgram:
+    """词面信号 → 稳定 operator id。唯一允许构造 ``ResearchProgram`` 的函数。"""
+
+    from intelligence.services.query_understanding import (
+        SIGNAL_AGGREGATE,
+        SIGNAL_CONTRADICTION,
+        SIGNAL_CROSS_TABLE,
+        SIGNAL_DETAIL,
+        SIGNAL_DOUBLE_RED,
+        SIGNAL_FERMENTATION,
+        SIGNAL_MARKET_WATCH,
+        surface_research_signals,
+    )
+
+    text = str(query or "").strip()
+    klass = str(question_class or "").strip() or "general_finance_qa"
+    signals = surface_research_signals(text, question_class=klass)
+    operators: list[str] = []
+    recipes: list[QueryRecipe] = []
+    receipts: list[DefinitionReceipt] = []
+    market_watch = SIGNAL_MARKET_WATCH in signals
+    if market_watch:
+        operators.append(OPERATOR_CATALOG_PREFLIGHT)
+    if SIGNAL_DOUBLE_RED in signals or SIGNAL_FERMENTATION in signals:
+        operators.append(OPERATOR_STRICT_DOUBLE_RED)
+        receipts.append(
+            DefinitionReceipt(
+                definition_id="DOUBLE_RED_SQL",
+                face_id="predicate.double-red",
+            )
+        )
+        recipes.append(
+            QueryRecipe(intent="timeseries", dataset="sector_daily", strict_date=True)
+        )
+    if SIGNAL_AGGREGATE in signals:
+        operators.append(OPERATOR_AGGREGATE_COUNT)
+        recipes.append(QueryRecipe(intent="aggregate", strict_date=True))
+    elif SIGNAL_DETAIL in signals:
+        operators.append(OPERATOR_DETAIL_ROWS)
+        recipes.append(QueryRecipe(intent="detail", strict_date=True))
+    if SIGNAL_CROSS_TABLE in signals:
+        operators.append(OPERATOR_CROSS_TABLE)
+        recipes.append(QueryRecipe(intent="cross_table", strict_date=True))
+    if SIGNAL_CONTRADICTION in signals:
+        operators.append(OPERATOR_CONTRADICTION_AUDIT)
+
+    operators = list(dict.fromkeys(operators))
+    slots = tuple(
+        _SLOT_BY_OPERATOR[operator]
+        for operator in operators
+        if operator in _SLOT_BY_OPERATOR
+    )
+    fallback = (
+        "empty_pool_one_shot" if OPERATOR_CATALOG_PREFLIGHT in operators else ""
+    )
+    stop_rules = ("calendar_or_empty_standing_day",) if market_watch else ()
+    canonical = {
+        "fallback_policy": fallback,
+        "operators": operators,
+        "publication_policy": "verified",
+        "query": text,
+        "question_class": klass,
+        "stop_rules": list(stop_rules),
+        "definition_receipts": [asdict(item) for item in receipts],
+        "query_recipes": [asdict(item) for item in recipes],
+        "required_fact_slots": [asdict(item) for item in slots],
+    }
+    program_id = hashlib.sha256(
+        json.dumps(canonical, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    return ResearchProgram(
+        program_id=program_id,
+        question_class=klass,
+        operators=tuple(operators),
+        definition_receipts=tuple(receipts),
+        query_recipes=tuple(recipes),
+        required_fact_slots=slots,
+        stop_rules=stop_rules,
+        fallback_policy=fallback,
+        publication_policy="verified",
+    )

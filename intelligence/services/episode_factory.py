@@ -126,6 +126,12 @@ _OUTPUT_DESCRIPTIONS: dict[str, str] = {
     "rebound_case": "给出反弹或修复情景及成立条件",
     "decline_case": "给出走弱或回落情景及成立条件",
     "invalidation": "列出使当前判断失效的条件",
+    "dual_red_snapshot": "给出严格双红快照：日期、个数或名单，取不到则写明缺口",
+    "aggregate_count": "给出问句所要的精确计数，并标明口径与日期",
+    "detail_rows": "列出问句所要的明细行，标明日期与口径",
+    "cross_table_intersection": "给出跨表精确交集，对不上则写明缺口",
+    "catalog_preflight": "说明目标表是否存在、站立日是否有行",
+    "contradiction_audit": "列出同日跨表冲突；没有冲突则写明无冲突",
 }
 
 
@@ -306,7 +312,14 @@ def _required_output_ids(frame: TaskFrame) -> tuple[str, ...]:
     outputs = frame.required_outputs
     if frame.question_type == "valuation_estimate":
         outputs = tuple(dict.fromkeys((*outputs, *_VALUATION_REQUIRED_OUTPUTS)))
-    return outputs
+    from intelligence.services.research_contract import compile_research_program
+
+    program = compile_research_program(
+        frame.raw_question,
+        question_class=frame.question_type,
+    )
+    extras = tuple(slot.slot_id for slot in program.required_fact_slots)
+    return tuple(dict.fromkeys((*outputs, *extras)))
 
 
 def _with_prior_recall(
@@ -347,7 +360,18 @@ _RESIDUAL_PRIME_SLOTS: tuple[tuple[str, str], ...] = (
 # 召回（prior_recall）。它们的作用是让「调对应工具」对完成契约有贡献，
 # 不是用户点名要的产出，所以缺口降级为 gap 行，不进 missing_outputs。
 _ADVISORY_OUTPUT_IDS = frozenset(
-    {"prior_recall", "prime_memory", "prime_quote", "prime_news"}
+    {
+        "prior_recall",
+        "prime_memory",
+        "prime_quote",
+        "prime_news",
+        "dual_red_snapshot",
+        "aggregate_count",
+        "detail_rows",
+        "cross_table_intersection",
+        "catalog_preflight",
+        "contradiction_audit",
+    }
 )
 
 
@@ -422,6 +446,19 @@ def _required_output_evidence_types(
                 "evidence_lookup",
                 "kb_search",
             )
+            if capability in capabilities
+        )
+    if output_id in {
+        "dual_red_snapshot",
+        "aggregate_count",
+        "detail_rows",
+        "cross_table_intersection",
+        "catalog_preflight",
+        "contradiction_audit",
+    }:
+        return tuple(
+            capability
+            for capability in ("market_data", "finance_query")
             if capability in capabilities
         )
     return capabilities

@@ -1,5 +1,7 @@
 # 在途交接 · main
 
+更新：2026-08-24 12:10 CST · **#354 已合 `e8ed9e11`（P0-A）；P0-B 在途**。未切 8792/8796。P0-B 树 `fwp-wt-research-program-compiler` / `feat/research-program-compiler`。`compile_research_program` 唯一写 operators；market_watch 四袋逐字节回归；prefetch 改读 operator；`program.research-program` 只登 eval 表。台账 `-15`/`-16` 仍 pending（离线绿≠confirmed）。交接 `docs/handoffs/inflight/feat-research-program-compiler.md`。主仓脏树没动。
+
 更新：2026-08-24 11:52 CST · **P0-A 加深 `view()` 待合**：树 `fwp-wt-publication-view-deepen` / `fix/publication-view-deepen`，基线 `b07259c0`。`invalid_repair_finish`+证据非空不再贴「现有证据不足」；adapter 不再缝 `【结构缺口】`；`finance_query` typed receipt 投影。全仓 6281P/13S。台账开 `R-20260824-12`…`19`（12/14 离线绿≠confirmed；15–19 占号）。未切端口。交接 `docs/handoffs/inflight/fix-publication-view-deepen.md`。主仓脏树没动。
 
 更新：2026-08-24 10:38 CST · **#352 已合；8792=`af71f048`（main）；8796=`76ee1e89`（解耦树）**。误把 8796 切到 main 已拨回。用户纠偏：合 main ≠ 两港同 SHA。`R-20260824-09` → refuted。正文 `docs/handoffs/2026-08-24-market-watch-352-cutover.md`。P1 `R-04` 未做。#343 未合。主仓脏树没动。

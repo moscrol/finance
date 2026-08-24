@@ -30,8 +30,8 @@
 | `R-20260824-12` | knevo28 P0-A（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | B2 形：`invalid_repair_finish` + 证据非空 → 开口不是「现有证据不足」；已兑现槽公开句保留；未兑现槽用户语言 unknown；无 `【结构缺口】` | **离线已绿**（2026-08-24）：`test_publication_view_deepen.py` n=3 + `test_gap_answer_middle_tier.py` 新成因。live/矿重放未跑，单测绿 ≠ confirmed | `pending` |
 | `R-20260824-13` | knevo28 P0-A（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | 28 题重放 QC marker=0（靠不拼接，不靠禁语表）。judge unavailable 同 SHA 仍走已有两成因之一，不新开第三扇门 | 离线重放 knevo28 矿。禁止用本行重开 D1。adapter 缝合已拆，矿重放未跑 | `pending` |
 | `R-20260824-14` | knevo28 P0-A（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | false capability 10/11→0：capability 来自 typed tool receipt 投影，不再 dataset 字符串启发 | **离线已绿**：`plan_capabilities_from_receipt(tool=finance_query)` 含 `market_data`；`verify_episode_outcome` 不再因工具名≠计划能力误报。矿 10/11→0 重放未跑，不得 confirmed | `pending` |
-| `R-20260824-15` | knevo28 P0-B（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | A4/C6/B5 改写 100% 注册定义+`.TI` universe | 封存改写组。P0-A 合入后再动 | `pending` |
-| `R-20260824-16` | knevo28 P0-B（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | A10 走 aggregate；C8 走 catalog 快路 | 封存改写组 + latency | `pending` |
+| `R-20260824-15` | knevo28 P0-B（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | A4/C6/B5 改写 100% 注册定义+`.TI` universe | 封存改写组。P0-B 接线已写（`feat/research-program-compiler`）；离线编译/pack/prefetch 绿 ≠ confirmed | `pending` |
+| `R-20260824-16` | knevo28 P0-B（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | A10 走 aggregate；C8 走 catalog 快路 | 封存改写组 + latency。接线已写，改写组未跑 | `pending` |
 | `R-20260824-17` | knevo28 P1（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | B1–B3 单槽缺不丢整篇；stale≠no-hit | P1；绑定 `ThemeResearchSpec` | `pending` |
 | `R-20260824-18` | knevo28 P1（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | 有证据零公开=0；ReAct 空稿 `draft_source` 必填。reserve 在租用循环工具缝执行，不新加 schema 字段 | 重放 A3/B1/B3/B4/B8 | `pending` |
 | `R-20260824-19` | knevo28 P2（收口预注册，非标准四阶段分诊） | `EVAL_ONLY` | 2×2 四格按预注册判读出结论；Both 不以盲评追平组件臂为门 | 消融批；盲评可附观察 | `pending` |
