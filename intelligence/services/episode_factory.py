@@ -517,6 +517,51 @@ def _is_evidence_free_task(frame: TaskFrame) -> bool:
     )
 
 
+def _with_forward_hypothesis_slots(
+    output_ids: tuple[str, ...],
+    frame: TaskFrame,
+) -> tuple[tuple[str, ...], frozenset[str]]:
+    """前瞻信号题挂**可选**前瞻槽。返回（追加后的 ids, 本次追加的 id 集合）。
+
+    「你怎么看明天」「后市会怎么走」经常落在 general_finance_qa / market_watch /
+    stock_deep_dive——这些题的槽表里没有任何前瞻槽，于是模型写出的条件阈值
+    （「若指数跌破3870点则转弱」）没有槽可绑，数值门按「证据里没有的数量」整句
+    砍掉，模型转而输出「具体阈值以盘面为准」自保（2026-08-19 生产 run 实锤）。
+    2026-08-19 那轮的修法是题型闸门 `_FORWARD_HYPOTHESIS_QUESTION_TYPES`，只覆盖
+    market_forecast / event_forecast；本函数补的是**其余题型带前瞻信号**那一片。
+
+    三条判据，缺一不挂：
+
+    1. 问句命中 `_OUTLOOK_JUDGMENT_RE`——复用 #72 已生产验证的信号，不造第二张
+       必漂的前瞻词表。**注意与 `_grounding_mode` 里 #72 那处的作用面差异**：那里
+       是 `output_id in _OUTLOOK_JUDGMENT_OUTPUTS and 正则`，本函数只看正则，所以
+       契约里没有判断槽的题也会被挂。这是有意的——「有没有 direct_answer 槽」与
+       「这题是不是问前瞻」没有因果关系，用它当门是借来的判据。若 live 显示误触
+       发噪声集中在无判断槽的题上，收窄时第一个该加的就是这个门。
+    2. 契约里还没有任何前瞻槽（交集为空）。必须对**定稿后**的 output_ids 判断，
+       否则看不见 valuation_estimate 在 `_required_output_ids` 里追加的
+       invalidation_conditions，会对估值题重复挂槽。
+    3. 不是 evidence-free 题。方法论 / 反事实题全契约非 evidence，数值门的整体
+       豁免已经覆盖，挂槽纯属污染契约。
+
+    挂上的槽是 `required=False`：**不写情景分析不算失败**，写了阈值有合法身份。
+    可选性由返回的集合携带，不进 `_ADVISORY_OUTPUT_IDS`——那是全局降级，会把
+    market_forecast 的**必选**前瞻槽也一起降掉。
+    """
+
+    if not _OUTLOOK_JUDGMENT_RE.search(frame.raw_question):
+        return output_ids, frozenset()
+    if _is_evidence_free_task(frame):
+        return output_ids, frozenset()
+    if set(output_ids) & FORWARD_HYPOTHESIS_OUTPUT_IDS:
+        return output_ids, frozenset()
+    # sorted() 而不是直接迭代 frozenset：字符串哈希默认随机化，直接迭代会让契约
+    # 里的槽序逐进程漂动，同一问句两次跑出的契约不可比。排序是就地求得的确定序，
+    # 不是第二张词表——槽 id 的真本源仍是 FORWARD_HYPOTHESIS_OUTPUT_IDS。
+    mounted = tuple(sorted(FORWARD_HYPOTHESIS_OUTPUT_IDS))
+    return tuple(dict.fromkeys((*output_ids, *mounted))), frozenset(mounted)
+
+
 def build_episode_context(
     frame: TaskFrame,
     *,
@@ -566,6 +611,9 @@ def build_episode_context(
     # `_is_evidence_free_task` 会把它整个清空）。放在前面判断就会读到中间态。
     output_ids = _with_prior_recall(output_ids, frame, capability_tuple)
     output_ids = _with_residual_prime(output_ids, frame, capability_tuple)
+    # 挂在最后：交集判据要看**定稿后**的 output_ids（含 valuation_estimate 在
+    # `_required_output_ids` 里追加的 invalidation_conditions），否则会重复挂槽。
+    output_ids, forward_slots = _with_forward_hypothesis_slots(output_ids, frame)
 
     base_policy = ResearchPolicy.for_tier(tier)
     effective_timeout = base_policy.total_seconds
@@ -600,9 +648,19 @@ def build_episode_context(
             RequiredOutput(
                 output_id=output_id,
                 description=_require_output_description(output_id),
-                evidence_types=_required_output_evidence_types(
-                    output_id,
-                    capability_tuple,
+                # 前瞻信号挂上的槽 evidence_types 必须是**空**：这几格由推理
+                # 填、没有任何工具能填。`_required_output_evidence_types` 对不
+                # 认识的 output_id 会回全量能力列表，那正是 prior_recall 踩过
+                # 的坑（run_20260808_102708：模型读不出哪个工具对应这一格，
+                # 干脆把工具预算全投给别处）。model_reasoning 槽挂一串工具名
+                # 比挂空更糟——它在暗示这格该去检索。
+                evidence_types=(
+                    ()
+                    if output_id in forward_slots
+                    else _required_output_evidence_types(
+                        output_id,
+                        capability_tuple,
+                    )
                 ),
                 # prior_recall 是**可选**槽位，这一点是设计核心而不是保守：
                 # 生产 users 根下 24 个用户的 judgments/corrections 全为空，
@@ -622,8 +680,22 @@ def build_episode_context(
                 # 混绑一条 finance_query 就整篇换成「现有证据不足」。可选后
                 # 槽位仍在契约里引导模型调 market_data / news_search，缺了
                 # 只降为 gap，不再单独打死整篇。
-                required=output_id not in _ADVISORY_OUTPUT_IDS,
-                grounding_mode=_grounding_mode(frame, output_id),
+                #
+                # 前瞻信号挂上的三槽（`forward_slots`）同样可选，但走的是**本次
+                # 挂槽**这个事实，不是 `_ADVISORY_OUTPUT_IDS`：那个集合是全局的，
+                # 把三个 id 加进去会连 market_forecast 的必选前瞻槽一起降级。
+                required=(
+                    output_id not in _ADVISORY_OUTPUT_IDS
+                    and output_id not in forward_slots
+                ),
+                # 同理直接给 model_reasoning，不进 `_grounding_mode`——那个函数
+                # 按题型/问句判签法，让它再去感知「这个槽是不是本次挂上来的」
+                # 会把两件事揉进一个判据。
+                grounding_mode=(
+                    "model_reasoning"
+                    if output_id in forward_slots
+                    else _grounding_mode(frame, output_id)
+                ),
             )
             for output_id in output_ids
         ),

@@ -18,7 +18,10 @@ from intelligence.services.episode_output_substance import (
     required_output_evidence_floor,
     required_outputs_without_substance,
 )
-from intelligence.services.research_contract import ResearchRunContext
+from intelligence.services.research_contract import (
+    FORWARD_HYPOTHESIS_OUTPUT_IDS,
+    ResearchRunContext,
+)
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.degraded_fallback import (
@@ -168,8 +171,39 @@ def _question_type_rules(
         )
         else ""
     )
+    # 可选前瞻槽专用规则（R-20260824-20）：装配层给前瞻信号题挂上三槽后必须注入。
+    #
+    # 这条**不是**可选的润色。契约渲染进提示词的地方
+    # （`generic_research_owner.py` 的 required_outputs 块）只发
+    # id / description / evidence_types / required——`grounding_mode` 压根不在里面。
+    # 而本文件 `basis 必须与对应 required output 的 grounding_mode 一致` 那条通用
+    # 规则要求模型对齐一个它看不见的字段，且 `validate_episode_finish` 里 basis 的
+    # 默认值是 "evidence"。三样凑一起：模型想填这三格 → 按默认报 evidence →
+    # basis_mismatch 整份 FINAL_JSON 被拒。**挂了槽不给这条规则，比不挂槽更糟。**
+    #
+    # 判据只认「可选 + model_reasoning + 前瞻槽 id」这个组合——它唯一对应装配层
+    # 本次挂上的槽。market_forecast 的必选前瞻槽不落进来：把 grounding_mode 补进
+    # 契约渲染、一次修好所有 model_reasoning 槽是更彻底的修法，但那会动到所有任务
+    # 的提示词，另行立案。
+    forward_slot_rule = (
+        "本任务包含可选前瞻槽（scenario_paths / continuation_conditions / "
+        "invalidation_conditions，grounding_mode=model_reasoning）：这几格是"
+        "你受契约委托作出的**向前的条件化判断**，情景路径与持续/证伪阈值本就"
+        "不可能出现在既有证据里，可以给出具体的可核验阈值，不要写「以盘面为准」"
+        "这类回避表述。绑定时 basis 用 model_reasoning、evidence_hashes 留空。"
+        "这几格是可选的：没有值得写的条件化判断就不绑，不绑不算失败，不要为了"
+        "填格硬凑情景。"
+        if any(
+            not o.required
+            and o.grounding_mode == "model_reasoning"
+            and o.output_id in FORWARD_HYPOTHESIS_OUTPUT_IDS
+            for o in context.contract.required_outputs
+        )
+        else ""
+    )
     return (
         f"{prior_recall_rule}\n"
+        f"{forward_slot_rule}\n"
         f"{valuation_rule}\n"
         f"{track_rule}\n"
         f"{longtail_rule}"
