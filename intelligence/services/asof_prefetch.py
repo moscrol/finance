@@ -664,10 +664,16 @@ def collect_prefetch_items(
         compile_research_program,
     )
 
+    from intelligence.services.research_contract import (
+        OPERATOR_SUBSTITUTE_OBSERVATION,
+    )
+
     program = compile_research_program(question, question_class=question_type)
     has_double_red = OPERATOR_STRICT_DOUBLE_RED in program.operators
     try:
         items.extend(_calendar_prefetch_items(question, as_of, db_path))
+        if OPERATOR_SUBSTITUTE_OBSERVATION in program.operators:
+            items.extend(_substitute_observation_items(con, as_of))
         ferment = SIGNAL_FERMENTATION in surface_research_signals(
             question, question_class=question_type
         )
@@ -722,6 +728,45 @@ def collect_prefetch_items(
         except Exception:
             pass
     return tuple(items)
+
+
+def _substitute_observation_items(
+    con: Any,
+    as_of: date,
+) -> tuple[PrefetchItem, ...]:
+    """题材+个股观察题：主线题材当日无严格双红匹配时，预取带标签替补池。
+
+    站立日 = 库内 ``max(trade_date) <= as_of``（隐式语义，不越过问句截止日）；
+    探针查询本身仍是该站立日精确命中（复用 market_watch_pack 探针，
+    无第二套口径）。任何异常回空——预取不得杀掉整个 episode 开口。
+    """
+
+    from intelligence.services.market_watch_pack import (
+        SUBSTITUTE_BLOCK_TITLE,
+        render_probe_lines,
+        substitute_observation_receipts,
+    )
+
+    try:
+        row = con.execute(
+            "select max(trade_date) from fact_market_daily"
+            " where trade_date <= cast(? as date)",
+            [as_of.isoformat()],
+        ).fetchone()
+        standing = str(row[0]) if row and row[0] else None
+        probes = substitute_observation_receipts(con, standing)
+        if not probes:
+            return ()
+        return (
+            PrefetchItem(
+                tool="market_data",
+                title=SUBSTITUTE_BLOCK_TITLE.lstrip("# "),
+                detail="\n".join(render_probe_lines(probes)),
+                source_date=standing,
+            ),
+        )
+    except Exception:
+        return ()
 
 
 def evidence_from_prefetch(items: tuple[PrefetchItem, ...]) -> tuple[AgentEvidence, ...]:

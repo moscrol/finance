@@ -1340,6 +1340,7 @@ OPERATOR_AGGREGATE_COUNT = "market.aggregate_count"
 OPERATOR_DETAIL_ROWS = "market.detail_rows"
 OPERATOR_CATALOG_PREFLIGHT = "catalog.preflight"
 OPERATOR_CONTRADICTION_AUDIT = "market.contradiction_audit"
+OPERATOR_SUBSTITUTE_OBSERVATION = "market.substitute_observation"
 
 QueryRecipeIntent = Literal["aggregate", "detail", "timeseries", "cross_table"]
 
@@ -1419,6 +1420,9 @@ _SLOT_BY_OPERATOR = {
     OPERATOR_CROSS_TABLE: FactSlot("cross_table_intersection", required=False),
     OPERATOR_CATALOG_PREFLIGHT: FactSlot("catalog_preflight", required=False),
     OPERATOR_CONTRADICTION_AUDIT: FactSlot("contradiction_audit", required=False),
+    OPERATOR_SUBSTITUTE_OBSERVATION: FactSlot(
+        "substitute_observation", required=False
+    ),
 }
 
 
@@ -1437,6 +1441,7 @@ def compile_research_program(
         SIGNAL_DOUBLE_RED,
         SIGNAL_FERMENTATION,
         SIGNAL_MARKET_WATCH,
+        SIGNAL_SUBSTITUTE_OBSERVATION,
         surface_research_signals,
     )
 
@@ -1471,6 +1476,13 @@ def compile_research_program(
         recipes.append(QueryRecipe(intent="cross_table", strict_date=True))
     if SIGNAL_CONTRADICTION in signals:
         operators.append(OPERATOR_CONTRADICTION_AUDIT)
+    if SIGNAL_SUBSTITUTE_OBSERVATION in signals:
+        operators.append(OPERATOR_SUBSTITUTE_OBSERVATION)
+        recipes.append(
+            QueryRecipe(
+                intent="detail", dataset="sector_stock_daily", strict_date=True
+            )
+        )
 
     operators = list(dict.fromkeys(operators))
     slots = tuple(
