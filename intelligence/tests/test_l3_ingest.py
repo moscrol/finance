@@ -205,6 +205,56 @@ class L3IngestWorkflowTests(unittest.TestCase):
         self.assertIn("## L3 官方证据", entity_text)
         self.assertIn("东方钽业_L3官方证据_", entity_text)
 
+    def test_apply_payload_attaches_ticker_to_named_entity(self) -> None:
+        payload = l3_ingest.L3IngestResult(
+            company="000831",
+            sources=("cninfo",),
+            days=3,
+            candidates=[
+                l3_ingest.L3FactCandidate(
+                    company="000831",
+                    source_type="cninfo",
+                    title="持股5%以上股东减持计划预披露",
+                    summary="减持预披露。",
+                    citation="mock",
+                    fact_type="risk_or_regulatory_boundary",
+                    evidence_layer="L3_official",
+                    hardness="high",
+                    disposition="risk_boundary",
+                    reason="减持约束预期。",
+                )
+            ],
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            wiki = Path(tmp) / "wiki"
+            named = wiki / "entities" / "中国稀土.md"
+            stub = wiki / "entities" / "000831.md"
+            named.parent.mkdir(parents=True)
+            named.write_text(
+                "---\n"
+                "title: 中国稀土\n"
+                'tickers: ["000831"]\n'
+                "updated: 2026-07-10\n"
+                "revision: 3\n"
+                "sources: []\n"
+                "---\n\n"
+                "# 中国稀土\n",
+                encoding="utf-8",
+            )
+            stub.write_text("# leftover code stub\n", encoding="utf-8")
+            payload_path = Path(tmp) / "payload.json"
+            payload.write_json(payload_path)
+
+            _summary, result, _report = run_l3_apply(
+                L3ApplyWorkflowOptions(payload_path=payload_path, kb_wiki=wiki, apply=True)
+            )
+
+            self.assertTrue(Path(result.entity_path).name == "中国稀土.md")
+            self.assertIn("## L3 官方证据", named.read_text(encoding="utf-8"))
+            self.assertEqual(stub.read_text(encoding="utf-8"), "# leftover code stub\n")
+            self.assertIn("中国稀土_L3官方证据_", Path(result.source_note_path).name)
+
     def test_cli_l3_apply_routes_to_workflow(self) -> None:
         captured: dict[str, object] = {}
         fake_result = l3_ingest.L3ApplyResult(

@@ -12,8 +12,7 @@
 
 ## 当前重点文件
 
-- `matrices/strategy1-priority-stock-matrix.html`：策略1每日优先个股矩阵。
-- `matrices/strategy1-priority-stock-matrix.md`：策略1矩阵 Markdown 辅助稿。
+- `matrices/strategy1-priority-stock-matrix.html`：策略1每日优先个股矩阵（唯一真本源）。
 - `matrices/strategy2-weak-market-matrix.html`：策略2弱市三路径观察矩阵。
 - `matrices/strategy3-touch-up-rebound-matrix.html`：策略3 Touch UP 左侧反抽矩阵。
 - `matrices/second-board-4plus-candidate-matrix.html`：二板冲四板以上候选矩阵。

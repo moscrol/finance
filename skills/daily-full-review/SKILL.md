@@ -143,9 +143,9 @@ python3 skills/daily-full-review/scripts/l3_daily_backfill.py --date D --apply
 
 两项任务（脚本已合一）：
 
-1. **每日巨潮/互动易例行扫描**：候选池 = `复盘/matrices/strategy1-priority-stock-matrix.md`
-   全部代码；每只按交易所路由源：沪市 `cninfo,sse_einteract`、深市 `cninfo,irm_szse`、
-   北交所仅 `cninfo`。默认近 3 天增量窗口。
+1. **每日巨潮/互动易例行扫描**：候选池 = `复盘/matrices/strategy1-priority-stock-matrix.html`
+   **当日行** T1/T2/OBS 代码（不扫历史全表；旧 md 辅助稿已退役）。每只按交易所路由源：
+   沪市 `cninfo,sse_einteract`、深市 `cninfo,irm_szse`、北交所仅 `cninfo`。默认近 3 天增量窗口。
 2. **agent-daily L3 缺口自动补**：优先读 `market_feature_store/exports/<D>-research-queue.json`
    （没有则 fallback `<D>-daily-agent.json`）的
    `research_queue.today_find_official_evidence` / `today_do_ima`；完整 daily-agent
