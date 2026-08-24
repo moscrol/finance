@@ -9,6 +9,7 @@ interface ResearchJourneyProps {
   model: ResearchJourneyModel;
   connection: "connected" | "reconnecting";
   compact?: boolean;
+  announce?: boolean;
 }
 
 const phaseStatusLabels: Record<ResearchPhaseStatus, string> = {
@@ -30,6 +31,7 @@ export function ResearchJourney({
   model,
   connection,
   compact = false,
+  announce = true,
 }: ResearchJourneyProps) {
   const currentPhase =
     model.currentPhaseIndex === null
@@ -93,9 +95,9 @@ export function ResearchJourney({
         ]
           .filter(Boolean)
           .join(" ")}
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
+        role={announce ? "status" : "note"}
+        aria-live={announce ? "polite" : undefined}
+        aria-atomic={announce ? "true" : undefined}
       >
         {action}
       </div>

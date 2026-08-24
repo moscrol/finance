@@ -1553,7 +1553,10 @@ git commit -m "feat: render workbench research receipt" -- intelligence/webapp/s
 
 **Files:**
 
+- Modify: `intelligence/webapp/src/App.tsx`
 - Modify: `intelligence/webapp/src/components/MessageBubble.tsx`
+- Modify: `intelligence/webapp/src/components/MessageThread.tsx`
+- Modify: `intelligence/webapp/src/components/ResearchJourney.tsx`
 - Modify: `intelligence/webapp/src/components/components.test.tsx`
 
 - [ ] **Step 1：写安装互斥、完成收据和失败保真的失败测试**
@@ -1589,7 +1592,7 @@ it("shows a static journey before the first trace arrives", () => {
   expect(screen.queryByText("正在检索本轮证据")).toBeNull();
 });
 
-it("replaces the live journey with a receipt when the bundle is loaded", () => {
+it("replaces the live journey with a receipt when the terminal bundle is loaded", () => {
   render(
     <MessageBubble
       message={{
@@ -1693,7 +1696,7 @@ expect(screen.queryByText("已形成研究计划。")).toBeNull();
 expect(screen.queryByText("正在查盘面快照。")).toBeNull();
 ```
 
-保留既有 `keeps the timeline available after the answer lands` 测试：它锁定 bundle 尚未加载时 `ProgressTimeline` 的终态审计兜底。
+保留既有 `keeps the timeline available after the answer lands` 测试：它锁定终态 bundle 尚未成功加载时 `ProgressTimeline` 的终态审计兜底。另加 App 恢复回归：pending assistant 即使已预取到 `run.status=running` 的 bundle，仍必须显示 Journey，不得显示 Receipt / RunView。
 
 - [ ] **Step 2：运行 Chat-first 测试并确认新安装规则失败**
 
@@ -1719,41 +1722,44 @@ import { ResearchJourney } from "./ResearchJourney";
 import { ResearchReceipt } from "./ResearchReceipt";
 ```
 
-把 `terminalStatus` 和 `runInFlight` 的计算替换为收窄后的公开状态，并在用户消息提前返回之后建立视图模型：
+把 `terminalStatus` 和 `runInFlight` 的计算替换为收窄后的公开状态。先把 bundle 按 `completed | failed | cancelled` 收窄为 `terminalBundle`；`queued | running` bundle 只是预取快照，不能触发终态 UI。所有 `useMemo` 必须在用户消息提前返回之前无条件调用：
 
 ```tsx
 const researchStatus: LiveMessageState["status"] =
-  live?.status ??
-  (message.status === "pending" ||
-  message.status === "streaming" ||
-  message.status === "completed" ||
-  message.status === "failed" ||
-  message.status === "cancelled"
-    ? message.status
-    : "completed");
+  terminalBundle?.run.status ?? live?.status ?? publicMessageStatus(message.status);
 const terminalStatus = researchStatus;
 const runInFlight =
   researchStatus === "pending" || researchStatus === "streaming";
 ```
 
-在 `if (message.role === "user")` 返回块之后加入：
+在无条件 hook 区域建立视图模型：
 
 ```tsx
 const showJourney =
-  !bundle &&
+  message.role !== "user" &&
+  !terminalBundle &&
   (runInFlight ||
     ((researchStatus === "failed" || researchStatus === "cancelled") &&
       progressSteps.length > 0));
 const showLegacyTerminalProgress =
-  !bundle && researchStatus === "completed" && progressSteps.length > 0;
-const journeyModel = showJourney
-  ? buildResearchJourney({
-      progress: progressSteps,
-      answerPhase: live?.answerPhase ?? null,
-      terminalStatus: researchStatus,
-    })
-  : null;
-const receiptModel = bundle ? buildResearchReceipt(bundle) : null;
+  message.role !== "user" &&
+  !terminalBundle &&
+  researchStatus === "completed" &&
+  progressSteps.length > 0;
+const journeyModel = useMemo(
+  () => showJourney
+    ? buildResearchJourney({
+        progress: progressSteps,
+        answerPhase: live?.answerPhase ?? null,
+        terminalStatus: researchStatus,
+      })
+    : null,
+  [live?.answerPhase, progressSteps, researchStatus, showJourney],
+);
+const receiptModel = useMemo(
+  () => terminalBundle ? buildResearchReceipt(terminalBundle) : null,
+  [terminalBundle],
+);
 ```
 
 把旧的 `ProgressTimeline` 条件块：
@@ -1782,6 +1788,12 @@ const receiptModel = bundle ? buildResearchReceipt(bundle) : null;
 
 保持该块位于 `MarkdownView` 之前；保持 `terminalNotice`、`RunView`、followups 和 regenerate 的相对顺序不变。
 
+`ResearchReceipt`、`RunView` 和公司证据 warning 只消费 `terminalBundle`。失败/取消是主状态，必须覆盖 `answerPhase` 的交付版本标签。`MessageThread` 只把最新助手消息标为播报 owner：该消息的 Journey 才使用 `role=status`；历史 Journey 与 terminal notice 保持可见但使用 `role=note`。顶栏状态只做视觉文本，workflow / evidence warning 也使用 `role=note`；只有播报 owner 没有 Journey 时，它的终态 notice 才使用 `role=status`。
+
+`loadConversationData()` 必须返回 `{ messages, appliedToCurrentConversation, appliedBundles }`；`appliedBundles` 只包含通过 conversation generation 检查、已安装进当前会话状态的 bundle。`finalizeRun()` 只有在 `appliedToCurrentConversation=true` 且目标 run 的终态 bundle 出现于 `appliedBundles` 后才能删除 live state；加载失败时保留终态 live progress，显示简短错误，让 Timeline / Journey 继续作为审计兜底。安装成功后无条件清理该 run 的 stale live state，不再由 `answerPhase` 延长其生命周期。
+
+`connection` 只表达 EventSource 链路：仅 `onerror` 写 `reconnecting`，`onopen` 写 `connected`。cancel 接口成功只写 `cancelRequested=true`；轮询失败、finalize 和 cancel 都不得伪造连接状态。
+
 - [ ] **Step 4：运行完整组件测试并修正任何旧断言冲突**
 
 Run:
@@ -1791,13 +1803,13 @@ cd intelligence/webapp
 pnpm exec vitest run src/components/components.test.tsx
 ```
 
-Expected: PASS，`Chat-first conversation components`、导航可靠性和既有 Workbench 组件测试全部通过；终态无 bundle 的 `研究过程（3 步）` 仍存在。
+Expected: PASS，`Chat-first conversation components`、导航可靠性和既有 Workbench 组件测试全部通过；终态无 terminal bundle 的 `研究过程（3 步）` 仍存在，running bundle 恢复仍显示 Journey。
 
 - [ ] **Step 5：提交安装切片**
 
 ```bash
-git add -- intelligence/webapp/src/components/MessageBubble.tsx intelligence/webapp/src/components/components.test.tsx
-git commit -m "feat: install research journey in chat" -- intelligence/webapp/src/components/MessageBubble.tsx intelligence/webapp/src/components/components.test.tsx
+git add -- intelligence/webapp/src/App.tsx intelligence/webapp/src/components/MessageBubble.tsx intelligence/webapp/src/components/MessageThread.tsx intelligence/webapp/src/components/ResearchJourney.tsx intelligence/webapp/src/components/components.test.tsx
+git commit -m "feat: install research journey in chat" -- intelligence/webapp/src/App.tsx intelligence/webapp/src/components/MessageBubble.tsx intelligence/webapp/src/components/MessageThread.tsx intelligence/webapp/src/components/ResearchJourney.tsx intelligence/webapp/src/components/components.test.tsx
 ```
 
 ## Task 5：用真消息流锁定三视口行为
@@ -1824,7 +1836,7 @@ if ((page.viewportSize()?.width ?? 1_000) < 720) {
 }
 ```
 
-在 completed answer 数量与助手消息数量断言之后加入：
+在 completed answer 数量与助手消息数量断言之后加入（此处 completed 必须已成功加载终态 bundle，不得把 running bundle 当成收据）：
 
 ```ts
 await expect(page.getByLabel("研究收据").last()).toBeVisible({

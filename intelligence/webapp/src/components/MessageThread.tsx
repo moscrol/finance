@@ -117,6 +117,7 @@ export function MessageThread({
             message.run_id ? (runBundles[message.run_id] ?? null) : null
           }
           canRegenerate={message.message_id === lastAssistantId}
+          announcesProgress={message.message_id === lastAssistantId}
           onRegenerate={onRegenerate}
           onOpenArtifact={onOpenArtifact}
           onFollowup={onFollowup}

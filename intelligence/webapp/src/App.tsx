@@ -87,6 +87,23 @@ interface StreamIdentity {
   runId: string;
 }
 
+interface ConversationLoadResult {
+  messages: ChatMessage[];
+  appliedToCurrentConversation: boolean;
+  appliedBundles: Record<string, RunBundle>;
+}
+
+const FINAL_RESULT_LOAD_ERROR =
+  "运行已结束，但最终结果暂时无法加载";
+
+function isTerminalRun(run: Run): boolean {
+  return (
+    run.status === "completed" ||
+    run.status === "failed" ||
+    run.status === "cancelled"
+  );
+}
+
 export default function App() {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [surface, setSurface] = useState<Surface>({ kind: "today" });
@@ -182,7 +199,7 @@ export default function App() {
   );
 
   const loadConversationData = useCallback(
-    async (conversationId: string): Promise<ChatMessage[]> => {
+    async (conversationId: string): Promise<ConversationLoadResult> => {
       const generation = ++conversationGeneration.current;
       const nextMessages = await getConversationMessages(conversationId, user);
       const runIds = [
@@ -199,20 +216,23 @@ export default function App() {
             .catch(() => null),
         ),
       );
-      if (
+      const nextBundles = Object.fromEntries(
+        bundles.filter(
+          (item): item is readonly [string, RunBundle] => item !== null,
+        ),
+      ) as Record<string, RunBundle>;
+      const appliesToCurrentConversation =
         activeConversationRef.current === conversationId &&
-        conversationGeneration.current === generation
-      ) {
+        conversationGeneration.current === generation;
+      if (appliesToCurrentConversation) {
         setMessages(nextMessages);
-        setRunBundles(
-          Object.fromEntries(
-            bundles.filter(
-              (item): item is readonly [string, RunBundle] => item !== null,
-            ),
-          ),
-        );
+        setRunBundles(nextBundles);
       }
-      return nextMessages;
+      return {
+        messages: nextMessages,
+        appliedToCurrentConversation: appliesToCurrentConversation,
+        appliedBundles: appliesToCurrentConversation ? nextBundles : {},
+      };
     },
     [fetchRunBundle, user],
   );
@@ -242,7 +262,6 @@ export default function App() {
               [identity.messageId]: {
                 ...state,
                 status,
-                connection: "connected",
               },
             }
           : current;
@@ -251,29 +270,36 @@ export default function App() {
       events.close();
       eventSourceRef.current = null;
       try {
-        await Promise.all([
-          loadConversationData(identity.conversationId),
-          listConversations(user).then(setConversations),
-        ]);
-        setLiveMessages((current) => {
-          const state = current[identity.messageId];
-          if (
-            !state ||
-            state.runId !== identity.runId ||
-            state.answerPhase !== null
-          ) {
-            return current;
-          }
-          const next = { ...current };
-          delete next[identity.messageId];
-          return next;
-        });
-      } catch (caught) {
-        setError(
-          caught instanceof Error
-            ? caught.message
-            : "运行已结束，但最新结果暂时无法加载",
+        const loaded = await loadConversationData(identity.conversationId);
+        if (!loaded.appliedToCurrentConversation) return;
+        const targetBundle = loaded.appliedBundles[identity.runId];
+        const terminalBundleApplied = Boolean(
+          targetBundle && isTerminalRun(targetBundle.run),
         );
+        if (terminalBundleApplied) {
+          setLiveMessages((current) => {
+            const state = current[identity.messageId];
+            if (!state || state.runId !== identity.runId) return current;
+            const next = { ...current };
+            delete next[identity.messageId];
+            return next;
+          });
+        } else {
+          setError(FINAL_RESULT_LOAD_ERROR);
+        }
+        try {
+          setConversations(await listConversations(user));
+        } catch (caught) {
+          if (terminalBundleApplied) {
+            setError(
+              caught instanceof Error
+                ? caught.message
+                : "运行已结束，但会话列表暂时无法刷新",
+            );
+          }
+        }
+      } catch {
+        setError(FINAL_RESULT_LOAD_ERROR);
       } finally {
         if (finalizingRunRef.current === identity.runId) {
           finalizingRunRef.current = null;
@@ -338,7 +364,7 @@ export default function App() {
         try {
           const run = await getRun(identity.runId, user);
           if (eventSourceRef.current !== events) return;
-          if (["completed", "failed", "cancelled"].includes(run.status)) {
+          if (isTerminalRun(run)) {
             await finalizeRun(
               identity,
               run.status as "completed" | "failed" | "cancelled",
@@ -346,19 +372,7 @@ export default function App() {
             );
           }
         } catch {
-          if (eventSourceRef.current !== events) return;
-          setLiveMessages((current) => {
-            const state = current[identity.messageId];
-            return state
-              ? {
-                  ...current,
-                  [identity.messageId]: {
-                    ...state,
-                    connection: "reconnecting",
-                  },
-                }
-              : current;
-          });
+          // Polling is best-effort; only EventSource open/error owns connection.
         } finally {
           runPollInFlightRef.current = false;
         }
@@ -389,7 +403,7 @@ export default function App() {
             (rawEvent as MessageEvent<string>).data,
           ) as Run;
           if (nextRun.run_id !== identity.runId) return;
-          if (["completed", "failed", "cancelled"].includes(nextRun.status)) {
+          if (isTerminalRun(nextRun)) {
             void finalizeRun(
               identity,
               nextRun.status as "completed" | "failed" | "cancelled",
@@ -425,8 +439,9 @@ export default function App() {
       }
       setLoading(true);
       try {
-        const nextMessages = await loadConversationData(conversationId);
-        if (activeConversationRef.current !== conversationId) return;
+        const loaded = await loadConversationData(conversationId);
+        if (!loaded.appliedToCurrentConversation) return;
+        const nextMessages = loaded.messages;
         const lastUserMessage = [...nextMessages]
           .reverse()
           .find((message) => message.role === "user");
@@ -753,7 +768,6 @@ export default function App() {
                   [runningLive.messageId]: {
                     ...state,
                     cancelRequested: true,
-                    connection: "reconnecting",
                   },
                 }
               : current;
@@ -954,7 +968,6 @@ export default function App() {
             </button>
             <span
               className={`agent-status ${runningLive ? "running" : ""}`}
-              role="status"
             >
               {runningLive ? (
                 <LoaderCircle className="spin" aria-hidden="true" size={13} />

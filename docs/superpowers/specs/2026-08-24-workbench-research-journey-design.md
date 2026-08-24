@@ -120,12 +120,15 @@ SSE trace.step / answer.snapshot / message.complete
   → ResearchJourney
 
 Run 结束后重载
-  → RunBundle(run + trace + context + artifacts)
+  → loadConversationData() 返回 messages + appliedToCurrentConversation + 已安装的 appliedBundles
+  → 目标 RunBundle 必须为 completed / failed / cancelled
   → buildResearchReceipt()
   → ResearchReceipt
 ```
 
 不新增 API，不修改 SSE schema，不把 UI 状态写回 RunStore。
+
+`queued` / `running` bundle 只是恢复过程中的预取快照，不是收据。`finalizeRun()` 只有在目标终态 bundle 通过 conversation generation 检查并真正进入 `appliedBundles` 后，才删除该 run 的 live state。若 context / trace / bundle 加载失败，保留终态 live progress 和人话错误，让 Timeline / Journey 可继续审计；安装成功则无条件清理 stale live state，`answerPhase` 不再延长它的生命周期。
 
 ## 7. 四阶段语义映射
 
@@ -151,10 +154,11 @@ Run 结束后重载
 4. 同一阶段内优先级：`failed → attention`，其次 `running`，再次 `completed`，最后 `skipped`。
 5. 只有真实完成事件才能把阶段标为 `completed`。不得因后一阶段已开始，就伪造前一阶段完成。
 6. 终态到来时，从未出现过的阶段保持 `skipped`，不补绿。
-7. `connection=reconnecting` 是连接状态，不是研究失败；已有进度保留，只显示「连接恢复中」。
+7. `connection=reconnecting` 是 EventSource 连接状态，不是研究失败；只有 `EventSource.onerror` 可写 `reconnecting`，`onopen` 可写 `connected`。cancel 成功只写 `cancelRequested`，轮询失败和 finalize 不得伪造连接变化。
 8. 终态失败/取消保留已完成阶段；当前阶段显示 `attention`，不清空轨迹。
 9. 历史恢复和 SSE replay 只恢复状态，不重播「新步骤入场」动画。
 10. 页面只显示一个「当前动作」：先选最新失败步骤，再选 `started_at` 最晚的 running 步骤，最后选 `finished_at` 最晚的 completed/skipped 步骤。时间字段不可解析时保持输入顺序，不猜时序。
+11. 终态 failed / cancelled 是主状态，必须覆盖 `verified_fallback` 等 `answerPhase` 交付版本标签；版本信息不得把失败或取消写成完成。
 
 ## 9. Research Receipt 口径
 
@@ -172,13 +176,14 @@ Run 结束后重载
 ### 10.1 进行中
 
 - `live.status` 为 `pending` / `streaming` 且尚未有终态回答时显示 `ResearchJourney`。
+- 即使恢复流程已预取到 `run.status=queued|running` 的 bundle，仍显示 `ResearchJourney`，不显示 Receipt / RunView / 公司证据 warning。
 - 有部分草稿时轨道仍显示，但收紧为一行，不与正文争抢。
 - 无 Trace 事件时显示「正在启动研究」的静态兜底，不伪造四阶段进度。
 
 ### 10.2 结束后
 
-- 已加载 `RunBundle` 时显示 `ResearchReceipt`。
-- 未加载 bundle 时保留现有回答状态，不显示全 0 伪收据。
+- 已成功安装 `run.status=completed|failed|cancelled` 的终态 `RunBundle` 时才显示 `ResearchReceipt` 与 `RunView`。
+- 未加载终态 bundle 时保留现有回答状态与 live progress，不显示全 0 伪收据。completed 用旧 Timeline 兜底，failed/cancelled 用保真 Journey 兜底。
 - 原始运行详情继续位于 `RunView` 折叠区；收据不替代详情。
 
 ### 10.3 响应式
@@ -194,7 +199,8 @@ Run 结束后重载
 - 过渡使用 CSS，不引入动效依赖。
 - 继续服从全局 `prefers-reduced-motion: reduce`；在减少动画模式下过渡近似即时。
 - 图标、文字和形状共同表达状态，不依赖颜色一项。
-- 最新动作摘要使用 `role="status"` / `aria-live="polite"`；四个状态点本身不反复广播，避免读屏器被 SSE 事件淹没。
+- `MessageThread` 只把最新助手消息设为播报 owner。该消息存在 Journey 时，最新动作摘要是该页唯一 `role="status"` / `aria-live="polite"` 播报者；历史 Journey 与 terminal notice 保持可见但使用 `role="note"`。顶栏 agent 状态仅保留可见文字，workflow / evidence warning 也使用 `role="note"`。播报 owner 无 Journey 时，它的 terminal notice 才可作为 `role="status"`。
+- 四个状态点本身不反复广播，避免读屏器被 SSE 事件淹没。
 - 轨道使用有序列表语义，每阶段有可读状态文本。
 
 ## 12. 错误与降级
@@ -202,10 +208,11 @@ Run 结束后重载
 | 场景 | 行为 |
 | --- | --- |
 | SSE 重连 | 保留所有阶段，单独显示「连接恢复中」 |
+| cancel 请求已接受 | 只显示停止请求已提交；不伪装成 SSE 重连 |
 | Run 失败 | 当前阶段进入 `attention`，已完成阶段不倒退 |
 | Run 取消 | 保留进度与已生成正文，状态文案为「已停止」 |
 | Trace 无摘要 | 使用 `userFacingStage(name)`；未知名称显示「执行研究步骤」 |
-| Context 未加载 | 不显示全 0 收据，保留终态标签 |
+| Context / Trace / 终态 bundle 未加载 | 不显示全 0 收据，保留终态 live progress 与 Timeline / Journey 兜底，显示简短加载错误 |
 | 无可验证引用 | 明确显示 0 且保留现有公司证据警告，不隐藏 |
 | 无截止日 | 显示「数据日期未记录」，不推断当天 |
 
@@ -243,9 +250,11 @@ Run 结束后重载
 - pending 无 trace 显示启动兜底。
 - running 显示唯一当前阶段和最新真实摘要。
 - reconnecting 不清空轨道。
-- completed + bundle 显示收据，原始 RunView 仍可展开。
+- completed + terminal bundle 显示收据，原始 RunView 仍可展开；running bundle 恢复仍显示 Journey。
+- 终态 bundle 加载失败时，live progress 不清空且无伪收据。
 - failed/cancelled 保留进度和终态人话。
-- 状态有文字/图标，`aria-live` 只包含当前摘要。
+- failed/cancelled 主标题覆盖终态 `answerPhase` 版本标签。
+- 状态有文字/图标，Journey 存在时整页只有一个状态播报者。
 
 ### 14.3 端到端与视觉检查
 

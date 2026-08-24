@@ -1,4 +1,5 @@
 import { RefreshCw, Sparkles } from "lucide-react";
+import { useMemo } from "react";
 import type {
   ChatMessage,
   LiveMessageState,
@@ -17,12 +18,42 @@ import { ResearchReceipt } from "./ResearchReceipt";
 import { RunView } from "./RunView";
 import { SkillInvocation } from "./SkillInvocation";
 
+type TerminalResearchStatus = Extract<
+  LiveMessageState["status"],
+  "completed" | "failed" | "cancelled"
+>;
+
+type TerminalRunBundle = RunBundle & {
+  run: RunBundle["run"] & { status: TerminalResearchStatus };
+};
+
+const EMPTY_PROGRESS_STEPS: LiveMessageState["progress"] = [];
+
+function isTerminalBundle(bundle: RunBundle): bundle is TerminalRunBundle {
+  return (
+    bundle.run.status === "completed" ||
+    bundle.run.status === "failed" ||
+    bundle.run.status === "cancelled"
+  );
+}
+
+function publicMessageStatus(status: string): LiveMessageState["status"] {
+  return status === "pending" ||
+    status === "streaming" ||
+    status === "completed" ||
+    status === "failed" ||
+    status === "cancelled"
+    ? status
+    : "completed";
+}
+
 interface MessageBubbleProps {
   message: ChatMessage;
   skills: ProductSkillDescription[];
   live: LiveMessageState | null;
   bundle: RunBundle | null;
   canRegenerate: boolean;
+  announcesProgress?: boolean;
   onRegenerate: (message: ChatMessage) => void;
   onOpenArtifact: (artifactId: string) => void;
   onFollowup: (question: string) => void;
@@ -34,12 +65,24 @@ export function MessageBubble({
   live,
   bundle,
   canRegenerate,
+  announcesProgress = true,
   onRegenerate,
   onOpenArtifact,
   onFollowup,
 }: MessageBubbleProps) {
   const content = live?.narrative || message.content;
-  const progressSteps = live?.progress ?? [];
+  const progressSteps = live?.progress ?? EMPTY_PROGRESS_STEPS;
+  const terminalBundle = useMemo(
+    () => (bundle && isTerminalBundle(bundle) ? bundle : null),
+    [bundle],
+  );
+  const receiptModel = useMemo(
+    () =>
+      message.role !== "user" && terminalBundle
+        ? buildResearchReceipt(terminalBundle)
+        : null,
+    [message.role, terminalBundle],
+  );
   const invokedSkillIds = [
     ...new Set([
       ...message.invoked_skill_ids,
@@ -53,14 +96,9 @@ export function MessageBubble({
     ]),
   ) as Record<string, SkillInvocationStatus>;
   const researchStatus: LiveMessageState["status"] =
+    terminalBundle?.run.status ??
     live?.status ??
-    (message.status === "pending" ||
-    message.status === "streaming" ||
-    message.status === "completed" ||
-    message.status === "failed" ||
-    message.status === "cancelled"
-      ? message.status
-      : "completed");
+    publicMessageStatus(message.status);
   const terminalStatus = researchStatus;
   const runInFlight =
     researchStatus === "pending" || researchStatus === "streaming";
@@ -83,19 +121,14 @@ export function MessageBubble({
               ? "证据不足，已如实说明"
           : null;
   const assistantStatus =
-    answerStatus ??
-    (terminalStatus === "pending" || terminalStatus === "streaming"
-      ? "研究中"
-      : terminalStatus === "cancelled"
-        ? "已停止"
-        : terminalStatus === "failed"
-          ? "失败"
-          : "已完成");
+    terminalStatus === "cancelled"
+      ? "已停止"
+      : terminalStatus === "failed"
+        ? "失败"
+        : (answerStatus ?? (runInFlight ? "研究中" : "已完成"));
   const hasBoundEvidence =
-    bundle?.context.evidence.some(
-      (item) => item.classification === "bound_evidence",
-    ) ?? true;
-  const report = live?.report ?? bundle?.structuredReport;
+    receiptModel === null || receiptModel.evidenceCount > 0;
+  const report = live?.report ?? terminalBundle?.structuredReport;
   const taskType = report?.task_type;
   const taskFrame = report?.task_frame;
   const requiresCompanyEvidence = taskFrame
@@ -106,7 +139,28 @@ export function MessageBubble({
       taskType === "workflow";
   const noEvidenceNotice =
     "本轮未形成可验证的公司级来源；公司判断均按待验证展示。";
-
+  const showJourney =
+    message.role !== "user" &&
+    !terminalBundle &&
+    (runInFlight ||
+      ((researchStatus === "failed" || researchStatus === "cancelled") &&
+        progressSteps.length > 0));
+  const showLegacyTerminalProgress =
+    message.role !== "user" &&
+    !terminalBundle &&
+    researchStatus === "completed" &&
+    progressSteps.length > 0;
+  const journeyModel = useMemo(
+    () =>
+      showJourney
+        ? buildResearchJourney({
+            progress: progressSteps,
+            answerPhase: live?.answerPhase ?? null,
+            terminalStatus: researchStatus,
+          })
+        : null,
+    [live?.answerPhase, progressSteps, researchStatus, showJourney],
+  );
   if (message.role === "user") {
     return (
       <article className="message-row message-user" aria-label="你的消息">
@@ -116,22 +170,6 @@ export function MessageBubble({
       </article>
     );
   }
-
-  const showJourney =
-    !bundle &&
-    (runInFlight ||
-      ((researchStatus === "failed" || researchStatus === "cancelled") &&
-        progressSteps.length > 0));
-  const showLegacyTerminalProgress =
-    !bundle && researchStatus === "completed" && progressSteps.length > 0;
-  const journeyModel = showJourney
-    ? buildResearchJourney({
-        progress: progressSteps,
-        answerPhase: live?.answerPhase ?? null,
-        terminalStatus: researchStatus,
-      })
-    : null;
-  const receiptModel = bundle ? buildResearchReceipt(bundle) : null;
 
   return (
     <article className="message-row message-assistant" aria-label="研究助手消息">
@@ -150,7 +188,7 @@ export function MessageBubble({
           statuses={statuses}
         />
         {live?.workflow && (
-          <div className="workflow-loaded-status" role="status">
+          <div className="workflow-loaded-status" role="note">
             工作流已加载 · {live.workflow.label} ·{" "}
             {live.workflow.retrievalStages.length} 个阶段
           </div>
@@ -161,10 +199,11 @@ export function MessageBubble({
             自然语言综合暂时不可用
           </span>
         )}
-        {requiresCompanyEvidence &&
+        {terminalBundle &&
+          requiresCompanyEvidence &&
           !hasBoundEvidence &&
           !content.includes(noEvidenceNotice) && (
-          <div className="message-evidence-warning" role="status">
+          <div className="message-evidence-warning" role="note">
             {noEvidenceNotice}
           </div>
         )}
@@ -173,6 +212,7 @@ export function MessageBubble({
             model={journeyModel}
             connection={live?.connection ?? "connected"}
             compact={Boolean(content)}
+            announce={announcesProgress}
           />
         )}
         {receiptModel && <ResearchReceipt model={receiptModel} />}
@@ -181,19 +221,22 @@ export function MessageBubble({
         )}
         {content ? <MarkdownView source={content} /> : null}
         {terminalNotice && (
-          <div className="message-terminal-notice" role="status">
+          <div
+            className="message-terminal-notice"
+            role={journeyModel || !announcesProgress ? "note" : "status"}
+          >
             {terminalNotice}
           </div>
         )}
-        {bundle && (
+        {terminalBundle && (
           <RunView
-            bundle={bundle}
+            bundle={terminalBundle}
             connection={live?.connection ?? "connected"}
             onOpenArtifact={onOpenArtifact}
             onFollowup={onFollowup}
           />
         )}
-        {!bundle && (message.followups?.length ?? 0) > 0 && (
+        {!terminalBundle && (message.followups?.length ?? 0) > 0 && (
           <section aria-label="继续研究">
             <h3>继续研究</h3>
             <div className="message-followups">
