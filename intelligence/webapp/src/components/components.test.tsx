@@ -1524,6 +1524,132 @@ describe("Chat-first conversation components", () => {
     expect(screen.queryByText("正在检索本轮证据")).toBeNull();
   });
 
+  it("shows a static journey before the first trace arrives", () => {
+    render(
+      <MessageBubble
+        message={{
+          ...assistantMessage,
+          content: "",
+          status: "pending",
+          degrades: [],
+        }}
+        skills={productSkills}
+        live={createLiveMessageState({
+          conversationId: "conv_recent",
+          messageId: "msg_assistant",
+          runId: "run_demo",
+        })}
+        bundle={null}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("研究进度")).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent("正在启动研究");
+    expect(screen.queryByText("正在检索本轮证据")).toBeNull();
+  });
+
+  it("replaces the live journey with a receipt when the bundle is loaded", () => {
+    render(
+      <MessageBubble
+        message={{
+          ...assistantMessage,
+          content: "最终回答",
+          status: "completed",
+          degrades: [],
+        }}
+        skills={productSkills}
+        live={null}
+        bundle={{
+          ...bundle,
+          context: {
+            ...bundle.context,
+            evidence: [
+              ...bundle.context.evidence,
+              {
+                id: "bound",
+                label: "公司公告",
+                kind: "source",
+                classification: "bound_evidence",
+                detail: "已绑定",
+                status: "hit",
+              },
+            ],
+          },
+        }}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText("研究进度")).toBeNull();
+    const receipt = screen.getByLabelText("研究收据");
+    expect(receipt).toBeVisible();
+    expect(receipt).toHaveAttribute(
+      "data-issue-summary",
+      "自然语言综合暂时不可用，已保留可核验数据与研究产物。",
+    );
+    expect(within(receipt).getByText("1 项限制/缺口")).toBeVisible();
+    expect(screen.getByText("最终回答")).toBeVisible();
+    expect(screen.getByText("运行详情", { exact: true })).toBeVisible();
+  });
+
+  it("keeps failed live progress visible without pretending completion", () => {
+    render(
+      <MessageBubble
+        message={{
+          ...assistantMessage,
+          content: "部分回答",
+          status: "failed",
+          degrades: [],
+        }}
+        skills={productSkills}
+        live={{
+          ...createLiveMessageState({
+            conversationId: "conv_recent",
+            messageId: "msg_assistant",
+            runId: "run_demo",
+          }),
+          status: "failed",
+          progress: [
+            {
+              step_id: "verification-failed",
+              name: "verification",
+              status: "failed",
+              started_at: "2026-08-24T10:00:00+08:00",
+              finished_at: "2026-08-24T10:00:10+08:00",
+              input_summary: "",
+              output_summary: "引用核验未完成。",
+              warnings: [],
+            },
+          ],
+        }}
+        bundle={null}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    const journey = screen.getByLabelText("研究进度");
+    expect(journey).toBeVisible();
+    expect(within(journey).getByLabelText("交叉核验，需要关注")).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+    expect(journey).toHaveClass("is-compact");
+    expect(within(journey).getByRole("status")).toHaveTextContent(
+      "引用核验未完成。",
+    );
+    expect(screen.getByText("本轮生成失败，请重试。")).toBeVisible();
+  });
+
   it("shows the latest real Episode progress while the answer is pending", () => {
     render(
       <MessageBubble
@@ -1624,12 +1750,18 @@ describe("Chat-first conversation components", () => {
     />
   );
 
-  it("shows every episode milestone, not only the newest one", () => {
+  it("condenses episode milestones into four truthful phases", () => {
     render(bubbleWithProgress({ content: "", status: "pending" }, episodeSteps));
 
-    expect(screen.getByText("已形成研究计划。")).toBeVisible();
-    expect(screen.getByText("正在查盘面快照。")).toBeVisible();
-    expect(screen.getByText("正在查主线结构。")).toBeVisible();
+    expect(screen.getByLabelText("研究进度")).toBeVisible();
+    expect(screen.getByLabelText("理解与计划，已完成")).toBeVisible();
+    expect(screen.getByLabelText("查找证据，进行中")).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("正在查主线结构。");
+    expect(screen.queryByText("已形成研究计划。")).toBeNull();
+    expect(screen.queryByText("正在查盘面快照。")).toBeNull();
   });
 
   it("keeps the timeline available after the answer lands", () => {

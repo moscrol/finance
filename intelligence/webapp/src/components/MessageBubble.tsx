@@ -6,8 +6,14 @@ import type {
   RunBundle,
   SkillInvocationStatus,
 } from "../types";
+import {
+  buildResearchJourney,
+  buildResearchReceipt,
+} from "../researchJourney";
 import { MarkdownView } from "./MarkdownView";
 import { ProgressTimeline } from "./ProgressTimeline";
+import { ResearchJourney } from "./ResearchJourney";
+import { ResearchReceipt } from "./ResearchReceipt";
 import { RunView } from "./RunView";
 import { SkillInvocation } from "./SkillInvocation";
 
@@ -33,9 +39,6 @@ export function MessageBubble({
   onFollowup,
 }: MessageBubbleProps) {
   const content = live?.narrative || message.content;
-  // 收尾后 live 只在 answerPhase 为 null 时被 App.finalizeRun 删掉，所以带
-  // answer.snapshot 的 research/workflow 轮次（本页大多数）过程条会留着；
-  // 其余轮次退回 RunView 里的「运行轨迹」，与改动前一致。
   const progressSteps = live?.progress ?? [];
   const invokedSkillIds = [
     ...new Set([
@@ -49,9 +52,18 @@ export function MessageBubble({
       invocation.status,
     ]),
   ) as Record<string, SkillInvocationStatus>;
-  const terminalStatus = live?.status ?? message.status;
+  const researchStatus: LiveMessageState["status"] =
+    live?.status ??
+    (message.status === "pending" ||
+    message.status === "streaming" ||
+    message.status === "completed" ||
+    message.status === "failed" ||
+    message.status === "cancelled"
+      ? message.status
+      : "completed");
+  const terminalStatus = researchStatus;
   const runInFlight =
-    terminalStatus === "pending" || terminalStatus === "streaming";
+    researchStatus === "pending" || researchStatus === "streaming";
   const terminalNotice =
     terminalStatus === "cancelled"
       ? "已停止生成，已保留已生成内容。"
@@ -105,6 +117,22 @@ export function MessageBubble({
     );
   }
 
+  const showJourney =
+    !bundle &&
+    (runInFlight ||
+      ((researchStatus === "failed" || researchStatus === "cancelled") &&
+        progressSteps.length > 0));
+  const showLegacyTerminalProgress =
+    !bundle && researchStatus === "completed" && progressSteps.length > 0;
+  const journeyModel = showJourney
+    ? buildResearchJourney({
+        progress: progressSteps,
+        answerPhase: live?.answerPhase ?? null,
+        terminalStatus: researchStatus,
+      })
+    : null;
+  const receiptModel = bundle ? buildResearchReceipt(bundle) : null;
+
   return (
     <article className="message-row message-assistant" aria-label="研究助手消息">
       <div className="assistant-mark" aria-hidden="true">
@@ -140,9 +168,17 @@ export function MessageBubble({
             {noEvidenceNotice}
           </div>
         )}
-        {progressSteps.length > 0 || runInFlight ? (
-          <ProgressTimeline steps={progressSteps} active={runInFlight} />
-        ) : null}
+        {journeyModel && (
+          <ResearchJourney
+            model={journeyModel}
+            connection={live?.connection ?? "connected"}
+            compact={Boolean(content)}
+          />
+        )}
+        {receiptModel && <ResearchReceipt model={receiptModel} />}
+        {showLegacyTerminalProgress && (
+          <ProgressTimeline steps={progressSteps} active={false} />
+        )}
         {content ? <MarkdownView source={content} /> : null}
         {terminalNotice && (
           <div className="message-terminal-notice" role="status">
