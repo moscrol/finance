@@ -173,18 +173,35 @@ def _question_type_rules(
     )
     # 可选前瞻槽专用规则（R-20260824-20）：装配层给前瞻信号题挂上三槽后必须注入。
     #
-    # 这条**不是**可选的润色。契约渲染进提示词的地方
-    # （`generic_research_owner.py` 的 required_outputs 块）只发
-    # id / description / evidence_types / required——`grounding_mode` 压根不在里面。
-    # 而本文件 `basis 必须与对应 required output 的 grounding_mode 一致` 那条通用
-    # 规则要求模型对齐一个它看不见的字段，且 `validate_episode_finish` 里 basis 的
-    # 默认值是 "evidence"。三样凑一起：模型想填这三格 → 按默认报 evidence →
-    # basis_mismatch 整份 FINAL_JSON 被拒。**挂了槽不给这条规则，比不挂槽更糟。**
+    # 这条**不是**可选的润色，因为 `grounding_mode` 在主循环里到不了模型：
+    #
+    # - 主循环渲染契约的地方（`generic_research_owner.py` 的 required_outputs
+    #   块）只发 id / description / evidence_types / required，**没有
+    #   grounding_mode**；
+    # - 恢复器（`intelligence/runtime/episode_finalizer.py:175`）**发**它。
+    #
+    # 于是本文件那条通用规则（`basis 必须与对应 required output 的 grounding_mode
+    # 一致`）在主循环里要求模型对齐一个它看不见的字段，而 basis 的默认值是
+    # "evidence"。模型只能猜，猜错 → `basis_mismatch` → FORMAT → 整份 FINAL_JSON
+    # 回灌重来 → 落到恢复器，而恢复器的提示词里恰好带着这个字段，于是第二轮就对。
+    # **系统在靠「先让你摔一跤，摔完再告诉你答案」工作。**
+    #
+    # 不是推断：2026-08-18 frozen-thirty live
+    # （`intelligence/eval/measurements/2026-08-18-frozen-thirty-live-3d30b2c5.json`）
+    # 里有两次 `grounding basis mismatch for direct_answer: expected evidence,
+    # got model_reasoning` + `stop_reason=invalid_model_finish`。注意猜错方向是
+    # 反的（模型报了 model_reasoning、契约签的是 evidence）——方向随机正说明
+    # 病因是「没告诉它」而不是「它偏好某一侧」。
     #
     # 判据只认「可选 + model_reasoning + 前瞻槽 id」这个组合——它唯一对应装配层
-    # 本次挂上的槽。market_forecast 的必选前瞻槽不落进来：把 grounding_mode 补进
-    # 契约渲染、一次修好所有 model_reasoning 槽是更彻底的修法，但那会动到所有任务
-    # 的提示词，另行立案。
+    # 本次挂上的槽。
+    #
+    # ⚠ 本规则是**补丁不是修复**（技术债，非可选优化）。结构修法是给主循环的契约
+    # 渲染补上 `grounding_mode`（照抄恢复器已有写法），让约束由构造即满足；那之后
+    # 本规则里讲 basis 的那半句可以删。按约束三筛：这条约束拦的是**输出**（审已产
+    # 出的 FINAL_JSON 且拒整份），失效时变笨，模型变强也照样挡路——判「可改写成拦
+    # 输入」，而正确动作是减契约管辖权，不是像这里一样再加一条逐槽手写规则。
+    # 之所以仍先加规则：结构修法会动到所有任务的提示词，需独立立案 + 独立 live。
     forward_slot_rule = (
         "本任务包含可选前瞻槽（scenario_paths / continuation_conditions / "
         "invalidation_conditions，grounding_mode=model_reasoning）：这几格是"

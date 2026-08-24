@@ -23,12 +23,13 @@ V8 结论与 `test_numeric_unsupported_sentence_is_still_deleted` 原样不改�
 | `4e71851c` | factory 挂槽 + protocol 动态提示规则 | ⚠ 两者不可拆，见下 |
 | `3802f3f8` | 钉 9 修正（变异 M3 暴露） | — |
 
-**挂槽与动态提示规则必须同生共死**。契约渲染进提示词的地方
-（`generic_research_owner.py` 的 `required_outputs` 块）只发
-`id / description / evidence_types / required`——`grounding_mode` **压根不在里面**；
-而 `episode_protocol` 要求模型让 `basis` 与 `grounding_mode` 一致，`basis` 默认值又是
-`evidence`。只挂槽不给提示规则 = 模型每绑一次这三格就被 `basis_mismatch` 整份拒，
-**比不挂槽更糟**。别把这两个 commit 拆开挑一个合。
+**挂槽与动态提示规则必须同生共死**。`grounding_mode` 在**主循环**里到不了模型：
+`generic_research_owner.py` 的 `required_outputs` 块只发
+`id / description / evidence_types / required`。（**恢复器
+`intelligence/runtime/episode_finalizer.py:175` 是发的**——所以准确说法是「主循环不给、
+恢复路径给」，不是「压根不进提示词」。）而 `episode_protocol` 要求模型让 `basis` 与
+`grounding_mode` 一致、`basis` 默认值又是 `evidence`。只挂槽不给提示规则 = 模型只能猜，
+猜错就 `basis_mismatch` 整份拒、回灌重来。别把这两个 commit 拆开挑一个合。
 
 ## 未验证 / 已知边界
 
@@ -48,9 +49,23 @@ V8 结论与 `test_numeric_unsupported_sentence_is_still_deleted` 原样不改�
 1. 合 `docs/optional-forward-slots-addendum`（设计文档）与本分支——**要合就一起合**，
    否则 main 上会有实现没设计，或反之。合 main 需用户确认。
 2. 验收方跑 live 探针 `probe-fwd-<mmdd>`，按 §8.3 四条腿回填台账。
-3. **独立候选单（未立案）**：把 `grounding_mode` 加进 `generic_research_owner.py` 的契约渲染，
-   一次修好所有 model_reasoning 槽。今天 market_forecast 的必选前瞻槽、#72 判断槽大概率都在靠
-   FORMAT 拒后重试自愈，白烧一个来回。影响所有任务提示词，需单独立案与单独 live，**别搭本单车**。
+3. **本单留下的技术债（不是可选优化，未立案）**：把 `grounding_mode` 加进
+   `generic_research_owner.py` 的契约渲染，一次修好所有 model_reasoning 槽。
+
+   **[实测]** 这事已在生产发生：`intelligence/eval/measurements/2026-08-18-frozen-thirty-live-3d30b2c5.json`
+   里有两次 `grounding basis mismatch for direct_answer: expected evidence, got model_reasoning`
+   → `stop_reason=invalid_model_finish` → 落恢复器。恢复器的提示词带 `grounding_mode`，
+   所以第二轮就对——**系统在靠「先让你摔一跤，摔完再告诉你答案」工作，每次白烧一个来回。**
+   猜错方向是反的（模型报 model_reasoning、契约签 evidence），方向随机正说明病因是
+   「没告诉它」而不是「它偏好某一侧」。
+
+   **架构判词**（`harness-architecture-review` C2 三筛）：约束「basis 必须匹配
+   grounding_mode」本身是**真下限**，烂的是它被实现成**拦输出**（审已产出的 FINAL_JSON
+   且拒整份）——判「**可改写成拦输入**」，正确动作是让约束由构造即满足，**不是**再加一条
+   逐槽手写规则。本单加的那条规则是补丁；债在这里。修完之后，`_question_type_rules` 里
+   凡是只为传达 `grounding_mode` 的手写规则（prior_recall 那条、本单这条）都可以删。
+
+   仍未在本单做的理由：会动到所有任务的提示词，需单独立案 + 单独 live，**别搭本单车**。
 
 ## 踩过的坑
 
@@ -65,6 +80,10 @@ V8 结论与 `test_numeric_unsupported_sentence_is_still_deleted` 原样不改�
   根预算，重名直接抛 `root budget already exists`，与被测行为无关。
 - 设计初稿的行号锚两天就烂了（main 前进 40 commit）。本分支开工时 main 又从 `34fcbaaa` 走到
   `ada882c6`，factory 里的锚再漂 4-5 行。**认符号不认数字。**
+- **我自己也栽了一次同款**：断言「`episode_finalizer.py` 不存在」，实际它在
+  `intelligence/runtime/` 下——我只 `git cat-file` 查了猜的那个 `intelligence/services/` 路径。
+  由此连带把「grounding_mode 不进提示词」说重了（真相是主循环不给、恢复器给）。
+  **查存在性要全树搜文件名，不要拿猜的目录去证伪。** 代码没受影响，错的是论证。
 
 ## 工具沉淀盘点
 
