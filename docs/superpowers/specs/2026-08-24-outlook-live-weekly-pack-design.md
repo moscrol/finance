@@ -57,7 +57,7 @@ PRIMARY 是 **词序**：`_MARKET_FORECAST_RE` 第一支要「展望/研判/预�
 | **F2 共用什么** | 「与盘面包同一汇合处」 | 共用 **`run_market_watch_pack(day)` 函数**（避免第三份双红 SQL）。接线点按引擎分：盘面拒收 A → compose；展望留在 A → 开口预取。 |
 | **F3 板块主语** | 未写。`分析有色金属板块后续走势` 信封/plan/decide 今日都是 `theme_analysis`（plan 链 `subject_kind==theme` 让位，`answer_orchestrator.py` 约 282–286）。 | **不在 P0**。扩它要改主语优先序，不是只修 forecast 正则。§7.1 #9b 当负样本锁住「不被本单抢走」。 |
 | **F4 契约加严** | 只锁题型 | Live 必须仍能出可用稿。见 §0 契约副作用、§7.5。 |
-| **F5 台账号** | `R-20260824-11`…`15` | knevo28 已占 `-12`…`19`，且注明 `-11` 已占用。本单改 `R-20260824-20`…`24`。join kernel 从 `-25` 起。 |
+| **F5 台账号** | `R-20260824-11`…`15` | knevo28 已占 `-12`…`19`，且注明 `-11` 已占用。本单原写 `-20`…`24`；`-20` 撞 optional-forward-slots，收口改 `R-20260824-31` + `-21`…`24`。join kernel 从 `-25` 起。 |
 
 行号会漂。导航用符号：`continuous_turn_adapter.handle`、`_complete_continuous_turn`、`collect_prefetch_items`、`_opening_prefetch_evidence`、`_seed_opening_prefetch`。不要按脏树或某一版的 2770 行找椅子。
 
@@ -366,18 +366,18 @@ P0 不拒收 Engine A。约束：
 | Modify: `intelligence/runtime/agent_episode.py` | 只确认 `_seed_opening_prefetch` 仍先入账本；不改编号规则 | P0-4 |
 | Modify: 交付闸 | 隔板「验证」句、无格数字、旧文号 | P0-4 / P1 |
 | Test: `intelligence/tests/test_outlook_live_weekly_pack.py` | §7.2–7.4，**#19 打 opening evidence** | P0 |
-| 收尾: `docs/prediction-ledger.md` | `R-20260824-20`…`24` | 收尾 |
+| 收尾: `docs/prediction-ledger.md` | `R-20260824-31` + `-21`…`24`（`-20` 已归 optional-forward-slots） | 收尾 |
 
 不要改 `honesty_gates.py` 判定。不要把店名写进 `status != bound` 的用户可见前缀。
 不要为了接线去改 `conversation_orchestrator` 的 compose 段——那是 (c)。(b) 若做，落点是 `handle()` **之上**，与 join 稿洞 1 同一符号。
 
 ## 9. 账本
 
-编号避开 knevo28 已占的 `-11`…`19`。盘面包继续 `-01`…`06`。join kernel 从 `-25` 起。
+编号避开 knevo28 已占的 `-11`…`19`。盘面包继续 `-01`…`06`。join kernel 从 `-25` 起。句尾座位原写 `-20`，收口改 `-31`（`-20` 留给 optional-forward-slots）。
 
 | ID | 现象 | 类型 | 序 | 验证 |
 |---|---|---|---|---|
-| `R-20260824-20` | 句尾「行情的展望」任务链 `general_finance_qa`，评分链已是 `market_forecast` | `HARNESS_FIX` | P0-1 | §7.1 |
+| `R-20260824-31` | 句尾「行情的展望」任务链 `general_finance_qa`，评分链已是 `market_forecast` | `HARNESS_FIX` | P0-1 | §7.1 |
 | `R-20260824-21` | 问句 BM25 / `memory_lookup` 把 2026.23 或纠偏当活剧本 | `HARNESS_FIX` | P0-2 | §7.2 |
 | `R-20260824-22` | 空参快照只有库尖一日；预取只有 3 日双红个数 | `HARNESS_FIX` | P0-3 | §7.3 |
 | `R-20260824-23` | 包挂 compose，Engine A 早退，开口看不到周四高潮 | `HARNESS_FIX` | P0-4 | §7.3 #19 |
