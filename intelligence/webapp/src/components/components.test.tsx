@@ -1107,9 +1107,7 @@ describe("Chat-first conversation components", () => {
 
     render(<ResearchReceipt model={buildResearchReceipt(receiptBundle)} />);
 
-    const receipt = screen.getByRole("region", {
-      name: "Foresight · 已完成",
-    });
+    const receipt = screen.getByLabelText("研究收据");
     expect(
       within(receipt).getByRole("heading", {
         level: 3,
@@ -1170,9 +1168,9 @@ describe("Chat-first conversation components", () => {
         name: `Foresight · ${label}`,
       }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("region", { name: `Foresight · ${label}` }),
-    ).toHaveClass(`is-${runStatus}`);
+    expect(screen.getByLabelText("研究收据")).toHaveClass(
+      `is-${runStatus}`,
+    );
   });
 
   it("restores, switches and archives conversations in the mobile drawer", async () => {

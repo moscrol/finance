@@ -4,7 +4,6 @@ import {
   FileStack,
   Link2,
 } from "lucide-react";
-import { useId } from "react";
 import type { ResearchReceiptModel } from "../researchJourney";
 import type { RunStatus } from "../types";
 import "./researchJourney.css";
@@ -22,17 +21,16 @@ const runStatusLabels: Record<RunStatus, string> = {
 };
 
 export function ResearchReceipt({ model }: ResearchReceiptProps) {
-  const headingId = useId();
   const issueSummary = model.issueLabels.join("；") || undefined;
 
   return (
     <section
       className={`research-receipt is-${model.runStatus}`}
-      aria-labelledby={headingId}
+      aria-label="研究收据"
       data-issue-summary={issueSummary}
     >
       <div className="research-receipt-heading">
-        <h3 id={headingId}>Foresight · {runStatusLabels[model.runStatus]}</h3>
+        <h3>Foresight · {runStatusLabels[model.runStatus]}</h3>
         <small>研究收据</small>
       </div>
       <ul
