@@ -105,6 +105,20 @@ function latestInputIndexes(progress: TraceStep[]): Map<string, number> {
   }, new Map<string, number>());
 }
 
+function replayOrderedTrace(progress: TraceStep[]): {
+  trace: TraceStep[];
+  indexes: Map<string, number>;
+} {
+  const indexes = latestInputIndexes(progress);
+  return {
+    trace: [...deduplicateTrace(progress)].sort(
+      (left, right) => (indexes.get(left.step_id) ?? -1) -
+        (indexes.get(right.step_id) ?? -1),
+    ),
+    indexes,
+  };
+}
+
 function isLater(
   candidate: TraceStep,
   candidateIndex: number,
@@ -122,9 +136,8 @@ function isLater(
 
 function closeSupersededKnownRunnings(
   trace: TraceStep[],
-  progress: TraceStep[],
+  indexes: Map<string, number>,
 ): TraceStep[] {
-  const indexes = latestInputIndexes(progress);
   return trace.filter((step) => {
     const phase = phaseByStage[step.name];
     if (!phase || step.status !== "running") return true;
@@ -191,8 +204,8 @@ export function buildResearchJourney({
   answerPhase: AnswerPhase | null;
   terminalStatus: LiveMessageState["status"];
 }): ResearchJourneyModel {
-  const trace = deduplicateTrace(progress);
-  const normalizedTrace = closeSupersededKnownRunnings(trace, progress);
+  const { trace, indexes } = replayOrderedTrace(progress);
+  const normalizedTrace = closeSupersededKnownRunnings(trace, indexes);
   const byPhase = new Map<ResearchPhaseId, TraceStep[]>();
   for (const step of normalizedTrace) {
     const phase = phaseByStage[step.name];

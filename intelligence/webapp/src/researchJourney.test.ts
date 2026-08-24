@@ -70,6 +70,20 @@ describe("buildResearchJourney", () => {
     expect(result.currentAction).toBe("新进度");
   });
 
+  it("uses a step's last replay position when bad timestamps tie", () => {
+    const result = buildResearchJourney({
+      progress: [
+        step("research", "running", { step_id: "A", started_at: "bad-time", output_summary: "A 旧摘要" }),
+        step("research", "running", { step_id: "B", started_at: "bad-time", output_summary: "B 摘要" }),
+        step("research", "running", { step_id: "A", started_at: "bad-time", output_summary: "A 新摘要" }),
+      ], answerPhase: null, terminalStatus: "streaming",
+    });
+    expect(result.currentAction).toBe("A 新摘要");
+    expect(result.phases.map((phase) => phase.status)).toEqual([
+      "waiting", "running", "waiting", "waiting",
+    ]);
+  });
+
   it("closes stale production milestones with different step ids", () => {
     const research = buildResearchJourney({
       progress: [
