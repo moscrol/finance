@@ -337,6 +337,10 @@ def test_mounted_slots_do_not_block_completed() -> None:
             "status": "completed",
             "draft": "【直接回答】结构偏强。【证据边界】数据截至2026-07-22。",
             "gaps": [],
+            # 只绑**非前瞻**槽——这条钉演的就是「模型不绑那三格」。
+            # 判据不能写成 `if item.required`：那样一来，若挂槽实现把三槽错设成
+            # required=True，测试会跟着一起绑，这条钉就随 bug 自适应、测不到它
+            # 声称的场景（变异 M3 实测存活，由此发现）。
             "bindings": [
                 {
                     "output_id": item.output_id,
@@ -348,7 +352,7 @@ def test_mounted_slots_do_not_block_completed() -> None:
                     "basis": item.grounding_mode,
                 }
                 for item in context.contract.required_outputs
-                if item.required
+                if item.output_id not in FORWARD_HYPOTHESIS_OUTPUT_IDS
             ],
         }
     )
