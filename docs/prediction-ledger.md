@@ -986,3 +986,21 @@ canary 8807 两跑 + 生产切流。收据 `~/.finance-runtime/cutover-20260824-
 | `R-20260824-03` | `ROUTING_FIX` | 前瞻类问句（「明天/下周该怎么操作」）的契约带上 `continuation_conditions` / `invalidation_conditions` 且签成 `model_reasoning` 后，同题公开稿保留带阈值的条件建议，`answer.md` 与 `outcome.draft` 的 sha 一致 | `pending`（未实现） |
 
 - `fix_type_refuted_streak`（本项目累计）：`DATA_CONTRACT_FIX` = 1（未达 ≥3 升格线）
+
+### 2026-08-24 · R-20260824-03 回填（8792 已切 `7afe37be`）
+
+| ID | outcome | 证据 |
+|---|---|---|
+| `R-20260824-03` | **confirmed** | canary `run_20260824_171728_700594`（同题「基于周五的行情，周一该怎么操作」）：`question_type=market_forecast`、`subject_kind=market_pattern`；`scenario_paths`/`continuation_conditions`/`invalidation_conditions` 三槽 required 且 `grounding_mode=model_reasoning`；**draft 与 answer 非空行 9→9、`draft.split()==ans.split()` 为真（仅空白差异，内容零删除）**；`judge_status=passed`（非 repaired） |
+
+对照本日前两条：`R-01` confirmed（backfill 通了）、`R-02` refuted（阈值仍被删）。
+**R-02 的失败点由 R-03 解决**，且解法不在数字门而在路由——
+契约签出前瞻槽后，`_novel_numeric_condition_indexes` 的既有豁免闸自动生效，
+数值门一行没改。
+
+`fix_type_refuted_streak`：`DATA_CONTRACT_FIX` = 1（未达升格线；R-03 是
+`ROUTING_FIX`，不累加同族）。
+
+**留待观察（不立案）**：本题走 market_forecast 后 `backfill_turns=0`——
+因为已无 `numeric_unsupported`。`R-01` 的 backfill 修复对**本题**不再触发，
+但对其余「无主语市场级 + 真缺数」的题型仍有效，两者不互斥。
