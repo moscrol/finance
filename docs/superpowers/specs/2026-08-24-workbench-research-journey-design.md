@@ -145,15 +145,16 @@ Run 结束后重载
 
 ## 8. 状态归并契约
 
-1. 先按 `step_id` 保留最新事件，与现有 `upsertTraceStep` 的 replay 语义一致。
-2. 每阶段状态为 `waiting | running | completed | skipped | attention`。
-3. 同一阶段内优先级：`failed → attention`，其次 `running`，再次 `completed`，最后 `skipped`。
-4. 只有真实完成事件才能把阶段标为 `completed`。不得因后一阶段已开始，就伪造前一阶段完成。
-5. 终态到来时，从未出现过的阶段保持 `skipped`，不补绿。
-6. `connection=reconnecting` 是连接状态，不是研究失败；已有进度保留，只显示「连接恢复中」。
-7. 终态失败/取消保留已完成阶段；当前阶段显示 `attention`，不清空轨迹。
-8. 历史恢复和 SSE replay 只恢复状态，不重播「新步骤入场」动画。
-9. 页面只显示一个「当前动作」：先选最新失败步骤，再选 `started_at` 最晚的 running 步骤，最后选 `finished_at` 最晚的 completed/skipped 步骤。时间字段不可解析时保持输入顺序，不猜时序。
+1. 先按 `step_id` 保留最新事件，并按该 `step_id` 最后一次 replay 输入位置排列，与现有 `upsertTraceStep` 的 replay 语义一致。
+2. 归并时每个终态事件只关闭同一生命周期组中一个更早、尚未关闭的 running：已知阶段按阶段分组，未知步骤按原始 `name` 分组；不得由摘要文本猜关联，也不得一项终态关闭并行分支。
+3. 每阶段状态为 `waiting | running | completed | skipped | attention`。
+4. 同一阶段内优先级：`failed → attention`，其次 `running`，再次 `completed`，最后 `skipped`。
+5. 只有真实完成事件才能把阶段标为 `completed`。不得因后一阶段已开始，就伪造前一阶段完成。
+6. 终态到来时，从未出现过的阶段保持 `skipped`，不补绿。
+7. `connection=reconnecting` 是连接状态，不是研究失败；已有进度保留，只显示「连接恢复中」。
+8. 终态失败/取消保留已完成阶段；当前阶段显示 `attention`，不清空轨迹。
+9. 历史恢复和 SSE replay 只恢复状态，不重播「新步骤入场」动画。
+10. 页面只显示一个「当前动作」：先选最新失败步骤，再选 `started_at` 最晚的 running 步骤，最后选 `finished_at` 最晚的 completed/skipped 步骤。时间字段不可解析时保持输入顺序，不猜时序。
 
 ## 9. Research Receipt 口径
 
@@ -162,8 +163,7 @@ Run 结束后重载
 | 可验证引用数 | `context.evidence` 中 `classification=bound_evidence` | 只计可绑定证据，不把检索候选当引用 |
 | 数据截止日 | `run.source_date ?? run.duckdb_cutoff ?? context.metadata.source_date ?? context.metadata.duckdb_cutoff` | 无数据显示「未记录」，不回显当天伪装新鲜 |
 | 产物数 | `run.artifacts.length` | 真实 Run 产物数，不把尚未注册的文件算入 |
-| 数据缺口 | `context.gaps.length` | 独立标签，不与 degrade 合并 |
-| 运行限制 | `run.degrades` 去重后数量 | 独立标签，文案继续走 `userFacingIssue` |
+| 限制/缺口 | `context.gaps` 经 `userFacingIssue` 去重后数量 | `context.gaps` 是该 Run 的原始、合并问题事实源；不与已脱敏的 `run.degrades` 分别计数 |
 
 收据是研究交付的索引，不是质量总分。它不宣称「可发布」、「高置信」或「高质量」。
 

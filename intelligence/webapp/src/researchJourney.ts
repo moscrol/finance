@@ -33,9 +33,8 @@ export interface ResearchReceiptModel {
   evidenceCount: number;
   cutoff: string | null;
   artifactCount: number;
-  gapCount: number;
-  degradeCount: number;
-  degradeLabels: string[];
+  issueCount: number;
+  issueLabels: string[];
   runStatus: RunBundle["run"]["status"];
 }
 
@@ -105,54 +104,38 @@ function latestInputIndexes(progress: TraceStep[]): Map<string, number> {
   }, new Map<string, number>());
 }
 
-function replayOrderedTrace(progress: TraceStep[]): {
-  trace: TraceStep[];
-  indexes: Map<string, number>;
-} {
+function replayOrderedTrace(progress: TraceStep[]): TraceStep[] {
   const indexes = latestInputIndexes(progress);
-  return {
-    trace: [...deduplicateTrace(progress)].sort(
-      (left, right) => (indexes.get(left.step_id) ?? -1) -
-        (indexes.get(right.step_id) ?? -1),
-    ),
-    indexes,
-  };
+  return [...deduplicateTrace(progress)].sort(
+    (left, right) => (indexes.get(left.step_id) ?? -1) -
+      (indexes.get(right.step_id) ?? -1),
+  );
 }
 
-function isLater(
-  candidate: TraceStep,
-  candidateIndex: number,
-  previous: TraceStep,
-  previousIndex: number,
-): boolean {
-  const candidateTime = parsedTime(actionTime(candidate));
-  const previousTime = parsedTime(actionTime(previous));
-  if (candidateTime === null || previousTime === null) {
-    return candidateIndex > previousIndex;
-  }
-  return candidateTime > previousTime ||
-    (candidateTime === previousTime && candidateIndex > previousIndex);
+function lifecycleGroup(step: TraceStep): string {
+  const phase = phaseByStage[step.name];
+  return phase ? `phase:${phase}` : `stage:${step.name}`;
 }
 
-function closeSupersededKnownRunnings(
+function closeSupersededRunnings(
   trace: TraceStep[],
-  indexes: Map<string, number>,
 ): TraceStep[] {
-  return trace.filter((step) => {
-    const phase = phaseByStage[step.name];
-    if (!phase || step.status !== "running") return true;
-    const stepIndex = indexes.get(step.step_id) ?? -1;
-    return !trace.some((candidate) =>
-      phaseByStage[candidate.name] === phase &&
-      candidate.status !== "running" &&
-      isLater(
-        candidate,
-        indexes.get(candidate.step_id) ?? -1,
-        step,
-        stepIndex,
-      ),
-    );
+  const unmatchedRunnings = new Map<string, number[]>();
+  const closedRunnings = new Set<number>();
+
+  trace.forEach((step, index) => {
+    const group = lifecycleGroup(step);
+    if (step.status === "running") {
+      unmatchedRunnings.set(group, [...(unmatchedRunnings.get(group) ?? []), index]);
+      return;
+    }
+    const [runningIndex, ...remaining] = unmatchedRunnings.get(group) ?? [];
+    if (runningIndex === undefined) return;
+    closedRunnings.add(runningIndex);
+    unmatchedRunnings.set(group, remaining);
   });
+
+  return trace.filter((_, index) => !closedRunnings.has(index));
 }
 
 function newestAction(steps: TraceStep[]): TraceStep | null {
@@ -204,8 +187,8 @@ export function buildResearchJourney({
   answerPhase: AnswerPhase | null;
   terminalStatus: LiveMessageState["status"];
 }): ResearchJourneyModel {
-  const { trace, indexes } = replayOrderedTrace(progress);
-  const normalizedTrace = closeSupersededKnownRunnings(trace, indexes);
+  const trace = replayOrderedTrace(progress);
+  const normalizedTrace = closeSupersededRunnings(trace);
   const byPhase = new Map<ResearchPhaseId, TraceStep[]>();
   for (const step of normalizedTrace) {
     const phase = phaseByStage[step.name];
@@ -260,10 +243,7 @@ export function buildResearchReceipt(bundle: RunBundle): ResearchReceiptModel {
     bundle.context.metadata.source_date,
     bundle.context.metadata.duckdb_cutoff,
   ].map(nonBlank).find((value): value is string => value !== null) ?? null;
-  const degradeLabels = [...new Set(bundle.run.degrades.map(userFacingIssue))];
-  const nonGapIssues = new Set(
-    [...bundle.run.degrades, ...bundle.context.warnings].map((item) => item.trim()),
-  );
+  const issueLabels = [...new Set(bundle.context.gaps.map(userFacingIssue))];
 
   return {
     evidenceCount: bundle.context.evidence.filter(
@@ -271,11 +251,8 @@ export function buildResearchReceipt(bundle: RunBundle): ResearchReceiptModel {
     ).length,
     cutoff,
     artifactCount: bundle.run.artifacts.length,
-    gapCount: bundle.context.gaps.filter(
-      (gap) => !nonGapIssues.has(gap.trim()),
-    ).length,
-    degradeCount: degradeLabels.length,
-    degradeLabels,
+    issueCount: issueLabels.length,
+    issueLabels,
     runStatus: bundle.run.status,
   };
 }

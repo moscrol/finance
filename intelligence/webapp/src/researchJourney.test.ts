@@ -103,6 +103,49 @@ describe("buildResearchJourney", () => {
     expect(conclude.currentAction).toBe("自然语言精修完成");
   });
 
+  it("consumes only one known running milestone per terminal event", () => {
+    const oneCompleted = buildResearchJourney({
+      progress: [
+        step("research", "running", { step_id: "branch-A", output_summary: "分支 A" }),
+        step("research", "running", { step_id: "branch-B", output_summary: "分支 B" }),
+        step("research", "completed", { step_id: "branch-A-done", output_summary: "分支 A 完成" }),
+      ], answerPhase: null, terminalStatus: "streaming",
+    });
+    const bothCompleted = buildResearchJourney({
+      progress: [
+        step("research", "running", { step_id: "branch-A" }),
+        step("research", "running", { step_id: "branch-B" }),
+        step("research", "completed", { step_id: "branch-A-done" }),
+        step("research", "completed", { step_id: "branch-B-done" }),
+      ], answerPhase: null, terminalStatus: "streaming",
+    });
+    expect(oneCompleted.phases[1].status).toBe("running");
+    expect(bothCompleted.phases[1].status).toBe("completed");
+  });
+
+  it("closes unknown lifecycle groups without assigning a phase", () => {
+    const result = buildResearchJourney({
+      progress: [
+        step("future_stage", "running", { step_id: "future-start", output_summary: "未知处理中" }),
+        step("future_stage", "completed", { step_id: "future-finish", output_summary: "未知已完成" }),
+      ], answerPhase: null, terminalStatus: "streaming",
+    });
+    expect(result.currentAction).toBe("未知已完成");
+    expect(result.currentPhaseIndex).toBeNull();
+    expect(result.phases.every((phase) => phase.status === "waiting")).toBe(true);
+  });
+
+  it("preserves failed terminal milestones", () => {
+    const result = buildResearchJourney({
+      progress: [
+        step("research", "running", { step_id: "branch-start" }),
+        step("research", "failed", { step_id: "branch-failed", output_summary: "分支失败" }),
+      ], answerPhase: null, terminalStatus: "streaming",
+    });
+    expect(result.phases[1].status).toBe("attention");
+    expect(result.currentAction).toBe("分支失败");
+  });
+
   it("does not mark an earlier phase complete merely because a later phase began", () => {
     const result = buildResearchJourney({ progress: [step("research", "running")], answerPhase: null, terminalStatus: "streaming" });
     expect(result.phases.map((phase) => phase.status)).toEqual(["waiting", "running", "waiting", "waiting"]);
@@ -179,32 +222,33 @@ describe("buildResearchJourney", () => {
 });
 
 describe("buildResearchReceipt", () => {
-  it("counts bound evidence, selects the first nonblank cutoff, and humanizes unique degrades", () => {
+  it("counts bound evidence, selects the first nonblank cutoff, and humanizes unique context issues", () => {
     const result = buildResearchReceipt(bundle({
       run: { ...bundle().run, source_date: " ", duckdb_cutoff: "2026-08-23", artifacts: [{ artifact_id: "a", path: "a", renderer: "md", title: "A", sha256: "a", bytes: 1, previewable: true, downloadable: true }, { artifact_id: "b", path: "b", renderer: "md", title: "B", sha256: "b", bytes: 1, previewable: true, downloadable: true }], degrades: ["llm_unavailable_template_answer", "llm_unavailable_template_answer", "wiki-rag stale"] },
       context: { ...bundle().context, evidence: [
         { id: "1", label: "一", kind: "x", classification: "bound_evidence", detail: "", status: "ok" },
         { id: "2", label: "二", kind: "x", classification: "fact_source", detail: "", status: "ok" },
-      ], gaps: ["gap-1", "gap-2"], metadata: { ...bundle().context.metadata, source_date: "2026-08-22" } },
+      ], gaps: ["llm_unavailable_template_answer", "llm_unavailable_template_answer", "wiki-rag stale"], metadata: { ...bundle().context.metadata, source_date: "2026-08-22" } },
     }));
-    expect(result).toMatchObject({ evidenceCount: 1, cutoff: "2026-08-23", artifactCount: 2, gapCount: 2, degradeCount: 2, runStatus: "completed" });
-    expect(result.degradeLabels).toEqual([
+    expect(result).toMatchObject({ evidenceCount: 1, cutoff: "2026-08-23", artifactCount: 2, issueCount: 2, runStatus: "completed" });
+    expect(result.issueLabels).toEqual([
       "自然语言综合暂时不可用，已保留可核验数据与研究产物。",
       "知识库索引已过期；相关证据仅供参考。",
     ]);
   });
 
-  it("counts only gaps independent from raw degrades and warnings", () => {
+  it("uses raw context gaps when public run degrades have already been sanitized", () => {
     const result = buildResearchReceipt(bundle({
-      run: { ...bundle().run, degrades: ["llm_unavailable_template_answer"] },
+      run: { ...bundle().run, degrades: ["自然语言综合暂时不可用；已保留可核验数据与结构化产物。"] },
       context: {
         ...bundle().context,
-        warnings: ["  warning-1  "],
-        gaps: ["llm_unavailable_template_answer", "warning-1", "independent-gap"],
+        gaps: ["llm_unavailable_template_answer"],
       },
     }));
-    expect(result.gapCount).toBe(1);
-    expect(result.degradeCount).toBe(1);
+    expect(result.issueCount).toBe(1);
+    expect(result.issueLabels).toEqual([
+      "自然语言综合暂时不可用，已保留可核验数据与研究产物。",
+    ]);
   });
 
   it("falls back through metadata cutoff fields and then null", () => {

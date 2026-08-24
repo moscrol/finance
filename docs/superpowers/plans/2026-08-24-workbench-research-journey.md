@@ -32,6 +32,8 @@
 - Create: `intelligence/webapp/src/researchJourney.ts`
 - Create: `intelligence/webapp/src/researchJourney.test.ts`
 
+归并补充契约：去重后的唯一 step 按其最后一次 replay 输入位置排列；每个 completed/failed/skipped 仅关闭同一生命周期组内一个更早、未关闭的 running（已知步骤按阶段分组，未知步骤按原始 `name` 分组），绝不从摘要文本推断关联。收据的 `issueCount` / `issueLabels` 只从原始 `context.gaps` 经 `userFacingIssue` 去重得出，UI 统一显示「N 项限制/缺口」。
+
 - [ ] **Step 1：先写阶段与收据契约的失败测试**
 
 创建 `intelligence/webapp/src/researchJourney.test.ts`：
@@ -393,18 +395,17 @@ describe("buildResearchJourney", () => {
 });
 
 describe("buildResearchReceipt", () => {
-  it("counts only bound evidence and keeps gaps separate from degrades", () => {
+  it("counts only bound evidence and combines context issues", () => {
     const receipt = buildResearchReceipt(runBundle());
 
     expect(receipt).toMatchObject({
       evidenceCount: 2,
       cutoff: "2026-08-21",
       artifactCount: 1,
-      gapCount: 2,
-      degradeCount: 1,
+      issueCount: 2,
       runStatus: "completed",
     });
-    expect(receipt.degradeLabels).toEqual([
+    expect(receipt.issueLabels).toEqual([
       "自然语言综合暂时不可用，已保留可核验数据与研究产物。",
     ]);
   });
@@ -488,9 +489,8 @@ export interface ResearchReceiptModel {
   evidenceCount: number;
   cutoff: string | null;
   artifactCount: number;
-  gapCount: number;
-  degradeCount: number;
-  degradeLabels: string[];
+  issueCount: number;
+  issueLabels: string[];
   runStatus: RunStatus;
 }
 
@@ -686,8 +686,8 @@ function firstRecordedDate(values: Array<string | null>): string | null {
 export function buildResearchReceipt(
   bundle: RunBundle,
 ): ResearchReceiptModel {
-  const degradeLabels = [
-    ...new Set(bundle.run.degrades.map((issue) => userFacingIssue(issue))),
+  const issueLabels = [
+    ...new Set(bundle.context.gaps.map((issue) => userFacingIssue(issue))),
   ];
 
   return {
@@ -701,9 +701,8 @@ export function buildResearchReceipt(
       bundle.context.metadata.duckdb_cutoff,
     ]),
     artifactCount: bundle.run.artifacts.length,
-    gapCount: bundle.context.gaps.length,
-    degradeCount: degradeLabels.length,
-    degradeLabels,
+    issueCount: issueLabels.length,
+    issueLabels,
     runStatus: bundle.run.status,
   };
 }
@@ -1313,10 +1312,9 @@ it("renders a terminal research receipt without merging gaps and limits", () => 
   expect(receipt).toHaveTextContent("1 条可验证引用");
   expect(receipt).toHaveTextContent("数据日期未记录");
   expect(receipt).toHaveTextContent("2 个产物");
-  expect(receipt).toHaveTextContent("1 项数据缺口");
-  expect(receipt).toHaveTextContent("1 项运行限制");
+  expect(receipt).toHaveTextContent("1 项限制/缺口");
   expect(receipt).toHaveAttribute(
-    "data-degrade-summary",
+    "data-issue-summary",
     "自然语言综合暂时不可用，已保留可核验数据与研究产物。",
   );
 });
@@ -1343,7 +1341,6 @@ import {
   CalendarDays,
   FileStack,
   Link2,
-  SearchX,
 } from "lucide-react";
 import type { ResearchReceiptModel } from "../researchJourney";
 import type { RunStatus } from "../types";
@@ -1366,7 +1363,7 @@ export function ResearchReceipt({ model }: ResearchReceiptProps) {
     <section
       className={`research-receipt is-${model.runStatus}`}
       aria-label="研究收据"
-      data-degrade-summary={model.degradeLabels.join("；") || undefined}
+      data-issue-summary={model.issueLabels.join("；") || undefined}
     >
       <div className="research-receipt-heading">
         <span>Foresight · {runStatusLabels[model.runStatus]}</span>
@@ -1387,13 +1384,9 @@ export function ResearchReceipt({ model }: ResearchReceiptProps) {
           <FileStack aria-hidden="true" size={13} />
           <span>{model.artifactCount} 个产物</span>
         </li>
-        <li>
-          <SearchX aria-hidden="true" size={13} />
-          <span>{model.gapCount} 项数据缺口</span>
-        </li>
-        <li title={model.degradeLabels.join("；") || undefined}>
+        <li title={model.issueLabels.join("；") || undefined}>
           <AlertTriangle aria-hidden="true" size={13} />
-          <span>{model.degradeCount} 项运行限制</span>
+          <span>{model.issueCount} 项限制/缺口</span>
         </li>
       </ul>
     </section>
@@ -1890,7 +1883,7 @@ Expected:
 | 唯一动态焦点、ARIA live、重连 | Task 2 |
 | 部分草稿出现后收紧为紧凑旅程 | Task 2、Task 4 |
 | `<720px` 阶段 n/4 + 四段条 | Task 2、Task 5 |
-| bound evidence、截止日、产物、gap、degrade 分口径 | Task 1、Task 3 |
+| bound evidence、截止日、产物、限制/缺口合并口径 | Task 1、Task 3 |
 | Journey / Receipt / 旧终态 fallback 互斥 | Task 4 |
 | 原始 Run Trace、warning、artifact、followup 保留 | Task 4、Task 5 |
 | 无依赖、无 API/schema 改动 | Task 6 |
