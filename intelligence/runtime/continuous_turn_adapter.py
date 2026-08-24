@@ -494,6 +494,9 @@ class ContinuousTurnAdapter:
             )
             if perspective_context:
                 context_kwargs["perspective_context"] = perspective_context
+            stance_pack = getattr(control, "stance_pack", None)
+            if stance_pack is not None:
+                context_kwargs["stance_pack"] = stance_pack
             if self._synthesis_reserve_for_task is not None:
                 context_kwargs["synthesis_reserve"] = max(
                     0.0,
@@ -1568,12 +1571,20 @@ def _episode_context_provenance(
 ) -> dict[str, object]:
     """Persist the single cutoff/freshness context beside private diagnostics."""
 
-    return {
+    payload: dict[str, object] = {
         "information_cutoff": context.information_cutoff.to_dict(),
         "today": context.today,
         "latest_data_date": context.latest_data_date,
         "trace_parent_id": context.trace_parent_id,
     }
+    pack = getattr(context, "stance_pack", None)
+    if pack is None:
+        return payload
+    to_receipt = getattr(pack, "to_receipt", None)
+    payload["stance_pack"] = (
+        to_receipt() if callable(to_receipt) else {"present": True}
+    )
+    return payload
 
 
 def _declined_result() -> ContinuousTurnResult:

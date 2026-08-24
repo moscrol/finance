@@ -106,10 +106,10 @@ _RUNTIME_CAPABILITY_FLOOR: dict[str, tuple[str, ...]] = {
     ),
     "structured_market_technical": ("market_data",),
     "current_external_market": ("market_data", "news_search", "web_search"),
-    # memory_lookup 默认只加在三条「用户很可能对该主体表达过看法」的策略上
-    # （公司深挖、题材分析、题材跟踪），不是全部 20 条：它每次占一个工具槽，
-    # 而实测一轮 research 在 4-6 次调用就会 budget_exhausted，广授权会挤掉
-    # 盘面查询。取值查询和方法论讨论仍然不加。
+    # memory_lookup 默认只加在「用户很可能对该主体表达过看法」的策略上
+    # （公司深挖、题材分析、题材跟踪、买卖题条件化 thesis），不是全部 20 条：
+    # 它每次占一个工具槽，而实测一轮 research 在 4-6 次调用就会
+    # budget_exhausted，广授权会挤掉盘面查询。取值查询和方法论讨论仍然不加。
     #
     # 例外是 general_finance_evidence（见下）：残差题没有子 skill 菜单，Knevo
     # 形下限要求记忆+行情+新闻同时在授权里。这里接受预算拥挤，不是漏把第四条
@@ -192,6 +192,7 @@ _RUNTIME_CAPABILITY_FLOOR: dict[str, tuple[str, ...]] = {
         "evidence_lookup",
         "news_search",
         "web_search",
+        "memory_lookup",
     ),
     "current_public_knowledge": ("news_search", "web_search"),
     # 残差政策：Knevo 形三件套 + 原 kb/web。预算拥挤是有意取舍，见上方
