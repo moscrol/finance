@@ -970,9 +970,11 @@ describe("Chat-first conversation components", () => {
     const currentStage = within(stageList).getByLabelText("查找证据，进行中");
     expect(currentStage).toHaveAttribute("aria-current", "step");
     expect(currentStage).toHaveClass("is-running", "is-current");
-    expect(
-      screen.getByText("阶段 2/4 · 查找证据 · 进行中"),
-    ).toBeInTheDocument();
+    const mobileSummary = screen.getByText(
+      "阶段 2/4 · 查找证据 · 进行中",
+    );
+    expect(mobileSummary).toBeInTheDocument();
+    expect(mobileSummary).toHaveAttribute("aria-hidden", "true");
 
     const liveRegion = screen.getByRole("status");
     expect(liveRegion).toHaveAttribute("aria-live", "polite");
@@ -1003,9 +1005,11 @@ describe("Chat-first conversation components", () => {
     expect(within(stageList).getByLabelText("理解与计划，已完成")).toHaveClass(
       "is-completed",
     );
-    expect(within(stageList).getByLabelText("查找证据，进行中")).toHaveClass(
-      "is-running",
+    const nonCurrentRunning = within(stageList).getByLabelText(
+      "查找证据，进行中",
     );
+    expect(nonCurrentRunning).toHaveClass("is-running");
+    expect(nonCurrentRunning).not.toHaveClass("is-current");
     expect(within(stageList).getByLabelText("交叉核验，需要关注")).toHaveClass(
       "is-attention",
       "is-current",

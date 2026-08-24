@@ -53,7 +53,9 @@ export function ResearchJourney({
         <small>研究旅程</small>
       </div>
 
-      <div className="research-journey-mobile-summary">{mobileSummary}</div>
+      <div className="research-journey-mobile-summary" aria-hidden="true">
+        {mobileSummary}
+      </div>
 
       <ol className="research-journey-track" aria-label="研究阶段" role="list">
         {model.phases.map((phase, index) => {

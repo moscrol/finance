@@ -245,7 +245,7 @@
 
   .research-journey-phase {
     display: block;
-    min-height: 6px;
+    min-height: 8px;
     border: 1px solid var(--muted);
     border-radius: 999px;
     background: transparent;
@@ -257,8 +257,8 @@
   }
 
   .research-journey-phase.is-running {
-    border-color: var(--accent-dark);
-    background: var(--accent-dark);
+    border: 3px double var(--accent-dark);
+    background: transparent;
   }
 
   .research-journey-phase.is-current {
