@@ -290,6 +290,10 @@ _MARKET_FORECAST_RE = re.compile(
     # 第一个分支匹配不到。
     r"|(?:给出|做|说说|谈谈)[^。？！]{0,14}(?:研判|展望|预判)"
 )
+# 无序合取：句尾「本周行情的展望」/「写一下本周展望」认不出有序支。
+# 不并进 _MARKET_FORECAST_RE，避免把「怎么看」类题材题一并放宽。
+_FORECAST_VERB_RE = re.compile(r"(?:展望|研判|预测|预判)")
+_FORECAST_MARKET_SUBJECT_RE = re.compile(r"(?:后市|市场|行情|大盘|本周)")
 _EVENT_FORECAST_RE = re.compile(
     r"(?:如果|若|假设)[^。？！]{0,48}"
     r"(?:会不会|能否|是否|可能|受益|影响|推动|证伪|落地)"
@@ -745,7 +749,14 @@ def is_market_forecast_query(query: str) -> bool:
     """识别明确的全市场后市展望；不把泛泛“市场怎么样”误当预测。"""
 
     text = re.sub(r"\s+", "", str(query or "").strip())
-    return _MARKET_FORECAST_RE.search(text) is not None
+    if not text:
+        return False
+    if _MARKET_FORECAST_RE.search(text) is not None:
+        return True
+    return (
+        _FORECAST_VERB_RE.search(text) is not None
+        and _FORECAST_MARKET_SUBJECT_RE.search(text) is not None
+    )
 
 
 def is_event_forecast_query(query: str) -> bool:
