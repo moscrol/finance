@@ -1,5 +1,10 @@
 # feat/substitute-observation-probe
 
+> **2026-08-25 状态**：P0 已合 main（Gitea #371，`cd6f9e0d`）并切 8792=`cd6f9e0dffce`
+> （readiness 13/13，回滚锚 `~/.finance-runtime/cutover-20260825b-rollback-8792.txt`）。
+> P1-b（一般题走开口预取拿替补池）在分支 `feat/substitute-probe-prefetch-p1b`，
+> 落点修正见 spec §8.1。P1-a（weekly）未做。
+
 ## 这个分支做什么
 
 空袋替补观察探针 P0：主线题材当日无严格双红匹配时，盘面题的组件包在缺口句之后

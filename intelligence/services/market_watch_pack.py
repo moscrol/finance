@@ -216,25 +216,53 @@ class MarketWatchPack:
                 f"- 涨停热度 served_date={heat.served_date}：{names}。"
             )
         if self.probes:
-            lines.append("## 替补观察（出清/分歧观察，非机会）")
-            for probe in self.probes:
-                if probe.status != "hit" or not probe.rows:
-                    lines.append(
-                        f"- [{probe.role}] {probe.trigger}：该日无可替补观察对象。"
-                    )
-                    continue
-                first = probe.rows[0]
-                names = "、".join(
-                    f"{row.get('stock_name')}({row.get('stock_code')})"
-                    for row in probe.rows
-                )
-                lines.append(
-                    f"- [{probe.role}] {probe.trigger}；替补："
-                    f"{first.get('sector_name')}"
-                    f"（板块成交额 {first.get('sector_amount')} 亿）→ {names}；"
-                    f"served_date={probe.served_date}。"
-                )
+            lines.append(SUBSTITUTE_BLOCK_TITLE)
+            lines.extend(render_probe_lines(self.probes))
         return "\n".join(lines)
+
+
+SUBSTITUTE_BLOCK_TITLE = "## 替补观察（出清/分歧观察，非机会）"
+
+
+def render_probe_lines(probes: tuple[ProbeReceipt, ...]) -> tuple[str, ...]:
+    """探针收据 → 标签先行的渲染行（包 render 与开口预取共用同一形状）。"""
+
+    lines: list[str] = []
+    for probe in probes:
+        if probe.status != "hit" or not probe.rows:
+            lines.append(
+                f"- [{probe.role}] {probe.trigger}：该日无可替补观察对象。"
+            )
+            continue
+        first = probe.rows[0]
+        names = "、".join(
+            f"{row.get('stock_name')}({row.get('stock_code')})"
+            for row in probe.rows
+        )
+        lines.append(
+            f"- [{probe.role}] {probe.trigger}；替补："
+            f"{first.get('sector_name')}"
+            f"（板块成交额 {first.get('sector_amount')} 亿）→ {names}；"
+            f"served_date={probe.served_date}。"
+        )
+    return tuple(lines)
+
+
+def substitute_observation_receipts(
+    con: Any,
+    standing: str | None,
+) -> tuple[ProbeReceipt, ...]:
+    """公共接缝：给定只读连接与站立日，跑主线/双红并产替补探针。
+
+    供 Engine A 开口预取（asof_prefetch）等 pack 之外的消费方复用，
+    与包内探针同一函数、同一同日纪律，不开第二套口径。
+    """
+
+    if standing is None:
+        return ()
+    mainline = _query_mainline(con, standing)
+    dual = _query_dual_red(con, standing)
+    return _probe_substitute_observation(con, standing, mainline, dual)
 
 
 def merge_into_public_answer(text: str, pack: MarketWatchPack | None) -> str:

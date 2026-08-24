@@ -703,11 +703,17 @@ SIGNAL_AGGREGATE = "aggregate"
 SIGNAL_DETAIL = "detail"
 SIGNAL_CROSS_TABLE = "cross_table"
 SIGNAL_CONTRADICTION = "contradiction"
+SIGNAL_SUBSTITUTE_OBSERVATION = "substitute_observation"
 
 _PROGRAM_AGGREGATE_RE = re.compile(r"(多少|几个|几家|家数|数量|有多少)")
 _PROGRAM_DETAIL_RE = re.compile(r"(列出|名单|明细|哪些)")
 _PROGRAM_CROSS_RE = re.compile(r"(交集|同时属于|既是.+又|既在.+又)")
 _PROGRAM_CONTRADICTION_RE = re.compile(r"(矛盾|冲突|不一致)")
+# 替补观察三词族：题材面 + 个股面 + 观察意图，三者齐才触发（勿放宽——
+# 触发后的替补池以「主线题材无双红匹配」为准，单股深挖题进来只会是噪音）。
+_SUBSTITUTE_THEME_RE = re.compile(r"(板块|题材|主线|行业)")
+_SUBSTITUTE_STOCK_RE = re.compile(r"(个股|标的)")
+_SUBSTITUTE_OBS_RE = re.compile(r"(观察|反馈|机会|对标|关注)")
 
 
 def surface_research_signals(
@@ -742,6 +748,15 @@ def surface_research_signals(
         signals.add(SIGNAL_CROSS_TABLE)
     if _PROGRAM_CONTRADICTION_RE.search(text):
         signals.add(SIGNAL_CONTRADICTION)
+    # 盘面题不发替补信号：market_watch 路径的替补池由四袋包的探针供给
+    # （bind_market_watch_pack），此处再发会双份。
+    if (
+        not (routed_watch or inferred_watch)
+        and _SUBSTITUTE_THEME_RE.search(text)
+        and _SUBSTITUTE_STOCK_RE.search(text)
+        and _SUBSTITUTE_OBS_RE.search(text)
+    ):
+        signals.add(SIGNAL_SUBSTITUTE_OBSERVATION)
     return frozenset(signals)
 
 

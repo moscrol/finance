@@ -1,7 +1,7 @@
 # 设计：空袋替补观察探针（残差自适应补查·第一片）
 
 - 日期：2026-08-25
-- 状态：Draft v1（未实施）
+- 状态：**v1.1**（P0 已实施合入 #371 并切 8792=`cd6f9e0dffce`；P1-b 落点修正后已实施，见 §8.1；P1-a weekly 未做）
 - 来源：五臂对照 live-toolkit 决策记录（`~/.finance-runtime/trace-diff-spt-tech-med-monday-20260823/live-toolkit/decisions.json`）+ 五臂报告结论 2（同目录 `one-page-report.md`）+ `gitea/main@760bf79b` 代码核验（2026-08-25 凌晨，快照 `~/.finance-runtime/finance-workspace-760bf79bea64`）。
 - 代码树：从 `gitea/main` 开干净树 `feat/substitute-observation-probe`。**禁止**在主检出 `feat/reading-rules-baseline-batch1` 脏树改 runtime（本稿允许 pathspec 落在脏树）。**禁止**动 8792 / 8796 / 8802。
 - 相邻稿（本单不重做、不抢合）：
@@ -122,7 +122,14 @@ merge_into_public_answer：免费携带（owner md 不得顶掉）
 ## 8. P1 / P2（本单不实施，只钉方向）
 
 - **P1-a** outlook 五日包接探针：仅最新交易日那袋开 `substitute_probes=True`，收据须走开口预取账本（`content_hash` + E 号纪律，见 quality 稿 P0-a）；行为变更单独验收。
-- **P1-b** 一般题路径：`research_contract` 新 operator `market.substitute_observation`，`compile_research_program` 在「题材 + 个股观察」意图时编入，`run_strict_signal_pack` 分发到同一探针函数。第 0 步先冻结三道 SPT 原题今天编译出什么 operator（勿假设）。
+- **P1-b** 一般题路径：`research_contract` 新 operator `market.substitute_observation`，`compile_research_program` 在「题材 + 个股观察」意图时编入。~~`run_strict_signal_pack` 分发到同一探针函数~~（**落点已修正，见 §8.1**）。第 0 步先冻结三道 SPT 原题今天编译出什么 operator（勿假设）。
+
+### §8.1 P1-b 落点修正（2026-08-25 实施时核稿，「先查椅子上坐着什么」再现）
+
+- **[实测]** 编排器只在 `turn_intent.question_type == "market_watch"` 时调 `bind_research_program`（`conversation_orchestrator.py` 汇合处分支）——一般题在生产里**不经过** `run_strict_signal_pack`，v1 的分发落点切在不执行的路上。
+- **[实测]** 一般题走 Engine A；组件供数的真缝是开口预取 `asof_prefetch.collect_prefetch_items`（`episode_tools.py` 两处调用，`frame.question_type` 全题型进入），且该函数**已经**编译 ResearchProgram 并按 operator 供数（`OPERATOR_STRICT_DOUBLE_RED` 先例）；`PrefetchItem.to_evidence()` 自动算 `content_hash`，E 号纪律按构造成立。
+- **[冻结]** 三道 SPT 原题路由（`spt-route-freeze.md`）：周一题 `general_finance_qa`+detail_rows、有色题 `theme_analysis`+detail_rows、阶段题 `general_finance_qa`+0 operator。
+- **修正后落点**：信号 `SIGNAL_SUBSTITUTE_OBSERVATION`（题材/个股/观察三词族齐、market_watch 门控关）→ operator 编入 → **`collect_prefetch_items` 消费**：站立日=`max(trade_date)<=as_of`（隐式语义，不越过问句截止日），调 `market_watch_pack.substitute_observation_receipts`（公共接缝，与包内同一探针函数），产出一条 `PrefetchItem`（标签先行渲染 `render_probe_lines` 与包 render 同源）。阶段题不触发（0-operator 契约债另立单）。异常回空，预取不得杀 episode 开口。
 - **P2** 模型点菜（bounded requery）：模型从注册探针菜单选 ≤2 发，执行仍是注册查询。必须做成开关板原子（预留 id `probe.menu`），入 default 盒前过正控/负控消融；不入本单。
 
 ## 9. 落点
