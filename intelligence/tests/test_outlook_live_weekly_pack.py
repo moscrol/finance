@@ -330,6 +330,23 @@ def test_delivery_gate_drops_verification_and_old_issue() -> None:
     assert "结构类比" in cleaned
 
 
+def test_delivery_gate_drops_ungrounded_ma20_band() -> None:
+    from intelligence.services.outlook_delivery_gate import apply_outlook_delivery_gate
+
+    text = "量能还在 MA20 的 110–120%。药仍是主线。"
+    dropped = apply_outlook_delivery_gate(text, question_type="market_forecast")
+    assert "110–120%" not in dropped.text
+    assert "药仍是主线" in dropped.text
+    assert dropped.dropped >= 1
+
+    kept = strip_outlook_violations(
+        text,
+        live_excerpt="量/MA20 回到 110–120% 才谈主升",
+    )
+    assert "110–120%" in kept
+    assert "药仍是主线" in kept
+
+
 def test_weekly_lock_is_visible_and_not_no_data(tmp_path: Path, monkeypatch) -> None:
     from intelligence.services import retrieval_cache
     from intelligence.services.retrieval_cache import DuckDBConnectionResult
