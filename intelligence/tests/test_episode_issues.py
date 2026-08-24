@@ -131,7 +131,12 @@ def test_backfill_plan_is_code_keyed_and_ignores_unrelated_blocks() -> None:
     both = plan_issue_backfill((numeric, floor), subject_kind="market_pattern")
     assert both is not None
     assert both.missing_capabilities == ("market_data", "financial_data")
-    floor_only = plan_issue_backfill((numeric, floor))
+    # 主语已解析、但类型没认出来：numeric 仍 fail-closed，只剩 floor 的静态映射。
+    floor_only = plan_issue_backfill(
+        (numeric, floor),
+        subject_kind="unknown",
+        subject="宁德时代",
+    )
     assert floor_only is not None
     assert floor_only.missing_capabilities == ("financial_data",)
     assert plan_issue_backfill((calendar,)) is None
@@ -159,12 +164,36 @@ def test_numeric_unsupported_market_backfills_market_data() -> None:
     assert plan.missing_capabilities == ("market_data",)
 
 
-def test_numeric_unsupported_without_subject_does_not_backfill() -> None:
+def test_numeric_unsupported_unknown_kind_with_subject_stays_fail_closed() -> None:
+    """有主语、但类型没认出来的那一档仍不猜能力。
+
+    这是 R-05 A 臂漏出来的那一档：主语是个股，kind 没解析出来，若默认
+    market_data 就会把个股缺口回填成市场总览。缺口留成缺口比补错数好。
+    """
+
     issue = _numeric_issue()
-    assert plan_issue_backfill((issue,)) is None
-    assert plan_issue_backfill((issue,), subject_kind="unknown") is None
-    assert plan_issue_backfill((issue,), subject_kind="") is None
-    assert plan_issue_backfill((issue,), subject_kind=None) is None
+    for kind in ("unknown", "", None):
+        assert (
+            plan_issue_backfill((issue,), subject_kind=kind, subject="宁德时代")
+            is None
+        ), kind
+
+
+def test_numeric_unsupported_without_any_subject_backfills_market_data() -> None:
+    """连主语都没有的问题定义上不是个股题，市场级取数是唯一可能的锚。
+
+    回归本体 run_20260824_160340_773829「基于周五的行情，周一该怎么操作」：
+    contract.subject=None / subject_kind='unknown'，backfill 因此从不触发；
+    数字门于是只剩「只删不改」一条路，把唯一阈值可判的那条建议
+    （成交额回到 2 万亿）删掉，恒真的那条反而发了出去。
+    """
+
+    issue = _numeric_issue()
+    for kind in ("unknown", "", None):
+        for subject in (None, "", "   "):
+            plan = plan_issue_backfill((issue,), subject_kind=kind, subject=subject)
+            assert plan is not None, (kind, subject)
+            assert plan.missing_capabilities == ("market_data",), (kind, subject)
 
 
 def test_r05_a_arm_replay_company_numeric_does_not_plan_market_data() -> None:

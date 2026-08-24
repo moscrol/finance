@@ -5188,8 +5188,13 @@ def test_numeric_unsupported_company_backfill_asks_finance_query_not_market_data
     assert "market_data" not in goal.missing_evidence_modes
 
 
-def test_numeric_unsupported_unknown_subject_skips_backfill() -> None:
-    """解析不出主体时宁缺勿错：不回填，缺数显影为缺口。"""
+def test_numeric_unsupported_subjectless_backfill_asks_market_data() -> None:
+    """没有主语的市场级问题必须补市场取数，不能只剩「删掉那句」一条路。
+
+    回归本体 run_20260824_160340_773829：contract.subject=None /
+    subject_kind='unknown'，backfill 从不触发，数字门于是把唯一阈值可判的
+    那条建议（成交额回到 2 万亿）删掉，恒真的那条反而发了出去。
+    """
 
     frame = _unknown_numeric_frame()
     control = _control(frame, capabilities=("market_data", "finance_query"))
@@ -5228,6 +5233,104 @@ def test_numeric_unsupported_unknown_subject_skips_backfill() -> None:
         ),
         usage=AgentUsage(1, 1, 0),
     )
+    repaired = replace(
+        initial,
+        events=(
+            *initial_events,
+            EpisodeEvent(3, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+        ),
+        usage=AgentUsage(2, 2, 0),
+    )
+    captured: dict[str, object] = {}
+
+    class Runtime:
+        def run(self, **_kwargs):
+            raise AssertionError("resumable runtime must not receive a second run")
+
+        def start(self, task_frame, *, context, registry):
+            del task_frame, registry
+
+            def resume(previous, goal):
+                assert previous is initial
+                captured["goal"] = goal
+                return repaired
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=initial,
+                resume_callback=resume,
+            )
+
+    class Semantic:
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        repair_seconds_cap=30.0,
+    ).handle(frame=frame, control=control)
+
+    goal = captured["goal"]
+    assert result.private_artifact["backfill_turns"] == 1
+    assert goal.missing_evidence_modes == ("market_data",)
+    assert "finance_query" not in goal.missing_evidence_modes
+
+
+def test_numeric_unsupported_unknown_kind_with_subject_skips_backfill() -> None:
+    """有主语但类型没认出来时仍宁缺勿错：不猜能力，缺数显影为缺口。
+
+    这是 R-05 A 臂那一档——主语可能是个股，默认 market_data 会把个股缺口
+    回填成市场总览。上面那条放开的只是「连主语都没有」，不是整个 unknown。
+    """
+
+    frame = replace(_unknown_numeric_frame(), subject="太辰光")
+    control = _control(frame, capabilities=("market_data", "finance_query"))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-w3-unknown-kind-with-subject",
+        capabilities=control.capabilities,
+        timeout=90.0,
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复。",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="w3-unknown-2",
+        supports=("direct_assessment",),
+        independent_key="market",
+    )
+    draft = "我的基准判断是反弹仍可持续。若指数跌破3870点则失效。"
+    initial_events = (
+        EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        EpisodeEvent(2, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft=draft,
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=initial_events,
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("w3-unknown-2",), ""),
+        ),
+        usage=AgentUsage(1, 1, 0),
+    )
 
     class Runtime:
         def run(self, **_kwargs):
@@ -5238,7 +5341,7 @@ def test_numeric_unsupported_unknown_subject_skips_backfill() -> None:
 
             def resume(previous, goal):
                 del previous, goal
-                raise AssertionError("unknown subject must not resume for backfill")
+                raise AssertionError("unknown kind with a subject must not backfill")
 
             return CallbackEpisodeSession(
                 episode_id=context.contract.task_id,

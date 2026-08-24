@@ -1334,6 +1334,7 @@ def _issue_backfill_plan(
     return plan_issue_backfill(
         items,
         subject_kind=context.contract.subject_kind,
+        subject=context.contract.subject,
         events=events,
     )
 

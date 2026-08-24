@@ -132,18 +132,31 @@ class BackfillPlan:
     missing_capabilities: tuple[str, ...]
 
 
-def numeric_backfill_capability(subject_kind: str | None) -> str | None:
+def numeric_backfill_capability(
+    subject_kind: str | None,
+    *,
+    subject: str | None = None,
+) -> str | None:
     """Map NUMERIC_UNSUPPORTED onto a capability, or None when fail-closed.
 
     Reuses the episode's already-resolved subject_kind. Do not invent a
     second classifier here — unknown / empty / other kinds skip backfill
     so a missing number stays a gap instead of becoming the wrong number.
+
+    `subject` 是同一个 frame 已经解析好的主语，不是第二个分类器。它只用来
+    区分 unknown 里的两档：**有主语但类型没认出来** 与 **压根没有主语**。
+    前者仍 fail-closed（R-05 A 臂：个股缺口被静态 market_data 回填成市场
+    总览，就是从那一档漏出来的）；后者定义上不可能是个股/公司题，市场级
+    取数是唯一可能的锚，继续 fail-closed 只会让「市场级问题永远补不到数」
+    ——数字门于是只剩删除一条路，把唯一阈值可判的建议删掉。
     """
 
     kind = str(subject_kind or "").strip().lower()
     if kind in _STOCK_SUBJECT_KINDS:
         return "finance_query"
     if kind in _MARKET_SUBJECT_KINDS:
+        return "market_data"
+    if not str(subject or "").strip():
         return "market_data"
     return None
 
@@ -152,6 +165,7 @@ def plan_issue_backfill(
     items: tuple[Issue, ...],
     *,
     subject_kind: str | None = None,
+    subject: str | None = None,
     events: tuple[object, ...] | list[object] = (),
 ) -> BackfillPlan | None:
     """Return a narrow backfill plan, or None when no trigger code is present.
@@ -173,7 +187,7 @@ def plan_issue_backfill(
     capabilities: list[str] = []
     for item in matched:
         if item.code == IssueCode.NUMERIC_UNSUPPORTED:
-            capability = numeric_backfill_capability(subject_kind)
+            capability = numeric_backfill_capability(subject_kind, subject=subject)
             if capability is not None:
                 capabilities.append(capability)
             continue

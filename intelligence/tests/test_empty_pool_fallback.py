@@ -227,7 +227,9 @@ def test_adapter_backfill_plan_uses_outcome_events(monkeypatch) -> None:
             ),
         )
     )
-    context = SimpleNamespace(contract=SimpleNamespace(subject_kind="company"))
+    context = SimpleNamespace(
+        contract=SimpleNamespace(subject_kind="company", subject="宁德时代")
+    )
     assert (
         _issue_backfill_plan(structural, context, events=(_fallback_event(),))
         is None
