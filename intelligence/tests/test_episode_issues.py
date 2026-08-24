@@ -196,6 +196,22 @@ def test_numeric_unsupported_without_any_subject_backfills_market_data() -> None
             assert plan.missing_capabilities == ("market_data",), (kind, subject)
 
 
+def test_numeric_unsupported_resolved_but_unmapped_kind_stays_fail_closed() -> None:
+    """已解析但未映射的类型（题材）即使没主语也不回填。
+
+    W3 (#303) §5 点名题材 fail closed。放开「无主语」那一档时不能顺手把
+    theme 也带进去——那等于把 R-05 A 臂的错误换个主体重演：题材缺口被
+    回填成市场总览。只有 kind 本身没解析出来时才谈得上「没有可错的对象」。
+    """
+
+    issue = _numeric_issue()
+    for subject in (None, "", "创新药"):
+        assert (
+            plan_issue_backfill((issue,), subject_kind="theme", subject=subject)
+            is None
+        ), subject
+
+
 def test_r05_a_arm_replay_company_numeric_does_not_plan_market_data() -> None:
     """R-05 A 臂：个股数值缺证不得再回填市场总览。"""
 

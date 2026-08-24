@@ -119,6 +119,10 @@ BACKFILL_CAPABILITY_BY_CODE: dict[IssueCode, str] = {
     IssueCode.FINANCIAL_ANCHOR_MISSING: "financial_data",
 }
 
+# 只有「类型压根没解析出来」这两个值才算未解析。`theme` 这类**已解析但未映射**
+# 的类型不在内：W3 (#303) §5 点名题材要 fail closed，放进来会把题材缺口回填成
+# 市场总览——正是 R-05 A 臂在个股上犯过的那个错，换个主体重演一次。
+_UNRESOLVED_SUBJECT_KINDS = frozenset({"", "unknown"})
 _STOCK_SUBJECT_KINDS = frozenset({"company", "stock"})
 _MARKET_SUBJECT_KINDS = frozenset(
     {"market_pattern", "index", "external_market"}
@@ -143,12 +147,17 @@ def numeric_backfill_capability(
     second classifier here — unknown / empty / other kinds skip backfill
     so a missing number stays a gap instead of becoming the wrong number.
 
-    `subject` 是同一个 frame 已经解析好的主语，不是第二个分类器。它只用来
-    区分 unknown 里的两档：**有主语但类型没认出来** 与 **压根没有主语**。
-    前者仍 fail-closed（R-05 A 臂：个股缺口被静态 market_data 回填成市场
-    总览，就是从那一档漏出来的）；后者定义上不可能是个股/公司题，市场级
-    取数是唯一可能的锚，继续 fail-closed 只会让「市场级问题永远补不到数」
-    ——数字门于是只剩删除一条路，把唯一阈值可判的建议删掉。
+    `subject` 是同一个 frame 已经解析好的主语，不是第二个分类器（W3 #303 §5
+    「不新造主体分类器」仍成立）。它只用来把 unresolved 那一格劈成两档：
+
+    - **有主语、类型没认出来** —— 仍 fail-closed。R-05 A 臂就是从这一档漏出
+      去的：主语是个股，猜了 market_data，市场总览数字进了个股公开稿。
+    - **压根没有主语** —— 定义上不可能是个股题，市场级取数是唯一可能的锚。
+      这一档继续 fail-closed 不叫「宁缺勿错」，叫「市场级问题永远补不到数」：
+      NUMERIC_UNSUPPORTED 于是只剩 deletion-only repair 一条出路，把唯一阈值
+      可判的那句删掉。
+
+    `theme` 等**已解析但未映射**的类型不走第二档，见 `_UNRESOLVED_SUBJECT_KINDS`。
     """
 
     kind = str(subject_kind or "").strip().lower()
@@ -156,7 +165,7 @@ def numeric_backfill_capability(
         return "finance_query"
     if kind in _MARKET_SUBJECT_KINDS:
         return "market_data"
-    if not str(subject or "").strip():
+    if kind in _UNRESOLVED_SUBJECT_KINDS and not str(subject or "").strip():
         return "market_data"
     return None
 
