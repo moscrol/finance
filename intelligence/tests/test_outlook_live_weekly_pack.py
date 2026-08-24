@@ -21,7 +21,7 @@ from intelligence.services.perspective_live_weekly import (
     retrieve_analog_snippets,
 )
 from intelligence.services.task_frame import TaskFrame
-from intelligence.services.weekly_watch_pack import run_weekly_watch_pack
+from intelligence.services.weekly_watch_pack import day_bag_details, run_weekly_watch_pack
 
 try:
     import duckdb
@@ -328,3 +328,81 @@ def test_delivery_gate_drops_verification_and_old_issue() -> None:
     assert "原文判断（2026.23）" not in cleaned
     assert "医药老主线" not in cleaned
     assert "结构类比" in cleaned
+
+
+def test_weekly_lock_is_visible_and_not_no_data(tmp_path: Path, monkeypatch) -> None:
+    from intelligence.services import retrieval_cache
+    from intelligence.services.retrieval_cache import DuckDBConnectionResult
+
+    db = _week_db(tmp_path / "week.duckdb")
+
+    def fake_connect(_path):
+        return DuckDBConnectionResult("open_failed", error_type="IOException", reason="locked")
+
+    monkeypatch.setattr(retrieval_cache, "try_connect_readonly", fake_connect)
+    pack = run_weekly_watch_pack("2026-08-21", market_db_path=db, window=5)
+    assert pack.access == "locked"
+    details = dict(day_bag_details(pack))
+    blob = "\n".join(details.values())
+    assert "status=locked" in blob
+    assert "复盘写入中" in blob
+    assert "该日无行情数据" not in blob
+    items = collect_prefetch_items(
+        question="写一下本周行情的展望",
+        question_type="market_forecast",
+        subject="",
+        as_of=date(2026, 8, 21),
+        market_db_path=db,
+    )
+    week = [item for item in items if "先验周" in item.title or "locked" in item.detail]
+    assert week
+    assert any("复盘写入中" in item.detail for item in week)
+    assert not any(item.title.endswith("双红个数序列") for item in items)
+
+
+def test_weekly_prefetch_does_not_swallow_pack_error(tmp_path: Path, monkeypatch) -> None:
+    from intelligence.services import weekly_watch_pack as weekly_mod
+
+    db = _week_db(tmp_path / "week.duckdb")
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("weekly pack exploded")
+
+    monkeypatch.setattr(weekly_mod, "run_weekly_watch_pack", boom)
+    items = collect_prefetch_items(
+        question="写一下本周行情的展望",
+        question_type="market_forecast",
+        subject="",
+        as_of=date(2026, 8, 21),
+        market_db_path=db,
+    )
+    assert any("unavailable" in item.detail or "exploded" in item.detail for item in items)
+    assert not any(item.title.endswith("双红个数序列") for item in items)
+
+
+def test_apply_gate_only_on_market_forecast() -> None:
+    from intelligence.services.agent_research import AgentEvidence
+    from intelligence.services.outlook_delivery_gate import apply_outlook_delivery_gate
+
+    text = "新闻层已给部分验证。主线仍在。"
+    evidence = (
+        AgentEvidence(
+            tool="kb_search",
+            title="活周报 2026.34 (2026-08-17)",
+            detail="药为断代后的新主线",
+            source="live_weekly",
+            source_date="2026-08-17",
+        ),
+    )
+    skipped = apply_outlook_delivery_gate(
+        text, question_type="theme_analysis", evidence=evidence
+    )
+    assert skipped.applied is False
+    assert skipped.text == text
+    gated = apply_outlook_delivery_gate(
+        text, question_type="market_forecast", evidence=evidence
+    )
+    assert gated.applied is True
+    assert gated.dropped >= 1
+    assert "已给部分验证" not in gated.text
+    assert "主线仍在" in gated.text

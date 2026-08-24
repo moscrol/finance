@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from intelligence.services import retrieval_cache
 from intelligence.services.market_watch_pack import (
@@ -34,6 +34,10 @@ class DailyEnergy:
     double_red_count: int | None
 
 
+Access = Literal["ok", "locked", "unavailable"]
+LOCKED_HINT = "复盘写入中，请稍后。不是该日无数据。"
+
+
 @dataclass(frozen=True)
 class WeeklyWatchPack:
     end_date: str
@@ -41,6 +45,7 @@ class WeeklyWatchPack:
     days: tuple[str, ...]
     packs: tuple[MarketWatchPack, ...]
     energy: tuple[DailyEnergy, ...]
+    access: Access = "ok"
 
     def pack_for(self, trade_date: str) -> MarketWatchPack | None:
         for pack in self.packs:
@@ -86,6 +91,18 @@ def run_weekly_watch_pack(
     market_db_path: str | Path | None,
     window: int = DEFAULT_WINDOW,
 ) -> WeeklyWatchPack:
+    opened = _open(market_db_path)
+    if opened is None or not opened.available:
+        access: Access = "locked" if opened is not None and opened.locked else "unavailable"
+        return WeeklyWatchPack(
+            end_date=end_date,
+            window=window,
+            days=(),
+            packs=(),
+            energy=(),
+            access=access,
+        )
+    opened.connection.close()
     days = _trade_dates(market_db_path, end_date, window)
     packs: list[MarketWatchPack] = []
     energy: list[DailyEnergy] = []
@@ -104,12 +121,17 @@ def run_weekly_watch_pack(
         days=days,
         packs=tuple(packs),
         energy=tuple(energy),
+        access="ok",
     )
 
 
 def day_bag_details(pack: WeeklyWatchPack) -> tuple[tuple[str, str], ...]:
     """(title, detail) pairs for opening prefetch. Formatter lives in asof_prefetch."""
 
+    if pack.access == "locked":
+        return (("先验周盘面", f"status=locked {LOCKED_HINT}"),)
+    if pack.access == "unavailable":
+        return (("先验周盘面", "status=unavailable 盘面库打不开，不是该日无数据。"),)
     rows = [("先验周量能序列", pack.tape_summary())]
     for day, daily in zip(pack.days, pack.packs, strict=False):
         rows.append((f"{day} 四袋", _render_day(day, daily, pack.energy_for(day))))
@@ -191,6 +213,11 @@ def _render_day(day: str, pack: MarketWatchPack, energy: DailyEnergy | None) -> 
     lines = [f"{day}"]
     for name in REQUIRED_BAGS:
         bag = pack.bag(name)
+        if bag is not None and bag.locked:
+            served = bag.served_date
+            requested = bag.requested_date or day
+            lines.append(f"- {name}: locked requested={requested} served={served} {LOCKED_HINT}")
+            continue
         if bag is None or bag.empty:
             label = {
                 BAG_MARKET: "该日无行情数据",
@@ -223,16 +250,20 @@ def _render_day(day: str, pack: MarketWatchPack, energy: DailyEnergy | None) -> 
     return "\n".join(lines)
 
 
-def _connect(market_db_path: str | Path | None):
+def _open(market_db_path: str | Path | None):
     if not market_db_path:
         return None
     path = Path(market_db_path).expanduser()
     if not path.exists():
         return None
-    db_result = retrieval_cache.try_connect_readonly(path)
-    if not db_result.available:
+    return retrieval_cache.try_connect_readonly(path)
+
+
+def _connect(market_db_path: str | Path | None):
+    opened = _open(market_db_path)
+    if opened is None or not opened.available:
         return None
-    return db_result.connection
+    return opened.connection
 
 
 def _has_table(con: Any, name: str) -> bool:

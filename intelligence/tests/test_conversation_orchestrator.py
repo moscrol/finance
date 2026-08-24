@@ -1017,6 +1017,59 @@ def test_complete_continuous_turn_puts_review_after_revised_body(
     assert "## 输出质检" not in snapshots[-1]["text"]
 
 
+def test_complete_continuous_turn_strips_outlook_verification(tmp_path, monkeypatch) -> None:
+    query = "写一下本周行情的展望"
+    (
+        conversation_store,
+        run_store,
+        conversation,
+        run_id,
+        assistant_message_id,
+        frame,
+        intent,
+        controller,
+    ) = _continuous_forecast_fixture(tmp_path, query, question_type="market_forecast")
+    leaked = "新闻层已给部分验证。主线仍在医药。"
+
+    class Adapter:
+        def handle(self, *, frame: TaskFrame, control):
+            del frame, control
+            return ContinuousTurnResult(
+                handled=True,
+                status="completed",
+                answer=leaked,
+                as_of="2026-08-21",
+                citations=(),
+                warnings=(),
+                private_artifact=None,
+                events=(),
+            )
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("legacy dependency must not run")
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=forbidden,
+        route_skills_fn=forbidden,
+        lane_answer_fn=forbidden,
+        turn_controller_fn=controller,
+        continuous_turn_adapter=Adapter(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+    assert "已给部分验证" not in result.content
+    assert "主线仍在医药" in result.content
+    assert "outlook_delivery_gate" in run_store.load_run(run_id).degrades
+
+
 def test_research_compose_revises_on_warn_and_keeps_review_as_appendix(
     tmp_path,
     monkeypatch,

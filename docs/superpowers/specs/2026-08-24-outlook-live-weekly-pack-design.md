@@ -7,6 +7,7 @@
 - 核稿复放：2026-08-24 晚，用户在 `gitea/main` 实测三链，与本仓同进程复放同形（§0.1）。
 - 代码树：从 `gitea/main` 开干净树。分类器单独小 PR `fix/forecast-unordered-conjunction`；包与注入走 `feat/outlook-live-weekly-pack`。**禁止**在主检出 `feat/reading-rules-baseline-batch1` 脏树上改 runtime。**禁止**动 8792 / 8796 / 8802。
 - 相邻稿（本单不重做、不抢合）：
+  - `docs/superpowers/specs/2026-08-24-workbench-quality-residual-ux-design.md`（品质/残差预算策略 v1.1；审查 PASS-WITH-NITS，**未实施预算刀**）
   - `docs/superpowers/specs/2026-08-24-market-watch-component-first-design.md`（当日四袋；**共用包函数，不共用接线点**，见 §0.2 / §11）
   - `docs/superpowers/specs/2026-08-24-personalized-join-kernel-design.md`（StancePack；同族洞：compose 对 Engine A 早退不可达。那份稿 v1.1 已改到 `handle()` 之前）
   - `docs/superpowers/specs/2026-08-20-market-cause-sector-routing-design.md`（词序洞兄妹）

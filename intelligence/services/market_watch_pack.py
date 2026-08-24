@@ -32,7 +32,11 @@ class PackBag:
 
     @property
     def empty(self) -> bool:
-        return self.status != "hit"
+        return self.status == "empty"
+
+    @property
+    def locked(self) -> bool:
+        return self.status == "locked"
 
 
 @dataclass(frozen=True)
@@ -61,8 +65,7 @@ class MarketWatchPack:
     def should_stop(self) -> bool:
         if self.calendar_disclosure:
             return True
-        # 只有显式站立日且库里确认无该日行才停。库打不开时袋也是 empty，
-        # 那是「没查成」不是「该日无行情」，停了会盖掉 daily-review / 旧答。
+        # 只有显式站立日且库里确认无该日行才停。locked / 打不开不是「该日无行情」。
         return self.explicit and self.market_daily_empty
 
     def stop_text(self) -> str:
@@ -120,7 +123,9 @@ class MarketWatchPack:
         if self.calendar_disclosure:
             lines.append(f"- 日历：{self.stop_text()}")
         market = self.bag(BAG_MARKET)
-        if market is None or market.empty:
+        if market is not None and market.locked:
+            lines.append("- 总量袋：locked。复盘写入中，请稍后。")
+        elif market is None or market.empty:
             lines.append("- 总量袋：empty。")
         else:
             row = market.rows[0]
@@ -140,7 +145,9 @@ class MarketWatchPack:
                 + "。"
             )
         mainline = self.bag(BAG_MAINLINE)
-        if mainline is None or mainline.empty:
+        if mainline is not None and mainline.locked:
+            lines.append("- 主线袋：locked。复盘写入中，请稍后。")
+        elif mainline is None or mainline.empty:
             lines.append("- 主线袋：该日无行。")
         else:
             names = "、".join(
@@ -150,7 +157,9 @@ class MarketWatchPack:
             )
             lines.append(f"- 主线袋 served_date={mainline.served_date}：{names}。")
         dual = self.bag(BAG_DUAL_RED)
-        if dual is None or dual.empty:
+        if dual is not None and dual.locked:
+            lines.append("- 严格双红：locked。复盘写入中，请稍后。")
+        elif dual is None or dual.empty:
             lines.append("- 严格双红 0 个。")
         else:
             names = "、".join(
@@ -166,7 +175,9 @@ class MarketWatchPack:
         if gap:
             lines.append(gap)
         heat = self.bag(BAG_LIMIT_HEAT)
-        if heat is None or heat.empty:
+        if heat is not None and heat.locked:
+            lines.append("- 涨停热度：locked。复盘写入中，请稍后。")
+        elif heat is None or heat.empty:
             lines.append("- 涨停热度该日无行。")
         else:
             names = "、".join(
@@ -245,19 +256,21 @@ def run_market_watch_pack(
     cutoff: str | None = None,
 ) -> MarketWatchPack:
     standing, explicit = resolve_standing_date(query, cutoff=cutoff)
-    con = _connect(market_db_path)
-    if con is None:
+    opened = _open(market_db_path)
+    if opened is None or not opened.available:
         requested = standing
-        empty = tuple(
-            PackBag(name=name, requested_date=requested, served_date=None, status="empty", rows=())
+        status = "locked" if opened is not None and opened.locked else "empty"
+        bags = tuple(
+            PackBag(name=name, requested_date=requested, served_date=None, status=status, rows=())
             for name in REQUIRED_BAGS
         )
         return MarketWatchPack(
             standing_date=standing,
             explicit=explicit,
             calendar_disclosure=calendar_disclosure,
-            bags=empty,
+            bags=bags,
         )
+    con = opened.connection
     try:
         if not explicit:
             standing = _latest_market_date(con)
@@ -277,16 +290,20 @@ def run_market_watch_pack(
         con.close()
 
 
-def _connect(market_db_path: str | Path | None):
+def _open(market_db_path: str | Path | None):
     if not market_db_path:
         return None
     path = Path(market_db_path).expanduser()
     if not path.exists():
         return None
-    db_result = retrieval_cache.try_connect_readonly(path)
-    if not db_result.available:
+    return retrieval_cache.try_connect_readonly(path)
+
+
+def _connect(market_db_path: str | Path | None):
+    opened = _open(market_db_path)
+    if opened is None or not opened.available:
         return None
-    return db_result.connection
+    return opened.connection
 
 
 def _has_table(con: Any, name: str) -> bool:

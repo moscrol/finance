@@ -28,6 +28,7 @@ from intelligence.services import context_growth
 from intelligence.services import evidence_registry
 from intelligence.services import task_fulfillment
 from intelligence.services import run_store as rs
+from intelligence.services.outlook_delivery_gate import apply_outlook_delivery_gate
 from intelligence.services.status_projection import (
     episode_status_from_turn,
     project_artifact_statuses,
@@ -3903,6 +3904,16 @@ class TurnOrchestrator:
             answer_text,
             _continuous_review_notes(result),
         )
+        gated = apply_outlook_delivery_gate(
+            answer_text,
+            question_type=task_frame.question_type,
+            evidence=citations,
+        )
+        answer_text = gated.text
+        if gated.applied and gated.dropped:
+            warning = "outlook_delivery_gate"
+            warnings.append(warning)
+            self.run_store.add_degrade(run_id, warning)
         # 上下文增长只在私有 artifact 的事件流里有据可查，而那份 artifact 不进
         # 用户可见面。token 计数本身不是敏感信息（不含问题、证据或提示词），
         # 所以读未脱敏的那份，避免 redact 把整数换成占位符。
