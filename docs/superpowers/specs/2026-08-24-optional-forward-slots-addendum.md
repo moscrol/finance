@@ -6,7 +6,7 @@
 - 上游：V8 spec `2026-08-22-v8-semantic-deletion-rights-design.md`（本文件是它的 addendum，不推翻其任何结论）；先例 `R-20260821-04` 槽位保护（confirmed）、#72 观点题判断槽 model_reasoning（`docs/verification/2026-08-16-outlook-eb-judgment-slot.md`）
 - 台账行：`R-20260824-20`（**实施时**才立案；文末给出可逐字抄的预测与验法）。编号避让说明：knevo28 批次占 `R-20260824-12..19`，outlook 草稿占 `R-20260824-11..15`，故本单从 `-20` 起
 - 基线锚：行号相对 `gitea/main`（**`34fcbaaa`**，2026-08-24 重锚）。初稿锚在 `8688545b`，两天内 main 前进 40 个 commit、三个落点文件全动过（factory +41 行、verifier 79 行、research_contract +180 行），初稿行号已全部失效
-- 修订记录：2026-08-24 验收复核。改动见 §13
+- 修订记录：2026-08-24 验收复核；同日二次更正（`harness-architecture-review` 走查）。改动见 §13
 
 > ⚠ **行号会腐烂，符号名不会。** 本文所有 `文件:行号` 都在括号里附了符号名。main 一动行号即失效，**认符号不认数字**；重锚用
 > `grep -n '^def _novel_numeric_condition_indexes\|^_ADVISORY_OUTPUT_IDS' <file>` 这类命令现查，不要沿用本文数字。
@@ -106,28 +106,39 @@ if condition_items and all(
 
 > 📚 **可迁移知识点（正交轴不要混用）**：`required` 与 `grounding_mode` 是 `RequiredOutput`（`research_contract.py:744-752`）上两根正交的轴——`required` 管**完成性**（缺了算不算失败，消费方是 `episode_protocol.py:784-800` 的 completed 检查），`grounding_mode` 管**授权性**（内容由谁背书，消费方是 basis 闸和数值门）。豁免判据本该只看授权轴，现行代码把完成轴也搅了进来。这个坑在权限系统里同构：RBAC 的 role（你是谁）和 scope（你能干什么）混用，就会出现「降级用户身份顺带吊销了本不相干的授权」。
 
-### 3.2 坑二：`grounding_mode` 根本不在提示词里（2026-08-24 复核新增）
+### 3.2 坑二：`grounding_mode` 主循环不投递、只在恢复路径投递（2026-08-24 复核新增，同日二次更正）
 
-初稿 §7 实施注写着「契约 JSON 里 `required: false` + `grounding_mode: model_reasoning` 已是完整信号，动态提示规则**默认不加**」。**这个前提是错的**，实测：
+初稿 §7 实施注写着「契约 JSON 里 `required: false` + `grounding_mode: model_reasoning` 已是完整信号，动态提示规则**默认不加**」。**这个前提是错的**——但错的形状比第一版复核写的更精确，两处都实测过：
 
-- 契约渲染进提示词的地方是 `generic_research_owner.py:419-429`，它只发四个字段：
-  ```python
-  {"id": item.output_id, "description": item.description,
-   "evidence_types": list(item.evidence_types), "required": item.required}
-  ```
-  **`grounding_mode` 不在其中**——模型从头到尾看不到这个字段。
-- 而 `episode_protocol.py:268` 的通用提示写的是「每个 binding 的 `basis` 必须与对应 required output 的 `grounding_mode` 一致」。**要求模型对齐一个它看不见的字段。**
-- 解析侧 `basis` 的默认值是 `"evidence"`（`episode_protocol.py:~684` `basis=str(raw.get("basis") or "evidence")`），basis 闸在 `:696` 硬拒。
+**两个渲染点，只有一个带 `grounding_mode`：**
 
-后果链：挂上三个 `evidence_types: []` 的可选槽 → 模型想填 → 不知道该报 `model_reasoning` → 按默认报 `evidence` → **`basis_mismatch` 拒掉整份 FINAL_JSON**。这比不挂槽更糟：今天这些题没有这三个槽，无从误绑。
+| 渲染点 | 何时用 | 发不发 `grounding_mode` |
+|---|---|---|
+| `generic_research_owner.py:419-429`（主循环） | 正常研究回合 | ❌ 只发 `id / description / evidence_types / required` |
+| `intelligence/runtime/episode_finalizer.py:169-178`（恢复器） | 主循环没交出合法 finish 之后的**终局恢复**（`_FAILURE_REASON_CODES` 含 `invalid_model_finish`） | ✅ `:175` 明确带上 |
 
-**为什么 `prior_recall` 没踩到**：因为它有一条**专用动态提示规则**（`episode_protocol.py:150-170`：「本任务包含 prior_recall 槽位（grounding_mode=user_premise）…绑定时 basis 用 user_premise」）。§1.2 说的「prior_recall 已验证过模型看得见」，看得见靠的正是这条规则，不是契约 JSON。
+- `episode_protocol.py:302` 的通用提示写的是「每个 binding 的 `basis` 必须与对应 required output 的 `grounding_mode` 一致」——**在主循环里，这是在要求模型对齐一个它看不见的字段**。
+- 解析侧 `basis` 的默认值是 `"evidence"`（`basis=str(raw.get("basis") or "evidence")`），basis 闸在 `:738` 硬拒，拒的是**整份 FINAL_JSON**。
+- `basis_mismatch` 归类 `RejectionKind.FORMAT` → `reinject=True, allow_recovery=True`，于是落到恢复器，而恢复器的提示词里**恰好带着这个字段**。
 
-**因此 §7 那条实施注反转**：动态提示规则**默认加**，且是 §8.1 钉 10 的前置条件，不再是「实施方裁量」。写法照抄 prior_recall 那条的形状，注明三槽 `grounding_mode=model_reasoning`、绑定时 `basis` 用 `model_reasoning`、不绑不算失败。
+**所以系统的真实工作方式是「先让你摔一跤，摔完再告诉你答案」，每次白烧一个来回。**
 
-> 更彻底的修法是把 `grounding_mode` 加进 `generic_research_owner.py` 的契约渲染，一次修好所有 model_reasoning 槽（含 market_forecast 的必选前瞻槽、#72 判断槽——它们今天大概率靠 FORMAT 拒后重试自愈，白烧一个来回）。但那会改动**所有**任务的提示词，影响面远超本单，**不在本单范围**；作为独立候选单记在 §13。
+**[实测]** 不是推断。`intelligence/eval/measurements/2026-08-18-frozen-thirty-live-3d30b2c5.json` 里有两次：
 
-> 📚 **可迁移知识点（承诺值 vs 执行值）**：这是「字段设了但没送到消费者」的典型——契约里 `grounding_mode` 有值、闸门按它判、唯独**该按它行事的执行者收不到**。查法很机械：对每个约束字段，从**产生点**一路 grep 到**执行点**，中间任何一次序列化没带上它，这个字段就是装饰。这和「预算字段填了但执行处没读」是同一个体检项，也是分布式系统里 header 透传丢失、feature flag 没下发到客户端的同款形状。
+```
+grounding basis mismatch for direct_answer: expected evidence, got model_reasoning
+stop_reason=invalid_model_finish
+```
+
+注意**猜错方向与设计预期相反**（模型报了 `model_reasoning`，契约签的是 `evidence`）。方向随机恰恰是最强的证据：病因是「没告诉它」，不是「它偏好某一侧」。
+
+**为什么 `prior_recall` 没踩到**：因为它有一条**专用动态提示规则**（`episode_protocol.py:150-170`）。§1.2 说的「prior_recall 已验证过模型看得见」，看得见靠的正是这条规则，不是主循环的契约 JSON。
+
+**因此 §7 那条实施注反转**：动态提示规则**默认加**，且是 §8.1 钉 10 的前置条件，不再是「实施方裁量」。
+
+> ⚠ **但这条规则是补丁，不是修复**——见 §10 第 10 条与 §13「本单留下的技术债」。结构修法是给主循环渲染补上 `grounding_mode`（照抄恢复器 `:175` 的写法），让约束**由构造即满足**。按 `harness-architecture-review` C2 约束三筛：这条约束本身是**真下限**（谁给这格背书是事实来源问题），烂的是它被实现成**拦输出**（审已产出的稿、且拒整份）——判「**可改写成拦输入**」，正确动作是**减契约管辖权**，不是像本单这样再加一条逐槽手写规则。修完之后，`_question_type_rules` 里凡是只为传达 `grounding_mode` 的规则（prior_recall 那条、本单这条）都可以删。
+
+> 📚 **可迁移知识点（承诺值 vs 执行值）**：这是「字段设了但没送到消费者」的典型——契约里 `grounding_mode` 有值、闸门按它判、唯独**该按它行事的执行者在主路径上收不到**。查法很机械：对每个约束字段，从**产生点**一路 grep 到**每一个**执行点，中间任何一次序列化没带上它，这个字段在那条路径上就是装饰。**注意「每一个」**——本单第一版复核只查到主循环就下了「压根不进提示词」的结论，漏掉恢复器那条，把形状说重了；多路径系统里，字段可能只在某几条路上丢。这和「预算字段填了但执行处没读」是同一个体检项，也是分布式系统里 header 只在重试链路上带全、feature flag 没下发到部分客户端的同款形状。
 
 ---
 
@@ -224,15 +235,16 @@ if condition_items and all(
 | 3 | `intelligence/services/episode_protocol.py` | **新增**一条动态提示规则（照抄 prior_recall 那条的形状，`:150-170`）：本任务包含三个前瞻槽、`grounding_mode=model_reasoning`、绑定时 `basis` 用 `model_reasoning`、不绑不算失败。**§3.2 已证这条不是可选项** | basis 闸（`:696-701`）、completed 检查（`:784` 起）、通用 basis 提示（`:268`）都不动 |
 | 4 | `intelligence/tests/test_optional_forward_slots.py`（新文件） | §8 全部离线钉 | — |
 | 5 | `intelligence/services/research_contract.py` | **不改**。`FORWARD_HYPOTHESIS_OUTPUT_IDS` 是单一真本源，两处消费方（factory 挂槽判据 + verifier 豁免）继续共用；`:730-734` 注释可顺带补一句「装配层可选挂槽也用本集合」 | — |
-| 6 | `intelligence/services/task_frame.py` / `route_table` / `task_fulfillment.py` / `generic_research_owner.py` | **不改**。题型默认槽表不动；三槽的措辞标记词表（`task_fulfillment.py:195-218`）已齐备，覆盖度仪表不会瞎（prior_recall 注释 `:219-226` 点过的坑此处不存在）；契约渲染（`generic_research_owner.py:419-429`）不加 `grounding_mode`——那是 §13 的独立候选单，不在本单 | — |
+| 6 | `intelligence/services/task_frame.py` / `route_table` / `task_fulfillment.py` / `generic_research_owner.py` | **不改**。题型默认槽表不动；三槽的措辞标记词表（`task_fulfillment.py:195-218`）已齐备，覆盖度仪表不会瞎（prior_recall 注释 `:219-226` 点过的坑此处不存在）；契约渲染（`generic_research_owner.py:419-429`）不加 `grounding_mode`——那是 §13 记的**技术债**（需独立立案 + 独立 live），不在本单 | — |
 
 实施注意（不是新决策，是坑位标记）：
 
 - 挂槽必须对 **factory 定稿后的 output_ids** 判断交集（即 `_required_output_ids` / `_VALUATION_REQUIRED_OUTPUTS` `:179-185` 消费之后），否则看不见 valuation_estimate 在 factory 层追加的 invalidation_conditions，会对估值题重复挂槽。
 - `build_episode_context` 先按初始 output_ids 算 `grounding_modes[0]` 供 evidence_plan profile 用——挂槽发生在其后、追加在尾部，`grounding_modes[0]` 不受影响；实施时确认这个顺序没被重构挪动（该处行号初稿记为 `:497-500`，重锚时未逐行复核，**按符号现查**）。
-- ~~提示词渲染沿 prior_recall 先例：槽进契约即进提示词（`episode_finalizer.py:169-178`）。动态规则默认不加。~~ **两处都错，已作废（2026-08-24 复核）**：
-  - `episode_finalizer.py` **在 `8688545b` 与 `34fcbaaa` 上都不存在**，这个文件锚是凭空的；契约进提示词的真实渲染点是 `generic_research_owner.py:419-429`。
-  - 「默认不加动态规则」的前提（契约 JSON 带 `grounding_mode`）不成立——该渲染点只发 `id / description / evidence_types / required`。详见 §3.2。**动态提示规则改为必做**，已升格为 §7 落点 3。
+- ~~提示词渲染沿 prior_recall 先例：槽进契约即进提示词（`episode_finalizer.py:169-178` 渲染时带 `required` 字段）。动态规则默认不加。~~ **结论作废，但作废理由经过二次更正（2026-08-24）**：
+  - 文件锚**是对的**，只是省了目录：`intelligence/runtime/episode_finalizer.py`，`8688545b` 与 `34fcbaaa` 上都在。（第一版复核只 `git cat-file` 查了猜的 `intelligence/services/` 路径就断言「文件不存在」——**查存在性要全树搜文件名，不要拿猜的目录去证伪**。）
+  - 但它是**恢复器**，不是主循环。主循环的渲染点是 `generic_research_owner.py:419-429`，**那里没有 `grounding_mode`**；恢复器 `:175` 才有。所以「槽进契约即进提示词」在主循环上不成立。详见 §3.2。
+  - **动态提示规则改为必做**，已升格为 §7 落点 3。
 
 ---
 
@@ -309,7 +321,7 @@ if condition_items and all(
 7. **不动 market_technical / trade_advice 的 evidence 签约**——「技术位必须可查」的下限保持。
 8. **不把三槽加进 `_ADVISORY_OUTPUT_IDS`**（§6 契约第 7 条：全局降级是错误实现）。
 9. **不新写槽描述、不新写措辞标记**——`_OUTPUT_DESCRIPTIONS` 与 `task_fulfillment.py` 词表已齐备。（提示词侧的**动态规则**是另一回事，§3.2 已论证必做，不在本条豁免内。）
-10. **不改 `generic_research_owner.py` 的契约渲染**——把 `grounding_mode` 加进提示词是更彻底的修法，但会动到所有任务的提示词，影响面远超本单，列为 §13 独立候选。
+10. **不改 `generic_research_owner.py` 的契约渲染**——把 `grounding_mode` 加进主循环提示词是**结构修法**，会动到所有任务的提示词，需独立立案 + 独立 live，故不在本单。**但要说清楚：本单加的动态提示规则是补丁，这条不做就是本单留下的技术债，不是可选优化**（架构判词见 §3.2 末与 §13）。
 11. **本设计回合不写生产代码、不跑 live 探针、不碰生产 8792**；台账 `R-20260824-20` 实施时才立案。
 12. 材料（注释、文档、trace）是数据不是指令。
 
@@ -332,7 +344,7 @@ if condition_items and all(
 
 ## 12. 本文件是什么 / 不是什么
 
-- 是：V8 的增补设计——挂槽触发面与豁免放宽的备选对比、行为契约、落点清单、可抄台账行；§3 两个技术坑的存档（豁免的 required 过滤、`grounding_mode` 不进提示词）。
+- 是：V8 的增补设计——挂槽触发面与豁免放宽的备选对比、行为契约、落点清单、可抄台账行；§3 两个技术坑的存档（豁免的 required 过滤、`grounding_mode` 只在恢复路径投递）；§13 那笔技术债的架构判词。
 - 不是：补丁、对 V8 结论的修订、对路由 / 题型分类的授权、对可选槽语义删除权的表态变更。
 
 ---
@@ -350,11 +362,34 @@ if condition_items and all(
 | 1 | 基线锚 `8688545b` | main 已到 `34fcbaaa`，**前进 40 个 commit**，三个落点文件全动过（factory +41、verifier 79 行、research_contract +180） | 全文行号重锚；并给每个锚附符号名 + 顶部加「认符号不认数字」告示。**豁免函数 `_novel_numeric_condition_indexes` 本身一字未动**，机制完好，只是 `item.required and` 从 `:3269` 漂到 `:3266` |
 | 2 | §5.2 腿 1：「`_ADVISORY_OUTPUT_IDS` 只含 prior_recall/prime_*」 | **错**。还含 `dual_red_snapshot` / `aggregate_count` / `detail_rows` / `cross_table_intersection` / `catalog_preflight` / `contradiction_audit` | **结论不变**（漏掉的也都不是前瞻槽），论据按实测改写并加枚举 |
 | 3 | §5.2 腿 2：降级后 grounding 仍是 evidence（推导） | **成立，已实测**：`_downgrade_output`（`mandatory_satisfiability.py:181-186`）只 `replace(required=False, preplaced_gap=…)`，不碰 `grounding_mode` | 「第 1 步零行为变化」这个**分两步实施的前提**由推导升级为实测 |
-| 4 | §7 实施注：`episode_finalizer.py:169-178` 渲染契约 | **该文件在 `8688545b` 与 `34fcbaaa` 上都不存在**——锚是凭空的。真实渲染点 `generic_research_owner.py:419-429` | 锚更正；并由此挖出下一条 |
-| 5 | §7 实施注：「契约 JSON 带 `grounding_mode`，动态提示规则默认不加」 | **前提不成立**。渲染点只发 `id / description / evidence_types / required`；而 `episode_protocol.py:268` 要求模型对齐一个它看不见的字段，`basis` 默认值是 `evidence`，闸门在 `:696` 硬拒 | **翻转为必做**：新增 §3.2、§7 落点 3、钉 11、变异 6；§11 第 2 步规定挂槽与提示规则同 commit。这是本次复核**唯一改变实施方案**的一条 |
+| 4 | §7 实施注：`episode_finalizer.py:169-178` 渲染契约 | **锚是对的，只是省了目录**：`intelligence/runtime/episode_finalizer.py`，两个基线上都在。它是**恢复器**不是主循环 | 补全目录；见下条二次更正 |
+| 5 | §7 实施注：「契约 JSON 带 `grounding_mode`，动态提示规则默认不加」 | **前提不成立，但形状比第一版复核写的精确**：主循环 `generic_research_owner.py:419-429` **不发** `grounding_mode`，恢复器 `episode_finalizer.py:175` **发**。协议要求模型对齐它、`basis` 默认 `evidence`、闸门 `:738` 拒整份 | **翻转为必做**：新增 §3.2、§7 落点 3、钉 11、变异 6；§11 第 2 步规定挂槽与提示规则同 commit。这是本次复核**唯一改变实施方案**的一条 |
 | 6 | §4.2：误触发代价是「多三个没人绑的格」，纯加法 | 打折：LLM 有「给了格就填」倾向，且三槽 model_reasoning 使其条件句已获豁免——误触发同时小幅扩大无据阈值存活面，方向是「变错」 | 案甲不变；§8.3 增加**对照三 · 误触发样本**为必做腿；新增 §4.4 记录 `_OUTLOOK_JUDGMENT_OUTPUTS` 门的子决策与收窄时的第一优先项 |
 | 7 | §5.2 未提两块豁免的对称性 | 放宽后第一块（`:3252-3257`）仍保留 `item.required`，与第二块不再对称 | 该不对称是**对的**，但要求实施时把理由写进注释，防止后来者「统一风格」时把第一块也放宽 |
 
-**未决 / 移出本单**：把 `grounding_mode` 加进 `generic_research_owner.py` 的契约渲染，一次修好所有 model_reasoning 槽（含 market_forecast 必选前瞻槽、#72 判断槽——它们今天大概率靠 FORMAT 拒后重试自愈，白烧一个来回）。影响所有任务的提示词，**需单独立案与单独 live**，不搭本单车。
+### 2026-08-24 · 二次更正（`harness-architecture-review` 走查后）
 
-> 📚 **可迁移知识点（设计文档为什么会腐烂）**：本次七条更正里，**第 1、4 条是行号/文件名锚失效，第 2、5 条是「读代码时把一部分当成了全部」**。前者的解法是结构性的——锚符号不锚行号；后者的解法是纪律性的——**断言某个集合/字段「只含 X」之前，把它整个打印出来**。两类都不是靠更仔细就能避免的，得靠换记法和换取证动作。这与本仓已有的「负面断言三步」是同一条纪律的两个方向。
+**事实更正两条**（代码行为不变，错的是论证）：
+
+1. 「`episode_finalizer.py` 不存在」是**错的**——它在 `intelligence/runtime/` 下。第一版复核只 `git cat-file` 查了猜的 `intelligence/services/` 路径就下断言。**查存在性要全树搜文件名，不要拿猜的目录去证伪。**
+2. 因此「`grounding_mode` 压根不进提示词」**说重了**。准确形状：**主循环不给，恢复器给**（详见 §3.2）。
+
+更正后结论更硬而非更软：系统在 happy path 藏起该字段，在模型失败后的恢复路径才交出来。并且从推断升为 **[实测]**（2026-08-18 frozen-thirty live 两次 `basis_mismatch`，方向与预期相反 → 佐证病因是「没告诉它」）。
+
+### 本单留下的技术债（不是可选优化）
+
+把 `grounding_mode` 加进 `generic_research_owner.py` 的主循环契约渲染（照抄恢复器 `:175` 写法），一次修好所有 model_reasoning 槽——含 market_forecast 必选前瞻槽、#72 判断槽。
+
+**架构判词**（`harness-architecture-review` C2 约束三筛）：
+
+| 筛 | 判 |
+|---|---|
+| 1 · 拦输入还是拦输出 | **拦输出**——审已产出的 FINAL_JSON，且拒**整份**不是那一格 |
+| 2 · 失效时变错还是变笨 | **变笨**（白烧一个来回，不吐假事实） |
+| 3 ★ · 模型变强一倍会不会挡路 | **会**——信息缺失时模型再强也只能猜 |
+
+判 **可改写成拦输入**。约束本身是**真下限**（谁给这格背书是事实来源问题，该留该硬），烂的是它的**形状**。PLAYBOOK 对这一判词规定的动作是**减契约管辖权 / 让约束由构造即满足**，明确「**不是**加第二张表」——而本单加的正是第二条逐槽手写规则。所以：**本单交付的是补丁，债在这里。** 修完之后，`_question_type_rules` 里凡是只为传达 `grounding_mode` 的规则（prior_recall 那条、本单这条）都可以删。
+
+仍不在本单做的理由不变：会动到所有任务的提示词，**需单独立案与单独 live**，不搭本单车。
+
+> 📚 **可迁移知识点（设计文档为什么会腐烂）**：更正累计九条，**四类病因**：① 行号/文件名锚失效（第 1、4 条）→ 解法是结构性的，锚符号不锚行号；② 「读代码时把一部分当成了全部」（第 2、5 条）→ 解法是纪律性的，断言集合「只含 X」之前把它整个打印出来；③ **拿猜的路径去证伪**（二次更正第 1 条）→ 全树搜文件名，`cat-file` 一个猜测路径失败只证明「那个路径没有」；④ **多路径系统里只查了一条路**（二次更正第 2 条）→ 一个字段可能只在某几条路上丢，产生点到**每一个**执行点都要走一遍。四类都不是靠更仔细能避免的，得靠换记法和换取证动作。这与本仓已有的「负面断言三步」是同一条纪律的四个方向。
