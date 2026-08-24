@@ -967,15 +967,55 @@ describe("Chat-first conversation components", () => {
 
     const stageList = screen.getByRole("list", { name: "研究阶段" });
     expect(within(stageList).getAllByRole("listitem")).toHaveLength(4);
+    const currentStage = within(stageList).getByLabelText("查找证据，进行中");
+    expect(currentStage).toHaveAttribute("aria-current", "step");
+    expect(currentStage).toHaveClass("is-running", "is-current");
     expect(
-      within(stageList).getByLabelText("查找证据，进行中"),
-    ).toHaveAttribute("aria-current", "step");
-    expect(screen.getByText("阶段 2/4 · 查找证据")).toBeInTheDocument();
+      screen.getByText("阶段 2/4 · 查找证据 · 进行中"),
+    ).toBeInTheDocument();
 
     const liveRegion = screen.getByRole("status");
     expect(liveRegion).toHaveAttribute("aria-live", "polite");
     expect(liveRegion).toHaveTextContent("正在核对公告、盘面与知识库。");
     expect(stageList).not.toHaveAttribute("aria-live");
+  });
+
+  it("exposes every phase status through text and semantic classes", () => {
+    render(
+      <ResearchJourney
+        model={{
+          phases: [
+            { id: "understand", label: "理解与计划", status: "completed" },
+            { id: "research", label: "查找证据", status: "running" },
+            { id: "verify", label: "交叉核验", status: "attention" },
+            { id: "conclude", label: "形成结论", status: "skipped" },
+          ],
+          currentPhaseIndex: 2,
+          currentAction: "发现证据冲突，正在复核。",
+          runLabel: "需要关注",
+          hasObservedTrace: true,
+        }}
+        connection="connected"
+      />,
+    );
+
+    const stageList = screen.getByRole("list", { name: "研究阶段" });
+    expect(within(stageList).getByLabelText("理解与计划，已完成")).toHaveClass(
+      "is-completed",
+    );
+    expect(within(stageList).getByLabelText("查找证据，进行中")).toHaveClass(
+      "is-running",
+    );
+    expect(within(stageList).getByLabelText("交叉核验，需要关注")).toHaveClass(
+      "is-attention",
+      "is-current",
+    );
+    expect(within(stageList).getByLabelText("形成结论，未执行")).toHaveClass(
+      "is-skipped",
+    );
+    expect(
+      screen.getByText("阶段 3/4 · 交叉核验 · 需要关注"),
+    ).toBeInTheDocument();
   });
 
   it("preserves the current journey while the connection recovers", () => {
@@ -992,6 +1032,9 @@ describe("Chat-first conversation components", () => {
       "连接恢复中 · 正在启动研究",
     );
     expect(screen.getAllByRole("listitem")).toHaveLength(4);
+    expect(screen.getByLabelText("理解与计划，等待中")).toHaveClass(
+      "is-waiting",
+    );
   });
 
   it("uses the compact journey treatment after draft text appears", () => {
@@ -1006,7 +1049,13 @@ describe("Chat-first conversation components", () => {
     );
 
     expect(screen.getByLabelText("研究进度")).toHaveClass("is-compact");
-    expect(screen.getByText("阶段 4/4 · 形成结论")).toBeInTheDocument();
+    expect(
+      screen.getByText("阶段 4/4 · 形成结论 · 进行中"),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("形成结论，进行中")).toHaveClass(
+      "is-running",
+      "is-current",
+    );
     expect(screen.getByRole("status")).toHaveTextContent(
       "可核验草稿已形成，正在精修",
     );

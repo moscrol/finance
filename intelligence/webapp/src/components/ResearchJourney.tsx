@@ -36,7 +36,7 @@ export function ResearchJourney({
       ? null
       : model.phases[model.currentPhaseIndex];
   const mobileSummary = currentPhase
-    ? `阶段 ${model.currentPhaseIndex! + 1}/${model.phases.length} · ${currentPhase.label}`
+    ? `阶段 ${model.currentPhaseIndex! + 1}/${model.phases.length} · ${currentPhase.label} · ${phaseStatusLabels[currentPhase.status]}`
     : "研究阶段更新中";
   const action =
     connection === "reconnecting"

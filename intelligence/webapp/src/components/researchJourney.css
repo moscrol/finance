@@ -9,6 +9,8 @@
 
 .research-journey {
   display: grid;
+  min-width: 0;
+  max-width: 100%;
   gap: 12px;
   padding: 13px 14px 12px;
 }
@@ -31,7 +33,7 @@
 
 .research-journey-heading small,
 .research-receipt-heading small {
-  color: var(--faint);
+  color: var(--muted);
   font-size: 8px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -43,6 +45,7 @@
 
 .research-journey-track {
   display: grid;
+  min-width: 0;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
   margin: 0;
@@ -57,7 +60,7 @@
   grid-template-columns: 20px minmax(0, 1fr);
   align-items: start;
   gap: 6px;
-  color: var(--faint);
+  color: var(--muted);
   transition:
     color 160ms ease,
     opacity 160ms ease;
@@ -82,9 +85,9 @@
   width: 19px;
   height: 19px;
   place-items: center;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--muted);
   border-radius: 50%;
-  color: var(--faint);
+  color: var(--muted);
   background: var(--surface);
   transition:
     color 160ms ease,
@@ -120,7 +123,7 @@
 }
 
 .research-journey-phase.is-completed .research-journey-marker {
-  border-color: #c8d5cd;
+  border-color: #587563;
   color: #587563;
   background: #f3f7f4;
 }
@@ -135,8 +138,8 @@
 }
 
 .research-journey-phase.is-running .research-journey-marker {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-dark);
+  color: var(--accent-dark);
   background: var(--accent-soft);
 }
 
@@ -155,13 +158,20 @@
 }
 
 .research-journey-phase.is-attention .research-journey-marker {
-  border-color: #d9aaa5;
+  border-color: var(--red);
   color: var(--red);
   background: var(--red-soft);
 }
 
 .research-journey-phase.is-skipped {
-  opacity: 0.62;
+  color: var(--muted);
+}
+
+.research-journey-phase.is-skipped .research-journey-marker {
+  border-color: var(--muted);
+  border-style: dashed;
+  color: var(--muted);
+  background: transparent;
 }
 
 .research-journey-action {
@@ -177,10 +187,14 @@
 }
 
 .research-journey.is-compact {
-  grid-template-columns: minmax(250px, 0.95fr) minmax(180px, 1.05fr);
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
   align-items: center;
   gap: 12px;
   padding: 9px 12px;
+}
+
+.research-journey.is-compact > * {
+  min-width: 0;
 }
 
 .research-journey.is-compact .research-journey-heading,
@@ -231,26 +245,40 @@
 
   .research-journey-phase {
     display: block;
-    min-height: 4px;
+    min-height: 6px;
+    border: 1px solid var(--muted);
     border-radius: 999px;
-    background: var(--line);
+    background: transparent;
   }
 
   .research-journey-phase.is-completed {
-    background: #8ea397;
+    border-color: #587563;
+    background: #587563;
   }
 
-  .research-journey-phase.is-running,
+  .research-journey-phase.is-running {
+    border-color: var(--accent-dark);
+    background: var(--accent-dark);
+  }
+
   .research-journey-phase.is-current {
-    background: var(--accent);
+    outline: 1px solid var(--ink);
+    outline-offset: 1px;
   }
 
   .research-journey-phase.is-attention {
-    background: var(--red);
+    border: 2px solid var(--red);
+    background: repeating-linear-gradient(
+      135deg,
+      var(--red) 0 2px,
+      var(--red-soft) 2px 4px
+    );
   }
 
   .research-journey-phase.is-skipped {
-    background: #d8d5cf;
+    border-color: var(--muted);
+    border-style: dashed;
+    background: transparent;
   }
 
   .research-journey-marker,
