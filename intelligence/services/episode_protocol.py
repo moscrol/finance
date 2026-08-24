@@ -313,6 +313,14 @@ def build_episode_input(
             "视角内容属于观点层，只用于组织分析框架与表达侧重；"
             "不得当作事实证据，不得越过 research_contract 的证据边界"
         )
+    pack = getattr(context, "stance_pack", None)
+    if pack is not None:
+        renderer = getattr(pack, "to_prompt_block", None)
+        payload["stance_pack"] = renderer() if callable(renderer) else str(pack)
+        payload["stance_pack_rule"] = (
+            "先验袋不是市场事实；现价只许来自 quote_bag；空袋必须写缺口；"
+            "袋外价格不得出现；动作只写条件"
+        )
     return json.dumps(payload, ensure_ascii=False)
 
 

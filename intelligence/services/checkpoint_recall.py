@@ -191,6 +191,62 @@ def build_recall_block(
     return "\n".join(lines)
 
 
+def recall_rows_for_query(
+    query: str,
+    theme: str | None = None,
+    entity: str | None = None,
+    user: str | None = None,
+    limit: int = DEFAULT_LIMIT,
+    users_root: str | Path | None = None,
+) -> dict[str, Any]:
+    """装填 [V] 行：可证伪点 + 最新裁决。不渲染。
+
+    给 StancePack.prior_bag 与旧 ``recall_block_for_query`` 共用。台账缺失或
+    无相关记录时 ``matched`` 为空列表，调用方写成 empty，不得编一条用户判断。
+    """
+
+    if users_root is not None:
+        root = Path(users_root).expanduser()
+        ck_path = root / "checkpoints.jsonl"
+        v_path = root / "verdicts.jsonl"
+    else:
+        us = userspace.user_space(user)
+        ck_path, v_path = us.checkpoints_path, us.verdicts_path
+    cks, _ = checkpoints.load_checkpoints(ck_path)
+    if not cks:
+        return {
+            "matched": [],
+            "verdicts_by_id": {},
+            "ledger": (None, None),
+        }
+    matched = select_relevant_checkpoints(cks, query, theme, entity, limit=limit)
+    vds, _ = checkpoints.load_verdicts(v_path)
+    return {
+        "matched": matched,
+        "verdicts_by_id": latest_verdicts(vds),
+        "ledger": _ledger_asof(cks, vds),
+    }
+
+
+def render_recall_from_rows(
+    matched: list[dict[str, Any]],
+    verdicts_by_id: dict[str, dict[str, Any]],
+    *,
+    today: str | None = None,
+    data_asof: str | None = None,
+    ledger: tuple[str | None, str | None] = (None, None),
+) -> str:
+    """[V] 唯一渲染口。``matched`` 为空时返回空串（与旧包装函数一致）。"""
+
+    return build_recall_block(
+        matched,
+        verdicts_by_id,
+        today=today,
+        data_asof=data_asof,
+        ledger=ledger,
+    )
+
+
 def recall_block_for_query(
     query: str,
     theme: str | None = None,
@@ -201,25 +257,25 @@ def recall_block_for_query(
     data_asof: str | None = None,
     today: str | None = None,
 ) -> str:
-    """加载可证伪点 + 裁决台账 → 相关性召回 → 渲染 [V]；台账缺失/无相关记录时返回空串。"""
-    if users_root is not None:
-        root = Path(users_root).expanduser()
-        ck_path = root / "checkpoints.jsonl"
-        v_path = root / "verdicts.jsonl"
-    else:
-        us = userspace.user_space(user)
-        ck_path, v_path = us.checkpoints_path, us.verdicts_path
-    cks, _ = checkpoints.load_checkpoints(ck_path)
-    if not cks:
+    """加载可证伪点 + 裁决台账 → 相关性召回 → 渲染 [V]；台账缺失/无相关记录时返回空串。
+
+    无 StancePack 的旧 compose 路径继续走本包装。有 pack 时 ask 只许调用
+    ``render_recall_from_rows`` / ``render_prior_bag``，禁止再走本函数自查。
+    """
+    loaded = recall_rows_for_query(
+        query,
+        theme,
+        entity,
+        user=user,
+        limit=limit,
+        users_root=users_root,
+    )
+    if not loaded["matched"]:
         return ""
-    matched = select_relevant_checkpoints(cks, query, theme, entity, limit=limit)
-    if not matched:
-        return ""
-    vds, _ = checkpoints.load_verdicts(v_path)
-    return build_recall_block(
-        matched,
-        latest_verdicts(vds),
+    return render_recall_from_rows(
+        loaded["matched"],
+        loaded["verdicts_by_id"],
         today=today,
         data_asof=data_asof,
-        ledger=_ledger_asof(cks, vds),
+        ledger=loaded["ledger"],
     )
