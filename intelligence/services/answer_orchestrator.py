@@ -267,6 +267,16 @@ def resolve_question_type(
         QUESTION_EXTERNAL_MARKET,
         QUESTION_CONCEPT_DEFINITION,
         QUESTION_MARKET_TECHNICAL,
+        # market_forecast 直通信封，别让下面的 _classify_question_type 再判一次。
+        # 那里有一份平行的、更弱的前瞻规则副本（"展望|研判|预测"+"后市|市场|行情|
+        # 大盘"，以及兜底的 "行情|大盘|今天|明天|…"），认不出「周一该怎么操作」
+        # 这类没有市场名词的操作类问法——而信封里的 _MARKET_FORECAST_RE 认得。
+        # 两份清单一漂，同一个问题在 CLI 与工作台就是两个题型，进而是两份契约：
+        # 走 general_finance_qa 的那份没有 scenario_paths /
+        # continuation_conditions / invalidation_conditions，条件槽被签成
+        # evidence，数值门把带阈值的建议整句砍掉。
+        # quick_fact 仍排在本分支之前，取值类问句不受影响。
+        QUESTION_MARKET_FORECAST,
     }:
         return query_envelope.question_type, query_envelope.confidence
     if query_envelope.question_type == "market_watch":
