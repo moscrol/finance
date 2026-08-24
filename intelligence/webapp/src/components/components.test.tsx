@@ -514,6 +514,94 @@ describe("Workbench components", () => {
     );
   });
 
+  it("keeps audit and inspector warnings non-live beside the active journey", async () => {
+    const user = userEvent.setup();
+    const warningBundle: RunBundle = {
+      ...bundle,
+      run: {
+        ...bundle.run,
+        error: 'Traceback (most recent call last): File "ask.py", line 99',
+      },
+      structuredReport: {
+        schema_version: 1,
+        report_id: "run_streaming_warning",
+        title: "流式研究报告",
+        task_type: "ask",
+        status: "streaming",
+        as_of: "2026-07-10",
+        llm: { used: false, provider: null, model: null },
+        warnings: ["wiki-rag 索引新鲜度=stale"],
+        modules: [],
+      },
+    };
+    const journeyModel = buildResearchJourney({
+      progress: [
+        {
+          step_id: "research-running",
+          name: "research",
+          status: "running",
+          started_at: "2026-08-24T10:00:00+08:00",
+          finished_at: null,
+          input_summary: "",
+          output_summary: "正在核对最新证据。",
+          warnings: [],
+        },
+      ],
+      answerPhase: null,
+      terminalStatus: "streaming",
+    });
+
+    render(
+      <>
+        <ResearchJourney model={journeyModel} connection="connected" />
+        <RunView
+          bundle={warningBundle}
+          connection="connected"
+          onOpenRun={vi.fn()}
+          onOpenArtifact={vi.fn()}
+          onFollowup={vi.fn()}
+        />
+        <ResearchInspector
+          bootstrap={bootstrap}
+          bundle={warningBundle}
+          artifact={null}
+          open
+          onClose={vi.fn()}
+        />
+      </>,
+    );
+
+    await user.click(screen.getByText("运行详情", { exact: true }));
+    await user.click(screen.getByRole("tab", { name: "运行" }));
+
+    const journey = screen.getByLabelText("研究进度");
+    expect(screen.getAllByRole("status")).toHaveLength(1);
+    expect(within(journey).getByRole("status")).toHaveTextContent(
+      "正在核对最新证据。",
+    );
+    expect(document.querySelectorAll("[aria-live]")).toHaveLength(1);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(
+      screen
+        .getByText(
+          "研究过程中出现内部错误；相关结论可能不完整，已保留其他可用证据。",
+        )
+        .closest('[role="note"]'),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/本轮存在限制：/).closest('[role="note"]'),
+    ).toBeVisible();
+    expect(
+      screen
+        .getByText("本报告包含降级或质量警告")
+        .closest('[role="note"]'),
+    ).toBeVisible();
+    expect(screen.getByText("正在生成下一个模块…")).toHaveAttribute(
+      "role",
+      "note",
+    );
+  });
+
   it("translates internal failures and stages into user-facing language", () => {
     expect(userFacingIssue("llm_unavailable_template_answer")).toContain(
       "已保留可核验数据",

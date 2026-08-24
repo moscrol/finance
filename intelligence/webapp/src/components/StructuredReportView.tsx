@@ -195,7 +195,7 @@ function ReportModule({ module }: { module: StructuredReportModule }) {
 export function StructuredReportView({ report }: { report: StructuredReport }) {
   const llmLabel = llmStatusLabel(report);
   return (
-    <div className="structured-report" aria-live="polite">
+    <div className="structured-report">
       <header className="structured-report-status">
         <span>
           <Sparkles aria-hidden="true" size={16} />
@@ -210,7 +210,7 @@ export function StructuredReportView({ report }: { report: StructuredReport }) {
         </span>
       </header>
       {report.warnings.length > 0 && (
-        <div className="alert alert-warning stream-report-warning" role="status">
+        <div className="alert alert-warning stream-report-warning" role="note">
           <AlertTriangle aria-hidden="true" size={16} />
           <div>
             <strong>本报告包含降级或质量警告</strong>
@@ -228,7 +228,7 @@ export function StructuredReportView({ report }: { report: StructuredReport }) {
         ))}
       </div>
       {report.status === "streaming" && (
-        <div className="stream-module-loading" role="status">
+        <div className="stream-module-loading" role="note">
           <span />
           正在生成下一个模块…
         </div>

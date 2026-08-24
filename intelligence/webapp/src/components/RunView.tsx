@@ -56,13 +56,13 @@ export function RunView({
         </dl>
 
         {run.error && (
-          <div className="message-run-warning" role="alert">
+          <div className="message-run-warning" role="note">
             <AlertTriangle aria-hidden="true" size={15} />
             {userFacingIssue(run.error)}
           </div>
         )}
         {run.degrades.length > 0 && (
-          <div className="message-run-warning" role="status">
+          <div className="message-run-warning" role="note">
             <AlertTriangle aria-hidden="true" size={15} />
             <span>
               本轮存在限制：

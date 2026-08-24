@@ -104,8 +104,8 @@ ResearchReceipt.tsx
 MessageBubble.tsx
 └── 只决定何时显示 Journey / Receipt / 旧兜底
 
-RunView.tsx / ResearchInspector.tsx
-└── 继续保留原始 Trace 、warning、degrade 和高级详情
+RunView.tsx / StructuredReportView.tsx（位于 ResearchInspector）
+└── 继续保留原始 Trace、warning、degrade 和高级详情，但静态审计内容不参与 live 播报
 ```
 
 `researchJourney.ts` 是唯一语义归并点。React 组件不自己猜步骤含义，`MessageBubble` 不再临时拼阶段文案。后续若今日首页需要同类收据，只消费归并结果，不复制规则。
@@ -199,7 +199,7 @@ Run 结束后重载
 - 过渡使用 CSS，不引入动效依赖。
 - 继续服从全局 `prefers-reduced-motion: reduce`；在减少动画模式下过渡近似即时。
 - 图标、文字和形状共同表达状态，不依赖颜色一项。
-- `MessageThread` 只把最新助手消息设为播报 owner。该消息存在 Journey 时，最新动作摘要是该页唯一 `role="status"` / `aria-live="polite"` 播报者；历史 Journey 与 terminal notice 保持可见但使用 `role="note"`。顶栏 agent 状态仅保留可见文字，workflow / evidence warning 也使用 `role="note"`。播报 owner 无 Journey 时，它的 terminal notice 才可作为 `role="status"`。
+- `MessageThread` 只把最新助手消息设为播报 owner。该消息存在 Journey 时，最新动作摘要是该页唯一 `role="status"` / `aria-live="polite"` 播报者；历史 Journey 与 terminal notice 保持可见但使用 `role="note"`。顶栏 agent 状态仅保留可见文字；workflow / evidence warning、RunView 的终态 error/degrade，以及 Inspector 内 StructuredReport 的 warning/loading 也使用 `role="note"`，StructuredReport wrapper 不设置 `aria-live`。播报 owner 无 Journey 时，它的 terminal notice 才可作为 `role="status"`。
 - 四个状态点本身不反复广播，避免读屏器被 SSE 事件淹没。
 - 轨道使用有序列表语义，每阶段有可读状态文本。
 
@@ -225,7 +225,11 @@ Run 结束后重载
 | `intelligence/webapp/src/components/ResearchJourney.tsx` | 进行中轨道 |
 | `intelligence/webapp/src/components/ResearchReceipt.tsx` | 完成收据 |
 | `intelligence/webapp/src/components/researchJourney.css` | 组件内聚样式与响应式 |
+| `intelligence/webapp/src/App.tsx` | 恢复/终态 bundle 安装确认、连接状态归属与顶栏非 live 状态 |
 | `intelligence/webapp/src/components/MessageBubble.tsx` | Journey/Receipt/兜底安装点 |
+| `intelligence/webapp/src/components/MessageThread.tsx` | 最新助手消息的 live-region ownership |
+| `intelligence/webapp/src/components/RunView.tsx` | 非 live 的终态审计 warning/degrade |
+| `intelligence/webapp/src/components/StructuredReportView.tsx` | Inspector 内非 live 的 warning/loading |
 | `intelligence/webapp/src/components/components.test.tsx` | 用户可见状态与 ARIA 测试 |
 | `intelligence/webapp/e2e/workbench.spec.ts` | 真消息流、三视口与详情对账 |
 

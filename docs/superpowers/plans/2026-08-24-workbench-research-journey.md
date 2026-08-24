@@ -19,7 +19,11 @@
 | `intelligence/webapp/src/components/ResearchJourney.tsx` | 新建 | 四阶段轨道、手机摘要、唯一 live region、重连提示 |
 | `intelligence/webapp/src/components/ResearchReceipt.tsx` | 新建 | 引用数、截止日、产物、缺口与限制的终态索引 |
 | `intelligence/webapp/src/components/researchJourney.css` | 新建 | 两个组件的局部样式、`<720px` 布局和 reduced-motion |
+| `intelligence/webapp/src/App.tsx` | 修改 | 恢复/终态 bundle 安装确认、连接状态归属与顶栏非 live 状态 |
 | `intelligence/webapp/src/components/MessageBubble.tsx` | 修改 | Journey / Receipt / 旧终态 Timeline 的安装与互斥规则 |
+| `intelligence/webapp/src/components/MessageThread.tsx` | 修改 | 只把最新助手消息指定为 live-region owner |
+| `intelligence/webapp/src/components/RunView.tsx` | 修改 | 保留终态审计 warning/degrade，并以非 live note 展示 |
+| `intelligence/webapp/src/components/StructuredReportView.tsx` | 修改 | Inspector 内 warning/loading 保持可见但不参与 live 播报 |
 | `intelligence/webapp/src/components/components.test.tsx` | 修改 | 用户可见状态、ARIA、安装顺序与旧详情保留 |
 | `intelligence/webapp/e2e/workbench.spec.ts` | 修改 | 真 SSE 中的运行态、终态、三视口和原始详情对账 |
 
@@ -1557,6 +1561,8 @@ git commit -m "feat: render workbench research receipt" -- intelligence/webapp/s
 - Modify: `intelligence/webapp/src/components/MessageBubble.tsx`
 - Modify: `intelligence/webapp/src/components/MessageThread.tsx`
 - Modify: `intelligence/webapp/src/components/ResearchJourney.tsx`
+- Modify: `intelligence/webapp/src/components/RunView.tsx`
+- Modify: `intelligence/webapp/src/components/StructuredReportView.tsx`
 - Modify: `intelligence/webapp/src/components/components.test.tsx`
 
 - [ ] **Step 1：写安装互斥、完成收据和失败保真的失败测试**
@@ -1788,7 +1794,7 @@ const receiptModel = useMemo(
 
 保持该块位于 `MarkdownView` 之前；保持 `terminalNotice`、`RunView`、followups 和 regenerate 的相对顺序不变。
 
-`ResearchReceipt`、`RunView` 和公司证据 warning 只消费 `terminalBundle`。失败/取消是主状态，必须覆盖 `answerPhase` 的交付版本标签。`MessageThread` 只把最新助手消息标为播报 owner：该消息的 Journey 才使用 `role=status`；历史 Journey 与 terminal notice 保持可见但使用 `role=note`。顶栏状态只做视觉文本，workflow / evidence warning 也使用 `role=note`；只有播报 owner 没有 Journey 时，它的终态 notice 才使用 `role=status`。
+`ResearchReceipt`、`RunView` 和公司证据 warning 只消费 `terminalBundle`。失败/取消是主状态，必须覆盖 `answerPhase` 的交付版本标签。`MessageThread` 只把最新助手消息标为播报 owner：该消息的 Journey 才使用 `role=status`；历史 Journey 与 terminal notice 保持可见但使用 `role=note`。顶栏状态只做视觉文本，workflow / evidence warning、RunView 的终态 error/degrade，以及 Inspector 内 StructuredReport 的 warning/loading 都使用 `role=note`；StructuredReport wrapper 不设置 `aria-live`。只有播报 owner 没有 Journey 时，它的终态 notice 才使用 `role=status`。
 
 `loadConversationData()` 必须返回 `{ messages, appliedToCurrentConversation, appliedBundles }`；`appliedBundles` 只包含通过 conversation generation 检查、已安装进当前会话状态的 bundle。`finalizeRun()` 只有在 `appliedToCurrentConversation=true` 且目标 run 的终态 bundle 出现于 `appliedBundles` 后才能删除 live state；加载失败时保留终态 live progress，显示简短错误，让 Timeline / Journey 继续作为审计兜底。安装成功后无条件清理该 run 的 stale live state，不再由 `answerPhase` 延长其生命周期。
 
@@ -1808,8 +1814,8 @@ Expected: PASS，`Chat-first conversation components`、导航可靠性和既有
 - [ ] **Step 5：提交安装切片**
 
 ```bash
-git add -- intelligence/webapp/src/App.tsx intelligence/webapp/src/components/MessageBubble.tsx intelligence/webapp/src/components/MessageThread.tsx intelligence/webapp/src/components/ResearchJourney.tsx intelligence/webapp/src/components/components.test.tsx
-git commit -m "feat: install research journey in chat" -- intelligence/webapp/src/App.tsx intelligence/webapp/src/components/MessageBubble.tsx intelligence/webapp/src/components/MessageThread.tsx intelligence/webapp/src/components/ResearchJourney.tsx intelligence/webapp/src/components/components.test.tsx
+git add -- intelligence/webapp/src/App.tsx intelligence/webapp/src/components/MessageBubble.tsx intelligence/webapp/src/components/MessageThread.tsx intelligence/webapp/src/components/ResearchJourney.tsx intelligence/webapp/src/components/RunView.tsx intelligence/webapp/src/components/StructuredReportView.tsx intelligence/webapp/src/components/components.test.tsx
+git commit -m "feat: install research journey in chat" -- intelligence/webapp/src/App.tsx intelligence/webapp/src/components/MessageBubble.tsx intelligence/webapp/src/components/MessageThread.tsx intelligence/webapp/src/components/ResearchJourney.tsx intelligence/webapp/src/components/RunView.tsx intelligence/webapp/src/components/StructuredReportView.tsx intelligence/webapp/src/components/components.test.tsx
 ```
 
 ## Task 5：用真消息流锁定三视口行为
