@@ -132,6 +132,10 @@ _OUTPUT_DESCRIPTIONS: dict[str, str] = {
     "cross_table_intersection": "给出跨表精确交集，对不上则写明缺口",
     "catalog_preflight": "说明目标表是否存在、站立日是否有行",
     "contradiction_audit": "列出同日跨表冲突；没有冲突则写明无冲突",
+    "substitute_observation": (
+        "主线题材当日无严格双红匹配时，给出带「出清/分歧观察」标签的替补池"
+        "（板块+个股，非机会）；开口预取已带则引用其 E 号，无缺口则写明主线已被双红覆盖"
+    ),
 }
 
 
@@ -375,6 +379,7 @@ _ADVISORY_OUTPUT_IDS = frozenset(
         "cross_table_intersection",
         "catalog_preflight",
         "contradiction_audit",
+        "substitute_observation",
     }
 )
 
@@ -459,6 +464,7 @@ def _required_output_evidence_types(
         "cross_table_intersection",
         "catalog_preflight",
         "contradiction_audit",
+        "substitute_observation",
     }:
         return tuple(
             capability
