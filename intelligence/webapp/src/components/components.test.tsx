@@ -1069,7 +1069,8 @@ describe("Chat-first conversation components", () => {
     );
   });
 
-  it("renders a terminal research receipt from context issues", () => {
+  it("renders a terminal research receipt and exposes context issues through native disclosure", async () => {
+    const user = userEvent.setup();
     const receiptBundle: RunBundle = {
       ...bundle,
       run: {
@@ -1106,13 +1107,72 @@ describe("Chat-first conversation components", () => {
 
     render(<ResearchReceipt model={buildResearchReceipt(receiptBundle)} />);
 
-    const receipt = screen.getByLabelText("研究收据");
+    const receipt = screen.getByRole("region", {
+      name: "Foresight · 已完成",
+    });
+    expect(
+      within(receipt).getByRole("heading", {
+        level: 3,
+        name: "Foresight · 已完成",
+      }),
+    ).toBeInTheDocument();
     expect(receipt).toHaveTextContent("Foresight · 已完成");
     expect(receipt).toHaveTextContent("1 条可验证引用");
     expect(receipt).toHaveTextContent("数据日期未记录");
     expect(receipt).toHaveTextContent("2 个产物");
-    expect(receipt).toHaveTextContent("1 项限制/缺口");
     expect(receipt).toHaveAttribute("data-issue-summary", "缺少客户口径");
+
+    const metrics = within(receipt).getByRole("list", {
+      name: "研究收据指标",
+    });
+    expect(metrics.children).toHaveLength(4);
+    const disclosure = within(receipt).getByText("1 项限制/缺口");
+    const details = disclosure.closest("details") as HTMLDetailsElement;
+    expect(details).not.toHaveAttribute("open");
+
+    await user.tab();
+    expect(disclosure).toHaveFocus();
+    await user.click(disclosure);
+
+    expect(details).toHaveAttribute("open");
+    expect(within(details).getByText("缺少客户口径")).toBeVisible();
+  });
+
+  it("renders zero issues as a plain receipt metric", () => {
+    const receiptBundle: RunBundle = {
+      ...bundle,
+      context: {
+        ...bundle.context,
+        gaps: [],
+      },
+    };
+
+    render(<ResearchReceipt model={buildResearchReceipt(receiptBundle)} />);
+
+    const issueMetric = screen.getByText("0 项限制/缺口");
+    expect(issueMetric.closest("details")).toBeNull();
+  });
+
+  it.each([
+    ["failed", "需要关注"],
+    ["cancelled", "已停止"],
+  ] as const)("renders the %s receipt status as %s", (runStatus, label) => {
+    const model = {
+      ...buildResearchReceipt(bundle),
+      runStatus,
+    };
+
+    render(<ResearchReceipt model={model} />);
+
+    expect(
+      screen.getByRole("heading", {
+        level: 3,
+        name: `Foresight · ${label}`,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: `Foresight · ${label}` }),
+    ).toHaveClass(`is-${runStatus}`);
   });
 
   it("restores, switches and archives conversations in the mobile drawer", async () => {
