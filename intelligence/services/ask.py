@@ -417,10 +417,13 @@ def bind_market_watch_pack(
     from intelligence.services.market_watch_pack import run_market_watch_pack
 
     disclosure = calendar_disclosure(frame) if frame is not None else None
+    # 替补观察探针仅在盘面题单点开启；weekly 五日包与一般题路径保持默认关
+    # （spec 2026-08-25-substitute-observation-probe P1 另议）。
     pack = run_market_watch_pack(
         query or options.query,
         market_db_path=options.market_db_path,
         calendar_disclosure=disclosure,
+        substitute_probes=True,
     )
     inject = pack.should_stop or not pack.market_daily_empty
     rendered = pack.render() if inject else ""

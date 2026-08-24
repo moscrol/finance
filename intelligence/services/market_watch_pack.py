@@ -21,6 +21,18 @@ BAG_DUAL_RED = "dual_red"
 BAG_LIMIT_HEAT = "limit_heat"
 REQUIRED_BAGS = (BAG_MARKET, BAG_MAINLINE, BAG_DUAL_RED, BAG_LIMIT_HEAT)
 
+PROBE_ROLE_OBSERVATION = "出清/分歧观察"
+_PROBE_MAX_THEMES = 2
+_PROBE_MAX_STOCKS = 2
+
+
+def _names_match(mainline_name: str, dual_name: str) -> bool:
+    """主线题材名与板块名的文本包含对齐——缺口句与替补探针共用同一套。"""
+
+    return bool(mainline_name and dual_name) and (
+        mainline_name in dual_name or dual_name in mainline_name
+    )
+
 
 @dataclass(frozen=True)
 class PackBag:
@@ -40,11 +52,28 @@ class PackBag:
 
 
 @dataclass(frozen=True)
+class ProbeReceipt:
+    """替补观察探针收据：谓词触发、同站立日、非机会（spec 2026-08-25）。
+
+    probe_id 刻意不设：P0 只有一种探针，trigger+role 已标识；多探针目录（P1）
+    落地时随真实读取点一起加，unread-fields 门禁不收「写了没人读」的字段。
+    """
+
+    trigger: str
+    requested_date: str | None
+    served_date: str | None
+    status: str
+    role: str
+    rows: tuple[dict[str, Any], ...]
+
+
+@dataclass(frozen=True)
 class MarketWatchPack:
     standing_date: str | None
     explicit: bool
     calendar_disclosure: str | None
     bags: tuple[PackBag, ...]
+    probes: tuple[ProbeReceipt, ...] = ()
 
     def bag(self, name: str) -> PackBag | None:
         for item in self.bags:
@@ -103,9 +132,7 @@ class MarketWatchPack:
             else []
         )
         overlap = any(
-            m and d and (m in d or d in m)
-            for m in mainline_names
-            for d in dual_names
+            _names_match(m, d) for m in mainline_names for d in dual_names
         )
         if overlap:
             return None
@@ -188,6 +215,25 @@ class MarketWatchPack:
             lines.append(
                 f"- 涨停热度 served_date={heat.served_date}：{names}。"
             )
+        if self.probes:
+            lines.append("## 替补观察（出清/分歧观察，非机会）")
+            for probe in self.probes:
+                if probe.status != "hit" or not probe.rows:
+                    lines.append(
+                        f"- [{probe.role}] {probe.trigger}：该日无可替补观察对象。"
+                    )
+                    continue
+                first = probe.rows[0]
+                names = "、".join(
+                    f"{row.get('stock_name')}({row.get('stock_code')})"
+                    for row in probe.rows
+                )
+                lines.append(
+                    f"- [{probe.role}] {probe.trigger}；替补："
+                    f"{first.get('sector_name')}"
+                    f"（板块成交额 {first.get('sector_amount')} 亿）→ {names}；"
+                    f"served_date={probe.served_date}。"
+                )
         return "\n".join(lines)
 
 
@@ -254,6 +300,7 @@ def run_market_watch_pack(
     market_db_path: str | Path | None,
     calendar_disclosure: str | None = None,
     cutoff: str | None = None,
+    substitute_probes: bool = False,
 ) -> MarketWatchPack:
     standing, explicit = resolve_standing_date(query, cutoff=cutoff)
     opened = _open(market_db_path)
@@ -280,11 +327,15 @@ def run_market_watch_pack(
             _query_dual_red(con, standing),
             _query_limit_heat(con, standing),
         )
+        probes: tuple[ProbeReceipt, ...] = ()
+        if substitute_probes:
+            probes = _probe_substitute_observation(con, standing, bags[1], bags[2])
         return MarketWatchPack(
             standing_date=standing,
             explicit=explicit,
             calendar_disclosure=calendar_disclosure,
             bags=bags,
+            probes=probes,
         )
     finally:
         con.close()
@@ -451,6 +502,107 @@ def _query_dual_red(con: Any, standing: str | None) -> PackBag:
         requested_date=standing,
         served_date=standing,
         status="hit",
+        rows=rows,
+    )
+
+
+def _probe_substitute_observation(
+    con: Any,
+    standing: str | None,
+    mainline: PackBag,
+    dual: PackBag,
+) -> tuple[ProbeReceipt, ...]:
+    """主线题材当日无严格双红匹配时，按预案补带标签的替补观察池。
+
+    触发是包状态谓词（复用缺口句的文本包含对齐），查询只读 fact_* 且
+    ``trade_date = ?`` 精确命中站立日；产出是观察不是机会。上限：
+    题材 ≤2（主线袋行序）、每题材 1 板块、每板块 2 只个股。
+    """
+
+    if standing is None or mainline.status != "hit":
+        return ()
+    dual_names = (
+        [str(row.get("sector_name") or "") for row in dual.rows]
+        if dual.status == "hit"
+        else []
+    )
+    themes = [
+        str(row.get("theme_name") or row.get("sector_name") or "")
+        for row in mainline.rows
+        if row.get("theme_name") or row.get("sector_name")
+    ]
+    unmatched = [
+        theme
+        for theme in themes
+        if theme and not any(_names_match(theme, d) for d in dual_names if d)
+    ]
+    return tuple(
+        _run_substitute_probe(con, standing, theme)
+        for theme in unmatched[:_PROBE_MAX_THEMES]
+    )
+
+
+def _run_substitute_probe(con: Any, standing: str, theme: str) -> ProbeReceipt:
+    trigger = f"主线题材「{theme}」当日无严格双红匹配"
+
+    def _no_match() -> ProbeReceipt:
+        return ProbeReceipt(
+            trigger=trigger,
+            requested_date=standing,
+            served_date=None,
+            status="no_match",
+            role=PROBE_ROLE_OBSERVATION,
+            rows=(),
+        )
+
+    if not _has_table(con, "fact_sector_daily"):
+        return _no_match()
+    sector_row = con.execute(
+        """
+        select sector_name, amount from fact_sector_daily
+        where trade_date = cast(? as date)
+          and (sector_name like '%' || ? || '%' or ? like '%' || sector_name || '%')
+        order by amount desc nulls last
+        limit 1
+        """,
+        [standing, theme, theme],
+    ).fetchone()
+    if not sector_row or not sector_row[0]:
+        return _no_match()
+    sector = str(sector_row[0])
+    if not _has_table(con, "fact_sector_stock_daily"):
+        return _no_match()
+    fetched = con.execute(
+        f"""
+        select stock_name, stock_ts_code, amount, pct_chg
+        from fact_sector_stock_daily
+        where trade_date = cast(? as date) and sector_name = ?
+        order by amount desc nulls last
+        limit {int(_PROBE_MAX_STOCKS)}
+        """,
+        [standing, sector],
+    ).fetchall()
+    rows = tuple(
+        {
+            "theme": theme,
+            "sector_name": sector,
+            "sector_amount": sector_row[1],
+            "stock_name": str(name),
+            "stock_code": str(code or ""),
+            "amount": amount,
+            "pct_chg": pct,
+        }
+        for name, code, amount, pct in fetched
+        if name
+    )
+    if not rows:
+        return _no_match()
+    return ProbeReceipt(
+        trigger=trigger,
+        requested_date=standing,
+        served_date=standing,
+        status="hit",
+        role=PROBE_ROLE_OBSERVATION,
         rows=rows,
     )
 
