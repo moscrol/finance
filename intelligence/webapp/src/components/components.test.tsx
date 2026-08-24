@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
@@ -12,6 +19,7 @@ import {
   userFacingStage,
   userFacingText,
 } from "../displayText";
+import { buildResearchJourney } from "../researchJourney";
 import { upsertStructuredReportModule } from "../structuredReport";
 import { upsertTraceStep } from "../trace";
 import type {
@@ -36,6 +44,7 @@ import { MessageThread } from "./MessageThread";
 import { PerspectivePicker } from "./PerspectivePicker";
 import { ResearchHome } from "./ResearchHome";
 import { ResearchInspector } from "./ResearchInspector";
+import { ResearchJourney } from "./ResearchJourney";
 import { RunView } from "./RunView";
 import { SkillInvocation } from "./SkillInvocation";
 import { SkillPicker } from "./SkillPicker";
@@ -936,6 +945,73 @@ describe("Workbench components", () => {
 });
 
 describe("Chat-first conversation components", () => {
+  it("renders four truthful research phases with one polite live region", () => {
+    const model = buildResearchJourney({
+      progress: [
+        {
+          step_id: "research-running",
+          name: "research",
+          status: "running",
+          started_at: "2026-08-24T10:00:00+08:00",
+          finished_at: null,
+          input_summary: "",
+          output_summary: "正在核对公告、盘面与知识库。",
+          warnings: [],
+        },
+      ],
+      answerPhase: null,
+      terminalStatus: "streaming",
+    });
+
+    render(<ResearchJourney model={model} connection="connected" />);
+
+    const stageList = screen.getByRole("list", { name: "研究阶段" });
+    expect(within(stageList).getAllByRole("listitem")).toHaveLength(4);
+    expect(
+      within(stageList).getByLabelText("查找证据，进行中"),
+    ).toHaveAttribute("aria-current", "step");
+    expect(screen.getByText("阶段 2/4 · 查找证据")).toBeInTheDocument();
+
+    const liveRegion = screen.getByRole("status");
+    expect(liveRegion).toHaveAttribute("aria-live", "polite");
+    expect(liveRegion).toHaveTextContent("正在核对公告、盘面与知识库。");
+    expect(stageList).not.toHaveAttribute("aria-live");
+  });
+
+  it("preserves the current journey while the connection recovers", () => {
+    const model = buildResearchJourney({
+      progress: [],
+      answerPhase: null,
+      terminalStatus: "streaming",
+    });
+
+    render(<ResearchJourney model={model} connection="reconnecting" />);
+
+    expect(screen.getByText("Foresight · 正在研究")).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "连接恢复中 · 正在启动研究",
+    );
+    expect(screen.getAllByRole("listitem")).toHaveLength(4);
+  });
+
+  it("uses the compact journey treatment after draft text appears", () => {
+    const model = buildResearchJourney({
+      progress: [],
+      answerPhase: "verified_draft",
+      terminalStatus: "streaming",
+    });
+
+    render(
+      <ResearchJourney model={model} connection="connected" compact />,
+    );
+
+    expect(screen.getByLabelText("研究进度")).toHaveClass("is-compact");
+    expect(screen.getByText("阶段 4/4 · 形成结论")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "可核验草稿已形成，正在精修",
+    );
+  });
+
   it("restores, switches and archives conversations in the mobile drawer", async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
