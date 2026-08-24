@@ -29,6 +29,9 @@ from intelligence.services import evidence_registry
 from intelligence.services import task_fulfillment
 from intelligence.services import run_store as rs
 from intelligence.services.outlook_delivery_gate import apply_outlook_delivery_gate
+from intelligence.services.forecast_residual_followup import (
+    append_unverified_forecast_grids,
+)
 from intelligence.services.status_projection import (
     episode_status_from_turn,
     project_artifact_statuses,
@@ -3953,6 +3956,11 @@ class TurnOrchestrator:
             warning = "outlook_delivery_gate"
             warnings.append(warning)
             self.run_store.add_degrade(run_id, warning)
+        answer_text = append_unverified_forecast_grids(
+            answer_text,
+            question_type=task_frame.question_type,
+            open_gaps=result.open_gaps,
+        )
         # 上下文增长只在私有 artifact 的事件流里有据可查，而那份 artifact 不进
         # 用户可见面。token 计数本身不是敏感信息（不含问题、证据或提示词），
         # 所以读未脱敏的那份，避免 redact 把整数换成占位符。

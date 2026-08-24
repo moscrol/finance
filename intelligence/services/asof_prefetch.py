@@ -633,7 +633,25 @@ def collect_prefetch_items(
     as_of_iso = as_of.isoformat()
     items.extend(_history_analog_items(question, as_of, as_of_iso, db_path))
     if question_type == "market_forecast":
-        items.extend(_market_forecast_weekly_items(as_of, as_of_iso, db_path))
+        from intelligence.services.forecast_residual_followup import (
+            WEEKLY_PACK_REUSE_DETAIL,
+            WEEKLY_PACK_REUSE_TITLE,
+            should_skip_weekly_pack,
+        )
+
+        if should_skip_weekly_pack(
+            question=question, question_type=question_type
+        ):
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title=WEEKLY_PACK_REUSE_TITLE,
+                    detail=WEEKLY_PACK_REUSE_DETAIL,
+                    source_date=as_of_iso,
+                )
+            )
+        else:
+            items.extend(_market_forecast_weekly_items(as_of, as_of_iso, db_path))
     con = _connect(db_path)
     if con is None:
         return tuple(items)
