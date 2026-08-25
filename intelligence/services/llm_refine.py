@@ -1587,20 +1587,35 @@ def synthesize_messages(
     )
     # 网络抖动（连接被重置/DNS 瞬断等 URLError）重试一次再降级：合成是整条回答的
     # 可读性关键，单次瞬断不值得整答退回模板。HTTP 4xx/5xx 不重试（重试大概率同样失败）。
+    #
+    # CLI judge 分支与 complete() 对齐：judge_provider() 在 LLM_JUDGE_BACKEND=grok-cli
+    # 时返回 base_url="cli://grok" 的 provider，走 HTTP 会在发包前抛
+    # URLError(unknown url type: 'cli')——shadow 链的 grounding judge 曾因此每轮
+    # judge_unavailable（存证误标 zhipu，实际记录的是 composer 的 provider）。
+    from intelligence.services.grok_cli_judge import is_cli_judge_provider
+
     last_exc: Exception | None = None
     content = None
     finish_reason: str | None = None
     for attempt in range(_RETRY_MAX_ATTEMPTS):
         try:
             remaining = phase_deadline.require_remaining(1)
-            content, finish_reason = _post_chat_synthesis(
-                provider,
-                messages,
-                remaining,
-                temperature,
-                max_tokens,
-                max_chars,
-            )
+            if is_cli_judge_provider(provider):
+                content = _complete_cli_judge(provider, messages, remaining)
+                if len(content) > max_chars:
+                    raise LLMOutputTooLong()
+                # CLI 无 finish_reason 语义：进程正常退出且有输出即视为完整，
+                # 置 "stop" 以通过下方的完成性校验（与 complete() 的语义一致）。
+                finish_reason = "stop"
+            else:
+                content, finish_reason = _post_chat_synthesis(
+                    provider,
+                    messages,
+                    remaining,
+                    temperature,
+                    max_tokens,
+                    max_chars,
+                )
             break
         except LLMCallBudgetExceeded as exc:
             return None, str(exc)
