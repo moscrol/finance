@@ -28,7 +28,11 @@ from intelligence.services import context_growth
 from intelligence.services import evidence_registry
 from intelligence.services import task_fulfillment
 from intelligence.services import run_store as rs
-from intelligence.services.outlook_delivery_gate import apply_outlook_delivery_gate
+from intelligence.services.outlook_delivery_gate import (
+    apply_market_watch_delivery_gate,
+    apply_outlook_delivery_gate,
+    evidence_grid_text,
+)
 from intelligence.services.forecast_residual_followup import (
     append_unverified_forecast_grids,
 )
@@ -2969,6 +2973,11 @@ class TurnOrchestrator:
                     modules=daily_review_output.modules,
                     warnings=daily_review_output.warnings,
                 )
+            draft_text = apply_market_watch_delivery_gate(
+                draft_text,
+                question_type=turn_intent.question_type,
+                grid_text=pack.render() if pack is not None else "",
+            ).text
             draft_text = merge_into_public_answer(draft_text, pack)
             perspective_header = (
                 perspective_lab.runtime_answer_header(
@@ -3068,6 +3077,16 @@ class TurnOrchestrator:
                     modules=daily_review_output.modules,
                     warnings=daily_review_output.warnings,
                 )
+            watch_gate = apply_market_watch_delivery_gate(
+                answer_text,
+                question_type=turn_intent.question_type,
+                grid_text=pack.render() if pack is not None else "",
+            )
+            if watch_gate.applied and watch_gate.dropped:
+                watch_warning = "market_watch_delivery_gate"
+                warnings.append(watch_warning)
+                self.run_store.add_degrade(run_id, watch_warning)
+            answer_text = watch_gate.text
             answer_text = merge_into_public_answer(answer_text, pack)
             fallback_notice = (
                 perspective_lab.runtime_fallback_notice(perspective_mode)
@@ -3956,6 +3975,18 @@ class TurnOrchestrator:
             warning = "outlook_delivery_gate"
             warnings.append(warning)
             self.run_store.add_degrade(run_id, warning)
+        # 回退防线：market_watch 正常被 Engine A 拒收，走不到这里；若有人把它
+        # 移出拒收名单（spec §6.4 的回归形状），未注册阈值仍不得上桌。
+        episode_watch_gate = apply_market_watch_delivery_gate(
+            answer_text,
+            question_type=task_frame.question_type,
+            grid_text=evidence_grid_text(citations),
+        )
+        answer_text = episode_watch_gate.text
+        if episode_watch_gate.applied and episode_watch_gate.dropped:
+            watch_warning = "market_watch_delivery_gate"
+            warnings.append(watch_warning)
+            self.run_store.add_degrade(run_id, watch_warning)
         answer_text = append_unverified_forecast_grids(
             answer_text,
             question_type=task_frame.question_type,
