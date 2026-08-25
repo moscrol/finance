@@ -43,7 +43,7 @@ def test_schema_side_is_independent_of_registry() -> None:
     registered = {d.table for d in _DATASETS.values()}
 
     assert declared, "schema.sql 抽不出表名，正则可能被 DDL 改动打断了"
-    # 有表在 schema 里却没注册（豁免那 25 张）→ 两侧确实独立
+    # 有表在 schema 里却没注册（豁免表）→ 两侧确实独立
     assert declared - registered, "declared ⊆ registered，判据可能退化成照镜子了"
     # 有注册项不在 CREATE TABLE 里（两个 VIEW）→ 反方向也不重合
     assert registered - declared, "registered ⊆ declared，VIEW 那两个应当在差集里"

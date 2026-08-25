@@ -365,3 +365,12 @@
 - **[2026-08-25] 基线量错了棵树。** 报「dataset 从 13 →」，但 13 是在**已弃用的脏分支**上量的；
   `gitea/main` 的真实基线是 16。做增量类结论前先确认「我量的是哪个 checkout 的哪个分支」，
   这与能力图谱 `graph_audit.py` 打印 checkout/sha 是同一条理由：**exit 0 只对某个 revision 成立**。
+
+- **[2026-08-25] 列名碰上证据层 `source_date`，不能靠「换一列当时间轴」躲同名。**
+  `fact_historical_mapping.source_date` 是被对照日，证据层 `source_date` 是信息日。
+  躲开同名去选 `similar_date` 当 `time_field`，过滤会太松：问 2024 会看到 2026 才算出的映射。
+  选 `end_date` 则相反——约 89% 在未来，`filter_future_dated` 整批丢掉。
+  做法：发生日和信息日先量清；同名用语义别名（`as_of` → 物理列 `source_date`），**不要换列**。
+  **不要把「两义碰巧对齐」写进结论**：本表 `updated_at` 671/687 行是 2026-08-12 回填墙，
+  那是入库时间不是算法信息日。回填墙不能当 `cutoff_column`，否则历史问句全空。
+  别名拆开后，T1b / `dataset_max_date` 必须按语义名解析时间维，不能只拿物理列反查。

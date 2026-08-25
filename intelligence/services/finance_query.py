@@ -577,6 +577,91 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "limit_times": _metric("limit_seq", "连板数", "max", "integer"),
         },
     ),
+    "regulation_pool_daily": _DatasetDefinition(
+        table="fact_regulation_pool_daily",
+        label="监管安全池日频快照",
+        population="subset",
+        coverage=(
+            "复盘会**安全池**的每日快照，不是监管宇宙全集。"
+            "实测每日 1~89 行（中位约 12），库里目前只有 `safe`（写入器认 waiting，生产 0 行）。"
+            "**问「多少只股在异动/监管」不能用本表**。"
+            "`effective_date` 是快照日；信息截止打在这一列。"
+            "`updated_at` 是入库时间（大量行写于 2026-08-12 回填墙），**不能当 PIT 信息日**。"
+            "**不开放涨幅**：`pct_chg_10d` 存的是小数（0.507=+50.7%），不是百分数；"
+            "开放会被读成「涨了 0.51%」。也不开放 close——池接口自带价，"
+            "与 `fact_stock_daily.close` 并非逐日相等"
+            "（实测 1186/6453 不一致，另 81 行对不上行情表）。"
+            "窗口内缺 2026-08-19（事件表同日也缺）。"
+        ),
+        time_field="effective_date",
+        dimensions={
+            "effective_date": _dimension("effective_date", "快照日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+            "pool_status": _dimension("pool_status", "池状态"),
+        },
+        metrics={
+            "safe_days_10d": _metric("safe_days_10d", "10日安全天数", "min", "integer"),
+        },
+    ),
+    "regulation_event_daily": _DatasetDefinition(
+        table="fact_regulation_event_daily",
+        label="监管在场名单日频快照",
+        population="subset",
+        coverage=(
+            "每天把还在监管窗里的票**重拍一遍**，不是「事件发生一次记一行」。"
+            "2026-01-15 起几乎每个交易日都有行（147 天里缺 2026-08-19）。"
+            "`effective_date` 是快照日；`start_date`/`end_date` 是监管窗，**不是时间轴**。"
+            "`updated_at` 同样是入库时间，不能当 PIT。"
+            "问「今天谁还在监管名单」用本表 + time_range；"
+            "问还剩几天用 `days_remaining`，**禁止把 end_date 当 as-of**——"
+            "约 89% 的 end_date 晚于快照日，当时间轴会让整批被判成晚于问句日。"
+            "`event_type` 约四成为空，不是漏了。"
+        ),
+        time_field="effective_date",
+        dimensions={
+            "effective_date": _dimension("effective_date", "快照日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+            "start_date": _dimension("start_date", "监管开始日", "date"),
+            "end_date": _dimension("end_date", "监管结束日", "date"),
+            "status_type": _dimension("status_type", "退出状态"),
+            "event_type": _dimension("event_type", "监管类型"),
+            "leader_plate": _dimension("leader_plate", "所属题材"),
+        },
+        metrics={
+            "days_remaining": _metric(
+                "days_remaining_trading", "剩余交易日", "min", "integer"
+            ),
+        },
+    ),
+    "historical_mapping": _DatasetDefinition(
+        table="fact_historical_mapping",
+        label="历史相似日映射",
+        population="full",
+        coverage=(
+            "「这一天像历史上哪一天」。有行的日子通常 2 条相似日"
+            "（实测 335 天为 2、17 天为 1），不是个股宇宙。"
+            "`as_of` 是被对照的交易日；`similar_date` 是历史相似日，只做维度。"
+            "**不要按 similar_date 当时间轴**——那会把后来才算出来的映射漏进更早的问句。"
+            "**不要把 `updated_at` 当信息日**：671/687 行写于 2026-08-12 回填墙，"
+            "那是入库时间不是算法计算时间。本表不能做 08-12 之前的 PIT 重放——"
+            "问句日早于回填日仍看得到后来才写入的映射。"
+            "缺行是接口空（ops 记 empty），不是没同步。"
+            "相似日可早于本库行情起点（最早到 2022）。"
+        ),
+        time_field="as_of",
+        dimensions={
+            "as_of": _dimension("source_date", "被对照的交易日", "date"),
+            "similar_date": _dimension("similar_date", "历史相似日", "date"),
+            "external_cycle": _dimension("external_cycle", "外部周期"),
+            "summary": _dimension("summary", "相似日摘要"),
+        },
+        metrics={
+            "similarity": _metric("similarity", "相似度"),
+            "cycle_day": _metric("cycle_day", "周期第几天", "max", "integer"),
+        },
+    ),
     "sw_l1_daily": _DatasetDefinition(
         table="fact_sw_l1_daily",
         label="申万一级行业日频行情",
@@ -882,17 +967,18 @@ _UNREGISTERED_TABLES: dict[str, str] = {
     "fact_theme_limit_stock_daily": "dedicated_path：theme_lifecycle_timeline 已消费",
     "fact_mainline_stock_daily": "dedicated_path：主线结构由 mainline_* 两个 dataset 覆盖",
     "fact_sector_period_rank_daily": "dedicated_path：adapter ALLOWED_TABLES 内，按需直查",
-    # ── 2026-08-12 有意豁免：稀疏/半结构，「保持工具面收敛」 ──
-    # 要注册得先推翻这条理由。注意后三张**没有 trade_date 列**，不是 drop-in；
-    # 且 fact_historical_mapping.source_date 与 registry filter_future_dated 的
-    # source_date 同名不同义，注册前必须确认，否则整批被判成「晚于问句日」。
-    # fact_auction_stock_daily 已于 2026-08-25 转正为 dataset auction_stock_daily。
-    # 推翻 08-12「稀疏/半结构」那条理由的依据：实测 145 天、每日 50~99 行、字段可用率
-    # 近 100%，并不稀疏；「半结构」指的是 panel_key 分面板，而 population/coverage
-    # 这套机制正是为表达子集而存在的，当时还没有。
-    "fact_regulation_pool_daily": "deferred_2026-08-12：无 trade_date（effective_date）",
-    "fact_regulation_event_daily": "deferred_2026-08-12：监管事件半结构",
-    "fact_historical_mapping": "deferred_2026-08-12：无 trade_date；source_date 语义与 registry 约定冲突",
+    # ── 2026-08-12 有意豁免过的稀疏/半结构表，已于 2026-08-25 转正 ──
+    # 当初「无 trade_date、不是 drop-in」属实，变的是工具面：population / coverage /
+    # incomplete_before / cutoff_column 能表达子集和双时态了。
+    # 转正依据（先量后判，理由留在这里而不是默默删掉）：
+    # - fact_auction_stock_daily → auction_stock_daily：145 天、每日 50~99 行，并不稀疏。
+    # - fact_regulation_* → *_daily：effective_date 是快照日；updated_at 是入库时间
+    #   （大量行写于 2026-08-12 回填墙），不能当 PIT。事件表是每日重拍的在场名单，
+    #   不是「有事件才记一行」。end_date 约 89% 在未来，禁止当时间轴。
+    # - fact_historical_mapping → historical_mapping：time_field 用别名 as_of，
+    #   物理列仍是 source_date。禁止把 similar_date 当时间轴（过滤太松、前视）。
+    #   表列 source_date 与证据层 source_date 同名不同义，靠别名隔离，不靠换列。
+    #   两义并不碰巧对齐：updated_at 几乎全是回填墙，不能当信息日。
     # ── 有数据、无通路、待评估：下一批候选 ──
     "fact_theme_flow_daily": "candidate：题材资金流，口径待与 sector_daily 对齐",
     "fact_global_stock_daily": "candidate：外盘个股，与 global_index_daily 口径待对齐",
@@ -1734,15 +1820,8 @@ class FinanceQuery:
         if dataset is None or not dataset.time_field:
             return None
         # spec 里的维度名未必等于物理列名（如 sector_code → sector_ts_code），
-        # 故按物理列反查 spec 名，不能直接拿 time_field 当维度名用。
-        time_dimension = next(
-            (
-                name
-                for name, field in dataset.dimensions.items()
-                if field.column == dataset.time_field
-            ),
-            None,
-        )
+        # 也可能是语义别名（as_of → source_date）。优先认 time_field 本身。
+        time_dimension = _semantic_time_dimension(dataset)
         if time_dimension is None:
             return None
         probe = replace(
@@ -1806,6 +1885,27 @@ class FinanceQuery:
         )
         source_dates = tuple(_date_text(row.get("__source_date")) for row in rows)
         return visible_rows, source_dates, output_bytes
+
+
+def _semantic_time_dimension(dataset: _DatasetDefinition) -> str | None:
+    """模型侧时间维名。``time_field`` 可能是语义别名（``as_of``），物理列另叫 ``source_date``。
+
+    不能只用 ``field.column == dataset.time_field`` 反查：别名一旦拆开，T1b 和
+    ``dataset_max_date`` 探针会静默关掉——LIMIT 切掉窗口末端、过期判定拿不到全集 max。
+    """
+
+    if dataset.time_field is None:
+        return None
+    if dataset.time_field in dataset.dimensions:
+        return dataset.time_field
+    return next(
+        (
+            name
+            for name, field in dataset.dimensions.items()
+            if field.column == dataset.time_field
+        ),
+        None,
+    )
 
 
 def _compile_query(
@@ -1946,14 +2046,7 @@ def _compile_query(
     # T1b：time_range + 按日期升序 + LIMIT 会先丢掉窗口末端（问句锚定日）。
     # 取数改倒序，返回前再翻回升序，观察顺序不变。只在「全部 order 都是时间维
     # 升序」时翻转，避免打乱 amount desc 这类次键。
-    time_dimension = next(
-        (
-            name
-            for name, field in dataset.dimensions.items()
-            if field.column == dataset.time_field
-        ),
-        None,
-    )
+    time_dimension = _semantic_time_dimension(dataset)
     fetch_orders = spec.order_by
     reverse_after_fetch = False
     if (
