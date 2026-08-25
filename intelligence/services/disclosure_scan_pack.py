@@ -343,6 +343,73 @@ def _main_roster_incomplete(traces: list[KeywordTrace] | tuple[KeywordTrace, ...
     return False
 
 
+RESIDUAL_MAX_CHARS = 1600
+RESIDUAL_TRUNCATION_NOTICE = "（残差超预算，已截断）"
+
+DISCLOSURE_RESIDUAL_CONTRACT = (
+    "本题为披露扫描题：个股名单由确定性扫描包给出，并会原样置顶在公开稿最前，"
+    "你的输出只是名单后面的残差解读，不是名单本身。\n"
+    "1. 只解释：各档含义（临床批件≠上市；合同/中选类标题未写金额则金额未知；"
+    "回购/增持是资本运作备考，不计入经营性利好）、集采中选的量价双重性、"
+    "反证行（负面/撤回）的含义、附录关键词预算截断的边界——"
+    "不得把「未查完」说成「没有」。\n"
+    "2. 禁止复述或改写名单：不得输出任何名单行（六位代码开头的行），"
+    "不得提及扫描包之外的股票代码或公司，不得新增名单外的事实。\n"
+    "3. 禁止买卖建议，禁止把「未计入比较利好」里的行升格为利好。\n"
+    "4. 篇幅不超过 500 字，直接给解读正文，不要标题、不要重复名单。"
+)
+
+# 名单行形状：包渲染每行 `600276 【注册获批】…`。残差里出现这种行 = 模型在造第二份名单。
+_RESIDUAL_ROSTER_LINE_RE = re.compile(r"(?m)^\s*\d{6}\s*【")
+# 边界感知的六位码：公告 ID（10 位）和纯数字长串的内嵌六位不算。
+_RESIDUAL_CODE_RE = re.compile(r"(?<!\d)(\d{6})(?!\d)")
+
+
+@dataclass(frozen=True)
+class ResidualGateResult:
+    text: str
+    dropped: bool
+    reason: str | None = None
+    detail: str | None = None
+
+
+def disclosure_residual_allowed(pack: DisclosureScanPack | None) -> bool:
+    """残差只在主名单齐且非空时上场；partial/empty/unsupported/error 维持 P0 纯包。"""
+
+    return pack is not None and pack.status == "hit" and bool(pack.rows)
+
+
+def gate_disclosure_residual(
+    body: str, pack: DisclosureScanPack
+) -> ResidualGateResult:
+    """出稿闸：包外码 / 名单行形状 → 整段丢弃（fail-closed），超预算 → 声明式截断。
+
+    为什么整丢不逐句删：逐句删会留下指代断裂的残句，而残差整段的价值密度
+    不足以值得句级修复；回 P0 纯包形状是已验证的安全态。
+    """
+
+    text = (body or "").strip()
+    if not text:
+        return ResidualGateResult("", dropped=False)
+    allowed = {
+        row.code for row in (*pack.rows, *pack.excluded, *pack.counter_rows)
+    }
+    unknown = sorted(set(_RESIDUAL_CODE_RE.findall(text)) - allowed)
+    if unknown:
+        return ResidualGateResult(
+            "", dropped=True, reason="unknown_code", detail=unknown[0]
+        )
+    if _RESIDUAL_ROSTER_LINE_RE.search(text):
+        return ResidualGateResult("", dropped=True, reason="roster_line")
+    if len(text) > RESIDUAL_MAX_CHARS:
+        return ResidualGateResult(
+            text[:RESIDUAL_MAX_CHARS].rstrip() + "\n" + RESIDUAL_TRUNCATION_NOTICE,
+            dropped=False,
+            reason="truncated",
+        )
+    return ResidualGateResult(text, dropped=False)
+
+
 def default_cninfo_fetch(
     *,
     keyword: str,

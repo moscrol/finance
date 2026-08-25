@@ -454,9 +454,18 @@ def bind_disclosure_scan_pack(
     clock: Any = None,
     sleep_fn: Any = None,
 ) -> AskOptions:
-    """Run the disclosure scan pack and always lock compose/synthesize off."""
+    """Run the disclosure scan pack; open compose only for a complete non-empty roster.
 
-    from intelligence.services.disclosure_scan_pack import run_disclosure_scan_pack
+    P0 恒锁 compose=False（纯包渲染）。P1-① 起：`status=hit` 且有主名单行时保留
+    调用方的 compose/synthesize（残差写手上场，只解读不增删名单行——契约与出稿闸
+    见 disclosure_scan_pack.gate_disclosure_residual）；partial/empty/unsupported/
+    error 一律维持 P0 纯包形状，fail-closed。
+    """
+
+    from intelligence.services.disclosure_scan_pack import (
+        disclosure_residual_allowed,
+        run_disclosure_scan_pack,
+    )
 
     standing = as_of or options.date
     if standing is None and frame is not None:
@@ -479,13 +488,63 @@ def bind_disclosure_scan_pack(
             if options.supplemental_evidence
             else rendered
         )
+    residual_open = disclosure_residual_allowed(pack)
     return replace(
         options,
-        compose=False,
-        synthesize=False,
+        compose=options.compose if residual_open else False,
+        synthesize=options.synthesize if residual_open else False,
         supplemental_evidence=supplemental,
         disclosure_scan_pack=pack,
     )
+
+
+def prepare_disclosure_residual_answer(options: AskOptions) -> PreparedAnswer:
+    """P1-① 残差写手的开台：名单置顶由裁判后合并负责，模型只解读。
+
+    契约必须走 build_synthesis_messages 的 contract_guidance 槽（强制输出契约），
+    不能混进经验卡片槽——2026-08-13 实测贴错语义标签时模型遵守率极低。
+    prepare_existing_answer 只在 prepared_synthesis_messages 为 None 时自建消息，
+    这里预置即生效，不改任何现役签名。
+    """
+
+    from intelligence.services.disclosure_scan_pack import (
+        DISCLOSURE_RESIDUAL_CONTRACT,
+    )
+
+    pack = options.disclosure_scan_pack
+    assert pack is not None, "residual answer needs a bound disclosure pack"
+    rendered = pack.render()
+    result = AskResult(
+        query=options.query,
+        trade_date=pack.universe_date,
+        matched_theme=None,
+        candidate_tier=None,
+        priority_score=None,
+        synthesis=None,
+        market_summary=rendered,
+    )
+    result.answer_spec = _build_base_answer_spec_from_sections(
+        result,
+        theme="披露扫描",
+        direct_lines=(
+            f"窗口 {pack.se_date_start}~{pack.se_date_end} 的官方披露名单"
+            "以置顶扫描包为准，下面只做残差解读。",
+        ),
+        evidence_blocks=(rendered,),
+        risk_lines=(),
+        action_lines=(),
+    )
+    # 证据文本必须是完整包渲染：answer_spec 的证据行会被截到 8 条
+    # （_build_base_answer_spec_from_sections 的 [:8]），残差写手要解读的是
+    # 全部分档与反证，不能只看见名单的一小截。spec 只留给草稿骨架用。
+    result.prepared_synthesis_messages = llm_refine.build_synthesis_messages(
+        options.query,
+        "披露扫描",
+        rendered,
+        citation_legend="",
+        contract_guidance=DISCLOSURE_RESIDUAL_CONTRACT,
+    )
+    return prepare_existing_answer(options, result)
 
 
 def v_block_for_ask(
