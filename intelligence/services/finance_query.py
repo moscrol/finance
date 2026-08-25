@@ -837,11 +837,17 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         label="海外指数日频（隔夜外盘）",
         population="full",
         coverage=(
-            "隔夜外盘指数全集，数量个位数。"
+            "隔夜外盘指数全集，每日固定 5 个：DJI 道琼斯 / IXIC 纳斯达克 / SPX 标普500 / "
+            "HSI 恒生 / HKTECH 恒生科技（实测与个股表同一 399 个 A 股交易日）。"
+            "`trade_date` 是 A 股日历（隔夜对照日=信息日）；`session_date` 是外盘实际会话日，只做维度。"
+            "多数日子两日同一天；美股休市/时差时 session 会早 1 或 3 天。"
+            "**不要按 session_date 当时间轴**——问「今天隔夜」应对 A 股日。"
+            "`updated_at` 大量写于 2026-08-12 回填墙，不能当 PIT。"
         ),
         time_field="trade_date",
         dimensions={
-            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "trade_date": _dimension("trade_date", "A股对照日", "date"),
+            "session_date": _dimension("source_trade_date", "外盘会话日", "date"),
             "index_code": _dimension("code", "指数代码"),
             "index_name": _dimension("name", "指数名称"),
             "market_group": _dimension("market_group", "市场分组"),
@@ -849,6 +855,39 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         metrics={
             "close": _metric("close", "收盘"),
             "return_pct": _metric("pct_chg", "涨跌幅"),
+        },
+    ),
+    "global_stock_daily": _DatasetDefinition(
+        table="fact_global_stock_daily",
+        label="海外核心股日频（隔夜外盘）",
+        population="full",
+        coverage=(
+            "隔夜外盘核心股全集，每日固定 194 只（NASDAQ/NYSE；"
+            "实测 399 个交易日天天 194，首末日 ticker 集合同一）。"
+            "`trade_date` 是 A 股日历（隔夜对照日=信息日）；`session_date` 是外盘实际会话日，只做维度。"
+            "多数日子两日同一天；美股休市/时差时 session 会早 1 或 3 天。"
+            "**不要按 session_date 当时间轴**——问「今天隔夜英伟达」应对 A 股日。"
+            "代码是 `NVDA` 这种美股 ticker，不是 `.SH/.SZ`。"
+            "涨跌幅是百分数（1.30=+1.3%），与 A 股 `stock_daily` 同量纲。"
+            "**不开放市值**：`market_cap_usd` 是原样美元（英伟达约 5.4e12），不是亿。"
+            "`updated_at` 大量写于 2026-08-12 回填墙，不能当 PIT。"
+            "与 `global_index_daily` 同一套 A 股日历。"
+        ),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "A股对照日", "date"),
+            "session_date": _dimension("source_trade_date", "外盘会话日", "date"),
+            "ticker": _dimension("ts_code", "美股代码"),
+            "stock_name": _dimension("name_cn", "中文名"),
+            "name_en": _dimension("name_en", "英文名"),
+            "exchange": _dimension("exchange", "交易所"),
+            "business": _dimension("business", "主营业务"),
+            "industry_position": _dimension("industry_position", "产业位置"),
+        },
+        metrics={
+            "close": _metric("close", "收盘"),
+            "return_pct": _metric("pct_chg", "涨跌幅"),
+            "gain_5d": _metric("pct_chg_5d", "5日涨幅"),
         },
     ),
     # 2026-08-13 曾故意不注册稀疏事件表以收敛工具面。2026-08-23
@@ -979,12 +1018,18 @@ _UNREGISTERED_TABLES: dict[str, str] = {
     #   物理列仍是 source_date。禁止把 similar_date 当时间轴（过滤太松、前视）。
     #   表列 source_date 与证据层 source_date 同名不同义，靠别名隔离，不靠换列。
     #   两义并不碰巧对齐：updated_at 几乎全是回填墙，不能当信息日。
-    # ── 有数据、无通路、待评估：下一批候选 ──
-    "fact_theme_flow_daily": "candidate：题材资金流，口径待与 sector_daily 对齐",
-    "fact_global_stock_daily": "candidate：外盘个股，与 global_index_daily 口径待对齐",
-    "fact_research_report_catalog": "candidate：研报目录，偏知识库侧",
-    "fact_theme_fundamental_doc": "candidate：37 行题材基本面文档，偏知识库侧",
-    "fact_limit_advance_presence": "candidate：连板在场标记，与 limit_advance_daily 重叠待定",
+    # - fact_global_stock_daily → global_stock_daily：每日固定 194，与指数表同一
+    #   A 股日历；time_field=trade_date，session_date 只做维度。市值是原样美元未开放。
+    # ── 有数据、无通路、先量后判：暂不注册 ──
+    "fact_theme_flow_daily": (
+        "candidate：45 天自 2026-06-23，每日 57~109 条；amount 貌似亿，"
+        "但 08-25 合计 1884 vs 大盘 18316 vs sector_daily 加总 216801，未对账"
+    ),
+    "fact_research_report_catalog": "kb_side：467 行列表元数据，正文不在本表，偏知识库检索",
+    "fact_theme_fundamental_doc": "kb_side：37 行，kb_path 指向知识库，graph_only",
+    "fact_limit_advance_presence": (
+        "overlap：仅姓名+序号；完整晋级在 dedicated_path 的 fact_limit_advance_daily"
+    ),
 }
 
 # 注册了但**当前是空表**的，必须在这里声明是有意为之，否则审计判失败。
