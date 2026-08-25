@@ -1,7 +1,8 @@
 # 设计：板块个股利好公告由扫描包当第一执行者
 
 - 日期：2026-08-25
-- 状态：Draft **v1.3**（P0 #387 / P0.5 #392 已合已切；P1-① 残差写手已实施待合）
+- 状态：Draft **v1.4**（P1-① live R5 未过已回滚：残差被有据呈现器拒收、兜底骨架比纯包差；补丁=拒收回纯包 + 复述闸。真上场等 P1-①c 全行 claims/atoms。生产回 `54a6f096`）
+- v1.3 → v1.4：live `run_20260825_200157_247884` 两个实锤——① answer_spec claim 集截 8 条，模型解读全名单必然越界，`grounded_required_fallback` 拒收后交付的 spec 骨架比 P0 纯包差，已按丢弃处理回纯包（`disclosure_residual_dropped:grounded_rejected`）；② 模型会不带【档位】复述名单 20+ 码，闸加「点名 >8 家整丢」（`roster_renarration`）。细节见实施计划 §8。
 - v1.2 → v1.3：P1-① 残差写手落地（实施计划 `docs/superpowers/plans/2026-08-25-disclosure-scan-p1-residual-writer.md`）——`status=hit` 且有主名单行时 bind 保留调用方 `compose`，模型经 `contract_guidance` 槽持残差契约只写解读；出稿过 `gate_disclosure_residual`（包外码/名单行形状整丢回 P0 形状 + degrade `disclosure_residual_dropped:*`，超预算声明式截断）；名单置顶仍靠裁判后合并，两处 merge 未动。P1-②（PDF 品种金额）/ P1-③（自定义窗口）未做。
 - v1.1 → v1.2：生产探针 `run_20260825_155459_372046` 主名单已齐，但开篇写「查询未跑完」、公开稿被附录回购逐条淹没。三条回写——(1) `partial` / 「查询未跑完」只由**主名单词**截断或跳过触发 (2) `excluded` 公开稿每档最多 3 条，其余计数进收据 (3) `L_reg` 不再吃「药品注册受理 / 注册证」宽词。残差写手仍 P1。
 - v1 → v1.1：核稿确认方案 A 是五个候选里唯一同时守住「名单可复现、不拆题材 L3 闸、不放松裁判」的。补四条实施前必写死的条款——(1) 巨潮分页/墙钟预算与 `partial` 语义 (2) 宇宙站立日 `trade_date <= as_of` 且 CI 禁连生产库 (3) 增持档 + unclassified 兜底进 `excluded` (4) P0 纯包渲染，`RouteRow` 三字段拍死，残差写手整体挪 P1。小注进 §11，不挡本稿。

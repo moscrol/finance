@@ -345,6 +345,9 @@ def _main_roster_incomplete(traces: list[KeywordTrace] | tuple[KeywordTrace, ...
 
 RESIDUAL_MAX_CHARS = 1600
 RESIDUAL_TRUNCATION_NOTICE = "（残差超预算，已截断）"
+# live 实测（run_20260825_200157_247884）：模型倾向逐行复述名单（20+ 个代码），
+# 名单行正则（^\d{6} 【）挡不住不带档位括号的复述。归纳解读点名个股用不到 8 家。
+RESIDUAL_MAX_DISTINCT_CODES = 8
 
 DISCLOSURE_RESIDUAL_CONTRACT = (
     "本题为披露扫描题：个股名单由确定性扫描包给出，并会原样置顶在公开稿最前，"
@@ -354,6 +357,7 @@ DISCLOSURE_RESIDUAL_CONTRACT = (
     "反证行（负面/撤回）的含义、附录关键词预算截断的边界——"
     "不得把「未查完」说成「没有」。\n"
     "2. 禁止复述或改写名单：不得输出任何名单行（六位代码开头的行），"
+    "不得逐行罗列名单内容；做归纳解读，点名个股不超过 8 家；"
     "不得提及扫描包之外的股票代码或公司，不得新增名单外的事实。\n"
     "3. 禁止买卖建议，禁止把「未计入比较利好」里的行升格为利好。\n"
     "4. 篇幅不超过 500 字，直接给解读正文，不要标题、不要重复名单。"
@@ -394,13 +398,21 @@ def gate_disclosure_residual(
     allowed = {
         row.code for row in (*pack.rows, *pack.excluded, *pack.counter_rows)
     }
-    unknown = sorted(set(_RESIDUAL_CODE_RE.findall(text)) - allowed)
+    mentioned = set(_RESIDUAL_CODE_RE.findall(text))
+    unknown = sorted(mentioned - allowed)
     if unknown:
         return ResidualGateResult(
             "", dropped=True, reason="unknown_code", detail=unknown[0]
         )
     if _RESIDUAL_ROSTER_LINE_RE.search(text):
         return ResidualGateResult("", dropped=True, reason="roster_line")
+    if len(mentioned) > RESIDUAL_MAX_DISTINCT_CODES:
+        return ResidualGateResult(
+            "",
+            dropped=True,
+            reason="roster_renarration",
+            detail=str(len(mentioned)),
+        )
     if len(text) > RESIDUAL_MAX_CHARS:
         return ResidualGateResult(
             text[:RESIDUAL_MAX_CHARS].rstrip() + "\n" + RESIDUAL_TRUNCATION_NOTICE,

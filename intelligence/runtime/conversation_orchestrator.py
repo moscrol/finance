@@ -66,6 +66,7 @@ from intelligence.services.ask import (
     synthesize_shadow_grounded_answer,
 )
 from intelligence.services.disclosure_scan_pack import (
+    ResidualGateResult,
     disclosure_scan_degrade_codes,
     gate_disclosure_residual,
     merge_disclosure_into_public_answer,
@@ -3105,9 +3106,17 @@ class TurnOrchestrator:
                 and ask_options.disclosure_scan_pack is not None
                 and result.synthesis
             ):
-                residual_gate = gate_disclosure_residual(
-                    result.synthesis, ask_options.disclosure_scan_pack
-                )
+                if result.synthesis_diagnostic.state == "rejected":
+                    # 有据呈现器拒收时 synthesis 里装的是确定性兜底（spec 骨架），
+                    # 对披露题它比 P0 纯包更差（套话 + 重复名单行）——live 实测
+                    # run_20260825_200157_247884。按丢弃处理，回纯包正文。
+                    residual_gate = ResidualGateResult(
+                        "", dropped=True, reason="grounded_rejected"
+                    )
+                else:
+                    residual_gate = gate_disclosure_residual(
+                        result.synthesis, ask_options.disclosure_scan_pack
+                    )
                 # 活性事件：零丢也留痕，让「闸跑了没丢」与「闸没跑」在
                 # telemetry 里可区分（R-20260825-08 先例）。degrade 通道仍
                 # 只在真丢时占用。
