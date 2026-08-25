@@ -770,6 +770,60 @@ _DATASETS: dict[str, _DatasetDefinition] = {
     ),
 }
 
+
+# ``schema.sql`` 里的每张 fact_/feature_ 表，要么在上面注册、要么在这里写明为什么不注册。
+# 二选一由 ``scripts/audit_dataset_registration.py`` 在 pre-commit 里强制。
+#
+# 为什么需要它：2026-08-13 那轮把复盘会 6 张表接进语义层时，处置理由
+# （「稀疏/半结构表暂不注册，保持工具面收敛」）只写在 asset-inventory 文档正文里。
+# 文档里的决定不是机器可读的——2026-08-25 复查时它被读成「漏了」，差点组织人去
+# 「补」一个当初有意做过的决定。**豁免必须和注册表放在一起，让改动者同屏看见。**
+#
+# 同一轮还差点把 ``fact_top_gainers`` 注册进来：它只有 schema、没有写入链，
+# 注册的结果是一个永远返回 0 行的 dataset。所以理由里区分 ``no_writer``——
+# 「建表 ≠ 入库」是「入库 ≠ agent 能查到」的姊妹病，前者靠 COUNT(*) 才抓得住。
+_UNREGISTERED_TABLES: dict[str, str] = {
+    # ── 无写入链：只有 schema，注册即得永久空 dataset ──
+    "fact_top_gainers": "no_writer：涨幅排行是「只展示不入库」设计，0 行",
+    "fact_high_volume_gainers": "no_writer：大成交排行同上，0 行",
+    # ── 基础设施：不是市场事实，不该出现在模型的 dataset 枚举里 ──
+    "fact_sector_daily_generation": "internal：代际物理表，读口是同名 VIEW（见 check_sector_fact_access.py）",
+    "fact_sector_stock_daily_generation": "internal：同上，读口是 VIEW",
+    "fact_sector_universe_daily": "internal：快照台账名单，供完整度校验用",
+    # ── 物化窗口：CLAUDE.md 明记「无活跃消费者，可能过期」，先别喂给模型 ──
+    "feature_market_window": "stale_materialized：历史物化窗口，无活跃消费者",
+    "feature_sector_window": "stale_materialized：同上",
+    "feature_stock_window": "stale_materialized：同上",
+    "feature_limit_advance_window": "stale_materialized：同上",
+    # ── 已有专用通路：证据块/adapter 已消费，再开语义面会双口径 ──
+    "fact_limit_advance_daily": "dedicated_path：adapter 与多处 service 已消费（6 个生产文件）",
+    "feature_l2_capital_flow_daily": "dedicated_path：D9 证据块 market_moneyflow.py",
+    "feature_l2_quant_orders_daily": "dedicated_path：同 D9 块",
+    "fact_theme_limit_stock_daily": "dedicated_path：theme_lifecycle_timeline 已消费",
+    "fact_mainline_stock_daily": "dedicated_path：主线结构由 mainline_* 两个 dataset 覆盖",
+    "fact_sector_period_rank_daily": "dedicated_path：adapter ALLOWED_TABLES 内，按需直查",
+    # ── 2026-08-12 有意豁免：稀疏/半结构，「保持工具面收敛」 ──
+    # 要注册得先推翻这条理由。注意后三张**没有 trade_date 列**，不是 drop-in；
+    # 且 fact_historical_mapping.source_date 与 registry filter_future_dated 的
+    # source_date 同名不同义，注册前必须确认，否则整批被判成「晚于问句日」。
+    "fact_auction_stock_daily": "deferred_2026-08-12：竞价稀疏表，保持工具面收敛",
+    "fact_regulation_pool_daily": "deferred_2026-08-12：无 trade_date（effective_date）",
+    "fact_regulation_event_daily": "deferred_2026-08-12：监管事件半结构",
+    "fact_historical_mapping": "deferred_2026-08-12：无 trade_date；source_date 语义与 registry 约定冲突",
+    # ── 有数据、无通路、待评估：下一批候选 ──
+    "fact_sw_l1_daily": "candidate：4383 行日更；有 adapter 通路但无语义面，可评估注册",
+    "fact_theme_flow_daily": "candidate：题材资金流，口径待与 sector_daily 对齐",
+    "fact_global_stock_daily": "candidate：外盘个股，与 global_index_daily 口径待对齐",
+    "fact_research_report_catalog": "candidate：研报目录，偏知识库侧",
+    "fact_theme_fundamental_doc": "candidate：37 行题材基本面文档，偏知识库侧",
+    "fact_limit_advance_presence": "candidate：连板在场标记，与 limit_advance_daily 重叠待定",
+}
+
+# 注册了但**当前是空表**的，必须在这里声明是有意为之，否则审计判失败。
+# ``fact_stock_technical_snapshot`` 是运行时诚实闸 ``honesty_gates._EMPTY_CALIBER_TABLE``
+# 的锚点：它存在的意义就是让「问技术面快照」这一口径能如实回「暂无数据」。
+_EMPTY_BY_DESIGN: frozenset[str] = frozenset({"fact_stock_technical_snapshot"})
+
 _PROVIDER_FIELD_ALIASES: dict[str, dict[str, str]] = {
     "market_daily": {
         "limit_up_count": "limit_up",

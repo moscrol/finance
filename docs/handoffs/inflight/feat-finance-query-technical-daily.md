@@ -33,11 +33,29 @@
 - 键唯一：2,036,732 行 == distinct(trade_date, stock_ts_code)。
 - 代码格式 `.SH/.SZ`，与 `fact_stock_daily` 一致，08-24 join 命中 5519 行。
 
+## 第二步：棘轮门禁（已做）
+
+`scripts/audit_dataset_registration.py` + pre-commit hook `dataset-registration`（第 10 道）。
+
+- **规则 1（硬拦，不需要库）**：`schema.sql` 每张 `fact_*`/`feature_*` 表，要么在
+  `_DATASETS` 注册，要么在 `_UNREGISTERED_TABLES` 写明理由。存量 25 张已带理由免检。
+- **规则 2（有库才跑）**：注册了但 `COUNT(*)=0` 的表必须列进 `_EMPTY_BY_DESIGN`。
+  worktree 里 `db/` 是 gitignore 的，故 pre-commit 自动跳过；pytest 侧用 monkeypatch 复挂。
+- **判据取自 `schema.sql`，不取自 `_DATASETS`**——否则「没注册的表」按定义是空集，
+  审计变成照镜子（`audit_tool_reachability` 初版就栽在这，报过一次假绿）。
+- 豁免名单**与 `_DATASETS` 同文件**，不另建清单：2026-08-12 那轮的理由只写在
+  asset-inventory 文档正文里，不是机器可读的，08-25 复查时被读成「漏了」。
+
+实测读数：schema.sql 40 张 = 15 注册 + 25 豁免；另 2 个注册的 VIEW（`CREATE VIEW`
+不在 `CREATE TABLE` 里，单列以免总数对不上账）。
+
+**证伪已跑**（一个不会红的门禁等于没装）：
+- 往 schema.sql 注入 `fact_ratchet_probe_daily` → exit 1，提示二选一；schema 已还原。
+- pytest 四条证伪：新增未认领表红 / 注册空表红 / `_EMPTY_BY_DESIGN` 不红 / 无库时跳过。
+
 ## 下一步（未做，按价值排）
 
-1. **棘轮门禁**：新增 `fact_*`/`feature_*` 必须「注册 / 显式豁免」二选一，
-   **外加 `COUNT(*)=0` 的表不许注册**（本轮差点把空表 `fact_top_gainers` 注册进去）。
-2. `fact_sw_l1_daily`（4,383 行、日更）：不是 0 引用（`adapters/market.py`、
+1. `fact_sw_l1_daily`（4,383 行、日更）：不是 0 引用（`adapters/market.py`、
    `api/structured_reports.py`、`eval/pit_snapshot.py` 各有引用），但**不在语义层**，
    adapter 也无查询方法 —— 属「有通路、无语义面」，可评估注册。
 3. `fact_auction_stock_daily` / `fact_regulation_pool_daily` / `fact_historical_mapping`：
