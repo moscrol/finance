@@ -3,14 +3,11 @@
   "_rule": "只减不增。新增需在站点写 `# path-literal-ok: 理由`，或删掉硬编码。",
   "_regen": ".venv-workbench/bin/python scripts/check_path_literals.py --update-baseline",
   "_note": "比对「文件+具体字面量」而非个数：同文件删一处加一处，个数不变但应被拦。",
-  "files": 34,
-  "literals": 49,
+  "files": 23,
+  "literals": 37,
   "entries": {
     "intelligence/cli.py": [
       "/Users/a77/knowledge-base-private/wiki"
-    ],
-    "intelligence/dream/collector.py": [
-      "/Users/lbq/Desktop/c"
     ],
     "intelligence/tests/test_acceptance_board.py": [
       "/Users/a77/finance-workspace-private"
@@ -25,12 +22,6 @@
     ],
     "intelligence/tests/test_auto_eval.py": [
       "/Users/test/run.json"
-    ],
-    "intelligence/tests/test_build_agent_runtime_ceiling_fixture.py": [
-      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
-    ],
-    "intelligence/tests/test_ceiling_pit_fixture.py": [
-      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
     ],
     "intelligence/tests/test_conversation_orchestrator.py": [
       "/Users/a77/repo/module.py"
@@ -67,12 +58,6 @@
       "/Users/a77/.finance-runtime/agent-review-loop",
       "/Users/a77/.finance-runtime/agent-runtime-backends-c4673667"
     ],
-    "scripts/build_market_triggered_theme_brief.py": [
-      "/Users/lbq/Desktop/c"
-    ],
-    "scripts/build_theme_evidence_readiness.py": [
-      "/Users/lbq/Desktop/c"
-    ],
     "scripts/check_agent_workspace_facts.py": [
       "/Users/a77/finance-workspace-private"
     ],
@@ -84,15 +69,6 @@
     "scripts/check_rag_readiness.py": [
       "/Users/a77/knowledge-base-private"
     ],
-    "scripts/render_cockpit.py": [
-      "/Users/a77/Desktop/c"
-    ],
-    "scripts/render_daily_review_template.py": [
-      "/Users/lbq/Desktop/复盘"
-    ],
-    "scripts/render_sw_l1_theme_matrix_html.py": [
-      "/Users/lbq/Desktop/复盘"
-    ],
     "scripts/run_episode_seam_ladder.py": [
       "/Users/a77/.finance-runtime/seam-ladder"
     ],
@@ -102,18 +78,8 @@
     "skills/daily-full-review/scripts/l3_daily_backfill.py": [
       "/Users/a77/knowledge-base-private/wiki"
     ],
-    "skills/daily-full-review/scripts/spawn.py": [
-      "/Users/lbq",
-      "/Users/lbq/Desktop/c"
-    ],
-    "skills/serenity-alpha/scripts/serenity_context.py": [
-      "/Users/a77/Desktop/c"
-    ],
     "skills/stock-deep-dive/scripts/deepdive_gap_list.py": [
       "/Users/a77/knowledge-base-private/wiki"
-    ],
-    "tests/test_agent_cases_grounding.py": [
-      "/Users/lbq/Desktop/c"
     ],
     "tests/test_paths.py": [
       "/Users/lbq"

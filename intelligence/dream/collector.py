@@ -530,7 +530,7 @@ def resolve_store_dir(explicit: Optional[str]) -> Path:
     """解析 transcript store 根目录。
 
     优先级：显式 > env ``DREAM_TRANSCRIPT_STORE`` > 知识库 ``raw/transcripts``
-    （由 ``KNOWLEDGE_WIKI`` 推导或 Mac 默认路径）> 本仓 ``intelligence/dream/_local_store``（gitignore 回退）。
+    （由 ``KNOWLEDGE_WIKI`` / ``resolve_knowledge_wiki`` 推导）> 本仓 ``intelligence/dream/_local_store``（gitignore 回退）。
     """
     if explicit:
         return Path(explicit).expanduser()
@@ -540,9 +540,11 @@ def resolve_store_dir(explicit: Optional[str]) -> Path:
     kb_wiki = os.environ.get("KNOWLEDGE_WIKI")
     if kb_wiki:
         return Path(kb_wiki).expanduser().parent / "raw" / "transcripts"
-    default_kb = Path("/Users/lbq/Desktop/c c/知识库")
-    if default_kb.exists():
-        return default_kb / "raw" / "transcripts"
+    from intelligence.paths import resolve_knowledge_wiki
+
+    wiki = resolve_knowledge_wiki()
+    if wiki.is_dir():
+        return wiki.parent / "raw" / "transcripts"
     return Path(__file__).resolve().parents[2] / "intelligence" / "dream" / "_local_store"
 
 
