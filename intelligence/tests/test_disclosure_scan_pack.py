@@ -574,6 +574,154 @@ def test_prepare_residual_answer_carries_contract(tmp_path: Path) -> None:
     assert "600276" in messages[1]["content"]
 
 
+def test_residual_answer_spec_covers_every_roster_row(tmp_path: Path) -> None:
+    """P1-①c：claim 集必须全行覆盖，不走通用 builder 的 [:8] 截断。
+
+    shadow 有据链（composer/judge）的输入完全从 answer_spec 生成——claim
+    只有 8 条时模型解读全名单必然越界被拒收（live R5 m 轮根因）。
+    """
+
+    from intelligence.services.disclosure_scan_pack import (
+        DISCLOSURE_EVIDENCE_ID,
+        build_disclosure_residual_answer_spec,
+    )
+
+    pack = _run(tmp_path)
+    assert pack.status == "hit"
+    spec = build_disclosure_residual_answer_spec(pack, query=FROZEN)
+
+    row_claim_ids = {
+        claim.claim_id
+        for claim in spec.verified_facts
+        if claim.claim_id.startswith("disc:row:")
+    }
+    excl_claim_ids = {
+        claim.claim_id
+        for claim in spec.verified_facts
+        if claim.claim_id.startswith("disc:excl:")
+    }
+    counter_claim_ids = {claim.claim_id for claim in spec.counter_evidence}
+    assert len(row_claim_ids) == len(pack.rows)
+    assert len(excl_claim_ids) == len(pack.excluded)
+    assert len(counter_claim_ids) == len(pack.counter_rows)
+    for row in pack.rows:
+        assert f"disc:row:{row.code}:{row.announcement_id}" in row_claim_ids
+    for row in pack.counter_rows:
+        assert (
+            f"disc:counter:{row.code}:{row.announcement_id}" in counter_claim_ids
+        )
+
+    # 聚合 claim 给归纳句数字出处；行级 claim 是点名个股的绑定位。
+    fact_ids = {claim.claim_id for claim in spec.verified_facts}
+    assert "disc:agg:tiers" in fact_ids
+    assert "disc:agg:excluded" in fact_ids
+    assert "disc:agg:keywords" in fact_ids
+    assert "disc:agg:window" in fact_ids
+
+    # 全部行级/聚合 claim 是硬证据形状：VERIFIED + L3 tier + evidence_ids，
+    # 措辞不被治理软化，且满足 shadow 链 support claims 门槛。
+    from intelligence.services import answer_model
+
+    for claim in (*spec.summary, *spec.verified_facts, *spec.counter_evidence):
+        assert claim.status is answer_model.ClaimStatus.VERIFIED
+        assert claim.evidence_ids == (DISCLOSURE_EVIDENCE_ID,)
+        assert claim.evidence_tier.startswith("l3")
+
+    # claim_id 全局唯一（registry/绑定的前提）。
+    all_ids = [
+        claim.claim_id
+        for claim in (
+            *spec.summary,
+            *spec.verified_facts,
+            *spec.counter_evidence,
+            *spec.gaps,
+            *spec.triggers,
+        )
+    ]
+    assert len(all_ids) == len(set(all_ids))
+
+    # 残差契约经 prompt_constraints 进 shadow 链 required_outputs 槽。
+    assert spec.prompt_constraints
+    joined = "\n".join(spec.prompt_constraints)
+    assert "不超过 8 家" in joined
+    assert "不要输出六位代码开头的名单行" in joined
+
+    # summary 首条要把「名单已置顶」的定位讲给 composer（direct_answer 素材）。
+    assert "置顶" in spec.summary[0].text
+
+
+def test_residual_registry_holds_all_rows_within_budget(tmp_path: Path) -> None:
+    """12k 字符 registry 预算必须装得下全行 claim——装不下就是设计回退。"""
+
+    from intelligence.services import answer_model
+    from intelligence.services.disclosure_scan_pack import (
+        build_disclosure_residual_answer_spec,
+    )
+
+    pack = _run(tmp_path)
+    spec = build_disclosure_residual_answer_spec(pack, query=FROZEN)
+    registry = answer_model.grounded_claim_registry_block(
+        spec, query=FROZEN, max_chars=12_000
+    )
+    for row in (*pack.rows, *pack.excluded, *pack.counter_rows):
+        assert row.code in registry
+    assert "因窗口预算未纳入" not in registry
+    atoms = answer_model.evidence_atoms_from_answer_spec(spec)
+    assert atoms
+    atom_claim_ids = {atom.provenance.get("claim_id") for atom in atoms}
+    for row in pack.rows:
+        assert f"disc:row:{row.code}:{row.announcement_id}" in atom_claim_ids
+
+
+def test_residual_grounded_validation_accepts_bound_reading(
+    tmp_path: Path,
+) -> None:
+    """行级 claim 齐了之后，绑定名单行的解读句必须能过确定性校验；
+    包外码句仍被拦——修的是覆盖，不是放松判据。"""
+
+    from intelligence.services import answer_model
+    from intelligence.services.disclosure_scan_pack import (
+        build_disclosure_residual_answer_spec,
+    )
+
+    pack = _run(tmp_path)
+    spec = build_disclosure_residual_answer_spec(pack, query=FROZEN)
+    atoms = answer_model.evidence_atoms_from_answer_spec(spec)
+
+    def atom_of(claim_id: str) -> str:
+        for atom in atoms:
+            if atom.provenance.get("claim_id") == claim_id:
+                return atom.atom_id
+        raise AssertionError(f"no atom for {claim_id}")
+
+    hr = "disc:row:600276:hr-reg-0821"
+    hb_neg = "disc:counter:600812:hb-neg-0823"
+    tiers = "disc:agg:tiers"
+    answer = "\n".join(
+        [
+            f"恒瑞医药（600276）2026-08-21 的公告属注册获批档。 "
+            f"<!-- claim_ids={hr}; evidence_atom_ids={atom_of(hr)}; "
+            "claim_type=fact -->",
+            f"华北制药（600812）2026-08-23 存在撤回类反证，须与其临床批件并读。 "
+            f"<!-- claim_ids={hb_neg}; evidence_atom_ids={atom_of(hb_neg)}; "
+            "claim_type=fact -->",
+            f"主名单以注册获批与合同/中选为主。 "
+            f"<!-- claim_ids={tiers}; evidence_atom_ids={atom_of(tiers)}; "
+            "claim_type=fact -->",
+        ]
+    )
+    issues = answer_model.validate_grounded_composer_answer(answer, spec)
+    assert not [issue for issue in issues if issue.severity == "error"]
+
+    stray = (
+        "贵州茅台（600519）也值得关注。 "
+        f"<!-- claim_ids={hr}; evidence_atom_ids={atom_of(hr)}; "
+        "claim_type=fact -->"
+    )
+    stray_issues = answer_model.validate_grounded_composer_answer(stray, spec)
+    assert [issue for issue in stray_issues if issue.severity == "error"]
+
+
 def test_orchestrator_gates_residual_after_synthesis() -> None:
     src = (
         Path(__file__).resolve().parents[1]

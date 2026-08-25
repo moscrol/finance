@@ -501,14 +501,20 @@ def bind_disclosure_scan_pack(
 def prepare_disclosure_residual_answer(options: AskOptions) -> PreparedAnswer:
     """P1-① 残差写手的开台：名单置顶由裁判后合并负责，模型只解读。
 
-    契约必须走 build_synthesis_messages 的 contract_guidance 槽（强制输出契约），
-    不能混进经验卡片槽——2026-08-13 实测贴错语义标签时模型遵守率极低。
-    prepare_existing_answer 只在 prepared_synthesis_messages 为 None 时自建消息，
-    这里预置即生效，不改任何现役签名。
+    P1-①c：answer_spec 换披露专用全行 claim 集（build_disclosure_residual_answer_spec）。
+    此前走通用 builder 的 `[:8]` 截断，shadow 有据链（composer/judge 的输入完全
+    从 answer_spec 生成）只看得见 8 条证据 claim，模型解读全名单必然越出
+    claim/atom 集——live R5 m 轮（run_20260825_200157_247884）被拒收的根因。
+    残差契约同时经 spec.prompt_constraints 进 shadow 链的 required_outputs 槽。
+
+    prepared_synthesis_messages 仍预置：grounded_presenter 关闭时旧散文合成
+    走这条（contract_guidance 槽承载同一契约，不混经验卡片槽——2026-08-13
+    实测贴错语义标签时模型遵守率极低）。
     """
 
     from intelligence.services.disclosure_scan_pack import (
         DISCLOSURE_RESIDUAL_CONTRACT,
+        build_disclosure_residual_answer_spec,
     )
 
     pack = options.disclosure_scan_pack
@@ -523,20 +529,10 @@ def prepare_disclosure_residual_answer(options: AskOptions) -> PreparedAnswer:
         synthesis=None,
         market_summary=rendered,
     )
-    result.answer_spec = _build_base_answer_spec_from_sections(
-        result,
-        theme="披露扫描",
-        direct_lines=(
-            f"窗口 {pack.se_date_start}~{pack.se_date_end} 的官方披露名单"
-            "以置顶扫描包为准，下面只做残差解读。",
-        ),
-        evidence_blocks=(rendered,),
-        risk_lines=(),
-        action_lines=(),
+    result.answer_spec = build_disclosure_residual_answer_spec(
+        pack,
+        query=options.query,
     )
-    # 证据文本必须是完整包渲染：answer_spec 的证据行会被截到 8 条
-    # （_build_base_answer_spec_from_sections 的 [:8]），残差写手要解读的是
-    # 全部分档与反证，不能只看见名单的一小截。spec 只留给草稿骨架用。
     result.prepared_synthesis_messages = llm_refine.build_synthesis_messages(
         options.query,
         "披露扫描",
