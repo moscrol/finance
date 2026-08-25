@@ -255,6 +255,21 @@ ROUTE_TABLE: tuple[RouteRow, ...] = (
         capabilities=("memory", "market_quote", "graph", "financials"),
     ),
     RouteRow(
+        route_id="disclosure_scan",
+        description="板块/行业范围内，近期官方披露里哪些个股有偏利好公告的名单扫描",
+        examples=(
+            "医药和科技板块有哪些个股有比较利好的公告",
+            "最近医药有哪些公司出了利好公告",
+            "电子板块近一周中标或合同公告有哪些",
+        ),
+        lane="research",
+        question_type="disclosure_scan",
+        answer_owner=None,
+        needs_retrieval=True,
+        needs_template=True,
+        capabilities=(),
+    ),
+    RouteRow(
         route_id="theme_analysis",
         description="针对题材、板块或产业链的进展、催化与投资逻辑",
         examples=("最近固态电池有什么新进展", "低空经济这个题材还能不能追"),

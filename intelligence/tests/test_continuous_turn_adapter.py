@@ -2894,7 +2894,13 @@ def test_market_technical_uses_zero_llm_fast_path() -> None:
 
 @pytest.mark.parametrize(
     "question_type",
-    ("external_market", "quick_fact", "dated_market_review", "market_watch"),
+    (
+        "external_market",
+        "quick_fact",
+        "dated_market_review",
+        "market_watch",
+        "disclosure_scan",
+    ),
 )
 def test_legacy_deterministic_owner_types_are_declined_without_dependencies(
     question_type: str,
