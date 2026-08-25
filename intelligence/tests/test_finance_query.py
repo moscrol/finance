@@ -329,6 +329,7 @@ def test_fupanhui_assets_registered_as_datasets() -> None:
         "core_stock_daily": "fact_core_stock_daily",
         "leader_height_daily": "fact_leader_height_daily",
         "global_index_daily": "fact_global_index_daily",
+        "global_stock_daily": "fact_global_stock_daily",
         "event_daily": "fact_event_daily",
         "regulation_pool_daily": "fact_regulation_pool_daily",
         "regulation_event_daily": "fact_regulation_event_daily",
@@ -1117,6 +1118,109 @@ def test_historical_mapping_max_date_resolves_aliased_time_field(
     assert engine.dataset_max_date(
         spec, information_cutoff=cutoff, deadline=deadline
     ) == "2026-08-24"
+
+
+def test_global_stock_is_full_constant_universe() -> None:
+    """隔夜核心股是恒定 194 只全集，不是「有行情才记一行」。"""
+    from intelligence.services.finance_query import _DATASETS
+
+    definition = _DATASETS["global_stock_daily"]
+    assert definition.table == "fact_global_stock_daily"
+    assert definition.population == "full"
+    assert definition.time_field == "trade_date"
+    assert definition.cutoff_column is None
+    assert definition.fields["session_date"].column == "source_trade_date"
+    assert "market_cap" not in definition.metrics
+    assert "market_cap_usd" not in definition.metrics
+    assert "194" in definition.coverage
+    assert "美元" in definition.coverage
+    index = _DATASETS["global_index_daily"]
+    assert index.fields["session_date"].column == "source_trade_date"
+    assert "5" in index.coverage
+
+
+def test_global_stock_rejects_usd_market_cap() -> None:
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "global_stock_daily",
+            "metrics": ["market_cap_usd"],
+            "dimensions": ["ticker"],
+            "time_range": {"start": "2026-08-25", "end": "2026-08-25"},
+        }
+    )
+    with pytest.raises(FinanceQueryValidationError, match="unknown field"):
+        FinanceQuery("/nonexistent.duckdb").run(
+            spec,
+            information_cutoff=InformationCutoff(date(2026, 8, 25), "requested"),
+            deadline=ResearchDeadline.from_timeout(2.0),
+        )
+
+
+def test_global_stock_evidence_uses_ashare_calendar_not_session(
+    tmp_path: Path,
+) -> None:
+    """外盘会话日可以早一天；evidence.source_date 仍是 A 股对照日，和指数表同轴。"""
+    db_path = tmp_path / "market_feature_store.duckdb"
+    con = duckdb.connect(str(db_path))
+    try:
+        con.execute(
+            """
+            create table fact_global_stock_daily(
+                trade_date date, source_trade_date date, ts_code varchar,
+                name_cn varchar, name_en varchar, exchange varchar,
+                close double, pct_chg double, pct_chg_5d double,
+                market_cap_usd double, business varchar,
+                industry_position varchar, source varchar, updated_at timestamp
+            )
+            """
+        )
+        con.execute(
+            "insert into fact_global_stock_daily values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                "2026-08-25", "2026-08-24", "NVDA", "英伟达", "NVIDIA", "NASDAQ",
+                211.195, 1.302, -3.889, 5.42e12, "GPU", "芯片",
+                "fupanhui", None,
+            ),
+        )
+    finally:
+        con.close()
+
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "global_stock_daily",
+            "metrics": ["return_pct", "gain_5d"],
+            "dimensions": ["ticker", "stock_name", "session_date", "exchange"],
+            "filters": [{"field": "ticker", "op": "eq", "value": "NVDA"}],
+            "time_range": {"start": "2026-08-25", "end": "2026-08-25"},
+            "limit": 5,
+        }
+    )
+    result = FinanceQuery(db_path).run(
+        spec,
+        information_cutoff=InformationCutoff(date(2026, 8, 25), "requested"),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+    assert [row["ticker"] for row in result.rows] == ["NVDA"]
+    assert result.rows[0]["session_date"] == "2026-08-24"
+    assert result.rows[0]["stock_name"] == "英伟达"
+    assert {item.source_date for item in result.evidence} == {"2026-08-25"}
+
+
+def test_global_stock_rejects_future_ashare_day() -> None:
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "global_stock_daily",
+            "metrics": ["return_pct"],
+            "dimensions": ["ticker"],
+            "time_range": {"start": "2026-08-25", "end": "2026-08-25"},
+        }
+    )
+    with pytest.raises(FinanceQueryValidationError, match="information cutoff"):
+        FinanceQuery("/nonexistent.duckdb").run(
+            spec,
+            information_cutoff=InformationCutoff(date(2026, 8, 24), "requested"),
+            deadline=ResearchDeadline.from_timeout(2.0),
+        )
 
 
 def test_stock_technical_registered_as_dataset() -> None:
