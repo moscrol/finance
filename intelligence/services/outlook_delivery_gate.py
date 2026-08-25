@@ -12,6 +12,15 @@ _ANALOG_OK_RE = re.compile(r"结构类比|analog")
 _OLD_MAINLINE_RE = re.compile(r"医药老主线|老主线医药")
 _ISSUE_RE = re.compile(r"20\d{2}\.\d{1,2}")
 _UNGROUNDED_BAND_RE = re.compile(r"110\s*[–\-〜~到至]\s*120\s*%")
+_MA20_RE = re.compile(r"MA\s*20", re.IGNORECASE)
+_FLAG_HOLD_RE = re.compile(r"旗型蓄能")
+# market_watch 残差/正文里的方法阈值语言：注册与否以本轮网格（包渲染/证据）
+# 为准，网格里没有的整句删（R-20260824-04，盘面包 spec §7.4 #10）。
+_WATCH_METHOD_RES: tuple[re.Pattern[str], ...] = (
+    _UNGROUNDED_BAND_RE,
+    _MA20_RE,
+    _FLAG_HOLD_RE,
+)
 
 
 @dataclass(frozen=True)
@@ -35,6 +44,45 @@ def apply_outlook_delivery_gate(
     cleaned = strip_outlook_violations(text, **context)
     dropped = max(0, len(_clauses(text)) - len(_clauses(cleaned)))
     return OutlookGateReceipt(text=cleaned, dropped=dropped, applied=True)
+
+
+def apply_market_watch_delivery_gate(
+    text: str,
+    *,
+    question_type: str,
+    grid_text: str = "",
+) -> OutlookGateReceipt:
+    """盘面题公开稿的未注册方法语言删句（R-20260824-04，spec §7.4 #10）。
+
+    只对 ``market_watch`` 生效，其他题型不扩权。分句里出现 MA20、110–120%
+    带、「旗型蓄能」这类方法阈值时整句删除、不留质检条；同类语言若真实
+    出现在网格（包渲染 / 证据）里则视为已注册，不删。探针行与锁格来自
+    包渲染、在本闸之外，永不受删。
+    """
+
+    if question_type != "market_watch":
+        return OutlookGateReceipt(text=text, dropped=0, applied=False)
+    grid = str(grid_text or "")
+    parts = _clauses(text)
+    kept = [
+        part
+        for part in parts
+        if not any(
+            pattern.search(part) and not pattern.search(grid)
+            for pattern in _WATCH_METHOD_RES
+        )
+    ]
+    return OutlookGateReceipt(
+        text="".join(kept),
+        dropped=max(0, len(parts) - len(kept)),
+        applied=True,
+    )
+
+
+def evidence_grid_text(evidence: Sequence[Any]) -> str:
+    """把证据条目折成网格文本，供删句闸判「注册与否」。"""
+
+    return str(_context_from_evidence(evidence)["grid_text"])
 
 
 def strip_outlook_violations(
