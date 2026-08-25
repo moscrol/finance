@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from intelligence.runtime.conversation_orchestrator import TurnOrchestrator
@@ -106,8 +107,8 @@ def test_probe_lines_pass_gate_unchanged() -> None:
     assert receipt.dropped == 0
 
 
-def test_orchestrator_strips_owner_prose_threshold_clauses(tmp_path: Path) -> None:
-    """接线测试：owner 正文里的未注册阈值句在公开稿被删，锁格与干净句保留。"""
+def _run_owner_watch_turn(tmp_path: Path, prose: str):
+    """跑一轮 daily-review own 的 market_watch，返回 (result, run_store, run_id)。"""
 
     query = "2026-07-23 今天市场怎么样"
     conversation_store, run_store, conversation_id, run_id, assistant_id = (
@@ -122,12 +123,7 @@ def test_orchestrator_strips_owner_prose_threshold_clauses(tmp_path: Path) -> No
             modules = [
                 {
                     "type": "summary",
-                    "summary": (
-                        "日报正文：结构以电为主。"
-                        "按框架MA20量能远未到位，属于反弹。"
-                        "量能回到110-120%区间才升级。"
-                        "形态上像旗型蓄能，等待方向。"
-                    ),
+                    "summary": prose,
                     "metrics": [],
                     "items": [],
                 }
@@ -196,6 +192,28 @@ def test_orchestrator_strips_owner_prose_threshold_clauses(tmp_path: Path) -> No
         skill_mode="auto",
         selected_skill_ids=[],
     )
+    return result, run_store, run_id
+
+
+def _gate_trace_payloads(run_store, run_id: str) -> list[dict]:
+    steps = run_store.load_trace(run_id)
+    return [
+        json.loads(step.get("output_summary") or "{}")
+        for step in steps
+        if step.get("name") == "market_watch_delivery_gate"
+    ]
+
+
+def test_orchestrator_strips_owner_prose_threshold_clauses(tmp_path: Path) -> None:
+    """接线测试：owner 正文里的未注册阈值句在公开稿被删，锁格与干净句保留。"""
+
+    result, run_store, run_id = _run_owner_watch_turn(
+        tmp_path,
+        "日报正文：结构以电为主。"
+        "按框架MA20量能远未到位，属于反弹。"
+        "量能回到110-120%区间才升级。"
+        "形态上像旗型蓄能，等待方向。",
+    )
 
     # 锁格与干净正文仍在。
     assert "21949.97" in result.content
@@ -209,3 +227,32 @@ def test_orchestrator_strips_owner_prose_threshold_clauses(tmp_path: Path) -> No
     # 删句以 degrade 收据入账，不进正文。
     run = run_store.load_run(run_id)
     assert "market_watch_delivery_gate" in list(run.degrades)
+    # 活性事件带删句数（R-20260825-08）。owner 渲染会把 summary 复现多处，
+    # 每处各删一遍——锁下限不锁精确值（渲染重复次数是细节不是契约）。
+    payloads = _gate_trace_payloads(run_store, run_id)
+    assert payloads
+    assert payloads[-1]["applied"] is True
+    assert payloads[-1]["dropped"] >= 3
+
+
+def test_gate_liveness_signal_on_zero_drop(tmp_path: Path) -> None:
+    """L6 活性信号：闸跑了但零删也必须留痕，与「闸没跑」可区分（R-20260825-08）。
+
+    自审发现形状：telemetry 只在 dropped>0 时落 degrade，零删与未执行不可
+    区分——「仪表全绿但值是空壳」同族。修法是 trace 事件，不占 degrade 通道。
+    """
+
+    result, run_store, run_id = _run_owner_watch_turn(
+        tmp_path,
+        "日报正文：结构以电为主，缩量修复。",
+    )
+
+    assert "日报正文：结构以电为主" in result.content
+    run = run_store.load_run(run_id)
+    # 零删不占 degrade 通道。
+    assert "market_watch_delivery_gate" not in list(run.degrades)
+    # 但活性事件必须在场：applied=True、dropped=0。
+    payloads = _gate_trace_payloads(run_store, run_id)
+    assert payloads
+    assert payloads[-1]["applied"] is True
+    assert payloads[-1]["dropped"] == 0
