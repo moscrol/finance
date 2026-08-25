@@ -20,12 +20,13 @@
 
 ## 已验证
 
-ruff 绿；全量 pytest **6452P / 12S / 0F** @ `c4a4ea17`（`.venv-workbench` 解释器）；定向 21 条含新增（G8 预期反转、受理≠L_reg、回购封顶 3+另 N 条）。消费方核查：编排层只走三个公共入口，无人直接判 `budget_hit`/partial 字符串。
+三叶全绿 @ `c4a4ea17`：python（ruff + 全量 pytest **6452P / 12S / 0F**，`.venv-workbench` 解释器）；frontend（lint/typecheck/test/build）；e2e（playwright **15 passed**）。定向 21 条含新增（G8 预期反转、受理≠L_reg、回购封顶 3+另 N 条）。消费方核查：编排层只走三个公共入口，无人直接判 `budget_hit`/partial 字符串。
 
 ## 踩过的坑
 
 - 封顶只能落渲染层：`to_dict` 收据必须保留全量 excluded，否则裁判/回读丢证据。
 - L_reg 排「受理」是标题级子串排除（含「受理」一律不进）；若出现既含「受理」又含「获批」的联合标题会落 unclassified——方向是 fail-closed（漏进 excluded 兜底，不是漏进主名单），可接受。
+- worktree 里跑 e2e 要带 `WORKBENCH_E2E_PORT`（8791 被占，勿杀勿 reuse——那是别人的收据）+ `WORKBENCH_PYTHON=主树 .venv-workbench`（树内无 venv，回退宿主 python 缺 uvicorn）。
 
 ## 工具沉淀盘点
 
