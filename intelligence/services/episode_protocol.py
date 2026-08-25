@@ -207,10 +207,13 @@ def _question_type_rules(
     # 之所以仍先加规则：结构修法会动到所有任务的提示词，需独立立案 + 独立 live。
     forward_slot_rule = (
         "本任务包含可选前瞻槽（scenario_paths / continuation_conditions / "
-        "invalidation_conditions，grounding_mode=model_reasoning）：这几格是"
+        "invalidation_conditions / verification_timepoints，"
+        "grounding_mode=model_reasoning）：这几格是"
         "你受契约委托作出的**向前的条件化判断**，情景路径与持续/证伪阈值本就"
         "不可能出现在既有证据里，可以给出具体的可核验阈值，不要写「以盘面为准」"
-        "这类回避表述。绑定时 basis 用 model_reasoning、evidence_hashes 留空。"
+        "这类回避表述。verification_timepoints 写「验证时点=可观察指标×时间窗」"
+        "（如「9 月中报看订单兑现」），让判断能被回检。"
+        "绑定时 basis 用 model_reasoning、evidence_hashes 留空。"
         "这几格是可选的：没有值得写的条件化判断就不绑，不绑不算失败，不要为了"
         "填格硬凑情景。"
         if any(

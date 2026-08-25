@@ -737,6 +737,9 @@ FORWARD_HYPOTHESIS_OUTPUT_IDS = frozenset(
         "scenario_paths",
         "continuation_conditions",
         "invalidation_conditions",
+        # Knevo 结论元素④的时点件：verify_by = 指标 × 时间窗。判断句要能回答
+        # 「什么时候、看什么数，就知道这句话对不对」，否则进不了回检闭环。
+        "verification_timepoints",
     }
 )
 
