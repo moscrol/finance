@@ -23,6 +23,7 @@ from intelligence.services import retrieval_cache
 WALL_SECONDS = 45.0
 PAGE_SIZE = 30
 MAX_PAGES = 3
+EXCLUDED_PUBLIC_CAP = 3
 REQUEST_TIMEOUT_SECONDS = 10.0
 REQUEST_GAP_SECONDS = 1.1
 CNINFO_COLUMN = "szse"
@@ -87,7 +88,7 @@ _ROSTER_HINT_RE = re.compile(r"(哪些|哪家|个股|公司名单)")
 _EM_RE = re.compile(r"</?em>", re.IGNORECASE)
 _CODE_RE = re.compile(r"(\d{6})")
 _NEG_RE = re.compile(r"(减持|立案|问询|处罚|预减|撤回注册|撤回.{0,6}注册|终止|诉讼)")
-_REG_RE = re.compile(r"(药品注册证书|药品注册批准|医疗器械注册|药品注册|注册证)")
+_REG_RE = re.compile(r"(药品注册证书|药品注册批准|医疗器械注册)")
 _IND_RE = re.compile(r"(药物临床试验批准|临床试验批准通知书|临床试验批准)")
 _COLLECT_RE = re.compile(r"(集采中选|国家集中采购|集中采购|带量采购)")
 _ORDER_RE = re.compile(r"(中选通知书|重大合同|销售合同|中标)")
@@ -279,7 +280,7 @@ def classify_title(title: str) -> str:
     cleaned = strip_em(title)
     if _NEG_RE.search(cleaned):
         return "L_neg"
-    if _REG_RE.search(cleaned):
+    if _REG_RE.search(cleaned) and "受理" not in cleaned:
         return "L_reg"
     if _IND_RE.search(cleaned):
         return "L_ind"
@@ -329,6 +330,17 @@ def disclosure_scan_degrade_codes(pack: DisclosureScanPack | None) -> tuple[str,
         if bucket.universe_size > 0 and not bucket.hit_codes:
             codes.append(f"disclosure_scan_bucket_empty:{bucket.name}")
     return tuple(codes)
+
+
+def _main_roster_incomplete(traces: list[KeywordTrace] | tuple[KeywordTrace, ...]) -> bool:
+    """Appendix truncation is a footnote; only main-keyword cuts mean the roster did not finish."""
+
+    for trace in traces:
+        if trace.keyword not in MAIN_KEYWORDS:
+            continue
+        if trace.truncated or trace.status == "skipped_budget":
+            return True
+    return False
 
 
 def default_cninfo_fetch(
@@ -541,7 +553,7 @@ def run_disclosure_scan_pack(
         replace_bucket(bucket, hit_codes=tuple(hit_by_bucket.get(bucket.name, ())))
         for bucket in sized_buckets
     )
-    if budget_hit:
+    if _main_roster_incomplete(traces):
         status = "partial"
     elif main_rows:
         status = "hit"
@@ -605,8 +617,7 @@ def render_disclosure_scan_pack(pack: DisclosureScanPack) -> str:
             lines.append(_format_row(row))
     if pack.excluded:
         lines.append("## 未计入比较利好")
-        for row in pack.excluded:
-            lines.append(_format_row(row))
+        lines.extend(_format_excluded_public(pack.excluded))
     if pack.counter_rows:
         lines.append("## 反证")
         for row in pack.counter_rows:
@@ -641,6 +652,26 @@ def _format_row(row: DisclosureRow) -> str:
         f"{row.code} 【{label}】{row.name} {row.date} {row.title}"
         f" （{row.announcement_id}） {link}"
     )
+
+
+def _format_excluded_public(rows: tuple[DisclosureRow, ...]) -> list[str]:
+    lines: list[str] = []
+    by_tier: dict[str, list[DisclosureRow]] = {}
+    order: list[str] = []
+    for row in rows:
+        if row.tier not in by_tier:
+            order.append(row.tier)
+            by_tier[row.tier] = []
+        by_tier[row.tier].append(row)
+    for tier in order:
+        group = by_tier[tier]
+        for row in group[:EXCLUDED_PUBLIC_CAP]:
+            lines.append(_format_row(row))
+        extra = len(group) - EXCLUDED_PUBLIC_CAP
+        if extra > 0:
+            label = TIER_LABELS.get(tier, tier)
+            lines.append(f"另 {extra} 条{label}见扫描收据，未逐条列入公开稿。")
+    return lines
 
 
 def _row_to_dict(row: DisclosureRow) -> dict[str, Any]:

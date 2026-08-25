@@ -253,7 +253,7 @@ def test_g3_g4_g5_g6_gold_rows(tmp_path: Path) -> None:
     assert pack.se_date_end == "2026-08-25"
 
 
-def test_g8_budget_skips_trailing_appendix(tmp_path: Path) -> None:
+def test_g8_appendix_budget_does_not_mark_roster_partial(tmp_path: Path) -> None:
     state = {"elapsed": 0.0}
 
     def clock() -> float:
@@ -268,14 +268,53 @@ def test_g8_budget_skips_trailing_appendix(tmp_path: Path) -> None:
         return page
 
     pack = _run(tmp_path, cninfo_fetch=fetch, clock=clock)
-    assert pack.status == "partial"
+    assert pack.status == "hit"
     assert pack.budget_hit is True
     traces = {trace.keyword: trace.status for trace in pack.keyword_traces}
     assert traces[APPENDIX_KEYWORDS[2]] == "skipped_budget"
     assert traces[APPENDIX_KEYWORDS[1]] == "ok"
     assert any(row.code == "600276" for row in pack.rows)
-    assert "查询未跑完" in pack.render()
-    assert "disclosure_scan_pack_partial" in disclosure_scan_degrade_codes(pack)
+    rendered = pack.render()
+    assert "查询未跑完" not in rendered
+    assert "附录" in rendered
+    assert "disclosure_scan_pack_partial" not in disclosure_scan_degrade_codes(pack)
+
+
+def test_registration_acceptance_is_not_l_reg() -> None:
+    assert classify_title("关于获得药品注册批准的公告") == "L_reg"
+    assert classify_title("关于获得注射用硫酸多黏菌素B药品注册证书的公告") == "L_reg"
+    assert classify_title("关于公司收到药品注册受理通知书的公告") == "unclassified"
+    assert classify_title("关于医疗器械注册受理的公告") == "unclassified"
+
+
+def test_excluded_public_render_caps_buybacks(tmp_path: Path) -> None:
+    from intelligence.services.disclosure_scan_pack import CninfoPage
+
+    def fetch(*, keyword: str, se_date: str, page_num: int, **_kwargs):
+        if keyword != "回购":
+            return _fetch_from_fixture(
+                keyword=keyword, se_date=se_date, page_num=page_num
+            )
+        rows = tuple(
+            {
+                "secCode": "603296",
+                "secName": "华勤技术",
+                "announcementTitle": f"关于回购进展的公告{i}",
+                "announcementId": f"hq-buyback-{i:02d}",
+                "orgId": "gssh0603296",
+                "announcementTime": "2026-08-23",
+            }
+            for i in range(10)
+        )
+        return CninfoPage(rows, 10)
+
+    pack = _run(tmp_path, cninfo_fetch=fetch)
+    buybacks = [row for row in pack.excluded if row.tier == "L_buyback"]
+    assert len(buybacks) == 10
+    rendered = pack.render()
+    assert rendered.count("【回购（资本运作备考）】") == 3
+    assert "另 7 条" in rendered
+    assert "hq-buyback-09" not in rendered
 
 
 def test_g9_unclassified_stays_in_excluded(tmp_path: Path) -> None:
