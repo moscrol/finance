@@ -26,6 +26,9 @@ Authentication failed（`hisdata180@36.139.233.80`）。不是新故障——`fe
 2. 鉴权好了之后，交易日 10:00–14:30 在本树跑：
    `cd scripts/moneyflow && python3 probe_intraday_write.py`
    （盘后先 `--check-only` 验鉴权；正式跑写收据、退出码 0=有结论。）
+   ⚠ 解释器：必须用带 `clickhouse_driver` 的 `python3`（实测 `/opt/homebrew/bin/python3`
+   有 0.2.10）。`.venv-workbench/bin/python` **没有**这个包，会 ModuleNotFoundError——
+   08-26 02:0x 踩过，别把环境问题误读成链路挂了。
 3. 77 拍两扇门，或说「按推荐：A1 + B1」。
 4. 再开 `feat/intraday-l2-sidecar` 做 P1。不要在 #396 那棵树上做。
 
