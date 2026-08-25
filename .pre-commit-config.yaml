@@ -54,6 +54,20 @@ repos:
         pass_filenames: false
         always_run: true
         verbose: true
+      # 棘轮门禁：存量 25 张未注册表已带理由免检，只拦**新增**。
+      # 抓的是「采集侧有 daily-full 天天跑、暴露侧没有对应的门」——表灌满了数、
+      # 覆盖率审计全绿，而 agent 问到它答「查不到」。2026-08-13 和 08-25 各踩一次。
+      # 判据取自 schema.sql（独立于 _DATASETS），否则「没注册的表」按定义是空集。
+      # 只用 stdlib，宿主 python3 实测可跑，与上面几条保持一致；
+      # 「空表不许注册」那条需要 DuckDB，db/ 是 gitignore 的，故此处自动跳过，
+      # 由 pytest 侧（test_dataset_registration_audit.py）用 monkeypatch 复挂。
+      - id: dataset-registration
+        name: "dataset 注册：入库了的表 agent 要够得着"
+        language: system
+        entry: python3 scripts/audit_dataset_registration.py
+        pass_filenames: false
+        always_run: true
+        verbose: true
       # 抓的是「声明了但生产装配够不着」——工具在测试注册表里跑得好好的，
       # 生产装配少接一根线，于是它在生产里从来没被调起过，而单元测试全绿。
       #

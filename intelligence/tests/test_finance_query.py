@@ -617,6 +617,224 @@ def test_dragon_seat_query_binds_and_executes(tmp_path: Path) -> None:
     assert result.rows[0]["net_buy"] == 1.73
 
 
+def test_auction_panel_cap_is_declared_in_coverage() -> None:
+    """竞价看板每面板每日只收 top10——这是全表最容易被误用的地方。
+
+    实测 2026-08-18：`zt` 面板 10 行，而前一日真实涨停 106 只。模型若拿本表回答
+    「昨天多少只涨停」会少一个数量级，而字段校验一声不吭（`limit_seq`/`pct_chg`
+    都是这张表的合法列）。所以上限和「该问谁」必须在 coverage 里，模型下单前可见。
+    """
+
+    from intelligence.services.finance_query import _DATASETS
+
+    assert "auction_stock_daily" in _DATASETS
+    definition = _DATASETS["auction_stock_daily"]
+    assert definition.table == "fact_auction_stock_daily"
+    assert definition.population == "subset"
+    assert "top 10" in definition.coverage
+    # 必须指出正确的替代口径，否则模型只知道「不能用」不知道「该用谁」
+    assert "market_daily.limit_up" in definition.coverage
+
+
+def test_sw_l1_is_full_universe_with_dated_incompleteness() -> None:
+    """申万一级的宇宙是 31 个行业，近端已齐；残缺是时间问题，不是结构子集。
+
+    两道失败形状不能共用 population=subset：那面会让 catalog 把近端合法排名
+    说成「子集内部名次」，事后 advisory 再把模型推向 stock_daily / 龙虎榜。
+    分界日必须是机器可读的 incomplete_before，不能只活在散文里。
+    """
+
+    from intelligence.services.finance_query import _DATASETS
+
+    assert "sw_l1_daily" in _DATASETS
+    definition = _DATASETS["sw_l1_daily"]
+    assert definition.table == "fact_sw_l1_daily"
+    assert definition.population == "full"
+    assert definition.incomplete_before == date(2026, 6, 5)
+    assert "2026-06-05" in definition.coverage, "分界日要写进 coverage，模型下单前就得看见"
+    # 概念板块加总会大于全市，不能当行业成交额的替代路径
+    assert "维度聚合" not in definition.coverage
+    # 低可用率字段不开放为指标：一个几乎恒空的 metric 与空 dataset 是同一种病
+    assert "fupanhui_ratio" not in definition.metrics
+    assert "amount_ma120_ratio" not in definition.metrics
+    # 成交额也不开放：库里那列不是「亿」（写入侧未换算，实测比值≈100 即百万元），
+    # 而语义层八处成交额统一「亿」。放进来就得放宽 test_amount_metric_labels_carry_unit——
+    # 那是改门禁迁就代码。这条钉住「宁可少一个指标，不混两种口径」。
+    assert "amount" not in definition.metrics
+
+
+def test_sw_l1_query_binds_and_executes(tmp_path: Path) -> None:
+    """行业 dataset 端到端：某日按涨幅排行业。"""
+    import duckdb
+
+    db_path = tmp_path / "market_feature_store.duckdb"
+    con = duckdb.connect(str(db_path))
+    try:
+        con.execute(
+            """
+            create table fact_sw_l1_daily(
+                trade_date date, sw_l1_code varchar, sw_l1 varchar,
+                close double, pre_close double, pct_chg double, amount double,
+                fupanhui_ratio double, source varchar, updated_at timestamp,
+                amount_ma120 double, amount_ma120_ratio double
+            )
+            """
+        )
+        con.executemany(
+            "insert into fact_sw_l1_daily values (?,?,?,?,?,?,?,?,?,?,?,?)",
+            [
+                ("2026-07-24", "801950", "煤炭", 3000.0, 2932.0, 2.30, 16605.0,
+                 None, "akshare", None, None, None),
+                ("2026-07-24", "801780", "银行", 5000.0, 4937.0, 1.27, 31856.0,
+                 None, "akshare", None, None, None),
+            ],
+        )
+    finally:
+        con.close()
+
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "sw_l1_daily",
+            "metrics": ["return_pct"],
+            "dimensions": ["sw_l1"],
+            "time_range": {"start": "2026-07-24", "end": "2026-07-24"},
+            "order_by": [{"field": "return_pct", "direction": "desc"}],
+            "limit": 10,
+        }
+    )
+    result = FinanceQuery(db_path).run(
+        spec,
+        information_cutoff=_cutoff(),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+    assert [row["sw_l1"] for row in result.rows] == ["煤炭", "银行"]
+    assert result.rows[0]["return_pct"] == 2.30
+
+
+def test_sw_l1_rejects_amount_metric() -> None:
+    """amount 在全局枚举里（个股/板块成交额），但本表不能要。"""
+
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "sw_l1_daily",
+            "metrics": ["amount"],
+            "dimensions": ["sw_l1"],
+            "time_range": {"start": "2026-08-24", "end": "2026-08-24"},
+        }
+    )
+    with pytest.raises(FinanceQueryValidationError, match="unknown field: amount"):
+        FinanceQuery("/nonexistent.duckdb").run(
+            spec,
+            information_cutoff=_cutoff(),
+            deadline=ResearchDeadline.from_timeout(2.0),
+        )
+
+
+def _sw_l1_rank_spec(**time_range: str) -> FinanceQuerySpec:
+    payload: dict[str, object] = {
+        "dataset": "sw_l1_daily",
+        "metrics": ["return_pct"],
+        "dimensions": ["sw_l1"],
+        "order_by": [{"field": "return_pct", "direction": "desc"}],
+        "limit": 5,
+    }
+    if time_range:
+        payload["time_range"] = time_range
+    return FinanceQuerySpec.from_arguments(payload)
+
+
+def test_sw_l1_advisory_is_silent_on_complete_window() -> None:
+    """06-05 起 31/31，按涨幅排行业是该宇宙的合法全集排名，不该喊去个股表。"""
+    from intelligence.services.finance_query import coverage_advisory
+
+    advisory = coverage_advisory(
+        _sw_l1_rank_spec(start="2026-08-24", end="2026-08-24")
+    )
+    assert advisory == ""
+
+
+def test_sw_l1_advisory_warns_on_incomplete_window_without_wrong_grain() -> None:
+    """残缺窗上排序必须出声，且不能把模型推向个股/概念板块。"""
+    from intelligence.services.finance_query import coverage_advisory
+
+    advisory = coverage_advisory(
+        _sw_l1_rank_spec(start="2026-03-10", end="2026-03-10")
+    )
+    assert "2026-06-05" in advisory
+    assert "stock_daily" not in advisory
+    assert "sector_daily" not in advisory
+    assert "dragon_tiger_daily" not in advisory
+
+
+def test_sw_l1_advisory_fail_closed_without_time_range() -> None:
+    """没给日期就不知道落在哪一段——认不出来就警告，不能静默当全集。"""
+    from intelligence.services.finance_query import coverage_advisory
+
+    advisory = coverage_advisory(_sw_l1_rank_spec())
+    assert "2026-06-05" in advisory
+    assert "stock_daily" not in advisory
+
+
+def test_stock_technical_registered_as_dataset() -> None:
+    """UP 线/偏离度：203 万行日更资产，此前入库但语义层查不到。"""
+    from intelligence.services.finance_query import _DATASETS
+
+    assert "stock_technical_daily" in _DATASETS
+    definition = _DATASETS["stock_technical_daily"]
+    assert definition.table == "feature_stock_technical_daily"
+    # population=full 但有 ~0.4% 缺行（不满 26 日的新股/停牌股），coverage 必须讲明
+    # 「缺行 ≠ 没偏离」，否则模型会把算不出读成没偏离。
+    assert definition.population == "full"
+    assert "缺行" in definition.coverage
+
+
+def test_stock_technical_query_filters_by_deviation(tmp_path: Path) -> None:
+    """端到端：筛出站上 UP 线的个股（filter 作用在 metric 上）。"""
+    import duckdb
+
+    db_path = tmp_path / "market_feature_store.duckdb"
+    con = duckdb.connect(str(db_path))
+    try:
+        con.execute(
+            """
+            create table feature_stock_technical_daily(
+                trade_date date, stock_ts_code varchar, stock_name varchar,
+                close double, ma26 double, std26 double, up_value double,
+                deviation_pct double, calculated_at timestamp
+            )
+            """
+        )
+        con.executemany(
+            "insert into feature_stock_technical_daily values (?,?,?,?,?,?,?,?,?)",
+            [
+                # UP = ma26 + 0.764*std26；甲站上、乙低于
+                ("2026-07-24", "600001.SH", "甲股", 12.0, 10.0, 1.0, 10.764, 11.48, None),
+                ("2026-07-24", "600002.SH", "乙股", 9.0, 10.0, 1.0, 10.764, -16.39, None),
+            ],
+        )
+    finally:
+        con.close()
+
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "stock_technical_daily",
+            "metrics": ["deviation_pct", "up_value"],
+            "dimensions": ["stock_name"],
+            "filters": [{"field": "deviation_pct", "op": "gt", "value": 0}],
+            "time_range": {"start": "2026-07-24", "end": "2026-07-24"},
+            "order_by": [{"field": "deviation_pct", "direction": "desc"}],
+            "limit": 10,
+        }
+    )
+    result = FinanceQuery(db_path).run(
+        spec,
+        information_cutoff=_cutoff(),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+    assert [row["stock_name"] for row in result.rows] == ["甲股"]
+    assert result.rows[0]["deviation_pct"] == 11.48
+
+
 def test_stock_high_query_groups_by_period(market_db: Path) -> None:
     spec = FinanceQuerySpec.from_arguments(
         {
@@ -1006,6 +1224,32 @@ def test_coverage_advisory_fires_on_the_real_a5_query() -> None:
     assert "theme_limit_heat_daily" in advisory
     # 只对排序字段提示：return_pct 六张表都有，列出来会把真信号淹掉。
     assert "return_pct" not in advisory
+
+
+def test_coverage_advisory_does_not_redirect_generic_return_pct() -> None:
+    """return_pct 出现在多张全集表上，按字段名找超集会指向错误粒度。
+
+    竞价看板按当日涨幅排序是「这批被选进看板的票今天怎么走」，不是「全市个股排名」。
+    指向 stock_daily / 龙虎榜等于换了一个问题。
+    """
+    from intelligence.services.finance_query import (
+        FinanceQuerySpec,
+        Order,
+        coverage_advisory,
+    )
+
+    advisory = coverage_advisory(
+        FinanceQuerySpec(
+            dataset="auction_stock_daily",
+            dimensions=("stock_name", "panel"),
+            metrics=("return_pct",),
+            order_by=(Order("return_pct", "desc"),),
+            limit=10,
+        )
+    )
+    assert "stock_daily" not in advisory
+    assert "dragon_tiger_daily" not in advisory
+    assert "global_index_daily" not in advisory
 
 
 def test_coverage_advisory_is_silent_on_legitimate_subset_use() -> None:

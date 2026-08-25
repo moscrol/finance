@@ -286,6 +286,10 @@ class _DatasetDefinition:
     evidence_tier: str = "L4_structured"
     population: Literal["full", "subset", "single"] = "full"
     coverage: str = ""
+    # 时间残缺：该日之前不是这个宇宙的全集（历史回填残段）。和 population=subset
+    # 不是一回事——后者是**每天**都只收一部分，前者是**某日之后才齐**。
+    # 只写在 coverage 散文里不够：事后 advisory 必须能按 time_range 分流。
+    incomplete_before: date | None = None
     # 日程表的发生日可以晚于信息截止日。默认关：行情表继续用
     # time_field <= cutoff，防止前视。只允许 event_daily 打开。
     allow_future_time_range: bool = False
@@ -299,6 +303,7 @@ class _DatasetDefinition:
 
 
 # ``population`` 是**机器可读的覆盖面**，``coverage`` 是给模型看的同一件事的散文。
+# ``incomplete_before`` 是第三种：**宇宙本身是全集，但某日之前回填不齐**。
 #
 # 为什么需要它：A5 实测（2026-08-18）问「涨停集中在哪些题材」，模型选了
 # ``mainline_sector_daily``。那张表**结构上完全合法**——它确实有 ``limit_up_count``
@@ -311,8 +316,14 @@ class _DatasetDefinition:
 # 事后 observation 里补。这与 ``_agent_finance_parameters`` 里把行数上限写进 schema
 # 是同一条理由：模型感知到的世界与工具操作的世界之间不能存在系统性偏差。
 #
+# **两种失败形状不要共用 subset 旗标**：
+# - 结构子集（每天都只收一部分）→ ``population="subset"``，advisory 指向真正的全集表。
+# - 时间残缺（某日之后才齐）→ ``population="full"`` + ``incomplete_before``，
+#   advisory 只在问句窗落到残缺区间时出声。把后者标成 subset，catalog 会把近端
+#   合法排名说成「子集内部名次」，再按通用字段名把模型推向个股表。
+#
 # **刻意不写具体行数**：行数天天变，写进源码就是手抄第二事实源，漂了没人知道。
-# 这里只声明**性质**（全量 / 子集 / 单行），性质是稳定的。要精确行数就去查库。
+# 这里只声明**性质**（全量 / 子集 / 单行 / 分界日），性质是稳定的。要精确行数就去查库。
 
 
 def _dimension(
@@ -532,6 +543,99 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "strength_change": _metric("strength_chg", "强度变化"),
         },
     ),
+    "auction_stock_daily": _DatasetDefinition(
+        table="fact_auction_stock_daily",
+        label="集合竞价看板个股日频",
+        population="subset",
+        coverage=(
+            "复盘会竞价看板：**每个面板每日只收 top 10**（实测上限 10，均值 9.8）。"
+            "**这是全表最容易被误用的地方**——`zt` 面板永远约 10 行，而前一日真实涨停"
+            "常有 37~106 只（实测 2026-08-18：表内 10 vs 真实 106）。**问「昨天多少只涨停」"
+            "「涨停都有谁」绝不能用本表**，那要 `market_daily.limit_up` 或 "
+            "`theme_limit_heat_daily`。本表只回答「这批被选进看板的票，今天竞价表现如何」。\n"
+            "七个面板（`panel_key`）：`zt` 昨日涨停 / `lb` 昨日连板 / `db` 1日前断板 / "
+            "`qdb` 2日前 / `dqdb` 3日前 / `db4` 4日前 / `db5` 5日前。\n"
+            "**时间语义**：`trade_date` 是**竞价发生日**，面板名描述的是此前发生的事——"
+            "`zt` 那行的意思是「该股在 trade_date 的前一交易日涨停，本日竞价表现如下」。\n"
+            "覆盖 2026-01-16 起 145 个交易日；金额单位为亿（与 `fact_stock_daily.amount` "
+            "逐位对账一致）；`limit_seq` 是连板数不是排名（`lb` 面板最小值为 2）。"
+        ),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "竞价交易日", "date"),
+            "panel": _dimension("panel_key", "看板面板"),
+            "panel_label": _dimension("panel_label", "面板中文名"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+            "leader_plate": _dimension("leader_plate", "所属题材"),
+        },
+        metrics={
+            "auction_return_pct": _metric("auction_pct", "竞价涨幅"),
+            "return_pct": _metric("pct_chg", "当日涨跌幅"),
+            "auction_amount": _metric("auction_amount", "竞价成交额亿", "sum"),
+            "day_amount": _metric("day_amount", "全日成交额亿", "sum"),
+            "limit_times": _metric("limit_seq", "连板数", "max", "integer"),
+        },
+    ),
+    "sw_l1_daily": _DatasetDefinition(
+        table="fact_sw_l1_daily",
+        label="申万一级行业日频行情",
+        population="full",
+        incomplete_before=date(2026, 6, 5),
+        coverage=(
+            "申万一级 31 个行业指数的日行情。**完整度分两段（实测 2026-08-25）**："
+            "`2026-06-05` 起每日 31/31，这一宇宙已齐，可直接排序；"
+            "**此前多数交易日只有 3~10 个行业**（344 天平均 7.7，部分回填残段，"
+            "夹着少量满 31 的孤岛）。**在分界日之前取 top-N 会在残缺分母里排序**——"
+            "问「某月哪个行业最强」若落在 06-05 之前，先声明覆盖不足，不要给排名。"
+            "与 `sector_daily` 不是一回事：那是约 224 个概念板块（一只股可进多板块），"
+            "这是 31 个申万一级行业。行业涨跌用本表，题材热度用 `sector_daily` 或 "
+            "`theme_limit_heat_daily`。"
+            "**本表不提供成交额**：库里那列不是「亿」（写入侧原样存 AKShare 值；"
+            "2026-08-24 全行业合计约 198 万对大盘 20,072 亿，比值≈100，即百万元口径）。"
+            "不要对 `sector_daily` 按申万一级加总冒充行业成交额——"
+            "概念重叠会重复计算，加总会大于全市。"
+            "另 `fupanhui_ratio` 约 27% 有值、`amount_ma120*` 约 2%，同样未开放，不是漏了。"
+        ),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "sw_l1": _dimension("sw_l1", "申万一级行业"),
+            "sw_l1_code": _dimension("sw_l1_code", "申万一级代码"),
+        },
+        # 刻意不放 amount：见上面 coverage。语义层「八处成交额口径一致（亿）」是
+        # test_amount_metric_labels_carry_unit 钉住的不变量；为了多一个指标去放宽它，
+        # 等于改门禁迁就代码。要暴露就得先在写入侧统一单位，那是另一个单子。
+        metrics={
+            "close": _metric("close", "行业指数收盘"),
+            "pre_close": _metric("pre_close", "前收盘"),
+            "return_pct": _metric("pct_chg", "涨跌幅"),
+        },
+    ),
+    "stock_technical_daily": _DatasetDefinition(
+        table="feature_stock_technical_daily",
+        label="个股 UP 线与偏离度日频",
+        population="full",
+        coverage=(
+            "全 A 个股逐日 UP 线（布林带变体 `UP = MA26 + 0.764×STD26`，N=26/P=20）与偏离度 "
+            "`(close/UP - 1)×100`。**满 26 个交易日收盘价才算得出**，新上市与长期停牌股当日缺行——"
+            "2026-08-24 实测 5519/5540（99.6%）。**缺行 ≠ 没偏离，是算不出**。"
+            "`deviation_pct > 0` 即站上 UP 线，`< 0` 为低于。"
+        ),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+        },
+        metrics={
+            "close": _metric("close", "收盘价"),
+            "ma26": _metric("ma26", "26日均价"),
+            "std26": _metric("std26", "26日收盘标准差"),
+            "up_value": _metric("up_value", "UP线"),
+            "deviation_pct": _metric("deviation_pct", "UP偏离度"),
+        },
+    ),
     # ── 复盘会公开资产（2026-08-13 接入语义层，此前入库但 agent 够不着）──
     "dragon_summary_daily": _DatasetDefinition(
         table="fact_dragon_summary_daily",
@@ -729,6 +833,8 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         population="full",
         coverage=(
             "个股技术面快照。**当前是空表（0 行）**——取不到不是查询写错，是该口径暂无数据，应如实声明不可得。"
+            "⚠️ 但 UP 线/偏离度**不要用这张**：有数据的是 `stock_technical_daily`（203 万行、日更）。"
+            "这张表只服务「技术面快照」这一口径本身。"
         ),
         time_field="trade_date",
         dimensions={
@@ -743,6 +849,62 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         },
     ),
 }
+
+
+# ``schema.sql`` 里的每张 fact_/feature_ 表，要么在上面注册、要么在这里写明为什么不注册。
+# 二选一由 ``scripts/audit_dataset_registration.py`` 在 pre-commit 里强制。
+#
+# 为什么需要它：2026-08-13 那轮把复盘会 6 张表接进语义层时，处置理由
+# （「稀疏/半结构表暂不注册，保持工具面收敛」）只写在 asset-inventory 文档正文里。
+# 文档里的决定不是机器可读的——2026-08-25 复查时它被读成「漏了」，差点组织人去
+# 「补」一个当初有意做过的决定。**豁免必须和注册表放在一起，让改动者同屏看见。**
+#
+# 同一轮还差点把 ``fact_top_gainers`` 注册进来：它只有 schema、没有写入链，
+# 注册的结果是一个永远返回 0 行的 dataset。所以理由里区分 ``no_writer``——
+# 「建表 ≠ 入库」是「入库 ≠ agent 能查到」的姊妹病，前者靠 COUNT(*) 才抓得住。
+_UNREGISTERED_TABLES: dict[str, str] = {
+    # ── 无写入链：只有 schema，注册即得永久空 dataset ──
+    "fact_top_gainers": "no_writer：涨幅排行是「只展示不入库」设计，0 行",
+    "fact_high_volume_gainers": "no_writer：大成交排行同上，0 行",
+    # ── 基础设施：不是市场事实，不该出现在模型的 dataset 枚举里 ──
+    "fact_sector_daily_generation": "internal：代际物理表，读口是同名 VIEW（见 check_sector_fact_access.py）",
+    "fact_sector_stock_daily_generation": "internal：同上，读口是 VIEW",
+    "fact_sector_universe_daily": "internal：快照台账名单，供完整度校验用",
+    # ── 物化窗口：CLAUDE.md 明记「无活跃消费者，可能过期」，先别喂给模型 ──
+    "feature_market_window": "stale_materialized：历史物化窗口，无活跃消费者",
+    "feature_sector_window": "stale_materialized：同上",
+    "feature_stock_window": "stale_materialized：同上",
+    "feature_limit_advance_window": "stale_materialized：同上",
+    # ── 已有专用通路：证据块/adapter 已消费，再开语义面会双口径 ──
+    "fact_limit_advance_daily": "dedicated_path：adapter 与多处 service 已消费（6 个生产文件）",
+    "feature_l2_capital_flow_daily": "dedicated_path：D9 证据块 market_moneyflow.py",
+    "feature_l2_quant_orders_daily": "dedicated_path：同 D9 块",
+    "fact_theme_limit_stock_daily": "dedicated_path：theme_lifecycle_timeline 已消费",
+    "fact_mainline_stock_daily": "dedicated_path：主线结构由 mainline_* 两个 dataset 覆盖",
+    "fact_sector_period_rank_daily": "dedicated_path：adapter ALLOWED_TABLES 内，按需直查",
+    # ── 2026-08-12 有意豁免：稀疏/半结构，「保持工具面收敛」 ──
+    # 要注册得先推翻这条理由。注意后三张**没有 trade_date 列**，不是 drop-in；
+    # 且 fact_historical_mapping.source_date 与 registry filter_future_dated 的
+    # source_date 同名不同义，注册前必须确认，否则整批被判成「晚于问句日」。
+    # fact_auction_stock_daily 已于 2026-08-25 转正为 dataset auction_stock_daily。
+    # 推翻 08-12「稀疏/半结构」那条理由的依据：实测 145 天、每日 50~99 行、字段可用率
+    # 近 100%，并不稀疏；「半结构」指的是 panel_key 分面板，而 population/coverage
+    # 这套机制正是为表达子集而存在的，当时还没有。
+    "fact_regulation_pool_daily": "deferred_2026-08-12：无 trade_date（effective_date）",
+    "fact_regulation_event_daily": "deferred_2026-08-12：监管事件半结构",
+    "fact_historical_mapping": "deferred_2026-08-12：无 trade_date；source_date 语义与 registry 约定冲突",
+    # ── 有数据、无通路、待评估：下一批候选 ──
+    "fact_theme_flow_daily": "candidate：题材资金流，口径待与 sector_daily 对齐",
+    "fact_global_stock_daily": "candidate：外盘个股，与 global_index_daily 口径待对齐",
+    "fact_research_report_catalog": "candidate：研报目录，偏知识库侧",
+    "fact_theme_fundamental_doc": "candidate：37 行题材基本面文档，偏知识库侧",
+    "fact_limit_advance_presence": "candidate：连板在场标记，与 limit_advance_daily 重叠待定",
+}
+
+# 注册了但**当前是空表**的，必须在这里声明是有意为之，否则审计判失败。
+# ``fact_stock_technical_snapshot`` 是运行时诚实闸 ``honesty_gates._EMPTY_CALIBER_TABLE``
+# 的锚点：它存在的意义就是让「问技术面快照」这一口径能如实回「暂无数据」。
+_EMPTY_BY_DESIGN: frozenset[str] = frozenset({"fact_stock_technical_snapshot"})
 
 _PROVIDER_FIELD_ALIASES: dict[str, dict[str, str]] = {
     "market_daily": {
@@ -1155,8 +1317,37 @@ def validation_retry_hint(
     return "；".join(parts)
 
 
+def _window_hits_incomplete(spec: FinanceQuerySpec, before: date) -> bool:
+    """问句窗是否可能包含 ``before`` 之前的日期。
+
+    ``time_range`` 缺失或 start 开着，当成无界过去——认不出来就 fail closed。
+    只看 start：start 已经落在分界日当天或之后，整窗都在完整区间。
+    """
+
+    window = spec.time_range
+    if window is None:
+        return True
+    return window.start is None or window.start < before
+
+
+def _temporal_coverage_advisory(
+    spec: FinanceQuerySpec, definition: _DatasetDefinition
+) -> str:
+    before = definition.incomplete_before
+    if before is None:
+        return ""
+    if not _window_hits_incomplete(spec, before):
+        return ""
+    return (
+        f"覆盖面提示：dataset={spec.dataset} 在 {before.isoformat()} 之前覆盖不齐"
+        "（多数交易日只有部分成员，不是该宇宙的全集）。"
+        "本窗落在残缺区间，排序得到的名次不能当成全集排名。"
+        "请把 time_range 收到该日及以后，或先声明覆盖不足、不要给排名。"
+    )
+
+
 def coverage_advisory(spec: FinanceQuerySpec) -> str:
-    """在**子集**表上做排序/取名次时，指出同一字段还有**全集**表可用。
+    """查询成功但分母可能错时，往 observation 上挂一句。
 
     这是 ``validation_retry_hint`` 够不着的那一半。那个函数只在查询**被拒**时
     说话，判据是「字段属不属于这张表」；而 A5 那次查询**完全合法**——
@@ -1164,35 +1355,50 @@ def coverage_advisory(spec: FinanceQuerySpec) -> str:
     错的是分母：十余行的主线子集 vs 两百余行的全量榜。结构性校验原理上抓不到
     这类错，因为错表在结构上没毛病。
 
+    两种分母错误分开处理：
+
+    1. **时间残缺**（``incomplete_before``）：宇宙是全集，但某日之前回填不齐。
+       只在问句窗可能落到残缺区间时出声，不指向别的表。
+    2. **结构子集**（``population="subset"``）：每天都只收一部分。有真正的全集表
+       才提示改表；排序字段若出现在很多全集表上（``return_pct`` / ``close``），
+       按字段名找超集会指向错误粒度，此时宁可不说。
+
     **只在真的会被分母影响时才出声**：有 ``order_by``（即在做「最多 / 前几名」）
-    才提示。纯粹取某个具体标的在子集表里的值是正当用法，对它唠叨就是噪声，
-    会把真提示淹掉。
+    才提示。纯粹取某个具体标的的值是正当用法，对它唠叨就是噪声。
 
     判据**不看 ``limit``**：它有默认值 50，恒为真，拿它当信号等于没有信号。
-    A5 现场那条查询是 ``order_by=limit_up_count desc, limit=15``——在一张
-    当日只有十余行的表上要 top15，正是本函数要拦的形状。
 
     返回空串表示无话可说——**调用方据此决定要不要把这句挂到 observation 上**，
     本函数不自己决定交付形态。
     """
 
     definition = _DATASETS.get(spec.dataset)
-    if definition is None or definition.population != "subset":
-        return ""
-    if not spec.order_by:
+    if definition is None or not spec.order_by:
         return ""
 
-    # **只看排序字段**，不看 metrics 里搭车的那些列。决定名次的只有排序字段，
-    # 分母换了只影响它；把每个 metric 都列一遍会让 return_pct 这种六张表都有的
-    # 通用列刷满整条提示，真信号（limit_up_count→theme_limit_heat_daily）被淹掉。
-    # 实测过：不收窄时这条提示有 8 项，收窄后 1 项。
+    temporal = _temporal_coverage_advisory(spec, definition)
+    if temporal:
+        return temporal
+    if definition.population != "subset":
+        return ""
+
+    # **只看排序字段**，不看 metrics 里搭车的那些列。决定名次的只有排序字段。
+    # 通用列（return_pct）出现在很多全集表上：超过两张就不当超集信号，
+    # 否则会把申万一级/竞价看板的排名改写成个股榜。A5 的 limit_up_count
+    # 几乎只属于题材热度表，启发式才成立。
     wanted = tuple(dict.fromkeys(item.field for item in spec.order_by))
     alternatives: list[str] = []
     for field in wanted:
-        for name in _PUBLIC_DATASETS:
-            other = _DATASETS[name]
-            if other.population != "full" or field not in other.fields:
-                continue
+        owners = [
+            name
+            for name in _PUBLIC_DATASETS
+            if name != spec.dataset
+            and _DATASETS[name].population == "full"
+            and field in _DATASETS[name].fields
+        ]
+        if len(owners) > 2:
+            continue
+        for name in owners:
             entry = f"{field}→{name}"
             if entry not in alternatives:
                 alternatives.append(entry)
