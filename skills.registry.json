@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-08-21T18:52:10Z",
+  "generated_at": "2026-08-25T07:53:17Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -161,7 +161,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:ae12df8472fd29881e132fbe019e7cd5c57a43b14ee6a145e584005e8e495f61",
+      "computedHash": "sha256:b7039e1df8bc7291c909eead39f58c5a9f976c44aa491652db27975c8696ab94",
       "agentOnly": false,
       "views": [],
       "split": {
@@ -224,7 +224,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:fff4d9666edde30657c3920efbac8bde8e77a5898f6ecd86af34701f773050d9",
+      "computedHash": "sha256:c945164a21711481a096d4d4954fde4ee50643f711af45c014fb3ad5aa33b7b6",
       "agentOnly": false,
       "views": []
     },
@@ -456,7 +456,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:a2f8d7e59ba8a96b9fdeaf5b433cf9b94c829a987c389e9b060729982960ff5b",
+      "computedHash": "sha256:08f448c0179e6375c74dcd1ab312c56c8c01447211007dd000dd0b996f6d9683",
       "agentOnly": false,
       "views": [
         {
@@ -1043,7 +1043,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:3fe38a2137a3485dcf0f2b9ff59f0a1f074b2076d738de15936fd37e3d044c66",
+      "computedHash": "sha256:d8115d8f550fa501fe9bca7d225d24b3f16300bf510e16eda99a4b83d29753c6",
       "agentOnly": false,
       "views": [
         {
