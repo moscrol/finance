@@ -1,7 +1,8 @@
 # 设计：题材题信封主语收口（前瞻观点词形 × 板块后缀）
 
 - 日期：2026-08-25
-- 状态：**Draft v1**（未实施，未核稿。核稿重点见 §12——「联合题升不升 theme_analysis」刻意不在 P0）
+- 状态：**v1.1**（P0 已实施离线绿，分支 `fix/theme-envelope-subject`；核稿重点见 §12——「联合题升不升 theme_analysis」刻意不在 P0）
+- v1 → v1.1 实施勘误：§7 变异锁 (i) 原拟句「接下来大盘怎么走」实测**不命中** `is_market_forecast_query`（该句本就落 generic，其不被误抽的保护来自无「板块」后缀，不来自 forecast 次序）；顺序锁改用真命中句「展望后市，科技板块接下来的走势怎么看」（`_MARKET_FORECAST_RE` 第一支）。另：句级词形合取是松耦合——「接下来大盘怎么走，科技板块留意什么」会抽到 `科技`（cue 与 ask 词落在不同分句），属「先窄靠后缀不靠分句配对」的已知边界，检索种子仍带全句，未收紧。
 - 来源：五臂对照报告结论「科技/医药没有被收成 theme_analysis，是五臂（除原生）共用的契约债」（`~/.finance-runtime/trace-diff-spt-tech-med-monday-20260823/one-page-report.md` §信封）+ 2026-08-25 生产 live 两发契约冻结 + `0325d829` 快照 `understand_query` 实测（本稿 §3）。
 - 代码树：实施时从 `gitea/main` 开干净树 `fix/theme-envelope-subject`。**禁止**在主检出脏树改 runtime。**禁止**动 8792 / 8796 / 8802。
 - 相邻稿（本单不重做、不抢合）：
