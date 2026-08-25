@@ -29,7 +29,7 @@ Authentication failed（`hisdata180@36.139.233.80`）。不是新故障——`fe
    ⚠ 解释器：必须用带 `clickhouse_driver` 的 `python3`（实测 `/opt/homebrew/bin/python3`
    有 0.2.10）。`.venv-workbench/bin/python` **没有**这个包，会 ModuleNotFoundError——
    08-26 02:0x 踩过，别把环境问题误读成链路挂了。
-3. 77 拍两扇门，或说「按推荐：A1 + B1」。
+3. ~~77 拍两扇门~~ → **已拍（2026-08-26）：A1 + B1**。P1 = 本地快照 + 读口（无推送）；P2 = 工具读本地（不连 CH）。设计稿已升 v1.1。
 4. 再开 `feat/intraday-l2-sidecar` 做 P1。不要在 #396 那棵树上做。
 
 ## 不要做
