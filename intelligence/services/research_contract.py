@@ -1344,6 +1344,8 @@ OPERATOR_DETAIL_ROWS = "market.detail_rows"
 OPERATOR_CATALOG_PREFLIGHT = "catalog.preflight"
 OPERATOR_CONTRADICTION_AUDIT = "market.contradiction_audit"
 OPERATOR_SUBSTITUTE_OBSERVATION = "market.substitute_observation"
+OPERATOR_VOLUME_QUALIFICATION = "market.volume_qualification"
+OPERATOR_STEP_TRAJECTORY = "market.volume_step_trajectory"
 
 QueryRecipeIntent = Literal["aggregate", "detail", "timeseries", "cross_table"]
 
@@ -1426,6 +1428,12 @@ _SLOT_BY_OPERATOR = {
     OPERATOR_SUBSTITUTE_OBSERVATION: FactSlot(
         "substitute_observation", required=False
     ),
+    OPERATOR_VOLUME_QUALIFICATION: FactSlot(
+        "volume_qualification", required=False
+    ),
+    OPERATOR_STEP_TRAJECTORY: FactSlot(
+        "volume_step_trajectory", required=False
+    ),
 }
 
 
@@ -1444,6 +1452,7 @@ def compile_research_program(
         SIGNAL_DOUBLE_RED,
         SIGNAL_FERMENTATION,
         SIGNAL_MARKET_WATCH,
+        SIGNAL_STEP_TRAJECTORY,
         SIGNAL_SUBSTITUTE_OBSERVATION,
         surface_research_signals,
     )
@@ -1484,6 +1493,17 @@ def compile_research_program(
         recipes.append(
             QueryRecipe(
                 intent="detail", dataset="sector_stock_daily", strict_date=True
+            )
+        )
+    if SIGNAL_STEP_TRAJECTORY in signals:
+        # 资格盘先于台阶：先定资格再谈板块（一个信号发两枚 operator）。
+        # 不发 DefinitionReceipt——P0 无读取方，unread-fields 门禁先例
+        # （替补单 probe_id 教训：为将来预留的字段不要先写）。
+        operators.append(OPERATOR_VOLUME_QUALIFICATION)
+        operators.append(OPERATOR_STEP_TRAJECTORY)
+        recipes.append(
+            QueryRecipe(
+                intent="timeseries", dataset="sector_daily", strict_date=True
             )
         )
 

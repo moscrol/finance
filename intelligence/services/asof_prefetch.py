@@ -665,15 +665,20 @@ def collect_prefetch_items(
     )
 
     from intelligence.services.research_contract import (
+        OPERATOR_STEP_TRAJECTORY,
         OPERATOR_SUBSTITUTE_OBSERVATION,
+        OPERATOR_VOLUME_QUALIFICATION,
     )
 
     program = compile_research_program(question, question_class=question_type)
     has_double_red = OPERATOR_STRICT_DOUBLE_RED in program.operators
+    ferment_sector: str | None = None
     try:
         items.extend(_calendar_prefetch_items(question, as_of, db_path))
         if OPERATOR_SUBSTITUTE_OBSERVATION in program.operators:
             items.extend(_substitute_observation_items(con, as_of))
+        if OPERATOR_VOLUME_QUALIFICATION in program.operators:
+            items.extend(_volume_qualification_items(con, as_of))
         ferment = SIGNAL_FERMENTATION in surface_research_signals(
             question, question_class=question_type
         )
@@ -693,6 +698,7 @@ def collect_prefetch_items(
                         )
                     )
                 else:
+                    ferment_sector = sector
                     start, end = _timeline_window(con, question, as_of)
                     rows = load_theme_daily_rows(con, sector)
                     items.append(
@@ -722,6 +728,15 @@ def collect_prefetch_items(
                     )
             except Exception:
                 pass
+        if OPERATOR_STEP_TRAJECTORY in program.operators:
+            items.extend(
+                _step_trajectory_items(
+                    con,
+                    subject,
+                    as_of,
+                    exclude_sector=ferment_sector,
+                )
+            )
     finally:
         try:
             con.close()
@@ -748,12 +763,7 @@ def _substitute_observation_items(
     )
 
     try:
-        row = con.execute(
-            "select max(trade_date) from fact_market_daily"
-            " where trade_date <= cast(? as date)",
-            [as_of.isoformat()],
-        ).fetchone()
-        standing = str(row[0]) if row and row[0] else None
+        standing = _standing_on_or_before(con, as_of)
         probes = substitute_observation_receipts(con, standing)
         if not probes:
             return ()
@@ -765,6 +775,280 @@ def _substitute_observation_items(
                 source_date=standing,
             ),
         )
+    except Exception:
+        return ()
+
+
+QUALIFICATION_TITLE = "大盘量能资格盘"
+TRAJECTORY_TITLE_SUFFIX = " 近5日量能台阶"
+UNANCHORED_TRAJECTORY_TITLE = "量能台阶：subject 未锚定声明"
+_TRAJECTORY_WINDOW_DAYS = 5
+_TRAJECTORY_MAX_SECTORS = 6
+_MAINLINE_LOOKBACK_TRADE_DAYS = 20
+_MAINLINE_MAX_THEMES = 6
+
+
+def _standing_on_or_before(con: Any, as_of: date) -> str | None:
+    """库内不越过问句截止日的最新行情站立日（替补/资格/台阶三件同源）。"""
+
+    row = con.execute(
+        "select max(trade_date) from fact_market_daily"
+        " where trade_date <= cast(? as date)",
+        [as_of.isoformat()],
+    ).fetchone()
+    return str(row[0]) if row and row[0] else None
+
+
+def _volume_qualification_items(con: Any, as_of: date) -> tuple[PrefetchItem, ...]:
+    """大盘量能资格盘：站立日总量 vs 20 日均额（含当日窗口，spec §6.1）。
+
+    只交付事实，资格判语（共建/主升）留给回答方按画像规则解读。窗口实有
+    N<20 时如实标注真实口径，且不注册均额/比值观察值（口径不纯不注册），
+    N=20 才注册三个观察值。任何异常回空——预取不得杀 episode 开口。
+    """
+
+    from intelligence.services.market_watch_pack import (
+        AMOUNT_MA20_WINDOW,
+        volume_qualification_receipt,
+    )
+
+    try:
+        standing = _standing_on_or_before(con, as_of)
+        receipt = volume_qualification_receipt(con, standing)
+        if receipt is None:
+            return ()
+        served = str(receipt["standing_date"])
+        window_n = int(receipt["window_n"])
+        full_window = window_n == AMOUNT_MA20_WINDOW
+        caliber = (
+            "20日均额（窗口=截至站立日最近20个交易日、含当日）"
+            if full_window
+            else f"近{window_n}日均额（窗口不足20个交易日，N={window_n}，含当日）"
+        )
+        stage_day = receipt.get("stage_day")
+        detail = (
+            f"站立日={served}；全市场成交额={receipt['total_amount']} 亿；"
+            f"{caliber}={receipt['amount_avg_20d']} 亿；"
+            f"总量/均额比={receipt['amount_vs_avg20_pct']}%；"
+            f"市场阶段={receipt.get('market_stage') or '未标注'}"
+            + (f"（第{stage_day}天）" if stage_day is not None else "")
+            + f"；量能状态={receipt.get('volume_state') or '未标注'}。"
+            "本件只交付事实，资格判语（如共建/主升）由回答方按画像规则解读。"
+        )
+        observations = (
+            StructuredObservation(
+                subject="全市场",
+                as_of=served,
+                metric="total_amount",
+                value=float(receipt["total_amount"]),
+            ),
+        )
+        if full_window:
+            observations += (
+                StructuredObservation(
+                    subject="全市场",
+                    as_of=served,
+                    metric="amount_avg_20d",
+                    value=float(receipt["amount_avg_20d"]),
+                ),
+                StructuredObservation(
+                    subject="全市场",
+                    as_of=served,
+                    metric="amount_vs_avg20_pct",
+                    value=float(receipt["amount_vs_avg20_pct"]),
+                ),
+            )
+        return (
+            PrefetchItem(
+                tool="market_data",
+                title=QUALIFICATION_TITLE,
+                detail=detail,
+                source_date=served,
+                observations=observations,
+            ),
+        )
+    except Exception:
+        return ()
+
+
+def _subject_tokens(subject: str) -> tuple[str, ...]:
+    return tuple(
+        token.strip()
+        for token in re.split(r"[、，,]", str(subject or ""))
+        if token.strip()
+    )
+
+
+def _table_exists(con: Any, name: str) -> bool:
+    row = con.execute(
+        "select 1 from information_schema.tables"
+        " where table_schema = 'main' and table_name = ?",
+        [name],
+    ).fetchone()
+    return row is not None
+
+
+def _recent_mainline_themes(
+    con: Any,
+    standing: str,
+    lookback_start: str,
+) -> tuple[str, ...]:
+    if not _table_exists(con, "fact_mainline_theme_daily"):
+        return ()
+    rows = con.execute(
+        """
+        select theme_name, count(*) as registered_days
+        from fact_mainline_theme_daily
+        where trade_date <= cast(? as date)
+          and trade_date >= cast(? as date)
+          and theme_name is not null
+        group by theme_name
+        order by registered_days desc, theme_name
+        limit ?
+        """,
+        [standing, lookback_start, _MAINLINE_MAX_THEMES],
+    ).fetchall()
+    return tuple(str(row[0]) for row in rows if row[0])
+
+
+def _mainline_theme_registered(
+    con: Any,
+    standing: str,
+    lookback_start: str,
+    token: str,
+) -> bool:
+    if not _table_exists(con, "fact_mainline_theme_daily"):
+        return False
+    row = con.execute(
+        """
+        select 1 from fact_mainline_theme_daily
+        where theme_name = ?
+          and trade_date <= cast(? as date)
+          and trade_date >= cast(? as date)
+        limit 1
+        """,
+        [token, standing, lookback_start],
+    ).fetchone()
+    return row is not None
+
+
+def _resolve_subject_token(
+    con: Any,
+    standing: str,
+    lookback_start: str,
+    token: str,
+    start: str,
+    end: str,
+) -> str | None:
+    """subject token → 板块口径，fail closed（spec §6.2 解析梯）。
+
+    梯 1：token 精确等于板块名且窗口内有行；梯 2：token 恰为近 20 交易日
+    主线登记题材名 → 复用替补探针的包含+额度 top1。**禁止宽松轮**——
+    resolve_query_themes 的锚定宽松匹配会把「科技」臆配成「量子科技」，
+    词面近邻 ≠ 语义家族（R-20260825-11）。解析不到由调用方如实声明。
+    """
+
+    from intelligence.services.market_watch_pack import resolve_theme_sector
+
+    row = con.execute(
+        """
+        select 1 from fact_sector_daily
+        where sector_name = ?
+          and trade_date between cast(? as date) and cast(? as date)
+        limit 1
+        """,
+        [token, start, end],
+    ).fetchone()
+    if row is not None:
+        return token
+    if _mainline_theme_registered(con, standing, lookback_start, token):
+        hit = resolve_theme_sector(con, standing, token)
+        if hit is not None:
+            return hit[0]
+    return None
+
+
+def _step_trajectory_items(
+    con: Any,
+    subject: str,
+    as_of: date,
+    *,
+    exclude_sector: str | None = None,
+) -> tuple[PrefetchItem, ...]:
+    """题目相关板块近 5 日量能台阶（spec §6.2：subject 解析 ∪ 主线池）。
+
+    「AI算力/半导体属于科技系」这类语义归类刻意留给模型——组件只保证近
+    20 交易日主线登记板块的台阶在桌上（cap 6，subject 命中优先占位）。
+    发酵题已锚定的板块让位（exclude_sector），不双份。任何异常回空。
+    """
+
+    from intelligence.services.market_watch_pack import resolve_theme_sector
+
+    try:
+        standing = _standing_on_or_before(con, as_of)
+        if standing is None:
+            return ()
+        standing_day = date.fromisoformat(standing[:10])
+        window = _prior_trade_dates(con, standing_day, _TRAJECTORY_WINDOW_DAYS)
+        if not window:
+            return ()
+        start, end = window[0].isoformat(), window[-1].isoformat()
+        lookback = _prior_trade_dates(
+            con, standing_day, _MAINLINE_LOOKBACK_TRADE_DAYS
+        )
+        lookback_start = lookback[0].isoformat() if lookback else start
+        resolved: list[str] = []
+        unresolved: list[str] = []
+        for token in _subject_tokens(subject):
+            sector = _resolve_subject_token(
+                con, standing, lookback_start, token, start, end
+            )
+            if sector is None:
+                unresolved.append(token)
+            elif sector not in resolved:
+                resolved.append(sector)
+        for theme in _recent_mainline_themes(con, standing, lookback_start):
+            if len(resolved) >= _TRAJECTORY_MAX_SECTORS:
+                break
+            hit = resolve_theme_sector(con, standing, theme)
+            if hit is not None and hit[0] not in resolved:
+                resolved.append(hit[0])
+        pool = [
+            sector for sector in resolved if sector != exclude_sector
+        ][:_TRAJECTORY_MAX_SECTORS]
+        items: list[PrefetchItem] = []
+        for sector in pool:
+            rows = load_theme_daily_rows(con, sector)
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title=f"{sector}{TRAJECTORY_TITLE_SUFFIX}",
+                    detail=format_sector_timeline(
+                        rows, sector_name=sector, start=start, end=end
+                    ),
+                    source_date=standing,
+                    observations=sector_timeline_observations(
+                        rows, sector_name=sector, start=start, end=end
+                    ),
+                )
+            )
+        if unresolved:
+            declared = "；".join(
+                f"「{token}」未锚定到板块口径（不做宽松匹配，避免臆配词面近邻板块）"
+                for token in unresolved
+            )
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title=UNANCHORED_TRAJECTORY_TITLE,
+                    detail=(
+                        f"{declared}。近 20 个交易日主线登记板块的台阶已另行上桌"
+                        f"（站立日={standing}）。"
+                    ),
+                    source_date=standing,
+                )
+            )
+        return tuple(items)
     except Exception:
         return ()
 

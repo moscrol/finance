@@ -140,6 +140,16 @@ _OUTPUT_DESCRIPTIONS: dict[str, str] = {
         "给出验证时点：核心判断在什么时间窗、看哪个可观察指标即可回验"
         "（如「9 月中报看订单兑现」）；写不出可核验的指标×时点就不绑，不要硬凑"
     ),
+    "volume_qualification": (
+        "给出大盘量能资格盘：站立日全市场成交额、20 日均额（含当日窗口）与"
+        "总量/均额比；开口预取已带则引用其 E 号；资格判语按画像规则解读，"
+        "取不到数据则写明缺口"
+    ),
+    "volume_step_trajectory": (
+        "给出题目相关板块的近 5 日量能台阶（逐日涨跌幅/成交额/边际量/双红戳）；"
+        "开口预取已带则引用其 E 号；subject 未锚定到板块口径时如实声明，"
+        "不得臆配板块"
+    ),
 }
 
 
@@ -386,6 +396,8 @@ _ADVISORY_OUTPUT_IDS = frozenset(
         "catalog_preflight",
         "contradiction_audit",
         "substitute_observation",
+        "volume_qualification",
+        "volume_step_trajectory",
     }
 )
 
@@ -471,6 +483,8 @@ def _required_output_evidence_types(
         "catalog_preflight",
         "contradiction_audit",
         "substitute_observation",
+        "volume_qualification",
+        "volume_step_trajectory",
     }:
         return tuple(
             capability

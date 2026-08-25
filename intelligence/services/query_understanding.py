@@ -715,6 +715,7 @@ SIGNAL_DETAIL = "detail"
 SIGNAL_CROSS_TABLE = "cross_table"
 SIGNAL_CONTRADICTION = "contradiction"
 SIGNAL_SUBSTITUTE_OBSERVATION = "substitute_observation"
+SIGNAL_STEP_TRAJECTORY = "step_trajectory"
 
 _PROGRAM_AGGREGATE_RE = re.compile(r"(多少|几个|几家|家数|数量|有多少)")
 _PROGRAM_DETAIL_RE = re.compile(r"(列出|名单|明细|哪些)")
@@ -725,6 +726,11 @@ _PROGRAM_CONTRADICTION_RE = re.compile(r"(矛盾|冲突|不一致)")
 _SUBSTITUTE_THEME_RE = re.compile(r"(板块|题材|主线|行业)")
 _SUBSTITUTE_STOCK_RE = re.compile(r"(个股|标的)")
 _SUBSTITUTE_OBS_RE = re.compile(r"(观察|反馈|机会|对标|关注)")
+# 台阶/资格两件共用一个信号：SPT 铁律「先定资格再谈板块」，台阶没有资格盘
+# 垫底就没法读（spec 2026-08-25-step-trajectory-qualification-design §1.1）。
+_TRAJECTORY_OUTLOOK_RE = re.compile(
+    r"(走势|接下来|后续|趋势|怎么看|怎么走|台阶|量能)"
+)
 
 
 def surface_research_signals(
@@ -768,6 +774,14 @@ def surface_research_signals(
         and _SUBSTITUTE_OBS_RE.search(text)
     ):
         signals.add(SIGNAL_SUBSTITUTE_OBSERVATION)
+    # 盘面题不发台阶/资格信号：market_watch 的锁格由四袋包供给，包路径的
+    # 台阶/资格接入是 P1（spec §8 P1-a），此处再发会双份。
+    if (
+        not (routed_watch or inferred_watch)
+        and _SUBSTITUTE_THEME_RE.search(text)
+        and _TRAJECTORY_OUTLOOK_RE.search(text)
+    ):
+        signals.add(SIGNAL_STEP_TRAJECTORY)
     return frozenset(signals)
 
 
