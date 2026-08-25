@@ -57,6 +57,7 @@ from intelligence.services.ask import (
     _revise_synthesis_on_warn,
     answer_query,
     bind_disclosure_scan_pack,
+    prepare_disclosure_residual_answer,
     bind_research_program,
     prepare_existing_answer,
     render_conversation_answer,
@@ -66,6 +67,7 @@ from intelligence.services.ask import (
 )
 from intelligence.services.disclosure_scan_pack import (
     disclosure_scan_degrade_codes,
+    gate_disclosure_residual,
     merge_disclosure_into_public_answer,
 )
 from intelligence.services.market_watch_pack import merge_into_public_answer
@@ -2850,20 +2852,29 @@ class TurnOrchestrator:
                 and ask_options.disclosure_scan_pack is not None
             ):
                 disclosure_pack = ask_options.disclosure_scan_pack
-                rendered = disclosure_pack.render()
-                result = AskResult(
-                    query=contextual_query,
-                    trade_date=disclosure_pack.universe_date,
-                    matched_theme=None,
-                    candidate_tier=None,
-                    priority_score=None,
-                    synthesis=rendered,
-                    market_summary=rendered,
-                )
-                prepared = prepare_existing_answer(
-                    replace(ask_options, compose=False, synthesize=False),
-                    result,
-                )
+                if ask_options.compose:
+                    # P1-① 残差写手：bind 只在 status=hit 且有主名单行时放行
+                    # compose。名单置顶仍由裁判后合并负责（两处 merge 不动），
+                    # 模型只解读；synthesis 出稿后还要过 gate_disclosure_residual。
+                    prepared = prepare_disclosure_residual_answer(
+                        replace(ask_options, query=contextual_query)
+                    )
+                    result = prepared.result
+                else:
+                    rendered = disclosure_pack.render()
+                    result = AskResult(
+                        query=contextual_query,
+                        trade_date=disclosure_pack.universe_date,
+                        matched_theme=None,
+                        candidate_tier=None,
+                        priority_score=None,
+                        synthesis=rendered,
+                        market_summary=rendered,
+                    )
+                    prepared = prepare_existing_answer(
+                        replace(ask_options, compose=False, synthesize=False),
+                        result,
+                    )
             elif owner_output is not None:
                 result = _resolve_owner_result(query, owner_output, retrieval_cache)
                 prepared = prepare_existing_answer(ask_options, result)
@@ -3089,6 +3100,41 @@ class TurnOrchestrator:
                 result,
                 replace(ask_options, stream_text_delta=None),
             )
+            if (
+                turn_intent.question_type == "disclosure_scan"
+                and ask_options.disclosure_scan_pack is not None
+                and result.synthesis
+            ):
+                residual_gate = gate_disclosure_residual(
+                    result.synthesis, ask_options.disclosure_scan_pack
+                )
+                # 活性事件：零丢也留痕，让「闸跑了没丢」与「闸没跑」在
+                # telemetry 里可区分（R-20260825-08 先例）。degrade 通道仍
+                # 只在真丢时占用。
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "deliver",
+                    "disclosure_residual_gate",
+                    {
+                        "applied": True,
+                        "dropped": residual_gate.dropped,
+                        "reason": residual_gate.reason,
+                        "detail": residual_gate.detail,
+                    },
+                )
+                if residual_gate.dropped:
+                    gate_code = (
+                        f"disclosure_residual_dropped:{residual_gate.reason}"
+                    )
+                    warnings.append(gate_code)
+                    self.run_store.add_degrade(run_id, gate_code)
+                    # 回 P0 纯包形状；merge 幂等（渲染已在正文则跳过），
+                    # 不会出双名单。
+                    result.synthesis = ask_options.disclosure_scan_pack.render()
+                else:
+                    result.synthesis = residual_gate.text
             self._check_cancelled()
             self._trace(
                 run_id,

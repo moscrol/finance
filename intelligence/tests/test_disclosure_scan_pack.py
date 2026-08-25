@@ -6,13 +6,19 @@ from pathlib import Path
 
 import duckdb
 
-from intelligence.services.ask import bind_disclosure_scan_pack
+from intelligence.services.ask import (
+    bind_disclosure_scan_pack,
+    prepare_disclosure_residual_answer,
+)
 from intelligence.services.ask_types import AskOptions
 from intelligence.services.disclosure_scan_pack import (
     APPENDIX_KEYWORDS,
+    DISCLOSURE_RESIDUAL_CONTRACT,
     MAX_PAGES,
+    RESIDUAL_TRUNCATION_NOTICE,
     classify_title,
     disclosure_scan_degrade_codes,
+    gate_disclosure_residual,
     is_disclosure_scan_query,
     merge_disclosure_into_public_answer,
     parse_disclosure_buckets,
@@ -424,7 +430,120 @@ def test_szse_only_column(tmp_path: Path) -> None:
     assert set(columns) == {"szse"}
 
 
-def test_bind_always_disables_compose(tmp_path: Path) -> None:
+def test_bind_opens_compose_only_on_hit(tmp_path: Path) -> None:
+    """P1-① 行为反转（计划 §4 点名）：hit+有行保留调用方 compose，其余仍锁死。"""
+
+    db_path = _db(tmp_path)
+    options = AskOptions(
+        query=FROZEN,
+        market_db_path=db_path,
+        date=AS_OF,
+        compose=True,
+        synthesize=True,
+    )
+    bound = bind_disclosure_scan_pack(
+        options,
+        cninfo_fetch=_fetch_from_fixture,
+        sleep_fn=lambda _seconds: None,
+    )
+    assert bound.disclosure_scan_pack is not None
+    assert bound.disclosure_scan_pack.status == "hit"
+    assert bound.compose is True
+    assert bound.synthesize is True
+    caller_off = AskOptions(
+        query=FROZEN,
+        market_db_path=db_path,
+        date=AS_OF,
+        compose=False,
+        synthesize=False,
+    )
+    off = bind_disclosure_scan_pack(
+        caller_off,
+        cninfo_fetch=_fetch_from_fixture,
+        sleep_fn=lambda _seconds: None,
+    )
+    assert off.compose is False
+    assert off.synthesize is False
+
+
+def test_bind_keeps_p0_shape_on_empty_and_partial(tmp_path: Path) -> None:
+    from intelligence.services.disclosure_scan_pack import CninfoPage, PAGE_SIZE
+
+    def empty_fetch(*, keyword: str, se_date: str, page_num: int, **_kwargs):
+        return CninfoPage((), 0)
+
+    options = AskOptions(
+        query=FROZEN,
+        market_db_path=_db(tmp_path),
+        date=AS_OF,
+        compose=True,
+        synthesize=True,
+    )
+    empty = bind_disclosure_scan_pack(
+        options,
+        cninfo_fetch=empty_fetch,
+        sleep_fn=lambda _seconds: None,
+    )
+    assert empty.disclosure_scan_pack is not None
+    assert empty.disclosure_scan_pack.status == "empty"
+    assert empty.compose is False
+    assert empty.synthesize is False
+
+    def paged_fetch(*, keyword: str, se_date: str, page_num: int, **_kwargs):
+        rows = tuple(
+            {
+                "secCode": "600276",
+                "secName": "恒瑞医药",
+                "announcementTitle": f"关于获得药品注册批准的公告{page_num}-{i}",
+                "announcementId": f"pg-{keyword}-{page_num}-{i}",
+                "orgId": "x",
+                "announcementTime": "2026-08-21",
+            }
+            for i in range(PAGE_SIZE)
+        )
+        return CninfoPage(rows, 400)
+
+    partial = bind_disclosure_scan_pack(
+        options,
+        cninfo_fetch=paged_fetch,
+        sleep_fn=lambda _seconds: None,
+    )
+    assert partial.disclosure_scan_pack is not None
+    assert partial.disclosure_scan_pack.status == "partial"
+    assert partial.compose is False
+    assert partial.synthesize is False
+
+
+def test_residual_gate_shapes(tmp_path: Path) -> None:
+    pack = _run(tmp_path)
+    clean = gate_disclosure_residual(
+        "恒瑞医药（600276）属注册获批档；集采中选具有量价双重性，不默认利好。",
+        pack,
+    )
+    assert clean.dropped is False
+    assert clean.text
+    unknown = gate_disclosure_residual("建议关注贵州茅台（600519）的机会。", pack)
+    assert unknown.dropped is True
+    assert unknown.reason == "unknown_code"
+    assert unknown.detail == "600519"
+    assert unknown.text == ""
+    roster = gate_disclosure_residual(
+        "600276 【注册获批】恒瑞医药 2026-08-21 关于获得药品注册批准的公告",
+        pack,
+    )
+    assert roster.dropped is True
+    assert roster.reason == "roster_line"
+    embedded = gate_disclosure_residual(
+        "公告编号 1225497236 对应的行属注册获批档，无需另查。", pack
+    )
+    assert embedded.dropped is False
+    long = gate_disclosure_residual("这一段解读反复展开。" * 400, pack)
+    assert long.dropped is False
+    assert long.reason == "truncated"
+    assert long.text.endswith(RESIDUAL_TRUNCATION_NOTICE)
+
+
+def test_prepare_residual_answer_carries_contract(tmp_path: Path) -> None:
     options = AskOptions(
         query=FROZEN,
         market_db_path=_db(tmp_path),
@@ -437,10 +556,27 @@ def test_bind_always_disables_compose(tmp_path: Path) -> None:
         cninfo_fetch=_fetch_from_fixture,
         sleep_fn=lambda _seconds: None,
     )
-    assert bound.compose is False
-    assert bound.synthesize is False
-    assert bound.disclosure_scan_pack is not None
-    assert bound.disclosure_scan_pack.status == "hit"
+    prepared = prepare_disclosure_residual_answer(bound)
+    result = prepared.result
+    assert result.synthesis is None
+    assert result.answer_spec is not None
+    messages = result.prepared_synthesis_messages
+    assert messages
+    assert DISCLOSURE_RESIDUAL_CONTRACT in messages[0]["content"]
+    assert "600276" in messages[1]["content"]
+
+
+def test_orchestrator_gates_residual_after_synthesis() -> None:
+    src = (
+        Path(__file__).resolve().parents[1]
+        / "runtime"
+        / "conversation_orchestrator.py"
+    ).read_text(encoding="utf-8")
+    assert "prepare_disclosure_residual_answer(" in src
+    synth_at = src.index("synthesize_prepared_answer(")
+    gate_at = src.index("gate_disclosure_residual(")
+    assert synth_at < gate_at
+    assert "disclosure_residual_dropped:" in src
 
 
 def test_unsupported_without_sector_does_not_scan_all_a_shares(tmp_path: Path) -> None:
