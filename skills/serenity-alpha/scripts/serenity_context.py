@@ -16,7 +16,7 @@ import re
 from datetime import date
 from pathlib import Path
 
-DEFAULT_VAULT = Path("/Users/a77/Desktop/c c/知识库/wiki")
+DEFAULT_VAULT = Path.home() / "knowledge-base-private" / "wiki"
 DEFAULT_TMP = Path("/private/tmp")
 LOGIC_CARD_TOKENS = ("个股逻辑卡", "最新逻辑卡", "最新逻辑跟踪", "研究素材", "素材整理")
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.S)

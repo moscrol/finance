@@ -196,6 +196,8 @@ class L3IngestWorkflowTests(unittest.TestCase):
             )
             source_text = Path(result.source_note_path).read_text(encoding="utf-8")
             entity_text = entity.read_text(encoding="utf-8")
+            notes = l3_ingest.iter_applied_l3_notes(wiki, ["东方钽业"])
+            lines = l3_ingest.format_applied_l3_lines(notes)
 
         self.assertEqual(summary.status, "PASS")
         self.assertEqual(len(result.created_sources), 1)
@@ -204,6 +206,12 @@ class L3IngestWorkflowTests(unittest.TestCase):
         self.assertIn("候选事实表", source_text)
         self.assertIn("## L3 官方证据", entity_text)
         self.assertIn("东方钽业_L3官方证据_", entity_text)
+        self.assertEqual(result.landing, "wiki_page")
+        self.assertFalse(result.relations_updated)
+        self.assertEqual(result.next_gate, "disclosure-archive reviewed apply")
+        self.assertEqual(len(notes), 1)
+        self.assertTrue(any("landing=wiki_page" in line and "relations=false" in line for line in lines))
+        self.assertTrue(any("东方钽业股票交易异常波动公告" in line for line in lines))
 
     def test_cli_l3_apply_routes_to_workflow(self) -> None:
         captured: dict[str, object] = {}

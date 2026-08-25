@@ -2,7 +2,9 @@
 """evidence_providers 的独立单测（端到端行为由 test_golden_answers.py 保护）。"""
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 
 from intelligence.adapters.knowledge import evidence_status
@@ -591,6 +593,43 @@ class CollectEvidenceIndexSecondHopTests(unittest.TestCase):
         self.assertIn(("树脂", None), knowledge.calls)
         self.assertEqual(sum("〔第2跳〕" in line for line in bundle.lines), 1)
         self.assertTrue(any("树脂" in line for line in bundle.lines))
+
+
+class CollectAppliedL3WikiNotesTests(unittest.TestCase):
+    def test_explicit_wiki_root_appends_page_only_l3_lines(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wiki = Path(tmp) / "wiki"
+            sources = wiki / "sources"
+            sources.mkdir(parents=True)
+            (sources / "东方钽业_L3官方证据_20260825.md").write_text(
+                "# 东方钽业 L3\n\n"
+                "| 序号 | 来源 | 类型 | 硬度 | 标题 | 摘要/摘录 | 链接/引用 | 入库理由 |\n"
+                "|---|---|---|---|---|---|---|---|\n"
+                "| 1 | cninfo | risk | high | 东方钽业股票交易异常波动公告 | 风险提示 | mock | 边界 |\n",
+                encoding="utf-8",
+            )
+            knowledge = _CatalogKnowledge({})
+            knowledge.wiki_root = wiki
+            ctx = _evidence_ctx(
+                query="东方钽业有没有官方证据",
+                knowledge=knowledge,
+                anchor=EntityAnchor(entity="东方钽业", ticker="000962", matched_by="name"),
+            )
+            bundle = ep.collect_evidence_index(ctx, {"东方钽业": "钽"})
+        joined = "\n".join(bundle.lines)
+        self.assertIn("landing=wiki_page", joined)
+        self.assertIn("relations=false", joined)
+        self.assertIn("东方钽业股票交易异常波动公告", joined)
+
+    def test_catalog_without_wiki_root_does_not_scan_default_vault(self) -> None:
+        knowledge = _CatalogKnowledge({})
+        ctx = _evidence_ctx(
+            query="东方钽业有没有官方证据",
+            knowledge=knowledge,
+            anchor=EntityAnchor(entity="东方钽业", ticker="000962", matched_by="name"),
+        )
+        bundle = ep.collect_evidence_index(ctx, {"东方钽业": "钽"})
+        self.assertEqual(bundle.lines, [])
 
 
 if __name__ == "__main__":

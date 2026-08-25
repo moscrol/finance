@@ -28,7 +28,7 @@ except Exception:
 
 def _default_vault() -> Path:
     """知识库 wiki 路径：环境变量 > 同级目录自动探测 > 旧版 Mac 路径。"""
-    for var in ("KB_VAULT", "CONCEPT_VAULT", "ENTITY_VAULT"):
+    for var in ("KB_VAULT", "KNOWLEDGE_WIKI", "CONCEPT_VAULT", "ENTITY_VAULT"):
         val = os.environ.get(var)
         if val:
             return Path(os.path.expanduser(val))
@@ -37,11 +37,11 @@ def _default_vault() -> Path:
         for sibling in sorted(repo_root.parent.iterdir()):
             if sibling != repo_root and (sibling / "wiki" / "relations").is_dir():
                 return sibling / "wiki"
-    return Path(os.path.expanduser("~/Desktop/c c/知识库/wiki"))
+    return Path.home() / "knowledge-base-private" / "wiki"
 
 
 DEFAULT_VAULT = _default_vault()
-DEFAULT_IMA_PARSED_DIR = Path(os.path.expanduser(os.environ.get("IMA_PARSED_DIR", "~/Desktop/c c/ima/parsed")))
+DEFAULT_IMA_PARSED_DIR = Path(os.path.expanduser(os.environ.get("IMA_PARSED_DIR", "~/ima/parsed")))
 RELATIONS_SCHEMA_VERSION = 1
 RELATIONS_MAX_AGE_DAYS = int(os.environ.get("RELATIONS_MAX_AGE_DAYS", "7"))
 
@@ -8013,7 +8013,7 @@ def map_inferred_demand_engine_rows(state: dict, limit: int = 8) -> list[dict]:
 
 
 def map_existing_report_files(term: str, limit: int = 6) -> list[str]:
-    ima_dir = Path(os.path.expanduser(os.environ.get("IMA_DIR", "~/Desktop/c c/ima")))
+    ima_dir = Path(os.path.expanduser(os.environ.get("IMA_DIR", "~/ima")))
     if not ima_dir.exists():
         return []
     patterns = [
