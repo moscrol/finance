@@ -1,7 +1,7 @@
 # 设计：盘中可用性探针 + 关注池边车（摸底剩余三步）
 
 - 日期：2026-08-26
-- 状态：Draft **v1**（未实施；P0 无产品决策，P1/P2 被两扇门挡住）
+- 状态：Draft **v1**（未实施；P0 无产品决策**但有前置=鉴权恢复**，见 §5.1 前置与 §8.1；P1/P2 被两扇门挡住。08-26 夜校正，探针脚本已落地）
 - 来源：2026-08-25 Claude 摸底（对话 `715ff429-cce6-4c56-ba67-ce00a54dd53d`）的后三步。第一步已在 PR **#396** 做完，本稿不再登记表。
 - 核稿：同日对摸底的复核（同对话后半）——外部事实（Knevo / fupanhui / ClickHouse / push2delay）站得住；「6 张表 0 引用、可答面翻倍」那截已推翻，见 §3。
 - 代码树：从 `gitea/main` 开干净树 `docs/intraday-l2-sidecar`（本稿所在）。实施 P1/P2 另开 `feat/intraday-l2-sidecar`，仍从当时的 `gitea/main` 拉，不叠 #396 的脏区。
@@ -87,6 +87,7 @@ Claude 原排期四步，只有第一步属于 #396：
 2. **`_DATASETS` 不是 agent 的全部读口。** 另有 `MarketAdapter`（`tool_search_market_live`）、`market_data` → ask_blocks、以及 D9 等证据块。拿「dataset 数 / schema 表数」当可答面会夸大。
 3. **L2 现役链路是盘后、被动、本地。** `l2-moneyflow` SKILL / `scripts/moneyflow/README.md` 原文「仅盘后运行」「禁止盘中大批量查询」。扫描写 `feature_l2_capital_flow_daily` / `feature_l2_quant_orders_daily`；`scan_limitup.py` 的名单查询带 `TradeTime >= 14:50`，消费者按收盘截面写的。D9 命中词面才注入，覆盖口径写在代码里：榜单只扫涨停股 + 成交额 top100，**缺行 ≠ 无资金流入**。
 4. **ClickHouse 底料在，连接件也在。** 深 `share.trans`（`TradeTime` / `ExecType='1'`），沪 `share.ngts_tick`（`TickTime` / `TickType='T'`），库 `db.base32.cn`，原生协议端口 9000，`clickhouse_driver`。凭证只走 `CH_HOST` / `CH_PORT` / `CH_USER` / `CH_PASSWORD`，禁止写进稿或 commit。`make_client()` 已处理 Fake-IP（Shadowrocket 198.18.0.0/15）和 `CH_HOST_FALLBACK`。P0 **必须**走这套客户端，禁止另写一份连法。
+   **（2026-08-26 01:5x 校正）连接件在，但鉴权自 08-08 起已失效**：生产 `feature_l2_*` 停更于 08-07；08-18 用户指示挂账（`state/l2-paused.flag`，`reason=l2-datasource-auth-pending`，见 `docs/handoffs/2026-08-18-daily-full-review-recovery.md`）；当晚探针 `--check-only` 实测 Code 516 Authentication failed（`hisdata180@36.139.233.80`，凭证文件还是 07-07 的）。08-25 摸底与本稿初版都没交叉引用那份挂账交接——「底料在」不等于「现在够得着」。
 5. **「盘中写不写」仍是未知。** README 的「盘后运行」约束的是**我们的扫描**，不是上游是否在交易时段追加 tick。这条只能盘中证伪。写稿时是 2026-08-26 凌晨，当时跑 SQL 没有判别力。
 6. **0 档东财已经在用，但是盘后 host。** `sync_eastmoney_stock_snapshot.py`：默认 `push2delay`，失败回退 `push2`；注释写明部分 IP 对实时 host SSL 超时/限流。字段目前是 `f12,f13,f14,f2,f3,f18,f6,f8`——**没有涨停价**。开板/炸板事件要另加字段（常见 `f16`/`f17`），只许出现在边车自己的请求里，不准改 daily-full 那份字段表。
 7. **agent 工具表 12 个，没有 L2 工具。** 权威清单在 `intelligence/services/research_tool_registry.py` 的 `_DEFAULT_TOOL_METADATA`。`web_search` / `news_search` 已经在表里，所以红线不是「agent 永远不碰网络」；CLAUDE.md 那句「只读 + 无外呼」管的是：**不要把会拉 fupanhui / iFinD / AKShare / 写飞书 DuckDB 的 skill 挂进 agent。** ClickHouse 属于「对话回合触发的行情外呼」，和这条同族，不和网页检索自动等同。
@@ -140,6 +141,8 @@ P0 收据
 
 **窗口：** 下一个 A 股交易日 **10:00–14:30**（避开 9:30 集合竞价噪声和 14:50 之后与盘后批量不可区分的区间）。写稿时是 2026-08-26 01:31；若当日开市，就当天盘中跑。休市日不准补跑冒充。
 
+**前置（2026-08-26 夜补）：** 先恢复 ClickHouse 鉴权（供应商侧续期或取新密码，更新 `~/.secrets/clickhouse.env`；见 §3.4 校正与 08-18 挂账交接）。鉴权未恢复时跑探针只会得到 `connect_error` 收据——合法但无判别力，不解锁 §4.3 任何分支。不要拿 `connect_error` 当「不写」。
+
 **客户端：** 复用 `scripts/moneyflow/moneyflow.py` 的 `make_client()`。禁止 `clickhouse-client` 另连、禁止把密码写进命令行历史能看见的地方（用已有环境变量）。
 
 **必须两张表都探。** 原摸底只写了 `share.trans`。现役 `fetch_trades` 深/沪分表，只探深圳会把「沪市盘中不写、深市写」判成全市场 live。
@@ -185,6 +188,8 @@ WHERE TradeDate = today() AND SecurityID = '300308';
 最少字段：`wall_clock_cst`、`trading_day`、`host_note`（`make_client` 的解析备注，**不要**写密码）、每表的 `max_ts` / `n` / `lag_seconds`、`verdict ∈ {live, batch_or_stale, suspect_batch, connect_error, invalid_window}`、`sz_verdict`、`sh_verdict`。
 
 P0 **可以**是一次性命令，不必先合代码。若要留脚本，只许加 `scripts/moneyflow/probe_intraday_write.py`（只读、默认不写 DuckDB）。不准顺手改扫描阈值、不准盘中跑 `scan_top100` / `scan_limitup`。
+
+（2026-08-26：探针已按该路径落地在本分支。比上表多四道防误判，均写进收据：① `SELECT now()` 实测服务器时钟偏移再算滞后——现役 `fetch_trades` 按 UTC 解析再转 +8，说明服务器时间戳未必是北京时间，直接比墙钟会凭空多 8 小时；② 滞后按交易时段秒数算（`session_lag_seconds`），否则午休 11:30–13:00 会把 live 误判成 stale；③ 间隔 90s 双采样，墙钟在时段内走了 ≥60s 而全市场 `max_ts` 纹丝不动 → `suspect_batch`，防「刚落地的批量」冒充 live；④ 交易日守门不用 `market_feature_store.trading_days`——它按「当日日线 ≥3000 行」判定，日线盘后才同步，盘中恒 False；改用周末硬挡 + 腾讯行情时间戳核对今日开市（`moneyflow.stock_info` 在用的同一端点），失败则记 approximate。`--check-only` 只验链路不写收据。）
 
 **P0 完成标准：** 收据文件存在，窗口合法，深/沪都有一行结论。不是「我连上了」。
 
@@ -275,11 +280,12 @@ B2：回合内可打 CH。本稿只承认这是另一张设计，验收、限流
 
 ## 8. 未决（写在门上，不写在代码里）
 
-1. 门 A：A1 还是 A2。
-2. 门 B：B1 还是 B2。
-3. E1 的涨停价字段以边车第一次实打 push2 的返回为准；本稿不把 `f16`/`f17` 写成已核实。
-4. 画像 watchlist 是中文名还是代码、缺映射时怎么 fail closed——P1 开工时对着真身画像核一次，不要在仓内 `intelligence/users/` 上猜。
-5. #396 合不合 main 与本稿无关；不要等它。
+1. **L2 凭证续不续（2026-08-26 夜补，先于两扇门）**：鉴权自 08-08 失效、08-18 挂账至今。不恢复则 P0 / E4 / P2 数据面整体搁置，P1 只剩 0 档 L1；恢复后 P0 才有判别力，L2 欠账另按 08-18 交接的回补路径走（与本稿无关）。
+2. 门 A：A1 还是 A2。
+3. 门 B：B1 还是 B2。
+4. E1 的涨停价字段以边车第一次实打 push2 的返回为准；本稿不把 `f16`/`f17` 写成已核实。
+5. 画像 watchlist 是中文名还是代码、缺映射时怎么 fail closed——P1 开工时对着真身画像核一次，不要在仓内 `intelligence/users/` 上猜。
+6. #396 合不合 main 与本稿无关；不要等它。
 
 ## 9. 下一步（给接手 agent）
 
