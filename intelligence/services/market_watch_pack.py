@@ -25,6 +25,11 @@ PROBE_ROLE_OBSERVATION = "出清/分歧观察"
 _PROBE_MAX_THEMES = 2
 _PROBE_MAX_STOCKS = 2
 
+# 资格盘均额窗口：截至站立日最近 20 个交易日、**含当日**。
+# 口径实测冻结（spec 2026-08-25-step-trajectory-qualification-design §3 #2）：
+# 2026-08-24 含当日=23110.8 对上 live 探针的 23111；不含当日=23145.4 对不上。
+AMOUNT_MA20_WINDOW = 20
+
 
 def _names_match(mainline_name: str, dual_name: str) -> bool:
     """主线题材名与板块名的文本包含对齐——缺口句与替补探针共用同一套。"""
@@ -263,6 +268,82 @@ def substitute_observation_receipts(
     mainline = _query_mainline(con, standing)
     dual = _query_dual_red(con, standing)
     return _probe_substitute_observation(con, standing, mainline, dual)
+
+
+def volume_qualification_receipt(
+    con: Any,
+    standing: str | None,
+) -> dict[str, Any] | None:
+    """公共接缝：站立日总量 vs 20 日均额（含当日窗口）的资格盘事实组。
+
+    只产事实不产判语——「共建期/主升资格」是模型拿画像规则写的残差。
+    窗口实有行数 N<20 时如实携带 ``window_n``，由渲染方标注真实口径，
+    禁止仍称 20 日均额。P1 进包（总量袋渲染追加）时复用本函数。
+    """
+
+    if standing is None:
+        return None
+    day = _query_market_daily(con, standing)
+    if day.status != "hit":
+        return None
+    row = day.rows[0]
+    total = row.get("total_amount")
+    if total is None:
+        return None
+    fetched = con.execute(
+        """
+        select avg(total_amount), count(*) from (
+            select total_amount from fact_market_daily
+            where trade_date <= cast(? as date) and total_amount is not null
+            order by trade_date desc
+            limit ?
+        )
+        """,
+        [standing, AMOUNT_MA20_WINDOW],
+    ).fetchone()
+    if not fetched or fetched[0] is None or not fetched[1]:
+        return None
+    avg_raw = float(fetched[0])
+    if avg_raw <= 0:
+        return None
+    return {
+        "standing_date": str(day.served_date),
+        "total_amount": total,
+        "amount_avg_20d": round(avg_raw, 1),
+        "window_n": int(fetched[1]),
+        "amount_vs_avg20_pct": round(float(total) / avg_raw * 100.0, 1),
+        "market_stage": row.get("market_stage"),
+        "stage_day": row.get("stage_day"),
+        "volume_state": row.get("volume_state"),
+    }
+
+
+def resolve_theme_sector(
+    con: Any,
+    standing: str,
+    theme: str,
+) -> tuple[str, Any] | None:
+    """题材名 → 该站立日按成交额 top1 的文本包含板块。
+
+    替补探针与台阶件共用同一套解析，不开第二套口径。解析不到返回 None，
+    调用方自行决定 no_match 的表达；禁止放宽到宽松/近义匹配。
+    """
+
+    if not _has_table(con, "fact_sector_daily"):
+        return None
+    row = con.execute(
+        """
+        select sector_name, amount from fact_sector_daily
+        where trade_date = cast(? as date)
+          and (sector_name like '%' || ? || '%' or ? like '%' || sector_name || '%')
+        order by amount desc nulls last
+        limit 1
+        """,
+        [standing, theme, theme],
+    ).fetchone()
+    if not row or not row[0]:
+        return None
+    return str(row[0]), row[1]
 
 
 def merge_into_public_answer(text: str, pack: MarketWatchPack | None) -> str:
@@ -583,21 +664,10 @@ def _run_substitute_probe(con: Any, standing: str, theme: str) -> ProbeReceipt:
             rows=(),
         )
 
-    if not _has_table(con, "fact_sector_daily"):
+    resolved = resolve_theme_sector(con, standing, theme)
+    if resolved is None:
         return _no_match()
-    sector_row = con.execute(
-        """
-        select sector_name, amount from fact_sector_daily
-        where trade_date = cast(? as date)
-          and (sector_name like '%' || ? || '%' or ? like '%' || sector_name || '%')
-        order by amount desc nulls last
-        limit 1
-        """,
-        [standing, theme, theme],
-    ).fetchone()
-    if not sector_row or not sector_row[0]:
-        return _no_match()
-    sector = str(sector_row[0])
+    sector, sector_amount = resolved
     if not _has_table(con, "fact_sector_stock_daily"):
         return _no_match()
     fetched = con.execute(
@@ -614,7 +684,7 @@ def _run_substitute_probe(con: Any, standing: str, theme: str) -> ProbeReceipt:
         {
             "theme": theme,
             "sector_name": sector,
-            "sector_amount": sector_row[1],
+            "sector_amount": sector_amount,
             "stock_name": str(name),
             "stock_code": str(code or ""),
             "amount": amount,

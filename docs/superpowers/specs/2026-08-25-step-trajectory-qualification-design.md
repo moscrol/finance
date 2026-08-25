@@ -1,7 +1,7 @@
 # 设计：台阶轨迹 + 资格判断组件（视角判据组件化·第一批）
 
 - 日期：2026-08-25
-- 状态：Draft v1（未实施）
+- 状态：**v1.1**（P0 已实施于 `feat/step-trajectory-qualification`：§7 #1–#11 离线全绿（36 测；全量 6446P/0F/12S + ruff 干净）；变异 A/B 实测必红（§3 #2 窗口、§3 #4 宽松轮——后者就此升实测）；live 一发过（§7.Live 三判据全中，收据 `~/.finance-runtime/step-trajectory-live-20260825/`）。台账 `R-20260825-09…11` pending，等自然样本）
 - 来源：live ReAct 对照探针（`~/.finance-runtime/live-vs-workbench-20260825/`，answer + decisions + 同题 workbench `run_20260825_113538_938584` 事件流解剖）+ 战略结论「视角的全面性从『文本有多长』变成『有多少条判据变成了可执行组件』」（2026-08-25 用户确认执行）。
 - 代码树：spec 落 `docs/step-trajectory-qualification`（基线 `gitea/main@3eb0abf3`）；实施另从 `gitea/main` 开干净树 `feat/step-trajectory-qualification`。**禁止**在主检出 `feat/reading-rules-baseline-batch1` 脏树改 runtime。**禁止**动 8792 / 8796 / 8802。
 - 相邻稿（本单不重做、不抢合）：
@@ -58,14 +58,14 @@
 1. **[实测]** `run_20260825_113538_938584`（8792=`e577430d`，同题）：`question_type=general_finance_qa`、`task_frame.subject=科技、医药`（#383 生效）；契约 12 格含 `substitute_observation`（operator→slot→契约链路通）；8 能力、standard 档、3 模型回合、4 工具调用；**prefetch 事件 count=1**（仅替补池）。台阶/资格皆不在桌上。
 2. **[实测]** MA20 口径：`2026-08-24` 总量 20072.28；截至站立日**含当日** 20 个交易日均额=**23110.8**（比值 86.9%，正对上 live 探针的「23111 亿的 87%」）；**不含当日**=23145.4，对不上。窗口冻结为含当日。
 3. **[实测]** 名字空间：`%科技%` 在 08-24 只命中「量子科技」（762.67 亿）——不是题目的科技系；「存储」无行（真名「存储芯片」，diff_ratio=11.52 即 live 答案的「存储 +11.52%」）；「医药」既是精确板块名（1179.81 亿）也是主线题材名。近 20 日主线登记：医药 15 / 有色金属 14 / 消费零售 13 / **AI算力 12 / 半导体 10 / AI应用 8**——科技系在库内的真名就是这些登记题材，live 臂步 1 正是这样定位的。「科技」从未出现在主线题材名中。
-4. **[代码级推断，实施第 0 步实测冻结]** `resolve_query_themes` 的锚定宽松轮（`_anchored_fragment`，为「地产→房地产」设计）同机制会把「科技」配到「量子科技」；`resolve_theme_alias` 走它 limit=1。故解析梯 P0 不含宽松轮。第 0 步用夹具实测钉死（§7 #5 的变异即此）。
+4. **[实测，2026-08-25 变异 B 升格]** `resolve_query_themes` 的锚定宽松轮（`_anchored_fragment`，为「地产→房地产」设计）同机制会把「科技」配到「量子科技」；`resolve_theme_alias` 走它 limit=1。故解析梯 P0 不含宽松轮。实测：解析梯接入无条件包含解析（模拟宽松轮）→ `test_family_word_fails_closed_not_quantum_tech` 必红，量子科技确实上桌；live 重放同判据全中（无量子科技、未锚定声明在桌）。
 5. **[实测]** 可复用件：`format_sector_timeline` / `sector_timeline_observations`（含同日口径分歧防护，run_20260821_114642 事故注释在案）、`_prior_trade_dates`、替补探针的题材→板块包含解析 SQL（`_run_substitute_probe` 内，抽 helper 共享）。`load_theme_daily_rows` 按名取全部行、窗口由 start/end 切。
 6. **[实测]** 删句闸（`outlook_delivery_gate.py`）：watch 闸只对 `market_watch` 生效，词面 `MA\s*20` / `110–120%` 带 / 旗型蓄能，**grid（包渲染/证据）里出现同词面则视为已注册不删**；`MA\s*20` 匹配不到中文「20 日均额」。outlook 闸只对 `market_forecast` 生效。P0 路径（general_finance_qa）两闸都不适用，但渲染词面按中文写，为 P1 进包留一致性。
 7. **[实测]** `episode_factory.py:335`：`program.required_fact_slots` → 契约 required_outputs extras。新 slot 自动进契约，无需另接。
 8. **[实测]** 周包 `day_bag_details`：market_forecast 已供大盘级逐日四袋 + 量能序列（无均额比、无板块级台阶）。资格盘/台阶件与它不重叠。
 9. **[实测]** 台账 `R-20260825-09/-10/-11` 经 rg 全库（main + `fwp-wt-*`）未被占用。
 10. **[实测]** 替补件的 E 号纪律先例：`PrefetchItem.to_evidence()` 自动 `content_hash`，`format_opening_prefetch_message` 与终局注册表同号。新件按构造成立，不另接。
-11. **[待冻结（实施第 0 步）]** `fact_mainline_theme_daily` 近 20 交易日聚合查询的边界（用 `_prior_trade_dates(con, standing, 20)` 最早日为下界）；`DefinitionReceipt` 不发——P0 无读取方，unread-fields 门禁先例（替补单 probe_id 教训）。
+11. **[已冻结（实施）]** `fact_mainline_theme_daily` 近 20 交易日聚合下界 = `_prior_trade_dates(con, standing, 20)` 最早日（空窗回退台阶窗起点）；`DefinitionReceipt` 未发——P0 无读取方，unread-fields 门禁先例（替补单 probe_id 教训）。
 
 ## 4. 方案对比
 
@@ -144,6 +144,7 @@ subject 按 `、，,` 切 token，逐 token：
 ### Live（实施收尾，sidecar 端口，新目录）
 
 - 冻结题同题重放：开口预取 ≥3 件（替补池 + 资格盘 + ≥1 台阶）；公开稿出现总量/均额比引用或如实缺口；「科技」无臆配板块。对照物 `~/.finance-runtime/live-vs-workbench-20260825/`，不覆盖。台账不标 confirmed（等自然样本）。
+- **结果（2026-08-25，一发过）**：sidecar 8820（worktree 脏码 `be67eb27+`，launcher 同源生产环境，presenter 默认档），冻结题 `run_20260825_143634_143023`（75s completed）。开口预取 **7 件** E1–E7：替补池 + 资格盘 + 4 板块台阶（医药/医药医疗/有色/半导体，subject 梯 1 命中 + 主线池）+「科技」未锚定声明，全部 `source_date=2026-08-24`=站立日、E 号与证据账本同号。公开稿引用「大盘 08-24 成交 20072 亿，仅为 20 日均额 23111 亿的 86.9%」（与 §3 #2 库内值逐位一致）、中文口径无 MA20、全稿无量子科技、以主线池半导体作科技代表（语义归类留给模型的设计意图兑现）。收据 `~/.finance-runtime/step-trajectory-live-20260825/`（sidecar 起停脚本 + replay 脚本 + verdict.json + 原生 trace/episode 副本）。
 
 ## 8. P1 / P2（本单不实施，只钉方向）
 
