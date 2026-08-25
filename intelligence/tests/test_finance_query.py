@@ -330,6 +330,9 @@ def test_fupanhui_assets_registered_as_datasets() -> None:
         "leader_height_daily": "fact_leader_height_daily",
         "global_index_daily": "fact_global_index_daily",
         "event_daily": "fact_event_daily",
+        "regulation_pool_daily": "fact_regulation_pool_daily",
+        "regulation_event_daily": "fact_regulation_event_daily",
+        "historical_mapping": "fact_historical_mapping",
     }
     for name, table in expected.items():
         assert name in _DATASETS, name
@@ -773,6 +776,347 @@ def test_sw_l1_advisory_fail_closed_without_time_range() -> None:
     advisory = coverage_advisory(_sw_l1_rank_spec())
     assert "2026-06-05" in advisory
     assert "stock_daily" not in advisory
+
+
+def test_regulation_pool_is_subset_and_hides_fraction_returns() -> None:
+    """安全池是子集；涨幅列是小数不是百分数，开放会被读成 0.51%。"""
+    from intelligence.services.finance_query import _DATASETS
+
+    definition = _DATASETS["regulation_pool_daily"]
+    assert definition.table == "fact_regulation_pool_daily"
+    assert definition.population == "subset"
+    assert definition.time_field == "effective_date"
+    assert definition.cutoff_column is None
+    assert "return_pct" not in definition.metrics
+    assert "pct_chg_10d" not in definition.metrics
+    assert "pct_chg_30d" not in definition.metrics
+    assert "close" not in definition.metrics
+    assert "小数" in definition.coverage
+    assert "并非逐日相等" in definition.coverage
+
+
+def test_regulation_pool_rejects_return_pct() -> None:
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "regulation_pool_daily",
+            "metrics": ["return_pct"],
+            "dimensions": ["stock_name"],
+            "time_range": {"start": "2026-08-24", "end": "2026-08-24"},
+        }
+    )
+    with pytest.raises(FinanceQueryValidationError, match="unknown field: return_pct"):
+        FinanceQuery("/nonexistent.duckdb").run(
+            spec,
+            information_cutoff=InformationCutoff(date(2026, 8, 24), "requested"),
+            deadline=ResearchDeadline.from_timeout(2.0),
+        )
+
+
+def test_regulation_pool_query_lists_safe_names(tmp_path: Path) -> None:
+    db_path = tmp_path / "market_feature_store.duckdb"
+    con = duckdb.connect(str(db_path))
+    try:
+        con.execute(
+            """
+            create table fact_regulation_pool_daily(
+                effective_date date, stock_ts_code varchar, stock_name varchar,
+                pool_status varchar, close double, pct_chg_10d double,
+                safe_space_10d double, safe_days_10d integer,
+                pct_chg_30d double, safe_space_30d double,
+                source varchar, updated_at timestamp
+            )
+            """
+        )
+        con.executemany(
+            "insert into fact_regulation_pool_daily values (?,?,?,?,?,?,?,?,?,?,?,?)",
+            [
+                ("2026-08-24", "603188.SH", "华民股份", "safe", 9.6, 0.507,
+                 0.30, 1, 0.92, 0.2, "fupanhui", None),
+                ("2026-08-24", "002412.SZ", "汉森制药", "safe", 11.21, 0.550,
+                 0.27, 2, 0.84, 0.1, "fupanhui", None),
+            ],
+        )
+    finally:
+        con.close()
+
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "regulation_pool_daily",
+            "metrics": ["safe_days_10d"],
+            "dimensions": ["stock_name", "pool_status"],
+            "time_range": {"start": "2026-08-24", "end": "2026-08-24"},
+            "order_by": [{"field": "safe_days_10d", "direction": "desc"}],
+            "limit": 10,
+        }
+    )
+    result = FinanceQuery(db_path).run(
+        spec,
+        information_cutoff=InformationCutoff(date(2026, 8, 24), "requested"),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+    assert [row["stock_name"] for row in result.rows] == ["汉森制药", "华民股份"]
+    assert {item.source_date for item in result.evidence} == {"2026-08-24"}
+
+
+def test_regulation_pool_advisory_stays_on_unique_rank_field() -> None:
+    """按池内独有字段排序，不得改写成个股涨幅榜。"""
+    from intelligence.services.finance_query import coverage_advisory
+
+    advisory = coverage_advisory(
+        FinanceQuerySpec.from_arguments(
+            {
+                "dataset": "regulation_pool_daily",
+                "metrics": ["safe_days_10d"],
+                "dimensions": ["stock_name"],
+                "order_by": [{"field": "safe_days_10d", "direction": "desc"}],
+                "limit": 10,
+            }
+        )
+    )
+    assert "stock_daily" not in advisory
+    assert "dragon_tiger_daily" not in advisory
+
+
+def test_regulation_event_uses_snapshot_axis_not_end_date() -> None:
+    """end_date 89% 在未来；当时间轴会让整批被判成晚于问句日。"""
+    from intelligence.services.finance_query import _DATASETS
+
+    definition = _DATASETS["regulation_event_daily"]
+    assert definition.table == "fact_regulation_event_daily"
+    assert definition.time_field == "effective_date"
+    assert definition.allow_future_time_range is False
+    assert definition.cutoff_column is None
+    assert definition.fields["end_date"].role == "dimension"
+    assert definition.fields["start_date"].role == "dimension"
+    assert "end_date" in definition.coverage
+    assert "days_remaining" in definition.metrics
+
+
+def test_regulation_event_future_end_does_not_become_source_date(
+    tmp_path: Path,
+) -> None:
+    """快照日是信息日。end_date 在未来不得流进 evidence.source_date。"""
+    db_path = tmp_path / "market_feature_store.duckdb"
+    con = duckdb.connect(str(db_path))
+    try:
+        con.execute(
+            """
+            create table fact_regulation_event_daily(
+                effective_date date, stock_ts_code varchar, stock_name varchar,
+                start_date date, end_date date, days_remaining_trading integer,
+                status_type varchar, event_type varchar, event_types varchar,
+                leader_plate varchar, source varchar, updated_at timestamp
+            )
+            """
+        )
+        con.execute(
+            "insert into fact_regulation_event_daily values (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                "2026-08-24", "002422.SZ", "一鸣食品",
+                "2026-08-19", "2026-09-01", 7,
+                "normal", "severe_abnormal_volatility", None,
+                "大消费", "fupanhui", None,
+            ),
+        )
+    finally:
+        con.close()
+
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "regulation_event_daily",
+            "metrics": ["days_remaining"],
+            "dimensions": ["stock_name", "start_date", "end_date"],
+            "time_range": {"start": "2026-08-24", "end": "2026-08-24"},
+            "limit": 10,
+        }
+    )
+    result = FinanceQuery(db_path).run(
+        spec,
+        information_cutoff=InformationCutoff(date(2026, 8, 24), "requested"),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+    assert [row["stock_name"] for row in result.rows] == ["一鸣食品"]
+    assert result.rows[0]["end_date"] == "2026-09-01"
+    assert {item.source_date for item in result.evidence} == {"2026-08-24"}
+
+
+def test_historical_mapping_aliases_source_date_as_as_of() -> None:
+    """表列 source_date 与证据层 source_date 同名不同义，靠别名隔离，不靠换列。"""
+    from intelligence.services.finance_query import _DATASETS
+
+    definition = _DATASETS["historical_mapping"]
+    assert definition.table == "fact_historical_mapping"
+    assert definition.time_field == "as_of"
+    assert definition.fields["as_of"].column == "source_date"
+    assert definition.fields["similar_date"].column == "similar_date"
+    assert definition.time_field != "similar_date"
+    assert definition.population == "full"
+    assert definition.cutoff_column is None
+    assert "接口空" in definition.coverage
+    assert "回填" in definition.coverage
+    assert "每日固定 2" not in definition.coverage
+    assert "碰巧对齐" not in definition.coverage
+
+
+def test_historical_mapping_cutoff_uses_as_of_not_similar_date(
+    tmp_path: Path,
+) -> None:
+    """若把 similar_date 当时间轴，后来才算出的映射会漏进更早的问句。"""
+    db_path = tmp_path / "market_feature_store.duckdb"
+    con = duckdb.connect(str(db_path))
+    try:
+        con.execute(
+            """
+            create table fact_historical_mapping(
+                source_date date, similar_date date, similarity double,
+                external_cycle varchar, cycle_day integer, summary varchar,
+                source varchar, updated_at timestamp
+            )
+            """
+        )
+        con.executemany(
+            "insert into fact_historical_mapping values (?,?,?,?,?,?,?,?)",
+            [
+                ("2026-08-18", "2024-01-15", 90.0, "底部横盘阶段", 5,
+                 "早", "fupanhui", None),
+                ("2026-08-24", "2024-01-10", 91.0, "底部横盘阶段", 12,
+                 "晚", "fupanhui", None),
+            ],
+        )
+    finally:
+        con.close()
+
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "historical_mapping",
+            "metrics": ["similarity"],
+            "dimensions": ["as_of", "similar_date", "summary"],
+            "order_by": [{"field": "similarity", "direction": "desc"}],
+            "limit": 10,
+        }
+    )
+    result = FinanceQuery(db_path).run(
+        spec,
+        information_cutoff=InformationCutoff(date(2026, 8, 20), "requested"),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+    assert [row["as_of"] for row in result.rows] == ["2026-08-18"]
+    assert [row["similar_date"] for row in result.rows] == ["2024-01-15"]
+    assert {item.source_date for item in result.evidence} == {"2026-08-18"}
+
+
+def test_historical_mapping_rejects_future_as_of() -> None:
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "historical_mapping",
+            "metrics": ["similarity"],
+            "dimensions": ["similar_date"],
+            "time_range": {"start": "2026-08-24", "end": "2026-08-24"},
+        }
+    )
+    with pytest.raises(FinanceQueryValidationError, match="information cutoff"):
+        FinanceQuery("/nonexistent.duckdb").run(
+            spec,
+            information_cutoff=InformationCutoff(date(2026, 8, 10), "requested"),
+            deadline=ResearchDeadline.from_timeout(2.0),
+        )
+
+
+def test_historical_mapping_aliased_time_keeps_window_end(tmp_path: Path) -> None:
+    """time_field 是语义别名时，T1b 仍须保住窗口末端，不能按物理列名反查失败后静默关掉。"""
+    db_path = tmp_path / "market_feature_store.duckdb"
+    con = duckdb.connect(str(db_path))
+    try:
+        con.execute(
+            """
+            create table fact_historical_mapping(
+                source_date date, similar_date date, similarity double,
+                external_cycle varchar, cycle_day integer, summary varchar,
+                source varchar, updated_at timestamp
+            )
+            """
+        )
+        con.executemany(
+            "insert into fact_historical_mapping values (?,?,?,?,?,?,?,?)",
+            [
+                (day, "2024-01-10", 80.0 + index, None, None, f"d{index}",
+                 "fupanhui", None)
+                for index, day in enumerate(
+                    ("2026-08-18", "2026-08-19", "2026-08-20",
+                     "2026-08-21", "2026-08-24")
+                )
+            ],
+        )
+    finally:
+        con.close()
+
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "historical_mapping",
+            "metrics": ["similarity"],
+            "dimensions": ["as_of"],
+            "time_range": {"start": "2026-08-18", "end": "2026-08-24"},
+            "order_by": [{"field": "as_of", "direction": "asc"}],
+            "limit": 2,
+        }
+    )
+    result = FinanceQuery(db_path).run(
+        spec,
+        information_cutoff=InformationCutoff(date(2026, 8, 24), "requested"),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+    assert [row["as_of"] for row in result.rows] == ["2026-08-21", "2026-08-24"]
+
+
+def test_historical_mapping_max_date_resolves_aliased_time_field(
+    tmp_path: Path,
+) -> None:
+    """筛子集停在更早时，全集 max 探针必须认得 as_of，不能因物理列对不上返回 None。"""
+    db_path = tmp_path / "market_feature_store.duckdb"
+    con = duckdb.connect(str(db_path))
+    try:
+        con.execute(
+            """
+            create table fact_historical_mapping(
+                source_date date, similar_date date, similarity double,
+                external_cycle varchar, cycle_day integer, summary varchar,
+                source varchar, updated_at timestamp
+            )
+            """
+        )
+        con.executemany(
+            "insert into fact_historical_mapping values (?,?,?,?,?,?,?,?)",
+            [
+                ("2026-08-18", "2024-01-15", 90.0, None, None, "早",
+                 "fupanhui", None),
+                ("2026-08-24", "2024-01-10", 91.0, None, None, "晚",
+                 "fupanhui", None),
+            ],
+        )
+    finally:
+        con.close()
+
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "historical_mapping",
+            "metrics": ["similarity"],
+            "dimensions": ["as_of", "similar_date"],
+            "filters": [
+                {"field": "similar_date", "op": "eq", "value": "2024-01-15"}
+            ],
+            "limit": 10,
+        }
+    )
+    engine = FinanceQuery(db_path)
+    cutoff = InformationCutoff(date(2026, 8, 24), "requested")
+    deadline = ResearchDeadline.from_timeout(2.0)
+    filtered = engine.run(
+        spec, information_cutoff=cutoff, deadline=deadline
+    )
+    assert filtered.served_date == "2026-08-18"
+    assert engine.dataset_max_date(
+        spec, information_cutoff=cutoff, deadline=deadline
+    ) == "2026-08-24"
 
 
 def test_stock_technical_registered_as_dataset() -> None:
