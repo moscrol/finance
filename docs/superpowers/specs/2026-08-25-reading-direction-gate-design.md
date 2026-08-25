@@ -146,6 +146,10 @@ episode 完成 → owner/合成终稿（3080）或 Engine A 回退稿（3992）
 
 - **前置**：sidecar 代码树必须含台阶组件（#389 合入后的 main；裸 `be67eb27` 会走 #9 门关，不能据此说闸没活）。
 - 冻结题重放一发：trace 步在场，`checked/skipped/mismatches` 与人工对稿一致（若稿件出现「连续 N 天」形态，按 #14 口径核对）；公开稿与闸前字节一致。收据落 `~/.finance-runtime/reading-direction-gate-live-<date>/`，不覆盖 `glm53-ab-20260825/`。
+- **已跑（2026-08-25）**：#391 合入后 sidecar 8820=`fwp-wt-reading-direction-gate@5e3b132b`（含台阶+#391 live 对齐）。
+  - **5.2 离线孪生**（对 `run_20260825_143634_143023` 公开稿+同轮观察值）：`applied`、checked=2、skipped=11、**mismatch=1**（半导体 08-24 缩量 vs +16.25）；公开稿字节不变。收据 `founding-offline.json`。
+  - **同题 live 一发** `run_20260825_182254_867397`：trace 步 `reading_direction_gate` 在场；checked=2、skipped=12、**mismatch=0**（本发把 08-21/08-24 写成缩量、且无「半导体 08-24 缩量续跌」，稿形与 5.2 不同，不要求复现错稿）；人工对稿两处 checked 均同号，公开稿未改。收据 `~/.finance-runtime/reading-direction-gate-live-20260825/`。
+  - 生产未切 8792；影子分母仍从自然样本攒，不得 confirmed。
 - 影子期（合入切流后）：按 §6 #12 停规攒样本——`checked≥50` + mismatch 全量人工二分（真读反 vs 提取器误伤）→ 产出两个率，才进 P1 评估。台账不标 confirmed（等自然样本）。
 
 ## 8. P1 / P2（本单不实施，只钉方向）
