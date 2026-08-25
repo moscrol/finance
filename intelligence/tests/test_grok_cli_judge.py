@@ -144,6 +144,60 @@ def test_complete_routes_cli_provider_without_http(
     assert json.loads(content or "{}")["passed"] is False
 
 
+def test_synthesize_messages_routes_cli_provider_without_http(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """shadow 链 grounding judge 走 synthesize_messages：cli provider 必须走 CLI。
+
+    回归锚：修复前该路径把 cli://grok 当 HTTP URL 交给 urllib，发包前抛
+    URLError → 每轮 judge_unavailable（生产 m/n 轮同形，存证误标 zhipu）。
+    """
+    monkeypatch.setenv("LLM_JUDGE_BACKEND", "grok-cli")
+    monkeypatch.setattr(
+        "intelligence.services.grok_cli_judge.complete_grok_cli",
+        lambda *_args, **_kwargs: (
+            '{"passed":true,"rejected_sentence_indexes":[],"issues":[]}'
+        ),
+    )
+
+    def forbid_http(*_args, **_kwargs):
+        raise AssertionError("CLI judge must not post /chat/completions")
+
+    monkeypatch.setattr(llm_refine, "_post_chat_synthesis", forbid_http)
+    provider = llm_refine.judge_provider()
+    assert provider is not None
+    with llm_refine.provider_override(provider):
+        result, reason = llm_refine.synthesize_messages(
+            [{"role": "user", "content": '{"sentences":["a"]}'}],
+            timeout=20,
+        )
+    assert reason == ""
+    assert result is not None
+    assert result.provider == provider.name
+    assert result.finish_reason == "stop"
+    assert json.loads(result.answer)["passed"] is True
+
+
+def test_synthesize_messages_cli_output_too_long_degrades(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("LLM_JUDGE_BACKEND", "grok-cli")
+    monkeypatch.setattr(
+        "intelligence.services.grok_cli_judge.complete_grok_cli",
+        lambda *_args, **_kwargs: "x" * 64,
+    )
+    provider = llm_refine.judge_provider()
+    assert provider is not None
+    with llm_refine.provider_override(provider):
+        result, reason = llm_refine.synthesize_messages(
+            [{"role": "user", "content": "q"}],
+            timeout=20,
+            max_chars=8,
+        )
+    assert result is None
+    assert reason == "LLM 合成输出超长，已降级为模板"
+
+
 def test_missing_binary_is_unavailable_not_correlated_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
