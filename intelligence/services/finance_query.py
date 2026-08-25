@@ -532,6 +532,30 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "strength_change": _metric("strength_chg", "强度变化"),
         },
     ),
+    "stock_technical_daily": _DatasetDefinition(
+        table="feature_stock_technical_daily",
+        label="个股 UP 线与偏离度日频",
+        population="full",
+        coverage=(
+            "全 A 个股逐日 UP 线（布林带变体 `UP = MA26 + 0.764×STD26`，N=26/P=20）与偏离度 "
+            "`(close/UP - 1)×100`。**满 26 个交易日收盘价才算得出**，新上市与长期停牌股当日缺行——"
+            "2026-08-24 实测 5519/5540（99.6%）。**缺行 ≠ 没偏离，是算不出**。"
+            "`deviation_pct > 0` 即站上 UP 线，`< 0` 为低于。"
+        ),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+        },
+        metrics={
+            "close": _metric("close", "收盘价"),
+            "ma26": _metric("ma26", "26日均价"),
+            "std26": _metric("std26", "26日收盘标准差"),
+            "up_value": _metric("up_value", "UP线"),
+            "deviation_pct": _metric("deviation_pct", "UP偏离度"),
+        },
+    ),
     # ── 复盘会公开资产（2026-08-13 接入语义层，此前入库但 agent 够不着）──
     "dragon_summary_daily": _DatasetDefinition(
         table="fact_dragon_summary_daily",
@@ -729,6 +753,8 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         population="full",
         coverage=(
             "个股技术面快照。**当前是空表（0 行）**——取不到不是查询写错，是该口径暂无数据，应如实声明不可得。"
+            "⚠️ 但 UP 线/偏离度**不要用这张**：有数据的是 `stock_technical_daily`（203 万行、日更）。"
+            "这张表只服务「技术面快照」这一口径本身。"
         ),
         time_field="trade_date",
         dimensions={

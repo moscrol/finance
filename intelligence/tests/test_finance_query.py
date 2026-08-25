@@ -617,6 +617,66 @@ def test_dragon_seat_query_binds_and_executes(tmp_path: Path) -> None:
     assert result.rows[0]["net_buy"] == 1.73
 
 
+def test_stock_technical_registered_as_dataset() -> None:
+    """UP 线/偏离度：203 万行日更资产，此前入库但语义层查不到。"""
+    from intelligence.services.finance_query import _DATASETS
+
+    assert "stock_technical_daily" in _DATASETS
+    definition = _DATASETS["stock_technical_daily"]
+    assert definition.table == "feature_stock_technical_daily"
+    # population=full 但有 ~0.4% 缺行（不满 26 日的新股/停牌股），coverage 必须讲明
+    # 「缺行 ≠ 没偏离」，否则模型会把算不出读成没偏离。
+    assert definition.population == "full"
+    assert "缺行" in definition.coverage
+
+
+def test_stock_technical_query_filters_by_deviation(tmp_path: Path) -> None:
+    """端到端：筛出站上 UP 线的个股（filter 作用在 metric 上）。"""
+    import duckdb
+
+    db_path = tmp_path / "market_feature_store.duckdb"
+    con = duckdb.connect(str(db_path))
+    try:
+        con.execute(
+            """
+            create table feature_stock_technical_daily(
+                trade_date date, stock_ts_code varchar, stock_name varchar,
+                close double, ma26 double, std26 double, up_value double,
+                deviation_pct double, calculated_at timestamp
+            )
+            """
+        )
+        con.executemany(
+            "insert into feature_stock_technical_daily values (?,?,?,?,?,?,?,?,?)",
+            [
+                # UP = ma26 + 0.764*std26；甲站上、乙低于
+                ("2026-07-24", "600001.SH", "甲股", 12.0, 10.0, 1.0, 10.764, 11.48, None),
+                ("2026-07-24", "600002.SH", "乙股", 9.0, 10.0, 1.0, 10.764, -16.39, None),
+            ],
+        )
+    finally:
+        con.close()
+
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "stock_technical_daily",
+            "metrics": ["deviation_pct", "up_value"],
+            "dimensions": ["stock_name"],
+            "filters": [{"field": "deviation_pct", "op": "gt", "value": 0}],
+            "time_range": {"start": "2026-07-24", "end": "2026-07-24"},
+            "order_by": [{"field": "deviation_pct", "direction": "desc"}],
+            "limit": 10,
+        }
+    )
+    result = FinanceQuery(db_path).run(
+        spec,
+        information_cutoff=_cutoff(),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+    assert [row["stock_name"] for row in result.rows] == ["甲股"]
+    assert result.rows[0]["deviation_pct"] == 11.48
+
+
 def test_stock_high_query_groups_by_period(market_db: Path) -> None:
     spec = FinanceQuerySpec.from_arguments(
         {
