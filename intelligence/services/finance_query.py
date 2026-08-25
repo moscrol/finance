@@ -532,6 +532,40 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "strength_change": _metric("strength_chg", "强度变化"),
         },
     ),
+    "auction_stock_daily": _DatasetDefinition(
+        table="fact_auction_stock_daily",
+        label="集合竞价看板个股日频",
+        population="subset",
+        coverage=(
+            "复盘会竞价看板：**每个面板每日只收 top 10**（实测上限 10，均值 9.8）。"
+            "**这是全表最容易被误用的地方**——`zt` 面板永远约 10 行，而前一日真实涨停"
+            "常有 37~106 只（实测 2026-08-18：表内 10 vs 真实 106）。**问「昨天多少只涨停」"
+            "「涨停都有谁」绝不能用本表**，那要 `market_daily.limit_up` 或 "
+            "`theme_limit_heat_daily`。本表只回答「这批被选进看板的票，今天竞价表现如何」。\n"
+            "七个面板（`panel_key`）：`zt` 昨日涨停 / `lb` 昨日连板 / `db` 1日前断板 / "
+            "`qdb` 2日前 / `dqdb` 3日前 / `db4` 4日前 / `db5` 5日前。\n"
+            "**时间语义**：`trade_date` 是**竞价发生日**，面板名描述的是此前发生的事——"
+            "`zt` 那行的意思是「该股在 trade_date 的前一交易日涨停，本日竞价表现如下」。\n"
+            "覆盖 2026-01-16 起 145 个交易日；金额单位为亿（与 `fact_stock_daily.amount` "
+            "逐位对账一致）；`limit_seq` 是连板数不是排名（`lb` 面板最小值为 2）。"
+        ),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "竞价交易日", "date"),
+            "panel": _dimension("panel_key", "看板面板"),
+            "panel_label": _dimension("panel_label", "面板中文名"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+            "leader_plate": _dimension("leader_plate", "所属题材"),
+        },
+        metrics={
+            "auction_return_pct": _metric("auction_pct", "竞价涨幅"),
+            "return_pct": _metric("pct_chg", "当日涨跌幅"),
+            "auction_amount": _metric("auction_amount", "竞价成交额亿", "sum"),
+            "day_amount": _metric("day_amount", "全日成交额亿", "sum"),
+            "limit_times": _metric("limit_seq", "连板数", "max", "integer"),
+        },
+    ),
     "sw_l1_daily": _DatasetDefinition(
         table="fact_sw_l1_daily",
         label="申万一级行业日频行情",
@@ -838,7 +872,10 @@ _UNREGISTERED_TABLES: dict[str, str] = {
     # 要注册得先推翻这条理由。注意后三张**没有 trade_date 列**，不是 drop-in；
     # 且 fact_historical_mapping.source_date 与 registry filter_future_dated 的
     # source_date 同名不同义，注册前必须确认，否则整批被判成「晚于问句日」。
-    "fact_auction_stock_daily": "deferred_2026-08-12：竞价稀疏表，保持工具面收敛",
+    # fact_auction_stock_daily 已于 2026-08-25 转正为 dataset auction_stock_daily。
+    # 推翻 08-12「稀疏/半结构」那条理由的依据：实测 145 天、每日 50~99 行、字段可用率
+    # 近 100%，并不稀疏；「半结构」指的是 panel_key 分面板，而 population/coverage
+    # 这套机制正是为表达子集而存在的，当时还没有。
     "fact_regulation_pool_daily": "deferred_2026-08-12：无 trade_date（effective_date）",
     "fact_regulation_event_daily": "deferred_2026-08-12：监管事件半结构",
     "fact_historical_mapping": "deferred_2026-08-12：无 trade_date；source_date 语义与 registry 约定冲突",

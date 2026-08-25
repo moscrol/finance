@@ -617,6 +617,25 @@ def test_dragon_seat_query_binds_and_executes(tmp_path: Path) -> None:
     assert result.rows[0]["net_buy"] == 1.73
 
 
+def test_auction_panel_cap_is_declared_in_coverage() -> None:
+    """竞价看板每面板每日只收 top10——这是全表最容易被误用的地方。
+
+    实测 2026-08-18：`zt` 面板 10 行，而前一日真实涨停 106 只。模型若拿本表回答
+    「昨天多少只涨停」会少一个数量级，而字段校验一声不吭（`limit_seq`/`pct_chg`
+    都是这张表的合法列）。所以上限和「该问谁」必须在 coverage 里，模型下单前可见。
+    """
+
+    from intelligence.services.finance_query import _DATASETS
+
+    assert "auction_stock_daily" in _DATASETS
+    definition = _DATASETS["auction_stock_daily"]
+    assert definition.table == "fact_auction_stock_daily"
+    assert definition.population == "subset"
+    assert "top 10" in definition.coverage
+    # 必须指出正确的替代口径，否则模型只知道「不能用」不知道「该用谁」
+    assert "market_daily.limit_up" in definition.coverage
+
+
 def test_sw_l1_registered_as_subset_not_full() -> None:
     """申万一级：完整度分两段，population 必须是 subset。
 

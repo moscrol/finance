@@ -84,12 +84,37 @@
 没有出现**——`source` 全是 `akshare:index_hist_sw:*` / `index_realtime_sw:*` 两族。
 代码里有这条路，库里没有这类行，别把它写成已发生的事实。
 
+## 第四步：注册 auction_stock_daily（已做，推翻了 08-12 豁免）
+
+`fact_auction_stock_daily` → dataset `auction_stock_daily`。门禁 16+24 → **17 注册 + 23 豁免**。
+
+**推翻 08-12「稀疏/半结构，保持工具面收敛」的依据**（先量后判，不是拍脑袋）：
+实测 145 个交易日、每日 50~99 行、13 个字段可用率近 100%——**并不稀疏**。
+「半结构」指的是 `panel_key` 分面板，而 `population`/`coverage` 这套机制正是为表达子集
+而存在的，08-12 那时还没有。
+
+**最大的坑已写进 coverage：每面板每日只收 top 10。**
+实测 2026-08-18 `zt` 面板 10 行，而前一日真实涨停 **106 只**——差一个数量级。
+模型拿本表回答「昨天多少只涨停」会错得离谱，而字段校验一声不吭（`limit_seq`/`pct_chg`
+都是这张表的合法列）。coverage 里明写了**该问谁**：`market_daily.limit_up` 或
+`theme_limit_heat_daily`。
+
+其余已核口径：
+- 七面板：`zt` 昨日涨停 / `lb` 昨日连板 / `db`~`db5` 1~5 日前断板。
+- **时间语义**：`trade_date` 是竞价发生日，面板名描述此前发生的事。
+- 金额单位是**亿**——`day_amount` 与 `fact_stock_daily.amount` 逐位对账相等
+  （66.09 == 66.09），与 sw_l1 那张不同，可放心开放。
+- `limit_seq` 是**连板数不是排名**：`lb` 面板最小值为 2（连板按定义 ≥2），`zt` 为 1。
+
+端到端实证：按面板聚合当日平均竞价涨幅得到情绪梯度——
+昨日涨停 5.17% > 昨日连板 2.68% > 3日前断板 0.81% > … > 2日前断板 −0.72%。
+这类结构 agent 此前完全算不出来。
+
 ## 下一步（未做，按价值排）
 
-1. `fact_auction_stock_daily` / `fact_regulation_pool_daily` / `fact_historical_mapping`：
-   2026-08-12 那轮**有意豁免**（「保持工具面收敛」，见 asset-inventory §9 Ln351），
-   要注册得先推翻那个理由。且后两张**没有 `trade_date` 列**
-   （`effective_date` / `source_date`+`similar_date`），不是 drop-in；
+1. `fact_regulation_pool_daily` / `fact_regulation_event_daily` / `fact_historical_mapping`：
+   2026-08-12 那轮**有意豁免**（见 asset-inventory §9 Ln351）。前两张与 mapping 都
+   **没有 `trade_date` 列**（`effective_date` / `source_date`+`similar_date`），不是 drop-in；
    ⚠️ `fact_historical_mapping.source_date` 与 registry `filter_future_dated` 的
    `source_date` 约定同名不同义，注册前必须确认，否则整批被判成「晚于问句日」。
 
