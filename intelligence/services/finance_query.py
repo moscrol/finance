@@ -286,6 +286,10 @@ class _DatasetDefinition:
     evidence_tier: str = "L4_structured"
     population: Literal["full", "subset", "single"] = "full"
     coverage: str = ""
+    # 时间残缺：该日之前不是这个宇宙的全集（历史回填残段）。和 population=subset
+    # 不是一回事——后者是**每天**都只收一部分，前者是**某日之后才齐**。
+    # 只写在 coverage 散文里不够：事后 advisory 必须能按 time_range 分流。
+    incomplete_before: date | None = None
     # 日程表的发生日可以晚于信息截止日。默认关：行情表继续用
     # time_field <= cutoff，防止前视。只允许 event_daily 打开。
     allow_future_time_range: bool = False
@@ -299,6 +303,7 @@ class _DatasetDefinition:
 
 
 # ``population`` 是**机器可读的覆盖面**，``coverage`` 是给模型看的同一件事的散文。
+# ``incomplete_before`` 是第三种：**宇宙本身是全集，但某日之前回填不齐**。
 #
 # 为什么需要它：A5 实测（2026-08-18）问「涨停集中在哪些题材」，模型选了
 # ``mainline_sector_daily``。那张表**结构上完全合法**——它确实有 ``limit_up_count``
@@ -311,8 +316,14 @@ class _DatasetDefinition:
 # 事后 observation 里补。这与 ``_agent_finance_parameters`` 里把行数上限写进 schema
 # 是同一条理由：模型感知到的世界与工具操作的世界之间不能存在系统性偏差。
 #
+# **两种失败形状不要共用 subset 旗标**：
+# - 结构子集（每天都只收一部分）→ ``population="subset"``，advisory 指向真正的全集表。
+# - 时间残缺（某日之后才齐）→ ``population="full"`` + ``incomplete_before``，
+#   advisory 只在问句窗落到残缺区间时出声。把后者标成 subset，catalog 会把近端
+#   合法排名说成「子集内部名次」，再按通用字段名把模型推向个股表。
+#
 # **刻意不写具体行数**：行数天天变，写进源码就是手抄第二事实源，漂了没人知道。
-# 这里只声明**性质**（全量 / 子集 / 单行），性质是稳定的。要精确行数就去查库。
+# 这里只声明**性质**（全量 / 子集 / 单行 / 分界日），性质是稳定的。要精确行数就去查库。
 
 
 def _dimension(
@@ -569,19 +580,22 @@ _DATASETS: dict[str, _DatasetDefinition] = {
     "sw_l1_daily": _DatasetDefinition(
         table="fact_sw_l1_daily",
         label="申万一级行业日频行情",
-        population="subset",
+        population="full",
+        incomplete_before=date(2026, 6, 5),
         coverage=(
-            "申万一级 31 个行业的日行情。**完整度分两段（实测 2026-08-25）**："
-            "`2026-06-05` 起每日 31/31，可直接排序；**此前 344 天每日只有 3~10 个行业**"
-            "（平均 7.7，是部分回填的残段）。**在早期区间取 top-N 会在残缺的分母里排序，"
-            "结构性得不到对的答案**——问「某月哪个行业最强」若落在 06-05 之前，"
-            "先声明覆盖不足，不要给排名。"
-            "与 `sector_daily` 不是一回事：那是 224 个概念板块，这是 31 个申万一级行业，"
-            "行业归属问题用本表，题材/概念热度用 `sector_daily` 或 `theme_limit_heat_daily`。"
-            "**本表不提供成交额**：库里那列的单位不是「亿」（写入侧原样存 AKShare 值，未换算；"
-            "2026-08-24 全行业合计 1,982,328 对当日大盘 20,072 亿，比值≈100，即百万元口径），"
-            "而语义层八处成交额统一「亿」。要行业成交额请走 `sector_daily` 的 `sw_l1` 维度聚合。"
-            "另 `fupanhui_ratio` 仅 27% 有值、`amount_ma120*` 仅 2%，同样**未开放**，不是漏了。"
+            "申万一级 31 个行业指数的日行情。**完整度分两段（实测 2026-08-25）**："
+            "`2026-06-05` 起每日 31/31，这一宇宙已齐，可直接排序；"
+            "**此前多数交易日只有 3~10 个行业**（344 天平均 7.7，部分回填残段，"
+            "夹着少量满 31 的孤岛）。**在分界日之前取 top-N 会在残缺分母里排序**——"
+            "问「某月哪个行业最强」若落在 06-05 之前，先声明覆盖不足，不要给排名。"
+            "与 `sector_daily` 不是一回事：那是约 224 个概念板块（一只股可进多板块），"
+            "这是 31 个申万一级行业。行业涨跌用本表，题材热度用 `sector_daily` 或 "
+            "`theme_limit_heat_daily`。"
+            "**本表不提供成交额**：库里那列不是「亿」（写入侧原样存 AKShare 值；"
+            "2026-08-24 全行业合计约 198 万对大盘 20,072 亿，比值≈100，即百万元口径）。"
+            "不要对 `sector_daily` 按申万一级加总冒充行业成交额——"
+            "概念重叠会重复计算，加总会大于全市。"
+            "另 `fupanhui_ratio` 约 27% 有值、`amount_ma120*` 约 2%，同样未开放，不是漏了。"
         ),
         time_field="trade_date",
         dimensions={
@@ -1303,8 +1317,37 @@ def validation_retry_hint(
     return "；".join(parts)
 
 
+def _window_hits_incomplete(spec: FinanceQuerySpec, before: date) -> bool:
+    """问句窗是否可能包含 ``before`` 之前的日期。
+
+    ``time_range`` 缺失或 start 开着，当成无界过去——认不出来就 fail closed。
+    只看 start：start 已经落在分界日当天或之后，整窗都在完整区间。
+    """
+
+    window = spec.time_range
+    if window is None:
+        return True
+    return window.start is None or window.start < before
+
+
+def _temporal_coverage_advisory(
+    spec: FinanceQuerySpec, definition: _DatasetDefinition
+) -> str:
+    before = definition.incomplete_before
+    if before is None:
+        return ""
+    if not _window_hits_incomplete(spec, before):
+        return ""
+    return (
+        f"覆盖面提示：dataset={spec.dataset} 在 {before.isoformat()} 之前覆盖不齐"
+        "（多数交易日只有部分成员，不是该宇宙的全集）。"
+        "本窗落在残缺区间，排序得到的名次不能当成全集排名。"
+        "请把 time_range 收到该日及以后，或先声明覆盖不足、不要给排名。"
+    )
+
+
 def coverage_advisory(spec: FinanceQuerySpec) -> str:
-    """在**子集**表上做排序/取名次时，指出同一字段还有**全集**表可用。
+    """查询成功但分母可能错时，往 observation 上挂一句。
 
     这是 ``validation_retry_hint`` 够不着的那一半。那个函数只在查询**被拒**时
     说话，判据是「字段属不属于这张表」；而 A5 那次查询**完全合法**——
@@ -1312,35 +1355,50 @@ def coverage_advisory(spec: FinanceQuerySpec) -> str:
     错的是分母：十余行的主线子集 vs 两百余行的全量榜。结构性校验原理上抓不到
     这类错，因为错表在结构上没毛病。
 
+    两种分母错误分开处理：
+
+    1. **时间残缺**（``incomplete_before``）：宇宙是全集，但某日之前回填不齐。
+       只在问句窗可能落到残缺区间时出声，不指向别的表。
+    2. **结构子集**（``population="subset"``）：每天都只收一部分。有真正的全集表
+       才提示改表；排序字段若出现在很多全集表上（``return_pct`` / ``close``），
+       按字段名找超集会指向错误粒度，此时宁可不说。
+
     **只在真的会被分母影响时才出声**：有 ``order_by``（即在做「最多 / 前几名」）
-    才提示。纯粹取某个具体标的在子集表里的值是正当用法，对它唠叨就是噪声，
-    会把真提示淹掉。
+    才提示。纯粹取某个具体标的的值是正当用法，对它唠叨就是噪声。
 
     判据**不看 ``limit``**：它有默认值 50，恒为真，拿它当信号等于没有信号。
-    A5 现场那条查询是 ``order_by=limit_up_count desc, limit=15``——在一张
-    当日只有十余行的表上要 top15，正是本函数要拦的形状。
 
     返回空串表示无话可说——**调用方据此决定要不要把这句挂到 observation 上**，
     本函数不自己决定交付形态。
     """
 
     definition = _DATASETS.get(spec.dataset)
-    if definition is None or definition.population != "subset":
-        return ""
-    if not spec.order_by:
+    if definition is None or not spec.order_by:
         return ""
 
-    # **只看排序字段**，不看 metrics 里搭车的那些列。决定名次的只有排序字段，
-    # 分母换了只影响它；把每个 metric 都列一遍会让 return_pct 这种六张表都有的
-    # 通用列刷满整条提示，真信号（limit_up_count→theme_limit_heat_daily）被淹掉。
-    # 实测过：不收窄时这条提示有 8 项，收窄后 1 项。
+    temporal = _temporal_coverage_advisory(spec, definition)
+    if temporal:
+        return temporal
+    if definition.population != "subset":
+        return ""
+
+    # **只看排序字段**，不看 metrics 里搭车的那些列。决定名次的只有排序字段。
+    # 通用列（return_pct）出现在很多全集表上：超过两张就不当超集信号，
+    # 否则会把申万一级/竞价看板的排名改写成个股榜。A5 的 limit_up_count
+    # 几乎只属于题材热度表，启发式才成立。
     wanted = tuple(dict.fromkeys(item.field for item in spec.order_by))
     alternatives: list[str] = []
     for field in wanted:
-        for name in _PUBLIC_DATASETS:
-            other = _DATASETS[name]
-            if other.population != "full" or field not in other.fields:
-                continue
+        owners = [
+            name
+            for name in _PUBLIC_DATASETS
+            if name != spec.dataset
+            and _DATASETS[name].population == "full"
+            and field in _DATASETS[name].fields
+        ]
+        if len(owners) > 2:
+            continue
+        for name in owners:
             entry = f"{field}→{name}"
             if entry not in alternatives:
                 alternatives.append(entry)

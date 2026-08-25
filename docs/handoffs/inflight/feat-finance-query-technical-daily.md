@@ -13,9 +13,10 @@
 
 ## 当前状态
 
-- 树 `/Users/a77/fwp-wt-technical-daily` @ `897ffa15`，基线 `gitea/main@67f246bb`。
-- **已提交，未 push、未开 PR、未合 main**（等用户确认）。
-- `_PUBLIC_DATASETS`：16 → 17。
+- 树 `/Users/a77/fwp-wt-technical-daily`，PR #396。合 main 等用户确认。
+- `_PUBLIC_DATASETS`：16 → 19（technical + sw_l1 + auction）。
+- 2026-08-25 质检：sw_l1 的 `population=subset` 会把近端合法排名改写成个股榜，已改
+  `full` + `incomplete_before`。
 
 ## 已验证
 
@@ -53,36 +54,26 @@
 - 往 schema.sql 注入 `fact_ratchet_probe_daily` → exit 1，提示二选一；schema 已还原。
 - pytest 四条证伪：新增未认领表红 / 注册空表红 / `_EMPTY_BY_DESIGN` 不红 / 无库时跳过。
 
-## 第三步：注册 sw_l1_daily（已做）
+## 第三步：注册 sw_l1_daily（已做；质检后改过口径）
 
-`fact_sw_l1_daily` → dataset `sw_l1_daily`。门禁读数 15 注册 + 25 豁免 → **16 + 24**。
+`fact_sw_l1_daily` → dataset `sw_l1_daily`。不开放 `amount`（百万元口径，不是亿）仍成立。
 
-**关键设计：`population="subset"` 而不是 `full`。** 实测该表完整度分两段——
-`2026-06-05` 起每日 31/31，**此前 344 天每日只有 3~10 个行业**（平均 7.7，部分回填的残段）。
-标成 `full` 会重演 `mainline_sector_daily` 那道疤：模型在残缺分母里取 top-N，
-结构上得不到对的答案，而字段校验一声不吭。分界日已写进 `coverage`，模型下单前就看得见。
+**质检纠正：`population` 改回 `full`，残缺用 `incomplete_before=2026-06-05`。**
+两道失败形状不能共用 subset 旗标——结构子集是**每天**只收一部分；本表的宇宙是 31 个
+申万一级，`2026-06-05` 起每日 31/31，此前多数交易日 3~10 个（344 天平均 7.7，夹着少量
+满 31 的孤岛）。整表标 subset 会让 catalog 把近端合法排名说成「子集内部名次」，事后
+`coverage_advisory` 按 `return_pct` 把模型推向 `stock_daily` / 龙虎榜。现在 advisory
+只在问句窗落到分界日之前（或没给 time_range）时出声，且不改表。
 
-实证：查 `2026-03-10` 返回整齐的 5 行（通信/电子/机械设备/电力设备/计算机），
-**不带 coverage 警告的模型会把它当成合法 top5**。
+另两处一并修：coverage 删掉「走 sector_daily 的 sw_l1 维度聚合」（概念重叠加总会大于全市）；
+通用列出现在 >2 张全集表上时，结构子集启发式不再当超集信号。
 
-**⚠️ `fact_sw_l1_daily.amount` 的单位不是「亿」。** 全量 pytest 用
-`test_amount_metric_labels_carry_unit`（§1.3-C「八处成交额口径一致」）把这条抓了出来。
-查证：写入侧 `sync_akshare_sw_l1_daily.py` **原样存 AKShare 值、无任何换算**；
-2026-08-24 全 31 行业合计 `1,982,328` 对当日大盘 `20,072` 亿，**比值 ≈ 100 → 百万元口径**。
+实证勘误：03-10 实际 8 行不是 5 行；「06-05 起 70 天」是把全历史 n=31 的 70 天安错了桶，
+分界日后是 56 个交易日。金额单位单子不变：真耦合是降级写入路径会把 sector_daily 的「亿」
+写进同一列，不是 adapters/market.py。
 
-处置：**不开放 `amount` 指标**，理由写进 coverage。不去放宽那条不变量——
-为了多一个指标改门禁迁就代码是反模式。要行业成交额，走 `sector_daily` 的 `sw_l1` 维度聚合；
-要真正暴露本表的 amount，得先在写入侧统一单位，那是另一个单子（会动
-`adapters/market.py` / `structured_reports.py` 两个现有消费方，别顺手做）。
-
-另两条口径也写进了 coverage：
-- 与 `sector_daily` 不同层——那是 224 个概念板块，这是 31 个申万一级行业。
-- `fupanhui_ratio`（27% 有值）、`amount_ma120*`（2%）**未开放为指标**，不是漏了。
-  一个几乎恒空的 metric 与空 dataset 是同一种病。
-
-⚠️ 该表的降级路径（`structured_reports.py:133` 那个「复盘会聚合代理」正则）在**当前数据里
-没有出现**——`source` 全是 `akshare:index_hist_sw:*` / `index_realtime_sw:*` 两族。
-代码里有这条路，库里没有这类行，别把它写成已发生的事实。
+⚠️ 降级路径（`structured_reports.py` 那个「复盘会聚合代理」正则）在当前数据里没有出现
+——`source` 全是 akshare 两族。代码里有这条路，库里没有这类行。
 
 ## 第四步：注册 auction_stock_daily（已做，推翻了 08-12 豁免）
 
@@ -128,3 +119,6 @@
 - **grep 作用域要写进结论**：`grep -rl ... intelligence/services intelligence/runtime` 只扫两个
   子目录，却把结论写成「`intelligence/` 全层 0 引用」，漏掉 `adapters/`、`api/`、`eval/`。
   完整教训已沉淀进 `.claude/lessons_learned.md`「能力盘点 / 负面断言的举证」。
+- **时间残缺 ≠ 结构子集**：整表标 subset，近端合法排名会被改写成个股榜。分界日必须是
+  机器可读的 `incomplete_before`，不能只活在 coverage 散文里。用查询 `LIMIT 5` 的结果
+  当「表只有 5 行」会自己踩上要防的那道疤。
