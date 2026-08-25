@@ -315,6 +315,65 @@ def test_live_twin_one_mismatch_one_skip() -> None:
     assert receipt.mismatches[0].subject == "半导体"
 
 
+def test_founding_sentence_subject_in_prior_clause() -> None:
+    """§7 #14 真原句：主语在前一子句，同句向前回溯必须绑到「半导体」。
+
+    5.2 公开稿原文形态——数据子句紧跟主语从句。纯子句级绑定会把
+    奠基案例本身 skip 掉（2026-08-25 对未打补丁实现实测：mismatch=0）。
+    """
+
+    day_0819 = StructuredObservation(
+        subject="半导体", as_of="2026-08-19", metric="diff_ratio", value=3.75
+    )
+    text = (
+        "半导体近 5 日无一日双红，08-19 放量大跌 -7.66% 后量能持续萎缩，"
+        "08-24 缩量续跌 -3.17%。"
+    )
+    receipt = apply_reading_direction_gate(
+        text,
+        observations=_obs(day_0819, SEMICONDUCTOR),
+        standing=STANDING,
+    )
+    # 中间子句放量×萎缩同现 → 方向互斥 skip；末子句回溯绑定后抓住互换。
+    assert receipt.checked == 1
+    assert receipt.skipped == 1
+    assert len(receipt.mismatches) == 1
+    assert receipt.mismatches[0].subject == "半导体"
+    assert receipt.mismatches[0].date == STANDING
+    assert receipt.mismatches[0].word == "缩量"
+
+
+def test_subject_never_binds_across_sentences() -> None:
+    """回溯边界：跨句不回溯——上一句主语不得漂到下一句。"""
+
+    receipt = apply_reading_direction_gate(
+        "半导体近 5 日走弱。08-24 缩量续跌。",
+        observations=_obs(SEMICONDUCTOR),
+        standing=STANDING,
+    )
+    assert receipt.checked == 0
+    assert receipt.skipped == 1
+    assert receipt.mismatches == ()
+
+
+def test_conflicting_registry_values_drop_key() -> None:
+    """§6 #3：同 (主体, 日期) 两个不同值 → 该键弃用，不得后写覆盖。"""
+
+    conflicting = StructuredObservation(
+        subject="半导体", as_of=STANDING, metric="diff_ratio", value=-3.0
+    )
+    receipt = apply_reading_direction_gate(
+        "半导体 08-24 放量下跌。",
+        observations=_obs(SEMICONDUCTOR, conflicting, MEDICINE),
+        standing=STANDING,
+    )
+    # 半导体键弃用后门仍因「医药」开着；本句绑不上注册主体 → skip，不是 mismatch。
+    assert receipt.applied is True
+    assert receipt.checked == 0
+    assert receipt.skipped == 1
+    assert receipt.mismatches == ()
+
+
 def test_explicit_positive_same_long_sentence() -> None:
     """同一长句里 08-20 放量（显式、符号为正）应判对。"""
 
@@ -332,26 +391,41 @@ def test_explicit_positive_same_long_sentence() -> None:
 
 
 def test_collect_from_private_artifact() -> None:
-    payload = {
-        "evidence": [
+    item = {
+        "tool": "asof_prefetch",
+        "title": "台阶",
+        "detail": "",
+        "source": "prefetch",
+        "observations": [
             {
-                "tool": "asof_prefetch",
-                "title": "台阶",
-                "detail": "",
-                "source": "prefetch",
-                "observations": [
-                    {
-                        "subject": "半导体",
-                        "as_of": STANDING,
-                        "metric": "diff_ratio",
-                        "value": 16.25,
-                    }
-                ],
+                "subject": "半导体",
+                "as_of": STANDING,
+                "metric": "diff_ratio",
+                "value": 16.25,
             }
-        ]
+        ],
     }
-    got = collect_direction_observations(payload)
-    assert got == _obs(SEMICONDUCTOR)
+    assert collect_direction_observations({"evidence": [item]}) == _obs(SEMICONDUCTOR)
+    # 生产转储：证据在 outcome.evidence，不在私有产物顶层。
+    assert collect_direction_observations({"outcome": {"evidence": [item]}}) == _obs(
+        SEMICONDUCTOR
+    )
+
+
+def test_conflicted_same_key_is_not_registered() -> None:
+    """同 (主体, 日期) 两个不同值 → 不注册，fail closed。"""
+
+    other = StructuredObservation(
+        subject="半导体", as_of=STANDING, metric="diff_ratio", value=-3.0
+    )
+    receipt = apply_reading_direction_gate(
+        "半导体 08-24 缩量续跌。",
+        observations=_obs(SEMICONDUCTOR, other),
+        standing=STANDING,
+    )
+    assert receipt.applied is False
+    assert receipt.checked == 0
+    assert receipt.mismatches == ()
 
 
 def _prepare_continuous(tmp_path: Path, query: str):
@@ -446,22 +520,24 @@ def test_general_finance_qa_wires_without_question_type_guard(
                 citations=(),
                 warnings=(),
                 private_artifact={
-                    "evidence": [
-                        {
-                            "tool": "asof_prefetch",
-                            "title": "半导体台阶",
-                            "detail": "diff_ratio=+16.25",
-                            "source": "prefetch",
-                            "observations": [
-                                {
-                                    "subject": "半导体",
-                                    "as_of": STANDING,
-                                    "metric": "diff_ratio",
-                                    "value": 16.25,
-                                }
-                            ],
-                        }
-                    ]
+                    "outcome": {
+                        "evidence": [
+                            {
+                                "tool": "asof_prefetch",
+                                "title": "半导体台阶",
+                                "detail": "diff_ratio=+16.25",
+                                "source": "prefetch",
+                                "observations": [
+                                    {
+                                        "subject": "半导体",
+                                        "as_of": STANDING,
+                                        "metric": "diff_ratio",
+                                        "value": 16.25,
+                                    }
+                                ],
+                            }
+                        ]
+                    }
                 },
                 events=(),
             )
