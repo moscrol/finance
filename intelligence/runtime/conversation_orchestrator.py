@@ -3082,6 +3082,18 @@ class TurnOrchestrator:
                 question_type=turn_intent.question_type,
                 grid_text=pack.render() if pack is not None else "",
             )
+            if watch_gate.applied:
+                # 活性事件：零删也留痕，让「闸跑了没删」与「闸没跑」在
+                # telemetry 里可区分（R-20260825-08）。degrade 通道仍只在
+                # 真删句时占用。
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "deliver",
+                    "market_watch_delivery_gate",
+                    {"applied": True, "dropped": watch_gate.dropped},
+                )
             if watch_gate.applied and watch_gate.dropped:
                 watch_warning = "market_watch_delivery_gate"
                 warnings.append(watch_warning)
@@ -3983,6 +3995,15 @@ class TurnOrchestrator:
             grid_text=evidence_grid_text(citations),
         )
         answer_text = episode_watch_gate.text
+        if episode_watch_gate.applied:
+            self._trace(
+                run_id,
+                assistant_message_id,
+                conversation_id,
+                "deliver",
+                "market_watch_delivery_gate",
+                {"applied": True, "dropped": episode_watch_gate.dropped},
+            )
         if episode_watch_gate.applied and episode_watch_gate.dropped:
             watch_warning = "market_watch_delivery_gate"
             warnings.append(watch_warning)
