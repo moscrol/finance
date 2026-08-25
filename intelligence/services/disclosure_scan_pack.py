@@ -18,7 +18,12 @@ from pathlib import Path
 from typing import Any, Callable, Protocol
 from zoneinfo import ZoneInfo
 
+from typing import TYPE_CHECKING
+
 from intelligence.services import retrieval_cache
+
+if TYPE_CHECKING:  # answer_model → research_contract → …本模块，运行时循环
+    from intelligence.services import answer_model
 
 WALL_SECONDS = 45.0
 PAGE_SIZE = 30
@@ -420,6 +425,274 @@ def gate_disclosure_residual(
             reason="truncated",
         )
     return ResidualGateResult(text, dropped=False)
+
+
+# 巨潮标题扫描是官方披露（L3 级）：tier 以 "l3" 开头让 claim 过硬证据判定
+# （is_hard_evidence_tier），措辞不被确定性治理软化，registry 排序也吃 L3 加分。
+DISCLOSURE_EVIDENCE_ID = "L3-DISC"
+DISCLOSURE_EVIDENCE_TIER = "l3_official_disclosure"
+_DISCLOSURE_THEME = "披露扫描"
+
+# 进 shadow 链 build_grounded_composer_messages 的 required_outputs 槽——
+# 这是 grounded composer 唯一看得见的本轮契约位。P1-① 把契约放在
+# prepared_synthesis_messages 里，而 shadow 链的输入完全从 answer_spec 生成，
+# 模型从没见过残差约束（live R5 m 轮逐行复述 20+ 码的直接原因之一）。
+DISCLOSURE_RESIDUAL_PROMPT_CONSTRAINTS: tuple[str, ...] = (
+    "档位解读：解释主名单各档的含义边界"
+    "（临床批件≠上市；合同/中选类标题未写金额则金额未知）",
+    "排除与反证：说明「未计入比较利好」各档"
+    "（回购/增持为资本运作备考、集采中选量价对冲、未分类）为何排除；"
+    "有反证行时点明其含义",
+    "查询边界：预算截断的关键词按「未查完」说明，不得表述为「没有」；"
+    "全部跑完时说明查询窗口与宇宙即可",
+    "输出形态：名单已由扫描包原样置顶，不要逐行复述名单，"
+    "不要输出六位代码开头的名单行；归纳解读点名个股不超过 8 家，"
+    "总篇幅不超过 500 字，不给买卖建议",
+)
+
+
+def _residual_row_claim(
+    row: DisclosureRow,
+    *,
+    kind: str,
+    index: int,
+) -> "answer_model.Claim":
+    from intelligence.services import answer_model
+
+    label = TIER_LABELS.get(row.tier, row.tier)
+    if kind == "counter":
+        body = f"反证——{label}：《{row.title}》"
+    elif kind == "excl":
+        body = f"未计入比较利好——{label}：《{row.title}》"
+    else:
+        body = f"{label}：《{row.title}》"
+    # 名称在前、代码进括号：即使模型贴着 claim 文本复述，也不会拼出
+    # 出稿闸的名单行形状（^六位代码 【…）。
+    return answer_model.make_claim(
+        claim_id=f"disc:{kind}:{row.code}:{row.announcement_id or index}",
+        text=f"{row.name}（{row.code}）{row.date} {body}",
+        claim_type="supporting_fact" if kind != "counter" else "counter_evidence",
+        theme=_DISCLOSURE_THEME,
+        status=answer_model.ClaimStatus.VERIFIED,
+        evidence_tier=DISCLOSURE_EVIDENCE_TIER,
+        evidence_ids=(DISCLOSURE_EVIDENCE_ID,),
+        company=row.name,
+    )
+
+
+def build_disclosure_residual_answer_spec(
+    pack: DisclosureScanPack,
+    *,
+    query: str,
+) -> "answer_model.AnswerSpec":
+    """残差写手的全行 claim 集：主名单/排除/反证每行一条 + 聚合统计。
+
+    通用 builder（``_build_base_answer_spec_from_sections``）把证据行截到
+    8 条，对全名单解读题 claim 覆盖不足 = 有据校验必然越界（live R5 m 轮，
+    ``run_20260825_200157_247884``）。扫描包是确定性事实源，每行都值得
+    一条可绑定 claim；聚合 claim 给归纳句（「注册获批 N 行」）数字出处。
+    """
+
+    from intelligence.services import answer_model
+
+    _ = query
+    window = f"{pack.se_date_start}~{pack.se_date_end}"
+    main_count = len(pack.rows)
+    bucket_bits = "、".join(
+        f"{bucket.name}命中 {len(bucket.hit_codes)} 家（宇宙 {bucket.universe_size} 只）"
+        for bucket in pack.buckets
+    )
+    summary = (
+        answer_model.make_claim(
+            claim_id="disc:summary:1",
+            text=(
+                f"窗口 {window} 官方披露扫描：主名单 {main_count} 行，{bucket_bits}；"
+                "名单已由扫描包原样置顶，本段只做残差解读。"
+            ),
+            claim_type="summary",
+            theme=_DISCLOSURE_THEME,
+            status=answer_model.ClaimStatus.VERIFIED,
+            evidence_tier=DISCLOSURE_EVIDENCE_TIER,
+            evidence_ids=(DISCLOSURE_EVIDENCE_ID,),
+        ),
+    )
+
+    facts: list[answer_model.Claim] = []
+    tier_counts: dict[str, int] = {}
+    for row in pack.rows:
+        tier_counts[row.tier] = tier_counts.get(row.tier, 0) + 1
+    tier_bits = "、".join(
+        f"{TIER_LABELS.get(tier, tier)} {count} 行"
+        for tier, count in tier_counts.items()
+    )
+    if tier_bits:
+        facts.append(
+            answer_model.make_claim(
+                claim_id="disc:agg:tiers",
+                text=f"主名单共 {main_count} 行，分档：{tier_bits}。",
+                claim_type="supporting_fact",
+                theme=_DISCLOSURE_THEME,
+                status=answer_model.ClaimStatus.VERIFIED,
+                evidence_tier=DISCLOSURE_EVIDENCE_TIER,
+                evidence_ids=(DISCLOSURE_EVIDENCE_ID,),
+            )
+        )
+    if pack.excluded:
+        excluded_counts: dict[str, int] = {}
+        for row in pack.excluded:
+            excluded_counts[row.tier] = excluded_counts.get(row.tier, 0) + 1
+        excluded_bits = "、".join(
+            f"{TIER_LABELS.get(tier, tier)} {count} 行"
+            for tier, count in excluded_counts.items()
+        )
+        facts.append(
+            answer_model.make_claim(
+                claim_id="disc:agg:excluded",
+                text=(
+                    f"未计入比较利好共 {len(pack.excluded)} 行：{excluded_bits}。"
+                ),
+                claim_type="supporting_fact",
+                theme=_DISCLOSURE_THEME,
+                status=answer_model.ClaimStatus.VERIFIED,
+                evidence_tier=DISCLOSURE_EVIDENCE_TIER,
+                evidence_ids=(DISCLOSURE_EVIDENCE_ID,),
+            )
+        )
+    keyword_total = len(pack.keyword_traces)
+    unfinished = tuple(
+        trace.keyword
+        for trace in pack.keyword_traces
+        if trace.truncated or trace.status == "skipped_budget"
+    )
+    if keyword_total:
+        budget_text = (
+            f"关键词 {keyword_total} 个全部跑完。"
+            if not unfinished
+            else (
+                f"关键词 {keyword_total} 个，其中 {len(unfinished)} 个未查完"
+                f"（预算截断）：{'、'.join(unfinished)}。"
+            )
+        )
+        facts.append(
+            answer_model.make_claim(
+                claim_id="disc:agg:keywords",
+                text=budget_text,
+                claim_type="supporting_fact",
+                theme=_DISCLOSURE_THEME,
+                status=answer_model.ClaimStatus.VERIFIED,
+                evidence_tier=DISCLOSURE_EVIDENCE_TIER,
+                evidence_ids=(DISCLOSURE_EVIDENCE_ID,),
+            )
+        )
+    facts.append(
+        answer_model.make_claim(
+            claim_id="disc:agg:window",
+            text=(
+                f"公告窗口 {window}，成分股站立日 "
+                f"{pack.universe_date or pack.as_of}（trade_date ≤ {pack.as_of}）。"
+            ),
+            claim_type="supporting_fact",
+            theme=_DISCLOSURE_THEME,
+            status=answer_model.ClaimStatus.VERIFIED,
+            evidence_tier=DISCLOSURE_EVIDENCE_TIER,
+            evidence_ids=(DISCLOSURE_EVIDENCE_ID,),
+        )
+    )
+    for index, row in enumerate(pack.rows, start=1):
+        facts.append(_residual_row_claim(row, kind="row", index=index))
+    for index, row in enumerate(pack.excluded, start=1):
+        facts.append(_residual_row_claim(row, kind="excl", index=index))
+
+    counter_claims = tuple(
+        _residual_row_claim(row, kind="counter", index=index)
+        for index, row in enumerate(pack.counter_rows, start=1)
+    )
+
+    gap_claims: list[answer_model.Claim] = []
+    if unfinished:
+        gap_claims.append(
+            answer_model.make_claim(
+                claim_id="disc:gap:budget",
+                text=(
+                    "关键词未查完（预算截断）："
+                    f"{'、'.join(unfinished)}；这些词的覆盖情况未知，"
+                    "不得当作「没有」。"
+                ),
+                claim_type="evidence_gap",
+                theme=_DISCLOSURE_THEME,
+                status=answer_model.ClaimStatus.MISSING,
+            )
+        )
+    for bucket in pack.buckets:
+        if bucket.universe_size > 0 and not bucket.hit_codes:
+            gap_claims.append(
+                answer_model.make_claim(
+                    claim_id=f"disc:gap:bucket:{bucket.name}",
+                    text=(
+                        f"{bucket.name}桶窗口内主名单零命中"
+                        f"（宇宙 {bucket.universe_size} 只）。"
+                    ),
+                    claim_type="evidence_gap",
+                    theme=_DISCLOSURE_THEME,
+                    status=answer_model.ClaimStatus.MISSING,
+                )
+            )
+
+    triggers = (
+        answer_model.make_claim(
+            claim_id="disc:trigger:1",
+            text=(
+                "本扫描为标题级：金额、品种、进度等正文细节"
+                "以巨潮公告原文为准。"
+            ),
+            claim_type="condition_boundary",
+            theme=_DISCLOSURE_THEME,
+            status=answer_model.ClaimStatus.INFERRED,
+            evidence_tier=DISCLOSURE_EVIDENCE_TIER,
+            evidence_ids=(DISCLOSURE_EVIDENCE_ID,),
+        ),
+    )
+
+    spec = answer_model.AnswerSpec(
+        research_spec=answer_model.ThemeResearchSpec(
+            theme=_DISCLOSURE_THEME,
+            pack_id="disclosure_scan_pack",
+            definition="板块宇宙 ∩ 巨潮标题 ∩ 档位分层的确定性名单扫描",
+            chain_stages=(),
+            company_scope="",
+            as_of=pack.universe_date or pack.as_of,
+            evidence_requirements=(),
+            counter_evidence_requirements=(),
+            trigger_conditions=(),
+            verification_actions=("以巨潮公告原文核对标题级结论",),
+            focus_entities=(),
+            requested_sections=(),
+        ),
+        summary=summary,
+        verified_facts=tuple(facts),
+        company_table=(),
+        counter_evidence=counter_claims,
+        gaps=tuple(gap_claims),
+        triggers=triggers,
+        next_actions=(),
+        sources=(
+            answer_model.EvidenceRef(
+                evidence_id=DISCLOSURE_EVIDENCE_ID,
+                source="巨潮资讯公告标题扫描（确定性扫描包）",
+                detail=(
+                    f"窗口 {window}；宇宙站立日 {pack.universe_date or pack.as_of}；"
+                    f"主名单 {main_count} 行"
+                ),
+                tier=DISCLOSURE_EVIDENCE_TIER,
+                source_date=pack.se_date_end,
+            ),
+        ),
+        system_notices=(),
+        prompt_constraints=DISCLOSURE_RESIDUAL_PROMPT_CONSTRAINTS,
+        presentation_kind="base_finance",
+        presentation_title="披露扫描残差解读",
+    )
+    return answer_model.finalize_answer_spec(spec)
 
 
 def default_cninfo_fetch(
