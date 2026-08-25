@@ -52,12 +52,17 @@ from intelligence.services.ask import (
     SynthesisDiagnostic,
     _revise_synthesis_on_warn,
     answer_query,
+    bind_disclosure_scan_pack,
     bind_research_program,
     prepare_existing_answer,
     render_conversation_answer,
     repair_unfulfilled_answer,
     synthesize_prepared_answer,
     synthesize_shadow_grounded_answer,
+)
+from intelligence.services.disclosure_scan_pack import (
+    disclosure_scan_degrade_codes,
+    merge_disclosure_into_public_answer,
 )
 from intelligence.services.market_watch_pack import merge_into_public_answer
 from intelligence.services.answer_stream import AnswerSnapshot
@@ -2220,7 +2225,11 @@ class TurnOrchestrator:
             generic_owner_requested = (
                 decision.lane == "research"
                 and turn_intent.question_type
-                not in {QUESTION_MARKET_TECHNICAL, QUESTION_EXTERNAL_MARKET}
+                not in {
+                    QUESTION_MARKET_TECHNICAL,
+                    QUESTION_EXTERNAL_MARKET,
+                    "disclosure_scan",
+                }
                 # 真实 controller 总会附带 TurnIntent；若某个旧的测试/第三方
                 # controller 只返回无 question_type 的裸 TurnDecision，保留
                 # 旧 route 行为，避免把兼容层误判为“ownerless research”。
@@ -2235,6 +2244,7 @@ class TurnOrchestrator:
             router_skipped = bool(
                 decision.lane == "knowledge"
                 or turn_intent.question_type == "market_technical"
+                or turn_intent.question_type == "disclosure_scan"
                 or relation_guard_requested
                 or generic_owner_requested
             )
@@ -2808,6 +2818,17 @@ class TurnOrchestrator:
                     # 准入地板与授时读同一套生效 profile，不再读模块级常量。
                     grounded_budget_profile=grounded_profile,
                 )
+            if turn_intent.question_type == "disclosure_scan":
+                ask_options = bind_disclosure_scan_pack(
+                    ask_options,
+                    frame=task_frame,
+                    query=contextual_query,
+                )
+                disclosure_pack = ask_options.disclosure_scan_pack
+                for code in disclosure_scan_degrade_codes(disclosure_pack):
+                    self.run_store.add_degrade(run_id, code)
+                if disclosure_pack is not None:
+                    report["disclosure_scan_pack"] = disclosure_pack.to_dict()
             if turn_intent.question_type == "market_watch":
                 ask_options = bind_research_program(
                     ask_options,
@@ -2820,7 +2841,26 @@ class TurnOrchestrator:
                     self.run_store.add_degrade(run_id, "market_watch_pack_stop")
                 if program is not None:
                     _ = (program.program_id, program.operators)
-            if owner_output is not None:
+            if (
+                turn_intent.question_type == "disclosure_scan"
+                and ask_options.disclosure_scan_pack is not None
+            ):
+                disclosure_pack = ask_options.disclosure_scan_pack
+                rendered = disclosure_pack.render()
+                result = AskResult(
+                    query=contextual_query,
+                    trade_date=disclosure_pack.universe_date,
+                    matched_theme=None,
+                    candidate_tier=None,
+                    priority_score=None,
+                    synthesis=rendered,
+                    market_summary=rendered,
+                )
+                prepared = prepare_existing_answer(
+                    replace(ask_options, compose=False, synthesize=False),
+                    result,
+                )
+            elif owner_output is not None:
                 result = _resolve_owner_result(query, owner_output, retrieval_cache)
                 prepared = prepare_existing_answer(ask_options, result)
                 self._trace(
@@ -2979,6 +3019,10 @@ class TurnOrchestrator:
                 grid_text=pack.render() if pack is not None else "",
             ).text
             draft_text = merge_into_public_answer(draft_text, pack)
+            draft_text = merge_disclosure_into_public_answer(
+                draft_text,
+                getattr(ask_options, "disclosure_scan_pack", None),
+            )
             perspective_header = (
                 perspective_lab.runtime_answer_header(
                     userspace.user_space(self.run_store.user_id),
@@ -3100,6 +3144,10 @@ class TurnOrchestrator:
                 self.run_store.add_degrade(run_id, watch_warning)
             answer_text = watch_gate.text
             answer_text = merge_into_public_answer(answer_text, pack)
+            answer_text = merge_disclosure_into_public_answer(
+                answer_text,
+                getattr(ask_options, "disclosure_scan_pack", None),
+            )
             fallback_notice = (
                 perspective_lab.runtime_fallback_notice(perspective_mode)
                 if (

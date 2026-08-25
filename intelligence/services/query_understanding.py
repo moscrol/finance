@@ -8,6 +8,10 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from intelligence.services.disclosure_scan_pack import (
+    is_disclosure_scan_query,
+    parse_disclosure_buckets,
+)
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.market_analogs import parse_analog_intent
 from intelligence.services.market_regime_analogs import parse_regime_intent
@@ -1027,6 +1031,8 @@ def _research_mode(
         return "methodology"
     if question_type in {"stock_deep_dive", "valuation_estimate"}:
         return "deep_dive"
+    if question_type == "disclosure_scan":
+        return "general"
     if subject_kind == "theme":
         return "theme_research"
     if "scenario_tree" in operators:
@@ -1443,6 +1449,19 @@ def understand_query(
             _decision_goal(text),
             timeframe,
             "market_anchor",
+            0.98,
+        )
+
+    if is_disclosure_scan_query(text):
+        buckets = parse_disclosure_buckets(text)
+        subject = "、".join(bucket.name for bucket in buckets) or None
+        return envelope(
+            "disclosure_scan",
+            "theme",
+            subject,
+            "扫描点名板块近期官方披露里偏利好的个股名单",
+            timeframe,
+            "explicit",
             0.98,
         )
 

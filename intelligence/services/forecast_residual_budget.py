@@ -19,7 +19,13 @@ from intelligence.services.research_contract import (
 
 FORECAST_RESIDUAL_QUESTION_TYPE = "market_forecast"
 DO_NOT_LENGTHEN_QUESTION_TYPES = frozenset(
-    {"external_market", "quick_fact", "dated_market_review", "market_watch"}
+    {
+        "external_market",
+        "quick_fact",
+        "dated_market_review",
+        "market_watch",
+        "disclosure_scan",
+    }
 )
 FORECAST_RESIDUAL_SPIN = "forecast_residual_duplicate_spin"
 

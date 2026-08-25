@@ -14,6 +14,7 @@ from intelligence.services.query_resolution import (
     format_resolve_clarification,
     is_entity_tristate_clarification,
 )
+from intelligence.services.disclosure_scan_pack import is_disclosure_scan_query
 from intelligence.services.query_understanding import (
     QueryEnvelope,
     envelope_from_task_frame,
@@ -541,7 +542,9 @@ def _deterministic_decision(
 
 def _fine_grained_route_row(query: str) -> RouteRow | None:
     route_id: str | None = None
-    if _TRADE_ADVICE_ROUTE_PATTERN.search(query):
+    if is_disclosure_scan_query(query):
+        route_id = "disclosure_scan"
+    elif _TRADE_ADVICE_ROUTE_PATTERN.search(query):
         route_id = "trade_advice"
     elif _KOL_REVIEW_ROUTE_PATTERN.search(query):
         route_id = "kol_review"

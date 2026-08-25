@@ -57,6 +57,7 @@ _DETERMINED_QUESTION_TYPES = frozenset(
         "financial_analysis",
         "valuation_estimate",
         "quick_fact",
+        "disclosure_scan",
     }
 )
 

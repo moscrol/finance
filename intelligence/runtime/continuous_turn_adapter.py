@@ -102,7 +102,13 @@ _COLD_RESTART_STOP_REASONS = frozenset(
 # so a full research burn still leaves one dispatchable attempt.
 DEFAULT_VERIFICATION_RESERVE_SECONDS = DEFAULT_JUDGE_TIMEOUT_SECONDS + 10.0
 DETERMINISTIC_OWNER_TYPES = frozenset(
-    {"external_market", "quick_fact", "dated_market_review", "market_watch"}
+    {
+        "external_market",
+        "quick_fact",
+        "dated_market_review",
+        "market_watch",
+        "disclosure_scan",
+    }
 )
 
 

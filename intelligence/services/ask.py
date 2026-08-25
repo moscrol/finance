@@ -444,6 +444,50 @@ def bind_market_watch_pack(
     )
 
 
+def bind_disclosure_scan_pack(
+    options: AskOptions,
+    *,
+    frame: Any = None,
+    query: str | None = None,
+    as_of: str | None = None,
+    cninfo_fetch: Any = None,
+    clock: Any = None,
+    sleep_fn: Any = None,
+) -> AskOptions:
+    """Run the disclosure scan pack and always lock compose/synthesize off."""
+
+    from intelligence.services.disclosure_scan_pack import run_disclosure_scan_pack
+
+    standing = as_of or options.date
+    if standing is None and frame is not None:
+        timeframe = str(getattr(frame, "timeframe", "") or "")
+        if len(timeframe) == 10 and timeframe[4] == "-" and timeframe[7] == "-":
+            standing = timeframe
+    pack = run_disclosure_scan_pack(
+        query or options.query,
+        as_of=standing,
+        market_db_path=options.market_db_path,
+        cninfo_fetch=cninfo_fetch,
+        clock=clock,
+        sleep_fn=sleep_fn,
+    )
+    rendered = pack.render()
+    supplemental = options.supplemental_evidence
+    if rendered:
+        supplemental = (
+            f"{rendered}\n\n{options.supplemental_evidence}".strip()
+            if options.supplemental_evidence
+            else rendered
+        )
+    return replace(
+        options,
+        compose=False,
+        synthesize=False,
+        supplemental_evidence=supplemental,
+        disclosure_scan_pack=pack,
+    )
+
+
 def v_block_for_ask(
     options: AskOptions,
     theme: str | None = None,
