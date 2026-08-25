@@ -67,3 +67,11 @@ live R5 属切码后验证，不挡本刀合并；R1–R4 离线夹具全绿才�
 ## 7. 排刀
 
 本刀（P1-①）→ 合并切码 + R5 live → P1-③ 自定义窗口（小）→ P1-② PDF 品种金额（先探 detail API 与预算）→ P1-b 分列（与品质残差线对齐后）。
+
+## 8. Live R5 回写（2026-08-25 切后实测，已回滚）
+
+- 切 `db7c5581` 后冻结题 `run_20260825_200157_247884`：残差被**有据呈现器拒收**（`reason_code=grounded_required_fallback`，shadow `judge_unavailable`），管线交付确定性兜底 = spec 骨架——对披露题它比 P0 纯包**更差**（「结论/最强证据/主要风险」套话 + 8 条重复名单行）。8792 已回滚 `54a6f096`，回滚锚 `cutover-20260825m-rollback-8792.txt`。
+- **根因链**：answer_spec 证据 claim 被截 8 条（§1 只预警了合成输入、没预警 claim 集）→ 模型按契约解读全部 24 行名单，必然越出 claim/atom 集 → 有据校验失败。模型 raw_answer 质量其实可用（逐行「临床≠上市」解读、未核验行自标边界），存证 run 目录 `grounded_composer_shadow.json`。
+- **另一个实锤**：模型逐行复述了 20+ 个代码——名单行正则挡不住不带【档位】括号的复述，闸需要「点名个股 ≤8 家」判据。
+- **本刀补丁**（`fix/disclosure-residual-grounded-fallback`）：① `synthesis_diagnostic.state=="rejected"` 按丢弃处理回纯包 + degrade `disclosure_residual_dropped:grounded_rejected`；② 闸加复述判据（distinct 包内码 >8 → `roster_renarration` 整丢）；③ 契约加「归纳解读、点名 ≤8 家」。
+- **残差真正上场是下一刀（P1-①c）**：给披露包做全行 claims/atoms（不走通用 builder 的 `[:8]`），或在有据呈现器注册披露专用 presentation profile。在此之前 P1-① 在生产是**安全空转**：公开稿恒等于 P0 纯包，代价是此题型多一次模型调用（约 +35s）。嫌贵可把 bind 放行条件收回 False，一行即关。

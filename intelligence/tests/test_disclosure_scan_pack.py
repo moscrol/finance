@@ -541,6 +541,14 @@ def test_residual_gate_shapes(tmp_path: Path) -> None:
     assert long.dropped is False
     assert long.reason == "truncated"
     assert long.text.endswith(RESIDUAL_TRUNCATION_NOTICE)
+    renarration = gate_disclosure_residual(
+        "600276、002693、000756、300687、300504、600812、603296、000938、601089 "
+        "本轮均有披露，逐一说明如下。",
+        pack,
+    )
+    assert renarration.dropped is True
+    assert renarration.reason == "roster_renarration"
+    assert renarration.detail == "9"
 
 
 def test_prepare_residual_answer_carries_contract(tmp_path: Path) -> None:
@@ -577,6 +585,10 @@ def test_orchestrator_gates_residual_after_synthesis() -> None:
     gate_at = src.index("gate_disclosure_residual(")
     assert synth_at < gate_at
     assert "disclosure_residual_dropped:" in src
+    # 有据呈现器拒收（synthesis=确定性兜底骨架）必须按丢弃处理回纯包，
+    # 不得把 spec 骨架当残差交付——live run_20260825_200157_247884 实锤。
+    assert 'synthesis_diagnostic.state == "rejected"' in src
+    assert "grounded_rejected" in src
 
 
 def test_unsupported_without_sector_does_not_scan_all_a_shares(tmp_path: Path) -> None:
