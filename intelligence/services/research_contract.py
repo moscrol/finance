@@ -737,6 +737,9 @@ FORWARD_HYPOTHESIS_OUTPUT_IDS = frozenset(
         "scenario_paths",
         "continuation_conditions",
         "invalidation_conditions",
+        # Knevo 结论元素④的时点件：verify_by = 指标 × 时间窗。判断句要能回答
+        # 「什么时候、看什么数，就知道这句话对不对」，否则进不了回检闭环。
+        "verification_timepoints",
     }
 )
 
@@ -967,6 +970,11 @@ class ResearchRunContext:
     # never evidence.  Empty means neutral.  Trailing default keeps positional
     # construction in older integrations backwards compatible.
     perspective_context: str = ""
+    # 本轮已经交付过的交易日。窗口闸门认这个集合，不认题型。
+    # 可变 set：同一 context 对象在多次 execute 之间累加。
+    authorized_trade_dates: set[str] = field(default_factory=set)
+    # 个性化接合核。缺席 = 本题未触发 StancePack；只作锁格，不是证据。
+    stance_pack: object | None = None
 
 
 @dataclass(frozen=True)
@@ -1335,6 +1343,7 @@ OPERATOR_AGGREGATE_COUNT = "market.aggregate_count"
 OPERATOR_DETAIL_ROWS = "market.detail_rows"
 OPERATOR_CATALOG_PREFLIGHT = "catalog.preflight"
 OPERATOR_CONTRADICTION_AUDIT = "market.contradiction_audit"
+OPERATOR_SUBSTITUTE_OBSERVATION = "market.substitute_observation"
 
 QueryRecipeIntent = Literal["aggregate", "detail", "timeseries", "cross_table"]
 
@@ -1414,6 +1423,9 @@ _SLOT_BY_OPERATOR = {
     OPERATOR_CROSS_TABLE: FactSlot("cross_table_intersection", required=False),
     OPERATOR_CATALOG_PREFLIGHT: FactSlot("catalog_preflight", required=False),
     OPERATOR_CONTRADICTION_AUDIT: FactSlot("contradiction_audit", required=False),
+    OPERATOR_SUBSTITUTE_OBSERVATION: FactSlot(
+        "substitute_observation", required=False
+    ),
 }
 
 
@@ -1432,6 +1444,7 @@ def compile_research_program(
         SIGNAL_DOUBLE_RED,
         SIGNAL_FERMENTATION,
         SIGNAL_MARKET_WATCH,
+        SIGNAL_SUBSTITUTE_OBSERVATION,
         surface_research_signals,
     )
 
@@ -1466,6 +1479,13 @@ def compile_research_program(
         recipes.append(QueryRecipe(intent="cross_table", strict_date=True))
     if SIGNAL_CONTRADICTION in signals:
         operators.append(OPERATOR_CONTRADICTION_AUDIT)
+    if SIGNAL_SUBSTITUTE_OBSERVATION in signals:
+        operators.append(OPERATOR_SUBSTITUTE_OBSERVATION)
+        recipes.append(
+            QueryRecipe(
+                intent="detail", dataset="sector_stock_daily", strict_date=True
+            )
+        )
 
     operators = list(dict.fromkeys(operators))
     slots = tuple(

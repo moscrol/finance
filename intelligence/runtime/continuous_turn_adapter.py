@@ -494,6 +494,9 @@ class ContinuousTurnAdapter:
             )
             if perspective_context:
                 context_kwargs["perspective_context"] = perspective_context
+            stance_pack = getattr(control, "stance_pack", None)
+            if stance_pack is not None:
+                context_kwargs["stance_pack"] = stance_pack
             if self._synthesis_reserve_for_task is not None:
                 context_kwargs["synthesis_reserve"] = max(
                     0.0,
@@ -511,6 +514,15 @@ class ContinuousTurnAdapter:
             registry = cast(
                 ResearchToolRegistry,
                 self._registry_factory(frame, context),
+            )
+            from intelligence.services.forecast_residual_budget import (
+                maybe_promote_forecast_residual,
+            )
+
+            context = maybe_promote_forecast_residual(
+                context,
+                question_type=frame.question_type,
+                opening_prefetch=getattr(registry, "opening_prefetch", ()),
             )
             # 事前可满足性预检：这套授权工具的 produces 并集能否覆盖每项
             # required_output。**只观测，不参与任何决策**——`check_satisfiability`
@@ -1568,12 +1580,20 @@ def _episode_context_provenance(
 ) -> dict[str, object]:
     """Persist the single cutoff/freshness context beside private diagnostics."""
 
-    return {
+    payload: dict[str, object] = {
         "information_cutoff": context.information_cutoff.to_dict(),
         "today": context.today,
         "latest_data_date": context.latest_data_date,
         "trace_parent_id": context.trace_parent_id,
     }
+    pack = getattr(context, "stance_pack", None)
+    if pack is None:
+        return payload
+    to_receipt = getattr(pack, "to_receipt", None)
+    payload["stance_pack"] = (
+        to_receipt() if callable(to_receipt) else {"present": True}
+    )
+    return payload
 
 
 def _declined_result() -> ContinuousTurnResult:

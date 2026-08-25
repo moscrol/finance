@@ -544,6 +544,78 @@ def _history_analog_items(
     return items
 
 
+def _market_forecast_weekly_items(
+    as_of: date, as_of_iso: str, db_path: Path
+) -> list[PrefetchItem]:
+    """展望开口菜。自己连库、自己分类；锁和爆炸必须发卡，不得依赖外层 con。"""
+
+    try:
+        from intelligence.services.weekly_watch_pack import (
+            day_bag_details,
+            run_weekly_watch_pack,
+        )
+
+        weekly = run_weekly_watch_pack(
+            as_of_iso,
+            market_db_path=db_path,
+            window=5,
+        )
+        if weekly.access != "ok":
+            return [
+                PrefetchItem(
+                    tool="market_data",
+                    title=title,
+                    detail=detail,
+                    source_date=as_of_iso,
+                )
+                for title, detail in day_bag_details(weekly)
+            ]
+        if weekly.days:
+            return [
+                PrefetchItem(
+                    tool="market_data",
+                    title=title,
+                    detail=detail,
+                    source_date=as_of_iso if title == "先验周量能序列" else title[:10],
+                )
+                for title, detail in day_bag_details(weekly)
+            ]
+        con = _connect(db_path)
+        if con is None:
+            return [
+                PrefetchItem(
+                    tool="market_data",
+                    title="先验周盘面",
+                    detail="status=unavailable 盘面库打不开，不是该日无数据。",
+                    source_date=as_of_iso,
+                )
+            ]
+        try:
+            days = _prior_trade_dates(con, as_of, 3)
+            if not days:
+                return []
+            counts = dual_red_counts(con, days)
+            return [
+                PrefetchItem(
+                    tool="market_data",
+                    title="双红个数序列",
+                    detail=format_dual_red_counts(counts),
+                    source_date=as_of_iso,
+                )
+            ]
+        finally:
+            con.close()
+    except Exception as exc:
+        return [
+            PrefetchItem(
+                tool="market_data",
+                title="先验周盘面",
+                detail=f"status=unavailable {type(exc).__name__}: {exc}",
+                source_date=as_of_iso,
+            )
+        ]
+
+
 def collect_prefetch_items(
     *,
     question: str,
@@ -560,6 +632,26 @@ def collect_prefetch_items(
     items: list[PrefetchItem] = []
     as_of_iso = as_of.isoformat()
     items.extend(_history_analog_items(question, as_of, as_of_iso, db_path))
+    if question_type == "market_forecast":
+        from intelligence.services.forecast_residual_followup import (
+            WEEKLY_PACK_REUSE_DETAIL,
+            WEEKLY_PACK_REUSE_TITLE,
+            should_skip_weekly_pack,
+        )
+
+        if should_skip_weekly_pack(
+            question=question, question_type=question_type
+        ):
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title=WEEKLY_PACK_REUSE_TITLE,
+                    detail=WEEKLY_PACK_REUSE_DETAIL,
+                    source_date=as_of_iso,
+                )
+            )
+        else:
+            items.extend(_market_forecast_weekly_items(as_of, as_of_iso, db_path))
     con = _connect(db_path)
     if con is None:
         return tuple(items)
@@ -572,25 +664,16 @@ def collect_prefetch_items(
         compile_research_program,
     )
 
+    from intelligence.services.research_contract import (
+        OPERATOR_SUBSTITUTE_OBSERVATION,
+    )
+
     program = compile_research_program(question, question_class=question_type)
     has_double_red = OPERATOR_STRICT_DOUBLE_RED in program.operators
     try:
-        if question_type == "market_forecast":
-            try:
-                days = _prior_trade_dates(con, as_of, 3)
-                if days:
-                    counts = dual_red_counts(con, days)
-                    items.append(
-                        PrefetchItem(
-                            tool="market_data",
-                            title="双红个数序列",
-                            detail=format_dual_red_counts(counts),
-                            source_date=as_of_iso,
-                        )
-                    )
-            except Exception:
-                pass
         items.extend(_calendar_prefetch_items(question, as_of, db_path))
+        if OPERATOR_SUBSTITUTE_OBSERVATION in program.operators:
+            items.extend(_substitute_observation_items(con, as_of))
         ferment = SIGNAL_FERMENTATION in surface_research_signals(
             question, question_class=question_type
         )
@@ -645,6 +728,45 @@ def collect_prefetch_items(
         except Exception:
             pass
     return tuple(items)
+
+
+def _substitute_observation_items(
+    con: Any,
+    as_of: date,
+) -> tuple[PrefetchItem, ...]:
+    """题材+个股观察题：主线题材当日无严格双红匹配时，预取带标签替补池。
+
+    站立日 = 库内 ``max(trade_date) <= as_of``（隐式语义，不越过问句截止日）；
+    探针查询本身仍是该站立日精确命中（复用 market_watch_pack 探针，
+    无第二套口径）。任何异常回空——预取不得杀掉整个 episode 开口。
+    """
+
+    from intelligence.services.market_watch_pack import (
+        SUBSTITUTE_BLOCK_TITLE,
+        render_probe_lines,
+        substitute_observation_receipts,
+    )
+
+    try:
+        row = con.execute(
+            "select max(trade_date) from fact_market_daily"
+            " where trade_date <= cast(? as date)",
+            [as_of.isoformat()],
+        ).fetchone()
+        standing = str(row[0]) if row and row[0] else None
+        probes = substitute_observation_receipts(con, standing)
+        if not probes:
+            return ()
+        return (
+            PrefetchItem(
+                tool="market_data",
+                title=SUBSTITUTE_BLOCK_TITLE.lstrip("# "),
+                detail="\n".join(render_probe_lines(probes)),
+                source_date=standing,
+            ),
+        )
+    except Exception:
+        return ()
 
 
 def evidence_from_prefetch(items: tuple[PrefetchItem, ...]) -> tuple[AgentEvidence, ...]:

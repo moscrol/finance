@@ -28,6 +28,14 @@ from intelligence.services import context_growth
 from intelligence.services import evidence_registry
 from intelligence.services import task_fulfillment
 from intelligence.services import run_store as rs
+from intelligence.services.outlook_delivery_gate import (
+    apply_market_watch_delivery_gate,
+    apply_outlook_delivery_gate,
+    evidence_grid_text,
+)
+from intelligence.services.forecast_residual_followup import (
+    append_unverified_forecast_grids,
+)
 from intelligence.services.status_projection import (
     episode_status_from_turn,
     project_artifact_statuses,
@@ -88,7 +96,15 @@ from intelligence.services.query_understanding import (
     project_task_frame,
     understand_query,
 )
-from intelligence.services.evidence_capabilities import resolve_evidence_plan
+from intelligence.services.evidence_capabilities import (
+    resolve_evidence_plan,
+    runtime_capabilities_for_frame,
+)
+from intelligence.services.stance_pack import (
+    lint_public_answer,
+    run_stance_pack,
+    should_run_stance_pack,
+)
 from intelligence.services.research_policy import (
     ResearchExecutionBudget,
     ResearchExecutionPolicy,
@@ -1761,6 +1777,7 @@ class TurnOrchestrator:
         manual_selected = list(dict.fromkeys(selected_skill_ids))
         invoked: list[str] = []
         warnings: list[str] = []
+        stance_pack = None
         citations: list[dict[str, object]] = []
         text_chunks: list[str] = []
         skill_outputs: list[SkillOutput] = []
@@ -1981,6 +1998,19 @@ class TurnOrchestrator:
                 },
             )
             self._check_cancelled()
+            stance_pack = None
+            if should_run_stance_pack(
+                lane=decision.lane,
+                question_type=task_frame.question_type or decision.question_type,
+                query=query,
+            ):
+                stance_pack = run_stance_pack(
+                    query,
+                    user=self.run_store.user_id,
+                    subject=task_frame.subject,
+                    market_db_path=self._market_db_path(),
+                    capabilities=runtime_capabilities_for_frame(task_frame),
+                )
             canned = deterministic_lane_answer(query, decision)
             if canned is None and self.continuous_turn_adapter is not None:
                 continuous_control = project_turn_decision(
@@ -2000,6 +2030,10 @@ class TurnOrchestrator:
                         query=query,
                     ),
                 )
+                if stance_pack is not None:
+                    continuous_control = replace(
+                        continuous_control, stance_pack=stance_pack
+                    )
                 continuous_result = self.continuous_turn_adapter.handle(
                     frame=task_frame,
                     control=continuous_control,
@@ -2019,6 +2053,7 @@ class TurnOrchestrator:
                         research_plan=research_plan,
                         perspective_mode=perspective_mode,
                         selected_perspective_ids=selected_perspective_ids,
+                        stance_pack=stance_pack,
                     )
             if (
                 decision.lane in {"chat", "meta", "clarify"}
@@ -2721,6 +2756,7 @@ class TurnOrchestrator:
                 synthesize=False,
                 compose_revise_on_warn=True,
                 market_db_path=self._market_db_path(),
+                stance_pack=stance_pack,
                 conversation_context=context.to_prompt_block(),
                 wiki_rag_cache_scope=(
                     f"{self.run_store.user_id}:{conversation_id or run_id}"
@@ -2937,6 +2973,11 @@ class TurnOrchestrator:
                     modules=daily_review_output.modules,
                     warnings=daily_review_output.warnings,
                 )
+            draft_text = apply_market_watch_delivery_gate(
+                draft_text,
+                question_type=turn_intent.question_type,
+                grid_text=pack.render() if pack is not None else "",
+            ).text
             draft_text = merge_into_public_answer(draft_text, pack)
             perspective_header = (
                 perspective_lab.runtime_answer_header(
@@ -3036,6 +3077,28 @@ class TurnOrchestrator:
                     modules=daily_review_output.modules,
                     warnings=daily_review_output.warnings,
                 )
+            watch_gate = apply_market_watch_delivery_gate(
+                answer_text,
+                question_type=turn_intent.question_type,
+                grid_text=pack.render() if pack is not None else "",
+            )
+            if watch_gate.applied:
+                # 活性事件：零删也留痕，让「闸跑了没删」与「闸没跑」在
+                # telemetry 里可区分（R-20260825-08）。degrade 通道仍只在
+                # 真删句时占用。
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "deliver",
+                    "market_watch_delivery_gate",
+                    {"applied": True, "dropped": watch_gate.dropped},
+                )
+            if watch_gate.applied and watch_gate.dropped:
+                watch_warning = "market_watch_delivery_gate"
+                warnings.append(watch_warning)
+                self.run_store.add_degrade(run_id, watch_warning)
+            answer_text = watch_gate.text
             answer_text = merge_into_public_answer(answer_text, pack)
             fallback_notice = (
                 perspective_lab.runtime_fallback_notice(perspective_mode)
@@ -3710,6 +3773,7 @@ class TurnOrchestrator:
         research_plan: ResearchPlan,
         perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL,
         selected_perspective_ids: Sequence[str] = (),
+        stance_pack: object | None = None,
     ) -> TurnResult:
         """Persist one Episode-owned terminal result without legacy synthesis."""
 
@@ -3774,6 +3838,16 @@ class TurnOrchestrator:
             )
 
         answer_text = redact(result.answer).strip()
+        if stance_pack is not None and answer_text:
+            answer_text, lint_flags = lint_public_answer(
+                answer_text,
+                stance_pack,  # type: ignore[arg-type]
+                query=query,
+            )
+            if "prior_promoted_to_fact" in lint_flags:
+                warning = "stance_lint:prior_promoted_to_fact"
+                warnings.append(warning)
+                self.run_store.add_degrade(run_id, warning)
         projected = project_artifact_statuses(episode_status_from_turn(result))
         if projected.run == rs.STATUS_FAILED or not answer_text:
             failure_text = answer_text or "本轮连续研究未取得可公开答案。"
@@ -3903,6 +3977,42 @@ class TurnOrchestrator:
             answer_text,
             _continuous_review_notes(result),
         )
+        gated = apply_outlook_delivery_gate(
+            answer_text,
+            question_type=task_frame.question_type,
+            evidence=citations,
+        )
+        answer_text = gated.text
+        if gated.applied and gated.dropped:
+            warning = "outlook_delivery_gate"
+            warnings.append(warning)
+            self.run_store.add_degrade(run_id, warning)
+        # 回退防线：market_watch 正常被 Engine A 拒收，走不到这里；若有人把它
+        # 移出拒收名单（spec §6.4 的回归形状），未注册阈值仍不得上桌。
+        episode_watch_gate = apply_market_watch_delivery_gate(
+            answer_text,
+            question_type=task_frame.question_type,
+            grid_text=evidence_grid_text(citations),
+        )
+        answer_text = episode_watch_gate.text
+        if episode_watch_gate.applied:
+            self._trace(
+                run_id,
+                assistant_message_id,
+                conversation_id,
+                "deliver",
+                "market_watch_delivery_gate",
+                {"applied": True, "dropped": episode_watch_gate.dropped},
+            )
+        if episode_watch_gate.applied and episode_watch_gate.dropped:
+            watch_warning = "market_watch_delivery_gate"
+            warnings.append(watch_warning)
+            self.run_store.add_degrade(run_id, watch_warning)
+        answer_text = append_unverified_forecast_grids(
+            answer_text,
+            question_type=task_frame.question_type,
+            open_gaps=result.open_gaps,
+        )
         # 上下文增长只在私有 artifact 的事件流里有据可查，而那份 artifact 不进
         # 用户可见面。token 计数本身不是敏感信息（不含问题、证据或提示词），
         # 所以读未脱敏的那份，避免 redact 把整数换成占位符。
@@ -3942,6 +4052,11 @@ class TurnOrchestrator:
                 open_gaps=result.open_gaps,
                 status=result.status,
                 subject_kind=str(task_frame.subject_kind or ""),
+                same_bind=stance_pack is not None,
+                standing_date=str(
+                    getattr(stance_pack, "standing_date", "") or ""
+                ),
+                question_type=str(task_frame.question_type or ""),
             )
             gap_followups = followups_svc.active_composer().compose(
                 followup_state,

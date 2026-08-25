@@ -18,7 +18,10 @@ from intelligence.services.episode_output_substance import (
     required_output_evidence_floor,
     required_outputs_without_substance,
 )
-from intelligence.services.research_contract import ResearchRunContext
+from intelligence.services.research_contract import (
+    FORWARD_HYPOTHESIS_OUTPUT_IDS,
+    ResearchRunContext,
+)
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.degraded_fallback import (
@@ -168,8 +171,62 @@ def _question_type_rules(
         )
         else ""
     )
+    # 可选前瞻槽专用规则（R-20260824-20）：装配层给前瞻信号题挂上三槽时注入。
+    #
+    # 这条规则要做的事**只有一件**：告诉模型这三格欢迎具体的可核验阈值，别写
+    # 「以盘面为准」自保；同时说明它们可选，别为了填格硬凑情景。这正是本单的
+    # 行为目标——挂槽只是给阈值一个合法落点，愿不愿意写出来得靠这句话。
+    #
+    # ⚠ **本规则最初的那套「必须加否则整份被拒」的理由是错的，2026-08-24 已撤。**
+    # 当时写的是「grounding_mode 到不了模型 → 模型只能猜 basis → basis_mismatch
+    # 拒整份」。实测三条都不成立：
+    #
+    # 1. 生产逐回合载荷是 `build_episode_input`（`codex_headless_runtime` 与
+    #    `openai_agents_runtime` 都调它），它发 `research_contract.to_dict()`，
+    #    而 `RequiredOutput` 是 dataclass、走 `asdict`——**`grounding_mode` 在里面**。
+    #    实测一次 general_finance_qa 载荷里出现 8 处。
+    # 2. 当时指认的缺字段渲染点在 `generic_research_owner.py`，那是 **ownerless
+    #    长尾**那条路，不是 episode 主循环；且该文件里 "basis" 出现 **0 次**、不走
+    #    `validate_episode_finish`——**它没有 basis 闸，少这个字段不是缺陷**。
+    # 3. 2026-08-18 frozen-thirty live 里的
+    #    `grounding basis mismatch for direct_answer: expected evidence, got
+    #    model_reasoning`，是模型**看得见字段却没照做**的普通 FORMAT 滑档，
+    #    经回灌自愈，不是信息投递缺口。
+    #
+    # 教训（比结论值钱）：查「字段有没有送到模型」要从**实际发出去的载荷**反查，
+    # 不能盯着某一处 render 的字段列表推断。多入口系统里，你盯的那个 render 很
+    # 可能压根不在被测那条路上。当时只要把 `build_episode_input` 的输出打印一次
+    # 就能立刻证伪——一条 print 抵三轮推理。
+    #
+    # 因此：本规则与挂槽**可以分开**，删了它只是模型少一句鼓励、更可能写回
+    # 「阈值以盘面为准」，**不会**导致 FINAL_JSON 被拒。钉 11 仍钉这条规则在场，
+    # 但它钉的是行为引导，不是防拒收。
+    #
+    # 判据只认「可选 + model_reasoning + 前瞻槽 id」这个组合——它唯一对应装配层
+    # 本次挂上的槽。
+    # 之所以仍先加规则：结构修法会动到所有任务的提示词，需独立立案 + 独立 live。
+    forward_slot_rule = (
+        "本任务包含可选前瞻槽（scenario_paths / continuation_conditions / "
+        "invalidation_conditions / verification_timepoints，"
+        "grounding_mode=model_reasoning）：这几格是"
+        "你受契约委托作出的**向前的条件化判断**，情景路径与持续/证伪阈值本就"
+        "不可能出现在既有证据里，可以给出具体的可核验阈值，不要写「以盘面为准」"
+        "这类回避表述。verification_timepoints 写「验证时点=可观察指标×时间窗」"
+        "（如「9 月中报看订单兑现」），让判断能被回检。"
+        "绑定时 basis 用 model_reasoning、evidence_hashes 留空。"
+        "这几格是可选的：没有值得写的条件化判断就不绑，不绑不算失败，不要为了"
+        "填格硬凑情景。"
+        if any(
+            not o.required
+            and o.grounding_mode == "model_reasoning"
+            and o.output_id in FORWARD_HYPOTHESIS_OUTPUT_IDS
+            for o in context.contract.required_outputs
+        )
+        else ""
+    )
     return (
         f"{prior_recall_rule}\n"
+        f"{forward_slot_rule}\n"
         f"{valuation_rule}\n"
         f"{track_rule}\n"
         f"{longtail_rule}"
@@ -312,6 +369,14 @@ def build_episode_input(
         payload["perspective_context_rule"] = (
             "视角内容属于观点层，只用于组织分析框架与表达侧重；"
             "不得当作事实证据，不得越过 research_contract 的证据边界"
+        )
+    pack = getattr(context, "stance_pack", None)
+    if pack is not None:
+        renderer = getattr(pack, "to_prompt_block", None)
+        payload["stance_pack"] = renderer() if callable(renderer) else str(pack)
+        payload["stance_pack_rule"] = (
+            "先验袋不是市场事实；现价只许来自 quote_bag；空袋必须写缺口；"
+            "袋外价格不得出现；动作只写条件"
         )
     return json.dumps(payload, ensure_ascii=False)
 

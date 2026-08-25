@@ -95,6 +95,9 @@ class L3ApplyResult:
     updated_entities: list[str] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    landing: str = "wiki_page"
+    relations_updated: bool = False
+    next_gate: str = "disclosure-archive reviewed apply"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -316,8 +319,10 @@ def render_l3_apply_report(result: L3ApplyResult) -> str:
         [
             "",
             "## 边界",
+            f"- landing={result.landing} | relations_updated={str(result.relations_updated).lower()}",
+            f"- next_gate：{result.next_gate}",
             "- 本命令只把候选沉淀为 wiki source/entity L3 证据资产；暂不改 relations/evidence_index。",
-            "- 若要影响 Theme Radar 排序，应后续走 disclosure-archive 的 reviewed apply 或新增更严格的 relations 写入闸。",
+            "- 结构化读侧可扫这些 source note（landing=wiki_page）；要进图谱排序必须走 next_gate。",
         ]
     )
     return "\n".join(lines) + "\n"
@@ -546,6 +551,70 @@ def _append_source_inline(line: str, source_link: str) -> str:
         appended = f'{inner}, "{source_link}"' if inner else f'"{source_link}"'
         return f"{prefix}[{appended}]{suffix}"
     return f'sources: ["{source_link}"]'
+
+
+@dataclass(frozen=True)
+class AppliedL3Note:
+    company: str
+    path: str
+    note_date: str
+    titles: tuple[str, ...]
+    landing: str = "wiki_page"
+
+
+def iter_applied_l3_notes(
+    kb_wiki: str | Path,
+    companies: list[str] | tuple[str, ...],
+    *,
+    limit_per_company: int = 2,
+) -> list[AppliedL3Note]:
+    """读 ``l3-ingest apply`` 写下的 source note。不读 evidence_index。"""
+    sources = Path(kb_wiki).expanduser() / "sources"
+    if not sources.is_dir():
+        return []
+    notes: list[AppliedL3Note] = []
+    for company in dict.fromkeys(str(name).strip() for name in companies if str(name).strip()):
+        matches = sorted(sources.glob(f"{_safe_filename(company)}_L3官方证据_*.md"), reverse=True)
+        for path in matches[: max(1, limit_per_company)]:
+            notes.append(_parse_applied_l3_note(path, company))
+    return notes
+
+
+def format_applied_l3_lines(notes: list[AppliedL3Note]) -> list[str]:
+    lines: list[str] = []
+    for note in notes:
+        titles = "；".join(note.titles[:3]) or "（无候选标题）"
+        locator = Path(note.path).name
+        lines.append(
+            f"[R-wiki] {note.company} L3页 {note.note_date} "
+            f"landing={note.landing} relations=false "
+            f"next=disclosure-archive reviewed apply | {locator} | {titles}"
+        )
+    return lines
+
+
+def _parse_applied_l3_note(path: Path, company: str) -> AppliedL3Note:
+    text = path.read_text(encoding="utf-8")
+    date_match = re.search(r"(\d{8})", path.stem)
+    note_date = date_match.group(1) if date_match else ""
+    if len(note_date) == 8:
+        note_date = f"{note_date[:4]}-{note_date[4:6]}-{note_date[6:]}"
+    titles: list[str] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line.startswith("|") or line.startswith("|---") or line.startswith("| 序号"):
+            continue
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        if len(cells) >= 5 and (cells[0].isdigit() or re.fullmatch(r"C\d+", cells[0])):
+            title = cells[4]
+            if title and title != "-":
+                titles.append(title)
+    return AppliedL3Note(
+        company=company,
+        path=str(path),
+        note_date=note_date,
+        titles=tuple(titles),
+    )
 
 
 def _safe_filename(name: str) -> str:

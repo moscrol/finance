@@ -762,14 +762,7 @@ class SemanticEpisodeVerifier:
         texts = self._semantic_reject_texts
         if not texts:
             return outcome
-        public = _annotate_semantic_rejects(outcome.public_answer, texts)
-        labels = _semantic_degrade_labels(outcome.verified)
-        if (
-            SEMANTIC_QUALITY_DOUBT_MARK in public
-            and REQUIRED_OUTPUT_DEGRADED_MARK not in public
-            and labels
-        ):
-            public = _with_required_output_degrade_mark(public, labels)
+        # 拒句与降级进 issues / judge_status，不进公开稿。质检条不上桌。
         issues = tuple(
             dict.fromkeys((*outcome.issues, *self._semantic_reject_issues))
         )
@@ -779,7 +772,10 @@ class SemanticEpisodeVerifier:
         return replace(
             outcome,
             public_answer=view(
-                TerminalFacts(cause=CAUSE_VERIFIED, public=public)
+                TerminalFacts(
+                    cause=CAUSE_VERIFIED,
+                    public=outcome.public_answer,
+                )
             ),
             issues=issues,
             judge_status=judge_status,
@@ -2743,9 +2739,7 @@ REQUIRED_OUTPUT_DEGRADED_MARK = "【质检降级】"
 
 
 def _required_output_degraded_note(labels: tuple[str, ...]) -> str:
-    # labels 只作「要不要挂标」的开关，不进公开稿。描述是给模型的合同说明，
-    # 拼进去会把「六位代码 / 互斥因果假说」端上桌；P0-A 已拆掉公开附录，
-    # 「详见输出质检」也变成指向不存在的段落。
+    # 控制面用。公开稿不得拼接这一行。
     if not labels:
         return ""
     return (
@@ -2758,12 +2752,8 @@ def _with_required_output_degrade_mark(
     public: str,
     labels: tuple[str, ...],
 ) -> str:
-    text = str(public or "").strip()
-    if not text or not labels:
-        return str(public or "")
-    if REQUIRED_OUTPUT_DEGRADED_MARK in text:
-        return str(public or "")
-    return f"{_required_output_degraded_note(labels)}\n{text}"
+    del labels
+    return str(public or "")
 
 
 def _shrink_verified_for_marker_loss(
@@ -3134,20 +3124,10 @@ def _annotate_semantic_rejects(
     public: str,
     semantic_texts: tuple[str, ...],
 ) -> str:
-    """Insert harness doubt marks. Copy is ours; the judge never writes it."""
+    """存疑句不再盖章。标记只允许出现在 issues / 控制面。"""
 
-    marked = str(public or "")
-    if not marked or not semantic_texts:
-        return marked
-    for sentence in semantic_texts:
-        snippet = str(sentence or "").strip()
-        if not snippet or snippet not in marked:
-            continue
-        already = f"{SEMANTIC_QUALITY_DOUBT_MARK}{snippet}"
-        if already in marked:
-            continue
-        marked = marked.replace(snippet, already, 1)
-    return marked
+    del semantic_texts
+    return str(public or "")
 
 
 def _semantic_degrade_labels(verified: VerifiedEpisodeOutcome) -> tuple[str, ...]:
@@ -3269,6 +3249,11 @@ def _novel_numeric_condition_indexes(
 
     contract = verified.contract
     if contract is not None and contract.required_outputs:
+        # 整体豁免问的是「这份契约是不是压根不靠证据」，所以**保留** required
+        # 过滤：prior_recall / prime_* 这类可选 advisory 槽签的不是 evidence，
+        # 但它们不该把一份必需槽全 evidence 的契约说成 evidence-free。下面那块
+        # 条件槽豁免问的是另一个问题，故不带这个过滤——两块不对称是有意的，
+        # 别为了「统一风格」把这里也放宽。
         if all(
             item.grounding_mode != "evidence"
             for item in contract.required_outputs
@@ -3280,10 +3265,16 @@ def _novel_numeric_condition_indexes(
         # 不再按「证据里没有的数量」连坐整句。此前门禁只认「全契约非
         # evidence」的整体豁免，混合契约（如 market_forecast 带 evidence 的
         # 边界槽）下证伪阈值必死。事实句仍由语义判官逐句审。
+        #
+        # 这里**不看 required**：required 回答「缺了算不算失败」，grounding_mode
+        # 回答「谁授权这个阈值」，是两根正交的轴，豁免只该看后者。装配层给前瞻
+        # 信号题挂的可选前瞻槽（required=False + model_reasoning）因此同享豁免
+        # ——否则契约明示「你可以在这格提阈值」、运行时照删，等于授权没传到执行
+        # 者手上（R-20260824-20）。混合签约仍由下面的 all() 一票否决向证据侧。
         condition_items = tuple(
             item
             for item in contract.required_outputs
-            if item.required and item.output_id in FORWARD_HYPOTHESIS_OUTPUT_IDS
+            if item.output_id in FORWARD_HYPOTHESIS_OUTPUT_IDS
         )
         if condition_items and all(
             item.grounding_mode != "evidence" for item in condition_items

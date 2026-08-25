@@ -878,3 +878,57 @@ def test_board_mention_without_forecast_and_names_does_not_invent_subject() -> N
     envelope = understand_query("复盘今天的科技板块")
 
     assert envelope.subject != "科技"
+
+
+FORWARD_OPINION_JOINT_QUERY = (
+    "站在spt视角下，科技和医药板块接下来的走势怎么看，需要观察哪些个股的反馈"
+)
+
+
+def test_forward_opinion_joint_board_fills_subject() -> None:
+    """R-20260825-07 §7#1：「怎么看」词形的联合板块题不得落 0.4 兜底。
+
+    同句换「会怎么样」已能抽到主语（scenario_tree 门），词形不该是分水岭。
+    """
+
+    envelope = understand_query(FORWARD_OPINION_JOINT_QUERY)
+    compact = (envelope.subject or "").replace(" ", "")
+
+    assert "科技" in compact
+    assert "医药" in compact
+    assert envelope.subject_kind == "theme"
+    # P0 只填主语不动题型；升 theme_analysis 另立（spec §1.2）。
+    assert envelope.question_type == "general_finance_qa"
+
+
+def test_forward_opinion_single_board_fills_subject() -> None:
+    """R-20260825-07 §7#2/#3：单题材 × 前瞻观点词形，主语必须落格。"""
+
+    assert understand_query("医药板块接下来的走势怎么看").subject == "医药"
+    assert understand_query("科技板块后续怎么走").subject == "科技"
+    assert understand_query("接下来医药板块怎么看").subject == "医药"
+    assert understand_query("下游化工板块接下来怎么看").subject == "下游化工"
+
+
+def test_forward_opinion_does_not_steal_cue_or_market_level() -> None:
+    """R-20260825-07 §7#4/#5/#6：cue 路与市场级判定原样。"""
+
+    ysjs = understand_query(YSJS_XIA_QUERY)
+    assert ysjs.question_type == "theme_analysis"
+    assert ysjs.subject == "有色金属"
+
+    assert understand_query("接下来大盘怎么走").subject_kind != "theme"
+    assert understand_query("今天市场怎么样").subject_kind != "theme"
+    # 变异锁（spec §7）：本句真命中 _MARKET_FORECAST_RE（展望…后市）。
+    # 新路若被挪到 forecast 判定之前，「科技板块」会把主语抢走——必红。
+    mixed = understand_query("展望后市，科技板块接下来的走势怎么看")
+    assert mixed.question_type == "market_forecast"
+    assert mixed.subject_kind != "theme"
+
+
+def test_forward_opinion_requires_board_suffix() -> None:
+    """R-20260825-07 §7#7：无「板块/题材」后缀不得发明主语。"""
+
+    envelope = understand_query("下游产业链接下来怎么看")
+
+    assert envelope.subject is None

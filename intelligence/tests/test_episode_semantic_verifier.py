@@ -768,7 +768,7 @@ def test_unsupported_causality_is_removed_before_public_completion() -> None:
     assert result.status == "completed"
     assert result.judge_status == "repaired"
     assert "政策变化导致了下跌" in result.public_answer
-    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
 
 
 def test_semantic_repair_cannot_remove_a_visible_required_output_marker() -> None:
@@ -835,7 +835,7 @@ def test_semantic_repair_cannot_remove_a_visible_required_output_marker() -> Non
     assert result.judge_status == "repaired"
     assert "【当前判断】市场处于反弹修复" in result.public_answer
     assert "99999亿元" not in result.public_answer
-    assert REQUIRED_OUTPUT_DEGRADED_MARK in result.public_answer
+    assert REQUIRED_OUTPUT_DEGRADED_MARK not in result.public_answer
     assert "结构缺口" not in result.public_answer
     assert "现有证据不足" not in result.public_answer
     assert "需补充直接证据" not in result.public_answer
@@ -1009,7 +1009,7 @@ def test_valuation_repair_cannot_leave_an_empty_scenario_table_completed() -> No
     assert "| 保守" in result.public_answer
     assert "| 中性" in result.public_answer
     assert "| 乐观" in result.public_answer
-    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
 
 
 def test_shared_hash_semantics_are_rejected_only_by_semantic_judge() -> None:
@@ -1066,7 +1066,7 @@ def test_shared_hash_semantics_are_rejected_only_by_semantic_judge() -> None:
     assert result.status == "completed"
     assert result.judge_status == "repaired"
     assert "现有证据已完整覆盖判断边界" in result.public_answer
-    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
 
 
 @pytest.mark.parametrize(
@@ -1090,7 +1090,7 @@ def test_semantic_rejection_downgrades_subject_time_and_number_claims(
     assert result.status == "completed"
     assert result.judge_status == "repaired"
     assert draft in result.public_answer
-    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
 
 
 def test_rejected_sentence_redaction_preserves_truth_state_and_rejudges() -> None:
@@ -1159,7 +1159,7 @@ def test_judge_issue_sentence_numbers_cannot_escape_targeted_redaction() -> None
     assert "市场广度已经改善" in result.public_answer
     assert "CPO状态缺少绑定证据" in result.public_answer
     assert "创新药涨幅缺少绑定证据" in result.public_answer
-    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
 
 
 def test_long_draft_redacts_rejected_sentences_without_model_rewrite() -> None:
@@ -1192,7 +1192,7 @@ def test_long_draft_redacts_rejected_sentences_without_model_rewrite() -> None:
     assert result.judge_status == "repaired"
     assert rejected_sentence in result.verified.outcome.draft
     assert rejected_sentence in result.public_answer
-    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
 
 
 def test_local_gate_redacts_novel_numeric_conditions_missed_by_model_judge() -> None:
@@ -1286,7 +1286,7 @@ def test_meta_disclosure_with_value_claim_is_not_exempted() -> None:
     )
 
     assert "涨停" in result.public_answer
-    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
     assert result.judge_status == "repaired"
 
 
@@ -1895,7 +1895,7 @@ def test_rejected_sentence_redaction_preserves_markdown_layout() -> None:
     assert result.judge_status == "repaired"
     assert result.verified.outcome.draft == expected
     assert "政策变化导致了下跌" in result.public_answer
-    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
 
 
 def test_second_targeted_repair_handles_claim_missed_by_first_scan() -> None:
@@ -2208,8 +2208,8 @@ def test_outlook_repair_that_leaves_only_boundary_is_partial_with_gap() -> None:
 
     assert result.judge_status == "repaired"
     assert "基准判断" in result.public_answer
-    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
-    assert REQUIRED_OUTPUT_DEGRADED_MARK in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
+    assert REQUIRED_OUTPUT_DEGRADED_MARK not in result.public_answer
     assert "结构缺口" not in result.public_answer
     assert "现有证据不足" not in result.public_answer
     assert "需补充直接证据" not in result.public_answer
@@ -2500,7 +2500,7 @@ def test_valuation_marker_loss_gap_keeps_task_context() -> None:
     )
 
     assert result.status == "partial"
-    assert REQUIRED_OUTPUT_DEGRADED_MARK in result.public_answer
+    assert REQUIRED_OUTPUT_DEGRADED_MARK not in result.public_answer
     assert "瑞华泰当前PB约4.33" in result.public_answer
     assert "证据缺口：" not in result.public_answer
     assert "现有证据不足" not in result.public_answer
@@ -3865,7 +3865,7 @@ def test_redaction_that_empties_draft_fails_closed() -> None:
     assert result.status == "completed"
     assert result.judge_status == "repaired"
     assert "政策变化导致了下跌" in result.public_answer
-    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
     assert "semantic repair unavailable" not in result.issues
 
 

@@ -440,6 +440,19 @@ def copy_tool_parameters(parameters: Mapping[str, object]) -> dict[str, object]:
     return copied
 
 
+def _remember_authorized_trade_dates(
+    context: ResearchRunContext,
+    evidence: list[agent_research.AgentEvidence],
+) -> None:
+    """把本轮已交付证据的交易日记到 context，供后续窗口闸门认。"""
+
+    dates = context.authorized_trade_dates
+    for item in evidence:
+        parsed = closed_loop_retrieval.parse_source_date(getattr(item, "source_date", None))
+        if parsed is not None:
+            dates.add(parsed.isoformat())
+
+
 @dataclass(frozen=True)
 class ToolObservation:
     tool: str
@@ -873,6 +886,7 @@ class ResearchToolRegistry:
             if spec.name == "kb_search":
                 # 按 cutoff/规范化之后的实际送达计，不写死 800；V3 改管道读数跟上。
                 telemetry = agent_research.kb_delivery_telemetry(evidence, observation)
+            _remember_authorized_trade_dates(context, evidence)
             if scope is not None:
                 emitted = {
                     "tool": spec.name,

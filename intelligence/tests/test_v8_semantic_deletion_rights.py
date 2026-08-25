@@ -66,7 +66,7 @@ def test_semantic_quality_reject_keeps_required_sentence_and_marks(
     result = _verify(frame, structural, judge)
 
     assert "据此判断延续观察" in result.public_answer
-    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
     assert "质量不够" in " ".join(result.issues)
     appendix = _with_review_appendix(result.public_answer, result.issues)
     assert "## 输出质检" in appendix
@@ -166,7 +166,7 @@ def test_replay_semantic_quality_reject_keeps_sentence_with_mark() -> None:
     snippet = str(payload["keep_snippet"])
     assert payload["after"]["keep_snippet_present"] is True
     assert snippet in result.public_answer
-    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
     assert payload["before"]["keep_snippet_present"] is False
 
 

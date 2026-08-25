@@ -417,10 +417,13 @@ def bind_market_watch_pack(
     from intelligence.services.market_watch_pack import run_market_watch_pack
 
     disclosure = calendar_disclosure(frame) if frame is not None else None
+    # 替补观察探针仅在盘面题单点开启；weekly 五日包与一般题路径保持默认关
+    # （spec 2026-08-25-substitute-observation-probe P1 另议）。
     pack = run_market_watch_pack(
         query or options.query,
         market_db_path=options.market_db_path,
         calendar_disclosure=disclosure,
+        substitute_probes=True,
     )
     inject = pack.should_stop or not pack.market_daily_empty
     rendered = pack.render() if inject else ""
@@ -438,6 +441,30 @@ def bind_market_watch_pack(
         synthesize=False if pack.should_stop else options.synthesize,
         supplemental_evidence=supplemental,
         market_watch_pack=pack,
+    )
+
+
+def v_block_for_ask(
+    options: AskOptions,
+    theme: str | None = None,
+    entity: str | None = None,
+) -> str:
+    """[V] 投影：有 StancePack 只渲染袋，禁止再查台账。"""
+
+    pack = getattr(options, "stance_pack", None)
+    if pack is not None:
+        from intelligence.services.stance_pack import render_prior_bag
+
+        return render_prior_bag(
+            pack.prior_bag,
+            data_asof=_market_data_asof(options.market_db_path),
+        )
+    return checkpoint_recall.recall_block_for_query(
+        options.query,
+        theme,
+        entity,
+        user=options.user,
+        data_asof=_market_data_asof(options.market_db_path),
     )
 
 
@@ -903,11 +930,7 @@ def _answer_market_review(
                 f"{card_guidance}"
             )
     if evidence_registry.provider_enabled(options, "V"):
-        recall_block = checkpoint_recall.recall_block_for_query(
-            options.query,
-            user=options.user,
-            data_asof=_market_data_asof(options.market_db_path),
-        )
+        recall_block = v_block_for_ask(options)
         if recall_block:
             prior_parts.append(recall_block)
             result.citations.append(
@@ -4268,11 +4291,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         )
 
         def _build_v():
-            block = checkpoint_recall.recall_block_for_query(
-                options.query, theme, anchored_name,
-                user=options.user,
-                data_asof=_market_data_asof(options.market_db_path),
-            )
+            block = v_block_for_ask(options, theme, anchored_name)
             return block, Citation(
                 "V",
                 "回检块（历史可证伪判断×裁决）",

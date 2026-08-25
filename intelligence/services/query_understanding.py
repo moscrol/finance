@@ -34,6 +34,7 @@ MatchedBy = Literal[
     "definition",
     "market_anchor",
     "generic",
+    "suffix_window",
 ]
 ResearchMode = Literal[
     "deep_dive",
@@ -290,6 +291,10 @@ _MARKET_FORECAST_RE = re.compile(
     # 第一个分支匹配不到。
     r"|(?:给出|做|说说|谈谈)[^。？！]{0,14}(?:研判|展望|预判)"
 )
+# 无序合取：句尾「本周行情的展望」/「写一下本周展望」认不出有序支。
+# 不并进 _MARKET_FORECAST_RE，避免把「怎么看」类题材题一并放宽。
+_FORECAST_VERB_RE = re.compile(r"(?:展望|研判|预测|预判)")
+_FORECAST_MARKET_SUBJECT_RE = re.compile(r"(?:后市|市场|行情|大盘|本周)")
 _EVENT_FORECAST_RE = re.compile(
     r"(?:如果|若|假设)[^。？！]{0,48}"
     r"(?:会不会|能否|是否|可能|受益|影响|推动|证伪|落地)"
@@ -396,6 +401,12 @@ _JOINT_LEFT_PREFIXES = (
     "次日",
 )
 _JOINT_BOARD_SUFFIX_RE = re.compile(r"(?:板块|题材)")
+# 前瞻观点词形（R-20260825-07）：接下来/后续/往后 × 怎么看/怎么走/走势。
+# 只做词面在场判定；误放的代价由「板块|题材」后缀窗口与黑名单再过滤（先窄）。
+_FORWARD_OPINION_CUE_RE = re.compile(r"(?:接下来|后续|往后)")
+_FORWARD_OPINION_ASK_RE = re.compile(r"(?:怎么看|怎么走|走势)")
+_SINGLE_BOARD_WINDOW_RE = re.compile(r"[\u4e00-\u9fff]{2,6}$")
+_SINGLE_BOARD_PREFIXES = ("接下来", "后续", "往后", "的", "关注", "看好")
 _MARKET_CHANGE_RE = re.compile(r"(边际变化|最近变化|近期变化|预期差变化)")
 
 # 认识论分流：这些问题要回答的是系统/方法本身，而不是某个金融标的的
@@ -699,11 +710,17 @@ SIGNAL_AGGREGATE = "aggregate"
 SIGNAL_DETAIL = "detail"
 SIGNAL_CROSS_TABLE = "cross_table"
 SIGNAL_CONTRADICTION = "contradiction"
+SIGNAL_SUBSTITUTE_OBSERVATION = "substitute_observation"
 
 _PROGRAM_AGGREGATE_RE = re.compile(r"(多少|几个|几家|家数|数量|有多少)")
 _PROGRAM_DETAIL_RE = re.compile(r"(列出|名单|明细|哪些)")
 _PROGRAM_CROSS_RE = re.compile(r"(交集|同时属于|既是.+又|既在.+又)")
 _PROGRAM_CONTRADICTION_RE = re.compile(r"(矛盾|冲突|不一致)")
+# 替补观察三词族：题材面 + 个股面 + 观察意图，三者齐才触发（勿放宽——
+# 触发后的替补池以「主线题材无双红匹配」为准，单股深挖题进来只会是噪音）。
+_SUBSTITUTE_THEME_RE = re.compile(r"(板块|题材|主线|行业)")
+_SUBSTITUTE_STOCK_RE = re.compile(r"(个股|标的)")
+_SUBSTITUTE_OBS_RE = re.compile(r"(观察|反馈|机会|对标|关注)")
 
 
 def surface_research_signals(
@@ -738,6 +755,15 @@ def surface_research_signals(
         signals.add(SIGNAL_CROSS_TABLE)
     if _PROGRAM_CONTRADICTION_RE.search(text):
         signals.add(SIGNAL_CONTRADICTION)
+    # 盘面题不发替补信号：market_watch 路径的替补池由四袋包的探针供给
+    # （bind_market_watch_pack），此处再发会双份。
+    if (
+        not (routed_watch or inferred_watch)
+        and _SUBSTITUTE_THEME_RE.search(text)
+        and _SUBSTITUTE_STOCK_RE.search(text)
+        and _SUBSTITUTE_OBS_RE.search(text)
+    ):
+        signals.add(SIGNAL_SUBSTITUTE_OBSERVATION)
     return frozenset(signals)
 
 
@@ -745,7 +771,14 @@ def is_market_forecast_query(query: str) -> bool:
     """识别明确的全市场后市展望；不把泛泛“市场怎么样”误当预测。"""
 
     text = re.sub(r"\s+", "", str(query or "").strip())
-    return _MARKET_FORECAST_RE.search(text) is not None
+    if not text:
+        return False
+    if _MARKET_FORECAST_RE.search(text) is not None:
+        return True
+    return (
+        _FORECAST_VERB_RE.search(text) is not None
+        and _FORECAST_MARKET_SUBJECT_RE.search(text) is not None
+    )
 
 
 def is_event_forecast_query(query: str) -> bool:
@@ -1071,16 +1104,28 @@ def _strip_spoken_xia_prefix(text: str) -> str:
     return text
 
 
+def _forward_opinion_shape(compact: str) -> bool:
+    return bool(
+        _FORWARD_OPINION_CUE_RE.search(compact)
+        and _FORWARD_OPINION_ASK_RE.search(compact)
+    )
+
+
 def _joint_board_subject(
     query: str,
     *,
     operators: tuple[ResearchOperator, ...],
 ) -> str | None:
-    """句式路：A和B板块。先窄（两算子且含情景树），不查题材词表。"""
+    """句式路：A和B板块。窄门二选一：两算子且含情景树，或前瞻观点词形在句。
 
-    if len(operators) < 2 or "scenario_tree" not in operators:
-        return None
+    「会怎么样」带出 scenario_tree 走算子门；「怎么看/怎么走」不带算子，
+    由词形门放行（R-20260825-07）。后缀窗口与黑名单过滤两门共用。
+    """
+
     compact = re.sub(r"\s+", "", str(query or ""))
+    scenario_gate = len(operators) >= 2 and "scenario_tree" in operators
+    if not scenario_gate and not _forward_opinion_shape(compact):
+        return None
     for suffix in _JOINT_BOARD_SUFFIX_RE.finditer(compact):
         window = compact[max(0, suffix.start() - 16) : suffix.start()]
         hit = _JOINT_BOARD_RE.search(window)
@@ -1103,6 +1148,49 @@ def _joint_board_subject(
 
 def _strip_joint_left_prefixes(text: str) -> str:
     prefixes = sorted(_JOINT_LEFT_PREFIXES, key=len, reverse=True)
+    current = text
+    changed = True
+    while changed and current:
+        changed = False
+        for prefix in prefixes:
+            if current.startswith(prefix):
+                current = current[len(prefix) :]
+                changed = True
+                break
+    return current
+
+
+def _forward_opinion_board_subject(query: str) -> str | None:
+    """单题材路：「X板块/题材」×前瞻观点词形才抽主语（R-20260825-07）。
+
+    先窄：只认「板块|题材」后缀，不查题材词表、不做模糊匹配；联合句式由
+    ``_joint_board_subject`` 先行，本函数只接单主语残局。窗口取后缀前
+    紧邻的 2–6 个汉字，功能词前缀剥完再过黑名单。
+    """
+
+    compact = re.sub(r"\s+", "", str(query or ""))
+    if not _forward_opinion_shape(compact):
+        return None
+    for suffix in _JOINT_BOARD_SUFFIX_RE.finditer(compact):
+        window = compact[max(0, suffix.start() - 6) : suffix.start()]
+        run = _SINGLE_BOARD_WINDOW_RE.search(window)
+        if run is None:
+            continue
+        candidate = _strip_single_board_prefixes(run.group(0))
+        if (
+            len(candidate) < 2
+            or candidate in _GENERIC_EXPLICIT_SUBJECTS
+            or candidate.startswith(_GENERIC_EXPLICIT_PREFIXES)
+        ):
+            continue
+        return candidate
+    return None
+
+
+def _strip_single_board_prefixes(text: str) -> str:
+    prefixes = sorted(
+        _JOINT_LEFT_PREFIXES + _SINGLE_BOARD_PREFIXES, key=len, reverse=True
+    )
     current = text
     changed = True
     while changed and current:
@@ -1551,6 +1639,18 @@ def understand_query(
             timeframe,
             "explicit",
             0.8,
+        )
+
+    forward_board = _forward_opinion_board_subject(text)
+    if forward_board is not None:
+        return envelope(
+            "general_finance_qa",
+            "theme",
+            forward_board,
+            _decision_goal(text),
+            timeframe,
+            "suffix_window",
+            0.74,
         )
 
     if sum(term in text for term in _MARKET_PATTERN_TERMS) >= 2:
