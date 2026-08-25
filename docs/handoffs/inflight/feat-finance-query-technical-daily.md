@@ -53,12 +53,40 @@
 - 往 schema.sql 注入 `fact_ratchet_probe_daily` → exit 1，提示二选一；schema 已还原。
 - pytest 四条证伪：新增未认领表红 / 注册空表红 / `_EMPTY_BY_DESIGN` 不红 / 无库时跳过。
 
+## 第三步：注册 sw_l1_daily（已做）
+
+`fact_sw_l1_daily` → dataset `sw_l1_daily`。门禁读数 15 注册 + 25 豁免 → **16 + 24**。
+
+**关键设计：`population="subset"` 而不是 `full`。** 实测该表完整度分两段——
+`2026-06-05` 起每日 31/31，**此前 344 天每日只有 3~10 个行业**（平均 7.7，部分回填的残段）。
+标成 `full` 会重演 `mainline_sector_daily` 那道疤：模型在残缺分母里取 top-N，
+结构上得不到对的答案，而字段校验一声不吭。分界日已写进 `coverage`，模型下单前就看得见。
+
+实证：查 `2026-03-10` 返回整齐的 5 行（通信/电子/机械设备/电力设备/计算机），
+**不带 coverage 警告的模型会把它当成合法 top5**。
+
+**⚠️ `fact_sw_l1_daily.amount` 的单位不是「亿」。** 全量 pytest 用
+`test_amount_metric_labels_carry_unit`（§1.3-C「八处成交额口径一致」）把这条抓了出来。
+查证：写入侧 `sync_akshare_sw_l1_daily.py` **原样存 AKShare 值、无任何换算**；
+2026-08-24 全 31 行业合计 `1,982,328` 对当日大盘 `20,072` 亿，**比值 ≈ 100 → 百万元口径**。
+
+处置：**不开放 `amount` 指标**，理由写进 coverage。不去放宽那条不变量——
+为了多一个指标改门禁迁就代码是反模式。要行业成交额，走 `sector_daily` 的 `sw_l1` 维度聚合；
+要真正暴露本表的 amount，得先在写入侧统一单位，那是另一个单子（会动
+`adapters/market.py` / `structured_reports.py` 两个现有消费方，别顺手做）。
+
+另两条口径也写进了 coverage：
+- 与 `sector_daily` 不同层——那是 224 个概念板块，这是 31 个申万一级行业。
+- `fupanhui_ratio`（27% 有值）、`amount_ma120*`（2%）**未开放为指标**，不是漏了。
+  一个几乎恒空的 metric 与空 dataset 是同一种病。
+
+⚠️ 该表的降级路径（`structured_reports.py:133` 那个「复盘会聚合代理」正则）在**当前数据里
+没有出现**——`source` 全是 `akshare:index_hist_sw:*` / `index_realtime_sw:*` 两族。
+代码里有这条路，库里没有这类行，别把它写成已发生的事实。
+
 ## 下一步（未做，按价值排）
 
-1. `fact_sw_l1_daily`（4,383 行、日更）：不是 0 引用（`adapters/market.py`、
-   `api/structured_reports.py`、`eval/pit_snapshot.py` 各有引用），但**不在语义层**，
-   adapter 也无查询方法 —— 属「有通路、无语义面」，可评估注册。
-3. `fact_auction_stock_daily` / `fact_regulation_pool_daily` / `fact_historical_mapping`：
+1. `fact_auction_stock_daily` / `fact_regulation_pool_daily` / `fact_historical_mapping`：
    2026-08-12 那轮**有意豁免**（「保持工具面收敛」，见 asset-inventory §9 Ln351），
    要注册得先推翻那个理由。且后两张**没有 `trade_date` 列**
    （`effective_date` / `source_date`+`similar_date`），不是 drop-in；

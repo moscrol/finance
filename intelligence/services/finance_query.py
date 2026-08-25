@@ -532,6 +532,38 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "strength_change": _metric("strength_chg", "强度变化"),
         },
     ),
+    "sw_l1_daily": _DatasetDefinition(
+        table="fact_sw_l1_daily",
+        label="申万一级行业日频行情",
+        population="subset",
+        coverage=(
+            "申万一级 31 个行业的日行情。**完整度分两段（实测 2026-08-25）**："
+            "`2026-06-05` 起每日 31/31，可直接排序；**此前 344 天每日只有 3~10 个行业**"
+            "（平均 7.7，是部分回填的残段）。**在早期区间取 top-N 会在残缺的分母里排序，"
+            "结构性得不到对的答案**——问「某月哪个行业最强」若落在 06-05 之前，"
+            "先声明覆盖不足，不要给排名。"
+            "与 `sector_daily` 不是一回事：那是 224 个概念板块，这是 31 个申万一级行业，"
+            "行业归属问题用本表，题材/概念热度用 `sector_daily` 或 `theme_limit_heat_daily`。"
+            "**本表不提供成交额**：库里那列的单位不是「亿」（写入侧原样存 AKShare 值，未换算；"
+            "2026-08-24 全行业合计 1,982,328 对当日大盘 20,072 亿，比值≈100，即百万元口径），"
+            "而语义层八处成交额统一「亿」。要行业成交额请走 `sector_daily` 的 `sw_l1` 维度聚合。"
+            "另 `fupanhui_ratio` 仅 27% 有值、`amount_ma120*` 仅 2%，同样**未开放**，不是漏了。"
+        ),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "sw_l1": _dimension("sw_l1", "申万一级行业"),
+            "sw_l1_code": _dimension("sw_l1_code", "申万一级代码"),
+        },
+        # 刻意不放 amount：见上面 coverage。语义层「八处成交额口径一致（亿）」是
+        # test_amount_metric_labels_carry_unit 钉住的不变量；为了多一个指标去放宽它，
+        # 等于改门禁迁就代码。要暴露就得先在写入侧统一单位，那是另一个单子。
+        metrics={
+            "close": _metric("close", "行业指数收盘"),
+            "pre_close": _metric("pre_close", "前收盘"),
+            "return_pct": _metric("pct_chg", "涨跌幅"),
+        },
+    ),
     "stock_technical_daily": _DatasetDefinition(
         table="feature_stock_technical_daily",
         label="个股 UP 线与偏离度日频",
@@ -811,7 +843,6 @@ _UNREGISTERED_TABLES: dict[str, str] = {
     "fact_regulation_event_daily": "deferred_2026-08-12：监管事件半结构",
     "fact_historical_mapping": "deferred_2026-08-12：无 trade_date；source_date 语义与 registry 约定冲突",
     # ── 有数据、无通路、待评估：下一批候选 ──
-    "fact_sw_l1_daily": "candidate：4383 行日更；有 adapter 通路但无语义面，可评估注册",
     "fact_theme_flow_daily": "candidate：题材资金流，口径待与 sector_daily 对齐",
     "fact_global_stock_daily": "candidate：外盘个股，与 global_index_daily 口径待对齐",
     "fact_research_report_catalog": "candidate：研报目录，偏知识库侧",

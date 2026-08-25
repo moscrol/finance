@@ -617,6 +617,78 @@ def test_dragon_seat_query_binds_and_executes(tmp_path: Path) -> None:
     assert result.rows[0]["net_buy"] == 1.73
 
 
+def test_sw_l1_registered_as_subset_not_full() -> None:
+    """申万一级：完整度分两段，population 必须是 subset。
+
+    实测 2026-08-25：`2026-06-05` 起每日 31/31，此前 344 天每日只有 3~10 个行业
+    （平均 7.7）。标成 full 的后果与 mainline_sector_daily 那道疤同形——模型在
+    残缺分母里取 top-N，结构上得不到对的答案，而字段校验一声不吭。
+    """
+
+    from intelligence.services.finance_query import _DATASETS
+
+    assert "sw_l1_daily" in _DATASETS
+    definition = _DATASETS["sw_l1_daily"]
+    assert definition.table == "fact_sw_l1_daily"
+    assert definition.population == "subset"
+    assert "2026-06-05" in definition.coverage, "分界日要写进 coverage，模型下单前就得看见"
+    # 低可用率字段不开放为指标：一个几乎恒空的 metric 与空 dataset 是同一种病
+    assert "fupanhui_ratio" not in definition.metrics
+    assert "amount_ma120_ratio" not in definition.metrics
+    # 成交额也不开放：库里那列不是「亿」（写入侧未换算，实测比值≈100 即百万元），
+    # 而语义层八处成交额统一「亿」。放进来就得放宽 test_amount_metric_labels_carry_unit——
+    # 那是改门禁迁就代码。这条钉住「宁可少一个指标，不混两种口径」。
+    assert "amount" not in definition.metrics
+
+
+def test_sw_l1_query_binds_and_executes(tmp_path: Path) -> None:
+    """行业 dataset 端到端：某日按涨幅排行业。"""
+    import duckdb
+
+    db_path = tmp_path / "market_feature_store.duckdb"
+    con = duckdb.connect(str(db_path))
+    try:
+        con.execute(
+            """
+            create table fact_sw_l1_daily(
+                trade_date date, sw_l1_code varchar, sw_l1 varchar,
+                close double, pre_close double, pct_chg double, amount double,
+                fupanhui_ratio double, source varchar, updated_at timestamp,
+                amount_ma120 double, amount_ma120_ratio double
+            )
+            """
+        )
+        con.executemany(
+            "insert into fact_sw_l1_daily values (?,?,?,?,?,?,?,?,?,?,?,?)",
+            [
+                ("2026-07-24", "801950", "煤炭", 3000.0, 2932.0, 2.30, 16605.0,
+                 None, "akshare", None, None, None),
+                ("2026-07-24", "801780", "银行", 5000.0, 4937.0, 1.27, 31856.0,
+                 None, "akshare", None, None, None),
+            ],
+        )
+    finally:
+        con.close()
+
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "sw_l1_daily",
+            "metrics": ["return_pct"],
+            "dimensions": ["sw_l1"],
+            "time_range": {"start": "2026-07-24", "end": "2026-07-24"},
+            "order_by": [{"field": "return_pct", "direction": "desc"}],
+            "limit": 10,
+        }
+    )
+    result = FinanceQuery(db_path).run(
+        spec,
+        information_cutoff=_cutoff(),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+    assert [row["sw_l1"] for row in result.rows] == ["煤炭", "银行"]
+    assert result.rows[0]["return_pct"] == 2.30
+
+
 def test_stock_technical_registered_as_dataset() -> None:
     """UP 线/偏离度：203 万行日更资产，此前入库但语义层查不到。"""
     from intelligence.services.finance_query import _DATASETS
