@@ -33,6 +33,10 @@ from intelligence.services.outlook_delivery_gate import (
     apply_outlook_delivery_gate,
     evidence_grid_text,
 )
+from intelligence.services.reading_direction_gate import (
+    apply_reading_direction_gate,
+    collect_direction_observations,
+)
 from intelligence.services.forecast_residual_followup import (
     append_unverified_forecast_grids,
 )
@@ -3143,6 +3147,14 @@ class TurnOrchestrator:
                 warnings.append(watch_warning)
                 self.run_store.add_degrade(run_id, watch_warning)
             answer_text = watch_gate.text
+            self._trace_reading_direction_gate(
+                run_id=run_id,
+                assistant_message_id=assistant_message_id,
+                conversation_id=conversation_id,
+                text=answer_text,
+                sources=(result,),
+                standing=getattr(result, "trade_date", None),
+            )
             answer_text = merge_into_public_answer(answer_text, pack)
             answer_text = merge_disclosure_into_public_answer(
                 answer_text,
@@ -4056,6 +4068,14 @@ class TurnOrchestrator:
             watch_warning = "market_watch_delivery_gate"
             warnings.append(watch_warning)
             self.run_store.add_degrade(run_id, watch_warning)
+        self._trace_reading_direction_gate(
+            run_id=run_id,
+            assistant_message_id=assistant_message_id,
+            conversation_id=conversation_id,
+            text=answer_text,
+            sources=(result,),
+            standing=result.as_of,
+        )
         answer_text = append_unverified_forecast_grids(
             answer_text,
             question_type=task_frame.question_type,
@@ -4587,6 +4607,37 @@ class TurnOrchestrator:
             "trace.step",
             {"step": step},
             conversation_id,
+        )
+
+    def _trace_reading_direction_gate(
+        self,
+        *,
+        run_id: str,
+        assistant_message_id: str,
+        conversation_id: str,
+        text: str,
+        sources: Sequence[object],
+        standing: str | None,
+    ) -> None:
+        """终稿影子闸。不改稿、不占 degrade、不看题型。门关不落步。"""
+
+        try:
+            receipt = apply_reading_direction_gate(
+                text,
+                observations=collect_direction_observations(*sources),
+                standing=standing,
+            )
+        except Exception:
+            return
+        if not receipt.applied:
+            return
+        self._trace(
+            run_id,
+            assistant_message_id,
+            conversation_id,
+            "deliver",
+            "reading_direction_gate",
+            receipt.payload(),
         )
 
     def _record_retrieval(
