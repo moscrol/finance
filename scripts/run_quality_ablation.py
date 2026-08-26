@@ -169,36 +169,19 @@ def run_ask(
     }
 
 
-def judge_answer(question: Question, answer: str) -> dict[str, object]:
-    from intelligence.services import llm_refine
+def _parse_judge_payload(payload: object) -> dict[str, object] | None:
+    """严格解析五维打分；任何缺失/越界返回 None（调用方决定重试或记 unscored）。"""
 
-    body = answer
-    truncated = False
-    if len(body) > _JUDGE_ANSWER_CHARS:
-        body = body[:_JUDGE_ANSWER_CHARS]
-        truncated = True
-    header = "（以下答案已按预算截断，只保留开头部分）\n" if truncated else ""
-    content, _provider, reason = llm_refine.complete(
-        [
-            {"role": "system", "content": _JUDGE_SYSTEM},
-            {"role": "user", "content": f"问题：{question.text}\n\n{header}答案：\n{body}"},
-        ],
-        timeout=90.0,
-        temperature=0.1,
-    )
-    if content is None:
-        return {"scored": False, "reason": reason}
-    payload = llm_refine._extract_json(content)
     if not isinstance(payload, dict):
-        return {"scored": False, "reason": "judge 输出非 JSON"}
+        return None
     scores: dict[str, int] = {}
     for dim in RUBRIC_DIMENSIONS:
         try:
             value = int(payload.get(dim))
         except (TypeError, ValueError):
-            return {"scored": False, "reason": f"维度 {dim} 缺失或非整数"}
+            return None
         if not 0 <= value <= 4:
-            return {"scored": False, "reason": f"维度 {dim} 越界: {value}"}
+            return None
         scores[dim] = value
     return {
         "scored": True,
@@ -207,6 +190,50 @@ def judge_answer(question: Question, answer: str) -> dict[str, object]:
         "normalized": round(sum(scores.values()) / 20.0, 4),
         "justification": str(payload.get("justification") or "")[:200],
     }
+
+
+def judge_answer(question: Question, answer: str, *, attempts: int = 2) -> dict[str, object]:
+    """盲评一份答案；解析失败重试一次（带更硬的格式提示）。
+
+    首轮实测：12k 字答案的评审输出偶发非 JSON，theme 题因此整题报废
+    （基线未评 = 三个组件全部失去该题）。重试一次能救回大多数瞬时格式失误；
+    仍失败则记 unscored——绝不编造分数。
+    """
+
+    from intelligence.services import llm_refine
+
+    body = answer
+    truncated = False
+    if len(body) > _JUDGE_ANSWER_CHARS:
+        body = body[:_JUDGE_ANSWER_CHARS]
+        truncated = True
+    header = "（以下答案已按预算截断，只保留开头部分）\n" if truncated else ""
+    base_prompt = f"问题：{question.text}\n\n{header}答案：\n{body}"
+    last_reason = "未尝试"
+    for attempt in range(max(1, attempts)):
+        prompt = base_prompt
+        if attempt > 0:
+            prompt = (
+                "上一次输出无法解析。这次**只输出 JSON 对象本身**，"
+                "不要任何解释、markdown 围栏或其他文字。\n\n" + base_prompt
+            )
+        content, _provider, reason = llm_refine.complete(
+            [
+                {"role": "system", "content": _JUDGE_SYSTEM},
+                {"role": "user", "content": prompt},
+            ],
+            timeout=90.0,
+            temperature=0.1,
+        )
+        if content is None:
+            # 无 key / 预算不足：重试同样会失败，直接放弃。
+            return {"scored": False, "reason": reason, "attempts": attempt + 1}
+        parsed = _parse_judge_payload(llm_refine._extract_json(content))
+        if parsed is not None:
+            parsed["attempts"] = attempt + 1
+            return parsed
+        last_reason = "judge 输出无法解析为合法五维 JSON"
+    return {"scored": False, "reason": last_reason, "attempts": max(1, attempts)}
 
 
 def main() -> int:
