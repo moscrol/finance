@@ -217,7 +217,7 @@ def judge_answer(question: Question, answer: str, *, attempts: int = 2) -> dict[
                 "上一次输出无法解析。这次**只输出 JSON 对象本身**，"
                 "不要任何解释、markdown 围栏或其他文字。\n\n" + base_prompt
             )
-        content, _provider, reason = llm_refine.complete(
+        content, provider, reason = llm_refine.complete(
             [
                 {"role": "system", "content": _JUDGE_SYSTEM},
                 {"role": "user", "content": prompt},
@@ -231,9 +231,74 @@ def judge_answer(question: Question, answer: str, *, attempts: int = 2) -> dict[
         parsed = _parse_judge_payload(llm_refine._extract_json(content))
         if parsed is not None:
             parsed["attempts"] = attempt + 1
+            # 记下实际出分的 provider：跨轮补评时，「这一份是谁评的」是分差
+            # 可比性的成立条件，不记就只能靠假设。
+            parsed["provider"] = provider
             return parsed
         last_reason = "judge 输出无法解析为合法五维 JSON"
     return {"scored": False, "reason": last_reason, "attempts": max(1, attempts)}
+
+
+def aggregate_components(
+    answers: list[dict[str, object]], component_ids: list[str]
+) -> dict[str, object]:
+    """每颗组件 = 平均(关断臂总分) − 平均(同题基线总分)，只聚合双方都 scored 的题。
+
+    补评脚本（``rejudge_quality_ablation.py``）复用同一份数学。**聚合口径只能有
+    一处**：抄第二份的那天两边不会同时被改，漂了也没人发现——而这份数字是拿来
+    做合并决定的。
+    """
+
+    baseline_by_case = {str(r["case_id"]): r for r in answers if r["arm"] == "baseline"}
+    unknown = [cid for cid in component_ids if cid not in COMPONENTS]
+    if unknown:
+        raise _fail(f"未知组件，无法解析 close_via：{unknown}")
+    aggregates: dict[str, object] = {}
+    for cid in component_ids:
+        rows = []
+        for r in answers:
+            if r["arm"] != cid:
+                continue
+            base = baseline_by_case.get(str(r["case_id"]))
+            jr, jb = r.get("judge") or {}, (base or {}).get("judge") or {}
+            if not (jr.get("scored") and jb.get("scored")):
+                rows.append({"case_id": r["case_id"], "usable": False})
+                continue
+            delta_total = jr["total"] - jb["total"]
+            rows.append(
+                {
+                    "case_id": r["case_id"],
+                    "usable": True,
+                    "baseline_total": jb["total"],
+                    "ablated_total": jr["total"],
+                    "delta_total": delta_total,
+                    "delta_by_dim": {
+                        d: jr["scores"][d] - jb["scores"][d] for d in RUBRIC_DIMENSIONS
+                    },
+                }
+            )
+        usable = [row for row in rows if row.get("usable")]
+        aggregates[cid] = {
+            "close_via": COMPONENTS[cid]["close_via"],
+            "questions_usable": len(usable),
+            "questions_total": len(rows),
+            # 边际贡献 = 关掉后掉的分（正数=组件在涨分）。
+            "marginal_contribution_total": (
+                round(-sum(row["delta_total"] for row in usable) / len(usable), 3)
+                if usable
+                else None
+            ),
+            "marginal_by_dim": (
+                {
+                    d: round(-sum(row["delta_by_dim"][d] for row in usable) / len(usable), 3)
+                    for d in RUBRIC_DIMENSIONS
+                }
+                if usable
+                else None
+            ),
+            "rows": rows,
+        }
+    return aggregates
 
 
 def load_questions_file(path: Path) -> tuple[Question, ...]:
@@ -339,55 +404,7 @@ def main() -> int:
         print(f"[judge] #{idx}（盲）…", flush=True)
         rec["judge"] = judge_answer(by_case[str(rec["case_id"])], str(rec["answer"]))
 
-    # 聚合：每颗组件 = 平均(关断臂总分) − 平均(同题基线总分)，只聚合双方都 scored 的题。
-    baseline_by_case = {
-        str(r["case_id"]): r for r in answers if r["arm"] == "baseline"
-    }
-    aggregates: dict[str, object] = {}
-    for cid in component_ids:
-        rows = []
-        for r in answers:
-            if r["arm"] != cid:
-                continue
-            base = baseline_by_case.get(str(r["case_id"]))
-            jr, jb = r.get("judge") or {}, (base or {}).get("judge") or {}
-            if not (jr.get("scored") and jb.get("scored")):
-                rows.append({"case_id": r["case_id"], "usable": False})
-                continue
-            delta_total = jr["total"] - jb["total"]
-            rows.append(
-                {
-                    "case_id": r["case_id"],
-                    "usable": True,
-                    "baseline_total": jb["total"],
-                    "ablated_total": jr["total"],
-                    "delta_total": delta_total,
-                    "delta_by_dim": {
-                        d: jr["scores"][d] - jb["scores"][d] for d in RUBRIC_DIMENSIONS
-                    },
-                }
-            )
-        usable = [row for row in rows if row.get("usable")]
-        aggregates[cid] = {
-            "close_via": COMPONENTS[cid]["close_via"],
-            "questions_usable": len(usable),
-            "questions_total": len(rows),
-            # 边际贡献 = 关掉后掉的分（正数=组件在涨分）。
-            "marginal_contribution_total": (
-                round(-sum(row["delta_total"] for row in usable) / len(usable), 3)
-                if usable
-                else None
-            ),
-            "marginal_by_dim": (
-                {
-                    d: round(-sum(row["delta_by_dim"][d] for row in usable) / len(usable), 3)
-                    for d in RUBRIC_DIMENSIONS
-                }
-                if usable
-                else None
-            ),
-            "rows": rows,
-        }
+    aggregates = aggregate_components(answers, component_ids)
 
     artifact = {
         "kind": "quality_ablation",
