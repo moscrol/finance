@@ -539,8 +539,19 @@ class GroundedComposerShadow:
     deterministic_issues: tuple[QualityIssue, ...] = ()
     judge_report: GroundingJudgeReport | None = None
     judge_raw: str | None = None
+    # judge 报的序号（``judge_report.rejected_sentence_indexes``）与**实际执行**的
+    # 序号（``resolve_judge_sentence_indexes`` 的返回）会不一样：引文定位优先、
+    # 越界序号被丢、条数不足时并回原序号。两者不落在同一个地方，就没人能一眼看出
+    # 「judge 判否了，但被否的句子还在稿里」。2026-08-26 那次 fail-open 正是靠拿
+    # 归档件逐段重放才定位到——这个字段把那件事变成读一行 trace。
+    judge_applied_sentence_indexes: tuple[int, ...] = ()
     provider: str | None = None
     model: str | None = None
+    # provider/model 记的是 **composer** 的。judge 走独立 provider 时（
+    # ``LLM_JUDGE_BACKEND``）这两个字段与 judge 无关——照着它判 judge 用了谁，
+    # 曾连续三轮把 grok-cli 的 URLError 误标成 zhipu 故障。
+    judge_provider: str | None = None
+    judge_model: str | None = None
     failure_reason: str | None = None
     elapsed_ms: int | None = None
 
@@ -564,8 +575,18 @@ class GroundedComposerShadow:
                 else None
             ),
             "judge_raw": self.judge_raw,
+            "judge_reported_sentence_indexes": (
+                list(self.judge_report.rejected_sentence_indexes)
+                if self.judge_report is not None
+                else []
+            ),
+            "judge_applied_sentence_indexes": list(
+                self.judge_applied_sentence_indexes
+            ),
             "provider": self.provider,
             "model": self.model,
+            "judge_provider": self.judge_provider,
+            "judge_model": self.judge_model,
             "failure_reason": self.failure_reason,
             "elapsed_ms": self.elapsed_ms,
         }

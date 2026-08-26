@@ -4136,6 +4136,98 @@ def test_shadow_composer_non_presentable_status_keeps_diagnostics_only(
     assert not (run_dir / "grounded_composer_shadow.md").exists()
 
 
+def test_primary_grounded_presenter_shadow_is_traced_without_the_experiment_flag(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """生产态（grounded_presenter on / shadow 实验 off）也必须落 trace。
+
+    老写法把「要不要额外跑影子链」和「跑过了要不要记 trace」绑在同一个 if 上，
+    门是 ``prepared.options.shadow_grounded_composer``——默认 False。而生产的影子
+    记录是 ``promote_grounded_answer`` 内部用 ``replace(options, ...=True)`` 跑出来
+    的，那是副本，外层选项没变。结果：trace 只覆盖默认关闭的实验模式，恰好漏掉
+    真正驱动用户答案的那条路。2026-08-26 的 fail-open 因此只能靠重放归档件定位。
+    """
+
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "总结行情",
+    )
+
+    judge_report = answer_model.GroundingJudgeReport(
+        passed=False,
+        rejected_sentence_indexes=(2, 3),
+        issues=("句2「越界表述」不成立", "句3 混入未绑定主体"),
+    )
+
+    def answer_spy(options: AskOptions) -> AskResult:
+        # 模拟 promote_grounded_answer：主路径自己跑完影子链并挂在 result 上。
+        result = _ask_result(options.query)
+        result.grounded_composer_shadow = answer_model.GroundedComposerShadow(
+            status="repaired",
+            raw_answer="原文",
+            repaired_answer="修后",
+            presented_answer="上场稿",
+            judge_report=judge_report,
+            # 报了 (2, 3)，实际只执行了 (2,)——fail-open 的形状。
+            judge_applied_sentence_indexes=(2,),
+            provider="composer-provider",
+            model="composer-model",
+            judge_provider="grok-cli-judge",
+            judge_model="grok-4.6",
+            elapsed_ms=1,
+        )
+        return result
+
+    def shadow_spy(prepared) -> AskResult:  # pragma: no cover - 不该被调用
+        raise AssertionError("主路径已产出影子记录，不应再额外跑一次")
+
+    monkeypatch.setenv("WORKBENCH_GROUNDED_PRESENTER", "1")
+    monkeypatch.setenv("WORKBENCH_SHADOW_GROUNDED_COMPOSER", "0")
+    monkeypatch.setattr(
+        "intelligence.runtime.conversation_orchestrator."
+        "synthesize_shadow_grounded_answer",
+        shadow_spy,
+    )
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_spy,
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=_research_controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="总结行情",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    shadow_trace = next(
+        step
+        for step in run_store.load_trace(run_id)
+        if step["name"] == "grounded_composer_shadow"
+    )
+    payload = json.loads(shadow_trace["output_summary"])
+    assert payload["source"] == "primary_grounded_presenter"
+    assert payload["reused_existing"] is True
+    # 「报的」与「执行的」必须都在，且看得出不一致——这就是那次查了很久的东西。
+    assert payload["judge_reported_sentence_indexes"] == [2, 3]
+    assert payload["judge_applied_sentence_indexes"] == [2]
+    # judge 的 provider 不能再借用 composer 的字段。
+    assert payload["provider"] == "composer-provider"
+    assert payload["judge_provider"] == "grok-cli-judge"
+    assert payload["judge_model"] == "grok-4.6"
+
+
 def test_market_question_automatically_selects_daily_review() -> None:
     registry = builtin_skill_registry()
 
