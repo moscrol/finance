@@ -6,6 +6,7 @@ import type {
   RunBundle,
   SkillInvocationStatus,
 } from "../types";
+import { DigestSnapshotView } from "./DigestSnapshotView";
 import { MarkdownView } from "./MarkdownView";
 import { ProgressTimeline } from "./ProgressTimeline";
 import { RunView } from "./RunView";
@@ -148,6 +149,9 @@ export function MessageBubble({
           <div className="message-terminal-notice" role="status">
             {terminalNotice}
           </div>
+        )}
+        {report?.watchlist_digest_snapshot && (
+          <DigestSnapshotView snapshot={report.watchlist_digest_snapshot} />
         )}
         {bundle && (
           <RunView

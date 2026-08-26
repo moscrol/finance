@@ -624,3 +624,90 @@ def test_cli_digest_write_flag_drops_snapshot(
     assert len(files) == 1
     payload = json.loads(files[0].read_text(encoding="utf-8"))
     assert payload["standing_date"] == "2026-07-23"
+
+
+# ---------------- P1a 发酵摘要（spec §3.3；台账 R-20260827-01） ----------------
+
+
+def test_fermentation_attached_only_for_theme_mainline_or_dual_hits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """触发面：theme×(主线|双红) 才挂；个股项与仅热度命中的题材不挂。"""
+
+    db = _db(tmp_path)
+    user = _users(
+        tmp_path,
+        monkeypatch,
+        watchlist=("电力设备板块",),
+        themes=("AI", "储能"),
+    )
+    pack = run_watchlist_digest_pack(
+        FROZEN_QUERY,
+        user_id=user,
+        market_db_path=db,
+        cutoff="2026-07-23",
+    )
+    # AI 命中主线名单；储能只命中涨停热度袋；电力设备板块是 watchlist 个股项。
+    assert {item["subject"] for item in pack.fermentations} == {"AI"}
+    assert pack.to_receipt()["fermentation_rows"] == 1
+
+    answer = pack.render_public_answer()
+    ferm_lines = [line for line in answer.splitlines() if "（发酵摘要）" in line]
+    assert len(ferm_lines) == 1
+    # 发酵行落在该主体命中块之后、且仍在「清单命中」段内。
+    assert answer.index("（发酵摘要）") > answer.index("当日在主线名单：AI")
+    assert answer.index("（发酵摘要）") < answer.index("## 清单未命中")
+    assert "在袋" in ferm_lines[0] and "在榜" in ferm_lines[0]
+    assert not TRADE_WORD_RE.search(ferm_lines[0])
+
+    # 快照合同：发酵行数字 ⊆ snapshot["fermentations"]。
+    snapshot = pack.to_snapshot()
+    assert snapshot["fermentations"][0]["subject"] == "AI"
+    blob = json.dumps(snapshot["fermentations"], ensure_ascii=False)
+    for number in re.findall(
+        r"\d+(?:\.\d+)?", ferm_lines[0].split("〔")[0]
+    ):
+        assert number in blob, f"发酵行数字 {number} 不在快照 fermentations"
+
+
+def test_fermentation_delegates_via_single_batch_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """委托纪律：轨迹判定一次批量委托 theme_fermentation，不逐主体散调。"""
+
+    db = _db(tmp_path)
+    user = _users(tmp_path, monkeypatch)
+    calls: list[tuple] = []
+    real = wdp.trace_sectors_fermentation
+
+    def counting(subjects, **kwargs):
+        calls.append(tuple(subjects))
+        return real(subjects, **kwargs)
+
+    monkeypatch.setattr(wdp, "trace_sectors_fermentation", counting)
+    pack = run_watchlist_digest_pack(
+        FROZEN_QUERY,
+        user_id=user,
+        market_db_path=db,
+        cutoff="2026-07-23",
+    )
+    assert len(calls) == 1
+    assert calls[0] == (("AI", "AI"),)
+    assert pack.fermentations
+
+
+def test_fermentation_empty_on_stopped_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = _db(tmp_path)
+    user = _users(tmp_path, monkeypatch)
+    # 显式缺日：包停在无行情句，发酵摘要必须为空。
+    pack = run_watchlist_digest_pack(
+        FROZEN_QUERY,
+        user_id=user,
+        market_db_path=db,
+        cutoff="2026-07-25",
+    )
+    assert pack.status == "empty"
+    assert pack.fermentations == ()
+    assert "（发酵摘要）" not in pack.render_public_answer()

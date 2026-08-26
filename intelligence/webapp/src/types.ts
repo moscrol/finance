@@ -191,6 +191,38 @@ export interface StructuredReportModule {
   };
 }
 
+export interface WatchlistDigestSnapshotBag {
+  name: string;
+  requested_date: string | null;
+  served_date: string | null;
+  status: string;
+  rows: Record<string, unknown>[];
+}
+
+export interface WatchlistDigestSnapshotRow {
+  subject: string;
+  kind: string;
+  tier: "fact" | "inference" | "gap";
+  bag: string | null;
+  served_date: string | null;
+  text: string;
+}
+
+/** 自选简报证据快照（watchlist-digest-snapshot/v1）——只读渲染，不做编辑。 */
+export interface WatchlistDigestSnapshot {
+  schema: string;
+  standing_date: string | null;
+  user_id: string;
+  status: string;
+  stop_text?: string | null;
+  watchlist: string[];
+  focus_themes: string[];
+  method_card: string;
+  bags: WatchlistDigestSnapshotBag[];
+  rows: WatchlistDigestSnapshotRow[];
+  fermentations?: Record<string, unknown>[];
+}
+
 export interface StructuredReport {
   schema_version: number;
   report_id: string;
@@ -211,6 +243,8 @@ export interface StructuredReport {
     evidence_policy: string;
   };
   completed_at?: string;
+  /** 确定性简报回合随 report.json 带出的整袋证据快照（P1b 只读证据页）。 */
+  watchlist_digest_snapshot?: WatchlistDigestSnapshot | null;
 }
 
 export interface StreamEnvelope<TPayload extends Record<string, unknown> = Record<string, unknown>> {

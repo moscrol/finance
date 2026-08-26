@@ -2429,3 +2429,123 @@ describe("Workbench navigation reliability", () => {
     expect(screen.getAllByText("重放后更新")).toHaveLength(1);
   });
 });
+
+describe("DigestSnapshotView（P1b 证据快照页）", () => {
+  const digestSnapshot = {
+    schema: "watchlist-digest-snapshot/v1",
+    standing_date: "2026-08-26",
+    user_id: "u1",
+    status: "locked",
+    stop_text: null,
+    watchlist: ["银之杰"],
+    focus_themes: ["人工智能"],
+    method_card:
+      "清单来自 effective_profile；盘面袋一次性委托 run_market_watch_pack；数字只来自包内冻结行。",
+    bags: [
+      {
+        name: "dual_red",
+        requested_date: "2026-08-26",
+        served_date: "2026-08-26",
+        status: "hit",
+        rows: [
+          {
+            sector_name: "黄金概念",
+            pct_chg: 1.74,
+            diff_ratio: 17.11,
+            amount: 990.42,
+          },
+        ],
+      },
+      {
+        name: "limit_heat",
+        requested_date: "2026-08-26",
+        served_date: "2026-08-26",
+        status: "hit",
+        rows: [{ sector_name: "人工智能", limit_up_count: 6 }],
+      },
+    ],
+    rows: [
+      {
+        subject: "人工智能",
+        kind: "theme",
+        tier: "fact" as const,
+        bag: "limit_heat",
+        served_date: "2026-08-26",
+        text: "清单项「人工智能」命中涨停热度袋：人工智能，涨停 6 家。",
+      },
+      {
+        subject: "银之杰",
+        kind: "watchlist",
+        tier: "gap" as const,
+        bag: null,
+        served_date: null,
+        text: "清单项「银之杰」当日未见于三袋。",
+      },
+    ],
+    fermentations: [
+      {
+        subject: "人工智能",
+        text: "「人工智能」近 10 交易日：严格双红在袋 2 天（最近 2026-08-26）；涨停热度在榜 3 天（峰值 8 家 @2026-08-25）。",
+      },
+    ],
+  };
+
+  it("exposes the snapshot as a clickable read-only evidence page", () => {
+    const structuredBundle: RunBundle = {
+      ...bundle,
+      structuredReport: {
+        schema_version: 1,
+        report_id: "run_demo",
+        title: "自选简报",
+        task_type: "workflow",
+        status: "completed",
+        as_of: "2026-08-26",
+        llm: { used: false, provider: null, model: null },
+        warnings: [],
+        modules: [],
+        watchlist_digest_snapshot: digestSnapshot,
+      },
+    };
+    render(
+      <MessageBubble
+        message={assistantMessage}
+        skills={productSkills}
+        live={null}
+        bundle={structuredBundle}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    // 快照入口在对话里可点（summary 可见），页体只读渲染冻结内容。
+    expect(screen.getByText(/证据快照 · 2026-08-26/)).toBeVisible();
+    const page = screen.getByTestId("digest-snapshot");
+    fireEvent.click(page.querySelector("summary")!);
+    expect(screen.getByText(/方法卡：清单来自 effective_profile/)).toBeVisible();
+    expect(screen.getByText("严格双红袋")).toBeVisible();
+    expect(
+      screen.getByText(/（缺口）清单项「银之杰」当日未见于三袋。/),
+    ).toBeVisible();
+    expect(screen.getByText(/严格双红在袋 2 天/)).toBeVisible();
+    // 只读：证据页内没有任何可写入口（按钮/输入框）。
+    expect(page.querySelectorAll("button, input, textarea")).toHaveLength(0);
+  });
+
+  it("stays absent when the report has no digest snapshot", () => {
+    render(
+      <MessageBubble
+        message={assistantMessage}
+        skills={productSkills}
+        live={null}
+        bundle={bundle}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+    expect(screen.queryByTestId("digest-snapshot")).not.toBeInTheDocument();
+  });
+});

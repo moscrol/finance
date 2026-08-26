@@ -30,6 +30,7 @@ from intelligence.services.market_watch_pack import (
     _names_match,
     run_market_watch_pack,
 )
+from intelligence.services.theme_fermentation import trace_sectors_fermentation
 from intelligence.userspace import effective_profile, resolve_user_id, user_space
 
 # 快照落盘根目录的重定位环境变量（测试与多机部署用）。
@@ -91,6 +92,8 @@ class WatchlistDigestPack:
     rows: tuple[DigestRow, ...]
     method_card: str
     stop_text: str | None = None
+    # P1a：题材项命中主线/双红后的窗口轨迹（theme_fermentation 委托产物）。
+    fermentations: tuple[dict[str, Any], ...] = ()
 
     def to_snapshot(self) -> dict[str, Any]:
         """证据快照：生成时刻看到的一切。事后对账只对这份。"""
@@ -116,6 +119,9 @@ class WatchlistDigestPack:
                 for bag in self.tape.bags
             ],
             "rows": [_json_safe_row(row.to_dict()) for row in self.rows],
+            "fermentations": [
+                _json_safe_row(item) for item in self.fermentations
+            ],
         }
 
     def to_receipt(self) -> dict[str, Any]:
@@ -132,6 +138,7 @@ class WatchlistDigestPack:
                 1 for row in self.rows if row.tier == "inference"
             ),
             "gap_rows": sum(1 for row in self.rows if row.tier == "gap"),
+            "fermentation_rows": len(self.fermentations),
             "bag_status": {bag.name: bag.status for bag in self.tape.bags},
             "stop_text": self.stop_text,
         }
@@ -158,16 +165,42 @@ class WatchlistDigestPack:
         )
         lines.append(f"- 方法卡：{self.method_card}")
         lines.append("## 清单命中")
+        ferm_by_subject = {
+            str(item.get("subject")): item for item in self.fermentations
+        }
         hit_lines = []
+        pending_subject: str | None = None
+
+        def _flush_fermentation(next_subject: str | None) -> None:
+            nonlocal pending_subject
+            if pending_subject == next_subject:
+                return
+            item = (
+                ferm_by_subject.pop(pending_subject, None)
+                if pending_subject is not None
+                else None
+            )
+            if item is not None:
+                hit_lines.append(
+                    f"- （发酵摘要）{item.get('text')}"
+                    f"〔方法：逐日复用严格双红/涨停热度袋口径，"
+                    f"窗口={_cell(item.get('window_days'))}交易日；"
+                    "袋有截断，计数为在袋/在榜口径〕"
+                )
+            pending_subject = next_subject
+
         for row in self.rows:
             if row.tier == "fact":
+                _flush_fermentation(row.subject)
                 label = _BAG_LABELS.get(row.bag or "", row.bag)
                 hit_lines.append(
                     f"- {_TIER_PREFIX['fact']}{row.text}"
                     f"〔方法：{label}，served_date={row.served_date}〕"
                 )
             elif row.tier == "inference":
+                _flush_fermentation(row.subject)
                 hit_lines.append(f"- {_TIER_PREFIX['inference']}{row.text}")
+        _flush_fermentation(None)
         lines.extend(
             hit_lines
             or ["- （缺口）清单项当日在主线/严格双红/涨停热度三袋均无命中行。"]
@@ -280,6 +313,7 @@ def run_watchlist_digest_pack(
             "盘面库里没有可解析的交易日行，无法确定站立日；库可能尚未初始化。",
         )
     rows = _join_rows(watchlist, themes, tape)
+    fermentations = _delegate_fermentations(rows, market_db_path, tape)
     return WatchlistDigestPack(
         standing_date=tape.standing_date,
         user_id=uid,
@@ -289,6 +323,7 @@ def run_watchlist_digest_pack(
         tape=tape,
         rows=rows,
         method_card=method_card,
+        fermentations=fermentations,
     )
 
 
@@ -419,6 +454,54 @@ def _join_rows(
                 )
             )
     return tuple(rows)
+
+
+def _delegate_fermentations(
+    rows: tuple[DigestRow, ...],
+    market_db_path: str | Path | None,
+    tape: MarketWatchPack,
+) -> tuple[dict[str, Any], ...]:
+    """P1a 触发面（spec §3.3）：仅 theme 项命中主线或严格双红时回看。
+
+    watchlist（个股）项与仅命中涨停热度的题材不触发；轨迹判定整体委托
+    theme_fermentation（其内部逐日复用袋口径），本模块不携带任何口径。
+    追溯主键优先用严格双红命中行的板块名（真实板块名字空间），
+    仅主线命中时退回主线题材名。
+    """
+
+    subjects: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for row in rows:
+        if row.kind != "theme" or row.tier != "fact":
+            continue
+        if row.bag not in (BAG_MAINLINE, BAG_DUAL_RED):
+            continue
+        if row.subject in seen:
+            continue
+        dual_hit = next(
+            (
+                item
+                for item in rows
+                if item.subject == row.subject
+                and item.tier == "fact"
+                and item.bag == BAG_DUAL_RED
+            ),
+            None,
+        )
+        source = dual_hit or row
+        sector_name = _bag_row_name(source.bag or "", source.source_row or {})
+        if not sector_name:
+            continue
+        subjects.append((row.subject, sector_name))
+        seen.add(row.subject)
+    if not subjects:
+        return ()
+    summaries = trace_sectors_fermentation(
+        subjects,
+        market_db_path=market_db_path,
+        standing_date=tape.standing_date,
+    )
+    return tuple(summary.to_dict() for summary in summaries)
 
 
 def _bag_row_name(bag_name: str, row: dict[str, Any]) -> str:
