@@ -1,7 +1,7 @@
 {
   "switch_set": "seed",
-  "revision": "3fc47e91",
-  "note": "第 0 步种子表，对照 gitea/main@3fc47e91 重栽。default-v1 是生成物。predicate.reading-baseline 在本底标 pending-other-branch（#343 / r2 未合），不要为了绿测试把 reading_baseline.py 拷进来。",
+  "revision": "6c47450e",
+  "note": "第 0 步种子表，对照 gitea/main@3fc47e91 重栽；2026-08-26 扩容批在 @6c47450e 全表重核 seam 路径并追加 operator/pack/probe 登记行（12 行）与 pointers（登记「开关在别处」的组件，防止把「不在板上」误判成「没有开关」）。default-v1 是生成物；扩容行默认排除在盒外（棘轮 #3）。predicate.reading-baseline 在本底标 pending-other-branch（#343 / r2 未合），不要为了绿测试把 reading_baseline.py 拷进来。",
   "candidate_cases": [
     {"id": "next-session-index", "evidence_free": false},
     {"id": "current-mainline", "evidence_free": false},
@@ -436,6 +436,191 @@
       "chassis_survives": true,
       "positive_control": "",
       "notes": "6 套词表 / 8 文件，且 L0 同名不同物（theme-radar L0=外部定义 vs research_judge.py LAYER_ORDER L0=图谱登记）。改层名会炸知识库，另开单；先禁止新抄套 3。 2026-08-22：仍是 contested（6 套词表 / L0 同名不同物），另开单。"
+    },
+    {
+      "id": "market.strict_double_red_snapshot",
+      "kind": "operator",
+      "status": "active",
+      "seam": "intelligence/services/research_contract.py::OPERATOR_STRICT_DOUBLE_RED",
+      "close_via": [
+        "catalog:code-level 移除（无 per-operator 运行时开关）"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "",
+      "notes": "2026-08-26 扩容批 @6c47450e 核 seam。由 compile_research_program 按题型意图选入 program.operators。登记不进臂：positive_control 等 runner 支持 operator 差量后再填（棘轮 #7）。"
+    },
+    {
+      "id": "market.cross_table_exact_intersection",
+      "kind": "operator",
+      "status": "active",
+      "seam": "intelligence/services/research_contract.py::OPERATOR_CROSS_TABLE",
+      "close_via": [
+        "catalog:code-level 移除（无 per-operator 运行时开关）"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "",
+      "notes": "2026-08-26 扩容批 @6c47450e 核 seam。跨表精确交集。登记不进臂，同批口径见 market.strict_double_red_snapshot。"
+    },
+    {
+      "id": "market.aggregate_count",
+      "kind": "operator",
+      "status": "active",
+      "seam": "intelligence/services/research_contract.py::OPERATOR_AGGREGATE_COUNT",
+      "close_via": [
+        "catalog:code-level 移除（无 per-operator 运行时开关）"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "",
+      "notes": "2026-08-26 扩容批 @6c47450e 核 seam。聚合计数。登记不进臂，同批口径。"
+    },
+    {
+      "id": "market.detail_rows",
+      "kind": "operator",
+      "status": "active",
+      "seam": "intelligence/services/research_contract.py::OPERATOR_DETAIL_ROWS",
+      "close_via": [
+        "catalog:code-level 移除（无 per-operator 运行时开关）"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "",
+      "notes": "2026-08-26 扩容批 @6c47450e 核 seam。明细行取数。登记不进臂，同批口径。"
+    },
+    {
+      "id": "catalog.preflight",
+      "kind": "operator",
+      "status": "active",
+      "seam": "intelligence/services/research_contract.py::OPERATOR_CATALOG_PREFLIGHT",
+      "close_via": [
+        "catalog:code-level 移除（无 per-operator 运行时开关）"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "",
+      "notes": "2026-08-26 扩容批 @6c47450e 核 seam。空池预检（#349 空池后恰好一次换成交额前排口径，empty_pool_one_shot 联动）。登记不进臂，同批口径。"
+    },
+    {
+      "id": "market.contradiction_audit",
+      "kind": "operator",
+      "status": "active",
+      "seam": "intelligence/services/research_contract.py::OPERATOR_CONTRADICTION_AUDIT",
+      "close_via": [
+        "catalog:code-level 移除（无 per-operator 运行时开关）"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "",
+      "notes": "2026-08-26 扩容批 @6c47450e 核 seam。矛盾审计。登记不进臂，同批口径。"
+    },
+    {
+      "id": "market.substitute_observation",
+      "kind": "operator",
+      "status": "active",
+      "seam": "intelligence/services/research_contract.py::OPERATOR_SUBSTITUTE_OBSERVATION",
+      "close_via": [
+        "catalog:code-level 移除（无 per-operator 运行时开关）"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "",
+      "notes": "2026-08-26 扩容批 @6c47450e 核 seam。一般题 Engine A 开口预取的替补观察 operator（P1-b/#372）。替补探针设计稿 P2 预留的「模型点菜」开关板原子就是本行——本批先登记，进臂/进盒另走对照。"
+    },
+    {
+      "id": "market.volume_qualification",
+      "kind": "operator",
+      "status": "active",
+      "seam": "intelligence/services/research_contract.py::OPERATOR_VOLUME_QUALIFICATION",
+      "close_via": [
+        "catalog:code-level 移除（无 per-operator 运行时开关）"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "",
+      "notes": "2026-08-26 扩容批 @6c47450e 核 seam。量能资格判定。登记不进臂，同批口径。"
+    },
+    {
+      "id": "market.volume_step_trajectory",
+      "kind": "operator",
+      "status": "active",
+      "seam": "intelligence/services/research_contract.py::OPERATOR_STEP_TRAJECTORY",
+      "close_via": [
+        "catalog:code-level 移除（无 per-operator 运行时开关）"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "",
+      "notes": "2026-08-26 扩容批 @6c47450e 核 seam。量能台阶轨迹。登记不进臂，同批口径。"
+    },
+    {
+      "id": "pack.market-watch",
+      "kind": "pack",
+      "status": "active",
+      "seam": "intelligence/services/market_watch_pack.py::run_market_watch_pack",
+      "close_via": [
+        "route:仅 market_watch 题型经 ask.bind_market_watch_pack 绑定"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "",
+      "notes": "2026-08-26 扩容批 @6c47450e 核 seam。四袋共用一个只读连接、同一站立日；缺口句由 mainline_dual_red_gap 产出。袋内查询无 per-袋开关（拆袋=改代码），整包按题型路由。"
+    },
+    {
+      "id": "pack.weekly-watch",
+      "kind": "pack",
+      "status": "active",
+      "seam": "intelligence/services/weekly_watch_pack.py::run_weekly_watch_pack",
+      "close_via": [
+        "route:outlook 周包路径调用（逐日复用 run_market_watch_pack）"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "",
+      "notes": "2026-08-26 扩容批 @6c47450e 核 seam。五日包逐日复用四袋；探针默认不开（P1 另议，见 probe.substitute-observation）。"
+    },
+    {
+      "id": "probe.substitute-observation",
+      "kind": "probe",
+      "status": "active",
+      "seam": "intelligence/services/market_watch_pack.py::run_market_watch_pack",
+      "close_via": [
+        "caller_arg:substitute_probes=False（ask.bind_market_watch_pack 现传 True）"
+      ],
+      "default": "on",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "",
+      "notes": "2026-08-26 扩容批 @6c47450e 核 seam。主线题材无严格双红匹配时按预案补「出清/分歧观察」替补池（P0/#371）。真实可拧（caller 实参），观测量已知：render() 缺口句后出现带 role 标签的替补行、served_date=站立日——但 runner 尚不支持 probe 差量，故 positive_control 留空、登记不进臂（棘轮 #7）。进盒需对照 + 用户确认（棘轮 #3）。"
+    }
+  ],
+  "pointers": [
+    {
+      "target": "Engine B 数据块（D0-D17/W7/M/V/MARKET_DAILY/MAINLINE_KB，共 20 块）",
+      "switch_lives_at": "AskOptions.enabled_providers / evidence_registry.without_providers",
+      "note": "意图门控在块自身 applies()；不进本板（产品门文档同款结论）。「不在板上」≠「没有开关」。"
+    },
+    {
+      "target": "视角注入（perspective_lab）",
+      "switch_lives_at": "Workbench UI 选视角 → conversation_orchestrator 传 active_runtime_prompt",
+      "note": "开关是 UI 选择；板上 noop-prompt 只是第 3 步「缝能载行为」的证明件，不是视角开关。"
+    },
+    {
+      "target": "引擎 A/B（ContinuousAgentEpisode vs ask.answer_query）",
+      "switch_lives_at": "env:ASK_CONTINUOUS_RUNTIME（launcher 层）",
+      "note": "设计稿「四层各管各的」：引擎选择不进原子板。"
     }
   ]
 }
