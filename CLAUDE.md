@@ -150,7 +150,7 @@ git branch --show-current
 2. **连板晋级** → `limit-advance/scripts/scrape.py [日期]` → 展示 + 写入飞书
 3. **涨幅排行** → `top-gainers` skill：iFinD个股涨幅 + AKShare板块涨幅并行
 4. **策略分析与回测** → `detect_turning_points.py`、`backtest_sector.py` 只读 canonical `fact_*` 表；板块数据回填旧入口 `backfill_sector_marginal.py` 仍单独停用，不能混用旧库
-5. **概念入库** → 加载知识库仓 `concept-ingest` skill（已迁至 `<知识库>/skills/concept-ingest/`）→ 先判断 is_concept → 检索 raw 文件 → web 补充信息 → LLM 提取 v3 JSON（含 core_thesis/key_insights/key_data/risks）→ `python3 <知识库>/scripts/ingest.py concept ...` 去重+代码匹配+交叉对比 → 写入 Obsidian vault
+5. **概念入库** → 加载知识库仓 `concept-ingest` skill（`<知识库>/skills/concept-ingest/SKILL.md`）。**IMA 题材 DeepDive**：Copilot 15章 → `deepdive.md` → `build_ima_concept_ingest_queue.py` → 人工 ingest-plan → writer；禁止搜标题当抽取，禁止有 md 直接 writer。研报/纪要：判断 is_concept → ingest-plan → `python3 <知识库>/scripts/ingest.py concept ...`
 6. **公司边际变化入库** → 加载知识库仓 `entity-delta-ingest` skill（已迁至 `<知识库>/skills/entity-delta-ingest/`）→ 读取早知道/评级日报/纪要/公告 → 抽取公司边际变化 JSON → `python3 <知识库>/scripts/ingest.py entity-delta ...` 更新 Obsidian `entities/`，纯榜单进观察列表
 
 ## 市场假设验证 / 跑马策略执行规则
@@ -298,7 +298,7 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 
 | Skill | 触发词 |
 |-------|--------|
-| concept-ingest（已迁至知识库仓） | concept ingest、概念入库、新概念、提取概念 → 读 `<知识库>/skills/concept-ingest/SKILL.md` |
+| concept-ingest（已迁至知识库仓） | concept ingest、概念入库、IMA入库、题材DeepDive、ThemeRadar入库、新概念、提取概念 → 读 `<知识库>/skills/concept-ingest/SKILL.md` |
 | entity-delta-ingest（已迁至知识库仓） | entity delta、公司边际变化、更新entity、早知道入库 → 读 `<知识库>/skills/entity-delta-ingest/SKILL.md` |
 <!-- END GENERATED: skills-table -->
 

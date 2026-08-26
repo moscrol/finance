@@ -1,8 +1,8 @@
 # Trace Profile: finance-workspace-private
 
-- last_updated: 2026-08-21
-- updated_by_run: `2026-08-21 公开答案质量 P1`（未尝试声称 / 残稿回退模式）。
-  前值：`2026-08-20 公开答案质量 P0`；再前：`2026-08-20 判官证据投影`
+- last_updated: 2026-08-23
+- updated_by_run: `trace-diff-spt-fengyuan-history-20260823`（补充 empty-manual 路由覆盖、公开答案投影后假绿，
+  以及 workbench coarse normalizer 看不到 repair 分叉的三条陷阱）
 - 配套账本：[prediction-ledger.md](prediction-ledger.md) —— 分诊**开工第一步**先回填那里的 pending 预测，再开始新归因
 
 ## 1. 产物位置与结构
@@ -77,6 +77,9 @@
 | schema `成交额=` / 模型写「亿」被判官当数字扩写 | 模型捏造了单位 | **修复前** 6 处 `amount` label 无「亿」，`market_daily.total_amount` 是「市场成交额」。模型补对单位反被删句。修好后金额类 label 带「亿」。`dragon_tiger_daily` / `core_stock_daily` 本来就是「成交额亿」，不要改成「亿亿」。投影夹具 JSON 里的旧串是冻快照，不是现役 schema | `R-20260820-08` |
 | case `date` 字段 | 该日期会随查询下达产品 | **`date` 与 `query` 是分离的**，产品只看得到 `query`。28 题里 9 题 query 不含日期 → 产品按「今天」作答、对上冻结日的 `expect_facts` 必错，该组 **0/9 通过**。同实体对照：A6（带日期）答出 12.11 元，A3（不带）答出 08-17 的 14.40 元 | 同上 F-002；`acceptance_cases.json` |
 | first finish `carried_draft_chars=0` + `deadline_exhausted` | 模型没写出稿，或稿被拒收 | **先读前一条 `model_turn.content`**。同题两发（`014724_245782` / `015340_618752`）finalize 已有可解析 FINAL_JSON（draft 897/738），`rejection_code=none`，同毫秒 `carried_draft_chars=0`。`remaining_seconds_at_entry` 是研究钟，不是 root 秒账本。repair 入口 `previous_draft_chars=0` 是传播 | `docs/verification/2026-08-17-r22-r23-same-question-m2.md`；`agent_episode.py:849-862` |
+| `skill_mode=manual` | 只在 `selected_skill_ids` 非空时算显式工作流 | 当前 controller 的条件是 `selected_skill_ids or skill_mode == "manual"`，所以 `manual + []` 仍在细粒度路由之前强制返回 `workflow`。在 SPT×风远历史类比题上，直接 `TurnControlCore` 为 `comparison_analog`，而两个 Workbench 均降为 `general_finance_qa`，只保留 3 个 required outputs | `turn_controller.py:316-324`；`run_20260823_025334_701544` / `run_20260823_025341_392320` |
+| report `business_status=complete` | 质检投影后公开答案仍完整覆盖 required outputs | 它可与「核心正文被语义质检剥到 115 字 + 15 条内部 issue 被拼入 answer.md」同时成立。必须在**投影后**重算 required-output coverage，不能用投影前 verifier 或 transport 终态代替 | `run_20260823_025341_392320/report.json` + `answer.md` |
+| coarse workbench normalizer 的 `fully_equivalent` | 两个 run 的控制流真没分叉 | 当输入是公开 `trace.json`时，当前子串 mapper 把多数 `research` 类事件全压成 `retrieve`，而 `understanding/finalizing/verification/repair` 落 `unmapped`。本轮给出 mapped 12/12 且 `fully_equivalent`，但原生 continuous episode 已在 ordinal 2 出现 `tool_calls ↔ invalid finish`，且只有 8796 进 repair | `workbench-8792-vs-8796.normalized.json`；两份 `continuous-episode.json` |
 
 ## 3. 当前 trace_depth 与盲区清单
 
@@ -95,6 +98,8 @@
 | 历史 finish 无 `rejection_code` | 2026-08-15 R-23 之前的 episode 不写该字段 | 不能用旧 artifact 的字段缺失推断「没有拒收」；要下钻 `invalid_action.reason` | 不回填。新 run 无拒收时 code=`none`、reason 空串。`dump_episode_receipts.py` 对旧产物打印 `<ABSENT>` |
 | 历史 `tool_exception` 的 `detail` 为空 | 2026-08-15 R-25 之前 consume 丢掉类名/首行 | 不能从空 `detail` 推断「没有异常消息」或具体故障类型 | 不回填。新 run 健康阈值：`error=tool_exception` ⇒ `detail` 非空且无 `/Users/`。查事件 payload，不查 ProviderTrace.detail |
 | `gap_output_ids` 与 structural fulfilled 分道 | 语义修复删正文不收缩绑定；无显式 `bindings_contracted` 位 | 只读结构或只读 eb 分不出「没绑」与「绑了但公开删了」 | R-24 提案：删格时收缩绑定。在落地前并行读 `semantic_verifier.gap_output_ids` ∩ fulfilled。健康：交集为空 |
+| 公开答案投影后的必答项覆盖未单独记录 | report 只保留投影前 structural/semantic 结果与最终 status，无 `post_projection_required_output_coverage` | 无法用机器字段区分「质检修好了答案」与「质检删掉了答案」 | 只增 `fulfilled_required_outputs / required_outputs`；发布为 complete 的阈值必须 `=1.0` |
+| 粗粒度 `trace.json` 与原生 continuous episode 没有对账字段 | normalizer 不读 continuous episode 的 action/payload，只比较公开 step 名 | 无法发现 invalid action、timeout grant、repair reentry 这些决定性分叉 | 记 `continuous_event_count` 与 `unmapped_native_kinds`；用于宣称 fully equivalent 的阈值为 `unmapped_native_kinds=0` |
 
 ## 4. Grounded phase telemetry semantic epochs
 

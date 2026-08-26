@@ -1,0 +1,1522 @@
+{
+  "generated_at": "20260812T192437Z",
+  "base": "http://127.0.0.1:8794",
+  "preflight_ok": true,
+  "preflight_detail": "revision=97642e26 backend=continuous_glm",
+  "cases": [
+    {
+      "case_id": "A1-market-overview",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 今天市场怎么样",
+          "answer": "【当日盘面总览】上证指数收于3946.675点，涨0.32%；全市场上涨4128家，涨停92家，跌停0家，赚钱效应偏暖。但成交额仅21522.76亿元，环比-7.26%，量比89.98%，连续第二日低于100%且持续缩量。行业集中度维持正常，领先行业为电子（27.50%）、通信（8.30%）、医药生物（7.50%）。强势股状态为沸点，平均涨幅8.65%，边际变化+10.12%，说明资金仍高度集中在少数高位标的。\n【主线结构】当日三条主线为医药（4个核心板块）、有色金属（4个核心板块）、消费零售（1个核心板块），呈现缩量强修复/存量抱团特征。医药线中创新药成交约1191.56亿、涨停6家、净流入约28.13亿，CXO概念创3年新高、净流入约25.96亿，为板块内最强方向。有色金属线以黄金（+2.10%）、贵金属（+1.99%）领涨，稀有金属净流入约25.46亿为全板块最高。消费零售线仅乳制品一个核心板块（+2.27%，涨停2家），持续性最弱。持续性维度：医药近20日出现9天、有色金属8天、消费零售9天；此前半导体和AI算力各出现12天但截至8月7日已退出。\n①弱势修复结构：虽然上涨家数达4128家、跌停0家，但多数核心主线板块边际量为负（创新药-19.87%、贵金属-40.66%、黄金-41.07%），说明上涨主要靠存量资金而非增量入场。\n【观察条件】若下一交易日量比回升至前日水平以上且成交额环比转正，则弱修复有望延续；注：用户提问日期为7月23日，但可用最新数据截至8月12日，以上为最近交易日快照。\n证据缺口：直接回答用户问题并说明判断强度中的未核验表述已删除，需补充直接证据后再判断。",
+          "run_id": "run_20260813_031355_149276",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "市场数据截至：2026-08-12。该日期是本轮整体盘面日期。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "市场阶段：底部横盘阶段（第 11 天）；量能状态：正常量能。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "全市场成交额：21522.76 亿元；较前一日 -7.26%；量比 89.98%。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "涨跌结构：上涨 4128 家；涨停 92 家；跌停 0 家。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "上证指数：3946.675 点，当日 0.32%。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "强势股状态：沸点；平均涨幅 8.65%；边际变化 10.12%。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "行业集中度：正常；领先行业为电子（27.50%）、通信（8.30%）、医药生物（7.50%）。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "主线题材（截至 2026-08-12）：医药（4 个核心板块）、有色金属（4 个核心板块）、消费",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "最新主线日期：2026-08-12；匹配口径：最新全市场主线；该块是 L4_market_sig",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "主线持续性：半导体近20日出现12天（2026-07-23~2026-08-07，板块行36）；",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "医药核心板块：CXO概念(-，未标注/-，涨0.46%，边际量-24.67%，成交519.42亿",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "有色金属核心板块：贵金属(有色金属，未标注/-，涨1.99%，边际量-40.66%，成交225.",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "消费零售核心板块：乳制品(-，未标注/-，涨2.27%，边际量-0.92%，成交41.47亿，涨",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "主线板块日频结构（2026-08-12）",
+              "source": "本地结构化数据 · 主线板块日频结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "通信板块“吸金”逾百亿元，中际旭创A股第一名",
+              "source": "http://finance.eastmoney.com/a/202608123839434424.html",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "A股三大指数均实现上涨房地产板块涨幅居前",
+              "source": "http://finance.eastmoney.com/a/202608123839434781.html",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "市场日频总览（2026-08-06）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-08-06"
+            },
+            {
+              "title": "市场日频总览（2026-08-07）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-08-07"
+            },
+            {
+              "title": "市场日频总览（2026-08-10）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-08-10"
+            },
+            {
+              "title": "市场日频总览（2026-08-11）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-08-11"
+            },
+            {
+              "title": "市场日频总览（2026-08-12）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-08-12"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 22,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场数据截至：2026-08-12。该日期是本轮整体盘面日期。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场阶段：底部横盘阶段（第 11 天）；量能状态：正常量能。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E3",
+              "label": "[E3] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "全市场成交额：21522.76 亿元；较前一日 -7.26%；量比 89.98%。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E4",
+              "label": "[E4] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "涨跌结构：上涨 4128 家；涨停 92 家；跌停 0 家。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E5",
+              "label": "[E5] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "上证指数：3946.675 点，当日 0.32%。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E6",
+              "label": "[E6] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "强势股状态：沸点；平均涨幅 8.65%；边际变化 10.12%。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E7",
+              "label": "[E7] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "行业集中度：正常；领先行业为电子（27.50%）、通信（8.30%）、医药生物（7.50%）。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E8",
+              "label": "[E8] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线题材（截至 2026-08-12）：医药（4 个核心板块）、有色金属（4 个核心板块）、消费",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E9",
+              "label": "[E9] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "最新主线日期：2026-08-12；匹配口径：最新全市场主线；该块是 L4_market_sig",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E10",
+              "label": "[E10] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线持续性：半导体近20日出现12天（2026-07-23~2026-08-07，板块行36）；",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E11",
+              "label": "[E11] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "医药核心板块：CXO概念(-，未标注/-，涨0.46%，边际量-24.67%，成交519.42亿",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E12",
+              "label": "[E12] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "有色金属核心板块：贵金属(有色金属，未标注/-，涨1.99%，边际量-40.66%，成交225.",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E13",
+              "label": "[E13] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "消费零售核心板块：乳制品(-，未标注/-，涨2.27%，边际量-0.92%，成交41.47亿，涨",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E14",
+              "label": "[E14] 本地结构化数据 · 主线板块日频结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线板块日频结构（2026-08-12）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E15",
+              "label": "[E15] http://finance.eastmoney.com/a/202608123839434424.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "通信板块“吸金”逾百亿元，中际旭创A股第一名",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E16",
+              "label": "[E16] http://finance.eastmoney.com/a/202608123839434781.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "A股三大指数均实现上涨房地产板块涨幅居前",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E17",
+              "label": "[E17] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-08-06）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E18",
+              "label": "[E18] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-08-07）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E19",
+              "label": "[E19] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-08-10）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E20",
+              "label": "[E20] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-08-11）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E21",
+              "label": "[E21] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-08-12）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "21 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 87.6,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A2-next-day-call",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-21 收盘了，明天怎么看",
+          "answer": "【基准判断】7月21日A股从下跌阶段切入反弹第1天，上证收3864.367点涨1.79%，成交29569亿环比+9.44%，涨停121家。半导体/存储芯片/CPO/半导体设备集体以「启动」姿态爆发（板块涨幅7.7%-15.0%），强势股成交占比升至21.06%。前5个交易日下跌中仅7月20日已先翻红微涨0.85%，21日为放量确认的第一根反弹阳。主观基准：明日（7月22日）大概率延续反弹至偏强震荡，上证参考区间约3850-3920点（不确定性中高——单日反弹能否续接取决于量能配合）。\n【情景路径】\n• 情景A（概率偏高，约50%）：续涨放量。\n• 情景B（约30%）：冲高震荡分化。主线板块冲高后首日获利盘涌出，强势股内部从全面涨停转为分化，指数窄幅整理。\n• 情景C（约20%）：反弹受阻回落。\n【延续条件】①全市场成交额维持29500亿量级或继续放量；②半导体/AI算力板块涨停家数不大幅缩减（21日半导体28+存储30+CPO22+设备12只涨停为基准参照）；③上涨家数维持3000家以上（21日为3107家）；④跌停家数不超过21日的21家。\n【失效条件】①成交额较21日萎缩10%以上（低于约26600亿）；②半导体板块由「启动」退回「分歧」且涨停骤减；③跌停家数急剧放大至50只以上。\n【证据边界】盘面数据截至2026-07-21收盘，含市场日频总览与主线板块日频结构。本次未获取新闻检索证据，反弹的具体催化事件（政策面、行业事件等）未能通过同时间窗口的新闻证据核实，仅基于盘面价量与板块周期状态推演。7月19日（周日非交易日）无数据，7月17日至20日的逐日数据用于确认下跌段背景。",
+          "run_id": "run_20260813_031522_760743",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "市场日频总览（2026-07-21）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-21"
+            },
+            {
+              "title": "市场日频总览（2026-07-20）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-20"
+            },
+            {
+              "title": "市场日频总览（2026-07-17）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-17"
+            },
+            {
+              "title": "市场日频总览（2026-07-16）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-16"
+            },
+            {
+              "title": "市场日频总览（2026-07-15）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-15"
+            },
+            {
+              "title": "主线板块日频结构（2026-07-21）",
+              "source": "本地结构化数据 · 主线板块日频结构",
+              "date": "2026-07-21"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 7,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-21）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-20）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E3",
+              "label": "[E3] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-17）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E4",
+              "label": "[E4] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-16）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E5",
+              "label": "[E5] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-15）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E6",
+              "label": "[E6] 本地结构化数据 · 主线板块日频结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线板块日频结构（2026-07-21）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "6 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 71.4,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A3-stock-deep-dive",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "立新能源怎么看",
+          "answer": "立新能源（001258）在8月12日出现振幅15.22%的剧烈波动，并登上深股通龙虎榜，当日深股通席位净卖出约8270万元。这是当前可核验的最直接盘面信号，说明该股短线经历了大幅博弈，北向资金在该价位附近以净流出为主。\n判断：在已有证据下，无法形成完整的趋势性多头或空头基准判断。原因是缺乏公司基本面一手公告（如装机/发电量/业绩/项目进展）和行业层面的阶段性数据，仅凭单日龙虎榜的剧烈波动不足以判定方向。\n反证/风险：龙虎榜深股通净卖出本身构成短线资金分歧信号——在振幅超过15%的单日行情中，机构席位以净卖出收场，提示高位筹码松动风险。但由于缺乏前后续交易日数据和公司层面信息，该信号仅为短线资金行为快照，不能外推为中期趋势拐点。\n综上，当前回答强度为\"有限条件下的观察判断\"，主要缺口在基本面一手材料和连续行情数据。\n证据缺口：chain_mapping中的未核验表述已删除，需补充直接证据后再判断。",
+          "run_id": "run_20260813_031634_181704",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "立新能源振幅15.22%，深股通龙虎榜上净卖出8270.04万元",
+              "source": "http://finance.eastmoney.com/a/202608123839213645.html",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "立新能源(001258)龙虎榜数据(08-12)",
+              "source": "http://stock.eastmoney.com/a/202608123839181319.html",
+              "date": "2026-08-12"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] http://finance.eastmoney.com/a/202608123839213645.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "立新能源振幅15.22%，深股通龙虎榜上净卖出8270.04万元",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] http://stock.eastmoney.com/a/202608123839181319.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "立新能源(001258)龙虎榜数据(08-12)",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 69.3,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A4-dual-red",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 哪些板块是双红",
+          "answer": "2026年7月23日A股市场处于反弹阶段第3天，上证涨0.25%，全市场成交约2.19万亿，上涨家数4260家，涨停116家。\n**当日主线板块中涨幅为正的板块（双红候选）**\n有色金属主线：金属锌涨4.53%（涨停4家，强度4205.7，周期状态消亡）；贵金属涨2.42%（涨停1家，强度1873.1，周期状态顺势）。\n电力主线：电力涨1.74%（涨停8家，强度1185.2，周期状态顺势）。\n医药主线：维生素涨0.80%（涨停1家）；中药涨0.55%（涨停3家，周期状态启动）；创新药涨0.14%（涨停4家，周期状态分歧）。\nAI算力主线：华为昇腾涨0.17%（涨停2家）。\n当日下跌的主线板块：CPO跌0.49%、存储芯片跌1.59%、半导体跌3.24%、半导体设备跌4.61%，均非双红。\n**补充**：全板块口径涨幅最强的方向集中在输变电设备(+8.18%)、锂(+8.03%)、光伏逆变器(+7.82%)、电网设备(+6.65%)、能源金属(+6.53%)、电池化学品(+5.7%)、特高压(+4.25%)等，以新能源金属与电力设备链条为主导。\n**证据边界**：以上判断基于2026-07-23本地结构化数据的两个口径——(1) market_daily市场总览，确认当日反弹阶段、缩量观望、行业集中度为\"集中\"，领涨行业为电子、电力设备、通信；(2) sector_daily全板块行情（已绑定前25名）和mainline_sector_daily主线板块日频结构表。\n缺口说明：(a) \"双红\"一词在本地数据中无明确定义字段，本文按主线板块表中\"日涨幅为正\"为价红、强度排序辅助判断为口径，若用户所指双红含资金净流入条件则需补充net_inflow字段；(b) mainline_sector_daily仅覆盖已识别为持续主线的板块，涨幅最大的输变电设备等宽口径板块不在该表中。",
+          "run_id": "run_20260813_031743_516641",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "板块日频行情（2026-07-23）",
+              "source": "本地结构化数据 · 板块日频行情",
+              "date": "2026-07-23"
+            },
+            {
+              "title": "市场日频总览（2026-07-23）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-23"
+            },
+            {
+              "title": "最新主线日期：2026-08-12；匹配口径：最新全市场主线；该块是 L4_market_sig",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "主线持续性：半导体近20日出现12天（2026-07-23~2026-08-07，板块行36）；",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "医药核心板块：CXO概念(-，未标注/-，涨0.46%，边际量-24.67%，成交519.42亿",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "有色金属核心板块：贵金属(有色金属，未标注/-，涨1.99%，边际量-40.66%，成交225.",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "消费零售核心板块：乳制品(-，未标注/-，涨2.27%，边际量-0.92%，成交41.47亿，涨",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "主线板块日频结构（2026-07-23）",
+              "source": "本地结构化数据 · 主线板块日频结构",
+              "date": "2026-07-23"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 9,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 板块日频行情",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "板块日频行情（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E3",
+              "label": "[E3] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "最新主线日期：2026-08-12；匹配口径：最新全市场主线；该块是 L4_market_sig",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E4",
+              "label": "[E4] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线持续性：半导体近20日出现12天（2026-07-23~2026-08-07，板块行36）；",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E5",
+              "label": "[E5] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "医药核心板块：CXO概念(-，未标注/-，涨0.46%，边际量-24.67%，成交519.42亿",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E6",
+              "label": "[E6] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "有色金属核心板块：贵金属(有色金属，未标注/-，涨1.99%，边际量-40.66%，成交225.",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E7",
+              "label": "[E7] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "消费零售核心板块：乳制品(-，未标注/-，涨2.27%，边际量-0.92%，成交41.47亿，涨",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E8",
+              "label": "[E8] 本地结构化数据 · 主线板块日频结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线板块日频结构（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "8 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 81.5,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A5-limit-heat",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 涨停集中在哪些题材",
+          "answer": "2026年7月23日A股涨停集中在三大方向：医药、有色金属和电力。\n涨停家数最多的板块：电力8家涨停（当日涨幅约1.7%，周期状态=顺势）；有色金属系中金属锌4家涨停（涨幅约4.5%，但周期已标注\"消亡\"）、贵金属1家涨停（涨幅约2.4%，顺势）；医药方向创新药4家（分歧阶段）、中药3家（启动阶段）、维生素1家，合计8家涨停。华为昇腾2家涨停属AI算力方向但整体偏弱。\n当天全市场涨停116家，上证收于3876.78点、涨0.25%，上涨4260家，属温和普涨格局。\n证据边界：以上判断基于本地结构化数据（market_daily、mainline_sector_daily、mainline_theme_daily，均锁定2026-07-23交易日），涨停家数按板块归属统计，部分非主线板块的涨停个股可能未被题材表完整覆盖。当日涨停的具体驱动消息（如锌价异动、医药政策等）未获取同日新闻交叉验证，原因归因留作缺口。",
+          "run_id": "run_20260813_031905_030363",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "市场日频总览（2026-07-23）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-23"
+            },
+            {
+              "title": "主线板块日频结构（2026-07-23）",
+              "source": "本地结构化数据 · 主线板块日频结构",
+              "date": "2026-07-23"
+            },
+            {
+              "title": "主线题材日频结构（2026-07-23）",
+              "source": "本地结构化数据 · 主线题材日频结构",
+              "date": "2026-07-23"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 4,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 主线板块日频结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线板块日频结构（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E3",
+              "label": "[E3] 本地结构化数据 · 主线题材日频结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线题材日频结构（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "3 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 28.7,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A6-limit-advance-ladder",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 连板梯队什么情况，有没有断层",
+          "answer": "从主线板块维度看连板高度分布：6板仅电力1个板块（板块内涨停8家）；3板为金属锌（涨停4家）；2板有创新药（4家涨停）、中药（3家）、维生素（1家）三个医药方向板块；1板有华为昇腾（2家）、贵金属（1家）。关于\"断层\"判断：连板梯队呈现6板→3板→2板的结构，6板（电力，高度最高）与3板（金属锌）之间存在板高跳空（缺4板、5板），且电力作为唯一高标板块与其他板块在连板高度上拉开明显差距。但需注意：以上连板高度为板块维度的最高值而非个股精确逐板统计，个股级别的完整连板梯队（逐只列出每个板高对应的标的）未能获取——个股连板数据源查询未返回结果。结论：板块层面梯队顶部有明显高度跳空（4–5板空缺），但个股逐板精确梯队无法核验，是否在更低板高也存在断层以现有数据不能确认。",
+          "run_id": "run_20260813_031933_768035",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "市场日频总览（2026-07-23）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-23"
+            },
+            {
+              "title": "主线板块日频结构（2026-07-23）",
+              "source": "本地结构化数据 · 主线板块日频结构",
+              "date": "2026-07-23"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 主线板块日频结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线板块日频结构（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 50.8,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A7-mainline",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-21 当天主线是什么",
+          "answer": "当日核心主线是半导体，三个子板块——存储芯片（涨8.98%，涨停30家）、半导体（涨9.83%，涨停28家）、半导体设备（涨14.97%，涨停12家）——在板块强度榜上遥遥领先，合计涨停70家，三条板块的周期状态均标注为\"启动\"。紧随其后的AI算力主线中，共封装光学（CPO）涨7.66%、涨停22家，同样处于启动状态，华为昇腾涨2.45%。\n需要说明的是：上述判断基于本地结构化行情数据（板块强度、涨跌幅、涨停家数、周期状态），未检索到当日新闻层面的政策或事件催化，因此\"为何启动\"的归因暂缺。另注：市场阶段标签\"反弹阶段第1天\"是数据提供方的周期标签，不代表此前已连续下跌。",
+          "run_id": "run_20260813_032024_616907",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "市场日频总览（2026-07-21）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-21"
+            },
+            {
+              "title": "最新主线日期：2026-08-12；匹配口径：最新全市场主线；该块是 L4_market_sig",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "主线持续性：半导体近20日出现12天（2026-07-23~2026-08-07，板块行36）；",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "医药核心板块：CXO概念(-，未标注/-，涨0.46%，边际量-24.67%，成交519.42亿",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "有色金属核心板块：贵金属(有色金属，未标注/-，涨1.99%，边际量-40.66%，成交225.",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "消费零售核心板块：乳制品(-，未标注/-，涨2.27%，边际量-0.92%，成交41.47亿，涨",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "主线板块日频结构（2026-07-21）",
+              "source": "本地结构化数据 · 主线板块日频结构",
+              "date": "2026-07-21"
+            },
+            {
+              "title": "主线题材日频结构（2026-07-21）",
+              "source": "本地结构化数据 · 主线题材日频结构",
+              "date": "2026-07-21"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 9,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-21）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "最新主线日期：2026-08-12；匹配口径：最新全市场主线；该块是 L4_market_sig",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E3",
+              "label": "[E3] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线持续性：半导体近20日出现12天（2026-07-23~2026-08-07，板块行36）；",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E4",
+              "label": "[E4] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "医药核心板块：CXO概念(-，未标注/-，涨0.46%，边际量-24.67%，成交519.42亿",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E5",
+              "label": "[E5] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "有色金属核心板块：贵金属(有色金属，未标注/-，涨1.99%，边际量-40.66%，成交225.",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E6",
+              "label": "[E6] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "消费零售核心板块：乳制品(-，未标注/-，涨2.27%，边际量-0.92%，成交41.47亿，涨",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E7",
+              "label": "[E7] 本地结构化数据 · 主线板块日频结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线板块日频结构（2026-07-21）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E8",
+              "label": "[E8] 本地结构化数据 · 主线题材日频结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线题材日频结构（2026-07-21）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "8 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 57.0,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A8-market-stage",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "现在市场处于什么阶段，第几天了",
+          "answer": "【市场阶段与天数】\n【主线结构（截至 2026-08-12）】\n① 消费零售（1 个核心板块）——乳制品涨 2.27%、涨停 2，强度上升但成交仅 41.47 亿，属试探性方向。\n【风险信号与观察条件】",
+          "run_id": "run_20260813_032121_591412",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "市场数据截至：2026-08-12。该日期是本轮整体盘面日期。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "市场阶段：底部横盘阶段（第 11 天）；量能状态：正常量能。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "全市场成交额：21522.76 亿元；较前一日 -7.26%；量比 89.98%。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "涨跌结构：上涨 4128 家；涨停 92 家；跌停 0 家。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "上证指数：3946.675 点，当日 0.32%。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "强势股状态：沸点；平均涨幅 8.65%；边际变化 10.12%。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "行业集中度：正常；领先行业为电子（27.50%）、通信（8.30%）、医药生物（7.50%）。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "主线题材（截至 2026-08-12）：医药（4 个核心板块）、有色金属（4 个核心板块）、消费",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "最新主线日期：2026-08-12；匹配口径：最新全市场主线；该块是 L4_market_sig",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "主线持续性：半导体近20日出现12天（2026-07-23~2026-08-07，板块行36）；",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "医药核心板块：CXO概念(-，未标注/-，涨0.46%，边际量-24.67%，成交519.42亿",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "有色金属核心板块：贵金属(有色金属，未标注/-，涨1.99%，边际量-40.66%，成交225.",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "消费零售核心板块：乳制品(-，未标注/-，涨2.27%，边际量-0.92%，成交41.47亿，涨",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "主线板块日频结构（2026-08-12）",
+              "source": "本地结构化数据 · 主线板块日频结构",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "市场日频总览（2026-08-07）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-08-07"
+            },
+            {
+              "title": "市场日频总览（2026-08-10）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-08-10"
+            },
+            {
+              "title": "市场日频总览（2026-08-11）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-08-11"
+            },
+            {
+              "title": "市场日频总览（2026-08-12）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-08-12"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 19,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场数据截至：2026-08-12。该日期是本轮整体盘面日期。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场阶段：底部横盘阶段（第 11 天）；量能状态：正常量能。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E3",
+              "label": "[E3] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "全市场成交额：21522.76 亿元；较前一日 -7.26%；量比 89.98%。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E4",
+              "label": "[E4] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "涨跌结构：上涨 4128 家；涨停 92 家；跌停 0 家。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E5",
+              "label": "[E5] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "上证指数：3946.675 点，当日 0.32%。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E6",
+              "label": "[E6] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "强势股状态：沸点；平均涨幅 8.65%；边际变化 10.12%。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E7",
+              "label": "[E7] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "行业集中度：正常；领先行业为电子（27.50%）、通信（8.30%）、医药生物（7.50%）。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E8",
+              "label": "[E8] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线题材（截至 2026-08-12）：医药（4 个核心板块）、有色金属（4 个核心板块）、消费",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E9",
+              "label": "[E9] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "最新主线日期：2026-08-12；匹配口径：最新全市场主线；该块是 L4_market_sig",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E10",
+              "label": "[E10] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线持续性：半导体近20日出现12天（2026-07-23~2026-08-07，板块行36）；",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E11",
+              "label": "[E11] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "医药核心板块：CXO概念(-，未标注/-，涨0.46%，边际量-24.67%，成交519.42亿",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E12",
+              "label": "[E12] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "有色金属核心板块：贵金属(有色金属，未标注/-，涨1.99%，边际量-40.66%，成交225.",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E13",
+              "label": "[E13] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "消费零售核心板块：乳制品(-，未标注/-，涨2.27%，边际量-0.92%，成交41.47亿，涨",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E14",
+              "label": "[E14] 本地结构化数据 · 主线板块日频结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线板块日频结构（2026-08-12）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E15",
+              "label": "[E15] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-08-07）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E16",
+              "label": "[E16] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-08-10）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E17",
+              "label": "[E17] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-08-11）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E18",
+              "label": "[E18] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-08-12）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "18 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "verification",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 73.4,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A9-sentiment-contradiction",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 的市场情绪怎么解读",
+          "answer": "关于“2026-07-23 的市场情绪怎么解读”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题、说明证据覆盖范围、数据日期与缺口。本轮已核验（供参考，不构成完整结论）：直接回答用户问题（14 条证据）、说明证据覆盖范围、数据日期与缺口（7 条证据）。证据数据截至 2026-08-12；缺口补齐后可复验。",
+          "run_id": "run_20260813_032234_971691",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "市场日频总览（2026-07-24）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-24"
+            },
+            {
+              "title": "市场日频总览（2026-07-23）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-23"
+            },
+            {
+              "title": "市场日频总览（2026-07-22）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-22"
+            },
+            {
+              "title": "市场日频总览（2026-07-21）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-21"
+            },
+            {
+              "title": "主线板块日频结构（2026-07-23）",
+              "source": "本地结构化数据 · 主线板块日频结构",
+              "date": "2026-07-23"
+            }
+          ],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 6,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-24）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E3",
+              "label": "[E3] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-22）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E4",
+              "label": "[E4] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-21）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E5",
+              "label": "[E5] 本地结构化数据 · 主线板块日频结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线板块日频结构（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "5 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 77.6,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A10-new-high-structure",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-21 的新高家数结构说明什么",
+          "answer": "关于“2026-07-21 的新高家数结构说明什么”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题、说明证据覆盖范围、数据日期与缺口。本轮已取得 42 条证据，但未完成核验绑定，暂不能引用；可直接重试。证据数据截至 2026-08-12；缺口补齐后可复验。",
+          "run_id": "run_20260813_032352_531167",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 45.0,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    }
+  ]
+}
