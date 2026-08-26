@@ -114,7 +114,7 @@ run_l2_branch() {
   fi
 }
 
-# 生成段 + 收尾（双盲回检 / KB 时效 / 最终硬门）。前置：sync 与 L2 均已通过。
+# 生成段 + 收尾（KB 时效 / 最终硬门）。前置：sync 与 L2 均已通过。
 run_generation_and_finalize() {
   python3 -m intelligence.cli daily --date "$D" --skip-sync --from-step daily-review \
     --summary-json "market_feature_store/exports/$D-daily-workflow-summary.json"
@@ -134,19 +134,8 @@ run_generation_and_finalize() {
     return "$rc"
   fi
 
-  # 双盲答卷 T+1/T+3 数值回检（幂等，只回填脚本可算指标；人工字段不覆盖）
-  local LEDGER="docs/learning/forecast-review-ledger"
-  local answers
-  answers=$(ls "$LEDGER"/*.answer.*.json 2>/dev/null | tail -12)
-  if [ -n "$answers" ]; then
-    /usr/bin/python3 scripts/dual_blind_forecast.py recheck ${=answers} \
-      && /usr/bin/python3 scripts/dual_blind_auto_verdict.py --all-pending \
-      && /usr/bin/python3 scripts/dual_blind_forecast.py index --html \
-      && /usr/bin/python3 scripts/dual_blind_answers_to_md.py \
-      && /usr/bin/python3 scripts/render_dual_blind_pair_html.py \
-      && /usr/bin/python3 scripts/render_dual_blind_qa.py \
-      || echo "[$(date '+%F %T')] 双盲答卷 recheck 失败（不阻断复盘收尾）"
-  fi
+  # 双盲答卷回检已退役（2026-08-20）：不再随 finalize 跑 recheck / auto_verdict。
+  # 脚本仍留在 scripts/，可手动调用；不要接回夜跑。
 
   # 知识库证据断更监控（超 7 天未 ingest 新批次则告警；不阻断收尾）
   local kb_msg
