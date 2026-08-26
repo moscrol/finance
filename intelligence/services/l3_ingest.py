@@ -218,6 +218,41 @@ def render_l3_ingest_report(result: L3IngestResult) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _entity_path_for_ticker(entities: Path, code: str) -> Path | None:
+    """Find the named entity page whose frontmatter tickers include this 6-digit code.
+
+    Skip ``entities/<code>.md`` stubs so a leftover code-named page cannot win
+    over the consumed Chinese-name page.
+    """
+    if not entities.is_dir():
+        return None
+    needle = f'"{code}"'
+    hits: list[Path] = []
+    for path in entities.glob("*.md"):
+        if path.stem == code:
+            continue
+        try:
+            head = path.read_text(encoding="utf-8")[:1200]
+        except OSError:
+            continue
+        if "tickers:" in head and needle in head:
+            hits.append(path)
+    if not hits:
+        return None
+    hits.sort(key=lambda item: item.name)
+    return hits[0]
+
+
+def _resolve_entity_path(wiki: Path, company: str) -> Path:
+    entities = wiki / "entities"
+    direct = entities / f"{company}.md"
+    if re.fullmatch(r"\d{6}", company):
+        matched = _entity_path_for_ticker(entities, company)
+        if matched is not None:
+            return matched
+    return direct
+
+
 def apply_l3_payload(
     payload_path: str | Path,
     *,
@@ -247,9 +282,9 @@ def apply_l3_payload(
         if item.get("disposition") in {"candidate", "official", "risk_boundary"}
         and str(item.get("evidence_layer") or "").startswith("L3")
     ]
-    source_title = f"{company}_L3官方证据_{run_date.strftime('%Y%m%d')}"
+    entity_path = _resolve_entity_path(wiki, company)
+    source_title = f"{entity_path.stem}_L3官方证据_{run_date.strftime('%Y%m%d')}"
     source_path = wiki / "sources" / f"{_safe_filename(source_title)}.md"
-    entity_path = wiki / "entities" / f"{company}.md"
     result = L3ApplyResult(
         company=company,
         kb_wiki=str(wiki),

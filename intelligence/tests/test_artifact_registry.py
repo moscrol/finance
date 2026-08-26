@@ -21,7 +21,6 @@ def test_registry_discovers_known_providers_and_run_artifacts(tmp_path: Path) ->
 
     matrix_dir = tmp_path / "复盘" / "matrices"
     matrix_dir.mkdir(parents=True)
-    (matrix_dir / "strategy1-priority-stock-matrix.md").write_text("# matrix", encoding="utf-8")
     (matrix_dir / "strategy1-priority-stock-matrix.html").write_text("<h1>matrix</h1>", encoding="utf-8")
 
     registry, store = _registry(tmp_path)
