@@ -4508,6 +4508,9 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
                     claim_theme,
                 )
             )
+        result.stale_block_hints = output_review.extract_stale_block_hints(
+            (outcome.tag, outcome.block or "") for outcome in outcomes
+        )
         d5_outcome: ask_planner.BlockOutcome | None = None
         for outcome in outcomes:
             if outcome.tag == "D5":
@@ -4650,6 +4653,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             follow_ups=follow_ups,
             conclusion_lines=conclusion,
             final_answer=result.synthesis,
+            stale_block_hints=result.stale_block_hints,
         )
         stage["warn_count"] = result.review_gate.warn_count
     result.warnings.extend(

@@ -122,5 +122,49 @@ class OutputReviewTests(unittest.TestCase):
         self.assertFalse(payload["blocking"])
 
 
+class StaleMislabelTests(unittest.TestCase):
+    """时点错标嗅探（2026-08-26 blk-d9 实测形状的回归钉）。"""
+
+    HINT = (("D9", "2026-08-07", "2026-08-26"),)
+
+    def test_extract_hint_from_block_text(self) -> None:
+        from intelligence.services.output_review import extract_stale_block_hints
+
+        block = (
+            "## L2 大单资金流数据块 [D9]\n"
+            "- ⚠ 时点限定（先读）：最新扫描日 2026-08-07 早于盘面日期 2026-08-26，"
+            "本块全部数据均为 2026-08-07 的存量扫描。\n"
+        )
+        hints = extract_stale_block_hints([("D9", block), ("D7", "无限定行")])
+        self.assertEqual(hints, (("D9", "2026-08-07", "2026-08-26"),))
+
+    def test_mislabeled_as_today_warns_advisory(self) -> None:
+        # blk-d9 原话形状：陈旧榜单被写成「2026-08-26 当日的大单净流入扫描榜单」
+        answer = "已有的资金流证据是 2026-08-26 当日的大单净流入扫描榜单，C嘉立创主买净额约5.35亿。"
+        gate = _gate(GOOD_CHAIN, final_answer=answer, stale_block_hints=self.HINT)
+        check = next(c for c in gate.checks if c.name == "时点错标·D9")
+        self.assertEqual(check.status, WARN)
+        self.assertTrue(check.advisory_only)
+        self.assertIn("2026-08-07", check.note)
+        self.assertEqual(gate.status, PASS)  # 只提示，不改闸门
+
+    def test_answer_carrying_scan_date_passes(self) -> None:
+        answer = "大单净流入榜为最新扫描日 2026-08-07 数据（早于报告日），非当日榜单。"
+        gate = _gate(GOOD_CHAIN, final_answer=answer, stale_block_hints=self.HINT)
+        check = next(c for c in gate.checks if c.name == "时点错标·D9")
+        self.assertEqual(check.status, PASS)
+
+    def test_column_header_dangri_rank_is_exempt(self) -> None:
+        # 表格列名「当日名次」不算当日化表述
+        answer = "榜单字段含 当日名次 列，另见附表。"
+        gate = _gate(GOOD_CHAIN, final_answer=answer, stale_block_hints=self.HINT)
+        check = next(c for c in gate.checks if c.name == "时点错标·D9")
+        self.assertNotIn("疑似", check.note)
+
+    def test_no_hints_adds_no_checks(self) -> None:
+        gate = _gate(GOOD_CHAIN, final_answer="随便什么答案")
+        self.assertFalse([c for c in gate.checks if c.name.startswith("时点错标")])
+
+
 if __name__ == "__main__":
     unittest.main()
