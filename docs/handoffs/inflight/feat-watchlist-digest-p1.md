@@ -1,5 +1,7 @@
 # 在途交接 · feat/watchlist-digest-p1
 
+更新：2026-08-27 04:00 CST · **#445 已合并；live 首验逮到 P1b 真缺陷，修复分支 `fix/digest-snapshot-payload` 在途**。缺陷：P0 report 的 `watchlist_digest_snapshot` 键=快照文件路径字符串（落盘即脱敏成「本地研究数据（路径已隐藏）」），P1b 证据页误当对象消费——字符串真值 → `snapshot.bags.map` 渲染抛错。组件测试没抓住是因为夹具喂的是理想对象（合同错在两端之间，不在任一端内部）。修复：orchestrator 报表新增 `watchlist_digest_snapshot_payload`（整袋 dict，无路径故免脱敏）、UI 只认 payload 键 + bags/rows 数组形状护栏 fail-closed、py 源码钉 + 前端 legacy-string 回归钉。教训（可迁移）：**跨端合同的夹具必须至少有一条来自真实产线序列化产物，纯手写夹具两端各自绿、拼起来崩**。
+
 更新：2026-08-27 03:10 CST · **P1 三件齐（发酵摘要 / 快照证据页 / skill 软链），未合并**。基 `gitea/main`=`990c1c86`（含 P0 已切生产 27a），树 `/Users/a77/fwp-wt-wd-p1`。台账预注册 `R-20260827-01/-02/-03`（落表时验证过 gitea/main 无今日占用；若合并前被别的 session 占号，按 `R-20260824-31` 先例改号）。
 
 ## 三件的形状

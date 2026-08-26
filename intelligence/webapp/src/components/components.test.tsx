@@ -2503,7 +2503,7 @@ describe("DigestSnapshotView（P1b 证据快照页）", () => {
         llm: { used: false, provider: null, model: null },
         warnings: [],
         modules: [],
-        watchlist_digest_snapshot: digestSnapshot,
+        watchlist_digest_snapshot_payload: digestSnapshot,
       },
     };
     render(
@@ -2540,6 +2540,39 @@ describe("DigestSnapshotView（P1b 证据快照页）", () => {
         skills={productSkills}
         live={null}
         bundle={bundle}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+    expect(screen.queryByTestId("digest-snapshot")).not.toBeInTheDocument();
+  });
+
+  it("fails closed when only the redacted path string key is present", () => {
+    // 2026-08-27 live 实测形状：旧键是脱敏后的路径字符串（真值！），
+    // 不是载荷。页体认不出对象形状就必须不渲染，而不是对字符串崩溃。
+    const legacyBundle: RunBundle = {
+      ...bundle,
+      structuredReport: {
+        schema_version: 1,
+        report_id: "run_demo",
+        title: "自选简报",
+        task_type: "workflow",
+        status: "completed",
+        as_of: "2026-08-26",
+        llm: { used: false, provider: null, model: null },
+        warnings: [],
+        modules: [],
+        watchlist_digest_snapshot: "本地研究数据（路径已隐藏）。",
+      },
+    };
+    render(
+      <MessageBubble
+        message={assistantMessage}
+        skills={productSkills}
+        live={null}
+        bundle={legacyBundle}
         canRegenerate={false}
         onRegenerate={vi.fn()}
         onOpenArtifact={vi.fn()}

@@ -85,6 +85,16 @@ export function MessageBubble({
       (item) => item.classification === "bound_evidence",
     ) ?? true;
   const report = live?.report ?? bundle?.structuredReport;
+  // P1b 证据页只认 payload 键，且形状必须是带 bags 数组的对象——
+  // 旧键 watchlist_digest_snapshot 是脱敏路径字符串，认不出来就不渲染（fail closed）。
+  const rawDigestSnapshot = report?.watchlist_digest_snapshot_payload;
+  const digestSnapshot =
+    rawDigestSnapshot &&
+    typeof rawDigestSnapshot === "object" &&
+    Array.isArray(rawDigestSnapshot.bags) &&
+    Array.isArray(rawDigestSnapshot.rows)
+      ? rawDigestSnapshot
+      : null;
   const taskType = report?.task_type;
   const taskFrame = report?.task_frame;
   const requiresCompanyEvidence = taskFrame
@@ -150,8 +160,8 @@ export function MessageBubble({
             {terminalNotice}
           </div>
         )}
-        {report?.watchlist_digest_snapshot && (
-          <DigestSnapshotView snapshot={report.watchlist_digest_snapshot} />
+        {digestSnapshot && (
+          <DigestSnapshotView snapshot={digestSnapshot} />
         )}
         {bundle && (
           <RunView
