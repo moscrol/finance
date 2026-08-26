@@ -388,6 +388,8 @@ class AskResult:
     valuation_note: valuation_gap.ValuationGapNote | None = None
     # Review 层：输出前六项确定性检查闸门（只读、WARN 不阻断）。
     review_gate: output_review.OutputReviewGate | None = None
+    # 数据块自述的「时点限定」(tag, 扫描日, 盘面日期)；输出质检的时点错标嗅探用
+    stale_block_hints: tuple[tuple[str, str, str], ...] = ()
     # 裁决层唯一输出：表达层和 LLM 只能消费该结构，不能直接拼接检索字符串。
     answer_spec: answer_model.AnswerSpec | None = None
     # GenericResearchOwner 的确定性任务完成报告；仅控制面使用，不进入正文。
