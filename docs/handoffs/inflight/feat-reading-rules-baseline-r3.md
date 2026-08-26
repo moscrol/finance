@@ -9,10 +9,12 @@ KOL 判读方法内置为领域基线（默认开）；判断倾向留 perspecti
 
 ## 当前状态（2026-08-26 15:00）
 
-树 `/Users/a77/fwp-wt-reading-rules-r3` @ `2b7fc538`。
+树 `/Users/a77/fwp-wt-reading-rules-r3`。
 全量 pytest **6569P / 12S / 0F**（/Users 树）；ruff 绿；#222 共存钉绿
 （`test_reading_baseline_and_perspective_coexist_in_episode_input`）。
-#414 mergeable=true。**合并等用户确认**；落生产需独立切流窗口（不与 08-26 执行队列共用）。
+#414 已经用户确认合并（2026-08-26 15:00 口头确认）。**落生产（8792）需独立切流窗口**，
+切流时按红线写回滚锚 + 账本 record/check + readiness 13/13；主检出今晚不 pull——
+08-26 夜跑判别变量保持单变量（只验复盘修复），明早读数绿后再跟上。
 
 ## 未验证 / 已知边界
 
