@@ -20,6 +20,7 @@ from intelligence.services.query_understanding import (
     envelope_from_task_frame,
     is_dated_market_review,
     is_market_watch_query,
+    is_watchlist_digest_query,
     market_review_requested_date,
     project_task_frame,
 )
@@ -272,6 +273,22 @@ def _canonicalize_head_resolution(
     软解析继续提供 subject / answer_owner，否则会同时启动 daily 与 theme
     两条工作流。
     """
+    # 自选简报的头部意图优先于全市场日报：自选标记在场时先钉 watchlist_digest，
+    # 即便日后 market-watch 词面放宽到能命中同一句（spec 2026-08-26 §5 回归锁）。
+    if is_watchlist_digest_query(query):
+        row = route_by_id("watchlist_digest")
+        if row is not None and row.question_type is not None:
+            envelope = replace(
+                resolution.envelope,
+                question_type=row.question_type,
+                subject_kind="market_pattern",
+                subject=None,
+                decision_goal="按画像自选清单出当日接合简报",
+                matched_by="market_anchor",
+                confidence=max(0.98, resolution.envelope.confidence),
+                research_mode="general",
+            )
+            return replace(resolution, envelope=envelope)
     is_daily_research_workflow = _is_daily_research_workflow_query(query)
     if not is_market_watch_query(query) and not is_daily_research_workflow:
         return resolution
@@ -381,6 +398,18 @@ def _deterministic_decision(
             confidence=0.98,
             reason="明确请求指定日期的 A 股行情复盘",
             capabilities=("memory", "market_quote", "graph"),
+        )
+    if is_watchlist_digest_query(cleaned):
+        return _decision(
+            "workflow",
+            envelope=envelope,
+            needs_memory=True,
+            confidence=0.98,
+            reason="明确请求按画像自选清单出当日简报",
+            capabilities=_route_capabilities(
+                "watchlist_digest",
+                ("memory", "market_quote"),
+            ),
         )
     if is_market_watch_query(cleaned):
         return _decision(

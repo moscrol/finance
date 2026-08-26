@@ -57,6 +57,7 @@ from intelligence.services.ask import (
     _revise_synthesis_on_warn,
     answer_query,
     bind_disclosure_scan_pack,
+    bind_watchlist_digest_pack,
     prepare_disclosure_residual_answer,
     bind_research_program,
     prepare_existing_answer,
@@ -72,6 +73,11 @@ from intelligence.services.disclosure_scan_pack import (
     merge_disclosure_into_public_answer,
 )
 from intelligence.services.market_watch_pack import merge_into_public_answer
+from intelligence.services.watchlist_digest_pack import (
+    merge_digest_into_public_answer,
+    watchlist_digest_degrade_codes,
+    write_snapshot as write_watchlist_digest_snapshot,
+)
 from intelligence.services.answer_stream import AnswerSnapshot
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.answer_orchestrator import (
@@ -2252,6 +2258,9 @@ class TurnOrchestrator:
                 decision.lane == "knowledge"
                 or turn_intent.question_type == "market_technical"
                 or turn_intent.question_type == "disclosure_scan"
+                # watchlist_digest：包在 owner 分叉前确定性出稿，辅助 skill
+                # 与 LLM 软选择都用不上，跳过省一次编排延迟。
+                or turn_intent.question_type == "watchlist_digest"
                 or relation_guard_requested
                 or generic_owner_requested
             )
@@ -2848,6 +2857,28 @@ class TurnOrchestrator:
                     self.run_store.add_degrade(run_id, "market_watch_pack_stop")
                 if program is not None:
                     _ = (program.program_id, program.operators)
+            if turn_intent.question_type == "watchlist_digest":
+                # 椅子与盘面包同一把：owner 分叉之前、开口之前跑完包。
+                ask_options = bind_watchlist_digest_pack(
+                    ask_options,
+                    frame=task_frame,
+                    query=contextual_query,
+                )
+                digest_pack = ask_options.watchlist_digest_pack
+                if digest_pack is not None:
+                    # 瘦收据进 episode 报告（只状态/计数/缺口）；
+                    # 整袋证据快照落运行时目录，事后对账只对那份。
+                    report["watchlist_digest_pack"] = digest_pack.to_receipt()
+                    for code in watchlist_digest_degrade_codes(digest_pack):
+                        self.run_store.add_degrade(run_id, code)
+                    try:
+                        report["watchlist_digest_snapshot"] = str(
+                            write_watchlist_digest_snapshot(digest_pack)
+                        )
+                    except OSError:
+                        self.run_store.add_degrade(
+                            run_id, "watchlist_digest_snapshot_write_failed"
+                        )
             if (
                 turn_intent.question_type == "disclosure_scan"
                 and ask_options.disclosure_scan_pack is not None
@@ -2876,6 +2907,26 @@ class TurnOrchestrator:
                         replace(ask_options, compose=False, synthesize=False),
                         result,
                     )
+            elif (
+                turn_intent.question_type == "watchlist_digest"
+                and ask_options.watchlist_digest_pack is not None
+            ):
+                # P0 确定性填格即公开稿：数字只来自包内冻结行，模型不上场。
+                digest_pack = ask_options.watchlist_digest_pack
+                rendered = merge_digest_into_public_answer("", digest_pack)
+                result = AskResult(
+                    query=contextual_query,
+                    trade_date=digest_pack.standing_date,
+                    matched_theme=None,
+                    candidate_tier=None,
+                    priority_score=None,
+                    synthesis=rendered,
+                    market_summary=rendered,
+                )
+                prepared = prepare_existing_answer(
+                    replace(ask_options, compose=False, synthesize=False),
+                    result,
+                )
             elif owner_output is not None:
                 result = _resolve_owner_result(query, owner_output, retrieval_cache)
                 prepared = prepare_existing_answer(ask_options, result)

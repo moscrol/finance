@@ -237,6 +237,8 @@ class AskOptions:
     market_watch_pack: Any = field(default=None, repr=False, compare=False)
     # 板块披露扫描包。编排器在 owner 分叉前写入；缺席 = 本题不是该包。
     disclosure_scan_pack: Any = field(default=None, repr=False, compare=False)
+    # 自选简报包。编排器在 owner 分叉前写入；缺席 = 本题不是该包。
+    watchlist_digest_pack: Any = field(default=None, repr=False, compare=False)
     # 个性化接合核。编排器在 handle() 前写入；缺席 = 本题未触发 StancePack。
     stance_pack: Any = field(default=None, repr=False, compare=False)
     # 输入侧研究程序。只由 compile_research_program / bind_research_program 写入。

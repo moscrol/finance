@@ -2899,6 +2899,7 @@ def test_market_technical_uses_zero_llm_fast_path() -> None:
         "quick_fact",
         "dated_market_review",
         "market_watch",
+        "watchlist_digest",
         "disclosure_scan",
     ),
 )

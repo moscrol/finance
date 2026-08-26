@@ -107,6 +107,7 @@ DETERMINISTIC_OWNER_TYPES = frozenset(
         "quick_fact",
         "dated_market_review",
         "market_watch",
+        "watchlist_digest",
         "disclosure_scan",
     }
 )

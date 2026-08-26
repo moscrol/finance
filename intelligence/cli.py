@@ -3322,11 +3322,60 @@ def cmd_news_alias_accept(args: argparse.Namespace) -> int:
     return 0
 
 
+def add_digest_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "digest",
+        help="自选简报：画像清单 × 当日盘面四袋的确定性接合（只读；--write 才落证据快照）。"
+        "spec docs/superpowers/specs/2026-08-26-watchlist-digest-pack-design.md",
+    )
+    parser.add_argument(
+        "--date",
+        default=None,
+        help="站立日 YYYY-MM-DD（显式精确命中，无该日则出无行情句）；缺省=库内最新交易日，不是日历今天",
+    )
+    parser.add_argument("--user", default=None, help="用户 id；缺省走 FORESIGHT_USER / default")
+    parser.add_argument(
+        "--db",
+        default=None,
+        help="盘面 DuckDB 路径；缺省 MARKET_FEATURE_STORE_DB / 数据根 db/market_feature_store.duckdb",
+    )
+    parser.add_argument(
+        "--write",
+        action="store_true",
+        help="把证据快照 JSON 落到 ~/.finance-runtime/watchlist-digest/<user>/<date>/"
+        "（可用 WATCHLIST_DIGEST_DIR 重定位）；默认只读不落盘",
+    )
+    parser.set_defaults(func=cmd_digest)
+
+
+def cmd_digest(args: argparse.Namespace) -> int:
+    from intelligence.paths import default_market_db_path
+    from intelligence.services.watchlist_digest_pack import (
+        run_watchlist_digest_pack,
+        write_snapshot,
+    )
+
+    db = Path(args.db).expanduser() if args.db else default_market_db_path()
+    # 冻结题词面即 CLI 的固定问句；站立日一律由 --date（cutoff）或库内最新交易日决定。
+    pack = run_watchlist_digest_pack(
+        "按我的自选出今天的简报",
+        user_id=args.user,
+        market_db_path=db,
+        cutoff=args.date,
+    )
+    print(pack.render_public_answer())
+    if args.write:
+        path = write_snapshot(pack)
+        print(f"[快照] {path}", file=sys.stderr)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Financial intelligence product CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
     add_ask_parser(subparsers)
     add_chat_parser(subparsers)
+    add_digest_parser(subparsers)
     add_agent_parser(subparsers)
     add_agent_eval_parser(subparsers)
     add_answer_score_parser(subparsers)

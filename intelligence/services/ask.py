@@ -444,6 +444,47 @@ def bind_market_watch_pack(
     )
 
 
+def bind_watchlist_digest_pack(
+    options: AskOptions,
+    *,
+    frame: Any = None,
+    query: str | None = None,
+) -> AskOptions:
+    """Run the watchlist digest pack before owner/model fork and lock AskOptions.
+
+    P0 恒锁 compose=False / synthesize=False：确定性填格即公开稿，残差写手
+    不上场（spec 2026-08-26 §3.1.7；残差是 P1，开时也只许追加解读、不得改
+    数字、不得写买卖）。
+    """
+
+    from intelligence.services.honesty_gates import calendar_disclosure
+    from intelligence.services.watchlist_digest_pack import (
+        run_watchlist_digest_pack,
+    )
+
+    disclosure = calendar_disclosure(frame) if frame is not None else None
+    pack = run_watchlist_digest_pack(
+        query or options.query,
+        user_id=options.user,
+        market_db_path=options.market_db_path,
+        calendar_disclosure=disclosure,
+    )
+    rendered = pack.to_prompt_block()
+    supplemental = (
+        f"{rendered}\n\n{options.supplemental_evidence}".strip()
+        if options.supplemental_evidence
+        else rendered
+    )
+    return replace(
+        options,
+        date=pack.standing_date if pack.standing_date is not None else options.date,
+        compose=False,
+        synthesize=False,
+        supplemental_evidence=supplemental,
+        watchlist_digest_pack=pack,
+    )
+
+
 def bind_disclosure_scan_pack(
     options: AskOptions,
     *,
