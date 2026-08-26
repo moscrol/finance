@@ -48,6 +48,7 @@ from intelligence.services import (
     external_market,
     forecast_preflight,
     kb_rag,
+    knowledge_injection_policy,
     l3_evidence,  # noqa: F401  (测试经 ask.l3_evidence 打桩)
     query_ledger,
     retrieval_cache,
@@ -3211,9 +3212,18 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     # 全市场后市推演先消费 S/D 系列当前盘面与 D8 历史类比；无明确主题时，
     # 通用 wiki 语义召回既慢又容易把“市场”锚到无关公司。本车道确定性关闭 W，
     # 不影响题材/个股研究的 Hybrid RAG。
+    # 市场态题型（market_watch）同理关闭 W——2026-08-26 三轮消融实证该题型上
+    # KB 召回稳定负贡献（七读数五负，历史研报观点污染「当前主线」判断），
+    # 门控与判读基线共用 knowledge_injection_policy（估值/题材题不受影响）。
     evidence_options = (
         replace(options, use_wiki_rag=False)
-        if question_plan.question_type == QUESTION_MARKET_FORECAST
+        if (
+            question_plan.question_type == QUESTION_MARKET_FORECAST
+            or not knowledge_injection_policy.inject_knowledge(
+                # 翻译前的路由题型；读 question_plan.question_type 门控恒不触发。
+                knowledge_injection_policy.routed_question_type(question_plan)
+            )
+        )
         else options
     )
     evidence_ctx = evidence_providers.EvidenceContext(

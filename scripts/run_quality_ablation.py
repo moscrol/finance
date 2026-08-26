@@ -192,6 +192,22 @@ def _parse_judge_payload(payload: object) -> dict[str, object] | None:
     }
 
 
+def provider_label(provider: object) -> str | None:
+    """把 provider 压成可入 JSON 的身份串 ``name/model``。
+
+    ``llm_refine.complete`` 回的是 ``LLMProvider`` 数据类，直接塞进收据会在
+    ``json.dumps`` 那步炸——判官已经跑完、钱已经花了，收据却写不出来。
+    """
+
+    if provider is None:
+        return None
+    name = getattr(provider, "name", None)
+    model = getattr(provider, "model", None)
+    if name and model:
+        return f"{name}/{model}"
+    return str(name or provider)
+
+
 def judge_answer(question: Question, answer: str, *, attempts: int = 2) -> dict[str, object]:
     """盲评一份答案；解析失败重试一次（带更硬的格式提示）。
 
@@ -217,7 +233,7 @@ def judge_answer(question: Question, answer: str, *, attempts: int = 2) -> dict[
                 "上一次输出无法解析。这次**只输出 JSON 对象本身**，"
                 "不要任何解释、markdown 围栏或其他文字。\n\n" + base_prompt
             )
-        content, _provider, reason = llm_refine.complete(
+        content, provider, reason = llm_refine.complete(
             [
                 {"role": "system", "content": _JUDGE_SYSTEM},
                 {"role": "user", "content": prompt},
@@ -231,82 +247,28 @@ def judge_answer(question: Question, answer: str, *, attempts: int = 2) -> dict[
         parsed = _parse_judge_payload(llm_refine._extract_json(content))
         if parsed is not None:
             parsed["attempts"] = attempt + 1
+            # 记下实际出分的 provider：跨轮补评时，「这一份是谁评的」是分差
+            # 可比性的成立条件，不记就只能靠假设。
+            parsed["provider"] = provider_label(provider)
             return parsed
         last_reason = "judge 输出无法解析为合法五维 JSON"
     return {"scored": False, "reason": last_reason, "attempts": max(1, attempts)}
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--components", default="all", help="all 或逗号分隔的组件名")
-    parser.add_argument("--max-questions", type=int, default=len(QUESTIONS))
-    parser.add_argument("--ask-timeout", type=float, default=420.0)
-    parser.add_argument("--seed", type=int, default=20260826, help="盲评洗牌种子")
-    parser.add_argument(
-        "--exports-dir",
-        default=str(Path(os.environ.get("FINANCE_WS", REPO)) / "market_feature_store" / "exports"),
-    )
-    parser.add_argument("--output", type=Path, default=None)
-    parser.add_argument("--dry-run", action="store_true", help="只打印执行计划，不调任何 LLM")
-    args = parser.parse_args()
+def aggregate_components(
+    answers: list[dict[str, object]], component_ids: list[str]
+) -> dict[str, object]:
+    """每颗组件 = 平均(关断臂总分) − 平均(同题基线总分)，只聚合双方都 scored 的题。
 
-    if args.components == "all":
-        component_ids = list(COMPONENTS)
-    else:
-        component_ids = [c.strip() for c in args.components.split(",") if c.strip()]
-        unknown = [c for c in component_ids if c not in COMPONENTS]
-        if unknown:
-            raise _fail(f"未知组件：{unknown}（可选：{', '.join(COMPONENTS)}）")
+    补评脚本（``rejudge_quality_ablation.py``）复用同一份数学。**聚合口径只能有
+    一处**：抄第二份的那天两边不会同时被改，漂了也没人发现——而这份数字是拿来
+    做合并决定的。
+    """
 
-    questions = QUESTIONS[: max(1, args.max_questions)]
-    plan = [("baseline", None, q) for q in questions] + [
-        (cid, COMPONENTS[cid], q) for cid in component_ids for q in questions
-    ]
-    print(f"[plan] 基线 {len(questions)} 答 + 关断 {len(component_ids)}×{len(questions)} 答，"
-          f"共 {len(plan)} 次 ask + 盲评")
-    if args.dry_run:
-        for arm, spec, q in plan:
-            knob = spec["close_via"] if spec else "默认全开"
-            print(f"  {arm:<18} {q.case_id:<22} {knob}")
-        return 0
-
-    require_llm_ready()
-
-    answers: list[dict[str, object]] = []
-    for arm, spec, q in plan:
-        extra_env = dict(spec["env"]) if spec else {}
-        extra_flags = tuple(spec["flags"]) if spec else ()
-        print(f"[ask] {arm} × {q.case_id} …", flush=True)
-        result = run_ask(
-            q,
-            extra_env=extra_env,
-            extra_flags=extra_flags,
-            exports_dir=args.exports_dir,
-            timeout=args.ask_timeout,
-        )
-        answers.append({"arm": arm, "case_id": q.case_id, **result})
-        print(
-            f"       {'ok' if result.get('ok') else '失败: ' + str(result.get('error'))} "
-            f"({result.get('elapsed_sec', 0):.0f}s, {len(str(result.get('answer') or ''))} 字)",
-            flush=True,
-        )
-
-    # 盲评：洗牌后逐份独立打分，judge 不见 arm 标签。
-    order = list(range(len(answers)))
-    random.Random(args.seed).shuffle(order)
-    by_case = {q.case_id: q for q in questions}
-    for idx in order:
-        rec = answers[idx]
-        if not rec.get("ok"):
-            rec["judge"] = {"scored": False, "reason": "答案臂失败，未送评"}
-            continue
-        print(f"[judge] #{idx}（盲）…", flush=True)
-        rec["judge"] = judge_answer(by_case[str(rec["case_id"])], str(rec["answer"]))
-
-    # 聚合：每颗组件 = 平均(关断臂总分) − 平均(同题基线总分)，只聚合双方都 scored 的题。
-    baseline_by_case = {
-        str(r["case_id"]): r for r in answers if r["arm"] == "baseline"
-    }
+    baseline_by_case = {str(r["case_id"]): r for r in answers if r["arm"] == "baseline"}
+    unknown = [cid for cid in component_ids if cid not in COMPONENTS]
+    if unknown:
+        raise _fail(f"未知组件，无法解析 close_via：{unknown}")
     aggregates: dict[str, object] = {}
     for cid in component_ids:
         rows = []
@@ -352,6 +314,113 @@ def main() -> int:
             ),
             "rows": rows,
         }
+    return aggregates
+
+
+def load_questions_file(path: Path) -> tuple[Question, ...]:
+    """自定义题集：JSON 数组，每项 {case_id, text, as_of}。
+
+    定向复测用（如「主线题 5 变体 × on/off」证伪某题型假设），字段缺失即拒跑——
+    题集是读数的坐标系，宁可不跑也不要坐标含糊的读数。
+    """
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, list) or not payload:
+        raise _fail(f"题集文件必须是非空 JSON 数组：{path}")
+    questions: list[Question] = []
+    for i, item in enumerate(payload):
+        if not isinstance(item, dict):
+            raise _fail(f"题集第 {i} 项不是对象")
+        case_id = str(item.get("case_id") or "").strip()
+        text = str(item.get("text") or "").strip()
+        as_of = str(item.get("as_of") or "").strip()
+        if not (case_id and text and as_of):
+            raise _fail(f"题集第 {i} 项缺 case_id/text/as_of")
+        questions.append(Question(case_id, text, as_of))
+    ids = [q.case_id for q in questions]
+    if len(ids) != len(set(ids)):
+        raise _fail("题集 case_id 重复")
+    return tuple(questions)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--components", default="all", help="all 或逗号分隔的组件名")
+    parser.add_argument(
+        "--questions-file",
+        type=Path,
+        default=None,
+        help="自定义题集 JSON（[{case_id,text,as_of}]）；缺省用内置 6 题",
+    )
+    parser.add_argument("--max-questions", type=int, default=0, help="0=全部")
+    parser.add_argument("--ask-timeout", type=float, default=420.0)
+    parser.add_argument("--seed", type=int, default=20260826, help="盲评洗牌种子")
+    parser.add_argument(
+        "--exports-dir",
+        default=str(Path(os.environ.get("FINANCE_WS", REPO)) / "market_feature_store" / "exports"),
+    )
+    parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument("--dry-run", action="store_true", help="只打印执行计划，不调任何 LLM")
+    args = parser.parse_args()
+
+    if args.components == "all":
+        component_ids = list(COMPONENTS)
+    else:
+        component_ids = [c.strip() for c in args.components.split(",") if c.strip()]
+        unknown = [c for c in component_ids if c not in COMPONENTS]
+        if unknown:
+            raise _fail(f"未知组件：{unknown}（可选：{', '.join(COMPONENTS)}）")
+
+    question_pool = (
+        load_questions_file(args.questions_file) if args.questions_file else QUESTIONS
+    )
+    limit = args.max_questions if args.max_questions > 0 else len(question_pool)
+    questions = question_pool[: max(1, limit)]
+    plan = [("baseline", None, q) for q in questions] + [
+        (cid, COMPONENTS[cid], q) for cid in component_ids for q in questions
+    ]
+    print(f"[plan] 基线 {len(questions)} 答 + 关断 {len(component_ids)}×{len(questions)} 答，"
+          f"共 {len(plan)} 次 ask + 盲评")
+    if args.dry_run:
+        for arm, spec, q in plan:
+            knob = spec["close_via"] if spec else "默认全开"
+            print(f"  {arm:<18} {q.case_id:<22} {knob}")
+        return 0
+
+    require_llm_ready()
+
+    answers: list[dict[str, object]] = []
+    for arm, spec, q in plan:
+        extra_env = dict(spec["env"]) if spec else {}
+        extra_flags = tuple(spec["flags"]) if spec else ()
+        print(f"[ask] {arm} × {q.case_id} …", flush=True)
+        result = run_ask(
+            q,
+            extra_env=extra_env,
+            extra_flags=extra_flags,
+            exports_dir=args.exports_dir,
+            timeout=args.ask_timeout,
+        )
+        answers.append({"arm": arm, "case_id": q.case_id, **result})
+        print(
+            f"       {'ok' if result.get('ok') else '失败: ' + str(result.get('error'))} "
+            f"({result.get('elapsed_sec', 0):.0f}s, {len(str(result.get('answer') or ''))} 字)",
+            flush=True,
+        )
+
+    # 盲评：洗牌后逐份独立打分，judge 不见 arm 标签。
+    order = list(range(len(answers)))
+    random.Random(args.seed).shuffle(order)
+    by_case = {q.case_id: q for q in questions}
+    for idx in order:
+        rec = answers[idx]
+        if not rec.get("ok"):
+            rec["judge"] = {"scored": False, "reason": "答案臂失败，未送评"}
+            continue
+        print(f"[judge] #{idx}（盲）…", flush=True)
+        rec["judge"] = judge_answer(by_case[str(rec["case_id"])], str(rec["answer"]))
+
+    aggregates = aggregate_components(answers, component_ids)
 
     artifact = {
         "kind": "quality_ablation",

@@ -18,7 +18,7 @@ from intelligence.services.episode_output_substance import (
     required_output_evidence_floor,
     required_outputs_without_substance,
 )
-from intelligence.services import reading_baseline
+from intelligence.services import knowledge_injection_policy
 from intelligence.services.research_contract import (
     FORWARD_HYPOTHESIS_OUTPUT_IDS,
     ResearchRunContext,
@@ -361,7 +361,9 @@ def build_episode_input(
         ),
         "question_type_rules": _question_type_rules(task_frame, context),
     }
-    baseline = reading_baseline.baseline_guidance()
+    # 市场态题型（market_watch）不注入：三轮消融实测该题型上判读基线稳定负贡献
+    # （主线题七读数全 ≤0），与 Engine B 合成侧共用 knowledge_injection_policy 门控。
+    baseline = knowledge_injection_policy.reading_guidance_for(task_frame.question_type)
     if baseline:
         # 判读基线是领域方法，默认生效，与 perspective_context（观点层、需用户显式
         # 选中）分属两层——两个引擎必须都接，只接 legacy 会让生产 continuous 主路径

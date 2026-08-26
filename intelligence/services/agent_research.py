@@ -28,6 +28,7 @@ from dataclasses import dataclass, field, replace
 
 from intelligence.services import (
     closed_loop_retrieval,
+    evidence_judge,
     llm_refine,
     market_news,
     web_research,
@@ -59,6 +60,9 @@ _MAX_OBSERVATION_CHARS = 900
 # 本模块不另建字符降档——见 kb_search_delivery_limits。
 KB_SEARCH_MAX_HITS = 6
 KB_SEARCH_DETAIL_CHARS = 0
+# 语义闸触发阈值（#424）：召回条数达到该值才过 evidence_judge——小结果集
+# 直接送达（一次裁判 = 一次 LLM 调用，Engine A 工具批预算 60s 内要省着花）。
+KB_JUDGE_MIN_HITS = 4
 # 工具描述注册表：system prompt 按「实际注册的工具」动态生成——宣传清单与
 # 注册表不再可能漂移（此前静态 prompt 宣传未注册工具会触发"非法工具"中断）。
 _TOOL_DESCRIPTIONS = {
@@ -469,6 +473,27 @@ def build_default_tools(
             remaining_seconds=context.deadline.remaining(),
         )
         hits = list(getattr(rag, "hits", ()) or ())[:max_hits]
+        # 语义闸（#424）：kb_search 是 Engine A 的主 KB 通道，此前是全系统唯一
+        # 不过 evidence_judge 的召回口——词面重叠但语义无关的召回（「科创50
+        # 支撑位」↔「兰花科创…支撑」）会直接进证据链。该闸在 Engine B 消融
+        # 实测 +2.8/20（收据 intelligence/eval/runs/20260826T101858Z）。
+        # 成本控制：召回 ≥ KB_JUDGE_MIN_HITS 条才裁判（小结果集直接送达）；
+        # fail-open：裁判关闭/失败返回 None 时全量保留，绝不因 LLM 失败丢证据。
+        judged_out = 0
+        judged_total = len(hits)
+        if len(hits) >= KB_JUDGE_MIN_HITS and evidence_judge.should_judge():
+            verdict = evidence_judge.judge_relevance(
+                query,
+                [
+                    (str(hit.title), kb_search_hit_text(hit, detail_chars=200))
+                    for hit in hits
+                ],
+                timeout=context.deadline.stage_timeout(evidence_judge.DEFAULT_TIMEOUT),
+            )
+            if verdict is not None:
+                kept, _reason = verdict
+                judged_out = len(hits) - len(kept)
+                hits = [hit for index, hit in enumerate(hits) if index in kept]
         evidence = []
         rag_telemetry = getattr(rag, "telemetry", None)
         pointer_dropped = getattr(rag_telemetry, "pointer_dropped", None)
@@ -513,6 +538,17 @@ def build_default_tools(
         if evidence:
             observation = "；".join(
                 f"{item.title}：{item.detail[:80]}" for item in evidence
+            )
+            if judged_out:
+                # 滤除必须可见：静默丢弃会让「送达 3 条」与「召回 3 条」无法区分。
+                observation = f"{observation}；（语义闸滤除 {judged_out} 条无关召回）"
+        elif judged_out and judged_out == judged_total:
+            # 全部被判无关 ≠ 知识库无回填——前者是「有近词内容但与本题无关」，
+            # 后者才该触发「考虑回填」的下游动作。混为一谈会教模型把语义闸
+            # 的正确工作读成知识库缺口。
+            observation = (
+                f"知识库召回 {judged_total} 条经语义闸全部判定与本题无关"
+                "（非无回填，勿据此判断知识库缺该主题）"
             )
         else:
             observation = describe_no_result(
