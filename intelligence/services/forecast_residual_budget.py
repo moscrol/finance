@@ -24,6 +24,7 @@ DO_NOT_LENGTHEN_QUESTION_TYPES = frozenset(
         "quick_fact",
         "dated_market_review",
         "market_watch",
+        "watchlist_digest",
         "disclosure_scan",
     }
 )

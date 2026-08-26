@@ -28,6 +28,9 @@ _POLICY_BY_QUESTION_TYPE: dict[str, str] = {
     "concept_definition": "stable_knowledge",
     "methodology_discussion": "model_reasoning",
     "market_watch": "current_a_share_market",
+    # 政策名必须与 market_watch 不同：_QUESTION_TYPE_BY_POLICY 是反查表，
+    # 同名政策会让后注册的题型静默顶掉先注册的。
+    "watchlist_digest": "user_watchlist_digest",
     "dated_market_review": "dated_a_share_market",
     "market_forecast": "current_market_scenarios",
     "market_cause": "time_aligned_market_causal",
@@ -733,6 +736,11 @@ def _default_required_outputs(question_type: str, question: str) -> tuple[str, .
         "concept_definition": ("direct_definition", "evidence_boundary"),
         "methodology_discussion": ("direct_explanation", "tradeoffs"),
         "market_watch": ("direct_assessment", "supporting_evidence", "risk_signals"),
+        "watchlist_digest": (
+            "direct_assessment",
+            "supporting_evidence",
+            "evidence_boundary",
+        ),
         "dated_market_review": ("market_summary", "mainline_structure", "risk_signals"),
         "market_forecast": (
             "direct_assessment",

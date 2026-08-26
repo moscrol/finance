@@ -178,6 +178,17 @@ ROUTE_TABLE: tuple[RouteRow, ...] = (
         capabilities=("memory", "market_quote", "graph"),
     ),
     RouteRow(
+        route_id="watchlist_digest",
+        description="按用户画像自选清单出当日接合简报（对着清单说话，不是全市场日报，也不是买卖建议）",
+        examples=("按我的自选出今天的简报", "我的自选今天怎么样"),
+        lane="workflow",
+        question_type="watchlist_digest",
+        answer_owner=None,
+        needs_retrieval=True,
+        needs_template=True,
+        capabilities=("memory", "market_quote"),
+    ),
+    RouteRow(
         route_id="dated_market_review",
         description="指定日期的A股行情总结、复盘或分析",
         examples=("复盘7月16日的A股市场", "7.16的行情你分析一下"),

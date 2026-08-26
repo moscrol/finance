@@ -272,6 +272,12 @@ _MARKET_WATCH_RE = re.compile(
     r"|(?:(?<=^)|(?<=[，。；？！、,;?!]))(?:目前|当前|现在|今天|今日)(?:的)?"
     r"主线(?:是|有)?(?:什么|哪些|哪几个|哪个)"
 )
+# 自选简报（watchlist_digest）：自选标记 ∧ 当日/简报标记，无序合取
+# （spec 2026-08-26-watchlist-digest-pack-design §5）。
+# 「关注的票」必须带「票」——「今天有什么值得关注的」是 market_watch 的地盘；
+# 「该看什么」只因合取里必须同时有自选标记才不撞 foresight / market_watch。
+_WATCHLIST_SUBJECT_RE = re.compile(r"(?:自选|我的清单|关注的票|watchlist)")
+_WATCHLIST_DAY_RE = re.compile(r"(?:今天|今日|简报|开盘|该看什么)")
 _MARKET_FORECAST_RE = re.compile(
     r"(?:展望|研判|预测)[^。？！]{0,16}(?:后市|市场|行情|大盘)"
     r"|(?:后市|后面市场|接下来市场|未来市场)[^。？！]{0,16}"
@@ -718,6 +724,21 @@ def is_market_watch_query(query: str) -> bool:
     return _MARKET_WATCH_RE.search(text) is not None
 
 
+def is_watchlist_digest_query(query: str) -> bool:
+    """确定性识别「按我的自选出今天的简报」类清单简报题。
+
+    主键是画像自选（不是问句里的持仓词），因此不需要主语实体；
+    casefold 让英文 watchlist 大小写不敏感。
+    """
+
+    text = re.sub(r"\s+", "", str(query or "").strip()).casefold()
+    return bool(
+        text
+        and _WATCHLIST_SUBJECT_RE.search(text)
+        and _WATCHLIST_DAY_RE.search(text)
+    )
+
+
 SIGNAL_MARKET_WATCH = "market_watch"
 SIGNAL_DOUBLE_RED = "double_red"
 SIGNAL_FERMENTATION = "fermentation"
@@ -1057,6 +1078,8 @@ def _research_mode(
     if question_type in {"stock_deep_dive", "valuation_estimate"}:
         return "deep_dive"
     if question_type == "disclosure_scan":
+        return "general"
+    if question_type == "watchlist_digest":
         return "general"
     if subject_kind == "theme":
         return "theme_research"
@@ -1487,6 +1510,20 @@ def understand_query(
             "扫描点名板块近期官方披露里偏利好的个股名单",
             timeframe,
             "explicit",
+            0.98,
+        )
+
+    # 自选标记在场时，简报压过全市场日报——本分支必须排在 market_watch 之前，
+    # 这是回归锁：日后放宽 _MARKET_WATCH_RE 也不允许清单题被吞进全市场日报
+    # （spec 2026-08-26 §5；test_priority_source_order_nails 锁顺序）。
+    if is_watchlist_digest_query(text):
+        return envelope(
+            "watchlist_digest",
+            "market_pattern",
+            None,
+            "对用户画像自选清单出当日接合简报",
+            timeframe,
+            "market_anchor",
             0.98,
         )
 
