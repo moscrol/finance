@@ -3453,28 +3453,41 @@ class TurnOrchestrator:
             elif not text_chunks or text_chunks[-1] != answer_text:
                 emit_text_delta(answer_text)
 
-            if (
+            # 旁路实验开关只决定「要不要**额外跑**一次影子链」，不决定「跑过了要不要
+            # 记 trace」。老写法把两件事绑在一个 if 上，后果是：
+            # ``grounded_presenter`` 默认 on（生产态），``promote_grounded_answer``
+            # 内部用 ``replace(options, shadow_grounded_composer=True)`` 跑出影子记录
+            # ——但那是**副本**，``prepared.options.shadow_grounded_composer`` 仍是
+            # 默认的 False，于是整个 if 不进，trace 一条不发。
+            # 也就是说 trace 只覆盖默认关闭的实验模式，**恰好漏掉真正驱动用户答案的
+            # 那条路**。下面 ``source`` 字段里写着 ``primary_grounded_presenter``，
+            # 说明设计上本来就要覆盖两种，是这道门把它挡死了。
+            # 2026-08-26 的 fail-open（judge 判否、被否的句子照样出稿）因此只能靠
+            # 拿归档件在生产 revision 上逐段重放才定位到。
+            reused_existing = result.grounded_composer_shadow is not None
+            should_run_shadow = (
                 prepared.options.shadow_grounded_composer
+                and not reused_existing
                 and result.answer_spec is not None
                 and result.answer_spec.presentation_kind
                 not in {"market_technical", "evidence_gap"}
-            ):
-                reused_existing = result.grounded_composer_shadow is not None
-                if not reused_existing:
-                    try:
-                        synthesize_shadow_grounded_answer(
-                            PreparedAnswer(
-                                options=prepared.options,
-                                result=result,
-                            )
+            )
+            if should_run_shadow:
+                try:
+                    synthesize_shadow_grounded_answer(
+                        PreparedAnswer(
+                            options=prepared.options,
+                            result=result,
                         )
-                    except Exception as exc:
-                        result.grounded_composer_shadow = (
-                            answer_model.GroundedComposerShadow(
-                                status="internal_error",
-                                failure_reason=type(exc).__name__,
-                            )
+                    )
+                except Exception as exc:
+                    result.grounded_composer_shadow = (
+                        answer_model.GroundedComposerShadow(
+                            status="internal_error",
+                            failure_reason=type(exc).__name__,
                         )
+                    )
+            if should_run_shadow or reused_existing:
                 shadow = result.grounded_composer_shadow
                 shadow_trace = (
                     shadow.to_dict() if shadow is not None else {"status": "not_run"}
