@@ -236,10 +236,42 @@ def judge_answer(question: Question, answer: str, *, attempts: int = 2) -> dict[
     return {"scored": False, "reason": last_reason, "attempts": max(1, attempts)}
 
 
+def load_questions_file(path: Path) -> tuple[Question, ...]:
+    """自定义题集：JSON 数组，每项 {case_id, text, as_of}。
+
+    定向复测用（如「主线题 5 变体 × on/off」证伪某题型假设），字段缺失即拒跑——
+    题集是读数的坐标系，宁可不跑也不要坐标含糊的读数。
+    """
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, list) or not payload:
+        raise _fail(f"题集文件必须是非空 JSON 数组：{path}")
+    questions: list[Question] = []
+    for i, item in enumerate(payload):
+        if not isinstance(item, dict):
+            raise _fail(f"题集第 {i} 项不是对象")
+        case_id = str(item.get("case_id") or "").strip()
+        text = str(item.get("text") or "").strip()
+        as_of = str(item.get("as_of") or "").strip()
+        if not (case_id and text and as_of):
+            raise _fail(f"题集第 {i} 项缺 case_id/text/as_of")
+        questions.append(Question(case_id, text, as_of))
+    ids = [q.case_id for q in questions]
+    if len(ids) != len(set(ids)):
+        raise _fail("题集 case_id 重复")
+    return tuple(questions)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--components", default="all", help="all 或逗号分隔的组件名")
-    parser.add_argument("--max-questions", type=int, default=len(QUESTIONS))
+    parser.add_argument(
+        "--questions-file",
+        type=Path,
+        default=None,
+        help="自定义题集 JSON（[{case_id,text,as_of}]）；缺省用内置 6 题",
+    )
+    parser.add_argument("--max-questions", type=int, default=0, help="0=全部")
     parser.add_argument("--ask-timeout", type=float, default=420.0)
     parser.add_argument("--seed", type=int, default=20260826, help="盲评洗牌种子")
     parser.add_argument(
@@ -258,7 +290,11 @@ def main() -> int:
         if unknown:
             raise _fail(f"未知组件：{unknown}（可选：{', '.join(COMPONENTS)}）")
 
-    questions = QUESTIONS[: max(1, args.max_questions)]
+    question_pool = (
+        load_questions_file(args.questions_file) if args.questions_file else QUESTIONS
+    )
+    limit = args.max_questions if args.max_questions > 0 else len(question_pool)
+    questions = question_pool[: max(1, limit)]
     plan = [("baseline", None, q) for q in questions] + [
         (cid, COMPONENTS[cid], q) for cid in component_ids for q in questions
     ]
