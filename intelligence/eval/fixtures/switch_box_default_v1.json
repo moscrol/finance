@@ -28,7 +28,6 @@
     "pack.weekly-watch": "登记行（第 0 步）：生产不读本表，进盒需对照 + 用户确认（棘轮 #3）",
     "param.boards-min": "CLI 参数默认值，不是开关位",
     "predicate.evidence-layers": "canonical=contested，是待建正典的工单不是开关",
-    "predicate.reading-baseline": "代码不在本底",
     "probe.substitute-observation": "登记行（第 0 步）：生产不读本表，进盒需对照 + 用户确认（棘轮 #3）",
     "program.research-program": "消融开关，生产不读本表"
   },
@@ -42,6 +41,7 @@
     "predicate.limit-approx-9p8": "on",
     "predicate.limit-heat-min2": "on",
     "predicate.mainup-consecutive-3": "on",
+    "predicate.reading-baseline": "on",
     "predicate.single-red": "on",
     "predicate.sqrt-weighted": "on",
     "predicate.volume-surge-10": "on",

@@ -1,8 +1,9 @@
 """第 0 步：开关板读表。不搬超集树 960 行夹具。
 
 超集树上那份夹具假设双红复印件已清零、reading_baseline 已合、路由/说明书
-三面都接到 faces()。今日 gitea/main 三件都不成立，整份搬过来会红，而且红的
-是别人的债，不是本单。
+三面都接到 faces()。reading_baseline 已随 feat/reading-rules-baseline-r3
+落地本底（2026-08-26，#343 的 rebase 重开），转 active/exists 并进臂；
+另两件（复印件清零、路由/说明书接线）仍不成立，整份搬过来仍会红。
 
 本文件只锁本底真实做到的：
 
@@ -13,8 +14,7 @@
   生产 serving 路径不 import ``capability_switchboard``
   预取算数面读 ``faces()``；路由/说明书本底仍不读
 
-离线 runner 正控、复印件棘轮、reading-baseline 整包归零：#343 合入后再加，
-不要为了绿把那些文件拷进来。
+离线 runner 正控、复印件棘轮：后续单独加，不要为了绿把那些文件拷进来。
 """
 
 from __future__ import annotations
@@ -83,12 +83,14 @@ def test_seam_paths_exist_except_pending(board) -> None:
             assert target.exists(), f"{row.id} 的 seam 路径不存在：{row.seam_path}"
 
 
-def test_reading_baseline_stays_on_the_other_branch(board) -> None:
+def test_reading_baseline_landed_and_enters_the_arm(board) -> None:
+    """r3 落地后翻钉：正典在本底、登记转 active/exists、自动进臂。"""
+
     row = board.resolve("predicate.reading-baseline")
-    assert row.status == "pending-other-branch"
-    assert row.canonical == "other-branch"
-    assert "predicate.reading-baseline" not in board.arm_ids()
-    assert not (REPO / "intelligence/services/reading_baseline.py").exists()
+    assert row.status == "active"
+    assert row.canonical == "exists"
+    assert "predicate.reading-baseline" in board.arm_ids()
+    assert (REPO / "intelligence/services/reading_baseline.py").exists()
 
 
 def test_non_existing_canonical_never_enters_an_arm(board) -> None:
@@ -238,9 +240,9 @@ def test_unwired_arithmetic_predicates_do_not_enter_arm_or_wired_set(board) -> N
         assert switch_id not in arm
         assert switch_id not in wired
     assert "predicate.double-red" in wired
-    # OWNERSHIP 里留了声明，但本底没有 reading_baseline.py，不进臂。
+    # r3 落地后：声明 + 正典 + 面都在，既 wired 也进臂。
     assert "predicate.reading-baseline" in wired
-    assert "predicate.reading-baseline" not in arm
+    assert "predicate.reading-baseline" in arm
 
 
 def test_default_box_regenerates() -> None:
