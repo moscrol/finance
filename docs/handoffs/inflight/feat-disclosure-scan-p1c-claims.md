@@ -56,7 +56,7 @@ claim（`disc:row:*`）。切流正文
    `disc:summary:1` 而非反证行自己的 claim」，并提议「在 registry note 里点名
    『解读反证请绑 disc:counter 行』」——**`disc:counter` 根本没进 prompt**（见上面
    错 1），在 note 里点名它没用。真正的杠杆在预算与排序。
-   **PR #405 已开**：① registry 行里的 atom 去掉与同行逐字重复的三个键
+   **PR #406 已开**：① registry 行里的 atom 去掉与同行逐字重复的三个键
    （`claim_text`/`entity_id`/`provenance`，占整段 70%）；② 反证与缺口 claim
    预算内优先占位，不许被支持性事实挤掉。实测同一个包：19 行 → 32 行，
    `disc:counter`/`disc:gap` 从「一条没进」变成必进。
@@ -92,7 +92,7 @@ claim（`disc:row:*`）。切流正文
   改动行形如 `" M path"`，首行前导空格被吃掉后 `line[3:]` 多切一个字符。当它是
   唯一的脏代码文件时 `dirty` 记成 False，收据自称干净树。写方 `conftest.py` 与
   检方 `scripts/check_test_receipt.py` 是同一份逻辑的两个拷贝，两边都有。
-  **PR #406 已开**。现场：#402 那份 6533 收据只列出 `test_grok_cli_judge.py`，
+  **PR #405 已开**。现场：#402 那份 6533 收据只列出 `test_grok_cli_judge.py`，
   漏掉同样未提交的 `llm_refine.py`。
 - 别拿 `verified_facts` 的长度当「进了 prompt 的条数」。要知道模型实际看到什么，
   就用生产 pack 重建 `grounded_claim_registry_block`——registry block **没有归档**，
