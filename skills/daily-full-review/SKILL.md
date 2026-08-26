@@ -32,6 +32,9 @@ stock-daily）静默挂起，整个 daily 就卡死且无进度输出。**
 - **重模块先看进度**：`limit-heat` 必须能看到 `[limit-heat] detail chunk i/N` 进度；
   看不到就是被 PIPE 吞了，改成直跑（继承 stdout）。
 - **每模块审计**：写完用 `check_daily_review_data.py` 或行数查询确认，再进下一模块。
+  **行数不够**：再抽查 `price`/`pct_chg`/`amount` 非空（`COUNT(*)` 过门、值全 NULL 是 06-22 假绿）。
+- **夜跑失败禁止直写生产**：18:30 S7 写的是 `db/market_feature_store.duckdb.staging`，same-day 不过门就不换名。补洞设 `MARKET_FEATURE_STORE_DB=…staging`，门绿才 `atomic_swap_into_place`。详见 `references/ops-pitfalls.md`「S7 staging」。
+- **两个 python 不是同一个**：`intelligence.cli` / DuckDB 用 `.venv-workbench/bin/python`；生成段 `CommandSpec` 写死 PATH 里的 `python3`，必须以 `/opt/homebrew/bin` 开头（venv 缺 `markdown`/`matplotlib`）。
 - **每轮必记 runlog**：跑完把每个模块的 状态/耗时/走了哪条路径 追加到
   `state/runlog.md`，顺的路径记住，坑的路径下次规避。
 - **末尾自动补偿重试**：编排器跑完一轮后会对 fail/timeout 的模块统一重跑
@@ -50,6 +53,10 @@ stock-daily）静默挂起，整个 daily 就卡死且无进度输出。**
   避免索引超时拖死 20:40 生成段。手动深挖仍可显式传 `--semantic-rag-top-n 3`。
   队列写出后会 `kb-queue-receive` 把 `{D}-kb-ingest-queue.json` 归档到知识库
   `wiki/raw/cross-repo-ingest-queue/`；**只归档、不 apply、不改 relations**。
+  若 `content delta exceeds maximum size`（10MB）：gitignore 缩不了 delta；临时 park
+  手法见 `references/ops-pitfalls.md`，不要扩 cap、不要把归档 commit 进别人的知识库分支。
+  补跑队列后必须重渲染 workbench + cockpit。`daily-workflow-summary.json` 若
+  `skip_agent=true`，不能当「研究队列已跑」的证据。
 
 ## Git 安全
 
@@ -107,25 +114,31 @@ python3 skills/daily-full-review/scripts/export_increment.py --date YYYY-MM-DD
 
 ## 后置环节（同步完成后必做）
 
-全量同步 + daily-review 完成后，还需完成以下渲染步骤才算"驾驶台可用"：
+夜跑 `intelligence.cli daily --skip-sync --from-step daily-review` **已经串**下面「canonical」步
+（含日报 HTML、题材、队列、矩阵、workbench、cockpit）。手工补跑只补缺的那步，不要按旧脚本名另写一套。
 
 | 序 | 步骤 | 命令 | 备注 |
 |---|---|---|---|
-| 1 | 渲染每日复盘 HTML | `python3 scripts/render_daily_review_html.py D` | 从 md → html |
+| 1 | 渲染每日复盘 HTML | `python3 scripts/render_daily_review_briefing.py D` | canonical；旧的 `render_daily_review_html.py` 是另一套暗色模板，不要混用 |
 | 2 | 渲染题材雷达 HTML | `python3 scripts/render_market_triggered_theme_brief_html.py D` | 若 quality-gate 拦截，手工从 md 渲染 |
-| 3 | 渲染题材候选工作台 | `python3 scripts/render_theme_candidates_html.py D`（若存在） | |
+| 3 | 渲染题材候选工作台 | `python3 scripts/render_theme_candidates_workbench_html.py D` | |
 | 4 | 策略四矩阵 | 已内置到 `intelligence.cli daily`（strategy4-matrix 步） | 也可手动 `render_strategy4_dual_engine_matrix.py --end D` |
 | 5 | 策略一/三矩阵 | 已内置到 `intelligence.cli daily`（strategy1-matrix-draft / strategy3-matrix 步） | 策略一自动行为「机械初稿」，人工复核仍走 `skills/strategy1-matrix`（人工行不会被机械行覆盖） |
-| 6 | 机构胜率 | `python3 skills/opinion-cross/scripts/render_winrate_html.py --vault <KB_WIKI> --date D` | KB_WIKI = 知识库/wiki |
-| 7 | 晨会简报 | `python3 <KB>/skills/morning-briefing/scripts/render_briefing_html.py D --vault <KB_WIKI>` | 需源 md 存在 |
-| 8 | 进化流水线 8步 | `bash scripts/evolve_daily.sh D` | 不加 --force 除非数据有缺口 |
-| 9 | 研究队列 | `python3 -m intelligence.cli agent-daily --date D`（夜跑带 `--semantic-rag-top-n 0`） | canonical `{D}-research-queue.*`；完整日报 best-effort |
-| 9b | 跨仓缺口归档 | `python3 -m intelligence.cli kb-queue-receive --date D` | 只 receive 到 wiki/raw；`auto_apply` 保持 false；不写 IMA/relations |
-| 10 | 策略工作台 | `python3 scripts/render_review_workbench.py` | 聚合所有 daily + matrix |
-| 11 | 驾驶台 cockpit | `python3 scripts/render_cockpit.py --kb-briefings-dir <KB>/dashboard/briefings` | **必须传正确路径** |
-| 12 | L3 补录（例行池+agent缺口） | `python3 skills/daily-full-review/scripts/l3_daily_backfill.py --date D --apply` | **在 agent-daily 之后**；详见下方「L3 补录」节 |
+| 6 | 研究队列 | `python3 -m intelligence.cli agent-daily --date D`（夜跑带 `--semantic-rag-top-n 0`） | canonical `{D}-research-queue.*`；完整日报 best-effort |
+| 6b | 跨仓缺口归档 | `python3 -m intelligence.cli kb-queue-receive --date D --kb-wiki <KB_WIKI>` | 只 receive 到 wiki/raw；`auto_apply` 保持 false；不写 IMA/relations |
+| 7 | 策略工作台 | `python3 scripts/render_review_workbench.py` | 队列补跑后必须再跑，否则 08-25 卡仍缺「研究队列」 |
+| 8 | 驾驶台 cockpit | `python3 scripts/render_cockpit.py --knowledge-root <KB_ROOT>` | 参数是知识库**仓根**（`…/knowledge-base-private`），不是 `--kb-briefings-dir` |
+| 9 | L3 补录（例行池+agent缺口） | `python3 skills/daily-full-review/scripts/l3_daily_backfill.py --date D --apply` | **在 agent-daily 之后**；先 dry-run。知识库在别人脏分支上只 dry-run、不 `--apply` |
 
-> **KB 路径**：`/Users/lbq/Desktop/c c/知识库`，KB_WIKI = `知识库/wiki`
+有源才跑（**不是**夜跑完成判据；缺它们不要当成复盘没收尾）：
+
+| 步骤 | 命令 | 备注 |
+|---|---|---|
+| 机构胜率 | `python3 skills/opinion-cross/scripts/render_winrate_html.py --vault <KB_WIKI> --date D` | 驾驶台能链到历史胜率页即可 |
+| 晨会简报 | `python3 <KB>/skills/morning-briefing/scripts/render_briefing_html.py D --vault <KB_WIKI>` | 需 `wiki/briefings/D.md` |
+| 进化流水线 | `bash scripts/evolve_daily.sh D` | 不加 `--force` 除非数据有缺口 |
+
+> **KB 路径**：仓根 `/Users/a77/knowledge-base-private`，`KB_WIKI` = `…/wiki`。
 
 ## L3 补录（全量复盘后必做，两项）
 
@@ -161,6 +174,7 @@ python3 skills/daily-full-review/scripts/l3_daily_backfill.py --date D --apply
   否则会被静默回退成 cninfo，把公告当互动易）。
 - 长批量经隧道跑必须 spawn.py/nohup 守护化 + 轮询 summary.tsv（沪市 sse_einteract 单只可达分钟级）。
 - 提交只包含本轮 `wiki/sources` / `wiki/entities` 改动，排除 access_log / .audit。
+- dry-run 0 条可写候选 = 不要 `--apply`。知识库当前分支是别人的活时，只 dry-run。
 
 ## 生成段与矩阵段（同步全绿后）
 
