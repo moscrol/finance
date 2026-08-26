@@ -1,7 +1,7 @@
 {
   "switch_set": "seed",
   "revision": "3fc47e91",
-  "note": "第 0 步种子表，对照 gitea/main@3fc47e91 重栽。default-v1 是生成物。predicate.reading-baseline 在本底标 pending-other-branch（#343 / r2 未合），不要为了绿测试把 reading_baseline.py 拷进来。",
+  "note": "第 0 步种子表，对照 gitea/main@3fc47e91 重栽。default-v1 是生成物。predicate.reading-baseline 已随 feat/reading-rules-baseline-r3 落地本底（2026-08-26），转 active/exists。",
   "candidate_cases": [
     {"id": "next-session-index", "evidence_free": false},
     {"id": "current-mainline", "evidence_free": false},
@@ -410,8 +410,8 @@
     {
       "id": "predicate.reading-baseline",
       "kind": "predicate",
-      "status": "pending-other-branch",
-      "canonical": "other-branch",
+      "status": "active",
+      "canonical": "exists",
       "seam": "intelligence/services/reading_baseline.py::SWITCH_ID",
       "close_via": [
         "pack:contextvar"
@@ -420,7 +420,7 @@
       "singleton_when_on": false,
       "chassis_survives": true,
       "positive_control": "reading_baseline_guidance",
-      "notes": "正典在 feat/reading-rules-baseline-r2 @ ad3f4172（Gitea #343），本底没有 reading_baseline.py。合 #343 后再改回 active/exists。禁止为了本单绿而把那文件拷进来。"
+      "notes": "2026-08-26 随 feat/reading-rules-baseline-r3 落地本底（#343 的 rebase 重开）。默认开（领域基线）；判断倾向留 perspective_lab 显式开关。close_via pack:contextvar。"
     },
     {
       "id": "predicate.evidence-layers",
