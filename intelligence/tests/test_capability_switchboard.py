@@ -322,3 +322,18 @@ def test_pointer_entries_document_offboard_switches() -> None:
         assert entry.get("target", "").strip()
         assert entry.get("switch_lives_at", "").strip()
         assert entry.get("note", "").strip()
+
+
+def test_runner_reading_pack_face_flips_under_contextvar() -> None:
+    """runner 的判读包正控（`_reading_pack_face_changed`）必须真的翻面。
+
+    它验的是「`using()` 关断 → 注入产物归零」这条链；接线修复前它恒 False，
+    全臂扫描把判读基线判成三题全败。
+    """
+
+    import runpy
+
+    ns = runpy.run_path(str(REPO / "scripts" / "run_capability_switchboard.py"))
+    assert ns["_reading_pack_face_changed"]("predicate.reading-baseline") is True
+    # 别的谓词不走判读包那一面：恒 False 是契约，不是缺陷。
+    assert ns["_reading_pack_face_changed"]("predicate.double-red") is False

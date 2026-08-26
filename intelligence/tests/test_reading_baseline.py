@@ -229,3 +229,39 @@ def test_baseline_survives_perspective_prompt_suffix() -> None:
     assert "[FY-A10]" in system
     assert "本轮视角约束" in system
     assert system.index("判读基线") < system.index("本轮视角约束")
+
+
+def test_contextvar_switch_gates_all_injection_products() -> None:
+    """种子表 close_via 声明的 `pack:contextvar` 关法必须真的接线。
+
+    2026-08-26 全臂扫描抓到：`predicate_faces.using({SWITCH_ID})` 关掉后
+    guidance / block 行照常注入（正控三题全败）——声明的关法没接到宿主门上。
+    本测钉住：contextvar 关断下，三个注入产物全部归零；退出上下文后逐字节还原。
+    """
+
+    from intelligence.services.predicate_faces import using
+
+    on_guidance = reading_baseline.baseline_guidance()
+    on_rules = reading_baseline.baseline_rules()
+    on_block = reading_baseline.block_rule_lines("D0")
+    assert on_guidance and on_rules and on_block, "默认开启时三产物都该非空"
+
+    with using({reading_baseline.SWITCH_ID}):
+        assert reading_baseline.enabled() is False
+        assert reading_baseline.baseline_guidance() == ""
+        assert reading_baseline.baseline_rules() == ()
+        assert reading_baseline.block_rule_lines("D0") == []
+
+    assert reading_baseline.baseline_guidance() == on_guidance
+    assert reading_baseline.baseline_rules() == on_rules
+    assert reading_baseline.block_rule_lines("D0") == on_block
+
+
+def test_contextvar_switch_only_gates_its_own_id() -> None:
+    """关别的谓词不该误伤判读基线（按 id 精确匹配，不是「有任何关断就全关」）。"""
+
+    from intelligence.services.predicate_faces import using
+
+    with using({"predicate.double-red"}):
+        assert reading_baseline.enabled() is True
+        assert reading_baseline.baseline_guidance() != ""

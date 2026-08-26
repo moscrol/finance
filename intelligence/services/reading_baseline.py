@@ -50,6 +50,10 @@ from dataclasses import dataclass
 #: 用于度量「加了判读基线，答案有没有变好」。缺省视为开启。
 ENV_FLAG = "FINANCE_READING_BASELINE"
 
+#: 开关板上本组件的谓词 id（种子表 seam 指向本符号）。`predicate_faces.using({SWITCH_ID})`
+#: 是夹具 close_via 声明的 `pack:contextvar` 关法，供消融 runner 与进程内实验用。
+SWITCH_ID = "predicate.reading-baseline"
+
 _FALSEY = {"0", "false", "no", "off"}
 
 
@@ -367,8 +371,18 @@ _PENDING_RULES: tuple[tuple[ReadingRule, str, str], ...] = (
 
 
 def enabled(env: dict[str, str] | None = None) -> bool:
-    """总开关。缺省开启；显式设成 0/false/no/off 才关。"""
+    """总开关。缺省开启；显式设成 0/false/no/off 才关。
 
+    两道门任一关闭即关：① 开关板谓词面的 contextvar（`predicate_faces.using`），
+    这是种子表 close_via 声明的 `pack:contextvar` 关法——2026-08-26 全臂扫描抓到
+    该声明此前未接线（off 后 guidance 照常注入、正控三题全败），本次补上；
+    ② env `FINANCE_READING_BASELINE`（部署层）。生产不写 contextvar，行为不变。
+    """
+
+    from intelligence.services.predicate_faces import is_disabled
+
+    if is_disabled(SWITCH_ID):
+        return False
     raw = (env or os.environ).get(ENV_FLAG)
     if raw is None:
         return True

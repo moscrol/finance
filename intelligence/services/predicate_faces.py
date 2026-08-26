@@ -174,6 +174,16 @@ def using(disabled: frozenset[str] | set[str] | tuple[str, ...] = ()) -> Iterato
         _DISABLED.reset(token)
 
 
+def is_disabled(switch_id: str) -> bool:
+    """当前上下文里这颗谓词是否被 `using()` 关掉。
+
+    给谓词的**宿主模块**用（如 `reading_baseline.enabled`）：让关断真的传导到
+    注入产物本身，而不是只翻 faces 视图。生产从不写 contextvar → 恒 False。
+    """
+
+    return switch_id in _DISABLED.get()
+
+
 def wired_predicate_ids() -> frozenset[str]:
     """已经接了**至少一面生产缝**的谓词。空声明不进——那是还没接线。"""
 
