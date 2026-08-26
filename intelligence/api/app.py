@@ -26,6 +26,8 @@ from pydantic import BaseModel, Field, SecretStr, field_validator
 from intelligence import userspace
 from intelligence.paths import data_repo_root, default_market_db_path, default_paths
 from intelligence.api.artifacts import ArtifactRegistry
+from intelligence.api.auth import AuthGate, IdentityRewriteMiddleware
+from intelligence.api.quota import RunQuota
 from intelligence.api.daily_reports import (
     project_daily_agent,
     project_daily_review_html,
@@ -2000,6 +2002,8 @@ def create_app(
     run_timeout_sec: float = _SSE_MAX_SECONDS,
     self_use_require_consecutive_trading_days: bool = False,
     llm_settings: SessionLLMSettings | None = None,
+    auth_gate: AuthGate | None = None,
+    run_quota: RunQuota | None = None,
 ) -> FastAPI:
     root = (repo_root or REPO_ROOT).resolve()
     effective_default_user_id = userspace.resolve_user_id(None)
@@ -2017,6 +2021,11 @@ def create_app(
         "source_revision": runtime_provenance.get("source_revision"),
     }
     llm_settings = llm_settings or SessionLLMSettings()
+    # Hosted Alpha 身份门与配额：默认（env 未配置）都是关闭态，行为与历史一致。
+    # 配置错误直接在启动时抛——认不出来就 fail closed，不带着坏配置上线。
+    gate = auth_gate or AuthGate.from_env()
+    quota = run_quota or RunQuota.from_env()
+    runtime_provenance["auth_mode"] = gate.mode
     runtime_selection = resolve_runtime_backend()
     runtime_provenance["agent_runtime"] = runtime_backend_readiness(
         runtime_selection
@@ -2058,6 +2067,7 @@ def create_app(
             supervisor.shutdown()
 
     app = FastAPI(title="Market Intelligence Workbench API", lifespan=lifespan)
+    app.add_middleware(IdentityRewriteMiddleware, gate=gate)
     app.state.repo_root = root
     app.state.finance_root = runtime_paths.finance_root.resolve()
     registries: dict[str, ArtifactRegistry] = {}
@@ -2121,6 +2131,16 @@ def create_app(
 
     def conversation_store_for(user: str | None) -> ConversationStore:
         return ConversationStore(user_id=store_for(user).user_id)
+
+    def _reserve_run_quota(user_id: str) -> None:
+        """创建 run 前预占当日名额；占不到直接 429，不产生任何副作用。"""
+        decision = quota.reserve(user_id)
+        if not decision.allowed:
+            raise HTTPException(
+                429,
+                f"今日研究次数已用完（{decision.used}/{decision.limit}），"
+                "请明天再试或联系管理员提额",
+            )
 
     def refresh_session_runtime_readiness(user_id: str) -> None:
         """Refresh global health metadata after the default user's config request.
@@ -2351,6 +2371,7 @@ def create_app(
     def create_run(req: CreateRunRequest) -> dict[str, object]:
         req.repo_root = root
         store = store_for(req.user)
+        _reserve_run_quota(store.user_id)
         run = store.create_run(
             req.question,
             req.task_type,
@@ -2511,6 +2532,7 @@ def create_app(
                 raise HTTPException(422, str(exc)) from exc
             parent_run_id = conversation.last_run_id
             run_store = store_for(req.user)
+            _reserve_run_quota(run_store.user_id)
             run = run_store.create_run(
                 req.content,
                 "ask",
