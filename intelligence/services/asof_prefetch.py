@@ -668,6 +668,7 @@ def collect_prefetch_items(
         OPERATOR_STEP_TRAJECTORY,
         OPERATOR_SUBSTITUTE_OBSERVATION,
         OPERATOR_VOLUME_QUALIFICATION,
+        OPERATOR_WIDTH_RESONANCE,
     )
 
     program = compile_research_program(question, question_class=question_type)
@@ -737,6 +738,8 @@ def collect_prefetch_items(
                     exclude_sector=ferment_sector,
                 )
             )
+        if OPERATOR_WIDTH_RESONANCE in program.operators:
+            items.extend(_width_resonance_items(con, as_of))
     finally:
         try:
             con.close()
@@ -772,6 +775,46 @@ def _substitute_observation_items(
                 tool="market_data",
                 title=SUBSTITUTE_BLOCK_TITLE.lstrip("# "),
                 detail="\n".join(render_probe_lines(probes)),
+                source_date=standing,
+            ),
+        )
+    except Exception:
+        return ()
+
+
+def _width_resonance_items(con: Any, as_of: date) -> tuple[PrefetchItem, ...]:
+    """概念×申万一级宽度对照袋：站立日与其余袋同源，异常回空，空集也上桌。
+
+    空集也交付（「查过了、当日无放量上涨概念」），否则模型分不清
+    「没查」和「查了没有」——与替补探针的 no-hit 表达同一纪律。
+    """
+
+    from intelligence.services.market_watch_pack import (
+        WIDTH_RESONANCE_DISCLAIMER,
+        WIDTH_RESONANCE_MIN_AMOUNT,
+        WIDTH_RESONANCE_TITLE,
+        render_width_resonance_lines,
+        width_resonance_rows,
+    )
+
+    try:
+        standing = _standing_on_or_before(con, as_of)
+        if standing is None:
+            return ()
+        rows = width_resonance_rows(con, standing)
+        if rows:
+            body = "\n".join(render_width_resonance_lines(rows))
+        else:
+            body = (
+                f"站立日 {standing} 无符合条件的放量上涨概念"
+                f"（pct_chg>0 且成交额≥{WIDTH_RESONANCE_MIN_AMOUNT:.0f} 亿），"
+                "对照为空集。"
+            )
+        return (
+            PrefetchItem(
+                tool="market_data",
+                title=WIDTH_RESONANCE_TITLE,
+                detail=f"{WIDTH_RESONANCE_DISCLAIMER}\n{body}",
                 source_date=standing,
             ),
         )

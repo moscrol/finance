@@ -1346,6 +1346,7 @@ OPERATOR_CONTRADICTION_AUDIT = "market.contradiction_audit"
 OPERATOR_SUBSTITUTE_OBSERVATION = "market.substitute_observation"
 OPERATOR_VOLUME_QUALIFICATION = "market.volume_qualification"
 OPERATOR_STEP_TRAJECTORY = "market.volume_step_trajectory"
+OPERATOR_WIDTH_RESONANCE = "market.width_resonance"
 
 QueryRecipeIntent = Literal["aggregate", "detail", "timeseries", "cross_table"]
 
@@ -1499,8 +1500,11 @@ def compile_research_program(
         # 资格盘先于台阶：先定资格再谈板块（一个信号发两枚 operator）。
         # 不发 DefinitionReceipt——P0 无读取方，unread-fields 门禁先例
         # （替补单 probe_id 教训：为将来预留的字段不要先写）。
+        # 宽度对照与资格盘/台阶同门（一个信号发三枚 operator）：板块前瞻题
+        # 固定「资格→台阶→宽度」三件事实，判语留给画像。不发 slot——可选供给。
         operators.append(OPERATOR_VOLUME_QUALIFICATION)
         operators.append(OPERATOR_STEP_TRAJECTORY)
+        operators.append(OPERATOR_WIDTH_RESONANCE)
         recipes.append(
             QueryRecipe(
                 intent="timeseries", dataset="sector_daily", strict_date=True

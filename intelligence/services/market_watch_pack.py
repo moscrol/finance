@@ -318,6 +318,97 @@ def volume_qualification_receipt(
     }
 
 
+WIDTH_RESONANCE_TITLE = "概念×申万一级宽度对照"
+WIDTH_RESONANCE_DISCLAIMER = (
+    "宽度是否成立由解读方按画像判据判断，本袋只交付站立日对照事实；"
+    "「缺数」= 申万一级侧当日无可对照行。"
+)
+WIDTH_RESONANCE_LIMIT = 6
+WIDTH_RESONANCE_MIN_AMOUNT = 200.0
+
+
+def width_resonance_rows(
+    con: Any,
+    standing: str | None,
+    *,
+    limit: int = WIDTH_RESONANCE_LIMIT,
+    min_amount: float = WIDTH_RESONANCE_MIN_AMOUNT,
+) -> tuple[dict[str, Any], ...]:
+    """公共接缝：站立日「放量上涨概念 × 对应申万一级涨跌」对照事实行。
+
+    只产事实不产判语——「宽度夺价成立 / 只是概念锐度」是模型拿画像规则写的
+    残差（双臂对照 2026-08-26：产品臂引用该判据未验证，react 臂验证后降级结论，
+    工单 §P1 / R-20260826-02）。概念缺 sw_l1 映射、或申万表缺站立日行 →
+    ``sw_l1_pct=None``（渲染层标「缺数」）；概念侧事实不因申万侧缺数而清空。
+    """
+
+    if standing is None:
+        return ()
+    concepts = con.execute(
+        """
+        select sector_name, pct_chg, diff_ratio, amount, sw_l1
+        from fact_sector_daily
+        where trade_date = cast(? as date)
+          and pct_chg > 0
+          and diff_ratio is not null
+          and amount >= ?
+        order by diff_ratio desc, amount desc
+        limit ?
+        """,
+        [standing, min_amount, limit],
+    ).fetchall()
+    if not concepts:
+        return ()
+    sw_pct: dict[str, float] = {}
+    try:
+        for name, pct in con.execute(
+            "select sw_l1, pct_chg from fact_sw_l1_daily"
+            " where trade_date = cast(? as date)",
+            [standing],
+        ).fetchall():
+            if name is not None and pct is not None:
+                sw_pct[str(name)] = float(pct)
+    except Exception:
+        # 申万表整体不可用：概念行保留，对照侧全部「缺数」。
+        sw_pct = {}
+    rows: list[dict[str, Any]] = []
+    for sector_name, pct_chg, diff_ratio, amount, sw_l1 in concepts:
+        key = str(sw_l1) if sw_l1 is not None else None
+        rows.append(
+            {
+                "sector_name": str(sector_name),
+                "pct_chg": float(pct_chg),
+                "diff_ratio": float(diff_ratio),
+                "amount": float(amount),
+                "sw_l1": key,
+                "sw_l1_pct": sw_pct.get(key) if key is not None else None,
+            }
+        )
+    return tuple(rows)
+
+
+def render_width_resonance_lines(
+    rows: tuple[dict[str, Any], ...],
+) -> tuple[str, ...]:
+    """对照行渲染：概念事实 ↔ 申万一级事实，缺数如实标注、不猜不省略。"""
+
+    lines: list[str] = []
+    for row in rows:
+        concept = (
+            f"概念「{row['sector_name']}」{row['pct_chg']:+.2f}%"
+            f"/边际量{row['diff_ratio']:+.1f}%"
+            f"/成交{row['amount']:.0f}亿"
+        )
+        sw_l1 = row.get("sw_l1")
+        sw_pct = row.get("sw_l1_pct")
+        if sw_l1 is None or sw_pct is None:
+            industry = "申万一级「缺数」"
+        else:
+            industry = f"申万一级「{sw_l1}」{sw_pct:+.2f}%"
+        lines.append(f"- {concept} ↔ {industry}")
+    return tuple(lines)
+
+
 def resolve_theme_sector(
     con: Any,
     standing: str,
