@@ -1,5 +1,7 @@
 # 在途交接 · feat/watchlist-digest-pack
 
+更新：2026-08-27 02:00 CST · **#439 已验收合并 @`547653c4`，本单闭环（QC session）**。验收方独立复验后自建 PR 合并（执行方原话「点头我就发 PR」——实际未建，验收方代建）：定向 111 绿（收据 `20260826T172454Z-001663fe.json`）+ merge-tree 干净 + 真库冒烟复算逐字一致（黄金概念 1.74/17.11/990.42 直查 `fact_sector_daily` 对上）。批次门禁四叶 @`547653c4` 全绿：pytest **6654P/0F/12S**（`20260826T173511Z-547653c4.json`）、ruff、前端四连、e2e 15（8791 被占→8811 + venv PATH）、registry 4/4。live：**真画像已钉**——`~/.local/share/finance-workbench/users/linxiaoqi5111/profile.json` watchlist=飞书自选股表 13 只逐字（provenance 注明），`profile.derived.json` 放板块归属派生 10 题材（`fact_sector_stock_daily@08-26`，n≥4，可 stale 可覆盖），focus_themes 留空待用户手钉；CLI + Workbench（8999 临时实例，生产 env 形状）各一发冻结题全过，台账三行 **confirmed**（收据在台账行内）。**8792 未切**（spec §10 本单默认不切），watchlist_digest 尚未上生产，切流待用户裁决。⚠ 两条新知：① `smoke_workbench_self_use.py` 对确定性 owner 回合必报 `answer_snapshot_draft` 协议错（探针要求 draft_seen，确定性回合无 LLM 草稿阶段）——探针适配缺口非产品缺陷，下次切流/验收前建议给探针加确定性回合模式；② P0 四袋是板块/题材级，纯个股清单项必然全缺口——13 只自选股 live 全走缺口句是设计行为，个股级接合是 P1+ 议题。主树执行方三份脏钉子（词表 0 diff/台账旧号草稿/spec 旧稿）已验明逐字被合并版取代并清理，主树可正常 pull。P1/P2 仍待用户点头。
+
 更新：2026-08-26 22:05 CST · spec `docs/superpowers/specs/2026-08-26-watchlist-digest-pack-design.md` **P0 完成**（包 + 路由 + CLI），**未合并、未动 8792/8796/8802**。
 
 ## 状态
