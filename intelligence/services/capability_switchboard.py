@@ -27,7 +27,22 @@ _FIXTURE = (
     / "capability_switchboard.json"
 )
 
-KINDS = frozenset({"capability", "composer", "verifier", "prompt", "predicate", "parameter"})
+# operator/pack/probe 是 2026-08-26 扩容批的登记 kind：新架构（四袋/查询算子/替补探针）
+# 的组件登记行。生产不读本表；这三类默认被 generate_default_switch_box 排除在盒外
+# （棘轮 #3：进盒需另一次对照 + 用户确认）。
+KINDS = frozenset(
+    {
+        "capability",
+        "composer",
+        "verifier",
+        "prompt",
+        "predicate",
+        "parameter",
+        "operator",
+        "pack",
+        "probe",
+    }
+)
 STATUSES = frozenset({"active", "welded", "pending-other-branch", "retired"})
 DEFAULTS = frozenset({"on", "off", "ambient"})
 CANONICALS = frozenset({"exists", "missing", "contested", "other-branch"})

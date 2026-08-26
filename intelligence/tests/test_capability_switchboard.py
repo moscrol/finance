@@ -255,3 +255,70 @@ def test_default_box_regenerates() -> None:
         encoding="utf-8"
     )
     assert current == rendered
+
+
+# ── 2026-08-26 扩容批：operator/pack/probe 登记行 + pointers ────────────────
+
+
+_EXPANSION_KINDS = ("operator", "pack", "probe")
+
+
+def test_expansion_rows_registered_with_verified_seams(board) -> None:
+    """扩容行齐全、seam 路径真实存在、operator id 与 research_contract 常量双向无漂移。"""
+
+    from intelligence.services import research_contract as rc
+
+    operators = {row.id for row in board.of_kind("operator")}
+    declared = {
+        value
+        for name, value in vars(rc).items()
+        if name.startswith("OPERATOR_") and isinstance(value, str)
+    }
+    assert operators == declared, "operator 登记行与 OPERATOR_* 常量漂移"
+
+    assert {row.id for row in board.of_kind("pack")} == {
+        "pack.market-watch",
+        "pack.weekly-watch",
+    }
+    assert {row.id for row in board.of_kind("probe")} == {"probe.substitute-observation"}
+
+    for kind in _EXPANSION_KINDS:
+        for row in board.of_kind(kind):
+            assert (REPO / row.seam_path).exists(), f"{row.id} 的 seam 文件不存在"
+            assert row.notes.strip(), f"{row.id} 登记行必须写清选入机制与不进臂原因"
+
+
+def test_expansion_rows_stay_out_of_arm_and_default_box(board) -> None:
+    """棘轮 #3/#7：登记行不进臂（positive_control 留空）、不进默认盒（excluded 自述原因）。"""
+
+    import runpy
+
+    arm = set(board.arm_ids())
+    expansion_ids = {
+        row.id for kind in _EXPANSION_KINDS for row in board.of_kind(kind)
+    }
+    assert expansion_ids, "扩容行不该为空"
+    assert not (expansion_ids & arm), "登记行在 positive_control 落实前不得进臂"
+
+    ns = runpy.run_path(str(REPO / "scripts" / "generate_default_switch_box.py"))
+    box = ns["build_box"]()
+    for switch_id in expansion_ids:
+        assert switch_id in box["excluded"], f"{switch_id} 该被排除在默认盒外"
+        assert switch_id not in box["non_tool_defaults"]
+        assert switch_id not in box["ambient_ids"]
+
+
+def test_pointer_entries_document_offboard_switches() -> None:
+    """pointers 登记「开关在别处」的组件：防止把「不在板上」误判成「没有开关」。"""
+
+    fixture = json.loads(
+        (REPO / "intelligence/eval/fixtures/capability_switchboard.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    pointers = fixture.get("pointers")
+    assert isinstance(pointers, list) and len(pointers) >= 3
+    for entry in pointers:
+        assert entry.get("target", "").strip()
+        assert entry.get("switch_lives_at", "").strip()
+        assert entry.get("note", "").strip()

@@ -83,6 +83,10 @@ def _in_default_box(row) -> tuple[bool, str]:
         # CLI 参数的默认值不是「开关位」。放进盒子会让人以为拨它就能改行为，
         # 实际它只是某条命令的 argparse default（`param.boards-min` 就是这样）。
         return False, "CLI 参数默认值，不是开关位"
+    if row.kind in ("operator", "pack", "probe"):
+        # 2026-08-26 扩容批：新架构组件的**登记行**（第 0 步）。生产由题型路由 /
+        # 代码目录 / 调用方实参决定，不读本表；进盒需另一次对照 + 用户确认（棘轮 #3）。
+        return False, "登记行（第 0 步）：生产不读本表，进盒需对照 + 用户确认（棘轮 #3）"
     if row.kind == "predicate" and row.canonical != "exists":
         return False, f"canonical={row.canonical}，是待建正典的工单不是开关"
     return True, ""
