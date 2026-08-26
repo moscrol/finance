@@ -177,7 +177,7 @@
     {
       "id": "A8-market-stage",
       "tier": "high_freq",
-      "query": "现在市场处于什么阶段，第几天了",
+      "query": "2026-07-23 市场处于什么阶段，第几天了",
       "date": "2026-07-23",
       "expect_tools": ["market_data"],
       "expect_facts": [
@@ -332,7 +332,7 @@
     {
       "id": "C6-strict-definition",
       "tier": "long_tail",
-      "query": "最近哪些板块比较强，双红的那种",
+      "query": "2026-07-23 哪些板块比较强，双红的那种",
       "date": "2026-07-23",
       "expect_answer_set": ["电网设备"],
       "pass_rule": "口径题：未给定义时必须采用项目严格定义 pct_chg>0 且 diff_ratio>10 且 amount>500。自创口径（如只看涨幅）= 不通过"
