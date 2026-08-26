@@ -337,6 +337,9 @@ def _run_arm(case, control, board, row, delta, adversarial_target: str = "") -> 
         # 递给模型的那份 schema，不是 registry.names()——中间再滤一层，正控会假绿。
         offered = getattr(model, "offered_schemas", ())
         arm["offered_schemas"] = list(offered[0]) if offered else []
+        # 模型被调用的次数（scripted 模型每次 complete 都 append 一批 schema）。
+        # 用于区分「缝走不到」（0 次调用）与「走到了但没读数」（有调用、正控空）。
+        arm["model_calls"] = len(offered)
         arm["chassis_survived"] = True
         arm["prompt_segment_delivered"] = bool(getattr(client, "delivered", False))
         artifact = result.private_artifact or {}
@@ -525,6 +528,48 @@ def run_switch(case, board, row: SwitchRow, delta: Delta) -> dict:
         schema_delta = (
             sorted(before - after) if delta.state == "off" else sorted(after - before)
         )
+        # 缝在本题走不到：episode 无 offering / 无模型调用 / 两臂判官皆未运行。
+        # 这不是「关不动」（failed），也不是「没被授权」（inactive_on_case）——
+        # 是**观测面在这道题上不存在**。2026-08-26 全臂扫描的教训：current-mainline
+        # 路由 market_watch 确定性包路径，episode 从不 offer schema，五颗原子被
+        # 误判 failed，差点把下一个 agent 派去修五颗没毛病的开关。
+        seam_reason = ""
+        if (
+            row.kind == "capability"
+            and delta.state == "off"
+            and not baseline["offered_schemas"]
+        ):
+            seam_reason = "本题无 episode offering（确定性 owner/包路径），schema 缝走不到"
+        elif row.id == "noop-prompt" and not treated.get("model_calls"):
+            seam_reason = "本题无模型调用，提示词缝走不到"
+        elif (
+            row.id == "semantic-verifier"
+            and not baseline.get("judge_status")
+            and not treated.get("judge_status")
+        ):
+            seam_reason = "本题两臂判官均未运行，核验缝走不到"
+        if seam_reason:
+            return {
+                "switch_set": board.switch_set,
+                "capability_source": CAPABILITY_SOURCE,
+                "case_id": case.case_id,
+                "as_of": case.as_of,
+                "revision": _source_revision(),
+                "switch_id": row.id,
+                "kind": row.kind,
+                "delta": delta.label(),
+                "resolved_capabilities": list(baseline["resolved_capabilities"]),
+                "positive_control": {
+                    "field": row.positive_control,
+                    "schema_delta": None,
+                    "passed": None,
+                },
+                "negative_control": {"ran": False, "refused_calls": [], "passed": None},
+                "chassis_survived": bool(treated["chassis_survived"]),
+                "designed_unsatisfiable": "",
+                "outcome": "seam_not_exercised",
+                "seam_not_exercised_reason": seam_reason,
+            }
         negative = {"ran": False}
         if row.kind == "capability" and delta.state == "off":
             negative = _run_arm(case, control, board, row, delta, adversarial_target=row.id)
@@ -662,6 +707,7 @@ def main(argv: tuple[str, ...] | None = None) -> int:
         "designed_unsatisfiable": "⊘",
         "inactive_on_case": "–",
         "not_implemented": "·",
+        "seam_not_exercised": "◌",
         "failed": "❌",
     }
     for record in records:
@@ -671,6 +717,8 @@ def main(argv: tuple[str, ...] | None = None) -> int:
             tail = "这颗不在本题解算面里，关它是空操作（授权面逐 frame 解算，换道题可能可测）"
         elif record["outcome"] == "not_implemented":
             tail = record.get("not_implemented_reason", "")
+        elif record["outcome"] == "seam_not_exercised":
+            tail = record.get("seam_not_exercised_reason", "")
         elif record["outcome"] == "designed_unsatisfiable":
             tail = "该题证据计划把这颗列为 mandatory，关了合同不合法（非失败，也非「关得动」的证据）"
         else:
@@ -687,6 +735,7 @@ def main(argv: tuple[str, ...] | None = None) -> int:
         f" ｜ 设计不可满足 {tally['designed_unsatisfiable']}"
         f" ｜ 本题不适用 {tally['inactive_on_case']}"
         f" ｜ 未接线 {tally['not_implemented']}"
+        f" ｜ 缝未走到 {tally['seam_not_exercised']}"
         f" ｜ 失败 {tally['failed']} → {output}"
     )
     return 1 if tally["failed"] else 0
