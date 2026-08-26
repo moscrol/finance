@@ -2756,6 +2756,26 @@ def _grounded_registry_priority(
     return score
 
 
+def _registry_atom_view(atom: EvidenceAtom) -> dict[str, object]:
+    """registry 行里的 atom 视图：去掉与同一行其他字段逐字重复的三个键。
+
+    ``claim_text`` == 该行的 ``text``、``entity_id`` == ``company``、
+    ``provenance.claim_id`` == ``claim_id``——同一份内容在一行里出现两次，纯粹
+    烧预算。实测 2026-08-26 披露扫描包（68 条 claim）：整段 registry 需要 46932
+    字符，其中 evidence_atoms 占 33134（70%）；去掉这三个键后降到 26529。
+
+    保留 metric/value/unit/period/evidence_tier/source_id/source_date——这些是
+    claim 文本里没有的数值与出处，行情类问题靠它们绑数字。审计侧的完整 atom
+    仍在 AnswerSpec 与 provider trace 里，这里只收窄**给模型看的那一份**。
+    """
+
+    return {
+        key: value
+        for key, value in atom.to_dict().items()
+        if key not in {"claim_text", "entity_id", "provenance"}
+    }
+
+
 def grounded_claim_registry_block(
     answer_spec: AnswerSpec,
     *,
@@ -2763,7 +2783,15 @@ def grounded_claim_registry_block(
     max_chars: int | None = None,
 ) -> str:
     atoms = evidence_atoms_from_answer_spec(answer_spec)
-    rows: list[tuple[float, int, str]] = []
+    # 反证与缺口是「不许过度宣称」的材料：它们被预算挤掉，模型就只剩支持性事实，
+    # 越界解读没有对手方。实测 2026-08-26 披露扫描：68 条 claim / 12k 预算只装下
+    # 18 条，disc:counter 与 disc:excl 一条没进，模型于是把反证行绑到 disc:summary
+    # 上、确定性闸判 cross_subject。故这两类先占位，再按分数填其余。
+    must_keep_ids = {
+        claim.claim_id
+        for claim in (*answer_spec.counter_evidence, *answer_spec.gaps)
+    }
+    rows: list[tuple[bool, float, int, str]] = []
     for index, claim in enumerate(_all_answer_claims(answer_spec)):
         claim_atoms = tuple(
             atom
@@ -2777,29 +2805,51 @@ def grounded_claim_registry_block(
                 "text": claim.text,
                 "theme": claim.theme,
                 "company": claim.company,
-                "evidence_atoms": [atom.to_dict() for atom in claim_atoms],
+                "evidence_atoms": [
+                    _registry_atom_view(atom) for atom in claim_atoms
+                ],
             },
             ensure_ascii=False,
         )
         rows.append(
             (
+                claim.claim_id in must_keep_ids,
                 _grounded_registry_priority(claim, answer_spec, query),
                 index,
                 line,
             )
         )
     if max_chars is None or max_chars <= 0:
-        return "\n".join(line for _score, _index, line in rows)
+        return "\n".join(line for _keep, _score, _index, line in rows)
     # P4/P6: rank first, then enforce one global prompt budget.  Skipped rows
     # remain in AnswerSpec/EvidenceAtom audit storage and provider traces.
-    rows.sort(key=lambda row: (-row[0], row[1]))
+    rows.sort(key=lambda row: (-row[1], row[2]))
     selected: list[str] = []
+    taken: set[int] = set()
     used_chars = 0
-    for _score, _index, line in rows:
+    # 保留席位：反证与缺口先在 max_chars//4 里挑，挑不下的回到公共池按分数竞争。
+    # 为什么是「有上限的席位」而不是绝对优先——绝对优先在预算紧到只够一行时会让
+    # registry 里只剩一条 gap、一条硬事实都没有（test_grounded_registry_window_
+    # is_hard_bounded_and_hardness_ranked 抓的就是这个）。四分之一的依据：生产
+    # 披露包里反证 + 缺口合计约 950 字符，12k 的四分之一是 3000，够放且吃不掉主体。
+    reserve = max_chars // 4
+    for position, (keep, _score, _index, line) in enumerate(rows):
+        if not keep:
+            continue
+        cost = len(line) + (1 if selected else 0)
+        if used_chars + cost > reserve:
+            continue
+        selected.append(line)
+        taken.add(position)
+        used_chars += cost
+    for position, (_keep, _score, _index, line) in enumerate(rows):
+        if position in taken:
+            continue
         cost = len(line) + (1 if selected else 0)
         if used_chars + cost > max_chars:
             continue
         selected.append(line)
+        taken.add(position)
         used_chars += cost
     # 告知而非隐藏。原先超预算的行被静默丢弃，模型无从知道 registry 还有别的
     # claim——而门禁 task_fulfillment 看的是 answer_spec 全集，两边不对称。

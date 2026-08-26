@@ -651,7 +651,11 @@ def test_residual_answer_spec_covers_every_roster_row(tmp_path: Path) -> None:
 
 
 def test_residual_registry_holds_all_rows_within_budget(tmp_path: Path) -> None:
-    """12k 字符 registry 预算必须装得下全行 claim——装不下就是设计回退。"""
+    """12k 字符 registry 预算必须装得下全行 claim——装不下就是设计回退。
+
+    ⚠ 这条只在**小包**上成立（本夹具 11 行）。生产规模的守卫见下一条：本条曾经
+    是绿的、而生产 61 行的包被截到 18 条——金样本把理想写进了断言。
+    """
 
     from intelligence.services import answer_model
     from intelligence.services.disclosure_scan_pack import (
@@ -659,6 +663,7 @@ def test_residual_registry_holds_all_rows_within_budget(tmp_path: Path) -> None:
     )
 
     pack = _run(tmp_path)
+    assert len(pack.rows) + len(pack.excluded) + len(pack.counter_rows) < 20
     spec = build_disclosure_residual_answer_spec(pack, query=FROZEN)
     registry = answer_model.grounded_claim_registry_block(
         spec, query=FROZEN, max_chars=12_000
@@ -671,6 +676,80 @@ def test_residual_registry_holds_all_rows_within_budget(tmp_path: Path) -> None:
     atom_claim_ids = {atom.provenance.get("claim_id") for atom in atoms}
     for row in pack.rows:
         assert f"disc:row:{row.code}:{row.announcement_id}" in atom_claim_ids
+
+
+def test_production_scale_registry_keeps_counterevidence_and_gaps() -> None:
+    """生产规模（61 行）下预算一定会截断——被截掉的**不能是反证和缺口**。
+
+    2026-08-26 实测现场：68 条 claim / 12k 预算只装下 18 条 + 截断注，
+    ``disc:counter`` 与 ``disc:excl`` 一条没进。模型于是把「扫描包里有一条华北
+    制药撤回的反证行」绑到 ``disc:summary:1`` 上，确定性闸判 cross_subject、
+    整句被删——公开稿因此没有反证解读。反证与缺口是「不许过度宣称」的材料，
+    它们被挤掉，模型手里就只剩支持性事实。
+
+    上一条用的是 11 行夹具，永远绿，看不见这个。
+    """
+
+    from intelligence.services import answer_model
+    from intelligence.services.disclosure_scan_pack import (
+        DisclosureBucket,
+        DisclosureRow,
+        DisclosureScanPack,
+        build_disclosure_residual_answer_spec,
+    )
+
+    def _row(index: int, tier: str) -> DisclosureRow:
+        return DisclosureRow(
+            code=f"{600000 + index}",
+            name=f"样例公司{index}",
+            date="2026-08-25",
+            # 生产的公告标题就是这个量级，行长主要由它决定。
+            title=f"关于全资子公司获得药物临床试验批准通知书的公告（第{index}号）",
+            tier=tier,
+            announcement_id=f"12255{index:05d}",
+            org_id=f"gssh{600000 + index}",
+            url=f"https://www.cninfo.com.cn/new/disclosure/detail?x={index}",
+            buckets=("医药",),
+        )
+
+    pack = DisclosureScanPack(
+        status="hit",
+        as_of="2026-08-26",
+        universe_date="2026-08-25",
+        se_date_start="2026-08-21",
+        se_date_end="2026-08-26",
+        elapsed_ms=1,
+        budget_hit=True,
+        buckets=(
+            DisclosureBucket(
+                name="医药",
+                sector_names=("医药",),
+                universe_size=512,
+                hit_codes=tuple(f"{600000 + i}" for i in range(21)),
+            ),
+        ),
+        rows=tuple(_row(i, "L_approve") for i in range(21)),
+        excluded=tuple(_row(100 + i, "L_buyback") for i in range(39)),
+        counter_rows=(_row(900, "L_neg"),),
+        keyword_traces=(),
+        warnings=(),
+        fetch_calls=(),
+    )
+    assert len(pack.rows) + len(pack.excluded) + len(pack.counter_rows) == 61
+
+    spec = build_disclosure_residual_answer_spec(pack, query=FROZEN)
+    registry = answer_model.grounded_claim_registry_block(
+        spec, query=FROZEN, max_chars=12_000
+    )
+
+    # 截断本身是允许的——但必须留痕，模型才知道 registry 还有别的 claim。
+    assert "因窗口预算未纳入" in registry
+    # 反证行一条都不许被挤掉：它是模型解读反证时唯一能绑的 claim。
+    for row in pack.counter_rows:
+        assert f"disc:counter:{row.code}:{row.announcement_id}" in registry
+    # 缺口 claim 同理：被挤掉就等于把「没查完」说成「没有」。
+    for gap in spec.gaps:
+        assert gap.claim_id in registry
 
 
 def test_residual_grounded_validation_accepts_bound_reading(
