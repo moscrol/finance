@@ -225,6 +225,28 @@ def test_external_market_queries_have_dedicated_intent(query: str) -> None:
     assert envelope.confidence == 0.98
 
 
+@pytest.mark.parametrize(
+    "query",
+    (
+        # 2026-08-26 blk-d17 实测原话：被外盘报价车道接走后只回了美股指数
+        "隔夜美股AI算力板块走强，对A股哪些板块有映射",
+        "昨晚纳指涨了，对标A股哪些板块",
+    ),
+)
+def test_overnight_mapping_questions_do_not_enter_external_quote_lane(query: str) -> None:
+    """混合题的交付物是 A 股映射（D17 块在研究通道），不是海外收盘价。
+
+    映射意图以 overnight_map.parse_overnight_intent 为单一真本源；
+    这里同时钉住「D17 意图命中」与「外盘报价题型未命中」两侧，
+    防止任何一侧词表漂移后重新遮蔽。
+    """
+    from intelligence.services.overnight_map import parse_overnight_intent
+
+    assert parse_overnight_intent(query), "前提：D17 自己的意图必须命中"
+    envelope = understand_query(query)
+    assert envelope.question_type != "external_market"
+
+
 def test_definition_query_is_not_confused_with_model_meta_question() -> None:
     definition = understand_query("卫星互联网是什么")
     meta = understand_query("你好，你是什么模型")
