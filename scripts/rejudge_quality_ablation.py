@@ -114,6 +114,27 @@ def baseline_absolute(answers: list[dict[str, object]]) -> dict[str, object]:
     }
 
 
+def assert_only_judge_changed(
+    answers: list[dict[str, object]],
+    answers_before: dict[int, str],
+    judged_before: dict[int, str],
+) -> None:
+    """补评后除 judge 外一切未变——答案正文与既有分数逐条对账。
+
+    调用方（``rejudge_artifact``）目前没有改写答案的路径，这层是**防以后长出
+    路径**：哪天有人给 judge_fn 传了整条记录、或加了「补评顺手修一下答案」的
+    捷径，这里会当场炸而不是静静地把读数换掉。
+    """
+
+    for i, rec in enumerate(answers):
+        if _sha256_text(str(rec.get("answer") or "")) != answers_before.get(i):
+            raise _fail(f"答案 #{i} 被改写了——补评只补 judge，绝不动答案")
+    for i, snapshot in judged_before.items():
+        current = json.dumps(answers[i].get("judge"), ensure_ascii=False, sort_keys=True)
+        if current != snapshot:
+            raise _fail(f"答案 #{i} 原有分数被改动了——补评只碰未打分的行")
+
+
 def rejudge_artifact(
     artifact: dict[str, object],
     *,
@@ -179,14 +200,7 @@ def rejudge_artifact(
             row["rejudge_reason"] = verdict.get("reason")
             still_unscored.append(row)
 
-    # ── 不变量断言：答案未被改写、已打分的未被重评 ────────────────────────
-    for i, rec in enumerate(answers):
-        if _sha256_text(str(rec.get("answer") or "")) != answers_before[i]:
-            raise _fail(f"答案 #{i} 被改写了——补评只补 judge，绝不动答案")
-    for i, snapshot in judged_before.items():
-        current = json.dumps(answers[i].get("judge"), ensure_ascii=False, sort_keys=True)
-        if current != snapshot:
-            raise _fail(f"答案 #{i} 原有分数被改动了——补评只碰未打分的行")
+    assert_only_judge_changed(answers, answers_before, judged_before)
 
     component_ids = [cid for cid in artifact["aggregates"]]  # type: ignore[union-attr]
     aggregates = aggregate_components(answers, component_ids)

@@ -36,12 +36,19 @@ def _unscored(reason: str = "所有已配置 LLM provider 均失败（zhipu:URLE
     return {"scored": False, "reason": reason, "attempts": 1}
 
 
-def _answer(arm: str, case_id: str, judge: dict[str, object], *, ok: bool = True) -> dict:
+def _answer(
+    arm: str,
+    case_id: str,
+    judge: dict[str, object],
+    *,
+    ok: bool = True,
+    answer: str | None = None,
+) -> dict:
     return {
         "arm": arm,
         "case_id": case_id,
         "ok": ok,
-        "answer": f"{arm}/{case_id} 的答案正文" * 20 if ok else "",
+        "answer": f"{arm}/{case_id} 的答案正文" * 20 if answer is None else answer,
         "elapsed_sec": 12.0,
         "judge": judge,
     }
@@ -123,11 +130,48 @@ def test_答案正文不被改写():
     assert [rec["answer"] for rec in result["answers"]] == originals
 
 
+def test_正文被改写时不变量断言炸开():
+    """直接压那层断言：调用路径现在碰不到答案，但断言得真的会拦。
+
+    只测端到端「答案没变」是假门禁——代码里本来就没人改它，断言删掉照样绿。
+    """
+
+    answers = [_answer("baseline", "q1", _judged(3))]
+    before = {0: rejudge._sha256_text(str(answers[0]["answer"]))}
+
+    rejudge.assert_only_judge_changed(answers, before, {})  # 未动 → 不炸
+
+    answers[0]["answer"] = "被换掉的答案"
+    with pytest.raises(SystemExit, match="补评只补 judge"):
+        rejudge.assert_only_judge_changed(answers, before, {})
+
+
+def test_既有分数被改动时不变量断言炸开():
+    answers = [_answer("baseline", "q1", _judged(3))]
+    before = {0: rejudge._sha256_text(str(answers[0]["answer"]))}
+    judged = {0: json.dumps(answers[0]["judge"], ensure_ascii=False, sort_keys=True)}
+
+    answers[0]["judge"] = _judged(4)
+    with pytest.raises(SystemExit, match="只碰未打分的行"):
+        rejudge.assert_only_judge_changed(answers, before, judged)
+
+
 def test_答案臂失败的行不送评():
-    """ok=False 没有正文，补评它等于凭空造读数——那类缺口只能重跑 ask。"""
+    """ok=False 但**正文非空**——run_ask 对「答案过短」正是这个返回形状。
+
+    这类行是 harness 判过的废答案，补评它等于把废答案洗成读数；缺口只能重跑 ask。
+    夹具必须复刻真实失败形状：早先版本把正文写成空串，结果被「正文为空就跳过」
+    那条先兜住，这条守门断言删掉测试照样绿（变异测试抓到的假门禁）。
+    """
 
     answers = [
-        _answer("baseline", "q1", {"scored": False, "reason": "答案臂失败，未送评"}, ok=False),
+        _answer(
+            "baseline",
+            "q1",
+            {"scored": False, "reason": "答案臂失败，未送评"},
+            ok=False,
+            answer="exit=1 只吐了半句就断了",
+        ),
         _answer("baseline", "q2", _judged(3)),
         _answer("kb-rag", "q1", _judged(2)),
         _answer("kb-rag", "q2", _judged(2)),
@@ -140,6 +184,23 @@ def test_答案臂失败的行不送评():
     assert calls == []
     assert result["rejudged"] == []
     assert result["aggregates"]["kb-rag"]["questions_usable"] == 1
+
+
+def test_正文为空的行不送评():
+    """另一条独立守门：ok=True 但正文空（判官拿不到东西评）。"""
+
+    answers = [
+        _answer("baseline", "q1", _unscored(), answer=""),
+        _answer("baseline", "q2", _judged(3)),
+        _answer("kb-rag", "q1", _judged(2)),
+        _answer("kb-rag", "q2", _judged(2)),
+    ]
+    artifact = _artifact(answers, ["q1", "q2"])
+
+    calls: list[str] = []
+    _run(artifact, lambda q, a: calls.append(q.case_id) or _judged(3))
+
+    assert calls == []
 
 
 def test_补评再失败仍记未打分不编造分数():
