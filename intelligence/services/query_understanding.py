@@ -669,9 +669,20 @@ def _decision_goal(query: str, *, matched_theme: str | None = None) -> str:
 
 def _is_external_market_query(query: str) -> bool:
     folded = str(query or "").casefold()
-    return any(term in folded for term in _EXTERNAL_MARKET_TERMS) and any(
-        term in folded for term in _EXTERNAL_QUOTE_TERMS
-    )
+    if not (
+        any(term in folded for term in _EXTERNAL_MARKET_TERMS)
+        and any(term in folded for term in _EXTERNAL_QUOTE_TERMS)
+    ):
+        return False
+    # 外盘报价车道只答海外行情本身。「隔夜美股走强，对 A 股哪些板块有映射」
+    # 这类混合题的交付物是 A 股侧映射分析（研究通道的 D17 块），不是海外收盘价
+    # ——2026-08-26 blk-d17 实测：被本判定接走后只回了美股指数，答非所问。
+    # 映射意图以 D17 自己的判定为准（单一真本源，不在这里抄第二份词表）。
+    from intelligence.services.overnight_map import parse_overnight_intent
+
+    if parse_overnight_intent(query):
+        return False
+    return True
 
 
 def _definition_subject(query: str) -> str | None:
