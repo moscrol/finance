@@ -74,11 +74,12 @@ def test_all_cases_compile_without_mutating_frozen_assets() -> None:
     # 已知的题目缺陷用具名清单钉住，本身就是一份待办：问的是「现在」、期望值却
     # 冻结在 2026-07-23，这种红永远不会变绿（详见 _reproducibility_diagnostics）。
     # 修好某题的日期锚后，把它从这里删掉；新冒出来的缺陷会让本条断言变红。
+    # 2026-08-26：A8/C6 日期锚已修（正典题面带 2026-07-23），从清单删掉。
     assert {
         contract.case_id for contract in contracts if contract.diagnostics
-    } == {"A7-mainline", "A8-market-stage", "C6-strict-definition"}
+    } == {"A7-mainline"}
     assert all(
-        "not reproducible" in contract.diagnostics[0]
+        not contract.diagnostics
         for contract in contracts
         if contract.case_id in {"A8-market-stage", "C6-strict-definition"}
     )
