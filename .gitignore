@@ -162,3 +162,8 @@ market_snapshot/
 .code-review-graph/graph.db-shm
 .code-review-graph/wiki/
 .code-review-graph/status.json
+
+# 运行时目录（P0-B 主树收拢 2026-08-26）：状态旗标/锁/部署账本/临时工作区/调试快照不入库
+/state/
+/work/
+/.playwright-mcp/

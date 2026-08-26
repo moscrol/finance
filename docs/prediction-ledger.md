@@ -154,6 +154,7 @@
 > 判官产出转向措辞级真实批评（「持续缩量」越界、覆盖起点 7-22 vs 注册表 7-27），以质检段呈现。
 > 预测形状「槽位落地后判官对槽内数字无删除权、真数字留存率上升」成立中；
 > 修后同形样本 2/3，**仍差 1 个才可 `confirmed`**，反向证伪条件未触发（无槽内数字被删案例）。
+| `R-20260823-SPTTECH-04` | 2026-08-23 SPT 科技三臂 M2 R-004 | `EVAL_ONLY` | 同 revision 只 toggle `predicate.reading-baseline`，冻结 tool returns 各回放至少 10 次；组件开启时多日科技/MA20 query 命中率稳定提高，若 timeout 率无显著差异，不得把单次 timeout 归组件 | 保存 active component hash、query args、model latency、timeout grant 与业务状态；每臂 n≥10 并报告置信区间 | `pending` |
 
 `outcome` 只能是 `pending` / `confirmed` / `refuted`。**部分验证不要写 `confirmed`。**
 
@@ -788,6 +789,9 @@ R-20260817-01 / R-16..23 仍 pending。不切 8792。T1 hit 结论不依赖 seq1
 | `R-20260804-09` | 标准 M2 分诊 F-001 | `HARNESS_FIX` | 显式 finalization handoff 后，瑞华泰进入 finalization 并以 `model_finish` 在 root 前结束 | `refuted` | `2026-08-04b-finalization/c-long-capped-t2.json`：事件级 `headless_protocol_rejected` / 135.555s，5 requests / 4 mailbox exchanges / 0 finalization；最后一个 in-flight `evidence_search` 无 result/error，交接未激活。wrapper 60s timeout 是静态支持的候选退出路径，非 artifact 直接读数 |
 | `R-20260815-22` | 轨道 A Round 2 F-001 | `EVAL_ONLY` | ① 重放 R7-A7 冻结 FINAL_JSON 形状（`run_20260813_034211_544672`，两格 hashes+gap）经 `validate_episode_finish` 后 `caveat_slips` = 被搬运格数（2）；② 干净 finish（无 gap 或 gap 已在顶层）`caveat_slips=0` 且字段在场；③ 无哈希 gap 的拒绝路径不产生搬运计数，拒绝语义不变 | `confirmed` | `test_caveat_slips_replays_r7_a7_frozen_finish`、`test_caveat_slips_zero_on_clean_finish`、`test_caveat_slips_not_emitted_on_true_gap_reject`、`test_finish_event_exposes_caveat_slips_count`。R-001 跨组夹具：`test_r001_fixture_b5_all_slot_slip`、`test_r001_fixture_b7_mixed_true_gap_still_missing`、`test_r001_fixture_a6_all_slot_slip` |
 | `R-20260815-21` | 轨道 A M1 F-001 | `DATA_CONTRACT_FIX` | 全格 `evidence_hashes`+非空 `binding.gap` 的 partial FINAL_JSON 经 `validate_episode_finish` 后，各格 `binding.gap=""`、原 gap 文本进入顶层 `gaps`；再过 `verify_episode_outcome` 这些格 `fulfilled`，issues 不再含 `required output reports gap:`。无哈希的 gap 仍被拒绝。绕过 validate 把 leftover gap 直接喂 verifier 仍 missing（判据不变） | `confirmed` | 干净基线批 `intelligence/eval/runs/20260814T1926Z-r3-clean-baseline.json`（B 分支，`sha256=b712bd2ee10fb431dba937416fb5882c6984ac65bb5421b5472f71c7ead8d350`，`generated_at=20260814T200212Z`，`revision=cb09f895`，`quality_denominator=28`）。轨道 A 独立重扫：C1 9 题 slips>0 全交付且 eb>0；C2 6 个真缺口格全 missing；C9 混合形（slips=1 + `chain_mapping` missing）同 turn。预注册原文未改。详见 `docs/verification/2026-08-15-trka-r3-r21-canary.md` §Post-batch closure 与母本 Round 3 批注 |
+| `R-20260823-SPTTECH-01` | SPT 科技三臂 M2 R-001 | `HARNESS_FIX` | 同一冻结 replay 中，首次合成不再以 12s 窗口超时；**或** fallback 成功后 `finish/report business_status=complete`，且无 illegal `finalizing → research` | `confirmed` | 本轮 8792/8796 首次 synthesis 仍在 23.412s/20s 超时，但 fallback/repair 后均 `business_status=complete`，未见 `finalizing → research`；只确认原预测的第二个析取分支，尾延迟问题仍在 |
+| `R-20260823-SPTTECH-02` | SPT 科技三臂 M2 R-002 | `DATA_CONTRACT_FIX` | `gate_receipt.issues=[]`；不支持的 evidence type 要么在模型输出校验时被拒绝重写，要么只留 report | `refuted` | 目标症状 `evidence_type_stripped` 已消失，但本轮 gate 仍分别有 7/15 条其他 issue，故原预测中过宽的 `issues=[]` 条件不成立；这是预测口径被证伪，不等于目标修复没生效 |
+| `R-20260823-SPTTECH-03` | SPT 科技三臂 M2 R-003 | `HARNESS_FIX` | `answer.md` 不含内部 gate code；API/UI 同时可见 `transport=completed, business=partial` | `refuted` | 两臂 `answer.md` 仍把内部问题以“输出质检”拼入公开答案；8796 核心正文缩至 115 字且 15 条 issue，但 `business_status=complete` |
 
 ### fix_type refuted streak（作用域：本项目累计）
 
@@ -800,7 +804,7 @@ skill 自身的方法论证据，走 `known-gaps.md`，不进本表。
 | `SYSTEM_PROMPT_FIX` | 0 | 3 |
 | `TOOL_DESCRIPTION_FIX` | 0 | 3 |
 | `ROUTING_FIX` | 0 | 3 |
-| `DATA_CONTRACT_FIX` | 0 | 3 |
+| `DATA_CONTRACT_FIX` | 1 | 2 |
 | `HARNESS_FIX` | 0 | 3 |
 | `EVAL_ONLY` | 0 | 3 |
 
@@ -815,6 +819,8 @@ Round 2 轨道 B 的 `R-20260815-01/-02/-05` 与轨道 A 的 `R-20260815-22` 均
 `EVAL_ONLY` confirmed，按「中间出现一次 confirmed 即归零」规则，`EVAL_ONLY`
 streak 已归零（0/3）。Round 6 批 #3 将 `R-20260815-09`（`HARNESS_FIX`）confirmed，
 同规则把 `HARNESS_FIX` streak 从 1（`R-20260804-09`）归零（0/3）。
+
+截至 2026-08-23：SPT 科技三臂的 `HARNESS_FIX` 先出现一条 confirmed（重置旧 streak），随后一条 refuted，故当前连续 streak 仍为 1；`DATA_CONTRACT_FIX` 因原预测过宽的 `gate_receipt.issues=[]` 被证伪，当前 streak=1。两者均未触发升格线。
 
 ### Residual uncertainty（不是预测，是没结论的观察）
 

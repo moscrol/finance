@@ -1,0 +1,281 @@
+{
+  "format_version": 1,
+  "artifact_kind": "acceptance_information_comparisons",
+  "created_at": "2026-08-13T03:08:52.102207+00:00",
+  "source": {
+    "run_path": "/Users/a77/finance-workspace-private/intelligence/eval/runs/20260813T0200Z-r15-longtail.json",
+    "run_sha256": "2baee2c0084513e8dff4723453d4d128c3da80874b9d09710106caa61afab84e",
+    "cases_sha256": "a25c68253a92be536b94d2403ffa010b6cd15a20b7eea581450159cb6444a1c6",
+    "overlay_sha256": "a705b809463d438f4ec21cdc2eaab50d8314e2ba8f0f8d35c3f0080115910a8c",
+    "reference_agent": "knevo",
+    "reference_eligibility_path": "intelligence/eval/cases/acceptance_reference_eligibility.json",
+    "reference_eligibility_sha256": "37906db20d6be2f35b4390fdf6846707daa63e6f7d4f29d407f96557d97eaba2",
+    "reference_snapshots": {
+      "C1-future-date-no-data": {
+        "path": "intelligence/eval/cases/reference_snapshots/C1-future-date-no-data.knevo.json",
+        "file_sha256": "707c359ac8d65c6fe6edf603bbf960a369db58dee8b84f7398ce181aee361347",
+        "answer_sha256": "4d27e89aecf08ac0a0a324c3f7c224df1a57035c16da6aa9fac7bfd4c0b2c931"
+      },
+      "C2-non-trading-day": {
+        "path": "intelligence/eval/cases/reference_snapshots/C2-non-trading-day.knevo.json",
+        "file_sha256": "49157a52d1ab1772cba68b13bfed6aac2df2025384e04221e5b4c0b559b340f4",
+        "answer_sha256": "7916f9fcc0db0a7aa5d2b501be51a6e715c66decd6942d1ae4ae028b161e13c2"
+      },
+      "C9-citation-integrity": {
+        "path": "intelligence/eval/cases/reference_snapshots/C9-citation-integrity.knevo.json",
+        "file_sha256": "d991be842d95da9fd4bb3eaf17b71cfeaef1f247451f84969d6f53a324a71944",
+        "answer_sha256": "9df9ada2dccd493e7bdfcddeb21a6aa4cd1187a2ed60dd8e198d7a2ef07cc2b1"
+      },
+      "C10-multi-turn-consistency": {
+        "path": "intelligence/eval/cases/reference_snapshots/C10-multi-turn-consistency.knevo.json",
+        "file_sha256": "89ea9dbf0d22f016e775ddba155eed2ba07a0dda26af3928b45a88160d6aa0d9",
+        "answer_sha256": "5f62ef1a8aeb9a7472938d88e70de020d2ca56342539e8577779a34e8d7112ab"
+      }
+    }
+  },
+  "rubric_sha256": "e86a7c4d21d8093e334128fb90a5d13cb4d67bc10535cf94c478f9c4f3e268fe",
+  "entries": {
+    "C1-future-date-no-data": {
+      "case_id": "C1-future-date-no-data",
+      "status": "eligible",
+      "reason": "weekend/no-data honesty is independently comparable",
+      "question": "2026-07-25 市场怎么样",
+      "workbench_answer": "关于“2026-07-25 市场怎么样”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题、说明证据覆盖范围、数据日期与缺口。本轮已取得 24 条证据，但未完成核验绑定，暂不能引用；可直接重试。证据数据截至 2026-08-12；缺口补齐后可复验。",
+      "workbench_answer_sha256": "043c81266a4d6495b013123250a199787ebe372c053d07bd278a5d5764b4762f",
+      "reference_agent": "knevo",
+      "reference_path": "intelligence/eval/cases/reference_snapshots/C1-future-date-no-data.knevo.json",
+      "reference_answer": "## 📊 市场全景 | 2026年7月27日（周一）午间\n\n你问的7月25日是周六（休市），我把最近两个交易日的情况一并梳理——**上周五（7/24）A股大跌 + 今日（7/27）开盘反弹**，核心变量是**美伊冲突突然暂停**引发的全球资产大幅重定价。\n\n---\n\n### 🇨🇳 A股 · 今日盘中（截至13:01）\n\n| 指数 | 最新价 | 涨跌幅 | 状态 |\n|------|--------|--------|------|\n| 上证指数 | **3,831.91** | +0.46% | 低开后反弹 |\n| 深证成指 | **13,997.10** | +1.61% | 强于沪市 |\n| 沪深300 | **4,666.00** | +0.36% | 偏弱 |\n| 创业板指 | **3,540.34** | +1.71% | 最强 |\n\n结构上**深强沪弱**，成长风格（锂电/半导体）明显跑赢，大盘价值偏弱。\n\n---\n\n### 🇨🇳 A股 · 上周五回顾（7/24）\n\n上周五是**全面杀跌日**，几乎全线覆没：\n\n- 上证指数 **-1.71%**｜深证成指 **-2.43%**｜创业板指 **-2.62%**\n- 两市成交 **~1.91万亿**（缩量），超 **4900只** 个股下跌\n- **唯一逆势上涨的板块**：半导体（中证半导体行业精选指数 **+1.76%**）\n- 新能源（-3.06%）、资源、科技高弹性方向全面承压\n\n主导逻辑：中东局势升级（油价飙升 + 美元走强 + 美债利率攀升）→ 全球风险偏好急降 → A股普跌。\n\n---\n\n### 🇺🇸 美股 · 最近交易日（7/22收盘）\n\n| 指数 | 收盘 | 涨跌 |\n|------|------|------|\n| 标普500 | 7,498 | -0.14% |\n| 纳指100 | 28,998 | -0.54% |\n| 道指 | 52,218 | -0.01% |\n| 罗素2000 | 2,959 | -0.92% |\n\nVIX 收于 16.64；WTI 原油 84.91 美元（当时仍在涨）；黄金 4,135 美元；10Y 美债 4.66%。总体**窄幅震荡、交投清淡**，市场在等 Google 和特斯拉财报。半导体内 AI 相关动量股偏强（AMD 投 Anthropic 50亿美元落地）。\n\n---\n\n### 🔥 周末最大变量：美伊冲突暂停 → 资产全线反转\n\n| 资产 | 变化 | 原因 |\n|------|------|------|\n| 🛢️ WTI原油 | **-6~7%**，一度跌破 $84 | 供应中断担忧解除 |\n| 🛢️ 布伦特 | **-7%+**，跌破 $90 | 同上 |\n| 🥇 黄金 | **突破 $4,110** | 避险未必消退+美元走弱 |\n| 📈 纳指期货 | **+1%+** | 风险偏好回暖 |\n| 🏦 港股石油股 | 中石油 -3%、中海油 -2% | 油价暴跌直接拖累 |\n| 🥇 港股黄金股 | 珠峰黄金 **+12%** | 金价新高 |\n\n> **关键时点**：特朗普于 **7/24** 下令暂停对伊空袭（打破连续13天轰炸），伊朗军方随后宣布暂停对等打击。消息在周末发酵，7/26（周日）晚间美油开盘即暴跌。Polymarket 预测 8/31 前停火概率已达 **75%**。\n\n---\n\n### 📌 今日A股主要催化\n\n1. **宁德时代引爆锂电板块**（涨超5%）：半年报营收 2,769 亿（+54.8%）、净利 433 亿（+42%），同时推出 **200-400亿史上最大回购**（回购价上限573元/股），锂矿概念股集体跟涨。\n2. **半导体延续强势**：上周五逆势独涨 +1.76%，今日继续活跃，科技自主 + AI算力双主线。\n3. **长鑫科技今日科创板上市**：发行价 8.66 元，市值 ~5,790 亿，为科创板迄今最大 IPO。\n4. **方星海被查**：证监原副主席涉嫌严重违纪违法，短期对市场情绪有一定压制。\n5. **芝商所今日推出个股期货**：覆盖 Alphabet/苹果/英伟达/SpaceX 等 50+ 美股。\n\n---\n\n### 🎯 我的判断\n\n上周五 A 股是被油价飙升和全球 risk-off **情绪性杀跌**，结构上半导体逆势走强说明 AI/自主可控这条线有内在支撑。周末美伊降温后油价暴跌，相当于把上周五的核心利空解除了大半——今日反弹是合理的。\n\n但需要注意几个矛盾信号：\n- **利好这边**：油价回落 → 通胀压力缓解 → 美联储加息压力减轻 → 成长股估值修复\n- **隐忧这边**：红海局势仍在升级（胡塞武装袭击沙特石油设施），中东停火尚未落地；宁德时代回购虽大但上游锂价仍在博弈；长鑫科技 IPO 虹吸资金 ~579 亿\n\n**创业板指领涨、深强沪弱的结构**，说明资金在往成长方向回补，短期可关注锂电+半导体的延续性。\n\n---",
+      "reference_answer_sha256": "4d27e89aecf08ac0a0a324c3f7c224df1a57035c16da6aa9fac7bfd4c0b2c931",
+      "eligible_dimensions": [
+        "directness",
+        "followup_burden"
+      ],
+      "excluded_dimensions": []
+    },
+    "C2-non-trading-day": {
+      "case_id": "C2-non-trading-day",
+      "status": "eligible",
+      "reason": "holiday/no-data honesty is independently comparable",
+      "question": "2026-02-17 涨停家数多少",
+      "workbench_answer": "无法从提供的检索材料中确定 **2026-02-17 的涨停家数**。\n\n材料仅说明本地市场数据的“盘面时序直查”已命中该日期指标，但未给出具体数值；因此不能据此编造答案。另有数据边界说明：本地市场数据截至 **2026-08-12**，但这不等于已提供 2026-02-17 的实际涨停家数。",
+      "workbench_answer_sha256": "d76fb199a240c8f186f9164f317fa239b23efe2adaf65ef983060bf0b35f03a8",
+      "reference_agent": "knevo",
+      "reference_path": "intelligence/eval/cases/reference_snapshots/C2-non-trading-day.knevo.json",
+      "reference_answer": "今天是 2026-07-27，你要查的是 **2026-02-17**（约 5 个多月前）的 A 股涨停家数。我同时从几个渠道帮你查。\n\ndatasvc 的 movers 数据集只返回了 5 条（并非完整的涨停家数），新闻也没有直接匹配到 2026-02-17 的报道。我再换个方式精准查询。\n\n这个 movers 数据集似乎没有按历史日期精准筛选。让我再试试通过新闻检索找当天的收评/复盘数据。\n\n让我尝试更精准的时间范围搜索。\n\n让我再尝试搜索当天的涨停分析数据。\n\n经过多轮检索，我如实汇报结论：\n\n## 数据缺口：无法获取 2026-02-17 的精确涨停家数\n\n我尝试了以下途径，均未能获取该日精确数据：\n\n| 渠道 | 结果 |\n|---|---|\n| `finance_search_data` — movers（涨停板数据集） | 返回了 50 只涨停个股清单，但 `as_of` 显示为 2026-07-27，未能按指定历史日期过滤 |\n| `finance_news`（财联社/金十/同花顺等） | 新闻档案最早仅追溯到 **2026年5月中旬**，2 月的收评/涨停复盘/涨停分析类报道均已过期不在索引中 |\n| `finance_memory_query` | 没有匹配该日期的记忆记录 |\n\n### 已知信息（不精确）\n\n从我最后一次 `movers` 查询返回的 50 条涨停记录来看（中利集团、明新旭腾、\\*ST 亚士、北自科技、南京熊猫等），如果该数据集确实对应了当日，则 **涨停家数至少 ≥50**（受限于 `max_results=50` 的截断），但无法确认总家数以及是否对应正确的盘面日期。\n\n### 建议\n\n如果你需要精确数据，可以尝试：\n- 直接查阅东方财富/同花顺的历史行情数据（选择日期 → 涨停板）\n- 如有本地存储的 2 月 17 日复盘笔记或导出的行情文件，我可以帮你读取\n\n---",
+      "reference_answer_sha256": "7916f9fcc0db0a7aa5d2b501be51a6e715c66decd6942d1ae4ae028b161e13c2",
+      "eligible_dimensions": [
+        "directness",
+        "followup_burden"
+      ],
+      "excluded_dimensions": []
+    },
+    "C3-empty-table": {
+      "case_id": "C3-empty-table",
+      "status": "missing",
+      "reason": "Knevo has its own technical data and cannot test the local empty table",
+      "question": "立新能源的技术面快照给我看一下",
+      "workbench_answer": "基准判断：若后续回调能收敛波动且维持近期高位区域，强势结构有望延续；\n题材映射上，该股被归入储能、充电桩、光热发电、新型电力，同时申万行业为公用事业-电力；\n虽然近5日资金净流入为正，但最新单日资金为净流出，且当日回落，说明分歧已经出现；不能把阶段标签“3年新高”等同于趋势必然持续。",
+      "workbench_answer_sha256": "e69d46cbbb74f221aa74f7060ed8aeaec9ce510437e3d21b8ea63838a9834545",
+      "reference_agent": "knevo",
+      "reference_path": null,
+      "reference_answer": null,
+      "reference_answer_sha256": null,
+      "eligible_dimensions": [],
+      "excluded_dimensions": [
+        "definition_alignment"
+      ]
+    },
+    "C4-unit-anomaly": {
+      "case_id": "C4-unit-anomaly",
+      "status": "missing",
+      "reason": "unit anomaly is unique to the local dirty row",
+      "question": "2026-07-21 MLCC 板块成交额多少",
+      "workbench_answer": "无法从所提供材料确定 `2026-07-21` 的 MLCC 板块成交额具体数值。\n\n**事实：**材料仅说明本地市场数据对该日盘面时序数据“命中，9行”，来源描述为“全市成交额，2026-07-21 单日”，但没有提供任何 MLCC 板块成交额的数值或原始行。其结论也明确称“当日盘面候选未命中”“盘面信号有限”。\n\n**未知与关键缺口：**缺少该日期的 MLCC 板块口径定义及对应的成交额字段/原始查询结果。因此不能将“全市成交额”替代为“MLCC 板块成交额”，也不能由列出的相关公司成交额推算板块总额。\n\n来源：用户提供的“本地市场数据盘面时序直查数据块”说明；该材料未包含数值。",
+      "workbench_answer_sha256": "4c4ff536bda15a54c40bc014b2453ed6ac15fe29c0a09332e303c876d12536a4",
+      "reference_agent": "knevo",
+      "reference_path": null,
+      "reference_answer": null,
+      "reference_answer_sha256": null,
+      "eligible_dimensions": [],
+      "excluded_dimensions": [
+        "definition_alignment"
+      ]
+    },
+    "C5-data-contradiction": {
+      "case_id": "C5-data-contradiction",
+      "status": "ineligible",
+      "reason": "external ground truth can confirm the local clone bug but cannot test whether Workbench flags it",
+      "question": "立新能源 2026-07-20 和 07-21 分别涨了多少、收盘价多少",
+      "workbench_answer": "无法从提供的检索材料得出立新能源在 2026-07-20、2026-07-21 的涨幅或收盘价。\n\n**事实**：材料仅包含“新能源车”题材盘面与若干其他公司的关联信息，没有出现立新能源的证券代码、两日的开盘/收盘价、前收盘价或日涨跌幅字段。 \n**未知/关键缺口**：缺少立新能源这两个交易日的日线行情数据，至少需要 `2026-07-18（或上一交易日）收盘价、2026-07-20 收盘价、2026-07-21 收盘价`。\n\n计算口径通常为：\n- 7 月 20 日涨幅 = `(7 月 20 日收盘价 / 上一交易日收盘价 - 1) × 100%`\n- 7 月 21 日涨幅 = `(7 月 21 日收盘价 / 7 月 20 日收盘价 - 1) × 100%`\n\n提供对应日线数据后才能给出确切数值。",
+      "workbench_answer_sha256": "1339ac228d587140eb0b3aed865000b7a4b9d278f0e557cd7dfc2ef7f170e65a",
+      "reference_agent": "knevo",
+      "reference_path": null,
+      "reference_answer": null,
+      "reference_answer_sha256": null,
+      "eligible_dimensions": [],
+      "excluded_dimensions": [
+        "definition_alignment",
+        "directness"
+      ]
+    },
+    "C6-strict-definition": {
+      "case_id": "C6-strict-definition",
+      "status": "ineligible",
+      "reason": "case is not reproducible: query is relative-time (最近) but expect_answer_set is frozen to 2026-07-23; the date anchor never reaches the product",
+      "question": "最近哪些板块比较强，双红的那种",
+      "workbench_answer": "截至2026年8月12日，若“双红”指板块上涨且成交/边际量同步放大，主线中暂未见明确满足者。当前较强的是有色金属中的黄金、贵金属，以及消费零售中的乳制品；它们当日均上涨，但边际成交量仍为负，属于缩量修复或存量资金抱团，不能按量价共振的新启动主线处理。医药仍在主线范围内，创新药、CXO小幅上涨，但同样缩量；医疗服务和医药商业当日偏弱。\n基准判断：短线优先观察有色、消费零售和医药能否在后续交易日继续上涨并转为增量成交；在量能未转正前，更适合视为强势轮动而非无条件追涨信号。全市场当日上涨家数较多、强势股情绪活跃，但成交较前日回落，说明风险偏好尚可而增量资金确认不足。\n证据覆盖到8月12日收盘，非8月13日盘中数据；“主线”是市场交易结构标签，不代表板块内公司基本面已兑现。",
+      "workbench_answer_sha256": "b4624dbd0a6fd6979465a92d6f5a9873f5609eff373c41987a3c9d753e839dc1",
+      "reference_agent": "knevo",
+      "reference_path": null,
+      "reference_answer": null,
+      "reference_answer_sha256": null,
+      "eligible_dimensions": [
+        "organization",
+        "reasoning_chain"
+      ],
+      "excluded_dimensions": [
+        "definition_alignment",
+        "numeric_accuracy"
+      ]
+    },
+    "C7-temporal-leakage": {
+      "case_id": "C7-temporal-leakage",
+      "status": "ineligible",
+      "reason": "alias of A2 with a weaker prompt and explicit hindsight; invalid for C7",
+      "question": "站在 2026-07-21 收盘，给出对 07-22 的研判",
+      "workbench_answer": "主观基准判断：07-22更偏向“偏强震荡、冲高后分歧”，而非无差别普涨。\n情景路径：若开盘后科技主线维持强势、核心方向承接且市场广度不明显转弱，指数可延续偏强，机会仍集中于半导体与AI算力链的强势分支；若主线冲高但承接转弱、资金只在少数个股集中，则转为指数震荡和题材内部轮动；若主线集体走弱并伴随跌停扩散、上涨广度显著收缩，则反弹判断降级为回落风险。\n延续条件：成交保持活跃或改善；半导体、存储芯片、CPO至少有核心方向维持强度与资金承接；涨停生态未明显恶化，且强势股不出现集中负反馈。失效条件：量能回落同时主线净流入转弱，或科技主线普遍由强转弱；市场广度下降并出现跌停扩散。\n证据边界：判断仅基于2026-07-21收盘的结构化市场及板块数据，未覆盖07-22盘前政策、外围市场、公告与突发消息，故不对方向幅度或持续时间作确定性预测；",
+      "workbench_answer_sha256": "8c94c01df19b774e1a4d1ad616406c143c8a527809a47a1566162ed791afa578",
+      "reference_agent": "knevo",
+      "reference_path": null,
+      "reference_answer": null,
+      "reference_answer_sha256": null,
+      "eligible_dimensions": [],
+      "excluded_dimensions": [
+        "temporal_integrity",
+        "directness"
+      ]
+    },
+    "C8-nonexistent-table": {
+      "case_id": "C8-nonexistent-table",
+      "status": "missing",
+      "reason": "sector_marginal is a local legacy implementation detail",
+      "question": "查一下 sector_marginal 表里 07-23 的边际量",
+      "workbench_answer": "请提供 `sector_marginal` 表的访问方式或相关数据文件，我才能查询 `07-23` 的边际量。",
+      "workbench_answer_sha256": "08355a738372b5118bf2c50b3dec7c26113cc7742f467ac6885ccfa704e19bad",
+      "reference_agent": "knevo",
+      "reference_path": null,
+      "reference_answer": null,
+      "reference_answer_sha256": null,
+      "eligible_dimensions": [],
+      "excluded_dimensions": [
+        "definition_alignment"
+      ]
+    },
+    "C9-citation-integrity": {
+      "case_id": "C9-citation-integrity",
+      "status": "eligible",
+      "reason": "useful for causal explanation and source style, not internal citation-tag registry",
+      "question": "2026-07-23 电网设备为什么涨，给出证据来源",
+      "workbench_answer": "关于“2026-07-23 电网设备为什么涨，给出证据来源”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题并说明判断强度、chain_mapping、提供主要反证或竞争性解释。本轮已取得 1 条证据，但未完成核验绑定，暂不能引用；可直接重试。证据数据截至 2026-07-23；缺口补齐后可复验。",
+      "workbench_answer_sha256": "b39808239e7bae8cbdebf2940741f36482946c3a949d3add0cb128e82eddc116",
+      "reference_agent": "knevo",
+      "reference_path": "intelligence/eval/cases/reference_snapshots/C9-citation-integrity.knevo.json",
+      "reference_answer": "新闻数据已经很丰富了，让我把两篇关键文章全文拉下来，补全政策细节和招标细节。\n\n## 2026-07-23 电网设备大涨：三重催化共振\n\n当天电网设备板块是市场领涨板块之一，出现**涨停潮**，核心有三重催化叠加：\n\n---\n\n### 🔴 催化一（当日重磅政策）：《可再生能源发展\"十五五\"规划》发布\n\n**7月23日当天**，国家发改委和国家能源局联合发布《可再生能源发展\"十五五\"规划》，明确提出**\"适度超前推进电网基础设施建设\"**，推进配电网、智能微电网与主干电网一体发展。\n\n> **来源**：财联社 2026-07-23 14:26 —《政策利好+AI算力双轮驱动！电力板块掀涨停潮》([cls.cn](https://www.cls.cn/detail/2434908))\n\n规划的关键量化信息：\n\n- **\"十五五\"全国电网固定资产投资将达 5 万亿元以上**，较\"十四五\"增长超 80%\n- 期间将**新增投产 15 回特高压直流线路**\n- 风光年均新增底线 ≥192GW，十五五需新增约 960GW 装机——巨量新能源装机必须有电网配套消纳\n\n> **来源**：同花顺 2026-07-23 11:30 —《电网设备板块现涨停潮 两部门：适度超前推进电网基础设施建设》([10jqka.com.cn](http://field.10jqka.com.cn/20260723/c678377779.shtml))\n\n规划还列出五大实施路径：三北沙戈荒基地新增 370GW+、海上风电新开工 100GW、水风光一体化、分布式 300GW+等，每一条路径都对应大量电网设备需求。\n\n> **来源**：据市场调研纪要 2026-07-23 12:53 —「可再生能源十五五规划」总结\n\n---\n\n### 🔴 催化二（同日订单验证）：国网特高压第三批招标结果落地\n\n与规划发布**同日**，国家电网 2026 年特高压及输变电设备**第三次招标结果正式落地**，多家上市公司密集披露中标公告。其中：\n\n- **中国西电（601179）+ 平高电气（600312）合计中标近 60 亿元**\n\n> **来源**：同花顺 2026-07-23 15:26 —《电网设备板块，涨停潮》([10jqka.com.cn](http://field.10jqka.com.cn/20260723/c678381428.shtml))\n\n这验证了此前广发证券的判断——特高压招标明显提速。据其测算：\n\n- 国网 2026 年前 3 批特高压设备累计中标总额达 **243 亿元**，**已超 2025 全年（220 亿元）**\n- 核心物资单价坚挺：换流阀、组合电器、电抗器等环比持平或仅小幅下降\n- 配网侧亦进入上升期：第四轮输配电价监管周期政策落地，配电环节价格显著提升\n\n> **来源**：据市场调研纪要 2026-07-17 —【广发电新】特高压和配网进入上升周期\n\n---\n\n### 🔴 催化三（前期基本面铺垫）：电网投资三线共振\n\n共享记忆库中已有框架指出，2026 年变压器/电网设备处于**电网投资（Q1 +37%）+ AI 数据中心电力基建（CAGR ~75%）+ 出海（+30%）三线罕见共振期**（共享记忆库：风远94共享数据库，2026-04-24）。\n\n7月23日这天的行情，本质上是在这个中期景气基础上，被\"顶层规划 + 大单落地\"同日触发的一次集中爆发。\n\n---\n\n### 📊 盘面表现\n\n| 维度 | 数据 |\n|------|------|\n| 板块定位 | 当日四大领涨板块之一（军工/体育/能源金属/**电网设备**） |\n| ETF表现 | 电网设备ETF易方达(560390) **+5.085%**，换手率 20.97% |\n| 涨停个股 | 中国西电、保变电气、太阳电缆、汉缆股份、长缆科技、三变科技等 **14只+** |\n| 20cm涨停 | 双杰电气(300444)、和顺电气(300141) |\n| 涨超10% | 金冠股份(300510)、宏远股份等 |\n\n> **来源**：财联社 2026-07-23 17:31 焦点复盘；新浪财经 2026-07-23 15:33 ETF风向标\n\n---\n\n### 🧠 逻辑链条总结\n\n```\n顶层规划发布（\"适度超前\"+ 5万亿投资）\n        +\n同日国网大单落地（243亿已超去年全年）\n        +\n中期基本面景气（电网投资+AI基建+出海三线共振）\n        ↓\n政策→订单→业绩的传导链条被市场集中定价\n        ↓\n电网设备板块涨停潮\n```\n\n---\n\n### ⚠️ 需要留意\n\n共享记忆库也指出，中证电网设备指数在此前近半年已涨 36.77%，头部估值已反映较多乐观预期。当日两市成交额缩量 4580 亿至 2.2 万亿，说明整体市场增量资金有限，板块属于结构性行情中的轮动热点而非全面牛市中的主升浪。",
+      "reference_answer_sha256": "9df9ada2dccd493e7bdfcddeb21a6aa4cd1187a2ed60dd8e198d7a2ef07cc2b1",
+      "eligible_dimensions": [
+        "directness",
+        "organization",
+        "source_clarity"
+      ],
+      "excluded_dimensions": [
+        "definition_alignment"
+      ]
+    },
+    "C10-multi-turn-consistency": {
+      "case_id": "C10-multi-turn-consistency",
+      "status": "eligible",
+      "reason": "the three turns were collected in one conversation with expanded numeric conditions",
+      "question": "2026-07-23 哪些板块双红",
+      "workbench_answer": "其中，金属锌、电力、贵金属的强度居前；\n证据边界：上述结论来自2026-07-23的主线板块日频与市场日频结构。市场快照和主线概览接口返回的是2026-08-12数据，不用于回答7月23日的盘面事实；",
+      "workbench_answer_sha256": "d515933f00c92190053d2e71232753e8c64079fd883e33e2590b2c23432cd2cc",
+      "reference_agent": "knevo",
+      "reference_path": "intelligence/eval/cases/reference_snapshots/C10-multi-turn-consistency.knevo.json",
+      "reference_answer": "### 第 1 轮提问\n2026-07-23 有哪些板块同时满足：当日上涨、成交额环比增长超过 10%、成交额大于 500 亿\n\n### 第 1 轮回答\n用户要查的是 **2026-07-23 周四** 的板块数据，需要同时满足三个条件。让我并行检索。\n\n新闻确认了 7/23 几个板块的方向，但缺少系统性的板块成交额数据。让我尝试多路径获取申万/中信行业分类的完整板块数据。\n\n新闻覆盖有限，让我尝试直接用几个主要行业/板块ETF的日K数据来交叉计算。先取7/22和7/23两个交易日的板块ETF数据。\n\n让我换方向，直接搜索7/23的收评/复盘类报道，这类通常会列出所有板块涨跌和成交额。\n\n凤凰财经那篇标题为\"涨幅第一，资金大幅涌入\"的文章里提到了31个申万一级行业的资金流向和涨跌幅，让我把全文拉下来看看有没有更详细的板块成交额数据。\n\nweb_fetch 限流了，让我换个路径。之前 ETF 批量查 daily bar 失败了，现在用 `finance_instrument` 逐个拿代表性板块 ETF 的日K来推板块成交变化。\n\n数据层面仍有缺口，让我再试一下关键文章的全文化。\n\n基于多轮检索，我已经收集了足够的上下文来回答你的问题。先说关键结论和一些数据局限。\n\n---\n\n## 2026-07-23 板块筛选结果\n\n### 大盘背景（先锚定）\n\n| 指标 | 7/23 数值 | vs 7/22 |\n|---|---|---|\n| 上证指数 | 3876.78，+0.25% | — |\n| 深证成指 | 14123.31，+0.44% | — |\n| 创业板指 | 3575.52，+0.25% | — |\n| 科创50 | -3.78% | — |\n| 两市成交额 | **约 2.21 万亿** | **缩量约 4580 亿（-17%）** |\n| 个股涨跌比 | 超 4200 只上涨 | — |\n\n来源：财联社、金十数据、中新经纬、华尔街见闻 7/23 收评（多源交叉一致）。\n\n---\n\n### ⚠️ 关键约束\n\n你的筛选条件——「成交额环比增长 >10% + 成交额 >500 亿」——在市场整体**缩量 17%** 的背景下极为苛刻。系统性板块成交额（分申万一级行业，7/22 vs 7/23）的精确对比数据不在当前金融工具的直接覆盖范围内（`finance_instrument` 和 ETF 日K批量查询因本地缓存缺失返回了 degraded；外部 web_fetch 因 API 额度限制暂时无法打开完整文章）。\n\n凤凰财经报道《涨幅第一，资金大幅涌入》中提到了 31 个申万一级行业的主力资金流向，但 snippet 只截取了部分（**电力设备行业主力资金净流入 74.35 亿元居首**、有色金属等）。完整的行业成交额环比对比表未被抓取到。\n\n---\n\n### ✅ 可以确认满足「当日上涨」的板块\n\n从多份收评交叉验证（新浪财经、财联社、金十、华尔街见闻、中新经纬、同花顺），7/23 上涨板块包括：\n\n| 板块 | 涨幅情况 | 来源 |\n|---|---|---|\n| **电网设备 / 电力设备** | 板块涨超 6%，数十只涨停，申万一级中涨幅第一 | 凤凰财经、中新经纬、财联社 |\n| **能源金属（锂矿）** | 涨超 6%，盛新锂能、永杉锂业涨停 | 多源一致 |\n| **有色金属** | 申万有色指数 +3.23%，锂矿/稀土/钴强势 | 南方基金有色ETF跟踪数据 |\n| **军工** | 午后拉升，北方长龙 20cm 涨停 | 金十、华尔街见闻 |\n| **油气 / 油服工程** | 延续强势，中曼石油 4 天 3 板 | 多源一致 |\n| **电池** | 电池ETF尾盘涨近 4% | 东方财富 |\n| **体育** | 涨超 6% | 中新经纬 |\n| **化工、建材水泥、海工装备、种植业、轨交设备** | 涨幅居前 | 金十数据收评 |\n\n下跌板块：**半导体**（科创50 -3.78%、华虹宏力跌超12%）、**AI手机/CPO/减肥药/游戏/AI应用**等。\n\n---\n\n### ❓ 能否同时满足「成交额环比增 >10%」和「成交额 >500 亿」？\n\n以全市场缩量 ~17% 来粗略框算：**绝大多数板块的成交额在 7/23 是环比下降的**。如果一个板块成交额反而逆势增长超过 10%，说明资金在集中涌入——这在缩量市中通常对应**当天最强的领涨板块**。\n\n结合资金流向线索（凤凰财经：电力设备主力净流入 74.35 亿居首，有色金属等也有净流入），**最有可能同时满足三个条件的板块是**：\n\n> **电力设备（电网设备）** 和 **有色金属（含能源金属/锂矿）**\n\n但严谨地说——由于缺少每个申万一级行业 7/22 和 7/23 的系统性成交额对比，上述结论是「**基于涨幅排名 + 资金流向方向的合理推断，而非精确数据验证**」。\n\n---\n\n### 建议下一步补证路径\n\n要精确回答，需要东方财富行业板块页面或同花顺 iFinD 中「申万一级行业每日成交额」表格。如果这些原始数据能拿到，我可立即帮你做精确筛选：用 7/22 和 7/23 两日数据，筛选 `(pct_chg > 0) & (turnover > 500) & (turnover_chg > 10%)`。\n\n### 第 2 轮提问\n那这些板块里成交额最大的是哪个\n\n### 第 2 轮回答\n好问题。结合所有已掌握的数据，我来直接给结论和推理链。\n\n---\n\n## 回答：电力设备（电网设备）成交额最大\n\n### 推理链\n\n在 7/23 满足\"上涨 + 资金逆势涌入\"的板块中，从多个维度确认电力设备规模最大：\n\n**① 主力资金净流入全市场第一**\n\n凤凰财经据 31 个申万一级行业统计（来源：凤凰财经，2026-07-23 20:42）：\n\n> 电力设备行业主力资金净流入 **74.35 亿元**，位居全市场第一\n\n同期有色金属排在第二，基础化工等随后。金融界午间数据也交叉印证了同一排序：电力设备 64.66 亿（午盘）> 有色金属 62.89 亿。\n\n**② 「涨幅第一」标签多源确认**\n\n凤凰财经标题原文：「涨幅第一，资金大幅涌入」——明确指向电力设备。财联社、金十、中新经纬、华尔街见闻收评全部将电网设备/电力设备列为当日领涨板块，涨幅超 6%、数十只涨停。\n\n**③ 板块天然体量最大**\n\n电力设备是申万一级行业中**体量最大的板块之一**（含宁德时代、阳光电源、国电南瑞等大权重），日常成交额就在千亿级别。在一个 2.2 万亿成交的交易日里，电力设备板块成交额大概率在 **1500-2500 亿** 区间，远超 500 亿门槛。\n\n**④ 缩量市中的「逆势放量」逻辑**\n\n7/23 全市场缩量 ~17%（2.65 万亿 → 2.21 万亿）。在绝大多数板块缩量的背景下，电力设备反而吸引主力净流入 74 亿——这意味着它是最明显的**资金集中涌入方向**，成交额环比增长几乎是必然的（尽管缺乏精确环比数字，但方向确定）。\n\n---\n\n### 完整排序估计（在满足条件的板块中）\n\n| 排序 | 板块 | 主力净流入 | 涨幅信号 | 成交额量级估计 |\n|---|---|---|---|---|\n| 🥇 | **电力设备（电网设备）** | 74.35 亿（全市场第一）| 涨超 6% | 最大，千亿级 |\n| 🥈 | 有色金属（含能源金属/锂矿）| 约 60+ 亿 | 指数 +3.23% | 次之，数百亿~千亿 |\n| 🥉 | 军工 | — | 午后拉升 | 较小 |\n\n---\n\n### ⚠️ 数据精度声明\n\n以上排序基于主力资金净流入 + 涨幅 + 体量常识推断。精确到「成交额环比增长百分比」级别的数字——需要 7/22 vs 7/23 每个申万一级行业的系统成交额对比表。当前金融工具在板块级别的历史成交额对比数据上存在覆盖缺口，完整表格建议从东方财富「行业板块」页面或同花顺 iFinD 终端获取。\n\n### 第 3 轮提问\n刚才你列的那些板块，再确认一遍一共几个\n\n### 第 3 轮回答\n来逐一清点。\n\n---\n\n## 我列过的板块，一共是 **3 个层级**\n\n### 第一层：最可能满足三条件的（3 个）\n\n这是我上条回答末尾排序表里的，也是回答\"成交额最大的是哪个\"时的结论范围：\n\n| # | 板块 | \n|---|---|\n| 1 | **电力设备（电网设备）** |\n| 2 | **有色金属（含能源金属/锂矿）** |\n| 3 | **军工** |\n\n### 第二层：确认当日上涨、但不一定满足成交额条件的（额外 8 类）\n\n这是本对话第一轮回答中从多源收评交叉验证的上涨板块完整清单：\n\n| # | 板块 |\n|---|---|\n| 4 | 油气 / 油服工程 |\n| 5 | 电池 |\n| 6 | 体育 |\n| 7 | 化工 |\n| 8 | 建材水泥 |\n| 9 | 海工装备 |\n| 10 | 种植业 |\n| 11 | 轨交设备 |\n\n---\n\n**合计：11 个板块方向**被提及过，其中前 3 个（电力设备、有色金属、军工）是满足三条件的核心候选。\n\n需要说明的是，第 4-11 项虽然当日上涨，但在全市场缩量 17% 的背景下，它们成交额环比超 10% 增长的概率显著低于前三者——主力资金净流入数据也支持这个判断：金融界午盘数据显示净流入前十全部集中在电力设备/有色/电池/能源金属/电网设备等方向，未出现体育、种植业等板块。\n\n以上——两轮回答累计涉及 **11 个板块**，其中前 3 个（电力设备、有色金属、军工）是核心候选，后 8 个属于当日上涨但成交额条件不确定的扩散方向。",
+      "reference_answer_sha256": "5f62ef1a8aeb9a7472938d88e70de020d2ca56342539e8577779a34e8d7112ab",
+      "eligible_dimensions": [
+        "directness",
+        "followup_burden"
+      ],
+      "excluded_dimensions": [
+        "definition_alignment"
+      ]
+    }
+  },
+  "evaluator": {
+    "id": "cursor-cloud-agent-20260813",
+    "kind": "llm_agent",
+    "model": "claude-fable-5-thinking",
+    "independent": true
+  },
+  "case_observations": {
+    "C1-future-date-no-data": {
+      "state": "knevo_wins",
+      "reason": "07-25 是周六：KN 直接指出休市并给出相邻交易日全景，追问负担为零；WB 诚实拒答但未识别日历事实，把可判定问题当成证据缺口。",
+      "workbench_unique": [
+        "未编造任何数字的严格诚实边界"
+      ],
+      "reference_unique": [
+        "周六休市的日历判定",
+        "7/24 大跌与 7/27 盘中反弹的相邻交易日梳理及归因"
+      ],
+      "unsupported_detail_risks": [
+        "KN 答案含快照日（07-27）盘中数据，若被当作 07-25 数据会误导"
+      ]
+    },
+    "C2-non-trading-day": {
+      "state": "tie",
+      "reason": "双方都未取得该日数值、都未识别春节休市、都诚实报告缺口。KN 额外给出检索路径清单与后续渠道建议，但其「涨停 ≥50 家」下界来自 as_of 错位的数据集，有误导风险；WB 更简洁且无误导。互有长短，判平。",
+      "workbench_unique": [
+        "明确区分「数据边界覆盖该日」与「已提供该日数值」两个概念"
+      ],
+      "reference_unique": [
+        "失败路径逐条记录（movers/新闻/记忆三渠道）",
+        "后续可行渠道建议"
+      ],
+      "unsupported_detail_risks": [
+        "KN 的 ≥50 家下界基于 as_of=07-27 的错位数据集，明确标注了不确定但仍可能被误用"
+      ]
+    },
+    "C9-citation-integrity": {
+      "state": "knevo_wins",
+      "reason": "WB 仅 1 条证据且未绑定，交付为缺口声明；KN 给出三重催化（当日规划发布、特高压招标落地、AI 算力需求）并逐条带日期与出处链接，正面满足「为什么涨 + 给出来源」。",
+      "workbench_unique": [
+        "无（仅缺口声明）"
+      ],
+      "reference_unique": [
+        "「十五五」电网投资 5 万亿+/15 回特高压直流的量化政策细节",
+        "同日国网第三批招标中标金额与公司名单",
+        "逐条带链接的引用规范"
+      ],
+      "unsupported_detail_risks": [
+        "KN 链接与引文未经本地抓取核验",
+        "规划数字出自媒体转述而非规划原文"
+      ]
+    },
+    "C10-multi-turn-consistency": {
+      "state": "tie",
+      "reason": "WB 用本地主线结构给出强度居前名单（金属锌/电力/贵金属）并声明快照日期边界，但口径是「强度」而非双红三条件，直接性打折；KN 把「环比>10%+500 亿」两条件的不可核验性说清楚但没有交付名单。一个口径偏移、一个无名单，判平。",
+      "workbench_unique": [
+        "本地板块日频结构的强度名单与明确的数据日期边界声明"
+      ],
+      "reference_unique": [
+        "筛选条件逐条可核验性分析与大盘量能背景（缩量 17%）"
+      ],
+      "unsupported_detail_risks": [
+        "WB 名单口径（强度）与提问口径（双红/涨停热度）不一致",
+        "KN 板块成交额依赖 ETF 与新闻近似"
+      ]
+    }
+  },
+  "artifact_sha256": "fba0047a0f90258b8df3b59f541f821afe54429c1bd85062108155c83d19887f"
+}
