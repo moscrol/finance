@@ -42,6 +42,19 @@
   东方财富 sync-stock-daily-snapshot 和 akshare stock_zh_a_spot_em 会同时
   不可用。此时 **唯一可靠源是 fupanhui（sync-sector-stocks）**。
   应对路径：sync-sector-stocks --refresh → fill-stock-daily-fallback → daily-review。
+- **fupanhui 公开端点转登录（2026-08-24 起）**：/data/theme/panels、
+  /topics/mainline-* 等历史「公开」端点开始校验登录，匿名直连 401；
+  批量板块 K 线/成分股的页面内 fetch 同样要带 Bearer。
+  已修（fix/fupanhui-auth-fallback）：api_get_public 401 自动回落 CDP
+  带登录态路径；批量 JS 带 localStorage user_token。前提不变：
+  Chrome 已登录 fupanhui.com + CDP proxy 在跑。若批量抓取返回
+  `code:-1 板块已切换为复盘会 FP 代码`，是旧 BK/TI 码，按当日宇宙过滤。
+
+- **代理掐 SSL 的识别与绕过**：本机代理（Clash TUN 等）会把新浪/东财/腾讯
+  的 HTTPS 掐成 `SSLEOFError`（curl 同样空响应）。特征：requests 超时挂死、
+  `qt.gtimg.cn` 市值请求每批 4×15s 空转。应对：指数走
+  reviews/market.volume.indices 兜底；成分股市值列可空（跳过 _tencent_market_caps），
+  行情本体从 fupanhui 拿不受影响。**不要用「重试更多次」对抗被掐的 TLS**。
 
 - **驾驶台 cockpit 三个每日更新项**：
   1. 每日复盘（daily-review）→ render_daily_review_html.py

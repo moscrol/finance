@@ -29,7 +29,29 @@ def _parse_date(val):
     return None
 
 
-def _load_sector_dim(con):
+def _load_sector_dim(con, trade_date: str | None = None):
+    """加载板块清单。指定 trade_date 且当日有 published 宇宙时，只取该宇宙的代码。
+
+    dim_sector 是全历史口径：供应商换代码后旧 `.TI` 码仍是 is_active=False 的死行
+    （2026-08 实测 223 个）。拿全表当抓取清单，直连路径会对每个死码重试到超时
+    （08-21 runlog: 300s timeout）。按当日宇宙过滤后，抓取清单 = 写入清单，
+    也是 fact_sector_daily 视图实际会暴露的那一版。
+    """
+    if trade_date:
+        rows = con.execute(
+            """
+            SELECT d.sector_ts_code, d.sector_name, d.sw_l1
+            FROM dim_sector AS d
+            WHERE EXISTS (
+                SELECT 1 FROM fact_sector_universe_daily AS u
+                WHERE u.trade_date = CAST(? AS DATE)
+                  AND u.sector_ts_code = d.sector_ts_code
+            )
+            """,
+            [trade_date],
+        ).fetchall()
+        if rows:
+            return {r[0]: (r[1], r[2]) for r in rows}
     rows = con.execute(
         "SELECT sector_ts_code, sector_name, sw_l1 FROM dim_sector"
     ).fetchall()
@@ -170,7 +192,7 @@ def sync_fact_sector_daily(trade_date: str | None = None, days: int = 25) -> dic
     init_db()
     con = connect()
     try:
-        dim = _load_sector_dim(con)
+        dim = _load_sector_dim(con, trade_date)
     finally:
         con.close()
 
