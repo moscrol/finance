@@ -3762,9 +3762,25 @@ def resolve_judge_sentence_indexes(
 
     引文能唯一定位到某一句时以引文为准；定位不了才退回它自己报的序号；两者都没有时
     退回原来的 rejected_sentence_indexes（judge 只给序号不给理由的旧格式）。
+
+    **定位到的条数少于 judge 报的条数时，差额必须退回它自己报的序号**——否则
+    等于我们替 judge 撤回了它没能引原文的那几条驳回。实测
+    run_20260826_021909_393039：judge 收到 4 句、判否并报 [2, 3]，两个序号都对
+    （2=「注册获批类可直接对应产品上市资格」，3=「…含恒瑞同日的多条批件」）。
+    issue 1 带「」引文、定位到第 2 句；issue 2 写的是中文「句3」且不带引号，
+    引文匹配空手、``_JUDGE_ISSUE_INDEX_RE`` 只认字面 ``sentence_index: N``
+    也匹配不上。于是 ``resolved={2}`` 非空、老实现直接 return，第 3 句的驳回
+    被整条吞掉——那句原样上了公开稿。**一条 issue 引了原文，就把另一条没引
+    原文的驳回吃掉了。**
+
+    方向上宁可过严：多删一句是可读性损失，漏删一句是把 judge 点名越界的内容
+    发出去，后者才是 #397「拒收兜底不得出稿」要防的那件事。
     """
 
     valid = {sentence.sentence_index for sentence in sentences}
+    reported_indexes = tuple(
+        index for index in report.rejected_sentence_indexes if index in valid
+    )
     resolved: set[int] = set()
     for issue in report.issues:
         text = str(issue)
@@ -3784,11 +3800,13 @@ def resolve_judge_sentence_indexes(
         reported = _JUDGE_ISSUE_INDEX_RE.search(text)
         if reported is not None and int(reported.group(1)) in valid:
             resolved.add(int(reported.group(1)))
+    # 按**条数**判是否有 issue 没落地，而不是按「resolved 是否为空」。后者只在
+    # 一条都定位不到时才回退，定位到一条就把其余全丢——这正是上面那个现场。
+    if len(resolved) < len(reported_indexes):
+        resolved.update(reported_indexes)
     if resolved:
         return tuple(sorted(resolved))
-    return tuple(
-        index for index in report.rejected_sentence_indexes if index in valid
-    )
+    return reported_indexes
 
 
 def parse_structured_claims(
