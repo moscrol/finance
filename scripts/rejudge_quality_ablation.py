@@ -44,6 +44,7 @@ from scripts.run_quality_ablation import (  # noqa: E402
     Question,
     aggregate_components,
     judge_answer,
+    provider_label,
     require_llm_ready,
 )
 
@@ -177,7 +178,11 @@ def rejudge_artifact(
         if question is None:
             raise _fail(f"答案 #{idx} 的 case_id 不在题集里：{case_id}")
         previous = dict(rec.get("judge") or {})
-        verdict = judge_fn(question, str(rec["answer"]))
+        verdict = dict(judge_fn(question, str(rec["answer"])))
+        # provider 压成串再入收据：判官跑完才在 json.dumps 那步炸，等于钱花了
+        # 收据没了。注入的 judge_fn 形状不受本脚本控制，所以在这里收口。
+        if "provider" in verdict:
+            verdict["provider"] = provider_label(verdict["provider"])
         row = {
             "arm": rec.get("arm"),
             "case_id": case_id,

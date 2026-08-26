@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import pytest
 
 from scripts import rejudge_quality_ablation as rejudge
-from scripts.run_quality_ablation import aggregate_components
+from scripts.run_quality_ablation import aggregate_components, provider_label
 
 _NOW = datetime(2026, 8, 27, 1, 30, tzinfo=timezone.utc)
 
@@ -254,6 +255,29 @@ def test_dry_run_不写文件不调_llm(tmp_path, capsys):
 
     assert not (tmp_path / "run-rejudge.json").exists()
     assert "待补评 1 份" in capsys.readouterr().out
+
+
+def test_收据能被_json_序列化_provider_是数据类也不炸():
+    """真实 provider 是 LLMProvider 数据类，不是字符串。
+
+    首版桩回的是字符串 "zhipu"，测试全绿；真跑时 7 次判官调用都完成了，倒在最后
+    json.dumps ——钱花了、收据没写出来。夹具比现实简单，测出来的绿就是假的。
+    """
+
+    artifact = _two_case_artifact()
+    fake_provider = SimpleNamespace(name="zhipu", model="glm-5.3", base_url="https://x")
+
+    result = _run(artifact, lambda q, a: {**_judged(3), "provider": fake_provider})
+
+    json.dumps(result, ensure_ascii=False)  # 不炸即通过
+    assert result["rejudged"][0]["provider"] == "zhipu/glm-5.3"
+    assert result["answers"][0]["judge"]["provider"] == "zhipu/glm-5.3"
+
+
+def test_provider_label_压成身份串():
+    assert provider_label(SimpleNamespace(name="zhipu", model="glm-5.3")) == "zhipu/glm-5.3"
+    assert provider_label(None) is None
+    assert provider_label("zhipu") == "zhipu"
 
 
 def test_收据登记补评来源与_judge_连续性():

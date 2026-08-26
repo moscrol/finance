@@ -192,6 +192,22 @@ def _parse_judge_payload(payload: object) -> dict[str, object] | None:
     }
 
 
+def provider_label(provider: object) -> str | None:
+    """把 provider 压成可入 JSON 的身份串 ``name/model``。
+
+    ``llm_refine.complete`` 回的是 ``LLMProvider`` 数据类，直接塞进收据会在
+    ``json.dumps`` 那步炸——判官已经跑完、钱已经花了，收据却写不出来。
+    """
+
+    if provider is None:
+        return None
+    name = getattr(provider, "name", None)
+    model = getattr(provider, "model", None)
+    if name and model:
+        return f"{name}/{model}"
+    return str(name or provider)
+
+
 def judge_answer(question: Question, answer: str, *, attempts: int = 2) -> dict[str, object]:
     """盲评一份答案；解析失败重试一次（带更硬的格式提示）。
 
@@ -233,7 +249,7 @@ def judge_answer(question: Question, answer: str, *, attempts: int = 2) -> dict[
             parsed["attempts"] = attempt + 1
             # 记下实际出分的 provider：跨轮补评时，「这一份是谁评的」是分差
             # 可比性的成立条件，不记就只能靠假设。
-            parsed["provider"] = provider
+            parsed["provider"] = provider_label(provider)
             return parsed
         last_reason = "judge 输出无法解析为合法五维 JSON"
     return {"scored": False, "reason": last_reason, "attempts": max(1, attempts)}
