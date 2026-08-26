@@ -141,8 +141,18 @@ def _direct_api_get(api_path: str, params: dict | None = None, timeout: int = 30
             query = "?" + urllib.parse.urlencode(items)
     url = f"{FUPANHUI_BASE}{api_path}{query}"
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        raw = resp.read().decode()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode()
+    except urllib.error.HTTPError as e:
+        # HTTPError 本身是 file-like、持有响应 socket。批量调用方（kline/stocks
+        # 各 403 个板块）把异常收进列表/异常链后，socket 只能等周期 GC 回收——
+        # fupanhui 08-24 起匿名直连 401，一轮批量足以顶爆 launchd 256 软上限，
+        # 随后 duckdb.connect 以「Too many open files」死掉（2026-08-26 夜跑
+        # sector-daily 事故，台账 R-20260826-04；与 R-20260826-03 同族）。
+        # 先关 socket 再原样重抛：401 仍由 api_get 回退 CDP，语义不变。
+        e.close()
+        raise
     parsed = json.loads(raw)
     code = parsed.get("code") if isinstance(parsed, dict) else None
     if code not in (None, 0, 200):
