@@ -1,6 +1,6 @@
 """dream-loop transcript collector（C-1A-S0）。
 
-把对话源（飞书 / claude-code / claude-mem / windsurf / devin）归一化成统一 schema，脱敏后写入 transcript store：
+把对话源（飞书 / claude-code / claude-mem / windsurf / devin / workbench）归一化成统一 schema，脱敏后写入 transcript store：
 
 - ``<store>/<date>/<source>-<session>.jsonl``  —— 正文（已脱敏），**gitignore**，本地留存；
 - ``<store>/manifest.jsonl``                    —— 每个 (date, source, session) 一条元数据，可审计、可提交；
@@ -24,12 +24,12 @@ import json
 import os
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 SCHEMA_VERSION = "s0"
-KNOWN_SOURCES = ("claude-code", "claude-mem", "windsurf", "feishu", "devin")
+KNOWN_SOURCES = ("claude-code", "claude-mem", "windsurf", "feishu", "devin", "workbench")
 _DIGEST_TEXT_LIMIT = 240  # digest 中单条文本截断长度
 
 
@@ -383,12 +383,39 @@ def normalize_devin_session(
     return out
 
 
+def normalize_workbench_message(
+    raw: Dict[str, object], repo: Optional[str] = None
+) -> List[TranscriptRecord]:
+    """把 Workbench 会话存储 ``messages.jsonl`` 的一行归一化成 0~1 条 transcript 记录。
+
+    原始行（``intelligence/api`` 会话存储产物，一行一条消息）形如::
+
+        {"message_id","conversation_id","role","content","created_at","status",...}
+
+    - ``status`` 非空且非 ``completed`` 的行跳过（assistant 流式中间态是 pending + 空文本）；
+    - ``content`` 为空的行跳过；
+    - ``session_id`` 取 ``conversation_id``——挖掘提案的溯源用同一个 id。
+    未脱敏（脱敏在 :func:`run_collect` 内统一施加）。
+    """
+    status = _as_str(raw.get("status"))
+    if status and status != "completed":
+        return []
+    text = _as_str(raw.get("content"))
+    if not text:
+        return []
+    ts = _as_str(raw.get("created_at")) or _now_iso()
+    session_id = _as_str(raw.get("conversation_id")) or "workbench"
+    role = _map_role(_as_str(raw.get("role")))
+    return [TranscriptRecord(ts, "workbench", session_id, role, text, repo, ["workbench"])]
+
+
 _NORMALIZERS = {
     "feishu": normalize_feishu_event,
     "claude-code": normalize_claude_code_event,
     "claude-mem": normalize_claude_mem_observation,
     "windsurf": normalize_windsurf_event,
     "devin": normalize_devin_session,
+    "workbench": normalize_workbench_message,
 }
 
 
@@ -424,6 +451,20 @@ def _coerce_ts(val: object) -> Optional[str]:
         except (OverflowError, OSError, ValueError):
             return None
     return None
+
+
+def parse_iso(val: object) -> Optional[datetime]:
+    """解析 ISO8601 字符串成 aware datetime；解析不了返回 None（调用方自行 fail-open/closed）。"""
+    s = _as_str(val)
+    if not s:
+        return None
+    try:
+        dt = datetime.fromisoformat(s)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.astimezone()
+    return dt
 
 
 def _repo_from_path(path: str) -> Optional[str]:
@@ -524,6 +565,9 @@ class CollectOptions:
     source: str = "feishu"
     repo: Optional[str] = None
     digest_only: bool = False
+    # workbench 源专用：会话目录扫描（与 events_path 单文件模型并存）。
+    conversations_dir: Optional[str] = None
+    since_days: Optional[int] = None
 
 
 def resolve_store_dir(explicit: Optional[str]) -> Path:
@@ -565,6 +609,74 @@ def read_events(events_path: str) -> List[Dict[str, object]]:
         if isinstance(obj, dict):
             out.append(obj)
     return out
+
+
+def read_conversation_meta(conv_dir: Path) -> Optional[Dict[str, object]]:
+    """读一个 Workbench 会话目录的 ``conversation.json``；缺失/损坏返回 None（跳过整个会话）。"""
+    meta_path = conv_dir / "conversation.json"
+    if not meta_path.is_file():
+        return None
+    try:
+        obj = json.loads(meta_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    return obj if isinstance(obj, dict) else None
+
+
+def read_workbench_conversations(
+    conversations_dir: str,
+    *,
+    since_days: Optional[int] = None,
+    now: Optional[datetime] = None,
+) -> List[Dict[str, object]]:
+    """扫描 Workbench 会话目录，返回窗口内会话的原始消息行（未归一化、未脱敏）。
+
+    目录布局：``<root>/conv_*/conversation.json`` + ``messages.jsonl``（一行一条消息）。
+
+    - 窗口按 ``conversation.json`` 的 ``updated_at`` 过滤——**不是 mtime**（迁移/同步会
+      重写 mtime）；``updated_at`` 解析不了时保守放行（宁多采不漏采，采集本身幂等）。
+    - ``conversation.json`` 损坏跳过整个会话；``messages.jsonl`` 坏行逐行跳过。
+    - 只读，不加锁：server 对 messages.jsonl 是 append 写，逐行容错读安全。
+    """
+    root = Path(conversations_dir).expanduser()
+    if not root.is_dir():
+        raise SystemExit(f"会话目录不存在：{root}")
+    cutoff: Optional[datetime] = None
+    if since_days is not None and since_days > 0:
+        base = now or datetime.now().astimezone()
+        cutoff = base - timedelta(days=since_days)
+    out: List[Dict[str, object]] = []
+    for conv_dir in sorted(p for p in root.glob("conv_*") if p.is_dir()):
+        meta = read_conversation_meta(conv_dir)
+        if meta is None:
+            continue
+        if cutoff is not None:
+            updated = parse_iso(meta.get("updated_at") or meta.get("created_at"))
+            if updated is not None and updated < cutoff:
+                continue
+        messages_path = conv_dir / "messages.jsonl"
+        if not messages_path.is_file():
+            continue
+        for line in messages_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(obj, dict):
+                out.append(obj)
+    return out
+
+
+def session_store_files(store: Path, source: str, session_id: str) -> List[Path]:
+    """按 (source, session) 找 store 里所有日期分片文件。
+
+    挖掘（dream-mine）的输入必须来自这里——store 里的正文已过脱敏硬门，
+    miner 从结构上摸不到原文。
+    """
+    return sorted(store.glob(f"*/{source}-{_sanitize(session_id)}.jsonl"))
 
 
 def _affected_dates_from_store(store: Path) -> List[str]:
@@ -637,11 +749,17 @@ def run_collect(options: CollectOptions) -> Dict[str, object]:
         raise SystemExit(
             f"暂不支持的源：{options.source}（可选：{', '.join(sorted(_NORMALIZERS))}）"
         )
-    if not options.events_path:
-        raise SystemExit("缺少 --events（原始事件 jsonl）")
-
     normalize = _NORMALIZERS[options.source]
-    events = read_events(options.events_path)
+    if options.conversations_dir:
+        if options.source != "workbench":
+            raise SystemExit("--conversations-dir 仅支持 workbench 源")
+        events = read_workbench_conversations(
+            options.conversations_dir, since_days=options.since_days
+        )
+    else:
+        if not options.events_path:
+            raise SystemExit("缺少 --events（原始事件 jsonl）")
+        events = read_events(options.events_path)
 
     # 归一化 + 脱敏，按 (date, session_id) 分桶。
     buckets: "Dict[Tuple[str, str], List[TranscriptRecord]]" = {}

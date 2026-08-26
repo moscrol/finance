@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd 模板：dream-mine 夜间会话挖掘（dream loop 重定向 P0）。
+  每晚从 Workbench 会话存储挖「记忆提案」：采集归一化+脱敏入 transcript store →
+  LLM 只从用户侧发言挖候选判断/关注/排除 → 提案进潜意识 buffer（session=dream-<date>）
+  + vault 人读 md（潜意识提案/<日期>.md）。**suggest-only**：judgments / interactions /
+  corrections 只有你人工 `subconscious commit --session dream-<date> --apply` 才写入。
+
+  与 checkpoint-recheck 同一部署形态：跑在工作区仓库本身，不碰 git、不切分支、
+  不 commit、不 push、不碰 DuckDB；只写本地 gitignore 的 store 与用户目录。
+  与旧 dream-nightly（专用 clone + 分支推送）不是一回事——那套是飞书时代产物，不部署。
+
+  无 LLM key 的晚上自动降级：只采集入库，提案数 0，降级标记写进 md，且不推进挖掘水位
+  （下晚自动重试），绝不编造。
+
+  杀死条件（设计稿 §5，预先声明）：上线后连续 4 周（≥20 个夜跑）无一次人工
+  commit --apply，即卸载本 plist、能力图谱标退役。不许改成「再观察一阵」。
+
+  安装前替换占位（完整说明见 dream/README.md「dream-mine」节）：
+    __PYTHON__             python3 解释器绝对路径（建议工作区 .venv-workbench/bin/python）
+    __WORKSPACE__          finance-workspace 工作区仓库绝对路径（含 intelligence/）
+    __USER__               提案归属用户 id（如 linxiaoqi5111）
+    __CONVERSATIONS_DIR__  Workbench 会话目录
+                           （生产真身 ~/.local/share/finance-workbench/users/<id>/conversations）
+    __DREAM_STORE__        transcript store 目录（显式传，不走默认链——默认链含陈旧路径）
+    __SUBCONSCIOUS_VAULT__ Obsidian vault 根，提案清单落「潜意识提案/」子目录。
+                           不想落 vault 就删掉下面 EnvironmentVariables 里这对 key 与 string，
+                           清单回退到 users/<id>/_vault（仍是真实可读 md）。
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.financeworkspace.dream-mine</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PYTHON__</string>
+        <string>-m</string>
+        <string>intelligence.cli</string>
+        <string>dream-mine</string>
+        <string>--conversations-dir</string>
+        <string>__CONVERSATIONS_DIR__</string>
+        <string>--store-dir</string>
+        <string>__DREAM_STORE__</string>
+        <string>--user</string>
+        <string>__USER__</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__WORKSPACE__</string>
+
+    <!-- launchd 跑在极简环境（无 shell profile），显式给齐路径 env。 -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>SUBCONSCIOUS_VAULT</key>
+        <string>__SUBCONSCIOUS_VAULT__</string>
+    </dict>
+
+    <!-- 每天 04:05 触发（错峰：03:50 checkpoint-recheck）。-->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>4</integer>
+        <key>Minute</key>
+        <integer>5</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>__WORKSPACE__/logs/dream-mine.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__WORKSPACE__/logs/dream-mine.err.log</string>
+</dict>
+</plist>
