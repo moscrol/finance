@@ -298,7 +298,8 @@ def build_plan(trade_date: str, timeout: int, heavy_timeout: int):
         ("sectors", lambda: run_step("sectors", CLI + ["sync-sectors", "--trade-date", trade_date], timeout)),
         ("market-overview", lambda: run_step("market-overview", CLI + ["sync-market-overview", "--trade-date", trade_date, "--days", "60"], timeout)),
         ("index-daily", lambda: run_step("index-daily", CLI + ["sync-index-daily", "--trade-date", trade_date], timeout)),
-        ("sw-l1-daily", lambda: run_step("sw-l1-daily", CLI + ["sync-sw-l1-daily", "--trade-date", trade_date, "--days", "20"], timeout)),
+        # 申万一走 hist 时 20 日窗口实测常超 300s（08-17/08-19/08-20 连炸）。
+        ("sw-l1-daily", lambda: run_step("sw-l1-daily", CLI + ["sync-sw-l1-daily", "--trade-date", trade_date, "--days", "20"], heavy_timeout)),
         ("market-deviation", lambda: run_step("market-deviation", CLI + ["sync-market-deviation", "--trade-date", trade_date], timeout)),
         ("sector-daily", lambda: run_step("sector-daily", CLI + ["sync-sector-daily", "--trade-date", trade_date, "--days", "25"], timeout)),
         ("sector-stocks", lambda: sync_sector_stocks(trade_date, heavy_timeout)),
