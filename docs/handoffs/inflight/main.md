@@ -1,5 +1,7 @@
 # 在途交接 · main
 
+更新：2026-08-26 12:45 CST · **8792 已切 `fbdbbfd2`（#405+#406+#407，26e）**。health 三读 `fbdbbfd298f4` / dirty=false / match=true；readiness 13/13；账本 record+check ok。**母稿 P1 R5 首次真过**（`run_20260826_122832_875134`：公开稿尾段有集采双重性 + 华北制药反证解读，此前只有计数+回购截断）。#407 生产 trace 首见 `grounded_composer_shadow`（reported=[3]==applied=[3]，judge_provider 与 composer 分列）。#404 混合引文分支仍无 live 样本。回滚=`~/.finance-runtime/cutover-20260826e-rollback-8792.txt`（回 `7cc947f2`）。8796/8802 未动。遗留：主名单 600536 仍被排除行按 query 加权挤出（动 spec 另开一轮）。正文 `docs/handoffs/2026-08-26e-disclosure-406-407-cutover.md`。主仓脏树没动。
+
 更新：2026-08-24 23:50 CST · **#362 已合并切 8792=`a7a8ba9f`**。health 三读 dirty=false / match=true；readiness 13/13。8796 仍 `76ee1e89`。回滚=`7afe37be1913`。长电 `run_20260824_233920_682628` completed、`fact_stock_daily`×4、数据日 08-24。展望撞号：句尾座位改 `R-20260824-31`，`-20` 留给 optional-forward-slots。`-21`…`24` 仍 pending。正文 `docs/handoffs/2026-08-24-outlook-362-cutover.md`。主仓脏树没动。
 
 更新：2026-08-24 12:29 CST · **8792 已切 `48601e08`（#354+#355）**。health 三读 `48601e08ca4b` / dirty=false / match=true；readiness 13/13。8796 仍 `76ee1e89`。回滚=`af71f0480889`。长电 `run_20260824_122741_120845` completed、口径 `fact_stock_daily`×4、数据日 08-21。公开稿仍有 `【质检`×2（`-13` 未 confirmed）。正文 `docs/handoffs/2026-08-24-8792-48601e08-cutover.md`。主仓脏树没动。
