@@ -33,6 +33,12 @@ stock-daily）静默挂起，整个 daily 就卡死且无进度输出。**
   看不到就是被 PIPE 吞了，改成直跑（继承 stdout）。
 - **每模块审计**：写完用 `check_daily_review_data.py` 或行数查询确认，再进下一模块。
   **行数不够**：再抽查 `price`/`pct_chg`/`amount` 非空（`COUNT(*)` 过门、值全 NULL 是 06-22 假绿）。
+- **market_snapshot 产物是修复/补跑完成判据的一部分**：判 COMPLETE 前必须
+  `market_snapshot/latest.json` 的 `served_trade_date == 当次修复的交易日`，否则不算收尾；
+  缺就补 `PYTHONPATH=$FINANCE_WS .venv-workbench/bin/python scripts/sync_market_snapshot.py --date D`。
+  教训（2026-08-26）：0825 修复补齐 DuckDB + 复盘产物即判 COMPLETE，但 snapshot 停在 08-24，
+  `_runtime_market_reference_date = min(snapshot, db)` 把生产问答整日钳在 08-24 而 health/覆盖率全绿
+  （台账 `R-20260826-01`；工单 `docs/superpowers/specs/2026-08-26-width-resonance-bag-workorder.md` §P0）。
 - **夜跑失败禁止直写生产**：18:30 S7 写的是 `db/market_feature_store.duckdb.staging`，same-day 不过门就不换名。补洞设 `MARKET_FEATURE_STORE_DB=…staging`，门绿才 `atomic_swap_into_place`。详见 `references/ops-pitfalls.md`「S7 staging」。
 - **两个 python 不是同一个**：`intelligence.cli` / DuckDB 用 `.venv-workbench/bin/python`；生成段 `CommandSpec` 写死 PATH 里的 `python3`，必须以 `/opt/homebrew/bin` 开头（venv 缺 `markdown`/`matplotlib`）。
 - **每轮必记 runlog**：跑完把每个模块的 状态/耗时/走了哪条路径 追加到
