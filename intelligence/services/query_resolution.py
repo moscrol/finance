@@ -42,6 +42,7 @@ ResolveCandidateKind = Literal["company", "theme"]
 _DETERMINED_QUESTION_TYPES = frozenset(
     {
         "market_watch",
+        "watchlist_digest",
         "dated_market_review",
         "market_forecast",
         "market_cause",

@@ -314,7 +314,29 @@ def moneyflow_block_for_llm(
         if not latest or latest[0] is None:
             return ""
         latest_date = str(latest[0])
+        # 陈旧判定的参照日：显式 as_of 优先；无日期问题回退库内最新交易日
+        # （fact_market_daily 与本表同库）。用交易日而不是墙钟，周末不误报。
+        # 拿不到参照日就不加限定——宁可维持旧行为，不发无据警告。
+        effective_as_of = as_of_date
+        if not effective_as_of:
+            try:
+                row = con.execute(
+                    "select max(trade_date) from fact_market_daily"
+                ).fetchone()
+                if row and row[0] is not None:
+                    effective_as_of = str(row[0])
+            except Exception:
+                effective_as_of = None
+        stale = bool(effective_as_of and latest_date < effective_as_of)
         lines = ["## L2 大单资金流数据块 [D9]"]
+        if stale:
+            # 限定语必须排在被限定内容之前（2026-08-26 实测：口径行在块中部会被
+            # LLM 合成层丢弃，19 天前的榜单被写成「当日榜单」——blk-d9 探针）。
+            lines.append(
+                f"- ⚠ 时点限定（先读）：最新扫描日 {latest_date} 早于盘面日期 {effective_as_of}，"
+                f"本块全部数据均为 {latest_date} 的存量扫描，**不是当日榜单**；"
+                f"正文引用必须写明扫描日 {latest_date}，禁止表述为「今日/当日」。"
+            )
         lines.extend(reading_baseline.block_rule_lines("D9"))
         lines.append(
             f"- 口径：l2-moneyflow 盘后特征表（大单=同一委托单当日累计成交额过阈值，主买净额=主动买-主动卖；"
@@ -369,7 +391,8 @@ def moneyflow_block_for_llm(
         ).fetchall()
         if top:
             lines.append("")
-            lines.append(f"### 最新扫描日（{latest_date}）大单净流入榜 top{len(top)}")
+            stale_mark = "，非当日" if stale else ""
+            lines.append(f"### 最新扫描日（{latest_date}{stale_mark}）大单净流入榜 top{len(top)}")
             lines.append("| 口径内名次 | 扫描口径 | 股票 | 主买净额(万) | 总买净额(万) | 净流入强度% | 涨幅% |")
             lines.append("|" + "---|" * 7)
             for r in top:

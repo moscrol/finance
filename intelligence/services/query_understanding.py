@@ -272,6 +272,12 @@ _MARKET_WATCH_RE = re.compile(
     r"|(?:(?<=^)|(?<=[，。；？！、,;?!]))(?:目前|当前|现在|今天|今日)(?:的)?"
     r"主线(?:是|有)?(?:什么|哪些|哪几个|哪个)"
 )
+# 自选简报（watchlist_digest）：自选标记 ∧ 当日/简报标记，无序合取
+# （spec 2026-08-26-watchlist-digest-pack-design §5）。
+# 「关注的票」必须带「票」——「今天有什么值得关注的」是 market_watch 的地盘；
+# 「该看什么」只因合取里必须同时有自选标记才不撞 foresight / market_watch。
+_WATCHLIST_SUBJECT_RE = re.compile(r"(?:自选|我的清单|关注的票|watchlist)")
+_WATCHLIST_DAY_RE = re.compile(r"(?:今天|今日|简报|开盘|该看什么)")
 _MARKET_FORECAST_RE = re.compile(
     r"(?:展望|研判|预测)[^。？！]{0,16}(?:后市|市场|行情|大盘)"
     r"|(?:后市|后面市场|接下来市场|未来市场)[^。？！]{0,16}"
@@ -669,9 +675,20 @@ def _decision_goal(query: str, *, matched_theme: str | None = None) -> str:
 
 def _is_external_market_query(query: str) -> bool:
     folded = str(query or "").casefold()
-    return any(term in folded for term in _EXTERNAL_MARKET_TERMS) and any(
-        term in folded for term in _EXTERNAL_QUOTE_TERMS
-    )
+    if not (
+        any(term in folded for term in _EXTERNAL_MARKET_TERMS)
+        and any(term in folded for term in _EXTERNAL_QUOTE_TERMS)
+    ):
+        return False
+    # 外盘报价车道只答海外行情本身。「隔夜美股走强，对 A 股哪些板块有映射」
+    # 这类混合题的交付物是 A 股侧映射分析（研究通道的 D17 块），不是海外收盘价
+    # ——2026-08-26 blk-d17 实测：被本判定接走后只回了美股指数，答非所问。
+    # 映射意图以 D17 自己的判定为准（单一真本源，不在这里抄第二份词表）。
+    from intelligence.services.overnight_map import parse_overnight_intent
+
+    if parse_overnight_intent(query):
+        return False
+    return True
 
 
 def _definition_subject(query: str) -> str | None:
@@ -705,6 +722,21 @@ def is_market_watch_query(query: str) -> bool:
     """确定性识别「今天有什么值得关注的 / 今日行情怎么样」类当日盘面提问。"""
     text = re.sub(r"\s+", "", str(query or "").strip())
     return _MARKET_WATCH_RE.search(text) is not None
+
+
+def is_watchlist_digest_query(query: str) -> bool:
+    """确定性识别「按我的自选出今天的简报」类清单简报题。
+
+    主键是画像自选（不是问句里的持仓词），因此不需要主语实体；
+    casefold 让英文 watchlist 大小写不敏感。
+    """
+
+    text = re.sub(r"\s+", "", str(query or "").strip()).casefold()
+    return bool(
+        text
+        and _WATCHLIST_SUBJECT_RE.search(text)
+        and _WATCHLIST_DAY_RE.search(text)
+    )
 
 
 SIGNAL_MARKET_WATCH = "market_watch"
@@ -1046,6 +1078,8 @@ def _research_mode(
     if question_type in {"stock_deep_dive", "valuation_estimate"}:
         return "deep_dive"
     if question_type == "disclosure_scan":
+        return "general"
+    if question_type == "watchlist_digest":
         return "general"
     if subject_kind == "theme":
         return "theme_research"
@@ -1476,6 +1510,20 @@ def understand_query(
             "扫描点名板块近期官方披露里偏利好的个股名单",
             timeframe,
             "explicit",
+            0.98,
+        )
+
+    # 自选标记在场时，简报压过全市场日报——本分支必须排在 market_watch 之前，
+    # 这是回归锁：日后放宽 _MARKET_WATCH_RE 也不允许清单题被吞进全市场日报
+    # （spec 2026-08-26 §5；test_priority_source_order_nails 锁顺序）。
+    if is_watchlist_digest_query(text):
+        return envelope(
+            "watchlist_digest",
+            "market_pattern",
+            None,
+            "对用户画像自选清单出当日接合简报",
+            timeframe,
+            "market_anchor",
             0.98,
         )
 
