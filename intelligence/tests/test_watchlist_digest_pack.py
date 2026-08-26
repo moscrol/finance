@@ -696,6 +696,29 @@ def test_fermentation_delegates_via_single_batch_call(
     assert pack.fermentations
 
 
+def test_orchestrator_report_carries_snapshot_payload_dict() -> None:
+    """P1b 合同（2026-08-27 live 实测修）：report 的载荷键必须是整袋 dict。
+
+    路径键 ``watchlist_digest_snapshot`` 写入的是 ``str(write_snapshot(...))``，
+    落盘后会被脱敏成占位句——它是留档信号，不是载荷；证据页只认
+    ``watchlist_digest_snapshot_payload``。此钉锁两件事都在源码里成立。
+    """
+
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "runtime"
+        / "conversation_orchestrator.py"
+    ).read_text(encoding="utf-8")
+    assert (
+        'report["watchlist_digest_snapshot_payload"] = (\n'
+        "                        digest_pack.to_snapshot()\n"
+        "                    )" in source
+    ), "证据页载荷键缺失：UI 将拿不到快照对象"
+    assert 'report["watchlist_digest_snapshot"] = str(' in source, (
+        "路径留档键被移除：快照文件可发现性丢失"
+    )
+
+
 def test_fermentation_empty_on_stopped_paths(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

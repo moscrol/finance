@@ -243,8 +243,13 @@ export interface StructuredReport {
     evidence_policy: string;
   };
   completed_at?: string;
+  /**
+   * 快照落盘路径的脱敏占位（字符串）。仅作留档存在性信号，
+   * 不是载荷——UI 一律消费 payload 键。
+   */
+  watchlist_digest_snapshot?: string | null;
   /** 确定性简报回合随 report.json 带出的整袋证据快照（P1b 只读证据页）。 */
-  watchlist_digest_snapshot?: WatchlistDigestSnapshot | null;
+  watchlist_digest_snapshot_payload?: WatchlistDigestSnapshot | null;
 }
 
 export interface StreamEnvelope<TPayload extends Record<string, unknown> = Record<string, unknown>> {

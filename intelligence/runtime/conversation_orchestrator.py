@@ -2869,6 +2869,13 @@ class TurnOrchestrator:
                     # 瘦收据进 episode 报告（只状态/计数/缺口）；
                     # 整袋证据快照落运行时目录，事后对账只对那份。
                     report["watchlist_digest_pack"] = digest_pack.to_receipt()
+                    # P1b 证据页合同键：整袋载荷（不含任何路径，免脱敏）。
+                    # 下面的路径键会被脱敏成占位句，UI 不得当载荷消费
+                    # （2026-08-27 live 实测：字符串真值曾让证据页拿到
+                    # 非对象输入，这是发现该缺陷的现场）。
+                    report["watchlist_digest_snapshot_payload"] = (
+                        digest_pack.to_snapshot()
+                    )
                     for code in watchlist_digest_degrade_codes(digest_pack):
                         self.run_store.add_degrade(run_id, code)
                     try:
