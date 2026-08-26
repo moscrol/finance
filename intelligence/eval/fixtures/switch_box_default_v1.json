@@ -17,7 +17,6 @@
   "excluded": {
     "param.boards-min": "CLI 参数默认值，不是开关位",
     "predicate.evidence-layers": "canonical=contested，是待建正典的工单不是开关",
-    "predicate.reading-baseline": "代码不在本底",
     "program.research-program": "消融开关，生产不读本表"
   },
   "generated_from": "intelligence/eval/fixtures/capability_switchboard.json",
@@ -30,6 +29,7 @@
     "predicate.limit-approx-9p8": "on",
     "predicate.limit-heat-min2": "on",
     "predicate.mainup-consecutive-3": "on",
+    "predicate.reading-baseline": "on",
     "predicate.single-red": "on",
     "predicate.sqrt-weighted": "on",
     "predicate.volume-surge-10": "on",

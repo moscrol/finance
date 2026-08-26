@@ -70,7 +70,7 @@ def _in_default_box(row) -> tuple[bool, str]:
     - **canonical 不是 exists 的不进。** `predicate.single-red` 之流正典还不存在，
       把它记成 `on` 会让盒子里出现一个没有对应物的状态位，差量也无从作用。
       它们是工单，不是开关（本表里剩下 `predicate.evidence-layers`；
-      `predicate.reading-baseline` 在本底是 pending-other-branch，#343 未合，不进盒子）。
+      `predicate.reading-baseline` 已随 r3 落地转 active/exists，默认 on 进盒）。
     """
 
     if row.status == "retired":

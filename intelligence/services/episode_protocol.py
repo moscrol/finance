@@ -18,6 +18,7 @@ from intelligence.services.episode_output_substance import (
     required_output_evidence_floor,
     required_outputs_without_substance,
 )
+from intelligence.services import reading_baseline
 from intelligence.services.research_contract import (
     FORWARD_HYPOTHESIS_OUTPUT_IDS,
     ResearchRunContext,
@@ -360,6 +361,16 @@ def build_episode_input(
         ),
         "question_type_rules": _question_type_rules(task_frame, context),
     }
+    baseline = reading_baseline.baseline_guidance()
+    if baseline:
+        # 判读基线是领域方法，默认生效，与 perspective_context（观点层、需用户显式
+        # 选中）分属两层——两个引擎必须都接，只接 legacy 会让生产 continuous 主路径
+        # 拿不到，重演 2026-08-14 视角注入那次「配置生效、模型没看到」。
+        payload["reading_baseline"] = baseline
+        payload["reading_baseline_rule"] = (
+            "判读基线是本领域「数据该怎么读」的强制方法约束，适用于全部证据块；"
+            "与本轮证据冲突时以证据为准，但必须显式说明冲突，不得沉默跳过"
+        )
     if context.perspective_context:
         # 视角约束只在激活时出现：neutral 轮的模型输入逐字节不变。
         # 具体的证据纪律（层级、大声失败、观点/事实分层）已在该 prompt 内部
