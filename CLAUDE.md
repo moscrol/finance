@@ -293,6 +293,7 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 | finance-degraded-fallback | （待补：SKILL.md 无触发词字段） |
 | code-map | 代码地图、code-map、code-review-graph、deepwiki、造轮子、现有实现 |
 | divergence-distill | 蒸馏分叉、对照蒸馏、蒸 Fable、蒸 Knevo、trace diff 沉淀、diff 完沉淀 |
+| watchlist-digest | 自选简报、我的自选今天怎么样、按我的自选出简报、开盘简报（按自选）、我的清单今天该看什么、watchlist digest |
 
 跨仓引用（规范源在知识库仓，本仓不放正文）：
 

@@ -1,13 +1,13 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-08-26T11:07:52Z",
+  "generated_at": "2026-08-26T19:01:20Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 37
+      "skills": 38
     },
     {
       "name": "knowledge-base-private",
@@ -148,7 +148,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:49ebda768c90917ff2badfa932bbd45fe278c1b0b20dc8788bf2f70ae07ac72b",
+      "computedHash": "sha256:4662a073c176339a94c88164be135897a97d36e86539d79cd22e7443f4f91526",
       "agentOnly": false,
       "views": []
     },
@@ -803,6 +803,32 @@
           "path": ".claude/skills/up-line",
           "type": "symlink",
           "target": "../../skills/up-line"
+        }
+      ]
+    },
+    "ws/watchlist-digest": {
+      "name": "watchlist-digest",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/watchlist-digest/SKILL.md",
+      "description": "自选简报——画像清单×当日盘面四袋的确定性接合，冻结题开口前出袋、数字只来自冻结行。触发词：自选简报、我的自选今天怎么样、按我的自选出简报、开盘简报（按自选）、我的清单今天该看什么、watchlist digest。注意：全市场日报用 market-overview；买卖票据题走 StancePack，不经本 skill。",
+      "triggers": [
+        "自选简报",
+        "我的自选今天怎么样",
+        "按我的自选出简报",
+        "开盘简报（按自选）",
+        "我的清单今天该看什么",
+        "watchlist digest"
+      ],
+      "note": "全市场日报用 market-overview；买卖票据题走 StancePack，不经本 skill。",
+      "entrypoint": null,
+      "computedHash": "sha256:24884cc51cbe8e3b0a26ee4cb4d64963d060cc34da6f40ceb11ebffcc813c32e",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/watchlist-digest",
+          "type": "symlink",
+          "target": "../../skills/watchlist-digest"
         }
       ]
     },
