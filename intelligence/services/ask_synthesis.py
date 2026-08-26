@@ -870,8 +870,10 @@ def _prepare_answer_spec_synthesis(
         contract_guidance="\n\n".join(contract_parts),
         # 市场态题型（market_watch）不注入判读基线：三轮消融实测该题型上稳定负贡献
         # （directness -1.4），门控点与 W 源共用 knowledge_injection_policy。
+        # ⚠️ 必须走 routed_question_type()：question_plan.question_type 是被
+        # answer_orchestrator.py:272 翻译掉之后的值，里面没有 market_watch。
         baseline_guidance=knowledge_injection_policy.reading_guidance_for(
-            question_plan.question_type
+            knowledge_injection_policy.routed_question_type(question_plan)
         ),
     )
     messages[0]["content"] = (

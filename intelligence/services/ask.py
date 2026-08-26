@@ -3179,7 +3179,8 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         if (
             question_plan.question_type == QUESTION_MARKET_FORECAST
             or not knowledge_injection_policy.inject_knowledge(
-                question_plan.question_type
+                # 翻译前的路由题型；读 question_plan.question_type 门控恒不触发。
+                knowledge_injection_policy.routed_question_type(question_plan)
             )
         )
         else options

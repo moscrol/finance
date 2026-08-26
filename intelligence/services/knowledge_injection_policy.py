@@ -29,7 +29,8 @@ import os
 
 from intelligence.services import reading_baseline
 
-#: 实测为负的市场态题型。两个引擎共用同一词表（answer_orchestrator / task_frame）。
+#: 实测为负的市场态题型。取值属**路由词表**（`route_table` / `QueryEnvelope` /
+#: `TaskFrame`），**不是** `answer_orchestrator.QUESTION_TYPES` 那 18 类。
 #: 扩充本集合前必须先有对应题型的消融读数——「看起来也像盘面题」不算证据。
 MARKET_STATE_QUESTION_TYPES = frozenset({"market_watch"})
 
@@ -55,6 +56,28 @@ def inject_knowledge(question_type: str, env: dict[str, str] | None = None) -> b
     if not gate_enabled(env):
         return True
     return str(question_type or "").strip() not in MARKET_STATE_QUESTION_TYPES
+
+
+def routed_question_type(question_plan: object) -> str:
+    """从 ``QuestionPlan`` 取**翻译前**的路由题型——门控的钥匙只存在于那套词表里。
+
+    ``answer_orchestrator.resolve_question_type`` 会**有意**把 ``market_watch``
+    翻译掉（`answer_orchestrator.py:272`：命中转 ``market_review``，否则转
+    ``general_finance_qa``），而 ``QUESTION_TYPES`` 那 18 类里根本没有
+    ``market_watch`` 这个成员。所以 ``question_plan.question_type`` 永远不等于
+    钥匙——门控读它就是恒不触发，且不会报错、不会留痕。
+
+    2026-08-26 首版门控正是读了它：合成缝与 W 源缝双双静默失效，六条门控测试
+    却全绿——因为它们直接把字面量 ``"market_watch"`` 喂给策略函数，**断言了配置
+    生效，没断言生效值**。Engine A 的 ``task_frame.question_type`` 保留的就是路由
+    词表，那条缝无需转换。
+    """
+
+    envelope = getattr(question_plan, "query_envelope", None)
+    routed = getattr(envelope, "question_type", None)
+    if routed:
+        return str(routed)
+    return str(getattr(question_plan, "question_type", "") or "")
 
 
 def reading_guidance_for(question_type: str, env: dict[str, str] | None = None) -> str:
