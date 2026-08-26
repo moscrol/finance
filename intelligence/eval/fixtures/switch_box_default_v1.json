@@ -24,6 +24,7 @@
     "market.substitute_observation": "登记行（第 0 步）：生产不读本表，进盒需对照 + 用户确认（棘轮 #3）",
     "market.volume_qualification": "登记行（第 0 步）：生产不读本表，进盒需对照 + 用户确认（棘轮 #3）",
     "market.volume_step_trajectory": "登记行（第 0 步）：生产不读本表，进盒需对照 + 用户确认（棘轮 #3）",
+    "market.width_resonance": "登记行（第 0 步）：生产不读本表，进盒需对照 + 用户确认（棘轮 #3）",
     "pack.market-watch": "登记行（第 0 步）：生产不读本表，进盒需对照 + 用户确认（棘轮 #3）",
     "pack.weekly-watch": "登记行（第 0 步）：生产不读本表，进盒需对照 + 用户确认（棘轮 #3）",
     "param.boards-min": "CLI 参数默认值，不是开关位",

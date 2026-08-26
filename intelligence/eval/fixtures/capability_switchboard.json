@@ -564,6 +564,20 @@
       "notes": "2026-08-26 扩容批 @6c47450e 核 seam。量能台阶轨迹。登记不进臂，同批口径。"
     },
     {
+      "id": "market.width_resonance",
+      "kind": "operator",
+      "status": "active",
+      "seam": "intelligence/services/research_contract.py::OPERATOR_WIDTH_RESONANCE",
+      "close_via": [
+        "catalog:code-level 移除（无 per-operator 运行时开关）"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "",
+      "notes": "2026-08-26 宽度共振袋（工单 2026-08-26-width-resonance-bag-workorder §P1，台账 R-20260826-02）。概念×申万一级同日对照，只交付事实、判语留给画像；与资格盘/台阶同信号门。登记不进臂：无 per-operator 运行时开关，positive_control 留待 live 双态后补。"
+    },
+    {
       "id": "pack.market-watch",
       "kind": "pack",
       "status": "active",
