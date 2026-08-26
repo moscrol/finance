@@ -273,3 +273,64 @@ def test_settings_unknown_mode_fail_fast(monkeypatch):
     monkeypatch.setenv("WORKBENCH_AUTH_MODE", "basic")
     with pytest.raises(ValueError):
         AuthSettings.from_env()
+
+
+@pytest.fixture()
+def restricted_client(tmp_path, monkeypatch, rsa_key):
+    """alice 在 full_access 名单，bob 不在——bob 只能看回答，不能看方法论端点。"""
+    _, repo_root = _base_env(tmp_path, monkeypatch)
+    map_path = tmp_path / "beta-users.json"
+    map_path.write_text(
+        json.dumps(
+            {"alice@example.com": "alice-beta", "bob@example.com": "bob-beta"}
+        ),
+        encoding="utf-8",
+    )
+    settings = AuthSettings(
+        mode="cf_access",
+        team_domain=_TEAM,
+        audience=_AUD,
+        user_map_path=map_path,
+        full_access_users=frozenset({"alice-beta"}),
+    )
+    gate = AuthGate(
+        settings,
+        verifier=CfAccessVerifier(
+            _TEAM, _AUD, jwks_client=_StaticJWKS(rsa_key.public_key())
+        ),
+        directory=UserDirectory(map_path),
+    )
+    return TestClient(
+        app_module.create_app(
+            repo_root=repo_root, auth_gate=gate, run_quota=RunQuota()
+        )
+    )
+
+
+def test_methodology_paths_blocked_for_limited_user(restricted_client, rsa_key):
+    bob = _headers(rsa_key, "bob@example.com")
+    for path in (
+        "/api/runs/run_x/trace",
+        "/api/runs/run_x/context",
+        "/api/workbench/learning-feedback",
+    ):
+        resp = restricted_client.get(path, headers=bob)
+        assert resp.status_code == 403, path
+    # 普通端点不受影响
+    assert restricted_client.get("/api/conversations", headers=bob).status_code == 200
+
+
+def test_methodology_paths_open_for_full_access_user(restricted_client, rsa_key):
+    resp = restricted_client.get(
+        "/api/runs/run_x/trace", headers=_headers(rsa_key, "alice@example.com")
+    )
+    # run 不存在是 404——但不是被权限门挡下的 403
+    assert resp.status_code == 404
+
+
+def test_methodology_paths_unrestricted_when_env_absent(auth_client, rsa_key):
+    """未配置 full_access 名单 = 不限制（向后兼容）。"""
+    resp = auth_client.get(
+        "/api/runs/run_x/trace", headers=_headers(rsa_key, "bob@example.com")
+    )
+    assert resp.status_code == 404

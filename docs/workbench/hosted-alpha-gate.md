@@ -66,6 +66,10 @@ export WORKBENCH_QUOTA_EXEMPT_USERS=linxiaoqi5111
 
 # 内测用户没有本机 Chrome CDP，web_search 必须关闭（或换 server-side API 后再开）：
 export FINANCE_WEB_SEARCH=0
+
+# 方法论端点门（防蒸馏第二道闸）：非名单用户访问 run trace / run context /
+# 学习面板一律 403。未设置 = 不限制：
+export WORKBENCH_FULL_ACCESS_USERS=linxiaoqi5111
 ```
 
 配置不完整（cf_access 缺团队域/AUD/名单）**启动即抛**，不带病上线。
@@ -130,6 +134,22 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8792/api/conversations
 
 自动化：`intelligence/tests/test_api_auth.py`（14 例）与 `test_api_quota.py`（10 例）
 覆盖验签/冒充/豁免/回归/并发不超卖，`pytest intelligence/tests/test_api_auth.py intelligence/tests/test_api_quota.py` 可单独跑。
+
+## 3.5 防蒸馏立场（为什么是这三道闸）
+
+被蒸馏的完整条件是：**稳定入口 + 大批量采样 + 完整推理过程可见**。彻底防不住
+（能看到输出就能学），能做的是抬成本、去教材、可追责：
+
+1. **日配额**掐吞吐——蒸馏需要成百上千次系统性采样，`WORKBENCH_DAILY_RUN_QUOTA=20`
+   之下扫完题材空间要几个月；
+2. **方法论端点门**去教材——蒸馏一套 agent 最值钱的不是答案文本，而是
+   trace 里的工具编排顺序、证据组装与纠偏回路（对照自家蒸 Knevo 的经验：
+   同题多采样 + 推理过程是蒸馏的两大原料）。内测用户只拿到回答与引用；
+3. **协议追责**——内测协议写明禁止批量抓取/蒸馏/转售，`interactions.jsonl`
+   按用户留痕，异常提问模式（模板化、系统性覆盖）人工可查。
+
+结构性护城河不在文本层：盘面 DuckDB 历史、知识库证据链、corrections 画像
+和每日数据管线不随回答外泄，蒸馏者拿不到底层数据与持续更新。
 
 ## 4. 已知边界（Alpha 明知妥协项，Beta 前必须处理）
 

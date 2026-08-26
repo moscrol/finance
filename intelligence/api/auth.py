@@ -42,6 +42,7 @@ ENV_AUTH_MODE = "WORKBENCH_AUTH_MODE"
 ENV_TEAM_DOMAIN = "WORKBENCH_CF_ACCESS_TEAM_DOMAIN"
 ENV_AUDIENCE = "WORKBENCH_CF_ACCESS_AUD"
 ENV_USER_MAP = "WORKBENCH_AUTH_USER_MAP"
+ENV_FULL_ACCESS_USERS = "WORKBENCH_FULL_ACCESS_USERS"
 
 MODE_OFF = "off"
 MODE_CF_ACCESS = "cf_access"
@@ -73,6 +74,7 @@ class AuthSettings:
     team_domain: str = ""
     audience: str = ""
     user_map_path: Path | None = None
+    full_access_users: frozenset[str] = frozenset()
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "AuthSettings":
@@ -100,11 +102,17 @@ class AuthSettings:
             raise ValueError(
                 f"{ENV_AUTH_MODE}={MODE_CF_ACCESS} 需要同时配置：{', '.join(missing)}"
             )
+        full_access = frozenset(
+            item.strip()
+            for item in (env.get(ENV_FULL_ACCESS_USERS) or "").split(",")
+            if item.strip()
+        )
         return cls(
             mode=MODE_CF_ACCESS,
             team_domain=team_domain,
             audience=audience,
             user_map_path=Path(raw_map).expanduser(),
+            full_access_users=full_access,
         )
 
 
@@ -221,6 +229,19 @@ class CfAccessVerifier:
         return email
 
 
+# 方法论暴露面：完整运行轨迹与学习运营面板。这些端点展示工具编排顺序、
+# 证据组装细节与纠偏回路——对「想蒸馏这套 agent 的人」而言是最佳教材。
+# 内测阶段默认只给回答与引用，不给「怎么算出来的」。
+def _is_methodology_path(path: str) -> bool:
+    if path.startswith("/api/workbench/learning-feedback"):
+        return True
+    if path.startswith("/api/runs/") and (
+        path.endswith("/trace") or path.endswith("/context")
+    ):
+        return True
+    return False
+
+
 class AuthGate:
     """认证门面：mode=off 时透明；cf_access 时 token → email → user_id。"""
 
@@ -232,6 +253,7 @@ class AuthGate:
         directory: UserDirectory | None = None,
     ) -> None:
         self.mode = settings.mode
+        self._full_access_users = settings.full_access_users
         if settings.mode == MODE_OFF:
             self._verifier = None
             self._directory = None
@@ -260,6 +282,14 @@ class AuthGate:
         if user_id is None:
             raise AuthError(403, f"账号 {email} 不在内测邀请名单中")
         return user_id
+
+    def authorize_path(self, user_id: str, path: str) -> None:
+        """方法论端点门：``WORKBENCH_FULL_ACCESS_USERS`` 非空时，
+        名单外用户访问 trace/context/学习面板一律 403。未配置 = 不限制。"""
+        if not self._full_access_users or user_id in self._full_access_users:
+            return
+        if _is_methodology_path(path):
+            raise AuthError(403, "该功能仅对完整权限账号开放")
 
 
 def _force_user_param(query_string: bytes, user_id: str | None) -> bytes:
@@ -365,6 +395,7 @@ class IdentityRewriteMiddleware:
             if not token:
                 raise AuthError(401, "缺少访问凭证，请从入口域名访问")
             user_id = self.gate.authenticate(token)
+            self.gate.authorize_path(user_id, path)
         except AuthError as exc:
             await _send_json_error(send, exc.status_code, exc.detail)
             return
