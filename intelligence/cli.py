@@ -1664,6 +1664,72 @@ def cmd_dream_collect(args: argparse.Namespace) -> int:
     return 0
 
 
+def add_dream_mine_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "dream-mine",
+        help=(
+            "dream-loop 重定向 P0：夜间从 Workbench 会话挖记忆提案（suggest-only：只进潜意识 "
+            "buffer[session=dream-<date>] + vault 人读 md；人工 subconscious commit --apply 才落台账；"
+            "无 LLM key 自动降级为仅采集。设计稿 docs/superpowers/specs/2026-08-26-dream-loop-repoint-design.md）"
+        ),
+    )
+    parser.add_argument(
+        "--conversations-dir",
+        required=True,
+        help="Workbench 会话目录（users/<id>/conversations，只读扫描）",
+    )
+    parser.add_argument(
+        "--store-dir",
+        required=True,
+        help="transcript store 目录（显式必填，不走 resolve_store_dir 默认链——默认链含陈旧路径）",
+    )
+    parser.add_argument("--user", default=None, help="提案归属用户 id（默认 default 或 FORESIGHT_USER）")
+    parser.add_argument(
+        "--vault", default=None, help="Obsidian vault 根（默认 SUBCONSCIOUS_VAULT / 回退 users/<id>/_vault）"
+    )
+    parser.add_argument(
+        "--since-days",
+        type=int,
+        default=7,
+        help="会话窗口天数（按 conversation.json updated_at，非 mtime；默认 7。回填调大即可，水位保证分批走完不重复）",
+    )
+    parser.add_argument("--max-sessions", type=int, default=40, help="每次最多挖多少个会话（默认 40）")
+    parser.add_argument(
+        "--max-signals", type=int, default=10, help="每次最多新增多少条提案（默认 10，宁缺勿滥——提案洪水=环死）"
+    )
+    parser.add_argument("--date", default=None, help="覆盖提案日期（默认今日；提案会话名 dream-<date>）")
+    parser.add_argument("--no-llm", action="store_true", help="跳过 LLM 挖掘只采集入库（降级演练）")
+    parser.add_argument("--dry-run", action="store_true", help="只打印候选，不写 buffer / 水位 / vault")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    parser.set_defaults(func=cmd_dream_mine)
+
+
+def cmd_dream_mine(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.dream import miner
+
+    summary = miner.run_mine(
+        miner.MineOptions(
+            conversations_dir=args.conversations_dir,
+            store_dir=args.store_dir,
+            user=args.user,
+            vault=args.vault,
+            since_days=args.since_days,
+            max_sessions=args.max_sessions,
+            max_signals=args.max_signals,
+            date=args.date,
+            use_llm=not args.no_llm,
+            dry_run=args.dry_run,
+        )
+    )
+    if args.json:
+        print(_json.dumps(summary, ensure_ascii=False, indent=2))
+    else:
+        print(miner.render_mine_summary(summary), end="")
+    return 0
+
+
 def add_dream_evolve_suggest_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "dream-evolve-suggest",
@@ -3286,6 +3352,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_serve_parser(subparsers)
     add_feishu_bot_parser(subparsers)
     add_dream_collect_parser(subparsers)
+    add_dream_mine_parser(subparsers)
     add_dream_evolve_suggest_parser(subparsers)
     add_dream_kb_candidates_parser(subparsers)
     add_dream_nightly_parser(subparsers)
