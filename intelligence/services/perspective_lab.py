@@ -840,9 +840,31 @@ def ingest_article(
 # 多角色合议（P0 确定性版）
 # --------------------------------------------------------------------------- #
 def _hit_terms(terms: list[str], facts: str) -> list[str]:
-    """确定性信号匹配：画像里的信号词有没有出现在硬事实摘要里（子串命中）。"""
+    """确定性信号匹配：画像里的信号词有没有出现在硬事实摘要里（子串命中）。
+
+    条目整条命中（短词条目的既有语义）之外，还按信号针命中：蒸馏闭环写进画像的
+    条目是「利多不涨+连板高标同时出现（板块抱团踩踏前兆，优先减仓）」这类完整
+    判断句，整条子串对真实 facts 结构性永远落空——2026-08-27 真画像 fengyuan
+    跑考卷方向恒 none 的病根。针 = 条目按标点/括号/连接号切出的 ≥2 字片段，
+    任一针出现在 facts 即条目命中；<2 字碎片（如「1/3」拆出的「3」）不作针。
+    """
     norm_facts = re.sub(r"\s+", "", facts)
-    return [t for t in terms if t and re.sub(r"\s+", "", t) in norm_facts]
+    hits: list[str] = []
+    for term in terms:
+        if not term:
+            continue
+        whole = re.sub(r"\s+", "", term)
+        if whole in norm_facts:
+            hits.append(term)
+            continue
+        needles = [
+            n
+            for n in re.split(r"[+＋（）()，,；;。、：:/\s]+|且|同时|以及", term)
+            if len(n) >= 2
+        ]
+        if any(re.sub(r"\s+", "", n) in norm_facts for n in needles):
+            hits.append(term)
+    return hits
 
 
 # 诚实边界：只从「不可靠」子句抽主题针，避免「只覆盖 X」把覆盖域误判成弃权域。
