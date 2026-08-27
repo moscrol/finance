@@ -41,6 +41,7 @@ def _frame(
     required_outputs: tuple[str, ...] = (),
     question_type: str = "general_finance_qa",
     evidence_policy: str = "general_finance_evidence",
+    timeframe: str = "next_session",
 ) -> TaskFrame:
     return TaskFrame(
         raw_question=question,
@@ -51,7 +52,7 @@ def _frame(
         subject=None,
         subject_kind="market",
         market_scope="a_share",
-        timeframe="next_session",
+        timeframe=timeframe,
         assumptions=(),
         ambiguities=(),
         clarification_question=None,
@@ -116,6 +117,57 @@ class TestStructuralFloor:
             "帮我推一下这个逻辑",
             required_outputs=("scenario_tree",),
             evidence_policy="model_reasoning",
+        )
+
+        assert task_frame_requires_retrieval(frame) is False
+
+
+class TestExplicitDateFloor:
+    """带完整日历日期的金融题不可能靠模型记忆回答——第三道结构性地板。
+
+    线上实测 ``run_20260827_184531_798332``（P0 D6 复跑，2026-08-27）：
+
+        「2026-07-22 高标股的晋级情况如何，有没有出现空档」
+          → controller LLM 回话但解析失败（unparsable_response）
+          → question_type 停在默认 general_finance_qa
+          → required_outputs 恰好是通用默认对 → 空差集，结构性地板不触发
+          → 关键词分支：「高标股/晋级/空档」全不在表里 → False
+          → 地板不生效 → chat 车道零检索 →「我答不了，去看开盘啦」
+
+    这正是本文件开头引用的 ch28「打地鼠」预言的又一轮：8-13 补过
+    涨停/连板，这次输的是高标股/晋级/空档。补的不再是词，是结构化信号：
+    ``timeframe`` / 题面里的完整日期（``has_explicit_date`` 的 docstring
+    自己就说它是最强时效信号）。训练语料里不会有 2026-07-22 的连板梯队。
+    """
+
+    def test_the_d6_shape_that_leaked_to_chat(self) -> None:
+        """线上那次的原样：黑话题面 + understand_query 已抽出的 timeframe。"""
+        frame = _frame(
+            "2026-07-22 高标股的晋级情况如何，有没有出现空档",
+            required_outputs=("direct_answer", "evidence_boundary"),
+            timeframe="2026-07-22",
+        )
+
+        assert task_frame_requires_retrieval(frame) is True
+
+    def test_date_in_the_question_alone_is_enough(self) -> None:
+        """timeframe 抽取失败时，题面里的完整日期兜底。"""
+        frame = _frame("2026年7月22日高标股晋级怎么样")
+
+        assert task_frame_requires_retrieval(frame) is True
+
+    def test_month_granularity_is_not_an_explicit_date(self) -> None:
+        """判据是完整年月日，不是「出现 20xx」——月份粒度保持原行为。"""
+        frame = _frame("2026年7月 高标股晋级情况如何", timeframe="2026-07")
+
+        assert task_frame_requires_retrieval(frame) is False
+
+    def test_model_reasoning_policy_still_beats_explicit_date(self) -> None:
+        """日期地板与结构性地板一样，不越过 evidence_policy 的明确豁免。"""
+        frame = _frame(
+            "帮我推一下 2026-07-22 那个逻辑",
+            evidence_policy="model_reasoning",
+            timeframe="2026-07-22",
         )
 
         assert task_frame_requires_retrieval(frame) is False
