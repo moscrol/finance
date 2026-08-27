@@ -62,6 +62,26 @@ _CREATE_TABLE_RE = re.compile(
 # 只管这两个前缀：dim_ 是维度、ops_ 是台账，都不是 agent 该直接查的事实面。
 _AUDITED_PREFIXES = ("fact_", "feature_")
 
+# 规则 3 的类别白名单（2026-08-27 工单 dataset-exemption-semantics）。
+# 豁免理由必须回答「为什么模型**不该/不需要**够到」，而不是「代码里有谁在消费」。
+# `dedicated_path` 明确不在名单里：它陈述的是消费方存在性，连方向都不对——
+# #454（连板梯队）与 sector_period_rank 两次翻案都是这个前缀遮蔽的真缺口
+# （pack/timeline/adapter 是预取注入面，不是模型的查询面）。
+_EXEMPTION_CATEGORIES = frozenset(
+    {
+        "no_writer",  # 无写入链，注册即永久空 dataset
+        "internal",  # 基础设施（代际物理表/台账），不是市场事实面
+        "stale_materialized",  # 物化窗口，无活跃消费者、可能过期
+        "stale_since",  # 曾在更但已断更；理由须写断更日与复活条件
+        "candidate",  # 有数据未对账，先量后判
+        "kb_side",  # 正文在知识库，偏检索面
+        "overlap",  # 完整数据在另一已注册 dataset
+        "model_reachable_via",  # 模型经另一可达通路（注册工具/dataset），须点名
+    }
+)
+# 理由格式「类别：说明」，全角/半角冒号皆可。
+_CATEGORY_SPLIT_RE = re.compile(r"[：:]")
+
 
 def schema_tables(path: Path = SCHEMA_PATH) -> list[str]:
     """从 DDL 抽表名——**独立于 _DATASETS 的那一侧**。"""
@@ -100,18 +120,31 @@ def _count_rows(db_path: Path, tables: list[str]) -> dict[str, int] | None:
             con.close()
 
 
+def _invalid_exemptions(reasons: dict[str, str]) -> list[str]:
+    """规则 3：豁免理由的类别前缀不在白名单 → 点名到表。"""
+
+    bad: list[str] = []
+    for table, reason in reasons.items():
+        category = _CATEGORY_SPLIT_RE.split(str(reason), maxsplit=1)[0].strip()
+        if category not in _EXEMPTION_CATEGORIES:
+            bad.append(table)
+    return sorted(bad)
+
+
 def audit(db_path: Path | None = None) -> dict[str, object]:
-    from intelligence.services.finance_query import (  # noqa: PLC0415
-        _DATASETS,
-        _EMPTY_BY_DESIGN,
-        _UNREGISTERED_TABLES,
-    )
+    from intelligence.services import finance_query  # noqa: PLC0415
+
+    # 经模块属性取（而不是 from-import 解包）：测试用 monkeypatch 换清单验证伪路径。
+    _DATASETS = finance_query._DATASETS
+    _EMPTY_BY_DESIGN = finance_query._EMPTY_BY_DESIGN
+    _UNREGISTERED_TABLES = finance_query._UNREGISTERED_TABLES
 
     declared = schema_tables()
     registered = {d.table for d in _DATASETS.values()}
     exempted = set(_UNREGISTERED_TABLES)
 
     undeclared = sorted(set(declared) - registered - exempted)
+    invalid_exemptions = _invalid_exemptions(_UNREGISTERED_TABLES)
     # 豁免名单里写了、但 schema.sql 里已经没有的表：陈旧条目，报告但不失败。
     stale_exemptions = sorted(exempted - set(declared))
     # 注册表里还有 VIEW（fact_sector_daily 等，CREATE VIEW 不是 CREATE TABLE），
@@ -135,9 +168,10 @@ def audit(db_path: Path | None = None) -> dict[str, object]:
         "exempted": sorted(exempted),
         "undeclared": undeclared,
         "stale_exemptions": stale_exemptions,
+        "invalid_exemptions": invalid_exemptions,
         "empty_registered": empty_registered,
         "row_check_ran": counts is not None,
-        "ok": not undeclared and not empty_registered,
+        "ok": not undeclared and not empty_registered and not invalid_exemptions,
     }
 
 
@@ -192,6 +226,20 @@ def main() -> int:
         print("    · 要给 agent 查 → 加进 _DATASETS（记得写 population/coverage）")
         print("    · 不给 agent 查 → 加进 _UNREGISTERED_TABLES，一行写清为什么")
         print("  别只在文档正文里写理由——那不是机器可读的，下一个人会读成「漏了」。")
+        print()
+
+    if result["invalid_exemptions"]:
+        failed = True
+        print(
+            f"❌ {len(result['invalid_exemptions'])} 张表的豁免理由不在类别白名单里："
+        )
+        for name in result["invalid_exemptions"]:
+            print(f"      - {name}")
+        print()
+        print("  豁免理由必须回答「为什么模型不该/不需要够到」，格式「类别：说明」。")
+        print(f"  合法类别：{', '.join(sorted(_EXEMPTION_CATEGORIES))}")
+        print("  dedicated_path 不是豁免理由——「代码有人消费」不等于「模型够得着」，")
+        print("  #454 与 sector_period_rank 两次翻案都是它遮蔽的真缺口。")
         print()
 
     if result["empty_registered"]:

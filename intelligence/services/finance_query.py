@@ -861,6 +861,35 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "return_pct": _metric("pct_chg", "涨跌幅"),
         },
     ),
+    # 2026-08-27 转正（工单 dataset-exemption-semantics）：原豁免理由
+    # 「dedicated_path：adapter ALLOWED_TABLES 内，按需直查」——adapter 直查是
+    # 代码通路，不是模型的查询面，与 #454 同形状。表是活的（05-06~08-27 日更）。
+    "sector_period_rank_daily": _DatasetDefinition(
+        table="fact_sector_period_rank_daily",
+        label="板块区间涨幅榜（日频快照）",
+        population="subset",
+        coverage=(
+            "**每日每档只收涨幅榜 top10，不是板块全量**——period_type ∈ "
+            "daily/day3/day5/day10（当日/近3日/近5日/近10日涨幅榜），早期"
+            "（2026-05-06 起约 22 个交易日）只有两档。无行 ≠ 板块不存在，只是"
+            "没上榜。全量板块行情（pct_chg/diff_ratio/amount）用 sector_daily；"
+            "本表回答「榜上谁最强、某板块是否连续在榜、榜内涨停家数与徽标」。"
+            "badge ∈ sharp/fund/width（尖刀/资金/宽度徽标），缺省即无徽标。"
+        ),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "period_type": _dimension("period_type", "榜单档位"),
+            "sector_code": _dimension("sector_ts_code", "板块代码"),
+            "sector_name": _dimension("sector_name", "板块名称"),
+            "badge": _dimension("badge", "徽标", null_label="无徽标"),
+        },
+        metrics={
+            "rank": _metric("rank", "榜单名次", "min", "integer"),
+            "change_pct": _metric("change_pct", "区间涨幅"),
+            "limit_up_count": _metric("limit_up_count", "榜内涨停家数", "max", "integer"),
+        },
+    ),
     "global_index_daily": _DatasetDefinition(
         table="fact_global_index_daily",
         label="海外指数日频（隔夜外盘）",
@@ -1061,14 +1090,24 @@ _UNREGISTERED_TABLES: dict[str, str] = {
     "feature_sector_window": "stale_materialized：同上",
     "feature_stock_window": "stale_materialized：同上",
     "feature_limit_advance_window": "stale_materialized：同上",
-    # ── 已有专用通路：证据块/adapter 已消费，再开语义面会双口径 ──
-    "feature_l2_capital_flow_daily": "dedicated_path：D9 证据块 market_moneyflow.py",
-    "feature_l2_quant_orders_daily": "dedicated_path：同 D9 块",
-    "fact_mainline_stock_daily": (
-        "dedicated_path：agent 经 mainline_context 工具取用（episode 级快照注入，"
-        "合同文案明确覆盖个股表）；主线题材/板块层另有 mainline_* 两个 dataset"
+    # ── 2026-08-27 工单 dataset-exemption-semantics：dedicated_path 前缀废除 ──
+    # 「代码消费得到」≠「模型够得着」：pack/adapter/证据块是预取注入面，不是模型的
+    # 查询面。#454（连板梯队）与 fact_sector_period_rank_daily（本批转正，见
+    # _DATASETS["sector_period_rank_daily"]）两次翻案都是这个前缀遮蔽的真缺口。
+    # 留下的两类是真豁免，但理由换成回答「为什么模型不该/不需要够到」：
+    "feature_l2_capital_flow_daily": (
+        "stale_since：2026-08-07 后断更（L2 侧线 ClickHouse→特征表未日更，"
+        "2026-08-27 实测落后 20 天）——注册停更表=喂模型旧数据。在更期消费方是 "
+        "D9 证据块 market_moneyflow.py。复活条件：恢复日更后按 #454 形状转正"
     ),
-    "fact_sector_period_rank_daily": "dedicated_path：adapter ALLOWED_TABLES 内，按需直查",
+    "feature_l2_quant_orders_daily": (
+        "stale_since：同上（06-15~08-07，2600 行），恢复日更后一并转正"
+    ),
+    "fact_mainline_stock_daily": (
+        "model_reachable_via：mainline_context 工具（episode 级快照注入，"
+        "合同文案明确覆盖个股表）——模型已可达，再开 dataset 会双口径；"
+        "主线题材/板块层另有 mainline_* 两个 dataset"
+    ),
     # ── 2026-08-12 有意豁免过的稀疏/半结构表，已于 2026-08-25 转正 ──
     # 当初「无 trade_date、不是 drop-in」属实，变的是工具面：population / coverage /
     # incomplete_before / cutoff_column 能表达子集和双时态了。
