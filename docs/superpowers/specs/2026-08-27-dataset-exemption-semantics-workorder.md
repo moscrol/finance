@@ -3,7 +3,7 @@
 - 日期：2026-08-27
 - 状态：**本单随实施 PR 同批交付**（发现→工单→实施同 session，用户裁决「立工单推进执行」）
 - 来源：P0 D6 复跑附带发现①（`R-20260827-07a` 行、`docs/superpowers/specs/2026-08-27-longtail-react-gap-remediation-workorder.md` 战线的旁产物）
-- 台账：`R-20260827-11`（随实施 PR 同提交预注册）
+- 台账：`R-20260827-12`（随实施 PR 同提交预注册；原号 `-11` 与并发 #468 撞号，后落盘者改号）
 
 ## §0 · 问题（实证）
 
@@ -67,4 +67,4 @@
 2. 变异：删规则 3 → 证伪钉红；`dedicated_path` 塞回清单 → audit 红；
 3. 真仓五道 registry 等价 + crosswalk 全绿；
 4. live（切流后）：sector_period_rank 类问题（如「近5日涨幅榜哪个板块连续在榜」）episode
-   trace 出现 `dataset=sector_period_rank_daily`——记入 `R-20260827-11` 行回读。
+   trace 出现 `dataset=sector_period_rank_daily`——记入 `R-20260827-12` 行回读。

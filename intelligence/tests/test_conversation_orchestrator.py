@@ -5184,12 +5184,20 @@ def test_owner_timeout_returns_partial_without_starting_generic_pipeline(
         query,
     )
 
+    # 时序余量三不等式（R-20260827-11）：本测试锁的契约是「统一截止时间在
+    # skill 执行中掐断 → 部分完成 + 不启动第二套管线」。要让这个形状与进程
+    # 冷暖、执行序、机器负载无关，三个量必须满足：
+    #   ① 预算 >> 调 skill 前的编排开销（configure→controller→plan→route→
+    #     retrieve 冷态实测 ~0.4s；旧值 0.1s 会在 skill 启动前烧完预算，
+    #     invoked=()——单跑红、被暖场测试 prime 后绿的隔离缺陷即源于此）；
+    #   ② owner sleep > 预算（保证截止一定在执行中到来）；
+    #   ③ skill 自身 timeout > 预算（保证掐断者是统一截止，不是 skill 超时）。
     class SlowOwner:
         skill_id = "stock-deep-dive"
 
         def execute(self, context: SkillExecutionContext) -> SkillOutput:
             assert context.deadline is not None
-            time.sleep(0.2)
+            time.sleep(3.0)
             return SkillOutput(
                 skill_id=self.skill_id,
                 modules=[],
@@ -5209,7 +5217,7 @@ def test_owner_timeout_returns_partial_without_starting_generic_pipeline(
             triggers=("个股深挖",),
             input_schema={"type": "object"},
             permissions=("local_read",),
-            timeout_seconds=1,
+            timeout_seconds=30,
         ),
         executor=SlowOwner(),
     )
@@ -5225,7 +5233,7 @@ def test_owner_timeout_returns_partial_without_starting_generic_pipeline(
         skill_registry=registry,
         research_policy=ResearchExecutionPolicy(
             max_skill_calls=3,
-            max_elapsed_seconds=0.1,
+            max_elapsed_seconds=2.0,
         ),
     ).run_turn(
         conversation_id=conversation.conversation_id,
