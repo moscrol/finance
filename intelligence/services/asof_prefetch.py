@@ -737,6 +737,21 @@ def collect_prefetch_items(
                     )
             except Exception:
                 pass
+        if question_type == "theme_analysis":
+            # R-20260828-02：题材题确定性供数（精确板块行 + 成员映射），
+            # 内层自捕获——本分支失败不得连坐后续 operator 的预取。
+            try:
+                items.extend(
+                    _theme_sector_snapshot_items(
+                        con,
+                        question,
+                        subject,
+                        as_of,
+                        exclude_sector=ferment_sector,
+                    )
+                )
+            except Exception:
+                pass
         if OPERATOR_STEP_TRAJECTORY in program.operators:
             items.extend(
                 _step_trajectory_items(
@@ -828,6 +843,133 @@ def _width_resonance_items(con: Any, as_of: date) -> tuple[PrefetchItem, ...]:
         )
     except Exception:
         return ()
+
+
+THEME_SNAPSHOT_UNANCHORED_TITLE = "题材板块未锚定"
+_THEME_MEMBER_LIMIT = 12
+
+
+def _theme_sector_snapshot_items(
+    con: Any,
+    question: str,
+    subject: str,
+    as_of: date,
+    *,
+    exclude_sector: str | None = None,
+) -> tuple[PrefetchItem, ...]:
+    """theme_analysis 确定性预取：精确板块名 → 当日板块行 + 成员表。
+
+    `R-20260828-02`（四臂 D5、`R-20260827-09` refuted 升格）：模型自选查询
+    从不使用精确板块名（``contains "核"`` 撒网 / 按成交额 top8），判据要的
+    板块数值与成员映射永远缺供数。解析复用 ``resolve_prefetch_sector``
+    （问句内精确长名 > subject > 既有别名梯，与发酵分支同一把尺）；解析不到
+    → 单条 fail-closed 提示项，不臆配。``exclude_sector``：发酵分支已交付
+    同板块逐日时间轴时，板块行让位、成员表仍交付（时间轴不含成员映射）。
+    """
+
+    as_of_iso = as_of.isoformat()
+    sector = resolve_prefetch_sector(con, question, subject)
+    if sector is None:
+        return (
+            PrefetchItem(
+                tool="finance_query",
+                title=THEME_SNAPSHOT_UNANCHORED_TITLE,
+                detail=(
+                    "未在板块表中锚定精确板块名，当日板块行与成员表未预取；"
+                    "请用 finance_query 精确板块名查 sector_daily / "
+                    "sector_stock_daily，不要 contains 近义名"
+                ),
+                source_date=as_of_iso,
+            ),
+        )
+    items: list[PrefetchItem] = []
+    trade_iso = as_of_iso
+    row = con.execute(
+        "select trade_date, pct_chg, diff_ratio, amount from fact_sector_daily "
+        "where sector_name = ? and trade_date <= cast(? as date) "
+        "order by trade_date desc limit 1",
+        [sector, as_of_iso],
+    ).fetchone()
+    if row is not None:
+        trade_iso = str(row[0])[:10]
+        pct, diff, amount = row[1], row[2], row[3]
+        if sector != exclude_sector:
+            parts = [f"{sector} {trade_iso}："]
+            observations: list[StructuredObservation] = []
+            for metric, value, label, fmt in (
+                ("pct_chg", pct, "涨跌幅", "{:+.2f}%"),
+                ("diff_ratio", diff, "边际量", "{:+.1f}%"),
+                ("amount", amount, "成交额", "{:.1f} 亿"),
+            ):
+                if value is None:
+                    continue
+                parts.append(f"{label} {fmt.format(float(value))}")
+                observations.append(
+                    StructuredObservation(
+                        subject=sector,
+                        as_of=trade_iso,
+                        metric=metric,
+                        value=float(value),
+                    )
+                )
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title=f"{sector} 板块日行情（{trade_iso}）",
+                    detail=parts[0] + "，".join(parts[1:]),
+                    source_date=trade_iso,
+                    observations=tuple(observations),
+                )
+            )
+    member_rows = con.execute(
+        "select stock_name, pct_chg, amount, pct_chg_5d "
+        "from fact_sector_stock_daily "
+        "where sector_name = ? and trade_date = cast(? as date) "
+        "order by amount desc nulls last limit ?",
+        [sector, trade_iso, _THEME_MEMBER_LIMIT],
+    ).fetchall()
+    if member_rows:
+        lines = []
+        member_obs: list[StructuredObservation] = []
+        for name, pct, amount, pct_5d in member_rows:
+            piece = [str(name)]
+            if pct is not None:
+                piece.append(f"涨跌幅 {float(pct):+.2f}%")
+                member_obs.append(
+                    StructuredObservation(
+                        subject=str(name),
+                        as_of=trade_iso,
+                        metric="pct_chg",
+                        value=float(pct),
+                    )
+                )
+            if amount is not None:
+                piece.append(f"成交额 {float(amount):.1f}亿")
+            if pct_5d is not None:
+                piece.append(f"5日 {float(pct_5d):+.1f}%")
+            lines.append(" ".join(piece))
+        items.append(
+            PrefetchItem(
+                tool="finance_query",
+                title=f"{sector} 成员当日表现 top{len(member_rows)}（{trade_iso}，按成交额）",
+                detail="；".join(lines),
+                source_date=trade_iso,
+                observations=tuple(member_obs),
+            )
+        )
+    elif items:
+        items.append(
+            PrefetchItem(
+                tool="finance_query",
+                title=f"{sector} 成员行缺失（{trade_iso}）",
+                detail=(
+                    f"fact_sector_stock_daily 在 {trade_iso} 无 {sector} 成员行，"
+                    "个股映射存在覆盖缺口；不要用其他日期的成员表冒充"
+                ),
+                source_date=trade_iso,
+            )
+        )
+    return tuple(items)
 
 
 QUALIFICATION_TITLE = "大盘量能资格盘"
