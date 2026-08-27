@@ -42,3 +42,10 @@ jobs:
       - name: generate-views --check（agent 目录视图规范、无物理拷贝/坏链）
         if: ${{ !cancelled() }}
         run: python3 scripts/build_registry.py generate-views --check
+
+      # 2026-08-27 工单 §P1-b：spec 引的台账号必须在 prediction-ledger 有且仅有一行。
+      # 反向（台账行回指 spec/handoff）暂 warning 档；存量清干净升 error 时在这里
+      # 改传 --reverse-severity error 并注明生效 revision。
+      - name: ledger-spec-crosswalk（spec↔台账双向对账，正向缺号/重号即红）
+        if: ${{ !cancelled() }}
+        run: python3 scripts/audit_ledger_spec_crosswalk.py
