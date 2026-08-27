@@ -146,14 +146,38 @@ def build_grok_judge_argv(
     return argv
 
 
+class GrokCliEmptyResponse(RuntimeError):
+    """CLI 退出码为 0 但没吐出内容。
+
+    **故障种类必须由类名承载，不能只放在异常消息里。** 下游两道闸门读的都是
+    ``llm_refine.complete()`` 产出的 ``LLM 调用失败（{type(exc).__name__}）``——
+    消息正文根本不进那个串。用裸 ``RuntimeError`` 承载四种不同故障的结果是：
+    ``_stable_semantic_judge_error`` 认不出 → 不重试；
+    ``stable_llm_fallback_reason`` 认不出 → ``provider_unavailable`` → 整篇扣住。
+    2026-08-27 生产实测 8/38 = 21% 走的就是这条。
+    """
+
+
+class GrokCliInvalidJson(RuntimeError):
+    """CLI 吐了内容但不是合法 JSON。种类同样由类名承载，理由见上。"""
+
+
+class GrokCliExit(RuntimeError):
+    """CLI 非零退出。种类同样由类名承载，理由见上。"""
+
+
+class GrokCliEmptyPrompt(RuntimeError):
+    """提示词为空——调用方 bug，重试也还是空。刻意与上面三种区分。"""
+
+
 def _extract_text(stdout: str) -> str:
     raw = stdout.strip()
     if not raw:
-        raise RuntimeError("GrokCliEmpty")
+        raise GrokCliEmptyResponse("GrokCliEmpty")
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise RuntimeError("GrokCliInvalidJson") from exc
+        raise GrokCliInvalidJson("GrokCliInvalidJson") from exc
     if isinstance(payload, dict) and isinstance(payload.get("text"), str):
         text = payload["text"].strip()
     elif isinstance(payload, dict) and "passed" in payload:
@@ -162,7 +186,7 @@ def _extract_text(stdout: str) -> str:
         text = raw
     text = _FENCE.sub("", text).strip()
     if not text:
-        raise RuntimeError("GrokCliEmpty")
+        raise GrokCliEmptyResponse("GrokCliEmpty")
     return text
 
 
@@ -180,7 +204,7 @@ def complete_grok_cli(
         raise FileNotFoundError("grok CLI not found")
     system, user = _split_messages(messages)
     if not user:
-        raise RuntimeError("GrokCliEmptyPrompt")
+        raise GrokCliEmptyPrompt("GrokCliEmptyPrompt")
     model = str(getattr(provider, "model", "") or DEFAULT_MODEL)
     effort = str(os.environ.get("LLM_JUDGE_GROK_EFFORT") or DEFAULT_EFFORT)
     sandbox = str(os.environ.get("LLM_JUDGE_GROK_SANDBOX") or DEFAULT_SANDBOX)
@@ -214,5 +238,5 @@ def complete_grok_cli(
             raise TimeoutError("grok CLI timed out") from exc
         if int(getattr(completed, "returncode", 1) or 0) != 0:
             stderr = str(getattr(completed, "stderr", "") or "")[:400]
-            raise RuntimeError(f"GrokCliExit {completed.returncode}: {stderr}")
+            raise GrokCliExit(f"GrokCliExit {completed.returncode}: {stderr}")
         return _extract_text(str(getattr(completed, "stdout", "") or ""))

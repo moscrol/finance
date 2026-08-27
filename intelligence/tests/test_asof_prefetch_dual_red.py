@@ -67,6 +67,44 @@ def test_date_range_still_does_not_steal_cutoff() -> None:
     assert requested_information_cutoff(query, today="2026-07-27") is None
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        # 2026-08-27 四臂对照实测：这一句让 cutoff 落成 2026-07-16（区间起点），
+        # 于是 07-17 之后的数据整段取不到，多日演化题结构上答不了。
+        "2026-07-16 到 07-22 这几天，成交量和涨停家数的变化说明了什么",
+        "2026-07-16到07-22 成交量怎么变的",
+        "2026-07-16 ~ 07-22 的量能演化",
+        "2026-07-16～2026-07-22 的量能演化",
+        "2026-07-16 — 07-22 的量能演化",
+        "2026年7月16日到22日 成交量怎么变的",
+    ],
+)
+def test_range_separators_beyond_zhi_do_not_steal_cutoff(query: str) -> None:
+    """区间分隔符不只有「至」。
+
+    守卫原本只认「至」，而同文件的 ``_MD_RANGE_RE`` 早就用了完整字符类
+    ``[-~—–～至到]+``——一处对、两处漏，是词表不全，不是设计如此
+    （``requested_information_cutoff`` 的 docstring 明写「区间题不走这条」）。
+    """
+
+    assert standing_iso_from_query(query) is None
+    assert requested_information_cutoff(query, today="2026-07-27") is None
+
+
+def test_single_leading_date_is_not_swallowed_by_the_range_guard() -> None:
+    """反向锁：放宽分隔符不能把单日题也一起挡掉。
+
+    没有这条，把守卫写成「见到日期就返回 None」也能让上面那组全绿——
+    那是一道假门禁。
+    """
+
+    assert standing_iso_from_query("2026-07-22 今天盘面怎么样") == "2026-07-22"
+    assert requested_information_cutoff(
+        "2026-07-22 今天盘面怎么样", today="2026-08-27"
+    ) == InformationCutoff(date(2026, 7, 22), "requested")
+
+
 def test_leading_iso_becomes_requested_cutoff() -> None:
     query = "2026-07-23 电网设备为什么涨"
     assert standing_iso_from_query(query) == "2026-07-23"
