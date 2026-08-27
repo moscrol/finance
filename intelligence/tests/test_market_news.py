@@ -478,7 +478,7 @@ class NewsBlockForKeywordTests(unittest.TestCase):
         self.assertIn("标题A", block)
         self.assertIn("PQC executive order", block)
         self.assertIn("[web]", block)
-        self.assertIn("东财 1 + web 1", block)
+        self.assertIn("东财 1 + web 1 + rss 0", block)
 
     def test_pqc_news_path_records_both_provider_statuses(self) -> None:
         result = news_block_result_for_keyword(

@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Sequence
 from hashlib import sha256
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path
 
+from intelligence.services.metric_spec import bind_measured_value
+from intelligence.services.recall_audit import count_independent_sources
 from intelligence.services.research_contract import (
     EvidenceAtom,
     StageArtifact,
@@ -44,6 +47,18 @@ _COMPANY_NAME_PREFIXES: tuple[str, ...] = (
     "和",
     "与",
     "及",
+)
+_ALLOWED_METHODOLOGY_ENGINEERING_TERMS = frozenset(
+    {
+        "RAG",
+        "retrieval",
+        "rerank",
+        "DuckDB",
+        "baseline",
+        "Provider",
+        "internal",
+        "registry",
+    }
 )
 
 
@@ -98,6 +113,48 @@ _ENGINEERING_TERMS = (
     "registry",
     "internal",
 )
+
+
+def _engineering_leaks(
+    text: str,
+    answer_spec: AnswerSpec | None,
+    *,
+    allowed_profiles: frozenset[str],
+    allowed_terms: frozenset[str] | None = None,
+) -> tuple[str, ...]:
+    profile = getattr(answer_spec, "presentation_profile", None)
+    allow = (
+        (allowed_terms or _ALLOWED_METHODOLOGY_ENGINEERING_TERMS)
+        if profile in allowed_profiles
+        else frozenset()
+    )
+    return tuple(
+        term for term in _ENGINEERING_TERMS if term in text and term not in allow
+    )
+
+
+def _drop_engineering_leak_lines(
+    answer: str,
+    answer_spec: AnswerSpec | None,
+    *,
+    allowed_profiles: frozenset[str],
+    allowed_terms: frozenset[str] | None = None,
+) -> str:
+    leaked = _engineering_leaks(
+        answer,
+        answer_spec,
+        allowed_profiles=allowed_profiles,
+        allowed_terms=allowed_terms,
+    )
+    if not leaked:
+        return answer
+    return "\n".join(
+        line
+        for line in answer.splitlines()
+        if not any(term in line for term in leaked)
+    )
+
+
 _STRUCTURED_CLAIM_MARKER_RE = re.compile(
     r"<!--\s*claim_id=(?P<claim_id>[^;]+);\s*"
     r"evidence_atom_ids=(?P<atom_ids>[^;]*);\s*"
@@ -292,6 +349,7 @@ class Claim:
     counter_evidence: tuple[str, ...] = ()
     status: ClaimStatus = ClaimStatus.CANDIDATE
     company: str | None = None
+    independent_source_count: int = 0
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -306,6 +364,7 @@ class Claim:
             "counter_evidence": list(self.counter_evidence),
             "status": self.status.value,
             "company": self.company,
+            "independent_source_count": self.independent_source_count,
         }
 
 
@@ -480,8 +539,19 @@ class GroundedComposerShadow:
     deterministic_issues: tuple[QualityIssue, ...] = ()
     judge_report: GroundingJudgeReport | None = None
     judge_raw: str | None = None
+    # judge 报的序号（``judge_report.rejected_sentence_indexes``）与**实际执行**的
+    # 序号（``resolve_judge_sentence_indexes`` 的返回）会不一样：引文定位优先、
+    # 越界序号被丢、条数不足时并回原序号。两者不落在同一个地方，就没人能一眼看出
+    # 「judge 判否了，但被否的句子还在稿里」。2026-08-26 那次 fail-open 正是靠拿
+    # 归档件逐段重放才定位到——这个字段把那件事变成读一行 trace。
+    judge_applied_sentence_indexes: tuple[int, ...] = ()
     provider: str | None = None
     model: str | None = None
+    # provider/model 记的是 **composer** 的。judge 走独立 provider 时（
+    # ``LLM_JUDGE_BACKEND``）这两个字段与 judge 无关——照着它判 judge 用了谁，
+    # 曾连续三轮把 grok-cli 的 URLError 误标成 zhipu 故障。
+    judge_provider: str | None = None
+    judge_model: str | None = None
     failure_reason: str | None = None
     elapsed_ms: int | None = None
 
@@ -505,8 +575,18 @@ class GroundedComposerShadow:
                 else None
             ),
             "judge_raw": self.judge_raw,
+            "judge_reported_sentence_indexes": (
+                list(self.judge_report.rejected_sentence_indexes)
+                if self.judge_report is not None
+                else []
+            ),
+            "judge_applied_sentence_indexes": list(
+                self.judge_applied_sentence_indexes
+            ),
             "provider": self.provider,
             "model": self.model,
+            "judge_provider": self.judge_provider,
+            "judge_model": self.judge_model,
             "failure_reason": self.failure_reason,
             "elapsed_ms": self.elapsed_ms,
         }
@@ -884,6 +964,7 @@ def make_claim(
         confidence=confidence,
         status=status,
         company=company,
+        independent_source_count=count_independent_sources((cleaned,)),
     )
 
 
@@ -2038,7 +2119,7 @@ def render_decision_brief_fallback(
     if not unknowns and answer_spec is not None:
         unknowns = [
             _fallback_claim_text(claim.text)
-            for claim in answer_spec.gaps[:3]
+            for claim in _pin_recall_audit_claims(answer_spec.gaps[:3], answer_spec)
             if _fallback_claim_text(claim.text)
         ]
     if unknowns:
@@ -2271,7 +2352,7 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
     lines.extend(["", "## 反证与缺口"])
     lines.append("目前最需要警惕的是以下反证和证据缺口：")
     risk_claims = _dedupe_claims((*answer_spec.counter_evidence, *answer_spec.gaps))
-    for claim in risk_claims[:4]:
+    for claim in _pin_recall_audit_claims(risk_claims[:4], answer_spec):
         lines.append(f"- {_present_claim(claim)}")
     lines.extend(["", "## 下一步如何验证"])
     verified_keys = {
@@ -2429,32 +2510,80 @@ def repair_llm_answer(
 # 真实报告期（如 "2026H1"）不会与这两个哨兵值撞名。
 _STALE_EVIDENCE_PERIODS = frozenset({"superseded", "invalidated"})
 
+# 降桶标注文案。它出现在**正文里**，不是 warnings 里——警告是给工程师看的台账，
+# 用户读到的仍是一句语气笃定的结论。降级要让读答案的人看见才算降级。
+STALE_EVIDENCE_TIER_NOTE = "（待核验：所据证据已被取代或证伪）"
+SINGLE_SOURCE_NOTE = "（单源）"
+_CONCLUSIVE_SINGLE_SOURCE_TYPES = frozenset({"company_evidence", "theme_evidence"})
+
+
+def _is_conclusive_single_source(claim: Claim) -> bool:
+    """结论性 claim 且独立来源恰好 1。抽不出文档名（0）不算单源。"""
+    return (
+        claim.status == ClaimStatus.VERIFIED
+        and claim.claim_type in _CONCLUSIVE_SINGLE_SOURCE_TYPES
+        and claim.independent_source_count == 1
+    )
+
+
+def _single_source_note(claim: Claim) -> str:
+    return SINGLE_SOURCE_NOTE if _is_conclusive_single_source(claim) else ""
+
+
+def _claim_rests_only_on_stale_evidence(
+    claim: "StructuredClaim",
+    atom_registry: dict[str, "EvidenceAtom"],
+) -> bool:
+    """事实 claim 是否**只**绑了已被取代/已证伪的证据原子。
+
+    这一条不是形式问题：ID 写错、少标 marker 都不代表内容错，而「拿已被推翻的
+    证据当当前事实」本身就是内容错。门禁（``llm_fact_only_superseded_evidence``）
+    与展示层降桶标注共用这一个判据——单一真本源，改判据两处同时变，不会一处
+    报警另一处不标。
+    """
+
+    if claim.claim_type != "fact" or not claim.evidence_atom_ids:
+        return False
+    bound_atoms = [
+        atom_registry[atom_id]
+        for atom_id in claim.evidence_atom_ids
+        if atom_id in atom_registry
+    ]
+    return bool(bound_atoms) and all(
+        atom.period in _STALE_EVIDENCE_PERIODS for atom in bound_atoms
+    )
+
+
+def stale_evidence_claim_ids(
+    answer: str,
+    answer_spec: AnswerSpec,
+) -> frozenset[str]:
+    """答案里哪些 claim 该被降桶标注（只绑了已取代/已证伪证据的事实）。"""
+
+    atom_registry = {
+        atom.atom_id: atom
+        for atom in evidence_atoms_from_answer_spec(answer_spec)
+    }
+    structured_claims, _ = parse_structured_claims(answer)
+    return frozenset(
+        claim.claim_id
+        for claim in structured_claims
+        if _claim_rests_only_on_stale_evidence(claim, atom_registry)
+    )
+
 
 def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIssue, ...]:
     issues: list[QualityIssue] = []
-    allowed_methodology_terms = {
-        "RAG",
-        "retrieval",
-        "rerank",
-        "DuckDB",
-        "baseline",
-        "Provider",
-        "internal",
-    }
-    leaked = [
-        term
-        for term in _ENGINEERING_TERMS
-        if term in answer
-        and not (
-            answer_spec.presentation_profile in {"methodology", "review", "general", "causal"}
-            and term in allowed_methodology_terms
-        )
-    ]
+    leaked = _engineering_leaks(
+        answer,
+        answer_spec,
+        allowed_profiles=frozenset({"methodology", "review", "general", "causal"}),
+    )
     if leaked:
         issues.append(
             QualityIssue(
                 "llm_engineering_term_leak",
-                "error",
+                "warning",
                 f"LLM 输出内部术语：{'、'.join(leaked)}",
             )
         )
@@ -2474,11 +2603,16 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
         claim.claim_id: claim for claim in _all_answer_claims(answer_spec)
     }
     structured_claims, unbound_lines = parse_structured_claims(answer)
+    # 这里保持诚实：文本里确实没有 marker，就照报。**「要不要拿它问罪」不归这层管**
+    # ——本函数有三个消费方（旧合成链、市场复盘散文契约、followup 合并），后两个
+    # 故意钉着这条码当观测信号。契约有没有真的下达给模型，只有调用方知道，
+    # 处置在 ask_synthesis。（一版把判据写成全局标志放在这里，全量测试当场抓出
+    # 另外两个消费方被误伤。）
     if unbound_lines:
         issues.append(
             QualityIssue(
                 "llm_missing_claim_binding",
-                "error",
+                "warning",
                 "LLM 正文存在未绑定 claim-ID/EvidenceAtom 的内容。",
             )
         )
@@ -2488,7 +2622,7 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
             issues.append(
                 QualityIssue(
                     "llm_invalid_claim_id",
-                    "error",
+                    "warning",
                     f"LLM 使用无效 claim ID：{claim.claim_id}",
                 )
             )
@@ -2503,7 +2637,7 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
             issues.append(
                 QualityIssue(
                     "llm_invalid_evidence_atom_id",
-                    "error",
+                    "warning",
                     "LLM 使用无效 EvidenceAtom ID："
                     + "、".join(invalid_atom_ids),
                 )
@@ -2513,7 +2647,7 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
             issues.append(
                 QualityIssue(
                     "llm_claim_type_mismatch",
-                    "error",
+                    "warning",
                     f"{claim.claim_id} 应为 {expected_type}，"
                     f"实际为 {claim.claim_type}",
                 )
@@ -2522,27 +2656,19 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
             issues.append(
                 QualityIssue(
                     "llm_fact_without_evidence_atom",
-                    "error",
+                    "warning",
                     f"事实 claim {claim.claim_id} 未绑定 EvidenceAtom。",
                 )
             )
-        if claim.claim_type == "fact" and claim.evidence_atom_ids:
-            bound_atoms = [
-                atom_registry[atom_id]
-                for atom_id in claim.evidence_atom_ids
-                if atom_id in atom_registry
-            ]
-            if bound_atoms and all(
-                atom.period in _STALE_EVIDENCE_PERIODS for atom in bound_atoms
-            ):
-                issues.append(
-                    QualityIssue(
-                        "llm_fact_only_superseded_evidence",
-                        "error",
-                        f"事实 claim {claim.claim_id} 只绑定了已被取代/已证伪的证据原子，"
-                        "不能作为当前事实陈述。",
-                    )
+        if _claim_rests_only_on_stale_evidence(claim, atom_registry):
+            issues.append(
+                QualityIssue(
+                    "llm_fact_only_superseded_evidence",
+                    "warning",
+                    f"事实 claim {claim.claim_id} 只绑定了已被取代/已证伪的证据原子，"
+                    "不能作为当前事实陈述。",
                 )
+            )
     return tuple(issues)
 
 
@@ -2564,29 +2690,33 @@ def evidence_atoms_from_answer_spec(
                 continue
             seen.add(atom_id)
             source = sources.get(evidence_id)
+            bound = bind_measured_value(claim.text)
+            provenance: dict[str, object] = {
+                "claim_id": claim.claim_id,
+                "source": source.source if source is not None else "",
+                "detail": source.detail if source is not None else "",
+                "content_hash": (
+                    source.content_hash if source is not None else ""
+                ),
+                "source_revision": (
+                    source.source_revision if source is not None else ""
+                ),
+            }
+            if bound is not None and bound[3]:
+                provenance.update(bound[3])
             atoms.append(
                 EvidenceAtom(
                     atom_id=atom_id,
                     claim_text=claim.text,
                     entity_id=claim.company,
-                    metric=None,
-                    value=None,
-                    unit=None,
+                    metric=bound[0] if bound is not None else None,
+                    value=bound[1] if bound is not None else None,
+                    unit=bound[2] if bound is not None else None,
                     period=claim.freshness,
                     evidence_tier=claim.evidence_tier,
                     source_id=evidence_id,
                     source_date=source.source_date if source is not None else None,
-                    provenance={
-                        "claim_id": claim.claim_id,
-                        "source": source.source if source is not None else "",
-                        "detail": source.detail if source is not None else "",
-                        "content_hash": (
-                            source.content_hash if source is not None else ""
-                        ),
-                        "source_revision": (
-                            source.source_revision if source is not None else ""
-                        ),
-                    },
+                    provenance=provenance,
                 )
             )
     return tuple(atoms)
@@ -2647,6 +2777,26 @@ def _grounded_registry_priority(
     return score
 
 
+def _registry_atom_view(atom: EvidenceAtom) -> dict[str, object]:
+    """registry 行里的 atom 视图：去掉与同一行其他字段逐字重复的三个键。
+
+    ``claim_text`` == 该行的 ``text``、``entity_id`` == ``company``、
+    ``provenance.claim_id`` == ``claim_id``——同一份内容在一行里出现两次，纯粹
+    烧预算。实测 2026-08-26 披露扫描包（68 条 claim）：整段 registry 需要 46932
+    字符，其中 evidence_atoms 占 33134（70%）；去掉这三个键后降到 26529。
+
+    保留 metric/value/unit/period/evidence_tier/source_id/source_date——这些是
+    claim 文本里没有的数值与出处，行情类问题靠它们绑数字。审计侧的完整 atom
+    仍在 AnswerSpec 与 provider trace 里，这里只收窄**给模型看的那一份**。
+    """
+
+    return {
+        key: value
+        for key, value in atom.to_dict().items()
+        if key not in {"claim_text", "entity_id", "provenance"}
+    }
+
+
 def grounded_claim_registry_block(
     answer_spec: AnswerSpec,
     *,
@@ -2654,7 +2804,15 @@ def grounded_claim_registry_block(
     max_chars: int | None = None,
 ) -> str:
     atoms = evidence_atoms_from_answer_spec(answer_spec)
-    rows: list[tuple[float, int, str]] = []
+    # 反证与缺口是「不许过度宣称」的材料：它们被预算挤掉，模型就只剩支持性事实，
+    # 越界解读没有对手方。实测 2026-08-26 披露扫描：68 条 claim / 12k 预算只装下
+    # 18 条，disc:counter 与 disc:excl 一条没进，模型于是把反证行绑到 disc:summary
+    # 上、确定性闸判 cross_subject。故这两类先占位，再按分数填其余。
+    must_keep_ids = {
+        claim.claim_id
+        for claim in (*answer_spec.counter_evidence, *answer_spec.gaps)
+    }
+    rows: list[tuple[bool, float, int, str]] = []
     for index, claim in enumerate(_all_answer_claims(answer_spec)):
         claim_atoms = tuple(
             atom
@@ -2668,29 +2826,51 @@ def grounded_claim_registry_block(
                 "text": claim.text,
                 "theme": claim.theme,
                 "company": claim.company,
-                "evidence_atoms": [atom.to_dict() for atom in claim_atoms],
+                "evidence_atoms": [
+                    _registry_atom_view(atom) for atom in claim_atoms
+                ],
             },
             ensure_ascii=False,
         )
         rows.append(
             (
+                claim.claim_id in must_keep_ids,
                 _grounded_registry_priority(claim, answer_spec, query),
                 index,
                 line,
             )
         )
     if max_chars is None or max_chars <= 0:
-        return "\n".join(line for _score, _index, line in rows)
+        return "\n".join(line for _keep, _score, _index, line in rows)
     # P4/P6: rank first, then enforce one global prompt budget.  Skipped rows
     # remain in AnswerSpec/EvidenceAtom audit storage and provider traces.
-    rows.sort(key=lambda row: (-row[0], row[1]))
+    rows.sort(key=lambda row: (-row[1], row[2]))
     selected: list[str] = []
+    taken: set[int] = set()
     used_chars = 0
-    for _score, _index, line in rows:
+    # 保留席位：反证与缺口先在 max_chars//4 里挑，挑不下的回到公共池按分数竞争。
+    # 为什么是「有上限的席位」而不是绝对优先——绝对优先在预算紧到只够一行时会让
+    # registry 里只剩一条 gap、一条硬事实都没有（test_grounded_registry_window_
+    # is_hard_bounded_and_hardness_ranked 抓的就是这个）。四分之一的依据：生产
+    # 披露包里反证 + 缺口合计约 950 字符，12k 的四分之一是 3000，够放且吃不掉主体。
+    reserve = max_chars // 4
+    for position, (keep, _score, _index, line) in enumerate(rows):
+        if not keep:
+            continue
+        cost = len(line) + (1 if selected else 0)
+        if used_chars + cost > reserve:
+            continue
+        selected.append(line)
+        taken.add(position)
+        used_chars += cost
+    for position, (_keep, _score, _index, line) in enumerate(rows):
+        if position in taken:
+            continue
         cost = len(line) + (1 if selected else 0)
         if used_chars + cost > max_chars:
             continue
         selected.append(line)
+        taken.add(position)
         used_chars += cost
     # 告知而非隐藏。原先超预算的行被静默丢弃，模型无从知道 registry 还有别的
     # claim——而门禁 task_fulfillment 看的是 answer_spec 全集，两边不对称。
@@ -3089,29 +3269,27 @@ def validate_grounded_composer_answer(
     answer_spec: AnswerSpec,
 ) -> tuple[QualityIssue, ...]:
     issues: list[QualityIssue] = []
-    allowed_methodology_terms = {
-        "RAG",
-        "retrieval",
-        "rerank",
-        "DuckDB",
-        "baseline",
-        "Provider",
-        "internal",
-    }
-    leaked = [
-        term
-        for term in _ENGINEERING_TERMS
-        if term in answer
-        and not (
-            answer_spec.presentation_profile in {"methodology", "review"}
-            and term in allowed_methodology_terms
-        )
-    ]
+    leaked = _engineering_leaks(
+        answer,
+        answer_spec,
+        allowed_profiles=frozenset({"methodology", "review"}),
+        allowed_terms=frozenset(
+            {
+                "RAG",
+                "retrieval",
+                "rerank",
+                "DuckDB",
+                "baseline",
+                "Provider",
+                "internal",
+            }
+        ),
+    )
     if leaked:
         issues.append(
             QualityIssue(
                 "grounded_composer_engineering_term_leak",
-                "error",
+                "warning",
                 f"影子答案输出内部术语：{'、'.join(leaked)}",
             )
         )
@@ -3432,9 +3610,25 @@ def present_grounded_composer_answer(
         "",
         _GROUNDED_CLAIM_MARKER_RE.sub("", cleaned),
     )
-    return "\n".join(
+    stripped = "\n".join(
         line.rstrip() for line in without_markers.splitlines()
     ).strip()
+    return _drop_engineering_leak_lines(
+        stripped,
+        answer_spec,
+        allowed_profiles=frozenset({"methodology", "review"}),
+        allowed_terms=frozenset(
+            {
+                "RAG",
+                "retrieval",
+                "rerank",
+                "DuckDB",
+                "baseline",
+                "Provider",
+                "internal",
+            }
+        ),
+    )
 
 
 def repair_grounded_composer_answer(
@@ -3639,9 +3833,25 @@ def resolve_judge_sentence_indexes(
 
     引文能唯一定位到某一句时以引文为准；定位不了才退回它自己报的序号；两者都没有时
     退回原来的 rejected_sentence_indexes（judge 只给序号不给理由的旧格式）。
+
+    **定位到的条数少于 judge 报的条数时，差额必须退回它自己报的序号**——否则
+    等于我们替 judge 撤回了它没能引原文的那几条驳回。实测
+    run_20260826_021909_393039：judge 收到 4 句、判否并报 [2, 3]，两个序号都对
+    （2=「注册获批类可直接对应产品上市资格」，3=「…含恒瑞同日的多条批件」）。
+    issue 1 带「」引文、定位到第 2 句；issue 2 写的是中文「句3」且不带引号，
+    引文匹配空手、``_JUDGE_ISSUE_INDEX_RE`` 只认字面 ``sentence_index: N``
+    也匹配不上。于是 ``resolved={2}`` 非空、老实现直接 return，第 3 句的驳回
+    被整条吞掉——那句原样上了公开稿。**一条 issue 引了原文，就把另一条没引
+    原文的驳回吃掉了。**
+
+    方向上宁可过严：多删一句是可读性损失，漏删一句是把 judge 点名越界的内容
+    发出去，后者才是 #397「拒收兜底不得出稿」要防的那件事。
     """
 
     valid = {sentence.sentence_index for sentence in sentences}
+    reported_indexes = tuple(
+        index for index in report.rejected_sentence_indexes if index in valid
+    )
     resolved: set[int] = set()
     for issue in report.issues:
         text = str(issue)
@@ -3661,11 +3871,13 @@ def resolve_judge_sentence_indexes(
         reported = _JUDGE_ISSUE_INDEX_RE.search(text)
         if reported is not None and int(reported.group(1)) in valid:
             resolved.add(int(reported.group(1)))
+    # 按**条数**判是否有 issue 没落地，而不是按「resolved 是否为空」。后者只在
+    # 一条都定位不到时才回退，定位到一条就把其余全丢——这正是上面那个现场。
+    if len(resolved) < len(reported_indexes):
+        resolved.update(reported_indexes)
     if resolved:
         return tuple(sorted(resolved))
-    return tuple(
-        index for index in report.rejected_sentence_indexes if index in valid
-    )
+    return reported_indexes
 
 
 def parse_structured_claims(
@@ -3706,13 +3918,17 @@ def present_llm_answer(answer: str, answer_spec: AnswerSpec) -> str:
     # 无 marker 的纯散文契约（如市场复盘）不在此约束内，由各自的合成契约治理。
     if _STRUCTURED_CLAIM_MARKER_RE.search(answer):
         answer = _drop_disallowed_headings(answer, answer_spec)
+    # 只绑了已取代/已证伪证据的事实：不退稿，但降桶——在正文里标出来，
+    # 让读答案的人看见它是待核验线索而不是当前结论。
+    stale_claim_ids = stale_evidence_claim_ids(answer, answer_spec)
     rendered_lines: list[str] = []
     for raw_line in answer.splitlines():
         marker = _STRUCTURED_CLAIM_MARKER_RE.search(raw_line)
         if marker is None:
             rendered_lines.append(raw_line)
             continue
-        source_claim = claim_registry.get(marker.group("claim_id").strip())
+        claim_id = marker.group("claim_id").strip()
+        source_claim = claim_registry.get(claim_id)
         if source_claim is None:
             continue
         prefix = ""
@@ -3723,8 +3939,19 @@ def present_llm_answer(answer: str, answer_spec: AnswerSpec) -> str:
             numbered = re.match(r"(\d+[.)]\s+)", stripped)
             if numbered is not None:
                 prefix = numbered.group(1)
-        rendered_lines.append(f"{prefix}{humanize(source_claim.text)}")
-    return "\n".join(rendered_lines).strip()
+        tier_note = (
+            STALE_EVIDENCE_TIER_NOTE if claim_id in stale_claim_ids else ""
+        )
+        rendered_lines.append(
+            f"{prefix}{humanize(source_claim.text)}{tier_note}"
+            f"{_single_source_note(source_claim)}"
+        )
+    rendered = "\n".join(rendered_lines).strip()
+    return _drop_engineering_leak_lines(
+        rendered,
+        answer_spec,
+        allowed_profiles=frozenset({"methodology", "review", "general", "causal"}),
+    )
 
 
 def _all_answer_claims(answer_spec: AnswerSpec) -> tuple[Claim, ...]:
@@ -3940,7 +4167,8 @@ def _expanded_date_text(text: str) -> str:
 
 def humanize(text: str) -> str:
     rendered = str(text or "")
-    rendered = re.sub(r"^\[[^\]]+\]\s*", "", rendered)
+    # 丢掉呈现层状态前缀（[missing]），但保留 KC-05 反方标记 [反]。
+    rendered = re.sub(r"^\[(?!反\])[^\]]+\]\s*", "", rendered)
     rendered = re.sub(
         r"\b(20\d{2}-\d{2}-\d{2})-theme-candidates\.json\b",
         r"\1 题材候选快照",
@@ -4022,6 +4250,24 @@ def _normalize(text: str) -> str:
     return re.sub(r"[\W_]+", "", humanize(text).lower())
 
 
+def _pin_recall_audit_claims(
+    shown: Sequence[Claim],
+    answer_spec: AnswerSpec,
+) -> tuple[Claim, ...]:
+    """前窗截断后仍把召回自评四问缺口钉进答案，避免被风险句挤掉。"""
+    pinned = list(shown)
+    seen = {_normalize(claim.text) for claim in pinned}
+    for claim in answer_spec.gaps:
+        if not claim.text.startswith("召回自评："):
+            continue
+        key = _normalize(claim.text)
+        if key in seen:
+            continue
+        pinned.append(claim)
+        seen.add(key)
+    return tuple(pinned)
+
+
 def _prompt_claim(claim: Claim) -> str:
     evidence = ",".join(claim.evidence_ids) or "无"
     company = f"｜公司={claim.company}" if claim.company else ""
@@ -4032,6 +4278,9 @@ def _prompt_claim(claim: Claim) -> str:
 
 
 def _present_claim(claim: Claim) -> str:
+    rendered = humanize(claim.text)
+    if rendered.startswith("召回自评："):
+        return rendered
     prefix = {
         ClaimStatus.VERIFIED: "",
         ClaimStatus.CANDIDATE: "当前判断（待验证）：",
@@ -4039,7 +4288,7 @@ def _present_claim(claim: Claim) -> str:
         ClaimStatus.MISSING: "还缺：",
         ClaimStatus.CONFLICT: "风险：",
     }[claim.status]
-    return prefix + humanize(claim.text)
+    return prefix + rendered
 
 
 def _present_summary_claim(claim: Claim) -> str:
@@ -4085,7 +4334,11 @@ def _present_supporting_fact(claim: Claim) -> str:
             if interpretation.startswith("说明")
             else f"。{interpretation}"
         )
-    return statement.rstrip("。") + "。"
+    statement = statement.rstrip("。") + "。"
+    note = _single_source_note(claim)
+    if note:
+        statement = statement.rstrip("。") + note + "。"
+    return statement
 
 
 def _company_tier_label(tier: CompanyTier) -> str:

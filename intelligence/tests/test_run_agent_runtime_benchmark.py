@@ -217,6 +217,31 @@ def test_numeric_lineage_projection_degrades_instead_of_publishing_gap() -> None
     assert all(not claim.material_numeric for claim in claims)
 
 
+def test_numeric_lineage_projection_strips_unbound_numeric_sentences() -> None:
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="瑞华泰估值",
+        detail="瑞华泰市值为49.5亿元。",
+        source="sealed_finance",
+        source_date="2026-07-24",
+        content_hash="valuation-evidence",
+    )
+
+    answer, claims, blocked_claim_ids = benchmark._numeric_lineage_projection(
+        "瑞华泰市值为49.5亿元。瑞华泰合理估值为100倍。",
+        sources=(_projected_source(evidence, source_id="E1"),),
+        evidence=(evidence,),
+    )
+
+    assert "49.5亿元" in answer
+    assert "100倍" not in answer
+    assert blocked_claim_ids == ("C2",)
+    assert answer != benchmark._NUMERIC_LINEAGE_GAP_ANSWER
+    assert all(
+        (not claim.material_numeric) or claim.source_ids for claim in claims
+    )
+
+
 def _fake_sealed_fixture(tmp_path: Path, question_file: Path) -> Path:
     output_root = tmp_path / "ceiling"
     root = output_root / "fixture"
@@ -1020,7 +1045,7 @@ def test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state(
                 "cases": [
                     {
                         "id": "current-mainline",
-                        "question": "目前市场的主线是什么",
+                        "question": "这一周行情下跌的主要原因是什么",
                         "as_of": "2026-07-24",
                         "tier": "standard",
                         "timeout": 30.0,
@@ -1183,7 +1208,7 @@ def test_live_runner_uses_production_adapter_delivery_repair(
                 "cases": [
                     {
                         "id": "current-mainline",
-                        "question": "目前市场的主线是什么",
+                        "question": "这一周行情下跌的主要原因是什么",
                         "as_of": "2026-07-24",
                         "tier": "standard",
                         "timeout": 30.0,
@@ -1221,7 +1246,7 @@ def test_live_runner_uses_production_adapter_delivery_repair(
                     content_hash="a" * 64,
                 ),
                 AgentEvidence(
-                    tool="mainline_context",
+                    tool="news_search",
                     title="同日主线结构",
                     detail="半导体保持持续性，医药进入分歧。",
                     source="local mainline fixture",
@@ -1236,7 +1261,7 @@ def test_live_runner_uses_production_adapter_delivery_repair(
                 evidence=evidence,
                 traces=(
                     ProviderTrace("test:market", "market_data", "success"),
-                    ProviderTrace("test:mainline", "mainline_context", "success"),
+                    ProviderTrace("test:news", "news_search", "success"),
                 ),
                 gaps=("sdk_timeout",),
                 stop_reason="sdk_timeout",
@@ -1282,6 +1307,7 @@ def test_live_runner_uses_production_adapter_delivery_repair(
                         OutputEvidenceBinding(
                             required.output_id,
                             tuple(item.content_hash for item in evidence),
+                            basis=required.grounding_mode,
                         )
                         for required in required_outputs
                     ),
@@ -1642,7 +1668,7 @@ def test_live_runner_aborts_batch_on_shared_provider_infrastructure_failure(
                 "cases": [
                     {
                         "id": "current-mainline",
-                        "question": "目前市场的主线是什么",
+                        "question": "这一周行情下跌的主要原因是什么",
                         "as_of": "2026-07-24",
                         "tier": "standard",
                         "timeout": 30.0,
@@ -1731,7 +1757,7 @@ def test_live_runner_uses_headless_provider_for_shared_semantic_verifier(
                 "cases": [
                     {
                         "id": "current-mainline",
-                        "question": "目前市场的主线是什么",
+                        "question": "这一周行情下跌的主要原因是什么",
                         "as_of": "2026-07-24",
                         "tier": "standard",
                         "timeout": 30.0,

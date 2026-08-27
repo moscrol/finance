@@ -1,0 +1,217 @@
+{
+  "schema": "eval_variance_baseline.v1",
+  "generated_at": "20260819T080000Z",
+  "filename": "20260819T080000Z-fixture-var5.json",
+  "live": false,
+  "fixture": true,
+  "rev": "fixture",
+  "n": 5,
+  "question_count": 3,
+  "baseline_flip_rate": 0.2,
+  "judge_unavailable_rate": 0.133333,
+  "content_flip_rate": 0.066667,
+  "formula": "per_question_flip_rate = count(primary_outcome != mode) / N; baseline_flip_rate = mean(per_question_flip_rate); mode = most frequent primary_outcome, ties broken by lexicographically smallest label; judge_unavailable_rate is mean(count(judge_unavailable)/N) and is NOT folded into content quality or into the A/B pass/fail call.",
+  "ab_rule": "观测差异小于基线翻转率，不得下回归/改善结论。judge_unavailable 类 degrade 单列，不计入内容质量。",
+  "how_to_produce_441c60f2_live_baseline": "Checkout or attach sidecar at 441c60f2. Then: python scripts/eval_variance_baseline.py --live --rev 441c60f2 --n 5 --port 8796 --questions A1-market-overview,B1-theme-photoresist,C1-future-date-no-data. Do not use reserved ports 8792/8793/8795/8799/8801. Same rev, same questions, N repeats; do not mix with a later fix.",
+  "questions": [
+    {
+      "question_id": "Q-stable",
+      "n": 5,
+      "primary_outcome_counts": {
+        "completed": 5
+      },
+      "mode": "completed",
+      "flip_rate": 0.0,
+      "judge_unavailable_count": 0,
+      "judge_unavailable_rate": 0.0,
+      "content_n": 5,
+      "content_flip_rate": 0.0,
+      "repeats": [
+        {
+          "question_id": "Q-stable",
+          "primary_outcome": "completed",
+          "judge_status": "passed",
+          "judge_unavailable": false,
+          "verified_status": null,
+          "terminal_outcome": null,
+          "run_id": null,
+          "repeat_index": 1
+        },
+        {
+          "question_id": "Q-stable",
+          "primary_outcome": "completed",
+          "judge_status": "passed",
+          "judge_unavailable": false,
+          "verified_status": null,
+          "terminal_outcome": null,
+          "run_id": null,
+          "repeat_index": 2
+        },
+        {
+          "question_id": "Q-stable",
+          "primary_outcome": "completed",
+          "judge_status": "passed",
+          "judge_unavailable": false,
+          "verified_status": null,
+          "terminal_outcome": null,
+          "run_id": null,
+          "repeat_index": 3
+        },
+        {
+          "question_id": "Q-stable",
+          "primary_outcome": "completed",
+          "judge_status": "passed",
+          "judge_unavailable": false,
+          "verified_status": null,
+          "terminal_outcome": null,
+          "run_id": null,
+          "repeat_index": 4
+        },
+        {
+          "question_id": "Q-stable",
+          "primary_outcome": "completed",
+          "judge_status": "passed",
+          "judge_unavailable": false,
+          "verified_status": null,
+          "terminal_outcome": null,
+          "run_id": null,
+          "repeat_index": 5
+        }
+      ]
+    },
+    {
+      "question_id": "Q-flip",
+      "n": 5,
+      "primary_outcome_counts": {
+        "completed": 4,
+        "degraded": 1
+      },
+      "mode": "completed",
+      "flip_rate": 0.2,
+      "judge_unavailable_count": 0,
+      "judge_unavailable_rate": 0.0,
+      "content_n": 5,
+      "content_flip_rate": 0.2,
+      "repeats": [
+        {
+          "question_id": "Q-flip",
+          "primary_outcome": "completed",
+          "judge_status": "passed",
+          "judge_unavailable": false,
+          "verified_status": null,
+          "terminal_outcome": null,
+          "run_id": null,
+          "repeat_index": 1
+        },
+        {
+          "question_id": "Q-flip",
+          "primary_outcome": "completed",
+          "judge_status": "passed",
+          "judge_unavailable": false,
+          "verified_status": null,
+          "terminal_outcome": null,
+          "run_id": null,
+          "repeat_index": 2
+        },
+        {
+          "question_id": "Q-flip",
+          "primary_outcome": "completed",
+          "judge_status": "passed",
+          "judge_unavailable": false,
+          "verified_status": null,
+          "terminal_outcome": null,
+          "run_id": null,
+          "repeat_index": 3
+        },
+        {
+          "question_id": "Q-flip",
+          "primary_outcome": "degraded",
+          "judge_status": "passed",
+          "judge_unavailable": false,
+          "verified_status": null,
+          "terminal_outcome": null,
+          "run_id": null,
+          "repeat_index": 4
+        },
+        {
+          "question_id": "Q-flip",
+          "primary_outcome": "completed",
+          "judge_status": "passed",
+          "judge_unavailable": false,
+          "verified_status": null,
+          "terminal_outcome": null,
+          "run_id": null,
+          "repeat_index": 5
+        }
+      ]
+    },
+    {
+      "question_id": "Q-judge",
+      "n": 5,
+      "primary_outcome_counts": {
+        "completed": 3,
+        "degraded": 2
+      },
+      "mode": "completed",
+      "flip_rate": 0.4,
+      "judge_unavailable_count": 2,
+      "judge_unavailable_rate": 0.4,
+      "content_n": 3,
+      "content_flip_rate": 0.0,
+      "repeats": [
+        {
+          "question_id": "Q-judge",
+          "primary_outcome": "completed",
+          "judge_status": "passed",
+          "judge_unavailable": false,
+          "verified_status": null,
+          "terminal_outcome": null,
+          "run_id": null,
+          "repeat_index": 1
+        },
+        {
+          "question_id": "Q-judge",
+          "primary_outcome": "completed",
+          "judge_status": "passed",
+          "judge_unavailable": false,
+          "verified_status": null,
+          "terminal_outcome": null,
+          "run_id": null,
+          "repeat_index": 2
+        },
+        {
+          "question_id": "Q-judge",
+          "primary_outcome": "degraded",
+          "judge_status": "unavailable",
+          "judge_unavailable": true,
+          "verified_status": null,
+          "terminal_outcome": null,
+          "run_id": null,
+          "repeat_index": 3
+        },
+        {
+          "question_id": "Q-judge",
+          "primary_outcome": "completed",
+          "judge_status": "passed",
+          "judge_unavailable": false,
+          "verified_status": null,
+          "terminal_outcome": null,
+          "run_id": null,
+          "repeat_index": 4
+        },
+        {
+          "question_id": "Q-judge",
+          "primary_outcome": "degraded",
+          "judge_status": "unavailable",
+          "judge_unavailable": true,
+          "verified_status": null,
+          "terminal_outcome": null,
+          "run_id": null,
+          "repeat_index": 5
+        }
+      ]
+    }
+  ],
+  "source": "intelligence/eval/fixtures/eval-variance-baseline-fixture.json",
+  "note": "Synthetic same-rev repeats for unit tests and the first checked-in W7 receipt. Not a live 441c60f2 baseline. Produce the real one with: python scripts/eval_variance_baseline.py --live --rev 441c60f2 --n 5 --port 8796"
+}

@@ -1,0 +1,20 @@
+{
+  "_comment": "W7 海外第二梯队：白名单 RSS。失败降级为空，不编造。credibility 是默认出处硬度。",
+  "feeds": [
+    {
+      "name": "NIST News",
+      "url": "https://www.nist.gov/news-events/news/rss.xml",
+      "credibility": "权威机构"
+    },
+    {
+      "name": "CNBC Technology",
+      "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910",
+      "credibility": "媒体"
+    },
+    {
+      "name": "EE Times",
+      "url": "https://www.eetimes.com/feed/",
+      "credibility": "媒体"
+    }
+  ]
+}

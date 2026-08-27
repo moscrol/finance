@@ -78,6 +78,27 @@ def _market_forecast_frame() -> TaskFrame:
     )
 
 
+def _overnight_hybrid_forecast_frame() -> TaskFrame:
+    return TaskFrame(
+        raw_question=(
+            "基于周二的盘面数据，你认为主线是什么。"
+            "今晚美股科技调整较多，你认为明天盘面会怎么走，哪个方向可能有机会"
+        ),
+        user_goal="基于当前市场数据形成条件化后市推演",
+        question_type="market_forecast",
+        subject="美股市场",
+        subject_kind="market_pattern",
+        market_scope="美股",
+        timeframe=None,
+        required_outputs=("direct_assessment", "scenario_paths"),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="current_market_scenarios",
+        confidence=0.92,
+    )
+
+
 def _market_cause_frame() -> TaskFrame:
     return TaskFrame(
         raw_question="这一周行情下跌的主要原因是什么",
@@ -187,7 +208,7 @@ def test_sealed_fixture_registry_is_local_only(tmp_path, monkeypatch) -> None:
         fixture_policy=episode_tools.SealedFixturePolicy(),
     )
 
-    assert registry.names() == (
+    assert set(registry.names()) == {
         "kb_search",
         "graph_lookup",
         "evidence_lookup",
@@ -195,7 +216,7 @@ def test_sealed_fixture_registry_is_local_only(tmp_path, monkeypatch) -> None:
         "financial_data",
         "finance_query",
         "evidence_search",
-    )
+    }
     registry.execute(
         "market_data",
         {},
@@ -925,6 +946,378 @@ def test_market_registry_uses_structured_provider_date_for_every_atom(
     ]
 
 
+def test_overnight_hybrid_market_data_appends_us_leader_quotes(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from intelligence.services import external_market
+
+    frame = _overnight_hybrid_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="overnight-leaders",
+        capabilities=("market_data",),
+        timeout=30.0,
+        latest_data_date="2026-08-18",
+    )
+    monkeypatch.setattr(
+        episode_tools,
+        "_market_block",
+        lambda *_args: (
+            "全市场成交额：24006.36 亿元",
+            "本地 DuckDB · 预测盘面窗口",
+            "market_forecast_window",
+        ),
+    )
+    monkeypatch.setattr(
+        episode_tools.ask_blocks,
+        "_market_data_asof",
+        lambda *_args, **_kwargs: "2026-08-18",
+    )
+    called = {"n": 0}
+
+    def fake_leaders(query, **_kwargs):
+        called["n"] += 1
+        quotes = (
+            external_market.ExternalMarketQuote(
+                "SOX",
+                "费城半导体",
+                5000.0,
+                -6.0,
+                "2026-08-18",
+                external_market.YAHOO_PROVIDER,
+            ),
+            external_market.ExternalMarketQuote(
+                "NVDA",
+                "英伟达",
+                180.0,
+                -2.71,
+                "2026-08-18",
+                external_market.YAHOO_PROVIDER,
+            ),
+            external_market.ExternalMarketQuote(
+                "MU",
+                "美光",
+                90.0,
+                -7.47,
+                "2026-08-18",
+                external_market.YAHOO_PROVIDER,
+            ),
+            external_market.ExternalMarketQuote(
+                "HYNIX",
+                "SK海力士",
+                200.0,
+                -8.11,
+                "2026-08-18",
+                external_market.YAHOO_PROVIDER,
+            ),
+            external_market.ExternalMarketQuote(
+                "SNDK",
+                "闪迪",
+                80.0,
+                -8.0,
+                "2026-08-18",
+                external_market.YAHOO_PROVIDER,
+            ),
+        )
+        return external_market.ExternalMarketResult(
+            target_trade_date="2026-08-18",
+            source_trade_date="2026-08-18",
+            selected_provider=external_market.YAHOO_PROVIDER,
+            quotes=quotes,
+            provider_traces=(),
+        )
+
+    monkeypatch.setattr(
+        episode_tools.external_market,
+        "resolve_overnight_leaders",
+        fake_leaders,
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+    observation = registry.execute(
+        "market_data",
+        {},
+        context=context,
+        step_id="overnight-leaders:1",
+    )
+    blob = " ".join(item.detail for item in observation.evidence)
+    assert called["n"] == 1
+    assert "英伟达" in blob
+    assert "美光" in blob
+    assert "SK海力士" in blob
+    assert "闪迪" in blob
+    assert "-8.00%" in blob
+    assert "-2.71%" in blob
+
+
+def test_local_forecast_market_data_does_not_fetch_us_leaders(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    frame = _market_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="local-no-leaders",
+        capabilities=("market_data",),
+        timeout=30.0,
+        latest_data_date="2026-07-23",
+    )
+    monkeypatch.setattr(
+        episode_tools,
+        "_market_block",
+        lambda *_args: (
+            "当前成交额21949亿元",
+            "本地 DuckDB · 预测盘面窗口",
+            "market_forecast_window",
+        ),
+    )
+    monkeypatch.setattr(
+        episode_tools.ask_blocks,
+        "_market_data_asof",
+        lambda *_args, **_kwargs: "2026-07-23",
+    )
+
+    def fail_leaders(*_args, **_kwargs):
+        raise AssertionError("local forecast must not fetch US leaders")
+
+    monkeypatch.setattr(
+        episode_tools.external_market,
+        "resolve_overnight_leaders",
+        fail_leaders,
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+    observation = registry.execute(
+        "market_data",
+        {},
+        context=context,
+        step_id="local-no-leaders:1",
+    )
+    blob = " ".join(item.detail for item in observation.evidence)
+    assert "英伟达" not in blob
+    assert "闪迪" not in blob
+
+
+def test_overnight_hybrid_market_data_attaches_eastmoney_news(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from intelligence.services.market_news import NewsFetchResult, NewsItem
+
+    frame = _overnight_hybrid_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="overnight-news",
+        capabilities=("market_data", "news_search"),
+        timeout=30.0,
+        today="2026-08-19",
+        latest_data_date="2026-08-18",
+    )
+    monkeypatch.setattr(
+        episode_tools,
+        "_market_block",
+        lambda *_args: (
+            "全市场成交额：24006.36 亿元",
+            "本地 DuckDB · 预测盘面窗口",
+            "market_forecast_window",
+        ),
+    )
+    monkeypatch.setattr(
+        episode_tools.ask_blocks,
+        "_market_data_asof",
+        lambda *_args, **_kwargs: "2026-08-18",
+    )
+
+    def empty_leaders(*_args, **_kwargs):
+        return episode_tools.external_market.ExternalMarketResult(
+            target_trade_date="2026-08-18",
+            source_trade_date="2026-08-18",
+            selected_provider=episode_tools.external_market.YAHOO_PROVIDER,
+            quotes=(),
+            provider_traces=(),
+        )
+
+    monkeypatch.setattr(
+        episode_tools.external_market,
+        "resolve_overnight_leaders",
+        empty_leaders,
+    )
+    called: dict[str, object] = {"n": 0, "keyword": None, "as_of": None}
+
+    def fake_news(keyword: str, **_kwargs):
+        called["n"] = int(called["n"]) + 1
+        called["keyword"] = keyword
+        called["as_of"] = _kwargs.get("as_of")
+        return NewsFetchResult(
+            (
+                NewsItem(
+                    "2026-08-18 22:00:00",
+                    "证券时报",
+                    "费城半导体指数大跌，存储链领跌",
+                    "http://eastmoney.test/sox-1",
+                ),
+                NewsItem(
+                    "2026-08-18 23:00:00",
+                    "财联社",
+                    "存储周期担忧升温，海力士闪迪齐跌",
+                    "http://eastmoney.test/memory-2",
+                ),
+            ),
+            ProviderTrace(
+                provider="eastmoney",
+                capability="directional_news",
+                status="success",
+                result_count=2,
+            ),
+        )
+
+    monkeypatch.setattr(
+        episode_tools.market_news,
+        "fetch_eastmoney_news_result",
+        fake_news,
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+    observation = registry.execute(
+        "market_data",
+        {},
+        context=context,
+        step_id="overnight-news:1",
+    )
+    blob = " ".join(
+        f"{item.title} {item.detail}" for item in observation.evidence
+    )
+    as_of = called["as_of"]
+    as_of_text = (
+        as_of.isoformat() if hasattr(as_of, "isoformat") else str(as_of or "")[:10]
+    )
+    assert called["n"] == 1
+    assert called["keyword"] == "美股"
+    assert as_of_text == "2026-08-19"
+    assert any(item.tool == "news_search" for item in observation.evidence)
+    assert "费城半导体" in blob
+    assert "存储" in blob
+
+
+def test_local_forecast_market_data_does_not_fetch_overnight_news(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    frame = _market_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="local-no-news",
+        capabilities=("market_data", "news_search"),
+        timeout=30.0,
+        latest_data_date="2026-07-23",
+    )
+    monkeypatch.setattr(
+        episode_tools,
+        "_market_block",
+        lambda *_args: (
+            "当前成交额21949亿元",
+            "本地 DuckDB · 预测盘面窗口",
+            "market_forecast_window",
+        ),
+    )
+    monkeypatch.setattr(
+        episode_tools.ask_blocks,
+        "_market_data_asof",
+        lambda *_args, **_kwargs: "2026-07-23",
+    )
+
+    def fail_news(*_args, **_kwargs):
+        raise AssertionError("local forecast must not fetch overnight news")
+
+    monkeypatch.setattr(
+        episode_tools.market_news,
+        "fetch_eastmoney_news_result",
+        fail_news,
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+    observation = registry.execute(
+        "market_data",
+        {},
+        context=context,
+        step_id="local-no-news:1",
+    )
+    assert not any(item.tool == "news_search" for item in observation.evidence)
+
+
+def test_overnight_hybrid_skips_news_when_external_search_disabled(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    frame = _overnight_hybrid_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="overnight-news-sealed",
+        capabilities=("market_data", "news_search"),
+        timeout=30.0,
+        latest_data_date="2026-08-18",
+    )
+    monkeypatch.setattr(
+        episode_tools,
+        "_market_block",
+        lambda *_args: (
+            "全市场成交额：24006.36 亿元",
+            "本地 DuckDB · 预测盘面窗口",
+            "market_forecast_window",
+        ),
+    )
+    monkeypatch.setattr(
+        episode_tools.ask_blocks,
+        "_market_data_asof",
+        lambda *_args, **_kwargs: "2026-08-18",
+    )
+
+    def fail_news(*_args, **_kwargs):
+        raise AssertionError("sealed fixture must not fetch overnight news")
+
+    monkeypatch.setattr(
+        episode_tools.market_news,
+        "fetch_eastmoney_news_result",
+        fail_news,
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+        fixture_policy=episode_tools.SealedFixturePolicy(),
+    )
+    observation = registry.execute(
+        "market_data",
+        {},
+        context=context,
+        step_id="overnight-news-sealed:1",
+    )
+    assert not any(item.tool == "news_search" for item in observation.evidence)
+
+
 def test_episode_registry_exposes_and_executes_model_owned_research_tools(
     tmp_path: Path,
     monkeypatch,
@@ -1463,6 +1856,12 @@ def test_agent_finance_query_bounds_broad_result_before_model_observation(
     assert len(observation.evidence) == 25
     assert observation.trace.result_count == 25
     assert "已按 Agent 上下文预算截断至 25 条" in observation.observation
+    assert observation.dataset == "sector_daily"
+    assert observation.caliber == "fact_sector_daily"
+    assert "amount" in observation.payload_field_names
+    assert observation.payload_sha256
+    assert "/Users/" not in observation.dataset
+    assert "/home/" not in "".join(observation.payload_field_names)
 
 
 def test_finance_query_invalid_semantic_field_returns_repairable_gap(
@@ -1510,6 +1909,10 @@ def test_finance_query_invalid_semantic_field_returns_repairable_gap(
     assert observation.gaps == (
         "结构化查询条件无效；请改写 dataset、字段、筛选或日期范围后重试",
     )
+    assert observation.dataset == "market_daily"
+    assert observation.caliber == "fact_market_daily"
+    assert "trade_date" in observation.payload_field_names
+    assert "not_a_public_metric" in observation.payload_field_names
 
 
 def test_finance_query_wrong_dataset_points_to_the_field_owner(
@@ -1719,7 +2122,8 @@ def test_finance_query_runtime_failure_returns_safe_repairable_gap(
 def test_deterministic_fast_path_preserves_subsecond_timeout(monkeypatch) -> None:
     received: list[float] = []
 
-    def fake_resolve(_question: str, *, timeout: float):
+    def fake_resolve(_question: str, *, timeout: float, as_of=None):
+        del as_of
         received.append(timeout)
         return episode_tools.market_technical.TechnicalGap(
             subject="科创50",
@@ -2030,6 +2434,57 @@ def test_memory_lookup_recalls_user_judgements_as_prior_not_fact(tmp_path) -> No
     assert all("非市场事实" in item.source for item in result.evidence)
     # Locators point at the fixture, never the real ledger.
     assert all(str(users_root) in item.internal_locator for item in result.evidence)
+
+
+def test_memory_lookup_appends_peer_hit_when_category_has_enough_verdicts(tmp_path) -> None:
+    root = tmp_path / "users" / "peer"
+    root.mkdir(parents=True)
+    (root / "judgments.jsonl").write_text(
+        json.dumps(
+            {
+                "ts": "2026-07-01T10:00:00",
+                "memo": "光刻胶国产替代要看客户验证进度，不看产能公告",
+                "themes": ["光刻胶"],
+                "category": "生命周期推演",
+            },
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (root / "checkpoints.jsonl").write_text(
+        "\n".join(
+            json.dumps(
+                {"id": f"c{i}", "claim": f"光刻胶{i}", "category": "生命周期推演", "due": "2026-06-01"},
+                ensure_ascii=False,
+            )
+            for i in range(1, 4)
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (root / "verdicts.jsonl").write_text(
+        "\n".join(
+            json.dumps({"id": f"c{i}", "verdict": verdict}, ensure_ascii=False)
+            for i, verdict in enumerate(("hit", "hit", "miss"), start=1)
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    registry, context = _memory_registry(
+        tmp_path,
+        users_root=root,
+        task_id="memory-lookup-peer-hit",
+    )
+    result = registry.execute(
+        "memory_lookup",
+        "光刻胶，现在怎么看",
+        context=context,
+        step_id="memory-lookup-peer-hit:1",
+    )
+    details = [item.detail for item in result.evidence]
+    assert any("同类判断历史 2/3 命中（分母=已裁决数）" in detail for detail in details)
+    assert all("99" not in detail for detail in details)
 
 
 def test_memory_lookup_reports_empty_recall_instead_of_staying_silent(tmp_path) -> None:

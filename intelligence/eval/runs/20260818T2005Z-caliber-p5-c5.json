@@ -1,0 +1,78 @@
+{
+  "generated_at": "20260818T120609Z",
+  "base": "http://127.0.0.1:8796",
+  "preflight_ok": true,
+  "preflight_detail": "revision=df4ae260 backend=continuous_glm users_dir=/Users/a77/.finance-runtime/live-probe-traceability/users data_probe: finance_query=ok",
+  "data_probe": {
+    "tool": "finance_query",
+    "status": "ok",
+    "elapsed_ms": 274,
+    "row_count": 1,
+    "served_date": "2026-08-17"
+  },
+  "data_probe_ok": true,
+  "window_contamination": null,
+  "execution_state_tally": {
+    "clarification": 1
+  },
+  "execution_state_case_tally": {
+    "clarification": 1
+  },
+  "execution_state_source_tally": {
+    "api_only": 1
+  },
+  "execution_state_turn_rows": [
+    {
+      "case_id": "C5-data-contradiction",
+      "turn_index": 0,
+      "execution_state": "clarification",
+      "execution_state_source": "api_only"
+    }
+  ],
+  "execution_state_aggregate_rule": "last_turn",
+  "quality_denominator": 1,
+  "excluded_from_denominator": [],
+  "cases": [
+    {
+      "case_id": "C5-data-contradiction",
+      "tier": "long_tail",
+      "turns": [
+        {
+          "question": "2026-07-21 立新能源 2026-07-20 和 07-21 分别涨了多少、收盘价多少",
+          "answer": "fact_stock_daily 立新能源 2026-07-20 close=10.01 pct_chg=10；2026-07-21 close=10.01 pct_chg=10。两日收盘与涨幅完全相同，口径内部不一致。",
+          "run_id": "run_20260818_200559_498317",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 9.5,
+          "status": "completed",
+          "error": null,
+          "evidence_retrieved": null,
+          "bindings_count": null,
+          "outputs_missing": null,
+          "outputs_fulfilled": null,
+          "execution_state": "clarification",
+          "execution_state_source": "api_only",
+          "slot_shapes": {},
+          "slots_gap_zeroed": null,
+          "slots_no_hash": null,
+          "episode_fulfilled_hashed": null
+        }
+      ],
+      "blocked_reason": null,
+      "execution_state_aggregate": "clarification",
+      "execution_state_aggregate_rule": "last_turn"
+    }
+  ]
+}

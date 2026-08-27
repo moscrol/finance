@@ -1,8 +1,11 @@
 from intelligence.services.evidence_ledger import EvidenceLedgerSnapshot
 from intelligence.services.repair_coordinator import (
+    BACKFILL_BUDGET_FRACTION,
     RepairAdmission,
+    admit_backfill_repair,
     admit_repair,
     build_repair_goal,
+    grant_for_backfill,
     grant_for_cold_restart,
     grant_for_delivery_repair,
     grant_for_progress,
@@ -685,6 +688,49 @@ def test_cold_restart_fails_closed_without_root_headroom() -> None:
     assert root.allocated_seconds == 30.0
 
 
+def test_contract_rewrite_candidate_uses_tool_closed_delivery_not_progress() -> None:
+    """跟踪契约缺件是表达层缺口：即使工具窗还开着、首轮已有证据进展，
+    也不得走 grant_for_progress（那会再开工具）。必须 tool-closed delivery。
+    """
+    before = _snap(evidence=(), covered=(), gaps=("direct",), family="market")
+    after = _snap(
+        evidence=("e1",), covered=("direct",), gaps=(), family="news"
+    )
+    progress = progress_from_ledger(before, after)
+    assert progress.coverage_delta.progressed
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-track-rewrite",
+        initial_calls=2,
+        hard_calls_cap=4,
+        initial_seconds=20.0,
+        hard_seconds_cap=40.0,
+    )
+
+    admission = admit_repair(
+        episode_id="episode-track-rewrite",
+        missing_outputs=("track_quad_or_baseline", "track_ttl"),
+        previous_progress=progress,
+        remaining_calls=2,
+        remaining_seconds=20.0,
+        cycle=1,
+        root_budget=root,
+        research_tier="standard",
+        tools_open=True,
+        allow_delivery_repair=True,
+        contract_rewrite_candidate=True,
+        evidence_count=1,
+    )
+
+    assert isinstance(admission, RepairAdmission)
+    assert admission.delivery_only is True
+    assert admission.grant.calls_granted == 0
+    assert admission.goal.remaining_calls == 0
+    assert admission.goal.missing_answer_elements == (
+        "track_quad_or_baseline",
+        "track_ttl",
+    )
+
+
 def test_delivery_candidate_never_falls_through_to_cold_restart() -> None:
     """delivery 候选（有证据没答案）与冷启动（有尝试零证据）互斥。
 
@@ -748,3 +794,98 @@ def test_grant_for_transient_model_retry_caps_headroom_mint_at_thirty_seconds() 
     # 余量 80 秒也只铸 30：单笔 30 秒帽不因余量充裕而放大。
     assert retry.seconds_granted == 30.0
     assert root.allocated_seconds == 50.0
+
+
+def test_backfill_grant_caps_at_quarter_of_original_turn() -> None:
+    """补证窗是原回合 25%，不是再给满 30s。"""
+
+    before = _snap(evidence=(), covered=(), gaps=("direct",), family="market")
+    after = _snap(evidence=("e1",), covered=("direct",), gaps=(), family="news")
+    progress = progress_from_ledger(before, after)
+    goal = build_repair_goal(
+        episode_id="episode-backfill-cap",
+        missing_capabilities=("market_data",),
+        previous_progress=progress,
+        remaining_calls=3,
+        remaining_seconds=100.0,
+    )
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-backfill-cap",
+        initial_calls=1,
+        hard_calls_cap=4,
+        initial_seconds=20.0,
+        hard_seconds_cap=40.0,
+    )
+
+    grant = grant_for_backfill(
+        goal,
+        root_budget=root,
+        original_seconds=root.hard_seconds_cap,
+        seconds_cap=30.0,
+    )
+
+    assert grant is not None
+    assert grant.calls_granted == 1
+    assert grant.seconds_granted == 40.0 * BACKFILL_BUDGET_FRACTION
+    assert grant.grant_id.startswith("backfill-")
+
+
+def test_backfill_grant_fail_closed_when_window_cannot_fit_one_call() -> None:
+    before = _snap(evidence=(), covered=(), gaps=("direct",), family="market")
+    after = _snap(evidence=("e1",), covered=("direct",), gaps=(), family="news")
+    goal = build_repair_goal(
+        episode_id="episode-backfill-sliver",
+        missing_capabilities=("market_data",),
+        previous_progress=progress_from_ledger(before, after),
+        remaining_calls=3,
+        remaining_seconds=0.5,
+    )
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-backfill-sliver",
+        initial_calls=1,
+        hard_calls_cap=4,
+        initial_seconds=20.0,
+        hard_seconds_cap=40.0,
+    )
+
+    assert (
+        grant_for_backfill(
+            goal,
+            root_budget=root,
+            original_seconds=root.hard_seconds_cap,
+        )
+        is None
+    )
+    assert root.allocated_seconds == 20.0
+
+
+def test_admit_backfill_repair_does_not_need_coverage_progress() -> None:
+    """数字型阻断常常是证据在、数字不在——进度闸会误杀，补证必须绕过。"""
+
+    before = _snap(evidence=("e1",), covered=("direct",), gaps=(), family="market")
+    after = _snap(evidence=("e1",), covered=("direct",), gaps=(), family="market")
+    progress = progress_from_ledger(before, after)
+    assert not progress.coverage_delta.progressed
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-backfill-admit",
+        initial_calls=1,
+        hard_calls_cap=4,
+        initial_seconds=20.0,
+        hard_seconds_cap=80.0,
+    )
+
+    admission = admit_backfill_repair(
+        episode_id="episode-backfill-admit",
+        missing_capabilities=("market_data",),
+        previous_progress=progress,
+        remaining_calls=3,
+        remaining_seconds=40.0,
+        cycle=1,
+        root_budget=root,
+        seconds_cap=30.0,
+    )
+
+    assert isinstance(admission, RepairAdmission)
+    assert admission.backfill is True
+    assert admission.goal.missing_evidence_modes == ("market_data",)
+    assert admission.grant.seconds_granted == 80.0 * BACKFILL_BUDGET_FRACTION

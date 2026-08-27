@@ -1,0 +1,93 @@
+{
+  "generated_at": "20260813T040834Z",
+  "base": "http://127.0.0.1:8792",
+  "preflight_ok": true,
+  "preflight_detail": "revision=d4832797 backend=continuous_glm",
+  "cases": [
+    {
+      "case_id": "C1-future-date-no-data",
+      "tier": "long_tail",
+      "turns": [
+        {
+          "question": "2026-07-25 市场怎么样",
+          "answer": "2026-07-25 为周六，A股休市，该日无行情数据。\n上证当日下跌1.6142%，全市场仅534家上涨，成交额较前日减少11.83%，数据标签为“下跌阶段、缩量观望”。这更像普跌中的防守盘，而非可确认的全面转强。\n结构上仍有局部承接：半导体设备上涨3.3956%，半导体与存储芯片被标记为小级别“启动”；但AI算力相关的CPO、华为昇腾走弱，创新药和电力等亦显著回落，说明强度分化较大。\n边界：以上是7月24日收盘盘面，不是7月25日行情；",
+          "run_id": "run_20260813_120703_253319",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "市场日频总览（2026-07-24）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-24"
+            },
+            {
+              "title": "主线板块日频结构（2026-07-24）",
+              "source": "本地结构化数据 · 主线板块日频结构",
+              "date": "2026-07-24"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-24）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 主线板块日频结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线板块日频结构（2026-07-24）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "planning",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 90.8,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    }
+  ]
+}

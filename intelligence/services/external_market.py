@@ -22,7 +22,12 @@ _SYMBOLS: Mapping[str, tuple[str, str]] = {
     "SOX": ("^SOX", "费城半导体"),
     "SOXX": ("SOXX", "SOXX"),
     "QQQ": ("QQQ", "QQQ"),
+    "NVDA": ("NVDA", "英伟达"),
+    "MU": ("MU", "美光"),
+    "HYNIX": ("000660.KS", "SK海力士"),
+    "SNDK": ("SNDK", "闪迪"),
 }
+_OVERNIGHT_LEADER_CODES: tuple[str, ...] = ("SOX", "NVDA", "MU", "HYNIX", "SNDK")
 _QUERY_SYMBOL_TERMS: Mapping[str, tuple[str, ...]] = {
     "DJI": ("道指", "道琼斯", "dow"),
     "SPX": ("标普500", "标普", "s&p", "sp500"),
@@ -62,6 +67,47 @@ class _ProviderQuotes:
 
 
 StructuredFetcher = Callable[[str, dict[str, str], int], object]
+
+
+def overnight_session_date(*, now: datetime | None = None) -> date:
+    """US session that '今晚' refers to, including an in-progress tape.
+
+    ``target_trade_date`` waits for 16:15 ET so ask-side closes stay exact.
+    Overnight-hybrid forecasts need tonight's bar while Beijing is still in
+    the 21:30→04:00 window.
+    """
+
+    eastern = now or datetime.now(ZoneInfo("America/New_York"))
+    if eastern.tzinfo is None:
+        eastern = eastern.replace(tzinfo=ZoneInfo("America/New_York"))
+    else:
+        eastern = eastern.astimezone(ZoneInfo("America/New_York"))
+    if eastern.time() < time(9, 30):
+        candidate = eastern.date() - timedelta(days=1)
+    else:
+        candidate = eastern.date()
+    while candidate.weekday() >= 5:
+        candidate -= timedelta(days=1)
+    return candidate
+
+
+def overnight_leader_codes() -> tuple[str, ...]:
+    """Index + current AI/storage sample for overnight-hybrid forecasts.
+
+    Ask-side ``requested_symbols`` stays index-only. These names are the
+    missing constituent layer from spec P0-B, not a new datasource.
+    """
+
+    return _OVERNIGHT_LEADER_CODES
+
+
+def format_quote_line(quote: ExternalMarketQuote) -> str:
+    sign = "+" if quote.pct_chg >= 0 else ""
+    return (
+        f"{quote.name}（{quote.code}）：收盘 {quote.close:,.2f}，"
+        f"涨跌幅 {sign}{quote.pct_chg:.2f}%（{quote.trade_date}）；"
+        f"来源 {quote.source}。新闻标题不作为精确涨跌。"
+    )
 
 
 def requested_symbols(query: str) -> tuple[str, ...]:
@@ -282,6 +328,61 @@ def fetch_yahoo_finance_quotes(
             source_trade_date=source_date,
             result_count=len(quotes),
         ),
+    )
+
+
+def resolve_overnight_leaders(
+    query: str,
+    *,
+    now: datetime | None = None,
+    timeout: float = 15,
+) -> ExternalMarketResult:
+    """Yahoo-only leader tape. Fupanhui global-market has indices, not NVDA/MU."""
+
+    target = overnight_session_date(now=now)
+    wanted = overnight_leader_codes()
+    finance = fetch_yahoo_finance_quotes(
+        query,
+        target,
+        symbols=wanted,
+        timeout=max(1, int(timeout)),
+    )
+    target_key = target.isoformat()
+    fresh = tuple(
+        quote for quote in finance.quotes if quote.trade_date == target_key
+    )
+    stale = tuple(
+        quote for quote in finance.quotes if quote.trade_date != target_key
+    )
+    quotes = tuple(
+        sorted(fresh, key=lambda quote: wanted.index(quote.code))
+    )
+    missing = tuple(code for code in wanted if code not in {quote.code for quote in quotes})
+    gap_parts: list[str] = []
+    if not quotes:
+        gap_parts.append(
+            f"未取得 {target_key} 的美股龙头结构化报价；"
+            "新闻标题不会被当作精确涨跌数据。"
+        )
+    elif missing:
+        missing_names = "、".join(_SYMBOLS[code][1] for code in missing)
+        gap_parts.append(
+            f"已取得部分美股龙头行情，但仍缺少：{missing_names}；"
+            "不会用新闻标题补齐精确点位。"
+        )
+    if stale:
+        stale_names = "、".join(
+            f"{quote.name}({quote.trade_date or '日期未记录'})" for quote in stale
+        )
+        gap_parts.append(f"滞后交易日未计入绑定数字：{stale_names}")
+    gap = "；".join(gap_parts) or None
+    return ExternalMarketResult(
+        target_trade_date=target.isoformat(),
+        source_trade_date=finance.source_trade_date,
+        selected_provider=YAHOO_PROVIDER if quotes else None,
+        quotes=quotes,
+        provider_traces=(finance.trace,),
+        gap=gap,
     )
 
 

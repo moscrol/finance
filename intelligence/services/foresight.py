@@ -112,6 +112,7 @@ class ForesightResult:
     judgments_loaded: int = 0
     calibration_scored: int = 0
     calibration_shown: int = 0
+    next_watch_shown: int = 0
 
     @property
     def status(self) -> str:
@@ -575,6 +576,25 @@ def _compose_system_prompt(options: ForesightOptions, result: ForesightResult) -
                 "\n\n==== 你的二阶推演校准（哪类判断历史靠谱/偏差，发问时据此加权信任或质疑）====\n"
                 + cal_rendered
             )
+        from intelligence.services.track_contract import (
+            open_next_watch_records,
+            render_next_watch_for_prompt,
+        )
+
+        watch_rows, watch_warn = checkpoints.load_checkpoints(cpath)
+        watch_verdicts, verdict_warn = checkpoints.load_verdicts(vpath)
+        if watch_warn:
+            result.warnings.append(watch_warn)
+        if verdict_warn:
+            result.warnings.append(verdict_warn)
+        open_watch = open_next_watch_records(watch_rows, watch_verdicts)
+        watch_rendered = render_next_watch_for_prompt(open_watch)
+        if watch_rendered:
+            result.next_watch_shown = len(open_watch)
+            prompt += (
+                "\n\n==== 下期关注对照（上次跟踪留下的强制输入，先对照再发问）====\n"
+                + watch_rendered
+            )
     return prompt
 
 
@@ -830,6 +850,10 @@ def render(result: ForesightResult) -> str:
             f"> 校准：按你 {result.calibration_shown} 类二阶推演的历史胜率加权信任/质疑"
             f"（已回检 {result.calibration_scored} 条）"
         )
+    if result.next_watch_shown:
+        lines.append(
+            f"> 下期关注：对照上次跟踪留下的 {result.next_watch_shown} 条观察项再发问"
+        )
     if result.warnings:
         lines.append("> 警告：" + "；".join(result.warnings))
 
@@ -888,6 +912,7 @@ def result_to_dict(result: ForesightResult) -> dict[str, Any]:
         "judgments_loaded": result.judgments_loaded,
         "calibration_scored": result.calibration_scored,
         "calibration_shown": result.calibration_shown,
+        "next_watch_shown": result.next_watch_shown,
         "questions": [
             {
                 "question": q.question,

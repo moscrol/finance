@@ -114,23 +114,20 @@ class TestDefaultRegistryCarriesProduces:
         assert "financial_assessment" in fin_spec.produces
         assert "metric_evidence" in fin_spec.produces
 
-    def test_memory_lookup_declares_nothing_by_design(self) -> None:
-        """memory_lookup 的 produces **有意留空**，不是漏填。
+    def test_memory_lookup_declares_prime_memory_only(self) -> None:
+        """memory_lookup 只声明先验槽，不声明市场事实类产出。
 
-        现有 output_id 词表里的条目全是市场事实类产出（supporting_evidence /
-        event_facts / fact_value / market_summary…），而本工具按定义只回用户
-        自己过去的判断与纠偏原则——历史先验，不是市场事实。没有任何 episode
-        证据支持它 fulfill 过其中任何一项，硬填一个就是把推断写成声明。
-
-        留空的代价在 fail-open 下是「漏抓」：它永远不会被算作某个
-        required_output 的 contributing_tool。将来若实测到它确实产出过某类
-        output，补上即可——见 ``_DEFAULT_TOOL_METADATA`` 里的同款注释。
+        旧词表里的条目全是市场事实（supporting_evidence / event_facts /
+        fact_value / market_summary…），本工具按定义只回用户自己过去的判断。
+        残差地板给了它一格 ``prime_memory`` 之后，produces 必须声明这一格，
+        否则可满足性预检会把它当成漏抓；仍然不能填市场事实 id。
         """
         registry = reg.default_registry(
             {name: lambda *a, **k: None for name in reg._DEFAULT_TOOL_METADATA}
         )
         spec = registry.resolve("memory_lookup")
-        assert spec.produces == frozenset()
+        assert spec.produces == frozenset({"prime_memory"})
+        assert "supporting_evidence" not in spec.produces
 
 
 # ---------------------------------------------------------------------------

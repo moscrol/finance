@@ -19,11 +19,11 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from intelligence.services import retrieval_cache
-from intelligence.services.trading_calendar import non_trading_day_note
-
-from market_feature_store.signals import DOUBLE_RED_DESCRIPTION, DOUBLE_RED_SQL
 from intelligence.paths import default_market_db_path
+from intelligence.services import reading_baseline, retrieval_cache
+from intelligence.services.metric_spec import METRICS, MetricSpec
+from intelligence.services.trading_calendar import non_trading_day_note
+from market_feature_store.signals import DOUBLE_RED_DESCRIPTION, DOUBLE_RED_SQL
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -33,49 +33,6 @@ DEFAULT_MARKET_DB_PATH = default_market_db_path()
 DEFAULT_WINDOW = 10
 MIN_WINDOW = 2
 MAX_WINDOW = 60
-
-
-@dataclass(frozen=True)
-class MetricSpec:
-    key: str
-    label: str
-    unit: str
-    aliases: tuple[str, ...]
-    caliber: str  # 口径说明（进入数据块，供合成与人工核对）
-
-
-# 白名单指标注册表。新增指标只允许在这里登记（key → 固定查询口径），
-# 不允许把用户问题文本拼进 SQL。
-METRICS: dict[str, MetricSpec] = {
-    "limit_up": MetricSpec(
-        "limit_up", "涨停家数", "家", ("涨停家数", "涨停数", "涨停"),
-        "fact_market_daily.limit_up",
-    ),
-    "limit_down": MetricSpec(
-        "limit_down", "跌停家数", "家", ("跌停家数", "跌停数", "跌停"),
-        "fact_market_daily.limit_down",
-    ),
-    "advancers": MetricSpec(
-        "advancers", "涨家数", "家", ("涨家数", "上涨家数", "涨跌家数"),
-        "fact_market_daily.advancers",
-    ),
-    "total_amount": MetricSpec(
-        "total_amount", "全市成交额", "亿元", ("全市成交额", "成交额", "总成交", "成交量"),
-        "fact_market_daily.total_amount（亿元）",
-    ),
-    "max_boards": MetricSpec(
-        "max_boards", "连板最高高度", "板", ("连板高度", "连板最高", "最高板", "最高连板", "连板"),
-        "fact_limit_advance_daily 当日 max(boards)",
-    ),
-    "promotion_rate": MetricSpec(
-        "promotion_rate", "首板晋级率", "", ("晋级率", "晋级"),
-        "fact_limit_advance_daily 当日 boards=2 行携带的首板→2板晋级率原文",
-    ),
-    "double_red_count": MetricSpec(
-        "double_red_count", "双红板块数", "个", ("双红板块", "双红题材", "双红"),
-        f"fact_sector_daily 当日满足 {DOUBLE_RED_SQL} 的板块数（严格双红定义）",
-    ),
-}
 
 _INTENT_TERMS = ("逐日", "每日变化", "每天变化", "逐天", "时序", "日度变化", "精确查数", "精确取数")
 _WINDOW_RE = re.compile(r"(?:过去|近|最近)\s*(\d{1,3})\s*(?:个)?\s*(?:交易日|天|日)")
@@ -316,6 +273,7 @@ def timeseries_block_for_llm(
     values: dict[str, dict[str, Any]] = fetched["values"]
     specs = intent.metrics
     lines = ["## 盘面时序直查数据块 [D0]"]
+    lines.extend(reading_baseline.block_rule_lines("D0"))
     lines.append(
         f"- 查询口径：过去 {len(dates)} 个交易日（{dates[0]} ~ {dates[-1]}），"
         "本地 DuckDB market_feature_store 白名单指标参数化直查，非 LLM 生成。"

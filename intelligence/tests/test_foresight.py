@@ -604,5 +604,76 @@ class CalibrationInjectionTests(unittest.TestCase):
         self.assertNotIn("二阶推演校准", result.prompt_preview)
 
 
+class NextWatchPromptTests(unittest.TestCase):
+    def test_open_next_watch_is_injected_into_foresight_prompt(self) -> None:
+        from intelligence.services.track_contract import ingest_next_watch
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cpath = Path(tmp) / "checkpoints.jsonl"
+            vpath = Path(tmp) / "verdicts.jsonl"
+            ingest_next_watch(
+                cpath,
+                "## 下期关注清单\n- 若 2026-09-12 中报毛利率 <20% 则削弱扩产逻辑",
+                query="固态电池最新进展如何",
+                as_of="2026-08-19",
+            )
+            with mock.patch.object(
+                foresight.llm_refine,
+                "complete",
+                return_value=(_canned_questions(8), _provider("deepseek"), ""),
+            ):
+                result = generate(
+                    ForesightOptions(
+                        n=3,
+                        candidates=8,
+                        use_memory=False,
+                        use_interactions=False,
+                        use_methodology=False,
+                        use_corrections=False,
+                        use_judgments=False,
+                        checkpoints_file=str(cpath),
+                        verdicts_file=str(vpath),
+                    )
+                )
+        self.assertEqual(result.next_watch_shown, 1)
+        self.assertIn("下期关注对照", result.prompt_preview)
+        self.assertIn("毛利率", result.prompt_preview)
+        self.assertIn("下期关注：对照上次跟踪留下的 1 条", render(result))
+
+    def test_use_calibration_false_skips_next_watch(self) -> None:
+        from intelligence.services.track_contract import ingest_next_watch
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cpath = Path(tmp) / "checkpoints.jsonl"
+            vpath = Path(tmp) / "verdicts.jsonl"
+            ingest_next_watch(
+                cpath,
+                "## 下期关注清单\n- 若毛利率 <20% 则削弱扩产逻辑",
+                query="固态电池最新进展如何",
+                as_of="2026-08-19",
+            )
+            with mock.patch.object(
+                foresight.llm_refine,
+                "complete",
+                return_value=(_canned_questions(8), _provider("deepseek"), ""),
+            ):
+                result = generate(
+                    ForesightOptions(
+                        n=3,
+                        candidates=8,
+                        use_memory=False,
+                        use_interactions=False,
+                        use_methodology=False,
+                        use_corrections=False,
+                        use_judgments=False,
+                        use_calibration=False,
+                        checkpoints_file=str(cpath),
+                        verdicts_file=str(vpath),
+                    )
+                )
+        self.assertEqual(result.next_watch_shown, 0)
+        self.assertNotIn("下期关注对照", result.prompt_preview)
+
+
 if __name__ == "__main__":
     unittest.main()

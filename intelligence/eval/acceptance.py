@@ -73,6 +73,15 @@ def load_cases() -> dict[str, Any]:
     return json.loads(CASES_PATH.read_text(encoding="utf-8"))
 
 
+def effective_query(case: Mapping[str, Any]) -> str:
+    """把 case.date 下达给产品。date 已在题面里则原样发送，避免叠两个日期。"""
+    query = str(case.get("query") or "").strip()
+    cutoff = str(case.get("date") or "").strip()
+    if cutoff and cutoff not in query:
+        return f"{cutoff} {query}"
+    return query
+
+
 def _rel(path: Path) -> str:
     """相对仓库根显示；路径在仓库外时退回绝对路径而不是抛异常。"""
     try:
@@ -137,6 +146,12 @@ class TurnTrace:
     # 与 ``evidence_bound``（context API 的 hit 数）并行，互不覆盖。
     # B3@批#2：本字段=2、eb=0。
     episode_fulfilled_hashed: int | None = None
+    # inherited_golden 埋点（2026-08-26）：agent_eval 系判定需要的工具调用名单。
+    # 名字带 episode_ 前缀是刻意的：裸名 `tools_called` 被护栏测试封死——
+    # 消息体和公共 /trace 都没有那个字段（本类 docstring 首条陷阱），从那里读
+    # 恒为空。本字段唯一真源是 episode 产物 events 里的 tool_request；
+    # 产物取不到时留 None 不猜，观察生成器把该轴记成「跳过」而不是 0 次。
+    episode_tools_called: list[str] | None = None
 
 
 @dataclass
@@ -629,10 +644,18 @@ def _read_episode_facts(
                 slot_shapes[output_id] = "no_hash"
             if output_id in fulfilled_ids and len(hashes) > 0:
                 episode_fulfilled_hashed += 1
+        tools_called = [
+            str((event.get("payload") or {}).get("name") or "")
+            for event in episode.get("events") or []
+            if isinstance(event, Mapping)
+            and event.get("kind") == "tool_request"
+            and isinstance(event.get("payload"), Mapping)
+        ]
         return {
             "evidence_retrieved": len(outcome.get("evidence") or []),
             "bindings_count": len(outcome.get("bindings") or []),
             "draft_chars": len(str(outcome.get("draft") or "")),
+            "tools_called": [name for name in tools_called if name],
             "outputs_missing": sum(1 for s in statuses if s == "missing"),
             "outputs_fulfilled": sum(1 for s in statuses if s == "fulfilled"),
             # R-20260815-07：逐格形状。**必须逐格记而不是只给 turn 级标签**——
@@ -745,6 +768,7 @@ def _fill_run_detail(base: str, trace: TurnTrace, *, user: str | None = None) ->
         trace.slots_gap_zeroed = int(facts["slots_gap_zeroed"])
         trace.slots_no_hash = int(facts["slots_no_hash"])
         trace.episode_fulfilled_hashed = int(facts["episode_fulfilled_hashed"])
+        trace.episode_tools_called = list(facts["tools_called"])
         trace.execution_state_source = "episode_artifact"
     else:
         trace.execution_state_source = "api_only"
@@ -896,7 +920,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     for i, case in enumerate(selected, 1):
         cr = CaseRun(case_id=case["id"], tier=case["tier"])
         print(f"[{i}/{len(selected)}] {case['id']} … ", end="", flush=True)
-        questions = [case["query"], *case.get("followups", [])]
+        questions = [effective_query(case), *case.get("followups", [])]
         for q in questions:
             try:
                 t = ask_once(args.base, args.user, q, args.timeout)
@@ -1032,6 +1056,7 @@ def cmd_board(args: argparse.Namespace) -> int:
     print("|---|---|---|---|---|---|---|---|---|---:|---:|---|")
     operational_tally = {state: 0 for state in OperationalState}
     truth_tally = {state: 0 for state in VerdictState}
+    main_truth_tally = {state: 0 for state in VerdictState}
     experience_tally = {state: 0 for state in ExperienceState}
     delivery_tally = {state: 0 for state in AxisState}
     information_tally = {state: 0 for state in AxisState}
@@ -1086,6 +1111,8 @@ def cmd_board(args: argparse.Namespace) -> int:
         )
         operational_tally[verdict.operational.state] += 1
         truth_tally[verdict.truth.state] += 1
+        if contract.in_main_truth_denominator():
+            main_truth_tally[verdict.truth.state] += 1
         experience_tally[verdict.experience.state] += 1
         delivery_tally[axes.delivery.state] += 1
         information_tally[axes.information.state] += 1
@@ -1163,9 +1190,11 @@ def cmd_board(args: argparse.Namespace) -> int:
         f"{operational_tally[OperationalState.DEGRADED]}、正常完成 "
         f"{operational_tally[OperationalState.COMPLETED]}（完成合计 {completed_count}）。"
     )
-    judged = truth_tally[VerdictState.PASS] + truth_tally[VerdictState.FAIL]
+    judged = (
+        main_truth_tally[VerdictState.PASS] + main_truth_tally[VerdictState.FAIL]
+    )
     rate_note = (
-        f"可判子集通过率 {truth_tally[VerdictState.PASS]}/{judged}"
+        f"可判子集通过率 {main_truth_tally[VerdictState.PASS]}/{judged}"
         if judged
         else "尚无可判子集通过率"
     )
@@ -1387,6 +1416,25 @@ def cmd_freeze(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_observe_inherited(args: argparse.Namespace) -> int:
+    """生成 inherited_golden 观察 sidecar；生成 → 自检 → 落盘，自检不过不写。"""
+
+    from intelligence.eval.inherited_golden import write_truth_sidecar
+
+    run_path = Path(args.run)
+    out_path = Path(args.output)
+    if out_path.exists():
+        print(f"❌ 输出已存在，拒绝覆盖：{_rel(out_path)}")
+        return 1
+    payload = write_truth_sidecar(run_path, out_path, cases_path=CASES_PATH)
+    states = {
+        case_id: obs["truth_observations"]["inherited_golden"]["state"]
+        for case_id, obs in payload["case_observations"].items()
+    }
+    print(f"✅ sidecar 已写 {_rel(out_path)}（自检通过）：{states}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="acceptance", description="28 道验收题台账")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -1440,6 +1488,14 @@ def main(argv: list[str] | None = None) -> int:
     vc.add_argument("result")
     vc.add_argument("--queue", required=True)
     vc.set_defaults(func=cmd_validate_comparison)
+
+    oi = sub.add_parser(
+        "observe-inherited",
+        help="对 inherit_from 用例出确定性 inherited_golden sidecar（零 LLM）",
+    )
+    oi.add_argument("--run", required=True, help="run artifact 路径")
+    oi.add_argument("--output", required=True, help="sidecar 输出路径（拒绝覆盖）")
+    oi.set_defaults(func=cmd_observe_inherited)
 
     args = p.parse_args(argv)
     return int(args.func(args))

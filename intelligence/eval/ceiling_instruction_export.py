@@ -119,6 +119,10 @@ def _write_once(path: Path, data: bytes, mode: int) -> None:
         flags |= os.O_NOFOLLOW
     descriptor = os.open(path, flags, mode)
     try:
+        # os.open 的 mode 会被进程 umask 削（077 下 0o444→0o400），而
+        # audit 对 receipt 里声明的 mode 严格比对；fchmod 不受 umask
+        # 影响，把声明值钉死，行为不再随调用环境漂。
+        os.fchmod(descriptor, mode)
         offset = 0
         while offset < len(data):
             offset += os.write(descriptor, data[offset:])

@@ -1,77 +1,17 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
-
 from intelligence.services.ask import AskOptions, AskResult, answer_query, render_answer
 from intelligence.summary import WorkflowStep, WorkflowSummary, now_iso
 
 
-@dataclass(frozen=True)
-class AskWorkflowOptions:
-    query: str
-    date: str | None = None
-    exports_dir: str | Path | None = None
-    kb_wiki: str | Path | None = None
-    top_companies: int = 12
-    use_modules: bool = True
-    modules: tuple[str, ...] | None = None
-    module_timeout: int = 180
-    use_wiki_rag: bool = True
-    wiki_rag_k: int = 6
-    wiki_rag_mode: str = "hybrid"
-    wiki_rag_timeout: int = 90
-    wiki_rag_index_dir: str | Path | None = None
-    use_llm: bool = False
-    compose: bool = False
-    llm_model: str | None = None
-    llm_timeout: int = 60
-    detail: bool = False
-    user: str | None = None
-    experience_cards_window: int = 12
-    use_l3_lookup: bool = False
-    l3_lookup_timeout: int = 480
-    l3_lookup_limit: int = 5
-    clarify: bool = True
-    parallel_blocks: bool = True
-
-
-def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, str]:
+def run_ask(options: AskOptions) -> tuple[WorkflowSummary, AskResult, str]:
     summary = WorkflowSummary(
         workflow="ask",
         status="PASS",
         started_at=now_iso(),
         inputs={"query": options.query, "date": options.date},
     )
-    result = answer_query(
-        AskOptions(
-            query=options.query,
-            date=options.date,
-            exports_dir=options.exports_dir,
-            kb_wiki=options.kb_wiki,
-            top_companies=options.top_companies,
-            use_modules=options.use_modules,
-            modules=options.modules,
-            module_timeout=options.module_timeout,
-            use_wiki_rag=options.use_wiki_rag,
-            wiki_rag_k=options.wiki_rag_k,
-            wiki_rag_mode=options.wiki_rag_mode,
-            wiki_rag_timeout=options.wiki_rag_timeout,
-            wiki_rag_index_dir=options.wiki_rag_index_dir,
-            use_llm=options.use_llm,
-            compose=options.compose,
-            llm_model=options.llm_model,
-            llm_timeout=options.llm_timeout,
-            detail=options.detail,
-            user=options.user,
-            experience_cards_window=options.experience_cards_window,
-            use_l3_lookup=options.use_l3_lookup,
-            l3_lookup_timeout=options.l3_lookup_timeout,
-            l3_lookup_limit=options.l3_lookup_limit,
-            clarify=options.clarify,
-            parallel_blocks=options.parallel_blocks,
-        )
-    )
+    result = answer_query(options)
     answer = render_answer(result)
     if result.clarify is not None:
         # 澄清追问短路：本次未检索，只登记门控步骤；其余检索步骤不适用。
