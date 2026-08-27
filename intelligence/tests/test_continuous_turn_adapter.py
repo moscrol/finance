@@ -50,6 +50,7 @@ from intelligence.services.research_tool_registry import (
     ToolSpec,
 )
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.repair_coordinator import BACKFILL_BUDGET_FRACTION
 from intelligence.runtime.turn_control_core import TurnControlResult
 
 
@@ -250,6 +251,56 @@ def test_perspective_context_reaches_context_factory_only_when_active() -> None:
     assert captured[1]["perspective_context"] == (
         "只允许使用下方这一位 KOL 的画像与原文召回。"
     )
+
+
+def test_stance_pack_reaches_context_factory_only_when_present() -> None:
+    from intelligence.services.stance_pack import run_stance_pack
+
+    frame = _frame()
+    captured: list[dict[str, object]] = []
+
+    def factory(_frame, **kwargs):
+        captured.append(dict(kwargs))
+        raise RuntimeError("stop after capturing context kwargs")
+
+    def run_once(control) -> None:
+        ContinuousTurnAdapter(
+            runtime=_RuntimeThatRaises(),
+            mode="on",
+            context_factory=factory,
+            registry_factory=_raises,
+            semantic_verifier=_SemanticThatRaises(),
+        ).handle(frame=frame, control=control)
+
+    run_once(_control(frame))
+    assert "stance_pack" not in captured[0]
+
+    pack = run_stance_pack("茅台现在该不该买", standing_date="2026-08-24")
+    run_once(replace(_control(frame), stance_pack=pack))
+    assert captured[1]["stance_pack"] is pack
+
+
+def test_episode_context_provenance_persists_stance_bag_status() -> None:
+    from intelligence.runtime.continuous_turn_adapter import (
+        _episode_context_provenance,
+    )
+    from intelligence.services.stance_pack import run_stance_pack
+
+    frame = _frame()
+    bare = build_episode_context(frame, task_id="stance-receipt-bare")
+    assert "stance_pack" not in _episode_context_provenance(bare)
+
+    pack = run_stance_pack("茅台现在该不该买", standing_date="2026-08-24")
+    context = build_episode_context(
+        frame, task_id="stance-receipt-pack", stance_pack=pack
+    )
+    receipt = _episode_context_provenance(context)["stance_pack"]
+    assert receipt["prior"]["status"] in {"hit", "empty", "unresolved"}
+    assert receipt["quote"]["status"] in {"hit", "empty", "unresolved"}
+    assert isinstance(receipt["prior"]["entity_ids"], list)
+    assert isinstance(receipt["quote"]["entity_ids"], list)
+    assert "rows" not in receipt["prior"]
+    assert "rows" not in receipt["quote"]
 
 
 def test_satisfiability_precheck_survives_registry_without_authorized_specs() -> None:
@@ -1543,7 +1594,19 @@ def test_real_episode_rewrites_typed_query_error_and_repairs_in_same_history(
     wiki_root.mkdir()
 
     def retrieve(query: str, *_args, **_kwargs) -> WikiRagResult:
-        is_counter = "风险" in query or "反方" in query
+        is_counter = any(
+            token in query
+            for token in (
+                "产能过剩",
+                "价格战",
+                "技术替代",
+                "需求不及",
+                "竞争格局恶化",
+                "政策收紧",
+                "风险",
+                "反方",
+            )
+        )
         key = "counter" if is_counter else "support"
         hit = WikiHit(
             page_id=key,
@@ -2030,8 +2093,13 @@ def test_deep_repair_timeout_with_new_coverage_may_use_next_cycle() -> None:
         bindings=(
             OutputEvidenceBinding("direct_assessment", (direct.content_hash,)),
             OutputEvidenceBinding("counterpoint", (), "缺少反方证据"),
+            # market_forecast 的失效条件槽现在签 model_reasoning（前瞻假设槽），
+            # 绑定 basis 必须随契约走，否则 basis mismatch 把 completed 打成 partial。
             OutputEvidenceBinding(
-                "invalidation_conditions", (), "缺少失效条件"
+                "invalidation_conditions",
+                (),
+                "缺少失效条件",
+                basis="model_reasoning",
             ),
         ),
         usage=AgentUsage(1, 1, 0),
@@ -2046,7 +2114,10 @@ def test_deep_repair_timeout_with_new_coverage_may_use_next_cycle() -> None:
             OutputEvidenceBinding("direct_assessment", (direct.content_hash,)),
             OutputEvidenceBinding("counterpoint", (counter.content_hash,)),
             OutputEvidenceBinding(
-                "invalidation_conditions", (), "缺少失效条件"
+                "invalidation_conditions",
+                (),
+                "缺少失效条件",
+                basis="model_reasoning",
             ),
         ),
         usage=AgentUsage(2, 2, 1),
@@ -2065,7 +2136,9 @@ def test_deep_repair_timeout_with_new_coverage_may_use_next_cycle() -> None:
             OutputEvidenceBinding("direct_assessment", (direct.content_hash,)),
             OutputEvidenceBinding("counterpoint", (counter.content_hash,)),
             OutputEvidenceBinding(
-                "invalidation_conditions", (invalidation.content_hash,)
+                "invalidation_conditions",
+                (invalidation.content_hash,),
+                basis="model_reasoning",
             ),
         ),
         usage=AgentUsage(3, 3, 1),
@@ -2488,6 +2561,42 @@ def test_private_artifact_records_runtime_backend_without_public_leak() -> None:
     assert result.llm_provider == "zhipu"
 
 
+def test_private_artifact_phase_trace_has_one_public_terminal() -> None:
+    """phase_trace 是 sidecar：不影响答案，且公开终态只有一个。"""
+
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场状态",
+        detail="指数处于反弹修复",
+        source="市场快照",
+        source_date="2026-07-24",
+        content_hash="phase-trace-evidence",
+    )
+
+    result = _scripted_episode_result(
+        semantic_status="completed",
+        public_answer="当前更接近短周期修复。",
+        evidence=(evidence,),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                (evidence.content_hash,),
+            ),
+        ),
+    )
+
+    assert result.status == "completed"
+    assert result.private_artifact is not None
+    trace = result.private_artifact["phase_trace"]
+    assert trace["terminal_phases"] == ["completed"]
+    assert "anomalies" not in trace
+    phases = [item["to_phase"] for item in trace["transitions"]]
+    assert phases[0] == "planning"
+    assert "structural_verify" in phases
+    assert "semantic_verify" in phases
+    assert phases[-1] == "completed"
+
+
 def test_sdk_gpt_runtime_reports_openai_provider_without_model_turn_event() -> None:
     evidence = AgentEvidence(
         tool="market_data",
@@ -2735,8 +2844,8 @@ def test_market_technical_uses_zero_llm_fast_path() -> None:
     )
     calls: list[str] = []
 
-    def run_fast_path(_frame, *, timeout):
-        del timeout
+    def run_fast_path(_frame, *, timeout, as_of=None):
+        del timeout, as_of
         calls.append("fast_path")
         assert _frame is frame
         return {
@@ -2785,7 +2894,14 @@ def test_market_technical_uses_zero_llm_fast_path() -> None:
 
 @pytest.mark.parametrize(
     "question_type",
-    ("external_market", "quick_fact", "dated_market_review"),
+    (
+        "external_market",
+        "quick_fact",
+        "dated_market_review",
+        "market_watch",
+        "watchlist_digest",
+        "disclosure_scan",
+    ),
 )
 def test_legacy_deterministic_owner_types_are_declined_without_dependencies(
     question_type: str,
@@ -3077,7 +3193,12 @@ def test_episode_reserves_root_deadline_for_semantic_verification() -> None:
 
 
 def test_default_episode_budget_leaves_judge_timeout_plus_transport_grace() -> None:
-    """Slow OpenAI-compatible transports must not consume the judge reserve."""
+    """Research must not eat the verification carve-out.
+
+    Reserve is ``min(judge+grace, T/3)``. Default T=120 caps that at 40, which
+    is below the 50s first attempt — a known bound, not a reason to raise T.
+    Production T≥180 is what actually leaves a full grok attempt.
+    """
 
     frame = _frame()
     control = _control(frame)
@@ -3141,9 +3262,8 @@ def test_default_episode_budget_leaves_judge_timeout_plus_transport_grace() -> N
     ).handle(frame=frame, control=control)
 
     assert result.status == "completed", result.private_artifact
-    assert captured["runtime_timeout"] <= (
-        120.0 - DEFAULT_JUDGE_TIMEOUT_SECONDS - 10.0 + 0.1
-    )
+    reserve = min(DEFAULT_JUDGE_TIMEOUT_SECONDS + 10.0, 120.0 / 3.0)
+    assert captured["runtime_timeout"] == pytest.approx(120.0 - reserve, abs=0.1)
 
 
 def test_private_artifact_counts_physical_attempts_and_duplicate_queries() -> None:
@@ -4689,3 +4809,518 @@ def test_adapter_closes_session_on_exception_path() -> None:
     handle = session.runtime_handle
     assert handle is not None
     assert handle.is_closed()
+
+
+def _fast_path_frame() -> TaskFrame:
+    return replace(_frame(), question_type="market_technical")
+
+
+def _run_fast_path_with_anchor(*, fast_as_of: str, anchor: str | None):
+    def runner(frame, *, timeout, as_of=None):
+        del frame, timeout, as_of
+        return {
+            "execution_kind": "deterministic_fast_path",
+            "status": "completed",
+            "answer": f"截至 {fast_as_of}，科创50收盘 1790.87。下方支撑为：1750.43。",
+            "as_of": fast_as_of,
+            "gaps": [],
+            "traces": [],
+            "latency": 0.8,
+            "llm_calls": 0,
+            "tool_calls": 1,
+        }
+
+    frame = _fast_path_frame()
+
+    class _Semantic:
+        def verify(self, *_args, **_kwargs):
+            raise AssertionError("fast path must not reach the semantic verifier")
+
+    return ContinuousTurnAdapter(
+        runtime=_RuntimeThatRaises(),
+        mode="on",
+        latest_data_date=anchor,
+        fast_path_runner=runner,
+        context_factory=lambda *_a, **_k: object(),
+        registry_factory=lambda *_a, **_k: "registry",
+        semantic_verifier=_Semantic(),
+    ).handle(frame=frame, control=_control(frame, terminal_kind="research"))
+
+
+def test_fast_path_discloses_when_its_date_differs_from_the_round_anchor() -> None:
+    """快路径按最新行情算，锚点却是历史日 —— 必须降级并声明，不得报 completed。
+
+    2026-08-18 冻结 30 题实测：index-rebound-space / sci-tech-support 锚在
+    2026-07-24，快路径按 08-18 算完交付，判分器给了 completed/passed/1.0。
+    0 次模型调用、0.8 秒、用错日期的数，三个轴全绿——假绿不是低分。
+    """
+    result = _run_fast_path_with_anchor(fast_as_of="2026-08-18", anchor="2026-07-24")
+    assert result.status == "degraded"
+    assert any("2026-07-24" in w and "2026-08-18" in w for w in result.warnings)
+    assert "口径提示" in result.answer
+
+
+def test_fast_path_stays_completed_when_its_date_matches_the_anchor() -> None:
+    """反方向：日期对得上就不该唠叨，否则这道闸等于把快路径永久降级。"""
+    result = _run_fast_path_with_anchor(fast_as_of="2026-07-24", anchor="2026-07-24")
+    assert result.status == "completed"
+    assert result.warnings == ()
+    assert "口径提示" not in result.answer
+
+
+def test_fast_path_stays_completed_when_no_anchor_was_injected() -> None:
+    """没有注入基准日时无从对账，保持原行为，不得凭空降级。"""
+    result = _run_fast_path_with_anchor(fast_as_of="2026-08-18", anchor=None)
+    assert result.status == "completed"
+    assert result.warnings == ()
+
+
+def test_fast_path_forwards_round_anchor_to_runner() -> None:
+    seen: dict[str, object] = {}
+
+    def runner(frame, *, timeout, as_of=None):
+        del frame, timeout
+        seen["as_of"] = as_of
+        return {
+            "execution_kind": "deterministic_fast_path",
+            "status": "completed",
+            "answer": "截至 2026-07-24，科创50收盘 1790.87。",
+            "as_of": "2026-07-24",
+            "gaps": [],
+            "traces": [],
+            "latency": 0.8,
+            "llm_calls": 0,
+            "tool_calls": 1,
+        }
+
+    class _Semantic:
+        def verify(self, *_args, **_kwargs):
+            raise AssertionError("fast path must not reach the semantic verifier")
+
+    frame = _fast_path_frame()
+    ContinuousTurnAdapter(
+        runtime=_RuntimeThatRaises(),
+        mode="on",
+        latest_data_date="2026-07-24",
+        fast_path_runner=runner,
+        context_factory=lambda *_a, **_k: object(),
+        registry_factory=lambda *_a, **_k: "registry",
+        semantic_verifier=_Semantic(),
+    ).handle(frame=frame, control=_control(frame, terminal_kind="research"))
+    assert seen.get("as_of") == "2026-07-24"
+
+
+def test_numeric_unsupported_triggers_one_narrow_backfill_turn() -> None:
+    """缺数字锚时先补一次 market_data，而不是立刻让判官删句。"""
+
+    frame = _frame()
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-w5-numeric",
+        capabilities=control.capabilities,
+        timeout=90.0,
+    )
+    initial_evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复。",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="w5-market-1",
+        supports=("direct_assessment",),
+        independent_key="market",
+    )
+    filled_evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复；上证指数收于3870点。",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="w5-market-2",
+        supports=("direct_assessment",),
+        independent_key="market",
+    )
+    draft = "我的基准判断是反弹仍可持续。若指数跌破3870点则失效。"
+    initial_events = (
+        EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        EpisodeEvent(2, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft=draft,
+        evidence=(initial_evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=initial_events,
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("w5-market-1",), ""),
+        ),
+        usage=AgentUsage(1, 1, 0),
+    )
+    repaired = replace(
+        initial,
+        evidence=(filled_evidence,),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("w5-market-2",), ""),
+        ),
+        events=(
+            *initial_events,
+            EpisodeEvent(3, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+        ),
+        usage=AgentUsage(2, 2, 0),
+    )
+    captured: dict[str, object] = {}
+
+    class Runtime:
+        def run(self, **_kwargs):
+            raise AssertionError("resumable runtime must not receive a second run")
+
+        def start(self, task_frame, *, context, registry):
+            del task_frame, registry
+
+            def resume(previous, goal):
+                assert previous is initial
+                captured["goal"] = goal
+                return repaired
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=initial,
+                resume_callback=resume,
+            )
+
+    class Semantic:
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        repair_seconds_cap=30.0,
+    ).handle(frame=frame, control=control)
+
+    goal = captured["goal"]
+    assert result.status == "completed"
+    assert result.private_artifact["backfill_turns"] == 1
+    assert result.private_artifact["repair_cycles"] == 0
+    assert goal.missing_evidence_modes == ("market_data",)
+    assert goal.remaining_calls == 1
+    assert goal.remaining_seconds <= (
+        float(context.root_budget.hard_seconds_cap) * BACKFILL_BUDGET_FRACTION
+    )
+    assert "3870点" in result.answer
+
+
+def test_backfill_turn_rejects_candidate_that_adds_sentences() -> None:
+    """回填只许补证据或改写被阻断句，新增句子 fail closed。"""
+
+    frame = _frame()
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-w5-new-claims",
+        capabilities=control.capabilities,
+        timeout=90.0,
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复。",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="w5-claim-1",
+        supports=("direct_assessment",),
+        independent_key="market",
+    )
+    draft = "我的基准判断是反弹仍可持续。若指数跌破3870点则失效。"
+    initial_events = (
+        EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        EpisodeEvent(2, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft=draft,
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=initial_events,
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("w5-claim-1",), ""),
+        ),
+        usage=AgentUsage(1, 1, 0),
+    )
+    bloated = replace(
+        initial,
+        draft=draft + "另外再给一个新结论。",
+        events=(
+            *initial_events,
+            EpisodeEvent(3, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+        ),
+    )
+
+    class Runtime:
+        def run(self, **_kwargs):
+            raise AssertionError("resumable runtime must not receive a second run")
+
+        def start(self, task_frame, *, context, registry):
+            del task_frame, registry
+
+            def resume(previous, goal):
+                del previous, goal
+                return bloated
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=initial,
+                resume_callback=resume,
+            )
+
+    class Semantic:
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        repair_seconds_cap=30.0,
+    ).handle(frame=frame, control=control)
+
+    assert result.private_artifact["backfill_turns"] == 1
+    assert "另外再给一个新结论" not in result.answer
+    assert result.private_artifact["outcome"]["draft"] == draft
+
+
+def _company_numeric_frame() -> TaskFrame:
+    return TaskFrame(
+        raw_question="太辰光最近两周走势复盘：转折日涨跌幅和成交额是多少",
+        user_goal="复盘太辰光近期走势",
+        question_type="stock_deep_dive",
+        subject="太辰光",
+        subject_kind="company",
+        market_scope="A股",
+        timeframe="最近两周",
+        required_outputs=("direct_assessment",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="company_multi_layer_evidence",
+        confidence=0.95,
+    )
+
+
+def _unknown_numeric_frame() -> TaskFrame:
+    return TaskFrame(
+        raw_question="目前市场结构如何",
+        user_goal="判断当前市场结构",
+        question_type="market_forecast",
+        subject=None,
+        subject_kind="unknown",
+        market_scope="A股",
+        timeframe="最近交易日",
+        required_outputs=("direct_assessment",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="current_market_scenarios",
+        confidence=0.2,
+    )
+
+
+def test_numeric_unsupported_company_backfill_asks_finance_query_not_market_data() -> None:
+    """个股 NUMERIC_UNSUPPORTED 必须回填 finance_query，不得再调市场总览。"""
+
+    frame = _company_numeric_frame()
+    control = _control(frame, capabilities=("finance_query", "market_data"))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-w3-company-numeric",
+        capabilities=control.capabilities,
+        timeout=90.0,
+    )
+    evidence = AgentEvidence(
+        tool="finance_query",
+        title="个股日频",
+        detail="太辰光收于213.4元。",
+        source="本地行情",
+        source_date="2026-08-20",
+        content_hash="w3-company-1",
+        supports=("direct_assessment",),
+        independent_key="stock",
+    )
+    draft = "我的基准判断是反弹仍可持续。若收盘跌破180元则失效。"
+    initial_events = (
+        EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        EpisodeEvent(2, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft=draft,
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=initial_events,
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("w3-company-1",), ""),
+        ),
+        usage=AgentUsage(1, 1, 0),
+    )
+    repaired = replace(
+        initial,
+        events=(
+            *initial_events,
+            EpisodeEvent(3, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+        ),
+        usage=AgentUsage(2, 2, 0),
+    )
+    captured: dict[str, object] = {}
+
+    class Runtime:
+        def run(self, **_kwargs):
+            raise AssertionError("resumable runtime must not receive a second run")
+
+        def start(self, task_frame, *, context, registry):
+            del task_frame, registry
+
+            def resume(previous, goal):
+                assert previous is initial
+                captured["goal"] = goal
+                return repaired
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=initial,
+                resume_callback=resume,
+            )
+
+    class Semantic:
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        repair_seconds_cap=30.0,
+    ).handle(frame=frame, control=control)
+
+    goal = captured["goal"]
+    assert result.private_artifact["backfill_turns"] == 1
+    assert goal.missing_evidence_modes == ("finance_query",)
+    assert "market_data" not in goal.missing_evidence_modes
+
+
+def test_numeric_unsupported_unknown_subject_skips_backfill() -> None:
+    """解析不出主体时宁缺勿错：不回填，缺数显影为缺口。"""
+
+    frame = _unknown_numeric_frame()
+    control = _control(frame, capabilities=("market_data", "finance_query"))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-w3-unknown-numeric",
+        capabilities=control.capabilities,
+        timeout=90.0,
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复。",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="w3-unknown-1",
+        supports=("direct_assessment",),
+        independent_key="market",
+    )
+    draft = "我的基准判断是反弹仍可持续。若指数跌破3870点则失效。"
+    initial_events = (
+        EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        EpisodeEvent(2, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft=draft,
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=initial_events,
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("w3-unknown-1",), ""),
+        ),
+        usage=AgentUsage(1, 1, 0),
+    )
+
+    class Runtime:
+        def run(self, **_kwargs):
+            raise AssertionError("resumable runtime must not receive a second run")
+
+        def start(self, task_frame, *, context, registry):
+            del task_frame, registry
+
+            def resume(previous, goal):
+                del previous, goal
+                raise AssertionError("unknown subject must not resume for backfill")
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=initial,
+                resume_callback=resume,
+            )
+
+    class Semantic:
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        repair_seconds_cap=30.0,
+    ).handle(frame=frame, control=control)
+
+    assert result.private_artifact["backfill_turns"] == 0

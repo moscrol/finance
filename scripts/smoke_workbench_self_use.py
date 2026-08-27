@@ -16,6 +16,16 @@ import urllib.request
 from pathlib import Path
 from typing import BinaryIO
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from intelligence.services.gate_receipt import (  # noqa: E402
+    extract_gate_receipt,
+    table_row,
+)
+from intelligence.services.judge_degrade import split_degrade_from_payloads  # noqa: E402
+
 TERMINAL_RUN_STATUSES = {"completed", "failed", "cancelled"}
 ANSWER_PHASES = {
     "verified_draft",
@@ -1131,12 +1141,15 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
         outcome = (
             "degraded" if run_status == "completed" and degrades else str(run_status)
         )
+        degrade_split = split_degrade_from_payloads(degrades, report_payload)
         summary.update(
             {
                 "run_id": run_id,
                 "run_status": run_status,
                 "terminal_outcome": outcome,
                 "degrade_count": len(degrades),
+                "judge_unavailable_count": degrade_split["judge_unavailable_count"],
+                "content_degraded_count": degrade_split["content_degraded_count"],
                 "sse": sse_summary,
                 "answer_stream": answer_stream,
                 "report": {
@@ -1160,6 +1173,8 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
                     ),
                 },
                 "retrieval": _retrieval_summary(trace),
+                "gate_receipt": extract_gate_receipt(report_payload),
+                "gate_receipt_table": table_row(extract_gate_receipt(report_payload)),
             }
         )
         exit_code = 0 if run_status == "completed" else 1

@@ -1,0 +1,54 @@
+{
+  "format_version": 1,
+  "artifact_kind": "acceptance_truth_observations",
+  "created_at": "2026-08-26T19:07:45+08:00",
+  "source": {
+    "run_path": "/Users/a77/finance-workspace-private/intelligence/eval/runs/20260826T1030Z-prod-fbdbbfd2-28q.json",
+    "run_sha256": "da8e4b8f850403397e68ff8b9b9f27c248262f6f903a0b626b1379ae39de6c9f",
+    "cases_sha256": "d98a65573862fc461da9b76857a2343187bdf4902dae4b976b849f5f9348abfc",
+    "overlay_sha256": "1e2a5f800d6034c4da8627235a54e4862f9ffe8b95299b24b9776494c62fe0af"
+  },
+  "evaluator": {
+    "id": "inherited-golden-observer@c5d49e8d4e2c",
+    "kind": "deterministic_script",
+    "model": null,
+    "independent": true
+  },
+  "rubric_sha256": "c5d49e8d4e2c49f9437cb25ee524b97f74c559621810f2daca7b5c9ca2f67d61",
+  "case_observations": {
+    "B1-theme-photoresist": {
+      "truth_observations": {
+        "inherited_golden": {
+          "state": "fail",
+          "reason": "实体召回 0.00 < 闸 0.50（缺：彤程新材、南大光电、上海新阳、容大感光、雅克科技）；免责声明轴按引擎语法降为报告项（episode 公开稿不渲染该句；本题 0/1 turn 含）；概念召回 1/1（agent_eval 本就不闸此轴）；工具跨度：工件无 episode_tools_called 埋点，跳过（报告项）",
+          "evidence_refs": [
+            "turn:0"
+          ]
+        }
+      }
+    },
+    "B2-theme-liquid-cooling": {
+      "truth_observations": {
+        "inherited_golden": {
+          "state": "fail",
+          "reason": "实体召回 0.00 < 闸 0.50（缺：英维克、高澜股份、申菱环境、川润股份）；免责声明轴按引擎语法降为报告项（episode 公开稿不渲染该句；本题 0/1 turn 含）；概念召回 1/1（agent_eval 本就不闸此轴）；工具跨度：工件无 episode_tools_called 埋点，跳过（报告项）",
+          "evidence_refs": [
+            "turn:0"
+          ]
+        }
+      }
+    },
+    "B3-theme-solid-state-battery": {
+      "truth_observations": {
+        "inherited_golden": {
+          "state": "fail",
+          "reason": "实体召回 0.00 < 闸 0.50（缺：先导智能、天赐材料、国轩高科、天奈科技）；turn:0 引用 5 处全部落在 E1..E6；免责声明轴按引擎语法降为报告项（episode 公开稿不渲染该句；本题 0/1 turn 含）；概念召回 1/1（agent_eval 本就不闸此轴）；工具跨度：工件无 episode_tools_called 埋点，跳过（报告项）",
+          "evidence_refs": [
+            "turn:0"
+          ]
+        }
+      }
+    }
+  },
+  "artifact_sha256": "46f9c2f3bee38bf880ac836bbd2e612c3a9b3a237a8637ea4b946e8dacd82e95"
+}

@@ -166,12 +166,20 @@ def test_tool_definitions_use_each_specs_own_json_schema() -> None:
     )
 
     definitions = registry.tool_definitions()
+    by_name = {
+        item["function"]["name"]: item["function"]["parameters"]
+        for item in definitions
+    }
 
     # 断言的是「用了 spec 自己的 schema」，不是 schema 的具体内容——
     # 手抄一份字面量会让每次改参数描述都无谓地变红（2026-08-12 就这么红过 3 条）。
     # 比对真本源（BUILD 模式 6：单一真本源，且生成而非手抄）。
-    assert definitions[0]["function"]["parameters"] == QUERY_TOOL_PARAMETERS
-    assert definitions[1]["function"]["parameters"] == typed_schema
+    assert [item["function"]["name"] for item in definitions] == [
+        "finance_query",
+        "kb_search",
+    ]
+    assert by_name["kb_search"] == QUERY_TOOL_PARAMETERS
+    assert by_name["finance_query"] == typed_schema
 
 
 def test_tool_spec_deep_freezes_its_schema_contract() -> None:
@@ -805,6 +813,55 @@ def test_same_session_dedupes_across_batches() -> None:
     assert runner_calls == 1
 
 
+def test_empty_market_data_miss_does_not_block_backfill_retry() -> None:
+    """W5 live：首轮 market_data 空结果（as_of 错日）不得占 duplicate 键。
+
+    补证回合会再打同一 capability；若空结果也记成 seen，第二次必被
+    ``duplicate_query`` 打死，预算帽白给。有证据的成功查询仍去重。
+    """
+
+    runner_calls = 0
+
+    def runner(
+        query: str,
+        _context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        nonlocal runner_calls
+        runner_calls += 1
+        if runner_calls == 1:
+            return (
+                [],
+                "结构化市场数据仅更新到 2026-08-18，早于当前所需 2026-08-19；"
+                "旧数据未用于当前判断",
+                ProviderTrace(
+                    provider="test:market_data",
+                    capability="market_data",
+                    status="stale",
+                    result_count=0,
+                ),
+            )
+        return _evidence_result("market_data", query)
+
+    session = ToolBatchExecutor().new_session()
+    first = session.execute(
+        (ModelToolCall("miss", "market_data", {"query": "snapshot"}),),
+        registry=_registry(market_data=runner),
+        context=_context(),
+        remaining_slots=1,
+    )
+    second = session.execute(
+        (ModelToolCall("backfill", "market_data", {"query": "snapshot"}),),
+        registry=_registry(market_data=runner),
+        context=_context(),
+        remaining_slots=1,
+    )
+
+    assert first.items[0].status == "empty"
+    assert second.items[0].status == "success"
+    assert second.items[0].error != "duplicate_query"
+    assert runner_calls == 2
+
+
 def test_episode_scoped_snapshot_succeeds_only_once_across_rewritten_queries() -> (
     None
 ):
@@ -886,7 +943,7 @@ def test_available_tool_names_remove_collected_episode_snapshot() -> None:
     assert session.available_tool_names(
         registry=registry,
         context=context,
-    ) == ("market_data", "kb_search")
+    ) == ("kb_search", "market_data")
 
     first = session.execute(
         (ModelToolCall("market", "market_data", {"query": "current"}),),

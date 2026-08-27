@@ -32,6 +32,9 @@ QUESTION_COMPARISON = "comparison"
 # ("fact_value","as_of_date","evidence_boundary") 同名对齐。此前本分类器没有这一档，
 # 于是「收盘价多少」这类取值查询落到下面的 market_forecast 兜底（"收盘" 是它的触发词）。
 QUESTION_QUICK_FACT = "quick_fact"
+# 确定性 owner 题型（与 market_watch / disclosure_scan 同族）：不进 QUESTION_TYPES
+# 主表——编排器在 owner 分叉前用包出稿，本分类器只需原样放行信封判定。
+QUESTION_WATCHLIST_DIGEST = "watchlist_digest"
 
 QUESTION_TYPES = frozenset(
     {
@@ -267,6 +270,7 @@ def resolve_question_type(
         QUESTION_EXTERNAL_MARKET,
         QUESTION_CONCEPT_DEFINITION,
         QUESTION_MARKET_TECHNICAL,
+        QUESTION_WATCHLIST_DIGEST,
     }:
         return query_envelope.question_type, query_envelope.confidence
     if query_envelope.question_type == "market_watch":

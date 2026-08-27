@@ -225,6 +225,28 @@ def test_external_market_queries_have_dedicated_intent(query: str) -> None:
     assert envelope.confidence == 0.98
 
 
+@pytest.mark.parametrize(
+    "query",
+    (
+        # 2026-08-26 blk-d17 实测原话：被外盘报价车道接走后只回了美股指数
+        "隔夜美股AI算力板块走强，对A股哪些板块有映射",
+        "昨晚纳指涨了，对标A股哪些板块",
+    ),
+)
+def test_overnight_mapping_questions_do_not_enter_external_quote_lane(query: str) -> None:
+    """混合题的交付物是 A 股映射（D17 块在研究通道），不是海外收盘价。
+
+    映射意图以 overnight_map.parse_overnight_intent 为单一真本源；
+    这里同时钉住「D17 意图命中」与「外盘报价题型未命中」两侧，
+    防止任何一侧词表漂移后重新遮蔽。
+    """
+    from intelligence.services.overnight_map import parse_overnight_intent
+
+    assert parse_overnight_intent(query), "前提：D17 自己的意图必须命中"
+    envelope = understand_query(query)
+    assert envelope.question_type != "external_market"
+
+
 def test_definition_query_is_not_confused_with_model_meta_question() -> None:
     definition = understand_query("卫星互联网是什么")
     meta = understand_query("你好，你是什么模型")
@@ -742,3 +764,193 @@ def test_dated_stock_picking_question_is_not_comparison() -> None:
 
     assert "comparison" not in envelope.operators
     assert envelope.question_type != "comparison"
+
+
+# --- 2026-08-20 market_cause 板块归因入口（路由稿 §5 / §7） ---
+
+_ALUMINUM_CAUSE = "2026-07-23 A股铝板块为什么涨，给出证据来源"
+_GRID_CAUSE = "2026-07-23 电网设备为什么涨，给出证据来源"
+
+
+def test_weekly_market_cause_word_order_variants() -> None:
+    """F1：归因在涨跌之前也必须命中。现役有序正则会把这三句判否。"""
+
+    for query in (
+        "大盘为什么下跌",
+        "行情为什么走弱",
+        "近一周大盘为什么走弱",
+    ):
+        envelope = understand_query(query)
+        assert envelope.question_type == "market_cause", query
+        assert envelope.subject is None, query
+        assert envelope.matched_by == "market_anchor", query
+
+
+def test_aluminum_sector_cause_envelope_is_market_cause() -> None:
+    envelope = understand_query(_ALUMINUM_CAUSE)
+
+    assert envelope.question_type == "market_cause"
+    assert envelope.subject == "铝"
+    assert envelope.subject_kind == "theme"
+    assert envelope.matched_by == "explicit"
+    assert envelope.task_frame is not None
+    assert "causal_chain" in envelope.task_frame.required_outputs
+    assert envelope.task_frame.subject == "铝"
+
+
+def test_grid_equipment_cause_envelope_without_matched_theme_may_miss() -> None:
+    """F2/F3：信封层不带参允许不命中；禁止把电网设备写进题材包别名。"""
+
+    envelope = understand_query(_GRID_CAUSE)
+
+    assert envelope.question_type != "market_cause"
+    assert "电网设备" not in query_understanding._theme_aliases()
+
+
+def test_grid_equipment_cause_envelope_with_matched_theme() -> None:
+    envelope = understand_query(_GRID_CAUSE, matched_theme="电网设备")
+
+    assert envelope.question_type == "market_cause"
+    assert envelope.subject == "电网设备"
+    assert envelope.matched_by == "candidate"
+    assert envelope.task_frame is not None
+    assert "causal_chain" in envelope.task_frame.required_outputs
+
+
+def test_liquid_cooling_sector_cause_envelope_uses_alias() -> None:
+    envelope = understand_query("液冷板块今天为什么涨")
+
+    assert envelope.question_type == "market_cause"
+    assert envelope.subject == "液冷"
+    assert envelope.matched_by == "alias"
+
+
+def test_market_cause_does_not_steal_non_move_or_stock_queries() -> None:
+    """§5.2：两层都不得是 market_cause。信封层只锁「不是因果」。"""
+
+    cases = (
+        "固态电池为什么是主线",
+        "立新能源为什么涨",
+        "液冷怎么看",
+        "电网设备怎么看",
+        "液冷服务器题材：产业链怎么拆解",
+        "2026-02-17 涨停家数多少",
+        "什么是双红，现在哪些板块双红",
+        "2026-07-23 铝为什么涨，给出证据来源",
+        "2026-07-23 收盘，盛新锂能怎么看",
+    )
+    for query in cases:
+        envelope = understand_query(query)
+        assert envelope.question_type != "market_cause", query
+
+    assert understand_query("液冷怎么看").question_type == "theme_analysis"
+    assert (
+        understand_query("电网设备怎么看", matched_theme="电网设备").question_type
+        == "theme_analysis"
+    )
+
+
+MONDAY_TECH_MED_QUERY = (
+    "站在spt视角下，你认为周一科技和医药板块的走势会怎么样，需要观察哪些个股的反馈"
+)
+YSJS_XIA_QUERY = (
+    "用spt的视角，分析下有色金属板块后续的走势，以及板块内有机会的个股有哪些"
+)
+
+
+def test_monday_tech_med_honors_dual_subject_and_stock_slot() -> None:
+    """P0-C §5.1：问句已点名科技+医药和观察个股，信封必须认领。"""
+
+    envelope = understand_query(MONDAY_TECH_MED_QUERY)
+    subject = envelope.subject or ""
+    compact = subject.replace(" ", "")
+
+    assert "scenario_tree" in envelope.operators
+    assert "company_mapping" in envelope.operators
+    assert "company_mapping" in envelope.required_outputs
+    assert "科技" in compact
+    assert "医药" in compact
+    assert envelope.question_type == "general_finance_qa"
+
+
+def test_ysjs_spoken_xia_is_not_part_of_subject() -> None:
+    """P0-C §5.2：分析下有色金属 → 有色金属，不得吃成「下有色金属」。"""
+
+    envelope = understand_query(YSJS_XIA_QUERY)
+
+    assert envelope.subject == "有色金属"
+    assert envelope.subject_kind == "theme"
+    assert not str(envelope.subject).startswith("下")
+    assert "company_mapping" in envelope.operators
+    assert "company_mapping" in envelope.required_outputs
+
+
+def test_downstream_chemicals_keeps_xia_compound() -> None:
+    """剥「下」的真实坏结果是「游化工」，不是「下游」。"""
+
+    envelope = understand_query("分析下游化工板块的机会")
+
+    assert envelope.subject == "下游化工"
+    assert envelope.subject != "游化工"
+
+
+def test_board_mention_without_forecast_and_names_does_not_invent_subject() -> None:
+    """无 cue、单算子的「X板块」不得开始产出 subject（§6.3 先窄后宽）。"""
+
+    envelope = understand_query("复盘今天的科技板块")
+
+    assert envelope.subject != "科技"
+
+
+FORWARD_OPINION_JOINT_QUERY = (
+    "站在spt视角下，科技和医药板块接下来的走势怎么看，需要观察哪些个股的反馈"
+)
+
+
+def test_forward_opinion_joint_board_fills_subject() -> None:
+    """R-20260825-07 §7#1：「怎么看」词形的联合板块题不得落 0.4 兜底。
+
+    同句换「会怎么样」已能抽到主语（scenario_tree 门），词形不该是分水岭。
+    """
+
+    envelope = understand_query(FORWARD_OPINION_JOINT_QUERY)
+    compact = (envelope.subject or "").replace(" ", "")
+
+    assert "科技" in compact
+    assert "医药" in compact
+    assert envelope.subject_kind == "theme"
+    # P0 只填主语不动题型；升 theme_analysis 另立（spec §1.2）。
+    assert envelope.question_type == "general_finance_qa"
+
+
+def test_forward_opinion_single_board_fills_subject() -> None:
+    """R-20260825-07 §7#2/#3：单题材 × 前瞻观点词形，主语必须落格。"""
+
+    assert understand_query("医药板块接下来的走势怎么看").subject == "医药"
+    assert understand_query("科技板块后续怎么走").subject == "科技"
+    assert understand_query("接下来医药板块怎么看").subject == "医药"
+    assert understand_query("下游化工板块接下来怎么看").subject == "下游化工"
+
+
+def test_forward_opinion_does_not_steal_cue_or_market_level() -> None:
+    """R-20260825-07 §7#4/#5/#6：cue 路与市场级判定原样。"""
+
+    ysjs = understand_query(YSJS_XIA_QUERY)
+    assert ysjs.question_type == "theme_analysis"
+    assert ysjs.subject == "有色金属"
+
+    assert understand_query("接下来大盘怎么走").subject_kind != "theme"
+    assert understand_query("今天市场怎么样").subject_kind != "theme"
+    # 变异锁（spec §7）：本句真命中 _MARKET_FORECAST_RE（展望…后市）。
+    # 新路若被挪到 forecast 判定之前，「科技板块」会把主语抢走——必红。
+    mixed = understand_query("展望后市，科技板块接下来的走势怎么看")
+    assert mixed.question_type == "market_forecast"
+    assert mixed.subject_kind != "theme"
+
+
+def test_forward_opinion_requires_board_suffix() -> None:
+    """R-20260825-07 §7#7：无「板块/题材」后缀不得发明主语。"""
+
+    envelope = understand_query("下游产业链接下来怎么看")
+
+    assert envelope.subject is None

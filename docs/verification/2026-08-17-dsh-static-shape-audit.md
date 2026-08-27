@@ -1,5 +1,7 @@
 # T-E 交付：dsh 静态形状对照（三分类清单）
 
+superseded by docs/verification/2026-08-22-dsh-static-shape-audit.md
+
 - 日期：2026-08-17 ｜ 执行：主 agent（本会话）｜ 交接：`docs/handoffs/2026-08-17-dispatch-e-dsh-static-shape-audit.md`
 - 依据：spec `2026-08-15-agent-base-dsh-absorption-design.md` §9.5（本轨随 PR #132 新增）
   ＋ `2026-08-17-followup-angle-composer-design.md` §14 反推口令

@@ -7,12 +7,20 @@ from dataclasses import asdict, dataclass, replace
 from typing import Literal, TypeAlias, cast
 
 from intelligence.services import ask_clarify, llm_refine
-from intelligence.services.query_resolution import QueryResolution, QueryResolver
+from intelligence.services.query_resolution import (
+    QueryResolution,
+    QueryResolver,
+    apply_entity_tristate_answer,
+    format_resolve_clarification,
+    is_entity_tristate_clarification,
+)
+from intelligence.services.disclosure_scan_pack import is_disclosure_scan_query
 from intelligence.services.query_understanding import (
     QueryEnvelope,
     envelope_from_task_frame,
     is_dated_market_review,
     is_market_watch_query,
+    is_watchlist_digest_query,
     market_review_requested_date,
     project_task_frame,
 )
@@ -25,6 +33,7 @@ from intelligence.services.route_table import (
     RouteRow,
     is_quick_fact_query,
     render_route_table_prompt,
+    research_lane_for_dated_quick_fact,
     route_by_id,
 )
 from intelligence.services.research_contract import (
@@ -264,6 +273,22 @@ def _canonicalize_head_resolution(
     软解析继续提供 subject / answer_owner，否则会同时启动 daily 与 theme
     两条工作流。
     """
+    # 自选简报的头部意图优先于全市场日报：自选标记在场时先钉 watchlist_digest，
+    # 即便日后 market-watch 词面放宽到能命中同一句（spec 2026-08-26 §5 回归锁）。
+    if is_watchlist_digest_query(query):
+        row = route_by_id("watchlist_digest")
+        if row is not None and row.question_type is not None:
+            envelope = replace(
+                resolution.envelope,
+                question_type=row.question_type,
+                subject_kind="market_pattern",
+                subject=None,
+                decision_goal="按画像自选清单出当日接合简报",
+                matched_by="market_anchor",
+                confidence=max(0.98, resolution.envelope.confidence),
+                research_mode="general",
+            )
+            return replace(resolution, envelope=envelope)
     is_daily_research_workflow = _is_daily_research_workflow_query(query)
     if not is_market_watch_query(query) and not is_daily_research_workflow:
         return resolution
@@ -303,7 +328,7 @@ def _deterministic_decision(
             reason=clarification.reason,
             clarification_questions=clarification.questions,
         )
-    if selected_skill_ids or skill_mode == "manual":
+    if selected_skill_ids:
         return _decision(
             "workflow",
             envelope=envelope,
@@ -354,8 +379,11 @@ def _deterministic_decision(
     # 不存在时不会退到 DuckDB 单指标查询，而是落进通用题材研究、甚至把问题文本
     # 当成题材名——而 fact_market_daily.limit_up 这个标准口径一直在 METRICS 里。
     if market_review_requested_date(cleaned) and parse_single_metric_intent(cleaned):
+        row = route_by_id("quick_fact")
+        if row is None:
+            raise RuntimeError("quick_fact route is missing from ROUTE_TABLE")
         return _decision_from_route_row(
-            route_by_id("quick_fact"),
+            replace(row, lane="research"),
             query=cleaned,
             subject=envelope.subject,
             timeframe=envelope.timeframe,
@@ -370,6 +398,18 @@ def _deterministic_decision(
             confidence=0.98,
             reason="明确请求指定日期的 A 股行情复盘",
             capabilities=("memory", "market_quote", "graph"),
+        )
+    if is_watchlist_digest_query(cleaned):
+        return _decision(
+            "workflow",
+            envelope=envelope,
+            needs_memory=True,
+            confidence=0.98,
+            reason="明确请求按画像自选清单出当日简报",
+            capabilities=_route_capabilities(
+                "watchlist_digest",
+                ("memory", "market_quote"),
+            ),
         )
     if is_market_watch_query(cleaned):
         return _decision(
@@ -531,7 +571,9 @@ def _deterministic_decision(
 
 def _fine_grained_route_row(query: str) -> RouteRow | None:
     route_id: str | None = None
-    if _TRADE_ADVICE_ROUTE_PATTERN.search(query):
+    if is_disclosure_scan_query(query):
+        route_id = "disclosure_scan"
+    elif _TRADE_ADVICE_ROUTE_PATTERN.search(query):
         route_id = "trade_advice"
     elif _KOL_REVIEW_ROUTE_PATTERN.search(query):
         route_id = "kol_review"
@@ -545,7 +587,19 @@ def _fine_grained_route_row(query: str) -> RouteRow | None:
         route_id = "theme_track"
     elif is_quick_fact_query(query):
         route_id = "quick_fact"
-    return route_by_id(route_id) if route_id is not None else None
+    row = route_by_id(route_id) if route_id is not None else None
+    row = research_lane_for_dated_quick_fact(row, query)
+    if (
+        row is not None
+        and row.route_id == "quick_fact"
+        and row.lane == "knowledge"
+        and market_review_requested_date(query)
+        and parse_single_metric_intent(query) is not None
+    ):
+        # 年缺省日期（「07-21 全市成交额多少」）进了 quick_fact 词面，
+        # 但仍是指定日 + 白名单指标，不得停在 knowledge 车道。
+        return replace(row, lane="research")
+    return row
 
 
 _MARKET_FLOOR_PATTERN = re.compile(r"(大盘|A股|美股|港股|股市|盘面)")
@@ -815,7 +869,12 @@ def _enforce_task_frame_route(
     if not task_frame_requires_retrieval(task_frame):
         return decision
     capability_floor: dict[str, tuple[str, ...]] = {
-        "general_finance_evidence": ("memory", "web_search"),
+        "general_finance_evidence": (
+            "memory",
+            "market_quote",
+            "market_news",
+            "web_search",
+        ),
         "current_public_knowledge": ("web_search",),
         "current_a_share_market": ("market_quote", "market_news"),
         "dated_a_share_market": ("market_quote", "market_news"),
@@ -921,7 +980,11 @@ def decide_turn(
         and previous_intent is not None
         and previous_intent.clarification_rounds >= 1
     ):
-        task_frame = resolve_task_frame_clarification(pending_frame, query)
+        task_frame = (
+            apply_entity_tristate_answer(pending_frame, query)
+            if is_entity_tristate_clarification(pending_frame)
+            else resolve_task_frame_clarification(pending_frame, query)
+        )
         envelope = envelope_from_task_frame(
             task_frame,
             operators=previous_intent.operators,
@@ -1070,6 +1133,39 @@ def decide_turn(
     if deterministic is not None:
         task_frame = _rebase_frame_for_decision(task_frame, deterministic)
         return _attach_turn_intent(deterministic, intent, task_frame=task_frame)
+    if resolution.status == "candidate" and resolution.candidates:
+        question = format_resolve_clarification(resolution)
+        task_frame = replace(
+            task_frame,
+            ambiguities=tuple(
+                dict.fromkeys(
+                    (
+                        *task_frame.ambiguities,
+                        "主体可能是公司名，也可能是已登记主题，硬锚会改工具和结论",
+                    )
+                )
+            ),
+            clarification_question=question,
+        )
+        envelope = project_task_frame(task_frame, envelope)
+        resolution = replace(resolution, envelope=envelope)
+        intent = replace(
+            intent,
+            pending_task_frame=task_frame.to_dict(),
+            clarification_rounds=1,
+            task_frame_hash=task_frame.task_frame_hash,
+        )
+        return _attach_turn_intent(
+            _decision(
+                "clarify",
+                envelope=envelope,
+                confidence=task_frame.confidence,
+                reason="实体解析处于 candidate，硬锚会改主体和工具，追问一次",
+                clarification_questions=(question,),
+            ),
+            intent,
+            task_frame=task_frame,
+        )
     complete = llm_refine.complete if llm_complete is None else llm_complete
     try:
         content, _provider, failure_detail = complete(

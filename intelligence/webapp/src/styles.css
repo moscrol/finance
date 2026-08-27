@@ -3161,6 +3161,87 @@ p {
   }
 }
 
+.progress-timeline {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.progress-timeline-live {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #f8faf8;
+}
+
+.progress-timeline-done {
+  margin-bottom: 14px;
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.progress-timeline-done > summary {
+  cursor: pointer;
+  padding: 3px 0;
+}
+
+.progress-timeline-done .progress-timeline {
+  padding: 8px 0 2px 4px;
+}
+
+.progress-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.progress-step-icon {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  height: 17px;
+  color: #6f9a80;
+}
+
+.progress-step.is-current {
+  color: var(--forest);
+  font-weight: 500;
+}
+
+.progress-step.is-current .progress-step-icon {
+  color: var(--forest);
+  animation: progress-spin 1.4s linear infinite;
+}
+
+.progress-step.is-failed,
+.progress-step.is-failed .progress-step-icon {
+  color: #a4562f;
+}
+
+.progress-step-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@keyframes progress-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-step.is-current .progress-step-icon {
+    animation: none;
+  }
+}
+
 .skill-invocations,
 .skill-chips {
   display: flex;

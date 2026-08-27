@@ -25,6 +25,19 @@ PYTHON="$REPO/.venv-workbench/bin/python"
 
 die() { print -u2 -- "✗ $1"; exit 1; }
 
+# 防呆闸：在别的树里运行、又没显式指源 → fail closed。
+#
+# 2026-08-22 事故：在 regcheck worktree 里裸跑本脚本，rsync 源默认成主树——
+# 当时主树停在另一条长期分支上，一次「部署最新 main」实际把 R2 批次从生产
+# 盖掉了 12 分钟。下面的一致性校验对「错的 repo」也会如实报 True：
+# 它防的是快照漂移，不防选错源。源的歧义只能在这里拦。
+if [[ -z "${WORKBENCH_REPO_ROOT:-}" ]]; then
+  CWD_ROOT="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null || true)"
+  if [[ -n "$CWD_ROOT" && "$CWD_ROOT" != "$REPO" ]]; then
+    die "你在 $CWD_ROOT 里运行，但默认部署源是 $REPO。显式设 WORKBENCH_REPO_ROOT=<要部署的树> 再跑"
+  fi
+fi
+
 [[ -d "$REPO/intelligence" ]] || die "仓库缺 intelligence/：$REPO"
 [[ -x "$PYTHON" ]] || die "缺 venv 解释器：$PYTHON（别用宿主 python3，它没有依赖）"
 
@@ -165,6 +178,16 @@ print(f"      loaded_code_root : {r.get('loaded_code_root')}")
 print(f"      code_matches_repo: {r.get('code_matches_repo')}")
 print(f"      continuous mode  : {mode}")
 PY
+    # rsync 不换 symlink，但成功部署仍是一次生产切换。账本必须机器写，
+    # 不能靠人改 inflight/main.md（8792 的 a7e2d74f 无记录切换就是这样漏的）。
+    # 失败不阻断：闸门已经过了，账本 IO 不该把一次健康部署判成失败。
+    if ! FINANCE_WS="${FINANCE_WS:-$REPO}" "$PYTHON" "$REPO/scripts/audit_deploy_ledger.py" record \
+      --action switch \
+      --health-json "$health" \
+      --snapshot-path "$SNAP" \
+      --port "${PORT:-8792}"; then
+      print -u2 -- "⚠️  部署账本写入失败（不阻断本次部署）"
+    fi
     print -- "\n✅ 部署完成"
     exit 0
   fi

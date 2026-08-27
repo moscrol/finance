@@ -167,6 +167,7 @@ class _InflightQuery:
 @dataclass
 class QueryLedger:
     entries: dict[QueryKey, QueryRecord] = field(default_factory=dict)
+    late_result_discards: list[dict[str, object]] = field(default_factory=list)
     _lock: threading.Lock = field(default_factory=threading.Lock)
     _inflight: dict[QueryKey, _InflightQuery] = field(default_factory=dict)
 
@@ -261,6 +262,13 @@ class QueryLedger:
                     if any(item.is_active() for item in inflight.subscriptions):
                         self.entries[key] = record
                         inflight.published_record = record
+                    else:
+                        self._record_late_result_discarded_locked(
+                            provider=record.provider,
+                            query=record.normalized_query,
+                            as_of=record.as_of,
+                            reason="subscription_inactive",
+                        )
             finally:
                 if not inflight.future.done():
                     inflight.future.set_result(result)
@@ -284,15 +292,42 @@ class QueryLedger:
                 and not any(item.is_active() for item in inflight.subscriptions)
             ):
                 self.entries.pop(key, None)
+                self._record_late_result_discarded_locked(
+                    provider=key[0],
+                    query=key[1],
+                    as_of=key[2],
+                    reason="publish_guard_rollback",
+                )
+
+    def _record_late_result_discarded_locked(
+        self,
+        *,
+        provider: str,
+        query: str,
+        as_of: str,
+        reason: str,
+    ) -> None:
+        self.late_result_discards.append(
+            {
+                "kind": "late_result_discarded",
+                "provider": provider,
+                "query": query,
+                "as_of": as_of,
+                "reason": reason,
+            }
+        )
 
     def summary(self) -> dict[str, object]:
         with self._lock:
             records = list(self.entries.values())
+            discards = list(self.late_result_discards)
         return {
             "executed_count": len(records),
             "deduped_count": sum(record.reuse_count for record in records),
             "by_provider": _count_by(records, "provider"),
             "records": [record.to_dict() for record in records],
+            "late_result_discarded_count": len(discards),
+            "late_result_discards": discards,
         }
 
 

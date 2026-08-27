@@ -17,7 +17,9 @@ from intelligence.eval.acceptance_verdict import (
 ROOT = Path(__file__).resolve().parents[2]
 CASES_PATH = ROOT / "intelligence/eval/cases/acceptance_cases.json"
 SNAPSHOT_DIR = ROOT / "intelligence/eval/cases/reference_snapshots"
-CANONICAL_CASES_SHA256 = "a25c68253a92be536b94d2403ffa010b6cd15a20b7eea581450159cb6444a1c6"
+# 2026-08-26 换钉：A8/C6 正典题面锚定日期（回补单 #7，「现在/最近」与冻结期望
+# 打架的永久假红）。此前哈希 d98a65573862…8abfc 对应「正典未改；发送层补日期」时代。
+CANONICAL_CASES_SHA256 = "18b392c2b43d6173937a4655b2cbe098a2e671560b8da4214c79ce396e4999f9"
 
 
 def test_missing_run_is_not_run_on_operational_and_truth_axes() -> None:
@@ -72,13 +74,14 @@ def test_all_cases_compile_without_mutating_frozen_assets() -> None:
     # 已知的题目缺陷用具名清单钉住，本身就是一份待办：问的是「现在」、期望值却
     # 冻结在 2026-07-23，这种红永远不会变绿（详见 _reproducibility_diagnostics）。
     # 修好某题的日期锚后，把它从这里删掉；新冒出来的缺陷会让本条断言变红。
+    # 2026-08-26：A8/C6 日期锚已修（正典题面带 2026-07-23），从清单删掉。
     assert {
         contract.case_id for contract in contracts if contract.diagnostics
-    } == {"A8-market-stage", "C6-strict-definition"}
+    } == {"A7-mainline"}
     assert all(
-        "not reproducible" in contract.diagnostics[0]
+        not contract.diagnostics
         for contract in contracts
-        if contract.diagnostics
+        if contract.case_id in {"A8-market-stage", "C6-strict-definition"}
     )
     assert hashlib.sha256(CASES_PATH.read_bytes()).hexdigest() == before
     assert {
@@ -454,7 +457,9 @@ def test_historical_run_calibration_is_honest_and_reproducible() -> None:
         )
     }
 
-    assert verdicts["C1-future-date-no-data"].truth.state is VerdictState.UNJUDGEABLE
+    # 07-27 C1 写了「没有可用」又编造了 7/24 盘面。forbid_phrases 拦不住
+    # 「涨停40家」。overlay 改 structured 后，校准从不可判变成通过。
+    assert verdicts["C1-future-date-no-data"].truth.state is VerdictState.PASS
     assert _rule(
         verdicts["C1-future-date-no-data"], "refusal"
     ).state is VerdictState.PASS
@@ -755,8 +760,8 @@ def test_relative_time_question_with_frozen_facts_is_flagged() -> None:
     """问「现在」而期望值冻在某一天 —— 判官必须报出来，不能当产品失败。
 
     A8 实测：产品答「截至 2026-07-30，底部横盘阶段，第 2 个交易日」，完全正确；
-    expect_facts 冻的是 2026-07-23 的「反弹阶段 / 第 3 天」。runner 只发
-    case["query"]，date 字段根本到不了产品手上。
+    expect_facts 冻的是 2026-07-23 的「反弹阶段 / 第 3 天」。正典 query
+    仍是相对时间；发送层补日期不能把题目改写成已锚定。
     """
     contract = compile_case_contract(
         {
@@ -886,3 +891,115 @@ def test_fact_rule_passes_with_cjk_tight_number() -> None:
         {"total_amount": ("成交额",)},
     )
     assert rule.state is VerdictState.PASS
+
+
+def test_wan_yi_hits_yi_yuan_expectation() -> None:
+    """B7 真形状：2.96万亿 对 29569.03 亿，差 0.10%，须在 ±1% 内命中。"""
+    from intelligence.eval.acceptance_verdict import VerdictState, _evaluate_fact
+
+    rule = _evaluate_fact(
+        {"field": "total_amount", "value": 29569.03, "tol_pct": 1.0},
+        "07-21（E4）：两市成交约2.96万亿、环比+9.4%",
+        {},
+    )
+    assert rule.state is VerdictState.PASS
+
+
+def test_yi_does_not_hit_yi_yuan_expectation() -> None:
+    """门有下限：2.96亿 不得命中 29569.03。只有正向测试 = 假门禁。"""
+    from intelligence.eval.acceptance_verdict import VerdictState, _evaluate_fact
+
+    rule = _evaluate_fact(
+        {"field": "total_amount", "value": 29569.03, "tol_pct": 1.0},
+        "07-21（E4）：两市成交约2.96亿、环比+9.4%",
+        {},
+    )
+    assert rule.state is VerdictState.FAIL
+
+
+def test_c1_calendar_phrasing_counts_as_required_alternative() -> None:
+    """08-18 C1：KC-18 罐头「休市 / 无行情数据」必须被拒答等价类认出。"""
+    overlay = load_verdict_overlay()
+    contract = compile_case_contract(
+        {
+            "id": "C1-future-date-no-data",
+            "tier": "long_tail",
+            "query": "2026-07-25 市场怎么样",
+            "date": "2026-07-25",
+            "expect_refusal": True,
+            "forbid_phrases": ["成交额约", "涨停家数为", "预计涨停"],
+            "pass_rule": "库内 0 行。必须明确说该日无数据/超出覆盖范围。",
+        },
+        overlay["C1-future-date-no-data"],
+    )
+    verdict = evaluate_case(
+        contract,
+        _completed("2026-07-25 为周六，A股休市，该日无行情数据。"),
+    )
+    assert verdict.truth.state is VerdictState.PASS
+
+
+def test_failed_fact_reason_lists_extracted_numbers() -> None:
+    """FAIL 必须附抽出的数，才能一眼分清「产品没答」和「判官没认出」。"""
+    from intelligence.eval.acceptance_verdict import VerdictState, _evaluate_fact
+
+    rule = _evaluate_fact(
+        {"field": "total_amount", "value": 100.0, "tol_pct": 1.0},
+        "成交额 21.95 亿",
+        {"total_amount": ("成交额",)},
+    )
+    assert rule.state is VerdictState.FAIL
+    assert "21.95" in rule.reason
+
+
+def test_a7_pass_rule_or_vs_two_facts_is_a_contract_diagnostic() -> None:
+    """A7 是已知阳性：pass_rule 写「之一」，expect_facts 要两个精确值同时命中。"""
+    doc = json.loads(CASES_PATH.read_text(encoding="utf-8"))
+    case = next(item for item in doc["cases"] if item["id"] == "A7-mainline")
+    contract = compile_case_contract(case, load_verdict_overlay()["A7-mainline"])
+    assert any(
+        "之一" in item or "contradict" in item or "自洽" in item or "自相矛盾" in item
+        for item in contract.diagnostics
+    )
+
+
+def test_b6_clarification_answer_is_structured_pass() -> None:
+    """08-18 B6 已在要澄清。题面未附材料时，这是正确产品行为，不是失败。"""
+    overlay = load_verdict_overlay()
+    doc = json.loads(CASES_PATH.read_text(encoding="utf-8"))
+    case = next(item for item in doc["cases"] if item["id"] == "B6-sellside-distillation")
+    contract = compile_case_contract(case, overlay["B6-sellside-distillation"])
+    verdict = evaluate_case(
+        contract,
+        _completed("我还缺少一点信息：\n1. 你指的是哪家公司、题材或上一条研究逻辑？"),
+    )
+    assert contract.coverage == "structured"
+    assert verdict.truth.state is VerdictState.PASS
+    assert _rule(verdict, "required_any_phrases").state is VerdictState.PASS
+
+
+def test_relative_time_cohort_is_outside_main_truth_denominator() -> None:
+    """A8/C6 仍上板，但不进主判定分母。"""
+    overlay = load_verdict_overlay()
+    doc = json.loads(CASES_PATH.read_text(encoding="utf-8"))
+    by_id = {item["id"]: item for item in doc["cases"]}
+    a8 = compile_case_contract(by_id["A8-market-stage"], overlay["A8-market-stage"])
+    c6 = compile_case_contract(by_id["C6-strict-definition"], overlay["C6-strict-definition"])
+    a1 = compile_case_contract(by_id["A1-market-overview"], overlay["A1-market-overview"])
+    assert a8.cohort == "relative_time"
+    assert c6.cohort == "relative_time"
+    assert not a8.in_main_truth_denominator()
+    assert not c6.in_main_truth_denominator()
+    assert a1.in_main_truth_denominator()
+
+
+def test_scorer_unions_metric_spec_aliases_without_replacing_overlay() -> None:
+    overlay = load_verdict_overlay()
+    doc = json.loads(CASES_PATH.read_text(encoding="utf-8"))
+    case = next(item for item in doc["cases"] if item["id"] == "A1-market-overview")
+    contract = compile_case_contract(case, overlay["A1-market-overview"])
+    aliases = contract.fact_aliases["total_amount"]
+    assert aliases[0] == "成交额"
+    assert "全市成交额" in aliases
+    assert "总成交" in aliases
+    assert contract.fact_aliases["amount_vs_yesterday_pct"][0] == "环比"

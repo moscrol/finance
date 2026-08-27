@@ -650,6 +650,7 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         market_date=options.date,
         source_artifact=str(paths.market_exports / f"{options.date}-research-queue.json"),
         resolved_themes=kb_queue_receipt.resolved_themes(paths.knowledge_wiki),
+        wiki_root=paths.knowledge_wiki,
     )
     catalyst_attribution.enrich_kb_ingest_queue(catalyst_index, kb_queue)
     knowledge_snapshot_after = build_content_delta(

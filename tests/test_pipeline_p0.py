@@ -572,11 +572,20 @@ def test_sync_plan_includes_mainline_sectors_and_features(monkeypatch):
     assert names.index("features") > names.index("theme-flow-daily")
 
 
+def test_sync_plan_includes_public_assets_between_theme_flow_and_features(monkeypatch):
+    monkeypatch.setattr(run_review_sync, "run_step", lambda *args, **kwargs: True)
+    names = [name for name, _runner in run_review_sync.build_plan(TRADE_DATE, 1, 2)]
+
+    assert names.index("public-assets") == names.index("theme-flow-daily") + 1
+    assert names.index("features") == names.index("public-assets") + 1
+
+
 def test_sync_plan_omits_retired_sector_feishu_step(monkeypatch):
     monkeypatch.setattr(run_review_sync, "run_step", lambda *args, **kwargs: True)
     names = [name for name, _runner in run_review_sync.build_plan(TRADE_DATE, 1, 2)]
 
     assert "sector-resonance" not in names
+    assert "market-daily" not in names
 
 
 def test_cli_omits_retired_sector_feishu_commands():
@@ -587,6 +596,7 @@ def test_cli_omits_retired_sector_feishu_commands():
         "sync-sector-marginal",
         "sync-sector-daily-metrics",
         "sync-sector-resonance",
+        "sync-market-daily",
     }.isdisjoint(commands)
 
 
@@ -597,6 +607,8 @@ def test_daily_update_omits_retired_sector_feishu_module():
 
     assert "sync_feishu_sector_resonance" not in source
     assert "sync-sector-resonance" not in source
+    assert "sync_feishu_market_daily" not in source
+    assert "sync-market-daily" not in source
 
 
 def test_nightly_script_attempts_l2_before_sync_failure_exit():

@@ -187,7 +187,39 @@ def build_scenario_guidance() -> str:
             "4. 若 [M] 块有用户既有判断，情景分支应显式承接或反驳它（注明承接/反驳哪条）。",
             "5. 决策者行为只能作为「条件」写进触发条件（如「若管理层在中报说明会确认扩产」），"
             "禁止代入决策者视角编心理活动或内部剧本。",
+            "6. **互斥因果假说**（与第 2 条情景分支不是同一物）：先写本题要解释的同一现象，"
+            "再给 ≥2 条互斥因果假说（解释为什么发生，不是量能/涨跌路径换皮）。"
+            "裁决必须带已检索证据编号；裁不了必须写「证据不足，两假说并立」。"
+            "禁止数值概率。最后写一句操作含义。"
+            "若证据里已有外盘领跌相对强弱，必须用它裁决（例如龙头弱于链条 vs 链条弱于龙头），"
+            "不得只写成交抱团/缩量避险三分支。",
         ]
+    )
+
+
+def build_scenario_guidance_for_episode() -> str:
+    """episode 主路径版情景树契约——纪律同 :func:`build_scenario_guidance`，术语换血。
+
+    legacy 版证据编号用 [D6]/[W7]/[M]，那是 ask_synthesis 检索块记号。
+    episode 的证据纪律是 E1、E2…；原样注入会让模型对照不存在的块。
+    """
+    return (
+        "【情景树表达契约】本题为推演/预测类问题，draft 必须按此结构组织：\n"
+        "1. 关键变量的当前取值必须带证据序号 E1、E2…；没有证据的变量写缺口，"
+        "禁止填印象值。\n"
+        "2. 情景分支（2-4 支）只写「可观察触发条件 → 条件化结论」。"
+        "likelihood 只允许 高/中/低，且必须紧跟依据（证据序号或已检索历史事实）。"
+        "禁止任何数值概率或概率区间。\n"
+        "3. 每支给 1-3 个带时间窗的领先信号；信号必须是可获取的公开数据/公告/盘面指标。\n"
+        "4. 若 memory_lookup 或 conversation_context 有用户既有判断，"
+        "情景分支应显式承接或反驳。\n"
+        "5. 决策者行为只能作为可观察条件，禁止编心理活动。\n"
+        "6. 互斥因果假说（与情景分支不是同一物）：先写同一现象，再给 ≥2 条"
+        "互斥因果假说（解释为什么发生，不是量能/涨跌路径换皮）。"
+        "裁决必须带证据序号 E1、E2…；裁不了必须写「证据不足，两假说并立」。"
+        "禁止数值概率。最后写一句操作含义。"
+        "若证据里已有外盘领跌相对强弱，必须用它裁决（例如龙头弱于链条 vs 链条弱于龙头），"
+        "不得只写成交抱团/缩量避险三分支。"
     )
 
 
@@ -196,3 +228,10 @@ def scenario_guidance_for_query(query: str, question_type: str | None = None) ->
     if not parse_scenario_intent(query, question_type):
         return ""
     return build_scenario_guidance()
+
+
+def episode_scenario_rule(query: str, question_type: str | None = None) -> str:
+    """episode 指令的条件注入口：命中推演意图返回 episode 版契约，否则空串。"""
+    if not parse_scenario_intent(query, question_type):
+        return ""
+    return build_scenario_guidance_for_episode()

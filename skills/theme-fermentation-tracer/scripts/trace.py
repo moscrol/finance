@@ -34,7 +34,7 @@ from market_feature_store.signals import is_double_red  # noqa: E402
 # ---------------------------------------------------------------- 知识库路径
 
 def default_vault() -> Path:
-    for var in ("KB_VAULT", "CONCEPT_VAULT", "ENTITY_VAULT"):
+    for var in ("KB_VAULT", "KNOWLEDGE_WIKI", "CONCEPT_VAULT", "ENTITY_VAULT"):
         val = os.environ.get(var)
         if val:
             return Path(os.path.expanduser(val))
@@ -42,7 +42,7 @@ def default_vault() -> Path:
         for sibling in sorted(REPO_ROOT.parent.iterdir()):
             if sibling != REPO_ROOT and (sibling / "wiki" / "relations").is_dir():
                 return sibling / "wiki"
-    return Path(os.path.expanduser("~/Desktop/c c/知识库/wiki"))
+    return Path.home() / "knowledge-base-private" / "wiki"
 
 
 def load_json(path: Path) -> dict:

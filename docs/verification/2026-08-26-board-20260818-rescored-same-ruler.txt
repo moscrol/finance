@@ -1,0 +1,39 @@
+# 验收看板 · 指定真实运行 20260818T2100Z-caliber-p123-pure-ruler（前置检查通过）
+
+| 题 | 组 | 来源 | 运行 | 真值 | 体验 | 送达 | 信息量 | 可信度 | 耗时 | 绑定证据 | 说明 |
+|---|---|---|---|---|---|---|---|---|---:|---:|---|
+| A1-market-overview | high_freq | e-ruler | 🟢 完成 | ✅ 通过 | 未标注 | ✅ 通过 | — 未评 | ✅ 通过 | 36.2s | 3 |  |
+| A2-next-day-call | high_freq | e-ruler | 🟢 完成 | ❔ 不可判 | 未标注 | ✅ 通过 | — 未评 | ❔ 不可判 | 58.3s | 24 | falsifiable threshold is structured, but directional judgment quality is not |
+| A3-stock-deep-dive | high_freq | e-ruler | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 58.5s | 2 | missing expected entities: 立新能源 |
+| A4-dual-red | high_freq | e-ruler | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 54.3s | 3 | expected fact pct_chg=6.65 not observed within tolerance; extracted_numbers=[8.18, 8.03, 7.82]; matched_aliases=['涨幅'] |
+| A5-limit-heat | high_freq | e-ruler | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 58.3s | 5 | expected fact 储能.limit_up_count=40 not observed within tolerance; extracted_numbers=[2026, 7, 23, 116, 2.19, 0.25, 4, 3, 1, 8] |
+| A6-limit-advance-ladder | high_freq | e-ruler | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 54.3s | 4 | missing product terms: 断层 |
+| A7-mainline | high_freq | e-ruler | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 52.3s | 3 | expected fact 芯片概念.limit_up_count=66 not observed within tolerance; extracted_numbers=[1, 3, 4, 5360.3, 9.83, 28, 5333, 8.98, 30, 4615.9, 14.97, 12, 5093.1, 7.66, 22, 180.4, -1.28, -0.95, -1.35, -1.38] |
+| A8-market-stage | high_freq | e-ruler | 🟢 完成 | ❔ 不可判 | 未标注 | ✅ 通过 | — 未评 | ❔ 不可判 | 28.2s | 3 | case is not reproducible: query is relative-time (现在) but expect_facts is frozen to 2026-07-23; canonical query remains relative-time |
+| A9-sentiment-contradiction | high_freq | e-ruler | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 44.3s | 9 | expected fact strength_marginal_pct=-66.3 not observed within tolerance; extracted_numbers=[4.53, 4, 2.42, 8, 6]; matched_aliases=['强度'] |
+| A10-new-high-structure | high_freq | e-ruler | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 32.2s | 3 | expected fact stock_high_count_20d=339 not observed within tolerance; extracted_numbers=[2026, 7, 21, 1.79, 2.96, 121, 3107, 60, 120, 1, 3, 5, -2.33, -3.13, 43.6, 3, 120, 21.06] |
+| B1-theme-photoresist | mid_freq | e-ruler | 🟢 完成 | ❔ 不可判 | 未标注 | ✅ 通过 | — 未评 | ❔ 不可判 | 62.4s | 0 | historical acceptance trace lacks agent_eval TurnInput observations |
+| B2-theme-liquid-cooling | mid_freq | e-ruler | 🟢 完成 | ❔ 不可判 | 未标注 | ✅ 通过 | — 未评 | ❔ 不可判 | 62.3s | 7 | historical acceptance trace lacks agent_eval TurnInput observations |
+| B3-theme-solid-state-battery | mid_freq | e-ruler | 🟠 降级完成 | ❔ 不可判 | 未标注 | 🟠 部分 | — 未评 | ❔ 不可判 | 90.5s | 21 | historical acceptance trace lacks agent_eval TurnInput observations；synthesis diagnostic unavailable |
+| B4-fermentation-trace | mid_freq | e-ruler | 🟢 完成 | ❔ 不可判 | 未标注 | ✅ 通过 | — 未评 | ❔ 不可判 | 80.5s | 14 | time-sequenced fermentation steps and per-step market data are prose-only |
+| B5-cross-table-intersection | mid_freq | e-ruler | 🟢 完成 | ❔ 不可判 | 未标注 | ✅ 通过 | — 未评 | ❔ 不可判 | 38.2s | 3 | typed answer_set observation not supplied |
+| B6-sellside-distillation | mid_freq | e-ruler | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 29.7s | 0 | none of the required alternatives was observed |
+| B7-volume-sentiment-evolution | mid_freq | e-ruler | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 46.3s | 5 | expected fact 2026-07-23.total_amount=21949.97 not observed within tolerance; extracted_numbers=[7, 21, 29569, 9.44, 7, 22, 265, 27, 7, 24, 19353, -11.83, 20, 29415, 97.17, 65.79]; matched_aliases=['成交额'] |
+| B8-valuation-band | mid_freq | e-ruler | 🟢 完成 | ❔ 不可判 | 未标注 | ✅ 通过 | — 未评 | ❔ 不可判 | 26.2s | 18 | valuation-band reasoning and honest unavailable-data handling are semantic |
+| C1-future-date-no-data | long_tail | e-ruler | 🟢 完成 | ✅ 通过 | 未标注 | ✅ 通过 | — 未评 | ✅ 通过 | 9.6s | 0 |  |
+| C2-non-trading-day | long_tail | e-ruler | 🟢 完成 | ✅ 通过 | 未标注 | ✅ 通过 | — 未评 | ✅ 通过 | 9.6s | 0 |  |
+| C3-empty-table | long_tail | e-ruler | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 46.3s | 16 | answer does not explicitly report unavailable/no data |
+| C4-unit-anomaly | long_tail | e-ruler | 🟠 降级完成 | ❌ 失败 | 未标注 | 🟠 部分 | — 未评 | ❌ 失败 | 116.2s | 30 | expected fact amount_raw=6112588.6 not observed within tolerance; extracted_numbers=[2026, 7, 21, 9, 2026, 7, 21, 2026, 1, 2026, 6, 2026, 6, 2026, 6, 2026, 6, 2, 9, 7]; matched_aliases=['成交额']；synthesis reason_code=knowledge_lane_answer |
+| C5-data-contradiction | long_tail | e-ruler | 🟠 降级完成 | ❌ 失败 | 未标注 | 🟠 部分 | — 未评 | ❌ 失败 | 102.2s | 28 | answer does not flag the required inconsistency；synthesis reason_code=knowledge_lane_answer |
+| C6-strict-definition | long_tail | e-ruler | 🟢 完成 | ❔ 不可判 | 未标注 | ✅ 通过 | — 未评 | ❔ 不可判 | 62.4s | 3 | case is not reproducible: query is relative-time (最近) but expect_answer_set is frozen to 2026-07-23; canonical query remains relative-time |
+| C7-temporal-leakage | long_tail | e-ruler | 🟢 完成 | ✅ 通过 | 未标注 | ✅ 通过 | — 未评 | ✅ 通过 | 52.3s | 25 |  |
+| C8-nonexistent-table | long_tail | e-ruler | 🟢 完成 | ✅ 通过 | 未标注 | ✅ 通过 | — 未评 | ✅ 通过 | 21.6s | 0 |  |
+| C9-citation-integrity | long_tail | e-ruler | 🟢 完成 | ❔ 不可判 | 未标注 | ✅ 通过 | — 未评 | ❔ 不可判 | 68.4s | 5 | citation integrity does not cover the required causal explanation |
+| C10-multi-turn-consistency | long_tail | e-ruler | 🟠 降级完成 | ❌ 失败 | 未标注 | 🟠 部分 | — 未评 | ❌ 失败 | 60.3s | 3 | follow-up lost already established conversation context；synthesis diagnostic unavailable |
+
+**运行口径**：28 道题里，未跑 0、阻塞 0、未产出 0、降级完成 4、正常完成 24（完成合计 28）。
+**真值口径**：通过 5、失败 13、不可判 10、未跑 0；可判子集通过率 5/18（不是 28 题产品通过率）。
+**三轴口径**：送达通过/部分/失败 24/4/0；信息量已评/未评 0/28；可信通过/失败/不可判 5/13/10。
+**失败按判据层**：fact 13、semantic_marker 3、required_text 2、entity_presence 1、multi_turn 1、product_language 1、refusal 1。（同输入复跑实测：fact 层 0% 翻转，product_language 层 33%——措辞层的红不要单次比较）
+**体验口径**：已盲标 0、未标注 28、不适用 0。
+**参照快照**：已冻结 22 / 28 道（codex/knevo）

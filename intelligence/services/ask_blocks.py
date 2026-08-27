@@ -27,6 +27,7 @@ from intelligence.services.ask_types import (
     _normalize,
 )
 from intelligence.services.evidence_window import select_text_window
+from intelligence.services import reading_baseline
 
 
 def _evidence_text_for_llm(
@@ -232,6 +233,7 @@ def _mainline_context_block_for_llm(
             history_params,
         ).fetchall()
         lines = ["## 主线题材结构数据块 [D4]"]
+        lines.extend(reading_baseline.block_rule_lines("D4_mainline"))
         matched = target_theme or "最新全市场主线"
         lines.append(f"- 最新主线日期：{latest}；匹配口径：{matched}；该块是 L4_market_signal，只能说明市场主线归因，不等同公司基本面兑现。")
         if history:
@@ -1408,6 +1410,7 @@ def _market_value_block_for_llm(
             "## 市场价值与替代队列数据块 [D1]",
             f"- 标的识别：{stock_name}（{stock_code}），最新有效交易日 {latest_date}，收盘 {latest_close}，当日涨跌幅 {latest_pct}%，成交额 {latest_amount} 亿。",
         ]
+        lines.extend(reading_baseline.block_rule_lines("D1"))
         lines.extend(value_lines)
         if sector_lines:
             lines.append("- 关联题材/行业状态：" + "；".join(sector_lines))
@@ -1689,8 +1692,9 @@ def _financials_block_for_llm(
 ) -> str:
     """Build the D7 quarterly-financials block for a single target stock.
 
-    目标股从本地 DuckDB 解析（代码/名称），逐季财务走东财免费 F10（market_financials）；
-    解析不到目标股时返回空串（不追加块），网络/库不可用时返回带显式缺口的块。
+    目标股从本地 DuckDB 解析（代码/名称），逐季财务走 D7 provider 链
+    （东财 F10 → 新浪利润表 → AKShare）；解析不到目标股时返回空串（不追加块），
+    网络/库不可用时返回带显式缺口的块。
     """
     if not market_financials.fetch_enabled():
         return market_financials.build_financials_block("", "", [], fetch_disabled=True)

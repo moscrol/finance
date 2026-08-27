@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest import mock
 
 from intelligence.services import llm_refine
+from intelligence.services import evidence_registry
 from intelligence.services.answer_orchestrator import (
     DEPTH_DEEP,
     DEPTH_STANDARD,
@@ -1108,7 +1109,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                         best_chunk_id="weak",
                     )
                 ]
-            elif "风险 证伪" in query:
+            elif "产能过剩" in query or "需求不及" in query:
                 hits = [
                     WikiHit(
                         page_id="counter",
@@ -1150,6 +1151,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
         rendered = render_conversation_answer(result)
         self.assertNotIn("弱相关首页", rendered)
         self.assertIn("测试对象需求下滑风险", rendered)
+        self.assertIn("[反]", rendered)
         assert result.closed_loop_retrieval is not None
         self.assertEqual(len(result.closed_loop_retrieval.clues), 1)
         self.assertEqual(len(result.closed_loop_retrieval.counter_clues), 1)
@@ -1330,8 +1332,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                     use_modules=False,
                     use_wiki_rag=False,
                     compose=True,
-                    include_memory_block=False,
-                    include_recall_block=False,
+                    enabled_providers=evidence_registry.without_providers("M", "V"),
                 )
             )
 

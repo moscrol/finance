@@ -11,6 +11,7 @@ import copy
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from pathlib import Path
+import re
 import time
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
@@ -19,7 +20,9 @@ from intelligence.services import (
     agent_research,
     ask_blocks,
     entity_anchor,
+    evidence_capabilities,
     evidence_search,
+    external_market,
     finance_query,
     kb_rag,
     l3_evidence,
@@ -41,11 +44,24 @@ from intelligence.services.research_tool_registry import (
     default_registry,
 )
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.tool_payload import field_names_from_rows
 
 
 _FAST_PATH_TYPES = frozenset(
     {"market_technical", "external_market", "quick_fact", "dated_market_review"}
 )
+_SUPPORT_FOCUS_RE = re.compile(r"支撑")
+_RESISTANCE_FOCUS_RE = re.compile(r"反弹|上涨空间|压力|阻力")
+
+
+def _market_technical_focus(question: str) -> str:
+    """快路径出文焦点：支撑题先报支撑，其余保持反弹/压力口径。"""
+    text = re.sub(r"\s+", "", str(question or ""))
+    if _SUPPORT_FOCUS_RE.search(text) and not _RESISTANCE_FOCUS_RE.search(text):
+        return "support"
+    return "resistance"
+
+
 _NON_EVIDENCE_PREFIXES = (
     "使用边界：",
     "因果使用要求：",
@@ -53,6 +69,25 @@ _NON_EVIDENCE_PREFIXES = (
     "⚠",
 )
 _OFFICIAL_L3_RUNNER = object()
+
+
+def _finance_payload_kwargs(
+    spec: finance_query.FinanceQuerySpec,
+    result: finance_query.FinanceQueryResult | None = None,
+) -> dict[str, object]:
+    """Attach dataset/caliber/field names for a finance_query return. Never row values."""
+
+    requested = (*(spec.dimensions or ()), *(spec.metrics or ()))
+    names = field_names_from_rows(
+        None if result is None else result.rows,
+        requested=requested,
+    )
+    table = finance_query.dataset_physical_table(spec.dataset)
+    return {
+        "dataset": spec.dataset,
+        "caliber": table or spec.dataset,
+        "payload_field_names": names,
+    }
 _DEFAULT_EVIDENCE_SEARCH_JUDGE = object()
 _AGENT_FINANCE_QUERY_MAX_ROWS = 25
 
@@ -177,6 +212,111 @@ def _structured_freshness_floor(
     return min(snapshot_date, context.information_cutoff.as_of_date)
 
 
+def _should_attach_overnight_leaders(
+    frame: TaskFrame,
+    fixture_policy: SealedFixturePolicy | None,
+) -> bool:
+    if frame.question_type != "market_forecast":
+        return False
+    if fixture_policy is not None and not fixture_policy.external_search_enabled:
+        return False
+    return evidence_capabilities._has_overnight_external_premise(frame.raw_question)
+
+
+def _overnight_leader_evidence(
+    frame: TaskFrame,
+    *,
+    timeout: float,
+) -> tuple[list[agent_research.AgentEvidence], str | None]:
+    result = external_market.resolve_overnight_leaders(
+        frame.raw_question,
+        timeout=timeout,
+    )
+    evidence: list[agent_research.AgentEvidence] = []
+    for quote in result.quotes:
+        line = external_market.format_quote_line(quote)
+        item = agent_research.AgentEvidence(
+            tool="market_data",
+            title=line[:48],
+            detail=line,
+            source=quote.source,
+            source_date=quote.trade_date,
+            evidence_tier="L4_structured",
+        )
+        evidence.append(
+            replace(item, content_hash=agent_research.evidence_content_hash(item))
+        )
+    return evidence, result.gap
+
+
+_OVERNIGHT_NEWS_QUERY = "美股"
+
+
+def _should_attach_overnight_news(
+    frame: TaskFrame,
+    fixture_policy: SealedFixturePolicy | None,
+    allowed_capabilities,
+) -> bool:
+    if "news_search" not in allowed_capabilities:
+        return False
+    if frame.question_type != "market_forecast":
+        return False
+    if fixture_policy is not None and not fixture_policy.external_search_enabled:
+        return False
+    return evidence_capabilities._has_overnight_external_premise(frame.raw_question)
+
+
+def _overnight_news_evidence(
+    *,
+    as_of,
+    timeout,
+) -> tuple[list[agent_research.AgentEvidence], str]:
+    result = market_news.fetch_eastmoney_news_result(
+        _OVERNIGHT_NEWS_QUERY,
+        timeout=timeout,
+        as_of=as_of,
+    )
+    if as_of is None:
+        cutoff_text = None
+    elif hasattr(as_of, "isoformat"):
+        cutoff_text = as_of.isoformat()
+    else:
+        cutoff_text = str(as_of)[:10]
+    after_cutoff = bool(not result.items and result.after_cutoff_items)
+    source_items = result.items[:6] or result.after_cutoff_items[:6]
+    evidence = [
+        agent_research.AgentEvidence(
+            tool="news_search",
+            title=(
+                f"晚于问句日 {cutoff_text}｜{item.title}"
+                if after_cutoff and cutoff_text
+                else item.title
+            ),
+            detail=f"{item.date} {item.source}",
+            source=item.url,
+            source_date=item.date[:10] or None,
+            evidence_tier="news",
+            independent_key=item.url,
+        )
+        for item in source_items
+    ]
+    evidence = [
+        replace(item, content_hash=agent_research.evidence_content_hash(item))
+        for item in evidence
+    ]
+    if after_cutoff and cutoff_text and evidence:
+        listed = "；".join(f"{item.detail}《{item.title}》" for item in evidence)
+        observation = (
+            f"源返回 {len(evidence)} 条，全部晚于问句日 {cutoff_text}，"
+            f"已标注后交付；不是源里没有。{listed}"
+        )
+    else:
+        observation = "；".join(
+            f"{item.detail}《{item.title}》" for item in evidence
+        )
+    return evidence, observation
+
+
 def _structured_as_of(context: ResearchRunContext) -> str:
     """盘面查询上界：有快照用 min(快照, cutoff)，没有快照也必须夹在 cutoff 内。
 
@@ -227,6 +367,16 @@ def _task_authorizes_historical_window(
         cue in task_text
         for cue in ("历史", "去年", "前年", "上个月", "上月", "上季度", "当时")
     )
+
+
+def _window_anchored_on_episode_dates(
+    spec: finance_query.FinanceQuerySpec,
+    authorized_trade_dates: set[str] | frozenset[str],
+) -> bool:
+    """窗口起点已在本轮证据里 → 允许查那一天，不看题型。"""
+
+    start = spec.time_range.start if spec.time_range is not None else None
+    return bool(start is not None and start.isoformat() in authorized_trade_dates)
 
 
 def _requests_earlier_window(
@@ -303,6 +453,7 @@ def _exited_universe_result(
     dataset_label: str,
     dataset_max_date: str,
     detail: str,
+    spec: finance_query.FinanceQuerySpec | None = None,
 ) -> ToolRunResult:
     """交付「退出集合」这一生命周期事实，连同退出前的行。
 
@@ -319,6 +470,7 @@ def _exited_universe_result(
         "（构成要素退出，非数据陈旧）。"
     )
     observation = f"{fact}{result.observation}" if result.observation else fact
+    payload = _finance_payload_kwargs(spec, result) if spec is not None else {}
     return ToolRunResult(
         evidence=result.evidence,
         observation=observation,
@@ -332,6 +484,7 @@ def _exited_universe_result(
             result_count=len(result.evidence),
         ),
         gaps=(),
+        **payload,
     )
 
 
@@ -342,6 +495,7 @@ def _stale_structured_result(
     served_date: str | None,
     floor: date,
     detail: str,
+    spec: finance_query.FinanceQuerySpec | None = None,
 ) -> ToolRunResult:
     served = str(served_date or "未知日期")
     required = floor.isoformat()
@@ -349,6 +503,7 @@ def _stale_structured_result(
         f"结构化市场数据仅更新到 {served}，早于当前所需 {required}；"
         "旧数据未用于当前判断"
     )
+    payload = _finance_payload_kwargs(spec) if spec is not None else {}
     return ToolRunResult(
         evidence=(),
         observation=gap,
@@ -363,6 +518,7 @@ def _stale_structured_result(
             result_count=0,
         ),
         gaps=(gap,),
+        **payload,
     )
 
 
@@ -379,6 +535,123 @@ def _roots(
         Path(finance_root).expanduser() if finance_root else paths.finance_root,
         Path(knowledge_wiki).expanduser() if knowledge_wiki else paths.knowledge_wiki,
     )
+
+
+def _is_fermentation_prefetch(frame: TaskFrame) -> bool:
+    from intelligence.services.query_understanding import (
+        SIGNAL_FERMENTATION,
+        surface_research_signals,
+    )
+    from intelligence.services.research_contract import (
+        OPERATOR_STRICT_DOUBLE_RED,
+        compile_research_program,
+    )
+
+    program = compile_research_program(
+        frame.raw_question,
+        question_class=frame.question_type,
+    )
+    signals = surface_research_signals(
+        frame.raw_question,
+        question_class=frame.question_type,
+    )
+    return (
+        OPERATOR_STRICT_DOUBLE_RED in program.operators
+        and SIGNAL_FERMENTATION in signals
+    )
+
+
+def _asof_prefetch_text(
+    frame: TaskFrame,
+    context: ResearchRunContext,
+    market_db_path: Path,
+) -> str:
+    from intelligence.services.asof_prefetch import collect_prefetch_items
+
+    try:
+        as_of = date.fromisoformat(_structured_as_of(context))
+        items = collect_prefetch_items(
+            question=frame.raw_question,
+            question_type=frame.question_type,
+            subject=frame.subject or "",
+            as_of=as_of,
+            market_db_path=market_db_path,
+        )
+    except Exception:
+        return ""
+    return "\n".join(item.detail for item in items if str(item.detail or "").strip())
+
+
+def _opening_prefetch_evidence(
+    frame: TaskFrame,
+    context: ResearchRunContext,
+    market_db_path: Path,
+    *,
+    user_space=None,
+    perspective_ids: tuple[str, ...] = (),
+    perspective_mode: str = "neutral",
+) -> tuple[agent_research.AgentEvidence, ...]:
+    from intelligence.services.asof_prefetch import (
+        collect_prefetch_items,
+        evidence_from_prefetch,
+    )
+
+    try:
+        as_of = date.fromisoformat(_structured_as_of(context))
+        items = collect_prefetch_items(
+            question=frame.raw_question,
+            question_type=frame.question_type,
+            subject=frame.subject or "",
+            as_of=as_of,
+            market_db_path=market_db_path,
+        )
+    except Exception:
+        return ()
+    evidence = list(evidence_from_prefetch(items))
+    if frame.question_type == "market_forecast":
+        for item in _live_weekly_opening_evidence(
+            items,
+            user_space=user_space,
+            perspective_ids=perspective_ids,
+            perspective_mode=perspective_mode,
+        ):
+            digest = str(item.content_hash or "").strip() or agent_research.evidence_content_hash(item)
+            evidence.append(replace(item, content_hash=digest))
+    return tuple(evidence)
+
+
+def _live_weekly_opening_evidence(
+    items,
+    *,
+    user_space,
+    perspective_ids: tuple[str, ...],
+    perspective_mode: str,
+) -> tuple[agent_research.AgentEvidence, ...]:
+    from intelligence.services.perspective_live_weekly import (
+        bind_live_weekly,
+        live_weekly_evidence,
+        retrieve_analog_snippets,
+    )
+
+    pid = next((str(item).strip() for item in perspective_ids if str(item).strip()), "")
+    receipt = bind_live_weekly(
+        user_space,
+        pid,
+        perspective_mode=perspective_mode,
+    )
+    analogs: list[dict[str, str]] = []
+    if receipt.bound and receipt.date and user_space is not None and pid:
+        tape = next(
+            (str(item.detail) for item in items if getattr(item, "title", "") == "先验周量能序列"),
+            "",
+        )
+        analogs = retrieve_analog_snippets(
+            user_space,
+            pid,
+            tape or "量能 主线 双红",
+            live_date=receipt.date,
+        )
+    return live_weekly_evidence(receipt, analogs)
 
 
 def latest_market_date(
@@ -404,6 +677,9 @@ def _market_block(
     valuation_fetcher: object | None = None,
 ) -> tuple[str, str, str]:
     as_of_value = _structured_as_of(context)
+    prefetch_text = _asof_prefetch_text(frame, context, market_db_path)
+    if _is_fermentation_prefetch(frame) and prefetch_text:
+        return prefetch_text, "本地 DuckDB · 问句日预取", "fermentation_timeline"
     if frame.question_type == "market_forecast":
         block = "\n".join(
             part
@@ -419,6 +695,8 @@ def _market_block(
             )
             if part
         )
+        if prefetch_text:
+            block = "\n".join(part for part in (block, prefetch_text) if part)
         return block, "本地 DuckDB · 预测盘面窗口", "market_forecast_window"
     if frame.question_type == "market_cause":
         return (
@@ -480,6 +758,9 @@ def build_episode_registry(
     fixture_policy: SealedFixturePolicy | None = None,
     memory_user: str | None = None,
     memory_users_root: str | Path | None = None,
+    perspective_ids: tuple[str, ...] = (),
+    perspective_mode: str = "neutral",
+    user_space=None,
 ) -> ResearchToolRegistry:
     """Build a read-only registry from the repository's current tool runners."""
 
@@ -650,6 +931,41 @@ def build_episode_registry(
             for item in evidence
             if not item.detail.startswith(_NON_EVIDENCE_PREFIXES)
         ]
+        if _should_attach_overnight_leaders(frame, fixture_policy):
+            leader_timeout = tool_context.deadline.stage_timeout(15.0)
+            if leader_timeout > 0.001:
+                leader_evidence, leader_gap = _overnight_leader_evidence(
+                    frame,
+                    timeout=leader_timeout,
+                )
+                evidence.extend(leader_evidence)
+                extras = [item.detail for item in leader_evidence]
+                if leader_gap:
+                    extras.append(leader_gap)
+                if extras:
+                    observation = "；".join(
+                        part for part in (observation, *extras) if part
+                    )
+        if _should_attach_overnight_news(
+            frame,
+            fixture_policy,
+            context.contract.allowed_capabilities,
+        ) and not any(item.tool == "news_search" for item in evidence):
+            news_timeout = tool_context.deadline.stage_timeout(8.0)
+            if news_timeout > 0.001:
+                news_evidence, news_obs = _overnight_news_evidence(
+                    as_of=market_news.query_date_cutoff(
+                        _OVERNIGHT_NEWS_QUERY,
+                        upper_bound=context.information_cutoff.as_of_date,
+                    ),
+                    timeout=news_timeout,
+                )
+                if news_evidence:
+                    evidence.extend(news_evidence)
+                    if news_obs:
+                        observation = "；".join(
+                            part for part in (observation, news_obs) if part
+                        )
         return (
             evidence,
             observation or "结构化行情无可用结果",
@@ -694,7 +1010,7 @@ def build_episode_registry(
         evidence, observation = agent_research.block_lines_to_evidence(
             "financial_data",
             block,
-            "东财 F10 / AKShare · D7 逐季财报",
+            "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报",
             limit=12,
             detail_chars=1000,
         )
@@ -890,6 +1206,9 @@ def build_episode_registry(
             historical_authorized = _task_authorizes_historical_window(
                 frame,
                 floor=freshness_floor,
+            ) or _window_anchored_on_episode_dates(
+                bounded_value,
+                context.authorized_trade_dates,
             )
             if _requests_earlier_window(
                 bounded_value,
@@ -917,6 +1236,7 @@ def build_episode_registry(
                     gaps=(
                         "当前问题需要截止日附近的结构化数据；模型选择的旧历史窗口未执行",
                     ),
+                    **_finance_payload_kwargs(bounded_value),
                 )
             try:
                 result = query_engine.run(
@@ -960,6 +1280,7 @@ def build_episode_registry(
                         dataset_label=value.dataset,
                         dataset_max_date=str(dataset_max),
                         detail=f"dataset={value.dataset}; subject_exited_universe",
+                        spec=bounded_value,
                     )
                 return _stale_structured_result(
                     capability="finance_query",
@@ -967,6 +1288,7 @@ def build_episode_registry(
                     served_date=result.served_date,
                     floor=freshness_floor,
                     detail=f"dataset={value.dataset}; stale_current_data",
+                    spec=bounded_value,
                 )
             gaps = (
                 ()
@@ -974,19 +1296,25 @@ def build_episode_registry(
                 else (f"{value.dataset} 在指定条件与时点内没有结构化结果",)
             )
             observation = result.observation
-            if (
-                normalized.limit > result.audit.applied_limit
-                and result.audit.row_count >= result.audit.applied_limit
-            ):
-                observation = (
-                    f"{observation}；查询结果已按 Agent 上下文预算截断至 "
-                    f"{result.audit.applied_limit} 条；如需更多，请增加筛选、"
-                    "分组或排序后继续查询"
-                )
+            notice = finance_query.truncation_notice(
+                result.audit,
+                covered_range=finance_query.covered_date_range(
+                    tuple(item.source_date for item in result.evidence)
+                ),
+            )
+            if notice:
+                observation = f"{observation}；{notice}"
             # 代偿必须让模型看见：查询成功但写法被改过，不说它下一轮还会照原样写。
             # 放在结论之后、和截断提示同层——都是「结果可用，但有一条关于写法的话」。
             if normalization_notes:
                 observation = "；".join((observation, *normalization_notes))
+            # 覆盖面提示同理，但它拦的是**校验器够不着的那一半**：在子集表上排名次，
+            # 查询完全合法、数值也对，错的是分母。A5 实测（2026-08-18）就是在只有
+            # 十余行的 mainline_sector_daily 上按 limit_up_count 取 top15，
+            # 去回答「全市涨停集中在哪些题材」。空串表示无话可说。
+            advisory = finance_query.coverage_advisory(bounded_value)
+            if advisory:
+                observation = "；".join((observation, advisory))
             return ToolRunResult(
                 evidence=tuple(result.evidence),
                 observation=observation,
@@ -1000,8 +1328,10 @@ def build_episode_registry(
                     ),
                     source_trade_date=result.served_date,
                     result_count=len(result.evidence),
+                    requested_time_range=result.audit.requested_time_range,
                 ),
                 gaps=gaps,
+                **_finance_payload_kwargs(bounded_value, result),
             )
 
         specs.append(
@@ -1009,11 +1339,11 @@ def build_episode_registry(
                 name="finance_query",
                 capability="finance_query",
                 description=(
-                    "查询本地结构化金融数据。dataset 可选 market_daily、"
-                    "stock_daily、sector_daily、sector_stock_daily、"
-                    "mainline_theme_daily、mainline_sector_daily；由你选择"
-                    "指标、维度、筛选、分组、排序和时间范围。字段必须按"
-                    "dataset 对应关系选择，不要混用不同 dataset 的字段。"
+                    "查询本地结构化金融数据。dataset 必须选自当前注册表"
+                    f"（{ '、'.join(finance_query._PUBLIC_DATASETS) }）；"
+                    "周历/周末大事用 event_daily。"
+                    "由你选择指标、维度、筛选、分组、排序和时间范围。"
+                    "字段必须按 dataset 对应关系选择，不要混用不同 dataset 的字段。"
                     f"可用字段：{finance_query.dataset_field_hint()}"
                 ),
                 cost="local",
@@ -1107,10 +1437,17 @@ def build_episode_registry(
             )
             tool_context.check_cancelled()
             evidence: list[agent_research.AgentEvidence] = []
-            for record in recall.judgments:
+            peer_lines = user_memory.judgment_peer_hits(
+                list(recall.judgments),
+                user=memory_user,
+                users_root=memory_users_root,
+            )
+            for record, peer in zip(recall.judgments, peer_lines, strict=False):
                 memo = str(record.get("memo") or "").strip()
                 if not memo:
                     continue
+                if peer:
+                    memo = f"{memo}\n{peer}"
                 tags = [
                     str(tag).strip()
                     for key in ("themes", "stocks")
@@ -1183,7 +1520,26 @@ def build_episode_registry(
             )
         )
 
-    return ResearchToolRegistry(tuple(specs))
+    live_us = user_space
+    if live_us is None and str(memory_user or "").strip():
+        from intelligence import userspace
+
+        try:
+            live_us = userspace.user_space(memory_user)
+        except ValueError:
+            # Audit probe / illegal id: skip live weekly, keep assembling tools.
+            live_us = None
+    return ResearchToolRegistry(
+        tuple(specs),
+        opening_prefetch=_opening_prefetch_evidence(
+            frame,
+            context,
+            market_db_path,
+            user_space=live_us,
+            perspective_ids=tuple(perspective_ids),
+            perspective_mode=perspective_mode,
+        ),
+    )
 
 
 def _finance_query_failure_result(
@@ -1229,6 +1585,7 @@ def _finance_query_failure_result(
             result_count=0,
         ),
         gaps=(gap,),
+        **_finance_payload_kwargs(spec),
     )
 
 
@@ -1236,6 +1593,7 @@ def run_deterministic_fast_path(
     frame: TaskFrame,
     *,
     timeout: float,
+    as_of: str | None = None,
 ) -> dict[str, object]:
     """Execute a preserved deterministic lane without entering AgentEpisode."""
 
@@ -1266,6 +1624,7 @@ def run_deterministic_fast_path(
     outcome = market_technical.resolve_market_technical(
         frame.raw_question,
         timeout=bounded_timeout,
+        as_of=as_of,
     )
     if isinstance(outcome, market_technical.TechnicalGap):
         return {
@@ -1309,17 +1668,29 @@ def run_deterministic_fast_path(
         )
         for level in outcome.supports
     ]
-    answer = (
+    resistance_text = "；".join(resistance_parts) or "当前没有高于收盘的可靠压力候选"
+    support_text = "；".join(support_parts) or "暂无可靠支撑候选"
+    header = (
         f"截至 {outcome.as_of}，{outcome.subject}收盘 {outcome.close:.2f}。"
-        f"按近期日线结构，反弹空间先看上方压力区："
-        f"{'；'.join(resistance_parts) or '当前没有高于收盘的可靠压力候选'}。"
-        f"下方支撑为：{'；'.join(support_parts) or '暂无可靠支撑候选'}。"
-        f"{outcome.invalidation}"
+        "按近期日线结构，"
     )
+    if _market_technical_focus(frame.raw_question) == "support":
+        answer = (
+            f"{header}下方支撑为：{support_text}。"
+            f"上方压力区：{resistance_text}。"
+            f"{outcome.invalidation}"
+        )
+    else:
+        answer = (
+            f"{header}反弹空间先看上方压力区：{resistance_text}。"
+            f"下方支撑为：{support_text}。"
+            f"{outcome.invalidation}"
+        )
     return {
         "execution_kind": "deterministic_fast_path",
         "status": "completed",
         "answer": answer,
+        "as_of": outcome.as_of,
         "gaps": list(outcome.warnings),
         "traces": [
             ProviderTrace(

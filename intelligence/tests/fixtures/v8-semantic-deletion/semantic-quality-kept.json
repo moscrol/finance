@@ -1,0 +1,16 @@
+{
+  "id": "v8-semantic-quality-required-block",
+  "draft": "【直接判断】当日主线仍是电网设备。成交额 530.96 亿来自问句日预取。据此判断延续观察。【证据边界】仅覆盖 2026-07-23 日频盘面。",
+  "rejected_sentence_indexes": [3],
+  "issues": ["第3句质量不够，证明不了主线延续"],
+  "keep_snippet": "据此判断延续观察",
+  "before": {
+    "keep_snippet_present": false,
+    "note": "V8 前：语义质量拒句走 _repair，第 3 句被整句删除"
+  },
+  "after": {
+    "keep_snippet_present": true,
+    "doubt_mark_required": true,
+    "note": "V8 后：第 3 句留下并带 harness 存疑标"
+  }
+}

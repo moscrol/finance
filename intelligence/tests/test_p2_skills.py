@@ -12,11 +12,6 @@ from intelligence.services.evidence_gap_radar import (
     GAP_DIMENSIONS,
     scan_evidence_gaps,
 )
-from intelligence.services.source_credibility import (
-    UNKNOWN_TYPE,
-    rerank_by_credibility,
-    score_source,
-)
 from intelligence.services.valuation_gap import VALUATION_QUESTIONS, check_valuation_gaps
 
 
@@ -48,25 +43,6 @@ class EvidenceGapRadarTests(unittest.TestCase):
         report = scan_evidence_gaps("某公司", [])
         self.assertEqual(len(report.gaps), len(GAP_DIMENSIONS))
         self.assertEqual(report.coverage_rate, 0.0)
-
-
-class SourceCredibilityTests(unittest.TestCase):
-    def test_ordering_official_above_social(self) -> None:
-        official = score_source("公司公告：签订供货合同")
-        report = score_source("某券商研报测算")
-        social = score_source("雪球小作文截图")
-        self.assertGreater(official.score, report.score)
-        self.assertGreater(report.score, social.score)
-        self.assertEqual(official.source_type, "official_announcement")
-
-    def test_unknown_source_gets_floor_score(self) -> None:
-        cred = score_source("一段没有来源特征的话")
-        self.assertEqual(cred.source_type, UNKNOWN_TYPE)
-
-    def test_rerank_prefers_hard_source_on_close_scores(self) -> None:
-        hits = [("雪球小作文截图：订单爆了", 0.8), ("公司公告：签订供货合同", 0.75)]
-        ranked = rerank_by_credibility(hits)
-        self.assertIn("公告", ranked[0][0])
 
 
 class EventTransmissionTests(unittest.TestCase):

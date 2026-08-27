@@ -1,0 +1,61 @@
+{
+  "id": "heldout-v1",
+  "created": "2026-08-22",
+  "purpose": "R3 §B2 held-out 探针电池。不进夹具、不被测试 import。",
+  "questions": [
+    {
+      "id": "h1",
+      "theme": "可控核聚变",
+      "kind": "concept",
+      "question": "可控核聚变现在怎么看"
+    },
+    {
+      "id": "h2",
+      "theme": "北方华创",
+      "kind": "stock",
+      "question": "北方华创怎么看"
+    },
+    {
+      "id": "h3",
+      "theme": "铜缆高速连接",
+      "kind": "chain",
+      "question": "铜缆高速连接产业链上下游怎么拆"
+    },
+    {
+      "id": "h4",
+      "theme": "脑机接口",
+      "kind": "concept",
+      "question": "脑机接口这波发酵到哪了"
+    },
+    {
+      "id": "h5",
+      "theme": "海光信息",
+      "kind": "stock",
+      "question": "海光信息最近基本面怎么看"
+    },
+    {
+      "id": "h6",
+      "theme": "工业母机",
+      "kind": "chain",
+      "question": "工业母机产业链怎么看"
+    },
+    {
+      "id": "h7",
+      "theme": "卫星互联网",
+      "kind": "concept",
+      "question": "卫星互联网这个方向怎么看"
+    },
+    {
+      "id": "h8",
+      "theme": "新易盛",
+      "kind": "stock",
+      "question": "新易盛怎么看"
+    },
+    {
+      "id": "h9",
+      "theme": "氢能源",
+      "kind": "chain",
+      "question": "氢能源产业链怎么拆"
+    }
+  ]
+}

@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from intelligence.runtime.episode_tool_batch import tool_batch_timeout_seconds
-from intelligence.services.episode_semantic_verifier import semantic_judge_window_seconds
+from intelligence.services.episode_semantic_verifier import (
+    DEFAULT_JUDGE_TIMEOUT_SECONDS,
+    complete_judge_attempt_seconds,
+    semantic_judge_window_seconds,
+)
 from intelligence.services.research_contract import (
     ResearchPolicy,
     apply_env_ceiling,
@@ -28,7 +32,8 @@ def test_deep_caps_reproduce_arm_c_floors() -> None:
     caps = derive_stage_caps(ResearchPolicy.for_tier("deep"))
     assert caps.judge_window_seconds >= 25.0
     assert caps.tool_batch_seconds >= 60.0
-    assert min(30.0, caps.judge_window_seconds * 0.5) >= 25.0
+    assert complete_judge_attempt_seconds(DEFAULT_JUDGE_TIMEOUT_SECONDS) == 50.0
+    assert min(DEFAULT_JUDGE_TIMEOUT_SECONDS, caps.judge_window_seconds) == 50.0
 
 
 def test_standard_caps_stay_inside_total_and_protect_reserve() -> None:
@@ -39,11 +44,12 @@ def test_standard_caps_stay_inside_total_and_protect_reserve() -> None:
 
 
 def test_standard_judge_window_floor_covers_r06_terra_p95() -> None:
-    """R-06 H9: standard first attempt must clear the 08-10 25s band.
+    """R-06 / R-10: window floor stays 50; 08-20 first attempt uses the window.
 
     Live asked=5.208 (retry half-window). Judge-shaped terra N=8 p95=10.75.
-    Floor only the standard judge window to deep's 50s; do not steal reserve
-    or raise T / repair cap / quick / deep.
+    08-20 grok compact N=5 tail=46.7, so first = min(cap, window)=50, not
+    window×0.5. Do not steal synthesis reserve or raise T / repair cap /
+    tool_batch / quick / deep.
     """
 
     standard = derive_stage_caps(ResearchPolicy.for_tier("standard"))
@@ -51,7 +57,7 @@ def test_standard_judge_window_floor_covers_r06_terra_p95() -> None:
     deep = derive_stage_caps(ResearchPolicy.for_tier("deep"))
     assert standard.tool_batch_seconds == 70.0
     assert standard.judge_window_seconds == 50.0
-    assert min(30.0, standard.judge_window_seconds * 0.5) == 25.0
+    assert min(DEFAULT_JUDGE_TIMEOUT_SECONDS, standard.judge_window_seconds) == 50.0
     assert quick.judge_window_seconds < 25.0
     assert deep.judge_window_seconds == 50.0
 

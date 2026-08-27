@@ -70,6 +70,21 @@ def test_market_forecast_runtime_uses_current_structure_without_causal_web_tools
     assert capabilities == ("market_data", "mainline_context")
 
 
+def test_overnight_hybrid_forecast_runtime_authorizes_news_and_web() -> None:
+    result = TurnControlCore().control(
+        "基于周二的盘面数据，你认为主线是什么。"
+        "今晚美股科技调整较多，你认为明天盘面会怎么走，哪个方向可能有机会"
+    )
+
+    capabilities = runtime_capabilities_for_frame(result.task_frame)
+
+    assert result.task_frame.question_type == "market_forecast"
+    assert "market_data" in capabilities
+    assert "mainline_context" in capabilities
+    assert "news_search" in capabilities
+    assert "web_search" in capabilities
+
+
 def test_market_cause_runtime_keeps_time_aligned_news_and_web_tools() -> None:
     result = TurnControlCore().control("这一周行情下跌的主要原因是什么")
 

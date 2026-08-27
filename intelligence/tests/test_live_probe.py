@@ -18,6 +18,7 @@ from intelligence.services.ask_llm_context import (
     maybe_persist_llm_context,
     persist_enabled,
 )
+from intelligence.services.gate_receipt import TABLE_COLUMNS
 from intelligence.services.run_store import RunStore
 
 
@@ -110,6 +111,19 @@ def test_inspect_grades_stale_marker_from_llm_context_not_answer(tmp_path: Path)
     assert inspection.steps[0]["step_id"] == "s01"
     assert inspection.steps[0]["name"] == "ask_retrieve_compose"
     assert inspection.tools[0]["provider"] == "knowledge"
+
+
+def test_gate_receipt_table_from_run_dir_uses_stable_columns(tmp_path: Path) -> None:
+    run_dir = _write_run_dir(
+        tmp_path,
+        with_llm_context=False,
+        stale_in_context=False,
+        stale_in_answer=False,
+    )
+    row = probe.gate_receipt_table_from_run_dir(run_dir)
+    assert tuple(row) == TABLE_COLUMNS
+    assert row["engine"] is None
+    assert row["correlated_judge"] is None
 
 
 def test_inspect_does_not_treat_answer_body_as_first_hand(tmp_path: Path) -> None:
@@ -341,6 +355,16 @@ def test_run_ask_persists_llm_context_when_env_on(
     path = store.run_dir(run.run_id) / LLM_CONTEXT_FILENAME
     assert path.is_file()
     assert STALE in path.read_text(encoding="utf-8")
+    report = json.loads(
+        (store.run_dir(run.run_id) / "report.json").read_text(encoding="utf-8")
+    )
+    summary = json.loads(
+        (store.run_dir(run.run_id) / "summary.json").read_text(encoding="utf-8")
+    )
+    assert report["gate_receipt"]["engine"] == "ask"
+    assert report["gate_receipt"]["verified_status"] == "not_applicable"
+    assert report["gate_receipt"]["judge_status"] == "not_applicable"
+    assert summary["gate_receipt"] == report["gate_receipt"]
 
 
 def test_post_ask_and_wait_reads_run_id() -> None:
@@ -384,6 +408,40 @@ def test_post_ask_and_wait_reads_run_id() -> None:
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_degrade_counts_from_run_dir_split_unavailable_vs_content(
+    tmp_path: Path,
+) -> None:
+    judge_dir = tmp_path / "judge"
+    judge_dir.mkdir()
+    (judge_dir / "run.json").write_text(
+        json.dumps({"degrades": ["semantic judge leftover window"]}),
+        encoding="utf-8",
+    )
+    (judge_dir / "report.json").write_text(
+        json.dumps({"semantic_verifier": {"judge_status": "unavailable"}}),
+        encoding="utf-8",
+    )
+    assert probe.degrade_counts_from_run_dir(judge_dir) == {
+        "judge_unavailable_count": 1,
+        "content_degraded_count": 0,
+    }
+
+    ask_dir = tmp_path / "ask"
+    ask_dir.mkdir()
+    (ask_dir / "run.json").write_text(
+        json.dumps({"degrades": ["llm_unavailable_template_answer"]}),
+        encoding="utf-8",
+    )
+    (ask_dir / "report.json").write_text(
+        json.dumps({"judge_status": "not_applicable"}),
+        encoding="utf-8",
+    )
+    assert probe.degrade_counts_from_run_dir(ask_dir) == {
+        "judge_unavailable_count": 0,
+        "content_degraded_count": 1,
+    }
 
 
 def test_port_is_listening_detects_bound_socket() -> None:

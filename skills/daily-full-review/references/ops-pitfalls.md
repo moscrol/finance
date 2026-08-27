@@ -18,6 +18,25 @@
   用 `count(distinct sector_ts_code)` vs `dim_sector` 判断完成度。
 - **strategy1 矩阵不要喂 evolution record**：那是另一个流程的坑。策略一走
   `skills/strategy1-matrix`，本 skill 只管同步段。
+- **`member_count_surplus` = 宇宙声明过时，不是抓取失败**：盘后 live 成员比 18:30
+  快照 `expected_stock_count` 多 1–2 只时，写入会被拒、same-day 报「无当日成员行」。
+  **不要手改 expected**。正规路径：`sync-sectors` 重发 published 快照 → 再跑
+  `sync-sector-daily` **和** `sync-sector-stocks`（VIEW 只暴露新快照，旧 generation 会隐形）。
+- **生成段子步骤用 PATH 里的 `python3`，不是启动器那个**：workflow `CommandSpec`
+  写死 `python3 scripts/...`。venv-workbench 没有 `markdown`/`matplotlib` 时会
+  `ModuleNotFoundError` 或静默不写涨家数图。与夜跑一致：`PATH` 以
+  `/opt/homebrew/bin` 开头。不要把 `.venv-workbench/bin` 放到 PATH 最前再跑
+  `intelligence.cli daily`。
+- **agent-daily `content delta exceeds maximum size`（10MB）**：会扫知识库 wiki
+  相对 HEAD 的改动 + **未跟踪目录**（gitignore 不能缩小 delta，保真契约要求 ignored 也进快照）。
+  常见撑爆源：`wiki/raw/disclosures/review-queue/reports/`（每日 L3 json/md）和
+  `wiki/raw/cross-repo-ingest-queue/`（kb-queue-receive 归档，复盘自己写入、次日再扫）。
+  研究队列因此缺档**不阻断**矩阵/驾驶台。不要在复盘补跑里扩 cap，也不要把这些归档
+  commit 进别人的知识库分支。正规临时手法：只把上述**未跟踪**目录移到 wiki 外
+  （如知识库根 `.delta-park-<日期>/`），跑完 `agent-daily` 再移回；**不要搬**
+  `review-queue/` 根上已跟踪的 `cninfo-rss-*.json`。08-25 实测 park 后 delta ~3MB。
+  L3 `--apply` 会改 `wiki/sources` / `wiki/entities`：知识库在别人的脏分支上只 dry-run；
+  dry-run 0 候选不要 apply。
 
 - ⛔ **`fast_daily_sync.py` 已于 2026-08-02 停用，不要跑**（脚本自带闸门，默认
   退出码 2）。两个原因：① 它 INSERT 的 `fact_sector_daily` /
@@ -42,14 +61,46 @@
   东方财富 sync-stock-daily-snapshot 和 akshare stock_zh_a_spot_em 会同时
   不可用。此时 **唯一可靠源是 fupanhui（sync-sector-stocks）**。
   应对路径：sync-sector-stocks --refresh → fill-stock-daily-fallback → daily-review。
+- **fupanhui 公开端点转登录（2026-08-24 起）**：/data/theme/panels、
+  /topics/mainline-* 等历史「公开」端点开始校验登录，匿名直连 401；
+  批量板块 K 线/成分股的页面内 fetch 同样要带 Bearer。
+  已修（fix/fupanhui-auth-fallback）：api_get_public 401 自动回落 CDP
+  带登录态路径；批量 JS 带 localStorage user_token。前提不变：
+  Chrome 已登录 fupanhui.com + CDP proxy 在跑。若批量抓取返回
+  `code:-1 板块已切换为复盘会 FP 代码`，是旧 BK/TI 码，按当日宇宙过滤。
+
+- **代理掐 SSL 的识别与绕过**：本机代理（Clash TUN 等）会把新浪/东财/腾讯
+  的 HTTPS 掐成 `SSLEOFError`（curl 同样空响应）。特征：requests 超时挂死、
+  `qt.gtimg.cn` 市值请求每批 4×15s 空转。应对：指数走
+  reviews/market.volume.indices 兜底；成分股市值列可空（跳过 _tencent_market_caps），
+  行情本体从 fupanhui 拿不受影响。**不要用「重试更多次」对抗被掐的 TLS**。
 
 - **驾驶台 cockpit 三个每日更新项**：
-  1. 每日复盘（daily-review）→ render_daily_review_html.py
+  1. 每日复盘（daily-review）→ `render_daily_review_briefing.py`（夜跑 canonical）
   2. 机构胜率（winrate）→ `skills/opinion-cross/scripts/render_winrate_html.py --vault <KB_WIKI> --date D`
   3. 晨会边际变化（morning briefing）→ 需知识库 `wiki/briefings/D.md` 源文件存在
      → `<KB>/skills/morning-briefing/scripts/render_briefing_html.py D --vault <KB_WIKI>`
-  **render_cockpit.py 必须传 --kb-briefings-dir 指向知识库/dashboard/briefings/**
-  （默认路径 `knowledge-base-private` 不存在）。
+  **`render_cockpit.py --knowledge-root <KB 仓根>`**（例如 `/Users/a77/knowledge-base-private`）。
+  没有 `--kb-briefings-dir` 这个参数。默认 `ROOT.parent / "知识库"` 在本机对不上，必须显式传。
+  研究队列若是 `cli daily --skip-agent` 之后才补的，必须再跑 workbench + cockpit，否则卡片仍缺「研究队列」。
+
+- **S7 staging：夜跑失败补洞，不要直写生产**：18:30 包装
+  `~/.local/bin/nightly-full-review-s7.sh` → `nightly-review-sync-staged.py`，写锁落在
+  `db/market_feature_store.duckdb.staging`，same-day 全绿才 `atomic_swap_into_place`。
+  不过门则生产停在昨日、staging 残留。补跑：
+  `MARKET_FEATURE_STORE_DB=$FINANCE/db/market_feature_store.duckdb.staging`
+  在 staging 上补模块 → `--phase data` 过门 → 换名 → 再跑生成段。
+  直写生产会和残留 staging 分叉，换名时可能把补上的数盖回去（08-20 有过反例）。
+
+- **sector-stocks「20 轮无 published universe」经常是时序**：宇宙可能在 18:39 才 published，
+  18:30 那轮空转不是抓取脚本坏了。等 published 后再跑；若随后 `member_count_surplus`，
+  走上面「重发快照」路径，不要手改 `expected_stock_count`。
+
+- **public-assets 夜跑「ok」仍可能当日行是空的**：08-25 该步 61s 标 ok，staging 上 08-25
+  行仍空（假绿）。same-day 不一定覆盖所有公开资产表。补跑后按日对账
+  `fact_core_stock_daily` / `fact_global_*` / `fact_dragon_tiger_daily` / `fact_auction_stock_daily`
+  行数须与最近交易日同形（core=50、global index=5 这类恒定宇宙）；不要只看步骤 rc。
+  `fact_leader_height_daily` 每日 **1 行**（最高板），不是 120 只名单。
 
 - **题材雷达 HTML 被质量门拦截**：
   `render_market_triggered_theme_brief_html.py` 内部先调 build_* 脚本，
