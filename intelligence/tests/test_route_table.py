@@ -5,6 +5,7 @@ from intelligence.services.research_contract import (
     RESEARCH_OWNER_IDS,
 )
 from intelligence.services.route_table import (
+    LANE_COMPOSITION_RULES,
     ROUTE_TABLE,
     render_route_table_prompt,
     route_by_id,
@@ -56,3 +57,18 @@ def test_prompt_rendering_lists_every_route() -> None:
     for row in ROUTE_TABLE:
         assert row.route_id in prompt
         assert row.examples[0] in prompt
+
+
+def test_composition_rule_names_are_unique() -> None:
+    names = [rule.rule_name for rule in LANE_COMPOSITION_RULES]
+
+    assert names
+    assert len(names) == len(set(names))
+    assert names[0] == "overnight_external_premise"
+
+
+def test_composition_rules_only_declare_capability_overlays() -> None:
+    for rule in LANE_COMPOSITION_RULES:
+        assert rule.extra_capabilities
+        assert callable(rule.predicate)
+        assert all(isinstance(item, str) and item for item in rule.extra_capabilities)

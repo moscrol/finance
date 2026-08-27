@@ -144,6 +144,38 @@ class ThemeResearchSpecTests(unittest.TestCase):
             },
         )
 
+    def test_evidence_atom_fills_metric_value_and_unit(self) -> None:
+        claim = make_claim(
+            claim_id="amt-1",
+            text="全市成交额 2.96万亿",
+            claim_type="supporting_fact",
+            theme="A股市场",
+            status=ClaimStatus.VERIFIED,
+            evidence_ids=("S1",),
+        )
+        spec = AnswerSpec(
+            research_spec=resolve_answer_profile("今天市场怎么样", profile="causal"),
+            summary=(),
+            verified_facts=(claim,),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(),
+            triggers=(),
+            next_actions=(),
+            sources=(EvidenceRef("S1", "本地行情"),),
+            system_notices=(),
+            presentation_profile="causal",
+        )
+        atom = next(
+            item
+            for item in evidence_atoms_from_answer_spec(spec)
+            if item.source_id == "S1"
+        )
+        self.assertEqual(atom.metric, "total_amount")
+        self.assertEqual(atom.value, 29600.0)
+        self.assertEqual(atom.unit, "亿元")
+        self.assertEqual(atom.provenance.get("raw_unit"), "万亿")
+
     def test_decision_brief_fallback_is_not_generic_template(self) -> None:
         spec = AnswerSpec(
             research_spec=resolve_answer_profile("行情原因", profile="causal"),
@@ -961,6 +993,8 @@ class PresenterAndLLMGateTests(unittest.TestCase):
         self.assertNotIn("evidence_count", rendered)
 
     def test_llm_gate_rejects_unbound_factual_content(self) -> None:
+        """本层照报「没绑定」——要不要拿它问罪由调用方决定，见 ask_synthesis。"""
+
         text = "新增科技未来订单将达到 20 亿元。"
         issues = validate_llm_answer(text, self._answer())
         codes = {issue.code for issue in issues}

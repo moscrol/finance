@@ -520,5 +520,28 @@ def test_board_accepts_only_explicit_hash_bound_sidecars(tmp_path, capsys):
     assert "已盲标(reference)" in c9
 
 
+def test_effective_query_prefixes_missing_date():
+    """date 不在题面里时，发送路径必须把锚补上，不能只给判官看。"""
+    assert (
+        acceptance.effective_query(
+            {"query": "立新能源怎么看", "date": "2026-07-23"}
+        )
+        == "2026-07-23 立新能源怎么看"
+    )
+
+
+def test_effective_query_leaves_already_dated_query_alone():
+    """A1 这类题面已带日期，不能叠两个日期。"""
+    query = "2026-07-23 今天市场怎么样"
+    assert acceptance.effective_query({"query": query, "date": "2026-07-23"}) == query
+
+
+def test_effective_query_prefixes_relative_time_case_at_send_time():
+    """A8/C6 正典 query 保持相对时间；发送时仍把 date 下达给产品。"""
+    assert acceptance.effective_query(
+        {"query": "现在市场处于什么阶段，第几天了", "date": "2026-07-23"}
+    ) == "2026-07-23 现在市场处于什么阶段，第几天了"
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

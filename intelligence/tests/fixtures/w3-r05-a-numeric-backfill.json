@@ -1,0 +1,9 @@
+{
+  "run_id": "run_20260821_185226_491046",
+  "source": "R-20260821-05 A-arm / probe-r05a-0821",
+  "subject": "太辰光",
+  "subject_kind": "company",
+  "issue_code": "numeric_unsupported",
+  "before_static_capability": "market_data",
+  "pollution_markers": ["上涨4096家", "涨停79家"]
+}

@@ -67,7 +67,10 @@ def test_coalesce_research_failure_wins_over_degraded_delivery() -> None:
     assert coalesce_episode_status("failed", None) == "failed"
     assert coalesce_episode_status("degraded", None) == "degraded"
     assert coalesce_episode_status("partial", "completed") == "partial"
-    assert coalesce_episode_status("completed", "partial") == "completed"
+    # 运输走完（turn=completed）不能盖掉研究未完成。C 臂
+    # run_20260823_114116_434045：outcome=partial，report 却亮 complete。
+    assert coalesce_episode_status("completed", "partial") == "partial"
+    assert coalesce_episode_status("completed", "degraded") == "degraded"
 
 
 def test_frozen_221823_contradiction_is_resolved_by_projection() -> None:
@@ -117,3 +120,15 @@ def test_episode_status_from_turn_reads_failed_outcome_out_of_degraded_delivery(
 def test_episode_status_from_turn_keeps_degraded_when_artifact_has_no_outcome() -> None:
     turn = _Turn("degraded", {"judge_status": "unavailable"})
     assert episode_status_from_turn(turn) == "degraded"
+
+
+def test_episode_status_from_turn_partial_outcome_keeps_transport_but_not_complete_lamp() -> None:
+    """请求走完了 ≠ 题答完了。run 可以 completed，business 必须是 partial。"""
+
+    turn = _Turn("completed", {"outcome": {"status": "partial"}})
+    episode = episode_status_from_turn(turn)
+    assert episode == "partial"
+    projected = project_artifact_statuses(episode)
+    assert projected.run == "completed"
+    assert projected.transport == "completed"
+    assert projected.report_business == "partial"

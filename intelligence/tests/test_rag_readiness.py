@@ -54,7 +54,15 @@ def write_meta(kb_root: Path, **overrides) -> None:
 
 
 def run(kb_root: Path) -> int:
-    return load_script().main(["--kb-root", str(kb_root), "--quiet"])
+    # 必须显式钉夹具自己的索引。启动器常带 RAG_INDEX_DIR 指向生产库，
+    # 只传 --kb-root 时脚本会去审那份真索引，脏/缺 meta 夹具永远绿。
+    return load_script().main([
+        "--kb-root",
+        str(kb_root),
+        "--index-dir",
+        str(kb_root / ".rag_index"),
+        "--quiet",
+    ])
 
 
 def test_clean_committed_index_is_ready(kb) -> None:

@@ -140,3 +140,26 @@ def test_fact_bound_to_current_atoms_passes_staleness_gate():
     spec = _spec_with_fact("current")
     codes = {issue.code for issue in validate_llm_answer(_answer_binding(spec), spec)}
     assert "llm_fact_only_superseded_evidence" not in codes
+
+
+# --------------------------------------------------------------------------- #
+# 降桶标注：只绑已取代/已证伪证据的事实不退稿，但要在正文里标出来
+# --------------------------------------------------------------------------- #
+def test_superseded_fact_is_tiered_in_the_body_not_dropped():
+    """降级要让读答案的人看见——记在 warnings 里用户读到的仍是笃定结论。"""
+
+    spec = _spec_with_fact("superseded")
+    presented = answer_model.present_llm_answer(_answer_binding(spec), spec)
+
+    assert "26H1 出货 9 万台" in presented
+    assert answer_model.STALE_EVIDENCE_TIER_NOTE in presented
+
+
+def test_current_evidence_fact_carries_no_tier_note():
+    """对偶：证据是当前的就不许标——无条件加标注等于没标。"""
+
+    spec = _spec_with_fact("current")
+    presented = answer_model.present_llm_answer(_answer_binding(spec), spec)
+
+    assert "26H1 出货 9 万台" in presented
+    assert answer_model.STALE_EVIDENCE_TIER_NOTE not in presented

@@ -35,12 +35,20 @@ FORECAST_PHRASINGS = [
     "站在 2026-07-21 收盘，给出对 07-22 的研判",
     "明天走势怎么走",
     "明天大盘什么情况",
+    "基于上周的行情，模仿你之前蒸馏的spt，写一下本周行情的展望。",
+    "写一下本周行情的展望",
+    "本周行情展望",
+    "基于上周行情写一下本周展望",
+    "展望一下本周行情",
+    "展望一下A股后市",
+    "模仿spt写一下本周行情的展望",
 ]
 
 NOT_FORECAST = [
     "液冷服务器怎么看",
     "什么是液冷服务器",
     "2026-02-17 涨停家数多少",
+    "分析有色金属板块后续走势",
 ]
 
 FORECAST_REQUIRED_OUTPUTS = {
@@ -74,6 +82,14 @@ def test_non_forecast_questions_are_not_stolen(query: str) -> None:
     assert decide_turn(query).question_type != QUESTION_MARKET_FORECAST
 
 
+def test_sector_forward_look_stays_theme_analysis() -> None:
+    """带板块主语的前瞻不是全市场展望；扩它要改主语优先序，不在本单。"""
+    query = "分析有色金属板块后续走势"
+    assert understand_query(query).question_type == "theme_analysis"
+    assert plan_answer_question(query).question_type == "theme_analysis"
+    assert decide_turn(query).question_type == "theme_analysis"
+
+
 @pytest.mark.parametrize(
     ("query", "metric_key"),
     [
@@ -90,6 +106,8 @@ def test_dated_single_metric_goes_to_direct_query(query: str, metric_key: str) -
     decision = decide_turn(query)
     assert decision.question_type == "quick_fact"
     assert decision.lane != "workflow"
+    if query[:4].isdigit():
+        assert decision.lane == "research"
 
 
 @pytest.mark.parametrize(

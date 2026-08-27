@@ -1,0 +1,95 @@
+{
+  "generated_at": "20260812T195840Z",
+  "base": "http://127.0.0.1:8792",
+  "preflight_ok": true,
+  "preflight_detail": "revision=97642e26 backend=continuous_glm",
+  "cases": [
+    {
+      "case_id": "A10-new-high-structure",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-21 的新高家数结构说明什么",
+          "answer": "结构化证据绑定已通过边界校验，但语义核验因瞬时服务问题未完成；以下仅为候选草稿，不视为最终核验结论：\n直接判断：2026-07-21 的新高结构更像“反弹首日中的突破扩散”，但尚不足以确认全面主升。市场当天处于反弹阶段第1天，上涨家数明显占优，涨停多于跌停；同时成交集中在电子、通信、机械设备，说明风险偏好回升，但仍有较强的主线集中性。[1]\n新高内部，首次突破的资金特征强于旧高：20日新高中，首次新高组成交额946.65、当日资金28.63，而非首次组成交额1200.53、资金为-7.28；3年新高中，首次新高组资金42.94，也明显强于历史新高首次突破组的0.13。这说明增量资金更愿意追逐刚突破或中短期加速的标的，旧高标的则存在兑现压力。[2]\n条件化结论：若后续首次新高家数继续扩散，并从电子、通信等集中方向扩展到更多行业，同时旧高组资金不再持续流出，则反弹有望转为更有持续性的趋势行情；若新高仍集中在少数方向、首次突破组快速回落，或旧高组继续出现资金流出，则更可能是反弹中的抱团和轮动。这里不能把“阶段第1天”理解为连续上涨第1天。\n证据边界：已核验的是2026-07-21的市场总览和新高分组的成交额、资金结构；当前查询未提供各新高层级的实际家数，因此无法严谨比较各层级的家数占比，也没有同日主线或新闻证据支持具体原因归因。",
+          "run_id": "run_20260813_035601_472424",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "市场日频总览（2026-07-21）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-21"
+            },
+            {
+              "title": "个股新高日频记录（2026-07-21）",
+              "source": "本地结构化数据 · 个股新高日频记录",
+              "date": "2026-07-21"
+            }
+          ],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-21）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 个股新高日频记录",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "个股新高日频记录（2026-07-21）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 159.5,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    }
+  ]
+}

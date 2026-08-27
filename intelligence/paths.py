@@ -44,8 +44,8 @@ def default_paths() -> ProjectPaths:
 
     finance_root = _env_path("FINANCE_WS", "FINANCE_ROOT") or data_repo_root()
     home = Path.home()
-    knowledge_wiki = _env_path("KB_VAULT", "KNOWLEDGE_WIKI", "CONCEPT_VAULT", "ENTITY_VAULT") or home / "Desktop/c c/知识库/wiki"
-    finance_site = _env_path("FINANCE_SITE") or home / "Desktop/c c/windsurf/finance-research-site"
+    knowledge_wiki = resolve_knowledge_wiki(home=home, finance_root=finance_root)
+    finance_site = resolve_finance_site(home=home)
     market_snapshot_dir = _env_path("MARKET_SNAPSHOT_DIR") or finance_root / "market_snapshot"
     vector_index_dir = vector_index_dir_for(knowledge_wiki)
     return ProjectPaths(
@@ -57,6 +57,49 @@ def default_paths() -> ProjectPaths:
     )
 
 
+def resolve_knowledge_wiki(
+    *,
+    home: Path | None = None,
+    finance_root: Path | None = None,
+) -> Path:
+    """知识库 wiki 根。env > 现存探测 > 规范身份。永不回退已死的 Desktop 路径。
+
+    ``~/Desktop/c c/知识库`` 已不存在。旧回退会让 kb_search 静默指向虚空，
+    仪表仍可能发绿。fail-closed 的意思是：找不到就停在大家都认得的
+    ``<home>/knowledge-base-private/wiki``，让 ``is_dir()`` / health / retrieve
+    变红，而不是假装馆藏还在桌面。
+
+    探测顺序：
+    1. ``KB_VAULT`` / ``KNOWLEDGE_WIKI`` / ``CONCEPT_VAULT`` / ``ENTITY_VAULT``
+    2. ``<home>/knowledge-base-private/wiki`` 若是目录
+    3. ``<finance_root 的父目录>/knowledge-base-private/wiki`` 若是目录
+    4. 规范身份（第 2 步那条，即使目录还不存在）
+    """
+
+    env = _env_path("KB_VAULT", "KNOWLEDGE_WIKI", "CONCEPT_VAULT", "ENTITY_VAULT")
+    if env:
+        return env
+    home_path = Path(home) if home is not None else Path.home()
+    preferred = home_path / "knowledge-base-private" / "wiki"
+    if preferred.is_dir():
+        return preferred
+    root = Path(finance_root) if finance_root is not None else data_repo_root()
+    sibling = root.resolve().parent / "knowledge-base-private" / "wiki"
+    if sibling.is_dir():
+        return sibling
+    return preferred
+
+
+def resolve_finance_site(*, home: Path | None = None) -> Path:
+    """对外研究站根。env > ``<home>/finance-research-site``。不回退已死的 Desktop 路径。"""
+
+    env = _env_path("FINANCE_SITE")
+    if env:
+        return env
+    home_path = Path(home) if home is not None else Path.home()
+    return home_path / "finance-research-site"
+
+
 def vector_index_dir_for(knowledge_wiki: str | Path) -> Path:
     return _env_path("VECTOR_INDEX_DIR", "RAG_INDEX_DIR") or Path(knowledge_wiki).expanduser().parent / ".rag_index"
 
@@ -64,10 +107,15 @@ def vector_index_dir_for(knowledge_wiki: str | Path) -> Path:
 def data_repo_root() -> Path:
     """盘面/exports/DuckDB 等数据根目录。
 
-    双根架构：PYTHONPATH 指向 runtime 代码快照，真实数据在 private 仓。
-    未设置任何变量时回退代码根（intelligence 的父目录）。
+    双根架构：PYTHONPATH / ``WORKBENCH_REPO_ROOT`` 指向 runtime 代码快照，
+    真实数据在 ``FINANCE_WS``（private 仓）。``WORKBENCH_REPO_ROOT`` 是代码根
+    概念（``runtime_provenance`` 用它读 git HEAD），不得参与数据根解析——
+    启动器把两者同时导出时，旧查找序会把盘面库和 exports 解析进没有 ``db/``
+    的快照树，盘面证据层静默消失。
+
+    查找序：``FINANCE_WS`` → ``FINANCE_ROOT`` → 代码根（intelligence 的父目录）。
     """
-    return _env_path("WORKBENCH_REPO_ROOT", "FINANCE_WS", "FINANCE_ROOT") or (
+    return _env_path("FINANCE_WS", "FINANCE_ROOT") or (
         Path(__file__).resolve().parents[1]
     )
 

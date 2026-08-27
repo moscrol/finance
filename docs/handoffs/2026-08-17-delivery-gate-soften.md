@@ -20,7 +20,7 @@
 | `llm_engineering_term_leak` / `grounded_composer_engineering_term_leak` | `warning`，展示层抠含漏词的行 |
 | 数字血缘（benchmark `_numeric_lineage_projection`） | 只删 `material_numeric` 且无 `source_ids` 的句；删光才用缺口稿；**禁止**把臂级 `stop_reason` 改成 `numeric_lineage_gap`（仍写 `issues`） |
 | **展示层抠空**（复核时补，`dd494133`） | 抠成空串 → 退稿，不发空白稿。旧合成链走 `quality_gate_rejected` + `reason_code=presentation_emptied`；WARN 回灌修订抠空则保留初稿 |
-| `llm_added_number` 等仍是 `error` 的 | 不动，仍整答退稿 |
+| ~~`llm_added_number` 等仍是 `error` 的~~ | **该 code 不存在**（07-15 `53754507` 删的）。改后 `validate_llm_answer` 一条 `error` 都不剩，旧链的 fail-closed 全靠展示层下限。事实闸（编数字/日期/公司）只在生产默认的 Grounded 那条，7 条全 `error`，本次没动 |
 | 语义闸、休市/退役表罐头、结构 verifier、层级审计、未读字段 | 不动 |
 | 市场复盘 `grounded_required_fallback` | 不动 |
 | 超时 / 8792 / 900 | 未切、未开 |
@@ -80,7 +80,10 @@ T-F 摘接（Scope+工具阶段）工程门红，结论 **摘不干净**，5×5 
 ## 5. 下一任不要做的
 
 - 不要开 900、不要切 8792、不要动 T / 档位 / `ASK_TOOL_BATCH_TIMEOUT`。
-- 不要把 `llm_added_number` 也改成 warning（未授权）。
+- 不要把 Grounded 那条的 `grounded_composer_added_number` / `_added_date` /
+  `_added_company` / `_promoted_to_fact` 改成 warning——**它们是逐句按「该句绑定的
+  证据原子」算越界的**，绑定没了这些闸不是放行而是全量误报。（原写的
+  `llm_added_number` 不存在，见 spec §2 更正。）
 - 不要把未读字段钩子 `--no-verify` 拿去提交臂 1 摘接。
 - 不要把 n=1 live 写成「更快」或「吸收兑现」。
 

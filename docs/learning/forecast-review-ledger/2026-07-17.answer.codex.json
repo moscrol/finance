@@ -867,16 +867,10 @@
   "recheck": {
     "benchmark": "sh000001",
     "recheck_t1_date": "2026-07-17",
-    "recheck_t3_date": null,
-    "pick_returns_t1": [
-      -10.0,
-      -3.83,
-      -7.74,
-      -0.59,
-      -6.44
-    ],
+    "recheck_t3_date": "2026-07-21",
+    "pick_returns_t1": [],
     "pick_returns_t3": [],
-    "benchmark_return_t3": null,
-    "recheck_generated_at": "2026-07-18T11:40:32+08:00"
+    "benchmark_return_t3": -0.4648,
+    "recheck_generated_at": "2026-08-20T10:30:41+08:00"
   }
 }

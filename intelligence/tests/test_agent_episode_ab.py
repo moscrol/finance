@@ -246,7 +246,15 @@ def test_live_runner_records_bare_current_and_verified_episode(
                     ),
                 ),
                 bindings=tuple(
-                    OutputEvidenceBinding(item.output_id, ("market-1",))
+                    # basis 跟着契约声明走（真实协议也要求一致）：前瞻条件槽
+                    # 现在签 model_reasoning，硬绑 evidence 会 basis mismatch。
+                    OutputEvidenceBinding(
+                        item.output_id,
+                        ("market-1",)
+                        if item.grounding_mode == "evidence"
+                        else (),
+                        basis=item.grounding_mode,
+                    )
                     for item in context.contract.required_outputs
                 ),
                 usage=AgentUsage(llm_calls=2, tool_calls=1),

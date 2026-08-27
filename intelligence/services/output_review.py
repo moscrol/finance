@@ -21,11 +21,23 @@ LLM 让它自查，柔性）；本模块是确定性闸门（对最终 AskResult
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Any
+from typing import Any, Iterable
 
+from intelligence.services.conclusion_five_element_lint import (
+    ELEMENT_LABELS,
+    lint_conclusion_five_elements,
+)
 from intelligence.services.research_brief import CounterEvidencePlan, EvidenceAudit
+
+# 数据块「时点限定（先读）」行的机器可读形状（当前只有 D9 采用；
+# 任何块照这个措辞发限定行，就自动进入时点错标检查的覆盖面）。
+STALE_HINT_RE = re.compile(r"最新扫描日 (\d{4}-\d{2}-\d{2}) 早于盘面日期 (\d{4}-\d{2}-\d{2})")
+# 答案里这些词附近若出现盘面日期/「当日/今日」而全篇不带扫描日，判疑似错标
+_STALE_TOPIC_TERMS = ("榜单", "扫描", "大单净流入", "主买净额")
+_STALE_WINDOW = 40
 
 PASS = "PASS"
 WARN = "WARN"
@@ -48,9 +60,15 @@ class ReviewCheck:
     name: str
     status: str
     note: str = ""
+    advisory_only: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        return {"name": self.name, "status": self.status, "note": self.note}
+        return {
+            "name": self.name,
+            "status": self.status,
+            "note": self.note,
+            "advisory_only": self.advisory_only,
+        }
 
 
 @dataclass
@@ -61,11 +79,15 @@ class OutputReviewGate:
 
     @property
     def status(self) -> str:
-        return WARN if any(c.status == WARN for c in self.checks) else PASS
+        return WARN if self.warn_count else PASS
 
     @property
     def warn_count(self) -> int:
-        return sum(1 for c in self.checks if c.status == WARN)
+        return sum(
+            1
+            for c in self.checks
+            if c.status == WARN and not c.advisory_only
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -76,8 +98,11 @@ class OutputReviewGate:
         }
 
     def summary_lines(self) -> list[str]:
+        actionable = [check for check in self.checks if not check.advisory_only]
+        passed = sum(1 for check in actionable if check.status == PASS)
         lines = [
-            f"输出质检助手：{self.status}（{len(self.checks) - self.warn_count}/{len(self.checks)} 项通过；仅提示，不阻断）"
+            f"输出质检助手：{self.status}（{passed}/{len(actionable)} 项通过；"
+            "结论五元素只提示，不阻断、不进修订轮）"
         ]
         for c in self.checks:
             mark = "✓" if c.status == PASS else "⚠️"
@@ -158,6 +183,77 @@ def _check_overclaim(audit: EvidenceAudit | None, conclusion_lines: list[str] | 
     return ReviewCheck(name, PASS, "未发现弱证据硬写")
 
 
+def extract_stale_block_hints(
+    blocks: Iterable[tuple[str, str]],
+) -> tuple[tuple[str, str, str], ...]:
+    """从数据块文本抽「时点限定」：(tag, 扫描日, 盘面日期)。无限定行的块不产出。"""
+
+    hints: list[tuple[str, str, str]] = []
+    for tag, text in blocks:
+        match = STALE_HINT_RE.search(text or "")
+        if match:
+            hints.append((str(tag), match.group(1), match.group(2)))
+    return tuple(hints)
+
+
+def _check_stale_mislabel(
+    final_answer: str | None,
+    hints: tuple[tuple[str, str, str], ...],
+) -> list[ReviewCheck]:
+    """时点错标嗅探（只提示不阻断）。
+
+    2026-08-26 blk-d9 实测形状：块层带「最新扫描日 2026-08-07」，LLM 合成层
+    丢掉限定语、把 19 天前的榜单写成「2026-08-26 当日的大单净流入扫描榜单」。
+    判定：答案在榜单/扫描类词 ±40 字内出现盘面日期或「当日/今日」，且全篇
+    不含真实扫描日 → 疑似错标。列名「当日名次」豁免。观察一段在场率后再议
+    是否升格进修订轮（同 KC-13 五元素 lint 的推进方式）。
+    """
+
+    checks: list[ReviewCheck] = []
+    text = str(final_answer or "")
+    for tag, scan_date, as_of in hints:
+        name = f"时点错标·{tag}"
+        if not text:
+            continue
+        if scan_date in text:
+            checks.append(
+                ReviewCheck(name, PASS, f"已带扫描日 {scan_date}", advisory_only=True)
+            )
+            continue
+        suspicious = False
+        for term in _STALE_TOPIC_TERMS:
+            for match in re.finditer(re.escape(term), text):
+                lo = max(0, match.start() - _STALE_WINDOW)
+                window = text[lo : match.end() + _STALE_WINDOW]
+                if "当日名次" in window:
+                    continue
+                if as_of in window or "当日" in window or "今日" in window:
+                    suspicious = True
+                    break
+            if suspicious:
+                break
+        if suspicious:
+            checks.append(
+                ReviewCheck(
+                    name,
+                    WARN,
+                    f"疑似把 {scan_date} 的 {tag} 数据表述为当日（盘面日期 {as_of}），"
+                    f"且正文未出现扫描日（只提示，不进修订轮）",
+                    advisory_only=True,
+                )
+            )
+        else:
+            checks.append(
+                ReviewCheck(
+                    name,
+                    WARN,
+                    f"正文未写明 {tag} 扫描日 {scan_date}（未见当日化表述；只提示）",
+                    advisory_only=True,
+                )
+            )
+    return checks
+
+
 def review_output(
     *,
     trade_date: str | None,
@@ -168,6 +264,7 @@ def review_output(
     conclusion_lines: list[str] | None,
     final_answer: str | None = None,
     today: date | None = None,
+    stale_block_hints: tuple[tuple[str, str, str], ...] = (),
 ) -> OutputReviewGate:
     gate = OutputReviewGate()
     gate.checks.append(_check_freshness(trade_date, today))
@@ -177,4 +274,22 @@ def review_output(
     gate.checks.append(_check_verifiable(follow_ups))
     visible_lines = [final_answer] if final_answer else conclusion_lines
     gate.checks.append(_check_overclaim(audit, visible_lines))
+    gate.checks.extend(_five_element_checks(visible_lines))
+    gate.checks.extend(_check_stale_mislabel(final_answer, stale_block_hints))
     return gate
+
+
+def _five_element_checks(visible_lines: list[str] | None) -> list[ReviewCheck]:
+    text = "\n".join(str(item or "") for item in (visible_lines or []))
+    lint = lint_conclusion_five_elements(text)
+    checks: list[ReviewCheck] = []
+    present = set(lint.present_ids)
+    for element_id, label in ELEMENT_LABELS.items():
+        name = f"结论五元素·{label}"
+        if element_id in present:
+            checks.append(ReviewCheck(name, PASS, f"在场：{label}", advisory_only=True))
+        else:
+            checks.append(
+                ReviewCheck(name, WARN, f"缺{label}（只提示，不进修订轮）", advisory_only=True)
+            )
+    return checks

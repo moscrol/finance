@@ -2,7 +2,8 @@
 
 The module is deliberately pure: callers provide a compiled case contract and a
 serialized run, and receive immutable operational/truth/experience verdicts. It
-does not call a model, database, knowledge base, or product runtime.
+does not call a model, database, knowledge base, or product runtime. It does
+read the frozen ``MetricSpec`` alias table so scorer and D0 share one registry.
 """
 
 from __future__ import annotations
@@ -15,10 +16,15 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Mapping
 
+from intelligence.services.metric_spec import metric_aliases_for_field
+
 
 REPO = Path(__file__).resolve().parents[2]
 VERDICT_OVERLAY_PATH = (
     REPO / "intelligence/eval/cases/acceptance_verdict_contracts.json"
+)
+VERDICT_EQUIVALENCE_PATH = (
+    REPO / "intelligence/eval/cases/verdict_equivalence.json"
 )
 
 _KNOWN_CASE_FIELDS = frozenset(
@@ -59,6 +65,7 @@ _KNOWN_OVERLAY_FIELDS = frozenset(
         "fact_aliases",
         "phrase_equivalents",
         "phrase_discharged_by",
+        "cohort",
     }
 )
 
@@ -193,8 +200,13 @@ class CaseContract:
     case: Mapping[str, Any]
     phrase_equivalents: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     phrase_discharged_by: Mapping[str, str] = field(default_factory=dict)
+    cohort: str = ""
     reproducible: bool = True
     diagnostics: tuple[str, ...] = ()
+
+    def in_main_truth_denominator(self) -> bool:
+        """相对时间题单独分组，不进主判定分母。"""
+        return self.cohort != "relative_time"
 
     def phrase_observed(self, phrase: str, text: str) -> bool:
         """措辞断言：正典短语或它的等价表达任一在场即算命中。
@@ -219,11 +231,45 @@ def load_verdict_overlay(path: Path | None = None) -> dict[str, dict[str, Any]]:
     return {str(case_id): dict(entry) for case_id, entry in cases.items()}
 
 
+def load_verdict_equivalence(
+    path: Path | None = None,
+) -> dict[str, dict[str, tuple[str, ...]]]:
+    """Load shared phrase classes (refusal, and later must_mention)."""
+
+    payload = json.loads((path or VERDICT_EQUIVALENCE_PATH).read_text(encoding="utf-8"))
+    classes = payload.get("classes")
+    if not isinstance(classes, dict):
+        raise ValueError("verdict equivalence must contain an object-valued classes field")
+    parsed: dict[str, dict[str, tuple[str, ...]]] = {}
+    for class_name, mapping in classes.items():
+        if not isinstance(mapping, dict):
+            raise ValueError(f"equivalence class {class_name!r} must be an object")
+        parsed[str(class_name)] = {
+            str(phrase): tuple(str(item) for item in variants)
+            for phrase, variants in mapping.items()
+        }
+    return parsed
+
+
+def _pass_rule_expect_facts_diagnostics(case: Mapping[str, Any]) -> list[str]:
+    """pass_rule 写「之一」、expect_facts 却要两个精确值同时命中 —— 题集自相矛盾。"""
+
+    pass_rule = str(case.get("pass_rule") or "")
+    facts = case.get("expect_facts") or []
+    if "之一" not in pass_rule or len(facts) < 2:
+        return []
+    return [
+        "pass_rule and expect_facts contradict: pass_rule accepts one of the "
+        "supports（之一）but expect_facts requires every listed value"
+    ]
+
+
 def _reproducibility_diagnostics(case: Mapping[str, Any]) -> list[str]:
     """题目问「现在」、期望值却冻结在某一天 —— 这种红永远不会变绿。
 
-    runner 只把 `case["query"]` 发给产品（`acceptance.py`），`date` 字段仅供判官
-    做 cutoff。所以问题正文里没有日期锚时，产品答的是真实今天。
+    runner 现在用 `effective_query` 把 `date` 前缀进发送题面；但正典 `query`
+    正文若仍是「现在 / 最近」且期望值冻在某一天，题目本身仍不可复现——
+    发送层补日期不能把正典题面改写成已锚定。
 
     A8 实测：query「现在市场处于什么阶段，第几天了」，产品答「截至 2026-07-30，
     底部横盘阶段，第 2 个交易日」——完全正确；而 expect_facts 冻结的是
@@ -253,7 +299,7 @@ def _reproducibility_diagnostics(case: Mapping[str, Any]) -> list[str]:
     return [
         "case is not reproducible: query is relative-time "
         f"({', '.join(marks)}) but {', '.join(dated_expectations)} is frozen to "
-        f"{cutoff or 'an unstated date'}; the date anchor never reaches the product"
+        f"{cutoff or 'an unstated date'}; canonical query remains relative-time"
     ]
 
 
@@ -273,6 +319,7 @@ def compile_case_contract(
 
     reproducibility = _reproducibility_diagnostics(case)
     diagnostics.extend(reproducibility)
+    diagnostics.extend(_pass_rule_expect_facts_diagnostics(case))
 
     coverage = str(overlay.get("coverage") or "semantic_required")
     if coverage not in {"structured", "semantic_required"}:
@@ -283,6 +330,13 @@ def compile_case_contract(
         str(field_name): tuple(str(item) for item in values)
         for field_name, values in aliases_raw.items()
     }
+    for item in case.get("expect_facts") or []:
+        field_name = str((item or {}).get("field") or "")
+        extras = metric_aliases_for_field(field_name)
+        if not extras:
+            continue
+        current = aliases.get(field_name, ())
+        aliases[field_name] = tuple(dict.fromkeys([*current, *extras]))
     equivalents_raw = overlay.get("phrase_equivalents") or {}
     equivalents: dict[str, tuple[str, ...]] = {}
     for phrase_raw, variants_raw in equivalents_raw.items():
@@ -299,6 +353,21 @@ def compile_case_contract(
             )
             continue
         equivalents[phrase] = variants
+
+    if case.get("expect_refusal"):
+        # 拒答等价类只挂在 expect_refusal 题上。C3 也是拒答，但「休市」不能
+        # 拿来证明空表——所以这里只扩展已声明的正典短语，不给 C3 新增槽位。
+        for phrase, variants in (load_verdict_equivalence().get("refusal") or {}).items():
+            if not variants:
+                diagnostics.append(f"empty refusal equivalence class: {phrase}")
+                continue
+            if phrase not in variants:
+                diagnostics.append(
+                    f"refusal equivalence class for {phrase} does not contain the phrase itself"
+                )
+                continue
+            current = equivalents.get(phrase, ())
+            equivalents[phrase] = tuple(dict.fromkeys([*current, *variants]))
 
     declared_phrases = {str(item) for item in (case.get("must_mention") or [])}
     available_rules = {"falsifiable", "refusal", "inconsistency", "expected_entities"} | {
@@ -338,6 +407,7 @@ def compile_case_contract(
         case=dict(case),
         phrase_equivalents=equivalents,
         phrase_discharged_by=discharged_by,
+        cohort=str(overlay.get("cohort") or ""),
         reproducible=not reproducibility,
         diagnostics=tuple(diagnostics),
     )
@@ -501,7 +571,11 @@ def _evaluate_truth(
         )
 
     if contract.required_any_phrases:
-        hits = [item for item in contract.required_any_phrases if item in text]
+        hits = [
+            item
+            for item in contract.required_any_phrases
+            if contract.phrase_observed(item, text)
+        ]
         rules.append(
             _bool_rule(
                 "required_any_phrases",
@@ -681,7 +755,8 @@ def _evaluate_fact(
     if isinstance(expected, bool):
         matched = str(expected).lower() in candidate_text.lower()
     elif isinstance(expected, (int, float)):
-        numbers = _extract_numbers(candidate_text)
+        extracted = _extract_numbers(candidate_text)
+        numbers = extracted + _magnitude_scaled_numbers(candidate_text)
         if float(expected) < 0:
             # 中文把符号放在方向词上，不放在数字上：「较上一交易日缩减 17.27%」
             # 抽出来是 +17.27。只在期望为负时补候选，且必须有减少类方向词紧邻——
@@ -693,6 +768,25 @@ def _evaluate_fact(
         elif raw.get("tol_pct") is not None:
             tolerance = abs(float(expected)) * abs(float(raw["tol_pct"])) / 100.0
         matched = any(abs(value - float(expected)) <= tolerance + 1e-9 for value in numbers)
+        if not matched:
+            preview = ", ".join(f"{value:g}" for value in extracted[:20])
+            hit_aliases = [alias for alias in aliases if alias in text]
+            reason = (
+                f"expected fact {field_name}={expected!r} not observed within tolerance"
+            )
+            extras: list[str] = []
+            if preview:
+                extras.append(f"extracted_numbers=[{preview}]")
+            if hit_aliases:
+                extras.append(f"matched_aliases={hit_aliases}")
+            if extras:
+                reason += "; " + "; ".join(extras)
+            return RuleVerdict(
+                rule_id=f"fact:{field_name}",
+                kind="fact",
+                state=VerdictState.FAIL,
+                reason=reason,
+            )
     elif contract is not None:
         # 字符串型 fact（枚举标签，如 market_stage=反弹阶段）本质是措辞断言，
         # 走和 must_mention 同一套等价类：同一枚举值的合法别称算命中，跨值不算。
@@ -973,6 +1067,22 @@ def _extract_numbers(text: str) -> list[float]:
         normalized = raw.rstrip("%").replace(",", "")
         try:
             values.append(float(normalized))
+        except ValueError:
+            continue
+    return values
+
+
+# 只加候选、不改原值。万亿→亿（×10000）是 B7 的真形状；「2.96亿」不得
+# 被乘成 29600，所以「亿」本身不展开。万→亿太小，加进去也碰不上成交额。
+_WAN_YI_RE = re.compile(r"([-+]?\d[\d,]*(?:\.\d+)?)\s*万亿")
+
+
+def _magnitude_scaled_numbers(text: str) -> list[float]:
+    """把「2.96万亿」展开成 29600（亿元），原值 2.96 仍由 _extract_numbers 保留。"""
+    values: list[float] = []
+    for raw in _WAN_YI_RE.findall(text):
+        try:
+            values.append(float(raw.replace(",", "")) * 10_000.0)
         except ValueError:
             continue
     return values

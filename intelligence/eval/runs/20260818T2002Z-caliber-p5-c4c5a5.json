@@ -1,0 +1,408 @@
+{
+  "generated_at": "20260818T120401Z",
+  "base": "http://127.0.0.1:8796",
+  "preflight_ok": true,
+  "preflight_detail": "revision=880ac3b3 backend=continuous_glm users_dir=/Users/a77/.finance-runtime/live-probe-traceability/users data_probe: finance_query=ok",
+  "data_probe": {
+    "tool": "finance_query",
+    "status": "ok",
+    "elapsed_ms": 270,
+    "row_count": 1,
+    "served_date": "2026-08-17"
+  },
+  "data_probe_ok": true,
+  "window_contamination": null,
+  "execution_state_tally": {
+    "clarification": 2,
+    "delivered": 1
+  },
+  "execution_state_case_tally": {
+    "clarification": 2,
+    "delivered": 1
+  },
+  "execution_state_source_tally": {
+    "api_only": 3
+  },
+  "execution_state_turn_rows": [
+    {
+      "case_id": "A5-limit-heat",
+      "turn_index": 0,
+      "execution_state": "clarification",
+      "execution_state_source": "api_only"
+    },
+    {
+      "case_id": "C4-unit-anomaly",
+      "turn_index": 0,
+      "execution_state": "clarification",
+      "execution_state_source": "api_only"
+    },
+    {
+      "case_id": "C5-data-contradiction",
+      "turn_index": 0,
+      "execution_state": "delivered",
+      "execution_state_source": "api_only"
+    }
+  ],
+  "execution_state_aggregate_rule": "last_turn",
+  "quality_denominator": 3,
+  "excluded_from_denominator": [],
+  "cases": [
+    {
+      "case_id": "A5-limit-heat",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 涨停集中在哪些题材",
+          "answer": "fact_theme_涨停热度_daily 2026-07-23 涨停集中：储能 40 家、风电 29 家、电网设备 29 家、光伏概念 25 家、机器人概念 25 家、数据中心 20 家、特高压 18 家、人工智能 18 家。",
+          "run_id": "run_20260818_200210_771323",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 9.6,
+          "status": "completed",
+          "error": null,
+          "evidence_retrieved": null,
+          "bindings_count": null,
+          "outputs_missing": null,
+          "outputs_fulfilled": null,
+          "execution_state": "clarification",
+          "execution_state_source": "api_only",
+          "slot_shapes": {},
+          "slots_gap_zeroed": null,
+          "slots_no_hash": null,
+          "episode_fulfilled_hashed": null
+        }
+      ],
+      "blocked_reason": null,
+      "execution_state_aggregate": "clarification",
+      "execution_state_aggregate_rule": "last_turn"
+    },
+    {
+      "case_id": "C4-unit-anomaly",
+      "tier": "long_tail",
+      "turns": [
+        {
+          "question": "2026-07-21 MLCC 板块成交额多少",
+          "answer": "fact_sector_daily 2026-07-21 MLCC 成交额 amount=611.26（表内原值，未换算）。",
+          "run_id": "run_20260818_200220_344431",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 9.6,
+          "status": "completed",
+          "error": null,
+          "evidence_retrieved": null,
+          "bindings_count": null,
+          "outputs_missing": null,
+          "outputs_fulfilled": null,
+          "execution_state": "clarification",
+          "execution_state_source": "api_only",
+          "slot_shapes": {},
+          "slots_gap_zeroed": null,
+          "slots_no_hash": null,
+          "episode_fulfilled_hashed": null
+        }
+      ],
+      "blocked_reason": null,
+      "execution_state_aggregate": "clarification",
+      "execution_state_aggregate_rule": "last_turn"
+    },
+    {
+      "case_id": "C5-data-contradiction",
+      "tier": "long_tail",
+      "turns": [
+        {
+          "question": "2026-07-21 立新能源 2026-07-20 和 07-21 分别涨了多少、收盘价多少",
+          "answer": "# 立新能源\n\n本轮尚未完成问题所需的直接回答：仍缺少：反方或证据边界（工具目录 里没有该输出对应的 claim）；仍缺少：TaskFrame 要求的输出：本地结构化数据（工具目录 里没有该输出对应的 claim）；仍缺少：TaskFrame 要求的输出：as_of_date（工具目录 里没有该输出对应的 claim）\n\n**缺少的数据/证据：**\n- 本轮尚未完成问题所需的直接回答：仍缺少：反方或证据边界（工具目录 里没有该输出对应的 claim）；仍缺少：TaskFrame 要求的输出：本地结构化数据（工具目录 里没有该输出对应的 claim）；仍缺少：TaskFrame 要求的输出：as_of_date（工具目录 里没有该输出对应的 claim）\n\n请补充数据源或稍后重试；数据补齐后本问题可以重新计算/研究。",
+          "run_id": "run_20260818_200229_897431",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "tag": "G1",
+              "source": "http://finance.eastmoney.com/a/202608143842017710.html",
+              "detail": "2026-08-14 21:01:33 界面新闻"
+            },
+            {
+              "tag": "G2",
+              "source": "http://finance.eastmoney.com/a/202608123839245796.html",
+              "detail": "2026-08-12 17:26:15 界面新闻"
+            },
+            {
+              "tag": "G3",
+              "source": "http://finance.eastmoney.com/a/202608133840423213.html",
+              "detail": "2026-08-13 15:10:55 界面新闻"
+            },
+            {
+              "tag": "G4",
+              "source": "http://finance.eastmoney.com/a/202608133840428525.html",
+              "detail": "2026-08-13 15:39:00 证券时报网"
+            },
+            {
+              "tag": "G5",
+              "source": "http://finance.eastmoney.com/a/202608133840485657.html",
+              "detail": "2026-08-13 16:41:00 证券时报网"
+            },
+            {
+              "tag": "G6",
+              "source": "http://finance.eastmoney.com/a/202608173843107316.html",
+              "detail": "2026-08-17 10:35:00 南方财经网"
+            },
+            {
+              "tag": "G7",
+              "source": "https://quote.eastmoney.com/SZ001258.html",
+              "detail": "提供立新能源 (001258)股票的行情走势、五档盘口、逐笔交易等实时行情数据，及立新能源 (001258)的新闻资讯、公司公告、研究报 …"
+            },
+            {
+              "tag": "G8",
+              "source": "https://quote.eastmoney.com/sz001258.html",
+              "detail": "提供立新能源 (001258)股票的行情走势、五档盘口、逐笔交易等实时行情数据，及立新能源 (001258)的新闻资讯、公司公告、研究报 …"
+            },
+            {
+              "tag": "G9",
+              "source": "本地市场数据 · MARKET_DAILY 同日市场总览",
+              "detail": "主线题材（截至 2026-08-17）：AI应用（1 个核心板块）、AI算力（4 个核心板块）、医药（4 个核心板块）、有色金属（4 个核心板块）、消费零售（1 个核心板块）。"
+            },
+            {
+              "tag": "G10",
+              "source": "本地市场数据 · MARKET_DAILY 同日市场总览",
+              "detail": "使用边界：这是同一最新交易日的盘面事实，不等于题材主线判断。"
+            },
+            {
+              "tag": "G11",
+              "source": "本地市场数据 · MARKET_DAILY 同日市场总览",
+              "detail": "市场数据截至：2026-08-17。该日期是本轮整体盘面日期。"
+            },
+            {
+              "tag": "G12",
+              "source": "https://cn.investing.com/equities/xinjiang-lixin-energy-historical-data",
+              "detail": "001258历史数据免费获取立新能源（001258）股票历史数据，用于立新能源股票投资参考。此历史数据包括近期和往年立新能 …"
+            }
+          ],
+          "degrades": [
+            "最终回答未完成任务契约，已按部分完成标记。"
+          ],
+          "evidence_bound": 13,
+          "evidence": [
+            {
+              "id": "citation-record:G1",
+              "label": "[G1] http://finance.eastmoney.com/a/202608143842017710.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026-08-14 21:01:33 界面新闻",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G2",
+              "label": "[G2] http://finance.eastmoney.com/a/202608123839245796.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026-08-12 17:26:15 界面新闻",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G3",
+              "label": "[G3] http://finance.eastmoney.com/a/202608133840423213.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026-08-13 15:10:55 界面新闻",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G4",
+              "label": "[G4] http://finance.eastmoney.com/a/202608133840428525.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026-08-13 15:39:00 证券时报网",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G5",
+              "label": "[G5] http://finance.eastmoney.com/a/202608133840485657.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026-08-13 16:41:00 证券时报网",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G6",
+              "label": "[G6] http://finance.eastmoney.com/a/202608173843107316.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026-08-17 10:35:00 南方财经网",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G7",
+              "label": "[G7] https://quote.eastmoney.com/SZ001258.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "提供立新能源 (001258)股票的行情走势、五档盘口、逐笔交易等实时行情数据，及立新能源 (001258)的新闻资讯、公司公告、研究报 …",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G8",
+              "label": "[G8] https://quote.eastmoney.com/sz001258.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "提供立新能源 (001258)股票的行情走势、五档盘口、逐笔交易等实时行情数据，及立新能源 (001258)的新闻资讯、公司公告、研究报 …",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G9",
+              "label": "[G9] 本地 DuckDB · MARKET_DAILY 同日市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线题材（截至 2026-08-17）：AI应用（1 个核心板块）、AI算力（4 个核心板块）、医药（4 个核心板块）、有色金属（4 个核心板块）、消费零售（1 个核心板块）。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G10",
+              "label": "[G10] 本地 DuckDB · MARKET_DAILY 同日市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "使用边界：这是同一最新交易日的盘面事实，不等于题材主线判断。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G11",
+              "label": "[G11] 本地 DuckDB · MARKET_DAILY 同日市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场数据截至：2026-08-17。该日期是本轮整体盘面日期。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G12",
+              "label": "[G12] https://cn.investing.com/equities/xinjiang-lixin-energy-historical-data",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "001258历史数据 免费获取立新能源（001258）股票历史数据，用于立新能源股票投资参考。 此历史数据包括近期和往年立新能 …",
+              "status": "hit"
+            },
+            {
+              "id": "citation:G",
+              "label": "图谱证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "12 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "accepted",
+            "reason_code": "validated",
+            "detail": "synthesis passed deterministic quality gates",
+            "prepared_message_count": 2,
+            "candidate_claim_count": 14,
+            "bound_claim_count": 14,
+            "shadow_status": ""
+          },
+          "fulfillment": {
+            "status": "missing",
+            "repaired": false,
+            "items": [
+              {
+                "output_id": "direct_assessment",
+                "status": "fulfilled",
+                "reason_code": "",
+                "candidate_count": 0
+              },
+              {
+                "output_id": "supporting_evidence",
+                "status": "fulfilled",
+                "reason_code": "",
+                "candidate_count": 0
+              },
+              {
+                "output_id": "counterpoint",
+                "status": "missing",
+                "reason_code": "no_candidate_claim",
+                "candidate_count": 0
+              },
+              {
+                "output_id": "fact_value",
+                "status": "missing",
+                "reason_code": "no_candidate_claim",
+                "candidate_count": 0
+              },
+              {
+                "output_id": "as_of_date",
+                "status": "missing",
+                "reason_code": "no_candidate_claim",
+                "candidate_count": 0
+              }
+            ],
+            "reason_code_counts": {
+              "no_candidate_claim": 3
+            },
+            "evaluated_output_ids": [
+              "direct_assessment",
+              "supporting_evidence",
+              "counterpoint",
+              "fact_value",
+              "as_of_date"
+            ]
+          },
+          "gaps": [
+            "最终回答未完成任务契约，已按部分完成标记。"
+          ],
+          "elapsed_s": 92.1,
+          "status": "completed",
+          "error": null,
+          "evidence_retrieved": null,
+          "bindings_count": null,
+          "outputs_missing": null,
+          "outputs_fulfilled": null,
+          "execution_state": "delivered",
+          "execution_state_source": "api_only",
+          "slot_shapes": {},
+          "slots_gap_zeroed": null,
+          "slots_no_hash": null,
+          "episode_fulfilled_hashed": null
+        }
+      ],
+      "blocked_reason": null,
+      "execution_state_aggregate": "delivered",
+      "execution_state_aggregate_rule": "last_turn"
+    }
+  ]
+}

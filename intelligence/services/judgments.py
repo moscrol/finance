@@ -32,6 +32,15 @@ from intelligence.services.memory_status import memory_record_id
 
 DEFAULT_WINDOW = 10
 
+
+def _is_recallable_judgment(rec: dict[str, Any]) -> bool:
+    """pending 前瞻判断还没入账，不能当已确认核心判断召回。"""
+    if rec.get("status") == "pending":
+        return False
+    if rec.get("record_type") == "foresight_judgment" and rec.get("status") != "accepted":
+        return False
+    return bool(str(rec.get("memo") or rec.get("claim") or "").strip())
+
 # 记录身份（Q3）：新增行写稳定 id=sha256(kind+ts+content)[:12]，同秒并发不碰撞；
 # 存量旧行不回填，仍按 ts 退出（见 memory_status 模块迁移说明）。
 _RECORD_KIND = "judgment"
@@ -161,15 +170,21 @@ def load_judgments(
 
     records = [
         rec for rec in apply_status_overrides(raw)
-        if str(rec.get("memo") or "").strip()
+        if _is_recallable_judgment(rec)
     ]
     if window and window > 0:
         records = records[-window:]
     return records, None
 
 
-def render_for_prompt(records: list[dict[str, Any]]) -> str:
+def render_for_prompt(
+    records: list[dict[str, Any]],
+    *,
+    as_of: str | None = None,
+) -> str:
     """把核心判断渲染成注入系统提示词的要点列表（最近的在前，带题材/日期标签）。"""
+    from intelligence.services.track_contract import downgrade_expired_text
+
     lines: list[str] = []
     for rec in reversed(records):  # 最近的判断放最前
         if not isinstance(rec, dict):
@@ -177,6 +192,11 @@ def render_for_prompt(records: list[dict[str, Any]]) -> str:
         memo = str(rec.get("memo") or "").strip()
         if not memo:
             continue
+        memo = downgrade_expired_text(
+            memo,
+            valid_until=str(rec.get("valid_until") or "") or None,
+            as_of=as_of,
+        )
         tags = [str(t).strip() for t in (rec.get("themes") or []) if str(t).strip()]
         tags += [str(s).strip() for s in (rec.get("stocks") or []) if str(s).strip()]
         date = str(rec.get("ts") or "")[:10]

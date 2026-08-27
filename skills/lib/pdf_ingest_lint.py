@@ -16,7 +16,7 @@ import re
 import sys
 from pathlib import Path
 
-VAULT = Path.home() / "Desktop/c c/知识库/wiki"
+VAULT = Path.home() / "knowledge-base-private" / "wiki"
 SOURCES_DIR = VAULT / "sources"
 ENTITIES_DIR = VAULT / "entities"
 CONCEPTS_DIR = VAULT / "concepts"

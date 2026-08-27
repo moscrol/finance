@@ -15,8 +15,10 @@ import pytest
 
 from intelligence.services.session_projection import (
     CAUSE_EVIDENCE_GAP,
+    CAUSE_JUDGE_UNAVAILABLE_HELD,
     CAUSE_MODEL_UNAVAILABLE,
     CAUSE_TRANSIENT_VERIFIER_OUTAGE,
+    CAUSE_VERIFICATION_INCOMPLETE,
     CAUSE_VERIFIED,
     DEGRADED_CAUSES,
     TerminalFacts,
@@ -52,7 +54,7 @@ def _facts(cause: str) -> TerminalFacts:
 
 
 def test_three_causes_emit_distinct_first_sentences() -> None:
-    """同一份终局事实，三类成因各自产出不同的首句。"""
+    """同一份终局事实，各类成因各自产出不同的首句。"""
 
     rendered = {cause: view(_facts(cause)) for cause in DEGRADED_CAUSES}
     firsts = {cause: _first_sentence(text) for cause, text in rendered.items()}
@@ -60,13 +62,19 @@ def test_three_causes_emit_distinct_first_sentences() -> None:
     assert firsts[CAUSE_TRANSIENT_VERIFIER_OUTAGE] == (
         "本次未完成独立复核（复核服务超时）；内容与证据绑定已通过校验："
     )
+    assert firsts[CAUSE_JUDGE_UNAVAILABLE_HELD] == (
+        "本次未完成独立复核（复核服务不可用）。"
+    )
     assert firsts[CAUSE_EVIDENCE_GAP] == (
         "关于“当前市场怎么看？”，现有证据不足，暂不能可靠回答。"
     )
     assert firsts[CAUSE_MODEL_UNAVAILABLE] == (
         "关于“当前市场怎么看？”，模型服务不可用，暂不能可靠回答。"
     )
-    assert len(set(firsts.values())) == 3
+    assert firsts[CAUSE_VERIFICATION_INCOMPLETE] == (
+        "关于“当前市场怎么看？”，本轮核验未完成，已取得的观察不能当作完整结论。"
+    )
+    assert len(set(firsts.values())) == len(DEGRADED_CAUSES)
 
 
 @pytest.mark.parametrize(
@@ -92,7 +100,9 @@ def test_verified_pass_through_is_byte_identical() -> None:
     assert view(TerminalFacts(cause=CAUSE_VERIFIED, public=_PUBLIC)) == _PUBLIC
 
 
-def test_marker_loss_remainder_stays_remainder_plus_gap() -> None:
+def test_evidence_gap_with_remainder_does_not_replace_public() -> None:
+    """view() 仍能「剩余 + 缺口行」；W1 的 marker_loss 不再走这条成因。"""
+
     gap = "证据缺口：直接判断中的未核验表述已删除，需补充直接证据后再判断。"
     text = view(
         TerminalFacts(
@@ -109,6 +119,41 @@ def test_marker_loss_remainder_stays_remainder_plus_gap() -> None:
 def test_unknown_cause_is_rejected() -> None:
     with pytest.raises(ValueError, match="unknown projection cause"):
         view(TerminalFacts(cause="transient_verifier_outage,evidence_gap"))
+
+
+def test_verification_incomplete_keeps_public_and_renders_unknown_slots() -> None:
+    """R-12：核验未完成不是证据不足；已兑现句保留；缺口由 view() 渲成用户语言。"""
+
+    text = view(
+        TerminalFacts(
+            cause=CAUSE_VERIFICATION_INCOMPLETE,
+            question="2026-06-11 液冷",
+            public="液冷服务器当日跌 1.11%。",
+            unknown_slots=("直接回答用户问题并说明判断强度", "提供主要反证或竞争性解释"),
+        )
+    )
+    assert text.startswith(
+        "关于“2026-06-11 液冷”，本轮核验未完成，已取得的观察不能当作完整结论。"
+    )
+    assert "液冷服务器当日跌 1.11%。" in text
+    assert "这次还核验不了：直接回答用户问题并说明判断强度。" in text
+    assert "这次还核验不了：提供主要反证或竞争性解释。" in text
+    assert "现有证据不足" not in text
+    assert "【结构缺口】" not in text
+    assert "【质检" not in text
+
+
+def test_verification_incomplete_unknown_slots_never_use_qc_heading() -> None:
+    text = view(
+        TerminalFacts(
+            cause=CAUSE_VERIFICATION_INCOMPLETE,
+            question="2026-06-11 液冷",
+            unknown_slots=("产业链层级、角色与关键环节",),
+        )
+    )
+    assert "【结构缺口】" not in text
+    assert "结构缺口" not in text
+    assert "这次还核验不了：产业链层级、角色与关键环节。" in text
 
 
 def test_public_answer_assignments_all_go_through_view() -> None:
@@ -164,7 +209,9 @@ _VIEW_CALLERS = frozenset(
         "services/ask_synthesis.py::_judge_outage_release",
         "services/episode_semantic_verifier.py::_transient_failure_candidate",
         "services/episode_semantic_verifier.py::_completed_public",
+        "services/episode_semantic_verifier.py::_emit_withheld_repair",
         "services/episode_semantic_verifier.py::_marker_loss_partial_public",
+        "services/episode_semantic_verifier.py::_project_semantic_quality_marks",
         "services/episode_semantic_verifier.py::_gap_answer",
         "services/episode_semantic_verifier.py::_generic_gap_answer",
     }

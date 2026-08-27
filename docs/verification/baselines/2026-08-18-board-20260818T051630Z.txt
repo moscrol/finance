@@ -1,0 +1,39 @@
+# 验收看板 · 指定真实运行 20260818T051630Z（前置检查通过）
+
+| 题 | 组 | 来源 | 运行 | 真值 | 体验 | 送达 | 信息量 | 可信度 | 耗时 | 绑定证据 | 说明 |
+|---|---|---|---|---|---|---|---|---|---:|---:|---|
+| A1-market-overview | high_freq | 051630Z | 🟢 完成 | ✅ 通过 | 未标注 | ✅ 通过 | — 未评 | ✅ 通过 | 64.4s | 3 |  |
+| A2-next-day-call | high_freq | 051630Z | 🟢 完成 | ❔ 不可判 | 未标注 | ✅ 通过 | — 未评 | ❔ 不可判 | 36.2s | 24 | falsifiable threshold is structured, but directional judgment quality is not |
+| A3-stock-deep-dive | high_freq | 051630Z | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 60.4s | 15 | expected fact close=12.11 not observed within tolerance |
+| A4-dual-red | high_freq | 051630Z | 🟢 完成 | ❔ 不可判 | 未标注 | ✅ 通过 | — 未评 | ❔ 不可判 | 42.2s | 2 | fact diff_ratio aliases ['环比', '边际'] not found in answer; cannot locate the value |
+| A5-limit-heat | high_freq | 051630Z | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 38.2s | 4 | expected fact 储能.limit_up_count=40 not observed within tolerance |
+| A6-limit-advance-ladder | high_freq | 051630Z | 🟢 完成 | ❔ 不可判 | 未标注 | ✅ 通过 | — 未评 | ❔ 不可判 | 28.2s | 3 | the approximate total ladder size is prose-only |
+| A7-mainline | high_freq | 051630Z | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 54.3s | 2 | expected fact 芯片概念.limit_up_count=66 not observed within tolerance |
+| A8-market-stage | high_freq | 051630Z | 🟢 完成 | ❔ 不可判 | 未标注 | ✅ 通过 | — 未评 | ❔ 不可判 | 24.1s | 16 | case is not reproducible: query is relative-time (现在) but expect_facts is frozen to 2026-07-23; the date anchor never reaches the product |
+| A9-sentiment-contradiction | high_freq | 051630Z | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 60.3s | 16 | expected fact strength_status='沸点' absent from the whole answer |
+| A10-new-high-structure | high_freq | 051630Z | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 62.4s | 18 | expected fact stock_high_count_20d=339 not observed within tolerance |
+| B1-theme-photoresist | mid_freq | 051630Z | 🟠 降级完成 | ❔ 不可判 | 未标注 | 🟠 部分 | — 未评 | ❔ 不可判 | 96.5s | 21 | historical acceptance trace lacks agent_eval TurnInput observations；synthesis diagnostic unavailable |
+| B2-theme-liquid-cooling | mid_freq | 051630Z | 🟢 完成 | ❔ 不可判 | 未标注 | ✅ 通过 | — 未评 | ❔ 不可判 | 80.6s | 19 | historical acceptance trace lacks agent_eval TurnInput observations |
+| B3-theme-solid-state-battery | mid_freq | 051630Z | 🟢 完成 | ❔ 不可判 | 未标注 | ✅ 通过 | — 未评 | ❔ 不可判 | 102.6s | 15 | historical acceptance trace lacks agent_eval TurnInput observations |
+| B4-fermentation-trace | mid_freq | 051630Z | 🟢 完成 | ❔ 不可判 | 未标注 | ✅ 通过 | — 未评 | ❔ 不可判 | 72.5s | 7 | time-sequenced fermentation steps and per-step market data are prose-only |
+| B5-cross-table-intersection | mid_freq | 051630Z | 🟢 完成 | ❔ 不可判 | 未标注 | ✅ 通过 | — 未评 | ❔ 不可判 | 70.4s | 3 | typed answer_set observation not supplied |
+| B6-sellside-distillation | mid_freq | 051630Z | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 9.6s | 0 | missing product terms: graph_only, 观察列表 |
+| B7-volume-sentiment-evolution | mid_freq | 051630Z | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 36.2s | 5 | expected fact 2026-07-21.total_amount=29569.03 not observed within tolerance |
+| B8-valuation-band | mid_freq | 051630Z | 🟠 降级完成 | ❔ 不可判 | 未标注 | 🟠 部分 | — 未评 | ❔ 不可判 | 112.7s | 17 | valuation-band reasoning and honest unavailable-data handling are semantic；synthesis diagnostic unavailable |
+| C1-future-date-no-data | long_tail | 051630Z | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 9.6s | 0 | none of the required alternatives was observed |
+| C2-non-trading-day | long_tail | 051630Z | 🟢 完成 | ✅ 通过 | 未标注 | ✅ 通过 | — 未评 | ✅ 通过 | 9.6s | 0 |  |
+| C3-empty-table | long_tail | 051630Z | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 78.4s | 12 | none of the required alternatives was observed |
+| C4-unit-anomaly | long_tail | 051630Z | 🟠 降级完成 | ❌ 失败 | 未标注 | 🟠 部分 | — 未评 | ❌ 失败 | 106.5s | 30 | expected fact amount_raw=6112588.6 not observed within tolerance；synthesis reason_code=knowledge_lane_answer |
+| C5-data-contradiction | long_tail | 051630Z | 🟠 降级完成 | ❌ 失败 | 未标注 | 🟠 部分 | — 未评 | ❌ 失败 | 112.2s | 28 | answer does not flag the required inconsistency；synthesis reason_code=knowledge_lane_answer |
+| C6-strict-definition | long_tail | 051630Z | 🟢 完成 | ❔ 不可判 | 未标注 | ✅ 通过 | — 未评 | ❔ 不可判 | 24.1s | 9 | case is not reproducible: query is relative-time (最近) but expect_answer_set is frozen to 2026-07-23; the date anchor never reaches the product |
+| C7-temporal-leakage | long_tail | 051630Z | 🟢 完成 | ✅ 通过 | 未标注 | ✅ 通过 | — 未评 | ✅ 通过 | 44.3s | 28 |  |
+| C8-nonexistent-table | long_tail | 051630Z | 🟢 完成 | ✅ 通过 | 未标注 | ✅ 通过 | — 未评 | ✅ 通过 | 41.7s | 0 |  |
+| C9-citation-integrity | long_tail | 051630Z | 🟢 完成 | ❔ 不可判 | 未标注 | ✅ 通过 | — 未评 | ❔ 不可判 | 48.3s | 7 | citation integrity does not cover the required causal explanation |
+| C10-multi-turn-consistency | long_tail | 051630Z | 🟢 完成 | ❌ 失败 | 未标注 | ✅ 通过 | — 未评 | ❌ 失败 | 40.2s | 3 | follow-up lost already established conversation context |
+
+**运行口径**：28 道题里，未跑 0、阻塞 0、未产出 0、降级完成 4、正常完成 24（完成合计 28）。
+**真值口径**：通过 4、失败 12、不可判 12、未跑 0；可判子集通过率 4/16（不是 28 题产品通过率）。
+**三轴口径**：送达通过/部分/失败 24/4/0；信息量已评/未评 0/28；可信通过/失败/不可判 4/12/12。
+**失败按判据层**：fact 12、semantic_marker 3、required_text 2、multi_turn 1、product_language 1。（同输入复跑实测：fact 层 0% 翻转，product_language 层 33%——措辞层的红不要单次比较）
+**体验口径**：已盲标 0、未标注 28、不适用 0。
+**参照快照**：已冻结 22 / 28 道（codex/knevo）

@@ -73,7 +73,7 @@ def test_theme_term_embedded_in_a_longer_name_is_not_stolen(
 
     实体锚定因 wiki 未登记落空后，旧的无边界子串匹配把问题偷进
     theme_analysis / theme-research，零证据终局。国新能源、宝新能源、
-    华润新能源同形状。降级到 general QA 是可接受的失败，被偷走不是。
+    华润新能源同形状。无词典时走 candidate 澄清，被偷走不是。
     """
 
     resolution = resolver.resolve("立新能源怎么看")
@@ -81,6 +81,11 @@ def test_theme_term_embedded_in_a_longer_name_is_not_stolen(
     assert resolution.envelope.subject != "新能源"
     assert resolution.envelope.subject_kind != "theme"
     assert resolution.envelope.question_type != "theme_analysis"
+    assert resolution.status == "candidate"
+    assert resolution.suggested_action == "clarify"
+    names = {item.name: item.kind for item in resolution.candidates}
+    assert names.get("立新能源") == "company"
+    assert names.get("新能源") == "theme"
 
 
 def test_bare_theme_term_still_matches(resolver: QueryResolver) -> None:
@@ -88,6 +93,8 @@ def test_bare_theme_term_still_matches(resolver: QueryResolver) -> None:
 
     assert resolution.envelope.subject == "新能源"
     assert resolution.envelope.subject_kind == "theme"
+    assert resolution.status == "resolved"
+    assert resolution.suggested_action == "proceed"
 
 
 def test_theme_term_extended_to_the_right_still_matches(
@@ -149,6 +156,19 @@ def test_unregistered_stock_routes_to_deep_dive_via_security_master(
     assert resolution.envelope.subject == "立新能源"
     assert resolution.envelope.subject_kind == "company"
     assert resolution.envelope.question_type == "stock_deep_dive"
+    assert resolution.status == "resolved"
+    assert resolution.suggested_action == "proceed"
+
+
+def test_unresolved_query_discloses_instead_of_inventing_a_subject(
+    resolver: QueryResolver,
+) -> None:
+    resolution = resolver.resolve("这东西怎么看")
+
+    assert resolution.status == "unresolved"
+    assert resolution.suggested_action == "disclose"
+    assert resolution.candidates == ()
+    assert resolution.envelope.subject not in {"新能源", "立新能源"}
 
 
 @pytest.mark.parametrize(

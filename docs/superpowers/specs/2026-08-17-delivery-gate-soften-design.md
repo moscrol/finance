@@ -53,7 +53,24 @@
 
 ## 2. 不改什么
 
-语义闸、休市/退役表罐头、结构 `episode_verifier`、`grounded_composer_added_number` / `_added_company` 等事实越界、`llm_added_number` 这类仍 error 的 fail-closed、层级审计、未读字段、超时、8792、900、市场复盘 `grounded_required_fallback`。
+语义闸、休市/退役表罐头、结构 `episode_verifier`、`grounded_composer_added_number` / `_added_company` 等事实越界、层级审计、未读字段、超时、8792、900、市场复盘 `grounded_required_fallback`。
+
+> **更正（2026-08-17 复核，`ast` 逐个数出来的）**：本节初稿写「`llm_added_number`
+> 这类仍 error 的 fail-closed」——**那个 code 不存在**。它最后一次出现在
+> `c516c62c`（2026-07-12），在 `53754507`「refactor workbench research contracts」
+> （2026-07-15）里被删掉，本 spec 落笔时已经消失一个多月。
+>
+> 真实闸况（对 `dd9f10b9` 与本分支成立）：
+>
+> | 出口 | 事实闸（编数字/日期/公司、升格成事实） | 形式闸 |
+> |---|---|---|
+> | `validate_grounded_composer_answer`（**生产默认**） | 有，7 条，全 `error` | 有，全 `error`（本次只把术语泄漏降为 warning） |
+> | `validate_llm_answer`（旧合成链 fallback） | **一条也没有**（从 07-15 起） | 原本 7 条全 `error`，本次全降 warning |
+>
+> 所以「我们只放松形式闸，事实闸还兜着」这个论证**在旧合成链上不成立**——
+> 那条路上没有事实闸可兜。本次改动后 `validate_llm_answer` 不再产生任何 `error`，
+> 它的 fail-closed 能力**完全**来自 §1.4 的展示层下限。写这句话是为了让下一任
+> 别再把「旧链还有数字闸守着」当前提。
 
 ## 3. 验收
 
@@ -61,6 +78,6 @@
 - 术语泄漏：警告 + 展示稿不含该行，不是 `quality_gate_rejected`
 - 半篇未绑定数字：只删数字句；`stop_reason` 保持模型终态
 - 全文只剩未绑定数字：公布缺口稿，仍不改写 `stop_reason`
-- `llm_added_number` 仍整答退稿（未授权改这条）
+- ~~`llm_added_number` 仍整答退稿~~ → 该 code 不存在，见 §2 更正
 - 展示层抠空：退稿而非发空白稿；WARN 回灌修订抠空时保留初稿。三条守卫各配一条
   变异能证伪的测试（抽掉守卫即红）

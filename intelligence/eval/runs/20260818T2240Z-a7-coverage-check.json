@@ -1,0 +1,128 @@
+{
+  "generated_at": "20260818T143801Z",
+  "base": "http://127.0.0.1:8796",
+  "preflight_ok": true,
+  "preflight_detail": "revision=6be69ab1 backend=continuous_glm users_dir=/Users/a77/.finance-runtime/live-probe-traceability/users data_probe: finance_query=ok",
+  "data_probe": {
+    "tool": "finance_query",
+    "status": "ok",
+    "elapsed_ms": 191,
+    "row_count": 1,
+    "served_date": "2026-08-18"
+  },
+  "data_probe_ok": true,
+  "window_contamination": null,
+  "execution_state_tally": {
+    "delivered": 1
+  },
+  "execution_state_case_tally": {
+    "delivered": 1
+  },
+  "execution_state_source_tally": {
+    "episode_artifact": 1
+  },
+  "execution_state_turn_rows": [
+    {
+      "case_id": "A7-mainline",
+      "turn_index": 0,
+      "execution_state": "delivered",
+      "execution_state_source": "episode_artifact"
+    }
+  ],
+  "execution_state_aggregate_rule": "last_turn",
+  "quality_denominator": 1,
+  "excluded_from_denominator": [],
+  "cases": [
+    {
+      "case_id": "A7-mainline",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-21 当天主线是什么",
+          "answer": "具体看，当日主线题材排序为：电力与医药并列第1、半导体第3、AI算力第4，但从强度和赚钱效应看，半导体明显是当日实际最强主线：半导体板块强度5360.3、涨停28家、涨9.83%；存储芯片强度5333、涨停30家、涨8.98%；半导体设备强度4615.9、涨停12家、涨14.97%。AI算力方向中，共封装光学(CPO)强度5093.1、涨停22家、涨7.66%，华为昇腾强度998、涨停1家。电力（涨停2家、最高连板4、当日跌1.28%）和医药（创新药涨停1家、最高连板4、当日跌0.95%等）虽在题材排序中并列第1，但当日板块普跌，更多体现的是存量主线地位而非当日进攻性。综合判断：当日进攻主线是半导体（含存储芯片、设备），AI算力（CPO）为共振副线。",
+          "run_id": "run_20260818_223723_401797",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "主线板块日频结构（2026-07-21）",
+              "source": "本地结构化数据 · 主线板块日频结构",
+              "date": "2026-07-21"
+            },
+            {
+              "title": "主线题材日频结构（2026-07-21）",
+              "source": "本地结构化数据 · 主线题材日频结构",
+              "date": "2026-07-21"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 主线板块日频结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线板块日频结构（2026-07-21）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 主线题材日频结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线题材日频结构（2026-07-21）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "verification",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 38.2,
+          "status": "completed",
+          "error": null,
+          "evidence_retrieved": 22,
+          "bindings_count": 2,
+          "outputs_missing": 0,
+          "outputs_fulfilled": 2,
+          "execution_state": "delivered",
+          "execution_state_source": "episode_artifact",
+          "slot_shapes": {
+            "direct_definition": "clean",
+            "evidence_boundary": "clean"
+          },
+          "slots_gap_zeroed": 0,
+          "slots_no_hash": 0,
+          "episode_fulfilled_hashed": 2
+        }
+      ],
+      "blocked_reason": null,
+      "execution_state_aggregate": "delivered",
+      "execution_state_aggregate_rule": "last_turn"
+    }
+  ]
+}

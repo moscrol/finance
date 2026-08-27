@@ -29,6 +29,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -82,12 +84,26 @@ class WorkbenchDB:
         with self._connect() as conn:
             conn.executescript(_SCHEMA)
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        """事务 + 确定性关闭。
+
+        裸 ``with sqlite3.connect(...)`` 只管提交/回滚**不关连接**，连接对象
+        等周期 GC 兜底回收。轮询负载下分配快于 GC，fd 顶到 launchd 软上限
+        256 后 EMFILE 以「unable to open database file」形态间歇 500
+        （2026-08-26 生产事故，台账 R-20260826-03）。此处 finally close，
+        fd 生命周期与语句块严格一致，不依赖 GC 时机。
+        """
+
         conn = sqlite3.connect(self.path, timeout=30)
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA synchronous=NORMAL")
-        conn.execute("PRAGMA busy_timeout=30000")
-        return conn
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")
+            conn.execute("PRAGMA busy_timeout=30000")
+            with conn:
+                yield conn
+        finally:
+            conn.close()
 
     # ---------- runs ----------
 

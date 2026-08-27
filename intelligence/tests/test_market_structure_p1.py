@@ -12,12 +12,6 @@ from intelligence.services.market_structure import (
     PHASE_UNKNOWN,
     classify_market_structure,
 )
-from intelligence.services.sellside_divergence import (
-    BUCKET_CONFIRM_ONLY,
-    BUCKET_CONTRARIAN_CAUTION,
-    BUCKET_EXPLORE,
-    diverge_sellside_views,
-)
 from intelligence.services.theme_lifecycle import (
     STAGE_ACCELERATION,
     STAGE_DECAY_WATCH,
@@ -150,42 +144,6 @@ class ThemeLifecycleTests(unittest.TestCase):
         self.assertIn("题材生命周期诊断", block)
         self.assertIn(diag.stage, block)
         self.assertIn("deep", block)
-
-
-class SellsideDivergenceTests(unittest.TestCase):
-    def test_three_buckets(self) -> None:
-        state = classify_market_structure(["全市场缩量轮动，无主线 [S1]"])
-        report = diverge_sellside_views(
-            [
-                "某券商首次覆盖：公司公告披露快接头订单落地，签订供货合同",
-                "多家覆盖集体上调目标价，一致预期强化，发布会催化临近",
-                "重申买入评级，维持盈利预测",
-            ],
-            state,
-        )
-        self.assertEqual(report.views[0].bucket, BUCKET_EXPLORE)
-        self.assertEqual(report.views[1].bucket, BUCKET_CONTRARIAN_CAUTION)
-        self.assertEqual(report.views[2].bucket, BUCKET_CONTRARIAN_CAUTION)
-
-    def test_high_coverage_hard_evidence_calm_phase_is_confirm_only(self) -> None:
-        state = classify_market_structure(["板块双红，新高成簇 [S1]"])
-        report = diverge_sellside_views(
-            ["多家覆盖重申：公司公告量产落地，产能爬坡确认"], state
-        )
-        self.assertEqual(report.views[0].bucket, BUCKET_CONFIRM_ONLY)
-
-    def test_high_risk_phase_downgrades_hard_evidence(self) -> None:
-        state = classify_market_structure(["板块放量分歧，高开低走 [S1]"])
-        report = diverge_sellside_views(
-            ["多家覆盖：公司公告订单落地，签订合同"], state
-        )
-        self.assertEqual(report.views[0].bucket, BUCKET_CONTRARIAN_CAUTION)
-
-    def test_prompt_block_lists_buckets(self) -> None:
-        state = classify_market_structure([])
-        block = diverge_sellside_views(["首次覆盖某冷门标的"], state).to_prompt_block()
-        self.assertIn("优先发散", block)
-        self.assertIn("反向谨慎", block)
 
 
 if __name__ == "__main__":

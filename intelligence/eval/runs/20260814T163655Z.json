@@ -1,0 +1,62 @@
+{
+  "generated_at": "20260814T163655Z",
+  "base": "http://127.0.0.1:8792",
+  "preflight_ok": true,
+  "preflight_detail": "revision=5b456532 backend=continuous_glm",
+  "cases": [
+    {
+      "case_id": "B1-theme-photoresist",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "光刻胶",
+          "answer": "关于“光刻胶”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题并说明判断强度、chain_mapping、提供主要反证或竞争性解释。本轮已取得 13 条证据，但未完成核验绑定，暂不能引用；可直接重试。",
+          "run_id": "run_20260815_003540_723791",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 74.5,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    }
+  ]
+}

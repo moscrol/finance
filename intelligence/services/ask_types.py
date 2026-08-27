@@ -23,7 +23,7 @@ from intelligence.services import (
 from intelligence.services.answer_orchestrator import (
     QuestionPlan,
 )
-from intelligence.paths import default_market_db_path
+from intelligence.paths import data_repo_root, default_market_db_path
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     ResearchDeadline,
@@ -38,21 +38,11 @@ from intelligence.services import event_transmission, evidence_gap_radar, market
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-
-def _data_repo_root() -> Path:
-    """盘面/exports/DuckDB 等数据根目录。
-
-    双根架构：PYTHONPATH 指向 runtime 代码快照，真实数据在
-    WORKBENCH_REPO_ROOT / FINANCE_WS（private 仓）。未设置环境变量时回退代码根。
-    """
-    for name in ("WORKBENCH_REPO_ROOT", "FINANCE_WS", "FINANCE_ROOT"):
-        value = os.environ.get(name)
-        if value:
-            return Path(value).expanduser().resolve()
-    return REPO_ROOT
-
-
-DATA_REPO_ROOT = _data_repo_root()
+# 数据根唯一来源是 intelligence.paths。这里曾经复制了一份
+# WORKBENCH_REPO_ROOT → FINANCE_WS 查找，和 paths 分叉——生产 launcher
+# 把 WORKBENCH_REPO_ROOT 指到代码快照，盘面层就静默消失。
+_data_repo_root = data_repo_root
+DATA_REPO_ROOT = data_repo_root()
 DEFAULT_EXPORTS_DIR = DATA_REPO_ROOT / "market_feature_store" / "exports"
 # 盘面 DuckDB 默认路径的唯一来源在 intelligence.paths（叶子模块，四个 market_*
 # 模块也要用，从这里导入会成环）。此处重导出，保持既有调用方不变。
@@ -154,36 +144,6 @@ class AskOptions:
     detail: bool = False
     user: str | None = None
     experience_cards_window: int = 12
-    include_market_value_block: bool = True
-    include_customer_hardness_block: bool = True
-    include_second_derivative_block: bool = True
-    include_mainline_context_block: bool = True
-    # D5 估值数据块：仅 valuation 问题类型 + compose 时生成（东财快照取数，可用 FINANCE_VALUATION_FETCH=0 关闭）。
-    include_valuation_block: bool = True
-    # D0 盘面时序直查数据块：仅当问题命中「白名单指标 × 过去 N 日逐日」时序取数意图时生成。
-    include_timeseries_block: bool = True
-    # D6 多日/中期趋势数据块：仅当问题命中「中期/赔率/配置/未来 N 个月」时间尺度意图时生成，
-    # 给出题材近 N 日双红天数/成交额趋势/拥挤度分位，纠正 brief/D4 的当日快照偏置。
-    include_midterm_block: bool = True
-    # D8 历史类比检索块：仅当问题命中「类似/历史上/上一次/先例」意图时生成，从题材自身历史
-    # 找与当前 N 日形态最相似的窗口及其后续 5/10/20 日实际走法，只列历史事实不给概率。
-    include_analog_block: bool = True
-    # D10 市场情绪环境类比块：仅当问题同时命中「环境类词面（情绪/盘面/行情…）」与「类比类
-    # 词面（类似/对标/历史上…）」时生成——D8 管题材自身历史，D10 管市场级情绪环境对标；
-    # 每日情绪向量 z 标准化后滑窗找相似窗口，后续 5/10/20 日只列历史事实不给概率。
-    include_regime_block: bool = True
-    # D11 个股走势类比块：类比词面命中且问题里能解析到库内个股（代码/名称）时生成——
-    # 该股自身历史相似量价结构窗口及后续 5/10/20 日多观测量事实（累计/区间最高/达峰/峰后回撤）。
-    include_stock_analog_block: bool = True
-    # D7 逐季财报数据块：仅当问题命中「财报/业绩/营收/净利/毛利率」意图且能解析到目标股时生成，
-    # 走东财免费 F10 取逐季营收/归母净利/毛利率/净利率（+同比），补业绩兑现节奏缺口。
-    include_financials_block: bool = True
-    # W7 web 事件检索块：仅当问题命中「事件/消息/催化/涨价/对标」意图且能解析到关键词（实体/题材）时生成，
-    # 走东财免费资讯搜索取近 N 天新闻（日期/来源/标题/链接），只列不编，补消息面缺口。
-    include_news_block: bool = True
-    # D9 L2 大单资金流数据块：仅当问题命中「资金流/大单/主买/量化单」意图时生成，直查
-    # l2-moneyflow 盘后特征表；榜单只扫涨停股+成交额 top100，缺行≠无资金流入，块内强制声明口径。
-    include_moneyflow_block: bool = True
     # 固定日报工作流需把 L2 作为显式模块，即使用户问题没有重复写“资金流”也要取数。
     force_moneyflow_block: bool = False
     # 情景树/推演表达层：推演类问题命中时向 synthesis prompt 注入「变量表→情景分支→监控信号」
@@ -192,16 +152,8 @@ class AskOptions:
     # 跟踪表达层（q8 契约回灌）：theme_track 类问题命中时注入「delta-only + 观点四态对照 +
     # 结论 TTL + 下期关注清单」表达契约；非跟踪问题不注入，行为不变。
     include_track_guidance: bool = True
-    # M 用户记忆检索块：按相关性召回 judgments/corrections/回检胜率注入证据链；
-    # 台账缺失或无相关记录时不追加块，无记忆用户行为逐字节不变。
-    include_memory_block: bool = True
-    # V 回检块：检索系统对该题材/个股登记过的可证伪判断（checkpoints）及其最新裁决
-    # （hit/miss/partial/unverifiable），附数据新鲜度自检（台账/盘面截至日，过期显式声明）；
-    # 台账缺失或无相关记录时不追加块，行为逐字节不变。
-    include_recall_block: bool = True
-    # 数据块 provider 白名单（evidence_registry）：None（默认）走上面各 include_*_block
-    # 旧开关，完全兼容；给定集合时只允许名单内的块参与门控（意图门控仍生效，
-    # enabled 是“允许”不是“强制取数”）。
+    # 数据块允许名单（evidence_registry）：None（默认）= 全部允许，意图门控仍生效；
+    # 给定集合时只允许名单内的块。关某一块用 without_providers / providers_allowing_memory。
     enabled_providers: tuple[str, ...] | None = None
     # 澄清追问前置门（clarify-then-act）：问题明确模糊（空问题/纯空泛词面）时不硬答，
     # 返回结构化澄清问题（对象/口径/日期），跳过整次检索；带实质内容的问题行为逐字节不变。
@@ -281,6 +233,16 @@ class AskOptions:
         repr=False,
         compare=False,
     )
+    # market_watch 组件包。编排器在 owner 分叉前写入；缺席 = 本题不是该包。
+    market_watch_pack: Any = field(default=None, repr=False, compare=False)
+    # 板块披露扫描包。编排器在 owner 分叉前写入；缺席 = 本题不是该包。
+    disclosure_scan_pack: Any = field(default=None, repr=False, compare=False)
+    # 自选简报包。编排器在 owner 分叉前写入；缺席 = 本题不是该包。
+    watchlist_digest_pack: Any = field(default=None, repr=False, compare=False)
+    # 个性化接合核。编排器在 handle() 前写入；缺席 = 本题未触发 StancePack。
+    stance_pack: Any = field(default=None, repr=False, compare=False)
+    # 输入侧研究程序。只由 compile_research_program / bind_research_program 写入。
+    research_program: Any = field(default=None, repr=False, compare=False)
 
 
 @dataclass
@@ -428,6 +390,8 @@ class AskResult:
     valuation_note: valuation_gap.ValuationGapNote | None = None
     # Review 层：输出前六项确定性检查闸门（只读、WARN 不阻断）。
     review_gate: output_review.OutputReviewGate | None = None
+    # 数据块自述的「时点限定」(tag, 扫描日, 盘面日期)；输出质检的时点错标嗅探用
+    stale_block_hints: tuple[tuple[str, str, str], ...] = ()
     # 裁决层唯一输出：表达层和 LLM 只能消费该结构，不能直接拼接检索字符串。
     answer_spec: answer_model.AnswerSpec | None = None
     # GenericResearchOwner 的确定性任务完成报告；仅控制面使用，不进入正文。

@@ -230,6 +230,86 @@ def test_get_evidence_applies_invalidation_overlay(tmp_path) -> None:
     assert "回链" in weakened["status_note"]
 
 
+def test_get_stale_edges_includes_invalidated_and_skips_concept_filter(tmp_path) -> None:
+    _write_status_index(tmp_path)
+    adapter = KnowledgeAdapter(wiki_root=tmp_path)
+
+    default = adapter.get_evidence("英维克")
+    stale = adapter.get_stale_edges("英维克", concept="不会命中的概念袋")
+
+    default_texts = [item["evidence"] for item in default["items"]]
+    stale_texts = [item["evidence"] for item in stale["items"]]
+    assert "已证伪：并未中标该项目。" not in default_texts
+    assert "已证伪：并未中标该项目。" in stale_texts
+    assert "旧口径：液冷收入占比 10%。" in stale_texts
+    assert "新口径：液冷收入占比 25%。" not in stale_texts
+    assert stale["found"] is True
+
+
+def test_get_stale_edges_surfaces_overlay_hard(tmp_path) -> None:
+    relations = tmp_path / "relations"
+    relations.mkdir()
+    hard_item = {
+        "target": "东方日升",
+        "concept": "钙钛矿",
+        "source_date": "2026-05-01",
+        "source": "[[旧研报]]",
+        "evidence": "公司钙钛矿中试线即将投产。",
+    }
+    live_item = {
+        "target": "东方日升",
+        "concept": "钙钛矿",
+        "source_date": "2026-07-01",
+        "source": "[[新公告]]",
+        "evidence": "中试线按期投产。",
+    }
+    (relations / "evidence_index.json").write_text(
+        json.dumps({"items": [hard_item, live_item]}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    def key(item: dict) -> str:
+        return "|".join(
+            (
+                item["target"],
+                item["concept"],
+                item["source_date"],
+                item["source"],
+                item["evidence"][:80],
+            )
+        )
+
+    (relations / "invalidation_links.json").write_text(
+        json.dumps(
+            {
+                "schema": "invalidation_links/v1",
+                "links": [
+                    {
+                        "target": "东方日升",
+                        "concept": "钙钛矿",
+                        "strength": "hard",
+                        "negation": {
+                            "source_date": "2026-06-01",
+                            "source": "[[公司公告]]",
+                            "hits": ["终止"],
+                        },
+                        "invalidates": [{"key": key(hard_item)}],
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    adapter = KnowledgeAdapter(wiki_root=tmp_path)
+    default = adapter.get_evidence("东方日升")
+    stale = adapter.get_stale_edges("东方日升")
+    assert [item["evidence"] for item in default["items"]] == ["中试线按期投产。"]
+    assert stale["items"][0]["status"] == "invalidated"
+    assert "终止" in stale["items"][0]["status_note"]
+
+
 def test_relation_cache_avoids_reparsing_unchanged_file(tmp_path, monkeypatch) -> None:
     """同一份 relations 在一次问答里会被读十几次，不应每次全量重解析。"""
     from intelligence.adapters import knowledge
