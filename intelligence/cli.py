@@ -3229,6 +3229,45 @@ def _add_self_use_calendar_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def cmd_tool_hunger(args: argparse.Namespace) -> int:
+    from datetime import datetime
+    from pathlib import Path
+
+    from intelligence.eval.tool_hunger import aggregate_hunger_runs, write_hunger_report
+
+    since = None if str(args.since).strip() in {"", "all"} else args.since
+    report = aggregate_hunger_runs(Path(args.runs_dir), since=since)
+    stem = args.stem or f"tool-hunger-{datetime.now().date().isoformat()}"
+    paths = write_hunger_report(report, Path(args.out_dir), stem=stem)
+    print(paths["json"])
+    print(paths["md"])
+    return 0
+
+
+def add_tool_hunger_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "tool-hunger",
+        help="Aggregate tool-hunger events from workbench run directories",
+    )
+    parser.add_argument(
+        "--runs-dir",
+        required=True,
+        help="Directory of run_* folders, or a users root containing */runs/run_*",
+    )
+    parser.add_argument(
+        "--since",
+        default="7d",
+        help="Only count events at/after this time (7d, 24h, ISO datetime, or all)",
+    )
+    parser.add_argument(
+        "--out-dir",
+        default="intelligence/eval/measurements",
+        help="Directory for tool-hunger-YYYY-MM-DD.{json,md}",
+    )
+    parser.add_argument("--stem", default=None, help="Output filename stem")
+    parser.set_defaults(func=cmd_tool_hunger)
+
+
 def add_self_use_parser(subparsers: argparse._SubParsersAction) -> None:
     from intelligence.services.self_use_maturity import OUTCOMES, WORKFLOWS
 
@@ -3411,6 +3450,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_retrieval_audit_parser(subparsers)
     add_perspective_parser(subparsers)
     add_self_use_parser(subparsers)
+    add_tool_hunger_parser(subparsers)
     add_news_alias_parser(subparsers)
     return parser
 

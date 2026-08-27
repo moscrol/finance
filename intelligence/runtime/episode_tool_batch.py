@@ -322,6 +322,27 @@ class EpisodeToolBatchSession:
                             "capability": decision.capability,
                         },
                     )
+                from intelligence.services.tool_hunger import (
+                    EVENT_UNKNOWN_TOOL,
+                    classify_unauthorized,
+                    record_capability_denied,
+                    record_unknown_tool,
+                )
+
+                event_type, capability, reason = classify_unauthorized(
+                    registry, call.name
+                )
+                if event_type == EVENT_UNKNOWN_TOOL:
+                    record_unknown_tool(
+                        call.name, call.arguments, lane="episode"
+                    )
+                else:
+                    record_capability_denied(
+                        call.name,
+                        call.arguments,
+                        capability=capability,
+                        reason=reason,
+                    )
                 items[index] = ToolCallResult(
                     call,
                     "rejected",
