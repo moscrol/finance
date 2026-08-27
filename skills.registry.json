@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-08-27T08:53:11Z",
+  "generated_at": "2026-08-27T13:02:41Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -497,7 +497,7 @@
       ],
       "note": "只切换/使用已有视角回答问题不用本 skill，直接在 Workbench 选视角即可。",
       "entrypoint": null,
-      "computedHash": "sha256:c4da7261d925591c65a9307ad22395aeb809c7e9f6b604326f9006fc1f29ed57",
+      "computedHash": "sha256:5f2fd1a4c86095e9f7b9d05096951bc3084903ac9bd852e6b0d0233ac570ac46",
       "agentOnly": false,
       "views": [
         {
