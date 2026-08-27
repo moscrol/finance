@@ -499,7 +499,12 @@ class _EpisodeToolAccumulator:
                 public_observation["telemetry"] = telemetry
             # 审计留档拿全量（含 hash），模型上下文拿预算后的副本并去掉 hash，
             # 只留 E1..En——誊抄 16-hex 是 B1/B7 零绑定的根因。
-            self.ledger.add("tool_result", {**public_observation, **timing})
+            # call_id 与 timing 同纪律：只进 ledger 展开，不进 public_observation
+            # ——那个 dict 是下面模型视图的底稿（R-20260827-15）。
+            self.ledger.add(
+                "tool_result",
+                {**public_observation, "call_id": call.call_id, **timing},
+            )
             model_view = dict(public_observation)
             model_view.pop("telemetry", None)
             pruned, seen = prune_tool_observation(
@@ -536,9 +541,12 @@ class _EpisodeToolAccumulator:
             # 模型据此改不了任何东西。详见 ToolCallResult.detail 的注释。
             "detail": str(detail or "")[:400],
         }
-        # 耗时只进 ledger，**不进 payload**——下面那条 messages 是喂模型的，
+        # 耗时与 call_id 只进 ledger，**不进 payload**——下面那条 messages 是喂模型的，
         # 给它塞毫秒数既没用又占预算。审计要全量、模型要够用，同一份事实两个出口。
-        self.ledger.add("tool_error", {**payload, **(timing or {})})
+        self.ledger.add(
+            "tool_error",
+            {**payload, "call_id": call.call_id, **(timing or {})},
+        )
         self.messages.append(
             {
                 "role": "tool",
