@@ -47,6 +47,7 @@ stock-daily）静默挂起，整个 daily 就卡死且无进度输出。**
   `--retry-rounds` 轮（默认1），CDP 500 等瞬态故障到末尾往往已自愈；runlog 备注会带 `[retry rN]`。
 - **必须用编排层 run_review_sync.py**：不要手动逐步跑 sync-* 命令，参数极易搞错
   （如 sync-stock-daily --refresh 默认 offset=180 ≈ 90min）。编排层自带正确参数 + 超时 + 兜底。
+- **禁止 `cli daily-update` / `daily-full-exec` 直写生产**：默认 fail closed。急救必须 `--direct`（会写 `ops_sync_run` 与 `state/direct-write-*.json`）。`cli daily-full` 走 staging 换名，不要绕过它手跑 exec。
 - **超时后检查残留进程再起新任务**：`ps aux | grep market_feature_store | grep -v grep`
   确认 DuckDB 锁已释放，否则新写操作会报 Conflicting lock。
 - **Devin 远程场景必须 nohup 后台**：通过 Cloudflare 隧道跑 ≥ 100s 的命令一律

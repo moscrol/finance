@@ -12,9 +12,11 @@ if str(ROOT) not in sys.path:
 # Direct execution needs the repository root on sys.path before project imports.
 # The E402 below is therefore an ordering requirement, not an oversight.
 from market_feature_store.db import (  # noqa: E402
+    DB_PATH,
     DatabaseLockedError,
     connect,
     connect_read_only_with_retry,
+    staging_path,
 )
 from market_feature_store.trading_days import is_trading_day  # noqa: E402
 
@@ -81,6 +83,14 @@ DATE_COLUMNS = {
     "feature_stock_window": "as_of_date",
     "feature_stock_technical_daily": "trade_date",
 }
+# 有 fact_market_daily 当日行就必须有这组派生；缺任何一张 = 半成品，不是源没抓到。
+FEATURE_FAMILY = (
+    "fact_sector_period_rank_daily",
+    "feature_market_window",
+    "feature_sector_window",
+    "feature_stock_window",
+    "feature_stock_technical_daily",
+)
 L2_TABLES = [
     "feature_l2_capital_flow_daily",
     "feature_l2_quant_orders_daily",
@@ -125,17 +135,74 @@ def is_null(value: object) -> bool:
     return value is None or str(value) in {"nan", "NaT", "None"}
 
 
+def _feature_family_gap(counts: dict[str, int], date: str) -> list[str]:
+    """有当日 fact、缺派生层：一条家族结论，避免被拆成五条「表空」噪声。"""
+    if not counts.get("fact_market_daily"):
+        return []
+    missing_family = [table for table in FEATURE_FAMILY if not counts.get(table)]
+    if not missing_family:
+        return []
+    return [
+        "派生层未跑：fact_market_daily 有 "
+        f"{date} 而 {', '.join(missing_family)} 无行——"
+        "先 compute_features，不要当源数据没抓到"
+    ]
+
+
+def _print_staging_contrast(date: str, prod_counts: dict[str, int]) -> None:
+    """INCOMPLETE 时对照 sibling .staging：区分「没写」和「写了没晋升」。"""
+    import duckdb
+
+    staging = staging_path(DB_PATH)
+    try:
+        if not staging.exists() or staging.resolve() == Path(DB_PATH).resolve():
+            return
+    except OSError:
+        return
+    print(f"STAGING CONTRAST {date} ({staging.name})")
+    try:
+        con = duckdb.connect(str(staging), read_only=True)
+    except Exception as exc:  # noqa: BLE001
+        print(f"- staging 打不开: {exc}")
+        return
+    try:
+        for table in TABLES:
+            date_column = DATE_COLUMNS.get(table, "trade_date")
+            try:
+                _max_date, count = con.execute(
+                    f"SELECT MAX({date_column}), COUNT(*) FILTER (WHERE {date_column} = ?) FROM {table}",
+                    [date],
+                ).fetchone()
+            except Exception:
+                continue
+            prod = int(prod_counts.get(table) or 0)
+            stg = int(count or 0)
+            if prod == stg:
+                continue
+            if stg and not prod:
+                label = "未晋升（staging 有、生产没有）"
+            elif prod and not stg:
+                label = "两套库已分叉（生产有、staging 没有）"
+            else:
+                label = "行数不一致"
+            print(f"- {table}: 生产={prod} staging={stg} → {label}")
+    finally:
+        con.close()
+
+
 def check_data(date: str) -> list[str]:
     missing: list[str] = []
     con = _connect_read_only()
     try:
         print(f"CHECK DATA {date}")
+        counts: dict[str, int] = {}
         for table in TABLES:
             date_column = DATE_COLUMNS.get(table, "trade_date")
             max_date, count = con.execute(
                 f"SELECT MAX({date_column}), COUNT(*) FILTER (WHERE {date_column} = ?) FROM {table}",
                 [date],
             ).fetchone()
+            counts[table] = int(count or 0)
             print(f"{table}: rows={count} max={max_date}")
             if not count:
                 missing.append(f"{table} 无 {date} 数据，最新 {max_date}")
@@ -196,6 +263,9 @@ def check_data(date: str) -> list[str]:
         missing.extend(_check_sector_coverage(con, date))
         missing.extend(_check_sector_stock_fields(con, date))
         missing.extend(_check_stock_coverage(con, date))
+        missing.extend(_feature_family_gap(counts, date))
+        if missing:
+            _print_staging_contrast(date, counts)
         return missing
     finally:
         con.close()
