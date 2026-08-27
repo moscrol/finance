@@ -67,6 +67,11 @@ class TurnControlResult:
     perspective_context: str = ""
     # 个性化接合核。编排器在 project 之后 replace 写入；默认 None，旧测试逐字节。
     stance_pack: object | None = None
+    # Prompt-only retrieval stage sequence from the owner workflow (via
+    # ResearchPlan).  R-20260827-09: the plan used to stop at the trace and the
+    # episode never saw it.  Empty tuple means "no owner stages": byte-for-byte
+    # legacy behavior.  Never evidence.
+    retrieval_stages: tuple[str, ...] = ()
 
 
 def project_turn_decision(
@@ -76,6 +81,7 @@ def project_turn_decision(
     turn_intent: TurnIntent | None = None,
     conversation_context: str = "",
     perspective_context: str = "",
+    retrieval_stages: tuple[str, ...] = (),
 ) -> TurnControlResult:
     """Project one already-made decision without invoking understanding again."""
 
@@ -122,6 +128,7 @@ def project_turn_decision(
         clarification_questions=clarification_questions,
         conversation_context=str(conversation_context or "").strip(),
         perspective_context=str(perspective_context or "").strip(),
+        retrieval_stages=tuple(retrieval_stages or ()),
     )
 
 

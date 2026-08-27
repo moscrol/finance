@@ -208,6 +208,39 @@ def test_projection_carries_perspective_context_for_the_episode_input() -> None:
     assert active.perspective_context == "只允许使用该 KOL 的画像与原文召回。"
 
 
+def test_projection_carries_retrieval_stages_for_the_episode_input() -> None:
+    """检索阶段表经投影原样到达 control，默认空元组。
+
+    R-20260827-09（四臂 D5）：research_plan 生成了 chain_stages/company_mapping
+    等阶段，episode 任务载荷里却没有——「计划知道、执行没做」。control 是阶段表
+    进 continuous 引擎的唯一通道，投影丢了它，阶段表就退回只进 trace 的死数据。
+    """
+    frame = _financial_frame()
+    decision = TurnDecision(
+        lane="research",
+        needs_retrieval=True,
+        needs_memory=False,
+        needs_template=True,
+        question_type=frame.question_type,
+        capabilities=("market_news",),
+        task_frame=frame,
+    )
+
+    default = project_turn_decision(decision, task_frame=frame)
+    active = project_turn_decision(
+        decision,
+        task_frame=frame,
+        retrieval_stages=("definition", "chain_stages", "company_mapping"),
+    )
+
+    assert default.retrieval_stages == ()
+    assert active.retrieval_stages == (
+        "definition",
+        "chain_stages",
+        "company_mapping",
+    )
+
+
 def test_frozen_non_research_decision_is_not_upgraded_by_lexical_replanning() -> None:
     frame = TaskFrame(
         raw_question="当前市场主线是什么意思",

@@ -391,6 +391,19 @@ def build_episode_input(
             "先验袋不是市场事实；现价只许来自 quote_bag；空袋必须写缺口；"
             "袋外价格不得出现；动作只写条件"
         )
+    stages = tuple(getattr(context, "retrieval_stages", ()) or ())
+    if stages:
+        # R-20260827-09 送达层：owner 工作流的阶段表此前只进 trace，模型在
+        # episode 里从未见过——四臂 D5 上表现为「计划列了 company_mapping、
+        # 执行零次实体解析查询」。只在非空时注入：无阶段轮逐字节不变。
+        payload["retrieval_stages"] = list(stages)
+        payload["retrieval_stages_rule"] = (
+            "retrieval_stages 是本题型的标准检索阶段序列，用于规划工具调用的"
+            "顺序与覆盖面：每个阶段都应有对应的检索/取数调用伺候"
+            "（如 chain_stages/company_mapping 需要图谱查询或板块×个股类取数），"
+            "伺候不了的阶段必须在答案中声明缺口；阶段表本身不是证据，"
+            "也不改变 research_contract 的证据边界"
+        )
     return json.dumps(payload, ensure_ascii=False)
 
 

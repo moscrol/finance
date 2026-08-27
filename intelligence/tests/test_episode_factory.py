@@ -726,3 +726,30 @@ def test_prior_recall_stays_absent_where_the_tool_is_unauthorized() -> None:
         "在没有授权 memory_lookup 的题型上开了 prior_recall 槽位——"
         "模型会看到一格自己无法用工具填充的必需内容。"
     )
+
+
+def test_build_episode_context_carries_retrieval_stages_only_when_present() -> None:
+    """阶段表是 prompt-only 字段：默认空元组，传入则原样落 context。
+
+    R-20260827-09 送达层：research_plan 的阶段表此前止步于 trace，
+    episode 的 ResearchRunContext 拿不到——这里是 factory 端的穿线钉。
+    """
+    control = TurnControlCore().control(
+        "2026-06-11 可控核聚变",
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+
+    default = build_episode_context(
+        control.task_frame,
+        task_id="stage-default",
+        capabilities=control.capabilities,
+    )
+    active = build_episode_context(
+        control.task_frame,
+        task_id="stage-active",
+        capabilities=control.capabilities,
+        retrieval_stages=("definition", "chain_stages"),
+    )
+
+    assert default.retrieval_stages == ()
+    assert active.retrieval_stages == ("definition", "chain_stages")

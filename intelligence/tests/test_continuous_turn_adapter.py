@@ -253,6 +253,45 @@ def test_perspective_context_reaches_context_factory_only_when_active() -> None:
     )
 
 
+def test_retrieval_stages_reach_context_factory_only_when_present() -> None:
+    """阶段表进 context 构造只在非空时发生（R-20260827-09 送达层）。
+
+    空阶段（chat/meta 或无 owner 的题）的 context_factory kwargs 必须与改动前
+    逐字节一致；非空时必须原样到达。变异验证：删掉 _run_episode 里的 if 守卫，
+    本条必红。
+    """
+    frame = _frame()
+    captured: list[dict[str, object]] = []
+
+    def factory(_frame, **kwargs):
+        captured.append(dict(kwargs))
+        raise RuntimeError("stop after capturing context kwargs")
+
+    def run_once(control) -> None:
+        ContinuousTurnAdapter(
+            runtime=_RuntimeThatRaises(),
+            mode="on",
+            context_factory=factory,
+            registry_factory=_raises,
+            semantic_verifier=_SemanticThatRaises(),
+        ).handle(frame=frame, control=control)
+
+    run_once(_control(frame))
+    assert "retrieval_stages" not in captured[0]
+
+    run_once(
+        replace(
+            _control(frame),
+            retrieval_stages=("definition", "chain_stages", "company_mapping"),
+        )
+    )
+    assert captured[1]["retrieval_stages"] == (
+        "definition",
+        "chain_stages",
+        "company_mapping",
+    )
+
+
 def test_stance_pack_reaches_context_factory_only_when_present() -> None:
     from intelligence.services.stance_pack import run_stance_pack
 
