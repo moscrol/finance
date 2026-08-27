@@ -501,6 +501,24 @@ class CliParseabilityTests(unittest.TestCase):
             ["perspective", "init", "--id", "blogger_x"],
             ["perspective", "ingest", "--perspective", "blogger_x", "--input", "a.md", "--title", "t"],
             ["perspective", "profile", "--perspective", "blogger_x"],
+            [
+                "perspective",
+                "exam",
+                "run",
+                "--perspective",
+                "blogger_x",
+            ],
+            [
+                "perspective",
+                "exam",
+                "add",
+                "--perspective",
+                "blogger_x",
+                "--kind",
+                "edge_case",
+                "--question",
+                "可转债怎么定价？",
+            ],
         ):
             parser.parse_args(argv)
 
@@ -554,6 +572,79 @@ class ContradictionAndBoundaryTests(unittest.TestCase):
         self.assertIn("前空后多，同周期同位置", text)
         self.assertIn("## 诚实边界", text)
         self.assertIn("- 无", text)  # 空 boundaries 显式渲染「无」
+
+
+class SignalNeedleTests(unittest.TestCase):
+    """信号命中必须对真实画像条目（完整判断句）成立，不只对短词夹具成立。
+
+    失败形状（2026-08-27 真画像 fengyuan 跑卷实测）：蒸馏闭环写进画像的条目是
+    「利多不涨+连板高标同时出现（板块抱团踩踏前兆，优先减仓）」这类长句，
+    `_hit_terms` 整条子串匹配 facts 结构性永远落空 → 方向恒 `none`——
+    此前测试全用「产能过剩」式短词，夹具比现实简单，绿测掩盖了真画像必挂。
+    """
+
+    def _profile(self, **fields) -> dict:
+        base = {
+            "id": "p",
+            "display_name": "p",
+            "opportunity_preferences": [],
+            "risk_triggers": [],
+            "anti_patterns": [],
+            "falsification_style": [],
+            "honest_boundaries": [],
+        }
+        base.update(fields)
+        return base
+
+    def test_long_entry_matches_by_needle(self) -> None:
+        profile = self._profile(
+            risk_triggers=["利多不涨+连板高标同时出现（板块抱团踩踏前兆，优先减仓）"]
+        )
+        ev = perspective_lab.evaluate_role(
+            profile,
+            question="板块利多密集但指数不涨，怎么应对？",
+            facts="本周板块利多不涨，连板高标今日高位炸板",
+        )
+        self.assertEqual(ev["direction"], "risk")
+        self.assertEqual(len(ev["risk_hits"]), 1)
+
+    def test_long_opportunity_entry_matches_by_needle(self) -> None:
+        profile = self._profile(
+            opportunity_preferences=["供给弹性≈0且涨价已由头部厂商验证的上游材料环节"]
+        )
+        ev = perspective_lab.evaluate_role(
+            profile,
+            question="上游材料机会怎么看",
+            facts="该材料供给弹性≈0，涨价已由头部厂商验证",
+        )
+        self.assertEqual(ev["direction"], "opportunity")
+
+    def test_short_entry_whole_match_still_works(self) -> None:
+        profile = self._profile(risk_triggers=["产能过剩"])
+        ev = perspective_lab.evaluate_role(
+            profile, question="q", facts="行业产能过剩，库存新高"
+        )
+        self.assertEqual(ev["direction"], "risk")
+
+    def test_unrelated_facts_stay_none(self) -> None:
+        profile = self._profile(
+            risk_triggers=["利多不涨+连板高标同时出现（板块抱团踩踏前兆，优先减仓）"],
+            opportunity_preferences=["供给弹性≈0且涨价已由头部厂商验证的上游材料环节"],
+        )
+        ev = perspective_lab.evaluate_role(
+            profile, question="今天大盘怎么样", facts="指数缩量横盘，成交额与昨日持平"
+        )
+        self.assertEqual(ev["direction"], "none")
+
+    def test_single_char_fragments_are_not_needles(self) -> None:
+        """切分产生的 <2 字碎片（如「1/3」拆出的「3」）不得成为命中针。"""
+        profile = self._profile(
+            risk_triggers=["竞价第一屏任一锚恶化（高贝塔持仓先减1/3，举证责任翻转为证明该留）"]
+        )
+        ev = perspective_lab.evaluate_role(
+            profile, question="q", facts="今天成交量是昨天的3倍"
+        )
+        self.assertEqual(ev["direction"], "none")
 
 
 if __name__ == "__main__":

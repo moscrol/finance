@@ -66,6 +66,8 @@ profile JSON 填写（对照文章原文提炼）；也可走下面的 P1 学习
 > 💡 「用户发原文 → 蒸馏进画像」的端到端固定流程已沉淀为 skill：
 > `skills/perspective-distill/SKILL.md`（触发词：蒸馏视角、学这个博主、喂文章），
 > 含前置确认（canonical 用户空间）、原文落盘红线、patch 评审判据与验收清单。
+> 验收含已知题/边题考卷（`perspective exam`，设计见
+> `docs/superpowers/specs/2026-08-17-perspective-known-answer-exam-design.md`）。
 
 ### 3.5 学习闭环（P1，2026-08-13 上线）：文章 → 认知卡片 → patch → 人工确认
 
@@ -106,6 +108,26 @@ python3 -m intelligence.cli perspective review-patch --user <id> --perspective b
 好候选；完整判据表见 `skills/perspective-distill/SKILL.md` 第 4 步。
 
 落点（均本地私有）：卡片 `articles/<id>/cards/pa-*.json`；patch `patches/<id>/pp-*.json`。
+
+### 3.6 已知题 / 边题考卷（2026-08-17）
+
+蒸馏完要证明两件事：画像还能复现博主已经发表过的立场（保真，不是留出泛化）；
+题面落到 `honest_boundaries` 时运行时会弃权。尺子是用户写的金标钉子，程序只做
+确定性核对——和 P0 debate 同一套 `evaluate_role`，不调 LLM，也不用词元回声。
+
+```bash
+python3 -m intelligence.cli perspective exam add --user <id> --perspective blogger_x \
+  --kind known_answer --question "产能过剩时怎么看仓位" \
+  --facts "行业产能过剩，库存历史高位" --direction risk \
+  --field risk_triggers --term 产能过剩 --forbidden 加仓
+python3 -m intelligence.cli perspective exam add --user <id> --perspective blogger_x \
+  --kind edge_case --question "可转债怎么定价？"
+python3 -m intelligence.cli perspective exam run --user <id> --perspective blogger_x
+```
+
+套件通过：≥2 道已知题 + ≥1 道边题且全部通过。无考卷 / 空 `cases` / 坏 JSON = 失败。
+落点 `perspectives/exam/<id>.json`（用户态，不进 git）。设计见
+`docs/superpowers/specs/2026-08-17-perspective-known-answer-exam-design.md`。
 
 ### 4. 多角色合议
 
