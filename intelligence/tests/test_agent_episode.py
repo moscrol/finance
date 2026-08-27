@@ -340,6 +340,112 @@ def test_tool_result_ledger_persists_payload_meta_without_row_bodies() -> None:
     assert "/home/" not in persisted
 
 
+def test_tool_result_events_share_request_call_id_even_for_same_tool() -> None:
+    """R-20260827-15 判据 1/2：result 与 request 共用 call_id，同名工具靠 id 配对。"""
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _plan_turn(),
+            ModelTurn(
+                "",
+                (
+                    ModelToolCall("call-a", "market_data", {"query": "主线"}),
+                    ModelToolCall("call-b", "market_data", {"query": "持续性"}),
+                ),
+                "scripted",
+                "",
+            ),
+            _finish_turn(),
+        ]
+    )
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+    request_ids = [
+        event.payload["call_id"]
+        for event in outcome.events
+        if event.kind == "tool_request"
+    ]
+    result_ids = [
+        event.payload["call_id"]
+        for event in outcome.events
+        if event.kind == "tool_result"
+    ]
+    assert sorted(request_ids) == ["call-a", "call-b"]
+    # 同名工具两次调用：配对键是 call_id 而非 name/顺序，一对一各自闭合。
+    assert sorted(result_ids) == ["call-a", "call-b"]
+
+
+def test_tool_error_event_carries_request_call_id() -> None:
+    """R-20260827-15 判据 1：error 事件同样带 call_id（异常路径）。"""
+
+    def _raising_runner(query: str, _context: AgentToolContext):
+        raise RuntimeError("boom")
+
+    frame = _frame()
+    model = ScriptedModel(
+        [_plan_turn(), _tool_turn("触发异常", call_id="call-err"), _finish_turn()]
+    )
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_raising_runner),
+    )
+    errors = [event for event in outcome.events if event.kind == "tool_error"]
+    assert errors
+    assert all(event.payload["call_id"] == "call-err" for event in errors)
+
+
+def test_call_id_stays_out_of_model_visible_tool_content() -> None:
+    """R-20260827-15 红线：call_id 只进 durable ledger，不进喂模型的 content。
+
+    tool_result 的 ledger payload 与模型视图共享同一个底稿 dict
+    （public_observation / payload），加错位置就会改变模型可见字节——
+    这条测试是工单 §5 变异 3 的守门钉。
+    """
+
+    def _raising_runner(query: str, _context: AgentToolContext):
+        raise RuntimeError("boom")
+
+    frame = _frame()
+    for runner in (_successful_runner, _raising_runner):
+        model = ScriptedModel(
+            [_plan_turn(), _tool_turn("当前市场结构"), _finish_turn()]
+        )
+        ContinuousAgentEpisode(model).run(
+            task_frame=frame,
+            context=_context(frame),
+            registry=_market_registry(runner),
+        )
+        tool_messages = [
+            message
+            for call in model.calls
+            for message in call["messages"]
+            if message.get("role") == "tool"
+        ]
+        assert tool_messages
+        for message in tool_messages:
+            assert "call_id" not in json.loads(message["content"])
+
+
+def test_projection_accepts_legacy_tool_result_without_call_id() -> None:
+    """R-20260827-15 判据 4：历史产物无 call_id，消费侧必须容缺（fail-open）。"""
+    legacy = agent_episode_module.EpisodeEvent(
+        1,
+        "tool_result",
+        {
+            "ok": True,
+            "tool": "market_data",
+            "task_frame_hash": "legacy",
+            "at": "2026-08-27T00:00:00+08:00",
+        },
+    )
+    projection = project_durable_events([legacy])
+    assert [event["kind"] for event in projection.events] == ["tool_result"]
+
+
 def test_kb_tool_result_persists_delivery_telemetry() -> None:
     """V7：kb_search 的 tool_result.telemetry 必须落盘（送达字符/命中/来源页）。"""
 
