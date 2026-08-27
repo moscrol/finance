@@ -617,6 +617,18 @@ def task_frame_requires_retrieval(frame: TaskFrame) -> bool:
         # test_retrieval_floor_keeps_plain_chat_without_signals 抓到过）。
         if set(frame.required_outputs) - _GENERIC_REQUIRED_OUTPUTS:
             return True
+        # 第三道结构性地板（2026-08-27 D6，run_20260827_184531_798332）：
+        # 「2026-07-22 高标股的晋级情况如何，有没有出现空档」——required_outputs
+        # 恰好是通用默认（上一格不触发），而「高标股/晋级/空档」全不在下面的
+        # 关键词表里。8-13 补了涨停/连板，这次输在新黑话——上面 08-01 注释里
+        # 「关键词表永远追不上用户的说法」一语成谶。这次补的不是词：带完整
+        # 日历日期的金融题不可能靠模型记忆回答（has_explicit_date 的 docstring
+        # 就说它是最强时效信号），timeframe 是 understand_query 抽好的结构化
+        # 字段，raw_question 兜底抽取失败的场景。月份粒度（2026年7月）不算。
+        if has_explicit_date(frame.timeframe or "") or has_explicit_date(
+            frame.raw_question
+        ):
+            return True
         return _is_financial_task(frame.question_type, frame.raw_question)
     return True
 

@@ -12,8 +12,8 @@
 - 分支 `feat/tool-usage-differential`，已 push gitea，PR 未开。
 - 基座 `gitea/main@fea0633e`。干净树 `/Users/a77/fwp-wt-tool-usage-differential`，**用后待删**。
 - 两个提交，均 docs-only，八道 pre-commit 全绿：
-  - `be00f83c` 工具「授权→调用」差值遥测工单 + `R-20260827-08`
-  - `0c29c036` 市场数据停更披露工单 + `R-20260827-09`
+  - `be00f83c` 工具「授权→调用」差值遥测工单 + `R-20260827-12`
+  - `0c29c036` 市场数据停更披露工单 + `R-20260827-13`
 - crosswalk 正向绿、无重号、反向仍 88 行（两条新行都回指工单路径，未增孤儿）。
 
 ⚠ 本地 `main` 已前进到 `e4276e00`（一行 ledger 表头改动，未合 `gitea/main`）。
@@ -21,7 +21,7 @@
 
 ## 两份工单
 
-### 1. `2026-08-27-tool-usage-differential-workorder.md`（`R-20260827-08`）
+### 1. `2026-08-27-tool-usage-differential-workorder.md`（`R-20260827-12`）
 
 工具面只装了「要了没有」一侧传感器（`tool_hunger`），「有了没要」零遥测。
 
@@ -46,7 +46,7 @@ output 实例级差值 **425**、`suspicious` **1193**、可算差值 run **698*
 `output_id`、归一只用于匹配——所以离线脚本**不带也不应带**归一步骤
 （基线表里 `direct_assessment` 与 `direct_answer` 分列两行就是证据）。
 
-### 2. `2026-08-27-staleness-disclosure-workorder.md`（`R-20260827-09`）
+### 2. `2026-08-27-staleness-disclosure-workorder.md`（`R-20260827-13`）
 
 站立日可见、落后不可见。**根因不是缺一句话，也不是某个 `min()` 写错**——
 现有几处 `min()` 对各自消费者都是对的（PIT 保证）。根因是**全系统只有
@@ -99,7 +99,7 @@ spec 自称订正过（含 `订正`/`撤回`/`已修正`/`勘误`）时，同号
 放对抗审查流程、不进门——判定不了还硬拦就是造噪声源。
 
 验证：14 passed；三条变异逐个精确击杀；**真仓验证**（非夹具）——把本文件的
-订正痕迹全抹掉重跑，精确报出 `R-20260827-09 → feat-tool-usage-differential.md`
+订正痕迹全抹掉重跑，精确报出 `R-20260827-13 → feat-tool-usage-differential.md`
 一条，还原后回 0。
 
 ## 下一步（等用户裁决，不是在途）

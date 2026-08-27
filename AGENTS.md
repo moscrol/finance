@@ -25,6 +25,16 @@
 
 编码任务先 `python3 scripts/code_map.py query "<问题>"`。禁止把空图 `get_architecture_overview` 写成架构结论；禁止 `code-review-graph init|install`；禁止 DeepWiki `generate_wiki` / 对本仓 private index。MCP 已连接 ≠ 地图可用。
 
+### 宏观理解路由（五层地图，按问题形状选门；本表只放指针，正文以各图为准）
+
+| 问题形状 | 看哪张图 | 保鲜方式 |
+|---|---|---|
+| 这个实现在哪、依赖谁 | `python3 scripts/code_map.py query`（stale 时先 `build`） | status fail-closed；launchd 夜间刷新（安装 `scripts/install_code_map_refresh.py`） |
+| 系统有哪些能力节点/回路 | `.agent-memory/10_knowledge/finance-agent-capability-graph.md` | `graph_audit.py` 三级断言（路径/符号/分支） |
+| 入口在哪、接口深浅怎么评 | `docs/agent-product-door.md`（门/引擎/组装/积木） | 人工维护，改门必更此页 |
+| 骨架形状：谁拥有循环、六层 | `git -C ~/harness-reference show gitea/main:DESIGN-stack.md` | SSOT 在 gitea，勿读脏工作树 |
+| 整体为什么是闭环不是流水线 | `.agent-memory/10_knowledge/agent-system-closed-loop-first-principles.md` | 稳定方法论 |
+
 ## 🔁 用户纠偏必落 correction（强制，任何 agent 会话）
 
 用户在对话里对系统的判断/解读表达纠正时（信号词如「不对」「应该是」「不是这样」「你理解错了」等否定/修正表述，**不需要用户使用任何固定格式**），agent 必须当场把纠偏落进台账：

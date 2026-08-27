@@ -1317,7 +1317,13 @@ def test_controller_exception_is_no_longer_swallowed_silently() -> None:
 
 
 def test_unparsable_controller_output_is_not_labelled_provider_outage() -> None:
-    """provider 回话了但我们没读懂，跟 provider 挂了是两回事，不能混成一类。"""
+    """provider 回话了但我们没读懂，跟 provider 挂了是两回事，不能混成一类。
+
+    detail 断言从「必须空」翻转为「必须留原文」（2026-08-27 P0 D6）：
+    生产 39 个 run 里 4 个 unparsable，detail 全空——想验尸「LLM 到底回了
+    什么形状」时零证据。粗标签留下、诊断载荷丢弃，与 judge 侧
+    ``_stable_failure_reason`` 压扁类名是同一个反模式。
+    """
 
     decision = decide_turn(
         "随便聊聊未来",
@@ -1325,7 +1331,81 @@ def test_unparsable_controller_output_is_not_labelled_provider_outage() -> None:
     )
 
     assert decision.llm_failure_reason == "unparsable_response"
+    assert '{"lane"' in decision.llm_failure_detail
+
+
+def test_unparsable_retries_once_with_feedback_then_uses_second_answer() -> None:
+    """解析失败不定案：把坏输出贴回去点名问题，再问一次。
+
+    D6（run_20260827_184531_798332）三个 run 的 controller 输出一字不差地
+    降级——一次解析失败就直接 ``_safe_fallback``，没有第二次机会。裸重发
+    大概率换来同一种坏形状，所以重试消息必须携带第一次的原样输出。
+    """
+
+    bad = '{"lane":"research"}'
+    good = json.dumps(
+        {
+            "route_id": "dated_market_review",
+            "subject": None,
+            "timeframe": "2026-07-22",
+            "confidence": 0.9,
+            "reason": "指定日期的连板梯队复盘",
+        },
+        ensure_ascii=False,
+    )
+    calls: list[list[dict[str, str]]] = []
+
+    def _flaky(messages: list[dict[str, str]]):
+        calls.append(messages)
+        return (bad if len(calls) == 1 else good), object(), ""
+
+    decision = decide_turn(
+        "2026-07-22 高标股的晋级情况如何，有没有出现空档",
+        llm_complete=_flaky,
+    )
+
+    assert len(calls) == 2
+    # 重试不是裸重发：倒数第二条是第一次的原样输出，最后一条是纠错指令
+    assert calls[1][-2] == {"role": "assistant", "content": bad}
+    assert calls[1][-1]["role"] == "user"
+    assert decision.question_type == "dated_market_review"
+    assert decision.needs_retrieval is True
+    # 第二次成功了，不该给 trace 留假的故障率
+    assert decision.llm_failure_reason == ""
     assert decision.llm_failure_detail == ""
+
+
+def test_unparsable_after_retry_records_original_payload_and_stops() -> None:
+    """重试恰好一次（不递归），两次都读不懂时把首次原文留进 detail。"""
+
+    calls: list[int] = []
+
+    def _always_bad(_messages: list[dict[str, str]]):
+        calls.append(1)
+        return '{"lane":"research"}', object(), ""
+
+    decision = decide_turn("随便聊聊未来", llm_complete=_always_bad)
+
+    assert len(calls) == 2
+    assert decision.llm_failure_reason == "unparsable_response"
+    assert '{"lane"' in decision.llm_failure_detail
+
+
+def test_unparsable_fallback_with_dated_question_keeps_retrieval() -> None:
+    """D6 冻结形状的端到端钉：controller 双失后，带显式日期的题不得零检索。
+
+    修前这条 run 的终态是 lane=chat / needs_retrieval=False /
+    retrieval_stages=[] → 「我答不了，去看开盘啦」。task_frame 里
+    timeframe=2026-07-22 一直都在——地板必须接住它。
+    """
+
+    decision = decide_turn(
+        "2026-07-22 高标股的晋级情况如何，有没有出现空档",
+        llm_complete=lambda _messages: ('{"lane":"research"}', object(), ""),
+    )
+
+    assert decision.needs_retrieval is True
+    assert decision.lane != "chat"
 
 
 def test_successful_controller_turn_records_no_failure() -> None:

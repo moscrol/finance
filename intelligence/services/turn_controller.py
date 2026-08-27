@@ -800,6 +800,38 @@ def _apply_policy(
 
 _FAILURE_DETAIL_LIMIT = 200
 
+_UNPARSABLE_RETRY_INSTRUCTION = (
+    "你上一条输出无法按约定解析。重新输出且只输出一个 JSON 对象，"
+    "键必须且只能是：route_id,confidence,reason,user_goal,assumptions,"
+    "ambiguities；route_id 只能取路由表中的值，不要输出任何 JSON 以外的文字。"
+)
+
+
+def _retry_unparsable_once(
+    complete: LLMComplete,
+    *,
+    query: str,
+    context: str,
+    task_frame: TaskFrame,
+    bad_content: str,
+) -> str | None:
+    """解析失败后带着原样输出与纠错指令重问一次。
+
+    只在「provider 回了话但读不懂」时重试：同一份 prompt 裸重发大概率换来
+    同一种坏形状（D6 三个 run 的输出一字不差），所以必须把坏输出贴回去
+    点名问题。provider 挂掉（content=None）不走这里——complete 内部已有
+    provider 链轮转，外层再叠一次重试只会拉长故障时的延迟。
+    """
+
+    messages = _controller_messages(query, context, task_frame)
+    messages.append({"role": "assistant", "content": bad_content})
+    messages.append({"role": "user", "content": _UNPARSABLE_RETRY_INSTRUCTION})
+    try:
+        content, _provider, _detail = complete(messages)
+    except Exception:  # noqa: BLE001 - 与首次调用同一条降级纪律：必须能降级
+        return None
+    return content
+
 
 def _controller_failure(detail: str) -> tuple[str, str]:
     """把 controller LLM 的失败压成 ``(枚举, 原文截断)``。
@@ -1219,15 +1251,34 @@ def decide_turn(
         query=effective_query,
         envelope=envelope,
     )
+    if parsed is None:
+        retry_content = _retry_unparsable_once(
+            complete,
+            query=effective_query,
+            context=context,
+            task_frame=task_frame,
+            bad_content=content,
+        )
+        if retry_content is not None:
+            parsed = _parse_llm_decision(
+                retry_content,
+                query=effective_query,
+                envelope=envelope,
+            )
     decision = (
         parsed
         if parsed is not None
         # provider 明明回话了，是我们没读懂——跟「provider 挂了」是两回事，
         # 混在一起会把一次 prompt/schema 回归误判成外部故障。
+        # detail 留首次原文（声明式截断：限定语在前，截掉的是原文尾部）——
+        # 生产 39 run 里 4 个 unparsable 全是空 detail，验尸零证据的教训。
         else _safe_fallback(
             effective_query,
             envelope,
             llm_failure_reason="unparsable_response",
+            llm_failure_detail=(
+                f"重试一次仍不可解析；首次输出：{content}"
+            )[:_FAILURE_DETAIL_LIMIT],
         )
     )
     task_frame = _rebase_frame_for_decision(task_frame, decision)
