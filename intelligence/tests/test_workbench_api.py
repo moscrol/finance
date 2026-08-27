@@ -280,6 +280,34 @@ def _wait_terminal(
     raise AssertionError("run 未在超时内到终态")
 
 
+def _wait_last_message_settled(
+    client: TestClient,
+    conversation_id: str,
+    timeout: float = 5.0,
+    *,
+    user: str | None = None,
+) -> list[dict]:
+    """轮询到最后一条消息离开 pending，返回整份 messages。
+
+    run 终态后**立读**消息状态是竞态（2026-08-28 全量门禁抓到，单跑 5 连
+    3 挂）：executor 的仲裁顺序是 ``claim_failed_run``（run 先可见）→
+    ``terminal_handler``（再标消息）。这个顺序不能倒——claim 赢了才有资格
+    动消息，倒过来会在与正常完成的并发里错标。于是「run 已终态、消息仍
+    pending」存在毫秒级窗口，是最终一致语义；等待即消费该契约的正确方式。
+    断言「消息保持 pending」的负向测试不适用本 helper（那是时点断言）。
+    """
+    deadline = time.monotonic() + timeout
+    params = {"user": user} if user is not None else None
+    while time.monotonic() < deadline:
+        messages = client.get(
+            f"/api/conversations/{conversation_id}/messages", params=params
+        ).json()
+        if messages and messages[-1]["status"] != "pending":
+            return messages
+        time.sleep(0.02)
+    raise AssertionError("最后一条消息未在超时内离开 pending")
+
+
 def test_session_byok_api_is_user_scoped_and_never_returns_key(
     client: TestClient,
 ) -> None:
@@ -2171,9 +2199,9 @@ def test_executor_timeout_marks_pending_conversation_message_failed(
 
         try:
             run = _wait_terminal(timeout_client, run_id)
-            messages = timeout_client.get(
-                f"/api/conversations/{conversation_id}/messages"
-            ).json()
+            # 不可 run 终态后立读：claim（run 可见）→ handler（标消息）
+            # 有毫秒级窗口，立读会撞进 pending（helper docstring 有全案）。
+            messages = _wait_last_message_settled(timeout_client, conversation_id)
         finally:
             # 断言前必达 set：否则 _wait_terminal 失败时 TestClient 退出
             # 会等 slow_turn 的 30s 兜底，失败路径被拖成半分钟。
@@ -2203,10 +2231,9 @@ def test_executor_runner_exception_terminalizes_run_and_pending_message(
     ).json()["run_id"]
 
     run = _wait_terminal(client, run_id, user="alice")
-    messages = client.get(
-        f"/api/conversations/{conversation_id}/messages",
-        params={"user": "alice"},
-    ).json()
+    # 同 timeout 路径：_forget 的 done-callback 里也是 claim → handler
+    # 两步，run 终态先于消息可见，立读同样会撞 pending。
+    messages = _wait_last_message_settled(client, conversation_id, user="alice")
 
     assert run["status"] == "failed"
     assert run["error"] == "executor_failure"
