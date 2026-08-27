@@ -6,7 +6,7 @@
   `tool_result` 0/4 **连字段都没有**）。
 - 基座：`gitea/main@61dd5f79`，工单分支 `docs/foresight-root-and-span-io`
   （干净树 `/Users/a77/fwp-wt-l6-spanio`，用后待删）；实施方另开 `fix/` 分支。
-- 台账：预注册 `R-20260827-13`，行与本单同提交（crosswalk 正向门要求）。
+- 台账：预注册 `R-20260827-15`，行与本单同提交（crosswalk 正向门要求）。
 - 设计事实源分工：`docs/span-io-trace-prd.md`（Draft v2）管 **`trace.jsonl` 面**的
   结构化 IO / `parent_span_id`；本单只治 **episode 事件面**的 call 配对，
   两面不重叠、不互相等待。本单是 L6 里改动面最小、可独立验收的一片。
@@ -90,11 +90,11 @@
 - **P2**：revision / join-key 戳（`capability_id` / `map_revision` / `code_revision`）
   与 SQLite 投影——同上。
 - 记忆根合并（A 独有 12 条 corrections / 21 条 answer_scores / 14 卡 +
-  C 根独有 12 条 / 2 卡）——见 `R-20260827-14` 成立条件，另立工单（未立）。
+  C 根独有 12 条 / 2 卡）——见 `R-20260827-16` 成立条件，另立工单（未立）。
 
 ## 7. 台账预注册
 
-`R-20260827-13`，行随本单同提交。
+`R-20260827-15`，行随本单同提交。
 
 **判据**：§4 五条验收（第 5 条 = pytest 收据）全过 + §5 四条变异逐个精确击杀。
 
