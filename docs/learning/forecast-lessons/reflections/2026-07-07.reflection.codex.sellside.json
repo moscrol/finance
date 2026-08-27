@@ -1,0 +1,73 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-07",
+  "agent": "codex",
+  "source": "sellside",
+  "status": "pending_llm",
+  "review_status": "pending",
+  "source_fingerprint": "93c3aee52ecd14af1df5d668a3e7e348d0fca0eee0325d28bf35a6216514bd22",
+  "answer_ref": "docs/learning/forecast-review-ledger/2026-07-07.answer.codex.sellside.json",
+  "verdict_ref": "docs/learning/forecast-review-ledger/2026-07-07.verdict.json",
+  "provider": null,
+  "model": null,
+  "degrade_reason": "未配置 LLM key。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 LLM_API_KEY(+LLM_BASE_URL,+LLM_MODEL) 即可启用",
+  "generated_at": "2026-08-18T22:04:17+08:00",
+  "reflections": [
+    {
+      "id": "market_context_bottom_sideways",
+      "category": "unknown",
+      "verdict": "partial",
+      "actual": "涨家数2486、涨停75、跌停12、成交额29135亿、量比90.9、上证+1.65%（底部横盘阶段）",
+      "failure_mode": "",
+      "diagnosis": "",
+      "missed_signal": "",
+      "ranking_error": "",
+      "correction": "",
+      "reusable_lesson": "",
+      "proposed_rule": "",
+      "review_status": "pending"
+    },
+    {
+      "id": "sellside_cpo_pcb_overdraw_t3",
+      "category": "unknown",
+      "verdict": "partial",
+      "actual": "涨家数2486、涨停75、跌停12、成交额29135亿、量比90.9、上证+1.65%（底部横盘阶段）",
+      "failure_mode": "",
+      "diagnosis": "",
+      "missed_signal": "",
+      "ranking_error": "",
+      "correction": "",
+      "reusable_lesson": "",
+      "proposed_rule": "",
+      "review_status": "pending"
+    },
+    {
+      "id": "sellside_liquid_cooling_increment_t3",
+      "category": "unknown",
+      "verdict": "partial",
+      "actual": "涨家数2486、涨停75、跌停12、成交额29135亿、量比90.9、上证+1.65%（底部横盘阶段）",
+      "failure_mode": "",
+      "diagnosis": "",
+      "missed_signal": "",
+      "ranking_error": "",
+      "correction": "",
+      "reusable_lesson": "",
+      "proposed_rule": "",
+      "review_status": "pending"
+    },
+    {
+      "id": "sellside_supernode_extension_t3",
+      "category": "unknown",
+      "verdict": "partial",
+      "actual": "涨家数2486、涨停75、跌停12、成交额29135亿、量比90.9、上证+1.65%（底部横盘阶段）",
+      "failure_mode": "",
+      "diagnosis": "",
+      "missed_signal": "",
+      "ranking_error": "",
+      "correction": "",
+      "reusable_lesson": "",
+      "proposed_rule": "",
+      "review_status": "pending"
+    }
+  ]
+}

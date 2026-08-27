@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 
 from intelligence.services import kb_ingest_queue, kb_queue_receipt
@@ -42,6 +43,45 @@ class KbQueueReceiptTests(unittest.TestCase):
             self.assertIn("玻璃基板", status)
             self.assertIn("已补齐", status)
             self.assertIn("wiki/log.md #2170", status)
+            self.assertIn("最老未消费", status)
+            self.assertIn("2026-06-30", status)
+
+    def test_queue_health_reports_oldest_received_age(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            kb_wiki = Path(tmp) / "wiki"
+            _write_receipt(
+                kb_wiki,
+                "2026-08-17",
+                [{"task_id": "a", "task_type": "disclosure", "theme": "光通信", "status": "received"}],
+            )
+            _write_receipt(
+                kb_wiki,
+                "2026-08-24",
+                [{"task_id": "b", "task_type": "concept_ingest", "theme": "工业金属", "status": "received"}],
+            )
+            health = kb_queue_receipt.queue_health(kb_wiki, as_of=date(2026, 8, 25))
+            self.assertEqual(health.oldest_received_date, "2026-08-17")
+            self.assertEqual(health.oldest_received_age_days, 8)
+            self.assertEqual(health.oldest_received_theme, "光通信")
+            self.assertEqual(health.oldest_received_type, "disclosure")
+            self.assertEqual(health.open_count, 2)
+            status = kb_queue_receipt.render_status(kb_wiki, as_of=date(2026, 8, 25))
+            self.assertIn("最老未消费：2026-08-17", status)
+            self.assertIn("8 天", status)
+            self.assertIn("盯年龄", status)
+
+    def test_resolved_themes_still_only_ingested(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            kb_wiki = Path(tmp) / "wiki"
+            _write_receipt(
+                kb_wiki,
+                "2026-08-17",
+                [
+                    {"task_id": "a", "task_type": "concept_ingest", "theme": "半导体", "status": "skipped"},
+                    {"task_id": "b", "task_type": "disclosure", "theme": "光通信", "status": "received"},
+                ],
+            )
+            self.assertEqual(kb_queue_receipt.resolved_themes(kb_wiki), set())
 
     def test_render_status_without_receipts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

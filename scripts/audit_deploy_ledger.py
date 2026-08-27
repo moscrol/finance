@@ -20,6 +20,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, Sequence
+from urllib.parse import urlsplit
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
@@ -97,7 +98,10 @@ def _cmd_check(args: argparse.Namespace) -> int:
             )
         )
         return 1
-    report = check_against_health(ledger, health)
+    # 账本是全端口共用的（sidecar 也自报），对账只看被检 URL 那个端口的行，
+    # 否则最后一条 sidecar 启动行会把生产对账顶成假 rev_mismatch。
+    port = urlsplit(args.url).port
+    report = check_against_health(ledger, health, port=port)
     print(json.dumps(report, ensure_ascii=False))
     return 0 if report["ok"] else 1
 

@@ -1,5 +1,51 @@
 # 在途交接 · main
 
+更新：2026-08-27 05:20 CST · **watchlist-digest P1 全链收口：#445（发酵摘要/证据页/skill 软链）+ #447（证据页载荷修复）已合并，8792 已切 `40fd5a847c65`（27d）**。批次门禁 @`40fd5a84` 四叶全绿：pytest **6723P/0F/12S**（收据 `20260826T205333Z-40fd5a84.json`）、前端四连+build、e2e 15、registry 4/4（CI 语义）。切后验证：health 三读一致、readiness 13/13、长电 grounded completed、简报生产 run `run_20260827_050931_922012` payload=dict·4 袋·数字⊆载荷·fermentations=[]（当日无 theme×主线/双红命中，触发面正确）。台账 `R-20260827-01/-02` confirmed、`-03` pending（原生 registry 绿被**他人在途** `feat-capability-switchboard.md` 脏文件阻塞主树 pull，不代解——**请该 session 收口后顺手 pull 主树**）。⚠ **live 首验逮到 P1b 真缺陷**：P0 report 快照键=脱敏路径字符串，证据页曾按对象消费会渲染崩（47cf855d 短暂带此隐患上生产，#447 已修）；教训=跨端合同夹具至少一条须来自真实产线序列化产物。27d 五步曾因 sha 笔误+管道吞退出码短暂指向缺失快照目录（launcher fail-closed 兜住，中断约 2 分钟，补建即愈——**链切脚本别用 `| tail` 包 worktree add**）；另有一次 harness 壳楔死在 bootstrap（35 分钟假等待，杀后重跑无污染）。回滚锚=`cutover-20260827d-rollback-8792.txt`（含缺陷格警示：47cf855d 带 P1b 渲染隐患，回滚宁可退到 35e1b291）。备份 post441/post447。8796/8802 未动。正文 `docs/handoffs/inflight/feat-watchlist-digest-p1.md`。
+
+更新：2026-08-27 04:05 CST · **#443 已合（market_watch 门控接线修复 + 补评工具 + 噪声底），8792 已切 `47cf855dbe6a`（tip 另含 #444 身份门、#445 watchlist P1）**。质检独立复核 PASS（裁决全文 #443/#431 评论）：#431 关闭为「已被 #443 包含」（语义核对 main 无 `--questions-file`/夹具；远端+本地分支已删）；#424 随合关闭（立单读数 +2.8 处噪声边缘，引用提醒已留评论）。批次门禁（独立树 `fwp-wt-qc-443` @`47cf855d`）：ruff 绿 + 全量 **6722P/0F/12S**（收据 `20260826T193649Z-47cf855d.json`）+ webapp 四连绿 + e2e **15P**（坑同 26h：playwright 按 `repoRoot/.venv-workbench` 找解释器，QC 树须软链否则掉宿主 python3 缺 uvicorn）。链切：bootstrap 首发 `I/O error` 瞬时竞态、二发成；readiness 13/13（冷启 ~3.5min）；health 三读 `47cf855dbe6a / dirty=false / match=true`。长电探针 `run_20260827_034717_966375`（probe-qc443-0827）：completed / **`gate_receipt.rev`=47cf855d…（run 自证 revision，比 health 更硬）** / `content_degraded_count=0` / `judge_unavailable_count=0` / judge=repaired（11 条 issues 为语义判官正常点名未注册推导数字）/ 口径 `fact_stock_daily`×4 / `stock_daily`×12 / as_of=2026-08-26=库内 max。⚠ **`secret_scan` 字段已退出当前 report schema**（旧探针判据失效非 hit，后续改读 gate_receipt 分列计数）。收据 `~/.finance-runtime/live-probe-traceability/20260827-post-47cf855dbe6a-changdian.json`。**回滚 = `~/.finance-runtime/finance-workspace-35e1b2912a57`**（本单开工时 health 实测 8792 在 `35e1b291`——即下行 02:50 切 `67c88b27` 之后又有一次未见台账行的切换，应属 #444 并发 session，待其补行）。备份 `~/backups/gitea-20260827-post443.tar.gz`。8796/8802 未动。遗留：召回工单 `docs/superpowers/specs/2026-08-27-market-watch-recall-workorder.md` 待排（放宽识别器 vs 门控独立谓词二选一，改完勿用 n≤5 单轮下结论）；`knowledge_injection_policy.py` 模块 docstring 仍引噪声带内 Δ 当「稳定负贡献」，与 #443 诚实版相拧，合后小刀待开。
+
+更新：2026-08-27 02:50 CST · **用户裁决切流：8792 已切 `67c88b27b75b`（27a，watchlist-digest P0 批 #439/#440/#441）**。回滚锚=`~/.finance-runtime/cutover-20260827a-rollback-8792.txt`（回 `c0226f34da4d`）。health 三读 `67c88b27b75b` / dirty=false / match=true；readiness **13/13**（冷启约 6 分钟，bootstrap 首次 I/O error 属 bootout 收尾竞态、3 秒后重试即过）；长电 grounded 探针 completed（`fact_stock_daily`×4、secret/public 扫描 0，收据 `~/.finance-runtime/live-probe-traceability/changdian-post441-8792-*.json`）；自选简报冻结题**生产门**过（run `run_20260827_023826_330849`：瘦收据 11 股+4 题材 / 2 fact / 13 gap、买卖词 0；探针 exit 2 仍是已知 draft_seen 假红）。备份 `~/backups/gitea-20260827-post441.tar.gz`（2.3G）。**关键联动**：夜跑 `daily-full-review-sync` 的 `FINANCE_CODE_ROOT` 指 runtime 符号链（plist 实证），旧快照 `c0226f34` **不含 #427**——本次切流把 #427 首次送进夜跑运行时，今晚 18:30 夜跑自此才是 `R-20260826-04` 的干净判据。画像清单已按用户口述更正为 11 只（飞书退役纠偏，#441）。**P1（发酵摘要/快照证据页/skill 软链）用户已点头，同 session 接续开工**。8796/8802 未动。
+
+更新：2026-08-27 02:00 CST · **#439 自选简报包 P0 已验收合并 @`547653c4`**（QC session：独立复验→代建 PR→合并→四叶门禁→钉画像→live）。批次门禁 @`547653c4`：pytest **6654P/0F/12S**（收据 `20260826T173511Z-547653c4.json`）、ruff 绿、前端四连、e2e **15 过**（8791 仍被占→`WORKBENCH_E2E_PORT=8811` + venv PATH，同 26h 坑）、registry 4/4。live：真画像 `linxiaoqi5111` 已钉（~~watchlist=飞书自选股表 13 只~~ **02:25 用户纠偏更正：飞书已退役连读取也不该依赖、correction 已落；真实自选=用户口述 11 只已替换，派生题材重算为 4 个**；focus_themes 留空待用户手钉，详见本单 inflight 02:25 行）；CLI + Workbench（8999 临时实例、生产 env 形状）各一发冻结题全过，台账 `R-20260826-05/-06/-07` 全 **confirmed**。**8792 未切**（spec §10 本单默认不切）——watchlist_digest 未上生产，切流【待裁决】；P1（发酵摘要/快照证据页/skill 软链）P2（夜跑工件）【待裁决】。⚠ 新知：`smoke_workbench_self_use.py` 对确定性 owner 回合必报 `answer_snapshot_draft` 假红（要求 draft_seen 而确定性回合无草稿阶段），下张切流探针先补确定性模式。正文 `docs/handoffs/inflight/feat-watchlist-digest-pack.md`。
+
+更新：2026-08-27 01:25 CST · **26h：KC 回补批八张已合并**（#419 自用台账 / #420 bench6 v2 重铸 / #421 inherited_golden 观察器 / #425 28 题三周同尺读数（含「题材实体能力被挤掉」观察点当日撤回改写——8-18 是未来证据泄漏，8-26 是纪律修好）/ #430 A8/C6 时间锚 / #432 回补单 5-6 收口 / #434 D9 时点限定先读 / #435 D17 车道遮蔽）。合并前逐张 merge-tree 探冲突 + 变更面核对零夹带。批次门禁 @`c365e013`：pytest 首跑 6624P/1F——那 1 红是 **#430 的正确后果没同步到对照队列测试**（A8 不再不可复现 → 对照状态 ineligible→missing），修正后全量复跑 **6625P/0F/12S**；ruff 绿、前端四连绿、e2e **15 过**（⚠ playwright webServer 拿 PATH 里的 python3 → homebrew 3.14 无 uvicorn 起不来，前置 venv bin 才跑通，验收树复用者注意）、registry 一致。**8792 未切**（遵守 26g 夜跑单变量红线；现役 `c0226f34` 不含本批八张，切流留下个窗口）。两张数据单 + KC-09/10/11 live 收据已落派活工单 `docs/superpowers/specs/2026-08-26-data-gaps-and-ledger-receipts-workorder.md`（W1 L2 停更回填 / W2 解禁两融先决策 / W3 台账闭环影子收据）。bench6 v2 协议就绪待用户粘题；自用摩擦台账首日待用户盘后记账（`scripts/self_use_ledger.py add`）。
+
+更新：2026-08-26 20:10 CST · **26g：#427（fupanhui 直连 fd 泄漏根治）+ #428（daily-full 判据 §P0）+ #429（sw_l1 映射回填工单）已合并**。⚠ **归因更正**：26f 行写的「夜跑 18:45 失败=数据侧存量」是错的——真因是 fupanhui 08-24 起匿名直连 401，`HTTPError` 持 socket 等 GC 顶爆 launchd 256，`duckdb.connect(staging)` EMFILE（台账 `R-20260826-04`，与 `-03` 同族、同日第二例；数据其实已被 CDP 兜底抓到）。19:32 并行 session 手动重跑 sync 全绿并换名进生产（sector-daily 61s ok、双门 ok），readiness 已回 **13/13**、db=08-26；该轮在合并前 + 高 ulimit 壳，不作 `-04` confirmed 依据，干净判据=明晚 18:30 launchd 夜跑。批次门禁 @`93db6ea6`：pytest **6599/0**、前端四连、e2e 15、registry 4/4 全绿（此后 #422 等并行合并的门禁归其 session）。sw_l1 回填工单已实证：成员多数派≥50% 可映射 248/402、与静态表一致率 97%，执行待认领过 task-planner。遗留：20:40 finalize 出生成段（quality-gate 届时应 COMPLETE）；`export-increment fail` 告警级；B4/B5 入题集缓办（无宿主 fixture）；开关板 width 行 `positive_control` 等 operator 消融批（该字段=runner 观测字段名，非收据指针，现在填=假红臂）。
+
+更新：2026-08-26 19:25 CST · **#417（fd 泄漏根治）+ #418（宽度共振袋）已验收合并，8792 已切 `c0226f34`（26f）**。health 三读 `c0226f34da4d` / dirty=false / match=true；readiness **12/13**——唯一红 `market_data_consistency` 为数据侧存量（快照 08-26 vs 库 08-25；夜跑 18:45 same-day gate rc=2 fail-closed，生产库未动，等重试自愈，今晚没自愈需人工 daily-full）。正对照两发全过并已回写台账：`R-20260826-03` fd 曲线 10min 持平 11/零非200（切前旧码 2h16m 灌回 225/256）→ confirmed；`R-20260826-02` 双态分叉成立（有袋臂引 E6 降权「不升级为新主线」，无袋臂零提及）→ confirmed（成立条件：sw_l1 映射缺口 119/403，回填列候选工单）。批次门禁：pytest **6594/0**、ruff/前端四连/e2e 15 全绿（8791 被 8 天散装 http.server 占用，走 `WORKBENCH_E2E_PORT=8811`，进程未动）；registry 两处存量漂移（#411 引入）本单 scan 修复。回滚=`~/.finance-runtime/cutover-20260826f-rollback-8792.txt`（回 `fbdbbfd2`）。8796/8802 未动。正文 `docs/handoffs/2026-08-26f-width-fd-417-418-cutover.md`。主仓脏文件已随本单 docs PR 收编，dream-loop 残影（已合内容一字不差）已删。
+
+更新：2026-08-26 12:45 CST · **8792 已切 `fbdbbfd2`（#405+#406+#407，26e）**。health 三读 `fbdbbfd298f4` / dirty=false / match=true；readiness 13/13；账本 record+check ok。**母稿 P1 R5 首次真过**（`run_20260826_122832_875134`：公开稿尾段有集采双重性 + 华北制药反证解读，此前只有计数+回购截断）。#407 生产 trace 首见 `grounded_composer_shadow`（reported=[3]==applied=[3]，judge_provider 与 composer 分列）。#404 混合引文分支仍无 live 样本。回滚=`~/.finance-runtime/cutover-20260826e-rollback-8792.txt`（回 `7cc947f2`）。8796/8802 未动。遗留：主名单 600536 仍被排除行按 query 加权挤出（动 spec 另开一轮）。正文 `docs/handoffs/2026-08-26e-disclosure-406-407-cutover.md`。主仓脏树没动。
+
+更新：2026-08-24 23:50 CST · **#362 已合并切 8792=`a7a8ba9f`**。health 三读 dirty=false / match=true；readiness 13/13。8796 仍 `76ee1e89`。回滚=`7afe37be1913`。长电 `run_20260824_233920_682628` completed、`fact_stock_daily`×4、数据日 08-24。展望撞号：句尾座位改 `R-20260824-31`，`-20` 留给 optional-forward-slots。`-21`…`24` 仍 pending。正文 `docs/handoffs/2026-08-24-outlook-362-cutover.md`。主仓脏树没动。
+
+更新：2026-08-24 12:29 CST · **8792 已切 `48601e08`（#354+#355）**。health 三读 `48601e08ca4b` / dirty=false / match=true；readiness 13/13。8796 仍 `76ee1e89`。回滚=`af71f0480889`。长电 `run_20260824_122741_120845` completed、口径 `fact_stock_daily`×4、数据日 08-21。公开稿仍有 `【质检`×2（`-13` 未 confirmed）。正文 `docs/handoffs/2026-08-24-8792-48601e08-cutover.md`。主仓脏树没动。
+
+更新：2026-08-24 12:10 CST · **#354 已合 `e8ed9e11`（P0-A）；P0-B 在途**。未切 8792/8796。P0-B 树 `fwp-wt-research-program-compiler` / `feat/research-program-compiler`。`compile_research_program` 唯一写 operators；market_watch 四袋逐字节回归；prefetch 改读 operator；`program.research-program` 只登 eval 表。台账 `-15`/`-16` 仍 pending（离线绿≠confirmed）。交接 `docs/handoffs/inflight/feat-research-program-compiler.md`。主仓脏树没动。
+
+更新：2026-08-24 11:52 CST · **P0-A 加深 `view()` 待合**：树 `fwp-wt-publication-view-deepen` / `fix/publication-view-deepen`，基线 `b07259c0`。`invalid_repair_finish`+证据非空不再贴「现有证据不足」；adapter 不再缝 `【结构缺口】`；`finance_query` typed receipt 投影。全仓 6281P/13S。台账开 `R-20260824-12`…`19`（12/14 离线绿≠confirmed；15–19 占号）。未切端口。交接 `docs/handoffs/inflight/fix-publication-view-deepen.md`。主仓脏树没动。
+
+更新：2026-08-24 10:38 CST · **#352 已合；8792=`af71f048`（main）；8796=`76ee1e89`（解耦树）**。误把 8796 切到 main 已拨回。用户纠偏：合 main ≠ 两港同 SHA。`R-20260824-09` → refuted。正文 `docs/handoffs/2026-08-24-market-watch-352-cutover.md`。P1 `R-04` 未做。#343 未合。主仓脏树没动。
+
+更新：2026-08-22 17:00 CST · **R3 能力对齐批次已收口**（合并 + 部署 + live 回填全链闭环）。完工快照 `docs/handoffs/2026-08-22-r3-capability-alignment-closeout.md`，含前一轮 R1 封上限收口的转档。（本行由 #342 收尾补插，2026-08-27）
+
+更新：2026-08-21 23:20 CST · **封上限收口 R1 全链路合并+部署完成**。8 个 PR 依序入 main：#303（W3 数值回填锚定主体）→ #307（W2 可满足性两级对账）→ #309（W1 判官降级保留）→ #304（W5 四形状传感器）→ #302（W4 deadline 归因 docs）→ #305（R-11 KB 暗资产 docs）→ #306（R-12 送达窗 docs），另 harness-reference #7（TOOLKIT E 档）。main tip `65a9f911`。台账缝逐个手解（-07..-12 六行全在场，last_updated 合成）。**合流全量 5938P/0F/13S**（基线 5888+四单 50，精确对账），干净收据 `20260821T151437Z-65a9f911.json`。**8792 已切**：指纹 `247a27e4bf6e8d52`（621 模块，code_matches_repo=True；快照名 6320b3bcbf82 滞后属正常，判版本以指纹为准）。live 探针三发在途（probe-w1/w2/w3-0821，读数待回填）。台账 R-07/-08/-09 仍 pending（探针是无回归确认，confirmed 需自然样本回读）。W2b（KB 计划引导）与 KB 索引卫生（工件页排除）未派单。
+
+更新：2026-08-21 20:45 CST · **残余①（散文引未绑卡）修复落地并部署，台账立 `R-20260821-06` 即 `confirmed`（#298 `59ec4294`）**。机制：写手散文引注册表真有的 E 号但漏写 bindings 数组 → 投影只送绑定子集 → 判官按「引用不存在」删真因果句（E4 案 `run_20260821_171744_929436`：18 处引用绑了 17 个，唯独 E4 漏绑被删两句）。修法**不改写 bindings**（draft 无结构分段、归属不可机械判定、且 harness 不代模型伪造声明），改在投影层把选集扩为「绑定 ∪ 正文可反解引用」：协议层新 `cited_evidence_ordinals()`（语法与 `_EVIDENCE_ORDINAL_RE` 同源，左界排 PE10/1.5E8），`_project_semantic_evidence` 补送 + `projection_cited_unbound_count` 落盘 + D2 哨兵收在绑定子集。纪律论证：引用即答案对依赖的显式声明，未引用未绑定仍不送、表外引用照旧 fail-closed——「only answer-bound」的本意不被放宽。TDD 6 钉 + 变异×2 击杀 + 全仓 5888P/0F。机制证明=原始工件重放（E4 入表、标题原文送达判官）+ 冻结夹具 `pv-perovskite-e4.json`（tracediff 文档候选修法函数名写错已订正）。8792 部署指纹 `56270d7329b69c34`=59ec4294 树；live 探针×2（钙钛矿同形 passed / 莲花控股 R-05 同题 14 引用全绑定无回归）。诚实边界：「引了忘绑」无法按需强触发，前瞻观测靠计数器>0 时回读。接手者注意事项：①残余②（marker_loss/无第二修复窗）**仍未立项**——但注意 C3 全灭闸（`repair_wiped_all_outputs`+`repair_withheld`）已 live，剩的是「部分删除无救场」与 chain_mapping 契约矛盾两个子问题；② readiness 今晚 daily-full 后应回 13/13 未验；③ 探针新增 probe-r06{a,b}-0821 两用户；④ 工作树 `fwp-wt-prose-cited` 与 `fwp-wt-r05-fix` 均用后待删；⑤ 主树 docs/ 下有一份未跟踪的投影 spec 副本（已在 main 有正本，可删）。工程注：本轮 shell 曾出现「命令未启动即挂死」（cat 读快照阻塞 ~3min），杀掉重跑即好，与仓库无关。
+
+更新：2026-08-21 20:00 CST · **R-20260821-05 修复落地 live 达标，台账转 `confirmed`（#296 `00336f0d`）**。根因比复现时再深一层：不在 company 能力表，在 `is_current_market_query` 第三入口——个股题「涨跌幅/成交额」命中盘面度量词被套市场级 `mainline_current` 计划（episode_factory 与 conversation_orchestrator 两条消费链同时中招）。修法：三个公司主体题形（stock_deep_dive/valuation_estimate/financial_analysis）改走 `company_current_backdrop` 降级计划，market_data/mainline_context 降 optional、能力保留；TDD 4 钉先红后绿 + 变异×2 击杀 + 全量 5882P/0F。8792 rsync 部署（**生效以指纹为准** `16595e41ba72`=00336f0d 树；health `source_revision` 标签滞后显示 `6320b3bc`——rsync 就地部署不改快照名，取证勿信该标签）。同题重放太辰光/莲花控股（daily-full 未跑、数据态与 before 全同）：issue **2/2 归零**，A 臂 before 丢的转折日数值 after 全在稿、市场数字转显式「市场背景」块服务反证；B 臂满稿逐日 E 引用。残留观察（不立案）：W5 issue-backfill 的 `NUMERIC_UNSUPPORTED→market_data` 映射对个股题是形状错配（该回填 finance_query）。正文 `docs/verification/2026-08-21-r05-stock-contract-mismatch-repro.md` §7；收据 `~/.finance-runtime/live-probe-traceability/20260821-r05-fix-verify/summary.json`。接手者注意事项更新：①已结（-05 confirmed）；②残余两件（marker_loss / 散文 binding）仍未立项；③ readiness 今晚 daily-full 后应回 13/13；④ 探针会话新增 probe-r05{c,d}-0821 两用户（可留作对照）；⑤ 工作树 `fwp-wt-r05-fix` 用后待删。踩坑重放：变异测试前先提交——`git checkout --` 还原的是已提交态，把未提交实现冲掉重写了一遍（这条在上一分支交接里就写过，还是踩了；教训是「变异前 commit」要当成变异流程的第 0 步，不是收尾步）。
+
+更新：2026-08-21 19:10 CST · **R-20260821-05 复现完成 n=3，归因成立（契约失配，非偶发），交接注意事项①已结**。两探针（太辰光/莲花控股，同形题换股名，烧题检查跑 gitea/main 树 0 命中）打生产 8792@`6320b3bc` clean：`missing_mandatory_capability` 3/3 复现，`mainline_context` 三 run 零调用。两个新观察：① A 臂修复轮被 mandatory 压着调 `market_data`（= 市场总览快照，非个股行情）→ 市场级数字（上涨4096家/涨停79家/沸点）混入个股公开稿 + marker_loss 道歉横幅 + 题目要的转折日数值丢失——**满足契约反而污染答案**，同时是残余②（post-repair 无第二修复窗）又一 live 样本；② B 臂无 repair_goal（`model_finish`）仍记 issue——记账点在结构核验层，修复路径非必要条件，原案机制链据此更正。修复方向证据倾向「契约按题形降 mandatory 为 best-effort / 给 stock_deep_dive 单独清单」（动 `evidence_capabilities.py` 契约层，需单独立项含变异测试；预取补路会重演背景当正文）。台账 `-05` 已回写（保持 pending 等修复落地归零）。正文 `docs/verification/2026-08-21-r05-stock-contract-mismatch-repro.md`；收据 `~/.finance-runtime/live-probe-traceability/20260821-r05-stock-repro/summary.json`。`workbench_probe.py` 首次实战 OK：两 run 落探针用户独立目录，主用户会话零污染。残余①（散文 binding）、残余②（marker_loss）仍未立项——②的暴露面经本轮 +1 样本（A 臂）。
+
+更新：2026-08-21 17:45 CST · **#293 已合 `c6593dc4`（反过拟合探针读数，5877P/0F 后合入），本轮全链闭环，main 无在途卡点**。会话工作树（docs-0821 / handoff-0821）用后即删；主检出树 144 条脏项均非本会话产物、未动；8792 无需重切（docs-only，快照仍 `6320b3bc` 健康）。工具沉淀：探针「建会话→发消息→轮询」本日手写两遍 → `scripts/workbench_probe.py`（钉死 `user` 字段——传 `user_id` 被静默忽略落主用户；消息 POST 的 user 在 body、GET 在 query；冒烟已验 user 落独立目录）。接手者注意：① `R-20260821-05`（个股 contract-预算失配）n=1，先复现 ≥2 样本再归因；② 两残余未立项——marker_loss（post-repair 删除无第二修复窗，跨形状复现）与散文 binding 缺口（E4 案）；③ readiness 12/13 缺 `market_data_consistency`，今晚 daily-full 自愈后应回 13/13，没回就是新问题；④ 主用户会话列表两条 `antioverfit-*` 与 `probe-smoke-handoff` 空会话为探针产物，可删。
+
+更新：2026-08-21 17:40 CST · **反过拟合换形双探针完成（8792@`6320b3bc`），`-04` → `confirmed`（3/3），新立 `-05`**。换板块族+换日期锚+白名单外数据集：钙钛矿电池→08-18（`run_20260821_171744_929436`；**二手题**——上午 `-02` live 臂用过同题文但四臂全死在预检未产出答案，机制验证价值保留；烧题检查教训：`rg` 必须跑 gitea/main 树，主检出树是特性分支会漏当天已合并文档）+ 皇氏集团 08-06..08-20（`run_20260821_171744_955225`，全新）。泛化成立：幸存数字 100% 对库（含 13 个工具行槽值散文幸存=第 10 刀实战）、as-of 零泄漏（08-19 暴跌陷阱没进到-08-18 叙事）、口径分歧 fail-closed 首次实战（钙钛矿 7 月真双行脏数据，模型违规合成被判官合法删除）、判官删除全部合法且**零槽值被删**。形状特有问题三个（均非合并回归）：残余①散文引未绑卡 live 复现（E4 已注册未绑定→两句真因果被删）；残余② marker_loss 跨形状复现且机制看清（post-repair 删除无第二修复窗，chain_mapping/direct_assessment 双中，个股题判官删对了真算术错但整块强制输出跟着没）；**新发现**个股形状 contract-预算失配（mandatory `market_data`+`mainline_context` 在 90s 档不可达）→ 台账 `R-20260821-05` 立案。预算观察：两 run 主稿阶段均 LLM TimeoutError→全稿一发成于 40s 修复窗，数字纪律仍全对。操作注：`POST /api/conversations` 字段是 `user` 非 `user_id`，传错落主用户——`linxiaoqi5111` 会话列表多两条 `antioverfit-*`（真分析，可留可删）。正文 `docs/verification/2026-08-21-tracediff-cxo-ceiling.md` §反过拟合换形探针。
+
+更新：2026-08-21 17:05 CST · **#291/#288/#289 三连合入，8792 已切 `6320b3bcbf82`（预取 E 号+精确名 & 槽位填数十刀上生产），live 双臂全过**。① 合并链（Gitea API，全量门禁逐个绿才合）：#291 `fix/main-red-umask-registries`（**前置：干净 dfc25221 全量本有 18 红**——两个 ceiling 夹具 `_write_once` mode 被 umask 削（077 下 0o444→0o400，audit 严格比对红；022 全绿同机两读数）修 `fchmod` 钉声明值；`9d722a36` 的 `prefetch` 事件未登记 `DURABLE_EVENT_KINDS`；`309cec07` 改名 `_emit_withheld_repair` 未跟 `_VIEW_CALLERS`）5828P/0F；#288 合新 main 后 5834P/0F；#289 合新 main 后 **5877P/0F + webapp lint/typecheck/test/build 四连绿**。⚠ 两条环境暗礁：全量必须在 /Users 下的树跑（codex 沙箱探针以 `__file__` 推 live root，/tmp 树会 unproven）；`git worktree move` 后先清 `__pycache__`（旧 .pyc 记旧绝对路径 `inspect.getsource` 炸）。② 链切：快照 worktree `~/.finance-runtime/finance-workspace-6320b3bcbf82`（detached 干净）→ `ln -sfn` → `kickstart -k`，34s 就绪；**回滚指针 = `~/.finance-runtime/finance-workspace-dfc25221b07b`**；`audit_deploy_ledger.py record --action switch` 已落账（含 health JSON、port 8792）。③ 三项验证：health `rev=6320b3bcbf82 / dirty=false / matches=true`；readiness **12/13**，`missing_critical=[market_data_consistency]`——**数据侧非代码侧**（AkShare 快照已到 08-21、DuckDB 停 08-20，今晚 daily-full 跑完自愈；上午旧代码同数据态同读数）；grounded 探针 ×2 全过（见④）。④ live 双臂（生产 8792@`6320b3bc`，两个全新 probe 用户）：**CXO 同题 B 臂** `run_20260821_164659_624916` 75s——预取观察值 subject=`CXO概念` 精确名、`finance_query` 12/12 卡带观察值（第 10 刀）、判官 `repaired` 但 `rejected_claim_indexes=[]` **零删句**（上午 A 臂同题删 29/47 句）、31/31 实质数字有出处、抽验 17 值逐位对库真、repair 0 轮；**减肥药新题 ledger 臂** `run_20260821_165210_889002` 120s——七关键节点含环比逐位对库真、16/16 数字有出处、缺口显式声明未散文圆、判官真实批评（覆盖起点越界）进质检段不删稿。台账：`R-20260821-02/-03` → `confirmed`，`-04` 修后样本 2/3 仍 pending。正文 `docs/verification/2026-08-21-tracediff-cxo-ceiling.md` 收口章。⑤ 8796 sidecar（旧 #288 分支代码）已停；`fwp-wt-main-red-fix` 树用后即删；主仓脏树未动。
+
+更新：2026-08-21 01:39 CST · **8792 已切 `dfc25221b07b`（#285 P1 公开稿护栏 Q1/Q3 + #286 交接）**。快照 `~/.finance-runtime/finance-workspace-dfc25221b07b`，**回滚 = `48369a313ff5`**。① **切前先跑 sidecar live**（:8796，代码根 `~/fwp-wt-answer-hygiene-p1`=`b318881e`，与 `gitea/main` 同树）。⚠ 入口选错会整轮打空：`live_probe ask` 走 `/api/runs` 的中立泳道（`task_type=ask`、产物无 `continuous-episode.json`），**P1 护栏挂在 episode 判官链上，那条路一个 hygiene 字段都不产**；必须走 `POST /api/conversations/{id}/messages`（`skill_mode=auto`、`perspective_mode=neutral`）。**四跑全部 `unattempted_claim_count=0`，无一句真话被改口**：§7.15 锂矿 `run_20260821_012059_353272` 稿含「锂矿990382当日+4.4%/628.5亿」、`asked_date_coverage=covered`、「未取到」0 次；§7.16 铝 `run_20260821_012508_762073` **720 字/8 句**（原 43 字残稿）、含 `5.33%`/`226.41亿`、判官点名的「07-29 复盘解释 07-23」与「产能天花板/海外供给」三处全不在稿内、`repair_withheld=false`；§7.17 电网首跑 `run_20260821_012745_516002` 只 1 次工具调用、模型压根没调资讯（traces 仅 `market_data/success`），**未复现原始现场**，补跑 `run_20260821_013054_035436` 复现：traces=`finance_query/success` + **`directional_news/future_of_cutoff`** + `agent_loop/success`，`unattempted_claim_count=0`、`asked_date_coverage=covered` —— **生产 traces 发的确实是 capability `directional_news`，红线判据选对了**（首跑看到的 `news_search` 来自 `contract.evidence_plan.requirements`，是**计划侧**词表不是 traces，别拿它当反证）。② 链切五步：第④步原文命令写死主仓 `scripts/audit_deploy_ledger.py`，而主检出停在 `feat/reading-rules-baseline-batch1` **没有这个脚本** → 改用新快照内同名脚本补记；账本已落 `startup dfc25221b07b 8792` + `switch dfc25221b07b`。③ 三项验证：readiness **13/13 true、`missing_critical=[]`**；health 三读全 `rev=dfc25221b07b / dirty=false / code_matches_repo=true`；长电 `run_20260821_013544_521745` completed / **degrade_count=0** / `secret_scan.hit_count=0` / `content_degraded=0` / `judge_unavailable=0` / 89.0s / glm-5.2@zhipu，口径 `caliber=fact_stock_daily`×4 / `dataset=stock_daily`×12，`payload_field_names` 见真实列名（amount/close/return_pct/trade_date/turnover），数据日 **2026-08-20 = DuckDB max(trade_date)**，无「本轮没有连接本地市场数据」。收据 `~/.finance-runtime/live-probe-traceability/20260821-post-dfc25221-changdian.json`。④ ⚠ **收据 schema 已漂**（与 §4 那条「字段找不到=假红」同型，再添一批）：`smoke_workbench_self_use.py` 现版本**不再发** `source_revision` / `code_root` / `grounded` / `question` / `user`，换成 `gate_receipt` / `readiness` / `retrieval` / `content_degraded_count` / `judge_unavailable_count`；照 08-19 那份抄字段会读出「rev 为空」的假红，**revision 一律以 health 三读为准**。⑤ 备份 `~/backups/gitea-20260821-post286.tar.gz`（1.2G）。⑥ **`R-20260820-09`/`-10` 仍 `pending`，不升 `confirmed`**：live 只证了「有收据不改口」这半边（四跑 count 全 0），Q1 的**改口路径**与 Q3 的**减句回退**一次都没被触发，机制仍只有离线证据。主仓脏树没动。
+（上行由 #287 收尾补插，2026-08-27）
+更新：2026-08-20 12:32 CST · **8792 已切 `c6af3ec25c54`（含 #276 判官整窗 50s + #275 剩余预算 BM25）**。快照 `~/.finance-runtime/finance-workspace-c6af3ec25c54`，**回滚 = `b58a7a9b9f1a`**。readiness 13/13、`missing_critical=[]`；health 三读 `rev=c6af3ec25c54 / dirty=false / code_matches_repo=true`。长电 `run_20260820_123221_956576` completed / degrade=0 / secret=0 / **`timeout_asked=50`** / `timeout_configured=50` / `judge_attempt_index=0` / `judge_status=repaired` / `correlated_judge=false` / 80s / glm-5.2@zhipu；口径 `fact_stock_daily`×4 / `stock_daily`×12。收据 `~/.finance-runtime/live-probe-traceability/20260820-c6af3ec2-changdian.json`。未再打 1.3G 包（今早 `gitea-20260820-post264.tar.gz` 仍在）。正文 `docs/handoffs/2026-08-20-8792-c6af3ec2.md`。主仓脏树没动。
+更新：2026-08-20 11:17 CST · **8792 已切 `b58a7a9b9f1a`（#264 产品门/块开关 + #266 归档 + #265 看板）**。快照 `~/.finance-runtime/finance-workspace-b58a7a9b9f1a`，**回滚 = `be7c1e7eac81`**（切前 health 实为 dirty `a97bfd57`）。readiness 13/13 true、`missing_critical=[]`；health 三读 `rev=b58a7a9b9f1a / dirty=false / code_matches_repo=true`。长电：首发 `run_20260820_111432_921268` 盘面 `caliber=fact_stock_daily`×4 / `dataset=stock_daily`×12 / 数据日 08-19=DuckDB max，但 `degrade_count=1`（判官 unavailable）；复跑 `run_20260820_111627_705033` `completed / degrade_count=0 / secret_scan=0 / correlated_judge=false / glm-5.2@zhipu` 65s。收据 `~/.finance-runtime/live-probe-traceability/20260820-post-b58a7a9b-changdian.json`（+ `-retry.json`）。备份 `~/backups/gitea-20260820-post264.tar.gz`（1.3G）。主仓脏树没动。
 更新：2026-08-19 16:30 CST · **#229 已合 `bbdb8317`（E4 下期关注），8792 有意不追切（仍 `441c60f2`）**。质检：merge-tree rc=0；定向 55P 收据 `20260819T082649Z-d11a65f9`；live 独立复算 Q1 ingest 1 / Q2 ingest 3。裁决 #229/1147。**不切 8792。轨道 C 可开。** 主仓脏树未动。
 更新：2026-08-19 15:58 CST · **Loop 鲁棒性批次 R1 spec 已落 main（#228=`03347128`）；轨道 A 读数 #227=`b42a82d6` 已代合；轨道 E 读数文档补录入库。生产未动（仍 `441c60f2`）**。① #228：#224 上线后架构评审施工化为 W1–W7 七工作流（W1 结构化 issue 契约 `episode_issues.py` 枚举+RELEASE_POLICY，治「改文案=改门禁」/ W2 判官降级诚实化+后验复核 `rejudge_pending.py`，degrade 分列 judge_unavailable 与 content_degraded / W3 双引擎 gate_receipt 产物同构，不合引擎 / W4 车道组合声明式规则表 / W5 回填式 repair，判官 never-add 不变量不动，依赖轨道 D+W1 / W6 部署切换审计账本，起因 `a7e2d74f` 无台账切换 / W7 评测方差基线，治 n=1 假回归），正文 `docs/superpowers/specs/2026-08-19-loop-robustness-r1.md` 含派单表与让位规则（W1/W2/W5 与轨道 C/D 同文件、后动工者 rebase；W3/W4/W6/W7 立即可并行），用户正在分发 spec 壳。② #227（轨道 A，docs-only 无链切）合前 `merge-tree --write-tree` 自探 rc=0 才合；其「B 可链切」是建议，**链切时机仍归用户拍板**。③ 补录：`docs/verification/2026-08-19-verifier-ablation-live.md`（轨道 E 消融读数，sidecar 8796/8798，判定「不回改 R5 第三层、拍板点 4 未触发」）此前被派单引用但漏提交成悬空引用，本 PR 入库。④ 残留：`fwp-wt-gate-release` 有已合并本地分支 `docs/loop-robustness-spec`（hook 拦 `-D`，待用户手删）；`~/fwp-wt-verifier-ablation`（脏、勿合）留作轨道 E 取证。本轮无新工具沉淀（侦察全一次性 rg 可复现）。
 
@@ -63,51 +109,43 @@
 
 ## 这个分支做什么
 
-生产基线。今日循环：#316/#317/#319/#321/#323 全部合并，前四个有生产判决。
+生产基线。合并、部署、台账回填的落点。
 
 ## 当前状态
 
-- **8792 = `6cd0756e`**（观测台 Phase 1 闸对账：live health `source_revision`；历史「更新」行仍可能过期，以本行 + `/api/health` 为准；检阅方 2026-08-16 20:34 实测三读一致、dirty=false）。
-  目录名 `finance-workspace-6cd0756e4a61`（SHA 同名，#88 卫生已了；HOLD 解除）。回滚锚 `finance-workspace-773b3d7e73d7`。默认其后 tip 不追切。
-- **R25 判决通过**（#327 缺口镜像 = knevo 接力第一片）：B1 降级 0 证据时
-  消息带 3 张「缺口补齐」卡（type=gap，label+full_prompt，契约口径，
-  零模型调用），`/api/runs/{id}/followups` 可读。episode 主路径首次接上
-  猜你想问通道。
-- **R24 判决通过**（#326）：杀 worker → 探针调度 → T+142s 自动 ready，
-  零 kickstart。R22（#319 满窗）判决已过；#323 待明早对照。
-- 隧道今日两次 530/502 波动（cloudflared，Mac 侧正常），均自愈。
+- main tip `b4689295`：#338（V9b 排序）→ #340（V10 泛化电池）→ #339（V11 设计）→ #341（R3 live 回填）。
+- **8792 指纹 `fb7a0d5d…`（639 模块）**，`loaded_tree_fingerprint`==`repo_tree_fingerprint`，ready 全绿。
+  判版本以指纹为准，快照目录名滞后属正常。
+- 台账 `R-20260822-01/-02/-04` 均 `confirmed`。Open 表仍 **47 行 pending**，与近两轮相关的：
+  `R-20260821-07/-08/-09`（探针只是无回归确认，confirmed 需自然样本回读）、`-19`（单发不得结案）、`-12`。
 
-## 未验证 / 已知边界
+## 等用户裁决（三件，都不是在途工作）
 
-- #323 生产判决：需收据出现两次 `repair_model_retry` 且第二笔 grant_id
-  带 `-2`、第二发救回——明早 10–11 时复跑 B 组对照 R15/R21。
-- 候选②（filters 查询走 worker）未做：改 worker 协议动静大，另行论证。
-- R23 产物 `20260813T0805Z-r23-selfheal-inject.json`（Mac 私有仓未提交）。
+1. **V11 实施派单**——设计合同 #339 已过验收，按约定等确认再派。
+2. **黑名单扩展单**——13 条盲区清单在 `docs/verification/2026-08-22-v10-generalization-battery.md` §8；
+   扩完用**同题池前后对照**（电池首轮 9/9 就是为此采的基线）。
+3. **V9c 跨仓物理重切**——台账号 `R-20260822-03` 已预留、**故意不建行**，等裁决。
 
-## 下一步
+## 未派单 / 未立案
 
-1. 明早 10–11 时 B 组对照（#319+#323 双发判决）。
-2. knevo 接力第二片 **report→track**（q8 蒸馏：delta-only + 观点四态 +
-   下期关注触发条件自衔接）：要拍两个板——基线落哪（wiki vs users 私有层）、
-   首个题型（推荐 theme-radar）。
-3. 缺口文案质量：R25 第二张卡显示 `chain_mapping`——上游部分契约输出的
-   description 是机器 ID 风格，镜像如实呈现；改进属 task_frame 契约生成侧。
-4. governor 升帽已被取证证伪（成功修复调用 max=27.8s），别再立案。
-5. **fph2026 旁路库接主库 ask**（缠论/背离/双红/隔夜数据消费注册，用户已拍板）：
-   排队项，触发条件=R-13 收据落盘且处置形状已知（H-a 则并进架构案）。
-   交接 `docs/handoffs/2026-08-16-fph2026-ask-wiring.md`。**别忘**。
+- **W2b（KB 计划引导）**：「KB 有证据但计划不含 KB 检索」的通道打通，见
+  `docs/superpowers/specs/2026-08-21-ceiling-shape-closeout-design.md` §W2b。
+  前置未做：**先量 KB 检索耗时分布**（预算紧张是常态，通道打通必须带预算账，否则重演「满足契约反而污染」）。
+- **episode 层 KB 路由随机**：V10 电池 9 题里 KB 只参与 5 题；V9b 的 episode 探针整轮没调 kb_search
+  （故改用检索层重放取证）。是个值得留意的形状，**未立案**。
+- 注：旧交接里「KB 索引卫生（工件页排除）未派单」**已过期**——V4 早已上线，`R-20260821-16` confirmed，
+  见 `docs/verification/2026-08-21-inputside-index-hygiene.md`。
 
-## 踩过的坑
+## 坑
 
-- 注入判决要盯「被测机制的入口条件」：#317 入口是 worker.query 异常，
-  filters 查询根本不进这个入口——测试放行≠生产覆盖。
-- `state=cold`（杀进程后）与 `failed`（超时后）是两个不自愈形状，前者
-  连 last_error 都不留。
-- 修复延迟分布用事件 `at` 时间戳可还原删失（本轮两次手工，第三次用时
-  应固化成脚本；未固化原因：需访问生产 runs 目录且口径仍在变）。
+- **一个探针兑现多行台账判据时，要逐行回抄**。R3 收尾发现 `R-20260822-01` 的 live 读数只写进了
+  共用同一探针的 `R-20260821-17` 行，`-01` 自己那行还挂 `pending`，与 `last_updated` 表头自相矛盾；
+  验证文档里明写了「台账行翻 confirmed」也没兜住。已修。
+- **部署脚本会在等待循环里被环境收割**。对策：按脚本原参数手工补账本 `switch` 行，别留杂散文件。
+  V10 电池真跑中途也中过一次（孤儿 run 3 个，重跑后 9/9）。
 
-## 已验证
+## 本文件的历史
 
-- 8792 @ 7d379b07（16:44 实测）；R22 满窗、R23 盲区、R24 探针自愈三判决。
-- repair/episode 相关 577 条、rag_worker 18 条、orchestrator 372 条全绿。
-- 云端全量 15F/4149P，flaky 归零，15 红全为已立案环境差异。
+2026-08-22 前这份累积到 **61KB**，且正文还停在 08-13（写着 `8792=0e392541`）——
+既超注入预算又会带偏接手，本次整份重写。不另存副本，历史全文用
+`git show b4689295:docs/handoffs/inflight/main.md`。

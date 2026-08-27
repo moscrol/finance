@@ -48,6 +48,7 @@ from intelligence.services import (
     external_market,
     forecast_preflight,
     kb_rag,
+    knowledge_injection_policy,
     l3_evidence,  # noqa: F401  (测试经 ask.l3_evidence 打桩)
     query_ledger,
     retrieval_cache,
@@ -358,6 +359,18 @@ def _resolve_market_data_context(
     requested_date: str | None = None,
 ) -> tuple[str | None, str, str | None, list[str]]:
     if requested_date:
+        from intelligence.services.market_watch_pack import exact_market_daily_exists
+
+        exact = exact_market_daily_exists(market_db_path, requested_date)
+        if exact is True:
+            return requested_date, "requested_date", None, []
+        if exact is False:
+            return (
+                None,
+                "requested_date_missing",
+                f"{requested_date} 无行情数据。",
+                [],
+            )
         return requested_date, "requested_date", None, []
 
     market_date = _market_data_asof(market_db_path)
@@ -391,6 +404,254 @@ def _resolve_market_data_context(
     return None, "unavailable", notice, [
         "本轮没有连接本地市场数据，也没有可用的历史盘面快照。"
     ]
+
+
+def bind_market_watch_pack(
+    options: AskOptions,
+    *,
+    frame: Any = None,
+    query: str | None = None,
+) -> AskOptions:
+    """Run the market_watch pack before owner/model fork and lock AskOptions."""
+
+    from intelligence.services.honesty_gates import calendar_disclosure
+    from intelligence.services.market_watch_pack import run_market_watch_pack
+
+    disclosure = calendar_disclosure(frame) if frame is not None else None
+    # 替补观察探针仅在盘面题单点开启；weekly 五日包与一般题路径保持默认关
+    # （spec 2026-08-25-substitute-observation-probe P1 另议）。
+    pack = run_market_watch_pack(
+        query or options.query,
+        market_db_path=options.market_db_path,
+        calendar_disclosure=disclosure,
+        substitute_probes=True,
+    )
+    inject = pack.should_stop or not pack.market_daily_empty
+    rendered = pack.render() if inject else ""
+    supplemental = options.supplemental_evidence
+    if rendered:
+        supplemental = (
+            f"{rendered}\n\n{options.supplemental_evidence}".strip()
+            if options.supplemental_evidence
+            else rendered
+        )
+    return replace(
+        options,
+        date=pack.standing_date if pack.standing_date is not None else options.date,
+        compose=False if pack.should_stop else options.compose,
+        synthesize=False if pack.should_stop else options.synthesize,
+        supplemental_evidence=supplemental,
+        market_watch_pack=pack,
+    )
+
+
+def bind_watchlist_digest_pack(
+    options: AskOptions,
+    *,
+    frame: Any = None,
+    query: str | None = None,
+) -> AskOptions:
+    """Run the watchlist digest pack before owner/model fork and lock AskOptions.
+
+    P0 恒锁 compose=False / synthesize=False：确定性填格即公开稿，残差写手
+    不上场（spec 2026-08-26 §3.1.7；残差是 P1，开时也只许追加解读、不得改
+    数字、不得写买卖）。
+    """
+
+    from intelligence.services.honesty_gates import calendar_disclosure
+    from intelligence.services.watchlist_digest_pack import (
+        run_watchlist_digest_pack,
+    )
+
+    disclosure = calendar_disclosure(frame) if frame is not None else None
+    pack = run_watchlist_digest_pack(
+        query or options.query,
+        user_id=options.user,
+        market_db_path=options.market_db_path,
+        calendar_disclosure=disclosure,
+    )
+    rendered = pack.to_prompt_block()
+    supplemental = (
+        f"{rendered}\n\n{options.supplemental_evidence}".strip()
+        if options.supplemental_evidence
+        else rendered
+    )
+    return replace(
+        options,
+        date=pack.standing_date if pack.standing_date is not None else options.date,
+        compose=False,
+        synthesize=False,
+        supplemental_evidence=supplemental,
+        watchlist_digest_pack=pack,
+    )
+
+
+def bind_disclosure_scan_pack(
+    options: AskOptions,
+    *,
+    frame: Any = None,
+    query: str | None = None,
+    as_of: str | None = None,
+    cninfo_fetch: Any = None,
+    clock: Any = None,
+    sleep_fn: Any = None,
+) -> AskOptions:
+    """Run the disclosure scan pack; open compose only for a complete non-empty roster.
+
+    P0 恒锁 compose=False（纯包渲染）。P1-① 起：`status=hit` 且有主名单行时保留
+    调用方的 compose/synthesize（残差写手上场，只解读不增删名单行——契约与出稿闸
+    见 disclosure_scan_pack.gate_disclosure_residual）；partial/empty/unsupported/
+    error 一律维持 P0 纯包形状，fail-closed。
+    """
+
+    from intelligence.services.disclosure_scan_pack import (
+        disclosure_residual_allowed,
+        run_disclosure_scan_pack,
+    )
+
+    standing = as_of or options.date
+    if standing is None and frame is not None:
+        timeframe = str(getattr(frame, "timeframe", "") or "")
+        if len(timeframe) == 10 and timeframe[4] == "-" and timeframe[7] == "-":
+            standing = timeframe
+    pack = run_disclosure_scan_pack(
+        query or options.query,
+        as_of=standing,
+        market_db_path=options.market_db_path,
+        cninfo_fetch=cninfo_fetch,
+        clock=clock,
+        sleep_fn=sleep_fn,
+    )
+    rendered = pack.render()
+    supplemental = options.supplemental_evidence
+    if rendered:
+        supplemental = (
+            f"{rendered}\n\n{options.supplemental_evidence}".strip()
+            if options.supplemental_evidence
+            else rendered
+        )
+    residual_open = disclosure_residual_allowed(pack)
+    return replace(
+        options,
+        compose=options.compose if residual_open else False,
+        synthesize=options.synthesize if residual_open else False,
+        supplemental_evidence=supplemental,
+        disclosure_scan_pack=pack,
+    )
+
+
+def prepare_disclosure_residual_answer(options: AskOptions) -> PreparedAnswer:
+    """P1-① 残差写手的开台：名单置顶由裁判后合并负责，模型只解读。
+
+    P1-①c：answer_spec 换披露专用全行 claim 集（build_disclosure_residual_answer_spec）。
+    此前走通用 builder 的 `[:8]` 截断，shadow 有据链（composer/judge 的输入完全
+    从 answer_spec 生成）只看得见 8 条证据 claim，模型解读全名单必然越出
+    claim/atom 集——live R5 m 轮（run_20260825_200157_247884）被拒收的根因。
+    残差契约同时经 spec.prompt_constraints 进 shadow 链的 required_outputs 槽。
+
+    prepared_synthesis_messages 仍预置：grounded_presenter 关闭时旧散文合成
+    走这条（contract_guidance 槽承载同一契约，不混经验卡片槽——2026-08-13
+    实测贴错语义标签时模型遵守率极低）。
+    """
+
+    from intelligence.services.disclosure_scan_pack import (
+        DISCLOSURE_RESIDUAL_CONTRACT,
+        build_disclosure_residual_answer_spec,
+    )
+
+    pack = options.disclosure_scan_pack
+    assert pack is not None, "residual answer needs a bound disclosure pack"
+    rendered = pack.render()
+    result = AskResult(
+        query=options.query,
+        trade_date=pack.universe_date,
+        matched_theme=None,
+        candidate_tier=None,
+        priority_score=None,
+        synthesis=None,
+        market_summary=rendered,
+    )
+    result.answer_spec = build_disclosure_residual_answer_spec(
+        pack,
+        query=options.query,
+    )
+    result.prepared_synthesis_messages = llm_refine.build_synthesis_messages(
+        options.query,
+        "披露扫描",
+        rendered,
+        citation_legend="",
+        contract_guidance=DISCLOSURE_RESIDUAL_CONTRACT,
+    )
+    return prepare_existing_answer(options, result)
+
+
+def v_block_for_ask(
+    options: AskOptions,
+    theme: str | None = None,
+    entity: str | None = None,
+) -> str:
+    """[V] 投影：有 StancePack 只渲染袋，禁止再查台账。"""
+
+    pack = getattr(options, "stance_pack", None)
+    if pack is not None:
+        from intelligence.services.stance_pack import render_prior_bag
+
+        return render_prior_bag(
+            pack.prior_bag,
+            data_asof=_market_data_asof(options.market_db_path),
+        )
+    return checkpoint_recall.recall_block_for_query(
+        options.query,
+        theme,
+        entity,
+        user=options.user,
+        data_asof=_market_data_asof(options.market_db_path),
+    )
+
+
+def bind_research_program(
+    options: AskOptions,
+    *,
+    frame: Any = None,
+    query: str | None = None,
+) -> AskOptions:
+    """Compile a ResearchProgram; market_watch still binds the four-bag pack first."""
+
+    from intelligence.services.query_understanding import is_market_watch_query
+    from intelligence.services.research_contract import compile_research_program
+
+    text = query or options.query
+    question_class = ""
+    if frame is not None:
+        question_class = str(getattr(frame, "question_type", "") or "")
+    program = compile_research_program(text, question_class=question_class)
+    _ = program.to_dict()
+    if is_market_watch_query(text) or question_class == "market_watch":
+        bound = bind_market_watch_pack(options, frame=frame, query=query)
+        return replace(bound, research_program=program)
+    from intelligence.services.market_watch_pack import (
+        render_strict_signal_pack,
+        run_strict_signal_pack,
+    )
+
+    hits = run_strict_signal_pack(
+        program,
+        query=text,
+        market_db_path=options.market_db_path,
+    )
+    rendered = render_strict_signal_pack(hits)
+    supplemental = options.supplemental_evidence
+    if rendered:
+        supplemental = (
+            f"{rendered}\n\n{options.supplemental_evidence}".strip()
+            if options.supplemental_evidence
+            else rendered
+        )
+    return replace(
+        options,
+        research_program=program,
+        supplemental_evidence=supplemental,
+    )
 
 
 def _forecast_preflight_for_options(
@@ -620,6 +881,79 @@ def _answer_market_review(
     result.matched_theme = None
     result.candidate_tier = None
     result.priority_score = None
+    pack = getattr(options, "market_watch_pack", None)
+    if pack is not None:
+        result.market_summary = pack.render()
+        if pack.should_stop:
+            result.trade_date = None if pack.market_daily_empty else pack.standing_date
+            result.found_market = not pack.market_daily_empty
+            result.answer_spec = _build_base_answer_spec_from_sections(
+                result,
+                theme="市场复盘",
+                direct_lines=(pack.stop_text(),),
+                evidence_blocks=(pack.render(),),
+                risk_lines=(),
+                action_lines=(),
+            )
+            return result
+        mainline_context = ""
+        knowledge_anchor = (
+            _market_review_knowledge_anchor_block_for_llm(
+                options.market_db_path,
+                as_of=pack.standing_date or options.date or None,
+                kb_wiki=options.kb_wiki or None,
+                warnings=result.warnings,
+            )
+            if evidence_registry.provider_enabled(options, "MAINLINE_KB")
+            else ""
+        )
+        if knowledge_anchor:
+            result.citations.append(
+                Citation(
+                    "MAINLINE_KB",
+                    "主线方向的知识库积累",
+                    "按当日主线方向逐个取概念页/公司暴露/已入库证据；含知识库尚无积累的方向",
+                )
+            )
+        evidence_parts = [
+            part
+            for part in (
+                options.supplemental_evidence.strip(),
+                result.market_summary or "",
+                knowledge_anchor,
+            )
+            if part
+        ]
+        result.found_market = True
+        if not options.compose:
+            result.answer_spec = _build_base_answer_spec_from_sections(
+                result,
+                theme="市场复盘",
+                evidence_blocks=tuple(evidence_parts),
+                direct_lines=(
+                    f"截至 {pack.standing_date}，"
+                    "本轮只确认资料覆盖的市场变化，未覆盖部分保持未知。",
+                ),
+                risk_lines=(),
+                action_lines=(
+                    "下一交易日复核量能、涨跌结构和主线承接是否同时改善。",
+                ),
+            )
+            return result
+        result.answer_spec = _build_base_answer_spec_from_sections(
+            result,
+            theme="市场复盘",
+            evidence_blocks=tuple(evidence_parts),
+            direct_lines=(
+                f"截至 {pack.standing_date}，"
+                "本轮只确认资料覆盖的市场变化，未覆盖部分保持未知。",
+            ),
+            risk_lines=(),
+            action_lines=(
+                "下一交易日复核量能、涨跌结构和主线承接是否同时改善。",
+            ),
+        )
+        return result
     result.market_summary = _daily_market_overview_block_for_llm(
         options.market_db_path
     )
@@ -737,11 +1071,7 @@ def _answer_market_review(
                 f"{card_guidance}"
             )
     if evidence_registry.provider_enabled(options, "V"):
-        recall_block = checkpoint_recall.recall_block_for_query(
-            options.query,
-            user=options.user,
-            data_asof=_market_data_asof(options.market_db_path),
-        )
+        recall_block = v_block_for_ask(options)
         if recall_block:
             prior_parts.append(recall_block)
             result.citations.append(
@@ -2882,9 +3212,18 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     # 全市场后市推演先消费 S/D 系列当前盘面与 D8 历史类比；无明确主题时，
     # 通用 wiki 语义召回既慢又容易把“市场”锚到无关公司。本车道确定性关闭 W，
     # 不影响题材/个股研究的 Hybrid RAG。
+    # 市场态题型（market_watch）同理关闭 W——2026-08-26 三轮消融实证该题型上
+    # KB 召回稳定负贡献（七读数五负，历史研报观点污染「当前主线」判断），
+    # 门控与判读基线共用 knowledge_injection_policy（估值/题材题不受影响）。
     evidence_options = (
         replace(options, use_wiki_rag=False)
-        if question_plan.question_type == QUESTION_MARKET_FORECAST
+        if (
+            question_plan.question_type == QUESTION_MARKET_FORECAST
+            or not knowledge_injection_policy.inject_knowledge(
+                # 翻译前的路由题型；读 question_plan.question_type 门控恒不触发。
+                knowledge_injection_policy.routed_question_type(question_plan)
+            )
+        )
         else options
     )
     evidence_ctx = evidence_providers.EvidenceContext(
@@ -4102,11 +4441,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         )
 
         def _build_v():
-            block = checkpoint_recall.recall_block_for_query(
-                options.query, theme, anchored_name,
-                user=options.user,
-                data_asof=_market_data_asof(options.market_db_path),
-            )
+            block = v_block_for_ask(options, theme, anchored_name)
             return block, Citation(
                 "V",
                 "回检块（历史可证伪判断×裁决）",
@@ -4224,6 +4559,9 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
                     claim_theme,
                 )
             )
+        result.stale_block_hints = output_review.extract_stale_block_hints(
+            (outcome.tag, outcome.block or "") for outcome in outcomes
+        )
         d5_outcome: ask_planner.BlockOutcome | None = None
         for outcome in outcomes:
             if outcome.tag == "D5":
@@ -4369,6 +4707,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             follow_ups=follow_ups,
             conclusion_lines=conclusion,
             final_answer=result.synthesis,
+            stale_block_hints=result.stale_block_hints,
         )
         stage["warn_count"] = result.review_gate.warn_count
     result.warnings.extend(

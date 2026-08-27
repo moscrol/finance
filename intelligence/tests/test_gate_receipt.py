@@ -44,6 +44,7 @@ def test_ask_and_episode_receipts_share_keys_and_are_diffable() -> None:
                 "judge_status": "passed",
                 "issues": [],
                 "timeout_asked": 25.0,
+                "correlated_judge": True,
             },
         },
         extra_degrade_count=0,
@@ -60,6 +61,8 @@ def test_ask_and_episode_receipts_share_keys_and_are_diffable() -> None:
     assert ask["judge_status"] == NOT_APPLICABLE
     assert episode["verified_status"] == "completed"
     assert episode["judge_status"] == "passed"
+    assert ask["correlated_judge"] is None
+    assert episode["correlated_judge"] is True
     assert ask["judge_unavailable_count"] == 0
     assert ask["content_degraded_count"] == 1
     assert episode["judge_unavailable_count"] == 0
@@ -81,6 +84,75 @@ def test_ask_receipt_refuses_fake_completed_or_passed() -> None:
             verified_status=NOT_APPLICABLE,
             judge_status="passed",
         )
+    with pytest.raises(ValueError, match="must not fake"):
+        build_gate_receipt(
+            engine=ENGINE_ASK,
+            rev="deadbeef",
+            verified_status=NOT_APPLICABLE,
+            judge_status=NOT_APPLICABLE,
+            correlated_judge=False,
+        )
+
+
+def test_missing_correlated_judge_is_unknown_not_independent() -> None:
+    """Old artifacts and ask both stay null. false would look like L4 landed."""
+
+    old_episode = build_episode_receipt(
+        rev="deadbeef",
+        private_artifact={
+            "structural_verifier": {"verified_status": "completed", "issues": []},
+            "semantic_verifier": {"judge_status": "passed", "issues": []},
+        },
+    )
+    independent = build_episode_receipt(
+        rev="deadbeef",
+        private_artifact={
+            "structural_verifier": {"verified_status": "completed", "issues": []},
+            "semantic_verifier": {
+                "judge_status": "passed",
+                "issues": [],
+                "correlated_judge": False,
+            },
+        },
+    )
+    ask = build_ask_receipt(rev="deadbeef")
+    assert old_episode["correlated_judge"] is None
+    assert independent["correlated_judge"] is False
+    assert ask["correlated_judge"] is None
+    extracted = extract_gate_receipt(
+        {"gate_receipt": {"engine": "episode", "judge_status": "passed"}}
+    )
+    assert extracted["correlated_judge"] is None
+
+
+def test_skipped_judge_default_false_is_unknown_not_independent() -> None:
+    """Private dataclass defaults False when the judge never ran. Public ≠ independent."""
+
+    skipped = build_episode_receipt(
+        rev="deadbeef",
+        private_artifact={
+            "structural_verifier": {"verified_status": "partial", "issues": []},
+            "semantic_verifier": {
+                "judge_status": "unavailable",
+                "issues": ["empty public draft"],
+                "correlated_judge": False,
+            },
+        },
+    )
+    independent_unavailable = build_episode_receipt(
+        rev="deadbeef",
+        private_artifact={
+            "structural_verifier": {"verified_status": "completed", "issues": []},
+            "semantic_verifier": {
+                "judge_status": "unavailable",
+                "issues": ["semantic judge unavailable"],
+                "correlated_judge": False,
+                "timeout_asked": 20.0,
+            },
+        },
+    )
+    assert skipped["correlated_judge"] is None
+    assert independent_unavailable["correlated_judge"] is False
 
 
 def test_episode_judge_unavailable_splits_from_content_degrade() -> None:

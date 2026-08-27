@@ -111,8 +111,13 @@ def _mechanical_checks(worktree: Path, request) -> tuple[dict[str, dict[str, str
             "FORESIGHT_USER",
             "SUBCONSCIOUS_VAULT",
             "AGENT_MEMORY_VAULT",
+            "PYTHONPATH",
         }
     }
+    # 必须看见 detached worktree 里的代码。继承调用方 PYTHONPATH 会把另一棵
+    # 树的 intelligence 抢到前面，夹具里的 VALUE 断言变成 ImportError，预算
+    # 失败被误判成「机械检查红 → 写临时结论」（本机 sidecar 起过就会留下这条）。
+    clean_environment["PYTHONPATH"] = str(worktree)
     if tests:
         completed = subprocess.run(
             [sys.executable, "-m", "pytest", "-q", *tests],

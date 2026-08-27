@@ -350,6 +350,7 @@ class ToolRunResult:
     caliber: str = ""
     payload_field_names: tuple[str, ...] = ()
     payload_sha256: str = ""
+    telemetry: dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         evidence = tuple(self.evidence)
@@ -377,6 +378,7 @@ class ToolRunResult:
         object.__setattr__(self, "caliber", caliber)
         object.__setattr__(self, "payload_field_names", names)
         object.__setattr__(self, "payload_sha256", digest)
+        object.__setattr__(self, "telemetry", dict(self.telemetry or {}))
 
 
 class ToolRunnerAdapter:
@@ -438,6 +440,19 @@ def copy_tool_parameters(parameters: Mapping[str, object]) -> dict[str, object]:
     return copied
 
 
+def _remember_authorized_trade_dates(
+    context: ResearchRunContext,
+    evidence: list[agent_research.AgentEvidence],
+) -> None:
+    """把本轮已交付证据的交易日记到 context，供后续窗口闸门认。"""
+
+    dates = context.authorized_trade_dates
+    for item in evidence:
+        parsed = closed_loop_retrieval.parse_source_date(getattr(item, "source_date", None))
+        if parsed is not None:
+            dates.add(parsed.isoformat())
+
+
 @dataclass(frozen=True)
 class ToolObservation:
     tool: str
@@ -451,6 +466,7 @@ class ToolObservation:
     caliber: str = ""
     payload_field_names: tuple[str, ...] = ()
     payload_sha256: str = ""
+    telemetry: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -496,8 +512,14 @@ class ToolSpec:
 
 
 class ResearchToolRegistry:
-    def __init__(self, specs: tuple[ToolSpec, ...]) -> None:
+    def __init__(
+        self,
+        specs: tuple[ToolSpec, ...],
+        *,
+        opening_prefetch: tuple[agent_research.AgentEvidence, ...] = (),
+    ) -> None:
         self._specs = {spec.name: spec for spec in specs}
+        self.opening_prefetch = tuple(opening_prefetch)
 
     def resolve(self, name: str) -> ToolSpec:
         spec = self._specs.get(str(name).strip())
@@ -515,16 +537,23 @@ class ResearchToolRegistry:
         self,
         allowed: tuple[str, ...] | None = None,
     ) -> tuple[ToolSpec, ...]:
-        """Return registered tools whose declared capability is authorized."""
+        """Return registered tools whose declared capability is authorized.
+
+        Order is sorted by ``name`` so ``prompt_block`` and
+        ``tool_definitions`` stay stable if registration insertion order
+        changes.
+        """
 
         if allowed is None:
-            return tuple(self._specs.values())
-        allowed_set = set(allowed)
-        return tuple(
-            spec
-            for spec in self._specs.values()
-            if spec.capability in allowed_set
-        )
+            specs = tuple(self._specs.values())
+        else:
+            allowed_set = set(allowed)
+            specs = tuple(
+                spec
+                for spec in self._specs.values()
+                if spec.capability in allowed_set
+            )
+        return tuple(sorted(specs, key=lambda spec: spec.name))
 
     def tool_definitions(
         self,
@@ -656,6 +685,42 @@ class ResearchToolRegistry:
             )
 
         prepared = self.prepare(name, arguments)
+        if spec.name in {"news_search", "web_search"}:
+            from intelligence.services.task_frame import (
+                strip_default_a_share_search_token,
+            )
+
+            query_text = (
+                prepared.runner_input
+                if isinstance(prepared.runner_input, str)
+                else prepared.display_query
+            )
+            cleaned, hygiene_note = strip_default_a_share_search_token(
+                str(query_text or ""),
+                context.contract.question,
+            )
+            if hygiene_note:
+                raw = dict(prepared.raw)
+                if "query" in raw:
+                    raw["query"] = cleaned
+                prepared = replace(
+                    prepared,
+                    raw=raw,
+                    runner_input=(
+                        cleaned
+                        if isinstance(prepared.runner_input, str)
+                        else prepared.runner_input
+                    ),
+                    display_query=cleaned or prepared.display_query,
+                    normalized_key=query_ledger.normalize_query(cleaned)
+                    if cleaned
+                    else prepared.normalized_key,
+                    normalization_note="；".join(
+                        part
+                        for part in (prepared.normalization_note, hygiene_note)
+                        if part
+                    ),
+                )
         normalized = prepared.normalized_key
         effective_context = context
         if spec.cutoff_resolver is not None:
@@ -742,13 +807,48 @@ class ResearchToolRegistry:
             ):
                 rejected.extend(evidence)
                 evidence = []
+            remaining_after_cutoff_filter = list(evidence)
             if rejected:
-                observation = (
-                    "；".join(
+                cutoff_iso = effective_context.information_cutoff.as_of_date.isoformat()
+                if remaining_after_cutoff_filter:
+                    observation = (
+                        "；".join(
+                            f"{item.title}：{item.detail[:80]}"
+                            for item in remaining_after_cutoff_filter
+                        )
+                        or observation
+                    )
+                else:
+                    # T2-a：全滤时空手会让模型以为「源里没有」。把越界条目标注后交还。
+                    evidence = [
+                        replace(
+                            item,
+                            title=(
+                                item.title
+                                if "晚于问句日" in item.title
+                                else f"晚于问句日 {cutoff_iso}｜{item.title}"
+                            ),
+                            detail=(
+                                f"{item.detail}（晚于问句日 {cutoff_iso}，不是源里没有）"
+                            ),
+                            content_hash="",
+                        )
+                        for item in rejected
+                    ]
+                    evidence = [
+                        replace(
+                            item,
+                            content_hash=agent_research.evidence_content_hash(item),
+                        )
+                        for item in evidence
+                    ]
+                    listed = "；".join(
                         f"{item.title}：{item.detail[:80]}" for item in evidence
                     )
-                    or "检索结果均因 future_of_cutoff 被过滤"
-                )
+                    observation = (
+                        f"源返回 {len(evidence)} 条，全部晚于问句日 {cutoff_iso}，"
+                        f"已标注后交付；不是源里没有。{listed}"
+                    )
             evidence = [
                 item
                 if item.content_hash
@@ -762,7 +862,7 @@ class ResearchToolRegistry:
                 trace,
                 status=(
                     "future_of_cutoff"
-                    if rejected and not evidence
+                    if rejected and not remaining_after_cutoff_filter
                     else trace.status
                 ),
                 detail=(
@@ -782,25 +882,30 @@ class ResearchToolRegistry:
             # The content hash is the stable identifier carried into
             # AgentOutcome/verifier. Do not mint a second observation-only ID.
             hashes = tuple(item.content_hash for item in evidence)
+            telemetry = dict(run_result.telemetry) if run_result.telemetry else {}
+            if spec.name == "kb_search":
+                # 按 cutoff/规范化之后的实际送达计，不写死 800；V3 改管道读数跟上。
+                telemetry = agent_research.kb_delivery_telemetry(evidence, observation)
+            _remember_authorized_trade_dates(context, evidence)
             if scope is not None:
-                scope.emit(
-                    TOOL_RESULT,
-                    {
-                        "tool": spec.name,
-                        "tool_call_id": tool_call_id,
-                        "step_id": step_id,
-                        "status": trace.status,
-                        "evidence_count": len(evidence),
-                        # hash 是带进 AgentOutcome/verifier 的稳定标识，
-                        # 事件里带上它，Trace/UI/评测三者才对得上账。
-                        "evidence_hashes": list(hashes),
-                        "gaps": list(gaps),
-                        "dataset": run_result.dataset,
-                        "caliber": run_result.caliber,
-                        "payload_field_names": list(run_result.payload_field_names),
-                        "payload_sha256": run_result.payload_sha256,
-                    },
-                )
+                emitted = {
+                    "tool": spec.name,
+                    "tool_call_id": tool_call_id,
+                    "step_id": step_id,
+                    "status": trace.status,
+                    "evidence_count": len(evidence),
+                    # hash 是带进 AgentOutcome/verifier 的稳定标识，
+                    # 事件里带上它，Trace/UI/评测三者才对得上账。
+                    "evidence_hashes": list(hashes),
+                    "gaps": list(gaps),
+                    "dataset": run_result.dataset,
+                    "caliber": run_result.caliber,
+                    "payload_field_names": list(run_result.payload_field_names),
+                    "payload_sha256": run_result.payload_sha256,
+                }
+                if telemetry:
+                    emitted["telemetry"] = telemetry
+                scope.emit(TOOL_RESULT, emitted)
             return ToolObservation(
                 tool=spec.name,
                 query=prepared.display_query,
@@ -813,6 +918,7 @@ class ResearchToolRegistry:
                 caliber=run_result.caliber,
                 payload_field_names=run_result.payload_field_names,
                 payload_sha256=run_result.payload_sha256,
+                telemetry=telemetry,
             )
 
         ledger_call = partial(
@@ -916,6 +1022,8 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "新高家数/新高结构类问题用 stock_high_daily（表内只含当日创新高的个股，"
         "按 high_period/sw_l1 分组计数即新高结构）；"
         "sector_stock_daily.high_status 显示「非新高」是事实标注，不是数据缺失。"
+        "下周/周末大事、事件日历用 event_daily（复盘会编辑催化，不是官方日程全集；"
+        "event_date 可以晚于信息截止日）。"
     ),
     # 依据在 ``evidence_search._project_evidence``：它把 ``conclusion`` 与
     # ``counter_clues`` 合成同一个 evidence 列表，stance（"支持"/"反方"）**只出现在

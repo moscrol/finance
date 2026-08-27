@@ -1,44 +1,10 @@
-"""飞书 chat bot（B-S2）——长连接收消息、in-process 调 ``ask`` 回六段答复。
+"""飞书 IM 入口（已退役）。
 
-阶段定位
-========
-「飞书 chat」链路：长连接（WebSocket）收到 ``im.message.receive_v1`` 文本消息后，
-**in-process 直接调** :func:`intelligence.workflows.ask.run_ask`，把六段检索答复
-（结论/证据链/分歧反证/后续验证点/交易含义/引用来源，每条带 ``[S#]/[G#]/[R#]`` 编号引用）
-渲染成飞书**交互卡片**回去（抬头按召回状态变色；``--reply-format text`` 可退回纯文本）。
-``ask`` 只读盘面快照 JSON + 知识库 ``wiki/relations``，**不碰 DuckDB**。
+``python3 -m intelligence.cli feishu-bot`` 与 :func:`run` 一律 stderr 说明后 exit 2，
+不连 WebSocket、不读凭证。问答正门是 ``intelligence.cli ask`` / Workbench Episode。
 
-- 非文本默认回一句「暂仅支持文本提问」提示；``--multimodal`` 可选开启**图片**多模态（B-S4）：
-  下载图片 → 视觉模型（OpenAI 兼容，无 key 自动降级）提一句检索查询 → 走 ``ask`` 回六段卡片；
-  PDF / 语音 / 文档解析仍属后续阶段（给友好提示，不报错）；
-- ``--echo`` 可退回 B-S0 逐字回声（仅用于长连接打通自检）；
-- 题材词路由的 theme-radar 模块 fan-out 默认**关**（子进程较慢），``--ask-modules`` 显式开。
-
-交互卡片渲染 + 卡片按钮交互（深钻/换题材/看证据链）均已接入（B-S3b）：按钮点击经
-``card.action.trigger`` 回调路由（深钻=展开题材模块 + detail 重跑、换题材=引导换词重问、
-看证据链=展开完整证据链卡片），**需在飞书后台开启「卡片回调」事件订阅**。
-``--reply-format text`` 退回纯文本（无按钮）。
-
-为什么用长连接
-==============
-bot 进程从 Mac **主动外连**飞书开放平台，全程出站连接：
-
-- 不需要公网回调 URL、不需要域名 ICP 备案、不需要入站隧道；
-- 与 ``exec.industry7view.com`` 通用 exec 隧道完全无关，也不碰 DuckDB；
-- 配 ``launchd`` 常驻即可（见 ``intelligence/chat/README.md``）。
-
-凭证
-====
-复用现有飞书自建应用的 ``app_id`` / ``app_secret``，**永不进 git**。来源优先级：
-
-1. 环境变量 ``FEISHU_APP_ID`` / ``FEISHU_APP_SECRET``（便于 launchd / 临时覆盖）；
-2. ``~/.claude/shared/feishu_config.json``（仓外，本机现有飞书配置；沿用 sync 脚本约定）。
-
-依赖
-====
-长连接需官方 SDK ``lark-oapi``（见 ``intelligence/chat/requirements.txt``）。为不污染
-本仓「零依赖、可离线」的其余命令，``lark_oapi`` 一律**惰性导入**在 :func:`run` 内部——
-没装 SDK 也能 ``import intelligence.chat.feishu_bot``、跑单测、构造 argparse。
+本文件仍保留卡片渲染、transcript 等历史函数，避免旧 import 崩，并给
+``dream-collect`` 读既有 jsonl。不要把这些函数再接到生产入口。
 """
 
 from __future__ import annotations
@@ -48,8 +14,6 @@ import json
 import logging
 import os
 import sys
-import threading
-from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -65,6 +29,13 @@ _APP_ID_KEYS = ("app_id", "appId", "appid", "APP_ID")
 _APP_SECRET_KEYS = ("app_secret", "appSecret", "appsecret", "APP_SECRET")
 
 log = logging.getLogger("feishu_bot")
+
+RETIRED_EXIT = 2
+RETIRED_MESSAGE = (
+    "飞书 IM 入口（intelligence.cli feishu-bot）已退役；"
+    '问答请用 python3 -m intelligence.cli ask "<问题>"，'
+    "生产会话走 Workbench Episode。"
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -245,6 +216,10 @@ class ResourceRef:
     file_key: str
     res_type: str
     file_name: str = ""
+
+    def message_resource_type(self) -> str:
+        """飞书 ``message_resource.get`` 的 ``type`` 形参。下载路径已随入口退役，此字段仍给旧 import 对账。"""
+        return self.res_type
 
 
 def parse_resource_ref(
@@ -519,10 +494,11 @@ def _run_ask_workflow(
     ``use_modules`` 为 None / ``detail`` 为 False 时沿用 ``config`` 默认（与 B-S2/B-S3a 行为一致）；
     「深钻」按钮回调会显式传 ``use_modules=True, detail=True`` 跑更深一层。
     """
-    from intelligence.workflows.ask import AskWorkflowOptions, run_ask
+    from intelligence.services.ask import AskOptions
+    from intelligence.workflows.ask import run_ask
 
     _summary, result, _answer = run_ask(
-        AskWorkflowOptions(
+        AskOptions(
             query=query,
             kb_wiki=config.kb_wiki,
             exports_dir=config.exports_dir,
@@ -696,220 +672,13 @@ def append_transcript(path: str, event: dict[str, Any]) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# 运行（lark_oapi 在此惰性导入）
+# 运行（已退役闸：不连 WebSocket）
 # --------------------------------------------------------------------------- #
-def run(config: BotConfig) -> int:
-    """启动长连接 bot（阻塞运行，Ctrl+C 退出）：ask 模式调 ask 回六段，echo 模式逐字回声。"""
-    try:
-        import lark_oapi as lark
-        from lark_oapi.api.im.v1 import (
-            GetMessageResourceRequest,
-            P2ImMessageReceiveV1,
-            ReplyMessageRequest,
-            ReplyMessageRequestBody,
-        )
-        from lark_oapi.event.callback.model.p2_card_action_trigger import (
-            P2CardActionTrigger,
-            P2CardActionTriggerResponse,
-        )
-    except ImportError as exc:
-        raise SystemExit(
-            "缺少依赖 lark-oapi（长连接所需）。请先安装：\n"
-            "  pip install -r intelligence/chat/requirements.txt\n"
-            f"原始错误：{exc}"
-        )
-
-    logging.basicConfig(
-        level=getattr(logging, config.log_level.upper(), logging.INFO),
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    )
-
-    # 回复走 HTTP 客户端（reply 到原消息）；长连接客户端只负责收事件。
-    http_client = (
-        lark.Client.builder()
-        .app_id(config.app_id)
-        .app_secret(config.app_secret)
-        .log_level(lark.LogLevel.INFO)
-        .build()
-    )
-
-    seen_ids: "deque[str]" = deque(maxlen=config.dedup_window)
-    seen_set: set[str] = set()
-
-    def _already_handled(message_id: Optional[str]) -> bool:
-        if not message_id:
-            return False
-        if message_id in seen_set:
-            return True
-        if len(seen_ids) == seen_ids.maxlen:
-            seen_set.discard(seen_ids[0])
-        seen_ids.append(message_id)
-        seen_set.add(message_id)
-        return False
-
-    def _reply(message_id: str, content_obj: Any, msg_type: str = "text") -> None:
-        if msg_type == "interactive":
-            content = json.dumps(content_obj, ensure_ascii=False)
-        else:
-            content = json.dumps({"text": content_obj}, ensure_ascii=False)
-        body = (
-            ReplyMessageRequestBody.builder()
-            .content(content)
-            .msg_type(msg_type)
-            .build()
-        )
-        request = (
-            ReplyMessageRequest.builder().message_id(message_id).request_body(body).build()
-        )
-        resp = http_client.im.v1.message.reply(request)
-        if not resp.success():
-            log.error(
-                "回复失败 code=%s msg=%s log_id=%s",
-                resp.code,
-                resp.msg,
-                getattr(resp, "get_log_id", lambda: "")(),
-            )
-
-    def _download_resource(message_id: Optional[str], ref: "ResourceRef") -> Optional[bytes]:
-        """下载消息里的图片/文件资源字节；失败/异常返回 None（bot 不崩）。
-
-        需飞书自建应用具备「读取消息中资源」权限（``im:resource``），否则下载会失败。
-        """
-        if not message_id or ref is None:
-            return None
-        try:
-            request = (
-                GetMessageResourceRequest.builder()
-                .message_id(message_id)
-                .file_key(ref.file_key)
-                .type(ref.res_type)
-                .build()
-            )
-            resp = http_client.im.v1.message_resource.get(request)
-            if not resp.success():
-                log.error(
-                    "资源下载失败 code=%s msg=%s log_id=%s",
-                    resp.code,
-                    resp.msg,
-                    getattr(resp, "get_log_id", lambda: "")(),
-                )
-                return None
-            if resp.file is None:
-                return None
-            return resp.file.read()
-        except Exception as exc:  # noqa: BLE001 - 资源下载失败绝不影响 bot 存活
-            log.warning("资源下载异常（已降级）：%s", exc)
-            return None
-
-    def _handle_multimodal(
-        message_id: Optional[str], message: Any
-    ) -> tuple[str, Any, str]:
-        """图片消息：解析资源 → 下载 → 视觉识别 → 走 ask；非图片文件给友好提示。"""
-        ref = parse_resource_ref(message.content, message.message_type)
-        if ref is None:
-            notice = nontext_notice(message.message_type)
-            return "text", notice, notice
-        if ref.kind != "image":
-            notice = nonimage_file_notice(ref.file_name)
-            return "text", notice, notice
-        image_bytes = _download_resource(message_id, ref)
-        if image_bytes is None:
-            notice = image_download_failed_notice()
-            return "text", notice, notice
-        return compute_vision_payload(image_bytes, None, config)
-
-    def _record_transcript(
-        message_id: Optional[str],
-        chat_id: Optional[str],
-        message_type: Optional[str],
-        text: Optional[str],
-        reply: str,
-    ) -> None:
-        if not config.transcript_log:
-            return
-        try:
-            event = build_transcript_event(message_id, chat_id, message_type, text, reply)
-            append_transcript(config.transcript_log, event)
-        except Exception as exc:  # noqa: BLE001 - 采集落盘失败绝不影响回声主流程
-            log.warning("transcript 落盘失败（已忽略）：%s", exc)
-
-    def on_message_receive(data: "P2ImMessageReceiveV1") -> None:
-        message = data.event.message
-        message_id = message.message_id
-        if _already_handled(message_id):
-            log.info("跳过重复事件 message_id=%s", message_id)
-            return
-        text = extract_text(message.content, message.message_type)
-        if text is None:
-            if config.mode == "echo":
-                reply = compose_reply(None, message.message_type, prefix=config.prefix)
-                msg_type, content_obj = "text", reply
-            elif config.multimodal and message.message_type in ("image", "file"):
-                msg_type, content_obj, reply = _handle_multimodal(message_id, message)
-            else:
-                reply = nontext_notice(message.message_type)
-                msg_type, content_obj = "text", reply
-        elif config.mode == "echo":
-            reply = compose_reply(text, message.message_type, prefix=config.prefix)
-            msg_type, content_obj = "text", reply
-        else:
-            msg_type, content_obj, reply = compute_ask_payload(text, config)
-        log.info(
-            "收到 type=%s id=%s mode=%s fmt=%s -> 回 %d 字",
-            message.message_type, message_id, config.mode, config.reply_format, len(reply),
-        )
-        if message_id:
-            _reply(message_id, content_obj, msg_type)
-        _record_transcript(message_id, message.chat_id, message.message_type, text, reply)
-
-    def _send_followup(action: str, query: str, theme: str, message_id: Optional[str]) -> None:
-        """后台线程里跑按钮动作并把结果卡片 reply 回原消息（重活不阻塞回调秒级响应）。"""
-        try:
-            payload = compute_action_payload(action, query, theme, config)
-        except Exception as exc:  # noqa: BLE001 - 后台动作失败绝不影响 bot 存活
-            log.warning("按钮动作处理失败（已忽略）：%s", exc)
-            return
-        if not payload or not message_id:
-            return
-        msg_type, content_obj, reply = payload
-        _reply(message_id, content_obj, msg_type)
-        _record_transcript(message_id, None, "card_action", f"[{action}] {query}", reply)
-
-    def on_card_action(data: "P2CardActionTrigger") -> "P2CardActionTriggerResponse":
-        event = data.event
-        value = event.action.value if (event and event.action) else None
-        action, query, theme = parse_action_value(value)
-        message_id = event.context.open_message_id if (event and event.context) else None
-        log.info("卡片回调 action=%s query=%r msg=%s", action, query, message_id)
-        # 重活（深钻/看证据链需重跑 ask）放后台线程，回调本身只回即时 toast（飞书要求秒级）。
-        if action in (ACTION_DRILL, ACTION_THEME, ACTION_EVIDENCE) and query:
-            threading.Thread(
-                target=_send_followup,
-                args=(action, query, theme, message_id),
-                daemon=True,
-            ).start()
-        return P2CardActionTriggerResponse({"toast": action_toast(action)})
-
-    event_handler = (
-        lark.EventDispatcherHandler.builder("", "")
-        .register_p2_im_message_receive_v1(on_message_receive)
-        .register_p2_card_action_trigger(on_card_action)
-        .build()
-    )
-
-    ws_client = lark.ws.Client(
-        config.app_id,
-        config.app_secret,
-        event_handler=event_handler,
-        log_level=lark.LogLevel.INFO,
-    )
-
-    log.info("飞书 chat bot 启动（mode=%s）：长连接接入中（Ctrl+C 退出）……", config.mode)
-    try:
-        ws_client.start()
-    except KeyboardInterrupt:
-        log.info("收到中断，退出。")
-    return 0
+def run(config: BotConfig | None = None) -> int:
+    """已退役：不连 WebSocket、不读凭证。``config`` 仅兼容旧调用签名。"""
+    _ = config
+    print(RETIRED_MESSAGE, file=sys.stderr)
+    return RETIRED_EXIT
 
 
 # --------------------------------------------------------------------------- #
@@ -986,10 +755,10 @@ def build_config(args: argparse.Namespace) -> BotConfig:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="飞书 chat bot（B-S2，长连接 + ask 六段回复）")
+    parser = argparse.ArgumentParser(description="飞书 IM 入口（已退役）")
     add_arguments(parser)
-    args = parser.parse_args(argv)
-    return run(build_config(args))
+    parser.parse_args(argv)  # 旧旗标仍可解析；不读凭据
+    return run()
 
 
 if __name__ == "__main__":

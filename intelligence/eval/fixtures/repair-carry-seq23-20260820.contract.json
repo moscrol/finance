@@ -1,0 +1,62 @@
+[
+  {
+    "output_id": "direct_assessment",
+    "description": "直接回答用户问题并说明判断强度",
+    "evidence_types": [
+      "kb_search",
+      "graph_lookup",
+      "news_search",
+      "web_search",
+      "memory_lookup",
+      "finance_query",
+      "evidence_search"
+    ],
+    "required": true,
+    "grounding_mode": "evidence"
+  },
+  {
+    "output_id": "chain_mapping",
+    "description": "产业链层级、角色与关键环节",
+    "evidence_types": [
+      "kb_search",
+      "graph_lookup",
+      "news_search",
+      "web_search",
+      "memory_lookup",
+      "finance_query",
+      "evidence_search"
+    ],
+    "required": true,
+    "grounding_mode": "evidence"
+  },
+  {
+    "output_id": "counterpoint",
+    "description": "提供主要反证或竞争性解释",
+    "evidence_types": [
+      "kb_search",
+      "graph_lookup",
+      "news_search",
+      "web_search",
+      "memory_lookup",
+      "finance_query",
+      "evidence_search"
+    ],
+    "required": true,
+    "grounding_mode": "evidence"
+  },
+  {
+    "output_id": "company_mapping",
+    "description": "列出主题相关的公司与角色",
+    "evidence_types": [
+      "kb_search",
+      "graph_lookup",
+      "news_search",
+      "web_search",
+      "memory_lookup",
+      "finance_query",
+      "evidence_search"
+    ],
+    "required": true,
+    "grounding_mode": "evidence"
+  }
+]

@@ -1,4 +1,5 @@
 from intelligence.services.relation_guard import relation_edge_supported, relation_gap_text
+from intelligence.services import evidence_registry
 from intelligence.services.ask import (
     AskOptions,
     answer_query,
@@ -29,9 +30,7 @@ def test_relation_question_without_edge_fails_closed_and_traces_graph_guard(tmp_
             use_modules=False,
             use_wiki_rag=False,
             compose=False,
-            include_memory_block=False,
-            include_recall_block=False,
-            include_news_block=False,
+            enabled_providers=evidence_registry.without_providers("M", "V", "W7"),
             parallel_blocks=False,
         )
     )

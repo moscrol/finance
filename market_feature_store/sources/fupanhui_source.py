@@ -141,8 +141,18 @@ def _direct_api_get(api_path: str, params: dict | None = None, timeout: int = 30
             query = "?" + urllib.parse.urlencode(items)
     url = f"{FUPANHUI_BASE}{api_path}{query}"
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        raw = resp.read().decode()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode()
+    except urllib.error.HTTPError as e:
+        # HTTPError 本身是 file-like、持有响应 socket。批量调用方（kline/stocks
+        # 各 403 个板块）把异常收进列表/异常链后，socket 只能等周期 GC 回收——
+        # fupanhui 08-24 起匿名直连 401，一轮批量足以顶爆 launchd 256 软上限，
+        # 随后 duckdb.connect 以「Too many open files」死掉（2026-08-26 夜跑
+        # sector-daily 事故，台账 R-20260826-04；与 R-20260826-03 同族）。
+        # 先关 socket 再原样重抛：401 仍由 api_get 回退 CDP，语义不变。
+        e.close()
+        raise
     parsed = json.loads(raw)
     code = parsed.get("code") if isinstance(parsed, dict) else None
     if code not in (None, 0, 200):
@@ -196,11 +206,13 @@ def api_get(api_path: str, params: dict | None = None, timeout: int = 60):
 
 
 def api_get_public(api_path: str, params: dict | None = None, timeout: int = 30):
-    """直接 HTTPS 请求公开 fupanhui API，无需 CDP proxy 或登录态。
+    """直接 HTTPS 请求公开 fupanhui API。
 
-    适用于不需认证的端点:
-      /reviews/latest-date, /topics/mainline-themes, /data/theme/panels,
-      /reviews/sector-rotation, /reviews/historical-mapping 等。
+    历史上无需登录；2026-08-24 起匿名直连 401，此时自动回落
+    api_get 的 CDP 路径（用户 Chrome 标签页内带 token fetch），
+    所以仍要求 Chrome 已登录 fupanhui.com、CDP proxy 在跑。
+    其余行为不变：/reviews/latest-date, /topics/mainline-*,
+    /data/theme/panels, /reviews/sector-rotation 等。
     """
     query = ""
     if params:
@@ -213,6 +225,15 @@ def api_get_public(api_path: str, params: dict | None = None, timeout: int = 30)
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             raw = resp.read().decode()
     except urllib.error.HTTPError as e:
+        if e.code == 401:
+            # 2026-08-24 起公开端点校验登录（匿名 401）：回落 CDP 带登录态路径。
+            # 回退也失败才抛错，且把 401 根因保留在消息里，不吞事实。
+            try:
+                return api_get(f"/api/v1/client{api_path}", params, timeout=max(timeout, 60))
+            except Exception as exc:  # noqa: BLE001
+                raise FupanhuiError(
+                    f"公开 API HTTP 401 ({api_path}) 且 CDP 回退失败: {exc}"
+                ) from e
         raise FupanhuiError(f"公开 API HTTP {e.code} ({api_path}): {e.reason}") from e
     except Exception as e:
         raise FupanhuiError(f"公开 API 请求失败 ({api_path}): {e}") from e
@@ -473,6 +494,9 @@ def get_sector_klines_batch(
     td_param = f"&trade_date={trade_date}" if trade_date else ""
     js = (
         "(async()=>{"
+        "const token=localStorage.getItem('user_token');"
+        "const headers={};"
+        "if(token){headers['Authorization']='Bearer '+token;}"
         "const sectors=" + codes_json + ";"
         "const results={};"
         f"const BATCH={batch};"
@@ -480,7 +504,7 @@ def get_sector_klines_batch(
         "const b=sectors.slice(i,i+BATCH);"
         "const ps=b.map(ts=>"
         "fetch('/api/v1/client/reviews/sector-cycle/'+ts+'/kline"
-        f"?days={days}&period=daily&mode=auto{td_param}')"
+        f"?days={days}&period=daily&mode=auto{td_param}',{{headers}})"
         ".then(r=>r.json()).then(d=>{"
         "const k=d.data&&d.data.kline?d.data.kline:[];"
         "results[ts]=k.map(x=>({trade_date:(x.date||x.trade_date),pct_chg:x.pct_chg,"
@@ -538,13 +562,16 @@ def get_sector_stocks_batch(
     td_param = f"?trade_date={trade_date}" if trade_date else ""
     js = (
         "(async()=>{"
+        "const token=localStorage.getItem('user_token');"
+        "const headers={};"
+        "if(token){headers['Authorization']='Bearer '+token;}"
         "const sectors=" + codes_json + ";"
         "const out={};"
         f"const BATCH={batch};"
         "for(let i=0;i<sectors.length;i+=BATCH){"
         "const b=sectors.slice(i,i+BATCH);"
         "const ps=b.map(ts=>"
-        "fetch('/api/v1/client/reviews/sector-cycle/'+ts+'/stocks" + td_param + "')"
+        "fetch('/api/v1/client/reviews/sector-cycle/'+ts+'/stocks" + td_param + "',{headers})"
         ".then(r=>r.json()).then(d=>{"
         "const dd=d.data||{};"
         "const arr=(dd.stocks||[]).map(s=>({c:s.ts_code,n:s.name,p:s.price,"

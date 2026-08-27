@@ -55,8 +55,8 @@ from intelligence.services import finance_query
 from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_protocol import (
-    build_episode_input,
-    build_episode_instructions,
+    SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
+    split_episode_prompt,
 )
 from intelligence.services.episode_tools import build_episode_registry
 from intelligence.services.research_contract import (
@@ -397,17 +397,12 @@ def _probe_case(
                     f"（question_type={control.task_frame.question_type}）——无效样本"
                 ),
             }
+        system, user = split_episode_prompt(control.task_frame, context, registry)
+        # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: system is byte-stable; user rebuilds.
+        _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
         messages: list[dict[str, object]] = [
-            {
-                "role": "system",
-                "content": build_episode_instructions(
-                    control.task_frame, context, registry
-                ),
-            },
-            {
-                "role": "user",
-                "content": build_episode_input(control.task_frame, context),
-            },
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
         ]
         started = time.monotonic()
         turn: ModelTurn = client.complete(

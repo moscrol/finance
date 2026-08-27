@@ -37,10 +37,23 @@ class DuckDBConnectionResult:
     status: DuckDBConnectionStatus
     connection: Any | None = None
     error_type: str | None = None
+    reason: str | None = None
 
     @property
     def available(self) -> bool:
         return self.status == "available" and self.connection is not None
+
+    @property
+    def locked(self) -> bool:
+        return self.reason == "locked"
+
+
+def is_writer_lock_error(exc: BaseException) -> bool:
+    """DuckDB 单写者锁，不是「文件不存在」。认不出就不当成锁。"""
+
+    blob = f"{type(exc).__name__} {exc}".lower()
+    markers = ("could not set lock", "conflicting lock", "lock on file")
+    return any(marker in blob for marker in markers)
 
 
 def _load_duckdb() -> Any:
@@ -180,5 +193,9 @@ def try_connect_readonly(db_path: str | Path) -> DuckDBConnectionResult:
             "dependency_unavailable", error_type=type(exc).__name__
         )
     except Exception as exc:
-        return DuckDBConnectionResult("open_failed", error_type=type(exc).__name__)
+        return DuckDBConnectionResult(
+            "open_failed",
+            error_type=type(exc).__name__,
+            reason="locked" if is_writer_lock_error(exc) else None,
+        )
     return DuckDBConnectionResult("available", connection=connection)

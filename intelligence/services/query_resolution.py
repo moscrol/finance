@@ -42,6 +42,7 @@ ResolveCandidateKind = Literal["company", "theme"]
 _DETERMINED_QUESTION_TYPES = frozenset(
     {
         "market_watch",
+        "watchlist_digest",
         "dated_market_review",
         "market_forecast",
         "market_cause",
@@ -57,6 +58,7 @@ _DETERMINED_QUESTION_TYPES = frozenset(
         "financial_analysis",
         "valuation_estimate",
         "quick_fact",
+        "disclosure_scan",
     }
 )
 
@@ -154,6 +156,8 @@ def classify_reference(query: str) -> ReferenceKind:
     if _ENTITY_PRONOUN_RE.search(cleaned):
         return "entity_pronoun"
     if _CONTINUATION_RE.search(cleaned):
+        return "continuation"
+    if re.search(r"上一轮「[^」]+」未完成核验", cleaned):
         return "continuation"
     return "none"
 

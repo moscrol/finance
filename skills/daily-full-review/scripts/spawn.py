@@ -14,13 +14,13 @@
 
 示例（复盘编排器）：
     python3 skills/daily-full-review/scripts/spawn.py \\
-        /tmp/bf/review_sync.log "/Users/lbq/Desktop/c c/金融" \\
+        /tmp/bf/review_sync.log "$FINANCE_WS" \\
         /Library/Developer/CommandLineTools/usr/bin/python3 -u \\
         skills/daily-full-review/scripts/run_review_sync.py --date 2026-07-01
 
 示例（cdp-proxy）：
     python3 skills/daily-full-review/scripts/spawn.py \\
-        /tmp/bf/cdp_proxy.log /Users/lbq \\
+        /tmp/bf/cdp_proxy.log "$HOME" \\
         /usr/local/bin/node ~/.claude/skills/web-access/scripts/cdp-proxy.mjs
 
 启动后本进程立即返回（父进程退出），日志写入 <logfile>，用另开短 exec

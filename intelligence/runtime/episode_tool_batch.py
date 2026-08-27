@@ -322,6 +322,27 @@ class EpisodeToolBatchSession:
                             "capability": decision.capability,
                         },
                     )
+                from intelligence.services.tool_hunger import (
+                    EVENT_UNKNOWN_TOOL,
+                    classify_unauthorized,
+                    record_capability_denied,
+                    record_unknown_tool,
+                )
+
+                event_type, capability, reason = classify_unauthorized(
+                    registry, call.name
+                )
+                if event_type == EVENT_UNKNOWN_TOOL:
+                    record_unknown_tool(
+                        call.name, call.arguments, lane="episode"
+                    )
+                else:
+                    record_capability_denied(
+                        call.name,
+                        call.arguments,
+                        capability=capability,
+                        reason=reason,
+                    )
                 items[index] = ToolCallResult(
                     call,
                     "rejected",
@@ -437,6 +458,14 @@ class EpisodeToolBatchSession:
                 if candidate.spec.query_scope == "episode"
                 and items[candidate.index] is not None
                 and items[candidate.index].status == "success"
+            )
+            # 空结果 / 超时 / 错误不能占 duplicate 键：W5 补证会再打同一
+            # capability。有证据的 success 仍去重，防模型死循环。
+            self._seen_queries.difference_update(
+                candidate.key
+                for candidate in selected
+                if items[candidate.index] is None
+                or items[candidate.index].status != "success"
             )
 
         return self._result(

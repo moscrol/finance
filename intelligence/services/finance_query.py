@@ -172,6 +172,85 @@ class FinanceQueryAudit:
     row_count: int
     output_bytes: int
     elapsed_seconds: float
+    requested_time_range: tuple[str | None, str | None] | None = None
+
+
+def covered_date_range(source_dates: Sequence[str | None]) -> str | None:
+    dates = sorted({item for item in source_dates if item})
+    if not dates:
+        return None
+    if dates[0] == dates[-1]:
+        return dates[0]
+    return f"{dates[0]}..{dates[-1]}"
+
+
+def truncation_notice(
+    audit: FinanceQueryAudit,
+    *,
+    covered_range: str | None = None,
+) -> str | None:
+    """撞顶就提示。不再要求「harness 压低了 limit」——模型自设 limit 撞顶是主路径。
+
+    T1b 把时间维升序改成倒序取数后，LIMIT 切掉的是窗口**前端**，不是末端。
+    提示必须同时给出请求窗口和未覆盖侧，否则模型会以为「还差更多行」而把
+    limit 调大——Agent 路径上限仍是 25，调大无效。
+    """
+
+    if audit.row_count < audit.applied_limit:
+        return None
+    text = (
+        f"查询结果已按 Agent 上下文预算截断至 {audit.applied_limit} 条；"
+        "未覆盖的日期请收窄 time_range 再查，不要靠调大 limit"
+    )
+    if covered_range:
+        text += f"；实际覆盖 {covered_range}"
+    requested = audit.requested_time_range
+    if requested is not None:
+        req_start, req_end = requested
+        text += f"；请求窗口 {_format_date_range(req_start, req_end)}"
+        gap = _uncovered_window_notice(requested, covered_range)
+        if gap:
+            text += f"；{gap}"
+    return text
+
+
+def _format_date_range(start: str | None, end: str | None) -> str:
+    if start and end and start != end:
+        return f"{start}..{end}"
+    return start or end or "?"
+
+
+def _uncovered_window_notice(
+    requested: tuple[str | None, str | None],
+    covered_range: str | None,
+) -> str | None:
+    if not covered_range:
+        return None
+    req_start, req_end = requested
+    if ".." in covered_range:
+        cov_start, cov_end = covered_range.split("..", 1)
+    else:
+        cov_start = cov_end = covered_range
+    parts: list[str] = []
+    if req_start and cov_start > req_start:
+        parts.append(f"窗口前端未覆盖（请求从 {req_start} 起，实际从 {cov_start} 起）")
+    if req_end and cov_end < req_end:
+        parts.append(f"窗口末端未覆盖（实际到 {cov_end}，请求到 {req_end}）")
+    return "；".join(parts) if parts else None
+
+
+def _requested_time_range(
+    spec: FinanceQuerySpec,
+) -> tuple[str | None, str | None] | None:
+    if spec.time_range is None:
+        return None
+    start = (
+        spec.time_range.start.isoformat() if spec.time_range.start is not None else None
+    )
+    end = spec.time_range.end.isoformat() if spec.time_range.end is not None else None
+    if start is None and end is None:
+        return None
+    return (start, end)
 
 
 @dataclass(frozen=True)
@@ -207,6 +286,16 @@ class _DatasetDefinition:
     evidence_tier: str = "L4_structured"
     population: Literal["full", "subset", "single"] = "full"
     coverage: str = ""
+    # 时间残缺：该日之前不是这个宇宙的全集（历史回填残段）。和 population=subset
+    # 不是一回事——后者是**每天**都只收一部分，前者是**某日之后才齐**。
+    # 只写在 coverage 散文里不够：事后 advisory 必须能按 time_range 分流。
+    incomplete_before: date | None = None
+    # 日程表的发生日可以晚于信息截止日。默认关：行情表继续用
+    # time_field <= cutoff，防止前视。只允许 event_daily 打开。
+    allow_future_time_range: bool = False
+    # 信息截止打在哪一列。None = 打在 time_field（行情默认）。
+    # event_daily 打在 updated_at：已经写入的未来日程可见，截止日后才写入的不可见。
+    cutoff_column: str | None = None
 
     @property
     def fields(self) -> dict[str, _FieldDefinition]:
@@ -214,6 +303,7 @@ class _DatasetDefinition:
 
 
 # ``population`` 是**机器可读的覆盖面**，``coverage`` 是给模型看的同一件事的散文。
+# ``incomplete_before`` 是第三种：**宇宙本身是全集，但某日之前回填不齐**。
 #
 # 为什么需要它：A5 实测（2026-08-18）问「涨停集中在哪些题材」，模型选了
 # ``mainline_sector_daily``。那张表**结构上完全合法**——它确实有 ``limit_up_count``
@@ -226,8 +316,14 @@ class _DatasetDefinition:
 # 事后 observation 里补。这与 ``_agent_finance_parameters`` 里把行数上限写进 schema
 # 是同一条理由：模型感知到的世界与工具操作的世界之间不能存在系统性偏差。
 #
+# **两种失败形状不要共用 subset 旗标**：
+# - 结构子集（每天都只收一部分）→ ``population="subset"``，advisory 指向真正的全集表。
+# - 时间残缺（某日之后才齐）→ ``population="full"`` + ``incomplete_before``，
+#   advisory 只在问句窗落到残缺区间时出声。把后者标成 subset，catalog 会把近端
+#   合法排名说成「子集内部名次」，再按通用字段名把模型推向个股表。
+#
 # **刻意不写具体行数**：行数天天变，写进源码就是手抄第二事实源，漂了没人知道。
-# 这里只声明**性质**（全量 / 子集 / 单行），性质是稳定的。要精确行数就去查库。
+# 这里只声明**性质**（全量 / 子集 / 单行 / 分界日），性质是稳定的。要精确行数就去查库。
 
 
 def _dimension(
@@ -271,7 +367,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         metrics={
             "index_close": _metric("sh_index_close", "上证收盘"),
             "index_return_pct": _metric("sh_index_pct_chg", "上证涨跌幅"),
-            "total_amount": _metric("total_amount", "市场成交额"),
+            "total_amount": _metric("total_amount", "市场成交额亿"),
             "amount_change_pct": _metric("amount_vs_yesterday_pct", "成交额环比"),
             "amount_ma20": _metric("amount_ma20", "20日平均成交额"),
             "volume_ratio": _metric("volume_ratio", "量比"),
@@ -300,7 +396,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "close": _metric("close", "收盘价"),
             "pre_close": _metric("pre_close", "前收盘价"),
             "return_pct": _metric("pct_chg", "涨跌幅"),
-            "amount": _metric("amount", "成交额", "sum"),
+            "amount": _metric("amount", "成交额亿", "sum"),
             "turnover": _metric("turnover", "换手率"),
         },
     ),
@@ -323,7 +419,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         },
         metrics={
             "return_pct": _metric("pct_chg", "涨跌幅"),
-            "amount": _metric("amount", "成交额", "sum"),
+            "amount": _metric("amount", "成交额亿", "sum"),
             "marginal_volume_pct": _metric("diff_ratio", "边际量"),
             "strength": _metric("strength", "强度"),
         },
@@ -353,7 +449,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "return_5d_pct": _metric("pct_chg_5d", "5日涨跌幅"),
             "return_10d_pct": _metric("pct_chg_10d", "10日涨跌幅"),
             "return_20d_pct": _metric("pct_chg_20d", "20日涨跌幅"),
-            "amount": _metric("amount", "成交额", "sum"),
+            "amount": _metric("amount", "成交额亿", "sum"),
             "fund_flow_1d": _metric("fund_flow_1d", "1日资金流"),
             "fund_flow_5d": _metric("fund_flow_5d", "5日资金流"),
             "float_market_cap_yi": _metric("float_mcap_yi", "流通市值亿元"),
@@ -389,7 +485,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "price": _metric("price", "价格"),
             "return_pct": _metric("pct_chg", "涨跌幅"),
             "return_10d_pct": _metric("pct_chg_10d", "10日涨跌幅"),
-            "amount": _metric("amount", "成交额", "sum"),
+            "amount": _metric("amount", "成交额亿", "sum"),
             "market_cap": _metric("market_cap", "总市值"),
             "fund_today": _metric("fund_today", "当日资金", "sum"),
             "limit_times": _metric("limit_times", "连板数", "max", "integer"),
@@ -440,11 +536,189 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "max_limit_height": _metric(
                 "max_limit_height", "最高连板", "max", "integer"
             ),
-            "amount": _metric("amount", "成交额", "sum"),
+            "amount": _metric("amount", "成交额亿", "sum"),
             "relative_amount": _metric("amount_relative_ratio", "相对成交额"),
             "net_inflow_1d": _metric("net_inflow_1d", "1日净流入", "sum"),
             "strength": _metric("strength", "强度"),
             "strength_change": _metric("strength_chg", "强度变化"),
+        },
+    ),
+    "auction_stock_daily": _DatasetDefinition(
+        table="fact_auction_stock_daily",
+        label="集合竞价看板个股日频",
+        population="subset",
+        coverage=(
+            "复盘会竞价看板：**每个面板每日只收 top 10**（实测上限 10，均值 9.8）。"
+            "**这是全表最容易被误用的地方**——`zt` 面板永远约 10 行，而前一日真实涨停"
+            "常有 37~106 只（实测 2026-08-18：表内 10 vs 真实 106）。**问「昨天多少只涨停」"
+            "「涨停都有谁」绝不能用本表**，那要 `market_daily.limit_up` 或 "
+            "`theme_limit_heat_daily`。本表只回答「这批被选进看板的票，今天竞价表现如何」。\n"
+            "七个面板（`panel_key`）：`zt` 昨日涨停 / `lb` 昨日连板 / `db` 1日前断板 / "
+            "`qdb` 2日前 / `dqdb` 3日前 / `db4` 4日前 / `db5` 5日前。\n"
+            "**时间语义**：`trade_date` 是**竞价发生日**，面板名描述的是此前发生的事——"
+            "`zt` 那行的意思是「该股在 trade_date 的前一交易日涨停，本日竞价表现如下」。\n"
+            "覆盖 2026-01-16 起 145 个交易日；金额单位为亿（与 `fact_stock_daily.amount` "
+            "逐位对账一致）；`limit_seq` 是连板数不是排名（`lb` 面板最小值为 2）。"
+        ),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "竞价交易日", "date"),
+            "panel": _dimension("panel_key", "看板面板"),
+            "panel_label": _dimension("panel_label", "面板中文名"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+            "leader_plate": _dimension("leader_plate", "所属题材"),
+        },
+        metrics={
+            "auction_return_pct": _metric("auction_pct", "竞价涨幅"),
+            "return_pct": _metric("pct_chg", "当日涨跌幅"),
+            "auction_amount": _metric("auction_amount", "竞价成交额亿", "sum"),
+            "day_amount": _metric("day_amount", "全日成交额亿", "sum"),
+            "limit_times": _metric("limit_seq", "连板数", "max", "integer"),
+        },
+    ),
+    "regulation_pool_daily": _DatasetDefinition(
+        table="fact_regulation_pool_daily",
+        label="监管安全池日频快照",
+        population="subset",
+        coverage=(
+            "复盘会**安全池**的每日快照，不是监管宇宙全集。"
+            "实测每日 1~89 行（中位约 12），库里目前只有 `safe`（写入器认 waiting，生产 0 行）。"
+            "**问「多少只股在异动/监管」不能用本表**。"
+            "`effective_date` 是快照日；信息截止打在这一列。"
+            "`updated_at` 是入库时间（大量行写于 2026-08-12 回填墙），**不能当 PIT 信息日**。"
+            "**不开放涨幅**：`pct_chg_10d` 存的是小数（0.507=+50.7%），不是百分数；"
+            "开放会被读成「涨了 0.51%」。也不开放 close——池接口自带价，"
+            "与 `fact_stock_daily.close` 并非逐日相等"
+            "（实测 1186/6453 不一致，另 81 行对不上行情表）。"
+            "窗口内缺 2026-08-19（事件表同日也缺）。"
+        ),
+        time_field="effective_date",
+        dimensions={
+            "effective_date": _dimension("effective_date", "快照日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+            "pool_status": _dimension("pool_status", "池状态"),
+        },
+        metrics={
+            "safe_days_10d": _metric("safe_days_10d", "10日安全天数", "min", "integer"),
+        },
+    ),
+    "regulation_event_daily": _DatasetDefinition(
+        table="fact_regulation_event_daily",
+        label="监管在场名单日频快照",
+        population="subset",
+        coverage=(
+            "每天把还在监管窗里的票**重拍一遍**，不是「事件发生一次记一行」。"
+            "2026-01-15 起几乎每个交易日都有行（147 天里缺 2026-08-19）。"
+            "`effective_date` 是快照日；`start_date`/`end_date` 是监管窗，**不是时间轴**。"
+            "`updated_at` 同样是入库时间，不能当 PIT。"
+            "问「今天谁还在监管名单」用本表 + time_range；"
+            "问还剩几天用 `days_remaining`，**禁止把 end_date 当 as-of**——"
+            "约 89% 的 end_date 晚于快照日，当时间轴会让整批被判成晚于问句日。"
+            "`event_type` 约四成为空，不是漏了。"
+        ),
+        time_field="effective_date",
+        dimensions={
+            "effective_date": _dimension("effective_date", "快照日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+            "start_date": _dimension("start_date", "监管开始日", "date"),
+            "end_date": _dimension("end_date", "监管结束日", "date"),
+            "status_type": _dimension("status_type", "退出状态"),
+            "event_type": _dimension("event_type", "监管类型"),
+            "leader_plate": _dimension("leader_plate", "所属题材"),
+        },
+        metrics={
+            "days_remaining": _metric(
+                "days_remaining_trading", "剩余交易日", "min", "integer"
+            ),
+        },
+    ),
+    "historical_mapping": _DatasetDefinition(
+        table="fact_historical_mapping",
+        label="历史相似日映射",
+        population="full",
+        coverage=(
+            "「这一天像历史上哪一天」。有行的日子通常 2 条相似日"
+            "（实测 335 天为 2、17 天为 1），不是个股宇宙。"
+            "`as_of` 是被对照的交易日；`similar_date` 是历史相似日，只做维度。"
+            "**不要按 similar_date 当时间轴**——那会把后来才算出来的映射漏进更早的问句。"
+            "**不要把 `updated_at` 当信息日**：671/687 行写于 2026-08-12 回填墙，"
+            "那是入库时间不是算法计算时间。本表不能做 08-12 之前的 PIT 重放——"
+            "问句日早于回填日仍看得到后来才写入的映射。"
+            "缺行是接口空（ops 记 empty），不是没同步。"
+            "相似日可早于本库行情起点（最早到 2022）。"
+        ),
+        time_field="as_of",
+        dimensions={
+            "as_of": _dimension("source_date", "被对照的交易日", "date"),
+            "similar_date": _dimension("similar_date", "历史相似日", "date"),
+            "external_cycle": _dimension("external_cycle", "外部周期"),
+            "summary": _dimension("summary", "相似日摘要"),
+        },
+        metrics={
+            "similarity": _metric("similarity", "相似度"),
+            "cycle_day": _metric("cycle_day", "周期第几天", "max", "integer"),
+        },
+    ),
+    "sw_l1_daily": _DatasetDefinition(
+        table="fact_sw_l1_daily",
+        label="申万一级行业日频行情",
+        population="full",
+        incomplete_before=date(2026, 6, 5),
+        coverage=(
+            "申万一级 31 个行业指数的日行情。**完整度分两段（实测 2026-08-25）**："
+            "`2026-06-05` 起每日 31/31，这一宇宙已齐，可直接排序；"
+            "**此前多数交易日只有 3~10 个行业**（344 天平均 7.7，部分回填残段，"
+            "夹着少量满 31 的孤岛）。**在分界日之前取 top-N 会在残缺分母里排序**——"
+            "问「某月哪个行业最强」若落在 06-05 之前，先声明覆盖不足，不要给排名。"
+            "与 `sector_daily` 不是一回事：那是约 224 个概念板块（一只股可进多板块），"
+            "这是 31 个申万一级行业。行业涨跌用本表，题材热度用 `sector_daily` 或 "
+            "`theme_limit_heat_daily`。"
+            "**本表不提供成交额**：库里那列不是「亿」（写入侧原样存 AKShare 值；"
+            "2026-08-24 全行业合计约 198 万对大盘 20,072 亿，比值≈100，即百万元口径）。"
+            "不要对 `sector_daily` 按申万一级加总冒充行业成交额——"
+            "概念重叠会重复计算，加总会大于全市。"
+            "另 `fupanhui_ratio` 约 27% 有值、`amount_ma120*` 约 2%，同样未开放，不是漏了。"
+        ),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "sw_l1": _dimension("sw_l1", "申万一级行业"),
+            "sw_l1_code": _dimension("sw_l1_code", "申万一级代码"),
+        },
+        # 刻意不放 amount：见上面 coverage。语义层「八处成交额口径一致（亿）」是
+        # test_amount_metric_labels_carry_unit 钉住的不变量；为了多一个指标去放宽它，
+        # 等于改门禁迁就代码。要暴露就得先在写入侧统一单位，那是另一个单子。
+        metrics={
+            "close": _metric("close", "行业指数收盘"),
+            "pre_close": _metric("pre_close", "前收盘"),
+            "return_pct": _metric("pct_chg", "涨跌幅"),
+        },
+    ),
+    "stock_technical_daily": _DatasetDefinition(
+        table="feature_stock_technical_daily",
+        label="个股 UP 线与偏离度日频",
+        population="full",
+        coverage=(
+            "全 A 个股逐日 UP 线（布林带变体 `UP = MA26 + 0.764×STD26`，N=26/P=20）与偏离度 "
+            "`(close/UP - 1)×100`。**满 26 个交易日收盘价才算得出**，新上市与长期停牌股当日缺行——"
+            "2026-08-24 实测 5519/5540（99.6%）。**缺行 ≠ 没偏离，是算不出**。"
+            "`deviation_pct > 0` 即站上 UP 线，`< 0` 为低于。"
+        ),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+        },
+        metrics={
+            "close": _metric("close", "收盘价"),
+            "ma26": _metric("ma26", "26日均价"),
+            "std26": _metric("std26", "26日收盘标准差"),
+            "up_value": _metric("up_value", "UP线"),
+            "deviation_pct": _metric("deviation_pct", "UP偏离度"),
         },
     ),
     # ── 复盘会公开资产（2026-08-13 接入语义层，此前入库但 agent 够不着）──
@@ -563,11 +837,17 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         label="海外指数日频（隔夜外盘）",
         population="full",
         coverage=(
-            "隔夜外盘指数全集，数量个位数。"
+            "隔夜外盘指数全集，每日固定 5 个：DJI 道琼斯 / IXIC 纳斯达克 / SPX 标普500 / "
+            "HSI 恒生 / HKTECH 恒生科技（实测与个股表同一 399 个 A 股交易日）。"
+            "`trade_date` 是 A 股日历（隔夜对照日=信息日）；`session_date` 是外盘实际会话日，只做维度。"
+            "多数日子两日同一天；美股休市/时差时 session 会早 1 或 3 天。"
+            "**不要按 session_date 当时间轴**——问「今天隔夜」应对 A 股日。"
+            "`updated_at` 大量写于 2026-08-12 回填墙，不能当 PIT。"
         ),
         time_field="trade_date",
         dimensions={
-            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "trade_date": _dimension("trade_date", "A股对照日", "date"),
+            "session_date": _dimension("source_trade_date", "外盘会话日", "date"),
             "index_code": _dimension("code", "指数代码"),
             "index_name": _dimension("name", "指数名称"),
             "market_group": _dimension("market_group", "市场分组"),
@@ -575,6 +855,69 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         metrics={
             "close": _metric("close", "收盘"),
             "return_pct": _metric("pct_chg", "涨跌幅"),
+        },
+    ),
+    "global_stock_daily": _DatasetDefinition(
+        table="fact_global_stock_daily",
+        label="海外核心股日频（隔夜外盘）",
+        population="full",
+        coverage=(
+            "隔夜外盘核心股全集，每日固定 194 只（NASDAQ/NYSE；"
+            "实测 399 个交易日天天 194，首末日 ticker 集合同一）。"
+            "`trade_date` 是 A 股日历（隔夜对照日=信息日）；`session_date` 是外盘实际会话日，只做维度。"
+            "多数日子两日同一天；美股休市/时差时 session 会早 1 或 3 天。"
+            "**不要按 session_date 当时间轴**——问「今天隔夜英伟达」应对 A 股日。"
+            "代码是 `NVDA` 这种美股 ticker，不是 `.SH/.SZ`。"
+            "涨跌幅是百分数（1.30=+1.3%），与 A 股 `stock_daily` 同量纲。"
+            "**不开放市值**：`market_cap_usd` 是原样美元（英伟达约 5.4e12），不是亿。"
+            "`updated_at` 大量写于 2026-08-12 回填墙，不能当 PIT。"
+            "与 `global_index_daily` 同一套 A 股日历。"
+        ),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "A股对照日", "date"),
+            "session_date": _dimension("source_trade_date", "外盘会话日", "date"),
+            "ticker": _dimension("ts_code", "美股代码"),
+            "stock_name": _dimension("name_cn", "中文名"),
+            "name_en": _dimension("name_en", "英文名"),
+            "exchange": _dimension("exchange", "交易所"),
+            "business": _dimension("business", "主营业务"),
+            "industry_position": _dimension("industry_position", "产业位置"),
+        },
+        metrics={
+            "close": _metric("close", "收盘"),
+            "return_pct": _metric("pct_chg", "涨跌幅"),
+            "gain_5d": _metric("pct_chg_5d", "5日涨幅"),
+        },
+    ),
+    # 2026-08-13 曾故意不注册稀疏事件表以收敛工具面。2026-08-23
+    # 「下周大事」现场：表里已有英伟达/Jackson Hole，finance_query 却查不着，
+    # 模型去搜维基年历。入库 ≠ 可消费；只翻 event，不翻 auction/regulation。
+    "event_daily": _DatasetDefinition(
+        table="fact_event_daily",
+        label="复盘会事件日历（编辑催化）",
+        population="subset",
+        coverage=(
+            "复盘会**编辑**催化日历，不是 BEA / 公司 IR / 交易所官方日程全集。"
+            "event_date 是计划发生日，可以晚于信息截止日、也可以是周末；"
+            "缺行是编辑没收，不是库坏了。下周/周末大事先查这张，"
+            "不得把新闻标题或维基年历当日历真本源。"
+        ),
+        time_field="event_date",
+        allow_future_time_range=True,
+        cutoff_column="updated_at",
+        dimensions={
+            "event_date": _dimension("event_date", "事件日期", "date"),
+            "event_id": _dimension("event_id", "事件编号"),
+            "title": _dimension("title", "事件标题"),
+            "content": _dimension("content", "事件正文"),
+            "event_type": _dimension("event_type", "事件类型"),
+            "sectors": _dimension("sectors", "关联板块"),
+            "is_future": _dimension("is_future", "是否未来事件", "boolean"),
+            "source": _dimension("source", "来源"),
+        },
+        metrics={
+            "importance": _metric("importance", "重要性", "max", "integer"),
         },
     ),
     # A5：涨停集中题材的 canonical 表。未注册时模型只能借道主线/板块表，
@@ -614,6 +957,8 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         population="full",
         coverage=(
             "个股技术面快照。**当前是空表（0 行）**——取不到不是查询写错，是该口径暂无数据，应如实声明不可得。"
+            "⚠️ 但 UP 线/偏离度**不要用这张**：有数据的是 `stock_technical_daily`（203 万行、日更）。"
+            "这张表只服务「技术面快照」这一口径本身。"
         ),
         time_field="trade_date",
         dimensions={
@@ -628,6 +973,69 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         },
     ),
 }
+
+
+# ``schema.sql`` 里的每张 fact_/feature_ 表，要么在上面注册、要么在这里写明为什么不注册。
+# 二选一由 ``scripts/audit_dataset_registration.py`` 在 pre-commit 里强制。
+#
+# 为什么需要它：2026-08-13 那轮把复盘会 6 张表接进语义层时，处置理由
+# （「稀疏/半结构表暂不注册，保持工具面收敛」）只写在 asset-inventory 文档正文里。
+# 文档里的决定不是机器可读的——2026-08-25 复查时它被读成「漏了」，差点组织人去
+# 「补」一个当初有意做过的决定。**豁免必须和注册表放在一起，让改动者同屏看见。**
+#
+# 同一轮还差点把 ``fact_top_gainers`` 注册进来：它只有 schema、没有写入链，
+# 注册的结果是一个永远返回 0 行的 dataset。所以理由里区分 ``no_writer``——
+# 「建表 ≠ 入库」是「入库 ≠ agent 能查到」的姊妹病，前者靠 COUNT(*) 才抓得住。
+_UNREGISTERED_TABLES: dict[str, str] = {
+    # ── 无写入链：只有 schema，注册即得永久空 dataset ──
+    "fact_top_gainers": "no_writer：涨幅排行是「只展示不入库」设计，0 行",
+    "fact_high_volume_gainers": "no_writer：大成交排行同上，0 行",
+    # ── 基础设施：不是市场事实，不该出现在模型的 dataset 枚举里 ──
+    "fact_sector_daily_generation": "internal：代际物理表，读口是同名 VIEW（见 check_sector_fact_access.py）",
+    "fact_sector_stock_daily_generation": "internal：同上，读口是 VIEW",
+    "fact_sector_universe_daily": "internal：快照台账名单，供完整度校验用",
+    # ── 物化窗口：CLAUDE.md 明记「无活跃消费者，可能过期」，先别喂给模型 ──
+    "feature_market_window": "stale_materialized：历史物化窗口，无活跃消费者",
+    "feature_sector_window": "stale_materialized：同上",
+    "feature_stock_window": "stale_materialized：同上",
+    "feature_limit_advance_window": "stale_materialized：同上",
+    # ── 已有专用通路：证据块/adapter 已消费，再开语义面会双口径 ──
+    "fact_limit_advance_daily": "dedicated_path：adapter 与多处 service 已消费（6 个生产文件）",
+    "feature_l2_capital_flow_daily": "dedicated_path：D9 证据块 market_moneyflow.py",
+    "feature_l2_quant_orders_daily": "dedicated_path：同 D9 块",
+    "fact_theme_limit_stock_daily": "dedicated_path：theme_lifecycle_timeline 已消费",
+    "fact_mainline_stock_daily": "dedicated_path：主线结构由 mainline_* 两个 dataset 覆盖",
+    "fact_sector_period_rank_daily": "dedicated_path：adapter ALLOWED_TABLES 内，按需直查",
+    # ── 2026-08-12 有意豁免过的稀疏/半结构表，已于 2026-08-25 转正 ──
+    # 当初「无 trade_date、不是 drop-in」属实，变的是工具面：population / coverage /
+    # incomplete_before / cutoff_column 能表达子集和双时态了。
+    # 转正依据（先量后判，理由留在这里而不是默默删掉）：
+    # - fact_auction_stock_daily → auction_stock_daily：145 天、每日 50~99 行，并不稀疏。
+    # - fact_regulation_* → *_daily：effective_date 是快照日；updated_at 是入库时间
+    #   （大量行写于 2026-08-12 回填墙），不能当 PIT。事件表是每日重拍的在场名单，
+    #   不是「有事件才记一行」。end_date 约 89% 在未来，禁止当时间轴。
+    # - fact_historical_mapping → historical_mapping：time_field 用别名 as_of，
+    #   物理列仍是 source_date。禁止把 similar_date 当时间轴（过滤太松、前视）。
+    #   表列 source_date 与证据层 source_date 同名不同义，靠别名隔离，不靠换列。
+    #   两义并不碰巧对齐：updated_at 几乎全是回填墙，不能当信息日。
+    # - fact_global_stock_daily → global_stock_daily：每日固定 194，与指数表同一
+    #   A 股日历；time_field=trade_date，session_date 只做维度。市值是原样美元未开放。
+    # ── 有数据、无通路、先量后判：暂不注册 ──
+    "fact_theme_flow_daily": (
+        "candidate：45 天自 2026-06-23，每日 57~109 条；amount 貌似亿，"
+        "但 08-25 合计 1884 vs 大盘 18316 vs sector_daily 加总 216801，未对账"
+    ),
+    "fact_research_report_catalog": "kb_side：467 行列表元数据，正文不在本表，偏知识库检索",
+    "fact_theme_fundamental_doc": "kb_side：37 行，kb_path 指向知识库，graph_only",
+    "fact_limit_advance_presence": (
+        "overlap：仅姓名+序号；完整晋级在 dedicated_path 的 fact_limit_advance_daily"
+    ),
+}
+
+# 注册了但**当前是空表**的，必须在这里声明是有意为之，否则审计判失败。
+# ``fact_stock_technical_snapshot`` 是运行时诚实闸 ``honesty_gates._EMPTY_CALIBER_TABLE``
+# 的锚点：它存在的意义就是让「问技术面快照」这一口径能如实回「暂无数据」。
+_EMPTY_BY_DESIGN: frozenset[str] = frozenset({"fact_stock_technical_snapshot"})
 
 _PROVIDER_FIELD_ALIASES: dict[str, dict[str, str]] = {
     "market_daily": {
@@ -922,7 +1330,7 @@ _POPULATION_LABEL = {
 
 
 def _dataset_catalog_text() -> str:
-    """把 15 张表各自**覆盖多大人群**写进 schema，从注册表生成，不手抄。
+    """把注册表里每张表各自**覆盖多大人群**写进 schema，从注册表生成，不手抄。
 
     改这段之前先读 ``_DatasetDefinition.population`` 上方那段注释：模型此前
     看到的是 15 个**光秃秃的表名**，没有任何一句说明它们覆盖面差着两三个数量级
@@ -1040,8 +1448,37 @@ def validation_retry_hint(
     return "；".join(parts)
 
 
+def _window_hits_incomplete(spec: FinanceQuerySpec, before: date) -> bool:
+    """问句窗是否可能包含 ``before`` 之前的日期。
+
+    ``time_range`` 缺失或 start 开着，当成无界过去——认不出来就 fail closed。
+    只看 start：start 已经落在分界日当天或之后，整窗都在完整区间。
+    """
+
+    window = spec.time_range
+    if window is None:
+        return True
+    return window.start is None or window.start < before
+
+
+def _temporal_coverage_advisory(
+    spec: FinanceQuerySpec, definition: _DatasetDefinition
+) -> str:
+    before = definition.incomplete_before
+    if before is None:
+        return ""
+    if not _window_hits_incomplete(spec, before):
+        return ""
+    return (
+        f"覆盖面提示：dataset={spec.dataset} 在 {before.isoformat()} 之前覆盖不齐"
+        "（多数交易日只有部分成员，不是该宇宙的全集）。"
+        "本窗落在残缺区间，排序得到的名次不能当成全集排名。"
+        "请把 time_range 收到该日及以后，或先声明覆盖不足、不要给排名。"
+    )
+
+
 def coverage_advisory(spec: FinanceQuerySpec) -> str:
-    """在**子集**表上做排序/取名次时，指出同一字段还有**全集**表可用。
+    """查询成功但分母可能错时，往 observation 上挂一句。
 
     这是 ``validation_retry_hint`` 够不着的那一半。那个函数只在查询**被拒**时
     说话，判据是「字段属不属于这张表」；而 A5 那次查询**完全合法**——
@@ -1049,35 +1486,50 @@ def coverage_advisory(spec: FinanceQuerySpec) -> str:
     错的是分母：十余行的主线子集 vs 两百余行的全量榜。结构性校验原理上抓不到
     这类错，因为错表在结构上没毛病。
 
+    两种分母错误分开处理：
+
+    1. **时间残缺**（``incomplete_before``）：宇宙是全集，但某日之前回填不齐。
+       只在问句窗可能落到残缺区间时出声，不指向别的表。
+    2. **结构子集**（``population="subset"``）：每天都只收一部分。有真正的全集表
+       才提示改表；排序字段若出现在很多全集表上（``return_pct`` / ``close``），
+       按字段名找超集会指向错误粒度，此时宁可不说。
+
     **只在真的会被分母影响时才出声**：有 ``order_by``（即在做「最多 / 前几名」）
-    才提示。纯粹取某个具体标的在子集表里的值是正当用法，对它唠叨就是噪声，
-    会把真提示淹掉。
+    才提示。纯粹取某个具体标的的值是正当用法，对它唠叨就是噪声。
 
     判据**不看 ``limit``**：它有默认值 50，恒为真，拿它当信号等于没有信号。
-    A5 现场那条查询是 ``order_by=limit_up_count desc, limit=15``——在一张
-    当日只有十余行的表上要 top15，正是本函数要拦的形状。
 
     返回空串表示无话可说——**调用方据此决定要不要把这句挂到 observation 上**，
     本函数不自己决定交付形态。
     """
 
     definition = _DATASETS.get(spec.dataset)
-    if definition is None or definition.population != "subset":
-        return ""
-    if not spec.order_by:
+    if definition is None or not spec.order_by:
         return ""
 
-    # **只看排序字段**，不看 metrics 里搭车的那些列。决定名次的只有排序字段，
-    # 分母换了只影响它；把每个 metric 都列一遍会让 return_pct 这种六张表都有的
-    # 通用列刷满整条提示，真信号（limit_up_count→theme_limit_heat_daily）被淹掉。
-    # 实测过：不收窄时这条提示有 8 项，收窄后 1 项。
+    temporal = _temporal_coverage_advisory(spec, definition)
+    if temporal:
+        return temporal
+    if definition.population != "subset":
+        return ""
+
+    # **只看排序字段**，不看 metrics 里搭车的那些列。决定名次的只有排序字段。
+    # 通用列（return_pct）出现在很多全集表上：超过两张就不当超集信号，
+    # 否则会把申万一级/竞价看板的排名改写成个股榜。A5 的 limit_up_count
+    # 几乎只属于题材热度表，启发式才成立。
     wanted = tuple(dict.fromkeys(item.field for item in spec.order_by))
     alternatives: list[str] = []
     for field in wanted:
-        for name in _PUBLIC_DATASETS:
-            other = _DATASETS[name]
-            if other.population != "full" or field not in other.fields:
-                continue
+        owners = [
+            name
+            for name in _PUBLIC_DATASETS
+            if name != spec.dataset
+            and _DATASETS[name].population == "full"
+            and field in _DATASETS[name].fields
+        ]
+        if len(owners) > 2:
+            continue
+        for name in owners:
             entry = f"{field}→{name}"
             if entry not in alternatives:
                 alternatives.append(entry)
@@ -1233,6 +1685,7 @@ class _CompiledQuery:
     output_fields: tuple[str, ...]
     source_date_index: int
     applied_limit: int
+    reverse_after_fetch: bool = False
 
 
 DuckDbConnect = Callable[..., Any]
@@ -1320,6 +1773,9 @@ class FinanceQuery:
                     compiled,
                     cancelled=cancelled,
                 )
+                if compiled.reverse_after_fetch:
+                    rows = tuple(reversed(rows))
+                    source_dates = tuple(reversed(source_dates))
             except Exception as exc:
                 if interrupted_for:
                     if interrupted_for[0] == "cancelled":
@@ -1369,6 +1825,7 @@ class FinanceQuery:
             row_count=len(rows),
             output_bytes=output_bytes,
             elapsed_seconds=round(elapsed, 6),
+            requested_time_range=_requested_time_range(spec),
         )
         return FinanceQueryResult(
             rows=rows,
@@ -1408,15 +1865,8 @@ class FinanceQuery:
         if dataset is None or not dataset.time_field:
             return None
         # spec 里的维度名未必等于物理列名（如 sector_code → sector_ts_code），
-        # 故按物理列反查 spec 名，不能直接拿 time_field 当维度名用。
-        time_dimension = next(
-            (
-                name
-                for name, field in dataset.dimensions.items()
-                if field.column == dataset.time_field
-            ),
-            None,
-        )
+        # 也可能是语义别名（as_of → source_date）。优先认 time_field 本身。
+        time_dimension = _semantic_time_dimension(dataset)
         if time_dimension is None:
             return None
         probe = replace(
@@ -1482,6 +1932,27 @@ class FinanceQuery:
         return visible_rows, source_dates, output_bytes
 
 
+def _semantic_time_dimension(dataset: _DatasetDefinition) -> str | None:
+    """模型侧时间维名。``time_field`` 可能是语义别名（``as_of``），物理列另叫 ``source_date``。
+
+    不能只用 ``field.column == dataset.time_field`` 反查：别名一旦拆开，T1b 和
+    ``dataset_max_date`` 探针会静默关掉——LIMIT 切掉窗口末端、过期判定拿不到全集 max。
+    """
+
+    if dataset.time_field is None:
+        return None
+    if dataset.time_field in dataset.dimensions:
+        return dataset.time_field
+    return next(
+        (
+            name
+            for name, field in dataset.dimensions.items()
+            if field.column == dataset.time_field
+        ),
+        None,
+    )
+
+
 def _compile_query(
     spec: FinanceQuerySpec,
     *,
@@ -1527,11 +1998,19 @@ def _compile_query(
             )
     cutoff = information_cutoff.as_of_date
     if spec.time_range is not None:
-        if spec.time_range.start is not None and spec.time_range.start > cutoff:
+        if (
+            not dataset.allow_future_time_range
+            and spec.time_range.start is not None
+            and spec.time_range.start > cutoff
+        ):
             raise FinanceQueryValidationError(
                 "time range conflicts with information cutoff"
             )
-        if spec.time_range.end is not None and spec.time_range.end > cutoff:
+        if (
+            not dataset.allow_future_time_range
+            and spec.time_range.end is not None
+            and spec.time_range.end > cutoff
+        ):
             raise FinanceQueryValidationError(
                 "time range conflicts with information cutoff"
             )
@@ -1558,6 +2037,14 @@ def _compile_query(
         select_parts.append(f"{expression} AS {alias}")
     if dataset.time_field is None:
         select_parts.append("NULL AS __source_date")
+    elif dataset.cutoff_column:
+        # source_date 全仓语义是信息日。日历的 time_field 是发生日，
+        # 流进去会被 registry 的 filter_future_dated 整批标成越界。
+        cutoff_ident = _quote(dataset.cutoff_column)
+        source_expr = f"CAST({cutoff_ident} AS DATE)"
+        if group_by:
+            source_expr = f"MAX({source_expr})"
+        select_parts.append(f"{source_expr} AS __source_date")
     elif group_by:
         time_column = fields[dataset.time_field].column
         select_parts.append(f"MAX({_quote(time_column)}) AS __source_date")
@@ -1569,8 +2056,15 @@ def _compile_query(
     parameters: list[object] = []
     if dataset.time_field is not None:
         time_column = fields[dataset.time_field].column
-        where_parts.append(f"{_quote(time_column)} <= ?")
-        parameters.append(cutoff.isoformat())
+        if dataset.cutoff_column:
+            cutoff_ident = _quote(dataset.cutoff_column)
+            where_parts.append(
+                f"({cutoff_ident} IS NULL OR CAST({cutoff_ident} AS DATE) <= ?)"
+            )
+            parameters.append(cutoff.isoformat())
+        elif not dataset.allow_future_time_range:
+            where_parts.append(f"{_quote(time_column)} <= ?")
+            parameters.append(cutoff.isoformat())
         if spec.time_range is not None and spec.time_range.start is not None:
             where_parts.append(f"{_quote(time_column)} >= ?")
             parameters.append(spec.time_range.start.isoformat())
@@ -1594,9 +2088,28 @@ def _compile_query(
         sql += " GROUP BY " + ", ".join(
             _quote(fields[name].column) for name in group_by
         )
-    if spec.order_by:
+    # T1b：time_range + 按日期升序 + LIMIT 会先丢掉窗口末端（问句锚定日）。
+    # 取数改倒序，返回前再翻回升序，观察顺序不变。只在「全部 order 都是时间维
+    # 升序」时翻转，避免打乱 amount desc 这类次键。
+    time_dimension = _semantic_time_dimension(dataset)
+    fetch_orders = spec.order_by
+    reverse_after_fetch = False
+    if (
+        spec.time_range is not None
+        and time_dimension is not None
+        and spec.order_by
+        and all(
+            item.field == time_dimension and item.direction == "asc"
+            for item in spec.order_by
+        )
+    ):
+        fetch_orders = tuple(
+            replace(item, direction="desc") for item in spec.order_by
+        )
+        reverse_after_fetch = True
+    if fetch_orders:
         sql += " ORDER BY " + ", ".join(
-            f"{aliases[item.field]} {item.direction.upper()}" for item in spec.order_by
+            f"{aliases[item.field]} {item.direction.upper()}" for item in fetch_orders
         )
     elif dataset.time_field in aliases:
         sql += f" ORDER BY {aliases[dataset.time_field]} DESC"
@@ -1609,6 +2122,7 @@ def _compile_query(
         output_fields=selected,
         source_date_index=len(selected),
         applied_limit=applied_limit,
+        reverse_after_fetch=reverse_after_fetch,
     )
 
 
@@ -1656,6 +2170,75 @@ def _filter_clause(
     return f"{column} LIKE ? ESCAPE '\\'", (f"%{escaped}%",)
 
 
+# 哪些数据集的行产结构化观察值：subject 维度字段 + 指标白名单（**底层列名**，
+# 与预取观察值同一指标空间，槽/门禁两侧才能对上）。只登记行级明细数据集；
+# 聚合类/无主体数据集不产——没有主体的数进槽只会制造错绑。
+_OBSERVATION_SUBJECT_FIELDS: dict[str, str] = {
+    "sector_daily": "sector_name",
+    "sector_stock_daily": "stock_name",
+}
+_OBSERVATION_METRIC_COLUMNS: dict[str, tuple[str, ...]] = {
+    "sector_daily": ("pct_chg", "amount", "diff_ratio"),
+    "sector_stock_daily": ("pct_chg", "amount"),
+}
+
+
+def _row_observations(
+    rows: tuple[dict[str, object], ...],
+    *,
+    source_dates: tuple[str | None, ...],
+    dataset_name: str,
+    dataset: _DatasetDefinition,
+) -> tuple[tuple[agent_research.StructuredObservation, ...], ...]:
+    """把工具行里的数以机器可读形态挂回各自的证据卡。
+
+    动机（生产实锤 run_20260821_152044_472523）：预取锚空表时模型靠本工具
+    拿回全对的行写稿，但这些数没有 observations，删句连坐检测 / 槽补回 /
+    数值门禁全都看不见它们，判官一刀下去真值随句子静默消失。带收据的
+    工具行必须与预取行同权。
+
+    同 (主体, 日期, 指标) 出现矛盾值时**该格不产观察值**——与
+    ``asof_prefetch.sector_timeline_observations`` 同规则：把矛盾当事实
+    投递，下游会把「有分歧」写成「就是这个数」。值相同的重复格照常产出。
+    """
+
+    subject_field = _OBSERVATION_SUBJECT_FIELDS.get(dataset_name)
+    if subject_field is None:
+        return tuple(() for _ in rows)
+    metric_columns = _OBSERVATION_METRIC_COLUMNS[dataset_name]
+    fields = dataset.fields
+    seen: dict[tuple[str, str, str], set[float]] = {}
+    per_row: list[list[tuple[str, str, str, float]]] = []
+    for index, row in enumerate(rows):
+        as_of = source_dates[index] or ""
+        subject = row.get(subject_field)
+        cells: list[tuple[str, str, str, float]] = []
+        if as_of and isinstance(subject, str) and subject:
+            for name, value in row.items():
+                field = fields.get(name)
+                if field is None or field.column not in metric_columns:
+                    continue
+                if value is None or isinstance(value, bool):
+                    continue
+                try:
+                    number = float(value)  # type: ignore[arg-type]
+                except (TypeError, ValueError):
+                    continue
+                seen.setdefault((subject, as_of, field.column), set()).add(number)
+                cells.append((subject, as_of, field.column, number))
+        per_row.append(cells)
+    return tuple(
+        tuple(
+            agent_research.StructuredObservation(
+                subject=subject, as_of=as_of, metric=metric, value=value
+            )
+            for subject, as_of, metric, value in cells
+            if len(seen[(subject, as_of, metric)]) == 1
+        )
+        for cells in per_row
+    )
+
+
 def _rows_to_evidence(
     rows: tuple[dict[str, object], ...],
     *,
@@ -1666,6 +2249,12 @@ def _rows_to_evidence(
 ) -> tuple[agent_research.AgentEvidence, ...]:
     evidence: list[agent_research.AgentEvidence] = []
     fields = dataset.fields
+    observations = _row_observations(
+        rows,
+        source_dates=source_dates,
+        dataset_name=dataset_name,
+        dataset=dataset,
+    )
     for index, row in enumerate(rows, start=1):
         source_date = source_dates[index - 1]
         detail = "；".join(
@@ -1683,6 +2272,7 @@ def _rows_to_evidence(
             evidence_tier=dataset.evidence_tier,
             independent_key=f"duckdb:{dataset_name}:{source_date or 'undated'}",
             freshness="current",
+            observations=observations[index - 1],
         )
         evidence.append(
             replace(

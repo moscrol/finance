@@ -334,6 +334,88 @@ def test_weekly_market_cause_is_deterministic_and_skips_controller_llm() -> None
     )
 
 
+def _grid_theme_resolver(tmp_path) -> QueryResolver:
+    """密封知识库：只登记概念名，实体名不得出现在电网/液冷问句里。"""
+
+    relations = tmp_path / "relations"
+    relations.mkdir()
+    (relations / "entity_exposures.json").write_text(
+        json.dumps(
+            {
+                "entities": {
+                    "测试暴露公司甲": {
+                        "codes": [],
+                        "concepts": {"电网设备": {}, "液冷温控": {}},
+                    }
+                }
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    (relations / "aliases.json").write_text(
+        json.dumps({"aliases": {}}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    return QueryResolver(KnowledgeAdapter(wiki_root=tmp_path))
+
+
+def _boom_llm(_messages: list[dict[str, str]]):
+    raise AssertionError("market_cause 确定性路由不得为了分类去调 LLM")
+
+
+def test_weekly_weakness_word_order_stays_research_not_knowledge() -> None:
+    decision = decide_turn(
+        "近一周大盘为什么走弱",
+        llm_complete=_boom_llm,
+    )
+
+    assert decision.lane == "research"
+    assert decision.question_type == "market_cause"
+    assert decision.task_frame is not None
+    assert "causal_chain" in decision.task_frame.required_outputs
+
+
+def test_aluminum_sector_cause_turn_is_market_cause() -> None:
+    decision = decide_turn(
+        "2026-07-23 A股铝板块为什么涨，给出证据来源",
+        llm_complete=_boom_llm,
+    )
+
+    assert decision.lane == "research"
+    assert decision.question_type == "market_cause"
+    assert decision.task_frame is not None
+    assert decision.task_frame.subject == "铝"
+    assert "causal_chain" in decision.task_frame.required_outputs
+
+
+def test_grid_equipment_cause_turn_uses_matched_theme(tmp_path) -> None:
+    decision = decide_turn(
+        "2026-07-23 电网设备为什么涨，给出证据来源",
+        llm_complete=_boom_llm,
+        resolver=_grid_theme_resolver(tmp_path),
+    )
+
+    assert decision.lane == "research"
+    assert decision.question_type == "market_cause"
+    assert decision.task_frame is not None
+    assert decision.task_frame.subject == "电网设备"
+    assert "causal_chain" in decision.task_frame.required_outputs
+
+
+def test_liquid_cooling_cause_turn_allows_canonical_subject() -> None:
+    decision = decide_turn(
+        "液冷板块今天为什么涨",
+        llm_complete=_boom_llm,
+    )
+
+    assert decision.lane == "research"
+    assert decision.question_type == "market_cause"
+    assert decision.task_frame is not None
+    assert decision.task_frame.subject in {"液冷", "液冷温控"}
+    assert "causal_chain" in decision.task_frame.required_outputs
+
+
 @pytest.mark.parametrize(
     "query",
     (
@@ -1282,3 +1364,41 @@ def test_deterministic_route_records_no_failure() -> None:
 
     assert decision.llm_failure_reason == ""
     assert decision.llm_failure_detail == ""
+
+
+_FROZEN_ANALOG = (
+    "用spt和风远的结合视角，说一下目前的行情和之前的哪一段历史行情比较相似，个股怎么对标。"
+)
+
+
+def test_empty_manual_does_not_override_comparison_analog() -> None:
+    decision = decide_turn(
+        _FROZEN_ANALOG,
+        skill_mode="manual",
+        selected_skill_ids=(),
+        llm_complete=_no_llm,
+    )
+    assert decision.question_type == "comparison_analog"
+    assert decision.reason != "用户显式选择了工作流能力"
+    assert decision.turn_intent is not None
+    assert "history_analog" in decision.turn_intent.operators
+
+
+def test_nonempty_manual_skill_still_counts_as_explicit_choice() -> None:
+    decision = decide_turn(
+        _FROZEN_ANALOG,
+        skill_mode="manual",
+        selected_skill_ids=("daily-agent",),
+        llm_complete=_no_llm,
+    )
+    assert decision.reason == "用户显式选择了工作流能力"
+
+
+def test_empty_manual_does_not_reroute_quick_fact() -> None:
+    decision = decide_turn(
+        "宁德时代今天收盘多少",
+        skill_mode="manual",
+        selected_skill_ids=(),
+        llm_complete=_no_llm,
+    )
+    assert decision.question_type == "quick_fact"

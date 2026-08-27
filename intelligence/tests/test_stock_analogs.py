@@ -278,12 +278,15 @@ class LoaderAndBlockTests(unittest.TestCase):
 
 
 class WiringTests(unittest.TestCase):
-    def test_registry_gating_via_legacy_flag(self) -> None:
+    def test_registry_gating_via_enabled_providers(self) -> None:
         from intelligence.services import evidence_registry
         from intelligence.services.ask import AskOptions
 
         on = AskOptions(query="q")
-        off = AskOptions(query="q", include_stock_analog_block=False)
+        off = AskOptions(
+            query="q",
+            enabled_providers=evidence_registry.without_providers("D11"),
+        )
         self.assertTrue(evidence_registry.provider_enabled(on, "D11"))
         self.assertFalse(evidence_registry.provider_enabled(off, "D11"))
 

@@ -6,7 +6,7 @@
       "id": "direction",
       "agent": "claude",
       "verdict": "partial",
-      "actual": "半导体设备 +2.00%/diff+21.04；半导体 -0.66%/diff+8.92；机器人 -2.08%/diff+0.04；创新药 -1.14%/diff-15.07；先进封装 -2.53%/diff+3.31；新型工业化 -2.60%/diff-4.39",
+      "actual": "半导体 -0.20%/diff+8.03；半导体设备 +2.35%/diff+19.89；机器人 -2.08%/diff+0.04；创新药 -1.14%/diff-15.07；医药 -1.51%/diff-16.37；先进封装 -2.60%/diff+4.34；通信 -0.12%/diff+3.14；电子 -0.96%/diff+5.82",
       "stream": "盘面",
       "horizon": "T+1",
       "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-08",
@@ -83,7 +83,7 @@
       "id": "direction",
       "agent": "codex",
       "verdict": "partial",
-      "actual": "半导体 -0.66%/diff+8.92；机器人 -2.08%/diff+0.04；游戏 -1.36%/diff-18.18；芯片 -2.02%/diff+5.48；半导体设备 +2.00%/diff+21.04",
+      "actual": "半导体 -0.20%/diff+8.03；机器人 -2.08%/diff+0.04；游戏 -1.36%/diff-18.18；芯片 -2.02%/diff+5.48；机器人概念 -2.08%/diff-0.47；半导体设备 +2.35%/diff+19.89",
       "stream": "盘面",
       "horizon": "T+1",
       "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-08",
@@ -157,5 +157,5 @@
       "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-08"
     }
   ],
-  "generated_at": "2026-07-08T23:18:36+08:00"
+  "generated_at": "2026-08-20T10:30:41+08:00"
 }
