@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 import json
@@ -30,13 +30,13 @@ from intelligence.runtime.episode_finalizer import (
 )
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_protocol import (
+    SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
     attach_evidence_ordinals,
-    build_episode_input,
-    build_episode_instructions,
     evidence_ordinal_table,
     expand_episode_snapshot_bindings,
     finish_rejection_fields,
     rejection_response,
+    split_episode_prompt,
     strip_hashes_for_model,
     validate_episode_finish,
 )
@@ -45,6 +45,9 @@ from intelligence.runtime.episode_tool_batch import (
     ToolBatchExecutor,
     ToolBatchResult,
     ToolCallResult,
+)
+from intelligence.services.forecast_residual_budget import (
+    forecast_residual_halt_reason,
 )
 from intelligence.services.mode_governor import (
     ModeDecision,
@@ -59,9 +62,13 @@ from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
 )
+from intelligence.services.mandatory_satisfiability import (
+    apply_unreachable_downgrade,
+)
 from intelligence.services.repair_coordinator import (
     RepairGoal,
     grant_for_transient_model_retry,
+    unreachable_repair_goal,
 )
 from intelligence.services.research_contract import (
     ResearchDeadline,
@@ -79,11 +86,18 @@ from intelligence.services.episode_scope import EpisodeScope
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
 )
+from intelligence.services.empty_pool_fallback import (
+    EmptyToolCall,
+    fallback_already_attempted,
+    prefetch_pool_is_empty,
+    propose_empty_pool_fallback,
+)
 from intelligence.runtime.sub_research import (
     SubResearchCoordinator,
     SubResearchResult,
 )
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.tool_observation_noise import prune_tool_observation
 from intelligence.services.tool_result_budget import budget_tool_observation
 
 
@@ -222,6 +236,18 @@ def _settle_batch_calls(
             root_budget.consume_call(seconds=seconds_per_call)
         except ValueError:
             root_budget.settle_seconds(seconds=seconds_per_call)
+def _evidence_required_output_ids(context: object) -> frozenset[str]:
+    """契约里 evidence 口径的必填输出 id。model_reasoning 格不在此列。"""
+
+    contract = getattr(context, "contract", None)
+    return frozenset(
+        str(getattr(item, "output_id", ""))
+        for item in getattr(contract, "required_outputs", ())
+        if getattr(item, "required", True)
+        and str(getattr(item, "grounding_mode", "evidence")) == "evidence"
+    )
+
+
 
 
 class _EpisodeLedger:
@@ -366,18 +392,27 @@ class _EpisodeToolAccumulator:
     successful_tools: set[str] = field(default_factory=set)
     traces: list[ProviderTrace] = field(default_factory=list)
     gaps: list[str] = field(default_factory=list)
+    seen_observation_prose: set[str] = field(default_factory=set)
 
     def consume(
         self,
         batch: ToolBatchResult,
         context: ResearchRunContext,
+        request_extras: Mapping[str, Mapping[str, object]] | None = None,
     ) -> int:
         invalid_actions = 0
+        extras_by_id = request_extras or {}
         for result in batch.items:
             call = result.call
             clock = _tool_dispatch_clock_payload(result)
             timing = {**_tool_timing_payload(result), **clock}
-            self.ledger.add("tool_request", {**call.to_dict(), **clock})
+            request_payload = {**call.to_dict(), **clock}
+            extra = extras_by_id.get(call.call_id)
+            if extra:
+                request_payload.update(extra)
+            elif call.call_id.startswith("empty-pool-fallback"):
+                request_payload["fallback_query"] = True
+            self.ledger.add("tool_request", request_payload)
 
             if result.status == "rejected":
                 invalid_actions += 1
@@ -458,16 +493,27 @@ class _EpisodeToolAccumulator:
                 "payload_field_names": list(observation.payload_field_names),
                 "payload_sha256": observation.payload_sha256,
             }
+            telemetry = dict(getattr(observation, "telemetry", None) or {})
+            if telemetry:
+                # 控制面收据：只进 ledger，不进模型上下文。
+                public_observation["telemetry"] = telemetry
             # 审计留档拿全量（含 hash），模型上下文拿预算后的副本并去掉 hash，
             # 只留 E1..En——誊抄 16-hex 是 B1/B7 零绑定的根因。
             self.ledger.add("tool_result", {**public_observation, **timing})
+            model_view = dict(public_observation)
+            model_view.pop("telemetry", None)
+            pruned, seen = prune_tool_observation(
+                model_view,
+                seen_prose=self.seen_observation_prose,
+            )
+            self.seen_observation_prose = set(seen)
             self.messages.append(
                 {
                     "role": "tool",
                     "tool_call_id": call.call_id,
                     "content": json.dumps(
                         strip_hashes_for_model(
-                            budget_tool_observation(public_observation)
+                            budget_tool_observation(pruned)
                         ),
                         ensure_ascii=False,
                     ),
@@ -676,19 +722,13 @@ class ContinuousAgentEpisode:
         finish_failures = 0
         plan_failures = 0
         plan_turns = 0
+        system, user = split_episode_prompt(task_frame, context, registry)
+        # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: system is byte-stable; user/tool
+        # rebuild each turn. cache_control is not implemented this increment.
+        _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
         messages: list[dict[str, object]] = [
-            {
-                "role": "system",
-                "content": build_episode_instructions(
-                    task_frame,
-                    context,
-                    registry,
-                ),
-            },
-            {
-                "role": "user",
-                "content": build_episode_input(task_frame, context),
-            },
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
         ]
         evidence_ledger = EvidenceLedger(
             information_cutoff=context.information_cutoff.as_of_date,
@@ -743,7 +783,7 @@ class ContinuousAgentEpisode:
             planning_timeout = (
                 self._opening_planning_timeout(context)
                 if is_opening_call
-                else context.deadline.stage_timeout(self._llm_timeout)
+                else self._followup_planning_timeout(context)
             )
             remaining_tool_slots = self._remaining_tool_slots(
                 context=context,
@@ -885,12 +925,48 @@ class ContinuousAgentEpisode:
                 },
             )
             if not _consume_root_seconds(context, model_elapsed):
+                if context.root_budget is not None:
+                    context.root_budget.settle_seconds(seconds=model_elapsed)
                 carried_draft, carried_bindings = self._carry_just_written_finish(
                     turn=turn,
                     context=context,
                     evidence=tuple(accumulator.evidence),
                     registry=registry,
                 )
+                if carried_draft:
+                    finish_status = "completed"
+                    declared_gaps: tuple[str, ...] = ()
+                    try:
+                        parsed = validate_episode_finish(
+                            turn.content,
+                            context=context,
+                            evidence=tuple(accumulator.evidence),
+                        )
+                        finish_status = parsed.status
+                        carried_draft = parsed.draft
+                        carried_bindings = expand_episode_snapshot_bindings(
+                            bindings=parsed.bindings,
+                            evidence=tuple(accumulator.evidence),
+                            registry=registry,
+                        )
+                        declared_gaps = parsed.gaps
+                    except ValueError:
+                        pass
+                    return self._stopped_outcome(
+                        task_frame=task_frame,
+                        status=finish_status,
+                        stop_reason="model_finish",
+                        gap="",
+                        ledger=ledger,
+                        evidence=accumulator.evidence,
+                        traces=accumulator.traces,
+                        gaps=list(self._finish_gaps(declared_gaps, carried_bindings)),
+                        llm_calls=llm_calls,
+                        tool_calls=tool_calls,
+                        invalid_actions=invalid_actions,
+                        carried_draft=carried_draft,
+                        carried_bindings=carried_bindings,
+                    )
                 return self._stopped_outcome(
                     task_frame=task_frame,
                     status="partial" if accumulator.evidence else "failed",
@@ -1121,11 +1197,45 @@ class ContinuousAgentEpisode:
                 batch_elapsed = max(0.0, monotonic() - batch_started)
                 tool_calls += batch.executed_count
                 invalid_actions += accumulator.consume(batch, context)
+                halt = forecast_residual_halt_reason(
+                    question_type=context.contract.question_type,
+                    research_tier=context.contract.research_tier,
+                    batch_errors=tuple(item.error for item in batch.items),
+                )
+                if halt and not finalization_started:
+                    finalization_started = True
+                    self._begin_finalization(
+                        messages=messages,
+                        ledger=ledger,
+                        reason=halt,
+                    )
                 _settle_batch_calls(
                     context.root_budget,
                     executed_count=batch.executed_count,
                     batch_elapsed=batch_elapsed,
                 )
+                fallback = self._maybe_execute_empty_pool_fallback(
+                    batch=batch,
+                    tool_session=tool_session,
+                    registry=registry,
+                    context=context,
+                    accumulator=accumulator,
+                    tool_calls=tool_calls,
+                    model_elapsed=model_elapsed,
+                )
+                if fallback is not None:
+                    fb_batch, extras, fb_elapsed = fallback
+                    tool_calls += fb_batch.executed_count
+                    invalid_actions += accumulator.consume(
+                        fb_batch,
+                        context,
+                        request_extras=extras,
+                    )
+                    _settle_batch_calls(
+                        context.root_budget,
+                        executed_count=fb_batch.executed_count,
+                        batch_elapsed=fb_elapsed,
+                    )
                 injected = self._append_tool_budget_state(
                     messages=messages,
                     remaining_seconds=(
@@ -1448,7 +1558,30 @@ class ContinuousAgentEpisode:
             repair_tool_deadline = repair_deadline
         repair_tool_context = replace(context, deadline=repair_tool_deadline)
         research_tools_open = not repair_tool_deadline.expired
-        ledger.add("repair_goal", goal.to_dict())
+        goal_payload = goal.to_dict()
+        # 把「这一轮结构性不可能补上」的格显式投递进 trace（#289 第 6 刀观测）。
+        # W2 在观测之后接裁决：降级 contract / 模型侧 goal，但不跳过本轮。
+        unreachable = unreachable_repair_goal(
+            goal,
+            evidence_output_ids=_evidence_required_output_ids(context),
+        )
+        if unreachable:
+            goal_payload["unreachable_without_tools"] = list(unreachable)
+        ledger.add("repair_goal", goal_payload)
+        # 观测保留完整 goal；裁决后的契约/指令才降级。不跳过本轮——
+        # salvage 刚写出的 FINAL_JSON 仍然要跑。
+        downgraded_contract, prompt_goal = apply_unreachable_downgrade(
+            context.contract,
+            goal,
+        )
+        if downgraded_contract is not context.contract:
+            context = replace(context, contract=downgraded_contract)
+            state.context = context
+            repair_context = replace(repair_context, contract=downgraded_contract)
+            repair_tool_context = replace(
+                repair_tool_context,
+                contract=downgraded_contract,
+            )
         # 修复轮的时钟账，记在动手之前。
         #
         # 这三个数是 judge 那次诊断里 ``timeout_asked`` 的同位物：judge 看着像元凶，
@@ -1479,7 +1612,7 @@ class ContinuousAgentEpisode:
                 "content": json.dumps(
                     {
                         "kind": "REPAIR_GOAL",
-                        **goal.to_dict(),
+                        **prompt_goal.to_dict(),
                         "instruction": (
                             "保留最初任务、全部原始观察和当前工具账本。"
                             + (
@@ -1826,6 +1959,73 @@ class ContinuousAgentEpisode:
             plan=ledger.plan,
         )
 
+    def _maybe_execute_empty_pool_fallback(
+        self,
+        *,
+        batch: ToolBatchResult,
+        tool_session: EpisodeToolBatchSession,
+        registry: ResearchToolRegistry,
+        context: ResearchRunContext,
+        accumulator: _EpisodeToolAccumulator,
+        tool_calls: int,
+        model_elapsed: float,
+    ) -> tuple[ToolBatchResult, dict[str, Mapping[str, object]], float] | None:
+        remaining = self._remaining_tool_slots(
+            context=context,
+            tool_calls=tool_calls,
+        )
+        if remaining <= 0:
+            return None
+        cutoff = context.information_cutoff
+        available = frozenset(
+            tool_session.available_tool_names(
+                registry=registry,
+                context=context,
+            )
+        ) | frozenset(context.contract.allowed_capabilities)
+        proposal = propose_empty_pool_fallback(
+            question_type=context.contract.question_type,
+            as_of=cutoff.as_of_date.isoformat(),
+            cutoff_source=cutoff.source,
+            prefetch_empty=prefetch_pool_is_empty(
+                getattr(registry, "opening_prefetch", ()) or ()
+            ),
+            first_results=tuple(
+                EmptyToolCall(
+                    name=item.call.name,
+                    arguments=dict(item.call.arguments),
+                    empty=item.status == "empty",
+                )
+                for item in batch.items
+            ),
+            authorized_tools=available,
+            already_attempted=fallback_already_attempted(accumulator.ledger.events),
+            in_repair=False,
+            backfill_plan=None,
+        )
+        if proposal is None:
+            return None
+        started = monotonic()
+        fallback_batch = tool_session.execute(
+            (
+                ModelToolCall(
+                    proposal.call_id,
+                    proposal.tool,
+                    proposal.fallback_arguments,
+                ),
+            ),
+            registry=registry,
+            context=context,
+            remaining_slots=remaining,
+            is_cancelled=self._is_cancelled,
+            turn_elapsed_at_dispatch=model_elapsed,
+        )
+        return (
+            fallback_batch,
+            {proposal.call_id: proposal.request_extras()},
+            max(0.0, monotonic() - started),
+        )
+
     @staticmethod
     def _remaining_tool_slots(
         *,
@@ -1881,6 +2081,27 @@ class ContinuousAgentEpisode:
         if borrowable <= 0.0:
             return baseline
         return max(0.0, min(float(self._llm_timeout), baseline + borrowable))
+
+    def _followup_planning_timeout(self, context: ResearchRunContext) -> float:
+        """证据到手后的规划窗：预扣后不够一次写作时，向 reserve 借到地板。
+
+        常规切法是 ``remaining − synthesis_reserve``。8796 第三次调用
+        remaining=72.27、reserve=60 → 只剩 12.27s，低于一次合成地板
+        （``MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS`` = 20s），写作超时；
+        同题 8792 实测写作 15.9s。借到地板，不把整段 reserve 交给还可能
+        再调工具的规划轮——第二次工具轮仍走 stage 切法。
+
+        不变量：借完之后至少还留一截合成地板（``remaining − grant ≥ floor``），
+        与首轮「只借余量」对称。
+        """
+
+        baseline = context.deadline.stage_timeout(self._llm_timeout)
+        floor = MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS
+        if baseline + 1e-9 >= floor:
+            return baseline
+        remaining = float(context.deadline.remaining())
+        protected = max(0.0, remaining - floor)
+        return max(0.0, min(float(self._llm_timeout), max(baseline, min(floor, protected))))
 
     def _decide_mode(
         self,

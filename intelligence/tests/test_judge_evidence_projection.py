@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 from intelligence.services.agent_research import AgentEvidence
@@ -16,6 +17,7 @@ from intelligence.services.episode_protocol import (
 )
 from intelligence.services.episode_semantic_verifier import (
     SemanticEpisodeVerifier,
+    _project_semantic_evidence,
     _semantic_evidence_projection,
 )
 from intelligence.services.episode_verifier import verify_episode_outcome
@@ -106,7 +108,7 @@ def _load_fixture_outcome(name: str) -> AgentOutcome:
     return AgentOutcome(
         task_frame_hash="fixture-hash",
         status="completed",
-        draft="fixture",
+        draft=str(payload.get("draft") or "fixture"),
         evidence=evidence,
         traces=(),
         gaps=(),
@@ -214,6 +216,7 @@ def test_projection_reports_zero_dropped_chars() -> None:
     payload = result.to_dict()
     assert payload["projection_dropped_field_chars"] == 0
     assert payload["projection_ordinal_mismatch_count"] == 0
+    assert payload["projection_cited_unbound_count"] == 0
 
 
 def test_repair_refuses_to_wipe_every_required_output() -> None:
@@ -241,9 +244,9 @@ def test_repair_refuses_to_wipe_every_required_output() -> None:
         content_hash="wipe-news",
     )
     draft = (
-        "【当前判断】电网设备已发酵到高位。\n"
-        "【产业链】许继电气位于设备中游。\n"
-        "【反证】量能尚未确认放量。\n"
+        "【当前判断】据E99，电网设备已发酵到高位。\n"
+        "【产业链】据E98，许继电气位于设备中游。\n"
+        "【反证】据E97，量能尚未确认放量。\n"
         "以上内容供研究参考。"
     )
     contract = ResearchTaskContract(
@@ -296,6 +299,61 @@ def test_repair_refuses_to_wipe_every_required_output() -> None:
         if item.status == "missing"
     ]
     assert missing != ["direct_assessment", "chain_mapping", "counterpoint"]
+
+
+def test_projection_includes_prose_cited_unbound_evidence() -> None:
+    # R-20260821-06（E4 案 live 复现）：正文显式引用注册表真有的证据，只是漏写进
+    # bindings 数组 → 判官注册表看不到该卡，按「引用不存在」删掉真因果句。引用
+    # 本身就是答案对依赖的声明（比记账数组更显式），投影选集改为
+    # 绑定 ∪ 正文可反解引用；未引用未绑定的卡仍不送判官，绑定纪律不放宽。
+    outcome, _bound = _news_bound_after_unbound()
+    outcome = replace(
+        outcome,
+        draft="【当前判断】发酵初期（E1 未证实线索）；中标已验证（E3）。",
+    )
+    _bindings, registry = _semantic_evidence_projection(outcome)
+    by_id = _registry_by_id(registry)
+    assert set(by_id) == {"E1", "E3"}
+    assert "未绑定标题甲" in str(by_id["E1"].get("title") or "")
+    # E2 未引用且未绑定：仍然不送判官。
+    assert "E2" not in by_id
+
+
+def test_projection_ignores_lookalike_and_out_of_table_refs() -> None:
+    # 越界引用（表里没有 E9）不做模糊纠正，留给判官照旧否证——fail-closed 不变；
+    # PE10 / 1.5E8 这类形似 token 不算引用。
+    outcome, _bound = _news_bound_after_unbound()
+    outcome = replace(
+        outcome,
+        draft="PE10 偏高；市值 1.5E8；引用 E9 越界。已验证事实见 E3。",
+    )
+    _bindings, registry = _semantic_evidence_projection(outcome)
+    assert {str(row["evidence_id"]) for row in registry} == {"E3"}
+
+
+def test_prose_cited_rows_keep_ordinal_sentinel_quiet() -> None:
+    # D2 哨兵（projection_ordinal_mismatch_count）语义是「绑定集合的发放 id 与
+    # 投影 id 是否错位」；引用补送的行不属于绑定集合，不得把哨兵点亮。
+    outcome, _bound = _news_bound_after_unbound()
+    outcome = replace(outcome, draft="（E1）线索；（E3）中标。")
+    _bindings, _registry, telemetry = _project_semantic_evidence(outcome)
+    assert telemetry.ordinal_mismatch_count == 0
+    assert telemetry.cited_unbound_count == 1
+
+
+def test_frozen_perovskite_restores_cited_unbound_e4() -> None:
+    # 冻结自 run_20260821_171744_929436（2026-08-21 钙钛矿换形探针）：正文 18 处
+    # E 引用，绑定覆盖 17 个，唯独 E4（财联社「反式钙钛矿电池实现产业化验证」，
+    # 注册表真有）漏绑 → 判官删掉引用它的两句真因果。修后 E4 必须在注册表。
+    outcome = _load_fixture_outcome("pv-perovskite-e4.json")
+    _bindings, registry, telemetry = _project_semantic_evidence(outcome)
+    by_id = _registry_by_id(registry)
+    assert "反式钙钛矿" in str(by_id["E4"].get("title") or "")
+    assert telemetry.cited_unbound_count == 1
+    # 已绑定但未引用的仍在（E13/E30）；未绑定未引用的仍不在（E2/E31）。
+    assert "E13" in by_id and "E30" in by_id
+    assert "E2" not in by_id and "E31" not in by_id
+    assert len(registry) == 20
 
 
 def test_frozen_b4_keeps_writer_title_on_e31() -> None:

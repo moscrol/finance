@@ -11,6 +11,7 @@ from intelligence.services.asof_prefetch import (
     collect_prefetch_items,
     dual_red_counts,
     is_fermentation_query,
+    resolve_prefetch_sector,
     standing_iso_from_query,
 )
 from intelligence.services.episode_factory import build_episode_context
@@ -237,3 +238,48 @@ def test_non_fermentation_theme_question_skips_dual_red_window(
         market_db_path=db,
     )
     assert items == ()
+
+
+PCB_CONCEPT_QUERY = (
+    "PCB概念这波是怎么发酵到 2026-08-07 这个位置的？"
+    "把链路回溯一下，每一步给出当天的涨幅、成交额和成交额环比变化"
+)
+
+
+def test_prefetch_prefers_exact_name_in_query_over_short_subject(
+    tmp_path: Path,
+) -> None:
+    """问句写了 PCB概念，decide_turn 却收成 subject=PCB。
+
+    两套口径同日数字差一倍（概念 4.74%/3432 亿 vs 短名 8.71%/1295 亿）。
+    短名在表里也有行，修前会直接锚 PCB，把问句点名的长口径挤掉。
+    """
+
+    db = _sector_db(
+        tmp_path / "pcb.duckdb",
+        [
+            (date(2026, 8, 7), "PCB", 8.71, 23.06, 1295.16),
+            (date(2026, 8, 7), "PCB概念", 4.74, 23.72, 3432.59),
+        ],
+    )
+    con = duckdb.connect(str(db), read_only=True)
+    try:
+        assert resolve_prefetch_sector(con, PCB_CONCEPT_QUERY, "PCB") == "PCB概念"
+    finally:
+        con.close()
+
+    items = collect_prefetch_items(
+        question=PCB_CONCEPT_QUERY,
+        question_type="theme_analysis",
+        subject="PCB",
+        as_of=date(2026, 8, 7),
+        market_db_path=db,
+    )
+    timeline = next(item for item in items if "双红时间轴" in item.title)
+    assert timeline.title == "PCB概念 双红时间轴"
+    assert "板块=PCB概念" in timeline.detail
+    assert "板块=PCB；" not in timeline.detail
+    assert "涨跌幅=4.74" in timeline.detail
+    assert "成交额亿=3432.59" in timeline.detail
+    assert "涨跌幅=8.71" not in timeline.detail
+    assert "成交额亿=1295.16" not in timeline.detail

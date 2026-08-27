@@ -369,6 +369,16 @@ def _task_authorizes_historical_window(
     )
 
 
+def _window_anchored_on_episode_dates(
+    spec: finance_query.FinanceQuerySpec,
+    authorized_trade_dates: set[str] | frozenset[str],
+) -> bool:
+    """窗口起点已在本轮证据里 → 允许查那一天，不看题型。"""
+
+    start = spec.time_range.start if spec.time_range is not None else None
+    return bool(start is not None and start.isoformat() in authorized_trade_dates)
+
+
 def _requests_earlier_window(
     spec: finance_query.FinanceQuerySpec,
     *,
@@ -528,9 +538,27 @@ def _roots(
 
 
 def _is_fermentation_prefetch(frame: TaskFrame) -> bool:
-    from intelligence.services.asof_prefetch import is_fermentation_query
+    from intelligence.services.query_understanding import (
+        SIGNAL_FERMENTATION,
+        surface_research_signals,
+    )
+    from intelligence.services.research_contract import (
+        OPERATOR_STRICT_DOUBLE_RED,
+        compile_research_program,
+    )
 
-    return is_fermentation_query(frame.raw_question)
+    program = compile_research_program(
+        frame.raw_question,
+        question_class=frame.question_type,
+    )
+    signals = surface_research_signals(
+        frame.raw_question,
+        question_class=frame.question_type,
+    )
+    return (
+        OPERATOR_STRICT_DOUBLE_RED in program.operators
+        and SIGNAL_FERMENTATION in signals
+    )
 
 
 def _asof_prefetch_text(
@@ -558,6 +586,10 @@ def _opening_prefetch_evidence(
     frame: TaskFrame,
     context: ResearchRunContext,
     market_db_path: Path,
+    *,
+    user_space=None,
+    perspective_ids: tuple[str, ...] = (),
+    perspective_mode: str = "neutral",
 ) -> tuple[agent_research.AgentEvidence, ...]:
     from intelligence.services.asof_prefetch import (
         collect_prefetch_items,
@@ -575,7 +607,51 @@ def _opening_prefetch_evidence(
         )
     except Exception:
         return ()
-    return evidence_from_prefetch(items)
+    evidence = list(evidence_from_prefetch(items))
+    if frame.question_type == "market_forecast":
+        for item in _live_weekly_opening_evidence(
+            items,
+            user_space=user_space,
+            perspective_ids=perspective_ids,
+            perspective_mode=perspective_mode,
+        ):
+            digest = str(item.content_hash or "").strip() or agent_research.evidence_content_hash(item)
+            evidence.append(replace(item, content_hash=digest))
+    return tuple(evidence)
+
+
+def _live_weekly_opening_evidence(
+    items,
+    *,
+    user_space,
+    perspective_ids: tuple[str, ...],
+    perspective_mode: str,
+) -> tuple[agent_research.AgentEvidence, ...]:
+    from intelligence.services.perspective_live_weekly import (
+        bind_live_weekly,
+        live_weekly_evidence,
+        retrieve_analog_snippets,
+    )
+
+    pid = next((str(item).strip() for item in perspective_ids if str(item).strip()), "")
+    receipt = bind_live_weekly(
+        user_space,
+        pid,
+        perspective_mode=perspective_mode,
+    )
+    analogs: list[dict[str, str]] = []
+    if receipt.bound and receipt.date and user_space is not None and pid:
+        tape = next(
+            (str(item.detail) for item in items if getattr(item, "title", "") == "先验周量能序列"),
+            "",
+        )
+        analogs = retrieve_analog_snippets(
+            user_space,
+            pid,
+            tape or "量能 主线 双红",
+            live_date=receipt.date,
+        )
+    return live_weekly_evidence(receipt, analogs)
 
 
 def latest_market_date(
@@ -682,6 +758,9 @@ def build_episode_registry(
     fixture_policy: SealedFixturePolicy | None = None,
     memory_user: str | None = None,
     memory_users_root: str | Path | None = None,
+    perspective_ids: tuple[str, ...] = (),
+    perspective_mode: str = "neutral",
+    user_space=None,
 ) -> ResearchToolRegistry:
     """Build a read-only registry from the repository's current tool runners."""
 
@@ -1127,6 +1206,9 @@ def build_episode_registry(
             historical_authorized = _task_authorizes_historical_window(
                 frame,
                 floor=freshness_floor,
+            ) or _window_anchored_on_episode_dates(
+                bounded_value,
+                context.authorized_trade_dates,
             )
             if _requests_earlier_window(
                 bounded_value,
@@ -1257,11 +1339,11 @@ def build_episode_registry(
                 name="finance_query",
                 capability="finance_query",
                 description=(
-                    "查询本地结构化金融数据。dataset 可选 market_daily、"
-                    "stock_daily、sector_daily、sector_stock_daily、"
-                    "mainline_theme_daily、mainline_sector_daily；由你选择"
-                    "指标、维度、筛选、分组、排序和时间范围。字段必须按"
-                    "dataset 对应关系选择，不要混用不同 dataset 的字段。"
+                    "查询本地结构化金融数据。dataset 必须选自当前注册表"
+                    f"（{ '、'.join(finance_query._PUBLIC_DATASETS) }）；"
+                    "周历/周末大事用 event_daily。"
+                    "由你选择指标、维度、筛选、分组、排序和时间范围。"
+                    "字段必须按 dataset 对应关系选择，不要混用不同 dataset 的字段。"
                     f"可用字段：{finance_query.dataset_field_hint()}"
                 ),
                 cost="local",
@@ -1438,9 +1520,25 @@ def build_episode_registry(
             )
         )
 
+    live_us = user_space
+    if live_us is None and str(memory_user or "").strip():
+        from intelligence import userspace
+
+        try:
+            live_us = userspace.user_space(memory_user)
+        except ValueError:
+            # Audit probe / illegal id: skip live weekly, keep assembling tools.
+            live_us = None
     return ResearchToolRegistry(
         tuple(specs),
-        opening_prefetch=_opening_prefetch_evidence(frame, context, market_db_path),
+        opening_prefetch=_opening_prefetch_evidence(
+            frame,
+            context,
+            market_db_path,
+            user_space=live_us,
+            perspective_ids=tuple(perspective_ids),
+            perspective_mode=perspective_mode,
+        ),
     )
 
 

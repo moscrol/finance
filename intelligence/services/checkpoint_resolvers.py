@@ -253,7 +253,7 @@ class MarketDailyResolver:
                 gap=f"{trade_date} 在 fact_market_daily 无行：当日未同步，或本就不是交易日",
                 fallback="无 fallback：不拿相邻交易日顶替当日（那是换了个题目在答）",
                 todo=[
-                    f"先分清是未同步还是非交易日；未同步则 `daily-full --trade-date {trade_date}` 补，非交易日则改 checkpoint 的 due",
+                    f"先分清是未同步还是非交易日；未同步则 `python3 skills/daily-full-review/scripts/run_review_sync.py --date {trade_date}` 补，非交易日则改 checkpoint 的 due",
                 ],
             )
         observed: dict[str, Any] = {"trade_date": trade_date, "conditions": []}

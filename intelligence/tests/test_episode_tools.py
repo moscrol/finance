@@ -208,7 +208,7 @@ def test_sealed_fixture_registry_is_local_only(tmp_path, monkeypatch) -> None:
         fixture_policy=episode_tools.SealedFixturePolicy(),
     )
 
-    assert registry.names() == (
+    assert set(registry.names()) == {
         "kb_search",
         "graph_lookup",
         "evidence_lookup",
@@ -216,7 +216,7 @@ def test_sealed_fixture_registry_is_local_only(tmp_path, monkeypatch) -> None:
         "financial_data",
         "finance_query",
         "evidence_search",
-    )
+    }
     registry.execute(
         "market_data",
         {},

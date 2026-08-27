@@ -327,6 +327,35 @@ class LoaderAndBlockTests(unittest.TestCase):
         self.assertIsInstance(payload["analogs"], list)
         self.assertIsInstance(payload["current_summary"], dict)
 
+    def test_loader_respects_as_of(self) -> None:
+        """取数层是唯一截断点：as_of 之后的行不得进入向量序列。"""
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            self._make_db(db, n=200, hot_ranges=[(40, 60), (180, 200)])
+            con = duckdb.connect(str(db), read_only=True)
+            cut_vectors, _ = load_market_regime_vectors(con, as_of=_day(120))
+            all_vectors, _ = load_market_regime_vectors(con)
+            con.close()
+        self.assertEqual(len(cut_vectors), 121)
+        self.assertEqual(str(cut_vectors[-1]["trade_date"]), _day(120))
+        self.assertEqual(len(all_vectors), 200)
+
+    def test_analog_windows_never_cross_as_of(self) -> None:
+        """历史窗口与其后续事实都不得跨过问句截止日。"""
+        cut = _day(120)
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            self._make_db(db, n=200, hot_ranges=[(40, 60), (180, 200)])
+            artifact = load_market_regime_artifact(db, as_of=cut)
+            cut_block = regime_block_for_llm(db, as_of=cut)
+            full_block = regime_block_for_llm(db)
+        self.assertTrue(artifact.available)
+        for a in artifact.analogs:
+            self.assertLessEqual(str(a["end_date"]), cut)
+        self.assertIn("[D10]", cut_block)
+        # 库尾 180~200 是涨停潮、101~120 是缩量弱势；截断若失效两块会一模一样
+        self.assertNotEqual(cut_block, full_block)
+
 
 class WiringTests(unittest.TestCase):
     """D10 接线断言（slice 2）：注册表门控 / claim 状态 / 路由 / 研究操作符。"""

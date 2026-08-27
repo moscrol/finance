@@ -120,6 +120,48 @@ launchctl load ~/Library/LaunchAgents/com.financeworkspace.dream-collect.plist
 
 ---
 
+# dream-mine · Workbench 会话夜间挖掘（dream loop 重定向 P0，2026-08-26）
+
+> 设计稿：`docs/superpowers/specs/2026-08-26-dream-loop-repoint-design.md`。
+> 背景：采集半原设计的燃料源（飞书 bot）已退役，真正的对话语料在 Workbench 会话存储里
+> （纯文件 `conversations/conv_*/{conversation.json,messages.jsonl}`）。本命令把「潜意识」
+> 从"你得记得开 session"翻转成"每晚自动提案、你只管批"。
+
+数据流：collector `workbench` 源（归一化+脱敏入 store，全复用）→ miner（LLM 严格 JSON
+只挖**用户侧**发言；水位=`updated_at`；预算+声明式截断）→ 提案进潜意识 buffer
+（`session=dream-<date>`，不动 active 标记）+ vault 人读 md（`潜意识提案/<日期>.md`）→
+人工 `subconscious review/commit --session dream-<date> --apply` 才落台账（commit 落
+interactions + judgments + vault 三处，judgments 进 foresight 回灌线）。
+
+红线：挖掘输入只来自已脱敏 store（miner 摸不到原文）；suggest-only（本命令绝不写台账）；
+无 LLM key 降级为仅采集、提案 0、降级标记进 md、**不推进水位**（下晚重试）；不 git、不碰
+DuckDB、不读 workbench.sqlite3。
+
+```bash
+# 手动跑一次（--dry-run 只打印候选；--no-llm 降级演练）
+python3 -m intelligence.cli dream-mine \
+  --conversations-dir ~/.local/share/finance-workbench/users/<id>/conversations \
+  --store-dir <知识库>/raw/transcripts \
+  --user <id> --json
+# 复核与采纳（不 commit 不落台账）
+python3 -m intelligence.cli subconscious review --session dream-<date> --user <id>
+python3 -m intelligence.cli subconscious commit --session dream-<date> --user <id> --apply
+```
+
+launchd（每晚 04:05，错峰 checkpoint-recheck 03:50）：模板
+`com.financeworkspace.dream-mine.plist`，替换 `__PYTHON__` / `__WORKSPACE__` / `__USER__` /
+`__CONVERSATIONS_DIR__` / `__DREAM_STORE__` / `__SUBCONSCIOUS_VAULT__` 后装入
+`~/Library/LaunchAgents/`。**store 目录必须显式传**（`resolve_store_dir` 默认链含陈旧路径）。
+
+杀死条件（预先声明）：上线后连续 4 周（≥20 个夜跑）无一次人工 `commit --apply`，
+即卸载 plist、能力图谱标退役、回封存方案。不许改成「再观察一阵」。
+
+> 处置对照：`dream-nightly`（git 分支推送编排）与下方 7A/7B 是飞书时代产物——7B 职能已被
+> daily-agent 的 kb-ingest-queue 覆盖，7A 由 strategy-evolve skill 按需替代；三者**不部署**，
+> 代码与测试保留。详见设计稿 §5 P2。
+
+---
+
 # dream-loop · 推理半之 7A/7B（C-1C）
 
 > 决策 1 的**推理半**编排：在采集半产出 digest 之后，把「策略调参建议」与「KB 事实回写候选」

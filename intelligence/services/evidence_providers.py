@@ -927,6 +927,17 @@ def collect_evidence_index(
                 company=target_name if target_name in company_evidence_concepts else None,
             )
         )
+    wiki_root = getattr(ctx.knowledge, "wiki_root", None)
+    if wiki_root:
+        from intelligence.services import l3_ingest
+
+        companies = list(company_evidence_concepts)
+        if ctx.anchor is not None and ctx.anchor.entity:
+            companies.append(ctx.anchor.entity)
+        wiki_lines = l3_ingest.format_applied_l3_lines(
+            l3_ingest.iter_applied_l3_notes(wiki_root, companies)
+        )
+        evidence_lines.extend(wiki_lines)
     return bundle
 
 

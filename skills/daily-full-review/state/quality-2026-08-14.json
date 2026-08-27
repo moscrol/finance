@@ -1,0 +1,71 @@
+{
+  "trade_date": "2026-08-14",
+  "window": 20,
+  "gaps": [
+    {
+      "table": "fact_core_stock_daily",
+      "missing_dates": [
+        "2026-08-14"
+      ]
+    },
+    {
+      "table": "fact_dragon_tiger_daily",
+      "missing_dates": [
+        "2026-08-14"
+      ]
+    },
+    {
+      "table": "fact_leader_height_daily",
+      "missing_dates": [
+        "2026-08-14"
+      ]
+    },
+    {
+      "table": "fact_global_index_daily",
+      "missing_dates": [
+        "2026-08-14"
+      ]
+    },
+    {
+      "table": "fact_global_stock_daily",
+      "missing_dates": [
+        "2026-08-14"
+      ]
+    },
+    {
+      "table": "fact_dragon_summary_daily",
+      "missing_dates": [
+        "2026-08-14"
+      ]
+    },
+    {
+      "table": "fact_dragon_seat_daily",
+      "missing_dates": [
+        "2026-08-14"
+      ]
+    }
+  ],
+  "row_anomalies": [
+    {
+      "table": "fact_core_stock_daily",
+      "rows": 0,
+      "median": 50,
+      "note": "当日 0 行 < 近20日中位数 50 × 0.5"
+    },
+    {
+      "table": "fact_global_index_daily",
+      "rows": 0,
+      "median": 5,
+      "note": "当日 0 行 < 近20日中位数 5 × 0.5"
+    },
+    {
+      "table": "fact_global_stock_daily",
+      "rows": 0,
+      "median": 194,
+      "note": "当日 0 行 < 近20日中位数 194 × 0.5"
+    }
+  ],
+  "range_violations": [],
+  "ok": false,
+  "brief": "fact_core_stock_daily 断档 1 日（最近 2026-08-14）；fact_dragon_tiger_daily 断档 1 日（最近 2026-08-14）；fact_leader_height_daily 断档 1 日（最近 2026-08-14）（等10项）"
+}

@@ -3,8 +3,10 @@ from __future__ import annotations
 import hashlib
 import re
 from collections import Counter
+from pathlib import Path
 from typing import Any
 
+from intelligence.services.concept_page_gate import should_drop_concept_ingest
 from intelligence.summary import now_iso
 
 
@@ -70,6 +72,7 @@ def build_kb_ingest_queue(
     source_artifact: str,
     created_at: str | None = None,
     resolved_themes: set[str] | None = None,
+    wiki_root: str | Path | None = None,
 ) -> dict[str, Any]:
     created = created_at or now_iso()
     tasks: list[dict[str, Any]] = []
@@ -89,6 +92,16 @@ def build_kb_ingest_queue(
         for task in tasks:
             if str(task["theme"]) in resolved_themes:
                 resolved_skipped.append(str(task["theme"]))
+            else:
+                kept.append(task)
+        tasks = kept
+
+    existing_concept_skipped: list[str] = []
+    if wiki_root:
+        kept = []
+        for task in tasks:
+            if task["task_type"] == TASK_CONCEPT and should_drop_concept_ingest(str(task["theme"]), wiki_root):
+                existing_concept_skipped.append(str(task["theme"]))
             else:
                 kept.append(task)
         tasks = kept
@@ -116,6 +129,7 @@ def build_kb_ingest_queue(
             "total_tasks": len(tasks),
             "by_task_type": dict(sorted(by_task_type.items())),
             "resolved_themes_skipped": sorted(set(resolved_skipped)),
+            "existing_concept_skipped": sorted(set(existing_concept_skipped)),
         },
         "glossary": GLOSSARY,
         "notes": [

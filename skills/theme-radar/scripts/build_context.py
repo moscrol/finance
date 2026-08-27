@@ -39,9 +39,15 @@ import re
 from pathlib import Path
 
 
-DEFAULT_VAULT = Path(
-    os.path.expanduser(os.environ.get("CONCEPT_VAULT", "~/Desktop/c c/知识库/wiki"))
-)
+def _default_vault() -> Path:
+    for var in ("KB_VAULT", "KNOWLEDGE_WIKI", "CONCEPT_VAULT", "ENTITY_VAULT"):
+        val = os.environ.get(var)
+        if val:
+            return Path(os.path.expanduser(val))
+    return Path.home() / "knowledge-base-private" / "wiki"
+
+
+DEFAULT_VAULT = _default_vault()
 
 # Map knowledge-base supply-chain bucket keys / entity chain_layer prefixes to
 # human-readable Chinese labels used in the rendered report.

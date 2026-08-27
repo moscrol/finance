@@ -31,6 +31,9 @@ from pathlib import Path
 from threading import Lock
 
 from intelligence.services import rag_worker
+from intelligence.services.kb_index_hygiene import fetch_k, sanitize_hits
+from intelligence.services.kb_slot_rerank import allocate_topk_slots
+from intelligence.services.kb_window_reexcerpt import reexcerpt_hits
 
 # rag_index.py lives at <KB repo root>/scripts/rag_index.py; the KB repo root is
 # the parent of the wiki root (KnowledgeAdapter.resolved_wiki_root.parent).
@@ -253,6 +256,7 @@ class WikiHit:
     source_type: str = ""
     via_neighbor: bool = False
     source_date: str = ""
+    reexcerpted: bool = False
 
 
 # 检索方式 → 人类可读的“用了什么召回”说明（教学 / 可观测用）。
@@ -350,6 +354,10 @@ class RetrievalTelemetry:
     # 实测冷 60.1s / 热 4-6s，差 10 倍以上，所以冷查询的耗时不能当成后续查询的
     # 成本样本——下游预算据此决定要不要采纳这次观测。
     model_loaded: bool = False
+    # V9a：指针页丢弃数。None = 本条遥测未跑重摘录（历史 run 报不可判，不报 0）。
+    pointer_dropped: int | None = None
+    # V9b：结构邻页代表块排后数。None = 未跑槽位重排（历史 run 报不可判，不报 0）。
+    structural_neighbor_demoted: int | None = None
 
     def summary_line(self) -> str:
         """一行可观测摘要，供回答 / 日志展示。"""
@@ -760,7 +768,9 @@ def retrieve(
     if budget_reason:
         tel.fallback_reason = budget_reason
         tel.degraded = True
-    tel.k = int(k)
+    requested_k = int(k)
+    tel.k = requested_k
+    query_k = fetch_k(requested_k)
     tel.display_excerpt_chars = int(excerpt_chars)
     if not kb_wiki:
         res.warning = "wiki-rag 需要知识库 wiki 路径 (--kb-wiki / KNOWLEDGE_WIKI)"
@@ -841,7 +851,7 @@ def retrieve(
         str(chosen),
         tel.index_fingerprint,
         query,
-        int(k),
+        requested_k,
         requested_mode,
         int(excerpt_chars),
         int(llm_evidence_chars),
@@ -877,7 +887,7 @@ def retrieve(
         "query",
         str(query),
         "--k",
-        str(k),
+        str(query_k),
         "--mode",
         effective_mode,
     ]
@@ -909,7 +919,7 @@ def retrieve(
         else ""
     )
     res.command = (
-        f"rag_index.py query <q> --k {k} --mode {effective_mode}"
+        f"rag_index.py query <q> --k {query_k} --mode {effective_mode}"
         f"{evidence_chars_note}{filter_note} --json"
     )
     res.citation_source = (
@@ -1049,7 +1059,7 @@ def retrieve(
             "分层过滤未生效，本轮召回为未过滤结果"
         )
         res.command = (
-            f"rag_index.py query <q> --k {k} --mode {mode}{filter_note} --json"
+            f"rag_index.py query <q> --k {query_k} --mode {mode}{filter_note} --json"
         )
         try:
             if worker_enabled and not filters:
@@ -1111,7 +1121,7 @@ def retrieve(
         tel.recall_desc = _MODE_RECALL_DESC["bm25"]
         tel.degraded = True
         res.command = (
-            f"rag_index.py query <q> --k {k} --mode bm25"
+            f"rag_index.py query <q> --k {query_k} --mode bm25"
             f"{evidence_chars_note if '--evidence-chars' in fallback_cmd else ''}"
             f"{filter_note} --json"
         )
@@ -1264,6 +1274,11 @@ def retrieve(
             tel.degraded = True
             states = ",".join(sorted({hit.index_freshness for hit in hits}))
             warnings.append(f"wiki-rag 索引新鲜度={states}，探索模式保留降级证据")
+    hits, reexcerpt = reexcerpt_hits(hits, wiki_root=wiki_root)
+    tel.pointer_dropped = reexcerpt.pointer_dropped
+    hits, slot_stats = allocate_topk_slots(hits)
+    tel.structural_neighbor_demoted = slot_stats.demoted
+    hits = sanitize_hits(hits, k=requested_k)
     res.warning = "；".join(dict.fromkeys(warning for warning in warnings if warning))
     res.hits = hits
     apply_total_llm_budget(res.hits, int(llm_evidence_total_chars))

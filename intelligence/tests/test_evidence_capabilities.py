@@ -82,6 +82,49 @@ def test_current_market_mainline_variants_share_one_evidence_profile():
     )
 
 
+# R-20260821-05（生产 n=3 复现）：个股题「涨跌幅/成交额」命中盘面度量词后，曾被
+# 套上市场级 mainline_current 计划——market_data（市场总览）+ mainline_context
+# 成为 mandatory。个股走势本身走 finance_query，这两条组合事实约束在公司主体题
+# 形下要么结构性缺失（每答必记 missing_mandatory_capability，修复轮白白追逐），
+# 要么答非所问（修复轮被契约压着调 market_data，市场级数字混进个股稿）。
+# 公司主体题形降级为背景计划：能力保留（optional，背景放大器可取），义务移除。
+def test_stock_deep_dive_with_market_measure_words_demotes_market_mandates():
+    plan = resolve_evidence_plan(
+        "皇氏集团最近两周（2026-08-06到2026-08-20）的走势复盘："
+        "几个关键转折日各自的涨跌幅和成交额是多少？",
+        question_type="stock_deep_dive",
+    )
+    assert plan.profile == "company_current_backdrop"
+    assert plan.mandatory_capabilities == ()
+    optional = {item.capability for item in plan.requirements if not item.mandatory}
+    assert {"market_data", "mainline_context"} <= optional
+
+
+@pytest.mark.parametrize(
+    "question_type", ["valuation_estimate", "financial_analysis"]
+)
+def test_company_subject_types_share_backdrop_demotion(question_type: str):
+    # valuation_estimate 在 episode_factory 已有同意图先例（剥掉 resolve 计划里的
+    # market_data 再换公司级锚点）；financial_analysis 同为公司主体。三个题形共用
+    # 一条降级线，避免「以当前股价看」这类措辞把 mainline_context 义务带进公司题。
+    plan = resolve_evidence_plan(
+        "以当前股价和成交额看，这家公司最近的涨跌说明什么",
+        question_type=question_type,
+    )
+    assert plan.profile == "company_current_backdrop"
+    assert plan.mandatory_capabilities == ()
+
+
+def test_market_subject_question_keeps_mainline_mandates():
+    # 市场主体题不受降级影响：MARKET_DAILY+D4 组合事实约束原样保留。
+    plan = resolve_evidence_plan(
+        "目前市场的主线是什么",
+        question_type="market_watch",
+    )
+    assert plan.profile == "mainline_current"
+    assert plan.mandatory_capabilities == ("market_data", "mainline_context")
+
+
 def test_historical_market_question_does_not_force_current_data():
     plan = resolve_evidence_plan(
         "复盘2025年A股市场主线",
@@ -172,7 +215,7 @@ def test_fed_event_theme_analysis_also_overlays_news_and_web():
         question_type="theme_analysis",
     )
     capabilities = {item.capability for item in plan.requirements}
-    assert capabilities == {"news_search", "web_search"}
+    assert {"news_search", "web_search", "kb_search"} <= capabilities
     assert all(item.mandatory is False for item in plan.requirements)
 
 

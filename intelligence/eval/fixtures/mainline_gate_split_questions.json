@@ -1,0 +1,38 @@
+[
+  {
+    "case_id": "gated-v1-original",
+    "text": "目前市场的主线是什么",
+    "as_of": "2026-07-22",
+    "_gate": "market_watch → 门控触发；关断旋钮应成为 no-op，Δ 预期 ≈0"
+  },
+  {
+    "case_id": "gated-v2-direction",
+    "text": "现在市场的主线方向有哪些",
+    "as_of": "2026-07-22",
+    "_gate": "market_watch → 门控触发"
+  },
+  {
+    "case_id": "gated-v6-current",
+    "text": "当前市场的主线是什么",
+    "as_of": "2026-07-22",
+    "_gate": "market_watch → 门控触发"
+  },
+  {
+    "case_id": "ungated-v3-strongest",
+    "text": "当前 A 股最强的主线是哪条",
+    "as_of": "2026-07-22",
+    "_gate": "general_finance_qa → 不触发（对照臂，Δ 预期保持组件活跃量级）"
+  },
+  {
+    "case_id": "ungated-v4-funds",
+    "text": "市场资金现在在围绕什么主线交易",
+    "as_of": "2026-07-22",
+    "_gate": "general_finance_qa → 不触发（对照臂）"
+  },
+  {
+    "case_id": "ungated-v5-rotation",
+    "text": "本周市场主线有没有发生切换",
+    "as_of": "2026-07-22",
+    "_gate": "general_finance_qa → 不触发（对照臂）"
+  }
+]

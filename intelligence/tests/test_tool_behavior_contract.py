@@ -59,6 +59,20 @@ class TestContractReachesTheModel:
         assert registry.tool_definitions()[0]["function"]["description"] == "工具描述"
         assert registry.prompt_block() == "- t（t，local，stable）：工具描述"
 
+    def test_authorized_specs_and_tool_definitions_are_sorted_by_name(self) -> None:
+        registry = reg.ResearchToolRegistry(
+            (_spec("zeta"), _spec("alpha"), _spec("mu"))
+        )
+
+        assert [spec.name for spec in registry.authorized_specs()] == [
+            "alpha",
+            "mu",
+            "zeta",
+        ]
+        assert [
+            item["function"]["name"] for item in registry.tool_definitions()
+        ] == ["alpha", "mu", "zeta"]
+
 
 class TestShippedContracts:
     """每条契约各自钉住它要防的那个误读。

@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from intelligence.services.episode_factory import build_episode_context
+from intelligence.services.task_frame import TaskFrame
 from intelligence.runtime.turn_control_core import TurnControlCore
 
 
@@ -137,6 +138,50 @@ def test_market_cause_requires_time_aligned_news_evidence() -> None:
         "market_data",
         "news_search",
     }
+
+
+def test_stock_frame_with_measure_words_has_no_market_mandates() -> None:
+    # R-20260821-05（生产 n=3）：stock_deep_dive + 「涨跌幅/成交额」曾命中盘面
+    # 度量词被套上 mainline_current 市场级计划，market_data+mainline_context 进
+    # mandatory——结构核验层据此每答必记 missing_mandatory_capability，修复轮
+    # 还会把市场总览数字压进个股稿。契约不得再带这两条义务；但能力保持授权
+    # （背景放大器可取）。live 路由是 LLM 给的 stock_deep_dive（启发式回退是
+    # quick_fact），所以这里直接构造 frame 钉 live 形状。
+    frame = TaskFrame(
+        raw_question=(
+            "皇氏集团最近两周（2026-08-06到2026-08-20）的走势复盘："
+            "几个关键转折日各自的涨跌幅和成交额是多少？"
+        ),
+        user_goal="复盘个股近两周走势与关键转折日",
+        question_type="stock_deep_dive",
+        subject="皇氏集团",
+        subject_kind="company",
+        market_scope="A股",
+        timeframe="2026-08-06到2026-08-20",
+        required_outputs=(
+            "direct_assessment",
+            "supporting_evidence",
+            "counterpoint",
+        ),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="company_multi_layer_evidence",
+        confidence=0.95,
+    )
+
+    context = build_episode_context(
+        frame,
+        task_id="episode-r05-stock",
+        today="2026-08-21",
+        latest_data_date="2026-08-20",
+    )
+
+    contract = context.contract
+    assert contract.evidence_plan.profile == "company_current_backdrop"
+    assert contract.evidence_plan.mandatory_capabilities == ()
+    assert "market_data" in contract.allowed_capabilities
+    assert "mainline_context" in contract.allowed_capabilities
 
 
 def test_overnight_hybrid_forecast_episode_authorizes_news_and_web() -> None:
@@ -618,6 +663,37 @@ def test_prior_recall_slot_is_scoped_to_subject_bearing_question_types() -> None
         assert "prior_recall" not in {
             item.output_id for item in context.contract.required_outputs
         }, f"{question_type} 不该带 prior_recall 槽位"
+
+
+def test_trade_advice_stance_opens_prior_recall_when_memory_is_authorized() -> None:
+    from intelligence.services.evidence_capabilities import runtime_capabilities_for_frame
+    from intelligence.services.episode_factory import build_episode_context
+    from intelligence.services.task_frame import TaskFrame
+
+    frame = TaskFrame(
+        raw_question="茅台现在该不该买",
+        user_goal="给出条件化加减仓判断",
+        question_type="trade_advice",
+        subject="茅台",
+        subject_kind="company",
+        market_scope="A股",
+        timeframe="最新可用日期",
+        required_outputs=("conditional_thesis", "invalidation_conditions"),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="conditional_thesis_evidence",
+        confidence=0.9,
+    )
+    context = build_episode_context(
+        frame,
+        task_id="prior-recall-trade-advice",
+        capabilities=runtime_capabilities_for_frame(frame),
+    )
+    assert "memory_lookup" in context.contract.allowed_capabilities
+    assert "prior_recall" in {
+        item.output_id for item in context.contract.required_outputs
+    }
 
 
 def test_prior_recall_stays_absent_where_the_tool_is_unauthorized() -> None:

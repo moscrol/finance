@@ -1,0 +1,205 @@
+{
+  "generated_at": "20260813T031929Z",
+  "base": "http://127.0.0.1:8792",
+  "preflight_ok": true,
+  "preflight_detail": "revision=d4832797 backend=continuous_glm",
+  "cases": [
+    {
+      "case_id": "A3-stock-deep-dive",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "立新能源怎么看",
+          "answer": "立新能源属于新能源运营类标的，核心看点通常不是短期题材，而是装机投产节奏、发电利用率、电价与补贴回款、融资成本，以及新疆区域的消纳和外送能力。\n\n如果你看短线，重点盯市场情绪、成交量和新能源板块整体强弱；这类票容易跟随板块轮动。 \n如果看中线，更重要的是业绩能否随着新增风光项目并网兑现，以及负债和现金流是否承压。\n\n目前你是持有中、准备买，还是想判断某个成本价附近该怎么处理？",
+          "run_id": "run_20260813_111502_147794",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 33.2,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "B1-theme-photoresist",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "光刻胶",
+          "answer": "最近一个完整交易日，半导体、电子化学品均上涨，但成交边际回落；\n但该映射本身不等同公司业务事实，核心标的仍须逐家以公告、定期报告或投资者问答确认产品种类、认证、收入与产能利用率。\n若后续未见一手材料确认订单、客户扩展或产能利用率提升，或光刻胶候选股弱于半导体指数，应下调题材独立性判断。\n证据缺口：直接回答用户问题并说明判断强度、chain_mapping中的未核验表述已删除，需补充直接证据后再判断。",
+          "run_id": "run_20260813_111535_308311",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "南大光电：ArF光刻胶有六款产品通过客户验证并实现销售，目前50吨产能尚未满产",
+              "source": "http://finance.eastmoney.com/a/202608113837709754.html",
+              "date": "2026-08-11"
+            },
+            {
+              "title": "板块日频行情（2026-08-12）",
+              "source": "本地结构化数据 · 板块日频行情",
+              "date": "2026-08-12"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] http://finance.eastmoney.com/a/202608113837709754.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "南大光电：ArF光刻胶有六款产品通过客户验证并实现销售，目前50吨产能尚未满产",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 板块日频行情",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "板块日频行情（2026-08-12）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "planning",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 166.1,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "C1-future-date-no-data",
+      "tier": "long_tail",
+      "turns": [
+        {
+          "question": "2026-07-25 市场怎么样",
+          "answer": "上证当日收跌1.61%，全市场仅534家上涨、24家跌停，成交额环比下降11.83%，数据标签为“下跌阶段、缩量观望”；这意味着反弹若无量，宜先视作修复而非趋势反转。\n条件化看，后续若市场出现成交改善、上涨家数修复，且半导体的强势从局部扩散到更广泛板块，才可提高对修复延续性的判断；若仍缩量且跌停扩散，则弱势分化判断维持。",
+          "run_id": "run_20260813_111821_384619",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "市场日频总览（2026-07-24）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-24"
+            },
+            {
+              "title": "主线板块日频结构（2026-07-24）",
+              "source": "本地结构化数据 · 主线板块日频结构",
+              "date": "2026-07-24"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-24）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 主线板块日频结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线板块日频结构（2026-07-24）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "verification",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 68.3,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    }
+  ]
+}

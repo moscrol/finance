@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 
 from intelligence.services.kb_ingest_queue import build_kb_ingest_queue
 
@@ -93,6 +95,35 @@ class KnowledgeBaseIngestQueueTest(unittest.TestCase):
 
         self.assertEqual(queue["tasks"], [])
         self.assertEqual(queue["summary"]["total_tasks"], 0)
+
+    def test_drops_complete_or_too_wide_concept_ingest_keeps_stub_and_disclosure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            concepts = Path(tmp) / "concepts"
+            concepts.mkdir()
+            (concepts / "锂.md").write_text("# 锂\n完整页，有产业链拆解。\n", encoding="utf-8")
+            (concepts / "石油.md").write_text(
+                "---\ntags: [\"待补证\"]\n---\n# 石油\n占位概念页\n",
+                encoding="utf-8",
+            )
+            queue = build_kb_ingest_queue(
+                {
+                    "today_do_ima": [
+                        {"目标": "锂", "优先级": 1, "理由": "盘面触发"},
+                        {"目标": "石油", "优先级": 2, "理由": "盘面触发"},
+                        {"目标": "机械设备", "优先级": 3, "理由": "过宽"},
+                    ],
+                    "today_find_official_evidence": [
+                        {"目标": "锂", "优先级": 1, "理由": "缺公告"},
+                    ],
+                },
+                market_date="2026-08-24",
+                source_artifact="daily-agent.json",
+                wiki_root=tmp,
+            )
+
+        themes = [(task["theme"], task["task_type"]) for task in queue["tasks"]]
+        self.assertEqual(themes, [("石油", "concept_ingest"), ("锂", "disclosure")])
+        self.assertEqual(queue["summary"]["existing_concept_skipped"], ["机械设备", "锂"])
 
 
 if __name__ == "__main__":

@@ -1,0 +1,56 @@
+{
+  "format_version": 1,
+  "benchmark": "knevo_bench6",
+  "version": "v2-recast",
+  "created_at": "2026-08-26",
+  "_provenance": {
+    "why_v2": "KC 总验收①（docs/learning/knevo-catchup-spec-2026-08-17.md §10）要求复跑 2026-07-09 的 6 题蒸馏基准，但原始题面逐字文本已确认不可恢复。2026-08-26 穷尽查证：仓内与 vault 无题面原文（2026-08-18 验收已查）；跑题脚本 /tmp/runq.sh 与产物 /tmp/bench6/ 随重启清除；本机 Claude Code 会话档案已轮换/加密；本机 Codex 7-09 会话只有双盲答卷流；Knevo 账号线上会话列表只保留最近 200 个（最老 2026-07-31），7-09 会话不可达。唯一未查的是另一台机器的会话档案。",
+    "discipline": "2026-08-18 验收红线「不自行重构题面」防的是：拿自造题面的新答案去比 7-09 的 Knevo 冻结记录。v2 不踩这条——六道新题面双方都答（Knevo 现问、Workbench 现跑），冻结同窗口的两份新答案，不与任何旧冻结记录直接比分。",
+    "correspondence": "六个考点与判定维度逐条对应 docs/learning/knevo-vs-workbench-技能包对比台账.md 的「蒸馏视角 6 题基准（2026-07-09）」表；该表仍是 v1 判定的权威记录，v2 不改写它。"
+  },
+  "_protocol": [
+    "冻结日选一个交易日盘后，anchor_date 统一填该日（下面题面里的 {ANCHOR_DATE} 全部替换）。",
+    "先本地后 Knevo：Workbench（:8792 对话入口）先跑并存档，再由用户把同一题面粘给 Knevo——顺序不可反，防看过对方答案再跑本地的污染（沿用 knevo-distill question-bank B 线冻结纪律）。",
+    "两侧答案当日冻结：Workbench 侧存 run 目录引用；Knevo 侧原文落 docs/learning/knevo-distill/bench6-v2/ 一题一文件，frontmatter 记 conversation id 与积分消耗。",
+    "判定沿用 v1 判定维度（台账 Q1-Q6 行的『考点』列），逐题写判定与依据，落台账新章节「6 题基准 v2」。",
+    "红线不变：我方答案不得引入无溯源数字、不得编数值概率；判 Knevo 胜负时区分『可复核的深度』与『不可复核的叙事丰满』。"
+  ],
+  "cases": [
+    {
+      "id": "bench6v2-q1-fact-anchor",
+      "v1_ref": "Q1 事实锚（涨停大单最强）",
+      "focus": "唯一可复核事实：口径声明 + 数值可外部对数",
+      "question": "{ANCHOR_DATE} 涨停的A股里，哪只股票的大单资金流入最强？说明你用的口径（大单怎么定义、数据源是什么），给出具体数值。"
+    },
+    {
+      "id": "bench6v2-q2-left-side-entry",
+      "v1_ref": "Q2 深信服左侧布局",
+      "focus": "多源编排 + 可证伪：财务颗粒度、资金面证据、触发/证伪条件",
+      "question": "深信服现在适合左侧布局吗？要求：给出最近几个季度的关键财务数据、资金面证据，以及可证伪的升级/放弃触发条件。"
+    },
+    {
+      "id": "bench6v2-q3-history-analog",
+      "v1_ref": "Q3 信创历史类比",
+      "focus": "小样本历史事实 vs 编概率：类比案例是否可复核、是否守住禁数值概率",
+      "question": "信创板块当前的形态和历史上哪些阶段相似？那些阶段后来怎么走的？这次可能有什么不同？"
+    },
+    {
+      "id": "bench6v2-q4-overseas-catalyst",
+      "v1_ref": "Q4 PQC 90天催化",
+      "focus": "检索广度（尤其海外源）+ 不可核实项的诚实标注",
+      "question": "后量子密码（PQC）最近90天有哪些实质性催化？包括海外的政策、标准、大厂动作，逐条给出处。"
+    },
+    {
+      "id": "bench6v2-q5-memory-recall",
+      "v1_ref": "Q5 瑞华泰+纠偏原则",
+      "focus": "私有记忆召回与承接：能否召回用户既有纠偏原则并显式应用",
+      "question": "瑞华泰最近的情况怎么看？结合我之前跟你说过的判断原则来分析。"
+    },
+    {
+      "id": "bench6v2-q6-missing-data-honesty",
+      "v1_ref": "Q6 数据安全双红/拥挤度",
+      "focus": "缺数诚实：数据不全时是否显式声明缺口而不是硬给数",
+      "question": "数据安全板块最近20个交易日里有几天是双红？当前拥挤度处于什么分位？数据从哪来、截止哪天？"
+    }
+  ]
+}

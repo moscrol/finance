@@ -1925,6 +1925,8 @@ def test_lifespan_prewarms_enabled_rag_before_ready(
     _write_market_snapshot_fixture(snapshot)
     monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(snapshot))
     monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+    # 启动器会把预热超时抬到 360；本用例锁的是默认 90。
+    monkeypatch.delenv("RAG_WORKER_PREWARM_TIMEOUT", raising=False)
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
     calls: list[tuple[Path, float]] = []
@@ -1973,6 +1975,7 @@ def test_rag_prewarm_failure_keeps_readiness_closed(
     _write_market_snapshot_fixture(snapshot)
     monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(snapshot))
     monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+    monkeypatch.delenv("RAG_WORKER_PREWARM_TIMEOUT", raising=False)
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
 
@@ -2918,6 +2921,53 @@ def test_daily_run_uses_one_pass_llm_and_template_followups(
     assert saved.status == rs.STATUS_COMPLETED
     assert saved.source_date == "2026-07-10"
     assert "输出质检：盘面数据需要复核" in saved.degrades
+    assert "llm_unavailable_template_followups" not in saved.degrades
+
+
+def test_non_daily_ask_defaults_to_template_followups(tmp_path, monkeypatch) -> None:
+    from intelligence.services import ask as ask_svc
+    from intelligence.services import followups as followups_svc
+    from intelligence.services.ask import AskResult
+
+    captured: dict[str, object] = {}
+
+    def fake_answer(options):
+        result = AskResult(
+            query=options.query,
+            trade_date="2026-07-10",
+            matched_theme="液冷",
+            candidate_tier="watch",
+            priority_score=80,
+        )
+        result.synthesis = "液冷订单证据仍需核对。"
+        return result
+
+    def fake_followups(*args, use_llm=True, **kwargs):
+        captured["followups_use_llm"] = use_llm
+        return followups_svc.FollowupResult()
+
+    monkeypatch.setattr(ask_svc, "answer_query", fake_answer)
+    monkeypatch.setattr(
+        ask_svc, "render_answer", lambda result: "# 结论\n液冷订单证据仍需核对。"
+    )
+    monkeypatch.setattr(followups_svc, "generate_followups", fake_followups)
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    store = RunStore(root=tmp_path / "runs")
+    run = store.create_run("液冷怎么看", "ask")
+    request = app_module.CreateRunRequest(
+        question="液冷怎么看",
+        task_type="ask",
+        repo_root=repo_root,
+    )
+
+    app_module._run_ask(store, run.run_id, request)
+
+    assert captured["followups_use_llm"] is False
+    saved = store.load_run(run.run_id)
+    assert saved.status == rs.STATUS_COMPLETED
+    assert "llm_unavailable_template_followups" not in saved.degrades
 
 
 def test_missing_run_404(client: TestClient) -> None:

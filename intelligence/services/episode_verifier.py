@@ -17,6 +17,7 @@ from intelligence.services.episode_output_substance import (
     required_output_evidence_floor,
     required_outputs_without_substance,
 )
+from intelligence.services.evidence_capabilities import collect_satisfied_plan_capabilities
 from intelligence.services.generic_research_owner import CompletionReport
 from intelligence.services.research_contract import (
     OutputStatus,
@@ -301,18 +302,22 @@ def verify_episode_outcome(
                 )
             )
 
-    available_tools = {
-        item.tool
+    usable_evidence = tuple(
+        item
         for item in outcome.evidence
         if item.content_hash.strip()
         and item.content_hash not in stripped_hashes
         and str(item.detail or "").strip()
         and "预取失败" not in str(item.detail)
-    }
+    )
+    available_capabilities = collect_satisfied_plan_capabilities(
+        usable_evidence,
+        outcome.traces,
+    )
     mandatory_missing = tuple(
         capability
         for capability in contract.evidence_plan.mandatory_capabilities
-        if capability not in available_tools
+        if capability not in available_capabilities
     )
     if mandatory_missing:
         joined = ",".join(mandatory_missing)

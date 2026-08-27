@@ -233,6 +233,16 @@ class AskOptions:
         repr=False,
         compare=False,
     )
+    # market_watch 组件包。编排器在 owner 分叉前写入；缺席 = 本题不是该包。
+    market_watch_pack: Any = field(default=None, repr=False, compare=False)
+    # 板块披露扫描包。编排器在 owner 分叉前写入；缺席 = 本题不是该包。
+    disclosure_scan_pack: Any = field(default=None, repr=False, compare=False)
+    # 自选简报包。编排器在 owner 分叉前写入；缺席 = 本题不是该包。
+    watchlist_digest_pack: Any = field(default=None, repr=False, compare=False)
+    # 个性化接合核。编排器在 handle() 前写入；缺席 = 本题未触发 StancePack。
+    stance_pack: Any = field(default=None, repr=False, compare=False)
+    # 输入侧研究程序。只由 compile_research_program / bind_research_program 写入。
+    research_program: Any = field(default=None, repr=False, compare=False)
 
 
 @dataclass
@@ -380,6 +390,8 @@ class AskResult:
     valuation_note: valuation_gap.ValuationGapNote | None = None
     # Review 层：输出前六项确定性检查闸门（只读、WARN 不阻断）。
     review_gate: output_review.OutputReviewGate | None = None
+    # 数据块自述的「时点限定」(tag, 扫描日, 盘面日期)；输出质检的时点错标嗅探用
+    stale_block_hints: tuple[tuple[str, str, str], ...] = ()
     # 裁决层唯一输出：表达层和 LLM 只能消费该结构，不能直接拼接检索字符串。
     answer_spec: answer_model.AnswerSpec | None = None
     # GenericResearchOwner 的确定性任务完成报告；仅控制面使用，不进入正文。
