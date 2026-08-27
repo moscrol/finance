@@ -5,6 +5,13 @@ and provider diagnostics.  None of those values may cross the public Run/SSE
 seam.  This module is the single projection and persistence owner for live
 continuous-runtime progress.
 
+The tool **name** is a narrow, deliberate exception -- and not really an
+exception to the rule above.  It is used only as an *enum key* into
+``_TOOL_LABELS``, a table we own; what crosses the seam is our hard-coded
+Chinese label, never the payload value.  A name we do not recognise falls back
+to the generic sentence, so an unregistered tool degrades the wording instead
+of leaking its identity.
+
 --------------------------------------------------------------------------
 Why this lives in services (D5)
 --------------------------------------------------------------------------
@@ -93,14 +100,91 @@ _EVENT_PROJECTIONS: dict[str, tuple[str, str, str]] = {
 # 公开词表：UI 进度覆盖的 kind。是车道表的精选子集，不是第二套分类。
 PROGRESS_EVENT_KINDS = frozenset(_EVENT_PROJECTIONS)
 
+# 工具名 → 面向用户的中文标签。键必须是
+# ``research_tool_registry._DEFAULT_TOOL_METADATA`` 的子集，由
+# ``test_episode_progress`` 里的一致性测试锁住：新增工具忘了登记会变红。
+#
+# 为什么这样安全：跨 seam 的是**这张表的值**（我们写死的中文），payload 里的
+# 工具名只当查表的键用。查不到就退回通用句 —— 认不出来就 fail closed。
+_TOOL_LABELS: dict[str, str] = {
+    "finance_query": "本地结构化行情",
+    "evidence_search": "知识证据",
+    "kb_search": "知识库",
+    "web_search": "公开网页",
+    "news_search": "财经新闻",
+    "graph_lookup": "题材图谱",
+    "evidence_lookup": "证据原文",
+    "memory_lookup": "历史对话记录",
+    "l3_lookup": "订单与量产证据",
+    "market_data": "盘面快照",
+    "financial_data": "财务数据",
+    "mainline_context": "主线结构",
+}
+
+# 三个 kind 的工具名落在不同键上：``tool_request`` 来自 ``call.to_dict()``
+# （``name``），``tool_result`` / ``tool_error`` 来自网关 payload（``tool``）。
+# 两个键都试，别赌某一个运行时的写法。
+_TOOL_NAME_KEYS = ("name", "tool")
+_TOOL_EVENT_TEMPLATES: dict[str, str] = {
+    "tool_request": "正在查{label}。",
+    "tool_result": "已取得{label}。",
+    "tool_error": "{label}未取到，正在调整研究路径。",
+}
+
+
+# 本模块能产出的全部公开句子，闭集。
+#
+# 为什么要把它导出去：``api.app._public_trace_step`` 会**丢掉** step 的
+# output_summary、按 stage 重新合成一句话——它必须这么防，因为 trace 步骤还有
+# 别的生产者，那些 output_summary 可能带模型措辞。于是本模块辛苦区分出来的
+# 「正在查盘面快照。」在跨 seam 时又被拍回「已完成一项证据核对。」。
+#
+# 2026-08-23 live 实测（:8801 三轮）就是这么发现的：单测全绿、拿历史 payload
+# 回放也全绿，UI 上一个工具标签都没出现——**上游写了、下游不读**。
+#
+# 放行判据用「这句是不是我们自己生成的」而不是「这个 step 来自哪里」：后者要靠
+# step_id 前缀猜，前者是集合成员判断，且集合由同一份表生成，不会漂。
+def public_progress_messages() -> frozenset[str]:
+    """Every sentence this module can emit — the pass-through whitelist."""
+
+    fixed = {message for _stage, message, _status in _EVENT_PROJECTIONS.values()}
+    labelled = {
+        template.format(label=label)
+        for template in _TOOL_EVENT_TEMPLATES.values()
+        for label in _TOOL_LABELS.values()
+    }
+    return frozenset(fixed | labelled)
+
+
+def _tool_label(payload: object) -> str | None:
+    """Resolve a payload's tool name against our own closed label table."""
+
+    if not hasattr(payload, "get"):
+        return None
+    for key in _TOOL_NAME_KEYS:
+        name = payload.get(key)
+        if isinstance(name, str) and name in _TOOL_LABELS:
+            return _TOOL_LABELS[name]
+    return None
+
 
 def project_episode_progress(event: EpisodeEvent) -> EpisodeProgress | None:
-    """Return a fixed public projection, ignoring every event payload value."""
+    """Return a fixed public projection of one event.
+
+    Every payload value is ignored except the tool name, which is resolved
+    through ``_TOOL_LABELS`` (see the module docstring) so that consecutive
+    tool calls stop rendering as the same sentence.
+    """
 
     projection = _EVENT_PROJECTIONS.get(event.kind)
     if projection is None:
         return None
     stage, message, status = projection
+    template = _TOOL_EVENT_TEMPLATES.get(event.kind)
+    if template is not None:
+        label = _tool_label(event.payload)
+        if label is not None:
+            message = template.format(label=label)
     return EpisodeProgress(
         key=f"episode:{event.sequence}:{event.kind}",
         stage=stage,
@@ -173,4 +257,5 @@ __all__ = [
     "PROGRESS_EVENT_KINDS",
     "RunEpisodeProgressPublisher",
     "project_episode_progress",
+    "public_progress_messages",
 ]

@@ -120,8 +120,6 @@ class ResearchOwnerSkill:
             # 会让题材研究的盘面证据在蓝绿运行时静默变空。
             market_db_path=default_market_db_path(),
             conversation_context=context.conversation_context,
-            include_memory_block=True,
-            include_recall_block=True,
             question_type_override=(
                 envelope.question_type
                 if context.task_frame is not None
@@ -1998,8 +1996,16 @@ class ResearchOwnerSkill:
                             ),
                             entity_id=str(row.get("theme") or "") or None,
                             metric="midterm_trend",
-                            value=None,
-                            unit=None,
+                            value=(
+                                row.get("double_red_days")
+                                if isinstance(row.get("double_red_days"), (int, float))
+                                else None
+                            ),
+                            unit=(
+                                "天"
+                                if isinstance(row.get("double_red_days"), (int, float))
+                                else None
+                            ),
                             period=str(row.get("end_date") or "") or None,
                             evidence_tier="L4",
                             source_id="D6",

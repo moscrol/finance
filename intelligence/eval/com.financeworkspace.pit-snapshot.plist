@@ -7,14 +7,20 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/zsh</string>
-    <string>/Users/a77/finance-workspace-runtime/scripts/freeze_daily_pit_snapshot.sh</string>
+    <string>/Users/a77/.local/bin/freeze_daily_pit_snapshot.sh</string>
   </array>
   <key>WorkingDirectory</key>
   <string>/Users/a77/finance-workspace-runtime</string>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>FINANCE_WS</key>
+    <key>FINANCE_CODE_ROOT</key>
     <string>/Users/a77/finance-workspace-runtime</string>
+    <key>FINANCE_WS</key>
+    <string>/Users/a77/finance-workspace-private</string>
+    <key>FINANCE_PYTHON</key>
+    <string>/Users/a77/finance-workspace-private/.venv-workbench/bin/python</string>
+    <key>FINANCE_OPS_HEALTH_LOG</key>
+    <string>/Users/a77/.finance-runtime/ops-health.log</string>
     <key>PIT_SNAPSHOT_DB</key>
     <string>/Users/a77/finance-workspace-private/db/market_feature_store.duckdb</string>
     <key>PIT_KNOWLEDGE_ROOT</key>

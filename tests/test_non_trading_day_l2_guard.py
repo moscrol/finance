@@ -132,6 +132,21 @@ def test_check_l2_passes_on_non_trading_day_without_touching_db(monkeypatch):
     assert check_daily_review_data.check_l2(NON_TRADING_DAY) == []
 
 
+def test_check_l2_paused_skips_without_touching_db(monkeypatch):
+    """挂账开关跳过检查，但不走 L2_ALLOW_ALL_EMPTY，也不连库。"""
+    from scripts import check_daily_review_data
+
+    monkeypatch.setattr(check_daily_review_data, "is_trading_day", lambda d: True)
+    monkeypatch.setenv("L2_PAUSED", "1")
+
+    def _boom():
+        raise AssertionError("L2 挂账不应连库")
+
+    monkeypatch.setattr(check_daily_review_data, "_connect_read_only", _boom)
+
+    assert check_daily_review_data.check_l2(TRADING_DAY) == []
+
+
 def test_check_l2_still_inspects_on_trading_day(monkeypatch):
     """变异对照：交易日必须真的去查，否则 L2 门永远绿。"""
     from scripts import check_daily_review_data

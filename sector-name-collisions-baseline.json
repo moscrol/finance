@@ -1,0 +1,904 @@
+{
+  "3D打印": {
+    "codes": [
+      "885537.TI",
+      "990002.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "6G": {
+    "codes": [
+      "886037.TI",
+      "990003.FP"
+    ],
+    "overlapping_days": 1
+  },
+  "AIGC": {
+    "codes": [
+      "886019.TI",
+      "990004.FP"
+    ],
+    "overlapping_days": 1
+  },
+  "AI智能体": {
+    "codes": [
+      "886099.TI",
+      "990007.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "AI眼镜": {
+    "codes": [
+      "886085.TI",
+      "990008.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "BC电池": {
+    "codes": [
+      "886053.TI",
+      "990010.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "ChatGPT": {
+    "codes": [
+      "886031.TI",
+      "990015.FP"
+    ],
+    "overlapping_days": 1
+  },
+  "DeepSeek": {
+    "codes": [
+      "886100.TI",
+      "990016.FP"
+    ],
+    "overlapping_days": 1
+  },
+  "HJT电池": {
+    "codes": [
+      "885878.TI",
+      "990018.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "MCU芯片": {
+    "codes": [
+      "885925.TI",
+      "990022.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "PCB": {
+    "codes": [
+      "885959.TI",
+      "990026.FP",
+      "990027.FP"
+    ],
+    "overlapping_days": 25
+  },
+  "PEEK材料": {
+    "codes": [
+      "886063.TI",
+      "990028.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "POE胶膜": {
+    "codes": [
+      "886026.TI",
+      "990029.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "中药": {
+    "codes": [
+      "881141.TI",
+      "990040.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "云计算": {
+    "codes": [
+      "885362.TI",
+      "990044.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "人工智能": {
+    "codes": [
+      "885728.TI",
+      "990048.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "人形机器人": {
+    "codes": [
+      "886069.TI",
+      "990049.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "低空经济": {
+    "codes": [
+      "886067.TI",
+      "990056.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "供销社": {
+    "codes": [
+      "886016.TI",
+      "990060.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "保险": {
+    "codes": [
+      "881156.TI",
+      "990061.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "信创": {
+    "codes": [
+      "886013.TI",
+      "990062.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "储能": {
+    "codes": [
+      "885921.TI",
+      "990064.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "先进封装": {
+    "codes": [
+      "886009.TI",
+      "990068.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "光伏": {
+    "codes": [
+      "885531.TI",
+      "990069.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "光伏设备": {
+    "codes": [
+      "881279.TI",
+      "990071.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "光刻机": {
+    "codes": [
+      "886054.TI",
+      "990074.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "光热发电": {
+    "codes": [
+      "886011.TI",
+      "990077.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "养殖业": {
+    "codes": [
+      "881102.TI",
+      "990083.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "军工信息化": {
+    "codes": [
+      "886076.TI",
+      "990085.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "减肥药": {
+    "codes": [
+      "886051.TI",
+      "990093.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "减速器": {
+    "codes": [
+      "886008.TI",
+      "990094.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "创新药": {
+    "codes": [
+      "886015.TI",
+      "990098.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "化学制品": {
+    "codes": [
+      "881109.TI",
+      "990104.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "化学制药": {
+    "codes": [
+      "881140.TI",
+      "990105.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "化学原料": {
+    "codes": [
+      "881108.TI",
+      "990106.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "医疗器械": {
+    "codes": [
+      "881144.TI",
+      "990113.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "医疗服务": {
+    "codes": [
+      "881175.TI",
+      "990114.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "医药商业": {
+    "codes": [
+      "881143.TI",
+      "990120.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "半导体": {
+    "codes": [
+      "881121.TI",
+      "990122.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "半导体设备": {
+    "codes": [
+      "884229.TI",
+      "990125.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "可控核聚变": {
+    "codes": [
+      "886065.TI",
+      "990134.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "合成生物": {
+    "codes": [
+      "886077.TI",
+      "990136.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "商业航天": {
+    "codes": [
+      "886078.TI",
+      "990137.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "固态电池": {
+    "codes": [
+      "886032.TI",
+      "990140.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "国防军工": {
+    "codes": [
+      "990143.FP",
+      "990144.FP"
+    ],
+    "overlapping_days": 43
+  },
+  "多元金融": {
+    "codes": [
+      "881283.TI",
+      "990153.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "多模态AI": {
+    "codes": [
+      "886062.TI",
+      "990154.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "大飞机": {
+    "codes": [
+      "885566.TI",
+      "990156.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "存储芯片": {
+    "codes": [
+      "886042.TI",
+      "990159.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "宠物经济": {
+    "codes": [
+      "886012.TI",
+      "990160.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "小家电": {
+    "codes": [
+      "881173.TI",
+      "990165.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "小金属": {
+    "codes": [
+      "881170.TI",
+      "885552.TI",
+      "990168.FP"
+    ],
+    "overlapping_days": 406
+  },
+  "工业母机": {
+    "codes": [
+      "885930.TI",
+      "990172.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "工业金属": {
+    "codes": [
+      "881168.TI",
+      "990175.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "工程机械": {
+    "codes": [
+      "881268.TI",
+      "990176.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "影视院线": {
+    "codes": [
+      "881274.TI",
+      "990182.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "房地产": {
+    "codes": [
+      "881153.TI",
+      "990184.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "数字货币": {
+    "codes": [
+      "885866.TI",
+      "990191.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "数据中心": {
+    "codes": [
+      "885887.TI",
+      "990192.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "数据确权": {
+    "codes": [
+      "886023.TI",
+      "990193.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "数据要素": {
+    "codes": [
+      "886041.TI",
+      "990194.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "新型工业化": {
+    "codes": [
+      "886057.TI",
+      "990196.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "旅游": {
+    "codes": [
+      "990201.FP",
+      "990202.FP"
+    ],
+    "overlapping_days": 1
+  },
+  "无人驾驶": {
+    "codes": [
+      "885736.TI",
+      "990204.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "时空大数据": {
+    "codes": [
+      "886036.TI",
+      "990207.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "星闪": {
+    "codes": [
+      "886055.TI",
+      "990208.FP"
+    ],
+    "overlapping_days": 1
+  },
+  "智谱AI": {
+    "codes": [
+      "886090.TI",
+      "990215.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "有机硅": {
+    "codes": [
+      "885912.TI",
+      "990217.FP"
+    ],
+    "overlapping_days": 1
+  },
+  "机器人": {
+    "codes": [
+      "885517.TI",
+      "990219.FP",
+      "990220.FP"
+    ],
+    "overlapping_days": 25
+  },
+  "机器视觉": {
+    "codes": [
+      "886002.TI",
+      "990221.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "核污染防治": {
+    "codes": [
+      "886052.TI",
+      "990225.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "毫米波雷达": {
+    "codes": [
+      "886035.TI",
+      "990228.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "氢能源": {
+    "codes": [
+      "885823.TI",
+      "990232.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "汽车整车": {
+    "codes": [
+      "881125.TI",
+      "990241.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "汽车零部件": {
+    "codes": [
+      "881126.TI",
+      "990244.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "消费电子": {
+    "codes": [
+      "881124.TI",
+      "990249.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "液冷服务器": {
+    "codes": [
+      "886044.TI",
+      "990251.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "游戏": {
+    "codes": [
+      "881275.TI",
+      "990254.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "燃料电池": {
+    "codes": [
+      "885775.TI",
+      "990260.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "燃气": {
+    "codes": [
+      "881146.TI",
+      "990261.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "物流": {
+    "codes": [
+      "881152.TI",
+      "990262.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "特高压": {
+    "codes": [
+      "885425.TI",
+      "990265.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "环保设备": {
+    "codes": [
+      "881284.TI",
+      "990268.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "玻璃玻纤": {
+    "codes": [
+      "884059.TI",
+      "990270.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "电力": {
+    "codes": [
+      "881145.TI",
+      "990274.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "电子化学品": {
+    "codes": [
+      "881172.TI",
+      "990277.FP"
+    ],
+    "overlapping_days": 20
+  },
+  "电池": {
+    "codes": [
+      "881281.TI",
+      "990280.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "电池化学品": {
+    "codes": [
+      "884310.TI",
+      "990281.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "电网设备": {
+    "codes": [
+      "881278.TI",
+      "990283.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "白酒": {
+    "codes": [
+      "881273.TI",
+      "990285.FP",
+      "990286.FP"
+    ],
+    "overlapping_days": 25
+  },
+  "盐湖提锂": {
+    "codes": [
+      "885922.TI",
+      "990289.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "短剧游戏": {
+    "codes": [
+      "886060.TI",
+      "990292.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "碳纤维": {
+    "codes": [
+      "885650.TI",
+      "990298.FP"
+    ],
+    "overlapping_days": 1
+  },
+  "稀土永磁": {
+    "codes": [
+      "885343.TI",
+      "990303.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "算力租赁": {
+    "codes": [
+      "886050.TI",
+      "990306.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "纺织制造": {
+    "codes": [
+      "881135.TI",
+      "990310.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "维生素": {
+    "codes": [
+      "886081.TI",
+      "990312.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "综合": {
+    "codes": [
+      "881165.TI",
+      "990313.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "能源金属": {
+    "codes": [
+      "881267.TI",
+      "990319.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "航运": {
+    "codes": [
+      "990323.FP",
+      "990324.FP"
+    ],
+    "overlapping_days": 1
+  },
+  "芯片": {
+    "codes": [
+      "885756.TI",
+      "990325.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "英伟达": {
+    "codes": [
+      "886048.TI",
+      "990326.FP"
+    ],
+    "overlapping_days": 1
+  },
+  "虚拟电厂": {
+    "codes": [
+      "886004.TI",
+      "990330.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "血氧仪": {
+    "codes": [
+      "886028.TI",
+      "990332.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "证券": {
+    "codes": [
+      "881157.TI",
+      "990338.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "财税数字化": {
+    "codes": [
+      "886080.TI",
+      "990340.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "贵金属": {
+    "codes": [
+      "881169.TI",
+      "990341.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "贸易": {
+    "codes": [
+      "881159.TI",
+      "990342.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "超导": {
+    "codes": [
+      "886038.TI",
+      "990345.FP"
+    ],
+    "overlapping_days": 1
+  },
+  "超级电容": {
+    "codes": [
+      "885886.TI",
+      "990346.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "轨交设备": {
+    "codes": [
+      "881269.TI",
+      "990350.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "辅助生殖": {
+    "codes": [
+      "885909.TI",
+      "990352.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "通信设备": {
+    "codes": [
+      "881129.TI",
+      "990359.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "通用设备": {
+    "codes": [
+      "881117.TI",
+      "990360.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "造纸": {
+    "codes": [
+      "881137.TI",
+      "990361.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "量子科技": {
+    "codes": [
+      "885730.TI",
+      "990363.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "金属新材料": {
+    "codes": [
+      "881114.TI",
+      "990365.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "钒电池": {
+    "codes": [
+      "886003.TI",
+      "990366.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "钙钛矿电池": {
+    "codes": [
+      "886006.TI",
+      "990367.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "钢铁": {
+    "codes": [
+      "881112.TI",
+      "990371.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "铜缆高速连接": {
+    "codes": [
+      "886073.TI",
+      "990375.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "银行": {
+    "codes": [
+      "881155.TI",
+      "990377.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "锂": {
+    "codes": [
+      "884286.TI",
+      "990378.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "锂电池": {
+    "codes": [
+      "884309.TI",
+      "990379.FP",
+      "990380.FP"
+    ],
+    "overlapping_days": 25
+  },
+  "风电": {
+    "codes": [
+      "885641.TI",
+      "990394.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "风电设备": {
+    "codes": [
+      "881280.TI",
+      "990395.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "高压快充": {
+    "codes": [
+      "886001.TI",
+      "990402.FP"
+    ],
+    "overlapping_days": 24
+  },
+  "黄金": {
+    "codes": [
+      "885530.TI",
+      "990406.FP",
+      "990407.FP"
+    ],
+    "overlapping_days": 25
+  }
+}

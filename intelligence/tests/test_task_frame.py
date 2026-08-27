@@ -9,7 +9,9 @@ from intelligence.services.task_frame import (
     TaskFrame,
     build_task_frame,
     derive_required_outputs,
+    is_weekly_calendar_question,
     rebase_task_frame,
+    strip_default_a_share_search_token,
 )
 
 
@@ -337,3 +339,53 @@ def test_trading_day_date_injects_nothing() -> None:
     frame = build_task_frame(question, understand_query(question))
 
     assert not [item for item in frame.assumptions if "休市" in item]
+
+
+_CALENDAR_PROBE = "周末发酵了什么新闻？下周（8月24日-8月28日）有什么大事？"
+
+
+def test_weekly_calendar_detector_needs_window_and_event() -> None:
+    assert is_weekly_calendar_question(_CALENDAR_PROBE)
+    assert is_weekly_calendar_question("下周有什么大事")
+    assert not is_weekly_calendar_question("周末发酵了什么新闻？")
+    assert not is_weekly_calendar_question("昨天的反弹能持续多久")
+    assert not is_weekly_calendar_question("液冷题材现在怎么看")
+
+
+def test_weekly_calendar_question_does_not_inherit_a_share_default() -> None:
+    frame = build_task_frame(_CALENDAR_PROBE, understand_query(_CALENDAR_PROBE))
+
+    assert frame.market_scope == "跨市场"
+    assert "按A股市场理解" not in frame.assumptions
+
+
+def test_explicit_a_share_calendar_keeps_named_market() -> None:
+    question = "下周A股有什么大事？"
+    frame = build_task_frame(question, understand_query(question))
+
+    assert frame.market_scope == "A股"
+    assert "按A股市场理解" not in frame.assumptions
+
+
+def test_search_token_strips_default_a_share_on_calendar_only() -> None:
+    cleaned, note = strip_default_a_share_search_token(
+        "下周 A股 重要事件",
+        _CALENDAR_PROBE,
+    )
+    assert "A股" not in cleaned
+    assert "重要事件" in cleaned
+    assert note
+
+    kept, empty = strip_default_a_share_search_token(
+        "下周 A股 重要事件",
+        "下周A股有什么大事？",
+    )
+    assert kept == "下周 A股 重要事件"
+    assert empty == ""
+
+    unchanged, silent = strip_default_a_share_search_token(
+        "周末 国常会 算力",
+        _CALENDAR_PROBE,
+    )
+    assert unchanged == "周末 国常会 算力"
+    assert silent == ""

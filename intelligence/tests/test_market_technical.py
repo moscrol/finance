@@ -9,7 +9,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime, timedelta
+import io
 import json
 import pytest
 
@@ -369,6 +370,233 @@ def test_fast_path_uses_markdown_safe_range_separator(monkeypatch) -> None:
     assert "1662.65–1669.99" in result["answer"]
     assert "1811.76–1823.48" in result["answer"]
     assert "~" not in result["answer"]
+
+
+def _fast_path_levels() -> market_technical.TechnicalLevels:
+    return market_technical.TechnicalLevels(
+        subject="科创50",
+        symbol="sh000688",
+        as_of="2026-07-24",
+        close=1787.20,
+        ma={"MA5": 1811.76},
+        supports=(
+            market_technical.SupportLevel(
+                zone_low=1662.65,
+                zone_high=1669.99,
+                basis=("摆动低点",),
+            ),
+        ),
+        resistances=(
+            market_technical.SupportLevel(
+                zone_low=1811.76,
+                zone_high=1823.48,
+                basis=("均线压力",),
+            ),
+        ),
+        invalidation="若收盘跌破 1641.17，当前判断失效。",
+    )
+
+
+def test_fast_path_support_question_leads_with_support_not_rebound(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        market_technical,
+        "resolve_market_technical",
+        lambda *args, **kwargs: _fast_path_levels(),
+    )
+    result = episode_tools.run_deterministic_fast_path(
+        decide_turn("科创50的支撑点位在哪").task_frame,
+        timeout=10.0,
+    )
+    answer = str(result["answer"])
+    assert "下方支撑" in answer
+    assert answer.index("下方支撑") < answer.index("压力")
+    assert "反弹空间先看" not in answer
+
+
+def test_fast_path_rebound_question_still_leads_with_resistance(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        market_technical,
+        "resolve_market_technical",
+        lambda *args, **kwargs: _fast_path_levels(),
+    )
+    result = episode_tools.run_deterministic_fast_path(
+        decide_turn("科创50你认为反弹空间有多少").task_frame,
+        timeout=10.0,
+    )
+    assert "反弹空间先看上方压力区" in str(result["answer"])
+
+
+def test_fast_path_support_and_rebound_answers_differ(monkeypatch) -> None:
+    monkeypatch.setattr(
+        market_technical,
+        "resolve_market_technical",
+        lambda *args, **kwargs: _fast_path_levels(),
+    )
+    support = episode_tools.run_deterministic_fast_path(
+        decide_turn("科创50的支撑点位在哪").task_frame,
+        timeout=10.0,
+    )
+    rebound = episode_tools.run_deterministic_fast_path(
+        decide_turn("科创50你认为反弹空间有多少").task_frame,
+        timeout=10.0,
+    )
+    assert support["answer"] != rebound["answer"]
+
+
+# ---------- as_of 截断（派单 #207）----------
+
+
+def _weekday_bars_ending(end: str, n: int = 80) -> list[market_technical.DailyBar]:
+    end_d = date.fromisoformat(end)
+    days: list[date] = []
+    cursor = end_d
+    while len(days) < n:
+        if cursor.weekday() < 5:
+            days.append(cursor)
+        cursor -= timedelta(days=1)
+    days.reverse()
+    bars: list[market_technical.DailyBar] = []
+    price = 1000.0
+    for i, day in enumerate(days):
+        price = 1000.0 + i
+        bars.append(
+            market_technical.DailyBar(
+                date=day.isoformat(),
+                open=price - 1,
+                close=price,
+                high=price + 2,
+                low=price - 2,
+                volume=1000,
+            )
+        )
+    return bars
+
+
+def _kline_opener(bars: list[market_technical.DailyBar]):
+    rows = [
+        [bar.date, bar.open, bar.close, bar.high, bar.low, bar.volume]
+        for bar in bars
+    ]
+    payload = json.dumps({"data": {"sh000688": {"day": rows}}}).encode("utf-8")
+
+    class _Resp(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    return lambda url, timeout: _Resp(payload)
+
+
+def test_resolve_as_of_uses_requested_session_not_latest() -> None:
+    bars = _weekday_bars_ending("2026-08-18", n=90)
+    opener = _kline_opener(bars)
+    latest = market_technical.resolve_market_technical(QUERY, opener=opener)
+    pinned = market_technical.resolve_market_technical(
+        QUERY, as_of="2026-07-24", opener=opener
+    )
+    assert isinstance(latest, market_technical.TechnicalLevels)
+    assert isinstance(pinned, market_technical.TechnicalLevels)
+    assert pinned.as_of == "2026-07-24"
+    assert latest.as_of == "2026-08-18"
+    assert pinned.close != latest.close
+    assert pinned.close == next(bar.close for bar in bars if bar.date == "2026-07-24")
+
+
+def test_resolve_as_of_fail_closed_when_before_available_window() -> None:
+    bars = _weekday_bars_ending("2026-08-18", n=80)
+    outcome = market_technical.resolve_market_technical(
+        QUERY, as_of="2020-01-02", opener=_kline_opener(bars)
+    )
+    assert isinstance(outcome, market_technical.TechnicalGap)
+    assert "窗口不足" in outcome.reason
+    assert bars[0].date in outcome.reason
+
+
+def test_resolve_as_of_rolls_to_previous_session_on_weekend() -> None:
+    bars = _weekday_bars_ending("2026-08-18", n=90)
+    outcome = market_technical.resolve_market_technical(
+        QUERY, as_of="2026-07-25", opener=_kline_opener(bars)
+    )
+    assert isinstance(outcome, market_technical.TechnicalLevels)
+    assert outcome.as_of == "2026-07-24"
+
+
+def test_resolve_without_as_of_keeps_latest_completed_bar() -> None:
+    bars = _weekday_bars_ending("2026-08-18", n=80)
+    outcome = market_technical.resolve_market_technical(
+        QUERY, opener=_kline_opener(bars)
+    )
+    assert isinstance(outcome, market_technical.TechnicalLevels)
+    assert outcome.as_of == bars[-1].date
+    assert outcome.close == bars[-1].close
+
+
+def test_resolve_as_of_gap_when_truncated_sample_too_short() -> None:
+    bars = _weekday_bars_ending("2026-08-18", n=80)
+    early = bars[10].date
+    outcome = market_technical.resolve_market_technical(
+        QUERY, as_of=early, opener=_kline_opener(bars)
+    )
+    assert isinstance(outcome, market_technical.TechnicalGap)
+    assert "不足" in outcome.reason
+
+
+def test_fast_path_forwards_as_of_into_resolve(monkeypatch) -> None:
+    seen: dict[str, object] = {}
+
+    def _capture(query: str, **kwargs):  # noqa: ANN001
+        seen["query"] = query
+        seen.update(kwargs)
+        return market_technical.TechnicalGap(
+            subject="科创50", symbol="sh000688", reason="capture"
+        )
+
+    monkeypatch.setattr(market_technical, "resolve_market_technical", _capture)
+    episode_tools.run_deterministic_fast_path(
+        decide_turn(QUERY).task_frame,
+        timeout=10.0,
+        as_of="2026-07-24",
+    )
+    assert seen.get("as_of") == "2026-07-24"
+
+
+def test_ask_forwards_options_date_as_as_of(monkeypatch) -> None:
+    seen: dict[str, object] = {}
+
+    def _capture(query: str, **kwargs):  # noqa: ANN001
+        seen["query"] = query
+        seen.update(kwargs)
+        return market_technical.TechnicalGap(
+            subject="科创50", symbol="sh000688", reason="capture"
+        )
+
+    monkeypatch.setattr(market_technical, "resolve_market_technical", _capture)
+    ask._answer_market_technical(
+        ask.AskOptions(query=QUERY, date="2026-07-24"),
+        plan_answer_question(QUERY),
+    )
+    assert seen.get("as_of") == "2026-07-24"
+
+
+def test_as_of_truncation_mutation_turns_criterion_a_red(monkeypatch) -> None:
+    """抽掉截断后指定日期不得再生效——否则判据 A 是假门禁。"""
+    bars = _weekday_bars_ending("2026-08-18", n=90)
+    monkeypatch.setattr(
+        market_technical,
+        "bars_at_or_before",
+        lambda bars, as_of: list(bars),
+    )
+    pinned = market_technical.resolve_market_technical(
+        QUERY, as_of="2026-07-24", opener=_kline_opener(bars)
+    )
+    assert isinstance(pinned, market_technical.TechnicalLevels)
+    assert pinned.as_of != "2026-07-24"
 
 
 # ---------- AnswerSpec fail-closed 出口 ----------

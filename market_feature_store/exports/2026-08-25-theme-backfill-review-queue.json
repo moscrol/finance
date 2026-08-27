@@ -1,0 +1,220 @@
+{
+  "trade_date": "2026-08-25",
+  "source": "theme-backfill-review-queue",
+  "source_file": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-08-25-theme-backfill-queue.json",
+  "generated_at": "2026-08-25T16:00:43.619430+00:00",
+  "policy": {
+    "mode": "review_only",
+    "min_priority": "high",
+    "knowledge_write_allowed": false,
+    "placeholder_rule": "items containing 未映射 are blocked_review"
+  },
+  "review_count": 8,
+  "status_counts": {
+    "pending_review": 8
+  },
+  "action_counts": {
+    "review_attach_or_archive_evidence": 2,
+    "review_create_or_link_concept": 6
+  },
+  "items": [
+    {
+      "id": "2026-08-25-10-missing_concept",
+      "trade_date": "2026-08-25",
+      "theme": "通用设备",
+      "canonical_concept": "通用设备",
+      "sw_l1": "机械设备",
+      "candidate_tier": "deep",
+      "rank": 10,
+      "priority_score": 77.16,
+      "gap_type": "missing_concept",
+      "priority": "critical",
+      "reason": "Deep 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster",
+        "capacity_industry"
+      ],
+      "concept_count": 0,
+      "exposure_count": 7,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-08-25-04-missing_evidence",
+      "trade_date": "2026-08-25",
+      "theme": "股权",
+      "canonical_concept": "私募股权投资",
+      "sw_l1": "机械设备",
+      "candidate_tier": "deep",
+      "rank": 4,
+      "priority_score": 115.0,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "limit_advance_cluster",
+        "capacity_industry"
+      ],
+      "concept_count": 1,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-08-25-10-missing_evidence",
+      "trade_date": "2026-08-25",
+      "theme": "通用设备",
+      "canonical_concept": "通用设备",
+      "sw_l1": "机械设备",
+      "candidate_tier": "deep",
+      "rank": 10,
+      "priority_score": 77.16,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster",
+        "capacity_industry"
+      ],
+      "concept_count": 0,
+      "exposure_count": 7,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-08-25-15-missing_concept",
+      "trade_date": "2026-08-25",
+      "theme": "机械设备",
+      "canonical_concept": "机械设备",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 15,
+      "priority_score": 75.91,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "limit_heat",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-08-25-20-missing_concept",
+      "trade_date": "2026-08-25",
+      "theme": "腾讯概念",
+      "canonical_concept": "腾讯概念",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 20,
+      "priority_score": 73.92,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "limit_heat",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-08-25-25-missing_concept",
+      "trade_date": "2026-08-25",
+      "theme": "抖音概念",
+      "canonical_concept": "抖音概念",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 25,
+      "priority_score": 70.23,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "limit_heat",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-08-25-26-missing_concept",
+      "trade_date": "2026-08-25",
+      "theme": "阿里概念",
+      "canonical_concept": "阿里概念",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 26,
+      "priority_score": 69.65,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "limit_heat",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-08-25-28-missing_concept",
+      "trade_date": "2026-08-25",
+      "theme": "特斯拉概念",
+      "canonical_concept": "特斯拉概念",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 28,
+      "priority_score": 68.48,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    }
+  ]
+}

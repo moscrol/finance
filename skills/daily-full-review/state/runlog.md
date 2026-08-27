@@ -671,3 +671,386 @@ Notes:
 | cross-day-gate | ok | 0 |  |
 | export-increment | ok | 0 |  |
 | quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-08-17 | run 2026-08-17 16:58
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 7 |  |
+| market-overview | ok | 57 |  |
+| market-daily | ok | 3 |  |
+| index-daily | fail | 2 | [retry r1] |
+| sw-l1-daily | timeout | 300 | [retry r1] |
+| market-deviation | fail | 16 | [retry r1] |
+| sector-daily | ok | 127 |  |
+| sector-stocks | ok | 0 | 2026-08-17 snapshot=fc4ab49168f5 success=403/403 rel=52775+81/52856 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=- |
+| limit-heat | ok | 83 | heat=271 stock=1021 retried=0 still_empty=0 |
+| stock-high | ok | 137 |  |
+| limit-advance | ok | 5 |  |
+| stock-daily | ok | 33 | eastmoney snapshot ok |
+| mainline-daily | ok | 17 |  |
+| mainline-sector-daily | ok | 17 |  |
+| theme-flow-daily | ok | 9 |  |
+| features | ok | 1 |  |
+| same-day-gate | fail | 2 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：index-daily, sw-l1-daily, market-deviation, same-day-gate
+
+## 2026-08-17 | run 2026-08-17 18:47
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 8 |  |
+| market-overview | ok | 10 |  |
+| market-daily | ok | 3 |  |
+| index-daily | ok | 2 |  |
+| sw-l1-daily | timeout | 300 | [retry r1] |
+| market-deviation | ok | 14 |  |
+| sector-daily | ok | 147 |  |
+| sector-stocks | ok | 0 | 2026-08-17 snapshot=fc4ab49168f5 success=403/403 rel=52775+81/52856 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=- |
+| limit-heat | ok | 77 | heat=271 stock=1021 retried=0 still_empty=0 |
+| stock-high | ok | 123 |  |
+| limit-advance | ok | 4 |  |
+| stock-daily | ok | 34 | eastmoney snapshot ok |
+| mainline-daily | ok | 14 |  |
+| mainline-sector-daily | ok | 14 |  |
+| theme-flow-daily | ok | 3 |  |
+| features | ok | 2 |  |
+| same-day-gate | fail | 1 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：sw-l1-daily, same-day-gate
+
+## 2026-08-18 | run 2026-08-18 18:54
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 10 |  |
+| market-overview | ok | 8 |  |
+| market-daily | ok | 4 |  |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | ok | 227 |  |
+| market-deviation | ok | 12 |  |
+| sector-daily | ok | 120 |  |
+| sector-stocks | ok | 0 | 2026-08-18 snapshot=b25dc46acb8e success=403/403 rel=52768+88/52856 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=- |
+| limit-heat | ok | 61 | heat=214 stock=655 retried=0 still_empty=0 |
+| stock-high | ok | 183 |  |
+| limit-advance | ok | 5 |  |
+| stock-daily | ok | 34 | eastmoney snapshot ok |
+| mainline-daily | ok | 16 |  |
+| mainline-sector-daily | ok | 16 |  |
+| theme-flow-daily | ok | 4 |  |
+| features | ok | 1 |  |
+| same-day-gate | ok | 1 |  |
+| cross-day-gate | fail | 1 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：cross-day-gate
+
+## 2026-08-18 | run 2026-08-18 20:32
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 5 |  |
+| market-overview | ok | 13 |  |
+| market-daily | ok | 3 |  |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | ok | 197 |  |
+| market-deviation | ok | 12 |  |
+| sector-daily | ok | 138 |  |
+| sector-stocks | ok | 0 | 2026-08-18 snapshot=b25dc46acb8e success=403/403 rel=52769+87/52856 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=- |
+| limit-heat | ok | 52 | heat=214 stock=655 retried=0 still_empty=0 [retry r1] |
+| stock-high | ok | 235 |  |
+| limit-advance | ok | 12 |  |
+| stock-daily | ok | 45 | eastmoney snapshot ok |
+| mainline-daily | ok | 17 |  |
+| mainline-sector-daily | ok | 14 |  |
+| theme-flow-daily | ok | 4 |  |
+| features | ok | 1 |  |
+| same-day-gate | ok | 1 |  |
+| cross-day-gate | fail | 1 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：cross-day-gate
+
+## 2026-08-18 | run 2026-08-18 21:34
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 15 |  |
+| market-overview | ok | 7 |  |
+| market-daily | ok | 3 |  |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | ok | 288 |  |
+| market-deviation | ok | 14 |  |
+| sector-daily | ok | 131 |  |
+| sector-stocks | ok | 0 | 2026-08-18 snapshot=b25dc46acb8e success=403/403 rel=52769+87/52856 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=- |
+| limit-heat | ok | 72 | heat=214 stock=655 retried=0 still_empty=0 |
+| stock-high | ok | 347 |  |
+| limit-advance | ok | 5 |  |
+| stock-daily | ok | 67 | eastmoney snapshot ok |
+| mainline-daily | ok | 31 |  |
+| mainline-sector-daily | ok | 26 |  |
+| theme-flow-daily | ok | 11 |  |
+| features | ok | 1 |  |
+| same-day-gate | ok | 1 |  |
+| cross-day-gate | ok | 1 |  |
+| export-increment | ok | 0 |  |
+| quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-08-19 | run 2026-08-19 19:06
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 4 |  |
+| market-overview | ok | 7 |  |
+| market-daily | ok | 3 |  |
+| index-daily | ok | 2 |  |
+| sw-l1-daily | timeout | 300 | [retry r1] |
+| market-deviation | ok | 16 |  |
+| sector-daily | ok | 117 |  |
+| sector-stocks | partial | 0 | 2026-08-19 snapshot=d22acd5399c9 success=403/403 rel=52779+88/52867 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=fact_sector_daily mismatch=daily_identities after 20 loops |
+| limit-heat | ok | 62 | heat=121 stock=223 retried=0 still_empty=0 |
+| stock-high | ok | 132 |  |
+| limit-advance | ok | 4 |  |
+| stock-daily | ok | 33 | eastmoney snapshot ok |
+| mainline-daily | ok | 12 |  |
+| mainline-sector-daily | ok | 12 |  |
+| theme-flow-daily | ok | 8 |  |
+| public-assets | ok | 524 |  |
+| features | ok | 1 |  |
+| same-day-gate | fail | 1 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：sw-l1-daily, sector-stocks, same-day-gate
+
+## 2026-08-19 | repair 2026-08-20 10:27（staging 补洞后换名）
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| sw-l1-daily | ok | 2 | 官方 hist/分析报告 08-19 尚未发布；用 index_realtime_sw 昨收盘写 close/pct_chg（与 08-18 同一序列）。amount 暂沿用 08-18，source=`...:prev_close`。今晚 --days 20 hist 有数会覆盖 |
+| public-assets | ok | 2 | 只补 dragon_summary（昨夜 `/data/dragon/all` 超时）；regulation 仍超时，不进断档门 |
+| same-day-gate | ok | 1 | COMPLETE（生产库换名后复检） |
+| cross-day-gate | ok | 1 | PASS，近 20 日无断档 |
+| export-increment | ok | 1 | 29 表 / 120269 行，3.1 MB |
+| quality-gate | COMPLETE | - | check_daily 通过；备份 `db/market_feature_store.duckdb.pre-0819-swap` |
+
+> 夜跑 19:06 same-day 败于 sw-l1 超时 → 不换名。08-20 盘中补洞后原子换进生产。
+
+## 2026-08-20 | run 2026-08-20 18:57
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 4 |  |
+| market-overview | ok | 3 |  |
+| market-daily | ok | 3 |  |
+| index-daily | ok | 2 |  |
+| sw-l1-daily | timeout | 300 | [retry r1] |
+| market-deviation | ok | 10 |  |
+| sector-daily | ok | 67 |  |
+| sector-stocks | ok | 0 | 2026-08-20 snapshot=20c72a59e492 success=403/403 rel=52787+98/52885 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=- |
+| limit-heat | ok | 118 | heat=197 stock=648 retried=0 still_empty=0 |
+| stock-high | ok | 62 |  |
+| limit-advance | ok | 2 |  |
+| stock-daily | ok | 36 | eastmoney snapshot ok |
+| mainline-daily | ok | 3 |  |
+| mainline-sector-daily | ok | 3 |  |
+| theme-flow-daily | ok | 2 |  |
+| public-assets | ok | 192 |  |
+| features | ok | 2 |  |
+| same-day-gate | fail | 1 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：sw-l1-daily, same-day-gate
+
+## 2026-08-20 | repair 2026-08-21 15:17（生产补 features，不换 staging）
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| features | ok | 1 | 只补生产库 `compute_features --trade-date 2026-08-20`：market 4 / sector 1212 / stock 21773 / technical 5519 / period_rank 40。staging 未换名（mtime 仍 08-20 18:52） |
+| same-day-gate | ok | 1 | COMPLETE |
+| cross-day-gate | ok | 1 | PASS，`quality-2026-08-20.json` ok=true |
+| finalize | ok | 46 | `nightly_full_review.sh finalize 2026-08-20`；workflow 19/19 PASS；L2 仍挂账 |
+| export-increment | ok | - | iCloud `market_feature_store-inc-2026-08-20.tar.gz` 3.0 MB |
+| quality-gate | COMPLETE | - | `--phase all` COMPLETE（L2_PAUSED=1） |
+
+> 夜跑 18:57 same-day 败于 sw-l1 超时 → 不换名。22:47 手工 `cli daily-full` 直写生产 fact、无 features。本轮只在生产补 features + finalize，**禁止**把 18:52 staging 换进生产（会回退 08-19 hist 与 08-20 申万 31 行）。
+> 已知欠账：08-20 申万 source 仍是 `index_realtime_sw`（等官方 hist 覆盖）；L2 自 08-07 挂账；staging 留作取证。
+
+## 2026-08-21 | run 2026-08-21 23:45
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 9 |  |
+| market-overview | ok | 23 |  |
+| market-daily | fail | 5 | [retry r1] |
+| index-daily | fail | 6 | [retry r1] |
+| sw-l1-daily | ok | 474 |  |
+| market-deviation | fail | 20 | [retry r1] |
+| sector-daily | timeout | 300 | [retry r1] |
+| sector-stocks | partial | 0 | 2026-08-21 snapshot=6b9a700addc2 success=402/403 rel=52778+93/52900 pending=0 retriable=1 nulls=0 continuity=100% missing_tables=fact_sector_daily,fact_sector_stock_daily mismatch=relationships,daily_identities after 20 loops |
+| limit-heat | fail | 11 | heat=0 stock=0 retried=0 still_empty=0 [retry r1] |
+| stock-high | ok | 125 |  |
+| limit-advance | ok | 9 |  |
+| stock-daily | ok | 114 | used fill-stock-daily-fallback |
+| mainline-daily | ok | 24 |  |
+| mainline-sector-daily | ok | 31 |  |
+| theme-flow-daily | ok | 14 |  |
+| public-assets | timeout | 600 | [retry r1] |
+| features | fail | 1 | [retry r1] |
+| same-day-gate | fail | 1 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：market-daily, index-daily, market-deviation, sector-daily, sector-stocks, limit-heat, public-assets, features, same-day-gate
+
+## 2026-08-21 | repair 2026-08-22 00:11（staging 补洞后换名 + finalize）
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| sector-daily | ok | 244 | 只用 published `.FP` 403 码拉 kline；官方 CLI 扫 dim 里 223 个已死 `.TI` 会 300s 超时 |
+| limit-heat | ok | 93 | 标签页复活后 198 题材 / 571 明细 |
+| index | ok | - | 新浪/东财/飞书 SSL 全挂；上证 3905.2 来自 `reviews/market.volume.indices` |
+| market-deviation | ok | - | fill-stock-daily-fallback MA 复算 `sh_week_ma=3924.16 dev=-0.48` |
+| sector-stocks | ok | - | 402/403 行其实已在 generation；ART 索引被 990124 empty COMMIT 写坏，COUNT/JOIN 只看见 60 板块。CTAS 重建表后 view=52807/403 |
+| 990124.FP | ok | 40 | 半导体材料，直连 API 有 29 只；重建索引后 `record_member_result` 成功 |
+| features | ok | 2 | sector/stock window + period_rank 40 |
+| same-day-gate | COMPLETE | - | staging 过门后 S7 `atomic_swap_into_place`，生产未直写 |
+| finalize | ok | 53 | `nightly_full_review.sh finalize 2026-08-21`；quality ok=true；L2 仍挂账 |
+| public-assets | timeout | 600 | 未再补；不卡门 |
+
+> 18:41 夜跑 preflight 红（无复盘会标签）。21:28 手工 S7 过 preflight，申万一 474s 成功（600s 档位生效），但 same-day 未绿、**不换名**。本轮只在残留 staging 补洞，门绿才换名。
+> 已知欠账：L2 自 08-07 挂账；飞书 market-daily / 新浪 index / public-assets 未绿；晨汇断至 07-26、卖方事件断至 07-05；`cli daily-full` 写入守卫仍未进 `gitea/main`。
+
+## 2026-08-24 | run 2026-08-24 21:00
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 901 |  |
+| market-overview | ok | 73 |  |
+| index-daily | fail | 6 | [retry r1] |
+| sw-l1-daily | ok | 242 | [retry r1] |
+| market-deviation | fail | 11 | [retry r1] |
+| sector-daily | fail | 12 | [retry r1] |
+| sector-stocks | partial | 0 | 2026-08-24 snapshot=ed0d17ec87df success=0/403 rel=0+0/52916 pending=0 retriable=403 nulls=0 continuity=100% missing_tables=fact_sector_daily,fact_sector_stock_daily mismatch=relationships,daily_identities after 20 loops |
+| limit-heat | ok | 32 | heat=202 stock=415 retried=0 still_empty=0 |
+| stock-high | ok | 52 |  |
+| limit-advance | ok | 2 |  |
+| stock-daily | fail | 117 | used fill-stock-daily-fallback [retry r1] |
+| mainline-daily | fail | 3 | [retry r1] |
+| mainline-sector-daily | fail | 3 | [retry r1] |
+| theme-flow-daily | fail | 1 | [retry r1] |
+| public-assets | ok | 63 |  |
+| features | fail | 3 | [retry r1] |
+| same-day-gate | fail | 1 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：index-daily, market-deviation, sector-daily, sector-stocks, stock-daily, mainline-daily, mainline-sector-daily, theme-flow-daily, features, same-day-gate
+
+## 2026-08-24 | repair 2026-08-24 21:39（夜跑 21:00 失败后人工补跑；数据段全绿）
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| 根因 | - | - | 三源同断：公开 API 匿名 401（批量 fetch 无 Bearer）/ 代理掐新浪+东财+腾讯 SSL / dim 全表含 223 死 .TI |
+| index | ok | - | akshare 双源 SSL 挂；上证 3882.01 先从 note 回写，后经 reviews/market.volume.indices 同值 |
+| theme-flow | ok | 1 | CDP 带 token，57 panels |
+| mainline / mainline-sector | ok | 7 | CDP 带 token，2 主题 39 股 / 8 板块 |
+| sector-daily | ok | 27 | 只拉当日宇宙 403 个 .FP，10075 行（25 日序列） |
+| sector-stocks | ok | 71 | 断点续跑 only_missing；跳过腾讯市值（每批 4×15s SSL 空转），299 empty→403/403 success |
+| stock-daily | ok | 1 | fill-stock-daily-fallback 5540 股；sh_week_ma=3915.13 dev=-0.85 |
+| public-assets | ok | 73 | CDP 回退全绿：core 50 / leader 1 / global 5+194 / auction 70 / dragon 60+503 |
+| features | ok | - | compute_features 全族 complete |
+| same-day-gate | COMPLETE | - | check_daily_review_data --phase data |
+| cross-day | PASS | - | check-daily 公开资产 4 表补齐后过 |
+| quality-gate | COMPLETE | - | --phase report；L2 INCOMPLETE（挂账，用户指示后续统一补） |
+| 报告 | ok | - | exports/2026-08-24-daily-review.md（32K） |
+
+> 代码修复在干净树 `fwp-wt-fph-auth` @ `fix/fupanhui-auth-fallback`（789cd216 代码 + ff08b2b7 坑沉淀），
+> 未合 main。L2 欠账自 08-07 起（flag 仍在），用户指示后续统一补。
+
+## 2026-08-25 | run 2026-08-25 18:40
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 2 | [retry r1] |
+| market-overview | ok | 4 | [retry r1] |
+| index-daily | ok | 2 | [retry r1] |
+| sw-l1-daily | ok | 300 |  |
+| market-deviation | ok | 12 | [retry r1] |
+| sector-daily | fail | 19 | [retry r1] |
+| sector-stocks | partial | 0 | 2026-08-25 no published universe after 20 loops |
+| limit-heat | ok | 38 | heat=205 stock=512 retried=0 still_empty=0 |
+| stock-high | ok | 63 |  |
+| limit-advance | ok | 2 |  |
+| stock-daily | ok | 48 | eastmoney snapshot ok |
+| mainline-daily | fail | 3 | [retry r1] |
+| mainline-sector-daily | fail | 3 | [retry r1] |
+| theme-flow-daily | fail | 1 | [retry r1] |
+| public-assets | ok | 61 |  |
+| features | fail | 3 | [retry r1] |
+| same-day-gate | fail | 2 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：sector-daily, sector-stocks, mainline-daily, mainline-sector-daily, theme-flow-daily, features, same-day-gate
+
+## 2026-08-25 | repair 2026-08-26 00:02（夜跑 18:40 失败后 staging 补洞换名；数据段全绿）
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| 根因 | - | - | 夜跑写 staging 未换名。公开 API 401（mainline/theme-flow）；sector-daily 扫死 .TI；sector-stocks 20 轮时宇宙尚未 published；finalize 守卫拦生成段 |
+| 代码 | - | - | 补跑用干净树 `fwp-wt-fph-auth` @ `fix/fupanhui-auth-fallback`（401→CDP + 只拉 published `.FP`），未合 main |
+| sector-daily | ok | 67 | 403 `.FP` / 10075 行 / 空序列 0；换快照后再跑一次 44s |
+| sw-l1-daily | ok | 273 | 31/31 complete；source=`akshare:index_realtime_sw`（与近几日同形，非 degraded） |
+| theme-flow / mainline | ok | 12 | CDP 带 token：57 panels / 3 主题 42 股 / 9 板块 |
+| sector-stocks | ok | 194+100 | 首轮 397/403，6 个 `member_count_surplus`（声明比 live 少 1–2）。`sync-sectors` 重发快照 52916→52926 关系后 403/403、52847 行 |
+| public-assets | ok | 116 | 夜跑该步「ok」但 08-25 行是空的；补跑 core 50 / global 5+194 / leader 120 / dragon 20+168 / auction 70 |
+| features | ok | 2 | compute_features 全族 complete：market 4 / sector 1212 / stock 21794 / technical 5523 / period_rank 40 |
+| same-day-gate | COMPLETE | - | staging `--phase data`；名称连续 402/402=100%；个股覆盖 5541/5541 |
+| cross-day | PASS | - | 补 public-assets 后过；`quality-2026-08-25.json` ok=true |
+| 换名 | ok | - | S7 `atomic_swap_into_place`；生产未直写；staging 已消失 |
+| 报告 | ok | - | exports/2026-08-25-daily-review.md（35K）+ 涨家数图；HTML/题材/策略1 T1=4 T2=5 / 策略3/4 / workbench / cockpit |
+| agent-daily | fail→见下段 | 1 | 当时 `content delta exceeds maximum size`；00:09 临时 park 未跟踪 dumps 后已补绿 |
+| quality-gate | COMPLETE | - | `--phase data/report/all` + `L2_PAUSED=1`；L2 自 08-07 挂账 |
+
+> 补跑在 staging 上写、门绿才换名。生成段必须 Homebrew `python3`（PATH 以 `/opt/homebrew/bin` 开头）；venv-workbench 缺 markdown/matplotlib。
+> 已知欠账：L2 挂账；飞书 market-daily / 新浪 index 未绿；`cli daily-full` 写入守卫与 fph-auth 均未进 `gitea/main`。
+> 本单不写 `docs/handoffs/inflight/feat-reading-rules-baseline-batch1.md`。
+
+## 2026-08-25 | repair-queue 2026-08-26 00:11（agent-daily / 研究队列收口）
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| delta-park | ok | - | 临时移出未跟踪 `review-queue/reports/`（5.6MB）+ `cross-repo-ingest-queue/`（4.1MB）到知识库根外；已跟踪 `cninfo-rss-*.json` 未动。跑完移回。知识库仍在别人的 `fix/rss-l3-auto-promote`，未 commit |
+| agent-daily | ok | 9 | fidelity 1.2 通过；`--semantic-rag-top-n 0`；venv-workbench。扫描 10 条：旧逻辑唤醒 8 / 新逻辑 0 / 数据缺口 2。队列 8 项：IMA 5（碳中和/特高压/新能源车/数据中心/一带一路）+ 找公告 2（光纤光缆/人形机器人）+ 降级 1（贵金属） |
+| kb-queue-receive | ok | 1 | 10 条任务归档到 `wiki/raw/cross-repo-ingest-queue/2026-08-25/`（只 receive，不 apply） |
+| cockpit/workbench | ok | - | 驾驶台 08-25 卡已挂「研究队列」；workbench 同步 |
+| l3_daily_backfill | dry-run | 26 | 例行池 9 只（策略一当日行），agent 缺口 0（队列目标是题材名无代码）。lookup 成功、近 3 日 0 条可写候选，未 `--apply`。不往 RSS 分支脏树写 entity |
+
+> 坑：content_delta 的 10MB 上限会把 gitignored 未跟踪目录也算进去。不要扩 cap、不要把 disclosures/ingest-queue 提交进别人的知识库分支。临时 park 未跟踪 dumps 即可。
+> 驾驶台入口：`复盘/index.html`；canonical 队列：`market_feature_store/exports/2026-08-25-research-queue.json`。
+
+## 2026-08-25 | closeout-qc 2026-08-26 00:16（收尾质检，闸门重跑）
+
+| 检查 | 结果 | 备注 |
+|---|---|---|
+| same-day `--phase data/report/all` | COMPLETE | 现跑；`L2_PAUSED=1`；名称连续 402/402；个股覆盖 5541/5541 |
+| cross-day `check-daily` | PASS | gaps/anomalies/range 全空；与 `quality-2026-08-25.json` 一致 |
+| 空壳抽查 | PASS | sector_stock 52847 行、price/pct_chg/amount 0 空；sector_daily 403 值齐；stock_daily close 0 空；公开资产 core50 / global5+194 / dragon60 / auction70 与 08-24 同形 |
+| published 宇宙 | PASS | 现用 `34dd7460…`（22:27 重发）；18:39 那版已 superseded |
+| 产物/链接 | PASS | 日报 md/html/图、题材、队列、agent、矩阵 1/3/4、cockpit、workbench、增量包 4.1MB；锁已释放；无 staging |
+| 研究队列 ↔ receive | PASS | 队列 8 项（IMA5+公告2+降级1）；kb-ingest 10 条；receipt `received=10` |
+| L3 | dry-run 0 候选 | 未 apply，正确 |
+| 非阻断 | 挂账 | L2 自 08-07；飞书 market-daily / 新浪指数；胜率/晨汇/evolve 不在夜跑 canonical 计划（晨汇无当日源）；framework 因无 `user_framework` 跳过 |
+| 轻症 | 不修 | 日报 HTML 涨家数图 `<img src>` 相对路径可用；「点击打开」是 `file://…png`（08-24 同形，渲染器老问题）。`exports/…-daily-workflow-summary.json` 仍是 00:02 的 `skip_agent=true`，队列是之后补的，别拿它当 agent 步骤证据 |
+
+> 结论：08-25 收尾**可以当完成**。空壳抽查是第三层——`COUNT(*)` 过门不等于值在。`fact_leader_height_daily` 每日 1 行是「最高板」不是 120 只名单。

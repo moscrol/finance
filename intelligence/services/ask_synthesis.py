@@ -18,6 +18,7 @@ from intelligence.services import (
     evidence_registry,
     experience_cards,
     forecast_preflight,
+    knowledge_injection_policy,
     llm_refine,
     perspective_lab,
     scenario_tree,
@@ -867,6 +868,13 @@ def _prepare_answer_spec_synthesis(
         experience_guidance=experience_guidance,
         exemplar_guidance=exemplar_guidance,
         contract_guidance="\n\n".join(contract_parts),
+        # 市场态题型（market_watch）不注入判读基线：三轮消融实测该题型上稳定负贡献
+        # （directness -1.4），门控点与 W 源共用 knowledge_injection_policy。
+        # ⚠️ 必须走 routed_question_type()：question_plan.question_type 是被
+        # answer_orchestrator.py:272 翻译掉之后的值，里面没有 market_watch。
+        baseline_guidance=knowledge_injection_policy.reading_guidance_for(
+            knowledge_injection_policy.routed_question_type(question_plan)
+        ),
     )
     messages[0]["content"] = (
         f"{messages[0]['content']}\n\n## 本轮视角约束\n"
@@ -2150,6 +2158,15 @@ def synthesize_shadow_grounded_answer(
         candidate_answer,
         registry_block,
     )
+    # judge 实际用的 provider/model。下面所有 shadow 存证的 provider/model 记的是
+    # composer 的，判 judge 故障时照着它看会错到别的家去（grok-cli 的 URLError 曾
+    # 连续三轮被记成 zhipu）。两者分开存。
+    judge_provider_name = (
+        judge_override.name if judge_override is not None else None
+    )
+    judge_model_name = (
+        judge_override.model if judge_override is not None else options.llm_model
+    )
     judge_started = time.monotonic()
     judge_remaining_ms = deadline.remaining() * 1000
     judge_timeout = _shadow_phase_timeout(
@@ -2214,6 +2231,8 @@ def synthesize_shadow_grounded_answer(
                 deterministic_issues=deterministic_issues,
                 provider=composed.provider,
                 model=composed.model,
+                judge_provider=judge_provider_name,
+                judge_model=judge_model_name,
                 failure_reason=judge_reason,
                 elapsed_ms=round((time.monotonic() - started) * 1000),
             )
@@ -2236,22 +2255,26 @@ def synthesize_shadow_grounded_answer(
                 judge_raw=judged.answer,
                 provider=composed.provider,
                 model=composed.model,
+                judge_provider=judge_provider_name,
+                judge_model=judge_model_name,
                 failure_reason="judge_output_invalid",
                 elapsed_ms=round((time.monotonic() - started) * 1000),
             )
         )
         return result
+    # judge 的序号跟 harness 的编号对不上，按它 issue 里引用的原文重新定位。
+    # 单独接出来而不是内联进调用：**报的**与**执行的**不一致正是 fail-open 的形状，
+    # 得让它进 shadow 存证与 trace，否则只能靠事后重放归档件才看得出来。
+    judge_applied_indexes: tuple[int, ...] = ()
     if not judge_report.passed:
+        judge_applied_indexes = answer_model.resolve_judge_sentence_indexes(
+            judge_report,
+            sentences,
+        )
         semantic_repair = answer_model.repair_grounded_composer_answer(
             candidate_answer,
             result.answer_spec,
-            # judge 的序号跟 harness 的编号对不上，按它 issue 里引用的原文重新定位。
-            rejected_sentence_indexes=(
-                answer_model.resolve_judge_sentence_indexes(
-                    judge_report,
-                    sentences,
-                )
-            ),
+            rejected_sentence_indexes=judge_applied_indexes,
             drop_invalid=repair_drop_invalid,
         )
         if semantic_repair is None:
@@ -2265,8 +2288,11 @@ def synthesize_shadow_grounded_answer(
                     ),
                     deterministic_issues=deterministic_issues,
                     judge_report=judge_report,
+                    judge_applied_sentence_indexes=judge_applied_indexes,
                     provider=composed.provider,
                     model=composed.model,
+                    judge_provider=judge_provider_name,
+                    judge_model=judge_model_name,
                     failure_reason="semantic_repair_failed",
                     elapsed_ms=round(
                         (time.monotonic() - started) * 1000
@@ -2298,8 +2324,11 @@ def synthesize_shadow_grounded_answer(
             ),
             deterministic_issues=deterministic_issues,
             judge_report=judge_report,
+            judge_applied_sentence_indexes=judge_applied_indexes,
             provider=composed.provider,
             model=composed.model,
+            judge_provider=judge_provider_name,
+            judge_model=judge_model_name,
             elapsed_ms=round((time.monotonic() - started) * 1000),
         )
     )

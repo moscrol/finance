@@ -459,6 +459,14 @@ class EpisodeToolBatchSession:
                 and items[candidate.index] is not None
                 and items[candidate.index].status == "success"
             )
+            # 空结果 / 超时 / 错误不能占 duplicate 键：W5 补证会再打同一
+            # capability。有证据的 success 仍去重，防模型死循环。
+            self._seen_queries.difference_update(
+                candidate.key
+                for candidate in selected
+                if items[candidate.index] is None
+                or items[candidate.index].status != "success"
+            )
 
         return self._result(
             items,

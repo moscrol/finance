@@ -21,9 +21,21 @@ from intelligence.services import llm_refine
 from intelligence.services.agent_runtime import AgentOutcome, AgentRuntime
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_factory import build_episode_context
+from intelligence.services.episode_issues import (
+    Issue,
+    IssueCode,
+    plan_issue_backfill,
+)
+from intelligence.services.episode_phase import PhaseRecorder
 from intelligence.services.episode_projection import project_durable_events
 from intelligence.services.episode_progress import EpisodeProgress
-from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
+from intelligence.services.episode_semantic_verifier import (
+    DEFAULT_JUDGE_TIMEOUT_SECONDS,
+    SemanticEpisodeOutcome,
+    draft_sentence_count,
+    numeric_condition_unsupported,
+)
+from intelligence.services.rejudge_pending import append_pending_from_artifact
 from intelligence.services.episode_tools import (
     build_episode_registry,
     run_deterministic_fast_path,
@@ -33,16 +45,20 @@ from intelligence.services.episode_verifier import (
     verify_episode_outcome,
 )
 from intelligence.services.honesty_gates import with_calendar_disclosure
+from intelligence.services.mandatory_satisfiability import (
+    apply_unreachable_downgrade,
+)
 from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
 )
-from intelligence.services.research_contract import ResearchDeadline, ResearchRunContext
 from intelligence.services.repair_coordinator import (
+    admit_backfill_repair,
     admit_repair,
     max_repair_cycles_for_tier,
     progress_from_ledger,
 )
+from intelligence.services.research_contract import ResearchDeadline, ResearchRunContext
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
     SatisfiabilityCheck,
@@ -50,6 +66,11 @@ from intelligence.services.research_tool_registry import (
 )
 from intelligence.services.run_store import redact, redact_value
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.track_contract import (
+    contract_receipt,
+    is_contract_rewrite_only,
+    merge_track_missing_outputs,
+)
 from intelligence.runtime.turn_control_core import TurnControlResult
 
 
@@ -75,14 +96,20 @@ _DELIVERY_REPAIR_STOP_REASONS = frozenset(
 _COLD_RESTART_STOP_REASONS = frozenset(
     {"deadline_exhausted", "model_unavailable"}
 )
-# The semantic judge itself is bounded to 25 seconds, but OpenAI-compatible
-# transports can return a few seconds after their client timeout while the
-# socket/request stack unwinds.  Reserve explicit transport grace so a valid
-# late report is not discarded merely because research consumed the rest of
-# the shared turn deadline.
-DEFAULT_VERIFICATION_RESERVE_SECONDS = 40.0
+# First judge attempt is the shared window (50s after the 08-20 grok tail
+# of 46.7s). OpenAI-compatible transports can return a few seconds after
+# their client timeout while the socket unwinds. Reserve judge + 10s grace
+# so a full research burn still leaves one dispatchable attempt.
+DEFAULT_VERIFICATION_RESERVE_SECONDS = DEFAULT_JUDGE_TIMEOUT_SECONDS + 10.0
 DETERMINISTIC_OWNER_TYPES = frozenset(
-    {"external_market", "quick_fact", "dated_market_review"}
+    {
+        "external_market",
+        "quick_fact",
+        "dated_market_review",
+        "market_watch",
+        "watchlist_digest",
+        "disclosure_scan",
+    }
 )
 
 
@@ -310,6 +337,7 @@ class ContinuousTurnAdapter:
             raw = self._fast_path_runner(
                 frame,
                 timeout=self._remaining_timeout(),
+                as_of=self._latest_data_date,
             )
             if self._is_cancelled():
                 return _cancelled_result()
@@ -370,16 +398,35 @@ class ContinuousTurnAdapter:
             status = "degraded"
         else:
             status = "failed"
+        fast_as_of = _fast_path_as_of(raw)
+        # 快路径现在把本轮锚点传进 resolve_market_technical(as_of=...)。
+        # 对账仍留下作兜底：窗口不足等残余情形会继续算最新一根，必须当场声明，
+        # 不得再静默以 completed 交付错日期。锚点对得上时不应再触发。
+        anchor = (self._latest_data_date or "").strip()
+        caliber_warnings: tuple[str, ...] = ()
+        if status == "completed" and anchor and fast_as_of and fast_as_of != anchor:
+            status = "degraded"
+            caliber_warnings = (
+                f"技术位按 {fast_as_of} 的日线计算，但本轮口径基准是 {anchor}；"
+                "该确定性旁路取的是最新行情、不支持指定历史日期，结论不适用于基准日。",
+            )
+            answer = (
+                f"（口径提示：以下结论按 {fast_as_of} 计算，非基准日 {anchor}。）{answer}"
+            )
         return ContinuousTurnResult(
             handled=True,
             status=status,
             answer=answer,
-            as_of=_fast_path_as_of(raw),
+            as_of=fast_as_of,
             citations=(),
             warnings=(
-                ()
-                if status == "completed"
-                else ("结构化行情不足，技术位结论已按数据边界降级。",)
+                caliber_warnings
+                if caliber_warnings
+                else (
+                    ()
+                    if status == "completed"
+                    else ("结构化行情不足，技术位结论已按数据边界降级。",)
+                )
             ),
             private_artifact=cast(
                 dict[str, object],
@@ -422,9 +469,11 @@ class ContinuousTurnAdapter:
         session: object | None = None
         repair_cycles = 0
         repair_attempts = 0
+        backfill_turns = 0
         delivery_repair_attempted = False
         semantic_verifier_stale = False
         attempts_before = _ledger_attempt_count()
+        phase_recorder = PhaseRecorder()
         try:
             root_timeout = self._remaining_timeout()
             root_deadline = ResearchDeadline.from_timeout(root_timeout)
@@ -452,6 +501,9 @@ class ContinuousTurnAdapter:
             )
             if perspective_context:
                 context_kwargs["perspective_context"] = perspective_context
+            stance_pack = getattr(control, "stance_pack", None)
+            if stance_pack is not None:
+                context_kwargs["stance_pack"] = stance_pack
             if self._synthesis_reserve_for_task is not None:
                 context_kwargs["synthesis_reserve"] = max(
                     0.0,
@@ -469,6 +521,15 @@ class ContinuousTurnAdapter:
             registry = cast(
                 ResearchToolRegistry,
                 self._registry_factory(frame, context),
+            )
+            from intelligence.services.forecast_residual_budget import (
+                maybe_promote_forecast_residual,
+            )
+
+            context = maybe_promote_forecast_residual(
+                context,
+                question_type=frame.question_type,
+                opening_prefetch=getattr(registry, "opening_prefetch", ()),
             )
             # 事前可满足性预检：这套授权工具的 produces 并集能否覆盖每项
             # required_output。**只观测，不参与任何决策**——`check_satisfiability`
@@ -512,7 +573,32 @@ class ContinuousTurnAdapter:
                 raise TypeError(
                     "structural verifier must return VerifiedEpisodeOutcome"
                 )
-            structural = structural_candidate
+            structural = _with_track_contract_gaps(structural_candidate, context)
+            _phase_ingest(
+                phase_recorder,
+                context=context,
+                outcome=outcome,
+                repair_attempts=repair_attempts,
+            )
+            if phase_recorder.current_phase in {None, "planning"}:
+                _phase_note(
+                    phase_recorder,
+                    "research",
+                    trigger="episode_returned",
+                    reason_code="episode_returned",
+                    context=context,
+                    outcome=outcome,
+                    repair_attempts=repair_attempts,
+                )
+            _phase_note(
+                phase_recorder,
+                "structural_verify",
+                trigger="structural_verifier",
+                reason_code="structural_verify",
+                context=context,
+                outcome=outcome,
+                repair_attempts=repair_attempts,
+            )
             episode_evidence_ledger = (
                 getattr(session, "evidence_ledger", None)
                 if session is not None
@@ -542,6 +628,61 @@ class ContinuousTurnAdapter:
                 context.contract.research_tier
             )
             repair_terminal = False
+            backfill_plan = _issue_backfill_plan(
+                structural,
+                context,
+                events=outcome.events,
+            )
+            if (
+                session is not None
+                and backfill_plan is not None
+                and not self._is_cancelled()
+                and not root_deadline.expired
+            ):
+                backfill_turns = 1
+                _phase_note(
+                    phase_recorder,
+                    "repair",
+                    trigger="resume_for_backfill",
+                    reason_code="backfill",
+                    context=context,
+                    outcome=outcome,
+                    repair_attempts=repair_attempts,
+                )
+                backfilled = self._resume_for_backfill(
+                    session=session,
+                    context=context,
+                    delivery_deadline=root_deadline,
+                    outcome=outcome,
+                    structural=structural,
+                    previous_snapshot=previous_snapshot,
+                    current_snapshot=current_snapshot,
+                    plan=backfill_plan,
+                )
+                if backfilled is not None:
+                    previous_snapshot = current_snapshot
+                    outcome, structural = backfilled
+                    current_snapshot = _repair_snapshot(
+                        outcome,
+                        structural,
+                        context,
+                        ledger=episode_evidence_ledger,
+                    )
+                    _phase_ingest(
+                        phase_recorder,
+                        context=context,
+                        outcome=outcome,
+                        repair_attempts=repair_attempts,
+                    )
+                    _phase_note(
+                        phase_recorder,
+                        "structural_verify",
+                        trigger="structural_verifier",
+                        reason_code="structural_recheck",
+                        context=context,
+                        outcome=outcome,
+                        repair_attempts=repair_attempts,
+                    )
             while (
                 session is not None
                 and structural.missing_outputs
@@ -551,6 +692,15 @@ class ContinuousTurnAdapter:
                 and not root_deadline.expired
             ):
                 repair_attempts += 1
+                _phase_note(
+                    phase_recorder,
+                    "repair",
+                    trigger="resume_for_gap",
+                    reason_code="structural_gap",
+                    context=context,
+                    outcome=outcome,
+                    repair_attempts=repair_attempts,
+                )
                 repaired = self._resume_for_gap(
                     session=session,
                     context=context,
@@ -568,6 +718,7 @@ class ContinuousTurnAdapter:
                     break
                 previous_snapshot = current_snapshot
                 outcome, structural, delivery_only = repaired
+                structural = _with_track_contract_gaps(structural, context)
                 delivery_repair_attempted = (
                     delivery_repair_attempted or delivery_only
                 )
@@ -582,6 +733,21 @@ class ContinuousTurnAdapter:
                 )
                 if outcome.stop_reason in _SUCCESSFUL_REPAIR_STOP_REASONS:
                     repair_cycles += 1
+                _phase_ingest(
+                    phase_recorder,
+                    context=context,
+                    outcome=outcome,
+                    repair_attempts=repair_attempts,
+                )
+                _phase_note(
+                    phase_recorder,
+                    "structural_verify",
+                    trigger="structural_verifier",
+                    reason_code="structural_recheck",
+                    context=context,
+                    outcome=outcome,
+                    repair_attempts=repair_attempts,
+                )
             if self._is_cancelled():
                 return _cancelled_result()
             if root_deadline.expired:
@@ -593,7 +759,21 @@ class ContinuousTurnAdapter:
             )
             if not isinstance(semantic_candidate, SemanticEpisodeOutcome):
                 raise TypeError("semantic verifier must return SemanticEpisodeOutcome")
-            semantic = semantic_candidate
+            semantic = replace(
+                semantic_candidate,
+                verified=_with_track_contract_gaps(
+                    semantic_candidate.verified, context
+                ),
+            )
+            _phase_note(
+                phase_recorder,
+                "semantic_verify",
+                trigger="semantic_verifier",
+                reason_code=str(semantic.judge_status or "semantic_verify"),
+                context=context,
+                outcome=outcome,
+                repair_attempts=repair_attempts,
+            )
             while (
                 session is not None
                 and (
@@ -607,6 +787,15 @@ class ContinuousTurnAdapter:
                 and not root_deadline.expired
             ):
                 repair_attempts += 1
+                _phase_note(
+                    phase_recorder,
+                    "repair",
+                    trigger="resume_for_gap",
+                    reason_code="semantic_gap",
+                    context=context,
+                    outcome=outcome,
+                    repair_attempts=repair_attempts,
+                )
                 repaired = self._resume_for_gap(
                     session=session,
                     context=context,
@@ -628,6 +817,7 @@ class ContinuousTurnAdapter:
                     break
                 previous_snapshot = current_snapshot
                 outcome, structural, delivery_only = repaired
+                structural = _with_track_contract_gaps(structural, context)
                 delivery_repair_attempted = (
                     delivery_repair_attempted or delivery_only
                 )
@@ -642,6 +832,21 @@ class ContinuousTurnAdapter:
                 )
                 if outcome.stop_reason in _SUCCESSFUL_REPAIR_STOP_REASONS:
                     repair_cycles += 1
+                _phase_ingest(
+                    phase_recorder,
+                    context=context,
+                    outcome=outcome,
+                    repair_attempts=repair_attempts,
+                )
+                _phase_note(
+                    phase_recorder,
+                    "structural_verify",
+                    trigger="structural_verifier",
+                    reason_code="structural_recheck",
+                    context=context,
+                    outcome=outcome,
+                    repair_attempts=repair_attempts,
+                )
                 if (
                     repair_terminal
                     or self._is_cancelled()
@@ -658,7 +863,21 @@ class ContinuousTurnAdapter:
                     raise TypeError(
                         "semantic verifier must return SemanticEpisodeOutcome"
                     )
-                semantic = semantic_candidate
+                semantic = replace(
+                    semantic_candidate,
+                    verified=_with_track_contract_gaps(
+                        semantic_candidate.verified, context
+                    ),
+                )
+                _phase_note(
+                    phase_recorder,
+                    "semantic_verify",
+                    trigger="semantic_verifier",
+                    reason_code=str(semantic.judge_status or "semantic_verify"),
+                    context=context,
+                    outcome=outcome,
+                    repair_attempts=repair_attempts,
+                )
             if self._is_cancelled():
                 return _cancelled_result()
             self._publish_progress(
@@ -679,6 +898,7 @@ class ContinuousTurnAdapter:
                 ),
                 "repair_attempts": repair_attempts,
                 "repair_cycles": repair_cycles,
+                "backfill_turns": backfill_turns,
                 "failure": {
                     "type": type(exc).__name__,
                     "message": str(exc),
@@ -701,6 +921,25 @@ class ContinuousTurnAdapter:
             partial_artifact["structural_verifier"] = (
                 structural.to_dict() if structural is not None else None
             )
+            _phase_ingest(
+                phase_recorder,
+                context=context,
+                outcome=outcome,
+                repair_attempts=repair_attempts,
+            )
+            degraded_delivery = bool(
+                outcome is not None and outcome.evidence and context is not None
+            )
+            _phase_note(
+                phase_recorder,
+                "degraded" if degraded_delivery else "failed",
+                trigger="public_outcome",
+                reason_code=type(exc).__name__,
+                context=context,
+                outcome=outcome,
+                repair_attempts=repair_attempts,
+            )
+            partial_artifact["phase_trace"] = _phase_trace_payload(phase_recorder)
             if outcome is not None and outcome.evidence and context is not None:
                 partial_artifact["contract"] = context.contract.to_dict()
                 trusted_structural = (
@@ -823,6 +1062,15 @@ class ContinuousTurnAdapter:
             status = "degraded"
         else:
             status = "failed"
+        _phase_note(
+            phase_recorder,
+            status,
+            trigger="public_outcome",
+            reason_code=status,
+            context=context,
+            outcome=outcome,
+            repair_attempts=repair_attempts,
+        )
         if not answer and final_outcome.evidence:
             answer = _episode_gap_answer(frame, structural)
         answer = _with_calendar_disclosure(answer, frame)
@@ -848,6 +1096,13 @@ class ContinuousTurnAdapter:
             "semantic_verifier_stale": semantic_verifier_stale,
             "repair_attempts": repair_attempts,
             "repair_cycles": repair_cycles,
+            "backfill_turns": backfill_turns,
+            "track_contract": contract_receipt(
+                outcome.draft,
+                query=context.contract.question,
+                question_type=context.contract.question_type,
+                as_of=context.today,
+            ),
             "metrics": _episode_metrics(
                 outcome,
                 attempts_before=attempts_before,
@@ -861,6 +1116,13 @@ class ContinuousTurnAdapter:
             artifact["events_projection_anomalies"] = (
                 event_projection.anomalies_to_dict()
             )
+        artifact["phase_trace"] = _phase_trace_payload(phase_recorder)
+        if semantic.judge_status == "unavailable":
+            artifact["pending_rejudge"] = True
+            try:
+                append_pending_from_artifact(artifact)
+            except Exception:
+                pass
         return ContinuousTurnResult(
             handled=True,
             status=status,
@@ -924,8 +1186,14 @@ class ContinuousTurnAdapter:
             ),
             max(0.0, float(delivery_deadline.remaining())),
         )
+        structural = _with_track_contract_gaps(structural, context)
         missing_outputs = tuple(
             dict.fromkeys((*structural.missing_outputs, *semantic_gap_outputs))
+        )
+        contract_rewrite_candidate = is_contract_rewrite_only(
+            missing_outputs,
+            rejected_claims=rejected_claims,
+            semantic_gap_outputs=semantic_gap_outputs,
         )
         delivery_candidate = (
             allow_delivery_repair
@@ -959,12 +1227,17 @@ class ContinuousTurnAdapter:
             tools_open=tools_open,
             allow_delivery_repair=allow_delivery_repair,
             delivery_candidate=bool(delivery_candidate),
+            contract_rewrite_candidate=contract_rewrite_candidate,
             cold_restart_candidate=cold_restart_candidate,
             evidence_count=len(outcome.evidence),
             seconds_cap=self._repair_seconds_cap,
         )
         if admission is None:
             return None
+        verify_contract, _ = apply_unreachable_downgrade(
+            context.contract,
+            admission.goal,
+        )
         candidate = resume(admission.goal)
         if not isinstance(candidate, AgentOutcome):
             raise TypeError("episode session resume must return AgentOutcome")
@@ -984,10 +1257,123 @@ class ContinuousTurnAdapter:
                 draft=outcome.draft,
                 bindings=candidate.bindings or outcome.bindings,
             )
-        verified = self._structural_verifier(context.contract, candidate)
+        verified = self._structural_verifier(verify_contract, candidate)
         if not isinstance(verified, VerifiedEpisodeOutcome):
             raise TypeError("structural verifier must return VerifiedEpisodeOutcome")
         return candidate, verified, admission.delivery_only
+
+    def _resume_for_backfill(
+        self,
+        *,
+        session: object,
+        context: ResearchRunContext,
+        delivery_deadline: ResearchDeadline,
+        outcome: AgentOutcome,
+        structural: VerifiedEpisodeOutcome,
+        previous_snapshot: EvidenceLedgerSnapshot,
+        current_snapshot: EvidenceLedgerSnapshot,
+        plan: object,
+    ) -> tuple[AgentOutcome, VerifiedEpisodeOutcome] | None:
+        root_budget = context.root_budget
+        resume = getattr(session, "resume", None)
+        episode_id = str(getattr(session, "episode_id", "") or "").strip()
+        if root_budget is None or not callable(resume) or not episode_id:
+            return None
+        missing_outputs = tuple(getattr(plan, "missing_outputs", ()) or ())
+        missing_capabilities = tuple(getattr(plan, "missing_capabilities", ()) or ())
+        if not missing_capabilities:
+            return None
+        tools_open = (
+            not context.deadline.expired
+            and context.deadline.stage_timeout(1.0) > 0.001
+        )
+        remaining_calls = max(
+            0,
+            int(root_budget.hard_calls_cap) - int(root_budget.allocated_calls),
+        )
+        remaining_seconds = min(
+            max(
+                0.0,
+                float(root_budget.hard_seconds_cap)
+                - float(root_budget.allocated_seconds),
+            ),
+            max(0.0, float(delivery_deadline.remaining())),
+        )
+        admission = admit_backfill_repair(
+            episode_id=episode_id,
+            missing_outputs=missing_outputs,
+            missing_capabilities=missing_capabilities,
+            attempted_actions=tuple(
+                f"{trace.capability}:{trace.provider}" for trace in outcome.traces
+            ),
+            previous_progress=progress_from_ledger(
+                previous_snapshot, current_snapshot
+            ),
+            remaining_calls=remaining_calls,
+            remaining_seconds=remaining_seconds,
+            cycle=1,
+            root_budget=root_budget,
+            tools_open=tools_open,
+            seconds_cap=self._repair_seconds_cap,
+        )
+        if admission is None or not admission.backfill:
+            return None
+        candidate = resume(admission.goal)
+        if not isinstance(candidate, AgentOutcome):
+            raise TypeError("episode session resume must return AgentOutcome")
+        if outcome.draft.strip() and not candidate.draft.strip():
+            candidate = replace(
+                candidate,
+                draft=outcome.draft,
+                bindings=candidate.bindings or outcome.bindings,
+            )
+        if draft_sentence_count(candidate.draft) > draft_sentence_count(outcome.draft):
+            return None
+        verified = self._structural_verifier(context.contract, candidate)
+        if not isinstance(verified, VerifiedEpisodeOutcome):
+            raise TypeError("structural verifier must return VerifiedEpisodeOutcome")
+        return candidate, verified
+
+
+def _issue_backfill_plan(
+    structural: VerifiedEpisodeOutcome,
+    context: ResearchRunContext,
+    events: tuple[object, ...] = (),
+):
+    items = structural.issue_items
+    if numeric_condition_unsupported(structural):
+        items = (
+            *items,
+            Issue(
+                IssueCode.NUMERIC_UNSUPPORTED,
+                "numeric_condition",
+                "unsupported numeric condition without bound evidence",
+            ),
+        )
+    return plan_issue_backfill(
+        items,
+        subject_kind=context.contract.subject_kind,
+        events=events,
+    )
+
+
+def _with_track_contract_gaps(
+    structural: VerifiedEpisodeOutcome,
+    context: ResearchRunContext,
+) -> VerifiedEpisodeOutcome:
+    """Merge track-contract expression gaps into missing_outputs only.
+
+    Do not touch ``issues``: the #224 release gate matches issue prefixes.
+    """
+    merged = merge_track_missing_outputs(
+        structural.missing_outputs,
+        structural.outcome.draft,
+        query=context.contract.question,
+        question_type=context.contract.question_type,
+    )
+    if merged == structural.missing_outputs:
+        return structural
+    return replace(structural, missing_outputs=merged)
 
 
 def _empty_repair_snapshot(context: ResearchRunContext) -> EvidenceLedgerSnapshot:
@@ -1201,12 +1587,20 @@ def _episode_context_provenance(
 ) -> dict[str, object]:
     """Persist the single cutoff/freshness context beside private diagnostics."""
 
-    return {
+    payload: dict[str, object] = {
         "information_cutoff": context.information_cutoff.to_dict(),
         "today": context.today,
         "latest_data_date": context.latest_data_date,
         "trace_parent_id": context.trace_parent_id,
     }
+    pack = getattr(context, "stance_pack", None)
+    if pack is None:
+        return payload
+    to_receipt = getattr(pack, "to_receipt", None)
+    payload["stance_pack"] = (
+        to_receipt() if callable(to_receipt) else {"present": True}
+    )
+    return payload
 
 
 def _declined_result() -> ContinuousTurnResult:
@@ -1440,6 +1834,69 @@ def _episode_warnings(
 
 def _redact_private(value: object) -> object:
     return redact_value(value)
+
+
+def _phase_note(
+    recorder: PhaseRecorder,
+    to_phase: str,
+    *,
+    trigger: str,
+    reason_code: str,
+    context: ResearchRunContext | None,
+    outcome: AgentOutcome | None,
+    repair_attempts: int,
+) -> None:
+    """Observability only: a broken phase seam must not abort research."""
+
+    try:
+        root = getattr(context, "root_budget", None) if context is not None else None
+        recorder.record(
+            to_phase,
+            trigger=trigger,
+            reason_code=reason_code,
+            remaining_calls=int(root.remaining_calls) if root is not None else None,
+            remaining_seconds=(
+                float(root.remaining_seconds) if root is not None else None
+            ),
+            evidence_count=len(outcome.evidence) if outcome is not None else 0,
+            repair_attempts=repair_attempts,
+        )
+    except Exception:
+        return
+
+
+def _phase_ingest(
+    recorder: PhaseRecorder,
+    *,
+    context: ResearchRunContext | None,
+    outcome: AgentOutcome | None,
+    repair_attempts: int,
+) -> None:
+    if outcome is None:
+        return
+    try:
+        root = getattr(context, "root_budget", None) if context is not None else None
+        recorder.ingest_events(
+            outcome.events,
+            remaining_calls=int(root.remaining_calls) if root is not None else None,
+            remaining_seconds=(
+                float(root.remaining_seconds) if root is not None else None
+            ),
+            evidence_count=len(outcome.evidence),
+            repair_attempts=repair_attempts,
+        )
+    except Exception:
+        return
+
+
+def _phase_trace_payload(recorder: PhaseRecorder) -> dict[str, object]:
+    try:
+        return recorder.trace().to_dict()
+    except Exception:
+        return {
+            "transitions": [],
+            "anomalies": {"recorder_failed": ["1"]},
+        }
 
 
 def _private_outcome(outcome: AgentOutcome) -> dict[str, object]:

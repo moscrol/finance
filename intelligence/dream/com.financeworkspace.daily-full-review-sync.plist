@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd：每日 18:30 全量复盘 - sync 段。
+  仓内源；装机副本由 scripts/install_eval_launchd.sh 同步。
+  同步走 S7 staging 换库，避免长事务锁死生产库读者。
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.financeworkspace.daily-full-review-sync</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>/Users/a77/.local/bin/nightly-full-review-s7.sh</string>
+    <string>sync</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/a77/finance-workspace-private</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>FINANCE_CODE_ROOT</key>
+    <string>/Users/a77/finance-workspace-runtime</string>
+    <key>FINANCE_DATA_ROOT</key>
+    <string>/Users/a77/finance-workspace-private</string>
+    <key>FINANCE_WS</key>
+    <string>/Users/a77/finance-workspace-private</string>
+    <key>FINANCE_PYTHON</key>
+    <string>/Users/a77/finance-workspace-private/.venv-workbench/bin/python</string>
+    <key>FINANCE_SYNC_PYTHON</key>
+    <string>/Users/a77/finance-workspace-private/.venv-workbench/bin/python</string>
+    <key>FINANCE_OPS_HEALTH_LOG</key>
+    <string>/Users/a77/.finance-runtime/ops-health.log</string>
+    <key>MARKET_FEATURE_STORE_DB</key>
+    <string>/Users/a77/finance-workspace-private/db/market_feature_store.duckdb</string>
+    <key>REVIEW_GATE_LOCK_ATTEMPTS</key>
+    <string>36</string>
+    <key>REVIEW_GATE_LOCK_DELAY_SECONDS</key>
+    <string>10</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StandardErrorPath</key>
+  <string>/Users/a77/finance-workspace-private/logs/daily-full-review.err.log</string>
+  <key>StandardOutPath</key>
+  <string>/Users/a77/finance-workspace-private/logs/daily-full-review.out.log</string>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>18</integer>
+    <key>Minute</key>
+    <integer>30</integer>
+  </dict>
+</dict>
+</plist>

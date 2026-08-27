@@ -1,0 +1,175 @@
+{
+  "trade_date": "2026-08-19",
+  "source": "theme-backfill-review-queue",
+  "source_file": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-08-19-theme-backfill-queue.json",
+  "generated_at": "2026-08-20T02:30:31.399794+00:00",
+  "policy": {
+    "mode": "review_only",
+    "min_priority": "high",
+    "knowledge_write_allowed": false,
+    "placeholder_rule": "items containing 未映射 are blocked_review"
+  },
+  "review_count": 6,
+  "status_counts": {
+    "pending_review": 6
+  },
+  "action_counts": {
+    "review_attach_or_archive_evidence": 2,
+    "review_create_or_link_concept": 3,
+    "review_map_entity_exposures": 1
+  },
+  "items": [
+    {
+      "id": "2026-08-19-01-missing_concept",
+      "trade_date": "2026-08-19",
+      "theme": "粮食概念",
+      "canonical_concept": "粮食概念",
+      "sw_l1": "",
+      "candidate_tier": "deep",
+      "rank": 1,
+      "priority_score": 140.59,
+      "gap_type": "missing_concept",
+      "priority": "critical",
+      "reason": "Deep 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "limit_heat",
+        "multi_period_rank",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-08-19-01-missing_entity_exposures",
+      "trade_date": "2026-08-19",
+      "theme": "粮食概念",
+      "canonical_concept": "粮食概念",
+      "sw_l1": "",
+      "candidate_tier": "deep",
+      "rank": 1,
+      "priority_score": 140.59,
+      "gap_type": "missing_entity_exposures",
+      "priority": "critical",
+      "reason": "Deep 市场触发候选缺少本地公司暴露映射",
+      "trigger_types": [
+        "limit_heat",
+        "multi_period_rank",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_map_entity_exposures",
+      "review_note": "先确认题材核心公司，再补 entity_exposures 映射；不要用泛行业公司凑数。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-08-19-01-missing_evidence",
+      "trade_date": "2026-08-19",
+      "theme": "粮食概念",
+      "canonical_concept": "粮食概念",
+      "sw_l1": "",
+      "candidate_tier": "deep",
+      "rank": 1,
+      "priority_score": 140.59,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "limit_heat",
+        "multi_period_rank",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-08-19-10-missing_evidence",
+      "trade_date": "2026-08-19",
+      "theme": "石油开采",
+      "canonical_concept": "石油",
+      "sw_l1": "",
+      "candidate_tier": "deep",
+      "rank": 10,
+      "priority_score": 80.8,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_cluster"
+      ],
+      "concept_count": 1,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-08-19-17-missing_concept",
+      "trade_date": "2026-08-19",
+      "theme": "乡村振兴",
+      "canonical_concept": "乡村振兴",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 17,
+      "priority_score": 74.76,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "limit_heat",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 4,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-08-19-27-missing_concept",
+      "trade_date": "2026-08-19",
+      "theme": "机械设备",
+      "canonical_concept": "机械设备",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 27,
+      "priority_score": 73.06,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "limit_heat",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    }
+  ]
+}

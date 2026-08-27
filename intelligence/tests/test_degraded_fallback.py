@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import json
 
 from intelligence.services.agent_runtime import AgentUsage
 from intelligence.services.degraded_fallback import (
@@ -30,7 +31,10 @@ from intelligence.services.degraded_fallback import (
     gap_transparency,
     skill_body,
 )
-from intelligence.services.episode_protocol import build_episode_instructions
+from intelligence.services.episode_protocol import (
+    build_episode_input,
+    build_episode_instructions,
+)
 from intelligence.services.episode_semantic_verifier import (
     _JUDGE_SYSTEM_PROMPT,
     SemanticEpisodeVerifier,
@@ -68,16 +72,20 @@ def test_episode_instructions_unchanged_when_off(monkeypatch) -> None:
     monkeypatch.delenv(ENV_NAME, raising=False)
     frame = _frame()
     off_text = build_episode_instructions(frame, _context(frame), _registry())
+    payload = json.loads(build_episode_input(frame, _context(frame), _registry()))
     assert HEADING not in off_text
+    assert HEADING not in payload["question_type_rules"]
 
 
 def test_episode_instructions_inject_when_on(monkeypatch) -> None:
     monkeypatch.setenv(ENV_NAME, "on")
     frame = _frame()
     text = build_episode_instructions(frame, _context(frame), _registry())
-    assert HEADING in text
+    payload = json.loads(build_episode_input(frame, _context(frame), _registry()))
+    assert HEADING not in text
+    assert HEADING in payload["question_type_rules"]
     for anchor in REQUIRED_ANCHORS:
-        assert anchor in text
+        assert anchor in payload["question_type_rules"]
 
 
 def test_gap_answer_unchanged_when_off(monkeypatch) -> None:

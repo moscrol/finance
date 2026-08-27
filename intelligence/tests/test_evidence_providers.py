@@ -2,7 +2,9 @@
 """evidence_providers 的独立单测（端到端行为由 test_golden_answers.py 保护）。"""
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 
 from intelligence.adapters.knowledge import evidence_status
@@ -434,6 +436,200 @@ class CollectEvidenceIndexStaleBypassTests(unittest.TestCase):
         self.assertEqual(len(notes), 1)
         self.assertLessEqual(len(notes[0]), 180)
         self.assertGreaterEqual(len(notes[0]), 80)
+
+
+class CollectEvidenceIndexCounterReserveTests(unittest.TestCase):
+    """KC-05：top-8 里保底反方槽；无命中显式披露，不空占。"""
+
+    def _collect(self, catalog, *, query, anchor=None, theme=None, concepts=None):
+        knowledge = _CatalogKnowledge(catalog)
+        ctx = _evidence_ctx(
+            query=query,
+            knowledge=knowledge,
+            anchor=anchor,
+            matched_theme=theme,
+        )
+        bundle = ep.collect_evidence_index(ctx, concepts or {})
+        return knowledge, bundle
+
+    def test_buried_counter_keeps_reserved_slot_and_mark(self) -> None:
+        catalog = {
+            "长电科技": [
+                *_actives("长电科技", 8),
+                _item(
+                    "长电科技",
+                    evidence="封测同行扩产过快，供给过剩压力上升",
+                    source="[[反方研报]]",
+                ),
+                _item(
+                    "长电科技",
+                    evidence="部分客户需求不及预期，订单下滑",
+                    source="[[反方纪要]]",
+                ),
+                _item(
+                    "长电科技",
+                    evidence="第三条反方不应挤进保底槽",
+                    source="[[多余]]",
+                ),
+            ]
+        }
+        _, bundle = self._collect(
+            catalog,
+            query="长电科技怎么看",
+            anchor=EntityAnchor(entity="长电科技", ticker="600584", matched_by="name"),
+        )
+        self.assertEqual(len(bundle.lines), 8)
+        counter_lines = [line for line in bundle.lines if line.startswith("[反]")]
+        self.assertEqual(len(counter_lines), 2, bundle.lines)
+        self.assertTrue(all("长电科技：" in line for line in counter_lines))
+        self.assertTrue(any("供给过剩" in line for line in counter_lines))
+        self.assertTrue(any("需求不及预期" in line for line in counter_lines))
+        self.assertFalse(any("第三条反方" in line for line in bundle.lines))
+        support_lines = [line for line in bundle.lines if not line.startswith("[反]")]
+        self.assertEqual(len(support_lines), 6)
+        self.assertIsNone(bundle.counter_disclosure)
+
+    def test_no_counter_hit_discloses_instead_of_silence(self) -> None:
+        catalog = {"长电科技": _actives("长电科技", 8)}
+        _, bundle = self._collect(
+            catalog,
+            query="长电科技怎么看",
+            anchor=EntityAnchor(entity="长电科技", ticker="600584", matched_by="name"),
+        )
+        self.assertEqual(len(bundle.lines), 8)
+        self.assertTrue(all(not line.startswith("[反]") for line in bundle.lines))
+        self.assertEqual(bundle.counter_disclosure, "未检索到反方证据")
+
+    def test_single_counter_does_not_empty_occupy(self) -> None:
+        catalog = {
+            "长电科技": [
+                _item("长电科技", evidence="营收同比增长 18%"),
+                _item("长电科技", evidence="同行打价格战，毛利率承压"),
+            ]
+        }
+        _, bundle = self._collect(
+            catalog,
+            query="长电科技怎么看",
+            anchor=EntityAnchor(entity="长电科技", ticker="600584", matched_by="name"),
+        )
+        self.assertEqual(len(bundle.lines), 2)
+        self.assertTrue(bundle.lines[0].startswith("长电科技："))
+        self.assertTrue(bundle.lines[1].startswith("[反]"))
+        self.assertIn("价格战", bundle.lines[1])
+        self.assertIsNone(bundle.counter_disclosure)
+
+
+class _HopKnowledge(_CatalogKnowledge):
+    def __init__(self, catalog, lexicon: tuple[str, ...]) -> None:
+        super().__init__(catalog)
+        self.lexicon = lexicon
+
+    def get_concept_matches(self, term, limit=5):
+        del term
+        return {
+            "found": True,
+            "items": [{"concept": name} for name in self.lexicon[:limit]],
+        }
+
+    def get_exposure_matches(self, term, limit=12):
+        del term, limit
+        return {"found": False, "items": []}
+
+
+class CollectEvidenceIndexSecondHopTests(unittest.TestCase):
+    """KC-06：窄命中/邻居抽出的第二跳 target，行上标跳数，不加行。"""
+
+    def test_neighbor_second_hop_fills_sparse_first_round(self) -> None:
+        knowledge = _HopKnowledge(
+            {
+                "树脂": [
+                    _item("树脂", evidence="电子级树脂供给偏紧，光刻胶上游涨价")
+                ]
+            },
+            ("树脂", "光引发剂", "单体"),
+        )
+        ctx = _evidence_ctx(
+            query="光刻胶现在处于什么阶段",
+            knowledge=knowledge,
+            matched_theme="光刻胶",
+        )
+        bundle = ep.collect_evidence_index(ctx, {})
+        hop_lines = [line for line in bundle.lines if "〔第2跳〕" in line]
+        self.assertTrue(any("树脂" in line for line in hop_lines), bundle.lines)
+        self.assertIn(("树脂", None), knowledge.calls)
+        self.assertEqual(len(bundle.lines), 1)
+
+    def test_second_hop_target_calls_capped_at_three(self) -> None:
+        lexicon = ("树脂", "光引发剂", "单体", "晶圆厂", "ArF")
+        catalog = {
+            name: [_item(name, evidence=f"{name} 供给")]
+            for name in lexicon
+        }
+        knowledge = _HopKnowledge(catalog, lexicon)
+        ctx = _evidence_ctx(
+            query="光刻胶现在处于什么阶段",
+            knowledge=knowledge,
+            matched_theme="光刻胶",
+        )
+        ep.collect_evidence_index(ctx, {})
+        hop_targets = [target for target, _concept in knowledge.calls if target in lexicon]
+        self.assertEqual(hop_targets, ["树脂", "光引发剂", "单体"])
+
+    def test_second_hop_does_not_add_rows_beyond_max_evidence(self) -> None:
+        knowledge = _HopKnowledge(
+            {
+                "光刻胶": _actives("光刻胶", 8),
+                "树脂": _actives("树脂", 4, prefix="resin"),
+            },
+            ("树脂",),
+        )
+        ctx = _evidence_ctx(
+            query="光刻胶",
+            knowledge=knowledge,
+            matched_theme="光刻胶",
+        )
+        bundle = ep.collect_evidence_index(ctx, {})
+        self.assertEqual(len(bundle.lines), 8)
+        self.assertIn(("树脂", None), knowledge.calls)
+        self.assertEqual(sum("〔第2跳〕" in line for line in bundle.lines), 1)
+        self.assertTrue(any("树脂" in line for line in bundle.lines))
+
+
+class CollectAppliedL3WikiNotesTests(unittest.TestCase):
+    def test_explicit_wiki_root_appends_page_only_l3_lines(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wiki = Path(tmp) / "wiki"
+            sources = wiki / "sources"
+            sources.mkdir(parents=True)
+            (sources / "东方钽业_L3官方证据_20260825.md").write_text(
+                "# 东方钽业 L3\n\n"
+                "| 序号 | 来源 | 类型 | 硬度 | 标题 | 摘要/摘录 | 链接/引用 | 入库理由 |\n"
+                "|---|---|---|---|---|---|---|---|\n"
+                "| 1 | cninfo | risk | high | 东方钽业股票交易异常波动公告 | 风险提示 | mock | 边界 |\n",
+                encoding="utf-8",
+            )
+            knowledge = _CatalogKnowledge({})
+            knowledge.wiki_root = wiki
+            ctx = _evidence_ctx(
+                query="东方钽业有没有官方证据",
+                knowledge=knowledge,
+                anchor=EntityAnchor(entity="东方钽业", ticker="000962", matched_by="name"),
+            )
+            bundle = ep.collect_evidence_index(ctx, {"东方钽业": "钽"})
+        joined = "\n".join(bundle.lines)
+        self.assertIn("landing=wiki_page", joined)
+        self.assertIn("relations=false", joined)
+        self.assertIn("东方钽业股票交易异常波动公告", joined)
+
+    def test_catalog_without_wiki_root_does_not_scan_default_vault(self) -> None:
+        knowledge = _CatalogKnowledge({})
+        ctx = _evidence_ctx(
+            query="东方钽业有没有官方证据",
+            knowledge=knowledge,
+            anchor=EntityAnchor(entity="东方钽业", ticker="000962", matched_by="name"),
+        )
+        bundle = ep.collect_evidence_index(ctx, {"东方钽业": "钽"})
+        self.assertEqual(bundle.lines, [])
 
 
 if __name__ == "__main__":

@@ -31,11 +31,24 @@ class ProviderTrace:
     step_id: str | None = None
     requested_date: str | None = None
     served_date: str | None = None
+    requested_time_range: tuple[str | None, str | None] | None = None
 
     @classmethod
     def from_dict(cls, value: object) -> "ProviderTrace":
         if not isinstance(value, dict):
             raise ValueError("ProviderTrace must be an object")
+        raw_range = value.get("requested_time_range")
+        requested_time_range = None
+        if isinstance(raw_range, dict):
+            requested_time_range = (
+                str(raw_range["start"]) if raw_range.get("start") is not None else None,
+                str(raw_range["end"]) if raw_range.get("end") is not None else None,
+            )
+        elif isinstance(raw_range, (list, tuple)) and len(raw_range) == 2:
+            requested_time_range = (
+                str(raw_range[0]) if raw_range[0] is not None else None,
+                str(raw_range[1]) if raw_range[1] is not None else None,
+            )
         return cls(
             provider=str(value.get("provider") or ""),
             capability=str(value.get("capability") or ""),
@@ -63,10 +76,15 @@ class ProviderTrace:
                 if value.get("served_date") is not None
                 else None
             ),
+            requested_time_range=requested_time_range,
         )
 
     def to_dict(self) -> dict[str, object]:
-        return asdict(self)
+        payload = asdict(self)
+        if self.requested_time_range is not None:
+            start, end = self.requested_time_range
+            payload["requested_time_range"] = {"start": start, "end": end}
+        return payload
 
 
 _AGENT_PROVIDER_PREFIX = "agent:"

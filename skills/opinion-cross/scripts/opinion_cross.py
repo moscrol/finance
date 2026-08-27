@@ -39,9 +39,15 @@ except Exception:  # noqa: BLE001 - fall back to a local re-implementation
     signal_dimension_rows = None  # type: ignore
 
 
-DEFAULT_VAULT = Path(
-    os.path.expanduser(os.environ.get("CONCEPT_VAULT", "~/Desktop/c c/知识库/wiki"))
-)
+def _default_vault() -> Path:
+    for var in ("KB_VAULT", "KNOWLEDGE_WIKI", "CONCEPT_VAULT", "ENTITY_VAULT"):
+        val = os.environ.get(var)
+        if val:
+            return Path(os.path.expanduser(val))
+    return Path.home() / "knowledge-base-private" / "wiki"
+
+
+DEFAULT_VAULT = _default_vault()
 
 # 事实硬度词典（与 build_context.py 对齐，便于跨脚本一致）。
 HARD_FACT_KEYS = [

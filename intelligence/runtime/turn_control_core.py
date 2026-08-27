@@ -65,6 +65,8 @@ class TurnControlResult:
     # Prompt-only KOL perspective constraints (perspective_lab runtime prompt);
     # never evidence.  Empty string means neutral: legacy behavior byte-for-byte.
     perspective_context: str = ""
+    # 个性化接合核。编排器在 project 之后 replace 写入；默认 None，旧测试逐字节。
+    stance_pack: object | None = None
 
 
 def project_turn_decision(

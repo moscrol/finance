@@ -16,10 +16,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 # Direct execution needs the repository root on sys.path before project imports.
+from intelligence.paths import resolve_knowledge_wiki  # noqa: E402
 from market_feature_store.db import connect  # noqa: E402
 
 EXPORT_DIR = ROOT / "market_feature_store" / "exports"
-DEFAULT_VAULT = Path("/Users/lbq/Desktop/c c/知识库/wiki")
+DEFAULT_VAULT = resolve_knowledge_wiki()
 CANONICAL_ALIASES = {
     "CCL": "覆铜板",
     "PCB概念": "PCB",
@@ -1093,7 +1094,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("trade_date", help="交易日 YYYY-MM-DD")
     parser.add_argument("--output", default=None, help="输出 JSON 路径，默认 market_feature_store/exports/YYYY-MM-DD-triggered-themes.json")
     parser.add_argument("--brief-output", default=None, help="输出 Markdown 简报路径，默认 market_feature_store/exports/YYYY-MM-DD-market-triggered-theme-brief.md")
-    parser.add_argument("--vault", default=str(DEFAULT_VAULT), help="知识库 wiki 目录，默认 /Users/lbq/Desktop/c c/知识库/wiki")
+    parser.add_argument("--vault", default=str(DEFAULT_VAULT), help="知识库 wiki 目录，默认 resolve_knowledge_wiki()")
     parser.add_argument("--json-only", action="store_true", help="只生成 JSON，不生成 Markdown 简报")
     parser.add_argument("--skip-gate", action="store_true", help="跳过完整性闸门，仅用于调试")
     return parser.parse_args()

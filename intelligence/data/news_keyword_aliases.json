@@ -1,5 +1,5 @@
 {
-  "_comment": "W7 web 事件检索的中→英关键词别名：Bing News 对中文题材词命中极差（如「后量子密码」零结果），web-access provider 检索前先查此表换成英文词；东财中文通道不受影响。新增题材时在此补一行即可。",
+  "_comment": "W7 web 事件检索的中→英关键词别名：Bing News 对中文题材词命中极差（如「后量子密码」零结果），web-access provider 检索前先查此表换成英文词；东财中文通道不受影响。候选用 `news-alias propose`，确认后 `news-alias accept`。",
   "后量子密码": "post-quantum cryptography",
   "抗量子密码": "post-quantum cryptography",
   "量子计算": "quantum computing",
@@ -22,5 +22,10 @@
   "稀土": "rare earth",
   "创新药": "China biotech innovative drug",
   "自动驾驶": "autonomous driving",
-  "卫星互联网": "satellite internet constellation"
+  "卫星互联网": "satellite internet constellation",
+  "AI智能体": "AI agent",
+  "共封装光学": "CPO Co-Packaged Optics",
+  "高带宽存储": "HBM high bandwidth memory",
+  "电子设计自动化": "EDA electronic design automation",
+  "图形处理器": "GPU graphics processor"
 }

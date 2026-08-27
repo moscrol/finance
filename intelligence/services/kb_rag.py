@@ -31,6 +31,9 @@ from pathlib import Path
 from threading import Lock
 
 from intelligence.services import rag_worker
+from intelligence.services.kb_index_hygiene import fetch_k, sanitize_hits
+from intelligence.services.kb_slot_rerank import allocate_topk_slots
+from intelligence.services.kb_window_reexcerpt import reexcerpt_hits
 
 # rag_index.py lives at <KB repo root>/scripts/rag_index.py; the KB repo root is
 # the parent of the wiki root (KnowledgeAdapter.resolved_wiki_root.parent).
@@ -38,6 +41,8 @@ RAG_SCRIPT_REL = Path("scripts") / "rag_index.py"
 DEFAULT_RAG_TIMEOUT = 90
 DEFAULT_RAG_K = 6
 DEFAULT_RAG_MODE = "hybrid"
+HYBRID_MIN_REMAINING_SECONDS = 15.0
+REMAINING_BUDGET_FALLBACK = "remaining_budget"
 DEFAULT_EXCERPT_CHARS = 200
 DEFAULT_LLM_EVIDENCE_CHARS = 1200
 DEFAULT_LLM_EVIDENCE_TOTAL_CHARS = 4800
@@ -251,6 +256,7 @@ class WikiHit:
     source_type: str = ""
     via_neighbor: bool = False
     source_date: str = ""
+    reexcerpted: bool = False
 
 
 # 检索方式 → 人类可读的“用了什么召回”说明（教学 / 可观测用）。
@@ -262,6 +268,22 @@ _MODE_RECALL_DESC = {
 }
 
 _DENSE_MODES = frozenset({"hybrid", "dense", "rerank"})
+
+
+def select_mode_for_remaining(
+    requested: str,
+    remaining_seconds: float,
+) -> tuple[str, str | None]:
+    """Map remaining wall-clock seconds to a retrieval mode. No I/O."""
+    requested_mode = str(requested or "")
+    if (
+        requested_mode in _DENSE_MODES
+        and float(remaining_seconds) < HYBRID_MIN_REMAINING_SECONDS
+    ):
+        return "bm25", REMAINING_BUDGET_FALLBACK
+    return requested_mode, None
+
+
 _DENSE_DEPENDENCY_FAILURES = (
     "flagembedding",
     "bgem3flagmodel",
@@ -332,6 +354,10 @@ class RetrievalTelemetry:
     # 实测冷 60.1s / 热 4-6s，差 10 倍以上，所以冷查询的耗时不能当成后续查询的
     # 成本样本——下游预算据此决定要不要采纳这次观测。
     model_loaded: bool = False
+    # V9a：指针页丢弃数。None = 本条遥测未跑重摘录（历史 run 报不可判，不报 0）。
+    pointer_dropped: int | None = None
+    # V9b：结构邻页代表块排后数。None = 未跑槽位重排（历史 run 报不可判，不报 0）。
+    structural_neighbor_demoted: int | None = None
 
     def summary_line(self) -> str:
         """一行可观测摘要，供回答 / 日志展示。"""
@@ -732,11 +758,19 @@ def retrieve(
     res = WikiRagResult()
     tel = res.telemetry
     requested_mode = str(mode)
-    tel.mode = requested_mode
     tel.requested_mode = requested_mode
-    tel.effective_mode = requested_mode
-    tel.recall_desc = _MODE_RECALL_DESC.get(requested_mode, "")
-    tel.k = int(k)
+    planned_mode, budget_reason = select_mode_for_remaining(
+        requested_mode, float(timeout)
+    )
+    tel.effective_mode = planned_mode
+    tel.mode = planned_mode
+    tel.recall_desc = _MODE_RECALL_DESC.get(planned_mode, "")
+    if budget_reason:
+        tel.fallback_reason = budget_reason
+        tel.degraded = True
+    requested_k = int(k)
+    tel.k = requested_k
+    query_k = fetch_k(requested_k)
     tel.display_excerpt_chars = int(excerpt_chars)
     if not kb_wiki:
         res.warning = "wiki-rag 需要知识库 wiki 路径 (--kb-wiki / KNOWLEDGE_WIKI)"
@@ -817,7 +851,7 @@ def retrieve(
         str(chosen),
         tel.index_fingerprint,
         query,
-        int(k),
+        requested_k,
         requested_mode,
         int(excerpt_chars),
         int(llm_evidence_chars),
@@ -833,10 +867,10 @@ def retrieve(
         if cached is not None:
             return cached
     legacy_options = _LEGACY_QUERY_OPTIONS.get(str(script), frozenset())
-    effective_mode = requested_mode
+    effective_mode = planned_mode
     dense_disabled_until = _DENSE_UNAVAILABLE_UNTIL.get(str(script), 0.0)
     if (
-        requested_mode in _DENSE_MODES
+        effective_mode in _DENSE_MODES
         and dense_disabled_until
         and dense_disabled_until > time.monotonic()
     ):
@@ -844,7 +878,8 @@ def retrieve(
         tel.mode = "bm25"
         tel.effective_mode = "bm25"
         tel.recall_desc = _MODE_RECALL_DESC["bm25"]
-        tel.fallback_reason = "dense_dependency_cached_unavailable"
+        if tel.fallback_reason != REMAINING_BUDGET_FALLBACK:
+            tel.fallback_reason = "dense_dependency_cached_unavailable"
         tel.degraded = True
     cmd = [
         rag_python,
@@ -852,7 +887,7 @@ def retrieve(
         "query",
         str(query),
         "--k",
-        str(k),
+        str(query_k),
         "--mode",
         effective_mode,
     ]
@@ -884,7 +919,7 @@ def retrieve(
         else ""
     )
     res.command = (
-        f"rag_index.py query <q> --k {k} --mode {effective_mode}"
+        f"rag_index.py query <q> --k {query_k} --mode {effective_mode}"
         f"{evidence_chars_note}{filter_note} --json"
     )
     res.citation_source = (
@@ -1024,7 +1059,7 @@ def retrieve(
             "分层过滤未生效，本轮召回为未过滤结果"
         )
         res.command = (
-            f"rag_index.py query <q> --k {k} --mode {mode}{filter_note} --json"
+            f"rag_index.py query <q> --k {query_k} --mode {mode}{filter_note} --json"
         )
         try:
             if worker_enabled and not filters:
@@ -1063,13 +1098,14 @@ def retrieve(
 
     if (
         proc.returncode != 0
-        and requested_mode in _DENSE_MODES
+        and effective_mode in _DENSE_MODES
         and _dense_dependency_failure(proc.stderr)
     ):
         _DENSE_UNAVAILABLE_UNTIL[str(script)] = (
             _t0 + _DENSE_FAILURE_TTL_SECONDS
         )
-        tel.fallback_reason = "dense_dependency_missing"
+        if tel.fallback_reason != REMAINING_BUDGET_FALLBACK:
+            tel.fallback_reason = "dense_dependency_missing"
         remaining = float(timeout) - (time.monotonic() - _t0)
         if remaining < 1:
             tel.latency_ms = int((time.monotonic() - _t0) * 1000)
@@ -1085,7 +1121,7 @@ def retrieve(
         tel.recall_desc = _MODE_RECALL_DESC["bm25"]
         tel.degraded = True
         res.command = (
-            f"rag_index.py query <q> --k {k} --mode bm25"
+            f"rag_index.py query <q> --k {query_k} --mode bm25"
             f"{evidence_chars_note if '--evidence-chars' in fallback_cmd else ''}"
             f"{filter_note} --json"
         )
@@ -1238,6 +1274,11 @@ def retrieve(
             tel.degraded = True
             states = ",".join(sorted({hit.index_freshness for hit in hits}))
             warnings.append(f"wiki-rag 索引新鲜度={states}，探索模式保留降级证据")
+    hits, reexcerpt = reexcerpt_hits(hits, wiki_root=wiki_root)
+    tel.pointer_dropped = reexcerpt.pointer_dropped
+    hits, slot_stats = allocate_topk_slots(hits)
+    tel.structural_neighbor_demoted = slot_stats.demoted
+    hits = sanitize_hits(hits, k=requested_k)
     res.warning = "；".join(dict.fromkeys(warning for warning in warnings if warning))
     res.hits = hits
     apply_total_llm_budget(res.hits, int(llm_evidence_total_chars))

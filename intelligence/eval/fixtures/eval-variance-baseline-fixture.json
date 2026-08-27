@@ -1,0 +1,38 @@
+{
+  "schema": "eval_variance_baseline.v1",
+  "live": false,
+  "rev": "fixture",
+  "note": "Synthetic same-rev repeats for unit tests and the first checked-in W7 receipt. Not a live 441c60f2 baseline. Produce the real one with: python scripts/eval_variance_baseline.py --live --rev 441c60f2 --n 5 --port 8796",
+  "questions": [
+    {
+      "question_id": "Q-stable",
+      "repeats": [
+        {"primary_outcome": "completed", "judge_status": "passed"},
+        {"primary_outcome": "completed", "judge_status": "passed"},
+        {"primary_outcome": "completed", "judge_status": "passed"},
+        {"primary_outcome": "completed", "judge_status": "passed"},
+        {"primary_outcome": "completed", "judge_status": "passed"}
+      ]
+    },
+    {
+      "question_id": "Q-flip",
+      "repeats": [
+        {"primary_outcome": "completed", "judge_status": "passed"},
+        {"primary_outcome": "completed", "judge_status": "passed"},
+        {"primary_outcome": "completed", "judge_status": "passed"},
+        {"primary_outcome": "degraded", "judge_status": "passed"},
+        {"primary_outcome": "completed", "judge_status": "passed"}
+      ]
+    },
+    {
+      "question_id": "Q-judge",
+      "repeats": [
+        {"primary_outcome": "completed", "judge_status": "passed"},
+        {"primary_outcome": "completed", "judge_status": "passed"},
+        {"primary_outcome": "degraded", "judge_status": "unavailable"},
+        {"primary_outcome": "completed", "judge_status": "passed"},
+        {"primary_outcome": "degraded", "judge_status": "unavailable"}
+      ]
+    }
+  ]
+}

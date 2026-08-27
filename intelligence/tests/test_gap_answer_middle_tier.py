@@ -169,6 +169,27 @@ class TestGapAnswerMiddleTier:
         assert "未完成核验绑定" in answer
         assert "本轮已核验" not in answer
 
+    def test_judge_unavailable_does_not_claim_unbound_or_empty_evidence(self):
+        """§5.3 B2：判官挂了证据却在，禁语不得进 gap_body。"""
+
+        from dataclasses import replace
+
+        frame, verified = _verified()
+        no_bindings = replace(
+            verified,
+            outcome=replace(verified.outcome, bindings=()),
+        )
+        answer = SemanticEpisodeVerifier._gap_answer(
+            frame,
+            no_bindings,
+            judge_unavailable=True,
+        )
+        assert "复核服务不可用" in answer
+        assert "现有证据不足" not in answer
+        assert "未完成核验绑定" not in answer
+        assert "已取得 2 条证据" in answer
+        assert "复核服务超时" not in answer
+
     def test_no_contract_keeps_the_bare_sentence(self):
         from dataclasses import replace
 
@@ -177,6 +198,43 @@ class TestGapAnswerMiddleTier:
             frame, replace(verified, contract=None)
         )
         assert answer == "关于“当前市场怎么看？”，现有证据不足，暂不能可靠回答。"
+
+
+def _verified_invalid_repair(*, draft: str = "", keep_fulfilled: bool = False):
+    from dataclasses import replace
+
+    frame, verified = _verified(draft=draft or "占位")
+    assert verified.contract is not None
+    outcome = replace(
+        verified.outcome,
+        stop_reason="invalid_repair_finish",
+        draft=draft,
+        bindings=verified.outcome.bindings if keep_fulfilled else (),
+    )
+    return frame, verify_episode_outcome(verified.contract, outcome)
+
+
+class TestInvalidRepairFinishIsNotEvidenceGap:
+    def test_opening_is_verification_incomplete(self):
+        frame, verified = _verified_invalid_repair(draft="")
+        answer = SemanticEpisodeVerifier._gap_answer(frame, verified)
+        assert "本轮核验未完成" in answer
+        assert "现有证据不足" not in answer
+        assert "【结构缺口】" not in answer
+        assert "这次还核验不了：直接判断。" in answer
+        assert "这次还核验不了：失效条件。" in answer
+        assert "已取得 2 条证据" in answer
+
+    def test_fulfilled_draft_sentence_is_kept(self):
+        frame, verified = _verified_invalid_repair(
+            draft="液冷服务器当日跌 1.11%。",
+            keep_fulfilled=True,
+        )
+        answer = SemanticEpisodeVerifier._gap_answer(frame, verified)
+        assert "液冷服务器当日跌 1.11%。" in answer
+        assert "这次还核验不了：失效条件。" in answer
+        assert "现有证据不足" not in answer
+        assert "【结构缺口】" not in answer
 
 
 class TestLatestEvidenceDate:

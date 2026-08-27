@@ -81,11 +81,23 @@ class AnswerQualityContext:
             )
         return AnswerQualityContext(**common)
 
+    # 排版要求必须**正面**给，而且要和「不要套固定标题」贴在一起说。
+    # 本块原有四条全是否定式（93 / 369 / 389 / 392 行：不要按固定标题填空、
+    # 不按清单机械分段、视角不是小标题、禁止机械分标题），没有一条要求可读性，
+    # 模型把它们叠加成「整篇一段到底最安全」。限定语排在被限定内容之前，
+    # 否则「禁止固定标题」会被泛化成「禁止一切结构」。
+    _PRESENTATION_REQUIREMENT = (
+        "- 表达层：下面禁止的是「按固定小标题填空」，不是禁止排版。"
+        "用 Markdown：段落之间空一行；并列的情景、条件、跟踪指标或风险点写成"
+        "列表项；核心判断加粗。用哪些结构由内容决定，但不得整篇一段到底。"
+    )
+
     def to_prompt_block(self) -> str:
         lines = [
             "## 回答质量约束（内部研究审稿，不要机械复述为模板）",
             f"- 阶段判断：{self.stage}",
             f"- 证据层：{', '.join(self.layers) if self.layers else '未识别'}",
+            self._PRESENTATION_REQUIREMENT,
         ]
         if self.prompt_profile == "full":
             lines.extend(

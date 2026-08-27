@@ -6,7 +6,7 @@
       "id": "direction",
       "agent": "claude",
       "verdict": "miss",
-      "actual": "创新药 -3.85%/diff-29.16；减肥药 -4.05%/diff-26.47；CRO -3.74%/diff-23.72；数据中心 -2.80%/diff-14.89；液冷服务器 -2.42%/diff-18.18",
+      "actual": "医药 -3.94%/diff-28.20；创新药 -3.88%/diff-29.25；减肥药 -4.05%/diff-25.14；CRO -3.74%/diff-23.72；数据中心 -2.74%/diff-14.50；液冷服务器 -2.41%/diff-17.20",
       "stream": "盘面",
       "horizon": "T+1",
       "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07",
@@ -112,7 +112,7 @@
       "id": "direction:medicine-double-red",
       "agent": "codex",
       "verdict": "miss",
-      "actual": "创新药 -3.85%/diff-29.16；化学制药 -4.17%/diff-29.93；减肥药 -4.05%/diff-26.47；数据中心 -2.80%/diff-14.89；液冷服务器 -2.42%/diff-18.18；机器人 -2.63%/diff-17.72；人形机器人 -2.68%/diff-19.06；减速器 -2.98%/diff-23.89",
+      "actual": "医药 -3.94%/diff-28.20；创新药 -3.88%/diff-29.25；化学制药 -3.88%/diff-29.19；减肥药 -4.05%/diff-25.14；数据中心 -2.74%/diff-14.50；液冷服务器 -2.41%/diff-17.20；机器人 -2.63%/diff-17.72；人形机器人 -2.71%/diff-19.18",
       "stream": "盘面",
       "horizon": "T+1",
       "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07",
@@ -227,5 +227,5 @@
       "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07"
     }
   ],
-  "generated_at": "2026-07-25T12:40:14+08:00"
+  "generated_at": "2026-08-18T22:04:17+08:00"
 }

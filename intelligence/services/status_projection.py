@@ -39,6 +39,9 @@ def coalesce_episode_status(
         return "failed"
     if outcome == "cancelled" or turn == "cancelled":
         return "cancelled"
+    # 运输 completed 不能盖掉研究未完成，否则会投影成 business_status=complete。
+    if turn == "completed" and outcome in {"partial", "degraded"}:
+        return outcome
     return turn or "failed"
 
 

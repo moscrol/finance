@@ -1,0 +1,7 @@
+[
+  {"case_id": "mainline-v1-original", "text": "目前市场的主线是什么", "as_of": "2026-07-22"},
+  {"case_id": "mainline-v2-direction", "text": "现在市场的主线方向有哪些", "as_of": "2026-07-22"},
+  {"case_id": "mainline-v3-strongest", "text": "当前 A 股最强的主线是哪条", "as_of": "2026-07-22"},
+  {"case_id": "mainline-v4-funds", "text": "市场资金现在在围绕什么主线交易", "as_of": "2026-07-22"},
+  {"case_id": "mainline-v5-rotation", "text": "本周市场主线有没有发生切换", "as_of": "2026-07-22"}
+]

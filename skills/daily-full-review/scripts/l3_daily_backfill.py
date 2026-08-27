@@ -2,8 +2,8 @@
 """全量复盘后的 L3 补录编排（放在 agent-daily 之后跑）。
 
 两个任务合一：
-1. 例行池：strategy1 优先个股矩阵全部代码，每日查巨潮公告 + 交易所互动
-   （沪市 sse_einteract / 深市 irm_szse / 北交所仅 cninfo）。
+1. 例行池：strategy1 HTML 矩阵**当日行**的 T1/T2/OBS 代码，每日查巨潮公告 + 交易所互动
+   （沪市 sse_einteract / 深市 irm_szse / 北交所仅 cninfo）。不扫历史全表。
 2. agent-daily 缺口：从 <date>-research-queue.json（fallback daily-agent.json）提取「找官方证据/今日 IMA」
    目标中的股票代码，并入本轮查询。完整 daily-agent 仅用于补充证据裁判「重点验证/能力栈候选」。
 
@@ -26,16 +26,40 @@ if str(ROOT) not in sys.path:
 from intelligence.services.research_queue import extract_queue, load_research_queue  # noqa: E402
 
 CODE_RE = re.compile(r"\b(\d{6})\b")
+DATE_ROW_RE = re.compile(
+    r'<tr[^>]*>\s*<td class="date">(?P<date>\d{4}-\d{2}-\d{2})</td>.*?</tr>',
+    re.S,
+)
 
 
-def _matrix_codes(matrix_path: Path) -> list[str]:
-    if not matrix_path.exists():
-        return []
-    text = matrix_path.read_text(encoding="utf-8")
+def _codes_in(text: str) -> list[str]:
     seen: dict[str, None] = {}
     for match in CODE_RE.finditer(text):
         seen.setdefault(match.group(1), None)
     return list(seen)
+
+
+def _html_row_for_date(text: str, date: str) -> str | None:
+    for match in DATE_ROW_RE.finditer(text):
+        if match.group("date") == date:
+            return match.group(0)
+    return None
+
+
+def _matrix_codes(matrix_path: Path, date: str | None = None) -> list[str]:
+    """HTML 只取指定交易日那一行；缺行则空池（fail closed，不退回扫全表）。
+
+    自定义 md/txt 仍按全文抽代码，方便临时名单。
+    """
+    if not matrix_path.exists():
+        return []
+    text = matrix_path.read_text(encoding="utf-8")
+    if matrix_path.suffix.lower() == ".html":
+        if not date:
+            return []
+        row = _html_row_for_date(text, date)
+        return _codes_in(row) if row else []
+    return _codes_in(text)
 
 
 def _agent_gap_codes(exports_dir: Path, date: str) -> list[str]:
@@ -85,8 +109,8 @@ def main() -> int:
     ap.add_argument("--apply", action="store_true", help="真正写入审核队列；默认只 dry-run")
     ap.add_argument(
         "--matrix",
-        default="复盘/matrices/strategy1-priority-stock-matrix.md",
-        help="例行候选池矩阵；传空字符串可跳过例行池只跑 agent 缺口",
+        default="复盘/matrices/strategy1-priority-stock-matrix.html",
+        help="例行候选池（HTML 当日行 / 自定义名单）；传空字符串可跳过例行池只跑 agent 缺口",
     )
     ap.add_argument("--exports-dir", default="market_feature_store/exports")
     ap.add_argument("--out-dir", default=None, help="payload 输出目录，默认 /tmp/l3_daily/<date>")
@@ -95,7 +119,7 @@ def main() -> int:
     out_dir = Path(args.out_dir or f"/tmp/l3_daily/{args.date}")
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    pool = _matrix_codes(Path(args.matrix)) if args.matrix else []
+    pool = _matrix_codes(Path(args.matrix), args.date) if args.matrix else []
     gaps = _agent_gap_codes(Path(args.exports_dir), args.date)
     codes = list(dict.fromkeys(pool + gaps))
     if not codes:

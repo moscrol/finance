@@ -38,41 +38,90 @@ def _resolve_kb_mode(
     return rag_mode, index_dir, ""
 
 
+_WIKI_RAG_MODES = ("bm25", "dense", "hybrid", "rerank")
+
+
+def add_shared_retrieval_arguments(
+    parser: argparse.ArgumentParser,
+    *,
+    with_module_fanout: bool = True,
+) -> None:
+    """Retrieval knobs shared by ask / chat / agent. Escape hatches, not the default door."""
+
+    parser.add_argument(
+        "--date",
+        default=None,
+        help="theme-candidates export date YYYY-MM-DD; defaults to latest",
+    )
+    parser.add_argument(
+        "--exports-dir", default=None, help="Override market_feature_store/exports dir"
+    )
+    parser.add_argument(
+        "--kb-wiki",
+        default=None,
+        help="Knowledge-base wiki root (contains relations/); defaults to env/auto",
+    )
+    parser.add_argument(
+        "--top-companies", type=int, default=12, help="Max exposed companies to recall"
+    )
+    if with_module_fanout:
+        parser.add_argument(
+            "--modules",
+            default=None,
+            help="Comma-separated theme-radar backends to fan out to "
+            "(brief,front-map,deep-dive,replay,scan,migrate). Default: auto-route by query.",
+        )
+        parser.add_argument(
+            "--no-modules",
+            action="store_true",
+            help="Disable theme-radar module fan-out (graph+盘面 only)",
+        )
+        parser.add_argument(
+            "--no-wiki-rag",
+            action="store_true",
+            help="Disable the W source (knowledge-base hybrid 向量语义召回 wiki 候选页). "
+            "Auto-skips anyway when the KB repo / rag_index.py / 向量索引 is unavailable.",
+        )
+    parser.add_argument(
+        "--module-timeout",
+        type=int,
+        default=180,
+        help="Per-module subprocess timeout in seconds",
+    )
+    parser.add_argument(
+        "--wiki-rag-k",
+        type=int,
+        default=6,
+        help="Max wiki pages to recall via vector search (W source)",
+    )
+    parser.add_argument(
+        "--wiki-rag-mode",
+        default="hybrid",
+        choices=list(_WIKI_RAG_MODES),
+        help="Retrieval mode for the W source (default hybrid = BM25 + dense RRF; rerank = 全文版专用)",
+    )
+    parser.add_argument(
+        "--wiki-rag-timeout",
+        type=int,
+        default=90,
+        help="W source rag_index.py subprocess timeout in seconds",
+    )
+    parser.add_argument(
+        "--kb-mode",
+        default=None,
+        metavar="MODE",
+        help="W 源查询模式：structured(默认，别名 fast/结构/速查)=.rag_index+hybrid；"
+        "full(别名 deep/全文/深度)=.rag_index_full+rerank。不指定则按问句自然语言触发词"
+        "(深挖/看原文/原文/权威/完整版/深度)自动判定；无触发词时为 structured（与历史逐字节一致）。",
+    )
+
+
 def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "ask", help="Unified multi-source ask: KB graph (G/R) + market 盘面 snapshot (S) + wiki 向量语义召回 (W)"
     )
     parser.add_argument("query", help="Question / theme term, e.g. 液冷服务器")
-    parser.add_argument("--date", default=None, help="theme-candidates export date YYYY-MM-DD; defaults to latest")
-    parser.add_argument("--exports-dir", default=None, help="Override market_feature_store/exports dir")
-    parser.add_argument("--kb-wiki", default=None, help="Knowledge-base wiki root (contains relations/); defaults to env/auto")
-    parser.add_argument("--top-companies", type=int, default=12, help="Max exposed companies to recall")
-    parser.add_argument(
-        "--modules",
-        default=None,
-        help="Comma-separated theme-radar backends to fan out to "
-        "(brief,front-map,deep-dive,replay,scan,migrate). Default: auto-route by query.",
-    )
-    parser.add_argument("--no-modules", action="store_true", help="Disable theme-radar module fan-out (graph+盘面 only)")
-    parser.add_argument("--module-timeout", type=int, default=180, help="Per-module subprocess timeout in seconds")
-    parser.add_argument(
-        "--no-wiki-rag",
-        action="store_true",
-        help="Disable the W source (knowledge-base hybrid 向量语义召回 wiki 候选页). "
-        "Auto-skips anyway when the KB repo / rag_index.py / 向量索引 is unavailable.",
-    )
-    parser.add_argument("--wiki-rag-k", type=int, default=6, help="Max wiki pages to recall via vector search (W source)")
-    parser.add_argument(
-        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid", "rerank"],
-        help="Retrieval mode for the W source (default hybrid = BM25 + dense RRF; rerank = 全文版专用)",
-    )
-    parser.add_argument("--wiki-rag-timeout", type=int, default=90, help="W source rag_index.py subprocess timeout in seconds")
-    parser.add_argument(
-        "--kb-mode", default=None, metavar="MODE",
-        help="W 源查询模式：structured(默认，别名 fast/结构/速查)=.rag_index+hybrid；"
-        "full(别名 deep/全文/深度)=.rag_index_full+rerank。不指定则按问句自然语言触发词"
-        "(深挖/看原文/原文/权威/完整版/深度)自动判定；无触发词时为 structured（与历史逐字节一致）。",
-    )
+    add_shared_retrieval_arguments(parser)
     parser.add_argument(
         "--llm",
         action="store_true",
@@ -137,29 +186,7 @@ def add_chat_parser(subparsers: argparse._SubParsersAction) -> None:
         "（带记忆，仍守 grounding/引用、不重新检索）。需 LLM key；无 key 无法进入多轮、退回模板。",
     )
     parser.add_argument("query", help="首轮问题 / 题材词，如 液冷")
-    parser.add_argument("--date", default=None, help="theme-candidates export date YYYY-MM-DD; defaults to latest")
-    parser.add_argument("--exports-dir", default=None, help="Override market_feature_store/exports dir")
-    parser.add_argument("--kb-wiki", default=None, help="Knowledge-base wiki root (contains relations/); defaults to env/auto")
-    parser.add_argument("--top-companies", type=int, default=12, help="Max exposed companies to recall")
-    parser.add_argument(
-        "--modules",
-        default=None,
-        help="Comma-separated theme-radar backends (brief,front-map,deep-dive,replay,scan,migrate). Default: auto-route.",
-    )
-    parser.add_argument("--no-modules", action="store_true", help="Disable theme-radar module fan-out (graph+盘面 only)")
-    parser.add_argument("--module-timeout", type=int, default=180, help="Per-module subprocess timeout in seconds")
-    parser.add_argument("--no-wiki-rag", action="store_true", help="Disable the W source (wiki 向量语义召回)")
-    parser.add_argument("--wiki-rag-k", type=int, default=6, help="Max wiki pages to recall via vector search (W source)")
-    parser.add_argument(
-        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid", "rerank"],
-        help="Retrieval mode for the W source (default hybrid = BM25 + dense RRF; rerank = 全文版专用)",
-    )
-    parser.add_argument("--wiki-rag-timeout", type=int, default=90, help="W source rag_index.py subprocess timeout in seconds")
-    parser.add_argument(
-        "--kb-mode", default=None, metavar="MODE",
-        help="W 源查询模式：structured(默认，别名 fast/结构/速查)=.rag_index+hybrid；"
-        "full(别名 deep/全文/深度)=.rag_index_full+rerank。不指定则按问句自然语言触发词自动判定；无触发词时为 structured。",
-    )
+    add_shared_retrieval_arguments(parser)
     parser.add_argument("--llm-model", default=None, help="Override LLM model id (else provider default / LLM_MODEL)")
     parser.add_argument("--llm-timeout", type=int, default=60, help="LLM HTTP timeout in seconds")
     parser.add_argument("--user", default=None, help="用户 id；首轮 compose 时读取该用户的 experience_cards.jsonl")
@@ -268,25 +295,10 @@ def add_agent_parser(subparsers: argparse._SubParsersAction) -> None:
         "需 LLM key；无 key/失败优雅降级。默认与现有 ask/chat 互不影响。",
     )
     parser.add_argument("query", help="问题 / 题材词，如 液冷")
-    parser.add_argument("--date", default=None, help="theme-candidates export date YYYY-MM-DD; defaults to latest")
-    parser.add_argument("--exports-dir", default=None, help="Override market_feature_store/exports dir")
-    parser.add_argument("--kb-wiki", default=None, help="Knowledge-base wiki root (contains relations/); defaults to env/auto")
+    add_shared_retrieval_arguments(parser, with_module_fanout=False)
     parser.add_argument(
         "--market-db-path", default=None,
         help="本地 market_feature_store DuckDB 路径；提供且可打开时启用 opt-in 实时盘面工具 search_market_live（默认关闭，不影响其余工具）",
-    )
-    parser.add_argument("--top-companies", type=int, default=12, help="Max exposed companies to recall per graph tool call")
-    parser.add_argument("--module-timeout", type=int, default=180, help="Per-module subprocess timeout in seconds")
-    parser.add_argument("--wiki-rag-k", type=int, default=6, help="Default wiki pages per search_wiki call (W source)")
-    parser.add_argument(
-        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid", "rerank"],
-        help="Retrieval mode for the wiki tool (default hybrid = BM25 + dense RRF; rerank = 全文版专用)",
-    )
-    parser.add_argument("--wiki-rag-timeout", type=int, default=90, help="search_wiki rag_index.py subprocess timeout in seconds")
-    parser.add_argument(
-        "--kb-mode", default=None, metavar="MODE",
-        help="wiki 工具查询模式：structured(默认，别名 fast/结构/速查)=.rag_index+hybrid；"
-        "full(别名 deep/全文/深度)=.rag_index_full+rerank。不指定则按问句自然语言触发词自动判定。",
     )
     parser.add_argument("--max-steps", type=int, default=6, help="Max agent tool-calling rounds before a forced final answer")
     parser.add_argument("--llm-model", default=None, help="Override LLM model id (else provider default / LLM_MODEL)")
@@ -1269,7 +1281,8 @@ def add_l3_ingest_parser(subparsers: argparse._SubParsersAction) -> None:
 
 
 def cmd_ask(args: argparse.Namespace) -> int:
-    from intelligence.workflows.ask import AskWorkflowOptions, run_ask
+    from intelligence.services.ask import AskOptions
+    from intelligence.workflows.ask import run_ask
 
     modules = tuple(m.strip() for m in args.modules.split(",") if m.strip()) if args.modules else None
     rag_mode, kb_index_dir, kb_err = _resolve_kb_mode(args.query, args.kb_mode, args.wiki_rag_mode)
@@ -1277,7 +1290,7 @@ def cmd_ask(args: argparse.Namespace) -> int:
         print(kb_err, file=sys.stderr)
         return 2
     summary, _result, answer = run_ask(
-        AskWorkflowOptions(
+        AskOptions(
             query=args.query,
             date=args.date,
             exports_dir=args.exports_dir,
@@ -1591,8 +1604,8 @@ def add_feishu_bot_parser(subparsers: argparse._SubParsersAction) -> None:
 
     parser = subparsers.add_parser(
         "feishu-bot",
-        help="飞书 chat bot（B-S2，长连接 + in-process 调 ask 回六段；--echo 退回 B-S0 自检；"
-        "凭证走 env / ~/.claude/shared/feishu_config.json）",
+        help="飞书 IM 入口（已退役；调用 exit 2。问答用 ask / Workbench Episode）",
+        description="飞书 IM 入口（已退役）。不连 WebSocket；问答用 ask / Workbench Episode。",
     )
     feishu_bot.add_arguments(parser)
     parser.set_defaults(func=cmd_feishu_bot)
@@ -1601,7 +1614,8 @@ def add_feishu_bot_parser(subparsers: argparse._SubParsersAction) -> None:
 def cmd_feishu_bot(args: argparse.Namespace) -> int:
     from intelligence.chat import feishu_bot
 
-    return feishu_bot.run(feishu_bot.build_config(args))
+    _ = args  # 旧旗标仍可解析，退役闸不读凭据、不连 WebSocket
+    return feishu_bot.run()
 
 
 def add_dream_collect_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -1647,6 +1661,72 @@ def cmd_dream_collect(args: argparse.Namespace) -> int:
         print(_json.dumps(summary, ensure_ascii=False, indent=2))
     else:
         print(collector.render_summary(summary), end="")
+    return 0
+
+
+def add_dream_mine_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "dream-mine",
+        help=(
+            "dream-loop 重定向 P0：夜间从 Workbench 会话挖记忆提案（suggest-only：只进潜意识 "
+            "buffer[session=dream-<date>] + vault 人读 md；人工 subconscious commit --apply 才落台账；"
+            "无 LLM key 自动降级为仅采集。设计稿 docs/superpowers/specs/2026-08-26-dream-loop-repoint-design.md）"
+        ),
+    )
+    parser.add_argument(
+        "--conversations-dir",
+        required=True,
+        help="Workbench 会话目录（users/<id>/conversations，只读扫描）",
+    )
+    parser.add_argument(
+        "--store-dir",
+        required=True,
+        help="transcript store 目录（显式必填，不走 resolve_store_dir 默认链——默认链含陈旧路径）",
+    )
+    parser.add_argument("--user", default=None, help="提案归属用户 id（默认 default 或 FORESIGHT_USER）")
+    parser.add_argument(
+        "--vault", default=None, help="Obsidian vault 根（默认 SUBCONSCIOUS_VAULT / 回退 users/<id>/_vault）"
+    )
+    parser.add_argument(
+        "--since-days",
+        type=int,
+        default=7,
+        help="会话窗口天数（按 conversation.json updated_at，非 mtime；默认 7。回填调大即可，水位保证分批走完不重复）",
+    )
+    parser.add_argument("--max-sessions", type=int, default=40, help="每次最多挖多少个会话（默认 40）")
+    parser.add_argument(
+        "--max-signals", type=int, default=10, help="每次最多新增多少条提案（默认 10，宁缺勿滥——提案洪水=环死）"
+    )
+    parser.add_argument("--date", default=None, help="覆盖提案日期（默认今日；提案会话名 dream-<date>）")
+    parser.add_argument("--no-llm", action="store_true", help="跳过 LLM 挖掘只采集入库（降级演练）")
+    parser.add_argument("--dry-run", action="store_true", help="只打印候选，不写 buffer / 水位 / vault")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    parser.set_defaults(func=cmd_dream_mine)
+
+
+def cmd_dream_mine(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.dream import miner
+
+    summary = miner.run_mine(
+        miner.MineOptions(
+            conversations_dir=args.conversations_dir,
+            store_dir=args.store_dir,
+            user=args.user,
+            vault=args.vault,
+            since_days=args.since_days,
+            max_sessions=args.max_sessions,
+            max_signals=args.max_signals,
+            date=args.date,
+            use_llm=not args.no_llm,
+            dry_run=args.dry_run,
+        )
+    )
+    if args.json:
+        print(_json.dumps(summary, ensure_ascii=False, indent=2))
+    else:
+        print(miner.render_mine_summary(summary), end="")
     return 0
 
 
@@ -2111,6 +2191,36 @@ def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
     p_st.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_st.set_defaults(func=cmd_checkpoint_status)
 
+    p_pend = sub.add_parser("pending", help="列出尚未批处理入账的前瞻判断候选（KC-09）")
+    p_pend.add_argument("--user", default=None, help="用户 id（默认 FORESIGHT_USER 或 default）")
+    p_pend.add_argument("--judgments-file", default=None, help="覆盖 judgments.jsonl 路径")
+    p_pend.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_pend.set_defaults(func=cmd_checkpoint_pending)
+
+    p_acc = sub.add_parser("accept", help="批处理入账 pending 前瞻判断，并登记 checkpoint（不做 -i）")
+    p_acc.add_argument("--user", default=None, help="用户 id（默认 FORESIGHT_USER 或 default）")
+    p_acc.add_argument("--id", dest="ids", action="append", default=[], help="指定 pending id（可多次）")
+    p_acc.add_argument("--all", action="store_true", help="入账当前全部 pending")
+    p_acc.add_argument("--judgments-file", default=None, help="覆盖 judgments.jsonl 路径")
+    p_acc.add_argument("--checkpoints-file", default=None, help="覆盖 checkpoints.jsonl 路径")
+    p_acc.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_acc.set_defaults(func=cmd_checkpoint_accept)
+
+    p_adj = sub.add_parser(
+        "adjudicate",
+        help="KC-10 到期裁决 job：可机读写 verdicts，不可机读入人工队列，不改判断原文",
+    )
+    p_adj.add_argument("--user", default=None, help="用户 id（默认 FORESIGHT_USER 或 default）")
+    p_adj.add_argument("--date", default=None, help="判定到期的基准日 YYYY-MM-DD（默认今天）")
+    p_adj.add_argument("--apply", action="store_true", help="把可机读终态 verdict 落盘（缺省只预览）")
+    p_adj.add_argument("--judgments-file", default=None, help="覆盖 judgments.jsonl 路径")
+    p_adj.add_argument("--checkpoints-file", default=None, help="覆盖 checkpoints.jsonl 路径")
+    p_adj.add_argument("--verdicts-file", default=None, help="覆盖 verdicts.jsonl 路径")
+    p_adj.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径")
+    p_adj.add_argument("--kb-wiki", default=None, help="知识库 wiki 根")
+    p_adj.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_adj.set_defaults(func=cmd_checkpoint_adjudicate)
+
 
 def add_red_team_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
@@ -2554,6 +2664,111 @@ def _checkpoint_paths(args: argparse.Namespace) -> tuple[Path, Path]:
     cpath = Path(args.checkpoints_file).expanduser() if getattr(args, "checkpoints_file", None) else us.checkpoints_path
     vpath = Path(args.verdicts_file).expanduser() if getattr(args, "verdicts_file", None) else us.verdicts_path
     return cpath, vpath
+
+
+def _judgments_path(args: argparse.Namespace) -> Path:
+    from intelligence import userspace
+
+    if getattr(args, "judgments_file", None):
+        return Path(args.judgments_file).expanduser()
+    return userspace.user_space(args.user).judgments_path
+
+
+def cmd_checkpoint_pending(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import judgment_extract
+
+    path = _judgments_path(args)
+    pending = judgment_extract.list_pending(path)
+    if args.json:
+        print(_json.dumps({"path": str(path), "pending": pending}, ensure_ascii=False, indent=2))
+        return 0
+    if not pending:
+        print(f"没有 pending 前瞻判断（{path}）")
+        return 0
+    print(f"pending {len(pending)} 条（{path}）")
+    for row in pending:
+        due = (row.get("verify_by") or {}).get("due") or "?"
+        print(f"- {row.get('id')} 到期 {due} ｜ {row.get('claim')}")
+    print("入账：`checkpoint accept --all` 或 `--id <id>`（可多次）")
+    return 0
+
+
+def cmd_checkpoint_accept(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import judgment_extract
+
+    if not args.all and not args.ids:
+        print("需要 --all 或至少一个 --id")
+        return 2
+    jpath = _judgments_path(args)
+    cpath, _ = _checkpoint_paths(args)
+    accepted = judgment_extract.accept_judgments(
+        jpath,
+        cpath,
+        ids=args.ids,
+        accept_all=bool(args.all),
+    )
+    if args.json:
+        print(
+            _json.dumps(
+                {"judgments": str(jpath), "checkpoints": str(cpath), "accepted": accepted},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+    if not accepted:
+        print("没有新入账的前瞻判断（可能已 accept 过）")
+        return 0
+    print(f"已入账 {len(accepted)} 条，并登记 checkpoint")
+    for row in accepted:
+        print(f"- {row.get('id')} ｜ {row.get('claim')}")
+    return 0
+
+
+def cmd_checkpoint_adjudicate(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services.judgment_adjudicate import run_adjudication_job
+
+    jpath = _judgments_path(args)
+    cpath, vpath = _checkpoint_paths(args)
+    report = run_adjudication_job(
+        judgments_path=jpath,
+        checkpoints_path=cpath,
+        verdicts_path=vpath,
+        today=args.date,
+        apply=bool(args.apply),
+        db_path=args.db_path,
+        wiki_root=args.kb_wiki,
+    )
+    payload = report.to_dict()
+    payload["applied"] = bool(args.apply)
+    payload["judgments"] = str(jpath)
+    payload["checkpoints"] = str(cpath)
+    payload["verdicts"] = str(vpath)
+    if args.json:
+        print(_json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+    verb = "裁决并落盘" if args.apply else "裁决（预览，未落盘；加 --apply 落盘）"
+    print(
+        f"{verb} 自动 {len(report.auto)} 条 · 人工队列 {len(report.queued)} 条 · "
+        f"延期 {len(report.deferred)} 条"
+    )
+    for item in report.auto:
+        print(f"- 自动 {item.id}｜{item.verdict}：{item.reason}")
+    for item in report.queued:
+        print(f"- 人工 {item.id}：{item.reason}")
+    for item in report.deferred:
+        print(f"- 延期 {item.id}｜{item.verdict}：{item.reason}")
+    if report.judgments_unchanged:
+        print("判断原文未动")
+    if not args.apply and (report.auto or report.queued or report.deferred):
+        print("加 --apply 把可机读终态写入 verdicts.jsonl；人工项请 `checkpoint score`")
+    return 0
 
 
 def cmd_checkpoint_register(args: argparse.Namespace) -> int:
@@ -3100,11 +3315,106 @@ def add_self_use_parser(subparsers: argparse._SubParsersAction) -> None:
     approve.set_defaults(func=cmd_self_use_approve)
 
 
+def add_news_alias_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser("news-alias", help="W7 中英别名表：从 wiki 提案，人工确认后入表（KC-14）")
+    sub = parser.add_subparsers(dest="action", required=True)
+    p_prop = sub.add_parser("propose", help="从 wiki 概念/实体页确定性抽取中英候选，不写入别名表")
+    p_prop.add_argument("--wiki", default=None, help="wiki 根（含 concepts/ entities）；默认 KNOWLEDGE_WIKI")
+    p_prop.add_argument("--limit", type=int, default=50)
+    p_prop.add_argument("--json", action="store_true")
+    p_prop.set_defaults(func=cmd_news_alias_propose)
+    p_acc = sub.add_parser("accept", help="人工确认一条中英对，写入 news_keyword_aliases.json")
+    p_acc.add_argument("--zh", required=True)
+    p_acc.add_argument("--en", required=True)
+    p_acc.add_argument("--aliases-file", default=None, help="覆盖别名表路径")
+    p_acc.add_argument("--json", action="store_true")
+    p_acc.set_defaults(func=cmd_news_alias_accept)
+
+
+def cmd_news_alias_propose(args: argparse.Namespace) -> int:
+    import json as _json
+    from intelligence.paths import default_paths
+    from intelligence.services.news_alias_propose import propose_alias_candidates
+
+    wiki = Path(args.wiki).expanduser() if args.wiki else default_paths().knowledge_wiki
+    found = propose_alias_candidates(wiki, limit=args.limit)
+    payload = [item.to_dict() for item in found]
+    if args.json:
+        print(_json.dumps({"wiki": str(wiki), "candidates": payload}, ensure_ascii=False, indent=2))
+        return 0
+    print(f"候选 {len(found)} 条（未入表；`news-alias accept --zh … --en …`）")
+    for item in found:
+        print(f"- {item.zh} → {item.en} ｜ {item.source}")
+    return 0
+
+
+def cmd_news_alias_accept(args: argparse.Namespace) -> int:
+    import json as _json
+    from intelligence.services.news_alias_propose import accept_alias
+
+    written = accept_alias(args.zh, args.en, path=args.aliases_file)
+    if args.json:
+        print(_json.dumps(written, ensure_ascii=False, indent=2))
+        return 0
+    zh, en = next(iter(written.items()))
+    print(f"已入表：{zh} → {en}")
+    return 0
+
+
+def add_digest_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "digest",
+        help="自选简报：画像清单 × 当日盘面四袋的确定性接合（只读；--write 才落证据快照）。"
+        "spec docs/superpowers/specs/2026-08-26-watchlist-digest-pack-design.md",
+    )
+    parser.add_argument(
+        "--date",
+        default=None,
+        help="站立日 YYYY-MM-DD（显式精确命中，无该日则出无行情句）；缺省=库内最新交易日，不是日历今天",
+    )
+    parser.add_argument("--user", default=None, help="用户 id；缺省走 FORESIGHT_USER / default")
+    parser.add_argument(
+        "--db",
+        default=None,
+        help="盘面 DuckDB 路径；缺省 MARKET_FEATURE_STORE_DB / 数据根 db/market_feature_store.duckdb",
+    )
+    parser.add_argument(
+        "--write",
+        action="store_true",
+        help="把证据快照 JSON 落到 ~/.finance-runtime/watchlist-digest/<user>/<date>/"
+        "（可用 WATCHLIST_DIGEST_DIR 重定位）；默认只读不落盘",
+    )
+    parser.set_defaults(func=cmd_digest)
+
+
+def cmd_digest(args: argparse.Namespace) -> int:
+    from intelligence.paths import default_market_db_path
+    from intelligence.services.watchlist_digest_pack import (
+        run_watchlist_digest_pack,
+        write_snapshot,
+    )
+
+    db = Path(args.db).expanduser() if args.db else default_market_db_path()
+    # 冻结题词面即 CLI 的固定问句；站立日一律由 --date（cutoff）或库内最新交易日决定。
+    pack = run_watchlist_digest_pack(
+        "按我的自选出今天的简报",
+        user_id=args.user,
+        market_db_path=db,
+        cutoff=args.date,
+    )
+    print(pack.render_public_answer())
+    if args.write:
+        path = write_snapshot(pack)
+        print(f"[快照] {path}", file=sys.stderr)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Financial intelligence product CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
     add_ask_parser(subparsers)
     add_chat_parser(subparsers)
+    add_digest_parser(subparsers)
     add_agent_parser(subparsers)
     add_agent_eval_parser(subparsers)
     add_answer_score_parser(subparsers)
@@ -3130,6 +3440,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_serve_parser(subparsers)
     add_feishu_bot_parser(subparsers)
     add_dream_collect_parser(subparsers)
+    add_dream_mine_parser(subparsers)
     add_dream_evolve_suggest_parser(subparsers)
     add_dream_kb_candidates_parser(subparsers)
     add_dream_nightly_parser(subparsers)
@@ -3140,6 +3451,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_perspective_parser(subparsers)
     add_self_use_parser(subparsers)
     add_tool_hunger_parser(subparsers)
+    add_news_alias_parser(subparsers)
     return parser
 
 

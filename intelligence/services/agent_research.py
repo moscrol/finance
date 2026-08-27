@@ -28,10 +28,12 @@ from dataclasses import dataclass, field, replace
 
 from intelligence.services import (
     closed_loop_retrieval,
+    evidence_judge,
     llm_refine,
     market_news,
     web_research,
 )
+from intelligence.services.kb_selection_noise import filter_structural_noise
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import InformationCutoff, ResearchDeadline
 from intelligence.services.research_state import EvidenceObservation, ResearchState
@@ -49,6 +51,18 @@ DEFAULT_LLM_TIMEOUT = 15
 NO_INFORMATION_GAIN_GAP = "连续两次检索未获得新增信息，无法继续补全证据。"
 DEFAULT_TOTAL_SECONDS = 60.0
 _MAX_OBSERVATION_CHARS = 900
+# kb_search 送达窗（V3 / R-20260821-15）。
+# 旧硬编码 hits[:5] + excerpt[:160] = 800 字符上限。默认与 retrieve() 对齐：
+# max_hits=6（episode_tools / kb_rag.DEFAULT_RAG_K），正文走 llm_evidence
+# （retrieve 已 apply_total_llm_budget，总预算 4800–8000）。
+# detail_chars=0 表示送达层不再二次截断。
+# retrieval-tier plan 的分档只覆盖检索 mode（remaining <15s → BM25），
+# 本模块不另建字符降档——见 kb_search_delivery_limits。
+KB_SEARCH_MAX_HITS = 6
+KB_SEARCH_DETAIL_CHARS = 0
+# 语义闸触发阈值（#424）：召回条数达到该值才过 evidence_judge——小结果集
+# 直接送达（一次裁判 = 一次 LLM 调用，Engine A 工具批预算 60s 内要省着花）。
+KB_JUDGE_MIN_HITS = 4
 # 工具描述注册表：system prompt 按「实际注册的工具」动态生成——宣传清单与
 # 注册表不再可能漂移（此前静态 prompt 宣传未注册工具会触发"非法工具"中断）。
 _TOOL_DESCRIPTIONS = {
@@ -119,6 +133,21 @@ def should_run(controller_capabilities: tuple[str, ...]) -> bool:
 
 
 @dataclass(frozen=True)
+class StructuredObservation:
+    """证据里一个机器可读的观察值：(主体, 日期, 指标) → 数。
+
+    住在这一层而不是 ``asof_prefetch``，因为 ``asof_prefetch`` 依赖本模块；
+    反过来会成环。凡是能在格式化**之前**拿到结构化数的取数方，都该把数
+    原样挂上来，别让下游回头解析 ``detail`` 文本。
+    """
+
+    subject: str
+    as_of: str
+    metric: str
+    value: float
+
+
+@dataclass(frozen=True)
 class AgentEvidence:
     """一条 agent 补检索证据：来源可回查（kb 路径 / web url / 资讯链接）。"""
 
@@ -136,6 +165,16 @@ class AgentEvidence:
     # 内容主键贯通 ToolObservation → Citation → EvidenceAtom；空值仅表示
     # 旧 runner 未提供可稳定哈希的正文。
     content_hash: str = ""
+    # 结构化观察值：``detail`` 是给模型看的文本，这里是同一批数的机器可读形态。
+    # 下游（槽填数、删句连坐检测）读它，**不回头解析 detail 自由文本**。
+    # 不进 ``evidence_content_hash``（该哈希只吃 tool/title/detail/source），
+    # 因此补上本字段不会改变任何既有证据身份。
+    observations: tuple[StructuredObservation, ...] = ()
+    # V9a 只读遥测。None = 未跑重摘录（历史 run 缺字段，报不可判不报 0）。
+    reexcerpted: bool | None = None
+    pointer_dropped: int | None = None
+    # V9b 只读遥测。None = 未跑槽位重排（历史 run 缺字段，报不可判不报 0）。
+    structural_neighbor_demoted: int | None = None
 
     def to_observation(self, evidence_id: str) -> EvidenceObservation:
         return EvidenceObservation(
@@ -324,6 +363,101 @@ def describe_no_result(
     return f"{miss_text}（{status}{tail}）"
 
 
+def kb_delivery_telemetry(
+    evidence: Sequence[AgentEvidence],
+    observation: str,
+) -> dict[str, object]:
+    """kb_search 送达遥测：按**实际送给模型的**字符/条数/来源页计，不写死 800。
+
+    送达是**两条通道**，必须分开计数（2026-08-22 钙钛矿 live 探针实测）：
+
+    - ``delivered_chars`` = observation 串（agent loop 的工具消息，每条截
+      ``detail[:80]`` 作索引摘要）；
+    - ``detail_chars`` = ``evidence[].detail`` 总和（V3 粗管道拓宽的通道，
+      经证据注册表进 composer/verifier——答案里的正文级事实走这条）。
+
+    只看 delivered_chars 会把粗管道误判成没生效（580 字 vs 正文级 detail）。
+    传感器和落盘共用这一处，避免两套量纲。
+    """
+
+    pages: list[str] = []
+    for item in evidence:
+        page = str(getattr(item, "internal_locator", "") or "").strip()
+        if not page:
+            page = str(getattr(item, "title", "") or "").strip()
+        if page:
+            pages.append(page)
+    payload: dict[str, object] = {
+        "delivered_chars": len(observation or ""),
+        "detail_chars": sum(
+            len(str(getattr(item, "detail", "") or "")) for item in evidence
+        ),
+        "hit_count": len(tuple(evidence)),
+        "source_pages": pages,
+    }
+    dropped = next(
+        (
+            getattr(item, "pointer_dropped", None)
+            for item in evidence
+            if getattr(item, "pointer_dropped", None) is not None
+        ),
+        None,
+    )
+    if dropped is not None:
+        payload["pointer_dropped"] = int(dropped)
+    flags = [getattr(item, "reexcerpted", None) for item in evidence]
+    if any(flag is not None for flag in flags):
+        payload["reexcerpted"] = [bool(flag) for flag in flags]
+    demoted = next(
+        (
+            getattr(item, "structural_neighbor_demoted", None)
+            for item in evidence
+            if getattr(item, "structural_neighbor_demoted", None) is not None
+        ),
+        None,
+    )
+    if demoted is not None:
+        payload["structural_neighbor_demoted"] = int(demoted)
+    return payload
+
+
+def kb_search_delivery_limits(
+    *,
+    remaining_seconds: float | None = None,
+) -> tuple[int, int]:
+    """Return ``(max_hits, detail_chars)`` for kb_search 送达.
+
+    ``remaining_seconds`` is accepted so callers can thread the episode
+    remainder through this seam. The retrieval-tier plan's only ladder is
+    remaining < 15s → BM25 (``kb_rag.select_mode_for_remaining``). This
+    function must not invent a parallel char-budget ladder: delivery always
+    uses ``KB_SEARCH_MAX_HITS`` / ``KB_SEARCH_DETAIL_CHARS``.
+    """
+
+    del remaining_seconds
+    return KB_SEARCH_MAX_HITS, KB_SEARCH_DETAIL_CHARS
+
+
+def kb_search_hit_text(hit: object, *, detail_chars: int | None = None) -> str:
+    """kb_search 送达正文：接 llm_evidence 粗管道，再剥结构噪声（V5）。
+
+    过滤在截断之前：窗口若被截，截到的应是正文头而不是标签汤。
+    ``detail_chars=0`` 仍表示送达层不二次截断，过滤本身不加长度上限。
+    """
+
+    text = str(
+        getattr(hit, "llm_evidence", "")
+        or getattr(hit, "display_excerpt", "")
+        or getattr(hit, "excerpt", "")
+        or ""
+    )
+    text = filter_structural_noise(text)
+    limit = KB_SEARCH_DETAIL_CHARS if detail_chars is None else detail_chars
+    if limit > 0:
+        return text[:limit]
+    return text
+
+
 def build_default_tools(
     kb_retrieve: Callable[[str, float], object],
 ) -> dict[str, ToolRunner]:
@@ -335,21 +469,53 @@ def build_default_tools(
     ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
         rag = kb_retrieve(query, context.timeout(DEFAULT_TOTAL_SECONDS))
         context.check_cancelled()
-        hits = list(getattr(rag, "hits", ()) or ())[:5]
+        max_hits, detail_chars = kb_search_delivery_limits(
+            remaining_seconds=context.deadline.remaining(),
+        )
+        hits = list(getattr(rag, "hits", ()) or ())[:max_hits]
+        # 语义闸（#424）：kb_search 是 Engine A 的主 KB 通道，此前是全系统唯一
+        # 不过 evidence_judge 的召回口——词面重叠但语义无关的召回（「科创50
+        # 支撑位」↔「兰花科创…支撑」）会直接进证据链。该闸在 Engine B 消融
+        # 实测 +2.8/20（收据 intelligence/eval/runs/20260826T101858Z）。
+        # 成本控制：召回 ≥ KB_JUDGE_MIN_HITS 条才裁判（小结果集直接送达）；
+        # fail-open：裁判关闭/失败返回 None 时全量保留，绝不因 LLM 失败丢证据。
+        judged_out = 0
+        judged_total = len(hits)
+        if len(hits) >= KB_JUDGE_MIN_HITS and evidence_judge.should_judge():
+            verdict = evidence_judge.judge_relevance(
+                query,
+                [
+                    (str(hit.title), kb_search_hit_text(hit, detail_chars=200))
+                    for hit in hits
+                ],
+                timeout=context.deadline.stage_timeout(evidence_judge.DEFAULT_TIMEOUT),
+            )
+            if verdict is not None:
+                kept, _reason = verdict
+                judged_out = len(hits) - len(kept)
+                hits = [hit for index, hit in enumerate(hits) if index in kept]
         evidence = []
+        rag_telemetry = getattr(rag, "telemetry", None)
+        pointer_dropped = getattr(rag_telemetry, "pointer_dropped", None)
+        structural_neighbor_demoted = getattr(
+            rag_telemetry, "structural_neighbor_demoted", None
+        )
         for hit in hits:
             hit_date = closed_loop_retrieval.wiki_hit_source_date(hit)
             evidence.append(
                 AgentEvidence(
                     tool="kb_search",
                     title=hit.title,
-                    detail=(hit.excerpt or "")[:160],
+                    detail=kb_search_hit_text(hit, detail_chars=detail_chars),
                     source="本地知识库",
                     internal_locator=hit.file_path,
                     source_date=hit_date.isoformat() if hit_date is not None else None,
+                    reexcerpted=getattr(hit, "reexcerpted", None),
+                    pointer_dropped=pointer_dropped,
+                    structural_neighbor_demoted=structural_neighbor_demoted,
                 )
             )
-        telemetry = getattr(rag, "telemetry", None)
+        telemetry = rag_telemetry
         status = str(getattr(telemetry, "status", "unknown") or "unknown")
         # 检索**失败**不等于知识库**没有** —— 这两件事必须让模型区分得开。
         #
@@ -373,6 +539,17 @@ def build_default_tools(
             observation = "；".join(
                 f"{item.title}：{item.detail[:80]}" for item in evidence
             )
+            if judged_out:
+                # 滤除必须可见：静默丢弃会让「送达 3 条」与「召回 3 条」无法区分。
+                observation = f"{observation}；（语义闸滤除 {judged_out} 条无关召回）"
+        elif judged_out and judged_out == judged_total:
+            # 全部被判无关 ≠ 知识库无回填——前者是「有近词内容但与本题无关」，
+            # 后者才该触发「考虑回填」的下游动作。混为一谈会教模型把语义闸
+            # 的正确工作读成知识库缺口。
+            observation = (
+                f"知识库召回 {judged_total} 条经语义闸全部判定与本题无关"
+                "（非无回填，勿据此判断知识库缺该主题）"
+            )
         else:
             observation = describe_no_result(
                 "知识库",
@@ -395,6 +572,8 @@ def build_default_tools(
         degraded_note = _describe_retrieval_degradation(telemetry)
         if degraded_note:
             observation = "；".join(part for part in (observation, degraded_note) if part)
+        # 送达遥测：kb_delivery_telemetry(evidence, observation)。registry 在
+        # cutoff 改写后用同一函数落盘 tool_result.telemetry，按实际字符计、不写死 800。
         trace = ProviderTrace(
             provider="agent:kb_search",
             capability="agent_loop",
@@ -463,22 +642,38 @@ def build_default_tools(
             as_of=query_cutoff,
         )
         context.check_cancelled()
+        cutoff_text = query_cutoff.isoformat() if query_cutoff is not None else None
+        after_cutoff = bool(not news.items and news.after_cutoff_items)
+        source_items = news.items[:6] or news.after_cutoff_items[:6]
         evidence = [
             AgentEvidence(
                 tool="news_search",
-                title=item.title,
+                title=(
+                    f"晚于问句日 {cutoff_text}｜{item.title}"
+                    if after_cutoff and cutoff_text
+                    else item.title
+                ),
                 detail=f"{item.date} {item.source}",
                 source=item.url,
                 source_date=item.date[:10] or None,
                 evidence_tier="news",
                 independent_key=item.url,
             )
-            for item in news.items[:6]
+            for item in source_items
         ]
-        observation = (
-            "；".join(f"{item.detail}《{item.title}》" for item in evidence)
-            or describe_no_result("资讯", "无资讯", news.trace.status, news.trace.detail)
-        )
+        if after_cutoff and cutoff_text:
+            listed = "；".join(
+                f"{item.detail}《{item.title}》" for item in evidence
+            )
+            observation = (
+                f"源返回 {len(evidence)} 条，全部晚于问句日 {cutoff_text}，"
+                f"已标注后交付；不是源里没有。{listed}"
+            )
+        else:
+            observation = (
+                "；".join(f"{item.detail}《{item.title}》" for item in evidence)
+                or describe_no_result("资讯", "无资讯", news.trace.status, news.trace.detail)
+            )
         return evidence, observation, news.trace
 
     return {
@@ -644,6 +839,54 @@ def block_lines_to_evidence(
         evidence.append(replace(item, content_hash=evidence_content_hash(item)))
     observation = "；".join(lines[:limit])
     return evidence, observation
+
+
+_NUMBER_TOKEN_RE = re.compile(r"-?\d+(?:\.\d+)?")
+
+
+def grounded_values_in_text(
+    text: str,
+    evidence: tuple[AgentEvidence, ...] | list[AgentEvidence],
+) -> tuple[StructuredObservation, ...]:
+    """文本里出现过、且在证据结构化观察值里**有据**的那些数。
+
+    用途：判官删句之前问一句「这一刀会连坐掉哪些真值」。它**不阻止删除**——
+    删除决定仍归判官，绑在同一句里的编造照删（否则假话会拿真数当免死金牌）。
+    它只保证真值不随句子静默消失，好让下游按槽重新呈现。
+
+    这是「保下限不封上限」的落点：拦的是**信息丢失**，不是模型的表达。
+
+    刻意从严：只认与观察值逐字节相等的数字 token（``4.74`` 命中，``4.7``
+    与 ``约 4.74`` 不命中）。宁可少报几条（变笨）也不误报（变错）——
+    误报会把没被删的数当成缺口，反过来污染缺口统计。
+    """
+
+    tokens = {
+        float(match.group())
+        for match in _NUMBER_TOKEN_RE.finditer(str(text or ""))
+    }
+    if not tokens:
+        return ()
+    hits: list[StructuredObservation] = []
+    seen: set[tuple[str, str, str, float]] = set()
+    for item in evidence:
+        for obs in item.observations:
+            key = (obs.subject, obs.as_of, obs.metric, obs.value)
+            if key in seen or obs.value not in tokens:
+                continue
+            seen.add(key)
+            hits.append(obs)
+    return tuple(hits)
+
+
+def describe_lost_observation(obs: StructuredObservation) -> str:
+    """把连坐掉的观察值写成一条缺口，供 ``AgentOutcome.gaps`` 记账。"""
+
+    return (
+        f"删句连坐：{obs.subject} {obs.as_of} {obs.metric}={obs.value:g} "
+        "有据（预取观察值），随未通过核验的表述一并移除；"
+        "应按槽重新呈现，不得当作无数据。"
+    )
 
 
 def evidence_content_hash(item: AgentEvidence) -> str:

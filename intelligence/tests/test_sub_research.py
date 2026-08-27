@@ -3,8 +3,9 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import date
 from contextvars import ContextVar
-from threading import Barrier, Lock, Thread
+from threading import Barrier, Lock, Thread, enumerate as thread_enumerate
 import json
+import time
 
 import pytest
 
@@ -488,3 +489,71 @@ def test_branch_view_settlement_follows_the_parent_not_its_own_clamp() -> None:
     assert settled == pytest.approx(0.5)
     assert parent.remaining_seconds == pytest.approx(0.0, abs=1e-9)
     assert view.remaining_seconds == pytest.approx(3.5)
+
+
+def test_cancelled_coordinator_does_not_launch_workers() -> None:
+    worker = ScriptedWorker()
+    result = SubResearchCoordinator(worker, is_cancelled=lambda: True).run(
+        goals=("核验公司兑现", "查找反方驱动"),
+        task_frame=_frame(),
+        context=_context(),
+        registry=ResearchToolRegistry(()),
+        evidence_sink_factory=EvidenceLedger().branch_sink,
+    )
+
+    assert result.branches == ()
+    assert result.refused_reason == "cancelled"
+    assert worker.calls == []
+
+
+def test_cancelled_branch_start_does_not_call_worker() -> None:
+    worker = ScriptedWorker()
+    context = _context()
+    assert context.root_budget is not None
+    coordinator = SubResearchCoordinator(worker, is_cancelled=lambda: True)
+    request = coordinator._request(
+        index=1,
+        goal="核验公司兑现",
+        task_frame=_frame(),
+        context=context,
+        registry=ResearchToolRegistry(()),
+        evidence_sink_factory=EvidenceLedger().branch_sink,
+        root=context.root_budget,
+        calls=1,
+        seconds=2.0,
+    )
+
+    result = coordinator._run_one(request)
+
+    assert result.status == "failed"
+    assert result.error == "cancelled"
+    assert worker.calls == []
+    assert result.evidence == ()
+
+
+def test_coordinator_run_does_not_return_while_branch_threads_are_alive() -> None:
+    """分支晚到隔离靠同步排空：run 返回时 sub-research 线程必须已经结束。
+
+    不在协调器上另造 QueryPublishGuard。卡住的分支会拖住本次调用，
+    这是排空与 deadline 收敛之间的取舍，见 P3 收据。
+    """
+
+    class SlowWorker(ScriptedWorker):
+        def run(self, request: BranchRequest) -> BranchResult:
+            time.sleep(0.08)
+            return super().run(request)
+
+    SubResearchCoordinator(SlowWorker()).run(
+        goals=("核验公司兑现", "查找反方驱动"),
+        task_frame=_frame(),
+        context=_context(),
+        registry=ResearchToolRegistry(()),
+        evidence_sink_factory=EvidenceLedger().branch_sink,
+    )
+
+    live = [
+        thread.name
+        for thread in thread_enumerate()
+        if thread.is_alive() and thread.name.startswith("sub-research")
+    ]
+    assert live == []

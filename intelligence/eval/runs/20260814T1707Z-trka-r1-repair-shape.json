@@ -1,0 +1,221 @@
+{
+  "generated_at": "20260814T171222Z",
+  "base": "http://127.0.0.1:8792",
+  "preflight_ok": true,
+  "preflight_detail": "revision=5b456532 backend=continuous_glm",
+  "cases": [
+    {
+      "case_id": "A6-limit-advance-ladder",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 连板梯队什么情况，有没有断层",
+          "answer": "关于“2026-07-23 连板梯队什么情况，有没有断层”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题、说明证据覆盖范围、数据日期与缺口。",
+          "run_id": "run_20260815_010701_853758",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "finalizing",
+            "verification",
+            "repair",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 50.3,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A7-mainline",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-21 当天主线是什么",
+          "answer": "结构化证据绑定已通过边界校验，但语义核验因瞬时服务问题未完成；以下仅为候选草稿，不视为最终核验结论：\n2026-07-21 当天的盘面主线可定义为“半导体”，其中存储芯片和半导体设备是核心分支；AI算力中的共封装光学（CPO）属于同步走强的相关方向。依据是：半导体、存储芯片、半导体设备均被标记为启动状态，强度居前，并出现较广泛的涨停与资金流入；CPO同样处于启动状态。市场总览中成交活跃行业靠前的是电子、通信和机械设备，与上述科技制造方向的盘面表现相互印证。技术与产业链上，半导体是底层核心器件环节，存储芯片属于芯片产品，半导体设备属于制造投入环节；CPO位于AI算力网络互连与光模块相关环节。这里的“主线”是对当日资金集中、板块强度和联动范围的盘面概括，不等同于已确认的基本面驱动或后续持续性判断。证据边界：同日结构化板块和市场数据支持上述盘面定义；主线专用上下文未能提供可用的同日结果，且未取得同一时间窗口的新闻证据，因此不能核验上涨的具体消息原因，也不能据此判断主线将持续多久。",
+          "run_id": "run_20260815_010752_187680",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "主线板块日频结构（2026-07-21）",
+              "source": "本地结构化数据 · 主线板块日频结构",
+              "date": "2026-07-21"
+            },
+            {
+              "title": "市场日频总览（2026-07-21）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-21"
+            }
+          ],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 主线板块日频结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线板块日频结构（2026-07-21）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-21）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 136.9,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A10-new-high-structure",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-21 的新高家数结构说明什么",
+          "answer": "结构化证据绑定已通过边界校验，但语义核验因瞬时服务问题未完成；以下仅为候选草稿，不视为最终核验结论：\n直接判断：2026-07-21 的新高结构更像“反弹中的结构性修复”，而不是全市场同步走强。当天上证上涨1.7935%，上涨家数3107家，涨停121家、跌停21家，说明风险偏好明显回升；但新高记录中，较长周期新高和大市值银行、非银金融等权重品种占据重要位置，且部分新高并非首次突破。与此同时，部分新高股当日反而下跌，例如银行120日新高记录涨跌幅为-2.345%，说明“创新高”包含前期趋势延续或被指数抬升的成分，不能直接等同于当日买盘强度。相对更有进攻性的信号来自少数首次长期新高，例如计算机3年新高记录当日上涨10%、资金为43.57；但这属于局部强势，尚不足以证明新高扩散已形成稳定主线。基准判断：后续若新高从权重和少数个股扩散至更多行业，并且首次新高、当日上涨及资金流入同步增加，反弹有望延续；若新高家数主要由重复新高或权重股贡献，而指数上涨时新高股普遍走弱，则更接近指数修复，持续性不确定。当前没有同日主线结构或新闻因果证据，因此不能确认上涨由某一题材或消息驱动。",
+          "run_id": "run_20260815_011009_110317",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "市场日频总览（2026-07-21）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-21"
+            },
+            {
+              "title": "个股新高日频记录（2026-07-21）",
+              "source": "本地结构化数据 · 个股新高日频记录",
+              "date": "2026-07-21"
+            }
+          ],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-21）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 个股新高日频记录",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "个股新高日频记录（2026-07-21）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 133.1,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    }
+  ]
+}

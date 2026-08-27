@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.financeworkspace.checkpoint-recheck</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>/Users/a77/.local/bin/run_checkpoint_recheck.sh</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/a77/finance-workspace-runtime</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>FINANCE_CODE_ROOT</key>
+    <string>/Users/a77/finance-workspace-runtime</string>
+    <key>FINANCE_WS</key>
+    <string>/Users/a77/finance-workspace-private</string>
+    <key>FINANCE_PYTHON</key>
+    <string>/Users/a77/finance-workspace-private/.venv-workbench/bin/python</string>
+    <key>FINANCE_OPS_HEALTH_LOG</key>
+    <string>/Users/a77/.finance-runtime/ops-health.log</string>
+    <key>MARKET_FEATURE_STORE_DB</key>
+    <string>/Users/a77/finance-workspace-private/db/market_feature_store.duckdb</string>
+    <key>KNOWLEDGE_WIKI</key>
+    <string>/Users/a77/knowledge-base-private/wiki</string>
+    <key>FORESIGHT_USERS_DIR</key>
+    <string>/Users/a77/.local/share/finance-workbench/users</string>
+    <key>FORESIGHT_USER</key>
+    <string>linxiaoqi5111</string>
+    <key>SUBCONSCIOUS_VAULT</key>
+    <string>/Users/a77/agent-memory</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>3</integer>
+    <key>Minute</key>
+    <integer>50</integer>
+  </dict>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>/Users/a77/.finance-runtime/logs/checkpoint-recheck.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/a77/.finance-runtime/logs/checkpoint-recheck.err.log</string>
+</dict>
+</plist>
