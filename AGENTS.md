@@ -43,7 +43,7 @@
 python3 -m intelligence.cli record-correction --correction "<纠正后的说法>" --original "<系统原来的错误说法>" [--principle "<可复用原则>"] [--theme <相关题材>]
 ```
 
-- 落点：`intelligence/users/<user>/corrections.jsonl`（gitignored 用户私有层）。
+- 落点：`userspace.users_dir()` 解析的大脑目录（`FORESIGHT_USERS_DIR` > 仓内默认；本机当前 = `~/.local/share/finance-workbench/users/<user>/corrections.jsonl`）。仓内 `intelligence/users/` 只是未设该变量时的回落，**已冻结存档、勿再写死引用**——写死它曾积出 12 条孤儿 corrections，见台账 `R-20260827-12`。
 - 回灌：无需用户触发——每日复盘的「框架解读」步（`perspective framework-daily`）与 foresight 发问会自动加载最近 corrections 作为上下文。
 - 用户沉默 = 默认认可，不落任何记录；只有明确纠正才落。
 - 这是 perspective-lab 循环 A（学用户视角）的唯一入口，漏落 = 框架无法迭代。落完在回复里用一句话确认即可（如「已落 correction」），不要打断对话流。
