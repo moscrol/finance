@@ -2419,6 +2419,136 @@ def add_perspective_parser(subparsers: argparse._SubParsersAction) -> None:
     p_fw.add_argument("--json", action="store_true", help="输出机器可读 JSON（不打印报告正文）")
     p_fw.set_defaults(func=cmd_perspective_framework_daily)
 
+    p_exam = sub.add_parser(
+        "exam",
+        help="视角考卷（已知题+边题）：用户写金标钉子，程序只做确定性核对；空卷失败",
+    )
+    exam_sub = p_exam.add_subparsers(dest="exam_action", required=True)
+
+    p_add = exam_sub.add_parser("add", help="追加一道金标题（已知题或边题）")
+    p_add.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_add.add_argument("--perspective", required=True, help="角色 id")
+    p_add.add_argument(
+        "--kind",
+        required=True,
+        choices=["known_answer", "edge_case"],
+        help="known_answer=保真题；edge_case=诚实边界必须弃权",
+    )
+    p_add.add_argument("--question", required=True, help="题面")
+    p_add.add_argument("--facts", default=None, help="硬事实摘要（已知题必填）")
+    p_add.add_argument("--facts-file", default=None, help="硬事实摘要文件路径")
+    p_add.add_argument(
+        "--direction",
+        default=None,
+        choices=["opportunity", "risk", "mixed", "none"],
+        help="已知题期望方向",
+    )
+    p_add.add_argument(
+        "--field",
+        default=None,
+        choices=["opportunity_preferences", "risk_triggers", "anti_patterns", "falsification_style"],
+        help="已知题期望命中的画像字段",
+    )
+    p_add.add_argument("--term", action="append", default=[], help="已知题期望命中的信号词（可多次）")
+    p_add.add_argument("--forbidden", action="append", default=[], help="产物中禁止出现的说法（可多次）")
+    p_add.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_add.set_defaults(func=cmd_perspective_exam_add)
+
+    p_list = exam_sub.add_parser("list", help="列出该角色考卷")
+    p_list.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_list.add_argument("--perspective", required=True, help="角色 id")
+    p_list.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_list.set_defaults(func=cmd_perspective_exam_list)
+
+    p_run = exam_sub.add_parser(
+        "run",
+        help="跑考卷：exit 0 仅当 ≥2 已知题 + ≥1 边题且全部通过；空卷失败",
+    )
+    p_run.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_run.add_argument("--perspective", required=True, help="角色 id")
+    p_run.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_run.set_defaults(func=cmd_perspective_exam_run)
+
+
+def _perspective_exam_facts(args: argparse.Namespace) -> str:
+    facts = args.facts or ""
+    facts_file = getattr(args, "facts_file", None)
+    if facts_file:
+        fpath = Path(facts_file).expanduser()
+        if not fpath.is_file():
+            raise FileNotFoundError(f"硬事实文件不存在：{fpath}")
+        facts = fpath.read_text(encoding="utf-8")
+    return facts
+
+
+def cmd_perspective_exam_add(args: argparse.Namespace) -> int:
+    from intelligence import userspace
+    from intelligence.services import perspective_exam
+
+    us = userspace.user_space(args.user)
+    try:
+        facts = _perspective_exam_facts(args)
+        case = perspective_exam.add_case(
+            us,
+            args.perspective,
+            kind=args.kind,
+            question=args.question,
+            facts=facts,
+            expected_direction=args.direction,
+            expected_field=args.field,
+            expected_terms=args.term,
+            forbidden=args.forbidden,
+        )
+    except (ValueError, FileNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(case, ensure_ascii=False, indent=2))
+    else:
+        print(f"已追加 {case['id']}（{case['kind']}）→ {perspective_exam.exam_path(us, args.perspective)}")
+    return 0
+
+
+def cmd_perspective_exam_list(args: argparse.Namespace) -> int:
+    from intelligence import userspace
+    from intelligence.services import perspective_exam
+
+    us = userspace.user_space(args.user)
+    try:
+        exam = perspective_exam.load_exam_or_empty(us, args.perspective)
+    except (ValueError, FileNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(exam, ensure_ascii=False, indent=2))
+        return 0
+    cases = exam.get("cases") or []
+    if not cases:
+        print(f"考卷为空：{perspective_exam.exam_path(us, args.perspective)}（空≠过）")
+        return 0
+    print(f"{exam['perspective_id']}：{len(cases)} 题")
+    for case in cases:
+        extra = case.get("expected_direction") or ("弃权" if case.get("must_abstain") else "")
+        print(f"  {case['id']}\t{case['kind']}\t{extra}\t{case['question']}")
+    return 0
+
+
+def cmd_perspective_exam_run(args: argparse.Namespace) -> int:
+    from intelligence import userspace
+    from intelligence.services import perspective_exam
+
+    us = userspace.user_space(args.user)
+    try:
+        result = perspective_exam.run_exam(us, args.perspective)
+    except (ValueError, FileNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        print(perspective_exam.render_exam_report(result), end="")
+    return 0 if result["passed"] else 1
+
 
 def cmd_perspective_framework_daily(args: argparse.Namespace) -> int:
     from intelligence import userspace

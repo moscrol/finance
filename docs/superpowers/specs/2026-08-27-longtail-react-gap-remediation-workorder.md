@@ -1,6 +1,6 @@
 # 工单：长尾变形题与 ReAct 臂差距收口（2026-08-27 四臂对照产出）
 
-- 状态：**待认领**（§P0 可单独领、今天可做；§P1 是 §P2 跨臂差分的前置；§P3 预注册已随本单同批落账）
+- 状态：**§P0 已执行 → `R-20260827-07a` refuted**（2026-08-27 21:00，收据 `~/.finance-runtime/p0-d6-20260827/`；归因升格 controller 层，接力 `R-20260827-10`，分支 `fix/turn-controller-unparsable-fallback`；#454 检验挂起待 `-10` 落地后复跑）。§P1/§P2 仍待认领（§P1 是 §P2 跨臂差分的前置）；§P2-D5 定层前先查 controller 步 `llm_failure_reason`（D6 教训：unparsable 降级会让「从未发出某类查询」在 plan 之前就成立）
 - 来源：四臂对照 `~/.finance-runtime/four-arm-20260827/`（38 题 × 4 臂：`8792` / `8796` / `component` / `react-claude`）。
   两条产品臂 `8792` = `8796` = `40fd5a847c65`，dirty=false，backend=continuous_glm，model=glm-5.3；
   react-claude 臂 = Claude 控制台 ReAct 驱动器，产物为每题 `session.json`（合同字段 + calls 数组）+ `answer.md`。
@@ -8,8 +8,10 @@
   判分器已过变异测试（数字抽取正则的有序交替坑，见 `analysis/defects-found.md` 附录——新判分器没被变异证伪过就是假门禁）。
 - 读数（mean_rate，[实测]）：unseen 集 react **0.857** > 8796 0.595 > 8792 **0.567** ≫ component 0.111；
   seen 集 react 1.0 > 8792 0.721。
-- 台账：`R-20260827-07/-08/-09` 三行 pending 已随本单**同批**写入 `docs/prediction-ledger.md`
+- 台账：`R-20260827-07a/-08/-09` 三行已随本单**同批**写入 `docs/prediction-ledger.md`
   （crosswalk 正反向均可对上；不重犯 `2026-08-27-qc-gate-and-ledger-integrity-workorder.md` §P1-b 点名的「spec 引号、台账无行」）。
+  ⚠ D6 行**原号 `-07`**：预注册落在本分支期间，main 经 #462 落了 export-increment 事故同号行，
+  按 `-03a` 先例改号 `-07a` 留档（本单全部引用已同步）；该行 2026-08-27 21:00 已回填 **refuted**。
 
 ---
 
@@ -21,7 +23,7 @@ D 组（unseen / 改写变形，即长尾鲁棒性组）10 题，8792 落后 rea
 |---|---|---|---|---|---|
 | D2-stock-rephrased | 0.25 | 0.5 | 1.0 | −0.75 | 判官扣留（**假设**，待 M2 确认）；修复 `b614daf0` 在分支 `fix/range-cutoff-and-judge-fallback`，**未合 main** |
 | D5-theme-unseen | 0.0 | 0.0 | 1.0 | −1.0 | 检索计划缺实体解析跳（**假设**，待 M2 确认）；**无对应改动** |
-| D6-ladder-rephrased | 0.0 | 0.0 | 1.0 | −1.0 | 工具层缺表（**已证**，`analysis/defects-found.md` 缺陷 D-4）；#454 `3816b297` **已合 main（≥ `470e43a3`）、从未 live 复跑** |
+| D6-ladder-rephrased | 0.0 | 0.0 | 1.0 | −1.0 | ~~工具层缺表~~ → **复跑证伪（`R-20260827-07a` refuted）**：controller `unparsable_response` 一次失败即降级 chat 零检索，检索计划从未生成，#454 装没装上轮不到问；归因 controller 层（`R-20260827-10`）。D9 也在同一 unparsable 簇里（8792 侧 4 个 unparsable = 全部 chat lane：B6/C8/D6/D9） |
 | D10-multiday-evolution | 0.0 | 0.0 | 0.0 | 三臂全灭 | 区间截止日取**起点**（**已证**，缺陷 D-1，`requested_information_cutoff` 守卫词表分叉）；修复与 D2 同在 `b614daf0` |
 | D9-temporal-leakage | None | None | None | 判分器对三臂均无法判 | 判分侧缺口，非产品缺口，本单不修（§5 非目标） |
 
@@ -59,6 +61,13 @@ D 组（unseen / 改写变形，即长尾鲁棒性组）10 题，8792 落后 rea
    输出 `expected_divergence_step` + `observed: none`——「该动没动」比「动错了」信息量大，因为错误动作留痕、遗漏只有沉默。
 
 ## §P0 · D6 自对照复跑（最便宜：改已落地、只差复跑）
+
+> **已执行（2026-08-27，结论 → `R-20260827-07a` refuted）**：双臂 8820@`31809161`（pre-#454）/
+> 8821@`3816b297`（post-#454）+ 冻结原始，三 run controller 输出一字不差
+> `unparsable_response → chat 零检索`，`ablation_activation_step=none observed`——但归因不在下表
+> 预写的「装了没用」形状：**检索计划从未生成**，判据一在 controller 层就短路了。
+> 修复与复验接力 `R-20260827-10`；本节判据表对「controller 正常出牌」的 run 仍然有效，
+> `-10` 落地后按原判据复跑检验 #454。环境防坑四查两台全绿（cwd 指对树、RAG env 四条齐）。
 
 **动作**：在含 `3816b297` 的树上（main ≥ `470e43a3`；⚠ 生产 8792 当前 `40fd5a847c65` **不含**该提交，
 须新 worktree 起临时服务复跑，或等下次切流后在生产复跑）用 frozen 题面复跑 D6，
@@ -132,7 +141,7 @@ claude-console 侧 `plan` 结构性缺失 → 只有 2/3。处置分两档：
 
 ## §P3 · 闭环：三行预注册（已随本单落账）
 
-`R-20260827-07`（D6 复跑）/ `-08`（D2 判官）/ `-09`（D5 检索跳）已写入 `docs/prediction-ledger.md` Open 表，
+`R-20260827-07a`（D6 复跑，原号 `-07` 撞号改号）/ `-08`（D2 判官）/ `-09`（D5 检索跳）已写入 `docs/prediction-ledger.md` Open 表，
 `verification_prediction` 与失败形状**预先写死**（预注册先于执行，防「先看结果再写预测」）。
 
 为什么这步不能省：账本住址必须固定（SKILL.md 第 152 行）——「若 A harness 把结论留在自己的报告里、
