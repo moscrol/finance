@@ -344,6 +344,163 @@ def test_fupanhui_assets_registered_as_datasets() -> None:
     assert event.coverage
 
 
+def test_limit_ladder_and_theme_limit_detail_registered() -> None:
+    """入库 ≠ 可消费（再一例）：连板梯队与涨停个股明细必须有语义面。
+
+    2026-08-27 A3 实测（run_20260827_145613_094860）：个股深挖 episode 只拿到
+    行情窗口，「6 连板、当日高度标、题材=电站」躺在 fact_limit_advance_daily 里
+    却无查询通路——原豁免理由 dedicated_path 指向的消费方全是 pack/timeline
+    构建器，不是 agent 的查询面。断言生效值（coverage 里的防分母坑指针），
+    不只断言注册存在。
+    """
+    from intelligence.services.finance_query import _DATASETS, _UNREGISTERED_TABLES
+
+    ladder = _DATASETS["limit_advance_daily"]
+    assert ladder.table == "fact_limit_advance_daily"
+    assert ladder.population == "subset"
+    assert "market_daily" in ladder.coverage
+    assert "theme_limit_heat_daily" in ladder.coverage
+    assert "boards" in ladder.metrics
+    assert "theme" in ladder.dimensions
+    assert "promotion_rate" in ladder.dimensions
+
+    detail = _DATASETS["theme_limit_stock_daily"]
+    assert detail.table == "fact_theme_limit_stock_daily"
+    assert detail.population == "subset"
+    assert "theme_limit_heat_daily" in detail.coverage
+    assert "去重" in detail.coverage
+    assert "limit_times" in detail.metrics
+
+    # 豁免清单不得残留已转正表；mainline 个股层是有意保留的豁免（走 mainline_context）
+    assert "fact_limit_advance_daily" not in _UNREGISTERED_TABLES
+    assert "fact_theme_limit_stock_daily" not in _UNREGISTERED_TABLES
+    assert "mainline_context" in _UNREGISTERED_TABLES["fact_mainline_stock_daily"]
+
+
+@pytest.fixture
+def limit_detail_db(tmp_path: Path) -> Path:
+    path = tmp_path / "limit.duckdb"
+    connection = duckdb.connect(str(path))
+    try:
+        connection.execute(
+            """
+            create table fact_limit_advance_daily(
+                trade_date date, stock_ts_code varchar, stock_name varchar,
+                boards integer, first_limit_date date, theme varchar,
+                pct_chg double, promotion_rate varchar, source varchar,
+                updated_at timestamp
+            )
+            """
+        )
+        connection.executemany(
+            "insert into fact_limit_advance_daily values (?,?,?,?,?,?,?,?,?,?)",
+            [
+                (
+                    "2026-07-23", "001258.SZ", "立新能源", 6, "2026-07-16",
+                    "电站", 9.99, "1/1=100%", "fupanhui:limit/ladder",
+                    "2026-07-23 18:38:04",
+                ),
+                (
+                    "2026-07-23", "600000.SH", "样例股", 4, "2026-07-18",
+                    "算力", 10.0, "1/2=50%", "fupanhui:limit/ladder",
+                    "2026-07-23 18:38:04",
+                ),
+                (
+                    "2026-07-24", "001258.SZ", "立新能源", 7, "2026-07-16",
+                    "电站", 7.6, "1/1=100%", "fupanhui:limit/ladder",
+                    "2026-07-24 18:38:04",
+                ),
+            ],
+        )
+        connection.execute(
+            """
+            create table fact_theme_limit_stock_daily(
+                trade_date date, sector_ts_code varchar, sector_name varchar,
+                stock_ts_code varchar, stock_name varchar, price double,
+                pct_chg double, amount double, limit_times integer,
+                open_times integer, fund_flow_1d double, circ_mv double,
+                sw_l1 varchar, limit_status varchar, leader_plate varchar
+            )
+            """
+        )
+        connection.executemany(
+            "insert into fact_theme_limit_stock_daily values "
+            "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            [
+                (
+                    "2026-07-23", "885981.TI", "储能", "001258.SZ", "立新能源",
+                    12.11, 9.99, 12.71, 6, 0, 1.2, 32.0, "公用事业", "U", "电站",
+                ),
+                (
+                    "2026-07-23", "885981.TI", "储能", "600000.SH", "样例股",
+                    20.0, 10.0, 8.0, 1, 2, -0.3, 55.0, "电子", "U", None,
+                ),
+                # 同一股的第二个题材行：数家数必须按 stock_code 去重
+                (
+                    "2026-07-23", "885519.TI", "风电", "001258.SZ", "立新能源",
+                    12.11, 9.99, 12.71, 6, 0, 1.2, 32.0, "公用事业", "U", "电站",
+                ),
+            ],
+        )
+    finally:
+        connection.close()
+    return path
+
+
+def test_limit_advance_dataset_returns_ladder_facts(limit_detail_db: Path) -> None:
+    """A3 缺口的回归锚：个股深挖能直接查到连板数与题材归属，且不越截止日。"""
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "limit_advance_daily",
+            "dimensions": ["trade_date", "stock_name", "theme", "promotion_rate"],
+            "metrics": ["boards", "return_pct"],
+            "filters": [{"field": "stock_name", "op": "eq", "value": "立新能源"}],
+            "time_range": {"start": "2026-07-16", "end": "2026-07-23"},
+            "order_by": [{"field": "trade_date", "direction": "asc"}],
+            "limit": 10,
+        }
+    )
+    result = FinanceQuery(limit_detail_db).run(
+        spec,
+        information_cutoff=InformationCutoff(date(2026, 7, 23), "requested"),
+        deadline=ResearchDeadline.from_timeout(5.0),
+    )
+    assert len(result.rows) == 1  # 07-24 的 7 板行被截止日挡住
+    row = result.rows[0]
+    assert row["stock_name"] == "立新能源"
+    assert row["boards"] == 6
+    assert row["theme"] == "电站"
+    assert row["promotion_rate"] == "1/1=100%"
+    assert result.evidence[0].source_date == "2026-07-23"
+
+
+def test_theme_limit_stock_detail_lists_stocks_per_theme(
+    limit_detail_db: Path,
+) -> None:
+    """聚合表答「哪个题材多」，明细层答「该题材具体哪些票」。"""
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "theme_limit_stock_daily",
+            "dimensions": ["sector_name", "stock_name", "limit_status"],
+            "metrics": ["return_pct", "limit_times"],
+            "filters": [{"field": "sector_name", "op": "eq", "value": "储能"}],
+            "time_range": {"start": "2026-07-23", "end": "2026-07-23"},
+            "order_by": [{"field": "limit_times", "direction": "desc"}],
+            "limit": 10,
+        }
+    )
+    result = FinanceQuery(limit_detail_db).run(
+        spec,
+        information_cutoff=InformationCutoff(date(2026, 7, 23), "requested"),
+        deadline=ResearchDeadline.from_timeout(5.0),
+    )
+    names = [row["stock_name"] for row in result.rows]
+    assert names == ["立新能源", "样例股"]
+    assert result.rows[0]["limit_times"] == 6
+    # 风电那行不混进储能的筛选
+    assert all(row["sector_name"] == "储能" for row in result.rows)
+
+
 def test_event_daily_allows_scheduled_dates_beyond_cutoff(tmp_path: Path) -> None:
     """事件发生日可以晚于信息截止日；信息时点打在 updated_at。
 

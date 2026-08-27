@@ -832,6 +832,35 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "seal_amount": _metric("fd_amount", "封单额", "max"),
         },
     ),
+    # 连板梯队的个股明细。leader_height_daily 只有「每日 1 行的最高度」，
+    # 「某股几板、题材归属、晋级率、梯队断层」都在这张。2026-08-27 A3 实测
+    # （run_20260827_145613_094860）：个股深挖 episode 只拿到行情窗口，
+    # 「6 连板、当日高度标、题材=电站」躺在库里却无查询通路——专用消费方
+    # （timeline/analogs/pack 构建器）不是 agent 的查询面。
+    "limit_advance_daily": _DatasetDefinition(
+        table="fact_limit_advance_daily",
+        label="连板梯队个股日频",
+        population="subset",
+        coverage=(
+            "**只收当日连板梯队股（约二板及以上），且天然稀疏（部分交易日无行）**——"
+            "无行 ≠ 当日无涨停，只说明梯队未同步或为空。全市涨停总数用 market_daily，"
+            "按题材看涨停分布用 theme_limit_heat_daily。本表回答「谁在梯队、最高几板、"
+            "题材归属、晋级率」；promotion_rate 是文本（如 1/2=50%），不能当数值聚合。"
+        ),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+            "theme": _dimension("theme", "题材归属", null_label="未标注"),
+            "first_limit_date": _dimension("first_limit_date", "首板日", "date"),
+            "promotion_rate": _dimension("promotion_rate", "晋级率"),
+        },
+        metrics={
+            "boards": _metric("boards", "连板数", "max", "integer"),
+            "return_pct": _metric("pct_chg", "涨跌幅"),
+        },
+    ),
     "global_index_daily": _DatasetDefinition(
         table="fact_global_index_daily",
         label="海外指数日频（隔夜外盘）",
@@ -949,6 +978,39 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "rank": _metric("rank", "热度排名", "min", "integer"),
         },
     ),
+    # theme_limit_heat_daily 的个股明细层：聚合表答「哪个题材涨停多」，这张答
+    # 「该题材具体哪些票涨停」。宇宙实测（2026-07-23）：116 只涨停股 → 578 行，
+    # 去重后与 market_daily.limit_up 精确相等——一股多题材会多行，家数不可跨行直加。
+    "theme_limit_stock_daily": _DatasetDefinition(
+        table="fact_theme_limit_stock_daily",
+        label="题材涨停个股明细日频",
+        population="subset",
+        coverage=(
+            "**只收当日涨停个股 × 其所属题材（一股多题材会多行）**，不是全市场行情。"
+            "数涨停家数要先按 stock_code 去重，或直接用 theme_limit_heat_daily（聚合层）/ "
+            "market_daily.limit_up（全市总数）；全市场个股行情用 stock_daily。"
+        ),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "sector_code": _dimension("sector_ts_code", "题材代码"),
+            "sector_name": _dimension("sector_name", "题材名称"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+            "sw_l1": _dimension("sw_l1", "申万一级行业"),
+            "limit_status": _dimension("limit_status", "涨停状态", null_label="未知"),
+            "leader_plate": _dimension("leader_plate", "龙头板块", null_label="未标注"),
+        },
+        metrics={
+            "close": _metric("price", "收盘价"),
+            "return_pct": _metric("pct_chg", "涨跌幅"),
+            "amount": _metric("amount", "成交额亿", "sum"),
+            "limit_times": _metric("limit_times", "连板数", "max", "integer"),
+            "open_times": _metric("open_times", "开板次数", "max", "integer"),
+            "fund_flow_1d": _metric("fund_flow_1d", "1日资金流", "sum"),
+            "float_market_cap_yi": _metric("circ_mv", "流通市值亿元", "max"),
+        },
+    ),
     # C3：技术面快照口径。当前常年 0 行，注册后查询路径诚实返回空，
     # 不得改走价格表。空表披露由 honesty_gates.empty_caliber_disclosure 短路。
     "stock_technical_snapshot": _DatasetDefinition(
@@ -1000,11 +1062,12 @@ _UNREGISTERED_TABLES: dict[str, str] = {
     "feature_stock_window": "stale_materialized：同上",
     "feature_limit_advance_window": "stale_materialized：同上",
     # ── 已有专用通路：证据块/adapter 已消费，再开语义面会双口径 ──
-    "fact_limit_advance_daily": "dedicated_path：adapter 与多处 service 已消费（6 个生产文件）",
     "feature_l2_capital_flow_daily": "dedicated_path：D9 证据块 market_moneyflow.py",
     "feature_l2_quant_orders_daily": "dedicated_path：同 D9 块",
-    "fact_theme_limit_stock_daily": "dedicated_path：theme_lifecycle_timeline 已消费",
-    "fact_mainline_stock_daily": "dedicated_path：主线结构由 mainline_* 两个 dataset 覆盖",
+    "fact_mainline_stock_daily": (
+        "dedicated_path：agent 经 mainline_context 工具取用（episode 级快照注入，"
+        "合同文案明确覆盖个股表）；主线题材/板块层另有 mainline_* 两个 dataset"
+    ),
     "fact_sector_period_rank_daily": "dedicated_path：adapter ALLOWED_TABLES 内，按需直查",
     # ── 2026-08-12 有意豁免过的稀疏/半结构表，已于 2026-08-25 转正 ──
     # 当初「无 trade_date、不是 drop-in」属实，变的是工具面：population / coverage /
@@ -1020,6 +1083,14 @@ _UNREGISTERED_TABLES: dict[str, str] = {
     #   两义并不碰巧对齐：updated_at 几乎全是回填墙，不能当信息日。
     # - fact_global_stock_daily → global_stock_daily：每日固定 194，与指数表同一
     #   A 股日历；time_field=trade_date，session_date 只做维度。市值是原样美元未开放。
+    # ── 2026-08-27 转正两张（原豁免理由 dedicated_path，翻案依据留在这里）──
+    # 「专用消费方」都是 pack/timeline/analogs 构建器，不是 agent 的查询面；
+    # A3 live 实测（run_20260827_145613_094860，个股深挖题）episode 只拿到行情窗口，
+    # 「6 连板、当日高度标、题材=电站」在库里却够不着。物理表同一张，注册只是
+    # 加读口，不产生第二口径。
+    # - fact_limit_advance_daily → limit_advance_daily（连板梯队个股明细）
+    # - fact_theme_limit_stock_daily → theme_limit_stock_daily（涨停×题材个股明细，
+    #   07-23 实测 116 只涨停股→578 行，去重后与 market_daily.limit_up 精确相等）
     # ── 有数据、无通路、先量后判：暂不注册 ──
     "fact_theme_flow_daily": (
         "candidate：45 天自 2026-06-23，每日 57~109 条；amount 貌似亿，"
