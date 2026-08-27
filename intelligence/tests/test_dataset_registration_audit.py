@@ -112,3 +112,56 @@ def test_row_check_skipped_without_db() -> None:
     assert result["row_check_ran"] is False
     assert result["empty_registered"] == []
     assert result["ok"] is True
+
+
+def test_exemption_reasons_use_category_whitelist() -> None:
+    """规则 3 通过面：真仓豁免理由全部以白名单类别前缀开头。
+
+    背景（2026-08-27 工单 dataset-exemption-semantics）：`dedicated_path` 前缀把
+    「代码消费得到」当成「模型够得着」，#454 与 sector_period_rank 两次翻案
+    都是这个前缀遮蔽的真缺口——豁免理由必须回答「为什么模型不该/不需要够到」，
+    而不是「代码里有谁在消费」。
+    """
+
+    result = audit_mod.audit()
+
+    assert result["invalid_exemptions"] == [], (
+        f"以下豁免理由不在类别白名单里：{result['invalid_exemptions']}。"
+        "合法类别见 audit_dataset_registration._EXEMPTION_CATEGORIES；"
+        "dedicated_path 不是豁免理由——它陈述消费方存在性，连方向都不对。"
+    )
+    assert result["ok"] is True
+
+
+def test_dedicated_path_reason_fails_the_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """证伪④：豁免理由用 dedicated_path 前缀 → 必须红、点名到表。"""
+
+    from intelligence.services import finance_query
+
+    poisoned = dict(finance_query._UNREGISTERED_TABLES)
+    poisoned["feature_market_window"] = "dedicated_path：某构建器已消费"
+    monkeypatch.setattr(finance_query, "_UNREGISTERED_TABLES", poisoned)
+
+    result = audit_mod.audit()
+
+    assert result["ok"] is False
+    assert "feature_market_window" in result["invalid_exemptions"]
+
+
+def test_unknown_category_prefix_fails_the_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """证伪⑤：发明一个白名单外的新前缀 → 同样红（认不出来就 fail closed）。"""
+
+    from intelligence.services import finance_query
+
+    poisoned = dict(finance_query._UNREGISTERED_TABLES)
+    poisoned["feature_market_window"] = "totally_new_reason：听起来很有道理"
+    monkeypatch.setattr(finance_query, "_UNREGISTERED_TABLES", poisoned)
+
+    result = audit_mod.audit()
+
+    assert result["ok"] is False
+    assert "feature_market_window" in result["invalid_exemptions"]

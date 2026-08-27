@@ -447,6 +447,110 @@ def limit_detail_db(tmp_path: Path) -> Path:
     return path
 
 
+def test_sector_period_rank_is_registered_with_denominator_guards() -> None:
+    """入库 ≠ 可消费（第三例，工单 dataset-exemption-semantics）。
+
+    原豁免理由「dedicated_path：adapter ALLOWED_TABLES 内，按需直查」——adapter
+    直查是代码通路，不是模型的查询面，与 #454 翻案同形状。表是活的（实测
+    05-06~08-27 日更、四档 period_type 各 top10），「近5日哪个板块最强 / 连续
+    在榜」正是查询面问题。同批：两张 L2 特征表断更 20 天改判 stale_since
+    （注册停更表=喂旧数据），mainline 个股表改判 model_reachable_via（经
+    mainline_context 工具模型已可达，再开 dataset 双口径）。
+    """
+    from intelligence.services.finance_query import _DATASETS, _UNREGISTERED_TABLES
+
+    rank = _DATASETS["sector_period_rank_daily"]
+    assert rank.table == "fact_sector_period_rank_daily"
+    assert rank.population == "subset"
+    assert "top10" in rank.coverage
+    assert "sector_daily" in rank.coverage  # 全量口径回指（防分母坑）
+    assert "period_type" in rank.dimensions
+    assert "badge" in rank.dimensions
+    assert "rank" in rank.metrics
+    assert "change_pct" in rank.metrics
+
+    # 豁免清单不得残留已转正表；改判后的前缀必须是白名单类别
+    assert "fact_sector_period_rank_daily" not in _UNREGISTERED_TABLES
+    assert _UNREGISTERED_TABLES["feature_l2_capital_flow_daily"].startswith(
+        "stale_since"
+    )
+    assert _UNREGISTERED_TABLES["feature_l2_quant_orders_daily"].startswith(
+        "stale_since"
+    )
+    assert _UNREGISTERED_TABLES["fact_mainline_stock_daily"].startswith(
+        "model_reachable_via"
+    )
+
+
+@pytest.fixture
+def period_rank_db(tmp_path: Path) -> Path:
+    path = tmp_path / "rank.duckdb"
+    connection = duckdb.connect(str(path))
+    try:
+        connection.execute(
+            """
+            create table fact_sector_period_rank_daily(
+                trade_date date, period_type varchar, rank integer,
+                sector_ts_code varchar, sector_name varchar, change_pct double,
+                limit_up_count integer, badge varchar, source varchar,
+                updated_at timestamp
+            )
+            """
+        )
+        connection.executemany(
+            "insert into fact_sector_period_rank_daily values "
+            "(?,?,?,?,?,?,?,?,?,?)",
+            [
+                (
+                    "2026-08-26", "day5", 1, "885431.TI", "光纤光缆", 12.5, 3,
+                    "sharp", "fupanhui:sector/rank", "2026-08-26 18:30:00",
+                ),
+                # 同日另一档：period_type 过滤必须把它排除
+                (
+                    "2026-08-26", "daily", 1, "885431.TI", "光纤光缆", 8.19, 2,
+                    None, "fupanhui:sector/rank", "2026-08-26 18:30:00",
+                ),
+                # 截止日之后的行：不得越界
+                (
+                    "2026-08-27", "day5", 1, "885520.TI", "PCB", 9.9, 4,
+                    "fund", "fupanhui:sector/rank", "2026-08-27 18:30:00",
+                ),
+            ],
+        )
+    finally:
+        connection.close()
+    return path
+
+
+def test_sector_period_rank_query_filters_period_and_respects_cutoff(
+    period_rank_db: Path,
+) -> None:
+    """转正回归锚：按档位查榜单、rank 是保留字也查得动、不越截止日。"""
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "sector_period_rank_daily",
+            "dimensions": ["trade_date", "period_type", "sector_name", "badge"],
+            "metrics": ["rank", "change_pct"],
+            "filters": [{"field": "period_type", "op": "eq", "value": "day5"}],
+            "time_range": {"start": "2026-08-20", "end": "2026-08-26"},
+            "order_by": [{"field": "rank", "direction": "asc"}],
+            "limit": 10,
+        }
+    )
+    result = FinanceQuery(period_rank_db).run(
+        spec,
+        information_cutoff=InformationCutoff(date(2026, 8, 26), "requested"),
+        deadline=ResearchDeadline.from_timeout(5.0),
+    )
+    assert len(result.rows) == 1  # daily 档被过滤、08-27 的行被截止日挡住
+    row = result.rows[0]
+    assert row["sector_name"] == "光纤光缆"
+    assert row["period_type"] == "day5"
+    assert row["badge"] == "sharp"
+    assert row["rank"] == 1
+    assert result.evidence[0].source_date == "2026-08-26"
+
+
 def test_limit_advance_dataset_returns_ladder_facts(limit_detail_db: Path) -> None:
     """A3 缺口的回归锚：个股深挖能直接查到连板数与题材归属，且不越截止日。"""
     spec = FinanceQuerySpec.from_arguments(
