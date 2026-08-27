@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -211,13 +212,30 @@ def run_release_steps(trade_date: str, timeout: int) -> tuple[list[dict], bool]:
     if cross_day["status"] != "ok":
         return results, False
 
-    export = run_step(
-        "export-increment",
-        [PY, str(SKILL_DIR / "scripts" / "export_increment.py"), "--date", trade_date],
-        timeout,
-    )
+    # 备份产物读「本轮同步写入的那个库」：staging 架构下当日数据只在
+    # MARKET_FEATURE_STORE_DB 指向的 staging 里，读默认生产路径必空
+    # （2026-08-27 夜跑实测：换名前生产库无当日行 → rc=1 → 连坐不换名）。
+    export_argv = [
+        PY,
+        str(SKILL_DIR / "scripts" / "export_increment.py"),
+        "--date",
+        trade_date,
+    ]
+    staging_db = os.environ.get("MARKET_FEATURE_STORE_DB")
+    if staging_db:
+        export_argv += ["--db", staging_db]
+    export = run_step("export-increment", export_argv, timeout)
     results.append(export)
-    return results, export["status"] == "ok"
+    if export["status"] != "ok":
+        # 备份失败 = 告警级，不阻塞换名（26g 人工裁决固化）。数据正确性由上面
+        # 两道质量门把守；iCloud 增量缺一天可由全量基线兜底，而「备份失败连坐
+        # 生产库停更」会让 readiness/复盘/问答全线陪葬。
+        print(
+            f"[release] export-increment 失败（status={export['status']}），"
+            "按告警级放行换名；增量备份缺口由周期全量基线兜底",
+            flush=True,
+        )
+    return results, True
 
 
 def sync_sector_stocks(trade_date: str, timeout: int, max_loops: int = 20) -> dict:
