@@ -1,6 +1,6 @@
 # 工单：长尾变形题与 ReAct 臂差距收口（2026-08-27 四臂对照产出）
 
-- 状态：**§P0 已执行 → `R-20260827-07a` refuted**（2026-08-27 21:00，收据 `~/.finance-runtime/p0-d6-20260827/`；归因升格 controller 层，接力 `R-20260827-10`，分支 `fix/turn-controller-unparsable-fallback`；#454 检验挂起待 `-10` 落地后复跑）。§P1/§P2 仍待认领（§P1 是 §P2 跨臂差分的前置）；§P2-D5 定层前先查 controller 步 `llm_failure_reason`（D6 教训：unparsable 降级会让「从未发出某类查询」在 plan 之前就成立）
+- 状态：**§P0 已收口**（2026-08-27 21:20）：`R-20260827-07a` refuted（归因升格 controller 层）→ `R-20260827-10` 修复 **live confirmed**（修复树 8822@`111af0f7` 复跑 D6：controller 地板生效、detail 破案=GLM 只回三键被全等校验拒收、tool 步 0→4、machine-truth rate **0.0→1.0**）→ **#454 检验通过**（答案引用 `limit_advance_daily` 与 12 行真值逐字吻合）。PR #465 open 待验收。收据 `~/.finance-runtime/p0-d6-20260827/`。§P1/§P2 仍待认领（§P1 是 §P2 跨臂差分的前置）；§P2-D5 定层前先查 controller 步 `llm_failure_reason`（D6 教训：unparsable 降级会让「从未发出某类查询」在 plan 之前就成立）
 - 来源：四臂对照 `~/.finance-runtime/four-arm-20260827/`（38 题 × 4 臂：`8792` / `8796` / `component` / `react-claude`）。
   两条产品臂 `8792` = `8796` = `40fd5a847c65`，dirty=false，backend=continuous_glm，model=glm-5.3；
   react-claude 臂 = Claude 控制台 ReAct 驱动器，产物为每题 `session.json`（合同字段 + calls 数组）+ `answer.md`。
