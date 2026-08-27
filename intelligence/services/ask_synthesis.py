@@ -18,10 +18,17 @@ from intelligence.services import (
     evidence_registry,
     experience_cards,
     forecast_preflight,
+    knowledge_injection_policy,
     llm_refine,
     perspective_lab,
     scenario_tree,
     track_contract,
+)
+from intelligence.services.session_projection import (
+    CAUSE_TRANSIENT_VERIFIER_OUTAGE,
+    TerminalFacts,
+    opening_for,
+    view,
 )
 from intelligence.services.answer_quality import (
     AnswerQualityContext,
@@ -861,6 +868,13 @@ def _prepare_answer_spec_synthesis(
         experience_guidance=experience_guidance,
         exemplar_guidance=exemplar_guidance,
         contract_guidance="\n\n".join(contract_parts),
+        # 市场态题型（market_watch）不注入判读基线：三轮消融实测该题型上稳定负贡献
+        # （directness -1.4），门控点与 W 源共用 knowledge_injection_policy。
+        # ⚠️ 必须走 routed_question_type()：question_plan.question_type 是被
+        # answer_orchestrator.py:272 翻译掉之后的值，里面没有 market_watch。
+        baseline_guidance=knowledge_injection_policy.reading_guidance_for(
+            knowledge_injection_policy.routed_question_type(question_plan)
+        ),
     )
     messages[0]["content"] = (
         f"{messages[0]['content']}\n\n## 本轮视角约束\n"
@@ -946,6 +960,24 @@ def _record_synthesis_phase(
             execution_mode=execution_mode,
         ),
     )
+
+
+# 能靠「重写一遍、照 registry 抄对」修好的码。注意**不含**
+# llm_fact_only_superseded_evidence——证据本身已被取代，让模型重绑修不好它，
+# 反而可能逼它去攀附别的证据；那条走展示层降桶标注。
+_BINDING_ISSUE_CODES = frozenset(
+    {
+        "llm_missing_claim_binding",
+        "llm_invalid_claim_id",
+        "llm_invalid_evidence_atom_id",
+        "llm_claim_type_mismatch",
+        "llm_fact_without_evidence_atom",
+    }
+)
+
+
+def _nonblank_line_count(text: str) -> int:
+    return sum(1 for line in text.splitlines() if line.strip())
 
 
 def _quality_gate_diagnostic_reason(
@@ -1193,21 +1225,71 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     blocking_issues = [
         issue for issue in gate_issues if issue.severity == "error"
     ]
+    # 「没绑定」这条码，只有在本链**真的把 marker 契约下达给模型**时才算模型的错。
+    # 2026-08-17 两发 live 挖到底：旧链的 _SYNTHESIS_SYSTEM_PROMPT 只说「事实句必须
+    # 绑定合法 EvidenceAtom」，全文 claim_id 0 次、<!-- 0 次，build_synthesis_messages
+    # 也不注入 claim registry——模型拿不到语法和合法 ID，不可能合规（#144 那发它写出
+    # 的 9 处短式 claim_id 是在猜语法）。此时它每答必报，还把修订轮拖起来空跑 30.2s。
+    #
+    # 契约没下达时：不喂修订轮、不进用户可见警告；事实仍留在
+    # unbound_claim_line_count 遥测里，不是抹掉而是不问罪。判据取自 prompt 自身——
+    # 哪天那段 prompt 开始教语法，问罪自己回来，不需要谁记得改这里。
+    #
+    # 市场复盘散文契约走自己那套（无 registry 可抄），不在此列，行为保持不变。
+    claim_contract_issued = (
+        llm_refine.SYNTHESIS_PROMPT_TEACHES_CLAIM_MARKERS
+        or result.prepared_synthesis_is_market_review
+    )
+    if not claim_contract_issued:
+        gate_issues = tuple(
+            issue
+            for issue in gate_issues
+            if issue.code != "llm_missing_claim_binding"
+        )
+        blocking_issues = [
+            issue for issue in gate_issues if issue.severity == "error"
+        ]
+    binding_warnings = [
+        issue
+        for issue in gate_issues
+        if issue.severity != "error" and issue.code in _BINDING_ISSUE_CODES
+    ]
+    # 绑定类问题降为 warning 之后，这一轮修订原本再也不触发了——「不扔也不改，
+    # 直接带病放行」。格式不对不代表内容错，正确处置是把问题喂回去让模型改一轮
+    # （ai-agent-book 第 5 章：把错误变成模型的输入，喂回的错误越结构化，自我
+    # 纠正成功率越高），而不是二选一地扔或放。
+    #
     # claim-binding 修订轮只适用于 registry 契约：散文契约（市场复盘）没有
     # registry 可复制，泄漏即直接退稿，不浪费一次错误契约的修订调用。
+    revision_trigger = "error" if blocking_issues else (
+        "warning" if binding_warnings else None
+    )
     if (
-        blocking_issues
+        revision_trigger is not None
         and deadline.remaining() > 0
         and not result.prepared_synthesis_is_market_review
     ):
+        result.llm_stream_telemetry["claim_binding_revision_trigger"] = (
+            revision_trigger
+        )
         correction_started = time.monotonic()
         correction, correction_reason = llm_refine.synthesize_messages(
             [
                 *messages,
+                # 上一版必须在场。prompt 写着「保留原有自然措辞，只修复门禁指出的
+                # 绑定」，而 messages 只有最初的 system+证据——不把草稿发回去，
+                # 模型看不见「原有措辞」是什么，只能从头再写一遍，绑定问题自然
+                # 照旧。2026-08-17 一发 live 实测：修订轮触发、跑了 30.2s、绑定
+                # 问题一个没少、被采纳门槛拒掉。ask.py 那条 WARN 回灌走的是
+                # synthesis_messages（含 assistant 草稿），两条修订路本该同形。
+                {"role": "assistant", "content": proposed_synthesis},
                 {
                     "role": "user",
                     "content": llm_refine.claim_binding_revision_user_content(
-                        [issue.message for issue in blocking_issues],
+                        [
+                            issue.message
+                            for issue in (blocking_issues or binding_warnings)
+                        ],
                         answer_model.structured_claim_registry_block(
                             result.answer_spec
                         ),
@@ -1236,12 +1318,40 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
                 for issue in corrected_issues
                 if issue.severity == "error"
             ]
-            if not corrected_blocking:
+            # warning 触发的这轮没有「原稿反正要退」这个保底，所以采纳门槛要更高：
+            # 必须真的**变好**。否则一次没改动甚至改差的重写会白白顶掉能发的初稿。
+            corrected_binding_count = sum(
+                1
+                for issue in corrected_issues
+                if issue.code in _BINDING_ISSUE_CODES
+            )
+            improved = corrected_binding_count < len(binding_warnings)
+            # 只记 accepted 的话，「差一点」和「完全没改」长得一样。修订轮值不值
+            # 那次调用，要看这两个数缩了多少。
+            result.llm_stream_telemetry["claim_binding_issues_before"] = len(
+                binding_warnings
+            )
+            result.llm_stream_telemetry["claim_binding_issues_after"] = (
+                corrected_binding_count
+            )
+            accept = not corrected_blocking and (
+                revision_trigger == "error" or improved
+            )
+            result.llm_stream_telemetry["claim_binding_revision_accepted"] = accept
+            if accept:
                 proposed_synthesis = corrected_synthesis
                 accepted_composition = correction
                 blocking_issues = []
-            else:
+                gate_issues = corrected_issues
+            elif corrected_blocking and revision_trigger == "error":
                 blocking_issues = corrected_blocking
+                gate_issues = corrected_issues
+            elif corrected_blocking:
+                # warning 触发的修订把稿子改出了 error：丢掉修订版、保留初稿，
+                # 不能让「本来能发」因为一次没要求的重写变成退稿。
+                result.warnings.append(
+                    "claim 绑定修订版反而触发了硬门禁，已保留初稿。"
+                )
     structured_claims, unbound_claim_lines = (
         answer_model.parse_structured_claims(proposed_synthesis)
     )
@@ -1280,10 +1390,37 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
             detail=diagnostic_detail,
         )
         return result
+    result.warnings.extend(
+        f"LLM 输出未过 {issue.code}：{issue.message}"
+        for issue in gate_issues
+        if issue.severity != "error"
+    )
     presented_synthesis = answer_model.present_llm_answer(
         proposed_synthesis,
         result.answer_spec,
     )
+    # 绑定/术语闸降为 warning 之后，退稿的决定权移交给了展示层——它会丢掉无效
+    # claim ID 行和含内部术语的行。「marker 全无效」或「唯一那段含内部词」的答卷
+    # 会被抠成空串：那不是宽容，是发一张盖着 validated 章的空白答卷，比整答退稿
+    # 更差（退稿至少还落确定性答卷）。抠空即退稿，走既有 quality_gate 那条出口。
+    presented_line_count = _nonblank_line_count(presented_synthesis)
+    result.llm_stream_telemetry["presented_lines_dropped"] = max(
+        0,
+        _nonblank_line_count(proposed_synthesis) - presented_line_count,
+    )
+    if presented_line_count == 0:
+        result.warnings.append(
+            "LLM 输出经展示层剔除后为空（无效 claim ID 或内部术语占满全文），已退稿。"
+        )
+        result.llm_fallback_reason = "quality_gate_rejected"
+        result.llm_stream_telemetry["fallback_reason"] = result.llm_fallback_reason
+        _set_synthesis_diagnostic(
+            result,
+            state="rejected",
+            reason_code="presentation_emptied",
+            detail="presentation layer dropped every line of the synthesis candidate",
+        )
+        return result
     # sections 遥测：降级/修订从“静默”变“可观测”。kept/dropped 对比合成稿与
     # 展示稿的小节集合；revised 统计修订轮改动过正文的小节数。
     proposed_titles = _section_titles(proposed_synthesis)
@@ -1795,9 +1932,7 @@ _INSUFFICIENT_BUDGET_REASON = "本轮剩余预算不足，未发起该段合成"
 # 2026-08-02 那批 23 轮里 15 轮撞的就是它，放行等于把「多数答案没过语义审」写成常态。
 # 代价是可见降级率上升；这是把静默的未核验答案换成显式降级，不是新增故障。
 
-_JUDGE_OUTAGE_NOTICE = (
-    "（本条已通过证据绑定校验，但语义复核因服务瞬时问题未完成。）"
-)
+_JUDGE_OUTAGE_NOTICE = opening_for(CAUSE_TRANSIENT_VERIFIER_OUTAGE)
 
 
 def _judge_outage_release(
@@ -1821,7 +1956,12 @@ def _judge_outage_release(
     )
     if not _strip_empty_grounded_sections(presented).strip():
         return None
-    return f"{_JUDGE_OUTAGE_NOTICE}\n\n{presented}"
+    return view(
+        TerminalFacts(
+            cause=CAUSE_TRANSIENT_VERIFIER_OUTAGE,
+            public=presented,
+        )
+    )
 
 
 def _active_perspective_prompt(options: "AskOptions") -> str:
@@ -2018,6 +2158,15 @@ def synthesize_shadow_grounded_answer(
         candidate_answer,
         registry_block,
     )
+    # judge 实际用的 provider/model。下面所有 shadow 存证的 provider/model 记的是
+    # composer 的，判 judge 故障时照着它看会错到别的家去（grok-cli 的 URLError 曾
+    # 连续三轮被记成 zhipu）。两者分开存。
+    judge_provider_name = (
+        judge_override.name if judge_override is not None else None
+    )
+    judge_model_name = (
+        judge_override.model if judge_override is not None else options.llm_model
+    )
     judge_started = time.monotonic()
     judge_remaining_ms = deadline.remaining() * 1000
     judge_timeout = _shadow_phase_timeout(
@@ -2082,6 +2231,8 @@ def synthesize_shadow_grounded_answer(
                 deterministic_issues=deterministic_issues,
                 provider=composed.provider,
                 model=composed.model,
+                judge_provider=judge_provider_name,
+                judge_model=judge_model_name,
                 failure_reason=judge_reason,
                 elapsed_ms=round((time.monotonic() - started) * 1000),
             )
@@ -2104,22 +2255,26 @@ def synthesize_shadow_grounded_answer(
                 judge_raw=judged.answer,
                 provider=composed.provider,
                 model=composed.model,
+                judge_provider=judge_provider_name,
+                judge_model=judge_model_name,
                 failure_reason="judge_output_invalid",
                 elapsed_ms=round((time.monotonic() - started) * 1000),
             )
         )
         return result
+    # judge 的序号跟 harness 的编号对不上，按它 issue 里引用的原文重新定位。
+    # 单独接出来而不是内联进调用：**报的**与**执行的**不一致正是 fail-open 的形状，
+    # 得让它进 shadow 存证与 trace，否则只能靠事后重放归档件才看得出来。
+    judge_applied_indexes: tuple[int, ...] = ()
     if not judge_report.passed:
+        judge_applied_indexes = answer_model.resolve_judge_sentence_indexes(
+            judge_report,
+            sentences,
+        )
         semantic_repair = answer_model.repair_grounded_composer_answer(
             candidate_answer,
             result.answer_spec,
-            # judge 的序号跟 harness 的编号对不上，按它 issue 里引用的原文重新定位。
-            rejected_sentence_indexes=(
-                answer_model.resolve_judge_sentence_indexes(
-                    judge_report,
-                    sentences,
-                )
-            ),
+            rejected_sentence_indexes=judge_applied_indexes,
             drop_invalid=repair_drop_invalid,
         )
         if semantic_repair is None:
@@ -2133,8 +2288,11 @@ def synthesize_shadow_grounded_answer(
                     ),
                     deterministic_issues=deterministic_issues,
                     judge_report=judge_report,
+                    judge_applied_sentence_indexes=judge_applied_indexes,
                     provider=composed.provider,
                     model=composed.model,
+                    judge_provider=judge_provider_name,
+                    judge_model=judge_model_name,
                     failure_reason="semantic_repair_failed",
                     elapsed_ms=round(
                         (time.monotonic() - started) * 1000
@@ -2166,8 +2324,11 @@ def synthesize_shadow_grounded_answer(
             ),
             deterministic_issues=deterministic_issues,
             judge_report=judge_report,
+            judge_applied_sentence_indexes=judge_applied_indexes,
             provider=composed.provider,
             model=composed.model,
+            judge_provider=judge_provider_name,
+            judge_model=judge_model_name,
             elapsed_ms=round((time.monotonic() - started) * 1000),
         )
     )

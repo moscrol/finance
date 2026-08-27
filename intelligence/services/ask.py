@@ -48,6 +48,7 @@ from intelligence.services import (
     external_market,
     forecast_preflight,
     kb_rag,
+    knowledge_injection_policy,
     l3_evidence,  # noqa: F401  (测试经 ask.l3_evidence 打桩)
     query_ledger,
     retrieval_cache,
@@ -59,7 +60,10 @@ from intelligence.services import (
     task_fulfillment,
     market_midterm,
     market_moneyflow,
+    market_capital,
+    market_dragon,
     market_news,
+    overnight_map,
     market_technical,
     market_timeseries,
     perspective_lab,
@@ -94,7 +98,7 @@ from intelligence.services.answer_orchestrator import (
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.query_understanding import market_review_requested_date
 from intelligence.services.research_state import ResearchGap
-from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, theme_lifecycle, valuation_gap
+from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, recall_audit, theme_lifecycle, valuation_gap
 from intelligence.services.trading_calendar import (
     next_trading_day,
     trading_day_prompt_block,
@@ -149,9 +153,9 @@ from intelligence.services.ask_blocks import (  # noqa: F401
     _market_value_block_for_llm,
     _populate_market_index_comparison,
     _quoted_topic,
-    _second_derivative_queue_block_for_llm,
     _theme_research_framing,
     _valuation_block_for_llm,
+    second_derivative_queue_for_llm,
 )
 from intelligence.services.evidence_window import (
     is_time_aligned_evidence,
@@ -355,6 +359,18 @@ def _resolve_market_data_context(
     requested_date: str | None = None,
 ) -> tuple[str | None, str, str | None, list[str]]:
     if requested_date:
+        from intelligence.services.market_watch_pack import exact_market_daily_exists
+
+        exact = exact_market_daily_exists(market_db_path, requested_date)
+        if exact is True:
+            return requested_date, "requested_date", None, []
+        if exact is False:
+            return (
+                None,
+                "requested_date_missing",
+                f"{requested_date} 无行情数据。",
+                [],
+            )
         return requested_date, "requested_date", None, []
 
     market_date = _market_data_asof(market_db_path)
@@ -388,6 +404,254 @@ def _resolve_market_data_context(
     return None, "unavailable", notice, [
         "本轮没有连接本地市场数据，也没有可用的历史盘面快照。"
     ]
+
+
+def bind_market_watch_pack(
+    options: AskOptions,
+    *,
+    frame: Any = None,
+    query: str | None = None,
+) -> AskOptions:
+    """Run the market_watch pack before owner/model fork and lock AskOptions."""
+
+    from intelligence.services.honesty_gates import calendar_disclosure
+    from intelligence.services.market_watch_pack import run_market_watch_pack
+
+    disclosure = calendar_disclosure(frame) if frame is not None else None
+    # 替补观察探针仅在盘面题单点开启；weekly 五日包与一般题路径保持默认关
+    # （spec 2026-08-25-substitute-observation-probe P1 另议）。
+    pack = run_market_watch_pack(
+        query or options.query,
+        market_db_path=options.market_db_path,
+        calendar_disclosure=disclosure,
+        substitute_probes=True,
+    )
+    inject = pack.should_stop or not pack.market_daily_empty
+    rendered = pack.render() if inject else ""
+    supplemental = options.supplemental_evidence
+    if rendered:
+        supplemental = (
+            f"{rendered}\n\n{options.supplemental_evidence}".strip()
+            if options.supplemental_evidence
+            else rendered
+        )
+    return replace(
+        options,
+        date=pack.standing_date if pack.standing_date is not None else options.date,
+        compose=False if pack.should_stop else options.compose,
+        synthesize=False if pack.should_stop else options.synthesize,
+        supplemental_evidence=supplemental,
+        market_watch_pack=pack,
+    )
+
+
+def bind_watchlist_digest_pack(
+    options: AskOptions,
+    *,
+    frame: Any = None,
+    query: str | None = None,
+) -> AskOptions:
+    """Run the watchlist digest pack before owner/model fork and lock AskOptions.
+
+    P0 恒锁 compose=False / synthesize=False：确定性填格即公开稿，残差写手
+    不上场（spec 2026-08-26 §3.1.7；残差是 P1，开时也只许追加解读、不得改
+    数字、不得写买卖）。
+    """
+
+    from intelligence.services.honesty_gates import calendar_disclosure
+    from intelligence.services.watchlist_digest_pack import (
+        run_watchlist_digest_pack,
+    )
+
+    disclosure = calendar_disclosure(frame) if frame is not None else None
+    pack = run_watchlist_digest_pack(
+        query or options.query,
+        user_id=options.user,
+        market_db_path=options.market_db_path,
+        calendar_disclosure=disclosure,
+    )
+    rendered = pack.to_prompt_block()
+    supplemental = (
+        f"{rendered}\n\n{options.supplemental_evidence}".strip()
+        if options.supplemental_evidence
+        else rendered
+    )
+    return replace(
+        options,
+        date=pack.standing_date if pack.standing_date is not None else options.date,
+        compose=False,
+        synthesize=False,
+        supplemental_evidence=supplemental,
+        watchlist_digest_pack=pack,
+    )
+
+
+def bind_disclosure_scan_pack(
+    options: AskOptions,
+    *,
+    frame: Any = None,
+    query: str | None = None,
+    as_of: str | None = None,
+    cninfo_fetch: Any = None,
+    clock: Any = None,
+    sleep_fn: Any = None,
+) -> AskOptions:
+    """Run the disclosure scan pack; open compose only for a complete non-empty roster.
+
+    P0 恒锁 compose=False（纯包渲染）。P1-① 起：`status=hit` 且有主名单行时保留
+    调用方的 compose/synthesize（残差写手上场，只解读不增删名单行——契约与出稿闸
+    见 disclosure_scan_pack.gate_disclosure_residual）；partial/empty/unsupported/
+    error 一律维持 P0 纯包形状，fail-closed。
+    """
+
+    from intelligence.services.disclosure_scan_pack import (
+        disclosure_residual_allowed,
+        run_disclosure_scan_pack,
+    )
+
+    standing = as_of or options.date
+    if standing is None and frame is not None:
+        timeframe = str(getattr(frame, "timeframe", "") or "")
+        if len(timeframe) == 10 and timeframe[4] == "-" and timeframe[7] == "-":
+            standing = timeframe
+    pack = run_disclosure_scan_pack(
+        query or options.query,
+        as_of=standing,
+        market_db_path=options.market_db_path,
+        cninfo_fetch=cninfo_fetch,
+        clock=clock,
+        sleep_fn=sleep_fn,
+    )
+    rendered = pack.render()
+    supplemental = options.supplemental_evidence
+    if rendered:
+        supplemental = (
+            f"{rendered}\n\n{options.supplemental_evidence}".strip()
+            if options.supplemental_evidence
+            else rendered
+        )
+    residual_open = disclosure_residual_allowed(pack)
+    return replace(
+        options,
+        compose=options.compose if residual_open else False,
+        synthesize=options.synthesize if residual_open else False,
+        supplemental_evidence=supplemental,
+        disclosure_scan_pack=pack,
+    )
+
+
+def prepare_disclosure_residual_answer(options: AskOptions) -> PreparedAnswer:
+    """P1-① 残差写手的开台：名单置顶由裁判后合并负责，模型只解读。
+
+    P1-①c：answer_spec 换披露专用全行 claim 集（build_disclosure_residual_answer_spec）。
+    此前走通用 builder 的 `[:8]` 截断，shadow 有据链（composer/judge 的输入完全
+    从 answer_spec 生成）只看得见 8 条证据 claim，模型解读全名单必然越出
+    claim/atom 集——live R5 m 轮（run_20260825_200157_247884）被拒收的根因。
+    残差契约同时经 spec.prompt_constraints 进 shadow 链的 required_outputs 槽。
+
+    prepared_synthesis_messages 仍预置：grounded_presenter 关闭时旧散文合成
+    走这条（contract_guidance 槽承载同一契约，不混经验卡片槽——2026-08-13
+    实测贴错语义标签时模型遵守率极低）。
+    """
+
+    from intelligence.services.disclosure_scan_pack import (
+        DISCLOSURE_RESIDUAL_CONTRACT,
+        build_disclosure_residual_answer_spec,
+    )
+
+    pack = options.disclosure_scan_pack
+    assert pack is not None, "residual answer needs a bound disclosure pack"
+    rendered = pack.render()
+    result = AskResult(
+        query=options.query,
+        trade_date=pack.universe_date,
+        matched_theme=None,
+        candidate_tier=None,
+        priority_score=None,
+        synthesis=None,
+        market_summary=rendered,
+    )
+    result.answer_spec = build_disclosure_residual_answer_spec(
+        pack,
+        query=options.query,
+    )
+    result.prepared_synthesis_messages = llm_refine.build_synthesis_messages(
+        options.query,
+        "披露扫描",
+        rendered,
+        citation_legend="",
+        contract_guidance=DISCLOSURE_RESIDUAL_CONTRACT,
+    )
+    return prepare_existing_answer(options, result)
+
+
+def v_block_for_ask(
+    options: AskOptions,
+    theme: str | None = None,
+    entity: str | None = None,
+) -> str:
+    """[V] 投影：有 StancePack 只渲染袋，禁止再查台账。"""
+
+    pack = getattr(options, "stance_pack", None)
+    if pack is not None:
+        from intelligence.services.stance_pack import render_prior_bag
+
+        return render_prior_bag(
+            pack.prior_bag,
+            data_asof=_market_data_asof(options.market_db_path),
+        )
+    return checkpoint_recall.recall_block_for_query(
+        options.query,
+        theme,
+        entity,
+        user=options.user,
+        data_asof=_market_data_asof(options.market_db_path),
+    )
+
+
+def bind_research_program(
+    options: AskOptions,
+    *,
+    frame: Any = None,
+    query: str | None = None,
+) -> AskOptions:
+    """Compile a ResearchProgram; market_watch still binds the four-bag pack first."""
+
+    from intelligence.services.query_understanding import is_market_watch_query
+    from intelligence.services.research_contract import compile_research_program
+
+    text = query or options.query
+    question_class = ""
+    if frame is not None:
+        question_class = str(getattr(frame, "question_type", "") or "")
+    program = compile_research_program(text, question_class=question_class)
+    _ = program.to_dict()
+    if is_market_watch_query(text) or question_class == "market_watch":
+        bound = bind_market_watch_pack(options, frame=frame, query=query)
+        return replace(bound, research_program=program)
+    from intelligence.services.market_watch_pack import (
+        render_strict_signal_pack,
+        run_strict_signal_pack,
+    )
+
+    hits = run_strict_signal_pack(
+        program,
+        query=text,
+        market_db_path=options.market_db_path,
+    )
+    rendered = render_strict_signal_pack(hits)
+    supplemental = options.supplemental_evidence
+    if rendered:
+        supplemental = (
+            f"{rendered}\n\n{options.supplemental_evidence}".strip()
+            if options.supplemental_evidence
+            else rendered
+        )
+    return replace(
+        options,
+        research_program=program,
+        supplemental_evidence=supplemental,
+    )
 
 
 def _forecast_preflight_for_options(
@@ -617,6 +881,79 @@ def _answer_market_review(
     result.matched_theme = None
     result.candidate_tier = None
     result.priority_score = None
+    pack = getattr(options, "market_watch_pack", None)
+    if pack is not None:
+        result.market_summary = pack.render()
+        if pack.should_stop:
+            result.trade_date = None if pack.market_daily_empty else pack.standing_date
+            result.found_market = not pack.market_daily_empty
+            result.answer_spec = _build_base_answer_spec_from_sections(
+                result,
+                theme="市场复盘",
+                direct_lines=(pack.stop_text(),),
+                evidence_blocks=(pack.render(),),
+                risk_lines=(),
+                action_lines=(),
+            )
+            return result
+        mainline_context = ""
+        knowledge_anchor = (
+            _market_review_knowledge_anchor_block_for_llm(
+                options.market_db_path,
+                as_of=pack.standing_date or options.date or None,
+                kb_wiki=options.kb_wiki or None,
+                warnings=result.warnings,
+            )
+            if evidence_registry.provider_enabled(options, "MAINLINE_KB")
+            else ""
+        )
+        if knowledge_anchor:
+            result.citations.append(
+                Citation(
+                    "MAINLINE_KB",
+                    "主线方向的知识库积累",
+                    "按当日主线方向逐个取概念页/公司暴露/已入库证据；含知识库尚无积累的方向",
+                )
+            )
+        evidence_parts = [
+            part
+            for part in (
+                options.supplemental_evidence.strip(),
+                result.market_summary or "",
+                knowledge_anchor,
+            )
+            if part
+        ]
+        result.found_market = True
+        if not options.compose:
+            result.answer_spec = _build_base_answer_spec_from_sections(
+                result,
+                theme="市场复盘",
+                evidence_blocks=tuple(evidence_parts),
+                direct_lines=(
+                    f"截至 {pack.standing_date}，"
+                    "本轮只确认资料覆盖的市场变化，未覆盖部分保持未知。",
+                ),
+                risk_lines=(),
+                action_lines=(
+                    "下一交易日复核量能、涨跌结构和主线承接是否同时改善。",
+                ),
+            )
+            return result
+        result.answer_spec = _build_base_answer_spec_from_sections(
+            result,
+            theme="市场复盘",
+            evidence_blocks=tuple(evidence_parts),
+            direct_lines=(
+                f"截至 {pack.standing_date}，"
+                "本轮只确认资料覆盖的市场变化，未覆盖部分保持未知。",
+            ),
+            risk_lines=(),
+            action_lines=(
+                "下一交易日复核量能、涨跌结构和主线承接是否同时改善。",
+            ),
+        )
+        return result
     result.market_summary = _daily_market_overview_block_for_llm(
         options.market_db_path
     )
@@ -734,11 +1071,7 @@ def _answer_market_review(
                 f"{card_guidance}"
             )
     if evidence_registry.provider_enabled(options, "V"):
-        recall_block = checkpoint_recall.recall_block_for_query(
-            options.query,
-            user=options.user,
-            data_asof=_market_data_asof(options.market_db_path),
-        )
+        recall_block = v_block_for_ask(options)
         if recall_block:
             prior_parts.append(recall_block)
             result.citations.append(
@@ -906,6 +1239,7 @@ def _answer_market_technical(
     outcome = market_technical.resolve_market_technical(
         options.query,
         timeout=_stage_timeout(options, 15),
+        as_of=options.date,
     )
     subject = outcome.subject
     result = AskResult(
@@ -2629,6 +2963,77 @@ def _exposure_coverage_summary(exposures: dict[str, Any]) -> dict[str, Any] | No
     }
 
 
+def _revise_synthesis_on_warn(result: AskResult, options: AskOptions) -> None:
+    """WARN 意见回灌同一段对话做一轮定向修订（修订版在前契约）。
+
+    用户拿到可直接引用的修订版全文，审查意见退居「输出质检」附录；修订失败、被
+    门禁拒绝、或修订版经展示层剔除后为空时，一律**保留初稿**并记录原因。
+    """
+
+    if not (
+        options.compose_revise_on_warn
+        and options.stream_text_delta is None
+        and result.synthesis is not None
+        and result.synthesis_messages is not None
+        and result.review_gate is not None
+        and result.review_gate.warn_count > 0
+    ):
+        return
+    warn_notes = [
+        f"{c.name}：{c.note}"
+        for c in result.review_gate.checks
+        if c.status == output_review.WARN and not c.advisory_only
+    ]
+    revision_user = {"role": "user", "content": llm_refine.gate_revision_user_content(warn_notes)}
+    revised, rev_reason = llm_refine.synthesize_messages(
+        result.synthesis_messages + [revision_user],
+        model_override=options.llm_model,
+        timeout=_synthesis_timeout(options, options.llm_timeout),
+        deadline=_llm_deadline(options),
+        temperature=0.2,
+    )
+    if revised is None:
+        if rev_reason:
+            result.warnings.append(f"质检 WARN 回灌修订失败，保留初稿：{rev_reason}")
+        return
+    proposed_revision = revised.answer
+    revision_issues = answer_model.validate_llm_answer(
+        proposed_revision,
+        result.answer_spec,
+    )
+    if any(issue.severity == "error" for issue in revision_issues):
+        result.warnings.extend(
+            f"LLM 修订被 AnswerSpec 门禁拒绝：{issue.message}"
+            for issue in revision_issues
+            if issue.severity == "error"
+        )
+        return
+    presented_revision = answer_model.present_llm_answer(
+        proposed_revision,
+        result.answer_spec,
+    )
+    # 绑定/术语闸是 warning，拦不住展示层把修订版抠成空串（无效 claim ID 行、含
+    # 内部术语的行都会被丢掉）。这里覆盖的是**已经成型的初稿**，抠空就覆盖等于
+    # 用空白顶掉一篇好答卷——空则保留初稿。
+    if not presented_revision.strip():
+        result.warnings.append(
+            "质检 WARN 回灌修订版经展示层剔除后为空，保留初稿。"
+        )
+        return
+    result.synthesis = (
+        f"{result.data_notice}\n\n{presented_revision}"
+        if result.data_notice
+        else presented_revision
+    )
+    result.synthesis_messages = result.synthesis_messages + [
+        revision_user,
+        {"role": "assistant", "content": result.synthesis},
+    ]
+    result.warnings.append(
+        f"输出质检 {len(warn_notes)} 条 WARN 已回灌定向修订（正文为修订版，审查意见见「输出质检」附录）"
+    )
+
+
 def _answer_query_impl(options: AskOptions) -> AskResult:
     if options.deadline is not None and options.deadline.expired:
         return _deadline_partial_result(options.query)
@@ -2807,9 +3212,18 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     # 全市场后市推演先消费 S/D 系列当前盘面与 D8 历史类比；无明确主题时，
     # 通用 wiki 语义召回既慢又容易把“市场”锚到无关公司。本车道确定性关闭 W，
     # 不影响题材/个股研究的 Hybrid RAG。
+    # 市场态题型（market_watch）同理关闭 W——2026-08-26 三轮消融实证该题型上
+    # KB 召回稳定负贡献（七读数五负，历史研报观点污染「当前主线」判断），
+    # 门控与判读基线共用 knowledge_injection_policy（估值/题材题不受影响）。
     evidence_options = (
         replace(options, use_wiki_rag=False)
-        if question_plan.question_type == QUESTION_MARKET_FORECAST
+        if (
+            question_plan.question_type == QUESTION_MARKET_FORECAST
+            or not knowledge_injection_policy.inject_knowledge(
+                # 翻译前的路由题型；读 question_plan.question_type 门控恒不触发。
+                knowledge_injection_policy.routed_question_type(question_plan)
+            )
+        )
         else options
     )
     evidence_ctx = evidence_providers.EvidenceContext(
@@ -3285,6 +3699,28 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     gap_lines.extend(framing.get("gaps", []))
     gap_lines.extend(stale_notes)
     gap_lines.extend(wiki_counter_lines)
+    if evidence_index_bundle.counter_disclosure and not wiki_counter_lines:
+        gap_lines.append(evidence_index_bundle.counter_disclosure)
+    # KC-07：装配完成后跑召回自评四问，只披露不补搜。只看检索窗
+    # （R/W/G/外部/agent），不扫 framing/缺口/D 块，避免本体页里的「产业链」
+    # 冒充关系命中。
+    recall_as_of = recall_audit.parse_as_of(
+        result.trade_date, options.date, _market_today()
+    ) or date_cls.today()
+    gap_lines.extend(
+        recall_audit.audit_recall(
+            [
+                *evidence_lines,
+                *wiki_lines,
+                *wiki_counter_lines,
+                *graph_concept_lines,
+                *company_lines,
+                *web_fallback_lines,
+                *agent_loop_lines,
+            ],
+            as_of=recall_as_of,
+        ).disclosure_lines()
+    )
     if agent_loop_result is not None:
         gap_lines.extend(
             f"agent 检索后仍缺：{gap}" for gap in agent_loop_result.gaps
@@ -3827,6 +4263,44 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
 
         providers.append(ask_planner.DataBlockProvider("D9", "L2 大单资金流", _d9_applies, _build_d9))
 
+        def _d12_applies() -> bool:
+            return evidence_registry.provider_enabled(options, "D12") and bool(
+                market_capital.parse_capital_intent(options.query)
+            )
+
+        def _build_d12():
+            block = market_capital.capital_block_for_llm(
+                options.query,
+                options.market_db_path,
+                as_of=options.date,
+                timeout=_stage_timeout(options, 8),
+            )
+            return block, Citation(
+                "D12",
+                "东财资金面三件套数据块",
+                "个股两融/大宗/未来90天解禁时间表（只列事实，解禁是待验证时点）",
+            )
+
+        providers.append(ask_planner.DataBlockProvider("D12", "资金面三件套", _d12_applies, _build_d12))
+
+        def _d13_applies() -> bool:
+            return evidence_registry.provider_enabled(options, "D13") and bool(
+                market_dragon.parse_dragon_intent(options.query)
+            )
+
+        def _build_d13():
+            block = market_dragon.dragon_block_for_llm(
+                options.query,
+                options.market_db_path,
+            )
+            return block, Citation(
+                "D13",
+                "本地 DuckDB 龙虎榜席位数据块",
+                "个股近 N 个上榜日买卖前五席位类型分布（营业部/游资/机构，只列事实不跟单）",
+            )
+
+        providers.append(ask_planner.DataBlockProvider("D13", "龙虎榜席位", _d13_applies, _build_d13))
+
         def _d8_applies() -> bool:
             return evidence_registry.provider_enabled(options, "D8") and bool(
                 market_analogs.parse_analog_intent(options.query)
@@ -3931,6 +4405,25 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
 
         providers.append(ask_planner.DataBlockProvider("W7", "web 事件检索", _w7_applies, _build_w7))
 
+        def _d17_applies() -> bool:
+            return evidence_registry.provider_enabled(options, "D17") and bool(
+                overnight_map.parse_overnight_intent(options.query)
+            )
+
+        def _build_d17():
+            block = overnight_map.overnight_block_for_llm(
+                finance_db_path=options.market_db_path,
+            )
+            return block, Citation(
+                "D17",
+                "fph2026 隔夜美股→A 股映射数据块",
+                "美股主题热度/涨跌 → 对照表 A 股板块 → 当日 A 股温度计与涨跌（只列映射事实，不表示必然跟涨）",
+            )
+
+        providers.append(
+            ask_planner.DataBlockProvider("D17", "隔夜美股映射", _d17_applies, _build_d17)
+        )
+
         def _build_m():
             block = user_memory.memory_block_for_query(
                 options.query, theme, anchored_name, user=options.user,
@@ -3948,11 +4441,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         )
 
         def _build_v():
-            block = checkpoint_recall.recall_block_for_query(
-                options.query, theme, anchored_name,
-                user=options.user,
-                data_asof=_market_data_asof(options.market_db_path),
-            )
+            block = v_block_for_ask(options, theme, anchored_name)
             return block, Citation(
                 "V",
                 "回检块（历史可证伪判断×裁决）",
@@ -4070,6 +4559,9 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
                     claim_theme,
                 )
             )
+        result.stale_block_hints = output_review.extract_stale_block_hints(
+            (outcome.tag, outcome.block or "") for outcome in outcomes
+        )
         d5_outcome: ask_planner.BlockOutcome | None = None
         for outcome in outcomes:
             if outcome.tag == "D5":
@@ -4081,12 +4573,15 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             evidence_registry.provider_enabled(options, "D3")
             and not is_market_overview
         ):
-            second_derivative_block = _second_derivative_queue_block_for_llm(
+            second_derivative_block, d3_structure = second_derivative_queue_for_llm(
                 options.query,
                 theme,
                 options.market_db_path,
                 evidence_text,
             )
+            # 结构对象随文本同源产出：followup 选角只吃结构，不反解析 Markdown。
+            result.d3_alternatives = d3_structure.alternatives
+            result.d3_bottlenecks = d3_structure.bottlenecks
             result.d_block_stats.append(_d_block_stat("D3", "二阶导研究队列", second_derivative_block))
             if second_derivative_block:
                 structured_claims.extend(
@@ -4212,62 +4707,15 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             follow_ups=follow_ups,
             conclusion_lines=conclusion,
             final_answer=result.synthesis,
+            stale_block_hints=result.stale_block_hints,
         )
         stage["warn_count"] = result.review_gate.warn_count
     result.warnings.extend(
-        f"输出质检：{c.name}——{c.note}" for c in result.review_gate.checks if c.status == output_review.WARN
+        f"输出质检：{c.name}——{c.note}"
+        for c in result.review_gate.checks
+        if c.status == output_review.WARN and not c.advisory_only
     )
-    # 修订版在前契约：WARN 意见回灌同一段对话做一轮定向修订，用户拿到可直接引用的
-    # 修订版全文，审查意见退居「输出质检」附录；修订失败时保留初稿并记录原因。
-    if (
-        options.compose_revise_on_warn
-        and options.stream_text_delta is None
-        and result.synthesis is not None
-        and result.synthesis_messages is not None
-        and result.review_gate.warn_count > 0
-    ):
-        warn_notes = [
-            f"{c.name}：{c.note}" for c in result.review_gate.checks if c.status == output_review.WARN
-        ]
-        revision_user = {"role": "user", "content": llm_refine.gate_revision_user_content(warn_notes)}
-        revised, rev_reason = llm_refine.synthesize_messages(
-            result.synthesis_messages + [revision_user],
-            model_override=options.llm_model,
-            timeout=_synthesis_timeout(options, options.llm_timeout),
-            deadline=_llm_deadline(options),
-            temperature=0.2,
-        )
-        if revised is not None:
-            proposed_revision = revised.answer
-            revision_issues = answer_model.validate_llm_answer(
-                proposed_revision,
-                result.answer_spec,
-            )
-            if any(issue.severity == "error" for issue in revision_issues):
-                result.warnings.extend(
-                    f"LLM 修订被 AnswerSpec 门禁拒绝：{issue.message}"
-                    for issue in revision_issues
-                    if issue.severity == "error"
-                )
-            else:
-                presented_revision = answer_model.present_llm_answer(
-                    proposed_revision,
-                    result.answer_spec,
-                )
-                result.synthesis = (
-                    f"{result.data_notice}\n\n{presented_revision}"
-                    if result.data_notice
-                    else presented_revision
-                )
-                result.synthesis_messages = result.synthesis_messages + [
-                    revision_user,
-                    {"role": "assistant", "content": result.synthesis},
-                ]
-                result.warnings.append(
-                    f"输出质检 {len(warn_notes)} 条 WARN 已回灌定向修订（正文为修订版，审查意见见「输出质检」附录）"
-                )
-        elif rev_reason:
-            result.warnings.append(f"质检 WARN 回灌修订失败，保留初稿：{rev_reason}")
+    _revise_synthesis_on_warn(result, options)
     result.sections = {
         "结论": conclusion,
         "证据链": evidence_chain,
@@ -4288,7 +4736,67 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         "引用来源": _unique_citation_sources(citations),
     }
     result.citations = citations
+    _propose_foresight_judgments(options, result)
+    _register_track_next_watch(options, result)
     return result
+
+
+def _should_propose_foresight_judgments(options: AskOptions) -> bool:
+    """测试用户和 default 不写台账；生产身份才提案。"""
+    import os
+
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return False
+    user = options.user or os.environ.get("FORESIGHT_USER") or ""
+    return bool(user) and user not in {"golden-test", "tester", "default"}
+
+
+def _propose_foresight_judgments(options: AskOptions, result: AskResult) -> None:
+    if not _should_propose_foresight_judgments(options):
+        return
+    try:
+        from intelligence.services import judgment_extract
+
+        written = judgment_extract.propose_from_answer(
+            judgments_path=userspace.user_space(options.user).judgments_path,
+            query=options.query,
+            answer=render_answer(result),
+            as_of=result.trade_date or options.date,
+            theme=result.matched_theme,
+            citations=result.citations,
+        )
+        if written:
+            result.warnings.append(
+                f"前瞻判断已提案 {len(written)} 条（pending，checkpoint accept 后入账）"
+            )
+    except Exception as exc:
+        result.warnings.append(f"前瞻判断抽取未入账：{exc}")
+
+
+def _register_track_next_watch(options: AskOptions, result: AskResult) -> None:
+    """跟踪题下期关注 → checkpoint。测试/default 用户不写台账。"""
+    if not options.include_track_guidance or not _should_propose_foresight_judgments(options):
+        return
+    try:
+        from intelligence.services.track_contract import ingest_next_watch
+
+        question_type = (
+            result.question_plan.question_type if result.question_plan is not None else None
+        )
+        written = ingest_next_watch(
+            userspace.user_space(options.user).checkpoints_path,
+            result.synthesis or "",
+            query=options.query,
+            question_type=question_type,
+            as_of=result.trade_date or options.date,
+            theme=result.matched_theme,
+        )
+        if written:
+            result.warnings.append(
+                f"下期关注已登记 {len(written)} 条 checkpoint，次日 foresight 强制对照"
+            )
+    except Exception as exc:
+        result.warnings.append(f"下期关注未入账：{exc}")
 
 
 def _deadline_partial_result(query: str) -> AskResult:

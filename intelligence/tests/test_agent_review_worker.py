@@ -590,8 +590,12 @@ def test_failing_mechanical_test_produces_changes_required_provisional(worker_ca
     assert payload["checks"]["intelligence/tests/test_evidence_ledger.py"]["status"] == "FAIL"
 
 
-def test_fallback_provider_failure_enters_its_own_backoff(worker_case):
+def test_fallback_provider_failure_enters_its_own_backoff(
+    worker_case, monkeypatch: pytest.MonkeyPatch
+):
     repo, state_root, request, fake_reviewer = worker_case
+    # 锁住「调用方 PYTHONPATH 指向另一份 intelligence」这条失败形状。
+    monkeypatch.setenv("PYTHONPATH", str(Path(__file__).resolve().parents[2]))
     state_path = state_root / "state/external-review.json"
     state_path.parent.mkdir(parents=True, exist_ok=True)
     state_path.write_text(

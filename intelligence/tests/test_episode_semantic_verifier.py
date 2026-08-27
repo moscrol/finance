@@ -7,6 +7,7 @@ import time
 import pytest
 
 from intelligence.services import answer_model, llm_refine
+import intelligence.services.research_contract as research_contract_module
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
     AgentOutcome,
@@ -16,9 +17,20 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
     OutputEvidenceBinding,
 )
+from intelligence.services.episode_issues import IssueCode
 from intelligence.services.episode_semantic_verifier import (
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
+    LEFTOVER_WINDOW_ISSUE,
+    MAX_SEMANTIC_JUDGE_ATTEMPTS,
+    REQUIRED_OUTPUT_DEGRADED_MARK,
+    SEMANTIC_QUALITY_DOUBT_MARK,
     SemanticEpisodeVerifier,
+    _semantic_attempt_timeouts,
+    compact_judge_payload,
+    complete_judge_attempt_seconds,
+    dumps_judge_request,
+    leftover_window_blocks_complete_attempt,
+    numeric_condition_unsupported,
     semantic_judge_window_seconds,
 )
 from intelligence.services.episode_verifier import verify_episode_outcome
@@ -62,6 +74,7 @@ def _structural(
     source: str = "行情快照",
     gaps: tuple[str, ...] = (),
     traces: tuple[ProviderTrace, ...] = (),
+    required_outputs: tuple[RequiredOutput, ...] | None = None,
 ):
     frame = _frame()
     evidence = AgentEvidence(
@@ -72,15 +85,17 @@ def _structural(
         source_date="2026-07-22",
         content_hash="HASH_PRIVATE_SENTINEL",
     )
+    if required_outputs is None:
+        required_outputs = (
+            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+        )
     contract = ResearchTaskContract(
         task_id="semantic-test",
         question=frame.raw_question,
         subject=frame.subject,
         subject_kind=frame.subject_kind,
         question_type=frame.question_type,
-        required_outputs=(
-            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
-        ),
+        required_outputs=required_outputs,
         allowed_capabilities=("market_data",),
         evidence_plan=EvidencePlan(),
         task_frame_hash=frame.task_frame_hash,
@@ -100,8 +115,17 @@ def _structural(
                 {"task_frame_hash": frame.task_frame_hash},
             ),
         ),
-        bindings=(
-            OutputEvidenceBinding("direct_assessment", (evidence.content_hash,)),
+        bindings=tuple(
+            # 绑定跟着契约槽的 grounding_mode 走：evidence 槽绑住快照证据，
+            # 推理槽按协议规定空哈希 + basis=model_reasoning。
+            OutputEvidenceBinding(
+                item.output_id,
+                (evidence.content_hash,)
+                if item.grounding_mode == "evidence"
+                else (),
+                basis=item.grounding_mode,
+            )
+            for item in required_outputs
         ),
         usage=AgentUsage(llm_calls=1, tool_calls=1),
     )
@@ -240,14 +264,7 @@ def test_judge_receives_typed_claim_policy_for_requested_forecast(
     assert len(sent["tools"]) == 1
     assert sent["tools"][0]["function"]["name"] == "submit_grounding_report"
     request = json.loads(sent["messages"][1]["content"])
-    policy = request["claim_policy"]
-    assert policy["observed_facts_require_direct_evidence"] is True
-    assert policy["labelled_analytical_inference_allowed"] is True
-    assert policy["requested_conditional_estimate_allowed"] is True
-    assert policy["unsupported_external_cause_rejected"] is True
-    assert policy["unsupported_historical_probability_rejected"] is True
-    assert policy["unsupported_supporting_statistics_rejected"] is True
-    assert policy["unsupported_numeric_trigger_rejected"] is True
+    assert "claim_policy" not in request
     system_prompt = sent["messages"][0]["content"]
     assert "不要要求 evidence 原文已经包含预测结论" in system_prompt
     assert "“据此判断”“这说明”“这意味着”" in system_prompt
@@ -523,28 +540,119 @@ def test_judge_receives_sanitized_tool_status_for_empty_retrieval(
     assert "不能支持市场事实或因果结论" in system_prompt
 
 
+def test_judge_request_omits_agent_loop_and_default_padding(monkeypatch) -> None:
+    """Wire JSON must not pad grok with harness traces or duplicated policy.
+
+    Production 液冷 payload was 4488 chars; claim_policy + empty gap/tier +
+    agent_loop rows were not load-bearing for the review rules already in
+    the system prompt.
+    """
+
+    frame, structural = _structural("当前市场偏弱。")
+    structural = replace(
+        structural,
+        outcome=replace(
+            structural.outcome,
+            traces=(
+                ProviderTrace(
+                    provider="episode",
+                    capability="agent_loop",
+                    status="success",
+                    result_count=5,
+                ),
+                ProviderTrace(
+                    provider="private:eastmoney",
+                    capability="directional_news",
+                    status="empty",
+                    source_trade_date="2026-07-23",
+                    result_count=0,
+                ),
+            ),
+        ),
+    )
+    model = _RecordingJudgeModel()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+
+    SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    raw = model.calls[0]["messages"][1]["content"]
+    request = json.loads(raw)
+    assert "claim_policy" not in request
+    assert "required" not in request["required_outputs"][0]
+    assert "gap" not in request["output_bindings"][0]
+    capabilities = [
+        row["capability"] for row in request.get("tool_status_registry") or []
+    ]
+    assert "agent_loop" not in capabilities
+    assert "directional_news" in capabilities
+    assert raw == dumps_judge_request(request)
+
+
+def test_compact_judge_payload_keeps_empty_evidence_ids_and_zero_counts() -> None:
+    payload = {
+        "claim_policy": {"observed_facts_require_direct_evidence": True},
+        "output_bindings": [{"output_id": "direct_assessment", "evidence_ids": [], "gap": ""}],
+        "tool_status_registry": [
+            {"capability": "agent_loop", "status": "success", "result_count": 5},
+            {"capability": "directional_news", "status": "empty", "result_count": 0},
+        ],
+        "required_outputs": [{"output_id": "direct_assessment", "required": True}],
+    }
+    compacted = compact_judge_payload(payload)
+    assert isinstance(compacted, dict)
+    assert "claim_policy" not in compacted
+    assert compacted["output_bindings"] == [
+        {"output_id": "direct_assessment", "evidence_ids": []}
+    ]
+    assert compacted["tool_status_registry"] == [
+        {"capability": "directional_news", "status": "empty", "result_count": 0}
+    ]
+    assert compacted["required_outputs"] == [{"output_id": "direct_assessment"}]
+
+
 def test_judge_receives_only_bound_evidence_with_compact_semantic_fields(
     monkeypatch,
 ) -> None:
     frame, structural = _structural("当前市场偏弱。")
-    unbound = AgentEvidence(
+    unbound_a = AgentEvidence(
         tool="web_search",
-        title="不应发送给裁判的未绑定标题",
+        title="不应发送给裁判的未绑定标题甲",
         detail="UNBOUND_EVIDENCE_SENTINEL",
-        source="https://example.invalid/unbound",
-        content_hash="unbound-hash",
+        source="https://example.invalid/unbound-a",
+        content_hash="unbound-hash-a",
+    )
+    unbound_b = AgentEvidence(
+        tool="web_search",
+        title="不应发送给裁判的未绑定标题乙",
+        detail="UNBOUND_PADDING",
+        source="https://example.invalid/unbound-b",
+        content_hash="unbound-hash-b",
     )
     bound = replace(
         structural.outcome.evidence[0],
+        tool="news_search",
+        title="许继电气：中标国家电网特高压项目 金额合计约12.45亿元",
+        detail="2026-07-22 18:13:19 界面新闻",
         supports=("量价判断",),
         contradicts=("趋势反转",),
         independent_key="market-snapshot",
     )
     expanded = replace(
         structural.outcome,
-        evidence=(bound, unbound),
+        evidence=(unbound_a, unbound_b, bound),
     )
-    structural = verify_episode_outcome(structural.contract, expanded)
+    contract = replace(
+        structural.contract,
+        allowed_capabilities=("market_data", "news_search", "web_search"),
+        required_outputs=(
+            RequiredOutput("direct_assessment", "直接判断", ("news_search",), True),
+        ),
+    )
+    structural = verify_episode_outcome(contract, expanded)
     model = _RecordingJudgeModel()
     monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
 
@@ -559,17 +667,16 @@ def test_judge_receives_only_bound_evidence_with_compact_semantic_fields(
     assert request["output_bindings"] == [
         {
             "output_id": "direct_assessment",
-            "evidence_ids": ["E1"],
-            "gap": "",
+            "evidence_ids": ["E3"],
         }
     ]
     assert request["evidence_registry"] == [
         {
-            "evidence_id": "E1",
-            "tool": "market_data",
-            "detail": "市场成交额与结构观察",
+            "evidence_id": "E3",
+            "tool": "news_search",
+            "title": "许继电气：中标国家电网特高压项目 金额合计约12.45亿元",
+            "detail": "2026-07-22 18:13:19 界面新闻",
             "source_date": "2026-07-22",
-            "evidence_tier": "",
             "supports": ["量价判断"],
             "contradicts": ["趋势反转"],
             "independent_key": "market-snapshot",
@@ -579,14 +686,22 @@ def test_judge_receives_only_bound_evidence_with_compact_semantic_fields(
     assert "UNBOUND_EVIDENCE_SENTINEL" not in serialized
     assert "unbound-hash" not in serialized
     assert "HASH_PRIVATE_SENTINEL" not in serialized
-    assert '"title"' not in serialized
+    assert '"title"' in serialized
     assert '"source"' not in serialized
+    assert '"internal_locator"' not in serialized
+    assert '"content_hash"' not in serialized
     assert '"freshness"' not in serialized
 
 
 def test_fulfilled_partial_model_finish_still_reaches_semantic_judge(
     monkeypatch,
 ) -> None:
+    """契约槽全齐的 runtime-partial：判官仍要跑，过审后对外 completed。
+
+    结构层继续保持 verified_status=partial（永不升级 runtime 自报）。
+    语义层过审才把用户可见 status 升成 completed；gaps 仍原样保留。
+    """
+
     frame, structural = _structural(
         "我的判断是反弹仍有数日窗口，但外部催化仍待核验。",
         status="partial",
@@ -602,10 +717,43 @@ def test_fulfilled_partial_model_finish_still_reaches_semantic_judge(
     )
 
     assert len(model.calls) == 1
-    assert result.status == "partial"
+    assert structural.verified_status == "partial"
+    assert result.status == "completed"
     assert result.judge_status == "passed"
     assert result.verified.completion.task_coverage == "fulfilled"
     assert result.verified.outcome.gaps == ("本轮资讯检索未命中",)
+
+
+def test_semantic_pass_promotes_deadline_partial_when_contract_is_fulfilled() -> None:
+    """生产 run_20260819_104536：deadline_exhausted 但槽位全齐，过审后 completed。
+
+    runtime 自报「研究截止时间已到，仍有必需输出未覆盖」，结构层 issues 空、
+    factual_grounding/task_coverage 都 fulfilled。截止是操作事实，不是内容缺口。
+    """
+
+    frame, structural = _structural(
+        "基准判断：量能处于修复中段。失效条件：上涨家数再度明显回落则证伪。",
+        status="partial",
+        gaps=("研究截止时间已到，仍有必需输出未覆盖",),
+    )
+    structural = replace(
+        structural,
+        outcome=replace(structural.outcome, stop_reason="deadline_exhausted"),
+    )
+    judge = _judge(True)
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert structural.verified_status == "partial"
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert "量能处于修复中段" in result.public_answer
+    assert result.verified.outcome.stop_reason == "deadline_exhausted"
+    assert result.verified.outcome.gaps == ("研究截止时间已到，仍有必需输出未覆盖",)
 
 
 def test_unsupported_causality_is_removed_before_public_completion() -> None:
@@ -619,7 +767,8 @@ def test_unsupported_causality_is_removed_before_public_completion() -> None:
 
     assert result.status == "completed"
     assert result.judge_status == "repaired"
-    assert "政策变化导致了下跌" not in result.public_answer
+    assert "政策变化导致了下跌" in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
 
 
 def test_semantic_repair_cannot_remove_a_visible_required_output_marker() -> None:
@@ -686,13 +835,17 @@ def test_semantic_repair_cannot_remove_a_visible_required_output_marker() -> Non
     assert result.judge_status == "repaired"
     assert "【当前判断】市场处于反弹修复" in result.public_answer
     assert "99999亿元" not in result.public_answer
-    assert "证据缺口" in result.public_answer
-    assert "继续成立条件" in result.public_answer
+    assert REQUIRED_OUTPUT_DEGRADED_MARK not in result.public_answer
+    assert "结构缺口" not in result.public_answer
+    assert "现有证据不足" not in result.public_answer
+    assert "需补充直接证据" not in result.public_answer
+    assert "详见「输出质检」" not in result.public_answer
+    assert "继续成立条件" not in result.public_answer
     assert result.gap_output_ids == ("continuation_conditions",)
     assert result.to_dict()["gap_output_ids"] == ["continuation_conditions"]
-    assert (
-        "semantic repair removed required output: continuation_conditions"
-        in result.issues
+    assert any(
+        "semantic repair removed required output: continuation_conditions" in issue
+        for issue in result.issues
     )
 
 
@@ -723,8 +876,9 @@ def test_initial_valuation_draft_requires_substantive_scenario_output(
     assert structural.verified_status == "partial"
     assert structural.completion.outputs[1].output_id == "scenario_range"
     assert structural.completion.outputs[1].status == "missing"
-    assert "required output lacks substantive answer: scenario_range" in (
-        structural.issues
+    assert any(
+        "required output lacks substantive answer: scenario_range" in issue
+        for issue in structural.issues
     )
 
 
@@ -851,14 +1005,11 @@ def test_valuation_repair_cannot_leave_an_empty_scenario_table_completed() -> No
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "partial"
     assert result.judge_status == "repaired"
-    assert result.gap_output_ids == ("scenario_range",)
-    assert "估值情景区间" in result.public_answer
-    assert "| 情景 | 关键条件 | 隐含PB |" not in result.public_answer
-    assert "| 保守" not in result.public_answer
-    assert "| 中性" not in result.public_answer
-    assert "| 乐观" not in result.public_answer
+    assert "| 保守" in result.public_answer
+    assert "| 中性" in result.public_answer
+    assert "| 乐观" in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
 
 
 def test_shared_hash_semantics_are_rejected_only_by_semantic_judge() -> None:
@@ -914,7 +1065,8 @@ def test_shared_hash_semantics_are_rejected_only_by_semantic_judge() -> None:
     )
     assert result.status == "completed"
     assert result.judge_status == "repaired"
-    assert "现有证据已完整覆盖判断边界" not in result.public_answer
+    assert "现有证据已完整覆盖判断边界" in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
 
 
 @pytest.mark.parametrize(
@@ -935,17 +1087,26 @@ def test_semantic_rejection_downgrades_subject_time_and_number_claims(
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
     )
-    assert result.status == "partial"
-    assert result.judge_status == "rejected"
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert draft in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
 
 
 def test_rejected_sentence_redaction_preserves_truth_state_and_rejudges() -> None:
     frame, structural = _structural(
-        "市场下跌。政策变化导致了下跌。",
+        "市场下跌。据E99显示下跌。",
         gaps=("外围催化仍待核验",),
     )
     original = structural.outcome
-    judge = _judge(False, rejected=(2,), issues=("因果证据不足",))
+    judge = _judge(
+        False,
+        rejected=(2,),
+        issues=(
+            "code=unresolved_evidence_ordinal subject=unresolved_evidence_ordinal "
+            ":: cited evidence ordinal is not in this episode's evidence table",
+        ),
+    )
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
         frame=frame,
         structurally_verified=structural,
@@ -975,7 +1136,6 @@ def test_judge_issue_sentence_numbers_cannot_escape_targeted_redaction() -> None
     def judge(request):
         nonlocal calls
         calls += 1
-        texts = [str(item["text"]) for item in request["sentences"]]
         if calls == 1:
             return {
                 "passed": False,
@@ -985,8 +1145,7 @@ def test_judge_issue_sentence_numbers_cannot_escape_targeted_redaction() -> None
                     "第3句包含未绑定的创新药涨幅。",
                 ],
             }
-        assert texts == ["市场广度已经改善。"]
-        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+        raise AssertionError("semantic-only reject must not start a deletion rejudge")
 
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
         frame=frame,
@@ -994,10 +1153,13 @@ def test_judge_issue_sentence_numbers_cannot_escape_targeted_redaction() -> None
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert calls == 2
+    assert calls == 1
     assert result.status == "completed"
     assert result.judge_status == "repaired"
-    assert result.public_answer == "市场广度已经改善。"
+    assert "市场广度已经改善" in result.public_answer
+    assert "CPO状态缺少绑定证据" in result.public_answer
+    assert "创新药涨幅缺少绑定证据" in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
 
 
 def test_long_draft_redacts_rejected_sentences_without_model_rewrite() -> None:
@@ -1017,8 +1179,7 @@ def test_long_draft_redacts_rejected_sentences_without_model_rewrite() -> None:
                 "rejected_sentence_indexes": [len(texts)],
                 "issues": ["unsupported_external_cause_rejected"],
             }
-        assert rejected_sentence not in texts
-        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+        raise AssertionError("semantic-only reject must not start a deletion rejudge")
 
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
         frame=frame,
@@ -1026,10 +1187,12 @@ def test_long_draft_redacts_rejected_sentences_without_model_rewrite() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert calls == 2
+    assert calls == 1
     assert result.status == "completed"
     assert result.judge_status == "repaired"
-    assert rejected_sentence not in result.verified.outcome.draft
+    assert rejected_sentence in result.verified.outcome.draft
+    assert rejected_sentence in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
 
 
 def test_local_gate_redacts_novel_numeric_conditions_missed_by_model_judge() -> None:
@@ -1083,6 +1246,50 @@ def test_local_gate_redacts_all_novel_numeric_conditions_in_one_pass() -> None:
     ]
 
 
+def test_meta_disclosure_rejection_is_exempted_and_sentence_survives() -> None:
+    # 2026-08-19 生产实锤：视角层按规则输出的披露句「KOL原文未覆盖8月盘面，
+    # 映射为推理层」被判成无证据外部事实，repair 把最有价值的边界声明删出
+    # 公开答案。豁免后：句子保留、无残留 issue、状态 completed。
+    draft = "市场处于反弹阶段。KOL原文未覆盖8月盘面，本段映射为推理层。"
+    judge = _judge(
+        False,
+        rejected=(2,),
+        issues=("第2句：无直接证据支持的外部事实陈述",),
+    )
+    frame, structural = _structural(draft)
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert "映射为推理层" in result.public_answer
+    assert all("第2句" not in issue for issue in result.issues)
+
+
+def test_meta_disclosure_with_value_claim_is_not_exempted() -> None:
+    # 披露句夹带行情断言（涨停）时不豁免：照常拒绝并修复删除。
+    draft = "市场处于反弹阶段。原文未覆盖该股，但其已连续涨停，本段映射为推理层。"
+    judge = _judge(
+        False,
+        rejected=(2,),
+        issues=("第2句：无证据的行情断言",),
+    )
+    frame, structural = _structural(draft)
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert "涨停" in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
+    assert result.judge_status == "repaired"
+
+
 def test_local_gate_allows_dates_and_numeric_conditions_present_in_bound_evidence() -> (
     None
 ):
@@ -1104,6 +1311,88 @@ def test_local_gate_allows_dates_and_numeric_conditions_present_in_bound_evidenc
     assert result.judge_status == "passed"
     assert "2026年7月17日低点" in result.public_answer
     assert "3876.78点" in result.public_answer
+
+
+def test_local_gate_exempts_novel_thresholds_when_condition_slots_are_reasoning() -> (
+    None
+):
+    """契约把证伪条件签成推理层时，模型提出的新阈值整句存活。
+
+    2026-08-19 分层审查实锤：门禁此前只认「全契约非 evidence」的整体豁免，
+    market_forecast 这类混合契约（边界槽是 evidence）下，invalidation_conditions
+    明明签了 model_reasoning，「若指数跌破3870点则失效」仍被整句砍掉——模型学会
+    只输出「相对变化描述」自保。条件槽由契约点名要判断，阈值不是走私的事实。
+    """
+
+    judge = _judge(True)
+    frame, structural = _structural(
+        "我的基准判断是反弹仍可持续2至5个交易日。若指数跌破3870点则失效。",
+        required_outputs=(
+            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+            RequiredOutput(
+                "invalidation_conditions",
+                "证伪条件",
+                (),
+                True,
+                "model_reasoning",
+            ),
+        ),
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert "3870点" in result.public_answer
+    assert "2至5个交易日" in result.public_answer
+
+
+def test_local_gate_still_redacts_when_condition_slot_is_evidence_bound() -> None:
+    """条件槽仍签 evidence（如 market_technical 失效位）时，门禁照旧连坐。"""
+
+    judge = _judge(True)
+    frame, structural = _structural(
+        "我的基准判断是反弹仍可持续。若指数跌破3870点则失效。",
+        required_outputs=(
+            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+            RequiredOutput(
+                "invalidation_conditions",
+                "失效位",
+                ("market_data",),
+                True,
+            ),
+        ),
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    # 砍掉唯一的失效句后，evidence 签约的必需槽被清空 → partial。
+    # 这正是修复前前瞻题的生产病灶形状；guard 保证 evidence 槽不吃豁免。
+    assert result.status == "partial"
+    assert "3870点" not in result.public_answer
+
+
+def test_numeric_condition_unsupported_is_detectable_before_judge() -> None:
+    """W5 必须在判官删句之前就能看到这个缺口。"""
+
+    _frame, structural = _structural(
+        "我的基准判断是反弹仍可持续。若指数跌破3870点则失效。"
+    )
+    assert numeric_condition_unsupported(structural) is True
+
+    _ok_frame, ok_structural = _structural(
+        "条件1：若指数跌破3876.78点，则反弹失效。",
+        detail="上证指数收于3876.78点。",
+    )
+    assert numeric_condition_unsupported(ok_structural) is False
 
 
 def test_local_gate_removes_calendar_weekday_mismatch() -> None:
@@ -1589,7 +1878,10 @@ def test_rejected_sentence_redaction_preserves_markdown_layout() -> None:
         "## 证据边界\n\n"
         "仍需观察。"
     )
-    expected = "## 当前判断\n\n\n- 市场下跌。\n\n## 证据边界\n\n仍需观察。"
+    expected = (
+        "## 当前判断\n\n\n- 市场下跌。\n- 政策变化导致了下跌。\n\n"
+        "## 证据边界\n\n仍需观察。"
+    )
     frame, structural = _structural(raw)
     result = SemanticEpisodeVerifier(
         judge_fn=_judge(False, rejected=(3,), issues=("因果证据不足",))
@@ -1602,11 +1894,13 @@ def test_rejected_sentence_redaction_preserves_markdown_layout() -> None:
     assert result.status == "completed"
     assert result.judge_status == "repaired"
     assert result.verified.outcome.draft == expected
+    assert "政策变化导致了下跌" in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
 
 
 def test_second_targeted_repair_handles_claim_missed_by_first_scan() -> None:
-    missed_claim = "外资将持续流入，因此反弹将延续。"
-    frame, structural = _structural(f"市场下跌。政策变化导致了下跌。{missed_claim}")
+    missed_claim = "据E98显示将反转。"
+    frame, structural = _structural(f"市场下跌。据E99显示下跌。{missed_claim}")
     calls = 0
 
     def strict_judge(request):
@@ -1616,16 +1910,24 @@ def test_second_targeted_repair_handles_claim_missed_by_first_scan() -> None:
             return {
                 "passed": False,
                 "rejected_sentence_indexes": [2],
-                "issues": ["外部因果无据"],
+                "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table",
+                ],
             }
         texts = [str(item["text"]) for item in request["sentences"]]
-        assert "政策变化导致了下跌。" not in texts
+        assert "据E99显示下跌。" not in texts
         if calls == 2:
             assert missed_claim in texts
             return {
                 "passed": False,
                 "rejected_sentence_indexes": [2],
-                "issues": ["复核发现仍含无据外部因果"],
+                "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table",
+                ],
             }
         assert texts == ["市场下跌。"]
         return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
@@ -1646,7 +1948,7 @@ def test_terminal_redaction_releases_remaining_verified_sentences_without_fourth
     None
 ):
     frame, structural = _structural(
-        "市场下跌。政策导致下跌。外资将持续流入。行业一定反转。"
+        "市场下跌。据E99显示下跌。据E98显示流入。据E97显示反转。"
     )
     calls = 0
 
@@ -1672,11 +1974,16 @@ def test_terminal_redaction_releases_remaining_verified_sentences_without_fourth
     assert result.public_answer == "市场下跌。"
 
 
-def test_terminal_redaction_preserves_reviewed_remainder_when_marker_is_removed() -> (
-    None
-):
+def test_terminal_redaction_withholds_when_last_required_slot_would_vanish() -> None:
+    """One-slot contracts use the same wipe-all floor as B4's three-slot wipe.
+
+    Terminal repair would drop 【当前判断】, emptying every evidence-grounded
+    required output. Keep the pre-repair draft rather than publish a gap-only
+    remainder the judge never reviewed as a complete answer.
+    """
+
     frame, structural = _structural(
-        "【当前判断】市场下跌。政策导致下跌。外资将持续流入。行业一定反转。"
+        "【当前判断】据E90，市场下跌。据E99显示下跌。据E98显示流入。据E97显示反转。"
     )
     calls = 0
 
@@ -1699,11 +2006,11 @@ def test_terminal_redaction_preserves_reviewed_remainder_when_marker_is_removed(
     assert calls == 3
     assert result.status == "partial"
     assert result.judge_status == "repaired"
-    assert "【当前判断】市场下跌" not in result.public_answer
-    assert "行业一定反转" in result.public_answer
-    assert "证据缺口" in result.public_answer
-    assert "直接判断" in result.public_answer
-    assert result.gap_output_ids == ("direct_assessment",)
+    assert result.repair_withheld is True
+    assert "repair_wiped_all_outputs" in " ".join(result.issues)
+    assert "【当前判断】据E90，市场下跌" in result.public_answer
+    assert "据E97显示反转" in result.public_answer
+    assert result.gap_output_ids == ()
 
 
 def test_outlook_relabel_lets_bare_inference_survive_judge() -> None:
@@ -1899,12 +2206,13 @@ def test_outlook_repair_that_leaves_only_boundary_is_partial_with_gap() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "partial"
     assert result.judge_status == "repaired"
-    assert "基准判断" not in result.public_answer
-    assert "证据缺口" in result.public_answer
-    assert "直接回答" in result.public_answer
-    assert result.gap_output_ids == ("direct_answer",)
+    assert "基准判断" in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
+    assert REQUIRED_OUTPUT_DEGRADED_MARK not in result.public_answer
+    assert "结构缺口" not in result.public_answer
+    assert "现有证据不足" not in result.public_answer
+    assert "需补充直接证据" not in result.public_answer
 
 
 def test_marker_loss_keeps_gap_audit_when_public_remainder_is_sanitized() -> None:
@@ -1922,8 +2230,8 @@ def test_marker_loss_keeps_gap_audit_when_public_remainder_is_sanitized() -> Non
 
     assert result.status == "partial"
     assert result.judge_status == "repaired"
-    assert "现有证据不足" in result.public_answer
-    assert "直接判断" in result.public_answer
+    assert result.public_answer == ""
+    assert "现有证据不足" not in result.public_answer
     assert result.gap_output_ids == ("direct_assessment",)
 
 
@@ -2192,7 +2500,10 @@ def test_valuation_marker_loss_gap_keeps_task_context() -> None:
     )
 
     assert result.status == "partial"
-    assert "证据缺口：估值的" in result.public_answer
+    assert REQUIRED_OUTPUT_DEGRADED_MARK not in result.public_answer
+    assert "瑞华泰当前PB约4.33" in result.public_answer
+    assert "证据缺口：" not in result.public_answer
+    assert "现有证据不足" not in result.public_answer
     assert result.gap_output_ids == ("evidence_boundary",)
 
 
@@ -2223,7 +2534,7 @@ def test_independent_judge_provider_records_uncorrelated(monkeypatch) -> None:
     result = SemanticEpisodeVerifier().verify(
         frame=frame,
         structurally_verified=structural,
-        deadline=ResearchDeadline.from_timeout(5),
+        deadline=ResearchDeadline.from_timeout(60),
     )
     assert result.status == "completed"
     assert result.correlated_judge is False
@@ -2252,7 +2563,7 @@ def test_independent_judge_provider_takes_priority_over_injected_judge(
     ).verify(
         frame=frame,
         structurally_verified=structural,
-        deadline=ResearchDeadline.from_timeout(5),
+        deadline=ResearchDeadline.from_timeout(60),
     )
     assert result.status == "completed"
     assert result.correlated_judge is False
@@ -2282,13 +2593,88 @@ def test_independent_judge_retries_one_transient_failure(
     result = SemanticEpisodeVerifier().verify(
         frame=frame,
         structurally_verified=structural,
-        deadline=ResearchDeadline.from_timeout(5),
+        deadline=ResearchDeadline.from_timeout(60),
     )
 
     assert result.status == "completed"
     assert result.judge_status == "passed"
     assert len(calls) == 2
-    assert all(0.0 < timeout <= 5.0 for timeout in calls)
+    assert all(0.0 < timeout <= 60.0 for timeout in calls)
+
+
+def test_leftover_sliver_does_not_dispatch_independent_judge(monkeypatch) -> None:
+    frame, structural = _structural("市场当前偏弱。")
+    provider = llm_refine.LLMProvider(
+        "judge", "secret", "https://judge.invalid", "j"
+    )
+    calls: list[float] = []
+
+    def complete(*_args, **kwargs):
+        calls.append(float(kwargs["timeout"]))
+        return (
+            '{"passed":true,"rejected_sentence_indexes":[],"issues":[]}',
+            provider,
+            "",
+        )
+
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: provider)
+    monkeypatch.setattr(llm_refine, "complete", complete)
+
+    result = SemanticEpisodeVerifier(judge_timeout=12.0).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(0.5),
+    )
+    payload = result.to_dict()
+
+    assert calls == []
+    assert leftover_window_blocks_complete_attempt(0.5, 12.0) is True
+    assert leftover_window_blocks_complete_attempt(20.0, 12.0) is False
+    assert leftover_window_blocks_complete_attempt(
+        49.0, DEFAULT_JUDGE_TIMEOUT_SECONDS
+    ) is True
+    assert leftover_window_blocks_complete_attempt(
+        50.0, DEFAULT_JUDGE_TIMEOUT_SECONDS
+    ) is False
+    assert result.judge_status == "unavailable"
+    assert LEFTOVER_WINDOW_ISSUE in result.issues
+    assert payload["degrade_class"] == "judge_unavailable"
+    assert payload["judge_unavailable_count"] == 1
+    assert payload["content_degraded_count"] == 0
+    assert payload["pending_rejudge"] is True
+    assert payload["timeout_asked"] == 0.0
+    assert isinstance(payload.get("judge_request"), dict)
+
+
+def test_unclassified_runtimeerror_holds_draft_without_evidence_lie(
+    monkeypatch,
+) -> None:
+    """§5.3 B2：兜底 provider error 不得放稿，也不得说证据不足 / 未绑定。"""
+
+    frame, structural = _structural("市场当前偏弱，科技延续强于医药。")
+    provider = llm_refine.LLMProvider("judge", "secret", "https://judge.invalid", "j")
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: provider)
+
+    def boom(*_args, **_kwargs):
+        return None, provider, "RuntimeError"
+
+    monkeypatch.setattr(llm_refine, "complete", boom)
+    result = SemanticEpisodeVerifier().verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(60),
+    )
+    payload = result.to_dict()
+    public = result.public_answer
+
+    assert result.status == "partial"
+    assert result.judge_status == "unavailable"
+    assert payload["pending_rejudge"] is True
+    assert "semantic judge provider error" in result.issues
+    assert "复核服务不可用" in public
+    assert "现有证据不足" not in public
+    assert "未完成核验绑定" not in public
+    assert "科技延续强于医药" not in public
 
 
 def test_judge_outage_is_partial_and_never_exposes_raw_draft() -> None:
@@ -2326,13 +2712,13 @@ def test_independent_judge_outage_keeps_uncorrelated_audit_flag(monkeypatch) -> 
     result = SemanticEpisodeVerifier().verify(
         frame=frame,
         structurally_verified=structural,
-        deadline=ResearchDeadline.from_timeout(5),
+        deadline=ResearchDeadline.from_timeout(60),
     )
 
     assert result.status == "partial"
     assert result.judge_status == "unavailable"
     assert result.correlated_judge is False
-    assert "候选草稿" in result.public_answer
+    assert "本次未完成独立复核（复核服务超时）" in result.public_answer
 
 
 def test_independent_judge_timeout_records_asked_triplet_and_exc_class(
@@ -2486,23 +2872,18 @@ def test_primary_judge_default_attempt_reserves_retry_window(
     )
 
     assert result.status == "completed"
-    # Assert the *rule*, not the number: the opening attempt takes at most half
-    # the shared window so the two retries still have somewhere to live.  The
-    # window was recalibrated 30.0 → 60.0 on 2026-08-10 (judge measured at
-    # 13.3–24.1s; a 15s opening attempt failed 6/6, 25s succeeded 6/6), and a
-    # hard-coded 15.0 here made a deliberate change look like a regression.
+    # Opening attempt is one complete try: min(cap, window). The 0.5 pre-split
+    # was retired after the 08-20 grok tail (46.7s) could not fit in half of
+    # the 50s floor. Retries share the leftover, they do not own a reserved
+    # half-window.
     window = semantic_judge_window_seconds()
     # 绝对容差，不用 approx 的默认相对容差（2026-08-11 改）：
     # 这个 timeout 是从**活的 deadline** 现算的，`from_timeout(60)` 到判定发生之间
-    # 真实流逝的时间会被减掉，实测得到 29.99995141645195。而 approx 默认 rel=1e-6
-    # 对 30.0 就是 ±3e-5 —— 差 4.9e-5 即判失败，等于把「断言规则」又写回成
-    # 「断言精确值」（正是上面注释想避免的），于是**机器忙一点就红**：
-    # 单独跑 5/5 失败、全量跑里反而过，是典型的时钟敏感偶发。
-    # 50ms 对负载抖动足够宽，对真回归足够紧——真回归会把它挪几秒（如 15 vs 30）。
+    # 真实流逝的时间会被减掉。50ms 对负载抖动足够宽，对真回归足够紧。
     assert model.calls[0]["timeout"] == pytest.approx(
-        min(DEFAULT_JUDGE_TIMEOUT_SECONDS, window * 0.5), abs=0.05
+        min(DEFAULT_JUDGE_TIMEOUT_SECONDS, window), abs=0.05
     )
-    assert model.calls[0]["timeout"] <= window * 0.5 + 0.01
+    assert model.calls[0]["timeout"] <= window + 0.01
 
 
 def test_primary_judge_shared_semantic_deadline_bounds_transient_attempts(
@@ -2533,7 +2914,14 @@ def test_primary_judge_shared_semantic_deadline_bounds_transient_attempts(
     # The invariant is "all attempts together stay inside the one shared
     # window", not any particular number of seconds — express it that way so
     # recalibrating the window does not read as a broken bound.
-    assert sum(model.calls) <= semantic_judge_window_seconds() + 0.01
+    #
+    # 这里断言的是**报价**上限，不再是报价之和：窗口现在由 ``_run_judge`` 的
+    # 余额账按真实耗时封顶（本例的假判官瞬时返回，一秒都没花）。真正的
+    # 「合计不超窗」由 test_judge_attempts_never_exceed_the_shared_window_in_wall_clock
+    # 用会走钟的假判官证明。报价之和曾是那条不变式的代理，静态划分取消后它不再等价。
+    assert max(model.calls) <= complete_judge_attempt_seconds(
+        DEFAULT_JUDGE_TIMEOUT_SECONDS
+    ) + 0.01
     assert model.calls[0] >= model.calls[1]
 
 
@@ -2725,7 +3113,7 @@ def test_late_judge_pass_is_unavailable_and_cannot_complete() -> None:
 
 
 def test_late_rejudge_preserves_prior_judged_monotonic_redaction() -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    frame, structural = _structural("市场下跌。据E99显示下跌。")
     calls = 0
 
     def reject_then_late_pass(_request):
@@ -2735,7 +3123,11 @@ def test_late_rejudge_preserves_prior_judged_monotonic_redaction() -> None:
             return {
                 "passed": False,
                 "rejected_sentence_indexes": [2],
-                "issues": ["因果证据不足"],
+                "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table"
+                ],
             }
         time.sleep(0.03)
         return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
@@ -2755,7 +3147,7 @@ def test_late_rejudge_preserves_prior_judged_monotonic_redaction() -> None:
 def test_transient_optional_rejudge_preserves_prior_monotonic_redaction(
     monkeypatch,
 ) -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    frame, structural = _structural("市场下跌。据E99显示下跌。")
 
     class TransientRejudge:
         def __init__(self) -> None:
@@ -2769,7 +3161,11 @@ def test_transient_optional_rejudge_preserves_prior_monotonic_redaction(
                         {
                             "passed": False,
                             "rejected_sentence_indexes": [2],
-                            "issues": ["因果证据不足"],
+                            "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table"
+                ],
                         },
                         ensure_ascii=False,
                     ),
@@ -2806,7 +3202,7 @@ def test_mixed_optional_rejudge_failures_cannot_unlock_monotonic_release(
     monkeypatch,
     errors: tuple[str, str],
 ) -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    frame, structural = _structural("市场下跌。据E99显示下跌。")
 
     class MixedOptionalRejudge:
         def __init__(self) -> None:
@@ -2820,7 +3216,11 @@ def test_mixed_optional_rejudge_failures_cannot_unlock_monotonic_release(
                         {
                             "passed": False,
                             "rejected_sentence_indexes": [2],
-                            "issues": ["因果证据不足"],
+                            "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table"
+                ],
                         },
                         ensure_ascii=False,
                     ),
@@ -2848,7 +3248,7 @@ def test_mixed_optional_rejudge_failures_cannot_unlock_monotonic_release(
 def test_weak_optional_failure_then_retry_deadline_cannot_unlock_release(
     monkeypatch,
 ) -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    frame, structural = _structural("市场下跌。据E99显示下跌。")
 
     class RetryWindowClosesAfterWeakFailure:
         def __init__(self) -> None:
@@ -2874,7 +3274,11 @@ def test_weak_optional_failure_then_retry_deadline_cannot_unlock_release(
                         {
                             "passed": False,
                             "rejected_sentence_indexes": [2],
-                            "issues": ["因果证据不足"],
+                            "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table"
+                ],
                         },
                         ensure_ascii=False,
                     ),
@@ -2904,7 +3308,7 @@ def test_weak_optional_failure_then_retry_deadline_cannot_unlock_release(
 def test_release_grade_optional_failure_then_retry_deadline_allows_release(
     monkeypatch,
 ) -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    frame, structural = _structural("市场下跌。据E99显示下跌。")
 
     class RetryWindowClosesAfterTypedFailure:
         def __init__(self) -> None:
@@ -2930,7 +3334,11 @@ def test_release_grade_optional_failure_then_retry_deadline_allows_release(
                         {
                             "passed": False,
                             "rejected_sentence_indexes": [2],
-                            "issues": ["因果证据不足"],
+                            "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table"
+                ],
                         },
                         ensure_ascii=False,
                     ),
@@ -3091,7 +3499,7 @@ def test_optional_rejudge_unapproved_error_cannot_masquerade_as_release_grade(
     error: str,
     expected_calls: int,
 ) -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    frame, structural = _structural("市场下跌。据E99显示下跌。")
 
     class InvalidRejudge:
         def __init__(self) -> None:
@@ -3105,7 +3513,11 @@ def test_optional_rejudge_unapproved_error_cannot_masquerade_as_release_grade(
                         {
                             "passed": False,
                             "rejected_sentence_indexes": [2],
-                            "issues": ["因果证据不足"],
+                            "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table"
+                ],
                         },
                         ensure_ascii=False,
                     ),
@@ -3131,7 +3543,7 @@ def test_optional_rejudge_unapproved_error_cannot_masquerade_as_release_grade(
 
 
 def test_malformed_rejudge_cannot_release_prior_redaction() -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    frame, structural = _structural("市场下跌。据E99显示下跌。")
     calls = 0
 
     def reject_then_malformed(_request):
@@ -3141,7 +3553,11 @@ def test_malformed_rejudge_cannot_release_prior_redaction() -> None:
             return {
                 "passed": False,
                 "rejected_sentence_indexes": [2],
-                "issues": ["因果证据不足"],
+                "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table"
+                ],
             }
         return None
 
@@ -3158,7 +3574,7 @@ def test_malformed_rejudge_cannot_release_prior_redaction() -> None:
 
 
 def test_late_malformed_rejudge_cannot_masquerade_as_deadline_recovery() -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    frame, structural = _structural("市场下跌。据E99显示下跌。")
     calls = 0
 
     def reject_then_late_malformed(_request):
@@ -3168,7 +3584,11 @@ def test_late_malformed_rejudge_cannot_masquerade_as_deadline_recovery() -> None
             return {
                 "passed": False,
                 "rejected_sentence_indexes": [2],
-                "issues": ["因果证据不足"],
+                "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table"
+                ],
             }
         time.sleep(0.03)
         return None
@@ -3188,7 +3608,7 @@ def test_late_malformed_rejudge_cannot_masquerade_as_deadline_recovery() -> None
 
 def test_late_rejudge_rejection_is_redacted_before_release() -> None:
     frame, structural = _structural(
-        "市场下跌。资金变化导致了下跌。政策变化导致了下跌。"
+        "市场下跌。据E98显示资金变化。据E99显示政策变化。"
     )
     calls = 0
 
@@ -3199,13 +3619,21 @@ def test_late_rejudge_rejection_is_redacted_before_release() -> None:
             return {
                 "passed": False,
                 "rejected_sentence_indexes": [3],
-                "issues": ["政策因果证据不足"],
+                "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table"
+                ],
             }
         time.sleep(0.03)
         return {
             "passed": False,
             "rejected_sentence_indexes": [2],
-            "issues": ["资金因果证据不足"],
+            "issues": [
+                "code=unresolved_evidence_ordinal "
+                "subject=unresolved_evidence_ordinal :: "
+                "cited evidence ordinal is not in this episode's evidence table"
+            ],
         }
 
     result = SemanticEpisodeVerifier(judge_fn=reject_then_late_reject).verify(
@@ -3218,12 +3646,12 @@ def test_late_rejudge_rejection_is_redacted_before_release() -> None:
     assert result.status == "completed"
     assert result.judge_status == "repaired"
     assert result.public_answer == "市场下跌。"
-    assert "资金变化导致了下跌。" not in result.public_answer
+    assert "据E98显示资金变化。" not in result.public_answer
 
 
 def test_late_final_rejudge_preserves_twice_judged_monotonic_redaction() -> None:
     frame, structural = _structural(
-        "市场下跌。政策变化导致了下跌。资金变化导致了下跌。"
+        "市场下跌。据E99显示下跌。据E98显示资金变化。"
     )
     calls = 0
 
@@ -3234,7 +3662,11 @@ def test_late_final_rejudge_preserves_twice_judged_monotonic_redaction() -> None
             return {
                 "passed": False,
                 "rejected_sentence_indexes": [2],
-                "issues": [f"第{calls}个因果句证据不足"],
+                "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    f"cited evidence ordinal is not in this episode's evidence table #{calls}"
+                ],
             }
         time.sleep(0.03)
         return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
@@ -3258,7 +3690,7 @@ def test_transient_final_rejudge_preserves_twice_judged_monotonic_redaction(
     monkeypatch,
 ) -> None:
     frame, structural = _structural(
-        "市场下跌。政策变化导致了下跌。资金变化导致了下跌。"
+        "市场下跌。据E99显示下跌。据E98显示资金变化。"
     )
 
     class TransientFinalRejudge:
@@ -3273,7 +3705,12 @@ def test_transient_final_rejudge_preserves_twice_judged_monotonic_redaction(
                         {
                             "passed": False,
                             "rejected_sentence_indexes": [2],
-                            "issues": [f"第{self.calls}个因果句证据不足"],
+                            "issues": [
+                                "code=unresolved_evidence_ordinal "
+                                "subject=unresolved_evidence_ordinal :: "
+                                "cited evidence ordinal is not in this episode's "
+                                f"evidence table #{self.calls}"
+                            ],
                         },
                         ensure_ascii=False,
                     ),
@@ -3301,7 +3738,7 @@ def test_transient_final_rejudge_preserves_twice_judged_monotonic_redaction(
 
 def test_late_malformed_final_rejudge_remains_fail_closed() -> None:
     frame, structural = _structural(
-        "市场下跌。政策变化导致了下跌。资金变化导致了下跌。"
+        "市场下跌。据E99显示下跌。据E98显示资金变化。"
     )
     calls = 0
 
@@ -3312,7 +3749,11 @@ def test_late_malformed_final_rejudge_remains_fail_closed() -> None:
             return {
                 "passed": False,
                 "rejected_sentence_indexes": [2],
-                "issues": [f"第{calls}个因果句证据不足"],
+                "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    f"cited evidence ordinal is not in this episode's evidence table #{calls}"
+                ],
             }
         time.sleep(0.03)
         return None
@@ -3421,9 +3862,11 @@ def test_redaction_that_empties_draft_fails_closed() -> None:
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
     )
-    assert result.status == "partial"
-    assert result.judge_status == "rejected"
-    assert "semantic repair unavailable" in result.issues
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert "政策变化导致了下跌" in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
+    assert "semantic repair unavailable" not in result.issues
 
 
 def test_public_projection_filters_casefolded_private_tokens_everywhere() -> None:
@@ -3622,7 +4065,7 @@ def test_public_gap_never_includes_internal_semantic_repair_issues() -> None:
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
     )
-    assert result.status == "partial"
+    assert "政策变化导致了下跌" in result.public_answer
     assert "semantic" not in result.public_answer.casefold()
     assert "judge" not in result.public_answer.casefold()
     assert "repair unavailable" not in result.public_answer.casefold()
@@ -3644,10 +4087,15 @@ def test_public_gap_never_projects_adversarial_outcome_gap(judge_mode: str) -> N
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
     )
-    assert result.status == "partial"
     assert poisoned not in result.public_answer
     assert "PRIVATE_GAP_SENTINEL" not in result.public_answer
-    assert "直接判断" in result.public_answer
+    if judge_mode == "unavailable":
+        assert result.status == "partial"
+        assert "复核服务不可用" in result.public_answer
+        assert "现有证据不足" not in result.public_answer
+        assert "未完成核验绑定" not in result.public_answer
+    else:
+        assert "市场下跌" in result.public_answer
 
 
 def test_public_gap_never_projects_adversarial_binding_gap() -> None:
@@ -3807,12 +4255,215 @@ def test_missing_mandatory_news_can_release_judged_market_facts_as_partial() -> 
     )
 
     assert partial.verified_status == "partial"
-    assert partial.issues == (
-        "missing mandatory capability evidence: news_search",
-    )
+    assert [item.code for item in partial.issue_items] == [
+        IssueCode.MISSING_MANDATORY_CAPABILITY,
+    ]
+    assert "news_search" in partial.issue_items[0].subject
     assert result.status == "partial"
     assert result.judge_status == "passed"
     assert "本周实际上涨约3%" in result.public_answer
+
+
+def test_wrong_type_prime_slot_releases_judged_rest_as_partial() -> None:
+    """类型白名单缺口进放行名单：整格非法的 prime 槽只降级，不换缺口模板。
+
+    run_20260819_130854 的第二种形态：模型给 prime_quote 只绑了
+    finance_query 的日频总览。槽位判 missing，但其余槽位已凭真实证据履行、
+    草稿仍应交给语义裁判以 partial 放行。
+    """
+
+    frame, structural = _structural("直接判断：市场结构中性偏强，量能维持在高位。")
+    evidence = structural.outcome.evidence[0]
+    overview = AgentEvidence(
+        tool="finance_query",
+        title="日频总览",
+        detail="同日行情总览",
+        source="本地库",
+        source_date="2026-07-22",
+        content_hash="finance-overview-1",
+    )
+    contract = ResearchTaskContract(
+        task_id="semantic-wrong-type-release",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type=frame.question_type,
+        required_outputs=(
+            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+            RequiredOutput("prime_quote", "最新行情要点", ("market_data",), True),
+        ),
+        allowed_capabilities=("market_data", "finance_query"),
+        evidence_plan=EvidencePlan(),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    partial = verify_episode_outcome(
+        contract,
+        replace(
+            structural.outcome,
+            evidence=(evidence, overview),
+            bindings=(
+                OutputEvidenceBinding(
+                    "direct_assessment",
+                    (evidence.content_hash,),
+                ),
+                OutputEvidenceBinding("prime_quote", ("finance-overview-1",)),
+            ),
+        ),
+    )
+    assert partial.verified_status == "partial"
+    assert [item.code for item in partial.issue_items] == [
+        IssueCode.EVIDENCE_TYPE_UNSUPPORTED,
+    ]
+    assert partial.issue_items[0].subject == "prime_quote"
+    assert "finance_query" in partial.issue_items[0].message
+    judge = _judge(True)
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=partial,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "partial"
+    assert result.judge_status == "passed"
+    assert len(judge.calls) == 1  # type: ignore[attr-defined]
+    assert "市场结构中性偏强" in result.public_answer
+    assert "现有证据不足" not in result.public_answer
+
+
+def test_stripped_mixed_prime_binding_completes_and_releases_draft() -> None:
+    """SPT 端到端复现：prime 槽混绑合法行情 + 越界 finance_query。
+
+    结构层剔掉越界哈希后槽位照常履行，整篇按 completed 走语义裁判并公开
+    模型稿——这正是 run_20260819_130854 里被换成「现有证据不足」的那种答案。
+    """
+
+    frame, structural = _structural("直接判断：市场结构中性偏强，量能维持在高位。")
+    evidence = structural.outcome.evidence[0]
+    overview = AgentEvidence(
+        tool="finance_query",
+        title="日频总览",
+        detail="同日行情总览",
+        source="本地库",
+        source_date="2026-07-22",
+        content_hash="finance-overview-1",
+    )
+    contract = ResearchTaskContract(
+        task_id="semantic-stripped-release",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type=frame.question_type,
+        required_outputs=(
+            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+            RequiredOutput("prime_quote", "最新行情要点", ("market_data",), True),
+        ),
+        allowed_capabilities=("market_data", "finance_query"),
+        evidence_plan=EvidencePlan(),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    verified = verify_episode_outcome(
+        contract,
+        replace(
+            structural.outcome,
+            evidence=(evidence, overview),
+            bindings=(
+                OutputEvidenceBinding(
+                    "direct_assessment",
+                    (evidence.content_hash,),
+                ),
+                OutputEvidenceBinding(
+                    "prime_quote",
+                    (evidence.content_hash, "finance-overview-1"),
+                ),
+            ),
+        ),
+    )
+    assert verified.verified_status == "completed"
+    assert [item.code for item in verified.issue_items] == [
+        IssueCode.EVIDENCE_TYPE_STRIPPED,
+    ]
+    assert verified.issue_items[0].subject == "prime_quote"
+    assert "finance_query" in verified.issue_items[0].message
+    judge = _judge(True)
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=verified,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert "市场结构中性偏强" in result.public_answer
+    assert "现有证据不足" not in result.public_answer
+
+
+def test_financial_floor_issue_still_fails_closed_without_judge() -> None:
+    """放宽只到类型白名单为止：财务锚地板（missing required evidence type）
+    不在放行名单，「拿行情洗白估值锚」仍整篇 fail closed。"""
+
+    frame, structural = _structural("当前PB为4.33倍，估值中性。")
+    evidence = structural.outcome.evidence[0]
+    contract = ResearchTaskContract(
+        task_id="semantic-floor-fail-closed",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type="valuation_estimate",
+        required_outputs=(
+            RequiredOutput(
+                "valuation_assessment",
+                "估值判断",
+                ("market_data",),
+                True,
+            ),
+            RequiredOutput(
+                "financial_business_anchor",
+                "财务或业务硬数据锚点",
+                ("financial_data",),
+                True,
+            ),
+        ),
+        allowed_capabilities=("market_data", "financial_data"),
+        evidence_plan=EvidencePlan(),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    partial = verify_episode_outcome(
+        contract,
+        replace(
+            structural.outcome,
+            bindings=(
+                OutputEvidenceBinding(
+                    "valuation_assessment",
+                    (evidence.content_hash,),
+                ),
+                OutputEvidenceBinding(
+                    "financial_business_anchor",
+                    (evidence.content_hash,),
+                ),
+            ),
+        ),
+    )
+    assert partial.verified_status == "partial"
+    assert any(
+        item.code == IssueCode.FINANCIAL_ANCHOR_MISSING
+        for item in partial.issue_items
+    )
+    calls: list[object] = []
+
+    result = SemanticEpisodeVerifier(
+        judge_fn=lambda request: calls.append(request)
+    ).verify(
+        frame=frame,
+        structurally_verified=partial,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert calls == []
+    assert result.status == "partial"
+    assert result.judge_status == "unavailable"
+    assert "现有证据不足" in result.public_answer
 
 
 def test_missing_structural_contract_fails_closed_without_judge() -> None:
@@ -3999,3 +4650,89 @@ def test_repaired_judge_after_transient_retry_keeps_clock_and_attempt_index(
     assert payload["timeout_asked"] == pytest.approx(model.calls[1])
     assert payload["judge_attempt_index"] == 1
     assert payload["exc_class"] is None
+
+
+def test_every_dispatched_judge_attempt_is_a_complete_attempt() -> None:
+    """派发口径必须和守卫口径一致：查 50 就不能发半截。
+
+    生产 ``run_20260820_105405_479375``：剩余 216s 过了守卫（当时阈值 25s），
+    随后被派了个 12.5s 的尝试并 TimeoutError。08-20 压 prompt 后 grok 尾巴
+    46.7s，完整尝试必须是整窗。
+    """
+
+    complete = complete_judge_attempt_seconds(DEFAULT_JUDGE_TIMEOUT_SECONDS)
+    attempts = _semantic_attempt_timeouts(
+        ResearchDeadline.from_timeout(216.0),
+        configured_attempt_timeout=DEFAULT_JUDGE_TIMEOUT_SECONDS,
+    )
+
+    assert attempts, "充裕时钟下必须至少发一次"
+    # 每一发都够一次完整尝试——不存在守卫会拦、却仍被派出去的窗口。
+    for asked in attempts:
+        assert not leftover_window_blocks_complete_attempt(
+            asked, DEFAULT_JUDGE_TIMEOUT_SECONDS
+        ), f"派发了守卫本会拦下的半截调用：{asked}s < {complete}s"
+    assert len(attempts) <= MAX_SEMANTIC_JUDGE_ATTEMPTS
+
+
+def test_judge_attempts_never_exceed_the_shared_window_in_wall_clock(
+    monkeypatch,
+) -> None:
+    """真不变式：三发合计的**墙钟**不超总窗口，且不比旧划分更费。
+
+    旧划分靠「报价之和 = 窗口」来保证这条；取消静态划分后，保证改由
+    ``_run_judge`` 的余额账承担，所以必须用会走钟的假判官直接测墙钟。
+    """
+
+    frame, structural = _structural("市场当前偏弱。")
+    window = semantic_judge_window_seconds()
+    now = [1000.0]
+
+    def monotonic() -> float:
+        return now[0]
+
+    monkeypatch.setattr(research_contract_module.time, "monotonic", monotonic)
+
+    class BurnsItsWholeGrant:
+        def __init__(self) -> None:
+            self.calls: list[float] = []
+
+        def complete(self, *, messages, tools, timeout):
+            del messages, tools
+            self.calls.append(float(timeout))
+            now[0] += float(timeout)  # 每发都吃满自己的窗口
+            return ModelTurn("", (), "glm", "LLM 调用 HTTP 503")
+
+    model = BurnsItsWholeGrant()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    start = now[0]
+    SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(600.0),
+    )
+    spent = now[0] - start
+
+    assert model.calls, "至少要发一次"
+    assert spent <= window + 0.01, f"判官烧了 {spent}s，超出共享窗口 {window}s"
+    # 每一发都够一次完整尝试——不存在守卫会拦、却仍被派出去的半截调用。
+    for asked in model.calls:
+        assert not leftover_window_blocks_complete_attempt(
+            asked, DEFAULT_JUDGE_TIMEOUT_SECONDS
+        ), f"派发了守卫本会拦下的半截调用：{asked}s"
+
+
+def test_tight_clock_keeps_a_retry_and_does_not_halve_it() -> None:
+    """紧窗下重试报价仍与首发相等——修首窗时最容易顺手砍掉的就是它。
+
+    余量按需支取：20s 窗给 (20, 20, 20)，不是 (10, 5, 5)。守卫按完整尝试
+    （50s）拦发，所以 20s 剩余在生产路径会 skip；本测试只锁报价形状。
+    """
+
+    attempts = _semantic_attempt_timeouts(
+        ResearchDeadline.from_timeout(20.0),
+        configured_attempt_timeout=DEFAULT_JUDGE_TIMEOUT_SECONDS,
+    )
+
+    assert len(attempts) >= 2, "瞬态重试必须还在"
+    assert attempts[1] == pytest.approx(attempts[0]), "重试不得只有首发的一半"

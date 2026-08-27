@@ -104,6 +104,94 @@ def test_an_ambiguous_quote_does_not_pick_a_sentence() -> None:
     assert resolve_judge_sentence_indexes(report, SENTENCES) == (3,)
 
 
+DISCLOSURE_ANSWER = "\n".join(
+    (
+        _line("本窗口的完整主名单已由扫描包原样置顶，本段只做解读。"),
+        _line("注册获批类可直接对应产品上市资格，如恒瑞医药、ST诺泰、双成药业均披露获得药品注册证书。"),
+        _line("临床批件类不等于上市，如华东医药、甘李药业、天士力（含恒瑞同日的多条批件），不应按获批产品对待。"),
+        _line("合同/中选类公告的标题未写金额时，金额按未知处理，不宜按利好规模估读。"),
+    )
+)
+DISCLOSURE_SENTENCES, _ = parse_grounded_sentences(DISCLOSURE_ANSWER)
+
+# grok-cli judge 的真实形状（run_20260826_021909_393039）：issue 是中文散文，
+# 只有第一条带「」引文，第二条用「句3」指代且不带任何引号。
+DISCLOSURE_ISSUES = (
+    "句2将标题层「注册获批/注册证书」升级为「可直接对应产品上市资格」，属语义越界",
+    "句3写入未绑定的恒瑞同日多条临床批件，绑定 claim 不含这些行",
+)
+
+
+def test_a_located_issue_must_not_swallow_an_unlocatable_one() -> None:
+    """回归锚：一条 issue 引了原文，不能把另一条没引原文的驳回整条吃掉。
+
+    修复前 ``resolved={2}`` 非空即 return，第 3 句的驳回被丢弃——judge 点名
+    「未绑定的恒瑞同日多条临床批件」那句原样上了公开稿（live 实测
+    run_20260826_021909_393039，presented 与未经语义修复的稿字节相同）。
+    """
+    report = GroundingJudgeReport(
+        passed=False,
+        rejected_sentence_indexes=(2, 3),
+        issues=DISCLOSURE_ISSUES,
+    )
+
+    assert resolve_judge_sentence_indexes(report, DISCLOSURE_SENTENCES) == (2, 3)
+
+
+def test_the_unlocatable_rejection_actually_leaves_the_answer() -> None:
+    """后果验证：修复后那句真的被删掉，而不是只删掉能定位的那一句。"""
+    from intelligence.services import answer_model as am
+
+    claim = am.make_claim(
+        claim_id=CLAIM,
+        text="披露扫描主名单已由扫描包原样置顶，本段只做解读。",
+        claim_type="expectation",
+        theme="披露扫描",
+        status=am.ClaimStatus.INFERRED,
+        evidence_ids=("G1",),
+    )
+    spec = am.AnswerSpec(
+        research_spec=am.resolve_answer_profile("有哪些利好公告", "披露扫描", "forecast"),
+        summary=(),
+        verified_facts=(),
+        company_table=(),
+        counter_evidence=(),
+        gaps=(),
+        triggers=(),
+        candidate_facts=(claim,),
+        next_actions=(),
+        sources=(
+            am.EvidenceRef(
+                evidence_id="G1",
+                source="巨潮官方披露",
+                detail="2026-08-21~2026-08-26 扫描窗口。",
+                tier="L3_official_disclosure",
+                source_date="2026-08-26",
+            ),
+        ),
+        system_notices=(),
+    )
+    report = GroundingJudgeReport(
+        passed=False,
+        rejected_sentence_indexes=(2, 3),
+        issues=DISCLOSURE_ISSUES,
+    )
+
+    resolved = resolve_judge_sentence_indexes(report, DISCLOSURE_SENTENCES)
+    repaired = am.repair_grounded_composer_answer(
+        DISCLOSURE_ANSWER,
+        spec,
+        rejected_sentence_indexes=resolved,
+        drop_invalid=True,
+    )
+
+    assert repaired is not None
+    assert "可直接对应产品上市资格" not in repaired
+    # 修复前正是这一句漏网上了公开稿
+    assert "含恒瑞同日的多条批件" not in repaired
+    assert "完整主名单已由扫描包原样置顶" in repaired
+
+
 def test_repair_drops_the_sentences_the_judge_actually_meant() -> None:
     """后果验证：按序号修会删掉无辜的第 5 句，越界的第 1、4 句留在正文里。"""
     from intelligence.services import answer_model as am

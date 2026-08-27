@@ -10,6 +10,8 @@ from intelligence.services.answer_model import resolve_theme_research_spec
 from intelligence.services.ask_blocks import (
     _mainline_theme_names,
     _market_data_asof,
+    _second_derivative_queue_block_for_llm,
+    second_derivative_queue_for_llm,
 )
 from intelligence.services.ask import (
     AskResult,
@@ -23,7 +25,6 @@ from intelligence.services.ask import (
     _market_review_mainline_context_block_for_llm,
     _market_value_block_for_llm,
     _resolve_market_data_context,
-    _second_derivative_queue_block_for_llm,
     _theme_research_framing,
     _valuation_block_for_llm,
     answer_query,
@@ -1055,6 +1056,84 @@ class EvidenceDataBlockTests(unittest.TestCase):
         self.assertIn("TLVR", block)
         self.assertIn("钽电容", block)
 
+    def test_second_derivative_queue_returns_structure_with_text(self) -> None:
+        """结构对象与文本块同源（spec 2026-08-17 §5：禁止 Markdown 反解析）。"""
+
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute(
+                """
+                create table fact_stock_daily(
+                  trade_date date, stock_ts_code varchar, stock_name varchar,
+                  close double, pct_chg double, amount double
+                )
+                """
+            )
+            con.execute(
+                """
+                create table fact_sector_stock_daily(
+                  trade_date date, sector_name varchar, sw_l1 varchar, stock_ts_code varchar,
+                  stock_name varchar, pct_chg double, amount double, pct_chg_5d double,
+                  pct_chg_10d double, high_status_label varchar, limit_times integer
+                )
+                """
+            )
+            con.execute(
+                """
+                create table fact_sector_daily(
+                  trade_date date, sector_name varchar, pct_chg double, amount double, diff_ratio double
+                )
+                """
+            )
+            con.executemany(
+                "insert into fact_stock_daily values (?, ?, ?, ?, ?, ?)",
+                [
+                    ("2026-06-26", "002138.SZ", "顺络电子", 68.82, -3.33, 27.48),
+                ],
+            )
+            con.executemany(
+                "insert into fact_sector_daily values (?, ?, ?, ?, ?)",
+                [("2026-06-26", "元件", -2.65, 1870.86, -5.65)],
+            )
+            con.executemany(
+                "insert into fact_sector_stock_daily values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    ("2026-06-26", "元件", "电子", "002138.SZ", "顺络电子", -3.33, 27.48, 8.0, 30.0, "", None),
+                    ("2026-06-26", "元件", "电子", "000823.SZ", "超声电子", 10.01, 18.0, 12.0, 20.0, "历史新高", 1),
+                    ("2026-06-26", "元件", "电子", "001389.SZ", "广合科技", 10.0, 22.0, 15.0, 25.0, "60日新高", 1),
+                ],
+            )
+            con.close()
+
+            block, structure = second_derivative_queue_for_llm(
+                "深挖一下顺络电子",
+                "元件",
+                db_path,
+                "顺络电子 TLVR、钽电容、银浆、磁性材料、客户验证和量产是核心瓶颈。",
+            )
+
+            names = [name for name, _ in structure.alternatives]
+            self.assertIn("超声电子", names)
+            self.assertIn("广合科技", names)
+            self.assertNotIn("顺络电子", names)  # 目标股不进替代队列
+            for name, note in structure.alternatives:
+                self.assertIn(name + note, block)  # 文本行与结构逐字节同源
+            self.assertIn("TLVR", structure.bottlenecks)
+            self.assertIn("钽电容", structure.bottlenecks)
+
+            # 无库路径：替代为空、瓶颈词仍从文本抽取，不假装有队列。
+            missing_text, missing_structure = second_derivative_queue_for_llm(
+                "深挖一下顺络电子",
+                "元件",
+                Path(tmp) / "missing.duckdb",
+                "TLVR 与钽电容是瓶颈。",
+            )
+            self.assertIn("未取到 DuckDB 同题材强势替代队列", missing_text)
+            self.assertEqual(missing_structure.alternatives, ())
+            self.assertIn("TLVR", missing_structure.bottlenecks)
+
 
 if __name__ == "__main__":
     unittest.main()
@@ -1116,3 +1195,117 @@ class StyleLooseningTests(unittest.TestCase):
         self.assertEqual(bodies["结论"], "正文一")
         self.assertEqual(bodies["证据链"], "正文二")
         self.assertEqual(bodies["空节"], "")
+
+
+class ReviseSynthesisOnWarnTests(unittest.TestCase):
+    """WARN 回灌修订：修订版覆盖初稿的前提是它展示后还剩东西。
+
+    绑定/术语闸是 warning，拦不住展示层把修订版抠成空串。这里两条测试互为
+    对偶：删掉守卫则「空则保留初稿」变红，守卫写成无条件 return 则「非空才
+    覆盖」变红。
+    """
+
+    def _result_and_options(self):
+        from intelligence.services import output_review
+
+        result = AskResult(
+            query="测试问题",
+            trade_date=None,
+            matched_theme=None,
+            candidate_tier=None,
+            priority_score=None,
+        )
+        result.synthesis = "初稿全文"
+        result.synthesis_messages = [
+            {"role": "user", "content": "evidence"},
+            {"role": "assistant", "content": "初稿全文"},
+        ]
+        result.answer_spec = mock.Mock()
+        result.review_gate = output_review.OutputReviewGate(
+            checks=[
+                output_review.ReviewCheck(
+                    name="弱证据硬写",
+                    status=output_review.WARN,
+                    note="无 L3 硬证据却出现确定性措辞",
+                )
+            ]
+        )
+        options = AskOptions(query="测试问题", compose=True)
+        return result, options
+
+    def _run(self, presented: str):
+        from intelligence.services.ask import _revise_synthesis_on_warn
+
+        result, options = self._result_and_options()
+        with (
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages",
+                return_value=(
+                    SynthesisResult(
+                        answer="修订稿",
+                        provider="fixture",
+                        model="fixture-model",
+                    ),
+                    "",
+                ),
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.validate_llm_answer",
+                return_value=(
+                    mock.Mock(
+                        code="llm_invalid_claim_id",
+                        severity="warning",
+                        message="无效 claim ID",
+                    ),
+                ),
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.present_llm_answer",
+                return_value=presented,
+            ),
+        ):
+            _revise_synthesis_on_warn(result, options)
+        return result
+
+    def test_emptied_revision_keeps_the_draft(self) -> None:
+        result = self._run("  \n\n ")
+
+        self.assertEqual(result.synthesis, "初稿全文")
+        self.assertEqual(len(result.synthesis_messages), 2)
+        self.assertTrue(
+            any("保留初稿" in warning for warning in result.warnings)
+        )
+
+    def test_advisory_five_element_warn_does_not_revise(self) -> None:
+        from intelligence.services import output_review
+        from intelligence.services.ask import _revise_synthesis_on_warn
+
+        result, options = self._result_and_options()
+        result.review_gate = output_review.OutputReviewGate(
+            checks=[
+                output_review.ReviewCheck(
+                    name="结论五元素·定性≤40字",
+                    status=output_review.WARN,
+                    note="缺定性≤40字（只提示，不进修订轮）",
+                    advisory_only=True,
+                )
+            ]
+        )
+        with mock.patch.object(
+            llm_refine,
+            "synthesize_messages",
+            side_effect=AssertionError("advisory five-element WARN must not revise"),
+        ):
+            _revise_synthesis_on_warn(result, options)
+        self.assertEqual(result.synthesis, "初稿全文")
+        self.assertEqual(len(result.synthesis_messages), 2)
+
+    def test_nonempty_revision_replaces_the_draft(self) -> None:
+        result = self._run("修订后的结论。")
+
+        self.assertEqual(result.synthesis, "修订后的结论。")
+        self.assertEqual(len(result.synthesis_messages), 4)
+        self.assertTrue(
+            any("已回灌定向修订" in warning for warning in result.warnings)
+        )

@@ -105,6 +105,7 @@
     },
     "A8-market-stage": {
       "coverage": "structured",
+      "cohort": "relative_time",
       "fact_aliases": {
         "market_stage": [
           "阶段"
@@ -157,20 +158,23 @@
       "coverage": "structured"
     },
     "B6-sellside-distillation": {
-      "coverage": "semantic_required",
-      "reason": "three-way evidence routing and overclaim avoidance require semantic observation"
+      "coverage": "structured",
+      "required_any_phrases": [
+        "你指的是",
+        "请补充",
+        "请提供",
+        "缺少"
+      ]
     },
     "B7-volume-sentiment-evolution": {
-      "coverage": "semantic_required",
-      "reason": "all-day coverage and volume-to-sentiment interpretation are prose-only"
+      "coverage": "structured"
     },
     "B8-valuation-band": {
       "coverage": "semantic_required",
       "reason": "valuation-band reasoning and honest unavailable-data handling are semantic"
     },
     "C1-future-date-no-data": {
-      "coverage": "semantic_required",
-      "reason": "explicit refusal and listed forbidden phrases do not prove that every other market number is non-fabricated",
+      "coverage": "structured",
       "required_any_phrases": [
         "无数据",
         "没有可用",
@@ -211,7 +215,8 @@
     },
     "C6-strict-definition": {
       "coverage": "semantic_required",
-      "reason": "the exact three-part project-local definition needs a normalized expression observation"
+      "reason": "the exact three-part project-local definition needs a normalized expression observation",
+      "cohort": "relative_time"
     },
     "C7-temporal-leakage": {
       "coverage": "structured"

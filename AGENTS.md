@@ -9,6 +9,22 @@
 
 > 📒 **台账地图**：所有台账（复盘验证/晨汇/卖方研报等）的 canonical 路径、格式与唯一写入者，见 `docs/learning/ledger-map.md`；新增台账先在那登记。
 
+## 🚪 金融问答正门
+
+默认只收一句话：`python3 -m intelligence.cli ask "<问题>"`。追问用 `chat`；要模型自己选工具才用 `agent`（opt-in）。Workbench UI 走 Episode（`TurnOrchestrator.run_turn`），不要用 CLI 冒充那套会话 id 合同。
+
+评接口深浅、找产品入口：读 `docs/agent-product-door.md`（门 / 两条引擎 / 积木）。工具注册表和 `AskOptions` 数据块开关是积木，不是门。
+
+检索旗标（`--kb-mode` / `--wiki-rag-mode` / `--modules`）是逃生口，不要写进日常口令。问「有多少能力」时点名分母：`skills/`、`.claude/skills/`、或工具注册表——三套不是同一张表，不要加总。
+
+写入正门是 `python3 -m market_feature_store.cli daily-full`。`fact_sector_daily` 是 VIEW。编码任务走下一节代码地图 CLI，不要用问答正门冒充。
+
+已决策、不是缺口：技能桥只开一个、飞书 Bitable 写入退役、飞书 IM（`intelligence.cli feishu-bot`）退役。
+
+## 🗺️ 本地代码地图（编码任务先走这里）
+
+编码任务先 `python3 scripts/code_map.py query "<问题>"`。禁止把空图 `get_architecture_overview` 写成架构结论；禁止 `code-review-graph init|install`；禁止 DeepWiki `generate_wiki` / 对本仓 private index。MCP 已连接 ≠ 地图可用。
+
 ## 🔁 用户纠偏必落 correction（强制，任何 agent 会话）
 
 用户在对话里对系统的判断/解读表达纠正时（信号词如「不对」「应该是」「不是这样」「你理解错了」等否定/修正表述，**不需要用户使用任何固定格式**），agent 必须当场把纠偏落进台账：
@@ -105,6 +121,8 @@ cd intelligence/webapp && pnpm lint && pnpm typecheck && pnpm test && pnpm build
 - 教训在案：2026-07-18 → 08-13 main 曾 142 次连红仍照常合并，E2E 被 fail-fast 掩盖 26 天，期间合入的门禁回退零信号（#337/#339 修复、#342 根治步骤掩红、本文件把串行单 job 拆成并行叶子）。
 - 若 GitHub 解封且升级 Pro / 转公开仓，第一时间把本条固化为真分支保护（required checks：`workbench-check` + `registry-check`，strict 不开），并更新本节。
 
+> 📋 **验收/质检 session**（对执行方交付的 PR 批次做独立验收→合并→切 8792→回写台账）：规程 `docs/workflows/acceptance-workflow.md`。
+
 ### 🟢 PR 关闭纪律（强制）
 
 关闭 PR 必须留下接替指针（替代 PR / 提交 / 文档路径）或废弃理由。禁止静默关闭。合入后由托管端删除已合并分支。
@@ -140,83 +158,6 @@ git status --short     # 逐条问：这个改动是我做的吗？
 （2 个源码模块 + 1 个既有测试 + 1 个新建测试 187 行）。他当时 `git status` 会看到自己的活凭空消失。
 用 `git reset --soft HEAD~1` 退回（`--soft` 不碰工作树，文件内容一字未动），
 改 pathspec 重提为 `7dd25ba6`。**根因是「`git commit` 提交整个索引」，不是 `git add` 写错。**
-
-<claude-mem-context>
-# Memory Context
-
-# [金融] recent context, 2026-05-27 12:00pm GMT+8
-
-Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
-Format: ID TIME TYPE TITLE
-Fetch details: get_observations([IDs]) | Search: mem-search skill
-
-Stats: 50 obs (16,658t read) | 432,523t work | 96% savings
-
-### May 26, 2026
-S1393 Full.md processing workflow validation and data quality verification (May 26 at 5:33 PM)
-S1395 Theme-radar batch processing quality verification and field fixes for graph_only confidence and baseline evidence layering (May 26 at 5:44 PM)
-S1397 修复 fupanhui 研报详情页结构异常问题（新上传的空芯光纤研报结构与其他不同），并改进实体回填管线的上下文提取质量。之后用户决定恢复原始文件，转向搭建截图中的新功能。 (May 26 at 6:20 PM)
-S1398 Scaffold the basic framework for a screenshot-based "theme-radar" feature in the 金融 project, starting with architecture and tolerating incomplete data (May 26 at 9:42 PM)
-S1400 User confirmed Option A (Theme Radar Workbench) — agent preparing detailed design (May 26 at 9:46 PM)
-S1401 User questioned why a web UI is needed — suggesting Claude conversation + theme-radar skill may already suffice (May 26 at 9:46 PM)
-S1403 Continue ingesting Desktop/研報 PDFs into finance wiki knowledge graph — process next date directory (2026-04-28 batch) (May 26 at 9:51 PM)
-2546 10:19p 🟣 Source note classification pipeline completed for 2026-04-29 batch
-2547 " 🔵 2026-04-28 directory scoped with 5 unique PDFs for next batch
-2549 10:21p 🟣 2026-04-28 batch extraction launched via automated Python pipeline
-2548 10:29p 🔵 2026-04-28 source note extraction already complete from previous session
-2550 10:30p 🟣 2026-04-28 batch extraction completed — 5 source notes written successfully
-2551 " 🔵 0427狙击龙虎榜 OCR content reveals three key themes
-2552 " 🔵 0427调研日报 covers 亿纬锂能, 益生股份, 聚灿光电 with L3-level IR record data
-2553 10:31p ⚖️ 0427狙击龙虎榜 source note deleted due to poor OCR quality and unsuitable source type
-S1405 继续往下做 — 处理下一个日期目录的 PDF ingest pipeline，以及 "那你再做两个日期" 要求再处理两个日期 (May 26 at 10:31 PM)
-S1402 Process Desktop/研報 PDFs into finance wiki knowledge graph, one date directory at a time, oldest first, using pdf skill pipeline (May 26 at 10:31 PM)
-2554 10:33p 🔵 2026-04-27 batch: 6 unique PDFs after SHA256 dedup, mixed date labels
-2555 10:34p ✅ 2026-04-27 batch: 6 source notes extracted with stub ingest-plans
-2556 10:42p ✅ 2026-04-27 batch fully classified: 6 source notes processed, 3 must_write entities flagged
-2557 10:49p 🔵 PDF deduplication rationale explored in primary session
-2559 " ⚖️ User directs primary session to process two more date directories
-S1404 继续往下做 — continue processing the PDF ingest pipeline for the next earliest date directory (May 26 at 10:49 PM)
-2558 10:55p 🔵 Knowledge base backfill workflow consumes excessive tokens
-2577 " 🟣 Closed-loop backfill to baseline workflow completed for 比亚迪
-2560 10:56p 🔵 2026-04-26 directory contains 风口研报 format instead of standard naming
-2561 " 🔵 风口研报 PDFs in 2026-04-26 are image-based, require OCR
-2562 " 🔵 2026-04-23 batch content preview: 超节点, 钠电, 白酒, 燃气轮机
-2563 " 🟣 OCR extraction pipeline deployed for image-based 风口研报 PDFs
-2564 " 🔵 OCR extraction task (session 39595) may have hung — primary session attempted Ctrl+C
-2565 10:58p 🔵 OCR extraction confirmed not hung — tesseract actively processing page 2 of 风口研报1
-2566 " 🔵 Tesseract OCR completed page 2 of first 风口研报 — pipeline progressing
-2567 " 🔵 OCR pipeline progressing: 风口研报1 done, 风口研报2 page 1 rendering
-2568 10:59p ⚖️ Primary session aborted slow OCR extraction by killing parent Python process
-2569 " ✅ Background extraction session 39595 confirmed killed (exit code -1)
-2570 " 🔵 No source notes survived the abort — 0/6 PDFs extracted
-2571 " 🔵 0426风口研报1 source note survived the kill — written at 22:58:42
-2573 " 🟣 0423 text-based PDFs successfully extracted — 3 source notes created instantly
-2574 " 🔵 Improved OCR at 140 DPI making fast progress — on last page of last PDF
-2572 " 🔵 0426风口研报1 content: 强一股份 MEMS探针卡 + 伊戈尔 SST/数据中心
-2575 11:06p 🟣 Improved OCR pipeline succeeded — all 6 source notes for batches 0426 and 0423 extracted
-2576 11:08p 🔵 Entity existence check: 9 of 12 entities already exist in wiki/entities/
-2584 " 🔵 Primary session surveys next 5 date directories for PDF ingest pipeline
-2578 11:10p 🔵 Agent stuck in read-apply-verify loop on AGENTS.md
-2579 11:11p 🔵 比亚迪 entity page verified with full baseline and preserved historical delta
-2580 11:22p 🔵 entity_exposures.json confirmed with multi-source evidence layering for all three companies
-2581 " 🔵 evidence_index.json confirmed with all 5 比亚迪 evidence entries
-2582 " 🔵 Knowledge base inventory: 1133 entities, 292 concepts, 362 sources
-2583 " 🔵 Knowledge base now uses multiple baseline data sources beyond iFinD
-### May 27, 2026
-2587 1:45a 🔵 AGENTS.md contains session logs, backfill workflow rules, and evidence layering constraints
-2585 1:49a 🟣 PDF extraction completed for 5 date directories (2026-04-22 through 2026-04-13)
-2586 " 🟣 Classification phase started on 19 new source notes across 5 date directories
-2591 1:50a ✅ Write-back pipeline completed for 19 classified source notes
-2588 1:56a 🔵 AGENTS.md operational rules read in full ahead of optimization
-2589 " 🔵 AGENTS.md session logs document completed backfill achievements
-2590 " ✅ AGENTS.md baseline sourcing rules refactored from iFinD-only to multi-source
-2592 1:59a ✅ Write-back pipeline verified — all 19 source notes successfully backfilled
-2593 2:05a 🔵 theme-radar radar.py requires --term flag, not positional argument
-2594 " 🔵 theme-radar reports generated for 算力PCB and 3D打印钛合金
-2595 12:00p ✅ 今日复盘请求
-
-Access 433k tokens of past work via get_observations([IDs]) or mem-search skill.
-</claude-mem-context>
 
 ## Agent Token Discipline / 低 Token 工作约束
 

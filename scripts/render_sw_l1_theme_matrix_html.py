@@ -14,7 +14,7 @@ if str(PROJECT_DIR) not in sys.path:
 from market_feature_store.db import connect  # noqa: E402
 
 DEFAULT_SW_L1 = ["电子", "通信", "电力设备", "机械设备"]
-DEFAULT_OUTPUT_DIR = Path("/Users/lbq/Desktop/复盘")
+DEFAULT_OUTPUT_DIR = PROJECT_DIR / "复盘"
 
 
 def fmt(value, digits: int = 1) -> str:

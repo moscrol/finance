@@ -1,83 +1,157 @@
+import inspect
 import json
+import re
 import unittest
 from unittest import mock
 
 from intelligence.services import answer_model, followups
 
 
+def _cross_cut(items: list[followups.Followup], *, parent: str | None = None) -> None:
+    for item in items:
+        assert len(item.label) <= 20
+        assert item.full_prompt
+        assert (
+            "请" in item.full_prompt
+            or "？" in item.full_prompt
+            or "未完成核验" in item.full_prompt
+        )
+        assert "双红" not in item.full_prompt
+        assert "近几日涨停热度" not in item.full_prompt
+        if parent:
+            assert re.sub(r"\s+", "", item.full_prompt) != re.sub(r"\s+", "", parent)
+
+
 class TemplateFallbackTests(unittest.TestCase):
-    def test_no_llm_yields_five_typed_templates(self) -> None:
+    def test_no_llm_yields_two_to_four_composed_cards(self) -> None:
         result = followups.generate_followups("液冷题材怎么看", matched_theme="液冷", use_llm=False)
         self.assertFalse(result.llm_used)
-        self.assertEqual(len(result.followups), 5)
-        self.assertEqual([f.type for f in result.followups], followups.FOLLOWUP_TYPES)
-        for f in result.followups:
-            self.assertIn("液冷", f.question)
-            self.assertEqual(f.type_label, followups.TYPE_LABELS[f.type])
-            self.assertLessEqual(len(f.label), 20)
-            self.assertEqual(f.full_prompt, f.question)
+        self.assertGreaterEqual(len(result.followups), 2)
+        self.assertLessEqual(len(result.followups), 4)
+        types = [item.type for item in result.followups]
+        self.assertIn("evidence", types)
+        self.assertIn("alternative", types)
+        self.assertIn("counter", types)
+        self.assertNotIn("migration", types)
+        for item in result.followups:
+            self.assertIn("液冷", item.question)
+            self.assertLessEqual(len(item.label), 20)
+            self.assertEqual(item.full_prompt, item.question)
+        _cross_cut(result.followups)
 
     def test_track_question_skips_first_order_recheck(self) -> None:
         result = followups.generate_followups("固态电池最新进展如何", matched_theme="固态电池", use_llm=False)
-        types = [f.type for f in result.followups]
+        types = [item.type for item in result.followups]
         self.assertNotIn("recheck", types)
-        self.assertIn("counter", types)
-        self.assertFalse(any("双红" in f.question and "最近" in f.question for f in result.followups))
+        self.assertFalse(any("双红" in item.question and "最近" in item.question for item in result.followups))
+        _cross_cut(result.followups)
 
-    def test_no_theme_falls_back_to_question_prefix(self) -> None:
+    def test_no_theme_uses_placeholder_not_question_slice(self) -> None:
+        # 旧行为：无 matched_theme 时把原句（或其 [:16] 切片）塞进每条追问，
+        # 长问题会被拦腰切出病句。新契约：展示兜底只用「该问题」。
         result = followups.generate_followups("英维克现在贵不贵", use_llm=False)
-        self.assertTrue(all("英维克现在贵不贵" in f.question for f in result.followups))
+        self.assertGreaterEqual(len(result.followups), 2)
+        for item in result.followups:
+            self.assertNotIn("英维克现在贵不贵", item.full_prompt)
+        self.assertTrue(any("该问题" in item.full_prompt for item in result.followups))
+
+    def test_default_call_does_not_use_llm(self) -> None:
+        self.assertIs(
+            inspect.signature(followups.generate_followups).parameters["use_llm"].default,
+            False,
+        )
+        with mock.patch.object(followups.llm_refine, "complete") as complete:
+            result = followups.generate_followups("液冷", matched_theme="液冷")
+        complete.assert_not_called()
+        self.assertFalse(result.llm_used)
+        self.assertGreaterEqual(len(result.followups), 2)
+        self.assertLessEqual(len(result.followups), 4)
 
     def test_llm_failure_degrades_to_template_with_warning(self) -> None:
         with mock.patch.object(followups.llm_refine, "complete", return_value=(None, None, "无可用 provider")):
-            result = followups.generate_followups("液冷", matched_theme="液冷")
+            result = followups.generate_followups("液冷", matched_theme="液冷", use_llm=True)
         self.assertFalse(result.llm_used)
-        self.assertEqual(len(result.followups), 5)
-        self.assertTrue(any("无可用 provider" in w for w in result.warnings))
+        self.assertGreaterEqual(len(result.followups), 2)
+        self.assertLessEqual(len(result.followups), 4)
+        self.assertTrue(any("无可用 provider" in warn or "followup_polish_dropped" in warn for warn in result.warnings))
 
 
 class LLMPathTests(unittest.TestCase):
-    def test_llm_json_parsed_and_typed(self) -> None:
+    def test_polish_keeps_selected_type_and_angle(self) -> None:
         payload = json.dumps({"followups": [
-            {"label": "核对液冷订单", "full_prompt": "请核对英维克最新液冷订单金额和公告来源？", "type": "evidence", "rationale": "锚定公告"},
-            {"question": "如果液冷渗透率不及预期，先看什么？", "type": "counter"},
-            {"question": "类型非法的会被丢弃", "type": "nope"},
+            {"label": "核对液冷订单", "full_prompt": "请核对英维克最新液冷订单金额和公告来源？", "type": "evidence", "angle": "A"},
+            {"label": "同链下一跳", "full_prompt": "请核液冷同链下一跳的订单或认证？", "type": "alternative", "angle": "B"},
+            {"label": "证伪条件", "full_prompt": "出现哪些反证应下调对液冷的判断？", "type": "counter", "angle": "D"},
         ]})
         provider = mock.Mock()
         provider.name = "fake"
         with mock.patch.object(followups.llm_refine, "complete", return_value=(payload, provider, "")):
-            result = followups.generate_followups("液冷", matched_theme="液冷")
+            result = followups.generate_followups("液冷", matched_theme="液冷", use_llm=True)
         self.assertTrue(result.llm_used)
         self.assertEqual(result.llm_provider, "fake")
-        self.assertEqual(len(result.followups), 2)
-        self.assertEqual(result.followups[0].type_label, "证据加深")
+        self.assertEqual(len(result.followups), 3)
+        self.assertEqual([item.angle for item in result.followups], ["A", "B", "D"])
+        self.assertEqual(result.followups[0].type, "evidence")
         self.assertEqual(result.followups[0].label, "核对液冷订单")
         self.assertEqual(
             result.followups[0].full_prompt,
             "请核对英维克最新液冷订单金额和公告来源？",
         )
-        self.assertEqual(
-            result.followups[1].full_prompt,
-            "如果液冷渗透率不及预期，先看什么？",
-        )
+
+    def test_polish_type_change_is_dropped(self) -> None:
+        payload = json.dumps({"followups": [
+            {"label": "改类型", "full_prompt": "请随便问？", "type": "migration", "angle": "A"},
+            {"label": "x", "full_prompt": "请x？", "type": "alternative", "angle": "B"},
+            {"label": "y", "full_prompt": "请y？", "type": "counter", "angle": "D"},
+        ]})
+        provider = mock.Mock()
+        provider.name = "fake"
+        with mock.patch.object(followups.llm_refine, "complete", return_value=(payload, provider, "")):
+            result = followups.generate_followups("液冷", matched_theme="液冷", use_llm=True)
+        self.assertFalse(result.llm_used)
+        self.assertEqual([item.type for item in result.followups], ["evidence", "alternative", "counter"])
+        self.assertTrue(any("followup_polish_dropped" in warn for warn in result.warnings))
+
+    def test_polish_angle_change_is_dropped(self) -> None:
+        payload = json.dumps({"followups": [
+            {"label": "核对液冷订单", "full_prompt": "请核对英维克最新液冷订单金额和公告来源？", "type": "evidence", "angle": "C"},
+            {"label": "同链下一跳", "full_prompt": "请核液冷同链下一跳的订单或认证？", "type": "alternative", "angle": "B"},
+            {"label": "证伪条件", "full_prompt": "出现哪些反证应下调对液冷的判断？", "type": "counter", "angle": "D"},
+        ]})
+        provider = mock.Mock()
+        provider.name = "fake"
+        with mock.patch.object(followups.llm_refine, "complete", return_value=(payload, provider, "")):
+            result = followups.generate_followups("液冷", matched_theme="液冷", use_llm=True)
+        self.assertFalse(result.llm_used)
+        self.assertEqual([item.angle for item in result.followups], ["A", "B", "D"])
+        self.assertTrue(any("followup_polish_dropped" in warn for warn in result.warnings))
+
+    def test_polish_count_change_is_dropped(self) -> None:
+        payload = json.dumps({"followups": [
+            {"label": "核对液冷订单", "full_prompt": "请核对英维克最新液冷订单金额和公告来源？", "type": "evidence", "angle": "A"},
+            {"label": "多出来的", "full_prompt": "请再问一条？", "type": "evidence", "angle": "A"},
+        ]})
+        provider = mock.Mock()
+        provider.name = "fake"
+        with mock.patch.object(followups.llm_refine, "complete", return_value=(payload, provider, "")):
+            result = followups.generate_followups("液冷", matched_theme="液冷", use_llm=True)
+        self.assertFalse(result.llm_used)
+        self.assertEqual(len(result.followups), 3)
+        self.assertEqual([item.type for item in result.followups], ["evidence", "alternative", "counter"])
+        self.assertTrue(any("followup_polish_dropped" in warn for warn in result.warnings))
 
     def test_to_json_roundtrip(self) -> None:
         result = followups.generate_followups("液冷", matched_theme="液冷", use_llm=False)
         doc = json.loads(result.to_json())
-        self.assertEqual(len(doc["followups"]), 5)
+        self.assertGreaterEqual(len(doc["followups"]), 2)
+        self.assertLessEqual(len(doc["followups"]), 4)
         self.assertIn("type_label", doc["followups"][0])
         self.assertIn("label", doc["followups"][0])
         self.assertIn("full_prompt", doc["followups"][0])
+        self.assertIn("angle", doc["followups"][0])
 
 
 class GapMirrorTests(unittest.TestCase):
-    """缺口镜像：结构化缺口确定性变「猜你想问」，零模型调用。
-
-    动机（R15 knevo 对照 9:2:0）：多题失分不在缺口本身，在缺口变成句号
-    ——「追问负担全在用户」。文案来自任务契约必需输出描述，与公开降级
-    声明同一口径。
-    """
-
     def test_gaps_become_typed_clickable_followups(self) -> None:
         result = followups.gap_mirror_followups(
             "液冷题材",
@@ -87,6 +161,7 @@ class GapMirrorTests(unittest.TestCase):
         self.assertEqual(len(result.followups), 2)
         for item, gap in zip(result.followups, ("主线判断依据", "失效条件")):
             self.assertEqual(item.type, "gap")
+            self.assertEqual(item.angle, "A")
             self.assertEqual(item.type_label, "缺口补齐")
             self.assertIn("液冷题材", item.full_prompt)
             self.assertIn(gap, item.full_prompt)
@@ -99,7 +174,6 @@ class GapMirrorTests(unittest.TestCase):
             ("a", "  ", "b", "c", "d"),
             limit=3,
         )
-        # 先滤空白再截上限：a/b/c 占满 3 个名额，空白不浪费名额。
         self.assertEqual(
             [item.full_prompt.count("「") for item in result.followups],
             [1, 1, 1],
@@ -110,6 +184,162 @@ class GapMirrorTests(unittest.TestCase):
     def test_blank_subject_gets_placeholder(self) -> None:
         result = followups.gap_mirror_followups("  ", ("反方证据",))
         self.assertIn("该问题", result.followups[0].full_prompt)
+
+    def test_blank_subject_never_slices_question(self) -> None:
+        # 2026-08-19 生产实锤：subject 为空时曾拿 question[:16] 填模板，
+        # 把「…2026-08-18的盘面数据…」切成「用SPT视角看2026-08-1」直接进
+        # 用户可见追问。展示兜底只允许「该问题」，禁止切原句。
+        question = (
+            "用SPT视角看2026-08-18的盘面数据，给出次日8月19日的看法："
+            "当前量能状态处于哪一段、板块表现该读成主线发育还是轮动脉冲"
+        )
+        state = followups.project_continuous_state(
+            subject="",
+            question=question,
+            open_gaps=("量能判断依据",),
+            status="partial",
+        )
+        result = followups.compose_followups(state)
+        self.assertTrue(result.followups)
+        sliced = question[:16]
+        for item in result.followups:
+            self.assertNotIn(sliced, item.full_prompt)
+
+    def test_project_ask_state_subjectless_kind_not_stuffed(self) -> None:
+        # anchor 兜底曾被喂给 infer_question_kind，任何无主语问题都被
+        # 判成 theme/stock，methodology 与 other 永远不可达。
+        method_state = followups.project_ask_state("这套框架怎么回测过去三个月的胜率")
+        self.assertEqual(method_state.question_kind, "methodology")
+        other_state = followups.project_ask_state("明天大盘怎么看")
+        self.assertEqual(other_state.question_kind, "other")
+        self.assertEqual(other_state.subject, "该问题")
+        themed = followups.project_ask_state("液冷怎么看", subject="液冷")
+        self.assertEqual(themed.question_kind, "theme")
+
+
+class AngleComposerTests(unittest.TestCase):
+    def test_gaps_only_keeps_angle_a(self) -> None:
+        state = followups.FollowupState(
+            subject="液冷",
+            question="液冷怎么看",
+            question_kind="theme",
+            open_gaps=("主线判断依据", "失效条件"),
+            status="completed",
+            no_action_room=True,
+        )
+        angles = followups.select_angles(state)
+        self.assertGreaterEqual(angles.count("A"), 1)
+        result = followups.compose_followups(state)
+        self.assertTrue(any(item.type == "gap" and item.angle == "A" for item in result.followups))
+        self.assertTrue(any("主线判断依据" in item.full_prompt for item in result.followups))
+        self.assertGreaterEqual(len(result.followups), 2)
+        self.assertLessEqual(len(result.followups), 4)
+        _cross_cut(result.followups)
+
+    def test_d3_present_names_next_hop_once(self) -> None:
+        state = followups.FollowupState(
+            subject="英维克",
+            question="英维克怎么看",
+            question_kind="stock",
+            alternatives=(followups.AlternativeItem("星网锐捷", reason="P0", source="d3_p0"),),
+            listed_names=frozenset({"星网锐捷"}),
+            no_action_room=False,
+        )
+        result = followups.compose_followups(state)
+        bees = [item for item in result.followups if item.angle == "B"]
+        self.assertEqual(len(bees), 1)
+        self.assertIn("星网锐捷", bees[0].full_prompt)
+        self.assertNotIn("新发现", bees[0].full_prompt)
+        self.assertIn("不要重复列出已有替代名单", bees[0].full_prompt)
+        _cross_cut(result.followups)
+
+    def test_project_ask_state_carries_d3_structure(self) -> None:
+        """ask 路径 D3 结构直通投影：P0 进 alternatives(d3_p0)，P2 进 bottlenecks。"""
+
+        state = followups.project_ask_state(
+            "深挖一下顺络电子",
+            subject="顺络电子",
+            alternatives=(
+                ("超声电子", "(元件) 10.01%、成交18.0亿"),
+                ("", "空名字必须丢弃"),
+            ),
+            bottlenecks=("TLVR", "  ", "钽电容"),
+        )
+        self.assertEqual(len(state.alternatives), 1)
+        self.assertEqual(state.alternatives[0].name, "超声电子")
+        self.assertEqual(state.alternatives[0].source, "d3_p0")
+        self.assertEqual(state.bottlenecks, ("TLVR", "钽电容"))
+        self.assertIn("超声电子", state.listed_names)
+
+        result = followups.compose_followups(state, polish=False)
+        bees = [item for item in result.followups if item.angle == "B"]
+        self.assertEqual(len(bees), 1)
+        self.assertIn("超声电子", bees[0].full_prompt)
+        _cross_cut(result.followups)
+
+    def test_project_ask_state_without_d3_keeps_template_b(self) -> None:
+        """无 D3 结构时行为不变：B 槽退回 subject 级模板，不假装有队列。"""
+
+        state = followups.project_ask_state("深挖一下顺络电子", subject="顺络电子")
+        self.assertEqual(state.alternatives, ())
+        self.assertEqual(state.bottlenecks, ())
+        self.assertEqual(state.listed_names, frozenset())
+
+    def test_no_action_room_asks_for_window(self) -> None:
+        state = followups.FollowupState(
+            subject="液冷",
+            question="液冷怎么看",
+            question_kind="theme",
+            open_gaps=("公司级订单",),
+            status="partial",
+            no_action_room=True,
+        )
+        result = followups.compose_followups(state)
+        self.assertTrue(any(item.angle == "A" for item in result.followups))
+        cees = [item for item in result.followups if item.angle == "C"]
+        self.assertTrue(cees)
+        self.assertTrue(any("信号" in item.full_prompt or "窗口" in item.full_prompt for item in cees))
+        self.assertFalse(any("现在该买吗" in item.full_prompt for item in result.followups))
+        _cross_cut(result.followups)
+
+    def test_methodology_skips_a_and_alternative(self) -> None:
+        state = followups.FollowupState(
+            subject="",
+            question="框架怎么回测",
+            question_kind="methodology",
+            produced_framework=True,
+            no_action_room=False,
+        )
+        angles = followups.select_angles(state)
+        self.assertNotIn("A", angles)
+        self.assertNotIn("B", angles)
+        result = followups.compose_followups(state)
+        self.assertGreaterEqual(sum(1 for item in result.followups if item.angle == "D"), 2)
+        self.assertFalse(any(item.type == "alternative" for item in result.followups))
+        self.assertFalse(any(item.angle == "A" for item in result.followups))
+        self.assertGreaterEqual(len(result.followups), 2)
+        self.assertLessEqual(len(result.followups), 4)
+        _cross_cut(result.followups)
+
+    def test_parent_prompt_is_not_echoed(self) -> None:
+        parent = "英维克目前最硬的一条公司级证据是什么，出自哪份公告或研报？"
+        state = followups.FollowupState(
+            subject="英维克",
+            question=parent,
+            question_kind="stock",
+            parent_followup_prompt=parent,
+        )
+        result = followups.compose_followups(state)
+        _cross_cut(result.followups, parent=parent)
+
+    def test_empty_state_still_emits_two_conservative(self) -> None:
+        result = followups.compose_followups(followups.FollowupState())
+        self.assertGreaterEqual(len(result.followups), 2)
+        self.assertLessEqual(len(result.followups), 4)
+
+    def test_null_composer_unloads(self) -> None:
+        empty = followups.NullComposer().compose(followups.FollowupState(subject="液冷"))
+        self.assertEqual(empty.followups, [])
 
 
 class AnswerSpecFollowupTests(unittest.TestCase):
@@ -146,11 +376,12 @@ class AnswerSpecFollowupTests(unittest.TestCase):
             subject="英维克",
         )
 
-        self.assertEqual(len(result.followups), 4)
+        self.assertGreaterEqual(len(result.followups), 2)
+        self.assertLessEqual(len(result.followups), 4)
         self.assertFalse(result.llm_used)
         self.assertTrue(any(item.source == "gap:gap-1" for item in result.followups))
-        self.assertTrue(any(item.source == "next_action" for item in result.followups))
         self.assertTrue(all("海光信息" not in item.question for item in result.followups))
+        _cross_cut(result.followups)
 
 
 if __name__ == "__main__":

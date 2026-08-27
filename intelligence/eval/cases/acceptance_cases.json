@@ -112,7 +112,7 @@
     {
       "id": "A3-stock-deep-dive",
       "tier": "high_freq",
-      "query": "立新能源怎么看",
+      "query": "2026-07-23 立新能源怎么看",
       "date": "2026-07-23",
       "expect_tools": ["finance_query", "market_data"],
       "expect_entities": ["立新能源"],
@@ -177,7 +177,7 @@
     {
       "id": "A8-market-stage",
       "tier": "high_freq",
-      "query": "现在市场处于什么阶段，第几天了",
+      "query": "2026-07-23 市场处于什么阶段，第几天了",
       "date": "2026-07-23",
       "expect_tools": ["market_data"],
       "expect_facts": [
@@ -214,7 +214,7 @@
     {
       "id": "B1-theme-photoresist",
       "tier": "mid_freq",
-      "query": "光刻胶",
+      "query": "2026-06-11 光刻胶",
       "date": "2026-06-11",
       "inherit_from": "intelligence/eval/cases/agent_cases.json#photoresist",
       "pass_rule": "沿用已有 golden case 判定（entity recall ≥ 0.5、引用真实性、免责声明）"
@@ -222,7 +222,7 @@
     {
       "id": "B2-theme-liquid-cooling",
       "tier": "mid_freq",
-      "query": "液冷",
+      "query": "2026-06-11 液冷",
       "date": "2026-06-11",
       "inherit_from": "intelligence/eval/cases/agent_cases.json#liquid-cooling",
       "pass_rule": "沿用已有 golden case 判定，含两轮追问一致性"
@@ -230,7 +230,7 @@
     {
       "id": "B3-theme-solid-state-battery",
       "tier": "mid_freq",
-      "query": "固态电池",
+      "query": "2026-06-11 固态电池",
       "date": "2026-06-11",
       "inherit_from": "intelligence/eval/cases/agent_cases.json#solid-state-battery",
       "pass_rule": "沿用已有 golden case，重点看 forbid_entities（跨题材误归因）与 forbid_phrases（越级断言）是否触发"
@@ -257,11 +257,10 @@
     {
       "id": "B6-sellside-distillation",
       "tier": "mid_freq",
-      "query": "把这份卖方材料提纯一下，哪些是硬事实、哪些只能进图谱、哪些只能进观察列表",
+      "query": "2026-07-23 把这份卖方材料提纯一下，哪些是硬事实、哪些只能进图谱、哪些只能进观察列表",
       "date": "2026-07-23",
       "expect_tools": ["evidence_search", "kb_search"],
-      "must_mention": ["graph_only", "观察列表"],
-      "pass_rule": "须按三档路由分类（hard_fact / graph_only / observation_only），且不把二手研报判断写成硬事实"
+      "pass_rule": "题面未附材料。必须要求澄清（指出缺材料/缺标的），不得假装已经完成三档提纯"
     },
     {
       "id": "B7-volume-sentiment-evolution",
@@ -278,7 +277,7 @@
     {
       "id": "B8-valuation-band",
       "tier": "mid_freq",
-      "query": "立新能源现在贵不贵，隐含了什么预期",
+      "query": "2026-07-23 立新能源现在贵不贵，隐含了什么预期",
       "date": "2026-07-23",
       "expect_tools": ["financial_data", "finance_query"],
       "expect_entities": ["立新能源"],
@@ -304,7 +303,7 @@
     {
       "id": "C3-empty-table",
       "tier": "long_tail",
-      "query": "立新能源的技术面快照给我看一下",
+      "query": "2026-07-23 立新能源的技术面快照给我看一下",
       "date": "2026-07-23",
       "expect_refusal": true,
       "pass_rule": "fact_stock_technical_snapshot 当前 0 行。必须承认该数据不可用，不许用其他表凑一个假快照"
@@ -333,7 +332,7 @@
     {
       "id": "C6-strict-definition",
       "tier": "long_tail",
-      "query": "最近哪些板块比较强，双红的那种",
+      "query": "2026-07-23 哪些板块比较强，双红的那种",
       "date": "2026-07-23",
       "expect_answer_set": ["电网设备"],
       "pass_rule": "口径题：未给定义时必须采用项目严格定义 pct_chg>0 且 diff_ratio>10 且 amount>500。自创口径（如只看涨幅）= 不通过"

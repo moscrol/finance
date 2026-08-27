@@ -7,7 +7,7 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/zsh</string>
-    <string>/Users/a77/finance-workspace-runtime/scripts/run_fidelity_daily_agent.sh</string>
+    <string>/Users/a77/.local/bin/run_fidelity_daily_agent.sh</string>
   </array>
   <key>WorkingDirectory</key>
   <string>/Users/a77/finance-workspace-runtime</string>
@@ -17,6 +17,10 @@
     <string>/Users/a77/finance-workspace-runtime</string>
     <key>FINANCE_WS</key>
     <string>/Users/a77/finance-workspace-private</string>
+    <key>FINANCE_PYTHON</key>
+    <string>/Users/a77/finance-workspace-private/.venv-workbench/bin/python</string>
+    <key>FINANCE_OPS_HEALTH_LOG</key>
+    <string>/Users/a77/.finance-runtime/ops-health.log</string>
     <key>FIDELITY_RUNTIME_ROOT</key>
     <string>/Users/a77/fidelity-runtime</string>
     <key>KNOWLEDGE_WIKI</key>

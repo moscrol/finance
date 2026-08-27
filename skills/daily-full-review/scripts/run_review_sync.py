@@ -297,9 +297,9 @@ def build_plan(trade_date: str, timeout: int, heavy_timeout: int):
         ("db-lock", lambda: run_step("db-lock", [PY, "scripts/check_db_lock.py"], 120)),
         ("sectors", lambda: run_step("sectors", CLI + ["sync-sectors", "--trade-date", trade_date], timeout)),
         ("market-overview", lambda: run_step("market-overview", CLI + ["sync-market-overview", "--trade-date", trade_date, "--days", "60"], timeout)),
-        ("market-daily", lambda: run_step("market-daily", CLI + ["sync-market-daily"], timeout)),
         ("index-daily", lambda: run_step("index-daily", CLI + ["sync-index-daily", "--trade-date", trade_date], timeout)),
-        ("sw-l1-daily", lambda: run_step("sw-l1-daily", CLI + ["sync-sw-l1-daily", "--trade-date", trade_date, "--days", "20"], timeout)),
+        # 申万一走 hist 时 20 日窗口实测常超 300s（08-17/08-19/08-20 连炸）。
+        ("sw-l1-daily", lambda: run_step("sw-l1-daily", CLI + ["sync-sw-l1-daily", "--trade-date", trade_date, "--days", "20"], heavy_timeout)),
         ("market-deviation", lambda: run_step("market-deviation", CLI + ["sync-market-deviation", "--trade-date", trade_date], timeout)),
         ("sector-daily", lambda: run_step("sector-daily", CLI + ["sync-sector-daily", "--trade-date", trade_date, "--days", "25"], timeout)),
         ("sector-stocks", lambda: sync_sector_stocks(trade_date, heavy_timeout)),
@@ -310,6 +310,11 @@ def build_plan(trade_date: str, timeout: int, heavy_timeout: int):
         ("mainline-daily", lambda: run_step("mainline-daily", CLI + ["sync-mainline-daily", "--trade-date", trade_date], timeout)),
         ("mainline-sector-daily", lambda: run_step("mainline-sector-daily", CLI + ["sync-mainline-sector-daily", "--trade-date", trade_date], timeout)),
         ("theme-flow-daily", lambda: run_step("theme-flow-daily", CLI + ["sync-theme-flow-daily", "--trade-date", trade_date], timeout)),
+        ("public-assets", lambda: run_step(
+            "public-assets",
+            CLI + ["sync-fupanhui-public-assets", "--trade-date", trade_date],
+            heavy_timeout,
+        )),
         ("features", lambda: run_step("features", [PY, "-m", "scripts.compute_features", "--trade-date", trade_date], heavy_timeout)),
     ]
 

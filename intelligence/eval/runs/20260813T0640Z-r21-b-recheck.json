@@ -1,0 +1,282 @@
+{
+  "generated_at": "20260813T062515Z",
+  "base": "http://127.0.0.1:8792",
+  "preflight_ok": true,
+  "preflight_detail": "revision=d4832797 backend=continuous_glm",
+  "cases": [
+    {
+      "case_id": "B2-theme-liquid-cooling",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "液冷",
+          "answer": "关于“液冷”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题并说明判断强度、chain_mapping、提供主要反证或竞争性解释。本轮已取得 17 条证据，但未完成核验绑定，暂不能引用；可直接重试。证据数据截至 2026-08-13；缺口补齐后可复验。",
+          "run_id": "run_20260813_141931_510567",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "planning",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 182.9,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "B4-fermentation-trace",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "电网设备是怎么发酵到 2026-07-23 双红的，把链路回溯一下",
+          "answer": "关于“电网设备是怎么发酵到 2026-07-23 双红的，把链路回溯一下”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题并说明判断强度、chain_mapping、提供主要反证或竞争性解释。",
+          "run_id": "run_20260813_142234_439765",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "planning",
+            "planning",
+            "finalizing",
+            "verification",
+            "repair",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 71.4,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "B8-valuation-band",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "立新能源现在贵不贵，隐含了什么预期",
+          "answer": "无法判断立新能源“现在贵不贵”，因为最近收盘价、市值及PE/PB等市场锚点未取得；因此也不能把经营改善直接等同于估值便宜或昂贵。\n财务硬锚：2026年中报累计营收6.44亿元、归母净利0.73亿元，分别同比增长29.75%和715.75%，销售毛利率32.51%、净利率12.5%；但这是已披露累计口径，不是当前盈利，更不能直接年化。相较2025年中报，盈利与利润率已有明显修复，价格若已给予较高估值，隐含的将是该修复能够延续，而非一次性低基数反弹。\n情景估值区间无法构建：缺少当前市值/股价、总股本或每股净资产，以及可复核的当前PE/PB，不能给出保守、中性、乐观的实际倍数或市值范围。判断的失效或降级条件包括：后续累计营收增速、净利率或毛利率转弱，或利润改善未能在后续报告期延续。\n证据边界：财务数据覆盖至2026年中报；市场快照获取失败，故不存在截至最近收盘日的估值结论。",
+          "run_id": "run_20260813_142345_846730",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "目标：立新能源（001258.SZ），近 6 期累计口径（新→旧）：",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            },
+            {
+              "title": "| 报告期 | 营收(亿) | 营收同比% | 归母净利(亿) | 净利同比% | 销售毛利率%",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            },
+            {
+              "title": "|---|---|---|---|---|---|---|",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            },
+            {
+              "title": "| 2026中报 | 6.44 | 29.75 | 0.73 | 715.75 | 32.51",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            },
+            {
+              "title": "| 2026一季报 | 2.65 | 22.2 | 0.06 | 167.71 | 23.52",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            },
+            {
+              "title": "| 2025年报 | 10.6 | 9.19 | 0.85 | 69.54 | 48.84 |",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            },
+            {
+              "title": "| 2025三季报 | 8.4 | 3.26 | 1.33 | 2.44 | 54.41 | 1",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            },
+            {
+              "title": "| 2025中报 | 4.96 | -6.02 | 0.09 | -90.17 | 49.07",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            },
+            {
+              "title": "| 2025一季报 | 2.17 | 5.23 | -0.09 | -166.51 | 43.7",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            },
+            {
+              "title": "口径说明：均为**累计值**（中报=上半年累计、三季报=前三季累计），同比为东财原始累计同比；本",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 11,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "目标：立新能源（001258.SZ），近 6 期累计口径（新→旧）：",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "| 报告期 | 营收(亿) | 营收同比% | 归母净利(亿) | 净利同比% | 销售毛利率%",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E3",
+              "label": "[E3] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "|---|---|---|---|---|---|---|",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E4",
+              "label": "[E4] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "| 2026中报 | 6.44 | 29.75 | 0.73 | 715.75 | 32.51",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E5",
+              "label": "[E5] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "| 2026一季报 | 2.65 | 22.2 | 0.06 | 167.71 | 23.52",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E6",
+              "label": "[E6] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "| 2025年报 | 10.6 | 9.19 | 0.85 | 69.54 | 48.84 |",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E7",
+              "label": "[E7] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "| 2025三季报 | 8.4 | 3.26 | 1.33 | 2.44 | 54.41 | 1",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E8",
+              "label": "[E8] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "| 2025中报 | 4.96 | -6.02 | 0.09 | -90.17 | 49.07",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E9",
+              "label": "[E9] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "| 2025一季报 | 2.17 | 5.23 | -0.09 | -166.51 | 43.7",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E10",
+              "label": "[E10] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "口径说明：均为**累计值**（中报=上半年累计、三季报=前三季累计），同比为东财原始累计同比；本",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "10 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "planning",
+            "planning",
+            "finalizing",
+            "verification",
+            "repair",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 90.1,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    }
+  ]
+}

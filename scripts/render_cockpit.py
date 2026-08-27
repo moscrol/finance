@@ -13,7 +13,7 @@
 
 Usage:
     python3 scripts/render_cockpit.py
-    python3 scripts/render_cockpit.py --knowledge-root "/Users/a77/Desktop/c c/知识库"
+    python3 scripts/render_cockpit.py --knowledge-root "$HOME/knowledge-base-private"
 """
 from __future__ import annotations
 

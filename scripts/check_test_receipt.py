@@ -72,6 +72,30 @@ def _git(*args: str) -> str:
     return out.stdout.strip() if out.returncode == 0 else ""
 
 
+def _git_status_lines() -> list[str]:
+    """porcelain 行，**整体不 strip**——与 ``conftest.py`` 同一个理由。
+
+    ``_git`` 的 ``.strip()`` 会吃掉首行 ``" M path"`` 的前导空格，随后
+    ``line[3:]`` 多切一个字符，该路径被静默丢弃。写方（conftest）和检方（本文件）
+    是同一份逻辑的两个拷贝，所以这个洞两边都有：写方会把收据记成干净树，
+    检方也不会在「你当前的树有未提交的代码改动」里列出那个文件。
+    """
+
+    try:
+        out = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if out.returncode != 0:
+        return []
+    return [line for line in out.stdout.splitlines() if line.strip()]
+
+
 # 与 conftest.py 共读 test-environment.json 的同两个字段，不各写一份。
 _CODE_PREFIXES = tuple(_SPEC.get("code_path_prefixes") or ())
 _DATA_EXCEPTIONS = tuple(_SPEC.get("data_path_exceptions") or ())
@@ -87,9 +111,7 @@ def _code_dirt() -> list[str]:
     """
 
     out: list[str] = []
-    for line in (_git("status", "--porcelain") or "").splitlines():
-        if not line.strip():
-            continue
+    for line in _git_status_lines():
         path = line[3:].strip().strip('"')
         if " -> " in path:
             path = path.split(" -> ", 1)[1]
@@ -139,6 +161,61 @@ def _load(path: Path) -> dict:
         raise SystemExit(2) from exc
 
 
+def _rev_parse(ref: str) -> str:
+    """展开成全 SHA；解析不了返回原串（供字符串全等 fallback）。"""
+    resolved = _git("rev-parse", "--verify", f"{ref}^{{commit}}")
+    return resolved or ref
+
+
+def check_expected_revision(receipt_rev: str, expect: str) -> tuple[bool, str]:
+    """收据 revision 必须与期望 SHA **全等**（rev-parse 展开后比较）。
+
+    为什么不许 startswith：前缀比较是口径的削弱面——比到前 4 位时任何
+    同前缀提交都能冒充；工单 §P1-a 的变异测试就打这条。差额（收据落后
+    期望几张合并）打进错误正文，让读者知道这份收据旧了多少。
+    """
+
+    theirs = _rev_parse(receipt_rev)
+    want = _rev_parse(expect)
+    if theirs == want:
+        return True, f"收据 revision == {want[:12]}"
+    lag = _git("rev-list", "--count", "--merges", f"{theirs}..{want}")
+    lag_note = f"，落后期望 {lag} 张合并" if lag and lag != "0" else ""
+    return False, (
+        f"收据 revision {theirs[:12]} ≠ 期望 {want[:12]}{lag_note}——"
+        "这份收据证明的是另一棵树"
+    )
+
+
+def check_base_drift(
+    receipt_rev: str, main_ref: str, *, max_merges: int
+) -> tuple[bool, str]:
+    """收据 revision 的合并基座落后主干超过 N 张合并 → 拒绝。
+
+    治的形状（#444 实测）：分支尖收据是真的，但基座落后 main 27 张 PR，
+    「分支绿」不能代表「合流绿」。认不出引用就 fail-closed，不降级放行。
+    """
+
+    main_sha = _git("rev-parse", "--verify", f"{main_ref}^{{commit}}")
+    if not main_sha:
+        return False, f"主干引用 {main_ref} 解析不了——fail closed，先 fetch 再验"
+    receipt_sha = _rev_parse(receipt_rev)
+    base = _git("merge-base", receipt_sha, main_sha)
+    if not base:
+        return False, (
+            f"算不出 {receipt_sha[:12]} 与 {main_ref} 的合并基座——fail closed"
+        )
+    drift = _git("rev-list", "--count", "--merges", f"{base}..{main_sha}")
+    if not drift:
+        return False, "基座漂移数取不到——fail closed"
+    if int(drift) > max_merges:
+        return False, (
+            f"收据基座落后 {main_ref} 共 {drift} 张合并（上限 {max_merges}）——"
+            "分支尖收据不得冒充批次门禁，rebase 后重跑"
+        )
+    return True, f"基座漂移 {drift} ≤ {max_merges}"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])
     ap.add_argument(
@@ -151,6 +228,26 @@ def main() -> int:
         "--require-target",
         default=None,
         help="要求收据覆盖了这个 pytest 目标（子串匹配）；不给则不检查覆盖面",
+    )
+    ap.add_argument(
+        "--expect-revision",
+        default=None,
+        metavar="SHA",
+        help="收据 revision 必须与此 SHA 全等（rev-parse 展开后比较）；"
+        "合并前置用它把「收据树 == 要合的树」从规程文字变成 exit code",
+    )
+    ap.add_argument(
+        "--base-drift-max",
+        type=int,
+        default=None,
+        metavar="N",
+        help="收据 revision 的合并基座落后 --main-ref 超过 N 张合并即拒绝"
+        "（治「分支尖收据冒充批次门禁」，工单建议 N=5）",
+    )
+    ap.add_argument(
+        "--main-ref",
+        default="gitea/main",
+        help="--base-drift-max 的主干引用（默认 gitea/main）",
     )
     args = ap.parse_args()
 
@@ -234,6 +331,20 @@ def main() -> int:
         if args.require_target not in target:
             print(f"\n  ✗ 覆盖面不含 {args.require_target}（收据目标：{target or '(全量)'}）")
             blockers.append("覆盖面不足")
+
+    receipt_rev = str(receipt.get("revision") or "")
+    if args.expect_revision:
+        ok, message = check_expected_revision(receipt_rev, args.expect_revision)
+        print(f"  {'✓' if ok else '✗'} {message}")
+        if not ok:
+            blockers.append("revision 与期望不符")
+    if args.base_drift_max is not None:
+        ok, message = check_base_drift(
+            receipt_rev, args.main_ref, max_merges=args.base_drift_max
+        )
+        print(f"  {'✓' if ok else '✗'} {message}")
+        if not ok:
+            blockers.append("基座漂移超限")
 
     if not blockers:
         print("\n✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。")

@@ -59,6 +59,20 @@ class TestContractReachesTheModel:
         assert registry.tool_definitions()[0]["function"]["description"] == "工具描述"
         assert registry.prompt_block() == "- t（t，local，stable）：工具描述"
 
+    def test_authorized_specs_and_tool_definitions_are_sorted_by_name(self) -> None:
+        registry = reg.ResearchToolRegistry(
+            (_spec("zeta"), _spec("alpha"), _spec("mu"))
+        )
+
+        assert [spec.name for spec in registry.authorized_specs()] == [
+            "alpha",
+            "mu",
+            "zeta",
+        ]
+        assert [
+            item["function"]["name"] for item in registry.tool_definitions()
+        ] == ["alpha", "mu", "zeta"]
+
 
 class TestShippedContracts:
     """每条契约各自钉住它要防的那个误读。
@@ -89,6 +103,14 @@ class TestShippedContracts:
 
         assert "21:30" in contract
         assert "不是数据过期" in contract
+
+    def test_market_data_tells_overnight_forecasts_to_prefer_structured_us_quotes(
+        self,
+    ) -> None:
+        contract = reg._TOOL_CONTRACTS["market_data"]
+
+        assert "结构化报价" in contract
+        assert "新闻标题里的数字不作为精确行情" in contract
 
     def test_l3_lookup_separates_success_from_evidence(self) -> None:
         """实测 degrade：「l3-evidence：company 查询成功但没有解析到可用证据」。

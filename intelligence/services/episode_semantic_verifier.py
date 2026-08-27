@@ -10,7 +10,10 @@ The module is provider-neutral.  Tests and canary callers can inject a small
 ``judge_fn``/primary model; production can use the independent provider chosen
 by :func:`llm_refine.judge_provider`.  No NLI model or second retrieval path is
 introduced here: a semantic judge may reject or narrow an answer, never add
-evidence or upgrade a structurally partial outcome.  Optional numeric-claim
+evidence.  Mixed/blocked structural partials stay partial.  An honest runtime
+partial whose contracted slots are already fulfilled (the 2026-08-19
+deadline_exhausted shape) may be reported completed after a judge pass.
+Optional numeric-claim
 recheck (bookgap S2) may attach ``source_recheck`` when ``ASK_JUDGE_RECHECK``
 is on; the default remains off.
 """
@@ -19,6 +22,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import os
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
@@ -26,13 +30,48 @@ from datetime import date
 from typing import Literal, Protocol, cast, runtime_checkable
 
 from intelligence.services import answer_model, llm_refine
-from intelligence.services.agent_research import AgentEvidence
-from intelligence.services.degraded_fallback import gap_opening, gap_transparency
+from intelligence.services.agent_research import (
+    AgentEvidence,
+    StructuredObservation,
+    describe_lost_observation,
+    grounded_values_in_text,
+)
+from intelligence.services.degraded_fallback import (
+    gap_transparency,
+    is_model_service_unavailable,
+)
+from intelligence.services.session_projection import (
+    CAUSE_EVIDENCE_GAP,
+    CAUSE_JUDGE_UNAVAILABLE_HELD,
+    CAUSE_MODEL_UNAVAILABLE,
+    CAUSE_TRANSIENT_VERIFIER_OUTAGE,
+    CAUSE_VERIFICATION_INCOMPLETE,
+    CAUSE_VERIFIED,
+    TerminalFacts,
+    view,
+)
 from intelligence.services.agent_runtime import (
     AgentModelClient,
     AgentOutcome,
     ModelTurn,
     OutputEvidenceBinding,
+)
+from intelligence.services.episode_answer_hygiene import (
+    choose_repair_rollback,
+    classify_asked_date_coverage,
+    find_unattempted_claims,
+    repair_collapsed_to_stub,
+    rewrite_unattempted_claims,
+    rewrite_unverified_kb_gap_claims,
+)
+from intelligence.services.episode_protocol import (
+    cited_evidence_ordinals,
+    evidence_ordinal_table,
+)
+from intelligence.services.episode_issues import (
+    Issue,
+    IssueCode,
+    allows_partial_release,
 )
 from intelligence.services.episode_output_substance import (
     JUDGMENT_OUTPUT_IDS,
@@ -45,40 +84,43 @@ from intelligence.services.episode_verifier import (
     VerifiedEpisodeOutcome,
     verify_episode_outcome,
 )
+from intelligence.services.judge_degrade import (
+    classify_degrade_counts,
+    degrade_class_for_status,
+)
 from intelligence.services.judge_source_recheck import recheck_draft, recheck_enabled
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
+    FORWARD_HYPOTHESIS_OUTPUT_IDS,
     ResearchDeadline,
     ResearchPolicy,
     apply_env_ceiling,
     derive_stage_caps,
     policy_for_env,
 )
-from intelligence.services.task_frame import TaskFrame
+from intelligence.services.task_frame import TaskFrame, last_explicit_iso_date
+from intelligence.services.task_fulfillment import answer_has_output_marker
+from intelligence.services.tool_result_budget import MAX_EVIDENCE_TITLE_CHARS
 
 
 SemanticStatus = Literal["completed", "partial", "failed"]
 JudgeStatus = Literal["passed", "repaired", "rejected", "unavailable"]
-# 25.0 → 30.0（2026-08-10 晚，5 次 live 的实测重标定）。
+# 30.0 → 50.0（2026-08-20，压 prompt 后仍罩不住 grok 尾巴）。
 #
-# 上一次把它定在 25.0 时，观测到的 judge 耗时是 13.3–24.1s，25s 刚好罩住尾部。
-# 本轮 5 次 live 的 judge 调用把尾部推到了窗口之外，而且形态非常一致：
+# 压缩后的液冷同形 payload + 适配器 argv（``--max-turns 1`` /
+# ``--json-schema`` / ``effort=low``）串行 N=5：18.9 / 23.4 / 23.6 / 26.2 /
+# 46.7s。中位数已回 25s 内，但尾巴 46.7 > ``min(30, 窗×0.5)=25``。
+# ``#269`` 只改余量切法，首发公式仍是半窗，50s 共享窗永远发不出 47s。
+# 把 cap 提到与窗齐平，一次完整尝试 = 整窗；快失败仍由余额账给重试。
 #
-#   成功：11.33 / 16.36 / 17.95 / 22.43 / 22.85 / 23.69s
-#   失败：25.60 / 25.67 / 25.68s   ← 全部紧贴 25.0 的窗口，是**被截断**的
-#
-# 三次独立失败都落在 25.6–25.7s，说明真实需求 ≥25.7s，只差窗口一点点——
-# 这正是「刚好不够」那一档，和当初 15s 失败 6/6 是同一个形状。
-# 上游变慢是合理解释（本轮探针实测长输出 ≈39 tok/s，上一轮记录 45–52）。
-#
-# 代价看清楚了再改：``_semantic_attempt_timeouts`` 里
-# ``first = min(cap, window*0.5)``、``retry = min(cap, (window-first)/2)``，
-# 所以 25→30 会把充裕时钟下的三次窗口从 (25, 17.5, 17.5) 变成 (30, 15, 15)。
-# **重试窗口变小不构成损失**：观测中重试失败都在 18.1–18.4s，17.5 和 15 都不够，
-# 它本来就救不回来；而首窗成功就根本不会走到重试。
-# 提高首窗成功率优先于保留一个够不着的重试窗口。
-DEFAULT_JUDGE_TIMEOUT_SECONDS = 30.0
+# 未动 T / ``_REPAIR_SECONDS_CAP`` / 档位 total/reserve / 工具批（R-07：
+# 有 08-20 延迟实测才抬这个 30）。窗地板仍 50（R-10 的窗侧不变）。
+DEFAULT_JUDGE_TIMEOUT_SECONDS = 50.0
 MAX_SEMANTIC_JUDGE_WINDOW_SECONDS = 60.0
+# 剩余窗不足一次完整尝试时不再发起半截调用（W2）。不要靠再抬窗口罩尾部。
+LEFTOVER_WINDOW_ISSUE = (
+    "semantic judge leftover window below one complete attempt"
+)
 
 
 def semantic_judge_window_seconds(policy: ResearchPolicy | None = None) -> float:
@@ -86,8 +128,9 @@ def semantic_judge_window_seconds(policy: ResearchPolicy | None = None) -> float
 
     Bookgap S3: the source of truth is ``derive_stage_caps`` (a fraction of
     synthesis reserve).  ``ASK_SEMANTIC_JUDGE_WINDOW`` can only lower it.
-    First attempt remains ``min(per_attempt_cap, window * 0.5)``; deep's
-    derived window is 50s so that first attempt is 25s (08-10 arm C).
+    One complete attempt is ``min(per_attempt_cap, window)`` — the 0.5
+    pre-split was retired after the 08-20 grok tail (46.7s) could not fit
+    in half of the 50s floor.
     """
 
     caps = derive_stage_caps(policy or policy_for_env())
@@ -188,9 +231,27 @@ _PREFIXED_LIST_COUNT_RE = re.compile(
 _PAREN_LIST_NUMBER_RE = re.compile(
     r"(?P<open>[(（])(?P<number>\d{1,2})(?P<close>[)）])"
 )
-_NUMERIC_CONDITION_ISSUE = "unsupported numeric condition without bound evidence"
-_CALENDAR_WEEKDAY_ISSUE = "calendar weekday mismatch with bound evidence"
-_PATH_TREND_ISSUE = "path trend mismatch with bound evidence"
+_NUMERIC_CONDITION_ISSUE = Issue(
+    IssueCode.NUMERIC_UNSUPPORTED,
+    "numeric_condition",
+    "unsupported numeric condition without bound evidence",
+)
+_CALENDAR_WEEKDAY_ISSUE = Issue(
+    IssueCode.CALENDAR_WEEKDAY_MISMATCH,
+    "weekday",
+    "calendar weekday mismatch with bound evidence",
+)
+_PATH_TREND_ISSUE = Issue(
+    IssueCode.PATH_TREND_MISMATCH,
+    "path_trend",
+    "path trend mismatch with bound evidence",
+)
+_UNRESOLVED_EVIDENCE_ISSUE = Issue(
+    IssueCode.UNRESOLVED_EVIDENCE_ORDINAL,
+    "unresolved_evidence_ordinal",
+    "cited evidence ordinal is not in this episode's evidence table",
+)
+SEMANTIC_QUALITY_DOUBT_MARK = "【质检存疑】"
 _FULL_ISO_DATE_RE = re.compile(
     r"(?<!\d)(?P<year>20\d{2})-(?P<month>\d{1,2})-(?P<day>\d{1,2})(?!\d)"
 )
@@ -303,14 +364,24 @@ _JUDGE_SYSTEM_PROMPT = (
     "给出带不确定性和条件的主观区间；但发明外部原因、支持性统计或任意触发阈值仍"
     "应拒绝。tool_status_registry 只支持检索过程状态，例如本轮是否命中；它不能支持"
     "市场事实或因果结论。答案不得暴露 capability、工具、provider 或哈希等内部标识，"
-    "只能用“本轮资讯检索未命中”等自然语言。evidence_registry 使用本次裁判内的 "
-    "E 编号，output_bindings.evidence_ids 与其对应。required_outputs 中的 "
+    "只能用“本轮资讯检索未命中”等自然语言。"
+    "verified_quantities 是**已由确定性核对确认**来自 evidence_registry 的数值清单"
+    "（逐字节相等才入列）：其中出现的数**不得**判为“未注册数字”“无直接证据”"
+    "或“注册表无对应条目”，也不得因此摘除 required output。你要审的是这些数被"
+    "用来支撑的**语义**（因果是否成立、口径有没有混用、日期是否对得上），"
+    "不是它们在不在证据里——那一半已经查过了。清单之外的数仍按原规则审查。"
+    "evidence_registry 的 E 编号与正文引用"
+    "同一空间，可不连续；output_bindings.evidence_ids 与其对应。required_outputs 中的 "
+    "答案对自身证据边界或推理层级的披露句（如“原文未覆盖某时段，此段映射为"
+    "推理层”“以下为视角层推断”）是降低断言强度的元陈述，不是外部事实，"
+    "不要求证据也不得拒绝；但披露句若同时断言具体行情数字或外部事件，仍按"
+    "事实句审查。"
     "grounding_mode 是硬边界：evidence 只能引用直接证据，user_premise 只能评估用户"
     "给出的条件，model_reasoning 可以在不伪造证据的前提下给出方法论推理。若 "
     "answer_grounding_mode 为 model_reasoning，不得仅因方法步骤、T+N 观察窗口或"
     "定性判断没有 evidence_ids 而拒绝；只有它把外部事实、历史胜率或当前行情冒充"
     "已核验事实时才拒绝。若为 user_premise，用户明确给出的条件视为假设前提，不要求"
-    "先证明该前提为真。遵循 claim_policy。只输出一个严格 "
+    "先证明该前提为真。只输出一个严格 "
     "JSON 对象，字段必须是 "
     "passed(boolean)、rejected_sentence_indexes(integer list)、issues(string list)。"
     "passed=true 时 rejected_sentence_indexes 必须为空；发现违反上述边界的句子时"
@@ -345,6 +416,55 @@ _CLAIM_POLICY = {
     "unsupported_supporting_statistics_rejected": True,
     "unsupported_numeric_trigger_rejected": True,
 }
+# Episode harness traces, not retrieval process status. The judge prompt
+# already says tool_status_registry cannot support market facts; sending
+# agent_loop success rows only pads the JSON.
+_JUDGE_HIDDEN_STATUS_CAPABILITIES = frozenset({"agent_loop"})
+_JUDGE_JSON_SEPARATORS = (",", ":")
+
+
+def compact_judge_payload(value: object) -> object:
+    """Drop blanks and duplicated defaults from the judge JSON.
+
+    Kept: ``0`` / ``False`` / empty lists (``evidence_ids: []`` is a
+    finding). Dropped: ``None``, ``""``, ``required: true`` (the default),
+    and ``claim_policy`` (already written in the system prompt).
+    """
+
+    if isinstance(value, dict):
+        compacted: dict[str, object] = {}
+        for key, item in value.items():
+            if key == "required" and item is True:
+                continue
+            if key == "claim_policy":
+                continue
+            nested = compact_judge_payload(item)
+            if key == "tool_status_registry" and isinstance(nested, list):
+                nested = [
+                    row
+                    for row in nested
+                    if not (
+                        isinstance(row, dict)
+                        and str(row.get("capability") or "")
+                        in _JUDGE_HIDDEN_STATUS_CAPABILITIES
+                    )
+                ]
+            if nested is None or nested == "":
+                continue
+            if key == "tool_status_registry" and nested == []:
+                continue
+            compacted[key] = nested
+        return compacted
+    if isinstance(value, list):
+        return [compact_judge_payload(item) for item in value]
+    return value
+
+
+def dumps_judge_request(request: Mapping[str, object]) -> str:
+    """Wire JSON for the judge: compact separators, no default padding."""
+
+    payload = compact_judge_payload(dict(request))
+    return json.dumps(payload, ensure_ascii=False, separators=_JUDGE_JSON_SEPARATORS)
 
 
 @dataclass(frozen=True)
@@ -364,6 +484,12 @@ class SemanticEpisodeOutcome:
     exc_class: str | None = None
     http_status: int | None = None
     judge_attempt_index: int | None = None
+    judge_request: dict[str, object] | None = None
+    repair_withheld: bool = False
+    unattempted_claim_count: int = 0
+    asked_date_coverage: str = "not_applicable"
+    repair_collapsed_to_stub: bool = False
+    repair_rollback_mode: str | None = None
 
     def __post_init__(self) -> None:
         if not self.repair_output_ids:
@@ -398,7 +524,17 @@ class SemanticEpisodeOutcome:
     def to_dict(self) -> dict[str, object]:
         """Return the private artifact shape (public text stays sanitized)."""
 
-        return {
+        degrade_class = degrade_class_for_status(self.judge_status)
+        judge_count, content_count = classify_degrade_counts(
+            judge_status=self.judge_status,
+            extra_degrade_count=0,
+            exc_class=self.exc_class,
+            timeout_asked=self.timeout_asked,
+        )
+        _bindings, _registry, telemetry = _project_semantic_evidence(
+            self.verified.outcome
+        )
+        payload: dict[str, object] = {
             "status": self.status,
             "public_answer": self.public_answer,
             "judge_status": self.judge_status,
@@ -413,8 +549,32 @@ class SemanticEpisodeOutcome:
             "exc_class": self.exc_class,
             "http_status": self.http_status,
             "judge_attempt_index": self.judge_attempt_index,
+            "repair_withheld": self.repair_withheld,
+            "unattempted_claim_count": self.unattempted_claim_count,
+            "asked_date_coverage": self.asked_date_coverage,
+            "repair_collapsed_to_stub": self.repair_collapsed_to_stub,
+            "repair_rollback_mode": self.repair_rollback_mode,
+            "projection_dropped_field_chars": telemetry.dropped_field_chars,
+            "projection_truncated_field_chars": telemetry.truncated_field_chars,
+            "projection_ordinal_mismatch_count": telemetry.ordinal_mismatch_count,
+            "evidence_alias_offset": telemetry.alias_offset,
+            "projection_cited_unbound_count": telemetry.cited_unbound_count,
+            "degrade_class": degrade_class,
+            "judge_unavailable_count": judge_count,
+            "content_degraded_count": content_count,
+            "pending_rejudge": self.judge_status == "unavailable",
             "verified": self.verified.to_dict(),
         }
+        if self.judge_request is not None:
+            payload["judge_request"] = self.judge_request
+        return payload
+
+
+@dataclass(frozen=True)
+class _HygieneSnapshot:
+    unattempted_claim_count: int = 0
+    asked_date_coverage: str = "not_applicable"
+    issues: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -435,6 +595,7 @@ class _JudgeCall:
     exc_class: str | None = None
     http_status: int | None = None
     judge_attempt_index: int | None = None
+    request: dict[str, object] | None = None
 
 
 def _judge_failure_identity(value: object) -> tuple[str | None, int | None]:
@@ -482,6 +643,11 @@ def _attach_judge_clock(
     outcome: SemanticEpisodeOutcome,
     call: _JudgeCall,
 ) -> SemanticEpisodeOutcome:
+    pending_request = (
+        dict(call.request)
+        if outcome.judge_status == "unavailable" and call.request is not None
+        else None
+    )
     return replace(
         outcome,
         timeout_asked=call.timeout_asked,
@@ -490,6 +656,7 @@ def _attach_judge_clock(
         exc_class=call.exc_class,
         http_status=call.http_status,
         judge_attempt_index=call.judge_attempt_index,
+        judge_request=pending_request,
     )
 
 
@@ -516,6 +683,103 @@ class SemanticEpisodeVerifier:
         self._primary_judge = primary_judge or judge_client
         self._finalizer = finalizer
         self._judge_timeout = max(0.1, float(judge_timeout))
+        self._active_hygiene: _HygieneSnapshot | None = None
+        self._semantic_reject_texts: tuple[str, ...] = ()
+        self._semantic_reject_issues: tuple[str, ...] = ()
+
+    def _finalize_outcome(
+        self,
+        outcome: SemanticEpisodeOutcome,
+        call: _JudgeCall | None = None,
+        *,
+        repair_collapsed_to_stub: bool | None = None,
+        repair_rollback_mode: str | None = None,
+    ) -> SemanticEpisodeOutcome:
+        hygiene = self._active_hygiene
+        extras: dict[str, object] = {}
+        if hygiene is not None:
+            extras["unattempted_claim_count"] = hygiene.unattempted_claim_count
+            extras["asked_date_coverage"] = hygiene.asked_date_coverage
+            extras["issues"] = tuple(
+                dict.fromkeys((*outcome.issues, *hygiene.issues))
+            )
+        if repair_collapsed_to_stub is not None:
+            extras["repair_collapsed_to_stub"] = repair_collapsed_to_stub
+        if repair_rollback_mode is not None:
+            extras["repair_rollback_mode"] = repair_rollback_mode
+        if extras:
+            outcome = replace(outcome, **extras)
+        outcome = self._project_semantic_quality_marks(outcome)
+        if call is not None:
+            outcome = _attach_judge_clock(outcome, call)
+        return outcome
+
+    def _note_semantic_reject(
+        self,
+        text: str,
+        issues: tuple[str, ...],
+    ) -> None:
+        texts = list(self._semantic_reject_texts)
+        snippet = str(text or "").strip()
+        if snippet and snippet not in texts:
+            texts.append(snippet)
+        self._semantic_reject_texts = tuple(texts)
+        merged = list(self._semantic_reject_issues)
+        for issue in issues:
+            if issue and issue not in merged:
+                merged.append(issue)
+        self._semantic_reject_issues = tuple(merged)
+
+    def _plan_repair_indexes(
+        self,
+        rejected: tuple[int, ...],
+        sentences: list[dict[str, object]],
+        verified: VerifiedEpisodeOutcome,
+        issues: tuple[str, ...] = (),
+    ) -> tuple[int, ...]:
+        mechanical, semantic = _partition_rejected_indexes(
+            rejected,
+            sentences=sentences,
+            verified=verified,
+        )
+        contract = verified.contract
+        text_by_index = {
+            int(item["index"]): str(item["text"]) for item in sentences
+        }
+        repair = list(mechanical)
+        for index in semantic:
+            text = text_by_index.get(int(index), "")
+            if _sentence_in_required_grounded_block(text, contract):
+                self._note_semantic_reject(text, issues)
+            else:
+                repair.append(int(index))
+        return tuple(sorted(set(repair)))
+
+    def _project_semantic_quality_marks(
+        self,
+        outcome: SemanticEpisodeOutcome,
+    ) -> SemanticEpisodeOutcome:
+        texts = self._semantic_reject_texts
+        if not texts:
+            return outcome
+        # 拒句与降级进 issues / judge_status，不进公开稿。质检条不上桌。
+        issues = tuple(
+            dict.fromkeys((*outcome.issues, *self._semantic_reject_issues))
+        )
+        judge_status = outcome.judge_status
+        if judge_status == "passed":
+            judge_status = "repaired"
+        return replace(
+            outcome,
+            public_answer=view(
+                TerminalFacts(
+                    cause=CAUSE_VERIFIED,
+                    public=outcome.public_answer,
+                )
+            ),
+            issues=issues,
+            judge_status=judge_status,
+        )
 
     def verify(
         self,
@@ -526,6 +790,8 @@ class SemanticEpisodeVerifier:
     ) -> SemanticEpisodeOutcome:
         """Run structural-first verification with bounded deletion-only repair."""
 
+        self._semantic_reject_texts = ()
+        self._semantic_reject_issues = ()
         structural = structurally_verified
         contract = structural.contract
         guard_status: SemanticStatus = (
@@ -564,11 +830,14 @@ class SemanticEpisodeVerifier:
             structural.verified_status != "completed"
             and not _can_semantically_release_partial(structural)
         ):
-            # A semantic pass cannot promote a structural partial.  Avoid even
+            # Mixed/blocked structural partials are not promoted.  Avoid even
             # calling the judge when no useful required output survived or the
-            # partial was caused by anything other than an explicit evidence
-            # gap.  A mixed fulfilled/gap result may still be judged and
-            # released as partial, but can never be promoted to completed.
+            # partial was caused by anything outside the release allowlist
+            # (explicit evidence gap / missing mandatory capability / evidence
+            # type whitelist).  A mixed fulfilled/gap result may still be
+            # judged and released as partial.  Honest runtime-partial with
+            # every slot fulfilled is the exception: see
+            # ``_contract_slots_all_fulfilled``.
             status: SemanticStatus = (
                 "failed" if structural.verified_status == "failed" else "partial"
             )
@@ -603,6 +872,7 @@ class SemanticEpisodeVerifier:
 
         preflight_issues: tuple[str, ...] = ()
         marker_loss_outputs: tuple[str, ...] = ()
+        preflight_source = structural
         numeric_rejected = _novel_numeric_condition_indexes(
             sentences,
             structural,
@@ -628,6 +898,7 @@ class SemanticEpisodeVerifier:
         )
         if preflight_rejected:
             before_repair = structural.outcome.draft
+            preflight_source = structural
             preflight = self._repair(
                 frame=frame,
                 structural=structural,
@@ -640,13 +911,15 @@ class SemanticEpisodeVerifier:
                     public_answer=self._gap_answer(frame, structural),
                     judge_status="rejected",
                     issues=tuple(
-                        dict.fromkeys((*structural.issues, _NUMERIC_CONDITION_ISSUE))
+                        dict.fromkeys(
+                            (*structural.issues, _NUMERIC_CONDITION_ISSUE.serialize())
+                        )
                     ),
                     correlated_judge=False,
                 )
             structural, _preflight_frame = preflight
             preflight_issues = tuple(
-                issue
+                issue.serialize()
                 for indexes, issue in (
                     (numeric_rejected, _NUMERIC_CONDITION_ISSUE),
                     (weekday_rejected, _CALENDAR_WEEKDAY_ISSUE),
@@ -677,8 +950,22 @@ class SemanticEpisodeVerifier:
                 )
             sentences = _numbered_sentences(structural.outcome.draft)
 
+        structural, claim_issues, claim_count = self._apply_unattempted_claim_rewrite(
+            frame, structural
+        )
+        structural = self._apply_kb_gap_proof_rewrite(structural)
+        self._active_hygiene = _HygieneSnapshot(
+            unattempted_claim_count=claim_count,
+            asked_date_coverage=classify_asked_date_coverage(
+                frame.raw_question,
+                frame.question_type,
+                structural.outcome.traces,
+            ),
+            issues=claim_issues,
+        )
+        sentences = _numbered_sentences(structural.outcome.draft)
         request = self._judge_request(frame, structural, sentences)
-        first = self._run_judge(request, deadline)
+        first = replace(self._run_judge(request, deadline), request=request)
         if deadline.expired:
             deadline_release_safe = (
                 first.report is None
@@ -700,6 +987,7 @@ class SemanticEpisodeVerifier:
             if first.monotonic_release_safe and issue in {
                 "semantic judge deadline exhausted",
                 "semantic judge transient provider error",
+                LEFTOVER_WINDOW_ISSUE,
             }:
                 candidate = self._transient_failure_candidate(
                     frame,
@@ -712,12 +1000,16 @@ class SemanticEpisodeVerifier:
                     correlated_judge=first.correlated,
                 )
                 if candidate is not None:
-                    return _attach_judge_clock(candidate, first)
-            return _attach_judge_clock(
+                    return self._finalize_outcome(candidate, first)
+            return self._finalize_outcome(
                 SemanticEpisodeOutcome(
                     verified=structural,
                     status="partial",
-                    public_answer=self._gap_answer(frame, structural),
+                    public_answer=self._gap_answer(
+                        frame,
+                        structural,
+                        judge_unavailable=True,
+                    ),
                     judge_status="unavailable",
                     issues=tuple(
                         dict.fromkeys((*structural.issues, *preflight_issues, issue))
@@ -728,13 +1020,16 @@ class SemanticEpisodeVerifier:
             )
 
         first = _apply_numeric_condition_gate(first, sentences, structural)
+        first = _apply_meta_disclosure_exemption(first, sentences)
+        first = _apply_unresolved_evidence_ordinal_gate(first, sentences, structural)
         assert first.report is not None
         if first.report.passed:
             if marker_loss_outputs:
-                return self._marker_loss_partial_public(
+                return self._marker_loss_or_withhold(
                     frame,
-                    structural,
-                    marker_loss_outputs,
+                    source=preflight_source,
+                    wiped=structural,
+                    marker_loss=marker_loss_outputs,
                     judge_issues=tuple(
                         dict.fromkeys(
                             (
@@ -747,6 +1042,9 @@ class SemanticEpisodeVerifier:
                     ),
                     correlated_judge=first.correlated,
                     call=first,
+                    issue_code="preflight_wiped_all_outputs",
+                    issue_message="preflight repair removed every required output",
+                    rejected_sentence_indexes=preflight_rejected,
                 )
             return self._completed_public(
                 frame,
@@ -765,10 +1063,34 @@ class SemanticEpisodeVerifier:
                 call=first,
             )
 
+        first_repair_indexes = self._plan_repair_indexes(
+            first.report.rejected_sentence_indexes,
+            sentences,
+            structural,
+            first.report.issues,
+        )
+        if not first_repair_indexes:
+            return self._completed_public(
+                frame,
+                structural,
+                judge_status="repaired",
+                judge_issues=tuple(
+                    dict.fromkeys(
+                        (
+                            *structural.issues,
+                            *preflight_issues,
+                            *first.report.issues,
+                        )
+                    )
+                ),
+                correlated_judge=first.correlated,
+                call=first,
+            )
+
         repaired = self._repair(
             frame=frame,
             structural=structural,
-            rejected_sentence_indexes=first.report.rejected_sentence_indexes,
+            rejected_sentence_indexes=first_repair_indexes,
         )
         if repaired is None:
             issues = tuple(
@@ -781,7 +1103,7 @@ class SemanticEpisodeVerifier:
                     )
                 )
             )
-            return _attach_judge_clock(
+            return self._finalize_outcome(
                 SemanticEpisodeOutcome(
                     verified=structural,
                     status="partial",
@@ -802,25 +1124,33 @@ class SemanticEpisodeVerifier:
         marker_loss = tuple(
             dict.fromkeys((*marker_loss_outputs, *marker_loss))
         )
-        if marker_loss:
-            issues = tuple(
-                dict.fromkeys(
-                    (
-                        *repaired_verified.issues,
-                        *preflight_issues,
-                        *first.report.issues,
-                        *_marker_loss_issues(marker_loss),
-                    )
+        first_issues = tuple(
+            dict.fromkeys(
+                (
+                    *repaired_verified.issues,
+                    *preflight_issues,
+                    *first.report.issues,
+                    *_marker_loss_issues(marker_loss),
                 )
             )
-            return self._marker_loss_partial_public(
-                frame,
-                repaired_verified,
-                marker_loss,
-                judge_issues=issues,
-                correlated_judge=first.correlated,
-                call=first,
-            )
+        )
+        withheld = self._maybe_withhold_after_repair(
+            frame,
+            source=structural,
+            wiped=repaired_verified,
+            rejected_sentence_indexes=first_repair_indexes,
+            marker_loss=marker_loss,
+            judge_issues=first_issues,
+            correlated_judge=first.correlated,
+            call=first,
+            issue_code="repair_wiped_all_outputs",
+            issue_message=(
+                "semantic repair removed every required output; "
+                "judge verdict treated as suspect"
+            ),
+        )
+        if withheld is not None:
+            return withheld
         if (
             repaired_verified.verified_status != "completed"
             and not _can_semantically_release_partial(repaired_verified)
@@ -835,7 +1165,7 @@ class SemanticEpisodeVerifier:
                     )
                 )
             )
-            return _attach_judge_clock(
+            return self._finalize_outcome(
                 SemanticEpisodeOutcome(
                     verified=repaired_verified,
                     status="partial",
@@ -849,12 +1179,21 @@ class SemanticEpisodeVerifier:
 
         # The re-judge sees the repaired draft but exactly the same evidence.
         repaired_sentences = _numbered_sentences(repaired_verified.outcome.draft)
-        second = self._run_judge(
-            self._judge_request(frame, repaired_verified, repaired_sentences),
-            deadline,
+        second_request = self._judge_request(
+            frame, repaired_verified, repaired_sentences
+        )
+        second = replace(
+            self._run_judge(second_request, deadline),
+            request=second_request,
         )
         second = _apply_optional_rejudge_deadline(second, deadline)
         second = _apply_numeric_condition_gate(
+            second,
+            repaired_sentences,
+            repaired_verified,
+        )
+        second = _apply_meta_disclosure_exemption(second, repaired_sentences)
+        second = _apply_unresolved_evidence_ordinal_gate(
             second,
             repaired_sentences,
             repaired_verified,
@@ -910,10 +1249,34 @@ class SemanticEpisodeVerifier:
             second.report is not None
             and second.report.rejected_sentence_indexes
         ):
+            second_repair_indexes = self._plan_repair_indexes(
+                second.report.rejected_sentence_indexes,
+                repaired_sentences,
+                repaired_verified,
+                second.report.issues,
+            )
+            if not second_repair_indexes:
+                return self._completed_public(
+                    frame,
+                    repaired_verified,
+                    judge_status="repaired",
+                    judge_issues=tuple(
+                        dict.fromkeys(
+                            (
+                                *repaired_verified.issues,
+                                *preflight_issues,
+                                *first.report.issues,
+                                *second.report.issues,
+                            )
+                        )
+                    ),
+                    correlated_judge=correlated,
+                    call=second,
+                )
             repaired_twice = self._repair(
                 frame=frame,
                 structural=repaired_verified,
-                rejected_sentence_indexes=second.report.rejected_sentence_indexes,
+                rejected_sentence_indexes=second_repair_indexes,
             )
             if repaired_twice is not None:
                 twice_verified, _twice_frame = repaired_twice
@@ -922,26 +1285,34 @@ class SemanticEpisodeVerifier:
                     repaired_verified.outcome.draft,
                     twice_verified.outcome.draft,
                 )
-                if second_marker_loss:
-                    issues = tuple(
-                        dict.fromkeys(
-                            (
-                                *twice_verified.issues,
-                                *preflight_issues,
-                                *first.report.issues,
-                                *second.report.issues,
-                                *_marker_loss_issues(second_marker_loss),
-                            )
+                second_issues = tuple(
+                    dict.fromkeys(
+                        (
+                            *twice_verified.issues,
+                            *preflight_issues,
+                            *first.report.issues,
+                            *second.report.issues,
+                            *_marker_loss_issues(second_marker_loss),
                         )
                     )
-                    return self._marker_loss_partial_public(
-                        frame,
-                        twice_verified,
-                        second_marker_loss,
-                        judge_issues=issues,
-                        correlated_judge=correlated,
-                        call=second,
-                    )
+                )
+                withheld = self._maybe_withhold_after_repair(
+                    frame,
+                    source=repaired_verified,
+                    wiped=twice_verified,
+                    rejected_sentence_indexes=second_repair_indexes,
+                    marker_loss=second_marker_loss,
+                    judge_issues=second_issues,
+                    correlated_judge=correlated,
+                    call=second,
+                    issue_code="repair_wiped_all_outputs",
+                    issue_message=(
+                        "semantic repair removed every required output; "
+                        "judge verdict treated as suspect"
+                    ),
+                )
+                if withheld is not None:
+                    return withheld
                 if (
                     twice_verified.verified_status == "completed"
                     or _can_semantically_release_partial(twice_verified)
@@ -949,16 +1320,22 @@ class SemanticEpisodeVerifier:
                     twice_sentences = _numbered_sentences(
                         twice_verified.outcome.draft
                     )
-                    third = self._run_judge(
-                        self._judge_request(
-                            frame,
-                            twice_verified,
-                            twice_sentences,
-                        ),
-                        deadline,
+                    third_request = self._judge_request(
+                        frame,
+                        twice_verified,
+                        twice_sentences,
+                    )
+                    third = replace(
+                        self._run_judge(third_request, deadline),
+                        request=third_request,
                     )
                     third = _apply_optional_rejudge_deadline(third, deadline)
                     third = _apply_numeric_condition_gate(
+                        third,
+                        twice_sentences,
+                        twice_verified,
+                    )
+                    third = _apply_unresolved_evidence_ordinal_gate(
                         third,
                         twice_sentences,
                         twice_verified,
@@ -1019,12 +1396,35 @@ class SemanticEpisodeVerifier:
                         # monotonic safety operation, so no fourth model call is
                         # needed; structural coverage and marker preservation
                         # still have to pass below.
+                        third_repair_indexes = self._plan_repair_indexes(
+                            third.report.rejected_sentence_indexes,
+                            twice_sentences,
+                            twice_verified,
+                            third.report.issues,
+                        )
+                        if not third_repair_indexes:
+                            return self._completed_public(
+                                frame,
+                                twice_verified,
+                                judge_status="repaired",
+                                judge_issues=tuple(
+                                    dict.fromkeys(
+                                        (
+                                            *twice_verified.issues,
+                                            *preflight_issues,
+                                            *first.report.issues,
+                                            *second.report.issues,
+                                            *third.report.issues,
+                                        )
+                                    )
+                                ),
+                                correlated_judge=correlated,
+                                call=third,
+                            )
                         terminal_repair = self._repair(
                             frame=frame,
                             structural=twice_verified,
-                            rejected_sentence_indexes=(
-                                third.report.rejected_sentence_indexes
-                            ),
+                            rejected_sentence_indexes=third_repair_indexes,
                         )
                         if terminal_repair is not None:
                             terminal_verified, _terminal_frame = terminal_repair
@@ -1033,34 +1433,38 @@ class SemanticEpisodeVerifier:
                                 twice_verified.outcome.draft,
                                 terminal_verified.outcome.draft,
                             )
-                            if terminal_marker_loss and (
-                                terminal_verified.verified_status == "completed"
-                                or _can_semantically_release_partial(
-                                    terminal_verified
+                            terminal_issues = tuple(
+                                dict.fromkeys(
+                                    (
+                                        *terminal_verified.issues,
+                                        *preflight_issues,
+                                        *first.report.issues,
+                                        *second.report.issues,
+                                        *third.report.issues,
+                                        *_marker_loss_issues(
+                                            terminal_marker_loss
+                                        ),
+                                    )
                                 )
-                            ):
-                                return self._marker_loss_partial_public(
-                                    frame,
-                                    terminal_verified,
-                                    terminal_marker_loss,
-                                    judge_issues=tuple(
-                                        dict.fromkeys(
-                                            (
-                                                *terminal_verified.issues,
-                                                *preflight_issues,
-                                                *first.report.issues,
-                                                *second.report.issues,
-                                                *third.report.issues,
-                                                *_marker_loss_issues(
-                                                    terminal_marker_loss
-                                                ),
-                                            )
-                                        )
-                                    ),
-                                    correlated_judge=correlated,
-                                    call=third,
-                                )
-                            if not terminal_marker_loss and (
+                            )
+                            withheld = self._maybe_withhold_after_repair(
+                                frame,
+                                source=twice_verified,
+                                wiped=terminal_verified,
+                                rejected_sentence_indexes=third_repair_indexes,
+                                marker_loss=terminal_marker_loss,
+                                judge_issues=terminal_issues,
+                                correlated_judge=correlated,
+                                call=third,
+                                issue_code="repair_wiped_all_outputs",
+                                issue_message=(
+                                    "semantic repair removed every required output; "
+                                    "judge verdict treated as suspect"
+                                ),
+                            )
+                            if withheld is not None:
+                                return withheld
+                            if (
                                 terminal_verified.verified_status == "completed"
                                 or _can_semantically_release_partial(
                                     terminal_verified
@@ -1101,7 +1505,7 @@ class SemanticEpisodeVerifier:
                             )
                         )
                     )
-                    return _attach_judge_clock(
+                    return self._finalize_outcome(
                         SemanticEpisodeOutcome(
                             verified=twice_verified,
                             status="partial",
@@ -1133,7 +1537,7 @@ class SemanticEpisodeVerifier:
                 )
             )
         )
-        return _attach_judge_clock(
+        return self._finalize_outcome(
             SemanticEpisodeOutcome(
                 verified=repaired_verified,
                 status="partial",
@@ -1175,14 +1579,16 @@ class SemanticEpisodeVerifier:
         )
         if not public:
             return None
-        notice = (
-            "结构化证据绑定已通过边界校验，但语义核验因瞬时服务问题未完成；"
-            "以下仅为候选草稿，不视为最终核验结论："
-        )
         return SemanticEpisodeOutcome(
             verified=structural,
             status="partial",
-            public_answer=f"{notice}\n\n{public}",
+            public_answer=view(
+                TerminalFacts(
+                    cause=CAUSE_TRANSIENT_VERIFIER_OUTAGE,
+                    question=frame.raw_question,
+                    public=public,
+                )
+            ),
             judge_status="unavailable",
             issues=issues,
             correlated_judge=correlated_judge,
@@ -1227,16 +1633,19 @@ class SemanticEpisodeVerifier:
             "answer_grounding_mode": answer_grounding_mode,
             "output_bindings": output_bindings,
             "evidence_registry": evidence_registry,
-            "tool_status_registry": _semantic_tool_status_registry(
-                verified.outcome.traces
-            ),
-            "claim_policy": dict(_CLAIM_POLICY),
+            "verified_quantities": _verified_quantities_for_judge(verified.outcome),
+            "tool_status_registry": [
+                row
+                for row in _semantic_tool_status_registry(verified.outcome.traces)
+                if str(row.get("capability") or "")
+                not in _JUDGE_HIDDEN_STATUS_CAPABILITIES
+            ],
             "sentences": sentences,
         }
         if recheck_enabled():
             draft = " ".join(str(item.get("text") or "") for item in sentences)
             payload["source_recheck"] = recheck_draft(draft)
-        return payload
+        return cast(dict[str, object], compact_judge_payload(payload))
 
     def _clocked_judge_call(
         self,
@@ -1277,8 +1686,11 @@ class SemanticEpisodeVerifier:
         request: dict[str, object],
         deadline: ResearchDeadline,
     ) -> _JudgeCall:
-        attempt_timeouts = _semantic_attempt_timeouts(
-            deadline,
+        total_window = semantic_total_judge_window(
+            deadline, configured_attempt_timeout=self._judge_timeout
+        )
+        attempt_timeouts = semantic_attempts_for_window(
+            total_window,
             configured_attempt_timeout=self._judge_timeout,
         )
         if not attempt_timeouts:
@@ -1298,16 +1710,50 @@ class SemanticEpisodeVerifier:
         except Exception:
             provider = None
         if provider is not None:
+            leftover = _deadline_remaining_seconds(deadline)
+            if leftover_window_blocks_complete_attempt(
+                leftover, self._judge_timeout
+            ):
+                return self._clocked_judge_call(
+                    asked=0.0,
+                    remaining=leftover,
+                    correlated=False,
+                    unavailable=True,
+                    issue=LEFTOVER_WINDOW_ISSUE,
+                    root_deadline_exhausted=True,
+                    monotonic_release_safe=True,
+                )
             messages = [
                 {"role": "system", "content": _judge_system_prompt(request)},
                 {
                     "role": "user",
-                    "content": json.dumps(request, ensure_ascii=False),
+                    "content": dumps_judge_request(request),
                 },
             ]
             prior_failures_release_safe = True
+            # 窗口余额账：报价是「一次完整尝试」，真正的封顶是这里。
+            # 用 deadline 读数扣账而不是另起时钟——冻结时间的测试才不会两套钟打架。
+            window_left = total_window
+            previous_remaining: float | None = None
             for attempt, timeout_limit in enumerate(attempt_timeouts):
                 remaining_at_entry = _deadline_remaining_seconds(deadline)
+                if previous_remaining is not None and remaining_at_entry is not None:
+                    window_left -= max(0.0, previous_remaining - remaining_at_entry)
+                previous_remaining = remaining_at_entry
+                timeout_limit = min(timeout_limit, max(0.0, window_left))
+                if leftover_window_blocks_complete_attempt(
+                    remaining_at_entry, self._judge_timeout
+                ):
+                    return self._clocked_judge_call(
+                        asked=0.0,
+                        judge_attempt_index=attempt,
+                        remaining=remaining_at_entry,
+                        correlated=False,
+                        unavailable=True,
+                        issue=LEFTOVER_WINDOW_ISSUE,
+                        root_deadline_exhausted=True,
+                        monotonic_release_safe=True,
+                    )
                 attempt_timeout = deadline.synthesis_timeout(timeout_limit)
                 if attempt_timeout <= 0.001:
                     failure_chain_release_safe = (
@@ -1443,13 +1889,21 @@ class SemanticEpisodeVerifier:
             {"role": "system", "content": _judge_system_prompt(request)},
             {
                 "role": "user",
-                "content": json.dumps(request, ensure_ascii=False),
+                "content": dumps_judge_request(request),
             },
         ]
         prior_failures_release_safe = True
+        # 与 provider 分支同一本窗口余额账，见 _semantic_attempt_timeouts。
+        window_left = total_window
+        previous_remaining: float | None = None
         for attempt, timeout_limit in enumerate(attempt_timeouts):
             remaining_at_entry = _deadline_remaining_seconds(deadline)
-            attempt_timeout = deadline.synthesis_timeout(timeout_limit)
+            if previous_remaining is not None and remaining_at_entry is not None:
+                window_left -= max(0.0, previous_remaining - remaining_at_entry)
+            previous_remaining = remaining_at_entry
+            attempt_timeout = deadline.synthesis_timeout(
+                min(timeout_limit, max(0.0, window_left))
+            )
             if attempt_timeout <= 0.001:
                 failure_chain_release_safe = (
                     attempt == 0 or prior_failures_release_safe
@@ -1726,6 +2180,187 @@ class SemanticEpisodeVerifier:
         except Exception:
             return None
 
+    def _apply_unattempted_claim_rewrite(
+        self,
+        frame: TaskFrame,
+        structural: VerifiedEpisodeOutcome,
+    ) -> tuple[VerifiedEpisodeOutcome, tuple[str, ...], int]:
+        asked_date = last_explicit_iso_date(frame.raw_question)
+        claims = find_unattempted_claims(
+            structural.outcome.draft,
+            structural.outcome.traces,
+            asked_date=asked_date,
+        )
+        if not claims:
+            return structural, (), 0
+        rewritten = rewrite_unattempted_claims(structural.outcome.draft, claims)
+        if rewritten != structural.outcome.draft:
+            structural = replace(
+                structural,
+                outcome=replace(structural.outcome, draft=rewritten),
+            )
+        issues = tuple(
+            f"code=unattempted_claim :: 本次未查询 {claim.capability}"
+            + (f" {claim.asked_date}" if claim.asked_date else "")
+            for claim in claims
+        )
+        return structural, issues, len(claims)
+
+    def _apply_kb_gap_proof_rewrite(
+        self,
+        structural: VerifiedEpisodeOutcome,
+    ) -> VerifiedEpisodeOutcome:
+        rewritten = rewrite_unverified_kb_gap_claims(
+            structural.outcome.draft,
+            structural.outcome.traces,
+        )
+        if rewritten == structural.outcome.draft:
+            return structural
+        return replace(
+            structural,
+            outcome=replace(structural.outcome, draft=rewritten),
+        )
+
+    def _withhold_public_source(
+        self,
+        before: str,
+        rejected_sentence_indexes: tuple[int, ...],
+    ) -> tuple[str, str, tuple[str, ...]]:
+        minus = (
+            _drop_rejected_sentences(before, rejected_sentence_indexes)
+            if rejected_sentence_indexes
+            else ""
+        )
+        public_source, mode = choose_repair_rollback(before, minus)
+        extra: tuple[str, ...] = ()
+        if mode == "whole_pre_repair" and rejected_sentence_indexes:
+            extra = (
+                "code=repair_collapsed_to_stub :: "
+                "已回退至未经语义修复的稿，其中含 "
+                f"{len(rejected_sentence_indexes)} 条未通过判官的表述",
+            )
+        return public_source, mode, extra
+
+    def _maybe_withhold_stub(
+        self,
+        frame: TaskFrame,
+        *,
+        source: VerifiedEpisodeOutcome,
+        wiped: VerifiedEpisodeOutcome,
+        rejected_sentence_indexes: tuple[int, ...],
+        judge_issues: tuple[str, ...],
+        correlated_judge: bool,
+        call: _JudgeCall | None,
+    ) -> SemanticEpisodeOutcome | None:
+        if not repair_collapsed_to_stub(
+            source.outcome.draft,
+            wiped.outcome.draft,
+            frame.question_type,
+        ):
+            return None
+        return self._emit_withheld_repair(
+            frame,
+            source=source,
+            rejected_sentence_indexes=rejected_sentence_indexes,
+            judge_issues=judge_issues,
+            correlated_judge=correlated_judge,
+            call=call,
+            collapsed=True,
+        )
+
+    def _maybe_withhold_after_repair(
+        self,
+        frame: TaskFrame,
+        *,
+        source: VerifiedEpisodeOutcome,
+        wiped: VerifiedEpisodeOutcome,
+        rejected_sentence_indexes: tuple[int, ...],
+        marker_loss: tuple[str, ...],
+        judge_issues: tuple[str, ...],
+        correlated_judge: bool,
+        call: _JudgeCall | None,
+        issue_code: str,
+        issue_message: str,
+    ) -> SemanticEpisodeOutcome | None:
+        if marker_loss:
+            return self._marker_loss_or_withhold(
+                frame,
+                source=source,
+                wiped=wiped,
+                marker_loss=marker_loss,
+                judge_issues=judge_issues,
+                correlated_judge=correlated_judge,
+                call=call,
+                issue_code=issue_code,
+                issue_message=issue_message,
+                rejected_sentence_indexes=rejected_sentence_indexes,
+            )
+        return self._maybe_withhold_stub(
+            frame,
+            source=source,
+            wiped=wiped,
+            rejected_sentence_indexes=rejected_sentence_indexes,
+            judge_issues=judge_issues,
+            correlated_judge=correlated_judge,
+            call=call,
+        )
+
+    def _emit_withheld_repair(
+        self,
+        frame: TaskFrame,
+        *,
+        source: VerifiedEpisodeOutcome,
+        rejected_sentence_indexes: tuple[int, ...],
+        judge_issues: tuple[str, ...],
+        correlated_judge: bool,
+        call: _JudgeCall | None,
+        collapsed: bool,
+    ) -> SemanticEpisodeOutcome:
+        public_source, mode, extra_issues = self._withhold_public_source(
+            source.outcome.draft,
+            rejected_sentence_indexes,
+        )
+        public = _sanitize_public_answer(
+            public_source,
+            source.outcome.evidence,
+            source.outcome.traces,
+        )
+        issues = tuple(dict.fromkeys((*judge_issues, *extra_issues)))
+        if not public:
+            outcome = SemanticEpisodeOutcome(
+                verified=source,
+                status="partial",
+                public_answer=self._gap_answer(frame, source),
+                judge_status="repaired",
+                issues=issues,
+                correlated_judge=correlated_judge,
+                gap_output_ids=(),
+                repair_withheld=True,
+                repair_collapsed_to_stub=collapsed,
+                repair_rollback_mode=mode,
+            )
+        else:
+            outcome = SemanticEpisodeOutcome(
+                verified=source,
+                status="partial",
+                public_answer=view(
+                    TerminalFacts(cause=CAUSE_VERIFIED, public=public)
+                ),
+                judge_status="repaired",
+                issues=issues,
+                correlated_judge=correlated_judge,
+                gap_output_ids=(),
+                repair_withheld=True,
+                repair_collapsed_to_stub=collapsed,
+                repair_rollback_mode=mode,
+            )
+        return self._finalize_outcome(
+            outcome,
+            call,
+            repair_collapsed_to_stub=collapsed,
+            repair_rollback_mode=mode,
+        )
+
     def _repair(
         self,
         *,
@@ -1743,13 +2378,27 @@ class SemanticEpisodeVerifier:
         )
         if not draft:
             return None
+        # 先按槽补回被连坐的真值，再算缺口。补回成功时缺口自然为空
+        # （真值已在稿里）；缺口这条留作兜底——补不回来时它仍会记账，
+        # 不让真值静默消失。
+        draft, _restored = _restore_lost_observations(
+            draft=draft,
+            before=original.draft,
+            evidence=original.evidence,
+        )
+        gaps = _gaps_with_lost_observations(
+            gaps=original.gaps,
+            before=original.draft,
+            after=draft,
+            evidence=original.evidence,
+        )
         repaired_outcome = AgentOutcome(
             task_frame_hash=original.task_frame_hash,
             status=original.status,
             draft=draft,
             evidence=original.evidence,
             traces=original.traces,
-            gaps=original.gaps,
+            gaps=gaps,
             stop_reason="semantic_repair",
             events=original.events,
             bindings=original.bindings,
@@ -1792,15 +2441,72 @@ class SemanticEpisodeVerifier:
                 verified=verified,
                 status=(
                     "completed"
-                    if verified.verified_status == "completed"
+                    if (
+                        verified.verified_status == "completed"
+                        or _contract_slots_all_fulfilled(verified)
+                    )
                     else "partial"
                 ),
-                public_answer=public,
+                public_answer=view(
+                    TerminalFacts(cause=CAUSE_VERIFIED, public=public)
+                ),
                 judge_status=judge_status,
                 issues=judge_issues,
                 correlated_judge=correlated_judge,
             )
-        return _attach_judge_clock(outcome, call) if call is not None else outcome
+        return self._finalize_outcome(outcome, call)
+
+    def _marker_loss_or_withhold(
+        self,
+        frame: TaskFrame,
+        *,
+        source: VerifiedEpisodeOutcome,
+        wiped: VerifiedEpisodeOutcome,
+        marker_loss: tuple[str, ...],
+        judge_issues: tuple[str, ...],
+        correlated_judge: bool,
+        call: _JudgeCall | None,
+        issue_code: str,
+        issue_message: str,
+        rejected_sentence_indexes: tuple[int, ...] = (),
+    ) -> SemanticEpisodeOutcome:
+        """Keep the pre-repair draft when deletion would empty every required slot.
+
+        Flagged-sentence rollback belongs to the stub path, not this one: C3
+        withholds because the remainder lost required-slot substance, so
+        publishing that remainder would recreate the wipe.
+        """
+
+        if _repair_wiped_all_required(source.contract, marker_loss):
+            collapsed = repair_collapsed_to_stub(
+                source.outcome.draft,
+                wiped.outcome.draft,
+                frame.question_type,
+            )
+            return self._emit_withheld_repair(
+                frame,
+                source=source,
+                rejected_sentence_indexes=(),
+                judge_issues=tuple(
+                    dict.fromkeys(
+                        (
+                            *judge_issues,
+                            f"code={issue_code} :: {issue_message}",
+                        )
+                    )
+                ),
+                correlated_judge=correlated_judge,
+                call=call,
+                collapsed=collapsed,
+            )
+        return self._marker_loss_partial_public(
+            frame,
+            wiped,
+            marker_loss,
+            judge_issues=judge_issues,
+            correlated_judge=correlated_judge,
+            call=call,
+        )
 
     def _marker_loss_partial_public(
         self,
@@ -1812,7 +2518,7 @@ class SemanticEpisodeVerifier:
         correlated_judge: bool,
         call: _JudgeCall | None = None,
     ) -> SemanticEpisodeOutcome:
-        """Keep reviewed remainder and expose only the deleted slot as a gap."""
+        """Keep reviewed remainder; required slots degrade instead of vanishing."""
 
         verified = _shrink_verified_for_marker_loss(verified, output_ids)
         public = _sanitize_public_answer(
@@ -1823,17 +2529,6 @@ class SemanticEpisodeVerifier:
             verified.outcome.evidence,
             verified.outcome.traces,
         )
-        if not public:
-            outcome = SemanticEpisodeOutcome(
-                verified=verified,
-                status="partial",
-                public_answer=self._gap_answer(frame, verified),
-                judge_status="repaired",
-                issues=judge_issues,
-                correlated_judge=correlated_judge,
-                gap_output_ids=output_ids,
-            )
-            return _attach_judge_clock(outcome, call) if call is not None else outcome
         descriptions = {
             item.output_id: item.description.strip() or item.output_id
             for item in (
@@ -1846,29 +2541,37 @@ class SemanticEpisodeVerifier:
                 for output_id in output_ids
             )
         )
-        context = _gap_task_context(frame)
-        context_prefix = f"{context}的" if context else ""
-        gap = (
-            "证据缺口："
-            + context_prefix
-            + "、".join(labels)
-            + "中的未核验表述已删除，需补充直接证据后再判断。"
-        )
+        if not public:
+            outcome = SemanticEpisodeOutcome(
+                verified=verified,
+                status="partial",
+                public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public="")),
+                judge_status="repaired",
+                issues=judge_issues,
+                correlated_judge=correlated_judge,
+                gap_output_ids=output_ids,
+            )
+            return self._finalize_outcome(outcome, call)
+        annotated = _with_required_output_degrade_mark(public, labels)
         outcome = SemanticEpisodeOutcome(
             verified=verified,
             status="partial",
-            public_answer=f"{public}\n{gap}",
+            public_answer=view(
+                TerminalFacts(cause=CAUSE_VERIFIED, public=annotated)
+            ),
             judge_status="repaired",
             issues=judge_issues,
             correlated_judge=correlated_judge,
             gap_output_ids=output_ids,
         )
-        return _attach_judge_clock(outcome, call) if call is not None else outcome
+        return self._finalize_outcome(outcome, call)
 
     @staticmethod
     def _gap_answer(
         frame: TaskFrame,
         verified: VerifiedEpisodeOutcome,
+        *,
+        judge_unavailable: bool = False,
     ) -> str:
         """缺数三档的中间档：缺 X → 仍可判 Y → 验证窗口 Z。
 
@@ -1877,16 +2580,47 @@ class SemanticEpisodeVerifier:
         「从不输出裸的不知道」那条；08-01 验收 C 组的诚实度失分同源）。
 
         「仍可判 Y」的取材红线：**只用结构性事实**——契约里的槽位描述、
-        binding 里去重后的证据哈希数、证据的来源日期。一个字都不从 draft 捞：
-        gap 答案出现的场合正是 draft 被拒的场合，捞正文等于绕过语义门禁。
+        binding 里去重后的证据哈希数、证据的来源日期。普通 ``evidence_gap``
+        一个字都不从 draft 捞。``invalid_repair_finish`` 且证据非空改走
+        ``verification_incomplete``：已兑现槽在拒稿前写入 ``public=``，未兑现
+        槽交给 ``unknown_slots``，由 ``view()`` 渲成用户语言。
         """
 
         question = frame.raw_question.strip() or "当前问题"
+        if judge_unavailable:
+            # 禁语在下面的 evidence 分支，不看 cause。判官挂了必须改这条
+            # body，不能只改开口。
+            parts: list[str] = []
+            evidence = verified.outcome.evidence
+            if evidence:
+                parts.append(
+                    f"本轮已取得 {len(evidence)} 条证据，暂不对外引用；可直接重试。"
+                )
+            window = _latest_evidence_date(evidence)
+            if window:
+                parts.append(f"证据数据截至 {window}。")
+            return view(
+                TerminalFacts(
+                    cause=CAUSE_JUDGE_UNAVAILABLE_HELD,
+                    question=question,
+                    gap_body="".join(parts),
+                )
+            )
         # 首句成因不跟 ASK_DEGRADED_FALLBACK：模型没服务成时不能写成「证据不足」。
-        base = gap_opening(question, verified)
+        # invalid_repair_finish + 证据非空不是「没查到」，不得贴 evidence_gap。
+        incomplete_repair = (
+            str(verified.outcome.stop_reason or "") == "invalid_repair_finish"
+            and bool(verified.outcome.evidence)
+        )
+        if is_model_service_unavailable(verified):
+            cause = CAUSE_MODEL_UNAVAILABLE
+        elif incomplete_repair:
+            cause = CAUSE_VERIFICATION_INCOMPLETE
+        else:
+            cause = CAUSE_EVIDENCE_GAP
         contract = verified.contract
         if contract is None:
-            return base
+            return view(TerminalFacts(cause=cause, question=question))
         status_by_id = {
             item.output_id: item.status for item in verified.completion.outputs
         }
@@ -1904,9 +2638,6 @@ class SemanticEpisodeVerifier:
                 _gap_label(item) for item in targets if _gap_label(item)
             )
         )
-        parts = [base]
-        if labels:
-            parts.append("仍需核验：" + "、".join(labels[:3]) + "。")
         bound_counts = {
             binding.output_id: len(dict.fromkeys(binding.evidence_hashes))
             for binding in verified.outcome.bindings
@@ -1918,6 +2649,9 @@ class SemanticEpisodeVerifier:
             if status_by_id.get(item.output_id) == "fulfilled"
             and bound_counts.get(item.output_id)
         )
+        parts: list[str] = []
+        if cause != CAUSE_VERIFICATION_INCOMPLETE and labels:
+            parts.append("仍需核验：" + "、".join(labels[:3]) + "。")
         if kept:
             parts.append(
                 "本轮已核验（供参考，不构成完整结论）："
@@ -1944,12 +2678,28 @@ class SemanticEpisodeVerifier:
         transparency = gap_transparency(verified)
         if transparency:
             parts.append(transparency)
-        return "".join(parts)
+        public = ""
+        unknown_slots: tuple[str, ...] = ()
+        if cause == CAUSE_VERIFICATION_INCOMPLETE:
+            unknown_slots = labels
+            if kept:
+                public = str(verified.outcome.draft or "").strip()
+        return view(
+            TerminalFacts(
+                cause=cause,
+                question=question,
+                public=public,
+                gap_body="".join(parts),
+                unknown_slots=unknown_slots,
+            )
+        )
 
     @staticmethod
     def _generic_gap_answer(frame: TaskFrame) -> str:
         question = frame.raw_question.strip() or "当前问题"
-        return f"关于“{question}”，现有证据不足，暂不能可靠回答。"
+        return view(
+            TerminalFacts(cause=CAUSE_EVIDENCE_GAP, question=question)
+        )
 
 
 def _gap_label(item) -> str:
@@ -1985,6 +2735,25 @@ def _latest_evidence_date(evidence: tuple) -> str:
 
 _ISO_DATE_RE = re.compile(r"^20\d{2}-\d{2}-\d{2}$")
 _MARKER_LOSS_GAP = "semantic repair removed required output"
+REQUIRED_OUTPUT_DEGRADED_MARK = "【质检降级】"
+
+
+def _required_output_degraded_note(labels: tuple[str, ...]) -> str:
+    # 控制面用。公开稿不得拼接这一行。
+    if not labels:
+        return ""
+    return (
+        f"{REQUIRED_OUTPUT_DEGRADED_MARK}"
+        "部分必答格核验后不完整，残块保留，判断强度已降级。"
+    )
+
+
+def _with_required_output_degrade_mark(
+    public: str,
+    labels: tuple[str, ...],
+) -> str:
+    del labels
+    return str(public or "")
 
 
 def _shrink_verified_for_marker_loss(
@@ -2044,7 +2813,12 @@ def _shrink_verified_for_marker_loss(
             )
 
     extra_issues = tuple(
-        f"{_MARKER_LOSS_GAP}: {output_id}" for output_id in actionable
+        Issue(
+            IssueCode.MARKER_LOSS,
+            output_id,
+            f"{_MARKER_LOSS_GAP}: {output_id}",
+        )
+        for output_id in actionable
     )
     return replace(
         verified,
@@ -2059,7 +2833,7 @@ def _shrink_verified_for_marker_loss(
         ),
         verified_status="partial",
         missing_outputs=tuple(dict.fromkeys((*verified.missing_outputs, *actionable))),
-        issues=tuple(dict.fromkeys((*verified.issues, *extra_issues))),
+        issue_items=tuple(dict.fromkeys((*verified.issue_items, *extra_issues))),
     )
 
 
@@ -2072,14 +2846,51 @@ def _gap_task_context(frame: TaskFrame) -> str:
     }.get(frame.question_type, "")
 
 
+def _contract_slots_all_fulfilled(verified: VerifiedEpisodeOutcome) -> bool:
+    """True when every contracted slot is fulfilled and the structure has no issue.
+
+    This is the 2026-08-19 production shape: runtime declared partial
+    (``deadline_exhausted``) while bindings, coverage and draft were already
+    complete. Structural verification never upgrades runtime status; after a
+    judge pass the semantic gate may report completed — the deadline is an
+    operational fact, not a missing required output.
+    """
+
+    if not verified.outcome.draft.strip():
+        return False
+    if verified.issue_items:
+        return False
+    if verified.completion.factual_grounding != "fulfilled":
+        return False
+    if verified.completion.task_coverage != "fulfilled":
+        return False
+    required_ids = {
+        item.output_id
+        for item in (verified.contract.required_outputs if verified.contract else ())
+        if item.required
+    }
+    outputs = verified.completion.outputs
+    if required_ids:
+        return all(
+            item.status == "fulfilled"
+            for item in outputs
+            if item.output_id in required_ids
+        )
+    return any(item.status == "fulfilled" for item in outputs)
+
+
 def _can_semantically_release_partial(
     verified: VerifiedEpisodeOutcome,
 ) -> bool:
     """Allow a useful partial through the judge without weakening hard gates.
 
-    Only an explicit required-output evidence gap is eligible.  Missing
-    bindings, unknown hashes, frame mismatches, and every other structural
-    issue still fail closed before the semantic judge sees the draft.
+    Eligible issues are the ones where至少一个槽位已凭真实证据履行、缺口本身
+    可以诚实呈现：模型自报 gap、强制能力未绑上、以及证据**类型白名单**问题
+    （混绑已在结构层剔除非法哈希，整格非法则该槽已判 missing——两种情况下
+    正文引用的仍是证据池里真实采集的内容）。Unknown hashes、伪造、frame
+    mismatch、财务锚地板（FINANCIAL_ANCHOR_MISSING）等其余结构问题仍在语义
+    裁判看到草稿之前 fail closed。放行只查 ``Issue.code`` / ``RELEASE_POLICY``，
+    不匹配文案。
     """
 
     if verified.verified_status != "partial":
@@ -2090,26 +2901,11 @@ def _can_semantically_release_partial(
         item.status == "fulfilled" for item in verified.completion.outputs
     ):
         return False
-    if (
-        verified.outcome.status == "partial"
-        and not verified.issues
-        and verified.completion.factual_grounding == "fulfilled"
-        and verified.completion.task_coverage == "fulfilled"
+    if verified.outcome.status == "partial" and _contract_slots_all_fulfilled(
+        verified
     ):
-        # The runtime declared an honest partial even though every structural
-        # binding is present. Judge the prose, but preserve the partial status.
         return True
-    if not verified.issues:
-        return False
-    return all(
-        issue.startswith(
-            (
-                "required output reports gap:",
-                "missing mandatory capability evidence:",
-            )
-        )
-        for issue in verified.issues
-    )
+    return allows_partial_release(verified.issue_items)
 
 
 def _numbered_sentences(draft: str) -> list[dict[str, object]]:
@@ -2178,13 +2974,228 @@ def _apply_numeric_condition_gate(
     rejected.update(_novel_numeric_condition_indexes(sentences, verified))
     if rejected == set(report.rejected_sentence_indexes):
         return call
-    issues = tuple(dict.fromkeys((*report.issues, _NUMERIC_CONDITION_ISSUE)))
+    issues = tuple(dict.fromkeys((*report.issues, _NUMERIC_CONDITION_ISSUE.message)))
     return replace(
         call,
         report=answer_model.GroundingJudgeReport(
             passed=False,
             rejected_sentence_indexes=tuple(sorted(rejected)),
             issues=issues,
+        ),
+    )
+
+
+def v8_semantic_degrade_enabled() -> bool:
+    """Rollback gate. Default on. Off folds every index into mechanical."""
+
+    raw = str(os.environ.get("FINANCE_V8_SEMANTIC_DEGRADE", "1")).strip().lower()
+    return raw not in {"0", "false", "off", "no"}
+
+
+def _unresolved_evidence_ordinal_indexes(
+    sentences: list[dict[str, object]],
+    verified: VerifiedEpisodeOutcome,
+) -> tuple[int, ...]:
+    """Code-produced table-out-of-range E citations. Never parse LLM copy."""
+
+    known = frozenset(evidence_ordinal_table(verified.outcome.evidence).values())
+    rejected: list[int] = []
+    for item in sentences:
+        index = item.get("index")
+        text = str(item.get("text") or "")
+        if not isinstance(index, int):
+            continue
+        cited = cited_evidence_ordinals(text)
+        if cited and any(token not in known for token in cited):
+            rejected.append(index)
+    return tuple(rejected)
+
+
+def _mechanical_sentence_indexes(
+    sentences: list[dict[str, object]],
+    verified: VerifiedEpisodeOutcome,
+) -> frozenset[int]:
+    return frozenset(
+        (
+            *_novel_numeric_condition_indexes(sentences, verified),
+            *_mismatched_weekday_indexes(sentences, verified),
+            *_mismatched_path_trend_indexes(sentences, verified),
+            *_unresolved_evidence_ordinal_indexes(sentences, verified),
+        )
+    )
+
+
+def _partition_rejected_indexes(
+    rejected: tuple[int, ...],
+    *,
+    sentences: list[dict[str, object]],
+    verified: VerifiedEpisodeOutcome,
+) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    """Split rejected indexes into (mechanical, semantic). Code-produced only."""
+
+    canonical = tuple(
+        sorted({int(index) for index in rejected if int(index) >= 1})
+    )
+    if not v8_semantic_degrade_enabled():
+        return canonical, ()
+    mechanical_set = _mechanical_sentence_indexes(sentences, verified)
+    mechanical = tuple(index for index in canonical if index in mechanical_set)
+    semantic = tuple(index for index in canonical if index not in mechanical_set)
+    return mechanical, semantic
+
+
+def _apply_unresolved_evidence_ordinal_gate(
+    call: _JudgeCall,
+    sentences: list[dict[str, object]],
+    verified: VerifiedEpisodeOutcome,
+) -> _JudgeCall:
+    """Fail-closed when the judge passed a table-out-of-range E citation.
+
+    When the judge already rejected some indexes, do not add extra E indexes:
+    sequential mechanical rejudge (C cluster / W1 ④) keeps one-at-a-time
+    deletion. Intersection with the partitioner still classifies the rejected
+    E indexes as mechanical.
+    """
+
+    report = call.report
+    if report is None:
+        return call
+    unresolved = set(_unresolved_evidence_ordinal_indexes(sentences, verified))
+    if not unresolved:
+        return call
+    rejected = set(report.rejected_sentence_indexes)
+    if report.passed:
+        rejected.update(unresolved)
+    if rejected == set(report.rejected_sentence_indexes):
+        return call
+    issues = tuple(
+        dict.fromkeys((*report.issues, _UNRESOLVED_EVIDENCE_ISSUE.serialize()))
+    )
+    return replace(
+        call,
+        report=answer_model.GroundingJudgeReport(
+            passed=False,
+            rejected_sentence_indexes=tuple(sorted(rejected)),
+            issues=issues,
+        ),
+    )
+
+
+def _required_grounded_output_ids(contract: object) -> frozenset[str]:
+    """Same membership `_lost_grounded_output_substance` cares about."""
+
+    ids: set[str] = set()
+    for item in getattr(contract, "required_outputs", ()):
+        if not getattr(item, "required", True):
+            continue
+        output_id = str(getattr(item, "output_id", ""))
+        mode = str(getattr(item, "grounding_mode", "evidence"))
+        if mode == "evidence" or (
+            output_id in JUDGMENT_OUTPUT_IDS and mode == "model_reasoning"
+        ):
+            ids.add(output_id)
+    return frozenset(ids)
+
+
+def _sentence_in_required_grounded_block(
+    sentence_text: str,
+    contract: object,
+) -> bool:
+    required = _required_grounded_output_ids(contract)
+    if not required:
+        return False
+    other_ids = tuple(
+        str(getattr(item, "output_id", ""))
+        for item in getattr(contract, "required_outputs", ())
+        if str(getattr(item, "output_id", ""))
+        and str(getattr(item, "output_id", "")) not in required
+    )
+    if other_ids and any(
+        answer_has_output_marker(output_id, sentence_text) for output_id in other_ids
+    ):
+        if not any(
+            answer_has_output_marker(output_id, sentence_text) for output_id in required
+        ):
+            return False
+    return True
+
+
+def _annotate_semantic_rejects(
+    public: str,
+    semantic_texts: tuple[str, ...],
+) -> str:
+    """存疑句不再盖章。标记只允许出现在 issues / 控制面。"""
+
+    del semantic_texts
+    return str(public or "")
+
+
+def _semantic_degrade_labels(verified: VerifiedEpisodeOutcome) -> tuple[str, ...]:
+    contract = verified.contract
+    required = _required_grounded_output_ids(contract)
+    if not required:
+        return ()
+    descriptions = {
+        item.output_id: item.description.strip() or item.output_id
+        for item in (contract.required_outputs if contract is not None else ())
+    }
+    return tuple(
+        dict.fromkeys(descriptions.get(output_id, output_id) for output_id in required)
+    )
+
+
+_META_DISCLOSURE_RE = re.compile(
+    r"映射为推理层|视角层推断|视角层判断|属于?推理层|原文未覆盖|语料未覆盖"
+)
+# 带具体价值断言的句子不豁免：披露句只允许降低断言强度，不允许顺带夹带行情事实。
+_META_DISCLOSURE_VALUE_RE = re.compile(
+    r"[0-9]+(?:\.[0-9]+)?\s*(?:%|％|亿|万元|万手|元|倍|家|个点)|涨停|跌停|新高|新低"
+)
+
+
+def _is_meta_disclosure(sentence: str) -> bool:
+    text = str(sentence or "")
+    return bool(_META_DISCLOSURE_RE.search(text)) and not _META_DISCLOSURE_VALUE_RE.search(text)
+
+
+def _apply_meta_disclosure_exemption(
+    call: _JudgeCall,
+    sentences: list[dict[str, object]],
+) -> _JudgeCall:
+    """豁免「答案对自身证据边界/推理层级的披露句」的判定拒绝。
+
+    这类句子（如“KOL原文未覆盖8月盘面，映射为推理层”）是视角层按规则输出的
+    诚实声明，作用是降低断言强度；证据注册表里结构性不存在“语料覆盖范围”
+    这类证据，按外部事实句审查等于要求它必死，repair 随之把对用户最有价值的
+    边界声明从公开答案里删掉（2026-08-19 生产 run 实锤）。带具体行情数字或
+    涨跌停等价值断言的句子不豁免，防止借披露句夹带事实。
+    """
+
+    report = call.report
+    if report is None or not report.rejected_sentence_indexes:
+        return call
+    text_by_index = {int(item["index"]): str(item["text"]) for item in sentences}
+    exempted = {
+        index
+        for index in report.rejected_sentence_indexes
+        if _is_meta_disclosure(text_by_index.get(int(index), ""))
+    }
+    if not exempted:
+        return call
+    kept = tuple(
+        index for index in report.rejected_sentence_indexes if index not in exempted
+    )
+    kept_issues = tuple(
+        issue
+        for issue in report.issues
+        if not any(f"第{index}句" in issue for index in exempted)
+    )
+    return replace(
+        call,
+        report=answer_model.GroundingJudgeReport(
+            passed=not kept,
+            rejected_sentence_indexes=kept,
+            issues=kept_issues,
         ),
     )
 
@@ -2237,12 +3248,38 @@ def _novel_numeric_condition_indexes(
     """Return conditional sentences containing quantities absent from evidence."""
 
     contract = verified.contract
-    if contract is not None and contract.required_outputs and all(
-        item.grounding_mode != "evidence"
-        for item in contract.required_outputs
-        if item.required
-    ):
-        return ()
+    if contract is not None and contract.required_outputs:
+        # 整体豁免问的是「这份契约是不是压根不靠证据」，所以**保留** required
+        # 过滤：prior_recall / prime_* 这类可选 advisory 槽签的不是 evidence，
+        # 但它们不该把一份必需槽全 evidence 的契约说成 evidence-free。下面那块
+        # 条件槽豁免问的是另一个问题，故不带这个过滤——两块不对称是有意的，
+        # 别为了「统一风格」把这里也放宽。
+        if all(
+            item.grounding_mode != "evidence"
+            for item in contract.required_outputs
+            if item.required
+        ):
+            return ()
+        # 条件槽粒度豁免：契约把前瞻假设槽（情景/持续/证伪条件）签成
+        # model_reasoning 时，条件句里的新阈值是模型受契约委托提出的判断，
+        # 不再按「证据里没有的数量」连坐整句。此前门禁只认「全契约非
+        # evidence」的整体豁免，混合契约（如 market_forecast 带 evidence 的
+        # 边界槽）下证伪阈值必死。事实句仍由语义判官逐句审。
+        #
+        # 这里**不看 required**：required 回答「缺了算不算失败」，grounding_mode
+        # 回答「谁授权这个阈值」，是两根正交的轴，豁免只该看后者。装配层给前瞻
+        # 信号题挂的可选前瞻槽（required=False + model_reasoning）因此同享豁免
+        # ——否则契约明示「你可以在这格提阈值」、运行时照删，等于授权没传到执行
+        # 者手上（R-20260824-20）。混合签约仍由下面的 all() 一票否决向证据侧。
+        condition_items = tuple(
+            item
+            for item in contract.required_outputs
+            if item.output_id in FORWARD_HYPOTHESIS_OUTPUT_IDS
+        )
+        if condition_items and all(
+            item.grounding_mode != "evidence" for item in condition_items
+        ):
+            return ()
 
     rejected: set[int] = set()
     evidence_quantities = _bound_evidence_quantities(verified.outcome)
@@ -2275,6 +3312,28 @@ def _novel_numeric_condition_indexes(
         ):
             rejected.add(index)
     return tuple(sorted(rejected))
+
+
+def draft_sentence_count(draft: str) -> int:
+    """Public sentence count for W5 anti-regression (new sentences fail closed)."""
+
+    return len(_numbered_sentences(draft))
+
+
+def numeric_condition_unsupported(verified: VerifiedEpisodeOutcome) -> bool:
+    """True when the draft has a novel numeric condition G11 would redact.
+
+    Adapter runs this *before* the judge so a backfill turn can fetch the
+    missing number via the subject-anchored capability instead of thinning
+    the answer.
+    """
+
+    return bool(
+        _novel_numeric_condition_indexes(
+            _numbered_sentences(verified.outcome.draft),
+            verified,
+        )
+    )
 
 
 def _mismatched_weekday_indexes(
@@ -2529,14 +3588,28 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
             )
         )
     corpus = " ".join(fields)
-    return frozenset(
+    quantities = {
         _normalize_quantity(quantity)
         for quantity in (
             *_ARABIC_QUANTITY_RE.findall(corpus),
             *_CHINESE_QUANTITY_RE.findall(corpus),
         )
         if _normalize_quantity(quantity)
-    )
+    }
+    # 结构化观察值**不受 binding 约束**。上面那段只认被 binding 引用过的证据，
+    # 是引用卫生；而 observations 是 harness 自己投递上桌的事实，它是不是真的
+    # 与模型有没有记得绑引用无关。少了这一段，模型写对了数却忘了绑，真话会被
+    # 判成「证据里没有的数量」连坐删句——那是拿引用卫生当真伪判据，模型越强
+    # （写得越细、数字越多）被误删越多。
+    #
+    # 只放宽到结构化值，不放宽到未绑定证据的**文本**：前者是机器可核的投递物，
+    # 后者仍需引用卫生把关。
+    for item in outcome.evidence:
+        for obs in item.observations:
+            token = _normalize_quantity(f"{obs.value:g}")
+            if token:
+                quantities.add(token)
+    return frozenset(quantities)
 
 
 def _normalize_quantity(value: object) -> str:
@@ -2648,6 +3721,96 @@ def _rounded_quantity_matches(
     if len(candidate_values) == 1 and len(observed_values) > 1:
         return any(matches)
     return all(matches)
+
+
+_SLOT_METRIC_LABELS = {
+    "pct_chg": "涨跌幅",
+    "amount": "成交额亿",
+    "diff_ratio": "边际量",
+}
+
+_SLOT_HEADING = "【预取事实】"
+
+
+def slot_line_for_observations(
+    observations: tuple[StructuredObservation, ...],
+) -> str:
+    """把观察值渲染成一行系统填的事实，**模型一个字没写**。
+
+    这是「槽」的最小形态：内容全部来自已投递的预取观察值，判官无据可删——
+    它要驳的是模型的未核验表述，而这一行不是模型写的。
+
+    与判官的分工由此变成结构性的，不再靠提示词自觉：
+    数字住在槽里（系统填、必真），叙述住在格间（模型写、判官可删）。
+    删叙述永远删不掉数字。
+    """
+
+    if not observations:
+        return ""
+    grouped: dict[tuple[str, str], list[StructuredObservation]] = {}
+    for obs in observations:
+        grouped.setdefault((obs.subject, obs.as_of), []).append(obs)
+    parts: list[str] = []
+    for (subject, as_of), items in grouped.items():
+        fields = "；".join(
+            f"{_SLOT_METRIC_LABELS.get(obs.metric, obs.metric)}={obs.value:g}"
+            for obs in items
+        )
+        parts.append(f"{subject} {as_of}：{fields}")
+    return _SLOT_HEADING + "｜".join(parts)
+
+
+def _restore_lost_observations(
+    *,
+    draft: str,
+    before: str,
+    evidence: tuple[AgentEvidence, ...],
+) -> tuple[str, tuple[StructuredObservation, ...]]:
+    """判官删完之后，把被连坐掉的有据数值以槽的形态补回稿件。
+
+    只补**数值本身**，不补任何被驳回的叙述——被删的因果/判断不会借尸还魂。
+    Gate 1 现场活下来的是错口径的主线句，真值 4.74/3432.59 陪葬；
+    补回之后真值一定在稿子里，与它原先绑的那句叙述死活无关。
+    """
+
+    lost = grounded_values_in_text(before, evidence)
+    if not lost:
+        return draft, ()
+    survivors = {obs.value for obs in grounded_values_in_text(draft, evidence)}
+    missing = tuple(obs for obs in lost if obs.value not in survivors)
+    if not missing:
+        return draft, ()
+    return f"{draft.rstrip()}\n\n{slot_line_for_observations(missing)}", missing
+
+
+def _gaps_with_lost_observations(
+    *,
+    gaps: tuple[str, ...],
+    before: str,
+    after: str,
+    evidence: tuple[AgentEvidence, ...],
+) -> tuple[str, ...]:
+    """判官删句后，把被连坐掉的**有据数值**补记成缺口。
+
+    Gate 1 实锤（`docs/verification/2026-08-21-gate1-pcb-exact-name.md`）：判官
+    把「缩量洗盘后主升」整段判未核验删掉，真值 4.74/3432.59 绑在那段里一起没
+    了，活下来的反而是错口径的句子。**真话和编造绑同一段，一刀切下去真话陪葬。**
+
+    这里不改删除决定——给含真值的句子发免死金牌会让编造搭便车（那是「变错」，
+    必须硬）。改的是：删掉的真值**不再静默消失**，而是落成缺口，下游可按槽
+    重新呈现。拦的是信息丢失，不是模型的表达，所以是保下限不是封上限。
+    """
+
+    lost = grounded_values_in_text(before, evidence)
+    if not lost:
+        return gaps
+    survivors = {obs.value for obs in grounded_values_in_text(after, evidence)}
+    notes = tuple(
+        describe_lost_observation(obs) for obs in lost if obs.value not in survivors
+    )
+    if not notes:
+        return gaps
+    return tuple(dict.fromkeys((*gaps, *notes)))
 
 
 def _drop_rejected_sentences(
@@ -2961,9 +4124,46 @@ def _renumber_parenthesized_list_items(source: str) -> str:
     return source
 
 
+def _marker_loss_gap_sentence(
+    *,
+    labels: tuple[str, ...],
+    context_prefix: str,
+    all_were_fulfilled: bool,
+) -> str:
+    """按**丢失原因**给缺口文案分流，别把 harness 的问题甩锅给数据。
+
+    生产实测 `run_20260821_114642_385979`（诊断见
+    `docs/verification/2026-08-21-judge-quantity-blindspot.md`）：
+    `structural_verifier` 判四个必填格全部 `fulfilled`、零 gap，随后语义质检
+    重写公开稿丢掉两格，用户看到的却是「**需补充直接证据**后再判断」——
+    让人去补一份根本不缺的证据。归因错了，指引也就错了。
+
+    两种缺口的处置相反，必须分开说：
+
+    - 本来就没取到证据 → 补数据是对的
+    - 代码侧已判达标、是质检把表述删了 → **不要补数据**，该重做那一格
+
+    这不改判官的任何权力，只让它造成的后果被如实归因。
+    """
+
+    body = context_prefix + "、".join(labels)
+    if all_were_fulfilled:
+        return (
+            "结构缺口："
+            + body
+            + "在结构核验中已判达标，但本轮质检重写时删除了其表述。"
+            "这不是证据不足——不需要补充数据，应重做这些部分。"
+        )
+    return "证据缺口：" + body + "中的未核验表述已删除，需补充直接证据后再判断。"
+
+
 def _marker_loss_issues(output_ids: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(
-        f"semantic repair removed required output: {output_id}"
+        Issue(
+            IssueCode.MARKER_LOSS,
+            output_id,
+            f"{_MARKER_LOSS_GAP}: {output_id}",
+        ).serialize()
         for output_id in output_ids
     )
 
@@ -2999,30 +4199,109 @@ def _semantic_tool_status_registry(
     return statuses
 
 
+def _verified_quantities_for_judge(
+    outcome: AgentOutcome,
+) -> list[dict[str, object]]:
+    """投递给判官：稿件里哪些数**已由确定性核对确认来自已投递观察值**。
+
+    为什么要投递而不是让判官自己查（2026-08-21 生产实测，
+    `docs/verification/2026-08-21-judge-quantity-blindspot.md`）：
+
+    判官拿到了完整的 E1（2285 字符、43 行逐日行情，含 `成交额亿=775.76`），
+    投影不截 `detail`、压缩也不动它——**它看得见**。但它仍写下「证据注册表无
+    该题材量价时间轴」，把 `0.15 / 775.76 / 13.78 / 2.81` 全判成「未注册数字」，
+    连带摘掉 `direct_assessment` 与 `counterpoint` 两个必填输出。
+
+    同一份稿件 + 同一份证据，确定性逐字核对这四个数**全部判对**。
+    「这个数在不在证据里」是可判定的机械问题，交给 LLM 等于把必然正确换成
+    概率正确——按约束三筛（`harness-reference/PLAYBOOK.md`）：拦输出、
+    答题模型越强写得越精确被误伤越多，是典型的封上限。
+
+    因此把机械那半从判官手里拿走、直接投递结论，判官只留语义判断
+    （因果是否成立、口径有没有混用）。这不放宽任何东西：只有与已投递观察值
+    **逐字节相等**的数才会进这份清单，编造的数进不来。
+    """
+
+    values = grounded_values_in_text(outcome.draft, outcome.evidence)
+    return [
+        {
+            "value": obs.value,
+            "subject": obs.subject,
+            "as_of": obs.as_of,
+            "metric": obs.metric,
+        }
+        for obs in values
+    ]
+
+
 def _semantic_evidence_projection(
     outcome: AgentOutcome,
 ) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
     """Alias and project only answer-bound evidence for semantic judging."""
 
+    bindings, registry, _telemetry = _project_semantic_evidence(outcome)
+    return bindings, registry
+
+
+@dataclass(frozen=True)
+class _ProjectionTelemetry:
+    dropped_field_chars: int
+    truncated_field_chars: int
+    ordinal_mismatch_count: int
+    alias_offset: int
+    cited_unbound_count: int
+
+
+def _project_semantic_evidence(
+    outcome: AgentOutcome,
+) -> tuple[list[dict[str, object]], list[dict[str, object]], _ProjectionTelemetry]:
+    """Project answer-relied evidence using the episode ordinal table as the only id issuer.
+
+    选集 = 绑定 ∪ 正文可反解引用（R-20260821-06）。正文显式引用是答案对依赖的
+    声明，比 bindings 记账数组更直接；漏记账不该让判官对真实证据做存在性否证。
+    未引用且未绑定的卡仍不送判官——绑定纪律只对「答案真的依赖」的证据放行。
+    表外引用（E 号反解不到卡）不做模糊纠正，照旧走判官删除路径。
+    """
+
+    ordinals = evidence_ordinal_table(outcome.evidence)
     bound_hashes = {
         evidence_hash
         for binding in outcome.bindings
         for evidence_hash in binding.evidence_hashes
     }
+    cited_ids = set(cited_evidence_ordinals(outcome.draft))
     alias_by_hash: dict[str, str] = {}
     registry: list[dict[str, object]] = []
+    dropped_field_chars = 0
+    truncated_field_chars = 0
+    cited_unbound_count = 0
+    bound_emitted_ids: set[str] = set()
     for item in outcome.evidence:
-        if not item.content_hash or item.content_hash not in bound_hashes:
+        if not item.content_hash:
             continue
-        evidence_id = f"E{len(registry) + 1}"
+        evidence_id = ordinals[item.content_hash]
+        is_bound = item.content_hash in bound_hashes
+        if not is_bound and evidence_id not in cited_ids:
+            continue
+        if is_bound:
+            bound_emitted_ids.add(evidence_id)
+        else:
+            cited_unbound_count += 1
         alias_by_hash[item.content_hash] = evidence_id
         projected: dict[str, object] = {
             "evidence_id": evidence_id,
             "tool": item.tool,
-            "detail": item.detail or item.title,
             "source_date": item.source_date,
             "evidence_tier": item.evidence_tier,
         }
+        title = str(item.title or "")
+        if title:
+            if len(title) > MAX_EVIDENCE_TITLE_CHARS:
+                truncated_field_chars += len(title) - MAX_EVIDENCE_TITLE_CHARS
+            projected["title"] = title[:MAX_EVIDENCE_TITLE_CHARS]
+        detail = str(item.detail or "")
+        if detail:
+            projected["detail"] = detail
         if item.freshness and item.freshness != "unknown":
             projected["freshness"] = item.freshness
         if item.supports:
@@ -3031,6 +4310,10 @@ def _semantic_evidence_projection(
             projected["contradicts"] = list(item.contradicts)
         if item.independent_key:
             projected["independent_key"] = item.independent_key
+        if title and "title" not in projected:
+            dropped_field_chars += len(title)
+        if detail and "detail" not in projected:
+            dropped_field_chars += len(detail)
         registry.append(projected)
     bindings: list[dict[str, object]] = []
     for binding in outcome.bindings:
@@ -3049,7 +4332,39 @@ def _semantic_evidence_projection(
         if binding.basis != "evidence":
             projected_binding["basis"] = binding.basis
         bindings.append(projected_binding)
-    return bindings, registry
+    bound_issued = {
+        ordinals[digest]
+        for digest in bound_hashes
+        if digest in ordinals
+    }
+    telemetry = _ProjectionTelemetry(
+        dropped_field_chars=dropped_field_chars,
+        truncated_field_chars=truncated_field_chars,
+        # D2 哨兵只对绑定集合有语义：引用补送的行不属于发放对账范围。
+        ordinal_mismatch_count=len(
+            bound_issued.symmetric_difference(bound_emitted_ids)
+        ),
+        alias_offset=len(outcome.evidence) - len(registry),
+        cited_unbound_count=cited_unbound_count,
+    )
+    return bindings, registry, telemetry
+
+
+def _repair_wiped_all_required(contract: object, marker_loss: tuple[str, ...]) -> bool:
+    """Return whether repair emptied every evidence-grounded required output."""
+
+    return bool(_required_evidence_outputs(contract)) and _required_evidence_outputs(
+        contract
+    ) <= set(marker_loss)
+
+
+def _required_evidence_outputs(contract: object) -> set[str]:
+    return {
+        str(item.output_id)
+        for item in getattr(contract, "required_outputs", ())
+        if getattr(item, "required", True)
+        and str(getattr(item, "grounding_mode", "evidence")) == "evidence"
+    }
 
 
 def _answer_grounding_mode(contract: object) -> str:
@@ -3115,8 +4430,8 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             answer_grounding_mode=request["answer_grounding_mode"],
             output_bindings=request["output_bindings"],
             evidence_registry=request["evidence_registry"],
-            tool_status_registry=request["tool_status_registry"],
-            claim_policy=request["claim_policy"],
+            tool_status_registry=request.get("tool_status_registry") or [],
+            claim_policy=request.get("claim_policy") or dict(_CLAIM_POLICY),
             sentences=request["sentences"],
             timeout=timeout,
         )
@@ -3128,12 +4443,14 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             "answer_grounding_mode",
             "output_bindings",
             "evidence_registry",
-            "tool_status_registry",
-            "claim_policy",
             "sentences",
         )
         if name in parameters
     }
+    if "tool_status_registry" in parameters:
+        named["tool_status_registry"] = request.get("tool_status_registry") or []
+    if "claim_policy" in parameters:
+        named["claim_policy"] = request.get("claim_policy") or dict(_CLAIM_POLICY)
     if "timeout" in parameters:
         named["timeout"] = timeout
     required_positional = [
@@ -3157,9 +4474,9 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             "evidence_registry": request["evidence_registry"],
             "evidence": request["evidence_registry"],
             "registry": request["evidence_registry"],
-            "tool_status_registry": request["tool_status_registry"],
-            "tool_statuses": request["tool_status_registry"],
-            "claim_policy": request["claim_policy"],
+            "tool_status_registry": request.get("tool_status_registry") or [],
+            "tool_statuses": request.get("tool_status_registry") or [],
+            "claim_policy": request.get("claim_policy") or dict(_CLAIM_POLICY),
             "sentences": request["sentences"],
             "answer_sentences": request["sentences"],
             "timeout": timeout,
@@ -3252,29 +4569,92 @@ def _stable_semantic_judge_error(value: object) -> tuple[str, bool, bool]:
     return "semantic judge provider error", False, False
 
 
+def complete_judge_attempt_seconds(configured_attempt_timeout: float) -> float:
+    """One complete first attempt under a full window, not a leftover sliver."""
+
+    per_attempt_cap = max(0.1, float(configured_attempt_timeout))
+    full_window = min(
+        semantic_judge_window_seconds(),
+        per_attempt_cap * MAX_SEMANTIC_JUDGE_ATTEMPTS,
+    )
+    return min(per_attempt_cap, full_window)
+
+
+def leftover_window_blocks_complete_attempt(
+    remaining_seconds: float | None,
+    configured_attempt_timeout: float,
+) -> bool:
+    """True when the leftover window cannot fit one complete judge attempt."""
+
+    if remaining_seconds is None:
+        return False
+    return float(remaining_seconds) + 1e-9 < complete_judge_attempt_seconds(
+        configured_attempt_timeout
+    )
+
+
 def _semantic_attempt_timeouts(
     deadline: ResearchDeadline,
     *,
     configured_attempt_timeout: float,
 ) -> tuple[float, ...]:
-    """Reserve one bounded semantic window across all provider attempts."""
+    """Reserve one bounded semantic window; spend it without pre-splitting.
+
+    ``#269`` 取消了 ``(25, 12.5, 12.5)`` 预切，每一发按一次完整尝试报价，
+    由 ``_run_judge`` 窗口余额账封顶。``#272`` 压过 payload 后 grok 尾巴
+    仍是 46.7s，半窗 25s 罩不住。本轮只动两处：cap 30→50，完整尝试 =
+    ``min(cap, 窗)`` 不再 ``×0.5``。窗地板仍 50；T / ``_REPAIR_SECONDS_CAP``
+    / 档位 / 工具批不动（R-07：有 08-20 N=5 延迟实测才抬这个 30）。
+
+    快失败（502/连接重置）几乎不吃窗，余额账仍给下一发接近整窗；慢失败
+    吃满 50s 后第三发拿 0，走既有 deadline-exhausted。episode 剩余 < 50s
+    时守卫拒发——对 grok 来说那本就是半截。
+    """
 
     per_attempt_cap = max(0.1, float(configured_attempt_timeout))
-    total_window = deadline.synthesis_timeout(
+    return semantic_attempts_for_window(
+        semantic_total_judge_window(
+            deadline, configured_attempt_timeout=per_attempt_cap
+        ),
+        configured_attempt_timeout=per_attempt_cap,
+    )
+
+
+def semantic_attempts_for_window(
+    total_window: float,
+    *,
+    configured_attempt_timeout: float,
+) -> tuple[float, ...]:
+    """Attempt quotes for an already-measured window.
+
+    ``_run_judge`` 用这个变体，好让 ``synthesis_timeout`` 每轮只被调用一次——
+    有测试用「数 synthesis_timeout 次数」的假 deadline 来关闭重试窗，多调一次
+    就会把它的计数器错开。
+    """
+
+    per_attempt_cap = max(0.1, float(configured_attempt_timeout))
+    if total_window <= 0.001:
+        return ()
+    complete = min(complete_judge_attempt_seconds(per_attempt_cap), total_window)
+    if complete <= 0.001:
+        return ()
+    return tuple(complete for _ in range(MAX_SEMANTIC_JUDGE_ATTEMPTS))
+
+
+def semantic_total_judge_window(
+    deadline: ResearchDeadline,
+    *,
+    configured_attempt_timeout: float,
+) -> float:
+    """Total wall clock all judge attempts may share. Unchanged by the repartition."""
+
+    per_attempt_cap = max(0.1, float(configured_attempt_timeout))
+    return deadline.synthesis_timeout(
         min(
             semantic_judge_window_seconds(),
             per_attempt_cap * MAX_SEMANTIC_JUDGE_ATTEMPTS,
         )
     )
-    if total_window <= 0.001:
-        return ()
-    first = min(per_attempt_cap, total_window * 0.5)
-    retry = min(
-        per_attempt_cap,
-        max(0.0, total_window - first)
-        / max(1, MAX_SEMANTIC_JUDGE_ATTEMPTS - 1),
-    )
-    return (first, retry, retry)
 
 
 def _should_retry_semantic_judge(
@@ -3345,4 +4725,12 @@ def _contains_private_token(value: object, private_tokens: frozenset[str]) -> bo
     return any(token in folded for token in private_tokens)
 
 
-__all__ = ["SemanticEpisodeOutcome", "SemanticEpisodeVerifier"]
+__all__ = [
+    "REQUIRED_OUTPUT_DEGRADED_MARK",
+    "SEMANTIC_QUALITY_DOUBT_MARK",
+    "SemanticEpisodeOutcome",
+    "SemanticEpisodeVerifier",
+    "draft_sentence_count",
+    "numeric_condition_unsupported",
+    "v8_semantic_degrade_enabled",
+]

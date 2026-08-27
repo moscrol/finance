@@ -1,24 +1,20 @@
-"""回答后的「猜你想问」追问卡片生成（第 2 步：foresight 追问闭环）。
+"""回答后的「猜你想问」追问卡片（KC-12 / 选角设计稿）。
 
-与 ``foresight.py`` 同一套哲学，但目标不同：foresight 是"盘面驱动、每日主动发问"，
-本模块是"回答驱动、围绕刚生成的这份答案往深处追问"。两者共用 ``llm_refine``
-的 provider 链与降级机制。
-
-设计取舍（教学）：
-- **LLM 可选、模板兜底**：无 key 时按五类固定模板（证据加深/反证验证/替代标的/
-  盘面回检/题材迁移）用 matched_theme 填充出可用追问；有 key 时让 LLM 基于答案
-  正文生成更具体的问题，再落回同样的五类。保证"追问卡片"永远出现，机制可审。
-- **类型即产品语义**：每张卡片带 type，UI 可按类型着色/分组；这五类来自
-  产品设计稿 3.4 节，是研究方法论的一部分而非随机问题。
+foresight 是盘面每日主动发问；本模块是回答驱动的下一问。编排只读
+``FollowupState``：先选角、再填槽，模型只润色措辞。不吸收 Knevo 的
+``suggest_options`` 工具，不把 D3 二阶导写进芯片。
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import asdict, dataclass, field
+from typing import Protocol
 
 from intelligence.services import answer_model, llm_refine
+from intelligence.services.track_contract import parse_track_intent
 
 FOLLOWUP_TYPES = ["evidence", "counter", "alternative", "recheck", "migration"]
 TYPE_LABELS = {
@@ -27,11 +23,22 @@ TYPE_LABELS = {
     "alternative": "替代标的",
     "recheck": "盘面回检",
     "migration": "题材迁移",
-    # 缺口镜像：降级答案里「仍需核验：X」的 X 直接变成可点击的追问。
-    # 不在 FOLLOWUP_TYPES 里——那五类是"围绕完整答案往深处问"的模板轮换，
-    # gap 类只在契约有未满足必需输出时出现，数量由缺口数决定。
     "gap": "缺口补齐",
+    "continue": "同一条件再对",
 }
+
+FETCH_ENV_FLAG = "FINANCE_FOLLOWUPS"
+_METHODOLOGY_TERMS = (
+    "错因",
+    "归因分类",
+    "检索规则",
+    "五维排序",
+    "四分类判据",
+    "框架怎么回测",
+)
+_WAITING_PREFIXES = ("等待", "需等", "待验证")
+_CODE_RE = re.compile(r"\d{6}")
+_FIRST_ORDER_BANNED = ("双红", "近几日涨停热度")
 
 
 @dataclass
@@ -43,6 +50,7 @@ class Followup:
     source: str = ""
     label: str = ""
     full_prompt: str = ""
+    angle: str = ""
 
     def __post_init__(self) -> None:
         if not self.type_label:
@@ -64,7 +72,7 @@ class FollowupResult:
     def to_json(self) -> str:
         return json.dumps(
             {
-                "followups": [asdict(f) for f in self.followups],
+                "followups": [asdict(item) for item in self.followups],
                 "llm_used": self.llm_used,
                 "llm_provider": self.llm_provider,
                 "warnings": self.warnings,
@@ -74,23 +82,650 @@ class FollowupResult:
         )
 
 
-def _template_followups(question: str, theme: str | None) -> list[Followup]:
-    subject = theme or question[:16]
-    return [
-        Followup(f"{subject}目前最硬的一条公司级证据是什么，出自哪份公告或研报？", "evidence",
-                 "把结论锚到可核对的一手材料上"),
-        Followup(f"如果{subject}的逻辑不成立，最先出现的反证信号会是什么？", "counter",
-                 "预设可证伪条件，避免单边叙事"),
-        Followup(f"除了当前提到的标的，{subject}产业链上还有哪些暴露度相近的替代标的？", "alternative",
-                 "对比同链条标的的证据硬度与位置"),
-        Followup(
-            f"若{subject}当前阶段被证伪，哪一个盘面指标会最先翻面，对应什么动作分层？",
-            "recheck",
-            "二阶回检：不问近几日双红事实（数据块已覆盖），问证伪后的动作",
+@dataclass(frozen=True)
+class AlternativeItem:
+    name: str
+    reason: str = ""
+    source: str = "none"
+
+
+@dataclass(frozen=True)
+class FollowupState:
+    subject: str = ""
+    question: str = ""
+    question_kind: str = "other"
+    open_gaps: tuple[str, ...] = ()
+    spec_gaps: tuple[str, ...] = ()
+    spec_triggers: tuple[str, ...] = ()
+    spec_next_actions: tuple[str, ...] = ()
+    alternatives: tuple[AlternativeItem, ...] = ()
+    bottlenecks: tuple[str, ...] = ()
+    status: str = "completed"
+    no_action_room: bool = False
+    produced_framework: bool = False
+    listed_names: frozenset[str] = field(default_factory=frozenset)
+    skip_types: frozenset[str] = field(default_factory=frozenset)
+    parent_followup_prompt: str | None = None
+    same_bind: bool = False
+    standing_date: str = ""
+    question_type: str = ""
+    market_watch_pack_present: bool = False
+
+
+class FollowupComposer(Protocol):
+    def compose(self, state: FollowupState, *, polish: bool = False) -> FollowupResult: ...
+
+
+class AngleComposer:
+    def compose(self, state: FollowupState, *, polish: bool = False) -> FollowupResult:
+        return compose_followups(state, polish=polish)
+
+
+class NullComposer:
+    def compose(self, state: FollowupState, *, polish: bool = False) -> FollowupResult:
+        _ = (state.subject, state.question, polish)
+        return FollowupResult()
+
+
+def active_composer() -> FollowupComposer:
+    if os.environ.get(FETCH_ENV_FLAG, "1") == "0":
+        return NullComposer()
+    return AngleComposer()
+
+
+def compute_no_action_room(
+    *,
+    open_gaps: tuple[str, ...] = (),
+    spec_gaps: tuple[str, ...] = (),
+    status: str = "completed",
+    spec_next_actions: tuple[str, ...] = (),
+) -> bool:
+    if any(str(item).strip() for item in (*open_gaps, *spec_gaps)):
+        return True
+    if status in {"partial", "degraded"}:
+        return True
+    return any(str(action).startswith(_WAITING_PREFIXES) for action in spec_next_actions)
+
+
+def infer_question_kind(
+    question: str,
+    subject: str,
+    *,
+    subject_kind: str = "",
+    enable_methodology: bool = False,
+) -> str:
+    if parse_track_intent(question):
+        return "track"
+    text = str(subject or "").strip()
+    if text:
+        blob = f"{text}{question}"
+        if subject_kind in {"company", "stock"} or _CODE_RE.search(blob):
+            return "stock"
+        return "theme"
+    if enable_methodology and any(term in str(question or "") for term in _METHODOLOGY_TERMS):
+        return "methodology"
+    return "other"
+
+
+def project_continuous_state(
+    *,
+    subject: str,
+    question: str,
+    open_gaps: tuple[str, ...] = (),
+    status: str = "completed",
+    subject_kind: str = "",
+    parent_followup_prompt: str | None = None,
+    same_bind: bool = False,
+    standing_date: str = "",
+    question_type: str = "",
+    market_watch_pack_present: bool = False,
+) -> FollowupState:
+    kind = infer_question_kind(
+        question, subject, subject_kind=subject_kind, enable_methodology=False
+    )
+    skip = frozenset({"recheck"} if parse_track_intent(question) else ())
+    cleaned = tuple(str(gap).strip() for gap in open_gaps if str(gap).strip())
+    mapped_status = status if status in {"completed", "partial", "degraded"} else "degraded"
+    return FollowupState(
+        subject=str(subject or "").strip(),
+        question=str(question or "").strip(),
+        question_kind=kind,
+        open_gaps=cleaned,
+        status=mapped_status,
+        no_action_room=compute_no_action_room(
+            open_gaps=cleaned, status=mapped_status
         ),
-        Followup(f"{subject}的资金和逻辑接下来最可能向哪个相邻题材迁移？", "migration",
-                 "提前布局题材扩散的下一站"),
-    ]
+        skip_types=skip,
+        parent_followup_prompt=parent_followup_prompt,
+        same_bind=same_bind,
+        standing_date=str(standing_date or "").strip(),
+        question_type=str(question_type or "").strip(),
+        market_watch_pack_present=market_watch_pack_present,
+    )
+
+
+def project_answer_spec_state(
+    answer_spec: answer_model.AnswerSpec,
+    *,
+    subject: str | None = None,
+    question: str = "",
+) -> FollowupState:
+    anchor = (
+        str(subject or "").strip()
+        or str(answer_spec.research_spec.theme or "").strip()
+        or str(answer_spec.presentation_title or "").strip()
+        or "当前研究主题"
+    )
+    spec_gaps = tuple(_sentence(gap.text) for gap in answer_spec.gaps if _sentence(gap.text))
+    spec_triggers = tuple(
+        _sentence(trigger.text) for trigger in answer_spec.triggers if _sentence(trigger.text)
+    )
+    spec_next_actions = tuple(
+        _sentence(action) for action in answer_spec.next_actions if _sentence(action)
+    )
+    alternatives: list[AlternativeItem] = []
+    listed: set[str] = set()
+    for company in answer_spec.company_table:
+        name = str(company.company or "").strip()
+        if not name or name == anchor:
+            continue
+        alternatives.append(
+            AlternativeItem(name=name, reason=str(company.chain_stage or ""), source="company_table")
+        )
+        listed.add(name)
+    kind = infer_question_kind(question, anchor, enable_methodology=True)
+    skip = frozenset({"recheck"} if parse_track_intent(question) or kind == "track" else ())
+    return FollowupState(
+        subject=anchor,
+        question=str(question or "").strip(),
+        question_kind=kind,
+        spec_gaps=spec_gaps,
+        spec_triggers=spec_triggers,
+        spec_next_actions=spec_next_actions,
+        alternatives=tuple(alternatives),
+        status="completed",
+        no_action_room=compute_no_action_room(
+            spec_gaps=spec_gaps,
+            spec_next_actions=spec_next_actions,
+        ),
+        produced_framework=kind == "methodology",
+        listed_names=frozenset(listed),
+        skip_types=skip,
+    )
+
+
+def project_ask_state(
+    question: str,
+    *,
+    subject: str | None = None,
+    open_gaps: tuple[str, ...] = (),
+    parent_followup_prompt: str | None = None,
+    alternatives: tuple[tuple[str, str], ...] = (),
+    bottlenecks: tuple[str, ...] = (),
+) -> FollowupState:
+    """``alternatives``/``bottlenecks`` 来自 ask 的 D3 结构对象（AskResult.d3_*）。
+
+    spec 2026-08-17 §5：P0 行进 alternatives(source=d3_p0)，P2 词进 bottlenecks，
+    公司名进 listed_names——B 槽由此点名下一跳，且不得把已列名单当新发现。
+    """
+
+    # 分类与展示分离：主语未知时让 infer 看到空主语（否则永远判不出
+    # methodology/other），展示兜底用「该问题」。不切原句——[:16] 曾把
+    # 「…2026-08-18…」拦腰切成「2026-08-1」直接进用户可见的追问。
+    subject_clean = str(subject or "").strip()
+    kind = infer_question_kind(question, subject_clean, enable_methodology=True)
+    anchor = subject_clean or "该问题"
+    skip = frozenset({"recheck"} if kind == "track" or parse_track_intent(question) else ())
+    cleaned = tuple(str(gap).strip() for gap in open_gaps if str(gap).strip())
+    alt_items = tuple(
+        AlternativeItem(
+            name=str(name).strip(),
+            reason=str(note or "").strip(),
+            source="d3_p0",
+        )
+        for name, note in alternatives
+        if str(name).strip()
+    )
+    cleaned_bottlenecks = tuple(
+        str(term).strip() for term in bottlenecks if str(term).strip()
+    )
+    return FollowupState(
+        subject=anchor,
+        question=str(question or "").strip(),
+        question_kind=kind,
+        open_gaps=cleaned,
+        alternatives=alt_items,
+        bottlenecks=cleaned_bottlenecks,
+        no_action_room=compute_no_action_room(open_gaps=cleaned),
+        produced_framework=kind == "methodology",
+        listed_names=frozenset(item.name for item in alt_items),
+        skip_types=skip,
+        parent_followup_prompt=parent_followup_prompt,
+    )
+
+
+def _gaps(state: FollowupState) -> tuple[str, ...]:
+    return tuple(
+        str(item).strip()
+        for item in (*state.open_gaps, *state.spec_gaps)
+        if str(item).strip()
+    )
+
+
+def select_angles(state: FollowupState) -> tuple[str, ...]:
+    """只返回有序角度，长度 2–4，不生成文案。"""
+    gaps = _gaps(state)
+    has_gaps = bool(gaps)
+    kind = state.question_kind
+    skip_a = (kind == "methodology" or state.produced_framework) and not has_gaps
+    slots: list[str] = []
+    if has_gaps:
+        slots.extend(["A"] * min(2, len(gaps)))
+    elif not skip_a:
+        slots.append("A")
+    if kind != "methodology" and (
+        state.alternatives or state.bottlenecks or kind in {"stock", "theme"}
+    ):
+        slots.append("B")
+    if state.no_action_room:
+        slots.append("C")
+    want_d_multi = (kind == "methodology" or state.produced_framework) and not has_gaps
+    want_d_one = bool(state.spec_triggers) or (
+        kind in {"stock", "theme", "other"} and not has_gaps
+    )
+    if want_d_multi:
+        slots.extend(["D", "D"])
+        if len(slots) < 3:
+            slots.append("D")
+    elif want_d_one and not state.no_action_room:
+        slots.append("D")
+    while len(slots) < 2:
+        padded = False
+        for extra in ("B", "D", "C"):
+            if extra == "B" and kind == "methodology":
+                continue
+            slots.append(extra)
+            padded = True
+            break
+        if not padded:
+            slots.append("D")
+    return tuple(slots[:4])
+
+
+def _subject(state: FollowupState) -> str:
+    return state.subject.strip() or "该问题"
+
+
+def _is_echo(state: FollowupState, prompt: str) -> bool:
+    parent = re.sub(r"\s+", "", str(state.parent_followup_prompt or ""))
+    return bool(parent) and parent == re.sub(r"\s+", "", prompt)
+
+
+def _contains_banned(prompt: str) -> bool:
+    return any(term in prompt for term in _FIRST_ORDER_BANNED)
+
+
+def _followup(
+    *,
+    prompt: str,
+    type_: str,
+    angle: str,
+    label: str,
+    rationale: str,
+    source: str = "",
+) -> Followup | None:
+    if not prompt.strip() or _contains_banned(prompt):
+        return None
+    return Followup(
+        prompt,
+        type_,
+        rationale,
+        source=source,
+        label=label,
+        full_prompt=prompt,
+        angle=angle,
+    )
+
+
+def fill_slots(state: FollowupState, angles: tuple[str, ...]) -> list[Followup]:
+    subject = _subject(state)
+    gaps = list(_gaps(state))
+    alts = list(state.alternatives)
+    bottlenecks = [str(item).strip() for item in state.bottlenecks if str(item).strip()]
+    triggers = [str(item).strip() for item in state.spec_triggers if str(item).strip()]
+    actions = [str(item).strip() for item in state.spec_next_actions if str(item).strip()]
+    executable = [item for item in actions if not item.startswith(_WAITING_PREFIXES)]
+    d_index = 0
+    items: list[Followup] = []
+    for angle in angles:
+        built = _fill_one(
+            state,
+            angle,
+            subject,
+            gaps=gaps,
+            alts=alts,
+            bottlenecks=bottlenecks,
+            triggers=triggers,
+            executable=executable,
+            d_index=d_index,
+        )
+        if angle == "D":
+            d_index += 1
+        if built is None or _is_echo(state, built.full_prompt):
+            built = _conservative(state, angle, subject, used_types={item.type for item in items})
+        if built is None or _is_echo(state, built.full_prompt):
+            continue
+        if built.type in state.skip_types:
+            if built.type == "recheck":
+                built.type = "counter"
+                built.type_label = TYPE_LABELS["counter"]
+            else:
+                continue
+        items.append(built)
+    return items
+
+
+def _fill_one(
+    state: FollowupState,
+    angle: str,
+    subject: str,
+    *,
+    gaps: list[str],
+    alts: list[AlternativeItem],
+    bottlenecks: list[str],
+    triggers: list[str],
+    executable: list[str],
+    d_index: int = 0,
+) -> Followup | None:
+    if angle == "A":
+        if gaps:
+            text = gaps.pop(0)
+            prompt = (
+                f"关于{subject}，上一轮「{text}」未完成核验：请只针对这一项"
+                "补齐证据，给出可核对的来源与数据日期。"
+            )
+            return _followup(
+                prompt=prompt,
+                type_="gap",
+                angle="A",
+                label=f"补齐：{text}",
+                rationale="上一轮降级缺口的直接回补",
+                source="gap",
+            )
+        return _followup(
+            prompt=f"{subject}目前最硬的一条公司级证据是什么，出自哪份公告或研报？",
+            type_="evidence",
+            angle="A",
+            label="核对最硬证据",
+            rationale="完整结论也打最薄一层证据核验",
+        )
+    if angle == "B":
+        if state.question_kind == "methodology":
+            return None
+        if alts:
+            item = alts.pop(0)
+            reason = item.reason or item.source
+            prompt = (
+                f"除了{subject}，下一跳应先核{item.name}的哪条订单/认证/产能证据？"
+                "不要重复列出已有替代名单。"
+            )
+            return _followup(
+                prompt=prompt,
+                type_="alternative",
+                angle="B",
+                label=f"下一跳：{item.name}",
+                rationale=f"去核已选出的下一跳（{reason}），不是发现新票",
+                source=item.source,
+            )
+        if bottlenecks:
+            word = bottlenecks.pop(0)
+            prompt = (
+                f"{subject}若不是最优表达，{word}这一环谁更接近订单或产能约束？"
+            )
+            return _followup(
+                prompt=prompt,
+                type_="alternative",
+                angle="B",
+                label=f"瓶颈：{word}",
+                rationale="芯片只问瓶颈下一跳，不重念 D3 名单",
+            )
+        listed = "、".join(sorted(state.listed_names)) if state.listed_names else ""
+        prompt = f"除了当前已点名的标的，{subject}同链暴露度相近的下一跳应先核谁的订单或认证？不要把已有名单当成新发现。"
+        if listed:
+            prompt += f"已出现、不得当作新发现：{listed}。"
+        return _followup(
+            prompt=prompt,
+            type_="alternative",
+            angle="B",
+            label="同链下一跳",
+            rationale="连续对话第一期无 D3 结构，只问下一跳不点新票",
+        )
+    if angle == "C":
+        type_ = "counter" if "recheck" in state.skip_types else "recheck"
+        if executable:
+            action = executable.pop(0)
+            return _followup(
+                prompt=f"下一步如何执行并核验：{action}？",
+                type_=type_,
+                angle="C",
+                label=action,
+                rationale="落实本轮验证路径",
+                source="next_action",
+            )
+        return _followup(
+            prompt=f"若{subject}现在不能动手，哪个可观察信号出现后才进入可执行窗口？",
+            type_=type_,
+            angle="C",
+            label="等到什么信号",
+            rationale="无操作空间时只问窗口，不问现在该买吗",
+        )
+    if angle == "D":
+        if triggers:
+            trigger = triggers.pop(0)
+            return _followup(
+                prompt=f"哪些数据能验证或证伪这个条件：{trigger}？",
+                type_="counter",
+                angle="D",
+                label="证伪条件",
+                rationale="来自本轮触发或降级条件",
+                source="trigger",
+            )
+        variants = (
+            f"出现哪些反证应下调对{subject}的判断？",
+            f"哪个失效条件成立后应停用对{subject}的这套判断？",
+            f"回测时哪些样本外窗口会推翻对{subject}的当前规则？",
+        )
+        return _followup(
+            prompt=variants[d_index % len(variants)],
+            type_="counter",
+            angle="D",
+            label="证伪条件",
+            rationale="完整答案的默认证伪件",
+        )
+    return None
+
+
+def _conservative(
+    state: FollowupState,
+    angle: str,
+    subject: str,
+    *,
+    used_types: set[str],
+) -> Followup | None:
+    if angle == "B" and state.question_kind == "methodology":
+        angle = "D"
+    if angle == "C":
+        return _followup(
+            prompt=f"若{subject}现在不能动手，哪个可观察信号出现后才进入可执行窗口？",
+            type_="counter" if "recheck" in state.skip_types else "recheck",
+            angle="C",
+            label="等到什么信号",
+            rationale="conservative 窗口",
+        )
+    if angle == "A" and "gap" not in used_types:
+        return _followup(
+            prompt=f"{subject}目前最硬的一条公司级证据是什么，出自哪份公告或研报？",
+            type_="evidence",
+            angle="A",
+            label="核对最硬证据",
+            rationale="conservative 证据",
+        )
+    return _followup(
+        prompt=f"出现哪些反证应下调对{subject}的判断？",
+        type_="counter",
+        angle="D",
+        label="证伪条件",
+        rationale="conservative 证伪",
+    )
+
+
+def should_emit_same_bind(state: FollowupState) -> bool:
+    subject = _subject(state)
+    if not subject or subject == "该问题":
+        return False
+    standing = str(state.standing_date or "").strip()
+    if state.same_bind and standing:
+        return True
+    qtype = str(state.question_type or "").strip()
+    if qtype == "market_watch":
+        return bool(state.market_watch_pack_present and standing)
+    if qtype in {"theme_track", "trade_advice"} and standing:
+        return True
+    return False
+
+
+def build_same_bind_followup(state: FollowupState) -> Followup | None:
+    if not should_emit_same_bind(state):
+        return None
+    subject = _subject(state)
+    standing = str(state.standing_date or "").strip()
+    qtype = str(state.question_type or "").strip()
+    if qtype == "theme_track":
+        prompt = (
+            f"自 {standing} 之后，{subject}只报变化和四态对照，不要重跑全景。"
+        )
+    elif qtype == "market_watch":
+        prompt = f"同一天盘面用四袋再对一次，只报相对 {standing} 的变化。"
+    else:
+        prompt = (
+            f"按我刚才的{subject}条件，用最新价再对一次，只报相对 {standing} 的变化。"
+        )
+    if _is_echo(state, prompt):
+        return None
+    from intelligence.services.stance_pack import bind_id_for
+
+    return Followup(
+        question=prompt,
+        type="continue",
+        rationale="同一绑定换时刻或刷新现价",
+        label="同一条件再对",
+        full_prompt=prompt,
+        angle="",
+        source=f"same_bind:{bind_id_for(qtype or state.question_kind, subject, standing)}",
+    )
+
+
+def compose_followups(
+    state: FollowupState,
+    *,
+    polish: bool = False,
+    llm_model: str | None = None,
+    llm_timeout: int = 60,
+) -> FollowupResult:
+    if state.status == "failed":
+        return FollowupResult(warnings=["followup_skipped_failed_turn"])
+    result = FollowupResult()
+    try:
+        angles = select_angles(state)
+        items = fill_slots(state, angles)
+        if len(items) < 2:
+            subject = _subject(state)
+            for extra in ("A", "D"):
+                pad = _conservative(state, extra, subject, used_types={item.type for item in items})
+                if pad is None or _is_echo(state, pad.full_prompt):
+                    continue
+                if pad.type in state.skip_types and pad.type != "recheck":
+                    continue
+                items.append(pad)
+                if len(items) >= 2:
+                    break
+        chip = build_same_bind_followup(state)
+        if chip is not None and not _is_echo(state, chip.full_prompt):
+            items = [chip, *[item for item in items if item.type != "continue"]]
+        result.followups = items[:4]
+    except Exception as exc:  # noqa: BLE001
+        result.warnings.append(f"followup_compose_failed:{exc}")
+        return result
+    if polish and result.followups:
+        polished, provider, warn = _polish_followups(
+            result.followups, llm_model, llm_timeout
+        )
+        if polished:
+            result.followups = polished
+            result.llm_used = True
+            result.llm_provider = provider
+        elif warn:
+            result.warnings.append(warn)
+    return result
+
+
+def _polish_followups(
+    items: list[Followup],
+    model: str | None,
+    timeout: int,
+) -> tuple[list[Followup], str | None, str]:
+    payload = {
+        "followups": [
+            {"label": item.label, "full_prompt": item.full_prompt, "type": item.type, "angle": item.angle}
+            for item in items
+        ]
+    }
+    system = (
+        "你只改措辞。每条保持原 type 与 angle，不得增删条数。"
+        "label 最多 20 字，full_prompt 保持用户口吻。"
+        '只输出 JSON：{"followups":[{"label":"...","full_prompt":"...","type":"...","angle":"..."}]}'
+    )
+    content, provider, reason = llm_refine.complete(
+        [
+            {"role": "system", "content": system},
+            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+        ],
+        model_override=model,
+        timeout=timeout,
+        temperature=0.3,
+    )
+    provider_name = provider.name if provider else None
+    warn = f"followup_polish_dropped:{reason or 'LLM 不可用'}"
+    if content is None:
+        return [], provider_name, warn
+    obj = llm_refine._extract_json(content)
+    raw = obj.get("followups") if isinstance(obj, dict) else None
+    if not isinstance(raw, list) or len(raw) != len(items):
+        return [], provider_name, warn
+    out: list[Followup] = []
+    for original, item in zip(items, raw):
+        if not isinstance(item, dict):
+            return [], provider_name, warn
+        if str(item.get("type") or original.type).strip() != original.type:
+            return [], provider_name, warn
+        if str(item.get("angle") or original.angle).strip() != original.angle:
+            return [], provider_name, warn
+        prompt = str(item.get("full_prompt") or item.get("question") or original.full_prompt).strip()
+        label = str(item.get("label") or original.label).strip()
+        if not prompt:
+            return [], provider_name, warn
+        out.append(
+            Followup(
+                prompt,
+                original.type,
+                original.rationale,
+                source=original.source,
+                label=label,
+                full_prompt=prompt,
+                angle=original.angle,
+            )
+        )
+    return out, provider_name, ""
 
 
 def gap_mirror_followups(
@@ -99,13 +734,7 @@ def gap_mirror_followups(
     *,
     limit: int = 3,
 ) -> FollowupResult:
-    """把结构化缺口镜像成「猜你想问」——确定性，零模型调用。
-
-    形状来自 knevo q12 蒸馏（label 短入口 + full_prompt 替用户写好的完整问题）；
-    动机来自 R15 对照 9:2:0：多题失分不在缺口本身（fail-closed 是对的），
-    在缺口变成句号——「追问负担全在用户」（C1 判词原文）。缺口文案来自任务
-    契约的必需输出描述，与公开降级声明同一口径，模型没机会顺嘴编数据。
-    """
+    """A 槽填充器：结构化缺口镜像。行为与既有单测兼容。"""
     subject = (subject or "").strip() or "该问题"
     cleaned = [str(gap).strip() for gap in gaps]
     items: list[Followup] = []
@@ -119,56 +748,11 @@ def gap_mirror_followups(
                 type="gap",
                 rationale="上一轮降级缺口的直接回补",
                 label=f"补齐：{text}",
+                angle="A",
+                source="gap",
             )
         )
     return FollowupResult(followups=items, llm_used=False)
-
-
-def _llm_followups(question: str, theme: str | None, answer_excerpt: str,
-                   n: int, model: str | None, timeout: int) -> tuple[list[Followup], str | None, str]:
-    system = (
-        "你是 A 股主题研究助手。基于用户问题与刚生成的研究回答，生成后续追问。"
-        "每条必须具体、可执行、可证伪，且只能属于以下类型之一："
-        "evidence(证据加深)/counter(反证验证)/alternative(替代标的)/recheck(盘面回检)/migration(题材迁移)。"
-        "每条同时给 label（按钮文案，最多20字）和 full_prompt（完整用户口吻问题）。"
-        "禁止生成本仓数据块已能直接回答的一阶问题：历史上类似情绪环境、题材生命周期阶段、"
-        "近几日双红/边际量/涨停热度事实。追问必须是二阶——下一层后果、跨域传导、证伪后的动作分层。"
-        '只输出 JSON：{"followups":[{"label":"...","full_prompt":"...",'
-        '"type":"evidence","rationale":"..."}]}'
-    )
-    user = (
-        f"用户问题：{question}\n匹配题材：{theme or '—'}\n\n回答摘录：\n{answer_excerpt[:2000]}\n\n"
-        f"请生成 {n} 条覆盖不同类型的追问。"
-    )
-    content, provider, reason = llm_refine.complete(
-        [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        model_override=model, timeout=timeout, temperature=0.7,
-    )
-    provider_name = provider.name if provider else None
-    if content is None:
-        return [], provider_name, reason or "LLM 不可用"
-    obj = llm_refine._extract_json(content)
-    raw = obj.get("followups") if isinstance(obj, dict) else None
-    if not isinstance(raw, list):
-        return [], provider_name, 'LLM 返回无法解析为 {"followups":[...]}'
-    out: list[Followup] = []
-    for item in raw:
-        if not isinstance(item, dict):
-            continue
-        q = str(item.get("full_prompt") or item.get("question") or "").strip()
-        label = str(item.get("label") or "").strip()
-        t = str(item.get("type") or "").strip()
-        if q and t in FOLLOWUP_TYPES:
-            out.append(
-                Followup(
-                    q,
-                    t,
-                    str(item.get("rationale") or "").strip(),
-                    label=label,
-                    full_prompt=q,
-                )
-            )
-    return out[:n], provider_name, "" if out else "LLM 未给出任何有效追问"
 
 
 def generate_followups(
@@ -176,35 +760,36 @@ def generate_followups(
     *,
     matched_theme: str | None = None,
     answer_excerpt: str = "",
-    n: int = 5,
+    n: int = 4,
     llm_model: str | None = None,
     llm_timeout: int = 60,
-    use_llm: bool = True,
+    use_llm: bool = False,
+    open_gaps: tuple[str, ...] = (),
+    parent_followup_prompt: str | None = None,
+    alternatives: tuple[tuple[str, str], ...] = (),
+    bottlenecks: tuple[str, ...] = (),
 ) -> FollowupResult:
-    """生成 3-5 条追问卡片；LLM 不可用时优雅降级为五类模板。
-
-    跟踪类问题跳过 recheck：跟踪契约的「下期关注清单」已经覆盖盘面回检，
-    再生成「近几日双红如何」是一阶重复。
-    """
-    from intelligence.services.track_contract import parse_track_intent
-
-    skip_types: set[str] = set()
-    if parse_track_intent(question):
-        skip_types.add("recheck")
-    result = FollowupResult()
-    if use_llm:
-        followups, provider, warn = _llm_followups(
-            question, matched_theme, answer_excerpt, n, llm_model, llm_timeout
-        )
-        followups = [f for f in followups if f.type not in skip_types]
-        if followups:
-            result.followups = followups
-            result.llm_used = True
-            result.llm_provider = provider
-            return result
-        result.warnings.append(f"{warn}（已降级为模板追问）")
-    templates = [f for f in _template_followups(question, matched_theme) if f.type not in skip_types]
-    result.followups = templates[:n]
+    """选题走 compose；默认不润色。显式 ``use_llm=True`` 时 LLM 只改措辞。条数合同 2–4。"""
+    _ = answer_excerpt
+    state = project_ask_state(
+        question,
+        subject=matched_theme,
+        open_gaps=open_gaps,
+        parent_followup_prompt=parent_followup_prompt,
+        alternatives=alternatives,
+        bottlenecks=bottlenecks,
+    )
+    if os.environ.get(FETCH_ENV_FLAG, "1") == "0":
+        return NullComposer().compose(state, polish=False)
+    result = compose_followups(
+        state,
+        polish=use_llm,
+        llm_model=llm_model,
+        llm_timeout=llm_timeout,
+    )
+    cap = 4 if n > 4 else n
+    if cap >= 2:
+        result.followups = result.followups[:cap]
     return result
 
 
@@ -213,88 +798,31 @@ def generate_answer_spec_followups(
     *,
     subject: str | None = None,
     n: int = 4,
+    question: str = "",
 ) -> FollowupResult:
-    """只从 AnswerSpec 的缺口、触发条件和验证动作生成可执行追问。"""
-    limit = min(4, max(3, int(n)))
-    anchor = (
-        subject
-        or answer_spec.research_spec.theme
-        or answer_spec.presentation_title
-        or "当前研究主题"
-    )
-    candidates: list[Followup] = []
-    for gap in answer_spec.gaps:
-        text = _sentence(gap.text)
-        if text:
-            candidates.append(
-                Followup(
-                    f"{anchor}的这个证据缺口应如何补齐并绑定可核验来源：{text}？",
-                    "evidence",
-                    "来自本轮 AnswerSpec 的 evidence gap",
-                    source=f"gap:{gap.claim_id}",
-                )
-            )
-    for action in answer_spec.next_actions:
-        text = _sentence(action)
-        if text:
-            candidates.append(
-                Followup(
-                    f"下一步如何执行并核验：{text}？",
-                    "recheck",
-                    "来自本轮 AnswerSpec 的验证路径",
-                    source="next_action",
-                )
-            )
-    for trigger in answer_spec.triggers:
-        text = _sentence(trigger.text)
-        if text:
-            candidates.append(
-                Followup(
-                    f"哪些数据能验证或证伪这个条件：{text}？",
-                    "counter",
-                    "来自本轮 AnswerSpec 的触发或降级条件",
-                    source=f"trigger:{trigger.claim_id}",
-                )
-            )
-
-    conservative = (
-        Followup(
-            f"{anchor}当前哪些关键结论仍缺公司级可核验来源？",
-            "evidence",
-            "保守补充：继续检查本轮证据边界",
-            source="answer_spec_boundary",
-        ),
-        Followup(
-            f"{anchor}下一验证窗口应优先核对哪些触发条件？",
-            "recheck",
-            "保守补充：落实本轮验证路径",
-            source="answer_spec_boundary",
-        ),
-        Followup(
-            f"出现哪些反证时，应下调对{anchor}的当前判断？",
-            "counter",
-            "保守补充：明确可证伪条件",
-            source="answer_spec_boundary",
-        ),
-        Followup(
-            f"{anchor}已有证据中，哪些需要更新到更近的数据日期？",
-            "evidence",
-            "保守补充：复核证据新鲜度",
-            source="answer_spec_boundary",
-        ),
-    )
-    candidates.extend(conservative)
-    deduped: list[Followup] = []
-    seen: set[str] = set()
-    for candidate in candidates:
-        normalized = re.sub(r"\s+", "", candidate.question)
-        if normalized in seen:
-            continue
-        seen.add(normalized)
-        deduped.append(candidate)
-        if len(deduped) == limit:
-            break
-    return FollowupResult(followups=deduped)
+    state = project_answer_spec_state(answer_spec, subject=subject, question=question)
+    result = active_composer().compose(state, polish=False)
+    gap_by_text = {
+        _sentence(gap.text): f"gap:{gap.claim_id}" for gap in answer_spec.gaps
+    }
+    trigger_by_text = {
+        _sentence(trigger.text): f"trigger:{trigger.claim_id}"
+        for trigger in answer_spec.triggers
+    }
+    for item in result.followups:
+        for text, source in gap_by_text.items():
+            if text and text in item.full_prompt:
+                item.source = source
+                break
+        else:
+            for text, source in trigger_by_text.items():
+                if text and text in item.full_prompt:
+                    item.source = source
+                    break
+    cap = 4 if n > 4 else n
+    if cap >= 2:
+        result.followups = result.followups[:cap]
+    return result
 
 
 def _sentence(value: str) -> str:

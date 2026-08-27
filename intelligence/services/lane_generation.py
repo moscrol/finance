@@ -9,7 +9,9 @@ from intelligence.services import ask_clarify, llm_refine
 from intelligence.services.longtail_baseline import lane_suffix
 from intelligence.services.ask import AskResult
 from intelligence.services.honesty_gates import (
+    bound_caliber_disclosure,
     calendar_disclosure,
+    empty_caliber_disclosure,
     retired_table_disclosure,
 )
 from intelligence.services.turn_controller import TurnDecision
@@ -40,11 +42,19 @@ def deterministic_lane_answer(query: str, decision: TurnDecision) -> str | None:
     retired = retired_table_disclosure(query)
     if retired is not None:
         return retired
+    empty = empty_caliber_disclosure(query)
+    if empty is not None:
+        return empty
     frame = decision.task_frame
-    if frame is not None and decision.question_type == "quick_fact":
+    if frame is not None:
+        # 休市是日历事实，不限 quick_fact。C2 已走这条；C1「2026-07-25 市场
+        # 怎么样」是 general_finance_qa/research，旧守卫放它进检索后答证据不足。
         disclosure = calendar_disclosure(frame)
         if disclosure:
             return disclosure if disclosure.endswith("。") else f"{disclosure}。"
+    bound = bound_caliber_disclosure(query)
+    if bound is not None:
+        return bound
     if decision.lane == "chat" and decision.reason == "明确寒暄":
         return "你好，我是 Foresight。你可以直接聊天，也可以让我做需要证据的金融研究。"
     if decision.lane == "chat" and _THANKS_PATTERN.fullmatch(query):

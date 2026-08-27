@@ -28,8 +28,14 @@ class DefaultPathsTest(unittest.TestCase):
             importlib.reload(paths)
             if home is not None:
                 with patch.object(paths.Path, "home", return_value=Path(home)):
-                    return paths.default_paths()
-            return paths.default_paths()
+                    result = paths.default_paths()
+            else:
+                result = paths.default_paths()
+            # 必须在干净 env 里先记下对照值。with 块外再调 data_repo_root()
+            # 会读到启动器的 FINANCE_WS，worktree 上必红。
+            self._clean_data_root = paths.data_repo_root()
+            self._clean_db_root = paths.default_market_db_path().parent.parent
+            return result
 
     def test_prefers_finance_ws_and_kb_vault(self):
         paths = self._default_paths_with_env({
@@ -75,36 +81,76 @@ class DefaultPathsTest(unittest.TestCase):
         self.assertEqual(paths.knowledge_wiki, Path("/tmp/concept-vault/wiki"))
 
     def test_defaults_use_current_home_not_fixed_user(self):
-        # knowledge_wiki / finance_site / vector_index_dir 仍用 home 回退。
-        # finance_root 已改为回退 data_repo_root()（代码根），不再用 home。
-        # 这是故意修复：旧的 home 回退导致 DuckDB 路径（代码根）和
-        # exports/快照路径（home Desktop）不一致，造成静默失真。
+        # finance_root 回退 data_repo_root()（代码根），不再用 home。
+        # knowledge_wiki 不再回退已死的 Desktop/c c/知识库。本机若存在
+        # sibling checkout，探测会命中它——只锁「不是 Desktop / 不是旧用户名」。
         home = Path("/tmp/current-home")
         paths = self._default_paths_with_env({}, home=home)
 
-        # finance_root 落在代码根，不是 home
-        from intelligence.paths import data_repo_root
-        self.assertEqual(paths.finance_root, data_repo_root())
+        self.assertEqual(paths.finance_root, self._clean_data_root)
         self.assertNotIn("Desktop", str(paths.finance_root))
         self.assertNotIn("/Users/lbq", str(paths.finance_root))
 
-        # market_snapshot_dir 跟 finance_root 走（finance_root 已对齐）
         self.assertEqual(paths.market_snapshot_dir, paths.finance_root / "market_snapshot")
 
-        # knowledge_wiki / vector_index_dir 仍用 home 回退
-        self.assertEqual(paths.knowledge_wiki, home / "Desktop/c c/知识库/wiki")
-        self.assertEqual(paths.vector_index_dir, home / "Desktop/c c/知识库/.rag_index")
+        self.assertNotIn("Desktop", str(paths.knowledge_wiki))
         self.assertNotIn("/Users/lbq", str(paths.knowledge_wiki))
+        self.assertTrue(
+            str(paths.knowledge_wiki).replace("\\", "/").endswith("knowledge-base-private/wiki"),
+            paths.knowledge_wiki,
+        )
+        self.assertEqual(paths.finance_site, home / "finance-research-site")
+        self.assertNotIn("Desktop", str(paths.finance_site))
+
+    def test_knowledge_wiki_canonical_when_no_checkout_exists(self):
+        home = Path("/tmp/current-home-no-kb")
+        paths = self._default_paths_with_env(
+            {"FINANCE_WS": "/tmp/isolated-finance-ws"},
+            home=home,
+        )
+        self.assertEqual(paths.knowledge_wiki, home / "knowledge-base-private" / "wiki")
+        self.assertEqual(paths.vector_index_dir, home / "knowledge-base-private" / ".rag_index")
+
+    def test_knowledge_wiki_uses_existing_home_checkout(self):
+        import shutil
+        import tempfile
+
+        home = Path(tempfile.mkdtemp(prefix="kb-home-"))
+        self.addCleanup(lambda: shutil.rmtree(home, ignore_errors=True))
+        wiki = home / "knowledge-base-private" / "wiki"
+        wiki.mkdir(parents=True)
+        paths = self._default_paths_with_env(
+            {"FINANCE_WS": "/tmp/isolated-finance-ws"},
+            home=home,
+        )
+        self.assertEqual(paths.knowledge_wiki, wiki)
+
+    def test_knowledge_wiki_uses_sibling_repo_when_home_missing(self):
+        import shutil
+        import tempfile
+
+        parent = Path(tempfile.mkdtemp(prefix="kb-sibling-"))
+        self.addCleanup(lambda: shutil.rmtree(parent, ignore_errors=True))
+        finance = parent / "finance-workspace-private"
+        wiki = parent / "knowledge-base-private" / "wiki"
+        finance.mkdir()
+        wiki.mkdir(parents=True)
+        home = parent / "empty-home"
+        home.mkdir()
+        paths = self._default_paths_with_env(
+            {"FINANCE_WS": str(finance)},
+            home=home,
+        )
+        # macOS 上 Path.resolve() 会把 /var 展开成 /private/var
+        self.assertEqual(paths.knowledge_wiki.resolve(), wiki.resolve())
 
     def test_finance_root_and_duckdb_are_on_the_same_data_root(self):
         # 两根一致是这次修复的核心约束。
         # finance_root 若指向另一棵树，_runtime_market_reference_date() 从旧仓
         # exports 取 floor，再拿它去查本仓 DuckDB，每条结构化查询都被判「数据旧」。
-        from intelligence.paths import default_market_db_path
         paths = self._default_paths_with_env({})
 
-        expected_db_root = default_market_db_path().parent.parent
-        self.assertEqual(paths.finance_root, expected_db_root,
+        self.assertEqual(paths.finance_root, self._clean_db_root,
                          "finance_root 和 DuckDB 所在根不一致，会导致盘面证据静默失真")
 
 

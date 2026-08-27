@@ -1,0 +1,54 @@
+{
+  "format_version": 1,
+  "artifact_kind": "acceptance_truth_observations",
+  "created_at": "2026-08-26T18:57:15+08:00",
+  "source": {
+    "run_path": "/Users/a77/finance-workspace-private/intelligence/eval/runs/20260818T2100Z-caliber-p123-pure-ruler.json",
+    "run_sha256": "78dac330698ab4bd1240d9b78fb88cb10e8b34af15ecfd33cd4a0348f881bd93",
+    "cases_sha256": "d98a65573862fc461da9b76857a2343187bdf4902dae4b976b849f5f9348abfc",
+    "overlay_sha256": "1e2a5f800d6034c4da8627235a54e4862f9ffe8b95299b24b9776494c62fe0af"
+  },
+  "evaluator": {
+    "id": "inherited-golden-observer@c5d49e8d4e2c",
+    "kind": "deterministic_script",
+    "model": null,
+    "independent": true
+  },
+  "rubric_sha256": "c5d49e8d4e2c49f9437cb25ee524b97f74c559621810f2daca7b5c9ca2f67d61",
+  "case_observations": {
+    "B1-theme-photoresist": {
+      "truth_observations": {
+        "inherited_golden": {
+          "state": "fail",
+          "reason": "实体召回 0.00 < 闸 0.50（缺：彤程新材、南大光电、上海新阳、容大感光、雅克科技）；turn:0 引用 3 处全部落在 E1..E12；免责声明轴按引擎语法降为报告项（episode 公开稿不渲染该句；本题 0/1 turn 含）；概念召回 1/1（agent_eval 本就不闸此轴）；工具跨度：工件无 episode_tools_called 埋点，跳过（报告项）",
+          "evidence_refs": [
+            "turn:0"
+          ]
+        }
+      }
+    },
+    "B2-theme-liquid-cooling": {
+      "truth_observations": {
+        "inherited_golden": {
+          "state": "pass",
+          "reason": "四闸轴全过：实体召回 0.50≥0.50（2/4）；turn:0 引用 5 处全部落在 E1..E11；免责声明轴按引擎语法降为报告项（episode 公开稿不渲染该句；本题 0/1 turn 含）；概念召回 1/1（agent_eval 本就不闸此轴）；工具跨度：工件无 episode_tools_called 埋点，跳过（报告项）",
+          "evidence_refs": [
+            "turn:0"
+          ]
+        }
+      }
+    },
+    "B3-theme-solid-state-battery": {
+      "truth_observations": {
+        "inherited_golden": {
+          "state": "pass",
+          "reason": "四闸轴全过：实体召回 0.50≥0.50（2/4）；turn:0 引用 17 处全部落在 E1..E48；免责声明轴按引擎语法降为报告项（episode 公开稿不渲染该句；本题 0/1 turn 含）；概念召回 1/1（agent_eval 本就不闸此轴）；工具跨度：工件无 episode_tools_called 埋点，跳过（报告项）",
+          "evidence_refs": [
+            "turn:0"
+          ]
+        }
+      }
+    }
+  },
+  "artifact_sha256": "3e612eb179cc8a1a47334681531124ac5579eb8eb865c5bdb3f7eabf6c98c19d"
+}

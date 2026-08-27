@@ -1,19 +1,19 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-08-16T08:26:12Z",
+  "generated_at": "2026-08-27T08:53:11Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 35
+      "skills": 38
     },
     {
       "name": "knowledge-base-private",
       "short": "kb",
       "present": true,
-      "skills": 20
+      "skills": 22
     },
     {
       "name": "finance-research-site",
@@ -46,6 +46,24 @@
           "repo": "finance-workspace-private",
           "short": "ws",
           "skillPath": "skills/disclosure-archive/SKILL.md",
+          "agentOnly": false
+        }
+      ]
+    },
+    {
+      "name": "handoff",
+      "declaredSplit": false,
+      "locations": [
+        {
+          "repo": "knowledge-base-private",
+          "short": "kb",
+          "skillPath": "skills/handoff/SKILL.md",
+          "agentOnly": false
+        },
+        {
+          "repo": "finance-workspace-private",
+          "short": "ws",
+          "skillPath": "skills/handoff/SKILL.md",
           "agentOnly": false
         }
       ]
@@ -95,6 +113,32 @@
       "agentOnly": false,
       "views": []
     },
+    "ws/code-map": {
+      "name": "code-map",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/code-map/SKILL.md",
+      "description": "编码任务先查本地代码地图门面，避免空图总览和造轮子。触发词：代码地图、code-map、code-review-graph、deepwiki、造轮子、现有实现。注意：dispatcher 不是 Grok 默认第一步；本 skill 不替代 AGENTS.md 指针。",
+      "triggers": [
+        "代码地图",
+        "code-map",
+        "code-review-graph",
+        "deepwiki",
+        "造轮子",
+        "现有实现"
+      ],
+      "note": "dispatcher 不是 Grok 默认第一步；本 skill 不替代 AGENTS.md 指针。",
+      "entrypoint": null,
+      "computedHash": "sha256:0df7d23da85dbbde626fe941367100c766ee157974f52a73430a7ba7dd4ef3ed",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/code-map",
+          "type": "symlink",
+          "target": "../../skills/code-map"
+        }
+      ]
+    },
     "ws/daily-full-review": {
       "name": "daily-full-review",
       "repo": "finance-workspace-private",
@@ -104,7 +148,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:2e9311346293659a46ec8320cbe5f7f3a5e571a4d3d873520ba33a603a5306d4",
+      "computedHash": "sha256:819bca5046c86e9f355792c6abcdd1f22da4e045989b56db917861b105190bd7",
       "agentOnly": false,
       "views": []
     },
@@ -117,7 +161,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:ae12df8472fd29881e132fbe019e7cd5c57a43b14ee6a145e584005e8e495f61",
+      "computedHash": "sha256:b7039e1df8bc7291c909eead39f58c5a9f976c44aa491652db27975c8696ab94",
       "agentOnly": false,
       "views": [],
       "split": {
@@ -145,6 +189,32 @@
       "agentOnly": false,
       "views": []
     },
+    "ws/divergence-distill": {
+      "name": "divergence-distill",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/divergence-distill/SKILL.md",
+      "description": "同题 A/B 对照（Workbench vs Fable/Knevo 等外部模型）trace diff 之后，把分叉蒸馏成分池资产并验证写回。触发词：蒸馏分叉、对照蒸馏、蒸 Fable、蒸 Knevo、trace diff 沉淀、diff 完沉淀。注意：定位「哪步先错」用 agent-run-triage；喂 KOL 原文进视角用 perspective-distill；本 skill 只消费已完成的同题对照。",
+      "triggers": [
+        "蒸馏分叉",
+        "对照蒸馏",
+        "蒸 Fable",
+        "蒸 Knevo",
+        "trace diff 沉淀",
+        "diff 完沉淀"
+      ],
+      "note": "定位「哪步先错」用 agent-run-triage；喂 KOL 原文进视角用 perspective-distill；本 skill 只消费已完成的同题对照。",
+      "entrypoint": null,
+      "computedHash": "sha256:add6659a917f64c2a70e45d93fb04280fb5f315825bfbdd314e955a14c2ba965",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/divergence-distill",
+          "type": "symlink",
+          "target": "../../skills/divergence-distill"
+        }
+      ]
+    },
     "ws/duckdb-backfill": {
       "name": "duckdb-backfill",
       "repo": "finance-workspace-private",
@@ -154,7 +224,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:fff4d9666edde30657c3920efbac8bde8e77a5898f6ecd86af34701f773050d9",
+      "computedHash": "sha256:cefcab8289010d81d30306b1a37d2ffebf86c43d30feedbc78946e06df4b09cf",
       "agentOnly": false,
       "views": []
     },
@@ -222,7 +292,7 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/handoff/SKILL.md",
-      "description": "会话收尾时把当前分支在途状态回写成交接文档（docs/handoffs/inflight/<分支>.md）。触发词：handoff、交接、写交接、回写 handoff、收尾交接、交给下一个 agent、另一个 agent 接手。你说\"handoff\"就执行本流程，不用等会话结束。",
+      "description": "会话收尾时把当前分支在途状态回写成交接文档（docs/handoffs/inflight/<分支>.md），做过非显然决定时再加一份不限长的日期快照记背景/被否方案/理由。触发词：handoff、交接、写交接、回写 handoff、收尾交接、交给下一个 agent、另一个 agent 接手。你说\"handoff\"就执行本流程，不用等会话结束。",
       "triggers": [
         "handoff",
         "交接",
@@ -235,7 +305,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:5ced603794ceae913e8f182c1d97e5eed983bba7c0b09941982be5bf37b7e615",
+      "computedHash": "sha256:359aeb8b0db78887c7985f60471d4ba5bc7444c9efc69d86c5335c4decbcc3aa",
       "agentOnly": false,
       "views": [
         {
@@ -386,7 +456,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:a2f8d7e59ba8a96b9fdeaf5b433cf9b94c829a987c389e9b060729982960ff5b",
+      "computedHash": "sha256:08f448c0179e6375c74dcd1ab312c56c8c01447211007dd000dd0b996f6d9683",
       "agentOnly": false,
       "views": [
         {
@@ -427,7 +497,7 @@
       ],
       "note": "只切换/使用已有视角回答问题不用本 skill，直接在 Workbench 选视角即可。",
       "entrypoint": null,
-      "computedHash": "sha256:f41245a25a133177409f20814ce41f62703aec9896804841fc57c4f27876356b",
+      "computedHash": "sha256:c4da7261d925591c65a9307ad22395aeb809c7e9f6b604326f9006fc1f29ed57",
       "agentOnly": false,
       "views": [
         {
@@ -647,7 +717,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:67af60a7b7cac084983b95396d98320b3ad7f744d6e2237af7a4dd4404ed42c0",
+      "computedHash": "sha256:b13e3cfc80f1ed519772b80d50db29c60037ded0709cea17640ae5a3949d332f",
       "agentOnly": false,
       "views": [
         {
@@ -733,6 +803,32 @@
           "path": ".claude/skills/up-line",
           "type": "symlink",
           "target": "../../skills/up-line"
+        }
+      ]
+    },
+    "ws/watchlist-digest": {
+      "name": "watchlist-digest",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/watchlist-digest/SKILL.md",
+      "description": "自选简报——画像清单×当日盘面四袋的确定性接合，冻结题开口前出袋、数字只来自冻结行。触发词：自选简报、我的自选今天怎么样、按我的自选出简报、开盘简报（按自选）、我的清单今天该看什么、watchlist digest。注意：全市场日报用 market-overview；买卖票据题走 StancePack，不经本 skill。",
+      "triggers": [
+        "自选简报",
+        "我的自选今天怎么样",
+        "按我的自选出简报",
+        "开盘简报（按自选）",
+        "我的清单今天该看什么",
+        "watchlist digest"
+      ],
+      "note": "全市场日报用 market-overview；买卖票据题走 StancePack，不经本 skill。",
+      "entrypoint": null,
+      "computedHash": "sha256:24884cc51cbe8e3b0a26ee4cb4d64963d060cc34da6f40ceb11ebffcc813c32e",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/watchlist-digest",
+          "type": "symlink",
+          "target": "../../skills/watchlist-digest"
         }
       ]
     },
@@ -860,21 +956,11 @@
       "repo": "knowledge-base-private",
       "sourceType": "local",
       "skillPath": "skills/company-baseline-ingest/SKILL.md",
-      "description": "公司基础画像入库——两条入口：①iFinD/F10/AkShare 拉取轻量公司事实（行业、主营业务、主营产品/能力、相关概念、产业链暴露），补全 wiki/entities 的静态 company baseline + 维护 wiki/relations/entity_exposures.json；②本地年报/定期报告 PDF：默认走结构化路径 `scripts/ingest.py annual-report` / `parse_annual_report.py --mode baseline`，只产 wiki/raw/cninfo-baseline/*.json 供 L2 baseline 写库，不做年报向量化；只有用户明确说“年报向量化/只进 RAG/生成 raw 语料”才显式 `--mode raw` 或后续统一跑 RAG。默认不拉公告/新闻、不抓普通财务摘要、不写短期边际变化。触发词：公司画像、company baseline、补全 baseline、年报解析、年报入库、年报结构化、annual report ingest、年报向量化、PDF 向量化。",
-      "triggers": [
-        "公司画像",
-        "company baseline",
-        "补全 baseline",
-        "年报解析",
-        "年报入库",
-        "年报结构化",
-        "annual report ingest",
-        "年报向量化",
-        "PDF 向量化"
-      ],
+      "description": "公司基础画像入库。①iFinD/F10 补 wiki/entities baseline 与 entity_exposures；②本地年报 PDF 默认结构化（ingest.py annual-report），不向量化。触发：公司画像、补全 baseline、年报入库、年报结构化。默认不拉公告/新闻、不写短期边际。",
+      "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:7dfad56d8050bbdee3e691c8ac40919f4dfbaaaeee682c593b08ee6316c05f93",
+      "computedHash": "sha256:f7d7f76e0bcac79790eb14a54dc87252b1f3c713192f0b9a72be4e3cdcfa3869",
       "agentOnly": false,
       "views": [
         {
@@ -889,23 +975,11 @@
       "repo": "knowledge-base-private",
       "sourceType": "local",
       "skillPath": "skills/concept-ingest/SKILL.md",
-      "description": "概念入库（新建 + 增量）——将研报、文章、会议纪要等文本提取为结构化概念页写入 Obsidian 知识库。两个分支：库里没有对应概念页时新建（concept_writer.py）；库里已有概念页、材料提供新催化/新数据/新标的/新风险时走增量分支更新已有页（concept_delta_writer.py）。若 concept_writer.py 返回 update_needed 或 existing_concept 非空，必须继续走增量分支，不要停在手动合并。触发词：concept ingest、概念入库、新概念、提取概念、concept delta、概念增量、更新concept、已有概念更新、概念催化入库、合并到已有概念、update_needed。",
-      "triggers": [
-        "concept ingest",
-        "概念入库",
-        "新概念",
-        "提取概念",
-        "concept delta",
-        "概念增量",
-        "更新concept",
-        "已有概念更新",
-        "概念催化入库",
-        "合并到已有概念",
-        "update_needed"
-      ],
+      "description": "概念入库（新建+增量）。研报/纪要提取为概念页；已有页且有新催化/数据/标的/风险走增量。concept_writer 返回 update_needed 必须续增量，不要停。触发：概念入库、concept ingest、概念增量、update_needed。",
+      "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:9140b36741d3f9ac42a867421e5441c593300c602df85006db19d98c308eb35c",
+      "computedHash": "sha256:8e43266de0cdb90813bd4952e85a71f4d833ad513d20235561f1a7c457bb968a",
       "agentOnly": false,
       "views": [
         {
@@ -950,7 +1024,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:3c06bff2e4c09d042f9a8630bc9ed6d9fe5bb5ec2ad3930f45d1e994b3c700e7",
+      "computedHash": "sha256:a15c5584d011726c675d40aeed5a4219b59a0f4f5dba2f69c6379f5ac8ef5bb0",
       "agentOnly": false,
       "views": [
         {
@@ -995,7 +1069,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:1d735f036cf4c7def3d42e323ef3cc569d9473f96792300dd7bb6b511d206fa7",
+      "computedHash": "sha256:d8115d8f550fa501fe9bca7d225d24b3f16300bf510e16eda99a4b83d29753c6",
       "agentOnly": false,
       "views": [
         {
@@ -1028,13 +1102,41 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:d3ea5b174dee35cbedc4d5907bf3d67b25944732572985c8f6f33f51ddd0f734",
+      "computedHash": "sha256:12a71145f871cb4e25800fe1ee2edbacbd781153f6ea52c4b3514c34bf799189",
       "agentOnly": false,
       "views": [
         {
           "path": ".claude/skills/entity-delta-ingest",
           "type": "symlink",
           "target": "../../skills/entity-delta-ingest"
+        }
+      ]
+    },
+    "kb/handoff": {
+      "name": "handoff",
+      "repo": "knowledge-base-private",
+      "sourceType": "local",
+      "skillPath": "skills/handoff/SKILL.md",
+      "description": "会话收尾时把当前分支在途状态回写成交接文档（docs/handoffs/inflight/<分支>.md）。触发词：handoff、交接、写交接、回写 handoff、收尾交接、交给下一个 agent、另一个 agent 接手。你说\"handoff\"就执行本流程，不用等会话结束。",
+      "triggers": [
+        "handoff",
+        "交接",
+        "写交接",
+        "回写 handoff",
+        "收尾交接",
+        "交给下一个 agent",
+        "另一个 agent 接手。你说\"handoff\"就执行本流程",
+        "不用等会话结束"
+      ],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:7c41680afbb4089bddf8e18230ae305c452026347f9b6fcf23da7e48bba9a891",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/handoff",
+          "type": "symlink",
+          "target": "../../skills/handoff"
         }
       ]
     },
@@ -1056,22 +1158,11 @@
       "repo": "knowledge-base-private",
       "sourceType": "local",
       "skillPath": "skills/ingest-planner/SKILL.md",
-      "description": "批量入库前的「采访」前置（Inversion 反转模式）——在大批量 ingest / 开新题材 / 历史回补前，先按顺序问清材料范围、目标、分支、证据等级、是否允许建 entity/concept、跳过与停止规则，把回答合成成 batch-ingest-plan，经 check_ingest_plan.py 门控校验通过后才放行写库，再交给 material-router / pdf-ingest / concept-ingest / entity-delta-ingest 执行。触发词：批量入库、入库规划、开新题材、历史回补、ingest plan、ingest planner、入库前先问、批量ingest、采访规划、入库计划。",
-      "triggers": [
-        "批量入库",
-        "入库规划",
-        "开新题材",
-        "历史回补",
-        "ingest plan",
-        "ingest planner",
-        "入库前先问",
-        "批量ingest",
-        "采访规划",
-        "入库计划"
-      ],
+      "description": "frozen。批量入库前采访前置：问清范围/目标/证据等级后合成 batch-ingest-plan，经 check_ingest_plan.py 才放行。用户明确说「ingest-planner」「入库前先问」「批量入库规划」时用。",
+      "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:cd61a82a584d48376531b6ed37678e0bde53c66ac79f5907d7bcec82c06a40ee",
+      "computedHash": "sha256:d82694816e9f271cb8ac7b30430277fb99939a129732cea911803f89d68c1aff",
       "agentOnly": false,
       "views": []
     },
@@ -1092,7 +1183,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:f4358eb16f3b746c42f511a9878dd4498e16d60bbdbb9c4f926a45394d73060b",
+      "computedHash": "sha256:85f2e07407beb623748fac81543cdfd0de11cd18ce5ad903190d76b1fa7ad686",
       "agentOnly": false,
       "views": [
         {
@@ -1107,21 +1198,11 @@
       "repo": "knowledge-base-private",
       "sourceType": "local",
       "skillPath": "skills/material-router/SKILL.md",
-      "description": "资料分发路由——输入任意一份资料（研报PDF/公告/纪要/复盘/评级日报/IMA卡/DeepDive报告），自动识别资料类型，输出\"该喂哪些模块、各喂什么养分\"的拆分分发清单，再按清单逐模块执行。另含 opt-in 的 sellside-digest 子模式：把晚间卖方研报汇总切成\"行业最新要闻层 / 个股最新逻辑层\"两层并逐公司标库内状态（已有卡/缺卡/无页），只出 dry-run 清单。触发词：这份资料怎么入库、分发资料、路由资料、material router、拆分喂养、这个喂哪些模块、晚间卖方研报分层、卖方研报分层、sellside digest。",
-      "triggers": [
-        "这份资料怎么入库",
-        "分发资料",
-        "路由资料",
-        "material router",
-        "拆分喂养",
-        "这个喂哪些模块",
-        "晚间卖方研报分层",
-        "卖方研报分层",
-        "sellside digest"
-      ],
+      "description": "frozen。识别资料类型并输出分发清单（研报/公告/纪要/IMA/DeepDive）。含 opt-in sellside-digest 分层。用户明确说「material-router」「这份资料怎么入库」「卖方研报分层」时用。",
+      "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:4261a6411d683252c4693c87940ed3a633a6cc3c2005c5deb2c77721ac6ed19a",
+      "computedHash": "sha256:a5531894b41f3361a7d93f595dd1aed0351565829caf755ee547fa4d9eaf2bce",
       "agentOnly": false,
       "views": []
     },
@@ -1134,7 +1215,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:190c987e2712ff23675a641a22485ae33d78bec6a773156b20561ef9adc05642",
+      "computedHash": "sha256:7f5c7439169775e95887d5a23afc1bea4fa5c6708e22ac1004b21c8fed7d5ff6",
       "agentOnly": false,
       "views": [
         {
@@ -1192,23 +1273,40 @@
       "repo": "knowledge-base-private",
       "sourceType": "local",
       "skillPath": "skills/planning-with-files/SKILL.md",
-      "description": "运行层「持久工作记忆 + 完成闸门」——多步运营/分析（早/晚间流程、批量拆年报、多步交叉分析）开跑前在 gitignored runs/<date>-<slug>/ 铺 task_plan.md / findings.md / progress.md 三份文件落盘记忆，收尾前用 check_run_complete.py 过完成闸门，专治 daily-ops 晚间第2/5步「强制接力最易漏」。它是规划/记忆层，与 kb_*/mkt_*/ana_* 工具层、wiki/log.md 审计层互补不替代。触发词：planning with files、持久规划、运行记忆、完成闸门、收尾自检、防漏接力步、task_plan、findings、抗崩续跑。",
+      "description": "frozen。多步运营开跑前在 runs/<date>-<slug>/ 铺 task_plan/findings/progress，收尾用 check_run_complete.py。用户明确说「planning-with-files」「持久规划」「完成闸门」「抗崩续跑」时用。",
+      "triggers": [],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:f501aca199500f2e33a25810ad77599abfe7e39d23182a69c571d0b0f4540dd1",
+      "agentOnly": false,
+      "views": []
+    },
+    "kb/rag-query": {
+      "name": "rag-query",
+      "repo": "knowledge-base-private",
+      "sourceType": "local",
+      "skillPath": "skills/rag-query/SKILL.md",
+      "description": "知识库 RAG 检索的消费手册——会话 agent 查库时选 mode、读 trace coverage、决定是否 --subquery 补跳。触发词：查库、搜知识库、检索、rag query、库里有没有、帮我搜、深挖 raw。",
       "triggers": [
-        "planning with files",
-        "持久规划",
-        "运行记忆",
-        "完成闸门",
-        "收尾自检",
-        "防漏接力步",
-        "task_plan",
-        "findings",
-        "抗崩续跑"
+        "查库",
+        "搜知识库",
+        "检索",
+        "rag query",
+        "库里有没有",
+        "帮我搜",
+        "深挖 raw"
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:46584288592b80b63756d07b3e2530ef3e858c713927c8c26a0877b75df5587c",
+      "computedHash": "sha256:73bf1d1abc93e44ae3474d4ca2a4b3fec7f1f7c2de6fabd6738c39f1a57cc30e",
       "agentOnly": false,
-      "views": []
+      "views": [
+        {
+          "path": ".claude/skills/rag-query",
+          "type": "symlink",
+          "target": "../../skills/rag-query"
+        }
+      ]
     },
     "kb/sellside-coverage-cross": {
       "name": "sellside-coverage-cross",

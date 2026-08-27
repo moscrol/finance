@@ -39,7 +39,7 @@
 | L1-S9 | KB Hybrid rerank | done | 四臂评测闭环；结论不上线 | #44 · KB PR #12 | 已合；8792 保持 off |
 | L1-S10 | branch_tool 诊断 | done | Phase A 出 PRIMARY | `docs/verification/2026-08-15-s10-branch-activation.md`（零调用未复现；`ROOT_CAUSE_NOT_CONFIRMED`） | Phase A 已交；Phase B 未开 |
 | L1-R24 | E-007 修复部署 | done | 独立部署窗落地 | #49 · `2026-08-16-r24-deploy-window.md` | 已切 `437cd5e9`；live 结案仍看账本 |
-| L1-8792 | 生产追平 | done | 已切含 #49 的干净快照；其后 tip 不追切（含特性合并） | `2026-08-16-r24-deploy-window.md` · `2026-08-16-deploy-window-773b3d7e.md` | 8792=`773b3d7e`（目录名仍 `437cd5e9aa1a`）；卫生 HOLD 并进修复+#84 |
+| L1-8792 | 生产追平 | done | 已切含 #49 的干净快照；其后 tip 不追切（含特性合并） | `2026-08-16-r24-deploy-window.md` · `2026-08-16-deploy-window-773b3d7e.md` · `handoffs/inflight/main.md`（08-17 两行） | 8792=`877e1f72`（目录名=SHA，卫生一致；回滚锚 `96446a933491`）。中间切换史：`773b3d7e`→`6cd0756e`(#88 卫生了结)→`31ee58ce`→`96446a93`→现 |
 | L1-OBS-P1 | 观测台 Phase 1 生成器 | done | render+--check+好/坏夹具 | `scripts/progress_observatory.py` | 检阅方 |
 | L1-OBS-P2 | 观测台 Phase 2 趋势曲线 | done | 两条曲线≥3真实历史点 | `scripts/progress_observatory.py` | 检阅方 |
 | L1-OBS | 进度观测台 | in_flight | Phase 2 已合（交付率/命中率≥3真实点）；Phase 3 挂载面另案 | `2026-08-15-progress-observatory.md` | 检阅方 |
@@ -66,5 +66,16 @@
 | 2026-08-16 | S2 回查钩子已合 #60；默认 off；对照实验未跑；不追切 8792 | 已决 | L1-S2 |
 | 2026-08-16 | S3 窗口推导已合 #63；ASK_* 只下压；3 题冒烟未跑；不追切 8792 | 已决 | L1-S3 |
 | 2026-08-16 | 闸 2 三选一（豁免 #89 §3）：用户 16:58 拍板**选 2**——豁免成立但不翻闸，先修 judge transient（`R-20260816-06`：judge 埋点 → 8795 重放 → H8/H9 → 处置 PR），处置部署 8792 后眼 agent 再翻闸开 10 题窗；交接 `2026-08-16-judge-transient-r06.md` | 已决 | L1-8792 |
+| 2026-08-17 | #145/#146 合并（用户授权「可同步的先同步到 8792」；四件套绿，收据 `20260817T135048Z-570fff2c`，预览树=合后树）；21:57 切 8792=`877e1f72`（目录名=SHA；回滚锚 `96446a93`）。16:10 他轨曾切 `96446a93` 未记账，本日补记 | 已决 | L1-8792 |
+| 2026-08-17 | 降桶标注 live 探针：**更正**——初版误写「证据进上下文、模型未滥用」，复核证明 superseded 边被 `max_evidence=8` 截断**未入上下文**，该发 live 覆盖为零。marker 侧另有 prompt 教学门禁（#146 设计内豁免）。live 压该路径需两件齐：① 选 superseded 能进 top-8 的靶（已扫出 DRAM/mSAP/电子特气）② prompt 教 marker 语法（押后件，与修订轮开关同看台账） | 已决 | L1-8792 |
+| 2026-08-17 | DRAM 靶 live 复验（落盘上下文级）：query=`DRAM` 时 2 条 stale 边进了 `prepared_synthesis_messages`（`⚠️已被新证据取代` ×4）。建议题「长鑫+DRAM」因精确 target **打不中** DRAM 宿主。证据行 `[:80]` 截掉华西 2776.90。模型把 508 亿标成历史参照，现况用 07-27 上市口径。marker/降桶文案仍 0（prompt 门禁）。读数 `docs/verification/2026-08-17-dram-superseded-live-recheck.md`。① 已满足本靶；② 仍押后 | 已决 | L1-8792 |
+| 2026-08-17 | top-8 截断 × stale 提醒：材料就绪待裁决。推荐 D（`stale_notes` 旁路）；A 正当。不改代码。`docs/superpowers/specs/2026-08-17-stale-evidence-quota-decision.md` | 用户 | L1-8792 |
+| 2026-08-18 | 上行**已决 D**（用户 00:39 拍板）。执行单已派：`docs/handoffs/2026-08-18-stale-notes-bypass-implementation.md`（旁路提醒行；名额/排序/prompt/闸判据全不动；ADR 0003 随实现 PR 补） | 已决 | L1-8792 |
+| 2026-08-18 | 数据根接线错位（「无市场数据」+「盘面快照 07-15」同根）：`data_repo_root()` 把 `WORKBENCH_REPO_ROOT`（launcher 指代码快照做溯源）当数据根首选，DuckDB/exports 全解析进冻结快照。修复单已派：`docs/handoffs/2026-08-18-data-root-wiring-fix.md`（代码修，摘出数据根序列；溯源不动；交付后验收方切 8792） | 已派 | L1-8792 |
+| 2026-08-18 | stale_notes 旁路 **D 已落地**：#165 合并（`3b01c623`），ADR `docs/adr/0003-stale-notes-bypass.md`。验收方独立复算：四件套全绿（pytest 5378/0/12，webapp 四件套 OK；初跑 16 红为验收侧 umask 077 环境因素，umask 022 后归零）+ live llm_context 提醒行/286.69/359.62 缺席逐项核对。8792 未切（当前 d1be2d0c 不含 #165，追切与否待裁决） | 已落地 | L1-8792 |
+| 2026-08-18 | 数据资产审计（01:10）：四张零消费表（竞价 9107 行/研报目录 458/事件 2455 含 13 条未来/技术特征 200 万行日更）+ 两个死 JSON（catalyst_calendar 07-28 停更、fupanhui_panorama 06-22 一次性）。执行单已派：`docs/handoffs/2026-08-18-dead-assets-consumption-wiring.md`（四表进语义层照 dragon 先例；两 JSON 归档裁决不接线；上游停更另单） | 已派 | L1-8792 |
+| 2026-08-18 | 评估在线环接线已修（02:25）：venv python + runtime 符号链 + `~/.local/bin` wrapper 重装六 job；checkpoint 11 条 rc=0；fidelity 08-17 原管线重放落盘。pit/forward 非零是既有判分（SW 一级缺口 / blocked），finalize 非零是 08-18 尚无行情。未切 8792。黑暗期与回补裁决：`docs/verification/2026-08-18-eval-launchd-loop-repair.md`。重装：`scripts/install_eval_launchd.sh` | 接线已修 | L1-8792 |
+| 2026-08-18 | 答案质量评估断档两周（合成回放停 08-04、28 题验收台 08-09 时代；近两周新增评估全在检索层与运行时层）。重启单已派：`docs/handoffs/2026-08-18-frozen-thirty-live-baseline.md`（冻结 30 题 live + rubric 异源判分出回归锚；先决 #164 落地；泄漏局限自陈；十题窗独立出题人仍是 open item 等用户裁决） | 已派 | L1-8792 |
+| 2026-08-18 | ai-agent-book 第 5 章判定更正（⚪→🟡，章审追记）：「代码=元能力」开发层已具备、运行时层有意缺口。三档补法用户已裁决执行第 1 档：工具饥饿信号单已派 `docs/handoffs/2026-08-18-tool-hunger-telemetry.md`（只观测不造工具；解释器押后件先决=30 题基线+饥饿数据；自改工具环明确不做） | 已派 | L1-8792 |
 
 Phase 3 挂载面未入列（等 Phase 1 体感，现在不要裁决）。

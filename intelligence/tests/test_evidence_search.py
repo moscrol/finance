@@ -64,13 +64,27 @@ def _cutoff() -> InformationCutoff:
     return InformationCutoff(date(2026, 7, 24), "requested")
 
 
+def _is_counter_query(query: str) -> bool:
+    return any(
+        token in query
+        for token in (
+            "产能过剩",
+            "价格战",
+            "技术替代",
+            "需求不及",
+            "竞争格局恶化",
+            "政策收紧",
+        )
+    )
+
+
 def test_search_preserves_apertures_buckets_and_counter_evidence() -> None:
     narrow = _hit("narrow", "瑞华泰估值锚", "瑞华泰收入与利润估值锚")
     broad = _hit("broad", "瑞华泰同业", "瑞华泰同业可比公司估值")
     counter = _hit("counter", "瑞华泰风险", "瑞华泰需求不及预期风险")
 
     def retrieve(query: str) -> WikiRagResult:
-        if "风险" in query:
+        if _is_counter_query(query):
             return _response(query, counter)
         if "上下游" in query:
             return _response(query, broad)
@@ -170,7 +184,7 @@ def test_same_chunk_from_two_apertures_becomes_one_evidence_item() -> None:
     duplicate = _hit("same", "液冷证据", "液冷需求与液冷产业链证据")
 
     def retrieve(query: str) -> WikiRagResult:
-        if "风险" in query:
+        if _is_counter_query(query):
             return _response(query)
         return _response(query, duplicate)
 
@@ -193,7 +207,7 @@ def test_same_content_hash_from_two_paths_becomes_one_evidence_item() -> None:
     )
 
     def retrieve(query: str) -> WikiRagResult:
-        if "风险" in query:
+        if _is_counter_query(query):
             return _response(query)
         if "上下游" in query:
             return _response(query, copied)
@@ -354,7 +368,7 @@ def test_causal_policy_requires_counter_before_success() -> None:
     )
 
     def retrieve(query: str) -> WikiRagResult:
-        if "反证" in query or "数据不支持" in query:
+        if _is_counter_query(query):
             return _response(query)
         return _response(query, support)
 
@@ -385,7 +399,7 @@ def test_causal_policy_succeeds_with_target_window_support_and_counter() -> None
     )
 
     def retrieve(query: str) -> WikiRagResult:
-        if "反证" in query:
+        if _is_counter_query(query):
             return _response(query, counter)
         return _response(query, support)
 

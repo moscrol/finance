@@ -18,13 +18,18 @@ from intelligence.services.episode_output_substance import (
     required_output_evidence_floor,
     required_outputs_without_substance,
 )
-from intelligence.services.research_contract import ResearchRunContext
+from intelligence.services import knowledge_injection_policy
+from intelligence.services.research_contract import (
+    FORWARD_HYPOTHESIS_OUTPUT_IDS,
+    ResearchRunContext,
+)
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.degraded_fallback import (
     episode_rule as degraded_episode_rule,
 )
 from intelligence.services.longtail_baseline import episode_rule
+from intelligence.services.scenario_tree import episode_scenario_rule
 from intelligence.services.track_contract import episode_track_rule
 
 
@@ -107,12 +112,17 @@ def finish_json_schema() -> dict[str, object]:
     }
 
 
-def build_episode_instructions(
+# Borrowed name only. Marks the seam: above = byte-stable system (cache
+# candidate); below = per-turn user/tool. cache_control is not implemented
+# in this increment. Do not copy CC TTL / Blake2b / 87% / scope:'global'.
+SYSTEM_PROMPT_DYNAMIC_BOUNDARY = "SYSTEM_PROMPT_DYNAMIC_BOUNDARY"
+
+
+def _question_type_rules(
     task_frame: TaskFrame,
     context: ResearchRunContext,
-    registry: ResearchToolRegistry,
 ) -> str:
-    """Build one outcome-first instruction contract shared by all runtimes."""
+    """Per-question rule tail. Wording is a verbatim move from the old system."""
 
     valuation_rule = (
         "估值题专用完成规则：scenario_range 必须给出保守、中性、乐观"
@@ -129,14 +139,17 @@ def build_episode_instructions(
     )
     # 跟踪题表达契约（knevo q8 回灌，episode 版）：文本住在 track_contract
     # （单一真本源，与 legacy ask_synthesis 版同模块），此处只做条件注入——
-    # 非跟踪题得到空串，指令逐字节不变。从模块导入的文本不进本函数的
-    # 静态契约指纹（test_episode_protocol 只提取本函数体内的字符串常量）。
+    # 非跟踪题得到空串。从模块导入的文本不进 build_episode_instructions 的
+    # 静态契约指纹（test_episode_protocol 只提取该函数体内的字符串常量）。
     track_rule = episode_track_rule(
+        task_frame.raw_question,
+        task_frame.question_type,
+    ) + episode_scenario_rule(
         task_frame.raw_question,
         task_frame.question_type,
     )
     longtail_rule = episode_rule(task_frame)
-    # ASK_DEGRADED_FALLBACK（默认 off）：降级回答章法，off 时空串、指令不变。
+    # ASK_DEGRADED_FALLBACK（默认 off）：降级回答章法，off 时空串。
     degraded_rule = degraded_episode_rule(task_frame)
     # prior_recall 槽位专用规则：只在该格出现于契约时注入。
     #
@@ -159,6 +172,82 @@ def build_episode_instructions(
         )
         else ""
     )
+    # 可选前瞻槽专用规则（R-20260824-20）：装配层给前瞻信号题挂上三槽时注入。
+    #
+    # 这条规则要做的事**只有一件**：告诉模型这三格欢迎具体的可核验阈值，别写
+    # 「以盘面为准」自保；同时说明它们可选，别为了填格硬凑情景。这正是本单的
+    # 行为目标——挂槽只是给阈值一个合法落点，愿不愿意写出来得靠这句话。
+    #
+    # ⚠ **本规则最初的那套「必须加否则整份被拒」的理由是错的，2026-08-24 已撤。**
+    # 当时写的是「grounding_mode 到不了模型 → 模型只能猜 basis → basis_mismatch
+    # 拒整份」。实测三条都不成立：
+    #
+    # 1. 生产逐回合载荷是 `build_episode_input`（`codex_headless_runtime` 与
+    #    `openai_agents_runtime` 都调它），它发 `research_contract.to_dict()`，
+    #    而 `RequiredOutput` 是 dataclass、走 `asdict`——**`grounding_mode` 在里面**。
+    #    实测一次 general_finance_qa 载荷里出现 8 处。
+    # 2. 当时指认的缺字段渲染点在 `generic_research_owner.py`，那是 **ownerless
+    #    长尾**那条路，不是 episode 主循环；且该文件里 "basis" 出现 **0 次**、不走
+    #    `validate_episode_finish`——**它没有 basis 闸，少这个字段不是缺陷**。
+    # 3. 2026-08-18 frozen-thirty live 里的
+    #    `grounding basis mismatch for direct_answer: expected evidence, got
+    #    model_reasoning`，是模型**看得见字段却没照做**的普通 FORMAT 滑档，
+    #    经回灌自愈，不是信息投递缺口。
+    #
+    # 教训（比结论值钱）：查「字段有没有送到模型」要从**实际发出去的载荷**反查，
+    # 不能盯着某一处 render 的字段列表推断。多入口系统里，你盯的那个 render 很
+    # 可能压根不在被测那条路上。当时只要把 `build_episode_input` 的输出打印一次
+    # 就能立刻证伪——一条 print 抵三轮推理。
+    #
+    # 因此：本规则与挂槽**可以分开**，删了它只是模型少一句鼓励、更可能写回
+    # 「阈值以盘面为准」，**不会**导致 FINAL_JSON 被拒。钉 11 仍钉这条规则在场，
+    # 但它钉的是行为引导，不是防拒收。
+    #
+    # 判据只认「可选 + model_reasoning + 前瞻槽 id」这个组合——它唯一对应装配层
+    # 本次挂上的槽。
+    # 之所以仍先加规则：结构修法会动到所有任务的提示词，需独立立案 + 独立 live。
+    forward_slot_rule = (
+        "本任务包含可选前瞻槽（scenario_paths / continuation_conditions / "
+        "invalidation_conditions / verification_timepoints，"
+        "grounding_mode=model_reasoning）：这几格是"
+        "你受契约委托作出的**向前的条件化判断**，情景路径与持续/证伪阈值本就"
+        "不可能出现在既有证据里，可以给出具体的可核验阈值，不要写「以盘面为准」"
+        "这类回避表述。verification_timepoints 写「验证时点=可观察指标×时间窗」"
+        "（如「9 月中报看订单兑现」），让判断能被回检。"
+        "绑定时 basis 用 model_reasoning、evidence_hashes 留空。"
+        "这几格是可选的：没有值得写的条件化判断就不绑，不绑不算失败，不要为了"
+        "填格硬凑情景。"
+        if any(
+            not o.required
+            and o.grounding_mode == "model_reasoning"
+            and o.output_id in FORWARD_HYPOTHESIS_OUTPUT_IDS
+            for o in context.contract.required_outputs
+        )
+        else ""
+    )
+    return (
+        f"{prior_recall_rule}\n"
+        f"{forward_slot_rule}\n"
+        f"{valuation_rule}\n"
+        f"{track_rule}\n"
+        f"{longtail_rule}"
+        f"{degraded_rule}"
+    )
+
+
+def build_episode_instructions(
+    task_frame: TaskFrame,
+    context: ResearchRunContext,
+    registry: ResearchToolRegistry,
+) -> str:
+    """Build the static constitution shared by all runtimes.
+
+    Per-turn hash, tool table, and question-type rules live in
+    ``build_episode_input``. The three arguments stay for call-site
+    compatibility; they must not change the returned text.
+    """
+
+    del task_frame, context, registry
     # 只改形状，一个字不改：本函数的静态契约文本去掉全部空白后，sha256 与重排前
     # 逐字节相同（`test_episode_protocol` 里那条指纹测试锁住这一点）。所以下面新增
     # 的只有换行和六个分组标题，**约束的措辞与前后顺序都没动**。
@@ -170,6 +259,12 @@ def build_episode_instructions(
     #
     # 为什么不顺手改措辞：这轮唯一想验证的是「结构是否影响模型表现」。同时改字，
     # 后续行为差异就分不清来自哪一边——这跟工具观察预算那轮坚持纯变换是同一条纪律。
+    #
+    # 2026-08-23 起上面那条不再全真：【排版】组是**新增措辞**（指纹已显式更新）。
+    # 加它的理由与上面那轮相反——纯否定约束叠出了副作用。原文四条都在禁结构
+    # （「不要套固定标题、行数或段落模板」「这不要求固定标题或段数」），没有一条
+    # 正面要求可读性，模型据此推出「一段到底最安全」。【排版】把限定语排在被限定
+    # 内容之前（禁的是填空、不是排版），再给正面要求。除这一组外仍是一个字没动。
     return (
         "你是连续运行的金融研究 Agent。始终回答最初的不可变任务。\n"
         "\n"
@@ -216,6 +311,12 @@ def build_episode_instructions(
         "为保证结构化终止完整，draft 控制在 1000 汉字以内，优先保留直接"
         "判断、决定性依据、继续条件和失效条件；这不要求固定标题或段数。\n"
         "\n"
+        "【排版】\n"
+        "上面禁止的是「按固定小标题填空」，不是禁止排版：用哪些结构由内容"
+        "决定，但不得整篇不分段、不换行地一段到底。\n"
+        "draft 用 Markdown 写：段落之间空一行；并列的情景、条件、跟踪指标"
+        "或风险点写成列表项；核心判断用 **加粗** 标出。\n"
+        "\n"
         "【终局 JSON】\n"
         "只输出一个 JSON 对象：\n"
         '{"status":"completed|partial","draft":"自然语言回答",'
@@ -230,21 +331,15 @@ def build_episode_instructions(
         "若 output 已由证据序号支持并完成，binding.gap 必须为空，"
         "限制条件写入顶层 gaps 或 draft。\n"
         "completed 必须覆盖所有 required outputs；partial 必须明确缺口。\n"
-        f"{prior_recall_rule}\n"
-        f"{valuation_rule}\n"
-        f"{track_rule}\n"
-        f"{longtail_rule}"
-        f"{degraded_rule}"
-        f"任务哈希：{task_frame.task_frame_hash}\n"
-        f"可用工具：\n{registry.prompt_block(context.contract.allowed_capabilities)}"
     )
 
 
 def build_episode_input(
     task_frame: TaskFrame,
     context: ResearchRunContext,
+    registry: ResearchToolRegistry,
 ) -> str:
-    """Serialize the immutable task and deterministic execution contract."""
+    """Serialize the per-turn task, cutoff, rules, and tool table."""
 
     payload: dict[str, object] = {
         "task_frame": task_frame.to_dict(),
@@ -260,7 +355,24 @@ def build_episode_input(
             "today 不是行情日期；information_cutoff 是所有查询与引用事实的"
             "不可变日期上限；市场事实还须服从 latest_data_date 和证据日期"
         ),
+        "task_frame_hash": task_frame.task_frame_hash,
+        "available_tools": registry.prompt_block(
+            context.contract.allowed_capabilities
+        ),
+        "question_type_rules": _question_type_rules(task_frame, context),
     }
+    # 市场态题型（market_watch）不注入：三轮消融实测该题型上判读基线稳定负贡献
+    # （主线题七读数全 ≤0），与 Engine B 合成侧共用 knowledge_injection_policy 门控。
+    baseline = knowledge_injection_policy.reading_guidance_for(task_frame.question_type)
+    if baseline:
+        # 判读基线是领域方法，默认生效，与 perspective_context（观点层、需用户显式
+        # 选中）分属两层——两个引擎必须都接，只接 legacy 会让生产 continuous 主路径
+        # 拿不到，重演 2026-08-14 视角注入那次「配置生效、模型没看到」。
+        payload["reading_baseline"] = baseline
+        payload["reading_baseline_rule"] = (
+            "判读基线是本领域「数据该怎么读」的强制方法约束，适用于全部证据块；"
+            "与本轮证据冲突时以证据为准，但必须显式说明冲突，不得沉默跳过"
+        )
     if context.perspective_context:
         # 视角约束只在激活时出现：neutral 轮的模型输入逐字节不变。
         # 具体的证据纪律（层级、大声失败、观点/事实分层）已在该 prompt 内部
@@ -271,7 +383,32 @@ def build_episode_input(
             "视角内容属于观点层，只用于组织分析框架与表达侧重；"
             "不得当作事实证据，不得越过 research_contract 的证据边界"
         )
+    pack = getattr(context, "stance_pack", None)
+    if pack is not None:
+        renderer = getattr(pack, "to_prompt_block", None)
+        payload["stance_pack"] = renderer() if callable(renderer) else str(pack)
+        payload["stance_pack_rule"] = (
+            "先验袋不是市场事实；现价只许来自 quote_bag；空袋必须写缺口；"
+            "袋外价格不得出现；动作只写条件"
+        )
     return json.dumps(payload, ensure_ascii=False)
+
+
+def split_episode_prompt(
+    task_frame: TaskFrame,
+    context: ResearchRunContext,
+    registry: ResearchToolRegistry,
+) -> tuple[str, str]:
+    """Return ``(system, user)`` split at ``SYSTEM_PROMPT_DYNAMIC_BOUNDARY``.
+
+    System is byte-stable across requests. User rebuilds each turn.
+    cache_control is not implemented in this increment.
+    """
+
+    return (
+        build_episode_instructions(task_frame, context, registry),
+        build_episode_input(task_frame, context, registry),
+    )
 
 
 
@@ -431,6 +568,26 @@ def parse_evidence_ordinal(token: str) -> int | None:
     if match is None:
         return None
     return int(match.group(1))
+
+
+_PROSE_EVIDENCE_REF_RE = re.compile(
+    r"(?<![A-Za-z0-9])[Ee]([1-9][0-9]{0,2})(?![0-9])"
+)
+
+
+def cited_evidence_ordinals(text: str) -> tuple[str, ...]:
+    """正文里显式引用的 E 序号（写手空间，首现顺序去重）。
+
+    数字语法与 ``_EVIDENCE_ORDINAL_RE`` 同一套（E1..E999、无前导零）。
+    左界排除字母数字（``PE10`` 估值倍数、``1.5E8`` 科学计数、``CE4`` 认证名
+    都不是引用），右界排除续位数字（``E41`` 不拆成 ``E4``）。
+    只识别、不校验：表外序号由消费方反解失败自然落回既有删除路径。
+    """
+
+    seen: dict[str, None] = {}
+    for match in _PROSE_EVIDENCE_REF_RE.finditer(str(text or "")):
+        seen.setdefault(f"E{match.group(1)}", None)
+    return tuple(seen)
 
 
 def resolve_evidence_refs(
@@ -845,6 +1002,17 @@ def _finish_object(value: object) -> dict[str, object] | None:
     return dict(value)
 
 
+def parse_finish_json(content: str) -> dict[str, object] | None:
+    """Effective finish decoder used by production.
+
+    Accepts a raw ``model_turn.content`` string (bare object or fenced) and
+    returns the envelope dict, including the raw-draft recovery path. This is
+    the parser the acceptance ruler must share — do not copy it.
+    """
+
+    return _parse_json_object(content)
+
+
 def _parse_json_object(content: str) -> dict[str, object] | None:
     raw = str(content or "").strip()
     fenced = _FINAL_JSON_RE.fullmatch(raw)
@@ -917,8 +1085,10 @@ __all__ = [
     "REPAIR_PROTOCOL_REJECTION_CODES",
     "RejectionKind",
     "RejectionResponse",
+    "SYSTEM_PROMPT_DYNAMIC_BOUNDARY",
     "build_episode_input",
     "build_episode_instructions",
+    "split_episode_prompt",
     "expand_comparison_set_bindings",
     "expand_episode_snapshot_bindings",
     "attach_evidence_ordinals",
@@ -926,6 +1096,7 @@ __all__ = [
     "finish_json_schema",
     "finish_rejection_fields",
     "parse_evidence_ordinal",
+    "parse_finish_json",
     "rejection_response",
     "resolve_evidence_refs",
     "strip_hashes_for_model",

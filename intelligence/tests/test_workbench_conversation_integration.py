@@ -399,10 +399,9 @@ def test_open_gaps_mirror_into_message_followups(
         assert run["status"] == "completed"
         messages = _wait_message_terminal(client, conversation_id)
         followups = messages[-1]["followups"]
-        assert len(followups) == 2
-        assert all(item["type"] == "gap" for item in followups)
-        assert all(item["type_label"] == "缺口补齐" for item in followups)
-        assert "主线判断依据" in followups[0]["full_prompt"]
+        assert 2 <= len(followups) <= 4
+        assert any(item["type"] == "gap" and item.get("angle") == "A" for item in followups)
+        assert any("主线判断依据" in item["full_prompt"] for item in followups)
         assert all(len(item["label"]) <= 20 for item in followups)
         # full_prompt 是替用户写好的完整问题，直接可发。
         assert all(item["full_prompt"].strip() for item in followups)
@@ -420,8 +419,56 @@ def test_open_gaps_mirror_into_message_followups(
             if document.get("followups"):
                 break
             time.sleep(0.02)
-        assert len(document["followups"]) == 2
+        assert 2 <= len(document["followups"]) <= 4
         assert document["llm_used"] is False
+
+
+def test_complete_continuous_answer_still_emits_followups(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo_root = Path(__file__).parent / "fixtures" / "chat_workbench_repo"
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    monkeypatch.setenv("FINANCE_WS", str(repo_root))
+    monkeypatch.setenv("KB_VAULT", str(repo_root / "wiki"))
+
+    class CompleteAdapter:
+        def handle(self, **_kwargs: object) -> ContinuousTurnResult:
+            return ContinuousTurnResult(
+                handled=True,
+                status="completed",
+                answer="液冷主线仍在，公司级订单证据见公告。",
+                as_of="2026-07-24",
+                citations=(),
+                warnings=(),
+                private_artifact={"runtime_backend": "test_episode"},
+                events=(),
+                llm_provider="test",
+                open_gaps=(),
+            )
+
+    monkeypatch.setattr(
+        app_module,
+        "_build_continuous_turn_adapter",
+        lambda **_kwargs: CompleteAdapter(),
+    )
+
+    with TestClient(create_app(repo_root=repo_root)) as client:
+        conversation_id = client.post(
+            "/api/conversations",
+            json={"title": "完整答案也有芯片", "user": "alice"},
+        ).json()["conversation_id"]
+        created, run = _send(
+            client,
+            conversation_id,
+            "液冷题材怎么看",
+        )
+        assert run["status"] == "completed"
+        messages = _wait_message_terminal(client, conversation_id)
+        cards = messages[-1]["followups"]
+        assert 2 <= len(cards) <= 4
+        assert {item.get("angle") for item in cards} <= {"A", "B", "C", "D"}
+        assert created["run_id"]
 
 
 def test_terminal_claim_and_message_revise_are_adjacent_writes(

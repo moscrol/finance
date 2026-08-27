@@ -103,3 +103,26 @@ perspective exam run --user <id> --perspective <id>
 
 `skills/perspective-distill/SKILL.md` 第 6 步在「通读 + 8792 可见」之前加
 `exam run`：没有绿考卷，蒸馏不算验收完成。
+
+## 6. 推进现状与收尾路（2026-08-18 验收 session 补记）
+
+> 本 spec 先行入主干；机制代码仍在分支 `feat/perspective-known-answer-exam`（PR #123，draft，刻意不合主链）。以下是收尾前必须知道的现状与顺序。
+
+### 已核实的现状
+
+- 机制代码完整：`perspective_exam.py`（353 行）+ CLI `exam add|list|run` + 两个测试文件（落地时 50 绿）；分支与 main 已漂移，接手先 rebase。
+- 全库唯一角色 `a77/fengyuan`（风远框架）：画像四字段有货，但 **`honest_boundaries` = 0 条**——边题结构性必挂。这是比金标更前置的卡点。
+- 原文语料 `articles/fengyuan/raw/` 为空（当时会话内蒸馏）：金标出题无法带原文引用，只能由用户背书立场。
+- 复核过「rubric / LLM-as-judge 收尾」提案（2026-08-18）：**维持 §2 方案 B 的否决**。`evaluate_role` 是纯确定性词面匹配，考卷没有自由文本可评；钉子 schema 本身就是确定性 rubric，无需另加。
+
+### 收尾五步（接手 agent 按序走）
+
+1. **补边界**：给 `fengyuan` 补 ≥1 条 `honest_boundaries`（走 patch 闭环）。已拟候选待用户确认措辞：「个股财务报表深挖 / 审计式基本面核查不在框架内」（风远五镜头全是盘面行为学与资金结构，无一碰报表）。
+2. **金标钉子**：agent 可拟草案，**用户逐条确认后才进卷**（§3.1 权威不转移）。2026-08-18 已拟草案：ka-1 利多不涨+连板高标 → `risk`/`risk_triggers`/terms=[利多不涨, 连板高标]/forbidden=[加仓]；ka-2 供给弹性≈0+头部厂商涨价验证 → `opportunity`/`opportunity_preferences`；ec-1 「核一下三张报表质量」→ 弃权。
+3. **rebase** 分支到最新 main，跑分支自带的 `test_perspective_exam.py` + `test_perspective_lab.py`。
+4. `perspective exam add` 写卷 → `perspective exam run` **exit 0**。
+5. #123 转 ready；**用户明确说合才合**（PR 描述里的红线）。
+
+### 判据
+
+收尾完成 = 上面五步全过 + 蒸馏 SKILL 第 6 步的 `exam run` 挡板随代码合入生效。

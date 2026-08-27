@@ -12,10 +12,12 @@ from dataclasses import dataclass
 from typing import Literal
 
 from intelligence.services.agent_runtime import AgentOutcome
+from intelligence.services.episode_issues import Issue, IssueCode, serialize_issues
 from intelligence.services.episode_output_substance import (
     required_output_evidence_floor,
     required_outputs_without_substance,
 )
+from intelligence.services.evidence_capabilities import collect_satisfied_plan_capabilities
 from intelligence.services.generic_research_owner import CompletionReport
 from intelligence.services.research_contract import (
     OutputStatus,
@@ -31,6 +33,7 @@ class VerifiedEpisodeOutcome:
     outcome: AgentOutcome
     completion: CompletionReport
     verified_status: VerifiedStatus
+    issue_items: tuple[Issue, ...] = ()
     issues: tuple[str, ...] = ()
     # Keep the immutable contract alongside the structural result.  The
     # semantic gate needs the exact required-output identities when a repair
@@ -39,6 +42,9 @@ class VerifiedEpisodeOutcome:
     contract: ResearchTaskContract | None = None
     missing_outputs: tuple[str, ...] = ()
     mandatory_missing_capabilities: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "issues", serialize_issues(self.issue_items))
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -65,17 +71,29 @@ def verify_episode_outcome(
     ):
         raise ValueError("contract/outcome task frame hash mismatch")
 
-    issues: list[str] = []
+    issues: list[Issue] = []
     evidence_by_hash = {}
     duplicate_hashes: set[str] = set()
     for item in outcome.evidence:
         content_hash = item.content_hash.strip()
         if not content_hash:
-            issues.append(f"evidence from {item.tool} has empty content hash")
+            issues.append(
+                Issue(
+                    IssueCode.EVIDENCE_EMPTY_HASH,
+                    item.tool,
+                    f"evidence from {item.tool} has empty content hash",
+                )
+            )
             continue
         if content_hash in evidence_by_hash:
             duplicate_hashes.add(content_hash)
-            issues.append(f"duplicate evidence hash: {content_hash}")
+            issues.append(
+                Issue(
+                    IssueCode.EVIDENCE_DUPLICATE_HASH,
+                    content_hash,
+                    f"duplicate evidence hash: {content_hash}",
+                )
+            )
             continue
         evidence_by_hash[content_hash] = item
 
@@ -85,10 +103,16 @@ def verify_episode_outcome(
     bindings = {binding.output_id: binding for binding in outcome.bindings}
     unknown_outputs = sorted(set(bindings) - set(required_by_id))
     for output_id in unknown_outputs:
-        issues.append(f"unknown output binding: {output_id}")
+        issues.append(
+            Issue(
+                IssueCode.UNKNOWN_OUTPUT_BINDING,
+                output_id,
+                f"unknown output binding: {output_id}",
+            )
+        )
 
     statuses: list[OutputStatus] = []
-    bound_tools: set[str] = set()
+    stripped_hashes: set[str] = set()
     for required in contract.required_outputs:
         binding = bindings.get(required.output_id)
         if binding is None:
@@ -102,14 +126,26 @@ def verify_episode_outcome(
                 )
             )
             if required.required:
-                issues.append(f"missing required output: {required.output_id}")
+                issues.append(
+                    Issue(
+                        IssueCode.MISSING_REQUIRED_OUTPUT,
+                        required.output_id,
+                        f"missing required output: {required.output_id}",
+                    )
+                )
             continue
 
         basis_mismatch = binding.basis != required.grounding_mode
         if basis_mismatch:
             issues.append(
-                f"grounding basis mismatch for {required.output_id}: "
-                f"expected {required.grounding_mode}, got {binding.basis}"
+                Issue(
+                    IssueCode.GROUNDING_BASIS_MISMATCH,
+                    required.output_id,
+                    (
+                        f"grounding basis mismatch for {required.output_id}: "
+                        f"expected {required.grounding_mode}, got {binding.basis}"
+                    ),
+                )
             )
 
         if binding.gap:
@@ -122,7 +158,13 @@ def verify_episode_outcome(
                 )
             )
             if required.required:
-                issues.append(f"required output reports gap: {required.output_id}")
+                issues.append(
+                    Issue(
+                        IssueCode.REQUIRED_OUTPUT_GAP,
+                        required.output_id,
+                        f"required output reports gap: {required.output_id}",
+                    )
+                )
             continue
 
         unknown_hashes = tuple(
@@ -137,13 +179,25 @@ def verify_episode_outcome(
         )
         if unknown_hashes:
             issues.append(
-                f"unknown evidence hash for {required.output_id}: "
-                + ",".join(unknown_hashes)
+                Issue(
+                    IssueCode.UNKNOWN_EVIDENCE_HASH,
+                    required.output_id,
+                    (
+                        f"unknown evidence hash for {required.output_id}: "
+                        + ",".join(unknown_hashes)
+                    ),
+                )
             )
         if collided_hashes:
             issues.append(
-                f"ambiguous evidence hash for {required.output_id}: "
-                + ",".join(collided_hashes)
+                Issue(
+                    IssueCode.AMBIGUOUS_EVIDENCE_HASH,
+                    required.output_id,
+                    (
+                        f"ambiguous evidence hash for {required.output_id}: "
+                        + ",".join(collided_hashes)
+                    ),
+                )
             )
         evidence_items = tuple(
             evidence_by_hash[content_hash]
@@ -155,43 +209,86 @@ def verify_episode_outcome(
             for item in evidence_items
             if required.evidence_types and item.tool not in required.evidence_types
         )
+        # 类型白名单按「剔除非法、保留合法」执行，不再整槽作废（2026-08-19，
+        # run_20260819_130854：prime_quote 绑了 market_data + finance_query
+        # 各若干条，旧判据把合法行情哈希一并清掉 → 整篇换缺口模板）。
+        # 混绑时剔掉非法哈希、槽位靠剩余合法证据继续成立；整格找不出一条
+        # 合法证据才判 missing。「拿行情洗白财务锚」不靠这条挡——它由下面的
+        # evidence floor（missing required evidence type）硬性拦住。
+        kept_hashes = tuple(
+            content_hash
+            for content_hash in binding.evidence_hashes
+            if content_hash in evidence_by_hash
+            and content_hash not in duplicate_hashes
+            and (
+                not required.evidence_types
+                or evidence_by_hash[content_hash].tool in required.evidence_types
+            )
+        )
+        kept_items = tuple(
+            evidence_by_hash[content_hash] for content_hash in kept_hashes
+        )
         if wrong_types:
-            issues.append(
-                f"unsupported evidence type for {required.output_id}: "
+            prefix = "stripped " if kept_items else ""
+            type_message = (
+                f"{prefix}unsupported evidence type for {required.output_id}: "
                 + ",".join(wrong_types)
+            )
+            issues.append(
+                Issue(
+                    (
+                        IssueCode.EVIDENCE_TYPE_STRIPPED
+                        if kept_items
+                        else IssueCode.EVIDENCE_TYPE_UNSUPPORTED
+                    ),
+                    required.output_id,
+                    type_message,
+                )
+            )
+            stripped_hashes.update(
+                item.content_hash
+                for item in evidence_items
+                if required.evidence_types
+                and item.tool not in required.evidence_types
+                and item.content_hash.strip()
             )
 
         evidence_floor = required_output_evidence_floor(required.output_id)
         missing_floor = tuple(
             tool
             for tool in evidence_floor
-            if not any(item.tool == tool for item in evidence_items)
+            if not any(item.tool == tool for item in kept_items)
         )
         if missing_floor:
             issues.append(
-                f"missing required evidence type for {required.output_id}: "
-                + ",".join(missing_floor)
+                Issue(
+                    IssueCode.FINANCIAL_ANCHOR_MISSING,
+                    required.output_id,
+                    (
+                        f"missing required evidence type for {required.output_id}: "
+                        + ",".join(missing_floor)
+                    ),
+                )
             )
 
         valid = bool(
             (
                 required.grounding_mode != "evidence"
-                or bool(binding.evidence_hashes)
+                or bool(kept_hashes)
             )
             and not unknown_hashes
             and not collided_hashes
-            and not wrong_types
+            and (not wrong_types or bool(kept_hashes))
             and not missing_floor
             and not basis_mismatch
             and len(evidence_items) == len(binding.evidence_hashes)
         )
         if valid:
-            bound_tools.update(item.tool for item in evidence_items)
             statuses.append(
                 OutputStatus(
                     required.output_id,
                     "fulfilled",
-                    binding.evidence_hashes,
+                    kept_hashes,
                 )
             )
         else:
@@ -205,14 +302,31 @@ def verify_episode_outcome(
                 )
             )
 
+    usable_evidence = tuple(
+        item
+        for item in outcome.evidence
+        if item.content_hash.strip()
+        and item.content_hash not in stripped_hashes
+        and str(item.detail or "").strip()
+        and "预取失败" not in str(item.detail)
+    )
+    available_capabilities = collect_satisfied_plan_capabilities(
+        usable_evidence,
+        outcome.traces,
+    )
     mandatory_missing = tuple(
         capability
         for capability in contract.evidence_plan.mandatory_capabilities
-        if capability not in bound_tools
+        if capability not in available_capabilities
     )
     if mandatory_missing:
+        joined = ",".join(mandatory_missing)
         issues.append(
-            "missing mandatory capability evidence: " + ",".join(mandatory_missing)
+            Issue(
+                IssueCode.MISSING_MANDATORY_CAPABILITY,
+                joined,
+                f"missing mandatory capability evidence: {joined}",
+            )
         )
 
     missing_substance = required_outputs_without_substance(contract, outcome.draft)
@@ -230,7 +344,11 @@ def verify_episode_outcome(
             for status in statuses
         ]
         issues.extend(
-            f"required output lacks substantive answer: {output_id}"
+            Issue(
+                IssueCode.REQUIRED_OUTPUT_NO_SUBSTANCE,
+                output_id,
+                f"required output lacks substantive answer: {output_id}",
+            )
             for output_id in missing_substance
         )
 
@@ -276,7 +394,7 @@ def verify_episode_outcome(
         outcome=outcome,
         completion=completion,
         verified_status=verified_status,
-        issues=tuple(dict.fromkeys(issues)),
+        issue_items=tuple(dict.fromkeys(issues)),
         contract=contract,
         missing_outputs=missing_outputs,
         mandatory_missing_capabilities=mandatory_missing,
