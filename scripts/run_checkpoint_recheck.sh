@@ -15,23 +15,20 @@ fi
 
 CODE_ROOT="${FINANCE_CODE_ROOT:-/Users/a77/finance-workspace-runtime}"
 DATA_ROOT="${FINANCE_WS:-/Users/a77/finance-workspace-private}"
-DB="${PIT_SNAPSHOT_DB:-${DATA_ROOT}/db/market_feature_store.duckdb}"
-KB="${PIT_KNOWLEDGE_ROOT:-${KNOWLEDGE_WIKI:-${HOME}/knowledge-base-private}}"
-OUT="${PIT_SNAPSHOT_DIR:-${HOME}/fidelity-replay/pit-snapshots}"
-DAILY_AGENT_DIR="${PIT_DAILY_AGENT_DIR:-${DATA_ROOT}/market_feature_store/exports}"
+USER_ID="${FORESIGHT_USER:-linxiaoqi5111}"
+DB="${MARKET_FEATURE_STORE_DB:-${DATA_ROOT}/db/market_feature_store.duckdb}"
 
 _ops_exit() {
   local rc=$?
-  ops_health_log "pit-snapshot" "$rc"
+  ops_health_log "checkpoint-recheck" "$rc"
 }
 trap _ops_exit EXIT
 
 export FINANCE_CODE_ROOT="${CODE_ROOT}"
 export FINANCE_WS="${DATA_ROOT}"
+cd "${CODE_ROOT}"
 
-"$OPS_PYTHON" "${CODE_ROOT}/scripts/pit_snapshot_inventory.py" freeze \
-  --db "${DB}" \
-  --finance-root "${CODE_ROOT}" \
-  --kb-root "${KB}" \
-  --out-dir "${OUT}" \
-  --daily-agent-dir "${DAILY_AGENT_DIR}"
+"$OPS_PYTHON" -m intelligence.cli checkpoint recheck \
+  --user "${USER_ID}" \
+  --apply \
+  --db-path "${DB}"

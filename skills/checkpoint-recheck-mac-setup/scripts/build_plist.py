@@ -10,9 +10,9 @@
 stdin，避免把脚本正文里的多字节当参数传）。
 
 配置（全部经环境变量，缺省值对应当前这台 Mac）：
-    PYTHON              python3 解释器；默认 /usr/bin/python3
+    PYTHON              python3 解释器；默认 ~/finance-workspace-private/.venv-workbench/bin/python
     FORESIGHT_USER      foresight 用户 id；默认 linxiaoqi5111
-    RECHECK_CLONE       main 独立 clone 路径；默认 ~/finance-workspace-recheck
+    RECHECK_CLONE       代码树；默认 ~/finance-workspace-runtime（跟随 8792）
     EVOLVE_ROOT         含 db/market_feature_store.duckdb 的工作区；缺省读 ~/.evolve_root
     FORESIGHT_USERS_DIR 共享大脑台账根（如 <vault>/.foresight）；留空=不跨机，删该 key
     SUBCONSCIOUS_VAULT  Obsidian vault 根（人类可读回检日志落这里）；留空=删该 key
@@ -24,9 +24,12 @@ import os
 import re
 
 HOME = os.path.expanduser("~")
-PY = os.environ.get("PYTHON", "/usr/bin/python3")
+PY = os.environ.get(
+    "PYTHON",
+    os.path.join(HOME, "finance-workspace-private", ".venv-workbench", "bin", "python"),
+)
 USER = os.environ.get("FORESIGHT_USER", "linxiaoqi5111")
-CLONE = os.environ.get("RECHECK_CLONE", os.path.join(HOME, "finance-workspace-recheck"))
+CLONE = os.environ.get("RECHECK_CLONE", os.path.join(HOME, "finance-workspace-runtime"))
 
 evolve = os.environ.get("EVOLVE_ROOT", "").strip()
 if not evolve:
