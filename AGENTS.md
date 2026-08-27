@@ -8,6 +8,7 @@
 - 完整偏好见 `.agent-memory/30_conventions/preferences.md`（repo 内软链 → `/Users/a77/agent-memory`，已 gitignore）。
 
 > 📒 **台账地图**：所有台账（复盘验证/晨汇/卖方研报等）的 canonical 路径、格式与唯一写入者，见 `docs/learning/ledger-map.md`；新增台账先在那登记。
+> 🎫 **预注册号一律 `python3 scripts/claim_ledger_id.py claim --branch <分支>` 取，禁止手工「当日 max+1」**——手工取号是 check-then-act，2026-08-27 单日撞号四例且双向避撞不收敛（`R-20260828-01`）。号不回收，放弃就烧掉。
 
 ## 🚪 金融问答正门
 
