@@ -176,3 +176,61 @@ def test_members_use_latest_trade_date_on_or_before_as_of(tmp_path: Path) -> Non
     assert len(items) == 2
     assert "2026-06-11" in items[0].detail
     assert "2026-06-11" in items[1].title or "2026-06-11" in items[1].detail
+
+
+# --- 锚定成功却空手：缺口必须出声（`R-20260828-04`，08-28 质检立案） -----------
+#
+# 原实现把缺口声明写成 `elif items:`，于是「板块行没产出」时连缺口都不声明，
+# 函数返回 ()。两条实测路径见下。契约收紧为：**sector 解析成功 → 永不返回空元组**，
+# 要么给数，要么给缺口。
+
+
+def test_sector_row_missing_before_first_listing_declares_gap(tmp_path: Path) -> None:
+    """as_of 早于该板块首行：板块存在但当日无行，必须声明缺口而不是静默空手。
+
+    可达性来自 `resolve_prefetch_sector` 与本函数的判据不同步——前者经
+    `load_theme_daily_rows` 判存在性（**不带日期过滤**），后者查 `<= as_of`。
+    本仓明确支持回溯问句（`requested_information_cutoff`），问板块诞生前的
+    日期即命中。
+    """
+    db = _theme_db(tmp_path / "theme.duckdb")
+    con = _connect(db)
+    try:
+        items = _theme_sector_snapshot_items(
+            con,
+            "2026-05-20 可控核聚变",
+            FUSION,
+            date(2026, 5, 20),
+        )
+    finally:
+        con.close()
+
+    assert items, "锚定成功却返回空元组——模型拿不到数，也不知道自己没拿到"
+    assert any("板块行缺失" in item.title for item in items)
+    assert any("不要用其他日期" in item.detail for item in items)
+
+
+def test_member_gap_is_declared_even_when_board_row_yields_nothing(
+    tmp_path: Path,
+) -> None:
+    """exclude_sector 命中且当日无成员行：成员缺口仍须出声。
+
+    这是原 `elif items:` 最刺眼的一处抑制——发酵分支已交付时间轴（板块行让位），
+    而成员映射恰恰是那条分支**不提供**、本函数存在的理由；缺口偏偏在此时被吞掉。
+    """
+    db = _theme_db(tmp_path / "theme.duckdb")
+    con = _connect(db)
+    try:
+        items = _theme_sector_snapshot_items(
+            con,
+            "2026-06-10 可控核聚变",
+            FUSION,
+            date(2026, 6, 10),
+            exclude_sector=FUSION,
+        )
+    finally:
+        con.close()
+
+    assert items, "板块行让位 + 成员行缺失 → 静默空手"
+    assert len(items) == 1
+    assert "成员行缺失" in items[0].title
