@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 
 import re
 from datetime import timedelta
@@ -701,12 +702,35 @@ def _fmt_optional(value: Any, digits: int = 2) -> str:
     return f"{num:.{digits}f}"
 
 
+@dataclass(frozen=True)
+class D3Structure:
+    """D3 结构对象：P0 替代 ``(name, note)`` 对 + P2 瓶颈词。
+
+    followup 选角直接消费（2026-08-17 spec §5：D3 不得从 Markdown 反解析），
+    与文本块出自同一次计算，禁止两处各算一遍。
+    """
+
+    alternatives: tuple[tuple[str, str], ...] = ()
+    bottlenecks: tuple[str, ...] = ()
+
+
 def _second_derivative_queue_block_for_llm(
     query: str,
     theme: str | None,
     market_db_path: str | Path | None,
     evidence_text: str,
 ) -> str:
+    """兼容入口：只要文本块（既有测试与旧调用方）。"""
+
+    return second_derivative_queue_for_llm(query, theme, market_db_path, evidence_text)[0]
+
+
+def second_derivative_queue_for_llm(
+    query: str,
+    theme: str | None,
+    market_db_path: str | Path | None,
+    evidence_text: str,
+) -> tuple[str, D3Structure]:
     """Build a structured P0/P1/P2 second-derivative research queue."""
     db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
@@ -747,8 +771,13 @@ def _second_derivative_queue_block_for_llm(
         sector_names = _prioritize_sector_names([str(r[0]) for r in sector_rows if r and r[0]], theme)
         sector_lines = _format_sector_state_lines(con, latest_date, sector_names[:5])
         rank_lines = _format_stock_rank_lines(con, latest_date, stock_code, sector_names)
-        alternative_lines = _format_alternative_queue_lines(con, latest_date, stock_code, sector_names[:4])
+        alternative_pairs = _alternative_queue_pairs(con, latest_date, stock_code, sector_names[:4])
+        alternative_lines = [name + note for name, note in alternative_pairs]
         bottlenecks = _extract_bottleneck_terms(evidence_text)
+        structure = D3Structure(
+            alternatives=tuple(alternative_pairs[:6]),
+            bottlenecks=tuple(bottlenecks[:8]),
+        )
 
         lines = ["## 二阶导研究队列数据块 [D3]"]
         lines.append(
@@ -771,7 +800,7 @@ def _second_derivative_queue_block_for_llm(
         lines.append(
             "- 反向观察：若板块继续有双红/新高集群但目标股相对强度掉队，优先把它降为后排跟随或旧逻辑分歧承接；若替代队列持续扩散而目标股不修复，说明市场可能已经选择了更优表达。"
         )
-        return "\n".join(lines)
+        return "\n".join(lines), structure
     except Exception:
         return _second_derivative_queue_from_text_only(theme, evidence_text)
     finally:
@@ -781,7 +810,9 @@ def _second_derivative_queue_block_for_llm(
             pass
 
 
-def _second_derivative_queue_from_text_only(theme: str | None, evidence_text: str) -> str:
+def _second_derivative_queue_from_text_only(
+    theme: str | None, evidence_text: str
+) -> tuple[str, D3Structure]:
     bottlenecks = _extract_bottleneck_terms(evidence_text)
     lines = ["## 二阶导研究队列数据块 [D3]"]
     lines.append("- P0 盘面已选择的强势替代表达：本轮未取到 DuckDB 同题材强势替代队列，回答时必须把这一项作为数据缺口说明。")
@@ -791,7 +822,7 @@ def _second_derivative_queue_from_text_only(theme: str | None, evidence_text: st
         + ("围绕 " + "、".join(bottlenecks[:8]) + " 继续查客户验证、订单、产能和上游约束。" if bottlenecks else f"围绕 {theme or '命中主题'} 补上游材料/设备、关键客户、价格传导和替代公司。")
     )
     lines.append("- 反向观察：若缺少 P0/P1 数据，不能直接给出强趋势结论，只能提出待验证假设。")
-    return "\n".join(lines)
+    return "\n".join(lines), D3Structure(bottlenecks=tuple(bottlenecks[:8]))
 
 
 def _extract_bottleneck_terms(text: str) -> list[str]:
@@ -1726,10 +1757,14 @@ def _financials_block_for_llm(
     )
 
 
-def _format_alternative_queue_lines(con: Any, latest_date: Any, stock_code: str, sector_names: list[str]) -> list[str]:
+def _alternative_queue_pairs(
+    con: Any, latest_date: Any, stock_code: str, sector_names: list[str]
+) -> list[tuple[str, str]]:
+    """P0 替代 ``(name, note)`` 对；``name + note`` 与原展示行逐字节一致。"""
+
     if not sector_names:
         return []
-    out: list[str] = []
+    out: list[tuple[str, str]] = []
     seen: set[str] = set()
     for sector in sector_names:
         rows = con.execute(
@@ -1750,12 +1785,24 @@ def _format_alternative_queue_lines(con: Any, latest_date: Any, stock_code: str,
             added_for_sector += 1
             tag = f"，{high}" if high else ""
             limit_tag = f"，涨停次数{limits}" if limits else ""
-            out.append(f"{name}({sector_name}) {pct}%、成交{amount}亿、5日{pct5}%、10日{pct10}%{tag}{limit_tag}")
+            out.append(
+                (
+                    f"{name}",
+                    f"({sector_name}) {pct}%、成交{amount}亿、5日{pct5}%、10日{pct10}%{tag}{limit_tag}",
+                )
+            )
             if len(out) >= 6 or added_for_sector >= 3:
                 break
         if len(out) >= 6:
             break
     return out
+
+
+def _format_alternative_queue_lines(con: Any, latest_date: Any, stock_code: str, sector_names: list[str]) -> list[str]:
+    return [
+        name + note
+        for name, note in _alternative_queue_pairs(con, latest_date, stock_code, sector_names)
+    ]
 
 
 def _pct(value: float) -> float:

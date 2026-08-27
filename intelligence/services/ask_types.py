@@ -410,6 +410,10 @@ class AskResult:
     )
     # D1-D4 DuckDB 数据块的 per-block 可观测字段。
     d_block_stats: list[research_brief.DBlockStat] = field(default_factory=list)
+    # D3 结构对象（followup 选角消费，2026-08-17 spec §5：禁止从 Markdown 反解析）：
+    # P0 替代 (name, note) 对与 P2 瓶颈词，与 D3 文本块出自同一次计算。
+    d3_alternatives: tuple[tuple[str, str], ...] = ()
+    d3_bottlenecks: tuple[str, ...] = ()
     # (label, 完整报告全文) per routed module, only when --detail is set
     detail_reports: list[tuple[str, str]] = field(default_factory=list)
 

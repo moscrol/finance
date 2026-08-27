@@ -1766,6 +1766,9 @@ def _run_ask(
             matched_theme=result.matched_theme,
             answer_excerpt=result.synthesis or answer_md,
             use_llm=False,
+            # D3 结构对象直通选角：B 槽点名下一跳，已列名单不再当新发现。
+            alternatives=result.d3_alternatives,
+            bottlenecks=result.d3_bottlenecks,
         )
         store.add_artifact(
             run_id,
