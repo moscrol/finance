@@ -18,6 +18,19 @@
   （行内含 ``docs/`` 路径即认）。存量清干净后升 error：调用处显式传
   ``--reverse-severity error``，**升档那天把生效 revision 写进调用处**，
   不要让它长期停在 warning（降 severity = 把决定权交给下游）。
+- 订正传播（warning）：spec 自称订正过（含订正/撤回/已修正/勘误）时，
+  同号 ``docs/handoffs/inflight/`` 的交接必须也带订正痕迹。治的形状见下。
+
+## 第三向治的形状（2026-08-27 实测，写这条的人自己犯的）
+
+停更工单 ``R-20260827-09`` 撤回了两条结论，spec 与台账都改了，在途交接
+**一字未动**，仍逐字传播「本单是那句预言的兑现」与「改 episode_tools.py:212」
+——而后者会打穿 PIT，且按仓规接手者**先读交接**。
+同一结论存 spec/台账/交接三处，订正只覆盖两处：**订正的传播半径 = 该结论被
+复制的份数**，不是「改了源头就行」。
+
+**这条不做语义比对**（措辞矛盾但双方都没写标记 → 抓不到）。语义级检查放
+对抗审查流程，不进门：判定不了还硬拦，就是造一个稳定噪声源。
 
 退出码：0 无 error 级发现；2 有缺号 / 重号（或反向升 error 后有孤儿行）。
 exit 0 只对当前工作树内容成立，输出里自述树与 revision。
@@ -43,11 +56,19 @@ _BACKREF_PREFIXES = (
 )
 
 
+# 订正标记词表：spec 里出现任一即视为「本单自称订正过某条结论」。
+# 刻意小而显式——判据只在 spec **自称**订正时才触发，普通迭代（补章节、
+# 改错字）不比对，否则会变成稳定误报，而每周固定误报的告警一周内就会被
+# 训练成忽略（比不做更糟）。
+_CORRECTION_MARKERS = ("订正", "撤回", "已修正", "勘误")
+
+
 @dataclass
 class CrosswalkReport:
     missing: dict[str, list[str]] = field(default_factory=dict)
     duplicated: dict[str, int] = field(default_factory=dict)
     orphans: dict[str, str] = field(default_factory=dict)
+    stale_handoffs: dict[str, list[str]] = field(default_factory=dict)
 
 
 def _ledger_rows(root: Path) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
@@ -91,6 +112,74 @@ def _spec_refs(root: Path) -> dict[str, list[str]]:
     return refs
 
 
+def _refs_in(root: Path, rel_dir: str, *, recurse: bool = True) -> dict[str, list[Path]]:
+    """``rel_dir`` 下每个 R- 号 → [文件绝对路径, …]。"""
+
+    refs: dict[str, list[Path]] = {}
+    base = root / rel_dir
+    if not base.is_dir():
+        return refs
+    paths = sorted(base.rglob("*.md") if recurse else base.glob("*.md"))
+    for path in paths:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for rid in set(_ID_RE.findall(text)):
+            refs.setdefault(rid, []).append(path)
+    return refs
+
+
+def _owning_specs(root: Path) -> dict[str, tuple[str, ...]]:
+    """R- 号 → 台账行里点名的 spec 相对路径。
+
+    归属靠台账行自述，而不是「谁提到过这个号」：一份工单常引用别的号当
+    历史证据，那不代表它拥有那个号。
+    """
+
+    owners: dict[str, tuple[str, ...]] = {}
+    all_rows, _ = _ledger_rows(root)
+    pat = re.compile(r"docs/superpowers/specs/[^\s`）)，,]+\.md")
+    for rid, line in all_rows:
+        found = tuple(dict.fromkeys(pat.findall(line)))
+        if found:
+            owners[rid] = owners.get(rid, ()) + found
+    return owners
+
+
+def _has_correction_marker(path: Path) -> bool:
+    text = path.read_text(encoding="utf-8", errors="replace")
+    return any(marker in text for marker in _CORRECTION_MARKERS)
+
+
+def _stale_inflight_handoffs(root: Path) -> dict[str, list[str]]:
+    """spec 自称订正过，同号在途交接却无订正痕迹 → 可能仍在传播旧结论。
+
+    为什么只查 ``docs/handoffs/inflight/``：已归档交接是**历史快照**，
+    本就不该跟着 spec 走；在途交接则是接手者按仓规**第一个读**的文件，
+    它和 spec 说的不是同一件事时，实施方会照交接施工。
+
+    **这条判据不做语义比对**：它只回答「spec 声明订正过 / 同号交接有没有
+    订正痕迹」。两份文档措辞矛盾但双方都没写标记时，它抓不到——那属于
+    语义级检查，放对抗审查流程，不进门（判定不了硬拦就是造噪声源）。
+    """
+
+    inflight_refs = _refs_in(root, "docs/handoffs/inflight", recurse=False)
+    owners = _owning_specs(root)
+    stale: dict[str, list[str]] = {}
+    for rid, handoffs in sorted(inflight_refs.items()):
+        # **只看台账行点名的那份 spec**。仅仅提到该号的 spec 不算——
+        # 实测误报：`R-20260826-01` 曾被报，只因另一份工单引用它当历史证据，
+        # 而那份工单里的「订正」说的是另一个号。标记与号同在一个文件
+        # ≠ 标记是关于那个号的（又一次「断言粒度比被保护物粗一档」）。
+        specs = [root / rel for rel in owners.get(rid, ()) if (root / rel).is_file()]
+        if not any(_has_correction_marker(s) for s in specs):
+            continue  # 归属 spec 没自称订正（或台账行没点名 spec）→ 不比对
+        unmarked = [
+            str(h.relative_to(root)) for h in handoffs if not _has_correction_marker(h)
+        ]
+        if unmarked:
+            stale[rid] = unmarked
+    return stale
+
+
 def crosswalk(root: Path) -> CrosswalkReport:
     report = CrosswalkReport()
     all_rows, open_rows = _ledger_rows(root)
@@ -111,6 +200,8 @@ def crosswalk(root: Path) -> CrosswalkReport:
             continue
         if not any(prefix in line for prefix in _BACKREF_PREFIXES):
             report.orphans[rid] = line[:80]
+
+    report.stale_handoffs = _stale_inflight_handoffs(root)
     return report
 
 
@@ -167,6 +258,17 @@ def run(root: Path, *, reverse_severity: str = "warning") -> int:
             hard += len(report.orphans)
     else:
         print("✓ 反向：台账行全部可回指")
+
+    if report.stale_handoffs:
+        print(f"\n⚠ 订正未传播（spec 自称订正、同号在途交接无订正痕迹）："
+              f"{len(report.stale_handoffs)} 个（severity=warning）")
+        for rid, files in list(report.stale_handoffs.items())[:10]:
+            print(f"    {rid}  → {', '.join(files)}")
+        if len(report.stale_handoffs) > 10:
+            print(f"    …另 {len(report.stale_handoffs) - 10} 个")
+        print("    （接手者按仓规先读交接；只改 spec 不改交接 = 旧结论仍在投递）")
+    else:
+        print("✓ 订正传播：无同号在途交接落后于 spec")
 
     if hard:
         print(f"\n🔴 {hard} 个 error 级发现（exit 2）")
