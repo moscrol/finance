@@ -176,6 +176,56 @@ def test_body_without_user_field_gets_identity_injected(auth_client, rsa_key):
     assert resp.json()["user_id"] == "bob-beta"
 
 
+@pytest.mark.parametrize(
+    "content_type",
+    [
+        "application/json",
+        "application/json; charset=utf-8",
+        "application/vnd.api+json",
+        "application/hal+json",
+        "APPLICATION/JSON",
+        None,  # 缺 Content-Type：FastAPI strict_content_type 现在挡 422，本模块不再依赖它
+    ],
+)
+def test_json_caliber_content_types_cannot_impersonate(
+    auth_client, rsa_key, content_type
+):
+    """身份门的 body 改写口径必须 ⊇ FastAPI 的 JSON 解析口径（工单 2026-08-27 §P0）。
+
+    `+json` 子类型落在旧判定（`"application/json" in ct`）与 FastAPI
+    （`subtype == "json" or subtype.endswith("+json")`）的差集里：FastAPI 解析、
+    中间件不改写 → body 自报的 user 直达端点。凡请求成功创建，身份必须来自 token。
+    """
+    body = json.dumps({"title": "冒充", "user": "bob-beta"}).encode("utf-8")
+    headers = _headers(rsa_key, "alice@example.com")
+    if content_type is not None:
+        headers["Content-Type"] = content_type
+    resp = auth_client.post("/api/conversations", content=body, headers=headers)
+    if resp.status_code == 200:
+        assert resp.json()["user_id"] == "alice-beta", (
+            f"Content-Type={content_type!r} 下 body 自报身份未被覆写"
+        )
+    # bob 侧永远不得出现 alice 冒充创建的会话
+    bob_list = auth_client.get(
+        "/api/conversations", headers=_headers(rsa_key, "bob@example.com")
+    )
+    assert bob_list.json() == []
+
+
+def test_plain_text_body_not_rewritten_and_cannot_impersonate(auth_client, rsa_key):
+    """text/plain 不在 JSON 口径内：中间件不动 body，端点也不得以他人身份成功。"""
+    body = json.dumps({"title": "冒充", "user": "bob-beta"}).encode("utf-8")
+    headers = _headers(rsa_key, "alice@example.com")
+    headers["Content-Type"] = "text/plain"
+    resp = auth_client.post("/api/conversations", content=body, headers=headers)
+    if resp.status_code == 200:
+        assert resp.json()["user_id"] == "alice-beta"
+    bob_list = auth_client.get(
+        "/api/conversations", headers=_headers(rsa_key, "bob@example.com")
+    )
+    assert bob_list.json() == []
+
+
 def test_unknown_email_rejected(auth_client, rsa_key):
     resp = auth_client.get(
         "/api/conversations",
