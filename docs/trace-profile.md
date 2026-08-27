@@ -234,19 +234,21 @@ finished_at / tool_call_count`。
 |---|---|---|---|
 | `configure` | 顶层 `allowed_capabilities` / `authorized_tools` / `code_root` / `as_of`（装配合同地标） | `normalized` | 无 system prompt 正文（刻意不落盘） |
 | `intent` | `question` + `required_outputs` | `normalized` | — |
-| `plan` | **不可表达**：ReAct 驱动器不落决策事件 | — | 一等损耗；M2 报告必须列 `residual_uncertainty` 并连 Observability prescription，不得硬造事件 |
+| `plan` | v1 产物**不可表达**（无决策事件）；**v2 起 `session.plan` 地标**（step 预算 + 工具白名单，`landmark_version=2`，2026-08-28 档 B 落驱动器，下轮实验首个 prepare 生效） | `normalized` | v1：一等损耗，M2 报告必须列 `residual_uncertainty`；v2：地标只记驱动器真实决定的两件事，不硬造逐步计划 |
 | `route` | **结构性不存在**（单引擎、无 skill 分派），同 codex `route` 先例（§8「结构性差异非缺口」） | — | 不造事件凑指标 |
 | `retrieve` | **归并进 `tool`**：驱动器对检索类调用与其他调用同形（都是 `calls[]`），无独立检索面 | — | 归并损耗；按调用的 tool 名回分检索/取数属「按事件名猜」，禁止 |
 | `tool` | `calls[].tool` + `arguments`（原生顺序） | `normalized` | — |
-| `observe` | `calls[].elapsed_seconds` + `error` | `normalized` | **只有存在性证据、无内容证据**（无原始返回载荷）；`error=None` ≠ 结果可用 |
+| `observe` | `calls[].elapsed_seconds` + `error` + **`payload_sha256` / `evidence_count` / `observation` / `evidence[:evidence_limit]`**（勘误 2026-08-28：首版本行按工单摘要抄成「只有存在性证据」，对着真产物验证后不成立——四臂三题 call 记录均为 15 键富记录） | `normalized` | `evidence` 正文按 `evidence_limit` 截断，非完整原始载荷；`error=None` ≠ 结果可用 |
 | `synthesize` | `answer`（终态） | `normalized` | 无中间稿 |
 | `stop` | `finished_at` + `answer_sha256` | `normalized` | — |
 
 **前缀门槛核算**：M2 前缀可比门槛为 `configure → intent → plan` 三步两侧非空
-（workbench / codex 为 3/3）；本 kind `plan` 结构性缺失 → **2/3**。用本表做跨臂 M2 时，
-`plan`（不可表达）与 `observe`（无内容证据）两条损耗必须原样进报告的
-`residual_uncertainty`，并各配一行 Observability prescription。首批消费本表的报告：
-`~/.finance-runtime/react-gap-m2-20260828/`（D2 / D5 双侧对齐）。
+（workbench / codex 为 3/3）；本 kind **v1 产物**（无 `session.plan` 键，四臂 20260827
+全部产物属之）`plan` 结构性缺失 → **2/3**，`plan` 损耗必须原样进报告的
+`residual_uncertainty` 并配 Observability prescription；**v2 产物**（有 `plan` 键）
+→ **3/3**。observe 的「无内容证据」旧声明已勘误（见上表），不再作为 residual 项。
+首批消费本表的报告：`~/.finance-runtime/react-gap-m2-20260828/`（D2 / D5 双侧对齐，
+其 residual #2 按本勘误作废，勘误注记见报告文件头）。
 
 ## 7. Comparison contract and evidence boundary
 
