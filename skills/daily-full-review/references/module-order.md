@@ -8,9 +8,8 @@
 |---|---|---|---|
 | 0 预检 | db-lock | `python3 scripts/check_db_lock.py` | 有锁先查占用进程，勿强删库 |
 | 1 轻 | sectors | `sync-sectors --trade-date D` | 一般不卡 |
-| 1 轻 | market-overview | `sync-market-overview --trade-date D --days 60` | CDP 500 重试 |
-| 1 轻 | market-daily | `sync-market-daily` | 飞书表，少卡 |
-| 1 轻 | index-daily | `sync-index-daily --trade-date D` | AkShare，少卡 |
+| 1 轻 | market-overview | `sync-market-overview --trade-date D --days 60` | CDP 500 重试；飞书 `sync-market-daily` 已退役 |
+| 1 轻 | index-daily | `sync-index-daily --trade-date D` | AkShare → 新浪上证日线，少卡 |
 | 1 轻 | sw-l1-daily | `sync-sw-l1-daily --trade-date D --days 20` | 少卡 |
 | 1 轻 | market-deviation | `sync-market-deviation --trade-date D` | tooltip 抓取 2026-07 起稳定失效（见「夜间 launchd 定时运维」）→ **MA5 复算兜底**（`fill_stock_daily_fallback` 同款：最近 5 个 `sh_index_close` 均值，`dev=(close/ma-1)*100`） |
 | 1 轻 | sector-daily | `sync-sector-daily --trade-date D --days 25` | CDP 500 重试 |

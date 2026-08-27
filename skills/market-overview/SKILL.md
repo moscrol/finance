@@ -33,7 +33,7 @@ fupanhui.com 数据源说明（CDP proxy + `fetch_api` 取数代码、6 个 REST
 python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD
 ```
 
-`daily-full` 会自动执行：sync-sectors → sync-market-overview → sync-market-daily → sync-index-daily → sync-sw-l1-daily → sync-market-deviation → sync-sector-daily → sync-sector-stocks → sync-limit-heat → sync-stock-high → sync-limit-advance → sync-stock-daily → **sync-mainline-daily** → **sync-theme-flow-daily** → advancers-chart → daily-review。
+`daily-full` 会自动执行：sync-sectors → sync-market-overview → sync-index-daily → sync-sw-l1-daily → sync-market-deviation → sync-sector-daily → sync-sector-stocks → sync-limit-heat → sync-stock-high → sync-limit-advance → sync-stock-daily → **sync-mainline-daily** → **sync-theme-flow-daily** → advancers-chart → daily-review。飞书 `sync-market-daily` 已退役。
 
 > 新增两步走**公开 API 直接 HTTPS**（`api_get_public()`），不需要 CDP proxy：
 > - `sync-mainline-daily`：每日主线题材 + 龙头个股池 → `fact_mainline_theme_daily` / `fact_mainline_stock_daily`

@@ -141,6 +141,27 @@ def test_terminal_claim_reports_exactly_one_winner(store: RunStore) -> None:
     assert observed.error == "executor_timeout"
 
 
+def test_add_artifact_currently_writes_after_terminal_claim(store: RunStore) -> None:
+    """P0 G5: add_artifact 不看终态。连续路径靠 claim-or-raise 挡住输家。
+
+    本条是覆盖边界观测，不是产品承诺。P3 加闸后应改为拒绝写入。
+    """
+
+    run = store.create_run("q", "ask")
+    store.finish_run(run.run_id, run_store.STATUS_COMPLETED)
+    artifact = store.add_artifact(
+        run.run_id,
+        "answer.md",
+        "late overwrite",
+        renderer="markdown",
+        title="答案",
+    )
+    saved = store.load_run(run.run_id)
+    assert saved.status == run_store.STATUS_COMPLETED
+    assert artifact.bytes == len(b"late overwrite")
+    assert any(item.get("path") == "answer.md" for item in saved.artifacts)
+
+
 def test_failed_claim_persists_error_and_degrade_in_one_transition(
     store: RunStore,
 ) -> None:

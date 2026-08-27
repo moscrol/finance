@@ -26,6 +26,8 @@ from pydantic import BaseModel, Field, SecretStr, field_validator
 from intelligence import userspace
 from intelligence.paths import data_repo_root, default_market_db_path, default_paths
 from intelligence.api.artifacts import ArtifactRegistry
+from intelligence.api.auth import AuthGate, IdentityRewriteMiddleware
+from intelligence.api.quota import RunQuota
 from intelligence.api.daily_reports import (
     project_daily_agent,
     project_daily_review_html,
@@ -74,10 +76,15 @@ from intelligence.services.conversation_store import (
     ConversationStore,
 )
 from intelligence.runtime.episode_finalizer import EpisodeFinalizer
+from intelligence.services.draft_publisher import (
+    RunDraftDeltaPublisher,
+    draft_streaming_enabled,
+)
 from intelligence.services.episode_progress import (
     EpisodeProgress,
     RunEpisodeProgressPublisher,
     project_episode_progress,
+    public_progress_messages,
 )
 from intelligence.services.episode_tools import (
     build_episode_registry,
@@ -137,7 +144,7 @@ def _continuous_turn_timeout_seconds() -> float:
     延迟分布**的物理约束，而 provider 是按部署换的。链路是
 
         回合预算 T
-          → verification_reserve = min(40, T/3)          （continuous_turn_adapter.py:66,399）
+          → verification_reserve = min(60, T/3)          （continuous_turn_adapter.py:100,470）
           → runtime_timeout      = T − verification_reserve
           → 再扣 synthesis_reserve
           → stage_timeout        = min(llm_timeout, remaining − reserve)
@@ -182,6 +189,7 @@ def _continuous_runtime_mode() -> str:
 
 def _runtime_market_reference_date() -> str | None:
     paths = default_paths()
+    snapshot_date: str | None = None
     snapshot = validate_market_snapshot_root(paths.market_snapshot_dir)
     if snapshot.get("ready") is True:
         summary = snapshot.get("summary")
@@ -192,8 +200,13 @@ def _runtime_market_reference_date() -> str | None:
         )
         value = str(served or snapshot.get("date") or "").strip()
         if value:
-            return value[:10]
-    return latest_market_date(paths.finance_root)
+            snapshot_date = value[:10]
+    db_date = latest_market_date(paths.finance_root)
+    if snapshot_date and db_date:
+        # 快照超前 DuckDB 一天时，用快照日当 floor 会让每条结构化查询 stale。
+        # 两边都有日期时取较早的那天——那是供给方真能端上来的上限。
+        return min(snapshot_date, db_date)
+    return snapshot_date or db_date
 
 
 def _zero_inner_synthesis_reserve(
@@ -209,6 +222,9 @@ def _zero_inner_synthesis_reserve(
 
 def _memory_bound_registry_factory(
     memory_user: str | None,
+    *,
+    perspective_ids: tuple[str, ...] = (),
+    perspective_mode: str = "neutral",
 ) -> Callable[..., object]:
     """把 memory 身份绑进装配工厂，并断言身份真的穿透到了装配产物。
 
@@ -253,10 +269,27 @@ def _memory_bound_registry_factory(
     """
 
     if not memory_user:
-        return build_episode_registry
+        if not perspective_ids:
+            return build_episode_registry
+
+        def perspective_only_factory(frame, context):
+            return build_episode_registry(
+                frame,
+                context,
+                perspective_ids=perspective_ids,
+                perspective_mode=perspective_mode,
+            )
+
+        return perspective_only_factory
 
     def registry_factory(frame, context):
-        registry = build_episode_registry(frame, context, memory_user=memory_user)
+        registry = build_episode_registry(
+            frame,
+            context,
+            memory_user=memory_user,
+            perspective_ids=perspective_ids,
+            perspective_mode=perspective_mode,
+        )
         if (
             "memory_lookup" in context.contract.allowed_capabilities
             and "memory_lookup" not in registry.names()
@@ -283,6 +316,8 @@ def _build_continuous_turn_adapter(
     timeout: float = 90.0,
     deadline_expires_at: float | None = None,
     memory_user: str | None = None,
+    perspective_ids: tuple[str, ...] = (),
+    perspective_mode: str = "neutral",
 ) -> ContinuousTurnAdapter:
     """Compose one provider chain into a shared continuous research kernel.
 
@@ -332,10 +367,27 @@ def _build_continuous_turn_adapter(
             return
         progress_publisher.publish(progress)
 
+    draft_publisher: RunDraftDeltaPublisher | None = None
+    if run_store is not None and draft_streaming_enabled():
+        draft_publisher = RunDraftDeltaPublisher(
+            run_store=run_store,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            message_id=assistant_message_id,
+            event_id_prefix=event_id_prefix,
+        )
+
     selection = resolve_runtime_backend()
     client = GLMModelClient(
         providers=providers,
         is_cancelled=is_cancelled,
+        # 只在 continuous_glm 上接：sdk_glm 走 OpenAIAgentsRuntime，
+        # 它自己的流式语义还没对齐，这里不假装它也能流。
+        on_draft_delta=(
+            draft_publisher.publish
+            if draft_publisher is not None and selection.name == "continuous_glm"
+            else None
+        ),
     )
     finalizer = EpisodeFinalizer(
         client,
@@ -423,7 +475,11 @@ def _build_continuous_turn_adapter(
     # （`continuous_turn_adapter.py` 里的 `self._registry_factory(frame, context)`）
     # 保持两个位置参数不变——测试替身里有固定参数的 `lambda frame, context: ...`，
     # 在调用点加 kwarg 会把它们全打断。
-    registry_factory = _memory_bound_registry_factory(memory_user)
+    registry_factory = _memory_bound_registry_factory(
+        memory_user,
+        perspective_ids=perspective_ids,
+        perspective_mode=perspective_mode,
+    )
     return ContinuousTurnAdapter(
         runtime=runtime,
         semantic_verifier=semantic_verifier,
@@ -541,6 +597,7 @@ _PUBLIC_PROGRESS_MESSAGES = {
     "verification": "正在核验证据绑定与回答完整性。",
     "finalizing": "正在基于核验结果形成公开回答。",
 }
+_EPISODE_PROGRESS_MESSAGES = public_progress_messages()
 _PUBLIC_HIDDEN_CONTROL_KEYS = frozenset(
     {
         "task_frame_hash",
@@ -657,7 +714,17 @@ def _public_trace_step(step: dict[str, object]) -> dict[str, object]:
         status = "completed"
     message = _PUBLIC_TRACE_MESSAGE_BY_PRIVATE_NAME.get(raw_name)
     if message is None:
-        if status == "failed":
+        # episode_progress 已经投影过的句子直接放行，别按 stage 再拍平一次。
+        # 它区分了「正在查盘面快照。」和「正在查主线结构。」，而按 stage 合成
+        # 只会得到同一句「已完成一项证据核对。」——上游写了、下游不读，实测
+        # （:8801 三轮）UI 上一个工具标签都没出现。
+        #
+        # 放行判据是**集合成员**：只有本进程自己那张表生成过的句子才过，模型
+        # 措辞或别的 trace 生产者的 output_summary 一律不过，seam 不放宽。
+        already_projected = str(step.get("output_summary") or "").strip()
+        if already_projected in _EPISODE_PROGRESS_MESSAGES:
+            message = already_projected
+        elif status == "failed":
             message = "一项研究步骤未完成，相关结果未纳入结论。"
         elif status == "running":
             message = _PUBLIC_PROGRESS_MESSAGES[stage].replace("已完成", "正在完成")
@@ -1298,6 +1365,8 @@ def _run_conversation_turn(
                 # `runtime_providers_for(run_store.user_id)` 用的就是它），
                 # 所以这里不需要新增参数或改上游签名。
                 memory_user=run_store.user_id,
+                perspective_ids=tuple(selected_perspective_ids or ()),
+                perspective_mode=perspective_mode,
             ),
         ).run_turn(
             conversation_id=conversation_id,
@@ -1696,7 +1765,7 @@ def _run_ask(
             req.question,
             matched_theme=result.matched_theme,
             answer_excerpt=result.synthesis or answer_md,
-            use_llm=req.task_type != "daily",
+            use_llm=False,
         )
         store.add_artifact(
             run_id,
@@ -1705,8 +1774,6 @@ def _run_ask(
             renderer="json",
             title="猜你想问",
         )
-        if not followups.llm_used:
-            store.add_degrade(run_id, "llm_unavailable_template_followups")
         store.append_step(
             run_id,
             step_id="s03",
@@ -1935,6 +2002,8 @@ def create_app(
     run_timeout_sec: float = _SSE_MAX_SECONDS,
     self_use_require_consecutive_trading_days: bool = False,
     llm_settings: SessionLLMSettings | None = None,
+    auth_gate: AuthGate | None = None,
+    run_quota: RunQuota | None = None,
 ) -> FastAPI:
     root = (repo_root or REPO_ROOT).resolve()
     effective_default_user_id = userspace.resolve_user_id(None)
@@ -1952,6 +2021,11 @@ def create_app(
         "source_revision": runtime_provenance.get("source_revision"),
     }
     llm_settings = llm_settings or SessionLLMSettings()
+    # Hosted Alpha 身份门与配额：默认（env 未配置）都是关闭态，行为与历史一致。
+    # 配置错误直接在启动时抛——认不出来就 fail closed，不带着坏配置上线。
+    gate = auth_gate or AuthGate.from_env()
+    quota = run_quota or RunQuota.from_env()
+    runtime_provenance["auth_mode"] = gate.mode
     runtime_selection = resolve_runtime_backend()
     runtime_provenance["agent_runtime"] = runtime_backend_readiness(
         runtime_selection
@@ -1993,6 +2067,7 @@ def create_app(
             supervisor.shutdown()
 
     app = FastAPI(title="Market Intelligence Workbench API", lifespan=lifespan)
+    app.add_middleware(IdentityRewriteMiddleware, gate=gate)
     app.state.repo_root = root
     app.state.finance_root = runtime_paths.finance_root.resolve()
     registries: dict[str, ArtifactRegistry] = {}
@@ -2056,6 +2131,16 @@ def create_app(
 
     def conversation_store_for(user: str | None) -> ConversationStore:
         return ConversationStore(user_id=store_for(user).user_id)
+
+    def _reserve_run_quota(user_id: str) -> None:
+        """创建 run 前预占当日名额；占不到直接 429，不产生任何副作用。"""
+        decision = quota.reserve(user_id)
+        if not decision.allowed:
+            raise HTTPException(
+                429,
+                f"今日研究次数已用完（{decision.used}/{decision.limit}），"
+                "请明天再试或联系管理员提额",
+            )
 
     def refresh_session_runtime_readiness(user_id: str) -> None:
         """Refresh global health metadata after the default user's config request.
@@ -2286,6 +2371,7 @@ def create_app(
     def create_run(req: CreateRunRequest) -> dict[str, object]:
         req.repo_root = root
         store = store_for(req.user)
+        _reserve_run_quota(store.user_id)
         run = store.create_run(
             req.question,
             req.task_type,
@@ -2446,6 +2532,7 @@ def create_app(
                 raise HTTPException(422, str(exc)) from exc
             parent_run_id = conversation.last_run_id
             run_store = store_for(req.user)
+            _reserve_run_quota(run_store.user_id)
             run = run_store.create_run(
                 req.content,
                 "ask",

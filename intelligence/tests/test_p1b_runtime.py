@@ -442,6 +442,11 @@ class QueryLedgerTests(unittest.TestCase):
             release_fetch.set()
             self.assertEqual(future.result(timeout=2), "late-result")
             self.assertEqual(ledger.summary()["executed_count"], 0)
+            discards = ledger.summary()["late_result_discards"]
+            self.assertEqual(ledger.summary()["late_result_discarded_count"], 1)
+            self.assertEqual(discards[0]["kind"], "late_result_discarded")
+            self.assertEqual(discards[0]["provider"], "web_search")
+            self.assertEqual(discards[0]["reason"], "subscription_inactive")
 
             retried = query_ledger.executed(
                 "web_search",

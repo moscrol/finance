@@ -1,0 +1,30 @@
+{
+  "purpose": "steer narrative pages only; not a capability inventory",
+  "pages": [
+    {
+      "id": "daily-review-door",
+      "title": "复盘写入正门",
+      "queries": ["daily-full", "飞书 Bitable", "fast_daily_sync"]
+    },
+    {
+      "id": "agent-tool-surface",
+      "title": "Agent 工具面与技能桥",
+      "queries": ["research_tool_registry", "skill_tools", "serenity-alpha"]
+    },
+    {
+      "id": "duckdb-views",
+      "title": "板块事实表是 VIEW",
+      "queries": ["fact_sector_daily", "sector_universe_snapshot"]
+    },
+    {
+      "id": "intelligence-layers",
+      "title": "intelligence 分层",
+      "queries": ["layer_audit", "runtime", "services"]
+    },
+    {
+      "id": "run-scripts",
+      "title": "常用运行入口",
+      "queries": ["daily-full", "pytest", "code_map"]
+    }
+  ]
+}

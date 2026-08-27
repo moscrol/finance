@@ -249,6 +249,44 @@ def build_repair_goal(
     )
 
 
+def unreachable_repair_goal(
+    goal: RepairGoal,
+    *,
+    evidence_output_ids: frozenset[str] | set[str],
+) -> tuple[str, ...]:
+    """返回本轮修复**结构性不可能补上**的那些 evidence 必填格。
+
+    2026-08-21 生产实测（`run_20260821_114642_385979`，诊断见
+    `docs/verification/2026-08-21-judge-quantity-blindspot.md`）：
+
+    ```
+    missing_answer_elements: ["direct_assessment", "counterpoint"]   ← 目标
+    remaining_calls: 0                                              ← 工具额度为 0
+    reopen_tools: false                                             ← 不许重开取证
+    granted_seconds: 40.0  (timeout_configured: 75.0)               ← 时钟已被研究阶段花掉
+    ```
+
+    修复轮被要求补两个 **evidence 口径**的必填格，同时被禁止取证。
+    这不是「模型没修好」，是**任务本身不可能**——再强的模型也变不出新证据。
+    它空转 40 秒后残稿发布，读数上还表现为「repair 跑过了但没用」。
+
+    按约束三筛（`harness-reference/PLAYBOOK.md`）：这条限制拦的是修复者的取证
+    能力，失效时答案残缺（变笨），且**模型越强越挡路**——因为它本可以取证补齐。
+
+    本函数不放宽任何限制、不加任何预算，只把「不可能」显式化：调用方据此
+    跳过空转，直接落结构缺口并如实说明缺什么，而不是烧掉时钟再发残稿。
+    ``model_reasoning`` 口径的格不在此列——它们本来就不需要新证据。
+    """
+
+    if goal.reopen_tools or goal.remaining_calls > 0:
+        return ()
+    return tuple(
+        output_id
+        for output_id in goal.missing_answer_elements
+        if output_id in evidence_output_ids
+    )
+
+
 def should_reenter(
     progress: ProgressSnapshot,
     *,

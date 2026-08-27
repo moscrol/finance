@@ -99,6 +99,38 @@ def _git(*args: str) -> str:
     return out.stdout.strip() if out.returncode == 0 else ""
 
 
+def _git_status_lines() -> list[str]:
+    """porcelain 行，**整体不 strip**。
+
+    ``_git`` 对 stdout 做 ``.strip()``——rev-parse 那类单值输出需要它，但
+    porcelain 的未暂存改动行形如 ``" M path"``（前两位是 XY 状态、第三位是空格）。
+    整体 strip 会吃掉**第一行**的前导空格，随后 ``line[3:]`` 多切一个字符，
+    路径变成 ``"ntelligence/services/…"``，前缀匹配失败后被静默丢弃。
+
+    后果不是少列一条路径而已：当它是**唯一**的脏代码文件时 ``dirty`` 变成
+    False，收据自称干净树、``check_test_receipt.py`` 判「可采信」——那正是这套
+    收据要防的那件事（未提交改动无法被 revision 描述）。
+
+    实测 2026-08-26：judge 修复树里只改 ``intelligence/services/llm_refine.py``
+    一个文件，``_code_dirt()`` 返回 ``[]``；同日 17:49 那份收据也因此只列出了
+    ``test_grok_cli_judge.py``，漏掉同样未提交的 ``llm_refine.py``。
+    """
+
+    try:
+        out = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if out.returncode != 0:
+        return []
+    return [line for line in out.stdout.splitlines() if line.strip()]
+
+
 # 能影响被测行为的路径前缀。判据是「改了它，测试结果就可能变」——
 # 代码、测试、依赖契约、pytest 配置。
 #
@@ -123,10 +155,9 @@ def _code_dirt() -> list[str]:
     """
 
     out: list[str] = []
-    for line in (_git("status", "--porcelain") or "").splitlines():
-        if not line.strip():
-            continue
+    for line in _git_status_lines():
         # porcelain 格式：两位状态 + 空格 + 路径（重命名为 "old -> new"）。
+        # 必须用 _git_status_lines：整体 strip 过的输出会让首行少一个字符。
         path = line[3:].strip().strip('"')
         if " -> " in path:
             path = path.split(" -> ", 1)[1]
@@ -282,9 +313,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         "dirty": bool(_code_dirt()),
         # 完整脏文件数另存，便于人判断「这棵树整体有多脏」而不参与采信判定。
         "dirty_paths": _code_dirt(),
-        "worktree_dirty_total": len(
-            [ln for ln in (_git("status", "--porcelain") or "").splitlines() if ln]
-        ),
+        "worktree_dirty_total": len(_git_status_lines()),
         "dependency_gate_bypassed": os.environ.get(_ESCAPE) == "1",
         # ——— 读数本身 ———
         "target": " ".join(session.config.args or []),

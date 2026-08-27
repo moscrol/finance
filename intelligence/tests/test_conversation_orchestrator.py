@@ -8,7 +8,7 @@ from threading import Event
 import pytest
 
 from intelligence import userspace
-from intelligence.services import agent_research, answer_model, llm_refine, output_review
+from intelligence.services import agent_research, answer_model, evidence_registry, llm_refine, output_review
 from intelligence.runtime import conversation_orchestrator as orchestrator_service
 from intelligence.services import perspective_lab
 from intelligence.services.ask import (
@@ -126,6 +126,61 @@ def test_public_sanitizer_removes_marker_shells_and_unstable_heading_ordinals() 
     assert "[10, 20]" in cleaned
     assert "L4_market_signal" not in sanitize_conversation_answer("L4_market_signal")
     assert "L4_structured" not in sanitize_conversation_answer("L4_structured")
+
+
+def test_public_sanitizer_spares_prose_mentioning_script_names() -> None:
+    # 旧行为：任何含 .py 的行整行替换为占位句——正文提个脚本名就被吞。
+    # 新契约：.py 行只有同行还带仪表痕迹（=/--/耗时/python 调用）才隐藏。
+    prose = "该拐点信号由 detect_turning_points.py 按无前视确认日算法产出。"
+    cleaned = sanitize_conversation_answer(prose)
+    assert "detect_turning_points.py" in cleaned
+
+    leak_flag = "radar.py --mode deep-dive 题材深拆"
+    assert "radar.py" not in sanitize_conversation_answer(leak_flag)
+
+    leak_timing = "backfill.py 耗时=1200ms 完成回填"
+    assert "backfill.py" not in sanitize_conversation_answer(leak_timing)
+
+    leak_invoke = "python3 scripts/audit_coverage.py 覆盖审计通过"
+    assert "audit_coverage.py" not in sanitize_conversation_answer(leak_invoke)
+
+
+def test_continuous_review_notes_drop_internal_issue_receipts() -> None:
+    """内部 gate 收据不得进公开答案；中文意见只留 notes，不拼进正文。
+
+    生产 8796：``evidence_type_stripped`` 的 ``code=... :: ...`` 行被原样
+    拼进 answer.md。STRIP_OK 是契约层动作，不是给用户看的诊断。
+    """
+
+    result = ContinuousTurnResult(
+        handled=True,
+        status="partial",
+        answer="通信设备相对更有机会。",
+        as_of=None,
+        citations=(),
+        warnings=(),
+        private_artifact={
+            "semantic_verifier": {
+                "issues": [
+                    "code=evidence_type_stripped subject=prime_quote :: "
+                    "stripped unsupported evidence type for prime_quote: finance_query",
+                    "第3句质量不够，证明不了主线延续",
+                ]
+            }
+        },
+        events=(),
+    )
+    notes = conversation_orchestrator._continuous_review_notes(result)
+    public = conversation_orchestrator._public_answer_text(
+        "通信设备相对更有机会。",
+        notes,
+    )
+
+    assert "质量不够" in " ".join(notes)
+    assert not any(item.startswith("code=") for item in notes)
+    assert "evidence_type_stripped" not in public
+    assert "质量不够" not in public
+    assert "## 输出质检" not in public
 
 
 def test_research_owner_contract_honors_declared_question_types() -> None:
@@ -657,6 +712,11 @@ def test_continuous_handled_turn_bypasses_legacy_and_persists_public_result(
                     "system_prompt": "PRIVATE_SYSTEM_PROMPT",
                     "Authorization": "Bearer PRIVATE_SECRET_VALUE",
                     "api_key": "PRIVATE_API_KEY_VALUE",
+                    "semantic_verifier": {
+                        "judge_status": "passed",
+                        "issues": [],
+                        "correlated_judge": True,
+                    },
                 },
                 events=(
                     {
@@ -790,6 +850,7 @@ def test_continuous_handled_turn_bypasses_legacy_and_persists_public_result(
     assert report["gate_receipt"]["engine"] == "episode"
     assert "verified_status" in report["gate_receipt"]
     assert "judge_status" in report["gate_receipt"]
+    assert report["gate_receipt"]["correlated_judge"] is True
 
 
 def test_complete_continuous_turn_registers_next_watch(tmp_path, monkeypatch) -> None:
@@ -874,10 +935,10 @@ def test_complete_continuous_turn_puts_review_after_revised_body(
     tmp_path,
     monkeypatch,
 ) -> None:
-    """E2：会话口终稿 = 修订正文在前，审查意见进「输出质检」附录。
+    """公开终稿只留修订正文；审查意见不进 answer.md。
 
-    验证器的 public_answer 仍是修订正文；呈现顺序由编排器接通，避免把
-    issue 写进 semantic public_answer 砸既有精确相等测试。
+    验证器的 public_answer 仍是修订正文。issue 留在 gate_receipt / notes，
+    不拼「输出质检」附录。
     """
     query = "光伏产业链近况跟踪一下"
     (
@@ -941,9 +1002,8 @@ def test_complete_continuous_turn_puts_review_after_revised_body(
     )
 
     assert result.content.startswith(revised)
-    assert "## 输出质检" in result.content
-    assert result.content.index(revised) < result.content.index("## 输出质检")
-    assert "弱证据硬写：无 L3 硬证据却出现确定性措辞" in result.content
+    assert "## 输出质检" not in result.content
+    assert "弱证据硬写：无 L3 硬证据却出现确定性措辞" not in result.content
     snapshots = [
         event["payload"]
         for event in run_store.load_stream_events(run_id)
@@ -954,7 +1014,60 @@ def test_complete_continuous_turn_puts_review_after_revised_body(
     assert snapshots[0]["final"] is False
     assert snapshots[-1]["final"] is True
     assert snapshots[-1]["text"] == result.content
-    assert "## 输出质检" in snapshots[-1]["text"]
+    assert "## 输出质检" not in snapshots[-1]["text"]
+
+
+def test_complete_continuous_turn_strips_outlook_verification(tmp_path, monkeypatch) -> None:
+    query = "写一下本周行情的展望"
+    (
+        conversation_store,
+        run_store,
+        conversation,
+        run_id,
+        assistant_message_id,
+        frame,
+        intent,
+        controller,
+    ) = _continuous_forecast_fixture(tmp_path, query, question_type="market_forecast")
+    leaked = "新闻层已给部分验证。主线仍在医药。"
+
+    class Adapter:
+        def handle(self, *, frame: TaskFrame, control):
+            del frame, control
+            return ContinuousTurnResult(
+                handled=True,
+                status="completed",
+                answer=leaked,
+                as_of="2026-08-21",
+                citations=(),
+                warnings=(),
+                private_artifact=None,
+                events=(),
+            )
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("legacy dependency must not run")
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=forbidden,
+        route_skills_fn=forbidden,
+        lane_answer_fn=forbidden,
+        turn_controller_fn=controller,
+        continuous_turn_adapter=Adapter(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+    assert "已给部分验证" not in result.content
+    assert "主线仍在医药" in result.content
+    assert "outlook_delivery_gate" in run_store.load_run(run_id).degrades
 
 
 def test_research_compose_revises_on_warn_and_keeps_review_as_appendix(
@@ -964,7 +1077,7 @@ def test_research_compose_revises_on_warn_and_keeps_review_as_appendix(
     """E2 Engine B：编排器不再显式关掉 compose_revise_on_warn。
 
     synthesize=False 时 answer_query 里还没有终稿可改；必须在合成之后回灌，
-    且 stream_text_delta 不得把修订跳掉。终稿正文是修订版，意见进附录。
+    且 stream_text_delta 不得把修订跳掉。终稿正文是修订版，意见不进公开答案。
     """
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
@@ -1075,9 +1188,8 @@ def test_research_compose_revises_on_warn_and_keeps_review_as_appendix(
 
     assert captured and captured[0].compose_revise_on_warn is True
     assert revised in turn.content
-    assert "## 输出质检" in turn.content
-    assert turn.content.index(revised) < turn.content.index("## 输出质检")
-    assert "弱证据硬写" in turn.content
+    assert "## 输出质检" not in turn.content
+    assert "弱证据硬写" not in turn.content
 
 
 def test_continuous_turn_injects_selected_perspective_and_headers_answer(
@@ -1180,6 +1292,96 @@ def test_continuous_turn_injects_selected_perspective_and_headers_answer(
         encoding="utf-8"
     )
     assert answer_artifact.startswith("当前视角：测试老师")
+
+
+def test_stance_pack_reaches_handle_control_before_engine_a(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """should_run 为真时，handle() 入参 control 上必须已有 stance_pack。"""
+
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    query = "扬杰科技我持仓，101.6 止损现在该不该减"
+    (
+        conversation_store,
+        run_store,
+        conversation,
+        run_id,
+        assistant_message_id,
+        frame,
+        intent,
+        _controller,
+    ) = _continuous_forecast_fixture(
+        tmp_path,
+        query,
+        question_type="trade_advice",
+        subject="扬杰科技",
+    )
+    frame = replace(
+        frame,
+        user_goal="给出条件化加减仓判断",
+        subject_kind="company",
+        evidence_policy="conditional_thesis_evidence",
+        required_outputs=("conditional_thesis", "invalidation_conditions"),
+    )
+    intent = replace(intent, question_type="trade_advice")
+
+    def controller(_query: str, **_kwargs: object) -> TurnDecision:
+        return TurnDecision(
+            lane="research",
+            needs_retrieval=True,
+            needs_memory=True,
+            needs_template=True,
+            question_type="trade_advice",
+            capabilities=("memory", "market_quote"),
+            task_frame=frame,
+            turn_intent=intent,
+        )
+
+    captured: dict[str, object] = {}
+
+    class Adapter:
+        def handle(self, *, frame: TaskFrame, control):
+            captured["stance_pack"] = control.stance_pack
+            return ContinuousTurnResult(
+                handled=True,
+                status="completed",
+                answer="若站立日现价跌破你的止损条件，再讨论减仓；本轮不给出现在卖。",
+                as_of="2026-08-24",
+                citations=(),
+                warnings=(),
+                private_artifact=None,
+                events=(),
+            )
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("legacy dependency must not run")
+
+    orchestrator = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=forbidden,
+        route_skills_fn=forbidden,
+        lane_answer_fn=forbidden,
+        turn_controller_fn=controller,
+        continuous_turn_adapter=Adapter(),
+    )
+
+    result = orchestrator.run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    pack = captured["stance_pack"]
+    assert pack is not None
+    assert pack.prior_bag.plane == "checkpoint_verdict"
+    assert pack.quote_bag.plane == "provider"
+    assert result.status == "completed"
 
 
 def test_continuous_answer_coverage_separates_uncheckable_from_absent() -> None:
@@ -2005,6 +2207,69 @@ def test_continuous_terminal_cas_prevents_cancelled_run_completed_message_race(
         for event in public_events
     )
     assert "这个答案不应覆盖" not in assistant.content
+
+
+def test_cancel_does_not_overwrite_artifacts_after_lost_claim(tmp_path) -> None:
+    """G5：cancel 认领失败时不得覆盖赢家已经写好的 answer.md。"""
+
+    conversation_store = ConversationStore(
+        "alice",
+        root=tmp_path / "conversations",
+    )
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "目前市场的主线是什么"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    conversation_store.revise_message(
+        conversation.conversation_id,
+        assistant_message_id,
+        content="赢家答案",
+        status="completed",
+    )
+    run_store.add_artifact(
+        run_id,
+        "answer.md",
+        "赢家答案",
+        renderer="markdown",
+        title="答案",
+    )
+    run_store.finish_run(run_id, "completed")
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+    )._cancel(
+        conversation.conversation_id,
+        run_id,
+        assistant_message_id,
+        {"status": "running", "warnings": []},
+        [],
+        [],
+        [],
+        [],
+        [],
+        ["草稿不应发表"],
+    )
+
+    assistant = next(
+        message
+        for message in conversation_store.load_messages(conversation.conversation_id)
+        if message.message_id == assistant_message_id
+    )
+    assert result.status == "completed"
+    assert result.content == "赢家答案"
+    assert run_store.load_run(run_id).status == "completed"
+    assert (run_store.run_dir(run_id) / "answer.md").read_text(
+        encoding="utf-8"
+    ) == "赢家答案"
+    assert assistant.content == "赢家答案"
+    assert assistant.status == "completed"
 
 
 def test_continuous_terminal_cas_does_not_duplicate_executor_timeout_revision(
@@ -3311,8 +3576,8 @@ def test_fresh_knowledge_retrieves_without_skill_router_or_memory(tmp_path) -> N
 
     assert result.content == "PQC 的最新进展集中在标准落地与迁移准备。"
     assert len(calls) == 1
-    assert calls[0].include_memory_block is False
-    assert calls[0].include_recall_block is False
+    assert evidence_registry.provider_enabled(calls[0], "M") is False
+    assert evidence_registry.provider_enabled(calls[0], "V") is False
     assert calls[0].question_type_override == "news_impact"
     assert calls[0].question_type_override != "concept_definition"
     route_step = next(
@@ -3370,8 +3635,9 @@ def test_three_turns_retrieve_fresh_and_include_bounded_context(tmp_path) -> Non
     assert len(calls) == 3
     assert calls[0].perspective_mode == "neutral"
     assert calls[0].perspective_ids == ()
-    assert calls[0].include_memory_block is True
-    assert calls[0].include_recall_block is True
+    assert calls[0].enabled_providers is None
+    assert evidence_registry.provider_enabled(calls[0], "M") is True
+    assert evidence_registry.provider_enabled(calls[0], "V") is True
     # 标题必须如实说是截断而非摘要：模型把「摘要」读成「已概括全部较早内容」，
     # 就不会知道最早那几轮已经不在了（ai-agent-book ch2：静默截断危险）。
     assert "较早消息（原文，超预算时从最早处截断）" in calls[1].conversation_context
@@ -3868,6 +4134,98 @@ def test_shadow_composer_non_presentable_status_keeps_diagnostics_only(
     assert "生产答案保持不变" in result.content
     assert (run_dir / "grounded_composer_shadow.json").is_file()
     assert not (run_dir / "grounded_composer_shadow.md").exists()
+
+
+def test_primary_grounded_presenter_shadow_is_traced_without_the_experiment_flag(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """生产态（grounded_presenter on / shadow 实验 off）也必须落 trace。
+
+    老写法把「要不要额外跑影子链」和「跑过了要不要记 trace」绑在同一个 if 上，
+    门是 ``prepared.options.shadow_grounded_composer``——默认 False。而生产的影子
+    记录是 ``promote_grounded_answer`` 内部用 ``replace(options, ...=True)`` 跑出来
+    的，那是副本，外层选项没变。结果：trace 只覆盖默认关闭的实验模式，恰好漏掉
+    真正驱动用户答案的那条路。2026-08-26 的 fail-open 因此只能靠重放归档件定位。
+    """
+
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "总结行情",
+    )
+
+    judge_report = answer_model.GroundingJudgeReport(
+        passed=False,
+        rejected_sentence_indexes=(2, 3),
+        issues=("句2「越界表述」不成立", "句3 混入未绑定主体"),
+    )
+
+    def answer_spy(options: AskOptions) -> AskResult:
+        # 模拟 promote_grounded_answer：主路径自己跑完影子链并挂在 result 上。
+        result = _ask_result(options.query)
+        result.grounded_composer_shadow = answer_model.GroundedComposerShadow(
+            status="repaired",
+            raw_answer="原文",
+            repaired_answer="修后",
+            presented_answer="上场稿",
+            judge_report=judge_report,
+            # 报了 (2, 3)，实际只执行了 (2,)——fail-open 的形状。
+            judge_applied_sentence_indexes=(2,),
+            provider="composer-provider",
+            model="composer-model",
+            judge_provider="grok-cli-judge",
+            judge_model="grok-4.6",
+            elapsed_ms=1,
+        )
+        return result
+
+    def shadow_spy(prepared) -> AskResult:  # pragma: no cover - 不该被调用
+        raise AssertionError("主路径已产出影子记录，不应再额外跑一次")
+
+    monkeypatch.setenv("WORKBENCH_GROUNDED_PRESENTER", "1")
+    monkeypatch.setenv("WORKBENCH_SHADOW_GROUNDED_COMPOSER", "0")
+    monkeypatch.setattr(
+        "intelligence.runtime.conversation_orchestrator."
+        "synthesize_shadow_grounded_answer",
+        shadow_spy,
+    )
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_spy,
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=_research_controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="总结行情",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    shadow_trace = next(
+        step
+        for step in run_store.load_trace(run_id)
+        if step["name"] == "grounded_composer_shadow"
+    )
+    payload = json.loads(shadow_trace["output_summary"])
+    assert payload["source"] == "primary_grounded_presenter"
+    assert payload["reused_existing"] is True
+    # 「报的」与「执行的」必须都在，且看得出不一致——这就是那次查了很久的东西。
+    assert payload["judge_reported_sentence_indexes"] == [2, 3]
+    assert payload["judge_applied_sentence_indexes"] == [2]
+    # judge 的 provider 不能再借用 composer 的字段。
+    assert payload["provider"] == "composer-provider"
+    assert payload["judge_provider"] == "grok-cli-judge"
+    assert payload["judge_model"] == "grok-4.6"
 
 
 def test_market_question_automatically_selects_daily_review() -> None:
@@ -5706,6 +6064,10 @@ def test_base_finance_fallback_grants_web_search_capability(tmp_path) -> None:
         "graph",
         "web_search",
     )
+    # needs_memory=False 必须真关 M/V，不能只停在 helper 单测。
+    assert evidence_registry.provider_enabled(captured[0], "M") is False
+    assert evidence_registry.provider_enabled(captured[0], "V") is False
+    assert evidence_registry.provider_enabled(captured[0], "D0") is True
 
 
 def test_market_forecast_head_route_does_not_enable_long_tail_agent(

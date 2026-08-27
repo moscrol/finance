@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest import mock
 
 from intelligence.services import llm_refine
+from intelligence.services import evidence_registry
 from intelligence.services.answer_orchestrator import (
     DEPTH_DEEP,
     DEPTH_STANDARD,
@@ -1331,8 +1332,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                     use_modules=False,
                     use_wiki_rag=False,
                     compose=True,
-                    include_memory_block=False,
-                    include_recall_block=False,
+                    enabled_providers=evidence_registry.without_providers("M", "V"),
                 )
             )
 

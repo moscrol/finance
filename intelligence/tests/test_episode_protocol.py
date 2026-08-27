@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import os
+from unittest import mock
 
 import pytest
 
@@ -16,12 +18,15 @@ from intelligence.services.episode_protocol import (
     ABSENT_REJECTION_CODE,
     EpisodeFinish,
     EpisodeFinishRejection,
+    SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
     build_episode_input,
     build_episode_instructions,
+    cited_evidence_ordinals,
     evidence_ordinal_table,
     finish_json_schema,
     finish_rejection_fields,
     resolve_evidence_refs,
+    split_episode_prompt,
     strip_hashes_for_model,
     validate_episode_finish,
 )
@@ -188,15 +193,17 @@ def test_protocol_builds_task_bound_instructions_and_input() -> None:
     )
 
     instructions = build_episode_instructions(frame, context, _registry())
-    task_input = json.loads(build_episode_input(frame, context))
+    task_input = json.loads(build_episode_input(frame, context, _registry()))
 
-    assert frame.task_frame_hash in instructions
-    assert "market_data" in instructions
+    assert frame.task_frame_hash not in instructions
+    assert "market_data" not in instructions
     assert "不得在答案中暴露内部工具名、provider 或哈希" in instructions
     assert task_input["task_frame"]["task_frame_hash"] == frame.task_frame_hash
+    assert task_input["task_frame_hash"] == frame.task_frame_hash
     assert task_input["research_contract"]["task_frame_hash"] == (
         frame.task_frame_hash
     )
+    assert "market_data" in task_input["available_tools"]
     assert task_input["latest_data_date"] == "2026-07-24"
     assert task_input["information_cutoff"] == (
         context.information_cutoff.to_dict()
@@ -221,8 +228,12 @@ def test_episode_input_carries_perspective_context_only_when_active() -> None:
         perspective_context="只允许使用下方这一位 KOL 的画像与原文召回。",
     )
 
-    neutral_input = json.loads(build_episode_input(frame, neutral_context))
-    active_input = json.loads(build_episode_input(frame, active_context))
+    neutral_input = json.loads(
+        build_episode_input(frame, neutral_context, _registry())
+    )
+    active_input = json.loads(
+        build_episode_input(frame, active_context, _registry())
+    )
 
     assert "perspective_context" not in neutral_input
     assert "perspective_context_rule" not in neutral_input
@@ -232,14 +243,50 @@ def test_episode_input_carries_perspective_context_only_when_active() -> None:
     assert "不得当作事实证据" in active_input["perspective_context_rule"]
 
 
+def test_episode_input_carries_reading_baseline_by_default() -> None:
+    """判读基线默认进 continuous 输入，且能被 env 总开关整块关掉。
+
+    与 perspective_context 的契约相反：视角是观点层、默认不注入；判读基线是领域
+    方法层、**默认注入**——关掉它 agent 就退化成查数机器人。两个引擎都必须接，
+    只接 legacy 会重演 2026-08-14「视角配置生效、模型没看到」那次事故。
+    """
+    frame = _frame()
+    context = _context(frame)
+
+    on = json.loads(build_episode_input(frame, context, _registry()))
+    assert "FY-A10" in on["reading_baseline"], "默认应注入判读基线"
+    assert "以证据为准" in on["reading_baseline_rule"]
+
+    # 总开关关掉后，payload 里两个键都不得出现（逐字节回到未内置状态）
+    with mock.patch.dict(os.environ, {"FINANCE_READING_BASELINE": "0"}):
+        off = json.loads(build_episode_input(frame, context, _registry()))
+    assert "reading_baseline" not in off
+    assert "reading_baseline_rule" not in off
+
+
+def test_reading_baseline_and_perspective_coexist_in_episode_input() -> None:
+    """#222 叙事视角与判读基线同进 payload，互不覆盖、互不顶替。
+
+    两层契约相反：视角默认不在、选中才进；判读基线默认在。rebase 到已含 #222
+    的 main 之后，必须还能同时看见两套键——以前只分测过，没测共存。
+    """
+    frame = _frame()
+    active = dataclasses.replace(
+        _context(frame),
+        perspective_context="只允许使用下方这一位 KOL 的画像与原文召回。",
+    )
+    payload = json.loads(build_episode_input(frame, active, _registry()))
+    assert "FY-A10" in payload["reading_baseline"]
+    assert payload["perspective_context"].startswith("只允许使用")
+    assert "不得当作事实证据" in payload["perspective_context_rule"]
+
+
 def _static_contract_text() -> str:
     """Return only the hard-coded contract literals of the instruction builder.
 
-    Reads the source with ``ast`` instead of calling the builder: the returned
-    string also carries a task hash, the valuation rule and the registry block,
-    all of which change per task and would drown out the one thing this locks.
-    Plain ``Constant`` strings are the contract; ``JoinedStr`` (f-string) parts
-    are the dynamic tail and are skipped.
+    Reads the source with ``ast`` instead of calling the builder. Per-turn
+    hash, tool table, and question-type rules now live in
+    ``build_episode_input``; this lock is the constitution only.
     """
 
     import ast
@@ -255,21 +302,28 @@ def _static_contract_text() -> str:
         if isinstance(node, ast.Constant)
         and isinstance(node.value, str)
         # Drop the docstring: it is not part of the model-facing contract.
+        and not node.value.startswith("Build the static constitution")
         and not node.value.startswith("Build one outcome-first")
     )
 
 
-# 重排后的静态契约文本，扣掉 `【…】` 分组标题与全部空白后的指纹。
+# 宪法静态契约文本，扣掉 `【…】` 分组标题与全部空白后的指纹。
 #
-# 这条测试存在的唯一理由：`2026-08-07` 那次把 1,501 字符的单段契约拆成 26 行并
-# 插入 6 个分组标题，前提是**一个字不改**——只有措辞与顺序都没动，后续观察到的
-# 行为差异才能归因于结构。指纹是这个前提唯一的可检验形式。
+# 2026-08-22 L2 把题型规则 / hash / 工具表搬出本函数。基线从
+# acb20a7df27a44c59f4febcff330d852ed78e70cf14a34f7c9fa3acc126efce8
+# 更新为 a6f450a1d3ab387915d8a9693784d365785c866b451e78ea90dfbca6d9c7c44a：
+# 措辞未动，只搬位置，不得为保旧指纹留副本。
+#
+# 2026-08-23 新增【排版】组两条，基线更新为本值。**这次是真的改了措辞**，
+# 不是重排：原文只有四条「不要套模板 / 不要求固定标题或段数」的否定约束，
+# 没有任何一条正面要求可读性，净效果是模型把所有否定叠加成「一段到底最安全」
+# （实测 run_20260823_221135_424228：1,218 字正文只有开头两个换行）。新增的
+# 两条一条把限定语前置（禁的是填空、不是排版），一条正面要求 Markdown。
 #
 # 它变红意味着有人动了约束的措辞或顺序。那可能是对的，但必须是**显式**的：
-# 请连同这里的期望值一起更新，并在 commit 说明改了哪一条、为什么。别为了让它
-# 变绿而回退重排。
+# 请连同这里的期望值一起更新，并在 commit 说明改了哪一条、为什么。
 _CONTRACT_FINGERPRINT = (
-    "acb20a7df27a44c59f4febcff330d852ed78e70cf14a34f7c9fa3acc126efce8"
+    "af870456bac5428b7bd475b8c49f4687128d322b3170a7def505998a42cd2f38"
 )
 
 
@@ -313,6 +367,66 @@ def test_instructions_are_grouped_not_one_flat_wall() -> None:
         assert header in instructions
 
 
+def test_system_instructions_are_byte_stable_across_task_frames() -> None:
+    """L2 学会了 ①：两个不同 task_frame 的 system 消息逐字节相同。"""
+
+    market = _frame()
+    valuation = dataclasses.replace(
+        _frame(),
+        raw_question="瑞华泰的合理估值",
+        question_type="valuation_estimate",
+        subject="瑞华泰",
+        subject_kind="company",
+        required_outputs=("scenario_range",),
+    )
+    market_system, market_user = split_episode_prompt(
+        market, _context(market), _registry()
+    )
+    valuation_system, valuation_user = split_episode_prompt(
+        valuation, _context(valuation), _registry()
+    )
+
+    assert market_system == valuation_system
+    assert market_user != valuation_user
+    assert SYSTEM_PROMPT_DYNAMIC_BOUNDARY == "SYSTEM_PROMPT_DYNAMIC_BOUNDARY"
+
+
+def test_episode_input_carries_hash_tools_rules_and_cutoff() -> None:
+    """L2 学会了 ②：user JSON 含 hash、可用工具、题型规则、information_cutoff。"""
+
+    frame = dataclasses.replace(
+        _frame(),
+        raw_question="瑞华泰的合理估值",
+        question_type="valuation_estimate",
+        subject="瑞华泰",
+        subject_kind="company",
+        required_outputs=("scenario_range",),
+    )
+    context = _context(frame)
+    payload = json.loads(build_episode_input(frame, context, _registry()))
+
+    assert payload["task_frame_hash"] == frame.task_frame_hash
+    assert "market_data" in payload["available_tools"]
+    assert "估值题专用完成规则" in payload["question_type_rules"]
+    assert payload["information_cutoff"] == context.information_cutoff.to_dict()
+
+
+def test_episode_runtimes_mark_system_prompt_dynamic_boundary() -> None:
+    """组消息处标出边界；本单不实现 cache_control。"""
+
+    from pathlib import Path
+
+    roots = (
+        Path("intelligence/runtime/agent_episode.py"),
+        Path("intelligence/runtime/openai_agents_runtime.py"),
+        Path("intelligence/runtime/codex_headless_runtime.py"),
+    )
+    for path in roots:
+        assert "SYSTEM_PROMPT_DYNAMIC_BOUNDARY" in path.read_text(
+            encoding="utf-8"
+        ), path
+
+
 def test_track_questions_get_episode_track_contract() -> None:
     """跟踪题的 episode 指令必须带跟踪表达契约（knevo q8 回灌的 episode 版）。
 
@@ -325,20 +439,25 @@ def test_track_questions_get_episode_track_contract() -> None:
         raw_question="光伏自上次之后有什么新变化",
         question_type="theme_track",
     )
+    payload = json.loads(build_episode_input(frame, _context(frame), _registry()))
+    rules = payload["question_type_rules"]
     instructions = build_episode_instructions(frame, _context(frame), _registry())
 
-    assert "跟踪表达契约" in instructions
-    assert "无上期基线，本期建立基线" in instructions
-    assert "memory_lookup" in instructions
+    assert "跟踪表达契约" not in instructions
+    assert "跟踪表达契约" in rules
+    assert "无上期基线，本期建立基线" in rules
+    assert "memory_lookup" in rules
     # legacy 检索块记号不得泄漏进 episode 指令——episode 里没有这些块。
     for legacy_marker in ("[M]", "[V]", "[D0]", "[D6]", "[W7]"):
-        assert legacy_marker not in instructions
+        assert legacy_marker not in rules
 
 
 def test_non_track_questions_keep_instructions_unchanged() -> None:
     frame = _frame()
     instructions = build_episode_instructions(frame, _context(frame), _registry())
+    payload = json.loads(build_episode_input(frame, _context(frame), _registry()))
     assert "跟踪表达契约" not in instructions
+    assert "跟踪表达契约" not in payload["question_type_rules"]
 
 
 def test_forecast_episode_gets_causal_hypothesis_contract() -> None:
@@ -364,21 +483,23 @@ def test_forecast_episode_gets_causal_hypothesis_contract() -> None:
         question_type="valuation",
     )
 
-    overnight_text = build_episode_instructions(
-        overnight, _context(overnight), _registry()
-    )
-    local_text = build_episode_instructions(local, _context(local), _registry())
-    valuation_text = build_episode_instructions(
-        valuation, _context(valuation), _registry()
-    )
+    overnight_rules = json.loads(
+        build_episode_input(overnight, _context(overnight), _registry())
+    )["question_type_rules"]
+    local_rules = json.loads(
+        build_episode_input(local, _context(local), _registry())
+    )["question_type_rules"]
+    valuation_rules = json.loads(
+        build_episode_input(valuation, _context(valuation), _registry())
+    )["question_type_rules"]
 
-    assert "互斥因果假说" in overnight_text
-    assert "证据不足，两假说并立" in overnight_text
-    assert "领跌相对强弱" in overnight_text
-    assert "互斥因果假说" in local_text
-    assert "互斥因果假说" not in valuation_text
+    assert "互斥因果假说" in overnight_rules
+    assert "证据不足，两假说并立" in overnight_rules
+    assert "领跌相对强弱" in overnight_rules
+    assert "互斥因果假说" in local_rules
+    assert "互斥因果假说" not in valuation_rules
     for legacy_marker in ("[M]", "[V]", "[D0]", "[D6]", "[W7]"):
-        assert legacy_marker not in overnight_text
+        assert legacy_marker not in overnight_rules
 
 
 def test_validate_finish_rejects_unknown_evidence_hash() -> None:
@@ -1304,6 +1425,26 @@ def test_strip_hashes_for_model_keeps_ordinals_only() -> None:
     assert "evidence_hashes" not in facing
     assert "content_hash" not in facing["evidence"][0]
     assert facing["evidence"][0]["evidence_id"] == "E1"
+
+
+def test_cited_evidence_ordinals_extracts_prose_refs_in_order() -> None:
+    # R-20260821-06：正文 E 引用是答案对依赖的显式声明。识别语法与
+    # _EVIDENCE_ORDINAL_RE 同一套（E1..E999、无前导零），首现顺序去重。
+    assert cited_evidence_ordinals("结论（E3）成立；E1 与 e12 支持，E3 重复。") == (
+        "E3",
+        "E1",
+        "E12",
+    )
+
+
+def test_cited_evidence_ordinals_rejects_lookalike_tokens() -> None:
+    # 左界排除字母数字：PE10 是估值倍数、1.5E8 是科学计数、CE4 是认证名，
+    # 都不是证据引用。右界排除续位数字：E41 不得拆成 E4。
+    assert cited_evidence_ordinals("PE10 高估；市值 1.5E8；CE4 认证；E41 有效。") == (
+        "E41",
+    )
+    assert cited_evidence_ordinals("") == ()
+    assert cited_evidence_ordinals("E0 与 E1000 越格式") == ()
 
 
 def test_finish_rejection_fields_present_when_absent() -> None:

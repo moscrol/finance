@@ -13,6 +13,8 @@ from intelligence.eval.variance_baseline import (
     ab_decision,
     extract_from_run_dir,
     is_judge_unavailable,
+    judge_independence_label,
+    judge_verification_decision,
     load_replay,
     main,
     score_distribution,
@@ -56,6 +58,10 @@ def test_replay_fixture_flip_rate(tmp_path: Path) -> None:
     assert scored["baseline_flip_rate"] == pytest.approx(0.2)
     assert scored["judge_unavailable_rate"] == pytest.approx(0.133333, abs=1e-6)
     assert scored["content_flip_rate"] == pytest.approx(0.066667, abs=1e-6)
+    assert scored["correlated_judge_rate"] == pytest.approx(0.0)
+    assert scored["independent_judge_rate"] == pytest.approx(0.0)
+    assert scored["unknown_judge_independence_rate"] == pytest.approx(1.0)
+    assert scored["independent_n"] == 0
     assert scored["live"] is False
 
     dest = tmp_path / "out.json"
@@ -102,6 +108,91 @@ def test_ab_helper_returns_no_call_below_baseline() -> None:
     assert payload["decision"] == "no_call"
 
 
+def test_correlated_samples_cannot_call_verification_improvement() -> None:
+    assert judge_independence_label(True) == "correlated"
+    assert judge_independence_label(False) == "independent"
+    assert judge_independence_label(None) == "unknown"
+    assert judge_independence_label("false") == "unknown"
+    # 内容差已经超过翻转率，但没有独立判官样本 → 仍不得下「验证变好了」
+    assert (
+        judge_verification_decision(
+            observed_delta=0.5,
+            baseline_flip_rate=0.2,
+            independent_n=0,
+        )
+        == "no_call"
+    )
+    assert (
+        judge_verification_decision(
+            observed_delta=0.5,
+            baseline_flip_rate=0.2,
+            independent_n=3,
+        )
+        == "callable"
+    )
+    result = subprocess.run(
+        [
+            PYTHON,
+            str(SCRIPT),
+            "--decide",
+            "--observed-delta",
+            "0.5",
+            "--baseline-flip",
+            "0.2",
+            "--independent-n",
+            "0",
+        ],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["decision"] == "no_call"
+    assert payload["independent_n"] == 0
+
+
+def test_score_distribution_splits_correlated_from_independent() -> None:
+    scored = score_distribution(
+        {
+            "questions": [
+                {
+                    "question_id": "Q-mix",
+                    "repeats": [
+                        {
+                            "primary_outcome": "completed",
+                            "judge_status": "passed",
+                            "correlated_judge": True,
+                        },
+                        {
+                            "primary_outcome": "completed",
+                            "judge_status": "passed",
+                            "correlated_judge": True,
+                        },
+                        {
+                            "primary_outcome": "completed",
+                            "judge_status": "passed",
+                            "correlated_judge": False,
+                        },
+                        {
+                            "primary_outcome": "completed",
+                            "judge_status": "passed",
+                        },
+                    ],
+                }
+            ]
+        }
+    )
+    row = scored["questions"][0]
+    assert row["correlated_judge_count"] == 2
+    assert row["independent_judge_count"] == 1
+    assert row["unknown_judge_independence_count"] == 1
+    assert row["flip_rate"] == pytest.approx(0.0)
+    assert scored["independent_n"] == 1
+    assert scored["content_flip_rate"] == pytest.approx(0.0)
+
+
 def test_ask_not_applicable_is_not_judge_unavailable() -> None:
     assert is_judge_unavailable("unavailable") is True
     assert is_judge_unavailable(None) is False
@@ -136,6 +227,7 @@ def test_extract_from_run_dir_reads_ask_gate_receipt(tmp_path: Path) -> None:
     row = extract_from_run_dir(run_dir)
     assert row["judge_status"] == "not_applicable"
     assert row["judge_unavailable"] is False
+    assert row["correlated_judge"] is None
 
 
 def test_extract_prefers_gate_receipt_over_missing_semantic(tmp_path: Path) -> None:
@@ -166,6 +258,140 @@ def test_extract_prefers_gate_receipt_over_missing_semantic(tmp_path: Path) -> N
     row = extract_from_run_dir(run_dir)
     assert row["judge_status"] == "unavailable"
     assert row["judge_unavailable"] is True
+    assert row["correlated_judge"] is None
+
+
+def test_extract_reads_correlated_judge_from_public_report(tmp_path: Path) -> None:
+    run_dir = tmp_path / "episode-correlated"
+    run_dir.mkdir()
+    (run_dir / "report.json").write_text(
+        json.dumps(
+            {
+                "gate_receipt": {
+                    "engine": "episode",
+                    "judge_status": "passed",
+                    "verified_status": "completed",
+                    "correlated_judge": True,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "continuous-episode.json").write_text(
+        json.dumps(
+            {
+                "structural_verifier": {"verified_status": "completed"},
+                "semantic_verifier": {
+                    "judge_status": "passed",
+                    "correlated_judge": False,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "run.json").write_text(json.dumps({"status": "completed"}), encoding="utf-8")
+    row = extract_from_run_dir(run_dir)
+    assert row["correlated_judge"] is True
+
+
+def test_extract_falls_back_to_private_semantic_when_receipt_omits_flag(
+    tmp_path: Path,
+) -> None:
+    run_dir = tmp_path / "episode-legacy"
+    run_dir.mkdir()
+    (run_dir / "report.json").write_text(
+        json.dumps(
+            {
+                "gate_receipt": {
+                    "engine": "episode",
+                    "judge_status": "passed",
+                    "verified_status": "completed",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "continuous-episode.json").write_text(
+        json.dumps(
+            {
+                "semantic_verifier": {
+                    "judge_status": "passed",
+                    "correlated_judge": True,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "run.json").write_text(json.dumps({"status": "completed"}), encoding="utf-8")
+    row = extract_from_run_dir(run_dir)
+    assert row["correlated_judge"] is True
+
+
+def test_extract_keeps_explicit_receipt_null_over_private_false(
+    tmp_path: Path,
+) -> None:
+    """Skip-path stamp is JSON null. Private default False must not revive it."""
+
+    run_dir = tmp_path / "episode-skipped-judge"
+    run_dir.mkdir()
+    (run_dir / "report.json").write_text(
+        json.dumps(
+            {
+                "gate_receipt": {
+                    "engine": "episode",
+                    "judge_status": "unavailable",
+                    "verified_status": "partial",
+                    "correlated_judge": None,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "continuous-episode.json").write_text(
+        json.dumps(
+            {
+                "semantic_verifier": {
+                    "judge_status": "unavailable",
+                    "correlated_judge": False,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "run.json").write_text(json.dumps({"status": "completed"}), encoding="utf-8")
+    row = extract_from_run_dir(run_dir)
+    assert row["correlated_judge"] is None
+
+
+def test_extract_legacy_skip_false_is_unknown(tmp_path: Path) -> None:
+    run_dir = tmp_path / "episode-legacy-skip"
+    run_dir.mkdir()
+    (run_dir / "report.json").write_text(
+        json.dumps(
+            {
+                "gate_receipt": {
+                    "engine": "episode",
+                    "judge_status": "unavailable",
+                    "verified_status": "partial",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "continuous-episode.json").write_text(
+        json.dumps(
+            {
+                "semantic_verifier": {
+                    "judge_status": "unavailable",
+                    "correlated_judge": False,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "run.json").write_text(json.dumps({"status": "completed"}), encoding="utf-8")
+    row = extract_from_run_dir(run_dir)
+    assert row["correlated_judge"] is None
 
 
 def test_reserved_port_refused() -> None:

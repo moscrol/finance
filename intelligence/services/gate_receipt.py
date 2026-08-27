@@ -13,6 +13,11 @@ here.
 Ask has no structural verifier and no semantic judge.  Callers must pass
 ``not_applicable`` (or JSON null) for those fields — never fake
 ``verified_status=completed`` or ``judge_status=passed``.
+
+``correlated_judge`` is L6 observation, not a delivery status.  Episode
+copies the semantic verifier's bool when present; missing / ask / junk
+stay JSON null.  Never write ``false`` to mean "ask has no judge" —
+that would look like an independent judge ran.
 """
 
 from __future__ import annotations
@@ -42,6 +47,7 @@ RECEIPT_KEYS = (
     "judge_unavailable_count",
     "content_degraded_count",
     "timings",
+    "correlated_judge",
 )
 TIMING_KEYS = (
     "elapsed_seconds",
@@ -60,6 +66,7 @@ TABLE_COLUMNS = (
     "elapsed_seconds",
     "retrieve_seconds",
     "judge_seconds",
+    "correlated_judge",
 )
 
 _VERIFIED_STATUSES = frozenset(
@@ -124,6 +131,35 @@ def classify_degrade_counts(
     )
 
 
+def optional_bool(value: object) -> bool | None:
+    """Only a real bool counts. Missing / strings / 0 stay unknown."""
+
+    return value if isinstance(value, bool) else None
+
+
+def episode_public_correlated_judge(semantic: Mapping[str, Any] | None) -> bool | None:
+    """Map private semantic ``correlated_judge`` onto the public receipt.
+
+    ``SemanticEpisodeOutcome.correlated_judge`` defaults to ``False`` even when
+    the judge never ran (empty draft, missing contract).  Public eval must not
+    treat that default as an independent L4 sample.  A real independent
+    attempt is clocked (``timeout_asked`` present) or finishes
+    passed/repaired/rejected.
+    """
+
+    block = semantic if isinstance(semantic, Mapping) else {}
+    raw = optional_bool(block.get("correlated_judge"))
+    if raw is not False:
+        return raw
+    timeout_asked = block.get("timeout_asked")
+    clocked = isinstance(timeout_asked, (int, float)) and not isinstance(
+        timeout_asked, bool
+    )
+    if block.get("judge_status") == "unavailable" and not clocked:
+        return None
+    return False
+
+
 def _issues_list(issues: Sequence[object] | None) -> list[str]:
     out: list[str] = []
     if not issues:
@@ -145,6 +181,7 @@ def build_gate_receipt(
     timings: Mapping[str, Any] | None = None,
     judge_exc_class: str | None = None,
     timeout_asked: float | None = None,
+    correlated_judge: bool | None = None,
 ) -> dict[str, Any]:
     """Single builder.  Both engines call this; do not fork the key set."""
 
@@ -154,11 +191,14 @@ def build_gate_receipt(
         raise ValueError(f"unknown verified_status: {verified_status!r}")
     if judge_status is not None and judge_status not in _JUDGE_STATUSES:
         raise ValueError(f"unknown judge_status: {judge_status!r}")
+    correlated = optional_bool(correlated_judge)
     if engine == ENGINE_ASK:
         if verified_status in {"completed", "partial", "clarification", "failed"}:
             raise ValueError("ask engine must not fake a structural verified_status")
         if judge_status in {"passed", "repaired", "rejected", "unavailable"}:
             raise ValueError("ask engine must not fake a semantic judge_status")
+        if correlated is not None:
+            raise ValueError("ask engine must not fake a correlated_judge")
         verified_status = verified_status if verified_status is not None else NOT_APPLICABLE
         judge_status = judge_status if judge_status is not None else NOT_APPLICABLE
 
@@ -185,6 +225,7 @@ def build_gate_receipt(
         "judge_unavailable_count": judge_count,
         "content_degraded_count": content_count,
         "timings": normalized_timings,
+        "correlated_judge": correlated,
     }
 
 
@@ -257,6 +298,7 @@ def build_episode_receipt(
         timings=merged_timings,
         judge_exc_class=str(exc_class) if exc_class else None,
         timeout_asked=asked,
+        correlated_judge=episode_public_correlated_judge(semantic),
     )
 
 
@@ -273,6 +315,7 @@ def empty_receipt() -> dict[str, Any]:
         "judge_unavailable_count": None,
         "content_degraded_count": None,
         "timings": normalize_timings(None),
+        "correlated_judge": None,
     }
 
 
@@ -303,6 +346,7 @@ def _normalize_extracted(block: Mapping[str, Any]) -> dict[str, Any]:
         "judge_unavailable_count": block.get("judge_unavailable_count"),
         "content_degraded_count": block.get("content_degraded_count"),
         "timings": timings,
+        "correlated_judge": optional_bool(block.get("correlated_judge")),
     }
 
 
@@ -323,6 +367,7 @@ def table_row(receipt: Mapping[str, Any] | None) -> dict[str, Any]:
         "elapsed_seconds": timings.get("elapsed_seconds"),
         "retrieve_seconds": timings.get("retrieve_seconds"),
         "judge_seconds": timings.get("judge_seconds"),
+        "correlated_judge": optional_bool(block.get("correlated_judge")),
     }
 
 

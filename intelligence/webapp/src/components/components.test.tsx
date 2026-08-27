@@ -1328,6 +1328,87 @@ describe("Chat-first conversation components", () => {
     expect(screen.queryByText("正在检索本轮证据")).toBeNull();
   });
 
+  // 回归实测 run_20260823_221135_424228：那一轮流了 6 条 trace.step，UI 只显示
+  // 最后一条、且答案一到就整条消失，38 秒里用户只看得到一行不变的字。
+  const episodeSteps = [
+    {
+      step_id: "continuous:episode:3:plan",
+      name: "planning",
+      status: "completed" as const,
+      started_at: "2026-08-23T22:11:35+08:00",
+      finished_at: "2026-08-23T22:11:35+08:00",
+      input_summary: "",
+      output_summary: "已形成研究计划。",
+      warnings: [],
+    },
+    {
+      step_id: "continuous:episode:4:tool_request",
+      name: "research",
+      status: "completed" as const,
+      started_at: "2026-08-23T22:11:41+08:00",
+      finished_at: "2026-08-23T22:11:41+08:00",
+      input_summary: "",
+      output_summary: "正在查盘面快照。",
+      warnings: [],
+    },
+    {
+      step_id: "continuous:episode:6:tool_request",
+      name: "research",
+      status: "running" as const,
+      started_at: "2026-08-23T22:11:41+08:00",
+      finished_at: null,
+      input_summary: "",
+      output_summary: "正在查主线结构。",
+      warnings: [],
+    },
+  ];
+
+  const bubbleWithProgress = (
+    overrides: Partial<ChatMessage>,
+    progress: typeof episodeSteps,
+  ) => (
+    <MessageBubble
+      message={{ ...assistantMessage, degrades: [], ...overrides }}
+      skills={productSkills}
+      live={{
+        ...createLiveMessageState({
+          conversationId: "conv_recent",
+          messageId: "msg_assistant",
+          runId: "run_demo",
+        }),
+        status: overrides.status === "completed" ? "completed" : "streaming",
+        progress,
+      }}
+      bundle={null}
+      canRegenerate={false}
+      onRegenerate={vi.fn()}
+      onOpenArtifact={vi.fn()}
+      onFollowup={vi.fn()}
+    />
+  );
+
+  it("shows every episode milestone, not only the newest one", () => {
+    render(bubbleWithProgress({ content: "", status: "pending" }, episodeSteps));
+
+    expect(screen.getByText("已形成研究计划。")).toBeVisible();
+    expect(screen.getByText("正在查盘面快照。")).toBeVisible();
+    expect(screen.getByText("正在查主线结构。")).toBeVisible();
+  });
+
+  it("keeps the timeline available after the answer lands", () => {
+    render(
+      bubbleWithProgress(
+        { content: "最终回答正文。", status: "completed" },
+        episodeSteps,
+      ),
+    );
+
+    // 答案与过程并存：正文可见，过程折叠但仍在 DOM 里，可回查。
+    expect(screen.getByText("最终回答正文。")).toBeVisible();
+    expect(screen.getByText("研究过程（3 步）")).toBeVisible();
+    expect(screen.getByText("已形成研究计划。")).toBeInTheDocument();
+  });
+
   it("replays and upserts public trace steps in live message state", () => {
     const initial = createLiveMessageState({
       conversationId: "conv_recent",
@@ -2346,5 +2427,158 @@ describe("Workbench navigation reliability", () => {
 
     await user.click(screen.getByRole("tab", { name: "运行" }));
     expect(screen.getAllByText("重放后更新")).toHaveLength(1);
+  });
+});
+
+describe("DigestSnapshotView（P1b 证据快照页）", () => {
+  const digestSnapshot = {
+    schema: "watchlist-digest-snapshot/v1",
+    standing_date: "2026-08-26",
+    user_id: "u1",
+    status: "locked",
+    stop_text: null,
+    watchlist: ["银之杰"],
+    focus_themes: ["人工智能"],
+    method_card:
+      "清单来自 effective_profile；盘面袋一次性委托 run_market_watch_pack；数字只来自包内冻结行。",
+    bags: [
+      {
+        name: "dual_red",
+        requested_date: "2026-08-26",
+        served_date: "2026-08-26",
+        status: "hit",
+        rows: [
+          {
+            sector_name: "黄金概念",
+            pct_chg: 1.74,
+            diff_ratio: 17.11,
+            amount: 990.42,
+          },
+        ],
+      },
+      {
+        name: "limit_heat",
+        requested_date: "2026-08-26",
+        served_date: "2026-08-26",
+        status: "hit",
+        rows: [{ sector_name: "人工智能", limit_up_count: 6 }],
+      },
+    ],
+    rows: [
+      {
+        subject: "人工智能",
+        kind: "theme",
+        tier: "fact" as const,
+        bag: "limit_heat",
+        served_date: "2026-08-26",
+        text: "清单项「人工智能」命中涨停热度袋：人工智能，涨停 6 家。",
+      },
+      {
+        subject: "银之杰",
+        kind: "watchlist",
+        tier: "gap" as const,
+        bag: null,
+        served_date: null,
+        text: "清单项「银之杰」当日未见于三袋。",
+      },
+    ],
+    fermentations: [
+      {
+        subject: "人工智能",
+        text: "「人工智能」近 10 交易日：严格双红在袋 2 天（最近 2026-08-26）；涨停热度在榜 3 天（峰值 8 家 @2026-08-25）。",
+      },
+    ],
+  };
+
+  it("exposes the snapshot as a clickable read-only evidence page", () => {
+    const structuredBundle: RunBundle = {
+      ...bundle,
+      structuredReport: {
+        schema_version: 1,
+        report_id: "run_demo",
+        title: "自选简报",
+        task_type: "workflow",
+        status: "completed",
+        as_of: "2026-08-26",
+        llm: { used: false, provider: null, model: null },
+        warnings: [],
+        modules: [],
+        watchlist_digest_snapshot_payload: digestSnapshot,
+      },
+    };
+    render(
+      <MessageBubble
+        message={assistantMessage}
+        skills={productSkills}
+        live={null}
+        bundle={structuredBundle}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    // 快照入口在对话里可点（summary 可见），页体只读渲染冻结内容。
+    expect(screen.getByText(/证据快照 · 2026-08-26/)).toBeVisible();
+    const page = screen.getByTestId("digest-snapshot");
+    fireEvent.click(page.querySelector("summary")!);
+    expect(screen.getByText(/方法卡：清单来自 effective_profile/)).toBeVisible();
+    expect(screen.getByText("严格双红袋")).toBeVisible();
+    expect(
+      screen.getByText(/（缺口）清单项「银之杰」当日未见于三袋。/),
+    ).toBeVisible();
+    expect(screen.getByText(/严格双红在袋 2 天/)).toBeVisible();
+    // 只读：证据页内没有任何可写入口（按钮/输入框）。
+    expect(page.querySelectorAll("button, input, textarea")).toHaveLength(0);
+  });
+
+  it("stays absent when the report has no digest snapshot", () => {
+    render(
+      <MessageBubble
+        message={assistantMessage}
+        skills={productSkills}
+        live={null}
+        bundle={bundle}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+    expect(screen.queryByTestId("digest-snapshot")).not.toBeInTheDocument();
+  });
+
+  it("fails closed when only the redacted path string key is present", () => {
+    // 2026-08-27 live 实测形状：旧键是脱敏后的路径字符串（真值！），
+    // 不是载荷。页体认不出对象形状就必须不渲染，而不是对字符串崩溃。
+    const legacyBundle: RunBundle = {
+      ...bundle,
+      structuredReport: {
+        schema_version: 1,
+        report_id: "run_demo",
+        title: "自选简报",
+        task_type: "workflow",
+        status: "completed",
+        as_of: "2026-08-26",
+        llm: { used: false, provider: null, model: null },
+        warnings: [],
+        modules: [],
+        watchlist_digest_snapshot: "本地研究数据（路径已隐藏）。",
+      },
+    };
+    render(
+      <MessageBubble
+        message={assistantMessage}
+        skills={productSkills}
+        live={null}
+        bundle={legacyBundle}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+    expect(screen.queryByTestId("digest-snapshot")).not.toBeInTheDocument();
   });
 });

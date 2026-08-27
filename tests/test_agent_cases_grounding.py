@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import unittest
 from pathlib import Path
 
@@ -15,7 +16,17 @@ from scripts.validate_agent_cases_grounding import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-KB_RELATIONS = Path("/Users/lbq/Desktop/c c/知识库/wiki/relations")
+
+
+def _kb_relations() -> Path:
+    for var in ("KNOWLEDGE_WIKI", "KB_VAULT", "CONCEPT_VAULT", "ENTITY_VAULT"):
+        val = os.environ.get(var)
+        if val:
+            return Path(val).expanduser() / "relations"
+    return Path.home() / "knowledge-base-private" / "wiki" / "relations"
+
+
+KB_RELATIONS = _kb_relations()
 
 
 def _entities() -> dict:

@@ -109,6 +109,7 @@ class LLMProvider:
     api_key: str = field(repr=False)
     base_url: str
     model: str
+    transport: str = "http"
 
 
 _PROVIDER_OVERRIDE: ContextVar[LLMProvider | None] = ContextVar(
@@ -135,6 +136,15 @@ class LLMOutputTooLong(RuntimeError):
 
 class LLMCallBudgetExceeded(RuntimeError):
     """Raised before an HTTP attempt when the turn-level call budget is spent."""
+
+
+class LLMStreamAlreadyEmitted(RuntimeError):
+    """A streamed turn failed *after* text had already reached the user.
+
+    Distinct from every other failure because it removes the caller's right to
+    retry: replaying the turn re-emits the prose the user already saw. See the
+    ``_STREAM_FALLBACK_BLOCKED`` note for the incident this encodes.
+    """
 
 
 @dataclass(frozen=True)
@@ -237,10 +247,31 @@ def judge_provider() -> LLMProvider | None:
     背景（双审查 ③）：composer 与 judge 走同一 provider 存在相关性失败——
     同一模型的系统性偏差会同时骗过创作与审稿。配置以下 env 后语义审走
     独立模型；未配置返回 None，调用方回落主 provider（行为不变）：
+    - ``LLM_JUDGE_BACKEND=grok-cli``（别名 ``grok`` / ``cli``）：Grok Build TUI
+      无头 ``-p``，与 HTTP 合成模型解耦。PATH 上有 ``grok`` 不会自动开。
     - ``LLM_JUDGE_API_KEY``（+ ``LLM_JUDGE_BASE_URL`` + ``LLM_JUDGE_MODEL``）：
       完全独立的 judge 端点；
     - 仅 ``LLM_JUDGE_MODEL``：同 key/端点、不同模型（次优但仍降低相关性）。
+
+    显式 ``LLM_JUDGE_BACKEND=grok-cli`` 优先于 ``LLM_JUDGE_API_KEY``。
+    后端已声明但二进制缺失时仍返回 CLI provider：调用失败记 unavailable，
+    不静默退回相关自审。
     """
+    from intelligence.services.grok_cli_judge import (
+        CLI_GROK_URL,
+        DEFAULT_MODEL as GROK_DEFAULT_MODEL,
+        grok_cli_backend_enabled,
+    )
+
+    if grok_cli_backend_enabled():
+        model = os.environ.get("LLM_JUDGE_MODEL") or GROK_DEFAULT_MODEL
+        return LLMProvider(
+            name="grok-cli-judge",
+            api_key="",
+            base_url=CLI_GROK_URL,
+            model=model,
+            transport="cli",
+        )
     key = os.environ.get("LLM_JUDGE_API_KEY")
     base = os.environ.get("LLM_JUDGE_BASE_URL")
     model = os.environ.get("LLM_JUDGE_MODEL")
@@ -629,6 +660,26 @@ def _build_user_prompt(query: str, theme: str, evidence_text: str) -> str:
     )
 
 
+def _complete_cli_judge(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: float,
+) -> str:
+    """CLI judge still goes through the turn-level call ledger."""
+
+    from intelligence.services.grok_cli_judge import complete_grok_cli
+
+    _reserve_llm_call()
+    started = time.monotonic()
+    try:
+        content = complete_grok_cli(provider, messages, timeout)
+    except Exception as exc:
+        _record_llm_call("chat", provider, "failed", started, _failure_reason(exc))
+        raise
+    _record_llm_call("chat", provider, "success", started)
+    return content
+
+
 def _post_chat(
     provider: LLMProvider,
     messages: list[dict],
@@ -727,10 +778,15 @@ def complete(
         return None, None, insufficient
     deadline = Deadline.from_timeout(timeout)
     failures: list[tuple[LLMProvider, str]] = []
+    from intelligence.services.grok_cli_judge import is_cli_judge_provider
+
     for provider in providers:
         try:
             remaining = deadline.require_remaining(0.001)
-            content = _post_chat(provider, messages, remaining, temperature)
+            if is_cli_judge_provider(provider):
+                content = _complete_cli_judge(provider, messages, remaining)
+            else:
+                content = _post_chat(provider, messages, remaining, temperature)
         except LLMCallBudgetExceeded as exc:
             return None, None, str(exc)
         except urllib.error.HTTPError as exc:  # pragma: no cover - network
@@ -743,6 +799,179 @@ def complete(
             break
     provider, reason = _provider_failure_reason(failures)
     return None, provider, reason
+
+
+class _ToolCallAssembler:
+    """Reassemble OpenAI-style streamed ``tool_calls`` fragments by index.
+
+    A streamed tool call arrives as a first fragment carrying ``id``/``name``
+    and then N fragments carrying only ``function.arguments`` slices, all keyed
+    by ``index``.  The agent loop dispatches on the assembled shape, so this has
+    to reproduce the non-streaming message byte for byte -- a dropped fragment
+    means a malformed argument JSON and a tool that silently never runs.
+    """
+
+    def __init__(self) -> None:
+        self._calls: dict[int, dict[str, object]] = {}
+        self._order: list[int] = []
+
+    def add(self, fragments: object) -> None:
+        if not isinstance(fragments, list):
+            return
+        for fragment in fragments:
+            if not isinstance(fragment, dict):
+                continue
+            raw_index = fragment.get("index", 0)
+            index = raw_index if isinstance(raw_index, int) else 0
+            if index not in self._calls:
+                self._calls[index] = {
+                    "id": "",
+                    "type": "function",
+                    "function": {"name": "", "arguments": ""},
+                }
+                self._order.append(index)
+            call = self._calls[index]
+            call_id = fragment.get("id")
+            if isinstance(call_id, str) and call_id:
+                call["id"] = call_id
+            call_type = fragment.get("type")
+            if isinstance(call_type, str) and call_type:
+                call["type"] = call_type
+            function = fragment.get("function")
+            if not isinstance(function, dict):
+                continue
+            target = call["function"]
+            assert isinstance(target, dict)
+            name = function.get("name")
+            if isinstance(name, str) and name:
+                # 名字通常只在首片出现；后续片重复给同一个名字也无害，
+                # 但**不能**拼接，否则会得到 "market_datamarket_data"。
+                target["name"] = name
+            arguments = function.get("arguments")
+            if isinstance(arguments, str) and arguments:
+                target["arguments"] = str(target["arguments"]) + arguments
+
+    def assembled(self) -> list[dict[str, object]]:
+        return [self._calls[index] for index in self._order]
+
+
+def _post_chat_message_stream(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: float,
+    temperature: float,
+    tools: list[dict] | None,
+    tool_choice: str | dict | None,
+    disable_thinking: bool | None,
+    on_content_delta: Callable[[str], None],
+    is_cancelled: Callable[[], bool] | None = None,
+) -> dict:
+    """Stream one tools-enabled turn, returning the same message dict shape.
+
+    Everything downstream (``ModelTurn`` parsing, the agent loop, the episode
+    ledger) consumes the non-streaming shape, so this returns exactly that and
+    keeps streaming an implementation detail of the transport.  The only extra
+    is ``_streamed_chars``: the caller needs to know whether anything already
+    crossed to the user before deciding it may retry.
+    """
+
+    _reserve_llm_call()
+    url = provider.base_url.rstrip("/") + "/chat/completions"
+    payload: dict = {
+        "model": provider.model,
+        "messages": messages,
+        "temperature": temperature,
+        "stream": True,
+        # 没有它就拿不到 usage：非流式响应里 usage 是顶层字段，流式下只在
+        # 最后一个 chunk 出现，且要显式开。丢了它 episode 的 token 账会归零。
+        "stream_options": {"include_usage": True},
+    }
+    if disable_thinking is True or (
+        disable_thinking is None and os.environ.get("LLM_THINKING") == "disabled"
+    ):
+        payload["thinking"] = {"type": "disabled"}
+    if tools:
+        payload["tools"] = tools
+        if tool_choice is not None:
+            payload["tool_choice"] = tool_choice
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=_llm_request_headers(provider, Accept="text/event-stream"),
+        method="POST",
+    )
+    started = time.monotonic()
+    content_chunks: list[str] = []
+    streamed_chars = 0
+    calls = _ToolCallAssembler()
+    finish_reason: str | None = None
+    usage: dict | None = None
+    saw_any_chunk = False
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            for raw_line in response:
+                if is_cancelled is not None and is_cancelled():
+                    raise LLMStreamCancelled()
+                line = raw_line.decode("utf-8", "replace").strip()
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    break
+                try:
+                    event = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+                saw_any_chunk = True
+                event_usage = event.get("usage")
+                if isinstance(event_usage, dict):
+                    usage = dict(event_usage)
+                choices = event.get("choices")
+                if not isinstance(choices, list) or not choices:
+                    continue
+                choice = choices[0]
+                if not isinstance(choice, dict):
+                    continue
+                finish_reason = (
+                    _stable_finish_reason(choice.get("finish_reason")) or finish_reason
+                )
+                delta = choice.get("delta")
+                if not isinstance(delta, dict):
+                    continue
+                calls.add(delta.get("tool_calls"))
+                piece = delta.get("content")
+                if isinstance(piece, str) and piece:
+                    content_chunks.append(piece)
+                    # 回调放在**收集之后**：即便下游抛异常，已收到的正文也已
+                    # 记账，重试资格的判断不会因为回调炸了而误判成"还没吐字"。
+                    streamed_chars += len(piece)
+                    on_content_delta(piece)
+    except Exception as exc:
+        _record_llm_call(
+            "chat_tools_stream", provider, "failed", started, _failure_reason(exc)
+        )
+        if streamed_chars:
+            raise LLMStreamAlreadyEmitted(str(exc)) from exc
+        raise
+    if not saw_any_chunk:
+        _record_llm_call(
+            "chat_tools_stream", provider, "failed", started, "streaming_unsupported"
+        )
+        raise LLMStreamingUnsupported()
+    _record_llm_call("chat_tools_stream", provider, "success", started)
+    message: dict = {
+        "role": "assistant",
+        "content": "".join(content_chunks),
+        "_streamed_chars": streamed_chars,
+    }
+    assembled = calls.assembled()
+    if assembled:
+        message["tool_calls"] = assembled
+    if finish_reason is not None:
+        message["_finish_reason"] = finish_reason
+    if usage is not None:
+        message["_usage"] = usage
+    return message
 
 
 def _post_chat_message(
@@ -805,13 +1034,29 @@ def chat_with_tools(
     tool_choice: str | dict | None = "auto",
     disable_thinking: bool | None = None,
     min_viable_seconds: float | None = None,
+    on_content_delta: Callable[[str], None] | None = None,
+    is_cancelled: Callable[[], bool] | None = None,
 ) -> tuple[dict | None, "LLMProvider | None", str]:
     """One OpenAI-compatible chat round-trip *with tools available*.
 
     Returns ``(message, provider, reason)``; the agent loop inspects
     ``message["tool_calls"]`` to decide whether to dispatch tools or treat
     ``message["content"]`` as the final answer. On any failure ``message`` is
-    ``None`` and ``reason`` explains why so the caller degrades gracefully."""
+    ``None`` and ``reason`` explains why so the caller degrades gracefully.
+
+    Passing ``on_content_delta`` opts this call into streaming.  The returned
+    message keeps the non-streaming shape, so the agent loop is unaffected; the
+    only visible difference is that content reached the callback while the
+    provider was still writing it.  Two rules make that safe:
+
+    * a provider that cannot stream raises ``LLMStreamingUnsupported`` *before*
+      any delta, so the next provider (or non-streaming) may still be tried;
+    * a failure *after* the first delta raises ``LLMStreamAlreadyEmitted`` and
+      ends the call immediately -- no other provider, no non-streaming retry.
+      See ``_STREAM_FALLBACK_BLOCKED``: replaying the turn would re-emit prose
+      the user already read, which is the text-shaped version of the duplicate
+      tool execution in inc-4258.
+    """
     rejection = _budget_rejection()
     if rejection is not None:
         return None, None, rejection
@@ -827,20 +1072,42 @@ def chat_with_tools(
         return None, None, insufficient
     deadline = Deadline.from_timeout(timeout)
     failures: list[tuple[LLMProvider, str]] = []
+    streaming = on_content_delta is not None
     for provider in providers:
         try:
             remaining = deadline.require_remaining(0.001)
-            msg = _post_chat_message(
-                provider,
-                messages,
-                remaining,
-                temperature,
-                tools=tools,
-                tool_choice=tool_choice,
-                disable_thinking=disable_thinking,
-            )
+            if streaming:
+                assert on_content_delta is not None
+                msg = _post_chat_message_stream(
+                    provider,
+                    messages,
+                    remaining,
+                    temperature,
+                    tools,
+                    tool_choice,
+                    disable_thinking,
+                    on_content_delta,
+                    is_cancelled,
+                )
+            else:
+                msg = _post_chat_message(
+                    provider,
+                    messages,
+                    remaining,
+                    temperature,
+                    tools=tools,
+                    tool_choice=tool_choice,
+                    disable_thinking=disable_thinking,
+                )
         except LLMCallBudgetExceeded as exc:
             return None, None, str(exc)
+        except LLMStreamAlreadyEmitted:
+            # 这道闸是整条流式路径唯一不可放宽的地方：正文已经在用户屏幕上了，
+            # 换个 provider 重来会把它再吐一遍。宁可这轮降级，也不要重复正文。
+            return None, provider, _STREAM_FALLBACK_BLOCKED
+        except LLMStreamingUnsupported:
+            # 一个字都还没吐出去，换 provider 是安全的。
+            failures.append((provider, "LLM 不支持流式响应"))
         except urllib.error.HTTPError as exc:  # pragma: no cover - network
             failures.append((provider, f"LLM 调用 HTTP {exc.code}"))
         except Exception as exc:  # pragma: no cover - network
@@ -1045,6 +1312,7 @@ def build_synthesis_messages(
     experience_guidance: str = "",
     exemplar_guidance: str = "",
     contract_guidance: str = "",
+    baseline_guidance: str = "",
 ) -> list[dict]:
     """Assemble the turn-1 synthesis ``[system, user]`` messages.
 
@@ -1062,6 +1330,16 @@ def build_synthesis_messages(
     evidence given here — follow-ups must not introduce new sources)."""
     # Build the static system prompt: base instructions + optional static blocks
     system_content = _SYNTHESIS_SYSTEM_PROMPT
+    if baseline_guidance:
+        # 判读基线排在经验卡片/样板之前：它是「怎么读数据」的强制方法，不是参考
+        # 经验。顺序与标签都照 contract_guidance 的教训办——语义标签给错，模型
+        # 会把强制项当可选参考（2026-08-13 workbench 实测，见本函数 docstring）。
+        system_content += (
+            "\n\n## 判读基线（领域方法，强制；优先级高于下方经验卡片与样板）\n"
+            "以下是本领域「数据该怎么读」的方法约束，适用于全部证据块。"
+            "与本轮证据冲突时以证据为准，但必须显式说明冲突，不得沉默跳过。\n"
+            f"{baseline_guidance}"
+        )
     if experience_guidance:
         system_content += (
             "\n\n## 历史经验卡片（用于避免重复犯错）\n"
@@ -1320,20 +1598,35 @@ def synthesize_messages(
     )
     # 网络抖动（连接被重置/DNS 瞬断等 URLError）重试一次再降级：合成是整条回答的
     # 可读性关键，单次瞬断不值得整答退回模板。HTTP 4xx/5xx 不重试（重试大概率同样失败）。
+    #
+    # CLI judge 分支与 complete() 对齐：judge_provider() 在 LLM_JUDGE_BACKEND=grok-cli
+    # 时返回 base_url="cli://grok" 的 provider，走 HTTP 会在发包前抛
+    # URLError(unknown url type: 'cli')——shadow 链的 grounding judge 曾因此每轮
+    # judge_unavailable（存证误标 zhipu，实际记录的是 composer 的 provider）。
+    from intelligence.services.grok_cli_judge import is_cli_judge_provider
+
     last_exc: Exception | None = None
     content = None
     finish_reason: str | None = None
     for attempt in range(_RETRY_MAX_ATTEMPTS):
         try:
             remaining = phase_deadline.require_remaining(1)
-            content, finish_reason = _post_chat_synthesis(
-                provider,
-                messages,
-                remaining,
-                temperature,
-                max_tokens,
-                max_chars,
-            )
+            if is_cli_judge_provider(provider):
+                content = _complete_cli_judge(provider, messages, remaining)
+                if len(content) > max_chars:
+                    raise LLMOutputTooLong()
+                # CLI 无 finish_reason 语义：进程正常退出且有输出即视为完整，
+                # 置 "stop" 以通过下方的完成性校验（与 complete() 的语义一致）。
+                finish_reason = "stop"
+            else:
+                content, finish_reason = _post_chat_synthesis(
+                    provider,
+                    messages,
+                    remaining,
+                    temperature,
+                    max_tokens,
+                    max_chars,
+                )
             break
         except LLMCallBudgetExceeded as exc:
             return None, str(exc)
@@ -1509,6 +1802,13 @@ def _post_chat_stream_raw(
 # 既然当前触发不了，这道闸就是零行为变化——它防的是**以后**有人在流循环里加重试、
 # 或把 HTTPError 的抛出点挪到 delta 之后。真到那天，回退会把整段答案再 on_delta
 # 一次，用户看到的是重复正文（工具双执行的文本版）。宁可降级为模板。
+#
+# ⚠ 2026-08-23 起「当前触发不了」这句作废，上面那段推理里的前提已经变了：
+# `_post_chat_message_stream` 是全仓第二处 `"stream": True`，而且它**带工具**，
+# 正是那段推理排除掉的形状。所以这不再是纯防御性的闸，它在 `chat_with_tools`
+# 里是活的：流式失败分两类抛——首个 delta 之前抛 `LLMStreamingUnsupported`
+# （可换 provider），之后抛 `LLMStreamAlreadyEmitted`（连 provider 链都不许再
+# 走，直接用本 reason 降级）。改流式路径前先读这段。
 _STREAM_FALLBACK_BLOCKED = "LLM 流式合成已输出后失败，不回退非流式（避免重复正文），已降级为模板"
 
 

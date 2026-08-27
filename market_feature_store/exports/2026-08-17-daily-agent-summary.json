@@ -1,0 +1,76 @@
+{
+  "workflow": "agent-daily",
+  "status": "WARN",
+  "started_at": "2026-08-18T02:24:59+08:00",
+  "finished_at": "2026-08-18T02:24:59+08:00",
+  "inputs": {
+    "date": "2026-08-17",
+    "recent": 1,
+    "top_per_date": 10,
+    "semantic_rag_top_n": 0,
+    "wiki_rag_mode": "hybrid"
+  },
+  "steps": [
+    {
+      "name": "daily-ledger",
+      "status": "WARN",
+      "command": "",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "market_missing=8",
+        "briefings=0"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "logic-market-batch",
+      "status": "PASS",
+      "command": "",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "dates=2026-08-17",
+        "scanned=10",
+        "gap_queue=2"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    }
+  ],
+  "outputs": [
+    "old_logic_wakeup=8",
+    "new_logic_candidate=0",
+    "data_gap=2",
+    "research_judge=10",
+    "semantic_rag_hits=0",
+    "kb_ingest_tasks=10",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-08-17-research-queue.json",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-08-17-research-queue.md",
+    "/Users/a77/finance-workspace-private/复盘/daily/2026-08-17/2026-08-17-research-queue.html",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-08-17-kb-ingest-queue.json",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-08-17-daily-agent.json",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-08-17-daily-agent.md",
+    "/Users/a77/finance-workspace-private/复盘/daily/2026-08-17/2026-08-17-daily-agent.html"
+  ],
+  "warnings": [],
+  "errors": [],
+  "next_actions": [
+    "今日研究任务队列：做 IMA 2 条；找公告/调研/订单 6 条。",
+    "已生成知识库回补任务包：10 条，等待 KB repo 校验归档和人工复核。",
+    "催化归因未命中：通信设备, 半导体, 光通信, CPO, 先进封装；先确认是否有场外产业事件（新闻/发布会），否则按纯盘面异动处理。",
+    "催化归因数据源有缺口（研报观点/晨汇缺档），归因结果只作参考，先补数据源。",
+    "证据裁判提示重点验证：半导体封测；优先找公告/调研/订单/客户验证。",
+    "年报/F10 只证明能力栈：通信；下一步补 L3 官方验证或等盘面验证。",
+    "优先打开旧逻辑唤醒：确认是否需要题材地图或深度研究。",
+    "数据缺口只登记到回补队列；本轮不自动补来源/概念/IMA。",
+    "先补齐 daily workflow 产物，否则 agent 判断只作为预览。"
+  ]
+}

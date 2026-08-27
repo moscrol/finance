@@ -367,6 +367,51 @@ def test_stripped_evidence_cannot_satisfy_mandatory_capability() -> None:
     )
 
 
+def test_unbound_unstripped_prefetch_satisfies_mandatory_capability() -> None:
+    """桌上已有、未绑定也未被 strip 的预取，不得再报 missing_mandatory。"""
+
+    contract = _contract(
+        outputs=(
+            RequiredOutput(
+                "direct_assessment",
+                "直接判断",
+                ("market_data",),
+            ),
+        ),
+        evidence_plan=EvidencePlan(
+            "current_mainline",
+            (
+                EvidenceRequirement("MARKET_DAILY", "market_data", True),
+                EvidenceRequirement("D4", "mainline_context", True),
+            ),
+        ),
+        allowed_capabilities=("market_data", "mainline_context"),
+    )
+    market = _evidence("market_data", "prefetch-market-1")
+    outcome = _outcome(
+        status="partial",
+        evidence=(market,),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                (),
+                "预取未写入 binding",
+            ),
+        ),
+    )
+
+    verified = verify_episode_outcome(contract, outcome)
+
+    missing = [
+        item
+        for item in verified.issue_items
+        if item.code == IssueCode.MISSING_MANDATORY_CAPABILITY
+    ]
+    assert missing
+    assert all("market_data" not in item.subject for item in missing)
+    assert any("mainline_context" in item.subject for item in missing)
+
+
 def test_explicit_gap_is_partial_not_fake_completed() -> None:
     outcome = _outcome(
         status="partial",
