@@ -2151,7 +2151,10 @@ def test_executor_timeout_marks_pending_conversation_message_failed(
     release = threading.Event()
 
     def slow_turn(**kwargs: object) -> None:
-        release.wait(timeout=1)
+        # timeout 只是防挂死的兜底，不是契约的一部分：看门狗（50ms）必须先
+        # 到。旧值 1s 在全量负载下被追平过——slow_turn 先正常返回，run 变
+        # completed，断言翻红（R-20260827-11 同批时序余量修复）。
+        release.wait(timeout=30)
 
     monkeypatch.setattr(app_module, "_run_conversation_turn", slow_turn)
     with TestClient(
@@ -2166,11 +2169,15 @@ def test_executor_timeout_marks_pending_conversation_message_failed(
             json={"content": "等待超时", "skill_mode": "auto"},
         ).json()["run_id"]
 
-        run = _wait_terminal(timeout_client, run_id)
-        messages = timeout_client.get(
-            f"/api/conversations/{conversation_id}/messages"
-        ).json()
-        release.set()
+        try:
+            run = _wait_terminal(timeout_client, run_id)
+            messages = timeout_client.get(
+                f"/api/conversations/{conversation_id}/messages"
+            ).json()
+        finally:
+            # 断言前必达 set：否则 _wait_terminal 失败时 TestClient 退出
+            # 会等 slow_turn 的 30s 兜底，失败路径被拖成半分钟。
+            release.set()
 
     assert run["status"] == "failed"
     assert run["error"] == "executor_timeout"
