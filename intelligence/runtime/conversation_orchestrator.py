@@ -2036,6 +2036,9 @@ class TurnOrchestrator:
                     decision,
                     task_frame=task_frame,
                     turn_intent=turn_intent,
+                    # R-20260827-09 送达层：阶段表以 research_plan 为单一来源
+                    # 递进 episode（trace 里那份与模型看到的不再可能漂移）。
+                    retrieval_stages=research_plan.retrieval_stages,
                     conversation_context=context.to_prompt_block(),
                     # 视角约束在这里进入 continuous 引擎。此前只有 legacy 合成
                     # 路径注入（ask_synthesis._active_perspective_prompt），

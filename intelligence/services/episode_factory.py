@@ -604,6 +604,7 @@ def build_episode_context(
     perspective_context: str = "",
     knowledge: KnowledgeAdapter | None = None,
     stance_pack: object | None = None,
+    retrieval_stages: tuple[str, ...] = (),
 ) -> ResearchRunContext:
     """Freeze control output into one immutable research run contract."""
 
@@ -760,6 +761,7 @@ def build_episode_context(
         root_budget=root_budget_for_policy(policy, episode_id=task_id),
         perspective_context=str(perspective_context or "").strip(),
         stance_pack=stance_pack,
+        retrieval_stages=tuple(retrieval_stages or ()),
     )
 
 

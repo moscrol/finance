@@ -243,6 +243,37 @@ def test_episode_input_carries_perspective_context_only_when_active() -> None:
     assert "不得当作事实证据" in active_input["perspective_context_rule"]
 
 
+def test_episode_input_carries_retrieval_stages_only_when_present() -> None:
+    """阶段表只在非空时进模型输入；无阶段轮不得出现任何新键。
+
+    R-20260827-09 送达层修复的渲染端：阶段表是检索规划指引不是证据，
+    规则行必须与内容同时到达（要求「伺候不了的阶段声明缺口」）。
+    """
+    frame = _frame()
+    plain_context = _context(frame)
+    staged_context = dataclasses.replace(
+        plain_context,
+        retrieval_stages=("definition", "chain_stages", "company_mapping"),
+    )
+
+    plain_input = json.loads(
+        build_episode_input(frame, plain_context, _registry())
+    )
+    staged_input = json.loads(
+        build_episode_input(frame, staged_context, _registry())
+    )
+
+    assert "retrieval_stages" not in plain_input
+    assert "retrieval_stages_rule" not in plain_input
+    assert staged_input["retrieval_stages"] == [
+        "definition",
+        "chain_stages",
+        "company_mapping",
+    ]
+    assert "声明缺口" in staged_input["retrieval_stages_rule"]
+    assert "不是证据" in staged_input["retrieval_stages_rule"]
+
+
 def test_episode_input_carries_reading_baseline_by_default() -> None:
     """判读基线默认进 continuous 输入，且能被 env 总开关整块关掉。
 

@@ -975,6 +975,10 @@ class ResearchRunContext:
     authorized_trade_dates: set[str] = field(default_factory=set)
     # 个性化接合核。缺席 = 本题未触发 StancePack；只作锁格，不是证据。
     stance_pack: object | None = None
+    # Prompt-only：owner 工作流的检索阶段序列（经 ResearchPlan 送达）。
+    # R-20260827-09：此前阶段表止步于 trace，episode 拿不到。空元组 = 无
+    # owner 阶段，构造逐字节兼容。永不作为证据。
+    retrieval_stages: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

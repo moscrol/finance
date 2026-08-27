@@ -504,6 +504,13 @@ class ContinuousTurnAdapter:
             stance_pack = getattr(control, "stance_pack", None)
             if stance_pack is not None:
                 context_kwargs["stance_pack"] = stance_pack
+            # 阶段表只在非空时进 kwargs：无阶段轮的 context 构造调用逐字节
+            # 不变，不认识该参数的注入式 factory 也不会被炸（同视角先例）。
+            retrieval_stages = tuple(
+                getattr(control, "retrieval_stages", ()) or ()
+            )
+            if retrieval_stages:
+                context_kwargs["retrieval_stages"] = retrieval_stages
             if self._synthesis_reserve_for_task is not None:
                 context_kwargs["synthesis_reserve"] = max(
                     0.0,
