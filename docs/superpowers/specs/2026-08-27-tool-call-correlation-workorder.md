@@ -90,7 +90,7 @@
 - **P2**：revision / join-key 戳（`capability_id` / `map_revision` / `code_revision`）
   与 SQLite 投影——同上。
 - 记忆根合并（A 独有 12 条 corrections / 21 条 answer_scores / 14 卡 +
-  C 根独有 12 条 / 2 卡）——见 `R-20260827-12` 成立条件，另立工单（未立）。
+  C 根独有 12 条 / 2 卡）——见 `R-20260827-14` 成立条件，另立工单（未立）。
 
 ## 7. 台账预注册
 
