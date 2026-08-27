@@ -127,6 +127,23 @@ def _refs_in(root: Path, rel_dir: str, *, recurse: bool = True) -> dict[str, lis
     return refs
 
 
+def _owning_specs(root: Path) -> dict[str, tuple[str, ...]]:
+    """R- 号 → 台账行里点名的 spec 相对路径。
+
+    归属靠台账行自述，而不是「谁提到过这个号」：一份工单常引用别的号当
+    历史证据，那不代表它拥有那个号。
+    """
+
+    owners: dict[str, tuple[str, ...]] = {}
+    all_rows, _ = _ledger_rows(root)
+    pat = re.compile(r"docs/superpowers/specs/[^\s`）)，,]+\.md")
+    for rid, line in all_rows:
+        found = tuple(dict.fromkeys(pat.findall(line)))
+        if found:
+            owners[rid] = owners.get(rid, ()) + found
+    return owners
+
+
 def _has_correction_marker(path: Path) -> bool:
     text = path.read_text(encoding="utf-8", errors="replace")
     return any(marker in text for marker in _CORRECTION_MARKERS)
@@ -144,13 +161,17 @@ def _stale_inflight_handoffs(root: Path) -> dict[str, list[str]]:
     语义级检查，放对抗审查流程，不进门（判定不了硬拦就是造噪声源）。
     """
 
-    spec_refs = _refs_in(root, "docs/superpowers/specs")
     inflight_refs = _refs_in(root, "docs/handoffs/inflight", recurse=False)
+    owners = _owning_specs(root)
     stale: dict[str, list[str]] = {}
     for rid, handoffs in sorted(inflight_refs.items()):
-        specs = spec_refs.get(rid) or []
+        # **只看台账行点名的那份 spec**。仅仅提到该号的 spec 不算——
+        # 实测误报：`R-20260826-01` 曾被报，只因另一份工单引用它当历史证据，
+        # 而那份工单里的「订正」说的是另一个号。标记与号同在一个文件
+        # ≠ 标记是关于那个号的（又一次「断言粒度比被保护物粗一档」）。
+        specs = [root / rel for rel in owners.get(rid, ()) if (root / rel).is_file()]
         if not any(_has_correction_marker(s) for s in specs):
-            continue  # spec 没自称订正 → 不比对
+            continue  # 归属 spec 没自称订正（或台账行没点名 spec）→ 不比对
         unmarked = [
             str(h.relative_to(root)) for h in handoffs if not _has_correction_marker(h)
         ]

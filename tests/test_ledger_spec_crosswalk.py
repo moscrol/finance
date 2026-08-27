@@ -231,3 +231,42 @@ def test_stale_handoff_is_warning_not_error(site: Path):
     # 既要 exit 0（不阻塞），又要真的说出来（否则「不阻塞」等于「没实现」也过）
     assert xwalk.run(site) == 0
     assert xwalk.crosswalk(site).stale_handoffs != {}
+
+
+def test_spec_that_merely_cites_a_number_does_not_trigger(site: Path):
+    """归属判据：只看**台账行点名的那份 spec**，不看所有提到该号的 spec。
+
+    实测误报（2026-08-27 首跑）：`R-20260826-01` 被报，只因另一份工单**引用它
+    当历史证据**、而那份工单里的「订正」说的是**另一个号**。
+    标记与号同在一个文件 ≠ 标记是关于那个号的——又一次「断言粒度比被保护物粗一档」。
+    """
+    # owner.md 拥有 -20（台账行点名它），且它没订正过
+    (site / "docs/superpowers/specs/owner.md").write_text(
+        "`R-20260801-20` 判据。", encoding="utf-8"
+    )
+    # citer.md 只是引用 -20 当证据，它订正的是自己的 -21
+    (site / "docs/superpowers/specs/citer.md").write_text(
+        "历史实锤见 `R-20260801-20`。\n本单 `R-20260801-21` 初稿写错，**已订正**。",
+        encoding="utf-8",
+    )
+    _write_inflight(site, "feat-a.md", "`R-20260801-20` 照 owner 施工。")
+    _write_ledger(
+        site,
+        [
+            "| `R-20260801-20` | spec `docs/superpowers/specs/owner.md` | `pending` |",
+            "| `R-20260801-21` | spec `docs/superpowers/specs/citer.md` | `pending` |",
+        ],
+    )
+    assert xwalk.crosswalk(site).stale_handoffs == {}
+
+
+def test_owner_spec_correction_still_flags(site: Path):
+    """归属收窄之后，真阳性仍要报（别把门收成恒空）。"""
+    (site / "docs/superpowers/specs/owner.md").write_text(
+        "`R-20260801-22` 初稿写错，**已订正**。", encoding="utf-8"
+    )
+    _write_inflight(site, "feat-b.md", "`R-20260801-22` 旧结论")
+    _write_ledger(
+        site, ["| `R-20260801-22` | spec `docs/superpowers/specs/owner.md` | `pending` |"]
+    )
+    assert "R-20260801-22" in xwalk.crosswalk(site).stale_handoffs
