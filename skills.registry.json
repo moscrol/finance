@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-08-26T19:01:20Z",
+  "generated_at": "2026-08-27T08:41:33Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -148,7 +148,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:4662a073c176339a94c88164be135897a97d36e86539d79cd22e7443f4f91526",
+      "computedHash": "sha256:819bca5046c86e9f355792c6abcdd1f22da4e045989b56db917861b105190bd7",
       "agentOnly": false,
       "views": []
     },
@@ -224,7 +224,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:c945164a21711481a096d4d4954fde4ee50643f711af45c014fb3ad5aa33b7b6",
+      "computedHash": "sha256:cefcab8289010d81d30306b1a37d2ffebf86c43d30feedbc78946e06df4b09cf",
       "agentOnly": false,
       "views": []
     },
@@ -292,7 +292,7 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/handoff/SKILL.md",
-      "description": "会话收尾时把当前分支在途状态回写成交接文档（docs/handoffs/inflight/<分支>.md）。触发词：handoff、交接、写交接、回写 handoff、收尾交接、交给下一个 agent、另一个 agent 接手。你说\"handoff\"就执行本流程，不用等会话结束。",
+      "description": "会话收尾时把当前分支在途状态回写成交接文档（docs/handoffs/inflight/<分支>.md），做过非显然决定时再加一份不限长的日期快照记背景/被否方案/理由。触发词：handoff、交接、写交接、回写 handoff、收尾交接、交给下一个 agent、另一个 agent 接手。你说\"handoff\"就执行本流程，不用等会话结束。",
       "triggers": [
         "handoff",
         "交接",
@@ -305,7 +305,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:d9edba97e59d0a23fbd81c02e1b6414d4459a474207918e7da9218ba4ad27f3d",
+      "computedHash": "sha256:359aeb8b0db78887c7985f60471d4ba5bc7444c9efc69d86c5335c4decbcc3aa",
       "agentOnly": false,
       "views": [
         {
@@ -717,7 +717,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:67af60a7b7cac084983b95396d98320b3ad7f744d6e2237af7a4dd4404ed42c0",
+      "computedHash": "sha256:b13e3cfc80f1ed519772b80d50db29c60037ded0709cea17640ae5a3949d332f",
       "agentOnly": false,
       "views": [
         {
