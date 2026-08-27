@@ -45,7 +45,18 @@
 
 全部合并后在 main tip 上跑 AGENTS.md「合并纪律」节的四件套命令（webapp 没被动到也照跑）。数字对照台账最近一次门禁行，只允许持平或增长。
 
-**完成判据**：四件套全绿 + 收据树 SHA == main tip。
+**完成判据**（2026-08-27 起从人眼比对改为 exit code，工单 §P1-a；起因 #444 分支尖收据冒充批次门禁、合并后 main tip 无收据零报警）：四件套全绿，且下面命令 **exit 0**——
+
+```bash
+git fetch gitea main   # 不 fetch 则 gitea/main 是旧的，两个门都对着过期主干验
+.venv-workbench/bin/python scripts/check_test_receipt.py <收据路径> \
+  --expect-revision "$(git rev-parse gitea/main)" --base-drift-max 5
+```
+
+exit 0 只对「命令里那个 `gitea/main` 解析出的 SHA」成立；报告时把该 SHA 写进台账行。
+`--expect-revision` 治「收据证明的是另一棵树」（全等比较，防 startswith 削弱），
+`--base-drift-max` 治「分支基座落后主干 N 张合并仍拿分支绿冒充合流绿」。
+收据不在 main tip 上 → 先在 main tip 重跑全量，不许拿旧收据凑数。
 
 ## 4. 切 8792（链切五步）
 
