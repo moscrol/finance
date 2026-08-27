@@ -4514,6 +4514,22 @@ def _stable_semantic_judge_error(value: object) -> tuple[str, bool, bool]:
         return "semantic judge call budget exhausted", False, False
     if "cancel" in normalized or "取消" in normalized:
         return "semantic judge cancelled", False, False
+    # CLI judge 的故障要在通用分支之前判：`GrokCliInvalidJson` 含 "invalid"，
+    # 会被下面那条 invalid 分支抢走并判成 retryable=False。
+    #
+    # ⚠ 这里匹配的是**类名**（`grokcli…`），不是异常消息。上游
+    # `llm_refine.complete()` 产出的串是 `LLM 调用失败（{type(exc).__name__}）`，
+    # **消息正文根本不进这个串**。第一版按消息里的 `grok_cli_empty` 写匹配，
+    # 结果是一段永不触发的死代码——读起来像修好了，实测 retryable 仍为 False。
+    #
+    # 空输出 / 非零退出 / 坏 JSON 对一个子进程 CLI 都是**瞬时**故障：实测同一个
+    # 二进制在琐碎提示上耗时 8.4~48.5s，抽风一次不代表下一次也抽。重试机制
+    # （MAX_SEMANTIC_JUDGE_ATTEMPTS=3）本来就在，这里只是别再把它短路掉。
+    if "grokcli" in normalized:
+        if "emptyprompt" in normalized:
+            # 提示词是空的属于调用方 bug，重试也还是空。刻意不放进瞬时档。
+            return "semantic judge invalid provider response", False, False
+        return "semantic judge transient provider error", True, False
     if any(
         marker in normalized
         for marker in (

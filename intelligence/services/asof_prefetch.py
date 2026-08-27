@@ -48,10 +48,18 @@ FERMENTATION_MARKERS = (
 _FERMENT_END_ISO_RE = re.compile(
     r"(?:发酵到|回溯到|截止到|截至|走到)\s*(?P<iso>\d{4}-\d{2}-\d{2})"
 )
-_LEADING_ISO_RE = re.compile(r"^(?P<iso>\d{4}-\d{2}-\d{2})(?!\s*至)")
+# 区间分隔符只有一份词表。原先 `_MD_RANGE_RE` 认全套 `[-~—–～至到]`，而站立日守卫
+# 与 `_LEADING_ISO_RE` 只认「至」——同一个概念在一个文件里存了两份，于是
+# 「2026-07-16 到 07-22 …」绕过守卫，cutoff 落成区间**起点**，终点那端整段取不到
+# （2026-08-27 四臂对照实测）。
+_RANGE_SEP = r"[-~—–～至到]"
+# 分隔符后面必须跟数字：区间总有第二个日期。只判分隔符会把
+# 「2026-07-22 - 今天怎么样」这种误判成区间，把单日题也一起挡掉。
+_RANGE_TAIL = rf"\s*{_RANGE_SEP}+\s*\d"
+_LEADING_ISO_RE = re.compile(rf"^(?P<iso>\d{{4}}-\d{{2}}-\d{{2}})(?!{_RANGE_TAIL})")
 _ISO_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _MD_RANGE_RE = re.compile(
-    r"(?P<m1>\d{1,2})月(?P<d1>\d{1,2})日\s*[-~—–～至到]+\s*"
+    rf"(?P<m1>\d{{1,2}})月(?P<d1>\d{{1,2}})日\s*{_RANGE_SEP}+\s*"
     r"(?:(?P<m2>\d{1,2})月)?(?P<d2>\d{1,2})日"
 )
 _TIMELINE_LOOKBACK_DAYS = 30
@@ -111,8 +119,8 @@ def standing_iso_from_query(query: str) -> str | None:
         if len(isos) >= 2:
             return max(isos)
         return None
-    if re.search(r"\d{4}-\d{2}-\d{2}\s*至", text) or re.search(
-        r"\d{4}年\d{1,2}月\d{1,2}日至", text
+    if re.search(rf"\d{{4}}-\d{{2}}-\d{{2}}{_RANGE_TAIL}", text) or re.search(
+        rf"\d{{4}}年\d{{1,2}}月\d{{1,2}}日{_RANGE_TAIL}", text
     ):
         return None
     leading = _LEADING_ISO_RE.match(text)

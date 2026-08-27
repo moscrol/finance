@@ -362,6 +362,17 @@ def stable_llm_fallback_reason(reason: str) -> str:
         return "provider_http_error"
     if "空内容" in normalized:
         return "empty_response"
+    # CLI judge 退出码 0 却没吐内容 —— 字面就是一次空响应，而 ``empty_response``
+    # 早就在 ``_TRANSIENT_JUDGE_REASONS`` 里。**这不是新增例外，是让空响应被认成
+    # 空响应**：此前它以裸 ``RuntimeError`` 的面目落进 ``provider_unavailable``，
+    # 于是「CLI 抽了一下」和「根本没配 judge」被处置成同一件事——整篇扣住。
+    #
+    # 刻意只放这一种：``GrokCliInvalidJson`` / ``GrokCliExit`` 仍走
+    # ``provider_unavailable``（硬扣）。它们「吐了东西但不对」，不等价于空响应，
+    # 按本函数既有判据（问「被审对象是不是无辜的」）没有同等把握，不放宽。
+    # 那两种仍可被 ``_stable_semantic_judge_error`` 重试，两道闸门本就各判各的。
+    if "grokcliemptyresponse" in normalized:
+        return "empty_response"
     return "provider_unavailable"
 
 
@@ -587,6 +598,21 @@ def _retry_delay_seconds(attempt: int) -> float:
     return base * (1.0 + random.random() * _RETRY_JITTER)
 
 
+# CLI judge 的失败种类必须活着走到分类器。`grok_cli_judge` 用 RuntimeError 承载
+# 四种完全不同的故障，若只压成 `RuntimeError`，「空输出」「非零退出」「坏 JSON」
+# 会落进同一个不可分辨的桶——下游 `_stable_semantic_judge_error` 认不出就判
+# retryable=False，于是三次重试额度一次不用、整篇答案被丢弃（2026-08-27 生产
+# 实测 8/38 = 21% 走的就是这条）。
+#
+# 值全部是稳定的 snake_case 标记，**不带异常消息正文**：`GrokCliExit` 的载荷是
+# stderr，可能含路径 / token / 提示词片段，与本函数「不含敏感串」的契约冲突。
+_GROK_CLI_EXACT_REASONS = {
+    "GrokCliEmpty": "grok_cli_empty",
+    "GrokCliEmptyPrompt": "grok_cli_empty_prompt",
+    "GrokCliInvalidJson": "grok_cli_invalid_json",
+}
+
+
 def _failure_reason(exc: BaseException) -> str:
     """把异常压成一行可聚合的原因，供台账统计（不含 URL/密钥等敏感串）。"""
     if isinstance(exc, urllib.error.HTTPError):
@@ -598,6 +624,16 @@ def _failure_reason(exc: BaseException) -> str:
         if isinstance(inner, (TimeoutError, socket.timeout)):
             return "timeout"
         return f"urlerror_{type(inner).__name__ if inner else 'unknown'}"
+    message = str(exc).strip()
+    if isinstance(exc, FileNotFoundError) and "grok CLI not found" in message:
+        return "grok_cli_not_found"
+    if isinstance(exc, RuntimeError):
+        exact = _GROK_CLI_EXACT_REASONS.get(message)
+        if exact is not None:
+            return exact
+        # `GrokCliExit {returncode}: {stderr}` —— 只取种类，丢掉 stderr 载荷。
+        if message.startswith("GrokCliExit"):
+            return "grok_cli_exit"
     return type(exc).__name__
 
 

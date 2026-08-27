@@ -214,3 +214,136 @@ def test_missing_binary_is_unavailable_not_correlated_fallback(
     assert content is None
     assert used is provider
     assert "FileNotFoundError" in reason or "GrokCli" in reason
+
+
+# --- CLI 失败分类（2026-08-27 四臂对照实测立案） ---------------------------
+#
+# 生产实测：38 题里 8 题（21%）拿到 judge_status=unavailable +
+# issues=["semantic judge provider error"]，整篇答案被丢弃、用户只拿到存根。
+# 追下来是一条完整的信息丢失链：
+#
+#   grok CLI 抽风（空输出 / 非零退出）
+#     → RuntimeError("GrokCliEmpty")
+#     → _failure_reason 只取 type(exc).__name__ → "RuntimeError"   ← 消息在这里丢
+#     → _stable_semantic_judge_error 认不出 → retryable=False
+#     → MAX_SEMANTIC_JUDGE_ATTEMPTS=3 的重试额度一次没用
+#
+# 重试机制本来就在，是被误判成永久故障短路掉的。
+
+
+def test_failure_reason_keeps_grok_cli_marker_instead_of_bare_class() -> None:
+    """CLI 的失败种类必须活着走到分类器。
+
+    只返回 `RuntimeError` 会把「空输出」「非零退出」「JSON 坏了」三种
+    完全不同的故障压成同一个不可分辨的桶，既不能重试也不能诊断。
+    """
+
+    assert llm_refine._failure_reason(RuntimeError("GrokCliEmpty")) == "grok_cli_empty"
+    assert (
+        llm_refine._failure_reason(RuntimeError("GrokCliInvalidJson"))
+        == "grok_cli_invalid_json"
+    )
+    assert (
+        llm_refine._failure_reason(RuntimeError("GrokCliEmptyPrompt"))
+        == "grok_cli_empty_prompt"
+    )
+
+
+def test_failure_reason_does_not_leak_cli_stderr() -> None:
+    """`GrokCliExit {rc}: {stderr}` 的 stderr 不许进原因串。
+
+    `_failure_reason` 的契约是「可聚合且不含敏感串」；stderr 可能带路径、
+    token、提示词片段。只保留稳定的种类标记。
+    """
+
+    leaky_stderr = "/Users/secret/path token=abc123 boom"  # path-literal-ok: 脱敏测试的输入必须像真家目录
+    reason = llm_refine._failure_reason(RuntimeError(f"GrokCliExit 1: {leaky_stderr}"))
+    assert reason == "grok_cli_exit"
+    for leaked in ("secret", "token", "abc123", "boom", "/Users"):
+        assert leaked not in reason
+
+
+def test_grok_cli_kind_survives_complete_to_both_judge_gates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """故障种类必须活着穿过 `complete()` 抵达两道闸门。
+
+    第一版只断言 `_stable_semantic_judge_error("grok_cli_empty")` 可重试就收工，
+    但 `complete()` 产出的串是 `LLM 调用失败（{type(exc).__name__}）`——**消息正文
+    不进那个串**。于是那段匹配从未触发，是读起来像修好了的死代码。
+    所以本测试从 `complete()` 的真实返回值起判，不自己拼串。
+    """
+
+    from intelligence.services.episode_semantic_verifier import (
+        _stable_semantic_judge_error,
+    )
+
+    provider = llm_refine.LLMProvider(
+        "judge", "secret", grok_cli.CLI_GROK_URL, "grok-4.6", transport="cli"
+    )
+
+    def boom(*_args, **_kwargs):
+        raise grok_cli.GrokCliEmptyResponse("GrokCliEmpty")
+
+    monkeypatch.setattr(llm_refine, "detect_providers", lambda *a, **k: [provider])
+    monkeypatch.setattr(grok_cli, "complete_grok_cli", boom)
+
+    content, _used, reason = llm_refine.complete([{"role": "user", "content": "hi"}])
+
+    assert content is None
+    # 闸门一：要不要重试
+    issue, retryable, _correlated = _stable_semantic_judge_error(reason)
+    assert issue == "semantic judge transient provider error", reason
+    assert retryable is True, reason
+    # 闸门二：带声明发稿 还是 整篇扣住
+    assert llm_refine.stable_llm_fallback_reason(reason) == "empty_response", reason
+
+
+def test_grok_cli_exit_is_retryable_but_still_held(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """非零退出可重试，但**不**放进软发稿档——两道闸门各判各的。
+
+    反向锁：防止把「CLI 抽风」一律等同于「空响应」而顺手放宽严格层。
+    """
+
+    from intelligence.services.episode_semantic_verifier import (
+        _stable_semantic_judge_error,
+    )
+
+    provider = llm_refine.LLMProvider(
+        "judge", "secret", grok_cli.CLI_GROK_URL, "grok-4.6", transport="cli"
+    )
+
+    def boom(*_args, **_kwargs):
+        raise grok_cli.GrokCliExit("GrokCliExit 1: boom")
+
+    monkeypatch.setattr(llm_refine, "detect_providers", lambda *a, **k: [provider])
+    monkeypatch.setattr(grok_cli, "complete_grok_cli", boom)
+
+    _content, _used, reason = llm_refine.complete([{"role": "user", "content": "hi"}])
+
+    _issue, retryable, _c = _stable_semantic_judge_error(reason)
+    assert retryable is True, reason
+    assert llm_refine.stable_llm_fallback_reason(reason) == "provider_unavailable", reason
+
+
+def test_empty_prompt_is_caller_bug_not_transient() -> None:
+    """反向锁：提示词为空重试也还是空，不许被放宽带进瞬时档。"""
+
+    from intelligence.services.episode_semantic_verifier import (
+        _stable_semantic_judge_error,
+    )
+
+    reason = f"LLM 调用失败（{grok_cli.GrokCliEmptyPrompt.__name__}）"
+    issue, retryable, _c = _stable_semantic_judge_error(reason)
+    assert retryable is False
+    assert issue == "semantic judge invalid provider response"
+
+
+def test_failure_reason_regressions_for_non_grok_exceptions() -> None:
+    """反向锁：不能为了认 grok 就改掉既有压平规则。"""
+
+    assert llm_refine._failure_reason(TimeoutError("whatever")) == "timeout"
+    assert llm_refine._failure_reason(ValueError("boom")) == "ValueError"
+    assert llm_refine._failure_reason(RuntimeError("unrelated")) == "RuntimeError"
