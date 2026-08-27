@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, replace
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +27,13 @@ from intelligence.services.theme_lifecycle_timeline import (
     load_theme_daily_rows,
     resolve_theme_alias,
 )
+from intelligence.services.market_analogs import parse_analog_intent
+from intelligence.services.market_regime_analogs import (
+    parse_regime_intent,
+    regime_block_for_llm,
+)
+from intelligence.services.stock_analogs import parse_stock_analog_intent
+from intelligence.services.task_frame import is_weekly_calendar_question
 
 FERMENTATION_MARKERS = (
     "发酵",
@@ -43,6 +50,10 @@ _FERMENT_END_ISO_RE = re.compile(
 )
 _LEADING_ISO_RE = re.compile(r"^(?P<iso>\d{4}-\d{2}-\d{2})(?!\s*至)")
 _ISO_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_MD_RANGE_RE = re.compile(
+    r"(?P<m1>\d{1,2})月(?P<d1>\d{1,2})日\s*[-~—–～至到]+\s*"
+    r"(?:(?P<m2>\d{1,2})月)?(?P<d2>\d{1,2})日"
+)
 _TIMELINE_LOOKBACK_DAYS = 30
 
 _CALIBER = (
@@ -53,7 +64,31 @@ _CALIBER = (
 
 def is_fermentation_query(query: str) -> bool:
     text = str(query or "")
+    if is_weekly_calendar_question(text):
+        # 「周末发酵了什么新闻 + 下周大事」是跨市场周历，不是题材发酵链路。
+        return False
     return any(marker in text for marker in FERMENTATION_MARKERS)
+
+
+def calendar_event_window(question: str, as_of: date) -> tuple[str, str]:
+    """问句里的显式窗；没有就用 as_of 次日到 +7 日。"""
+
+    text = str(question or "")
+    isos = _ISO_RE.findall(text)
+    if len(isos) >= 2:
+        return min(isos), max(isos)
+    match = _MD_RANGE_RE.search(text)
+    if match is not None:
+        year = as_of.year
+        month2 = match.group("m2") or match.group("m1")
+        start = date(year, int(match.group("m1")), int(match.group("d1")))
+        end = date(year, int(month2), int(match.group("d2")))
+        if end < start:
+            end = date(year + 1, int(month2), int(match.group("d2")))
+        return start.isoformat(), end.isoformat()
+    start = as_of + timedelta(days=1)
+    end = as_of + timedelta(days=7)
+    return start.isoformat(), end.isoformat()
 
 
 def standing_iso_from_query(query: str) -> str | None:
@@ -90,8 +125,16 @@ def dual_red_counts(
     con: Any,
     days: tuple[date, ...],
 ) -> dict[str, str]:
-    """每个交易日：双红个数，或 ``缺数``（当日板块表零行）。"""
+    """每个交易日：双红个数，或 ``缺数``（当日板块表零行）。
 
+    算数面关掉时返回空 dict——调用方不得再拼「双红个数」观察值。空集合（生产默认）
+    不走这支，行为与本函数不读开关时一致。
+    """
+
+    from intelligence.services.predicate_faces import faces
+
+    if not faces().counts_double_red():
+        return {}
     out: dict[str, str] = {}
     for day in days:
         iso = day.isoformat()
@@ -364,6 +407,215 @@ class PrefetchItem:
         return replace(item, content_hash=evidence_content_hash(item))
 
 
+def _calendar_prefetch_items(
+    question: str,
+    as_of: date,
+    db_path: Path,
+) -> tuple[PrefetchItem, ...]:
+    """周历题进场先查 event_daily。空窗也落「查了、库无行」，不装没查。"""
+
+    if not is_weekly_calendar_question(question):
+        return ()
+    start, end = calendar_event_window(question, as_of)
+    title = f"事件日历 {start}..{end}"
+    as_of_iso = as_of.isoformat()
+    try:
+        from intelligence.services.finance_query import FinanceQuery, FinanceQuerySpec
+        from intelligence.services.research_contract import (
+            InformationCutoff,
+            ResearchDeadline,
+        )
+
+        result = FinanceQuery(db_path).run(
+            FinanceQuerySpec.from_arguments(
+                {
+                    "dataset": "event_daily",
+                    "metrics": ["importance"],
+                    "dimensions": [
+                        "event_date",
+                        "title",
+                        "content",
+                        "sectors",
+                        "is_future",
+                    ],
+                    "time_range": {"start": start, "end": end},
+                    "order_by": [{"field": "event_date", "direction": "asc"}],
+                    "limit": 25,
+                }
+            ),
+            information_cutoff=InformationCutoff(as_of, "requested"),
+            deadline=ResearchDeadline.from_timeout(2.0),
+        )
+    except Exception as exc:
+        return (
+            PrefetchItem(
+                tool="finance_query",
+                title=title,
+                detail=f"已查 event_daily，窗口 {start}..{end}，查询失败：{exc}",
+                source_date=as_of_iso,
+            ),
+        )
+    if result.rows:
+        detail = result.observation or "；".join(
+            f"{row.get('event_date')} {row.get('title')}" for row in result.rows
+        )
+    else:
+        detail = (
+            f"已查 event_daily，窗口 {start}..{end}，库无行"
+            "（复盘会编辑日历，不是官方全集）"
+        )
+    return (
+        PrefetchItem(
+            tool="finance_query",
+            title=title,
+            detail=detail,
+            source_date=result.served_date or as_of_iso,
+        ),
+    )
+
+
+def _history_analog_items(
+    question: str,
+    as_of: date,
+    as_of_iso: str,
+    db_path: Path,
+) -> list[PrefetchItem]:
+    """算子命中即供数：D10 出块或 gap；D8 / D11 在 P0 只留 gap。
+
+    不变量：D10 取数按 as_of 截断（见 market_regime_analogs.load_market_regime_vectors），
+    禁止把问句截止日之后的行情写进历史窗口。
+    """
+    items: list[PrefetchItem] = []
+    wants_regime = parse_regime_intent(question)
+    wants_theme_analog = parse_analog_intent(question) and not wants_regime
+    if wants_regime:
+        block = regime_block_for_llm(db_path, as_of=as_of)
+        if str(block or "").strip():
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title="市场情绪环境类比 [D10]",
+                    detail=block,
+                    source="本地 DuckDB · D10",
+                    source_date=as_of_iso,
+                )
+            )
+        else:
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title="historical_analogs gap（D10 不可用）",
+                    detail=(
+                        "D10 市场情绪类比不可用（库缺失、历史不足或无可比窗口）。"
+                        "historical_analogs 必须标 gap，禁止用画像或框架原文冒充历史窗口。"
+                    ),
+                    source="本地 DuckDB · D10",
+                    source_date=as_of_iso,
+                )
+            )
+    elif wants_theme_analog:
+        items.append(
+            PrefetchItem(
+                tool="market_data",
+                title="historical_analogs gap（D8 未预取）",
+                detail=(
+                    "本题命中题材级历史类比算子，D10 市场环境块不适用；"
+                    "D8 未在 Engine A 开场预取接线。historical_analogs 标 gap，"
+                    "禁止编造未注册的历史阶段。"
+                ),
+                source="本地 DuckDB · D8 未预取",
+                source_date=as_of_iso,
+            )
+        )
+    if parse_stock_analog_intent(question):
+        items.append(
+            PrefetchItem(
+                tool="market_data",
+                title="个股对标 gap（D11 未预取）",
+                detail=(
+                    "本题含个股对标词面。D11 个股走势类比只在 Engine B 接线，"
+                    "且当前实现不按 as_of 截断，P0 不接入 Engine A 预取。"
+                    "个股对标必须标 gap，禁止用画像或题材原文冒充个股历史窗口。"
+                ),
+                source="D11 未预取",
+                source_date=as_of_iso,
+            )
+        )
+    return items
+
+
+def _market_forecast_weekly_items(
+    as_of: date, as_of_iso: str, db_path: Path
+) -> list[PrefetchItem]:
+    """展望开口菜。自己连库、自己分类；锁和爆炸必须发卡，不得依赖外层 con。"""
+
+    try:
+        from intelligence.services.weekly_watch_pack import (
+            day_bag_details,
+            run_weekly_watch_pack,
+        )
+
+        weekly = run_weekly_watch_pack(
+            as_of_iso,
+            market_db_path=db_path,
+            window=5,
+        )
+        if weekly.access != "ok":
+            return [
+                PrefetchItem(
+                    tool="market_data",
+                    title=title,
+                    detail=detail,
+                    source_date=as_of_iso,
+                )
+                for title, detail in day_bag_details(weekly)
+            ]
+        if weekly.days:
+            return [
+                PrefetchItem(
+                    tool="market_data",
+                    title=title,
+                    detail=detail,
+                    source_date=as_of_iso if title == "先验周量能序列" else title[:10],
+                )
+                for title, detail in day_bag_details(weekly)
+            ]
+        con = _connect(db_path)
+        if con is None:
+            return [
+                PrefetchItem(
+                    tool="market_data",
+                    title="先验周盘面",
+                    detail="status=unavailable 盘面库打不开，不是该日无数据。",
+                    source_date=as_of_iso,
+                )
+            ]
+        try:
+            days = _prior_trade_dates(con, as_of, 3)
+            if not days:
+                return []
+            counts = dual_red_counts(con, days)
+            return [
+                PrefetchItem(
+                    tool="market_data",
+                    title="双红个数序列",
+                    detail=format_dual_red_counts(counts),
+                    source_date=as_of_iso,
+                )
+            ]
+        finally:
+            con.close()
+    except Exception as exc:
+        return [
+            PrefetchItem(
+                tool="market_data",
+                title="先验周盘面",
+                detail=f"status=unavailable {type(exc).__name__}: {exc}",
+                source_date=as_of_iso,
+            )
+        ]
+
+
 def collect_prefetch_items(
     *,
     question: str,
@@ -377,28 +629,61 @@ def collect_prefetch_items(
         if market_db_path is not None
         else default_market_db_path()
     )
-    con = _connect(db_path)
-    if con is None:
-        return ()
     items: list[PrefetchItem] = []
     as_of_iso = as_of.isoformat()
+    items.extend(_history_analog_items(question, as_of, as_of_iso, db_path))
+    if question_type == "market_forecast":
+        from intelligence.services.forecast_residual_followup import (
+            WEEKLY_PACK_REUSE_DETAIL,
+            WEEKLY_PACK_REUSE_TITLE,
+            should_skip_weekly_pack,
+        )
+
+        if should_skip_weekly_pack(
+            question=question, question_type=question_type
+        ):
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title=WEEKLY_PACK_REUSE_TITLE,
+                    detail=WEEKLY_PACK_REUSE_DETAIL,
+                    source_date=as_of_iso,
+                )
+            )
+        else:
+            items.extend(_market_forecast_weekly_items(as_of, as_of_iso, db_path))
+    con = _connect(db_path)
+    if con is None:
+        return tuple(items)
+    from intelligence.services.query_understanding import (
+        SIGNAL_FERMENTATION,
+        surface_research_signals,
+    )
+    from intelligence.services.research_contract import (
+        OPERATOR_STRICT_DOUBLE_RED,
+        compile_research_program,
+    )
+
+    from intelligence.services.research_contract import (
+        OPERATOR_STEP_TRAJECTORY,
+        OPERATOR_SUBSTITUTE_OBSERVATION,
+        OPERATOR_VOLUME_QUALIFICATION,
+        OPERATOR_WIDTH_RESONANCE,
+    )
+
+    program = compile_research_program(question, question_class=question_type)
+    has_double_red = OPERATOR_STRICT_DOUBLE_RED in program.operators
+    ferment_sector: str | None = None
     try:
-        if question_type == "market_forecast":
-            try:
-                days = _prior_trade_dates(con, as_of, 3)
-                if days:
-                    counts = dual_red_counts(con, days)
-                    items.append(
-                        PrefetchItem(
-                            tool="market_data",
-                            title="双红个数序列",
-                            detail=format_dual_red_counts(counts),
-                            source_date=as_of_iso,
-                        )
-                    )
-            except Exception:
-                pass
-        if is_fermentation_query(question):
+        items.extend(_calendar_prefetch_items(question, as_of, db_path))
+        if OPERATOR_SUBSTITUTE_OBSERVATION in program.operators:
+            items.extend(_substitute_observation_items(con, as_of))
+        if OPERATOR_VOLUME_QUALIFICATION in program.operators:
+            items.extend(_volume_qualification_items(con, as_of))
+        ferment = SIGNAL_FERMENTATION in surface_research_signals(
+            question, question_class=question_type
+        )
+        if has_double_red and ferment:
             try:
                 sector = resolve_prefetch_sector(con, question, subject)
                 if sector is None:
@@ -414,6 +699,7 @@ def collect_prefetch_items(
                         )
                     )
                 else:
+                    ferment_sector = sector
                     start, end = _timeline_window(con, question, as_of)
                     rows = load_theme_daily_rows(con, sector)
                     items.append(
@@ -443,12 +729,371 @@ def collect_prefetch_items(
                     )
             except Exception:
                 pass
+        if OPERATOR_STEP_TRAJECTORY in program.operators:
+            items.extend(
+                _step_trajectory_items(
+                    con,
+                    subject,
+                    as_of,
+                    exclude_sector=ferment_sector,
+                )
+            )
+        if OPERATOR_WIDTH_RESONANCE in program.operators:
+            items.extend(_width_resonance_items(con, as_of))
     finally:
         try:
             con.close()
         except Exception:
             pass
     return tuple(items)
+
+
+def _substitute_observation_items(
+    con: Any,
+    as_of: date,
+) -> tuple[PrefetchItem, ...]:
+    """题材+个股观察题：主线题材当日无严格双红匹配时，预取带标签替补池。
+
+    站立日 = 库内 ``max(trade_date) <= as_of``（隐式语义，不越过问句截止日）；
+    探针查询本身仍是该站立日精确命中（复用 market_watch_pack 探针，
+    无第二套口径）。任何异常回空——预取不得杀掉整个 episode 开口。
+    """
+
+    from intelligence.services.market_watch_pack import (
+        SUBSTITUTE_BLOCK_TITLE,
+        render_probe_lines,
+        substitute_observation_receipts,
+    )
+
+    try:
+        standing = _standing_on_or_before(con, as_of)
+        probes = substitute_observation_receipts(con, standing)
+        if not probes:
+            return ()
+        return (
+            PrefetchItem(
+                tool="market_data",
+                title=SUBSTITUTE_BLOCK_TITLE.lstrip("# "),
+                detail="\n".join(render_probe_lines(probes)),
+                source_date=standing,
+            ),
+        )
+    except Exception:
+        return ()
+
+
+def _width_resonance_items(con: Any, as_of: date) -> tuple[PrefetchItem, ...]:
+    """概念×申万一级宽度对照袋：站立日与其余袋同源，异常回空，空集也上桌。
+
+    空集也交付（「查过了、当日无放量上涨概念」），否则模型分不清
+    「没查」和「查了没有」——与替补探针的 no-hit 表达同一纪律。
+    """
+
+    from intelligence.services.market_watch_pack import (
+        WIDTH_RESONANCE_DISCLAIMER,
+        WIDTH_RESONANCE_MIN_AMOUNT,
+        WIDTH_RESONANCE_TITLE,
+        render_width_resonance_lines,
+        width_resonance_rows,
+    )
+
+    try:
+        standing = _standing_on_or_before(con, as_of)
+        if standing is None:
+            return ()
+        rows = width_resonance_rows(con, standing)
+        if rows:
+            body = "\n".join(render_width_resonance_lines(rows))
+        else:
+            body = (
+                f"站立日 {standing} 无符合条件的放量上涨概念"
+                f"（pct_chg>0 且成交额≥{WIDTH_RESONANCE_MIN_AMOUNT:.0f} 亿），"
+                "对照为空集。"
+            )
+        return (
+            PrefetchItem(
+                tool="market_data",
+                title=WIDTH_RESONANCE_TITLE,
+                detail=f"{WIDTH_RESONANCE_DISCLAIMER}\n{body}",
+                source_date=standing,
+            ),
+        )
+    except Exception:
+        return ()
+
+
+QUALIFICATION_TITLE = "大盘量能资格盘"
+TRAJECTORY_TITLE_SUFFIX = " 近5日量能台阶"
+UNANCHORED_TRAJECTORY_TITLE = "量能台阶：subject 未锚定声明"
+_TRAJECTORY_WINDOW_DAYS = 5
+_TRAJECTORY_MAX_SECTORS = 6
+_MAINLINE_LOOKBACK_TRADE_DAYS = 20
+_MAINLINE_MAX_THEMES = 6
+
+
+def _standing_on_or_before(con: Any, as_of: date) -> str | None:
+    """库内不越过问句截止日的最新行情站立日（替补/资格/台阶三件同源）。"""
+
+    row = con.execute(
+        "select max(trade_date) from fact_market_daily"
+        " where trade_date <= cast(? as date)",
+        [as_of.isoformat()],
+    ).fetchone()
+    return str(row[0]) if row and row[0] else None
+
+
+def _volume_qualification_items(con: Any, as_of: date) -> tuple[PrefetchItem, ...]:
+    """大盘量能资格盘：站立日总量 vs 20 日均额（含当日窗口，spec §6.1）。
+
+    只交付事实，资格判语（共建/主升）留给回答方按画像规则解读。窗口实有
+    N<20 时如实标注真实口径，且不注册均额/比值观察值（口径不纯不注册），
+    N=20 才注册三个观察值。任何异常回空——预取不得杀 episode 开口。
+    """
+
+    from intelligence.services.market_watch_pack import (
+        AMOUNT_MA20_WINDOW,
+        volume_qualification_receipt,
+    )
+
+    try:
+        standing = _standing_on_or_before(con, as_of)
+        receipt = volume_qualification_receipt(con, standing)
+        if receipt is None:
+            return ()
+        served = str(receipt["standing_date"])
+        window_n = int(receipt["window_n"])
+        full_window = window_n == AMOUNT_MA20_WINDOW
+        caliber = (
+            "20日均额（窗口=截至站立日最近20个交易日、含当日）"
+            if full_window
+            else f"近{window_n}日均额（窗口不足20个交易日，N={window_n}，含当日）"
+        )
+        stage_day = receipt.get("stage_day")
+        detail = (
+            f"站立日={served}；全市场成交额={receipt['total_amount']} 亿；"
+            f"{caliber}={receipt['amount_avg_20d']} 亿；"
+            f"总量/均额比={receipt['amount_vs_avg20_pct']}%；"
+            f"市场阶段={receipt.get('market_stage') or '未标注'}"
+            + (f"（第{stage_day}天）" if stage_day is not None else "")
+            + f"；量能状态={receipt.get('volume_state') or '未标注'}。"
+            "本件只交付事实，资格判语（如共建/主升）由回答方按画像规则解读。"
+        )
+        observations = (
+            StructuredObservation(
+                subject="全市场",
+                as_of=served,
+                metric="total_amount",
+                value=float(receipt["total_amount"]),
+            ),
+        )
+        if full_window:
+            observations += (
+                StructuredObservation(
+                    subject="全市场",
+                    as_of=served,
+                    metric="amount_avg_20d",
+                    value=float(receipt["amount_avg_20d"]),
+                ),
+                StructuredObservation(
+                    subject="全市场",
+                    as_of=served,
+                    metric="amount_vs_avg20_pct",
+                    value=float(receipt["amount_vs_avg20_pct"]),
+                ),
+            )
+        return (
+            PrefetchItem(
+                tool="market_data",
+                title=QUALIFICATION_TITLE,
+                detail=detail,
+                source_date=served,
+                observations=observations,
+            ),
+        )
+    except Exception:
+        return ()
+
+
+def _subject_tokens(subject: str) -> tuple[str, ...]:
+    return tuple(
+        token.strip()
+        for token in re.split(r"[、，,]", str(subject or ""))
+        if token.strip()
+    )
+
+
+def _table_exists(con: Any, name: str) -> bool:
+    row = con.execute(
+        "select 1 from information_schema.tables"
+        " where table_schema = 'main' and table_name = ?",
+        [name],
+    ).fetchone()
+    return row is not None
+
+
+def _recent_mainline_themes(
+    con: Any,
+    standing: str,
+    lookback_start: str,
+) -> tuple[str, ...]:
+    if not _table_exists(con, "fact_mainline_theme_daily"):
+        return ()
+    rows = con.execute(
+        """
+        select theme_name, count(*) as registered_days
+        from fact_mainline_theme_daily
+        where trade_date <= cast(? as date)
+          and trade_date >= cast(? as date)
+          and theme_name is not null
+        group by theme_name
+        order by registered_days desc, theme_name
+        limit ?
+        """,
+        [standing, lookback_start, _MAINLINE_MAX_THEMES],
+    ).fetchall()
+    return tuple(str(row[0]) for row in rows if row[0])
+
+
+def _mainline_theme_registered(
+    con: Any,
+    standing: str,
+    lookback_start: str,
+    token: str,
+) -> bool:
+    if not _table_exists(con, "fact_mainline_theme_daily"):
+        return False
+    row = con.execute(
+        """
+        select 1 from fact_mainline_theme_daily
+        where theme_name = ?
+          and trade_date <= cast(? as date)
+          and trade_date >= cast(? as date)
+        limit 1
+        """,
+        [token, standing, lookback_start],
+    ).fetchone()
+    return row is not None
+
+
+def _resolve_subject_token(
+    con: Any,
+    standing: str,
+    lookback_start: str,
+    token: str,
+    start: str,
+    end: str,
+) -> str | None:
+    """subject token → 板块口径，fail closed（spec §6.2 解析梯）。
+
+    梯 1：token 精确等于板块名且窗口内有行；梯 2：token 恰为近 20 交易日
+    主线登记题材名 → 复用替补探针的包含+额度 top1。**禁止宽松轮**——
+    resolve_query_themes 的锚定宽松匹配会把「科技」臆配成「量子科技」，
+    词面近邻 ≠ 语义家族（R-20260825-11）。解析不到由调用方如实声明。
+    """
+
+    from intelligence.services.market_watch_pack import resolve_theme_sector
+
+    row = con.execute(
+        """
+        select 1 from fact_sector_daily
+        where sector_name = ?
+          and trade_date between cast(? as date) and cast(? as date)
+        limit 1
+        """,
+        [token, start, end],
+    ).fetchone()
+    if row is not None:
+        return token
+    if _mainline_theme_registered(con, standing, lookback_start, token):
+        hit = resolve_theme_sector(con, standing, token)
+        if hit is not None:
+            return hit[0]
+    return None
+
+
+def _step_trajectory_items(
+    con: Any,
+    subject: str,
+    as_of: date,
+    *,
+    exclude_sector: str | None = None,
+) -> tuple[PrefetchItem, ...]:
+    """题目相关板块近 5 日量能台阶（spec §6.2：subject 解析 ∪ 主线池）。
+
+    「AI算力/半导体属于科技系」这类语义归类刻意留给模型——组件只保证近
+    20 交易日主线登记板块的台阶在桌上（cap 6，subject 命中优先占位）。
+    发酵题已锚定的板块让位（exclude_sector），不双份。任何异常回空。
+    """
+
+    from intelligence.services.market_watch_pack import resolve_theme_sector
+
+    try:
+        standing = _standing_on_or_before(con, as_of)
+        if standing is None:
+            return ()
+        standing_day = date.fromisoformat(standing[:10])
+        window = _prior_trade_dates(con, standing_day, _TRAJECTORY_WINDOW_DAYS)
+        if not window:
+            return ()
+        start, end = window[0].isoformat(), window[-1].isoformat()
+        lookback = _prior_trade_dates(
+            con, standing_day, _MAINLINE_LOOKBACK_TRADE_DAYS
+        )
+        lookback_start = lookback[0].isoformat() if lookback else start
+        resolved: list[str] = []
+        unresolved: list[str] = []
+        for token in _subject_tokens(subject):
+            sector = _resolve_subject_token(
+                con, standing, lookback_start, token, start, end
+            )
+            if sector is None:
+                unresolved.append(token)
+            elif sector not in resolved:
+                resolved.append(sector)
+        for theme in _recent_mainline_themes(con, standing, lookback_start):
+            if len(resolved) >= _TRAJECTORY_MAX_SECTORS:
+                break
+            hit = resolve_theme_sector(con, standing, theme)
+            if hit is not None and hit[0] not in resolved:
+                resolved.append(hit[0])
+        pool = [
+            sector for sector in resolved if sector != exclude_sector
+        ][:_TRAJECTORY_MAX_SECTORS]
+        items: list[PrefetchItem] = []
+        for sector in pool:
+            rows = load_theme_daily_rows(con, sector)
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title=f"{sector}{TRAJECTORY_TITLE_SUFFIX}",
+                    detail=format_sector_timeline(
+                        rows, sector_name=sector, start=start, end=end
+                    ),
+                    source_date=standing,
+                    observations=sector_timeline_observations(
+                        rows, sector_name=sector, start=start, end=end
+                    ),
+                )
+            )
+        if unresolved:
+            declared = "；".join(
+                f"「{token}」未锚定到板块口径（不做宽松匹配，避免臆配词面近邻板块）"
+                for token in unresolved
+            )
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title=UNANCHORED_TRAJECTORY_TITLE,
+                    detail=(
+                        f"{declared}。近 20 个交易日主线登记板块的台阶已另行上桌"
+                        f"（站立日={standing}）。"
+                    ),
+                    source_date=standing,
+                )
+            )
+        return tuple(items)
+    except Exception:
+        return ()
 
 
 def evidence_from_prefetch(items: tuple[PrefetchItem, ...]) -> tuple[AgentEvidence, ...]:

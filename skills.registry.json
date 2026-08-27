@@ -1,13 +1,13 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-08-21T18:52:10Z",
+  "generated_at": "2026-08-26T19:01:20Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 37
+      "skills": 38
     },
     {
       "name": "knowledge-base-private",
@@ -148,7 +148,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:2e9311346293659a46ec8320cbe5f7f3a5e571a4d3d873520ba33a603a5306d4",
+      "computedHash": "sha256:4662a073c176339a94c88164be135897a97d36e86539d79cd22e7443f4f91526",
       "agentOnly": false,
       "views": []
     },
@@ -161,7 +161,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:ae12df8472fd29881e132fbe019e7cd5c57a43b14ee6a145e584005e8e495f61",
+      "computedHash": "sha256:b7039e1df8bc7291c909eead39f58c5a9f976c44aa491652db27975c8696ab94",
       "agentOnly": false,
       "views": [],
       "split": {
@@ -224,7 +224,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:fff4d9666edde30657c3920efbac8bde8e77a5898f6ecd86af34701f773050d9",
+      "computedHash": "sha256:c945164a21711481a096d4d4954fde4ee50643f711af45c014fb3ad5aa33b7b6",
       "agentOnly": false,
       "views": []
     },
@@ -456,7 +456,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:a2f8d7e59ba8a96b9fdeaf5b433cf9b94c829a987c389e9b060729982960ff5b",
+      "computedHash": "sha256:08f448c0179e6375c74dcd1ab312c56c8c01447211007dd000dd0b996f6d9683",
       "agentOnly": false,
       "views": [
         {
@@ -497,7 +497,7 @@
       ],
       "note": "只切换/使用已有视角回答问题不用本 skill，直接在 Workbench 选视角即可。",
       "entrypoint": null,
-      "computedHash": "sha256:64bab5ec90da92ede858ea1d8aaf35cfdfda3bf86d3f74c73d7fb2cf023a9477",
+      "computedHash": "sha256:c4da7261d925591c65a9307ad22395aeb809c7e9f6b604326f9006fc1f29ed57",
       "agentOnly": false,
       "views": [
         {
@@ -806,6 +806,32 @@
         }
       ]
     },
+    "ws/watchlist-digest": {
+      "name": "watchlist-digest",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/watchlist-digest/SKILL.md",
+      "description": "自选简报——画像清单×当日盘面四袋的确定性接合，冻结题开口前出袋、数字只来自冻结行。触发词：自选简报、我的自选今天怎么样、按我的自选出简报、开盘简报（按自选）、我的清单今天该看什么、watchlist digest。注意：全市场日报用 market-overview；买卖票据题走 StancePack，不经本 skill。",
+      "triggers": [
+        "自选简报",
+        "我的自选今天怎么样",
+        "按我的自选出简报",
+        "开盘简报（按自选）",
+        "我的清单今天该看什么",
+        "watchlist digest"
+      ],
+      "note": "全市场日报用 market-overview；买卖票据题走 StancePack，不经本 skill。",
+      "entrypoint": null,
+      "computedHash": "sha256:24884cc51cbe8e3b0a26ee4cb4d64963d060cc34da6f40ceb11ebffcc813c32e",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/watchlist-digest",
+          "type": "symlink",
+          "target": "../../skills/watchlist-digest"
+        }
+      ]
+    },
     "ws/watchlist-ma": {
       "name": "watchlist-ma",
       "repo": "finance-workspace-private",
@@ -1043,7 +1069,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:3fe38a2137a3485dcf0f2b9ff59f0a1f074b2076d738de15936fd37e3d044c66",
+      "computedHash": "sha256:d8115d8f550fa501fe9bca7d225d24b3f16300bf510e16eda99a4b83d29753c6",
       "agentOnly": false,
       "views": [
         {

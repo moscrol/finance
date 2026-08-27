@@ -253,6 +253,56 @@ def test_perspective_context_reaches_context_factory_only_when_active() -> None:
     )
 
 
+def test_stance_pack_reaches_context_factory_only_when_present() -> None:
+    from intelligence.services.stance_pack import run_stance_pack
+
+    frame = _frame()
+    captured: list[dict[str, object]] = []
+
+    def factory(_frame, **kwargs):
+        captured.append(dict(kwargs))
+        raise RuntimeError("stop after capturing context kwargs")
+
+    def run_once(control) -> None:
+        ContinuousTurnAdapter(
+            runtime=_RuntimeThatRaises(),
+            mode="on",
+            context_factory=factory,
+            registry_factory=_raises,
+            semantic_verifier=_SemanticThatRaises(),
+        ).handle(frame=frame, control=control)
+
+    run_once(_control(frame))
+    assert "stance_pack" not in captured[0]
+
+    pack = run_stance_pack("茅台现在该不该买", standing_date="2026-08-24")
+    run_once(replace(_control(frame), stance_pack=pack))
+    assert captured[1]["stance_pack"] is pack
+
+
+def test_episode_context_provenance_persists_stance_bag_status() -> None:
+    from intelligence.runtime.continuous_turn_adapter import (
+        _episode_context_provenance,
+    )
+    from intelligence.services.stance_pack import run_stance_pack
+
+    frame = _frame()
+    bare = build_episode_context(frame, task_id="stance-receipt-bare")
+    assert "stance_pack" not in _episode_context_provenance(bare)
+
+    pack = run_stance_pack("茅台现在该不该买", standing_date="2026-08-24")
+    context = build_episode_context(
+        frame, task_id="stance-receipt-pack", stance_pack=pack
+    )
+    receipt = _episode_context_provenance(context)["stance_pack"]
+    assert receipt["prior"]["status"] in {"hit", "empty", "unresolved"}
+    assert receipt["quote"]["status"] in {"hit", "empty", "unresolved"}
+    assert isinstance(receipt["prior"]["entity_ids"], list)
+    assert isinstance(receipt["quote"]["entity_ids"], list)
+    assert "rows" not in receipt["prior"]
+    assert "rows" not in receipt["quote"]
+
+
 def test_satisfiability_precheck_survives_registry_without_authorized_specs() -> None:
     """registry 是鸭子类型注入点，预检不得因替身缺接口而杀掉整轮回答。
 
@@ -2844,7 +2894,14 @@ def test_market_technical_uses_zero_llm_fast_path() -> None:
 
 @pytest.mark.parametrize(
     "question_type",
-    ("external_market", "quick_fact", "dated_market_review"),
+    (
+        "external_market",
+        "quick_fact",
+        "dated_market_review",
+        "market_watch",
+        "watchlist_digest",
+        "disclosure_scan",
+    ),
 )
 def test_legacy_deterministic_owner_types_are_declined_without_dependencies(
     question_type: str,

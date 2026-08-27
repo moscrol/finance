@@ -47,7 +47,6 @@ from intelligence.services.episode_verifier import (
 from intelligence.services.honesty_gates import with_calendar_disclosure
 from intelligence.services.mandatory_satisfiability import (
     apply_unreachable_downgrade,
-    ensure_preplaced_gap_sections,
 )
 from intelligence.services.provider_latency import (
     provider_name_from,
@@ -103,7 +102,14 @@ _COLD_RESTART_STOP_REASONS = frozenset(
 # so a full research burn still leaves one dispatchable attempt.
 DEFAULT_VERIFICATION_RESERVE_SECONDS = DEFAULT_JUDGE_TIMEOUT_SECONDS + 10.0
 DETERMINISTIC_OWNER_TYPES = frozenset(
-    {"external_market", "quick_fact", "dated_market_review"}
+    {
+        "external_market",
+        "quick_fact",
+        "dated_market_review",
+        "market_watch",
+        "watchlist_digest",
+        "disclosure_scan",
+    }
 )
 
 
@@ -495,6 +501,9 @@ class ContinuousTurnAdapter:
             )
             if perspective_context:
                 context_kwargs["perspective_context"] = perspective_context
+            stance_pack = getattr(control, "stance_pack", None)
+            if stance_pack is not None:
+                context_kwargs["stance_pack"] = stance_pack
             if self._synthesis_reserve_for_task is not None:
                 context_kwargs["synthesis_reserve"] = max(
                     0.0,
@@ -512,6 +521,15 @@ class ContinuousTurnAdapter:
             registry = cast(
                 ResearchToolRegistry,
                 self._registry_factory(frame, context),
+            )
+            from intelligence.services.forecast_residual_budget import (
+                maybe_promote_forecast_residual,
+            )
+
+            context = maybe_promote_forecast_residual(
+                context,
+                question_type=frame.question_type,
+                opening_prefetch=getattr(registry, "opening_prefetch", ()),
             )
             # 事前可满足性预检：这套授权工具的 produces 并集能否覆盖每项
             # required_output。**只观测，不参与任何决策**——`check_satisfiability`
@@ -610,7 +628,11 @@ class ContinuousTurnAdapter:
                 context.contract.research_tier
             )
             repair_terminal = False
-            backfill_plan = _issue_backfill_plan(structural, context)
+            backfill_plan = _issue_backfill_plan(
+                structural,
+                context,
+                events=outcome.events,
+            )
             if (
                 session is not None
                 and backfill_plan is not None
@@ -1023,19 +1045,6 @@ class ContinuousTurnAdapter:
             semantic.public_answer,
             private_tokens=private_tokens,
         )
-        gap_contract = semantic.verified.contract or context.contract
-        unfilled = {
-            item.output_id
-            for item in semantic.verified.completion.outputs
-            if item.status != "fulfilled"
-        }
-        unfilled.update(semantic.gap_output_ids)
-        unfilled.update(semantic.verified.missing_outputs)
-        answer = ensure_preplaced_gap_sections(
-            answer,
-            gap_contract,
-            only_output_ids=unfilled,
-        )
         citations = _public_citation_projection(
             final_outcome,
             private_tokens,
@@ -1329,6 +1338,7 @@ class ContinuousTurnAdapter:
 def _issue_backfill_plan(
     structural: VerifiedEpisodeOutcome,
     context: ResearchRunContext,
+    events: tuple[object, ...] = (),
 ):
     items = structural.issue_items
     if numeric_condition_unsupported(structural):
@@ -1343,6 +1353,7 @@ def _issue_backfill_plan(
     return plan_issue_backfill(
         items,
         subject_kind=context.contract.subject_kind,
+        events=events,
     )
 
 
@@ -1576,12 +1587,20 @@ def _episode_context_provenance(
 ) -> dict[str, object]:
     """Persist the single cutoff/freshness context beside private diagnostics."""
 
-    return {
+    payload: dict[str, object] = {
         "information_cutoff": context.information_cutoff.to_dict(),
         "today": context.today,
         "latest_data_date": context.latest_data_date,
         "trace_parent_id": context.trace_parent_id,
     }
+    pack = getattr(context, "stance_pack", None)
+    if pack is None:
+        return payload
+    to_receipt = getattr(pack, "to_receipt", None)
+    payload["stance_pack"] = (
+        to_receipt() if callable(to_receipt) else {"present": True}
+    )
+    return payload
 
 
 def _declined_result() -> ContinuousTurnResult:

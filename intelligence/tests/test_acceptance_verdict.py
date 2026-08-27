@@ -17,7 +17,9 @@ from intelligence.eval.acceptance_verdict import (
 ROOT = Path(__file__).resolve().parents[2]
 CASES_PATH = ROOT / "intelligence/eval/cases/acceptance_cases.json"
 SNAPSHOT_DIR = ROOT / "intelligence/eval/cases/reference_snapshots"
-CANONICAL_CASES_SHA256 = "d98a65573862fc461da9b76857a2343187bdf4902dae4b976b849f5f9348abfc"
+# 2026-08-26 换钉：A8/C6 正典题面锚定日期（回补单 #7，「现在/最近」与冻结期望
+# 打架的永久假红）。此前哈希 d98a65573862…8abfc 对应「正典未改；发送层补日期」时代。
+CANONICAL_CASES_SHA256 = "18b392c2b43d6173937a4655b2cbe098a2e671560b8da4214c79ce396e4999f9"
 
 
 def test_missing_run_is_not_run_on_operational_and_truth_axes() -> None:
@@ -72,11 +74,12 @@ def test_all_cases_compile_without_mutating_frozen_assets() -> None:
     # 已知的题目缺陷用具名清单钉住，本身就是一份待办：问的是「现在」、期望值却
     # 冻结在 2026-07-23，这种红永远不会变绿（详见 _reproducibility_diagnostics）。
     # 修好某题的日期锚后，把它从这里删掉；新冒出来的缺陷会让本条断言变红。
+    # 2026-08-26：A8/C6 日期锚已修（正典题面带 2026-07-23），从清单删掉。
     assert {
         contract.case_id for contract in contracts if contract.diagnostics
-    } == {"A7-mainline", "A8-market-stage", "C6-strict-definition"}
+    } == {"A7-mainline"}
     assert all(
-        "not reproducible" in contract.diagnostics[0]
+        not contract.diagnostics
         for contract in contracts
         if contract.case_id in {"A8-market-stage", "C6-strict-definition"}
     )

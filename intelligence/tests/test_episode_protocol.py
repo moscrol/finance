@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import os
+from unittest import mock
 
 import pytest
 
@@ -241,6 +243,44 @@ def test_episode_input_carries_perspective_context_only_when_active() -> None:
     assert "不得当作事实证据" in active_input["perspective_context_rule"]
 
 
+def test_episode_input_carries_reading_baseline_by_default() -> None:
+    """判读基线默认进 continuous 输入，且能被 env 总开关整块关掉。
+
+    与 perspective_context 的契约相反：视角是观点层、默认不注入；判读基线是领域
+    方法层、**默认注入**——关掉它 agent 就退化成查数机器人。两个引擎都必须接，
+    只接 legacy 会重演 2026-08-14「视角配置生效、模型没看到」那次事故。
+    """
+    frame = _frame()
+    context = _context(frame)
+
+    on = json.loads(build_episode_input(frame, context, _registry()))
+    assert "FY-A10" in on["reading_baseline"], "默认应注入判读基线"
+    assert "以证据为准" in on["reading_baseline_rule"]
+
+    # 总开关关掉后，payload 里两个键都不得出现（逐字节回到未内置状态）
+    with mock.patch.dict(os.environ, {"FINANCE_READING_BASELINE": "0"}):
+        off = json.loads(build_episode_input(frame, context, _registry()))
+    assert "reading_baseline" not in off
+    assert "reading_baseline_rule" not in off
+
+
+def test_reading_baseline_and_perspective_coexist_in_episode_input() -> None:
+    """#222 叙事视角与判读基线同进 payload，互不覆盖、互不顶替。
+
+    两层契约相反：视角默认不在、选中才进；判读基线默认在。rebase 到已含 #222
+    的 main 之后，必须还能同时看见两套键——以前只分测过，没测共存。
+    """
+    frame = _frame()
+    active = dataclasses.replace(
+        _context(frame),
+        perspective_context="只允许使用下方这一位 KOL 的画像与原文召回。",
+    )
+    payload = json.loads(build_episode_input(frame, active, _registry()))
+    assert "FY-A10" in payload["reading_baseline"]
+    assert payload["perspective_context"].startswith("只允许使用")
+    assert "不得当作事实证据" in payload["perspective_context_rule"]
+
+
 def _static_contract_text() -> str:
     """Return only the hard-coded contract literals of the instruction builder.
 
@@ -271,12 +311,19 @@ def _static_contract_text() -> str:
 #
 # 2026-08-22 L2 把题型规则 / hash / 工具表搬出本函数。基线从
 # acb20a7df27a44c59f4febcff330d852ed78e70cf14a34f7c9fa3acc126efce8
-# 更新为本值：措辞未动，只搬位置，不得为保旧指纹留副本。
+# 更新为 a6f450a1d3ab387915d8a9693784d365785c866b451e78ea90dfbca6d9c7c44a：
+# 措辞未动，只搬位置，不得为保旧指纹留副本。
+#
+# 2026-08-23 新增【排版】组两条，基线更新为本值。**这次是真的改了措辞**，
+# 不是重排：原文只有四条「不要套模板 / 不要求固定标题或段数」的否定约束，
+# 没有任何一条正面要求可读性，净效果是模型把所有否定叠加成「一段到底最安全」
+# （实测 run_20260823_221135_424228：1,218 字正文只有开头两个换行）。新增的
+# 两条一条把限定语前置（禁的是填空、不是排版），一条正面要求 Markdown。
 #
 # 它变红意味着有人动了约束的措辞或顺序。那可能是对的，但必须是**显式**的：
 # 请连同这里的期望值一起更新，并在 commit 说明改了哪一条、为什么。
 _CONTRACT_FINGERPRINT = (
-    "a6f450a1d3ab387915d8a9693784d365785c866b451e78ea90dfbca6d9c7c44a"
+    "af870456bac5428b7bd475b8c49f4687128d322b3170a7def505998a42cd2f38"
 )
 
 

@@ -665,6 +665,37 @@ def test_prior_recall_slot_is_scoped_to_subject_bearing_question_types() -> None
         }, f"{question_type} 不该带 prior_recall 槽位"
 
 
+def test_trade_advice_stance_opens_prior_recall_when_memory_is_authorized() -> None:
+    from intelligence.services.evidence_capabilities import runtime_capabilities_for_frame
+    from intelligence.services.episode_factory import build_episode_context
+    from intelligence.services.task_frame import TaskFrame
+
+    frame = TaskFrame(
+        raw_question="茅台现在该不该买",
+        user_goal="给出条件化加减仓判断",
+        question_type="trade_advice",
+        subject="茅台",
+        subject_kind="company",
+        market_scope="A股",
+        timeframe="最新可用日期",
+        required_outputs=("conditional_thesis", "invalidation_conditions"),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="conditional_thesis_evidence",
+        confidence=0.9,
+    )
+    context = build_episode_context(
+        frame,
+        task_id="prior-recall-trade-advice",
+        capabilities=runtime_capabilities_for_frame(frame),
+    )
+    assert "memory_lookup" in context.contract.allowed_capabilities
+    assert "prior_recall" in {
+        item.output_id for item in context.contract.required_outputs
+    }
+
+
 def test_prior_recall_stays_absent_where_the_tool_is_unauthorized() -> None:
     """已知缺口，写成测试而不是留在脑子里。
 

@@ -851,3 +851,83 @@ class TestKbSearchDeliveryTelemetry:
         assert telemetry["detail_chars"] == 300
         assert telemetry["delivered_chars"] == len(observation)
         assert telemetry["detail_chars"] > telemetry["delivered_chars"]
+
+
+class TestKbSearchSemanticGate:
+    """#424：kb_search 召回过 evidence_judge 语义闸（Engine A 主 KB 通道补闸）。
+
+    该闸 Engine B 消融实测 +2.8/20；此前 kb_search 是全系统唯一不过闸的召回口。
+    纪律：fail-open（裁判失败全量保留）、阈值触发（小结果集不花裁判预算）、
+    滤除可见（送达≠召回必须能区分）、全滤≠无回填（语义闸正确工作不得被读成
+    知识库缺口）。
+    """
+
+    @staticmethod
+    def _hit(title: str) -> object:
+        class _Hit:
+            excerpt = f"{title} 的正文摘录"
+            file_path = f"wiki/entities/{title}.md"
+            source_date = None
+
+        _Hit.title = title
+        return _Hit()
+
+    def _run(self, n_hits: int, *, judge=None, should=True):
+        from unittest import mock
+
+        hits = [self._hit(f"公司{i}") for i in range(n_hits)]
+
+        class _Rag:
+            telemetry = None
+
+        _Rag.hits = hits
+        tools = agent_research.build_default_tools(lambda *_a, **_k: _Rag())
+        context = agent_research.AgentToolContext(
+            ResearchDeadline.from_timeout(30.0),
+            lambda: False,
+            InformationCutoff(date(2026, 7, 24), "requested"),
+        )
+        judge_mock = mock.MagicMock(return_value=judge)
+        with mock.patch.object(
+            agent_research.evidence_judge, "should_judge", return_value=should
+        ), mock.patch.object(
+            agent_research.evidence_judge, "judge_relevance", judge_mock
+        ):
+            evidence, observation, trace = tools["kb_search"]("科创50 支撑位", context)
+        return evidence, observation, trace, judge_mock
+
+    def test_judge_filters_irrelevant_hits_and_notes_it(self) -> None:
+        evidence, observation, _trace, judge_mock = self._run(
+            5, judge=({0, 2}, "其余与本题无关")
+        )
+        assert judge_mock.called
+        assert len(evidence) == 2
+        assert {item.title for item in evidence} == {"公司0", "公司2"}
+        assert "语义闸滤除 3 条" in observation
+
+    def test_all_judged_out_reads_as_irrelevant_not_as_missing(self) -> None:
+        evidence, observation, trace, _judge_mock = self._run(4, judge=(set(), "全部无关"))
+        assert not evidence
+        assert "全部判定与本题无关" in observation
+        assert "非无回填" in observation
+        assert "无命中" not in observation
+        assert trace.status == "empty"
+
+    def test_judge_failure_fails_open(self) -> None:
+        evidence, observation, _trace, judge_mock = self._run(5, judge=None)
+        assert judge_mock.called
+        assert len(evidence) == 5
+        assert "语义闸" not in observation
+
+    def test_small_result_sets_skip_the_judge(self) -> None:
+        evidence, _observation, _trace, judge_mock = self._run(
+            agent_research.KB_JUDGE_MIN_HITS - 1, judge=({0}, "")
+        )
+        assert not judge_mock.called
+        assert len(evidence) == agent_research.KB_JUDGE_MIN_HITS - 1
+
+    def test_disabled_judge_skips_entirely(self) -> None:
+        _evidence, _observation, _trace, judge_mock = self._run(
+            6, judge=({0}, ""), should=False
+        )
+        assert not judge_mock.called

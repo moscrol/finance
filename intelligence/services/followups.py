@@ -24,6 +24,7 @@ TYPE_LABELS = {
     "recheck": "盘面回检",
     "migration": "题材迁移",
     "gap": "缺口补齐",
+    "continue": "同一条件再对",
 }
 
 FETCH_ENV_FLAG = "FINANCE_FOLLOWUPS"
@@ -105,6 +106,10 @@ class FollowupState:
     listed_names: frozenset[str] = field(default_factory=frozenset)
     skip_types: frozenset[str] = field(default_factory=frozenset)
     parent_followup_prompt: str | None = None
+    same_bind: bool = False
+    standing_date: str = ""
+    question_type: str = ""
+    market_watch_pack_present: bool = False
 
 
 class FollowupComposer(Protocol):
@@ -170,6 +175,10 @@ def project_continuous_state(
     status: str = "completed",
     subject_kind: str = "",
     parent_followup_prompt: str | None = None,
+    same_bind: bool = False,
+    standing_date: str = "",
+    question_type: str = "",
+    market_watch_pack_present: bool = False,
 ) -> FollowupState:
     kind = infer_question_kind(
         question, subject, subject_kind=subject_kind, enable_methodology=False
@@ -188,6 +197,10 @@ def project_continuous_state(
         ),
         skip_types=skip,
         parent_followup_prompt=parent_followup_prompt,
+        same_bind=same_bind,
+        standing_date=str(standing_date or "").strip(),
+        question_type=str(question_type or "").strip(),
+        market_watch_pack_present=market_watch_pack_present,
     )
 
 
@@ -543,6 +556,52 @@ def _conservative(
     )
 
 
+def should_emit_same_bind(state: FollowupState) -> bool:
+    subject = _subject(state)
+    if not subject or subject == "该问题":
+        return False
+    standing = str(state.standing_date or "").strip()
+    if state.same_bind and standing:
+        return True
+    qtype = str(state.question_type or "").strip()
+    if qtype == "market_watch":
+        return bool(state.market_watch_pack_present and standing)
+    if qtype in {"theme_track", "trade_advice"} and standing:
+        return True
+    return False
+
+
+def build_same_bind_followup(state: FollowupState) -> Followup | None:
+    if not should_emit_same_bind(state):
+        return None
+    subject = _subject(state)
+    standing = str(state.standing_date or "").strip()
+    qtype = str(state.question_type or "").strip()
+    if qtype == "theme_track":
+        prompt = (
+            f"自 {standing} 之后，{subject}只报变化和四态对照，不要重跑全景。"
+        )
+    elif qtype == "market_watch":
+        prompt = f"同一天盘面用四袋再对一次，只报相对 {standing} 的变化。"
+    else:
+        prompt = (
+            f"按我刚才的{subject}条件，用最新价再对一次，只报相对 {standing} 的变化。"
+        )
+    if _is_echo(state, prompt):
+        return None
+    from intelligence.services.stance_pack import bind_id_for
+
+    return Followup(
+        question=prompt,
+        type="continue",
+        rationale="同一绑定换时刻或刷新现价",
+        label="同一条件再对",
+        full_prompt=prompt,
+        angle="",
+        source=f"same_bind:{bind_id_for(qtype or state.question_kind, subject, standing)}",
+    )
+
+
 def compose_followups(
     state: FollowupState,
     *,
@@ -567,6 +626,9 @@ def compose_followups(
                 items.append(pad)
                 if len(items) >= 2:
                     break
+        chip = build_same_bind_followup(state)
+        if chip is not None and not _is_echo(state, chip.full_prompt):
+            items = [chip, *[item for item in items if item.type != "continue"]]
         result.followups = items[:4]
     except Exception as exc:  # noqa: BLE001
         result.warnings.append(f"followup_compose_failed:{exc}")

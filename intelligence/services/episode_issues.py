@@ -152,8 +152,13 @@ def plan_issue_backfill(
     items: tuple[Issue, ...],
     *,
     subject_kind: str | None = None,
+    events: tuple[object, ...] | list[object] = (),
 ) -> BackfillPlan | None:
-    """Return a narrow backfill plan, or None when no trigger code is present."""
+    """Return a narrow backfill plan, or None when no trigger code is present.
+
+    ``events`` 是同一 episode 已落账的 tool_request。空池 fallback 已经打过
+    的能力从计划里摘掉，避免和 ``plan_issue_backfill`` 对同一缺口各查一次。
+    """
 
     matched = tuple(item for item in items if item.code in BACKFILL_TRIGGER_CODES)
     if not matched:
@@ -178,10 +183,15 @@ def plan_issue_backfill(
     unique_capabilities = tuple(dict.fromkeys(capabilities))
     if not unique_capabilities:
         return None
-    return BackfillPlan(
-        codes=tuple(dict.fromkeys(item.code for item in matched)),
-        missing_outputs=outputs,
-        missing_capabilities=unique_capabilities,
+    from intelligence.services.empty_pool_fallback import apply_fallback_backfill_mutex
+
+    return apply_fallback_backfill_mutex(
+        BackfillPlan(
+            codes=tuple(dict.fromkeys(item.code for item in matched)),
+            missing_outputs=outputs,
+            missing_capabilities=unique_capabilities,
+        ),
+        events,
     )
 
 

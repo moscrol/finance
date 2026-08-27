@@ -489,6 +489,13 @@ def test_offline_artifact_records_scripted_provenance(tmp_path: Path) -> None:
     for stage_id in ("S1", "S2", "S3"):
         for record in stages[stage_id]["results"]:
             assert record["failure_class"] == "", (stage_id, record["case_id"])
+            if record["question_type"] == "market_watch":
+                # market_watch 自盘面包 P0（spec 2026-08-24）起进 DETERMINISTIC_OWNER_TYPES，
+                # Engine A 拒收、episode 不再产出结构状态；该 seam 由组件包在
+                # 编排器汇合处接手。这里钉的新事实是「拒收且不抛异常」。
+                assert record["handled"] is False
+                assert record["structural_status"] == ""
+                continue
             assert record["structural_status"] == "completed"
 
 

@@ -440,6 +440,19 @@ def copy_tool_parameters(parameters: Mapping[str, object]) -> dict[str, object]:
     return copied
 
 
+def _remember_authorized_trade_dates(
+    context: ResearchRunContext,
+    evidence: list[agent_research.AgentEvidence],
+) -> None:
+    """把本轮已交付证据的交易日记到 context，供后续窗口闸门认。"""
+
+    dates = context.authorized_trade_dates
+    for item in evidence:
+        parsed = closed_loop_retrieval.parse_source_date(getattr(item, "source_date", None))
+        if parsed is not None:
+            dates.add(parsed.isoformat())
+
+
 @dataclass(frozen=True)
 class ToolObservation:
     tool: str
@@ -672,6 +685,42 @@ class ResearchToolRegistry:
             )
 
         prepared = self.prepare(name, arguments)
+        if spec.name in {"news_search", "web_search"}:
+            from intelligence.services.task_frame import (
+                strip_default_a_share_search_token,
+            )
+
+            query_text = (
+                prepared.runner_input
+                if isinstance(prepared.runner_input, str)
+                else prepared.display_query
+            )
+            cleaned, hygiene_note = strip_default_a_share_search_token(
+                str(query_text or ""),
+                context.contract.question,
+            )
+            if hygiene_note:
+                raw = dict(prepared.raw)
+                if "query" in raw:
+                    raw["query"] = cleaned
+                prepared = replace(
+                    prepared,
+                    raw=raw,
+                    runner_input=(
+                        cleaned
+                        if isinstance(prepared.runner_input, str)
+                        else prepared.runner_input
+                    ),
+                    display_query=cleaned or prepared.display_query,
+                    normalized_key=query_ledger.normalize_query(cleaned)
+                    if cleaned
+                    else prepared.normalized_key,
+                    normalization_note="；".join(
+                        part
+                        for part in (prepared.normalization_note, hygiene_note)
+                        if part
+                    ),
+                )
         normalized = prepared.normalized_key
         effective_context = context
         if spec.cutoff_resolver is not None:
@@ -837,6 +886,7 @@ class ResearchToolRegistry:
             if spec.name == "kb_search":
                 # 按 cutoff/规范化之后的实际送达计，不写死 800；V3 改管道读数跟上。
                 telemetry = agent_research.kb_delivery_telemetry(evidence, observation)
+            _remember_authorized_trade_dates(context, evidence)
             if scope is not None:
                 emitted = {
                     "tool": spec.name,
@@ -972,6 +1022,8 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "新高家数/新高结构类问题用 stock_high_daily（表内只含当日创新高的个股，"
         "按 high_period/sw_l1 分组计数即新高结构）；"
         "sector_stock_daily.high_status 显示「非新高」是事实标注，不是数据缺失。"
+        "下周/周末大事、事件日历用 event_daily（复盘会编辑催化，不是官方日程全集；"
+        "event_date 可以晚于信息截止日）。"
     ),
     # 依据在 ``evidence_search._project_evidence``：它把 ``conclusion`` 与
     # ``counter_clues`` 合成同一个 evidence 列表，stance（"支持"/"反方"）**只出现在

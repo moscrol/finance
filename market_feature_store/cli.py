@@ -612,12 +612,26 @@ def _daily_preflight_or_exit() -> int | None:
     return 2
 
 
+def _refuse_production_write(direct: bool) -> int | None:
+    from .write_path import production_write_blocked
+
+    reason = production_write_blocked(direct)
+    if reason is None:
+        return None
+    print(reason)
+    return 2
+
+
 def cmd_daily_update(args) -> int:
     from .sync.sync_daily_full import run_daily_update
+    from .write_path import write_direct_receipt
 
     blocked = _daily_preflight_or_exit()
     if blocked is not None:
         return blocked
+    refused = _refuse_production_write(bool(getattr(args, "direct", False)))
+    if refused is not None:
+        return refused
     result = run_daily_update(
         trade_date=args.trade_date,
         chart_table=args.chart_table,
@@ -625,6 +639,13 @@ def cmd_daily_update(args) -> int:
         with_chart=not args.no_chart,
         stock_source=args.stock_source,
     )
+    if getattr(args, "direct", False):
+        receipt = write_direct_receipt(
+            trade_date=str(result.get("trade_date") or args.trade_date or ""),
+            command="daily-update --direct",
+            ok=bool(result.get("ok")),
+        )
+        print(f"direct 收据: {receipt}")
     print(f"交易日: {result['trade_date']} | 日更状态: {'OK' if result['ok'] else 'CHECK'}")
     for step in result["steps"]:
         status = "OK" if step["ok"] else "FAIL"
@@ -701,6 +722,9 @@ def cmd_daily_full_exec(args) -> int:
     """
     from .sync.sync_daily_full import run_daily_full
 
+    refused = _refuse_production_write(bool(getattr(args, "direct", False)))
+    if refused is not None:
+        return refused
     result = run_daily_full(
         trade_date=args.trade_date,
         chart_table=args.chart_table,
@@ -1272,6 +1296,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_du.add_argument("--stock-source", choices=["snapshot", "mootdx"], default="snapshot",
                       help="全A日线取数: snapshot=东财快照(默认,快); mootdx=通达信逐只(慢,可拉历史)")
     p_du.add_argument("--status-json", default=None, help="写出结构化执行状态，供上层编排判断 PASS/WARN/FAIL")
+    p_du.add_argument(
+        "--direct",
+        action="store_true",
+        help="允许直写 canonical 生产库（默认拒绝）。会写 ops_sync_run / state/direct-write-*.json",
+    )
     p_du.set_defaults(func=cmd_daily_update)
 
     p_dr = sub.add_parser("daily-review", help="从 DuckDB 生成完整每日复盘 Markdown")
@@ -1297,6 +1326,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_dfe.add_argument("--stock-source", choices=["snapshot", "mootdx"], default="snapshot")
     p_dfe.add_argument("--status-json", default=None,
                        help="结构化结果落盘路径, 父进程用它拼收据")
+    p_dfe.add_argument(
+        "--direct",
+        action="store_true",
+        help="允许对 canonical 生产库跑 exec（默认拒绝）。父进程指向 staging 时不需要",
+    )
     p_dfe.set_defaults(func=cmd_daily_full_exec)
 
     sub.add_parser("check", help="数据体检 (行数/交易日/空值/覆盖度)").set_defaults(func=cmd_check)

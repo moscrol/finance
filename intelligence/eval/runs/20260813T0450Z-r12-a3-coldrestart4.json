@@ -1,0 +1,71 @@
+{
+  "generated_at": "20260812T204649Z",
+  "base": "http://127.0.0.1:8797",
+  "preflight_ok": true,
+  "preflight_detail": "revision=d4832797 backend=continuous_glm",
+  "cases": [
+    {
+      "case_id": "A3-stock-deep-dive",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "立新能源怎么看",
+          "answer": "基准判断：立新能源当前更像高波动的题材交易标的，判断强度中等偏低，不宜仅因近期强势而追高。已核验的最新盘面显示，其归属公用事业-电力，并同时被纳入新型电力、特高压、电力、碳中和及绿色电力等题材；\n截至8月12日，股价在近20个交易日明显走强，且处于三年新高状态；当日回落而近5日仍为上涨，短期资金仍有净流入，体现趋势尚未完全破坏但分歧已经出现。继续观察的条件是：回调后资金与成交承接仍在，同时公司公告能验证项目投产、经营改善或资产扩张等增量。失效条件是：强势题材退潮、资金转弱，且缺乏公司一手经营催化。\n主要反证是，现有资料未获得公司主营、项目进展、盈利和估值的一手证据，无法把涨势归因为基本面，也无法确认特高压等概念对公司业绩的实际贡献。\n证据缺口：chain_mapping中的未核验表述已删除，需补充直接证据后再判断。",
+          "run_id": "run_20260813_044516_967982",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "板块成分股日频行情（2026-08-12）",
+              "source": "本地结构化数据 · 板块成分股日频行情",
+              "date": "2026-08-12"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 2,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 板块成分股日频行情",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "板块成分股日频行情（2026-08-12）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "1 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "finalizing",
+            "verification",
+            "repair",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 92.3,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    }
+  ]
+}

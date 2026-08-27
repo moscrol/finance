@@ -102,7 +102,9 @@ def test_ineligible_or_missing_snapshot_is_not_queued() -> None:
 
     assert queue.entries["A1-market-overview"].status == "eligible"
     assert queue.entries["A4-dual-red"].status == "ineligible"
-    assert queue.entries["A8-market-stage"].status == "ineligible"
+    # 2026-08-26 #430 之后 A8 不再「不可复现」（正典题面已锚日期），
+    # 对照状态如实降为 missing（无 Knevo 冻结快照），不再是 ineligible。
+    assert queue.entries["A8-market-stage"].status == "missing"
     assert queue.entries["A9-sentiment-contradiction"].status == "missing"
 
 

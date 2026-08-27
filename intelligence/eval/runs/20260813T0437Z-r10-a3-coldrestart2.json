@@ -1,0 +1,102 @@
+{
+  "generated_at": "20260812T203835Z",
+  "base": "http://127.0.0.1:8797",
+  "preflight_ok": true,
+  "preflight_detail": "revision=d4832797 backend=continuous_glm",
+  "cases": [
+    {
+      "case_id": "A3-stock-deep-dive",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "立新能源怎么看",
+          "answer": "基准判断：暂不宜把立新能源作为“新能源板块走强”的直接受益标的来下结论，判断强度低，先观察而非依据题材追高。\n但目前缺少公司业务构成、在运及在建项目、近期经营公告和个股行情的直接材料，无法确认该链条哪一环正在改善。\n主要反证是板块上涨可能只是当日资金轮动：市场成交重心仍在电子、通信和医药生物，新能源细分虽上涨但部分成交边际走弱。",
+          "run_id": "run_20260813_043504_709532",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "市场日频总览（2026-08-12）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-08-12"
+            },
+            {
+              "title": "板块日频行情（2026-08-12）",
+              "source": "本地结构化数据 · 板块日频行情",
+              "date": "2026-08-12"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-08-12）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 板块日频行情",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "板块日频行情（2026-08-12）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "planning",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 210.5,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    }
+  ]
+}

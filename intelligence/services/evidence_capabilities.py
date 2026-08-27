@@ -106,10 +106,10 @@ _RUNTIME_CAPABILITY_FLOOR: dict[str, tuple[str, ...]] = {
     ),
     "structured_market_technical": ("market_data",),
     "current_external_market": ("market_data", "news_search", "web_search"),
-    # memory_lookup 默认只加在三条「用户很可能对该主体表达过看法」的策略上
-    # （公司深挖、题材分析、题材跟踪），不是全部 20 条：它每次占一个工具槽，
-    # 而实测一轮 research 在 4-6 次调用就会 budget_exhausted，广授权会挤掉
-    # 盘面查询。取值查询和方法论讨论仍然不加。
+    # memory_lookup 默认只加在「用户很可能对该主体表达过看法」的策略上
+    # （公司深挖、题材分析、题材跟踪、买卖题条件化 thesis），不是全部 20 条：
+    # 它每次占一个工具槽，而实测一轮 research 在 4-6 次调用就会
+    # budget_exhausted，广授权会挤掉盘面查询。取值查询和方法论讨论仍然不加。
     #
     # 例外是 general_finance_evidence（见下）：残差题没有子 skill 菜单，Knevo
     # 形下限要求记忆+行情+新闻同时在授权里。这里接受预算拥挤，不是漏把第四条
@@ -192,6 +192,7 @@ _RUNTIME_CAPABILITY_FLOOR: dict[str, tuple[str, ...]] = {
         "evidence_lookup",
         "news_search",
         "web_search",
+        "memory_lookup",
     ),
     "current_public_knowledge": ("news_search", "web_search"),
     # 残差政策：Knevo 形三件套 + 原 kb/web。预算拥挤是有意取舍，见上方
@@ -216,6 +217,26 @@ _PLAN_CAPABILITY_TO_RUNTIME: dict[str, str] = {
     "news_search": "news_search",
     "web_search": "web_search",
     "l3_lookup": "l3_lookup",
+}
+
+# 工具身份 → 计划能力。finance_query 是结构化行情/板块事实的语义入口，
+# 不是「名字里有 daily 就算行情」的字符串启发。
+_TOOL_RECEIPT_PLAN_CAPABILITIES: dict[str, frozenset[str]] = {
+    "finance_query": frozenset({"finance_query", "market_data", "mainline_context"}),
+    "market_data": frozenset({"market_data"}),
+    "mainline_context": frozenset({"mainline_context"}),
+    "financial_data": frozenset({"financial_data"}),
+}
+
+# dataset id 是注册表键，精确查找。空 dataset 不加能力，只靠工具身份。
+_DATASET_PLAN_CAPABILITIES: dict[str, frozenset[str]] = {
+    "sector_daily": frozenset({"market_data", "mainline_context"}),
+    "market_daily": frozenset({"market_data"}),
+    "stock_daily": frozenset({"market_data"}),
+    "sector_stock_daily": frozenset({"market_data", "mainline_context"}),
+    "mainline_theme_daily": frozenset({"market_data", "mainline_context"}),
+    "mainline_sector_daily": frozenset({"market_data", "mainline_context"}),
+    "theme_limit_heat_daily": frozenset({"market_data", "mainline_context"}),
 }
 
 # overlay 追加行的 (provider, mandatory, freshness)。mandatory 必须与 overnight
@@ -542,3 +563,39 @@ def runtime_capabilities_for_frame(frame: TaskFrame) -> tuple[str, ...]:
             )
         )
     )
+
+
+def plan_capabilities_from_receipt(*, tool: str, dataset: str = "") -> frozenset[str]:
+    """把一条 typed tool receipt 投影成计划能力 id。
+
+    只做精确查找：工具名、注册 dataset id。禁止对 dataset 做子串启发。
+    """
+
+    tool_key = str(tool or "").strip()
+    dataset_key = str(dataset or "").strip()
+    caps: set[str] = set()
+    if tool_key:
+        caps.add(tool_key)
+        caps.update(_TOOL_RECEIPT_PLAN_CAPABILITIES.get(tool_key, ()))
+    if dataset_key:
+        caps.update(_DATASET_PLAN_CAPABILITIES.get(dataset_key, ()))
+    return frozenset(caps)
+
+
+def collect_satisfied_plan_capabilities(
+    evidence,
+    traces=(),
+) -> frozenset[str]:
+    """桌上有效收据（证据 + trace）并集投影到计划能力。"""
+
+    caps: set[str] = set()
+    for item in evidence:
+        caps.update(plan_capabilities_from_receipt(tool=getattr(item, "tool", "")))
+    for trace in traces:
+        caps.update(
+            plan_capabilities_from_receipt(
+                tool=str(getattr(trace, "capability", "") or ""),
+                dataset=str(getattr(trace, "dataset", "") or ""),
+            )
+        )
+    return frozenset(caps)

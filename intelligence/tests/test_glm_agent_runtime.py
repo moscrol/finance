@@ -813,7 +813,8 @@ def test_glm_runtime_standard_profile_reserves_a_slow_final_turn() -> None:
     ("question_type", "expected"),
     (
         ("market_cause", 75.0),
-        ("market_watch", 75.0),
+        # market_watch 移出 synthesis-heavy（盘面包 P0 防回退，spec 2026-08-24），落 balanced 60。
+        ("market_watch", 60.0),
         ("valuation_estimate", 60.0),
         ("stock_deep_dive", 60.0),
         ("market_forecast", 60.0),

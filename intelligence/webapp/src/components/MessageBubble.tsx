@@ -6,8 +6,9 @@ import type {
   RunBundle,
   SkillInvocationStatus,
 } from "../types";
-import { userFacingStage, userFacingText } from "../displayText";
+import { DigestSnapshotView } from "./DigestSnapshotView";
 import { MarkdownView } from "./MarkdownView";
+import { ProgressTimeline } from "./ProgressTimeline";
 import { RunView } from "./RunView";
 import { SkillInvocation } from "./SkillInvocation";
 
@@ -33,15 +34,10 @@ export function MessageBubble({
   onFollowup,
 }: MessageBubbleProps) {
   const content = live?.narrative || message.content;
-  const latestProgress =
-    live && live.progress.length > 0
-      ? live.progress[live.progress.length - 1]
-      : null;
-  const progressText = latestProgress
-    ? userFacingText(
-        latestProgress.output_summary || userFacingStage(latestProgress.name),
-      )
-    : "正在检索本轮证据";
+  // 收尾后 live 只在 answerPhase 为 null 时被 App.finalizeRun 删掉，所以带
+  // answer.snapshot 的 research/workflow 轮次（本页大多数）过程条会留着；
+  // 其余轮次退回 RunView 里的「运行轨迹」，与改动前一致。
+  const progressSteps = live?.progress ?? [];
   const invokedSkillIds = [
     ...new Set([
       ...message.invoked_skill_ids,
@@ -55,6 +51,8 @@ export function MessageBubble({
     ]),
   ) as Record<string, SkillInvocationStatus>;
   const terminalStatus = live?.status ?? message.status;
+  const runInFlight =
+    terminalStatus === "pending" || terminalStatus === "streaming";
   const terminalNotice =
     terminalStatus === "cancelled"
       ? "已停止生成，已保留已生成内容。"
@@ -87,6 +85,16 @@ export function MessageBubble({
       (item) => item.classification === "bound_evidence",
     ) ?? true;
   const report = live?.report ?? bundle?.structuredReport;
+  // P1b 证据页只认 payload 键，且形状必须是带 bags 数组的对象——
+  // 旧键 watchlist_digest_snapshot 是脱敏路径字符串，认不出来就不渲染（fail closed）。
+  const rawDigestSnapshot = report?.watchlist_digest_snapshot_payload;
+  const digestSnapshot =
+    rawDigestSnapshot &&
+    typeof rawDigestSnapshot === "object" &&
+    Array.isArray(rawDigestSnapshot.bags) &&
+    Array.isArray(rawDigestSnapshot.rows)
+      ? rawDigestSnapshot
+      : null;
   const taskType = report?.task_type;
   const taskFrame = report?.task_frame;
   const requiresCompanyEvidence = taskFrame
@@ -143,20 +151,17 @@ export function MessageBubble({
             {noEvidenceNotice}
           </div>
         )}
-        {content ? (
-          <MarkdownView source={content} />
-        ) : terminalNotice ? null : (
-          <div className="message-thinking" role="status">
-            <span className="typing-dot" />
-            <span className="typing-dot" />
-            <span className="typing-dot" />
-            {progressText}
-          </div>
-        )}
+        {progressSteps.length > 0 || runInFlight ? (
+          <ProgressTimeline steps={progressSteps} active={runInFlight} />
+        ) : null}
+        {content ? <MarkdownView source={content} /> : null}
         {terminalNotice && (
           <div className="message-terminal-notice" role="status">
             {terminalNotice}
           </div>
+        )}
+        {digestSnapshot && (
+          <DigestSnapshotView snapshot={digestSnapshot} />
         )}
         {bundle && (
           <RunView

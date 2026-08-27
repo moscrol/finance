@@ -8,6 +8,10 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from intelligence.services.disclosure_scan_pack import (
+    is_disclosure_scan_query,
+    parse_disclosure_buckets,
+)
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.market_analogs import parse_analog_intent
 from intelligence.services.market_regime_analogs import parse_regime_intent
@@ -34,6 +38,7 @@ MatchedBy = Literal[
     "definition",
     "market_anchor",
     "generic",
+    "suffix_window",
 ]
 ResearchMode = Literal[
     "deep_dive",
@@ -267,6 +272,12 @@ _MARKET_WATCH_RE = re.compile(
     r"|(?:(?<=^)|(?<=[，。；？！、,;?!]))(?:目前|当前|现在|今天|今日)(?:的)?"
     r"主线(?:是|有)?(?:什么|哪些|哪几个|哪个)"
 )
+# 自选简报（watchlist_digest）：自选标记 ∧ 当日/简报标记，无序合取
+# （spec 2026-08-26-watchlist-digest-pack-design §5）。
+# 「关注的票」必须带「票」——「今天有什么值得关注的」是 market_watch 的地盘；
+# 「该看什么」只因合取里必须同时有自选标记才不撞 foresight / market_watch。
+_WATCHLIST_SUBJECT_RE = re.compile(r"(?:自选|我的清单|关注的票|watchlist)")
+_WATCHLIST_DAY_RE = re.compile(r"(?:今天|今日|简报|开盘|该看什么)")
 _MARKET_FORECAST_RE = re.compile(
     r"(?:展望|研判|预测)[^。？！]{0,16}(?:后市|市场|行情|大盘)"
     r"|(?:后市|后面市场|接下来市场|未来市场)[^。？！]{0,16}"
@@ -290,6 +301,10 @@ _MARKET_FORECAST_RE = re.compile(
     # 第一个分支匹配不到。
     r"|(?:给出|做|说说|谈谈)[^。？！]{0,14}(?:研判|展望|预判)"
 )
+# 无序合取：句尾「本周行情的展望」/「写一下本周展望」认不出有序支。
+# 不并进 _MARKET_FORECAST_RE，避免把「怎么看」类题材题一并放宽。
+_FORECAST_VERB_RE = re.compile(r"(?:展望|研判|预测|预判)")
+_FORECAST_MARKET_SUBJECT_RE = re.compile(r"(?:后市|市场|行情|大盘|本周)")
 _EVENT_FORECAST_RE = re.compile(
     r"(?:如果|若|假设)[^。？！]{0,48}"
     r"(?:会不会|能否|是否|可能|受益|影响|推动|证伪|落地)"
@@ -367,7 +382,41 @@ _COMPANY_CONFIRMATION_RE = re.compile(
     r"|(?:合作|供货|供应|客户关系|订单|合同|认证|定点)"
     r".{0,10}(?:是否|真假|属实|确认|官宣|披露)",
 )
-_COMPANY_MAPPING_RE = re.compile(r"(有哪些公司|哪些公司|受益公司|公司映射|核心公司)")
+_COMPANY_MAPPING_RE = re.compile(
+    r"(有哪些公司|哪些公司|受益公司|公司映射|核心公司"
+    r"|哪些个股|观察哪些个股|关注哪些个股|个股有哪些|个股的反馈)"
+)
+_KEEP_XIA_COMPOUNDS = ("下游", "下跌", "下旬", "下修", "下一代")
+_JOINT_BOARD_RE = re.compile(
+    r"([\u4e00-\u9fff]{2,6})(?:和|与|、)([\u4e00-\u9fff]{2,6})$"
+)
+_JOINT_LEFT_PREFIXES = (
+    "你认为",
+    "我认为",
+    "认为",
+    "周一",
+    "周二",
+    "周三",
+    "周四",
+    "周五",
+    "周六",
+    "周日",
+    "本周",
+    "下周",
+    "这周",
+    "今日",
+    "今天",
+    "明日",
+    "明天",
+    "次日",
+)
+_JOINT_BOARD_SUFFIX_RE = re.compile(r"(?:板块|题材)")
+# 前瞻观点词形（R-20260825-07）：接下来/后续/往后 × 怎么看/怎么走/走势。
+# 只做词面在场判定；误放的代价由「板块|题材」后缀窗口与黑名单再过滤（先窄）。
+_FORWARD_OPINION_CUE_RE = re.compile(r"(?:接下来|后续|往后)")
+_FORWARD_OPINION_ASK_RE = re.compile(r"(?:怎么看|怎么走|走势)")
+_SINGLE_BOARD_WINDOW_RE = re.compile(r"[\u4e00-\u9fff]{2,6}$")
+_SINGLE_BOARD_PREFIXES = ("接下来", "后续", "往后", "的", "关注", "看好")
 _MARKET_CHANGE_RE = re.compile(r"(边际变化|最近变化|近期变化|预期差变化)")
 
 # 认识论分流：这些问题要回答的是系统/方法本身，而不是某个金融标的的
@@ -626,9 +675,20 @@ def _decision_goal(query: str, *, matched_theme: str | None = None) -> str:
 
 def _is_external_market_query(query: str) -> bool:
     folded = str(query or "").casefold()
-    return any(term in folded for term in _EXTERNAL_MARKET_TERMS) and any(
-        term in folded for term in _EXTERNAL_QUOTE_TERMS
-    )
+    if not (
+        any(term in folded for term in _EXTERNAL_MARKET_TERMS)
+        and any(term in folded for term in _EXTERNAL_QUOTE_TERMS)
+    ):
+        return False
+    # 外盘报价车道只答海外行情本身。「隔夜美股走强，对 A 股哪些板块有映射」
+    # 这类混合题的交付物是 A 股侧映射分析（研究通道的 D17 块），不是海外收盘价
+    # ——2026-08-26 blk-d17 实测：被本判定接走后只回了美股指数，答非所问。
+    # 映射意图以 D17 自己的判定为准（单一真本源，不在这里抄第二份词表）。
+    from intelligence.services.overnight_map import parse_overnight_intent
+
+    if parse_overnight_intent(query):
+        return False
+    return True
 
 
 def _definition_subject(query: str) -> str | None:
@@ -664,11 +724,111 @@ def is_market_watch_query(query: str) -> bool:
     return _MARKET_WATCH_RE.search(text) is not None
 
 
+def is_watchlist_digest_query(query: str) -> bool:
+    """确定性识别「按我的自选出今天的简报」类清单简报题。
+
+    主键是画像自选（不是问句里的持仓词），因此不需要主语实体；
+    casefold 让英文 watchlist 大小写不敏感。
+    """
+
+    text = re.sub(r"\s+", "", str(query or "").strip()).casefold()
+    return bool(
+        text
+        and _WATCHLIST_SUBJECT_RE.search(text)
+        and _WATCHLIST_DAY_RE.search(text)
+    )
+
+
+SIGNAL_MARKET_WATCH = "market_watch"
+SIGNAL_DOUBLE_RED = "double_red"
+SIGNAL_FERMENTATION = "fermentation"
+SIGNAL_AGGREGATE = "aggregate"
+SIGNAL_DETAIL = "detail"
+SIGNAL_CROSS_TABLE = "cross_table"
+SIGNAL_CONTRADICTION = "contradiction"
+SIGNAL_SUBSTITUTE_OBSERVATION = "substitute_observation"
+SIGNAL_STEP_TRAJECTORY = "step_trajectory"
+
+_PROGRAM_AGGREGATE_RE = re.compile(r"(多少|几个|几家|家数|数量|有多少)")
+_PROGRAM_DETAIL_RE = re.compile(r"(列出|名单|明细|哪些)")
+_PROGRAM_CROSS_RE = re.compile(r"(交集|同时属于|既是.+又|既在.+又)")
+_PROGRAM_CONTRADICTION_RE = re.compile(r"(矛盾|冲突|不一致)")
+# 替补观察三词族：题材面 + 个股面 + 观察意图，三者齐才触发（勿放宽——
+# 触发后的替补池以「主线题材无双红匹配」为准，单股深挖题进来只会是噪音）。
+_SUBSTITUTE_THEME_RE = re.compile(r"(板块|题材|主线|行业)")
+_SUBSTITUTE_STOCK_RE = re.compile(r"(个股|标的)")
+_SUBSTITUTE_OBS_RE = re.compile(r"(观察|反馈|机会|对标|关注)")
+# 台阶/资格两件共用一个信号：SPT 铁律「先定资格再谈板块」，台阶没有资格盘
+# 垫底就没法读（spec 2026-08-25-step-trajectory-qualification-design §1.1）。
+_TRAJECTORY_OUTLOOK_RE = re.compile(
+    r"(走势|接下来|后续|趋势|怎么看|怎么走|台阶|量能)"
+)
+
+
+def surface_research_signals(
+    query: str,
+    *,
+    question_class: str = "",
+) -> frozenset[str]:
+    """词面触发。只返回信号名，不写 ResearchProgram.operators。"""
+
+    from intelligence.services.asof_prefetch import is_fermentation_query
+
+    text = re.sub(r"\s+", "", str(query or "").strip())
+    klass = str(question_class or "").strip()
+    signals: set[str] = set()
+    # 路由已经定了别的题型时，不再用盘面词面覆写。否则
+    # market_forecast 夹具句「目前市场结构如何」会多出 catalog/双红槽。
+    routed_watch = klass == "market_watch"
+    inferred_watch = klass in {"", "general_finance_qa"} and is_market_watch_query(query)
+    if routed_watch or inferred_watch:
+        signals.add(SIGNAL_MARKET_WATCH)
+        signals.add(SIGNAL_DOUBLE_RED)
+    if "双红" in text:
+        signals.add(SIGNAL_DOUBLE_RED)
+    if is_fermentation_query(query):
+        signals.add(SIGNAL_FERMENTATION)
+        signals.add(SIGNAL_DOUBLE_RED)
+    if _PROGRAM_AGGREGATE_RE.search(text):
+        signals.add(SIGNAL_AGGREGATE)
+    elif _PROGRAM_DETAIL_RE.search(text):
+        signals.add(SIGNAL_DETAIL)
+    if _PROGRAM_CROSS_RE.search(text):
+        signals.add(SIGNAL_CROSS_TABLE)
+    if _PROGRAM_CONTRADICTION_RE.search(text):
+        signals.add(SIGNAL_CONTRADICTION)
+    # 盘面题不发替补信号：market_watch 路径的替补池由四袋包的探针供给
+    # （bind_market_watch_pack），此处再发会双份。
+    if (
+        not (routed_watch or inferred_watch)
+        and _SUBSTITUTE_THEME_RE.search(text)
+        and _SUBSTITUTE_STOCK_RE.search(text)
+        and _SUBSTITUTE_OBS_RE.search(text)
+    ):
+        signals.add(SIGNAL_SUBSTITUTE_OBSERVATION)
+    # 盘面题不发台阶/资格信号：market_watch 的锁格由四袋包供给，包路径的
+    # 台阶/资格接入是 P1（spec §8 P1-a），此处再发会双份。
+    if (
+        not (routed_watch or inferred_watch)
+        and _SUBSTITUTE_THEME_RE.search(text)
+        and _TRAJECTORY_OUTLOOK_RE.search(text)
+    ):
+        signals.add(SIGNAL_STEP_TRAJECTORY)
+    return frozenset(signals)
+
+
 def is_market_forecast_query(query: str) -> bool:
     """识别明确的全市场后市展望；不把泛泛“市场怎么样”误当预测。"""
 
     text = re.sub(r"\s+", "", str(query or "").strip())
-    return _MARKET_FORECAST_RE.search(text) is not None
+    if not text:
+        return False
+    if _MARKET_FORECAST_RE.search(text) is not None:
+        return True
+    return (
+        _FORECAST_VERB_RE.search(text) is not None
+        and _FORECAST_MARKET_SUBJECT_RE.search(text) is not None
+    )
 
 
 def is_event_forecast_query(query: str) -> bool:
@@ -917,6 +1077,10 @@ def _research_mode(
         return "methodology"
     if question_type in {"stock_deep_dive", "valuation_estimate"}:
         return "deep_dive"
+    if question_type == "disclosure_scan":
+        return "general"
+    if question_type == "watchlist_digest":
+        return "general"
     if subject_kind == "theme":
         return "theme_research"
     if "scenario_tree" in operators:
@@ -981,7 +1145,116 @@ def _normalize_explicit_tail(tail: str, timeframe: str | None) -> str:
                 break
         else:
             break
-    return normalized
+    return _strip_spoken_xia_prefix(normalized)
+
+
+def _strip_spoken_xia_prefix(text: str) -> str:
+    """Cue 后的口语「下」可以剥；「下游 / 下跌」这类复合词必须整段保留。"""
+
+    if any(text.startswith(compound) for compound in _KEEP_XIA_COMPOUNDS):
+        return text
+    if text.startswith("下"):
+        return text[1:]
+    return text
+
+
+def _forward_opinion_shape(compact: str) -> bool:
+    return bool(
+        _FORWARD_OPINION_CUE_RE.search(compact)
+        and _FORWARD_OPINION_ASK_RE.search(compact)
+    )
+
+
+def _joint_board_subject(
+    query: str,
+    *,
+    operators: tuple[ResearchOperator, ...],
+) -> str | None:
+    """句式路：A和B板块。窄门二选一：两算子且含情景树，或前瞻观点词形在句。
+
+    「会怎么样」带出 scenario_tree 走算子门；「怎么看/怎么走」不带算子，
+    由词形门放行（R-20260825-07）。后缀窗口与黑名单过滤两门共用。
+    """
+
+    compact = re.sub(r"\s+", "", str(query or ""))
+    scenario_gate = len(operators) >= 2 and "scenario_tree" in operators
+    if not scenario_gate and not _forward_opinion_shape(compact):
+        return None
+    for suffix in _JOINT_BOARD_SUFFIX_RE.finditer(compact):
+        window = compact[max(0, suffix.start() - 16) : suffix.start()]
+        hit = _JOINT_BOARD_RE.search(window)
+        if hit is None:
+            continue
+        left, right = hit.group(1), hit.group(2)
+        left = _strip_joint_left_prefixes(left)
+        if (
+            len(left) < 2
+            or len(right) < 2
+            or left in _GENERIC_EXPLICIT_SUBJECTS
+            or right in _GENERIC_EXPLICIT_SUBJECTS
+            or left.startswith(_GENERIC_EXPLICIT_PREFIXES)
+            or right.startswith(_GENERIC_EXPLICIT_PREFIXES)
+        ):
+            continue
+        return f"{left}、{right}"
+    return None
+
+
+def _strip_joint_left_prefixes(text: str) -> str:
+    prefixes = sorted(_JOINT_LEFT_PREFIXES, key=len, reverse=True)
+    current = text
+    changed = True
+    while changed and current:
+        changed = False
+        for prefix in prefixes:
+            if current.startswith(prefix):
+                current = current[len(prefix) :]
+                changed = True
+                break
+    return current
+
+
+def _forward_opinion_board_subject(query: str) -> str | None:
+    """单题材路：「X板块/题材」×前瞻观点词形才抽主语（R-20260825-07）。
+
+    先窄：只认「板块|题材」后缀，不查题材词表、不做模糊匹配；联合句式由
+    ``_joint_board_subject`` 先行，本函数只接单主语残局。窗口取后缀前
+    紧邻的 2–6 个汉字，功能词前缀剥完再过黑名单。
+    """
+
+    compact = re.sub(r"\s+", "", str(query or ""))
+    if not _forward_opinion_shape(compact):
+        return None
+    for suffix in _JOINT_BOARD_SUFFIX_RE.finditer(compact):
+        window = compact[max(0, suffix.start() - 6) : suffix.start()]
+        run = _SINGLE_BOARD_WINDOW_RE.search(window)
+        if run is None:
+            continue
+        candidate = _strip_single_board_prefixes(run.group(0))
+        if (
+            len(candidate) < 2
+            or candidate in _GENERIC_EXPLICIT_SUBJECTS
+            or candidate.startswith(_GENERIC_EXPLICIT_PREFIXES)
+        ):
+            continue
+        return candidate
+    return None
+
+
+def _strip_single_board_prefixes(text: str) -> str:
+    prefixes = sorted(
+        _JOINT_LEFT_PREFIXES + _SINGLE_BOARD_PREFIXES, key=len, reverse=True
+    )
+    current = text
+    changed = True
+    while changed and current:
+        changed = False
+        for prefix in prefixes:
+            if current.startswith(prefix):
+                current = current[len(prefix) :]
+                changed = True
+                break
+    return current
 
 
 def _explicit_theme(text: str, timeframe: str | None) -> str | None:
@@ -1227,6 +1500,33 @@ def understand_query(
             0.98,
         )
 
+    if is_disclosure_scan_query(text):
+        buckets = parse_disclosure_buckets(text)
+        subject = "、".join(bucket.name for bucket in buckets) or None
+        return envelope(
+            "disclosure_scan",
+            "theme",
+            subject,
+            "扫描点名板块近期官方披露里偏利好的个股名单",
+            timeframe,
+            "explicit",
+            0.98,
+        )
+
+    # 自选标记在场时，简报压过全市场日报——本分支必须排在 market_watch 之前，
+    # 这是回归锁：日后放宽 _MARKET_WATCH_RE 也不允许清单题被吞进全市场日报
+    # （spec 2026-08-26 §5；test_priority_source_order_nails 锁顺序）。
+    if is_watchlist_digest_query(text):
+        return envelope(
+            "watchlist_digest",
+            "market_pattern",
+            None,
+            "对用户画像自选清单出当日接合简报",
+            timeframe,
+            "market_anchor",
+            0.98,
+        )
+
     if is_market_watch_query(text):
         return envelope(
             "market_watch",
@@ -1408,6 +1708,30 @@ def understand_query(
             timeframe,
             "explicit",
             0.8,
+        )
+
+    joint = _joint_board_subject(text, operators=operators)
+    if joint is not None:
+        return envelope(
+            "general_finance_qa",
+            "theme",
+            joint,
+            _decision_goal(text),
+            timeframe,
+            "explicit",
+            0.8,
+        )
+
+    forward_board = _forward_opinion_board_subject(text)
+    if forward_board is not None:
+        return envelope(
+            "general_finance_qa",
+            "theme",
+            forward_board,
+            _decision_goal(text),
+            timeframe,
+            "suffix_window",
+            0.74,
         )
 
     if sum(term in text for term in _MARKET_PATTERN_TERMS) >= 2:

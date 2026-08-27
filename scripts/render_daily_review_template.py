@@ -13,7 +13,7 @@ if str(PROJECT_DIR) not in sys.path:
 from market_feature_store.db import connect  # noqa: E402
 from market_feature_store.reports.daily_review import build_daily_review  # noqa: E402
 
-DEFAULT_OUTPUT_DIR = Path("/Users/lbq/Desktop/复盘")
+DEFAULT_OUTPUT_DIR = PROJECT_DIR / "复盘"
 
 
 def latest_trade_date() -> str:
@@ -30,7 +30,7 @@ def latest_trade_date() -> str:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="快速按 6.5 模板生成完整每日市场复盘")
     parser.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD；不传则取 fact_market_daily 最新日")
-    parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR), help="输出目录，默认 /Users/lbq/Desktop/复盘")
+    parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR), help="输出目录，默认仓内 复盘/")
     parser.add_argument("--output-name", default=None, help="Markdown 文件名，默认 {trade_date}-daily-review.md")
     parser.add_argument("--chart-name", default=None, help="涨家数 MA5 图片文件名，默认 {trade_date}-advancers-ma5.png")
     parser.add_argument("--update-template", action="store_true", help="同时覆盖 daily-review-template.md 和 {trade_date}-daily-review-template.md")

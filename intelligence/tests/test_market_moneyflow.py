@@ -167,6 +167,64 @@ class MoneyflowBlockTests(unittest.TestCase):
             self.assertIn("最新扫描日 2026-07-07", block)
             self.assertNotIn("京东方", block)
 
+    # ---- 时点限定（2026-08-26 blk-d9 实测：块尾口径行会被合成层丢弃，----
+    # ---- 19 天前榜单被写成「当日榜单」。限定语必须排在被限定内容之前。----
+
+    def test_llm_block_stale_qualifier_leads_when_as_of_is_later(self) -> None:
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            self._make_db(db)
+
+            block = moneyflow_block_for_llm(
+                "大单资金流", None, db, as_of_date="2026-07-20"
+            )
+
+            self.assertIn("时点限定（先读）", block)
+            self.assertIn("最新扫描日 2026-07-08 早于盘面日期 2026-07-20", block)
+            self.assertIn("不是当日榜单", block)
+            self.assertIn("（2026-07-08，非当日）大单净流入榜", block)
+            # 限定行必须先于口径行（合成层截断时先活下来的是限定语）
+            self.assertLess(block.index("时点限定（先读）"), block.index("- 口径："))
+
+    def test_llm_block_fresh_has_no_stale_qualifier(self) -> None:
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            self._make_db(db)
+
+            block = moneyflow_block_for_llm(
+                "大单资金流", None, db, as_of_date="2026-07-08"
+            )
+
+            self.assertNotIn("时点限定", block)
+            self.assertNotIn("非当日", block)
+
+    def test_llm_block_derives_reference_day_from_market_daily(self) -> None:
+        """无日期问题（as_of=None）——最常见问法——参照日回退库内最新交易日。"""
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            self._make_db(db)
+            con = duckdb.connect(str(db))
+            con.execute("create table fact_market_daily (trade_date date, note varchar)")
+            con.execute(
+                "insert into fact_market_daily values ('2026-07-10','x'),('2026-07-09','x')"
+            )
+            con.close()
+
+            block = moneyflow_block_for_llm("大单资金流", None, db)
+
+            self.assertIn("最新扫描日 2026-07-08 早于盘面日期 2026-07-10", block)
+
+    def test_llm_block_without_reference_day_keeps_old_behavior(self) -> None:
+        """fixture 无 fact_market_daily 且未传 as_of：拿不到参照日就不发无据警告。"""
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            self._make_db(db)
+
+            block = moneyflow_block_for_llm("大单资金流", None, db)
+
+            self.assertIn("[D9]", block)
+            self.assertNotIn("时点限定", block)
+
 
 if __name__ == "__main__":
     unittest.main()

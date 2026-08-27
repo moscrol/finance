@@ -153,9 +153,11 @@ def ensure_preplaced_gap_sections(
     *,
     only_output_ids: frozenset[str] | set[str] | None = None,
 ) -> str:
-    """公开稿补上 harness 预置的缺口声明。判官 never-add：这段由代码生成。
+    """预置缺口声明的收据拼装。生产公开稿不得再调用本函数。
 
-    ``only_output_ids`` 收窄到仍未兑现的格——salvage 已经填上的格不得再缝缺口。
+    未兑现槽若要出现在用户可见正文，必须作为 ``TerminalFacts.unknown_slots``
+    由 ``session_projection.view`` 渲成用户语言。``only_output_ids`` 仍供
+    单测核对接缝；adapter 出口缝合已拆除。
     """
 
     text = str(draft or "")

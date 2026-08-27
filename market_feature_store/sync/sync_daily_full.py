@@ -127,6 +127,15 @@ def _run_advancers_chart(trade_date: str, chart_table: str | None = None) -> dic
     return {"output": str(output), "stdout": proc.stdout.strip()}
 
 
+def _run_compute_features(trade_date: str) -> dict:
+    """fact 写入后的派生层。漏跑就是「有行情、门禁红在 feature_*」。"""
+    if str(PROJECT_DIR) not in sys.path:
+        sys.path.insert(0, str(PROJECT_DIR))
+    from scripts.compute_features import compute_features
+
+    return compute_features(trade_date)
+
+
 def validate_daily_data(trade_date: str | None = None) -> dict:
     con = connect(read_only=True)
     try:
@@ -236,6 +245,8 @@ def run_daily_update(
     steps.append(_run_step("sync-fupanhui-public-assets", sync_public_assets, td))
     if with_chart:
         steps.append(_run_step("advancers-chart", _run_advancers_chart, td, chart_table))
+    # fact 写完必须派生；漏这一步就是 08-20「有行情无 feature」半成品。
+    steps.append(_run_step("compute-features", _run_compute_features, td))
     validation = validate_daily_data(td)
     return {"trade_date": str(td), "steps": steps, "validation": validation, "ok": all(s["ok"] for s in steps) and validation["ok"]}
 

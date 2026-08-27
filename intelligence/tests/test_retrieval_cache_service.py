@@ -114,6 +114,32 @@ class DuckDBConnectionResultTests(unittest.TestCase):
         self.assertEqual(result.status, "open_failed")
         self.assertIsNone(result.connection)
         self.assertEqual(result.error_type, "RuntimeError")
+        self.assertNotEqual(result.reason, "locked")
+
+    def test_writer_lock_is_classified_not_as_missing_file(self) -> None:
+        class IOException(Exception):
+            pass
+
+        fake_duckdb = SimpleNamespace(
+            connect=mock.Mock(
+                side_effect=IOException("Could not set lock on file: market.duckdb")
+            )
+        )
+        with mock.patch.object(
+            retrieval_cache, "_load_duckdb", return_value=fake_duckdb
+        ):
+            result = retrieval_cache.try_connect_readonly("busy.duckdb")
+
+        self.assertEqual(result.status, "open_failed")
+        self.assertEqual(result.reason, "locked")
+        self.assertTrue(
+            retrieval_cache.is_writer_lock_error(
+                IOException("Could not set lock on file: market.duckdb")
+            )
+        )
+        self.assertFalse(
+            retrieval_cache.is_writer_lock_error(IOException("No such file or directory"))
+        )
 
     def test_missing_readonly_database_is_an_open_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -124,6 +150,7 @@ class DuckDBConnectionResultTests(unittest.TestCase):
         self.assertEqual(result.status, "open_failed")
         self.assertIsNone(result.connection)
         self.assertEqual(result.error_type, "IOException")
+        self.assertNotEqual(result.reason, "locked")
 
     def test_success_returns_the_connection(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
