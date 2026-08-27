@@ -150,3 +150,84 @@ def test_exit_code_contract(site: Path):
     )
     assert xwalk.run(site, reverse_severity="warning") == 0  # 孤儿仅 warning
     assert xwalk.run(site, reverse_severity="error") == 2  # 升档后红
+
+
+# ---------------------------------------------------------------------------
+# 第三向：spec 声明订正过，同号在途交接却没有订正痕迹
+#
+# 失败形状（2026-08-27 实测，本轮自己犯的）：停更工单 `R-20260827-09` 的两条
+# 结论被撤回，spec 与台账都改了，`docs/handoffs/inflight/` 那份**一字未动**，
+# 仍逐字传播「本单是那句预言的兑现」与「改 episode_tools.py:212」——而按仓规
+# 接手者**先读交接**。同一结论存三处、订正只覆盖两处。
+#
+# 判据刻意收窄到「spec 自称订正过」：只在 spec 出现订正标记时才比对，
+# 普通迭代（补章节、改错字）不触发。代价写在 docstring 里：不写标记就没保护。
+# ---------------------------------------------------------------------------
+
+
+def _write_inflight(root: Path, name: str, body: str) -> None:
+    d = root / "docs" / "handoffs" / "inflight"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / name).write_text(body, encoding="utf-8")
+
+
+def test_corrected_spec_with_unmarked_inflight_handoff_is_flagged(site: Path):
+    """spec 说自己订正过，同号交接无订正痕迹 → 报（本轮 A 的最小复现）。"""
+    (site / "docs/superpowers/specs/a.md").write_text(
+        "`R-20260801-10` 判据。\n⚠ 本单初稿把 X 写成目标，那是错的，**已订正**。",
+        encoding="utf-8",
+    )
+    _write_inflight(site, "feat-x.md", "`R-20260801-10`：按 X 施工即可。")
+    _write_ledger(
+        site, ["| `R-20260801-10` | spec `docs/superpowers/specs/a.md` | `pending` |"]
+    )
+    report = xwalk.crosswalk(site)
+    assert "R-20260801-10" in report.stale_handoffs
+    assert "feat-x.md" in report.stale_handoffs["R-20260801-10"][0]
+
+
+def test_corrected_spec_with_marked_handoff_passes(site: Path):
+    """交接也带订正痕迹 → 不报（订正已传播到位）。"""
+    (site / "docs/superpowers/specs/a.md").write_text(
+        "`R-20260801-11`\n本单初稿写错，**已订正**。", encoding="utf-8"
+    )
+    _write_inflight(
+        site, "feat-y.md", "`R-20260801-11`\n⚠ 旧稿结论已**撤回**，勿照旧稿施工。"
+    )
+    _write_ledger(site, ["| `R-20260801-11` | spec `docs/superpowers/specs/a.md` | `pending` |"])
+    assert xwalk.crosswalk(site).stale_handoffs == {}
+
+
+def test_uncorrected_spec_does_not_flag_handoff(site: Path):
+    """spec 没自称订正 → 不比对（防止普通迭代变成稳定误报）。"""
+    (site / "docs/superpowers/specs/a.md").write_text(
+        "`R-20260801-12` 判据与变异点。", encoding="utf-8"
+    )
+    _write_inflight(site, "feat-z.md", "`R-20260801-12`：照 spec 施工。")
+    _write_ledger(site, ["| `R-20260801-12` | spec `docs/superpowers/specs/a.md` | `pending` |"])
+    assert xwalk.crosswalk(site).stale_handoffs == {}
+
+
+def test_archived_handoff_is_not_checked(site: Path):
+    """只查 inflight/：已归档交接是历史快照，本就不该跟着 spec 走。"""
+    (site / "docs/superpowers/specs/a.md").write_text(
+        "`R-20260801-13`\n初稿有误，**已订正**。", encoding="utf-8"
+    )
+    (site / "docs" / "handoffs").mkdir(parents=True, exist_ok=True)
+    (site / "docs/handoffs/2026-08-01-done.md").write_text(
+        "`R-20260801-13` 旧结论", encoding="utf-8"
+    )
+    _write_ledger(site, ["| `R-20260801-13` | spec `docs/superpowers/specs/a.md` | `pending` |"])
+    assert xwalk.crosswalk(site).stale_handoffs == {}
+
+
+def test_stale_handoff_is_warning_not_error(site: Path):
+    """默认 warning：不阻塞提交，避免变成噪声源被训练成忽略。"""
+    (site / "docs/superpowers/specs/a.md").write_text(
+        "`R-20260801-14`\n**已订正**。", encoding="utf-8"
+    )
+    _write_inflight(site, "feat-w.md", "`R-20260801-14` 旧结论")
+    _write_ledger(site, ["| `R-20260801-14` | spec `docs/superpowers/specs/a.md` | `pending` |"])
+    # 既要 exit 0（不阻塞），又要真的说出来（否则「不阻塞」等于「没实现」也过）
+    assert xwalk.run(site) == 0
+    assert xwalk.crosswalk(site).stale_handoffs != {}
