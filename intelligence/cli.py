@@ -3409,12 +3409,89 @@ def cmd_digest(args: argparse.Namespace) -> int:
     return 0
 
 
+def add_brief_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "brief",
+        help="公开晚报：公开安全白名单渲染的可分享一页（产物 HTML/PNG，不进问答路由）。"
+        "spec docs/superpowers/specs/2026-08-27-public-evening-brief-design.md",
+    )
+    parser.add_argument(
+        "--date",
+        default=None,
+        help="站立日 YYYY-MM-DD（显式精确命中，无该日则出无行情句）；缺省=库内最新交易日",
+    )
+    parser.add_argument(
+        "--db",
+        default=None,
+        help="盘面 DuckDB 路径；缺省 MARKET_FEATURE_STORE_DB / 数据根 db/market_feature_store.duckdb",
+    )
+    parser.add_argument(
+        "--exports-dir",
+        default=None,
+        help="题材候选产物目录；缺省 <数据根>/market_feature_store/exports",
+    )
+    parser.add_argument(
+        "--out-dir",
+        default=None,
+        help="产物输出目录；缺省 <数据根>/复盘/briefs",
+    )
+    parser.add_argument(
+        "--png",
+        action="store_true",
+        help="额外用 Chrome 无头截长图（失败降级为提示，HTML 仍是主产物）",
+    )
+    parser.add_argument(
+        "--write-snapshot",
+        action="store_true",
+        help="把证据快照 JSON 落到 ~/.finance-runtime/public-brief/<date>/"
+        "（PUBLIC_BRIEF_DIR 可重定位）；默认只写 HTML",
+    )
+    parser.set_defaults(func=cmd_brief)
+
+
+def cmd_brief(args: argparse.Namespace) -> int:
+    from intelligence.paths import default_market_db_path
+    from intelligence.services.public_brief_pack import (
+        run_public_evening_brief,
+        write_outputs,
+        write_snapshot as write_brief_snapshot,
+    )
+
+    db = Path(args.db).expanduser() if args.db else default_market_db_path()
+    root = db.parent.parent
+    exports = (
+        Path(args.exports_dir).expanduser()
+        if args.exports_dir
+        else root / "market_feature_store" / "exports"
+    )
+    out_dir = (
+        Path(args.out_dir).expanduser() if args.out_dir else root / "复盘" / "briefs"
+    )
+    brief = run_public_evening_brief(
+        market_db_path=db, exports_dir=exports, cutoff=args.date
+    )
+    outputs = write_outputs(brief, out_dir, png=args.png)
+    print(f"[晚报] 站立日 {brief.standing_date} status={brief.status}")
+    if brief.stop_text:
+        print(f"[停机] {brief.stop_text}")
+    print(f"[HTML] {outputs['html']}")
+    if "png" in outputs:
+        print(f"[PNG] {outputs['png']}")
+    if "png_error" in outputs:
+        print(f"[PNG] {outputs['png_error']}", file=sys.stderr)
+    if args.write_snapshot:
+        path = write_brief_snapshot(brief)
+        print(f"[快照] {path}", file=sys.stderr)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Financial intelligence product CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
     add_ask_parser(subparsers)
     add_chat_parser(subparsers)
     add_digest_parser(subparsers)
+    add_brief_parser(subparsers)
     add_agent_parser(subparsers)
     add_agent_eval_parser(subparsers)
     add_answer_score_parser(subparsers)
