@@ -33,6 +33,7 @@ import os
 import threading
 from collections.abc import Awaitable, Callable, Mapping, MutableMapping
 from dataclasses import dataclass
+from email.message import Message as _ContentTypeMessage
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode
 
@@ -410,7 +411,12 @@ class IdentityRewriteMiddleware:
                 for key, value in scope.get("headers", [])  # type: ignore[union-attr]
             }
             content_type = headers.get(b"content-type", b"").decode("latin-1")
-            if "application/json" in content_type.lower():
+            # 改写口径必须 ⊇ FastAPI 的 JSON 解析口径（差集 = 身份门绕过，
+            # 2026-08-27 工单 §P0：`application/vnd.api+json` 曾冒充成功）。
+            # 无 Content-Type 的 body 也尝试改写：现在挡住它的是 FastAPI 的
+            # strict_content_type 默认值，那是别人家的默认值，不作本模块的
+            # 安全依赖；非 JSON body 改写失败会原样透传，行为不变。
+            if not content_type or _is_json_content_type(content_type):
                 body = await _drain_body(receive)
                 rewritten = _rewrite_json_user(body, user_id)
                 final_body = body if rewritten is None else rewritten
@@ -421,6 +427,20 @@ class IdentityRewriteMiddleware:
                 ] + [(b"content-length", str(len(final_body)).encode("latin-1"))]
                 receive = _replay_body(final_body)
         await self.app(scope, receive, send)  # type: ignore[operator]
+
+
+def _is_json_content_type(raw: str) -> bool:
+    """与 FastAPI ``routing.get_request_handler`` 同源的 JSON 口径。
+
+    ``application/json`` 与一切 ``application/*+json``（vnd.api+json、hal+json…）
+    都算。不要退回子串匹配——那是第二套口径，差集就是绕过面。
+    """
+    message = _ContentTypeMessage()
+    message["content-type"] = raw
+    if message.get_content_maintype() != "application":
+        return False
+    subtype = message.get_content_subtype()
+    return subtype == "json" or subtype.endswith("+json")
 
 
 async def _send_json_error(send: Send, status_code: int, detail: str) -> None:
