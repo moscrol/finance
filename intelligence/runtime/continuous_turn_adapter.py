@@ -30,6 +30,7 @@ from intelligence.services.episode_phase import PhaseRecorder
 from intelligence.services.episode_projection import project_durable_events
 from intelligence.services.episode_progress import EpisodeProgress
 from intelligence.services.episode_semantic_verifier import (
+    DEFAULT_JUDGE_TIMEOUT_SECONDS,
     SemanticEpisodeOutcome,
     draft_sentence_count,
     numeric_condition_unsupported,
@@ -44,6 +45,9 @@ from intelligence.services.episode_verifier import (
     verify_episode_outcome,
 )
 from intelligence.services.honesty_gates import with_calendar_disclosure
+from intelligence.services.mandatory_satisfiability import (
+    apply_unreachable_downgrade,
+)
 from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
@@ -92,14 +96,20 @@ _DELIVERY_REPAIR_STOP_REASONS = frozenset(
 _COLD_RESTART_STOP_REASONS = frozenset(
     {"deadline_exhausted", "model_unavailable"}
 )
-# The semantic judge itself is bounded to 25 seconds, but OpenAI-compatible
-# transports can return a few seconds after their client timeout while the
-# socket/request stack unwinds.  Reserve explicit transport grace so a valid
-# late report is not discarded merely because research consumed the rest of
-# the shared turn deadline.
-DEFAULT_VERIFICATION_RESERVE_SECONDS = 40.0
+# First judge attempt is the shared window (50s after the 08-20 grok tail
+# of 46.7s). OpenAI-compatible transports can return a few seconds after
+# their client timeout while the socket unwinds. Reserve judge + 10s grace
+# so a full research burn still leaves one dispatchable attempt.
+DEFAULT_VERIFICATION_RESERVE_SECONDS = DEFAULT_JUDGE_TIMEOUT_SECONDS + 10.0
 DETERMINISTIC_OWNER_TYPES = frozenset(
-    {"external_market", "quick_fact", "dated_market_review"}
+    {
+        "external_market",
+        "quick_fact",
+        "dated_market_review",
+        "market_watch",
+        "watchlist_digest",
+        "disclosure_scan",
+    }
 )
 
 
@@ -491,6 +501,9 @@ class ContinuousTurnAdapter:
             )
             if perspective_context:
                 context_kwargs["perspective_context"] = perspective_context
+            stance_pack = getattr(control, "stance_pack", None)
+            if stance_pack is not None:
+                context_kwargs["stance_pack"] = stance_pack
             if self._synthesis_reserve_for_task is not None:
                 context_kwargs["synthesis_reserve"] = max(
                     0.0,
@@ -508,6 +521,15 @@ class ContinuousTurnAdapter:
             registry = cast(
                 ResearchToolRegistry,
                 self._registry_factory(frame, context),
+            )
+            from intelligence.services.forecast_residual_budget import (
+                maybe_promote_forecast_residual,
+            )
+
+            context = maybe_promote_forecast_residual(
+                context,
+                question_type=frame.question_type,
+                opening_prefetch=getattr(registry, "opening_prefetch", ()),
             )
             # 事前可满足性预检：这套授权工具的 produces 并集能否覆盖每项
             # required_output。**只观测，不参与任何决策**——`check_satisfiability`
@@ -606,7 +628,11 @@ class ContinuousTurnAdapter:
                 context.contract.research_tier
             )
             repair_terminal = False
-            backfill_plan = _issue_backfill_plan(structural)
+            backfill_plan = _issue_backfill_plan(
+                structural,
+                context,
+                events=outcome.events,
+            )
             if (
                 session is not None
                 and backfill_plan is not None
@@ -1208,6 +1234,10 @@ class ContinuousTurnAdapter:
         )
         if admission is None:
             return None
+        verify_contract, _ = apply_unreachable_downgrade(
+            context.contract,
+            admission.goal,
+        )
         candidate = resume(admission.goal)
         if not isinstance(candidate, AgentOutcome):
             raise TypeError("episode session resume must return AgentOutcome")
@@ -1227,7 +1257,7 @@ class ContinuousTurnAdapter:
                 draft=outcome.draft,
                 bindings=candidate.bindings or outcome.bindings,
             )
-        verified = self._structural_verifier(context.contract, candidate)
+        verified = self._structural_verifier(verify_contract, candidate)
         if not isinstance(verified, VerifiedEpisodeOutcome):
             raise TypeError("structural verifier must return VerifiedEpisodeOutcome")
         return candidate, verified, admission.delivery_only
@@ -1307,6 +1337,8 @@ class ContinuousTurnAdapter:
 
 def _issue_backfill_plan(
     structural: VerifiedEpisodeOutcome,
+    context: ResearchRunContext,
+    events: tuple[object, ...] = (),
 ):
     items = structural.issue_items
     if numeric_condition_unsupported(structural):
@@ -1318,7 +1350,11 @@ def _issue_backfill_plan(
                 "unsupported numeric condition without bound evidence",
             ),
         )
-    return plan_issue_backfill(items)
+    return plan_issue_backfill(
+        items,
+        subject_kind=context.contract.subject_kind,
+        events=events,
+    )
 
 
 def _with_track_contract_gaps(
@@ -1551,12 +1587,20 @@ def _episode_context_provenance(
 ) -> dict[str, object]:
     """Persist the single cutoff/freshness context beside private diagnostics."""
 
-    return {
+    payload: dict[str, object] = {
         "information_cutoff": context.information_cutoff.to_dict(),
         "today": context.today,
         "latest_data_date": context.latest_data_date,
         "trace_parent_id": context.trace_parent_id,
     }
+    pack = getattr(context, "stance_pack", None)
+    if pack is None:
+        return payload
+    to_receipt = getattr(pack, "to_receipt", None)
+    payload["stance_pack"] = (
+        to_receipt() if callable(to_receipt) else {"present": True}
+    )
+    return payload
 
 
 def _declined_result() -> ContinuousTurnResult:

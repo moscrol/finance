@@ -421,8 +421,9 @@
       "as_of": "2026-07-23",
       "required_outputs": [
         "direct_assessment",
-        "chain_mapping",
-        "counterpoint"
+        "causal_chain",
+        "counterpoint",
+        "evidence_boundary"
       ],
       "conversation_context": [],
       "timeout": 240.0,

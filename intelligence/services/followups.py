@@ -24,6 +24,7 @@ TYPE_LABELS = {
     "recheck": "盘面回检",
     "migration": "题材迁移",
     "gap": "缺口补齐",
+    "continue": "同一条件再对",
 }
 
 FETCH_ENV_FLAG = "FINANCE_FOLLOWUPS"
@@ -105,6 +106,10 @@ class FollowupState:
     listed_names: frozenset[str] = field(default_factory=frozenset)
     skip_types: frozenset[str] = field(default_factory=frozenset)
     parent_followup_prompt: str | None = None
+    same_bind: bool = False
+    standing_date: str = ""
+    question_type: str = ""
+    market_watch_pack_present: bool = False
 
 
 class FollowupComposer(Protocol):
@@ -170,6 +175,10 @@ def project_continuous_state(
     status: str = "completed",
     subject_kind: str = "",
     parent_followup_prompt: str | None = None,
+    same_bind: bool = False,
+    standing_date: str = "",
+    question_type: str = "",
+    market_watch_pack_present: bool = False,
 ) -> FollowupState:
     kind = infer_question_kind(
         question, subject, subject_kind=subject_kind, enable_methodology=False
@@ -188,6 +197,10 @@ def project_continuous_state(
         ),
         skip_types=skip,
         parent_followup_prompt=parent_followup_prompt,
+        same_bind=same_bind,
+        standing_date=str(standing_date or "").strip(),
+        question_type=str(question_type or "").strip(),
+        market_watch_pack_present=market_watch_pack_present,
     )
 
 
@@ -247,18 +260,45 @@ def project_ask_state(
     subject: str | None = None,
     open_gaps: tuple[str, ...] = (),
     parent_followup_prompt: str | None = None,
+    alternatives: tuple[tuple[str, str], ...] = (),
+    bottlenecks: tuple[str, ...] = (),
 ) -> FollowupState:
-    anchor = str(subject or "").strip() or str(question or "").strip()[:16] or "该问题"
-    kind = infer_question_kind(question, anchor, enable_methodology=True)
+    """``alternatives``/``bottlenecks`` 来自 ask 的 D3 结构对象（AskResult.d3_*）。
+
+    spec 2026-08-17 §5：P0 行进 alternatives(source=d3_p0)，P2 词进 bottlenecks，
+    公司名进 listed_names——B 槽由此点名下一跳，且不得把已列名单当新发现。
+    """
+
+    # 分类与展示分离：主语未知时让 infer 看到空主语（否则永远判不出
+    # methodology/other），展示兜底用「该问题」。不切原句——[:16] 曾把
+    # 「…2026-08-18…」拦腰切成「2026-08-1」直接进用户可见的追问。
+    subject_clean = str(subject or "").strip()
+    kind = infer_question_kind(question, subject_clean, enable_methodology=True)
+    anchor = subject_clean or "该问题"
     skip = frozenset({"recheck"} if kind == "track" or parse_track_intent(question) else ())
     cleaned = tuple(str(gap).strip() for gap in open_gaps if str(gap).strip())
+    alt_items = tuple(
+        AlternativeItem(
+            name=str(name).strip(),
+            reason=str(note or "").strip(),
+            source="d3_p0",
+        )
+        for name, note in alternatives
+        if str(name).strip()
+    )
+    cleaned_bottlenecks = tuple(
+        str(term).strip() for term in bottlenecks if str(term).strip()
+    )
     return FollowupState(
         subject=anchor,
         question=str(question or "").strip(),
         question_kind=kind,
         open_gaps=cleaned,
+        alternatives=alt_items,
+        bottlenecks=cleaned_bottlenecks,
         no_action_room=compute_no_action_room(open_gaps=cleaned),
         produced_framework=kind == "methodology",
+        listed_names=frozenset(item.name for item in alt_items),
         skip_types=skip,
         parent_followup_prompt=parent_followup_prompt,
     )
@@ -313,7 +353,7 @@ def select_angles(state: FollowupState) -> tuple[str, ...]:
 
 
 def _subject(state: FollowupState) -> str:
-    return state.subject.strip() or state.question.strip()[:16] or "该问题"
+    return state.subject.strip() or "该问题"
 
 
 def _is_echo(state: FollowupState, prompt: str) -> bool:
@@ -539,6 +579,52 @@ def _conservative(
     )
 
 
+def should_emit_same_bind(state: FollowupState) -> bool:
+    subject = _subject(state)
+    if not subject or subject == "该问题":
+        return False
+    standing = str(state.standing_date or "").strip()
+    if state.same_bind and standing:
+        return True
+    qtype = str(state.question_type or "").strip()
+    if qtype == "market_watch":
+        return bool(state.market_watch_pack_present and standing)
+    if qtype in {"theme_track", "trade_advice"} and standing:
+        return True
+    return False
+
+
+def build_same_bind_followup(state: FollowupState) -> Followup | None:
+    if not should_emit_same_bind(state):
+        return None
+    subject = _subject(state)
+    standing = str(state.standing_date or "").strip()
+    qtype = str(state.question_type or "").strip()
+    if qtype == "theme_track":
+        prompt = (
+            f"自 {standing} 之后，{subject}只报变化和四态对照，不要重跑全景。"
+        )
+    elif qtype == "market_watch":
+        prompt = f"同一天盘面用四袋再对一次，只报相对 {standing} 的变化。"
+    else:
+        prompt = (
+            f"按我刚才的{subject}条件，用最新价再对一次，只报相对 {standing} 的变化。"
+        )
+    if _is_echo(state, prompt):
+        return None
+    from intelligence.services.stance_pack import bind_id_for
+
+    return Followup(
+        question=prompt,
+        type="continue",
+        rationale="同一绑定换时刻或刷新现价",
+        label="同一条件再对",
+        full_prompt=prompt,
+        angle="",
+        source=f"same_bind:{bind_id_for(qtype or state.question_kind, subject, standing)}",
+    )
+
+
 def compose_followups(
     state: FollowupState,
     *,
@@ -563,6 +649,9 @@ def compose_followups(
                 items.append(pad)
                 if len(items) >= 2:
                     break
+        chip = build_same_bind_followup(state)
+        if chip is not None and not _is_echo(state, chip.full_prompt):
+            items = [chip, *[item for item in items if item.type != "continue"]]
         result.followups = items[:4]
     except Exception as exc:  # noqa: BLE001
         result.warnings.append(f"followup_compose_failed:{exc}")
@@ -674,17 +763,21 @@ def generate_followups(
     n: int = 4,
     llm_model: str | None = None,
     llm_timeout: int = 60,
-    use_llm: bool = True,
+    use_llm: bool = False,
     open_gaps: tuple[str, ...] = (),
     parent_followup_prompt: str | None = None,
+    alternatives: tuple[tuple[str, str], ...] = (),
+    bottlenecks: tuple[str, ...] = (),
 ) -> FollowupResult:
-    """选题走 compose；LLM 只润色。条数合同 2–4。"""
+    """选题走 compose；默认不润色。显式 ``use_llm=True`` 时 LLM 只改措辞。条数合同 2–4。"""
     _ = answer_excerpt
     state = project_ask_state(
         question,
         subject=matched_theme,
         open_gaps=open_gaps,
         parent_followup_prompt=parent_followup_prompt,
+        alternatives=alternatives,
+        bottlenecks=bottlenecks,
     )
     if os.environ.get(FETCH_ENV_FLAG, "1") == "0":
         return NullComposer().compose(state, polish=False)

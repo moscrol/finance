@@ -533,8 +533,7 @@ def test_research_owner_skills_define_retrieval_and_answer_contracts(
     assert captured[0].question_type_override == config.question_type
     assert captured[0].compose is True
     assert captured[0].synthesize is False
-    assert captured[0].include_memory_block is True
-    assert captured[0].include_recall_block is True
+    assert captured[0].enabled_providers is None
     assert captured[0].wiki_rag_timeout == config.wiki_rag_timeout
     assert captured[0].module_timeout == config.module_timeout
     assert captured[0].use_modules is config.use_modules

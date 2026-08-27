@@ -15,7 +15,12 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 # Direct execution needs the sibling scripts directory before this local import.
 import theme_radar_quality_rules as quality_rules  # noqa: E402
 
-WIKI = Path('/Users/lbq/Desktop/c c/知识库/wiki')
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from intelligence.paths import resolve_knowledge_wiki  # noqa: E402
+
+WIKI = resolve_knowledge_wiki()
 REL = WIKI / 'relations'
 OUT_DIR = WIKI / 'raw/theme-radar'
 

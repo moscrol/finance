@@ -32,6 +32,10 @@
 
 本仓写出的通用件（SessionStart 事实注入、棘轮式路径门禁、带条件的测试收据、按分支归属而非 mtime 的交接判定等）属于「搭建」那一件；新增或改动后**回写 `KIT.md`，不另建第二份清单**。
 
+## 🗺️ 本地代码地图（编码任务先走这里）
+
+编码任务先 `python3 scripts/code_map.py query "<问题>"`。禁止把空图 `get_architecture_overview` 写成架构结论；禁止 `code-review-graph init|install`；禁止 DeepWiki `generate_wiki` / 对本仓 private index。MCP 已连接 ≠ 地图可用。
+
 ## 🗺️ Agent 能力现状（断言"我们没有 X"之前必读）
 
 > 2026-08-04 加入。起因：一次会话里连续三次把「已存在的能力」和「刻意的设计约束」
@@ -40,6 +44,14 @@
 **权威事实源**：`.agent-memory/10_knowledge/finance-agent-capability-graph.md`
 （有 `graph_audit.py` 硬门禁，跑它拿当前节点数，别抄这里写死的数）。改能力时回写它，
 **不要另建第二份清单**。
+
+### 金融问答正门
+
+默认：`python3 -m intelligence.cli ask "<问题>"`。追问 `chat`；模型选工具才用 `agent`。Workbench 走 Episode，不要用 CLI 冒充 UI 合同。评接口 / 找入口读 `docs/agent-product-door.md`（门 / 两条引擎 / 积木；注册表不是门）。`--kb-mode` / `--wiki-rag-mode` / `--modules` 是逃生口。问能力个数时点名 `skills/` / `.claude/skills/` / 工具注册表，不要加总、不要写死个数。
+
+写入正门是 `python3 -m market_feature_store.cli daily-full`。`fact_sector_daily` 是 VIEW。编码任务走上一节代码地图 CLI，不要用问答正门冒充。
+
+技能桥只开一个、飞书 Bitable 写入退役、飞书 IM（`feishu-bot`）退役——这些是约束不是缺口。
 
 ### Agent 可调工具：12 个
 
@@ -138,7 +150,7 @@ git branch --show-current
 2. **连板晋级** → `limit-advance/scripts/scrape.py [日期]` → 展示 + 写入飞书
 3. **涨幅排行** → `top-gainers` skill：iFinD个股涨幅 + AKShare板块涨幅并行
 4. **策略分析与回测** → `detect_turning_points.py`、`backtest_sector.py` 只读 canonical `fact_*` 表；板块数据回填旧入口 `backfill_sector_marginal.py` 仍单独停用，不能混用旧库
-5. **概念入库** → 加载知识库仓 `concept-ingest` skill（已迁至 `<知识库>/skills/concept-ingest/`）→ 先判断 is_concept → 检索 raw 文件 → web 补充信息 → LLM 提取 v3 JSON（含 core_thesis/key_insights/key_data/risks）→ `python3 <知识库>/scripts/ingest.py concept ...` 去重+代码匹配+交叉对比 → 写入 Obsidian vault
+5. **概念入库** → 加载知识库仓 `concept-ingest` skill（`<知识库>/skills/concept-ingest/SKILL.md`）。**IMA 题材 DeepDive**：Copilot 15章 → `deepdive.md` → `build_ima_concept_ingest_queue.py` → 人工 ingest-plan → writer；禁止搜标题当抽取，禁止有 md 直接 writer。研报/纪要：判断 is_concept → ingest-plan → `python3 <知识库>/scripts/ingest.py concept ...`
 6. **公司边际变化入库** → 加载知识库仓 `entity-delta-ingest` skill（已迁至 `<知识库>/skills/entity-delta-ingest/`）→ 读取早知道/评级日报/纪要/公告 → 抽取公司边际变化 JSON → `python3 <知识库>/scripts/ingest.py entity-delta ...` 更新 Obsidian `entities/`，纯榜单进观察列表
 
 ## 市场假设验证 / 跑马策略执行规则
@@ -279,12 +291,15 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 | perspective-distill | 蒸馏视角、视角蒸馏、KOL蒸馏、学这个博主、喂文章、把这篇文章喂给视角、新建视角、perspective distill |
 | finance-longtail-baseline | （待补：SKILL.md 无触发词字段） |
 | finance-degraded-fallback | （待补：SKILL.md 无触发词字段） |
+| code-map | 代码地图、code-map、code-review-graph、deepwiki、造轮子、现有实现 |
+| divergence-distill | 蒸馏分叉、对照蒸馏、蒸 Fable、蒸 Knevo、trace diff 沉淀、diff 完沉淀 |
+| watchlist-digest | 自选简报、我的自选今天怎么样、按我的自选出简报、开盘简报（按自选）、我的清单今天该看什么、watchlist digest |
 
 跨仓引用（规范源在知识库仓，本仓不放正文）：
 
 | Skill | 触发词 |
 |-------|--------|
-| concept-ingest（已迁至知识库仓） | concept ingest、概念入库、新概念、提取概念 → 读 `<知识库>/skills/concept-ingest/SKILL.md` |
+| concept-ingest（已迁至知识库仓） | concept ingest、概念入库、IMA入库、题材DeepDive、ThemeRadar入库、新概念、提取概念 → 读 `<知识库>/skills/concept-ingest/SKILL.md` |
 | entity-delta-ingest（已迁至知识库仓） | entity delta、公司边际变化、更新entity、早知道入库 → 读 `<知识库>/skills/entity-delta-ingest/SKILL.md` |
 <!-- END GENERATED: skills-table -->
 

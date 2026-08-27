@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from intelligence.services.episode_factory import build_episode_context
+from intelligence.services.task_frame import TaskFrame
 from intelligence.runtime.turn_control_core import TurnControlCore
 
 
@@ -137,6 +138,50 @@ def test_market_cause_requires_time_aligned_news_evidence() -> None:
         "market_data",
         "news_search",
     }
+
+
+def test_stock_frame_with_measure_words_has_no_market_mandates() -> None:
+    # R-20260821-05（生产 n=3）：stock_deep_dive + 「涨跌幅/成交额」曾命中盘面
+    # 度量词被套上 mainline_current 市场级计划，market_data+mainline_context 进
+    # mandatory——结构核验层据此每答必记 missing_mandatory_capability，修复轮
+    # 还会把市场总览数字压进个股稿。契约不得再带这两条义务；但能力保持授权
+    # （背景放大器可取）。live 路由是 LLM 给的 stock_deep_dive（启发式回退是
+    # quick_fact），所以这里直接构造 frame 钉 live 形状。
+    frame = TaskFrame(
+        raw_question=(
+            "皇氏集团最近两周（2026-08-06到2026-08-20）的走势复盘："
+            "几个关键转折日各自的涨跌幅和成交额是多少？"
+        ),
+        user_goal="复盘个股近两周走势与关键转折日",
+        question_type="stock_deep_dive",
+        subject="皇氏集团",
+        subject_kind="company",
+        market_scope="A股",
+        timeframe="2026-08-06到2026-08-20",
+        required_outputs=(
+            "direct_assessment",
+            "supporting_evidence",
+            "counterpoint",
+        ),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="company_multi_layer_evidence",
+        confidence=0.95,
+    )
+
+    context = build_episode_context(
+        frame,
+        task_id="episode-r05-stock",
+        today="2026-08-21",
+        latest_data_date="2026-08-20",
+    )
+
+    contract = context.contract
+    assert contract.evidence_plan.profile == "company_current_backdrop"
+    assert contract.evidence_plan.mandatory_capabilities == ()
+    assert "market_data" in contract.allowed_capabilities
+    assert "mainline_context" in contract.allowed_capabilities
 
 
 def test_overnight_hybrid_forecast_episode_authorizes_news_and_web() -> None:
@@ -362,6 +407,58 @@ def test_outlook_judgment_direct_answer_uses_model_reasoning() -> None:
     assert context.contract.allowed_capabilities != ()
 
 
+def test_forecast_condition_slots_use_model_reasoning() -> None:
+    """前瞻题的条件槽是向前假设，签 model_reasoning；事实与边界槽保持 evidence。
+
+    2026-08-19 分层审查：情景路径与持续/证伪条件按定义不可能出现在既有证据里
+    （证据不含未来），押进 evidence 后数值门禁把「若指数跌破3870点则失效」这类
+    可操作阈值整句砍掉，模型学会只输出「相对变化描述」自保。只改条件槽。
+    """
+
+    control = TurnControlCore().control(
+        "昨天的反弹能持续多久",
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+    context = build_episode_context(
+        control.task_frame,
+        task_id="forecast-condition-slots",
+        capabilities=control.capabilities,
+    )
+
+    modes = {
+        item.output_id: item.grounding_mode
+        for item in context.contract.required_outputs
+    }
+    assert control.task_frame.question_type == "market_forecast"
+    assert modes["continuation_conditions"] == "model_reasoning"
+    assert modes["invalidation_conditions"] == "model_reasoning"
+    # 事实槽与边界槽不动：现状基线、持续性评估仍要求行情证据。
+    assert modes["current_baseline"] == "evidence"
+    assert modes["duration_assessment"] == "evidence"
+    assert modes["evidence_boundary"] == "evidence"
+
+
+def test_technical_invalidation_slot_stays_evidence() -> None:
+    """market_technical 的失效位来自行情数据（支撑/均线可查），不吃前瞻豁免。"""
+
+    control = TurnControlCore().control(
+        "科创50的支撑点位在哪",
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+    context = build_episode_context(
+        control.task_frame,
+        task_id="technical-invalidation-evidence",
+        capabilities=control.capabilities,
+    )
+
+    modes = {
+        item.output_id: item.grounding_mode
+        for item in context.contract.required_outputs
+    }
+    assert control.task_frame.question_type == "market_technical"
+    assert modes["invalidation_conditions"] == "evidence"
+
+
 def test_default_conditional_goal_does_not_flip_fact_or_valuation_slots() -> None:
     """``形成条件化判断`` 是 query_understanding 的默认 decision_goal，不能当路由键。"""
 
@@ -387,7 +484,14 @@ def test_default_conditional_goal_does_not_flip_fact_or_valuation_slots() -> Non
         assert "model_reasoning" not in set(modes.values())
 
 
-def test_outlook_phrasing_on_forecast_only_flips_the_judgment_slot() -> None:
+def test_outlook_forecast_flips_judgment_and_condition_slots_not_boundaries() -> None:
+    """观点措辞翻判断槽，前瞻题型翻条件槽；边界/结构槽两条规则都不碰。
+
+    2026-08-16 第一刀只改判断槽（scenario_paths 当时保持 evidence）；
+    2026-08-19 分层审查加了第二刀：前瞻条件槽按题型签 model_reasoning。
+    scenario_tree / evidence_boundary 仍是 evidence，证明两条规则都没扩散。
+    """
+
     control = TurnControlCore().control(
         "你觉得a股明天会怎么走",
         llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
@@ -403,8 +507,11 @@ def test_outlook_phrasing_on_forecast_only_flips_the_judgment_slot() -> None:
         for item in context.contract.required_outputs
     }
     assert modes["direct_assessment"] == "model_reasoning"
+    assert modes["scenario_paths"] == "model_reasoning"
+    assert modes["continuation_conditions"] == "model_reasoning"
+    assert modes["invalidation_conditions"] == "model_reasoning"
     assert modes["evidence_boundary"] == "evidence"
-    assert modes["scenario_paths"] == "evidence"
+    assert modes["scenario_tree"] == "evidence"
     assert context.contract.allowed_capabilities != ()
 
 
@@ -556,6 +663,37 @@ def test_prior_recall_slot_is_scoped_to_subject_bearing_question_types() -> None
         assert "prior_recall" not in {
             item.output_id for item in context.contract.required_outputs
         }, f"{question_type} 不该带 prior_recall 槽位"
+
+
+def test_trade_advice_stance_opens_prior_recall_when_memory_is_authorized() -> None:
+    from intelligence.services.evidence_capabilities import runtime_capabilities_for_frame
+    from intelligence.services.episode_factory import build_episode_context
+    from intelligence.services.task_frame import TaskFrame
+
+    frame = TaskFrame(
+        raw_question="茅台现在该不该买",
+        user_goal="给出条件化加减仓判断",
+        question_type="trade_advice",
+        subject="茅台",
+        subject_kind="company",
+        market_scope="A股",
+        timeframe="最新可用日期",
+        required_outputs=("conditional_thesis", "invalidation_conditions"),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="conditional_thesis_evidence",
+        confidence=0.9,
+    )
+    context = build_episode_context(
+        frame,
+        task_id="prior-recall-trade-advice",
+        capabilities=runtime_capabilities_for_frame(frame),
+    )
+    assert "memory_lookup" in context.contract.allowed_capabilities
+    assert "prior_recall" in {
+        item.output_id for item in context.contract.required_outputs
+    }
 
 
 def test_prior_recall_stays_absent_where_the_tool_is_unauthorized() -> None:

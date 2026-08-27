@@ -9,17 +9,24 @@ from pathlib import Path
 
 
 def _resolve_vault():
-    for env in ("CONCEPT_VAULT", "ENTITY_VAULT"):
+    """与 ``intelligence.paths.resolve_knowledge_wiki`` 对齐：env > 现存探测 > 规范身份。
+
+    技能脚本常不带 intelligence 包路径，所以这里留一份镜像，不 import 运行时。
+    已死的 ``~/Desktop/c c/知识库`` 不再作为回退。
+    """
+    for env in ("KB_VAULT", "KNOWLEDGE_WIKI", "CONCEPT_VAULT", "ENTITY_VAULT"):
         value = os.environ.get(env)
         if value:
             return Path(os.path.expanduser(value))
-    for cand in (
-        Path(os.path.expanduser("~/Desktop/c c/知识库/wiki")),
-        Path.home() / "repos" / "knowledge-base-private" / "wiki",
-    ):
-        if cand.exists():
-            return cand
-    return Path(os.path.expanduser("~/Desktop/c c/知识库/wiki"))
+    preferred = Path.home() / "knowledge-base-private" / "wiki"
+    if preferred.is_dir():
+        return preferred
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        sibling = parent / "knowledge-base-private" / "wiki"
+        if sibling.is_dir():
+            return sibling
+    return preferred
 
 
 VAULT = _resolve_vault()

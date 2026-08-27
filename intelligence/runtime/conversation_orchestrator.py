@@ -25,8 +25,21 @@ from intelligence.api.structured_reports import (
 )
 from intelligence.services import answer_model, followups as followups_svc
 from intelligence.services import context_growth
+from intelligence.services import evidence_registry
 from intelligence.services import task_fulfillment
 from intelligence.services import run_store as rs
+from intelligence.services.outlook_delivery_gate import (
+    apply_market_watch_delivery_gate,
+    apply_outlook_delivery_gate,
+    evidence_grid_text,
+)
+from intelligence.services.reading_direction_gate import (
+    apply_reading_direction_gate,
+    collect_direction_observations,
+)
+from intelligence.services.forecast_residual_followup import (
+    append_unverified_forecast_grids,
+)
 from intelligence.services.status_projection import (
     episode_status_from_turn,
     project_artifact_statuses,
@@ -43,11 +56,27 @@ from intelligence.services.ask import (
     SynthesisDiagnostic,
     _revise_synthesis_on_warn,
     answer_query,
+    bind_disclosure_scan_pack,
+    bind_watchlist_digest_pack,
+    prepare_disclosure_residual_answer,
+    bind_research_program,
     prepare_existing_answer,
     render_conversation_answer,
     repair_unfulfilled_answer,
     synthesize_prepared_answer,
     synthesize_shadow_grounded_answer,
+)
+from intelligence.services.disclosure_scan_pack import (
+    ResidualGateResult,
+    disclosure_scan_degrade_codes,
+    gate_disclosure_residual,
+    merge_disclosure_into_public_answer,
+)
+from intelligence.services.market_watch_pack import merge_into_public_answer
+from intelligence.services.watchlist_digest_pack import (
+    merge_digest_into_public_answer,
+    watchlist_digest_degrade_codes,
+    write_snapshot as write_watchlist_digest_snapshot,
 )
 from intelligence.services.answer_stream import AnswerSnapshot
 from intelligence.services.provider_observability import ProviderTrace
@@ -68,6 +97,7 @@ from intelligence.services.conversation_store import (
     Message,
 )
 from intelligence.runtime.continuous_turn_adapter import ContinuousTurnResult
+from intelligence.services.tool_hunger import bind_run_hunger
 from intelligence.services import llm_refine
 from intelligence.services import output_review
 from intelligence.services import query_ledger
@@ -85,7 +115,15 @@ from intelligence.services.query_understanding import (
     project_task_frame,
     understand_query,
 )
-from intelligence.services.evidence_capabilities import resolve_evidence_plan
+from intelligence.services.evidence_capabilities import (
+    resolve_evidence_plan,
+    runtime_capabilities_for_frame,
+)
+from intelligence.services.stance_pack import (
+    lint_public_answer,
+    run_stance_pack,
+    should_run_stance_pack,
+)
 from intelligence.services.research_policy import (
     ResearchExecutionBudget,
     ResearchExecutionPolicy,
@@ -1397,7 +1435,11 @@ _REVIEW_APPENDIX_HEADING = "输出质检"
 
 
 def _with_review_appendix(body: str, notes: Sequence[str]) -> str:
-    """修订版在前、审查意见进「输出质检」附录。无意见时正文逐字节不变。"""
+    """修订版在前、审查意见进「输出质检」附录。无意见时正文逐字节不变。
+
+    内部拼法仍给 V8/W1 单测用。公开 answer.md / result.content 走
+    ``_public_answer_text``，不再调用本函数。
+    """
 
     cleaned = [str(note).strip() for note in notes if str(note).strip()]
     if not cleaned:
@@ -1414,6 +1456,13 @@ def _with_review_appendix(body: str, notes: Sequence[str]) -> str:
     return f"{body.rstrip()}\n\n{heading}\n{bullets}\n"
 
 
+def _public_answer_text(body: str, notes: Sequence[str]) -> str:
+    """公开答案只留正文。审查意见留 notes / gate_receipt，不拼附录。"""
+
+    _ = notes
+    return body
+
+
 def _review_notes_from_gate(result: AskResult) -> tuple[str, ...]:
     gate = result.review_gate
     if gate is None:
@@ -1425,13 +1474,27 @@ def _review_notes_from_gate(result: AskResult) -> tuple[str, ...]:
     )
 
 
+def _is_internal_issue_receipt(note: str) -> bool:
+    """Issue.serialize() 收据行：code=... subject=... :: ...，不是给人看的。"""
+
+    return (
+        note.startswith("code=")
+        and " subject=" in note
+        and " :: " in note
+    )
+
+
 def _continuous_review_notes(result: ContinuousTurnResult) -> tuple[str, ...]:
     artifact = result.private_artifact or {}
     semantic = artifact.get("semantic_verifier")
     if not isinstance(semantic, dict):
         return ()
     issues = semantic.get("issues") or ()
-    return tuple(str(item).strip() for item in issues if str(item).strip())
+    return tuple(
+        item
+        for item in (str(raw).strip() for raw in issues)
+        if item and not _is_internal_issue_receipt(item)
+    )
 
 
 def sanitize_conversation_answer(text: str) -> str:
@@ -1441,7 +1504,16 @@ def sanitize_conversation_answer(text: str) -> str:
         r"检索方式=hybrid|BM25|BGE-m3|RRF|"
         r"\bchunk(?:_id)?=|\bhash=|\bindex=|\bk=\d+|"
         r"耗时=\d+ms|状态=empty|[DMVW]\s*源|命中来源分布|"
-        r"检索质量裁定|公告等硬证据覆盖|--mode\b|\b\w+\.py\b).*$",
+        r"检索质量裁定|公告等硬证据覆盖|--mode\b).*$",
+        "（内部检索诊断信息已隐藏。）",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    # .py 行单独收窄：只有同行还带仪表痕迹（赋值/命令行开关/耗时/调用前缀）
+    # 才算诊断泄漏。此前任何提到脚本名的正文行都被整行吞掉——比如回答
+    # 「该信号由 detect_turning_points.py 产出」会变成占位句，属误伤。
+    cleaned = re.sub(
+        r"(?m)^(?=.*\b\w+\.py\b)(?=.*(?:=|--|耗时|chunk|hash|python3?\s|\$\s)).*$",
         "（内部检索诊断信息已隐藏。）",
         cleaned,
         flags=re.IGNORECASE,
@@ -1724,6 +1796,7 @@ class TurnOrchestrator:
         manual_selected = list(dict.fromkeys(selected_skill_ids))
         invoked: list[str] = []
         warnings: list[str] = []
+        stance_pack = None
         citations: list[dict[str, object]] = []
         text_chunks: list[str] = []
         skill_outputs: list[SkillOutput] = []
@@ -1944,6 +2017,19 @@ class TurnOrchestrator:
                 },
             )
             self._check_cancelled()
+            stance_pack = None
+            if should_run_stance_pack(
+                lane=decision.lane,
+                question_type=task_frame.question_type or decision.question_type,
+                query=query,
+            ):
+                stance_pack = run_stance_pack(
+                    query,
+                    user=self.run_store.user_id,
+                    subject=task_frame.subject,
+                    market_db_path=self._market_db_path(),
+                    capabilities=runtime_capabilities_for_frame(task_frame),
+                )
             canned = deterministic_lane_answer(query, decision)
             if canned is None and self.continuous_turn_adapter is not None:
                 continuous_control = project_turn_decision(
@@ -1963,10 +2049,17 @@ class TurnOrchestrator:
                         query=query,
                     ),
                 )
-                continuous_result = self.continuous_turn_adapter.handle(
-                    frame=task_frame,
-                    control=continuous_control,
-                )
+                if stance_pack is not None:
+                    continuous_control = replace(
+                        continuous_control, stance_pack=stance_pack
+                    )
+                with bind_run_hunger(
+                    self.run_store.run_dir(run_id), run_id=run_id
+                ):
+                    continuous_result = self.continuous_turn_adapter.handle(
+                        frame=task_frame,
+                        control=continuous_control,
+                    )
                 self._check_cancelled()
                 if continuous_result.handled:
                     return self._complete_continuous_turn(
@@ -1982,6 +2075,7 @@ class TurnOrchestrator:
                         research_plan=research_plan,
                         perspective_mode=perspective_mode,
                         selected_perspective_ids=selected_perspective_ids,
+                        stance_pack=stance_pack,
                     )
             if (
                 decision.lane in {"chat", "meta", "clarify"}
@@ -2014,8 +2108,9 @@ class TurnOrchestrator:
                                 synthesize=False,
                                 market_db_path=(self._market_db_path()),
                                 conversation_context=context.to_prompt_block(),
-                                include_memory_block=decision.needs_memory,
-                                include_recall_block=decision.needs_memory,
+                                enabled_providers=evidence_registry.providers_allowing_memory(
+                                    decision.needs_memory
+                                ),
                                 question_type_override=turn_intent.question_type,
                                 deadline=research_deadline,
                             )
@@ -2147,7 +2242,11 @@ class TurnOrchestrator:
             generic_owner_requested = (
                 decision.lane == "research"
                 and turn_intent.question_type
-                not in {QUESTION_MARKET_TECHNICAL, QUESTION_EXTERNAL_MARKET}
+                not in {
+                    QUESTION_MARKET_TECHNICAL,
+                    QUESTION_EXTERNAL_MARKET,
+                    "disclosure_scan",
+                }
                 # 真实 controller 总会附带 TurnIntent；若某个旧的测试/第三方
                 # controller 只返回无 question_type 的裸 TurnDecision，保留
                 # 旧 route 行为，避免把兼容层误判为“ownerless research”。
@@ -2162,6 +2261,10 @@ class TurnOrchestrator:
             router_skipped = bool(
                 decision.lane == "knowledge"
                 or turn_intent.question_type == "market_technical"
+                or turn_intent.question_type == "disclosure_scan"
+                # watchlist_digest：包在 owner 分叉前确定性出稿，辅助 skill
+                # 与 LLM 软选择都用不上，跳过省一次编排延迟。
+                or turn_intent.question_type == "watchlist_digest"
                 or relation_guard_requested
                 or generic_owner_requested
             )
@@ -2575,13 +2678,16 @@ class TurnOrchestrator:
                     text_chunks.append(safe_text)
 
             def emit_text_delta(delta: str) -> None:
+                # 捕获与发射在这里是两件事，只有发射会被流式抑制：
+                # ``text_chunks[-1]`` 是崩溃/取消路径的兜底正文（见
+                # ``_ensure_terminal_safe_snapshot`` 的两个调用点），无论有没有
+                # 流过都必须留住；重复的是"再整段推一次给客户端"这一半。
                 capture_safe_text(delta)
-                self._emit(
+                self._emit_bulk_text_delta(
                     run_id,
                     assistant_message_id,
                     f"text:{len(text_chunks):06d}",
-                    "text.delta",
-                    {"delta": delta},
+                    delta,
                     conversation_id,
                 )
 
@@ -2680,6 +2786,7 @@ class TurnOrchestrator:
                 synthesize=False,
                 compose_revise_on_warn=True,
                 market_db_path=self._market_db_path(),
+                stance_pack=stance_pack,
                 conversation_context=context.to_prompt_block(),
                 wiki_rag_cache_scope=(
                     f"{self.run_store.user_id}:{conversation_id or run_id}"
@@ -2687,8 +2794,9 @@ class TurnOrchestrator:
                 supplemental_evidence=self._skill_evidence(skill_outputs),
                 supplemental_claims=skill_claims,
                 supplemental_citations=skill_citations,
-                include_memory_block=decision.needs_memory,
-                include_recall_block=decision.needs_memory,
+                enabled_providers=evidence_registry.providers_allowing_memory(
+                    decision.needs_memory
+                ),
                 question_type_override=(
                     QUESTION_MARKET_REVIEW
                     if turn_intent.question_type
@@ -2730,7 +2838,107 @@ class TurnOrchestrator:
                     # 准入地板与授时读同一套生效 profile，不再读模块级常量。
                     grounded_budget_profile=grounded_profile,
                 )
-            if owner_output is not None:
+            if turn_intent.question_type == "disclosure_scan":
+                ask_options = bind_disclosure_scan_pack(
+                    ask_options,
+                    frame=task_frame,
+                    query=contextual_query,
+                )
+                disclosure_pack = ask_options.disclosure_scan_pack
+                for code in disclosure_scan_degrade_codes(disclosure_pack):
+                    self.run_store.add_degrade(run_id, code)
+                if disclosure_pack is not None:
+                    report["disclosure_scan_pack"] = disclosure_pack.to_dict()
+            if turn_intent.question_type == "market_watch":
+                ask_options = bind_research_program(
+                    ask_options,
+                    frame=task_frame,
+                    query=contextual_query,
+                )
+                pack = ask_options.market_watch_pack
+                program = ask_options.research_program
+                if pack is not None and pack.should_stop:
+                    self.run_store.add_degrade(run_id, "market_watch_pack_stop")
+                if program is not None:
+                    _ = (program.program_id, program.operators)
+            if turn_intent.question_type == "watchlist_digest":
+                # 椅子与盘面包同一把：owner 分叉之前、开口之前跑完包。
+                ask_options = bind_watchlist_digest_pack(
+                    ask_options,
+                    frame=task_frame,
+                    query=contextual_query,
+                )
+                digest_pack = ask_options.watchlist_digest_pack
+                if digest_pack is not None:
+                    # 瘦收据进 episode 报告（只状态/计数/缺口）；
+                    # 整袋证据快照落运行时目录，事后对账只对那份。
+                    report["watchlist_digest_pack"] = digest_pack.to_receipt()
+                    # P1b 证据页合同键：整袋载荷（不含任何路径，免脱敏）。
+                    # 下面的路径键会被脱敏成占位句，UI 不得当载荷消费
+                    # （2026-08-27 live 实测：字符串真值曾让证据页拿到
+                    # 非对象输入，这是发现该缺陷的现场）。
+                    report["watchlist_digest_snapshot_payload"] = (
+                        digest_pack.to_snapshot()
+                    )
+                    for code in watchlist_digest_degrade_codes(digest_pack):
+                        self.run_store.add_degrade(run_id, code)
+                    try:
+                        report["watchlist_digest_snapshot"] = str(
+                            write_watchlist_digest_snapshot(digest_pack)
+                        )
+                    except OSError:
+                        self.run_store.add_degrade(
+                            run_id, "watchlist_digest_snapshot_write_failed"
+                        )
+            if (
+                turn_intent.question_type == "disclosure_scan"
+                and ask_options.disclosure_scan_pack is not None
+            ):
+                disclosure_pack = ask_options.disclosure_scan_pack
+                if ask_options.compose:
+                    # P1-① 残差写手：bind 只在 status=hit 且有主名单行时放行
+                    # compose。名单置顶仍由裁判后合并负责（两处 merge 不动），
+                    # 模型只解读；synthesis 出稿后还要过 gate_disclosure_residual。
+                    prepared = prepare_disclosure_residual_answer(
+                        replace(ask_options, query=contextual_query)
+                    )
+                    result = prepared.result
+                else:
+                    rendered = disclosure_pack.render()
+                    result = AskResult(
+                        query=contextual_query,
+                        trade_date=disclosure_pack.universe_date,
+                        matched_theme=None,
+                        candidate_tier=None,
+                        priority_score=None,
+                        synthesis=rendered,
+                        market_summary=rendered,
+                    )
+                    prepared = prepare_existing_answer(
+                        replace(ask_options, compose=False, synthesize=False),
+                        result,
+                    )
+            elif (
+                turn_intent.question_type == "watchlist_digest"
+                and ask_options.watchlist_digest_pack is not None
+            ):
+                # P0 确定性填格即公开稿：数字只来自包内冻结行，模型不上场。
+                digest_pack = ask_options.watchlist_digest_pack
+                rendered = merge_digest_into_public_answer("", digest_pack)
+                result = AskResult(
+                    query=contextual_query,
+                    trade_date=digest_pack.standing_date,
+                    matched_theme=None,
+                    candidate_tier=None,
+                    priority_score=None,
+                    synthesis=rendered,
+                    market_summary=rendered,
+                )
+                prepared = prepare_existing_answer(
+                    replace(ask_options, compose=False, synthesize=False),
+                    result,
+                )
+            elif owner_output is not None:
                 result = _resolve_owner_result(query, owner_output, retrieval_cache)
                 prepared = prepare_existing_answer(ask_options, result)
                 self._trace(
@@ -2777,10 +2985,20 @@ class TurnOrchestrator:
                 and daily_review_output is not None
                 and market_review_requested
             )
+            pack = getattr(ask_options, "market_watch_pack", None)
+            if pack is not None and pack.should_stop:
+                result.synthesis = pack.stop_text()
+                result.trade_date = None
+                result.market_summary = pack.render()
+                prepared = prepare_existing_answer(
+                    replace(ask_options, compose=False, synthesize=False),
+                    result,
+                )
             if (
                 is_market_review
                 and daily_review_output is not None
                 and result.trade_date is None
+                and (pack is None or not pack.should_stop)
             ):
                 result.trade_date = daily_review_output.as_of
             self._record_retrieval(
@@ -2873,6 +3091,16 @@ class TurnOrchestrator:
                     modules=daily_review_output.modules,
                     warnings=daily_review_output.warnings,
                 )
+            draft_text = apply_market_watch_delivery_gate(
+                draft_text,
+                question_type=turn_intent.question_type,
+                grid_text=pack.render() if pack is not None else "",
+            ).text
+            draft_text = merge_into_public_answer(draft_text, pack)
+            draft_text = merge_disclosure_into_public_answer(
+                draft_text,
+                getattr(ask_options, "disclosure_scan_pack", None),
+            )
             perspective_header = (
                 perspective_lab.runtime_answer_header(
                     userspace.user_space(self.run_store.user_id),
@@ -2935,6 +3163,49 @@ class TurnOrchestrator:
                 result,
                 replace(ask_options, stream_text_delta=None),
             )
+            if (
+                turn_intent.question_type == "disclosure_scan"
+                and ask_options.disclosure_scan_pack is not None
+                and result.synthesis
+            ):
+                if result.synthesis_diagnostic.state == "rejected":
+                    # 有据呈现器拒收时 synthesis 里装的是确定性兜底（spec 骨架），
+                    # 对披露题它比 P0 纯包更差（套话 + 重复名单行）——live 实测
+                    # run_20260825_200157_247884。按丢弃处理，回纯包正文。
+                    residual_gate = ResidualGateResult(
+                        "", dropped=True, reason="grounded_rejected"
+                    )
+                else:
+                    residual_gate = gate_disclosure_residual(
+                        result.synthesis, ask_options.disclosure_scan_pack
+                    )
+                # 活性事件：零丢也留痕，让「闸跑了没丢」与「闸没跑」在
+                # telemetry 里可区分（R-20260825-08 先例）。degrade 通道仍
+                # 只在真丢时占用。
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "deliver",
+                    "disclosure_residual_gate",
+                    {
+                        "applied": True,
+                        "dropped": residual_gate.dropped,
+                        "reason": residual_gate.reason,
+                        "detail": residual_gate.detail,
+                    },
+                )
+                if residual_gate.dropped:
+                    gate_code = (
+                        f"disclosure_residual_dropped:{residual_gate.reason}"
+                    )
+                    warnings.append(gate_code)
+                    self.run_store.add_degrade(run_id, gate_code)
+                    # 回 P0 纯包形状；merge 幂等（渲染已在正文则跳过），
+                    # 不会出双名单。
+                    result.synthesis = ask_options.disclosure_scan_pack.render()
+                else:
+                    result.synthesis = residual_gate.text
             self._check_cancelled()
             self._trace(
                 run_id,
@@ -2971,6 +3242,41 @@ class TurnOrchestrator:
                     modules=daily_review_output.modules,
                     warnings=daily_review_output.warnings,
                 )
+            watch_gate = apply_market_watch_delivery_gate(
+                answer_text,
+                question_type=turn_intent.question_type,
+                grid_text=pack.render() if pack is not None else "",
+            )
+            if watch_gate.applied:
+                # 活性事件：零删也留痕，让「闸跑了没删」与「闸没跑」在
+                # telemetry 里可区分（R-20260825-08）。degrade 通道仍只在
+                # 真删句时占用。
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "deliver",
+                    "market_watch_delivery_gate",
+                    {"applied": True, "dropped": watch_gate.dropped},
+                )
+            if watch_gate.applied and watch_gate.dropped:
+                watch_warning = "market_watch_delivery_gate"
+                warnings.append(watch_warning)
+                self.run_store.add_degrade(run_id, watch_warning)
+            answer_text = watch_gate.text
+            self._trace_reading_direction_gate(
+                run_id=run_id,
+                assistant_message_id=assistant_message_id,
+                conversation_id=conversation_id,
+                text=answer_text,
+                sources=(result,),
+                standing=getattr(result, "trade_date", None),
+            )
+            answer_text = merge_into_public_answer(answer_text, pack)
+            answer_text = merge_disclosure_into_public_answer(
+                answer_text,
+                getattr(ask_options, "disclosure_scan_pack", None),
+            )
             fallback_notice = (
                 perspective_lab.runtime_fallback_notice(perspective_mode)
                 if (
@@ -3158,7 +3464,7 @@ class TurnOrchestrator:
                 fallback = "llm_unavailable_template_answer"
                 warnings.append(fallback)
                 self.run_store.add_degrade(run_id, fallback)
-            answer_text = _with_review_appendix(
+            answer_text = _public_answer_text(
                 answer_text,
                 _review_notes_from_gate(result),
             )
@@ -3209,28 +3515,41 @@ class TurnOrchestrator:
             elif not text_chunks or text_chunks[-1] != answer_text:
                 emit_text_delta(answer_text)
 
-            if (
+            # 旁路实验开关只决定「要不要**额外跑**一次影子链」，不决定「跑过了要不要
+            # 记 trace」。老写法把两件事绑在一个 if 上，后果是：
+            # ``grounded_presenter`` 默认 on（生产态），``promote_grounded_answer``
+            # 内部用 ``replace(options, shadow_grounded_composer=True)`` 跑出影子记录
+            # ——但那是**副本**，``prepared.options.shadow_grounded_composer`` 仍是
+            # 默认的 False，于是整个 if 不进，trace 一条不发。
+            # 也就是说 trace 只覆盖默认关闭的实验模式，**恰好漏掉真正驱动用户答案的
+            # 那条路**。下面 ``source`` 字段里写着 ``primary_grounded_presenter``，
+            # 说明设计上本来就要覆盖两种，是这道门把它挡死了。
+            # 2026-08-26 的 fail-open（judge 判否、被否的句子照样出稿）因此只能靠
+            # 拿归档件在生产 revision 上逐段重放才定位到。
+            reused_existing = result.grounded_composer_shadow is not None
+            should_run_shadow = (
                 prepared.options.shadow_grounded_composer
+                and not reused_existing
                 and result.answer_spec is not None
                 and result.answer_spec.presentation_kind
                 not in {"market_technical", "evidence_gap"}
-            ):
-                reused_existing = result.grounded_composer_shadow is not None
-                if not reused_existing:
-                    try:
-                        synthesize_shadow_grounded_answer(
-                            PreparedAnswer(
-                                options=prepared.options,
-                                result=result,
-                            )
+            )
+            if should_run_shadow:
+                try:
+                    synthesize_shadow_grounded_answer(
+                        PreparedAnswer(
+                            options=prepared.options,
+                            result=result,
                         )
-                    except Exception as exc:
-                        result.grounded_composer_shadow = (
-                            answer_model.GroundedComposerShadow(
-                                status="internal_error",
-                                failure_reason=type(exc).__name__,
-                            )
+                    )
+                except Exception as exc:
+                    result.grounded_composer_shadow = (
+                        answer_model.GroundedComposerShadow(
+                            status="internal_error",
+                            failure_reason=type(exc).__name__,
                         )
+                    )
+            if should_run_shadow or reused_existing:
                 shadow = result.grounded_composer_shadow
                 shadow_trace = (
                     shadow.to_dict() if shadow is not None else {"status": "not_run"}
@@ -3540,12 +3859,11 @@ class TurnOrchestrator:
             ).payload(),
             conversation_id,
         )
-        self._emit(
+        self._emit_bulk_text_delta(
             run_id,
             assistant_message_id,
             "text:000001",
-            "text.delta",
-            {"delta": answer_text},
+            answer_text,
             conversation_id,
         )
         self._emit(
@@ -3645,6 +3963,7 @@ class TurnOrchestrator:
         research_plan: ResearchPlan,
         perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL,
         selected_perspective_ids: Sequence[str] = (),
+        stance_pack: object | None = None,
     ) -> TurnResult:
         """Persist one Episode-owned terminal result without legacy synthesis."""
 
@@ -3709,6 +4028,16 @@ class TurnOrchestrator:
             )
 
         answer_text = redact(result.answer).strip()
+        if stance_pack is not None and answer_text:
+            answer_text, lint_flags = lint_public_answer(
+                answer_text,
+                stance_pack,  # type: ignore[arg-type]
+                query=query,
+            )
+            if "prior_promoted_to_fact" in lint_flags:
+                warning = "stance_lint:prior_promoted_to_fact"
+                warnings.append(warning)
+                self.run_store.add_degrade(run_id, warning)
         projected = project_artifact_statuses(episode_status_from_turn(result))
         if projected.run == rs.STATUS_FAILED or not answer_text:
             failure_text = answer_text or "本轮连续研究未取得可公开答案。"
@@ -3818,8 +4147,7 @@ class TurnOrchestrator:
         )
         # 视角答案头与 legacy 路径同源（runtime_answer_header）。只在用户显式
         # 选择了视角时前置：neutral 且无审查意见时，Episode 答案原样透传。
-        # 有 semantic issues 时编排器接通「修订版在前、意见进输出质检附录」；
-        # 覆盖率仍度量模型正文，所以 appendix 加在 coverage 之后。
+        # 审查意见留 gate_receipt / notes，不拼进公开正文。覆盖率仍度量模型正文。
         if (
             perspective_mode != perspective_lab.PERSPECTIVE_MODE_NEUTRAL
             and selected_perspective_ids
@@ -3835,9 +4163,53 @@ class TurnOrchestrator:
             if perspective_header:
                 answer_text = f"{perspective_header}\n\n{answer_text}"
         draft_text = answer_text
-        answer_text = _with_review_appendix(
+        answer_text = _public_answer_text(
             answer_text,
             _continuous_review_notes(result),
+        )
+        gated = apply_outlook_delivery_gate(
+            answer_text,
+            question_type=task_frame.question_type,
+            evidence=citations,
+        )
+        answer_text = gated.text
+        if gated.applied and gated.dropped:
+            warning = "outlook_delivery_gate"
+            warnings.append(warning)
+            self.run_store.add_degrade(run_id, warning)
+        # 回退防线：market_watch 正常被 Engine A 拒收，走不到这里；若有人把它
+        # 移出拒收名单（spec §6.4 的回归形状），未注册阈值仍不得上桌。
+        episode_watch_gate = apply_market_watch_delivery_gate(
+            answer_text,
+            question_type=task_frame.question_type,
+            grid_text=evidence_grid_text(citations),
+        )
+        answer_text = episode_watch_gate.text
+        if episode_watch_gate.applied:
+            self._trace(
+                run_id,
+                assistant_message_id,
+                conversation_id,
+                "deliver",
+                "market_watch_delivery_gate",
+                {"applied": True, "dropped": episode_watch_gate.dropped},
+            )
+        if episode_watch_gate.applied and episode_watch_gate.dropped:
+            watch_warning = "market_watch_delivery_gate"
+            warnings.append(watch_warning)
+            self.run_store.add_degrade(run_id, watch_warning)
+        self._trace_reading_direction_gate(
+            run_id=run_id,
+            assistant_message_id=assistant_message_id,
+            conversation_id=conversation_id,
+            text=answer_text,
+            sources=(result,),
+            standing=result.as_of,
+        )
+        answer_text = append_unverified_forecast_grids(
+            answer_text,
+            question_type=task_frame.question_type,
+            open_gaps=result.open_gaps,
         )
         # 上下文增长只在私有 artifact 的事件流里有据可查，而那份 artifact 不进
         # 用户可见面。token 计数本身不是敏感信息（不含问题、证据或提示词），
@@ -3878,6 +4250,11 @@ class TurnOrchestrator:
                 open_gaps=result.open_gaps,
                 status=result.status,
                 subject_kind=str(task_frame.subject_kind or ""),
+                same_bind=stance_pack is not None,
+                standing_date=str(
+                    getattr(stance_pack, "standing_date", "") or ""
+                ),
+                question_type=str(task_frame.question_type or ""),
             )
             gap_followups = followups_svc.active_composer().compose(
                 followup_state,
@@ -3980,12 +4357,11 @@ class TurnOrchestrator:
             ).payload(),
             conversation_id,
         )
-        self._emit(
+        self._emit_bulk_text_delta(
             run_id,
             assistant_message_id,
             "continuous:text",
-            "text.delta",
-            {"delta": answer_text},
+            answer_text,
             conversation_id,
         )
         self._emit(
@@ -4078,6 +4454,64 @@ class TurnOrchestrator:
             content=current.content if current is not None else "",
             selected_skill_ids=tuple(selected),
             invoked_skill_ids=tuple(invoked),
+        )
+
+    def _emit_bulk_text_delta(
+        self,
+        run_id: str,
+        message_id: str,
+        event_id: str,
+        text: str,
+        conversation_id: str,
+    ) -> None:
+        """Push the finished answer as one delta — unless it already streamed.
+
+        **All three** bulk emit sites must go through here.  2026-08-23 live on
+        :8797 the guard was only wired into the ``ask`` lane's closure, and the
+        continuous lane (``continuous:text``) sailed straight past it: 832
+        streamed fragments totalling 1,229 chars, then one more 1,222-char
+        delta — the whole answer twice.  The following ``answer.snapshot``
+        replaced it within the same second so it was nearly invisible, which is
+        precisely why a grep for every ``"text.delta"`` emit is the check that
+        matters here, not a live eyeball.
+        """
+
+        if self._client_already_streamed(run_id, message_id):
+            return
+        self._emit(
+            run_id,
+            message_id,
+            event_id,
+            "text.delta",
+            {"delta": text},
+            conversation_id,
+        )
+
+    def _client_already_streamed(self, run_id: str, message_id: str) -> bool:
+        """True when live draft deltas already reached this message's client.
+
+        The model transport may stream the draft while it is being written
+        (``draft_publisher``).  When it did, the whole draft is already on the
+        user's screen, and this layer's own bulk ``text.delta`` would append a
+        second copy of it.
+
+        Asked against the stream log rather than threaded down from the
+        composition root on purpose: the log **is** the answer to "did anything
+        already cross to this client", it survives a reconnect/replay, and it
+        stays correct if a future transport starts streaming too. A flag passed
+        through four layers would only describe what we intended to do.
+        """
+
+        try:
+            events = self.run_store.load_stream_events(run_id)
+        except Exception:
+            # 读不到就当没流过：最坏是恢复到改动前的整段推送（可能重复一次），
+            # 而不是把正文整段吞掉。这一侧的失败必须偏向"多说"而非"不说"。
+            return False
+        return any(
+            event.get("event_type") == "text.delta"
+            and event.get("message_id") == message_id
+            for event in events
         )
 
     def _emit(
@@ -4303,6 +4737,37 @@ class TurnOrchestrator:
             "trace.step",
             {"step": step},
             conversation_id,
+        )
+
+    def _trace_reading_direction_gate(
+        self,
+        *,
+        run_id: str,
+        assistant_message_id: str,
+        conversation_id: str,
+        text: str,
+        sources: Sequence[object],
+        standing: str | None,
+    ) -> None:
+        """终稿影子闸。不改稿、不占 degrade、不看题型。门关不落步。"""
+
+        try:
+            receipt = apply_reading_direction_gate(
+                text,
+                observations=collect_direction_observations(*sources),
+                standing=standing,
+            )
+        except Exception:
+            return
+        if not receipt.applied:
+            return
+        self._trace(
+            run_id,
+            assistant_message_id,
+            conversation_id,
+            "deliver",
+            "reading_direction_gate",
+            receipt.payload(),
         )
 
     def _record_retrieval(

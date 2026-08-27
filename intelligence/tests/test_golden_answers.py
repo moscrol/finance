@@ -15,6 +15,7 @@ from pathlib import Path
 from unittest import mock
 
 from intelligence.services import ask, llm_refine
+from intelligence.services import evidence_registry
 from intelligence.services.ask import AskOptions, answer_query, render_answer
 from intelligence.services.closed_loop_retrieval import (
     BucketedHit,
@@ -77,11 +78,9 @@ class GoldenAnswerSnapshotTests(unittest.TestCase):
             use_modules=False,
             use_llm=False,
             synthesize=False,
-            include_memory_block=False,
-            include_recall_block=False,
-            include_valuation_block=False,
-            include_financials_block=False,
-            include_news_block=False,
+            enabled_providers=evidence_registry.without_providers(
+                "M", "V", "D5", "D7", "W7"
+            ),
             use_l3_lookup=False,
             shadow_grounded_composer=False,
             parallel_blocks=False,

@@ -614,7 +614,7 @@ class RecheckDigestTests(unittest.TestCase):
         self.assertIn("影响：", sec)
         self.assertIn("（本该由 market 判）", sec)
         self.assertIn("待补：", sec)
-        self.assertIn("daily-full --trade-date 2026-07-07", sec)
+        self.assertIn("run_review_sync.py --date 2026-07-07", sec)
 
     def test_digest_marks_spec_gap_as_no_query_sent(self) -> None:
         out = resolvers.resolve_checkpoint({"id": "ck-man", "metric": {"type": "manual"}})

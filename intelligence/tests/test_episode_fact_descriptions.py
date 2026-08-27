@@ -78,6 +78,20 @@ def test_supporting_evidence_demands_verbatim_numbers() -> None:
     assert "不得只作定性概括" in supporting
 
 
+def test_company_mapping_demands_code_and_role() -> None:
+    """P0-C：个股观察格必须写明代码和角色，不能只写「相关公司」。"""
+
+    context = build_episode_context(
+        _frame("general_finance_qa", ("company_mapping",)),
+        task_id="fact-desc-company-mapping",
+        capabilities=("market_data",),
+    )
+
+    description = _description(context, "company_mapping")
+    assert "代码" in description
+    assert "角色" in description or "机会" in description
+
+
 def test_non_market_slots_stay_unchanged() -> None:
     """通用槽位不背盘面数值要求——描述表是跨题型共享的。"""
     context = build_episode_context(

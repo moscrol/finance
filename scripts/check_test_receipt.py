@@ -72,6 +72,30 @@ def _git(*args: str) -> str:
     return out.stdout.strip() if out.returncode == 0 else ""
 
 
+def _git_status_lines() -> list[str]:
+    """porcelain 行，**整体不 strip**——与 ``conftest.py`` 同一个理由。
+
+    ``_git`` 的 ``.strip()`` 会吃掉首行 ``" M path"`` 的前导空格，随后
+    ``line[3:]`` 多切一个字符，该路径被静默丢弃。写方（conftest）和检方（本文件）
+    是同一份逻辑的两个拷贝，所以这个洞两边都有：写方会把收据记成干净树，
+    检方也不会在「你当前的树有未提交的代码改动」里列出那个文件。
+    """
+
+    try:
+        out = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if out.returncode != 0:
+        return []
+    return [line for line in out.stdout.splitlines() if line.strip()]
+
+
 # 与 conftest.py 共读 test-environment.json 的同两个字段，不各写一份。
 _CODE_PREFIXES = tuple(_SPEC.get("code_path_prefixes") or ())
 _DATA_EXCEPTIONS = tuple(_SPEC.get("data_path_exceptions") or ())
@@ -87,9 +111,7 @@ def _code_dirt() -> list[str]:
     """
 
     out: list[str] = []
-    for line in (_git("status", "--porcelain") or "").splitlines():
-        if not line.strip():
-            continue
+    for line in _git_status_lines():
         path = line[3:].strip().strip('"')
         if " -> " in path:
             path = path.split(" -> ", 1)[1]

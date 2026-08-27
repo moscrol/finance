@@ -62,8 +62,12 @@ class StructuredDailyUpdateStatusTest(unittest.TestCase):
                 no_chart=False,
                 stock_source="snapshot",
                 status_json=str(status_path),
+                direct=False,
             )
             with patch_preflight_ok(), patch(
+                "market_feature_store.write_path.is_canonical_production",
+                return_value=False,
+            ), patch(
                 "market_feature_store.sync.sync_daily_full.run_daily_update",
                 return_value=daily_update_result(ok=False, validation_ok=True),
             ):
@@ -85,8 +89,12 @@ class StructuredDailyUpdateStatusTest(unittest.TestCase):
                 no_chart=False,
                 stock_source="snapshot",
                 status_json=str(status_path),
+                direct=False,
             )
             with patch_preflight_ok(), patch(
+                "market_feature_store.write_path.is_canonical_production",
+                return_value=False,
+            ), patch(
                 "market_feature_store.sync.sync_daily_full.run_daily_update",
                 return_value=daily_update_result(ok=False, validation_ok=False),
             ):

@@ -294,7 +294,7 @@ class CockpitArtifactProvider:
             "复盘/matrices/strategy-review-workbench.html",
             "策略复盘工作台",
             "cockpit",
-            "复盘/matrices/strategy1-priority-stock-matrix.md",
+            "复盘/matrices/strategy1-priority-stock-matrix.html",
         ),
     )
 
@@ -359,10 +359,11 @@ class MatrixArtifactProvider:
                 continue
             if path.name == "strategy-review-workbench.html":
                 continue
-            canonical = context.repo_relative(path) if path.suffix == ".md" else None
-            sibling = path.with_suffix(".md")
-            if path.suffix == ".html" and sibling.is_file():
-                canonical = context.repo_relative(sibling)
+            canonical = context.repo_relative(path)
+            if path.suffix == ".md":
+                html_sibling = path.with_suffix(".html")
+                if html_sibling.is_file():
+                    canonical = context.repo_relative(html_sibling)
             yield _descriptor(
                 context,
                 path,

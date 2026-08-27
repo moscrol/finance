@@ -388,6 +388,7 @@ def test_completed_smoke_replays_sse_and_writes_redacted_summary(
         "elapsed_seconds",
         "retrieve_seconds",
         "judge_seconds",
+        "correlated_judge",
     }
     assert summary["secret_scan"]["hit_count"] == 0
     assert summary["public_scan"]["hit_count"] == 0

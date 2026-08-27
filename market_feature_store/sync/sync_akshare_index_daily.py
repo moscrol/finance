@@ -76,6 +76,42 @@ def _fetch_akshare_index(symbol: str, start_date: str, end_date: str) -> list[di
     return records
 
 
+def _fetch_fph_index(trade_date: str) -> list[dict]:
+    """上证兜底源: fupanhui reviews/market 的 volume.indices。
+
+    2026-08-21/08-24 两次实测: 本机代理把新浪+东财 SSL 同时掐断时,
+    akshare 两条路径都不可用, 但复盘会 market 接口正常。
+    volume.indices 只含请求日的 close/pct_chg, 因此仅支持单日兜底;
+    open/high/low/volume 留空 (列可 NULL)。
+    """
+    from ..sources import fupanhui_source as fs
+
+    data = fs.api_get(
+        "/api/v1/client/reviews/market",
+        {"trade_date": trade_date},
+        timeout=120,
+    )
+    volume = (data or {}).get("volume") or {}
+    for item in volume.get("indices") or []:
+        if str(item.get("code") or "") != "000001.SH":
+            continue
+        close = _num(item.get("close"))
+        if close is None:
+            continue
+        return [{
+            "trade_date": _parse_date(trade_date),
+            "open": None,
+            "high": None,
+            "low": None,
+            "close": close,
+            "volume": None,
+            "amount": None,
+            "pct_chg": _num(item.get("pct_chg")),
+            "source": "fupanhui:reviews/market.volume.indices",
+        }]
+    return []
+
+
 def sync_akshare_index_daily(
     trade_date: str | None = None,
     start_date: str | None = None,
@@ -99,11 +135,26 @@ def sync_akshare_index_daily(
             end = row[0] if row else datetime.today().date()
         if not start:
             start = end - timedelta(days=45)
-        records = _fetch_akshare_index(
-            symbol=symbol,
-            start_date=start.strftime("%Y%m%d"),
-            end_date=end.strftime("%Y%m%d"),
-        )
+        try:
+            records = _fetch_akshare_index(
+                symbol=symbol,
+                start_date=start.strftime("%Y%m%d"),
+                end_date=end.strftime("%Y%m%d"),
+            )
+            akshare_error = None
+        except Exception as exc:  # noqa: BLE001 - SSL 被代理掐断等, 走兜底前留根因
+            records = []
+            akshare_error = exc
+        if not records and trade_date:
+            # akshare 两条路径(新浪/东财)可同时被本机代理掐 SSL(2026-08-21/08-24 实测)。
+            # 兜底只覆盖请求日单日; 多日回填仍依赖 akshare, 缺口如实抛。
+            fallback = _fetch_fph_index(trade_date)
+            if fallback:
+                records = fallback
+            elif akshare_error is not None:
+                raise RuntimeError(
+                    f"AkShare 指数拉取失败且 fupanhui 兜底无数据: {akshare_error}"
+                ) from akshare_error
         if not records:
             raise RuntimeError(f"AkShare 未返回指数数据: {symbol} {start}~{end}")
         rows = []
@@ -111,6 +162,9 @@ def sync_akshare_index_daily(
         for item in records:
             close = item["close"]
             pct_chg = ((close / prev_close - 1) * 100) if close is not None and prev_close else None
+            if pct_chg is None:
+                # 单日兜底无 prev_close 可算, 用源端给的涨跌幅(如有)
+                pct_chg = item.get("pct_chg")
             if target_date is None or item["trade_date"] == target_date:
                 rows.append((
                     item["trade_date"],
@@ -121,7 +175,7 @@ def sync_akshare_index_daily(
                     item["low"],
                     item["volume"],
                     item["amount"],
-                    f"akshare:stock_zh_index_daily:{symbol}",
+                    item.get("source") or f"akshare:stock_zh_index_daily:{symbol}",
                     datetime.now(),
                 ))
             if close is not None:

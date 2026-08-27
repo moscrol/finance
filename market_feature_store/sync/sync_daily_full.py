@@ -127,6 +127,15 @@ def _run_advancers_chart(trade_date: str, chart_table: str | None = None) -> dic
     return {"output": str(output), "stdout": proc.stdout.strip()}
 
 
+def _run_compute_features(trade_date: str) -> dict:
+    """fact 写入后的派生层。漏跑就是「有行情、门禁红在 feature_*」。"""
+    if str(PROJECT_DIR) not in sys.path:
+        sys.path.insert(0, str(PROJECT_DIR))
+    from scripts.compute_features import compute_features
+
+    return compute_features(trade_date)
+
+
 def validate_daily_data(trade_date: str | None = None) -> dict:
     con = connect(read_only=True)
     try:
@@ -197,7 +206,6 @@ def run_daily_update(
 
     from .sync_fupanhui_sectors import sync_dim_sector
     from .sync_fupanhui_market_daily import sync_fupanhui_market_overview
-    from .sync_feishu_market_daily import sync_fact_market_daily
     from .sync_akshare_index_daily import sync_akshare_index_daily
     from .sync_akshare_sw_l1_daily import sync_akshare_sw_l1_daily
     from .sync_fupanhui_market_deviation import sync_market_deviation
@@ -217,7 +225,6 @@ def run_daily_update(
     steps.append(_run_step("sync-market-overview", sync_fupanhui_market_overview, trade_date=td, days=60))
     if not td:
         td = str(steps[-1]["result"].get("trade_date")) if steps[-1]["ok"] and steps[-1]["result"] else _latest_trade_date()
-    steps.append(_run_step("sync-market-daily", sync_fact_market_daily))
     steps.append(_run_step("sync-index-daily", sync_akshare_index_daily, trade_date=td))
     steps.append(_run_step("sync-sw-l1-daily", sync_akshare_sw_l1_daily, trade_date=td, days=20))
     steps.append(_run_step("sync-market-deviation", sync_market_deviation, trade_date=td))
@@ -238,6 +245,8 @@ def run_daily_update(
     steps.append(_run_step("sync-fupanhui-public-assets", sync_public_assets, td))
     if with_chart:
         steps.append(_run_step("advancers-chart", _run_advancers_chart, td, chart_table))
+    # fact 写完必须派生；漏这一步就是 08-20「有行情无 feature」半成品。
+    steps.append(_run_step("compute-features", _run_compute_features, td))
     validation = validate_daily_data(td)
     return {"trade_date": str(td), "steps": steps, "validation": validation, "ok": all(s["ok"] for s in steps) and validation["ok"]}
 

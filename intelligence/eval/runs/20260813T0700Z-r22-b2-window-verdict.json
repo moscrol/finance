@@ -1,0 +1,245 @@
+{
+  "generated_at": "20260813T064426Z",
+  "base": "http://127.0.0.1:8792",
+  "preflight_ok": true,
+  "preflight_detail": "revision=d4832797 backend=continuous_glm",
+  "cases": [
+    {
+      "case_id": "B2-theme-liquid-cooling",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "液冷",
+          "answer": "关于“液冷”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题并说明判断强度、chain_mapping、提供主要反证或竞争性解释。",
+          "run_id": "run_20260813_143837_161890",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "planning",
+            "planning",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 113.3,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "B4-fermentation-trace",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "电网设备是怎么发酵到 2026-07-23 双红的，把链路回溯一下",
+          "answer": "结构化证据绑定已通过边界校验，但语义核验因瞬时服务问题未完成；以下仅为候选草稿，不视为最终核验结论：\n直接判断：7月23日的“电网设备双红”可确认是板块价格与量能同步转强，但更像“反弹窗口中的题材集中爆发”，尚不能据现有材料确认由某一条政策、招标或订单消息单独点燃。板块当日涨幅约6%，成交额明显放大，边际量转强；成分股中既有中能电气、金冠股份等大幅上涨，也有金盘科技、汉缆股份、保变电气等不同市值标的同步走强，非单一小票拉动。\n链路回溯：前段先是承压并放量，7月17日及20日板块仍下跌但边际成交转正，说明分歧中已有交易承接；21日转为上涨，22日回撤且成交收缩，未形成放量破位；23日价格、成交和边际量同时跳升，构成盘面确认。其发生在市场反弹阶段，电力设备进入当日成交靠前行业，故资金先把“电网设备”作为电力设备内部的高弹性方向，再由涨停扩散强化辨识度，是目前最稳妥的盘面解释。\n反证与条件：当日市场总体仍是缩量观望，但涨停显著增多、跌停很少，且电子、通信同样居成交前列，说明普遍风险偏好修复和跨题材扩散也是重要竞争性解释。后续只有板块在分歧日仍维持资金承接、并出现可核验的投资/招标/业绩增量，才能把这次爆发升级为基本面主线；若量能回落且强势只剩少数高波动标的，则应视为情绪脉冲。当前缺少同时间窗的一手催化材料，不能把高温、AI用电或电网投资叙事认定为已核验的直接原因。",
+          "run_id": "run_20260813_144030_472851",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "板块日频行情（2026-07-17）",
+              "source": "本地结构化数据 · 板块日频行情",
+              "date": "2026-07-17"
+            },
+            {
+              "title": "板块日频行情（2026-07-20）",
+              "source": "本地结构化数据 · 板块日频行情",
+              "date": "2026-07-20"
+            },
+            {
+              "title": "板块日频行情（2026-07-21）",
+              "source": "本地结构化数据 · 板块日频行情",
+              "date": "2026-07-21"
+            },
+            {
+              "title": "板块日频行情（2026-07-22）",
+              "source": "本地结构化数据 · 板块日频行情",
+              "date": "2026-07-22"
+            },
+            {
+              "title": "板块日频行情（2026-07-23）",
+              "source": "本地结构化数据 · 板块日频行情",
+              "date": "2026-07-23"
+            },
+            {
+              "title": "市场日频总览（2026-07-23）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-23"
+            },
+            {
+              "title": "收评：超4200只个股上涨、百股涨停，电网设备锂矿板块集体走强",
+              "source": "https://finance.sina.cn/stock/dpps/2026-07-23/detail-iniiunce7864577.d.html?vt=4",
+              "date": "2026-07-23"
+            },
+            {
+              "title": "A股电网设备板块周四走强-中新网 - 中国新闻网",
+              "source": "https://www.chinanews.com.cn/cj/2026/07-23/10665088.shtml",
+              "date": "2026-07-23"
+            },
+            {
+              "title": "板块成分股日频行情（2026-07-23）",
+              "source": "本地结构化数据 · 板块成分股日频行情",
+              "date": "2026-07-23"
+            }
+          ],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 10,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 板块日频行情",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "板块日频行情（2026-07-17）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 板块日频行情",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "板块日频行情（2026-07-20）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E3",
+              "label": "[E3] 本地结构化数据 · 板块日频行情",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "板块日频行情（2026-07-21）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E4",
+              "label": "[E4] 本地结构化数据 · 板块日频行情",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "板块日频行情（2026-07-22）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E5",
+              "label": "[E5] 本地结构化数据 · 板块日频行情",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "板块日频行情（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E6",
+              "label": "[E6] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E7",
+              "label": "[E7] https://finance.sina.cn/stock/dpps/2026-07-23/detail-iniiunce7864577.d.html?vt=4",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "收评：超4200只个股上涨、百股涨停，电网设备锂矿板块集体走强",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E8",
+              "label": "[E8] https://www.chinanews.com.cn/cj/2026/07-23/10665088.shtml",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "A股电网设备板块周四走强-中新网 - 中国新闻网",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E9",
+              "label": "[E9] 本地结构化数据 · 板块成分股日频行情",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "板块成分股日频行情（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "9 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "planning",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "verification",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 235.8,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    }
+  ]
+}

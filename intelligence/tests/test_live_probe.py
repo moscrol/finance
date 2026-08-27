@@ -18,6 +18,7 @@ from intelligence.services.ask_llm_context import (
     maybe_persist_llm_context,
     persist_enabled,
 )
+from intelligence.services.gate_receipt import TABLE_COLUMNS
 from intelligence.services.run_store import RunStore
 
 
@@ -120,19 +121,9 @@ def test_gate_receipt_table_from_run_dir_uses_stable_columns(tmp_path: Path) -> 
         stale_in_answer=False,
     )
     row = probe.gate_receipt_table_from_run_dir(run_dir)
-    assert tuple(row) == (
-        "engine",
-        "rev",
-        "verified_status",
-        "judge_status",
-        "issue_count",
-        "judge_unavailable_count",
-        "content_degraded_count",
-        "elapsed_seconds",
-        "retrieve_seconds",
-        "judge_seconds",
-    )
+    assert tuple(row) == TABLE_COLUMNS
     assert row["engine"] is None
+    assert row["correlated_judge"] is None
 
 
 def test_inspect_does_not_treat_answer_body_as_first_hand(tmp_path: Path) -> None:
