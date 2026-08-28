@@ -47,8 +47,19 @@ from intelligence.services.task_frame import TaskFrame
 from intelligence.services.tool_payload import field_names_from_rows
 
 
-_FAST_PATH_TYPES = frozenset(
-    {"market_technical", "external_market", "quick_fact", "dated_market_review"}
+# runner 真能出零 LLM 答案的题型。``run_deterministic_fast_path`` 用它判
+# unsupported，adapter 的 ``CONTINUOUS_FAST_PATH_TYPES`` 直接引用它——同一
+# 支持集只写这一处，不再「名单说可以、执行者说不认识」（R-20260828-08）。
+FAST_PATH_RUNNER_SUPPORTED_TYPES = frozenset({"market_technical"})
+
+# A/B 评测分臂名单：命中即评测走确定性臂、跳过 episode。它只能包含生产
+# 不进 episode 的题型（adapter 拒接或 fast path），否则评测测的是生产
+# 不存在的空壳路径——quick_fact 曾因此在 R-20260828-05 后仍被评测按
+# 确定性臂跑「尚未接入」占位（F1 修了生产、评测臂没跟上的活漂移）。
+# services 不 import runtime，与 DETERMINISTIC_OWNER_TYPES 的包含关系由
+# tests/test_route_composition_gate.py 钉住（同 DO_NOT_LENGTHEN 手法）。
+_FAST_PATH_TYPES = FAST_PATH_RUNNER_SUPPORTED_TYPES | frozenset(
+    {"external_market", "dated_market_review"}
 )
 _SUPPORT_FOCUS_RE = re.compile(r"支撑")
 _RESISTANCE_FOCUS_RE = re.compile(r"反弹|上涨空间|压力|阻力")
@@ -1673,7 +1684,7 @@ def run_deterministic_fast_path(
     """Execute a preserved deterministic lane without entering AgentEpisode."""
 
     started = time.monotonic()
-    if frame.question_type != "market_technical":
+    if frame.question_type not in FAST_PATH_RUNNER_SUPPORTED_TYPES:
         return {
             "execution_kind": "deterministic_fast_path",
             "status": "partial",
@@ -1783,6 +1794,7 @@ def run_deterministic_fast_path(
 
 
 __all__ = [
+    "FAST_PATH_RUNNER_SUPPORTED_TYPES",
     "build_episode_registry",
     "is_deterministic_fast_path",
     "latest_market_date",
