@@ -243,5 +243,54 @@ class ResidentCardTests(unittest.TestCase):
         self.assertEqual(merged[0]["promotion"], "methodology")
 
 
+class PromotedToCodeTests(unittest.TestCase):
+    def test_load_skips_promoted_to_code_cards(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "cards.jsonl"
+            path.write_text(
+                json.dumps(
+                    {"question": "Q1", "promotion": "methodology", "prompt_rule": "keep"},
+                    ensure_ascii=False,
+                )
+                + "\n"
+                + json.dumps(
+                    {
+                        "question": "Q2",
+                        "promotion": "promoted_to_code",
+                        "prompt_rule": "drop",
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n"
+                + json.dumps(
+                    {"question": "Q3", "promotion": "candidate", "prompt_rule": "fresh"},
+                    ensure_ascii=False,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            loaded, warn = experience_cards.load_cards(path, window=0)
+        self.assertIsNone(warn)
+        self.assertEqual([c["question"] for c in loaded], ["Q1", "Q3"])
+
+    def test_promoted_to_code_is_not_resident(self) -> None:
+        cards = [
+            {
+                "question": "old",
+                "promotion": "promoted_to_code",
+                "prompt_rule": "already in code",
+                "ts": "t1",
+            },
+            {
+                "question": "live",
+                "promotion": "methodology",
+                "prompt_rule": "still resident",
+                "ts": "t2",
+            },
+        ]
+        resident = experience_cards.select_resident_cards(cards)
+        self.assertEqual([c["question"] for c in resident], ["live"])
+
+
 if __name__ == "__main__":
     unittest.main()

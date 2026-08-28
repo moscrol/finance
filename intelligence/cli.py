@@ -464,8 +464,8 @@ def add_answer_score_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument(
         "--promotion",
         default="candidate",
-        choices=["candidate", "promoted", "methodology"],
-        help="经验卡片状态",
+        choices=["candidate", "promoted", "methodology", "promoted_to_code"],
+        help="经验卡片状态（promoted_to_code=已固化进管线，load_cards 不再注入）",
     )
     parser.set_defaults(func=cmd_answer_score)
 

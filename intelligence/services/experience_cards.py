@@ -3,6 +3,10 @@
 经验卡片和知识库事实不同：它记录的是「以后该怎么回答/怎么检查」，不是公司或
 产业的客观事实。因此默认放在 ``users/<id>/experience_cards.jsonl``，由问答链路按
 问题相关性注入提示词。
+
+生命周期：``candidate`` → ``promoted`` / ``methodology``（常驻注入）→
+``promoted_to_code``（原则已进编排/契约/质检门，``load_cards`` 跳过）。
+``invalidated`` 是另一条出口：教训被证伪，同样不注入。
 """
 
 from __future__ import annotations
@@ -17,6 +21,9 @@ from intelligence.eval.finance_answer_rubric import FinanceAnswerScore
 
 DEFAULT_WINDOW = 12
 RESIDENT_PROMOTIONS = frozenset({"promoted", "methodology"})
+# 已固化进编排/契约/质检门的卡：留在 jsonl 可回放，但不再注入 prompt。
+# 与 invalidated 不同——那些是错的；这些是对的，再喂一遍是重复供给。
+ARCHIVED_PROMOTIONS = frozenset({"promoted_to_code"})
 DEFAULT_RESIDENT_LIMIT = 5
 
 
@@ -203,7 +210,8 @@ def load_cards(path: str | Path, window: int = DEFAULT_WINDOW) -> tuple[list[dic
 
     带 ``invalidated`` 标记的卡片会被跳过，不参与召回和规则生成：教训一旦被证明
     来自坏指标（而非真实缺陷），继续喂进 prompt 就是在教系统去迎合那个坏指标。
-    记录本身保留在 jsonl 里，便于回查「这条教训当时为什么被判为假」。
+    ``promotion=promoted_to_code`` 同样跳过：原则已固化进管线，再注入是重复供给。
+    记录本身保留在 jsonl 里，便于回查「这条教训当时为什么被判为假 / 为何退役」。
     """
     p = Path(path).expanduser()
     if not p.exists():
@@ -224,6 +232,8 @@ def load_cards(path: str | Path, window: int = DEFAULT_WINDOW) -> tuple[list[dic
         if not isinstance(obj, dict) or not str(obj.get("question") or "").strip():
             continue
         if obj.get("invalidated"):
+            continue
+        if str(obj.get("promotion") or "").strip() in ARCHIVED_PROMOTIONS:
             continue
         out.append(obj)
     if window and window > 0:
