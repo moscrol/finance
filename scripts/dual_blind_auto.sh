@@ -7,6 +7,11 @@
 set -uo pipefail
 
 WORKSPACE="/Users/a77/finance-workspace-private"
+# 2026-08-28：解释器钉 venv——宿主 /usr/bin/python3 是 3.9，import
+# intelligence.services.forecast_learning 在模块级 `str | None` 上直接
+# TypeError（3.10+ 语法），学习注入三步全部静默空跑（set -uo 无 -e，
+# LEARNING_CONTEXT 落空串继续）；venv 同时保证 duckdb 可用。
+VENV_PY="$WORKSPACE/.venv-workbench/bin/python"
 export FORESIGHT_USER="linxiaoqi5111"
 export FORESIGHT_USERS_DIR="/Users/a77/agent-memory/.foresight"
 export KNOWLEDGE_WIKI="/Users/a77/knowledge-base-private/wiki"
@@ -36,7 +41,7 @@ cd "$WORKSPACE" || exit 1
 echo "[$(date '+%F %T')] === 每日四问自动链开始 date=$D ==="
 
 # 视角日 = DuckDB 最新交易日（deltapull 09:00 先跑）
-P=$(/usr/bin/python3 -c "import duckdb;c=duckdb.connect('db/market_feature_store.duckdb',read_only=True);print(c.execute('select max(trade_date) from fact_market_daily').fetchone()[0])")
+P=$("$VENV_PY" -c "import duckdb;c=duckdb.connect('db/market_feature_store.duckdb',read_only=True);print(c.execute('select max(trade_date) from fact_market_daily').fetchone()[0])")
 if [ -z "$P" ] || [ "$P" = "None" ]; then
   echo "[$(date '+%F %T')] DuckDB 无交易日数据，退出"
   exit 1
@@ -49,20 +54,20 @@ echo "[$(date '+%F %T')] 视角日（DuckDB 截止）=$P"
 
 # 1. manifest 冻结（幂等：已存在则复用，保证双考生同一 manifest_sha）
 if [ ! -f "$LEDGER/$D.manifest.json" ]; then
-  /usr/bin/python3 scripts/dual_blind_forecast.py manifest --date "$D" --perspective "$P" \
+  "$VENV_PY" scripts/dual_blind_forecast.py manifest --date "$D" --perspective "$P" \
     --kb-root /Users/a77/knowledge-base-private || exit 1
 else
   echo "[$(date '+%F %T')] manifest 已存在，复用"
 fi
-MSHA=$(/usr/bin/python3 -c "import json;print(json.load(open('$LEDGER/$D.manifest.json'))['manifest_sha'])")
+MSHA=$("$VENV_PY" -c "import json;print(json.load(open('$LEDGER/$D.manifest.json'))['manifest_sha'])")
 
 # §8 批注只生成 pending 规则候选；答卷仅注入人工 approved 的 lessons/rules。
 mkdir -p logs
-/usr/bin/python3 -m scripts.forecast_learning_loop sync-reflections \
+"$VENV_PY" -m scripts.forecast_learning_loop sync-reflections \
   >> "logs/dual-blind.$D.learning.log" 2>&1 || true
-/usr/bin/python3 -m scripts.forecast_learning_loop sync-annotations \
+"$VENV_PY" -m scripts.forecast_learning_loop sync-annotations \
   >> "logs/dual-blind.$D.learning.log" 2>&1 || true
-LEARNING_CONTEXT=$(/usr/bin/python3 -m scripts.forecast_learning_loop prompt --limit 5)
+LEARNING_CONTEXT=$("$VENV_PY" -m scripts.forecast_learning_loop prompt --limit 5)
 
 prompt_for() {
   local agent="$1"
@@ -70,9 +75,9 @@ prompt_for() {
 你是双盲同题答卷的考生「$agent」。今天是 $D，观察视角日 $P（只能用截至 $P 收盘的数据）。
 
 严格按 docs/learning/dual-blind-forecast-template.md 与 docs/learning/forecast-question-templates.md 执行：
-1. 只用 $LEDGER/$D.manifest.json 冻结的输入（DuckDB db/market_feature_store.duckdb 截至 $P、知识库 commit）。可用 /usr/bin/python3 + duckdb 查询任何表，但不得使用 $P 之后的数据。
+1. 只用 $LEDGER/$D.manifest.json 冻结的输入（DuckDB db/market_feature_store.duckdb 截至 $P、知识库 commit）。可用 "$VENV_PY" + duckdb 查询任何表，但不得使用 $P 之后的数据。
 2. 独立完成 §0-§5 答卷，落机器可读 JSON 到 $LEDGER/$D.answer.$agent.json，schema_version "1.1"，agent 填 "$agent"，manifest_sha 填 "$MSHA"。先建 evidence_catalog，逐条登记 L1-L4、source/source_time、field/value、support/counter/neutral；stage_features 的每个 metric、标的、阈值和 hypotheses 都只能引用 catalog id；threshold_provenance 标固定规则/回测/机械推导/经验值；hypotheses 每条带 category/confidence/confidence_probability/evidence_as_of/falsify_when；recheck 留空对象。
-3. 落盘后跑 /usr/bin/python3 scripts/dual_blind_forecast.py validate $LEDGER/$D.answer.$agent.json，必须 OK，不 OK 就修到 OK。
+3. 落盘后跑 "$VENV_PY" scripts/dual_blind_forecast.py validate $LEDGER/$D.answer.$agent.json，必须 OK，不 OK 就修到 OK。
 4. 双盲纪律：禁止读取或参考另一位考生的答卷（$LEDGER/$D.answer.*.json 中非你名下的文件），禁止做对比、批注、裁决。
 5. 除答卷 JSON 外不要改动仓库任何文件，不要 git commit。
 
@@ -97,7 +102,7 @@ run_agent() {
     local attempt=1
     while :; do
       "$CLAUDE_BIN" -p "$(prompt_for claude)" \
-        --allowedTools "Read,Glob,Grep,Write,Edit,Bash(python3:*),Bash(/usr/bin/python3:*)" \
+        --allowedTools "Read,Glob,Grep,Write,Edit,Bash(python3:*),Bash(/Users/a77/finance-workspace-private/.venv-workbench/bin/python:*)" \
         >> "logs/dual-blind.$D.claude.log" 2>&1
       rc=$?
       [ -f "$LEDGER/$D.answer.claude.json" ] && { rc=0; break; }
@@ -119,12 +124,12 @@ ok=0
 for agent in codex claude; do
   f="$LEDGER/$D.answer.$agent.json"
   if [ -f "$f" ]; then
-    /usr/bin/python3 scripts/dual_blind_forecast.py validate "$f" && ok=$((ok+1)) \
+    "$VENV_PY" scripts/dual_blind_forecast.py validate "$f" && ok=$((ok+1)) \
       || echo "[$(date '+%F %T')] $agent 答卷 validate 失败"
   else
     echo "[$(date '+%F %T')] $agent 未落答卷"
   fi
 done
-/usr/bin/python3 scripts/dual_blind_forecast.py index --html
+"$VENV_PY" scripts/dual_blind_forecast.py index --html
 echo "[$(date '+%F %T')] === 每日四问自动链结束 通过答卷数=$ok/2 ==="
 [ "$ok" -ge 1 ] || exit 1
