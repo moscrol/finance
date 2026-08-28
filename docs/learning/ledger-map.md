@@ -18,7 +18,7 @@
 | 分叉蒸馏批记录 | `docs/learning/distill/<date>-<对照名>.md` | md（例外：人过闸裁决文档，md 即 canonical） | divergence-distill skill 会话 | 是 | — |
 | 晨汇 | 知识库仓 `wiki/briefings/<date>.md` | md | morning-briefing | 是 | `dashboard/briefings/<date>.html`（不提交） |
 | 晨汇原料 | 知识库仓 `wiki/raw/briefings/<date>/` | 原文 | morning-briefing | 是 | — |
-| 卖方原文 | 知识库仓 `wiki/raw/sellside/` | md/pdf 转写 | material-router | 是 | — |
+| 卖方原文 | 知识库仓 `wiki/raw/sellside/` | md/pdf 转写 | material-router（表定）/ 近月实写 sellside-coverage-cross | 是 | — |
 | 卖方观点事件 | 知识库仓 `wiki/raw/theme-radar/opinion-store/opinion-events.jsonl` | JSONL | opinion-cross | 是 | `复盘/winrate/*.html`（不提交） |
 | 机构胜率 | `~/kb_work/winrate_cache/` + `~/kb_work/winrate/` | md | refresh_winrate | 仓外 | 同上 |
 | 每日运营总账 | `build_daily_ops_ledger.py` 输出 | JSON | 该脚本 | 生成物 | cockpit |
@@ -29,6 +29,26 @@
 | 观测台薄账 | `docs/roadmap.md` | md（例外：md 即 canonical，不是渲染物） | 检阅方 | 是 | Phase 1 起 `var/observatory/index.html`（gitignored）；L2/曲线由生成器投影 |
 | 视角考卷（已知题/边题） | `intelligence/users/<id>/perspectives/exam/<pid>.json` | JSON | `perspective exam add` | 否（用户态） | `perspective exam run` 报告 |
 | 自用摩擦台账 | `docs/learning/self-use-ledger/<date>.jsonl` | JSONL | `scripts/self_use_ledger.py add`（只记真人使用，探针/评测不进账） | 是 | `summary` 子命令（Self-use Gate 读数，见目录 README） |
+
+## 保鲜状态（2026-08-28 P3 诊断）
+
+工单 `docs/superpowers/specs/2026-08-28-ledger-refresh-workorder.md`。结论：**不是定时任务故障，是手动投喂停更 + 自动采集源已空**。未补拉、未恢复任何退役链。双盲夜跑（`forecast-review-ledger` / reflections）仍按表内「夜跑已退役、仅手动」，本诊断不碰。
+
+| 台账 | 最近落点 | 缺档 | 触发方式 | 断因 | 证据 |
+|---|---|---|---|---|---|
+| 晨汇 / 晨汇原料 | `wiki/briefings/2026-08-20.md`（`#5400`，2026-08-22 入库）；原料同日 `wiki/raw/briefings/2026-08-20/` | 交易日 08-21、08-24–08-28（相对 08-28 共 6 个交易日）。08-22/23 周末，历史也常空 | **手动**：`morning-briefing` skill 要求用户开会话投喂 PDF/文字。无 crontab；LaunchAgents 无晨汇采集 plist | 无人投喂。渲染脚本 `render_briefing_html.py` 只吃已有 `wiki/briefings/D.md`，不能凭空生成 | skill 文首「每天盘前用户手动开会话」；`crontab -l` 空；`#5400` |
+| 卖方原文 | `wiki/raw/sellside/2026-08-17-调研纪要miracle.md`（`#5366`，2026-08-18 手贴入库） | 08-18 起无 miracle/原文。东方财富 RSSHub 快照更早停在 07-21 | **近月实写是手贴**，不是 launchd。`material-router` 已 frozen（2026-07 审计：日志零使用）。双盲 sellside/briefing plist 在 `~/Library/LaunchAgents/disabled-by-devin/`，属退役夜跑，不恢复 | 三层自动源都出不了货，手贴也停了 | 见下表 |
+
+卖方自动源（2026-08-28 实测）：
+
+| 通道 | 状态 | 证据 |
+|---|---|---|
+| `fetch_eastmoney_rsshub_sellside.py` → `localhost:1200` | 采集器不在跑 | `:1200` 连不上；仓内最后一份 `2026-07-21-东方财富RSSHub.md` |
+| `fetch_sellside.py` → FinHot `items-all.json` | 公共快照空 | HTTP 200，`{"items":[],"total":0,"filter":"watch","generatedAt":"2026-08-23T07:03:45.851Z"}`；`--dry-run --date 2026-08-17/18/28` 均「无匹配」 |
+| wechat2rss `:8090` | 已死（08-14 已登记，08-28 复核仍死） | 端口无响应；`com.finhot.wechat2rss-sync` 未加载；`~/wechat2rss-data/res.db` mtime 08-05 |
+| wechat-download-api `:5050` | 进程健康、库仍空 | `/api/health` healthy；`rss.db` `articles=0` / `subscriptions=39`（mtime 08-22）；`#5365/#5366` 写明频控，8/6 后抓不到，改手贴 |
+
+状态标签：**运营停更 + 自动源失效，待用户决策**（不是「已恢复」）。晨汇 / sellside-coverage-cross 技能本身未退役，只是没人投喂；自动采集三条路目前出不了货。缺档区间按上表登记，原因一律「无原文，禁止编造」。08-18 之后若用户再贴 miracle / 晨汇原料，走既有 skill 入库即可，不必先修采集器。
 
 ## 边界约定（去重复）
 
