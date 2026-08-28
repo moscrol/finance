@@ -37,6 +37,7 @@ from intelligence.services.episode_semantic_verifier import (
 )
 from intelligence.services.rejudge_pending import append_pending_from_artifact
 from intelligence.services.episode_tools import (
+    FAST_PATH_RUNNER_SUPPORTED_TYPES,
     build_episode_registry,
     run_deterministic_fast_path,
 )
@@ -76,7 +77,10 @@ from intelligence.runtime.turn_control_core import TurnControlResult
 
 RuntimeMode = Literal["off", "canary", "on"]
 ContinuousTurnStatus = Literal["completed", "partial", "degraded", "failed"]
-CONTINUOUS_FAST_PATH_TYPES = frozenset({"market_technical"})
+# episode 前零 LLM 快路径名单 = runner 支持集本身，不另抄一份：往这里加
+# 题型而 runner 不认识时，得到的是「尚未接入」占位而不是快路径答案
+#（R-20260828-08 对账门禁；等式另由 test_route_composition_gate 钉住防回退）。
+CONTINUOUS_FAST_PATH_TYPES = FAST_PATH_RUNNER_SUPPORTED_TYPES
 _SUCCESSFUL_REPAIR_STOP_REASONS = frozenset(
     {"model_finish", "repair_model_finish"}
 )
