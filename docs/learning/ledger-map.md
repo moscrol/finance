@@ -32,11 +32,11 @@
 
 ## 保鲜状态（2026-08-28 P3 诊断）
 
-工单 `docs/superpowers/specs/2026-08-28-ledger-refresh-workorder.md`。结论：**不是定时任务故障，是手动投喂停更 + 自动采集源已空**。未补拉、未恢复任何退役链。双盲夜跑（`forecast-review-ledger` / reflections）仍按表内「夜跑已退役、仅手动」，本诊断不碰。
+工单 `docs/superpowers/specs/2026-08-28-ledger-refresh-workorder.md`。结论：**卖方是微信 API 频控 + 手贴停更；晨汇不是同一条线**——原料在 IMA 浑水调研，经 `ima-fetch.cjs`（desktop bridge）拉 PDF，再交 `morning-briefing` 入库。未补拉、未恢复任何退役链。双盲夜跑仍按表内「夜跑已退役、仅手动」，本诊断不碰。
 
 | 台账 | 最近落点 | 缺档 | 触发方式 | 断因 | 证据 |
 |---|---|---|---|---|---|
-| 晨汇 / 晨汇原料 | `wiki/briefings/2026-08-20.md`（`#5400`，2026-08-22 入库）；原料同日 `wiki/raw/briefings/2026-08-20/` | 交易日 08-21、08-24–08-28（相对 08-28 共 6 个交易日）。08-22/23 周末，历史也常空 | **手动**：`morning-briefing` skill 要求用户开会话投喂 PDF/文字。无 crontab；LaunchAgents 无晨汇采集 plist | 无人投喂。渲染脚本 `render_briefing_html.py` 只吃已有 `wiki/briefings/D.md`，不能凭空生成 | skill 文首「每天盘前用户手动开会话」；`crontab -l` 空；`#5400` |
+| 晨汇 / 晨汇原料 | `wiki/briefings/2026-08-20.md`（`#5400`，2026-08-22 入库）；原料同日 `wiki/raw/briefings/2026-08-20/` | 库内缺 08-21 起。IMA 侧已有 08-21/22 合刊、0823–0825、0826–0828 | **IMA bridge**：`ima-desktop-bridge/scripts/ima-fetch.cjs` 搜浑水调研 → 拉 PDF → `morning-briefing` 入库。无 crontab。默认检索词是「路演调研日报 / 全量复盘 / 全量总结」 | 上游 PDF 还在；本地最后一次拉到 `~/Downloads/ima-briefings` 是 08-22。新文件改名「全市场路演调研…」，默认词搜不到；今晚 bridge `connected=false`（IMA 未开/插件未心跳），OpenAPI 能搜不能下 | `#5400` 来源写「IMA 浑水调研《路演调研全日汇总 0820.pdf》」；`ima-fetch search --kb 浑水调研 全市场路演` 命中 0828/0827/0826 等 |
 | 卖方原文 | `wiki/raw/sellside/2026-08-17-调研纪要miracle.md`（`#5366`，2026-08-18 手贴入库） | 08-18 起无 miracle/原文。东方财富 RSSHub 快照更早停在 07-21 | **近月实写是手贴**，不是 launchd。`material-router` 已 frozen（2026-07 审计：日志零使用）。双盲 sellside/briefing plist 在 `~/Library/LaunchAgents/disabled-by-devin/`，属退役夜跑，不恢复 | 三层自动源都出不了货，手贴也停了 | 见下表 |
 
 卖方自动源（2026-08-28 实测）：
@@ -48,7 +48,7 @@
 | wechat2rss `:8090` | 已死（08-14 已登记，08-28 复核仍死） | 端口无响应；`com.finhot.wechat2rss-sync` 未加载；`~/wechat2rss-data/res.db` mtime 08-05 |
 | wechat-download-api `:5050` | 进程健康、库仍空 | `/api/health` healthy；`rss.db` `articles=0` / `subscriptions=39`（mtime 08-22）；`#5365/#5366` 写明频控，8/6 后抓不到，改手贴 |
 
-状态标签：**运营停更 + 自动源失效，待用户决策**（不是「已恢复」）。晨汇 / sellside-coverage-cross 技能本身未退役，只是没人投喂；自动采集三条路目前出不了货。缺档区间按上表登记，原因一律「无原文，禁止编造」。08-18 之后若用户再贴 miracle / 晨汇原料，走既有 skill 入库即可，不必先修采集器。
+状态标签：**晨汇 = 上游仍有货、抓取词表/会话断了，待打开 IMA 再拉；卖方 = 微信频控，待用户决策**。不要把两条线当成同一个故障。晨汇缺档不是「无原文」——IMA 里有 PDF，只是还没拉进仓；卖方缺档仍是「无原文，禁止编造」。
 
 ## 边界约定（去重复）
 
