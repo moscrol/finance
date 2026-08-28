@@ -213,6 +213,85 @@ class L3IngestWorkflowTests(unittest.TestCase):
         self.assertTrue(any("landing=wiki_page" in line and "relations=false" in line for line in lines))
         self.assertTrue(any("东方钽业股票交易异常波动公告" in line for line in lines))
 
+    def test_apply_payload_entity_line_carries_announcement_id(self) -> None:
+        # 与夜批（auto_apply_rss_l3）共用去重键：写入行必须带 announcement_id
+        payload = l3_ingest.L3IngestResult(
+            company="东方钽业",
+            sources=("cninfo",),
+            days=30,
+            candidates=[
+                l3_ingest.L3FactCandidate(
+                    company="东方钽业",
+                    source_type="cninfo",
+                    title="关于签订重大销售合同的公告",
+                    summary="公司签订重大合同。",
+                    citation="https://www.cninfo.com.cn/new/disclosure/detail?stockCode=000962&announcementId=1225500634",
+                    fact_type="order_contract",
+                    evidence_layer="L3_official",
+                    hardness="high",
+                    disposition="candidate",
+                    reason="订单合同。",
+                )
+            ],
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            wiki = Path(tmp) / "wiki"
+            payload_path = Path(tmp) / "payload.json"
+            payload.write_json(payload_path)
+            _summary, result, _report = run_l3_apply(
+                L3ApplyWorkflowOptions(payload_path=payload_path, kb_wiki=wiki, apply=True)
+            )
+            entity_text = Path(result.entity_path).read_text(encoding="utf-8")
+
+        self.assertIn("announcement_id: 1225500634", entity_text)
+
+    def test_apply_payload_skips_announcement_already_on_entity_page(self) -> None:
+        # 实体页已有夜批格式的同公告行（含 announcement_id）→ 本侧不得重复追加
+        payload = l3_ingest.L3IngestResult(
+            company="东方钽业",
+            sources=("cninfo",),
+            days=30,
+            candidates=[
+                l3_ingest.L3FactCandidate(
+                    company="东方钽业",
+                    source_type="cninfo",
+                    title="关于签订重大销售合同的公告",
+                    summary="公司签订重大合同。",
+                    citation="https://www.cninfo.com.cn/new/disclosure/detail?stockCode=000962&announcementId=1225500634",
+                    fact_type="order_contract",
+                    evidence_layer="L3_official",
+                    hardness="high",
+                    disposition="candidate",
+                    reason="订单合同。",
+                )
+            ],
+        )
+        nightly_line = (
+            "- 2026-08-25 · 订单/重大合同 · 公司签订重大销售合同"
+            "（[巨潮](https://example)，archive_id: disc-cninfo-20260825-0003，"
+            "announcement_id: 1225500634）"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            wiki = Path(tmp) / "wiki"
+            entity = wiki / "entities" / "东方钽业.md"
+            entity.parent.mkdir(parents=True)
+            original = (
+                "---\ntitle: 东方钽业\nupdated: 2026-08-25\nrevision: 2\nsources: []\n---\n\n"
+                "# 东方钽业\n\n## L3 官方证据\n\n" + nightly_line + "\n"
+            )
+            entity.write_text(original, encoding="utf-8")
+            payload_path = Path(tmp) / "payload.json"
+            payload.write_json(payload_path)
+            _summary, result, _report = run_l3_apply(
+                L3ApplyWorkflowOptions(payload_path=payload_path, kb_wiki=wiki, apply=True)
+            )
+            entity_text = entity.read_text(encoding="utf-8")
+
+        self.assertEqual(entity_text, original)
+        self.assertEqual(result.updated_entities, [])
+        self.assertTrue(any("announcement_id" in w for w in result.warnings))
+        self.assertEqual(entity_text.count("1225500634"), 1)
+
     def test_apply_payload_attaches_ticker_to_named_entity(self) -> None:
         payload = l3_ingest.L3IngestResult(
             company="000831",
