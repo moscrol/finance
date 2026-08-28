@@ -14,6 +14,9 @@ from intelligence.services.honesty_gates import (
     empty_caliber_disclosure,
     retired_table_disclosure,
 )
+from intelligence.services.trading_calendar import (
+    question_has_retrievable_trading_day_range,
+)
 from intelligence.services.turn_controller import TurnDecision
 
 LLMComplete = Callable[[list[dict[str, str]]], tuple[str | None, object | None, str]]
@@ -49,8 +52,10 @@ def deterministic_lane_answer(query: str, decision: TurnDecision) -> str | None:
     if frame is not None:
         # 休市是日历事实，不限 quick_fact。C2 已走这条；C1「2026-07-25 市场
         # 怎么样」是 general_finance_qa/research，旧守卫放它进检索后答证据不足。
+        # 区间题（R4）：终点休市仍注入假设，但不能整题 canned，否则周内
+        # 峰值被吞。休市句由 with_calendar_disclosure 在检索后前置。
         disclosure = calendar_disclosure(frame)
-        if disclosure:
+        if disclosure and not question_has_retrievable_trading_day_range(query):
             return disclosure if disclosure.endswith("。") else f"{disclosure}。"
     bound = bound_caliber_disclosure(query)
     if bound is not None:

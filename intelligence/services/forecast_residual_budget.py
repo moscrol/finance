@@ -21,7 +21,6 @@ FORECAST_RESIDUAL_QUESTION_TYPE = "market_forecast"
 DO_NOT_LENGTHEN_QUESTION_TYPES = frozenset(
     {
         "external_market",
-        "quick_fact",
         "dated_market_review",
         "market_watch",
         "watchlist_digest",
