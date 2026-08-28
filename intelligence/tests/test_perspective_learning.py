@@ -281,6 +281,18 @@ class ReviewPatchTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "不可重复评审"):
                 perspective_learning.review_patch(us, "blogger_x", patch_id, approve=False)
 
+    def test_approve_reloads_disk_before_write(self) -> None:
+        """评审写回前重读磁盘：期间补上的 HOW 不得被入场时的内存副本盖掉。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            us, patch_id = self._pending_patch(tmp)
+            profile = perspective_lab.load_profile(us, "blogger_x")
+            profile["reasoning_patterns"] = [{"name": "人工 HOW", "rule": "先归因再动手"}]
+            perspective_lab._save_profile(us, profile)
+            perspective_learning.review_patch(us, "blogger_x", patch_id, approve=True)
+            disk = perspective_lab.load_profile(us, "blogger_x")
+            self.assertEqual(disk["reasoning_patterns"][0]["name"], "人工 HOW")
+            self.assertIn("高位后排放量冲高回落时降低仓位假设", disk["risk_triggers"])
+
     def test_missing_patch_clear_error(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             us, _ = _setup_with_article(tmp)

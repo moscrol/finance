@@ -647,5 +647,53 @@ class SignalNeedleTests(unittest.TestCase):
         self.assertEqual(ev["direction"], "none")
 
 
+class SaveProfileRatchetTests(unittest.TestCase):
+    """整表回写不得用更薄的内存副本盖掉磁盘上的人工字段。
+
+    失败形状（2026-08-28 风远）：review_patch / ingest 读出整份 profile 再写回。
+    调用方若拿着更早的薄副本（HOW 少、article_count=0、四表被种子覆盖）调用
+    `_save_profile`，磁盘上的收口会被抹掉。棘轮只认长度/计数下降，不认措辞改写。
+    """
+
+    def test_stale_thin_save_is_rejected_and_disk_untouched(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            perspective_lab.init_perspective(us, "blogger_x", display_name="某博主")
+            rich = perspective_lab.load_profile(us, "blogger_x")
+            rich["reasoning_patterns"] = [
+                {"name": "人工 HOW", "rule": "先归因再动手"},
+                {"name": "第二条", "rule": "冻结后才能论升级"},
+            ]
+            rich["opportunity_preferences"] = ["条件齐备才进", "不接飞刀"]
+            rich["confidence"]["article_count"] = 14
+            rich["confidence"]["profile_confidence"] = "medium"
+            perspective_lab._save_profile(us, rich)
+
+            stale = perspective_lab.default_profile("blogger_x", "某博主", "blogger")
+            stale["id"] = "blogger_x"
+            with self.assertRaises(perspective_lab.ProfileRegressionError) as ctx:
+                perspective_lab._save_profile(us, stale)
+            self.assertIn("article_count 14→0", str(ctx.exception))
+            self.assertIn("reasoning_patterns 2→0", str(ctx.exception))
+
+            disk = perspective_lab.load_profile(us, "blogger_x")
+            self.assertEqual(len(disk["reasoning_patterns"]), 2)
+            self.assertEqual(disk["confidence"]["article_count"], 14)
+            self.assertEqual(disk["opportunity_preferences"], ["条件齐备才进", "不接飞刀"])
+
+    def test_same_length_rephrase_is_allowed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            perspective_lab.init_perspective(us, "blogger_x")
+            profile = perspective_lab.load_profile(us, "blogger_x")
+            profile["anti_patterns"] = ["价格跌幅不是加仓理由"]
+            perspective_lab._save_profile(us, profile)
+            profile = perspective_lab.load_profile(us, "blogger_x")
+            profile["anti_patterns"] = ["价格跌幅不是提高仓位的理由"]
+            perspective_lab._save_profile(us, profile)
+            disk = perspective_lab.load_profile(us, "blogger_x")
+            self.assertEqual(disk["anti_patterns"], ["价格跌幅不是提高仓位的理由"])
+
+
 if __name__ == "__main__":
     unittest.main()
