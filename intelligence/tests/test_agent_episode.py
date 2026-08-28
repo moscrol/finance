@@ -939,7 +939,11 @@ def test_deadline_after_successful_finalize_keeps_the_just_written_draft(
 def test_deadline_after_tool_turn_does_not_invent_a_draft(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """工具轮 consume 失败仍停机，不得假装已经交卷，也不得再跑工具。"""
+    """工具轮 consume 失败仍停机，不得假装已经交卷。
+
+    R-20260828-06 把「不得再跑工具」收成：本轮已发出的 tool_calls 必须
+    flush，然后停，不得再开一轮模型。发明稿仍禁止。
+    """
 
     frame = _frame()
     base = _context(frame, max_steps=2)
@@ -964,23 +968,24 @@ def test_deadline_after_tool_turn_does_not_invent_a_draft(
     runner_calls = {"n": 0}
 
     def counting_runner(query: str, tool_context: AgentToolContext):
-        del query, tool_context
         runner_calls["n"] += 1
-        raise AssertionError("deadline after a tool turn must not execute tools")
+        return _successful_runner(query, tool_context)
 
     outcome = ContinuousAgentEpisode(
-        ScriptedModel([_tool_turn("不应执行")])
+        ScriptedModel([_tool_turn("本轮已发出的补查")])
     ).run(
         task_frame=frame,
         context=context,
         registry=_market_registry(counting_runner),
     )
 
-    assert runner_calls["n"] == 0
+    assert runner_calls["n"] == 1
+    assert outcome.evidence
     assert outcome.stop_reason == "deadline_exhausted"
     assert outcome.draft == ""
     finish = next(event for event in outcome.events if event.kind == "finish")
     assert finish.payload["carried_draft_chars"] == 0
+    assert any(event.kind == "tool_result" for event in outcome.events)
 
 
 def test_repair_retries_transient_model_error_once_then_finishes() -> None:

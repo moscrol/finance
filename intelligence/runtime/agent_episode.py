@@ -975,6 +975,23 @@ class ContinuousAgentEpisode:
                         carried_draft=carried_draft,
                         carried_bindings=carried_bindings,
                     )
+                # R-20260828-06：LLM 这轮已经发生，tool_calls 是产出。
+                # 丢掉等于编译完把查询扔掉。flush 后停机，不发明稿、不开下一轮。
+                if (
+                    turn.tool_calls
+                    and not finalization_started
+                    and not self._is_cancelled()
+                ):
+                    tool_calls, invalid_actions = self._flush_pending_tools(
+                        turn=turn,
+                        tool_session=tool_session,
+                        registry=registry,
+                        context=context,
+                        accumulator=accumulator,
+                        model_elapsed=model_elapsed,
+                        tool_calls=tool_calls,
+                        invalid_actions=invalid_actions,
+                    )
                 return self._stopped_outcome(
                     task_frame=task_frame,
                     status="partial" if accumulator.evidence else "failed",
@@ -2033,6 +2050,50 @@ class ContinuousAgentEpisode:
             {proposal.call_id: proposal.request_extras()},
             max(0.0, monotonic() - started),
         )
+
+    def _flush_pending_tools(
+        self,
+        *,
+        turn: ModelTurn,
+        tool_session: object,
+        registry: ResearchToolRegistry,
+        context: ResearchRunContext,
+        accumulator: _EpisodeToolAccumulator,
+        model_elapsed: float,
+        tool_calls: int,
+        invalid_actions: int,
+    ) -> tuple[int, int]:
+        """Dispatch tool_calls already returned by this model turn.
+
+        remaining_slots gates *new* turns. This mailbox is already full, so
+        flush even when the call ledger is at zero.
+        """
+
+        execute = getattr(tool_session, "execute", None)
+        if not callable(execute) or not turn.tool_calls:
+            return tool_calls, invalid_actions
+        remaining = max(
+            len(turn.tool_calls),
+            self._remaining_tool_slots(context=context, tool_calls=tool_calls),
+        )
+        batch_started = monotonic()
+        batch = execute(
+            turn.tool_calls,
+            registry=registry,
+            context=context,
+            remaining_slots=remaining,
+            is_cancelled=self._is_cancelled,
+            turn_elapsed_at_dispatch=model_elapsed,
+        )
+        batch_elapsed = max(0.0, monotonic() - batch_started)
+        tool_calls += batch.executed_count
+        invalid_actions += accumulator.consume(batch, context)
+        _settle_batch_calls(
+            context.root_budget,
+            executed_count=batch.executed_count,
+            batch_elapsed=batch_elapsed,
+        )
+        return tool_calls, invalid_actions
 
     @staticmethod
     def _remaining_tool_slots(
