@@ -101,10 +101,12 @@ _COLD_RESTART_STOP_REASONS = frozenset(
 # their client timeout while the socket unwinds. Reserve judge + 10s grace
 # so a full research burn still leaves one dispatchable attempt.
 DEFAULT_VERIFICATION_RESERVE_SECONDS = DEFAULT_JUDGE_TIMEOUT_SECONDS + 10.0
+# quick_fact 不在此列（R-20260828-05）：排名/过滤/区间取值必须进 episode
+# 才能碰到 finance_query。单日休市仍由 deterministic_lane_answer 在
+# adapter 之前 canned（C1/C2），不依赖本集合。
 DETERMINISTIC_OWNER_TYPES = frozenset(
     {
         "external_market",
-        "quick_fact",
         "dated_market_review",
         "market_watch",
         "watchlist_digest",

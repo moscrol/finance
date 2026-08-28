@@ -2935,7 +2935,6 @@ def test_market_technical_uses_zero_llm_fast_path() -> None:
     "question_type",
     (
         "external_market",
-        "quick_fact",
         "dated_market_review",
         "market_watch",
         "watchlist_digest",
@@ -2976,6 +2975,45 @@ def test_legacy_deterministic_owner_types_are_declined_without_dependencies(
     assert result.answer == ""
     assert result.private_artifact is None
     assert "支撑位或压力位" not in result.answer
+
+
+def test_structured_quick_fact_enters_episode_instead_of_declining() -> None:
+    """R-20260828-05 F1：排名/过滤类 quick_fact 必须进 episode，不能 decline。
+
+    单日休市仍由 deterministic_lane_answer 在 adapter 之前 canned（C1/C2），
+    不依赖本集合。本测只钉入口：handle 必须走到 context_factory。
+    """
+
+    frame = _frame(question_type="quick_fact")
+    calls: list[str] = []
+
+    def track(name):
+        def call(*_args, **_kwargs):
+            calls.append(name)
+            raise RuntimeError("stop-after-entry")
+
+        return call
+
+    class Runtime:
+        run = track("runtime")
+
+    class Semantic:
+        verify = track("semantic")
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        mode="on",
+        context_factory=track("context"),
+        registry_factory=track("registry"),
+        fast_path_runner=track("fast_path"),
+        structural_verifier=track("structural"),
+        semantic_verifier=Semantic(),
+        task_id_factory=lambda: "quick-fact-entry",
+    ).handle(frame=frame, control=_control(frame))
+
+    assert "context" in calls
+    assert "fast_path" not in calls
+    assert result.handled is not False or "context" in calls
 
 
 def test_market_technical_gap_hides_provider_diagnostic() -> None:

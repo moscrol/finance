@@ -445,6 +445,68 @@ def _subject_exited_universe(
     return served < dataset_max
 
 
+def _probe_filtered_universe_exit(
+    query_engine: finance_query.FinanceQuery,
+    spec: finance_query.FinanceQuerySpec,
+    *,
+    context: ResearchRunContext,
+    tool_context: agent_research.AgentToolContext,
+    dataset_label: str,
+) -> ToolRunResult | None:
+    """问句日无行时，探测「该筛选条件最后一次出现」是否构成要素退出。
+
+    与 stale 路径的差别：历史授权的定点查询 served_date 为空，不会走进
+    `_is_current_query_stale`。空结果若只说「无结果」，模型会把「航空发动机」
+    放宽成「航空」（R5 live）。探针失败 fail-closed，仍走原来的空结果。
+    """
+
+    if not spec.filters or spec.time_range is None:
+        return None
+    requested = spec.time_range.end or spec.time_range.start
+    if requested is None:
+        return None
+    time_field = next(
+        (item for item in spec.dimensions if item in {"trade_date", "as_of"}),
+        "trade_date",
+    )
+    last_spec = replace(
+        spec,
+        time_range=None,
+        order_by=(finance_query.Order(field=time_field, direction="desc"),),
+        limit=1,
+    )
+    try:
+        last_result = query_engine.run(
+            last_spec,
+            information_cutoff=context.information_cutoff,
+            deadline=tool_context.deadline,
+            is_cancelled=tool_context.is_cancelled,
+        )
+        dataset_max = query_engine.dataset_max_date(
+            spec,
+            information_cutoff=context.information_cutoff,
+            deadline=tool_context.deadline,
+            is_cancelled=tool_context.is_cancelled,
+        )
+    except finance_query.FinanceQueryError:
+        return None
+    if not _subject_exited_universe(
+        served_date=last_result.served_date,
+        dataset_max_date=dataset_max,
+        floor=requested,
+    ):
+        return None
+    return _exited_universe_result(
+        last_result,
+        capability="finance_query",
+        provider="duckdb_semantic_query",
+        dataset_label=dataset_label,
+        dataset_max_date=str(dataset_max),
+        detail=f"dataset={spec.dataset}; subject_exited_universe",
+        spec=spec,
+    )
+
+
 def _exited_universe_result(
     result: finance_query.FinanceQueryResult,
     *,
@@ -1290,6 +1352,16 @@ def build_episode_registry(
                     detail=f"dataset={value.dataset}; stale_current_data",
                     spec=bounded_value,
                 )
+            if not result.evidence and bounded_value.filters:
+                exit_result = _probe_filtered_universe_exit(
+                    query_engine,
+                    bounded_value,
+                    context=context,
+                    tool_context=tool_context,
+                    dataset_label=value.dataset,
+                )
+                if exit_result is not None:
+                    return exit_result
             gaps = (
                 ()
                 if result.evidence

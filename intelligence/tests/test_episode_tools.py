@@ -2034,6 +2034,95 @@ def test_finance_query_date_filter_is_compensated_not_rejected(
     assert "trade_date eq 2026-07-24" in observation.observation
 
 
+def test_empty_filtered_sector_query_discloses_universe_exit(
+    tmp_path: Path,
+) -> None:
+    """R-20260828-06 R5：问句日无行但板块曾在清单里，必须披露构成要素退出。
+
+    live 现场：contains「航空发动机」→「结构化查询无结果」→ 模型放宽成「航空」，
+    近邻替代。空结果要把「最后一次出现 + 其后退出」交给模型，不能只说无结果。
+    """
+
+    finance_root = tmp_path / "finance"
+    db_path = finance_root / "db" / "market_feature_store.duckdb"
+    db_path.parent.mkdir(parents=True)
+    connection = duckdb.connect(str(db_path))
+    connection.execute(
+        """
+        create table fact_sector_daily(
+            trade_date date,
+            sector_ts_code varchar,
+            sector_name varchar,
+            pct_chg double,
+            amount double,
+            diff_ratio double
+        )
+        """
+    )
+    connection.executemany(
+        "insert into fact_sector_daily values (?, ?, ?, ?, ?, ?)",
+        [
+            ("2026-07-24", "990001.FI", "航空发动机", 1.2, 100.0, 2.0),
+            ("2026-08-19", "990002.FI", "航空", -4.3, 261.26, 73.8),
+            ("2026-08-19", "990003.FI", "芯片", -6.49, 11075.22, 2.85),
+        ],
+    )
+    connection.close()
+    frame = TaskFrame(
+        raw_question="2026-08-19 航空发动机板块的边际量和成交额是多少",
+        user_goal="取指定交易日板块边际量与成交额",
+        question_type="quick_fact",
+        subject="航空发动机",
+        subject_kind="theme",
+        market_scope="A股",
+        timeframe="2026-08-19",
+        required_outputs=("fact_value",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="current_fact_evidence",
+        confidence=0.95,
+    )
+    context = build_episode_context(
+        frame,
+        task_id="r05-retired-sector-exit",
+        capabilities=("market_data", "finance_query"),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-08-28",
+        latest_data_date="2026-08-27",
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=finance_root,
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+    result = registry.execute(
+        "finance_query",
+        {
+            "dataset": "sector_daily",
+            "metrics": ["amount", "marginal_volume_pct"],
+            "dimensions": ["sector_name", "trade_date"],
+            "filters": [
+                {"field": "sector_name", "op": "contains", "value": "航空发动机"}
+            ],
+            "time_range": {"start": "2026-08-19", "end": "2026-08-19"},
+            "group_by": [],
+            "order_by": [],
+            "limit": 5,
+        },
+        context=context,
+        step_id="r05-retired-sector-exit:1",
+    )
+
+    assert "构成要素退出" in result.observation
+    assert "2026-07-24" in result.observation
+    assert "结构化查询无结果" not in result.observation
+    assert "261.26" not in result.observation
+
+
 @pytest.mark.parametrize(
     ("failure", "failure_code", "expected_gap"),
     [

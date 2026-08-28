@@ -3,6 +3,7 @@ from datetime import date
 from intelligence.services.trading_calendar import (
     next_trading_day,
     non_trading_day_note,
+    question_has_retrievable_trading_day_range,
     question_non_trading_note,
     trading_day_prompt_block,
 )
@@ -122,3 +123,20 @@ def test_question_note_extracts_full_dates_only() -> None:
     # 无年份写法的年份归属在 query_understanding，这里刻意放过。
     assert question_non_trading_note("7.25 市场怎么样") is None
     assert question_non_trading_note("今天市场怎么样") is None
+
+
+def test_range_with_trading_day_is_retrievable_even_if_endpoint_is_rest() -> None:
+    """R4：08-18 到 08-22（终点周六）仍有可检索交易日，禁止整题休市罐头。"""
+
+    query = "2026-08-18 到 2026-08-22 这一周，全市场哪天成交额最高，是多少"
+    assert question_has_retrievable_trading_day_range(query) is True
+    # 单日休市：没有第二个可检索日，仍走罐头。
+    assert question_has_retrievable_trading_day_range("2026-07-25 市场怎么样") is False
+    assert question_has_retrievable_trading_day_range("2026-02-17 涨停家数多少") is False
+    # 两端都休（周六到周日）也没有可检索日。
+    assert (
+        question_has_retrievable_trading_day_range(
+            "2026-08-22 到 2026-08-23 成交额多少"
+        )
+        is False
+    )
