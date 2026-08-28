@@ -663,6 +663,46 @@ def test_current_market_mainline_is_not_a_static_definition() -> None:
     assert envelope.subject_kind == "market_pattern"
 
 
+def test_market_watch_recall_widening_covers_workorder_variants() -> None:
+    """工单 2026-08-27-market-watch-recall-workorder：表内 5 变体全召回。
+
+    前两条是既有行为锚；后三条是本单放宽（插词 / 语序反 / 本周入时间词表）。
+    """
+
+    assert query_understanding.is_market_watch_query("目前市场的主线是什么")
+    assert query_understanding.is_market_watch_query("现在市场的主线方向有哪些")
+    assert query_understanding.is_market_watch_query("当前A股最强的主线是哪条")
+    # 空格排版变体由 is_market_watch_query 的空白归一化吃掉
+    assert query_understanding.is_market_watch_query("当前 A 股最强的主线是哪条")
+    assert query_understanding.is_market_watch_query("市场资金现在在围绕什么主线交易")
+    assert query_understanding.is_market_watch_query("本周市场主线有没有发生切换")
+
+
+def test_market_watch_recall_widening_does_not_swallow_theme_questions() -> None:
+    """防吞题材回归——identifier 注释里的两条历史伤疤 + 新分支的边界。
+
+    放宽召回的每一步都必须保住：题材问句不得被送去跑全市场日报。
+    """
+
+    assert not query_understanding.is_market_watch_query("固态电池市场处于什么阶段")
+    assert not query_understanding.is_market_watch_query("固态电池现在处于什么阶段")
+    assert not query_understanding.is_market_watch_query("固态电池当前主线逻辑是什么")
+    # 新增「市场资金…主线」分支锚在分句首：题材名开头的问句不得命中
+    assert not query_understanding.is_market_watch_query("液冷市场资金在追什么主线")
+    # 「本周」进时间词表后，后面必须紧跟市场名词才算盘面题
+    assert not query_understanding.is_market_watch_query("本周固态电池主线有没有切换")
+
+
+def test_recalled_mainline_variants_route_to_market_watch_envelope() -> None:
+    for question in (
+        "当前A股最强的主线是哪条",
+        "市场资金现在在围绕什么主线交易",
+        "本周市场主线有没有发生切换",
+    ):
+        envelope = understand_query(question)
+        assert envelope.question_type == "market_watch", question
+
+
 # --- 带日期的盘面细分题必须进 daily-review（2026-08-01 A 组基线根因）-----------
 #
 # A 组 10 道验收题首跑 0/10，7 道没产出可用答案。根因是 _DATED_MARKET_REVIEW_RE
