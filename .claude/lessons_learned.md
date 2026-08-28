@@ -423,3 +423,16 @@
   未提交工作丢失时，从 transcript 按序重放同起点的确定性编辑可以保真重建，
   重建后用「测试读数逐数对齐 + 变异击杀数对齐」当等价证明。**
 
+## [kb] 年报 L2 构成别名（2026-08-27）
+
+- **[2026-08-27] `endswith("点")` 会误杀「糕点」；`CONCEPT_SEGMENT_ALIASES` 同键后写覆盖。**
+  根因：桃李 `面包及糕` 改写成 `面包及糕点` 后被丢掉；电力设备别名第二次写入把开关设备/电容器/防爆/专用设备制造吃掉，华荣/白云停在 related/medium。
+  做法：糕点列入 `_valid_seg_name` 例外；改别名后 `rg '"电力设备":'` 必须只剩一处。智能家居页不能当 canonical seed。
+
+
+## 复盘管线
+
+- **[2026-08-27] 定时 finalize 三连败（iCloud EAGAIN → L2 门 → content_delta cap），手动补跑一次全踩。**
+  根因：① 19:17 补跑已产出当日增量 tar.gz，20:40 export 再写同一路径撞 iCloud File Provider EAGAIN（Errno 11）；② nightly 主脚本在 `l2-paused.flag` 存在时 `export L2_PAUSED=1`，手动跑 `intelligence.cli daily` 不经过主脚本 → 环境变量丢失，渲染步内嵌的 check_daily_review_data（默认 `--phase all`）把 L2 欠账当失败 rc=2；③ kb 仓未跟踪大队列 15.6MB 超 content_delta 10MB cap。
+  做法：① 旧包 `mv` 改名让路不 rm；② 手动补跑必抄全 plist env（L2_PAUSED=1 + venv PATH 前置）；③ 大队列 park 到 `~/kb_work/park/<date>/`，不扩 cap。
+  **可迁移原则：定时任务的 env 是隐性接口，「在我 shell 里能跑」≠「在 launchd 语境能跑」，手动重放必须从 plist/主脚本抄全环境；stderr 为空而 rc≠0 时结论常在 stdout（gate 类脚本习惯），别只盯 stderr；用错解释器复现错误会造出红鲱鱼（venv 缺 markdown 假根因），复现必须用与失败现场相同的解释器。**

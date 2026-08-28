@@ -88,7 +88,9 @@ python3 skills/duckdb-backfill/scripts/backfill_dragon_seats_full.py --start-dat
 
 写锁约束：DuckDB 单写者，线上 agent API 服务（`uvicorn intelligence.api.app`，端口 8792）在跑时会占写锁，批量回填得在其停止的写窗口进行，或走 `daily-full` 既有写窗口。
 
-## 已知问题（2026-06-20 更新）
+## 已知问题（2026-08-27 更新）
+
+- **🔴 快照禁止补历史日（2026-08-27 取证的两起整分区覆盖事故）**：东财快照只反映「最近一个交易日」，`sync-stock-daily-snapshot` 对历史 `trade_date` 执行会把**当前快照值盖到所传日期上**，行数全对、覆盖率审计全绿。实锤两起：07-22 00:36 补写 2026-07-20（整分区变成 07-21 数据，5526/5526 行同值）；08-09 23:05 补写 2026-08-06（整分区变成 08-07 数据，例：立新能源真 08-06 跌停 -9.9% 被覆盖成 +7.96%）。`sync_eastmoney_stock_snapshot.py` docstring 写明了这一限制但没有闸门。**硬规则：补任何非当日的 stock-daily 一律走 mootdx；快照只允许当日盘后。** 检测与修复：`python3 skills/duckdb-backfill/scripts/repair_duplicated_stock_daily.py --scan`（只读，发现复制对退出码 1，可进门禁），修复流程见该脚本 docstring（mootdx 取真值 → 与 fact_sector_stock_daily 交叉验证 → `--apply` 单事务 upsert；截至 2026-08-27 两个分区待修，等四臂实验收尾 + 8792/8796 写窗口）。后续应在 `sync_eastmoney_stock_snapshot.py` 加 fail-closed 闸门（所传 trade_date ≠ 快照实际数据日即拒写，需另开分支改核心代码）。
 
 - **sync-market-deviation tooltip 提取失败**：`sync-market-deviation` 通过 hover K 线图 tooltip 提取周均线/偏离度，偶发失败。Fallback：手动查询最近 5 个交易日上证收盘价，计算 MA5，然后直接 SQL 写入：
   ```sql

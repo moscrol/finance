@@ -14,10 +14,10 @@
 已提交 `b61664d7`。用户 jsonl（gitignore）已改：13 卡 `promoted_to_code`；纠偏 1/2/3/5 两边 `memory_status` 归档。8792 **未**切本枝、**未**开 auth。实验台账/探针未提交。
 
 ## 未验证 / 已知边界
-- 未对 8792 跑 live ask 确认注入字数为 0（生产 `FORESIGHT_USERS_DIR` 本来就没有 experience_cards.jsonl）
-- 未跑向导、未改 `start-finance-workbench`、未 kickstart
-- 未压 `ask_synthesis` 第二条 load 路径的 live 题（单测覆盖 `load_cards`）
-- 图谱 `::load_cards` 被 agent-memory auto-sync 收进 `179f92c9`，无独立 commit message
+- 合入门红：`merge-tree gitea/main` 撞 `prediction-ledger.md` 头行（基座 `e4276e00` 不在主干）。产品 diff 正交，rebase 后再合。
+- 定向测收据 dirty（41 条他人足迹），未在干净 worktree 复跑。
+- 未对 8792 跑 live ask；未跑向导 / 未改启动器 / 未 kickstart。
+- vault `.foresight` 那份卡未同步毕业（当前生产 env 不指那里）。
 
 ## 下一步
 1. 你确认后：`bash scripts/hosted-alpha-wizard.sh` → 改启动器 source alpha.env → kickstart → runbook §3
@@ -29,7 +29,7 @@
 - 现成 cloudflared 是 `a77-exec` 服务别的主机名。不要 `tunnel create` 第二条。
 
 ## 已验证
-`pytest` 经验卡+召回+auth+quota 50 绿；`graph_audit` 43 行/49 条 OK；`bash -n` 向导；真实 jsonl `load_cards(..., window=0)` 返回 0。
+定向 pytest **62P**（执行方写 50）；`graph_audit` 43/49；`bash -n` 向导；仓内 `load_cards(..., window=0)` = 0。检阅批注见日期快照。
 
 ## 工具沉淀盘点
 向导进 `scripts/hosted-alpha-wizard.sh`（换项目也会有「边缘认证要真人点控制台」）。`promoted_to_code` 是本仓记忆生命周期，不进 TOOLKIT。

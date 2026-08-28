@@ -27,7 +27,7 @@
 ## 验证
 
 - 红灯先行：`load_cards` 仍返回 Q2 / 召回含 e4
-- 绿灯：经验卡+召回+auth+quota 50 passed；`graph_audit` OK；真实文件 `load_cards` 0 张
+- 绿灯：经验卡+召回+auth+quota 定向测绿（执行方写 50；检阅方重跑同四文件 **62 passed**，收据 dirty）
 - 纠偏：仓内 27→23；生产 116→112；留下的 3 条 ts 仍在（生产没有「结构化腔」那条，属预期）
 
 ## 不要做
@@ -36,3 +36,22 @@
 - 不要 `cloudflared tunnel create` 第二条。
 - 不要把实验 `eval/runs/` 和探针目录当产品代码提交。
 - 不要把 4/6/7 三条纠偏当「已在管线」归档。
+
+### 检阅批注 · 2026-08-28 16:15（独立质检，未合、未切）
+
+- **判定**：产品主张 **PASS**。合入门 **未就绪**（不是产品打回）。
+- 独立复核：
+  - `load_cards` 与 `invalidated` 同 choke；仓内 16 行 → `window=0` 返回 0。
+  - CLI `--promotion` 含 `promoted_to_code`。两条产品 load（`ask.py` / `ask_synthesis.py`）都先走 `load_cards`。
+  - 纠偏只追加 4 条 `memory_status`；仓内 27→23、生产 116→112。留下 4/6/7 的 ts 仍 live。
+  - 8792 health：`e5d45933` / `auth_mode=off` / 生产目录无 `experience_cards.jsonl`。启动器无 `WORKBENCH_AUTH_MODE`。向导 `bash -n` 过，`alpha.env` 不存在。
+  - 定向 pytest 62P / 0F，收据 `20260828T080133Z-b6648f60.json`，**`dirty=True` dirty_total=41**（他人复盘/实验文件）。exit 0 对脏树成立，不对干净 revision 成立。
+  - `graph_audit`：43 行 / 49 条，exit 0（本仓树 dirty 已声明）。
+  - `git merge-tree gitea/main HEAD` **rc=1**：`docs/prediction-ledger.md` 头行冲突。独有提交 3 个：`e4276e00`（账本头，不在 `gitea/main`）+ 本枝两记。left-right `78/3`，merge-base `fea0633e`。本枝产品文件与账本冲突正交——合入前 rebase 到 `gitea/main`，丢掉或重做 `e4276e00` 头行。
+  - 无远端分支、无 PR。
+- 标注：
+  - 第三份脑 `~/agent-memory/.foresight/linxiaoqi5111`：14 张卡仍 methodology/promoted（`load_cards`=14），纠偏 72 条 0 归档。当前 8792/本壳 env 不指那里。
+  - 「留下 3 条」≠ 常驻 5：常驻窗是最近 5 条带原则的，现被 7 月底运营纠偏占满；4/6/7 只走相关记忆。
+  - 第 7 条「完全没有等价点」过满：复盘题编排合同已有「只用用户语言」。不是硬闸，留下仍对。
+  - 第 4 条更该留：`theme_lifecycle` 把「澄清」放进证伪词表，方向相反。
+- 未代做：独立 worktree 干净复跑、合入、切 8792、跑向导。
