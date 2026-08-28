@@ -88,7 +88,16 @@ export WORKBENCH_FULL_ACCESS_USERS=linxiaoqi5111
 
 ## 2. Cloudflare 侧（一次性，约 20 分钟）
 
-前提：Cloudflare 账号 + 一个托管在 Cloudflare 的域名（免费计划够用）。
+人工步骤已收成向导（**不改 8792 启动器、不 kickstart**；配完的 env 落
+`~/.local/share/finance-workbench/alpha.env`，接上启动器需你确认）：
+
+```bash
+bash scripts/hosted-alpha-wizard.sh
+```
+
+前提：Cloudflare 账号 + 一个托管在 Cloudflare 的域名（免费计划够用）。现有隧道
+`a77-exec` 已服务 `*.industry7view.com`，向导默认建议在同一条隧道加
+`beta.industry7view.com → 127.0.0.1:8792`，而不是再开一条。
 
 ```bash
 brew install cloudflared
