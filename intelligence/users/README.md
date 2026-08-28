@@ -109,6 +109,11 @@ python3 -m intelligence.cli answer-score \
 之后 `ask --compose --user <id>` 会读取最近相关经验卡片，注入 LLM 合成提示；确定性证据链仍然
 来自 market/KB，不会被经验卡片污染。
 
+生命周期：`candidate` → `promoted` / `methodology`（常驻注入）→ `promoted_to_code`
+（原则已固化进编排/契约/质检门，`load_cards` 跳过，记录留在 jsonl 可回放）。
+`invalidated` 是另一条出口：教训被证伪，同样不注入。`answer-score --promotion`
+可写这四档。
+
 ## 越用越准：可证伪点回检 + 二阶推演校准（C 方案）
 
 核心判断（B）解决「站在旧判断上往前推」，但没人核对那些判断**最后对没对**。C 方案给判断里
