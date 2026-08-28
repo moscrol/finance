@@ -890,7 +890,24 @@ def _theme_sector_snapshot_items(
         "order by trade_date desc limit 1",
         [sector, as_of_iso],
     ).fetchone()
-    if row is not None:
+    if row is None:
+        # 板块锚定成功、却没有当日及之前的板块行（`R-20260828-04`）。这条路真实
+        # 可达：`resolve_prefetch_sector` 经 `load_theme_daily_rows` 判存在性，
+        # 而后者**不带日期过滤**——「板块在表里有行」与「as_of 当天有行」是两件
+        # 事，问一个板块诞生前的日期即命中（本仓明确支持回溯问句）。
+        # 缺口必须出声：静默返回 = 让模型以为没有异常。
+        items.append(
+            PrefetchItem(
+                tool="finance_query",
+                title=f"{sector} 板块行缺失（{as_of_iso}）",
+                detail=(
+                    f"fact_sector_daily 在 {as_of_iso} 及之前无 {sector} 行，"
+                    "当日板块数值未预取；不要用其他日期的板块行冒充"
+                ),
+                source_date=as_of_iso,
+            )
+        )
+    else:
         trade_iso = str(row[0])[:10]
         pct, diff, amount = row[1], row[2], row[3]
         if sector != exclude_sector:
@@ -957,7 +974,11 @@ def _theme_sector_snapshot_items(
                 observations=tuple(member_obs),
             )
         )
-    elif items:
+    else:
+        # 缺口声明**不再挂在「板块行已产出」上**（`R-20260828-04`）。原先写作
+        # `elif items:`，于是它恰好在两种最该出声的场合被抑制：板块行本身缺失
+        # 时，以及 exclude_sector 命中（发酵分支已交付时间轴）时——而成员映射
+        # 正是发酵分支不提供、本函数存在的理由。
         items.append(
             PrefetchItem(
                 tool="finance_query",
