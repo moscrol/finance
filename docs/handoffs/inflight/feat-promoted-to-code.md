@@ -1,5 +1,11 @@
 # feat/promoted-to-code
 
+> **2026-08-28 23:05 已合入 main**（PR #496，rebase 版 `feat/promoted-to-code-rebased` cherry-pick 两提交，
+> 基座 `e4276e00` 台账头行改动已在 main 等价存在故丢弃）。批次门禁 @`572f1df9`：全量 6902P/0F/12S
+> （收据 `20260828T144833Z-572f1df9`）+ ruff + registry 五道 + webapp 子树等价（`732c79b5`==生产绿读数）。
+> 遗留：向导 `scripts/hosted-alpha-wizard.sh` 未跑（真人 Cloudflare 后台步骤）；8792 未切、auth 未开；
+> 主检出树仍停在本分支（他人在途足迹阻塞前移，不代解）。下文为合入前原状，供溯源。
+
 ## 这个分支做什么
 经验卡 `promoted_to_code` 退役注入；Alpha 人工步骤收成向导。不合 main。
 
