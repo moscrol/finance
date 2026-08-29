@@ -26,7 +26,7 @@
 
 编码任务先 `python3 scripts/code_map.py query "<问题>"`。禁止把空图 `get_architecture_overview` 写成架构结论；禁止 `code-review-graph init|install`；禁止 DeepWiki `generate_wiki` / 对本仓 private index。MCP 已连接 ≠ 地图可用。
 
-### 宏观理解路由（五层地图，按问题形状选门；本表只放指针，正文以各图为准）
+### 宏观理解路由（六层地图，按问题形状选门；本表只放指针，正文以各图为准）
 
 | 问题形状 | 看哪张图 | 保鲜方式 |
 |---|---|---|
@@ -35,6 +35,7 @@
 | 入口在哪、接口深浅怎么评 | `docs/agent-product-door.md`（门/引擎/组装/积木） | 人工维护，改门必更此页 |
 | 骨架形状：谁拥有循环、六层 | `git -C ~/harness-reference show gitea/main:DESIGN-stack.md` | SSOT 在 gitea，勿读脏工作树 |
 | 整体为什么是闭环不是流水线 | `.agent-memory/10_knowledge/agent-system-closed-loop-first-principles.md` | 稳定方法论 |
+| 数据/台账落哪、谁是唯一写入者 | `docs/learning/ledger-map.md`（台账总索引）+ CLAUDE.md「本地数据库 (DuckDB)」节（写入契约；schema SSOT `market_feature_store/schema.sql`） | 新增台账先登记（该表表头约定）；DuckDB 契约随 schema/迁移人工更新 |
 
 ## 🔁 用户纠偏必落 correction（强制，任何 agent 会话）
 
