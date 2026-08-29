@@ -43,9 +43,9 @@ sol 服役表现（29a/29b 两次切流探针 judge_unavailable=0；44 条离线
 
 - #515（链本体）：TDD 3 救场钉（含生产真实 402 形状）+5 链构造钉；变异
   「枯死换人判定」精确杀；判官面 174P 零回退；全量 7286P/0F @`fb5a502a`。
-- 本 PR（CLI 备胎）：sol 主+grok 备链构造 2 钉；判官面 188P；全量 **7291P/0F/15S**
-  dirty @`f40f878b`（收据 `~/.finance-runtime/test-receipts/20260829T162749Z-f40f878b.json`，
-  `dirty_paths`=本单两份 py；干净树全量挂后台后以新收据为准）。
+- 本 PR（CLI 备胎）：sol 主+grok 备链构造 2 钉；判官面 188P；全量 **7291P/0F/15S/1xf**
+  干净树 @`2d4b4215`（收据 `~/.finance-runtime/test-receipts/20260829T170007Z-2d4b4215.json`，
+  `check_test_receipt.py --expect-revision 2d4b4215` exit 0）。
 - rejudge 清账：44 收据 + 汇总 `intelligence/eval/runs/20260829T140500Z-rejudge-drain-sol.json`；
   49 条旧式行永不可重放的根因已由 `R-20260829-04`（PR #516，行即夹具）根治。
 - **不成立的结论别引用**：95.5% overturn 是「sol 按生产提示词字面从严 + 未修复
