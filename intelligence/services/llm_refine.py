@@ -290,14 +290,38 @@ def judge_provider() -> LLMProvider | None:
 
 
 def judge_fallback_provider() -> LLMProvider | None:
-    """判官备胎的显式解析（R-20260829-03）。
+    """判官备胎的显式解析（R-20260829-03；CLI 形态 R-20260830-01）。
 
     用独立词表 ``LLM_JUDGE_FALLBACK_API_KEY``（+ ``_BASE_URL`` + ``_MODEL``），
     不复用 ``LLM_JUDGE_MODEL``——CLI 主判官在历史部署里用它命名 grok 模型，
     备胎若共用同一变量，主备的模型名会互相踩（2026-08-28 sol 切换现场的
     env 注释即此形状）。未配置返回 None：链退化为单主，行为与改动前一致。
+
+    ``LLM_JUDGE_FALLBACK_BACKEND=grok-cli``（别名同主判官）时备胎走 CLI 形态
+    ——用户拍板 sol 长期当主判官（2026-08-30），grok 恢复后只能以备胎身份
+    回归，而 grok 在本机是 CLI 传输；没有这条，「sol 主 + grok 备」配不出来。
+    与主判官同一条优先规则：显式 backend 优先于 API key。二进制路径沿用
+    机器级 ``LLM_JUDGE_GROK_BIN``/``GROK_BIN``（complete_grok_cli 读取）。
     """
 
+    from intelligence.services.grok_cli_judge import (
+        BACKEND_ALIASES,
+        CLI_GROK_URL,
+        DEFAULT_MODEL as GROK_DEFAULT_MODEL,
+    )
+
+    backend = (
+        os.environ.get("LLM_JUDGE_FALLBACK_BACKEND", "").strip().casefold()
+    )
+    if backend in BACKEND_ALIASES:
+        return LLMProvider(
+            name="grok-cli-judge-fallback",
+            api_key="",
+            base_url=CLI_GROK_URL,
+            model=os.environ.get("LLM_JUDGE_FALLBACK_MODEL")
+            or GROK_DEFAULT_MODEL,
+            transport="cli",
+        )
     key = os.environ.get("LLM_JUDGE_FALLBACK_API_KEY")
     if not key:
         return None

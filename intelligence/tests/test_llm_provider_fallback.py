@@ -203,6 +203,7 @@ def _clear_judge_env(monkeypatch) -> None:
         "LLM_JUDGE_FALLBACK_API_KEY",
         "LLM_JUDGE_FALLBACK_BASE_URL",
         "LLM_JUDGE_FALLBACK_MODEL",
+        "LLM_JUDGE_FALLBACK_BACKEND",
     ):
         monkeypatch.delenv(env_key, raising=False)
 
@@ -261,3 +262,33 @@ def test_judge_provider_chain_never_auto_adds_composer(monkeypatch) -> None:
     _clear_judge_env(monkeypatch)
     monkeypatch.setenv("DEEPSEEK_API_KEY", "test-composer-key")
     assert llm_refine.judge_provider_chain() == ()
+
+
+def test_judge_fallback_backend_grok_cli_enables_sol_primary_grok_backup(
+    monkeypatch,
+) -> None:
+    """R-20260830-01：sol（API 主）+ grok（CLI 备）——用户拍板的长期形态。"""
+
+    _clear_provider_env(monkeypatch)
+    _clear_judge_env(monkeypatch)
+    monkeypatch.setenv("LLM_JUDGE_API_KEY", "test-sol-key")
+    monkeypatch.setenv("LLM_JUDGE_BASE_URL", "https://relay.invalid/v1")
+    monkeypatch.setenv("LLM_JUDGE_MODEL", "gpt-5.6-sol")
+    monkeypatch.setenv("LLM_JUDGE_FALLBACK_BACKEND", "grok-cli")
+    monkeypatch.setenv("LLM_JUDGE_FALLBACK_MODEL", "grok-4.6")
+    chain = llm_refine.judge_provider_chain()
+    assert [item.name for item in chain] == ["judge", "grok-cli-judge-fallback"]
+    assert chain[0].model == "gpt-5.6-sol" and chain[0].transport == "http"
+    assert chain[1].transport == "cli" and chain[1].model == "grok-4.6"
+
+
+def test_judge_fallback_backend_takes_priority_over_fallback_key(
+    monkeypatch,
+) -> None:
+    _clear_provider_env(monkeypatch)
+    _clear_judge_env(monkeypatch)
+    monkeypatch.setenv("LLM_JUDGE_API_KEY", "test-sol-key")
+    monkeypatch.setenv("LLM_JUDGE_FALLBACK_BACKEND", "grok-cli")
+    monkeypatch.setenv("LLM_JUDGE_FALLBACK_API_KEY", "unused-key")
+    chain = llm_refine.judge_provider_chain()
+    assert [item.name for item in chain] == ["judge", "grok-cli-judge-fallback"]

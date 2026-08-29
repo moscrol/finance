@@ -4,7 +4,8 @@
 > 是慢性病（08-19..28 每日都有），95.5% overturn 首次量化了宕机窗口的内容代价；
 > 2026-08-28 grok 402 断供靠手工改 env 切 sol 救场（start-finance-workbench 注释
 > 明言临时、留了回切备份）。状态：**已实现（同日收口，台账行 `R-20260829-03`，
-> 分支 `fix/judge-fallback-chain`）**。
+> 分支 `fix/judge-fallback-chain`）**。增量 `R-20260830-01`（CLI 形态备胎；
+> 激活形态订正为 sol 主 + grok 备）随本 PR。
 
 ## 设计（与在案红线的关系）
 
@@ -22,22 +23,31 @@
 - 观测：哪位判官服务了本轮由既有 LLM 调用台账逐 attempt 记 provider 名
   （judge-fallback 独立名字可查），零 schema 新增。
 
-## 激活手册（生产 env，等 grok 额度恢复时执行）
+## 激活手册（生产 env；形态已按用户拍板更新 2026-08-30）
 
-`~/.local/bin/start-finance-workbench` 判官段改为：
+**用户拍板：sol 长期当主判官，grok（2026-09-02 额度恢复）以备胎身份回归**
+——不是原 env 注释里的「切回 grok」。为此补了 CLI 形态备胎
+（`R-20260830-01`：`LLM_JUDGE_FALLBACK_BACKEND=grok-cli`，别名同主判官，
+显式 backend 优先于 FALLBACK_API_KEY；二进制沿用机器级 GROK_BIN）。
+
+09-02 激活时 `~/.local/bin/start-finance-workbench` 判官段改为：
 
 ```bash
-export LLM_JUDGE_BACKEND="grok-cli"          # 取消注释（主判官回 grok）
-export LLM_JUDGE_GROK_BIN="/Users/a77/.grok/bin/grok"
-export LLM_JUDGE_MODEL="grok-4.6"
-export LLM_JUDGE_FALLBACK_API_KEY=<现 LLM_JUDGE_API_KEY 的值>   # 现 sol 三行改名
-export LLM_JUDGE_FALLBACK_BASE_URL="https://x.ailzd.com/v1"
-export LLM_JUDGE_FALLBACK_MODEL="gpt-5.6-sol"
+export LLM_JUDGE_API_KEY=<现值不动>              # sol 主，三行原样保留
+export LLM_JUDGE_BASE_URL="https://x.ailzd.com/v1"
+export LLM_JUDGE_MODEL="gpt-5.6-sol"
+export LLM_JUDGE_FALLBACK_BACKEND="grok-cli"     # grok 备，新增两行
+export LLM_JUDGE_FALLBACK_MODEL="grok-4.6"
+export LLM_JUDGE_GROK_BIN="/Users/a77/.grok/bin/grok"   # 机器级二进制路径
+# 注意：LLM_JUDGE_BACKEND（无 FALLBACK）三行保持注释——取消注释会把 grok
+# 抬成主判官，与拍板形态相反。
 ```
 
-然后 `launchctl kickstart -k gui/$UID/com.a77.finance-workbench`。当前 sol 单主
-配置**不改也能继续跑**（链退化为单主，行为与改动前一致）；已知弱点备忘照旧：
-sol 与写手兜底 terra 同家族同中转，GLM 主链正常时不受影响。
+然后切流当日 main（顺带带上 #514/#515/#516）+ `launchctl kickstart -k
+gui/$UID/com.a77.finance-workbench`。当前 sol 单主配置**不改也能继续跑**
+（链退化为单主，行为与改动前一致）；已知弱点备忘照旧：sol 与写手兜底
+terra 同家族同中转，GLM 主链正常时不受影响——grok 备胎上线后该弱点在
+判官侧被对冲（中转挂时 grok CLI 接管）。
 
 ## 判据
 
