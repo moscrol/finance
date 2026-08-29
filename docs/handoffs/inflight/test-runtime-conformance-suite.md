@@ -1,5 +1,8 @@
 # 在途交接 · test/runtime-conformance-suite
 
+> **2026-08-29 已合入 main**（PR #504，merge `e7a9a0bd`；独立验收 session 复算读数一致：43p/3s/1xf @`9b49ac0a`，INV-5 codex 阳性对照 strict-xfail 在位，5 后端全进参数表，merge-tree 干净）。
+> 批次门禁 @`85e4b1fd`（与 #505 合账）：ruff 绿 + webapp 四连（vitest 70）+ e2e 15P + 全量 7032P/1F/15S/1xf（收据 `20260829T074556Z-85e4b1fd`，checker exit 0）。1F=`test_frozen_thirty` A3，隔离证明非本批（详见台账 2026-08-29 行与占位工单 `2026-08-29-frozen-thirty-kb-state-workorder.md`）。8792 未切（tests+docs 零运行时行为变化），待裁决。
+
 - **工单**：`docs/superpowers/specs/2026-08-29-runtime-conformance-suite-workorder.md`（主树 untracked，随 main 由用户处理）
 - **分支状态**：套件已建成并全绿，待验收合并。基线 main@c3514529。
 - **交付物**：`intelligence/tests/conformance/`（backends/fixtures/baseline + test_inv1..8 + README）。

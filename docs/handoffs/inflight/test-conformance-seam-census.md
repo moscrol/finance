@@ -1,5 +1,8 @@
 # 在途交接 · test/conformance-seam-census
 
+> **2026-08-29 已合入 main**（PR #505，merge `85e4b1fd`；独立验收 session 复算读数一致：86p @`2064a50e`，普查报告第一节实数 7 行每行带出处，与 #504 分支不堆叠、文件不相交）。
+> 批次门禁与 1F 归因同 `test-runtime-conformance-suite.md` 头注（两单合账）。后续队列：P1×3 占位单（#12-14）在主树 specs/ 待认领。
+
 - **工单**：`docs/superpowers/specs/2026-08-29-conformance-seam-census-workorder.md`（主树 untracked）。前置工单（运行时缝）在分支 `test/runtime-conformance-suite` @ `9b49ac0a`，两单互不阻塞。
 - **分支状态**：任务 A+B 均完成，待验收合并。基线 main@c3514529。
 - **交付物**：
