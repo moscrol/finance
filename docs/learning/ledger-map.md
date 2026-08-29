@@ -18,7 +18,7 @@
 | 分叉蒸馏批记录 | `docs/learning/distill/<date>-<对照名>.md` | md（例外：人过闸裁决文档，md 即 canonical） | divergence-distill skill 会话 | 是 | — |
 | 晨汇 | 知识库仓 `wiki/briefings/<date>.md` | md | morning-briefing | 是 | `dashboard/briefings/<date>.html`（不提交） |
 | 晨汇原料 | 知识库仓 `wiki/raw/briefings/<date>/` | 原文 | morning-briefing | 是 | — |
-| 卖方原文 | 知识库仓 `wiki/raw/sellside/` | md/pdf 转写 | material-router | 是 | — |
+| 卖方原文 | 知识库仓 `wiki/raw/sellside/` | md/pdf 转写 | material-router（表定）/ 近月实写 sellside-coverage-cross | 是 | — |
 | 卖方观点事件 | 知识库仓 `wiki/raw/theme-radar/opinion-store/opinion-events.jsonl` | JSONL | opinion-cross | 是 | `复盘/winrate/*.html`（不提交） |
 | 机构胜率 | `~/kb_work/winrate_cache/` + `~/kb_work/winrate/` | md | refresh_winrate | 仓外 | 同上 |
 | 每日运营总账 | `build_daily_ops_ledger.py` 输出 | JSON | 该脚本 | 生成物 | cockpit |
@@ -29,6 +29,26 @@
 | 观测台薄账 | `docs/roadmap.md` | md（例外：md 即 canonical，不是渲染物） | 检阅方 | 是 | Phase 1 起 `var/observatory/index.html`（gitignored）；L2/曲线由生成器投影 |
 | 视角考卷（已知题/边题） | `intelligence/users/<id>/perspectives/exam/<pid>.json` | JSON | `perspective exam add` | 否（用户态） | `perspective exam run` 报告 |
 | 自用摩擦台账 | `docs/learning/self-use-ledger/<date>.jsonl` | JSONL | `scripts/self_use_ledger.py add`（只记真人使用，探针/评测不进账） | 是 | `summary` 子命令（Self-use Gate 读数，见目录 README） |
+
+## 保鲜状态（2026-08-28 P3 诊断）
+
+工单 `docs/superpowers/specs/2026-08-28-ledger-refresh-workorder.md`。结论：**卖方是微信 API 频控 + 手贴停更；晨汇不是同一条线**——原料在 IMA 浑水调研，经 `ima-fetch.cjs`（desktop bridge）拉 PDF，再交 `morning-briefing` 入库。未补拉、未恢复任何退役链。双盲夜跑仍按表内「夜跑已退役、仅手动」，本诊断不碰。
+
+| 台账 | 最近落点 | 缺档 | 触发方式 | 断因 | 证据 |
+|---|---|---|---|---|---|
+| 晨汇 / 晨汇原料 | `wiki/briefings/2026-08-20.md`（`#5400`，2026-08-22 入库）；原料同日 `wiki/raw/briefings/2026-08-20/` | 库内缺 08-21 起。IMA 侧已有 08-21/22 合刊、0823–0825、0826–0828 | **IMA bridge**：`ima-desktop-bridge/scripts/ima-fetch.cjs` 搜浑水调研 → 拉 PDF → `morning-briefing` 入库。无 crontab。默认检索词是「路演调研日报 / 全量复盘 / 全量总结」 | 上游 PDF 还在；本地最后一次拉到 `~/Downloads/ima-briefings` 是 08-22。新文件改名「全市场路演调研…」，默认词搜不到；今晚 bridge `connected=false`（IMA 未开/插件未心跳），OpenAPI 能搜不能下 | `#5400` 来源写「IMA 浑水调研《路演调研全日汇总 0820.pdf》」；`ima-fetch search --kb 浑水调研 全市场路演` 命中 0828/0827/0826 等 |
+| 卖方原文 | `wiki/raw/sellside/2026-08-17-调研纪要miracle.md`（`#5366`，2026-08-18 手贴入库） | 08-18 起无 miracle/原文。东方财富 RSSHub 快照更早停在 07-21 | **近月实写是手贴**，不是 launchd。`material-router` 已 frozen（2026-07 审计：日志零使用）。双盲 sellside/briefing plist 在 `~/Library/LaunchAgents/disabled-by-devin/`，属退役夜跑，不恢复 | 三层自动源都出不了货，手贴也停了 | 见下表 |
+
+卖方自动源（2026-08-28 实测）：
+
+| 通道 | 状态 | 证据 |
+|---|---|---|
+| `fetch_eastmoney_rsshub_sellside.py` → `localhost:1200` | 采集器不在跑 | `:1200` 连不上；仓内最后一份 `2026-07-21-东方财富RSSHub.md` |
+| `fetch_sellside.py` → FinHot `items-all.json` | 公共快照空 | HTTP 200，`{"items":[],"total":0,"filter":"watch","generatedAt":"2026-08-23T07:03:45.851Z"}`；`--dry-run --date 2026-08-17/18/28` 均「无匹配」 |
+| wechat2rss `:8090` | 已死（08-14 已登记，08-28 复核仍死） | 端口无响应；`com.finhot.wechat2rss-sync` 未加载；`~/wechat2rss-data/res.db` mtime 08-05 |
+| wechat-download-api `:5050` | 进程健康、库仍空 | `/api/health` healthy；`rss.db` `articles=0` / `subscriptions=39`（mtime 08-22）；`#5365/#5366` 写明频控，8/6 后抓不到，改手贴 |
+
+状态标签：**晨汇 = 上游仍有货、抓取词表/会话断了，待打开 IMA 再拉；卖方 = 微信频控，待用户决策**。不要把两条线当成同一个故障。晨汇缺档不是「无原文」——IMA 里有 PDF，只是还没拉进仓；卖方缺档仍是「无原文，禁止编造」。
 
 ## 边界约定（去重复）
 
