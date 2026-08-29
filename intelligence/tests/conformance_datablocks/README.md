@@ -14,7 +14,9 @@
 首轮读数（2026-08-29）：`193 passed, 1 xfailed`。xfail 即阳性对照：装配对账
 首跑抓到 **MARKET_DAILY 绕开 enabled_providers 门控**（既不经构造面、全仓无
 `provider_enabled` 调用，注册表的裁剪承诺对它落空），以 strict xfail 入
-baseline（`DB-6:MARKET_DAILY`，修复属生产改动另立单）。
+baseline（`DB-6:MARKET_DAILY`）。同日 `R-20260829-02` 修复（owner 侧预取接
+门控）后 strict xfail 转 XPASS 逼清账——棘轮闭环首次真实运转，该块转为
+声明旁路，baseline 回空，套件 `194 passed`。
 
 ## 三件
 

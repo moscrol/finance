@@ -53,13 +53,16 @@ BLOCK_NOTES: dict[str, str] = {
         "不受影响——特殊排序发生在消费侧。"
     ),
     "MARKET_DAILY": (
-        "与 M（用户记忆）严格区分：同日结构化市场总览。装配缺陷见 baseline"
-        " DB-6 条目：既不经构造面、全仓也无 provider_enabled 门控调用。"
+        "旁路块：与 M（用户记忆）严格区分的同日结构化市场总览，走 owner 侧"
+        "预取（agent market_data 工具的 mainline_current 档）。曾是本套件首跑"
+        "抓到的绕门控缺陷（原 baseline DB-6 条目），R-20260829-02 接上"
+        " provider_enabled 门控后转为合法旁路：被裁剪时零下游取数、trace 留"
+        " skipped 痕、缺口经完成层如实声明。"
     ),
 }
 
 # 旁路块：不走 DataBlockProvider 构造面，但必须仍受 provider_enabled 门控。
-BYPASS_BLOCKS: tuple[str, ...] = ("D3", "MAINLINE_KB")
+BYPASS_BLOCKS: tuple[str, ...] = ("D3", "MAINLINE_KB", "MARKET_DAILY")
 
 # 装配面已知缺口（登记为 finding，不改生产代码、不入 baseline——baseline 收
 # 「运行器/注册表层红」，本条是装配面观测性缺口）：被 enabled_providers 裁剪
