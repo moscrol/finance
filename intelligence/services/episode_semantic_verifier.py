@@ -1704,11 +1704,15 @@ class SemanticEpisodeVerifier:
                 monotonic_release_safe=True,
             )
 
-        provider = None
+        # R-20260829-03 判官备链：主判官 + 显式配置的备胎（永不自动追加合成
+        # 主链——「不静默退回相关自审」红线不变）。链退化为单主时行为与改动
+        # 前逐字节一致。
+        providers: tuple[object, ...] = ()
         try:
-            provider = llm_refine.judge_provider()
+            providers = llm_refine.judge_provider_chain()
         except Exception:
-            provider = None
+            providers = ()
+        provider = providers[0] if providers else None
         if provider is not None:
             leftover = _deadline_remaining_seconds(deadline)
             if leftover_window_blocks_complete_attempt(
@@ -1769,8 +1773,12 @@ class SemanticEpisodeVerifier:
                         root_deadline_exhausted=True,
                         monotonic_release_safe=failure_chain_release_safe,
                     )
+                # 槽位轮转：attempt 0 走主判官，之后的槽走链上下一位（链短于
+                # 槽数时停在最后一位）。哪位判官真正服务了本轮，由 LLM 调用
+                # 台账逐 attempt 记 provider 名，不另加 schema。
+                active_provider = providers[min(attempt, len(providers) - 1)]
                 try:
-                    with llm_refine.provider_override(provider):
+                    with llm_refine.provider_override(active_provider):
                         content, _used, reason = llm_refine.complete(
                             messages,
                             timeout=attempt_timeout,
@@ -1790,6 +1798,12 @@ class SemanticEpisodeVerifier:
                         deadline=deadline,
                     )
                     prior_failures_release_safe &= release_safe
+                    if not should_retry and _next_slot_switches_judge(
+                        attempt, len(providers), len(attempt_timeouts), deadline
+                    ):
+                        # 主判官放弃但链上还有没上场的备胎：下一槽换人再试。
+                        # 释放安全账照常累计，不因换人清零（R-20260829-03）。
+                        should_retry = True
                     if should_retry:
                         continue
                     return self._clocked_judge_call(
@@ -1827,6 +1841,11 @@ class SemanticEpisodeVerifier:
                     deadline=deadline,
                 )
                 prior_failures_release_safe &= release_safe
+                if not should_retry and _next_slot_switches_judge(
+                    attempt, len(providers), len(attempt_timeouts), deadline
+                ):
+                    # 同上：链上还有备胎时不在主判官身上判死刑。
+                    should_retry = True
                 if should_retry:
                     continue
                 return self._clocked_judge_call(
@@ -4688,6 +4707,28 @@ def _should_retry_semantic_judge(
     if attempt == 0:
         return True
     return attempt == 1 and prior_failures_release_safe and release_safe
+
+
+def _next_slot_switches_judge(
+    attempt: int,
+    provider_count: int,
+    attempt_count: int,
+    deadline: ResearchDeadline,
+) -> bool:
+    """下一尝试槽是否会换上链上另一位判官（R-20260829-03 判官备链）。
+
+    只在「本槽判官已放弃、但下一槽存在且映射到不同 provider、窗口未烧穿」
+    时为真——它放行的是**换人**，不是给同一位判官加次数；单主链
+    （provider_count<=1）恒 False，行为与改动前逐字节一致。
+    """
+
+    if provider_count <= 1 or deadline.expired:
+        return False
+    if attempt + 1 >= attempt_count:
+        return False
+    current = min(attempt, provider_count - 1)
+    upcoming = min(attempt + 1, provider_count - 1)
+    return upcoming != current
 
 
 def _sanitize_public_answer(

@@ -289,6 +289,49 @@ def judge_provider() -> LLMProvider | None:
     return None
 
 
+def judge_fallback_provider() -> LLMProvider | None:
+    """判官备胎的显式解析（R-20260829-03）。
+
+    用独立词表 ``LLM_JUDGE_FALLBACK_API_KEY``（+ ``_BASE_URL`` + ``_MODEL``），
+    不复用 ``LLM_JUDGE_MODEL``——CLI 主判官在历史部署里用它命名 grok 模型，
+    备胎若共用同一变量，主备的模型名会互相踩（2026-08-28 sol 切换现场的
+    env 注释即此形状）。未配置返回 None：链退化为单主，行为与改动前一致。
+    """
+
+    key = os.environ.get("LLM_JUDGE_FALLBACK_API_KEY")
+    if not key:
+        return None
+    return LLMProvider(
+        name="judge-fallback",
+        api_key=key,
+        base_url=os.environ.get("LLM_JUDGE_FALLBACK_BASE_URL")
+        or "https://api.openai.com/v1",
+        model=os.environ.get("LLM_JUDGE_FALLBACK_MODEL") or "gpt-4o-mini",
+    )
+
+
+def judge_provider_chain() -> tuple[LLMProvider, ...]:
+    """语义审的判官链：主判官 + 显式配置的备胎（R-20260829-03）。
+
+    动机：判官不可用是慢性病（2026-08-29 积压清账：08-19..28 每日都有，
+    重放 95.5% overturn——宕机窗口交付的答案九成五本该进修复轮）。链上
+    **只有显式配置的独立判官**：主判官解析逻辑不变（grok-cli 优先），备胎
+    走 ``judge_fallback_provider``；**永不自动追加合成主链 provider**——
+    「不静默退回相关自审」是 ``judge_provider`` 在案的设计红线，链不破例。
+    无主判官时返回空链（备胎单独配置视为未接线，调用方保持原有回落）。
+    """
+
+    primary = judge_provider()
+    if primary is None:
+        return ()
+    fallback = judge_fallback_provider()
+    if fallback is None or (
+        fallback.base_url == primary.base_url and fallback.model == primary.model
+    ):
+        return (primary,)
+    return (primary, fallback)
+
+
 def _provider_failure_reason(
     failures: list[tuple[LLMProvider, str]],
 ) -> tuple[LLMProvider, str]:

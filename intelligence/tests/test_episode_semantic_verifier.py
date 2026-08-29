@@ -2571,6 +2571,115 @@ def test_independent_judge_provider_takes_priority_over_injected_judge(
     assert injected_calls == []
 
 
+def test_judge_fallback_chain_rescues_non_retryable_primary_failure(
+    monkeypatch,
+) -> None:
+    """R-20260829-03 判官备链：主判官 402（不可重试）→ 备胎接管，不再 unavailable。
+
+    载荷用生产真实形状（grok 断供=HTTP 402，_stable_semantic_judge_error 判
+    configuration error / retryable=False）——改动前这一步直接返回 unavailable。
+    """
+
+    frame, structural = _structural("市场当前偏弱。")
+    primary = llm_refine.LLMProvider(
+        "grok-cli-judge", "", "cli://grok", "grok-4.6", transport="cli"
+    )
+    fallback = llm_refine.LLMProvider(
+        "judge-fallback", "secret", "https://fallback.invalid", "sol"
+    )
+    monkeypatch.setattr(
+        llm_refine, "judge_provider_chain", lambda: (primary, fallback)
+    )
+    observed: list[str] = []
+
+    def complete(*_args, **_kwargs):
+        active = llm_refine.detect_providers()[0]
+        observed.append(active.name)
+        if active.name == "grok-cli-judge":
+            return None, active, "LLM 调用 HTTP 402"
+        return (
+            '{"passed":true,"rejected_sentence_indexes":[],"issues":[]}',
+            active,
+            "",
+        )
+
+    monkeypatch.setattr(llm_refine, "complete", complete)
+    result = SemanticEpisodeVerifier().verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(60),
+    )
+    assert observed == ["grok-cli-judge", "judge-fallback"], (
+        "主判官放弃后必须由链上备胎接管本轮"
+    )
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert result.correlated_judge is False
+
+
+def test_judge_chain_primary_success_never_touches_fallback(
+    monkeypatch,
+) -> None:
+    frame, structural = _structural("市场当前偏弱。")
+    primary = llm_refine.LLMProvider("judge", "secret", "https://judge.invalid", "j")
+    fallback = llm_refine.LLMProvider(
+        "judge-fallback", "secret", "https://fallback.invalid", "f"
+    )
+    monkeypatch.setattr(
+        llm_refine, "judge_provider_chain", lambda: (primary, fallback)
+    )
+    observed: list[str] = []
+
+    def complete(*_args, **_kwargs):
+        observed.append(llm_refine.detect_providers()[0].name)
+        return (
+            '{"passed":true,"rejected_sentence_indexes":[],"issues":[]}',
+            primary,
+            "",
+        )
+
+    monkeypatch.setattr(llm_refine, "complete", complete)
+    result = SemanticEpisodeVerifier().verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(60),
+    )
+    assert observed == ["judge"], "主判官健康时备胎零触碰"
+    assert result.judge_status == "passed"
+
+
+def test_judge_chain_exhausted_still_reports_unavailable(
+    monkeypatch,
+) -> None:
+    """链耗尽必须如实 unavailable——备胎不是「必过」，是多一次独立机会。"""
+
+    frame, structural = _structural("市场当前偏弱。")
+    primary = llm_refine.LLMProvider(
+        "grok-cli-judge", "", "cli://grok", "grok-4.6", transport="cli"
+    )
+    fallback = llm_refine.LLMProvider(
+        "judge-fallback", "secret", "https://fallback.invalid", "sol"
+    )
+    monkeypatch.setattr(
+        llm_refine, "judge_provider_chain", lambda: (primary, fallback)
+    )
+    observed: list[str] = []
+
+    def complete(*_args, **_kwargs):
+        active = llm_refine.detect_providers()[0]
+        observed.append(active.name)
+        return None, active, "LLM 调用 HTTP 402"
+
+    monkeypatch.setattr(llm_refine, "complete", complete)
+    result = SemanticEpisodeVerifier().verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(60),
+    )
+    assert observed == ["grok-cli-judge", "judge-fallback"]
+    assert result.judge_status == "unavailable"
+
+
 def test_independent_judge_retries_one_transient_failure(
     monkeypatch,
 ) -> None:

@@ -191,3 +191,73 @@ def test_all_provider_failures_are_normalized_without_credentials(
     assert "fallback" in reason
     assert "private diagnostic" not in reason
     assert all(item.api_key not in reason for item in _providers())
+
+
+def _clear_judge_env(monkeypatch) -> None:
+    for env_key in (
+        "LLM_JUDGE_BACKEND",
+        "LLM_JUDGE_GROK_BIN",
+        "LLM_JUDGE_API_KEY",
+        "LLM_JUDGE_BASE_URL",
+        "LLM_JUDGE_MODEL",
+        "LLM_JUDGE_FALLBACK_API_KEY",
+        "LLM_JUDGE_FALLBACK_BASE_URL",
+        "LLM_JUDGE_FALLBACK_MODEL",
+    ):
+        monkeypatch.delenv(env_key, raising=False)
+
+
+def test_judge_provider_chain_appends_explicit_fallback(monkeypatch) -> None:
+    """R-20260829-03：grok-cli 主 + 显式备胎词表 → 两级链，主判官解析不变。"""
+
+    _clear_provider_env(monkeypatch)
+    _clear_judge_env(monkeypatch)
+    monkeypatch.setenv("LLM_JUDGE_BACKEND", "grok-cli")
+    monkeypatch.setenv("LLM_JUDGE_MODEL", "grok-4.6")
+    monkeypatch.setenv("LLM_JUDGE_FALLBACK_API_KEY", "test-fallback-key")
+    monkeypatch.setenv("LLM_JUDGE_FALLBACK_BASE_URL", "https://relay.invalid/v1")
+    monkeypatch.setenv("LLM_JUDGE_FALLBACK_MODEL", "gpt-5.6-sol")
+    chain = llm_refine.judge_provider_chain()
+    assert [item.name for item in chain] == ["grok-cli-judge", "judge-fallback"]
+    assert chain[0].transport == "cli" and chain[0].model == "grok-4.6"
+    assert chain[1].base_url == "https://relay.invalid/v1"
+    assert chain[1].model == "gpt-5.6-sol"
+    assert chain[0] == llm_refine.judge_provider(), "链首必须与单主解析全等"
+
+
+def test_judge_provider_chain_without_fallback_stays_single(monkeypatch) -> None:
+    _clear_provider_env(monkeypatch)
+    _clear_judge_env(monkeypatch)
+    monkeypatch.setenv("LLM_JUDGE_API_KEY", "test-judge-key")
+    chain = llm_refine.judge_provider_chain()
+    assert [item.name for item in chain] == ["judge"]
+
+
+def test_judge_provider_chain_requires_primary(monkeypatch) -> None:
+    """只配备胎不配主判官 = 未接线：空链，调用方保持原有回落。"""
+
+    _clear_provider_env(monkeypatch)
+    _clear_judge_env(monkeypatch)
+    monkeypatch.setenv("LLM_JUDGE_FALLBACK_API_KEY", "test-fallback-key")
+    assert llm_refine.judge_provider_chain() == ()
+
+
+def test_judge_provider_chain_dedupes_identical_fallback(monkeypatch) -> None:
+    _clear_provider_env(monkeypatch)
+    _clear_judge_env(monkeypatch)
+    monkeypatch.setenv("LLM_JUDGE_API_KEY", "test-judge-key")
+    monkeypatch.setenv("LLM_JUDGE_BASE_URL", "https://same.invalid/v1")
+    monkeypatch.setenv("LLM_JUDGE_MODEL", "same-model")
+    monkeypatch.setenv("LLM_JUDGE_FALLBACK_API_KEY", "another-key")
+    monkeypatch.setenv("LLM_JUDGE_FALLBACK_BASE_URL", "https://same.invalid/v1")
+    monkeypatch.setenv("LLM_JUDGE_FALLBACK_MODEL", "same-model")
+    assert [item.name for item in llm_refine.judge_provider_chain()] == ["judge"]
+
+
+def test_judge_provider_chain_never_auto_adds_composer(monkeypatch) -> None:
+    """红线：合成主链 provider 永不自动进判官链（不静默退回相关自审）。"""
+
+    _clear_provider_env(monkeypatch)
+    _clear_judge_env(monkeypatch)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-composer-key")
+    assert llm_refine.judge_provider_chain() == ()
