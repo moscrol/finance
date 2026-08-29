@@ -27,6 +27,8 @@ from intelligence.services.rejudge_pending import (  # noqa: E402
     RECEIPT_DIR,
     load_json_object,
     pending_index_path,
+    pending_row_slug,
+    replayable_pending_rows,
     run_offline_rejudge,
     summarize_receipts,
 )
@@ -75,12 +77,48 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="optional answer.md to assert it is not rewritten",
     )
+    parser.add_argument(
+        "--export-fixtures",
+        type=Path,
+        default=None,
+        help=(
+            "把索引里可重放的 pending 行（行内自带 judge_request，"
+            "R-20260829-04 起的新式行）导出为夹具文件，供外部判官批量裁决；"
+            "同时报告 stale（旧式、不可重放）行数"
+        ),
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     index = pending_index_path(args.index)
+    if args.export_fixtures is not None:
+        replayable, stale = replayable_pending_rows(args.index)
+        target = args.export_fixtures
+        target.mkdir(parents=True, exist_ok=True)
+        written = []
+        for row in replayable:
+            slug = pending_row_slug(row)
+            path = target / f"{slug}.json"
+            path.write_text(
+                json.dumps(row, ensure_ascii=False, indent=1) + "\n",
+                encoding="utf-8",
+            )
+            written.append(str(path))
+        print(
+            json.dumps(
+                {
+                    "index": str(index),
+                    "replayable_exported": len(written),
+                    "stale_rows": len(stale),
+                    "fixtures_dir": str(target),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
     fixtures = list(args.fixture)
     if not fixtures:
         print(
