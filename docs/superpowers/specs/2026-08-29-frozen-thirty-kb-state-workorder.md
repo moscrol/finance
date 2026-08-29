@@ -1,7 +1,11 @@
 # 2026-08-29 冻结三十题验收对 KB 解析态不封闭工单（占位）
 
 > 来源：2026-08-29 conformance 双套件（#504/#505）批次门禁 1F 归因（台账 2026-08-29 行；
-> 收据 `20260829T074556Z-85e4b1fd`）。状态：**待认领**。
+> 收据 `20260829T074556Z-85e4b1fd`）。状态：**已修复（同日收口，台账行 `R-20260829-01`，
+> 分支 `fix/frozen-thirty-kb-state`）**。修法=方向 B（dry-run 钉解析态：`KB_VAULT` 钉夹具
+> `intelligence/eval/fixtures/frozen-thirty-wiki` + 哨兵实体防密封静默失效）**加**一处工单
+> 未预判的第二层根因：benchmark 缺口计算缺 canonical 别名归一（`_LEGACY_OUTPUT_ALIASES`），
+> 字面比较把同义覆盖误报成缺口——详见台账行。题面/真值/生产代码零改动。
 
 现象：`test_frozen_thirty.py::test_thirty_set_dry_run_has_no_contract_gaps` 自 08-29 起红，
 08-28 22:48 门禁 @`572f1df9` 同代码尚绿。隔离复跑 `c3514529` / `b77df25c` 同红 → 非任何
