@@ -16,16 +16,12 @@ from __future__ import annotations
 import pytest
 
 # key: "DB-N:block_name" → 原因（含代码出处与登记日期）
-BASELINE: dict[str, str] = {
-    "DB-6:MARKET_DAILY": (
-        "注册块绕开 enabled_providers 门控：既不经 DataBlockProvider 构造面，"
-        "全仓也无 provider_enabled(options, \"MARKET_DAILY\") 调用——块文本在"
-        " ask.py ~L1929（mainline_current 档 agent 取数路径）直接生成，注册表"
-        "「调用方只通过 enabled_providers 限制」的公开承诺对它落空，裁剪/检索"
-        "计划均无法关掉它。2026-08-29 登记（套件首跑抓到的阳性对照，证明装配"
-        "对账有牙）。修复属生产改动，另立单，不在本套件顺手修。"
-    ),
-}
+#
+# 2026-08-29 清账一例（棘轮闭环首次真实运转）：DB-6:MARKET_DAILY——套件首跑
+# 抓到的绕门控缺陷（注册块无任何 provider_enabled 调用），R-20260829-02 修复
+# 后 strict xfail 转 XPASS 逼删本行；该块现为声明旁路（见 blocks.BYPASS_BLOCKS
+# 与 BLOCK_NOTES）。
+BASELINE: dict[str, str] = {}
 
 
 def ratchet(request: pytest.FixtureRequest, invariant: str, block_name: str) -> None:

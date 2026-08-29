@@ -1923,6 +1923,23 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         if context.deadline.expired:
             raise TimeoutError("agent market data deadline expired")
         if contract.presentation_profile == "mainline_current":
+            # R-20260829-02：MARKET_DAILY 注册进 evidence_registry（检索计划的
+            # 可选词表）但此前从未接门控——裁剪/检索计划对它无效。语义 =
+            # 被裁剪时诚实缺席（空证据，prefetch 的缺口声明机制自动接管），
+            # 不回落到周窗口等替代口径（静默换口径是 2026-06-22 空壳同族）。
+            if not evidence_registry.provider_enabled(options, "MARKET_DAILY"):
+                return (
+                    [],
+                    "MARKET_DAILY 同日市场总览已被 enabled_providers 裁剪，"
+                    "本轮未取数；当前盘面真值缺口不能由其他口径替代。",
+                    ProviderTrace(
+                        provider="agent:market_data",
+                        capability="agent_loop",
+                        status="skipped",
+                        detail="market_daily_pruned_by_enabled_providers",
+                        result_count=0,
+                    ),
+                )
             block = "\n".join(
                 part
                 for part in (

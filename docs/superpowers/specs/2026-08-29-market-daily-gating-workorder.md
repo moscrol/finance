@@ -2,7 +2,12 @@
 
 > 来源：datablock 符合性套件（`intelligence/tests/conformance_datablocks/`，
 > 工单 #14）首跑装配对账抓到的真缺陷，已入棘轮 baseline（`DB-6:MARKET_DAILY`，
-> strict xfail）。状态：**待认领**。
+> strict xfail）。状态：**已修复（同日收口，台账行 `R-20260829-02`，分支
+> `fix/market-daily-gating`）**。修法=方向 A（mainline_current 档 owner 预取
+> 前置 `provider_enabled` 门；被裁剪=诚实缺席+完成层缺口声明，不回落替代
+> 口径）；`mainline_current` 消费方已查：默认 `enabled_providers=None` 行为
+> 逐字节不变，空证据缺口由既有 prefetch 机制自动接管。棘轮清账实录见套件
+> baseline.py 头注（strict xfail → XPASS 逼删行，闭环首次真实运转）。
 
 现象：`evidence_registry.REGISTRY` 注册了 `MARKET_DAILY`（"最新市场总览"），
 注册表公开承诺「调用方只通过 `AskOptions.enabled_providers` 限制哪些块参与
