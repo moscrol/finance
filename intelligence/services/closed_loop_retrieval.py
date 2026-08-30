@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import time
 from collections.abc import Callable, Sequence
@@ -21,6 +22,12 @@ MAX_EMPTY_ATTEMPTS = 3
 MAX_TOTAL_SECONDS = 90.0
 MIN_ATTEMPT_RESERVE_SECONDS = 1.0
 ATTEMPT_COST_SAFETY_MULTIPLIER = 1.25
+ASK_WIKI_APERTURES_ENV = "ASK_WIKI_APERTURES"
+_APERTURE_PRESETS: dict[str, frozenset[RetrievalAperture]] = {
+    "narrow": frozenset({"narrow"}),
+    "narrow_broad": frozenset({"narrow", "broad"}),
+    "all": frozenset({"narrow", "broad", "counter"}),
+}
 # 中文+数字混合词（科创50/沪深300/中证1000）优先整词捕获，避免被拆出
 # 「科创」这类子串后误锚到无关实体（如 中科创达）。
 _TERM_RE = re.compile(
@@ -187,6 +194,39 @@ class _AttemptBudget:
         self.observed_seconds = max(0.0, elapsed_seconds)
 
 
+def enabled_wiki_apertures(raw: str | None = None) -> frozenset[RetrievalAperture]:
+    """评测旋钮。未设或 ``all`` = 现网三铲；未知值 fail-closed。"""
+    value = os.environ.get(ASK_WIKI_APERTURES_ENV) if raw is None else raw
+    if value is None or not str(value).strip():
+        return _APERTURE_PRESETS["all"]
+    key = str(value).strip().lower()
+    if key not in _APERTURE_PRESETS:
+        raise ValueError(
+            f"unknown {ASK_WIKI_APERTURES_ENV}={value!r} "
+            "(expected narrow|narrow_broad|all)"
+        )
+    return _APERTURE_PRESETS[key]
+
+
+def _record_disabled_aperture(
+    aperture: RetrievalAperture,
+    queries: Sequence[str],
+    result: ClosedLoopRetrievalResult,
+) -> None:
+    candidates = list(dict.fromkeys(q.strip() for q in queries if q.strip()))[:1]
+    if not candidates:
+        candidates = [""]
+    result.attempts.append(
+        RetrievalAttempt(
+            aperture=aperture,
+            query=candidates[0],
+            status="disabled",
+            hit_count=0,
+            executed=False,
+        )
+    )
+
+
 def retrieve_closed_loop(
     query: str,
     *,
@@ -211,6 +251,7 @@ def retrieve_closed_loop(
     attempt_budget = _AttemptBudget(deadline=time.monotonic() + budget)
     query_terms = _relevance_terms(query, anchor, ())
     query_only = expansion_policy == "query_only" and anchor is None
+    enabled = enabled_wiki_apertures()
     narrow_hits = _run_aperture(
         "narrow",
         (query,) if query_only else _narrow_queries(query, anchor),
@@ -223,30 +264,40 @@ def retrieve_closed_loop(
         hit for hit in narrow_hits if _hit_overlaps_terms(hit, query_terms)
     )
     expansion_hits = () if query_only else relevant_narrow_hits
-    broad_hits = _run_aperture(
-        "broad",
-        (
-            _query_only_broad_queries(query)
-            if query_only
-            else _broad_queries(query, anchor, relevant_narrow_hits)
-        ),
-        retrieve,
-        result,
-        attempt_budget,
-        information_cutoff,
+    broad_queries = (
+        _query_only_broad_queries(query)
+        if query_only
+        else _broad_queries(query, anchor, relevant_narrow_hits)
     )
-    counter_hits = _run_aperture(
-        "counter",
-        (
-            _query_only_counter_queries(query)
-            if query_only
-            else _counter_queries(query, anchor, relevant_narrow_hits)
-        ),
-        retrieve,
-        result,
-        attempt_budget,
-        information_cutoff,
+    if "broad" in enabled:
+        broad_hits = _run_aperture(
+            "broad",
+            broad_queries,
+            retrieve,
+            result,
+            attempt_budget,
+            information_cutoff,
+        )
+    else:
+        _record_disabled_aperture("broad", broad_queries, result)
+        broad_hits = []
+    counter_queries = (
+        _query_only_counter_queries(query)
+        if query_only
+        else _counter_queries(query, anchor, relevant_narrow_hits)
     )
+    if "counter" in enabled:
+        counter_hits = _run_aperture(
+            "counter",
+            counter_queries,
+            retrieve,
+            result,
+            attempt_budget,
+            information_cutoff,
+        )
+    else:
+        _record_disabled_aperture("counter", counter_queries, result)
+        counter_hits = []
     _bucket_hits(
         (
             *(("narrow", hit) for hit in narrow_hits),
@@ -265,7 +316,10 @@ def retrieve_closed_loop(
         attempts = [item for item in result.attempts if item.aperture == aperture]
         if (
             attempts
-            and any(item.status != "budget_exhausted" for item in attempts)
+            and any(
+                item.status not in {"budget_exhausted", "disabled"}
+                for item in attempts
+            )
             and all(item.hit_count == 0 for item in attempts)
         ):
             result.warnings.append(

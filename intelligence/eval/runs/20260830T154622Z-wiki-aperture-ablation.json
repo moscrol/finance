@@ -1,0 +1,1449 @@
+{
+  "kind": "wiki_aperture_ablation",
+  "ledger_id": "R-20260830-06",
+  "generated_at": "2026-08-30T15:46:22.001628+00:00",
+  "as_of": "2026-08-28",
+  "ask_evidence_judge": "off",
+  "prewarm": {
+    "enabled": true,
+    "state": "ready",
+    "active": 1,
+    "configured_workers": 1,
+    "model_load_count": 1,
+    "prewarm_latency_ms": 53756,
+    "last_error_type": null,
+    "lifecycle": "startup_prewarm",
+    "elapsed_sec": 53.76,
+    "ok": true
+  },
+  "questions": [
+    {
+      "case_id": "theme-liquid-cooling",
+      "text": "液冷服务器现在处于什么阶段",
+      "as_of": "2026-08-28"
+    },
+    {
+      "case_id": "shenling-order",
+      "text": "申菱环境液冷订单落地了没有",
+      "as_of": "2026-08-28"
+    },
+    {
+      "case_id": "invic-piping",
+      "text": "英维克和液冷管路的关系",
+      "as_of": "2026-08-28"
+    },
+    {
+      "case_id": "glass-vs-ceramic",
+      "text": "玻璃基板和陶瓷基板的区别",
+      "as_of": "2026-08-28"
+    },
+    {
+      "case_id": "star50-support",
+      "text": "科创50支撑位在哪",
+      "as_of": "2026-08-28"
+    },
+    {
+      "case_id": "zhongji-16t",
+      "text": "中际旭创和1.6T光模块的关系",
+      "as_of": "2026-08-28"
+    }
+  ],
+  "l0": {
+    "usable": 0,
+    "total": 6,
+    "activation_rate": 0.0,
+    "rows": [
+      {
+        "case_id": "theme-liquid-cooling",
+        "usable": false,
+        "reason": "missing_executed:broad,counter",
+        "attempts": [
+          {
+            "aperture": "narrow",
+            "query": "液冷服务器现在处于什么阶段",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "narrow",
+            "query": "液冷服务器现在处于什么阶段 实体 代码",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "narrow",
+            "query": "液冷服务器现在处于什么阶段 公司 题材",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "液冷服务器现在处于什么阶段  上下游 同业",
+            "status": "budget_exhausted",
+            "hit_count": 0,
+            "executed": false
+          },
+          {
+            "aperture": "counter",
+            "query": "液冷服务器现在处于什么阶段 产能过剩",
+            "status": "budget_exhausted",
+            "hit_count": 0,
+            "executed": false
+          }
+        ]
+      },
+      {
+        "case_id": "shenling-order",
+        "usable": false,
+        "reason": "missing_executed:counter",
+        "attempts": [
+          {
+            "aperture": "narrow",
+            "query": "申菱环境 301018",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "narrow",
+            "query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能 上下游 同业",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能 产业链 替代表达",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能 宏观 需求 竞争格局",
+            "status": "budget_exhausted",
+            "hit_count": 0,
+            "executed": false
+          },
+          {
+            "aperture": "counter",
+            "query": "申菱环境 产能过剩",
+            "status": "budget_exhausted",
+            "hit_count": 0,
+            "executed": false
+          }
+        ]
+      },
+      {
+        "case_id": "invic-piping",
+        "usable": false,
+        "reason": "missing_executed:counter",
+        "attempts": [
+          {
+            "aperture": "narrow",
+            "query": "英维克 002837",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "narrow",
+            "query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器 上下游 同业",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器 产业链 替代表达",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器 宏观 需求 竞争格局",
+            "status": "budget_exhausted",
+            "hit_count": 0,
+            "executed": false
+          },
+          {
+            "aperture": "counter",
+            "query": "英维克 产能过剩",
+            "status": "budget_exhausted",
+            "hit_count": 0,
+            "executed": false
+          }
+        ]
+      },
+      {
+        "case_id": "glass-vs-ceramic",
+        "usable": false,
+        "reason": "missing_executed:counter",
+        "attempts": [
+          {
+            "aperture": "narrow",
+            "query": "玻璃基板和陶瓷基板的区别",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "narrow",
+            "query": "玻璃基板和陶瓷基板的区别 实体 代码",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "narrow",
+            "query": "玻璃基板和陶瓷基板的区别 公司 题材",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "玻璃基板和陶瓷基板的区别  上下游 同业",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "玻璃基板和陶瓷基板的区别  产业链 替代表达",
+            "status": "budget_exhausted",
+            "hit_count": 0,
+            "executed": false
+          },
+          {
+            "aperture": "counter",
+            "query": "玻璃基板和陶瓷基板的区别 产能过剩",
+            "status": "budget_exhausted",
+            "hit_count": 0,
+            "executed": false
+          }
+        ]
+      },
+      {
+        "case_id": "star50-support",
+        "usable": false,
+        "reason": "missing_executed:counter",
+        "attempts": [
+          {
+            "aperture": "narrow",
+            "query": "科创50支撑位在哪",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "narrow",
+            "query": "科创50支撑位在哪 实体 代码",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "narrow",
+            "query": "科创50支撑位在哪 公司 题材",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "科创50支撑位在哪  上下游 同业",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "科创50支撑位在哪  产业链 替代表达",
+            "status": "budget_exhausted",
+            "hit_count": 0,
+            "executed": false
+          },
+          {
+            "aperture": "counter",
+            "query": "科创50支撑位在哪 产能过剩",
+            "status": "budget_exhausted",
+            "hit_count": 0,
+            "executed": false
+          }
+        ]
+      },
+      {
+        "case_id": "zhongji-16t",
+        "usable": false,
+        "reason": "missing_executed:counter",
+        "attempts": [
+          {
+            "aperture": "narrow",
+            "query": "中际旭创 300308",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "narrow",
+            "query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块 上下游 同业",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块 产业链 替代表达",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块 宏观 需求 竞争格局",
+            "status": "empty",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "counter",
+            "query": "中际旭创 产能过剩",
+            "status": "budget_exhausted",
+            "hit_count": 0,
+            "executed": false
+          }
+        ]
+      }
+    ]
+  },
+  "l1": {
+    "summary": null,
+    "rows": []
+  },
+  "latency_p50_sec": {
+    "A0": 45.82,
+    "A1": 107.653,
+    "A2": 94.272
+  },
+  "l2": null,
+  "l2_answers_full": null,
+  "retrieval": [
+    {
+      "arm": "A0",
+      "apertures": "narrow",
+      "case_id": "theme-liquid-cooling",
+      "graph_query": "液冷服务器现在处于什么阶段",
+      "anchor": null,
+      "elapsed_sec": 90.351,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "液冷服务器现在处于什么阶段",
+          "status": "timeout",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "液冷服务器现在处于什么阶段  上下游 同业",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "液冷服务器现在处于什么阶段 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag worker 降级 CLI 后仍超时",
+        "narrow retrieval empty after 1 attempts"
+      ],
+      "conclusion": [],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A1",
+      "apertures": "narrow_broad",
+      "case_id": "theme-liquid-cooling",
+      "graph_query": "液冷服务器现在处于什么阶段",
+      "anchor": null,
+      "elapsed_sec": 118.265,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "液冷服务器现在处于什么阶段",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "液冷服务器现在处于什么阶段 实体 代码",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "液冷服务器现在处于什么阶段 公司 题材",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "broad",
+          "query": "液冷服务器现在处于什么阶段  上下游 同业",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "液冷服务器现在处于什么阶段 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag 检索器返回告警；wiki-rag 丢弃 24 条非 fresh 命中（新鲜度=stale）；formal 证据要求 fresh，过期/未知命中不进入证据｜可恢复：在知识库仓提交改动后 post-commit 会自动重建索引，届时这些证据即可进入；wiki-rag 无可用 chunk 命中",
+        "narrow retrieval skipped: remaining budget below observed query cost",
+        "broad retrieval skipped: remaining budget below observed query cost",
+        "narrow retrieval empty after 3 attempts"
+      ],
+      "conclusion": [],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A2",
+      "apertures": "all",
+      "case_id": "theme-liquid-cooling",
+      "graph_query": "液冷服务器现在处于什么阶段",
+      "anchor": null,
+      "elapsed_sec": 89.547,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "液冷服务器现在处于什么阶段",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "液冷服务器现在处于什么阶段 实体 代码",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "液冷服务器现在处于什么阶段 公司 题材",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "液冷服务器现在处于什么阶段  上下游 同业",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "液冷服务器现在处于什么阶段 产能过剩",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag 检索器返回告警；wiki-rag 丢弃 24 条非 fresh 命中（新鲜度=stale）；formal 证据要求 fresh，过期/未知命中不进入证据｜可恢复：在知识库仓提交改动后 post-commit 会自动重建索引，届时这些证据即可进入；wiki-rag 无可用 chunk 命中",
+        "broad retrieval skipped: remaining budget below observed query cost",
+        "counter retrieval skipped: remaining budget below observed query cost",
+        "narrow retrieval empty after 3 attempts"
+      ],
+      "conclusion": [],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A0",
+      "apertures": "narrow",
+      "case_id": "shenling-order",
+      "graph_query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能",
+      "anchor": {
+        "entity": "申菱环境",
+        "ticker": "301018",
+        "concepts": [
+          "AI基础设施与国产算力",
+          "AI服务器",
+          "AI算力",
+          "储能"
+        ]
+      },
+      "elapsed_sec": 43.148,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "申菱环境 301018",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能 上下游 同业",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "申菱环境 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag 检索器返回告警；wiki-rag 丢弃 24 条非 fresh 命中（新鲜度=stale）；formal 证据要求 fresh，过期/未知命中不进入证据｜可恢复：在知识库仓提交改动后 post-commit 会自动重建索引，届时这些证据即可进入；wiki-rag 无可用 chunk 命中",
+        "narrow retrieval empty after 2 attempts"
+      ],
+      "conclusion": [],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A1",
+      "apertures": "narrow_broad",
+      "case_id": "shenling-order",
+      "graph_query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能",
+      "anchor": {
+        "entity": "申菱环境",
+        "ticker": "301018",
+        "concepts": [
+          "AI基础设施与国产算力",
+          "AI服务器",
+          "AI算力",
+          "储能"
+        ]
+      },
+      "elapsed_sec": 94.774,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "申菱环境 301018",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能 上下游 同业",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能 产业链 替代表达",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能 宏观 需求 竞争格局",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "申菱环境 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag 检索器返回告警；wiki-rag 丢弃 24 条非 fresh 命中（新鲜度=stale）；formal 证据要求 fresh，过期/未知命中不进入证据｜可恢复：在知识库仓提交改动后 post-commit 会自动重建索引，届时这些证据即可进入；wiki-rag 无可用 chunk 命中",
+        "broad retrieval skipped: remaining budget below observed query cost",
+        "narrow retrieval empty after 2 attempts",
+        "broad retrieval empty after 3 attempts"
+      ],
+      "conclusion": [],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A2",
+      "apertures": "all",
+      "case_id": "shenling-order",
+      "graph_query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能",
+      "anchor": {
+        "entity": "申菱环境",
+        "ticker": "301018",
+        "concepts": [
+          "AI基础设施与国产算力",
+          "AI服务器",
+          "AI算力",
+          "储能"
+        ]
+      },
+      "elapsed_sec": 109.719,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "申菱环境 301018",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能 上下游 同业",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能 产业链 替代表达",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能 宏观 需求 竞争格局",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "申菱环境 产能过剩",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag 检索器返回告警；wiki-rag 丢弃 24 条非 fresh 命中（新鲜度=stale）；formal 证据要求 fresh，过期/未知命中不进入证据｜可恢复：在知识库仓提交改动后 post-commit 会自动重建索引，届时这些证据即可进入；wiki-rag 无可用 chunk 命中",
+        "broad retrieval skipped: remaining budget below observed query cost",
+        "counter retrieval skipped: remaining budget below observed query cost",
+        "narrow retrieval empty after 2 attempts",
+        "broad retrieval empty after 3 attempts"
+      ],
+      "conclusion": [],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A0",
+      "apertures": "narrow",
+      "case_id": "invic-piping",
+      "graph_query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器",
+      "anchor": {
+        "entity": "英维克",
+        "ticker": "002837",
+        "concepts": [
+          "ABF载板",
+          "AI基建工具",
+          "AI基础设施与国产算力",
+          "AI容器"
+        ]
+      },
+      "elapsed_sec": 44.597,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "英维克 002837",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器 上下游 同业",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "英维克 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag 检索器返回告警；wiki-rag 丢弃 24 条非 fresh 命中（新鲜度=stale）；formal 证据要求 fresh，过期/未知命中不进入证据｜可恢复：在知识库仓提交改动后 post-commit 会自动重建索引，届时这些证据即可进入；wiki-rag 无可用 chunk 命中",
+        "narrow retrieval empty after 2 attempts"
+      ],
+      "conclusion": [],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A1",
+      "apertures": "narrow_broad",
+      "case_id": "invic-piping",
+      "graph_query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器",
+      "anchor": {
+        "entity": "英维克",
+        "ticker": "002837",
+        "concepts": [
+          "ABF载板",
+          "AI基建工具",
+          "AI基础设施与国产算力",
+          "AI容器"
+        ]
+      },
+      "elapsed_sec": 95.013,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "英维克 002837",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器 上下游 同业",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器 产业链 替代表达",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器 宏观 需求 竞争格局",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "英维克 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag 检索器返回告警；wiki-rag 丢弃 24 条非 fresh 命中（新鲜度=stale）；formal 证据要求 fresh，过期/未知命中不进入证据｜可恢复：在知识库仓提交改动后 post-commit 会自动重建索引，届时这些证据即可进入；wiki-rag 无可用 chunk 命中",
+        "broad retrieval skipped: remaining budget below observed query cost",
+        "narrow retrieval empty after 2 attempts",
+        "broad retrieval empty after 3 attempts"
+      ],
+      "conclusion": [],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A2",
+      "apertures": "all",
+      "case_id": "invic-piping",
+      "graph_query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器",
+      "anchor": {
+        "entity": "英维克",
+        "ticker": "002837",
+        "concepts": [
+          "ABF载板",
+          "AI基建工具",
+          "AI基础设施与国产算力",
+          "AI容器"
+        ]
+      },
+      "elapsed_sec": 97.983,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "英维克 002837",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器 上下游 同业",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器 产业链 替代表达",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器 宏观 需求 竞争格局",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "英维克 产能过剩",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag 检索器返回告警；wiki-rag 丢弃 24 条非 fresh 命中（新鲜度=stale）；formal 证据要求 fresh，过期/未知命中不进入证据｜可恢复：在知识库仓提交改动后 post-commit 会自动重建索引，届时这些证据即可进入；wiki-rag 无可用 chunk 命中",
+        "broad retrieval skipped: remaining budget below observed query cost",
+        "counter retrieval skipped: remaining budget below observed query cost",
+        "narrow retrieval empty after 2 attempts",
+        "broad retrieval empty after 3 attempts"
+      ],
+      "conclusion": [],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A0",
+      "apertures": "narrow",
+      "case_id": "glass-vs-ceramic",
+      "graph_query": "玻璃基板和陶瓷基板的区别",
+      "anchor": null,
+      "elapsed_sec": 62.96,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "玻璃基板和陶瓷基板的区别",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "玻璃基板和陶瓷基板的区别 实体 代码",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "玻璃基板和陶瓷基板的区别 公司 题材",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "玻璃基板和陶瓷基板的区别  上下游 同业",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "玻璃基板和陶瓷基板的区别 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag 检索器返回告警；wiki-rag 丢弃 24 条非 fresh 命中（新鲜度=stale）；formal 证据要求 fresh，过期/未知命中不进入证据｜可恢复：在知识库仓提交改动后 post-commit 会自动重建索引，届时这些证据即可进入；wiki-rag 无可用 chunk 命中",
+        "narrow retrieval empty after 3 attempts"
+      ],
+      "conclusion": [],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A1",
+      "apertures": "narrow_broad",
+      "case_id": "glass-vs-ceramic",
+      "graph_query": "玻璃基板和陶瓷基板的区别",
+      "anchor": null,
+      "elapsed_sec": 108.439,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "玻璃基板和陶瓷基板的区别",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "玻璃基板和陶瓷基板的区别 实体 代码",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "玻璃基板和陶瓷基板的区别 公司 题材",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "玻璃基板和陶瓷基板的区别  上下游 同业",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "玻璃基板和陶瓷基板的区别  产业链 替代表达",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "玻璃基板和陶瓷基板的区别 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag 检索器返回告警；wiki-rag 丢弃 24 条非 fresh 命中（新鲜度=stale）；formal 证据要求 fresh，过期/未知命中不进入证据｜可恢复：在知识库仓提交改动后 post-commit 会自动重建索引，届时这些证据即可进入；wiki-rag 无可用 chunk 命中",
+        "broad retrieval skipped: remaining budget below observed query cost",
+        "narrow retrieval empty after 3 attempts",
+        "broad retrieval empty after 2 attempts"
+      ],
+      "conclusion": [],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A2",
+      "apertures": "all",
+      "case_id": "glass-vs-ceramic",
+      "graph_query": "玻璃基板和陶瓷基板的区别",
+      "anchor": null,
+      "elapsed_sec": 90.227,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "玻璃基板和陶瓷基板的区别",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "玻璃基板和陶瓷基板的区别 实体 代码",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "玻璃基板和陶瓷基板的区别 公司 题材",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "玻璃基板和陶瓷基板的区别  上下游 同业",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "玻璃基板和陶瓷基板的区别  产业链 替代表达",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "玻璃基板和陶瓷基板的区别 产能过剩",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag 检索器返回告警；wiki-rag 丢弃 24 条非 fresh 命中（新鲜度=stale）；formal 证据要求 fresh，过期/未知命中不进入证据｜可恢复：在知识库仓提交改动后 post-commit 会自动重建索引，届时这些证据即可进入；wiki-rag 无可用 chunk 命中",
+        "broad retrieval skipped: remaining budget below observed query cost",
+        "counter retrieval skipped: remaining budget below observed query cost",
+        "narrow retrieval empty after 3 attempts",
+        "broad retrieval empty after 2 attempts"
+      ],
+      "conclusion": [],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A0",
+      "apertures": "narrow",
+      "case_id": "star50-support",
+      "graph_query": "科创50支撑位在哪",
+      "anchor": null,
+      "elapsed_sec": 47.043,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "科创50支撑位在哪",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "科创50支撑位在哪 实体 代码",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "科创50支撑位在哪 公司 题材",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "科创50支撑位在哪  上下游 同业",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "科创50支撑位在哪 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag 检索器返回告警；wiki-rag 丢弃 24 条非 fresh 命中（新鲜度=stale）；formal 证据要求 fresh，过期/未知命中不进入证据｜可恢复：在知识库仓提交改动后 post-commit 会自动重建索引，届时这些证据即可进入；wiki-rag 无可用 chunk 命中",
+        "narrow retrieval empty after 3 attempts"
+      ],
+      "conclusion": [],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A1",
+      "apertures": "narrow_broad",
+      "case_id": "star50-support",
+      "graph_query": "科创50支撑位在哪",
+      "anchor": null,
+      "elapsed_sec": 112.777,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "科创50支撑位在哪",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "科创50支撑位在哪 实体 代码",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "科创50支撑位在哪 公司 题材",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "科创50支撑位在哪  上下游 同业",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "科创50支撑位在哪  产业链 替代表达",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "科创50支撑位在哪  宏观 需求 竞争格局",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "科创50支撑位在哪 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag 检索器返回告警；wiki-rag 丢弃 24 条非 fresh 命中（新鲜度=stale）；formal 证据要求 fresh，过期/未知命中不进入证据｜可恢复：在知识库仓提交改动后 post-commit 会自动重建索引，届时这些证据即可进入；wiki-rag 无可用 chunk 命中",
+        "broad retrieval skipped: remaining budget below observed query cost",
+        "narrow retrieval empty after 3 attempts",
+        "broad retrieval empty after 3 attempts"
+      ],
+      "conclusion": [],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A2",
+      "apertures": "all",
+      "case_id": "star50-support",
+      "graph_query": "科创50支撑位在哪",
+      "anchor": null,
+      "elapsed_sec": 90.561,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "科创50支撑位在哪",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "科创50支撑位在哪 实体 代码",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "科创50支撑位在哪 公司 题材",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "科创50支撑位在哪  上下游 同业",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "科创50支撑位在哪  产业链 替代表达",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "科创50支撑位在哪 产能过剩",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag 检索器返回告警；wiki-rag 丢弃 24 条非 fresh 命中（新鲜度=stale）；formal 证据要求 fresh，过期/未知命中不进入证据｜可恢复：在知识库仓提交改动后 post-commit 会自动重建索引，届时这些证据即可进入；wiki-rag 无可用 chunk 命中",
+        "broad retrieval skipped: remaining budget below observed query cost",
+        "counter retrieval skipped: remaining budget below observed query cost",
+        "narrow retrieval empty after 3 attempts",
+        "broad retrieval empty after 2 attempts"
+      ],
+      "conclusion": [],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A0",
+      "apertures": "narrow",
+      "case_id": "zhongji-16t",
+      "graph_query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块",
+      "anchor": {
+        "entity": "中际旭创",
+        "ticker": "300308",
+        "concepts": [
+          "1.6T CPO",
+          "6G",
+          "6G产业",
+          "800G_1.6T光模块"
+        ]
+      },
+      "elapsed_sec": 33.617,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "中际旭创 300308",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块 上下游 同业",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "中际旭创 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag 检索器返回告警；wiki-rag 丢弃 24 条非 fresh 命中（新鲜度=stale）；formal 证据要求 fresh，过期/未知命中不进入证据｜可恢复：在知识库仓提交改动后 post-commit 会自动重建索引，届时这些证据即可进入；wiki-rag 无可用 chunk 命中",
+        "narrow retrieval empty after 2 attempts"
+      ],
+      "conclusion": [],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A1",
+      "apertures": "narrow_broad",
+      "case_id": "zhongji-16t",
+      "graph_query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块",
+      "anchor": {
+        "entity": "中际旭创",
+        "ticker": "300308",
+        "concepts": [
+          "1.6T CPO",
+          "6G",
+          "6G产业",
+          "800G_1.6T光模块"
+        ]
+      },
+      "elapsed_sec": 106.866,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "中际旭创 300308",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块 上下游 同业",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块 产业链 替代表达",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块 宏观 需求 竞争格局",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "counter",
+          "query": "中际旭创 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag 检索器返回告警；wiki-rag 丢弃 24 条非 fresh 命中（新鲜度=stale）；formal 证据要求 fresh，过期/未知命中不进入证据｜可恢复：在知识库仓提交改动后 post-commit 会自动重建索引，届时这些证据即可进入；wiki-rag 无可用 chunk 命中",
+        "narrow retrieval empty after 2 attempts",
+        "broad retrieval empty after 3 attempts"
+      ],
+      "conclusion": [],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A2",
+      "apertures": "all",
+      "case_id": "zhongji-16t",
+      "graph_query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块",
+      "anchor": {
+        "entity": "中际旭创",
+        "ticker": "300308",
+        "concepts": [
+          "1.6T CPO",
+          "6G",
+          "6G产业",
+          "800G_1.6T光模块"
+        ]
+      },
+      "elapsed_sec": 104.787,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "中际旭创 300308",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "narrow",
+          "query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块 上下游 同业",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块 产业链 替代表达",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块 宏观 需求 竞争格局",
+          "status": "empty",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "counter",
+          "query": "中际旭创 产能过剩",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag 检索器返回告警；wiki-rag 丢弃 24 条非 fresh 命中（新鲜度=stale）；formal 证据要求 fresh，过期/未知命中不进入证据｜可恢复：在知识库仓提交改动后 post-commit 会自动重建索引，届时这些证据即可进入；wiki-rag 无可用 chunk 命中",
+        "counter retrieval skipped: remaining budget below observed query cost",
+        "narrow retrieval empty after 2 attempts",
+        "broad retrieval empty after 3 attempts"
+      ],
+      "conclusion": [],
+      "counter": [],
+      "discarded_n": 0
+    }
+  ],
+  "conclusion": {
+    "code": "INELIGIBLE",
+    "text": "现网预算撑不满三铲，质量对照无资格"
+  },
+  "as_of_date": "2026-08-28"
+}

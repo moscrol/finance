@@ -454,3 +454,85 @@ def test_representative_attempt_still_updates_the_estimate() -> None:
 
     assert budget.observed_seconds == 40.0
     assert budget.can_start() is False
+
+
+def test_unset_aperture_env_still_calls_all_three_retrieves(monkeypatch) -> None:
+    monkeypatch.delenv("ASK_WIKI_APERTURES", raising=False)
+    calls: list[str] = []
+
+    def retrieve(query: str) -> WikiRagResult:
+        calls.append(query)
+        return _response(query, [_hit("液冷服务器", 0.72)])
+
+    result = retrieve_closed_loop("液冷", anchor=None, retrieve=retrieve)
+
+    assert len(calls) == 3
+    assert [attempt.aperture for attempt in result.attempts if attempt.executed] == [
+        "narrow",
+        "broad",
+        "counter",
+    ]
+    assert all(attempt.status != "disabled" for attempt in result.attempts)
+
+
+def test_narrow_aperture_env_does_not_retrieve_broad_or_counter(monkeypatch) -> None:
+    monkeypatch.setenv("ASK_WIKI_APERTURES", "narrow")
+    queries: list[str] = []
+
+    def retrieve(query: str) -> WikiRagResult:
+        queries.append(query)
+        return _response(query, [_hit("液冷服务器", 0.72)])
+
+    result = retrieve_closed_loop(
+        "英维克怎么看",
+        anchor=EntityAnchor(
+            entity="英维克",
+            ticker="002837.SZ",
+            concepts=("液冷",),
+        ),
+        retrieve=retrieve,
+    )
+
+    assert queries == ["英维克 002837.SZ"]
+    assert not any("上下游" in query for query in queries)
+    assert not any("产能过剩" in query or "需求不及" in query for query in queries)
+    executed = [item for item in result.attempts if item.executed]
+    assert [item.aperture for item in executed] == ["narrow"]
+    skipped = [item for item in result.attempts if not item.executed]
+    assert {item.aperture for item in skipped} == {"broad", "counter"}
+    assert all(item.status == "disabled" for item in skipped)
+    assert "broad retrieval empty after 1 attempts" not in result.warnings
+    assert "counter retrieval empty after 1 attempts" not in result.warnings
+
+
+def test_narrow_broad_aperture_env_skips_only_counter(monkeypatch) -> None:
+    monkeypatch.setenv("ASK_WIKI_APERTURES", "narrow_broad")
+    queries: list[str] = []
+
+    def retrieve(query: str) -> WikiRagResult:
+        queries.append(query)
+        return _response(query, [_hit("液冷服务器", 0.72)])
+
+    result = retrieve_closed_loop("液冷", anchor=None, retrieve=retrieve)
+
+    assert len(queries) == 2
+    assert [item.aperture for item in result.attempts if item.executed] == [
+        "narrow",
+        "broad",
+    ]
+    counter = [item for item in result.attempts if item.aperture == "counter"]
+    assert counter and counter[0].status == "disabled" and not counter[0].executed
+
+
+def test_unknown_aperture_env_is_fail_closed(monkeypatch) -> None:
+    monkeypatch.setenv("ASK_WIKI_APERTURES", "wide")
+    try:
+        retrieve_closed_loop(
+            "液冷",
+            anchor=None,
+            retrieve=lambda query: _response(query, []),
+        )
+    except ValueError as exc:
+        assert "ASK_WIKI_APERTURES" in str(exc)
+        return
+    raise AssertionError("expected ValueError for unknown ASK_WIKI_APERTURES")
