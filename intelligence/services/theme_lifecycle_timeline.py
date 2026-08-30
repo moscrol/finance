@@ -38,13 +38,18 @@ from typing import Any
 
 from intelligence.paths import default_market_db_path
 from intelligence.services import retrieval_cache
+from market_feature_store import signals as _signals
 
 DEFAULT_MARKET_DB_PATH = default_market_db_path()
 
-# 严格双红口径（与 strategy1-matrix / D8 一致）
-DOUBLE_RED_PCT = 0.0
-DOUBLE_RED_DIFF = 10.0
-DOUBLE_RED_AMOUNT = 500.0
+# 严格双红口径（与 strategy1-matrix / D8 一致）。
+# **数字不在这里**：唯一出处是 ``market_feature_store.signals``（能力开关板已把
+# 它登记成缝：`signals.py::DOUBLE_RED_SQL`）。本模块只做转出，供 Engine A 的
+# ``asof_prefetch`` 按名引用——此前这里另存一份同值常量，与 signals 分家在
+# A 侧与 B 侧之间，改一边另一边静默不动。别在这里重新赋值。
+DOUBLE_RED_PCT = _signals.DOUBLE_RED_PCT
+DOUBLE_RED_DIFF = _signals.DOUBLE_RED_DIFF
+DOUBLE_RED_AMOUNT = _signals.DOUBLE_RED_AMOUNT
 
 MAINUP_CONSECUTIVE = 3   # 主升：连续双红天数下限
 EBB_BREAK_DAYS = 5       # 退潮：连续无双红天数下限
@@ -65,14 +70,16 @@ STAGE_REFLOW = "回流"
 
 
 def is_double_red(row: dict[str, Any]) -> bool:
+    """行字典版双红判定。**判据本身**委托给 signals，本函数只做取字段。
+
+    两个签名各有用处（这里收 DuckDB 行字典，signals 收三个标量），但阈值比较
+    必须只有一份实现——否则「改了 SQL 没改 Python」会让同一天的块与时间线
+    互相矛盾，且两边各自自洽。
+    """
     pct, diff, amount = row.get("pct_chg"), row.get("diff_ratio"), row.get("amount")
     if pct is None or diff is None or amount is None:
         return False
-    return (
-        float(pct) > DOUBLE_RED_PCT
-        and float(diff) > DOUBLE_RED_DIFF
-        and float(amount) > DOUBLE_RED_AMOUNT
-    )
+    return _signals.is_double_red(pct, diff, amount)
 
 
 @dataclass

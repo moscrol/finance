@@ -32,6 +32,7 @@ from typing import Any
 from intelligence.paths import default_market_db_path
 from intelligence.services import retrieval_cache
 from intelligence.services import reading_baseline
+from market_feature_store.signals import DOUBLE_RED_SQL
 
 DEFAULT_MARKET_DB_PATH = default_market_db_path()
 
@@ -313,9 +314,12 @@ _AUX_QUERIES: dict[str, str] = {
     "max_boards": (
         "select trade_date, max(boards) from fact_limit_advance_daily group by trade_date"
     ),
+    # 谓词按名引用，不再写死字面量：这一份此前既不看 signals 也不看
+    # theme_lifecycle，改阈值时 D10 的情绪向量会静默留在旧口径，而它同时
+    # 供 Engine A 预取和 Engine B compose——两边一起错，且读数自洽。
     "double_red_theme_count": (
         "select trade_date, count(*) from fact_sector_daily "
-        "where pct_chg > 0 and diff_ratio > 10 and amount > 500 group by trade_date"
+        f"where {DOUBLE_RED_SQL} group by trade_date"
     ),
     "top1_theme_share": (
         "select trade_date, max(market_share) from fact_theme_limit_heat_daily group by trade_date"
