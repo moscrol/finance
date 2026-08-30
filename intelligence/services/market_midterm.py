@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -170,7 +171,13 @@ def _anchored_fragment(name: str, text: str) -> str | None:
     return None
 
 
-def resolve_query_themes(con: Any, query: str, anchored_theme: str | None = None, limit: int = 4) -> list[str]:
+def resolve_query_themes(
+    con: Any,
+    query: str,
+    anchored_theme: str | None = None,
+    limit: int = 4,
+    as_of: date | str | None = None,
+) -> list[str]:
     """从 query 里解析出要对比的题材（子串匹配 distinct sector_name，长名优先）。
 
     - 只做「板块表里已存在的题材名」子串匹配，天然把 query 收敛到可查口径；
@@ -180,12 +187,26 @@ def resolve_query_themes(con: Any, query: str, anchored_theme: str | None = None
       这个粒度错配让视角回答只能对地产写"无量价证据"；宽松轮先剥问句停用词
       （_LOOSE_MATCH_STOPWORDS），防「分析/行情」误配「行业分析/行情预测」；
     - anchored_theme（上游锚定题材）兜底，保证至少有一个题材可查。
+    - ``as_of`` 非空时名录只收 ``trade_date <= as_of`` 出现过的板块名：题材名
+      本身是随时间新增的，用库尾名录去解析一道 as_of 截断的问句，会让「截止日
+      当时还不存在的题材」被解析出来。默认 ``None`` = 全名录，既有调用方行为不变。
     """
     text = re.sub(r"\s+", "", str(query or ""))
+    names_sql = (
+        "select distinct sector_name from fact_sector_daily "
+        "where sector_name is not null"
+    )
     try:
-        names = [str(r[0]) for r in con.execute(
-            "select distinct sector_name from fact_sector_daily where sector_name is not null"
-        ).fetchall()]
+        if as_of is None:
+            # 无 as_of 时保持**原调用形状**（单参 execute）：这是 as_of 参数加入
+            # 之前的既有行为，调用方与替身都按单参写。传 [] 不等价——替身按真实
+            # 签名写才对，但既有行为的等价性不该依赖替身跟着改。
+            rows = con.execute(names_sql).fetchall()
+        else:
+            rows = con.execute(
+                names_sql + " and trade_date <= ?", [str(as_of)]
+            ).fetchall()
+        names = [str(r[0]) for r in rows]
     except Exception:
         names = []
     names_sorted = sorted({n for n in names if n}, key=len, reverse=True)
