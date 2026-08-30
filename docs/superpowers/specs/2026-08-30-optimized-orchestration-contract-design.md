@@ -7,7 +7,7 @@
   ② §4 给「开关未开」补告警要求（合法 ≠ 可静默）。§2.2 的 `market_technical`「A 内快路径」
   经查属实（`continuous_turn_adapter.py:337`，在包椅拒收判断之后）。裁决方向未改。
 - 预注册：`R-20260830-05`（`claim_ledger_id.py`，占号时登记的分支名 `feat/optimized-orchestration-contract`，号不回收）
-  - **落地分支与占号分支名不同**，且**分支名本身不是稳定锚点**——本链今天被 rebase 三次、改名四次。定位实物请用台账号：`python3 scripts/claim_ledger_id.py list --date 20260830`，或读 `docs/prediction-ledger.md`。截至落稿：全量链 `feat/orchestration-specs-v3`，纯文档链 `docs/orchestration-specs`。占号分支名不改（号不回收的同一纪律：登记簿是历史，不重写）。
+  - **落地分支与占号分支名不同**，且**分支名本身不是稳定锚点**。P0/P1 交付**以台账号为准**：`R-20260830-02`（D8/D11 接线）、`R-20260830-03`（双红单一真本源）。**分支名不是稳定锚点**——本链一天内 rebase 三次、改名五次，旧名都已失效。定位分三步、别混：① **题与判据**读 `docs/prediction-ledger.md` 对应行（在 main 上，稳定）；② **现在有哪些分支**用 `git ls-remote --heads gitea`（唯一实时真相）；③ `claim_ledger_id.py list` 的 `branch=` 是**占号当时的历史名、按设计不改写**，`-02`/`-03`/`-05` 那三个远程都已删——**它是台账不是 checkout 指南**。 占号分支名不改（号不回收的同一纪律：登记簿是历史，不重写）。
 - 来源：2026-08-30 会话收口（包 / A / 工作流三词对齐 →「优化之后只有包和 A」→「A 整台拒收还要不要 B 兜底」→「包是不是固定工作流」）
 - 姊妹单（本单不重做）：
   - `2026-08-30-engine-b-into-a-strangler-design.md`——**实施单**：取数库并入 A 预取、卸第二套研究循环。本单是它的**目标态合同**，并拍死其 §9 T1

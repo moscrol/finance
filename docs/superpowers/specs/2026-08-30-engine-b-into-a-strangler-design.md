@@ -2,7 +2,7 @@
 
 - 日期：2026-08-30
 - 状态：Draft v3（**P0/P1 已在旁支改了 `intelligence/`**，未切 8792；本稿正文仍只是设计）
-- ⚠️ 主干 vs 旁支：`gitea/main` 上 D8/D11 仍是旧 gap 口径、双红口径仍是三份。P0/P1 交付**以台账号为准**：`R-20260830-02`（D8/D11 接线）、`R-20260830-03`（双红单一真本源）。**分支名不是稳定锚点**——本链今天已被 rebase 过三次、改名四次，旧名都已失效；要定位实物用 `python3 scripts/claim_ledger_id.py list --date 20260830` 查号→分支的登记，或直接读 `docs/prediction-ledger.md` 对应行。截至落稿：全量链 `feat/orchestration-specs-v3`，纯文档链 `docs/orchestration-specs`。**判任何一条「现状如何」之前先说清读的是哪一支。**
+- ⚠️ 主干 vs 旁支：`gitea/main` 上 D8/D11 仍是旧 gap 口径、双红口径仍是三份。P0/P1 交付**以台账号为准**：`R-20260830-02`（D8/D11 接线）、`R-20260830-03`（双红单一真本源）。**分支名不是稳定锚点**——本链一天内 rebase 三次、改名五次，旧名都已失效。定位分三步、别混：① **题与判据**读 `docs/prediction-ledger.md` 对应行（在 main 上，稳定）；② **现在有哪些分支**用 `git ls-remote --heads gitea`（唯一实时真相）；③ `claim_ledger_id.py list` 的 `branch=` 是**占号当时的历史名、按设计不改写**，`-02`/`-03`/`-05` 那三个远程都已删——**它是台账不是 checkout 指南**。**判任何一条「现状如何」之前先说清读的是哪一支。**
 - v2 改动（2026-08-30 复核，逐条 [实测]）：判别变量换锚点（`agent_loop` 是 B 留下的**标签名**，A 的回合里也有）、§3 补四条事实、§4 补 StancePack 说明、P0 补 `as_of` 前置条款、P1 措辞改「日期键由调用方传入」、P2 补注入口（`services` 不 import `runtime`）、P3 补保留名单与降级契约。v1 的裁决方向未改。
 - 来源：2026-08-30 会话走查（进门分流 / 包 / A ReAct / B 流水线）+ 既有开口预取缝（`asof_prefetch.py` 已写明 D8/D11「只在 Engine B 接线」）
 - 相邻（本单不重做）：
