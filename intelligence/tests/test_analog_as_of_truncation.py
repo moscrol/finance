@@ -38,12 +38,69 @@ except Exception:  # pragma: no cover
     duckdb = None
 
 _ISO_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_BASE = date(2025, 1, 1)
+# 截止日取第 120 天。夹具刻意造成「截止日之前弱、之后全强」：
+#   - 截断生效时，当前窗口（第 100~120 天）是弱的，最近的类比窗口只能在截止日
+#     之前的弱段里选，块内日期必然 ≤ as_of；
+#   - 截断失效时，当前窗口变成库尾（第 180~200 天）那段强的，最近的类比窗口
+#     就是截止日**之后**的强段，块内日期越过 as_of。
+# 这个形状是被变异测试逼出来的：初版夹具（强段在 40~60 与 180~200）下，
+# 「最大日期 ≤ as_of」在**抽掉历史截断之后依然全绿**——因为 D8/D11 只渲染
+# 历史类比窗口的日期，而那些窗口恰好都落在截止日之前。断言当时没做任何事。
+_CUT_INDEX = 120
+_CUT = (_BASE + timedelta(days=_CUT_INDEX)).isoformat()
 
 
 def _max_date_in(block: str) -> str | None:
     """块里出现的最大 ISO 日期。窗口起止日就是渲染出来的，不必解析结构。"""
     hits = _ISO_RE.findall(block or "")
     return max(hits) if hits else None
+
+
+def _make_cutoff_shaped_stock_db(path: Path) -> None:
+    """D11 版「截止日前弱、之后全强」夹具。凡是断言日期上界的用例都用它。"""
+    con = duckdb.connect(str(path))
+    con.execute(
+        """
+        create table fact_stock_daily (
+            trade_date date, stock_ts_code text, stock_name text,
+            close double, pre_close double, pct_chg double,
+            amount double, turnover double, source text, updated_at timestamp
+        )
+        """
+    )
+    for i in range(200):
+        con.execute(
+            "insert into fact_stock_daily values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                _BASE + timedelta(days=i),
+                "300001.SZ",
+                "英维克",
+                10.0, 10.0, 6.0 if i >= _CUT_INDEX else 0.1, 5.0, 2.0, "t", None,
+            ],
+        )
+    con.close()
+
+
+def _make_cutoff_shaped_sector_db(path: Path) -> None:
+    """D8 版「截止日前弱、之后全强」夹具。"""
+    con = duckdb.connect(str(path))
+    con.execute(
+        "create table fact_sector_daily (trade_date date, sector_name varchar, "
+        "pct_chg double, diff_ratio double, amount double)"
+    )
+    for i in range(200):
+        hot = i >= _CUT_INDEX
+        con.execute(
+            "insert into fact_sector_daily values (?, '信创', ?, ?, ?)",
+            [
+                _BASE + timedelta(days=i),
+                2.5 if hot else -0.5,
+                15.0 if hot else 2.0,
+                900.0 if hot else 300.0,
+            ],
+        )
+    con.close()
 
 
 @unittest.skipIf(duckdb is None, "duckdb 不可用")
@@ -77,18 +134,22 @@ class StockAnalogAsOfTests(unittest.TestCase):
         con.close()
 
     def test_block_never_shows_dates_after_as_of(self) -> None:
-        """取数截断：块内最大日期不得越过 as_of。"""
-        cut = (date(2025, 1, 1) + timedelta(days=120)).isoformat()
+        """取数截断：块内最大日期不得越过 as_of。
+
+        对「抽掉 ``load_stock_analog_artifact`` 的历史截断」这个变异敏感——
+        前提是夹具让截断失效时**真的会选到截止日之后的窗口**。初版夹具不满足
+        这一条，本断言当时恒绿。
+        """
         with TemporaryDirectory() as tmp:
             db = Path(tmp) / "t.duckdb"
-            self._make_db(db)
+            _make_cutoff_shaped_stock_db(db)
             block = stock_analog_block_for_llm(
-                "英维克这段走势历史上有类似的吗", db, as_of=cut
+                "英维克这段走势历史上有类似的吗", db, as_of=_CUT
             )
         self.assertIn("[D11]", block)
         latest = _max_date_in(block)
         self.assertIsNotNone(latest)
-        self.assertLessEqual(latest, cut)
+        self.assertLessEqual(latest, _CUT)
 
     def test_two_as_of_give_different_blocks(self) -> None:
         """同题不同 as_of 必须给出不同的块；相同即说明 as_of 被忽略。"""
@@ -141,17 +202,17 @@ class ThemeAnalogAsOfTests(unittest.TestCase):
         con.close()
 
     def test_block_never_shows_dates_after_as_of(self) -> None:
-        cut = (date(2025, 1, 1) + timedelta(days=120)).isoformat()
+        """同 D11：夹具必须让截断失效时真的选到截止日之后的窗口，否则恒绿。"""
         with TemporaryDirectory() as tmp:
             db = Path(tmp) / "t.duckdb"
-            self._make_db(db)
+            _make_cutoff_shaped_sector_db(db)
             block = analog_block_for_llm(
-                "历史上信创类似的走势后来怎么走", "信创", db, as_of=cut
+                "历史上信创类似的走势后来怎么走", "信创", db, as_of=_CUT
             )
         self.assertIn("[D8]", block)
         latest = _max_date_in(block)
         self.assertIsNotNone(latest)
-        self.assertLessEqual(latest, cut)
+        self.assertLessEqual(latest, _CUT)
 
     def test_two_as_of_give_different_blocks(self) -> None:
         early = (date(2025, 1, 1) + timedelta(days=120)).isoformat()
@@ -235,18 +296,37 @@ class PrefetchWiringTests(unittest.TestCase):
         self.assertNotIn("D11 未预取", blob)
 
     def test_prefetched_blocks_respect_as_of(self) -> None:
-        """预取层传下去的 as_of 必须真的生效，不是只写进 source_date。"""
-        cut = (date(2025, 1, 1) + timedelta(days=120)).isoformat()
+        """预取层传下去的 as_of 必须真的生效，不是只写进 source_date。
+
+        必须用截止日成形夹具：用普通夹具时，抽掉 ``as_of=as_of`` 这个实参之后
+        本断言**依然全绿**（实测变异 4），因为选出的类比窗口碰巧都在截止日之前。
+        「接线在、截断没传下去」正是这条要挡的漏。
+        """
         with TemporaryDirectory() as tmp:
             db = Path(tmp) / "t.duckdb"
-            _msa._make_db(db, n=200)
+            _make_cutoff_shaped_stock_db(db)
             items = self._collect(
-                "英维克这段走势历史上有类似的吗", db, date.fromisoformat(cut)
+                "英维克这段走势历史上有类似的吗", db, date.fromisoformat(_CUT)
             )
         blob = self._blob(items)
+        self.assertIn("[D11]", blob)
         latest = _max_date_in(blob)
         self.assertIsNotNone(latest)
-        self.assertLessEqual(latest, cut)
+        self.assertLessEqual(latest, _CUT)
+
+    def test_prefetched_theme_block_respects_as_of(self) -> None:
+        """D8 侧同款：``analog_block_for_llm`` 的 as_of 实参不得被漏传。"""
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            _make_cutoff_shaped_sector_db(db)
+            items = self._collect(
+                "历史上信创类似的走势后来怎么走", db, date.fromisoformat(_CUT)
+            )
+        blob = self._blob(items)
+        self.assertIn("[D8]", blob)
+        latest = _max_date_in(blob)
+        self.assertIsNotNone(latest)
+        self.assertLessEqual(latest, _CUT)
 
 
 if __name__ == "__main__":  # pragma: no cover
