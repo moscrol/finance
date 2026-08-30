@@ -133,7 +133,16 @@ Workbench 里「你纠正系统上一句」今天只是聊天上下文，不是�
 2. （runtime）`user_id` 非空，且 **不是** `golden-test` / `tester`；**是** `default` 也写（事实 5）。
 3. （runtime）`user_id` 不匹配探针前缀：`probe-` / `fsr2-` / `ablation-` / `golden-`（自用摩擦台账那条纪律：探针不进用户账）。
 4. （runtime 取、services 收）本会话存在一条 `role=assistant` 且 `status=completed` 的上一轮（按时间倒序第一条）。没有上一轮 = 用户在开新题，不是纠偏。
-   - **别自己写取法**：`conversation_orchestrator.py:1843` 已有 `previous_turn_message(context)`，先确认它是不是就是这个语义。
+   - ⚠️ **不要复用 `previous_turn_message`**（`conversation_orchestrator.py:1670`）。[实测] 它的实现是
+     「倒序找**第一条带 `turn_intent` 的消息**」——`for message in reversed(recent_messages): if TurnIntent.from_dict(...) is not None: return message`，
+     **不看 role、不看 status**。照抄会把带 intent 的**用户**消息、或**未完成**的 assistant 稿
+     当成「被纠正的上一篇」，于是 `original` 指错、`corrected_message_id` 指错，
+     而写入照样成功、夹具照样绿。
+     （本条初版写的是「先确认它是不是这个语义」——那是把核对甩给实施方；答案是**不是**，
+     现在直接写死。）
+   - P0 自己滤：`role == "assistant" and status == "completed"`，倒序取第一条。要么新写一个
+     helper，要么给 `previous_turn_message` 加可选谓词参数——**别原地改它的语义**，
+     `_run_turn_ledgered:1843` 还在用它取继承 intent，改了会动到别的路。
    - `status` 字段实测在盘（`messages.jsonl` 里有 `"status": "pending"`），本条可判，不是纸面约束。
 5. （services）用户正文去空白后长度 ≥ 8，且含「应为」载荷（见 5.2），不是光一个「不对」。
 
@@ -187,6 +196,10 @@ Workbench 里「你纠正系统上一句」今天只是聊天上下文，不是�
 ### P0 — 工作台写侧接通（本单交付）
 
 - 新模块 `intelligence/services/workbench_correction_ingest.py`：`maybe_record_workbench_correction(...)` 纯函数，返回 `recorded | skipped | failed` + 原因码。原因码封闭枚举（`no_prior_answer` / `no_payload` / `market_commentary` / `engineering` / `identity_skipped` / `dedup` / `recorded` / `write_failed`）。
+  - ⚠️ 枚举跨了两层：`identity_skipped`（以及 pytest 早退那档）由 **orchestrator** 判，
+    services 那个纯函数**永远不会返回它**。夹具直接调 services 时这条码不出现，别据此判「枚举没实现」。
+    要么在枚举定义处标明「仅 orchestrator 收据可见」，要么把它挪出 services 的返回域、
+    只留在 trace payload 的 `reason` 里。**二选一写死**，不要两处各写一半。
 - 接线：`conversation_orchestrator._run_turn_ledgered` 在 `build_conversation_context` 之后、`turn_controller` 之前调一次。`try/except` 吞写入异常，**fail-open**，警告进 `warnings`，不改 lane、不改包、不改 A。
 - 仍走现有 `corrections.record_correction`；旁路字段用现有 dict 多写几键，加载方容缺。
 - 收据：`_trace(..., "user_correction_recorded", ...)`，payload 只含 `id` / `reason` / `plane` / `corrected_message_id`，不含用户全文（台账进 gitignore，trace 不二次扩散）。

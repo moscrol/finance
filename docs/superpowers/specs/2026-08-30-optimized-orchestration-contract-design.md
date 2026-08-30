@@ -6,7 +6,8 @@
   `ask.py` 里、必然发这个阶段，且 P3 目标态**故意**把包留在 `answer_query`，原写法永远达不到；
   ② §4 给「开关未开」补告警要求（合法 ≠ 可静默）。§2.2 的 `market_technical`「A 内快路径」
   经查属实（`continuous_turn_adapter.py:337`，在包椅拒收判断之后）。裁决方向未改。
-- 预注册：`R-20260830-05`（`claim_ledger_id.py`，分支名 `feat/optimized-orchestration-contract`，号不回收）
+- 预注册：`R-20260830-05`（`claim_ledger_id.py`，占号时登记的分支名 `feat/optimized-orchestration-contract`，号不回收）
+  - **落地分支实际是 `feat/orchestration-contract-docs`**（本稿与姊妹稿随勒死单 P0/P1 同链交付）。号对得上，但按占号分支名去找会扑空——**以本行为准**。占号分支名不改（号不回收的同一纪律：登记簿是历史，不重写）。
 - 来源：2026-08-30 会话收口（包 / A / 工作流三词对齐 →「优化之后只有包和 A」→「A 整台拒收还要不要 B 兜底」→「包是不是固定工作流」）
 - 姊妹单（本单不重做）：
   - `2026-08-30-engine-b-into-a-strangler-design.md`——**实施单**：取数库并入 A 预取、卸第二套研究循环。本单是它的**目标态合同**，并拍死其 §9 T1
@@ -21,6 +22,15 @@
 **判别变量**（合同验收看这个，不看文件还在不在）：
 
 1. 包椅题公开稿数字 ⊆ 包快照 / `render()`；`compose=False` / `synthesize=False` 已锁；本回合无 `generic_research_owner` 阶段、无 `run_agent_loop` 调用。
+
+   ⚠️ **`compose=False` 今天对盘面只在"包停摆"时成立**——这是本条最大的未兑现处，
+   §10 初版只点名复盘/外盘，漏了盘面。[实测] `bind_market_watch_pack`（`ask.py:441-442`）写的是
+   `compose=False if pack.should_stop else options.compose`；`_answer_market_review`（`ask.py:885-898`）
+   也只在 `pack.should_stop` 时早退返回 `render()`，**否则继续往下走合成**。
+   而 orchestrator 构造 `AskOptions` 时默认 `compose=True`（`conversation_orchestrator.py:2790`）。
+   即：**盘面包正常出数的那条路（不停摆）今天是会组稿的**，只有空袋/锁库/休市才锁死。
+   P3 要把它改成「有数也不组稿」，否则判别 1 对盘面永远只在故障态成立——
+   **一条只在系统坏掉时才为真的验收，是反的**。
    **包椅这一条不许数 `ask_root`**——五把椅子不在同一层执行，后三把住在 `ask.py` 里，
    而 `answer_query` 把整个调用无条件包在 `_progress_stage(options, "ask_root")`（`ask.py:1546`），
    `_answer_query_impl` 还没进就已经发了：
@@ -228,5 +238,5 @@ A 看见这些题型继续拒收——这是椅子，不是故障。`answer_quer
 
 - 本稿是目标态裁决，不是已实施。主树若只多了本 md，不构成 runtime 变更。
 - 勒死单 P0/P1 旁支交付不自动兑现本单判别 1–3。
-- `dated_market_review` / `external_market` 今天若仍能 compose，算合同未兑现，归 P3，不得解释成「工作流引擎还在」。
+- **`market_watch` / `dated_market_review` / `external_market` 今天仍能 compose**（三把都算，初版漏了盘面），算合同未兑现，归 P3，不得解释成「工作流引擎还在」。盘面的具体形状见 §0 判别 1 那段：`compose=False` 只在 `pack.should_stop` 时锁，正常出数时沿用 `compose=True`。**验收时别拿停摆态当通过**。
 - 门页在落地前提前改成目标态会让下一个 agent 把未实施当成现状——**改代码的那次提交再改门页**。

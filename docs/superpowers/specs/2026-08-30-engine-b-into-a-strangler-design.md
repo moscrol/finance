@@ -1,7 +1,8 @@
 # 设计：引擎 B 勒死并入引擎 A（取数库留下，第二套研究循环卸掉）
 
 - 日期：2026-08-30
-- 状态：Draft v2（只落本文。未改 `intelligence/`，未切 8792）
+- 状态：Draft v3（**P0/P1 已在旁支改了 `intelligence/`**，未切 8792；本稿正文仍只是设计）
+- ⚠️ 主干 vs 旁支：`gitea/main` 上 D8/D11 仍是旧 gap 口径、双红口径仍是三份。P0/P1 交付在 `feat/orchestration-contract-docs`（原 `feat/d8-d11-asof-prefetch` / `feat/double-red-single-source` 已被 rebase 取代）。**判任何一条「现状如何」之前先说清读的是哪一支。**
 - v2 改动（2026-08-30 复核，逐条 [实测]）：判别变量换锚点（`agent_loop` 是 B 留下的**标签名**，A 的回合里也有）、§3 补四条事实、§4 补 StancePack 说明、P0 补 `as_of` 前置条款、P1 措辞改「日期键由调用方传入」、P2 补注入口（`services` 不 import `runtime`）、P3 补保留名单与降级契约。v1 的裁决方向未改。
 - 来源：2026-08-30 会话走查（进门分流 / 包 / A ReAct / B 流水线）+ 既有开口预取缝（`asof_prefetch.py` 已写明 D8/D11「只在 Engine B 接线」）
 - 相邻（本单不重做）：
@@ -23,7 +24,7 @@
 - **不变量（今天已绿，本单只许守住）**：工作台一条「没命中专属题型、但需要检索」的金融题，只走 `continuous_turn_adapter` → episode。[实测] 生产 `ASK_CONTINUOUS_RUNTIME="on"`（`~/.local/bin/start-finance-workbench:157`），adapter 只在四种情况 decline（mode off / canary 未激活 / `DETERMINISTIC_OWNER_TYPES` / `terminal_kind != "research"`），残差研究题一个都不占。**它今天就成立，所以它证明不了本单干了什么**——它是回归位，不是验收位。
 - **本单 delta（验收看这个）**：算子命中的冻结题，opening prefetch 里出现 D8 / D11 的块或显式 gap（有 `content_hash` 或 gap 声明），而不是另开一轮 `answer_query`。
 
-**锚点纪律**：判「B 的循环还在不在」，**不许 grep 字符串 `agent_loop`**。[实测] `agent_research.py:579/738/775` 把 `capability="agent_loop"` 写死在 ProviderTrace 上，而 A 的工具正是从同一处造的（`episode_tools.py:933` `agent_research.build_default_tools(retrieve_kb)`）——生产纯 A 回合 `run_20260828_171124_251680/` 里 `agent_loop` 出现 8 次，`ask_root` 与 `generic_research_owner` 一次没有。**`agent_loop` 是 B 留下的标签名，不是 B 的循环**，照字面验收会在正确的目标态上判红。只有 B 才产的锚点是：`ask_root` 进度阶段（`ask.py:1546`）、`generic_research_owner` 阶段（`ask.py:3058`）、`run_agent_loop` 实际调用（`ask.py:3532`）。本单顺手把那个字段改名 `evidence_tool`，不留给下一个人。
+**锚点纪律**：判「B 的循环还在不在」，**不许 grep 字符串 `agent_loop`**。[实测] `agent_research.py:579/738/776/1389` **四处**把 `capability="agent_loop"` 写死在 ProviderTrace 上（初版写「:579/738/775 三处」，行号与个数都错——775 实为 776，且漏了 1389），而 A 的工具正是从同一处造的（`episode_tools.py:933` `agent_research.build_default_tools(retrieve_kb)`）——生产纯 A 回合 `run_20260828_171124_251680/` 里 `agent_loop` 出现 8 次，`ask_root` 与 `generic_research_owner` 一次没有。**`agent_loop` 是 B 留下的标签名，不是 B 的循环**，照字面验收会在正确的目标态上判红。**研究题**上下文里只有 B 才产的锚点是：`ask_root` 进度阶段（`ask.py:1546`）、`generic_research_owner` 阶段（`ask.py:3058`）、`run_agent_loop` 实际调用（`ask.py:3532`）。⚠️ `ask_root` **只在研究题上下文里**是 B 锚点——盘面/复盘/外盘三把包椅合法共用 `answer_query`，必然带这个阶段，且目标态就要留在里面（见事实 8 与合同单 §0 判别 1）。**拿它验包椅会把正确的目标态判红。**本单顺手把那个字段改名 `evidence_tool`，不留给下一个人。
 
 不是「B 文件删光」，不是「残差箱改成全量工具」。
 
@@ -63,7 +64,7 @@ B 今天在 `_answer_query_impl` 里做三截：
 
 **B 发挥作用 = 冷藏柜供数，不是再开一轮厅。** 没命中的题：A 用残差箱自己点工具；需要上桌的结构化块（例如问句带了类比算子）由预取层向 B 的收集器要菜，或写 gap。不是把整题丢回 `answer_query`。
 
-已有反证：`asof_prefetch._history_analog_items` 写明 D8「未在 Engine A 开场预取接线」、D11「只在 Engine B 接线」。这就是「还没并完」的实物，不是目标态。
+已有反证（**这是 P0 之前的主干形状，旁支已改**）：`asof_prefetch._history_analog_items` 曾写明 D8「未在 Engine A 开场预取接线」、D11「只在 Engine B 接线」。这就是「还没并完」的实物，不是目标态。`gitea/main` 上这两句仍在。
 
 ### 1.3 「B 是写死流水线，接不住长尾」——不对，B 有第二个入口
 
@@ -125,7 +126,7 @@ if options.research_task_contract is not None:
 2. A 拒收集合 `DETERMINISTIC_OWNER_TYPES`：`external_market` / `dated_market_review` / `market_watch` / `watchlist_digest` / `disclosure_scan`。这些是包椅，不是「该并进 A 的 B」。
 3. 没命中：`query_understanding` 兜底 `general_finance_qa`；`runtime_capabilities_for_frame` 在 `general_finance_evidence` 下地板为 `market_data, news_search, memory_lookup, kb_search, web_search`。注释写明这是 Knevo 形下限，**不是**「改走 B」。
 4. B 主干在 `ask.py` `_answer_query_impl`：planning → 若干题型早退 → 盘面/图谱/证据/wiki → web 兜底 → `agent_research.should_run` 才 `run_agent_loop` → compose 侧再挂 D0–D13 `DataBlockProvider`。
-5. A 开口预取已吃掉一部分 B 块（双红、发酵、展望周报、宽度共振、资格/台阶、D10 等）。**明确未接线**：D8 题材历史类比、D11 个股走势类比（`asof_prefetch.py` 只留 gap）。这是 P0 并入的第一批实物。
+5. A 开口预取已吃掉一部分 B 块（双红、发酵、展望周报、宽度共振、资格/台阶、D10 等）。D8 / D11 **主干上仍只留 gap**（`asof_prefetch.py`），**旁支已接线**（P0 = `R-20260830-02`，见下方 P0 状态块）。本条初版写「明确未接线」，那是 P0 之前的主干真相；现在两句都要说，否则实施方按哪一支判都可能判错。
 6. owner skill（`theme-research` 等）的 `retrieve` 仍是 `answer_query`（B）。A 接住的工作台题 **不跑** 这些 skill。owner 是 B 的外套，不是 A 的 skill frontier。
 7. 包默认不上写手：`bind_watchlist_digest_pack` / 盘面包 P0 `compose=False`。残差写手若开，只许解释、不许改数字。本单不推翻。
 8. **五把包椅里有三把经 `answer_query` 执行**（本条改过两版：初版写成「包本身就是经 `answer_query` 执行的」，五分之二不对；二版把哪三把认反了——从 `:2915` 起读，把 `if turn_intent.question_type == "disclosure_scan"` 这个开头截在窗口外，於是把披露那段读成了盘面。**固定行号读表、表的起点在更上面**，AGENTS.md 已警告过同一形状）：
@@ -224,7 +225,7 @@ B 在图上只出现在「取数库」节点：预取层 `import` 收集器。�
 ### P3 — 旧入口勒死
 
 - CLI ask / `/api/runs`：研究题改调同一 `continuous_turn_adapter`（或薄适配器只做参数投影）。
-- `answer_query` 缩成：包/早退题型 + 取数库编排（若还需要给非会话口），不再含第二套 agent 循环。**包椅不动**（§3 事实 8：包就是走 `answer_query` 执行的）。
+- `answer_query` 缩成：包/早退题型 + 取数库编排（若还需要给非会话口），不再含第二套 agent 循环。**包椅不动**（§3 事实 8：盘面/复盘/外盘那三把走 `answer_query`，自选与披露在 orchestrator 内短路——**不是全部**）。
 - 删或降级 `run_agent_loop` 的工作台调用点；留下的测试标明「库函数 / 历史夹具」。
 - **保留名单（删之前先读）**：`agent_research.build_default_tools` / `build_graph_tools` / `AgentEvidence` / `evidence_content_hash` **不在删除范围**——A 的工具就是从这里造的（§3 事实 9）。按「拆掉 `agent_research` 的主循环」字面执行，会把 A 的工具一起拆掉。要删的是 `run_agent_loop` 这一个函数的**调用点**，不是这个模块。
 - **降级契约（本单必须补上，否则 P3 落地后有题无处可去）**：A `decline` 时（`handled=False`）今天落到 `route_skills` → `_run_answer_query_with_watchdog`（`conversation_orchestrator.py:2973`），B 兜住。B 的循环拆掉之后，这条路必须有明写的归宿。
@@ -279,8 +280,8 @@ B 在图上只出现在「取数库」节点：预取层 `import` 收集器。�
 | # | 事项 | 现状 [实测] | 归属 |
 |---|---|---|---|
 | T1 | **P3 降级契约选 (a) 还是 (b)** | **已拍 (a)**。合同 `2026-08-30-optimized-orchestration-contract-design.md` §5（`R-20260830-05`） | 本单 P3 按合同执行，不得重开二选一 |
-| T2 | `capability="agent_loop"` 改名 `evidence_tool` | `agent_research.py:579/738/775` 三处 + 所有按该字段计数的审计 + 历史 trace 可比性 | **另开单**。本单只在 §0 立锚点纪律，不改字段 |
-| T3 | 接口层地图漂移 | **本轮已修** `docs/agent-product-door.md`（三条题型→五条、`quick_fact` 移出、补 `generic_research_owner` 长尾路、补门禁不对等） | 已完成 |
+| T2 | `capability="agent_loop"` 改名 `evidence_tool` | `agent_research.py:579/738/776/1389` **四处** + 所有按该字段计数的审计 + 历史 trace 可比性 | **另开单**。本单只在 §0 立锚点纪律，不改字段 |
+| T3 | 接口层地图漂移 | **旁支已修、主干未修**：`docs/agent-product-door.md` 的修正（三条题型→五条、`quick_fact` 移出、补 `generic_research_owner` 长尾路、补门禁不对等）在 `feat/orchestration-contract-docs` 上；**你在主树看到的仍是旧三行**（还含已移出的 `quick_fact`） | 随该分支合入才算完成 |
 | T4 | **没有任何门禁看 `docs/`** | pre-commit 九条（`layer-audit` / `path-literals` / `unread-fields` / `dataset-registration` / `tool-reachability` / `agent-workspace-facts` / `block-forbidden-files` + ruff/私钥/大文件/冲突）**无一条覆盖文档**。「改门必更此页」是纪律不是机制——T3 那次漂移就是它漏的 | **另开单**。建议形状：棘轮式，当 `DETERMINISTIC_OWNER_TYPES` 一类「门的定义常量」变更时，要求同提交内 `agent-product-door.md` 有改动；存量免检、只拦新增，手法同 `tool-reachability` |
 | T4b | P0 交付里顺带修的：`test_market_midterm._FakeCon.execute` 补上真实 duckdb 的 `(sql, params?)` 签名 | 替身比现实简单 → 生产侧一开始传参就炸在夹具上（本单实测炸了 2 条） | 已完成 |
 | T6 | `market_feature_store/reports/daily_review.py` 还有 4 处写死的双红谓词（3 正向 + 1 反向近似 `amount<=500 OR IS NULL`） | 已进 P1 棘轮基线，只许缩不许涨；属报表域，混进 P1 会把回归面从 4 个模块扩到整条日报链路 | **另开单**，清完把基线改小 |
@@ -293,5 +294,5 @@ P2 的分层约束**有硬门禁兜底**：`scripts/layer_audit.py:6` 原文 `in
 - 本稿是设计裁决，不是已实施。`dirty` 主树若只多了本 md，不构成 runtime 变更。
 - P0 接线必须另开干净工作树；验收看 opening prefetch + 工作台无 `ask_root`，不看「B 文件还在」，更不看 `agent_loop` 的字符串计数（§0 锚点纪律）。
 - P0 会改到 **B 也在调**的两个函数（D8 / D11）。加的是默认 `None` 的可选参数，B 侧应逐字节不变——但这句是**待证不是已证**。**回归夹具不用新写**：跑 `intelligence/tests/conformance_datablocks/`（分支 `test/datablock-conformance`，已交付待验收），它正是逐块钉 `applies` 门控 / `collect` 形状 / 缺口声明的套件。P1 同理，改「单一真本源」时它就是护栏。
-- B 作为退路有保质期，理由见 P3 最后一条。本单不是「可以永远拖着」的授权。
+- ~~B 作为退路有保质期~~ **删**：T1 已由合同单 §5 拍死选 (a)，B 根本不当退路，「限期并存」这个选项不存在。保质期那段论证（`json.loads` 点工具比原生 `tools=` 脆）仍成立，但它现在是**支持 (a) 的理由**，不是「可以再拖一阵」的授权。
 - **地图回写（改门必更）**：`docs/agent-product-door.md:39` 现在写「Workbench 里 B 仅 `external_market` / `quick_fact` / `dated_market_review` 三条」，**已漂三处** [实测]——`DETERMINISTIC_OWNER_TYPES` 实为五条（加 `market_watch` / `watchlist_digest` / `disclosure_scan`）、`quick_fact` 已被明确移出（`continuous_turn_adapter.py:108`，R-20260828-05）、且完全没提 `generic_research_owner` 这条长尾路。**本单任何阶段落地前先修这一行**：接口层地图是下一个 agent 的入口，它漂着，后来人就会照 §1.3 之前那个错误模型做决定。
