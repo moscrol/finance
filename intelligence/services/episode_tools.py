@@ -73,12 +73,10 @@ def _market_technical_focus(question: str) -> str:
     return "resistance"
 
 
-_NON_EVIDENCE_PREFIXES = (
-    "使用边界：",
-    "因果使用要求：",
-    "使用要求：",
-    "⚠",
-)
+# 单一真本源在 ``agent_research``：同一张前缀表既用来把限定语挡在证据之外
+# （这里），也用来把它提到 observation 最前面（``block_lines_to_evidence``）。
+# 抄第二份必然分叉，且分叉时没有门禁会发红。
+_NON_EVIDENCE_PREFIXES = agent_research.QUALIFIER_LINE_PREFIXES
 _OFFICIAL_L3_RUNNER = object()
 
 
@@ -1378,7 +1376,16 @@ def build_episode_registry(
                 if result.evidence
                 else (f"{value.dataset} 在指定条件与时点内没有结构化结果",)
             )
-            observation = result.observation
+            # 三条限定语**排在数据行之前**（BUILD 模式 4）。它们此前追加在
+            # observation 末尾，而 ``tool_result_budget`` 从头数满 900 字符就切，
+            # 于是限定语先于它约束的数据被砍掉。2026-08-30 实测 400 份
+            # continuous-episode.json：「查询结果已按…截断至 N 条」出现 123 次，
+            # 位置均值在全文 84% 处，**67 次被字符预算吃掉**——关于行数截断的通知，
+            # 自己被字符截断砍了；「实际覆盖 X..Y」同样 123 次里丢 67 次，
+            # 而时点与完整性正是 ``tool_result_budget`` 开头声明永不截断的红线。
+            # 数据行在 ``evidence[]`` 里逐条另有副本（实测被砍片段 92% 有副本），
+            # 这三条没有——所以先给限定语，砍到的只会是有副本的那部分。
+            notices: list[str] = []
             notice = finance_query.truncation_notice(
                 result.audit,
                 covered_range=finance_query.covered_date_range(
@@ -1386,18 +1393,20 @@ def build_episode_registry(
                 ),
             )
             if notice:
-                observation = f"{observation}；{notice}"
+                notices.append(notice)
             # 代偿必须让模型看见：查询成功但写法被改过，不说它下一轮还会照原样写。
-            # 放在结论之后、和截断提示同层——都是「结果可用，但有一条关于写法的话」。
             if normalization_notes:
-                observation = "；".join((observation, *normalization_notes))
+                notices.extend(normalization_notes)
             # 覆盖面提示同理，但它拦的是**校验器够不着的那一半**：在子集表上排名次，
             # 查询完全合法、数值也对，错的是分母。A5 实测（2026-08-18）就是在只有
             # 十余行的 mainline_sector_daily 上按 limit_up_count 取 top15，
             # 去回答「全市涨停集中在哪些题材」。空串表示无话可说。
             advisory = finance_query.coverage_advisory(bounded_value)
             if advisory:
-                observation = "；".join((observation, advisory))
+                notices.append(advisory)
+            observation = "；".join(
+                part for part in (*notices, result.observation) if part
+            )
             return ToolRunResult(
                 evidence=tuple(result.evidence),
                 observation=observation,

@@ -17,9 +17,12 @@ compaction into evidence destruction.
 Never truncated, because the roadmap's red line requires 来源 / 时点 / 状态 /
 缺口 / 完整性 to survive any compaction:
 
-- ``evidence_hashes`` and each item's ``content_hash`` — the model must put
-  these into its output bindings at finalize time.  Dropping one does not make
-  the answer shorter, it makes the binding gate unsatisfiable.
+- ``evidence_hashes`` and each item's ``content_hash`` — the binding gate
+  resolves citations against these.  Dropping one does not make the answer
+  shorter, it makes the gate unsatisfiable.  (The model itself never sees them:
+  ``strip_hashes_for_model`` swaps them for E-numbers one step later, because a
+  model transcribing a 16-hex digest gets it wrong.  We preserve them for the
+  pipeline, not for the prompt — hence ``context_budget`` names E-numbers.)
 - ``source`` / ``source_date`` / ``freshness`` / ``evidence_tier`` — a claim
   without its time and tier is not a shorter claim, it is a different one.
 - ``gaps`` — the thing the answer must disclose.
@@ -27,7 +30,14 @@ Never truncated, because the roadmap's red line requires 来源 / 时点 / 状�
   a contested finding into a clean one.
 
 Truncated: the free-text ``observation`` narrative and each evidence item's
-``title`` / ``detail``.  Those are recoverable from the persisted artifact.
+``title`` / ``detail``.  Those survive in the ledger, so an *auditor* can
+recover them — the model cannot, and this module must not imply otherwise.
+
+Callers must put qualifiers (口径/使用要求/截断提示) **before** the content they
+qualify.  This module clips from the head of a string, so a qualifier appended
+last is the first thing to go — and it is precisely the part with no second
+copy in ``evidence``.  ``episode_tools`` and ``agent_research`` own that
+ordering; see the field measurement recorded there.
 
 Deterministic on purpose.  The reduction is a pure function of its input, with
 no model call, clock, or randomness, so the same observation always yields the
@@ -122,13 +132,27 @@ def budget_tool_observation(
         # Tell the model it is reading a preview and that the elision was prose
         # only.  Without this it cannot distinguish "the tool found little" from
         # "the harness showed me little", and may re-run the same query.
+        #
+        # ``preserved`` and ``instruction`` are **model-facing**: this dict only
+        # ever rides the model copy (``agent_episode`` hands the untouched
+        # payload to the ledger before budgeting).  So they must describe what
+        # the model still holds after the *whole* pipeline, not what this
+        # function alone declined to clip.  ``strip_hashes_for_model`` runs
+        # immediately after us and removes ``evidence_hashes`` /
+        # ``content_hash`` on purpose — a model copying a 16-hex digest gets it
+        # wrong, which is why bindings use the E-numbers instead.  Naming the
+        # hashes here pointed the model at fields it does not have, and at a
+        # recovery path that does not exist: no tool in the registry accepts a
+        # hash or an evidence id as an argument.  Keep this list in sync with
+        # ``episode_protocol.strip_hashes_for_model``; the pairing is pinned by
+        # ``test_context_budget_names_only_model_visible_fields``.
         budgeted["context_budget"] = {
             "truncated": True,
             "omitted_chars": omitted_chars,
+            # Where an auditor — not the model — recovers the elided prose.
             "full_record_in": FULL_RECORD_ARTIFACT,
             "preserved": [
-                "evidence_hashes",
-                "content_hash",
+                "evidence_id",
                 "source",
                 "source_date",
                 "evidence_tier",
@@ -138,9 +162,12 @@ def budget_tool_observation(
                 "gaps",
             ],
             "instruction": (
-                "叙述已按上下文预算截断，标识与证据哈希均完整。"
-                "不要因为叙述变短而重复同一次查询；"
-                "需要完整原文时以 evidence_hashes 为准。"
+                "叙述已按上下文预算截断，被截的只有自由文本；"
+                "证据编号、来源、时点、分级与缺口都完整。"
+                "不要因为叙述变短而重复同一次查询——重查得到的是同一份预览。"
+                "引用时用证据编号（E1、E2…），不要誊抄哈希。"
+                "被截掉的原文没有工具可以取回；若这条证据不够支撑结论，"
+                "请换一个更窄的查询，或把它写成缺口。"
             ),
         }
 
