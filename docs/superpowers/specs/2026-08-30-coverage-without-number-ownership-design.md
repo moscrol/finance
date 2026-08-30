@@ -5,6 +5,7 @@
 - 来源：2026-08-30 会话（Knevo 联想/记忆/并行仍常赢，与「模型不拥有数字」是否冲突）+ `docs/learning/knevo-vs-workbench-技能包对比台账.md` + `agent-memory/10_knowledge/knevo-reverse-engineering.md`
 - 姊妹单（本单不重做）：
   - `2026-08-30-engine-b-into-a-strangler-design.md`——D 块并进 A 预取（D8/D11 接线归那单）
+  - `2026-08-30-workbench-correction-loop-design.md`——**写侧**：工作台「纠正上一篇」落 `corrections.jsonl`（本单只验收读）
   - `2026-08-23-operator-prefetch-os-design.md`——算子 → 块或 gap
   - `2026-08-24-workbench-quality-residual-ux-design.md`——编译后再残差
 - 代码树纪律：从 `gitea/main` 开干净树再改 runtime。本稿允许落主树 untracked。**禁止**把成交额/涨停/逐季净利交还模型去「搜出来」。**禁止**为追覆盖把包改成无约束 compose。
