@@ -275,7 +275,7 @@ W-corr-3 和 W-corr-2 缺一不可：一个钉「不是评市场」，一个钉�
 
 **守卫别下沉**：把 `PYTEST_CURRENT_TEST` 写进 services 那个函数，正例夹具就永远走不到写入，
 只能靠"显式传 fixture 路径"绕——那是旁注不是设计，落地时会先变成一条红、再变成一次放宽。
-`_ingest_track_next_watch` / `ingest_next_watch` 这一对已经把正确切法演示过了，照抄即可。
+`_ingest_track_next_watch` / `ingest_next_watch` 这一对只示范**分层**（守卫留在 runtime、写入函数本身不看环境）。**不要照抄跳过名单**——那份名单把 `default` 和探针身份一起跳过，抄过来生产零写入（见 §5.1）。
 
 ---
 

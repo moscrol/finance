@@ -281,7 +281,7 @@ B 在图上只出现在「取数库」节点：预取层 `import` 收集器。�
 |---|---|---|---|
 | T1 | **P3 降级契约选 (a) 还是 (b)** | **已拍 (a)**。合同 `2026-08-30-optimized-orchestration-contract-design.md` §5（`R-20260830-05`） | 本单 P3 按合同执行，不得重开二选一 |
 | T2 | `capability="agent_loop"` 改名 `evidence_tool` | `agent_research.py:579/738/776/1389` **四处** + 所有按该字段计数的审计 + 历史 trace 可比性 | **另开单**。本单只在 §0 立锚点纪律，不改字段 |
-| T3 | 接口层地图漂移 | **旁支已修、主干未修**：`docs/agent-product-door.md` 的修正（三条题型→五条、`quick_fact` 移出、补 `generic_research_owner` 长尾路、补门禁不对等）在**文档链**上（分支名见文首，按台账号定位）；**你在主树看到的仍是旧三行**（还含已移出的 `quick_fact`） | 随文档链合入才算完成 |
+| T3 | 接口层地图漂移 | **已随文档链合入**：`docs/agent-product-door.md` 现为五条确定性题型、`quick_fact` 移出、补 `generic_research_owner` 长尾路、补门禁不对等。旧三行（含已移出的 `quick_fact`）不再是主干事实 | 完成 |
 | T4 | **没有任何门禁看 `docs/`** | pre-commit 九条（`layer-audit` / `path-literals` / `unread-fields` / `dataset-registration` / `tool-reachability` / `agent-workspace-facts` / `block-forbidden-files` + ruff/私钥/大文件/冲突）**无一条覆盖文档**。「改门必更此页」是纪律不是机制——T3 那次漂移就是它漏的 | **另开单**。建议形状：棘轮式，当 `DETERMINISTIC_OWNER_TYPES` 一类「门的定义常量」变更时，要求同提交内 `agent-product-door.md` 有改动；存量免检、只拦新增，手法同 `tool-reachability` |
 | T4b | P0 交付里顺带修的：`test_market_midterm._FakeCon.execute` 补上真实 duckdb 的 `(sql, params?)` 签名 | 替身比现实简单 → 生产侧一开始传参就炸在夹具上（本单实测炸了 2 条） | 已完成 |
 | T6 | `market_feature_store/reports/daily_review.py` 还有 4 处写死的双红谓词（3 正向 + 1 反向近似 `amount<=500 OR IS NULL`） | 已进 P1 棘轮基线，只许缩不许涨；属报表域，混进 P1 会把回归面从 4 个模块扩到整条日报链路 | **另开单**，清完把基线改小 |
