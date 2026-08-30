@@ -93,7 +93,9 @@ class MidtermBlockTests(unittest.TestCase):
             def __init__(self, names: list[str]) -> None:
                 self._rows = [(n,) for n in names]
 
-            def execute(self, _sql: str):
+            def execute(self, _sql: str, _params: list | None = None):
+                # 复刻真实 duckdb 连接的签名（sql, params?）：替身比现实简单时，
+                # 生产侧一旦开始传参就会炸在夹具而不是炸在缺陷上。
                 rows = self._rows
 
                 class _R:
@@ -128,7 +130,9 @@ class MidtermBlockTests(unittest.TestCase):
             def __init__(self, names: list[str]) -> None:
                 self._rows = [(n,) for n in names]
 
-            def execute(self, _sql: str):
+            def execute(self, _sql: str, _params: list | None = None):
+                # 复刻真实 duckdb 连接的签名（sql, params?）：替身比现实简单时，
+                # 生产侧一旦开始传参就会炸在夹具而不是炸在缺陷上。
                 rows = self._rows
 
                 class _R:

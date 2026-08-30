@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import asdict, dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -186,11 +187,32 @@ def find_analog_windows(
     return current, picked
 
 
+def _theme_history_query(
+    theme: str, as_of: date | str | None
+) -> tuple[str, list[Any]]:
+    """D8 题材逐日行的唯一 SQL 出处：artifact 与渲染块共用，防两份日期键。
+
+    ``as_of`` 非空即 ``trade_date <= as_of``；为 ``None`` 时 SQL 与本参数
+    加入之前逐字符一致（引擎 B 侧不传，输出不变）。
+    """
+    sql = (
+        "select trade_date, pct_chg, diff_ratio, amount "
+        "from fact_sector_daily where sector_name = ?"
+    )
+    params: list[Any] = [theme]
+    if as_of is not None:
+        sql += " and trade_date <= ?"
+        params.append(str(as_of))
+    sql += " order by trade_date asc"
+    return sql, params
+
+
 def load_historical_analog_artifact(
     query: str,
     anchored_theme: str | None,
     market_db_path: str | Path | None,
     window: int = DEFAULT_WINDOW,
+    as_of: date | str | None = None,
 ) -> HistoricalAnalogArtifact:
     db_path = (
         Path(market_db_path).expanduser()
@@ -223,18 +245,12 @@ def load_historical_analog_artifact(
     try:
         from intelligence.services.market_midterm import resolve_query_themes
 
-        themes = resolve_query_themes(con, query, anchored_theme, limit=2)
+        themes = resolve_query_themes(con, query, anchored_theme, limit=2, as_of=as_of)
         artifacts: list[dict[str, Any]] = []
         missing: list[str] = []
         for theme in themes:
             rows = con.execute(
-                """
-                select trade_date, pct_chg, diff_ratio, amount
-                from fact_sector_daily
-                where sector_name = ?
-                order by trade_date asc
-                """,
-                [theme],
+                *_theme_history_query(theme, as_of)
             ).fetchall()
             current, analogs = find_analog_windows(rows, window=window)
             if current is None or not analogs:
@@ -432,8 +448,13 @@ def analog_block_for_llm(
     anchored_theme: str | None,
     market_db_path: str | Path | None,
     window: int = DEFAULT_WINDOW,
+    as_of: date | str | None = None,
 ) -> str:
-    """把历史类比窗口渲染成带 [D8] 引用编号的确定性数据块（空串=未取到）。"""
+    """把历史类比窗口渲染成带 [D8] 引用编号的确定性数据块（空串=未取到）。
+
+    ``as_of`` 非空时题材名录与逐日行同步截断（解析器不截会让截止日当时尚不
+    存在的题材被解出来）。默认 ``None`` 不截断，引擎 B 侧调用输出不变。
+    """
     db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
         return ""
@@ -444,7 +465,7 @@ def analog_block_for_llm(
     try:
         from intelligence.services.market_midterm import resolve_query_themes
 
-        themes = resolve_query_themes(con, query, anchored_theme, limit=2)
+        themes = resolve_query_themes(con, query, anchored_theme, limit=2, as_of=as_of)
         if not themes:
             return ""
         lines = ["## 历史类比检索块 [D8]"]
@@ -457,15 +478,7 @@ def analog_block_for_llm(
         rendered = 0
         first_theme_rows: list[tuple] | None = None
         for theme in themes:
-            rows = con.execute(
-                """
-                select trade_date, pct_chg, diff_ratio, amount
-                from fact_sector_daily
-                where sector_name = ?
-                order by trade_date asc
-                """,
-                [theme],
-            ).fetchall()
+            rows = con.execute(*_theme_history_query(theme, as_of)).fetchall()
             if rows and first_theme_rows is None:
                 first_theme_rows = rows
             current, analogs = find_analog_windows(rows, window=window)

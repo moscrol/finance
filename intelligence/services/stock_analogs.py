@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import asdict, dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -201,7 +202,9 @@ def find_stock_analog_windows(
     return current, picked
 
 
-def _resolve_stock(con: Any, query: str) -> tuple[str, str] | None:
+def _resolve_stock(
+    con: Any, query: str, as_of: date | str | None = None
+) -> tuple[str, str] | None:
     """从 query 解析目标个股（6 位代码优先，其次名称子串命中最长者）。
 
     名称目录只取 **最新交易日** 一行宇宙，不扫全表。applies 层只要类比词面
@@ -210,35 +213,49 @@ def _resolve_stock(con: Any, query: str) -> tuple[str, str] | None:
     会把每一次「历史上类似」都做成一次全表扫描。最新日有日期索引，量级是当日
     股票数（约数千），不是历史行数。代价：已更名/已退市且当日不在表里的旧名
     解析不到，降级为空块（与「只对标当前这只正在交易的股」一致）。
+
+    ``as_of`` 非空时，「最新交易日」改为 ``max(trade_date) where trade_date <= as_of``，
+    代码分支同样只回看截止日之前的行。**解析器必须和取数一起截断**：本函数的
+    基准是数据自己派生的（``max(trade_date)``），只截断 :func:`load_stock_analog_artifact`
+    的历史查询而漏掉这里，块头的股票名会来自库尾那天的宇宙、窗口却截到 as_of，
+    两个日期不是同一天——而且整块自洽，「有没有出块」类断言照不出来。
     """
     code_match = re.search(r"\b(\d{6})(?:\.(SH|SZ|BJ))?\b", str(query or ""), re.I)
+    cutoff = str(as_of) if as_of is not None else None
     if code_match:
         raw, suffix = code_match.group(1), code_match.group(2)
-        if suffix:
-            rows = con.execute(
-                "select stock_ts_code, stock_name from fact_stock_daily "
-                "where stock_ts_code=? order by trade_date desc limit 1",
-                [f"{raw}.{suffix.upper()}"],
-            ).fetchall()
-        else:
-            rows = con.execute(
-                "select stock_ts_code, stock_name from fact_stock_daily "
-                "where stock_ts_code like ? order by trade_date desc limit 1",
-                [f"{raw}.%"],
-            ).fetchall()
+        code_pred = "stock_ts_code=?" if suffix else "stock_ts_code like ?"
+        code_param = f"{raw}.{suffix.upper()}" if suffix else f"{raw}.%"
+        sql = (
+            "select stock_ts_code, stock_name from fact_stock_daily "
+            f"where {code_pred}"
+        )
+        params: list[Any] = [code_param]
+        if cutoff is not None:
+            sql += " and trade_date <= ?"
+            params.append(cutoff)
+        sql += " order by trade_date desc limit 1"
+        rows = con.execute(sql, params).fetchall()
         if rows:
             code = _clean_stock_text(rows[0][0])
             name = _clean_stock_text(rows[0][1]) or code
             return code, name
-    rows = con.execute(
-        """
+    universe_sql = """
         select stock_ts_code, any_value(stock_name)
         from fact_stock_daily
-        where trade_date = (select max(trade_date) from fact_stock_daily)
+        where trade_date = (
+            select max(trade_date) from fact_stock_daily{tail_pred}
+        )
           and stock_name is not null and stock_name <> ''
         group by stock_ts_code
         """
-    ).fetchall()
+    universe_params: list[Any] = []
+    if cutoff is not None:
+        universe_sql = universe_sql.format(tail_pred=" where trade_date <= ?")
+        universe_params.append(cutoff)
+    else:
+        universe_sql = universe_sql.format(tail_pred="")
+    rows = con.execute(universe_sql, universe_params).fetchall()
     q = str(query or "")
     matches = []
     for code, name in rows:
@@ -256,8 +273,14 @@ def load_stock_analog_artifact(
     query: str,
     market_db_path: str | Path | None,
     window: int = DEFAULT_WINDOW,
+    as_of: date | str | None = None,
 ) -> StockAnalogArtifact:
-    """解析目标个股 → 取全历史 → 滑窗类比。全程只读；每级缺数显式降级。"""
+    """解析目标个股 → 取全历史 → 滑窗类比。全程只读；每级缺数显式降级。
+
+    ``as_of`` 非空时只消费 ``trade_date <= as_of`` 的行，且解析器同步截断
+    （见 :func:`_resolve_stock`）。默认 ``None`` = 不截断，引擎 B 侧调用不传，
+    输出与本参数加入之前逐字节一致。
+    """
     db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
         return StockAnalogArtifact(
@@ -270,22 +293,23 @@ def load_stock_analog_artifact(
         )
     con = db_result.connection
     try:
-        resolved = _resolve_stock(con, query)
+        resolved = _resolve_stock(con, query, as_of=as_of)
         if resolved is None:
             return StockAnalogArtifact(
                 window, None, None, None, (),
                 degrade_reason="D11 未在问题中解析到库内个股（代码/名称均未命中）",
             )
         code, name = resolved
-        rows = con.execute(
-            """
-            select trade_date, pct_chg, amount
-            from fact_stock_daily
-            where stock_ts_code = ?
-            order by trade_date asc
-            """,
-            [code],
-        ).fetchall()
+        history_sql = (
+            "select trade_date, pct_chg, amount from fact_stock_daily "
+            "where stock_ts_code = ?"
+        )
+        history_params: list[Any] = [code]
+        if as_of is not None:
+            history_sql += " and trade_date <= ?"
+            history_params.append(str(as_of))
+        history_sql += " order by trade_date asc"
+        rows = con.execute(history_sql, history_params).fetchall()
         current, analogs = find_stock_analog_windows(rows, window=window)
         if current is None:
             return StockAnalogArtifact(
@@ -333,9 +357,15 @@ def stock_analog_block_for_llm(
     query: str,
     market_db_path: str | Path | None,
     window: int = DEFAULT_WINDOW,
+    as_of: date | str | None = None,
 ) -> str:
-    """把个股类比渲染成带 [D11] 引用编号的确定性数据块（空串=未取到/不适用）。"""
-    artifact = load_stock_analog_artifact(query, market_db_path, window=window)
+    """把个股类比渲染成带 [D11] 引用编号的确定性数据块（空串=未取到/不适用）。
+
+    ``as_of`` 透传给 :func:`load_stock_analog_artifact`；默认 ``None`` 不截断。
+    """
+    artifact = load_stock_analog_artifact(
+        query, market_db_path, window=window, as_of=as_of
+    )
     # 「问题里根本没有个股」是常态（题材类比走 D8），不渲染缺口行，直接空块。
     if artifact.stock_code is None:
         return ""

@@ -27,12 +27,18 @@ from intelligence.services.theme_lifecycle_timeline import (
     load_theme_daily_rows,
     resolve_theme_alias,
 )
-from intelligence.services.market_analogs import parse_analog_intent
+from intelligence.services.market_analogs import (
+    analog_block_for_llm,
+    parse_analog_intent,
+)
 from intelligence.services.market_regime_analogs import (
     parse_regime_intent,
     regime_block_for_llm,
 )
-from intelligence.services.stock_analogs import parse_stock_analog_intent
+from intelligence.services.stock_analogs import (
+    parse_stock_analog_intent,
+    stock_analog_block_for_llm,
+)
 from intelligence.services.task_frame import is_weekly_calendar_question
 
 FERMENTATION_MARKERS = (
@@ -488,10 +494,16 @@ def _history_analog_items(
     as_of_iso: str,
     db_path: Path,
 ) -> list[PrefetchItem]:
-    """算子命中即供数：D10 出块或 gap；D8 / D11 在 P0 只留 gap。
+    """算子命中即供数：D8 / D10 / D11 各自出块或 gap，同一套 as_of 截断。
 
-    不变量：D10 取数按 as_of 截断（见 market_regime_analogs.load_market_regime_vectors），
-    禁止把问句截止日之后的行情写进历史窗口。
+    不变量：三块取数全部按 as_of 截断，且**解析器与取数一起截**——
+    D8 的题材名录（``resolve_query_themes``）、D11 的个股名录（``_resolve_stock``
+    的 ``max(trade_date)``）都是数据自派生的基准，漏截会让块头日期与窗口不是
+    同一天，且整块自洽、「有没有出块」类断言照不出来。禁止把问句截止日之后的
+    行情写进历史窗口。
+
+    分流：题材级类比走 D8，市场情绪级走 D10（``wants_regime`` 优先），个股对标
+    走 D11，三者可同时出（一题既问题材又点名个股是常态）。
     """
     items: list[PrefetchItem] = []
     wants_regime = parse_regime_intent(question)
@@ -522,33 +534,57 @@ def _history_analog_items(
                 )
             )
     elif wants_theme_analog:
-        items.append(
-            PrefetchItem(
-                tool="market_data",
-                title="historical_analogs gap（D8 未预取）",
-                detail=(
-                    "本题命中题材级历史类比算子，D10 市场环境块不适用；"
-                    "D8 未在 Engine A 开场预取接线。historical_analogs 标 gap，"
-                    "禁止编造未注册的历史阶段。"
-                ),
-                source="本地 DuckDB · D8 未预取",
-                source_date=as_of_iso,
+        block = analog_block_for_llm(question, None, db_path, as_of=as_of)
+        if str(block or "").strip():
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title="题材历史类比 [D8]",
+                    detail=block,
+                    source="本地 DuckDB · D8",
+                    source_date=as_of_iso,
+                )
             )
-        )
+        else:
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title="historical_analogs gap（D8 不可用）",
+                    detail=(
+                        "本题命中题材级历史类比算子，D10 市场环境块不适用；"
+                        "D8 题材类比不可用（库缺失、题材未解析到、历史不足或无可比窗口）。"
+                        "historical_analogs 标 gap，禁止编造未注册的历史阶段。"
+                    ),
+                    source="本地 DuckDB · D8",
+                    source_date=as_of_iso,
+                )
+            )
     if parse_stock_analog_intent(question):
-        items.append(
-            PrefetchItem(
-                tool="market_data",
-                title="个股对标 gap（D11 未预取）",
-                detail=(
-                    "本题含个股对标词面。D11 个股走势类比只在 Engine B 接线，"
-                    "且当前实现不按 as_of 截断，P0 不接入 Engine A 预取。"
-                    "个股对标必须标 gap，禁止用画像或题材原文冒充个股历史窗口。"
-                ),
-                source="D11 未预取",
-                source_date=as_of_iso,
+        block = stock_analog_block_for_llm(question, db_path, as_of=as_of)
+        if str(block or "").strip():
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title="个股走势类比 [D11]",
+                    detail=block,
+                    source="本地 DuckDB · D11",
+                    source_date=as_of_iso,
+                )
             )
-        )
+        else:
+            items.append(
+                PrefetchItem(
+                    tool="market_data",
+                    title="个股对标 gap（D11 不可用）",
+                    detail=(
+                        "本题含个股对标词面，但 D11 个股走势类比不可用"
+                        "（库缺失、问句里没有库内个股、历史不足或无可比窗口）。"
+                        "个股对标必须标 gap，禁止用画像或题材原文冒充个股历史窗口。"
+                    ),
+                    source="本地 DuckDB · D11",
+                    source_date=as_of_iso,
+                )
+            )
     return items
 
 
