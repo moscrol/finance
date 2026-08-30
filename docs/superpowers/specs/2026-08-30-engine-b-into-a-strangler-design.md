@@ -10,6 +10,7 @@
   - `2026-08-23-operator-prefetch-os-design.md`（算子 → 预取块或 gap）
   - `2026-08-26-watchlist-digest-pack-design.md`（填格即公开稿，`compose=False`）
   - `2026-08-29-datablock-conformance-workorder.md`（**P0/P1 的现成回归夹具**：`DataBlockProvider` × `evidence_registry.REGISTRY` 20 块逐块契约，已交付待验收，分支 `test/datablock-conformance`，193p/1xf）
+  - `2026-08-30-optimized-orchestration-contract-design.md`（**目标态合同**：只留包椅与 A；P3 降级选 (a)，本单 T1 已拍死）
   - `docs/verification/2026-08-29-conformance-seam-census.md`（缝普查；「引擎 A vs 引擎 B 接口不同、不是同 Protocol 多实现」这条裁决是 §1.3 的依据）
 - 代码树纪律：从 `gitea/main` 开干净树再改 runtime。本稿允许落主树 untracked。**禁止**把包改成「跑完再无约束 compose」。**禁止**把盘面/自选/复盘改回 Engine A 第一执行者。
 
@@ -127,7 +128,11 @@ if options.research_task_contract is not None:
 5. A 开口预取已吃掉一部分 B 块（双红、发酵、展望周报、宽度共振、资格/台阶、D10 等）。**明确未接线**：D8 题材历史类比、D11 个股走势类比（`asof_prefetch.py` 只留 gap）。这是 P0 并入的第一批实物。
 6. owner skill（`theme-research` 等）的 `retrieve` 仍是 `answer_query`（B）。A 接住的工作台题 **不跑** 这些 skill。owner 是 B 的外套，不是 A 的 skill frontier。
 7. 包默认不上写手：`bind_watchlist_digest_pack` / 盘面包 P0 `compose=False`。残差写手若开，只许解释、不许改数字。本单不推翻。
-8. **包本身就是经 `answer_query` 执行的**：orchestrator 用 `replace(ask_options, compose=False, synthesize=False)` 进 `_run_answer_query_with_watchdog`（`conversation_orchestrator.py:2921/2941/2997`，watchdog 在 `:2973`）。所以 P3 的「`answer_query` 缩成包 + 取数库编排」与 §1.1 第一行「包不变」自洽——**P3 不拆包椅**，别读成矛盾。
+8. **五把包椅里有三把经 `answer_query` 执行**（本条初版写成「包本身就是经 `answer_query` 执行的」，**五分之二不对**，已按实测收窄）：
+   - `market_watch` / `watchlist_digest`：在 orchestrator 内 `render()` + `prepare_existing_answer(replace(..., compose=False, synthesize=False), ...)` 直接短路（`conversation_orchestrator.py:2915-2922` / `:2938-2942`），**不进** `answer_query`。
+   - `dated_market_review` / `external_market` / `disclosure_scan`：住在 `ask.py` 内（`:877` / `:1136` / `:489`），走 `else` 分支的 `_run_answer_query_with_watchdog`（`:2973`）→ `answer_query`。
+   结论不变：P3 的「`answer_query` 缩成包 + 取数库编排」与 §1.1 第一行「包不变」自洽——**P3 不拆包椅**。
+   但由此多一条：**`ask_root` 不能当包椅的验收锚点**（`answer_query` 无条件把整个调用包在这个阶段里，`ask.py:1546`），详见目标态合同单 §0 判别 1。
 9. **A 已经在用 B 的工具库**：`episode_tools.py:933` `default_tools = agent_research.build_default_tools(retrieve_kb)`。「B 当取数库」不是未来时，只是 D 块那半还没跟上。推论见 P3 保留名单。
 10. `asof_prefetch.py` 自己有裸 SQL 打 `fact_sector_daily` / `fact_market_daily`（149 / 294 / 887 / 941；1008 行还是 `select max(trade_date) from fact_market_daily`）。P1 要治的重复是实物，不是假想。
 11. **D8 / D11 的取数函数没有 `as_of` 参数**：`market_analogs.py`、`stock_analogs.py` 全文无此词；D10 能接进 A 正因为 `regime_block_for_llm(..., as_of=None)` 有（`market_regime_analogs.py:476-482`）。这决定了 P0 的真实体量，见 §5。
@@ -224,9 +229,9 @@ B 在图上只出现在「取数库」节点：预取层 `import` 收集器。�
 - **降级契约（本单必须补上，否则 P3 落地后有题无处可去）**：A `decline` 时（`handled=False`）今天落到 `route_skills` → `_run_answer_query_with_watchdog`（`conversation_orchestrator.py:2973`），B 兜住。B 的循环拆掉之后，这条路必须有明写的归宿。
   - 真会漏到这里的只有两种：`ASK_CONTINUOUS_RUNTIME` 非 on/canary、`terminal_kind == "non_research"`（`turn_control_core.py:93-97`）。
   - `control_frame_mismatch` **不在此列**：它返回 `handled=True`（`continuous_turn_adapter.py:1644`），已经是 fail-closed，别顺手改成 decline。
-  - 二选一并写进 spec：(a) 出「声明缺口的降级稿」；(b) 保留 B 的 compose 作为**已声明的降级路径**并留收据。选哪个都行，**不写才是问题**——不写等于把决定权交给下游，而下游没有下限。
-  - **选 (b) 时的附加条件（不可省）**：收据必须自述走的是哪条路、少了哪道门。§1.3 已说明 A 与 B 差的是语义判官 + 结构门 + 修复轮；**W3 的「双引擎收据同构」在降级路径上必须破例**——同构在这里等于消音。降级收据长得不一样是特性不是缺陷。
-  - **B 作为退路有保质期**：B 的循环靠 `json.loads` 解析模型吐的文本来点工具（`agent_research.py:976`），A 用原生 `tools=`。模型越往后越是为原生 tool use 优化，这条退路只会越来越脆。**兜底比主路更脆时，兜底就是假的**——这是给本单定期限的理由，不是可以无限期并存的理由。
+  - **T1 已拍（2026-08-30，合同 `2026-08-30-optimized-orchestration-contract-design.md` §5）**：选 **(a)** 声明缺口稿。不选 (b)。研究题 A 未能开张不得再进 `run_agent_loop` / `generic_research_owner` / 旧 compose。理由：退路仍是第二循环则 B 也得养；旧循环比 A 更脆，假兜底。
+  - ~~选 (b) 时的附加条件~~：**作废。** 已否 (b)，不必再写「降级收据破同构」——根本不走旧合成。
+  - 旧循环比 A 更脆（`json.loads` 点工具 vs 原生 `tools=`）是**否决 (b) 的理由**，不是「可以限期并存」的授权。
 
 ---
 
@@ -272,7 +277,7 @@ B 在图上只出现在「取数库」节点：预取层 `import` 收集器。�
 
 | # | 事项 | 现状 [实测] | 归属 |
 |---|---|---|---|
-| T1 | **P3 降级契约选 (a) 还是 (b)** | 未定。不阻塞 P0/P1 | 待用户裁决，P3 动工前必须有答案 |
+| T1 | **P3 降级契约选 (a) 还是 (b)** | **已拍 (a)**。合同 `2026-08-30-optimized-orchestration-contract-design.md` §5（`R-20260830-05`） | 本单 P3 按合同执行，不得重开二选一 |
 | T2 | `capability="agent_loop"` 改名 `evidence_tool` | `agent_research.py:579/738/775` 三处 + 所有按该字段计数的审计 + 历史 trace 可比性 | **另开单**。本单只在 §0 立锚点纪律，不改字段 |
 | T3 | 接口层地图漂移 | **本轮已修** `docs/agent-product-door.md`（三条题型→五条、`quick_fact` 移出、补 `generic_research_owner` 长尾路、补门禁不对等） | 已完成 |
 | T4 | **没有任何门禁看 `docs/`** | pre-commit 九条（`layer-audit` / `path-literals` / `unread-fields` / `dataset-registration` / `tool-reachability` / `agent-workspace-facts` / `block-forbidden-files` + ruff/私钥/大文件/冲突）**无一条覆盖文档**。「改门必更此页」是纪律不是机制——T3 那次漂移就是它漏的 | **另开单**。建议形状：棘轮式，当 `DETERMINISTIC_OWNER_TYPES` 一类「门的定义常量」变更时，要求同提交内 `agent-product-door.md` 有改动；存量免检、只拦新增，手法同 `tool-reachability` |

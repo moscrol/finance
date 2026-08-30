@@ -37,6 +37,11 @@
 | 整体为什么是闭环不是流水线 | `.agent-memory/10_knowledge/agent-system-closed-loop-first-principles.md` | 稳定方法论 |
 | 数据/台账落哪、谁是唯一写入者 | `docs/learning/ledger-map.md`（台账总索引）+ CLAUDE.md「本地数据库 (DuckDB)」节（写入契约；schema SSOT `market_feature_store/schema.sql`） | 新增台账先登记（该表表头约定）；DuckDB 契约随 schema/迁移人工更新 |
 
+> **分流的目标态**（⚠️ **未落地，不是现状**）：`docs/superpowers/specs/2026-08-30-optimized-orchestration-contract-design.md`
+> ——优化后只留包椅与引擎 A，没有第三台「工作流」研究引擎；研究题 A 整台拒收出声明缺口，不用旧 `answer_query` 循环托底。
+> **现状仍以 `docs/agent-product-door.md` 为准**（那页写「两条引擎」，是今天的真相）。
+> 门页要等改 runtime 的那次提交一起改——提前改会让下一个 agent 把未实施当成现状。
+
 ## 🔁 用户纠偏必落 correction（强制，任何 agent 会话）
 
 用户在对话里对系统的判断/解读表达纠正时（信号词如「不对」「应该是」「不是这样」「你理解错了」等否定/修正表述，**不需要用户使用任何固定格式**），agent 必须当场把纠偏落进台账：
