@@ -1,0 +1,1223 @@
+{
+  "kind": "wiki_aperture_ablation",
+  "ledger_id": "R-20260830-06",
+  "generated_at": "2026-08-30T17:10:32.243216+00:00",
+  "as_of": "2026-08-28",
+  "ask_evidence_judge": "off",
+  "prewarm": {
+    "enabled": true,
+    "state": "ready",
+    "active": 1,
+    "configured_workers": 1,
+    "model_load_count": 1,
+    "prewarm_latency_ms": 44940,
+    "last_error_type": null,
+    "lifecycle": "startup_prewarm",
+    "elapsed_sec": 44.943,
+    "ok": true
+  },
+  "questions": [
+    {
+      "case_id": "theme-liquid-cooling",
+      "text": "液冷服务器现在处于什么阶段",
+      "as_of": "2026-08-28"
+    },
+    {
+      "case_id": "shenling-order",
+      "text": "申菱环境液冷订单落地了没有",
+      "as_of": "2026-08-28"
+    },
+    {
+      "case_id": "invic-piping",
+      "text": "英维克和液冷管路的关系",
+      "as_of": "2026-08-28"
+    },
+    {
+      "case_id": "glass-vs-ceramic",
+      "text": "玻璃基板和陶瓷基板的区别",
+      "as_of": "2026-08-28"
+    },
+    {
+      "case_id": "star50-support",
+      "text": "科创50支撑位在哪",
+      "as_of": "2026-08-28"
+    },
+    {
+      "case_id": "zhongji-16t",
+      "text": "中际旭创和1.6T光模块的关系",
+      "as_of": "2026-08-28"
+    }
+  ],
+  "l0": {
+    "usable": 2,
+    "total": 6,
+    "activation_rate": 0.333,
+    "rows": [
+      {
+        "case_id": "theme-liquid-cooling",
+        "usable": false,
+        "reason": "missing_executed:counter",
+        "attempts": [
+          {
+            "aperture": "narrow",
+            "query": "液冷服务器现在处于什么阶段",
+            "status": "ok",
+            "hit_count": 6,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "液冷服务器现在处于什么阶段 液冷服务器 高速线缆模组产品 在华为昇腾 Atlas 服务器处于最终测 试阶段 上下游 同业",
+            "status": "ok",
+            "hit_count": 6,
+            "executed": true
+          },
+          {
+            "aperture": "counter",
+            "query": "液冷服务器现在处于什么阶段 产能过剩",
+            "status": "budget_exhausted",
+            "hit_count": 0,
+            "executed": false
+          }
+        ]
+      },
+      {
+        "case_id": "shenling-order",
+        "usable": true,
+        "reason": "ok",
+        "attempts": [
+          {
+            "aperture": "narrow",
+            "query": "申菱环境 301018",
+            "status": "ok",
+            "hit_count": 6,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能 申菱环境 数据中心温控和液 上下游 同业",
+            "status": "ok",
+            "hit_count": 6,
+            "executed": true
+          },
+          {
+            "aperture": "counter",
+            "query": "申菱环境 产能过剩",
+            "status": "ok",
+            "hit_count": 6,
+            "executed": true
+          }
+        ]
+      },
+      {
+        "case_id": "invic-piping",
+        "usable": true,
+        "reason": "ok",
+        "attempts": [
+          {
+            "aperture": "narrow",
+            "query": "英维克 002837",
+            "status": "ok",
+            "hit_count": 6,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器 英维克 最新逻辑卡 上下游 同业",
+            "status": "ok",
+            "hit_count": 6,
+            "executed": true
+          },
+          {
+            "aperture": "counter",
+            "query": "英维克 产能过剩",
+            "status": "ok",
+            "hit_count": 6,
+            "executed": true
+          }
+        ]
+      },
+      {
+        "case_id": "glass-vs-ceramic",
+        "usable": false,
+        "reason": "missing_executed:counter",
+        "attempts": [
+          {
+            "aperture": "narrow",
+            "query": "玻璃基板和陶瓷基板的区别",
+            "status": "ok",
+            "hit_count": 6,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "玻璃基板和陶瓷基板的区别 玻璃基板 玻璃基板约 中段 EMIB-T 玻璃路线时点 三星送样转量产 上下游 同业",
+            "status": "ok",
+            "hit_count": 6,
+            "executed": true
+          },
+          {
+            "aperture": "counter",
+            "query": "玻璃基板和陶瓷基板的区别 产能过剩",
+            "status": "budget_exhausted",
+            "hit_count": 0,
+            "executed": false
+          }
+        ]
+      },
+      {
+        "case_id": "star50-support",
+        "usable": false,
+        "reason": "missing_executed:broad,counter",
+        "attempts": [
+          {
+            "aperture": "narrow",
+            "query": "科创50支撑位在哪",
+            "status": "timeout",
+            "hit_count": 0,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "科创50支撑位在哪  上下游 同业",
+            "status": "budget_exhausted",
+            "hit_count": 0,
+            "executed": false
+          },
+          {
+            "aperture": "counter",
+            "query": "科创50支撑位在哪 产能过剩",
+            "status": "budget_exhausted",
+            "hit_count": 0,
+            "executed": false
+          }
+        ]
+      },
+      {
+        "case_id": "zhongji-16t",
+        "usable": false,
+        "reason": "missing_executed:broad,counter",
+        "attempts": [
+          {
+            "aperture": "narrow",
+            "query": "中际旭创 300308",
+            "status": "ok",
+            "hit_count": 6,
+            "executed": true
+          },
+          {
+            "aperture": "broad",
+            "query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块 中际旭创 一句话 上下游 同业",
+            "status": "budget_exhausted",
+            "hit_count": 0,
+            "executed": false
+          },
+          {
+            "aperture": "counter",
+            "query": "中际旭创 产能过剩",
+            "status": "budget_exhausted",
+            "hit_count": 0,
+            "executed": false
+          }
+        ]
+      }
+    ]
+  },
+  "l1": {
+    "summary": {
+      "usable": 2,
+      "mean_C_added": 3.5,
+      "mean_C_dropped": 0,
+      "mean_K_added": 4.5,
+      "counter_rate": 1.0,
+      "crowding": false
+    },
+    "rows": [
+      {
+        "case_id": "shenling-order",
+        "C_A0": [
+          "concepts/AI服务器",
+          "concepts/AI算力",
+          "entities/同飞股份",
+          "entities/曙光数创",
+          "entities/申菱环境",
+          "sources/申菱环境(301018)_最新逻辑卡"
+        ],
+        "C_A2": [
+          "concepts/AI基础设施与国产算力",
+          "concepts/AI服务器",
+          "concepts/AI电源",
+          "concepts/AI算力",
+          "concepts/算力基础设施",
+          "entities/同飞股份",
+          "entities/曙光数创",
+          "entities/申菱环境",
+          "sources/申菱环境(301018)_最新逻辑卡"
+        ],
+        "K_A0": [],
+        "K_A2": [
+          "entities/同飞股份",
+          "entities/曙光数创",
+          "entities/申菱环境",
+          "sources/液冷服务器_DeepDive_数据抽取_20260604",
+          "sources/申菱环境(301018)_最新逻辑卡"
+        ],
+        "C_added_n": 3,
+        "C_dropped_n": 0,
+        "K_added_n": 5,
+        "K_dropped_n": 0,
+        "C_added": [
+          "concepts/AI基础设施与国产算力",
+          "concepts/AI电源",
+          "concepts/算力基础设施"
+        ],
+        "C_dropped": [],
+        "K_added": [
+          "entities/同飞股份",
+          "entities/曙光数创",
+          "entities/申菱环境",
+          "sources/液冷服务器_DeepDive_数据抽取_20260604",
+          "sources/申菱环境(301018)_最新逻辑卡"
+        ],
+        "counter_nonempty": 1,
+        "hit_at_6": 1.0
+      },
+      {
+        "case_id": "invic-piping",
+        "C_A0": [
+          "concepts/AI硬件",
+          "concepts/CANN",
+          "entities/英维克",
+          "sources/英维克_002837_最新逻辑卡_20260613",
+          "sources/英维克_最新逻辑卡_20260604"
+        ],
+        "C_A2": [
+          "concepts/ABF载板",
+          "concepts/AI基础设施与国产算力",
+          "concepts/AI硬件",
+          "concepts/AI算力基础设施",
+          "concepts/CANN",
+          "concepts/算力基础设施",
+          "entities/英维克",
+          "sources/英维克_002837_最新逻辑卡_20260613",
+          "sources/英维克_最新逻辑卡_20260604"
+        ],
+        "K_A0": [],
+        "K_A2": [
+          "entities/英维克",
+          "sources/晚间卖方研报20260421",
+          "sources/英维克_002837_最新逻辑卡_20260613",
+          "sources/英维克_最新逻辑卡_20260604"
+        ],
+        "C_added_n": 4,
+        "C_dropped_n": 0,
+        "K_added_n": 4,
+        "K_dropped_n": 0,
+        "C_added": [
+          "concepts/ABF载板",
+          "concepts/AI基础设施与国产算力",
+          "concepts/AI算力基础设施",
+          "concepts/算力基础设施"
+        ],
+        "C_dropped": [],
+        "K_added": [
+          "entities/英维克",
+          "sources/晚间卖方研报20260421",
+          "sources/英维克_002837_最新逻辑卡_20260613",
+          "sources/英维克_最新逻辑卡_20260604"
+        ],
+        "counter_nonempty": 1,
+        "hit_at_6": 0.5
+      }
+    ]
+  },
+  "latency_p50_sec": {
+    "A0": 19.287,
+    "A1": 87.985,
+    "A2": 100.341
+  },
+  "l2": null,
+  "l2_answers_full": null,
+  "retrieval": [
+    {
+      "arm": "A0",
+      "apertures": "narrow",
+      "case_id": "theme-liquid-cooling",
+      "graph_query": "液冷服务器现在处于什么阶段",
+      "anchor": null,
+      "elapsed_sec": 15.008,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "液冷服务器现在处于什么阶段",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "液冷服务器现在处于什么阶段 液冷服务器 高速线缆模组产品 在华为昇腾 Atlas 服务器处于最终测 试阶段 上下游 同业",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "液冷服务器现在处于什么阶段 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [],
+      "conclusion": [
+        "concepts/液冷服务器",
+        "sources/液冷服务器产业新变化与新格局全面分析报告",
+        "entities/中航光电",
+        "entities/英维克",
+        "sources/液冷服务器2026研究报告",
+        "sources/液冷服务器_DeepDive_数据抽取_20260604"
+      ],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A1",
+      "apertures": "narrow_broad",
+      "case_id": "theme-liquid-cooling",
+      "graph_query": "液冷服务器现在处于什么阶段",
+      "anchor": null,
+      "elapsed_sec": 89.636,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "液冷服务器现在处于什么阶段",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "液冷服务器现在处于什么阶段 液冷服务器 高速线缆模组产品 在华为昇腾 Atlas 服务器处于最终测 试阶段 上下游 同业",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "counter",
+          "query": "液冷服务器现在处于什么阶段 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [],
+      "conclusion": [
+        "concepts/液冷服务器",
+        "sources/液冷服务器产业新变化与新格局全面分析报告",
+        "entities/中航光电",
+        "entities/英维克",
+        "sources/液冷服务器2026研究报告",
+        "sources/液冷服务器_DeepDive_数据抽取_20260604",
+        "concepts/高速IO连接器",
+        "sources/意华股份_最新逻辑跟踪_20260603",
+        "entities/高澜股份"
+      ],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A2",
+      "apertures": "all",
+      "case_id": "theme-liquid-cooling",
+      "graph_query": "液冷服务器现在处于什么阶段",
+      "anchor": null,
+      "elapsed_sec": 104.246,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "液冷服务器现在处于什么阶段",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "液冷服务器现在处于什么阶段 液冷服务器 高速线缆模组产品 在华为昇腾 Atlas 服务器处于最终测 试阶段 上下游 同业",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "counter",
+          "query": "液冷服务器现在处于什么阶段 产能过剩",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "counter retrieval skipped: remaining budget below observed query cost"
+      ],
+      "conclusion": [
+        "concepts/液冷服务器",
+        "sources/液冷服务器产业新变化与新格局全面分析报告",
+        "entities/中航光电",
+        "entities/英维克",
+        "sources/液冷服务器2026研究报告",
+        "sources/液冷服务器_DeepDive_数据抽取_20260604",
+        "concepts/高速IO连接器",
+        "sources/意华股份_最新逻辑跟踪_20260603",
+        "entities/高澜股份"
+      ],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A0",
+      "apertures": "narrow",
+      "case_id": "shenling-order",
+      "graph_query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能",
+      "anchor": {
+        "entity": "申菱环境",
+        "ticker": "301018",
+        "concepts": [
+          "AI基础设施与国产算力",
+          "AI服务器",
+          "AI算力",
+          "储能"
+        ]
+      },
+      "elapsed_sec": 18.928,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "申菱环境 301018",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能 申菱环境 数据中心温控和液 上下游 同业",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "申菱环境 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [],
+      "conclusion": [
+        "entities/申菱环境",
+        "sources/申菱环境(301018)_最新逻辑卡",
+        "entities/同飞股份",
+        "entities/曙光数创",
+        "concepts/AI服务器",
+        "concepts/AI算力"
+      ],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A1",
+      "apertures": "narrow_broad",
+      "case_id": "shenling-order",
+      "graph_query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能",
+      "anchor": {
+        "entity": "申菱环境",
+        "ticker": "301018",
+        "concepts": [
+          "AI基础设施与国产算力",
+          "AI服务器",
+          "AI算力",
+          "储能"
+        ]
+      },
+      "elapsed_sec": 58.876,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "申菱环境 301018",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能 申菱环境 数据中心温控和液 上下游 同业",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "counter",
+          "query": "申菱环境 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [],
+      "conclusion": [
+        "entities/申菱环境",
+        "sources/申菱环境(301018)_最新逻辑卡",
+        "entities/同飞股份",
+        "entities/曙光数创",
+        "concepts/AI服务器",
+        "concepts/AI算力",
+        "concepts/算力基础设施",
+        "concepts/AI基础设施与国产算力",
+        "concepts/AI电源"
+      ],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A2",
+      "apertures": "all",
+      "case_id": "shenling-order",
+      "graph_query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能",
+      "anchor": {
+        "entity": "申菱环境",
+        "ticker": "301018",
+        "concepts": [
+          "AI基础设施与国产算力",
+          "AI服务器",
+          "AI算力",
+          "储能"
+        ]
+      },
+      "elapsed_sec": 76.455,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "申菱环境 301018",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "申菱环境 AI基础设施与国产算力 AI服务器 AI算力 储能 申菱环境 数据中心温控和液 上下游 同业",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "counter",
+          "query": "申菱环境 产能过剩",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        }
+      ],
+      "warnings": [],
+      "conclusion": [
+        "entities/申菱环境",
+        "sources/申菱环境(301018)_最新逻辑卡",
+        "entities/同飞股份",
+        "entities/曙光数创",
+        "concepts/AI服务器",
+        "concepts/AI算力",
+        "concepts/算力基础设施",
+        "concepts/AI基础设施与国产算力",
+        "concepts/AI电源"
+      ],
+      "counter": [
+        "sources/申菱环境(301018)_最新逻辑卡",
+        "entities/申菱环境",
+        "entities/同飞股份",
+        "entities/曙光数创",
+        "sources/液冷服务器_DeepDive_数据抽取_20260604"
+      ],
+      "discarded_n": 1
+    },
+    {
+      "arm": "A0",
+      "apertures": "narrow",
+      "case_id": "invic-piping",
+      "graph_query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器",
+      "anchor": {
+        "entity": "英维克",
+        "ticker": "002837",
+        "concepts": [
+          "ABF载板",
+          "AI基建工具",
+          "AI基础设施与国产算力",
+          "AI容器"
+        ]
+      },
+      "elapsed_sec": 9.462,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "英维克 002837",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器 英维克 最新逻辑卡 上下游 同业",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "英维克 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [],
+      "conclusion": [
+        "sources/英维克_002837_最新逻辑卡_20260613",
+        "entities/英维克",
+        "sources/英维克_最新逻辑卡_20260604",
+        "concepts/AI硬件",
+        "concepts/CANN"
+      ],
+      "counter": [],
+      "discarded_n": 1
+    },
+    {
+      "arm": "A1",
+      "apertures": "narrow_broad",
+      "case_id": "invic-piping",
+      "graph_query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器",
+      "anchor": {
+        "entity": "英维克",
+        "ticker": "002837",
+        "concepts": [
+          "ABF载板",
+          "AI基建工具",
+          "AI基础设施与国产算力",
+          "AI容器"
+        ]
+      },
+      "elapsed_sec": 60.314,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "英维克 002837",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器 英维克 最新逻辑卡 上下游 同业",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "counter",
+          "query": "英维克 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [],
+      "conclusion": [
+        "sources/英维克_002837_最新逻辑卡_20260613",
+        "entities/英维克",
+        "sources/英维克_最新逻辑卡_20260604",
+        "concepts/AI硬件",
+        "concepts/CANN",
+        "concepts/AI基础设施与国产算力",
+        "concepts/AI算力基础设施",
+        "concepts/ABF载板",
+        "concepts/算力基础设施"
+      ],
+      "counter": [],
+      "discarded_n": 2
+    },
+    {
+      "arm": "A2",
+      "apertures": "all",
+      "case_id": "invic-piping",
+      "graph_query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器",
+      "anchor": {
+        "entity": "英维克",
+        "ticker": "002837",
+        "concepts": [
+          "ABF载板",
+          "AI基建工具",
+          "AI基础设施与国产算力",
+          "AI容器"
+        ]
+      },
+      "elapsed_sec": 70.843,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "英维克 002837",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "英维克 ABF载板 AI基建工具 AI基础设施与国产算力 AI容器 英维克 最新逻辑卡 上下游 同业",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "counter",
+          "query": "英维克 产能过剩",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        }
+      ],
+      "warnings": [],
+      "conclusion": [
+        "sources/英维克_002837_最新逻辑卡_20260613",
+        "entities/英维克",
+        "sources/英维克_最新逻辑卡_20260604",
+        "concepts/AI硬件",
+        "concepts/CANN",
+        "concepts/AI基础设施与国产算力",
+        "concepts/AI算力基础设施",
+        "concepts/ABF载板",
+        "concepts/算力基础设施"
+      ],
+      "counter": [
+        "sources/英维克_最新逻辑卡_20260604",
+        "sources/英维克_002837_最新逻辑卡_20260613",
+        "entities/英维克",
+        "sources/晚间卖方研报20260421"
+      ],
+      "discarded_n": 4
+    },
+    {
+      "arm": "A0",
+      "apertures": "narrow",
+      "case_id": "glass-vs-ceramic",
+      "graph_query": "玻璃基板和陶瓷基板的区别",
+      "anchor": null,
+      "elapsed_sec": 19.646,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "玻璃基板和陶瓷基板的区别",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "玻璃基板和陶瓷基板的区别 玻璃基板 玻璃基板约 中段 EMIB-T 玻璃路线时点 三星送样转量产 上下游 同业",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "玻璃基板和陶瓷基板的区别 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [],
+      "conclusion": [
+        "concepts/玻璃基板",
+        "sources/晚卖研汇_20260620",
+        "concepts/电子布",
+        "sources/2026-05-17-晨汇纪要",
+        "synthesis/玻璃基板面板级封装-serenity-alpha-20260605"
+      ],
+      "counter": [],
+      "discarded_n": 1
+    },
+    {
+      "arm": "A1",
+      "apertures": "narrow_broad",
+      "case_id": "glass-vs-ceramic",
+      "graph_query": "玻璃基板和陶瓷基板的区别",
+      "anchor": null,
+      "elapsed_sec": 86.334,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "玻璃基板和陶瓷基板的区别",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "玻璃基板和陶瓷基板的区别 玻璃基板 玻璃基板约 中段 EMIB-T 玻璃路线时点 三星送样转量产 上下游 同业",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "counter",
+          "query": "玻璃基板和陶瓷基板的区别 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [],
+      "conclusion": [
+        "concepts/玻璃基板",
+        "sources/晚卖研汇_20260620",
+        "concepts/电子布",
+        "sources/2026-05-17-晨汇纪要",
+        "synthesis/玻璃基板面板级封装-serenity-alpha-20260605",
+        "sources/玻璃基板产业新变化和新格局深度研究分析",
+        "briefings/2026-06-28",
+        "concepts/CoPoS",
+        "synthesis/玻璃基板TGV设备-serenity-alpha-20260605"
+      ],
+      "counter": [],
+      "discarded_n": 1
+    },
+    {
+      "arm": "A2",
+      "apertures": "all",
+      "case_id": "glass-vs-ceramic",
+      "graph_query": "玻璃基板和陶瓷基板的区别",
+      "anchor": null,
+      "elapsed_sec": 96.437,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "玻璃基板和陶瓷基板的区别",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "玻璃基板和陶瓷基板的区别 玻璃基板 玻璃基板约 中段 EMIB-T 玻璃路线时点 三星送样转量产 上下游 同业",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "counter",
+          "query": "玻璃基板和陶瓷基板的区别 产能过剩",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "counter retrieval skipped: remaining budget below observed query cost"
+      ],
+      "conclusion": [
+        "concepts/玻璃基板",
+        "sources/晚卖研汇_20260620",
+        "concepts/电子布",
+        "sources/2026-05-17-晨汇纪要",
+        "synthesis/玻璃基板面板级封装-serenity-alpha-20260605",
+        "sources/玻璃基板产业新变化和新格局深度研究分析",
+        "briefings/2026-06-28",
+        "concepts/CoPoS",
+        "synthesis/玻璃基板TGV设备-serenity-alpha-20260605"
+      ],
+      "counter": [],
+      "discarded_n": 1
+    },
+    {
+      "arm": "A0",
+      "apertures": "narrow",
+      "case_id": "star50-support",
+      "graph_query": "科创50支撑位在哪",
+      "anchor": null,
+      "elapsed_sec": 20.266,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "科创50支撑位在哪",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "科创50支撑位在哪 兰花科创 本次 baseline 未找到可由当前原 始资料直接支撑的 canonical 上下游 同业",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "科创50支撑位在哪 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [],
+      "conclusion": [
+        "entities/兰花科创",
+        "sources/中望软件_688083_个股逻辑卡_20260613",
+        "sources/通威股份_最新逻辑跟踪"
+      ],
+      "counter": [],
+      "discarded_n": 3
+    },
+    {
+      "arm": "A1",
+      "apertures": "narrow_broad",
+      "case_id": "star50-support",
+      "graph_query": "科创50支撑位在哪",
+      "anchor": null,
+      "elapsed_sec": 109.972,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "科创50支撑位在哪",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "科创50支撑位在哪 兰花科创 本次 baseline 未找到可由当前原 始资料直接支撑的 canonical 上下游 同业",
+          "status": "timeout",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "counter",
+          "query": "科创50支撑位在哪 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag worker 降级 CLI 后仍超时",
+        "broad retrieval empty after 1 attempts"
+      ],
+      "conclusion": [
+        "entities/兰花科创",
+        "sources/中望软件_688083_个股逻辑卡_20260613",
+        "sources/通威股份_最新逻辑跟踪"
+      ],
+      "counter": [],
+      "discarded_n": 3
+    },
+    {
+      "arm": "A2",
+      "apertures": "all",
+      "case_id": "star50-support",
+      "graph_query": "科创50支撑位在哪",
+      "anchor": null,
+      "elapsed_sec": 155.183,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "科创50支撑位在哪",
+          "status": "timeout",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "科创50支撑位在哪  上下游 同业",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "科创50支撑位在哪 产能过剩",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag worker 降级 CLI 后仍超时",
+        "broad retrieval skipped: remaining budget below observed query cost",
+        "counter retrieval skipped: remaining budget below observed query cost",
+        "narrow retrieval empty after 1 attempts"
+      ],
+      "conclusion": [],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A0",
+      "apertures": "narrow",
+      "case_id": "zhongji-16t",
+      "graph_query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块",
+      "anchor": {
+        "entity": "中际旭创",
+        "ticker": "300308",
+        "concepts": [
+          "1.6T CPO",
+          "6G",
+          "6G产业",
+          "800G_1.6T光模块"
+        ]
+      },
+      "elapsed_sec": 104.301,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "中际旭创 300308",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块 中际旭创 一句话 上下游 同业",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "中际旭创 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [],
+      "conclusion": [
+        "entities/中际旭创",
+        "sources/中际旭创_最新逻辑跟踪_20260603",
+        "entities/Coherent",
+        "concepts/光芯片",
+        "concepts/硅光",
+        "concepts/800G光模块"
+      ],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A1",
+      "apertures": "narrow_broad",
+      "case_id": "zhongji-16t",
+      "graph_query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块",
+      "anchor": {
+        "entity": "中际旭创",
+        "ticker": "300308",
+        "concepts": [
+          "1.6T CPO",
+          "6G",
+          "6G产业",
+          "800G_1.6T光模块"
+        ]
+      },
+      "elapsed_sec": 121.44,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "中际旭创 300308",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块 中际旭创 一句话 上下游 同业",
+          "status": "timeout",
+          "hit_count": 0,
+          "executed": true
+        },
+        {
+          "aperture": "counter",
+          "query": "中际旭创 产能过剩",
+          "status": "disabled",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "wiki-rag worker 降级 CLI 后仍超时",
+        "broad retrieval empty after 1 attempts"
+      ],
+      "conclusion": [
+        "entities/中际旭创",
+        "sources/中际旭创_最新逻辑跟踪_20260603",
+        "entities/Coherent",
+        "concepts/光芯片",
+        "concepts/硅光",
+        "concepts/800G光模块"
+      ],
+      "counter": [],
+      "discarded_n": 0
+    },
+    {
+      "arm": "A2",
+      "apertures": "all",
+      "case_id": "zhongji-16t",
+      "graph_query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块",
+      "anchor": {
+        "entity": "中际旭创",
+        "ticker": "300308",
+        "concepts": [
+          "1.6T CPO",
+          "6G",
+          "6G产业",
+          "800G_1.6T光模块"
+        ]
+      },
+      "elapsed_sec": 109.721,
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "中际旭创 300308",
+          "status": "ok",
+          "hit_count": 6,
+          "executed": true
+        },
+        {
+          "aperture": "broad",
+          "query": "中际旭创 1.6T CPO 6G 6G产业 800G_1.6T光模块 中际旭创 一句话 上下游 同业",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        },
+        {
+          "aperture": "counter",
+          "query": "中际旭创 产能过剩",
+          "status": "budget_exhausted",
+          "hit_count": 0,
+          "executed": false
+        }
+      ],
+      "warnings": [
+        "broad retrieval skipped: remaining budget below observed query cost",
+        "counter retrieval skipped: remaining budget below observed query cost"
+      ],
+      "conclusion": [
+        "entities/中际旭创",
+        "sources/中际旭创_最新逻辑跟踪_20260603",
+        "entities/Coherent",
+        "concepts/光芯片",
+        "concepts/硅光",
+        "concepts/800G光模块"
+      ],
+      "counter": [],
+      "discarded_n": 0
+    }
+  ],
+  "conclusion": {
+    "code": "INELIGIBLE",
+    "text": "现网预算撑不满三铲，质量对照无资格"
+  },
+  "as_of_date": "2026-08-28"
+}

@@ -50,7 +50,7 @@
 
 | # | 工单 | 优先级 | 主仓 | 一句话 |
 |---|------|--------|------|--------|
-| 19 | `2026-08-30-wiki-aperture-ablation-workorder.md` | P1 | 金融 | ⏳ **待验收**：分支 `eval/wiki-aperture-ablation`，台账 `R-20260830-06`。L0 0/6（A2 均未跑完 counter，索引 stale 清空后换句烧预算）→ 结论「无资格」，不是三铲无用。报告 `docs/verification/2026-08-30-wiki-aperture-ablation.md` |
+| 19 | `2026-08-30-wiki-aperture-ablation-workorder.md` | P1 | 金融 | ⏳ **待验收**：分支 `eval/wiki-aperture-ablation`，台账 `R-20260830-06`。两轮都停在 L0「无资格」（不是三铲无用）：轮 1 索引 stale → 0/6；轮 2 结构版 `fresh`（169001，`built_at=2026-08-30T16:43:00Z`）→ **2/6**（仅申菱/英维克跑完 counter；其余 `budget_exhausted`，0 条 stale 告警）。90s 现网预算仍装不下三铲。报告 `docs/verification/2026-08-30-wiki-aperture-ablation.md` |
 
 P2 已登记不立单：ArtifactProvider（6 实现）/ Workbench SkillExecutor（7 skill_id）——见普查报告 §一。
 
