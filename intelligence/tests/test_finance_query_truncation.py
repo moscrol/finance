@@ -24,6 +24,7 @@ from intelligence.services.research_contract import (
     ResearchDeadline,
 )
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.tool_result_budget import budget_tool_observation
 
 
 def _lithium_frame() -> TaskFrame:
@@ -134,6 +135,65 @@ def test_truncation_notice_when_model_sets_own_limit(tmp_path: Path) -> None:
     assert observation.trace.result_count == 25
     assert "截断" in observation.observation
     assert "25" in observation.observation
+
+
+def test_truncation_notice_survives_the_context_budget(tmp_path: Path) -> None:
+    """截断提示必须活过 900 字符预算——不然它等于没发出。
+
+    2026-08-30 实测 400 份 continuous-episode.json：这句提示出现 123 次、
+    位置均值在全文 84% 处、**67 次被 ``tool_result_budget`` 吃掉**。也就是说
+    「结果已按 N 条截断」这条通知，一半以上的时候自己被字符截断砍了，模型
+    拿到删节版却不知道是删节版。「实际覆盖 X..Y」同样 123 次里丢 67 次，
+    而时点与完整性正是该模块开头声明永不截断的红线。
+
+    数据行在 ``evidence[]`` 里逐条另有副本（实测被砍片段 92% 有副本），
+    这三条限定语没有——所以限定语必须排在前面，砍到的只会是有副本的那部分。
+
+    钉不变量而非顺序：改成独立字段也该通过。变异测试：把 ``episode_tools``
+    里的 ``"；".join((*notices, result.observation))`` 换回追加写法，本条必红。
+    """
+
+    db_path = tmp_path / "finance" / "db" / "market_feature_store.duckdb"
+    _sector_db(
+        db_path,
+        [
+            (
+                "2026-07-23",
+                f"88{index:04d}.TI",
+                f"板块名称够长才撞得到字符预算{index}",
+                "有色",
+                False,
+                float(index),
+                float(index * 10),
+                float(index),
+                float(index),
+            )
+            for index in range(25)
+        ],
+    )
+    registry, context = _registry(tmp_path, task_id="truncation-survives-budget")
+    observation = registry.execute(
+        "finance_query",
+        {
+            "dataset": "sector_daily",
+            "metrics": ["return_pct", "amount"],
+            "dimensions": ["trade_date", "sector_code", "sector_name"],
+            "filters": [],
+            "time_range": {"start": "2026-07-23", "end": "2026-07-23"},
+            "group_by": [],
+            "order_by": [{"field": "return_pct", "direction": "desc"}],
+            "limit": 25,
+        },
+        context=context,
+        step_id="truncation-survives-budget:1",
+    )
+
+    budgeted = budget_tool_observation({"observation": observation.observation})
+
+    # 先证明这条观察确实撞了预算，否则下面两条断言只是空转。
+    assert budgeted["context_budget"]["truncated"] is True
+    assert "截断" in budgeted["observation"]
+    assert "实际覆盖" in budgeted["observation"]
 
 
 def test_truncation_notice_reports_covered_range(tmp_path: Path) -> None:

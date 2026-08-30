@@ -1,3 +1,4 @@
+from intelligence.services.episode_protocol import strip_hashes_for_model
 from intelligence.services.tool_result_budget import (
     FULL_RECORD_ARTIFACT,
     MAX_EVIDENCE_DETAIL_CHARS,
@@ -139,6 +140,42 @@ def test_non_string_narrative_fields_pass_through_instead_of_emptying():
     assert item["detail"] == ["a", "b"]
     # 什么都没截，所以不得附完整性元数据。
     assert "context_budget" not in budgeted
+
+
+def test_context_budget_names_only_fields_the_model_still_has():
+    """预算说明里点名的字段，必须在**整条流水线之后**仍在模型那份里。
+
+    真实顺序是 ``strip_hashes_for_model(budget_tool_observation(pruned))``
+    （``agent_episode``）：strip 紧跟在预算之后，把 ``evidence_hashes`` /
+    ``content_hash`` 换成 E 号。修前说明写「需要完整原文时以 evidence_hashes
+    为准」，指的正是下一步就被删掉的字段——模型手上根本没有它，注册表里
+    也没有任何工具接受哈希或证据编号当参数。指针指向不存在的东西，比不给
+    指针更糟：模型会以为还有一条取回路径。
+
+    钉的是两层之间的一致性，不是某个字面量。变异测试：把 ``preserved`` 里的
+    "evidence_id" 换回 "evidence_hashes"，本条必红。
+    """
+
+    payload = _observation(
+        observation="市" * 5000,
+        # 夹具必须带 evidence_id：``strip_hashes_for_model`` 只在存在 E 号时
+        # 才摘掉 evidence_hashes。少了它就走不到真实那条分支，断言全落空。
+        evidence=[{**_observation()["evidence"][0], "evidence_id": "E1"}],
+    )
+
+    model_view = strip_hashes_for_model(budget_tool_observation(payload))
+    budget = model_view["context_budget"]
+    item = model_view["evidence"][0]
+
+    # 先证明这次两层都真的动手了，否则下面的断言只是空转。
+    assert budget["truncated"] is True
+    assert "evidence_hashes" not in model_view
+    assert "content_hash" not in item
+
+    for field in budget["preserved"]:
+        assert field in model_view or field in item, field
+    for stripped in ("evidence_hashes", "content_hash"):
+        assert stripped not in budget["instruction"]
 
 
 def test_budget_is_deterministic_for_prompt_cache_reuse():

@@ -786,6 +786,17 @@ def build_graph_tools(knowledge) -> dict[str, ToolRunner]:
     }
 
 
+# 「使用要求 / 使用边界」这类行是**限定语**：它约束怎么读上面那些数，
+# 本身不是一条证据（``episode_tools`` 据此把它们挡在 evidence 之外）。
+# 单一真本源放在这里，因为 ``episode_tools`` import 本模块，反向不成立。
+QUALIFIER_LINE_PREFIXES = (
+    "使用边界：",
+    "因果使用要求：",
+    "使用要求：",
+    "⚠",
+)
+
+
 def block_lines_to_evidence(
     tool: str,
     block: str,
@@ -798,7 +809,17 @@ def block_lines_to_evidence(
     """把确定性数据块文本（D 块/总览）转成 agent 证据行 + 观察摘要。
 
     跳过标题/空行，正文行截断为 title/detail；供 market_data 等包装
-    确定性取数函数的工具复用。"""
+    确定性取数函数的工具复用。
+
+    观察摘要里**限定语排在被限定内容之前**（BUILD 模式 4）。渲染器把
+    「使用要求：…」放在数据行之后，而 ``tool_result_budget`` 从头数满
+    900 字符就截断——于是限定语先于它约束的数据被砍掉。2026-08-30 实测
+    400 份 continuous-episode.json：mainline_context 的「使用要求」出现
+    81 次，位置均值在全文 89% 处，**31 次被字符预算吃掉**；被砍掉的片段
+    里 52% 在 ``evidence[]`` 中没有副本，而这一行正是其中之一（它被
+    ``episode_tools`` 刻意挡在证据之外，砍掉即无处可寻）。
+
+    只重排 observation，不动 ``evidence`` 顺序，也不增删任何一行。"""
     lines = [
         stripped
         for raw in str(block or "").splitlines()
@@ -837,7 +858,10 @@ def block_lines_to_evidence(
             ),
         )
         evidence.append(replace(item, content_hash=evidence_content_hash(item)))
-    observation = "；".join(lines[:limit])
+    shown = lines[:limit]
+    qualifiers = [line for line in shown if line.startswith(QUALIFIER_LINE_PREFIXES)]
+    body = [line for line in shown if not line.startswith(QUALIFIER_LINE_PREFIXES)]
+    observation = "；".join((*qualifiers, *body))
     return evidence, observation
 
 
