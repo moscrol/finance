@@ -57,7 +57,7 @@ P1 才锁并行：deep 且计划写出可分离 `branch_goals` 时，`SubResearc
 2. `prior_recall` 注入：`episode_factory._references_prior_judgement` —— 题型必须在 `_PRIOR_RECALL_QUESTION_TYPES`，且问句匹配「回溯」或 stance 词。瑞华泰那种「这只股怎么看」**不会**只因为有主体就挂记忆槽。
 3. Knevo 对照：`finance-analyze-stock` 胜负手 = 逐季财务 + 用户历史笔记（利用率/化学法线）。财务已由 D7/估值箱补；记忆命中仍依赖用户开口像回忆。
 4. D8/D11 接线：**只在旁支成立，主干仍是旧口径**——这两句要一起读，少一句就会判错。
-   - **旁支**（姊妹单 P0 = `R-20260830-02`，`feat/d8-d11-asof-prefetch` @ `64b5e6db`，后并入 `feat/orchestration-contract-docs`）：`_history_analog_items` 已改为 D8/D10/D11 各自出块或 gap，同一套 as_of 截断，解析器与取数同截。**已交付待验收，未合 main。**
+   - **旁支**（姊妹单 P0 = `R-20260830-02`；分支名已多次 rebase 改名，**按号查登记簿定位，别按名找**）：`_history_analog_items` 已改为 D8/D10/D11 各自出块或 gap，同一套 as_of 截断，解析器与取数同截。**已交付待验收，未合 main。**
    - **`gitea/main`**：`asof_prefetch.py` 仍写着 D8「未在 Engine A 开场预取接线」、D11「只在 Engine B 接线」。**只拉主干的人会看见旧 gap 文案**——那不是文档漂移，是主干真相。
    - 所以本单的联想验收**必须先说清读的是哪一支**。合并前照主干判，会把「已交付」判成没做；合并后照旧稿判，会把做完的判成没做。
    本单剩下的仍是：禁止「只有 `comparison_analog` 才预取」。

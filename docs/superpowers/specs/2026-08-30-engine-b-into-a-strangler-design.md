@@ -2,7 +2,7 @@
 
 - 日期：2026-08-30
 - 状态：Draft v3（**P0/P1 已在旁支改了 `intelligence/`**，未切 8792；本稿正文仍只是设计）
-- ⚠️ 主干 vs 旁支：`gitea/main` 上 D8/D11 仍是旧 gap 口径、双红口径仍是三份。P0/P1 交付在 `feat/orchestration-contract-docs`（原 `feat/d8-d11-asof-prefetch` / `feat/double-red-single-source` 已被 rebase 取代）。**判任何一条「现状如何」之前先说清读的是哪一支。**
+- ⚠️ 主干 vs 旁支：`gitea/main` 上 D8/D11 仍是旧 gap 口径、双红口径仍是三份。P0/P1 交付**以台账号为准**：`R-20260830-02`（D8/D11 接线）、`R-20260830-03`（双红单一真本源）。**分支名不是稳定锚点**——本链今天已被 rebase 过三次、改名四次，旧名都已失效；要定位实物用 `python3 scripts/claim_ledger_id.py list --date 20260830` 查号→分支的登记，或直接读 `docs/prediction-ledger.md` 对应行。截至落稿：全量链 `feat/orchestration-specs-v3`，纯文档链 `docs/orchestration-specs`。**判任何一条「现状如何」之前先说清读的是哪一支。**
 - v2 改动（2026-08-30 复核，逐条 [实测]）：判别变量换锚点（`agent_loop` 是 B 留下的**标签名**，A 的回合里也有）、§3 补四条事实、§4 补 StancePack 说明、P0 补 `as_of` 前置条款、P1 措辞改「日期键由调用方传入」、P2 补注入口（`services` 不 import `runtime`）、P3 补保留名单与降级契约。v1 的裁决方向未改。
 - 来源：2026-08-30 会话走查（进门分流 / 包 / A ReAct / B 流水线）+ 既有开口预取缝（`asof_prefetch.py` 已写明 D8/D11「只在 Engine B 接线」）
 - 相邻（本单不重做）：
@@ -166,7 +166,7 @@ B 在图上只出现在「取数库」节点：预取层 `import` 收集器。�
 
 ### P0 — 说清楚 + 补 A 预取缺口（本单文档 + 第一批接线）
 
-> **状态：已交付待验收**（2026-08-30，R-20260830-02）。分支 `feat/d8-d11-asof-prefetch`
+> **状态：已交付待验收**（2026-08-30，`R-20260830-02`；分支名见文首「主干 vs 旁支」，勿按下方旧名找）。原分支 `feat/d8-d11-asof-prefetch`
 > @ `64b5e6db`，树 `/Users/a77/fwp-wt-d8d11-asof`，基线 `gitea/main@f40f878b`。
 > 未合 main、未推、未切 8792。
 > 收据：全量 `intelligence/tests` **6569 passed / 14 skipped / 1 xfailed**（@`3808a834`）；
@@ -192,7 +192,7 @@ B 在图上只出现在「取数库」节点：预取层 `import` 收集器。�
 ### P1 — 取数函数单一真本源
 
 > **状态：第一刀已交付待验收**（2026-08-30，R-20260830-03）。分支
-> `feat/double-red-single-source` @ `0ee0daaf`（接在 P0 之上），未合 main、未推、未切 8792。
+> 原分支 `feat/double-red-single-source` @ `0ee0daaf`（接在 P0 之上），**该名已被 rebase 取代，见文首**；未合 main、未切 8792。
 > **本单猜错了目标**：P1 原文说「禁止两份 SQL/两份日期键」，实物既不是 SQL 也不是日期键，
 > 是**阈值**——双红口径在树里有三份互不引用的实现（`signals.DOUBLE_RED_SQL` 写死字面量 /
 > `theme_lifecycle_timeline` 自带一套常量、A 的 `asof_prefetch` 走这份 /
@@ -281,7 +281,7 @@ B 在图上只出现在「取数库」节点：预取层 `import` 收集器。�
 |---|---|---|---|
 | T1 | **P3 降级契约选 (a) 还是 (b)** | **已拍 (a)**。合同 `2026-08-30-optimized-orchestration-contract-design.md` §5（`R-20260830-05`） | 本单 P3 按合同执行，不得重开二选一 |
 | T2 | `capability="agent_loop"` 改名 `evidence_tool` | `agent_research.py:579/738/776/1389` **四处** + 所有按该字段计数的审计 + 历史 trace 可比性 | **另开单**。本单只在 §0 立锚点纪律，不改字段 |
-| T3 | 接口层地图漂移 | **旁支已修、主干未修**：`docs/agent-product-door.md` 的修正（三条题型→五条、`quick_fact` 移出、补 `generic_research_owner` 长尾路、补门禁不对等）在 `feat/orchestration-contract-docs` 上；**你在主树看到的仍是旧三行**（还含已移出的 `quick_fact`） | 随该分支合入才算完成 |
+| T3 | 接口层地图漂移 | **旁支已修、主干未修**：`docs/agent-product-door.md` 的修正（三条题型→五条、`quick_fact` 移出、补 `generic_research_owner` 长尾路、补门禁不对等）在**文档链**上（分支名见文首，按台账号定位）；**你在主树看到的仍是旧三行**（还含已移出的 `quick_fact`） | 随文档链合入才算完成 |
 | T4 | **没有任何门禁看 `docs/`** | pre-commit 九条（`layer-audit` / `path-literals` / `unread-fields` / `dataset-registration` / `tool-reachability` / `agent-workspace-facts` / `block-forbidden-files` + ruff/私钥/大文件/冲突）**无一条覆盖文档**。「改门必更此页」是纪律不是机制——T3 那次漂移就是它漏的 | **另开单**。建议形状：棘轮式，当 `DETERMINISTIC_OWNER_TYPES` 一类「门的定义常量」变更时，要求同提交内 `agent-product-door.md` 有改动；存量免检、只拦新增，手法同 `tool-reachability` |
 | T4b | P0 交付里顺带修的：`test_market_midterm._FakeCon.execute` 补上真实 duckdb 的 `(sql, params?)` 签名 | 替身比现实简单 → 生产侧一开始传参就炸在夹具上（本单实测炸了 2 条） | 已完成 |
 | T6 | `market_feature_store/reports/daily_review.py` 还有 4 处写死的双红谓词（3 正向 + 1 反向近似 `amount<=500 OR IS NULL`） | 已进 P1 棘轮基线，只许缩不许涨；属报表域，混进 P1 会把回归面从 4 个模块扩到整条日报链路 | **另开单**，清完把基线改小 |

@@ -7,7 +7,7 @@
   ② §4 给「开关未开」补告警要求（合法 ≠ 可静默）。§2.2 的 `market_technical`「A 内快路径」
   经查属实（`continuous_turn_adapter.py:337`，在包椅拒收判断之后）。裁决方向未改。
 - 预注册：`R-20260830-05`（`claim_ledger_id.py`，占号时登记的分支名 `feat/optimized-orchestration-contract`，号不回收）
-  - **落地分支实际是 `feat/orchestration-contract-docs`**（本稿与姊妹稿随勒死单 P0/P1 同链交付）。号对得上，但按占号分支名去找会扑空——**以本行为准**。占号分支名不改（号不回收的同一纪律：登记簿是历史，不重写）。
+  - **落地分支与占号分支名不同**，且**分支名本身不是稳定锚点**——本链今天被 rebase 三次、改名四次。定位实物请用台账号：`python3 scripts/claim_ledger_id.py list --date 20260830`，或读 `docs/prediction-ledger.md`。截至落稿：全量链 `feat/orchestration-specs-v3`，纯文档链 `docs/orchestration-specs`。占号分支名不改（号不回收的同一纪律：登记簿是历史，不重写）。
 - 来源：2026-08-30 会话收口（包 / A / 工作流三词对齐 →「优化之后只有包和 A」→「A 整台拒收还要不要 B 兜底」→「包是不是固定工作流」）
 - 姊妹单（本单不重做）：
   - `2026-08-30-engine-b-into-a-strangler-design.md`——**实施单**：取数库并入 A 预取、卸第二套研究循环。本单是它的**目标态合同**，并拍死其 §9 T1
