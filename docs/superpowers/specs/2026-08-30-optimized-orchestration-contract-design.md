@@ -27,14 +27,21 @@
 
    | 包椅 | 执行位置 [实测] | `ask_root` |
    |---|---|---|
-   | `market_watch` | orchestrator 内 `render()` + `prepare_existing_answer`（`conversation_orchestrator.py:2915-2922`） | 不发 |
-   | `watchlist_digest` | 同上（`:2938-2942`） | 不发 |
-   | `dated_market_review` | `ask.py:877 _answer_market_review` | **发** |
-   | `external_market` | `ask.py:1136 _answer_external_market` | **发** |
-   | `disclosure_scan` | `ask.py:489 bind_disclosure_scan_pack` | **发** |
+   | `disclosure_scan` | orchestrator 内短路：`:2896-2922` `render()`（或 `compose` 时走 `prepare_disclosure_residual_answer` 残差写手）。绑定 `bind_disclosure_scan_pack` 也由 orchestrator `:2845` 直接调，不经 `answer_query` | 不发 |
+   | `watchlist_digest` | orchestrator 内短路：`:2923-2943` `merge_digest_into_public_answer` | 不发 |
+   | `market_watch` | **不在那条 if/elif 链里**，绑包后落 `else` → `:2973 _run_answer_query_with_watchdog` | **发** |
+   | `dated_market_review` | 同上 | **发** |
+   | `external_market` | 同上（`ask.py:1136 _answer_external_market`） | **发** |
 
-   且 **目标态也不会变**：§6 P3 明写「`answer_query` 缩成包 + 取数编排」，就是故意把包留在里面。
-   所以拿 `ask_root` 验包椅，对三把椅子是**永远达不到**，不是「还没做到」。
+   链的真实顺序（`conversation_orchestrator.py`）：`if disclosure_scan` → `elif watchlist_digest`
+   → `elif owner_output` → `elif owner_timed_out` → **`else` → watchdog**。
+   `market_watch` / `dated_market_review` 进 `answer_query` 后还会被
+   `question_type_override` 改写成 `QUESTION_MARKET_REVIEW`（`:2803-2806`），
+   共用 `ask.py:877 _answer_market_review`——**盘面没有对等短路**。
+
+   且 **目标态也不会变**：§6 P3 明写「`answer_query` 缩成包 + 取数编排」，就是故意把包留在里面
+   ——**盘面目标态就要留在 `answer_query` 里**。所以拿 `ask_root` 验包椅，对盘面/复盘/外盘
+   这三把是**永远达不到**，不是「还没做到」。
    `ask_root` 是 `answer_query` 这个**模块的入口阶段**，包椅合法共用；只有在**研究题**
    上下文里它才是「掉进旧循环」的证据——判别 2/3 保留它，判别 1 不用。
    （同族第一例是 `agent_loop`：那是 B 留下的**标签名**，A 的回合里也有。

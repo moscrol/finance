@@ -128,9 +128,10 @@ if options.research_task_contract is not None:
 5. A 开口预取已吃掉一部分 B 块（双红、发酵、展望周报、宽度共振、资格/台阶、D10 等）。**明确未接线**：D8 题材历史类比、D11 个股走势类比（`asof_prefetch.py` 只留 gap）。这是 P0 并入的第一批实物。
 6. owner skill（`theme-research` 等）的 `retrieve` 仍是 `answer_query`（B）。A 接住的工作台题 **不跑** 这些 skill。owner 是 B 的外套，不是 A 的 skill frontier。
 7. 包默认不上写手：`bind_watchlist_digest_pack` / 盘面包 P0 `compose=False`。残差写手若开，只许解释、不许改数字。本单不推翻。
-8. **五把包椅里有三把经 `answer_query` 执行**（本条初版写成「包本身就是经 `answer_query` 执行的」，**五分之二不对**，已按实测收窄）：
-   - `market_watch` / `watchlist_digest`：在 orchestrator 内 `render()` + `prepare_existing_answer(replace(..., compose=False, synthesize=False), ...)` 直接短路（`conversation_orchestrator.py:2915-2922` / `:2938-2942`），**不进** `answer_query`。
-   - `dated_market_review` / `external_market` / `disclosure_scan`：住在 `ask.py` 内（`:877` / `:1136` / `:489`），走 `else` 分支的 `_run_answer_query_with_watchdog`（`:2973`）→ `answer_query`。
+8. **五把包椅里有三把经 `answer_query` 执行**（本条改过两版：初版写成「包本身就是经 `answer_query` 执行的」，五分之二不对；二版把哪三把认反了——从 `:2915` 起读，把 `if turn_intent.question_type == "disclosure_scan"` 这个开头截在窗口外，於是把披露那段读成了盘面。**固定行号读表、表的起点在更上面**，AGENTS.md 已警告过同一形状）：
+   - **短路、不进 `answer_query`**：`disclosure_scan`（`conversation_orchestrator.py:2896-2922` `render()`；`compose` 时走 `prepare_disclosure_residual_answer` 残差写手。绑定 `bind_disclosure_scan_pack` 也由 orchestrator `:2845` 直接调）、`watchlist_digest`（`:2923-2943`）。
+   - **进 `answer_query`**：`market_watch` / `dated_market_review` / `external_market`。前两者**不在那条 if/elif 链里**，绑包后落 `else` → `:2973 _run_answer_query_with_watchdog`，且被 `question_type_override` 改写成 `QUESTION_MARKET_REVIEW`（`:2803-2806`）共用 `ask.py:877 _answer_market_review`；外盘走 `ask.py:1136`。**盘面没有对等短路。**
+   - 链的真实顺序：`if disclosure_scan` → `elif watchlist_digest` → `elif owner_output` → `elif owner_timed_out` → `else`。
    结论不变：P3 的「`answer_query` 缩成包 + 取数库编排」与 §1.1 第一行「包不变」自洽——**P3 不拆包椅**。
    但由此多一条：**`ask_root` 不能当包椅的验收锚点**（`answer_query` 无条件把整个调用包在这个阶段里，`ask.py:1546`），详见目标态合同单 §0 判别 1。
 9. **A 已经在用 B 的工具库**：`episode_tools.py:933` `default_tools = agent_research.build_default_tools(retrieve_kb)`。「B 当取数库」不是未来时，只是 D 块那半还没跟上。推论见 P3 保留名单。
