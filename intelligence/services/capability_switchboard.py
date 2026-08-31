@@ -30,6 +30,9 @@ _FIXTURE = (
 # operator/pack/probe 是 2026-08-26 扩容批的登记 kind：新架构（四袋/查询算子/替补探针）
 # 的组件登记行。生产不读本表；这三类默认被 generate_default_switch_box 排除在盒外
 # （棘轮 #3：进盒需另一次对照 + 用户确认）。
+# lane 是 2026-08-31 补的：**选走哪条执行路**的缝（确定性快路 / 修复链），
+# 关法是 composition root 的构造注入。不归进 parameter——那类是 CLI argparse
+# 默认值，拨它不改行为；lane 拨了就换一条路。
 KINDS = frozenset(
     {
         "capability",
@@ -41,6 +44,7 @@ KINDS = frozenset(
         "operator",
         "pack",
         "probe",
+        "lane",
     }
 )
 STATUSES = frozenset({"active", "welded", "pending-other-branch", "retired"})

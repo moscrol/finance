@@ -59,6 +59,14 @@ def resolve_capability_source() -> str:
     return f"{head_module}.{head_symbol}"
 
 
+# 2026-08-31 补登的三行运行时缝。它们描述的是生产真实拨法（fast-path 与 repair
+# 链确实开着），但按棘轮 #3，新开关进默认盒要另一次对照 + 用户确认。用户点头后
+# 从这里删掉对应 id 再 regenerate 即可——盒子是生成物，不手改。
+_PENDING_BOX_ADMISSION = frozenset(
+    {"fast-path-runner", "evidence-judge", "repair-chain"}
+)
+
+
 def _in_default_box(row) -> tuple[bool, str]:
     """这一行该不该进默认盒，以及不进的理由。
 
@@ -87,6 +95,10 @@ def _in_default_box(row) -> tuple[bool, str]:
         # 2026-08-26 扩容批：新架构组件的**登记行**（第 0 步）。生产由题型路由 /
         # 代码目录 / 调用方实参决定，不读本表；进盒需另一次对照 + 用户确认（棘轮 #3）。
         return False, "登记行（第 0 步）：生产不读本表，进盒需对照 + 用户确认（棘轮 #3）"
+    if row.id in _PENDING_BOX_ADMISSION:
+        # 同上一条的处置，只是这三行的 kind 恰好和已在盒里的行重合（lane / verifier），
+        # 拦不住就会静默扩大 default-v1 声称覆盖的面。按 id 点名，进盒时删这一行即可。
+        return False, "2026-08-31 新登记行：进盒需另一次对照 + 用户确认（棘轮 #3）"
     if row.kind == "predicate" and row.canonical != "exists":
         return False, f"canonical={row.canonical}，是待建正典的工单不是开关"
     return True, ""

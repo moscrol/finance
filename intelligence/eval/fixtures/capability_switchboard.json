@@ -1,11 +1,20 @@
 {
   "switch_set": "seed",
-  "revision": "6c47450e",
-  "note": "第 0 步种子表，对照 gitea/main@3fc47e91 重栽。2026-08-26 两笔演进：① 扩容批在 @6c47450e 全表重核 seam 路径，追加 operator/pack/probe 登记行（12 行）与 pointers（登记「开关在别处」的组件，防止把「不在板上」误判成「没有开关」），扩容行默认排除在盒外（棘轮 #3）；② predicate.reading-baseline 随 feat/reading-rules-baseline-r3（#414）落地本底，转 active/exists 并进臂。default-v1 是生成物。",
+  "revision": "19c77a16",
+  "note": "第 0 步种子表，对照 gitea/main@3fc47e91 重栽。2026-08-26 两笔演进：① 扩容批在 @6c47450e 全表重核 seam 路径，追加 operator/pack/probe 登记行（12 行）与 pointers（登记「开关在别处」的组件，防止把「不在板上」误判成「没有开关」），扩容行默认排除在盒外（棘轮 #3）；② predicate.reading-baseline 随 feat/reading-rules-baseline-r3（#414）落地本底，转 active/exists 并进臂。default-v1 是生成物。 ③ 2026-08-31 补三行运行时缝（fast-path-runner / evidence-judge / repair-chain，新 kind=lane）并补齐 predicate.reading-baseline 的第二道关法。三行均排除在 default-v1 之外，进盒需另一次对照 + 用户确认（棘轮 #3）。",
   "candidate_cases": [
-    {"id": "next-session-index", "evidence_free": false},
-    {"id": "current-mainline", "evidence_free": false},
-    {"id": "weekly-market-cause", "evidence_free": false}
+    {
+      "id": "next-session-index",
+      "evidence_free": false
+    },
+    {
+      "id": "current-mainline",
+      "evidence_free": false
+    },
+    {
+      "id": "weekly-market-cause",
+      "evidence_free": false
+    }
   ],
   "rows": [
     {
@@ -414,13 +423,14 @@
       "canonical": "exists",
       "seam": "intelligence/services/reading_baseline.py::SWITCH_ID",
       "close_via": [
-        "pack:contextvar"
+        "pack:contextvar",
+        "env:FINANCE_READING_BASELINE=0"
       ],
       "default": "on",
       "singleton_when_on": false,
       "chassis_survives": true,
       "positive_control": "reading_baseline_guidance",
-      "notes": "2026-08-26 随 feat/reading-rules-baseline-r3 落地本底（#343 的 rebase 重开）。默认开（领域基线）；判断倾向留 perspective_lab 显式开关。close_via pack:contextvar。"
+      "notes": "2026-08-26 随 feat/reading-rules-baseline-r3 落地本底（#343 的 rebase 重开）。默认开（领域基线）；判断倾向留 perspective_lab 显式开关。close_via pack:contextvar。 ⚠ 2026-08-31 补登第二道关法：enabled()（:373-388）是 contextvar 与 env FINANCE_READING_BASELINE 两道门，任一关闭即关，而本行原先只列了 contextvar。§5.2 定的规矩是「一行可以有多个关法，必须全列，漏一个就会『表说 on、实际 off』」，followup-composer 和 l3_lookup 都照做了，就这行漏了；质量臂 run_quality_ablation 用的正是 env 那条。"
     },
     {
       "id": "predicate.evidence-layers",
@@ -618,6 +628,49 @@
       "chassis_survives": true,
       "positive_control": "",
       "notes": "2026-08-26 扩容批 @6c47450e 核 seam。主线题材无严格双红匹配时按预案补「出清/分歧观察」替补池（P0/#371）。真实可拧（caller 实参），观测量已知：render() 缺口句后出现带 role 标签的替补行、served_date=站立日——但 runner 尚不支持 probe 差量，故 positive_control 留空、登记不进臂（棘轮 #7）。进盒需对照 + 用户确认（棘轮 #3）。"
+    },
+    {
+      "id": "fast-path-runner",
+      "kind": "lane",
+      "status": "active",
+      "seam": "intelligence/runtime/continuous_turn_adapter.py::ContinuousTurnAdapter.__init__",
+      "close_via": [
+        "constructor_injection:fast_path_runner"
+      ],
+      "default": "on",
+      "singleton_when_on": true,
+      "chassis_survives": true,
+      "positive_control": "execution_kind",
+      "notes": "确定性快路 vs 模型路的分水岭，本板此前最大的漏网：它和 semantic-verifier 是同一种缝（构造 kwarg + 默认实现 run_deterministic_fast_path，:164），却一直没登记。关法=注入一个恒不接管的 runner，episode 落回模型路。正控 execution_kind 在收据里从 deterministic_fast_path 翻成 continuous_episode（:372/:442 vs :905/:1099/:1655）。值不值得量：四臂 20260827 实测 A5「07-23 涨停题材」走该路 0.6s 零模型、8 组数与库全对；D8 非交易日 2.3s，比 react 臂便宜 30 倍。"
+    },
+    {
+      "id": "evidence-judge",
+      "kind": "verifier",
+      "status": "active",
+      "seam": "intelligence/services/evidence_judge.py::ENV_MODE",
+      "close_via": [
+        "env:ASK_EVIDENCE_JUDGE=off"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "",
+      "notes": "证据召回的语义闸（agent_research.py:484 / evidence_search.py:100 两个调用点）。default=ambient 因为 ENV_MODE 缺省是 auto：配了 LLM key 才生效（:45），生产 8792 配了=实际 on。⚠ 本表此前没有这一行，而 run_quality_ballation 的 COMPONENTS 里有它，且它是那轮实测边际贡献最高的一颗（+2.8/20）——最值钱的组件不在登记表上，读板的人会以为没有开关。positive_control 留空=只登记不进结构臂：它在 episode 收据里没有对应字段，可观测面在质量臂（run_quality_ablation 的 rubric 总分），那是另一份评测。"
+    },
+    {
+      "id": "repair-chain",
+      "kind": "lane",
+      "status": "active",
+      "seam": "intelligence/runtime/continuous_turn_adapter.py::ContinuousTurnAdapter.__init__",
+      "close_via": [
+        "constructor_injection:repair_seconds_cap=0",
+        "env:ASK_REPAIR_SECONDS_CAP=0"
+      ],
+      "default": "on",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "",
+      "notes": "修复/回填链的时间帽（:176、:220-223，缺省经 provider_latency.repair_seconds_cap_for 解算；env ASK_REPAIR_SECONDS_CAP 覆盖一切，provider_latency.py:71）。帽设 0 即整段消融。两处关法都列全：只写构造那条，部署层设了 env 时表会说 on 而实际 off（l3_lookup 同款坑）。值不值得量：R-20260824 线实测 repair 会「删真话留拼接伤」（判官投影冤案），这颗能直接量它的净贡献。positive_control 留空=只登记不进臂：repair 目前只在 phase note 里露面（:658 _phase_note(...,\"repair\",...)），还没确认它在 episode 收据的哪个字段上可断言——按 §5.1 规矩，填不出就不进臂。"
     }
   ],
   "pointers": [

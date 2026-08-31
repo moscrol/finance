@@ -337,3 +337,96 @@ def test_runner_reading_pack_face_flips_under_contextvar() -> None:
     assert ns["_reading_pack_face_changed"]("predicate.reading-baseline") is True
     # 别的谓词不走判读包那一面：恒 False 是契约，不是缺陷。
     assert ns["_reading_pack_face_changed"]("predicate.double-red") is False
+
+
+# --------------------------------------------- 2026-08-31 补登的运行时缝
+
+_LANE_ROWS = {"fast-path-runner", "repair-chain"}
+_NEW_ROWS = _LANE_ROWS | {"evidence-judge"}
+
+
+def test_reading_baseline_lists_both_doors(board) -> None:
+    """`enabled()` 是 contextvar + env 两道门任一关闭即关，登记必须两条都列。
+
+    §5.2：「一行可以有多个关法，必须全列——漏一个就会『表说 on、实际 off』」。
+    漏 env 那条时，部署层设了 `FINANCE_READING_BASELINE=0` 板上仍报 on，
+    而质量臂 `run_quality_ablation` 用的正是 env 那条关法。
+
+    断言绑到源码常量而不是字面量：改了 ENV_FLAG 名字这条测试要跟着红。
+    """
+
+    from intelligence.services.reading_baseline import ENV_FLAG
+
+    row = board.resolve("predicate.reading-baseline")
+    joined = " ".join(row.close_via)
+    assert "pack:contextvar" in joined
+    assert ENV_FLAG in joined, f"close_via 漏了 env 门 {ENV_FLAG}"
+
+
+def test_new_runtime_rows_seams_resolve_to_real_symbols(board) -> None:
+    """seam 不只文件要在，符号也要在——路径存在但符号改名了，登记就是一句空话。"""
+
+    expected_symbols = {
+        "fast-path-runner": ("fast_path_runner", "run_deterministic_fast_path"),
+        "repair-chain": ("repair_seconds_cap",),
+        "evidence-judge": ("ENV_MODE",),
+    }
+    for switch_id, symbols in expected_symbols.items():
+        row = board.resolve(switch_id)
+        source = (REPO / row.seam_path).read_text(encoding="utf-8")
+        for symbol in symbols:
+            assert symbol in source, f"{switch_id} 的 seam 里找不到符号 {symbol}"
+        assert row.notes.strip(), f"{switch_id} 必须写清关法与值不值得量"
+
+
+def test_new_rows_list_every_env_door(board) -> None:
+    """两处关法的行必须两处都列（l3_lookup 同款坑：表说 on、实际 off）。"""
+
+    from intelligence.services.evidence_judge import ENV_MODE
+    from intelligence.services.provider_latency import ENV_OVERRIDE
+
+    assert ENV_MODE in " ".join(board.resolve("evidence-judge").close_via)
+    repair = " ".join(board.resolve("repair-chain").close_via)
+    assert ENV_OVERRIDE in repair, f"repair-chain 漏了 env 门 {ENV_OVERRIDE}"
+    assert "repair_seconds_cap" in repair, "repair-chain 漏了构造注入那条关法"
+
+
+def test_fast_path_runner_enters_arm_on_execution_kind(board) -> None:
+    """本板此前最大的漏网：它和 semantic-verifier 是同一种构造缝，却一直没登记。
+
+    正控 `execution_kind` 是收据里真会翻的字段
+    （`deterministic_fast_path` ↔ `continuous_episode`）。
+    """
+
+    row = board.resolve("fast-path-runner")
+    assert row.kind == "lane"
+    assert row.positive_control == "execution_kind"
+    assert "fast-path-runner" in board.arm_ids()
+
+    adapter = (REPO / row.seam_path).read_text(encoding="utf-8")
+    assert '"execution_kind": "deterministic_fast_path"' in adapter
+    assert '"execution_kind": "continuous_episode"' in adapter
+
+
+def test_rows_without_positive_control_stay_out_of_arm(board) -> None:
+    """§5.1：填不出正控的只登记、不进臂。「没崩」不是读数。"""
+
+    arm = set(board.arm_ids())
+    for switch_id in ("evidence-judge", "repair-chain"):
+        row = board.resolve(switch_id)
+        assert not row.positive_control
+        assert switch_id not in arm
+
+
+def test_new_rows_stay_out_of_default_box(board) -> None:
+    """棘轮 #3：新开关进默认盒要另一次对照 + 用户确认，且 excluded 要自述原因。"""
+
+    import runpy
+
+    ns = runpy.run_path(str(REPO / "scripts" / "generate_default_switch_box.py"))
+    box = ns["build_box"]()
+    for switch_id in _NEW_ROWS:
+        assert switch_id in box["excluded"], f"{switch_id} 该被排除在默认盒外"
+        assert box["excluded"][switch_id].strip()
+        assert switch_id not in box["non_tool_defaults"]
+        assert switch_id not in box["ambient_ids"]
