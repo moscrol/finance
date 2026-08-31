@@ -633,15 +633,15 @@
       "id": "fast-path-runner",
       "kind": "lane",
       "status": "active",
-      "seam": "intelligence/runtime/continuous_turn_adapter.py::ContinuousTurnAdapter.__init__",
+      "seam": "intelligence/runtime/continuous_turn_adapter.py::CONTINUOUS_FAST_PATH_TYPES",
       "close_via": [
-        "constructor_injection:fast_path_runner"
+        "route:code-level 从题型集合移除（无运行时开关）"
       ],
       "default": "on",
       "singleton_when_on": true,
       "chassis_survives": true,
-      "positive_control": "execution_kind",
-      "notes": "确定性快路 vs 模型路的分水岭，本板此前最大的漏网：它和 semantic-verifier 是同一种缝（构造 kwarg + 默认实现 run_deterministic_fast_path，:164），却一直没登记。关法=注入一个恒不接管的 runner，episode 落回模型路。正控 execution_kind 在收据里从 deterministic_fast_path 翻成 continuous_episode（:372/:442 vs :905/:1099/:1655）。值不值得量：四臂 20260827 实测 A5「07-23 涨停题材」走该路 0.6s 零模型、8 组数与库全对；D8 非交易日 2.3s，比 react 臂便宜 30 倍。"
+      "positive_control": "",
+      "notes": "确定性快路 vs 模型路的分水岭，本板此前的漏网。⚠ 2026-08-31 核 seam 时推翻了本行初稿的关法：**构造注入 fast_path_runner 不是 off，是中止**。路由决定在 adapter :337 `frame.question_type in CONTINUOUS_FAST_PATH_TYPES`，发生在调 runner **之前**；注入一个抛异常的 runner 会被 :359 捕获，返回 status=failed、warnings=('结构化行情计算未完成…')，而 execution_kind **仍是** deterministic_fast_path（:371）。拿它当 off 会得到降级的一集且正控恒不变——与设计稿 §3 记的 semantic-verifier deadline 陷阱同形。真关法是 route 级代码改动（把 market_technical 移出 FAST_PATH_RUNNER_SUPPORTED_TYPES，episode_tools.py:53），同 operator 那批「无 per-operator 运行时开关」。覆盖面也比初稿小：该集合只有 market_technical 一个题型；四臂 A5「涨停题材 0.6s 零模型」走的是 market_watch 确定性包，不是本路，初稿把两条 lane 混为一谈。positive_control 留空=只登记不进臂：execution_kind 确实会在 route 改动下翻（deterministic_fast_path ↔ continuous_episode），但本 runner 拧不动 route 级差量。"
     },
     {
       "id": "evidence-judge",
@@ -661,16 +661,15 @@
       "id": "repair-chain",
       "kind": "lane",
       "status": "active",
-      "seam": "intelligence/runtime/continuous_turn_adapter.py::ContinuousTurnAdapter.__init__",
+      "seam": "intelligence/services/repair_coordinator.py::_resolve_seconds_cap",
       "close_via": [
-        "constructor_injection:repair_seconds_cap=0",
-        "env:ASK_REPAIR_SECONDS_CAP=0"
+        "code-level:无运行时关法（见 notes）"
       ],
       "default": "on",
       "singleton_when_on": false,
       "chassis_survives": true,
       "positive_control": "",
-      "notes": "修复/回填链的时间帽（:176、:220-223，缺省经 provider_latency.repair_seconds_cap_for 解算；env ASK_REPAIR_SECONDS_CAP 覆盖一切，provider_latency.py:71）。帽设 0 即整段消融。两处关法都列全：只写构造那条，部署层设了 env 时表会说 on 而实际 off（l3_lookup 同款坑）。值不值得量：R-20260824 线实测 repair 会「删真话留拼接伤」（判官投影冤案），这颗能直接量它的净贡献。positive_control 留空=只登记不进臂：repair 目前只在 phase note 里露面（:658 _phase_note(...,\"repair\",...)），还没确认它在 episode 收据的哪个字段上可断言——按 §5.1 规矩，填不出就不进臂。"
+      "notes": "修复/回填链。⚠ 2026-08-31 核 seam 时推翻了本行初稿的关法：**repair_seconds_cap=0 不是关，是回到默认帽**。repair_coordinator.py:36-42 `_resolve_seconds_cap` 写明「None / 非正数 → 默认帽。fail-safe：坏输入不该把窗口静默压成 0」，所以 0 → 30.0，与不拧完全一样；env ASK_REPAIR_SECONDS_CAP 走同一条解析，同样关不掉。把 0 当 off 会得到一份「拧了、没变、正控空」的假失败读数。该常数还带 R-20260816-07 / R-21 的「禁止把这个 30 调成新常数」约束。真要消融得从 admission 那层断（repair_coordinator :328 should_reenter / :343-346 的 calls/seconds 闸），属代码级改动，不是运行时开关。值不值得量：R-20260824 线实测 repair 会「删真话留拼接伤」（判官投影冤案），这颗的净贡献是真问题——但要先给它造一个真关法。positive_control 留空=只登记不进臂。"
     }
   ],
   "pointers": [
