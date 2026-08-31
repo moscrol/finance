@@ -35,6 +35,7 @@
 - ❌ 不把 G/R/L、盘面 D 块差记成 W 三铲差。L2 若做，须在报告里拆「W 页变了」vs「答案分变了」。
 - ❌ 不把词面闸/语义闸改成代码规则闸。
 - ❌ 不回答「预算够时三铲好不好」——现网 90s 下无资格；已立 INDEX #20 / `2026-08-31-wiki-aperture-budget-workorder.md`。
+- ❌ 不把单次 hybrid 压到 ≤25s——已立 INDEX #21 / `2026-08-31-wiki-hybrid-25s-workorder.md`。
 
 ## 先分清：三铲 ≠ 闸
 

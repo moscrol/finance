@@ -51,7 +51,8 @@
 | # | 工单 | 优先级 | 主仓 | 一句话 |
 |---|------|--------|------|--------|
 | 19 | `2026-08-30-wiki-aperture-ablation-workorder.md` | P1 | 金融 | ⏳ **待验收**：分支 `eval/wiki-aperture-ablation`，台账 `R-20260830-06`。两轮都停在 L0「无资格」（不是三铲无用）：轮 1 索引 stale → 0/6；轮 2 结构版 `fresh` → **2/6**。90s 现网预算装不下三铲。预算够对照见 #20。报告 `docs/verification/2026-08-30-wiki-aperture-ablation.md` |
-| 20 | `2026-08-31-wiki-aperture-budget-workorder.md` | P1 | 金融 | ⏳ **待验收**：分支 `eval/wiki-aperture-budget`，台账 `R-20260831-01`。240s 评测下 L0 **6/6**；L1 增量 C+3.8/K+5、反方 6/6、不挤窗；L2 `mean(A2−A0)=−1.667`、4 题 A2 更低。结论档 4「检索有增量，答案无显著差，保持现状」。报告 `docs/verification/2026-08-31-wiki-aperture-budget.md` |
+| 20 | `2026-08-31-wiki-aperture-budget-workorder.md` | P1 | 金融 | ⏳ **待验收**：分支 `eval/wiki-aperture-budget`，台账 `R-20260831-01`。240s 评测下 L0 **6/6**；L1 增量 C+3.8/K+5、反方 6/6、不挤窗；L2 `mean(A2−A0)=−1.667`、4 题 A2 更低。结论档 4。加速见 #21。报告 `docs/verification/2026-08-31-wiki-aperture-budget.md` |
+| 21 | `2026-08-31-wiki-hybrid-25s-workorder.md` | P1 | 跨仓 | ⏳ **待领取**：分支 `perf/wiki-hybrid-25s`，台账 `R-20260831-02`。先分段计时再改最贵段，把预热后单次 hybrid 压到 p50≤25s，90s 下 L0≥4。禁止靠加预算或改成 BM25-only |
 
 P2 已登记不立单：ArtifactProvider（6 实现）/ Workbench SkillExecutor（7 skill_id）——见普查报告 §一。
 
