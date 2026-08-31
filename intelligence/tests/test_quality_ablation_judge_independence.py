@@ -302,3 +302,59 @@ def test_默认版本就是实测最稳的那版() -> None:
 
     assert RUBRIC_VERSION == "v3-veto-split"
     assert RUBRIC_VERSION in JUDGE_SYSTEMS
+
+
+# ------------------------------- 2026-08-31 第二轮质检点名的两个洞
+
+
+def test_同族走cli也不算独立(composer_env) -> None:
+    """家族是主判据，传输方式只是附注——**别再用「机制」冒充「家族」**。
+
+    真会发生：本会话 14:44 实测 grok 后端拿到的 provider 是
+    `grok-cli-judge/gpt-5.6-sol`——启动器的 `LLM_JUDGE_MODEL` 串了进去，
+    传输是 cli 而模型仍是 gpt 系，与合成同族。上一版把 transport 判在家族之前，
+    这种配置会被标成 independent 放行。
+    """
+
+    composer_env.setenv("LLM_MODEL", "gpt-5.6-terra")
+    composer_env.setenv("LLM_JUDGE_BACKEND", "grok-cli")
+    composer_env.setenv("LLM_JUDGE_MODEL", "gpt-5.6-sol")  # 串进 grok 后端的同族名
+
+    info = resolve_judge(require_independent=False)
+
+    assert info["independence"] == "weak", "同族走 CLI 仍是同族，不得抬成 independent"
+    assert "同家族" in str(info["reason"])
+    assert "CLI" in str(info["reason"]), "走了 CLI 这个事实要留在 reason 里，只是不抬档"
+
+
+def test_跨家族走cli仍是独立(composer_env) -> None:
+    """反方向：CLI 不抬档，也不该把本来就异构的降档。"""
+
+    composer_env.setenv("LLM_MODEL", "glm-5.3")
+    composer_env.setenv("LLM_JUDGE_BACKEND", "grok-cli")
+
+    info = resolve_judge(require_independent=False)
+
+    assert info["independence"] == "independent"
+    assert "CLI" in str(info["reason"])
+
+
+def test_补评也过判官独立性闸() -> None:
+    """主轮堵了、补评没堵，自审会从侧门溜回来。
+
+    `rejudge_quality_ablation.py` 此前直接调 `judge_answer`，不经 `resolve_judge`。
+    补评产出的行与独立评审的行在收据里同形——**正是这个缺陷此前活那么久的原因**。
+    补评的门不该比主轮松，所以默认同为 `require`。
+    """
+
+    import inspect
+
+    from scripts import rejudge_quality_ablation as rejudge
+
+    src = inspect.getsource(rejudge.main)
+    assert "resolve_judge(" in src, "补评必须过独立性闸"
+    assert "_JUDGE_OVERRIDE" in src, "解析出的判官要真的被用上，不能只解析不注入"
+
+    parser_src = inspect.getsource(rejudge.build_parser)
+    assert '"--judge-independence"' in parser_src
+    assert 'default="require"' in parser_src, "补评默认门不得比主轮松"

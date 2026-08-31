@@ -385,19 +385,36 @@ def resolve_judge(*, require_independent: bool) -> dict[str, object]:
         composer, "model", None
     ):
         independence, reason = "correlated", "独立判官解析出的模型与合成模型同名"
-    elif getattr(override, "transport", "") == "cli":
-        independence, reason = "independent", "独立客户端（CLI），与 HTTP 合成链解耦"
-    elif model_family(composer_label) != model_family(judge_label):
-        # 书要的是**不同家族**（偏见正交），不是不同端点。同一个网关也能同时
-        # 服务 glm 与 gpt——2026-08-31 实测本机就是这个配置，而本函数初版只看
-        # transport，把它误判成 weak，等于用「机制」冒充「家族」。
-        independence, reason = "independent", (
-            f"跨模型家族：{model_family(composer_label)} vs {model_family(judge_label)}"
-        )
     else:
-        # 同家族不同型号：书里的「次优但仍降低相关性」。不当成独立，
-        # 但也不拦——由调用方按 --judge-independence 决定。
-        independence, reason = "weak", "同家族不同型号：降低相关性但非异构家族"
+        # **家族是主判据，传输方式只是附注。**
+        #
+        # 书要的是偏见正交，那来自模型家族，不来自客户端。同一个网关能同时服务
+        # glm 与 gpt（2026-08-31 实测本机就是），换个客户端却仍是同一个家族的
+        # 也照样相关。本函数改过两版，两版都栽在同一个坑上：
+        #   初版 只看 transport            → 把同网关跨家族误判成 weak
+        #   二版 transport 先于家族        → 会把「同族但走 CLI」误判成 independent
+        # 后者是真会发生的：本会话 14:44 实测 grok 后端拿到的 provider 是
+        # `grok-cli-judge/gpt-5.6-sol`——启动器的 LLM_JUDGE_MODEL 串了进去，
+        # 传输是 cli 而模型仍是 gpt 系，与合成同族。
+        # 两次都是**用「机制」冒充「家族」**，所以现在家族判在前。
+        composer_family = model_family(composer_label)
+        judge_family = model_family(judge_label)
+        transport_note = (
+            "；且走独立客户端（CLI）"
+            if getattr(override, "transport", "") == "cli"
+            else ""
+        )
+        if composer_family != judge_family:
+            independence = "independent"
+            reason = f"跨模型家族：{composer_family} vs {judge_family}{transport_note}"
+        else:
+            # 同家族：书里的「次优但仍降低相关性」。换客户端也不改变这一点，
+            # 所以 CLI 只进 reason，不抬档。
+            independence = "weak"
+            reason = (
+                f"同家族（{composer_family}）不同型号：降低相关性但非异构家族"
+                f"{transport_note.replace('；且走', '；虽走')}"
+            )
 
     if require_independent and independence != "independent":
         raise _fail(
