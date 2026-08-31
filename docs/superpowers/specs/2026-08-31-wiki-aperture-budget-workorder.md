@@ -60,12 +60,12 @@ A0 19.3s / A1 88.0s / A2 100.3s。现网 90s 装不下三铲，不能谈「三�
 
 ## 验收
 
-- [ ] 未设 `ASK_WIKI_TOTAL_SECONDS` 时既有 closed-loop 单测仍绿，cap=90。
-- [ ] `ASK_WIKI_TOTAL_SECONDS=240` 时 cap=240；非法值 ValueError。
-- [ ] L0 激活率写入 JSON；可用 <4 时结论「无资格」，无「三铲无用」。
-- [ ] L1 仅在可用 ≥4 时报增量 / 反方出现率 / 挤窗。
-- [ ] L2 仅 `usable=true`；`ask` 带加长 wiki timeout；公式不反号。
-- [ ] 台账号已登记；分支已推；不合 main；pathspec 提交。
+- [x] 未设 `ASK_WIKI_TOTAL_SECONDS` 时既有 closed-loop 单测仍绿，cap=90。
+- [x] `ASK_WIKI_TOTAL_SECONDS=240` 时 cap=240；非法值 ValueError。
+- [x] L0 激活率写入 JSON；本轮 6/6；无「三铲无用」。
+- [x] L1 仅在可用 ≥4 时报增量 / 反方出现率 / 挤窗。
+- [x] L2 仅 `usable=true`；`ask` 带加长 wiki timeout；公式不反号。
+- [ ] 台账号已登记；分支已推；不合 main；pathspec 提交。（本提交完成后勾）
 
 ## 红线
 

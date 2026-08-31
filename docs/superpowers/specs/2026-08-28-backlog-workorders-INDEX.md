@@ -51,7 +51,7 @@
 | # | 工单 | 优先级 | 主仓 | 一句话 |
 |---|------|--------|------|--------|
 | 19 | `2026-08-30-wiki-aperture-ablation-workorder.md` | P1 | 金融 | ⏳ **待验收**：分支 `eval/wiki-aperture-ablation`，台账 `R-20260830-06`。两轮都停在 L0「无资格」（不是三铲无用）：轮 1 索引 stale → 0/6；轮 2 结构版 `fresh` → **2/6**。90s 现网预算装不下三铲。预算够对照见 #20。报告 `docs/verification/2026-08-30-wiki-aperture-ablation.md` |
-| 20 | `2026-08-31-wiki-aperture-budget-workorder.md` | P1 | 金融 | ⏳ **执行中**：分支 `eval/wiki-aperture-budget`，台账 `R-20260831-01`。#19 的续单：现网 90s 常数不改，评测旋钮 `ASK_WIKI_TOTAL_SECONDS=240` 后同一 6 题再过 L0，够 4 题才谈 L1/L2 |
+| 20 | `2026-08-31-wiki-aperture-budget-workorder.md` | P1 | 金融 | ⏳ **待验收**：分支 `eval/wiki-aperture-budget`，台账 `R-20260831-01`。240s 评测下 L0 **6/6**；L1 增量 C+3.8/K+5、反方 6/6、不挤窗；L2 `mean(A2−A0)=−1.667`、4 题 A2 更低。结论档 4「检索有增量，答案无显著差，保持现状」。报告 `docs/verification/2026-08-31-wiki-aperture-budget.md` |
 
 P2 已登记不立单：ArtifactProvider（6 实现）/ Workbench SkillExecutor（7 skill_id）——见普查报告 §一。
 

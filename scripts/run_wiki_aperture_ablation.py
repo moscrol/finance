@@ -419,6 +419,46 @@ def main() -> int:
         for arm, _ in ARMS
     }
 
+    output = args.output or (
+        REPO
+        / "intelligence"
+        / "eval"
+        / "runs"
+        / f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-wiki-aperture-ablation.json"
+    )
+
+    def persist(l2_payload: dict[str, Any] | None, conclusion_payload: dict[str, Any]) -> None:
+        artifact = {
+            "kind": "wiki_aperture_ablation",
+            "ledger_id": LEDGER_ID,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "as_of": as_of,
+            "ask_evidence_judge": "off",
+            "ask_wiki_total_seconds": args.wiki_seconds,
+            "prewarm": prewarm,
+            "questions": [q.__dict__ for q in questions],
+            "l0": {
+                "usable": usable_n,
+                "total": len(questions),
+                "activation_rate": round(usable_n / len(questions), 3) if questions else 0,
+                "rows": l0_rows,
+            },
+            "l1": {"summary": l1_summary, "rows": l1_rows},
+            "latency_p50_sec": latency,
+            "l2": (
+                None
+                if l2_payload is None
+                else {**l2_payload, "answers": _answers_without_body(list(l2_payload["answers"]))}
+            ),
+            "l2_answers_full": None if l2_payload is None else l2_payload["answers"],
+            "retrieval": retrieval,
+            "conclusion": conclusion_payload,
+            "as_of_date": date.fromisoformat(as_of).isoformat(),
+        }
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(artifact, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"收据 → {output}", flush=True)
+
     l2: dict[str, Any] | None = None
     conclusion = decide_conclusion(
         usable_n=usable_n,
@@ -427,6 +467,7 @@ def main() -> int:
         a2_worse_than_a0_by_over_2=0,
         l2_ran=False,
     )
+    persist(None, conclusion)
     if usable_n < 4:
         conclusion = {"code": "INELIGIBLE", "text": INELIGIBLE}
         print(f"[stop] {INELIGIBLE}", flush=True)
@@ -511,44 +552,8 @@ def main() -> int:
     if FORBIDDEN_PHRASE in json.dumps(conclusion, ensure_ascii=False):
         raise SystemExit("❌ 结论含禁语「三铲无用」")
 
-    artifact = {
-        "kind": "wiki_aperture_ablation",
-        "ledger_id": LEDGER_ID,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "as_of": as_of,
-        "ask_evidence_judge": "off",
-        "ask_wiki_total_seconds": args.wiki_seconds,
-        "prewarm": prewarm,
-        "questions": [q.__dict__ for q in questions],
-        "l0": {
-            "usable": usable_n,
-            "total": len(questions),
-            "activation_rate": round(usable_n / len(questions), 3) if questions else 0,
-            "rows": l0_rows,
-        },
-        "l1": {"summary": l1_summary, "rows": l1_rows},
-        "latency_p50_sec": latency,
-        "l2": (
-            None
-            if l2 is None
-            else {**l2, "answers": _answers_without_body(list(l2["answers"]))}
-        ),
-        "l2_answers_full": None if l2 is None else l2["answers"],
-        "retrieval": retrieval,
-        "conclusion": conclusion,
-        "as_of_date": date.fromisoformat(as_of).isoformat(),
-    }
-    output = args.output or (
-        REPO
-        / "intelligence"
-        / "eval"
-        / "runs"
-        / f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-wiki-aperture-ablation.json"
-    )
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(artifact, ensure_ascii=False, indent=2), encoding="utf-8")
+    persist(l2, conclusion)
     print(f"\n结论 {conclusion['code']}: {conclusion['text']}")
-    print(f"收据 → {output}")
     return 0
 
 
