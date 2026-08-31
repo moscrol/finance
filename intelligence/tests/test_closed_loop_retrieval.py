@@ -524,6 +524,54 @@ def test_narrow_broad_aperture_env_skips_only_counter(monkeypatch) -> None:
     assert counter and counter[0].status == "disabled" and not counter[0].executed
 
 
+def test_unset_total_seconds_env_keeps_production_cap(monkeypatch) -> None:
+    monkeypatch.delenv("ASK_WIKI_TOTAL_SECONDS", raising=False)
+    assert closed_loop_retrieval.wiki_total_seconds_cap() == 90.0
+
+
+def test_total_seconds_env_raises_cap(monkeypatch) -> None:
+    monkeypatch.setenv("ASK_WIKI_TOTAL_SECONDS", "240")
+    assert closed_loop_retrieval.wiki_total_seconds_cap() == 240.0
+
+
+def test_unknown_total_seconds_env_is_fail_closed(monkeypatch) -> None:
+    monkeypatch.setenv("ASK_WIKI_TOTAL_SECONDS", "forever")
+    try:
+        closed_loop_retrieval.wiki_total_seconds_cap()
+    except ValueError as exc:
+        assert "ASK_WIKI_TOTAL_SECONDS" in str(exc)
+        return
+    raise AssertionError("expected ValueError for unknown ASK_WIKI_TOTAL_SECONDS")
+
+
+def test_nonpositive_total_seconds_env_is_fail_closed(monkeypatch) -> None:
+    monkeypatch.setenv("ASK_WIKI_TOTAL_SECONDS", "0")
+    try:
+        closed_loop_retrieval.wiki_total_seconds_cap()
+    except ValueError as exc:
+        assert "ASK_WIKI_TOTAL_SECONDS" in str(exc)
+        return
+    raise AssertionError("expected ValueError for non-positive ASK_WIKI_TOTAL_SECONDS")
+
+
+def test_tiny_total_seconds_env_exhausts_later_apertures(monkeypatch) -> None:
+    monkeypatch.setenv("ASK_WIKI_TOTAL_SECONDS", "2")
+    calls: list[str] = []
+
+    def retrieve(query: str) -> WikiRagResult:
+        import time
+
+        calls.append(query)
+        time.sleep(1.2)
+        return _response(query, [_hit("液冷服务器", 0.72)])
+
+    result = retrieve_closed_loop("液冷", anchor=None, retrieve=retrieve)
+    executed = [item.aperture for item in result.attempts if item.executed]
+    assert executed == ["narrow"]
+    assert any(item.status == "budget_exhausted" for item in result.attempts)
+    assert len(calls) == 1
+
+
 def test_unknown_aperture_env_is_fail_closed(monkeypatch) -> None:
     monkeypatch.setenv("ASK_WIKI_APERTURES", "wide")
     try:

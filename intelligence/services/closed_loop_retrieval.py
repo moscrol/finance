@@ -23,6 +23,7 @@ MAX_TOTAL_SECONDS = 90.0
 MIN_ATTEMPT_RESERVE_SECONDS = 1.0
 ATTEMPT_COST_SAFETY_MULTIPLIER = 1.25
 ASK_WIKI_APERTURES_ENV = "ASK_WIKI_APERTURES"
+ASK_WIKI_TOTAL_SECONDS_ENV = "ASK_WIKI_TOTAL_SECONDS"
 _APERTURE_PRESETS: dict[str, frozenset[RetrievalAperture]] = {
     "narrow": frozenset({"narrow"}),
     "narrow_broad": frozenset({"narrow", "broad"}),
@@ -194,6 +195,24 @@ class _AttemptBudget:
         self.observed_seconds = max(0.0, elapsed_seconds)
 
 
+def wiki_total_seconds_cap(raw: str | None = None) -> float:
+    """评测旋钮。未设 = 现网 ``MAX_TOTAL_SECONDS``（90）；非正数 fail-closed。"""
+    value = os.environ.get(ASK_WIKI_TOTAL_SECONDS_ENV) if raw is None else raw
+    if value is None or not str(value).strip():
+        return MAX_TOTAL_SECONDS
+    try:
+        seconds = float(str(value).strip())
+    except ValueError as exc:
+        raise ValueError(
+            f"unknown {ASK_WIKI_TOTAL_SECONDS_ENV}={value!r} (expected positive number)"
+        ) from exc
+    if seconds <= 0:
+        raise ValueError(
+            f"unknown {ASK_WIKI_TOTAL_SECONDS_ENV}={value!r} (expected positive number)"
+        )
+    return seconds
+
+
 def enabled_wiki_apertures(raw: str | None = None) -> frozenset[RetrievalAperture]:
     """评测旋钮。未设或 ``all`` = 现网三铲；未知值 fail-closed。"""
     value = os.environ.get(ASK_WIKI_APERTURES_ENV) if raw is None else raw
@@ -237,14 +256,15 @@ def retrieve_closed_loop(
     expansion_policy: RetrievalExpansionPolicy = "anchor_or_hits",
 ) -> ClosedLoopRetrievalResult:
     """闭环检索。``total_seconds`` 由调用方传入 turn 级预算切片；
-    与本模块自身的 MAX_TOTAL_SECONDS 取 min——闭环不得突破 turn 根截止时间。"""
+    与 ``wiki_total_seconds_cap()`` 取 min（未设 env = ``MAX_TOTAL_SECONDS``）。"""
     if expansion_policy not in {"anchor_or_hits", "query_only"}:
         raise ValueError(f"unknown retrieval expansion policy: {expansion_policy}")
     result = ClosedLoopRetrievalResult()
+    cap = wiki_total_seconds_cap()
     budget = (
-        min(MAX_TOTAL_SECONDS, max(0.0, float(total_seconds)))
+        min(cap, max(0.0, float(total_seconds)))
         if total_seconds is not None
-        else MAX_TOTAL_SECONDS
+        else cap
     )
     if budget <= 0:
         return result

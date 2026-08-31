@@ -136,7 +136,7 @@ class EvidenceSearch:
         if not cleaned_query:
             raise ValueError("evidence search query must be non-empty")
         total_seconds = deadline.stage_timeout(
-            closed_loop_retrieval.MAX_TOTAL_SECONDS
+            closed_loop_retrieval.wiki_total_seconds_cap()
         )
         if total_seconds <= 0.001:
             return self._empty_deadline_result(

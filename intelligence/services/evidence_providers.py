@@ -1027,7 +1027,7 @@ def collect_wiki_rag(
         wiki_stage_deadline = ResearchDeadline.from_timeout(
             ctx.stage_timeout(
                 min(
-                    closed_loop_retrieval.MAX_TOTAL_SECONDS,
+                    closed_loop_retrieval.wiki_total_seconds_cap(),
                     ctx.options.wiki_rag_timeout,
                 )
             )

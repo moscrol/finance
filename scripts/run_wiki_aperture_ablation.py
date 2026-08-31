@@ -40,7 +40,7 @@ from intelligence.paths import default_paths  # noqa: E402
 from intelligence.services import closed_loop_retrieval, kb_rag  # noqa: E402
 from intelligence.services.entity_anchor import resolve_entity_anchor  # noqa: E402
 
-LEDGER_ID = "R-20260830-06"
+LEDGER_ID = "R-20260831-01"
 ARMS = (
     ("A0", "narrow"),
     ("A1", "narrow_broad"),
@@ -174,10 +174,11 @@ def decide_conclusion(
     return {"code": "NO_SIGNIFICANT", "text": NO_SIGNIFICANT}
 
 
-def _eval_env(extra: dict[str, str]) -> dict[str, str]:
+def _eval_env(extra: dict[str, str], *, wiki_seconds: float) -> dict[str, str]:
     env = {
         "PYTHONPATH": str(REPO),
         "ASK_EVIDENCE_JUDGE": "off",
+        "ASK_WIKI_TOTAL_SECONDS": str(wiki_seconds),
     }
     env.update(extra)
     return env
@@ -214,18 +215,21 @@ def run_l1_arm(
 ) -> dict[str, Any]:
     os.environ["ASK_WIKI_APERTURES"] = apertures
     os.environ["ASK_EVIDENCE_JUDGE"] = "off"
+    os.environ["ASK_WIKI_TOTAL_SECONDS"] = str(total_seconds)
     kb_rag.clear_result_cache()
     anchor = resolve_entity_anchor(question.text, knowledge)
     graph_query = anchor.graph_query if anchor is not None else question.text
     cache_scope = f"wiki-aperture-{arm}-{question.case_id}"
+    deadline = time.monotonic() + total_seconds
 
     def retrieve(retrieval_query: str):
+        remaining = max(0.001, deadline - time.monotonic())
         return kb_rag.retrieve(
             retrieval_query,
             kb_wiki,
             k=6,
             mode="hybrid",
-            timeout=int(total_seconds),
+            timeout=max(1, int(remaining)),
             excerpt_chars=200,
             budget_query=graph_query,
             require_fresh=True,
@@ -237,7 +241,7 @@ def run_l1_arm(
         graph_query,
         anchor=anchor,
         retrieve=retrieve,
-        total_seconds=total_seconds,
+        total_seconds=max(0.0, deadline - time.monotonic()),
     )
     elapsed = time.monotonic() - started
     attempts = [_serialize_attempt(item) for item in loop.attempts]
@@ -297,8 +301,16 @@ def main() -> int:
     if args.max_questions > 0:
         questions = questions[: args.max_questions]
 
-    print(f"[plan] {LEDGER_ID} as_of={as_of} n={len(questions)} phase={args.phase}", flush=True)
-    print("[plan] 臂 A0=narrow / A1=narrow_broad / A2=all；闸 ASK_EVIDENCE_JUDGE=off", flush=True)
+    print(
+        f"[plan] {LEDGER_ID} as_of={as_of} n={len(questions)} "
+        f"phase={args.phase} wiki_seconds={args.wiki_seconds}",
+        flush=True,
+    )
+    print(
+        "[plan] 臂 A0=narrow / A1=narrow_broad / A2=all；闸 ASK_EVIDENCE_JUDGE=off；"
+        f"ASK_WIKI_TOTAL_SECONDS={args.wiki_seconds}",
+        flush=True,
+    )
     for q in questions:
         print(f"  {q.case_id:<22} {q.text}", flush=True)
     if args.dry_run:
@@ -434,8 +446,11 @@ def main() -> int:
                     print(f"[ask] {arm} × {q.case_id} …", flush=True)
                     result = qa.run_ask(
                         q,
-                        extra_env=_eval_env({"ASK_WIKI_APERTURES": apertures}),
-                        extra_flags=(),
+                        extra_env=_eval_env(
+                            {"ASK_WIKI_APERTURES": apertures},
+                            wiki_seconds=args.wiki_seconds,
+                        ),
+                        extra_flags=("--wiki-rag-timeout", str(int(args.wiki_seconds))),
                         exports_dir=args.exports_dir,
                         timeout=args.ask_timeout,
                     )
@@ -502,6 +517,7 @@ def main() -> int:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "as_of": as_of,
         "ask_evidence_judge": "off",
+        "ask_wiki_total_seconds": args.wiki_seconds,
         "prewarm": prewarm,
         "questions": [q.__dict__ for q in questions],
         "l0": {

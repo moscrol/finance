@@ -50,7 +50,8 @@
 
 | # | 工单 | 优先级 | 主仓 | 一句话 |
 |---|------|--------|------|--------|
-| 19 | `2026-08-30-wiki-aperture-ablation-workorder.md` | P1 | 金融 | ⏳ **待验收**：分支 `eval/wiki-aperture-ablation`，台账 `R-20260830-06`。两轮都停在 L0「无资格」（不是三铲无用）：轮 1 索引 stale → 0/6；轮 2 结构版 `fresh`（169001，`built_at=2026-08-30T16:43:00Z`）→ **2/6**（仅申菱/英维克跑完 counter；其余 `budget_exhausted`，0 条 stale 告警）。90s 现网预算仍装不下三铲。报告 `docs/verification/2026-08-30-wiki-aperture-ablation.md` |
+| 19 | `2026-08-30-wiki-aperture-ablation-workorder.md` | P1 | 金融 | ⏳ **待验收**：分支 `eval/wiki-aperture-ablation`，台账 `R-20260830-06`。两轮都停在 L0「无资格」（不是三铲无用）：轮 1 索引 stale → 0/6；轮 2 结构版 `fresh` → **2/6**。90s 现网预算装不下三铲。预算够对照见 #20。报告 `docs/verification/2026-08-30-wiki-aperture-ablation.md` |
+| 20 | `2026-08-31-wiki-aperture-budget-workorder.md` | P1 | 金融 | ⏳ **执行中**：分支 `eval/wiki-aperture-budget`，台账 `R-20260831-01`。#19 的续单：现网 90s 常数不改，评测旋钮 `ASK_WIKI_TOTAL_SECONDS=240` 后同一 6 题再过 L0，够 4 题才谈 L1/L2 |
 
 P2 已登记不立单：ArtifactProvider（6 实现）/ Workbench SkillExecutor（7 skill_id）——见普查报告 §一。
 

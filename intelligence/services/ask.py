@@ -1408,7 +1408,7 @@ def _answer_concept_definition(
         options.query,
         anchor=None,
         total_seconds=_stage_timeout(
-            options, closed_loop_retrieval.MAX_TOTAL_SECONDS
+            options, closed_loop_retrieval.wiki_total_seconds_cap(),
         ),
         retrieve=lambda retrieval_query: kb_rag.retrieve(
             retrieval_query,
