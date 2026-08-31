@@ -17,6 +17,11 @@
 （directness / coverage / relevance / truth_boundary / usefulness），总分 sum/20。
 judge 输出解析失败 = 该份记 unscored，不编造、不计入聚合。
 
+**方差门（默认开）**：每题的基线答案额外重复盲评 `--calibration-repeats` 次。文本
+逐字相同 → 真值 Δ 必为 0，量出来的散布就是**当次**判官复评噪声。每颗组件的边际
+贡献都要跨过按该噪声算出的门槛才允许下结论，否则记 `no_call`。没实测到方差
+（重复次数为 0 / 全部 unscored）时**一律 no_call**，不回退到历史噪声底。
+
 前置（fail-closed）：需要 LLM key（建议 `. <(grep '^export ' \
 ~/.local/bin/start-finance-workbench)` 继承生产 provider 链与 FINANCE_WS /
 KNOWLEDGE_WIKI 数据根）；无 key 直接退出，绝不产出模板答案冒充读数。
@@ -31,17 +36,36 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import random
+import statistics
 import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Mapping, Sequence
 
 REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
+
+# 「差异小于噪声底就不许下结论」这条判定规则本仓只有一处实现，本脚本复用它而不
+# 另写一份 if。两份比较规则的那天，改一处、另一处继续发旧读数。
+#
+# ⚠ 量纲提醒（2026-08-31 质检点名）：`ab_decision` 的第二个形参在真本源里叫
+# `baseline_flip_rate`，那边传的是 0-1 的**翻转率**；这里传的是 rubric 分尺度上的
+# **门槛**（σ×SE，单位是分/20）。函数体只做 `abs(delta) < floor` 的纯比较，
+# 与单位无关，所以复用是对的——但两侧的量纲必须各自自洽，**不能把两边的数放一起比**。
+# 名字留在上游、语义在这里收窄，故本地起一个说明单位的别名。
+from intelligence.eval.variance_baseline import ab_decision as _compare_against_floor  # noqa: E402
+
+
+def ab_decision(observed_delta: float, threshold_same_unit: float) -> str:
+    """`variance_baseline.ab_decision` 的同单位封装：两个入参必须同尺度。"""
+
+    return _compare_against_floor(observed_delta, threshold_same_unit)
 
 RUBRIC_DIMENSIONS = ("directness", "coverage", "relevance", "truth_boundary", "usefulness")
 _JUDGE_ANSWER_CHARS = 6000  # 声明式截断：限定语在 prompt 里排在答案之前
@@ -255,14 +279,123 @@ def judge_answer(question: Question, answer: str, *, attempts: int = 2) -> dict[
     return {"scored": False, "reason": last_reason, "attempts": max(1, attempts)}
 
 
+# ---------------------------------------------------------------- 方差门
+#
+# 为什么不引用历史噪声底（方差治理文档的 |Δ|≲2.4/20）：2026-08-28 实测
+# index-rebound-space 三臂答案 md5 **逐字相同**，盲评却打出 12/13/15——同文本
+# 重评的散布比历史底还大。判官模型、prompt、温度任一变动，历史底就失效，
+# 而它失效的时候没有任何信号：读数照常产出，只是不再成立。
+# 已确立原则（`docs/superpowers/specs/2026-08-28-shared-memory-plane-design.md`
+# §6）：**每轮盲评故意塞一对相同答案实测当次方差，不引用历史噪声底。**
+# 本模块是该原则在消融臂上的执行件。
+#
+# ⚠ 覆盖面限定（写在收据里，别在结论里含糊过去）：本底只含**判官复评**方差，
+# 不含 ask 侧重跑方差（同 prompt 不同采样 → 不同答案）。所以它是噪声的
+# **下界**，跨过它是下结论的必要条件、不是充分条件。
+CALIBRATION_MIN_REPEATS = 2
+
+NOISE_FLOOR_FORMULA = (
+    "sd_judging = sqrt(mean(per_question_variance(重复评分总分))); "
+    "sd_delta_single_question = sd_judging * sqrt(2)（两次独立评分之差）; "
+    "threshold(n) = sigma * sd_delta_single_question / sqrt(n)，"
+    "n = 该组件双方都 scored 的题数; "
+    "|marginal_contribution_total| < threshold(n) -> no_call"
+)
+
+
+def judge_noise_floor(
+    calibration: Sequence[Mapping[str, object]], *, sigma: float = 2.0
+) -> dict[str, object]:
+    """从「同一份答案重复盲评」的散布，量出当次判官噪声。
+
+    数学逐步写出来，因为这份数字要拿来做合并决定：
+
+    1. 每题的重复评分 → 组内样本方差；跨题合并（各题方差取均值再开方）
+       → 单次评分的标准差 ``sd_judging``。
+    2. 组件的每题 Δ = 关断臂一次评分 − 基线臂一次评分，是**两次独立评分之差**
+       → ``sd(Δ_单题) = sd_judging × √2``。
+    3. 组件边际贡献是 n 道题 Δ 的**均值** → 标准误 ``SE = sd_judging×√2 / √n``。
+    4. 门槛 = ``sigma × SE``（默认 2，约 95% 双侧）。
+
+    门槛随 n 变，所以不在这里定死一个数，由 :func:`threshold_for` 按各组件
+    自己的可用题数现算——可用题少的组件本就该要更大的 Δ 才敢下结论。
+    """
+
+    per_question: list[dict[str, object]] = []
+    variances: list[float] = []
+    for block in calibration:
+        totals = [int(x) for x in (block.get("totals") or [])]  # type: ignore[union-attr]
+        row: dict[str, object] = {
+            "case_id": block.get("case_id"),
+            "n": len(totals),
+            "totals": totals,
+        }
+        if len(totals) < CALIBRATION_MIN_REPEATS:
+            row["usable"] = False
+            per_question.append(row)
+            continue
+        variances.append(statistics.variance(totals))
+        row.update(
+            {
+                "usable": True,
+                "spread": max(totals) - min(totals),
+                "sd": round(statistics.stdev(totals), 3),
+            }
+        )
+        per_question.append(row)
+
+    if not variances:
+        return {
+            "measured": False,
+            "reason": (
+                "没有任何一题拿到 ≥2 次可用重复评分：本轮未实测判官方差。"
+                "按 fail-closed，所有组件一律 no_call——不回退历史噪声底。"
+            ),
+            "sigma": sigma,
+            "questions": per_question,
+        }
+
+    sd_judging = math.sqrt(statistics.fmean(variances))
+    return {
+        "measured": True,
+        "sigma": sigma,
+        "questions_measured": len(variances),
+        "sd_judging": round(sd_judging, 4),
+        "sd_delta_single_question": round(sd_judging * math.sqrt(2), 4),
+        "formula": NOISE_FLOOR_FORMULA,
+        "covers": (
+            "仅判官复评方差（同一份答案文本重复盲评）；"
+            "不含 ask 侧重跑方差 → 这是噪声下界，跨过它是必要条件不是充分条件"
+        ),
+        "questions": per_question,
+    }
+
+
+def threshold_for(noise_floor: Mapping[str, object] | None, n: int) -> float | None:
+    """该组件在 n 道可用题上的判定门槛；未实测方差或无可用题时返回 None。"""
+
+    if not noise_floor or not noise_floor.get("measured") or n <= 0:
+        return None
+    sigma = float(noise_floor.get("sigma") or 2.0)
+    sd_delta = float(noise_floor.get("sd_delta_single_question") or 0.0)
+    return round(sigma * sd_delta / math.sqrt(n), 4)
+
+
 def aggregate_components(
-    answers: list[dict[str, object]], component_ids: list[str]
+    answers: list[dict[str, object]],
+    component_ids: list[str],
+    *,
+    noise_floor: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """每颗组件 = 平均(关断臂总分) − 平均(同题基线总分)，只聚合双方都 scored 的题。
 
     补评脚本（``rejudge_quality_ablation.py``）复用同一份数学。**聚合口径只能有
     一处**：抄第二份的那天两边不会同时被改，漂了也没人发现——而这份数字是拿来
     做合并决定的。
+
+    ``noise_floor`` 传入 :func:`judge_noise_floor` 的产物时，每颗组件额外带
+    ``decision``（``callable`` / ``no_call``）。**不传 = 一律 no_call**，不是
+    默认放行：读数没有方差底就不成立，这一点必须由结构而非纪律来保证。
     """
 
     baseline_by_case = {str(r["case_id"]): r for r in answers if r["arm"] == "baseline"}
@@ -294,16 +427,31 @@ def aggregate_components(
                 }
             )
         usable = [row for row in rows if row.get("usable")]
+        # 边际贡献 = 关掉后掉的分（正数=组件在涨分）。
+        edge = (
+            round(-sum(row["delta_total"] for row in usable) / len(usable), 3)
+            if usable
+            else None
+        )
+        threshold = threshold_for(noise_floor, len(usable))
+        if edge is None:
+            decision, decision_reason = "no_call", "无双方都 scored 的题"
+        elif threshold is None:
+            decision, decision_reason = "no_call", str(
+                (noise_floor or {}).get("reason")
+                or "未传入实测判官方差；无方差底的读数不成立"
+            )
+        else:
+            # 比较规则不在这里重写：复用方差治理的单一真本源。
+            decision, decision_reason = ab_decision(edge, threshold), ""
         aggregates[cid] = {
             "close_via": COMPONENTS[cid]["close_via"],
             "questions_usable": len(usable),
             "questions_total": len(rows),
-            # 边际贡献 = 关掉后掉的分（正数=组件在涨分）。
-            "marginal_contribution_total": (
-                round(-sum(row["delta_total"] for row in usable) / len(usable), 3)
-                if usable
-                else None
-            ),
+            "marginal_contribution_total": edge,
+            "noise_threshold": threshold,
+            "decision": decision,
+            "decision_reason": decision_reason,
             "marginal_by_dim": (
                 {
                     d: round(-sum(row["delta_by_dim"][d] for row in usable) / len(usable), 3)
@@ -355,6 +503,16 @@ def main() -> int:
     parser.add_argument("--max-questions", type=int, default=0, help="0=全部")
     parser.add_argument("--ask-timeout", type=float, default=420.0)
     parser.add_argument("--seed", type=int, default=20260826, help="盲评洗牌种子")
+    parser.add_argument(
+        "--calibration-repeats",
+        type=int,
+        default=2,
+        help=(
+            "每题基线答案的额外重复盲评次数（默认 2，即每题共 3 次评分）。"
+            "同一份文本重评 → 真值 Δ 必为 0，量的是当次判官噪声。"
+            "设 0 = 不实测方差，此时所有组件一律 no_call。只花 judge 调用，不花 ask。"
+        ),
+    )
     parser.add_argument(
         "--exports-dir",
         default=str(Path(os.environ.get("FINANCE_WS", REPO)) / "market_feature_store" / "exports"),
@@ -420,7 +578,32 @@ def main() -> int:
         print(f"[judge] #{idx}（盲）…", flush=True)
         rec["judge"] = judge_answer(by_case[str(rec["case_id"])], str(rec["answer"]))
 
-    aggregates = aggregate_components(answers, component_ids)
+    # 方差校准：同一份基线答案重复盲评。不再跑 ask，只多花 judge 调用。
+    # 放在主盲评之后，让它和被测臂共享同一个 judge / provider 状态——
+    # 换了 judge 的方差底就不是这一轮的方差底。
+    calibration: list[dict[str, object]] = []
+    if args.calibration_repeats > 0:
+        for rec in answers:
+            if rec["arm"] != "baseline":
+                continue
+            first = rec.get("judge") or {}
+            if not first.get("scored"):
+                continue
+            case_id = str(rec["case_id"])
+            totals = [first["total"]]
+            repeats: list[dict[str, object]] = []
+            for k in range(args.calibration_repeats):
+                print(f"[calib] {case_id} 同文本复评 #{k + 1} …", flush=True)
+                again = judge_answer(by_case[case_id], str(rec["answer"]))
+                repeats.append(again)
+                if again.get("scored"):
+                    totals.append(again["total"])
+            calibration.append(
+                {"case_id": case_id, "totals": totals, "repeats": repeats}
+            )
+
+    noise_floor = judge_noise_floor(calibration)
+    aggregates = aggregate_components(answers, component_ids, noise_floor=noise_floor)
 
     artifact = {
         "kind": "quality_ablation",
@@ -429,6 +612,8 @@ def main() -> int:
         "judge_note": "同一 judge 评所有臂，标签盲；分差可比，绝对分不可跨 judge 比",
         "questions": [q.__dict__ for q in questions],
         "answers": answers,
+        "calibration": calibration,
+        "noise_floor": noise_floor,
         "aggregates": aggregates,
     }
     output = args.output or (
@@ -441,13 +626,30 @@ def main() -> int:
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(artifact, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    if noise_floor.get("measured"):
+        print(
+            f"\n== 当次判官噪声（同文本重评 {len(calibration)} 题）==\n"
+            f"  sd_judging={noise_floor['sd_judging']} /20"
+            f" → 单题 Δ 的 sd={noise_floor['sd_delta_single_question']}"
+            f"（sigma={noise_floor['sigma']}）"
+        )
+    else:
+        print(f"\n== 当次判官噪声：未实测 ==\n  {noise_floor.get('reason')}")
+
     print("\n== 组件边际贡献（关掉后平均掉分，正=在涨分）==")
     for cid, agg in aggregates.items():
+        verdict = "✅ 可下结论" if agg["decision"] == "callable" else "⚠️ 噪声内，不下结论"
+        gate = (
+            f"门槛±{agg['noise_threshold']}"
+            if agg["noise_threshold"] is not None
+            else str(agg["decision_reason"])
+        )
         print(
             f"  {cid:<18} Δ={agg['marginal_contribution_total']}"
             f"（可用 {agg['questions_usable']}/{agg['questions_total']} 题）"
-            f" 分维度={agg['marginal_by_dim']}"
+            f" {gate} → {verdict}"
         )
+        print(f"  {'':<18} 分维度={agg['marginal_by_dim']}")
     print(f"\n收据 → {output}")
     return 0
 

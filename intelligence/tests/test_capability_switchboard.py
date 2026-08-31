@@ -337,3 +337,131 @@ def test_runner_reading_pack_face_flips_under_contextvar() -> None:
     assert ns["_reading_pack_face_changed"]("predicate.reading-baseline") is True
     # 别的谓词不走判读包那一面：恒 False 是契约，不是缺陷。
     assert ns["_reading_pack_face_changed"]("predicate.double-red") is False
+
+
+# --------------------------------------------- 2026-08-31 补登的运行时缝
+
+_NEW_ROWS = {"fast-path-runner", "repair-chain", "evidence-judge"}
+
+
+def test_reading_baseline_lists_both_doors(board) -> None:
+    """`enabled()` 是 contextvar + env 两道门任一关闭即关，登记必须两条都列。
+
+    §5.2：「一行可以有多个关法，必须全列——漏一个就会『表说 on、实际 off』」。
+    漏 env 那条时，部署层设了 `FINANCE_READING_BASELINE=0` 板上仍报 on，
+    而质量臂 `run_quality_ablation` 用的正是 env 那条关法。
+
+    断言绑到源码常量而不是字面量：改了 ENV_FLAG 名字这条测试要跟着红。
+    """
+
+    from intelligence.services.reading_baseline import ENV_FLAG
+
+    row = board.resolve("predicate.reading-baseline")
+    joined = " ".join(row.close_via)
+    assert "pack:contextvar" in joined
+    assert ENV_FLAG in joined, f"close_via 漏了 env 门 {ENV_FLAG}"
+
+
+def test_new_rows_seams_resolve_to_real_symbols(board) -> None:
+    """seam 不只文件要在，符号也要在——路径存在但符号改名了，登记就是一句空话。"""
+
+    expected_symbols = {
+        "fast-path-runner": ("CONTINUOUS_FAST_PATH_TYPES",),
+        "repair-chain": ("_resolve_seconds_cap",),
+        "evidence-judge": ("ENV_MODE",),
+    }
+    for switch_id, symbols in expected_symbols.items():
+        row = board.resolve(switch_id)
+        source = (REPO / row.seam_path).read_text(encoding="utf-8")
+        for symbol in symbols:
+            assert symbol in source, f"{switch_id} 的 seam 里找不到符号 {symbol}"
+        assert row.notes.strip(), f"{switch_id} 必须写清关法与不进臂原因"
+
+
+def test_new_rows_stay_out_of_arm_without_positive_control(board) -> None:
+    """§5.1：填不出正控的只登记、不进臂。「没崩」不是读数。
+
+    三行都是登记行：fast-path 与 repair 的真关法是 route/代码级（见下两条测试
+    钉住的实测事实），evidence-judge 的可观测面在质量臂不在结构臂。
+    """
+
+    arm = set(board.arm_ids())
+    for switch_id in _NEW_ROWS:
+        row = board.resolve(switch_id)
+        assert not row.positive_control, f"{switch_id} 有正控就得真能被 runner 拧动"
+        assert switch_id not in arm
+
+
+def test_fast_path_constructor_injection_is_abort_not_off(board) -> None:
+    """钉住 2026-08-31 实测：注入 null fast_path_runner 拿到的是降级的一集。
+
+    路由决定在调 runner **之前**（`frame.question_type in CONTINUOUS_FAST_PATH_TYPES`），
+    异常被就地捕获 → `status="failed"`，而 `execution_kind` **仍是**
+    `deterministic_fast_path`。与设计稿 §3 记的 semantic-verifier deadline 陷阱同形：
+    拿它当 off，会得到一份「拧了、正控恒不变」的假失败。
+
+    这条测试守的不是代码，是**下一个 agent 不要再把构造注入写进这行的 close_via**。
+    """
+
+    adapter = (REPO / "intelligence/runtime/continuous_turn_adapter.py").read_text(
+        encoding="utf-8"
+    )
+    route_at = adapter.index("if frame.question_type in CONTINUOUS_FAST_PATH_TYPES")
+    call_at = adapter.index("self._fast_path_runner(")
+    assert route_at < call_at, "路由若挪到 runner 之后，构造注入才可能成为真关法"
+
+    row = board.resolve("fast-path-runner")
+    assert not any("constructor_injection" in item for item in row.close_via), (
+        "构造注入不是这颗的关法：它产出 status=failed 且 execution_kind 不变"
+    )
+
+    from intelligence.services.episode_tools import FAST_PATH_RUNNER_SUPPORTED_TYPES
+
+    # 覆盖面别再被写大：这条路只服务一个题型。
+    assert FAST_PATH_RUNNER_SUPPORTED_TYPES == frozenset({"market_technical"})
+
+
+def test_repair_seconds_cap_zero_falls_back_not_off(board) -> None:
+    """钉住 2026-08-31 实测：帽设 0 回到默认 30s，等于没拧。
+
+    `_resolve_seconds_cap` 是 fail-safe（坏输入不压成 0），所以 0 / 负数 / None
+    三者同解。把 0 当 off 会得到「拧了、没变、正控空」的假失败读数。
+    """
+
+    from intelligence.services.repair_coordinator import (
+        _REPAIR_SECONDS_CAP,
+        _resolve_seconds_cap,
+    )
+
+    assert _resolve_seconds_cap(0) == _REPAIR_SECONDS_CAP
+    assert _resolve_seconds_cap(-1) == _REPAIR_SECONDS_CAP
+    assert _resolve_seconds_cap(None) == _REPAIR_SECONDS_CAP
+
+    row = board.resolve("repair-chain")
+    joined = " ".join(row.close_via)
+    assert "repair_seconds_cap=0" not in joined, "帽设 0 不是关法，别写进 close_via"
+    assert "ASK_REPAIR_SECONDS_CAP" not in joined, "env 走同一条解析，同样关不掉"
+
+
+def test_evidence_judge_registered_with_its_env_door(board) -> None:
+    """质量臂测出的最高边际贡献（+2.8/20）此前不在板上，读板的人会以为它没开关。"""
+
+    from intelligence.services.evidence_judge import ENV_MODE
+
+    row = board.resolve("evidence-judge")
+    assert ENV_MODE in " ".join(row.close_via)
+    assert row.default == "ambient", "缺省是 auto（配了 key 才生效），不是硬 on"
+
+
+def test_new_rows_stay_out_of_default_box(board) -> None:
+    """棘轮 #3：新开关进默认盒要另一次对照 + 用户确认，且 excluded 要自述原因。"""
+
+    import runpy
+
+    ns = runpy.run_path(str(REPO / "scripts" / "generate_default_switch_box.py"))
+    box = ns["build_box"]()
+    for switch_id in _NEW_ROWS:
+        assert switch_id in box["excluded"], f"{switch_id} 该被排除在默认盒外"
+        assert box["excluded"][switch_id].strip()
+        assert switch_id not in box["non_tool_defaults"]
+        assert switch_id not in box["ambient_ids"]

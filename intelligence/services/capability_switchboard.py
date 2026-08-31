@@ -30,6 +30,16 @@ _FIXTURE = (
 # operator/pack/probe 是 2026-08-26 扩容批的登记 kind：新架构（四袋/查询算子/替补探针）
 # 的组件登记行。生产不读本表；这三类默认被 generate_default_switch_box 排除在盒外
 # （棘轮 #3：进盒需另一次对照 + 用户确认）。
+# lane 是 2026-08-31 补的：标记**选走哪条执行路**的分叉（确定性快路 / 修复链）。
+# 不归进 parameter——那类是 CLI argparse 默认值，描述的是「某条命令的缺省实参」。
+#
+# ⚠ lane ≠ 有运行时开关。本批两行的关法都是 **route / 代码级**，各自的 notes 里
+# 记着实测证伪过程：`fast-path-runner` 的构造注入产出的是中止不是换路，
+# `repair-chain` 的 cap=0 被 fail-safe 归一化回默认帽。
+# 本注释初版写的「关法是 composition root 的构造注入」是同一批里被推翻的说法，
+# 与 `test_fast_path_constructor_injection_is_abort_not_off` 直接打架——
+# 2026-08-31 质检点名，已改。**改 close_via 时记得回头看这里**：
+# 枚举的注释和行的 close_via 是两处，会各自漂。
 KINDS = frozenset(
     {
         "capability",
@@ -41,6 +51,7 @@ KINDS = frozenset(
         "operator",
         "pack",
         "probe",
+        "lane",
     }
 )
 STATUSES = frozenset({"active", "welded", "pending-other-branch", "retired"})

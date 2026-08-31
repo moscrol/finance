@@ -208,7 +208,15 @@ def rejudge_artifact(
     assert_only_judge_changed(answers, answers_before, judged_before)
 
     component_ids = [cid for cid in artifact["aggregates"]]  # type: ignore[union-attr]
-    aggregates = aggregate_components(answers, component_ids)
+    # 方差底沿用源收据实测的那一份：补评只补 unscored 的份，没有重新校准判官，
+    # 凭空给个新底就是编数。源轮没测过（旧收据 / --calibration-repeats 0）时
+    # 传 None，聚合按 fail-closed 全记 no_call——这正是该有的结果。
+    noise_floor = artifact.get("noise_floor")
+    if not isinstance(noise_floor, dict):
+        noise_floor = None
+    aggregates = aggregate_components(
+        answers, component_ids, noise_floor=noise_floor
+    )
     stamp = (now or datetime.now(timezone.utc)).isoformat()
 
     providers = sorted({str(r["provider"]) for r in rejudged if r.get("provider")})
@@ -231,6 +239,10 @@ def rejudge_artifact(
         "still_unscored": still_unscored,
         "questions": artifact["questions"],
         "answers": answers,
+        "noise_floor": noise_floor,
+        "noise_floor_source": (
+            "沿用源轮实测（补评未重新校准判官）" if noise_floor else "源轮未实测 → 全部 no_call"
+        ),
         "aggregates_before": artifact["aggregates"],
         "aggregates": aggregates,
         "baseline_absolute": baseline_absolute(answers),

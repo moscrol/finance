@@ -16,6 +16,8 @@
   "capability_source": "intelligence.services.episode_factory.build_episode_context",
   "excluded": {
     "catalog.preflight": "登记行（第 0 步）：生产不读本表，进盒需对照 + 用户确认（棘轮 #3）",
+    "evidence-judge": "2026-08-31 新登记行：进盒需另一次对照 + 用户确认（棘轮 #3）",
+    "fast-path-runner": "2026-08-31 新登记行：进盒需另一次对照 + 用户确认（棘轮 #3）",
     "market.aggregate_count": "登记行（第 0 步）：生产不读本表，进盒需对照 + 用户确认（棘轮 #3）",
     "market.contradiction_audit": "登记行（第 0 步）：生产不读本表，进盒需对照 + 用户确认（棘轮 #3）",
     "market.cross_table_exact_intersection": "登记行（第 0 步）：生产不读本表，进盒需对照 + 用户确认（棘轮 #3）",
@@ -30,7 +32,8 @@
     "param.boards-min": "CLI 参数默认值，不是开关位",
     "predicate.evidence-layers": "canonical=contested，是待建正典的工单不是开关",
     "probe.substitute-observation": "登记行（第 0 步）：生产不读本表，进盒需对照 + 用户确认（棘轮 #3）",
-    "program.research-program": "消融开关，生产不读本表"
+    "program.research-program": "消融开关，生产不读本表",
+    "repair-chain": "2026-08-31 新登记行：进盒需另一次对照 + 用户确认（棘轮 #3）"
   },
   "generated_from": "intelligence/eval/fixtures/capability_switchboard.json",
   "non_tool_defaults": {
