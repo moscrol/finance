@@ -655,7 +655,7 @@
       "singleton_when_on": false,
       "chassis_survives": true,
       "positive_control": "",
-      "notes": "证据召回的语义闸（agent_research.py:484 / evidence_search.py:100 两个调用点）。default=ambient 因为 ENV_MODE 缺省是 auto：配了 LLM key 才生效（:45），生产 8792 配了=实际 on。⚠ 本表此前没有这一行，而 run_quality_ballation 的 COMPONENTS 里有它，且它是那轮实测边际贡献最高的一颗（+2.8/20）——最值钱的组件不在登记表上，读板的人会以为没有开关。positive_control 留空=只登记不进结构臂：它在 episode 收据里没有对应字段，可观测面在质量臂（run_quality_ablation 的 rubric 总分），那是另一份评测。"
+      "notes": "证据召回的语义闸（agent_research.py:484 / evidence_search.py:100 两个调用点）。default=ambient 因为 ENV_MODE 缺省是 auto：配了 LLM key 才生效（:45），生产 8792 配了=实际 on。⚠ 本表此前没有这一行，而 run_quality_ablation 的 COMPONENTS 里有它，且它是那轮实测边际贡献最高的一颗（+2.8/20）——最值钱的组件不在登记表上，读板的人会以为没有开关。positive_control 留空=只登记不进结构臂：它在 episode 收据里没有对应字段，可观测面在质量臂（run_quality_ablation 的 rubric 总分），那是另一份评测。"
     },
     {
       "id": "repair-chain",

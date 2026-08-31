@@ -53,7 +53,19 @@ if str(REPO) not in sys.path:
 
 # 「差异小于噪声底就不许下结论」这条判定规则本仓只有一处实现，本脚本复用它而不
 # 另写一份 if。两份比较规则的那天，改一处、另一处继续发旧读数。
-from intelligence.eval.variance_baseline import ab_decision  # noqa: E402
+#
+# ⚠ 量纲提醒（2026-08-31 质检点名）：`ab_decision` 的第二个形参在真本源里叫
+# `baseline_flip_rate`，那边传的是 0-1 的**翻转率**；这里传的是 rubric 分尺度上的
+# **门槛**（σ×SE，单位是分/20）。函数体只做 `abs(delta) < floor` 的纯比较，
+# 与单位无关，所以复用是对的——但两侧的量纲必须各自自洽，**不能把两边的数放一起比**。
+# 名字留在上游、语义在这里收窄，故本地起一个说明单位的别名。
+from intelligence.eval.variance_baseline import ab_decision as _compare_against_floor  # noqa: E402
+
+
+def ab_decision(observed_delta: float, threshold_same_unit: float) -> str:
+    """`variance_baseline.ab_decision` 的同单位封装：两个入参必须同尺度。"""
+
+    return _compare_against_floor(observed_delta, threshold_same_unit)
 
 RUBRIC_DIMENSIONS = ("directness", "coverage", "relevance", "truth_boundary", "usefulness")
 _JUDGE_ANSWER_CHARS = 6000  # 声明式截断：限定语在 prompt 里排在答案之前

@@ -28,17 +28,28 @@
 - 覆盖面限定随读数入收据：只含**判官复评**方差，**不含 ask 侧重跑方差**，
   是噪声**下界**——跨过它是必要条件不是充分条件。
 
-把 2026-08-26 那三份读数按当次噪声重判（`sd=1.53`、n=5 → 门槛 ±1.93）：
+**2026-08-26 那三份读数的正确判定：全部 `no_call`。**
 
-| 组件 | 原读数 | 重判 |
-|---|---|---|
-| evidence-judge | +2.8 | **callable** |
-| kb-rag | +1.5 | no_call（落在噪声内） |
-| reading-baseline | −0.4 | no_call（落在噪声内） |
+> ⚠ 本节初版写的是「按当次噪声重判：+2.8 callable / +1.5 no_call / −0.4 no_call」，
+> 底用的是 2026-08-28 那组同文本 12/13/15（sd=1.53）。**那是引用历史噪声底——
+> 本单的核心规则恰恰是不许这么做。** 2026-08-31 质检点名，此处已改。
+> 生产路径没破（缺校准一律 `no_call`，fail-closed 拦住了），破的是叙述层。
+> 教训归档进 [[low-sampling-on-high-variance]]：**规则写进代码之后，
+> 自己的回溯表也归它管。**
 
-**这条要传下去：`reading-baseline` 的「负贡献」不成立，据它做的默认关 /
-题型门控提案应撤回，不是延后。** 已知同族遗留：`knowledge_injection_policy.py`
-模块 docstring 仍引噪声带内 Δ 当「稳定负贡献」（#443 交接已立，未修）。
+08-26 那轮**没有做同文本校准**（当时还没有 `--calibration-repeats`），
+所以三份读数一份都判不了，与 Δ 多大无关。顺带纠正一处数字：
+kb-rag 的可用题是 **4** 题不是 5（收据 `questions_usable=4`），
+门槛该按 n=4 算成 ±2.16。
+
+**`reading-baseline` 的「负贡献」不成立**——这条结论不变，但**证据要换成更硬的那份**：
+同一批 7 份收据里它的 Δ 是 `−0.4 / +1.167 / −2.0 / −0.2 / +1.4 / −1.0 / −0.667`，
+**变号三次**。一个跨轮变号的量，谈不上「稳定负贡献」，不需要噪声底就能说。
+据它做的默认关 / 题型门控提案应撤回，不是延后。
+
+已知同族遗留：`knowledge_injection_policy.py:6` 写着「主线题七次读数全部 ≤0，
+均值 ≈ -2.3/20」。上面那 7 个是**聚合**读数、不是主线题切片，两者未必同一组；
+但「稳定负贡献」这个措辞在聚合层面已被证伪，该切片是否真全 ≤0 **本轮未验**。
 
 ### ② 补登三行运行时缝 + 修 reading-baseline 漏掉的关法（`fb2a9b2a` → `ca7633aa` 修正）
 
@@ -106,5 +117,10 @@ lane 混为一谈。
 3. 三行进 `default-v1` 需用户点头：从 `generate_default_switch_box.py` 的
    `_PENDING_BOX_ADMISSION` 删 id 再 regenerate（盒是生成物，不手改）。
 4. 板的 `revision` 已更到 `19c77a16`；`run_capability_switchboard.py` 的
-   `_RUNNER_APPLIES_KINDS` 仍只有 `capability`，22 行登记后仍报 `not_implemented`
-   ——那是**下一批**的活，本单没碰。
+   `_RUNNER_APPLIES_KINDS` 仍只有 `capability`。本单没碰 runner，「下一批」仍成立。
+   **实测口径（2026-08-31 质检纠正，本节初版把两个概念混成了「23 行」）**：
+   总行 **45** · 够格进臂 `arm_ids` = **22** · runner 真拧得动 = **20**
+   （12 capability + `semantic-verifier` + `noop-prompt` + 6 个已接线谓词）·
+   报 `not_implemented` = **25**。
+   注意 `followup-composer` 与 `program.research-program` **在臂里但 runner 仍报未接线**
+   ——「进臂」与「拧得动」是两件事，45−22=23 这个算法把它们混了。

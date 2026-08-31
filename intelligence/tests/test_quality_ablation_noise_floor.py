@@ -21,7 +21,15 @@ from scripts.run_quality_ablation import (
 
 _NOW = datetime(2026, 8, 31, 1, 30, tzinfo=timezone.utc)
 
-# 2026-08-28 实测：index-rebound-space 三臂答案 md5 完全相同，盲评 12/13/15。
+# 2026-08-28 实测的一组同文本重评分数（index-rebound-space 三臂答案 md5 完全相同，
+# 盲评打出 12/13/15）。
+#
+# ⚠ 它在本文件里**只是算术夹具**，用来验门槛公式，**不是任何一轮的噪声底**。
+# 一轮的底只能来自那一轮自己的校准（本模块的整条规则就是这个）。
+# 2026-08-31 质检点名：本文件初版拿它去「重判」2026-08-26 那轮的三份读数，
+# 并据此写出「evidence-judge +2.8 → callable」——那正是**引用历史噪声底**，
+# 是生产路径 fail-closed 拦住、而叙述层自己破了的那条规则。
+# 正确判定见 `test_没做校准的那一轮三份读数全部no_call`。
 _IDENTICAL_TEXT_SCORES = [12, 13, 15]
 
 
@@ -138,35 +146,41 @@ def test_无可用题时不下结论也不报门槛():
     assert agg["questions_usable"] == 0
 
 
-# ----------------------------------------------- 三份历史读数过一遍这道门
+# ------------------------------------------- 历史那一轮的正确判定是什么
 
 
-def test_历史三份读数过门后两份落进噪声():
-    """2026-08-26 那轮的 +2.8 / +1.5 / −0.4，按当次实测噪声重判。
+def test_没做校准的那一轮三份读数全部no_call():
+    """2026-08-26 那轮**没有做同文本校准**（那时还没有 --calibration-repeats）。
 
-    这就是本门禁存在的理由：三份读数里只有一份撑得住，而当时三份都被写进了
-    交接文档，其中 −0.4 那份还附了「建议默认关或按题型门控」的处置意见。
+    所以按本模块的规则，它的三份读数（+2.8 / +1.5 / −0.4）**全部是 `no_call`**，
+    与 Δ 多大无关。不许借 2026-08-28 那组 12/13/15 当它的底——
+    「不回退历史噪声底」是本单的核心规则，2026-08-31 质检抓到本文件初版
+    自己破了它：拿借来的底判出「+2.8 → callable」。
+
+    这条测试就是那次纠偏的钉子：**缺校准的轮次，多大的 Δ 都不下结论。**
+    """
+
+    for edge in (3.0, 1.5, 0.0):  # 覆盖 +2.8 / +1.5 / −0.4 三档量级
+        answers = _arms([14] * 5, [round(14 - edge)] * 5, arm="kb-rag")
+        agg = aggregate_components(answers, ["kb-rag"], noise_floor=None)["kb-rag"]
+        assert agg["decision"] == "no_call", f"Δ={edge} 无校准时不得放行"
+        assert agg["noise_threshold"] is None
+
+
+def test_门槛公式在给定散布下的取值():
+    """纯算术：给定一组同文本重评分数与题数，门槛应是多少。
+
+    这里的输入是**夹具**，不代表任何一轮的真实噪声底——判定某一轮要用那一轮
+    自己的校准。分开写是为了不让算术验证再次伪装成历史重判。
     """
 
     floor = judge_noise_floor(_calibration(["q0"], _IDENTICAL_TEXT_SCORES))
-    n = 5  # 那一轮实际可用题数
-    threshold = threshold_for(floor, n)
-    assert threshold == 1.9321
 
-    # 关断臂总分 = 基线 − 边际贡献（边际贡献正 = 关掉后掉分）
-    def _decide(edge: float) -> str:
-        baseline = [14] * n
-        ablated = [round(14 - edge)] * n
-        answers = _arms(baseline, ablated, arm="kb-rag")
-        return str(
-            aggregate_components(answers, ["kb-rag"], noise_floor=floor)["kb-rag"][
-                "decision"
-            ]
-        )
-
-    assert _decide(3.0) == "callable"  # evidence-judge +2.8 档：撑得住
-    assert _decide(1.0) == "no_call"  # kb-rag +1.5 档：落在噪声内
-    assert _decide(0.0) == "no_call"  # reading-baseline −0.4 档：落在噪声内
+    assert threshold_for(floor, 5) == 1.9321
+    # 可用题数不同门槛就不同——kb-rag 那份实际只有 4 题可用（收据 questions_usable=4），
+    # 拿 5 去算是偷了一题的把握。本轮质检点名的第二处数字错。
+    assert threshold_for(floor, 4) == 2.1602
+    assert threshold_for(floor, 4) > threshold_for(floor, 5)
 
 
 def test_噪声底只覆盖判官方差这件事要写进收据():
