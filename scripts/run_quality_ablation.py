@@ -39,6 +39,7 @@ import json
 import math
 import os
 import random
+import re
 import statistics
 import subprocess
 import sys
@@ -72,7 +73,7 @@ _JUDGE_ANSWER_CHARS = 6000  # 声明式截断：限定语在 prompt 里排在答
 
 # rubric 一改，分数口径就变，跨版本的绝对分与分差都不可比。版本号入收据 +
 # 聚合时同版校验，比「记得别混用」可靠。改判据必须提版本号。
-RUBRIC_VERSION = "v2-selfcontained"
+RUBRIC_VERSION = "v3-veto-split"
 
 # 判官 provider 的进程内句柄。放模块级是为了让 `judge_answer` 保持原签名——
 # 它被 `rejudge_quality_ablation.py` 当回调注入，加参数会打断那条链。
@@ -116,6 +117,18 @@ QUESTIONS: tuple[Question, ...] = (
     Question("theme-liquid-cooling", "液冷服务器这个题材现在处于什么阶段", "2026-07-22"),
 )
 
+# v1 原文逐字保留：跨版噪声底对照要拿它做对照臂，旧收据复现也要它。
+# 别删——删了「v2 更稳」就永远只能是推断。
+_JUDGE_SYSTEM_V1 = (
+    "你是金融研究答案的盲评审。你只看到问题和一份答案，不知道它出自哪个系统配置。"
+    "按五个维度各打 0-4 分（0=缺失或错误，1=严重不足，2=部分达标，3=基本完整，4=完全达标）：\n"
+    "directness=是否直接回答了问题；coverage=关键面是否覆盖（数据/证据/反面/验证点）；"
+    "relevance=内容是否切题不注水；truth_boundary=是否诚实标注数据边界与不确定性、无编造痕迹；"
+    "usefulness=对做研究决策的人是否可用。\n"
+    '严格输出 JSON：{"directness":0,"coverage":0,"relevance":0,"truth_boundary":0,'
+    '"usefulness":0,"justification":"一句话"}'
+)
+
 # rubric v2：把「展示深刻理解」式的抽象判断改成**可数、可核对**的锚点。
 #
 # 依据 ai-agent-book ch6「Rubric 四准则」（Scale AI *Rubrics as Rewards*）：
@@ -130,7 +143,7 @@ QUESTIONS: tuple[Question, ...] = (
 #
 # 另按 ch6「LLM-as-Judge 两大偏差」加了长度偏差防护（显式声明长度不是优点）。
 # 位置偏差本脚本原本就防了：评审顺序按种子洗牌。
-_JUDGE_SYSTEM = (
+_JUDGE_SYSTEM_V2 = (
     "你是金融研究答案的盲评审。你只看到问题和一份答案，不知道它出自哪个系统配置。\n"
     "评分前先在心里点数，再给分。**长度不是优点**：更长、更多小标题、更多套话都不加分；"
     "同等信息量下更短的答案不应低于更长的答案。\n\n"
@@ -157,6 +170,44 @@ _JUDGE_SYSTEM = (
     '{"directness":0,"coverage":0,"relevance":0,"truth_boundary":0,'
     '"usefulness":0,"pitfalls":[],"justification":"一句话，点名你数到的证据"}'
 )
+
+# rubric v3：把「一票否决」从**分数**里拿出来。
+#
+# 2026-08-31 实测证伪了 v2 的设计（收据 ~/.finance-runtime/rubric-variance-ab.json，
+# 5 题 × 3 次 × 同判官同答案，调用顺序交错）：v2 在 4/5 题上确实更紧
+# （极差 2 → 1/1/1/0），**但合并 sd 反而从 1.13 涨到 1.44**，被单独一道题拉爆——
+# `current-mainline` 三次打出 7/9/13，极差 6。
+#
+# 机制点得名：那是**唯一**一道被判 `hallucination` 的题。v2 给 truth_boundary 写了
+# 「出现任一即判 0（一票否决）」，于是判官对「算不算编造」摇摆时，
+# 这一维在 0 与 3 之间跳，总分跟着跳 4 分——**否决是阶跃函数，把一个二值判断的
+# 抖动放大成了分数抖动**。
+#
+# 书（ch6 准则 ③）说 rubric 支持 Veto，但书里的 Veto 用在**安全违规的通过/失败
+# 决定**上（零容忍），不是用在喂进 A/B 分差的连续分上。两者混在一起就是本例。
+# v3 的拆法：陷阱项照常检测并单列（决策层照用，出现即该拦住这份读数），
+# 但**不再改任何维度的分**；truth_boundary 回到自己的连续锚点。
+_JUDGE_SYSTEM_V3 = _JUDGE_SYSTEM_V2.replace(
+    "truth_boundary（数字与边界，**本维度是陷阱项**）：先数关键数字里有几个带来源或日期。"
+    "4=关键数字全部带来源或日期，且不确定处显式标注（如「截至 X 日」「尚未验证」）；"
+    "3=多数带，个别缺；2=约半数带；1=多数裸数字；"
+    "0=出现下列任一即判 0（一票否决）——数字无出处且与答案内其他陈述自相矛盾、"
+    "把推测写成既成事实、声称做过实际没做的检索。\n\n",
+    "truth_boundary（数字与边界）：只数关键数字里有几个带来源或日期。"
+    "4=全部带来源或日期，且不确定处显式标注（如「截至 X 日」「尚未验证」）；"
+    "3=多数带，个别缺；2=约半数带；1=多数裸数字；0=通篇无出处。"
+    "**本维度只按上面的比例给分**：即使你判定有编造，也不要因此改这一维的分——"
+    "把它写进 pitfalls 即可，那一项单独记录、不折进分数。\n\n",
+)
+assert _JUDGE_SYSTEM_V3 != _JUDGE_SYSTEM_V2, "v3 替换没生效：v2 原文已漂"
+
+# 版本 → prompt 的单一真本源。`RUBRIC_VERSION` 因此是个真的选择器，
+# 不只是贴在收据上的标签：跨版对照与旧收据复现都从这里取。
+JUDGE_SYSTEMS: dict[str, str] = {
+    "v1-abstract": _JUDGE_SYSTEM_V1,
+    "v2-selfcontained": _JUDGE_SYSTEM_V2,
+    "v3-veto-split": _JUDGE_SYSTEM_V3,
+}
 
 
 def _fail(msg: str) -> "SystemExit":
@@ -233,7 +284,9 @@ def run_ask(
     }
 
 
-def _parse_judge_payload(payload: object) -> dict[str, object] | None:
+def _parse_judge_payload(
+    payload: object, *, rubric_version: str = RUBRIC_VERSION
+) -> dict[str, object] | None:
     """严格解析五维打分；任何缺失/越界返回 None（调用方决定重试或记 unscored）。"""
 
     if not isinstance(payload, dict):
@@ -255,7 +308,7 @@ def _parse_judge_payload(payload: object) -> dict[str, object] | None:
     )
     return {
         "scored": True,
-        "rubric_version": RUBRIC_VERSION,
+        "rubric_version": rubric_version,
         "scores": scores,
         "total": sum(scores.values()),
         "normalized": round(sum(scores.values()) / 20.0, 4),
@@ -280,6 +333,25 @@ def provider_label(provider: object) -> str | None:
     if name and model:
         return f"{name}/{model}"
     return str(name or provider)
+
+
+def model_family(label: str | None) -> str:
+    """从 ``name/model`` 串里取**家族**，用于判断判官与合成是否偏见正交。
+
+    书（ch6 多源异构评判）要的是不同**家族**（「Agent 用 Claude 就用 GPT+Gemini 评」），
+    不是不同端点、也不是不同型号。中转网关会同时服务多个家族，所以：
+    - `zhipu/glm-5.3` vs `judge/gpt-5.6-sol` → glm vs gpt，**是异构**；
+    - `custom/gpt-5.6-terra` vs `custom-judge/gpt-5.6-sol` → 都是 gpt，**不是**。
+
+    取法：模型名去掉 provider 前缀后的第一个字母段。够用且可解释；
+    认不出来时返回原串（宁可判成同族而误拦，不要误放）。
+    """
+
+    if not label:
+        return ""
+    model = str(label).split("/", 1)[-1].strip().lower()
+    match = re.match(r"[a-z]+", model)
+    return match.group(0) if match else model
 
 
 def resolve_judge(*, require_independent: bool) -> dict[str, object]:
@@ -314,11 +386,18 @@ def resolve_judge(*, require_independent: bool) -> dict[str, object]:
     ):
         independence, reason = "correlated", "独立判官解析出的模型与合成模型同名"
     elif getattr(override, "transport", "") == "cli":
-        independence, reason = "independent", ""
+        independence, reason = "independent", "独立客户端（CLI），与 HTTP 合成链解耦"
+    elif model_family(composer_label) != model_family(judge_label):
+        # 书要的是**不同家族**（偏见正交），不是不同端点。同一个网关也能同时
+        # 服务 glm 与 gpt——2026-08-31 实测本机就是这个配置，而本函数初版只看
+        # transport，把它误判成 weak，等于用「机制」冒充「家族」。
+        independence, reason = "independent", (
+            f"跨模型家族：{model_family(composer_label)} vs {model_family(judge_label)}"
+        )
     else:
-        # 同网关不同模型名：书里的「次优但仍降低相关性」。不当成独立，
+        # 同家族不同型号：书里的「次优但仍降低相关性」。不当成独立，
         # 但也不拦——由调用方按 --judge-independence 决定。
-        independence, reason = "weak", "同端点不同模型：降低相关性但非异构家族"
+        independence, reason = "weak", "同家族不同型号：降低相关性但非异构家族"
 
     if require_independent and independence != "independent":
         raise _fail(
@@ -362,7 +441,13 @@ def deterministic_score(question: Question, answer: str) -> dict[str, object]:
     }
 
 
-def judge_answer(question: Question, answer: str, *, attempts: int = 2) -> dict[str, object]:
+def judge_answer(
+    question: Question,
+    answer: str,
+    *,
+    attempts: int = 2,
+    rubric_version: str = RUBRIC_VERSION,
+) -> dict[str, object]:
     """盲评一份答案；解析失败重试一次（带更硬的格式提示）。
 
     首轮实测：12k 字答案的评审输出偶发非 JSON，theme 题因此整题报废
@@ -388,7 +473,7 @@ def judge_answer(question: Question, answer: str, *, attempts: int = 2) -> dict[
                 "不要任何解释、markdown 围栏或其他文字。\n\n" + base_prompt
             )
         messages = [
-            {"role": "system", "content": _JUDGE_SYSTEM},
+            {"role": "system", "content": JUDGE_SYSTEMS[rubric_version]},
             {"role": "user", "content": prompt},
         ]
         # 走独立判官链（若已解析）。照抄仓内既有用法
@@ -406,7 +491,9 @@ def judge_answer(question: Question, answer: str, *, attempts: int = 2) -> dict[
         if content is None:
             # 无 key / 预算不足：重试同样会失败，直接放弃。
             return {"scored": False, "reason": reason, "attempts": attempt + 1}
-        parsed = _parse_judge_payload(llm_refine._extract_json(content))
+        parsed = _parse_judge_payload(
+            llm_refine._extract_json(content), rubric_version=rubric_version
+        )
         if parsed is not None:
             parsed["attempts"] = attempt + 1
             # 记下实际出分的 provider：跨轮补评时，「这一份是谁评的」是分差

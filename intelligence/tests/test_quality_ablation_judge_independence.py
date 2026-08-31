@@ -16,6 +16,7 @@ from __future__ import annotations
 import pytest
 
 from scripts.run_quality_ablation import (
+    JUDGE_SYSTEMS,
     RUBRIC_DIMENSIONS,
     RUBRIC_VERSION,
     Question,
@@ -23,6 +24,7 @@ from scripts.run_quality_ablation import (
     aggregate_components,
     deterministic_score,
     length_bias_audit,
+    model_family,
     resolve_judge,
 )
 
@@ -59,8 +61,8 @@ def test_未配独立判官时判成自己评自己(composer_env) -> None:
     assert info["composer"] == info["judge"], "合成与判官应被识别为同一个模型"
 
 
-def test_同网关不同模型名只算弱独立(composer_env) -> None:
-    """生产现状：`LLM_JUDGE_MODEL=gpt-5.6-sol`，与合成同家族同网关。
+def test_同家族不同型号只算弱独立(composer_env) -> None:
+    """生产现状：合成 gpt-5.6-terra、判官 gpt-5.6-sol——同家族。
 
     书里把这一档记作「次优但仍降低相关性」——它不是异构评判，
     不该被当成已解决。
@@ -70,7 +72,34 @@ def test_同网关不同模型名只算弱独立(composer_env) -> None:
     info = resolve_judge(require_independent=False)
 
     assert info["independence"] == "weak"
-    assert info["composer"] != info["judge"]
+    assert info["composer"] != info["judge"], "型号不同但仍同族"
+
+
+@pytest.mark.parametrize(
+    "composer, judge, same",
+    [
+        ("zhipu/glm-5.3", "judge/gpt-5.6-sol", False),
+        ("custom/gpt-5.6-terra", "custom-judge/gpt-5.6-sol", True),
+        ("zhipu/glm-5.3", "grok-cli-judge/grok-4.6", False),
+    ],
+)
+def test_家族按模型名判不按端点判(composer, judge, same) -> None:
+    """本函数初版只看 transport（cli/http），把同网关跨家族误判成 weak。
+
+    2026-08-31 实测本机就是那个配置：composer=zhipu/glm-5.3、judge=gpt-5.6-sol，
+    **是**异构，却被拦下。用「机制」冒充「家族」是这类判据的通病。
+    """
+
+    assert (model_family(composer) == model_family(judge)) is same
+
+
+def test_同网关跨家族算独立(composer_env) -> None:
+    composer_env.setenv("LLM_MODEL", "glm-5.3")
+    composer_env.setenv("LLM_JUDGE_MODEL", "gpt-5.6-sol")
+    info = resolve_judge(require_independent=False)
+
+    assert info["independence"] == "independent"
+    assert "glm" in str(info["reason"]) and "gpt" in str(info["reason"])
 
 
 def test_grok_cli_后端才算异构独立(composer_env) -> None:
@@ -238,3 +267,38 @@ def test_长度偏差审计样本不足时不编数() -> None:
 
     assert audit["measured"] is False
     assert "不足" in str(audit["reason"])
+
+
+# --------------------------------------------------- rubric 版本的实测依据
+
+
+def test_v3把一票否决从分数里拿出来() -> None:
+    """钉住 2026-08-31 的实测结论（收据 ~/.finance-runtime/rubric-variance-ab-v3.json）。
+
+    5 题 × 3 次 × 同判官同答案、调用顺序交错，合并 sd：
+        v1 抽象判据            1.24   各题极差 [1,3,3,3,1]
+        v2 可数锚点 + 一票否决  1.71   各题极差 [4,1,2,6,0]   ← 反而更差
+        v3 可数锚点 + 否决拆出  0.77   各题极差 [2,1,1,2,1]
+
+    v2 变差的机制点得名且两轮复现：`current-mainline` 是**唯一**被判
+    hallucination 的题，也是**唯一**炸到极差 6 的题。「一票否决」是阶跃函数——
+    判官对「算不算编造」摇摆时，truth_boundary 在 0 与 3 之间跳，总分跟着跳 4 分。
+
+    v3 拆开后 hallucination 反而在 3 道题上都报了（检测器与惩罚脱钩，判官更敢报），
+    极差却全部收进 2 以内。**陷阱项要留在决策层，不要折进喂给 A/B 的连续分。**
+    """
+
+    v2 = JUDGE_SYSTEMS["v2-selfcontained"]
+    v3 = JUDGE_SYSTEMS["v3-veto-split"]
+
+    assert "一票否决" in v2, "v2 是历史版本，内容不可变（跨版对照要拿它当对照臂）"
+    assert "一票否决" not in v3
+    assert "不要因此改这一维的分" in v3, "v3 必须显式告诉判官：判定编造不改分"
+    assert "pitfalls" in v3, "陷阱项仍要检测，只是不折进分数"
+
+
+def test_默认版本就是实测最稳的那版() -> None:
+    """默认值要跟着证据走，不是跟着「最新写的」走。"""
+
+    assert RUBRIC_VERSION == "v3-veto-split"
+    assert RUBRIC_VERSION in JUDGE_SYSTEMS
