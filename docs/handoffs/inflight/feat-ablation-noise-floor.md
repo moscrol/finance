@@ -1,7 +1,10 @@
 # feat/ablation-noise-floor
 
-树 `/Users/a77/fwp-wt-ablation-noise-floor`，基于 `gitea/main@19c77a16`。
-**未合 main、未推、未动 8792/8796/8802。**
+**已合 main。** #521 → `d31d2197`，#522 → `fb17879a`（含补洞 `1e4df572`）。
+**未切 8792/8796/8802。** 收口 `docs/handoffs/2026-09-01-ablation-521-522-closeout.md`。
+
+树 `/Users/a77/fwp-wt-ablation-noise-floor`，原基于 `gitea/main@19c77a16`。
+下文是合入前的在途稿，数字以收口为准。
 
 ## 这个分支做什么
 
