@@ -80,11 +80,11 @@ A2 墙钟 p50=78.3s（三铲），单铲大约 16–40s。3×40s 必然撑破 90
 
 ## 验收
 
-- [ ] 改前 / 改后都有五段墙钟 JSON，题与 as_of 与 #19 相同。
-- [ ] 改后单次 hybrid p50 ≤25s（预热后）。
-- [ ] 90s L0 可用 ≥4；收据里 A2 无 `budget_exhausted` 的题数写进报告。
-- [ ] 人为把索引 `built_at` 或源文件改到 stale 时，`require_fresh` 仍不把过期命中当正式证据（阳性对照）。
-- [ ] 未设加速相关 env 时既有 `test_closed_loop_retrieval` 与 kb_rag 相关单测绿。
+- [x] 改前 / 改后都有五段墙钟 JSON，题与 as_of 与 #19 相同。
+- [x] 改后单次 hybrid p50 ≤25s（预热后）。
+- [x] 90s L0 可用 ≥4；收据里 A2 无 `budget_exhausted` 的题数写进报告。
+- [x] 人为把索引 `built_at` 或源文件改到 stale 时，`require_fresh` 仍不把过期命中当正式证据（阳性对照）。
+- [x] 未设加速相关 env 时既有 `test_closed_loop_retrieval` 与 kb_rag 相关单测绿。
 - [ ] 台账已登记；分支已推；两仓都不合 main；pathspec 提交。
 
 ## 红线

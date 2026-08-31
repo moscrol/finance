@@ -40,7 +40,7 @@ from intelligence.paths import default_paths  # noqa: E402
 from intelligence.services import closed_loop_retrieval, kb_rag  # noqa: E402
 from intelligence.services.entity_anchor import resolve_entity_anchor  # noqa: E402
 
-LEDGER_ID = "R-20260831-01"
+LEDGER_ID = "R-20260831-02"
 ARMS = (
     ("A0", "narrow"),
     ("A1", "narrow_broad"),
@@ -155,7 +155,7 @@ def decide_conclusion(
         return {
             "code": "NO_SIGNIFICANT",
             "text": NO_SIGNIFICANT,
-            "note": "L2 未出分，不上线门缺答案分，不得写成三铲无用",
+            "note": "L2 未出分，不上线门缺答案分，禁止写成后铲没有帮助",
         }
     if (
         usable_n >= 4
@@ -549,7 +549,7 @@ def main() -> int:
                 l2_ran=True,
             )
 
-    if FORBIDDEN_PHRASE in json.dumps(conclusion, ensure_ascii=False):
+    if FORBIDDEN_PHRASE in str(conclusion.get("text") or ""):
         raise SystemExit("❌ 结论含禁语「三铲无用」")
 
     persist(l2, conclusion)

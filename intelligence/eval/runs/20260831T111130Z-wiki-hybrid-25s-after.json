@@ -1,0 +1,127 @@
+{
+  "ledger_id": "R-20260831-02",
+  "label": "after",
+  "as_of": "2026-08-28",
+  "prewarm_s": 42.4,
+  "mode": "hybrid",
+  "require_fresh": true,
+  "index_dir": "/Users/a77/knowledge-base-private/.rag_index",
+  "questions": [
+    {
+      "id": "theme-liquid-cooling",
+      "query": "液冷服务器现在处于什么阶段",
+      "ok": true,
+      "n_hits": 6,
+      "warning": "",
+      "index_freshness": "fresh",
+      "load": 0.0,
+      "freshness": 0.22,
+      "encode": 0.257,
+      "search": 11.931,
+      "total": 12.425,
+      "retrieve_latency_ms": 12415
+    },
+    {
+      "id": "shenling-order",
+      "query": "申菱环境液冷订单落地了没有",
+      "ok": true,
+      "n_hits": 6,
+      "warning": "",
+      "index_freshness": "fresh",
+      "load": 0.0,
+      "freshness": 1.672,
+      "encode": 0.434,
+      "search": 15.007,
+      "total": 17.139,
+      "retrieve_latency_ms": 17122
+    },
+    {
+      "id": "invic-piping",
+      "query": "英维克和液冷管路的关系",
+      "ok": true,
+      "n_hits": 6,
+      "warning": "",
+      "index_freshness": "fresh",
+      "load": 0.0,
+      "freshness": 0.246,
+      "encode": 0.588,
+      "search": 12.432,
+      "total": 13.284,
+      "retrieve_latency_ms": 13271
+    },
+    {
+      "id": "glass-vs-ceramic",
+      "query": "玻璃基板和陶瓷基板的区别",
+      "ok": true,
+      "n_hits": 6,
+      "warning": "",
+      "index_freshness": "fresh",
+      "load": 0.0,
+      "freshness": 0.245,
+      "encode": 0.51,
+      "search": 11.618,
+      "total": 12.402,
+      "retrieve_latency_ms": 12380
+    },
+    {
+      "id": "star50-support",
+      "query": "科创50支撑位在哪",
+      "ok": true,
+      "n_hits": 6,
+      "warning": "",
+      "index_freshness": "fresh",
+      "load": 0.0,
+      "freshness": 0.246,
+      "encode": 0.462,
+      "search": 6.105,
+      "total": 6.832,
+      "retrieve_latency_ms": 6818
+    },
+    {
+      "id": "zhongji-16t",
+      "query": "中际旭创和1.6T光模块的关系",
+      "ok": true,
+      "n_hits": 6,
+      "warning": "",
+      "index_freshness": "fresh",
+      "load": 0.0,
+      "freshness": 0.241,
+      "encode": 0.292,
+      "search": 17.8,
+      "total": 18.356,
+      "retrieve_latency_ms": 18341
+    }
+  ],
+  "summary": {
+    "load": {
+      "p50": 0.0,
+      "p95": 0.0,
+      "mean": 0.0,
+      "max": 0.0
+    },
+    "freshness": {
+      "p50": 0.245,
+      "p95": 1.672,
+      "mean": 0.478,
+      "max": 1.672
+    },
+    "encode": {
+      "p50": 0.448,
+      "p95": 0.588,
+      "mean": 0.424,
+      "max": 0.588
+    },
+    "search": {
+      "p50": 12.181,
+      "p95": 17.8,
+      "mean": 12.482,
+      "max": 17.8
+    },
+    "total": {
+      "p50": 12.855,
+      "p95": 18.356,
+      "mean": 13.406,
+      "max": 18.356
+    }
+  }
+}

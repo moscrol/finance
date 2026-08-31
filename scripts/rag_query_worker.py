@@ -11,7 +11,41 @@ import json
 import os
 import sys
 import hashlib
+import time
 from pathlib import Path
+
+INDEX_SIGNATURE_FILES = ("dense.npy", "meta.json", "chunks.jsonl")
+
+
+class IndexReuseCache:
+    """按索引落盘 mtime 复用已 load 的 store；文件变了必须重载。
+
+    不缓存 freshness verdict：query 热路径仍每次 ``freshness_report``。
+    """
+
+    def __init__(self, index_dir: Path) -> None:
+        self.index_dir = Path(index_dir)
+        self.store: object | None = None
+        self.signature: tuple[object, ...] | None = None
+
+    def signature_now(self, index_dir: Path | None = None) -> tuple[object, ...]:
+        target = Path(index_dir) if index_dir is not None else self.index_dir
+        stamps: list[object] = [str(target.resolve())]
+        for name in INDEX_SIGNATURE_FILES:
+            path = target / name
+            try:
+                stamps.append(path.stat().st_mtime_ns)
+            except OSError:
+                stamps.append(-1)
+        return tuple(stamps)
+
+    def get(self, loader, index_dir: Path | None = None):
+        signature = self.signature_now(index_dir)
+        if self.store is not None and self.signature == signature:
+            return self.store, False
+        self.store = loader()
+        self.signature = signature
+        return self.store, True
 
 
 def main() -> int:
@@ -77,6 +111,16 @@ def main() -> int:
         return retriever
 
     module._load_retriever = cached_loader
+
+    def on_store_reload() -> None:
+        loader_cache.clear()
+        state["retriever"] = None
+        state["chunks"] = {}
+        state["revision"] = ""
+        state["freshness"] = "unknown"
+
+    _install_store_reuse(module, Path(args.index_dir), on_store_reload)
+    dump_phases = _install_phase_hooks(module)
     for line in sys.stdin:
         try:
             request = json.loads(line)
@@ -91,6 +135,7 @@ def main() -> int:
                     returncode = int(module.main(argv))
                 except SystemExit as exc:
                     returncode = int(exc.code or 0)
+            dump_phases()
             output = stdout.getvalue()
             if returncode == 0 and argv and argv[0] == "query":
                 output = _enrich_query_output(output, state)
@@ -113,6 +158,97 @@ def main() -> int:
     return 0
 
 
+def _install_store_reuse(module, index_dir: Path, on_reload) -> IndexReuseCache | None:
+    """cmd_query 每次 RagStore.load 走同一具热 store；索引 mtime 变了才重载。"""
+
+    rag_store = getattr(module, "rag_store", None)
+    store_cls = getattr(rag_store, "RagStore", None) if rag_store is not None else None
+    if store_cls is None or not hasattr(store_cls, "load"):
+        return None
+    cache = IndexReuseCache(index_dir)
+    orig_load = store_cls.load
+
+    def cached_load(*args, **kwargs):
+        in_dir = kwargs.get("in_dir")
+        if in_dir is None and args:
+            in_dir = args[0]
+        store, reloaded = cache.get(
+            lambda: orig_load(*args, **kwargs),
+            index_dir=Path(in_dir) if in_dir is not None else None,
+        )
+        if reloaded:
+            on_reload()
+        return store
+
+    store_cls.load = cached_load
+    return cache
+
+
+def _install_phase_hooks(module):
+    """可选五段计时：仅当 ``RAG_PROFILE_PATH`` 有值时挂钩，写完即清。
+
+    默认不装、不写盘，避免影响生产 stderr / 单测假 CLI。分段对齐工单
+    load / freshness / encode / search；合计由调用方用 ``kb_rag.retrieve`` 墙钟报。
+    """
+
+    path = os.environ.get("RAG_PROFILE_PATH", "").strip()
+    if not path:
+        return lambda: None
+    rag_store = getattr(module, "rag_store", None)
+    retriever_cls = getattr(module, "Retriever", None)
+    if rag_store is None or retriever_cls is None:
+        return lambda: None
+    phases: dict[str, float] = {}
+    orig_load = rag_store.RagStore.load
+    orig_fresh = rag_store.RagStore.freshness_report
+    orig_encode = retriever_cls.encode_query
+    orig_search = retriever_cls.search
+
+    def timed_load(*args, **kwargs):
+        started = time.perf_counter()
+        store = orig_load(*args, **kwargs)
+        phases["load"] = time.perf_counter() - started
+        return store
+
+    def timed_fresh(self, *fresh_args, **fresh_kwargs):
+        started = time.perf_counter()
+        report = orig_fresh(self, *fresh_args, **fresh_kwargs)
+        phases["freshness"] = time.perf_counter() - started
+        return report
+
+    def timed_encode(self, query):
+        started = time.perf_counter()
+        vector = orig_encode(self, query)
+        phases["encode"] = phases.get("encode", 0.0) + (time.perf_counter() - started)
+        return vector
+
+    def timed_search(self, query, k=6, mode="hybrid", qvec=None):
+        encode_before = phases.get("encode", 0.0)
+        started = time.perf_counter()
+        hits = orig_search(self, query, k=k, mode=mode, qvec=qvec)
+        wall = time.perf_counter() - started
+        encode_delta = phases.get("encode", 0.0) - encode_before
+        phases["search"] = wall - encode_delta
+        return hits
+
+    rag_store.RagStore.load = timed_load
+    rag_store.RagStore.freshness_report = timed_fresh
+    retriever_cls.encode_query = timed_encode
+    retriever_cls.search = timed_search
+
+    def dump() -> None:
+        payload = {
+            "load": round(phases.get("load", 0.0), 4),
+            "freshness": round(phases.get("freshness", 0.0), 4),
+            "encode": round(phases.get("encode", 0.0), 4),
+            "search": round(phases.get("search", 0.0), 4),
+        }
+        Path(path).write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        phases.clear()
+
+    return dump
+
+
 def _enrich_query_output(output: str, state: dict[str, object]) -> str:
     rows = json.loads(output or "[]")
     if not isinstance(rows, list):
@@ -129,6 +265,9 @@ def _enrich_query_output(output: str, state: dict[str, object]) -> str:
         if not isinstance(chunk, dict):
             continue
         text = str(chunk.get("text") or row.get("snippet") or "")
+        # CLI 的 freshness_report 是本轮事实源。预热时 stale_report 写进
+        # state["freshness"] 不能盖掉本轮 stale——否则 require_fresh 会把过期命中当正式证据。
+        cli_freshness = str(row.get("index_freshness") or "").strip()
         row.update(
             {
                 "section": str(chunk.get("section") or ""),
@@ -138,7 +277,7 @@ def _enrich_query_output(output: str, state: dict[str, object]) -> str:
                 "evidence_chunk_ids": [str(chunk.get("id") or "")],
                 "index_built_at": built_at,
                 "index_source_revision": str(state.get("revision") or ""),
-                "index_freshness": str(state.get("freshness") or "unknown"),
+                "index_freshness": cli_freshness or str(state.get("freshness") or "unknown"),
             }
         )
     return json.dumps(rows, ensure_ascii=False)
