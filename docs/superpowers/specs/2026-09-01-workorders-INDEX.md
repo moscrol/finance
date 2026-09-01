@@ -4,4 +4,4 @@
 
 | # | 工单 | 优先级 | 主仓 | 一句话 |
 |---|------|--------|------|--------|
-| 20 | `2026-09-01-episode-budget-grant-workorder.md` | **P0** | 金融 | ⏳ **P0 提交中**：零授权 `detail=not_dispatched` + allowlist 集成测试 + 台账改符号。P0.1 带实授值。P1 挂起。分支 `fix/tool-not-dispatched-detail`。 |
+| 20 | `2026-09-01-episode-budget-grant-workorder.md` | **P0** | 金融 | ⏳ **P0 已提交** `6984d101`。P0.1 实授值 detail。P1 挂起。分支 `fix/tool-not-dispatched-detail`。 |

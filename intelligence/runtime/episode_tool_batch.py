@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from concurrent.futures import (
     FIRST_COMPLETED,
@@ -41,10 +42,24 @@ _TOOL_CALL_STATUSES = frozenset({"success", "empty", "rejected", "timeout", "err
 MAX_BATCH_TOOL_CALLS = 4
 MAX_GLOBAL_TOOL_WORKERS = 8
 DEFAULT_TOOL_BATCH_TIMEOUT_SECONDS = 30.0
-# 授权额 ≤0 时不进线程池。error 仍是 tool_timeout（R-20260816-13 时间闸词表），
-# detail 把「没派发」和「真跑了再超时」分开。allowlist 见
-# agent_episode._public_timeout_detail。
-NOT_DISPATCHED_DETAIL = "not_dispatched: stage_timeout_granted=0"
+# 时间闸（含授权额 ≤0 未派发、真跑了再超时）共用 error=tool_timeout。
+# detail 只允许实授值本身，见 stage_timeout_granted_detail。
+STAGE_TIMEOUT_GRANTED_DETAIL_RE = re.compile(
+    r"^stage_timeout_granted=\d+(\.\d+)?$"
+)
+
+
+def stage_timeout_granted_detail(granted: float) -> str:
+    """Public timeout detail: the grant, not a raw exception."""
+
+    value = max(0.0, float(granted))
+    if value == 0.0:
+        text = "0"
+    else:
+        text = format(value, ".9f").rstrip("0").rstrip(".")
+        if not text:
+            text = "0"
+    return f"stage_timeout_granted={text}"
 
 
 def tool_batch_timeout_seconds(policy: ResearchPolicy | None = None) -> float:
@@ -419,7 +434,6 @@ class EpisodeToolBatchSession:
                     candidate.call,
                     "timeout",
                     error="tool_timeout",
-                    detail=NOT_DISPATCHED_DETAIL,
                     step_id=step_ids[candidate.index],
                 )
             return self._result(
@@ -490,14 +504,21 @@ class EpisodeToolBatchSession:
     ) -> ToolBatchResult:
         if any(item is None for item in items):
             raise RuntimeError("tool batch did not produce one result per call")
-        stamped = tuple(
-            replace(cast(ToolCallResult, item), dispatch_clock=clock)
-            if clock is not None
-            else cast(ToolCallResult, item)
-            for item in items
-        )
+        stamped = []
+        for item in items:
+            current = cast(ToolCallResult, item)
+            if clock is not None:
+                current = replace(current, dispatch_clock=clock)
+                if current.status == "timeout":
+                    current = replace(
+                        current,
+                        detail=stage_timeout_granted_detail(
+                            clock.stage_timeout_granted
+                        ),
+                    )
+            stamped.append(current)
         return ToolBatchResult(
-            items=stamped,
+            items=tuple(stamped),
             executed_count=executed_count,
             normalized_queries=normalized_queries,
         )

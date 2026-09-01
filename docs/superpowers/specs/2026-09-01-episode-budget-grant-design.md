@@ -1,7 +1,7 @@
 # 设计：Episode 工具授权额与假超时（2026-09-01）
 
 日期：2026-09-01
-状态：P0 提交中（含 allowlist 集成测试 + 台账改符号）。P0.1 下一刀。P1 挂起。
+状态：P0 已提交（`6984d101`）。P0.1 本刀。P1 挂起。
 工单：`docs/superpowers/specs/2026-09-01-episode-budget-grant-workorder.md`
 证据：`docs/verification/2026-09-01-finance-base-shape-alignment.md`（尝试 4 更正）+ `finance-base-ab/out/attempt-4-aligned/budget-chain.json`
 
@@ -26,8 +26,8 @@ standard 档把启动器 300s 截成 90，再冻住 60s synthesis reserve，研�
 **P0（本提交，不改任何秒数）**  
 零授权仍用时间闸词表 `error=tool_timeout`。`detail=not_dispatched: stage_timeout_granted=0`。真 `TimeoutError` 的 `detail` 经 allowlist 清空。集成测试：带 raw detail 的 timeout 结果过 accumulator，模型消息无异常原文。`R-20260816-13` 定位改符号，不再钉行号。
 
-**P0.1（下一刀，零 LLM、不动秒数）**  
-`detail` 带实授值 `stage_timeout_granted=<granted>`（零就是 `=0`）。allowlist 改为正则。覆盖「授权 11.5s 仍超时」那一半。clock 已在 `_result` 盖到每个 item 上。
+**P0.1（本刀，零 LLM、不动秒数）**  
+`detail` 带实授值 `stage_timeout_granted=<granted>`（零就是 `=0`）。allowlist 为正则 `^stage_timeout_granted=\d+(\.\d+)?$`。consume 优先读 clock；`_result` 给所有 timeout 项盖同一字符串。覆盖「授权 11.5s 仍超时」那一半。
 
 **P1（挂起）**  
 不要补一行 `synthesis_reserve -=`。该拍的是「reserve 不可侵犯 vs 工具有地板」二选一。拍之前先从现有 episode 日志离线量 finalize 时长分布，不用烧配额。量到之前不动公式。

@@ -28,9 +28,9 @@
 
 ## 目标
 
-1. P0：授权额 ≤0 的工具结果，模型可见 `detail=not_dispatched: stage_timeout_granted=0`，`error` 仍是 `tool_timeout`。真 `TimeoutError` 的 `detail` 仍空。allowlist 有 **consume 链路**集成测试（带 raw detail 的 timeout 结果），不只靠上游不填。
+1. P0：授权额 ≤0 的工具结果，`error` 仍是 `tool_timeout`。真 `TimeoutError` 的 raw detail 经 allowlist 清空。allowlist 有 consume 链路集成测试。
 2. `R-20260816-13` 定位改符号，不钉行号。
-3. P0.1（本提交之后）：`detail` 带实授值，覆盖授权 >0 仍超时的那一半。
+3. P0.1：`detail` 带实授值 `stage_timeout_granted=<granted>`，覆盖授权 >0 仍超时的那一半。
 4. P1 挂起：不动公式。不要零授权 fail-closed（repair 还会铸窗）。
 
 ## 非目标（写死认领，别顺手做）
@@ -64,15 +64,15 @@
 ## 步骤
 
 1. 开工三连：`git status --short && git branch --show-current && git worktree list`。他人足迹则另开树。本单树：`/Users/a77/fwp-wt-tool-not-dispatched`，分支 `fix/tool-not-dispatched-detail`，基座 `gitea/main@18bf518b`。
-2. P0 改两处：`episode_tool_batch.py` 零授权填 `NOT_DISPATCHED_DETAIL`；`agent_episode.py` 用 `_public_timeout_detail` allowlist，禁止再对所有 timeout 清空 detail。
+2. P0 改两处：零授权走时间闸 `tool_timeout`；`_public_timeout_detail` allowlist 接到 consume。P0.1：`_result` 与 consume 用 `stage_timeout_granted_detail`。
 3. 测试：批零授权 detail；allowlist 单测；episode 零授权回灌；**accumulator 带 raw detail 的 timeout 过 consume**。`test_r13_frozen_*` 的 error 序列不得改。
 4. 跑：`env -u ASK_TOOL_BATCH_TIMEOUT /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest intelligence/tests/test_episode_tool_batch.py intelligence/tests/test_agent_episode.py -q --tb=short`（cwd=本 worktree）。要两个文件全跑，不是点名 3 条。
 5. 提交用 pathspec，不合 main，不切 8792。P0.1 另提交。P1 不动。
 
 ## 验收
 
-- [x] 零授权：`error=tool_timeout` 且 `detail=not_dispatched: stage_timeout_granted=0`；runner 调用次数 0。
-- [x] 真 `TimeoutError`：模型消息无异常原文（含 accumulator 注入 raw detail 的那条）。
+- [x] 零授权：`error=tool_timeout` 且 `detail=stage_timeout_granted=0`；runner 调用次数 0。
+- [x] 真超时（授权 >0）：模型可见 `detail=stage_timeout_granted=<granted>`，无异常原文。
 - [x] R-13 冻结夹具 error 序列仍是 4×`tool_timeout` + 1×`tool_budget_exhausted`。
 - [x] R-13 台账定位改符号，不钉行号。
 - [x] diff 不含 T / `_REPAIR_SECONDS_CAP` / 档位 / `_BALANCED_SYNTHESIS_RESERVE` / `ASK_TOOL_BATCH_TIMEOUT`。

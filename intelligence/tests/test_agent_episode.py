@@ -17,9 +17,10 @@ from intelligence.runtime.agent_episode import (
     _public_tool_exception_detail,
 )
 from intelligence.runtime.episode_tool_batch import (
-    NOT_DISPATCHED_DETAIL,
     ToolBatchResult,
     ToolCallResult,
+    ToolDispatchClock,
+    stage_timeout_granted_detail,
 )
 from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
@@ -2658,7 +2659,13 @@ def test_public_tool_exception_detail_keeps_class_and_first_line() -> None:
 def test_public_timeout_detail_is_allowlisted() -> None:
     assert _public_timeout_detail("") == ""
     assert _public_timeout_detail("TimeoutError: RAW_TIMEOUT_EXCEPTION_SENTINEL") == ""
-    assert _public_timeout_detail(NOT_DISPATCHED_DETAIL) == NOT_DISPATCHED_DETAIL
+    assert _public_timeout_detail("not_dispatched: stage_timeout_granted=0") == ""
+    assert _public_timeout_detail("stage_timeout_granted=1e-3") == ""
+    assert _public_timeout_detail("stage_timeout_granted=0") == "stage_timeout_granted=0"
+    assert (
+        _public_timeout_detail("stage_timeout_granted=11.5")
+        == "stage_timeout_granted=11.5"
+    )
 
 
 def test_accumulator_strips_raw_timeout_detail_before_the_model() -> None:
@@ -2705,6 +2712,52 @@ def test_accumulator_strips_raw_timeout_detail_before_the_model() -> None:
     assert sentinel not in blob
 
 
+def test_accumulator_forwards_positive_grant_to_the_model() -> None:
+    """授权 >0 仍超时的那一半：模型必须看见实授值，不是空 detail。"""
+
+    from datetime import date as _date
+
+    from intelligence.runtime.agent_episode import (
+        _EpisodeLedger,
+        _EpisodeToolAccumulator,
+    )
+    from intelligence.services.evidence_ledger import EvidenceLedger
+
+    sentinel = "TimeoutError: RAW_TIMEOUT_EXCEPTION_SENTINEL"
+    frame = _frame()
+    messages: list[dict[str, object]] = []
+    accumulator = _EpisodeToolAccumulator(
+        messages=messages,
+        ledger=_EpisodeLedger(frame),
+        evidence_ledger=EvidenceLedger(information_cutoff=_date(2026, 7, 23)),
+    )
+    clock = ToolDispatchClock(
+        batch_grant_asked=30.0,
+        stage_timeout_granted=11.5,
+        episode_remaining_at_dispatch=71.5,
+        remaining_slots_at_dispatch=4,
+    )
+    batch = ToolBatchResult(
+        items=(
+            ToolCallResult(
+                ModelToolCall("c1", "kb_search", {"query": "x"}),
+                "timeout",
+                error="tool_timeout",
+                detail=sentinel,
+                dispatch_clock=clock,
+            ),
+        ),
+        executed_count=0,
+        normalized_queries=(),
+    )
+    accumulator.consume(batch, _context(frame))
+    payload = json.loads(str(messages[-1]["content"]))
+    blob = json.dumps({"messages": messages}, ensure_ascii=False)
+    assert payload["error"] == "tool_timeout"
+    assert payload["detail"] == "stage_timeout_granted=11.5"
+    assert sentinel not in blob
+
+
 def test_zero_grant_timeout_tells_model_it_was_not_dispatched() -> None:
     runner_calls = 0
 
@@ -2746,8 +2799,8 @@ def test_zero_grant_timeout_tells_model_it_was_not_dispatched() -> None:
     ]
     assert tool_messages, outcome.stop_reason
     assert tool_messages[0]["error"] == "tool_timeout"
-    assert tool_messages[0]["detail"] == NOT_DISPATCHED_DETAIL
-    assert "not_dispatched" in json.dumps(outcome.to_dict(), ensure_ascii=False)
+    assert tool_messages[0]["detail"] == stage_timeout_granted_detail(0.0)
+    assert "stage_timeout_granted=0" in json.dumps(outcome.to_dict(), ensure_ascii=False)
 
 
 def test_tool_timeout_uses_public_error_code_without_raw_exception_detail() -> None:
