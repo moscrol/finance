@@ -13,7 +13,13 @@ import intelligence.runtime.episode_tool_batch as episode_tool_batch_module
 import intelligence.services.research_contract as research_contract_module
 from intelligence.runtime.agent_episode import (
     ContinuousAgentEpisode,
+    _public_timeout_detail,
     _public_tool_exception_detail,
+)
+from intelligence.runtime.episode_tool_batch import (
+    NOT_DISPATCHED_DETAIL,
+    ToolBatchResult,
+    ToolCallResult,
 )
 from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
@@ -2647,6 +2653,101 @@ def test_public_tool_exception_detail_keeps_class_and_first_line() -> None:
     assert "/Users/" not in _public_tool_exception_detail(
         "OSError: [Errno 2] /Users/a77/.finance-runtime/db\nTRACE"  # path-literal-ok: redaction fixture
     )
+
+
+def test_public_timeout_detail_is_allowlisted() -> None:
+    assert _public_timeout_detail("") == ""
+    assert _public_timeout_detail("TimeoutError: RAW_TIMEOUT_EXCEPTION_SENTINEL") == ""
+    assert _public_timeout_detail(NOT_DISPATCHED_DETAIL) == NOT_DISPATCHED_DETAIL
+
+
+def test_accumulator_strips_raw_timeout_detail_before_the_model() -> None:
+    """Allowlist 必须接在 consume 链路上，不能只靠上游不填 detail。
+
+    真超时的两个 ``_dispatch`` 分支今天不传 detail，所以把 allowlist 改成直通
+    时 ``test_tool_timeout_uses_public_error_code_without_raw_exception_detail``
+    仍绿。本条把带原文的 timeout 结果直接送进 accumulator。
+    """
+
+    from datetime import date as _date
+
+    from intelligence.runtime.agent_episode import (
+        _EpisodeLedger,
+        _EpisodeToolAccumulator,
+    )
+    from intelligence.services.evidence_ledger import EvidenceLedger
+
+    sentinel = "TimeoutError: RAW_TIMEOUT_EXCEPTION_SENTINEL"
+    frame = _frame()
+    messages: list[dict[str, object]] = []
+    accumulator = _EpisodeToolAccumulator(
+        messages=messages,
+        ledger=_EpisodeLedger(frame),
+        evidence_ledger=EvidenceLedger(information_cutoff=_date(2026, 7, 23)),
+    )
+    batch = ToolBatchResult(
+        items=(
+            ToolCallResult(
+                ModelToolCall("c1", "market_data", {"query": "x"}),
+                "timeout",
+                error="tool_timeout",
+                detail=sentinel,
+            ),
+        ),
+        executed_count=0,
+        normalized_queries=(),
+    )
+    accumulator.consume(batch, _context(frame))
+    payload = json.loads(str(messages[-1]["content"]))
+    blob = json.dumps({"messages": messages}, ensure_ascii=False)
+    assert payload["error"] == "tool_timeout"
+    assert payload["detail"] == ""
+    assert sentinel not in blob
+
+
+def test_zero_grant_timeout_tells_model_it_was_not_dispatched() -> None:
+    runner_calls = 0
+
+    def runner(query: str, _context: AgentToolContext):
+        del query, _context
+        nonlocal runner_calls
+        runner_calls += 1
+        raise AssertionError("zero-grant must not enter the runner")
+
+    frame = _frame()
+    context = replace(
+        _context(frame),
+        deadline=ResearchDeadline.from_timeout(5.0, synthesis_reserve=60.0),
+        policy=ResearchPolicy("standard", 6, 90.0, 60.0),
+    )
+    model = ScriptedModel(
+        [
+            _tool_turn("A股 最新行情"),
+            _finish_turn(
+                status="partial",
+                draft="工具窗口已关，本轮只能报告证据缺口。",
+                hashes=(),
+                gap="行情工具未派发",
+            ),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=context,
+        registry=_market_registry(runner),
+    )
+
+    assert runner_calls == 0
+    tool_messages = [
+        json.loads(message["content"])
+        for message in model.calls[1]["messages"]
+        if message.get("role") == "tool"
+    ]
+    assert tool_messages, outcome.stop_reason
+    assert tool_messages[0]["error"] == "tool_timeout"
+    assert tool_messages[0]["detail"] == NOT_DISPATCHED_DETAIL
+    assert "not_dispatched" in json.dumps(outcome.to_dict(), ensure_ascii=False)
 
 
 def test_tool_timeout_uses_public_error_code_without_raw_exception_detail() -> None:

@@ -15,6 +15,7 @@ from intelligence.runtime import episode_tool_batch
 from intelligence.services import agent_research, query_ledger
 from intelligence.services.agent_runtime import ModelToolCall
 from intelligence.runtime.episode_tool_batch import (
+    NOT_DISPATCHED_DETAIL,
     ToolBatchExecutor,
     ToolCallResult,
     tool_batch_timeout_seconds,
@@ -1728,6 +1729,7 @@ def test_expired_standard_batch_stamps_time_gate_clock_without_running_tools() -
     assert runner_calls == 0
     assert result.executed_count == 0
     assert [item.error for item in result.items] == ["tool_timeout"] * 4
+    assert [item.detail for item in result.items] == [NOT_DISPATCHED_DETAIL] * 4
     for item in result.items:
         clock = _clock_payload(item)
         assert set(_DISPATCH_CLOCK_KEYS) <= set(clock)

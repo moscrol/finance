@@ -41,6 +41,10 @@ _TOOL_CALL_STATUSES = frozenset({"success", "empty", "rejected", "timeout", "err
 MAX_BATCH_TOOL_CALLS = 4
 MAX_GLOBAL_TOOL_WORKERS = 8
 DEFAULT_TOOL_BATCH_TIMEOUT_SECONDS = 30.0
+# 授权额 ≤0 时不进线程池。error 仍是 tool_timeout（R-20260816-13 时间闸词表），
+# detail 把「没派发」和「真跑了再超时」分开。allowlist 见
+# agent_episode._public_timeout_detail。
+NOT_DISPATCHED_DETAIL = "not_dispatched: stage_timeout_granted=0"
 
 
 def tool_batch_timeout_seconds(policy: ResearchPolicy | None = None) -> float:
@@ -415,6 +419,7 @@ class EpisodeToolBatchSession:
                     candidate.call,
                     "timeout",
                     error="tool_timeout",
+                    detail=NOT_DISPATCHED_DETAIL,
                     step_id=step_ids[candidate.index],
                 )
             return self._result(

@@ -42,6 +42,7 @@ from intelligence.services.episode_protocol import (
 )
 from intelligence.runtime.episode_tool_batch import (
     EpisodeToolBatchSession,
+    NOT_DISPATCHED_DETAIL,
     ToolBatchExecutor,
     ToolBatchResult,
     ToolCallResult,
@@ -350,7 +351,8 @@ def _tool_dispatch_clock_payload(result: ToolCallResult) -> dict[str, object]:
 
     时间闸（``tool_timeout`` + ``stage_timeout_granted``≤0）和次数闸
     （``tool_budget_exhausted`` + ``remaining_slots_at_dispatch``）共用这份
-    快照，靠 error 码分闸。没测到的字段不写，避免把缺席伪装成 0。
+    快照，靠 error 码分闸。零授权与真超时共用 ``tool_timeout``，靠
+    ``detail=not_dispatched: …`` 分开。没测到的字段不写，避免把缺席伪装成 0。
     """
 
     clock = result.dispatch_clock
@@ -363,6 +365,16 @@ _ABS_PATH_RE = re.compile(
     r"(?:~|/Users|/home|/private/var|/var/folders)[^\s\"'，。]+"
 )
 _TOOL_EXCEPTION_DETAIL_LIMIT = 160
+
+
+_PUBLIC_TIMEOUT_DETAILS = frozenset({NOT_DISPATCHED_DETAIL})
+
+
+def _public_timeout_detail(raw: str) -> str:
+    """Allowlisted dispatch reason only; never a raw TimeoutError string."""
+
+    text = str(raw or "").strip()
+    return text if text in _PUBLIC_TIMEOUT_DETAILS else ""
 
 
 def _public_tool_exception_detail(raw: str) -> str:
@@ -435,7 +447,7 @@ class _EpisodeToolAccumulator:
                     "tool_timeout" if result.status == "timeout" else "tool_exception"
                 )
                 public_detail = (
-                    ""
+                    _public_timeout_detail(result.detail)
                     if result.status == "timeout"
                     else _public_tool_exception_detail(
                         result.detail or result.error
