@@ -208,3 +208,31 @@ def test_content_delta_rejects_symlinks() -> None:
                 repo / "wiki",
                 captured_at="2026-07-10T20:00:00+08:00",
             )
+
+
+def test_content_delta_excludes_raw_ingest_queue_artifacts() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = _repo(Path(tmp))
+        wiki = repo / "wiki"
+        (wiki / "modified.md").write_text("after\n", encoding="utf-8")
+        raw_dir = wiki / "raw" / "cross-repo-ingest-queue" / "reports"
+        raw_dir.mkdir(parents=True)
+        raw_report = raw_dir / "scout-20260901-190004.json"
+        raw_report.write_text("x" * 4096, encoding="utf-8")
+        raw_other = wiki / "raw" / "cninfo-baseline.json"
+        raw_other.write_text("y\n", encoding="utf-8")
+        timestamp = 1783677600
+        for path in (wiki / "modified.md", raw_report, raw_other):
+            os.utime(path, (timestamp, timestamp))
+
+        delta = build_content_delta(
+            wiki,
+            captured_at="2026-07-10T20:00:00+08:00",
+        )
+
+        assert [entry["path"] for entry in delta["entries"]] == [
+            "wiki/modified.md"
+        ]
+        assert not content_delta_errors(delta)
+        # 一致性校验必须双向一致：当前树同样排除 raw/，artifact_sha 才稳定
+        assert not content_delta_worktree_errors(wiki, delta)
