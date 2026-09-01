@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import sys
 import tarfile
 import tempfile
@@ -37,7 +38,14 @@ try:
 except IndexError:  # 脚本被复制到别处(如 /tmp)测试时, 退回当前目录, 靠 --db 显式指定
     REPO_ROOT = Path.cwd()
 DEFAULT_DB = REPO_ROOT / "db" / "market_feature_store.duckdb"
-DEFAULT_OUT = Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs" / "duckdb-snapshots"
+# 默认落 iCloud；手动补跑的会话若无 Full Disk Access（能新建、不能改写既有
+# iCloud 占位文件），可用 DUCKDB_SNAPSHOT_OUT_ROOT 指到本地目录逃生。
+DEFAULT_OUT = Path(
+    os.environ.get(
+        "DUCKDB_SNAPSHOT_OUT_ROOT",
+        str(Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs" / "duckdb-snapshots"),
+    )
+)
 
 
 def _tables_with_trade_date(con: duckdb.DuckDBPyConnection) -> list[str]:
