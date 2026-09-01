@@ -18,8 +18,15 @@
   python3 export_increment.py [--date YYYY-MM-DD] [--db PATH] [--out-root DIR] [--keep N]
   --date     默认取库内 fact_market_daily 的最新 trade_date。
   --db       默认 <repo>/db/market_feature_store.duckdb。
-  --out-root 默认 ~/Library/Mobile Documents/com~apple~CloudDocs/duckdb-snapshots。
+  --out-root 默认 <repo>/db/snapshots（iCloud 目的地已于 2026-09-01 退役，
+             历史 2026-09-01 及之前的增量仍在 ~/Library/Mobile Documents/
+             com~apple~CloudDocs/duckdb-snapshots/）。
   --keep     只保留最近 N 份增量 tar.gz（可选；默认不清理）。
+
+iCloud 退役原因（2026-09-01）：macOS TCC 下手动会话对 iCloud 既有占位文件
+「能新建、不能读/改/改名」，当日 rerun 覆盖必 EPERM；且无进程能从会话内
+校验 iCloud 副本完整性。备份价值由本地 <repo>/db/snapshots 承接，
+全量基线另行另存。
 """
 from __future__ import annotations
 import argparse
@@ -38,12 +45,12 @@ try:
 except IndexError:  # 脚本被复制到别处(如 /tmp)测试时, 退回当前目录, 靠 --db 显式指定
     REPO_ROOT = Path.cwd()
 DEFAULT_DB = REPO_ROOT / "db" / "market_feature_store.duckdb"
-# 默认落 iCloud；手动补跑的会话若无 Full Disk Access（能新建、不能改写既有
-# iCloud 占位文件），可用 DUCKDB_SNAPSHOT_OUT_ROOT 指到本地目录逃生。
+# iCloud 目的地已退役（2026-09-01），默认落仓内本地目录；
+# DUCKDB_SNAPSHOT_OUT_ROOT 仍可整体重定向（逃生口）。
 DEFAULT_OUT = Path(
     os.environ.get(
         "DUCKDB_SNAPSHOT_OUT_ROOT",
-        str(Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs" / "duckdb-snapshots"),
+        str(REPO_ROOT / "db" / "snapshots"),
     )
 )
 
