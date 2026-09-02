@@ -1,6 +1,6 @@
 # 在途交接 · refactor/harness-reference-loop
 
-更新：2026-09-02 · **P2' 已实施、离线全绿，未开 PR、未合 main、未切 8792。** 等用户确认。
+更新：2026-09-02 · **P2' 已实施、离线全绿，Gitea PR #528 已开（http://127.0.0.1:3300/a77/finance-workspace-private/pulls/528），未合 main、未切 8792。** 等用户确认合并。
 
 ## 一句话
 
@@ -39,7 +39,7 @@ spec：`docs/superpowers/specs/2026-09-02-research-harness-loop-decouple-design.
 
 ## 下一步（按序）
 
-1. 用户确认 → 开 PR 合 main。
+1. 用户确认 → 合 PR #528。
 2. **P2 `govern_mode`**：从 P2' 读数出发——`_append_mode_decision_message` 的 `MODE_DECISION` 文案 +
    `mode_decision` 事件 + 子研究消息投影（三个序号函数）进 harness；做完后有 PLAN 脚本的 diff 应归零。
 3. **P2 `repair_policy`**：`_recover_finalization` / `_repair_model_complete` / `RepairGoal` /
