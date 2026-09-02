@@ -7,6 +7,14 @@
 >
 > **所有 file:line 对 `gitea/main = 29c88639` 成立**（读的是该 revision 的工作树
 > `fwp-wt-repair-policy`）。行号会漂，符号名不会——核对时以符号名为准。
+>
+> **实施进度**（分支 `refactor/harness-repair-policy-split`，叠在本 spec 之上）：
+> - **M1–M4 已实施**（`e4657a11`）：`should_reenter` 拆为 `repair_is_warranted`（领域）
+>   ∧ `can_afford_repair`（预算）；`work_units` 拆为 `repair_work_units`（格数）×
+>   `calls_for_work_units`（换算）；`grant_for_progress` 变三行编排；`_mint_grant`
+>   成唯一记账点。仍全在 `services/repair_coordinator.py`——**只分离、未搬家**。
+>   金标 + 网格等价 + 两次变异见 `intelligence/tests/test_repair_policy_split.py`。
+> - M5 / M6 / M7 / §4 签名：未做。
 
 ---
 

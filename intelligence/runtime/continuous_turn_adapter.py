@@ -56,6 +56,7 @@ from intelligence.services.provider_latency import (
 from intelligence.services.repair_coordinator import (
     admit_backfill_repair,
     admit_repair,
+    classify_repair_failure,
     max_repair_cycles_for_tier,
     progress_from_ledger,
 )
@@ -69,7 +70,6 @@ from intelligence.services.run_store import redact, redact_value
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.track_contract import (
     contract_receipt,
-    is_contract_rewrite_only,
     merge_track_missing_outputs,
 )
 from intelligence.runtime.turn_control_core import TurnControlResult
@@ -89,16 +89,6 @@ _TERMINAL_REPAIR_STOP_REASONS = frozenset(
         "repair_deadline_exhausted",
         "repair_model_stop",
     }
-)
-_DELIVERY_REPAIR_STOP_REASONS = frozenset(
-    {"sdk_invalid_finish", "sdk_invalid_repair_finish", "sdk_timeout"}
-)
-# 饿死型冷启动：检索窗烧穿，或主路径 LLM 超时/异常，且零证据。
-# A1-R2 是后者——TimeoutError 走 model_unavailable，tools_open 已关，
-# delivery 要证据，进度闸要新证据，三条路全死。不能把「模型主动收场」
-# （model_finish）算进来，那是零证据降级信号，不是饿死。
-_COLD_RESTART_STOP_REASONS = frozenset(
-    {"deadline_exhausted", "model_unavailable"}
 )
 # First judge attempt is the shared window (50s after the 08-20 grok tail
 # of 46.7s). OpenAI-compatible transports can return a few seconds after
@@ -1203,25 +1193,13 @@ class ContinuousTurnAdapter:
         missing_outputs = tuple(
             dict.fromkeys((*structural.missing_outputs, *semantic_gap_outputs))
         )
-        contract_rewrite_candidate = is_contract_rewrite_only(
-            missing_outputs,
+        # 「这次失败属于哪一类」是领域判断；「交付修复只许一次」是本层的账。
+        shape = classify_repair_failure(
+            outcome,
+            structural,
+            missing_outputs=missing_outputs,
             rejected_claims=rejected_claims,
             semantic_gap_outputs=semantic_gap_outputs,
-        )
-        delivery_candidate = (
-            allow_delivery_repair
-            and outcome.stop_reason in _DELIVERY_REPAIR_STOP_REASONS
-            and outcome.evidence
-            and structural.missing_outputs
-            and (not outcome.draft.strip() or not outcome.bindings)
-        )
-        # 饿死判据：零证据 + 终态是窗烧穿或主路径模型不可用。
-        # 生产三种形状：R7-A3 查询烧穿窗口、R9-A3 规划轮吃光窗口零
-        # trace、A1-R2 主路径 TimeoutError → model_unavailable。
-        # 共同观察量是 stop_reason，不是 trace。
-        cold_restart_candidate = (
-            outcome.stop_reason in _COLD_RESTART_STOP_REASONS
-            and not outcome.evidence
         )
         admission = admit_repair(
             episode_id=episode_id,
@@ -1239,9 +1217,9 @@ class ContinuousTurnAdapter:
             research_tier=context.contract.research_tier,
             tools_open=tools_open,
             allow_delivery_repair=allow_delivery_repair,
-            delivery_candidate=bool(delivery_candidate),
-            contract_rewrite_candidate=contract_rewrite_candidate,
-            cold_restart_candidate=cold_restart_candidate,
+            delivery_candidate=allow_delivery_repair and shape.delivery,
+            contract_rewrite_candidate=shape.contract_rewrite,
+            cold_restart_candidate=shape.cold_restart,
             evidence_count=len(outcome.evidence),
             seconds_cap=self._repair_seconds_cap,
         )

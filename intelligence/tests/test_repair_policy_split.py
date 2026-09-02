@@ -8,6 +8,9 @@
 - M2 `grant_for_progress` 四种职责 → 领域闸 / 预算窗 / 记账三段，各自具名。
 - M3 `work_units` 公式 → 领域出格数（`repair_work_units`），预算折调用
   （`calls_for_work_units`）。
+- M6 三个 candidate 判据 + 两个 stop_reason 集合从 `runtime/continuous_turn_adapter`
+  搬到 `services/repair_coordinator.classify_repair_failure`（领域失败分类）；
+  adapter 只叠「交付修复只许一次」这一条底座的账。
 
 金标来自拆分前 `fed88564` 的 `repair_coordinator`，脚本一次性跑出后钉在这里；
 所有 `grant_id` / `cycle` / `calls_granted` / `seconds_granted` 逐字段比对。
@@ -15,17 +18,31 @@
 
 from __future__ import annotations
 
+import ast
 import itertools
+from pathlib import Path
 
 import pytest
 
+from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.agent_runtime import (
+    AgentOutcome,
+    AgentUsage,
+    EpisodeEvent,
+    OutputEvidenceBinding,
+)
+from intelligence.services.episode_verifier import VerifiedEpisodeOutcome
 from intelligence.services.evidence_ledger import EvidenceLedgerSnapshot
+from intelligence.services.generic_research_owner import CompletionReport
 from intelligence.services.repair_coordinator import (
+    COLD_RESTART_STOP_REASONS,
+    DELIVERY_REPAIR_STOP_REASONS,
     BudgetGrant,
     ProgressSnapshot,
     RepairGoal,
     calls_for_work_units,
     can_afford_repair,
+    classify_repair_failure,
     cycle_within_tier,
     grant_for_backfill,
     grant_for_cold_restart,
@@ -39,6 +56,7 @@ from intelligence.services.repair_coordinator import (
     size_repair_window,
 )
 from intelligence.services.research_contract import InMemoryRootBudgetLedger
+from intelligence.services.track_contract import TRACK_CONTRACT_OUTPUT_ID_SET
 
 
 def _snap(*, evidence, covered, gaps, family) -> EvidenceLedgerSnapshot:
@@ -210,6 +228,159 @@ def test_size_repair_window_fails_closed_on_tiny_cap_and_no_calls() -> None:
     assert size_repair_window(
         work_units=0, remaining_calls=0, remaining_seconds=8.0, tools_open=False, seconds_cap=None
     ) == (0, 8.0)
+
+
+# --- M6：失败分类搬到领域侧，与 adapter 原内联表达式逐格相等 ---------------------
+
+
+_EVIDENCE = AgentEvidence(
+    tool="market_data",
+    title="t",
+    detail="d",
+    source="s",
+    content_hash="h1",
+)
+_BINDING = OutputEvidenceBinding("direct_assessment", ("h1",))
+_TRACK_SLOT = next(iter(sorted(TRACK_CONTRACT_OUTPUT_ID_SET)))
+
+
+def _verified(*, stop_reason, has_evidence, draft, has_binding, structural_missing):
+    outcome = AgentOutcome(
+        task_frame_hash="tf",
+        status="partial",
+        draft=draft,
+        evidence=(_EVIDENCE,) if has_evidence else (),
+        traces=(),
+        gaps=(),
+        stop_reason=stop_reason,
+        events=(EpisodeEvent(1, "task", {"task_frame_hash": "tf"}),),
+        bindings=(_BINDING,) if has_binding else (),
+        usage=AgentUsage(),
+    )
+    structural = VerifiedEpisodeOutcome(
+        outcome=outcome,
+        completion=CompletionReport(status="partial", outputs=()),
+        verified_status="partial",
+        missing_outputs=structural_missing,
+    )
+    return outcome, structural
+
+
+def _legacy_candidates(outcome, structural, *, missing_outputs, rejected_claims, semantic_gap_outputs):
+    """adapter `_resume_for_gap` 拆分前的三条内联表达式（去掉 allow_delivery_repair）。"""
+
+    from intelligence.services.track_contract import is_contract_rewrite_only
+
+    delivery = bool(
+        outcome.stop_reason in {"sdk_invalid_finish", "sdk_invalid_repair_finish", "sdk_timeout"}
+        and outcome.evidence
+        and structural.missing_outputs
+        and (not outcome.draft.strip() or not outcome.bindings)
+    )
+    cold = outcome.stop_reason in {"deadline_exhausted", "model_unavailable"} and not outcome.evidence
+    rewrite = is_contract_rewrite_only(
+        missing_outputs, rejected_claims=rejected_claims, semantic_gap_outputs=semantic_gap_outputs
+    )
+    return delivery, cold, rewrite
+
+
+def test_classify_repair_failure_matches_adapter_inline_predicates() -> None:
+    stop_reasons = (
+        "model_finish",
+        "sdk_timeout",
+        "sdk_invalid_finish",
+        "sdk_invalid_repair_finish",
+        "deadline_exhausted",
+        "model_unavailable",
+        "repair_model_stop",
+    )
+    missing_variants = ((), ("direct_assessment",), (_TRACK_SLOT,))
+    seen = {"delivery": 0, "cold_restart": 0, "contract_rewrite": 0}
+    for stop_reason, has_evidence, draft, has_binding, structural_missing, semantic, rejected in (
+        itertools.product(
+            stop_reasons,
+            (True, False),
+            ("", "  ", "有稿"),
+            (True, False),
+            missing_variants,
+            ((), ("counterpoint",)),
+            ((), ("claim_index:0",)),
+        )
+    ):
+        outcome, structural = _verified(
+            stop_reason=stop_reason,
+            has_evidence=has_evidence,
+            draft=draft,
+            has_binding=has_binding,
+            structural_missing=structural_missing,
+        )
+        missing_outputs = tuple(dict.fromkeys((*structural_missing, *semantic)))
+        shape = classify_repair_failure(
+            outcome,
+            structural,
+            missing_outputs=missing_outputs,
+            rejected_claims=rejected,
+            semantic_gap_outputs=semantic,
+        )
+        legacy = _legacy_candidates(
+            outcome,
+            structural,
+            missing_outputs=missing_outputs,
+            rejected_claims=rejected,
+            semantic_gap_outputs=semantic,
+        )
+        assert (shape.delivery, shape.cold_restart, shape.contract_rewrite) == legacy, (
+            stop_reason, has_evidence, draft, has_binding, structural_missing, semantic, rejected
+        )
+        seen["delivery"] += shape.delivery
+        seen["cold_restart"] += shape.cold_restart
+        seen["contract_rewrite"] += shape.contract_rewrite
+    # 三类各自都在网格里真的出现过，否则等价断言是空话。
+    assert all(count > 0 for count in seen.values()), seen
+
+
+def test_stop_reason_sets_moved_verbatim() -> None:
+    assert DELIVERY_REPAIR_STOP_REASONS == frozenset(
+        {"sdk_invalid_finish", "sdk_invalid_repair_finish", "sdk_timeout"}
+    )
+    assert COLD_RESTART_STOP_REASONS == frozenset({"deadline_exhausted", "model_unavailable"})
+    # 「模型主动收场」不是饿死：零证据 model_finish 不得被分类成冷启动。
+    outcome, structural = _verified(
+        stop_reason="model_finish",
+        has_evidence=False,
+        draft="",
+        has_binding=False,
+        structural_missing=("direct_assessment",),
+    )
+    shape = classify_repair_failure(
+        outcome, structural, missing_outputs=("direct_assessment",), rejected_claims=(), semantic_gap_outputs=()
+    )
+    assert shape == shape.__class__(delivery=False, cold_restart=False, contract_rewrite=False)
+
+
+def test_adapter_no_longer_owns_failure_classification() -> None:
+    """棘轮（状态机 spec §5 第 4 条）：两个 stop_reason 集合与三条判据不得回焊到底座。"""
+
+    source = Path("intelligence/runtime/continuous_turn_adapter.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    module_constants = {
+        target.id
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+    assert "_DELIVERY_REPAIR_STOP_REASONS" not in module_constants
+    assert "_COLD_RESTART_STOP_REASONS" not in module_constants
+    imported = {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module == "intelligence.services.track_contract"
+        for alias in node.names
+    }
+    assert "is_contract_rewrite_only" not in imported
+    assert "sdk_invalid_repair_finish" not in source
+    assert "classify_repair_failure" in source
 
 
 # --- 金标：五种授予逐字段（拆分前 fed88564 实跑值） -------------------------------

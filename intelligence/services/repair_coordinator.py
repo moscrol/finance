@@ -18,8 +18,11 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from uuid import uuid4
 
+from intelligence.services.agent_runtime import AgentOutcome
+from intelligence.services.episode_verifier import VerifiedEpisodeOutcome
 from intelligence.services.evidence_ledger import EvidenceLedgerSnapshot
 from intelligence.services.research_contract import RootBudgetLedger
+from intelligence.services.track_contract import is_contract_rewrite_only
 
 # 修复轮单笔授予帽（秒）的**默认值**。曾按 `min(剩余, 30, 缺口×8)` 计工时——
 # 缺口少窗口就小（1 缺口=8s、3 缺口=24s）。但一次 LLM 调用的成本由**固定延迟
@@ -341,6 +344,62 @@ def repair_work_units(goal: RepairGoal) -> int:
     """
 
     return len(goal.missing_answer_elements) + len(goal.missing_evidence_modes)
+
+
+# 领域对失败终局的解释：这次失败属于哪一类。观察量是 stop_reason，不是 trace。
+DELIVERY_REPAIR_STOP_REASONS = frozenset(
+    {"sdk_invalid_finish", "sdk_invalid_repair_finish", "sdk_timeout"}
+)
+# 饿死型冷启动：检索窗烧穿，或主路径 LLM 超时/异常，且零证据。
+# A1-R2 是后者——TimeoutError 走 model_unavailable，tools_open 已关，
+# delivery 要证据，进度闸要新证据，三条路全死。不能把「模型主动收场」
+# （model_finish）算进来，那是零证据降级信号，不是饿死。
+COLD_RESTART_STOP_REASONS = frozenset({"deadline_exhausted", "model_unavailable"})
+
+
+@dataclass(frozen=True)
+class RepairFailureShape:
+    """一次失败终局在领域眼里的形状。三者互斥与否由 ``admit_repair`` 分流决定。
+
+    - ``delivery``：有证据、有结构缺口，但没写出稿或没绑定——tool-closed 交付修复。
+    - ``cold_restart``：零证据饿死（窗烧穿 / 主路径模型不可用）——重开工具一发。
+    - ``contract_rewrite``：缺的全是跟踪契约表达槽——从既有证据重写，不开工具。
+
+    不看预算、不看 cycle 状态（「交付修复只许一次」是底座的账，由调用方叠）。
+    """
+
+    delivery: bool
+    cold_restart: bool
+    contract_rewrite: bool
+
+
+def classify_repair_failure(
+    outcome: AgentOutcome,
+    structural: VerifiedEpisodeOutcome,
+    *,
+    missing_outputs: tuple[str, ...],
+    rejected_claims: tuple[str, ...],
+    semantic_gap_outputs: tuple[str, ...],
+) -> RepairFailureShape:
+    """领域失败分类。``missing_outputs`` 是结构缺口 ∪ 语义缺口（调用方已合并）。"""
+
+    has_evidence = bool(outcome.evidence)
+    return RepairFailureShape(
+        delivery=bool(
+            outcome.stop_reason in DELIVERY_REPAIR_STOP_REASONS
+            and has_evidence
+            and structural.missing_outputs
+            and (not outcome.draft.strip() or not outcome.bindings)
+        ),
+        cold_restart=(
+            outcome.stop_reason in COLD_RESTART_STOP_REASONS and not has_evidence
+        ),
+        contract_rewrite=is_contract_rewrite_only(
+            missing_outputs,
+            rejected_claims=rejected_claims,
+            semantic_gap_outputs=semantic_gap_outputs,
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -800,16 +859,20 @@ def admit_backfill_repair(
 
 __all__ = [
     "BACKFILL_BUDGET_FRACTION",
+    "COLD_RESTART_STOP_REASONS",
+    "DELIVERY_REPAIR_STOP_REASONS",
     "BudgetGrant",
     "CoverageDelta",
     "ProgressSnapshot",
     "RepairAdmission",
+    "RepairFailureShape",
     "RepairGoal",
     "admit_backfill_repair",
     "admit_repair",
     "build_repair_goal",
     "calls_for_work_units",
     "can_afford_repair",
+    "classify_repair_failure",
     "cycle_within_tier",
     "grant_for_backfill",
     "grant_for_cold_restart",
