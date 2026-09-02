@@ -47,14 +47,7 @@ from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
 )
-from intelligence.services.mandatory_satisfiability import (
-    apply_unreachable_downgrade,
-)
-from intelligence.services.repair_coordinator import (
-    RepairGoal,
-    grant_for_transient_model_retry,
-    unreachable_repair_goal,
-)
+from intelligence.services.repair_coordinator import RepairGoal
 from intelligence.services.research_contract import (
     ResearchDeadline,
     ResearchRunContext,
@@ -81,6 +74,7 @@ from intelligence.services.empty_pool_fallback import (
     prefetch_pool_is_empty,
     propose_empty_pool_fallback,
 )
+from intelligence.runtime.repair_budget import grant_for_transient_model_retry
 from intelligence.runtime.sub_research import (
     SubResearchCoordinator,
     SubResearchResult,
@@ -210,20 +204,6 @@ def _settle_batch_calls(
             root_budget.consume_call(seconds=seconds_per_call)
         except ValueError:
             root_budget.settle_seconds(seconds=seconds_per_call)
-def _evidence_required_output_ids(context: object) -> frozenset[str]:
-    """契约里 evidence 口径的必填输出 id。model_reasoning 格不在此列。"""
-
-    contract = getattr(context, "contract", None)
-    return frozenset(
-        str(getattr(item, "output_id", ""))
-        for item in getattr(contract, "required_outputs", ())
-        if getattr(item, "required", True)
-        and str(getattr(item, "grounding_mode", "evidence")) == "evidence"
-    )
-
-
-
-
 class _EpisodeLedger:
     def __init__(
         self,
@@ -1508,20 +1488,13 @@ class ContinuousAgentEpisode:
         research_tools_open = not repair_tool_deadline.expired
         goal_payload = goal.to_dict()
         # 把「这一轮结构性不可能补上」的格显式投递进 trace（#289 第 6 刀观测）。
-        # W2 在观测之后接裁决：降级 contract / 模型侧 goal，但不跳过本轮。
-        unreachable = unreachable_repair_goal(
-            goal,
-            evidence_output_ids=_evidence_required_output_ids(context),
-        )
-        if unreachable:
-            goal_payload["unreachable_without_tools"] = list(unreachable)
+        # W2 在观测之后接裁决：降级 contract / 模型侧 goal，但不跳过本轮——
+        # salvage 刚写出的 FINAL_JSON 仍然要跑。哪些格不可达、降成什么样是领域的事。
+        downgrade = self._harness.downgrade_unreachable(goal, contract=context.contract)
+        if downgrade.unreachable:
+            goal_payload["unreachable_without_tools"] = list(downgrade.unreachable)
         ledger.add("repair_goal", goal_payload)
-        # 观测保留完整 goal；裁决后的契约/指令才降级。不跳过本轮——
-        # salvage 刚写出的 FINAL_JSON 仍然要跑。
-        downgraded_contract, prompt_goal = apply_unreachable_downgrade(
-            context.contract,
-            goal,
-        )
+        downgraded_contract, prompt_goal = downgrade.contract, downgrade.goal
         if downgraded_contract is not context.contract:
             context = replace(context, contract=downgraded_contract)
             state.context = context
@@ -1557,21 +1530,9 @@ class ContinuousAgentEpisode:
         messages.append(
             {
                 "role": "user",
-                "content": json.dumps(
-                    {
-                        "kind": "REPAIR_GOAL",
-                        **prompt_goal.to_dict(),
-                        "instruction": (
-                            "保留最初任务、全部原始观察和当前工具账本。"
-                            + (
-                                "自主选择一个新的、未重复的动作补齐缺口；"
-                                if research_tools_open
-                                else "研究工具已关闭，只能基于已有观察修复措辞或证据绑定；"
-                            )
-                            + "不得重启研究或改写用户问题。"
-                        ),
-                    },
-                    ensure_ascii=False,
+                "content": self._harness.repair_goal_message(
+                    prompt_goal,
+                    tools_open=research_tools_open,
                 ),
             }
         )
@@ -1715,9 +1676,8 @@ class ContinuousAgentEpisode:
             messages.append(
                 {
                     "role": "user",
-                    "content": (
-                        "修复动作已执行。不得再调用工具；请基于同一 episode 的"
-                        "全部观察输出 FINAL_JSON，未补齐项继续明确写 gap。"
+                    "content": self._harness.steering_message(
+                        "repair_finalize", detail=""
                     ),
                 }
             )
@@ -1848,50 +1808,32 @@ class ContinuousAgentEpisode:
             )
         assert admission.status is not None
         bindings = admission.bindings
-        revised_without_tool = (
-            admission.draft.strip() != previous.draft.strip()
-            or bindings != previous.bindings
+        verdict = self._harness.admit_repair_result(
+            admission=admission,
+            previous=previous,
+            performed_tool_action=performed_tool_action,
         )
-        completed_without_tool = (
-            not performed_tool_action
-            and admission.status == "completed"
-            and revised_without_tool
-        )
-        effective_status = (
-            admission.status
-            if performed_tool_action or completed_without_tool
-            else "partial"
-        )
-        current_gaps = admission.gaps
-        if not performed_tool_action and not completed_without_tool and not current_gaps:
-            current_gaps = ("修复轮未执行新的取证动作，缺口仍未补齐",)
-        repair_progressed = performed_tool_action or completed_without_tool
+        stop_reason = "repair_model_finish" if verdict.progressed else "repair_model_stop"
         ledger.record_runtime_result()
         ledger.add(
             "finish",
             {
-                "status": effective_status,
-                "stop_reason": (
-                    "repair_model_finish"
-                    if repair_progressed
-                    else "repair_model_stop"
-                ),
+                "status": verdict.status,
+                "stop_reason": stop_reason,
                 "bindings": [item.to_dict() for item in bindings],
-                "gaps": list(current_gaps),
+                "gaps": list(verdict.gaps),
                 "caveat_slips": admission.caveat_slips,
                 **admission.rejection,
             },
         )
         return AgentOutcome(
             task_frame_hash=task_frame.task_frame_hash,
-            status=effective_status,
+            status=verdict.status,
             draft=admission.draft,
             evidence=tuple(accumulator.evidence),
             traces=tuple(accumulator.traces),
-            gaps=current_gaps,
-            stop_reason=(
-                "repair_model_finish" if repair_progressed else "repair_model_stop"
-            ),
+            gaps=verdict.gaps,
+            stop_reason=stop_reason,
             events=tuple(ledger.events),
             bindings=bindings,
             usage=_agent_usage(

@@ -1,20 +1,119 @@
-from intelligence.services.evidence_ledger import EvidenceLedgerSnapshot
-from intelligence.services.repair_coordinator import (
+from intelligence.runtime.repair_budget import (
     BACKFILL_BUDGET_FRACTION,
-    RepairAdmission,
     admit_backfill_repair,
     admit_repair,
-    build_repair_goal,
     grant_for_backfill,
     grant_for_cold_restart,
     grant_for_delivery_repair,
     grant_for_progress,
     grant_for_transient_model_retry,
-    progress_from_ledger,
-    should_reenter,
+)
+from intelligence.services.evidence_ledger import EvidenceLedgerSnapshot
+from intelligence.services.repair_coordinator import (
     BudgetGrant,
+    RepairAdmission,
+    RepairFailureShape,
+    RepairNeed,
+    build_repair_goal,
+    cycle_within_tier,
+    progress_from_ledger,
+    repair_is_warranted,
+    repair_work_units,
+    warrant_repair,
 )
 from intelligence.services.research_contract import InMemoryRootBudgetLedger
+
+
+# ── 调用形状适配：领域判定在这里算好递进底座（生产里这一步在 adapter 问 harness）──
+
+
+def _progress_grant(goal, progress, *, root_budget, research_tier, tools_open=True, seconds_cap=None):
+    return grant_for_progress(
+        goal,
+        root_budget=root_budget,
+        warranted=repair_is_warranted(progress, cycle=goal.cycle, research_tier=research_tier),
+        work_units=repair_work_units(goal),
+        tools_open=tools_open,
+        seconds_cap=seconds_cap,
+    )
+
+
+def _delivery_grant(goal, *, root_budget, research_tier, evidence_count, seconds_cap=None):
+    return grant_for_delivery_repair(
+        goal,
+        root_budget=root_budget,
+        cycle_allowed=cycle_within_tier(goal.cycle, research_tier=research_tier),
+        evidence_count=evidence_count,
+        seconds_cap=seconds_cap,
+    )
+
+
+def _cold_grant(goal, progress, *, root_budget, seconds_cap=None):
+    return grant_for_cold_restart(
+        goal,
+        progress,
+        root_budget=root_budget,
+        work_units=repair_work_units(goal),
+        seconds_cap=seconds_cap,
+    )
+
+
+def _admit(
+    *,
+    episode_id,
+    missing_outputs=(),
+    missing_capabilities=(),
+    rejected_claims=(),
+    attempted_actions=(),
+    previous_progress,
+    remaining_calls,
+    remaining_seconds,
+    cycle,
+    root_budget,
+    research_tier,
+    tools_open=True,
+    allow_delivery_repair=True,
+    delivery_candidate=False,
+    contract_rewrite_candidate=False,
+    cold_restart_candidate=False,
+    evidence_count=0,
+    seconds_cap=None,
+):
+    probe = build_repair_goal(
+        episode_id=episode_id,
+        missing_outputs=missing_outputs,
+        missing_capabilities=missing_capabilities,
+        previous_progress=previous_progress,
+        remaining_calls=remaining_calls,
+        remaining_seconds=remaining_seconds,
+        cycle=cycle,
+    )
+    need = RepairNeed(
+        missing_outputs=tuple(missing_outputs),
+        missing_capabilities=tuple(missing_capabilities),
+        rejected_claims=tuple(rejected_claims),
+        shape=RepairFailureShape(
+            delivery=delivery_candidate,
+            cold_restart=cold_restart_candidate,
+            contract_rewrite=contract_rewrite_candidate,
+        ),
+        work_units=repair_work_units(probe),
+    )
+    return admit_repair(
+        need,
+        warrant_repair(previous_progress, cycle=cycle, research_tier=research_tier),
+        episode_id=episode_id,
+        attempted_actions=attempted_actions,
+        previous_progress=previous_progress,
+        remaining_calls=remaining_calls,
+        remaining_seconds=remaining_seconds,
+        cycle=cycle,
+        root_budget=root_budget,
+        tools_open=tools_open,
+        allow_delivery_repair=allow_delivery_repair,
+        evidence_count=evidence_count,
+        seconds_cap=seconds_cap,
+    )
 
 
 def _snap(*, evidence: tuple[str, ...], covered: tuple[str, ...], gaps: tuple[str, ...], family: str):
@@ -67,7 +166,7 @@ def test_repair_goal_has_no_query_authority_and_budget_grant_respects_hard_cap()
         remaining_seconds=42,
     )
     assert not hasattr(goal, "next_query")
-    assert should_reenter(progress, cycle=1, max_cycles=1)
+    assert repair_is_warranted(progress, cycle=1, research_tier="quick")
     root = InMemoryRootBudgetLedger(
         episode_id="episode-1",
         initial_calls=3,
@@ -76,7 +175,7 @@ def test_repair_goal_has_no_query_authority_and_budget_grant_respects_hard_cap()
         hard_seconds_cap=38,
     )
     assert (
-        grant_for_progress(
+        _progress_grant(
             goal,
             progress,
             root_budget=root,
@@ -94,7 +193,7 @@ def test_repair_goal_has_no_query_authority_and_budget_grant_respects_hard_cap()
         initial_seconds=30,
         hard_seconds_cap=60,
     )
-    grant = grant_for_progress(
+    grant = _progress_grant(
         goal,
         progress,
         root_budget=accepted_root,
@@ -133,7 +232,7 @@ def test_single_gap_repair_still_gets_full_window() -> None:
         hard_seconds_cap=240.0,
     )
 
-    grant = grant_for_progress(
+    grant = _progress_grant(
         goal,
         progress,
         root_budget=root,
@@ -164,7 +263,7 @@ def test_single_gap_delivery_repair_gets_full_window() -> None:
         hard_seconds_cap=240.0,
     )
 
-    grant = grant_for_delivery_repair(
+    grant = _delivery_grant(
         goal,
         root_budget=root,
         research_tier="quick",
@@ -202,7 +301,7 @@ def test_grant_for_progress_rejects_cycle_above_code_owned_tier_cap() -> None:
     )
 
     assert (
-        grant_for_progress(
+        _progress_grant(
             goal,
             progress,
             root_budget=root,
@@ -239,7 +338,7 @@ def test_closed_research_window_grants_seconds_without_tool_calls() -> None:
     )
     root.consume_call(seconds=8.0)
 
-    grant = grant_for_progress(
+    grant = _progress_grant(
         goal,
         progress,
         root_budget=root,
@@ -270,7 +369,7 @@ def test_admit_repair_returns_one_execution_ready_delivery_admission() -> None:
     )
     root.consume_seconds(seconds=1.0)
 
-    admission = admit_repair(
+    admission = _admit(
         episode_id="episode-admission",
         missing_outputs=("direct",),
         previous_progress=progress,
@@ -321,7 +420,7 @@ def test_delivery_repair_does_not_relabel_unbound_evidence_as_research_progress(
     research_root.consume_seconds(seconds=1.0)
 
     assert (
-        grant_for_progress(
+        _progress_grant(
             goal,
             progress,
             root_budget=research_root,
@@ -330,7 +429,7 @@ def test_delivery_repair_does_not_relabel_unbound_evidence_as_research_progress(
         )
         is None
     )
-    grant = grant_for_delivery_repair(
+    grant = _delivery_grant(
         goal,
         root_budget=research_root,
         research_tier="standard",
@@ -363,7 +462,7 @@ def test_root_budget_rejects_a_grant_from_another_episode() -> None:
         hard_seconds_cap=60,
     )
     assert (
-        grant_for_progress(
+        _progress_grant(
             goal,
             progress,
             root_budget=root,
@@ -525,7 +624,7 @@ def test_cold_restart_admits_starved_episode_with_tool_open_grant() -> None:
         hard_seconds_cap=300.0,
     )
 
-    admission = admit_repair(
+    admission = _admit(
         episode_id="episode-starved",
         missing_outputs=("direct", "counterpoint"),
         attempted_actions=("finance_query:duckdb", "kb_search:rag"),
@@ -568,7 +667,7 @@ def test_cold_restart_requires_adapter_observed_starvation() -> None:
         hard_seconds_cap=300.0,
     )
 
-    admission = admit_repair(
+    admission = _admit(
         episode_id="episode-no-flag",
         missing_outputs=("direct",),
         attempted_actions=(),
@@ -598,7 +697,7 @@ def test_cold_restart_fires_for_zero_trace_starvation() -> None:
         hard_seconds_cap=300.0,
     )
 
-    admission = admit_repair(
+    admission = _admit(
         episode_id="episode-zero-trace",
         missing_outputs=("direct",),
         attempted_actions=(),
@@ -639,7 +738,7 @@ def test_cold_restart_refuses_when_any_evidence_exists() -> None:
         hard_seconds_cap=300.0,
     )
 
-    assert grant_for_cold_restart(goal, progress, root_budget=root) is None
+    assert _cold_grant(goal, progress, root_budget=root) is None
 
 
 def test_cold_restart_is_single_shot_cycle_one_only() -> None:
@@ -662,7 +761,7 @@ def test_cold_restart_is_single_shot_cycle_one_only() -> None:
         hard_seconds_cap=300.0,
     )
 
-    assert grant_for_cold_restart(goal, progress, root_budget=root) is None
+    assert _cold_grant(goal, progress, root_budget=root) is None
 
 
 def test_cold_restart_fails_closed_without_root_headroom() -> None:
@@ -684,7 +783,7 @@ def test_cold_restart_fails_closed_without_root_headroom() -> None:
         hard_seconds_cap=30.0,
     )
 
-    assert grant_for_cold_restart(goal, progress, root_budget=root) is None
+    assert _cold_grant(goal, progress, root_budget=root) is None
     assert root.allocated_seconds == 30.0
 
 
@@ -706,7 +805,7 @@ def test_contract_rewrite_candidate_uses_tool_closed_delivery_not_progress() -> 
         hard_seconds_cap=40.0,
     )
 
-    admission = admit_repair(
+    admission = _admit(
         episode_id="episode-track-rewrite",
         missing_outputs=("track_quad_or_baseline", "track_ttl"),
         previous_progress=progress,
@@ -749,7 +848,7 @@ def test_delivery_candidate_never_falls_through_to_cold_restart() -> None:
         hard_seconds_cap=30.0,
     )
 
-    admission = admit_repair(
+    admission = _admit(
         episode_id="episode-delivery-x",
         missing_outputs=("direct",),
         attempted_actions=("finance_query:duckdb",),

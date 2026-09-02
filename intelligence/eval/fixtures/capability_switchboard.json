@@ -661,7 +661,7 @@
       "id": "repair-chain",
       "kind": "lane",
       "status": "active",
-      "seam": "intelligence/services/repair_coordinator.py::_resolve_seconds_cap",
+      "seam": "intelligence/runtime/repair_budget.py::_resolve_seconds_cap",
       "close_via": [
         "code-level:无运行时关法（见 notes）"
       ],
@@ -669,7 +669,7 @@
       "singleton_when_on": false,
       "chassis_survives": true,
       "positive_control": "",
-      "notes": "修复/回填链。⚠ 2026-08-31 核 seam 时推翻了本行初稿的关法：**repair_seconds_cap=0 不是关，是回到默认帽**。repair_coordinator.py:36-42 `_resolve_seconds_cap` 写明「None / 非正数 → 默认帽。fail-safe：坏输入不该把窗口静默压成 0」，所以 0 → 30.0，与不拧完全一样；env ASK_REPAIR_SECONDS_CAP 走同一条解析，同样关不掉。把 0 当 off 会得到一份「拧了、没变、正控空」的假失败读数。该常数还带 R-20260816-07 / R-21 的「禁止把这个 30 调成新常数」约束。真要消融得从 admission 那层断（repair_coordinator :328 should_reenter / :343-346 的 calls/seconds 闸），属代码级改动，不是运行时开关。值不值得量：R-20260824 线实测 repair 会「删真话留拼接伤」（判官投影冤案），这颗的净贡献是真问题——但要先给它造一个真关法。positive_control 留空=只登记不进臂。"
+      "notes": "修复/回填链。（2026-09-02：`_resolve_seconds_cap` 与五种 grant_for_* / 两个 admit_* 随预算算术从 services/repair_coordinator 搬到 runtime/repair_budget，seam 已同步；下文 file:line 是搬前坐标，关法结论不变。）⚠ 2026-08-31 核 seam 时推翻了本行初稿的关法：**repair_seconds_cap=0 不是关，是回到默认帽**。repair_coordinator.py:36-42 `_resolve_seconds_cap` 写明「None / 非正数 → 默认帽。fail-safe：坏输入不该把窗口静默压成 0」，所以 0 → 30.0，与不拧完全一样；env ASK_REPAIR_SECONDS_CAP 走同一条解析，同样关不掉。把 0 当 off 会得到一份「拧了、没变、正控空」的假失败读数。该常数还带 R-20260816-07 / R-21 的「禁止把这个 30 调成新常数」约束。真要消融得从 admission 那层断（repair_coordinator :328 should_reenter / :343-346 的 calls/seconds 闸），属代码级改动，不是运行时开关。值不值得量：R-20260824 线实测 repair 会「删真话留拼接伤」（判官投影冤案），这颗的净贡献是真问题——但要先给它造一个真关法。positive_control 留空=只登记不进臂。"
     }
   ],
   "pointers": [

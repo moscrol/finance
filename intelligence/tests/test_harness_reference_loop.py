@@ -16,6 +16,7 @@ mode 治理（spec §4 #5，P2）仍焊在 Episode 里的证据。这条测试�
 from __future__ import annotations
 
 import ast
+from collections.abc import Mapping
 from copy import deepcopy
 import json
 from pathlib import Path
@@ -34,9 +35,11 @@ from intelligence.services.research_contract import (
     ResearchRunContext,
     ResearchTaskContract,
 )
+from intelligence.services.repair_coordinator import CoverageDelta
 from intelligence.services.research_harness import (
     FinanceResearchHarness,
     FinishAdmission,
+    RepairGoal,
 )
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
@@ -380,7 +383,200 @@ def test_reference_loop_closes_research_when_tool_slots_run_out() -> None:
     assert [e.kind for e in outcome.events if e.kind == "finalization"] == ["finalization"]
 
 
-# ── 5. 棘轮：参考 loop 一行领域逻辑都不 import ───────────────────────────
+# ── 5. 修复轮：两条 loop 在同一段历史上各修一轮，是同一台机器 ─────────────
+#
+# 状态机 spec §5 第 5 条：参考 loop 从「明确抛无修复轮」改成真的能跑一轮。
+# 判据与研究阶段同形：修复轮里模型看到的每条消息一致（只差 runtime_budget 键）、
+# repair_goal 事件一致、修复 outcome 一致。P2'-live 里 model_finish vs repair_model_stop
+# 那条差，从此不再是「参考 loop 没有修复轮」造成的。
+
+
+def _partial_finish_turn() -> ModelTurn:
+    return ModelTurn(
+        json.dumps(
+            {
+                "status": "partial",
+                "draft": "当前偏修复，但反方证据仍缺。",
+                "gaps": ["仍缺反方"],
+                "bindings": [
+                    {
+                        "output_id": "direct_assessment",
+                        "evidence_hashes": ["evidence-1"],
+                        "gap": "仍缺反方",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        (),
+        "scripted",
+        "",
+    )
+
+
+def _repair_goal(*, remaining_calls: int) -> RepairGoal:
+    return RepairGoal(
+        episode_id="reference-loop-test",
+        repair_goal_id="repair-reference-loop-test-1",
+        cycle=1,
+        missing_answer_elements=("direct_assessment",),
+        unsupported_claims=(),
+        missing_evidence_modes=(),
+        attempted_actions=("market_data:test:market",),
+        evidence_progress=CoverageDelta(1, 0, 1),
+        remaining_calls=remaining_calls,
+        remaining_seconds=8.0,
+    )
+
+
+def _run_then_resume_both(script: list[ModelTurn], *, remaining_calls: int):
+    frame = _frame()
+    goal = _repair_goal(remaining_calls=remaining_calls)
+
+    episode_model = _ScriptedModel(list(script))
+    episode = ContinuousAgentEpisode(episode_model)
+    episode_sink: list = []
+    episode_first = episode.run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_registry(),
+        _continuation_sink=episode_sink,
+    )
+    episode_repaired = episode.resume(episode_sink[0], episode_first, goal)
+
+    reference_model = _ScriptedModel(list(script))
+    reference = HarnessReferenceLoop(reference_model)
+    reference_sink: list = []
+    reference_first = reference.run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_registry(),
+        _continuation_sink=reference_sink,
+    )
+    reference_repaired = reference.resume(reference_sink[0], reference_first, goal)
+
+    assert episode_first.stop_reason == reference_first.stop_reason == "model_finish"
+    assert episode_first.status == reference_first.status == "partial"
+    return (episode_model, episode_repaired), (reference_model, reference_repaired)
+
+
+def _plain(value):
+    """Episode 的 ledger 把 payload 冻成 mappingproxy / tuple；比对前展平成 dict / list。"""
+
+    if isinstance(value, Mapping):
+        return {str(k): _plain(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain(v) for v in value]
+    return value
+
+
+def _repair_goal_event(outcome):
+    """repair_goal 事件正文。Episode 每条事件都盖 task_frame_hash 与 at（底座的账），摘掉再比。"""
+
+    return [
+        {k: v for k, v in _plain(e.payload).items() if k not in {"task_frame_hash", "at"}}
+        for e in outcome.events
+        if e.kind == "repair_goal"
+    ]
+
+
+def test_no_tool_repair_round_is_the_same_machine() -> None:
+    """零工具额度的修复轮：开场 REPAIR_GOAL（含不可达降级后的目标）字节相同，裁决相同。
+
+    额度为 0 但研究窗还开着：两条 loop 都照 Episode 的口径给模型看工具定义（调用会被
+    remaining_slots=0 拒掉），而不可达裁决把 direct_assessment 从模型侧目标里摘掉。
+    """
+
+    (episode_model, episode), (reference_model, reference) = _run_then_resume_both(
+        [_tool_turn(), _partial_finish_turn(), _finish_turn()],
+        remaining_calls=0,
+    )
+
+    assert len(episode_model.calls) == len(reference_model.calls) == 3
+    repair_call_e, repair_call_r = episode_model.calls[2], reference_model.calls[2]
+    assert repair_call_e["tools"] == repair_call_r["tools"]
+    left = [_strip_runtime_budget(m) for m in repair_call_e["messages"]]
+    right = [_strip_runtime_budget(m) for m in repair_call_r["messages"]]
+    assert left == right
+    opening = json.loads(str(left[-1]["content"]))
+    assert opening["kind"] == "REPAIR_GOAL"
+    # 零额度 + 不许重开 → direct_assessment 结构性补不上，两边都从模型侧目标里摘掉了。
+    assert opening["missing_answer_elements"] == []
+    assert _repair_goal_event(episode) == _repair_goal_event(reference)
+    assert _repair_goal_event(reference)[0]["unreachable_without_tools"] == [
+        "direct_assessment"
+    ]
+
+    assert _outcome_core(episode) == _outcome_core(reference)
+    # 没动手，但把 partial 稿改成了 completed 稿：算修好了。
+    assert reference.stop_reason == "repair_model_finish"
+    assert reference.status == "completed"
+
+
+def test_tool_open_repair_round_is_the_same_machine() -> None:
+    """带一次工具额度的修复轮：开场 → 工具批 → 收口指令 → 终局，四段消息逐条相同。"""
+
+    repair_tool_turn = ModelTurn(
+        "",
+        (ModelToolCall("call-2", "market_data", {"query": "反方证据：量能与外资"}),),
+        "scripted",
+        "",
+    )
+    (episode_model, episode), (reference_model, reference) = _run_then_resume_both(
+        [_tool_turn(), _partial_finish_turn(), repair_tool_turn, _finish_turn()],
+        remaining_calls=1,
+    )
+
+    assert len(episode_model.calls) == len(reference_model.calls) == 4
+    for turn_index in (2, 3):
+        a, b = episode_model.calls[turn_index], reference_model.calls[turn_index]
+        assert a["tools"] == b["tools"], f"turn {turn_index} tools differ"
+        left = [_strip_runtime_budget(m) for m in a["messages"]]
+        right = [_strip_runtime_budget(m) for m in b["messages"]]
+        assert left == right, f"turn {turn_index} messages differ"
+    assert episode_model.calls[2]["tools"], "修复轮首次调用必须带工具定义"
+    assert episode_model.calls[3]["tools"] == []
+    closing = [
+        str(m["content"])
+        for m in reference_model.calls[3]["messages"]
+        if m.get("role") == "user"
+    ][-1]
+    assert closing.startswith("修复动作已执行。不得再调用工具")
+
+    assert _repair_goal_event(episode) == _repair_goal_event(reference)
+    assert _outcome_core(episode) == _outcome_core(reference)
+    assert reference.stop_reason == "repair_model_finish"
+    # 修复轮真派了一次工具（不是被去重账本拒掉的那种）。
+    assert reference.usage.tool_calls == 2
+    assert reference.usage.invalid_actions == 0
+
+
+def test_reference_loop_repair_failure_keeps_the_previous_answer() -> None:
+    """修复不得倒退：修复轮交回来的东西不合格，上一轮的稿与绑定原样结转。"""
+
+    frame = _frame()
+    model = _ScriptedModel(
+        [
+            _tool_turn(),
+            _partial_finish_turn(),
+            ModelTurn("不是 JSON，只是一段话。", (), "scripted", ""),
+        ]
+    )
+    loop = HarnessReferenceLoop(model)
+    sink: list = []
+    first = loop.run(
+        task_frame=frame, context=_context(frame), registry=_registry(), _continuation_sink=sink
+    )
+    repaired = loop.resume(sink[0], first, _repair_goal(remaining_calls=0))
+
+    assert repaired.stop_reason == "invalid_repair_finish"
+    assert repaired.draft == first.draft
+    assert repaired.bindings == first.bindings
+    finish = [e for e in repaired.events if e.kind == "finish"][-1]
+    assert finish.payload["rejection_code"] != "none"
+
+
+# ── 6. 棘轮：参考 loop 一行领域逻辑都不 import ───────────────────────────
 
 _DOMAIN_MODULES = (
     "intelligence.services.episode_protocol",

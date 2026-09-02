@@ -46,18 +46,17 @@ from intelligence.services.episode_verifier import (
     verify_episode_outcome,
 )
 from intelligence.services.honesty_gates import with_calendar_disclosure
-from intelligence.services.mandatory_satisfiability import (
-    apply_unreachable_downgrade,
-)
 from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
 )
 from intelligence.services.repair_coordinator import (
-    admit_backfill_repair,
-    admit_repair,
     max_repair_cycles_for_tier,
     progress_from_ledger,
+)
+from intelligence.services.research_harness import (
+    FinanceResearchHarness,
+    ResearchHarness,
 )
 from intelligence.services.research_contract import ResearchDeadline, ResearchRunContext
 from intelligence.services.research_tool_registry import (
@@ -69,9 +68,9 @@ from intelligence.services.run_store import redact, redact_value
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.track_contract import (
     contract_receipt,
-    is_contract_rewrite_only,
     merge_track_missing_outputs,
 )
+from intelligence.runtime.repair_budget import admit_backfill_repair, admit_repair
 from intelligence.runtime.turn_control_core import TurnControlResult
 
 
@@ -89,16 +88,6 @@ _TERMINAL_REPAIR_STOP_REASONS = frozenset(
         "repair_deadline_exhausted",
         "repair_model_stop",
     }
-)
-_DELIVERY_REPAIR_STOP_REASONS = frozenset(
-    {"sdk_invalid_finish", "sdk_invalid_repair_finish", "sdk_timeout"}
-)
-# 饿死型冷启动：检索窗烧穿，或主路径 LLM 超时/异常，且零证据。
-# A1-R2 是后者——TimeoutError 走 model_unavailable，tools_open 已关，
-# delivery 要证据，进度闸要新证据，三条路全死。不能把「模型主动收场」
-# （model_finish）算进来，那是零证据降级信号，不是饿死。
-_COLD_RESTART_STOP_REASONS = frozenset(
-    {"deadline_exhausted", "model_unavailable"}
 )
 # First judge attempt is the shared window (50s after the 08-20 grok tail
 # of 46.7s). OpenAI-compatible transports can return a few seconds after
@@ -174,6 +163,7 @@ class ContinuousTurnAdapter:
         deadline_expires_at: float | None = None,
         progress_sink: Callable[[EpisodeProgress], None] | None = None,
         repair_seconds_cap: float | None = None,
+        harness: ResearchHarness | None = None,
     ) -> None:
         selected_mode = (
             str(os.environ.get("ASK_CONTINUOUS_RUNTIME") or "off").strip().lower()
@@ -221,6 +211,11 @@ class ContinuousTurnAdapter:
             float(repair_seconds_cap)
             if repair_seconds_cap is not None
             else repair_seconds_cap_for(provider_name_from(runtime))
+        )
+        # 修复准入问领域的两件事（修什么 / 配不配再来一轮）走 harness；这里只算
+        # 余量与 cycle 状态。默认金融 harness 与 runtime 里 Episode 拿的是同一种。
+        self._harness: ResearchHarness = (
+            harness if harness is not None else FinanceResearchHarness()
         )
 
     @property
@@ -1200,34 +1195,22 @@ class ContinuousTurnAdapter:
             max(0.0, float(delivery_deadline.remaining())),
         )
         structural = _with_track_contract_gaps(structural, context)
-        missing_outputs = tuple(
-            dict.fromkeys((*structural.missing_outputs, *semantic_gap_outputs))
-        )
-        contract_rewrite_candidate = is_contract_rewrite_only(
-            missing_outputs,
+        # 领域申请（修什么 / 属哪类 / 配不配再来一轮），底座授予（余量 / cycle 状态 / 账本）。
+        need = self._harness.classify_repair_need(
+            outcome,
+            structural,
             rejected_claims=rejected_claims,
             semantic_gap_outputs=semantic_gap_outputs,
         )
-        delivery_candidate = (
-            allow_delivery_repair
-            and outcome.stop_reason in _DELIVERY_REPAIR_STOP_REASONS
-            and outcome.evidence
-            and structural.missing_outputs
-            and (not outcome.draft.strip() or not outcome.bindings)
-        )
-        # 饿死判据：零证据 + 终态是窗烧穿或主路径模型不可用。
-        # 生产三种形状：R7-A3 查询烧穿窗口、R9-A3 规划轮吃光窗口零
-        # trace、A1-R2 主路径 TimeoutError → model_unavailable。
-        # 共同观察量是 stop_reason，不是 trace。
-        cold_restart_candidate = (
-            outcome.stop_reason in _COLD_RESTART_STOP_REASONS
-            and not outcome.evidence
+        warrant = self._harness.warrant_repair(
+            progress=progress,
+            cycle=cycle,
+            research_tier=context.contract.research_tier,
         )
         admission = admit_repair(
+            need,
+            warrant,
             episode_id=episode_id,
-            missing_outputs=missing_outputs,
-            missing_capabilities=structural.mandatory_missing_capabilities,
-            rejected_claims=rejected_claims,
             attempted_actions=tuple(
                 f"{trace.capability}:{trace.provider}" for trace in outcome.traces
             ),
@@ -1236,21 +1219,18 @@ class ContinuousTurnAdapter:
             remaining_seconds=remaining_seconds,
             cycle=cycle,
             root_budget=root_budget,
-            research_tier=context.contract.research_tier,
             tools_open=tools_open,
             allow_delivery_repair=allow_delivery_repair,
-            delivery_candidate=bool(delivery_candidate),
-            contract_rewrite_candidate=contract_rewrite_candidate,
-            cold_restart_candidate=cold_restart_candidate,
             evidence_count=len(outcome.evidence),
             seconds_cap=self._repair_seconds_cap,
         )
         if admission is None:
             return None
-        verify_contract, _ = apply_unreachable_downgrade(
-            context.contract,
+        # 修复轮按哪张契约验：不可达格已降级的那张——与 Episode 开场用的是同一裁决。
+        verify_contract = self._harness.downgrade_unreachable(
             admission.goal,
-        )
+            contract=context.contract,
+        ).contract
         candidate = resume(admission.goal)
         if not isinstance(candidate, AgentOutcome):
             raise TypeError("episode session resume must return AgentOutcome")
