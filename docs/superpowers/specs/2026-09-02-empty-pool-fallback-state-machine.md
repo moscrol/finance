@@ -10,6 +10,13 @@
 > 收成一个 harness 方法，让第二条 loop 也能跑它。所以本单**画完就抽**，设计与实施同一张 PR。
 >
 > **所有 file:line 对 `gitea/main = 43bd200e` 成立。** 行号会漂，符号名不会。
+>
+> **状态：已实施**（分支 `spec/harness-empty-pool-fallback`，`23a3868f`）。`ResearchHarness` 十五 →
+> 十六方法；X1 / X2 两处收口；`HarnessReferenceLoop` 同位跑同一枪。§4 四条验收全闭：等价（四形状 +
+> 既有 4 条 Episode 用例）/ 有牙（从不回退、改排涨幅两种 harness 均改变 outcome）/ 棘轮（Episode 不
+> import `empty_pool_fallback`、无字面量）/ 第二条 loop（runner 收到的参数、补查事件领域投影、模型
+> 消息、outcome 四者一致）。变异一次（默认实现硬写 `in_repair=True` → 红 5）。**未动**：九道判定、
+> as-of 口径、与补枪的互斥、`resume()` 不回退。
 
 ---
 
