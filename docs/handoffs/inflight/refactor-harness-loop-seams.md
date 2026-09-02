@@ -1,6 +1,6 @@
 # 在途交接 · refactor/harness-loop-seams
 
-更新：2026-09-02 · **P0 + P1a 已实施、离线全绿，Gitea PR #525 已开（http://127.0.0.1:3300/a77/finance-workspace-private/pulls/525），未合 main、未切 8792。** 等用户确认合并。
+更新：2026-09-02 11:40 CST · **已闭环：PR #525 已合 `gitea/main=71a2c846`，主干门禁可采信（7364P/5F 同基线红、webapp 四连绿，读数见 `inflight/main.md` 顶行与收据），8792 未切（零 live 判据，随下批）。** 后续 P1b 见 `inflight/refactor-harness-interpret-turn.md`。
 
 ## 一句话
 
