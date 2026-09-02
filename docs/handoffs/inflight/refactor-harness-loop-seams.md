@@ -1,6 +1,6 @@
 # 在途交接 · refactor/harness-loop-seams
 
-更新：2026-09-02 · **P0 + P1a 已实施、离线全绿，分支已 push，未开 PR、未合 main、未切 8792。** 等用户确认合并。
+更新：2026-09-02 · **P0 + P1a 已实施、离线全绿，Gitea PR #525 已开（http://127.0.0.1:3300/a77/finance-workspace-private/pulls/525），未合 main、未切 8792。** 等用户确认合并。
 
 ## 一句话
 
@@ -42,7 +42,7 @@ passed 只多出新测试数；ruff 绿；`layer_audit` ERROR 0 == 基线。
 
 ## 下一步（按序）
 
-1. 用户确认 → 开 PR 合 main（等价四件套：ruff ✅ pytest ✅ layer_audit ✅；未动前端，
+1. 用户确认 → 合 PR #525（等价四件套：ruff ✅ pytest ✅ layer_audit ✅；未动前端，
    frontend/e2e 不触发）。
 2. **P1b**：`interpret_turn`（PLAN 协议：`parse_plan_candidate` / `validate_plan_revision`
    出 loop）、`after_tool_batch`（`_EpisodeToolAccumulator.consume` 的 prune / budget /
