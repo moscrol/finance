@@ -235,10 +235,31 @@ P2 子研究读数取自提交前脏树，规程壳；5 红同组 `test_dream_mi
 - 全天主干 passed 7345（`18bf518b` 基线）→ 7386（`d7c9da23`），+41 = 本线新钉（`test_research_harness` 34 + `test_harness_reference_loop` 6 + #524 1）。
 - **8792 现役仍 `5be00c4f`**，不含本线任何提交；切流窗口待用户裁决。
 
+## P2'-live：第四臂真跑（2026-09-02 14:27–14:32，8792 已切 `532cdb070a71` 之后）
+
+配方：`finance-base-ab/run-reference-loop.sh {episode|reference-loop|compare}`——cwd = `readlink -f /Users/a77/finance-workspace-runtime`（= 生产快照 `532cdb070a71`，porcelain 前后皆空）、启动器 `export` 行原样 source、`FORESIGHT_USERS_DIR=finance-base-ab/out/reference-loop-0902/users`、`WORKBENCH_REPO_ROOT`=快照、`PYTHONPATH` 只含 `finance-base-ab`、RAG 预热 `state=ready` 43.5s。两臂都经生产 `_run_conversation_turn`（`shape_lib.kernel.run_via_adapter`）；第四臂只在进程内把 `glm_agent_runtime.ContinuousAgentEpisode` 换成 `ReferenceEpisodeShim`（`shape_lib/reference_loop_arm.py`）：构造 `HarnessReferenceLoop(client, harness=FinanceResearchHarness(mode_governor, mode_signals))`，`run()` 补建 `EvidenceLedger` / `EpisodeScope` 给 continuation，事件补盖 `task_frame_hash`；`resume()` 抛 `NotImplementedError`（无修复轮，不伪造 model_turn；adapter 兜底会把 outcome 写进 partial artifact）。离线干跑先过（`GLMAgentRuntime.start()` 正常、`resume` 按设计抛、outcome 不受影响）。
+
+| | Episode（对照） | HarnessReferenceLoop（第四臂） |
+|---|---|---|
+| revision / model | `532cdb070a71` / `glm-5.3` | 同 |
+| 首轮 `task_frame_hash` | `e6ee90449876…` | **同值**（亦与 09-01 六次 run 同） |
+| 首轮 `input_tokens` | 12736 | 12734（差 2 ≤ 3） |
+| 首轮 `tool_calls` | `[financial_data]` | `[financial_data]` |
+| 工具序 | financial_data, l3_lookup, kb_search, evidence_search | financial_data, evidence_lookup, l3_lookup, kb_search, evidence_search, kb_search, evidence_lookup |
+| model_turns / 工具次数 / 墙钟 | 4 / 4 / 99.9s | 7 / 7 / 130.4s |
+| stop_reason / status | `repair_model_stop` / completed | `model_finish` / completed |
+| 修复 | adapter 尝试 1 次（cycles 0） | adapter 未要求（壳的 `resume` 未被触发） |
+| 判官 | `unavailable` | `unavailable`（当日判官环境，两臂同） |
+| 答案 | 576 字，1741 / 1741.44 反推 | 570 字，1741 反推 |
+
+`compare.json`：`ok=true, hard_failures=[]`。**读法**：首轮身份三项在真模型、真工具、真装配上成立——换 loop 不改「问的是什么、给了什么工具」。差全落在 spec §4 标「底座」的行：参考 loop 没有研究窗关闭规则（`planning_timeout < MIN → finalize`），所以多跑了 3 个工具、多 30 秒、由模型自己写 FINAL_JSON 收尾；Episode 在窗关后进修复轮。两臂都没有 2024 年报原文，都是 2025 年报同比反推——与 09-02 预算报告结论一致，且证明换 loop 不是质量修复。
+
+LLM：2 次 episode（对照 4 轮 + 参考 7 轮）。未碰 8792 用户目录；快照 porcelain 前后空。
+
 ## 未做 / 红线
 
-- 未改秒数、档位、reserve、`episode_protocol.py` / `mode_governor.py` 判定、8792、启动器、快照。
-- `_run_sub_research`（需协调器、持状态）仍是 Episode 独有；`repair_policy` / 空池回退未抽。
+- 未改秒数、档位、reserve、`episode_protocol.py` / `mode_governor.py` 判定、启动器、快照内容。
+- `_run_sub_research`（需协调器、持状态）仍是 Episode 独有；`repair_policy` / 空池回退未抽——第四臂的 `resume` 兜底就是这条债的实物。
 - **P2'-live 未做**：把 `HarnessReferenceLoop` 当第四臂跑 09-01 同题要先让 8792 快照切到含 harness 的 revision（现役 `5be00c4f` 没有 `research_harness.py`），且烧配额，另拍。
 - `evidence_ordinal_table` / `attach_evidence_ordinals` / `strip_hashes_for_model` 仍被 `agent_episode._append_sub_research_message` 直接用（子研究消息投影，P2 `govern_mode` 范围），本刀不摘。
 - 三条 loop 的 gap 口径不一致：已暴露（`gaps` vs `declared_gaps`），未统一。
