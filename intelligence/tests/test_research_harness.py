@@ -62,8 +62,13 @@ from intelligence.services.research_tool_registry import (
 )
 from intelligence.services.task_frame import TaskFrame
 
-_AGENT_EPISODE_PATH = (
-    Path(__file__).resolve().parents[1] / "runtime" / "agent_episode.py"
+_RUNTIME_DIR = Path(__file__).resolve().parents[1] / "runtime"
+_AGENT_EPISODE_PATH = _RUNTIME_DIR / "agent_episode.py"
+# 三条 loop：终局门此前在每一条里各手拼一遍（spec §1.1）。
+_LOOP_PATHS = (
+    _AGENT_EPISODE_PATH,
+    _RUNTIME_DIR / "openai_agents_runtime.py",
+    _RUNTIME_DIR / "codex_headless_runtime.py",
 )
 
 
@@ -514,25 +519,31 @@ def _import_from_names(tree: ast.Module, module: str) -> set[str]:
     return names
 
 
-def test_agent_episode_no_longer_imports_extracted_domain_gate_symbols() -> None:
-    """loop 只能经 harness 摸到终局门 / 停机判定 / prompt。
+@pytest.mark.parametrize("path", _LOOP_PATHS, ids=lambda p: p.stem)
+def test_loops_no_longer_import_extracted_domain_gate_symbols(path: Path) -> None:
+    """三条 loop 都只能经 harness 摸到终局门 / prompt。
 
-    ``finish_rejection_fields`` 允许留下：``resume()`` 里「修复轮还在调工具」那处
-    用它造字段，与终局校验无关（spec §6）。
+    ``finish_rejection_fields`` 允许留下：``agent_episode.resume()`` 里「修复轮还在
+    调工具」那处用它造字段，与终局校验无关（spec §6）。``build_episode_input`` /
+    ``build_episode_instructions`` 在另两条 loop 的修复 prompt 里仍直接用——那是
+    P1b「assemble_prompt 扩展」的范围，本棘轮不卡。
     """
 
-    tree = ast.parse(_AGENT_EPISODE_PATH.read_text(encoding="utf-8"))
+    tree = ast.parse(path.read_text(encoding="utf-8"))
 
     protocol_names = _import_from_names(tree, "intelligence.services.episode_protocol")
     leaked = protocol_names & _EXTRACTED_FROM_EPISODE_PROTOCOL
-    assert not leaked, f"agent_episode 直接 import 了已抽走的领域门：{sorted(leaked)}"
-
-    assert not _import_from_names(
-        tree, "intelligence.services.forecast_residual_budget"
-    ), "批后停机判定必须经 harness.halt_after_tool_batch"
+    assert not leaked, f"{path.name} 直接 import 了已抽走的领域门：{sorted(leaked)}"
 
     harness_names = _import_from_names(tree, "intelligence.services.research_harness")
     assert {"FinanceResearchHarness", "ResearchHarness"} <= harness_names
+
+
+def test_agent_episode_routes_batch_halt_through_harness() -> None:
+    tree = ast.parse(_AGENT_EPISODE_PATH.read_text(encoding="utf-8"))
+    assert not _import_from_names(
+        tree, "intelligence.services.forecast_residual_budget"
+    ), "批后停机判定必须经 harness.halt_after_tool_batch"
 
 
 def test_research_harness_module_stays_in_the_domain_layer() -> None:
@@ -547,6 +558,180 @@ def test_research_harness_module_stays_in_the_domain_layer() -> None:
             assert not any(
                 alias.name.startswith("intelligence.runtime") for alias in node.names
             )
+
+
+# ── 4b. 另两条 loop 也在问同一道门（P1a） ─────────────────────────────────
+
+
+def _sdk_registry(evidence: tuple[AgentEvidence, ...]) -> ResearchToolRegistry:
+    """SDK runtime 走 ``request.tools[i].invoke``，工具名沿用 mainline_context 夹具。"""
+
+    def runner(query: str, _context: AgentToolContext):
+        del query
+        return (
+            list(evidence),
+            "医药是韧性核心。",
+            ProviderTrace(
+                provider="test:mainline",
+                capability="mainline_context",
+                status="success",
+                source_trade_date="2026-07-21",
+                result_count=len(evidence),
+            ),
+        )
+
+    return ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="mainline_context",
+                capability="mainline_context",
+                description="同日主线与板块结构",
+                cost="local",
+                freshness="current",
+                runner=runner,
+                query_scope="episode",
+            ),
+        )
+    )
+
+
+def _sdk_context(frame: TaskFrame) -> ResearchRunContext:
+    contract = ResearchTaskContract(
+        task_id="harness-sdk-test",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type=frame.question_type,
+        required_outputs=(
+            RequiredOutput("direct_assessment", "直接判断", ("mainline_context",), True),
+        ),
+        allowed_capabilities=("mainline_context",),
+        research_tier="quick",
+        freshness="current",
+        timeframe=frame.timeframe,
+        evidence_plan=EvidencePlan(),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    return ResearchRunContext(
+        contract=contract,
+        deadline=ResearchDeadline.from_timeout(30.0),
+        policy=ResearchPolicy("quick", 2, 30.0, 0.0),
+        trace_parent_id="harness-sdk-test",
+        today="2026-07-22",
+        latest_data_date="2026-07-21",
+    )
+
+
+def _forged_sdk_runner(request):
+    from intelligence.runtime.openai_agents_runtime import AgentsSdkResult
+
+    request.tools[0].invoke("A股 当前主线")
+    return AgentsSdkResult(_finish_content(hashes=("forged-hash",)), 1, 500, 80, 1)
+
+
+def test_sdk_runtime_default_harness_rejects_forged_finish() -> None:
+    from intelligence.runtime.openai_agents_runtime import OpenAIAgentsRuntime
+
+    frame = _frame()
+    evidence = (
+        AgentEvidence(
+            tool="mainline_context",
+            title="同日主线结构",
+            detail="医药是韧性核心。",
+            source="本地正式日报",
+            source_date="2026-07-21",
+            evidence_tier="L4",
+            content_hash="mainline-hash",
+        ),
+    )
+    outcome = OpenAIAgentsRuntime(
+        runner=_forged_sdk_runner, backend="sdk_glm", model_name="glm-5.2"
+    ).run(task_frame=frame, context=_sdk_context(frame), registry=_sdk_registry(evidence))
+
+    assert outcome.stop_reason == "sdk_invalid_finish"
+    assert outcome.status == "partial"
+    assert outcome.draft == ""
+
+
+def test_sdk_runtime_permissive_harness_accepts_the_same_finish() -> None:
+    from intelligence.runtime.openai_agents_runtime import OpenAIAgentsRuntime
+
+    frame = _frame()
+    evidence = (
+        AgentEvidence(
+            tool="mainline_context",
+            title="同日主线结构",
+            detail="医药是韧性核心。",
+            source="本地正式日报",
+            source_date="2026-07-21",
+            evidence_tier="L4",
+            content_hash="mainline-hash",
+        ),
+    )
+    outcome = OpenAIAgentsRuntime(
+        runner=_forged_sdk_runner,
+        backend="sdk_glm",
+        model_name="glm-5.2",
+        harness=_PermissiveHarness(),
+    ).run(task_frame=frame, context=_sdk_context(frame), registry=_sdk_registry(evidence))
+
+    assert outcome.stop_reason == "model_finish"
+    assert outcome.status == "completed"
+    assert outcome.draft == json.loads(_finish_content())["draft"]
+
+
+def test_codex_finish_issue_and_prompt_go_through_harness() -> None:
+    from intelligence.runtime import codex_headless_runtime as codex
+
+    frame = _frame()
+    context = _context(frame)
+    evidence = (_evidence("evidence-1"),)
+    registry = _registry(evidence)
+    process = codex.HeadlessProcessResult(stdout="", stderr="", returncode=0)
+    parsed = codex._ParsedJSONL(
+        final_text=_finish_content(hashes=("forged-hash",)),
+        thread_id="t",
+        input_tokens=None,
+        output_tokens=None,
+        completed_turns=1,
+        issues=(),
+    )
+    snapshot = codex._empty_snapshot()
+
+    assert (
+        codex._finish_issue(
+            process=process,
+            parsed=parsed,
+            context=context,
+            snapshot=snapshot,
+            registry=registry,
+            harness=FinanceResearchHarness(),
+        )
+        == "headless_invalid_finish"
+    )
+    assert (
+        codex._finish_issue(
+            process=process,
+            parsed=parsed,
+            context=context,
+            snapshot=snapshot,
+            registry=registry,
+            harness=_PermissiveHarness(),
+        )
+        is None
+    )
+
+    recording = _RecordingHarness()
+    prompt = codex._headless_prompt(
+        task_frame=frame,
+        context=context,
+        registry=registry,
+        wrapper_path=Path("/tmp/finance-tool"),
+        harness=recording,
+    )
+    assert recording.calls == ["assemble_prompt"]
+    system, _user = split_episode_prompt(frame, context, registry)
+    assert prompt.startswith(system)
 
 
 # ── spec §7：唯一已知差 ────────────────────────────────────────────────────

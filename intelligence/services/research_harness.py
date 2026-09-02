@@ -84,6 +84,12 @@ class FinishAdmission:
     绑定 gap。loop 不再自己拼这两步。``rejection`` 是无拒收的占位字段
     （``code=none``），可直接 ``**`` 进 finish 事件。
 
+    ``declared_gaps`` 是模型在 FINAL_JSON 里**自己声明**的 gap，未与绑定 gap 合并。
+    三条 loop 的 gap 口径不同：``agent_episode`` 用合并后的 ``gaps``；
+    ``openai_agents_runtime`` / ``codex_headless_runtime`` 只并入声明 gap
+    （各自再叠 snapshot gap / issue）。两者都从这一个值对象取，谁也不用再解析一遍。
+    统一口径是 P1b 之后的事，本值对象先把两种事实都摆出来。
+
     驳回时：``reason`` 是原异常文本；``kind`` 是 ``RejectionKind.value`` 或
     ``"unclassified"``；``response`` 是该类别的处置（回灌 / 恢复 / 停因）；
     ``rejection`` 是 ``finish_rejection_fields(exc)``。
@@ -96,6 +102,7 @@ class FinishAdmission:
     gaps: tuple[str, ...]
     caveat_slips: int
     rejection: dict[str, str]
+    declared_gaps: tuple[str, ...] = ()
     reason: str = ""
     kind: str = ""
     response: RejectionResponse | None = None
@@ -236,6 +243,7 @@ class FinanceResearchHarness:
             gaps=_merge_gaps(finish.gaps, bindings),
             caveat_slips=finish.caveat_slips,
             rejection=finish_rejection_fields(),
+            declared_gaps=tuple(finish.gaps),
         )
 
 

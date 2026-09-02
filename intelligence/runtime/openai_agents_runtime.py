@@ -31,12 +31,13 @@ from intelligence.services.episode_protocol import (
     SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
     build_episode_input,
     build_episode_instructions,
-    expand_episode_snapshot_bindings,
-    split_episode_prompt,
-    validate_episode_finish,
 )
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.repair_coordinator import RepairGoal
+from intelligence.services.research_harness import (
+    FinanceResearchHarness,
+    ResearchHarness,
+)
 from intelligence.services.research_contract import (
     ResearchDeadline,
     ResearchRunContext,
@@ -921,9 +922,14 @@ class OpenAIAgentsRuntime:
         model_factory: SdkModelFactory | None = None,
         is_cancelled: Callable[[], bool] | None = None,
         event_sink: Callable[[EpisodeEvent], None] | None = None,
+        harness: ResearchHarness | None = None,
     ) -> None:
         if backend not in {"sdk_glm", "sdk_gpt"}:
             raise ValueError("unsupported SDK backend")
+        # 终局准入与 prompt 归领域 harness；本 runtime 只跑 SDK loop。
+        self._harness: ResearchHarness = (
+            harness if harness is not None else FinanceResearchHarness()
+        )
         if not str(model_name or "").strip():
             raise ValueError("SDK model name must be non-empty")
         if (
@@ -1103,7 +1109,7 @@ class OpenAIAgentsRuntime:
                 gap="sdk_runtime_budget_exhausted",
                 llm_calls=0,
             )
-        system, user = split_episode_prompt(task_frame, context, registry)
+        system, user = self._harness.assemble_prompt(task_frame, context, registry)
         # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: system is byte-stable; input rebuilds.
         # cache_control is not implemented this increment.
         _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
@@ -1142,13 +1148,13 @@ class OpenAIAgentsRuntime:
             continuation_state.continuation_input = result._continuation_input
 
         snapshot = state.snapshot()
-        try:
-            finish = validate_episode_finish(
-                result.final_output,
-                context=context,
-                evidence=snapshot.evidence,
-            )
-        except ValueError:
+        admission = self._harness.admit_finish(
+            result.final_output,
+            context=context,
+            evidence=snapshot.evidence,
+            registry=registry,
+        )
+        if not admission.accepted:
             # Invalid delivery is a verifier gap, not a private SDK retry.  The
             # adapter owns the one shared RepairGoal cycle pool for every gap.
             return self._failure_from_snapshot(
@@ -1159,22 +1165,19 @@ class OpenAIAgentsRuntime:
                 llm_calls=max(1, result.llm_calls),
                 result=result,
             )
+        assert admission.status is not None
 
-        bindings = expand_episode_snapshot_bindings(
-            bindings=finish.bindings,
-            evidence=snapshot.evidence,
-            registry=registry,
-            draft=finish.draft,
-        )
-        gaps = tuple(dict.fromkeys((*snapshot.gaps, *finish.gaps)))
+        bindings = admission.bindings
+        # 本 runtime 的 gap 口径：snapshot gap + 模型声明 gap，不并绑定 gap。
+        gaps = tuple(dict.fromkeys((*snapshot.gaps, *admission.declared_gaps)))
         execution_gap = next(
             (gap for gap in snapshot.gaps if gap in _PARTIAL_EXECUTION_GAPS),
             None,
         )
         status = (
             "partial"
-            if finish.status == "completed" and execution_gap is not None
-            else finish.status
+            if admission.status == "completed" and execution_gap is not None
+            else admission.status
         )
         stop_reason = execution_gap or "model_finish"
         events = self._events(
@@ -1188,7 +1191,7 @@ class OpenAIAgentsRuntime:
         outcome = AgentOutcome(
             task_frame_hash=task_frame.task_frame_hash,
             status=status,
-            draft=finish.draft,
+            draft=admission.draft,
             evidence=snapshot.evidence,
             traces=snapshot.traces,
             gaps=gaps,
@@ -1404,15 +1407,13 @@ class OpenAIAgentsRuntime:
                 plan=previous.plan,
             )
 
-        try:
-            finish = validate_episode_finish(
-                result.final_output,
-                context=repair_context,
-                evidence=snapshot.evidence,
-            )
-        except ValueError:
-            finish = None
-        if finish is None:
+        admission = self._harness.admit_finish(
+            result.final_output,
+            context=repair_context,
+            evidence=snapshot.evidence,
+            registry=state.registry,
+        )
+        if not admission.accepted:
             status = "partial" if snapshot.evidence else "failed"
             stop_reason = "sdk_invalid_repair_finish"
             gaps = tuple(dict.fromkeys((*previous.gaps, stop_reason)))
@@ -1420,6 +1421,7 @@ class OpenAIAgentsRuntime:
             bindings = previous.bindings
             invalid_actions = previous.usage.invalid_actions + 1
         else:
+            assert admission.status is not None
             execution_gap = next(
                 (
                     gap
@@ -1430,20 +1432,17 @@ class OpenAIAgentsRuntime:
             )
             status = (
                 "partial"
-                if finish.status == "completed" and execution_gap is not None
-                else finish.status
+                if admission.status == "completed" and execution_gap is not None
+                else admission.status
             )
             stop_reason = execution_gap or "repair_model_finish"
             gaps = tuple(
-                dict.fromkeys((*previous.gaps, *snapshot.gaps, *finish.gaps))
+                dict.fromkeys(
+                    (*previous.gaps, *snapshot.gaps, *admission.declared_gaps)
+                )
             )
-            draft = finish.draft
-            bindings = expand_episode_snapshot_bindings(
-                bindings=finish.bindings,
-                evidence=snapshot.evidence,
-                registry=state.registry,
-                draft=finish.draft,
-            )
+            draft = admission.draft
+            bindings = admission.bindings
             invalid_actions = previous.usage.invalid_actions
         appended.extend(
             self._continuation_terminal_events(

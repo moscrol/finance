@@ -61,9 +61,38 @@ spec：`docs/superpowers/specs/2026-09-02-research-harness-loop-decouple-design.
 
 `agent_episode.py` import 段：从 `episode_protocol` 去掉 4 个符号（`validate_episode_finish` / `expand_episode_snapshot_bindings` / `rejection_response` / `split_episode_prompt`），去掉整条 `forecast_residual_budget` import；新增 `research_harness` 三个名字。删除 `_finish_gaps`（搬到 harness `_merge_gaps`）与 `_snapshot_surface_satisfied`（成为 `retrieval_complete`）。
 
+## P1a：三条 loop 共用同一道门（同分支第二个提交）
+
+改动面：`openai_agents_runtime.py`（−/+79）、`codex_headless_runtime.py`（−/+73）、`research_harness.py`（+8：`FinishAdmission.declared_gaps`）、`test_research_harness.py`（+207）。
+
+| loop | 改走 harness 的点 | gap 口径（保持原样） |
+|---|---|---|
+| `openai_agents_runtime` | `__init__(harness=)`；`_run_episode` prompt + 终局门；`resume` 修复终局门 | `snapshot.gaps + declared_gaps`（不并绑定 gap） |
+| `codex_headless_runtime` | `__init__(harness=)`；`_to_outcome` 终局门；`_finish_issue` ×2（新增 `registry` / `harness` 形参）；`_headless_prompt(harness=)` | `snapshot.gaps + issues + declared_gaps`（不并绑定 gap） |
+
+**为什么加 `declared_gaps`**：P0 的 `gaps` 是 `agent_episode` 的合并口径（声明 + 绑定 gap）；另两条 loop 从不并绑定 gap。机械替换不许顺手改口径，所以值对象同时给出未合并的 `declared_gaps`。三条 loop 的 gap 口径不一致这件事本身，是本轮**发现**不是本轮**修**——留 P1b 之后单独量、单独拍。
+
+`_finish_issue` 原先只调 `validate_episode_finish`，现在经 `admit_finish` 多做一次 bindings 展开（结果丢弃）。展开内部对 `registry.resolve` 的 `UnknownResearchTool` 已 try/except，无新异常面；多出的是纯计算。
+
+### 读数
+
+- 两条 runtime 的既有测试 + adapter + 一致性套件：`test_openai_agents_runtime` / `test_codex_headless_runtime` / `test_agent_runtime` / `test_continuous_turn_adapter` / `tests/conformance` + 新测试 = **220 passed, 5 skipped, 1 xfailed**（改前口径不变）。
+- `test_research_harness.py`：13 → **19**。新增：棘轮参数化到三文件（3）、`agent_episode` 停机判定不 import `forecast_residual_budget`（1）、SDK runtime 完整 `run()` 有牙一对（默认 → `sdk_invalid_finish` / partial / 空稿；放行 → `model_finish` / completed）（2）、codex `_finish_issue` 默认 `headless_invalid_finish` vs 放行 `None` + `_headless_prompt` 经录音 harness 的 `assemble_prompt` 且以 system 段开头（1）。
+- ruff 绿；`layer_audit` ERROR 0 == 基线（对 `5f945d10` 成立）。
+- 全量 pytest：见下表（P1a 行）。
+
+| 树 | passed | failed | skipped | xfailed |
+|---|---:|---:|---:|---:|
+| main 基线 | 7345 | 5 | 15 | 1 |
+| P0（`5f945d10`） | 7358 | 5 | 15 | 1 |
+| P1a | **7364** | **5** | 15 | 1 |
+
+P1a 读数取自提交前脏树（脏路径 = 本节四文件），9:54；5 红仍是 `test_dream_mine` 同一组，7364 − 7358 = 6 = 新增测试数（19 − 13）。
+
 ## 未做 / 红线
 
 - 未改秒数、档位、reserve、`episode_protocol.py` 判定、8792、启动器、快照。
-- 未动 `openai_agents_runtime` / `codex_headless_runtime` 的终局门（P1a）。
-- 未写第二条 loop（P2'）；「run 层可替换」目前是**接缝已抽 + 有牙已证**，不是**换过一次**。
+- 另两条 loop 的**修复 prompt** 仍直接用 `build_episode_input` / `build_episode_instructions`（P1b `assemble_prompt` 扩展）。
+- 三条 loop 的 gap 口径不一致：已暴露（`gaps` vs `declared_gaps`），未统一。
+- 未写第二条 loop（P2'）；「run 层可替换」目前是**接缝已抽 + 三条 loop 共用 + 有牙已证**，不是**换过一次**。
 - 未跑 LLM。配额未动。

@@ -1,7 +1,7 @@
 # 设计：领域 Harness 与底座 loop 解耦（ResearchHarness 接缝）
 
 日期：2026-09-02
-状态：**P0 已实施**（分支 `refactor/harness-loop-seams`，基于 gitea/main `18bf518b`；未合 main，未切 8792）
+状态：**P0 + P1a 已实施**（分支 `refactor/harness-loop-seams`，基于 gitea/main `18bf518b`；未合 main，未切 8792）。P1a = 三条 loop 共用 `admit_finish` / `assemble_prompt`，见 §9 第一条与收据 P1a 节。
 收据：`docs/verification/2026-09-02-research-harness-loop-decouple.md`
 父稿：
 
@@ -68,7 +68,7 @@
 ### 2.2 非目标（写死）
 
 - ❌ 不改任何秒数 / 档位 / reserve（`R-20260816-07/-14/-21`；09-02 预算报告已否决抬 T）。
-- ❌ 不动 `openai_agents_runtime` / `codex_headless_runtime`（P1，同一接缝、机械替换、另一单变量批次）。
+- ❌ P0 提交不动 `openai_agents_runtime` / `codex_headless_runtime`（P1a 作为**同分支第二个提交**单独做，机械替换、单变量；见 §9）。
 - ❌ 不抽 PLAN 协议、修复协调器、ModeGovernor、空池回退、`_EpisodeToolAccumulator.consume`（P1/P2，见 §9）。
 - ❌ 不写第二条 loop，不 import pi / dsh，不改 `finance-base-ab`。
 - ❌ 不新开事件种类，不改 durable 事件 payload 一个字节。
@@ -132,10 +132,13 @@ class ResearchHarness(Protocol):
 |---|---|---|
 | `accepted` | True | False |
 | `status` / `draft` / `bindings` / `gaps` / `caveat_slips` | 校验+展开+合并 gaps 后的结果 | `None` / `""` / `()` / `()` / 0 |
+| `declared_gaps` | 模型在 FINAL_JSON 里自己声明的 gap（未合并） | `()` |
 | `rejection` | `finish_rejection_fields()`（code=none） | `finish_rejection_fields(exc)` |
 | `reason` / `kind` / `response` | `""` / `""` / `None` | `str(exc)` / `exc.kind.value` 或 `unclassified` / `RejectionResponse` |
 
 `bindings` 已做 snapshot 展开与比较集展开（`draft=finish.draft`）；`gaps` 已按原 `_finish_gaps` 合并 declared + binding gaps。loop 不再自己拼这两步。
+
+`declared_gaps` 是 P1a 加的（实施时发现）：三条 loop 的 gap 口径**不同**——`agent_episode` 用合并后的 `gaps`；`openai_agents_runtime` 是 `snapshot.gaps + finish.gaps`、`codex_headless_runtime` 是 `snapshot.gaps + issues + finish.gaps`，都**不并绑定 gap**。机械替换不许顺手统一口径，所以值对象把两种事实都摆出来，三条 loop 各取所需。统一是 P1b 之后单独一刀（要先量三条 loop 的 gap 分布）。
 
 `FinanceResearchHarness`：四个方法各自一行委托到 `episode_protocol` / `forecast_residual_budget` / registry 判定。**没有新逻辑。**
 
@@ -190,9 +193,9 @@ class ResearchHarness(Protocol):
 
 ---
 
-## 9. 后续（本单不施工，按顺序立案）
+## 9. 后续（按顺序立案）
 
-- **P1a** 三条 loop 共用：`openai_agents_runtime` / `codex_headless_runtime` 的 5 处终局门改走 `FinanceResearchHarness.admit_finish`；验收是三条 loop 对同一份 FINAL_JSON 给出同一 `FinishAdmission`。
+- **P1a（已实施，同分支第二个提交）** 三条 loop 共用：`openai_agents_runtime`（`__init__(harness=)`；:1106 prompt、:1146 / :1408 两处终局门）与 `codex_headless_runtime`（`__init__(harness=)`；`_to_outcome` 终局门、`_finish_issue` ×2 调用、`_headless_prompt`）改走 harness；两文件 import 段去掉 `validate_episode_finish` / `expand_episode_snapshot_bindings` / `split_episode_prompt`。验收改为可判定的两条：① 棘轮扩到三文件；② 每条 loop 各有一对「默认 harness 驳回伪造哈希 / 放行 harness 接受同一份稿」的有牙测试（SDK runtime 走完整 `run()`；codex 走 `_finish_issue` / `_headless_prompt` 模块函数——完整路径已由其既有 25 例覆盖）。原写法「同一份 FINAL_JSON 三处得到同一 `FinishAdmission`」按构造必然成立（同一个对象），不是验收。`build_episode_input` / `build_episode_instructions` 在另两条 loop 的修复 prompt 里仍直接用，归 P1b。
 - **P1b** `interpret_turn`（PLAN 协议）+ `after_tool_batch`（accumulator 的 prune / budget / ledger ingest）+ `assemble_prompt` 扩展（回灌与 finalization 文案）。这三条抽完，loop 里不再出现「PLAN」「FINAL_JSON」字面。
 - **P2** `repair_policy` / `govern_mode` / `fallback_after_empty_batch`。这些持有状态、改控制流，要先在 P1 之后画状态机。
 - **P2'** 第二条 loop：在 `finance-base-ab/pi-shape/packages/agent_core` 里写一条**只调 `ResearchHarness` 四方法 + `ResearchToolRegistry`** 的最小 loop，跑 09-01 的同一题，硬门沿用 09-01（首轮 hash / token 带 / `financial_data`）。这一步做完，「run 层可替换」才是实测，不是设计图。
