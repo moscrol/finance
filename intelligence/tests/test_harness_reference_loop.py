@@ -18,10 +18,12 @@ from __future__ import annotations
 import ast
 from collections.abc import Mapping
 from copy import deepcopy
+from dataclasses import replace
 import json
 from pathlib import Path
 
 from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.runtime.episode_tool_batch import stage_timeout_granted_detail
 from intelligence.runtime.harness_reference_loop import HarnessReferenceLoop
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
@@ -292,6 +294,81 @@ def test_without_plan_every_message_the_model_sees_is_identical_modulo_budget() 
 
     assert _outcome_core(episode) == _outcome_core(reference)
     assert episode.stop_reason == "model_finish" and episode.status == "completed"
+
+
+def _gap_finish_turn() -> ModelTurn:
+    return ModelTurn(
+        json.dumps(
+            {
+                "status": "partial",
+                "draft": "工具窗口已关，本轮只能报告证据缺口。",
+                "gaps": ["行情工具未派发"],
+                "bindings": [
+                    {
+                        "output_id": "direct_assessment",
+                        "evidence_hashes": [],
+                        "gap": "行情工具未派发",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        (),
+        "scripted",
+        "",
+    )
+
+
+def test_zero_grant_timeout_is_the_same_machine() -> None:
+    """时间闸零授权（研究窗已被 reserve 吃光）：两条 loop 给模型看的 ``tool_timeout``
+    detail 必须同为实授值 ``stage_timeout_granted=0``，不是一边有数一边空串。
+
+    2026-09-01 预算单 P0/P0.1 让 Episode 在零授权未派发时回灌实授值；这一格是底座
+    （派发时钟）的事，所以参考 loop 也走同一个 ``timeout_detail_for_model``。
+    """
+
+    frame = _frame()
+
+    def zero_grant_context() -> ResearchRunContext:
+        return replace(
+            _context(frame, max_steps=6),
+            deadline=ResearchDeadline.from_timeout(5.0, synthesis_reserve=60.0),
+            policy=ResearchPolicy("standard", 6, 90.0, 60.0),
+        )
+
+    script = [_tool_turn(), _gap_finish_turn()]
+    episode_model = _ScriptedModel(list(script))
+    reference_model = _ScriptedModel(list(script))
+    episode = ContinuousAgentEpisode(episode_model).run(
+        task_frame=frame, context=zero_grant_context(), registry=_registry()
+    )
+    reference = HarnessReferenceLoop(reference_model).run(
+        task_frame=frame, context=zero_grant_context(), registry=_registry()
+    )
+
+    assert len(episode_model.calls) == len(reference_model.calls) == 2
+    assert episode_model.calls[0]["messages"] == reference_model.calls[0]["messages"]
+
+    # 第二轮：参考 loop 的消息是 Episode 的前缀。Episode 多出的恰好一条是底座研究窗
+    # 规则（时钟被 reserve 吃光 → 关研究阶段）注入的 begin_finalization 话，spec §4 #9
+    # 明写属底座、参考 loop 没有；tool_timeout 那一格两边必须一字不差。
+    left = [_strip_runtime_budget(m) for m in episode_model.calls[1]["messages"]]
+    right = [_strip_runtime_budget(m) for m in reference_model.calls[1]["messages"]]
+    assert left[: len(right)] == right
+    extra = left[len(right) :]
+    assert len(extra) == 1 and extra[0]["role"] == "user"
+    assert str(extra[0]["content"]).endswith("关闭原因：retrieval_deadline_closed")
+
+    for model in (episode_model, reference_model):
+        tool_payloads = [
+            json.loads(str(m["content"]))
+            for m in model.calls[1]["messages"]
+            if m.get("role") == "tool"
+        ]
+        assert tool_payloads and tool_payloads[0]["error"] == "tool_timeout"
+        assert tool_payloads[0]["detail"] == stage_timeout_granted_detail(0.0)
+
+    assert _outcome_core(episode) == _outcome_core(reference)
 
 
 # ── 3. 有 PLAN：深度裁决也经 harness，全程消息归零差 ─────────────────────

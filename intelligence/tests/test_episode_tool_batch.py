@@ -15,8 +15,11 @@ from intelligence.runtime import episode_tool_batch
 from intelligence.services import agent_research, query_ledger
 from intelligence.services.agent_runtime import ModelToolCall
 from intelligence.runtime.episode_tool_batch import (
+    EpisodeToolBatchSession,
     ToolBatchExecutor,
     ToolCallResult,
+    ToolDispatchClock,
+    stage_timeout_granted_detail,
     tool_batch_timeout_seconds,
 )
 from intelligence.services.evidence_capabilities import (
@@ -1728,6 +1731,9 @@ def test_expired_standard_batch_stamps_time_gate_clock_without_running_tools() -
     assert runner_calls == 0
     assert result.executed_count == 0
     assert [item.error for item in result.items] == ["tool_timeout"] * 4
+    assert [item.detail for item in result.items] == [
+        stage_timeout_granted_detail(0.0)
+    ] * 4
     for item in result.items:
         clock = _clock_payload(item)
         assert set(_DISPATCH_CLOCK_KEYS) <= set(clock)
@@ -1738,6 +1744,34 @@ def test_expired_standard_batch_stamps_time_gate_clock_without_running_tools() -
         assert clock["turn_elapsed_at_dispatch"] == 60.0
         assert item.queued_ms is None
         assert item.elapsed_ms is None
+
+
+def test_result_stamps_positive_grant_on_elapsed_timeout() -> None:
+    """真跑再超时也要带实授值，不能只覆盖 granted=0。"""
+
+    clock = ToolDispatchClock(
+        batch_grant_asked=30.0,
+        stage_timeout_granted=11.5,
+        episode_remaining_at_dispatch=71.5,
+        remaining_slots_at_dispatch=4,
+        turn_elapsed_at_dispatch=8.9,
+    )
+    result = EpisodeToolBatchSession._result(
+        [
+            ToolCallResult(
+                ModelToolCall("e1", "kb_search", {"query": "q"}),
+                "timeout",
+                error="tool_timeout",
+                detail="TimeoutError: RAW_TIMEOUT_EXCEPTION_SENTINEL",
+            )
+        ],
+        executed_count=0,
+        normalized_queries=(),
+        clock=clock,
+    )
+    assert result.items[0].error == "tool_timeout"
+    assert result.items[0].detail == "stage_timeout_granted=11.5"
+    assert result.items[0].dispatch_clock == clock
 
 
 def test_slot_gate_keeps_count_clock_while_time_window_still_open() -> None:
