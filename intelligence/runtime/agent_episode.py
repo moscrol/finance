@@ -33,21 +33,14 @@ from intelligence.services.episode_protocol import (
     SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
     attach_evidence_ordinals,
     evidence_ordinal_table,
-    expand_episode_snapshot_bindings,
     finish_rejection_fields,
-    rejection_response,
-    split_episode_prompt,
     strip_hashes_for_model,
-    validate_episode_finish,
 )
 from intelligence.runtime.episode_tool_batch import (
     EpisodeToolBatchSession,
     ToolBatchExecutor,
     ToolBatchResult,
     ToolCallResult,
-)
-from intelligence.services.forecast_residual_budget import (
-    forecast_residual_halt_reason,
 )
 from intelligence.services.mode_governor import (
     ModeDecision,
@@ -83,6 +76,11 @@ from intelligence.services.research_plan import (
 )
 from intelligence.services.episode_event_lanes import LiveEventSink
 from intelligence.services.episode_scope import EpisodeScope
+from intelligence.services.research_harness import (
+    FinanceResearchHarness,
+    FinishAdmission,
+    ResearchHarness,
+)
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
 )
@@ -658,8 +656,14 @@ class ContinuousAgentEpisode:
         sub_research_coordinator: SubResearchCoordinator | None = None,
         event_sink: Callable[[EpisodeEvent], None] | None = None,
         repair_seconds_cap: float | None = None,
+        harness: ResearchHarness | None = None,
     ) -> None:
         self._model = model
+        # 领域门（prompt / 批后停机 / 取证面 / 终局准入）由 harness 回答，loop 只调。
+        # 默认金融 harness 是对既有函数的纯委托；传别的实现进来就是换领域。
+        self._harness: ResearchHarness = (
+            harness if harness is not None else FinanceResearchHarness()
+        )
         self._llm_timeout = max(0.1, float(llm_timeout))
         self._repair_seconds_cap = (
             float(repair_seconds_cap)
@@ -730,7 +734,7 @@ class ContinuousAgentEpisode:
         finish_failures = 0
         plan_failures = 0
         plan_turns = 0
-        system, user = split_episode_prompt(task_frame, context, registry)
+        system, user = self._harness.assemble_prompt(task_frame, context, registry)
         # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: system is byte-stable; user/tool
         # rebuild each turn. cache_control is not implemented this increment.
         _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
@@ -935,40 +939,27 @@ class ContinuousAgentEpisode:
             if not _consume_root_seconds(context, model_elapsed):
                 if context.root_budget is not None:
                     context.root_budget.settle_seconds(seconds=model_elapsed)
-                carried_draft, carried_bindings = self._carry_just_written_finish(
+                carried = self._carry_just_written_finish(
                     turn=turn,
                     context=context,
                     evidence=tuple(accumulator.evidence),
                     registry=registry,
                 )
-                if carried_draft:
-                    finish_status = "completed"
-                    declared_gaps: tuple[str, ...] = ()
-                    try:
-                        parsed = validate_episode_finish(
-                            turn.content,
-                            context=context,
-                            evidence=tuple(accumulator.evidence),
-                        )
-                        finish_status = parsed.status
-                        carried_draft = parsed.draft
-                        carried_bindings = expand_episode_snapshot_bindings(
-                            bindings=parsed.bindings,
-                            evidence=tuple(accumulator.evidence),
-                            registry=registry,
-                        )
-                        declared_gaps = parsed.gaps
-                    except ValueError:
-                        pass
+                carried_draft = carried.draft if carried is not None else ""
+                carried_bindings = carried.bindings if carried is not None else ()
+                if carried is not None and carried_draft:
+                    # 此前这里会再校验一次并用**不带 draft** 的展开覆盖 bindings，
+                    # 把比较集展开丢掉；现在与其它四处终局门同一份 admission。
+                    assert carried.status is not None
                     return self._stopped_outcome(
                         task_frame=task_frame,
-                        status=finish_status,
+                        status=carried.status,
                         stop_reason="model_finish",
                         gap="",
                         ledger=ledger,
                         evidence=accumulator.evidence,
                         traces=accumulator.traces,
-                        gaps=list(self._finish_gaps(declared_gaps, carried_bindings)),
+                        gaps=list(carried.gaps),
                         llm_calls=llm_calls,
                         tool_calls=tool_calls,
                         invalid_actions=invalid_actions,
@@ -1222,9 +1213,8 @@ class ContinuousAgentEpisode:
                 batch_elapsed = max(0.0, monotonic() - batch_started)
                 tool_calls += batch.executed_count
                 invalid_actions += accumulator.consume(batch, context)
-                halt = forecast_residual_halt_reason(
-                    question_type=context.contract.question_type,
-                    research_tier=context.contract.research_tier,
+                halt = self._harness.halt_after_tool_batch(
+                    context=context,
                     batch_errors=tuple(item.error for item in batch.items),
                 )
                 if halt and not finalization_started:
@@ -1294,9 +1284,9 @@ class ContinuousAgentEpisode:
                         result=pending_branch_result,
                         evidence=tuple(accumulator.evidence),
                     )
-                if self._snapshot_surface_satisfied(
-                    registry=registry,
+                if self._harness.retrieval_complete(
                     context=context,
+                    registry=registry,
                     successful_tools=accumulator.successful_tools,
                 ):
                     finalization_started = True
@@ -1307,30 +1297,27 @@ class ContinuousAgentEpisode:
                     )
                 continue
 
-            try:
-                finish = validate_episode_finish(
-                    turn.content,
-                    context=context,
-                    evidence=tuple(accumulator.evidence),
-                )
-                status, draft = finish.status, finish.draft
-                final_gaps, bindings = finish.gaps, finish.bindings
-            except ValueError as exc:
+            admission = self._harness.admit_finish(
+                turn.content,
+                context=context,
+                evidence=tuple(accumulator.evidence),
+                registry=registry,
+            )
+            if not admission.accepted:
                 finish_failures += 1
                 invalid_actions += 1
-                reason = str(exc)
-                response = rejection_response(exc)
+                reason = admission.reason
+                response = admission.response
+                assert response is not None
                 # 病因与类别进收据：此前只留一句自由文本 reason，事后无法按类
                 # 归并，`synthesis_health` 那 59% 「口径未知」就是从这里开始的。
-                rejection = finish_rejection_fields(exc)
+                rejection = admission.rejection
                 ledger.add(
                     "invalid_action",
                     {
                         "reason": reason,
                         "code": rejection["rejection_code"],
-                        "kind": getattr(
-                            getattr(exc, "kind", None), "value", "unclassified"
-                        ),
+                        "kind": admission.kind,
                         "disposition": response.stop_reason,
                     },
                 )
@@ -1380,13 +1367,9 @@ class ContinuousAgentEpisode:
                     **rejection,
                 )
 
-            bindings = expand_episode_snapshot_bindings(
-                bindings=bindings,
-                evidence=tuple(accumulator.evidence),
-                registry=registry,
-                draft=draft,
-            )
-            current_gaps = self._finish_gaps(final_gaps, bindings)
+            assert admission.status is not None
+            status, draft = admission.status, admission.draft
+            bindings, current_gaps = admission.bindings, admission.gaps
             ledger.record_runtime_result()
             ledger.add(
                 "finish",
@@ -1395,8 +1378,8 @@ class ContinuousAgentEpisode:
                     "stop_reason": "model_finish",
                     "bindings": [item.to_dict() for item in bindings],
                     "gaps": list(current_gaps),
-                    "caveat_slips": finish.caveat_slips,
-                    **finish_rejection_fields(),
+                    "caveat_slips": admission.caveat_slips,
+                    **admission.rejection,
                 },
             )
             return AgentOutcome(
@@ -1890,15 +1873,15 @@ class ContinuousAgentEpisode:
                 carried_bindings=previous.bindings,
                 **rejection,
             )
-        try:
-            finish = validate_episode_finish(
-                turn.content,
-                context=context,
-                evidence=tuple(accumulator.evidence),
-            )
-        except ValueError as exc:
+        admission = self._harness.admit_finish(
+            turn.content,
+            context=context,
+            evidence=tuple(accumulator.evidence),
+            registry=registry,
+        )
+        if not admission.accepted:
             invalid_actions += 1
-            rejection = finish_rejection_fields(exc)
+            rejection = admission.rejection
             ledger.add(
                 "invalid_action",
                 {
@@ -1923,27 +1906,23 @@ class ContinuousAgentEpisode:
                 carried_bindings=previous.bindings,
                 **rejection,
             )
-        bindings = expand_episode_snapshot_bindings(
-            bindings=finish.bindings,
-            evidence=tuple(accumulator.evidence),
-            registry=registry,
-            draft=finish.draft,
-        )
+        assert admission.status is not None
+        bindings = admission.bindings
         revised_without_tool = (
-            finish.draft.strip() != previous.draft.strip()
+            admission.draft.strip() != previous.draft.strip()
             or bindings != previous.bindings
         )
         completed_without_tool = (
             not performed_tool_action
-            and finish.status == "completed"
+            and admission.status == "completed"
             and revised_without_tool
         )
         effective_status = (
-            finish.status
+            admission.status
             if performed_tool_action or completed_without_tool
             else "partial"
         )
-        current_gaps = self._finish_gaps(finish.gaps, bindings)
+        current_gaps = admission.gaps
         if not performed_tool_action and not completed_without_tool and not current_gaps:
             current_gaps = ("修复轮未执行新的取证动作，缺口仍未补齐",)
         repair_progressed = performed_tool_action or completed_without_tool
@@ -1959,14 +1938,14 @@ class ContinuousAgentEpisode:
                 ),
                 "bindings": [item.to_dict() for item in bindings],
                 "gaps": list(current_gaps),
-                "caveat_slips": finish.caveat_slips,
-                **finish_rejection_fields(),
+                "caveat_slips": admission.caveat_slips,
+                **admission.rejection,
             },
         )
         return AgentOutcome(
             task_frame_hash=task_frame.task_frame_hash,
             status=effective_status,
-            draft=finish.draft,
+            draft=admission.draft,
             evidence=tuple(accumulator.evidence),
             traces=tuple(accumulator.traces),
             gaps=current_gaps,
@@ -2444,21 +2423,6 @@ class ContinuousAgentEpisode:
             }
         )
 
-    @staticmethod
-    def _snapshot_surface_satisfied(
-        *,
-        registry: ResearchToolRegistry,
-        context: ResearchRunContext,
-        successful_tools: set[str],
-    ) -> bool:
-        specs = registry.authorized_specs(
-            context.contract.allowed_capabilities,
-        )
-        return bool(specs) and all(
-            spec.query_scope == "episode" and spec.name in successful_tools
-            for spec in specs
-        )
-
     def _can_recover_finalization(
         self,
         *,
@@ -2605,18 +2569,16 @@ class ContinuousAgentEpisode:
                 invalid_actions=invalid_actions,
             )
 
-        try:
-            finish = validate_episode_finish(
-                turn.content,
-                context=context,
-                evidence=tuple(accumulator.evidence),
-            )
-            status, draft = finish.status, finish.draft
-            final_gaps, bindings = finish.gaps, finish.bindings
-        except ValueError as exc:
+        admission = self._harness.admit_finish(
+            turn.content,
+            context=context,
+            evidence=tuple(accumulator.evidence),
+            registry=registry,
+        )
+        if not admission.accepted:
             invalid_actions += 1
-            reason = str(exc)
-            rejection = finish_rejection_fields(exc)
+            reason = admission.reason
+            rejection = admission.rejection
             ledger.add(
                 "invalid_action",
                 {
@@ -2637,13 +2599,9 @@ class ContinuousAgentEpisode:
                 **rejection,
             )
 
-        bindings = expand_episode_snapshot_bindings(
-            bindings=bindings,
-            evidence=tuple(accumulator.evidence),
-            registry=registry,
-            draft=draft,
-        )
-        current_gaps = self._finish_gaps(final_gaps, bindings)
+        assert admission.status is not None
+        status, draft = admission.status, admission.draft
+        bindings, current_gaps = admission.bindings, admission.gaps
         ledger.add(
             "finalization_recovery_outcome",
             {"status": "recovered", "answer_status": status},
@@ -2656,8 +2614,8 @@ class ContinuousAgentEpisode:
                 "stop_reason": "finalization_recovered",
                 "bindings": [item.to_dict() for item in bindings],
                 "gaps": list(current_gaps),
-                "caveat_slips": finish.caveat_slips,
-                **finish_rejection_fields(),
+                "caveat_slips": admission.caveat_slips,
+                **admission.rejection,
             },
         )
         return AgentOutcome(
@@ -2767,57 +2725,35 @@ class ContinuousAgentEpisode:
             if cleaned and cleaned not in target:
                 target.append(cleaned)
 
-    @staticmethod
-    def _finish_gaps(
-        declared_gaps: tuple[str, ...],
-        bindings: tuple[OutputEvidenceBinding, ...],
-    ) -> tuple[str, ...]:
-        """Project only currently unresolved gaps; history stays in events."""
-
-        values = (*declared_gaps, *(item.gap for item in bindings))
-        return tuple(
-            dict.fromkeys(
-                cleaned
-                for value in values
-                if (cleaned := str(value or "").strip())
-            )
-        )
-
-    @staticmethod
     def _carry_just_written_finish(
+        self,
         *,
         turn: ModelTurn,
         context: ResearchRunContext,
         evidence: tuple[AgentEvidence, ...],
         registry: ResearchToolRegistry,
-    ) -> tuple[str, tuple[OutputEvidenceBinding, ...]]:
+    ) -> FinishAdmission | None:
         """Salvage a just-written FINAL_JSON when the root clock is already dead.
 
         ``complete()`` already returned. A failed ``consume_seconds`` must not
         pretend the model never wrote. Tool-calling, errored, or invalid turns
-        stay empty so this path cannot invent an answer.
+        return ``None`` so this path cannot invent an answer.
         """
 
         if turn.error or turn.tool_calls or not str(turn.content or "").strip():
-            return "", ()
-        try:
-            finish = validate_episode_finish(
-                turn.content,
-                context=context,
-                evidence=evidence,
-            )
-        except ValueError:
-            return "", ()
-        bindings = expand_episode_snapshot_bindings(
-            bindings=finish.bindings,
+            return None
+        admission = self._harness.admit_finish(
+            turn.content,
+            context=context,
             evidence=evidence,
             registry=registry,
-            draft=finish.draft,
         )
-        return finish.draft, bindings
+        if not admission.accepted:
+            return None
+        return admission
 
-    @staticmethod
     def _carry_repair_finish(
+        self,
         *,
         turn: ModelTurn,
         previous: AgentOutcome,
@@ -2838,14 +2774,14 @@ class ContinuousAgentEpisode:
         把已有答案丢掉。
         """
 
-        draft, bindings = ContinuousAgentEpisode._carry_just_written_finish(
+        carried = self._carry_just_written_finish(
             turn=turn,
             context=context,
             evidence=evidence,
             registry=registry,
         )
-        if draft:
-            return draft, bindings
+        if carried is not None and carried.draft:
+            return carried.draft, carried.bindings
         return previous.draft, previous.bindings
 
     @staticmethod
