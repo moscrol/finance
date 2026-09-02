@@ -1,6 +1,6 @@
 # 在途交接 · refactor/harness-interpret-turn
 
-更新：2026-09-02 · **P1b 已实施、离线全绿，未开 PR、未合 main、未切 8792。** 等用户确认。
+更新：2026-09-02 · **P1b 已实施、离线全绿，Gitea PR #526 已开（http://127.0.0.1:3300/a77/finance-workspace-private/pulls/526），未合 main、未切 8792。** 等用户确认合并。
 
 ## 一句话
 
@@ -33,7 +33,7 @@ spec：`docs/superpowers/specs/2026-09-02-research-harness-loop-decouple-design.
 
 ## 下一步（按序）
 
-1. 用户确认 → 开 PR 合 main（等价四件套：ruff ✅ pytest 见收据 layer_audit ✅）。
+1. 用户确认 → 合 PR #526（等价四件套：ruff ✅ pytest 见收据 layer_audit ✅）。
 2. **P1c**：`_EpisodeToolAccumulator.consume` 的模型视图投影抽成 `harness.project_tool_result`
    （dsh `tools/result` 位）。字节等价门：durable `tool_result` payload 与 `role=tool` 消息内容。
    事件发射、证据去重、traces 留 loop。
