@@ -29,7 +29,6 @@ from intelligence.services.agent_runtime import (
 )
 from intelligence.services.episode_protocol import (
     SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
-    build_episode_input,
     finish_json_schema,
 )
 from intelligence.services.research_harness import (
@@ -799,13 +798,14 @@ class CodexHeadlessRuntime:
         evidence = [public_agent_evidence(item) for item in snapshot.evidence]
         # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: repair prompt is per-turn user JSON.
         _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
+        _system, task_user = self._harness.assemble_prompt(task_frame, context, registry)
         prompt = (
             "研究阶段已经关闭，禁止调用任何工具或运行命令。"
             "上一份终止输出未通过固定 JSON 协议；只修复终止 envelope，"
             "不得增加新事实。只能使用下面列出的证据哈希，缺失输出必须写 gap。"
             "只输出符合给定 schema 的 JSON 对象。\n"
             f"失败原因：{failure_reason}\n"
-            f"任务：{build_episode_input(task_frame, context, registry)}\n"
+            f"任务：{task_user}\n"
             f"证据：{json.dumps(evidence, ensure_ascii=False)}\n"
             f"现有缺口：{json.dumps(list(snapshot.gaps), ensure_ascii=False)}"
         )

@@ -22,10 +22,16 @@
 本模块                pi ``AgentLoopConfig``       dsh 扩展点
 ===================  ===========================  ==============================
 assemble_prompt      transformContext             system-prompt spine
+steering_message     transformContext（注入）      agent/pre-step → enter(messages)
+interpret_plan       **—（pi 没有）**              **—（dsh 没有）**
 halt_after_tool_batch afterToolCall.terminate     tools/post-execute → block
 retrieval_complete   shouldStopAfterTurn          —
 admit_finish         **—（pi 没有）**              **—（dsh 没有）**
 ===================  ===========================  ==============================
+
+PLAN 是本领域的研究协议（先出计划再动手），两家都没有；它和 ``admit_finish``
+一样只能是领域方法。``steering_message`` 是领域在驳回 / 关闭研究阶段时对模型说的
+话——第二条 loop 若要「是同一台机器」，这些字节必须来自同一处。
 
 两家的 loop 都在「模型不再调工具」处停。我们多一道终局准入：模型说完了，
 还要过契约与证据绑定。它挂不上任何一家的现成钩子——这是 08-15 §14 第一刀
@@ -45,7 +51,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import EpisodeStatus, OutputEvidenceBinding
@@ -61,6 +67,12 @@ from intelligence.services.forecast_residual_budget import (
     forecast_residual_halt_reason,
 )
 from intelligence.services.research_contract import ResearchRunContext
+from intelligence.services.research_plan import (
+    PlanParseResult,
+    ResearchPlan,
+    parse_plan_candidate,
+    validate_plan_revision,
+)
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.task_frame import TaskFrame
 
@@ -68,7 +80,13 @@ __all__ = [
     "FinanceResearchHarness",
     "FinishAdmission",
     "ResearchHarness",
+    "SteeringKind",
 ]
+
+# loop 在三个时点需要对模型说一段领域的话。做成 Literal 而不是三个方法：
+# 三段话的**时点**是底座的事（什么时候驳回、什么时候关研究阶段），**内容**是
+# 领域的事；一个方法一个枚举，时点和内容的边界正好落在参数上。
+SteeringKind = Literal["invalid_plan", "invalid_finish", "begin_finalization"]
 
 
 @dataclass(frozen=True)
@@ -135,6 +153,24 @@ class ResearchHarness(Protocol):
         """开场 ``(system, user)``。system 在一次 episode 内字节稳定。"""
         ...
 
+    def steering_message(self, kind: SteeringKind, *, detail: str) -> str:
+        """loop 在驳回 / 关闭研究阶段时注入给模型的那段话（user 角色正文）。"""
+        ...
+
+    def interpret_plan(
+        self,
+        content: str,
+        *,
+        previous_plan: ResearchPlan | None,
+        task_id: str,
+    ) -> PlanParseResult:
+        """这条模型输出是不是一份合法 PLAN（含相对上一份的修订合法性）。
+
+        三种返回：``plan`` 非空 = 合法 PLAN；``plan`` 空且 ``error`` 非空 =
+        写坏的 PLAN 或非法修订；两者皆空 = 根本不是 PLAN（交给终局门或工具）。
+        """
+        ...
+
     def halt_after_tool_batch(
         self,
         *,
@@ -176,6 +212,61 @@ class FinanceResearchHarness:
         registry: ResearchToolRegistry,
     ) -> tuple[str, str]:
         return split_episode_prompt(task_frame, context, registry)
+
+    def steering_message(self, kind: SteeringKind, *, detail: str) -> str:
+        # 三段文案逐字搬自 agent_episode（run() 两处回灌 + _begin_finalization）。
+        if kind == "invalid_plan":
+            return (
+                "上一条 PLAN 无效。请保留最初任务与当前 episode，"
+                "只修复为闭合的 PLAN JSON，或直接调用已授权工具；"
+                "PLAN 不能授权工具、预算、证据或完成状态。"
+                f"错误：{detail}"
+            )
+        if kind == "invalid_finish":
+            return (
+                "上一条终止输出无效。请保留当前任务和全部观察，"
+                "不要重启研究；修复后只输出 FINAL_JSON。"
+                f"错误：{detail}"
+            )
+        if kind == "begin_finalization":
+            return (
+                "研究阶段已关闭，不得再调用工具。请保留最初任务和全部"
+                "原始观察，立即基于已有证据序号 E1、E2… 输出 FINAL_JSON；"
+                "证据不足的 required output 必须标 partial 并写明 gap。"
+                "不要逐条复述全部观察，只保留最关键依据；条件写相对变化，"
+                "不得新增证据中没有的数值阈值。若用户要求预测，只保留一个"
+                "明确标注的主观基准区间及其不确定性。每个保留的精确数字"
+                "必须把直接证据序号放入对应 output binding，否则删去数字。"
+                "每条被正文使用的观察事实也必须把其直接证据序号加入对应 "
+                "output binding；不得用同一次工具返回的另一条证据代替。"
+                "原因归因若没有同一时间窗口的 news_search 证据，不得用普通 "
+                "web_search 摘要补成已核验因果，应保留盘面事实并把原因写 gap。"
+                "为保证 FINAL_JSON 完整，draft 控制在 1000 汉字以内；这是传输预算，"
+                "不要求固定标题、段数或措辞。"
+                f"关闭原因：{detail}"
+            )
+        raise ValueError(f"unknown steering kind: {kind!r}")
+
+    def interpret_plan(
+        self,
+        content: str,
+        *,
+        previous_plan: ResearchPlan | None,
+        task_id: str,
+    ) -> PlanParseResult:
+        result = parse_plan_candidate(content)
+        if result.plan is None or previous_plan is None:
+            return result
+        try:
+            validate_plan_revision(
+                previous_plan,
+                result.plan,
+                original_task_id=task_id,
+                current_task_id=task_id,
+            )
+        except ValueError as exc:
+            return PlanParseResult(None, str(exc))
+        return result
 
     def halt_after_tool_batch(
         self,

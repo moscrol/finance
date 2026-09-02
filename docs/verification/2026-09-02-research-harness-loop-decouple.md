@@ -89,10 +89,41 @@ spec：`docs/superpowers/specs/2026-09-02-research-harness-loop-decouple-design.
 
 P1a 读数取自提交前脏树（脏路径 = 本节四文件），9:54；5 红仍是 `test_dream_mine` 同一组，7364 − 7358 = 6 = 新增测试数（19 − 13）。
 
+## #525 合并与主干门禁（2026-09-02，按 `docs/workflows/acceptance-workflow.md`）
+
+- 合并前：`git merge-tree --write-tree gitea/main refactor/harness-loop-seams` exit 0、无 `CONFLICT` 行；基座落后 2 提交（#520：一份 spec + `scripts/audit_tool_admission_branches.py`，与本单文件零交集）。
+- 合并：`POST /pulls/525/merge {"Do":"merge"}` → HTTP 200，`merged=true`，merge commit `71a2c846246cd853fe07fbd758119097e52a7cca`；远程分支已删。
+- 门禁树：`/Users/a77/tmp/fwp-gate-71a2c846246c`（detached @ main tip，干净）。规程测试壳（`umask 022` + `env -i PATH HOME KNOWLEDGE_WIKI`）。
+  - ruff：All checks passed；`layer_audit`：ERROR 0 == 基线（对 `HEAD@71a2c846` 成立）。
+  - 全量 pytest：**7364 passed / 5 failed / 15 skipped / 1 xfailed**，9:43。收据 `~/.finance-runtime/test-receipts/20260902T032337Z-71a2c846.json`（`dirty=false`）。
+  - `check_test_receipt.py <收据> --expect-revision $(git rev-parse gitea/main) --base-drift-max 5` → **✅ 可采信**（revision 一致、干净树、基座漂移 0）。5 红按名逐条：全是 `test_dream_mine.py::RunMineTests` 五例，合并前基线 `18bf518b` 上同样红（本收据首节），非本批引入。
+  - webapp 四件套（未动前端，规程仍要求跑；同一门禁树 `intelligence/webapp`，`pnpm install --frozen-lockfile`）：`pnpm lint` ✓、`pnpm typecheck` ✓、`pnpm test` **70 passed（3 files）**、`pnpm build` ✓，整串 exit 0。
+- **8792 未切**：本批零 live 判据（纯结构等价），按交接单「下次切流带上」。
+
+## P1b：`interpret_plan` + `steering_message` + 修复 prompt 同源（分支 `refactor/harness-interpret-turn`，基于 `71a2c846`）
+
+改动面：`research_harness.py`（+2 方法 + `SteeringKind`）、`agent_episode.py`（PLAN 块两处调用→一处；两处回灌文案 + `_begin_finalization` 文案改取 harness；去 import `parse_plan_candidate` / `validate_plan_revision`）、`openai_agents_runtime.py`（修复轮 system/task 取 `assemble_prompt` 两半，去 import `build_episode_input` / `build_episode_instructions`）、`codex_headless_runtime.py`（修复 prompt 的任务 JSON 取 `assemble_prompt[1]`，去 import `build_episode_input`）、`test_research_harness.py`（19 → 24）。
+
+等价论证：`interpret_plan` = `parse_plan_candidate` 后若有上一份 PLAN 再 `validate_plan_revision`，异常文本原样进 `PlanParseResult.error`——与原 try/except 分支逐字同义；三段 steering 文案逐字搬运，测试按字节钉死；`split_episode_prompt` 本就是 `(build_episode_instructions, build_episode_input)`，取两半 = 原调用。`openai` 修复轮此前只在 `continuation_input is None` 时算 `build_episode_input`，现无条件算一次（纯函数、结果相同、多一次计算）。
+
+### 读数
+
+- 定向：三条 loop 相关 14 个测试文件/目录 **468 passed, 5 skipped, 1 xfailed**（改前口径不变）。
+- `test_research_harness.py` **24 passed**。新增：`interpret_plan` 五路等价（合法 / 非 PLAN 两种 / 写坏 / 合法修订 / 非法修订错误文本逐字）、三段 steering 文案字节钉、loop 顺序扩成 plan→tool→finish 七次调用、有牙两条（看不见 PLAN 的 harness 让 PLAN 轮变 `invalid_action`、自定义 steering 文本真到模型眼前含 `begin_finalization:tool_budget_exhausted`）、棘轮扩到 `research_plan` 两名与 `build_episode_*` 两名。
+- ruff 绿；`layer_audit` ERROR 0 == 基线（对 `refactor/harness-interpret-turn@71a2c846` 成立）。
+- 全量 pytest：见下表回填。
+
+| 树 | passed | failed | skipped | xfailed |
+|---|---:|---:|---:|---:|
+| main `71a2c846`（门禁） | 7364 | 5 | 15 | 1 |
+| P1b | **7369** | **5** | 15 | 1 |
+
+P1b 读数取自提交前脏树（脏路径 = 本节五文件），规程测试壳，7:43；5 红仍是 `test_dream_mine` 同一组，7369 − 7364 = 5 = 新增测试数（24 − 19）。
+
 ## 未做 / 红线
 
 - 未改秒数、档位、reserve、`episode_protocol.py` 判定、8792、启动器、快照。
-- 另两条 loop 的**修复 prompt** 仍直接用 `build_episode_input` / `build_episode_instructions`（P1b `assemble_prompt` 扩展）。
+- **P1c 未做**：`_EpisodeToolAccumulator.consume` 的模型视图投影（dsh `tools/result` 位）。要求 durable `tool_result` payload 与模型消息字节等价，单独一刀。
 - 三条 loop 的 gap 口径不一致：已暴露（`gaps` vs `declared_gaps`），未统一。
-- 未写第二条 loop（P2'）；「run 层可替换」目前是**接缝已抽 + 三条 loop 共用 + 有牙已证**，不是**换过一次**。
+- 未写第二条 loop（P2'）；「run 层可替换」目前是**接缝已抽（六方法）+ 三条 loop 共用 + 有牙已证**，不是**换过一次**。
 - 未跑 LLM。配额未动。
