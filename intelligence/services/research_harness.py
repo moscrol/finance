@@ -28,6 +28,7 @@ govern_mode          **—（pi 没有）**              **—（dsh 没有）**
 project_tool_result  afterToolCall.content        tools/result（definition-owned finalizeContent）
 project_tool_error   afterToolCall.isError+content tools/post-execute → block(feedback)
 halt_after_tool_batch afterToolCall.terminate     tools/post-execute → block
+fallback_after_empty_batch **—（pi 没有）**       **—（dsh 没有）**
 retrieval_complete   shouldStopAfterTurn          —
 admit_finish         **—（pi 没有）**              **—（dsh 没有）**
 classify_repair_need **—（pi 没有）**              **—（dsh 没有）**
@@ -58,6 +59,13 @@ PLAN 是本领域的研究协议（先出计划再动手），两家都没有；
 （含 hash / telemetry），模型视图去重、预算、去 hash 只留 E<n>——这条边界是
 2026-08 B1/B7 零绑定事故（模型誊抄 16-hex）之后立的，不能因为换 loop 而漂。
 
+``fallback_after_empty_batch``（`2026-09-02-empty-pool-fallback-state-machine.md`）两家也没有：
+一批工具跑完、下一次问模型之前，loop 替模型**自己补发**一次查询——某个 ``sector_daily`` 池开场
+预取空表且首轮 0 行时换同窗成交额前排，恰好一次。该不该补、补什么、什么叫「池空」、as-of
+怎么取，全是领域（九道判定，`services/empty_pool_fallback`）；剩余槛够不够、怎么派、记哪笔账
+是底座。loop 递它拥有的事实（本批结果、可派工具集、事件流、阶段），领域返回一条要派的调用或
+``None``。
+
 两家的 loop 都在「模型不再调工具」处停。我们多一道终局准入：模型说完了，
 还要过契约与证据绑定。它挂不上任何一家的现成钩子——这是 08-15 §14 第一刀
 （通用底座不管对错）的**正确结果**，不是缺陷，所以它只能是领域 Harness 的方法。
@@ -83,8 +91,15 @@ from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
     AgentOutcome,
     EpisodeStatus,
+    ModelToolCall,
     OutputEvidenceBinding,
     public_agent_evidence,
+)
+from intelligence.services.empty_pool_fallback import (
+    EmptyToolCall,
+    fallback_already_attempted,
+    prefetch_pool_is_empty,
+    propose_empty_pool_fallback,
 )
 from intelligence.services.episode_protocol import (
     RejectionResponse,
@@ -139,6 +154,7 @@ from intelligence.services.tool_result_budget import budget_tool_observation
 
 __all__ = [
     "BranchOutcome",
+    "FallbackCall",
     "FinanceResearchHarness",
     "FinishAdmission",
     "ModeGovernance",
@@ -150,6 +166,7 @@ __all__ = [
     "RepairVerdict",
     "ResearchHarness",
     "SteeringKind",
+    "ToolCallOutcome",
     "ToolResultProjection",
     "default_mode_signals",
 ]
@@ -176,6 +193,33 @@ class BranchOutcome(Protocol):
 
     @property
     def gaps(self) -> tuple[str, ...]: ...
+
+class ToolCallOutcome(Protocol):
+    """一批工具里的一条结果——按结构声明，不 import runtime。
+
+    ``intelligence.runtime.episode_tool_batch.ToolCallResult`` 天然满足它。空池回退只看
+    「哪个工具、什么参数、结果是不是空」，不看观察正文。
+    """
+
+    @property
+    def call(self) -> ModelToolCall: ...
+
+    @property
+    def status(self) -> str: ...
+
+
+@dataclass(frozen=True)
+class FallbackCall:
+    """loop 在本批之后、下一次问模型之前，替模型补发的一次工具调用。
+
+    ``call`` 交给批次执行器原样派发；``request_extras`` 是领域要盖在 ``tool_request`` 事件上的
+    标记（``fallback_query`` / ``original_arguments`` / ``as_of``）——「恰好一次」靠扫这个标记
+    判定，所以它必须进 durable 事件，不能只留在内存。
+    """
+
+    call: ModelToolCall
+    request_extras: dict[str, object]
+
 
 ModeSignalsFactory = Callable[[TaskFrame, ResearchPlan], ModeSignals]
 
@@ -402,6 +446,24 @@ class ResearchHarness(Protocol):
         batch_errors: Iterable[str | None],
     ) -> str | None:
         """一批工具跑完后是否立刻停止研究。返回停机理由；``None`` = 继续。"""
+        ...
+
+    def fallback_after_empty_batch(
+        self,
+        batch: Iterable[ToolCallOutcome],
+        *,
+        context: ResearchRunContext,
+        registry: ResearchToolRegistry,
+        authorized_tools: frozenset[str],
+        events: Iterable[object],
+        in_repair: bool,
+    ) -> FallbackCall | None:
+        """一批工具跑完、下一次问模型之前：要不要替模型补发一次查询，补什么。
+
+        ``authorized_tools`` 是底座此刻真能派的工具集；``events`` 是 durable 事件流（领域从中
+        判「已经补过」）；``in_repair`` 是底座报的阶段。剩余槛够不够由 loop 在调用前自己判——
+        领域只说想不想补。返回 ``None`` = 不补。
+        """
         ...
 
     def retrieval_complete(
@@ -715,6 +777,48 @@ class FinanceResearchHarness:
             question_type=context.contract.question_type,
             research_tier=context.contract.research_tier,
             batch_errors=tuple(batch_errors),
+        )
+
+    def fallback_after_empty_batch(
+        self,
+        batch: Iterable[ToolCallOutcome],
+        *,
+        context: ResearchRunContext,
+        registry: ResearchToolRegistry,
+        authorized_tools: frozenset[str],
+        events: Iterable[object],
+        in_repair: bool,
+    ) -> FallbackCall | None:
+        # 原 agent_episode._maybe_execute_empty_pool_fallback 凑输入那段逐字搬入：领域判定
+        # 的输入由领域自己从 context / registry / events 读，loop 只递它拥有的事实。
+        cutoff = context.information_cutoff
+        proposal = propose_empty_pool_fallback(
+            question_type=context.contract.question_type,
+            as_of=cutoff.as_of_date.isoformat(),
+            cutoff_source=cutoff.source,
+            prefetch_empty=prefetch_pool_is_empty(
+                getattr(registry, "opening_prefetch", ()) or ()
+            ),
+            first_results=tuple(
+                EmptyToolCall(
+                    name=item.call.name,
+                    arguments=dict(item.call.arguments),
+                    empty=item.status == "empty",
+                )
+                for item in batch
+            ),
+            authorized_tools=authorized_tools,
+            already_attempted=fallback_already_attempted(events),
+            in_repair=in_repair,
+            backfill_plan=None,
+        )
+        if proposal is None:
+            return None
+        return FallbackCall(
+            call=ModelToolCall(
+                proposal.call_id, proposal.tool, proposal.fallback_arguments
+            ),
+            request_extras=proposal.request_extras(),
         )
 
     def retrieval_complete(

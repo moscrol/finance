@@ -971,6 +971,18 @@ def test_agent_episode_routes_batch_halt_through_harness() -> None:
     ), "批后停机判定必须经 harness.halt_after_tool_batch"
 
 
+def test_agent_episode_routes_empty_pool_fallback_through_harness() -> None:
+    """空池回退（`2026-09-02-empty-pool-fallback-state-machine.md` §4 第 3 条）：该不该补、补什么
+    只能由 harness.fallback_after_empty_batch 产出；loop 不认识回退的常量与标记。"""
+
+    source = _AGENT_EPISODE_PATH.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    assert not _import_from_names(tree, "intelligence.services.empty_pool_fallback")
+    assert "empty-pool-fallback" not in source
+    assert "fallback_query" not in source
+    assert "self._harness.fallback_after_empty_batch(" in source
+
+
 def test_agent_episode_routes_tool_view_through_harness() -> None:
     """模型看到的工具结果（去重 / 预算 / 去 hash）只能由 harness.project_tool_result 产出。"""
 

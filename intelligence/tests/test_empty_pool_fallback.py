@@ -2,19 +2,26 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from copy import deepcopy
+from dataclasses import dataclass
 from datetime import date
 import json
+from types import SimpleNamespace
 
 from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.runtime.harness_reference_loop import HarnessReferenceLoop
 from intelligence.services.agent_research import AgentEvidence, StructuredObservation
 from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
 from intelligence.services.empty_pool_fallback import (
+    FALLBACK_CALL_ID,
     EmptyToolCall,
     apply_fallback_backfill_mutex,
+    fallback_already_attempted,
     prefetch_pool_is_empty,
     propose_empty_pool_fallback,
 )
+from intelligence.services.research_harness import FallbackCall, FinanceResearchHarness
 from intelligence.services.episode_issues import (
     BackfillPlan,
     Issue,
@@ -684,3 +691,275 @@ def test_episode_historical_cutoff_does_not_leak_later_day() -> None:
     assert tagged[0]["arguments"]["time_range"]["end"] == "2026-08-18"
     assert seen[-1]["time_range"]["end"] == "2026-08-18"
     assert seen[-1]["time_range"]["end"] != "2026-08-19"
+
+
+# ── 接缝：fallback_after_empty_batch（2026-09-02-empty-pool-fallback-state-machine.md §4）──
+#
+# 该不该补、补什么，从 loop 搬进 harness。loop 只递自己拥有的事实（本批结果 / 可派工具集 /
+# 事件流 / 阶段），领域从 context / registry / events 读其余。下面四条对应 spec §4 的四条验收。
+
+
+@dataclass(frozen=True)
+class _Outcome:
+    """ToolCallOutcome 的最小结构体：接缝只看 (call, status)。"""
+
+    call: ModelToolCall
+    status: str
+
+
+def _plain(value):
+    """事件 payload 与 ModelToolCall 参数会被冻成 mappingproxy / tuple；比对前展平。"""
+
+    if isinstance(value, Mapping):
+        return {str(k): _plain(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain(v) for v in value]
+    return value
+
+
+def _first_batch(*, empty: bool) -> tuple[_Outcome, ...]:
+    return (_Outcome(_empty_sector_turn().tool_calls[0], "empty" if empty else "success"),)
+
+
+def test_default_fallback_seam_equals_direct_proposal() -> None:
+    """等价：默认 harness 的产物与直接调 propose_empty_pool_fallback 逐字段相同（四种形状）。"""
+
+    harness = FinanceResearchHarness()
+    frame = _theme_frame()
+    context = _theme_context(frame)
+    registry = _finance_registry(_empty_then_amount_runner([]))
+    authorized = frozenset({"finance_query"})
+
+    def direct(*, question_type, prefetch, batch, events=()):
+        cutoff = context.information_cutoff
+        return propose_empty_pool_fallback(
+            question_type=question_type,
+            as_of=cutoff.as_of_date.isoformat(),
+            cutoff_source=cutoff.source,
+            prefetch_empty=prefetch_pool_is_empty(prefetch),
+            first_results=tuple(
+                EmptyToolCall(
+                    name=item.call.name,
+                    arguments=dict(item.call.arguments),
+                    empty=item.status == "empty",
+                )
+                for item in batch
+            ),
+            authorized_tools=authorized,
+            already_attempted=fallback_already_attempted(events),
+            in_repair=False,
+            backfill_plan=None,
+        )
+
+    # 1. 空池命中
+    hit = harness.fallback_after_empty_batch(
+        _first_batch(empty=True),
+        context=context,
+        registry=registry,
+        authorized_tools=authorized,
+        events=(),
+        in_repair=False,
+    )
+    expected = direct(question_type=frame.question_type, prefetch=(), batch=_first_batch(empty=True))
+    assert hit is not None and expected is not None
+    assert hit.call.call_id == expected.call_id == FALLBACK_CALL_ID
+    assert hit.call.name == expected.tool == "finance_query"
+    # ModelToolCall 把参数冻成 tuple / mappingproxy，展平后逐字段比。
+    assert _plain(hit.call.arguments) == _plain(expected.fallback_arguments)
+    assert hit.request_extras == expected.request_extras()
+    assert hit.request_extras["fallback_query"] is True
+
+    # 2. 首轮有行 → 都不补
+    assert (
+        harness.fallback_after_empty_batch(
+            _first_batch(empty=False),
+            context=context,
+            registry=registry,
+            authorized_tools=authorized,
+            events=(),
+            in_repair=False,
+        )
+        is None
+        is direct(question_type=frame.question_type, prefetch=(), batch=_first_batch(empty=False))
+    )
+
+    # 3. 预取有行 → 都不补
+    prefetch = (
+        AgentEvidence(
+            tool="finance_query",
+            title="预取",
+            detail="已有观察",
+            source="本地行情",
+            source_date="2026-08-18",
+            content_hash="prefetch-1",
+            observations=(StructuredObservation("创新药", "2026-08-18", "amount", 10.0),),
+        ),
+    )
+    assert (
+        harness.fallback_after_empty_batch(
+            _first_batch(empty=True),
+            context=context,
+            registry=_finance_registry(_empty_then_amount_runner([]), opening_prefetch=prefetch),
+            authorized_tools=authorized,
+            events=(),
+            in_repair=False,
+        )
+        is None
+        is direct(question_type=frame.question_type, prefetch=prefetch, batch=_first_batch(empty=True))
+    )
+
+    # 4. 已经补过一次 / 修复轮 → 都不补
+    already = (
+        SimpleNamespace(kind="tool_request", payload={"call_id": FALLBACK_CALL_ID, "fallback_query": True}),
+    )
+    assert (
+        harness.fallback_after_empty_batch(
+            _first_batch(empty=True),
+            context=context,
+            registry=registry,
+            authorized_tools=authorized,
+            events=already,
+            in_repair=False,
+        )
+        is None
+    )
+    assert (
+        harness.fallback_after_empty_batch(
+            _first_batch(empty=True),
+            context=context,
+            registry=registry,
+            authorized_tools=authorized,
+            events=(),
+            in_repair=True,
+        )
+        is None
+    )
+
+
+class _NeverFallsBack(FinanceResearchHarness):
+    def fallback_after_empty_batch(self, batch, **_kwargs):
+        del batch
+        return None
+
+
+class _RewritesFallback(FinanceResearchHarness):
+    """领域改主意：空池时不排成交额，改排涨幅——模型看到的补查参数随之变。"""
+
+    def fallback_after_empty_batch(self, batch, **kwargs):
+        proposal = super().fallback_after_empty_batch(batch, **kwargs)
+        if proposal is None:
+            return None
+        arguments = dict(proposal.call.arguments)
+        arguments["order_by"] = [{"field": "return_pct", "direction": "desc"}]
+        return FallbackCall(
+            call=ModelToolCall(proposal.call.call_id, proposal.call.name, arguments),
+            request_extras={**proposal.request_extras, "rewritten": True},
+        )
+
+
+def test_fallback_seam_has_teeth_on_the_episode() -> None:
+    """有牙：换 harness，Episode 补不补 / 补什么随之变（看事件与 runner 真收到的参数）。"""
+
+    frame = _theme_frame()
+
+    seen_default: list[object] = []
+    default_outcome = ContinuousAgentEpisode(
+        _ScriptedModel([_empty_sector_turn(), _finish_turn(hashes=("amount-1",))])
+    ).run(
+        task_frame=frame,
+        context=_theme_context(frame),
+        registry=_finance_registry(_empty_then_amount_runner(seen_default)),
+    )
+    assert len(seen_default) == 2
+    assert len(_fallback_requests(default_outcome.events)) == 1
+
+    seen_never: list[object] = []
+    never_outcome = ContinuousAgentEpisode(
+        _ScriptedModel([_empty_sector_turn(), _finish_turn()]),
+        harness=_NeverFallsBack(),
+    ).run(
+        task_frame=frame,
+        context=_theme_context(frame),
+        registry=_finance_registry(_empty_then_amount_runner(seen_never)),
+    )
+    assert len(seen_never) == 1
+    assert _fallback_requests(never_outcome.events) == []
+
+    seen_rewritten: list[object] = []
+    rewritten_outcome = ContinuousAgentEpisode(
+        _ScriptedModel([_empty_sector_turn(), _finish_turn()]),
+        harness=_RewritesFallback(),
+    ).run(
+        task_frame=frame,
+        context=_theme_context(frame),
+        registry=_finance_registry(_empty_then_amount_runner(seen_rewritten)),
+    )
+    assert len(seen_rewritten) == 2
+    assert seen_rewritten[-1]["order_by"] == [{"field": "return_pct", "direction": "desc"}]
+    tagged = _fallback_requests(rewritten_outcome.events)
+    assert len(tagged) == 1 and tagged[0]["rewritten"] is True
+
+
+def _strip_runtime_budget(message: dict[str, object]) -> dict[str, object]:
+    if message.get("role") != "tool":
+        return message
+    payload = json.loads(str(message["content"]))
+    if isinstance(payload, dict) and "runtime_budget" in payload:
+        payload = dict(payload)
+        payload.pop("runtime_budget")
+        return {**message, "content": json.dumps(payload, ensure_ascii=False)}
+    return message
+
+
+def test_reference_loop_runs_the_same_fallback_as_the_episode() -> None:
+    """第二条 loop（spec §4 第 4 条）：同一空池脚本下，两条 loop 补的那一枪、模型看到的消息、
+    outcome 一致。参考 loop 文首「无空池回退」那条差从此消掉。"""
+
+    frame = _theme_frame()
+    script = [_empty_sector_turn(), _finish_turn(hashes=("amount-1",))]
+
+    seen_episode: list[object] = []
+    episode_model = _ScriptedModel(list(script))
+    episode = ContinuousAgentEpisode(episode_model).run(
+        task_frame=frame,
+        context=_theme_context(frame),
+        registry=_finance_registry(_empty_then_amount_runner(seen_episode)),
+    )
+
+    seen_reference: list[object] = []
+    reference_model = _ScriptedModel(list(script))
+    reference = HarnessReferenceLoop(reference_model).run(
+        task_frame=frame,
+        context=_theme_context(frame),
+        registry=_finance_registry(_empty_then_amount_runner(seen_reference)),
+    )
+
+    # runner 真收到的两次参数（原查询 + 补查）逐字段相同。
+    assert seen_episode == seen_reference and len(seen_reference) == 2
+    # 补查那条 tool_request 的领域投影（调用身份 + 三个回退标记）相同；Episode 另盖的
+    # task_frame_hash / at / 派发时钟（batch_grant_asked 等）是底座的账，不在比对面里。
+    domain_keys = ("call_id", "name", "arguments", "fallback_query", "original_arguments", "as_of")
+
+    def tagged(outcome):
+        return [
+            {k: _plain(p).get(k) for k in domain_keys}
+            for p in _fallback_requests(outcome.events)
+        ]
+
+    assert tagged(episode) == tagged(reference)
+    assert tagged(reference)[0]["call_id"] == FALLBACK_CALL_ID
+    assert tagged(reference)[0]["fallback_query"] is True
+    # 模型看到的消息一致（只差 Episode 的 runtime_budget 键）。
+    assert len(episode_model.calls) == len(reference_model.calls) == 2
+    for a, b in zip(episode_model.calls, reference_model.calls):
+        assert a["tools"] == b["tools"]
+        assert [_strip_runtime_budget(m) for m in a["messages"]] == [
+            _strip_runtime_budget(m) for m in b["messages"]
+        ]
+    assert (episode.status, episode.draft, episode.stop_reason) == (
+        reference.status,
+        reference.draft,
+        reference.stop_reason,
+    )
+    assert episode.usage.tool_calls == reference.usage.tool_calls == 2
+    assert [b.to_dict() for b in episode.bindings] == [b.to_dict() for b in reference.bindings]
