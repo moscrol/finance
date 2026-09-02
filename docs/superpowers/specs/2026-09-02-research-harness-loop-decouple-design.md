@@ -1,7 +1,7 @@
 # 设计：领域 Harness 与底座 loop 解耦（ResearchHarness 接缝）
 
 日期：2026-09-02
-状态：**P0 + P1a（#525）、P1b（#526）、P1c（#527）、P2'（#528）、P2 `govern_mode`（#529）全部已合 main**（`b8cc9a73`；8792 未切，下次切流带上）。**P2 子研究消息投影已实施**（分支 `refactor/harness-sub-research-projection`）：`project_sub_research`——`SUB_RESEARCH_RESULTS` 文案与分支证据序号呈现进 harness，用结构类型 `BranchOutcome` 接 runtime 的 `BranchResult`（services 不 import runtime）。协议**十方法**；`agent_episode` 从 `episode_protocol` 只剩 `SYSTEM_PROMPT_DYNAMIC_BOUNDARY` 常量与 `finish_rejection_fields`（非门）。Episode 里**不再有任何一段领域对模型说的话**。剩 P2 `repair_policy` / 空池回退（持状态改控制流）与 P2'-live。
+状态：**本线六张 PR 全部已合 main**——P0 + P1a（#525）、P1b（#526）、P1c（#527）、P2'（#528）、P2 `govern_mode`（#529）、P2 子研究消息投影（#530），main tip `d7c9da23`；**8792 未切**（零 live 判据，随下次切流带上）。协议**十方法**，三条 loop 共用；第二条 loop `HarnessReferenceLoop` 与 `ContinuousAgentEpisode` 在有 / 无 PLAN 两种脚本下全程消息一致（只差底座 `runtime_budget` 键）；`agent_episode` 从 `episode_protocol` 只剩 `SYSTEM_PROMPT_DYNAMIC_BOUNDARY` 常量与 `finish_rejection_fields`（非门），Episode 里不再有任何一段领域对模型说的话。**未做**：P2 `repair_policy` / 空池回退（持状态改控制流，入口清单见 §9，先画状态机）、Episode 构造器 mode 注入转交壳的删除小刀、P2'-live（需 8792 先切到含 harness 的 revision，烧配额）。下一会话从 main 另开树。
 收据：`docs/verification/2026-09-02-research-harness-loop-decouple.md`
 父稿：
 

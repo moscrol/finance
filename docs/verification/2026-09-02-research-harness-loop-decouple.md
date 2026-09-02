@@ -229,6 +229,12 @@ P2 读数取自提交前脏树，规程壳，约 20 分钟（同机有 webapp �
 
 P2 子研究读数取自提交前脏树，规程壳；5 红同组 `test_dream_mine`，7386 − 7384 = 2 = 新增测试数。
 
+## #530 合并与主干门禁（2026-09-02 14:00 CST）——本线收口
+
+- merge-tree exit 0；基座落后 1（台账 docs）→ 合 `d7c9da23`。门禁树 `/Users/a77/tmp/fwp-gate-d7c9da230e41`（干净）：ruff 绿；`layer_audit` ERROR 0；全量 **7386 passed / 5 failed / 15 skipped / 1 xfailed**（收据 `20260902T055439Z-d7c9da23.json`，`dirty=false`）→ `check_test_receipt` **✅ 可采信**；5 红 = `test_dream_mine` 五例。webapp 四件套 lint / typecheck / **70 passed** / build 绿。
+- 全天主干 passed 7345（`18bf518b` 基线）→ 7386（`d7c9da23`），+41 = 本线新钉（`test_research_harness` 34 + `test_harness_reference_loop` 6 + #524 1）。
+- **8792 现役仍 `5be00c4f`**，不含本线任何提交；切流窗口待用户裁决。
+
 ## 未做 / 红线
 
 - 未改秒数、档位、reserve、`episode_protocol.py` / `mode_governor.py` 判定、8792、启动器、快照。

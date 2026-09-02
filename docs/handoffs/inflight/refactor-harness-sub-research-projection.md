@@ -1,6 +1,6 @@
 # 在途交接 · refactor/harness-sub-research-projection
 
-更新：2026-09-02 · **P2 子研究消息投影已实施、离线全绿，Gitea PR #530 已开（http://127.0.0.1:3300/a77/finance-workspace-private/pulls/530），未合 main、未切 8792。** 等用户确认合并。
+更新：2026-09-02 13:55 CST · **已闭环：PR #530 已合 `gitea/main=d7c9da23`，主干门禁读数见 `inflight/main.md` 顶行，8792 未切。本线（ResearchHarness 接缝 P0→P2）六张 PR 全部合入；剩余 P2 `repair_policy` / 空池回退与 P2'-live 见 spec §9，下一会话另开树。**
 
 ## 一句话
 
