@@ -1,6 +1,6 @@
 # 在途交接 · refactor/harness-interpret-turn
 
-更新：2026-09-02 · **P1b 已实施、离线全绿，Gitea PR #526 已开（http://127.0.0.1:3300/a77/finance-workspace-private/pulls/526），未合 main、未切 8792。** 等用户确认合并。
+更新：2026-09-02 12:15 CST · **已闭环：PR #526 已合（merge `42e5bb69`），随 #527 一起过主干门禁 `e360895b`（7374P/5F 同基线红、webapp 70P 绿，见 `inflight/main.md` 顶行），8792 未切。** 后续见 `inflight/refactor-harness-reference-loop.md`。
 
 ## 一句话
 

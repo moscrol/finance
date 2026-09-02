@@ -1,6 +1,6 @@
 # 在途交接 · refactor/harness-tool-result-projection
 
-更新：2026-09-02 · **P1c 已实施、离线全绿，Gitea PR #527 已开（http://127.0.0.1:3300/a77/finance-workspace-private/pulls/527），叠在 P1b（PR #526）之上，未合 main、未切 8792。** 堆叠链：P1b 未合前本分支不能单独合（`git rev-list --left-right --count` 左侧为 0）。
+更新：2026-09-02 12:15 CST · **已闭环：PR #527 已合 `gitea/main=e360895b`，主干门禁可采信（7374P/5F 同基线红、webapp 70P 绿，见 `inflight/main.md` 顶行），8792 未切。** 后续 P2' 见 `inflight/refactor-harness-reference-loop.md`。 堆叠链：P1b 未合前本分支不能单独合（`git rev-list --left-right --count` 左侧为 0）。
 
 ## 一句话
 
