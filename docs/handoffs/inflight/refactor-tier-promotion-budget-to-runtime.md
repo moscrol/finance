@@ -1,5 +1,7 @@
 # 在途交接 · refactor/tier-promotion-budget-to-runtime
 
+更新：2026-09-03 03:45 CST · **已闭环：PR #535 已合 `gitea/main=6b9f5300`，主干门禁可采信（7454P/5F 同基线红，收据 `20260902T192336Z-f5679c3e.json`，见 `inflight/main.md` 顶行），8792 未切。本线无后续单；`services/**` 零账本写入由 `test_tier_promotion` 棘轮看守。**
+
 ## 这个分支做什么
 
 把 `services/` 里最后两处 root ledger 写入（`mode_governor.ModeGovernor.apply`、
