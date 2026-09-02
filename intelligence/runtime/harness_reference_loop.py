@@ -1,34 +1,37 @@
-"""HarnessReferenceLoop：只调 ``ResearchHarness`` 八方法的最小研究 loop。
+"""HarnessReferenceLoop：只调 ``ResearchHarness`` 的最小研究 loop（含一轮修复）。
 
-spec：``docs/superpowers/specs/2026-09-02-research-harness-loop-decouple-design.md`` §9 P2'。
+spec：``docs/superpowers/specs/2026-09-02-research-harness-loop-decouple-design.md`` §9 P2'；
+修复轮：``docs/superpowers/specs/2026-09-02-repair-policy-state-machine.md`` §5 第 5 条。
 
 --------------------------------------------------------------------------
 它回答什么
 --------------------------------------------------------------------------
 
 「run 层可替换」不能停在设计图上。本类是第二条 loop：**一行领域逻辑都不写**，
-prompt / PLAN 识别 / 工具结果投影 / 停机判定 / 终局准入 / 对模型说的话，全部问
-``ResearchHarness``；自己只做底座的事——调模型、经 ``ToolBatchExecutor`` 派工具、
-数槛、记事件。
+prompt / PLAN 识别 / 工具结果投影 / 停机判定 / 终局准入 / 对模型说的话 / 修复轮
+的不可达裁决与「修完算不算数」，全部问 ``ResearchHarness``；自己只做底座的事——
+调模型、经 ``ToolBatchExecutor`` 派工具、数槛、记事件。
 
 它不是第三条生产 backend（不进 ``RUNTIME_BACKEND_NAMES``，与 ``dsh_stub_runtime``
 同一条纪律）。它的价值是可判定：``test_harness_reference_loop.py`` 用同一个脚本化
 模型、同一份注册表并跑本类与 ``ContinuousAgentEpisode``，断言首轮消息、工具定义、
-工具消息（去掉底座预算注入那一个键）、终局 outcome 一致。一致 = 领域门确实在
+工具消息（去掉底座预算注入那一个键）、终局 outcome 一致；修复轮同样并跑，断言模型
+看到的 REPAIR_GOAL / 收口指令字节相同、修复 outcome 一致。一致 = 领域门确实在
 harness 里；不一致 = 还有领域逻辑焊在 ``ContinuousAgentEpisode`` 里没抽出来。
 
 --------------------------------------------------------------------------
 与 ContinuousAgentEpisode 的差（全是底座策略，不是领域）
 --------------------------------------------------------------------------
 
-- 无预算状态注入（``runtime_budget``）、无首轮向 reserve 借窗、无 root ledger 结算；
-  超时一律 ``llm_timeout``。
-- 无修复协调（``RepairGoal`` / ``_recover_finalization`` / ``EpisodeFinalizer``）：
-  终局被驳回只回灌一次，再不过就停。
+- 无预算状态注入（``runtime_budget``）、无首轮向 reserve 借窗、无 root ledger 结算、
+  无 ``repair_reentry`` 时钟账；超时一律 ``llm_timeout``。
+- 修复轮：跑一轮（开场 → 可选一批工具 → 收口 → 终局准入 → 裁决），无瞬态重试、
+  无 ``_recover_finalization`` / ``EpisodeFinalizer``（那是第二台状态机）。工具开不开
+  只看「底座批了重开 或 研究窗未关」（与 Episode 同口径），不做 bounded_stage 算术。
 - 深度裁决经 ``harness.govern_mode``（与 Episode 同一份），但本 loop 没有子研究
   协调器（``can_branch=False``），所以无子研究分支；无空池回退、无 opening prefetch。
 - 事件是 durable 子集（task / plan / model_turn / tool_request / tool_result /
-  tool_error / finalization / invalid_action / finish），不带派发计时。
+  tool_error / finalization / invalid_action / repair_goal / finish），不带派发计时。
 
 这些差都在 spec §4 里标为「底座」或 P2；任何一条被证明其实是领域，就该搬进 harness。
 """
@@ -36,11 +39,13 @@ harness 里；不一致 = 还有领域逻辑焊在 ``ContinuousAgentEpisode`` �
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass, replace
 import json
 
 from intelligence.runtime.episode_tool_batch import (
     EpisodeToolBatchSession,
     ToolBatchExecutor,
+    ToolBatchResult,
 )
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
@@ -50,11 +55,13 @@ from intelligence.services.agent_runtime import (
     EpisodeEvent,
     EpisodeStatus,
     ModelTurn,
+    OutputEvidenceBinding,
 )
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_harness import (
     FinanceResearchHarness,
+    RepairGoal,
     ResearchHarness,
 )
 from intelligence.services.research_plan import (
@@ -70,7 +77,7 @@ DEFAULT_LLM_TIMEOUT = 20.0
 # 两个常量若漂开，测试会先红。
 MAX_PLAN_TURNS = 2
 
-__all__ = ["HarnessReferenceLoop"]
+__all__ = ["HarnessReferenceLoop", "ReferenceLoopState"]
 
 
 class _Ledger:
@@ -81,8 +88,32 @@ class _Ledger:
         self.events.append(EpisodeEvent(len(self.events) + 1, kind, payload))
 
 
+@dataclass
+class ReferenceLoopState:
+    """一集跑完后留给修复轮的东西：同一段模型历史、同一批证据、同一个工具会话。
+
+    与 ``agent_episode._EpisodeContinuationState`` 同一角色。``run`` 通过
+    ``_continuation_sink`` 交出来，``resume`` 接着用；容器就地增长，``context`` /
+    ``plan`` / ``seen_prose`` 在变化时回写。
+    """
+
+    task_frame: TaskFrame
+    context: ResearchRunContext
+    registry: ResearchToolRegistry
+    session: EpisodeToolBatchSession
+    ledger: _Ledger
+    messages: list[dict[str, object]]
+    evidence: list[AgentEvidence]
+    evidence_hashes: set[str]
+    successful_tools: set[str]
+    traces: list[ProviderTrace]
+    gaps: list[str]
+    seen_prose: set[str]
+    plan: ResearchPlan | None = None
+
+
 class HarnessReferenceLoop:
-    """只调 harness 八方法 + registry 的最小 loop。"""
+    """只调 harness + registry 的最小 loop：一集研究 + 一轮修复。"""
 
     def __init__(
         self,
@@ -109,6 +140,7 @@ class HarnessReferenceLoop:
         task_frame: TaskFrame,
         context: ResearchRunContext,
         registry: ResearchToolRegistry,
+        _continuation_sink: list[ReferenceLoopState] | None = None,
     ) -> AgentOutcome:
         harness = self._harness
         ledger = _Ledger()
@@ -121,18 +153,29 @@ class HarnessReferenceLoop:
             },
         )
         system, user = harness.assemble_prompt(task_frame, context, registry)
-        messages: list[dict[str, object]] = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ]
-        session = self._tool_executor.new_session()
+        state = ReferenceLoopState(
+            task_frame=task_frame,
+            context=context,
+            registry=registry,
+            session=self._tool_executor.new_session(),
+            ledger=ledger,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            evidence=[],
+            evidence_hashes=set(),
+            successful_tools=set(),
+            traces=[],
+            gaps=[],
+            seen_prose=set(),
+        )
+        if _continuation_sink is not None:
+            _continuation_sink.append(state)
+        messages = state.messages
+        evidence = state.evidence
+        gaps = state.gaps
 
-        evidence: list[AgentEvidence] = []
-        evidence_hashes: set[str] = set()
-        successful_tools: set[str] = set()
-        traces: list[ProviderTrace] = []
-        gaps: list[str] = []
-        seen_prose: set[str] = set()
         plan: ResearchPlan | None = None
         plan_turns = 0
         plan_failures = 0
@@ -159,7 +202,7 @@ class HarnessReferenceLoop:
                 status=status,
                 draft="",
                 evidence=tuple(evidence),
-                traces=tuple(traces),
+                traces=tuple(state.traces),
                 gaps=tuple(final_gaps),
                 stop_reason=stop_reason,
                 events=tuple(ledger.events),
@@ -196,7 +239,7 @@ class HarnessReferenceLoop:
                 []
                 if finalization_started
                 else self._available_tool_definitions(
-                    session=session, registry=registry, context=context
+                    session=state.session, registry=registry, context=context
                 )
             )
             try:
@@ -235,6 +278,7 @@ class HarnessReferenceLoop:
                         )
                     else:
                         plan = plan_result.plan
+                        state.plan = plan
                         ledger.add(
                             "plan",
                             {
@@ -251,6 +295,7 @@ class HarnessReferenceLoop:
                                 can_branch=False,
                             )
                             context = governance.context
+                            state.context = context
                             max_slots = max(1, int(context.policy.max_steps))
                             ledger.add("mode_decision", governance.decision.to_dict())
                             pending_mode_message = governance.message
@@ -286,7 +331,7 @@ class HarnessReferenceLoop:
                     return stop(
                         "partial", "invalid_model_finish", "最终合成阶段仍尝试调用工具"
                     )
-                batch = session.execute(
+                batch = state.session.execute(
                     turn.tool_calls,
                     registry=registry,
                     context=context,
@@ -294,63 +339,7 @@ class HarnessReferenceLoop:
                     is_cancelled=self._is_cancelled,
                 )
                 tool_calls += batch.executed_count
-                for result in batch.items:
-                    call = result.call
-                    ledger.add("tool_request", call.to_dict())
-                    if result.status in {"rejected", "error", "timeout"}:
-                        if result.status == "rejected":
-                            invalid_actions += 1
-                            error, detail = result.error, result.detail
-                        elif result.status == "timeout":
-                            error, detail = "tool_timeout", ""
-                        else:
-                            error, detail = "tool_exception", result.detail or result.error
-                        payload = harness.project_tool_error(
-                            tool=call.name, error=error, detail=detail
-                        )
-                        ledger.add("tool_error", {**payload, "call_id": call.call_id})
-                        messages.append(
-                            {
-                                "role": "tool",
-                                "tool_call_id": call.call_id,
-                                "content": json.dumps(payload, ensure_ascii=False),
-                            }
-                        )
-                        continue
-                    observation = result.observation
-                    if observation is None:
-                        raise RuntimeError(
-                            "successful tool batch result requires an observation"
-                        )
-                    traces.append(observation.trace)
-                    for value in observation.gaps:
-                        cleaned = str(value or "").strip()
-                        if cleaned and cleaned not in gaps:
-                            gaps.append(cleaned)
-                    if observation.evidence:
-                        successful_tools.add(call.name)
-                    for item in observation.evidence:
-                        if item.content_hash in evidence_hashes:
-                            continue
-                        evidence_hashes.add(item.content_hash)
-                        evidence.append(item)
-                    projection = harness.project_tool_result(
-                        observation,
-                        evidence_so_far=tuple(evidence),
-                        seen_prose=seen_prose,
-                    )
-                    seen_prose = set(projection.seen_prose)
-                    ledger.add(
-                        "tool_result",
-                        {**projection.audit_payload, "call_id": call.call_id},
-                    )
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": call.call_id,
-                            "content": projection.model_content,
-                        }
-                    )
+                invalid_actions += self._ingest_batch(state, batch)
                 if pending_mode_message is not None:
                     messages.append({"role": "user", "content": pending_mode_message})
                 halt = harness.halt_after_tool_batch(
@@ -362,7 +351,7 @@ class HarnessReferenceLoop:
                 elif not finalization_started and harness.retrieval_complete(
                     context=context,
                     registry=registry,
-                    successful_tools=successful_tools,
+                    successful_tools=state.successful_tools,
                 ):
                     begin_finalization("snapshot_surface_satisfied")
                 continue
@@ -421,7 +410,7 @@ class HarnessReferenceLoop:
                 status=admission.status,
                 draft=admission.draft,
                 evidence=tuple(evidence),
-                traces=tuple(traces),
+                traces=tuple(state.traces),
                 gaps=admission.gaps,
                 stop_reason="model_finish",
                 events=tuple(ledger.events),
@@ -435,6 +424,269 @@ class HarnessReferenceLoop:
             )
 
         return stop("partial", "step_exhausted", "研究预算已耗尽，仍有必需输出未覆盖")
+
+    def resume(
+        self,
+        state: ReferenceLoopState,
+        previous: AgentOutcome,
+        goal: RepairGoal,
+    ) -> AgentOutcome:
+        """在同一段模型历史上跑一轮修复：开场 → 可选一批工具 → 收口 → 准入 → 裁决。
+
+        领域的五件事全问 harness：哪些格不可达（``downgrade_unreachable``）、开场怎么说
+        （``repair_goal_message``）、工具跑完怎么收口（``steering_message("repair_finalize")``）、
+        终局能不能发（``admit_finish``）、修完算不算数（``admit_repair_result``）。
+        底座只管：工具开不开、派工具、记事件、失败时结转上一轮的稿。
+        """
+
+        harness = self._harness
+        ledger = state.ledger
+        messages = state.messages
+        evidence = state.evidence
+        context = state.context
+        task_frame = state.task_frame
+        registry = state.registry
+        llm_calls = previous.usage.llm_calls
+        tool_calls = previous.usage.tool_calls
+        invalid_actions = previous.usage.invalid_actions
+
+        goal_payload = goal.to_dict()
+        downgrade = harness.downgrade_unreachable(goal, contract=context.contract)
+        if downgrade.unreachable:
+            goal_payload["unreachable_without_tools"] = list(downgrade.unreachable)
+        ledger.add("repair_goal", goal_payload)
+        if downgrade.contract is not context.contract:
+            context = replace(context, contract=downgrade.contract)
+            state.context = context
+        # 底座策略（与 Episode 同）：工具开不开只看研究窗——底座批了重开、或窗还没关。
+        # 额度为 0 时窗仍算开着，模型若真调工具，由批次执行器按 remaining_slots 拒掉。
+        tools_open = goal.reopen_tools or not context.deadline.expired
+        messages.append(
+            {
+                "role": "user",
+                "content": harness.repair_goal_message(
+                    downgrade.goal, tools_open=tools_open
+                ),
+            }
+        )
+
+        def stop(
+            stop_reason: str,
+            gap: str,
+            *,
+            draft: str = "",
+            bindings: tuple[OutputEvidenceBinding, ...] = (),
+            **extra: object,
+        ) -> AgentOutcome:
+            final_gaps = list(state.gaps)
+            if gap and gap not in final_gaps:
+                final_gaps.append(gap)
+            status: EpisodeStatus = "partial" if evidence else "failed"
+            ledger.add(
+                "finish",
+                {"status": status, "stop_reason": stop_reason, "gaps": final_gaps, **extra},
+            )
+            return AgentOutcome(
+                task_frame_hash=task_frame.task_frame_hash,
+                status=status,
+                # 修复不得倒退：这一轮死了，上一轮的答案并没有因此失效。
+                draft=draft or previous.draft,
+                evidence=tuple(evidence),
+                traces=tuple(state.traces),
+                gaps=tuple(final_gaps),
+                stop_reason=stop_reason,
+                events=tuple(ledger.events),
+                bindings=bindings or previous.bindings,
+                usage=AgentUsage(
+                    llm_calls=llm_calls,
+                    tool_calls=tool_calls,
+                    invalid_actions=invalid_actions,
+                ),
+                plan=state.plan,
+            )
+
+        def complete(tools: list[dict[str, object]]) -> ModelTurn | AgentOutcome:
+            nonlocal llm_calls
+            try:
+                turn = self._model.complete(
+                    messages=list(messages), tools=tools, timeout=self._llm_timeout
+                )
+            except Exception as exc:
+                llm_calls += 1
+                reason = f"model_exception:{type(exc).__name__}"
+                ledger.add("model_error", {"reason": reason})
+                return stop("repair_model_unavailable", reason)
+            llm_calls += turn.provider_attempts
+            ledger.add("model_turn", turn.to_dict())
+            messages.append(_assistant_message(turn))
+            if turn.error:
+                ledger.add("model_error", {"reason": turn.error})
+                return stop("repair_model_unavailable", turn.error)
+            return turn
+
+        definitions = (
+            self._available_tool_definitions(
+                session=state.session, registry=registry, context=context
+            )
+            if tools_open
+            else []
+        )
+        turn = complete(definitions)
+        if isinstance(turn, AgentOutcome):
+            return turn
+
+        performed_tool_action = False
+        if turn.tool_calls and tools_open:
+            batch = state.session.execute(
+                turn.tool_calls,
+                registry=registry,
+                context=context,
+                remaining_slots=goal.remaining_calls,
+                is_cancelled=self._is_cancelled,
+            )
+            tool_calls += batch.executed_count
+            performed_tool_action = batch.executed_count > 0
+            invalid_actions += self._ingest_batch(state, batch)
+            messages.append(
+                {
+                    "role": "user",
+                    "content": harness.steering_message("repair_finalize", detail=""),
+                }
+            )
+            turn = complete([])
+            if isinstance(turn, AgentOutcome):
+                return turn
+        if turn.tool_calls:
+            invalid_actions += len(turn.tool_calls)
+            ledger.add(
+                "invalid_action",
+                {
+                    "reason": "修复终止阶段仍尝试调用工具",
+                    "disposition": "invalid_repair_finish",
+                },
+            )
+            return stop("invalid_repair_finish", "修复终止阶段仍尝试调用工具")
+
+        admission = harness.admit_finish(
+            turn.content, context=context, evidence=tuple(evidence), registry=registry
+        )
+        if not admission.accepted:
+            invalid_actions += 1
+            ledger.add(
+                "invalid_action",
+                {
+                    "reason": admission.rejection["rejection_reason"],
+                    "code": admission.rejection["rejection_code"],
+                    "disposition": "invalid_repair_finish",
+                },
+            )
+            return stop(
+                "invalid_repair_finish",
+                "修复轮未返回可验证的 FINAL_JSON",
+                **admission.rejection,
+            )
+        verdict = harness.admit_repair_result(
+            admission=admission,
+            previous=previous,
+            performed_tool_action=performed_tool_action,
+        )
+        stop_reason = "repair_model_finish" if verdict.progressed else "repair_model_stop"
+        ledger.add(
+            "finish",
+            {
+                "status": verdict.status,
+                "stop_reason": stop_reason,
+                "bindings": [item.to_dict() for item in admission.bindings],
+                "gaps": list(verdict.gaps),
+                "caveat_slips": admission.caveat_slips,
+                **admission.rejection,
+            },
+        )
+        return AgentOutcome(
+            task_frame_hash=task_frame.task_frame_hash,
+            status=verdict.status,
+            draft=admission.draft,
+            evidence=tuple(evidence),
+            traces=tuple(state.traces),
+            gaps=verdict.gaps,
+            stop_reason=stop_reason,
+            events=tuple(ledger.events),
+            bindings=admission.bindings,
+            usage=AgentUsage(
+                llm_calls=llm_calls,
+                tool_calls=tool_calls,
+                invalid_actions=invalid_actions,
+            ),
+            plan=state.plan,
+        )
+
+    def _ingest_batch(self, state: ReferenceLoopState, batch: ToolBatchResult) -> int:
+        """一批工具结果进证据 / 事件 / 消息。返回本批的 invalid_actions 增量。
+
+        成功的观察：证据去重合并 → 问 harness 审计留什么、模型看什么。失败的：问
+        harness 模型看什么。两条都是 ``run`` 与 ``resume`` 共用的底座管线。
+        """
+
+        harness = self._harness
+        invalid_actions = 0
+        for result in batch.items:
+            call = result.call
+            state.ledger.add("tool_request", call.to_dict())
+            if result.status in {"rejected", "error", "timeout"}:
+                if result.status == "rejected":
+                    invalid_actions += 1
+                    error, detail = result.error, result.detail
+                elif result.status == "timeout":
+                    error, detail = "tool_timeout", ""
+                else:
+                    error, detail = "tool_exception", result.detail or result.error
+                payload = harness.project_tool_error(
+                    tool=call.name, error=error, detail=detail
+                )
+                state.ledger.add("tool_error", {**payload, "call_id": call.call_id})
+                state.messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call.call_id,
+                        "content": json.dumps(payload, ensure_ascii=False),
+                    }
+                )
+                continue
+            observation = result.observation
+            if observation is None:
+                raise RuntimeError(
+                    "successful tool batch result requires an observation"
+                )
+            state.traces.append(observation.trace)
+            for value in observation.gaps:
+                cleaned = str(value or "").strip()
+                if cleaned and cleaned not in state.gaps:
+                    state.gaps.append(cleaned)
+            if observation.evidence:
+                state.successful_tools.add(call.name)
+            for item in observation.evidence:
+                if item.content_hash in state.evidence_hashes:
+                    continue
+                state.evidence_hashes.add(item.content_hash)
+                state.evidence.append(item)
+            projection = harness.project_tool_result(
+                observation,
+                evidence_so_far=tuple(state.evidence),
+                seen_prose=state.seen_prose,
+            )
+            state.seen_prose = set(projection.seen_prose)
+            state.ledger.add(
+                "tool_result",
+                {**projection.audit_payload, "call_id": call.call_id},
+            )
+            state.messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": call.call_id,
+                    "content": projection.model_content,
+                }
+            )
+        return invalid_actions
 
     @staticmethod
     def _available_tool_definitions(

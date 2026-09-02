@@ -144,6 +144,9 @@ __all__ = [
     "ModeGovernance",
     "ModeSignalsFactory",
     "RepairDowngrade",
+    # 值类型：修复轮五个方法的签名都收 / 发它。第二条 loop 只从本模块取名字，
+    # 所以它也是 harness 公开面的一部分。
+    "RepairGoal",
     "RepairVerdict",
     "ResearchHarness",
     "SteeringKind",
