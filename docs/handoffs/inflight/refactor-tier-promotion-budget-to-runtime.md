@@ -1,5 +1,7 @@
 # 在途交接 · refactor/tier-promotion-budget-to-runtime
 
+更新：2026-09-03 03:45 CST · **已闭环：PR #535 已合 `gitea/main=6b9f5300`，主干门禁可采信（7454P/5F 同基线红，收据 `20260902T192336Z-f5679c3e.json`，见 `inflight/main.md` 顶行），8792 未切。本线无后续单；`services/**` 零账本写入由 `test_tier_promotion` 棘轮看守。**
+
 ## 这个分支做什么
 
 把 `services/` 里最后两处 root ledger 写入（`mode_governor.ModeGovernor.apply`、
@@ -18,9 +20,7 @@
 
 ## 当前状态
 
-- 已提交 `8ccd1a4e`（实现 + 测试）+ docs 提交（spec §4/§5/§9 回写、repair-policy 头部两处过期项收口）。
-- 基座 `gitea/main=f7ad7f04`（含 #534），分支已含 main，合流树 == 分支树。
-- PR / 门禁 / 合并状态见 `inflight/main.md` 顶行。8792 未切。
+已合（见顶行）。实现 `8ccd1a4e`，docs `3719e700` / `f5679c3e`。8792 未切。
 
 ## 已验证
 
@@ -37,9 +37,8 @@
 
 ## 下一步
 
-1. 全量门禁读数回填 PR → 合并 → 台账顶行。
-2. 与本线无关但同批待拍：`_recover_finalization` 是否并进 repair cycle（先看
-   `docs/verification/2026-09-03-finalization-recovery-offline.md` 的频次）；预算 P1（25–35s）。
+本线无。同批待用户拍：`_recover_finalization` 并不并（生产 0 触发，见
+`docs/verification/2026-09-03-finalization-recovery-offline.md`，建议不动）；预算 P1（25–35s）；8792 切流。
 
 ## 踩过的坑
 
