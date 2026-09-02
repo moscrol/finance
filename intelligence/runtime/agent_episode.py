@@ -70,9 +70,7 @@ from intelligence.services.research_contract import (
 from intelligence.services.research_plan import (
     PlanParseResult,
     ResearchPlan,
-    parse_plan_candidate,
     plan_to_public_dict,
-    validate_plan_revision,
 )
 from intelligence.services.episode_event_lanes import LiveEventSink
 from intelligence.services.episode_scope import EpisodeScope
@@ -1057,71 +1055,27 @@ class ContinuousAgentEpisode:
             # response.  Let the existing terminal validator/recovery path
             # handle it as an invalid finish instead of accepting it and
             # silently skipping the recovery state machine.
+            # PLAN 识别与修订合法性归 harness；PLAN-only 轮的次数闸归 loop。
             plan_result = (
-                parse_plan_candidate(turn.content)
+                self._harness.interpret_plan(
+                    turn.content,
+                    previous_plan=ledger.plan,
+                    task_id=context.contract.task_id,
+                )
                 if not finalization_started
                 else PlanParseResult(None, "")
             )
             pending_mode_message: ModeDecision | None = None
             pending_branch_result: SubResearchResult | None = None
             if plan_result.plan is not None:
-                try:
-                    if ledger.plan is not None:
-                        validate_plan_revision(
-                            ledger.plan,
-                            plan_result.plan,
-                            original_task_id=context.contract.task_id,
-                            current_task_id=context.contract.task_id,
+                if not turn.tool_calls:
+                    if plan_turns >= MAX_PLAN_TURNS:
+                        plan_result = PlanParseResult(
+                            None,
+                            "PLAN revision allowance exhausted",
                         )
-                except ValueError as exc:
-                    plan_result = PlanParseResult(None, str(exc))
-                else:
-                    if not turn.tool_calls:
-                        if plan_turns >= MAX_PLAN_TURNS:
-                            plan_result = PlanParseResult(
-                                None,
-                                "PLAN revision allowance exhausted",
-                            )
-                        else:
-                            plan_turns += 1
-                            ledger.record_plan(plan_result.plan)
-                            if not mode_decided:
-                                context, pending_mode_message = self._decide_mode(
-                                    task_frame=task_frame,
-                                    plan=plan_result.plan,
-                                    context=context,
-                                    ledger=ledger,
-                                    continuation_state=continuation_state,
-                                )
-                                mode_decided = True
-                            pending_branch_result = self._run_sub_research(
-                                task_frame=task_frame,
-                                plan=plan_result.plan,
-                                decision=pending_mode_message,
-                                context=context,
-                                registry=registry,
-                                ledger=ledger,
-                                evidence_ledger=evidence_ledger,
-                            )
-                            if pending_branch_result is not None:
-                                accumulator.consume_sub_research(
-                                    pending_branch_result
-                                )
-                                llm_calls += pending_branch_result.llm_calls
-                                tool_calls += pending_branch_result.tool_calls
-                            if pending_mode_message is not None:
-                                self._append_mode_decision_message(
-                                    messages=messages,
-                                    decision=pending_mode_message,
-                                )
-                            if pending_branch_result is not None:
-                                self._append_sub_research_message(
-                                    messages=messages,
-                                    result=pending_branch_result,
-                                    evidence=tuple(accumulator.evidence),
-                                )
-                            continue
                     else:
+                        plan_turns += 1
                         ledger.record_plan(plan_result.plan)
                         if not mode_decided:
                             context, pending_mode_message = self._decide_mode(
@@ -1145,6 +1099,42 @@ class ContinuousAgentEpisode:
                             accumulator.consume_sub_research(pending_branch_result)
                             llm_calls += pending_branch_result.llm_calls
                             tool_calls += pending_branch_result.tool_calls
+                        if pending_mode_message is not None:
+                            self._append_mode_decision_message(
+                                messages=messages,
+                                decision=pending_mode_message,
+                            )
+                        if pending_branch_result is not None:
+                            self._append_sub_research_message(
+                                messages=messages,
+                                result=pending_branch_result,
+                                evidence=tuple(accumulator.evidence),
+                            )
+                        continue
+                else:
+                    ledger.record_plan(plan_result.plan)
+                    if not mode_decided:
+                        context, pending_mode_message = self._decide_mode(
+                            task_frame=task_frame,
+                            plan=plan_result.plan,
+                            context=context,
+                            ledger=ledger,
+                            continuation_state=continuation_state,
+                        )
+                        mode_decided = True
+                    pending_branch_result = self._run_sub_research(
+                        task_frame=task_frame,
+                        plan=plan_result.plan,
+                        decision=pending_mode_message,
+                        context=context,
+                        registry=registry,
+                        ledger=ledger,
+                        evidence_ledger=evidence_ledger,
+                    )
+                    if pending_branch_result is not None:
+                        accumulator.consume_sub_research(pending_branch_result)
+                        llm_calls += pending_branch_result.llm_calls
+                        tool_calls += pending_branch_result.tool_calls
             if plan_result.error:
                 plan_failures += 1
                 invalid_actions += 1
@@ -1153,11 +1143,8 @@ class ContinuousAgentEpisode:
                     messages.append(
                         {
                             "role": "user",
-                            "content": (
-                                "上一条 PLAN 无效。请保留最初任务与当前 episode，"
-                                "只修复为闭合的 PLAN JSON，或直接调用已授权工具；"
-                                "PLAN 不能授权工具、预算、证据或完成状态。"
-                                f"错误：{plan_result.error}"
+                            "content": self._harness.steering_message(
+                                "invalid_plan", detail=plan_result.error
                             ),
                         }
                     )
@@ -1329,10 +1316,8 @@ class ContinuousAgentEpisode:
                     messages.append(
                         {
                             "role": "user",
-                            "content": (
-                                "上一条终止输出无效。请保留当前任务和全部观察，"
-                                "不要重启研究；修复后只输出 FINAL_JSON。"
-                                f"错误：{reason}"
+                            "content": self._harness.steering_message(
+                                "invalid_finish", detail=reason
                             ),
                         }
                     )
@@ -2393,8 +2378,8 @@ class ContinuousAgentEpisode:
         messages[-1]["content"] = json.dumps(payload, ensure_ascii=False)
         return injected
 
-    @staticmethod
     def _begin_finalization(
+        self,
         *,
         messages: list[dict[str, object]],
         ledger: _EpisodeLedger,
@@ -2404,21 +2389,8 @@ class ContinuousAgentEpisode:
         messages.append(
             {
                 "role": "user",
-                "content": (
-                    "研究阶段已关闭，不得再调用工具。请保留最初任务和全部"
-                    "原始观察，立即基于已有证据序号 E1、E2… 输出 FINAL_JSON；"
-                    "证据不足的 required output 必须标 partial 并写明 gap。"
-                    "不要逐条复述全部观察，只保留最关键依据；条件写相对变化，"
-                    "不得新增证据中没有的数值阈值。若用户要求预测，只保留一个"
-                    "明确标注的主观基准区间及其不确定性。每个保留的精确数字"
-                    "必须把直接证据序号放入对应 output binding，否则删去数字。"
-                    "每条被正文使用的观察事实也必须把其直接证据序号加入对应 "
-                    "output binding；不得用同一次工具返回的另一条证据代替。"
-                    "原因归因若没有同一时间窗口的 news_search 证据，不得用普通 "
-                    "web_search 摘要补成已核验因果，应保留盘面事实并把原因写 gap。"
-                    "为保证 FINAL_JSON 完整，draft 控制在 1000 汉字以内；这是传输预算，"
-                    "不要求固定标题、段数或措辞。"
-                    f"关闭原因：{reason}"
+                "content": self._harness.steering_message(
+                    "begin_finalization", detail=reason
                 ),
             }
         )

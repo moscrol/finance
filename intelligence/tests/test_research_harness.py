@@ -56,6 +56,11 @@ from intelligence.services.research_harness import (
     FinishAdmission,
     ResearchHarness,
 )
+from intelligence.services.research_plan import (
+    PlanParseResult,
+    parse_plan_candidate,
+    validate_plan_revision,
+)
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
     ToolSpec,
@@ -202,14 +207,32 @@ def _tool_turn() -> ModelTurn:
     )
 
 
+def _plan_content(*, revision: int = 1, **overrides: object) -> str:
+    payload: dict[str, object] = {
+        "kind": "PLAN",
+        "task_summary": "判断市场主线并给出反方",
+        "answer_elements": ["direct_assessment"],
+        "hypotheses": ["半导体可能是持续主线"],
+        "evidence_needs": ["同日主线与持续性"],
+        "candidate_actions": ["market_data"],
+        "open_gaps": ["缺少反方证据"],
+        "requested_mode": "quick",
+        "revision": revision,
+    }
+    payload.update(overrides)
+    return json.dumps(payload, ensure_ascii=False)
+
+
 class _ScriptedModel:
     def __init__(self, turns: list[ModelTurn]) -> None:
         self._turns = iter(turns)
         self.calls = 0
+        self.seen_messages: list[list[dict[str, object]]] = []
 
     def complete(self, *, messages, tools, timeout):
-        del messages, tools, timeout
+        del tools, timeout
         self.calls += 1
+        self.seen_messages.append([dict(item) for item in messages])
         return next(self._turns)
 
 
@@ -337,6 +360,72 @@ def test_default_prompt_halt_and_retrieval_delegate_to_domain_functions() -> Non
     )
 
 
+def test_default_interpret_plan_equals_parse_plus_revision_check() -> None:
+    harness = FinanceResearchHarness()
+
+    first = harness.interpret_plan(_plan_content(), previous_plan=None, task_id="t")
+    assert first == parse_plan_candidate(_plan_content())
+    assert first.plan is not None and first.error == ""
+
+    # 不是 PLAN：两者皆空，交给终局门或工具。
+    assert harness.interpret_plan("", previous_plan=None, task_id="t") == PlanParseResult(
+        None
+    )
+    assert harness.interpret_plan(
+        _finish_content(), previous_plan=None, task_id="t"
+    ) == PlanParseResult(None)
+
+    # 写坏的 PLAN：错误文本与 parse_plan_candidate 逐字相同。
+    broken = '{"kind": "PLAN", oops'
+    assert harness.interpret_plan(broken, previous_plan=None, task_id="t") == (
+        parse_plan_candidate(broken)
+    )
+    assert harness.interpret_plan(broken, previous_plan=None, task_id="t").error
+
+    # 合法修订：revision 递增且不删 answer_elements。
+    revised = harness.interpret_plan(
+        _plan_content(revision=2, answer_elements=["direct_assessment", "counterpoint"]),
+        previous_plan=first.plan,
+        task_id="t",
+    )
+    assert revised.plan is not None and revised.plan.revision == 2
+
+    # 非法修订：revision 不增。错误文本与 validate_plan_revision 抛的逐字相同。
+    stale = parse_plan_candidate(_plan_content(revision=1)).plan
+    assert stale is not None
+    with pytest.raises(ValueError) as caught:
+        validate_plan_revision(
+            first.plan, stale, original_task_id="t", current_task_id="t"
+        )
+    rejected = harness.interpret_plan(
+        _plan_content(revision=1), previous_plan=first.plan, task_id="t"
+    )
+    assert rejected == PlanParseResult(None, str(caught.value))
+
+
+def test_default_steering_messages_are_the_loop_texts_verbatim() -> None:
+    """三段文案是从 loop 逐字搬来的；这里把字节钉住，搬错一个字就红。"""
+
+    harness = FinanceResearchHarness()
+    assert harness.steering_message("invalid_plan", detail="E") == (
+        "上一条 PLAN 无效。请保留最初任务与当前 episode，"
+        "只修复为闭合的 PLAN JSON，或直接调用已授权工具；"
+        "PLAN 不能授权工具、预算、证据或完成状态。"
+        "错误：E"
+    )
+    assert harness.steering_message("invalid_finish", detail="E") == (
+        "上一条终止输出无效。请保留当前任务和全部观察，"
+        "不要重启研究；修复后只输出 FINAL_JSON。"
+        "错误：E"
+    )
+    finalization = harness.steering_message("begin_finalization", detail="R")
+    assert finalization.startswith("研究阶段已关闭，不得再调用工具。")
+    assert finalization.endswith("关闭原因：R")
+    assert "draft 控制在 1000 汉字以内" in finalization
+    with pytest.raises(ValueError):
+        harness.steering_message("nope", detail="")  # type: ignore[arg-type]
+
+
 def test_finish_admission_refuses_inconsistent_values() -> None:
     """接受不能带处置，驳回不能没有理由——值对象自己守住两侧的形状。"""
 
@@ -386,6 +475,16 @@ class _RecordingHarness(FinanceResearchHarness):
         self.calls.append("assemble_prompt")
         return super().assemble_prompt(task_frame, context, registry)
 
+    def steering_message(self, kind, *, detail):
+        self.calls.append(f"steering_message:{kind}")
+        return super().steering_message(kind, detail=detail)
+
+    def interpret_plan(self, content, *, previous_plan, task_id):
+        self.calls.append("interpret_plan")
+        return super().interpret_plan(
+            content, previous_plan=previous_plan, task_id=task_id
+        )
+
     def halt_after_tool_batch(self, *, context, batch_errors):
         self.calls.append("halt_after_tool_batch")
         return super().halt_after_tool_batch(context=context, batch_errors=batch_errors)
@@ -403,12 +502,22 @@ class _RecordingHarness(FinanceResearchHarness):
         )
 
 
-def test_episode_asks_harness_at_all_four_seams_in_control_flow_order() -> None:
+def test_episode_asks_harness_at_all_seams_in_control_flow_order() -> None:
+    """PLAN → 工具 → 终局，一次 episode 里 loop 问 harness 的完整顺序。
+
+    每个非 finalization 的模型回合都先问一次 ``interpret_plan``（工具轮的空正文
+    与终局轮的 FINAL_JSON 都答「不是 PLAN」），工具批后问停机与取证面，终局问准入。
+    """
+
     frame = _frame()
     evidence = (_evidence("evidence-1"),)
     harness = _RecordingHarness()
     model = _ScriptedModel(
-        [_tool_turn(), ModelTurn(_finish_content(), (), "scripted", "")]
+        [
+            ModelTurn(_plan_content(), (), "scripted", ""),
+            _tool_turn(),
+            ModelTurn(_finish_content(), (), "scripted", ""),
+        ]
     )
 
     outcome = ContinuousAgentEpisode(model, harness=harness).run(
@@ -419,10 +528,14 @@ def test_episode_asks_harness_at_all_four_seams_in_control_flow_order() -> None:
 
     assert outcome.status == "completed"
     assert outcome.stop_reason == "model_finish"
+    assert outcome.plan is not None
     assert harness.calls == [
         "assemble_prompt",
+        "interpret_plan",
+        "interpret_plan",
         "halt_after_tool_batch",
         "retrieval_complete",
+        "interpret_plan",
         "admit_finish",
     ]
 
@@ -507,7 +620,13 @@ _EXTRACTED_FROM_EPISODE_PROTOCOL = frozenset(
         "expand_episode_snapshot_bindings",
         "rejection_response",
         "split_episode_prompt",
+        # P1b：修复 prompt 也从 assemble_prompt 取两半，不再直接拼。
+        "build_episode_input",
+        "build_episode_instructions",
     }
+)
+_EXTRACTED_FROM_RESEARCH_PLAN = frozenset(
+    {"parse_plan_candidate", "validate_plan_revision"}
 )
 
 
@@ -535,6 +654,10 @@ def test_loops_no_longer_import_extracted_domain_gate_symbols(path: Path) -> Non
     leaked = protocol_names & _EXTRACTED_FROM_EPISODE_PROTOCOL
     assert not leaked, f"{path.name} 直接 import 了已抽走的领域门：{sorted(leaked)}"
 
+    plan_names = _import_from_names(tree, "intelligence.services.research_plan")
+    leaked_plan = plan_names & _EXTRACTED_FROM_RESEARCH_PLAN
+    assert not leaked_plan, f"{path.name} 直接解析 PLAN 协议：{sorted(leaked_plan)}"
+
     harness_names = _import_from_names(tree, "intelligence.services.research_harness")
     assert {"FinanceResearchHarness", "ResearchHarness"} <= harness_names
 
@@ -558,6 +681,103 @@ def test_research_harness_module_stays_in_the_domain_layer() -> None:
             assert not any(
                 alias.name.startswith("intelligence.runtime") for alias in node.names
             )
+
+
+class _PlanBlindHarness(FinanceResearchHarness):
+    """看不见 PLAN：任何正文都答「不是 PLAN」。只用于证明 interpret_plan 有牙。"""
+
+    def interpret_plan(self, content, *, previous_plan, task_id):
+        del content, previous_plan, task_id
+        return PlanParseResult(None)
+
+
+def test_plan_blind_harness_turns_a_plan_turn_into_an_invalid_finish() -> None:
+    """默认 harness 把 PLAN 轮记成 ``plan`` 事件；看不见 PLAN 的 harness 让同一轮
+    掉进终局门被驳回——同一脚本、两种 outcome，接缝在起作用。"""
+
+    frame = _frame()
+    evidence = (_evidence("evidence-1"),)
+    script = [
+        ModelTurn(_plan_content(), (), "scripted", ""),
+        _tool_turn(),
+        ModelTurn(_finish_content(), (), "scripted", ""),
+    ]
+
+    seen = ContinuousAgentEpisode(_ScriptedModel(list(script))).run(
+        task_frame=frame, context=_context(frame), registry=_registry(evidence)
+    )
+    assert [e.kind for e in seen.events if e.kind in {"plan", "invalid_action"}] == [
+        "plan"
+    ]
+
+    blind = ContinuousAgentEpisode(
+        _ScriptedModel(list(script)), harness=_PlanBlindHarness()
+    ).run(task_frame=frame, context=_context(frame), registry=_registry(evidence))
+    kinds = [e.kind for e in blind.events if e.kind in {"plan", "invalid_action"}]
+    assert "plan" not in kinds
+    assert kinds[0] == "invalid_action"
+    assert blind.plan is None
+
+
+class _CustomSteeringHarness(FinanceResearchHarness):
+    def steering_message(self, kind, *, detail):
+        return f"CUSTOM[{kind}]{detail}"
+
+
+def test_steering_texts_reach_the_model_from_the_harness() -> None:
+    """驳回回灌与 finalization 提示的字节来自 harness：换 harness，模型看到的话就变。"""
+
+    frame = _frame()
+    evidence = (_evidence("evidence-1"),)
+    broken_plan = '{"kind": "PLAN", oops'
+    model = _ScriptedModel(
+        [
+            ModelTurn(broken_plan, (), "scripted", ""),
+            _tool_turn(),
+            ModelTurn("不是 JSON，只是一段话。", (), "scripted", ""),
+            ModelTurn(_finish_content(), (), "scripted", ""),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model, harness=_CustomSteeringHarness()).run(
+        task_frame=frame, context=_context(frame), registry=_registry(evidence)
+    )
+
+    assert outcome.stop_reason == "model_finish"
+    user_texts = [
+        str(item["content"])
+        for turn_messages in model.seen_messages
+        for item in turn_messages
+        if item.get("role") == "user"
+    ]
+    assert any(text.startswith("CUSTOM[invalid_plan]") for text in user_texts)
+    assert any(text.startswith("CUSTOM[invalid_finish]") for text in user_texts)
+
+
+def test_begin_finalization_text_comes_from_the_harness() -> None:
+    """工具槽用尽 → loop 关研究阶段，注入的那段话是 harness 的 begin_finalization。"""
+
+    frame = _frame()
+    evidence = (_evidence("evidence-1"),)
+    model = _ScriptedModel(
+        [_tool_turn(), ModelTurn(_finish_content(), (), "scripted", "")]
+    )
+
+    ContinuousAgentEpisode(model, harness=_CustomSteeringHarness()).run(
+        task_frame=frame,
+        context=_context(frame, max_steps=1),
+        registry=_registry(evidence),
+    )
+
+    last_turn_users = [
+        str(item["content"])
+        for item in model.seen_messages[-1]
+        if item.get("role") == "user"
+    ]
+    assert any(
+        text.startswith("CUSTOM[begin_finalization]tool_budget_exhausted")
+        for text in last_turn_users
+    )
 
 
 # ── 4b. 另两条 loop 也在问同一道门（P1a） ─────────────────────────────────

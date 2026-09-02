@@ -27,11 +27,7 @@ from intelligence.services.episode_session import (
     EpisodeSessionError,
 )
 from intelligence.services.runtime_handle import RuntimeHandle
-from intelligence.services.episode_protocol import (
-    SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
-    build_episode_input,
-    build_episode_instructions,
-)
+from intelligence.services.episode_protocol import SYSTEM_PROMPT_DYNAMIC_BOUNDARY
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.repair_coordinator import RepairGoal
 from intelligence.services.research_harness import (
@@ -1287,16 +1283,16 @@ class OpenAIAgentsRuntime:
             "kind": "REPAIR_GOAL",
             **_bounded_repair_goal(effective_goal),
         }
+        # 修复轮的 system / task 与开场同源：同一 harness、同一 (system, user)。
+        repair_system, repair_user = self._harness.assemble_prompt(
+            state.task_frame,
+            repair_context,
+            state.registry,
+        )
         if state.continuation_input is None:
             repair_input.update(
                 {
-                    "task": json.loads(
-                        build_episode_input(
-                            state.task_frame,
-                            repair_context,
-                            state.registry,
-                        )
-                    ),
+                    "task": json.loads(repair_user),
                     "evidence": [
                         public_agent_evidence(item)
                         for item in repair_snapshot.evidence
@@ -1313,11 +1309,7 @@ class OpenAIAgentsRuntime:
         _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
         request = AgentsSdkRequest(
             instructions=(
-                build_episode_instructions(
-                    state.task_frame,
-                    repair_context,
-                    state.registry,
-                )
+                repair_system
                 + "\n这是同一 episode 的 verifier 修复轮。保留全部原始观察、"
                 "查询去重账本和任务身份；只补 RepairGoal 指定缺口，不得重启研究。"
                 + (
