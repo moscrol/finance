@@ -1,6 +1,6 @@
 # 在途交接 · refactor/harness-govern-mode
 
-更新：2026-09-02 · **P2 `govern_mode` 已实施、离线全绿，未开 PR、未合 main、未切 8792。** 等用户确认。
+更新：2026-09-02 · **P2 `govern_mode` 已实施、离线全绿，Gitea PR #529 已开（http://127.0.0.1:3300/a77/finance-workspace-private/pulls/529），未合 main、未切 8792。** 等用户确认合并。
 
 ## 一句话
 
@@ -33,7 +33,7 @@ spec：`docs/superpowers/specs/2026-09-02-research-harness-loop-decouple-design.
 
 ## 下一步（按序）
 
-1. 用户确认 → 开 PR 合 main。
+1. 用户确认 → 合 PR #529（合后主干门禁顺带复核 `test_agent_review_worker` 低负载下绿）。
 2. **P2 子研究**：`_run_sub_research`（需 `SubResearchCoordinator`，持状态）与 `_append_sub_research_message`
    的消息投影（三个序号函数）——这是 Episode 剩下的最后一段「对模型说话」的领域文案。
 3. **P2 `repair_policy`**：`_recover_finalization` / `_repair_model_complete` / `RepairGoal` /
