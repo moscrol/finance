@@ -1,6 +1,6 @@
 # 在途交接 · refactor/harness-tool-result-projection
 
-更新：2026-09-02 · **P1c 已实施、离线全绿，叠在 P1b（PR #526，`refactor/harness-interpret-turn`）之上，未开 PR、未合 main、未切 8792。** 堆叠链：P1b 未合前本分支不能单独合（`git rev-list --left-right --count` 左侧为 0）。
+更新：2026-09-02 · **P1c 已实施、离线全绿，Gitea PR #527 已开（http://127.0.0.1:3300/a77/finance-workspace-private/pulls/527），叠在 P1b（PR #526）之上，未合 main、未切 8792。** 堆叠链：P1b 未合前本分支不能单独合（`git rev-list --left-right --count` 左侧为 0）。
 
 ## 一句话
 
@@ -35,7 +35,7 @@ spec：`docs/superpowers/specs/2026-09-02-research-harness-loop-decouple-design.
 
 ## 下一步（按序）
 
-1. 用户确认 → 先合 #526（P1b）再开本分支 PR 合并（堆叠链不能改序）。
+1. 用户确认 → 先合 #526（P1b）再合 #527（本分支；堆叠链不能改序）。
 2. **P2**：修复协调（`_recover_finalization` / `_repair_model_complete` / `RepairGoal` / `apply_unreachable_downgrade` / `EpisodeFinalizer`）、mode 治理与子研究消息投影（`_append_sub_research_message` 里剩下的三个序号函数）、空池回退。这些持状态、改控制流，先画状态机再切。
 3. **P2'**：`finance-base-ab/pi-shape/packages/agent_core` 里写只调八方法 + registry 的最小 loop，跑 09-01 同题（硬门沿用 09-01：首轮 `task_frame_hash` / `input_tokens`±3 / `financial_data`）。
 
