@@ -1,6 +1,6 @@
 # 在途交接 · refactor/harness-sub-research-projection
 
-更新：2026-09-02 · **P2 子研究消息投影已实施、离线全绿，未开 PR、未合 main、未切 8792。** 等用户确认。
+更新：2026-09-02 · **P2 子研究消息投影已实施、离线全绿，Gitea PR #530 已开（http://127.0.0.1:3300/a77/finance-workspace-private/pulls/530），未合 main、未切 8792。** 等用户确认合并。
 
 ## 一句话
 
@@ -29,7 +29,7 @@ spec：`docs/superpowers/specs/2026-09-02-research-harness-loop-decouple-design.
 
 ## 下一步（按序）
 
-1. 用户确认 → 开 PR 合 main。
+1. 用户确认 → 合 PR #530。
 2. **P2 `repair_policy`**（先画状态机）：入口清单见 spec §9——`resume()` 修复轮、`_recover_finalization`、
    `apply_unreachable_downgrade` / `unreachable_repair_goal`、`grant_for_transient_model_retry`。
    要先把「什么时候允许再来一轮」（预算，底座）与「修什么、修复提示怎么写、修完算不算进步」（领域）两类边画清。
