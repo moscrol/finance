@@ -141,10 +141,47 @@ P1b 读数取自提交前脏树（脏路径 = 本节五文件），规程测试�
 
 P1c 读数取自提交前脏树（脏路径 = 本节三个代码/测试文件 + 文档），规程测试壳，5:49；5 红仍是 `test_dream_mine` 同一组，7374 − 7369 = 5 = 新增测试数（29 − 24）。
 
+## #526 / #527 合并与主干门禁（2026-09-02 12:15 CST）
+
+- 堆叠链顺序：#526 merge-tree exit 0（基座落后 1 = 台账 docs 提交）→ 合 `42e5bb69`；#527 在其后 diff 恰只剩 P1c 两提交、merge-tree exit 0 → 合 `e360895b`。远程分支已删。
+- 门禁树 `/Users/a77/tmp/fwp-gate-e360895b4394`（detached @ main tip，干净），规程壳：ruff 绿；`layer_audit` ERROR 0（对 `HEAD@e360895b` 成立）；全量 **7374 passed / 5 failed / 15 skipped / 1 xfailed**，8:17，收据 `20260902T040906Z-e360895b.json`（`dirty=false`）→ `check_test_receipt --expect-revision --base-drift-max 5` **✅ 可采信**；5 红仍是 `test_dream_mine` 五例。webapp 四件套 lint / typecheck / **70 passed** / build 全绿。
+- 台账 `inflight/main.md` 顶行 + 两份交接闭环直接落 main（`baabbb32`）。8792 未切。
+
+## P2'：`HarnessReferenceLoop`——第二条 loop 与「同一台机器」判定（分支 `refactor/harness-reference-loop`，基于 `e360895b`）
+
+新文件：`intelligence/runtime/harness_reference_loop.py`（约 330 行；只 import `research_harness` / `research_plan` 的类型与公开投影 / `research_tool_registry` / `episode_tool_batch` / 运行契约类型）与 `intelligence/tests/test_harness_reference_loop.py`（6 例）。**未改任何既有文件。** 不进 `RUNTIME_BACKEND_NAMES`。
+
+### 判定读数（同一脚本化模型、同一注册表，`ContinuousAgentEpisode` vs `HarnessReferenceLoop`）
+
+| 判据 | 读数 |
+|---|---|
+| ① 首轮请求（system / user / tools） | **字节相同** |
+| ② 无 PLAN（tool→finish）全程消息 | 每一轮的 tools 相同；messages 逐条相同，**唯一差**是 Episode 最后一条工具消息多一个 `runtime_budget` 键（底座预算注入，spec §4 #9） |
+| ② outcome（status / draft / bindings / gaps / stop_reason / plan / evidence / tool_calls / invalid_actions） | **相同**（`completed` / `model_finish`） |
+| ③ 有 PLAN（plan→tool→finish） | 首轮相同；终轮消息 diff **恰好一条** Episode 独有 `role=user` `kind=MODE_DECISION`；outcome 相同，`plan` 相同 |
+| ④ 有牙 | 默认 harness：伪造哈希 → `integrity_violation`、`invalid_action.code=forged_hash`、空稿；放行 harness → `model_finish` / `completed` |
+| ⑤ 底座停机 | `max_steps=1` 用尽 → 终轮 `tools=[]`，注入文案以「研究阶段已关闭」起、以「关闭原因：tool_budget_exhausted」止，`finalization` 事件一条 |
+| ⑥ 棘轮 | 参考 loop 不 import 九个领域模块；从 `research_plan` 只拿类型与 `plan_to_public_dict` |
+
+**读法**：③ 的那一条 `MODE_DECISION` 就是 spec §4 #5（mode 治理，P2）仍焊在 Episode 里的全部可见残余；它现在是一个测试断言，不是一句「还有点没抽」。若某天有人把新的领域文案焊进 Episode，②/③ 会先红。
+
+### 其它读数
+
+- ruff 绿；`layer_audit` ERROR 0 == 基线（`runtime/` 由 17 模块增至 18；门禁只查 services→runtime 方向，通过）。
+- 全量 pytest：见下表回填。
+
+| 树 | passed | failed | skipped | xfailed |
+|---|---:|---:|---:|---:|
+| main `e360895b`（门禁） | 7374 | 5 | 15 | 1 |
+| P2' | **7380** | **5** | 15 | 1 |
+
+P2' 读数取自提交前脏树（脏路径 = 两个新文件 + 文档），规程壳，7:09；5 红同组，7380 − 7374 = 6 = 新增测试数。
+
 ## 未做 / 红线
 
 - 未改秒数、档位、reserve、`episode_protocol.py` 判定、8792、启动器、快照。
+- **P2'-live 未做**：把 `HarnessReferenceLoop` 当第四臂跑 09-01 同题要先让 8792 快照切到含 harness 的 revision（现役 `5be00c4f` 没有 `research_harness.py`），且烧配额，另拍。
 - `evidence_ordinal_table` / `attach_evidence_ordinals` / `strip_hashes_for_model` 仍被 `agent_episode._append_sub_research_message` 直接用（子研究消息投影，P2 `govern_mode` 范围），本刀不摘。
 - 三条 loop 的 gap 口径不一致：已暴露（`gaps` vs `declared_gaps`），未统一。
-- 未写第二条 loop（P2'）；「run 层可替换」目前是**接缝已抽（八方法）+ 三条 loop 共用 + 有牙已证**，不是**换过一次**。
+- 「run 层可替换」现在是**离线实测**（第二条 loop 与 Episode 首轮字节同、无 PLAN 全程同、有 PLAN 差恰一条），不是设计图；live 同题对照未做。
 - 未跑 LLM。配额未动。
