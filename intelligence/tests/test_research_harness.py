@@ -30,11 +30,15 @@ import intelligence.services.research_contract as research_contract_module
 from intelligence.runtime.agent_episode import ContinuousAgentEpisode
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
+from intelligence.services.agent_runtime import public_agent_evidence
 from intelligence.services.episode_protocol import (
+    attach_evidence_ordinals,
+    evidence_ordinal_table,
     expand_episode_snapshot_bindings,
     finish_rejection_fields,
     rejection_response,
     split_episode_prompt,
+    strip_hashes_for_model,
     validate_episode_finish,
 )
 from intelligence.services.evidence_capabilities import EvidencePlan
@@ -55,6 +59,7 @@ from intelligence.services.research_harness import (
     FinanceResearchHarness,
     FinishAdmission,
     ResearchHarness,
+    ToolResultProjection,
 )
 from intelligence.services.research_plan import (
     PlanParseResult,
@@ -63,9 +68,12 @@ from intelligence.services.research_plan import (
 )
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
+    ToolObservation,
     ToolSpec,
 )
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.tool_observation_noise import prune_tool_observation
+from intelligence.services.tool_result_budget import budget_tool_observation
 
 _RUNTIME_DIR = Path(__file__).resolve().parents[1] / "runtime"
 _AGENT_EPISODE_PATH = _RUNTIME_DIR / "agent_episode.py"
@@ -426,6 +434,99 @@ def test_default_steering_messages_are_the_loop_texts_verbatim() -> None:
         harness.steering_message("nope", detail="")  # type: ignore[arg-type]
 
 
+def _observation(
+    evidence: tuple[AgentEvidence, ...], *, telemetry: dict[str, object] | None = None
+) -> ToolObservation:
+    return ToolObservation(
+        tool="market_data",
+        query="当前市场结构",
+        evidence=evidence,
+        observation="上涨家数增加，成交保持活跃。",
+        trace=ProviderTrace(
+            provider="test:market",
+            capability="market_data",
+            status="success",
+            source_trade_date="2026-07-21",
+            result_count=len(evidence),
+        ),
+        gaps=("缺少反方证据",),
+        evidence_hashes=tuple(item.content_hash for item in evidence),
+        dataset="stock_daily",
+        caliber="fact_stock_daily",
+        payload_field_names=("close", "return_pct"),
+        payload_sha256="abc123",
+        telemetry=dict(telemetry or {}),
+    )
+
+
+def test_default_project_tool_result_equals_the_inline_projection() -> None:
+    """审计底稿 = 全量含 hash / telemetry；模型正文 = 去重 → 预算 → 去 hash 只留 E<n>。"""
+
+    evidence = (_evidence("evidence-1"), _evidence("evidence-2", title="第二条"))
+    observation = _observation(evidence, telemetry={"queued_ms": 3})
+    harness = FinanceResearchHarness()
+
+    projection = harness.project_tool_result(
+        observation, evidence_so_far=evidence, seen_prose=set()
+    )
+
+    ordinals = evidence_ordinal_table(evidence)
+    expected_audit = {
+        "ok": True,
+        "tool": "market_data",
+        "query": "当前市场结构",
+        "observation": "上涨家数增加，成交保持活跃。",
+        "evidence": attach_evidence_ordinals(
+            [public_agent_evidence(item) for item in evidence], ordinals
+        ),
+        "evidence_hashes": ["evidence-1", "evidence-2"],
+        "evidence_ids": ["E1", "E2"],
+        "gaps": ["缺少反方证据"],
+        "dataset": "stock_daily",
+        "caliber": "fact_stock_daily",
+        "payload_field_names": ["close", "return_pct"],
+        "payload_sha256": "abc123",
+        "telemetry": {"queued_ms": 3},
+    }
+    assert projection.audit_payload == expected_audit
+
+    model_view = dict(expected_audit)
+    model_view.pop("telemetry")
+    pruned, seen = prune_tool_observation(model_view, seen_prose=set())
+    assert projection.model_content == json.dumps(
+        strip_hashes_for_model(budget_tool_observation(pruned)), ensure_ascii=False
+    )
+    assert projection.seen_prose == frozenset(seen)
+
+    facing = json.loads(projection.model_content)
+    assert "telemetry" not in facing
+    assert "evidence_hashes" not in facing
+    assert facing["evidence_ids"] == ["E1", "E2"]
+    assert all("content_hash" not in row for row in facing["evidence"])
+
+    # 第二次同一段叙述：去重账本让它折叠，且账本状态往前走。
+    again = harness.project_tool_result(
+        observation, evidence_so_far=evidence, seen_prose=set(projection.seen_prose)
+    )
+    assert again.audit_payload == expected_audit
+    assert json.loads(again.model_content).get("observation") != facing["observation"]
+
+
+def test_default_project_tool_error_shape_and_detail_cap() -> None:
+    payload = FinanceResearchHarness().project_tool_error(
+        tool="kb_search", error="tool_timeout", detail="x" * 500
+    )
+    assert payload == {
+        "ok": False,
+        "tool": "kb_search",
+        "error": "tool_timeout",
+        "detail": "x" * 400,
+    }
+    assert FinanceResearchHarness().project_tool_error(
+        tool="kb_search", error="tool_timeout", detail=""
+    )["detail"] == ""
+
+
 def test_finish_admission_refuses_inconsistent_values() -> None:
     """接受不能带处置，驳回不能没有理由——值对象自己守住两侧的形状。"""
 
@@ -485,6 +586,16 @@ class _RecordingHarness(FinanceResearchHarness):
             content, previous_plan=previous_plan, task_id=task_id
         )
 
+    def project_tool_result(self, observation, *, evidence_so_far, seen_prose):
+        self.calls.append("project_tool_result")
+        return super().project_tool_result(
+            observation, evidence_so_far=evidence_so_far, seen_prose=seen_prose
+        )
+
+    def project_tool_error(self, *, tool, error, detail):
+        self.calls.append("project_tool_error")
+        return super().project_tool_error(tool=tool, error=error, detail=detail)
+
     def halt_after_tool_batch(self, *, context, batch_errors):
         self.calls.append("halt_after_tool_batch")
         return super().halt_after_tool_batch(context=context, batch_errors=batch_errors)
@@ -533,6 +644,7 @@ def test_episode_asks_harness_at_all_seams_in_control_flow_order() -> None:
         "assemble_prompt",
         "interpret_plan",
         "interpret_plan",
+        "project_tool_result",
         "halt_after_tool_batch",
         "retrieval_complete",
         "interpret_plan",
@@ -669,6 +781,18 @@ def test_agent_episode_routes_batch_halt_through_harness() -> None:
     ), "批后停机判定必须经 harness.halt_after_tool_batch"
 
 
+def test_agent_episode_routes_tool_view_through_harness() -> None:
+    """模型看到的工具结果（去重 / 预算 / 去 hash）只能由 harness.project_tool_result 产出。"""
+
+    tree = ast.parse(_AGENT_EPISODE_PATH.read_text(encoding="utf-8"))
+    assert not _import_from_names(
+        tree, "intelligence.services.tool_observation_noise"
+    ), "观察叙述去重必须经 harness.project_tool_result"
+    assert not _import_from_names(
+        tree, "intelligence.services.tool_result_budget"
+    ), "工具结果预算必须经 harness.project_tool_result"
+
+
 def test_research_harness_module_stays_in_the_domain_layer() -> None:
     """harness 在 services/：不得 import runtime（layer_audit 的方向）。"""
 
@@ -778,6 +902,89 @@ def test_begin_finalization_text_comes_from_the_harness() -> None:
         text.startswith("CUSTOM[begin_finalization]tool_budget_exhausted")
         for text in last_turn_users
     )
+
+
+class _CustomToolViewHarness(FinanceResearchHarness):
+    """模型看到的工具结果由 harness 决定：审计底稿照旧，模型正文换成标记串。"""
+
+    def project_tool_result(self, observation, *, evidence_so_far, seen_prose):
+        base = super().project_tool_result(
+            observation, evidence_so_far=evidence_so_far, seen_prose=seen_prose
+        )
+        return ToolResultProjection(
+            audit_payload=base.audit_payload,
+            model_content=json.dumps({"ok": True, "view": "CUSTOM_TOOL_VIEW"}),
+            seen_prose=base.seen_prose,
+        )
+
+    def project_tool_error(self, *, tool, error, detail):
+        return {"ok": False, "tool": tool, "error": f"CUSTOM:{error}", "detail": detail}
+
+
+def test_tool_view_reaching_the_model_comes_from_the_harness() -> None:
+    frame = _frame()
+    evidence = (_evidence("evidence-1"),)
+    model = _ScriptedModel(
+        [_tool_turn(), ModelTurn(_finish_content(), (), "scripted", "")]
+    )
+
+    outcome = ContinuousAgentEpisode(model, harness=_CustomToolViewHarness()).run(
+        task_frame=frame, context=_context(frame), registry=_registry(evidence)
+    )
+
+    assert outcome.stop_reason == "model_finish"
+    tool_messages = [
+        json.loads(str(item["content"]))
+        for item in model.seen_messages[-1]
+        if item.get("role") == "tool"
+    ]
+    assert len(tool_messages) == 1
+    facing = tool_messages[0]
+    # harness 给的正文原样在；底座只在最后一条工具消息上叠一个 ``runtime_budget``
+    # （spec §4 #9：预算可见性属底座，不抽）。两层的边界正好是这一个键。
+    assert facing["ok"] is True and facing["view"] == "CUSTOM_TOOL_VIEW"
+    assert set(facing) == {"ok", "view", "runtime_budget"}
+    # 审计底稿不受模型视图替换影响：durable tool_result 仍是全量投影。
+    results = [e for e in outcome.events if e.kind == "tool_result"]
+    assert len(results) == 1
+    # 账本把 list 冻成 tuple，按值比。
+    assert list(results[0].payload["evidence_ids"]) == ["E1"]
+    assert list(results[0].payload["evidence_hashes"]) == ["evidence-1"]
+
+
+def test_tool_error_view_reaching_the_model_comes_from_the_harness() -> None:
+    frame = _frame()
+
+    def exploding_runner(query: str, _context: AgentToolContext):
+        raise RuntimeError(f"boom {query}")
+
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="market_data",
+                capability="market_data",
+                description="会炸的行情",
+                cost="local",
+                freshness="current",
+                runner=exploding_runner,
+            ),
+        )
+    )
+    model = _ScriptedModel(
+        [_tool_turn(), ModelTurn(_finish_content(hashes=()), (), "scripted", "")]
+    )
+
+    ContinuousAgentEpisode(model, harness=_CustomToolViewHarness()).run(
+        task_frame=frame, context=_context(frame), registry=registry
+    )
+
+    tool_messages = [
+        json.loads(str(item["content"]))
+        for item in model.seen_messages[-1]
+        if item.get("role") == "tool"
+    ]
+    assert tool_messages and tool_messages[0]["ok"] is False
+    assert tool_messages[0]["error"].startswith("CUSTOM:")
 
 
 # ── 4b. 另两条 loop 也在问同一道门（P1a） ─────────────────────────────────

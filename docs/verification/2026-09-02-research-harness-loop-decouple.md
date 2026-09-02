@@ -120,10 +120,31 @@ P1a 读数取自提交前脏树（脏路径 = 本节四文件），9:54；5 红�
 
 P1b 读数取自提交前脏树（脏路径 = 本节五文件），规程测试壳，7:43；5 红仍是 `test_dream_mine` 同一组，7369 − 7364 = 5 = 新增测试数（24 − 19）。
 
+## P1c：`project_tool_result` + `project_tool_error`（分支 `refactor/harness-tool-result-projection`，叠 P1b `950ac43f`）
+
+改动面：`research_harness.py`（`ToolResultProjection` 值对象 + 2 方法；新 import `tool_observation_noise` / `tool_result_budget` / `public_agent_evidence` / 三个序号函数）、`agent_episode.py`（`_EpisodeToolAccumulator` 加 `harness` 字段；成功分支 ~50 行投影整段搬走、错误 payload 改取 harness；去 import `prune_tool_observation` / `budget_tool_observation`）、`test_research_harness.py`（24 → 29）。生产构造零改动（accumulator 由 `run()` 传 `self._harness`；测试里裸构造走默认）。
+
+等价论证：成功分支从 `evidence_ordinal_table(tuple(self.evidence))` 到 `json.dumps(strip_hashes_for_model(budget_tool_observation(pruned)))` 逐字搬进 `project_tool_result`，输入仍是「已合并本次证据后的累计证据 + 去重账本」，输出仍分两路（审计底稿叠 `call_id` / timing 进 `tool_result`；模型正文进 `role=tool` 消息）。`seen_observation_prose` 由 `set(seen)` 变 `set(frozenset(seen))`，同值。错误 payload 四键与 400 字截断逐字同。
+
+### 读数
+
+- 定向 11 个测试文件（三条 loop + 观察噪声 + 结果预算）**314 passed, 2 skipped**（改前口径不变；`test_agent_episode` 对工具消息正文与 `tool_result` payload 的大量断言即字节等价的回归网）。
+- `test_research_harness.py` **29 passed**。新增：投影与内联逐字段等价（审计含 telemetry 与 hash，模型正文无 telemetry、无 `evidence_hashes`、evidence 行无 `content_hash`、有 `evidence_ids=[E1,E2]`；同段叙述二次投影被去重账本折叠）、错误投影形状 + 400 字截断、loop 顺序扩成八次调用、有牙两条（自定义工具视图真到模型眼前——且**审计底稿不变**、`tool_result` 事件仍全量；自定义错误视图真到模型眼前）、棘轮 `agent_episode` 不 import `tool_observation_noise` / `tool_result_budget`。
+- **实测边界（测试首跑逮到）**：loop 在最后一条工具消息上叠 `runtime_budget`（`_append_tool_budget_state`，spec §4 #9 底座预算可见性）。模型看到的 = harness 正文 + 底座这一个键；测试断言 `set(facing) == {"ok", "view", "runtime_budget"}` 把两层边界钉死。另：账本把 payload 里的 list 冻成 tuple，按值比。
+- ruff 绿；`layer_audit` ERROR 0 == 基线。
+- 全量 pytest：见下表回填。
+
+| 树 | passed | failed | skipped | xfailed |
+|---|---:|---:|---:|---:|
+| P1b（`5c017081`） | 7369 | 5 | 15 | 1 |
+| P1c | **7374** | **5** | 15 | 1 |
+
+P1c 读数取自提交前脏树（脏路径 = 本节三个代码/测试文件 + 文档），规程测试壳，5:49；5 红仍是 `test_dream_mine` 同一组，7374 − 7369 = 5 = 新增测试数（29 − 24）。
+
 ## 未做 / 红线
 
 - 未改秒数、档位、reserve、`episode_protocol.py` 判定、8792、启动器、快照。
-- **P1c 未做**：`_EpisodeToolAccumulator.consume` 的模型视图投影（dsh `tools/result` 位）。要求 durable `tool_result` payload 与模型消息字节等价，单独一刀。
+- `evidence_ordinal_table` / `attach_evidence_ordinals` / `strip_hashes_for_model` 仍被 `agent_episode._append_sub_research_message` 直接用（子研究消息投影，P2 `govern_mode` 范围），本刀不摘。
 - 三条 loop 的 gap 口径不一致：已暴露（`gaps` vs `declared_gaps`），未统一。
-- 未写第二条 loop（P2'）；「run 层可替换」目前是**接缝已抽（六方法）+ 三条 loop 共用 + 有牙已证**，不是**换过一次**。
+- 未写第二条 loop（P2'）；「run 层可替换」目前是**接缝已抽（八方法）+ 三条 loop 共用 + 有牙已证**，不是**换过一次**。
 - 未跑 LLM。配额未动。
