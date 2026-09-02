@@ -1,6 +1,6 @@
 # 在途交接 · refactor/harness-reference-loop
 
-更新：2026-09-02 · **P2' 已实施、离线全绿，Gitea PR #528 已开（http://127.0.0.1:3300/a77/finance-workspace-private/pulls/528），未合 main、未切 8792。** 等用户确认合并。
+更新：2026-09-02 12:45 CST · **已闭环：PR #528 已合 `gitea/main=5292175c`，主干门禁可采信（7381P/5F 同基线红、webapp 70P 绿，见 `inflight/main.md` 顶行），8792 未切。** 后续 P2 `govern_mode` 见 `inflight/refactor-harness-govern-mode.md`。
 
 ## 一句话
 
