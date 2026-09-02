@@ -29,7 +29,8 @@ harness 里；不一致 = 还有领域逻辑焊在 ``ContinuousAgentEpisode`` �
   无 ``_recover_finalization`` / ``EpisodeFinalizer``（那是第二台状态机）。工具开不开
   只看「底座批了重开 或 研究窗未关」（与 Episode 同口径），不做 bounded_stage 算术。
 - 深度裁决经 ``harness.govern_mode``（与 Episode 同一份），但本 loop 没有子研究
-  协调器（``can_branch=False``），所以无子研究分支；无空池回退、无 opening prefetch。
+  协调器（``can_branch=False``），所以无子研究分支；无 opening prefetch。空池回退经
+  ``harness.fallback_after_empty_batch``（与 Episode 同一份、同一位置），本 loop 只派、只记。
 - 事件是 durable 子集（task / plan / model_turn / tool_request / tool_result /
   tool_error / finalization / invalid_action / repair_goal / finish），不带派发计时。
 
@@ -340,15 +341,45 @@ class HarnessReferenceLoop:
                 )
                 tool_calls += batch.executed_count
                 invalid_actions += self._ingest_batch(state, batch)
-                if pending_mode_message is not None:
-                    messages.append({"role": "user", "content": pending_mode_message})
                 halt = harness.halt_after_tool_batch(
                     context=context,
                     batch_errors=tuple(item.error for item in batch.items),
                 )
                 if halt and not finalization_started:
                     begin_finalization(halt)
-                elif not finalization_started and harness.retrieval_complete(
+                # 空池回退：领域说要不要替模型补一枪，底座判付不付得起、派出去、记账。
+                # 与 Episode 同位——停机判定之后、深度消息之前。
+                fallback_slots = max_slots - tool_calls
+                if fallback_slots > 0:
+                    fallback = harness.fallback_after_empty_batch(
+                        batch.items,
+                        context=context,
+                        registry=registry,
+                        authorized_tools=self._authorized_tools(
+                            session=state.session, registry=registry, context=context
+                        ),
+                        events=ledger.events,
+                        in_repair=False,
+                    )
+                    if fallback is not None:
+                        fallback_batch = state.session.execute(
+                            (fallback.call,),
+                            registry=registry,
+                            context=context,
+                            remaining_slots=fallback_slots,
+                            is_cancelled=self._is_cancelled,
+                        )
+                        tool_calls += fallback_batch.executed_count
+                        invalid_actions += self._ingest_batch(
+                            state,
+                            fallback_batch,
+                            request_extras={
+                                fallback.call.call_id: fallback.request_extras
+                            },
+                        )
+                if pending_mode_message is not None:
+                    messages.append({"role": "user", "content": pending_mode_message})
+                if not finalization_started and harness.retrieval_complete(
                     context=context,
                     registry=registry,
                     successful_tools=state.successful_tools,
@@ -620,18 +651,29 @@ class HarnessReferenceLoop:
             plan=state.plan,
         )
 
-    def _ingest_batch(self, state: ReferenceLoopState, batch: ToolBatchResult) -> int:
+    def _ingest_batch(
+        self,
+        state: ReferenceLoopState,
+        batch: ToolBatchResult,
+        *,
+        request_extras: dict[str, dict[str, object]] | None = None,
+    ) -> int:
         """一批工具结果进证据 / 事件 / 消息。返回本批的 invalid_actions 增量。
 
         成功的观察：证据去重合并 → 问 harness 审计留什么、模型看什么。失败的：问
         harness 模型看什么。两条都是 ``run`` 与 ``resume`` 共用的底座管线。
+        ``request_extras`` 是领域要盖在某条 ``tool_request`` 上的标记（空池回退）。
         """
 
         harness = self._harness
+        extras_by_id = request_extras or {}
         invalid_actions = 0
         for result in batch.items:
             call = result.call
-            state.ledger.add("tool_request", call.to_dict())
+            state.ledger.add(
+                "tool_request",
+                {**call.to_dict(), **(extras_by_id.get(call.call_id) or {})},
+            )
             if result.status in {"rejected", "error", "timeout"}:
                 if result.status == "rejected":
                     invalid_actions += 1
@@ -687,6 +729,19 @@ class HarnessReferenceLoop:
                 }
             )
         return invalid_actions
+
+    @staticmethod
+    def _authorized_tools(
+        *,
+        session: EpisodeToolBatchSession,
+        registry: ResearchToolRegistry,
+        context: ResearchRunContext,
+    ) -> frozenset[str]:
+        """此刻真能派的工具集（会话可用 ∪ 契约授权），与 Episode 递给 harness 的同一口径。"""
+
+        return frozenset(
+            session.available_tool_names(registry=registry, context=context)
+        ) | frozenset(context.contract.allowed_capabilities)
 
     @staticmethod
     def _available_tool_definitions(

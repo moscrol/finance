@@ -68,12 +68,6 @@ from intelligence.services.research_harness import (
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
 )
-from intelligence.services.empty_pool_fallback import (
-    EmptyToolCall,
-    fallback_already_attempted,
-    prefetch_pool_is_empty,
-    propose_empty_pool_fallback,
-)
 from intelligence.runtime.repair_budget import grant_for_transient_model_retry
 from intelligence.runtime.sub_research import (
     SubResearchCoordinator,
@@ -370,8 +364,6 @@ class _EpisodeToolAccumulator:
             extra = extras_by_id.get(call.call_id)
             if extra:
                 request_payload.update(extra)
-            elif call.call_id.startswith("empty-pool-fallback"):
-                request_payload["fallback_query"] = True
             self.ledger.add("tool_request", request_payload)
 
             if result.status == "rejected":
@@ -1862,44 +1854,27 @@ class ContinuousAgentEpisode:
         )
         if remaining <= 0:
             return None
-        cutoff = context.information_cutoff
+        # 底座只递自己拥有的事实：本批结果、此刻真能派的工具、事件流、阶段。
+        # 该不该补、补什么是领域的事（harness），付不付得起（上面的剩余槛）是这里的事。
         available = frozenset(
             tool_session.available_tool_names(
                 registry=registry,
                 context=context,
             )
         ) | frozenset(context.contract.allowed_capabilities)
-        proposal = propose_empty_pool_fallback(
-            question_type=context.contract.question_type,
-            as_of=cutoff.as_of_date.isoformat(),
-            cutoff_source=cutoff.source,
-            prefetch_empty=prefetch_pool_is_empty(
-                getattr(registry, "opening_prefetch", ()) or ()
-            ),
-            first_results=tuple(
-                EmptyToolCall(
-                    name=item.call.name,
-                    arguments=dict(item.call.arguments),
-                    empty=item.status == "empty",
-                )
-                for item in batch.items
-            ),
+        fallback = self._harness.fallback_after_empty_batch(
+            batch.items,
+            context=context,
+            registry=registry,
             authorized_tools=available,
-            already_attempted=fallback_already_attempted(accumulator.ledger.events),
+            events=accumulator.ledger.events,
             in_repair=False,
-            backfill_plan=None,
         )
-        if proposal is None:
+        if fallback is None:
             return None
         started = monotonic()
         fallback_batch = tool_session.execute(
-            (
-                ModelToolCall(
-                    proposal.call_id,
-                    proposal.tool,
-                    proposal.fallback_arguments,
-                ),
-            ),
+            (fallback.call,),
             registry=registry,
             context=context,
             remaining_slots=remaining,
@@ -1908,7 +1883,7 @@ class ContinuousAgentEpisode:
         )
         return (
             fallback_batch,
-            {proposal.call_id: proposal.request_extras()},
+            {fallback.call.call_id: fallback.request_extras},
             max(0.0, monotonic() - started),
         )
 
