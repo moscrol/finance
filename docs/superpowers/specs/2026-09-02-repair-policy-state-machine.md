@@ -53,6 +53,14 @@
 > 自定义文案真到模型眼前 ✅；④ 棘轮——Episode 从 `repair_coordinator` 只 import `RepairGoal`、adapter
 > 不持有两个集合也不 import 任何判据函数 ✅；⑤ 第二条 loop 真跑一轮 ✅。
 >
+> **Live 读数（2026-09-02 20:20，快照 main `b5102e0e`，8792 未切）**：Episode 臂在真模型上走完整条新准入路
+> （`deadline_exhausted` → 进度路径 → `admit_repair` 铸 0 调用 / 40s / 不重开 → `downgrade_unreachable` 标三格不可达
+> → 修复轮 → `admit_repair_result` 判无进展 → `repair_model_stop`），结果类别与 #531 之前的 P2'-live 一致——
+> 零行为改动在 live 样本上成立。参考 loop 臂的首份终局经一次回灌后被接受、无缺格，adapter 无需修复，
+> 所以 `HarnessReferenceLoop.resume` **在这道题上没被 live 触发**；它经 `GLMAgentRuntime.start → session.resume`
+> 的五条不变量只在 scripted 冒烟里过了。要 live 看到它，需要一道让参考 loop 首份终局缺格的题。
+> 详见 decouple spec §9「P2''-live」。
+>
 > **本线未做**：`_recover_finalization` 是否并进 repair cycle（独立决定，§6 红线明写本单不动）；
 > `_carry_repair_finish` 两行取舍留 loop；`finance-base-ab/shape_lib/reference_loop_arm.py` 的
 > 「resume 抛无修复轮」壳属实验树，可改调 `HarnessReferenceLoop.resume`。
