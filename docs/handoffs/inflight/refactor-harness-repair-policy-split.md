@@ -1,6 +1,10 @@
 # 在途交接 · refactor/harness-repair-policy-split
 
-更新：2026-09-02 · **`repair_policy` 线实施完毕，状态机 spec §5 五条验收全闭。九个提交已推 gitea，
+更新：2026-09-02 19:13 CST · **已闭环：PR #531 → #532 已按序合 `gitea/main=81f1faa0`，主干门禁可采信
+（7439P/5F 同基线红 `test_dream_mine` 五例，收据 `20260902T111231Z-81f1faa0.json`，见 `inflight/main.md`
+顶行），8792 未切。** 后续单 `fallback_after_empty_batch` 另开树、另立交接。
+
+原文（合并前最后一版）：**`repair_policy` 线实施完毕，状态机 spec §5 五条验收全闭。九个提交已推 gitea，
 PR #532（叠 #531）。合 main 等用户确认；8792 未切。**
 
 ## 一句话
