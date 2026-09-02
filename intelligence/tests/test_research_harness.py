@@ -531,9 +531,13 @@ def test_default_project_tool_result_equals_the_inline_projection() -> None:
     assert json.loads(again.model_content).get("observation") != facing["observation"]
 
 
-def test_default_govern_mode_equals_governor_decide_apply_and_message() -> None:
-    """govern_mode = 信号 → 依赖修正 → decide → apply → MODE_DECISION 文案，与原
-    `_decide_mode` + `_append_mode_decision_message` 逐字段相同。"""
+def test_default_govern_mode_equals_governor_decide_and_message() -> None:
+    """govern_mode = 信号 → 依赖修正 → decide → MODE_DECISION 文案，与原
+    `_decide_mode` + `_append_mode_decision_message` 逐字段相同。
+
+    「apply」（把裁决落到预算合同上）不在这里：那是底座的账，loop 拿 decision 去
+    `runtime/tier_promotion.apply_mode_promotion`（见 `test_tier_promotion.py`）。
+    """
 
     from intelligence.services.mode_governor import ModeGovernor, ModeSignals
     from intelligence.services.research_harness import default_mode_signals
@@ -559,7 +563,7 @@ def test_default_govern_mode_equals_governor_decide_apply_and_message() -> None:
     )
     decision = ModeGovernor().decide(plan, expected_signals)
     assert governance.decision == decision
-    assert governance.context == ModeGovernor().apply(context, decision)
+    assert not hasattr(governance, "context"), "harness 不再替 loop 落账"
     assert json.loads(governance.message) == {
         "kind": "MODE_DECISION",
         **decision.to_dict(),

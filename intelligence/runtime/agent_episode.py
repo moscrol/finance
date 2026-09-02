@@ -39,6 +39,7 @@ from intelligence.runtime.episode_tool_batch import (
     ToolCallResult,
     timeout_detail_for_model,
 )
+from intelligence.runtime.tier_promotion import apply_mode_promotion
 from intelligence.services.mode_governor import ModeDecision
 from intelligence.services.provider_observability import (
     ProviderTrace,
@@ -2018,17 +2019,19 @@ class ContinuousAgentEpisode:
         ledger: _EpisodeLedger,
         continuation_state: _EpisodeContinuationState | None,
     ) -> tuple[ResearchRunContext, ModeGovernance]:
-        # 深度裁决归 harness；loop 只说自己能不能开分支，然后记账、换 context。
+        # 深度裁决归 harness；loop 只说自己能不能开分支，然后把裁决落账（底座）、
+        # 记事件、换 context。
         governance = self._harness.govern_mode(
             task_frame=task_frame,
             plan=plan,
             context=context,
             can_branch=self._sub_research_coordinator is not None,
         )
+        promoted = apply_mode_promotion(context, governance.decision)
         ledger.add("mode_decision", governance.decision.to_dict())
         if continuation_state is not None:
-            continuation_state.context = governance.context
-        return governance.context, governance
+            continuation_state.context = promoted
+        return promoted, governance
 
     def _run_sub_research(
         self,
