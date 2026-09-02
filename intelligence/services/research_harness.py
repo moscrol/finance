@@ -30,7 +30,15 @@ project_tool_error   afterToolCall.isError+content tools/post-execute → block(
 halt_after_tool_batch afterToolCall.terminate     tools/post-execute → block
 retrieval_complete   shouldStopAfterTurn          —
 admit_finish         **—（pi 没有）**              **—（dsh 没有）**
+repair_goal_message  transformContext（注入）      agent/pre-step → enter(messages)
+admit_repair_result  **—（pi 没有）**              **—（dsh 没有）**
 ===================  ===========================  ==============================
+
+修复轮（`2026-09-02-repair-policy-state-machine.md`）两家也没有——它们的 loop 停下就是
+停下，没有「验证驳回后再来一轮」。``repair_goal_message`` 是修复轮开场对模型说的话
+（REPAIR_GOAL 正文 + 工具开/关两套指令）；``admit_repair_result`` 判「修完算不算进步」
+（换了稿或绑定才算，没动手也没改就是 stop）。「什么时候允许再来一轮」是预算，在
+``runtime/repair_budget``，不在这里。
 
 ``govern_mode``（研究该做多深：quick / deep，以及升档后的预算合同）也是两家没有的：
 它们的 loop 不分档。深度裁决读的是任务框架与 PLAN（领域），落到 context 上的是预算
@@ -66,6 +74,7 @@ from typing import Literal, Protocol, runtime_checkable
 
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
+    AgentOutcome,
     EpisodeStatus,
     OutputEvidenceBinding,
     public_agent_evidence,
@@ -89,6 +98,7 @@ from intelligence.services.mode_governor import (
     ModeGovernor,
     ModeSignals,
 )
+from intelligence.services.repair_coordinator import RepairGoal
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_plan import (
     PlanParseResult,
@@ -110,6 +120,7 @@ __all__ = [
     "FinishAdmission",
     "ModeGovernance",
     "ModeSignalsFactory",
+    "RepairVerdict",
     "ResearchHarness",
     "SteeringKind",
     "ToolResultProjection",
@@ -153,10 +164,13 @@ def default_mode_signals(task_frame: TaskFrame, plan: ResearchPlan) -> ModeSigna
         uncovered_answer_elements=len(plan.open_gaps),
     )
 
-# loop 在三个时点需要对模型说一段领域的话。做成 Literal 而不是三个方法：
-# 三段话的**时点**是底座的事（什么时候驳回、什么时候关研究阶段），**内容**是
-# 领域的事；一个方法一个枚举，时点和内容的边界正好落在参数上。
-SteeringKind = Literal["invalid_plan", "invalid_finish", "begin_finalization"]
+# loop 在四个时点需要对模型说一段领域的话。做成 Literal 而不是四个方法：
+# 每段话的**时点**是底座的事（什么时候驳回、什么时候关研究阶段、修复动作
+# 跑完什么时候收口），**内容**是领域的事；一个方法一个枚举，时点和内容的边界
+# 正好落在参数上。``repair_finalize`` 没有 detail，传空串。
+SteeringKind = Literal[
+    "invalid_plan", "invalid_finish", "begin_finalization", "repair_finalize"
+]
 
 
 @dataclass(frozen=True)
@@ -223,6 +237,21 @@ class ToolResultProjection:
     audit_payload: dict[str, object]
     model_content: str
     seen_prose: frozenset[str]
+
+
+@dataclass(frozen=True)
+class RepairVerdict:
+    """修复轮终局过了 ``admit_finish`` 之后，领域对「修完算不算数」的裁决。
+
+    ``progressed``：真动了手（跑了工具）或没动手但把稿 / 绑定改成了 completed。
+    没动手也没改的一轮不算修复——``status`` 压回 ``partial``，``gaps`` 没写就补一条
+    「未执行新的取证动作」。loop 按 ``progressed`` 定 stop_reason
+    （``repair_model_finish`` / ``repair_model_stop``），那是底座的词表。
+    """
+
+    status: EpisodeStatus
+    gaps: tuple[str, ...]
+    progressed: bool
 
 
 @dataclass(frozen=True)
@@ -354,6 +383,24 @@ class ResearchHarness(Protocol):
         """模型的终局输出能不能发。"""
         ...
 
+    def repair_goal_message(self, goal: RepairGoal, *, tools_open: bool) -> str:
+        """修复轮开场给模型的那段话（``REPAIR_GOAL`` 正文，user 角色）。
+
+        ``goal`` 是裁决后的模型侧目标（不可达格已降级）；``tools_open`` 是底座
+        告诉领域「这一轮能不能派工具」——两套指令按它分叉。
+        """
+        ...
+
+    def admit_repair_result(
+        self,
+        *,
+        admission: FinishAdmission,
+        previous: AgentOutcome,
+        performed_tool_action: bool,
+    ) -> RepairVerdict:
+        """修复轮的终局已被 ``admit_finish`` 接受——那它算不算修好了。"""
+        ...
+
 
 class FinanceResearchHarness:
     """金融领域的默认 harness——对既有函数的纯委托。
@@ -413,6 +460,12 @@ class FinanceResearchHarness:
                 "为保证 FINAL_JSON 完整，draft 控制在 1000 汉字以内；这是传输预算，"
                 "不要求固定标题、段数或措辞。"
                 f"关闭原因：{detail}"
+            )
+        if kind == "repair_finalize":
+            # 逐字搬自 agent_episode.resume()：修复轮工具批跑完后的收口指令。
+            return (
+                "修复动作已执行。不得再调用工具；请基于同一 episode 的"
+                "全部观察输出 FINAL_JSON，未补齐项继续明确写 gap。"
             )
         raise ValueError(f"unknown steering kind: {kind!r}")
 
@@ -639,6 +692,54 @@ class FinanceResearchHarness:
             caveat_slips=finish.caveat_slips,
             rejection=finish_rejection_fields(),
             declared_gaps=tuple(finish.gaps),
+        )
+
+    def repair_goal_message(self, goal: RepairGoal, *, tools_open: bool) -> str:
+        # 逐字搬自 agent_episode.resume()：REPAIR_GOAL 正文 + 工具开/关两套指令。
+        return json.dumps(
+            {
+                "kind": "REPAIR_GOAL",
+                **goal.to_dict(),
+                "instruction": (
+                    "保留最初任务、全部原始观察和当前工具账本。"
+                    + (
+                        "自主选择一个新的、未重复的动作补齐缺口；"
+                        if tools_open
+                        else "研究工具已关闭，只能基于已有观察修复措辞或证据绑定；"
+                    )
+                    + "不得重启研究或改写用户问题。"
+                ),
+            },
+            ensure_ascii=False,
+        )
+
+    def admit_repair_result(
+        self,
+        *,
+        admission: FinishAdmission,
+        previous: AgentOutcome,
+        performed_tool_action: bool,
+    ) -> RepairVerdict:
+        # 逐字搬自 agent_episode.resume()：repair_progressed 三元判定 + 兜底 gap。
+        if admission.status is None:
+            raise ValueError("admit_repair_result 只裁已被 admit_finish 接受的终局")
+        revised_without_tool = (
+            admission.draft.strip() != previous.draft.strip()
+            or admission.bindings != previous.bindings
+        )
+        completed_without_tool = (
+            not performed_tool_action
+            and admission.status == "completed"
+            and revised_without_tool
+        )
+        progressed = performed_tool_action or completed_without_tool
+        gaps = admission.gaps
+        if not progressed and not gaps:
+            gaps = ("修复轮未执行新的取证动作，缺口仍未补齐",)
+        return RepairVerdict(
+            status=admission.status if progressed else "partial",
+            gaps=gaps,
+            progressed=progressed,
         )
 
 

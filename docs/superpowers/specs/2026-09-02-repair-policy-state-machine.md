@@ -23,7 +23,18 @@
 >   修复线的 `root_budget.grant()` 只在 `repair_budget._mint_grant` 一处被调。
 >   **顺手发现（不属本单）**：`services/mode_governor.py:273` 的升档授予也在 services 侧
 >   直接 `root.grant()`——与 M5 同一种错层（领域层碰账本），归 `govern_mode` 线另立案。
-> - M7（`reopen_tools` 具名授权）/ §4 四方法签名 / `HarnessReferenceLoop.resume`：未做。
+> - **§4 签名，执行体那一半已实施**（本提交）：`ResearchHarness` 十方法 → 十二方法——
+>   `repair_goal_message(goal, *, tools_open)`（REPAIR_GOAL 正文 + 工具开/关两套指令）与
+>   `admit_repair_result(*, admission, previous, performed_tool_action) -> RepairVerdict{status, gaps, progressed}`
+>   （三元判定 + 兜底 gap）；`SteeringKind` 加第四个时点 `repair_finalize`（工具批后的收口指令）。
+>   `agent_episode.resume()` 里从此没有一段领域对模型说的话、也不再自判「算不算修好」。
+>   字节等价 + 48 格裁决等价 + 有牙两条 + 棘轮 + 变异（loop 忽略 verdict → 红 4）见
+>   `test_research_harness.py` 第 7 节。`_carry_repair_finish` 的「新稿 > 旧稿」未抽——它是
+>   围着 `admit_finish` 的 loop 管线，两行取舍，留在 loop。
+> - **未做**：§4 准入那一半——`classify_repair_need` / `repair_is_warranted` 作为 harness 方法
+>   （adapter 现在不持有 harness，要先决定构造注入还是从 runtime 取；`repair_budget.grant_for_progress`
+>   现在是**调**领域判据而不是**被告知**，签名要翻过来）；M7（`reopen_tools` 具名授权）；
+>   `HarnessReferenceLoop.resume` 真跑一轮（§5 第 5 条读数）。
 
 ---
 

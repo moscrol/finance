@@ -1557,21 +1557,9 @@ class ContinuousAgentEpisode:
         messages.append(
             {
                 "role": "user",
-                "content": json.dumps(
-                    {
-                        "kind": "REPAIR_GOAL",
-                        **prompt_goal.to_dict(),
-                        "instruction": (
-                            "保留最初任务、全部原始观察和当前工具账本。"
-                            + (
-                                "自主选择一个新的、未重复的动作补齐缺口；"
-                                if research_tools_open
-                                else "研究工具已关闭，只能基于已有观察修复措辞或证据绑定；"
-                            )
-                            + "不得重启研究或改写用户问题。"
-                        ),
-                    },
-                    ensure_ascii=False,
+                "content": self._harness.repair_goal_message(
+                    prompt_goal,
+                    tools_open=research_tools_open,
                 ),
             }
         )
@@ -1715,9 +1703,8 @@ class ContinuousAgentEpisode:
             messages.append(
                 {
                     "role": "user",
-                    "content": (
-                        "修复动作已执行。不得再调用工具；请基于同一 episode 的"
-                        "全部观察输出 FINAL_JSON，未补齐项继续明确写 gap。"
+                    "content": self._harness.steering_message(
+                        "repair_finalize", detail=""
                     ),
                 }
             )
@@ -1848,50 +1835,32 @@ class ContinuousAgentEpisode:
             )
         assert admission.status is not None
         bindings = admission.bindings
-        revised_without_tool = (
-            admission.draft.strip() != previous.draft.strip()
-            or bindings != previous.bindings
+        verdict = self._harness.admit_repair_result(
+            admission=admission,
+            previous=previous,
+            performed_tool_action=performed_tool_action,
         )
-        completed_without_tool = (
-            not performed_tool_action
-            and admission.status == "completed"
-            and revised_without_tool
-        )
-        effective_status = (
-            admission.status
-            if performed_tool_action or completed_without_tool
-            else "partial"
-        )
-        current_gaps = admission.gaps
-        if not performed_tool_action and not completed_without_tool and not current_gaps:
-            current_gaps = ("修复轮未执行新的取证动作，缺口仍未补齐",)
-        repair_progressed = performed_tool_action or completed_without_tool
+        stop_reason = "repair_model_finish" if verdict.progressed else "repair_model_stop"
         ledger.record_runtime_result()
         ledger.add(
             "finish",
             {
-                "status": effective_status,
-                "stop_reason": (
-                    "repair_model_finish"
-                    if repair_progressed
-                    else "repair_model_stop"
-                ),
+                "status": verdict.status,
+                "stop_reason": stop_reason,
                 "bindings": [item.to_dict() for item in bindings],
-                "gaps": list(current_gaps),
+                "gaps": list(verdict.gaps),
                 "caveat_slips": admission.caveat_slips,
                 **admission.rejection,
             },
         )
         return AgentOutcome(
             task_frame_hash=task_frame.task_frame_hash,
-            status=effective_status,
+            status=verdict.status,
             draft=admission.draft,
             evidence=tuple(accumulator.evidence),
             traces=tuple(accumulator.traces),
-            gaps=current_gaps,
-            stop_reason=(
-                "repair_model_finish" if repair_progressed else "repair_model_stop"
-            ),
+            gaps=verdict.gaps,
+            stop_reason=stop_reason,
             events=tuple(ledger.events),
             bindings=bindings,
             usage=_agent_usage(

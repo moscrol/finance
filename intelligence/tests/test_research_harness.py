@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import ast
 from dataclasses import replace
+import itertools
 import json
 from pathlib import Path
 
@@ -29,7 +30,14 @@ import intelligence.runtime.agent_episode as agent_episode_module
 import intelligence.services.research_contract as research_contract_module
 from intelligence.runtime.agent_episode import ContinuousAgentEpisode
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
-from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
+from intelligence.services.agent_runtime import (
+    AgentOutcome,
+    AgentUsage,
+    EpisodeEvent,
+    ModelToolCall,
+    ModelTurn,
+    OutputEvidenceBinding,
+)
 from intelligence.services.agent_runtime import public_agent_evidence
 from intelligence.services.episode_protocol import (
     attach_evidence_ordinals,
@@ -55,9 +63,11 @@ from intelligence.services.research_contract import (
     ResearchRunContext,
     ResearchTaskContract,
 )
+from intelligence.services.repair_coordinator import CoverageDelta, RepairGoal
 from intelligence.services.research_harness import (
     FinanceResearchHarness,
     FinishAdmission,
+    RepairVerdict,
     ResearchHarness,
     ToolResultProjection,
 )
@@ -1398,3 +1408,242 @@ def test_dead_clock_carry_keeps_comparison_set_expansion(
     assert outcome.bindings[0].evidence_hashes == ("rank-1", "rank-2")
     finish = [event for event in outcome.events if event.kind == "finish"][-1]
     assert finish.payload["carried_draft_chars"] == len(outcome.draft)
+
+
+# ── 7. 修复轮接缝：repair_goal_message / repair_finalize / admit_repair_result ──
+#
+# 来源：docs/superpowers/specs/2026-09-02-repair-policy-state-machine.md §3.2
+# 「REPAIR_GOAL 消息文案 + 工具开/关两套 instruction 分支」与「repair_progressed
+# 三元判定 + current_gaps 兜底文案」——resume() 里最后两段领域内容。
+
+
+def _repair_goal(*, remaining_calls: int = 1, remaining_seconds: float = 8.0) -> RepairGoal:
+    return RepairGoal(
+        episode_id="harness-test",
+        repair_goal_id="repair-harness-test-1",
+        cycle=1,
+        missing_answer_elements=("direct_assessment",),
+        unsupported_claims=(),
+        missing_evidence_modes=(),
+        attempted_actions=("market_data:test",),
+        evidence_progress=CoverageDelta(1, 0, 1),
+        remaining_calls=remaining_calls,
+        remaining_seconds=remaining_seconds,
+    )
+
+
+def _legacy_repair_goal_message(goal: RepairGoal, *, tools_open: bool) -> str:
+    """拆分前 agent_episode.resume() 里 REPAIR_GOAL 的原构造——被抽走的合同。"""
+
+    return json.dumps(
+        {
+            "kind": "REPAIR_GOAL",
+            **goal.to_dict(),
+            "instruction": (
+                "保留最初任务、全部原始观察和当前工具账本。"
+                + (
+                    "自主选择一个新的、未重复的动作补齐缺口；"
+                    if tools_open
+                    else "研究工具已关闭，只能基于已有观察修复措辞或证据绑定；"
+                )
+                + "不得重启研究或改写用户问题。"
+            ),
+        },
+        ensure_ascii=False,
+    )
+
+
+def test_default_repair_goal_message_is_the_loop_text_verbatim() -> None:
+    harness = FinanceResearchHarness()
+    goal = _repair_goal()
+    for tools_open in (True, False):
+        assert harness.repair_goal_message(goal, tools_open=tools_open) == (
+            _legacy_repair_goal_message(goal, tools_open=tools_open)
+        )
+    assert harness.steering_message("repair_finalize", detail="") == (
+        "修复动作已执行。不得再调用工具；请基于同一 episode 的"
+        "全部观察输出 FINAL_JSON，未补齐项继续明确写 gap。"
+    )
+
+
+def _accepted_admission(*, status: str, draft: str, bindings, gaps=()) -> FinishAdmission:
+    return FinishAdmission(
+        accepted=True,
+        status=status,  # type: ignore[arg-type]
+        draft=draft,
+        bindings=bindings,
+        gaps=tuple(gaps),
+        caveat_slips=0,
+        rejection=finish_rejection_fields(),
+    )
+
+
+def _previous_outcome(*, draft: str, bindings) -> AgentOutcome:
+    frame = _frame()
+    return AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="partial",
+        draft=draft,
+        evidence=(_evidence("evidence-1"),),
+        traces=(),
+        gaps=("缺口",),
+        stop_reason="model_finish",
+        events=(EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),),
+        bindings=bindings,
+        usage=AgentUsage(),
+    )
+
+
+def test_default_admit_repair_result_equals_loop_verdict_on_full_grid() -> None:
+    """拆分前 resume() 的三元判定逐格相等：动手 × 状态 × 改稿 × 改绑定 × 有无 gap。"""
+
+    harness = FinanceResearchHarness()
+    old_bindings = (OutputEvidenceBinding("direct_assessment", ("evidence-1",)),)
+    new_bindings = (OutputEvidenceBinding("direct_assessment", ("evidence-1", "evidence-2")),)
+    previous = _previous_outcome(draft="旧稿", bindings=old_bindings)
+    seen_progressed = {True: 0, False: 0}
+    for performed, status, draft, bindings, gaps in itertools.product(
+        (True, False),
+        ("completed", "partial"),
+        ("旧稿", " 旧稿 ", "新稿"),
+        (old_bindings, new_bindings),
+        ((), ("仍缺反方",)),
+    ):
+        admission = _accepted_admission(status=status, draft=draft, bindings=bindings, gaps=gaps)
+        verdict = harness.admit_repair_result(
+            admission=admission, previous=previous, performed_tool_action=performed
+        )
+        # 被抽走的合同（agent_episode.resume() 原文，逐行）：
+        revised = draft.strip() != previous.draft.strip() or bindings != previous.bindings
+        completed_without_tool = not performed and status == "completed" and revised
+        legacy_status = status if performed or completed_without_tool else "partial"
+        legacy_gaps = tuple(gaps)
+        if not performed and not completed_without_tool and not legacy_gaps:
+            legacy_gaps = ("修复轮未执行新的取证动作，缺口仍未补齐",)
+        legacy_progressed = performed or completed_without_tool
+        assert verdict == RepairVerdict(legacy_status, legacy_gaps, legacy_progressed), (
+            performed, status, draft, bindings is new_bindings, gaps
+        )
+        seen_progressed[verdict.progressed] += 1
+    assert seen_progressed[True] and seen_progressed[False]
+
+
+def test_admit_repair_result_refuses_rejected_admission() -> None:
+    rejected = FinanceResearchHarness().admit_finish(
+        "不是 JSON", context=_context(_frame()), evidence=(), registry=_registry(())
+    )
+    assert not rejected.accepted
+    with pytest.raises(ValueError):
+        FinanceResearchHarness().admit_repair_result(
+            admission=rejected,
+            previous=_previous_outcome(draft="", bindings=()),
+            performed_tool_action=False,
+        )
+
+
+class _CustomRepairHarness(FinanceResearchHarness):
+    """修复轮的两段话与裁决都换掉：接缝有牙的对照物。"""
+
+    def repair_goal_message(self, goal, *, tools_open):
+        return f"CUSTOM[REPAIR_GOAL]{goal.repair_goal_id}:{tools_open}"
+
+    def steering_message(self, kind, *, detail):
+        if kind == "repair_finalize":
+            return "CUSTOM[repair_finalize]"
+        return super().steering_message(kind, detail=detail)
+
+    def admit_repair_result(self, *, admission, previous, performed_tool_action):
+        del previous, performed_tool_action
+        return RepairVerdict(status=admission.status, gaps=admission.gaps, progressed=True)
+
+
+def _run_then_resume(harness, *, resume_turns: list[ModelTurn], remaining_calls: int):
+    """跑一集到 partial 终局，再用同一段历史做一轮修复。返回 (model, 修复 outcome)。"""
+
+    frame = _frame()
+    evidence = (_evidence("evidence-1"),)
+    model = _ScriptedModel(
+        [
+            _tool_turn(),
+            ModelTurn(_finish_content(status="partial", gap="仍缺反方"), (), "scripted", ""),
+            *resume_turns,
+        ]
+    )
+    episode = ContinuousAgentEpisode(model, harness=harness)
+    continuation: list = []
+    first = episode.run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_registry(evidence),
+        _continuation_sink=continuation,
+    )
+    assert first.stop_reason == "model_finish"
+    repaired = episode.resume(
+        continuation[0], first, _repair_goal(remaining_calls=remaining_calls)
+    )
+    return model, repaired
+
+
+def test_repair_goal_and_finalize_texts_reach_the_model_from_the_harness() -> None:
+    """修复轮开场话与工具后收口话的字节都来自 harness：换 harness，模型看到的就变。"""
+
+    model, repaired = _run_then_resume(
+        _CustomRepairHarness(),
+        resume_turns=[
+            _tool_turn(),
+            ModelTurn(_finish_content(status="completed"), (), "scripted", ""),
+        ],
+        remaining_calls=1,
+    )
+
+    assert repaired.stop_reason == "repair_model_finish"
+    user_texts = [
+        str(item["content"])
+        for turn_messages in model.seen_messages[2:]
+        for item in turn_messages
+        if item.get("role") == "user"
+    ]
+    assert any(text == "CUSTOM[REPAIR_GOAL]repair-harness-test-1:True" for text in user_texts)
+    assert "CUSTOM[repair_finalize]" in user_texts
+
+
+def test_repair_verdict_from_harness_changes_outcome_so_the_seam_has_teeth() -> None:
+    """同一份「没动手、稿没改」的修复轮：默认 harness 判 stop，改判的 harness 让它 finish。"""
+
+    unchanged = _finish_content(status="partial", gap="仍缺反方")
+
+    _, default_outcome = _run_then_resume(
+        FinanceResearchHarness(),
+        resume_turns=[ModelTurn(unchanged, (), "scripted", "")],
+        remaining_calls=0,
+    )
+    assert default_outcome.stop_reason == "repair_model_stop"
+    assert default_outcome.status == "partial"
+
+    _, custom_outcome = _run_then_resume(
+        _CustomRepairHarness(),
+        resume_turns=[ModelTurn(unchanged, (), "scripted", "")],
+        remaining_calls=0,
+    )
+    assert custom_outcome.stop_reason == "repair_model_finish"
+    finish = [event for event in custom_outcome.events if event.kind == "finish"][-1]
+    assert finish.payload["stop_reason"] == "repair_model_finish"
+
+
+def test_resume_no_longer_carries_repair_wording_or_verdict() -> None:
+    """棘轮：REPAIR_GOAL 文案、收口指令、兜底 gap、三元判定都不得回焊进 loop。"""
+
+    source = _AGENT_EPISODE_PATH.read_text(encoding="utf-8")
+    for needle in (
+        '"REPAIR_GOAL"',
+        "自主选择一个新的、未重复的动作补齐缺口",
+        "研究工具已关闭，只能基于已有观察修复措辞或证据绑定",
+        "修复动作已执行。不得再调用工具",
+        "修复轮未执行新的取证动作，缺口仍未补齐",
+        "completed_without_tool",
+        "revised_without_tool",
+    ):
+        assert needle not in source, needle
+    assert "repair_goal_message(" in source
+    assert 'steering_message(\n                        "repair_finalize"' in source
+    assert "admit_repair_result(" in source
