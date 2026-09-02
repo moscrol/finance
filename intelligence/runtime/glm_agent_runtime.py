@@ -22,6 +22,7 @@ from intelligence.services.draft_stream import DraftStreamDecoder
 from intelligence.services.episode_session import CallbackEpisodeSession, EpisodeSession
 from intelligence.services.mode_governor import ModeGovernor, ModeSignals
 from intelligence.services.research_contract import ResearchRunContext
+from intelligence.services.research_harness import FinanceResearchHarness
 from intelligence.services.research_plan import ResearchPlan
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.runtime_handle import RuntimeHandle
@@ -503,8 +504,11 @@ class GLMAgentRuntime:
             llm_timeout=llm_timeout,
             finalizer=finalizer,
             is_cancelled=is_cancelled,
-            mode_governor=mode_governor,
-            mode_signals=mode_signals,
+            # 深度裁决的注入件直接进 harness 构造器——Episode 上那层转交壳已删。
+            harness=FinanceResearchHarness(
+                mode_governor=mode_governor,
+                mode_signals=mode_signals,
+            ),
             sub_research_coordinator=selected_coordinator,
             event_sink=event_sink,
         )
