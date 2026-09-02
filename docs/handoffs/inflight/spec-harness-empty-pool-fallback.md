@@ -1,6 +1,10 @@
 # 在途交接 · spec/harness-empty-pool-fallback
 
-更新：2026-09-02 · **`fallback_after_empty_batch` 画完即抽，两个提交（spec + 实施）已推 gitea，PR 见下。
+更新：2026-09-02 19:46 CST · **已闭环：PR #533 已合 `gitea/main=7c241ac0`，主干门禁可采信（7443P/5F 同基线红
+`test_dream_mine` 五例，收据 `20260902T114611Z-7c241ac0.json`，见 `inflight/main.md` 顶行），8792 未切。
+ResearchHarness 接缝线（decouple spec §4 表）至此抽完，本线无后续单。**
+
+原文（合并前最后一版）：**`fallback_after_empty_batch` 画完即抽，两个提交（spec + 实施）已推 gitea，PR 见下。
 合 main 等用户确认；8792 未切。**
 
 ## 一句话
