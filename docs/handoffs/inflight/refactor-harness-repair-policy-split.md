@@ -1,7 +1,8 @@
 # 在途交接 · refactor/harness-repair-policy-split
 
-更新：2026-09-02 · **五个提交在本地，未推、未开 PR。** 叠在 `spec/harness-repair-policy`
-（PR #531，含状态机 spec + 删 mode 转交壳）之上；#531 合入后本枝只剩自己的 diff。
+更新：2026-09-02 · **六个提交，已推 gitea，PR 见下。** 叠在 `spec/harness-repair-policy`
+（PR #531，含状态机 spec + 删 mode 转交壳）之上；#531 先合，本枝的 PR 才只剩自己的 diff。
+合 main 等用户确认；8792 未切。
 
 ## 一句话
 
@@ -25,7 +26,7 @@ spec：`docs/superpowers/specs/2026-09-02-repair-policy-state-machine.md`（头�
 | `8cc02f1f` | M6 | `classify_repair_failure(outcome, structural, *, missing_outputs, rejected_claims, semantic_gap_outputs) -> RepairFailureShape{delivery, cold_restart, contract_rewrite}`；两个 stop_reason 集合原字面搬入 services 并转公开；adapter 只叠 `allow_delivery_repair`（cycle 状态） |
 | `fb0666aa` | M5 | 新 `intelligence/runtime/repair_budget.py`（527 行原文搬入）；`services/repair_coordinator.py` 只剩领域侧 393 行、不再 import `RootBudgetLedger`；六个测试 + adapter + episode 改 import；switchboard `repair-chain` seam 同步 |
 | `0866b047` | 交接 | 本文档首版 |
-| （本提交） | §4 执行体半 | `ResearchHarness.repair_goal_message(goal, *, tools_open)` / `admit_repair_result(*, admission, previous, performed_tool_action) -> RepairVerdict`；`SteeringKind` 加 `repair_finalize`；`agent_episode.resume()` 三处改走 harness，不再含任何领域文案或「算不算修好」判定；`test_research_harness.py` 第 7 节 6 例（字节等价 / 48 格裁决 / 拒收未接受 admission / 两条有牙 / 棘轮） |
+| `3df916c2` | §4 执行体半 | `ResearchHarness.repair_goal_message(goal, *, tools_open)` / `admit_repair_result(*, admission, previous, performed_tool_action) -> RepairVerdict`；`SteeringKind` 加 `repair_finalize`；`agent_episode.resume()` 三处改走 harness，不再含任何领域文案或「算不算修好」判定；`test_research_harness.py` 第 7 节 6 例（字节等价 / 48 格裁决 / 拒收未接受 admission / 两条有牙 / 棘轮） |
 
 ## 现在的层次（对照状态机 spec §4）
 
