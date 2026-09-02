@@ -576,12 +576,27 @@ def test_govern_mode_honours_injected_governor_and_signals() -> None:
     assert len(governor.seen) == 1 and governor.seen[0].user_mode == "quick"
 
 
-def test_episode_refuses_mode_injection_alongside_a_custom_harness() -> None:
+def test_episode_no_longer_accepts_mode_injection_at_all() -> None:
+    """转交壳已删：注入件只认 harness 构造器这一个入口。
+
+    #529 把 mode_governor / mode_signals 搬进 harness 时，Episode 上留了一层转交壳
+    兼容既有调用方，并对「两处都想管深度」抛 ValueError。调用方
+    （glm_agent_runtime / continuous_sub_research）改直传 harness 后壳即删——
+    现在连形参都没有，多传是 TypeError 而不是 ValueError。
+
+    钉 TypeError 是为了让壳**回焊时会红**：若有人再把形参加回来，
+    这条会退化成 ValueError（带 harness）或静默通过（不带），两种都失败。
+    """
+
     from intelligence.services.mode_governor import ModeGovernor
 
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
+        ContinuousAgentEpisode(_ScriptedModel([]), mode_governor=ModeGovernor())
+    with pytest.raises(TypeError):
         ContinuousAgentEpisode(
-            _ScriptedModel([]), harness=FinanceResearchHarness(), mode_governor=ModeGovernor()
+            _ScriptedModel([]),
+            harness=FinanceResearchHarness(),
+            mode_signals=lambda _frame, _plan: None,
         )
 
 

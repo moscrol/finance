@@ -38,11 +38,7 @@ from intelligence.runtime.episode_tool_batch import (
     ToolBatchResult,
     ToolCallResult,
 )
-from intelligence.services.mode_governor import (
-    ModeDecision,
-    ModeGovernor,
-    ModeSignals,
-)
+from intelligence.services.mode_governor import ModeDecision
 from intelligence.services.provider_observability import (
     ProviderTrace,
     provider_trace_tool_name,
@@ -600,8 +596,6 @@ class ContinuousAgentEpisode:
         tool_executor: ToolBatchExecutor | None = None,
         finalizer: EpisodeFinalizer | None = None,
         is_cancelled: Callable[[], bool] | None = None,
-        mode_governor: ModeGovernor | None = None,
-        mode_signals: Callable[[TaskFrame, ResearchPlan], ModeSignals] | None = None,
         sub_research_coordinator: SubResearchCoordinator | None = None,
         event_sink: Callable[[EpisodeEvent], None] | None = None,
         repair_seconds_cap: float | None = None,
@@ -610,20 +604,11 @@ class ContinuousAgentEpisode:
         self._model = model
         # 领域门（prompt / 批后停机 / 取证面 / 终局准入 / 深度裁决）由 harness 回答，
         # loop 只调。默认金融 harness 是对既有函数的纯委托；传别的实现进来就是换领域。
-        # mode_governor / mode_signals 是深度裁决的注入件，归 harness；这里保留两个
-        # 形参只为兼容既有调用方（glm_agent_runtime / continuous_sub_research）——
-        # 自带 harness 时再传它们等于两处都想管深度，直接拒绝。
-        if harness is not None and (mode_governor is not None or mode_signals is not None):
-            raise ValueError(
-                "mode_governor / mode_signals belong to the harness; "
-                "construct FinanceResearchHarness(...) with them instead"
-            )
+        # 深度裁决的两个注入件（mode_governor / mode_signals）归 harness 构造器：
+        # #529 把它们搬过去时这里留了一层转交壳兼容既有调用方，调用方全部改直传
+        # harness 后即删（本刀）。Episode 从此不认识 ModeGovernor / ModeSignals。
         self._harness: ResearchHarness = (
-            harness
-            if harness is not None
-            else FinanceResearchHarness(
-                mode_governor=mode_governor, mode_signals=mode_signals
-            )
+            harness if harness is not None else FinanceResearchHarness()
         )
         self._llm_timeout = max(0.1, float(llm_timeout))
         self._repair_seconds_cap = (
