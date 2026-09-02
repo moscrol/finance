@@ -1,0 +1,405 @@
+"""HarnessReferenceLoop 与 ContinuousAgentEpisode：同一 harness，是不是同一台机器。
+
+spec §9 P2'。判据分三层，越往下越严：
+
+1. **首轮身份**（09-01 形状对齐用过的门）：同一脚本、同一注册表，两条 loop 发给模型的
+   第一条请求（system / user / tools）字节相同。
+2. **全程消息**：无 PLAN 的脚本，两条 loop 给模型看的全部消息一致——只允许差
+   ``runtime_budget`` 这一个键（Episode 的底座预算注入，spec §4 #9 不抽）。
+3. **终局 outcome**：status / draft / bindings / gaps / stop_reason / plan / evidence 一致。
+
+有 PLAN 的脚本，消息 diff 被钉成**恰好一条** Episode 独有的 ``MODE_DECISION``——那是
+mode 治理（spec §4 #5，P2）仍焊在 Episode 里的证据。这条测试的作用是让「还剩什么没抽」
+变成可判定的读数，而不是一句话。
+"""
+
+from __future__ import annotations
+
+import ast
+from copy import deepcopy
+import json
+from pathlib import Path
+
+from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.runtime.harness_reference_loop import HarnessReferenceLoop
+from intelligence.services.agent_research import AgentEvidence, AgentToolContext
+from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
+from intelligence.services.episode_protocol import finish_rejection_fields
+from intelligence.services.evidence_capabilities import EvidencePlan
+from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_contract import (
+    RequiredOutput,
+    ResearchDeadline,
+    ResearchPolicy,
+    ResearchRunContext,
+    ResearchTaskContract,
+)
+from intelligence.services.research_harness import (
+    FinanceResearchHarness,
+    FinishAdmission,
+)
+from intelligence.services.research_tool_registry import (
+    ResearchToolRegistry,
+    ToolSpec,
+)
+from intelligence.services.task_frame import TaskFrame
+
+_LOOP_PATH = (
+    Path(__file__).resolve().parents[1] / "runtime" / "harness_reference_loop.py"
+)
+
+
+# ── 夹具 ─────────────────────────────────────────────────────────────────
+
+
+def _frame() -> TaskFrame:
+    return TaskFrame(
+        raw_question="目前市场怎么看",
+        user_goal="判断当前市场结构",
+        question_type="market_forecast",
+        subject="A股市场",
+        subject_kind="market_pattern",
+        market_scope="A股",
+        timeframe="最近交易日",
+        required_outputs=("direct_assessment",),
+        assumptions=("按A股市场理解",),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="current_market_scenarios",
+        confidence=0.95,
+    )
+
+
+def _context(frame: TaskFrame, *, max_steps: int = 3) -> ResearchRunContext:
+    contract = ResearchTaskContract(
+        task_id="reference-loop-test",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type=frame.question_type,
+        required_outputs=(
+            RequiredOutput("direct_assessment", "direct_assessment", ("market_data",), True),
+        ),
+        allowed_capabilities=("market_data",),
+        research_tier="quick",
+        freshness="current",
+        timeframe=frame.timeframe,
+        evidence_plan=EvidencePlan(),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    return ResearchRunContext(
+        contract=contract,
+        deadline=ResearchDeadline.from_timeout(30.0),
+        policy=ResearchPolicy("quick", max_steps, 30.0, 0.0),
+        trace_parent_id="reference-loop-test",
+        today="2026-07-22",
+        latest_data_date="2026-07-21",
+    )
+
+
+def _evidence(content_hash: str) -> AgentEvidence:
+    return AgentEvidence(
+        tool="market_data",
+        title="A股市场总览",
+        detail="上涨家数增加，成交保持活跃",
+        source="本地行情",
+        source_date="2026-07-21",
+        evidence_tier="L4",
+        content_hash=content_hash,
+    )
+
+
+def _registry() -> ResearchToolRegistry:
+    def runner(query: str, _context: AgentToolContext):
+        del query
+        return (
+            [_evidence("evidence-1")],
+            "raw market observation",
+            ProviderTrace(
+                provider="test:market",
+                capability="market_data",
+                status="success",
+                source_trade_date="2026-07-21",
+                result_count=1,
+            ),
+        )
+
+    return ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="market_data",
+                capability="market_data",
+                description="结构化行情与市场时序",
+                cost="local",
+                freshness="current",
+                runner=runner,
+            ),
+        )
+    )
+
+
+def _plan_turn() -> ModelTurn:
+    return ModelTurn(
+        json.dumps(
+            {
+                "kind": "PLAN",
+                "task_summary": "判断市场主线并给出反方",
+                "answer_elements": ["direct_assessment"],
+                "hypotheses": ["半导体可能是持续主线"],
+                "evidence_needs": ["同日主线与持续性"],
+                "candidate_actions": ["market_data"],
+                "open_gaps": ["缺少反方证据"],
+                "requested_mode": "quick",
+                "revision": 1,
+            },
+            ensure_ascii=False,
+        ),
+        (),
+        "scripted",
+        "",
+    )
+
+
+def _tool_turn() -> ModelTurn:
+    return ModelTurn(
+        "",
+        (ModelToolCall("call-1", "market_data", {"query": "当前市场结构"}),),
+        "scripted",
+        "",
+    )
+
+
+def _finish_turn(*, hashes: tuple[str, ...] = ("evidence-1",)) -> ModelTurn:
+    return ModelTurn(
+        json.dumps(
+            {
+                "status": "completed",
+                "draft": "当前更接近条件化修复，持续性取决于量能。",
+                "gaps": [],
+                "bindings": [
+                    {
+                        "output_id": "direct_assessment",
+                        "evidence_hashes": list(hashes),
+                        "gap": "",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        (),
+        "scripted",
+        "",
+    )
+
+
+class _ScriptedModel:
+    def __init__(self, turns: list[ModelTurn]) -> None:
+        self._turns = iter(turns)
+        self.calls: list[dict[str, object]] = []
+
+    def complete(self, *, messages, tools, timeout):
+        self.calls.append(
+            {"messages": deepcopy(messages), "tools": deepcopy(tools), "timeout": timeout}
+        )
+        return next(self._turns)
+
+
+def _run_both(script: list[ModelTurn], *, harness=None):
+    frame = _frame()
+    episode_model = _ScriptedModel(list(script))
+    reference_model = _ScriptedModel(list(script))
+    episode = ContinuousAgentEpisode(episode_model, harness=harness).run(
+        task_frame=frame, context=_context(frame), registry=_registry()
+    )
+    reference = HarnessReferenceLoop(reference_model, harness=harness).run(
+        task_frame=frame, context=_context(frame), registry=_registry()
+    )
+    return (episode_model, episode), (reference_model, reference)
+
+
+def _strip_runtime_budget(message: dict[str, object]) -> dict[str, object]:
+    """Episode 在最后一条工具消息上叠的底座预算键，比对时摘掉。"""
+
+    if message.get("role") != "tool":
+        return message
+    payload = json.loads(str(message["content"]))
+    if isinstance(payload, dict) and "runtime_budget" in payload:
+        payload = dict(payload)
+        payload.pop("runtime_budget")
+        return {**message, "content": json.dumps(payload, ensure_ascii=False)}
+    return message
+
+
+def _outcome_core(outcome) -> dict[str, object]:
+    return {
+        "status": outcome.status,
+        "draft": outcome.draft,
+        "bindings": tuple(item.to_dict() for item in outcome.bindings)
+        if outcome.bindings
+        else (),
+        "gaps": tuple(outcome.gaps),
+        "stop_reason": outcome.stop_reason,
+        "plan": outcome.plan,
+        "evidence": tuple(item.content_hash for item in outcome.evidence),
+        "tool_calls": outcome.usage.tool_calls,
+        "invalid_actions": outcome.usage.invalid_actions,
+    }
+
+
+# ── 1. 首轮身份 ───────────────────────────────────────────────────────────
+
+
+def test_first_request_to_the_model_is_byte_identical() -> None:
+    (episode_model, _), (reference_model, _) = _run_both(
+        [_tool_turn(), _finish_turn()]
+    )
+    assert episode_model.calls[0]["messages"] == reference_model.calls[0]["messages"]
+    assert episode_model.calls[0]["tools"] == reference_model.calls[0]["tools"]
+    assert episode_model.calls[0]["tools"], "首轮必须带工具定义"
+
+
+# ── 2. 全程消息（无 PLAN） ───────────────────────────────────────────────
+
+
+def test_without_plan_every_message_the_model_sees_is_identical_modulo_budget() -> None:
+    (episode_model, episode), (reference_model, reference) = _run_both(
+        [_tool_turn(), _finish_turn()]
+    )
+
+    assert len(episode_model.calls) == len(reference_model.calls) == 2
+    for turn_index, (a, b) in enumerate(zip(episode_model.calls, reference_model.calls)):
+        assert a["tools"] == b["tools"], f"turn {turn_index} tools differ"
+        left = [_strip_runtime_budget(m) for m in a["messages"]]
+        right = [_strip_runtime_budget(m) for m in b["messages"]]
+        assert left == right, f"turn {turn_index} messages differ"
+
+    # 唯一允许的差就是那一个键：Episode 有、参考 loop 没有。
+    episode_tool = [
+        json.loads(str(m["content"]))
+        for m in episode_model.calls[-1]["messages"]
+        if m.get("role") == "tool"
+    ]
+    reference_tool = [
+        json.loads(str(m["content"]))
+        for m in reference_model.calls[-1]["messages"]
+        if m.get("role") == "tool"
+    ]
+    assert "runtime_budget" in episode_tool[0]
+    assert "runtime_budget" not in reference_tool[0]
+
+    assert _outcome_core(episode) == _outcome_core(reference)
+    assert episode.stop_reason == "model_finish" and episode.status == "completed"
+
+
+# ── 3. 有 PLAN：diff 恰好是那条 MODE_DECISION ───────────────────────────
+
+
+def test_with_plan_the_only_message_difference_is_episode_mode_decision() -> None:
+    (episode_model, episode), (reference_model, reference) = _run_both(
+        [_plan_turn(), _tool_turn(), _finish_turn()]
+    )
+
+    assert len(episode_model.calls) == len(reference_model.calls) == 3
+    assert episode_model.calls[0]["messages"] == reference_model.calls[0]["messages"]
+
+    final_left = [_strip_runtime_budget(m) for m in episode_model.calls[-1]["messages"]]
+    final_right = [
+        _strip_runtime_budget(m) for m in reference_model.calls[-1]["messages"]
+    ]
+    extra = [m for m in final_left if m not in final_right]
+    missing = [m for m in final_right if m not in final_left]
+    assert missing == [], "参考 loop 不该有 Episode 没有的消息"
+    assert len(extra) == 1, f"Episode 独有消息应恰好一条，实际 {len(extra)}"
+    payload = json.loads(str(extra[0]["content"]))
+    assert extra[0]["role"] == "user" and payload["kind"] == "MODE_DECISION"
+
+    core_left, core_right = _outcome_core(episode), _outcome_core(reference)
+    assert core_left == core_right
+    assert episode.plan is not None and reference.plan is not None
+    assert episode.plan == reference.plan
+
+
+# ── 4. 有牙：参考 loop 的领域判断全在 harness ───────────────────────────
+
+
+class _PermissiveHarness(FinanceResearchHarness):
+    def admit_finish(self, content, *, context, evidence, registry):
+        del context, evidence, registry
+        payload = json.loads(str(content))
+        return FinishAdmission(
+            accepted=True,
+            status=payload["status"],
+            draft=payload["draft"],
+            bindings=(),
+            gaps=(),
+            caveat_slips=0,
+            rejection=finish_rejection_fields(),
+        )
+
+
+def test_reference_loop_rejects_forged_hash_only_because_the_harness_says_so() -> None:
+    frame = _frame()
+    script = [_tool_turn(), _finish_turn(hashes=("forged-hash",))]
+
+    strict = HarnessReferenceLoop(_ScriptedModel(list(script))).run(
+        task_frame=frame, context=_context(frame), registry=_registry()
+    )
+    assert strict.stop_reason == "integrity_violation"
+    assert strict.draft == ""
+    invalid = [e for e in strict.events if e.kind == "invalid_action"]
+    assert invalid and invalid[-1].payload["code"] == "forged_hash"
+
+    permissive = HarnessReferenceLoop(
+        _ScriptedModel(list(script)), harness=_PermissiveHarness()
+    ).run(task_frame=frame, context=_context(frame), registry=_registry())
+    assert permissive.stop_reason == "model_finish"
+    assert permissive.status == "completed"
+
+
+def test_reference_loop_closes_research_when_tool_slots_run_out() -> None:
+    """底座策略：工具槛用尽 → 关研究阶段，注入的话来自 harness.begin_finalization。"""
+
+    frame = _frame()
+    model = _ScriptedModel([_tool_turn(), _finish_turn()])
+    outcome = HarnessReferenceLoop(model).run(
+        task_frame=frame, context=_context(frame, max_steps=1), registry=_registry()
+    )
+    assert outcome.stop_reason == "model_finish"
+    assert model.calls[-1]["tools"] == []
+    last_user = [
+        str(m["content"]) for m in model.calls[-1]["messages"] if m.get("role") == "user"
+    ][-1]
+    assert last_user.startswith("研究阶段已关闭，不得再调用工具。")
+    assert last_user.endswith("关闭原因：tool_budget_exhausted")
+    assert [e.kind for e in outcome.events if e.kind == "finalization"] == ["finalization"]
+
+
+# ── 5. 棘轮：参考 loop 一行领域逻辑都不 import ───────────────────────────
+
+_DOMAIN_MODULES = (
+    "intelligence.services.episode_protocol",
+    "intelligence.services.forecast_residual_budget",
+    "intelligence.services.tool_observation_noise",
+    "intelligence.services.tool_result_budget",
+    "intelligence.services.evidence_ledger",
+    "intelligence.services.repair_coordinator",
+    "intelligence.services.mode_governor",
+    "intelligence.services.mandatory_satisfiability",
+    "intelligence.services.empty_pool_fallback",
+)
+
+
+def test_reference_loop_imports_no_domain_gate_module() -> None:
+    tree = ast.parse(_LOOP_PATH.read_text(encoding="utf-8"))
+    imported: set[str] = set()
+    plan_names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            imported.add(node.module)
+            if node.module == "intelligence.services.research_plan":
+                plan_names.update(alias.name for alias in node.names)
+    leaked = imported & set(_DOMAIN_MODULES)
+    assert not leaked, f"参考 loop 直接碰了领域模块：{sorted(leaked)}"
+    # research_plan 只许拿类型与公开投影，不许拿解析函数。
+    assert not plan_names & {"parse_plan_candidate", "validate_plan_revision"}
+    assert "intelligence.services.research_harness" in imported
