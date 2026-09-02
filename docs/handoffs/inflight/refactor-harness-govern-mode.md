@@ -1,6 +1,6 @@
 # 在途交接 · refactor/harness-govern-mode
 
-更新：2026-09-02 · **P2 `govern_mode` 已实施、离线全绿，Gitea PR #529 已开（http://127.0.0.1:3300/a77/finance-workspace-private/pulls/529），未合 main、未切 8792。** 等用户确认合并。
+更新：2026-09-02 13:30 CST · **已闭环：PR #529 已合 `gitea/main=b8cc9a73`，主干门禁可采信（7384P/5F 同基线红、webapp 70P 绿，见 `inflight/main.md` 顶行），8792 未切。** 后续见 `inflight/refactor-harness-sub-research-projection.md`。
 
 ## 一句话
 
