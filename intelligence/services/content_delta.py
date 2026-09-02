@@ -19,9 +19,21 @@ REPLAY_RECIPE = "checkout base_commit, then apply entries by path"
 # 检索访问日志是 append-only 遥测，不是知识内容：生成 delta 的过程本身会
 # 通过 RAG 检索追加它，纳入快照会让 before/after 一致性校验自我失效。
 EXCLUDED_PATH_SUFFIXES = ("relations/access_log.jsonl",)
+# raw/ 是 ingest 管道的机器产物队列（scout 报告 / 披露审查队列 / 巨潮 baseline 等），
+# append-only 遥测而非 agent 引用的知识内容本体。os.walk 不理会 .gitignore，
+# 这些每日累积的报告曾把快照推过 MAX_DELTA_BYTES 上限（2026-09-01 agent-daily
+# 因此炸掉），故按目录前缀整体排除。
+EXCLUDED_PATH_PREFIXES = ("raw/",)
 
 
 def _is_excluded(relative: str) -> bool:
+    if any(
+        relative == prefix
+        or relative.startswith(prefix)
+        or f"/{prefix}" in relative
+        for prefix in EXCLUDED_PATH_PREFIXES
+    ):
+        return True
     return any(
         relative == suffix or relative.endswith(f"/{suffix}")
         for suffix in EXCLUDED_PATH_SUFFIXES

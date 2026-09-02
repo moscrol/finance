@@ -45,6 +45,7 @@ from intelligence.services.research_contract import (
     ResearchRunContext,
     ResearchTaskContract,
 )
+from intelligence.services.research_harness import FinanceResearchHarness
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
     ToolSpec,
@@ -4113,7 +4114,9 @@ def test_deep_plan_without_observable_complexity_keeps_standard_budget() -> None
 
     outcome = ContinuousAgentEpisode(
         model,
-        mode_signals=lambda _frame, _plan: ModeSignals(),
+        harness=FinanceResearchHarness(
+            mode_signals=lambda _frame, _plan: ModeSignals(),
+        ),
     ).run(
         task_frame=frame,
         context=context,

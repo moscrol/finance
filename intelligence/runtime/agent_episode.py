@@ -22,7 +22,6 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
     OutputEvidenceBinding,
     is_transient_model_error,
-    public_agent_evidence,
 )
 from intelligence.runtime.episode_finalizer import (
     MIN_FINALIZATION_RECOVERY_SECONDS,
@@ -31,14 +30,7 @@ from intelligence.runtime.episode_finalizer import (
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_protocol import (
     SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
-    attach_evidence_ordinals,
-    evidence_ordinal_table,
-    expand_episode_snapshot_bindings,
     finish_rejection_fields,
-    rejection_response,
-    split_episode_prompt,
-    strip_hashes_for_model,
-    validate_episode_finish,
 )
 from intelligence.runtime.episode_tool_batch import (
     EpisodeToolBatchSession,
@@ -48,14 +40,7 @@ from intelligence.runtime.episode_tool_batch import (
     ToolCallResult,
     stage_timeout_granted_detail,
 )
-from intelligence.services.forecast_residual_budget import (
-    forecast_residual_halt_reason,
-)
-from intelligence.services.mode_governor import (
-    ModeDecision,
-    ModeGovernor,
-    ModeSignals,
-)
+from intelligence.services.mode_governor import ModeDecision
 from intelligence.services.provider_observability import (
     ProviderTrace,
     provider_trace_tool_name,
@@ -64,14 +49,7 @@ from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
 )
-from intelligence.services.mandatory_satisfiability import (
-    apply_unreachable_downgrade,
-)
-from intelligence.services.repair_coordinator import (
-    RepairGoal,
-    grant_for_transient_model_retry,
-    unreachable_repair_goal,
-)
+from intelligence.services.repair_coordinator import RepairGoal
 from intelligence.services.research_contract import (
     ResearchDeadline,
     ResearchRunContext,
@@ -79,28 +57,25 @@ from intelligence.services.research_contract import (
 from intelligence.services.research_plan import (
     PlanParseResult,
     ResearchPlan,
-    parse_plan_candidate,
     plan_to_public_dict,
-    validate_plan_revision,
 )
 from intelligence.services.episode_event_lanes import LiveEventSink
 from intelligence.services.episode_scope import EpisodeScope
+from intelligence.services.research_harness import (
+    FinanceResearchHarness,
+    FinishAdmission,
+    ModeGovernance,
+    ResearchHarness,
+)
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
 )
-from intelligence.services.empty_pool_fallback import (
-    EmptyToolCall,
-    fallback_already_attempted,
-    prefetch_pool_is_empty,
-    propose_empty_pool_fallback,
-)
+from intelligence.runtime.repair_budget import grant_for_transient_model_retry
 from intelligence.runtime.sub_research import (
     SubResearchCoordinator,
     SubResearchResult,
 )
 from intelligence.services.task_frame import TaskFrame
-from intelligence.services.tool_observation_noise import prune_tool_observation
-from intelligence.services.tool_result_budget import budget_tool_observation
 
 
 DEFAULT_LLM_TIMEOUT = 20.0
@@ -184,19 +159,6 @@ def _agent_usage(
     )
 
 
-def _default_mode_signals(
-    task_frame: TaskFrame,
-    plan: ResearchPlan,
-) -> ModeSignals:
-    user_task = task_frame.to_user_task()
-    return ModeSignals(
-        independent_entities=len(user_task.subjects),
-        separable_branches=len(plan.branch_goals),
-        evidence_domains=plan.evidence_needs,
-        uncovered_answer_elements=len(plan.open_gaps),
-    )
-
-
 def _consume_root_seconds(context: ResearchRunContext, seconds: float) -> bool:
     ledger = context.root_budget
     if ledger is None:
@@ -238,20 +200,6 @@ def _settle_batch_calls(
             root_budget.consume_call(seconds=seconds_per_call)
         except ValueError:
             root_budget.settle_seconds(seconds=seconds_per_call)
-def _evidence_required_output_ids(context: object) -> frozenset[str]:
-    """契约里 evidence 口径的必填输出 id。model_reasoning 格不在此列。"""
-
-    contract = getattr(context, "contract", None)
-    return frozenset(
-        str(getattr(item, "output_id", ""))
-        for item in getattr(contract, "required_outputs", ())
-        if getattr(item, "required", True)
-        and str(getattr(item, "grounding_mode", "evidence")) == "evidence"
-    )
-
-
-
-
 class _EpisodeLedger:
     def __init__(
         self,
@@ -397,12 +345,18 @@ class _EpisodeToolAccumulator:
     messages: list[dict[str, object]]
     ledger: _EpisodeLedger
     evidence_ledger: EvidenceLedger
+    # 「审计留什么、模型看什么」归 harness；本类只管账：事件、证据去重、traces、gaps。
+    harness: ResearchHarness | None = None
     evidence: list[AgentEvidence] = field(default_factory=list)
     evidence_hashes: set[str] = field(default_factory=set)
     successful_tools: set[str] = field(default_factory=set)
     traces: list[ProviderTrace] = field(default_factory=list)
     gaps: list[str] = field(default_factory=list)
     seen_observation_prose: set[str] = field(default_factory=set)
+
+    def __post_init__(self) -> None:
+        if self.harness is None:
+            self.harness = FinanceResearchHarness()
 
     def consume(
         self,
@@ -420,8 +374,6 @@ class _EpisodeToolAccumulator:
             extra = extras_by_id.get(call.call_id)
             if extra:
                 request_payload.update(extra)
-            elif call.call_id.startswith("empty-pool-fallback"):
-                request_payload["fallback_query"] = True
             self.ledger.add("tool_request", request_payload)
 
             if result.status == "rejected":
@@ -487,57 +439,24 @@ class _EpisodeToolAccumulator:
                 self.evidence_hashes.add(item.content_hash)
                 self.evidence.append(item)
                 self.evidence_ledger.append(item)
-            ordinals = evidence_ordinal_table(tuple(self.evidence))
-            public_observation = {
-                "ok": True,
-                "tool": observation.tool,
-                "query": observation.query,
-                "observation": observation.observation,
-                "evidence": attach_evidence_ordinals(
-                    [public_agent_evidence(item) for item in observation.evidence],
-                    ordinals,
-                ),
-                "evidence_hashes": list(observation.evidence_hashes),
-                "evidence_ids": [
-                    ordinals[digest]
-                    for digest in observation.evidence_hashes
-                    if digest in ordinals
-                ],
-                "gaps": list(observation.gaps),
-                "dataset": observation.dataset,
-                "caliber": observation.caliber,
-                "payload_field_names": list(observation.payload_field_names),
-                "payload_sha256": observation.payload_sha256,
-            }
-            telemetry = dict(getattr(observation, "telemetry", None) or {})
-            if telemetry:
-                # 控制面收据：只进 ledger，不进模型上下文。
-                public_observation["telemetry"] = telemetry
-            # 审计留档拿全量（含 hash），模型上下文拿预算后的副本并去掉 hash，
-            # 只留 E1..En——誊抄 16-hex 是 B1/B7 零绑定的根因。
-            # call_id 与 timing 同纪律：只进 ledger 展开，不进 public_observation
-            # ——那个 dict 是下面模型视图的底稿（R-20260827-15）。
-            self.ledger.add(
-                "tool_result",
-                {**public_observation, "call_id": call.call_id, **timing},
-            )
-            model_view = dict(public_observation)
-            model_view.pop("telemetry", None)
-            pruned, seen = prune_tool_observation(
-                model_view,
+            assert self.harness is not None
+            projection = self.harness.project_tool_result(
+                observation,
+                evidence_so_far=tuple(self.evidence),
                 seen_prose=self.seen_observation_prose,
             )
-            self.seen_observation_prose = set(seen)
+            self.seen_observation_prose = set(projection.seen_prose)
+            # call_id 与 timing 只进 ledger 展开，不进审计底稿——那个 dict 是
+            # 模型视图的来源（R-20260827-15）。
+            self.ledger.add(
+                "tool_result",
+                {**projection.audit_payload, "call_id": call.call_id, **timing},
+            )
             self.messages.append(
                 {
                     "role": "tool",
                     "tool_call_id": call.call_id,
-                    "content": json.dumps(
-                        strip_hashes_for_model(
-                            budget_tool_observation(pruned)
-                        ),
-                        ensure_ascii=False,
-                    ),
+                    "content": projection.model_content,
                 }
             )
         return invalid_actions
@@ -549,14 +468,10 @@ class _EpisodeToolAccumulator:
         detail: str = "",
         timing: dict[str, object] | None = None,
     ) -> None:
-        payload = {
-            "ok": False,
-            "tool": call.name,
-            "error": error,
-            # 分类码之外还要给可操作的原因——``error`` 只说「参数不合法」，
-            # 模型据此改不了任何东西。详见 ToolCallResult.detail 的注释。
-            "detail": str(detail or "")[:400],
-        }
+        assert self.harness is not None
+        payload = self.harness.project_tool_error(
+            tool=call.name, error=error, detail=detail
+        )
         # 耗时与 call_id 只进 ledger，**不进 payload**——下面那条 messages 是喂模型的，
         # 给它塞毫秒数既没用又占预算。审计要全量、模型要够用，同一份事实两个出口。
         self.ledger.add(
@@ -669,13 +584,20 @@ class ContinuousAgentEpisode:
         tool_executor: ToolBatchExecutor | None = None,
         finalizer: EpisodeFinalizer | None = None,
         is_cancelled: Callable[[], bool] | None = None,
-        mode_governor: ModeGovernor | None = None,
-        mode_signals: Callable[[TaskFrame, ResearchPlan], ModeSignals] | None = None,
         sub_research_coordinator: SubResearchCoordinator | None = None,
         event_sink: Callable[[EpisodeEvent], None] | None = None,
         repair_seconds_cap: float | None = None,
+        harness: ResearchHarness | None = None,
     ) -> None:
         self._model = model
+        # 领域门（prompt / 批后停机 / 取证面 / 终局准入 / 深度裁决）由 harness 回答，
+        # loop 只调。默认金融 harness 是对既有函数的纯委托；传别的实现进来就是换领域。
+        # 深度裁决的两个注入件（mode_governor / mode_signals）归 harness 构造器：
+        # #529 把它们搬过去时这里留了一层转交壳兼容既有调用方，调用方全部改直传
+        # harness 后即删（本刀）。Episode 从此不认识 ModeGovernor / ModeSignals。
+        self._harness: ResearchHarness = (
+            harness if harness is not None else FinanceResearchHarness()
+        )
         self._llm_timeout = max(0.1, float(llm_timeout))
         self._repair_seconds_cap = (
             float(repair_seconds_cap)
@@ -691,8 +613,6 @@ class ContinuousAgentEpisode:
             else EpisodeFinalizer(model, llm_timeout=self._llm_timeout)
         )
         self._is_cancelled = is_cancelled or (lambda: False)
-        self._mode_governor = mode_governor or ModeGovernor()
-        self._mode_signals = mode_signals or _default_mode_signals
         self._sub_research_coordinator = sub_research_coordinator
         self._event_sink = event_sink
 
@@ -746,7 +666,7 @@ class ContinuousAgentEpisode:
         finish_failures = 0
         plan_failures = 0
         plan_turns = 0
-        system, user = split_episode_prompt(task_frame, context, registry)
+        system, user = self._harness.assemble_prompt(task_frame, context, registry)
         # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: system is byte-stable; user/tool
         # rebuild each turn. cache_control is not implemented this increment.
         _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
@@ -765,6 +685,7 @@ class ContinuousAgentEpisode:
             messages=messages,
             ledger=ledger,
             evidence_ledger=evidence_ledger,
+            harness=self._harness,
         )
         _seed_opening_prefetch(accumulator, messages, registry)
         continuation_state: _EpisodeContinuationState | None = None
@@ -951,40 +872,27 @@ class ContinuousAgentEpisode:
             if not _consume_root_seconds(context, model_elapsed):
                 if context.root_budget is not None:
                     context.root_budget.settle_seconds(seconds=model_elapsed)
-                carried_draft, carried_bindings = self._carry_just_written_finish(
+                carried = self._carry_just_written_finish(
                     turn=turn,
                     context=context,
                     evidence=tuple(accumulator.evidence),
                     registry=registry,
                 )
-                if carried_draft:
-                    finish_status = "completed"
-                    declared_gaps: tuple[str, ...] = ()
-                    try:
-                        parsed = validate_episode_finish(
-                            turn.content,
-                            context=context,
-                            evidence=tuple(accumulator.evidence),
-                        )
-                        finish_status = parsed.status
-                        carried_draft = parsed.draft
-                        carried_bindings = expand_episode_snapshot_bindings(
-                            bindings=parsed.bindings,
-                            evidence=tuple(accumulator.evidence),
-                            registry=registry,
-                        )
-                        declared_gaps = parsed.gaps
-                    except ValueError:
-                        pass
+                carried_draft = carried.draft if carried is not None else ""
+                carried_bindings = carried.bindings if carried is not None else ()
+                if carried is not None and carried_draft:
+                    # 此前这里会再校验一次并用**不带 draft** 的展开覆盖 bindings，
+                    # 把比较集展开丢掉；现在与其它四处终局门同一份 admission。
+                    assert carried.status is not None
                     return self._stopped_outcome(
                         task_frame=task_frame,
-                        status=finish_status,
+                        status=carried.status,
                         stop_reason="model_finish",
                         gap="",
                         ledger=ledger,
                         evidence=accumulator.evidence,
                         traces=accumulator.traces,
-                        gaps=list(self._finish_gaps(declared_gaps, carried_bindings)),
+                        gaps=list(carried.gaps),
                         llm_calls=llm_calls,
                         tool_calls=tool_calls,
                         invalid_actions=invalid_actions,
@@ -1082,71 +990,27 @@ class ContinuousAgentEpisode:
             # response.  Let the existing terminal validator/recovery path
             # handle it as an invalid finish instead of accepting it and
             # silently skipping the recovery state machine.
+            # PLAN 识别与修订合法性归 harness；PLAN-only 轮的次数闸归 loop。
             plan_result = (
-                parse_plan_candidate(turn.content)
+                self._harness.interpret_plan(
+                    turn.content,
+                    previous_plan=ledger.plan,
+                    task_id=context.contract.task_id,
+                )
                 if not finalization_started
                 else PlanParseResult(None, "")
             )
-            pending_mode_message: ModeDecision | None = None
+            pending_mode_message: ModeGovernance | None = None
             pending_branch_result: SubResearchResult | None = None
             if plan_result.plan is not None:
-                try:
-                    if ledger.plan is not None:
-                        validate_plan_revision(
-                            ledger.plan,
-                            plan_result.plan,
-                            original_task_id=context.contract.task_id,
-                            current_task_id=context.contract.task_id,
+                if not turn.tool_calls:
+                    if plan_turns >= MAX_PLAN_TURNS:
+                        plan_result = PlanParseResult(
+                            None,
+                            "PLAN revision allowance exhausted",
                         )
-                except ValueError as exc:
-                    plan_result = PlanParseResult(None, str(exc))
-                else:
-                    if not turn.tool_calls:
-                        if plan_turns >= MAX_PLAN_TURNS:
-                            plan_result = PlanParseResult(
-                                None,
-                                "PLAN revision allowance exhausted",
-                            )
-                        else:
-                            plan_turns += 1
-                            ledger.record_plan(plan_result.plan)
-                            if not mode_decided:
-                                context, pending_mode_message = self._decide_mode(
-                                    task_frame=task_frame,
-                                    plan=plan_result.plan,
-                                    context=context,
-                                    ledger=ledger,
-                                    continuation_state=continuation_state,
-                                )
-                                mode_decided = True
-                            pending_branch_result = self._run_sub_research(
-                                task_frame=task_frame,
-                                plan=plan_result.plan,
-                                decision=pending_mode_message,
-                                context=context,
-                                registry=registry,
-                                ledger=ledger,
-                                evidence_ledger=evidence_ledger,
-                            )
-                            if pending_branch_result is not None:
-                                accumulator.consume_sub_research(
-                                    pending_branch_result
-                                )
-                                llm_calls += pending_branch_result.llm_calls
-                                tool_calls += pending_branch_result.tool_calls
-                            if pending_mode_message is not None:
-                                self._append_mode_decision_message(
-                                    messages=messages,
-                                    decision=pending_mode_message,
-                                )
-                            if pending_branch_result is not None:
-                                self._append_sub_research_message(
-                                    messages=messages,
-                                    result=pending_branch_result,
-                                    evidence=tuple(accumulator.evidence),
-                                )
-                            continue
                     else:
+                        plan_turns += 1
                         ledger.record_plan(plan_result.plan)
                         if not mode_decided:
                             context, pending_mode_message = self._decide_mode(
@@ -1160,7 +1024,11 @@ class ContinuousAgentEpisode:
                         pending_branch_result = self._run_sub_research(
                             task_frame=task_frame,
                             plan=plan_result.plan,
-                            decision=pending_mode_message,
+                            decision=(
+                                pending_mode_message.decision
+                                if pending_mode_message is not None
+                                else None
+                            ),
                             context=context,
                             registry=registry,
                             ledger=ledger,
@@ -1170,6 +1038,46 @@ class ContinuousAgentEpisode:
                             accumulator.consume_sub_research(pending_branch_result)
                             llm_calls += pending_branch_result.llm_calls
                             tool_calls += pending_branch_result.tool_calls
+                        if pending_mode_message is not None:
+                            self._append_mode_decision_message(
+                                messages=messages,
+                                governance=pending_mode_message,
+                            )
+                        if pending_branch_result is not None:
+                            self._append_sub_research_message(
+                                messages=messages,
+                                result=pending_branch_result,
+                                evidence=tuple(accumulator.evidence),
+                            )
+                        continue
+                else:
+                    ledger.record_plan(plan_result.plan)
+                    if not mode_decided:
+                        context, pending_mode_message = self._decide_mode(
+                            task_frame=task_frame,
+                            plan=plan_result.plan,
+                            context=context,
+                            ledger=ledger,
+                            continuation_state=continuation_state,
+                        )
+                        mode_decided = True
+                    pending_branch_result = self._run_sub_research(
+                        task_frame=task_frame,
+                        plan=plan_result.plan,
+                        decision=(
+                            pending_mode_message.decision
+                            if pending_mode_message is not None
+                            else None
+                        ),
+                        context=context,
+                        registry=registry,
+                        ledger=ledger,
+                        evidence_ledger=evidence_ledger,
+                    )
+                    if pending_branch_result is not None:
+                        accumulator.consume_sub_research(pending_branch_result)
+                        llm_calls += pending_branch_result.llm_calls
+                        tool_calls += pending_branch_result.tool_calls
             if plan_result.error:
                 plan_failures += 1
                 invalid_actions += 1
@@ -1178,11 +1086,8 @@ class ContinuousAgentEpisode:
                     messages.append(
                         {
                             "role": "user",
-                            "content": (
-                                "上一条 PLAN 无效。请保留最初任务与当前 episode，"
-                                "只修复为闭合的 PLAN JSON，或直接调用已授权工具；"
-                                "PLAN 不能授权工具、预算、证据或完成状态。"
-                                f"错误：{plan_result.error}"
+                            "content": self._harness.steering_message(
+                                "invalid_plan", detail=plan_result.error
                             ),
                         }
                     )
@@ -1238,9 +1143,8 @@ class ContinuousAgentEpisode:
                 batch_elapsed = max(0.0, monotonic() - batch_started)
                 tool_calls += batch.executed_count
                 invalid_actions += accumulator.consume(batch, context)
-                halt = forecast_residual_halt_reason(
-                    question_type=context.contract.question_type,
-                    research_tier=context.contract.research_tier,
+                halt = self._harness.halt_after_tool_batch(
+                    context=context,
                     batch_errors=tuple(item.error for item in batch.items),
                 )
                 if halt and not finalization_started:
@@ -1302,7 +1206,7 @@ class ContinuousAgentEpisode:
                 if pending_mode_message is not None:
                     self._append_mode_decision_message(
                         messages=messages,
-                        decision=pending_mode_message,
+                        governance=pending_mode_message,
                     )
                 if pending_branch_result is not None:
                     self._append_sub_research_message(
@@ -1310,9 +1214,9 @@ class ContinuousAgentEpisode:
                         result=pending_branch_result,
                         evidence=tuple(accumulator.evidence),
                     )
-                if self._snapshot_surface_satisfied(
-                    registry=registry,
+                if self._harness.retrieval_complete(
                     context=context,
+                    registry=registry,
                     successful_tools=accumulator.successful_tools,
                 ):
                     finalization_started = True
@@ -1323,30 +1227,27 @@ class ContinuousAgentEpisode:
                     )
                 continue
 
-            try:
-                finish = validate_episode_finish(
-                    turn.content,
-                    context=context,
-                    evidence=tuple(accumulator.evidence),
-                )
-                status, draft = finish.status, finish.draft
-                final_gaps, bindings = finish.gaps, finish.bindings
-            except ValueError as exc:
+            admission = self._harness.admit_finish(
+                turn.content,
+                context=context,
+                evidence=tuple(accumulator.evidence),
+                registry=registry,
+            )
+            if not admission.accepted:
                 finish_failures += 1
                 invalid_actions += 1
-                reason = str(exc)
-                response = rejection_response(exc)
+                reason = admission.reason
+                response = admission.response
+                assert response is not None
                 # 病因与类别进收据：此前只留一句自由文本 reason，事后无法按类
                 # 归并，`synthesis_health` 那 59% 「口径未知」就是从这里开始的。
-                rejection = finish_rejection_fields(exc)
+                rejection = admission.rejection
                 ledger.add(
                     "invalid_action",
                     {
                         "reason": reason,
                         "code": rejection["rejection_code"],
-                        "kind": getattr(
-                            getattr(exc, "kind", None), "value", "unclassified"
-                        ),
+                        "kind": admission.kind,
                         "disposition": response.stop_reason,
                     },
                 )
@@ -1358,10 +1259,8 @@ class ContinuousAgentEpisode:
                     messages.append(
                         {
                             "role": "user",
-                            "content": (
-                                "上一条终止输出无效。请保留当前任务和全部观察，"
-                                "不要重启研究；修复后只输出 FINAL_JSON。"
-                                f"错误：{reason}"
+                            "content": self._harness.steering_message(
+                                "invalid_finish", detail=reason
                             ),
                         }
                     )
@@ -1396,13 +1295,9 @@ class ContinuousAgentEpisode:
                     **rejection,
                 )
 
-            bindings = expand_episode_snapshot_bindings(
-                bindings=bindings,
-                evidence=tuple(accumulator.evidence),
-                registry=registry,
-                draft=draft,
-            )
-            current_gaps = self._finish_gaps(final_gaps, bindings)
+            assert admission.status is not None
+            status, draft = admission.status, admission.draft
+            bindings, current_gaps = admission.bindings, admission.gaps
             ledger.record_runtime_result()
             ledger.add(
                 "finish",
@@ -1411,8 +1306,8 @@ class ContinuousAgentEpisode:
                     "stop_reason": "model_finish",
                     "bindings": [item.to_dict() for item in bindings],
                     "gaps": list(current_gaps),
-                    "caveat_slips": finish.caveat_slips,
-                    **finish_rejection_fields(),
+                    "caveat_slips": admission.caveat_slips,
+                    **admission.rejection,
                 },
             )
             return AgentOutcome(
@@ -1601,20 +1496,13 @@ class ContinuousAgentEpisode:
         research_tools_open = not repair_tool_deadline.expired
         goal_payload = goal.to_dict()
         # 把「这一轮结构性不可能补上」的格显式投递进 trace（#289 第 6 刀观测）。
-        # W2 在观测之后接裁决：降级 contract / 模型侧 goal，但不跳过本轮。
-        unreachable = unreachable_repair_goal(
-            goal,
-            evidence_output_ids=_evidence_required_output_ids(context),
-        )
-        if unreachable:
-            goal_payload["unreachable_without_tools"] = list(unreachable)
+        # W2 在观测之后接裁决：降级 contract / 模型侧 goal，但不跳过本轮——
+        # salvage 刚写出的 FINAL_JSON 仍然要跑。哪些格不可达、降成什么样是领域的事。
+        downgrade = self._harness.downgrade_unreachable(goal, contract=context.contract)
+        if downgrade.unreachable:
+            goal_payload["unreachable_without_tools"] = list(downgrade.unreachable)
         ledger.add("repair_goal", goal_payload)
-        # 观测保留完整 goal；裁决后的契约/指令才降级。不跳过本轮——
-        # salvage 刚写出的 FINAL_JSON 仍然要跑。
-        downgraded_contract, prompt_goal = apply_unreachable_downgrade(
-            context.contract,
-            goal,
-        )
+        downgraded_contract, prompt_goal = downgrade.contract, downgrade.goal
         if downgraded_contract is not context.contract:
             context = replace(context, contract=downgraded_contract)
             state.context = context
@@ -1650,21 +1538,9 @@ class ContinuousAgentEpisode:
         messages.append(
             {
                 "role": "user",
-                "content": json.dumps(
-                    {
-                        "kind": "REPAIR_GOAL",
-                        **prompt_goal.to_dict(),
-                        "instruction": (
-                            "保留最初任务、全部原始观察和当前工具账本。"
-                            + (
-                                "自主选择一个新的、未重复的动作补齐缺口；"
-                                if research_tools_open
-                                else "研究工具已关闭，只能基于已有观察修复措辞或证据绑定；"
-                            )
-                            + "不得重启研究或改写用户问题。"
-                        ),
-                    },
-                    ensure_ascii=False,
+                "content": self._harness.repair_goal_message(
+                    prompt_goal,
+                    tools_open=research_tools_open,
                 ),
             }
         )
@@ -1808,9 +1684,8 @@ class ContinuousAgentEpisode:
             messages.append(
                 {
                     "role": "user",
-                    "content": (
-                        "修复动作已执行。不得再调用工具；请基于同一 episode 的"
-                        "全部观察输出 FINAL_JSON，未补齐项继续明确写 gap。"
+                    "content": self._harness.steering_message(
+                        "repair_finalize", detail=""
                     ),
                 }
             )
@@ -1906,15 +1781,15 @@ class ContinuousAgentEpisode:
                 carried_bindings=previous.bindings,
                 **rejection,
             )
-        try:
-            finish = validate_episode_finish(
-                turn.content,
-                context=context,
-                evidence=tuple(accumulator.evidence),
-            )
-        except ValueError as exc:
+        admission = self._harness.admit_finish(
+            turn.content,
+            context=context,
+            evidence=tuple(accumulator.evidence),
+            registry=registry,
+        )
+        if not admission.accepted:
             invalid_actions += 1
-            rejection = finish_rejection_fields(exc)
+            rejection = admission.rejection
             ledger.add(
                 "invalid_action",
                 {
@@ -1939,56 +1814,34 @@ class ContinuousAgentEpisode:
                 carried_bindings=previous.bindings,
                 **rejection,
             )
-        bindings = expand_episode_snapshot_bindings(
-            bindings=finish.bindings,
-            evidence=tuple(accumulator.evidence),
-            registry=registry,
-            draft=finish.draft,
+        assert admission.status is not None
+        bindings = admission.bindings
+        verdict = self._harness.admit_repair_result(
+            admission=admission,
+            previous=previous,
+            performed_tool_action=performed_tool_action,
         )
-        revised_without_tool = (
-            finish.draft.strip() != previous.draft.strip()
-            or bindings != previous.bindings
-        )
-        completed_without_tool = (
-            not performed_tool_action
-            and finish.status == "completed"
-            and revised_without_tool
-        )
-        effective_status = (
-            finish.status
-            if performed_tool_action or completed_without_tool
-            else "partial"
-        )
-        current_gaps = self._finish_gaps(finish.gaps, bindings)
-        if not performed_tool_action and not completed_without_tool and not current_gaps:
-            current_gaps = ("修复轮未执行新的取证动作，缺口仍未补齐",)
-        repair_progressed = performed_tool_action or completed_without_tool
+        stop_reason = "repair_model_finish" if verdict.progressed else "repair_model_stop"
         ledger.record_runtime_result()
         ledger.add(
             "finish",
             {
-                "status": effective_status,
-                "stop_reason": (
-                    "repair_model_finish"
-                    if repair_progressed
-                    else "repair_model_stop"
-                ),
+                "status": verdict.status,
+                "stop_reason": stop_reason,
                 "bindings": [item.to_dict() for item in bindings],
-                "gaps": list(current_gaps),
-                "caveat_slips": finish.caveat_slips,
-                **finish_rejection_fields(),
+                "gaps": list(verdict.gaps),
+                "caveat_slips": admission.caveat_slips,
+                **admission.rejection,
             },
         )
         return AgentOutcome(
             task_frame_hash=task_frame.task_frame_hash,
-            status=effective_status,
-            draft=finish.draft,
+            status=verdict.status,
+            draft=admission.draft,
             evidence=tuple(accumulator.evidence),
             traces=tuple(accumulator.traces),
-            gaps=current_gaps,
-            stop_reason=(
-                "repair_model_finish" if repair_progressed else "repair_model_stop"
-            ),
+            gaps=verdict.gaps,
+            stop_reason=stop_reason,
             events=tuple(ledger.events),
             bindings=bindings,
             usage=_agent_usage(
@@ -2017,44 +1870,27 @@ class ContinuousAgentEpisode:
         )
         if remaining <= 0:
             return None
-        cutoff = context.information_cutoff
+        # 底座只递自己拥有的事实：本批结果、此刻真能派的工具、事件流、阶段。
+        # 该不该补、补什么是领域的事（harness），付不付得起（上面的剩余槛）是这里的事。
         available = frozenset(
             tool_session.available_tool_names(
                 registry=registry,
                 context=context,
             )
         ) | frozenset(context.contract.allowed_capabilities)
-        proposal = propose_empty_pool_fallback(
-            question_type=context.contract.question_type,
-            as_of=cutoff.as_of_date.isoformat(),
-            cutoff_source=cutoff.source,
-            prefetch_empty=prefetch_pool_is_empty(
-                getattr(registry, "opening_prefetch", ()) or ()
-            ),
-            first_results=tuple(
-                EmptyToolCall(
-                    name=item.call.name,
-                    arguments=dict(item.call.arguments),
-                    empty=item.status == "empty",
-                )
-                for item in batch.items
-            ),
+        fallback = self._harness.fallback_after_empty_batch(
+            batch.items,
+            context=context,
+            registry=registry,
             authorized_tools=available,
-            already_attempted=fallback_already_attempted(accumulator.ledger.events),
+            events=accumulator.ledger.events,
             in_repair=False,
-            backfill_plan=None,
         )
-        if proposal is None:
+        if fallback is None:
             return None
         started = monotonic()
         fallback_batch = tool_session.execute(
-            (
-                ModelToolCall(
-                    proposal.call_id,
-                    proposal.tool,
-                    proposal.fallback_arguments,
-                ),
-            ),
+            (fallback.call,),
             registry=registry,
             context=context,
             remaining_slots=remaining,
@@ -2063,7 +1899,7 @@ class ContinuousAgentEpisode:
         )
         return (
             fallback_batch,
-            {proposal.call_id: proposal.request_extras()},
+            {fallback.call.call_id: fallback.request_extras},
             max(0.0, monotonic() - started),
         )
 
@@ -2196,24 +2032,18 @@ class ContinuousAgentEpisode:
         context: ResearchRunContext,
         ledger: _EpisodeLedger,
         continuation_state: _EpisodeContinuationState | None,
-    ) -> tuple[ResearchRunContext, ModeDecision]:
-        signals = self._mode_signals(task_frame, plan)
-        if not isinstance(signals, ModeSignals):
-            raise TypeError("mode_signals must return ModeSignals")
-        if context.root_budget is None and signals.dependencies_available:
-            signals = replace(signals, dependencies_available=False)
-        if (
-            plan.branch_goals
-            and self._sub_research_coordinator is None
-            and signals.dependencies_available
-        ):
-            signals = replace(signals, dependencies_available=False)
-        decision = self._mode_governor.decide(plan, signals)
-        promoted = self._mode_governor.apply(context, decision)
-        ledger.add("mode_decision", decision.to_dict())
+    ) -> tuple[ResearchRunContext, ModeGovernance]:
+        # 深度裁决归 harness；loop 只说自己能不能开分支，然后记账、换 context。
+        governance = self._harness.govern_mode(
+            task_frame=task_frame,
+            plan=plan,
+            context=context,
+            can_branch=self._sub_research_coordinator is not None,
+        )
+        ledger.add("mode_decision", governance.decision.to_dict())
         if continuation_state is not None:
-            continuation_state.context = promoted
-        return promoted, decision
+            continuation_state.context = governance.context
+        return governance.context, governance
 
     def _run_sub_research(
         self,
@@ -2291,68 +2121,24 @@ class ContinuousAgentEpisode:
     def _append_mode_decision_message(
         *,
         messages: list[dict[str, object]],
-        decision: ModeDecision,
+        governance: ModeGovernance,
     ) -> None:
-        messages.append(
-            {
-                "role": "user",
-                "content": json.dumps(
-                    {
-                        "kind": "MODE_DECISION",
-                        **decision.to_dict(),
-                        "instruction": (
-                            "研究深度与总预算已由运行时裁决。保留原计划，"
-                            "继续自主选择查询、工具顺序和停止时点；"
-                            "不得把预算或内部裁决文本写入最终答案。"
-                        ),
-                    },
-                    ensure_ascii=False,
-                ),
-            }
-        )
+        messages.append({"role": "user", "content": governance.message})
 
-    @staticmethod
     def _append_sub_research_message(
+        self,
         *,
         messages: list[dict[str, object]],
         result: SubResearchResult,
         evidence: tuple[AgentEvidence, ...] = (),
     ) -> None:
-        ordinals = evidence_ordinal_table(evidence)
         messages.append(
             {
                 "role": "user",
-                "content": json.dumps(
-                    {
-                        "kind": "SUB_RESEARCH_RESULTS",
-                        "branches": [
-                            {
-                                "branch_id": branch.branch_id,
-                                "goal": branch.goal,
-                                "status": branch.status,
-                                "evidence": strip_hashes_for_model(
-                                    {
-                                        "evidence": attach_evidence_ordinals(
-                                            [
-                                                public_agent_evidence(item)
-                                                for item in branch.evidence
-                                            ],
-                                            ordinals,
-                                        )
-                                    }
-                                )["evidence"],
-                                "gaps": list(branch.gaps),
-                            }
-                            for branch in result.branches
-                        ],
-                        "refused_reason": result.refused_reason,
-                        "instruction": (
-                            "这些是只读分支返回的公开证据观察，不是最终答案。"
-                            "主 episode 仍需自行比较证据、处理冲突并决定停止；"
-                            "绑定用证据序号 E1、E2…，不得把分支状态或内部标识写入公开答案。"
-                        ),
-                    },
-                    ensure_ascii=False,
+                "content": self._harness.project_sub_research(
+                    branches=result.branches,
+                    refused_reason=result.refused_reason,
+                    evidence=evidence,
                 ),
             }
         )
@@ -2430,8 +2216,8 @@ class ContinuousAgentEpisode:
         messages[-1]["content"] = json.dumps(payload, ensure_ascii=False)
         return injected
 
-    @staticmethod
     def _begin_finalization(
+        self,
         *,
         messages: list[dict[str, object]],
         ledger: _EpisodeLedger,
@@ -2441,38 +2227,10 @@ class ContinuousAgentEpisode:
         messages.append(
             {
                 "role": "user",
-                "content": (
-                    "研究阶段已关闭，不得再调用工具。请保留最初任务和全部"
-                    "原始观察，立即基于已有证据序号 E1、E2… 输出 FINAL_JSON；"
-                    "证据不足的 required output 必须标 partial 并写明 gap。"
-                    "不要逐条复述全部观察，只保留最关键依据；条件写相对变化，"
-                    "不得新增证据中没有的数值阈值。若用户要求预测，只保留一个"
-                    "明确标注的主观基准区间及其不确定性。每个保留的精确数字"
-                    "必须把直接证据序号放入对应 output binding，否则删去数字。"
-                    "每条被正文使用的观察事实也必须把其直接证据序号加入对应 "
-                    "output binding；不得用同一次工具返回的另一条证据代替。"
-                    "原因归因若没有同一时间窗口的 news_search 证据，不得用普通 "
-                    "web_search 摘要补成已核验因果，应保留盘面事实并把原因写 gap。"
-                    "为保证 FINAL_JSON 完整，draft 控制在 1000 汉字以内；这是传输预算，"
-                    "不要求固定标题、段数或措辞。"
-                    f"关闭原因：{reason}"
+                "content": self._harness.steering_message(
+                    "begin_finalization", detail=reason
                 ),
             }
-        )
-
-    @staticmethod
-    def _snapshot_surface_satisfied(
-        *,
-        registry: ResearchToolRegistry,
-        context: ResearchRunContext,
-        successful_tools: set[str],
-    ) -> bool:
-        specs = registry.authorized_specs(
-            context.contract.allowed_capabilities,
-        )
-        return bool(specs) and all(
-            spec.query_scope == "episode" and spec.name in successful_tools
-            for spec in specs
         )
 
     def _can_recover_finalization(
@@ -2621,18 +2379,16 @@ class ContinuousAgentEpisode:
                 invalid_actions=invalid_actions,
             )
 
-        try:
-            finish = validate_episode_finish(
-                turn.content,
-                context=context,
-                evidence=tuple(accumulator.evidence),
-            )
-            status, draft = finish.status, finish.draft
-            final_gaps, bindings = finish.gaps, finish.bindings
-        except ValueError as exc:
+        admission = self._harness.admit_finish(
+            turn.content,
+            context=context,
+            evidence=tuple(accumulator.evidence),
+            registry=registry,
+        )
+        if not admission.accepted:
             invalid_actions += 1
-            reason = str(exc)
-            rejection = finish_rejection_fields(exc)
+            reason = admission.reason
+            rejection = admission.rejection
             ledger.add(
                 "invalid_action",
                 {
@@ -2653,13 +2409,9 @@ class ContinuousAgentEpisode:
                 **rejection,
             )
 
-        bindings = expand_episode_snapshot_bindings(
-            bindings=bindings,
-            evidence=tuple(accumulator.evidence),
-            registry=registry,
-            draft=draft,
-        )
-        current_gaps = self._finish_gaps(final_gaps, bindings)
+        assert admission.status is not None
+        status, draft = admission.status, admission.draft
+        bindings, current_gaps = admission.bindings, admission.gaps
         ledger.add(
             "finalization_recovery_outcome",
             {"status": "recovered", "answer_status": status},
@@ -2672,8 +2424,8 @@ class ContinuousAgentEpisode:
                 "stop_reason": "finalization_recovered",
                 "bindings": [item.to_dict() for item in bindings],
                 "gaps": list(current_gaps),
-                "caveat_slips": finish.caveat_slips,
-                **finish_rejection_fields(),
+                "caveat_slips": admission.caveat_slips,
+                **admission.rejection,
             },
         )
         return AgentOutcome(
@@ -2783,57 +2535,35 @@ class ContinuousAgentEpisode:
             if cleaned and cleaned not in target:
                 target.append(cleaned)
 
-    @staticmethod
-    def _finish_gaps(
-        declared_gaps: tuple[str, ...],
-        bindings: tuple[OutputEvidenceBinding, ...],
-    ) -> tuple[str, ...]:
-        """Project only currently unresolved gaps; history stays in events."""
-
-        values = (*declared_gaps, *(item.gap for item in bindings))
-        return tuple(
-            dict.fromkeys(
-                cleaned
-                for value in values
-                if (cleaned := str(value or "").strip())
-            )
-        )
-
-    @staticmethod
     def _carry_just_written_finish(
+        self,
         *,
         turn: ModelTurn,
         context: ResearchRunContext,
         evidence: tuple[AgentEvidence, ...],
         registry: ResearchToolRegistry,
-    ) -> tuple[str, tuple[OutputEvidenceBinding, ...]]:
+    ) -> FinishAdmission | None:
         """Salvage a just-written FINAL_JSON when the root clock is already dead.
 
         ``complete()`` already returned. A failed ``consume_seconds`` must not
         pretend the model never wrote. Tool-calling, errored, or invalid turns
-        stay empty so this path cannot invent an answer.
+        return ``None`` so this path cannot invent an answer.
         """
 
         if turn.error or turn.tool_calls or not str(turn.content or "").strip():
-            return "", ()
-        try:
-            finish = validate_episode_finish(
-                turn.content,
-                context=context,
-                evidence=evidence,
-            )
-        except ValueError:
-            return "", ()
-        bindings = expand_episode_snapshot_bindings(
-            bindings=finish.bindings,
+            return None
+        admission = self._harness.admit_finish(
+            turn.content,
+            context=context,
             evidence=evidence,
             registry=registry,
-            draft=finish.draft,
         )
-        return finish.draft, bindings
+        if not admission.accepted:
+            return None
+        return admission
 
-    @staticmethod
     def _carry_repair_finish(
+        self,
         *,
         turn: ModelTurn,
         previous: AgentOutcome,
@@ -2854,14 +2584,14 @@ class ContinuousAgentEpisode:
         把已有答案丢掉。
         """
 
-        draft, bindings = ContinuousAgentEpisode._carry_just_written_finish(
+        carried = self._carry_just_written_finish(
             turn=turn,
             context=context,
             evidence=evidence,
             registry=registry,
         )
-        if draft:
-            return draft, bindings
+        if carried is not None and carried.draft:
+            return carried.draft, carried.bindings
         return previous.draft, previous.bindings
 
     @staticmethod

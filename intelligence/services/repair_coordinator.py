@@ -2,44 +2,27 @@
 
 The coordinator describes missing work; it never invents a query or selects a
 tool. The primary model retains that decision inside the same episode.
+
+本模块只剩**领域侧**（`2026-09-02-repair-policy-state-machine.md` §3）：修复目标与
+进度快照的值对象、「修什么」（`build_repair_goal` / `unreachable_repair_goal`）、
+「这个 tier 容忍第几轮 / 上一轮算不算进步 / 这轮缺几个格」（`repair_is_warranted` /
+`repair_work_units`）、「这次失败属于哪一类」（`classify_repair_failure`）。
+全部不看预算、不碰账本。抽 `repair_policy` 接缝时这一组进 harness。
+
+预算侧（付不付得起、几个格折几次调用、按帽截秒、`root_budget.grant()` 记账、
+五种 `grant_for_*` 与两个 `admit_*`）在 `intelligence/runtime/repair_budget.py`：
+领域申请、底座授予。
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from uuid import uuid4
 
+from intelligence.services.agent_runtime import AgentOutcome
+from intelligence.services.episode_verifier import VerifiedEpisodeOutcome
 from intelligence.services.evidence_ledger import EvidenceLedgerSnapshot
-from intelligence.services.research_contract import RootBudgetLedger
-
-# 修复轮单笔授予帽（秒）的**默认值**。曾按 `min(剩余, 30, 缺口×8)` 计工时——
-# 缺口少窗口就小（1 缺口=8s、3 缺口=24s）。但一次 LLM 调用的成本由**固定延迟
-# 地板**主导（网络 + prompt 处理），与缺口数无关：低于地板的窗口注定超时，还要
-# 白烧掉授予本身。2026-08-13 生产收据（R7/R21）：16/24s 窗 0/5 全超时，30s 窗
-# 5/5 全成功。故删去按缺口缩放项，一律给满窗（仍受 remaining 与 root ledger
-# 约束，fail closed 不变）。
-#
-# 2026-08-16：该地板是 **provider 的属性**，不是全局常数——30.0 来自对中转
-# terra 的实测，换到 GLM 后两个修复轮各在整 30.0 秒超时（p90=34.4s）。故各
-# grant 函数改收 `seconds_cap`，由调用方按生效 provider 注入；取值口径与实测
-# 出处见 `provider_latency.py`。本模块保持 provider-neutral：它只消费一个数，
-# 不认识 provider，也不读 env。
-#
-# 本常数仍是 `seconds_cap=None` 时的回退值，故未传参的调用方行为逐字节不变。
-# **禁止把这个 30 调成新常数**（R-20260816-07 / R-21）。
-_REPAIR_SECONDS_CAP = 30.0
-# W5 窄补证：不超过原回合（root hard cap）的这一比例。比「再给满 30s」更
-# 紧，避免补证把下游语义窗挤掉；低于 1s 仍 fail closed。
-BACKFILL_BUDGET_FRACTION = 0.25
-
-
-def _resolve_seconds_cap(seconds_cap: float | None) -> float:
-    """None / 非正数 → 默认帽。fail-safe：坏输入不该把窗口静默压成 0。"""
-
-    if seconds_cap is None:
-        return _REPAIR_SECONDS_CAP
-    value = float(seconds_cap)
-    return value if value > 0.0 else _REPAIR_SECONDS_CAP
+from intelligence.services.track_contract import is_contract_rewrite_only
 
 
 @dataclass(frozen=True)
@@ -287,24 +270,9 @@ def unreachable_repair_goal(
     )
 
 
-def should_reenter(
-    progress: ProgressSnapshot,
-    *,
-    cycle: int,
-    max_cycles: int,
-    remaining_calls: int | None = None,
-    remaining_seconds: float | None = None,
-    tools_open: bool = True,
-) -> bool:
-    if cycle < 1 or cycle > max_cycles:
-        return False
-    if not progress.coverage_delta.progressed:
-        return False
-    if tools_open and remaining_calls is not None and remaining_calls <= 0:
-        return False
-    if remaining_seconds is not None and remaining_seconds < 1.0:
-        return False
-    return True
+# ---------------------------------------------------------------------------
+# 领域判据（不看预算）
+# ---------------------------------------------------------------------------
 
 
 def max_repair_cycles_for_tier(research_tier: str) -> int:
@@ -316,389 +284,201 @@ def max_repair_cycles_for_tier(research_tier: str) -> int:
     raise ValueError(f"unsupported repair research tier: {research_tier}")
 
 
-def grant_for_progress(
-    goal: RepairGoal,
+def cycle_within_tier(cycle: int, *, research_tier: str) -> bool:
+    """研究强度决定容忍几轮修复：1 ≤ cycle ≤ tier 上限。"""
+
+    return 1 <= cycle <= max_repair_cycles_for_tier(research_tier)
+
+
+@dataclass(frozen=True)
+class RepairWarrant:
+    """领域对「还配不配再来一轮」的判定：tier 容忍度 × 上一轮进展。不看预算。
+
+    两个事实分开摆：进度修复要两者都成立（``warranted``）；交付修复只看
+    ``cycle_allowed``——它修的是「有证据没写出稿」，不要求上一轮有新证据。
+    """
+
+    cycle_allowed: bool
+    progressed: bool
+
+    @property
+    def warranted(self) -> bool:
+        return self.cycle_allowed and self.progressed
+
+
+def warrant_repair(
     progress: ProgressSnapshot,
     *,
-    root_budget: RootBudgetLedger,
+    cycle: int,
     research_tier: str,
-    tools_open: bool = True,
-    seconds_cap: float | None = None,
-) -> BudgetGrant | None:
-    if not should_reenter(
-        progress,
-        cycle=goal.cycle,
-        max_cycles=max_repair_cycles_for_tier(research_tier),
-        remaining_calls=goal.remaining_calls,
-        remaining_seconds=goal.remaining_seconds,
-        tools_open=tools_open,
-    ):
-        return None
-    work_units = min(
-        4,
-        max(1, len(goal.missing_answer_elements) + len(goal.missing_evidence_modes)),
+) -> RepairWarrant:
+    """这个 tier 还容忍这一轮吗；上一轮真有独立证据进展吗。
+
+    不看预算——付不付得起是底座 ``can_afford_repair`` 的事。
+    """
+
+    return RepairWarrant(
+        cycle_allowed=cycle_within_tier(cycle, research_tier=research_tier),
+        progressed=progress.coverage_delta.progressed,
     )
-    calls = min(work_units, goal.remaining_calls) if tools_open else 0
-    seconds = min(goal.remaining_seconds, _resolve_seconds_cap(seconds_cap))
-    if tools_open and calls <= 0:
-        return None
-    if seconds < 1.0:
-        return None
-    grant = BudgetGrant(
-        grant_id=f"grant-{goal.repair_goal_id}",
-        episode_id=goal.episode_id,
-        cycle=goal.cycle,
-        calls_granted=calls,
-        seconds_granted=seconds,
-    )
-    return grant if root_budget.grant(grant) else None
 
 
-def grant_for_cold_restart(
-    goal: RepairGoal,
+def repair_is_warranted(
     progress: ProgressSnapshot,
     *,
-    root_budget: RootBudgetLedger,
-    seconds_cap: float | None = None,
-) -> BudgetGrant | None:
-    """Grant one tool-open restart turn for an episode starved of evidence.
-
-    进度闸（``should_reenter`` 的 ``coverage_delta.progressed``）要求主路径至少
-    捞到 1 条证据才配修复——它挡的是「无进展还无限续命」的循环。但它把饿死型
-    episode 一并挡死。生产实测两种饿死形状（2026-08-13）：
-
-    - R7-A3：首个打偏的查询烧穿检索窗，末尾批量补发的检索在截止线上被集体判
-      ``tool_timeout``，43s 零证据终局，root 余量 ~257s；
-    - R9-A3：首个模型轮（规划）就把窗口吃光，**一次工具都没轮到**，零 trace。
-
-    第二种形状说明「试过工具」不能当饿死判据——模型没偷懒，是 provider 慢。
-    第三种（A1-R2）是主路径 LLM TimeoutError，stop_reason 变成
-    ``model_unavailable``，检索窗也已关（``tools_open=False``）：进度闸、
-    delivery 闸、旧冷启动判据三条路全死。饿死的判据因此是「零证据 +
-    终态属于窗烧穿或主路径模型不可用」，由调用方以
-    ``cold_restart_candidate`` 传入；本函数只负责额度侧的三道闸——
-
-    - ``cycle == 1``：只给一发，失败不再续（防循环，与进度闸的目的一致）；
-    - ``after_evidence_ids`` 为空：一旦有任何证据，走常规进度/交付通道；
-    - root 余量足额：fail closed，不铸空头授予。
-
-    授予额度沿用进度修复的公式（≤30s 满窗），从 root 未分配余量铸造。
-    """
-
-    if goal.cycle != 1:
-        return None
-    if progress.after_evidence_ids:
-        return None
-    if not goal.missing_answer_elements:
-        return None
-    if goal.remaining_calls < 1 or goal.remaining_seconds < 1.0:
-        return None
-    work_units = min(
-        4,
-        max(1, len(goal.missing_answer_elements) + len(goal.missing_evidence_modes)),
-    )
-    calls = min(work_units, goal.remaining_calls)
-    seconds = min(goal.remaining_seconds, _resolve_seconds_cap(seconds_cap))
-    if calls < 1 or seconds < 1.0:
-        return None
-    grant = BudgetGrant(
-        grant_id=f"cold-restart-{goal.repair_goal_id}",
-        episode_id=goal.episode_id,
-        cycle=goal.cycle,
-        calls_granted=calls,
-        seconds_granted=seconds,
-    )
-    return grant if root_budget.grant(grant) else None
-
-
-def grant_for_delivery_repair(
-    goal: RepairGoal,
-    *,
-    root_budget: RootBudgetLedger,
-    research_tier: str,
-    evidence_count: int,
-    seconds_cap: float | None = None,
-) -> BudgetGrant | None:
-    """Grant one tool-closed delivery turn from already collected evidence.
-
-    Research continuation still requires provenance-backed coverage progress via
-    :func:`grant_for_progress`.  This narrower grant exists for the opposite
-    seam: the research turn timed out *after* collecting evidence but *before*
-    it produced a draft or bindings.  Requiring an already-closed output gap in
-    that state would make repair conditional on the work repair must perform.
-
-    The grant cannot reopen tools, cannot run without evidence, and remains
-    bounded by the code-owned tier cycle cap and root seconds ledger.
-    """
-
-    if evidence_count <= 0:
-        return None
-    if goal.cycle < 1 or goal.cycle > max_repair_cycles_for_tier(research_tier):
-        return None
-    if not goal.missing_answer_elements:
-        return None
-    if goal.remaining_seconds < 1.0:
-        return None
-    seconds = min(goal.remaining_seconds, _resolve_seconds_cap(seconds_cap))
-    if seconds < 1.0:
-        return None
-    grant = BudgetGrant(
-        grant_id=f"delivery-grant-{goal.repair_goal_id}",
-        episode_id=goal.episode_id,
-        cycle=goal.cycle,
-        calls_granted=0,
-        seconds_granted=seconds,
-    )
-    return grant if root_budget.grant(grant) else None
-
-
-def grant_for_transient_model_retry(
-    goal: RepairGoal,
-    *,
-    root_budget: RootBudgetLedger,
-    attempt: int = 1,
-    seconds_cap: float | None = None,
-) -> BudgetGrant | None:
-    """超时把修复窗口烧穿后，从 hard-cap 未分配余量再铸一笔秒数。
-
-    历史背景：修复授予曾是 ``min(剩余, 30, 缺口×8)``，常只有 8 秒（该缩放项
-    已删，见 ``_REPAIR_SECONDS_CAP``）；生产 ``llm_timeout`` 是 75 秒。
-    第一次 ``complete`` 的 timeout 因此等于整笔授予，真实 TimeoutError
-    会把 repair deadline 吃到 0——「失败后再看余量」这条重试闸门对超时是
-    死代码。即使首笔已是满窗 30s，root 剩余不足时仍会出现小窗，本函数仍有意义。
-
-    尺寸必须按 **root 未分配余量** 算，不能按 ``goal.remaining_seconds``：
-    admission 已把后者替换成刚烧穿的那笔授予（生产实测 16s / 8s），按它
-    重铸等于用同样大小的窗口对着 P50≈28s 的 provider 再撞一次——
-    2026-08-13 R4 验收 A4/A5/A8/A9/A10 五题全是这个死法。
-
-    这笔 grant 动的是 research 从未分配的 hard-cap 余量（synthesis
-    reserve 那截），    不重开工具槽，不突破调用方注入的单笔帽（默认 30 秒）。铸不出就 fail
-    closed。grant_id 按 (repair_goal, attempt) 固定：同一 attempt 重复
-    调用被 root ledger 拒掉（幂等防呆），不同 attempt 各铸各的——
-    熔断次数由调用方的 ``transient_retries_left`` 独占，账本只管余量。
-    """
-
-    headroom = max(
-        0.0,
-        float(root_budget.hard_seconds_cap) - float(root_budget.allocated_seconds),
-    )
-    seconds = min(headroom, _resolve_seconds_cap(seconds_cap))
-    if seconds < 1.0:
-        return None
-    suffix = "" if attempt <= 1 else f"-{attempt}"
-    grant = BudgetGrant(
-        grant_id=f"transient-retry-{goal.repair_goal_id}{suffix}",
-        episode_id=goal.episode_id,
-        cycle=goal.cycle,
-        calls_granted=0,
-        seconds_granted=seconds,
-    )
-    return grant if root_budget.grant(grant) else None
-
-
-def admit_repair(
-    *,
-    episode_id: str,
-    missing_outputs: tuple[str, ...] = (),
-    missing_capabilities: tuple[str, ...] = (),
-    rejected_claims: tuple[str, ...] = (),
-    attempted_actions: tuple[str, ...] = (),
-    previous_progress: ProgressSnapshot,
-    remaining_calls: int,
-    remaining_seconds: float,
     cycle: int,
-    root_budget: RootBudgetLedger,
     research_tier: str,
-    tools_open: bool = True,
-    allow_delivery_repair: bool = True,
-    delivery_candidate: bool = False,
-    contract_rewrite_candidate: bool = False,
-    cold_restart_candidate: bool = False,
-    evidence_count: int = 0,
-    seconds_cap: float | None = None,
-) -> RepairAdmission | None:
-    """Build one goal and admit exactly one budget grant.
+) -> bool:
+    """进度修复的领域闸：``warrant_repair(...).warranted`` 的 bool 便写。"""
 
-    The coordinator owns the policy choice between evidence-progress repair and
-    tool-closed delivery repair. Callers receive one immutable decision and do
-    not need to duplicate cycle, tier, or root-budget rules.
+    return warrant_repair(progress, cycle=cycle, research_tier=research_tier).warranted
 
-    ``contract_rewrite_candidate`` is the track-contract expression seam
-    (四态 / TTL / 下期关注): rewrite the draft from already collected
-    evidence, do not reopen tools even if the research window is still open.
+
+def _count_work_units(
+    missing_outputs: tuple[str, ...],
+    missing_capabilities: tuple[str, ...],
+) -> int:
+    return len(_unique(missing_outputs)) + len(_unique(missing_capabilities))
+
+
+def repair_work_units(goal: RepairGoal) -> int:
+    """领域量：这轮要补几个格（answer 必填格 + evidence 口径）。
+
+    只数格，不折算成调用次数——「一个格值几次调用」是预算换算
+    （``runtime/repair_budget.calls_for_work_units``）。
     """
 
-    goal = build_repair_goal(
-        episode_id=episode_id,
+    return _count_work_units(goal.missing_answer_elements, goal.missing_evidence_modes)
+
+
+# 领域对失败终局的解释：这次失败属于哪一类。观察量是 stop_reason，不是 trace。
+DELIVERY_REPAIR_STOP_REASONS = frozenset(
+    {"sdk_invalid_finish", "sdk_invalid_repair_finish", "sdk_timeout"}
+)
+# 饿死型冷启动：检索窗烧穿，或主路径 LLM 超时/异常，且零证据。
+# A1-R2 是后者——TimeoutError 走 model_unavailable，tools_open 已关，
+# delivery 要证据，进度闸要新证据，三条路全死。不能把「模型主动收场」
+# （model_finish）算进来，那是零证据降级信号，不是饿死。
+COLD_RESTART_STOP_REASONS = frozenset({"deadline_exhausted", "model_unavailable"})
+
+
+@dataclass(frozen=True)
+class RepairFailureShape:
+    """一次失败终局在领域眼里的形状。三者互斥与否由 ``admit_repair`` 分流决定。
+
+    - ``delivery``：有证据、有结构缺口，但没写出稿或没绑定——tool-closed 交付修复。
+    - ``cold_restart``：零证据饿死（窗烧穿 / 主路径模型不可用）——重开工具一发。
+    - ``contract_rewrite``：缺的全是跟踪契约表达槽——从既有证据重写，不开工具。
+
+    不看预算、不看 cycle 状态（「交付修复只许一次」是底座的账，由调用方叠）。
+    """
+
+    delivery: bool
+    cold_restart: bool
+    contract_rewrite: bool
+
+
+def classify_repair_failure(
+    outcome: AgentOutcome,
+    structural: VerifiedEpisodeOutcome,
+    *,
+    missing_outputs: tuple[str, ...],
+    rejected_claims: tuple[str, ...],
+    semantic_gap_outputs: tuple[str, ...],
+) -> RepairFailureShape:
+    """领域失败分类。``missing_outputs`` 是结构缺口 ∪ 语义缺口（调用方已合并）。"""
+
+    has_evidence = bool(outcome.evidence)
+    return RepairFailureShape(
+        delivery=bool(
+            outcome.stop_reason in DELIVERY_REPAIR_STOP_REASONS
+            and has_evidence
+            and structural.missing_outputs
+            and (not outcome.draft.strip() or not outcome.bindings)
+        ),
+        cold_restart=(
+            outcome.stop_reason in COLD_RESTART_STOP_REASONS and not has_evidence
+        ),
+        contract_rewrite=is_contract_rewrite_only(
+            missing_outputs,
+            rejected_claims=rejected_claims,
+            semantic_gap_outputs=semantic_gap_outputs,
+        ),
+    )
+
+
+@dataclass(frozen=True)
+class RepairNeed:
+    """领域对「这次该修什么」的申请。不含预算数字，不含 cycle 状态。
+
+    底座据此 ``build_repair_goal`` 并铸窗（``runtime/repair_budget.admit_repair``）；
+    领域不碰账本。``needs_tools`` 是 M7 那条具名申请：领域说「这次得重开工具才
+    修得动」，给不给由底座的 ``grant_for_cold_restart`` 定，批了才在 goal 上盖
+    ``reopen_tools``。
+    """
+
+    missing_outputs: tuple[str, ...]
+    missing_capabilities: tuple[str, ...]
+    rejected_claims: tuple[str, ...]
+    shape: RepairFailureShape
+    work_units: int
+
+    @property
+    def needs_tools(self) -> bool:
+        return self.shape.cold_restart
+
+
+def classify_repair_need(
+    outcome: AgentOutcome,
+    structural: VerifiedEpisodeOutcome,
+    *,
+    rejected_claims: tuple[str, ...],
+    semantic_gap_outputs: tuple[str, ...],
+) -> RepairNeed:
+    """这次失败该修什么、属于哪一类、要补几个格。
+
+    ``missing_outputs`` = 结构缺口 ∪ 语义缺口（去重保序）；``missing_capabilities``
+    取契约要求却没拿到的 capability；格数按去重后的两组之和。
+    """
+
+    missing_outputs = tuple(
+        dict.fromkeys((*structural.missing_outputs, *semantic_gap_outputs))
+    )
+    missing_capabilities = tuple(structural.mandatory_missing_capabilities)
+    return RepairNeed(
         missing_outputs=missing_outputs,
         missing_capabilities=missing_capabilities,
-        rejected_claims=rejected_claims,
-        attempted_actions=attempted_actions,
-        previous_progress=previous_progress,
-        remaining_calls=remaining_calls,
-        remaining_seconds=remaining_seconds,
-        cycle=cycle,
-    )
-    grant: BudgetGrant | None = None
-    delivery_only = False
-    cold_restart = False
-    if not delivery_candidate and not contract_rewrite_candidate:
-        grant = grant_for_progress(
-            goal,
-            previous_progress,
-            root_budget=root_budget,
-            research_tier=research_tier,
-            tools_open=tools_open,
-            seconds_cap=seconds_cap,
-        )
-    if (
-        grant is None
-        and allow_delivery_repair
-        and (not tools_open or delivery_candidate or contract_rewrite_candidate)
-        and evidence_count > 0
-        and missing_outputs
-    ):
-        grant = grant_for_delivery_repair(
-            goal,
-            root_budget=root_budget,
-            research_tier=research_tier,
-            evidence_count=evidence_count,
-            seconds_cap=seconds_cap,
-        )
-        delivery_only = grant is not None
-    if (
-        grant is None
-        and not delivery_candidate
-        and not contract_rewrite_candidate
-        and cold_restart_candidate
-        and evidence_count == 0
-        and missing_outputs
-    ):
-        grant = grant_for_cold_restart(
-            goal,
-            previous_progress,
-            root_budget=root_budget,
-            seconds_cap=seconds_cap,
-        )
-        cold_restart = grant is not None
-    if grant is None:
-        return None
-    return RepairAdmission(
-        goal=replace(
-            goal,
-            remaining_calls=grant.calls_granted,
-            remaining_seconds=grant.seconds_granted,
-            reopen_tools=cold_restart,
+        rejected_claims=tuple(rejected_claims),
+        shape=classify_repair_failure(
+            outcome,
+            structural,
+            missing_outputs=missing_outputs,
+            rejected_claims=rejected_claims,
+            semantic_gap_outputs=semantic_gap_outputs,
         ),
-        grant=grant,
-        delivery_only=delivery_only,
-    )
-
-
-def grant_for_backfill(
-    goal: RepairGoal,
-    *,
-    root_budget: RootBudgetLedger,
-    original_seconds: float,
-    tools_open: bool = True,
-    seconds_cap: float | None = None,
-) -> BudgetGrant | None:
-    """Grant one narrow evidence-fetch turn. No progress-gate, no extra cycles.
-
-    进度闸 ``should_reenter`` 要求主路径已经有独立新证据——数字型阻断常常
-    是「证据在、数字不在」，会被误判成不配再修。补证自己的闸是：工具开着、
-    指定了 capability、预算 ≤ 原回合 25%、且至少留得下一整次调用。
-    """
-
-    if not tools_open:
-        return None
-    if not goal.missing_evidence_modes:
-        return None
-    if goal.remaining_calls < 1:
-        return None
-    fraction_cap = max(0.0, float(original_seconds)) * BACKFILL_BUDGET_FRACTION
-    seconds = min(
-        goal.remaining_seconds,
-        fraction_cap,
-        _resolve_seconds_cap(seconds_cap),
-    )
-    if seconds < 1.0:
-        return None
-    grant = BudgetGrant(
-        grant_id=f"backfill-{goal.repair_goal_id}",
-        episode_id=goal.episode_id,
-        cycle=goal.cycle,
-        calls_granted=1,
-        seconds_granted=seconds,
-    )
-    return grant if root_budget.grant(grant) else None
-
-
-def admit_backfill_repair(
-    *,
-    episode_id: str,
-    missing_outputs: tuple[str, ...] = (),
-    missing_capabilities: tuple[str, ...] = (),
-    attempted_actions: tuple[str, ...] = (),
-    previous_progress: ProgressSnapshot,
-    remaining_calls: int,
-    remaining_seconds: float,
-    cycle: int,
-    root_budget: RootBudgetLedger,
-    tools_open: bool = True,
-    seconds_cap: float | None = None,
-) -> RepairAdmission | None:
-    """Admit exactly one IssueCode-triggered backfill turn."""
-
-    if not missing_capabilities:
-        return None
-    goal = build_repair_goal(
-        episode_id=episode_id,
-        missing_outputs=missing_outputs,
-        missing_capabilities=missing_capabilities,
-        previous_progress=previous_progress,
-        remaining_calls=remaining_calls,
-        remaining_seconds=remaining_seconds,
-        cycle=cycle,
-        attempted_actions=attempted_actions,
-    )
-    grant = grant_for_backfill(
-        goal,
-        root_budget=root_budget,
-        original_seconds=float(root_budget.hard_seconds_cap),
-        tools_open=tools_open,
-        seconds_cap=seconds_cap,
-    )
-    if grant is None:
-        return None
-    return RepairAdmission(
-        goal=replace(
-            goal,
-            remaining_calls=grant.calls_granted,
-            remaining_seconds=grant.seconds_granted,
-        ),
-        grant=grant,
-        backfill=True,
+        work_units=_count_work_units(missing_outputs, missing_capabilities),
     )
 
 
 __all__ = [
-    "BACKFILL_BUDGET_FRACTION",
+    "COLD_RESTART_STOP_REASONS",
+    "DELIVERY_REPAIR_STOP_REASONS",
     "BudgetGrant",
     "CoverageDelta",
     "ProgressSnapshot",
     "RepairAdmission",
+    "RepairFailureShape",
     "RepairGoal",
-    "admit_backfill_repair",
-    "admit_repair",
+    "RepairNeed",
+    "RepairWarrant",
     "build_repair_goal",
-    "grant_for_backfill",
-    "grant_for_cold_restart",
-    "grant_for_delivery_repair",
-    "grant_for_progress",
-    "grant_for_transient_model_retry",
+    "classify_repair_failure",
+    "classify_repair_need",
+    "cycle_within_tier",
     "max_repair_cycles_for_tier",
     "progress_from_ledger",
-    "should_reenter",
+    "repair_is_warranted",
+    "repair_work_units",
+    "unreachable_repair_goal",
+    "warrant_repair",
 ]

@@ -93,18 +93,22 @@ python3 -m intelligence.cli daily --date YYYY-MM-DD --skip-sync --from-step dail
   --summary-json market_feature_store/exports/YYYY-MM-DD-daily-workflow-summary.json
 ```
 
-### 收尾：当日增量导出到 iCloud（自动）
+### 收尾：当日增量导出到本地快照（自动）
 
 `run_review_sync.py` 在质检后会自动跑一步 `export-increment`（`scripts/export_increment.py`），
-把当日新增的行导成小 parquet 备份到 iCloud：
+把当日新增的行导成小 parquet 备份到本地：
 
 ```bash
 # 编排器已内置调用；也可手动补跑某日：
 python3 skills/daily-full-review/scripts/export_increment.py --date YYYY-MM-DD
 ```
 
-产物：`~/Library/Mobile Documents/com~apple~CloudDocs/duckdb-snapshots/increments/market_feature_store-inc-<日期>.tar.gz`
+产物：`<repo>/db/snapshots/increments/market_feature_store-inc-<日期>.tar.gz`
 （每张含 `trade_date` 的 fact/feature 表 `WHERE trade_date=当日` → parquet+zstd + manifest.json，一天通常仅几 MB）。
+
+> **iCloud 目的地已于 2026-09-01 退役**：macOS TCC 下手动会话对 iCloud 既有占位文件
+> 「能新建、不能读/改/改名」，当日 rerun 覆盖必 EPERM，且会话内无法校验 iCloud 副本完整性。
+> 2026-09-01 及之前的历史增量仍在 `~/Library/Mobile Documents/com~apple~CloudDocs/duckdb-snapshots/`。
 
 **为什么不直接 iCloud 同步 `.duckdb`**：单个 ~3GB 文件 iCloud 无块级增量，每次改动整文件重传，
 且开「优化储存」时可能被逐出成占位、DuckDB 打开要先下完整库。所以按 `trade_date` 导当日增量小文件更省更稳。

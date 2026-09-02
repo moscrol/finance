@@ -10,6 +10,7 @@ from intelligence.runtime.agent_episode import (
 )
 from intelligence.services.agent_runtime import AgentModelClient
 from intelligence.services.mode_governor import ModeSignals
+from intelligence.services.research_harness import FinanceResearchHarness
 from intelligence.runtime.sub_research import (
     BranchRequest,
     BranchResult,
@@ -49,7 +50,10 @@ class ContinuousSubResearchWorker:
             self._model,
             llm_timeout=self._llm_timeout,
             is_cancelled=request.is_cancelled,
-            mode_signals=lambda _frame, _plan: ModeSignals(user_mode="quick"),
+            # 子研究一律按 quick 裁决：注入件进 harness，Episode 不再转交。
+            harness=FinanceResearchHarness(
+                mode_signals=lambda _frame, _plan: ModeSignals(user_mode="quick"),
+            ),
             sub_research_coordinator=None,
         ).run(
             task_frame=frame,
