@@ -31,7 +31,7 @@ from intelligence.services.research_contract import InMemoryRootBudgetLedger
 
 
 def _progressed_snapshot() -> ProgressSnapshot:
-    """一个「有进展」的快照，好让 should_reenter 放行、把断言 focus 在秒数上。"""
+    """一个「有进展」的快照，好让 repair_is_warranted 放行、把断言 focus 在秒数上。"""
 
     return ProgressSnapshot(
         before_evidence_ids=(),

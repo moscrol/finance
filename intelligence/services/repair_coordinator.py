@@ -2,6 +2,15 @@
 
 The coordinator describes missing work; it never invents a query or selects a
 tool. The primary model retains that decision inside the same episode.
+
+模块内按两层分组（`2026-09-02-repair-policy-state-machine.md` §3）：
+
+- **领域判据**（不看预算）：这个 tier 容忍第几轮、上一轮算不算进步、这轮要补
+  几个格。抽 `repair_policy` 接缝时这一组进 harness。
+- **预算判据与算术**（不看领域）：付不付得起、几个格折几次调用、秒数按帽截断、
+  root ledger 记账。这一组留底座。
+
+每个 `grant_for_*` 只做编排：领域闸 → 预算窗 → 记账，自己不再内联任何一条判据。
 """
 
 from __future__ import annotations
@@ -287,24 +296,9 @@ def unreachable_repair_goal(
     )
 
 
-def should_reenter(
-    progress: ProgressSnapshot,
-    *,
-    cycle: int,
-    max_cycles: int,
-    remaining_calls: int | None = None,
-    remaining_seconds: float | None = None,
-    tools_open: bool = True,
-) -> bool:
-    if cycle < 1 or cycle > max_cycles:
-        return False
-    if not progress.coverage_delta.progressed:
-        return False
-    if tools_open and remaining_calls is not None and remaining_calls <= 0:
-        return False
-    if remaining_seconds is not None and remaining_seconds < 1.0:
-        return False
-    return True
+# ---------------------------------------------------------------------------
+# 领域判据（不看预算）
+# ---------------------------------------------------------------------------
 
 
 def max_repair_cycles_for_tier(research_tier: str) -> int:
@@ -316,6 +310,134 @@ def max_repair_cycles_for_tier(research_tier: str) -> int:
     raise ValueError(f"unsupported repair research tier: {research_tier}")
 
 
+def cycle_within_tier(cycle: int, *, research_tier: str) -> bool:
+    """研究强度决定容忍几轮修复：1 ≤ cycle ≤ tier 上限。"""
+
+    return 1 <= cycle <= max_repair_cycles_for_tier(research_tier)
+
+
+def repair_is_warranted(
+    progress: ProgressSnapshot,
+    *,
+    cycle: int,
+    research_tier: str,
+) -> bool:
+    """领域判定：这个 tier 还容忍这一轮，且上一轮真有独立证据进展。
+
+    不看预算——付不付得起是 :func:`can_afford_repair` 的事。
+    """
+
+    return (
+        cycle_within_tier(cycle, research_tier=research_tier)
+        and progress.coverage_delta.progressed
+    )
+
+
+def repair_work_units(goal: RepairGoal) -> int:
+    """领域量：这轮要补几个格（answer 必填格 + evidence 口径）。
+
+    只数格，不折算成调用次数——「一个格值几次调用」是预算换算
+    （:func:`calls_for_work_units`）。
+    """
+
+    return len(goal.missing_answer_elements) + len(goal.missing_evidence_modes)
+
+
+# ---------------------------------------------------------------------------
+# 预算判据与算术（不看领域）
+# ---------------------------------------------------------------------------
+
+# 单轮修复的工具调用数下限 / 上限：开着工具就至少值一次调用，最多四次。
+_MIN_REPAIR_CALLS = 1
+_MAX_REPAIR_CALLS = 4
+
+
+def can_afford_repair(
+    *,
+    remaining_calls: int,
+    remaining_seconds: float,
+    tools_open: bool,
+) -> bool:
+    """预算判定：工具开着就得剩至少一次调用；无论开关都得剩至少 1 秒。"""
+
+    if tools_open and remaining_calls <= 0:
+        return False
+    return remaining_seconds >= 1.0
+
+
+def calls_for_work_units(
+    work_units: int,
+    *,
+    remaining_calls: int,
+    tools_open: bool,
+) -> int:
+    """一个格值一次调用，夹在 [1, 4] 内，再受余量约束；工具关着为 0。"""
+
+    if not tools_open:
+        return 0
+    return min(
+        max(_MIN_REPAIR_CALLS, work_units),
+        _MAX_REPAIR_CALLS,
+        remaining_calls,
+    )
+
+
+def size_repair_window(
+    *,
+    work_units: int,
+    remaining_calls: int,
+    remaining_seconds: float,
+    tools_open: bool,
+    seconds_cap: float | None,
+) -> tuple[int, float] | None:
+    """预算算术：付得起就返回 ``(calls, seconds)``，否则 ``None``。
+
+    秒数 = ``min(余量, 单笔帽)``；帽可能被调用方注入得很小，截断后不足 1 秒
+    同样 fail closed。
+    """
+
+    if not can_afford_repair(
+        remaining_calls=remaining_calls,
+        remaining_seconds=remaining_seconds,
+        tools_open=tools_open,
+    ):
+        return None
+    calls = calls_for_work_units(
+        work_units,
+        remaining_calls=remaining_calls,
+        tools_open=tools_open,
+    )
+    seconds = min(remaining_seconds, _resolve_seconds_cap(seconds_cap))
+    if seconds < 1.0:
+        return None
+    return calls, seconds
+
+
+def _mint_grant(
+    root_budget: RootBudgetLedger,
+    *,
+    grant_id: str,
+    goal: RepairGoal,
+    calls: int,
+    seconds: float,
+) -> BudgetGrant | None:
+    """账本写入：铸一笔并记到 root ledger；ledger 拒了（幂等 / 越帽 / 异 episode）就 ``None``。"""
+
+    grant = BudgetGrant(
+        grant_id=grant_id,
+        episode_id=goal.episode_id,
+        cycle=goal.cycle,
+        calls_granted=calls,
+        seconds_granted=seconds,
+    )
+    return grant if root_budget.grant(grant) else None
+
+
+# ---------------------------------------------------------------------------
+# 授予入口：领域闸 → 预算窗 → 记账
+# ---------------------------------------------------------------------------
+
+
 def grant_for_progress(
     goal: RepairGoal,
     progress: ProgressSnapshot,
@@ -325,33 +447,25 @@ def grant_for_progress(
     tools_open: bool = True,
     seconds_cap: float | None = None,
 ) -> BudgetGrant | None:
-    if not should_reenter(
-        progress,
-        cycle=goal.cycle,
-        max_cycles=max_repair_cycles_for_tier(research_tier),
+    if not repair_is_warranted(progress, cycle=goal.cycle, research_tier=research_tier):
+        return None
+    window = size_repair_window(
+        work_units=repair_work_units(goal),
         remaining_calls=goal.remaining_calls,
         remaining_seconds=goal.remaining_seconds,
         tools_open=tools_open,
-    ):
-        return None
-    work_units = min(
-        4,
-        max(1, len(goal.missing_answer_elements) + len(goal.missing_evidence_modes)),
+        seconds_cap=seconds_cap,
     )
-    calls = min(work_units, goal.remaining_calls) if tools_open else 0
-    seconds = min(goal.remaining_seconds, _resolve_seconds_cap(seconds_cap))
-    if tools_open and calls <= 0:
+    if window is None:
         return None
-    if seconds < 1.0:
-        return None
-    grant = BudgetGrant(
+    calls, seconds = window
+    return _mint_grant(
+        root_budget,
         grant_id=f"grant-{goal.repair_goal_id}",
-        episode_id=goal.episode_id,
-        cycle=goal.cycle,
-        calls_granted=calls,
-        seconds_granted=seconds,
+        goal=goal,
+        calls=calls,
+        seconds=seconds,
     )
-    return grant if root_budget.grant(grant) else None
 
 
 def grant_for_cold_restart(
@@ -363,8 +477,8 @@ def grant_for_cold_restart(
 ) -> BudgetGrant | None:
     """Grant one tool-open restart turn for an episode starved of evidence.
 
-    进度闸（``should_reenter`` 的 ``coverage_delta.progressed``）要求主路径至少
-    捞到 1 条证据才配修复——它挡的是「无进展还无限续命」的循环。但它把饿死型
+    进度闸（``repair_is_warranted`` 的 ``coverage_delta.progressed``）要求主路径
+    至少捞到 1 条证据才配修复——它挡的是「无进展还无限续命」的循环。但它把饿死型
     episode 一并挡死。生产实测两种饿死形状（2026-08-13）：
 
     - R7-A3：首个打偏的查询烧穿检索窗，末尾批量补发的检索在截止线上被集体判
@@ -391,24 +505,23 @@ def grant_for_cold_restart(
         return None
     if not goal.missing_answer_elements:
         return None
-    if goal.remaining_calls < 1 or goal.remaining_seconds < 1.0:
-        return None
-    work_units = min(
-        4,
-        max(1, len(goal.missing_answer_elements) + len(goal.missing_evidence_modes)),
+    window = size_repair_window(
+        work_units=repair_work_units(goal),
+        remaining_calls=goal.remaining_calls,
+        remaining_seconds=goal.remaining_seconds,
+        tools_open=True,
+        seconds_cap=seconds_cap,
     )
-    calls = min(work_units, goal.remaining_calls)
-    seconds = min(goal.remaining_seconds, _resolve_seconds_cap(seconds_cap))
-    if calls < 1 or seconds < 1.0:
+    if window is None:
         return None
-    grant = BudgetGrant(
+    calls, seconds = window
+    return _mint_grant(
+        root_budget,
         grant_id=f"cold-restart-{goal.repair_goal_id}",
-        episode_id=goal.episode_id,
-        cycle=goal.cycle,
-        calls_granted=calls,
-        seconds_granted=seconds,
+        goal=goal,
+        calls=calls,
+        seconds=seconds,
     )
-    return grant if root_budget.grant(grant) else None
 
 
 def grant_for_delivery_repair(
@@ -433,23 +546,27 @@ def grant_for_delivery_repair(
 
     if evidence_count <= 0:
         return None
-    if goal.cycle < 1 or goal.cycle > max_repair_cycles_for_tier(research_tier):
+    if not cycle_within_tier(goal.cycle, research_tier=research_tier):
         return None
     if not goal.missing_answer_elements:
         return None
-    if goal.remaining_seconds < 1.0:
-        return None
-    seconds = min(goal.remaining_seconds, _resolve_seconds_cap(seconds_cap))
-    if seconds < 1.0:
-        return None
-    grant = BudgetGrant(
-        grant_id=f"delivery-grant-{goal.repair_goal_id}",
-        episode_id=goal.episode_id,
-        cycle=goal.cycle,
-        calls_granted=0,
-        seconds_granted=seconds,
+    window = size_repair_window(
+        work_units=0,
+        remaining_calls=0,
+        remaining_seconds=goal.remaining_seconds,
+        tools_open=False,
+        seconds_cap=seconds_cap,
     )
-    return grant if root_budget.grant(grant) else None
+    if window is None:
+        return None
+    _, seconds = window
+    return _mint_grant(
+        root_budget,
+        grant_id=f"delivery-grant-{goal.repair_goal_id}",
+        goal=goal,
+        calls=0,
+        seconds=seconds,
+    )
 
 
 def grant_for_transient_model_retry(
@@ -487,14 +604,13 @@ def grant_for_transient_model_retry(
     if seconds < 1.0:
         return None
     suffix = "" if attempt <= 1 else f"-{attempt}"
-    grant = BudgetGrant(
+    return _mint_grant(
+        root_budget,
         grant_id=f"transient-retry-{goal.repair_goal_id}{suffix}",
-        episode_id=goal.episode_id,
-        cycle=goal.cycle,
-        calls_granted=0,
-        seconds_granted=seconds,
+        goal=goal,
+        calls=0,
+        seconds=seconds,
     )
-    return grant if root_budget.grant(grant) else None
 
 
 def admit_repair(
@@ -606,7 +722,7 @@ def grant_for_backfill(
 ) -> BudgetGrant | None:
     """Grant one narrow evidence-fetch turn. No progress-gate, no extra cycles.
 
-    进度闸 ``should_reenter`` 要求主路径已经有独立新证据——数字型阻断常常
+    进度闸 ``repair_is_warranted`` 要求主路径已经有独立新证据——数字型阻断常常
     是「证据在、数字不在」，会被误判成不配再修。补证自己的闸是：工具开着、
     指定了 capability、预算 ≤ 原回合 25%、且至少留得下一整次调用。
     """
@@ -625,14 +741,13 @@ def grant_for_backfill(
     )
     if seconds < 1.0:
         return None
-    grant = BudgetGrant(
+    return _mint_grant(
+        root_budget,
         grant_id=f"backfill-{goal.repair_goal_id}",
-        episode_id=goal.episode_id,
-        cycle=goal.cycle,
-        calls_granted=1,
-        seconds_granted=seconds,
+        goal=goal,
+        calls=1,
+        seconds=seconds,
     )
-    return grant if root_budget.grant(grant) else None
 
 
 def admit_backfill_repair(
@@ -693,6 +808,9 @@ __all__ = [
     "admit_backfill_repair",
     "admit_repair",
     "build_repair_goal",
+    "calls_for_work_units",
+    "can_afford_repair",
+    "cycle_within_tier",
     "grant_for_backfill",
     "grant_for_cold_restart",
     "grant_for_delivery_repair",
@@ -700,5 +818,8 @@ __all__ = [
     "grant_for_transient_model_retry",
     "max_repair_cycles_for_tier",
     "progress_from_ledger",
-    "should_reenter",
+    "repair_is_warranted",
+    "repair_work_units",
+    "size_repair_window",
+    "unreachable_repair_goal",
 ]

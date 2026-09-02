@@ -11,7 +11,7 @@ from intelligence.services.repair_coordinator import (
     grant_for_progress,
     grant_for_transient_model_retry,
     progress_from_ledger,
-    should_reenter,
+    repair_is_warranted,
     BudgetGrant,
 )
 from intelligence.services.research_contract import InMemoryRootBudgetLedger
@@ -67,7 +67,7 @@ def test_repair_goal_has_no_query_authority_and_budget_grant_respects_hard_cap()
         remaining_seconds=42,
     )
     assert not hasattr(goal, "next_query")
-    assert should_reenter(progress, cycle=1, max_cycles=1)
+    assert repair_is_warranted(progress, cycle=1, research_tier="quick")
     root = InMemoryRootBudgetLedger(
         episode_id="episode-1",
         initial_calls=3,
