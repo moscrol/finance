@@ -24,12 +24,17 @@
 assemble_prompt      transformContext             system-prompt spine
 steering_message     transformContext（注入）      agent/pre-step → enter(messages)
 interpret_plan       **—（pi 没有）**              **—（dsh 没有）**
+govern_mode          **—（pi 没有）**              **—（dsh 没有）**
 project_tool_result  afterToolCall.content        tools/result（definition-owned finalizeContent）
 project_tool_error   afterToolCall.isError+content tools/post-execute → block(feedback)
 halt_after_tool_batch afterToolCall.terminate     tools/post-execute → block
 retrieval_complete   shouldStopAfterTurn          —
 admit_finish         **—（pi 没有）**              **—（dsh 没有）**
 ===================  ===========================  ==============================
+
+``govern_mode``（研究该做多深：quick / deep，以及升档后的预算合同）也是两家没有的：
+它们的 loop 不分档。深度裁决读的是任务框架与 PLAN（领域），落到 context 上的是预算
+上限（底座会计）——本方法两件都做，loop 只记事件、把新 context 用起来。
 
 PLAN 是本领域的研究协议（先出计划再动手），两家都没有；它和 ``admit_finish``
 一样只能是领域方法。``steering_message`` 是领域在驳回 / 关闭研究阶段时对模型说的
@@ -54,8 +59,8 @@ PLAN 是本领域的研究协议（先出计划再动手），两家都没有；
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Set
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Set
+from dataclasses import dataclass, replace
 import json
 from typing import Literal, Protocol, runtime_checkable
 
@@ -79,6 +84,11 @@ from intelligence.services.episode_protocol import (
 from intelligence.services.forecast_residual_budget import (
     forecast_residual_halt_reason,
 )
+from intelligence.services.mode_governor import (
+    ModeDecision,
+    ModeGovernor,
+    ModeSignals,
+)
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_plan import (
     PlanParseResult,
@@ -97,10 +107,27 @@ from intelligence.services.tool_result_budget import budget_tool_observation
 __all__ = [
     "FinanceResearchHarness",
     "FinishAdmission",
+    "ModeGovernance",
+    "ModeSignalsFactory",
     "ResearchHarness",
     "SteeringKind",
     "ToolResultProjection",
+    "default_mode_signals",
 ]
+
+ModeSignalsFactory = Callable[[TaskFrame, ResearchPlan], ModeSignals]
+
+
+def default_mode_signals(task_frame: TaskFrame, plan: ResearchPlan) -> ModeSignals:
+    """从任务框架与 PLAN 读出可观测的深度信号（原 agent_episode._default_mode_signals）。"""
+
+    user_task = task_frame.to_user_task()
+    return ModeSignals(
+        independent_entities=len(user_task.subjects),
+        separable_branches=len(plan.branch_goals),
+        evidence_domains=plan.evidence_needs,
+        uncovered_answer_elements=len(plan.open_gaps),
+    )
 
 # loop 在三个时点需要对模型说一段领域的话。做成 Literal 而不是三个方法：
 # 三段话的**时点**是底座的事（什么时候驳回、什么时候关研究阶段），**内容**是
@@ -174,6 +201,20 @@ class ToolResultProjection:
     seen_prose: frozenset[str]
 
 
+@dataclass(frozen=True)
+class ModeGovernance:
+    """一次深度裁决的三个产物。
+
+    ``context``：裁决落到预算合同上之后的 context（deep 升档时换了 policy /
+    contract，否则原样）；loop 从此用它。``decision``：进 ``mode_decision`` 事件的
+    值。``message``：给模型看的 ``MODE_DECISION`` 正文（user 角色）。
+    """
+
+    context: ResearchRunContext
+    decision: ModeDecision
+    message: str
+
+
 @runtime_checkable
 class ResearchHarness(Protocol):
     """底座 loop 在四个时点问领域的四个问题。
@@ -206,6 +247,21 @@ class ResearchHarness(Protocol):
 
         三种返回：``plan`` 非空 = 合法 PLAN；``plan`` 空且 ``error`` 非空 =
         写坏的 PLAN 或非法修订；两者皆空 = 根本不是 PLAN（交给终局门或工具）。
+        """
+        ...
+
+    def govern_mode(
+        self,
+        *,
+        task_frame: TaskFrame,
+        plan: ResearchPlan,
+        context: ResearchRunContext,
+        can_branch: bool,
+    ) -> ModeGovernance:
+        """PLAN 到手后裁研究深度，并把裁决落到预算合同与一段给模型的话上。
+
+        ``can_branch`` 是底座能力（有没有子研究协调器）：没有就不能批 deep 的
+        分支依赖——这是 loop 告诉领域「我能做什么」，不是领域自己猜。
         """
         ...
 
@@ -261,7 +317,23 @@ class ResearchHarness(Protocol):
 
 
 class FinanceResearchHarness:
-    """金融领域的默认 harness——对既有函数的纯委托。"""
+    """金融领域的默认 harness——对既有函数的纯委托。
+
+    ``mode_governor`` / ``mode_signals`` 是深度裁决的两个可注入件（原先挂在
+    ``ContinuousAgentEpisode`` 构造器上）。它们搬到这里是因为「研究该做多深」是
+    领域判断；loop 只需要知道自己能不能开分支。
+    """
+
+    def __init__(
+        self,
+        *,
+        mode_governor: ModeGovernor | None = None,
+        mode_signals: ModeSignalsFactory | None = None,
+    ) -> None:
+        self._mode_governor = mode_governor if mode_governor is not None else ModeGovernor()
+        self._mode_signals: ModeSignalsFactory = (
+            mode_signals if mode_signals is not None else default_mode_signals
+        )
 
     def assemble_prompt(
         self,
@@ -325,6 +397,38 @@ class FinanceResearchHarness:
         except ValueError as exc:
             return PlanParseResult(None, str(exc))
         return result
+
+    def govern_mode(
+        self,
+        *,
+        task_frame: TaskFrame,
+        plan: ResearchPlan,
+        context: ResearchRunContext,
+        can_branch: bool,
+    ) -> ModeGovernance:
+        # 逐字搬自 ContinuousAgentEpisode._decide_mode + _append_mode_decision_message。
+        signals = self._mode_signals(task_frame, plan)
+        if not isinstance(signals, ModeSignals):
+            raise TypeError("mode_signals must return ModeSignals")
+        if context.root_budget is None and signals.dependencies_available:
+            signals = replace(signals, dependencies_available=False)
+        if plan.branch_goals and not can_branch and signals.dependencies_available:
+            signals = replace(signals, dependencies_available=False)
+        decision = self._mode_governor.decide(plan, signals)
+        promoted = self._mode_governor.apply(context, decision)
+        message = json.dumps(
+            {
+                "kind": "MODE_DECISION",
+                **decision.to_dict(),
+                "instruction": (
+                    "研究深度与总预算已由运行时裁决。保留原计划，"
+                    "继续自主选择查询、工具顺序和停止时点；"
+                    "不得把预算或内部裁决文本写入最终答案。"
+                ),
+            },
+            ensure_ascii=False,
+        )
+        return ModeGovernance(context=promoted, decision=decision, message=message)
 
     def project_tool_result(
         self,

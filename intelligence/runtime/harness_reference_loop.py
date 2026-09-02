@@ -25,7 +25,8 @@ harness 里；不一致 = 还有领域逻辑焊在 ``ContinuousAgentEpisode`` �
   超时一律 ``llm_timeout``。
 - 无修复协调（``RepairGoal`` / ``_recover_finalization`` / ``EpisodeFinalizer``）：
   终局被驳回只回灌一次，再不过就停。
-- 无 mode 治理、无子研究、无空池回退、无 opening prefetch。
+- 深度裁决经 ``harness.govern_mode``（与 Episode 同一份），但本 loop 没有子研究
+  协调器（``can_branch=False``），所以无子研究分支；无空池回退、无 opening prefetch。
 - 事件是 durable 子集（task / plan / model_turn / tool_request / tool_result /
   tool_error / finalization / invalid_action / finish），不带派发计时。
 
@@ -140,6 +141,7 @@ class HarnessReferenceLoop:
         tool_calls = 0
         invalid_actions = 0
         finalization_started = False
+        mode_decided = False
         max_slots = max(1, int(context.policy.max_steps))
 
         def stop(
@@ -219,6 +221,7 @@ class HarnessReferenceLoop:
                 )
             messages.append(_assistant_message(turn))
 
+            pending_mode_message: str | None = None
             if not finalization_started:
                 plan_result = harness.interpret_plan(
                     turn.content,
@@ -239,8 +242,25 @@ class HarnessReferenceLoop:
                                 "task_frame_hash": task_frame.task_frame_hash,
                             },
                         )
+                        if not mode_decided:
+                            # 深度裁决归 harness；本 loop 没有子研究协调器，如实报 False。
+                            governance = harness.govern_mode(
+                                task_frame=task_frame,
+                                plan=plan,
+                                context=context,
+                                can_branch=False,
+                            )
+                            context = governance.context
+                            max_slots = max(1, int(context.policy.max_steps))
+                            ledger.add("mode_decision", governance.decision.to_dict())
+                            pending_mode_message = governance.message
+                            mode_decided = True
                         if not turn.tool_calls:
                             plan_turns += 1
+                            if pending_mode_message is not None:
+                                messages.append(
+                                    {"role": "user", "content": pending_mode_message}
+                                )
                             continue
                 if plan_result.error:
                     plan_failures += 1
@@ -331,6 +351,8 @@ class HarnessReferenceLoop:
                             "content": projection.model_content,
                         }
                     )
+                if pending_mode_message is not None:
+                    messages.append({"role": "user", "content": pending_mode_message})
                 halt = harness.halt_after_tool_batch(
                     context=context,
                     batch_errors=tuple(item.error for item in batch.items),
