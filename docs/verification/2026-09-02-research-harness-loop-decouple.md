@@ -177,9 +177,37 @@ P1c 读数取自提交前脏树（脏路径 = 本节三个代码/测试文件 + 
 
 P2' 读数取自提交前脏树（脏路径 = 两个新文件 + 文档），规程壳，7:09；5 红同组，7380 − 7374 = 6 = 新增测试数。
 
+## #528 合并与主干门禁（2026-09-02 12:45 CST）
+
+- merge-tree exit 0；基座落后 6（#524 content-delta 等，零交集）→ 合 `5292175c`。
+- 门禁树 `/Users/a77/tmp/fwp-gate-5292175c81dc`（干净）：ruff 绿；`layer_audit` ERROR 0；全量 **7381 passed / 5 failed / 15 skipped / 1 xfailed**（收据 `20260902T043843Z-5292175c.json`，`dirty=false`）→ `check_test_receipt` **✅ 可采信**；7374→7381 = P2' 6 钉 + #524 1 钉。webapp 四件套 lint / typecheck / **70 passed** / build 绿。
+- 台账 `inflight/main.md` 顶行 + P2' 交接闭环直接落 main（`de749ee8`）。8792 未切。
+
+## P2 `govern_mode`：深度裁决进 harness（分支 `refactor/harness-govern-mode`，基于 `5292175c`）
+
+改动面：`research_harness.py`（`ModeGovernance` 值对象、`ModeSignalsFactory`、`default_mode_signals`、`FinanceResearchHarness.__init__(mode_governor=, mode_signals=)`、`govern_mode`）；`agent_episode.py`（`_decide_mode` 只剩「问 harness → 记事件 → 换 context」，`_append_mode_decision_message` 改取 `governance.message`，删 `_default_mode_signals`，构造器保留 `mode_governor` / `mode_signals` 形参并在自带 harness 时拒绝）；`harness_reference_loop.py`（PLAN 后经 `govern_mode(can_branch=False)`，`MODE_DECISION` 消息与 Episode 同位追加）；`test_research_harness.py`（29 → 32）；`test_harness_reference_loop.py`（有 PLAN 用例从「差恰一条」改「全程一致」）。生产调用方 `glm_agent_runtime.py` / `continuous_sub_research.py` 仍传 `mode_governor` / `mode_signals` 给 Episode——零改动，由 Episode 转交默认 harness。
+
+等价论证：`govern_mode` 五步逐字搬自 `_decide_mode`（信号 → root_budget None 修正 → 分支能力修正 → decide → apply）加 `_append_mode_decision_message` 的 JSON；`can_branch` 由 loop 传入，等于原 `self._sub_research_coordinator is not None`。
+
+### 读数
+
+- 定向 12 个测试文件（三条 loop + mode_governor + sub_research + glm_agent_runtime）**332 passed**。
+- `test_research_harness.py` 32 passed：新增 `govern_mode` 与 decide/apply/文案逐字段等价（含无 root ledger 时依赖修正）、注入的 governor / signals 生效、Episode 拒绝「自带 harness 又传 mode 注入件」；loop 顺序钉成九次调用（`govern_mode` 紧随 PLAN 轮的 `interpret_plan`）。
+- `test_harness_reference_loop.py` 6 passed：**有 PLAN 脚本两条 loop 全程消息一致**（只差 `runtime_budget`），双方都给模型看同一条来自 harness 的 `MODE_DECISION`，参考 loop 记了 `mode_decision` 事件。P2' 钉住的最后一条残余归零。
+- ruff 绿；`layer_audit` ERROR 0。
+- 全量 pytest：见下表回填。
+
+| 树 | passed | failed | skipped | xfailed |
+|---|---:|---:|---:|---:|
+| main `5292175c`（门禁） | 7381 | 5 | 15 | 1 |
+| P2 govern_mode | **7383** | **6** | 15 | 1 |
+
+P2 读数取自提交前脏树，规程壳，约 20 分钟（同机有 webapp 构建等负载，pytest 进程仅得 ~43% CPU）。6 红 = `test_dream_mine` 五例（同基线）+ **1 条新红 `test_agent_review_worker.py::test_reviewer_timeout_kills_descendant_after_leader_exits`**：子进程超时类时序测试，**隔离复跑该文件 20/20 绿**（收据 `20260902T050634Z-5292175c.json`），且该模块不 import 本线任何文件——判为负载假红，不是回归。7383 + 1 = 7384 = 7381 + 3 新钉。
+
 ## 未做 / 红线
 
-- 未改秒数、档位、reserve、`episode_protocol.py` 判定、8792、启动器、快照。
+- 未改秒数、档位、reserve、`episode_protocol.py` / `mode_governor.py` 判定、8792、启动器、快照。
+- 子研究（`_run_sub_research` 需协调器）与其消息投影仍是 Episode 独有；`repair_policy` / 空池回退未抽。
 - **P2'-live 未做**：把 `HarnessReferenceLoop` 当第四臂跑 09-01 同题要先让 8792 快照切到含 harness 的 revision（现役 `5be00c4f` 没有 `research_harness.py`），且烧配额，另拍。
 - `evidence_ordinal_table` / `attach_evidence_ordinals` / `strip_hashes_for_model` 仍被 `agent_episode._append_sub_research_message` 直接用（子研究消息投影，P2 `govern_mode` 范围），本刀不摘。
 - 三条 loop 的 gap 口径不一致：已暴露（`gaps` vs `declared_gaps`），未统一。

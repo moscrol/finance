@@ -291,32 +291,38 @@ def test_without_plan_every_message_the_model_sees_is_identical_modulo_budget() 
     assert episode.stop_reason == "model_finish" and episode.status == "completed"
 
 
-# ── 3. 有 PLAN：diff 恰好是那条 MODE_DECISION ───────────────────────────
+# ── 3. 有 PLAN：深度裁决也经 harness，全程消息归零差 ─────────────────────
 
 
-def test_with_plan_the_only_message_difference_is_episode_mode_decision() -> None:
+def test_with_plan_every_message_the_model_sees_is_identical_modulo_budget() -> None:
+    """P2 `govern_mode` 抽出之前，这里的 diff 恰好是一条 Episode 独有的 MODE_DECISION；
+    抽出之后两条 loop 从同一个 `harness.govern_mode` 拿裁决与文案，diff 归零。"""
+
     (episode_model, episode), (reference_model, reference) = _run_both(
         [_plan_turn(), _tool_turn(), _finish_turn()]
     )
 
     assert len(episode_model.calls) == len(reference_model.calls) == 3
-    assert episode_model.calls[0]["messages"] == reference_model.calls[0]["messages"]
+    for turn_index, (a, b) in enumerate(zip(episode_model.calls, reference_model.calls)):
+        assert a["tools"] == b["tools"], f"turn {turn_index} tools differ"
+        left = [_strip_runtime_budget(m) for m in a["messages"]]
+        right = [_strip_runtime_budget(m) for m in b["messages"]]
+        assert left == right, f"turn {turn_index} messages differ"
 
-    final_left = [_strip_runtime_budget(m) for m in episode_model.calls[-1]["messages"]]
-    final_right = [
-        _strip_runtime_budget(m) for m in reference_model.calls[-1]["messages"]
+    # 两边都给模型看了同一条 MODE_DECISION（来自 harness，不再是 Episode 独有）。
+    mode_messages = [
+        json.loads(str(m["content"]))
+        for m in reference_model.calls[-1]["messages"]
+        if m.get("role") == "user" and str(m["content"]).startswith('{"kind": "MODE_DECISION"')
     ]
-    extra = [m for m in final_left if m not in final_right]
-    missing = [m for m in final_right if m not in final_left]
-    assert missing == [], "参考 loop 不该有 Episode 没有的消息"
-    assert len(extra) == 1, f"Episode 独有消息应恰好一条，实际 {len(extra)}"
-    payload = json.loads(str(extra[0]["content"]))
-    assert extra[0]["role"] == "user" and payload["kind"] == "MODE_DECISION"
+    assert len(mode_messages) == 1
+    assert mode_messages[0]["effective_mode"] == "quick"
 
-    core_left, core_right = _outcome_core(episode), _outcome_core(reference)
-    assert core_left == core_right
-    assert episode.plan is not None and reference.plan is not None
-    assert episode.plan == reference.plan
+    assert _outcome_core(episode) == _outcome_core(reference)
+    assert episode.plan is not None and episode.plan == reference.plan
+    assert [e.kind for e in reference.events if e.kind == "mode_decision"] == [
+        "mode_decision"
+    ]
 
 
 # ── 4. 有牙：参考 loop 的领域判断全在 harness ───────────────────────────

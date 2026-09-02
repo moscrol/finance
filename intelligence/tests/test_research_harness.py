@@ -512,6 +512,79 @@ def test_default_project_tool_result_equals_the_inline_projection() -> None:
     assert json.loads(again.model_content).get("observation") != facing["observation"]
 
 
+def test_default_govern_mode_equals_governor_decide_apply_and_message() -> None:
+    """govern_mode = 信号 → 依赖修正 → decide → apply → MODE_DECISION 文案，与原
+    `_decide_mode` + `_append_mode_decision_message` 逐字段相同。"""
+
+    from intelligence.services.mode_governor import ModeGovernor, ModeSignals
+    from intelligence.services.research_harness import default_mode_signals
+
+    frame = _frame()
+    context = _context(frame)
+    plan = parse_plan_candidate(_plan_content()).plan
+    assert plan is not None
+
+    governance = FinanceResearchHarness().govern_mode(
+        task_frame=frame, plan=plan, context=context, can_branch=False
+    )
+
+    signals = default_mode_signals(frame, plan)
+    # 无 root ledger → 依赖不可用（原 _decide_mode 第一条修正）。
+    assert context.root_budget is None
+    expected_signals = ModeSignals(
+        independent_entities=signals.independent_entities,
+        separable_branches=signals.separable_branches,
+        evidence_domains=signals.evidence_domains,
+        uncovered_answer_elements=signals.uncovered_answer_elements,
+        dependencies_available=False,
+    )
+    decision = ModeGovernor().decide(plan, expected_signals)
+    assert governance.decision == decision
+    assert governance.context == ModeGovernor().apply(context, decision)
+    assert json.loads(governance.message) == {
+        "kind": "MODE_DECISION",
+        **decision.to_dict(),
+        "instruction": (
+            "研究深度与总预算已由运行时裁决。保留原计划，"
+            "继续自主选择查询、工具顺序和停止时点；"
+            "不得把预算或内部裁决文本写入最终答案。"
+        ),
+    }
+
+
+def test_govern_mode_honours_injected_governor_and_signals() -> None:
+    """mode_governor / mode_signals 两个注入件搬到了 harness 构造器上。"""
+
+    from intelligence.services.mode_governor import ModeGovernor, ModeSignals
+
+    class RecordingGovernor(ModeGovernor):
+        def __init__(self) -> None:
+            self.seen: list[ModeSignals] = []
+
+        def decide(self, plan, signals):
+            self.seen.append(signals)
+            return super().decide(plan, signals)
+
+    governor = RecordingGovernor()
+    frame = _frame()
+    plan = parse_plan_candidate(_plan_content()).plan
+    assert plan is not None
+    FinanceResearchHarness(
+        mode_governor=governor,
+        mode_signals=lambda _frame, _plan: ModeSignals(user_mode="quick"),
+    ).govern_mode(task_frame=frame, plan=plan, context=_context(frame), can_branch=True)
+    assert len(governor.seen) == 1 and governor.seen[0].user_mode == "quick"
+
+
+def test_episode_refuses_mode_injection_alongside_a_custom_harness() -> None:
+    from intelligence.services.mode_governor import ModeGovernor
+
+    with pytest.raises(ValueError):
+        ContinuousAgentEpisode(
+            _ScriptedModel([]), harness=FinanceResearchHarness(), mode_governor=ModeGovernor()
+        )
+
+
 def test_default_project_tool_error_shape_and_detail_cap() -> None:
     payload = FinanceResearchHarness().project_tool_error(
         tool="kb_search", error="tool_timeout", detail="x" * 500
@@ -570,6 +643,7 @@ def test_finance_harness_conforms_and_partial_implementation_does_not() -> None:
 
 class _RecordingHarness(FinanceResearchHarness):
     def __init__(self) -> None:
+        super().__init__()
         self.calls: list[str] = []
 
     def assemble_prompt(self, task_frame, context, registry):
@@ -584,6 +658,12 @@ class _RecordingHarness(FinanceResearchHarness):
         self.calls.append("interpret_plan")
         return super().interpret_plan(
             content, previous_plan=previous_plan, task_id=task_id
+        )
+
+    def govern_mode(self, *, task_frame, plan, context, can_branch):
+        self.calls.append("govern_mode")
+        return super().govern_mode(
+            task_frame=task_frame, plan=plan, context=context, can_branch=can_branch
         )
 
     def project_tool_result(self, observation, *, evidence_so_far, seen_prose):
@@ -643,6 +723,7 @@ def test_episode_asks_harness_at_all_seams_in_control_flow_order() -> None:
     assert harness.calls == [
         "assemble_prompt",
         "interpret_plan",
+        "govern_mode",
         "interpret_plan",
         "project_tool_result",
         "halt_after_tool_batch",

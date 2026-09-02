@@ -77,6 +77,7 @@ from intelligence.services.episode_scope import EpisodeScope
 from intelligence.services.research_harness import (
     FinanceResearchHarness,
     FinishAdmission,
+    ModeGovernance,
     ResearchHarness,
 )
 from intelligence.services.research_tool_registry import (
@@ -173,19 +174,6 @@ def _agent_usage(
         invalid_actions=invalid_actions,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
-    )
-
-
-def _default_mode_signals(
-    task_frame: TaskFrame,
-    plan: ResearchPlan,
-) -> ModeSignals:
-    user_task = task_frame.to_user_task()
-    return ModeSignals(
-        independent_entities=len(user_task.subjects),
-        separable_branches=len(plan.branch_goals),
-        evidence_domains=plan.evidence_needs,
-        uncovered_answer_elements=len(plan.open_gaps),
     )
 
 
@@ -624,10 +612,22 @@ class ContinuousAgentEpisode:
         harness: ResearchHarness | None = None,
     ) -> None:
         self._model = model
-        # 领域门（prompt / 批后停机 / 取证面 / 终局准入）由 harness 回答，loop 只调。
-        # 默认金融 harness 是对既有函数的纯委托；传别的实现进来就是换领域。
+        # 领域门（prompt / 批后停机 / 取证面 / 终局准入 / 深度裁决）由 harness 回答，
+        # loop 只调。默认金融 harness 是对既有函数的纯委托；传别的实现进来就是换领域。
+        # mode_governor / mode_signals 是深度裁决的注入件，归 harness；这里保留两个
+        # 形参只为兼容既有调用方（glm_agent_runtime / continuous_sub_research）——
+        # 自带 harness 时再传它们等于两处都想管深度，直接拒绝。
+        if harness is not None and (mode_governor is not None or mode_signals is not None):
+            raise ValueError(
+                "mode_governor / mode_signals belong to the harness; "
+                "construct FinanceResearchHarness(...) with them instead"
+            )
         self._harness: ResearchHarness = (
-            harness if harness is not None else FinanceResearchHarness()
+            harness
+            if harness is not None
+            else FinanceResearchHarness(
+                mode_governor=mode_governor, mode_signals=mode_signals
+            )
         )
         self._llm_timeout = max(0.1, float(llm_timeout))
         self._repair_seconds_cap = (
@@ -644,8 +644,6 @@ class ContinuousAgentEpisode:
             else EpisodeFinalizer(model, llm_timeout=self._llm_timeout)
         )
         self._is_cancelled = is_cancelled or (lambda: False)
-        self._mode_governor = mode_governor or ModeGovernor()
-        self._mode_signals = mode_signals or _default_mode_signals
         self._sub_research_coordinator = sub_research_coordinator
         self._event_sink = event_sink
 
@@ -1033,7 +1031,7 @@ class ContinuousAgentEpisode:
                 if not finalization_started
                 else PlanParseResult(None, "")
             )
-            pending_mode_message: ModeDecision | None = None
+            pending_mode_message: ModeGovernance | None = None
             pending_branch_result: SubResearchResult | None = None
             if plan_result.plan is not None:
                 if not turn.tool_calls:
@@ -1057,7 +1055,11 @@ class ContinuousAgentEpisode:
                         pending_branch_result = self._run_sub_research(
                             task_frame=task_frame,
                             plan=plan_result.plan,
-                            decision=pending_mode_message,
+                            decision=(
+                                pending_mode_message.decision
+                                if pending_mode_message is not None
+                                else None
+                            ),
                             context=context,
                             registry=registry,
                             ledger=ledger,
@@ -1070,7 +1072,7 @@ class ContinuousAgentEpisode:
                         if pending_mode_message is not None:
                             self._append_mode_decision_message(
                                 messages=messages,
-                                decision=pending_mode_message,
+                                governance=pending_mode_message,
                             )
                         if pending_branch_result is not None:
                             self._append_sub_research_message(
@@ -1093,7 +1095,11 @@ class ContinuousAgentEpisode:
                     pending_branch_result = self._run_sub_research(
                         task_frame=task_frame,
                         plan=plan_result.plan,
-                        decision=pending_mode_message,
+                        decision=(
+                            pending_mode_message.decision
+                            if pending_mode_message is not None
+                            else None
+                        ),
                         context=context,
                         registry=registry,
                         ledger=ledger,
@@ -1231,7 +1237,7 @@ class ContinuousAgentEpisode:
                 if pending_mode_message is not None:
                     self._append_mode_decision_message(
                         messages=messages,
-                        decision=pending_mode_message,
+                        governance=pending_mode_message,
                     )
                 if pending_branch_result is not None:
                     self._append_sub_research_message(
@@ -2112,24 +2118,18 @@ class ContinuousAgentEpisode:
         context: ResearchRunContext,
         ledger: _EpisodeLedger,
         continuation_state: _EpisodeContinuationState | None,
-    ) -> tuple[ResearchRunContext, ModeDecision]:
-        signals = self._mode_signals(task_frame, plan)
-        if not isinstance(signals, ModeSignals):
-            raise TypeError("mode_signals must return ModeSignals")
-        if context.root_budget is None and signals.dependencies_available:
-            signals = replace(signals, dependencies_available=False)
-        if (
-            plan.branch_goals
-            and self._sub_research_coordinator is None
-            and signals.dependencies_available
-        ):
-            signals = replace(signals, dependencies_available=False)
-        decision = self._mode_governor.decide(plan, signals)
-        promoted = self._mode_governor.apply(context, decision)
-        ledger.add("mode_decision", decision.to_dict())
+    ) -> tuple[ResearchRunContext, ModeGovernance]:
+        # 深度裁决归 harness；loop 只说自己能不能开分支，然后记账、换 context。
+        governance = self._harness.govern_mode(
+            task_frame=task_frame,
+            plan=plan,
+            context=context,
+            can_branch=self._sub_research_coordinator is not None,
+        )
+        ledger.add("mode_decision", governance.decision.to_dict())
         if continuation_state is not None:
-            continuation_state.context = promoted
-        return promoted, decision
+            continuation_state.context = governance.context
+        return governance.context, governance
 
     def _run_sub_research(
         self,
@@ -2207,25 +2207,9 @@ class ContinuousAgentEpisode:
     def _append_mode_decision_message(
         *,
         messages: list[dict[str, object]],
-        decision: ModeDecision,
+        governance: ModeGovernance,
     ) -> None:
-        messages.append(
-            {
-                "role": "user",
-                "content": json.dumps(
-                    {
-                        "kind": "MODE_DECISION",
-                        **decision.to_dict(),
-                        "instruction": (
-                            "研究深度与总预算已由运行时裁决。保留原计划，"
-                            "继续自主选择查询、工具顺序和停止时点；"
-                            "不得把预算或内部裁决文本写入最终答案。"
-                        ),
-                    },
-                    ensure_ascii=False,
-                ),
-            }
-        )
+        messages.append({"role": "user", "content": governance.message})
 
     @staticmethod
     def _append_sub_research_message(
