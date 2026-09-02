@@ -47,13 +47,7 @@ from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
 )
-from intelligence.services.mandatory_satisfiability import (
-    apply_unreachable_downgrade,
-)
-from intelligence.services.repair_coordinator import (
-    RepairGoal,
-    unreachable_repair_goal,
-)
+from intelligence.services.repair_coordinator import RepairGoal
 from intelligence.services.research_contract import (
     ResearchDeadline,
     ResearchRunContext,
@@ -210,20 +204,6 @@ def _settle_batch_calls(
             root_budget.consume_call(seconds=seconds_per_call)
         except ValueError:
             root_budget.settle_seconds(seconds=seconds_per_call)
-def _evidence_required_output_ids(context: object) -> frozenset[str]:
-    """契约里 evidence 口径的必填输出 id。model_reasoning 格不在此列。"""
-
-    contract = getattr(context, "contract", None)
-    return frozenset(
-        str(getattr(item, "output_id", ""))
-        for item in getattr(contract, "required_outputs", ())
-        if getattr(item, "required", True)
-        and str(getattr(item, "grounding_mode", "evidence")) == "evidence"
-    )
-
-
-
-
 class _EpisodeLedger:
     def __init__(
         self,
@@ -1508,20 +1488,13 @@ class ContinuousAgentEpisode:
         research_tools_open = not repair_tool_deadline.expired
         goal_payload = goal.to_dict()
         # 把「这一轮结构性不可能补上」的格显式投递进 trace（#289 第 6 刀观测）。
-        # W2 在观测之后接裁决：降级 contract / 模型侧 goal，但不跳过本轮。
-        unreachable = unreachable_repair_goal(
-            goal,
-            evidence_output_ids=_evidence_required_output_ids(context),
-        )
-        if unreachable:
-            goal_payload["unreachable_without_tools"] = list(unreachable)
+        # W2 在观测之后接裁决：降级 contract / 模型侧 goal，但不跳过本轮——
+        # salvage 刚写出的 FINAL_JSON 仍然要跑。哪些格不可达、降成什么样是领域的事。
+        downgrade = self._harness.downgrade_unreachable(goal, contract=context.contract)
+        if downgrade.unreachable:
+            goal_payload["unreachable_without_tools"] = list(downgrade.unreachable)
         ledger.add("repair_goal", goal_payload)
-        # 观测保留完整 goal；裁决后的契约/指令才降级。不跳过本轮——
-        # salvage 刚写出的 FINAL_JSON 仍然要跑。
-        downgraded_contract, prompt_goal = apply_unreachable_downgrade(
-            context.contract,
-            goal,
-        )
+        downgraded_contract, prompt_goal = downgrade.contract, downgrade.goal
         if downgraded_contract is not context.contract:
             context = replace(context, contract=downgraded_contract)
             state.context = context

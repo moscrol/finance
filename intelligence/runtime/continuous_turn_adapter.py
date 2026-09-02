@@ -46,9 +46,6 @@ from intelligence.services.episode_verifier import (
     verify_episode_outcome,
 )
 from intelligence.services.honesty_gates import with_calendar_disclosure
-from intelligence.services.mandatory_satisfiability import (
-    apply_unreachable_downgrade,
-)
 from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
@@ -1229,10 +1226,11 @@ class ContinuousTurnAdapter:
         )
         if admission is None:
             return None
-        verify_contract, _ = apply_unreachable_downgrade(
-            context.contract,
+        # 修复轮按哪张契约验：不可达格已降级的那张——与 Episode 开场用的是同一裁决。
+        verify_contract = self._harness.downgrade_unreachable(
             admission.goal,
-        )
+            contract=context.contract,
+        ).contract
         candidate = resume(admission.goal)
         if not isinstance(candidate, AgentOutcome):
             raise TypeError("episode session resume must return AgentOutcome")

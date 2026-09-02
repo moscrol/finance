@@ -32,17 +32,20 @@ retrieval_complete   shouldStopAfterTurn          —
 admit_finish         **—（pi 没有）**              **—（dsh 没有）**
 classify_repair_need **—（pi 没有）**              **—（dsh 没有）**
 warrant_repair       **—（pi 没有）**              **—（dsh 没有）**
+downgrade_unreachable **—（pi 没有）**             **—（dsh 没有）**
 repair_goal_message  transformContext（注入）      agent/pre-step → enter(messages)
 admit_repair_result  **—（pi 没有）**              **—（dsh 没有）**
 ===================  ===========================  ==============================
 
 修复轮（`2026-09-02-repair-policy-state-machine.md`）两家也没有——它们的 loop 停下就是
-停下，没有「验证驳回后再来一轮」。四个方法按修复轮的时序：``classify_repair_need``
+停下，没有「验证驳回后再来一轮」。五个方法按修复轮的时序：``classify_repair_need``
 （这次失败该修什么、属哪类、要补几个格、要不要重开工具）与 ``warrant_repair``（这个
 tier 还容忍这一轮吗、上一轮有进展吗）是**申请**，底座 ``runtime/repair_budget`` 据此
-铸窗或拒绝——领域不碰账本；``repair_goal_message`` 是修复轮开场对模型说的话（REPAIR_GOAL
-正文 + 工具开/关两套指令）；``admit_repair_result`` 判「修完算不算进步」（换了稿或绑定
-才算，没动手也没改就是 stop）。「付不付得起、几个格折几次调用」是预算，不在这里。
+铸窗或拒绝——领域不碰账本；``downgrade_unreachable`` 判哪些必填格这一轮结构性补不上
+（没工具就变不出新证据），把契约与模型侧目标一起降级；``repair_goal_message`` 是修复轮
+开场对模型说的话（REPAIR_GOAL 正文 + 工具开/关两套指令）；``admit_repair_result`` 判
+「修完算不算进步」（换了稿或绑定才算，没动手也没改就是 stop）。「付不付得起、几个格折
+几次调用」是预算，不在这里。
 
 ``govern_mode``（研究该做多深：quick / deep，以及升档后的预算合同）也是两家没有的：
 它们的 loop 不分档。深度裁决读的是任务框架与 PLAN（领域），落到 context 上的是预算
@@ -103,15 +106,23 @@ from intelligence.services.mode_governor import (
     ModeSignals,
 )
 from intelligence.services.episode_verifier import VerifiedEpisodeOutcome
+from intelligence.services.mandatory_satisfiability import (
+    apply_unreachable_downgrade,
+    evidence_required_output_ids,
+)
 from intelligence.services.repair_coordinator import (
     ProgressSnapshot,
     RepairGoal,
     RepairNeed,
     RepairWarrant,
     classify_repair_need,
+    unreachable_repair_goal,
     warrant_repair,
 )
-from intelligence.services.research_contract import ResearchRunContext
+from intelligence.services.research_contract import (
+    ResearchRunContext,
+    ResearchTaskContract,
+)
 from intelligence.services.research_plan import (
     PlanParseResult,
     ResearchPlan,
@@ -132,6 +143,7 @@ __all__ = [
     "FinishAdmission",
     "ModeGovernance",
     "ModeSignalsFactory",
+    "RepairDowngrade",
     "RepairVerdict",
     "ResearchHarness",
     "SteeringKind",
@@ -249,6 +261,21 @@ class ToolResultProjection:
     audit_payload: dict[str, object]
     model_content: str
     seen_prose: frozenset[str]
+
+
+@dataclass(frozen=True)
+class RepairDowngrade:
+    """修复轮开场前的裁决：哪些必填格这一轮结构性补不上，契约与目标随之降级。
+
+    ``unreachable`` 为空时 ``contract`` / ``goal`` 就是传进来的原对象（loop 用 ``is``
+    判有没有降级，这一点是合同）。非空时 ``contract`` 是降级后的契约（那些格不再
+    必填、evidence 要求不再 mandatory），``goal`` 是去掉不可达格的模型侧目标；
+    观测用的原始 goal 由 loop 自己继续投递。
+    """
+
+    unreachable: tuple[str, ...]
+    contract: ResearchTaskContract
+    goal: RepairGoal
 
 
 @dataclass(frozen=True)
@@ -418,6 +445,19 @@ class ResearchHarness(Protocol):
         research_tier: str,
     ) -> RepairWarrant:
         """这个 tier 还容忍第 ``cycle`` 轮吗；上一轮有没有独立证据进展。不看预算。"""
+        ...
+
+    def downgrade_unreachable(
+        self,
+        goal: RepairGoal,
+        *,
+        contract: ResearchTaskContract,
+    ) -> RepairDowngrade:
+        """授予已定、开场之前：哪些 evidence 口径的必填格这一轮结构性补不上。
+
+        不放宽任何限制、不加任何预算——只把「不可能」显式化，让 loop 不必空转
+        再发残稿。``goal.reopen_tools`` 为真（底座批了重开工具）就没有不可达。
+        """
         ...
 
     def repair_goal_message(self, goal: RepairGoal, *, tools_open: bool) -> str:
@@ -754,6 +794,24 @@ class FinanceResearchHarness:
         research_tier: str,
     ) -> RepairWarrant:
         return warrant_repair(progress, cycle=cycle, research_tier=research_tier)
+
+    def downgrade_unreachable(
+        self,
+        goal: RepairGoal,
+        *,
+        contract: ResearchTaskContract,
+    ) -> RepairDowngrade:
+        # 原 agent_episode.resume() 的两步：先算不可达格（进 trace），再降级契约 / 目标。
+        unreachable = unreachable_repair_goal(
+            goal,
+            evidence_output_ids=evidence_required_output_ids(contract),
+        )
+        downgraded, prompt_goal = apply_unreachable_downgrade(contract, goal)
+        return RepairDowngrade(
+            unreachable=unreachable,
+            contract=downgraded,
+            goal=prompt_goal,
+        )
 
     def repair_goal_message(self, goal: RepairGoal, *, tools_open: bool) -> str:
         # 逐字搬自 agent_episode.resume()：REPAIR_GOAL 正文 + 工具开/关两套指令。

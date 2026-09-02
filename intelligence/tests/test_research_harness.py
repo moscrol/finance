@@ -63,10 +63,19 @@ from intelligence.services.research_contract import (
     ResearchRunContext,
     ResearchTaskContract,
 )
-from intelligence.services.repair_coordinator import CoverageDelta, RepairGoal
+from intelligence.services.mandatory_satisfiability import (
+    apply_unreachable_downgrade,
+    evidence_required_output_ids,
+)
+from intelligence.services.repair_coordinator import (
+    CoverageDelta,
+    RepairGoal,
+    unreachable_repair_goal,
+)
 from intelligence.services.research_harness import (
     FinanceResearchHarness,
     FinishAdmission,
+    RepairDowngrade,
     RepairVerdict,
     ResearchHarness,
     ToolResultProjection,
@@ -1630,8 +1639,77 @@ def test_repair_verdict_from_harness_changes_outcome_so_the_seam_has_teeth() -> 
     assert finish.payload["stop_reason"] == "repair_model_finish"
 
 
+def test_default_downgrade_unreachable_equals_direct_calls() -> None:
+    """默认 harness 的不可达裁决 = resume() 原来的两步（先算格、再降级），逐字段相等。"""
+
+    contract = _context(_frame()).contract
+    harness = FinanceResearchHarness()
+
+    reachable = _repair_goal(remaining_calls=1)
+    downgrade = harness.downgrade_unreachable(reachable, contract=contract)
+    assert downgrade.unreachable == ()
+    assert downgrade.contract is contract
+    assert downgrade.goal is reachable
+
+    stuck = _repair_goal(remaining_calls=0)
+    downgrade = harness.downgrade_unreachable(stuck, contract=contract)
+    expected_unreachable = unreachable_repair_goal(
+        stuck, evidence_output_ids=evidence_required_output_ids(contract)
+    )
+    expected_contract, expected_goal = apply_unreachable_downgrade(contract, stuck)
+    assert downgrade.unreachable == expected_unreachable == ("direct_assessment",)
+    assert downgrade.contract == expected_contract
+    assert downgrade.contract is not contract
+    assert downgrade.goal == expected_goal
+    assert downgrade.goal.missing_answer_elements == ()
+
+    reopened = replace(stuck, reopen_tools=True)
+    downgrade = harness.downgrade_unreachable(reopened, contract=contract)
+    assert downgrade.unreachable == ()
+    assert downgrade.contract is contract
+
+
+class _NeverDowngradesHarness(FinanceResearchHarness):
+    """领域认为没有格是补不上的：契约与目标原样交给模型。"""
+
+    def downgrade_unreachable(self, goal, *, contract):
+        return RepairDowngrade(unreachable=(), contract=contract, goal=goal)
+
+
+def test_downgrade_from_harness_shapes_trace_and_model_goal() -> None:
+    """同一份「零工具额度」的修复轮：默认 harness 把 direct_assessment 标成不可达并从模型侧
+    目标里摘掉；不降级的 harness 让 trace 没有 unreachable_without_tools、模型仍看到那个格。"""
+
+    unchanged = _finish_content(status="partial", gap="仍缺反方")
+
+    default_model, default_outcome = _run_then_resume(
+        FinanceResearchHarness(),
+        resume_turns=[ModelTurn(unchanged, (), "scripted", "")],
+        remaining_calls=0,
+    )
+    default_goal_event = [e for e in default_outcome.events if e.kind == "repair_goal"][-1]
+    assert tuple(default_goal_event.payload["unreachable_without_tools"]) == ("direct_assessment",)
+    default_prompt = json.loads(
+        [m for m in default_model.seen_messages[-1] if m.get("role") == "user"][-1]["content"]
+    )
+    assert default_prompt["kind"] == "REPAIR_GOAL"
+    assert default_prompt["missing_answer_elements"] == []
+
+    custom_model, custom_outcome = _run_then_resume(
+        _NeverDowngradesHarness(),
+        resume_turns=[ModelTurn(unchanged, (), "scripted", "")],
+        remaining_calls=0,
+    )
+    custom_goal_event = [e for e in custom_outcome.events if e.kind == "repair_goal"][-1]
+    assert "unreachable_without_tools" not in custom_goal_event.payload
+    custom_prompt = json.loads(
+        [m for m in custom_model.seen_messages[-1] if m.get("role") == "user"][-1]["content"]
+    )
+    assert custom_prompt["missing_answer_elements"] == ["direct_assessment"]
+
+
 def test_resume_no_longer_carries_repair_wording_or_verdict() -> None:
-    """棘轮：REPAIR_GOAL 文案、收口指令、兜底 gap、三元判定都不得回焊进 loop。"""
+    """棘轮：REPAIR_GOAL 文案、收口指令、兜底 gap、三元判定、不可达裁决都不得回焊进 loop。"""
 
     source = _AGENT_EPISODE_PATH.read_text(encoding="utf-8")
     for needle in (
@@ -1642,8 +1720,16 @@ def test_resume_no_longer_carries_repair_wording_or_verdict() -> None:
         "修复轮未执行新的取证动作，缺口仍未补齐",
         "completed_without_tool",
         "revised_without_tool",
+        "unreachable_repair_goal(",
+        "apply_unreachable_downgrade(",
+        "_evidence_required_output_ids",
     ):
         assert needle not in source, needle
     assert "repair_goal_message(" in source
     assert 'steering_message(\n                        "repair_finalize"' in source
     assert "admit_repair_result(" in source
+    assert "downgrade_unreachable(" in source
+    tree = ast.parse(source)
+    # 状态机 spec §5 第 4 条：loop 不再 import repair_coordinator 的任何领域判据——只剩值类型。
+    assert _import_from_names(tree, "intelligence.services.repair_coordinator") == {"RepairGoal"}
+    assert _import_from_names(tree, "intelligence.services.mandatory_satisfiability") == set()
