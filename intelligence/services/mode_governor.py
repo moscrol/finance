@@ -1,12 +1,14 @@
-"""Adaptive quick/deep authority for one model-owned research plan."""
+"""Adaptive quick/deep authority for one model-owned research plan.
+
+只裁决「该做多深」。裁决落到预算合同上的动作（提 caps、铸 grant、换 policy）住在
+``intelligence/runtime/tier_promotion.apply_mode_promotion``——领域层不碰账本。
+"""
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from typing import Literal, cast
 
-from intelligence.services.repair_coordinator import BudgetGrant
-from intelligence.services.research_contract import ResearchPolicy, ResearchRunContext
 from intelligence.services.research_plan import ResearchPlan
 
 
@@ -222,73 +224,8 @@ class ModeGovernor:
             conditions=observable,
         )
 
-    def apply(
-        self,
-        context: ResearchRunContext,
-        decision: ModeDecision,
-    ) -> ResearchRunContext:
-        """Apply one approved deep promotion to the existing episode authority."""
-
-        if not isinstance(context, ResearchRunContext):
-            raise TypeError("context must be ResearchRunContext")
-        if not isinstance(decision, ModeDecision):
-            raise TypeError("decision must be ModeDecision")
-        if not decision.approved or decision.effective_mode != "deep":
-            return context
-        if decision.tool_call_cap > 24 or decision.target_seconds > 240.0:
-            raise ValueError("deep decision exceeds product cap")
-        root = context.root_budget
-        if root is None:
-            raise ValueError("deep promotion requires one root budget ledger")
-
-        episode_id = context.contract.task_id
-        promotion_id = f"mode-promotion:{episode_id}:deep"
-        allocated_calls = root.allocated_calls
-        allocated_seconds = root.allocated_seconds
-        if not root.promote_caps(
-            episode_id=episode_id,
-            promotion_id=promotion_id,
-            hard_calls_cap=decision.tool_call_cap,
-            hard_seconds_cap=decision.target_seconds,
-        ):
-            raise ValueError("root budget refused deep promotion")
-
-        deep_policy = ResearchPolicy.for_tier("deep")
-        target_allocated_seconds = max(
-            0.0,
-            decision.target_seconds - deep_policy.synthesis_reserve,
-        )
-        calls_granted = max(0, decision.tool_call_cap - allocated_calls)
-        seconds_granted = max(0.0, target_allocated_seconds - allocated_seconds)
-        if calls_granted or seconds_granted:
-            if calls_granted <= 0 or seconds_granted <= 0:
-                raise ValueError("deep budget allocation is internally inconsistent")
-            grant = BudgetGrant(
-                grant_id=f"grant-{promotion_id}",
-                episode_id=episode_id,
-                cycle=0,
-                calls_granted=calls_granted,
-                seconds_granted=seconds_granted,
-            )
-            if not root.grant(grant):
-                raise ValueError("root budget refused deep allocation")
-
-        deadline_extension = max(
-            0.0,
-            decision.target_seconds - context.policy.total_seconds,
-        )
-        promoted_deadline = replace(
-            context.deadline,
-            expires_at=context.deadline.expires_at + deadline_extension,
-            synthesis_reserve=deep_policy.synthesis_reserve,
-        )
-        if context.policy.tier == "deep" and deadline_extension == 0.0:
-            promoted_deadline = context.deadline
-        return replace(
-            context,
-            policy=deep_policy,
-            deadline=promoted_deadline,
-        )
+    # 「升」的账本动作（提 caps / 铸 grant / 换 policy）在 ``runtime/tier_promotion``
+    # ``apply_mode_promotion``：领域裁决、底座记账，本类不再持有账本。
 
 
 __all__ = [

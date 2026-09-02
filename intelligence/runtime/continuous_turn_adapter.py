@@ -71,6 +71,7 @@ from intelligence.services.track_contract import (
     merge_track_missing_outputs,
 )
 from intelligence.runtime.repair_budget import admit_backfill_repair, admit_repair
+from intelligence.runtime.tier_promotion import maybe_promote_forecast_residual
 from intelligence.runtime.turn_control_core import TurnControlResult
 
 
@@ -530,10 +531,7 @@ class ContinuousTurnAdapter:
                 ResearchToolRegistry,
                 self._registry_factory(frame, context),
             )
-            from intelligence.services.forecast_residual_budget import (
-                maybe_promote_forecast_residual,
-            )
-
+            # 展望座位升 deep：判定在领域，落账在底座（runtime/tier_promotion）。
             context = maybe_promote_forecast_residual(
                 context,
                 question_type=frame.question_type,
