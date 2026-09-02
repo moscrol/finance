@@ -54,8 +54,6 @@ from intelligence.services.provider_latency import (
     repair_seconds_cap_for,
 )
 from intelligence.services.repair_coordinator import (
-    admit_backfill_repair,
-    admit_repair,
     classify_repair_failure,
     max_repair_cycles_for_tier,
     progress_from_ledger,
@@ -72,6 +70,7 @@ from intelligence.services.track_contract import (
     contract_receipt,
     merge_track_missing_outputs,
 )
+from intelligence.runtime.repair_budget import admit_backfill_repair, admit_repair
 from intelligence.runtime.turn_control_core import TurnControlResult
 
 

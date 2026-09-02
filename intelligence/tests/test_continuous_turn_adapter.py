@@ -50,7 +50,7 @@ from intelligence.services.research_tool_registry import (
     ToolSpec,
 )
 from intelligence.services.task_frame import TaskFrame
-from intelligence.services.repair_coordinator import BACKFILL_BUDGET_FRACTION
+from intelligence.runtime.repair_budget import BACKFILL_BUDGET_FRACTION
 from intelligence.runtime.turn_control_core import TurnControlResult
 
 

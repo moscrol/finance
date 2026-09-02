@@ -52,7 +52,6 @@ from intelligence.services.mandatory_satisfiability import (
 )
 from intelligence.services.repair_coordinator import (
     RepairGoal,
-    grant_for_transient_model_retry,
     unreachable_repair_goal,
 )
 from intelligence.services.research_contract import (
@@ -81,6 +80,7 @@ from intelligence.services.empty_pool_fallback import (
     prefetch_pool_is_empty,
     propose_empty_pool_fallback,
 )
+from intelligence.runtime.repair_budget import grant_for_transient_model_retry
 from intelligence.runtime.sub_research import (
     SubResearchCoordinator,
     SubResearchResult,

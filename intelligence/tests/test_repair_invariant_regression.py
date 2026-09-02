@@ -22,10 +22,10 @@ from __future__ import annotations
 
 import pytest
 
+from intelligence.runtime.repair_budget import grant_for_progress
 from intelligence.services.repair_coordinator import (
     ProgressSnapshot,
     build_repair_goal,
-    grant_for_progress,
     max_repair_cycles_for_tier,
 )
 from intelligence.services.research_contract import (

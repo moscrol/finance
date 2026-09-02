@@ -20,12 +20,14 @@ from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
 )
-from intelligence.services.repair_coordinator import (
-    ProgressSnapshot,
+from intelligence.runtime.repair_budget import (
     _REPAIR_SECONDS_CAP,
-    build_repair_goal,
     grant_for_progress,
     grant_for_transient_model_retry,
+)
+from intelligence.services.repair_coordinator import (
+    ProgressSnapshot,
+    build_repair_goal,
 )
 from intelligence.services.research_contract import InMemoryRootBudgetLedger
 

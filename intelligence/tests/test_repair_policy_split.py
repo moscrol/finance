@@ -34,26 +34,28 @@ from intelligence.services.agent_runtime import (
 from intelligence.services.episode_verifier import VerifiedEpisodeOutcome
 from intelligence.services.evidence_ledger import EvidenceLedgerSnapshot
 from intelligence.services.generic_research_owner import CompletionReport
+from intelligence.runtime.repair_budget import (
+    calls_for_work_units,
+    can_afford_repair,
+    grant_for_backfill,
+    grant_for_cold_restart,
+    grant_for_delivery_repair,
+    grant_for_progress,
+    grant_for_transient_model_retry,
+    size_repair_window,
+)
 from intelligence.services.repair_coordinator import (
     COLD_RESTART_STOP_REASONS,
     DELIVERY_REPAIR_STOP_REASONS,
     BudgetGrant,
     ProgressSnapshot,
     RepairGoal,
-    calls_for_work_units,
-    can_afford_repair,
     classify_repair_failure,
     cycle_within_tier,
-    grant_for_backfill,
-    grant_for_cold_restart,
-    grant_for_delivery_repair,
-    grant_for_progress,
-    grant_for_transient_model_retry,
     max_repair_cycles_for_tier,
     progress_from_ledger,
     repair_is_warranted,
     repair_work_units,
-    size_repair_window,
 )
 from intelligence.services.research_contract import InMemoryRootBudgetLedger
 from intelligence.services.track_contract import TRACK_CONTRACT_OUTPUT_ID_SET

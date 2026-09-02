@@ -37,9 +37,9 @@ from intelligence.services.evidence_capabilities import EvidencePlan, EvidenceRe
 from intelligence.services.evidence_ledger import EvidenceLedgerSnapshot
 from intelligence.services.mode_governor import ModeGovernor, ModeSignals
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.runtime.repair_budget import admit_repair
 from intelligence.services.repair_coordinator import (
     RepairAdmission,
-    admit_repair,
     progress_from_ledger,
 )
 from intelligence.services.research_contract import (

@@ -12,9 +12,18 @@
 > - **M1–M4 已实施**（`e4657a11`）：`should_reenter` 拆为 `repair_is_warranted`（领域）
 >   ∧ `can_afford_repair`（预算）；`work_units` 拆为 `repair_work_units`（格数）×
 >   `calls_for_work_units`（换算）；`grant_for_progress` 变三行编排；`_mint_grant`
->   成唯一记账点。仍全在 `services/repair_coordinator.py`——**只分离、未搬家**。
->   金标 + 网格等价 + 两次变异见 `intelligence/tests/test_repair_policy_split.py`。
-> - M5 / M6 / M7 / §4 签名：未做。
+>   成唯一记账点。金标 + 网格等价 + 两次变异见 `intelligence/tests/test_repair_policy_split.py`。
+> - **M6 已实施**（`8cc02f1f`）：三个 candidate 判据 + 两个 stop_reason 集合从 adapter 搬进
+>   `services/repair_coordinator.classify_repair_failure` → `RepairFailureShape`；adapter 只叠
+>   `allow_delivery_repair`（cycle 状态，底座的账）。1008 格逐格等价 + AST 棘轮。
+> - **M5 已实施**（本提交）：五种 `grant_for_*`、两个 `admit_*`、`can_afford_repair` /
+>   `calls_for_work_units` / `size_repair_window` / `_mint_grant` / `_resolve_seconds_cap` /
+>   `_REPAIR_SECONDS_CAP` / `BACKFILL_BUDGET_FRACTION` 整体搬到 **`intelligence/runtime/repair_budget.py`**。
+>   `services/repair_coordinator.py` 只剩值对象 + 领域判据（393 行），不再持有 `RootBudgetLedger`。
+>   修复线的 `root_budget.grant()` 只在 `repair_budget._mint_grant` 一处被调。
+>   **顺手发现（不属本单）**：`services/mode_governor.py:273` 的升档授予也在 services 侧
+>   直接 `root.grant()`——与 M5 同一种错层（领域层碰账本），归 `govern_mode` 线另立案。
+> - M7（`reopen_tools` 具名授权）/ §4 四方法签名 / `HarnessReferenceLoop.resume`：未做。
 
 ---
 

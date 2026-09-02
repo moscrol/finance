@@ -428,7 +428,7 @@ def test_repair_seconds_cap_zero_falls_back_not_off(board) -> None:
     三者同解。把 0 当 off 会得到「拧了、没变、正控空」的假失败读数。
     """
 
-    from intelligence.services.repair_coordinator import (
+    from intelligence.runtime.repair_budget import (
         _REPAIR_SECONDS_CAP,
         _resolve_seconds_cap,
     )
