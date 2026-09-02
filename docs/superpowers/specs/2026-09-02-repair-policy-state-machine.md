@@ -23,7 +23,7 @@
 >   修复线的 `root_budget.grant()` 只在 `repair_budget._mint_grant` 一处被调。
 >   **顺手发现（不属本单）**：`services/mode_governor.py:273` 的升档授予也在 services 侧
 >   直接 `root.grant()`——与 M5 同一种错层（领域层碰账本），归 `govern_mode` 线另立案。
-> - **§4 签名，执行体那一半已实施**（本提交）：`ResearchHarness` 十方法 → 十二方法——
+> - **§4 签名，执行体那一半已实施**（`3df916c2`）：`ResearchHarness` 十方法 → 十二方法——
 >   `repair_goal_message(goal, *, tools_open)`（REPAIR_GOAL 正文 + 工具开/关两套指令）与
 >   `admit_repair_result(*, admission, previous, performed_tool_action) -> RepairVerdict{status, gaps, progressed}`
 >   （三元判定 + 兜底 gap）；`SteeringKind` 加第四个时点 `repair_finalize`（工具批后的收口指令）。
@@ -31,10 +31,31 @@
 >   字节等价 + 48 格裁决等价 + 有牙两条 + 棘轮 + 变异（loop 忽略 verdict → 红 4）见
 >   `test_research_harness.py` 第 7 节。`_carry_repair_finish` 的「新稿 > 旧稿」未抽——它是
 >   围着 `admit_finish` 的 loop 管线，两行取舍，留在 loop。
-> - **未做**：§4 准入那一半——`classify_repair_need` / `repair_is_warranted` 作为 harness 方法
->   （adapter 现在不持有 harness，要先决定构造注入还是从 runtime 取；`repair_budget.grant_for_progress`
->   现在是**调**领域判据而不是**被告知**，签名要翻过来）；M7（`reopen_tools` 具名授权）；
->   `HarnessReferenceLoop.resume` 真跑一轮（§5 第 5 条读数）。
+> - **§4 签名，准入那一半 + M7 已实施**（`5288d4c4`）：`RepairNeed{missing_outputs, missing_capabilities,
+>   rejected_claims, shape, work_units}`（+ `needs_tools` 属性 = M7 的具名申请）与
+>   `RepairWarrant{cycle_allowed, progressed}`（两个事实分开摆：进度修复要两者都成立，交付修复只看
+>   `cycle_allowed`）；harness 加 `classify_repair_need` / `warrant_repair`（十二 → 十四）。
+>   `repair_budget` 的 `grant_for_*` / `admit_repair` 从**调**领域判据翻成**被告知**，不再 import
+>   任何判据函数；adapter 构造注入 `harness`（默认 `FinanceResearchHarness()`，`api/app.py` 零改动），
+>   `_resume_for_gap` 只问 harness、算余量、调 `admit_repair`。**与本文 §4 建议签名的差**：
+>   `repair_is_warranted -> bool` 改成 `warrant_repair -> RepairWarrant`，因为交付路径只需 tier 闸
+>   不需进度闸；`classify_repair_need` 不返回 `None`（等价优先，「不值得修」由 shape 全 False 表达）。
+>   有牙两条均看 outcome：`warrant_repair ≡ 不容忍` → `repair_cycles` 1 → 0；只报 delivery 的分类器
+>   → 零证据饿死拿不到冷启动窗。变异：`admit_repair` 忽略 warrant → 红 8。
+> - **不可达降级已进 harness**（`d9b46afa`）：`downgrade_unreachable(goal, *, contract) -> RepairDowngrade
+>   {unreachable, contract, goal}`（十四 → 十五），Episode 与 adapter 都问它；Episode 从 `repair_coordinator`
+>   只剩 `RepairGoal` 值类型、不再 import `mandatory_satisfiability`——**§5 第 4 条闭合**。
+> - **`HarnessReferenceLoop.resume` 已实施**（`fa5e162a`）：`ReferenceLoopState` + `_ingest_batch` +
+>   一轮修复（开场 → 可选工具批 → 收口 → 准入 → 裁决）。两条 loop 在同一段历史上各修一轮：模型看到的
+>   每条消息一致（只差 `runtime_budget`）、`repair_goal` 事件一致、outcome 一致——**§5 第 5 条闭合**。
+>
+> **§5 五条验收现状**：① 等价——金标 / 网格逐字段 ✅；② 有牙——两条均成立 ✅；③ 无牙即失败——
+> 自定义文案真到模型眼前 ✅；④ 棘轮——Episode 从 `repair_coordinator` 只 import `RepairGoal`、adapter
+> 不持有两个集合也不 import 任何判据函数 ✅；⑤ 第二条 loop 真跑一轮 ✅。
+>
+> **本线未做**：`_recover_finalization` 是否并进 repair cycle（独立决定，§6 红线明写本单不动）；
+> `_carry_repair_finish` 两行取舍留 loop；`finance-base-ab/shape_lib/reference_loop_arm.py` 的
+> 「resume 抛无修复轮」壳属实验树，可改调 `HarnessReferenceLoop.resume`。
 
 ---
 
