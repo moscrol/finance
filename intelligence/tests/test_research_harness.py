@@ -585,6 +585,81 @@ def test_episode_refuses_mode_injection_alongside_a_custom_harness() -> None:
         )
 
 
+def test_default_project_sub_research_equals_inline_projection() -> None:
+    """分支证据按主 episode 累计序号呈现、去 hash；文案逐字与原 _append_sub_research_message 同。"""
+
+    from dataclasses import dataclass as _dc
+
+    @_dc(frozen=True)
+    class _Branch:
+        branch_id: str
+        goal: str
+        status: str
+        evidence: tuple[AgentEvidence, ...]
+        gaps: tuple[str, ...]
+
+    main_evidence = (_evidence("evidence-1"), _evidence("branch-1", title="反方驱动证据"))
+    branches = (
+        _Branch("branch-1", "反方证据", "completed", (main_evidence[1],), ("缺少量能数据",)),
+        _Branch("branch-2", "资金面", "failed", (), ("超时",)),
+    )
+
+    text = FinanceResearchHarness().project_sub_research(
+        branches=branches, refused_reason="", evidence=main_evidence
+    )
+
+    ordinals = evidence_ordinal_table(main_evidence)
+    expected = {
+        "kind": "SUB_RESEARCH_RESULTS",
+        "branches": [
+            {
+                "branch_id": "branch-1",
+                "goal": "反方证据",
+                "status": "completed",
+                "evidence": strip_hashes_for_model(
+                    {
+                        "evidence": attach_evidence_ordinals(
+                            [public_agent_evidence(main_evidence[1])], ordinals
+                        )
+                    }
+                )["evidence"],
+                "gaps": ["缺少量能数据"],
+            },
+            {
+                "branch_id": "branch-2",
+                "goal": "资金面",
+                "status": "failed",
+                "evidence": [],
+                "gaps": ["超时"],
+            },
+        ],
+        "refused_reason": "",
+        "instruction": (
+            "这些是只读分支返回的公开证据观察，不是最终答案。"
+            "主 episode 仍需自行比较证据、处理冲突并决定停止；"
+            "绑定用证据序号 E1、E2…，不得把分支状态或内部标识写入公开答案。"
+        ),
+    }
+    assert json.loads(text) == expected
+    branch_rows = json.loads(text)["branches"][0]["evidence"]
+    assert branch_rows[0]["evidence_id"] == "E2"
+    assert all("content_hash" not in row for row in branch_rows)
+
+
+def test_agent_episode_no_longer_projects_evidence_ordinals_itself() -> None:
+    """三个序号函数的最后一个直接调用点（子研究消息）也进了 harness。"""
+
+    tree = ast.parse(_AGENT_EPISODE_PATH.read_text(encoding="utf-8"))
+    protocol_names = _import_from_names(tree, "intelligence.services.episode_protocol")
+    assert not protocol_names & {
+        "evidence_ordinal_table",
+        "attach_evidence_ordinals",
+        "strip_hashes_for_model",
+    }
+    # 到此为止 loop 从 episode_protocol 只剩下常量与一个非门的字段函数。
+    assert protocol_names <= {"SYSTEM_PROMPT_DYNAMIC_BOUNDARY", "finish_rejection_fields"}
+
+
 def test_default_project_tool_error_shape_and_detail_cap() -> None:
     payload = FinanceResearchHarness().project_tool_error(
         tool="kb_search", error="tool_timeout", detail="x" * 500

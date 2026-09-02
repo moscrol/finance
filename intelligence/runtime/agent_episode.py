@@ -22,7 +22,6 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
     OutputEvidenceBinding,
     is_transient_model_error,
-    public_agent_evidence,
 )
 from intelligence.runtime.episode_finalizer import (
     MIN_FINALIZATION_RECOVERY_SECONDS,
@@ -31,10 +30,7 @@ from intelligence.runtime.episode_finalizer import (
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_protocol import (
     SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
-    attach_evidence_ordinals,
-    evidence_ordinal_table,
     finish_rejection_fields,
-    strip_hashes_for_model,
 )
 from intelligence.runtime.episode_tool_batch import (
     EpisodeToolBatchSession,
@@ -2211,48 +2207,20 @@ class ContinuousAgentEpisode:
     ) -> None:
         messages.append({"role": "user", "content": governance.message})
 
-    @staticmethod
     def _append_sub_research_message(
+        self,
         *,
         messages: list[dict[str, object]],
         result: SubResearchResult,
         evidence: tuple[AgentEvidence, ...] = (),
     ) -> None:
-        ordinals = evidence_ordinal_table(evidence)
         messages.append(
             {
                 "role": "user",
-                "content": json.dumps(
-                    {
-                        "kind": "SUB_RESEARCH_RESULTS",
-                        "branches": [
-                            {
-                                "branch_id": branch.branch_id,
-                                "goal": branch.goal,
-                                "status": branch.status,
-                                "evidence": strip_hashes_for_model(
-                                    {
-                                        "evidence": attach_evidence_ordinals(
-                                            [
-                                                public_agent_evidence(item)
-                                                for item in branch.evidence
-                                            ],
-                                            ordinals,
-                                        )
-                                    }
-                                )["evidence"],
-                                "gaps": list(branch.gaps),
-                            }
-                            for branch in result.branches
-                        ],
-                        "refused_reason": result.refused_reason,
-                        "instruction": (
-                            "这些是只读分支返回的公开证据观察，不是最终答案。"
-                            "主 episode 仍需自行比较证据、处理冲突并决定停止；"
-                            "绑定用证据序号 E1、E2…，不得把分支状态或内部标识写入公开答案。"
-                        ),
-                    },
-                    ensure_ascii=False,
+                "content": self._harness.project_sub_research(
+                    branches=result.branches,
+                    refused_reason=result.refused_reason,
+                    evidence=evidence,
                 ),
             }
         )

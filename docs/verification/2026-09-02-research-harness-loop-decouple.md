@@ -204,10 +204,35 @@ P2' 读数取自提交前脏树（脏路径 = 两个新文件 + 文档），规�
 
 P2 读数取自提交前脏树，规程壳，约 20 分钟（同机有 webapp 构建等负载，pytest 进程仅得 ~43% CPU）。6 红 = `test_dream_mine` 五例（同基线）+ **1 条新红 `test_agent_review_worker.py::test_reviewer_timeout_kills_descendant_after_leader_exits`**：子进程超时类时序测试，**隔离复跑该文件 20/20 绿**（收据 `20260902T050634Z-5292175c.json`），且该模块不 import 本线任何文件——判为负载假红，不是回归。7383 + 1 = 7384 = 7381 + 3 新钉。
 
+## #529 合并与主干门禁（2026-09-02 13:15 CST）
+
+- merge-tree exit 0；基座落后 1（台账 docs）→ 合 `b8cc9a73`。门禁树 `/Users/a77/tmp/fwp-gate-b8cc9a739db8`（干净）：ruff 绿；`layer_audit` ERROR 0；全量 **7384 passed / 5 failed / 15 skipped / 1 xfailed**（收据 `20260902T052327Z-b8cc9a73.json`，`dirty=false`）→ `check_test_receipt` **✅ 可采信**；5 红只剩 `test_dream_mine`——分支尖那条 `test_agent_review_worker` 超时假红在低负载主干门禁**未复现**。webapp 四件套 lint / typecheck / **70 passed** / build 绿。台账 `inflight/main.md` 顶行 + govern-mode 交接闭环直接落 main（`585d6bd1`）。8792 未切。
+
+## P2 子研究消息投影：`project_sub_research`（分支 `refactor/harness-sub-research-projection`，基于 `b8cc9a73`）
+
+改动面：`research_harness.py`（结构类型 `BranchOutcome` + `project_sub_research`）；`agent_episode.py`（`_append_sub_research_message` 改取 harness，静态→实例；去 import `evidence_ordinal_table` / `attach_evidence_ordinals` / `strip_hashes_for_model` / `public_agent_evidence`）；`test_research_harness.py`（32 → 34）。`_run_sub_research`（起分支 / 排空 / `branch_*` 事件）留 loop。
+
+层级：`SubResearchResult` / `BranchResult` 住在 `runtime/sub_research.py`，services 不能 import。`BranchOutcome` 只声明五个属性（branch_id / goal / status / evidence / gaps），`BranchResult` 结构满足，`layer_audit` ERROR 0。
+
+等价论证：JSON 整段逐字搬运；序号仍从主 episode 累计证据算。既有 `test_agent_episode` 深档分支用例断言 `SUB_RESEARCH_RESULTS` 与分支证据标题在场、分支 draft 不在场——loop 路径的回归网。
+
+### 读数
+
+- 定向 6 文件（含 `test_sub_research` / `test_glm_agent_runtime`）**257 passed**；`test_research_harness.py` **34 passed**（新增：投影与内联逐字段等价——分支证据用主 episode 序号 `E2`、无 `content_hash`、失败分支空证据；棘轮：`agent_episode` 从 `episode_protocol` 只剩 `{SYSTEM_PROMPT_DYNAMIC_BOUNDARY, finish_rejection_fields}`）。
+- ruff 绿；`layer_audit` ERROR 0。
+- 全量 pytest：见下表回填。
+
+| 树 | passed | failed | skipped | xfailed |
+|---|---:|---:|---:|---:|
+| main `b8cc9a73`（门禁） | 7384 | 5 | 15 | 1 |
+| P2 sub-research | **7386** | **5** | 15 | 1 |
+
+P2 子研究读数取自提交前脏树，规程壳；5 红同组 `test_dream_mine`，7386 − 7384 = 2 = 新增测试数。
+
 ## 未做 / 红线
 
 - 未改秒数、档位、reserve、`episode_protocol.py` / `mode_governor.py` 判定、8792、启动器、快照。
-- 子研究（`_run_sub_research` 需协调器）与其消息投影仍是 Episode 独有；`repair_policy` / 空池回退未抽。
+- `_run_sub_research`（需协调器、持状态）仍是 Episode 独有；`repair_policy` / 空池回退未抽。
 - **P2'-live 未做**：把 `HarnessReferenceLoop` 当第四臂跑 09-01 同题要先让 8792 快照切到含 harness 的 revision（现役 `5be00c4f` 没有 `research_harness.py`），且烧配额，另拍。
 - `evidence_ordinal_table` / `attach_evidence_ordinals` / `strip_hashes_for_model` 仍被 `agent_episode._append_sub_research_message` 直接用（子研究消息投影，P2 `govern_mode` 范围），本刀不摘。
 - 三条 loop 的 gap 口径不一致：已暴露（`gaps` vs `declared_gaps`），未统一。
