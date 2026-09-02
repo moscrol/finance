@@ -1,7 +1,7 @@
 # 设计：领域 Harness 与底座 loop 解耦（ResearchHarness 接缝）
 
 日期：2026-09-02
-状态：**P0 + P1a 已合 main**（PR #525 → `71a2c846`，主干门禁可采信；8792 未切，下次切流带上）。**P1b 已实施**（分支 `refactor/harness-interpret-turn`，基于 `71a2c846`）：`interpret_plan` + `steering_message` + 另两条 loop 修复 prompt 取 `assemble_prompt` 两半。accumulator 投影（§4 #6）仍未抽，见 §9。
+状态：**P0 + P1a 已合 main**（PR #525 → `71a2c846`，主干门禁可采信；8792 未切，下次切流带上）。**P1b 已实施**（PR #526，分支 `refactor/harness-interpret-turn`）：`interpret_plan` + `steering_message` + 另两条 loop 修复 prompt 取 `assemble_prompt` 两半。**P1c 已实施**（分支 `refactor/harness-tool-result-projection`，叠在 P1b 之上）：`project_tool_result` + `project_tool_error`——模型看到的工具结果与审计底稿都由 harness 产出。协议至此**八方法**。剩 P2（修复协调 / mode 治理 / 空池回退 / 子研究消息投影）与 P2'。
 收据：`docs/verification/2026-09-02-research-harness-loop-decouple.md`
 父稿：
 
@@ -100,7 +100,7 @@
 | 3 | 开场 | `_seed_opening_prefetch` :753 | `agent/pre-step`(enter with messages) | `opening_messages` | P1 |
 | 4 | 每轮 | `parse_plan_candidate` / `validate_plan_revision` :1070 | —（PLAN 是领域协议） | `interpret_plan`（收窄：只判「是不是合法 PLAN / 合法修订」；工具轮 vs 正文轮的分类是底座的事，PLAN-only 次数闸 `MAX_PLAN_TURNS` 留 loop） | **P1b 已实施** |
 | 5 | PLAN 后 | `_decide_mode` / `_run_sub_research` | —（研究模式治理） | `govern_mode` | P2 |
-| 6 | 工具后 | `accumulator.consume`（prune / budget / ledger ingest） | `afterToolCall` / `tools/post-execute`+`tools/result` | `after_tool_batch` | P1 |
+| 6 | 工具后 | `accumulator.consume`（prune / budget / ledger ingest） | `afterToolCall.content` / `tools/result`（definition-owned finalizeContent） | `project_tool_result`（成功观察 → 审计底稿 + 模型正文 + 去重账本新状态）+ `project_tool_error`（失败 → 模型看的结构化结果）。事件发射、证据去重、`evidence_ledger.append`、traces、gaps 留 loop | **P1c 已实施** |
 | 7 | 工具后 | `forecast_residual_halt_reason` :1225 | `afterToolCall.terminate` / `post-execute block` | `halt_after_tool_batch` | **P0** |
 | 8 | 工具后 | `_maybe_execute_empty_pool_fallback` :1242 | —（领域回退） | `fallback_after_empty_batch` | P2 |
 | 9 | 工具后 | `_append_tool_budget_state` :1264 | `transformContext`（预算可见） | 属底座，不抽 | — |
@@ -123,12 +123,14 @@ class ResearchHarness(Protocol):
     def assemble_prompt(self, task_frame, context, registry) -> tuple[str, str]: ...
     def steering_message(self, kind: SteeringKind, *, detail: str) -> str: ...      # P1b
     def interpret_plan(self, content, *, previous_plan, task_id) -> PlanParseResult: ...  # P1b
+    def project_tool_result(self, observation, *, evidence_so_far, seen_prose) -> ToolResultProjection: ...  # P1c
+    def project_tool_error(self, *, tool, error, detail) -> dict[str, object]: ...   # P1c
     def halt_after_tool_batch(self, *, context, batch_errors) -> str | None: ...
     def retrieval_complete(self, *, context, registry, successful_tools) -> bool: ...
     def admit_finish(self, content, *, context, evidence, registry) -> FinishAdmission: ...
 ```
 
-P0 四方法；P1b 加两个。`SteeringKind = Literal["invalid_plan", "invalid_finish", "begin_finalization"]`——三段话的**时点**是底座的事（什么时候驳回、什么时候关研究阶段），**内容**是领域的事，边界正好落在参数上。
+P0 四方法；P1b 加两个；P1c 加两个，共八个。`SteeringKind = Literal["invalid_plan", "invalid_finish", "begin_finalization"]`——三段话的**时点**是底座的事（什么时候驳回、什么时候关研究阶段），**内容**是领域的事，边界正好落在参数上。
 
 `FinishAdmission`（frozen dataclass）把「异常驱动的控制流」改成值：
 
@@ -201,9 +203,9 @@ P0 四方法；P1b 加两个。`SteeringKind = Literal["invalid_plan", "invalid_
 
 - **P1a（已实施，同分支第二个提交）** 三条 loop 共用：`openai_agents_runtime`（`__init__(harness=)`；:1106 prompt、:1146 / :1408 两处终局门）与 `codex_headless_runtime`（`__init__(harness=)`；`_to_outcome` 终局门、`_finish_issue` ×2 调用、`_headless_prompt`）改走 harness；两文件 import 段去掉 `validate_episode_finish` / `expand_episode_snapshot_bindings` / `split_episode_prompt`。验收改为可判定的两条：① 棘轮扩到三文件；② 每条 loop 各有一对「默认 harness 驳回伪造哈希 / 放行 harness 接受同一份稿」的有牙测试（SDK runtime 走完整 `run()`；codex 走 `_finish_issue` / `_headless_prompt` 模块函数——完整路径已由其既有 25 例覆盖）。原写法「同一份 FINAL_JSON 三处得到同一 `FinishAdmission`」按构造必然成立（同一个对象），不是验收。`build_episode_input` / `build_episode_instructions` 在另两条 loop 的修复 prompt 里仍直接用，归 P1b。
 - **P1b（已实施，分支 `refactor/harness-interpret-turn`）** `interpret_plan`（PLAN 识别 + 修订合法性；两处调用合成一处，loop 不再 import `parse_plan_candidate` / `validate_plan_revision`）+ `steering_message`（三段焊死的领域文案逐字搬进 harness；`_begin_finalization` 由静态方法改实例方法）+ 另两条 loop 修复 prompt 的 `build_episode_input` / `build_episode_instructions` 改取 `assemble_prompt` 两半（两文件不再 import 这两个名字）。验收：默认等价（`interpret_plan` 与 parse+revision 逐字段、三段文案字节钉死）、loop 按控制流顺序真在问（plan→tool→finish 七次调用）、有牙（看不见 PLAN 的 harness 让 PLAN 轮掉进终局门；自定义 steering 的文本真到模型眼前，含 `begin_finalization`）、棘轮扩到 `research_plan` 与 `build_episode_*`。
-- **P1c（未做）** `after_tool_batch`：`_EpisodeToolAccumulator.consume` 里的模型视图投影（`prune_tool_observation` → `budget_tool_observation` → `strip_hashes_for_model` + `evidence_ordinal_table` / `attach_evidence_ordinals` / `public_agent_evidence`）。这是 dsh `tools/result` 的位置，也是第二条 loop「同一台机器」的最后一块硬前置。要求 durable `tool_result` payload 与模型消息**字节等价**；事件发射、证据去重、traces 留 loop。做完这刀，loop 里不再出现「PLAN」「FINAL_JSON」字面。
+- **P1c（已实施，分支 `refactor/harness-tool-result-projection`，叠 P1b）** `project_tool_result(observation, *, evidence_so_far, seen_prose) -> ToolResultProjection{audit_payload, model_content, seen_prose}` + `project_tool_error(*, tool, error, detail) -> dict`。`_EpisodeToolAccumulator` 新增 `harness` 字段（默认金融），成功分支的 ordinals / 公开投影 / prune / budget / strip_hashes 整段逐字搬进 harness，loop 只做：证据去重 + `evidence_ledger.append` → 问 harness → `ledger.add("tool_result", {**audit, call_id, **timing})` → `messages.append(role=tool, content=model_content)`。`agent_episode` 不再 import `tool_observation_noise` / `tool_result_budget`（棘轮）；`evidence_ordinal_table` / `attach_evidence_ordinals` / `strip_hashes_for_model` 仍被子研究消息（`_append_sub_research_message`，P2 范围）直接用，本刀不摘。**实测边界**：loop 在最后一条工具消息上叠 `runtime_budget`（§4 #9 底座预算可见性）——模型看到的 = harness 正文 + 底座这一个键，测试把这条边界钉死。验收：投影与内联逐字段等价（审计含 telemetry / hash；模型正文无 telemetry、无 hash、有 `E<n>`；去重账本推进）、错误投影形状与 400 字截断、loop 顺序八次调用、有牙两条（自定义工具视图真到模型眼前且审计底稿不变；自定义错误视图真到模型眼前）。
 - **P2** `repair_policy` / `govern_mode` / `fallback_after_empty_batch`。这些持有状态、改控制流，要先在 P1 之后画状态机。
-- **P2'** 第二条 loop：在 `finance-base-ab/pi-shape/packages/agent_core` 里写一条**只调 `ResearchHarness` 六方法 + `ResearchToolRegistry`** 的最小 loop，跑 09-01 的同一题，硬门沿用 09-01（首轮 hash / token 带 / `financial_data`）。这一步做完，「run 层可替换」才是实测，不是设计图。
+- **P2'** 第二条 loop：在 `finance-base-ab/pi-shape/packages/agent_core` 里写一条**只调 `ResearchHarness` 八方法 + `ResearchToolRegistry`** 的最小 loop，跑 09-01 的同一题，硬门沿用 09-01（首轮 hash / token 带 / `financial_data`）。这一步做完，「run 层可替换」才是实测，不是设计图。
 - 预算 90/60/30 与「库里没有 2024 年报」两件事**与本线正交**：前者是 Episode / 生产单（`2026-09-01-episode-budget-grant-design.md` P1 待拍 25–35s），后者是 ingest 单。本单不碰。
 
 ---

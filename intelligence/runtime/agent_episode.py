@@ -93,8 +93,6 @@ from intelligence.runtime.sub_research import (
     SubResearchResult,
 )
 from intelligence.services.task_frame import TaskFrame
-from intelligence.services.tool_observation_noise import prune_tool_observation
-from intelligence.services.tool_result_budget import budget_tool_observation
 
 
 DEFAULT_LLM_TIMEOUT = 20.0
@@ -383,12 +381,18 @@ class _EpisodeToolAccumulator:
     messages: list[dict[str, object]]
     ledger: _EpisodeLedger
     evidence_ledger: EvidenceLedger
+    # 「审计留什么、模型看什么」归 harness；本类只管账：事件、证据去重、traces、gaps。
+    harness: ResearchHarness | None = None
     evidence: list[AgentEvidence] = field(default_factory=list)
     evidence_hashes: set[str] = field(default_factory=set)
     successful_tools: set[str] = field(default_factory=set)
     traces: list[ProviderTrace] = field(default_factory=list)
     gaps: list[str] = field(default_factory=list)
     seen_observation_prose: set[str] = field(default_factory=set)
+
+    def __post_init__(self) -> None:
+        if self.harness is None:
+            self.harness = FinanceResearchHarness()
 
     def consume(
         self,
@@ -467,57 +471,24 @@ class _EpisodeToolAccumulator:
                 self.evidence_hashes.add(item.content_hash)
                 self.evidence.append(item)
                 self.evidence_ledger.append(item)
-            ordinals = evidence_ordinal_table(tuple(self.evidence))
-            public_observation = {
-                "ok": True,
-                "tool": observation.tool,
-                "query": observation.query,
-                "observation": observation.observation,
-                "evidence": attach_evidence_ordinals(
-                    [public_agent_evidence(item) for item in observation.evidence],
-                    ordinals,
-                ),
-                "evidence_hashes": list(observation.evidence_hashes),
-                "evidence_ids": [
-                    ordinals[digest]
-                    for digest in observation.evidence_hashes
-                    if digest in ordinals
-                ],
-                "gaps": list(observation.gaps),
-                "dataset": observation.dataset,
-                "caliber": observation.caliber,
-                "payload_field_names": list(observation.payload_field_names),
-                "payload_sha256": observation.payload_sha256,
-            }
-            telemetry = dict(getattr(observation, "telemetry", None) or {})
-            if telemetry:
-                # 控制面收据：只进 ledger，不进模型上下文。
-                public_observation["telemetry"] = telemetry
-            # 审计留档拿全量（含 hash），模型上下文拿预算后的副本并去掉 hash，
-            # 只留 E1..En——誊抄 16-hex 是 B1/B7 零绑定的根因。
-            # call_id 与 timing 同纪律：只进 ledger 展开，不进 public_observation
-            # ——那个 dict 是下面模型视图的底稿（R-20260827-15）。
-            self.ledger.add(
-                "tool_result",
-                {**public_observation, "call_id": call.call_id, **timing},
-            )
-            model_view = dict(public_observation)
-            model_view.pop("telemetry", None)
-            pruned, seen = prune_tool_observation(
-                model_view,
+            assert self.harness is not None
+            projection = self.harness.project_tool_result(
+                observation,
+                evidence_so_far=tuple(self.evidence),
                 seen_prose=self.seen_observation_prose,
             )
-            self.seen_observation_prose = set(seen)
+            self.seen_observation_prose = set(projection.seen_prose)
+            # call_id 与 timing 只进 ledger 展开，不进审计底稿——那个 dict 是
+            # 模型视图的来源（R-20260827-15）。
+            self.ledger.add(
+                "tool_result",
+                {**projection.audit_payload, "call_id": call.call_id, **timing},
+            )
             self.messages.append(
                 {
                     "role": "tool",
                     "tool_call_id": call.call_id,
-                    "content": json.dumps(
-                        strip_hashes_for_model(
-                            budget_tool_observation(pruned)
-                        ),
-                        ensure_ascii=False,
-                    ),
+                    "content": projection.model_content,
                 }
             )
         return invalid_actions
@@ -529,14 +500,10 @@ class _EpisodeToolAccumulator:
         detail: str = "",
         timing: dict[str, object] | None = None,
     ) -> None:
-        payload = {
-            "ok": False,
-            "tool": call.name,
-            "error": error,
-            # 分类码之外还要给可操作的原因——``error`` 只说「参数不合法」，
-            # 模型据此改不了任何东西。详见 ToolCallResult.detail 的注释。
-            "detail": str(detail or "")[:400],
-        }
+        assert self.harness is not None
+        payload = self.harness.project_tool_error(
+            tool=call.name, error=error, detail=detail
+        )
         # 耗时与 call_id 只进 ledger，**不进 payload**——下面那条 messages 是喂模型的，
         # 给它塞毫秒数既没用又占预算。审计要全量、模型要够用，同一份事实两个出口。
         self.ledger.add(
@@ -751,6 +718,7 @@ class ContinuousAgentEpisode:
             messages=messages,
             ledger=ledger,
             evidence_ledger=evidence_ledger,
+            harness=self._harness,
         )
         _seed_opening_prefetch(accumulator, messages, registry)
         continuation_state: _EpisodeContinuationState | None = None

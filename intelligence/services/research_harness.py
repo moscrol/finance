@@ -24,6 +24,8 @@
 assemble_prompt      transformContext             system-prompt spine
 steering_message     transformContext（注入）      agent/pre-step → enter(messages)
 interpret_plan       **—（pi 没有）**              **—（dsh 没有）**
+project_tool_result  afterToolCall.content        tools/result（definition-owned finalizeContent）
+project_tool_error   afterToolCall.isError+content tools/post-execute → block(feedback)
 halt_after_tool_batch afterToolCall.terminate     tools/post-execute → block
 retrieval_complete   shouldStopAfterTurn          —
 admit_finish         **—（pi 没有）**              **—（dsh 没有）**
@@ -32,6 +34,9 @@ admit_finish         **—（pi 没有）**              **—（dsh 没有）**
 PLAN 是本领域的研究协议（先出计划再动手），两家都没有；它和 ``admit_finish``
 一样只能是领域方法。``steering_message`` 是领域在驳回 / 关闭研究阶段时对模型说的
 话——第二条 loop 若要「是同一台机器」，这些字节必须来自同一处。
+``project_tool_result`` 决定一次工具观察**审计留什么、模型看什么**：审计底稿全量
+（含 hash / telemetry），模型视图去重、预算、去 hash 只留 E<n>——这条边界是
+2026-08 B1/B7 零绑定事故（模型誊抄 16-hex）之后立的，不能因为换 loop 而漂。
 
 两家的 loop 都在「模型不再调工具」处停。我们多一道终局准入：模型说完了，
 还要过契约与证据绑定。它挂不上任何一家的现成钩子——这是 08-15 §14 第一刀
@@ -49,18 +54,26 @@ PLAN 是本领域的研究协议（先出计划再动手），两家都没有；
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Set
 from dataclasses import dataclass
+import json
 from typing import Literal, Protocol, runtime_checkable
 
 from intelligence.services.agent_research import AgentEvidence
-from intelligence.services.agent_runtime import EpisodeStatus, OutputEvidenceBinding
+from intelligence.services.agent_runtime import (
+    EpisodeStatus,
+    OutputEvidenceBinding,
+    public_agent_evidence,
+)
 from intelligence.services.episode_protocol import (
     RejectionResponse,
+    attach_evidence_ordinals,
+    evidence_ordinal_table,
     expand_episode_snapshot_bindings,
     finish_rejection_fields,
     rejection_response,
     split_episode_prompt,
+    strip_hashes_for_model,
     validate_episode_finish,
 )
 from intelligence.services.forecast_residual_budget import (
@@ -73,14 +86,20 @@ from intelligence.services.research_plan import (
     parse_plan_candidate,
     validate_plan_revision,
 )
-from intelligence.services.research_tool_registry import ResearchToolRegistry
+from intelligence.services.research_tool_registry import (
+    ResearchToolRegistry,
+    ToolObservation,
+)
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.tool_observation_noise import prune_tool_observation
+from intelligence.services.tool_result_budget import budget_tool_observation
 
 __all__ = [
     "FinanceResearchHarness",
     "FinishAdmission",
     "ResearchHarness",
     "SteeringKind",
+    "ToolResultProjection",
 ]
 
 # loop 在三个时点需要对模型说一段领域的话。做成 Literal 而不是三个方法：
@@ -136,6 +155,25 @@ class FinishAdmission:
                 raise ValueError("驳回必须带处置与理由")
 
 
+@dataclass(frozen=True)
+class ToolResultProjection:
+    """一次成功工具观察的两个出口。
+
+    ``audit_payload``：进 durable ``tool_result`` 事件的底稿——全量，含 hash、
+    ``evidence_ids``、``telemetry``。loop 再叠 ``call_id`` 与计时（那是底座的账）。
+
+    ``model_content``：``role=tool`` 消息正文——已去重叙述、按预算截断、去掉 hash
+    只留 ``E<n>``。**这两份不是同一份 dict 的两次序列化**：审计要全量、模型要够用，
+    同一份事实两个出口，边界由领域定。
+
+    ``seen_prose``：观察叙述去重账本的新状态。loop 保存，下一次原样传回。
+    """
+
+    audit_payload: dict[str, object]
+    model_content: str
+    seen_prose: frozenset[str]
+
+
 @runtime_checkable
 class ResearchHarness(Protocol):
     """底座 loop 在四个时点问领域的四个问题。
@@ -169,6 +207,26 @@ class ResearchHarness(Protocol):
         三种返回：``plan`` 非空 = 合法 PLAN；``plan`` 空且 ``error`` 非空 =
         写坏的 PLAN 或非法修订；两者皆空 = 根本不是 PLAN（交给终局门或工具）。
         """
+        ...
+
+    def project_tool_result(
+        self,
+        observation: ToolObservation,
+        *,
+        evidence_so_far: tuple[AgentEvidence, ...],
+        seen_prose: Set[str],
+    ) -> ToolResultProjection:
+        """一次成功观察：审计留什么、模型看什么。
+
+        ``evidence_so_far`` 是 episode 至今累计的证据（**含**本次新增），序号
+        ``E<n>`` 按首次出现顺序从它算——所以 loop 必须先合并证据再来问。
+        """
+        ...
+
+    def project_tool_error(
+        self, *, tool: str, error: str, detail: str
+    ) -> dict[str, object]:
+        """一次失败 / 被拒 / 超时的工具调用给模型看的结构化结果。"""
         ...
 
     def halt_after_tool_batch(
@@ -267,6 +325,67 @@ class FinanceResearchHarness:
         except ValueError as exc:
             return PlanParseResult(None, str(exc))
         return result
+
+    def project_tool_result(
+        self,
+        observation: ToolObservation,
+        *,
+        evidence_so_far: tuple[AgentEvidence, ...],
+        seen_prose: Set[str],
+    ) -> ToolResultProjection:
+        # 逐字搬自 _EpisodeToolAccumulator.consume 的成功分支。
+        ordinals = evidence_ordinal_table(tuple(evidence_so_far))
+        audit: dict[str, object] = {
+            "ok": True,
+            "tool": observation.tool,
+            "query": observation.query,
+            "observation": observation.observation,
+            "evidence": attach_evidence_ordinals(
+                [public_agent_evidence(item) for item in observation.evidence],
+                ordinals,
+            ),
+            "evidence_hashes": list(observation.evidence_hashes),
+            "evidence_ids": [
+                ordinals[digest]
+                for digest in observation.evidence_hashes
+                if digest in ordinals
+            ],
+            "gaps": list(observation.gaps),
+            "dataset": observation.dataset,
+            "caliber": observation.caliber,
+            "payload_field_names": list(observation.payload_field_names),
+            "payload_sha256": observation.payload_sha256,
+        }
+        telemetry = dict(getattr(observation, "telemetry", None) or {})
+        if telemetry:
+            # 控制面收据：只进 ledger，不进模型上下文。
+            audit["telemetry"] = telemetry
+        # 审计留档拿全量（含 hash），模型上下文拿预算后的副本并去掉 hash，
+        # 只留 E1..En——誊抄 16-hex 是 B1/B7 零绑定的根因。
+        model_view = dict(audit)
+        model_view.pop("telemetry", None)
+        pruned, seen = prune_tool_observation(model_view, seen_prose=seen_prose)
+        content = json.dumps(
+            strip_hashes_for_model(budget_tool_observation(pruned)),
+            ensure_ascii=False,
+        )
+        return ToolResultProjection(
+            audit_payload=audit,
+            model_content=content,
+            seen_prose=frozenset(seen),
+        )
+
+    def project_tool_error(
+        self, *, tool: str, error: str, detail: str
+    ) -> dict[str, object]:
+        return {
+            "ok": False,
+            "tool": tool,
+            "error": error,
+            # 分类码之外还要给可操作的原因——``error`` 只说「参数不合法」，
+            # 模型据此改不了任何东西。详见 ToolCallResult.detail 的注释。
+            "detail": str(detail or "")[:400],
+        }
 
     def halt_after_tool_batch(
         self,
