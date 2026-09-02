@@ -105,6 +105,7 @@ from intelligence.services.tool_observation_noise import prune_tool_observation
 from intelligence.services.tool_result_budget import budget_tool_observation
 
 __all__ = [
+    "BranchOutcome",
     "FinanceResearchHarness",
     "FinishAdmission",
     "ModeGovernance",
@@ -114,6 +115,29 @@ __all__ = [
     "ToolResultProjection",
     "default_mode_signals",
 ]
+
+
+class BranchOutcome(Protocol):
+    """一条只读子研究分支回来的东西——按结构声明，不 import runtime。
+
+    ``intelligence.runtime.sub_research.BranchResult`` 天然满足它。领域层不能依赖
+    底座（``scripts/layer_audit.py``），所以这里只写「长什么样」，不写「是谁」。
+    """
+
+    @property
+    def branch_id(self) -> str: ...
+
+    @property
+    def goal(self) -> str: ...
+
+    @property
+    def status(self) -> str: ...
+
+    @property
+    def evidence(self) -> tuple[AgentEvidence, ...]: ...
+
+    @property
+    def gaps(self) -> tuple[str, ...]: ...
 
 ModeSignalsFactory = Callable[[TaskFrame, ResearchPlan], ModeSignals]
 
@@ -262,6 +286,21 @@ class ResearchHarness(Protocol):
 
         ``can_branch`` 是底座能力（有没有子研究协调器）：没有就不能批 deep 的
         分支依赖——这是 loop 告诉领域「我能做什么」，不是领域自己猜。
+        """
+        ...
+
+    def project_sub_research(
+        self,
+        *,
+        branches: Iterable[BranchOutcome],
+        refused_reason: str,
+        evidence: tuple[AgentEvidence, ...],
+    ) -> str:
+        """子研究分支回来后给主 episode 模型看的那段话（``SUB_RESEARCH_RESULTS``）。
+
+        分支怎么起、怎么排空、怎么记事件是底座的事；分支证据怎样呈现给模型
+        （序号、去 hash、措辞）是领域的事。``evidence`` 是主 episode 至今累计的
+        证据（含分支并入的），序号 ``E<n>`` 从它算。
         """
         ...
 
@@ -429,6 +468,48 @@ class FinanceResearchHarness:
             ensure_ascii=False,
         )
         return ModeGovernance(context=promoted, decision=decision, message=message)
+
+    def project_sub_research(
+        self,
+        *,
+        branches: Iterable[BranchOutcome],
+        refused_reason: str,
+        evidence: tuple[AgentEvidence, ...],
+    ) -> str:
+        # 逐字搬自 ContinuousAgentEpisode._append_sub_research_message。
+        ordinals = evidence_ordinal_table(evidence)
+        return json.dumps(
+            {
+                "kind": "SUB_RESEARCH_RESULTS",
+                "branches": [
+                    {
+                        "branch_id": branch.branch_id,
+                        "goal": branch.goal,
+                        "status": branch.status,
+                        "evidence": strip_hashes_for_model(
+                            {
+                                "evidence": attach_evidence_ordinals(
+                                    [
+                                        public_agent_evidence(item)
+                                        for item in branch.evidence
+                                    ],
+                                    ordinals,
+                                )
+                            }
+                        )["evidence"],
+                        "gaps": list(branch.gaps),
+                    }
+                    for branch in branches
+                ],
+                "refused_reason": refused_reason,
+                "instruction": (
+                    "这些是只读分支返回的公开证据观察，不是最终答案。"
+                    "主 episode 仍需自行比较证据、处理冲突并决定停止；"
+                    "绑定用证据序号 E1、E2…，不得把分支状态或内部标识写入公开答案。"
+                ),
+            },
+            ensure_ascii=False,
+        )
 
     def project_tool_result(
         self,
