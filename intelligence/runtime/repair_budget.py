@@ -5,11 +5,12 @@
 §3 的定义属底座——它们本来就不该住在领域层。领域判据（tier 容忍几轮 / 上一轮算不算
 进步 / 这轮缺几个格 / 这次失败属哪类）仍在 ``services`` 侧，本模块只消费它们的结论。
 
-授予协议：**领域申请、底座授予、领域不碰账本。** ``RepairGoal`` 里的缺口字段与
-``RepairFailureShape`` 是申请，``BudgetGrant`` 是授予，``root_budget.grant()`` 只在
-本模块的 ``_mint_grant`` 一处被调用。
+授予协议：**领域申请、底座授予、领域不碰账本。** ``RepairNeed``（修什么 / 属哪类 /
+几个格 / 要不要重开工具）与 ``RepairWarrant``（tier 容忍度 × 上一轮进展）是领域递
+过来的申请——本模块**被告知**，不自己去调领域判据；``BudgetGrant`` 是授予，
+``root_budget.grant()`` 只在本模块的 ``_mint_grant`` 一处被调用。
 
-每个 ``grant_for_*`` 只做编排：领域闸 → 预算窗 → 记账，自己不再内联任何一条判据。
+每个 ``grant_for_*`` 只做编排：读申请 → 预算窗 → 记账，自己不再内联任何一条判据。
 """
 
 from __future__ import annotations
@@ -21,10 +22,9 @@ from intelligence.services.repair_coordinator import (
     ProgressSnapshot,
     RepairAdmission,
     RepairGoal,
+    RepairNeed,
+    RepairWarrant,
     build_repair_goal,
-    cycle_within_tier,
-    repair_is_warranted,
-    repair_work_units,
 )
 from intelligence.services.research_contract import RootBudgetLedger
 
@@ -148,23 +148,25 @@ def _mint_grant(
 
 
 # ---------------------------------------------------------------------------
-# 授予入口：领域闸 → 预算窗 → 记账
+# 授予入口：读申请 → 预算窗 → 记账
 # ---------------------------------------------------------------------------
 
 
 def grant_for_progress(
     goal: RepairGoal,
-    progress: ProgressSnapshot,
     *,
     root_budget: RootBudgetLedger,
-    research_tier: str,
+    warranted: bool,
+    work_units: int,
     tools_open: bool = True,
     seconds_cap: float | None = None,
 ) -> BudgetGrant | None:
-    if not repair_is_warranted(progress, cycle=goal.cycle, research_tier=research_tier):
+    """进度修复窗。``warranted`` / ``work_units`` 是领域递来的判定，这里只认不算。"""
+
+    if not warranted:
         return None
     window = size_repair_window(
-        work_units=repair_work_units(goal),
+        work_units=work_units,
         remaining_calls=goal.remaining_calls,
         remaining_seconds=goal.remaining_seconds,
         tools_open=tools_open,
@@ -187,6 +189,7 @@ def grant_for_cold_restart(
     progress: ProgressSnapshot,
     *,
     root_budget: RootBudgetLedger,
+    work_units: int,
     seconds_cap: float | None = None,
 ) -> BudgetGrant | None:
     """Grant one tool-open restart turn for an episode starved of evidence.
@@ -220,7 +223,7 @@ def grant_for_cold_restart(
     if not goal.missing_answer_elements:
         return None
     window = size_repair_window(
-        work_units=repair_work_units(goal),
+        work_units=work_units,
         remaining_calls=goal.remaining_calls,
         remaining_seconds=goal.remaining_seconds,
         tools_open=True,
@@ -242,7 +245,7 @@ def grant_for_delivery_repair(
     goal: RepairGoal,
     *,
     root_budget: RootBudgetLedger,
-    research_tier: str,
+    cycle_allowed: bool,
     evidence_count: int,
     seconds_cap: float | None = None,
 ) -> BudgetGrant | None:
@@ -255,12 +258,13 @@ def grant_for_delivery_repair(
     that state would make repair conditional on the work repair must perform.
 
     The grant cannot reopen tools, cannot run without evidence, and remains
-    bounded by the code-owned tier cycle cap and root seconds ledger.
+    bounded by the tier cycle cap (``cycle_allowed``, judged by the domain) and
+    the root seconds ledger.
     """
 
     if evidence_count <= 0:
         return None
-    if not cycle_within_tier(goal.cycle, research_tier=research_tier):
+    if not cycle_allowed:
         return None
     if not goal.missing_answer_elements:
         return None
@@ -328,57 +332,55 @@ def grant_for_transient_model_retry(
 
 
 def admit_repair(
+    need: RepairNeed,
+    warrant: RepairWarrant,
     *,
     episode_id: str,
-    missing_outputs: tuple[str, ...] = (),
-    missing_capabilities: tuple[str, ...] = (),
-    rejected_claims: tuple[str, ...] = (),
     attempted_actions: tuple[str, ...] = (),
     previous_progress: ProgressSnapshot,
     remaining_calls: int,
     remaining_seconds: float,
     cycle: int,
     root_budget: RootBudgetLedger,
-    research_tier: str,
     tools_open: bool = True,
     allow_delivery_repair: bool = True,
-    delivery_candidate: bool = False,
-    contract_rewrite_candidate: bool = False,
-    cold_restart_candidate: bool = False,
     evidence_count: int = 0,
     seconds_cap: float | None = None,
 ) -> RepairAdmission | None:
     """Build one goal and admit exactly one budget grant.
 
-    The coordinator owns the policy choice between evidence-progress repair and
-    tool-closed delivery repair. Callers receive one immutable decision and do
-    not need to duplicate cycle, tier, or root-budget rules.
+    ``need``（修什么 / 属哪类 / 几个格）与 ``warrant``（tier 容忍度 × 进展）是领域
+    递来的申请；本函数只做底座这边的编排——按固定优先级试三种窗（进度 → 交付 →
+    冷启动），前一种铸不出（领域不批或账本拒）就试下一种。``allow_delivery_repair``
+    （交付修复只许一次）是 cycle 状态，属这里，不属领域。
 
-    ``contract_rewrite_candidate`` is the track-contract expression seam
+    ``need.shape.contract_rewrite`` is the track-contract expression seam
     (四态 / TTL / 下期关注): rewrite the draft from already collected
     evidence, do not reopen tools even if the research window is still open.
     """
 
     goal = build_repair_goal(
         episode_id=episode_id,
-        missing_outputs=missing_outputs,
-        missing_capabilities=missing_capabilities,
-        rejected_claims=rejected_claims,
+        missing_outputs=need.missing_outputs,
+        missing_capabilities=need.missing_capabilities,
+        rejected_claims=need.rejected_claims,
         attempted_actions=attempted_actions,
         previous_progress=previous_progress,
         remaining_calls=remaining_calls,
         remaining_seconds=remaining_seconds,
         cycle=cycle,
     )
+    delivery_candidate = allow_delivery_repair and need.shape.delivery
+    contract_rewrite_candidate = need.shape.contract_rewrite
     grant: BudgetGrant | None = None
     delivery_only = False
     cold_restart = False
     if not delivery_candidate and not contract_rewrite_candidate:
         grant = grant_for_progress(
             goal,
-            previous_progress,
             root_budget=root_budget,
-            research_tier=research_tier,
+            warranted=warrant.warranted,
+            work_units=need.work_units,
             tools_open=tools_open,
             seconds_cap=seconds_cap,
         )
@@ -387,12 +389,12 @@ def admit_repair(
         and allow_delivery_repair
         and (not tools_open or delivery_candidate or contract_rewrite_candidate)
         and evidence_count > 0
-        and missing_outputs
+        and need.missing_outputs
     ):
         grant = grant_for_delivery_repair(
             goal,
             root_budget=root_budget,
-            research_tier=research_tier,
+            cycle_allowed=warrant.cycle_allowed,
             evidence_count=evidence_count,
             seconds_cap=seconds_cap,
         )
@@ -401,14 +403,15 @@ def admit_repair(
         grant is None
         and not delivery_candidate
         and not contract_rewrite_candidate
-        and cold_restart_candidate
+        and need.needs_tools
         and evidence_count == 0
-        and missing_outputs
+        and need.missing_outputs
     ):
         grant = grant_for_cold_restart(
             goal,
             previous_progress,
             root_budget=root_budget,
+            work_units=need.work_units,
             seconds_cap=seconds_cap,
         )
         cold_restart = grant is not None

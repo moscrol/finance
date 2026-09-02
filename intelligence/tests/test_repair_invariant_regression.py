@@ -27,6 +27,8 @@ from intelligence.services.repair_coordinator import (
     ProgressSnapshot,
     build_repair_goal,
     max_repair_cycles_for_tier,
+    repair_is_warranted,
+    repair_work_units,
 )
 from intelligence.services.research_contract import (
     InMemoryRootBudgetLedger,
@@ -34,6 +36,17 @@ from intelligence.services.research_contract import (
     release_root_budget,
     root_budget_for_policy,
 )
+
+
+def _progress_grant(goal, progress, *, root_budget, research_tier):
+    """领域判定（tier 容忍 × 进展）在这里算好递进底座——生产里这一步在 adapter 问 harness。"""
+
+    return grant_for_progress(
+        goal,
+        root_budget=root_budget,
+        warranted=repair_is_warranted(progress, cycle=goal.cycle, research_tier=research_tier),
+        work_units=repair_work_units(goal),
+    )
 
 
 def _deep_policy() -> ResearchPolicy:
@@ -112,7 +125,7 @@ def test_repair_cycles_are_capped_by_tier_not_by_goal(
     ceiling check could never fail because it was compared against itself.
     """
 
-    granted = grant_for_progress(
+    granted = _progress_grant(
         _goal(cycle=last_allowed_cycle),
         _progress(),
         root_budget=_ledger(),
@@ -120,7 +133,7 @@ def test_repair_cycles_are_capped_by_tier_not_by_goal(
     )
     assert granted is not None, "the final in-tier cycle must still be grantable"
 
-    refused = grant_for_progress(
+    refused = _progress_grant(
         _goal(cycle=last_allowed_cycle + 1),
         _progress(),
         root_budget=_ledger(),
@@ -148,7 +161,7 @@ def test_no_progress_refuses_grant_regardless_of_tier() -> None:
     )
     assert stalled.coverage_delta.progressed is False
     assert (
-        grant_for_progress(
+        _progress_grant(
             _goal(cycle=1),
             stalled,
             root_budget=_ledger(),
@@ -204,7 +217,7 @@ def test_progress_without_provenance_is_not_progress() -> None:
 
 def test_root_budget_rejects_foreign_episode_grant() -> None:
     ledger = _ledger(episode_id="ep-1")
-    granted = grant_for_progress(
+    granted = _progress_grant(
         _goal(cycle=1, episode_id="ep-1"),
         _progress(),
         root_budget=ledger,
@@ -212,7 +225,7 @@ def test_root_budget_rejects_foreign_episode_grant() -> None:
     )
     assert granted is not None
 
-    foreign = grant_for_progress(
+    foreign = _progress_grant(
         _goal(cycle=1, episode_id="ep-2"),
         _progress(),
         root_budget=ledger,
@@ -223,7 +236,7 @@ def test_root_budget_rejects_foreign_episode_grant() -> None:
 
 def test_duplicate_grant_and_cap_overflow_are_refused() -> None:
     ledger = _ledger()
-    grant = grant_for_progress(
+    grant = _progress_grant(
         _goal(cycle=1),
         _progress(),
         root_budget=ledger,

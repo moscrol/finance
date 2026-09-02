@@ -50,6 +50,8 @@ from intelligence.services.research_tool_registry import (
     ToolSpec,
 )
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.repair_coordinator import RepairFailureShape, RepairWarrant
+from intelligence.services.research_harness import FinanceResearchHarness
 from intelligence.runtime.repair_budget import BACKFILL_BUDGET_FRACTION
 from intelligence.runtime.turn_control_core import TurnControlResult
 
@@ -959,6 +961,245 @@ def test_zero_evidence_model_finish_does_not_get_cold_restart() -> None:
 
     assert resume_calls == 0
     assert result.private_artifact["repair_cycles"] == 0
+
+
+# ── 修复准入接缝有牙（状态机 spec §5 第 2 条）：换 harness，修不修 / 修哪种 随之变 ──
+
+
+class _NeverWarrantedHarness(FinanceResearchHarness):
+    """领域说「这个 tier 一轮都不容忍」：进度修复的申请永远不成立。"""
+
+    def warrant_repair(self, *, progress, cycle, research_tier):
+        del progress, cycle, research_tier
+        return RepairWarrant(cycle_allowed=False, progressed=False)
+
+
+class _DeliveryOnlyHarness(FinanceResearchHarness):
+    """领域把一切失败都解释成「有证据没写出稿」，从不申请重开工具。"""
+
+    def classify_repair_need(self, outcome, structural, *, rejected_claims, semantic_gap_outputs):
+        need = super().classify_repair_need(
+            outcome,
+            structural,
+            rejected_claims=rejected_claims,
+            semantic_gap_outputs=semantic_gap_outputs,
+        )
+        return replace(
+            need,
+            shape=RepairFailureShape(delivery=True, cold_restart=False, contract_rewrite=False),
+        )
+
+
+def _resumable_runtime(initial: AgentOutcome, repaired: AgentOutcome, resume_goals: list):
+    class Runtime:
+        def run(self, **_kwargs):
+            raise AssertionError("resumable runtime must not receive a second run")
+
+        def start(self, _frame, *, context, registry):
+            del registry
+
+            def resume(previous, goal):
+                assert previous is initial
+                resume_goals.append(goal)
+                return repaired
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=initial,
+                resume_callback=resume,
+            )
+
+    return Runtime()
+
+
+class _CompletedSemantic:
+    def verify(self, *, structurally_verified, **_kwargs):
+        return SemanticEpisodeOutcome(
+            verified=structurally_verified,
+            status="completed",
+            public_answer=structurally_verified.outcome.draft,
+            judge_status="passed",
+        )
+
+
+def _progress_repair_fixture():
+    """`test_verifier_gap_reenters_same_session_without_second_runtime_run` 的同一形状。"""
+
+    frame = _frame(required_outputs=("direct_assessment", "counterpoint"))
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-warrant-teeth",
+        capabilities=control.capabilities,
+        timeout=60.0,
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复但反方仍待确认",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="warrant-evidence-1",
+        supports=("direct_assessment", "counterpoint"),
+        independent_key="market",
+    )
+    events = (
+        EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        EpisodeEvent(2, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="partial",
+        draft="当前偏修复，但反方证据仍缺。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=("counterpoint",),
+        stop_reason="model_finish",
+        events=events,
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("warrant-evidence-1",), ""),
+            OutputEvidenceBinding("counterpoint", (), "缺少反方证据"),
+        ),
+        usage=AgentUsage(1, 1, 0),
+    )
+    repaired = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="当前偏修复，但量能回落构成反方约束。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(*events, EpisodeEvent(3, "model_turn", {"task_frame_hash": frame.task_frame_hash})),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("warrant-evidence-1",), ""),
+            OutputEvidenceBinding("counterpoint", ("warrant-evidence-1",), ""),
+        ),
+        usage=AgentUsage(2, 1, 0),
+    )
+    return frame, control, context, initial, repaired
+
+
+@pytest.mark.parametrize(
+    ("harness", "expected_cycles"),
+    [(None, 1), (_NeverWarrantedHarness(), 0)],
+    ids=["default-harness-repairs", "never-warranted-harness-zero-cycles"],
+)
+def test_warrant_from_harness_decides_whether_a_repair_cycle_happens(
+    harness, expected_cycles
+) -> None:
+    frame, control, context, initial, repaired = _progress_repair_fixture()
+    resume_goals: list = []
+
+    result = ContinuousTurnAdapter(
+        runtime=_resumable_runtime(initial, repaired, resume_goals),
+        semantic_verifier=_CompletedSemantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        harness=harness,
+    ).handle(frame=frame, control=control)
+
+    assert len(resume_goals) == expected_cycles
+    assert result.private_artifact["repair_cycles"] == expected_cycles
+
+
+def _starved_fixture():
+    frame = _frame(required_outputs=("direct_assessment",))
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-classify-teeth",
+        capabilities=control.capabilities,
+        timeout=120.0,
+    )
+    context = replace(
+        context,
+        root_budget=InMemoryRootBudgetLedger(
+            episode_id=context.contract.task_id,
+            initial_calls=2,
+            hard_calls_cap=8,
+            initial_seconds=30.0,
+            hard_seconds_cap=300.0,
+        ),
+    )
+    starved = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="failed",
+        draft="",
+        evidence=(),
+        traces=(),
+        gaps=("研究截止时间已到，仍有必需输出未覆盖",),
+        stop_reason="deadline_exhausted",
+        events=(
+            EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+            EpisodeEvent(2, "model_turn", {}),
+            EpisodeEvent(3, "finish", {"stop_reason": "deadline_exhausted"}),
+        ),
+        bindings=(),
+        usage=AgentUsage(1, 0, 0),
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="冷启动补检索取得的行情观察",
+        source="测试行情",
+        source_date="2026-07-24",
+        content_hash="classify-teeth-evidence",
+        independent_key="market-window",
+    )
+    repaired = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="补检索后：当前更像阶段性修复。",
+        evidence=(evidence,),
+        traces=(ProviderTrace("test:market", "market_data", "success"),),
+        gaps=(),
+        stop_reason="repair_model_finish",
+        events=(
+            *starved.events,
+            EpisodeEvent(4, "repair_reentry", {"cycle": 1}),
+            EpisodeEvent(5, "model_turn", {"phase": "repair"}),
+            EpisodeEvent(6, "tool_result", {"ok": True}),
+            EpisodeEvent(7, "finish", {"stop_reason": "repair_model_finish"}),
+        ),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("classify-teeth-evidence",), ""),
+        ),
+        usage=AgentUsage(2, 1, 0),
+    )
+    return frame, control, context, starved, repaired
+
+
+@pytest.mark.parametrize(
+    ("harness", "expected_cycles"),
+    [(None, 1), (_DeliveryOnlyHarness(), 0)],
+    ids=["default-harness-cold-restarts", "delivery-only-harness-no-cold-restart"],
+)
+def test_classification_from_harness_decides_whether_cold_restart_fires(
+    harness, expected_cycles
+) -> None:
+    """零证据饿死：默认 harness 申请重开工具并拿到冷启动窗；只报 delivery 的 harness
+    申请不到（delivery 要证据，冷启动没被申请），一轮修复都不发生。"""
+
+    frame, control, context, starved, repaired = _starved_fixture()
+    resume_goals: list = []
+
+    result = ContinuousTurnAdapter(
+        runtime=_resumable_runtime(starved, repaired, resume_goals),
+        semantic_verifier=_CompletedSemantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        harness=harness,
+    ).handle(frame=frame, control=control)
+
+    assert len(resume_goals) == expected_cycles
+    assert result.private_artifact["repair_cycles"] == expected_cycles
+    if expected_cycles:
+        assert resume_goals[0].reopen_tools is True
 
 
 def test_adapter_uses_production_sdk_runtime_same_episode_repair() -> None:

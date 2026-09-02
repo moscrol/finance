@@ -375,14 +375,25 @@ def test_adapter_no_longer_owns_failure_classification() -> None:
     assert "_DELIVERY_REPAIR_STOP_REASONS" not in module_constants
     assert "_COLD_RESTART_STOP_REASONS" not in module_constants
     imported = {
-        alias.name
+        (node.module, alias.name)
         for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom) and node.module == "intelligence.services.track_contract"
+        if isinstance(node, ast.ImportFrom) and node.module
         for alias in node.names
     }
-    assert "is_contract_rewrite_only" not in imported
+    assert ("intelligence.services.track_contract", "is_contract_rewrite_only") not in imported
+    # 准入半之后 adapter 连领域函数都不直接调了：申请一律经 harness。
+    for symbol in (
+        "classify_repair_failure",
+        "classify_repair_need",
+        "repair_is_warranted",
+        "warrant_repair",
+        "cycle_within_tier",
+        "repair_work_units",
+    ):
+        assert ("intelligence.services.repair_coordinator", symbol) not in imported, symbol
     assert "sdk_invalid_repair_finish" not in source
-    assert "classify_repair_failure" in source
+    assert "self._harness.classify_repair_need(" in source
+    assert "self._harness.warrant_repair(" in source
 
 
 # --- 金标：五种授予逐字段（拆分前 fed88564 实跑值） -------------------------------
@@ -436,7 +447,15 @@ def test_adapter_no_longer_owns_failure_classification() -> None:
 def test_grant_for_progress_golden(goal_kw, kw, ledger_kw, expected) -> None:
     goal = _goal(**goal_kw)
     progress = goal_kw.get("progress", PROGRESSED)
-    grant = grant_for_progress(goal, progress, root_budget=_ledger(**ledger_kw), **kw)
+    # 金标是「领域判定 + 预算算术」一起铸出来的值；领域那半现在由 harness 算好递进去。
+    research_tier = kw.pop("research_tier")
+    grant = grant_for_progress(
+        goal,
+        root_budget=_ledger(**ledger_kw),
+        warranted=repair_is_warranted(progress, cycle=goal.cycle, research_tier=research_tier),
+        work_units=repair_work_units(goal),
+        **kw,
+    )
     assert _fields(grant) == expected
 
 
@@ -462,7 +481,14 @@ def test_grant_for_progress_golden(goal_kw, kw, ledger_kw, expected) -> None:
     ],
 )
 def test_grant_for_delivery_repair_golden(goal_kw, kw, ledger_kw, expected) -> None:
-    grant = grant_for_delivery_repair(_goal(**goal_kw), root_budget=_ledger(**ledger_kw), **kw)
+    goal = _goal(**goal_kw)
+    research_tier = kw.pop("research_tier")
+    grant = grant_for_delivery_repair(
+        goal,
+        root_budget=_ledger(**ledger_kw),
+        cycle_allowed=cycle_within_tier(goal.cycle, research_tier=research_tier),
+        **kw,
+    )
     assert _fields(grant) == expected
 
 
@@ -480,7 +506,13 @@ def test_grant_for_delivery_repair_golden(goal_kw, kw, ledger_kw, expected) -> N
 )
 def test_grant_for_cold_restart_golden(goal_kw, kw, expected) -> None:
     goal = _goal(**goal_kw)
-    grant = grant_for_cold_restart(goal, goal_kw["progress"], root_budget=_ledger(), **kw)
+    grant = grant_for_cold_restart(
+        goal,
+        goal_kw["progress"],
+        root_budget=_ledger(),
+        work_units=repair_work_units(goal),
+        **kw,
+    )
     assert _fields(grant) == expected
 
 

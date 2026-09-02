@@ -30,15 +30,19 @@ project_tool_error   afterToolCall.isError+content tools/post-execute → block(
 halt_after_tool_batch afterToolCall.terminate     tools/post-execute → block
 retrieval_complete   shouldStopAfterTurn          —
 admit_finish         **—（pi 没有）**              **—（dsh 没有）**
+classify_repair_need **—（pi 没有）**              **—（dsh 没有）**
+warrant_repair       **—（pi 没有）**              **—（dsh 没有）**
 repair_goal_message  transformContext（注入）      agent/pre-step → enter(messages)
 admit_repair_result  **—（pi 没有）**              **—（dsh 没有）**
 ===================  ===========================  ==============================
 
 修复轮（`2026-09-02-repair-policy-state-machine.md`）两家也没有——它们的 loop 停下就是
-停下，没有「验证驳回后再来一轮」。``repair_goal_message`` 是修复轮开场对模型说的话
-（REPAIR_GOAL 正文 + 工具开/关两套指令）；``admit_repair_result`` 判「修完算不算进步」
-（换了稿或绑定才算，没动手也没改就是 stop）。「什么时候允许再来一轮」是预算，在
-``runtime/repair_budget``，不在这里。
+停下，没有「验证驳回后再来一轮」。四个方法按修复轮的时序：``classify_repair_need``
+（这次失败该修什么、属哪类、要补几个格、要不要重开工具）与 ``warrant_repair``（这个
+tier 还容忍这一轮吗、上一轮有进展吗）是**申请**，底座 ``runtime/repair_budget`` 据此
+铸窗或拒绝——领域不碰账本；``repair_goal_message`` 是修复轮开场对模型说的话（REPAIR_GOAL
+正文 + 工具开/关两套指令）；``admit_repair_result`` 判「修完算不算进步」（换了稿或绑定
+才算，没动手也没改就是 stop）。「付不付得起、几个格折几次调用」是预算，不在这里。
 
 ``govern_mode``（研究该做多深：quick / deep，以及升档后的预算合同）也是两家没有的：
 它们的 loop 不分档。深度裁决读的是任务框架与 PLAN（领域），落到 context 上的是预算
@@ -98,7 +102,15 @@ from intelligence.services.mode_governor import (
     ModeGovernor,
     ModeSignals,
 )
-from intelligence.services.repair_coordinator import RepairGoal
+from intelligence.services.episode_verifier import VerifiedEpisodeOutcome
+from intelligence.services.repair_coordinator import (
+    ProgressSnapshot,
+    RepairGoal,
+    RepairNeed,
+    RepairWarrant,
+    classify_repair_need,
+    warrant_repair,
+)
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_plan import (
     PlanParseResult,
@@ -381,6 +393,31 @@ class ResearchHarness(Protocol):
         registry: ResearchToolRegistry,
     ) -> FinishAdmission:
         """模型的终局输出能不能发。"""
+        ...
+
+    def classify_repair_need(
+        self,
+        outcome: AgentOutcome,
+        structural: VerifiedEpisodeOutcome,
+        *,
+        rejected_claims: tuple[str, ...],
+        semantic_gap_outputs: tuple[str, ...],
+    ) -> RepairNeed:
+        """主轮终局过完结构 / 语义验证之后：这次失败该修什么、属于哪一类。
+
+        不看预算、不看 cycle。底座拿它去 ``admit_repair``——给不给窗、给多大，
+        是底座的事。
+        """
+        ...
+
+    def warrant_repair(
+        self,
+        *,
+        progress: ProgressSnapshot,
+        cycle: int,
+        research_tier: str,
+    ) -> RepairWarrant:
+        """这个 tier 还容忍第 ``cycle`` 轮吗；上一轮有没有独立证据进展。不看预算。"""
         ...
 
     def repair_goal_message(self, goal: RepairGoal, *, tools_open: bool) -> str:
@@ -693,6 +730,30 @@ class FinanceResearchHarness:
             rejection=finish_rejection_fields(),
             declared_gaps=tuple(finish.gaps),
         )
+
+    def classify_repair_need(
+        self,
+        outcome: AgentOutcome,
+        structural: VerifiedEpisodeOutcome,
+        *,
+        rejected_claims: tuple[str, ...],
+        semantic_gap_outputs: tuple[str, ...],
+    ) -> RepairNeed:
+        return classify_repair_need(
+            outcome,
+            structural,
+            rejected_claims=rejected_claims,
+            semantic_gap_outputs=semantic_gap_outputs,
+        )
+
+    def warrant_repair(
+        self,
+        *,
+        progress: ProgressSnapshot,
+        cycle: int,
+        research_tier: str,
+    ) -> RepairWarrant:
+        return warrant_repair(progress, cycle=cycle, research_tier=research_tier)
 
     def repair_goal_message(self, goal: RepairGoal, *, tools_open: bool) -> str:
         # 逐字搬自 agent_episode.resume()：REPAIR_GOAL 正文 + 工具开/关两套指令。

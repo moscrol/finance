@@ -54,9 +54,12 @@ from intelligence.services.provider_latency import (
     repair_seconds_cap_for,
 )
 from intelligence.services.repair_coordinator import (
-    classify_repair_failure,
     max_repair_cycles_for_tier,
     progress_from_ledger,
+)
+from intelligence.services.research_harness import (
+    FinanceResearchHarness,
+    ResearchHarness,
 )
 from intelligence.services.research_contract import ResearchDeadline, ResearchRunContext
 from intelligence.services.research_tool_registry import (
@@ -163,6 +166,7 @@ class ContinuousTurnAdapter:
         deadline_expires_at: float | None = None,
         progress_sink: Callable[[EpisodeProgress], None] | None = None,
         repair_seconds_cap: float | None = None,
+        harness: ResearchHarness | None = None,
     ) -> None:
         selected_mode = (
             str(os.environ.get("ASK_CONTINUOUS_RUNTIME") or "off").strip().lower()
@@ -210,6 +214,11 @@ class ContinuousTurnAdapter:
             float(repair_seconds_cap)
             if repair_seconds_cap is not None
             else repair_seconds_cap_for(provider_name_from(runtime))
+        )
+        # 修复准入问领域的两件事（修什么 / 配不配再来一轮）走 harness；这里只算
+        # 余量与 cycle 状态。默认金融 harness 与 runtime 里 Episode 拿的是同一种。
+        self._harness: ResearchHarness = (
+            harness if harness is not None else FinanceResearchHarness()
         )
 
     @property
@@ -1189,22 +1198,22 @@ class ContinuousTurnAdapter:
             max(0.0, float(delivery_deadline.remaining())),
         )
         structural = _with_track_contract_gaps(structural, context)
-        missing_outputs = tuple(
-            dict.fromkeys((*structural.missing_outputs, *semantic_gap_outputs))
-        )
-        # 「这次失败属于哪一类」是领域判断；「交付修复只许一次」是本层的账。
-        shape = classify_repair_failure(
+        # 领域申请（修什么 / 属哪类 / 配不配再来一轮），底座授予（余量 / cycle 状态 / 账本）。
+        need = self._harness.classify_repair_need(
             outcome,
             structural,
-            missing_outputs=missing_outputs,
             rejected_claims=rejected_claims,
             semantic_gap_outputs=semantic_gap_outputs,
         )
+        warrant = self._harness.warrant_repair(
+            progress=progress,
+            cycle=cycle,
+            research_tier=context.contract.research_tier,
+        )
         admission = admit_repair(
+            need,
+            warrant,
             episode_id=episode_id,
-            missing_outputs=missing_outputs,
-            missing_capabilities=structural.mandatory_missing_capabilities,
-            rejected_claims=rejected_claims,
             attempted_actions=tuple(
                 f"{trace.capability}:{trace.provider}" for trace in outcome.traces
             ),
@@ -1213,12 +1222,8 @@ class ContinuousTurnAdapter:
             remaining_seconds=remaining_seconds,
             cycle=cycle,
             root_budget=root_budget,
-            research_tier=context.contract.research_tier,
             tools_open=tools_open,
             allow_delivery_repair=allow_delivery_repair,
-            delivery_candidate=allow_delivery_repair and shape.delivery,
-            contract_rewrite_candidate=shape.contract_rewrite,
-            cold_restart_candidate=shape.cold_restart,
             evidence_count=len(outcome.evidence),
             seconds_cap=self._repair_seconds_cap,
         )

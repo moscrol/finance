@@ -290,31 +290,65 @@ def cycle_within_tier(cycle: int, *, research_tier: str) -> bool:
     return 1 <= cycle <= max_repair_cycles_for_tier(research_tier)
 
 
+@dataclass(frozen=True)
+class RepairWarrant:
+    """领域对「还配不配再来一轮」的判定：tier 容忍度 × 上一轮进展。不看预算。
+
+    两个事实分开摆：进度修复要两者都成立（``warranted``）；交付修复只看
+    ``cycle_allowed``——它修的是「有证据没写出稿」，不要求上一轮有新证据。
+    """
+
+    cycle_allowed: bool
+    progressed: bool
+
+    @property
+    def warranted(self) -> bool:
+        return self.cycle_allowed and self.progressed
+
+
+def warrant_repair(
+    progress: ProgressSnapshot,
+    *,
+    cycle: int,
+    research_tier: str,
+) -> RepairWarrant:
+    """这个 tier 还容忍这一轮吗；上一轮真有独立证据进展吗。
+
+    不看预算——付不付得起是底座 ``can_afford_repair`` 的事。
+    """
+
+    return RepairWarrant(
+        cycle_allowed=cycle_within_tier(cycle, research_tier=research_tier),
+        progressed=progress.coverage_delta.progressed,
+    )
+
+
 def repair_is_warranted(
     progress: ProgressSnapshot,
     *,
     cycle: int,
     research_tier: str,
 ) -> bool:
-    """领域判定：这个 tier 还容忍这一轮，且上一轮真有独立证据进展。
+    """进度修复的领域闸：``warrant_repair(...).warranted`` 的 bool 便写。"""
 
-    不看预算——付不付得起是 :func:`can_afford_repair` 的事。
-    """
+    return warrant_repair(progress, cycle=cycle, research_tier=research_tier).warranted
 
-    return (
-        cycle_within_tier(cycle, research_tier=research_tier)
-        and progress.coverage_delta.progressed
-    )
+
+def _count_work_units(
+    missing_outputs: tuple[str, ...],
+    missing_capabilities: tuple[str, ...],
+) -> int:
+    return len(_unique(missing_outputs)) + len(_unique(missing_capabilities))
 
 
 def repair_work_units(goal: RepairGoal) -> int:
     """领域量：这轮要补几个格（answer 必填格 + evidence 口径）。
 
     只数格，不折算成调用次数——「一个格值几次调用」是预算换算
-    （:func:`calls_for_work_units`）。
+    （``runtime/repair_budget.calls_for_work_units``）。
     """
 
-    return len(goal.missing_answer_elements) + len(goal.missing_evidence_modes)
+    return _count_work_units(goal.missing_answer_elements, goal.missing_evidence_modes)
 
 
 # 领域对失败终局的解释：这次失败属于哪一类。观察量是 stop_reason，不是 trace。
@@ -373,6 +407,59 @@ def classify_repair_failure(
     )
 
 
+@dataclass(frozen=True)
+class RepairNeed:
+    """领域对「这次该修什么」的申请。不含预算数字，不含 cycle 状态。
+
+    底座据此 ``build_repair_goal`` 并铸窗（``runtime/repair_budget.admit_repair``）；
+    领域不碰账本。``needs_tools`` 是 M7 那条具名申请：领域说「这次得重开工具才
+    修得动」，给不给由底座的 ``grant_for_cold_restart`` 定，批了才在 goal 上盖
+    ``reopen_tools``。
+    """
+
+    missing_outputs: tuple[str, ...]
+    missing_capabilities: tuple[str, ...]
+    rejected_claims: tuple[str, ...]
+    shape: RepairFailureShape
+    work_units: int
+
+    @property
+    def needs_tools(self) -> bool:
+        return self.shape.cold_restart
+
+
+def classify_repair_need(
+    outcome: AgentOutcome,
+    structural: VerifiedEpisodeOutcome,
+    *,
+    rejected_claims: tuple[str, ...],
+    semantic_gap_outputs: tuple[str, ...],
+) -> RepairNeed:
+    """这次失败该修什么、属于哪一类、要补几个格。
+
+    ``missing_outputs`` = 结构缺口 ∪ 语义缺口（去重保序）；``missing_capabilities``
+    取契约要求却没拿到的 capability；格数按去重后的两组之和。
+    """
+
+    missing_outputs = tuple(
+        dict.fromkeys((*structural.missing_outputs, *semantic_gap_outputs))
+    )
+    missing_capabilities = tuple(structural.mandatory_missing_capabilities)
+    return RepairNeed(
+        missing_outputs=missing_outputs,
+        missing_capabilities=missing_capabilities,
+        rejected_claims=tuple(rejected_claims),
+        shape=classify_repair_failure(
+            outcome,
+            structural,
+            missing_outputs=missing_outputs,
+            rejected_claims=rejected_claims,
+            semantic_gap_outputs=semantic_gap_outputs,
+        ),
+        work_units=_count_work_units(missing_outputs, missing_capabilities),
+    )
+
+
 __all__ = [
     "COLD_RESTART_STOP_REASONS",
     "DELIVERY_REPAIR_STOP_REASONS",
@@ -382,12 +469,16 @@ __all__ = [
     "RepairAdmission",
     "RepairFailureShape",
     "RepairGoal",
+    "RepairNeed",
+    "RepairWarrant",
     "build_repair_goal",
     "classify_repair_failure",
+    "classify_repair_need",
     "cycle_within_tier",
     "max_repair_cycles_for_tier",
     "progress_from_ledger",
     "repair_is_warranted",
     "repair_work_units",
     "unreachable_repair_goal",
+    "warrant_repair",
 ]
