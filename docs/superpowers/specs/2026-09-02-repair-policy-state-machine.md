@@ -23,6 +23,10 @@
 >   修复线的 `root_budget.grant()` 只在 `repair_budget._mint_grant` 一处被调。
 >   **顺手发现（不属本单）**：`services/mode_governor.py:273` 的升档授予也在 services 侧
 >   直接 `root.grant()`——与 M5 同一种错层（领域层碰账本），归 `govern_mode` 线另立案。
+>   → **已收（2026-09-03，分支 `refactor/tier-promotion-budget-to-runtime`）**：实际是两处，
+>   还有 `forecast_residual_budget.promote_forecast_residual`；两段算术逐字搬进
+>   `runtime/tier_promotion.py`，`govern_mode` 只出裁决，`services/**` 零账本写入有 AST 棘轮
+>   （`test_tier_promotion`）。见 decouple spec §9「升档记账搬底座」。
 > - **§4 签名，执行体那一半已实施**（`3df916c2`）：`ResearchHarness` 十方法 → 十二方法——
 >   `repair_goal_message(goal, *, tools_open)`（REPAIR_GOAL 正文 + 工具开/关两套指令）与
 >   `admit_repair_result(*, admission, previous, performed_tool_action) -> RepairVerdict{status, gaps, progressed}`
@@ -62,8 +66,9 @@
 > 详见 decouple spec §9「P2''-live」。
 >
 > **本线未做**：`_recover_finalization` 是否并进 repair cycle（独立决定，§6 红线明写本单不动）；
-> `_carry_repair_finish` 两行取舍留 loop；`finance-base-ab/shape_lib/reference_loop_arm.py` 的
-> 「resume 抛无修复轮」壳属实验树，可改调 `HarnessReferenceLoop.resume`。
+> `_carry_repair_finish` 两行取舍留 loop。~~`finance-base-ab/shape_lib/reference_loop_arm.py` 的
+> 「resume 抛无修复轮」壳属实验树，可改调 `HarnessReferenceLoop.resume`~~ → 已改（P2''-live 那晚，
+> `reference_loop_arm.py` 的 `resume` 真在调 `HarnessReferenceLoop.resume`；09-03 核对）。
 
 ---
 
