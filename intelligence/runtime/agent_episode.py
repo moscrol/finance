@@ -34,11 +34,10 @@ from intelligence.services.episode_protocol import (
 )
 from intelligence.runtime.episode_tool_batch import (
     EpisodeToolBatchSession,
-    STAGE_TIMEOUT_GRANTED_DETAIL_RE,
     ToolBatchExecutor,
     ToolBatchResult,
     ToolCallResult,
-    stage_timeout_granted_detail,
+    timeout_detail_for_model,
 )
 from intelligence.services.mode_governor import ModeDecision
 from intelligence.services.provider_observability import (
@@ -316,13 +315,6 @@ _ABS_PATH_RE = re.compile(
 _TOOL_EXCEPTION_DETAIL_LIMIT = 160
 
 
-def _public_timeout_detail(raw: str) -> str:
-    """Grant figure only; never a raw TimeoutError string."""
-
-    text = str(raw or "").strip()
-    return text if STAGE_TIMEOUT_GRANTED_DETAIL_RE.fullmatch(text) else ""
-
-
 def _public_tool_exception_detail(raw: str) -> str:
     """Keep exception class + first line; strip home paths; truncate.
 
@@ -397,14 +389,7 @@ class _EpisodeToolAccumulator:
                     "tool_timeout" if result.status == "timeout" else "tool_exception"
                 )
                 if result.status == "timeout":
-                    granted_detail = (
-                        stage_timeout_granted_detail(
-                            result.dispatch_clock.stage_timeout_granted
-                        )
-                        if result.dispatch_clock is not None
-                        else result.detail
-                    )
-                    public_detail = _public_timeout_detail(granted_detail)
+                    public_detail = timeout_detail_for_model(result)
                 else:
                     public_detail = _public_tool_exception_detail(
                         result.detail or result.error

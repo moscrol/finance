@@ -147,6 +147,28 @@ class ToolCallResult:
             raise ValueError(f"unsupported tool call status: {self.status}")
 
 
+def public_timeout_detail(raw: str) -> str:
+    """Allowlist：超时 detail 只放实授值，绝不放原始 TimeoutError 文本。"""
+
+    text = str(raw or "").strip()
+    return text if STAGE_TIMEOUT_GRANTED_DETAIL_RE.fullmatch(text) else ""
+
+
+def timeout_detail_for_model(result: ToolCallResult) -> str:
+    """一条 ``status=timeout`` 的结果，模型该看到的 detail。
+
+    零授权未派发与真跑了再超时同一口径：有派发时钟就报实授值，没有就只能放行
+    已经是实授值形状的 detail。两条 loop（Episode / HarnessReferenceLoop）共用，
+    否则模型在这一格上看到的东西会随 loop 而变。
+    """
+
+    if result.dispatch_clock is not None:
+        return public_timeout_detail(
+            stage_timeout_granted_detail(result.dispatch_clock.stage_timeout_granted)
+        )
+    return public_timeout_detail(result.detail)
+
+
 @dataclass
 class _ToolTiming:
     """一次工具调用的三个时刻。``started_at`` 由工作线程自己写，所以

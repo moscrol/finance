@@ -47,6 +47,7 @@ from intelligence.runtime.episode_tool_batch import (
     EpisodeToolBatchSession,
     ToolBatchExecutor,
     ToolBatchResult,
+    timeout_detail_for_model,
 )
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
@@ -679,7 +680,7 @@ class HarnessReferenceLoop:
                     invalid_actions += 1
                     error, detail = result.error, result.detail
                 elif result.status == "timeout":
-                    error, detail = "tool_timeout", ""
+                    error, detail = "tool_timeout", timeout_detail_for_model(result)
                 else:
                     error, detail = "tool_exception", result.detail or result.error
                 payload = harness.project_tool_error(

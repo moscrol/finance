@@ -13,13 +13,13 @@ import intelligence.runtime.episode_tool_batch as episode_tool_batch_module
 import intelligence.services.research_contract as research_contract_module
 from intelligence.runtime.agent_episode import (
     ContinuousAgentEpisode,
-    _public_timeout_detail,
     _public_tool_exception_detail,
 )
 from intelligence.runtime.episode_tool_batch import (
     ToolBatchResult,
     ToolCallResult,
     ToolDispatchClock,
+    public_timeout_detail,
     stage_timeout_granted_detail,
 )
 from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
@@ -2658,13 +2658,13 @@ def test_public_tool_exception_detail_keeps_class_and_first_line() -> None:
 
 
 def test_public_timeout_detail_is_allowlisted() -> None:
-    assert _public_timeout_detail("") == ""
-    assert _public_timeout_detail("TimeoutError: RAW_TIMEOUT_EXCEPTION_SENTINEL") == ""
-    assert _public_timeout_detail("not_dispatched: stage_timeout_granted=0") == ""
-    assert _public_timeout_detail("stage_timeout_granted=1e-3") == ""
-    assert _public_timeout_detail("stage_timeout_granted=0") == "stage_timeout_granted=0"
+    assert public_timeout_detail("") == ""
+    assert public_timeout_detail("TimeoutError: RAW_TIMEOUT_EXCEPTION_SENTINEL") == ""
+    assert public_timeout_detail("not_dispatched: stage_timeout_granted=0") == ""
+    assert public_timeout_detail("stage_timeout_granted=1e-3") == ""
+    assert public_timeout_detail("stage_timeout_granted=0") == "stage_timeout_granted=0"
     assert (
-        _public_timeout_detail("stage_timeout_granted=11.5")
+        public_timeout_detail("stage_timeout_granted=11.5")
         == "stage_timeout_granted=11.5"
     )
 
