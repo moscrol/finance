@@ -1,9 +1,17 @@
 # feat/alpha-run-admission
 
+> **2026-09-03 14:00 接线核对**：从公网探了一次才发现 Cloudflare 侧 08-26 起就大半就位——专用 token 隧道
+> `finance-workbench-beta`（`com.cloudflare.cloudflared`，远程 ingress `beta.industry7view.com → 127.0.0.1:8792`）、DNS、
+> Access 应用（302 → `holy-wood-89ce.cloudflareaccess.com`，AUD 从跳转 `kid` 读出）都在；**只差 `api/health` Bypass 应用**。
+> 旧手册/向导「加进 a77-exec config.yml + route dns」的做法作废（会两隧道争一主机名），已重写为核对式（手册 §2.1/§2.2）。
+> `alpha.env` + `beta-users.json`（候选邮箱 `linxiaoqi5111@gmail.com`）已预填；8899 干跑八项通过（手册 §3）。
+> **auth 仍 off、启动器未 source**：开认证会让本机全部直打 8792 的探针 401（含切流长电探针），路线三选一见手册 §3.1，
+> 加 `FINANCE_WEB_SEARCH` 取舍（§1.2）——两件待用户拍板后才开。VPS：`known_hosts` 唯一公网条目 `[154.29.155.87]:21259`，
+> agent 壳 ssh 出不去（github 也超时），备份安装须在用户终端跑。
+>
 > **2026-09-03 13:05 已合入并上生产**：PR #547 → `gitea/main=c88c81da`；8792 切 `c88c81da5120`（0903d），
 > 回滚锚 `~/.finance-runtime/cutover-20260903d-rollback-8792.txt`（回 `d4fade5494ee`）；启动器加 4 行并发守卫 env
 > （备份 `start-finance-workbench.bak-20260903-admission`），**auth 仍 off**。三项验证 + 准入 live 429 实测见 `inflight/main.md` 13:05 行。
-> 剩余全是真人步骤：Cloudflare 后台（Access + Bypass + AUD）→ 隧道 → 启动器 source `alpha.env` → 验收；VPS 差 `user@host`。
 > 下文为合入前原状，供溯源。
 
 树 `/Users/a77/fwp-wt-alpha-run-admission`，基座 `gitea/main`=`94f5daae`（干净树）。
