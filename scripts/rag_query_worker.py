@@ -30,7 +30,13 @@ def main() -> int:
     module = _load_module(script_dir / "rag_index.py")
     original_loader = module._load_retriever
     load_count = 0
-    state = {"retriever": None, "chunks": {}, "revision": "", "freshness": "unknown"}
+    state = {
+        "retriever": None,
+        "chunks": {},
+        "revision": "",
+        "freshness": "unknown",
+        "store": None,
+    }
     loader_cache: dict[tuple, object] = {}
 
     def cached_loader(*loader_args, **loader_kwargs):
@@ -64,15 +70,8 @@ def main() -> int:
             sort_keys=True,
         ).encode("utf-8")
         state["revision"] = hashlib.sha256(revision_payload).hexdigest()[:16]
-        try:
-            report = module.rag_store.stale_report(
-                module._vault(),
-                store,
-                include_raw=bool(store.meta.get("include_raw")),
-            )
-            state["freshness"] = "stale" if report.get("stale") else "fresh"
-        except Exception:
-            state["freshness"] = "unknown"
+        state["store"] = store
+        state["freshness"] = _index_wide_freshness(store, module)
         loader_cache[key] = retriever
         return retriever
 
@@ -93,7 +92,7 @@ def main() -> int:
                     returncode = int(exc.code or 0)
             output = stdout.getvalue()
             if returncode == 0 and argv and argv[0] == "query":
-                output = _enrich_query_output(output, state)
+                output = _enrich_query_output(output, state, module)
             response = {
                 "id": request_id,
                 "returncode": returncode,
@@ -113,7 +112,7 @@ def main() -> int:
     return 0
 
 
-def _enrich_query_output(output: str, state: dict[str, object]) -> str:
+def _enrich_query_output(output: str, state: dict[str, object], module=None) -> str:
     rows = json.loads(output or "[]")
     if not isinstance(rows, list):
         return output
@@ -122,6 +121,7 @@ def _enrich_query_output(output: str, state: dict[str, object]) -> str:
     if not isinstance(chunks, dict) or retriever is None:
         return output
     built_at = str(getattr(retriever, "store").meta.get("built_at") or "")
+    page_verdicts = _page_verdicts(rows, state, module)
     for row in rows:
         if not isinstance(row, dict):
             continue
@@ -138,10 +138,66 @@ def _enrich_query_output(output: str, state: dict[str, object]) -> str:
                 "evidence_chunk_ids": [str(chunk.get("id") or "")],
                 "index_built_at": built_at,
                 "index_source_revision": str(state.get("revision") or ""),
-                "index_freshness": str(state.get("freshness") or "unknown"),
+                "index_freshness": page_verdicts.get(
+                    str(row.get("file_path") or ""),
+                    str(state.get("freshness") or "unknown"),
+                ),
             }
         )
     return json.dumps(rows, ensure_ascii=False)
+
+
+def _index_wide_freshness(store, module) -> str:
+    """预热时算一次的**整库兜底** verdict（仅在按页判不可用时才会被盖上去）。
+
+    优先走 KB 侧单一事实源 `freshness_report`（manifest 指纹 + 切块参数门 + 年龄门），
+    而不是 `stale_report`。后者是 KB 早已收敛掉的第二套并行判据：它重切整库 14k 文件，
+    且**不判** chunk_profile 与索引年龄，可能与 KB 自己的口径相反——两套判据并存正是
+    KB `freshness_report` 文档里点名要消灭的事。
+    """
+    try:
+        report_fn = getattr(store, "freshness_report", None)
+        if report_fn is not None:
+            return str(report_fn(module._vault())[0])
+        report = module.rag_store.stale_report(
+            module._vault(),
+            store,
+            include_raw=bool(store.meta.get("include_raw")),
+        )
+        return "stale" if report.get("stale") else "fresh"
+    except Exception:
+        return "unknown"
+
+
+def _page_verdicts(
+    rows: list, state: dict[str, object], module
+) -> dict[str, str]:
+    """每条命中按页判新鲜度，**每次请求现算**。
+
+    此前这里盖的是 `state["freshness"]`——一个在预热时算一次、之后再不更新的整库
+    结论。两个后果：① 整库口径下「库里有别的页变了」会让逐字节没变的页也被下游
+    `require_fresh` 丢掉（KB 侧 `page_freshness` 已收窄）；② 就算重建了索引，常驻
+    worker 也还在盖旧 verdict，不重启 worker 永远不会变 fresh。所以「重建索引」这
+    个补救动作对热路径是无效的。
+
+    KB 检出版本较旧（没有 `page_freshness`）时返回空字典 → 调用方回落到原来的整库
+    verdict，不改行为、不抛异常。跨仓版本错配不能把检索打死。
+    """
+    store = state.get("store")
+    page_fn = getattr(store, "page_freshness", None)
+    if page_fn is None or module is None:
+        return {}
+    paths = [
+        str(row.get("file_path") or "")
+        for row in rows
+        if isinstance(row, dict) and row.get("file_path")
+    ]
+    if not paths:
+        return {}
+    try:
+        return page_fn(module._vault(), paths)
+    except Exception:
+        return {}
 
 
 def _hashable_cache_key(args: tuple, kwargs: dict) -> tuple:

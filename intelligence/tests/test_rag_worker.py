@@ -568,3 +568,162 @@ def test_hashable_cache_key_treats_distinct_stores_as_the_same_loader() -> None:
     assert key_a == key_b
     assert key_a != key_stale
 
+
+def _worker_module():
+    import importlib.util
+
+    path = Path(__file__).resolve().parents[2] / "scripts" / "rag_query_worker.py"
+    spec = importlib.util.spec_from_file_location("rag_query_worker_freshness", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class _FakeStore:
+    """替身只复刻被测那条分支的形状：page_freshness 逐页给 verdict。"""
+
+    def __init__(self, verdicts=None, raises=False):
+        self.meta = {"built_at": "2026-08-31T11:01:16Z"}
+        self._verdicts = verdicts
+        self._raises = raises
+        self.calls = []
+
+    def page_freshness(self, vault, paths):
+        if self._raises:
+            raise RuntimeError("boom")
+        self.calls.append(list(paths))
+        return {p: self._verdicts.get(p, "stale") for p in paths}
+
+
+class _FakeModule:
+    def __init__(self, vault="/kb/wiki"):
+        self._vault_path = vault
+
+    def _vault(self):
+        return self._vault_path
+
+
+def _rows():
+    return [
+        {"file_path": "wiki/entities/中国船舶.md", "best_chunk_id": "c1"},
+        {"file_path": "wiki/concepts/军工.md", "best_chunk_id": "c2"},
+    ]
+
+
+def _state(store, chunks_ids=("c1", "c2"), freshness="stale"):
+    return {
+        "retriever": mock.Mock(store=store),
+        "chunks": {cid: {"id": cid, "text": "证据正文", "section": "s"} for cid in chunks_ids},
+        "revision": "rev123",
+        "freshness": freshness,
+        "store": store,
+    }
+
+
+def test_enrich_stamps_per_page_freshness_not_one_index_wide_verdict() -> None:
+    """靶心：库里有别的页变了，没变的那页必须仍标 fresh。
+
+    此前这里盖的是预热时算的整库 verdict，两条命中会一起变 stale，
+    下游 require_fresh 逐条丢弃后 hits=0。
+    """
+    module = _worker_module()
+    store = _FakeStore({"wiki/concepts/军工.md": "fresh"})
+    rows = _rows()
+
+    out = json.loads(module._enrich_query_output(json.dumps(rows), _state(store), _FakeModule()))
+
+    by_path = {r["file_path"]: r["index_freshness"] for r in out}
+    assert by_path["wiki/entities/中国船舶.md"] == "stale"
+    assert by_path["wiki/concepts/军工.md"] == "fresh"
+
+
+def test_enrich_recomputes_every_request_so_reindex_takes_effect() -> None:
+    """重建索引后不重启 worker 也要生效——按页 verdict 必须每次请求现算。"""
+    module = _worker_module()
+    store = _FakeStore({})
+    state = _state(store)
+
+    module._enrich_query_output(json.dumps(_rows()), state, _FakeModule())
+    store._verdicts = {"wiki/entities/中国船舶.md": "fresh", "wiki/concepts/军工.md": "fresh"}
+    out = json.loads(module._enrich_query_output(json.dumps(_rows()), state, _FakeModule()))
+
+    assert {r["index_freshness"] for r in out} == {"fresh"}
+    assert len(store.calls) == 2, "每次请求都要重算，不能缓存整库 verdict"
+
+
+def test_enrich_falls_back_to_index_wide_verdict_when_kb_lacks_page_freshness() -> None:
+    """跨仓版本错配：KB 检出还没有 page_freshness 时回落旧行为，不能抛异常。"""
+    module = _worker_module()
+
+    class _OldStore:
+        meta = {"built_at": "2026-08-31T11:01:16Z"}
+
+    state = _state(_OldStore(), freshness="stale")
+    out = json.loads(module._enrich_query_output(json.dumps(_rows()), state, _FakeModule()))
+    assert {r["index_freshness"] for r in out} == {"stale"}
+
+
+def test_enrich_falls_back_when_page_freshness_raises() -> None:
+    module = _worker_module()
+    state = _state(_FakeStore(raises=True), freshness="unknown")
+    out = json.loads(module._enrich_query_output(json.dumps(_rows()), state, _FakeModule()))
+    assert {r["index_freshness"] for r in out} == {"unknown"}
+
+
+def test_prewarm_prefers_kb_single_source_over_stale_report() -> None:
+    """整库兜底 verdict 要走 KB 的 freshness_report，不走已被收敛掉的 stale_report。
+
+    stale_report 是第二套并行判据：重切整库、且不判 chunk_profile 与索引年龄。
+    """
+    module = _worker_module()
+    calls = {"freshness_report": 0, "stale_report": 0}
+
+    class _Store:
+        meta = {"include_raw": False}
+        chunks = []
+
+        def freshness_report(self, vault):
+            calls["freshness_report"] += 1
+            return ("fresh", [])
+
+    class _RagStore:
+        @staticmethod
+        def stale_report(vault, store, include_raw=False):
+            calls["stale_report"] += 1
+            return {"stale": 1}
+
+    fake_module = _FakeModule()
+    fake_module.rag_store = _RagStore()
+
+    assert module._index_wide_freshness(_Store(), fake_module) == "fresh"
+    assert calls["freshness_report"] == 1
+    assert calls["stale_report"] == 0
+
+
+def test_prewarm_falls_back_to_stale_report_on_old_kb_checkout() -> None:
+    module = _worker_module()
+
+    class _OldStore:
+        meta = {"include_raw": False}
+
+    class _RagStore:
+        @staticmethod
+        def stale_report(vault, store, include_raw=False):
+            return {"stale": 3}
+
+    fake_module = _FakeModule()
+    fake_module.rag_store = _RagStore()
+    assert module._index_wide_freshness(_OldStore(), fake_module) == "stale"
+
+
+def test_prewarm_freshness_is_unknown_when_resolution_raises() -> None:
+    module = _worker_module()
+
+    class _Boom:
+        meta = {"include_raw": False}
+
+        def freshness_report(self, vault):
+            raise RuntimeError("boom")
+
+    assert module._index_wide_freshness(_Boom(), _FakeModule()) == "unknown"
