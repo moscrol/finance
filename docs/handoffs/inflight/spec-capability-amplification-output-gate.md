@@ -23,7 +23,7 @@
 ## 未验证 / 已知边界
 - `web_fetch` 两臂零调用（snippet 里就有数），仍无 live 读数；#567 给它的 5s 地板是 [推断]，无实测样本。
 - 判官对 public_web「零删除」只 n=1；P2 占比要等积累。
-- **KB 索引 stale**：索引建于 08-31 19:27、知识库仓已前移，24 条命中全被 `require_fresh` 丢掉。#566 修完 `kb_search` 不再超时，但 `hits=0` / `ok=False` —— **拿不到证据这件事没被修**，需重建索引，另立单。
+- **KB 命中全被 `require_fresh` 丢掉**：#566 修完 `kb_search` 不再超时，但 24 条命中全丢、`hits=0` / `ok=False`。~~需重建索引，另立单~~ **已更正：重建索引救不回来**——①`index_freshness` 是**整库**结论（manifest 一个指纹），实测 14412 个入索引文件只有 37 个受影响（0.26%），99.74% 逐字节没变的页被连坐；②常驻 worker 在预热时把整库 verdict 算一次就冻住，重建后不重启 worker 不生效。已修：KB 仓 `fix/rag-page-level-freshness`（按页判，整库两道门保留）+ 本仓 `fix/rag-worker-page-freshness`（每次请求现算）。真索引实测：修前 12 条全 stale、修后 11 fresh / 1 stale（那 1 条是真改过的页）。索引 `built_at` 是 08-31 **19:01**，19:27 是目录 mtime，此处原写 19:27 口径混了。
 - #567 只止损，不会让 `web_search` 拿到真授予；要 #566 一起上，窗才留得住。
 - #568 让 deep 在 GLM 下可达之后，生产 deep 占比会变 —— 合入后要看第一批 `observable_complexity_without_plan` 的读数，别默认它一定是好事。
 
