@@ -6,6 +6,7 @@
 
 | 台账 | canonical 路径 | 格式 | 唯一写入者 | 提交? | 渲染物 |
 |---|---|---|---|---|---|
+| 每日市场复盘（正式日报） | `market_feature_store/exports/<date>-daily-review.json`（schema `daily-review/v1`：核心看板 + `facts` 口径字段 + 15 节 `sections[].blocks[]`） | JSON | `market_feature_store.cli daily-review`（`reports/daily_review.py::build_daily_review`，全量入口 `intelligence.cli daily` 的 `daily-review` 步） | 是（几十 KB/天） | 同名 `.md`（不提交，`render_daily_review_markdown`）→ `复盘/daily/<date>/<date>-daily-review.html`（`render_daily_review_briefing.py`）；Workbench 产物库投影 `project_daily_review_json`；框架解读 `load_facts_digest` |
 | 复盘输入冻结 | `docs/learning/forecast-review-ledger/<date>.manifest.json` | JSON | `dual_blind_forecast.py manifest`（**夜跑已退役**，仅手动） | 是 | — |
 | 复盘答卷 | `docs/learning/forecast-review-ledger/<date>.answer.<agent>.json` | JSON | `dual_blind_forecast.py validate`（校验；**夜跑已退役**） | 是 | `<date>.md` |
 | 复盘验证 | `docs/learning/forecast-review-ledger/<date>.verdict.json` | JSON | `dual_blind_forecast.py verdict`（**夜跑已退役**，仅手动） | 是 | `index.md` 状态表（`index` 子命令） |
@@ -53,6 +54,10 @@
 
 ## 边界约定（去重复）
 
+- **正式日报唯一真本源 = `<date>-daily-review.json`**（2026-09-03 起）：此前 `build_daily_review`
+  算完全部结构化数据只落 md，Workbench 投影 / 聊天 skill / 框架解读各自反解 Markdown，都只解出
+  核心看板那张两列表（实测 32,395 字 → 2,087 字）。现在 md 由 JSON 渲染、html 由 md 渲染，
+  下游一律读 JSON；老日期没有 JSON 才退回 md，再退回 html。
 - **复盘验证唯一落点 = `<date>.verdict.json`**：每日复盘假设的 hit/miss 回检统一走这里，
   不再手工重复登记进 foresight `checkpoints.jsonl`（后者只留日常问答里的个人判断校准）。
 - **晨汇 T1/T2/T3 兑现回检并入 verdict**：晨汇命中项作为假设来源之一登记进当日 `verdict.json`，不另建表。

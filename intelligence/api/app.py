@@ -31,6 +31,7 @@ from intelligence.api.quota import ENV_EXEMPT_USERS, RunQuota
 from intelligence.api.daily_reports import (
     project_daily_agent,
     project_daily_review_html,
+    project_daily_review_json,
     project_daily_review_markdown,
 )
 from intelligence.api.structured_reports import (
@@ -3060,7 +3061,7 @@ def create_app(
             raise HTTPException(404, "该产物不支持原生投影")
         if descriptor.category == "daily_review" and not Path(
             descriptor.source_path
-        ).name.endswith(("-daily-review.html", "-daily-review.md")):
+        ).name.endswith(("-daily-review.html", "-daily-review.md", "-daily-review.json")):
             raise HTTPException(404, "该产物不支持原生投影")
 
         original = next(
@@ -3090,7 +3091,16 @@ def create_app(
                 except FileNotFoundError:
                     _, source = registry.content_path(artifact_id)
                 source_path = source.relative_to(root).as_posix()
-                if source.suffix.lower() == ".md":
+                if source.suffix.lower() == ".json":
+                    payload = json.loads(source.read_text(encoding="utf-8"))
+                    if not isinstance(payload, dict):
+                        raise ValueError("Daily Review canonical JSON 必须是对象")
+                    projection = project_daily_review_json(
+                        payload,
+                        source_path=source_path,
+                        date=descriptor.date,
+                    )
+                elif source.suffix.lower() == ".md":
                     projection = project_daily_review_markdown(
                         source.read_text(encoding="utf-8"),
                         source_path=source_path,
@@ -3103,7 +3113,7 @@ def create_app(
                         date=descriptor.date,
                     )
                 else:
-                    raise ValueError("Daily Review 需要 canonical Markdown 或历史 HTML")
+                    raise ValueError("Daily Review 需要 canonical JSON / Markdown 或历史 HTML")
         except KeyError as exc:
             raise HTTPException(404, f"产物未注册：{artifact_id}") from exc
         except FileNotFoundError as exc:

@@ -56,12 +56,33 @@ class ReportItem:
 
 
 @dataclass(frozen=True)
+class ReportTable:
+    title: str
+    columns: tuple[str, ...]
+    rows: tuple[tuple[object, ...], ...]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "title": self.title,
+            "columns": list(self.columns),
+            "rows": [list(row) for row in self.rows],
+        }
+
+
+@dataclass(frozen=True)
 class ReportSection:
     title: str
     items: tuple[ReportItem, ...]
+    tables: tuple[ReportTable, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
-        return {"title": self.title, "items": [item.to_dict() for item in self.items]}
+        result: dict[str, object] = {
+            "title": self.title,
+            "items": [item.to_dict() for item in self.items],
+        }
+        if self.tables:
+            result["tables"] = [table.to_dict() for table in self.tables]
+        return result
 
 
 @dataclass(frozen=True)
@@ -426,6 +447,12 @@ def _parse_markdown_sections(source: str) -> dict[str, list[str]]:
 
 
 def _markdown_table(lines: list[str]) -> list[tuple[str, str]]:
+    """取表格每行的首列与末列。
+
+    表头行紧跟在 ``|---|---|`` 分隔行之前——遇到分隔行就把刚收进来的那一行
+    弹掉，而不是靶向匹配已知表头。此前只认 ``["表", "状态"]`` 两列，五列的
+    数据覆盖检查表头漏成了一条「表：状态」的覆盖提醒。
+    """
     rows: list[tuple[str, str]] = []
     for line in lines:
         stripped = line.strip()
@@ -435,8 +462,8 @@ def _markdown_table(lines: list[str]) -> list[tuple[str, str]]:
         if len(cells) < 2:
             continue
         if all(re.fullmatch(r":?-{3,}:?", cell) for cell in cells):
-            continue
-        if cells[:2] in (["维度", "结论"], ["项目", "数值"], ["表", "状态"]):
+            if rows:
+                rows.pop()
             continue
         rows.append((cells[0], cells[-1]))
     return rows
@@ -469,6 +496,8 @@ def _project_daily_review(
     date: str | None,
     source_mode: str,
     warnings: tuple[str, ...] = (),
+    extra_sections: tuple[ReportSection, ...] = (),
+    generated_at: str | None = None,
 ) -> dict[str, object]:
     if not core_rows and not assessment:
         raise ValueError("Daily Review source does not contain supported sections")
@@ -533,6 +562,7 @@ def _project_daily_review(
             ReportSection("主要方向", direction_items),
             ReportSection("风险与验证", tuple(risk_items)),
             ReportSection("专业数据", professional_items),
+            *extra_sections,
         ),
         glossary=_REVIEW_GLOSSARY,
         provenance=ReportProvenance(
@@ -540,9 +570,133 @@ def _project_daily_review(
             rendered_path=rendered_path,
             warnings=warnings,
             original_report_available=original_report_available,
+            generated_at=generated_at,
         ),
     )
     return projection.to_dict()
+
+
+# 正式日报的 15 节按「自上而下」复盘顺序归到四个镜头，再加数据覆盖。
+# 键是台账 JSON 里的 section id（不是编号——编号会随模板漂移）。
+_REVIEW_LENSES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("大盘周期", ("market", "concentration")),
+    ("情绪层", ("sentiment", "strength")),
+    (
+        "板块双坐标",
+        (
+            "period_tops",
+            "double_red",
+            "single_red",
+            "double_red_matrix",
+            "stock_highs",
+            "limit_up",
+        ),
+    ),
+    ("个股载体", ("industry_engines", "limit_advance", "weighted_top")),
+    ("数据覆盖", ("coverage",)),
+)
+
+
+def _lens_sections(sections: list[Mapping[str, object]]) -> tuple[ReportSection, ...]:
+    """把台账 JSON 的 sections[].blocks[] 折成镜头分组：结论当条目，表格整张带上。"""
+    by_id = {_text(section.get("id")): section for section in sections}
+    result: list[ReportSection] = []
+    for lens_title, section_ids in _REVIEW_LENSES:
+        items: list[ReportItem] = []
+        tables: list[ReportTable] = []
+        for section_id in section_ids:
+            section = by_id.get(section_id)
+            if section is None:
+                continue
+            section_title = _text(section.get("title")) or section_id
+            index = section.get("index")
+            badge = f"§{index}" if isinstance(index, int) else ""
+            conclusion = ""
+            notes: list[str] = []
+            pending_heading = ""
+            for block in _mappings(section.get("blocks")):
+                kind = _text(block.get("kind"))
+                if kind == "heading":
+                    pending_heading = _text(block.get("text"))
+                elif kind == "conclusion":
+                    conclusion = _clean_markdown_text(_text(block.get("text")))
+                elif kind in {"note", "text"}:
+                    notes.append(_clean_markdown_text(_text(block.get("text"))))
+                elif kind == "table":
+                    columns = tuple(_strings(block.get("columns")))
+                    rows = tuple(
+                        tuple(cell for cell in row)
+                        for row in block.get("rows", [])
+                        if isinstance(row, list)
+                    )
+                    if not columns:
+                        continue
+                    table_title = _text(block.get("title")) or pending_heading
+                    pending_heading = ""
+                    tables.append(
+                        ReportTable(
+                            title=(
+                                f"{section_title} · {table_title}"
+                                if table_title
+                                else section_title
+                            ),
+                            columns=columns,
+                            rows=rows,
+                        )
+                    )
+            summary = conclusion or (notes[0] if notes else "")
+            details = tuple(note for note in notes if note != summary)
+            if summary or details:
+                items.append(
+                    ReportItem(
+                        title=section_title,
+                        summary=summary or "详见下方表格。",
+                        badges=(badge,) if badge else (),
+                        details=details,
+                    )
+                )
+        if items or tables:
+            result.append(ReportSection(lens_title, tuple(items), tuple(tables)))
+    return tuple(result)
+
+
+def project_daily_review_json(
+    payload: Mapping[str, object], *, source_path: str, date: str | None
+) -> dict[str, object]:
+    """台账 JSON 真本源 → Workbench 投影：核心看板保留，15 节表格全部带上。"""
+    core_rows = [
+        (_text(row.get("dimension")), _text(row.get("conclusion")))
+        for row in _mappings(payload.get("core_board"))
+        if _text(row.get("dimension"))
+    ]
+    sections = _mappings(payload.get("sections"))
+    if not core_rows and not sections:
+        raise ValueError("Daily Review JSON does not contain report data")
+    coverage_rows: list[tuple[str, str]] = []
+    for section in sections:
+        if _text(section.get("id")) != "coverage":
+            continue
+        for block in _mappings(section.get("blocks")):
+            if _text(block.get("kind")) != "table":
+                continue
+            for row in block.get("rows", []):
+                if isinstance(row, list) and len(row) >= 2:
+                    coverage_rows.append((_text(row[0]), _text(row[-1])))
+    # 与 md 路径的告警措辞一致（structured_reports 的口语化按这个前缀识别）。
+    warnings = tuple(
+        f"⚠️ 数据降级：{warning}" for warning in _strings(payload.get("warnings"), limit=3)
+    )
+    return _project_daily_review(
+        core_rows,
+        _clean_markdown_text(_text(payload.get("assessment"))),
+        coverage_rows,
+        source_path=source_path,
+        date=_text(payload.get("trade_date")) or date,
+        source_mode="canonical_json",
+        warnings=warnings,
+        extra_sections=_lens_sections(sections),
+        generated_at=_text(payload.get("generated_at")) or None,
+    )
 
 
 def project_daily_review_markdown(
