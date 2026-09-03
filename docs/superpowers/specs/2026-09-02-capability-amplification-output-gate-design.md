@@ -222,6 +222,16 @@ Episode 臂：   kb_search✗ → financial_data✓ → l3_lookup✗ → evidenc
 
 **不做**：不抬 judge 窗口（`LEFTOVER_WINDOW_ISSUE` 处「不要靠再抬窗口罩尾部」的约束保持）。
 
+> **状态（2026-09-03）**：第 1 步已落——`SemanticEpisodeOutcome.sentence_verdicts`（私有产物 `semantic_verifier.sentence_verdicts`），
+> 每条拒句记 `stage`（preflight / judge）、`judge_round`、`sentence`、`decision`（**deleted / demoted_to_issue**）、`reasons`
+> （judge / novel_numeric_condition / calendar_weekday / path_trend / unresolved_evidence_ordinal）、`judge_issues`（点到该句的判官原话）、
+> `cited_evidence_ordinals` / `unresolved_evidence_ordinals` / `bound_evidence_hashes` / `source_tiers`。判据零改动，钉子 6 条、变异
+> 「降级误记删除」2 红。读侧 `scripts/offline_judge_verdict_census.py` 算第 2 步的占比；对生产 814 个历史 run 报「不可判」（字段刚有），
+> 第 2 步要等切流后积累。**本轮 live 发现修正本节前提**：当前判官对 `public_web` 不是「整片删」——腾讯题 5 条 `public_web` 证据全部绑定发布，
+> 4 条 issue 全是**降级标注**（`decision=demoted_to_issue` 那一类，V8 语义降级已把「必需槽内的语义拒句」改成只记 issue），
+> 见 `docs/verification/2026-09-03-web-chain-two-arm-live.md` §3。所以第 2 步要数的是两个数：`deleted` 里有出处的占比（判据是否过严），
+> 以及 `demoted` 里低档来源的条数（标注是否被展示层吃掉——§3.3 那条「前提是展示层真的把标注展示出来」）。
+
 ### 3.4 P3：沙箱按 `derived_calculation` 落地
 
 **定位**：这一刀**不修任何已量出的缺陷**。react 1.000 vs 8792 0.357、茅台题——全是取数类题，沙箱一个都不修。它开的是一类目前**完全答不了**的题：DCF/敏感性、回测、统计检验、跨源口径核对。**是能力扩张，不是修复。**

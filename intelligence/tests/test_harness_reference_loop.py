@@ -432,8 +432,11 @@ def test_tool_hidden_for_too_small_window_is_the_same_machine() -> None:
     assert episode_model.calls[0]["tools"] == reference_model.calls[0]["tools"]
 
     # Episode 的账本给每条事件盖 task_frame_hash / at（其它同机用例同样摘掉），
-    # 菜单本身的五个键两边必须一字不差。
-    menu_keys = ("visible", "hidden", "min_window_seconds", "would_grant", "reason")
+    # 菜单本身的四个裁决键两边必须一字不差；``would_grant`` 单独按容差比——它由
+    # ``ResearchDeadline.remaining()`` 的墙钟推导，两条 loop 各建一个 deadline、到 ``menu()``
+    # 之间各走了几毫秒，round(…, 3) 后 14.999 对 15.0 是时钟抖动不是机器差
+    #（2026-09-03 在 gitea/main 干净树上 6/6 复现红）。
+    menu_keys = ("visible", "hidden", "min_window_seconds", "reason")
 
     def menu_events(outcome):
         return [
@@ -442,9 +445,16 @@ def test_tool_hidden_for_too_small_window_is_the_same_machine() -> None:
             if e.kind == "tool_menu"
         ]
 
+    def menu_grants(outcome):
+        return [float(e.payload["would_grant"]) for e in outcome.events if e.kind == "tool_menu"]
+
     left, right = menu_events(episode), menu_events(reference)
     assert left and left == right
-    first = left[0]
+    left_grants, right_grants = menu_grants(episode), menu_grants(reference)
+    assert len(left_grants) == len(right_grants) == len(left)
+    for left_grant, right_grant in zip(left_grants, right_grants, strict=True):
+        assert abs(left_grant - right_grant) < 0.05, (left_grants, right_grants)
+    first = {**left[0], "would_grant": left_grants[0]}
     assert first["hidden"] == ["kb_search"]
     assert first["visible"] == ["market_data"]
     assert first["min_window_seconds"] == {"kb_search": 20.0}
