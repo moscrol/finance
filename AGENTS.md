@@ -33,6 +33,7 @@
 | 这个实现在哪、依赖谁 | `python3 scripts/code_map.py query`（stale 时先 `build`） | status fail-closed；launchd 夜间刷新（安装 `scripts/install_code_map_refresh.py`） |
 | 系统有哪些能力节点/回路 | `.agent-memory/10_knowledge/finance-agent-capability-graph.md` | `graph_audit.py` 三级断言（路径/符号/分支） |
 | 入口在哪、接口深浅怎么评 | `docs/agent-product-door.md`（门/引擎/组装/积木） | 人工维护，改门必更此页 |
+| 优化后谁出稿：包还是 A、有没有第三台工作流引擎 | `docs/superpowers/specs/2026-08-30-optimized-orchestration-contract-design.md`（目标态合同；落地前不是现状） | 落地时改门页；未实施勿当生产分流 |
 | 骨架形状：谁拥有循环、六层 | `git -C ~/harness-reference show gitea/main:DESIGN-stack.md` | SSOT 在 gitea，勿读脏工作树 |
 | 整体为什么是闭环不是流水线 | `.agent-memory/10_knowledge/agent-system-closed-loop-first-principles.md` | 稳定方法论 |
 | 数据/台账落哪、谁是唯一写入者 | `docs/learning/ledger-map.md`（台账总索引）+ CLAUDE.md「本地数据库 (DuckDB)」节（写入契约；schema SSOT `market_feature_store/schema.sql`） | 新增台账先登记（该表表头约定）；DuckDB 契约随 schema/迁移人工更新 |

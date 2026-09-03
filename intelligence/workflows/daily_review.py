@@ -245,6 +245,25 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
                 ],
                 outputs=[],
             ))
+            plan.append(CommandSpec(
+                name="ima-gap-report",
+                argv=[
+                    "python3",
+                    "-m",
+                    "intelligence.cli",
+                    "ima-gap-report",
+                    "--date",
+                    date,
+                    "--kb-wiki",
+                    str(paths.knowledge_wiki),
+                    "--finance-root",
+                    str(paths.finance_root),
+                ],
+                outputs=[
+                    str(exports / f"{date}-ima-gap.json"),
+                    str(exports / f"{date}-ima-gap.md"),
+                ],
+            ))
 
     plan.append(CommandSpec(
         name="strategy1-matrix-draft",

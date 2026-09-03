@@ -36,6 +36,11 @@ class DailyReviewAgentEntryTest(unittest.TestCase):
             self.assertIn("kb-queue-receive", receive.argv)
             self.assertIn(str(paths.knowledge_wiki), receive.argv)
             self.assertNotIn("--apply", receive.argv)
+            self.assertIn("ima-gap-report", names)
+            self.assertEqual(names.index("ima-gap-report"), names.index("kb-ingest-receive") + 1)
+            gap = plan[names.index("ima-gap-report")]
+            self.assertIn("ima-gap-report", gap.argv)
+            self.assertIn(str(paths.market_exports / "2026-06-11-ima-gap.json"), gap.outputs)
 
     def test_skip_agent_also_skips_kb_ingest_receive(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -44,6 +49,7 @@ class DailyReviewAgentEntryTest(unittest.TestCase):
             names = [step.name for step in plan]
             self.assertNotIn("agent-daily", names)
             self.assertNotIn("kb-ingest-receive", names)
+            self.assertNotIn("ima-gap-report", names)
 
     def test_daily_plan_gates_and_exports_before_report_generation(self):
         with tempfile.TemporaryDirectory() as tmp:

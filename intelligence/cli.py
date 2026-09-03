@@ -1195,6 +1195,47 @@ def add_daily_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.set_defaults(func=cmd_daily)
 
 
+def add_ima_gap_report_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "ima-gap-report",
+        help="读当日 research-queue，列出题材 DeepDive / 个股逻辑卡缺口（不问 IMA）",
+    )
+    parser.add_argument("--date", required=True, help="交易日 YYYY-MM-DD")
+    parser.add_argument("--finance-root", default=None, help="覆盖金融仓路径")
+    parser.add_argument("--kb-wiki", default=None, help="知识库 wiki 根目录")
+    parser.add_argument(
+        "--extra-wiki",
+        action="append",
+        default=[],
+        help="额外 wiki（未提交 worktree），可重复",
+    )
+    parser.set_defaults(func=cmd_ima_gap_report)
+
+
+def cmd_ima_gap_report(args: argparse.Namespace) -> int:
+    from intelligence.paths import default_paths
+    from intelligence.services.ima_gap_report import build_ima_gap_report, write_ima_gap_report
+
+    paths = default_paths()
+    finance_root = Path(args.finance_root).expanduser() if args.finance_root else paths.finance_root
+    kb_wiki = Path(args.kb_wiki).expanduser() if args.kb_wiki else paths.knowledge_wiki
+    extras = [Path(p).expanduser() for p in (args.extra_wiki or [])]
+    queue_path = finance_root / "market_feature_store" / "exports" / f"{args.date}-research-queue.json"
+    if not queue_path.is_file():
+        print(json.dumps({"ok": False, "error": f"missing {queue_path}"}, ensure_ascii=False, indent=2))
+        return 0
+    payload = json.loads(queue_path.read_text(encoding="utf-8"))
+    report = build_ima_gap_report(payload, wikis=[kb_wiki, *extras], date=args.date)
+    exports = finance_root / "market_feature_store" / "exports"
+    written = write_ima_gap_report(
+        report,
+        exports / f"{args.date}-ima-gap.json",
+        exports / f"{args.date}-ima-gap.md",
+    )
+    print(json.dumps({"ok": True, "counts": report["counts"], "written": {k: str(v) for k, v in written.items()}}, ensure_ascii=False, indent=2))
+    return 0
+
+
 def add_kb_queue_receive_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "kb-queue-receive",
@@ -3566,6 +3607,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_theme_parser(subparsers)
     add_kb_queue_status_parser(subparsers)
     add_kb_queue_receive_parser(subparsers)
+    add_ima_gap_report_parser(subparsers)
     add_l3_ingest_parser(subparsers)
     add_serve_parser(subparsers)
     add_feishu_bot_parser(subparsers)

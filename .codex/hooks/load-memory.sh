@@ -28,13 +28,25 @@ if [ -f "$note" ]; then
   echo
 fi
 
-echo "## Git 现状（开工先看）"
+if [ -x "$V/40_playbooks/check-writeback.sh" ]; then
+  "$V/40_playbooks/check-writeback.sh" snapshot >/dev/null 2>&1 || true
+fi
+
+echo "## Git 现状"
 br="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
 echo "当前分支：${br:-?}"
-st="$(git status --short 2>/dev/null || true)"
-if [ -n "$st" ]; then echo '```'; echo "$st"; echo '```'; else echo "(工作树干净)"; fi
+st_n="$(git status --porcelain 2>/dev/null | grep -c . || true)"
+if [ "${st_n:-0}" -gt 0 ]; then
+  echo "工作树有 ${st_n} 个未提交路径（开窗时已有的脏文件不是本窗任务）"
+else
+  echo "(工作树干净)"
+fi
 echo "Git 约定：大任务开分支；合并 main 必须等确认，不强推。"
 echo
 
 echo "## 回写约定"
-echo "完工后按 $V/40_playbooks/devin-writeback.md 做分层沉淀：项目级决策写 $V/20_projects/$repo.md；稳定方法论写 $V/10_knowledge/；单次问答纠偏/评分样本写项目学习层，不把聊天流水写进交接记录。"
+if [ -x "$V/40_playbooks/check-writeback.sh" ]; then
+  "$V/40_playbooks/check-writeback.sh" remind
+else
+  echo "本窗完成了项目级任务之后，再按 $V/40_playbooks/devin-writeback.md 判断沉淀。问答、身份、只读排查不回写；开窗时已有的脏文件不是本窗任务。"
+fi

@@ -1054,3 +1054,195 @@ Notes:
 | 轻症 | 不修 | 日报 HTML 涨家数图 `<img src>` 相对路径可用；「点击打开」是 `file://…png`（08-24 同形，渲染器老问题）。`exports/…-daily-workflow-summary.json` 仍是 00:02 的 `skip_agent=true`，队列是之后补的，别拿它当 agent 步骤证据 |
 
 > 结论：08-25 收尾**可以当完成**。空壳抽查是第三层——`COUNT(*)` 过门不等于值在。`fact_leader_height_daily` 每日 1 行是「最高板」不是 120 只名单。
+
+## 2026-08-28 | resume-after-icloud-deadlock 2026-08-28 23:32
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| export-increment | ok | 2 | 21:11 iCloud `Resource deadlock avoided`；23:27 默认路径重试成功（30 表 / 121041 行 / 3.2MB）。未改 DEFAULT_OUT |
+| daily-review | ok | 3 | `--from-step daily-review`；md + 涨家数图已落 |
+| daily-review-html | fail→ok | 2 | 第一次无 `L2_PAUSED` 被 L2 门拦住；第二次 `L2_PAUSED=1`（`state/l2-paused.flag` 仍在）COMPLETE |
+| theme-candidates | ok | 70 | 50 候选（deep 10 / watch 20 / long_tail 20） |
+| theme-backfill-queue | ok | <1 | 36 条（critical 3 / high 8 / medium 14 / low 11） |
+| theme-backfill-review-queue | ok | <1 | 11 条 pending_review；已通报复核工单 |
+| agent-daily | ok | - | fidelity 1.2；`--semantic-rag-top-n 0` |
+| kb-ingest-receive | ok | 1 | 8 条归档为 `…/2026-08-28-kb-ingest-queue-2.json`（只 receive） |
+| matrices / workbench / cockpit | ok | - | 策略一 inserted T1=4 T2=5；策略三 appended 08-26/27/28；驾驶台 daily=52 |
+
+> 坑：`intelligence.cli daily` 不读 `state/l2-paused.flag`，手工补跑必须自己 `export L2_PAUSED=1`，否则 `render_daily_review_briefing.py` 的 `--phase all` 会因 L2 自 08-07 挂账 FAIL，后半段再 SKIP。
+> iCloud 死锁是瞬时的，未根治；08-27 目录里已有 `.conflict-*.tar.gz`。建议另单加重试或改默认 out-root。
+> 编排器用 `.venv-workbench`；生成段 CommandSpec 的 `python3` 必须是 Homebrew。未 commit exports。
+
+## 2026-08-31 | run 2026-09-01 00:28
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 2 |  |
+| market-overview | ok | 3 |  |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | ok | 23 |  |
+| market-deviation | ok | 9 |  |
+| sector-daily | ok | 30 |  |
+| sector-stocks | ok | 0 | 2026-08-31 snapshot=79d5d613b0ce success=403/403 rel=52856+93/52949 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=- |
+| limit-heat | ok | 32 | heat=238 stock=1003 retried=0 still_empty=0 |
+| stock-high | ok | 83 |  |
+| limit-advance | ok | 3 |  |
+| stock-daily | ok | 13 | eastmoney snapshot ok |
+| mainline-daily | ok | 5 |  |
+| mainline-sector-daily | ok | 5 |  |
+| theme-flow-daily | ok | 1 |  |
+| public-assets | ok | 87 |  |
+| features | ok | 1 |  |
+| same-day-gate | ok | 1 |  |
+| cross-day-gate | ok | 0 |  |
+| export-increment | ok | 0 |  |
+| quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-08-31 | closeout 2026-09-01 00:33（夜跑失败后 S7 补跑换名）
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| 根因 | - | - | 08-30 周末跳过。08-31 18:30 S7 rc=2（preflight fupanhui=no）；20:40 守卫 INCOMPLETE。生产停 08-28 |
+| S7 sync | ok | 392 | `nightly-full-review-s7.sh 2026-08-31`；staging 写、same-day COMPLETE / cross-day PASS 后换名 `run_id=23c755aa3d0d` |
+| market-deviation | ok | 9 | tooltip 仍失效，MA5 复算 周均线=3939.4 偏离=1.19% |
+| public-assets | ok | 87 | core50 / auction70 / dragon20 / leader 1 行 / global 5+194，与 08-28 同形 |
+| snapshot | ok | - | `sync_market_snapshot.py --date 2026-08-31` provider=`duckdb_exact` served=08-31 amount=21305.63 |
+| increment | ok | - | 29 表 / 121309 行 / 3.2MB（S7）后又一次 resume 写出 3.0MB |
+| finalize 首轮 | fail | 66 | agent-daily `content delta exceeds maximum size`；日报/题材已落，矩阵/驾驶台 SKIP |
+| delta-park | ok | - | 未跟踪 scout 三份 ~1.9MB + ingest 日目录 + review-queue reports/rss；跑完已移回。知识库仍在脏 `main`，未 commit |
+| agent-daily | ok | 12 | fidelity 1.2；`--semantic-rag-top-n 0`。队列 5 项：IMA 4（AIGC/智能家居/车联网/游戏）+ 找公告 1（算力租赁） |
+| kb-queue-receive | ok | - | receipt `received=16`，只 receive |
+| matrices / workbench / cockpit | ok | - | `--from-step agent-daily` resume PASS |
+| L3 | dry-run 2 候选 | 33 | 例行池 9 只；920223 / 603269 各 1 条。知识库脏树，未 `--apply` |
+| 空壳抽查 | PASS | - | sector_stock 52856 行 price/pct/amount 0 空；sector_daily 403 值齐；stock_daily close 0 空 |
+| all-gate | COMPLETE | - | `--phase all` + `L2_PAUSED=1` |
+
+> 结论：08-31 收尾**可以当完成**。未换 8792、未 commit、未 L3 apply。L2 自 08-18 挂账。
+> 坑：agent-daily 10MB 上限会吃 ingest-queue `scout-*.json`（约 1.9MB×3）；只 park reports/ 不够。
+> 入口：`复盘/index.html`；canonical 队列 `market_feature_store/exports/2026-08-31-research-queue.json`。
+> 叙事源仍断更（晨汇停 08-20、卖方事件停 07-05），不阻断。
+
+## 2026-09-01 | run 2026-09-01 18:44
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 4 |  |
+| market-overview | ok | 4 |  |
+| index-daily | ok | 3 |  |
+| sw-l1-daily | ok | 333 |  |
+| market-deviation | ok | 12 |  |
+| sector-daily | ok | 41 |  |
+| sector-stocks | ok | 0 | 2026-09-01 snapshot=6023cc152eca success=403/403 rel=52831+118/52949 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=- |
+| limit-heat | ok | 36 | heat=232 stock=728 retried=0 still_empty=0 |
+| stock-high | ok | 119 |  |
+| limit-advance | ok | 2 |  |
+| stock-daily | ok | 23 | eastmoney snapshot ok |
+| mainline-daily | ok | 7 |  |
+| mainline-sector-daily | ok | 7 |  |
+| theme-flow-daily | ok | 2 |  |
+| public-assets | ok | 101 |  |
+| features | ok | 3 |  |
+| same-day-gate | ok | 1 |  |
+| cross-day-gate | ok | 1 |  |
+| export-increment | ok | 1 |  |
+| quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-09-01 | closeout 2026-09-02 10:30（质检后补快照 + L3）
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| snapshot | ok | 1 | `sync_market_snapshot.py --date 2026-09-01` provider=`duckdb_exact` served=09-01 amount=20328.97（原 16:15 akshare_exact 20515.77） |
+| L3 dry-run | ok | 35 | 例行池 9 只；仅 603269 海鸥股份 1 条（异动公告 1225537491）。agent 缺口 0（队列目标无代码） |
+| L3 apply | skip | - | 同条已在 `disclosure/l3-0831` `7d15f542`（`review_required=true`），不在第二条分支重复 apply |
+| KB 脏面 | isolated | - | RSS/L3 附录迁走 `disclosure/l3-rss-pending` `0a1638a7` 后主树实体/manifest 已还原。仍脏：`wiki/concepts/医药.md`、orphan-code-baseline-queue、access_log、未跟踪 ingest-queue/scout |
+| 主检出 | - | - | finance 仍是别人的 `fix/observation-qualifier-order`；未 commit、未切 8792、未 push |
+
+> 结论：09-01 收尾**可以当完成**。快照已对库。L3 当日新唯一候选与 08-31 待审 PR 重合，未二次写入。
+> 入口：`复盘/index.html`；canonical 队列 `market_feature_store/exports/2026-09-01-research-queue.json`。
+
+## 2026-09-01 | closeout 2026-09-02 11:00（推 PR，不合并）
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| KB !128 | open mergeable | - | `disclosure/l3-0831` 已 merge `gitea/main` → `f8ce3dc5`（荣亿/海鸥） |
+| KB !130 | open mergeable | - | `disclosure/l3-rss-pending` rebase 到 #127 后 `b186e714` |
+| KB !131 | open mergeable | - | `concept/pharma-l1-0828` 医药 L1 + 跨仓工单 |
+| KB !132 | open mergeable | - | `theme-radar/orphan-queue-pending` |
+| FWP !524 | open mergeable | - | `fix/content-delta-exclude-raw-queue` `a28e4ed9`；`test_content_delta`+agent-entry 13 passed |
+| 主树还原 | ok | - | 医药.md / orphan-queue / 重复 000831 源文件已离主工作区 |
+| 仍脏 | leave | - | access_log + 未跟踪 ingest/scout/review-queue（不提交） |
+| 今晚 | protected | - | launchd 读 `finance-workspace-private` 未提交的 `EXCLUDED_PATH_PREFIXES=("raw/",)` |
+
+> 未合 main、未换 8792、未写入 `fix/observation-qualifier-order`。合并等用户点。
+
+## 2026-09-01 | closeout 2026-09-02 12:15（五张已合，未切 8792）
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| KB !128 | merged | - | `6225bfc3` 荣亿/海鸥 L3 |
+| KB !130 | merged | - | `54873831` RSS/L3 待审 |
+| KB !131 | merged | - | `18934600` 医药 L1 |
+| KB !132 | merged | - | `e4c9a939` orphan-queue；KB gitea/main tip |
+| FWP !524 | merged | - | `5390bfda` content_delta 排除 raw/ + 注册表 hash |
+| 门禁 | 定向绿 | 482+434 | 13P；isolated registry 绿；L2 去 L2_PAUSED 绿；dream_mine 5F=主干同形 |
+| 8792 | skip | - | 夜跑读主检出树，不切 workbench |
+
+> 本地两仓主检出未前移。今晚仍靠 `finance-workspace-private` 工作区里的 `raw/` 排除。
+
+## 2026-09-02 13:30 | KB 主树快进 + L3 HOLD
+
+| 模块 | 状态 | 备注 |
+|---|---|---|
+| KB ff | ok | `fbaddd0e` → `e4c9a939`（`--ff-only`）；73 份未跟踪披露与 tip 全等后删除 |
+| 脏面 | leave | hooks / AGENTS.md / access_log / ingest-queue |
+| L3 审 | HOLD | 海鸥 1225537491 / 荣亿 1225538311 异动；000831 减持预披露。标题=摘录，不进 evidence_index |
+| RSS 已 apply | leave | 08-31/09-01 summary `evidence_index: false`，不重放 |
+| 8792 | skip | 现役 `5be00c4f`，不切 |
+
+## 2026-09-02 | run 2026-09-02 18:46
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 5 |  |
+| market-overview | ok | 3 |  |
+| index-daily | ok | 2 |  |
+| sw-l1-daily | ok | 502 |  |
+| market-deviation | ok | 13 |  |
+| sector-daily | ok | 35 |  |
+| sector-stocks | ok | 0 | 2026-09-02 snapshot=5db2c723df5c success=403/403 rel=52842+113/52955 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=- |
+| limit-heat | ok | 36 | heat=206 stock=527 retried=0 still_empty=0 |
+| stock-high | ok | 71 |  |
+| limit-advance | ok | 2 |  |
+| stock-daily | ok | 17 | eastmoney snapshot ok |
+| mainline-daily | ok | 7 |  |
+| mainline-sector-daily | ok | 12 |  |
+| theme-flow-daily | ok | 2 |  |
+| public-assets | ok | 97 |  |
+| features | ok | 3 |  |
+| same-day-gate | ok | 1 |  |
+| cross-day-gate | ok | 1 |  |
+| export-increment | ok | 1 |  |
+| quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-09-02 | closeout-qc 2026-09-02 23:05（收尾质检，闸门重跑）
+
+| 检查 | 结果 | 备注 |
+|---|---|---|
+| same-day `--phase data/report/all` | COMPLETE | 现跑；`L2_PAUSED=1`；名称连续 402/402；个股覆盖 5542/5542；`state/l2-paused.flag` 自 08-18 |
+| cross-day `check-daily` | PASS | gaps/anomalies/range 全空；与 `quality-2026-09-02.json` 一致 |
+| 空壳抽查 | PASS | sector_stock 52842 行 price/pct/amount 0 空；sector_daily 403 值齐；stock_daily close/pct 0 空；公开资产 core50 / auction70 / dragon20 / leader 1 / global 5+194 与 09-01 同形 |
+| published 宇宙 | PASS | 现用 `5db2c723df5c…`（403/403）；09-01 的 `6023cc152eca…` 已 superseded |
+| snapshot | 已补 | 原 16:15 `akshare_exact` amount=18197.7 stage=下跌阶段（`stock_zh_a_spot_em` 断连）；现 `sync_market_snapshot.py --date 2026-09-02` → `duckdb_exact` served=09-02 amount=17908.79 stage=底部横盘；对账 PASS |
+| 产物/链接 | PASS | 日报 md/html/图、题材 50、队列、agent（fidelity 1.2）、矩阵 1/3/4、cockpit daily=55、workbench、增量包 3.0MB（30 表 / 20:40）；锁已释放；无 staging |
+| 研究队列 ↔ receive | PASS | 队列 6 项（IMA4+降级2）；kb-ingest 12 条；canonical receive `-2.json` task_count=12。receipt `received=24` 把 20:05 同内容第一份也算进去了，不要当 24 条新任务 |
+| L3 | dry-run 2 候选 | 例行池 6 只；agent 缺口 0。海鸥 `1225537491` 已在 `wiki/sources/海鸥股份_L3官方证据_20260901.md`（!128）。宗申 `1225538624` 减持结果是新条。KB 主树脏（实体/ingest/access_log），未 `--apply` |
+| 非阻断 | 挂账 | L2 自 08-18；飞书 market-daily / 新浪指数；胜率/晨汇/evolve 不在夜跑 canonical（晨汇停 08-20=13 天、卖方事件停 07-05=59 天）；sector_daily `strength`/`multi_period_*` 全空、`sw_l1` 106 空，三日同形 |
+| 轻症 | 不修 | 日报 HTML「点击打开」仍是 `file://`（图文件已在当日目录，`<img src>` 可用）。`fact_stock_daily.amount` 空 1 行=有研硅 688432，08-31 起连续三日、close/pct 有值。日报涨停表「长城军工」写了两遍 |
+
+> 结论：09-02 收尾**可以当完成**。夜跑 S7 18:30 staging 换名 + 20:40 finalize 全绿，质检闸门重跑 COMPLETE/PASS，快照已对库。未 commit、未切 8792（现役 `532cdb070a71` / dirty=false）。
+> 入口：`复盘/index.html`；canonical 队列 `market_feature_store/exports/2026-09-02-research-queue.json`。
+> 主检出仍是别人的 `fix/observation-qualifier-order`（206 行脏）；知识库 `main` 也脏。宗申 L3 要另开干净树再 apply。
+

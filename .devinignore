@@ -1,0 +1,24 @@
+# Extra indexing skip on top of .gitignore. Agent can still see gitignored
+# files via other tools; this keeps Devin Desktop index off runtime dumps.
+
+tmp/
+db/
+.venv/
+.venv-*/
+node_modules/
+__pycache__/
+.ruff_cache/
+.pytest_cache/
+.code-review-graph/wiki/
+.code-review-graph/*.db*
+work/
+state/
+market_snapshot/
+*.duckdb
+*.db
+*.sqlite
+*.sqlite3
+intelligence/users/
+market_feature_store/exports/
+logs/
+.playwright-mcp/

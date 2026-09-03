@@ -75,6 +75,9 @@ fi
 # ── 项目笔记：只注入开工必读段，跳过历史流水 ──────────────────────────
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -n "$repo_root" ] || repo_root="$(pwd)"
+if [ -x "$V/40_playbooks/check-writeback.sh" ]; then
+  "$V/40_playbooks/check-writeback.sh" snapshot >/dev/null 2>&1 || true
+fi
 remote="$(git -C "$repo_root" remote get-url origin 2>/dev/null || true)"
 if [ -n "${remote:-}" ]; then repo="$(basename "${remote%.git}")"; else repo="$(basename "$repo_root")"; fi
 note="$V/20_projects/$repo.md"
@@ -89,7 +92,7 @@ note="$V/20_projects/$repo.md"
 # 这个「先量后裁、最后输出」的次序，就是上一处 bug（先写「未提交」再提交，
 # 文档当场失效）的反面：**凡是要用到某个量，就必须在用它之前把它测准。**
 build_tail() {
-  echo "## Git 现状（开工先看）"
+  echo "## Git 现状"
   br="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
   echo "当前分支：${br:-?}"
   all_n="$(git status --porcelain 2>/dev/null | grep -c . || true)"
@@ -110,8 +113,12 @@ build_tail() {
   echo "Git 约定：大任务开分支；合并 main 必须等确认，不强推。"
   echo
   echo "## 回写约定"
-  echo "完工后按 $V/40_playbooks/devin-writeback.md 分层沉淀：项目级决策写 $V/20_projects/$repo.md（**只写一行索引**，正文进 docs/handoffs/inflight/<分支>.md）；稳定方法论写 $V/10_knowledge/；单次纠偏/评分样本写项目学习层。"
-  echo "在途交接：完工前覆写 docs/handoffs/inflight/<当前分支，/ 换 ->.md，SessionStart 会自动注入给下一个 agent。**在动作完成之后写**，否则注入的是假状态。"
+  if [ -x "$V/40_playbooks/check-writeback.sh" ]; then
+    "$V/40_playbooks/check-writeback.sh" remind
+  else
+    echo "本窗完成了项目级任务之后，再按 $V/40_playbooks/devin-writeback.md 判断沉淀。问答、身份、只读排查不回写；开窗时已有的脏文件不是本窗任务。"
+  fi
+  echo "在途交接：只有本窗完成了项目级任务才覆写 docs/handoffs/inflight/<当前分支，/ 换 ->.md。"
 }
 tail_part="$(build_tail)"
 tail_bytes="$(printf '%s\n' "$tail_part" | wc -c | tr -d ' ')"

@@ -287,7 +287,7 @@ if [ -f "$inflight" ]; then
 elif [ -d "$inflight_dir" ]; then
   others="$(ls "$inflight_dir" 2>/dev/null | grep -c '\.md$' || true)"
   if [ "${others:-0}" -gt 0 ]; then
-    LINES+=("在途交接: 本分支无（inflight/ 下另有 ${others} 份属其他分支）。完工请按 devin-writeback.md 覆写 inflight/${slug}.md")
+    LINES+=("在途交接: 本分支无活文档（正常）。只有本窗完成了项目级任务才写 inflight/${slug}.md")
   fi
 fi
 

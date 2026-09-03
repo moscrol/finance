@@ -80,6 +80,8 @@
 | `skill_mode=manual` | 只在 `selected_skill_ids` 非空时算显式工作流 | 当前 controller 的条件是 `selected_skill_ids or skill_mode == "manual"`，所以 `manual + []` 仍在细粒度路由之前强制返回 `workflow`。在 SPT×风远历史类比题上，直接 `TurnControlCore` 为 `comparison_analog`，而两个 Workbench 均降为 `general_finance_qa`，只保留 3 个 required outputs | `turn_controller.py:316-324`；`run_20260823_025334_701544` / `run_20260823_025341_392320` |
 | report `business_status=complete` | 质检投影后公开答案仍完整覆盖 required outputs | 它可与「核心正文被语义质检剥到 115 字 + 15 条内部 issue 被拼入 answer.md」同时成立。必须在**投影后**重算 required-output coverage，不能用投影前 verifier 或 transport 终态代替 | `run_20260823_025341_392320/report.json` + `answer.md` |
 | coarse workbench normalizer 的 `fully_equivalent` | 两个 run 的控制流真没分叉 | 当输入是公开 `trace.json`时，当前子串 mapper 把多数 `research` 类事件全压成 `retrieve`，而 `understanding/finalizing/verification/repair` 落 `unmapped`。本轮给出 mapped 12/12 且 `fully_equivalent`，但原生 continuous episode 已在 ordinal 2 出现 `tool_calls ↔ invalid finish`，且只有 8796 进 repair | `workbench-8792-vs-8796.normalized.json`；两份 `continuous-episode.json` |
+| `task_type=clarify` + `status=completed` / `business_status=complete` | 研究链跑完且硬格可答 | 首轮即可在 retrieve 前停：`lane=clarify`、`retrieval_attempted=false`、`judge_status=not_applicable`，0.6s 假绿。E3 问句精确等于板块名仍打 candidate；E4 首轮「那只票」无继承主体也澄清。`legacy_lane` 仍是 `research`（`decision_diverged_from_legacy=true`） | 2026-08-30 E 组 M2 `~/.finance-runtime/four-arm-20260830/analysis/m2-e-group.md`；`run_20260830_015349_432291` / `run_20260830_015350_083829` |
+| E1 episode draft 含成交额、公开 `answer.md` 无 | 检索未取到成交额，或写手没写 | draft 已写「两市成交额：约 21014.72 亿元」，E1 卡 observation 同数；`judge_status=repaired` 后公开稿 63 字只剩上涨/涨停家数。issue 自述「成交额数值虽出现在E1中」。与上行 `business_status=complete` 同族：质检投影可删用户点名槽 | `run_20260830_015207_802388` `continuous-episode.json` + `answer.md` + `report.json` |
 
 ## 3. 当前 trace_depth 与盲区清单
 
@@ -100,6 +102,8 @@
 | `gap_output_ids` 与 structural fulfilled 分道 | 语义修复删正文不收缩绑定；无显式 `bindings_contracted` 位 | 只读结构或只读 eb 分不出「没绑」与「绑了但公开删了」 | R-24 提案：删格时收缩绑定。在落地前并行读 `semantic_verifier.gap_output_ids` ∩ fulfilled。健康：交集为空 |
 | 公开答案投影后的必答项覆盖未单独记录 | report 只保留投影前 structural/semantic 结果与最终 status，无 `post_projection_required_output_coverage` | 无法用机器字段区分「质检修好了答案」与「质检删掉了答案」 | 只增 `fulfilled_required_outputs / required_outputs`；发布为 complete 的阈值必须 `=1.0` |
 | 粗粒度 `trace.json` 与原生 continuous episode 没有对账字段 | normalizer 不读 continuous episode 的 action/payload，只比较公开 step 名 | 无法发现 invalid action、timeout grant、repair reentry 这些决定性分叉 | 记 `continuous_event_count` 与 `unmapped_native_kinds`；用于宣称 fully equivalent 的阈值为 `unmapped_native_kinds=0` |
+| controller 无 `resolution.candidates` / `candidate_kinds` | 只有格式化澄清问句与 `reason=…candidate` | D4 不能重放「为何同时撞上公司名与主题名」 | `resolution_status` + `candidate_kinds`（枚举长 ≤8）；健康：精确命中 `fact_sector_daily.sector_name` 时不得 `status=candidate` |
+| 公开答案无成交额槽机器位 | 只能读 `answer.md` 正文 | 纠正后无法机判用户点名槽还在不在 | `slot_filled.total_amount=bool`；draft 有且公开无 → 投影删槽 |
 
 ## 4. Grounded phase telemetry semantic epochs
 
