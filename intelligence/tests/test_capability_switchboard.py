@@ -33,7 +33,7 @@ from scripts.check_double_red_copies import scan_paths, scan_text
 REPO = Path(__file__).resolve().parents[2]
 # 本树从 gitea/main 检出的底。改前正文钉死在这个 revision，不钉 HEAD——
 # HEAD 会跟着本分支走，一提交「对着改前必须 ≥4 hit」就会变成对着改后的 0。
-SPEC_BASELINE_REV = "4e0c6bf5"
+SPEC_BASELINE_REV = "3ac070a2"
 
 # 门禁基线：**按文件**记，不按行号——行号会漂，文件不会。
 # 清理掉任何一个都要回来改这份基线，那是有意的一次决定，不该静默通过。
