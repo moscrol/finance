@@ -63,17 +63,17 @@ spec 里今天能落地的四块全部落地并有牙：P0a 一行授权、P0b �
 |---|---|---|
 | 1 | P0a 静态：茅台 `TaskFrame` 过 `runtime_capabilities_for_frame` 含 `web_search`；不含 web 的恰为 4 条本地盘面/技术面 | ✅ `test_capability_amplification_p0.py::test_p0a_*`（名单断言） |
 | 2 | P0a 变异：去掉 `"web_search"` → 第 1 条红 | ✅ 实做：两条 P0a 测试红（`assert 'web_search' in (...)` / 名单集合差），回滚后绿 |
-| 3 | P0a live：授权集含 web 且至少一臂实际调用 | ⏸ 未跑 live。投影字段已就位（`notes.authorized_capabilities`） |
-| 4 | P0a 三分法读数 | ⏸ 依赖第 3 条 |
+| 3 | P0a live：授权集含 web 且至少一臂实际调用 | ◐ **两个读数分开记**（09-03 10:37 两臂，快照 `ccf9343162d0`）：授权集 ✅——两臂 `notes.authorized_capabilities` 同为 9 项，含 `web_search` / `web_fetch`（09-02 是 7 项无 web）；实际调用 ✗——两臂工具序列都只有一次 `financial_data`，没有一臂点 web。见下「P0 live 读数」 |
+| 4 | P0a 三分法读数 | ✅ 落在 (a)：两臂答案都含 1741.44 且带来源（东财 F10）+ as-of（报告期 2024-12-31 / 披露日 2025-04-03）。但走到 (a) 的路是 P0b 不是 P0a——一手证据先到手，web 就没被需要。三分法之外补一格：「有授权、未调用、因不需要」 |
 | 5 | P0b：「2024 年 600519」返回 2024-12-31 行、1741.44、D7 来源、披露日 as_of（日历固定 2026-09） | ✅ `test_p0b_maotai_question_widens_the_window_to_the_2024_annual_report`：fixture 逐字复刻 F10 8 行，`periods==7`，行 `2024年报（2024-12-31）`，`source_date=="2025-04-03"`，tier `L2_structured`，trace `periods=7; window=question; target_report_end=2024-12-31`。对照用例：无年份问句仍 6 期、2024 年报不在返回（09-02 两臂看到的世界） |
 | 6 | P0b 变异：runner 不再放宽窗口 → 第 5 条红 | ✅ 实做：`periods = DEFAULT_PERIODS` 后两条端到端红（问句路径与 `report_period` 路径），回滚后绿 |
-| 7 | P0b live：至少一臂以一手证据写出 1741.44 并过 `admit_finish` | ⏸ 未跑 live |
+| 7 | P0b live：至少一臂以一手证据写出 1741.44 并过 `admit_finish` | ✅ **两臂都做到**：Episode 臂首轮 `financial_data` 传 `{"report_period": "2024年报"}`（模型真读了新参数），7 期 13 条证据，`model_finish`，四个必需输出各绑 13 个证据哈希；参考 loop 臂同样一次 `financial_data` → `model_finish`。答案「1741.44 亿元（报告期截止 2024-12-31，年报披露日 2025-04-03，东财 F10，E11）」，不再是 09-02 两臂的「从 2025 年 -1.2% 反推 1741」 |
 | 8 | 注册表守门：无契约 → 装配期抛；现役先跑一遍看谁裸着 | ✅ `test_tool_contract_gate.py`（4 条）：stub 进元数据 → 红；生产装配读数 3 裸 → 已接上并钉住 |
 | 9 | `web_fetch`：新浪指标页 URL → tier `public_web`、as_of 非空且标明来源、source 为该 URL；不可达 → `error` 带原因 | ✅ `test_web_fetch_tool.py`（17 条，全离线打桩）：页面日期 `2025-04-03` / 无日期记抓取日并写「页面无日期，记抓取日」/ HTTP 404 · URLError · TimeoutError 都是 `error` 带原因 / 非 http 不碰网络 / 经注册表 `execute` 铸 hash 且 error 状态保留 |
 | 10–12 | P1 弃权率 | ⏸ 未做（另案，见下） |
 | 13–15 | P2 删句事件 | ⏸ 未做 |
 | 16–18 | P3 沙箱 | ⏸ 未做 |
-| 19 | P4 硬门四条落盘 | ◐ 第 3 条（逐 turn 响应体 `model`）的采集已落两臂（`test_served_model_receipt.py` 10 条：非流式/流式/三态/SDK 钩子/`runtime_result` 并列写）；其余三条是跑 A/B 时的对照项 |
+| 19 | P4 硬门四条落盘 | ◐ 第 3 条（逐 turn 响应体 `model`）的采集已落两臂（`test_served_model_receipt.py` 10 条：非流式/流式/三态/SDK 钩子/`runtime_result` 并列写）；**09-03 live 已见字段**：两臂 `notes.served_models=["glm-5.3","glm-5.3"]` == 请求值，生产 8792 探针每个 `model_turn` 带 `served_model`。其余三条是跑 A/B 时的对照项 |
 | 20–23 | P4 读数 | ⏸ 未跑 |
 | 24 | 全量 pytest 与基线同一组红，passed 只增不减 | ✅ 见下「读数」 |
 | 25 | `layer_audit.py` ERROR 0 | ✅ 「通过，ERROR 0 条 == 基线」 |
@@ -118,3 +118,34 @@ $PY /Users/a77/agent-memory/scripts/graph_audit.py
 收据 `~/.finance-runtime/test-receipts/20260902T190936Z-daea04a0.json`；`failed_ids` 恰为 `test_dream_mine.py::RunMineTests` 五例，与 spec 第 24 条写的基线同一组。`scripts/check_test_receipt.py` 对该收据判「需重跑——来自脏树」，这是它的设计（未提交改动无法被 revision 描述），不是读数问题；提交后在干净树上再跑一遍即可采信。
 
 三轮对照：7439（P0 + served_model）→ 7458（+ 守门 + web_fetch，4 门红后补登记）→ 7462（终）；红始终是那 5 条。
+
+## 合入后：干净树主干门禁（2026-09-03）
+
+合 `gitea/main@6d4a9df1` 得 `f472f1a8`（merge-tree exit 0，与 #534–#536 文件零重叠），干净 detached 树规程壳（`env -i` + `umask 022`）整仓 `pytest -q`：**5 failed / 7524 passed / 15 skipped / 1 xfailed**，收据 `20260903T020730Z-f472f1a8.json`，`check_test_receipt --expect-revision --base-drift-max 5` ✅。5 红仍 `test_dream_mine` 五例；passed 7454 → 7524 = 64 新增 + 6 条 conformance 对 `web_fetch` 的参数化；规程壳下 collect-only 逐条对比 main 尖零丢失。PR #537 合为 `88ac7917`，tree == 门禁树。
+
+## P0 live 读数（2026-09-03 10:36–10:39，快照 `ccf9343162d0` = #537 代码 + #538 docs）
+
+配方 `finance-base-ab/run-reference-loop.sh`（`SHAPE_SNAPSHOT_OVERRIDE` 指干净 detached 快照，`SHAPE_OUT_NAME=reference-loop-0903a`，RAG 预热 49.7s），同题「2024年贵州茅台营业总收入是多少亿元？」两臂。产物 `finance-base-ab/out/reference-loop-0903a/`。
+
+| | Episode（`ContinuousAgentEpisode`，= 生产 loop） | 参考 loop（`HarnessReferenceLoop`） |
+|---|---|---|
+| `source_revision` | `ccf9343162d0` | 同 |
+| 首轮 `task_frame_hash` | `e6ee9044…`（与 09-02 两臂同值） | 同 |
+| 首轮 `input_tokens` | 14513（09-02：12734，+1779 = 三条新契约 + `web_fetch` 条目 + 3 个裸 spec 接契约） | 14517 |
+| `notes.authorized_capabilities` | 9 项：`market_data / financial_data / kb_search / evidence_lookup / l3_lookup / web_search / web_fetch / finance_query / evidence_search` | 同 |
+| `notes.served_models` | `["glm-5.3","glm-5.3"]`（== 请求值） | 同 |
+| 工具序列 | `financial_data` ×1，参数 **`{"report_period": "2024年报"}`**，2.7s / 实授 23.2s，13 条证据（7 期） | `financial_data` ×1 |
+| 停因 / 时长 | **`model_finish`** / 49.1s（09-02：`repair_model_stop` / 110.7s / 4 工具） | **`model_finish`** / 50.1s（09-02：`model_finish` / 95.8s / 5 工具，首份终局被 `basis_mismatch` 驳回过一次） |
+| 答案 | 「2024年贵州茅台营业总收入为 **1741.44 亿元**（报告期截止 2024-12-31，年报披露日 2025-04-03，东财 F10 逐季财务数据）…同比 +15.66%…2025 年报 1720.54 / -1.2%」，四个必需输出各绑 13 个证据哈希，basis=evidence | 同一组数字（1741.44 / 15.66% / 862.28 / 1720.54 / -1.2% / 823.2），357 字 |
+| web 调用 | 无 | 无 |
+
+**读数怎么念**：
+
+- §5 第 7 条 ✅（两臂）。P0b 让 `financial_data` 读了报告期：模型看到契约里「默认 6 期要点名更早的期」那句，首轮就传了 `report_period`，2024 年报进了窗口，`as_of` 是披露日。这条路上 P0a 的 web 授权没被用到。
+- §5 第 3 条 ◐：授权集含 web 成立，「至少一臂实际调用」不成立。**不是缺陷**——一手结构化证据比 web 便宜且先到手，模型选对了；要看 P0a 单独起效，得换一道 `financial_data` 够不着的题（另案）。
+- §5 第 4 条：落 (a)。
+- 对照 09-02：Episode 臂从 4 工具 / 110s / 修复轮停 → 1 工具 / 49s / 正常终局；两臂差从「停因不同」收敛到「首轮 4 个 token」。
+- **配方硬门一条未过**：首轮 `input_tokens` 14513 vs 14517，差 4 > 配方 ±3（`shape_lib/compare.py:104`）。方向与 P2'（Episode 多 2）相反，来源未定位——配方关着 `WORKBENCH_PERSIST_LLM_CONTEXT`，首轮请求没落盘。`task_frame_hash` / 工具 / 停因 / 数字集合全同，对 P0 结论无影响；**但 P4 A/B 开跑前必须开 PERSIST 复现一次定位这 4 个 token**，否则 §3.5.4 第 4 条「同 task_frame_hash」之外还欠一个「同首轮请求」。
+- 代价：首轮 input_tokens +14%（三条契约文本是每轮都付的）。P1 弃权率基线出来前不评估这笔账值不值。
+
+**切流**：读数出后 10:41 8792 从 `6d4a9df162e6` 切到 `ccf9343162d0`（0903b，五步 + 三项验证 + 回滚锚 `cutover-20260903b-rollback-8792.txt`），生产探针每个 `model_turn` 已带 `served_model`。详见 `inflight/main.md` 顶行。
