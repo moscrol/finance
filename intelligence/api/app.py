@@ -27,6 +27,7 @@ from intelligence import userspace
 from intelligence.paths import data_repo_root, default_market_db_path, default_paths
 from intelligence.api.artifacts import ArtifactRegistry
 from intelligence.api.auth import AuthGate, IdentityRewriteMiddleware
+from intelligence.api.credits import CreditStore
 from intelligence.api.quota import ENV_EXEMPT_USERS, RunQuota
 from intelligence.api.daily_reports import (
     project_daily_agent,
@@ -2159,6 +2160,7 @@ def create_app(
     llm_settings: SessionLLMSettings | None = None,
     auth_gate: AuthGate | None = None,
     run_quota: RunQuota | None = None,
+    run_credits: CreditStore | None = None,
     run_supervisor: RunSupervisor | None = None,
 ) -> FastAPI:
     root = (repo_root or REPO_ROOT).resolve()
@@ -2181,7 +2183,12 @@ def create_app(
     # 配置错误直接在启动时抛——认不出来就 fail closed，不带着坏配置上线。
     gate = auth_gate or AuthGate.from_env()
     quota = run_quota or RunQuota.from_env()
+    credits = run_credits or CreditStore.from_env()
     runtime_provenance["auth_mode"] = gate.mode
+    runtime_provenance["credits"] = {
+        "enabled": credits.enabled,
+        "signup_gift": credits.signup_gift,
+    }
     runtime_selection = resolve_runtime_backend()
     runtime_provenance["agent_runtime"] = runtime_backend_readiness(
         runtime_selection
@@ -2290,15 +2297,35 @@ def create_app(
     def conversation_store_for(user: str | None) -> ConversationStore:
         return ConversationStore(user_id=store_for(user).user_id)
 
-    def _reserve_run_quota(user_id: str) -> None:
-        """创建 run 前预占当日名额；占不到直接 429，不产生任何副作用。"""
+    def _reserve_run_budget(user_id: str) -> None:
+        """创建 run 前先占额度（钱包）、再占当日名额；任一拒绝即 429、零副作用。
+
+        顺序是钱包 → 日配额：日配额拒绝时把刚占的额度退回。反过来也行，
+        但钱包的拒绝理由（没额度了）对用户更要紧，先问它。
+        """
+        credit = credits.reserve(user_id)
+        if not credit.allowed:
+            if credit.reason == "corrupt":
+                raise HTTPException(
+                    503, "额度账本损坏，暂不能受理新研究，请联系管理员"
+                )
+            raise HTTPException(
+                429,
+                "研究额度已用完（剩余 0 次）。请联系管理员充值或等待赠送额度到账",
+            )
         decision = quota.reserve(user_id)
         if not decision.allowed:
+            credits.release(user_id)
             raise HTTPException(
                 429,
                 f"今日研究次数已用完（{decision.used}/{decision.limit}），"
                 "请明天再试或联系管理员提额",
             )
+
+    def _release_run_budget(user_id: str) -> None:
+        """预占成功但 run 被我们自己拒收：两道预占都退回。"""
+        quota.release(user_id)
+        credits.release(user_id)
 
     def _admission_http_error(exc: RunAdmissionError) -> HTTPException:
         return HTTPException(
@@ -2322,7 +2349,7 @@ def create_app(
         补偿两件事：run 记终态（不留「排队中」孤儿）、配额退回（用户没得到服务）。
         """
         store.finish_run(run_id, rs.STATUS_FAILED, error="admission_rejected")
-        quota.release(store.user_id)
+        _release_run_budget(store.user_id)
         return _admission_http_error(exc)
 
     def refresh_session_runtime_readiness(user_id: str) -> None:
@@ -2558,7 +2585,7 @@ def create_app(
         req.repo_root = root
         store = store_for(req.user)
         _precheck_admission(store.user_id)
-        _reserve_run_quota(store.user_id)
+        _reserve_run_budget(store.user_id)
         run = store.create_run(
             req.question,
             req.task_type,
@@ -2570,6 +2597,11 @@ def create_app(
         except RunAdmissionError as exc:
             raise _reject_unadmitted_run(store, run.run_id, exc) from exc
         return {"run_id": run.run_id, "status": store.load_run(run.run_id).status}
+
+    @app.get("/api/credits")
+    def credit_balance(user: str | None = None) -> dict[str, object]:
+        """当前用户的额度余额与各笔授予（不含逐笔流水——那是运营侧 CLI 的事）。"""
+        return credits.balance(store_for(user).user_id).public_dict()
 
     @app.post("/api/runs/{run_id}/cancel")
     def cancel_run(run_id: str, user: str | None = None) -> dict[str, object]:
@@ -2723,7 +2755,7 @@ def create_app(
             parent_run_id = conversation.last_run_id
             run_store = store_for(req.user)
             _precheck_admission(run_store.user_id)
-            _reserve_run_quota(run_store.user_id)
+            _reserve_run_budget(run_store.user_id)
             run = run_store.create_run(
                 req.content,
                 "ask",
@@ -2732,6 +2764,8 @@ def create_app(
             )
 
             def _compensate_failed_submission() -> None:
+                # 落盘/提交在我们这边失败，用户没得到服务：run 记终态，两道预占都退回。
+                _release_run_budget(run_store.user_id)
                 try:
                     run_store.finish_run(
                         run.run_id,
@@ -3206,6 +3240,7 @@ def create_app(
             ),
             "data_cutoff": data_cutoff,
             "self_use_maturity": self_use_projection(user),
+            "credits": credits.balance(store.user_id).summary_dict(),
         }
 
     @app.get("/api/workbench/overview")
