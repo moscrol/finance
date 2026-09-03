@@ -56,6 +56,7 @@ KNOWN_REPOS: list[tuple[str, str]] = [
     ("finance-workspace-private", "ws"),
     ("knowledge-base-private", "kb"),
     ("finance-research-site", "site"),
+    ("content-ops", "ops"),  # 运营仓：content-ops-copilot 于 2026-09-03 从本仓迁出
 ]
 
 # agent 视图目录（固定顺序，保证确定性）。
@@ -584,7 +585,7 @@ def _render_doc(orig: str, short: str, section: str, payload: dict) -> str:
             trig = "、".join(regs) if regs else "（待补：SKILL.md 无触发词字段）"
         block.append(f"| {name} | {trig} |")
     if pointer_rows:
-        block += ["", "跨仓引用（规范源在知识库仓，本仓不放正文）：", "",
+        block += ["", "跨仓引用（规范源在其他仓，本仓不放正文）：", "",
                   "| Skill | 触发词 |", "|-------|--------|"]
         block += [f"| {c0} | {c1} |" for c0, c1 in pointer_rows]
     block.append(TABLE_MARKER_END)

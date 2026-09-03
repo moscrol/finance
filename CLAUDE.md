@@ -295,10 +295,11 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 | divergence-distill | 蒸馏分叉、对照蒸馏、蒸 Fable、蒸 Knevo、trace diff 沉淀、diff 完沉淀 |
 | watchlist-digest | 自选简报、我的自选今天怎么样、按我的自选出简报、开盘简报（按自选）、我的清单今天该看什么、watchlist digest |
 
-跨仓引用（规范源在知识库仓，本仓不放正文）：
+跨仓引用（规范源在其他仓，本仓不放正文）：
 
 | Skill | 触发词 |
 |-------|--------|
+| content-ops-copilot（已迁至运营仓 content-ops） | 内容运营、发布包、限流诊断、平台改写、登记限流、内容周报 → 在 `~/content-ops` 根目录开会话，读 `<content-ops>/skills/content-ops-copilot/SKILL.md`；对外内容只从那个仓产出 |
 | concept-ingest（已迁至知识库仓） | concept ingest、概念入库、IMA入库、题材DeepDive、ThemeRadar入库、新概念、提取概念 → 读 `<知识库>/skills/concept-ingest/SKILL.md` |
 | entity-delta-ingest（已迁至知识库仓） | entity delta、公司边际变化、更新entity、早知道入库 → 读 `<知识库>/skills/entity-delta-ingest/SKILL.md` |
 <!-- END GENERATED: skills-table -->
