@@ -639,6 +639,7 @@ def _turn_from_message(
             "invalid_model_message",
         )
     input_tokens, output_tokens = _message_token_usage(message)
+    served_model = _message_served_model(message)
 
     raw_content = message.get("content")
     if raw_content is None:
@@ -655,6 +656,7 @@ def _turn_from_message(
                 provider_attempts=attempts,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
+                served_model=served_model,
             ),
             "invalid_model_content",
         )
@@ -672,6 +674,7 @@ def _turn_from_message(
                 provider_attempts=attempts,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
+                served_model=served_model,
             ),
             "invalid_tool_calls",
         )
@@ -688,6 +691,7 @@ def _turn_from_message(
                     provider_attempts=attempts,
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
+                    served_model=served_model,
                 ),
                 error,
             )
@@ -703,6 +707,7 @@ def _turn_from_message(
                 provider_attempts=attempts,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
+                served_model=served_model,
             ),
             "empty_model_response",
         )
@@ -715,9 +720,17 @@ def _turn_from_message(
             provider_attempts=attempts,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            served_model=served_model,
         ),
         "",
     )
+
+
+def _message_served_model(message: Mapping[str, object]) -> str | None:
+    """适配器信封里的 ``_served_model``：``""`` 是「provider 未回」，缺键是 ``None``。"""
+
+    value = message.get("_served_model")
+    return value.strip() if isinstance(value, str) else None
 
 
 def _message_token_usage(message: Mapping[str, object]) -> tuple[int | None, int | None]:

@@ -111,6 +111,7 @@ _TOOL_LABELS: dict[str, str] = {
     "evidence_search": "知识证据",
     "kb_search": "知识库",
     "web_search": "公开网页",
+    "web_fetch": "网页正文",
     "news_search": "财经新闻",
     "graph_lookup": "题材图谱",
     "evidence_lookup": "证据原文",

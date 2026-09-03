@@ -26,6 +26,7 @@ from intelligence.services import (
     finance_query,
     kb_rag,
     l3_evidence,
+    market_financials,
     market_news,
     market_technical,
     user_memory,
@@ -37,11 +38,13 @@ from intelligence.services.research_contract import (
     ResearchRunContext,
 )
 from intelligence.services.research_tool_registry import (
+    _TOOL_CONTRACTS,
     PreparedToolArguments,
     ResearchToolRegistry,
     ToolSpec,
     ToolRunResult,
     default_registry,
+    require_tool_contracts,
 )
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.tool_payload import field_names_from_rows
@@ -933,6 +936,7 @@ def build_episode_registry(
     default_tools = agent_research.build_default_tools(retrieve_kb)
     if fixture_policy is not None and not fixture_policy.external_search_enabled:
         default_tools.pop("web_search", None)
+        default_tools.pop("web_fetch", None)
         default_tools.pop("news_search", None)
     tools = {
         **default_tools,
@@ -1061,6 +1065,43 @@ def build_episode_registry(
         timeout = tool_context.deadline.stage_timeout(8.0)
         if timeout <= 0.001:
             raise TimeoutError("financial-data deadline expired")
+        # 窗口来源按优先级：模型显式传的 report_period → 问句/主体里的年份与期别
+        # → 默认 6 期。模型传了却解析不出目标时**说出来**，不静默回落
+        # （ch4「参数传递的保真性」）。
+        requested_period = str(_query or "").strip()
+        as_of = (
+            tool_context.information_cutoff.as_of_date
+            if tool_context.information_cutoff is not None
+            else None
+        )
+        target_end = (
+            market_financials.target_report_end_from_query(requested_period)
+            if requested_period
+            else None
+        )
+        period_source = "report_period"
+        if target_end is None:
+            frame_text = " ".join(
+                part for part in (frame.raw_question, frame.subject or "") if part
+            )
+            target_end = market_financials.target_report_end_from_query(frame_text)
+            period_source = "question" if target_end is not None else "default"
+        periods = (
+            market_financials.periods_to_cover(target_end, as_of=as_of)
+            if target_end is not None
+            else market_financials.DEFAULT_PERIODS
+        )
+        window_note = ""
+        if requested_period and period_source != "report_period":
+            window_note = (
+                f"report_period「{requested_period}」未能解析为报告期"
+                "（写法：年份+期别，如 2024年报 / 2025三季报），"
+                + (
+                    f"已按问句里的报告期 {target_end.isoformat()} 取数"
+                    if target_end is not None
+                    else f"已按默认最近 {periods} 期取数"
+                )
+            )
         if (
             fixture_policy is not None
             and not fixture_policy.external_financials_enabled
@@ -1076,13 +1117,15 @@ def build_episode_registry(
                 subject_query,
                 market_db_path,
                 timeout=timeout,
+                periods=periods,
             )
         tool_context.check_cancelled()
+        # 放宽窗口时证据行数跟着放宽，否则目标期那一行取到了却被 limit 截掉。
         evidence, observation = agent_research.block_lines_to_evidence(
             "financial_data",
             block,
             "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报",
-            limit=12,
+            limit=12 + max(0, periods - market_financials.DEFAULT_PERIODS),
             detail_chars=1000,
         )
         evidence = [
@@ -1090,14 +1133,20 @@ def build_episode_registry(
             for item in evidence
             if not item.detail.startswith(_NON_EVIDENCE_PREFIXES)
         ]
+        observation = observation or "逐季财务指标无可用结果"
+        if window_note:
+            observation = f"{window_note}；{observation}"
+        detail = f"quarterly_financials_snapshot; periods={periods}; window={period_source}"
+        if target_end is not None:
+            detail += f"; target_report_end={target_end.isoformat()}"
         return (
             evidence,
-            observation or "逐季财务指标无可用结果",
+            observation,
             ProviderTrace(
                 provider="agent:financial_data",
                 capability="financial_data",
                 status="success" if evidence else "empty",
-                detail="quarterly_financials_snapshot",
+                detail=detail,
                 result_count=len(evidence),
             ),
         )
@@ -1438,6 +1487,9 @@ def build_episode_registry(
                     "字段必须按 dataset 对应关系选择，不要混用不同 dataset 的字段。"
                     f"可用字段：{finance_query.dataset_field_hint()}"
                 ),
+                # 这三个装配面自建的 spec 此前都没接 contract——_TOOL_CONTRACTS 的条目
+                # 写好了、模型从没见过（2026-09-03 守门首跑读数，见 require_tool_contracts）。
+                contract=_TOOL_CONTRACTS["finance_query"],
                 cost="local",
                 freshness="current",
                 runner=finance_query_runner,
@@ -1491,6 +1543,7 @@ def build_episode_registry(
                     "对本地知识证据执行 narrow→broad→counter 闭环检索，"
                     "适合验证公司、题材、产业链关系、反证和替代解释。"
                 ),
+                contract=_TOOL_CONTRACTS["evidence_search"],
                 cost="local",
                 freshness="current",
                 runner=evidence_search_runner,
@@ -1606,6 +1659,7 @@ def build_episode_registry(
                     "返回的是这位用户的历史先验，不是市场事实、不能当作证据引用；"
                     "用于确认用户此前怎么看、遵守其纠偏原则、聚焦增量变化。"
                 ),
+                contract=_TOOL_CONTRACTS["memory_lookup"],
                 cost="local",
                 freshness="stable",
                 runner=memory_lookup_runner,
@@ -1621,6 +1675,7 @@ def build_episode_registry(
         except ValueError:
             # Audit probe / illegal id: skip live weekly, keep assembling tools.
             live_us = None
+    require_tool_contracts(specs)
     return ResearchToolRegistry(
         tuple(specs),
         opening_prefetch=_opening_prefetch_evidence(

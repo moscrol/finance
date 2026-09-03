@@ -11,6 +11,7 @@
     "market_data",
     "memory_lookup",
     "news_search",
+    "web_fetch",
     "web_search"
   ],
   "capability_source": "intelligence.services.episode_factory.build_episode_context",

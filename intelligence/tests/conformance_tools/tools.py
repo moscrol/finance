@@ -56,6 +56,14 @@ TOOL_NOTES: dict[str, str] = {
         " parse_arguments——装配面独立演化的实例；本套件断注册表默认面，"
         "生产 schema 校验由 finance_query 自己的单测管。"
     ),
+    "financial_data": (
+        "快照工具但带一个可选 report_period（P0b，2026-09-03）：空参合法，"
+        "多余键仍拒；窗口语义由 test_capability_amplification_p0 钉。"
+    ),
+    "web_fetch": (
+        "参数面是一个必填 url（不是 query）；拒绝条件与来源分档由"
+        " test_web_fetch_tool 钉。授权派生自 web_search（runtime_capabilities_for_frame）。"
+    ),
 }
 
 
@@ -118,13 +126,39 @@ def make_tool_registry(
 
 
 def is_snapshot_tool(spec: ToolSpec) -> bool:
-    """按 spec 运行时判形状，不写死名单（default_registry 的分派即事实源）。"""
+    """按 spec 运行时判形状，不写死名单（default_registry 的分派即事实源）。
 
-    return spec.parse_arguments is parse_snapshot_arguments
+    快照契约的判据是 ``query_scope == "episode"``（一回合一份完整快照，空参合法），
+    不是「解析器恒等于 parse_snapshot_arguments」——financial_data 自 P0b 起带一个
+    可选 ``report_period``，仍是快照，但解析器换了。
+    """
+
+    return spec.query_scope == "episode" or spec.parse_arguments is parse_snapshot_arguments
+
+
+def is_url_tool(spec: ToolSpec) -> bool:
+    """参数面只有一个 ``url`` 的取页类工具（web_fetch）。"""
+
+    properties = spec.parameters.get("properties")
+    return isinstance(properties, Mapping) and set(properties) == {"url"}
 
 
 def valid_arguments(spec: ToolSpec) -> Mapping[str, object]:
-    return {} if is_snapshot_tool(spec) else {"query": "瑞华泰 产能"}
+    if is_snapshot_tool(spec):
+        return {}
+    if is_url_tool(spec):
+        return {"url": "https://example.invalid/report/600519"}
+    return {"query": "瑞华泰 产能"}
+
+
+def invalid_arguments(spec: ToolSpec) -> Mapping[str, object]:
+    """每种形状各自的坏参数：快照多给键、取页给空 url、query 给空串。"""
+
+    if is_snapshot_tool(spec):
+        return {"query": "多余参数"}
+    if is_url_tool(spec):
+        return {"url": ""}
+    return {"query": ""}
 
 
 def make_tool_context(

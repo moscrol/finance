@@ -3,24 +3,14 @@ from __future__ import annotations
 import pytest
 
 from intelligence.services.episode_factory import build_episode_context
+from intelligence.services.research_tool_registry import _DEFAULT_TOOL_METADATA
 from intelligence.services.task_frame import TaskFrame
 from intelligence.runtime.turn_control_core import TurnControlCore
 
 
-RUNTIME_CAPABILITIES = {
-    "finance_query",
-    "evidence_search",
-    "market_data",
-    "financial_data",
-    "mainline_context",
-    "kb_search",
-    "graph_lookup",
-    "evidence_lookup",
-    "news_search",
-    "web_search",
-    "l3_lookup",
-    "memory_lookup",
-}
+# 运行时能力命名空间的上界从注册表推导，不手抄——手抄的名单随注册表增长而失效且不报警
+# （2026-09-03 加 web_fetch 时这里红过一次；同一教训见 test_turn_control_core 的注释）。
+RUNTIME_CAPABILITIES = set(_DEFAULT_TOOL_METADATA)
 
 
 def test_evidence_grounded_tasks_receive_broad_model_owned_read_tools() -> None:

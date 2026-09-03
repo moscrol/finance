@@ -624,6 +624,57 @@ def build_default_tools(
         )
         return evidence, observation, web.trace
 
+    def _web_fetch(
+        url: str,
+        context: AgentToolContext,
+    ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
+        page = web_research.fetch_web_page(
+            url,
+            timeout=context.timeout(20.0),
+            today=(
+                context.information_cutoff.as_of_date
+                if context.information_cutoff is not None
+                else None
+            ),
+        )
+        context.check_cancelled()
+        if page.trace.status != "success":
+            # 取不到页 ≠ 页上没这个事实：error 原样带出（HTTP 码 / 异常），empty 单说。
+            if page.trace.status == "empty":
+                observation = f"取页成功但无可读正文（{page.final_url}）；不能据此判断页面没有该信息"
+            elif page.trace.status == "disabled":
+                observation = f"取页已被 {web_research.WEB_FETCH_ENV_FLAG}=0 关闭，本次未尝试"
+            else:
+                observation = (
+                    f"取页失败（{page.trace.detail}）：{page.url}；"
+                    "这是工具故障，不是页面没有该信息，可换 URL 或改用 web_search"
+                )
+            return [], observation, page.trace
+        as_of = page.page_date or page.fetched_on
+        as_of_note = (
+            f"页面日期 {page.page_date}"
+            if page.page_date
+            else f"页面无日期，记抓取日 {page.fetched_on}"
+        )
+        evidence = [
+            AgentEvidence(
+                tool="web_fetch",
+                title=(page.title or page.final_url)[:48],
+                detail=chunk,
+                source=page.final_url,
+                source_date=as_of,
+                evidence_tier="public_web",
+                independent_key=page.final_url,
+            )
+            for chunk in page_text_chunks(page.text)
+        ]
+        observation = (
+            f"已取页（{page.transport}）：{page.title or page.final_url}；"
+            f"as_of={as_of}（{as_of_note}）；正文 {len(page.text)} 字切 {len(evidence)} 段；"
+            f"{page.text[:200]}"
+        )
+        return evidence, observation, page.trace
+
     def _news_search(
         query: str,
         context: AgentToolContext,
@@ -679,8 +730,44 @@ def build_default_tools(
     return {
         "kb_search": _kb_search,
         "web_search": _web_search,
+        "web_fetch": _web_fetch,
         "news_search": _news_search,
     }
+
+
+# 取页正文切段：一段一条证据，长度对齐 ``block_lines_to_evidence`` 的 detail 上限（1200），
+# 段数封顶——一页新浪指标页大约 3-6 段就够模型读到数字；不让一页长文吃掉整份账本。
+WEB_FETCH_CHUNK_CHARS = 800
+WEB_FETCH_MAX_CHUNKS = 6
+
+
+def page_text_chunks(
+    text: str,
+    *,
+    chunk_chars: int = WEB_FETCH_CHUNK_CHARS,
+    max_chunks: int = WEB_FETCH_MAX_CHUNKS,
+) -> list[str]:
+    """按行累积切段，不在行中间截断；空文本返回空列表。"""
+
+    chunks: list[str] = []
+    current: list[str] = []
+    size = 0
+    for line in str(text or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if current and size + len(line) + 1 > chunk_chars:
+            chunks.append("\n".join(current))
+            current, size = [], 0
+            if len(chunks) >= max_chunks:
+                return chunks
+        if len(line) > chunk_chars:
+            line = line[:chunk_chars]
+        current.append(line)
+        size += len(line) + 1
+    if current and len(chunks) < max_chunks:
+        chunks.append("\n".join(current))
+    return chunks
 
 
 def build_graph_tools(knowledge) -> dict[str, ToolRunner]:

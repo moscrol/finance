@@ -28,7 +28,7 @@ import socket
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
@@ -985,6 +985,7 @@ def _post_chat_message_stream(
     calls = _ToolCallAssembler()
     finish_reason: str | None = None
     usage: dict | None = None
+    served_model = ""
     saw_any_chunk = False
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -1002,6 +1003,8 @@ def _post_chat_message_stream(
                 except json.JSONDecodeError:
                     continue
                 saw_any_chunk = True
+                if not served_model and isinstance(event, dict):
+                    served_model = _served_model_from_body(event)
                 event_usage = event.get("usage")
                 if isinstance(event_usage, dict):
                     usage = dict(event_usage)
@@ -1050,6 +1053,7 @@ def _post_chat_message_stream(
         message["_finish_reason"] = finish_reason
     if usage is not None:
         message["_usage"] = usage
+    message["_served_model"] = served_model
     return message
 
 
@@ -1101,7 +1105,22 @@ def _post_chat_message(
         # Usage is adapter metadata only. Preserve counts without returning the
         # request prompt, provider body, or hidden reasoning payload.
         message["_usage"] = dict(usage)
+    message["_served_model"] = _served_model_from_body(body)
     return message
+
+
+def _served_model_from_body(body: Mapping[str, object] | None) -> str:
+    """响应体自报的 ``model``——生效值，不是我们请求的 ``provider.model``。
+
+    2026-08-08 生产出口切中转后 health 报 glm-5.2、实际跑 gpt-5.6-sol，就是因为全仓
+    只记配置值、无人落盘这个字段（``agent_runtime_factory._effective_env_model``
+    的事故记录）。中转不回该字段时返回空串，**不**回填配置值——空串就是「未回」。
+    """
+
+    if not isinstance(body, Mapping):
+        return ""
+    value = body.get("model")
+    return value.strip() if isinstance(value, str) else ""
 
 
 def chat_with_tools(
