@@ -11,13 +11,13 @@ describe("api error surfacing", () => {
       "fetch",
       vi.fn().mockResolvedValue(
         new Response(
-          JSON.stringify({ detail: "研究额度已用完（剩余 0 次）。请联系管理员充值" }),
+          JSON.stringify({ detail: "积分已用完，请联系管理员充值或等待赠送积分到账" }),
           { status: 429, headers: { "Content-Type": "application/json" } },
         ),
       ),
     );
     await expect(getCredits("u1")).rejects.toThrow(
-      "研究额度已用完（剩余 0 次）。请联系管理员充值",
+      "积分已用完，请联系管理员充值或等待赠送积分到账",
     );
   });
 

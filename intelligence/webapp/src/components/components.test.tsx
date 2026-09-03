@@ -1949,12 +1949,19 @@ describe("Workbench navigation reliability", () => {
     apiMocks.listConversations.mockResolvedValue(conversations);
     apiMocks.getBootstrap.mockResolvedValue({
       ...bootstrap,
-      credits: { enabled: true, exempt: false, remaining: 5, next_expiry: null },
+      credits: {
+        enabled: true,
+        exempt: false,
+        remaining: 2000,
+        points_per_yuan: 100,
+        next_expiry: null,
+      },
     });
     apiMocks.getCredits.mockResolvedValue({
       enabled: true,
       exempt: false,
-      remaining: 4,
+      remaining: 1900,
+      points_per_yuan: 100,
       next_expiry: null,
     });
     const user = userEvent.setup();
@@ -1962,15 +1969,17 @@ describe("Workbench navigation reliability", () => {
 
     await user.click(await screen.findByRole("button", { name: "问答" }));
     await screen.findByText("每轮重新检索当前证据");
-    expect(screen.getByRole("status", { name: "剩余研究额度 5 次" })).toBeVisible();
+    expect(screen.getByRole("status", { name: "剩余 2000 积分" })).toHaveTextContent(
+      "剩余 2000 积分 (¥20.00)",
+    );
 
-    await user.type(screen.getByLabelText("输入研究问题"), "扣一次额度");
+    await user.type(screen.getByLabelText("输入研究问题"), "预占一次");
     await user.click(screen.getByRole("button", { name: "发送研究问题" }));
 
     expect(apiMocks.getCredits).toHaveBeenCalledWith("default");
     expect(
-      await screen.findByRole("status", { name: "剩余研究额度 4 次" }),
-    ).toHaveTextContent("剩余额度 4 次");
+      await screen.findByRole("status", { name: "剩余 1900 积分" }),
+    ).toHaveTextContent("剩余 1900 积分 (¥19.00)");
   });
 
   it("submits an explicit KOL perspective without mixing other profiles", async () => {
@@ -2641,12 +2650,13 @@ describe("DigestSnapshotView（P1b 证据快照页）", () => {
         credits={{
           enabled: true,
           exempt: false,
-          remaining: 7,
+          remaining: 1965,
+          points_per_yuan: 100,
           next_expiry: "2026-10-03T06:39:58+00:00",
         }}
       />,
     );
-    expect(screen.getByRole("status")).toHaveTextContent("剩余额度 7 次");
+    expect(screen.getByRole("status")).toHaveTextContent("剩余 1965 积分 (¥19.65)");
     expect(screen.getByRole("status")).toHaveTextContent("10-03 到期");
     metered.unmount();
 
@@ -2659,13 +2669,23 @@ describe("DigestSnapshotView（P1b 证据快照页）", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     exempt.unmount();
 
-    render(
+    const zero = render(
       <ConversationList
         {...listProps}
         credits={{ enabled: true, exempt: false, remaining: 0, next_expiry: null }}
       />,
     );
-    expect(screen.getByRole("status")).toHaveTextContent("额度已用完");
+    expect(screen.getByRole("status")).toHaveTextContent("积分已用完");
+    expect(screen.getByRole("status")).toHaveClass("empty");
+    zero.unmount();
+
+    render(
+      <ConversationList
+        {...listProps}
+        credits={{ enabled: true, exempt: false, remaining: -14, next_expiry: null }}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("积分已透支 14 分");
     expect(screen.getByRole("status")).toHaveClass("empty");
   });
 });

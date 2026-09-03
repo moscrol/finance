@@ -53,22 +53,34 @@ function expiryLabel(iso: string): string {
   return `${month}-${day}`;
 }
 
-/** 钱包关着或 owner 豁免时不占位；额度为 0 用警示色，用户不用等到 429 才知道。 */
+function yuanLabel(points: number, pointsPerYuan: number): string {
+  const yuan = Math.abs(points) / pointsPerYuan;
+  return `${points < 0 ? "-" : ""}¥${yuan.toFixed(2)}`;
+}
+
+/** 钱包关着或 owner 豁免时不占位；积分 ≤ 0 用警示色，用户不用等到 429 才知道。 */
 function CreditsLine({ credits }: { credits: CreditsSummary | null | undefined }) {
   if (!credits || !credits.enabled || credits.exempt || credits.remaining === null) {
     return null;
   }
+  const perYuan = credits.points_per_yuan ?? 100;
   const empty = credits.remaining <= 0;
   const expiry = credits.next_expiry ? expiryLabel(credits.next_expiry) : "";
+  const label = empty
+    ? credits.remaining < 0
+      ? `积分已透支 ${-credits.remaining} 分，请充值`
+      : "积分已用完，请联系管理员充值"
+    : `剩余 ${credits.remaining} 积分 (${yuanLabel(credits.remaining, perYuan)})`;
   return (
     <div
       className={empty ? "credits-line empty" : "credits-line"}
       role="status"
-      aria-label={empty ? "研究额度已用完" : `剩余研究额度 ${credits.remaining} 次`}
+      aria-label={empty ? "积分不足" : `剩余 ${credits.remaining} 积分`}
+      title="100 积分 = 1 元，按每次研究的实际模型用量结算"
     >
       <span className="credits-dot" aria-hidden="true" />
       <span>
-        {empty ? "额度已用完，请联系管理员充值" : `剩余额度 ${credits.remaining} 次`}
+        {label}
         {!empty && expiry ? ` · ${expiry} 到期` : ""}
       </span>
     </div>

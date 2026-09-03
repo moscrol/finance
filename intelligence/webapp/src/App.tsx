@@ -144,7 +144,7 @@ export default function App() {
 
   const user = bootstrap?.user ?? "default";
 
-  // 余额只在两个时刻变：提问被受理（扣 1）与 run 被我们自己拒收（退 1）。
+  // 余额在两个时刻变：提问被受理（预占）与 run 结束（按用量结算、释放预占）。
   // 拉不到就保留上一次的数，展示项不该把主流程带红。
   const refreshCredits = useCallback(() => {
     void getCredits(user)
@@ -261,12 +261,13 @@ export default function App() {
       clearRunPolling();
       events.close();
       eventSourceRef.current = null;
-      refreshCredits();
       try {
         await Promise.all([
           loadConversationData(identity.conversationId),
           listConversations(user).then(setConversations),
         ]);
+        // 结算发生在 worker 返回之后、SSE 收口之后几毫秒；等两次往返回来再读余额，读到的是结算后的数。
+        refreshCredits();
         setLiveMessages((current) => {
           const state = current[identity.messageId];
           if (
