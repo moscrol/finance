@@ -174,6 +174,16 @@ _ISSUE_SENTENCE_INDEX_RE = re.compile(
     r"(?:第\s*(\d+)\s*句|句\s*(\d+)|sentence\s*#?\s*(\d+))",
     re.IGNORECASE,
 )
+# 拒句账（P2 第一步）的枚举值。字符串进产物，改名等于改契约，读侧脚本按这些值统计。
+VERDICT_STAGE_PREFLIGHT = "preflight"
+VERDICT_STAGE_JUDGE = "judge"
+VERDICT_DELETED = "deleted"
+VERDICT_DEMOTED = "demoted_to_issue"
+VERDICT_REASON_JUDGE = "judge"
+VERDICT_REASON_NUMERIC = "novel_numeric_condition"
+VERDICT_REASON_WEEKDAY = "calendar_weekday"
+VERDICT_REASON_PATH = "path_trend"
+VERDICT_REASON_ORDINAL = "unresolved_evidence_ordinal"
 _CONDITION_TRIGGER_RE = re.compile(
     r"(?:若|如果|失效|降级|跌破|站稳|至少|"
     r"阈值|支撑|才算成立|才成立)"
@@ -490,6 +500,10 @@ class SemanticEpisodeOutcome:
     asked_date_coverage: str = "not_applicable"
     repair_collapsed_to_stub: bool = False
     repair_rollback_mode: str | None = None
+    # P2 第一步（spec 2026-09-02 §3.3「先量后改」）：判官每条拒句的结构化账——
+    # 删了还是降成 issue、机械还是语义、句子引了哪些 E / 绑到哪些哈希 / 来源档。
+    # 只记不改任何判据；读侧 ``scripts/offline_judge_verdict_census.py``。
+    sentence_verdicts: tuple[dict[str, object], ...] = ()
 
     def __post_init__(self) -> None:
         if not self.repair_output_ids:
@@ -554,6 +568,7 @@ class SemanticEpisodeOutcome:
             "asked_date_coverage": self.asked_date_coverage,
             "repair_collapsed_to_stub": self.repair_collapsed_to_stub,
             "repair_rollback_mode": self.repair_rollback_mode,
+            "sentence_verdicts": [dict(item) for item in self.sentence_verdicts],
             "projection_dropped_field_chars": telemetry.dropped_field_chars,
             "projection_truncated_field_chars": telemetry.truncated_field_chars,
             "projection_ordinal_mismatch_count": telemetry.ordinal_mismatch_count,
@@ -686,6 +701,37 @@ class SemanticEpisodeVerifier:
         self._active_hygiene: _HygieneSnapshot | None = None
         self._semantic_reject_texts: tuple[str, ...] = ()
         self._semantic_reject_issues: tuple[str, ...] = ()
+        self._sentence_verdicts: list[dict[str, object]] = []
+        self._judge_round = 0
+
+    def _record_sentence_verdicts(
+        self,
+        *,
+        stage: str,
+        indexes: tuple[int, ...],
+        sentences: list[dict[str, object]],
+        verified: VerifiedEpisodeOutcome,
+        decision_for: Mapping[int, str],
+        reasons_for: Mapping[int, tuple[str, ...]],
+        issues: tuple[str, ...] = (),
+        judge_round: int | None = None,
+    ) -> None:
+        """把一批拒句写进结构化账。只记账，不改任何删除/降级决定。"""
+
+        text_by_index = {int(item["index"]): str(item["text"]) for item in sentences}
+        for index in indexes:
+            self._sentence_verdicts.append(
+                _sentence_verdict_record(
+                    stage=stage,
+                    judge_round=judge_round,
+                    index=int(index),
+                    sentence=text_by_index.get(int(index), ""),
+                    decision=decision_for.get(int(index), "deleted"),
+                    reasons=reasons_for.get(int(index), ()),
+                    issues=issues,
+                    verified=verified,
+                )
+            )
 
     def _finalize_outcome(
         self,
@@ -747,12 +793,36 @@ class SemanticEpisodeVerifier:
             int(item["index"]): str(item["text"]) for item in sentences
         }
         repair = list(mechanical)
+        decision_for: dict[int, str] = {int(index): VERDICT_DELETED for index in mechanical}
         for index in semantic:
             text = text_by_index.get(int(index), "")
             if _sentence_in_required_grounded_block(text, contract):
                 self._note_semantic_reject(text, issues)
+                decision_for[int(index)] = VERDICT_DEMOTED
             else:
                 repair.append(int(index))
+                decision_for[int(index)] = VERDICT_DELETED
+        self._judge_round += 1
+        reasons_for = _mechanical_reasons_by_index(
+            numeric=_novel_numeric_condition_indexes(sentences, verified),
+            weekday=_mismatched_weekday_indexes(sentences, verified),
+            path=_mismatched_path_trend_indexes(sentences, verified),
+            ordinal=_unresolved_evidence_ordinal_indexes(sentences, verified),
+        )
+        for index in decision_for:
+            # 语义拒句的理由就是判官本身；v8 降级关掉时机械集为全集，也可能有
+            # 没被任何探测器点名的索引，同样只能记「判官」。
+            reasons_for.setdefault(index, (VERDICT_REASON_JUDGE,))
+        self._record_sentence_verdicts(
+            stage=VERDICT_STAGE_JUDGE,
+            indexes=tuple(sorted(decision_for)),
+            sentences=sentences,
+            verified=verified,
+            decision_for=decision_for,
+            reasons_for=reasons_for,
+            issues=issues,
+            judge_round=self._judge_round,
+        )
         return tuple(sorted(set(repair)))
 
     def _project_semantic_quality_marks(
@@ -788,8 +858,30 @@ class SemanticEpisodeVerifier:
         structurally_verified: VerifiedEpisodeOutcome,
         deadline: ResearchDeadline,
     ) -> SemanticEpisodeOutcome:
-        """Run structural-first verification with bounded deletion-only repair."""
+        """Run structural-first verification with bounded deletion-only repair.
 
+        拒句账（``sentence_verdicts``）在这一层统一挂到返回值上：内层有十几条
+        提前返回路径，逐条挂会漏；账本为空时不动返回值（历史夹具逐字节不变）。
+        """
+
+        self._sentence_verdicts = []
+        self._judge_round = 0
+        outcome = self._verify_inner(
+            frame=frame,
+            structurally_verified=structurally_verified,
+            deadline=deadline,
+        )
+        if not self._sentence_verdicts or outcome.sentence_verdicts:
+            return outcome
+        return replace(outcome, sentence_verdicts=tuple(self._sentence_verdicts))
+
+    def _verify_inner(
+        self,
+        *,
+        frame: TaskFrame,
+        structurally_verified: VerifiedEpisodeOutcome,
+        deadline: ResearchDeadline,
+    ) -> SemanticEpisodeOutcome:
         self._semantic_reject_texts = ()
         self._semantic_reject_issues = ()
         structural = structurally_verified
@@ -897,6 +989,18 @@ class SemanticEpisodeVerifier:
             )
         )
         if preflight_rejected:
+            self._record_sentence_verdicts(
+                stage=VERDICT_STAGE_PREFLIGHT,
+                indexes=preflight_rejected,
+                sentences=sentences,
+                verified=structural,
+                decision_for={index: VERDICT_DELETED for index in preflight_rejected},
+                reasons_for=_mechanical_reasons_by_index(
+                    numeric=numeric_rejected,
+                    weekday=weekday_rejected,
+                    path=path_rejected,
+                ),
+            )
             before_repair = structural.outcome.draft
             preflight_source = structural
             preflight = self._repair(
@@ -2935,6 +3039,86 @@ def _numbered_sentences(draft: str) -> list[dict[str, object]]:
             continue
         sentences.append({"index": len(sentences) + 1, "text": text})
     return sentences
+
+
+def _mechanical_reasons_by_index(
+    *,
+    numeric: tuple[int, ...] = (),
+    weekday: tuple[int, ...] = (),
+    path: tuple[int, ...] = (),
+    ordinal: tuple[int, ...] = (),
+) -> dict[int, tuple[str, ...]]:
+    """每个索引被哪些机械探测器点名（同一句可被多个探测器同时点）。"""
+
+    reasons: dict[int, list[str]] = {}
+    for code, indexes in (
+        (VERDICT_REASON_NUMERIC, numeric),
+        (VERDICT_REASON_WEEKDAY, weekday),
+        (VERDICT_REASON_PATH, path),
+        (VERDICT_REASON_ORDINAL, ordinal),
+    ):
+        for index in indexes:
+            reasons.setdefault(int(index), []).append(code)
+    return {index: tuple(codes) for index, codes in reasons.items()}
+
+
+def _issues_naming_sentence(issues: tuple[str, ...], index: int) -> tuple[str, ...]:
+    """判官 issue 里显式点到「第 N 句 / 句 N / sentence N」的那些条。"""
+
+    named: list[str] = []
+    for issue in issues:
+        for match in _ISSUE_SENTENCE_INDEX_RE.finditer(str(issue or "")):
+            raw = next((group for group in match.groups() if group), "")
+            if raw and int(raw) == index:
+                named.append(str(issue))
+                break
+    return tuple(named)
+
+
+def _sentence_verdict_record(
+    *,
+    stage: str,
+    judge_round: int | None,
+    index: int,
+    sentence: str,
+    decision: str,
+    reasons: tuple[str, ...],
+    issues: tuple[str, ...],
+    verified: VerifiedEpisodeOutcome,
+) -> dict[str, object]:
+    """一条拒句账：句子 / 决定 / 理由 / 判官原话 / 引到的证据与来源档。
+
+    证据侧只走 E 序号反解（``evidence_ordinal_table`` 的逆映射），不解析自由文本；
+    句子没引 E 时 ``cited_evidence_ordinals`` 为空，``source_tiers`` 也为空——
+    这本身就是读侧要统计的一类（「无出处被删」与「有出处被删」分开数）。
+    """
+
+    outcome = verified.outcome
+    ordinal_to_hash = {
+        ordinal: digest for digest, ordinal in evidence_ordinal_table(outcome.evidence).items()
+    }
+    tier_by_hash = {
+        str(item.content_hash): str(item.evidence_tier or "")
+        for item in outcome.evidence
+        if item.content_hash
+    }
+    cited = cited_evidence_ordinals(sentence)
+    bound_hashes = tuple(ordinal_to_hash[token] for token in cited if token in ordinal_to_hash)
+    unresolved = tuple(token for token in cited if token not in ordinal_to_hash)
+    tiers = tuple(dict.fromkeys(tier_by_hash.get(digest, "") for digest in bound_hashes))
+    return {
+        "stage": stage,
+        "judge_round": judge_round,
+        "sentence_index": int(index),
+        "sentence": str(sentence),
+        "decision": decision,
+        "reasons": list(reasons),
+        "judge_issues": list(_issues_naming_sentence(issues, int(index))),
+        "cited_evidence_ordinals": list(cited),
+        "unresolved_evidence_ordinals": list(unresolved),
+        "bound_evidence_hashes": list(bound_hashes),
+        "source_tiers": [tier for tier in tiers if tier],
+    }
 
 
 def _reconcile_issue_sentence_indexes(
