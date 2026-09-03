@@ -30,13 +30,13 @@ from intelligence.runtime.episode_finalizer import (
 )
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_protocol import (
+    SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
     attach_evidence_ordinals,
-    build_episode_input,
-    build_episode_instructions,
     evidence_ordinal_table,
     expand_episode_snapshot_bindings,
     finish_rejection_fields,
     rejection_response,
+    split_episode_prompt,
     strip_hashes_for_model,
     validate_episode_finish,
 )
@@ -58,6 +58,9 @@ from intelligence.services.provider_observability import (
 from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
+)
+from intelligence.services.mandatory_satisfiability import (
+    apply_unreachable_downgrade,
 )
 from intelligence.services.repair_coordinator import (
     RepairGoal,
@@ -85,6 +88,7 @@ from intelligence.runtime.sub_research import (
     SubResearchResult,
 )
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.tool_observation_noise import prune_tool_observation
 from intelligence.services.tool_result_budget import budget_tool_observation
 
 
@@ -379,6 +383,7 @@ class _EpisodeToolAccumulator:
     successful_tools: set[str] = field(default_factory=set)
     traces: list[ProviderTrace] = field(default_factory=list)
     gaps: list[str] = field(default_factory=list)
+    seen_observation_prose: set[str] = field(default_factory=set)
 
     def consume(
         self,
@@ -471,16 +476,27 @@ class _EpisodeToolAccumulator:
                 "payload_field_names": list(observation.payload_field_names),
                 "payload_sha256": observation.payload_sha256,
             }
+            telemetry = dict(getattr(observation, "telemetry", None) or {})
+            if telemetry:
+                # 控制面收据：只进 ledger，不进模型上下文。
+                public_observation["telemetry"] = telemetry
             # 审计留档拿全量（含 hash），模型上下文拿预算后的副本并去掉 hash，
             # 只留 E1..En——誊抄 16-hex 是 B1/B7 零绑定的根因。
             self.ledger.add("tool_result", {**public_observation, **timing})
+            model_view = dict(public_observation)
+            model_view.pop("telemetry", None)
+            pruned, seen = prune_tool_observation(
+                model_view,
+                seen_prose=self.seen_observation_prose,
+            )
+            self.seen_observation_prose = set(seen)
             self.messages.append(
                 {
                     "role": "tool",
                     "tool_call_id": call.call_id,
                     "content": json.dumps(
                         strip_hashes_for_model(
-                            budget_tool_observation(public_observation)
+                            budget_tool_observation(pruned)
                         ),
                         ensure_ascii=False,
                     ),
@@ -689,19 +705,13 @@ class ContinuousAgentEpisode:
         finish_failures = 0
         plan_failures = 0
         plan_turns = 0
+        system, user = split_episode_prompt(task_frame, context, registry)
+        # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: system is byte-stable; user/tool
+        # rebuild each turn. cache_control is not implemented this increment.
+        _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
         messages: list[dict[str, object]] = [
-            {
-                "role": "system",
-                "content": build_episode_instructions(
-                    task_frame,
-                    context,
-                    registry,
-                ),
-            },
-            {
-                "role": "user",
-                "content": build_episode_input(task_frame, context),
-            },
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
         ]
         evidence_ledger = EvidenceLedger(
             information_cutoff=context.information_cutoff.as_of_date,
@@ -1462,11 +1472,8 @@ class ContinuousAgentEpisode:
         repair_tool_context = replace(context, deadline=repair_tool_deadline)
         research_tools_open = not repair_tool_deadline.expired
         goal_payload = goal.to_dict()
-        # 把「这一轮结构性不可能补上」的格显式投递进 trace。纯观测，不改执行：
-        # 生产 run_20260821_114642_385979 里修复轮被要求补两个 evidence 必填格，
-        # 同时 remaining_calls=0 / reopen_tools=false——禁止取证。它空转 40 秒后
-        # 残稿发布，读数上却表现成「repair 跑过了但没修好」，把不可能的任务
-        # 误读成模型能力问题。有了这个字段，trace diff 一眼能分开这两件事。
+        # 把「这一轮结构性不可能补上」的格显式投递进 trace（#289 第 6 刀观测）。
+        # W2 在观测之后接裁决：降级 contract / 模型侧 goal，但不跳过本轮。
         unreachable = unreachable_repair_goal(
             goal,
             evidence_output_ids=_evidence_required_output_ids(context),
@@ -1474,6 +1481,20 @@ class ContinuousAgentEpisode:
         if unreachable:
             goal_payload["unreachable_without_tools"] = list(unreachable)
         ledger.add("repair_goal", goal_payload)
+        # 观测保留完整 goal；裁决后的契约/指令才降级。不跳过本轮——
+        # salvage 刚写出的 FINAL_JSON 仍然要跑。
+        downgraded_contract, prompt_goal = apply_unreachable_downgrade(
+            context.contract,
+            goal,
+        )
+        if downgraded_contract is not context.contract:
+            context = replace(context, contract=downgraded_contract)
+            state.context = context
+            repair_context = replace(repair_context, contract=downgraded_contract)
+            repair_tool_context = replace(
+                repair_tool_context,
+                contract=downgraded_contract,
+            )
         # 修复轮的时钟账，记在动手之前。
         #
         # 这三个数是 judge 那次诊断里 ``timeout_asked`` 的同位物：judge 看着像元凶，
@@ -1504,7 +1525,7 @@ class ContinuousAgentEpisode:
                 "content": json.dumps(
                     {
                         "kind": "REPAIR_GOAL",
-                        **goal.to_dict(),
+                        **prompt_goal.to_dict(),
                         "instruction": (
                             "保留最初任务、全部原始观察和当前工具账本。"
                             + (

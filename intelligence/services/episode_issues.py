@@ -37,6 +37,7 @@ class IssueCode(str, Enum):
     CALENDAR_WEEKDAY_MISMATCH = "calendar_weekday_mismatch"
     PATH_TREND_MISMATCH = "path_trend_mismatch"
     MARKER_LOSS = "marker_loss"
+    UNRESOLVED_EVIDENCE_ORDINAL = "unresolved_evidence_ordinal"
 
 
 class ReleaseAction(str, Enum):
@@ -75,6 +76,7 @@ RELEASE_POLICY: dict[IssueCode, ReleaseAction] = {
     IssueCode.CALENDAR_WEEKDAY_MISMATCH: ReleaseAction.BLOCK,
     IssueCode.PATH_TREND_MISMATCH: ReleaseAction.BLOCK,
     IssueCode.MARKER_LOSS: ReleaseAction.BLOCK,
+    IssueCode.UNRESOLVED_EVIDENCE_ORDINAL: ReleaseAction.BLOCK,
 }
 
 _PARTIAL_RELEASE_ACTIONS = frozenset(
@@ -105,7 +107,8 @@ def serialize_issues(items: tuple[Issue, ...]) -> tuple[str, ...]:
 
 
 # W5：这两种 BLOCK 不是「答案只能越修越薄」，而是缺一次对应能力的取数。
-# 映射必须跟 code 走，不能从 message 里抠 capability 名。
+# FINANCIAL_ANCHOR_MISSING 仍按 code 静态映射。NUMERIC_UNSUPPORTED 的目标
+# 由锚定主体反推——静态 market_data 会把个股缺口回填成市场总览（R-05 A 臂）。
 BACKFILL_TRIGGER_CODES = frozenset(
     {
         IssueCode.NUMERIC_UNSUPPORTED,
@@ -113,9 +116,13 @@ BACKFILL_TRIGGER_CODES = frozenset(
     }
 )
 BACKFILL_CAPABILITY_BY_CODE: dict[IssueCode, str] = {
-    IssueCode.NUMERIC_UNSUPPORTED: "market_data",
     IssueCode.FINANCIAL_ANCHOR_MISSING: "financial_data",
 }
+
+_STOCK_SUBJECT_KINDS = frozenset({"company", "stock"})
+_MARKET_SUBJECT_KINDS = frozenset(
+    {"market_pattern", "index", "external_market"}
+)
 
 
 @dataclass(frozen=True)
@@ -125,7 +132,27 @@ class BackfillPlan:
     missing_capabilities: tuple[str, ...]
 
 
-def plan_issue_backfill(items: tuple[Issue, ...]) -> BackfillPlan | None:
+def numeric_backfill_capability(subject_kind: str | None) -> str | None:
+    """Map NUMERIC_UNSUPPORTED onto a capability, or None when fail-closed.
+
+    Reuses the episode's already-resolved subject_kind. Do not invent a
+    second classifier here — unknown / empty / other kinds skip backfill
+    so a missing number stays a gap instead of becoming the wrong number.
+    """
+
+    kind = str(subject_kind or "").strip().lower()
+    if kind in _STOCK_SUBJECT_KINDS:
+        return "finance_query"
+    if kind in _MARKET_SUBJECT_KINDS:
+        return "market_data"
+    return None
+
+
+def plan_issue_backfill(
+    items: tuple[Issue, ...],
+    *,
+    subject_kind: str | None = None,
+) -> BackfillPlan | None:
     """Return a narrow backfill plan, or None when no trigger code is present."""
 
     matched = tuple(item for item in items if item.code in BACKFILL_TRIGGER_CODES)
@@ -138,19 +165,23 @@ def plan_issue_backfill(items: tuple[Issue, ...]) -> BackfillPlan | None:
             if item.code == IssueCode.FINANCIAL_ANCHOR_MISSING and item.subject
         )
     )
-    capabilities = tuple(
-        dict.fromkeys(
-            BACKFILL_CAPABILITY_BY_CODE[item.code]
-            for item in matched
-            if item.code in BACKFILL_CAPABILITY_BY_CODE
-        )
-    )
-    if not capabilities:
+    capabilities: list[str] = []
+    for item in matched:
+        if item.code == IssueCode.NUMERIC_UNSUPPORTED:
+            capability = numeric_backfill_capability(subject_kind)
+            if capability is not None:
+                capabilities.append(capability)
+            continue
+        static = BACKFILL_CAPABILITY_BY_CODE.get(item.code)
+        if static is not None:
+            capabilities.append(static)
+    unique_capabilities = tuple(dict.fromkeys(capabilities))
+    if not unique_capabilities:
         return None
     return BackfillPlan(
         codes=tuple(dict.fromkeys(item.code for item in matched)),
         missing_outputs=outputs,
-        missing_capabilities=capabilities,
+        missing_capabilities=unique_capabilities,
     )
 
 
@@ -163,6 +194,7 @@ __all__ = [
     "RELEASE_POLICY",
     "ReleaseAction",
     "allows_partial_release",
+    "numeric_backfill_capability",
     "plan_issue_backfill",
     "release_action",
     "serialize_issues",

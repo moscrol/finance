@@ -1,0 +1,53 @@
+{
+  "query": "长电科技怎么看",
+  "hits": [
+    {
+      "title": "长电科技_最新逻辑跟踪",
+      "file_path": "wiki/sources/长电科技_最新逻辑跟踪.md",
+      "excerpt": "1. **长电科技2025年度、2026年第一季度业绩暨现金分红说明会记录**（2026-05-08）- 公司官方 - https://www.cnfin.com/announ/detail/index.html?announ=lc&dannoun=lcdetail&id=831569840366 2. **长电科技2…",
+      "display_excerpt": "1. **长电科技2025年度、2026年第一季度业绩暨现金分红说明会记录**（2026-05-08）- 公司官方 - https://www.cnfin.com/announ/detail/index.html?announ=lc&dannoun=lcdetail&id=831569840366 2. **长电科技2…",
+      "llm_evidence": "命中块 wiki/sources/长电科技_最新逻辑跟踪.md::24: 1. **长电科技2025年度、2026年第一季度业绩暨现金分红说明会记录**（2026-05-08）- 公司官方 - https://www.cnfin.com/announ/detail/index.html?announ=lc&dannoun=lcdetail&id=831569840366 2. **长电科技2026年一季报**（2026-04-29）- 公司官方 - 来源：国盛证券研报引用 3. **高盛研报：上调长电科技目标价，维持中性评级**（2026-05-26）- 研报机构 - https://news.qq.com/rain/a/20260526A067XL00 4. **瑞银研报：上调长电至79元，CPO封装+先进封装双轮驱动**（2026-05）- 研报机构 - https://xueqiu.com/1741162481/390677482 相邻块 wiki/sources/长电科技_最新逻辑跟踪.md::25: 5. **长电科技2.5D/3D封装产线获百亿投资加码**（2026-05-26）- 媒体市场 - https://finance.eastmoney.com/a/202605263749409111.html 6. **深度：长电科技的HBM封装业务进展如何？**（2026-05-27）- 媒体市场 - https://caifuhao.eastmoney.com/news/20260527184713041928770 7. **长电科技业绩说明会释放强信号：2026年高端先进封装产能大规模放量**（2026-05）- 媒体市场 - https://m.sohu.com/a/1019475179_166680",
+      "source_date": ""
+    },
+    {
+      "title": "长电科技（600584）",
+      "file_path": "wiki/entities/长电科技.md",
+      "excerpt": "- **一句话**：长电科技作为国内封测龙头，正站在AI算力驱动的先进封装爆发周期起点，2026年百亿资本开支重点投向2.5D/3D及HBM封装产能，客户需求强劲、订单饱满，Q1毛利率同比提升1.92个百分点验证盈利能力改善趋势，但高盛与瑞银目标价分歧显著（50.9元 vs 79.5元），反映市场对盈利弹性的不同判断。…",
+      "display_excerpt": "- **一句话**：长电科技作为国内封测龙头，正站在AI算力驱动的先进封装爆发周期起点，2026年百亿资本开支重点投向2.5D/3D及HBM封装产能，客户需求强劲、订单饱满，Q1毛利率同比提升1.92个百分点验证盈利能力改善趋势，但高盛与瑞银目标价分歧显著（50.9元 vs 79.5元），反映市场对盈利弹性的不同判断。…",
+      "llm_evidence": "命中块 wiki/entities/长电科技.md::38: - **一句话**：长电科技作为国内封测龙头，正站在AI算力驱动的先进封装爆发周期起点，2026年百亿资本开支重点投向2.5D/3D及HBM封装产能，客户需求强劲、订单饱满，Q1毛利率同比提升1.92个百分点验证盈利能力改善趋势，但高盛与瑞银目标价分歧显著（50.9元 vs 79.5元），反映市场对盈利弹性的不同判断。 - **IMA可信度**：IMA综合可信 - **逻辑阶段**：事实验证 - **财务验证**：部分进入 - **相关业务**：先进封装（2.5D、3D）、HBM封装、CPO光电合封、存储封测 相邻块 wiki/entities/长电科技.md::37: **华为芯片供应链角色强化** - 长电科技作为全球第三大封测厂商，是华为海思高端芯片（麒麟、昇腾）的主要封测服务商，承接 2.5D/3D 先进封装订单，Chiplet 技术量产能力领先。 - 在 HBM 封装领域，长电科技实现重大突破，8 层堆叠良率达 98.5%，超过三星的 96%，成为 SK 海力士 HBM3E 的独家封测伙伴。 - 相关概念：[[华为芯片]] - 原文依据：长电科技作为全球第三大封测厂商，是华为海思高端芯片（麒麟、昇腾）的主要封测服务商，承接 2.5D/3D 先进封装订单，Chiplet 技术量产能力领先。",
+      "source_date": ""
+    },
+    {
+      "title": "长电科技 2025年度报告 baseline 2026-04-08",
+      "file_path": "wiki/sources/长电科技 2025年度报告 baseline 2026-04-08.md",
+      "excerpt": "- `raw/cninfo-baseline/长电科技.json`",
+      "display_excerpt": "- `raw/cninfo-baseline/长电科技.json`",
+      "llm_evidence": "命中块 wiki/sources/长电科技 2025年度报告 baseline 2026-04-08.md::2: - `raw/cninfo-baseline/长电科技.json` 相邻块 wiki/sources/长电科技 2025年度报告 baseline 2026-04-08.md::1: - **分类**：`annual_report_baseline` - **source_quality**：`official_disclosure` - **fact_hardness**：`baseline` - **evidence_layer**：`L2` - **update_type**：`baseline`",
+      "source_date": ""
+    },
+    {
+      "title": "颀中科技（688352）",
+      "file_path": "wiki/entities/颀中科技.md",
+      "excerpt": "[[长电科技]] · [[通富微电]] · [[华天科技]]",
+      "display_excerpt": "[[长电科技]] · [[通富微电]] · [[华天科技]]",
+      "llm_evidence": "命中块 wiki/entities/颀中科技.md::3: [[长电科技]] · [[通富微电]] · [[华天科技]] 相邻块 wiki/entities/颀中科技.md::2: [[封测]] · [[显示驱动]] · [[半导体]]",
+      "source_date": ""
+    },
+    {
+      "title": "华天科技（002185）",
+      "file_path": "wiki/entities/华天科技.md",
+      "excerpt": "[[长电科技]] · [[通富微电]] · [[比亚迪]]",
+      "display_excerpt": "[[长电科技]] · [[通富微电]] · [[比亚迪]]",
+      "llm_evidence": "命中块 wiki/entities/华天科技.md::4: [[长电科技]] · [[通富微电]] · [[比亚迪]] 相邻块 wiki/entities/华天科技.md::3: [[先进封装]] · [[HBM]] · [[存储芯片]] · [[AI端侧]] · [[AI算力]] · [[AI算力核心赛道：ASIC芯片产业链]] · [[AI芯片]] · [[华为昇腾]] · [[华为芯片]] · [[推理芯片]] · [[封测]]",
+      "source_date": ""
+    },
+    {
+      "title": "莱宝高科（002106）",
+      "file_path": "wiki/entities/莱宝高科.md",
+      "excerpt": "[[京东方A]] · [[华勤技术]] · [[长电科技]]",
+      "display_excerpt": "[[京东方A]] · [[华勤技术]] · [[长电科技]]",
+      "llm_evidence": "命中块 wiki/entities/莱宝高科.md::3: [[京东方A]] · [[华勤技术]] · [[长电科技]] 相邻块 wiki/entities/莱宝高科.md::2: [[鸿蒙]] · [[触控屏]]",
+      "source_date": ""
+    }
+  ]
+}

@@ -9,11 +9,15 @@ from __future__ import annotations
 from datetime import date
 import re
 
+from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.services.evidence_capabilities import (
     EvidencePlan,
     EvidenceRequirement,
     resolve_evidence_plan,
     runtime_capabilities_for_frame,
+)
+from intelligence.services.mandatory_satisfiability import (
+    apply_static_chain_mapping_precheck,
 )
 from intelligence.services.honesty_gates import requested_information_cutoff
 from intelligence.services.research_contract import (
@@ -226,6 +230,11 @@ def _episode_evidence_plan(frame: TaskFrame) -> EvidencePlan:
         freshness="current",
     )
     if frame.question_type == "market_cause":
+        kb_extras = tuple(
+            item
+            for item in plan.requirements
+            if item.capability in {"kb_search", "evidence_search"}
+        )
         return EvidencePlan(
             profile="time_aligned_market_causal",
             requirements=(
@@ -250,6 +259,7 @@ def _episode_evidence_plan(frame: TaskFrame) -> EvidencePlan:
                     "current",
                     "明确标注为外部观点的竞争性解释",
                 ),
+                *kb_extras,
             ),
             freshness="current",
         )
@@ -477,6 +487,7 @@ def build_episode_context(
     conversation_context: str = "",
     information_cutoff: InformationCutoff | None = None,
     perspective_context: str = "",
+    knowledge: KnowledgeAdapter | None = None,
 ) -> ResearchRunContext:
     """Freeze control output into one immutable research run contract."""
 
@@ -582,6 +593,7 @@ def build_episode_context(
         evidence_plan=evidence_plan,
         task_frame_hash=frame.task_frame_hash,
     )
+    contract = apply_static_chain_mapping_precheck(contract, knowledge=knowledge)
     cutoff = (
         information_cutoff
         or requested_information_cutoff(frame.raw_question, today=today)

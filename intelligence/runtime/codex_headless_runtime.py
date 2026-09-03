@@ -28,10 +28,11 @@ from intelligence.services.agent_runtime import (
     public_agent_evidence,
 )
 from intelligence.services.episode_protocol import (
+    SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
     build_episode_input,
-    build_episode_instructions,
     expand_episode_snapshot_bindings,
     finish_json_schema,
+    split_episode_prompt,
     validate_episode_finish,
 )
 from intelligence.runtime.headless_tool_gateway import (
@@ -690,6 +691,7 @@ class CodexHeadlessRuntime:
                     repair_command = self._build_repair_command(
                         task_frame=task_frame,
                         context=context,
+                        registry=registry,
                         snapshot=snapshot,
                         gateway=gateway,
                         schema_path=schema_path,
@@ -775,6 +777,7 @@ class CodexHeadlessRuntime:
         *,
         task_frame: TaskFrame,
         context: ResearchRunContext,
+        registry: ResearchToolRegistry,
         snapshot: HeadlessGatewaySnapshot,
         gateway: HeadlessToolGateway,
         schema_path: Path,
@@ -782,13 +785,15 @@ class CodexHeadlessRuntime:
         failure_reason: str,
     ) -> HeadlessCommand:
         evidence = [public_agent_evidence(item) for item in snapshot.evidence]
+        # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: repair prompt is per-turn user JSON.
+        _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
         prompt = (
             "研究阶段已经关闭，禁止调用任何工具或运行命令。"
             "上一份终止输出未通过固定 JSON 协议；只修复终止 envelope，"
             "不得增加新事实。只能使用下面列出的证据哈希，缺失输出必须写 gap。"
             "只输出符合给定 schema 的 JSON 对象。\n"
             f"失败原因：{failure_reason}\n"
-            f"任务：{build_episode_input(task_frame, context)}\n"
+            f"任务：{build_episode_input(task_frame, context, registry)}\n"
             f"证据：{json.dumps(evidence, ensure_ascii=False)}\n"
             f"现有缺口：{json.dumps(list(snapshot.gaps), ensure_ascii=False)}"
         )
@@ -1296,8 +1301,12 @@ def _headless_prompt(
         for item in definitions
     )
     schema_block = json.dumps(definitions, ensure_ascii=False)
+    system, user = split_episode_prompt(task_frame, context, registry)
+    # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: constitution first; wrapper + user JSON
+    # rebuild each turn. cache_control is not implemented this increment.
+    _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
     return (
-        f"{build_episode_instructions(task_frame, context, registry)}\n\n"
+        f"{system}\n\n"
         "你运行在隔离目录。只能通过下列唯一命令调用金融工具：\n"
         f"{wrapper_path} TOOL 'QUERY'\n"
         f"TOOL 只能是：{tools}。每次命令必须恰好包含工具名和一个查询。"
@@ -1311,7 +1320,7 @@ def _headless_prompt(
         "禁止运行其他 shell 命令，禁止读取文件，禁止使用内置 Web、MCP、"
         "文件编辑或计算机控制。工具返回的 evidence_hashes 才能进入 bindings。"
         "完成后只输出符合给定 schema 的 JSON 对象，不输出前言或代码围栏。\n\n"
-        f"{build_episode_input(task_frame, context)}"
+        f"{user}"
     )
 
 

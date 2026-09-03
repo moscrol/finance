@@ -746,6 +746,8 @@ class RequiredOutput:
     evidence_types: tuple[str, ...] = ()
     required: bool = True
     grounding_mode: GroundingMode = "evidence"
+    # W2：静态预检 / 动态不可达降级预置的缺口声明。空串表示没有预置。
+    preplaced_gap: str = ""
 
 
 @dataclass(frozen=True)
@@ -861,6 +863,7 @@ class ResearchTaskContract:
                     evidence_types=tuple(str(item) for item in evidence_types),
                     required=bool(raw.get("required", True)),
                     grounding_mode=str(raw.get("grounding_mode") or "evidence"),
+                    preplaced_gap=str(raw.get("preplaced_gap") or ""),
                 )
             )
         capabilities = value.get("allowed_capabilities", ())

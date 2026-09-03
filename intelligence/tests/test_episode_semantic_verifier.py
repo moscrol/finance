@@ -22,6 +22,8 @@ from intelligence.services.episode_semantic_verifier import (
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
     LEFTOVER_WINDOW_ISSUE,
     MAX_SEMANTIC_JUDGE_ATTEMPTS,
+    REQUIRED_OUTPUT_DEGRADED_MARK,
+    SEMANTIC_QUALITY_DOUBT_MARK,
     SemanticEpisodeVerifier,
     _semantic_attempt_timeouts,
     compact_judge_payload,
@@ -765,7 +767,8 @@ def test_unsupported_causality_is_removed_before_public_completion() -> None:
 
     assert result.status == "completed"
     assert result.judge_status == "repaired"
-    assert "政策变化导致了下跌" not in result.public_answer
+    assert "政策变化导致了下跌" in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
 
 
 def test_semantic_repair_cannot_remove_a_visible_required_output_marker() -> None:
@@ -832,9 +835,9 @@ def test_semantic_repair_cannot_remove_a_visible_required_output_marker() -> Non
     assert result.judge_status == "repaired"
     assert "【当前判断】市场处于反弹修复" in result.public_answer
     assert "99999亿元" not in result.public_answer
-    # 代码侧已判达标、是质检重写删掉的 → 归因必须是结构缺口，
-    # 且不得让用户去补一份根本不缺的证据（见 _marker_loss_gap_sentence）。
-    assert "结构缺口" in result.public_answer
+    assert REQUIRED_OUTPUT_DEGRADED_MARK in result.public_answer
+    assert "结构缺口" not in result.public_answer
+    assert "现有证据不足" not in result.public_answer
     assert "需补充直接证据" not in result.public_answer
     assert "继续成立条件" in result.public_answer
     assert result.gap_output_ids == ("continuation_conditions",)
@@ -1001,14 +1004,11 @@ def test_valuation_repair_cannot_leave_an_empty_scenario_table_completed() -> No
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "partial"
     assert result.judge_status == "repaired"
-    assert result.gap_output_ids == ("scenario_range",)
-    assert "估值情景区间" in result.public_answer
-    assert "| 情景 | 关键条件 | 隐含PB |" not in result.public_answer
-    assert "| 保守" not in result.public_answer
-    assert "| 中性" not in result.public_answer
-    assert "| 乐观" not in result.public_answer
+    assert "| 保守" in result.public_answer
+    assert "| 中性" in result.public_answer
+    assert "| 乐观" in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
 
 
 def test_shared_hash_semantics_are_rejected_only_by_semantic_judge() -> None:
@@ -1064,7 +1064,8 @@ def test_shared_hash_semantics_are_rejected_only_by_semantic_judge() -> None:
     )
     assert result.status == "completed"
     assert result.judge_status == "repaired"
-    assert "现有证据已完整覆盖判断边界" not in result.public_answer
+    assert "现有证据已完整覆盖判断边界" in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
 
 
 @pytest.mark.parametrize(
@@ -1085,17 +1086,26 @@ def test_semantic_rejection_downgrades_subject_time_and_number_claims(
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
     )
-    assert result.status == "partial"
-    assert result.judge_status == "rejected"
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert draft in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
 
 
 def test_rejected_sentence_redaction_preserves_truth_state_and_rejudges() -> None:
     frame, structural = _structural(
-        "市场下跌。政策变化导致了下跌。",
+        "市场下跌。据E99显示下跌。",
         gaps=("外围催化仍待核验",),
     )
     original = structural.outcome
-    judge = _judge(False, rejected=(2,), issues=("因果证据不足",))
+    judge = _judge(
+        False,
+        rejected=(2,),
+        issues=(
+            "code=unresolved_evidence_ordinal subject=unresolved_evidence_ordinal "
+            ":: cited evidence ordinal is not in this episode's evidence table",
+        ),
+    )
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
         frame=frame,
         structurally_verified=structural,
@@ -1125,7 +1135,6 @@ def test_judge_issue_sentence_numbers_cannot_escape_targeted_redaction() -> None
     def judge(request):
         nonlocal calls
         calls += 1
-        texts = [str(item["text"]) for item in request["sentences"]]
         if calls == 1:
             return {
                 "passed": False,
@@ -1135,8 +1144,7 @@ def test_judge_issue_sentence_numbers_cannot_escape_targeted_redaction() -> None
                     "第3句包含未绑定的创新药涨幅。",
                 ],
             }
-        assert texts == ["市场广度已经改善。"]
-        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+        raise AssertionError("semantic-only reject must not start a deletion rejudge")
 
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
         frame=frame,
@@ -1144,10 +1152,13 @@ def test_judge_issue_sentence_numbers_cannot_escape_targeted_redaction() -> None
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert calls == 2
+    assert calls == 1
     assert result.status == "completed"
     assert result.judge_status == "repaired"
-    assert result.public_answer == "市场广度已经改善。"
+    assert "市场广度已经改善" in result.public_answer
+    assert "CPO状态缺少绑定证据" in result.public_answer
+    assert "创新药涨幅缺少绑定证据" in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
 
 
 def test_long_draft_redacts_rejected_sentences_without_model_rewrite() -> None:
@@ -1167,8 +1178,7 @@ def test_long_draft_redacts_rejected_sentences_without_model_rewrite() -> None:
                 "rejected_sentence_indexes": [len(texts)],
                 "issues": ["unsupported_external_cause_rejected"],
             }
-        assert rejected_sentence not in texts
-        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+        raise AssertionError("semantic-only reject must not start a deletion rejudge")
 
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
         frame=frame,
@@ -1176,10 +1186,12 @@ def test_long_draft_redacts_rejected_sentences_without_model_rewrite() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert calls == 2
+    assert calls == 1
     assert result.status == "completed"
     assert result.judge_status == "repaired"
-    assert rejected_sentence not in result.verified.outcome.draft
+    assert rejected_sentence in result.verified.outcome.draft
+    assert rejected_sentence in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
 
 
 def test_local_gate_redacts_novel_numeric_conditions_missed_by_model_judge() -> None:
@@ -1272,7 +1284,8 @@ def test_meta_disclosure_with_value_claim_is_not_exempted() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert "涨停" not in result.public_answer
+    assert "涨停" in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
     assert result.judge_status == "repaired"
 
 
@@ -1864,7 +1877,10 @@ def test_rejected_sentence_redaction_preserves_markdown_layout() -> None:
         "## 证据边界\n\n"
         "仍需观察。"
     )
-    expected = "## 当前判断\n\n\n- 市场下跌。\n\n## 证据边界\n\n仍需观察。"
+    expected = (
+        "## 当前判断\n\n\n- 市场下跌。\n- 政策变化导致了下跌。\n\n"
+        "## 证据边界\n\n仍需观察。"
+    )
     frame, structural = _structural(raw)
     result = SemanticEpisodeVerifier(
         judge_fn=_judge(False, rejected=(3,), issues=("因果证据不足",))
@@ -1877,11 +1893,13 @@ def test_rejected_sentence_redaction_preserves_markdown_layout() -> None:
     assert result.status == "completed"
     assert result.judge_status == "repaired"
     assert result.verified.outcome.draft == expected
+    assert "政策变化导致了下跌" in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
 
 
 def test_second_targeted_repair_handles_claim_missed_by_first_scan() -> None:
-    missed_claim = "外资将持续流入，因此反弹将延续。"
-    frame, structural = _structural(f"市场下跌。政策变化导致了下跌。{missed_claim}")
+    missed_claim = "据E98显示将反转。"
+    frame, structural = _structural(f"市场下跌。据E99显示下跌。{missed_claim}")
     calls = 0
 
     def strict_judge(request):
@@ -1891,16 +1909,24 @@ def test_second_targeted_repair_handles_claim_missed_by_first_scan() -> None:
             return {
                 "passed": False,
                 "rejected_sentence_indexes": [2],
-                "issues": ["外部因果无据"],
+                "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table",
+                ],
             }
         texts = [str(item["text"]) for item in request["sentences"]]
-        assert "政策变化导致了下跌。" not in texts
+        assert "据E99显示下跌。" not in texts
         if calls == 2:
             assert missed_claim in texts
             return {
                 "passed": False,
                 "rejected_sentence_indexes": [2],
-                "issues": ["复核发现仍含无据外部因果"],
+                "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table",
+                ],
             }
         assert texts == ["市场下跌。"]
         return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
@@ -1921,7 +1947,7 @@ def test_terminal_redaction_releases_remaining_verified_sentences_without_fourth
     None
 ):
     frame, structural = _structural(
-        "市场下跌。政策导致下跌。外资将持续流入。行业一定反转。"
+        "市场下跌。据E99显示下跌。据E98显示流入。据E97显示反转。"
     )
     calls = 0
 
@@ -1956,7 +1982,7 @@ def test_terminal_redaction_withholds_when_last_required_slot_would_vanish() -> 
     """
 
     frame, structural = _structural(
-        "【当前判断】市场下跌。政策导致下跌。外资将持续流入。行业一定反转。"
+        "【当前判断】据E90，市场下跌。据E99显示下跌。据E98显示流入。据E97显示反转。"
     )
     calls = 0
 
@@ -1981,8 +2007,8 @@ def test_terminal_redaction_withholds_when_last_required_slot_would_vanish() -> 
     assert result.judge_status == "repaired"
     assert result.repair_withheld is True
     assert "repair_wiped_all_outputs" in " ".join(result.issues)
-    assert "【当前判断】市场下跌" in result.public_answer
-    assert "行业一定反转" in result.public_answer
+    assert "【当前判断】据E90，市场下跌" in result.public_answer
+    assert "据E97显示反转" in result.public_answer
     assert result.gap_output_ids == ()
 
 
@@ -2179,15 +2205,13 @@ def test_outlook_repair_that_leaves_only_boundary_is_partial_with_gap() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "partial"
     assert result.judge_status == "repaired"
-    assert "基准判断" not in result.public_answer
-    # 代码侧已判达标、是质检重写删掉的 → 归因必须是结构缺口，
-    # 且不得让用户去补一份根本不缺的证据（见 _marker_loss_gap_sentence）。
-    assert "结构缺口" in result.public_answer
+    assert "基准判断" in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
+    assert REQUIRED_OUTPUT_DEGRADED_MARK in result.public_answer
+    assert "结构缺口" not in result.public_answer
+    assert "现有证据不足" not in result.public_answer
     assert "需补充直接证据" not in result.public_answer
-    assert "直接回答" in result.public_answer
-    assert result.gap_output_ids == ("direct_answer",)
 
 
 def test_marker_loss_keeps_gap_audit_when_public_remainder_is_sanitized() -> None:
@@ -2205,8 +2229,8 @@ def test_marker_loss_keeps_gap_audit_when_public_remainder_is_sanitized() -> Non
 
     assert result.status == "partial"
     assert result.judge_status == "repaired"
-    assert "现有证据不足" in result.public_answer
-    assert "直接判断" in result.public_answer
+    assert result.public_answer == ""
+    assert "现有证据不足" not in result.public_answer
     assert result.gap_output_ids == ("direct_assessment",)
 
 
@@ -2475,7 +2499,10 @@ def test_valuation_marker_loss_gap_keeps_task_context() -> None:
     )
 
     assert result.status == "partial"
-    assert "证据缺口：估值的" in result.public_answer
+    assert REQUIRED_OUTPUT_DEGRADED_MARK in result.public_answer
+    assert "瑞华泰当前PB约4.33" in result.public_answer
+    assert "证据缺口：" not in result.public_answer
+    assert "现有证据不足" not in result.public_answer
     assert result.gap_output_ids == ("evidence_boundary",)
 
 
@@ -3054,7 +3081,7 @@ def test_late_judge_pass_is_unavailable_and_cannot_complete() -> None:
 
 
 def test_late_rejudge_preserves_prior_judged_monotonic_redaction() -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    frame, structural = _structural("市场下跌。据E99显示下跌。")
     calls = 0
 
     def reject_then_late_pass(_request):
@@ -3064,7 +3091,11 @@ def test_late_rejudge_preserves_prior_judged_monotonic_redaction() -> None:
             return {
                 "passed": False,
                 "rejected_sentence_indexes": [2],
-                "issues": ["因果证据不足"],
+                "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table"
+                ],
             }
         time.sleep(0.03)
         return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
@@ -3084,7 +3115,7 @@ def test_late_rejudge_preserves_prior_judged_monotonic_redaction() -> None:
 def test_transient_optional_rejudge_preserves_prior_monotonic_redaction(
     monkeypatch,
 ) -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    frame, structural = _structural("市场下跌。据E99显示下跌。")
 
     class TransientRejudge:
         def __init__(self) -> None:
@@ -3098,7 +3129,11 @@ def test_transient_optional_rejudge_preserves_prior_monotonic_redaction(
                         {
                             "passed": False,
                             "rejected_sentence_indexes": [2],
-                            "issues": ["因果证据不足"],
+                            "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table"
+                ],
                         },
                         ensure_ascii=False,
                     ),
@@ -3135,7 +3170,7 @@ def test_mixed_optional_rejudge_failures_cannot_unlock_monotonic_release(
     monkeypatch,
     errors: tuple[str, str],
 ) -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    frame, structural = _structural("市场下跌。据E99显示下跌。")
 
     class MixedOptionalRejudge:
         def __init__(self) -> None:
@@ -3149,7 +3184,11 @@ def test_mixed_optional_rejudge_failures_cannot_unlock_monotonic_release(
                         {
                             "passed": False,
                             "rejected_sentence_indexes": [2],
-                            "issues": ["因果证据不足"],
+                            "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table"
+                ],
                         },
                         ensure_ascii=False,
                     ),
@@ -3177,7 +3216,7 @@ def test_mixed_optional_rejudge_failures_cannot_unlock_monotonic_release(
 def test_weak_optional_failure_then_retry_deadline_cannot_unlock_release(
     monkeypatch,
 ) -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    frame, structural = _structural("市场下跌。据E99显示下跌。")
 
     class RetryWindowClosesAfterWeakFailure:
         def __init__(self) -> None:
@@ -3203,7 +3242,11 @@ def test_weak_optional_failure_then_retry_deadline_cannot_unlock_release(
                         {
                             "passed": False,
                             "rejected_sentence_indexes": [2],
-                            "issues": ["因果证据不足"],
+                            "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table"
+                ],
                         },
                         ensure_ascii=False,
                     ),
@@ -3233,7 +3276,7 @@ def test_weak_optional_failure_then_retry_deadline_cannot_unlock_release(
 def test_release_grade_optional_failure_then_retry_deadline_allows_release(
     monkeypatch,
 ) -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    frame, structural = _structural("市场下跌。据E99显示下跌。")
 
     class RetryWindowClosesAfterTypedFailure:
         def __init__(self) -> None:
@@ -3259,7 +3302,11 @@ def test_release_grade_optional_failure_then_retry_deadline_allows_release(
                         {
                             "passed": False,
                             "rejected_sentence_indexes": [2],
-                            "issues": ["因果证据不足"],
+                            "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table"
+                ],
                         },
                         ensure_ascii=False,
                     ),
@@ -3420,7 +3467,7 @@ def test_optional_rejudge_unapproved_error_cannot_masquerade_as_release_grade(
     error: str,
     expected_calls: int,
 ) -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    frame, structural = _structural("市场下跌。据E99显示下跌。")
 
     class InvalidRejudge:
         def __init__(self) -> None:
@@ -3434,7 +3481,11 @@ def test_optional_rejudge_unapproved_error_cannot_masquerade_as_release_grade(
                         {
                             "passed": False,
                             "rejected_sentence_indexes": [2],
-                            "issues": ["因果证据不足"],
+                            "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table"
+                ],
                         },
                         ensure_ascii=False,
                     ),
@@ -3460,7 +3511,7 @@ def test_optional_rejudge_unapproved_error_cannot_masquerade_as_release_grade(
 
 
 def test_malformed_rejudge_cannot_release_prior_redaction() -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    frame, structural = _structural("市场下跌。据E99显示下跌。")
     calls = 0
 
     def reject_then_malformed(_request):
@@ -3470,7 +3521,11 @@ def test_malformed_rejudge_cannot_release_prior_redaction() -> None:
             return {
                 "passed": False,
                 "rejected_sentence_indexes": [2],
-                "issues": ["因果证据不足"],
+                "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table"
+                ],
             }
         return None
 
@@ -3487,7 +3542,7 @@ def test_malformed_rejudge_cannot_release_prior_redaction() -> None:
 
 
 def test_late_malformed_rejudge_cannot_masquerade_as_deadline_recovery() -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    frame, structural = _structural("市场下跌。据E99显示下跌。")
     calls = 0
 
     def reject_then_late_malformed(_request):
@@ -3497,7 +3552,11 @@ def test_late_malformed_rejudge_cannot_masquerade_as_deadline_recovery() -> None
             return {
                 "passed": False,
                 "rejected_sentence_indexes": [2],
-                "issues": ["因果证据不足"],
+                "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table"
+                ],
             }
         time.sleep(0.03)
         return None
@@ -3517,7 +3576,7 @@ def test_late_malformed_rejudge_cannot_masquerade_as_deadline_recovery() -> None
 
 def test_late_rejudge_rejection_is_redacted_before_release() -> None:
     frame, structural = _structural(
-        "市场下跌。资金变化导致了下跌。政策变化导致了下跌。"
+        "市场下跌。据E98显示资金变化。据E99显示政策变化。"
     )
     calls = 0
 
@@ -3528,13 +3587,21 @@ def test_late_rejudge_rejection_is_redacted_before_release() -> None:
             return {
                 "passed": False,
                 "rejected_sentence_indexes": [3],
-                "issues": ["政策因果证据不足"],
+                "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    "cited evidence ordinal is not in this episode's evidence table"
+                ],
             }
         time.sleep(0.03)
         return {
             "passed": False,
             "rejected_sentence_indexes": [2],
-            "issues": ["资金因果证据不足"],
+            "issues": [
+                "code=unresolved_evidence_ordinal "
+                "subject=unresolved_evidence_ordinal :: "
+                "cited evidence ordinal is not in this episode's evidence table"
+            ],
         }
 
     result = SemanticEpisodeVerifier(judge_fn=reject_then_late_reject).verify(
@@ -3547,12 +3614,12 @@ def test_late_rejudge_rejection_is_redacted_before_release() -> None:
     assert result.status == "completed"
     assert result.judge_status == "repaired"
     assert result.public_answer == "市场下跌。"
-    assert "资金变化导致了下跌。" not in result.public_answer
+    assert "据E98显示资金变化。" not in result.public_answer
 
 
 def test_late_final_rejudge_preserves_twice_judged_monotonic_redaction() -> None:
     frame, structural = _structural(
-        "市场下跌。政策变化导致了下跌。资金变化导致了下跌。"
+        "市场下跌。据E99显示下跌。据E98显示资金变化。"
     )
     calls = 0
 
@@ -3563,7 +3630,11 @@ def test_late_final_rejudge_preserves_twice_judged_monotonic_redaction() -> None
             return {
                 "passed": False,
                 "rejected_sentence_indexes": [2],
-                "issues": [f"第{calls}个因果句证据不足"],
+                "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    f"cited evidence ordinal is not in this episode's evidence table #{calls}"
+                ],
             }
         time.sleep(0.03)
         return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
@@ -3587,7 +3658,7 @@ def test_transient_final_rejudge_preserves_twice_judged_monotonic_redaction(
     monkeypatch,
 ) -> None:
     frame, structural = _structural(
-        "市场下跌。政策变化导致了下跌。资金变化导致了下跌。"
+        "市场下跌。据E99显示下跌。据E98显示资金变化。"
     )
 
     class TransientFinalRejudge:
@@ -3602,7 +3673,12 @@ def test_transient_final_rejudge_preserves_twice_judged_monotonic_redaction(
                         {
                             "passed": False,
                             "rejected_sentence_indexes": [2],
-                            "issues": [f"第{self.calls}个因果句证据不足"],
+                            "issues": [
+                                "code=unresolved_evidence_ordinal "
+                                "subject=unresolved_evidence_ordinal :: "
+                                "cited evidence ordinal is not in this episode's "
+                                f"evidence table #{self.calls}"
+                            ],
                         },
                         ensure_ascii=False,
                     ),
@@ -3630,7 +3706,7 @@ def test_transient_final_rejudge_preserves_twice_judged_monotonic_redaction(
 
 def test_late_malformed_final_rejudge_remains_fail_closed() -> None:
     frame, structural = _structural(
-        "市场下跌。政策变化导致了下跌。资金变化导致了下跌。"
+        "市场下跌。据E99显示下跌。据E98显示资金变化。"
     )
     calls = 0
 
@@ -3641,7 +3717,11 @@ def test_late_malformed_final_rejudge_remains_fail_closed() -> None:
             return {
                 "passed": False,
                 "rejected_sentence_indexes": [2],
-                "issues": [f"第{calls}个因果句证据不足"],
+                "issues": [
+                    "code=unresolved_evidence_ordinal "
+                    "subject=unresolved_evidence_ordinal :: "
+                    f"cited evidence ordinal is not in this episode's evidence table #{calls}"
+                ],
             }
         time.sleep(0.03)
         return None
@@ -3750,9 +3830,11 @@ def test_redaction_that_empties_draft_fails_closed() -> None:
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
     )
-    assert result.status == "partial"
-    assert result.judge_status == "rejected"
-    assert "semantic repair unavailable" in result.issues
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert "政策变化导致了下跌" in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK in result.public_answer
+    assert "semantic repair unavailable" not in result.issues
 
 
 def test_public_projection_filters_casefolded_private_tokens_everywhere() -> None:
@@ -3951,7 +4033,7 @@ def test_public_gap_never_includes_internal_semantic_repair_issues() -> None:
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
     )
-    assert result.status == "partial"
+    assert "政策变化导致了下跌" in result.public_answer
     assert "semantic" not in result.public_answer.casefold()
     assert "judge" not in result.public_answer.casefold()
     assert "repair unavailable" not in result.public_answer.casefold()
@@ -3973,10 +4055,13 @@ def test_public_gap_never_projects_adversarial_outcome_gap(judge_mode: str) -> N
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
     )
-    assert result.status == "partial"
     assert poisoned not in result.public_answer
     assert "PRIVATE_GAP_SENTINEL" not in result.public_answer
-    assert "直接判断" in result.public_answer
+    if judge_mode == "unavailable":
+        assert result.status == "partial"
+        assert "直接判断" in result.public_answer
+    else:
+        assert "市场下跌" in result.public_answer
 
 
 def test_public_gap_never_projects_adversarial_binding_gap() -> None:

@@ -268,10 +268,10 @@ def test_repair_withholds_collapsed_stub() -> None:
 
     remnant = "【当前判断】盘中涨2.66%，宏桥南山神火。"
     draft = (
-        _padded("事实一")
-        + _padded("事实二")
-        + _padded("归因三")
-        + _padded("前瞻四")
+        _padded("事实一据E99，")
+        + _padded("事实二据E98，")
+        + _padded("归因三据E97，")
+        + _padded("前瞻四据E96，")
         + remnant
     )
     assert repair_collapsed_to_stub(draft, remnant, "market_cause")
@@ -321,7 +321,12 @@ def test_rollback_falls_back_to_whole_draft_when_still_stub() -> None:
     """§7.13：减完仍残稿 → whole_pre_repair，并说明含 N 条未过判官的表述。"""
 
     remnant = "【当前判断】盘中涨2.66%。"
-    draft = _padded("越界一") + _padded("发明二") + _padded("前瞻三") + remnant
+    draft = (
+        _padded("越界一据E99，")
+        + _padded("发明二据E98，")
+        + _padded("前瞻三据E97，")
+        + remnant
+    )
     minus = _drop_rejected_sentences(draft, (1, 2, 3))
     text, mode = choose_repair_rollback(draft, minus)
     assert mode == "whole_pre_repair"

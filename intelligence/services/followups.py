@@ -678,11 +678,11 @@ def generate_followups(
     n: int = 4,
     llm_model: str | None = None,
     llm_timeout: int = 60,
-    use_llm: bool = True,
+    use_llm: bool = False,
     open_gaps: tuple[str, ...] = (),
     parent_followup_prompt: str | None = None,
 ) -> FollowupResult:
-    """选题走 compose；LLM 只润色。条数合同 2–4。"""
+    """选题走 compose；默认不润色。显式 ``use_llm=True`` 时 LLM 只改措辞。条数合同 2–4。"""
     _ = answer_excerpt
     state = project_ask_state(
         question,

@@ -1,3 +1,4 @@
+import inspect
 import json
 import re
 import unittest
@@ -54,9 +55,21 @@ class TemplateFallbackTests(unittest.TestCase):
             self.assertNotIn("英维克现在贵不贵", item.full_prompt)
         self.assertTrue(any("该问题" in item.full_prompt for item in result.followups))
 
+    def test_default_call_does_not_use_llm(self) -> None:
+        self.assertIs(
+            inspect.signature(followups.generate_followups).parameters["use_llm"].default,
+            False,
+        )
+        with mock.patch.object(followups.llm_refine, "complete") as complete:
+            result = followups.generate_followups("液冷", matched_theme="液冷")
+        complete.assert_not_called()
+        self.assertFalse(result.llm_used)
+        self.assertGreaterEqual(len(result.followups), 2)
+        self.assertLessEqual(len(result.followups), 4)
+
     def test_llm_failure_degrades_to_template_with_warning(self) -> None:
         with mock.patch.object(followups.llm_refine, "complete", return_value=(None, None, "无可用 provider")):
-            result = followups.generate_followups("液冷", matched_theme="液冷")
+            result = followups.generate_followups("液冷", matched_theme="液冷", use_llm=True)
         self.assertFalse(result.llm_used)
         self.assertGreaterEqual(len(result.followups), 2)
         self.assertLessEqual(len(result.followups), 4)
@@ -73,7 +86,7 @@ class LLMPathTests(unittest.TestCase):
         provider = mock.Mock()
         provider.name = "fake"
         with mock.patch.object(followups.llm_refine, "complete", return_value=(payload, provider, "")):
-            result = followups.generate_followups("液冷", matched_theme="液冷")
+            result = followups.generate_followups("液冷", matched_theme="液冷", use_llm=True)
         self.assertTrue(result.llm_used)
         self.assertEqual(result.llm_provider, "fake")
         self.assertEqual(len(result.followups), 3)
@@ -94,8 +107,36 @@ class LLMPathTests(unittest.TestCase):
         provider = mock.Mock()
         provider.name = "fake"
         with mock.patch.object(followups.llm_refine, "complete", return_value=(payload, provider, "")):
-            result = followups.generate_followups("液冷", matched_theme="液冷")
+            result = followups.generate_followups("液冷", matched_theme="液冷", use_llm=True)
         self.assertFalse(result.llm_used)
+        self.assertEqual([item.type for item in result.followups], ["evidence", "alternative", "counter"])
+        self.assertTrue(any("followup_polish_dropped" in warn for warn in result.warnings))
+
+    def test_polish_angle_change_is_dropped(self) -> None:
+        payload = json.dumps({"followups": [
+            {"label": "核对液冷订单", "full_prompt": "请核对英维克最新液冷订单金额和公告来源？", "type": "evidence", "angle": "C"},
+            {"label": "同链下一跳", "full_prompt": "请核液冷同链下一跳的订单或认证？", "type": "alternative", "angle": "B"},
+            {"label": "证伪条件", "full_prompt": "出现哪些反证应下调对液冷的判断？", "type": "counter", "angle": "D"},
+        ]})
+        provider = mock.Mock()
+        provider.name = "fake"
+        with mock.patch.object(followups.llm_refine, "complete", return_value=(payload, provider, "")):
+            result = followups.generate_followups("液冷", matched_theme="液冷", use_llm=True)
+        self.assertFalse(result.llm_used)
+        self.assertEqual([item.angle for item in result.followups], ["A", "B", "D"])
+        self.assertTrue(any("followup_polish_dropped" in warn for warn in result.warnings))
+
+    def test_polish_count_change_is_dropped(self) -> None:
+        payload = json.dumps({"followups": [
+            {"label": "核对液冷订单", "full_prompt": "请核对英维克最新液冷订单金额和公告来源？", "type": "evidence", "angle": "A"},
+            {"label": "多出来的", "full_prompt": "请再问一条？", "type": "evidence", "angle": "A"},
+        ]})
+        provider = mock.Mock()
+        provider.name = "fake"
+        with mock.patch.object(followups.llm_refine, "complete", return_value=(payload, provider, "")):
+            result = followups.generate_followups("液冷", matched_theme="液冷", use_llm=True)
+        self.assertFalse(result.llm_used)
+        self.assertEqual(len(result.followups), 3)
         self.assertEqual([item.type for item in result.followups], ["evidence", "alternative", "counter"])
         self.assertTrue(any("followup_polish_dropped" in warn for warn in result.warnings))
 

@@ -32,6 +32,7 @@ from intelligence.services import (
     market_news,
     web_research,
 )
+from intelligence.services.kb_selection_noise import filter_structural_noise
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import InformationCutoff, ResearchDeadline
 from intelligence.services.research_state import EvidenceObservation, ResearchState
@@ -49,6 +50,15 @@ DEFAULT_LLM_TIMEOUT = 15
 NO_INFORMATION_GAIN_GAP = "连续两次检索未获得新增信息，无法继续补全证据。"
 DEFAULT_TOTAL_SECONDS = 60.0
 _MAX_OBSERVATION_CHARS = 900
+# kb_search 送达窗（V3 / R-20260821-15）。
+# 旧硬编码 hits[:5] + excerpt[:160] = 800 字符上限。默认与 retrieve() 对齐：
+# max_hits=6（episode_tools / kb_rag.DEFAULT_RAG_K），正文走 llm_evidence
+# （retrieve 已 apply_total_llm_budget，总预算 4800–8000）。
+# detail_chars=0 表示送达层不再二次截断。
+# retrieval-tier plan 的分档只覆盖检索 mode（remaining <15s → BM25），
+# 本模块不另建字符降档——见 kb_search_delivery_limits。
+KB_SEARCH_MAX_HITS = 6
+KB_SEARCH_DETAIL_CHARS = 0
 # 工具描述注册表：system prompt 按「实际注册的工具」动态生成——宣传清单与
 # 注册表不再可能漂移（此前静态 prompt 宣传未注册工具会触发"非法工具"中断）。
 _TOOL_DESCRIPTIONS = {
@@ -156,6 +166,11 @@ class AgentEvidence:
     # 不进 ``evidence_content_hash``（该哈希只吃 tool/title/detail/source），
     # 因此补上本字段不会改变任何既有证据身份。
     observations: tuple[StructuredObservation, ...] = ()
+    # V9a 只读遥测。None = 未跑重摘录（历史 run 缺字段，报不可判不报 0）。
+    reexcerpted: bool | None = None
+    pointer_dropped: int | None = None
+    # V9b 只读遥测。None = 未跑槽位重排（历史 run 缺字段，报不可判不报 0）。
+    structural_neighbor_demoted: int | None = None
 
     def to_observation(self, evidence_id: str) -> EvidenceObservation:
         return EvidenceObservation(
@@ -344,6 +359,101 @@ def describe_no_result(
     return f"{miss_text}（{status}{tail}）"
 
 
+def kb_delivery_telemetry(
+    evidence: Sequence[AgentEvidence],
+    observation: str,
+) -> dict[str, object]:
+    """kb_search 送达遥测：按**实际送给模型的**字符/条数/来源页计，不写死 800。
+
+    送达是**两条通道**，必须分开计数（2026-08-22 钙钛矿 live 探针实测）：
+
+    - ``delivered_chars`` = observation 串（agent loop 的工具消息，每条截
+      ``detail[:80]`` 作索引摘要）；
+    - ``detail_chars`` = ``evidence[].detail`` 总和（V3 粗管道拓宽的通道，
+      经证据注册表进 composer/verifier——答案里的正文级事实走这条）。
+
+    只看 delivered_chars 会把粗管道误判成没生效（580 字 vs 正文级 detail）。
+    传感器和落盘共用这一处，避免两套量纲。
+    """
+
+    pages: list[str] = []
+    for item in evidence:
+        page = str(getattr(item, "internal_locator", "") or "").strip()
+        if not page:
+            page = str(getattr(item, "title", "") or "").strip()
+        if page:
+            pages.append(page)
+    payload: dict[str, object] = {
+        "delivered_chars": len(observation or ""),
+        "detail_chars": sum(
+            len(str(getattr(item, "detail", "") or "")) for item in evidence
+        ),
+        "hit_count": len(tuple(evidence)),
+        "source_pages": pages,
+    }
+    dropped = next(
+        (
+            getattr(item, "pointer_dropped", None)
+            for item in evidence
+            if getattr(item, "pointer_dropped", None) is not None
+        ),
+        None,
+    )
+    if dropped is not None:
+        payload["pointer_dropped"] = int(dropped)
+    flags = [getattr(item, "reexcerpted", None) for item in evidence]
+    if any(flag is not None for flag in flags):
+        payload["reexcerpted"] = [bool(flag) for flag in flags]
+    demoted = next(
+        (
+            getattr(item, "structural_neighbor_demoted", None)
+            for item in evidence
+            if getattr(item, "structural_neighbor_demoted", None) is not None
+        ),
+        None,
+    )
+    if demoted is not None:
+        payload["structural_neighbor_demoted"] = int(demoted)
+    return payload
+
+
+def kb_search_delivery_limits(
+    *,
+    remaining_seconds: float | None = None,
+) -> tuple[int, int]:
+    """Return ``(max_hits, detail_chars)`` for kb_search 送达.
+
+    ``remaining_seconds`` is accepted so callers can thread the episode
+    remainder through this seam. The retrieval-tier plan's only ladder is
+    remaining < 15s → BM25 (``kb_rag.select_mode_for_remaining``). This
+    function must not invent a parallel char-budget ladder: delivery always
+    uses ``KB_SEARCH_MAX_HITS`` / ``KB_SEARCH_DETAIL_CHARS``.
+    """
+
+    del remaining_seconds
+    return KB_SEARCH_MAX_HITS, KB_SEARCH_DETAIL_CHARS
+
+
+def kb_search_hit_text(hit: object, *, detail_chars: int | None = None) -> str:
+    """kb_search 送达正文：接 llm_evidence 粗管道，再剥结构噪声（V5）。
+
+    过滤在截断之前：窗口若被截，截到的应是正文头而不是标签汤。
+    ``detail_chars=0`` 仍表示送达层不二次截断，过滤本身不加长度上限。
+    """
+
+    text = str(
+        getattr(hit, "llm_evidence", "")
+        or getattr(hit, "display_excerpt", "")
+        or getattr(hit, "excerpt", "")
+        or ""
+    )
+    text = filter_structural_noise(text)
+    limit = KB_SEARCH_DETAIL_CHARS if detail_chars is None else detail_chars
+    if limit > 0:
+        return text[:limit]
+    return text
+
+
 def build_default_tools(
     kb_retrieve: Callable[[str, float], object],
 ) -> dict[str, ToolRunner]:
@@ -355,21 +465,32 @@ def build_default_tools(
     ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
         rag = kb_retrieve(query, context.timeout(DEFAULT_TOTAL_SECONDS))
         context.check_cancelled()
-        hits = list(getattr(rag, "hits", ()) or ())[:5]
+        max_hits, detail_chars = kb_search_delivery_limits(
+            remaining_seconds=context.deadline.remaining(),
+        )
+        hits = list(getattr(rag, "hits", ()) or ())[:max_hits]
         evidence = []
+        rag_telemetry = getattr(rag, "telemetry", None)
+        pointer_dropped = getattr(rag_telemetry, "pointer_dropped", None)
+        structural_neighbor_demoted = getattr(
+            rag_telemetry, "structural_neighbor_demoted", None
+        )
         for hit in hits:
             hit_date = closed_loop_retrieval.wiki_hit_source_date(hit)
             evidence.append(
                 AgentEvidence(
                     tool="kb_search",
                     title=hit.title,
-                    detail=(hit.excerpt or "")[:160],
+                    detail=kb_search_hit_text(hit, detail_chars=detail_chars),
                     source="本地知识库",
                     internal_locator=hit.file_path,
                     source_date=hit_date.isoformat() if hit_date is not None else None,
+                    reexcerpted=getattr(hit, "reexcerpted", None),
+                    pointer_dropped=pointer_dropped,
+                    structural_neighbor_demoted=structural_neighbor_demoted,
                 )
             )
-        telemetry = getattr(rag, "telemetry", None)
+        telemetry = rag_telemetry
         status = str(getattr(telemetry, "status", "unknown") or "unknown")
         # 检索**失败**不等于知识库**没有** —— 这两件事必须让模型区分得开。
         #
@@ -415,6 +536,8 @@ def build_default_tools(
         degraded_note = _describe_retrieval_degradation(telemetry)
         if degraded_note:
             observation = "；".join(part for part in (observation, degraded_note) if part)
+        # 送达遥测：kb_delivery_telemetry(evidence, observation)。registry 在
+        # cutoff 改写后用同一函数落盘 tool_result.telemetry，按实际字符计、不写死 800。
         trace = ProviderTrace(
             provider="agent:kb_search",
             capability="agent_loop",

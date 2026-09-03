@@ -245,6 +245,70 @@ _has_overnight_external_premise = next(
     if rule.rule_name == "overnight_external_premise"
 )
 
+# V1b：题形 → optional KB 通道。全部 mandatory=False；预算仍走
+# kb_rag.select_mode_for_remaining（<15s→BM25），本模块不另建降档。
+_KB_GUIDED_QUESTION_TYPES = frozenset(
+    {
+        "theme_analysis",
+        "theme_track",
+        "stock_deep_dive",
+        "market_cause",
+        "valuation_estimate",
+    }
+)
+_KB_OVERLAY_QUESTION_TYPES = frozenset({"dated_market_review", "market_review"})
+# 词表与 query_understanding._CAUSE_LAYER_TOKEN_RE / _CAUSE_VERB_RE 对齐。
+# 不收题材别名、不收单独「板块」——「今天板块表现如何」不得开火。
+_SECTOR_THEME_LAYER_RE = re.compile(r"板块|题材|行业")
+_ATTRIBUTION_INTENT_RE = re.compile(r"为什么|原因|驱动|归因")
+
+
+def has_sector_theme_attribution_intent(query: str) -> bool:
+    """复盘题形段级 overlay：层名词 ∧ 归因动词。
+
+    ``dated_market_review`` 与别名 ``market_review`` 共用本函数，不得各写一份。
+    可修订：扩动词（如「催化」）或改用题材别名，见 V1b 验证文档。
+    """
+
+    normalized = re.sub(r"\s+", "", str(query or "")).casefold()
+    if not normalized:
+        return False
+    return bool(
+        _SECTOR_THEME_LAYER_RE.search(normalized)
+        and _ATTRIBUTION_INTENT_RE.search(normalized)
+    )
+
+
+def should_guide_kb_channel(query: str, question_type: str) -> bool:
+    if question_type in _KB_GUIDED_QUESTION_TYPES:
+        return True
+    if question_type in _KB_OVERLAY_QUESTION_TYPES:
+        return has_sector_theme_attribution_intent(query)
+    return False
+
+
+def _optional_kb_requirement() -> EvidenceRequirement:
+    return EvidenceRequirement(
+        "KB",
+        "kb_search",
+        False,
+        "current",
+        "知识库通道引导（图谱/研报/L1-L3；预算走 remaining-budget 既有分档）",
+    )
+
+
+def _with_kb_channel_guidance(
+    query: str,
+    question_type: str,
+    requirements: tuple[EvidenceRequirement, ...],
+) -> tuple[EvidenceRequirement, ...]:
+    if not should_guide_kb_channel(query, question_type):
+        return requirements
+    present = {item.capability for item in requirements}
+    if "kb_search" in present or "evidence_search" in present:
+        return requirements
+    return (*requirements, _optional_kb_requirement())
+
 
 def is_current_market_query(query: str) -> bool:
     """识别需要同日市场事实的问题，不改变粗粒度 question_type。
@@ -319,6 +383,23 @@ def _apply_lane_composition(
     return (*requirements, *extras)
 
 
+# 公司主体题形：问题的主体是单一公司，同日大盘总览/主线结构只是背景放大器，
+# 不是答案本体。这些题形若因「涨跌幅/成交额/股价」等盘面度量词命中
+# is_current_market_query，套上市场级 mainline_current 计划就会把 market_data
+# （市场总览，非个股行情）与 mainline_context 设为 mandatory——个股走势本身走
+# finance_query，这两条组合事实约束在公司题形下要么结构性缺失（每答必记
+# missing_mandatory_capability，修复轮白白追逐），要么答非所问（修复轮被契约
+# 压着调 market_data，市场级数字混进个股稿）。R-20260821-05 生产 n=3 复现。
+# 处置：降级为 optional——能力经 runtime_capabilities_for_frame 的 planned 并集
+# 保持可用（背景可取），只去掉义务与修复追逐。valuation_estimate 在
+# episode_factory._episode_evidence_plan 已有同意图先例（剥掉 resolve 计划里的
+# market_data 再换公司级锚点）。已知边界：quick_fact 不在此列——「茅台多少钱」
+# 与「涨停家数多少」同题形不同主体，题形本身分不出主体，需另行立项。
+_COMPANY_SUBJECT_QUESTION_TYPES = frozenset(
+    {"stock_deep_dive", "valuation_estimate", "financial_analysis"}
+)
+
+
 def resolve_evidence_plan(
     query: str,
     *,
@@ -344,13 +425,21 @@ def resolve_evidence_plan(
         )
         return EvidencePlan(
             plan.profile,
-            _apply_lane_composition(query, plan.requirements),
+            _with_kb_channel_guidance(
+                query,
+                question_type,
+                _apply_lane_composition(query, plan.requirements),
+            ),
             plan.freshness,
         )
     # 纯方法论/纯概念解释里的“市场、主线、当前”等词是讨论对象，不是要求
     # 当前盘面事实；能力层排除避免金融数据泄漏进知识题。
     if question_type in {"methodology_discussion", "answer_review", "concept_definition"}:
-        return EvidencePlan("general", (), freshness)
+        return EvidencePlan(
+            "general",
+            _with_kb_channel_guidance(query, question_type, ()),
+            freshness,
+        )
     if question_type == "market_forecast":
         requirements = (
             EvidenceRequirement("MARKET_DAILY", "market_data", True, "current", "最新市场总览"),
@@ -358,24 +447,57 @@ def resolve_evidence_plan(
         )
         return EvidencePlan(
             "market_forecast",
-            _apply_lane_composition(query, requirements),
-            "current",
-        )
-    if freshness == "current" and is_current_market_query(query):
-        plan = EvidencePlan(
-            "mainline_current",
-            (
-                EvidenceRequirement("MARKET_DAILY", "market_data", True, "current", "同日市场总览"),
-                EvidenceRequirement("D4", "mainline_context", True, "current", "同日主线结构"),
-                EvidenceRequirement("D0", "market_timeseries", False, "current", "盘面时序补充"),
-                EvidenceRequirement("D6", "market_midterm", False, "current", "中期持续性补充"),
-                EvidenceRequirement("W7", "news_search", False, "current", "消息面补充"),
+            _with_kb_channel_guidance(
+                query,
+                question_type,
+                _apply_lane_composition(query, requirements),
             ),
             "current",
         )
+    if freshness == "current" and is_current_market_query(query):
+        if question_type in _COMPANY_SUBJECT_QUESTION_TYPES:
+            plan = EvidencePlan(
+                "company_current_backdrop",
+                (
+                    EvidenceRequirement(
+                        "MARKET_DAILY",
+                        "market_data",
+                        False,
+                        "current",
+                        "同日市场总览（公司主体题仅作背景放大器，非必填）",
+                    ),
+                    EvidenceRequirement(
+                        "D4",
+                        "mainline_context",
+                        False,
+                        "current",
+                        "同日主线结构（公司主体题仅作背景放大器，非必填）",
+                    ),
+                    EvidenceRequirement("D0", "market_timeseries", False, "current", "盘面时序补充"),
+                    EvidenceRequirement("D6", "market_midterm", False, "current", "中期持续性补充"),
+                    EvidenceRequirement("W7", "news_search", False, "current", "消息面补充"),
+                ),
+                "current",
+            )
+        else:
+            plan = EvidencePlan(
+                "mainline_current",
+                (
+                    EvidenceRequirement("MARKET_DAILY", "market_data", True, "current", "同日市场总览"),
+                    EvidenceRequirement("D4", "mainline_context", True, "current", "同日主线结构"),
+                    EvidenceRequirement("D0", "market_timeseries", False, "current", "盘面时序补充"),
+                    EvidenceRequirement("D6", "market_midterm", False, "current", "中期持续性补充"),
+                    EvidenceRequirement("W7", "news_search", False, "current", "消息面补充"),
+                ),
+                "current",
+            )
         return EvidencePlan(
             plan.profile,
-            _apply_lane_composition(query, plan.requirements),
+            _with_kb_channel_guidance(
+                query,
+                question_type,
+                _apply_lane_composition(query, plan.requirements),
+            ),
             plan.freshness,
         )
     # 知识题（methodology / answer_review / 纯 concept_definition）已在上面
@@ -384,7 +506,11 @@ def resolve_evidence_plan(
     # overlay 只追加 capabilities，不发明 required_outputs，也不改 question_type。
     return EvidencePlan(
         "general",
-        _apply_lane_composition(query, ()),
+        _with_kb_channel_guidance(
+            query,
+            question_type,
+            _apply_lane_composition(query, ()),
+        ),
         freshness,
     )
 
