@@ -16,7 +16,11 @@
 
 ## 当前状态
 
-8792=`f4c03b9ae610`（0903e：web_search 修复、判官拒句账、墙钟用例容差、门禁/PR 脚本）。回滚锚 `~/.finance-runtime/cutover-20260903e-rollback-8792.txt`（回滚目标 `c88c81da5120`），启动器未动（备份仍 `.bak-20260903-admission`）。`gitea/main` == 8792。足迹分支 `wip/mainline-move-footprints-20260903` 待认领。
+8792=`f4c03b9ae610`（0903e：web_search 修复、判官拒句账、墙钟用例容差、门禁/PR 脚本）。回滚锚 `~/.finance-runtime/cutover-20260903e-rollback-8792.txt`（回滚目标 `c88c81da5120`），启动器未动（备份仍 `.bak-20260903-admission`）。足迹分支 `wip/mainline-move-footprints-20260903` 待认领。
+
+⚠ **`gitea/main` 已不等于 8792**（此处原写「== 8792」，17:01 起失真）。`f4c03b9a..aa3d87e4` 多了三个 merge，其中两个**是运行时改动**：#562 画像整表回写按长度棘轮（`perspective_learning.py`）、#555 复盘台账落 JSON 真本源（`daily_review.py` + `DailyReportView.tsx`），另 #558 为 chore。合起来 `intelligence/`+`webapp/` 74 文件 / +5417 行。**0903f 切流窗口开着、无人认领** —— 那两张不是能力放大线合的。
+
+另有 0903f 三张 PR open 未合：#566 RAG 超时处置 / #567 工具窗地板 / #568 deep 升档（见 `inflight/spec-capability-amplification-output-gate.md`）。
 
 ## 已验证
 
@@ -25,8 +29,9 @@
 ## 未验证 / 已知边界
 
 - Cloudflare Access 未建，隧道未开前 8792 不对外。SSE 每连接占一线程（≤10 人可接受）。
-- `kb_search` 66% 超时是切前生产形状；探针首发作废只采复跑。
-- `would_grant<1s` 时无地板工具照旧可见：09-03 三次 live 3/3「web_search 授 0 秒白烧一轮」；`kb_search` 刚预热首查超时 3/3。两项待用户拍（能力放大线 inflight）。
+- `kb_search` 66% 超时**根因已查清并有修**（#566：except 子句顺序让两个超时处置器成了死代码，超时被判 worker 不可用→回退 CLI 重载 4.3G 模型）。收据 `docs/verification/2026-09-03-kb-search-timeout-root-cause.md`。**「预热后首查仍慢」那条推断已撤回**：修后同机实测 11.93s/13.58s。
+- KB 索引 stale（建于 08-31，知识库仓已前移）：#566 修完 `kb_search` 不再超时，但 24 条命中被 `require_fresh` 全丢、`hits=0`。**拿不到证据这件事没被修**，需重建索引，另立单。
+- `would_grant<1s` 时无地板工具照旧可见：09-03 三次 live 3/3「web_search 授 0 秒白烧一轮」→ #567 已给 web/news/fetch 补 5s 地板（用户已拍）。
 - 消融壳走 legacy `cli ask` 不经 episode 链，弃权效果须会话链重跑。
 
 ## 下一步（待用户）
