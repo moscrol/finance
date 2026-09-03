@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import re
 import threading
@@ -27,7 +28,7 @@ from intelligence import userspace
 from intelligence.paths import data_repo_root, default_market_db_path, default_paths
 from intelligence.api.artifacts import ArtifactRegistry
 from intelligence.api.auth import AuthGate, IdentityRewriteMiddleware
-from intelligence.api.credits import CreditStore
+from intelligence.api.credits import CreditStore, read_run_usage
 from intelligence.api.quota import ENV_EXEMPT_USERS, RunQuota
 from intelligence.api.daily_reports import (
     project_daily_agent,
@@ -1096,6 +1097,9 @@ class RunSupervisor:
         self._signals: dict[tuple[str, str], CancellationSignal] = {}
         self._terminal_handlers: dict[tuple[str, str], Callable[[str], None]] = {}
         self._lock = threading.Lock()
+        # run 结束（worker 返回，或排队中被取消）后的结算钩子：(store, run_id, ran)。
+        # ran=False = 从未开跑，预占应整体释放；ran=True = 按落盘的用量结算。
+        self.on_settle: Callable[[RunStore, str, bool], None] | None = None
 
     @classmethod
     def from_env(
@@ -1313,18 +1317,28 @@ class RunSupervisor:
             terminal_handler = self._terminal_handlers.pop(key, None)
         if timer is not None:
             timer.cancel()
-        if future.cancelled() or store is None:
-            return
-        if future.exception() is None:
+        if store is None:
             return
         run_id = key[1]
-        _, claimed = store.claim_failed_run(
-            run_id,
-            error="executor_failure",
-            degrade="executor_failure",
-        )
-        if claimed and terminal_handler is not None:
-            terminal_handler("executor_failure")
+        try:
+            if not future.cancelled() and future.exception() is not None:
+                _, claimed = store.claim_failed_run(
+                    run_id,
+                    error="executor_failure",
+                    degrade="executor_failure",
+                )
+                if claimed and terminal_handler is not None:
+                    terminal_handler("executor_failure")
+        finally:
+            # 结算放在终态落盘之后：用量文件此刻已写完，run.status 也已是终态。
+            settle = self.on_settle
+            if settle is not None:
+                try:
+                    settle(store, run_id, not future.cancelled())
+                except Exception as exc:  # noqa: BLE001 - 记账失败不得打崩 worker 回调
+                    logging.getLogger("intelligence.api.app").warning(
+                        "credit settlement failed for %s: %s", run_id, exc
+                    )
 
     def _expire(
         self,
@@ -2188,6 +2202,8 @@ def create_app(
     runtime_provenance["credits"] = {
         "enabled": credits.enabled,
         "signup_gift": credits.signup_gift,
+        "pricing_source": credits.pricing.source,
+        "hold_points": credits.pricing.hold_points,
     }
     runtime_selection = resolve_runtime_backend()
     runtime_provenance["agent_runtime"] = runtime_backend_readiness(
@@ -2228,6 +2244,43 @@ def create_app(
             kb_rag.rag_worker.close_all()
             llm_settings.clear_all()
             supervisor.shutdown()
+
+    def _settle_run_budget(store: RunStore, run_id: str, ran: bool) -> None:
+        """执行器终态钩子：没开跑就释放预占；跑过就按落盘用量结算。
+
+        必须在恢复重启前 run 之前挂上——那些 run 崩溃前已预占，结束时同样要结算。
+        """
+        if not ran:
+            credits.release_hold(store.user_id, run_id=run_id)
+            return
+        try:
+            status = store.load_run(run_id).status
+        except (FileNotFoundError, ValueError, json.JSONDecodeError):
+            status = rs.STATUS_FAILED
+        settlement = credits.settle(
+            store.user_id,
+            run_id,
+            read_run_usage(store.run_dir(run_id)),
+            completed=status == rs.STATUS_COMPLETED,
+        )
+        if settlement is None:
+            return
+        # 每次结算留一行日志：排障时能对上「用户说扣多了」与账本里的那一笔。
+        logging.getLogger("intelligence.api.app").info(
+            "credits settled user=%s run=%s status=%s charged=%d cost_yuan=%s rule=%s "
+            "hold_released=%d available=%d debt=%d",
+            store.user_id,
+            run_id,
+            status,
+            settlement.charged,
+            settlement.breakdown.cost_yuan if settlement.breakdown else "0",
+            settlement.breakdown.rule if settlement.breakdown else "none",
+            settlement.hold_released,
+            settlement.available_after,
+            settlement.debt_after,
+        )
+
+    supervisor.on_settle = _settle_run_budget
 
     app = FastAPI(title="Market Intelligence Workbench API", lifespan=lifespan)
     app.add_middleware(IdentityRewriteMiddleware, gate=gate)
@@ -2297,35 +2350,41 @@ def create_app(
     def conversation_store_for(user: str | None) -> ConversationStore:
         return ConversationStore(user_id=store_for(user).user_id)
 
-    def _reserve_run_budget(user_id: str) -> None:
-        """创建 run 前先占额度（钱包）、再占当日名额；任一拒绝即 429、零副作用。
+    def _reserve_run_budget(user_id: str) -> str | None:
+        """创建 run 前先预占积分（钱包）、再占当日名额；任一拒绝即 429、零副作用。
 
-        顺序是钱包 → 日配额：日配额拒绝时把刚占的额度退回。反过来也行，
-        但钱包的拒绝理由（没额度了）对用户更要紧，先问它。
+        顺序是钱包 → 日配额：日配额拒绝时把刚预占的积分释放。反过来也行，
+        但钱包的拒绝理由（没积分了）对用户更要紧，先问它。返回预占 id，
+        run 建好后用 ``_bind_run_budget`` 绑到 run_id。
         """
         credit = credits.reserve(user_id)
         if not credit.allowed:
             if credit.reason == "corrupt":
                 raise HTTPException(
-                    503, "额度账本损坏，暂不能受理新研究，请联系管理员"
+                    503, "积分账本损坏，暂不能受理新研究，请联系管理员"
                 )
-            raise HTTPException(
-                429,
-                "研究额度已用完（剩余 0 次）。请联系管理员充值或等待赠送额度到账",
-            )
+            if credit.available < 0:
+                detail = f"积分已透支 {-credit.available} 分，请充值后再提问"
+            else:
+                detail = "积分已用完，请联系管理员充值或等待赠送积分到账"
+            raise HTTPException(429, detail)
         decision = quota.reserve(user_id)
         if not decision.allowed:
-            credits.release(user_id)
+            credits.release_hold(user_id, hold_id=credit.hold_id)
             raise HTTPException(
                 429,
                 f"今日研究次数已用完（{decision.used}/{decision.limit}），"
                 "请明天再试或联系管理员提额",
             )
+        return credit.hold_id
 
-    def _release_run_budget(user_id: str) -> None:
-        """预占成功但 run 被我们自己拒收：两道预占都退回。"""
+    def _bind_run_budget(user_id: str, hold_id: str | None, run_id: str) -> None:
+        credits.bind_hold(user_id, hold_id, run_id)
+
+    def _release_run_budget(user_id: str, run_id: str) -> None:
+        """预占成功但 run 被我们自己拒收：日配额退回、积分预占释放，不记扣账。"""
         quota.release(user_id)
-        credits.release(user_id)
+        credits.release_hold(user_id, run_id=run_id)
 
     def _admission_http_error(exc: RunAdmissionError) -> HTTPException:
         return HTTPException(
@@ -2349,7 +2408,7 @@ def create_app(
         补偿两件事：run 记终态（不留「排队中」孤儿）、配额退回（用户没得到服务）。
         """
         store.finish_run(run_id, rs.STATUS_FAILED, error="admission_rejected")
-        _release_run_budget(store.user_id)
+        _release_run_budget(store.user_id, run_id)
         return _admission_http_error(exc)
 
     def refresh_session_runtime_readiness(user_id: str) -> None:
@@ -2585,13 +2644,14 @@ def create_app(
         req.repo_root = root
         store = store_for(req.user)
         _precheck_admission(store.user_id)
-        _reserve_run_budget(store.user_id)
+        hold_id = _reserve_run_budget(store.user_id)
         run = store.create_run(
             req.question,
             req.task_type,
             session_id=req.session_id,
             parent_run_id=req.parent_run_id,
         )
+        _bind_run_budget(store.user_id, hold_id, run.run_id)
         try:
             supervisor.submit(store, run.run_id, req)
         except RunAdmissionError as exc:
@@ -2755,17 +2815,18 @@ def create_app(
             parent_run_id = conversation.last_run_id
             run_store = store_for(req.user)
             _precheck_admission(run_store.user_id)
-            _reserve_run_budget(run_store.user_id)
+            hold_id = _reserve_run_budget(run_store.user_id)
             run = run_store.create_run(
                 req.content,
                 "ask",
                 session_id=conversation_id,
                 parent_run_id=parent_run_id,
             )
+            _bind_run_budget(run_store.user_id, hold_id, run.run_id)
 
             def _compensate_failed_submission() -> None:
                 # 落盘/提交在我们这边失败，用户没得到服务：run 记终态，两道预占都退回。
-                _release_run_budget(run_store.user_id)
+                _release_run_budget(run_store.user_id, run.run_id)
                 try:
                     run_store.finish_run(
                         run.run_id,
