@@ -1090,32 +1090,6 @@ def decide_turn(
             intent,
             task_frame=task_frame,
         )
-    if resolution.context_dependent and previous_intent is None:
-        intent = replace(
-            build_turn_intent(
-                query,
-                envelope,
-                previous_intent=None,
-                previous_turn_id=previous_turn_id,
-                resolution=resolution,
-                task_frame=task_frame,
-            ),
-            pending_task_frame=task_frame.to_dict(),
-            clarification_rounds=1,
-        )
-        return _attach_turn_intent(
-            _decision(
-                "clarify",
-                envelope=envelope,
-                confidence=1.0,
-                reason="追问包含指代或省略，但当前对话没有可继承的研究主体",
-                clarification_questions=(
-                    "你指的是哪家公司、题材或上一条研究逻辑？",
-                ),
-            ),
-            intent,
-            task_frame=task_frame,
-        )
     intent = build_turn_intent(
         query,
         envelope,
