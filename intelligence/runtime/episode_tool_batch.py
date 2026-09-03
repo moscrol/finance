@@ -209,6 +209,48 @@ class ToolBatchResult:
 
 
 @dataclass(frozen=True)
+class ToolMenu:
+    """一轮开始时模型能看见的工具，以及这轮被底座藏起来的工具和原因。
+
+    ``would_grant`` 是按此刻剩余算出的本轮工具窗（与派发点同一套算术
+    ``deadline.stage_timeout(tool_batch_timeout_seconds)``，只是早算了一个模型轮）。
+    ``hidden`` 里的每个工具，其领域申报的 ``min_window_seconds`` 都大于这个窗——
+    摆出来也是必超时，2026-09-03 生产读数：kb_search 66% / evidence_search 96% 的
+    调用以 tool_timeout 收场，每次烧掉约 23s 研究窗。
+    """
+
+    visible: tuple[str, ...]
+    hidden: tuple[tuple[str, float], ...]
+    would_grant: float
+
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "visible": list(self.visible),
+            "hidden": [name for name, _ in self.hidden],
+            "min_window_seconds": {name: seconds for name, seconds in self.hidden},
+            "would_grant": round(self.would_grant, 3),
+            "reason": "min_window_exceeds_grant",
+        }
+
+
+def tool_definitions_for_menu(
+    menu: ToolMenu,
+    *,
+    registry: ResearchToolRegistry,
+    context: ResearchRunContext,
+) -> list[dict[str, object]]:
+    """把菜单落成模型 API 的 tool definitions；两条 loop 共用，菜单只算一次。"""
+
+    visible = set(menu.visible)
+    return [
+        definition
+        for definition in registry.tool_definitions(context.contract.allowed_capabilities)
+        if isinstance(function := definition.get("function"), dict)
+        and function.get("name") in visible
+    ]
+
+
+@dataclass(frozen=True)
 class _Candidate:
     index: int
     call: ModelToolCall
@@ -246,6 +288,37 @@ class EpisodeToolBatchSession:
         # 缺省 None：不传 scope 的调用方行为与接线前逐字节一致。
         self._scope = scope
 
+    def menu(
+        self,
+        *,
+        registry: ResearchToolRegistry,
+        context: ResearchRunContext,
+    ) -> ToolMenu:
+        """本轮菜单：去掉已拿过完整快照的 episode 级工具，再去掉本轮工具窗装不下的。
+
+        第二条是可见性裁决，不是预算：授予算术一个字不改，只是不让模型点一个
+        此刻必超时的工具。领域只申报 ``min_window_seconds``，装不装得下由这里判。
+        """
+
+        would_grant = context.deadline.stage_timeout(
+            tool_batch_timeout_seconds(context.policy)
+        )
+        visible: list[str] = []
+        hidden: list[tuple[str, float]] = []
+        with self._lock:
+            for spec in registry.authorized_specs(context.contract.allowed_capabilities):
+                if (
+                    spec.query_scope == "episode"
+                    and spec.name in self._successful_episode_tools
+                ):
+                    continue
+                floor = spec.min_window_seconds
+                if floor is not None and floor > would_grant:
+                    hidden.append((spec.name, float(floor)))
+                    continue
+                visible.append(spec.name)
+        return ToolMenu(tuple(visible), tuple(hidden), would_grant)
+
     def available_tool_names(
         self,
         *,
@@ -254,15 +327,7 @@ class EpisodeToolBatchSession:
     ) -> tuple[str, ...]:
         """Return the tools that remain meaningful for the next model turn."""
 
-        with self._lock:
-            return tuple(
-                spec.name
-                for spec in registry.authorized_specs(
-                    context.contract.allowed_capabilities
-                )
-                if spec.query_scope != "episode"
-                or spec.name not in self._successful_episode_tools
-            )
+        return self.menu(registry=registry, context=context).visible
 
     def execute(
         self,

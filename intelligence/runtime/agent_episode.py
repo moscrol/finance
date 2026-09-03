@@ -38,6 +38,7 @@ from intelligence.runtime.episode_tool_batch import (
     ToolBatchResult,
     ToolCallResult,
     timeout_detail_for_model,
+    tool_definitions_for_menu,
 )
 from intelligence.runtime.tier_promotion import apply_mode_promotion
 from intelligence.services.mode_governor import ModeDecision
@@ -767,6 +768,7 @@ class ContinuousAgentEpisode:
                     tool_session=tool_session,
                     registry=registry,
                     context=context,
+                    ledger=ledger,
                 )
                 turn = self._model.complete(
                     messages=list(messages),
@@ -1555,6 +1557,7 @@ class ContinuousAgentEpisode:
                 tool_session=tool_session,
                 registry=registry,
                 context=repair_tool_context,
+                ledger=ledger,
             )
             if research_tools_open
             else []
@@ -2137,21 +2140,13 @@ class ContinuousAgentEpisode:
         tool_session: EpisodeToolBatchSession,
         registry: ResearchToolRegistry,
         context: ResearchRunContext,
+        ledger: _EpisodeLedger,
     ) -> list[dict[str, object]]:
-        available = set(
-            tool_session.available_tool_names(
-                registry=registry,
-                context=context,
-            )
-        )
-        return [
-            definition
-            for definition in registry.tool_definitions(
-                context.contract.allowed_capabilities
-            )
-            if isinstance(function := definition.get("function"), dict)
-            and function.get("name") in available
-        ]
+        menu = tool_session.menu(registry=registry, context=context)
+        # 只在真藏了工具时记账：无裁剪轮的事件流与改前逐字节相同。
+        if menu.hidden:
+            ledger.add("tool_menu", menu.to_payload())
+        return tool_definitions_for_menu(menu, registry=registry, context=context)
 
     @staticmethod
     def _append_tool_budget_state(

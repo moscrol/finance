@@ -39,6 +39,7 @@ from intelligence.services.research_contract import (
 )
 from intelligence.services.research_tool_registry import (
     _TOOL_CONTRACTS,
+    MIN_WINDOW_SECONDS,
     PreparedToolArguments,
     ResearchToolRegistry,
     ToolSpec,
@@ -1547,6 +1548,7 @@ def build_episode_registry(
                 cost="local",
                 freshness="current",
                 runner=evidence_search_runner,
+                min_window_seconds=MIN_WINDOW_SECONDS["evidence_search"],
             )
         )
 
