@@ -2280,16 +2280,21 @@ def _filter_clause(
     return f"{column} LIKE ? ESCAPE '\\'", (f"%{escaped}%",)
 
 
-# 哪些数据集的行产结构化观察值：subject 维度字段 + 指标白名单（**底层列名**，
-# 与预取观察值同一指标空间，槽/门禁两侧才能对上）。只登记行级明细数据集；
-# 聚合类/无主体数据集不产——没有主体的数进槽只会制造错绑。
+# 哪些数据集的行产结构化观察值：subject 维度字段或固定主体 + 指标白名单
+# （**底层列名**，与预取观察值同一指标空间，槽/门禁两侧才能对上）。
+# 行级明细用维度字段；全市单行与预取同权，主体固定为「全市场」。
+# 聚合掉主体维度的行仍不产——没有主体的数进槽只会制造错绑。
 _OBSERVATION_SUBJECT_FIELDS: dict[str, str] = {
     "sector_daily": "sector_name",
     "sector_stock_daily": "stock_name",
 }
+_OBSERVATION_FIXED_SUBJECT: dict[str, str] = {
+    "market_daily": "全市场",
+}
 _OBSERVATION_METRIC_COLUMNS: dict[str, tuple[str, ...]] = {
     "sector_daily": ("pct_chg", "amount", "diff_ratio"),
     "sector_stock_daily": ("pct_chg", "amount"),
+    "market_daily": ("total_amount", "advancers", "limit_up", "limit_down"),
 }
 
 
@@ -2312,18 +2317,21 @@ def _row_observations(
     投递，下游会把「有分歧」写成「就是这个数」。值相同的重复格照常产出。
     """
 
-    subject_field = _OBSERVATION_SUBJECT_FIELDS.get(dataset_name)
-    if subject_field is None:
+    metric_columns = _OBSERVATION_METRIC_COLUMNS.get(dataset_name)
+    if metric_columns is None:
         return tuple(() for _ in rows)
-    metric_columns = _OBSERVATION_METRIC_COLUMNS[dataset_name]
     fields = dataset.fields
     seen: dict[tuple[str, str, str], set[float]] = {}
     per_row: list[list[tuple[str, str, str, float]]] = []
     for index, row in enumerate(rows):
         as_of = source_dates[index] or ""
-        subject = row.get(subject_field)
+        subject = _OBSERVATION_FIXED_SUBJECT.get(dataset_name)
+        if subject is None:
+            subject_field = _OBSERVATION_SUBJECT_FIELDS.get(dataset_name)
+            raw = row.get(subject_field) if subject_field else None
+            subject = raw if isinstance(raw, str) and raw else None
         cells: list[tuple[str, str, str, float]] = []
-        if as_of and isinstance(subject, str) and subject:
+        if as_of and subject:
             for name, value in row.items():
                 field = fields.get(name)
                 if field is None or field.column not in metric_columns:
