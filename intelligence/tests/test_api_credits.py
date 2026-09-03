@@ -8,6 +8,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -185,8 +186,20 @@ def test_concurrent_reserve_never_oversells(users_env):
     assert sum(results) == 5
 
 
-def test_two_store_instances_share_the_file_lock(users_env):
+def _slow_load(original):
+    """把读-判-写窗口撑到毫秒级：没有锁时并发必然互相覆盖，有锁时只是慢一点。"""
+
+    def load(path):
+        state = original(path)
+        time.sleep(0.002)
+        return state
+
+    return staticmethod(load)
+
+
+def test_two_store_instances_share_the_file_lock(users_env, monkeypatch):
     """两个实例各有自己的线程锁，能护住账本的只剩文件锁——这就是 CLI 与服务进程同写一份账本的形状。"""
+    monkeypatch.setattr(CreditStore, "_load", _slow_load(CreditStore._load))
     a = CreditStore(enabled=True)
     b = CreditStore(enabled=True)
     a.grant("u1", KIND_GIFT, 10)
@@ -209,8 +222,14 @@ def test_two_store_instances_share_the_file_lock(users_env):
 
 
 _RESERVE_MANY = """
-import sys
+import sys, time
 from intelligence.api.credits import CreditStore
+_orig = CreditStore._load
+def _slow(path):
+    state = _orig(path)
+    time.sleep(0.002)
+    return state
+CreditStore._load = staticmethod(_slow)
 store = CreditStore(enabled=True)
 print(sum(1 for _ in range(int(sys.argv[1])) if store.reserve("u1").allowed))
 """
