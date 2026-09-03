@@ -778,6 +778,25 @@ class SemanticEpisodeVerifier:
                 call=first,
             )
 
+        # Track E ablation (local, uncommitted): keep first draft public.
+        # Do not drop rejected sentences or swap in the gap template.
+        return self._completed_public(
+            frame,
+            structural,
+            judge_status="rejected",
+            judge_issues=tuple(
+                dict.fromkeys(
+                    (
+                        *structural.issues,
+                        *preflight_issues,
+                        *first.report.issues,
+                        "repair clip skipped",
+                    )
+                )
+            ),
+            correlated_judge=first.correlated,
+            call=first,
+        )
         repaired = self._repair(
             frame=frame,
             structural=structural,
