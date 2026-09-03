@@ -1,6 +1,6 @@
 # 在途交接 · main
 
-更新：2026-09-03 15:00 CST。08-13→09-03 的 94 条时间线逐字归档 `docs/handoffs/2026-09-03-main-inflight-archive-0813-0903.md`，本文只留接手要的。
+更新：2026-09-03 16:40 CST（0903e 切流）。08-13→09-03 时间线归档 `docs/handoffs/2026-09-03-main-inflight-archive-0813-0903.md`，本文只留接手要的。
 
 ## 这个分支做什么
 
@@ -16,17 +16,17 @@
 
 ## 当前状态
 
-8792=`c88c81da5120`（0903d，#547 准入/排队/备份/拨测）。回滚锚 `~/.finance-runtime/cutover-20260903d-rollback-8792.txt`，启动器备份 `~/.local/bin/start-finance-workbench.bak-20260903-admission`。`gitea/main` 领先 8792 仅 docs。足迹分支 `wip/mainline-move-footprints-20260903` 待认领。
+8792=`f4c03b9ae610`（0903e：web_search 修复、判官拒句账、墙钟用例容差、门禁/PR 脚本）。回滚锚 `~/.finance-runtime/cutover-20260903e-rollback-8792.txt`（回滚目标 `c88c81da5120`），启动器未动（备份仍 `.bak-20260903-admission`）。`gitea/main` == 8792。足迹分支 `wip/mainline-move-footprints-20260903` 待认领。
 
 ## 已验证
 
-0903d：readiness 13/13、health 三读 match、探针 `run_20260903_130031_620616` rev 自证；准入 live 429+Retry-After / 他人 queued。门禁 @`5d8a163d` 7563P/5F（5 红=基线 `test_dream_mine`）。
+0903e：health 三读 match、账本 check ok、探针 `run_20260903_162024_399965` rev 自证 / `fact_stock_daily`×4 / degrade 0；readiness 12/13——`market_data_consistency` false 是 16:15 快照定时刷新后到晚间 daily-full 前的**每日常规窗口**，非本批回归。门禁 @`f4c03b9a` 7581P/5F 同一组红、`check_test_receipt` exit 0、webapp 四件套绿。细节 `docs/verification/2026-09-03-cutover-0903e.md`。
 
 ## 未验证 / 已知边界
 
 - Cloudflare Access 未建，隧道未开前 8792 不对外。SSE 每连接占一线程（≤10 人可接受）。
 - `kb_search` 66% 超时是切前生产形状；探针首发作废只采复跑。
-- 菜单口径不减思考时间；`would_grant<1s` 时无地板工具照旧可见——预算线另议。
+- `would_grant<1s` 时无地板工具照旧可见：09-03 三次 live 3/3「web_search 授 0 秒白烧一轮」；`kb_search` 刚预热首查超时 3/3。两项待用户拍（能力放大线 inflight）。
 - 消融壳走 legacy `cli ask` 不经 episode 链，弃权效果须会话链重跑。
 
 ## 下一步（待用户）
