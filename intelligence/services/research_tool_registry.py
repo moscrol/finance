@@ -1251,9 +1251,23 @@ def require_tool_contracts(specs: Iterable[ToolSpec]) -> None:
 #   kb_search       成功 30 / 真超时 57，成功耗时 p50 9.5s、80% 在 20s 内（一次检索 + 一次相关性裁判）
 #   evidence_search 成功  3 / 真超时 66，成功耗时 32–40s（narrow→broad→counter 多轮检索 + 语义裁判）
 # 数字是成功样本的分位，被 ~23s 的实授窗右截断，只会低估不会高估。改数字要重跑那份脚本。
+#
+# 2026-09-03 补登三条网络工具。上面那句「9 个 p95 < 9s，任何授予都够，不登记」有个
+# 洞：**零授予也是一种授予**。同一份收据里 `web_search` 就有 1 次零授权，当日 live
+# 三次复现——`would_grant=0` 时它因无地板照旧留在菜单上，模型点了、授 0 秒、
+# 立即 `tool_timeout`，白烧一整轮。地板在这里防的不是「窗太小」而是「窗是零」，
+# 与 kb/evidence 两条「这活本来就要那么久」的地板用途不同。
+#   web_search  成功 8   p50 2.72 / p95 4.76 → 5.0 正好压住 p95
+#   news_search 成功 64  p50 1.53 / p95 8.68 → 同给 5.0：p95 未被覆盖是**有意的**，
+#               它 p50 只要 1.53s，按 p95 设 9s 会把大量本可成功的窗也遮掉；
+#               5s 是零授予护栏，不是 p95 保证
+#   web_fetch   成功 0（无实测样本）→ 按同族一次往返给 5.0，[推断] 非实测
 MIN_WINDOW_SECONDS: dict[str, float] = {
     "kb_search": 20.0,
     "evidence_search": 30.0,
+    "web_search": 5.0,
+    "news_search": 5.0,
+    "web_fetch": 5.0,
 }
 
 

@@ -1041,19 +1041,111 @@ def test_menu_keeps_tool_when_window_fits_or_no_floor_declared() -> None:
     assert undeclared.hidden == ()
 
 
-def test_production_registry_declares_rag_floors_and_nothing_else() -> None:
-    """领域申报表只登记实测有尾巴的两条 RAG 工具；其它工具 None（不裁）。"""
+def test_production_registry_declares_two_kinds_of_floor() -> None:
+    """两类地板用途不同：RAG 两条是「这活本来就要那么久」，三条网络工具是零授予护栏。
+
+    结构化本地工具仍不登记——它们 p95 < 0.3s，任何授予都够。
+    """
 
     from intelligence.services.research_tool_registry import MIN_WINDOW_SECONDS, default_registry
 
-    assert MIN_WINDOW_SECONDS == {"kb_search": 20.0, "evidence_search": 30.0}
+    assert MIN_WINDOW_SECONDS == {
+        "kb_search": 20.0,
+        "evidence_search": 30.0,
+        "web_search": 5.0,
+        "news_search": 5.0,
+        "web_fetch": 5.0,
+    }
     runners = {
         name: (lambda query, _context: _evidence_result("x", query))
-        for name in ("kb_search", "market_data", "financial_data", "web_search")
+        for name in (
+            "kb_search",
+            "market_data",
+            "financial_data",
+            "web_search",
+            "news_search",
+            "web_fetch",
+        )
     }
     specs = {spec.name: spec for spec in default_registry(runners).authorized_specs()}
     assert specs["kb_search"].min_window_seconds == 20.0
-    assert all(specs[name].min_window_seconds is None for name in ("market_data", "financial_data", "web_search"))
+    assert specs["web_search"].min_window_seconds == 5.0
+    assert specs["news_search"].min_window_seconds == 5.0
+    assert specs["web_fetch"].min_window_seconds == 5.0
+    assert all(specs[name].min_window_seconds is None for name in ("market_data", "financial_data"))
+
+
+def _network_registry() -> ResearchToolRegistry:
+    """地板取自**生产那张表**，不写字面量。
+
+    写死 5.0 的话，生产表哪天漏了 `web_search` 这两条行为钉照样全绿——钉住的
+    就只是「menu 会按 floor 裁剪」这个机制，而不是「web_search 真有地板」。
+    """
+
+    from intelligence.services.research_tool_registry import MIN_WINDOW_SECONDS
+
+    return ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="market_data",
+                capability="market_data",
+                description="fast local snapshot",
+                cost="local",
+                freshness="current",
+                runner=lambda query, _context: _evidence_result("market_data", query),
+            ),
+            ToolSpec(
+                name="web_search",
+                capability="web_search",
+                description="bing web search",
+                cost="network",
+                freshness="current",
+                runner=lambda query, _context: _evidence_result("web_search", query),
+                min_window_seconds=MIN_WINDOW_SECONDS.get("web_search"),
+            ),
+        )
+    )
+
+
+def _network_window_context(*, total: float, reserve: float) -> ResearchRunContext:
+    return replace(
+        _context(allowed=("market_data", "web_search")),
+        deadline=ResearchDeadline.from_timeout(total, synthesis_reserve=reserve),
+        policy=ResearchPolicy("quick", 4, total, reserve),
+    )
+
+
+def test_near_zero_grant_hides_web_search_instead_of_burning_a_turn() -> None:
+    """`would_grant≈0` 那一刻 web_search 不该还在菜单上。
+
+    2026-09-03 live 三次复现同一形状：第二轮 would_grant=0，web_search 因无地板
+    照旧可见 → 模型点了（查询词里已写着答案，它想核实）→ 授 0 秒 → 立即
+    `tool_timeout` → 白烧一整轮。离线收据里同样有 1 次零授权。
+    """
+
+    session = ToolBatchExecutor().new_session()
+    context = _network_window_context(total=30.0, reserve=29.9)
+    menu = session.menu(registry=_network_registry(), context=context)
+
+    assert menu.would_grant < 5.0
+    assert menu.visible == ("market_data",)
+    assert menu.hidden == (("web_search", 5.0),)
+
+
+def test_ordinary_grant_keeps_web_search_visible() -> None:
+    """阳性对照：地板是零授予护栏，不是把网络工具关掉。
+
+    生产实授中位 23.2s，远在 5s 之上——没有这条，上面那条用「永远藏 web_search」
+    也能全绿。
+    """
+
+    session = ToolBatchExecutor().new_session()
+    context = _network_window_context(total=90.0, reserve=30.0)
+    menu = session.menu(registry=_network_registry(), context=context)
+
+    assert menu.would_grant >= 5.0
+    assert menu.visible == ("market_data", "web_search")
+    assert menu.hidden == ()
 
 
 def test_same_session_serializes_concurrent_duplicate_admission() -> None:
