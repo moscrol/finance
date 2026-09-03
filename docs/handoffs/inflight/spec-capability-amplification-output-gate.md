@@ -1,37 +1,36 @@
 # 在途交接 · 能力放大 / 工具线（spec/capability-amplification-output-gate）
 
 ## 这个分支做什么
-按 knevo 的工具设计理念补工具面、契约自己做。spec `docs/superpowers/specs/2026-09-02-capability-amplification-output-gate-design.md`；展开 `docs/handoffs/2026-09-03-capability-line-session-handoff.md`。
+按 knevo 的工具设计理念补工具面、契约自己做。spec `docs/superpowers/specs/2026-09-02-capability-amplification-output-gate-design.md`；展开 `docs/handoffs/2026-09-03-capability-line-session-handoff.md`（上午）与 `2026-09-03b-capability-line-web-chain-and-p2.md`（下午）。
 
-## 决策与被否方案
-- 切流分两次 / 否一次带全 / 重构与行为改动分开归因
-- 弃权首句定性 / 否长度阈值 / 快答误判、长拒答漏判
-- RAG：保活+菜单裁剪 / 否工具地板、否缩 asked / 9 工具不需要、2 RAG 装不下 90s
-- 4 token：摘 prompt 里 task_id / 否放宽容差 / 模型用不上，摘后字节稳定
-- 子代理先写 spec / 否现在做 / 结果须带证据、挂哪条 loop 看 P4
+## 决策与被否方案（下午新增）
+- web_search 只认 Bing `rdr=1` 跳转页 + 3s 稳定兜底 / 否固定 sleep、否 JCache 判据、否换引擎 / 壳→跳转时机不定且会消失
+- 墙钟推导值按容差比 / 否冻结全局时钟 / 只去伪差，四个裁决键仍逐字
+- P2 记账落决定点不落删句函数 / 否改判官 JSON 契约 / 删句函数看不见被降级的句子
+- 子代理 = 包现有协调器成工具 / 否新建、否后台可续接 / 同步排空是承重不变量
+- ③ 遥测零信号 → ⑥ 不排期
 
 ## 当前状态
-#537–#546 全合；8792=`c88c81da5120`（含本线全部，另一会话切）。本线无未提交改动。`fwp-wt-rag-window` 有他人未提交 `rag_worker.py`，勿拆。
+main=`c19f7594`；8792=`c88c81da5120`（未切，不含下面任何一张）。**待合入（需用户确认）**：#553 web_search 修复 · #551 墙钟用例 · #552 门禁/PR 脚本 · #557 P2 拒句账 · 本线 docs PR。五张对 main 冲突探测全净。`fwp-wt-rag-window` 仍有他人未提交 `rag_worker.py`，勿拆。仓外：`~/scripts-local/chrome_debug_agent.sh` 加了 `--user-agent`（去 Headless），`CDP_USER_AGENT` 置空还原。
 
 ## 未验证 / 已知边界
-- `web_search→web_fetch` 零 live 调用（茅台题库里有数）。
-- 弃权率只有 08-27 回溯基线，无改后配对；消融壳走 legacy ask 不经 episode。
-- 菜单口径不减思考时间，首轮 evidence_search 拿不到 30s。
-- worker 保活效果样本 0。
+- `web_fetch` 两臂零调用（snippet 里就有数），仍无 live 读数。
+- kb_search 刚预热仍首查超时 2/2；保活 counters 在臂进程内没读到。
+- 判官对 public_web「零删除」只 n=1；P2 占比要等 #557 合入切流后积累。
+- PLAN/deep 归零原因未查（[推断] 08-22 prompt 重构）。
 
 ## 下一步
-1. 库里没有的题跑两臂：验 web 链路、判官是否删 public_web 句。
-2. 源可用性进菜单（worker failed→藏 RAG）。
-3. 翻 tool_hunger 遥测定加什么工具。
-4. P2 第一步：判官删句结构化落盘。
-5. 子代理 spec（dsh tool-subagent 形状、带证据、deep 档预算）。
-待用户：P1 第二步 D 组 8 道、P4 sdk_glm、足迹分支认领。
+1. 用户拍合入顺序并切 8792（含 #553 才能再测 web）。
+2. 查 PLAN/deep 为何 08-22 后归零——子代理 spec 的前置（spec §7）。
+3. 切流后跑 `scripts/offline_judge_verdict_census.py` 出 P2 第 2 步占比。
+4. 换题复跑两臂验 `web_fetch`（挑 snippet 无数的题）。
+待用户拍：② 改判——RAG「worker ready 但首查慢」不是 failed→藏能管的，选 a 预热后真查一次 / b 预热后 N 秒藏 / c 不动；零授予——web/news/fetch 无地板在 `would_grant=0` 仍可见（live 实锤），加 ~5s 地板还是 <1s 全藏。
 
 ## 踩过的坑
-- 同一棵树两个 agent（12:26）：搬独立树、不代解。
-- 变异恢复用 StrReplace/.bak，勿 `git checkout --`。
-- 收据口径 `intelligence tests` 与整仓差 ~50 条。
-- 首发切流探针冷 RAG 超时作废，复跑再采。
+- `status=success` 内容全错：三态看不出，直调一次看结果再跑 live。
+- 拼接 JS 少/多一个括号 → 代理 4xx，桩测试看不见，配平钉子。
+- 门禁脚本锚自身所在树会判错树，用 `rev-parse --show-toplevel`。
+- 后台命令别用 `&` 挂在工具 shell 里，会被回收。
 
 ## 已验证
-P0 live 两臂 1741.44 一手证据 model_finish；三次切流三项验证；菜单裁剪与 worker 计数在生产事件可见；各 PR 干净树全量 7524→7552P/5F。
+#553 7574P/6F（+1 墙钟红，#551 修）、#551 7570P/5F、#557 7576P/5F，红集均 = 基线 5 条 dream_mine；腾讯题两臂 live：参考臂 6602.57 亿元一手 web 证据绑定发布。
