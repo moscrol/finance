@@ -11,6 +11,8 @@ D0/D1 已结。D2：W2 confirmed，W1 仍欠 `marker_loss>0`。
 合 main ≠ 生产生效。同 SHA / 切端口未做。不要按审查开条件放稿门。W1 自然样本未到。
 
 ## 下一步
+派活读 `docs/superpowers/plans/2026-08-24-three-layer-execution.md`。
+盘面包 P0 已在 `feat/market-watch-component-first` @ `5ad0f60b` 做完，等用户点头合入（须先接到今日 main）。
 切端口等用户。同 SHA 是 `R-20260824-09`。#343 另点头。W1 等真 `marker_loss>0`。
 
 ## 踩过的坑

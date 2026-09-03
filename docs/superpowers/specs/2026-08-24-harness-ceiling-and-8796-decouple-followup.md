@@ -342,4 +342,4 @@ D4 先盘点 76ee1e89 非 docs 提交，再拆 PR，同 SHA
 
 ## 12. 给续跑代理的第一句话
 
-> 先重读 `docs/superpowers/specs/2026-08-24-harness-ceiling-and-8796-decouple-followup.md` **§0.1、§0.2、§0.3**。增加输入必要就加，限制输出只做减法。D0/D1/D2(W2) 已结。#349/#350 已合 `4dd96f6f`。不要给端盘加第三扇门，不要把结构水印当 W1，不要在脏主树上施工，不要擅自切端口。
+> 派活读 `docs/superpowers/plans/2026-08-24-three-layer-execution.md`。规格正文仍是本文件 **§0.1、§0.2、§0.3** + 盘面包 `2026-08-24-market-watch-component-first-design.md`。增加输入必要就加，限制输出只做减法。D0/D1/D2(W2) 已结。#349/#350 已合 `4dd96f6f`。不要给端盘加第三扇门，不要把结构水印当 W1，不要把 84/98 套到 Knevo A1，不要在脏主树上施工，不要擅自切端口。
