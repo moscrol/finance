@@ -341,9 +341,17 @@ def build_episode_input(
 ) -> str:
     """Serialize the per-turn task, cutoff, rules, and tool table."""
 
+    # task_id 是 `run_<时间戳>:msg_<hex>`，每次运行都不同、模型也用不上（协议不解析它，
+    # 终局只认 task_frame_hash 与证据序号）。留在 prompt 里的后果是首轮请求永不字节稳定：
+    # hex 串的 BPE 分词数随机差几个 token——2026-09-03 两条 loop 同题首轮 input_tokens
+    # 14513 vs 14517、09-02 又反向差 2，追到的就是它。去掉后同题首轮请求跨运行逐字节相同，
+    # A/B 硬门与 prompt 缓存都靠得住。contract 其它字段一个不动。
+    contract_for_model = {
+        key: value for key, value in context.contract.to_dict().items() if key != "task_id"
+    }
     payload: dict[str, object] = {
         "task_frame": task_frame.to_dict(),
-        "research_contract": context.contract.to_dict(),
+        "research_contract": contract_for_model,
         "today": context.today,
         "latest_data_date": context.latest_data_date,
         "information_cutoff": context.information_cutoff.to_dict(),
