@@ -684,6 +684,7 @@ def cmd_daily_review(args) -> int:
     )
     print(f"交易日: {result['trade_date']}")
     print(f"报告: {result['output_path']}")
+    print(f"真本源 JSON: {result['json_path']}")
     if result["chart_path"]:
         print(f"图表: {result['chart_path']}")
     return 0
@@ -1303,9 +1304,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_du.set_defaults(func=cmd_daily_update)
 
-    p_dr = sub.add_parser("daily-review", help="从 DuckDB 生成完整每日复盘 Markdown")
+    p_dr = sub.add_parser("daily-review", help="从 DuckDB 生成每日复盘：JSON 真本源 + Markdown 渲染物（同名同目录）")
     p_dr.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
-    p_dr.add_argument("--output", default=None, help="报告输出路径, 默认 exports/YYYY-MM-DD-daily-review.md")
+    p_dr.add_argument("--output", default=None, help="Markdown 输出路径, 默认 exports/YYYY-MM-DD-daily-review.md；JSON 落同名 .json")
     p_dr.add_argument("--chart-output", default=None, help="涨家数 MA5 图片路径, 默认 exports/YYYY-MM-DD-advancers-ma5.png")
     p_dr.add_argument("--start-date", default=None, help="启动日 YYYY-MM-DD, 用于生成启动日主线确认模块")
     p_dr.set_defaults(func=cmd_daily_review)

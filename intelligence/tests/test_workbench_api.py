@@ -3215,6 +3215,62 @@ def test_artifact_projection_and_registered_asset_routes(client: TestClient) -> 
     assert traversal.status_code in (403, 404)
 
 
+def test_daily_review_projection_prefers_json_canonical_when_present(
+    client: TestClient, tmp_path
+) -> None:
+    exports = tmp_path / "repo" / "market_feature_store" / "exports"
+    (exports / "2026-07-09-daily-review.json").write_text(
+        json.dumps(
+            {
+                "schema": "daily-review/v1",
+                "trade_date": "2026-07-09",
+                "generated_at": "2026-07-09 20:40:05",
+                "warnings": [],
+                "core_board": [
+                    {"dimension": "市场性质", "conclusion": "普通交易日 / 修复阶段 第3天"},
+                    {"dimension": "指数表现", "conclusion": "上证 3996.162，涨幅 1.00%，偏离度 0.28%"},
+                ],
+                "facts": {},
+                "sections": [
+                    {
+                        "id": "limit_advance",
+                        "index": 11,
+                        "title": "3板及以上个股",
+                        "blocks": [
+                            {
+                                "kind": "table",
+                                "title": None,
+                                "columns": ["股票", "连板数"],
+                                "rows": [["国芳集团", 4]],
+                            },
+                            {"kind": "conclusion", "text": "3板及以上个股 1 只，最高连板 4 板。"},
+                        ],
+                    }
+                ],
+                "assessment": "市场回暖，等待量能确认。",
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    review = next(
+        item
+        for item in client.get("/api/artifacts").json()
+        if item["category"] == "daily_review" and item["format"] == "html"
+    )
+    assert review["source_of_truth"].endswith("2026-07-09-daily-review.json")
+
+    payload = client.get(f"/api/artifacts/{review['artifact_id']}/projection").json()
+    assert payload["source_mode"] == "canonical_json"
+    assert payload["provenance"]["canonical_path"].endswith("2026-07-09-daily-review.json")
+    assert payload["provenance"]["original_report_available"] is True
+    assert payload["provenance"]["rendered_path"].endswith("2026-07-09-daily-review.html")
+    stock = next(section for section in payload["sections"] if section["title"] == "个股载体")
+    assert stock["tables"][0]["rows"] == [["国芳集团", 4]]
+    assert stock["items"][0]["summary"] == "3板及以上个股 1 只，最高连板 4 板。"
+
+
 def test_artifact_asset_route_rejects_non_legacy_parent(client: TestClient) -> None:
     artifact = next(
         item
