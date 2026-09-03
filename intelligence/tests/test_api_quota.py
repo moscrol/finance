@@ -67,6 +67,22 @@ def test_concurrent_reserve_never_oversells(users_env):
     assert sum(results) == 5
 
 
+def test_release_refunds_one_slot_and_floors_at_zero(users_env):
+    """release 只用于「预占后被准入拒收」的补偿；退到 0 之后再退是空操作。"""
+    quota = RunQuota(daily_limit=1)
+    assert quota.reserve("u1").allowed
+    assert not quota.reserve("u1").allowed
+    quota.release("u1")
+    assert quota.reserve("u1").allowed
+    quota.release("u1")
+    quota.release("u1")  # 已是 0，不得变成负数
+    assert quota.reserve("u1").allowed
+    assert not quota.reserve("u1").allowed
+    # 豁免用户与未启用配额：release 无副作用
+    RunQuota(daily_limit=0).release("u1")
+    RunQuota(daily_limit=1, exempt_users=frozenset({"owner"})).release("owner")
+
+
 def test_corrupt_state_file_recovers(users_env):
     quota = RunQuota(daily_limit=1)
     state_path = userspace.user_space("u1").root / "run_quota.json"

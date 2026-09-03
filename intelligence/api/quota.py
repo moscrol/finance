@@ -81,14 +81,34 @@ class RunQuota:
             if used >= self.daily_limit:
                 return QuotaDecision(allowed=False, used=used, limit=self.daily_limit)
             used += 1
-            path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = path.with_suffix(".json.tmp")
-            tmp.write_text(
-                json.dumps({"date": today, "used": used}, ensure_ascii=False),
-                encoding="utf-8",
-            )
-            os.replace(tmp, path)
+            self._write_used(path, today, used)
             return QuotaDecision(allowed=True, used=used, limit=self.daily_limit)
+
+    def release(self, user_id: str) -> None:
+        """退回一个当日名额。
+
+        只用于「预占成功、但 run 随后被我们自己拒收（准入满）」的补偿——
+        用户没有得到任何服务，不该扣他的额度。不是给已执行的 run 退款。
+        """
+        if not self.enabled or user_id in self.exempt_users:
+            return
+        today = date.today().isoformat()
+        path = userspace.user_space(user_id).root / _STATE_FILENAME
+        with self._lock:
+            used = self._read_used(path, today)
+            if used <= 0:
+                return
+            self._write_used(path, today, used - 1)
+
+    @staticmethod
+    def _write_used(path: Path, today: str, used: int) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(
+            json.dumps({"date": today, "used": used}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        os.replace(tmp, path)
 
     @staticmethod
     def _read_used(path: Path, today: str) -> int:
