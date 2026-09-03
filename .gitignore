@@ -167,3 +167,13 @@ market_snapshot/
 /state/
 /work/
 /.playwright-mcp/
+
+# 主树收拾（2026-09-03，用户拍板）
+# 每日复盘 HTML/PNG 是台账的渲染物，留本地按需重渲，不再入库（已跟踪的历史份保持原样）
+复盘/daily/
+# 框架解读输出含「最近纠偏回灌」原文（账号/权益等个人语境），与 intelligence/users/* 同性质
+market_feature_store/exports/*-framework-interpretation.md
+# 回答评分是用户态（台账地图标「否」），此前漏在忽略清单外，探针用户目录因此冒头
+intelligence/users/*/answer_scores.jsonl
+# WorkBuddy 工具本地记忆（与 .windsurf/ 同类）
+.workbuddy/

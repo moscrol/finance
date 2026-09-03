@@ -1,0 +1,35 @@
+{
+ "receipts_written": 44,
+ "verdicts": {
+  "overturn": 42,
+  "confirm": 2
+ },
+ "summary": {
+  "schema": "rejudge_pending.v1",
+  "n": 44,
+  "confirm_count": 2,
+  "overturn_count": 42,
+  "still_unavailable_count": 0,
+  "overturn_rate": 0.9545454545454546
+ },
+ "pending_total_rows": 97,
+ "pending_exc_class": {
+  "?": 63,
+  "GrokCliExit": 18,
+  "RuntimeError": 12,
+  "TimeoutError": 4
+ },
+ "pending_by_day": {
+  "2026-08-19": 3,
+  "2026-08-20": 17,
+  "2026-08-21": 16,
+  "2026-08-22": 4,
+  "2026-08-23": 9,
+  "2026-08-24": 5,
+  "2026-08-26": 7,
+  "2026-08-27": 17,
+  "2026-08-28": 19
+ },
+ "drained_unique_shas": 44,
+ "undrainable_shas": 49
+}

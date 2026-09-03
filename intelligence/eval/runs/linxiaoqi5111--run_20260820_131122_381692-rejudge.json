@@ -1,0 +1,35 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "linxiaoqi5111--run_20260820_131122_381692",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "b909184a385c7051ea3edad9a96220ca3bd150558dae5da8b3ebc72ac8e3107b",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "issues": [
+      "第1句用“金长征”及“真新高极少”作相对结构判断，但证据没有历史基准或完整总体分布可供比较。",
+      "第2句由收盘涨跌直接推断历史新高股当日冲高回落，证据没有日内高点或走势路径。",
+      "第3句称3年新高有5只，但注册表只列出4只3年新高；“全场新高股中最活跃”也缺少完整总体证据。",
+      "第4句以单个1年新高样本概括“多为公用事业等红利类”，数量分布和红利分类均无直接证据。",
+      "第5句引用不存在的E14—E25，并加入食品饮料、公用事业及“多数”表现等注册表无法核验的总体结论。",
+      "第6句断言反弹由低位补涨与大金融、红利推动，但市场证据显示成交前两行业为电子和通信，且没有资金驱动因果证据。",
+      "第7句把局部高涨幅归因为情绪驱动，证据只有涨幅结果，没有情绪驱动的直接因果证据。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

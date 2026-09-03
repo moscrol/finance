@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-14",
+  "agent": "claude",
+  "source": "duckdb",
+  "status": "pending_llm",
+  "review_status": "pending",
+  "source_fingerprint": "55383091555a0700fa8cedc7a1f12dedf176aa8e1b62dd475def4ccfef095f5f",
+  "answer_ref": "docs/learning/forecast-review-ledger/2026-07-14.answer.claude.json",
+  "verdict_ref": "docs/learning/forecast-review-ledger/2026-07-14.verdict.json",
+  "provider": null,
+  "model": null,
+  "degrade_reason": "未配置 LLM key。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 LLM_API_KEY(+LLM_BASE_URL,+LLM_MODEL) 即可启用",
+  "generated_at": "2026-09-03T09:10:06+08:00",
+  "reflections": [
+    {
+      "id": "target:000938",
+      "category": "target",
+      "verdict": "miss",
+      "actual": "紫光股份 收盘36.98（-3.70%），上证+1.36%，跌破证伪价37.0",
+      "failure_mode": "",
+      "diagnosis": "",
+      "missed_signal": "",
+      "ranking_error": "",
+      "correction": "",
+      "reusable_lesson": "",
+      "proposed_rule": "",
+      "review_status": "pending"
+    },
+    {
+      "id": "target:601398",
+      "category": "target",
+      "verdict": "partial",
+      "actual": "工商银行 收盘7.50（-0.40%），上证+1.36%，低于T+1阈值7.53但未破证伪价7.35",
+      "failure_mode": "",
+      "diagnosis": "",
+      "missed_signal": "",
+      "ranking_error": "",
+      "correction": "",
+      "reusable_lesson": "",
+      "proposed_rule": "",
+      "review_status": "pending"
+    }
+  ]
+}

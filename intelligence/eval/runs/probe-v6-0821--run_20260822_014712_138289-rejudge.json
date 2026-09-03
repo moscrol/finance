@@ -1,0 +1,31 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "probe-v6-0821--run_20260822_014712_138289",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "7f37a98af6cfbe09a9f03169c6d2eb4fd1d1d6d9c50d562492a3e1f361a8d15a",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      3,
+      8,
+      9,
+      10,
+      12
+    ],
+    "issues": [
+      "第3句断言8月5日后涨停家数长期处于1至5家、排名降至55至201名，但注册证据只提供8月5日和8月21日两个热度截面。",
+      "第8句为多家公司分配材料、正极、电解质等产业链角色，并加入联科科技related级信息；图谱证据只给出核心映射等级，且没有联科科技记录。",
+      "第9句把走弱归因于医药、有色替代后的存量抽血，并排除题材自身负面事件，但注册证据没有资金流向或事件检索证据支持该因果及排除判断。",
+      "第10句断言热度峰值后近三周持续缩量且没有连续大阴线，但注册证据没有覆盖该期间的完整逐日行情。",
+      "第12句使用8月19日低点和热度排名持续百名开外作为确认条件；证据只给出8月19日板块日频涨跌幅而无日内低点，百名阈值也无证据依据。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

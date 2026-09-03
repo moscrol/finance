@@ -1,0 +1,563 @@
+{
+  "schema_version": "1.0",
+  "source_repo": "finance-workspace-private",
+  "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-01-research-queue.json",
+  "market_date": "2026-09-01",
+  "created_at": "2026-09-01T21:14:59+08:00",
+  "tasks": [
+    {
+      "task_id": "2026-09-01-concept_ingest-ip-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "IP经济",
+      "priority": 167.61,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "芒果超媒",
+        "博纳影业",
+        "掌阅科技",
+        "中文在线",
+        "天娱数科"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-09-01",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-01-research-queue.json",
+      "created_at": "2026-09-01T21:14:59+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-09-01-concept_ingest-243871c24aaf-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "区块链",
+      "priority": 166.9,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "芒果超媒",
+        "华信永道",
+        "利欧股份",
+        "协鑫能科",
+        "华胜天成"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-09-01",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-01-research-queue.json",
+      "created_at": "2026-09-01T21:14:59+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-09-01-concept_ingest-e59d8d96da3a-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "元宇宙",
+      "priority": 159.63,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "芒果超媒",
+        "华胜天成",
+        "万兴科技",
+        "昆仑万维",
+        "中文在线"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-09-01",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-01-research-queue.json",
+      "created_at": "2026-09-01T21:14:59+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-09-01-concept_ingest-ff5bacd773d2-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "乡村振兴",
+      "priority": 173.25,
+      "reason": "数据缺口触发：missing_concept, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_concept",
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "芒果超媒",
+        "神农种业",
+        "青山纸业",
+        "秋乐种业",
+        "金健米业"
+      ],
+      "suggested_action": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-09-01",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-01-research-queue.json",
+      "created_at": "2026-09-01T21:14:59+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-09-01-disclosure-ff5bacd773d2-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "乡村振兴",
+      "priority": 173.25,
+      "reason": "数据缺口触发：missing_concept, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_concept",
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "芒果超媒",
+        "神农种业",
+        "青山纸业",
+        "秋乐种业",
+        "金健米业"
+      ],
+      "suggested_action": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-09-01",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-01-research-queue.json",
+      "created_at": "2026-09-01T21:14:59+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-09-01-disclosure-39cc029a14d5-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "华为鸿蒙",
+      "priority": 167.14,
+      "reason": "数据缺口触发：missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "芒果超媒",
+        "华信永道",
+        "我爱我家",
+        "楚天龙",
+        "万兴科技"
+      ],
+      "suggested_action": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-09-01",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-01-research-queue.json",
+      "created_at": "2026-09-01T21:14:59+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-09-01-disclosure-79ca7bc70434-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "传媒",
+      "priority": 166.7,
+      "reason": "数据缺口触发：missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [],
+      "data_gaps": [
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "芒果超媒",
+        "利欧股份",
+        "博纳影业",
+        "昆仑万维",
+        "掌阅科技"
+      ],
+      "suggested_action": "等盘面持续性验证：看相对强度、成交额边际、强势股扩散和回撤。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-09-01",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-01-research-queue.json",
+      "created_at": "2026-09-01T21:14:59+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-09-01-concept_ingest-jin-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "互联金融",
+      "priority": 165.98,
+      "reason": "数据缺口触发：missing_concept, missing_entity_exposure, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_concept",
+        "missing_entity_exposure",
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "华信永道",
+        "楚天龙",
+        "常山北明",
+        "数码视讯",
+        "天利科技"
+      ],
+      "suggested_action": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-09-01",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-01-research-queue.json",
+      "created_at": "2026-09-01T21:14:59+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-09-01-entity_delta-jin-001",
+      "task_type": "entity_delta",
+      "task_type_label": "公司边际变化",
+      "theme": "互联金融",
+      "priority": 165.98,
+      "reason": "数据缺口触发：missing_concept, missing_entity_exposure, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_concept",
+        "missing_entity_exposure",
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "华信永道",
+        "楚天龙",
+        "常山北明",
+        "数码视讯",
+        "天利科技"
+      ],
+      "suggested_action": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-09-01",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-01-research-queue.json",
+      "created_at": "2026-09-01T21:14:59+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-09-01-disclosure-jin-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "互联金融",
+      "priority": 165.98,
+      "reason": "数据缺口触发：missing_concept, missing_entity_exposure, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_concept",
+        "missing_entity_exposure",
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "华信永道",
+        "楚天龙",
+        "常山北明",
+        "数码视讯",
+        "天利科技"
+      ],
+      "suggested_action": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-09-01",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-01-research-queue.json",
+      "created_at": "2026-09-01T21:14:59+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-09-01-disclosure-ip-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "IP",
+      "priority": 159.34,
+      "reason": "数据缺口触发：missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "楚天龙",
+        "数码视讯",
+        "四方精创",
+        "翠微股份",
+        "拉卡拉"
+      ],
+      "suggested_action": "先找公告、调研、订单、客户验证或产能/出货变化；年报基线之后不要直接升级。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-09-01",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-01-research-queue.json",
+      "created_at": "2026-09-01T21:14:59+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-09-01-concept_ingest-chatgpt-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "ChatGPT概念",
+      "priority": 159.17,
+      "reason": "数据缺口触发：missing_concept, missing_entity_exposure, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_concept",
+        "missing_entity_exposure",
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "利欧股份",
+        "我爱我家",
+        "万兴科技",
+        "昆仑万维",
+        "掌阅科技"
+      ],
+      "suggested_action": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-09-01",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-01-research-queue.json",
+      "created_at": "2026-09-01T21:14:59+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-09-01-entity_delta-chatgpt-001",
+      "task_type": "entity_delta",
+      "task_type_label": "公司边际变化",
+      "theme": "ChatGPT概念",
+      "priority": 159.17,
+      "reason": "数据缺口触发：missing_concept, missing_entity_exposure, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_concept",
+        "missing_entity_exposure",
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "利欧股份",
+        "我爱我家",
+        "万兴科技",
+        "昆仑万维",
+        "掌阅科技"
+      ],
+      "suggested_action": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-09-01",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-01-research-queue.json",
+      "created_at": "2026-09-01T21:14:59+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-09-01-disclosure-chatgpt-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "ChatGPT概念",
+      "priority": 159.17,
+      "reason": "数据缺口触发：missing_concept, missing_entity_exposure, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_concept",
+        "missing_entity_exposure",
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "利欧股份",
+        "我爱我家",
+        "万兴科技",
+        "昆仑万维",
+        "掌阅科技"
+      ],
+      "suggested_action": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-09-01",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-01-research-queue.json",
+      "created_at": "2026-09-01T21:14:59+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    }
+  ],
+  "summary": {
+    "total_tasks": 14,
+    "by_task_type": {
+      "concept_ingest": 6,
+      "disclosure": 6,
+      "entity_delta": 2
+    },
+    "resolved_themes_skipped": [],
+    "existing_concept_skipped": []
+  },
+  "glossary": {
+    "RAG": "检索增强生成（Retrieval-Augmented Generation）：先从知识库找证据，再让模型生成回答。",
+    "BM25": "一种关键词相关性排序算法，适合精确词命中；常和向量检索组成混合检索。",
+    "rerank": "二次排序：先粗召回一批材料，再用更精细模型重排，提升证据相关性。",
+    "IMA": "题材/产业链深度拆解材料；这里指补清题材边界、核心公司、证据层级的研究动作。",
+    "MOC": "收盘集合竞价（Market-on-Close）；如果用于成交或盘口语境，必须写出中文释义。"
+  },
+  "notes": [
+    "本队列只表达金融 repo 发现的知识库缺口；知识库 repo 接收后仍需人工复核。",
+    "所有任务默认 requires_human_review=true、auto_apply=false，不允许自动写入 wiki/relations。"
+  ]
+}

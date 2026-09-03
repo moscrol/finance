@@ -1,0 +1,335 @@
+{
+  "schema_version": "1.0",
+  "source_repo": "finance-workspace-private",
+  "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-08-28-research-queue.json",
+  "market_date": "2026-08-28",
+  "created_at": "2026-08-28T23:31:50+08:00",
+  "tasks": [
+    {
+      "task_id": "2026-08-28-concept_ingest-e4bb9da18861-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "医药",
+      "priority": 123.0,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "誉衡药业",
+        "千金药业",
+        "冀衡医药",
+        "神奇制药",
+        "精华制药"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-08-28",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-08-28-research-queue.json",
+      "created_at": "2026-08-28T23:31:50+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-08-28-disclosure-hua-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "化工",
+      "priority": 172.55,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "肯特股份",
+        "昊华科技",
+        "金牛化工",
+        "多氟多",
+        "赤天化"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-08-28",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-08-28-research-queue.json",
+      "created_at": "2026-08-28T23:31:50+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-08-28-disclosure-5f506e25d851-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "信创",
+      "priority": 123.15,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "星网锐捷",
+        "汉得信息",
+        "麒麟信安",
+        "三六零",
+        "天融信"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-08-28",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-08-28-research-queue.json",
+      "created_at": "2026-08-28T23:31:50+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-08-28-concept_ingest-ff5bacd773d2-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "乡村振兴",
+      "priority": 170.17,
+      "reason": "数据缺口触发：missing_concept, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_concept",
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "金健米业",
+        "赤天化",
+        "敦煌种业",
+        "冠农股份",
+        "众合科技"
+      ],
+      "suggested_action": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-08-28",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-08-28-research-queue.json",
+      "created_at": "2026-08-28T23:31:50+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-08-28-disclosure-ff5bacd773d2-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "乡村振兴",
+      "priority": 170.17,
+      "reason": "数据缺口触发：missing_concept, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_concept",
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "金健米业",
+        "赤天化",
+        "敦煌种业",
+        "冠农股份",
+        "众合科技"
+      ],
+      "suggested_action": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-08-28",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-08-28-research-queue.json",
+      "created_at": "2026-08-28T23:31:50+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-08-28-entity_delta-4d6b35c26e14-001",
+      "task_type": "entity_delta",
+      "task_type_label": "公司边际变化",
+      "theme": "粮食概念",
+      "priority": 135.6,
+      "reason": "数据缺口触发：missing_concept, missing_entity_exposure, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_concept",
+        "missing_entity_exposure",
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "金健米业",
+        "敦煌种业",
+        "黑芝麻",
+        "新华百货",
+        "秋乐种业"
+      ],
+      "suggested_action": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-08-28",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-08-28-research-queue.json",
+      "created_at": "2026-08-28T23:31:50+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-08-28-disclosure-4d6b35c26e14-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "粮食概念",
+      "priority": 135.6,
+      "reason": "数据缺口触发：missing_concept, missing_entity_exposure, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_concept",
+        "missing_entity_exposure",
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "金健米业",
+        "敦煌种业",
+        "黑芝麻",
+        "新华百货",
+        "秋乐种业"
+      ],
+      "suggested_action": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-08-28",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-08-28-research-queue.json",
+      "created_at": "2026-08-28T23:31:50+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-08-28-disclosure-hua-002",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "化肥",
+      "priority": 126.0,
+      "reason": "数据缺口触发：missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "赤天化",
+        "冠农股份",
+        "天齐锂业",
+        "华锦股份",
+        "泸天化"
+      ],
+      "suggested_action": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-08-28",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-08-28-research-queue.json",
+      "created_at": "2026-08-28T23:31:50+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    }
+  ],
+  "summary": {
+    "total_tasks": 8,
+    "by_task_type": {
+      "concept_ingest": 2,
+      "disclosure": 5,
+      "entity_delta": 1
+    },
+    "resolved_themes_skipped": [],
+    "existing_concept_skipped": [
+      "AIGC",
+      "种植业",
+      "粮食概念"
+    ]
+  },
+  "glossary": {
+    "RAG": "检索增强生成（Retrieval-Augmented Generation）：先从知识库找证据，再让模型生成回答。",
+    "BM25": "一种关键词相关性排序算法，适合精确词命中；常和向量检索组成混合检索。",
+    "rerank": "二次排序：先粗召回一批材料，再用更精细模型重排，提升证据相关性。",
+    "IMA": "题材/产业链深度拆解材料；这里指补清题材边界、核心公司、证据层级的研究动作。",
+    "MOC": "收盘集合竞价（Market-on-Close）；如果用于成交或盘口语境，必须写出中文释义。"
+  },
+  "notes": [
+    "本队列只表达金融 repo 发现的知识库缺口；知识库 repo 接收后仍需人工复核。",
+    "所有任务默认 requires_human_review=true、auto_apply=false，不允许自动写入 wiki/relations。"
+  ]
+}

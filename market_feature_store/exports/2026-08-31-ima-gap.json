@@ -1,0 +1,184 @@
+{
+  "schema_version": "ima-gap/v1",
+  "date": "2026-08-31",
+  "auto_fetch": false,
+  "note": "只出清单。daily-full 不自动问 IMA；补卡/DeepDive 另开一轮。",
+  "theme_run": [
+    "AIGC",
+    "智能家居",
+    "车联网"
+  ],
+  "stock_run": [
+    "星网锐捷",
+    "瑞芯微",
+    "移远通信",
+    "芒果超媒"
+  ],
+  "themes": [
+    {
+      "theme": "AIGC",
+      "bucket": "today_do_ima",
+      "priority": 169.68,
+      "stocks": [
+        "中文在线",
+        "浪潮信息",
+        "紫光股份",
+        "流金科技",
+        "星网锐捷"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 950,
+      "action": "run_deepdive",
+      "reason": "概念卡偏薄，缺 15 章边界/分篮"
+    },
+    {
+      "theme": "智能家居",
+      "bucket": "today_do_ima",
+      "priority": 166.38,
+      "stocks": [
+        "星网锐捷",
+        "星宸科技",
+        "瑞芯微",
+        "全志科技",
+        "移远通信"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 719,
+      "action": "run_deepdive",
+      "reason": "占位页，走 15 章升 L1"
+    },
+    {
+      "theme": "车联网",
+      "bucket": "today_do_ima",
+      "priority": 158.9,
+      "stocks": [
+        "浪潮信息",
+        "紫光股份",
+        "星网锐捷",
+        "星宸科技",
+        "全志科技"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 696,
+      "action": "run_deepdive",
+      "reason": "占位页，走 15 章升 L1"
+    },
+    {
+      "theme": "游戏",
+      "bucket": "today_do_ima",
+      "priority": 153.4,
+      "stocks": [
+        "中文在线",
+        "流金科技",
+        "华策影视",
+        "芒果超媒",
+        "昆仑万维"
+      ],
+      "page_class": "l1",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 936,
+      "action": "skip_have_l1",
+      "reason": "已有 L1（核心机制/产业链），不重复 IMA"
+    },
+    {
+      "theme": "算力租赁",
+      "bucket": "today_find_official_evidence",
+      "priority": 140.0,
+      "stocks": [
+        "浪潮信息",
+        "紫光股份",
+        "寒武纪",
+        "华策影视",
+        "昆仑万维"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 21815,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    }
+  ],
+  "stocks": [
+    {
+      "company": "中文在线",
+      "theme": "AIGC",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "浪潮信息",
+      "theme": "AIGC",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "紫光股份",
+      "theme": "AIGC",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "流金科技",
+      "theme": "AIGC",
+      "action": "skip_no_entity",
+      "reason": "无实体页，不空建"
+    },
+    {
+      "company": "星网锐捷",
+      "theme": "AIGC",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "星宸科技",
+      "theme": "智能家居",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "瑞芯微",
+      "theme": "智能家居",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "全志科技",
+      "theme": "智能家居",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "移远通信",
+      "theme": "智能家居",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "华策影视",
+      "theme": "游戏",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "芒果超媒",
+      "theme": "游戏",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "昆仑万维",
+      "theme": "游戏",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    }
+  ],
+  "counts": {
+    "theme_run": 3,
+    "stock_run": 4,
+    "themes": 5,
+    "stocks": 12
+  }
+}

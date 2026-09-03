@@ -1,0 +1,31 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "probe-r05close-0828--run_20260828_191023_424562",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "86b00f8d94379afa926ec00a257d6aa677ff02260ae5da02e40976a07aed1315",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "issues": [
+      "第1句断言寒武纪是人工智能板块成交额最大个股，但E1只提供寒武纪单条行情，未直接证明其在完整板块成分中的第一名。",
+      "第2句断言数据口径是板块全体成分股按成交额排序的第一名，但证据注册表只列出三只个股，未证明完整覆盖或排序结果。",
+      "第3句将长电科技、京东方A断言为第二名和第三名并称排序稳健，但现有三条个股记录不能证明它们在完整板块中的名次。",
+      "第4句断言最新数据日为2026-08-27，但注册证据的数据日期均为2026-08-25。",
+      "第5句断言板块分类口径是唯一剩余不确定性，现有证据无法排除成分覆盖和排序完整性等其他不确定性。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

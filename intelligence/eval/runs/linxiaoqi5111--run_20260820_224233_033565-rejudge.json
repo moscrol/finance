@@ -1,0 +1,31 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "linxiaoqi5111--run_20260820_224233_033565",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "41c9dd55bfb45f8a3333ed9cdc580b1cbeae6e20efcdda90c0816a9ddc95c3b0",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      11,
+      12,
+      13,
+      15,
+      19
+    ],
+    "issues": [
+      "第11句把热度排名较高归因为全市场弱势导致占比被动抬高，但所引E7、E20没有直接给出全市场强弱，也不能核验这一外部因果。",
+      "第12句断言二波依赖放量兑现、量能回落即路径失效，属于未由该evidence模式输出直接证据支持的延续条件。",
+      "第13句设置边际量连续大于10、涨停不少于15、热度进入前3等任意触发阈值，证据只提供单日观测值，不能支持这些阈值具有预测效力。",
+      "第15句设置连续两日缩量下跌且涨停少于5的任意退潮阈值，历史样本并未直接支持该规则。",
+      "第19句把边际量转负设为立即离场的确定触发器，既是任意阈值规则，也超出证据可支持的语义。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

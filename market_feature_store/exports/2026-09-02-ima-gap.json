@@ -1,0 +1,144 @@
+{
+  "schema_version": "ima-gap/v1",
+  "date": "2026-09-02",
+  "auto_fetch": false,
+  "note": "只出清单。daily-full 不自动问 IMA；补卡/DeepDive 另开一轮。",
+  "theme_run": [
+    "国防军工",
+    "军民融合",
+    "地面兵装",
+    "消费"
+  ],
+  "stock_run": [
+    "长城军工",
+    "中兵红箭",
+    "内蒙一机",
+    "国科军工"
+  ],
+  "themes": [
+    {
+      "theme": "国防军工",
+      "bucket": "today_do_ima",
+      "priority": 175.11,
+      "stocks": [
+        "远东股份",
+        "飞龙股份",
+        "晟楠科技",
+        "北方长龙",
+        "长城军工"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 690,
+      "action": "run_deepdive",
+      "reason": "占位页，走 15 章升 L1"
+    },
+    {
+      "theme": "军民融合",
+      "bucket": "today_do_ima",
+      "priority": 171.15,
+      "stocks": [
+        "远东股份",
+        "晟楠科技",
+        "北方长龙",
+        "长城军工",
+        "博云新材"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 668,
+      "action": "run_deepdive",
+      "reason": "占位页，走 15 章升 L1"
+    },
+    {
+      "theme": "地面兵装",
+      "bucket": "today_do_ima",
+      "priority": 142.0,
+      "stocks": [
+        "北方长龙",
+        "长城军工",
+        "中兵红箭",
+        "内蒙一机",
+        "国科军工"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 612,
+      "action": "run_deepdive",
+      "reason": "占位页，走 15 章升 L1"
+    },
+    {
+      "theme": "消费",
+      "bucket": "today_do_ima",
+      "priority": 105.0,
+      "stocks": [],
+      "page_class": "stub",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 619,
+      "action": "run_deepdive",
+      "reason": "占位页，走 15 章升 L1"
+    }
+  ],
+  "stocks": [
+    {
+      "company": "远东股份",
+      "theme": "国防军工",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "飞龙股份",
+      "theme": "国防军工",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "晟楠科技",
+      "theme": "国防军工",
+      "action": "skip_no_entity",
+      "reason": "无实体页，不空建"
+    },
+    {
+      "company": "北方长龙",
+      "theme": "国防军工",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "长城军工",
+      "theme": "国防军工",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "博云新材",
+      "theme": "军民融合",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "中兵红箭",
+      "theme": "地面兵装",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "内蒙一机",
+      "theme": "地面兵装",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "国科军工",
+      "theme": "地面兵装",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    }
+  ],
+  "counts": {
+    "theme_run": 4,
+    "stock_run": 4,
+    "themes": 4,
+    "stocks": 9
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "linxiaoqi5111--run_20260820_232353_701003",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "2914319cf55ada4375257d4fd78e72fc7bbe6aecdd9a567744abc0cebfdb4c40",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      6
+    ],
+    "issues": [
+      "第6句称医药、有色各核心板块普遍缩量上涨，但E21中的医疗服务和医药商业当日分别下跌0.19%和0.67%，与该概括不符。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

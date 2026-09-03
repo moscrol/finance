@@ -1,0 +1,37 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "fsr2-r6--run_20260828_182816_607781",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "24b0aa5ae1dc242bbcc0531c86346c4dc4c736efc77daf9d2002a14dd93c4c0a",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      2,
+      3,
+      4,
+      5,
+      8,
+      9,
+      11,
+      12
+    ],
+    "issues": [
+      "第2句中的*ST闻泰及其5日涨幅13.44%没有对应注册证据。",
+      "第3句声称依据板块成分股结构化行情全集排序，现有注册证据未直接证明全集覆盖。",
+      "第4句将相关成员称为成交额靠前的大市值成员，市值属性没有证据；同时“近5日无人上涨”与句内华虹宏力和澜起科技为正涨幅相矛盾。",
+      "第5句断言强势完全由中小市值小票贡献，但市值及完整贡献结构均无直接证据支持。",
+      "第8句对耐科装备作半导体封装设备与封测设备的产业链定位，注册证据未提供该信息。",
+      "第9句包含多个未注册成员及未经证据支持的产业链分类，并据此断言并非主线级扩散。",
+      "第11句提出大票5日转正才具持续性的任意触发条件，证据未支持该阈值规则。",
+      "第12句提出小票继续放量下跌即判为超跌反抽的条件及归因，证据未支持该触发规则和形态结论。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

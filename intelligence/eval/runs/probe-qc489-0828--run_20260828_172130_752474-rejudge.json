@@ -1,0 +1,23 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "probe-qc489-0828--run_20260828_172130_752474",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "67af68cf5e4fd8f78afb838bd9e23d31f044c03af97adb5dd7a4d20295654a38",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      2
+    ],
+    "issues": [
+      "第2句将长电科技归入半导体封测方向作为当前公司事实，但注册证据仅覆盖市场与行业数据，未提供该公司业务归属的直接证据。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

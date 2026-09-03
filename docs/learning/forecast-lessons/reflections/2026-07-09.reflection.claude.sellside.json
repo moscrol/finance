@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-09",
+  "agent": "claude",
+  "source": "sellside",
+  "status": "pending_llm",
+  "review_status": "pending",
+  "source_fingerprint": "8003627a3fa709bbf13ea17779e3744f69d1c425b0f89d7b27d4b2d5b43688cc",
+  "answer_ref": "docs/learning/forecast-review-ledger/2026-07-09.answer.claude.sellside.json",
+  "verdict_ref": "docs/learning/forecast-review-ledger/2026-07-09.verdict.json",
+  "provider": null,
+  "model": null,
+  "degrade_reason": "未配置 LLM key。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 LLM_API_KEY(+LLM_BASE_URL,+LLM_MODEL) 即可启用",
+  "generated_at": "2026-09-03T09:10:06+08:00",
+  "reflections": [
+    {
+      "id": "direction",
+      "category": "direction",
+      "verdict": "miss",
+      "actual": "IT服务 -4.20%/diff-14.05；云计算 -4.59%/diff-22.87；算力租赁 -4.52%/diff-21.69；半导体设备 -4.79%/diff-1.02；半导体 -5.51%/diff-17.45；多模态AI -4.66%/diff-22.43",
+      "failure_mode": "",
+      "diagnosis": "",
+      "missed_signal": "",
+      "ranking_error": "",
+      "correction": "",
+      "reusable_lesson": "",
+      "proposed_rule": "",
+      "review_status": "pending"
+    },
+    {
+      "id": "market",
+      "category": "market",
+      "verdict": "partial",
+      "actual": "涨家数801、涨停29、跌停172、成交额28176亿、量比87.3、上证-2.06%（下跌阶段）",
+      "failure_mode": "",
+      "diagnosis": "",
+      "missed_signal": "",
+      "ranking_error": "",
+      "correction": "",
+      "reusable_lesson": "",
+      "proposed_rule": "",
+      "review_status": "pending"
+    }
+  ]
+}
