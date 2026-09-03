@@ -63,6 +63,7 @@ from intelligence.services import (
     market_technical,
     market_timeseries,
     perspective_lab,
+    proactive_checks,
     research_brief,
     research_queue,
     retrieval_planner,
@@ -559,6 +560,18 @@ _MARKET_REVIEW_SYSTEM_PROMPT = """
 """.strip()
 
 
+def _market_review_system_content(query: str, question_type: str = "market_review") -> str:
+    """复盘专线的 system prompt：常量正文 + 被触发才出现的漏检闸。
+
+    常量本身保持可测、可缓存；漏检闸按问题现拼，避免把 4 条检查焊进全站复盘模板。
+    """
+
+    section = proactive_checks.prompt_section(query, question_type=question_type)
+    if not section:
+        return _MARKET_REVIEW_SYSTEM_PROMPT
+    return f"{_MARKET_REVIEW_SYSTEM_PROMPT}\n\n{section}"
+
+
 def _market_today() -> str:
     """交易日口径的"今天"。
 
@@ -790,7 +803,15 @@ def _answer_market_review(
             + "\n\n".join(prior_parts)
         )
     messages = [
-        {"role": "system", "content": _MARKET_REVIEW_SYSTEM_PROMPT},
+        {
+            "role": "system",
+            "content": _market_review_system_content(
+                options.query,
+                result.question_plan.question_type
+                if result.question_plan is not None
+                else "market_review",
+            ),
+        },
         {"role": "user", "content": user_prompt},
     ]
     result.prepared_synthesis_messages = messages

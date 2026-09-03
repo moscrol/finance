@@ -1030,6 +1030,7 @@ def build_synthesis_messages(
     exemplar_guidance: str = "",
     contract_guidance: str = "",
     baseline_guidance: str = "",
+    proactive_guidance: str = "",
 ) -> list[dict]:
     """Assemble the turn-1 synthesis ``[system, user]`` messages.
 
@@ -1057,6 +1058,12 @@ def build_synthesis_messages(
             "与本轮证据冲突时以证据为准，但必须显式说明冲突，不得沉默跳过。\n"
             f"{baseline_guidance}"
         )
+    if proactive_guidance:
+        # 本轮漏检闸跟在全局判读基线之后：基线是「怎么读」，这里是「本轮必须核的几条」。
+        # 标签必须写明不是 KOL 观点——否则模型会把检查清单读成 SPT 口吻。
+        from intelligence.services import proactive_checks as _proactive_checks
+
+        system_content += f"\n\n{_proactive_checks.as_prompt_section(proactive_guidance)}"
     if experience_guidance:
         system_content += (
             "\n\n## 历史经验卡片（用于避免重复犯错）\n"

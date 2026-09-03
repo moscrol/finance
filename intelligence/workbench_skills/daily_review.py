@@ -7,6 +7,7 @@ from typing import cast
 
 from intelligence.api.structured_reports import daily_projection_modules
 from intelligence.paths import default_market_db_path
+from intelligence.services import proactive_checks
 from intelligence.services.ask_blocks import mainline_knowledge_module
 from intelligence.services.query_understanding import (
     market_review_requested_date,
@@ -241,6 +242,14 @@ class DailyReviewSkill:
                 "（那是当天最该补的研究）；盘面强弱与知识库积累是两件事，"
                 "不得互相推导"
             )
+        # 工作台 market_watch 不走 ask 合成链；漏检闸必须挂在这份契约上，
+        # 否则用户在复盘里一个字都看不到（同知识库模块那次事故）。
+        proactive_section = proactive_checks.prompt_section(
+            context.query,
+            question_type="dated_market_review" if requested_date else "market_watch",
+        )
+        if proactive_section:
+            output_contract.append(proactive_section)
         safe_payload = cast(JsonObject, redact_json(payload))
         artifact = context.run_store.add_artifact(
             context.run_id,

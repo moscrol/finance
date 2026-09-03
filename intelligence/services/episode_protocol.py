@@ -18,7 +18,7 @@ from intelligence.services.episode_output_substance import (
     required_output_evidence_floor,
     required_outputs_without_substance,
 )
-from intelligence.services import reading_baseline
+from intelligence.services import proactive_checks, reading_baseline
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.task_frame import TaskFrame
@@ -254,6 +254,17 @@ def build_episode_input(
         payload["reading_baseline_rule"] = (
             "判读基线是本领域「数据该怎么读」的强制方法约束，适用于全部证据块；"
             "与本轮证据冲突时以证据为准，但必须显式说明冲突，不得沉默跳过"
+        )
+    proactive = proactive_checks.guidance(
+        task_frame.raw_question,
+        question_type=task_frame.question_type,
+    )
+    if proactive:
+        payload["proactive_checks"] = proactive
+        payload["proactive_checks_rule"] = (
+            "本轮主动检查是漏检闸，不是 KOL 观点；"
+            "涉及冰点 / 新主线 / 主升时必须逐条给 HIT / MISS / INSUFFICIENT，"
+            "缺证据要大声声明，不得用次级证据冒充，不得改写成买卖建议"
         )
     if context.perspective_context:
         # 视角约束只在激活时出现：neutral 轮的模型输入逐字节不变。
