@@ -42,9 +42,11 @@ hash 的证据，这是比 dsh / knevo 领先的一点，别为了像它而丢�
 77 条模型自请 quick。批 deep 的全部落在 **08-13 ～ 08-22**；**08-22 之后零 deep、零分支**，此后约 400 个 run 的
 `contract.research_tier` 全是 standard。`mode_decision` 只在有 PLAN 的 run 里出现，而 PLAN 自 08-19 起只出现在 3 个 run。
 
-**结论**：升档路径在生产上事实关闭 12 天，协调器休眠。原因**未查**——怀疑 08-22 前后的 prompt 重构
-（`46053d3f refactor(episode): 题型规则与工具表移出 system`）改变了模型交 PLAN 的频率，这是 [推断]，必须先验。
-交接说「先看 govern_mode 升 deep 频次」，答案是：**零**。这决定了本稿的排期（§7）。
+**结论**：升档路径在生产上事实关闭 12 天，协调器休眠。**原因已查清 [实测，同日同代码双模型对照]**：08-17 起生产模型从
+`gpt-5.6-terra` 换成 GLM，而 **GLM 几乎不主动交 PLAN**——08-13 gpt 24/80（30%）对 glm-5.2 0/20，08-16 gpt 44/154（29%）对 glm-5.2 0/12；
+全量批 deep：gpt 48/417、glm-5.2 2/272、glm-5.3 0/113。PLAN 指令原文自 08-07 一字未动，`46053d3f` 不碰 PLAN——09-03 首版此处对
+prompt 重构的 [推断] **撤回**。读数 `docs/verification/2026-09-03-plan-deep-rate-by-model.md`。
+交接说「先看 govern_mode 升 deep 频次」，答案是：**GLM 下为零，且是模型行为不是代码**。这决定了本稿的排期（§7）。
 
 ### 1.4 dsh `tool-subagent` 的形状（只读 `/Users/a77/deepseek-harness/packages/subagent/tool-subagent/README.md`）
 
@@ -123,9 +125,10 @@ hash 的证据，这是比 dsh / knevo 领先的一点，别为了像它而丢�
 
 ## 7. 排期与非目标
 
-- **先做**：查 §1.3——`mode_decision` 为什么停在 08-22。抓法：对比 08-22 前后同题型的首轮 system/user 消息里 PLAN 指令是否还在
-  （`46053d3f` 把题型规则移出 system），以及 `research_plan.parse_research_plan` 在近两周 run 的 `model_turn` 上的命中数。
-  这是一个下午能出读数的事，且它决定 deep 档是不是还活着——比子代理工具本身值钱。
+- **已做**：§1.3 查清——是模型（GLM 不交 PLAN），不是代码。
+- **先拍（用户）**：deep 在 GLM 下怎么可达——a) 治理侧不经 PLAN 按可观察信号升档（`mode_governor` 已有 `observable_conditions`，缺一个
+  不依赖 PLAN 的入口）；b) 对复杂题型把 PLAN 从「可以」改成必填；c) 接受 GLM 下 deep 为零、本稿搁置。三条都是协议/预算线级的决定。
+  在拍之前实施 §2–§6 等于装一个够不着的工具。
 - **然后**：本稿 §2–§6，一张 PR：`ToolSpec` + 契约 + runner（包协调器）+ `min_window_seconds` + 守门测试；零 loop 改动。
 - **不做**：后台 / 可续接；嵌套；换 loop；新账本；改任何预算线；在 §1.3 查清前切流。
 - **不读成**：「有了子代理就能答 knevo 那类题」——knevo 的 22 次调用赢在 `web_fetch` 与 web 授权（父稿 §1.4），那两样今天已经在
@@ -140,4 +143,5 @@ hash 的证据，这是比 dsh / knevo 领先的一点，别为了像它而丢�
 生产读数：`~/.local/share/finance-workbench/users/*/runs/run_*/continuous-episode.json` 814 份，按 `events[].kind` 与
 `contract.research_tier` 计数，一次性脚本未入库（复现：数 `mode_decision` / `branch_started` 按 `run_id` 日期分桶）。
 dsh 原文：只读 `/Users/a77/deepseek-harness/packages/subagent/tool-subagent/README.md`（未改动）。
-§1.3 的原因为 [推断]；§2–§6 为设计；§4 的 standard 档窗读数来自 09-03 腾讯题 live（`docs/verification/2026-09-03-web-chain-two-arm-live.md`）。
+§1.3 的原因 09-03 下午由 [推断] 升为 [实测]（同日双模型对照，`docs/verification/2026-09-03-plan-deep-rate-by-model.md`）；§2–§6 为设计；
+§4 的 standard 档窗读数来自 09-03 腾讯题 live（`docs/verification/2026-09-03-web-chain-two-arm-live.md`）。

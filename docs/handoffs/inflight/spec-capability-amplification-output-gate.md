@@ -17,13 +17,12 @@
 - `web_fetch` 两臂零调用（snippet 里就有数），仍无 live 读数。
 - kb_search 刚预热仍首查超时 2/2；保活 counters 在臂进程内没读到。
 - 判官对 public_web「零删除」只 n=1；P2 占比要等 #557 合入切流后积累。
-- PLAN/deep 归零原因未查（[推断] 08-22 prompt 重构）。
+- PLAN/deep 归零已查清：是模型不是代码（GLM 交 PLAN 0/32 对 gpt 68/234 同日同码），`2026-09-03-plan-deep-rate-by-model.md`。
 
 ## 下一步
-1. 查 PLAN/deep 为何 08-22 后归零——子代理 spec 的前置（spec §7）。
-2. 生产积累后跑 `scripts/offline_judge_verdict_census.py --since 2026-09-03` 出 P2 第 2 步占比（首读 1 run/1 条，只证链路通）。
-3. 换题复跑两臂验 `web_fetch`（挑 snippet 无数的题）。
-待用户拍（今天 live 各 3/3 复现）：② 改判——RAG「worker ready 但首查慢」不是 failed→藏能管的，选 a 预热后真查一次 / b 预热后 N 秒藏 / c 不动；零授予——web/news/fetch 无地板在 `would_grant=0` 仍可见，加 ~5s 地板还是 <1s 全藏。
+1. 生产积累后跑 `scripts/offline_judge_verdict_census.py --since 2026-09-03` 出 P2 第 2 步占比（首读 1 run/1 条，只证链路通）。
+2. 换题复跑两臂验 `web_fetch`（挑 snippet 无数的题）。
+待用户拍（前两项今天 live 各 3/3 复现）：② RAG「worker ready 但首查慢」选 a 预热后真查一次 / b 预热后 N 秒藏 / c 不动；零授予——web/news/fetch 无地板在 `would_grant=0` 仍可见，加 ~5s 地板还是 <1s 全藏；deep 在 GLM 下怎么可达——a 治理侧不经 PLAN 按可观察信号升档 / b 复杂题型 PLAN 必填 / c 接受为零、子代理搁置（spec §7）。
 
 ## 踩过的坑
 - `status=success` 内容全错：三态看不出，直调一次看结果再跑 live。
@@ -32,4 +31,4 @@
 - 后台命令别用 `&` 挂在工具 shell 里，会被回收。
 
 ## 已验证
-#553 7574P/6F（+1 墙钟红，#551 修）、#551 7570P/5F、#557 7576P/5F，红集均 = 基线 5 条 dream_mine；腾讯题两臂 live：参考臂 6602.57 亿元一手 web 证据绑定发布。
+0903e 切流 main tip 7581P/5F 同一组红、三项验证过；腾讯题两臂 live：参考臂 6602.57 亿元 web 证据绑定发布。
