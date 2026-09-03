@@ -2,6 +2,12 @@
 
 > 格式：`[日期] 错误 → 根因 → 正确做法`
 
+## 视角画像
+
+- **[2026-08-28] `review_patch` 整表回写把风远收口 HOW / 四表 / patch_history 盖成薄副本。**
+  根因：`_save_profile` 把调用方手里的整份 dict 写盘。官方 `review_patch` 每次会重读，但批量脚本或更早 load 的对象一旦更薄，一次保存就丢人工字段。磁盘已经薄了救不回；挡的是「内存薄、磁盘厚」。
+  做法：写前比磁盘做长度/`article_count` 棘轮，下降就 `ProfileRegressionError`；ingest/评审在副作用前再 `load_profile`。换措辞同长度放行。详见 `docs/handoffs/2026-08-28-fengyuan-spt-closeout.md`。
+
 ## CDP / Web 抓取
 
 - **[2026-05-08] CDP eval 用 `--data-urlencode` 导致 "Uncaught" 错误。**
