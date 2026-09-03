@@ -331,6 +331,42 @@ def test_stock_sectors_merges_provider_duplicates_but_keeps_true_ambiguity(file_
     assert res2["alias_rows_merged"] == 0
 
 
+def test_top_sectors_collapses_provider_duplicates_and_keeps_true_ambiguity(file_db):
+    _apply_to_file(file_db)
+    # 并存日 云计算 有 .TI(1.1) 与 .FP(2.2) 两行 → 只留现行码那一行
+    res = query.top_sectors(trade_date="2026-03-02", top=10, order_by="pct_chg")
+    names = [s["sector_name"] for s in res["sectors"]]
+    assert names.count("云计算") == 1
+    row = next(s for s in res["sectors"] if s["sector_name"] == "云计算")
+    assert row["sector_ts_code"] == "990044.FP" and row["pct_chg"] == 2.2
+    assert res["alias_rows_merged"] == 1
+
+    # 国防军工 两个 .FP 是两个板块, 两行都在; 名次按值重排 (0.5 排在 0.2 前)
+    res2 = query.top_sectors(trade_date="2026-09-01", top=10, order_by="pct_chg")
+    codes = [s["sector_ts_code"] for s in res2["sectors"]]
+    assert codes[:3] == ["990044.FP", "990144.FP", "990143.FP"]
+    assert res2["alias_rows_merged"] == 0
+
+
+def test_ask_blocks_stock_rank_uses_one_sector_code_as_denominator(file_db):
+    """国防军工 两个码各挂同一只股: 按名字分区分母会是 2, 解析到码后是 1。"""
+    from intelligence.services import ask_blocks
+
+    _apply_to_file(file_db)
+    con = duckdb.connect(str(file_db), read_only=True)
+    try:
+        lines = ask_blocks._format_stock_rank_lines(con, "2026-09-01", "600001.SH", ["国防军工"])
+        assert lines == ["国防军工成交排名1/1、涨幅排名1/1、涨跌幅3.0%、成交12.0亿"]
+        # 并存日: 云计算 现行码有 2 只成分 (FP股A/TI股A), 退役码的 TI股B 不进分母
+        lines = ask_blocks._format_stock_rank_lines(con, "2026-03-02", "000001.SZ", ["云计算"])
+        assert lines == ["云计算成交排名2/2、涨幅排名2/2、涨跌幅1.0%、成交5.0亿"]
+        # 板块状态行同样落到现行码 (.FP 的 2.2), 不再 limit 1 随机
+        state = ask_blocks._format_sector_state_lines(con, "2026-03-02", ["云计算"])
+        assert state and state[0].startswith("云计算2.2%")
+    finally:
+        con.close()
+
+
 # ---------------------------------------------------------------------------
 # staging 应用: 生产库正门
 # ---------------------------------------------------------------------------

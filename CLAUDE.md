@@ -195,7 +195,7 @@ git branch --show-current
 | fact_mainline_*_daily | 主线结构（sector/stock/theme） | fupanhui |
 | dim_sector + dim_sector_canonical (V) | 板块维度。**630 行 ≠ 630 个板块**：223 个 `.TI` 码（2026-07-24 停更）+ 407 个 `.FP` 码（2025-10-09 起），117 个板块名两套码都有。解析走 `dim_sector_canonical` / `sector_alias.resolve_sector_codes`，见下「板块维度一致化」 | fupanhui |
 | config_sector_alias | 旧码→现行码映射（`sector-alias apply` 生成 117 条）+ 人工别名 | 本仓生成 |
-| feature_*_window | 历史物化窗口特征（`feature_stock_window` 每日重算 ~750 万行，语义层豁免 `stale_materialized`，无读者） | compute_features.py |
+| feature_*_window | 滚动窗口特征，`compute-features` 步按日增量写入（只算当日，属 `check_daily_review_data.py` 的 `FEATURE_FAMILY` 完整性闸门成员，缺任一张 = 半成品）。`feature_stock_window` 累计约 750 万行；语义层豁免 `stale_materialized`，`feature_market_window` 有 workbench 读者，其余三张暂无读者 | compute_features.py |
 
 严格双红定义（见 strategy1-matrix）：`pct_chg>0 且 diff_ratio>10 且 amount>500`。
 

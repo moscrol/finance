@@ -839,19 +839,24 @@ def top_sectors(trade_date: str | None = None, top: int = 20,
     con = connect(read_only=True)
     try:
         td = trade_date or _latest_date(con, "fact_sector_daily")
+        # 一天只有几百个板块, 全取后再按 canonical 合并同名双码 (并存日 云计算.TI/.FP
+        # 会各占一行), 最后截 top——先 LIMIT 再合并会少给。
         rows = con.execute(
             f"""
-            SELECT sector_name, sw_l1, pct_chg, diff_ratio, amount
+            SELECT sector_name, sector_ts_code, sw_l1, pct_chg, diff_ratio, amount
             FROM fact_sector_daily
             WHERE trade_date = ?
             ORDER BY {order_by} DESC NULLS LAST
-            LIMIT ?
             """,
-            [td, top],
+            [td],
         ).fetchall()
-        cols = ["sector_name", "sw_l1", "pct_chg", "diff_ratio", "amount"]
+        cols = ["sector_name", "sector_ts_code", "sw_l1", "pct_chg", "diff_ratio", "amount"]
+        sectors, merged = _merge_alias_rows(con, [dict(zip(cols, r)) for r in rows])
+        # 合并可能用 canonical 行替换了排在前面的退役码行, 重排一次保证名次按值。
+        sectors.sort(key=lambda r: (r[order_by] is None, -(r[order_by] or 0.0)))
         return {"trade_date": str(td), "order_by": order_by,
-                "sectors": [dict(zip(cols, r)) for r in rows]}
+                "alias_rows_merged": merged,
+                "sectors": sectors[:top]}
     finally:
         con.close()
 

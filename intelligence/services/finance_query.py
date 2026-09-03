@@ -406,6 +406,9 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         population="full",
         coverage=(
             "全量板块全集（涨幅 / 成交额 / 边际量 diff_ratio），双红判断主表。"
+            "⚠️ sector_name 不是键：2025-10-09~2026-07-24 两套板块码系（.TI / .FP）并存，"
+            "同名板块各一行、数值不同；`国防军工` 至今两个 .FP 码同名。按 sector_name 聚合会双计，"
+            "按 sector_code 分组或先用 dim_sector_canonical 解析到现行码。"
         ),
         time_field="trade_date",
         dimensions={
@@ -430,6 +433,9 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         population="full",
         coverage=(
             "板块×成分股全集，本库行数最大的一张，务必先加筛选再查。"
+            "成分股行情从 2026-04 起才完整（2025-01-06~2026-03-30 共 288 日无成分股行情，如实缺，"
+            "不是查询写错）。sector_name 不是键：同名可能对应两个板块码（如 `国防军工`），"
+            "按 sector_code 筛选；按名字查请先经 dim_sector_canonical 解析。"
         ),
         time_field="trade_date",
         dimensions={
