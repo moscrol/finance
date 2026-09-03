@@ -197,6 +197,8 @@ Episode 臂：   kb_search✗ → financial_data✓ → l3_lookup✗ → evidenc
 
 **注意方差纪律**：弃权是二值量，比连续分更抖。沿用 `10_knowledge/eval-harness-variance-governance.md` 的做法——**塞一组两臂本该完全相同的样本当噪声底**，弃权率的门槛从那组现算，不套连续分的 `|Δ|≳2.4/20`。
 
+> **状态（2026-09-03）**：三条改动已落（`intelligence/eval/abstention.py` + `run_quality_ablation.py` 逐题字段 / `abstention` 聚合块 / 报告「均分 X / 弃权率 Y%」并列；`rejudge_quality_ablation.py` 经同一份 `aggregate_components` 自动带上），钉子 21 条、变异两组见红。**基线已从 08-27 四臂 38 题产物回溯算出**（`docs/verification/2026-09-03-abstain-rate-baseline-offline.md`）：组件臂未见题 10/10 复现；生产臂该答的 32 题弃 8，其中 7 道是判官不可用扣稿（`judge_blocked`），模型自弃 1 道。**两个修正写进本节**：(a) `run_quality_ablation.py` 走的是 `intelligence.cli ask` 的 legacy 管线，不经过 ContinuousAgentEpisode——P0/P2/P3 改的是 episode 链，所以「P0 有没有压下弃权率」要在含 #537 的快照上经会话链重跑 38 题、用 `classify_episode` 判，消融壳的弃权率量的是 legacy 路径各组件；(b) 判官可用性是协变量，重跑前先看 `judge_unavailable_count`。38 题会话链重跑烧配额，待用户。
+
 ### 3.3 P2：判官判据从「来源白名单」改成「出处可追溯」
 
 **这是五刀里唯一有风险的一刀。**

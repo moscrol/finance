@@ -62,11 +62,61 @@ if str(REPO) not in sys.path:
 # 名字留在上游、语义在这里收窄，故本地起一个说明单位的别名。
 from intelligence.eval.variance_baseline import ab_decision as _compare_against_floor  # noqa: E402
 
+# 弃权率是一等读数（能力放大 spec §3.2 · P1）：与均分并列念，不折进总分。
+# 一个 100% 弃权的臂零错误、rubric 分不难看——2026-08-27 组件臂 11.1 分背后是 10/10 弃权。
+from intelligence.eval.abstention import abstain_rate, classify_text  # noqa: E402
+
 
 def ab_decision(observed_delta: float, threshold_same_unit: float) -> str:
     """`variance_baseline.ab_decision` 的同单位封装：两个入参必须同尺度。"""
 
     return _compare_against_floor(observed_delta, threshold_same_unit)
+
+
+def abstention_of(record: Mapping[str, object]) -> dict[str, object]:
+    """一条答案记录的弃权判定。新收据在 ask 后就写好；旧收据没有该字段，按正文现算。
+
+    ask 超时 = 没交卷 = 弃权（`deadline_exhausted`）；其它臂失败记 `other`。
+    这与「失败臂不送评」并不矛盾：不送评是分数口径，弃权率口径要把它数进去——
+    否则「跑不完就不算」又会把弃权藏起来。
+    """
+
+    if "abstained" in record:
+        return {
+            "abstained": bool(record.get("abstained")),
+            "abstain_reason": record.get("abstain_reason"),
+            "abstain_detector": record.get("abstain_detector") or "receipt",
+        }
+    if not record.get("ok"):
+        timed_out = "超时" in str(record.get("error") or "")
+        return {
+            "abstained": True,
+            "abstain_reason": "deadline_exhausted" if timed_out else "other",
+            "abstain_detector": "arm_failure",
+        }
+    return classify_text(str(record.get("answer") or "")).to_dict()
+
+
+def abstain_rates_by_arm(answers: Sequence[Mapping[str, object]]) -> dict[str, dict[str, object]]:
+    """每臂：均分（只统计 scored）与弃权率（统计全部记录）并列。报告模板两个数一起念。"""
+
+    by_arm: dict[str, list[Mapping[str, object]]] = {}
+    for rec in answers:
+        by_arm.setdefault(str(rec["arm"]), []).append(rec)
+    out: dict[str, dict[str, object]] = {}
+    for arm, rows in by_arm.items():
+        totals = [
+            float(((r.get("judge") or {}).get("total")))  # type: ignore[arg-type]
+            for r in rows
+            if (r.get("judge") or {}).get("scored")  # type: ignore[union-attr]
+        ]
+        out[arm] = {
+            "n_records": len(rows),
+            "n_scored": len(totals),
+            "mean_total": round(statistics.fmean(totals), 3) if totals else None,
+            **abstain_rate([abstention_of(r) for r in rows]),
+        }
+    return out
 
 RUBRIC_DIMENSIONS = ("directness", "coverage", "relevance", "truth_boundary", "usefulness")
 _JUDGE_ANSWER_CHARS = 6000  # 声明式截断：限定语在 prompt 里排在答案之前
@@ -746,6 +796,20 @@ def aggregate_components(
             if r["arm"] == cid
         ]
         det_usable = [(a, b) for a, b in det_pairs if a is not None and b is not None]
+        # 弃权率并列、不进 marginal_contribution_total：关掉一颗组件后弃权率从 0 跳到
+        # 100%，rubric 分差可能只有 −1，只看分差会把「系统不说话了」读成「略差一点」。
+        # 二值量的显著性门不套 rubric 的 σ×SE（spec §3.2 方差纪律），这里只报数不判。
+        ablated_rows = [r for r in answers if r["arm"] == cid]
+        baseline_rows = [
+            baseline_by_case[str(r["case_id"])]
+            for r in ablated_rows
+            if str(r["case_id"]) in baseline_by_case
+        ]
+        abstention = {
+            "baseline": abstain_rate([abstention_of(r) for r in baseline_rows]),
+            "ablated": abstain_rate([abstention_of(r) for r in ablated_rows]),
+            "note": "与均分并列念；不进总分、不进边际贡献；二值量的门另算",
+        }
         aggregates[cid] = {
             "close_via": COMPONENTS[cid]["close_via"],
             "questions_usable": len(usable),
@@ -754,6 +818,7 @@ def aggregate_components(
             "noise_threshold": threshold,
             "decision": decision,
             "decision_reason": decision_reason,
+            "abstention": abstention,
             "deterministic_marginal": (
                 round(-sum(a - b for a, b in det_usable) / len(det_usable), 3)
                 if det_usable
@@ -885,10 +950,14 @@ def main() -> int:
             exports_dir=args.exports_dir,
             timeout=args.ask_timeout,
         )
-        answers.append({"arm": arm, "case_id": q.case_id, **result})
+        record: dict[str, object] = {"arm": arm, "case_id": q.case_id, **result}
+        # 弃权在 ask 后立刻判、写进记录：判官看不出「什么都没说」，收据得自己带。
+        record.update(abstention_of(record))
+        answers.append(record)
         print(
             f"       {'ok' if result.get('ok') else '失败: ' + str(result.get('error'))} "
-            f"({result.get('elapsed_sec', 0):.0f}s, {len(str(result.get('answer') or ''))} 字)",
+            f"({result.get('elapsed_sec', 0):.0f}s, {len(str(result.get('answer') or ''))} 字"
+            f"{'，弃权:' + str(record['abstain_reason']) if record['abstained'] else ''})",
             flush=True,
         )
 
@@ -954,6 +1023,7 @@ def main() -> int:
         "calibration": calibration,
         "noise_floor": noise_floor,
         "aggregates": aggregates,
+        "abstention_by_arm": abstain_rates_by_arm(answers),
     }
     output = args.output or (
         REPO
@@ -975,6 +1045,17 @@ def main() -> int:
     else:
         print(f"\n== 当次判官噪声：未实测 ==\n  {noise_floor.get('reason')}")
 
+    # 两个数一起念：单念均分会把「全弃权」读成「略差」，单念弃权率看不出答了的好坏。
+    print("\n== 每臂 均分 / 弃权率（并列，不合并）==")
+    for arm, row in artifact["abstention_by_arm"].items():
+        mean = row["mean_total"]
+        rate = row["abstain_rate"]
+        print(
+            f"  {arm:<18} 均分 {mean if mean is not None else '-'}/20（scored {row['n_scored']}/{row['n_records']}）"
+            f" / 弃权率 {f'{rate * 100:.0f}%' if rate is not None else '-'}"
+            f"（{row['abstained']}/{row['n']}，{row['by_reason'] or '无'}）"
+        )
+
     print("\n== 组件边际贡献（关掉后平均掉分，正=在涨分）==")
     for cid, agg in aggregates.items():
         verdict = "✅ 可下结论" if agg["decision"] == "callable" else "⚠️ 噪声内，不下结论"
@@ -993,6 +1074,12 @@ def main() -> int:
             f"（{agg['deterministic_questions']} 题，零方差，无需门槛）"
         )
         print(f"  {'':<18} 分维度={agg['marginal_by_dim']}")
+        ab_base, ab_off = agg["abstention"]["baseline"], agg["abstention"]["ablated"]
+        print(
+            f"  {'':<18} 弃权率 基线 {ab_base['abstained']}/{ab_base['n']}"
+            f" → 关断 {ab_off['abstained']}/{ab_off['n']}"
+            f"（{ab_off['by_reason'] or '无'}；不进 Δ）"
+        )
 
     lb = artifact["length_bias"]
     if lb.get("measured"):

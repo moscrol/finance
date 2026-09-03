@@ -1,0 +1,1902 @@
+{
+  "generated_at": "2026-09-03T11:26:11+08:00",
+  "source": "/Users/a77/.finance-runtime/four-arm-20260827",
+  "n_cases": 38,
+  "expect_refusal_ids": [
+    "C1-future-date-no-data",
+    "C2-non-trading-day",
+    "C3-empty-table",
+    "C8-nonexistent-table",
+    "D7-nonexistent-entity",
+    "D8-non-trading-day-unseen"
+  ],
+  "classifier": "intelligence.eval.abstention (episode_events > probe_receipt > text_markers)",
+  "per_arm": {
+    "react-claude": {
+      "n_cases_present": 12,
+      "n_readable": 12,
+      "all": {
+        "n": 12,
+        "abstained": 2,
+        "abstain_rate": 0.1667,
+        "by_reason": {
+          "evidence_gap": 2
+        },
+        "n_answer_expected": 10,
+        "abstained_where_answer_expected": 0,
+        "abstain_rate_where_answer_expected": 0.0,
+        "n_refusal_expected": 2,
+        "refusals_honored": 2
+      },
+      "seen_ABC": {
+        "n": 2,
+        "abstained": 0,
+        "abstain_rate": 0.0,
+        "by_reason": {},
+        "n_answer_expected": 2,
+        "abstained_where_answer_expected": 0,
+        "abstain_rate_where_answer_expected": 0.0,
+        "n_refusal_expected": 0,
+        "refusals_honored": 0
+      },
+      "unseen_D": {
+        "n": 10,
+        "abstained": 2,
+        "abstain_rate": 0.2,
+        "by_reason": {
+          "evidence_gap": 2
+        },
+        "n_answer_expected": 8,
+        "abstained_where_answer_expected": 0,
+        "abstain_rate_where_answer_expected": 0.0,
+        "n_refusal_expected": 2,
+        "refusals_honored": 2
+      },
+      "abstained_case_ids": [
+        "D7-nonexistent-entity",
+        "D8-non-trading-day-unseen"
+      ]
+    },
+    "component": {
+      "n_cases_present": 38,
+      "n_readable": 38,
+      "all": {
+        "n": 38,
+        "abstained": 14,
+        "abstain_rate": 0.3684,
+        "by_reason": {
+          "evidence_gap": 4,
+          "other": 10
+        },
+        "n_answer_expected": 32,
+        "abstained_where_answer_expected": 8,
+        "abstain_rate_where_answer_expected": 0.25,
+        "n_refusal_expected": 6,
+        "refusals_honored": 6
+      },
+      "seen_ABC": {
+        "n": 28,
+        "abstained": 4,
+        "abstain_rate": 0.1429,
+        "by_reason": {
+          "evidence_gap": 4
+        },
+        "n_answer_expected": 24,
+        "abstained_where_answer_expected": 0,
+        "abstain_rate_where_answer_expected": 0.0,
+        "n_refusal_expected": 4,
+        "refusals_honored": 4
+      },
+      "unseen_D": {
+        "n": 10,
+        "abstained": 10,
+        "abstain_rate": 1.0,
+        "by_reason": {
+          "other": 10
+        },
+        "n_answer_expected": 8,
+        "abstained_where_answer_expected": 8,
+        "abstain_rate_where_answer_expected": 1.0,
+        "n_refusal_expected": 2,
+        "refusals_honored": 2
+      },
+      "abstained_case_ids": [
+        "C1-future-date-no-data",
+        "C2-non-trading-day",
+        "C3-empty-table",
+        "C8-nonexistent-table",
+        "D1-market-overview-rephrased",
+        "D10-multiday-evolution-rephrased",
+        "D2-stock-rephrased",
+        "D3-strict-definition-spelled-out",
+        "D4-limit-heat-rephrased",
+        "D5-theme-unseen",
+        "D6-ladder-rephrased",
+        "D7-nonexistent-entity",
+        "D8-non-trading-day-unseen",
+        "D9-temporal-leakage-rephrased"
+      ]
+    },
+    "8792": {
+      "n_cases_present": 38,
+      "n_readable": 38,
+      "all": {
+        "n": 38,
+        "abstained": 14,
+        "abstain_rate": 0.3684,
+        "by_reason": {
+          "judge_blocked": 7,
+          "evidence_gap": 7
+        },
+        "n_answer_expected": 32,
+        "abstained_where_answer_expected": 8,
+        "abstain_rate_where_answer_expected": 0.25,
+        "n_refusal_expected": 6,
+        "refusals_honored": 6
+      },
+      "seen_ABC": {
+        "n": 28,
+        "abstained": 10,
+        "abstain_rate": 0.3571,
+        "by_reason": {
+          "judge_blocked": 6,
+          "evidence_gap": 4
+        },
+        "n_answer_expected": 24,
+        "abstained_where_answer_expected": 6,
+        "abstain_rate_where_answer_expected": 0.25,
+        "n_refusal_expected": 4,
+        "refusals_honored": 4
+      },
+      "unseen_D": {
+        "n": 10,
+        "abstained": 4,
+        "abstain_rate": 0.4,
+        "by_reason": {
+          "judge_blocked": 1,
+          "evidence_gap": 3
+        },
+        "n_answer_expected": 8,
+        "abstained_where_answer_expected": 2,
+        "abstain_rate_where_answer_expected": 0.25,
+        "n_refusal_expected": 2,
+        "refusals_honored": 2
+      },
+      "abstained_case_ids": [
+        "A10-new-high-structure",
+        "A7-mainline",
+        "B1-theme-photoresist",
+        "B4-fermentation-trace",
+        "B8-valuation-band",
+        "C1-future-date-no-data",
+        "C2-non-trading-day",
+        "C3-empty-table",
+        "C7-temporal-leakage",
+        "C8-nonexistent-table",
+        "D2-stock-rephrased",
+        "D6-ladder-rephrased",
+        "D7-nonexistent-entity",
+        "D8-non-trading-day-unseen"
+      ]
+    },
+    "8796": {
+      "n_cases_present": 38,
+      "n_readable": 38,
+      "all": {
+        "n": 38,
+        "abstained": 10,
+        "abstain_rate": 0.2632,
+        "by_reason": {
+          "deadline_exhausted": 1,
+          "unsupported": 1,
+          "evidence_gap": 6,
+          "judge_blocked": 1,
+          "other": 1
+        },
+        "n_answer_expected": 32,
+        "abstained_where_answer_expected": 4,
+        "abstain_rate_where_answer_expected": 0.125,
+        "n_refusal_expected": 6,
+        "refusals_honored": 6
+      },
+      "seen_ABC": {
+        "n": 28,
+        "abstained": 7,
+        "abstain_rate": 0.25,
+        "by_reason": {
+          "deadline_exhausted": 1,
+          "unsupported": 1,
+          "evidence_gap": 4,
+          "judge_blocked": 1
+        },
+        "n_answer_expected": 24,
+        "abstained_where_answer_expected": 3,
+        "abstain_rate_where_answer_expected": 0.125,
+        "n_refusal_expected": 4,
+        "refusals_honored": 4
+      },
+      "unseen_D": {
+        "n": 10,
+        "abstained": 3,
+        "abstain_rate": 0.3,
+        "by_reason": {
+          "evidence_gap": 2,
+          "other": 1
+        },
+        "n_answer_expected": 8,
+        "abstained_where_answer_expected": 1,
+        "abstain_rate_where_answer_expected": 0.125,
+        "n_refusal_expected": 2,
+        "refusals_honored": 2
+      },
+      "abstained_case_ids": [
+        "B2-theme-liquid-cooling",
+        "B4-fermentation-trace",
+        "C1-future-date-no-data",
+        "C2-non-trading-day",
+        "C3-empty-table",
+        "C7-temporal-leakage",
+        "C8-nonexistent-table",
+        "D6-ladder-rephrased",
+        "D7-nonexistent-entity",
+        "D8-non-trading-day-unseen"
+      ]
+    }
+  },
+  "rows": [
+    {
+      "case_id": "A3-stock-deep-dive",
+      "arm": "react-claude",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "ignored_marker:不可用"
+      ]
+    },
+    {
+      "case_id": "A5-limit-heat",
+      "arm": "react-claude",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "D1-market-overview-rephrased",
+      "arm": "react-claude",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "D2-stock-rephrased",
+      "arm": "react-claude",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "D3-strict-definition-spelled-out",
+      "arm": "react-claude",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "D4-limit-heat-rephrased",
+      "arm": "react-claude",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "D5-theme-unseen",
+      "arm": "react-claude",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "ignored_marker:未能",
+        "ignored_marker:不存在"
+      ]
+    },
+    {
+      "case_id": "D6-ladder-rephrased",
+      "arm": "react-claude",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "ignored_marker:证据不足",
+        "ignored_marker:不下结论"
+      ]
+    },
+    {
+      "case_id": "D7-nonexistent-entity",
+      "arm": "react-claude",
+      "state": "read",
+      "abstained": true,
+      "abstain_reason": "evidence_gap",
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "lead_sentence",
+        "marker:无法回答",
+        "marker:查不到"
+      ]
+    },
+    {
+      "case_id": "D8-non-trading-day-unseen",
+      "arm": "react-claude",
+      "state": "read",
+      "abstained": true,
+      "abstain_reason": "evidence_gap",
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "lead_sentence",
+        "marker:休市",
+        "marker:不是交易日"
+      ]
+    },
+    {
+      "case_id": "D9-temporal-leakage-rephrased",
+      "arm": "react-claude",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "D10-multiday-evolution-rephrased",
+      "arm": "react-claude",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "ignored_marker:无法回答",
+        "ignored_marker:证据不足",
+        "ignored_marker:不下结论"
+      ]
+    },
+    {
+      "case_id": "A1-market-overview",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "A2-next-day-call",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "A3-stock-deep-dive",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "A4-dual-red",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "A5-limit-heat",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "A6-limit-advance-ladder",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "A7-mainline",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "A8-market-stage",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "short_answer_no_marker"
+      ]
+    },
+    {
+      "case_id": "A9-sentiment-contradiction",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "A10-new-high-structure",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "B1-theme-photoresist",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "B2-theme-liquid-cooling",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "B3-theme-solid-state-battery",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "B4-fermentation-trace",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "ignored_marker:未取到"
+      ]
+    },
+    {
+      "case_id": "B5-cross-table-intersection",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "short_answer_no_marker"
+      ]
+    },
+    {
+      "case_id": "B6-sellside-distillation",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "B7-volume-sentiment-evolution",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "B8-valuation-band",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "C1-future-date-no-data",
+      "arm": "component",
+      "state": "read",
+      "abstained": true,
+      "abstain_reason": "evidence_gap",
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "lead_sentence",
+        "marker:没有记录"
+      ]
+    },
+    {
+      "case_id": "C2-non-trading-day",
+      "arm": "component",
+      "state": "read",
+      "abstained": true,
+      "abstain_reason": "evidence_gap",
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "lead_sentence",
+        "marker:不能给出",
+        "marker:没有可用",
+        "marker:为 0 行"
+      ]
+    },
+    {
+      "case_id": "C3-empty-table",
+      "arm": "component",
+      "state": "read",
+      "abstained": true,
+      "abstain_reason": "evidence_gap",
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "lead_sentence",
+        "marker:不可用",
+        "marker:为 0 行"
+      ]
+    },
+    {
+      "case_id": "C4-unit-anomaly",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "C5-data-contradiction",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "C6-strict-definition",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "C7-temporal-leakage",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "C8-nonexistent-table",
+      "arm": "component",
+      "state": "read",
+      "abstained": true,
+      "abstain_reason": "evidence_gap",
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "lead_sentence",
+        "marker:不存在"
+      ]
+    },
+    {
+      "case_id": "C9-citation-integrity",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "ignored_marker:未取到"
+      ]
+    },
+    {
+      "case_id": "C10-multi-turn-consistency",
+      "arm": "component",
+      "state": "read",
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "text_markers",
+      "abstain_signals": []
+    },
+    {
+      "case_id": "D1-market-overview-rephrased",
+      "arm": "component",
+      "state": "read",
+      "abstained": true,
+      "abstain_reason": "other",
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "lead_sentence",
+        "marker:结论未知"
+      ]
+    },
+    {
+      "case_id": "D2-stock-rephrased",
+      "arm": "component",
+      "state": "read",
+      "abstained": true,
+      "abstain_reason": "other",
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "lead_sentence",
+        "marker:结论未知"
+      ]
+    },
+    {
+      "case_id": "D3-strict-definition-spelled-out",
+      "arm": "component",
+      "state": "read",
+      "abstained": true,
+      "abstain_reason": "other",
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "lead_sentence",
+        "marker:结论未知"
+      ]
+    },
+    {
+      "case_id": "D4-limit-heat-rephrased",
+      "arm": "component",
+      "state": "read",
+      "abstained": true,
+      "abstain_reason": "other",
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "lead_sentence",
+        "marker:结论未知"
+      ]
+    },
+    {
+      "case_id": "D5-theme-unseen",
+      "arm": "component",
+      "state": "read",
+      "abstained": true,
+      "abstain_reason": "other",
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "lead_sentence",
+        "marker:结论未知"
+      ]
+    },
+    {
+      "case_id": "D6-ladder-rephrased",
+      "arm": "component",
+      "state": "read",
+      "abstained": true,
+      "abstain_reason": "other",
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "lead_sentence",
+        "marker:结论未知"
+      ]
+    },
+    {
+      "case_id": "D7-nonexistent-entity",
+      "arm": "component",
+      "state": "read",
+      "abstained": true,
+      "abstain_reason": "other",
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "lead_sentence",
+        "marker:结论未知"
+      ]
+    },
+    {
+      "case_id": "D8-non-trading-day-unseen",
+      "arm": "component",
+      "state": "read",
+      "abstained": true,
+      "abstain_reason": "other",
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "lead_sentence",
+        "marker:结论未知"
+      ]
+    },
+    {
+      "case_id": "D9-temporal-leakage-rephrased",
+      "arm": "component",
+      "state": "read",
+      "abstained": true,
+      "abstain_reason": "other",
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "lead_sentence",
+        "marker:结论未知"
+      ]
+    },
+    {
+      "case_id": "D10-multiday-evolution-rephrased",
+      "arm": "component",
+      "state": "read",
+      "abstained": true,
+      "abstain_reason": "other",
+      "abstain_detector": "text_markers",
+      "abstain_signals": [
+        "lead_sentence",
+        "marker:结论未知"
+      ]
+    },
+    {
+      "case_id": "A1-market-overview",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_134134_330593",
+      "has_episode": false,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=validated_synthesis",
+        "judge_status=not_applicable"
+      ]
+    },
+    {
+      "case_id": "A2-next-day-call",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_145351_023455",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "A3-stock-deep-dive",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_145613_094860",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=partial",
+        "stop_reason=repair_deadline_exhausted",
+        "partial_with_assessment"
+      ]
+    },
+    {
+      "case_id": "A4-dual-red",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_134238_055224",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "A5-limit-heat",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_145845_362921",
+      "has_episode": false,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=verified_fallback",
+        "judge_status=not_applicable"
+      ]
+    },
+    {
+      "case_id": "A6-limit-advance-ladder",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_145846_021947",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=repair_model_finish"
+      ]
+    },
+    {
+      "case_id": "A7-mainline",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_150132_866050",
+      "has_episode": true,
+      "abstained": true,
+      "abstain_reason": "judge_blocked",
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish",
+        "lead_sentence",
+        "marker:未完成独立复核"
+      ]
+    },
+    {
+      "case_id": "A8-market-stage",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_150307_460051",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "A9-sentiment-contradiction",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_150404_534530",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=partial",
+        "stop_reason=repair_model_stop",
+        "partial_with_assessment"
+      ]
+    },
+    {
+      "case_id": "A10-new-high-structure",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_145204_877686",
+      "has_episode": true,
+      "abstained": true,
+      "abstain_reason": "judge_blocked",
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish",
+        "lead_sentence",
+        "marker:未完成独立复核"
+      ]
+    },
+    {
+      "case_id": "B1-theme-photoresist",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_134401_047595",
+      "has_episode": true,
+      "abstained": true,
+      "abstain_reason": "judge_blocked",
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=repair_model_finish",
+        "lead_sentence",
+        "marker:未完成独立复核"
+      ]
+    },
+    {
+      "case_id": "B2-theme-liquid-cooling",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_150606_254594",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=partial",
+        "stop_reason=invalid_repair_finish",
+        "partial_with_assessment"
+      ]
+    },
+    {
+      "case_id": "B3-theme-solid-state-battery",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_150710_111178",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=partial",
+        "stop_reason=repair_model_stop",
+        "partial_with_assessment"
+      ]
+    },
+    {
+      "case_id": "B4-fermentation-trace",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_150941_497961",
+      "has_episode": true,
+      "abstained": true,
+      "abstain_reason": "judge_blocked",
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=partial",
+        "stop_reason=repair_model_stop",
+        "lead_sentence",
+        "marker:未完成独立复核"
+      ]
+    },
+    {
+      "case_id": "B5-cross-table-intersection",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_151141_774817",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "B6-sellside-distillation",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_151308_786079",
+      "has_episode": false,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=validated_synthesis",
+        "judge_status=not_applicable"
+      ]
+    },
+    {
+      "case_id": "B7-volume-sentiment-evolution",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_151425_307467",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "B8-valuation-band",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_151601_799497",
+      "has_episode": true,
+      "abstained": true,
+      "abstain_reason": "judge_blocked",
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=repair_model_finish",
+        "lead_sentence",
+        "marker:未完成独立复核"
+      ]
+    },
+    {
+      "case_id": "C1-future-date-no-data",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_151805_041434",
+      "has_episode": false,
+      "abstained": true,
+      "abstain_reason": "evidence_gap",
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=verified_fallback",
+        "judge_status=not_applicable",
+        "lead_sentence",
+        "marker:休市"
+      ]
+    },
+    {
+      "case_id": "C2-non-trading-day",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_151907_380995",
+      "has_episode": false,
+      "abstained": true,
+      "abstain_reason": "evidence_gap",
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=verified_fallback",
+        "judge_status=not_applicable",
+        "lead_sentence",
+        "marker:休市"
+      ]
+    },
+    {
+      "case_id": "C3-empty-table",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_151908_747944",
+      "has_episode": false,
+      "abstained": true,
+      "abstain_reason": "evidence_gap",
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=verified_fallback",
+        "judge_status=not_applicable",
+        "lead_sentence",
+        "marker:不可用"
+      ]
+    },
+    {
+      "case_id": "C4-unit-anomaly",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_151910_029180",
+      "has_episode": false,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=verified_fallback",
+        "judge_status=not_applicable"
+      ]
+    },
+    {
+      "case_id": "C5-data-contradiction",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_151910_718047",
+      "has_episode": false,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=verified_fallback",
+        "judge_status=not_applicable"
+      ]
+    },
+    {
+      "case_id": "C6-strict-definition",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_151911_466568",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "C7-temporal-leakage",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_152056_987406",
+      "has_episode": true,
+      "abstained": true,
+      "abstain_reason": "judge_blocked",
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish",
+        "lead_sentence",
+        "marker:未完成独立复核"
+      ]
+    },
+    {
+      "case_id": "C8-nonexistent-table",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_152251_759484",
+      "has_episode": false,
+      "abstained": true,
+      "abstain_reason": "evidence_gap",
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=verified_fallback",
+        "judge_status=not_applicable",
+        "lead_sentence",
+        "marker:不存在"
+      ]
+    },
+    {
+      "case_id": "C9-citation-integrity",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_152434_989648",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=partial",
+        "stop_reason=repair_model_stop",
+        "partial_with_assessment"
+      ]
+    },
+    {
+      "case_id": "C10-multi-turn-consistency",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_151806_814119",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "D1-market-overview-rephrased",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_152704_254973",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=repair_model_finish"
+      ]
+    },
+    {
+      "case_id": "D2-stock-rephrased",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_152937_309324",
+      "has_episode": true,
+      "abstained": true,
+      "abstain_reason": "judge_blocked",
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=partial",
+        "stop_reason=repair_model_stop",
+        "lead_sentence",
+        "marker:不可用",
+        "marker:未完成独立复核",
+        "marker:复核服务不可用"
+      ]
+    },
+    {
+      "case_id": "D3-strict-definition-spelled-out",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_134608_652877",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "D4-limit-heat-rephrased",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_153050_025179",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "D5-theme-unseen",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_134712_662543",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=partial",
+        "stop_reason=repair_model_finish",
+        "partial_with_assessment"
+      ]
+    },
+    {
+      "case_id": "D6-ladder-rephrased",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_153157_271373",
+      "has_episode": false,
+      "abstained": true,
+      "abstain_reason": "evidence_gap",
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=validated_synthesis",
+        "judge_status=not_applicable",
+        "lead_sentence",
+        "marker:没法回答",
+        "marker:查不到",
+        "marker:不存在"
+      ]
+    },
+    {
+      "case_id": "D7-nonexistent-entity",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_134855_757744",
+      "has_episode": true,
+      "abstained": true,
+      "abstain_reason": "evidence_gap",
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=partial",
+        "stop_reason=repair_model_finish",
+        "lead_sentence",
+        "marker:无法评估",
+        "marker:未找到"
+      ]
+    },
+    {
+      "case_id": "D8-non-trading-day-unseen",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_153330_344352",
+      "has_episode": false,
+      "abstained": true,
+      "abstain_reason": "evidence_gap",
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=verified_fallback",
+        "judge_status=not_applicable",
+        "lead_sentence",
+        "marker:休市"
+      ]
+    },
+    {
+      "case_id": "D9-temporal-leakage-rephrased",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_153332_157174",
+      "has_episode": false,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=validated_synthesis",
+        "judge_status=not_applicable"
+      ]
+    },
+    {
+      "case_id": "D10-multiday-evolution-rephrased",
+      "arm": "8792",
+      "state": "read",
+      "run_id": "run_20260827_153436_514397",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=partial",
+        "stop_reason=repair_model_stop",
+        "partial_with_assessment"
+      ]
+    },
+    {
+      "case_id": "A1-market-overview",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_153634_165688",
+      "has_episode": false,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=verified_fallback",
+        "judge_status=not_applicable"
+      ]
+    },
+    {
+      "case_id": "A2-next-day-call",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_153855_589330",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "A3-stock-deep-dive",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_154056_811128",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=repair_model_finish"
+      ]
+    },
+    {
+      "case_id": "A4-dual-red",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_154217_143986",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "A5-limit-heat",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_154336_708847",
+      "has_episode": false,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=verified_fallback",
+        "judge_status=not_applicable"
+      ]
+    },
+    {
+      "case_id": "A6-limit-advance-ladder",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_154337_829181",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "A7-mainline",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_154444_595130",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "A8-market-stage",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_154545_771696",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "A9-sentiment-contradiction",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_154653_933865",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "A10-new-high-structure",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_153733_988150",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "B1-theme-photoresist",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_154809_242273",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=partial",
+        "stop_reason=repair_deadline_exhausted",
+        "partial_with_assessment"
+      ]
+    },
+    {
+      "case_id": "B2-theme-liquid-cooling",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_155027_880568",
+      "has_episode": true,
+      "abstained": true,
+      "abstain_reason": "deadline_exhausted",
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=partial",
+        "stop_reason=repair_deadline_exhausted",
+        "lead_sentence",
+        "marker:证据不足"
+      ]
+    },
+    {
+      "case_id": "B3-theme-solid-state-battery",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_155140_617738",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=partial",
+        "stop_reason=invalid_repair_finish",
+        "partial_with_assessment"
+      ]
+    },
+    {
+      "case_id": "B4-fermentation-trace",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_155249_581212",
+      "has_episode": true,
+      "abstained": true,
+      "abstain_reason": "unsupported",
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=partial",
+        "stop_reason=repair_model_stop",
+        "lead_sentence",
+        "marker:证据不足"
+      ]
+    },
+    {
+      "case_id": "B5-cross-table-intersection",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_155356_778814",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "B6-sellside-distillation",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_155509_137526",
+      "has_episode": false,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=validated_synthesis",
+        "judge_status=not_applicable"
+      ]
+    },
+    {
+      "case_id": "B7-volume-sentiment-evolution",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_155614_638121",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=repair_model_finish"
+      ]
+    },
+    {
+      "case_id": "B8-valuation-band",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_155823_356649",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=partial",
+        "stop_reason=repair_deadline_exhausted",
+        "partial_with_assessment"
+      ]
+    },
+    {
+      "case_id": "C1-future-date-no-data",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_160055_646416",
+      "has_episode": false,
+      "abstained": true,
+      "abstain_reason": "evidence_gap",
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=verified_fallback",
+        "judge_status=not_applicable",
+        "lead_sentence",
+        "marker:休市"
+      ]
+    },
+    {
+      "case_id": "C2-non-trading-day",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_160203_610007",
+      "has_episode": false,
+      "abstained": true,
+      "abstain_reason": "evidence_gap",
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=verified_fallback",
+        "judge_status=not_applicable",
+        "lead_sentence",
+        "marker:休市"
+      ]
+    },
+    {
+      "case_id": "C3-empty-table",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_160204_241351",
+      "has_episode": false,
+      "abstained": true,
+      "abstain_reason": "evidence_gap",
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=verified_fallback",
+        "judge_status=not_applicable",
+        "lead_sentence",
+        "marker:不可用"
+      ]
+    },
+    {
+      "case_id": "C4-unit-anomaly",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_160204_911703",
+      "has_episode": false,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=verified_fallback",
+        "judge_status=not_applicable"
+      ]
+    },
+    {
+      "case_id": "C5-data-contradiction",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_160205_549102",
+      "has_episode": false,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=verified_fallback",
+        "judge_status=not_applicable"
+      ]
+    },
+    {
+      "case_id": "C6-strict-definition",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_160206_194936",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "C7-temporal-leakage",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_160302_311723",
+      "has_episode": true,
+      "abstained": true,
+      "abstain_reason": "judge_blocked",
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish",
+        "lead_sentence",
+        "marker:未完成独立复核"
+      ]
+    },
+    {
+      "case_id": "C8-nonexistent-table",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_160508_133426",
+      "has_episode": false,
+      "abstained": true,
+      "abstain_reason": "evidence_gap",
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=verified_fallback",
+        "judge_status=not_applicable",
+        "lead_sentence",
+        "marker:不存在"
+      ]
+    },
+    {
+      "case_id": "C9-citation-integrity",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_160705_221971",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=partial",
+        "stop_reason=repair_deadline_exhausted",
+        "partial_with_assessment"
+      ]
+    },
+    {
+      "case_id": "C10-multi-turn-consistency",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_160056_377589",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "D1-market-overview-rephrased",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_160846_997261",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "D2-stock-rephrased",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_161202_704693",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=repair_model_finish"
+      ]
+    },
+    {
+      "case_id": "D3-strict-definition-spelled-out",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_161410_509210",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "D4-limit-heat-rephrased",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_161547_249318",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=completed",
+        "stop_reason=model_finish"
+      ]
+    },
+    {
+      "case_id": "D5-theme-unseen",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_161649_143774",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=partial",
+        "stop_reason=invalid_repair_finish",
+        "partial_with_assessment"
+      ]
+    },
+    {
+      "case_id": "D6-ladder-rephrased",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_161800_206810",
+      "has_episode": false,
+      "abstained": true,
+      "abstain_reason": "evidence_gap",
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=validated_synthesis",
+        "judge_status=not_applicable",
+        "lead_sentence",
+        "marker:查不到"
+      ]
+    },
+    {
+      "case_id": "D7-nonexistent-entity",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_161928_949101",
+      "has_episode": true,
+      "abstained": true,
+      "abstain_reason": "other",
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=partial",
+        "stop_reason=repair_model_finish",
+        "lead_sentence",
+        "marker:无法给出",
+        "marker:未能"
+      ]
+    },
+    {
+      "case_id": "D8-non-trading-day-unseen",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_162057_417470",
+      "has_episode": false,
+      "abstained": true,
+      "abstain_reason": "evidence_gap",
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=verified_fallback",
+        "judge_status=not_applicable",
+        "lead_sentence",
+        "marker:休市"
+      ]
+    },
+    {
+      "case_id": "D9-temporal-leakage-rephrased",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_162058_602908",
+      "has_episode": false,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "probe_receipt",
+      "abstain_signals": [
+        "terminal_phase=validated_synthesis",
+        "judge_status=not_applicable"
+      ]
+    },
+    {
+      "case_id": "D10-multiday-evolution-rephrased",
+      "arm": "8796",
+      "state": "read",
+      "run_id": "run_20260827_161030_750541",
+      "has_episode": true,
+      "abstained": false,
+      "abstain_reason": null,
+      "abstain_detector": "episode_events",
+      "abstain_signals": [
+        "status=partial",
+        "stop_reason=model_finish",
+        "partial_with_assessment"
+      ]
+    }
+  ]
+}
