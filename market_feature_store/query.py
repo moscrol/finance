@@ -92,9 +92,33 @@ def health() -> dict:
         con.close()
 
 
+def _sector_filter(con, sector: str, trade_date, table: str) -> tuple[str, list, dict]:
+    """把用户给的板块名/码解析成事实表的**单个码**, 返回 (where 片段, 参数, 解析回执)。
+
+    为什么不再 `sector_ts_code = ? OR sector_name = ?`: 供应商换码系后同名板块有两套码
+    (2025-10 ~ 2026-07 并存), 按名字过滤会把两个供应商的成分股混成一张表; `国防军工`
+    至今仍是两个 .FP 码同名。解析器 (sector_alias) 先定到码, 再按日期在候选里回退
+    (退役码只在现行码当日无数据时才用)。维表里查不到的名字保留旧行为, 不静默吞掉。
+    """
+    from .sector_alias import pick_code_with_rows, resolve_sector_codes
+
+    res = resolve_sector_codes(con, sector)
+    receipt = res.to_dict()
+    if res.codes:
+        code = pick_code_with_rows(con, table, trade_date, res.codes) or res.codes[0]
+        receipt["resolved_sector_ts_code"] = code
+        return "sector_ts_code = ?", [code], receipt
+    receipt["resolved_sector_ts_code"] = None
+    return "(sector_ts_code = ? OR sector_name = ?)", [sector, sector], receipt
+
+
 def sector_stocks(sector: str, trade_date: str | None = None, top: int = 20,
                   order_by: str = "amount") -> dict:
-    """板块 → 个股: 某板块某日成分股, 按字段排序。"""
+    """板块 → 个股: 某板块某日成分股, 按字段排序。
+
+    返回里的 `resolution` 是解析回执: 用了哪个码、按什么命中、是否同名歧义——
+    歧义时调用方必须把它说出来, 不能当成唯一答案。
+    """
     allowed = {"amount", "pct_chg", "pct_chg_5d", "pct_chg_10d", "pct_chg_20d",
                "fund_flow_1d", "fund_flow_5d", "price"}
     if order_by not in allowed:
@@ -102,29 +126,57 @@ def sector_stocks(sector: str, trade_date: str | None = None, top: int = 20,
     con = connect(read_only=True)
     try:
         td = trade_date or _latest_date(con, "fact_sector_stock_daily")
+        where, params, resolution = _sector_filter(con, sector, td, "fact_sector_stock_daily")
         rows = con.execute(
             f"""
             SELECT stock_name, stock_ts_code, price, pct_chg, amount,
                    pct_chg_5d, pct_chg_20d, sw_industry, leader_plate,
                    fund_flow_1d, fund_flow_5d, sector_name
             FROM fact_sector_stock_daily
-            WHERE trade_date = ? AND (sector_ts_code = ? OR sector_name = ?)
+            WHERE trade_date = ? AND {where}
             ORDER BY {order_by} DESC NULLS LAST
             LIMIT ?
             """,
-            [td, sector, sector, top],
+            [td, *params, top],
         ).fetchall()
         cols = ["stock_name", "stock_ts_code", "price", "pct_chg", "amount",
                 "pct_chg_5d", "pct_chg_20d", "sw_industry", "leader_plate",
                 "fund_flow_1d", "fund_flow_5d", "sector_name"]
         return {"trade_date": str(td), "sector": sector,
+                "resolution": resolution,
                 "stocks": [dict(zip(cols, r)) for r in rows]}
     finally:
         con.close()
 
 
+def _merge_alias_rows(con, rows: list[dict]) -> tuple[list[dict], int]:
+    """个股 → 板块结果里, 同一条线的退役码与现行码只留现行那一行。
+
+    并存日一只股会同时挂 `云计算.TI` 与 `云计算.FP`, 那是同一个板块的两个供应商
+    版本, 不是两个板块。按 canonical 分组, 组内留 canonical 本身 (没有就留第一行)。
+    真歧义 (国防军工 两个 .FP) canonical 不同, 两行都保留。视图不存在时原样返回。
+    """
+    from .sector_alias import load_canonical_map
+
+    dim = load_canonical_map(con)
+    if dim is None:
+        return rows, 0
+    kept: dict[str, dict] = {}
+    order: list[str] = []
+    for row in rows:
+        code = row["sector_ts_code"]
+        canonical = dim[code].canonical_sector_ts_code if code in dim else code
+        if canonical not in kept:
+            kept[canonical] = row
+            order.append(canonical)
+        elif code == canonical:
+            kept[canonical] = row
+    merged = [kept[c] for c in order]
+    return merged, len(rows) - len(merged)
+
+
 def stock_sectors(stock: str, trade_date: str | None = None) -> dict:
-    """个股 → 板块: 某个股某日归属的所有复盘会板块。"""
+    """个股 → 板块: 某个股某日归属的所有复盘会板块 (同一板块的两套供应商码合并为一行)。"""
     con = connect(read_only=True)
     try:
         td = trade_date or _latest_date(con, "fact_sector_stock_daily")
@@ -138,8 +190,10 @@ def stock_sectors(stock: str, trade_date: str | None = None) -> dict:
             [td, stock, stock],
         ).fetchall()
         cols = ["sector_name", "sector_ts_code", "sw_l1", "pct_chg", "amount"]
+        sectors, merged = _merge_alias_rows(con, [dict(zip(cols, r)) for r in rows])
         return {"trade_date": str(td), "stock": stock,
-                "sectors": [dict(zip(cols, r)) for r in rows]}
+                "alias_rows_merged": merged,
+                "sectors": sectors}
     finally:
         con.close()
 

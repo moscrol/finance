@@ -166,23 +166,51 @@ git branch --show-current
 
 ## 本地数据库 (DuckDB)
 
-**主库（唯一可用）`db/market_feature_store.duckdb`** —— 星型模型，当前问答/复盘/深挖/前瞻的唯一数据源。由 `market_feature_store` 包维护，写入入口 `python3 -m market_feature_store.cli daily-full`（schema 见 `market_feature_store/schema.sql`；`db/schema.sql` 为早期雏形）。截至 2026-07-03 共 29 张表（fact_/dim_/config_/feature_），核心如下：
+**主库（唯一可用）`db/market_feature_store.duckdb`** —— 星型模型，当前问答/复盘/深挖/前瞻的唯一数据源。由 `market_feature_store` 包维护，写入入口 `python3 -m market_feature_store.cli daily-full`（schema SSOT `market_feature_store/schema.sql`；`db/schema.sql` 为早期雏形）。对象清单是下面的生成块（`scripts/gen_duckdb_schema_inventory.py`，`--check` 可复核）；行数/日期范围每天变，不进文档，跑 `python3 -m market_feature_store.cli info`。
+
+<!-- BEGIN GENERATED: duckdb-schema-inventory | scripts/gen_duckdb_schema_inventory.py | 来源 market_feature_store/schema.sql；行数等易变数字不进文档，看 cli info -->
+共 49 张表 + 3 个视图（`schema.sql` 声明；生产库以 `cli info` 为准）。带 `(V)` 的是 VIEW。
+
+| 层 | 数量 | 对象 |
+|---|---|---|
+| `dim_` 维度 | 1 表 + 1 视图 | `dim_sector`, `dim_sector_canonical` (V) |
+| `fact_` 事实镜像 (外部来源, 可重建) | 33 表 + 2 视图 | `fact_auction_stock_daily`, `fact_core_stock_daily`, `fact_dragon_seat_daily`, `fact_dragon_summary_daily`, `fact_dragon_tiger_daily`, `fact_event_daily`, `fact_global_index_daily`, `fact_global_stock_daily`, `fact_high_volume_gainers`, `fact_historical_mapping`, `fact_leader_height_daily`, `fact_limit_advance_daily`, `fact_limit_advance_presence`, `fact_mainline_sector_daily`, `fact_mainline_stock_daily`, `fact_mainline_theme_daily`, `fact_market_daily`, `fact_regulation_event_daily`, `fact_regulation_pool_daily`, `fact_research_report_catalog`, `fact_sector_daily` (V), `fact_sector_daily_generation`, `fact_sector_period_rank_daily`, `fact_sector_stock_daily` (V), `fact_sector_stock_daily_generation`, `fact_sector_universe_daily`, `fact_stock_daily`, `fact_stock_high_daily`, `fact_stock_technical_snapshot`, `fact_sw_l1_daily`, `fact_theme_flow_daily`, `fact_theme_fundamental_doc`, `fact_theme_limit_heat_daily`, `fact_theme_limit_stock_daily`, `fact_top_gainers` |
+| `config_` 人工配置 | 4 表 | `config_sector_alias`, `config_strategy_rule`, `config_theme_sector_link`, `config_watchlist` |
+| `feature_` 特征 (由事实计算, 可删重算) | 7 表 | `feature_l2_capital_flow_daily`, `feature_l2_quant_orders_daily`, `feature_limit_advance_window`, `feature_market_window`, `feature_sector_window`, `feature_stock_technical_daily`, `feature_stock_window` |
+| `ops_` 运行台账 / 收据 | 4 表 | `ops_pipeline_run_daily`, `ops_sector_member_sync_daily`, `ops_sector_universe_snapshot_daily`, `ops_sync_run` |
+<!-- END GENERATED: duckdb-schema-inventory -->
+
+核心表的职责与来源：
 
 | 表 | 说明 | 数据来源 |
 |----|------|---------|
 | fact_market_daily | 每日市场指标（阶段/成交/涨家/涨停/集中度/偏离度） | market_feature_store sync |
-| fact_sector_daily | 板块日行情（pct_chg/amount/diff_ratio/strength/多周期共振）—— **双红判断主表** | fupanhui + 飞书 |
-| fact_sector_stock_daily | 板块×个股日行情（含 5/10/20 日涨跌幅、资金流） | fupanhui |
+| fact_sector_daily (V) | 板块日行情（pct_chg/amount/diff_ratio/strength/多周期共振）—— **双红判断主表** | fupanhui |
+| fact_sector_stock_daily (V) | 板块×个股日行情（含 5/10/20 日涨跌幅、资金流）。⚠ legacy 分区 2025-01-06 ~ 2026-03-30 共 288 个交易日约 810 万行 **price 为 NULL**，是归属行不是行情（见下 fast_daily_sync 段） | fupanhui |
 | fact_stock_daily | 个股日行情 | fupanhui |
 | fact_stock_high_daily | 新高（1/2/3 年/历史，含涨停状态） | market_feature_store |
-| fact_theme_limit_heat_daily | 题材涨停热度（limit_up_count/market_share/rank）—— **涨停热度主表** | 飞书 |
+| fact_theme_limit_heat_daily | 题材涨停热度（limit_up_count/market_share/rank）—— **涨停热度主表** | fupanhui |
 | fact_limit_advance_daily | 连板晋级（boards/promotion_rate） | limit-advance skill |
-| fact_sw_l1_daily | 申万一级日行情 | AKShare + 飞书 |
-| fact_mainline_*_daily | 主线结构（sector/stock/theme；sector 停在 06-30，stock/theme 到 07-03） | 飞书 |
-| dim_sector | 板块维度（224 个：ts_code/name/sw_l1） | 配置 |
-| feature_*_window | 历史物化窗口特征（无活跃消费者，可能过期） | 已归档脚本 |
+| fact_sw_l1_daily | 申万一级日行情 | AKShare |
+| fact_mainline_*_daily | 主线结构（sector/stock/theme） | fupanhui |
+| dim_sector + dim_sector_canonical (V) | 板块维度。**630 行 ≠ 630 个板块**：223 个 `.TI` 码（2026-07-24 停更）+ 407 个 `.FP` 码（2025-10-09 起），117 个板块名两套码都有。解析走 `dim_sector_canonical` / `sector_alias.resolve_sector_codes`，见下「板块维度一致化」 | fupanhui |
+| config_sector_alias | 旧码→现行码映射（`sector-alias apply` 生成 117 条）+ 人工别名 | 本仓生成 |
+| feature_*_window | 历史物化窗口特征（`feature_stock_window` 每日重算 ~750 万行，语义层豁免 `stale_materialized`，无读者） | compute_features.py |
 
 严格双红定义（见 strategy1-matrix）：`pct_chg>0 且 diff_ratio>10 且 amount>500`。
+
+### 板块维度一致化（sector_name 不是键）
+
+供应商换过码系：`.TI` 与 `.FP` 两套码在事实表里并存 124 个交易日，同名板块**数值不同**（两种成分定义，不是重复行）；另有 53 个码历史上改过名（`PCB` ↔ `PCB概念`）。所以 **按 `sector_name` GROUP BY 会双计，`WHERE sector_name = ?` 会把两个供应商的成分股混成一张表**（`query.sector_stocks` 2026-09-03 前就是这么写的）。
+
+| 对象 | 作用 |
+|------|------|
+| `config_sector_alias` | `alias → 现行 .FP 码`。`python3 -m market_feature_store.cli sector-alias plan` 只读预览；`apply --staged` 走克隆换名写入（只写同名**唯一**匹配，歧义留给人） |
+| `dim_sector_canonical`（VIEW） | 每个码 → `canonical_sector_ts_code` + `provider` + 事实表真实起止日（`dim_sector.first_seen_date` 是建行日，不是事实起点） |
+| `sector_alias.resolve_sector_codes(con, 名或码)` | 返回按优先级排好的候选码（现行码在前、退役码在后）；同名对应多个 canonical（当前只有 `国防军工` 两个 .FP）标 `ambiguous=True`，**调用方必须说出来** |
+| `sector_alias.pick_code_with_rows(con, 表, 日期, 候选)` | 按日期在候选里回退：2025-06 问「云计算」落 `.TI`，并存日落 `.FP` |
+
+`query.sector_stocks` / `stock_sectors` 已改走解析器，返回里带 `resolution` 回执；新写的板块查询一律先解析到码再查事实表。排查用 `cli sector-alias resolve <名或码> [--trade-date]`。106 个 `881xxx.TI` 二级行业码在 FP 体系里没有对应板块，属供应商砍掉，不是匹配失败。
 
 > ⚠️ **Legacy 残骸（勿直接跑、勿删，待迁移）**：旧库 `db/market.duckdb`（早期飞书同步阶段）**已退役、文件已移除**；旧表名 `advancers / daily_market / sector_marginal / stocks` 在主库**既非表也非视图、不存在**。当前仍停用、待另行迁移的旧入口是 `scripts/backfill_sector_marginal.py`；新分析一律用 `fact_*` 表。`detect_turning_points.py` 与 `backtest_sector.py` 已迁移为 canonical 只读 CLI，`render_daily_review_template.py` 是现役日报渲染入口，`sync_to_local.py` 已改为无副作用退役 shim。
 

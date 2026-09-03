@@ -207,6 +207,10 @@ CREATE INDEX IF NOT EXISTS idx_fact_sw_l1_daily_date ON fact_sw_l1_daily(trade_d
 CREATE INDEX IF NOT EXISTS idx_fact_sw_l1_daily_sw ON fact_sw_l1_daily(sw_l1);
 
 -- 同 fact_sector_daily：写 *_generation，读同名 VIEW（只暴露 published 快照）。
+-- ⚠ legacy 分区 2025-01 ~ 2026-03 约 810 万行 price/pct_chg/amount 全 NULL: 是已停用
+-- 的 fast_daily_sync「拷昨日成分、改日期」留下的**归属行**, 只回答「谁在这个板块」,
+-- 不回答「涨了多少」。COUNT(*) 覆盖率对它们恒真, 审计要数 COUNT(price)
+-- (见 skills/duckdb-backfill/scripts/audit_coverage.py)。是否物理删除待裁决。
 CREATE TABLE IF NOT EXISTS fact_sector_stock_daily_generation (
     trade_date        DATE,
     sector_universe_snapshot_id TEXT,
@@ -772,6 +776,8 @@ CREATE INDEX IF NOT EXISTS idx_fact_sts_date ON fact_stock_technical_snapshot(tr
 -- 配置层: 人工维护
 -- ============================================================
 
+-- alias → 复盘会板块码。除人工别名外, 也承载「旧供应商码 → 现行码」的迁移映射
+-- (sector_alias.plan_provider_migration 生成, 同名唯一匹配才写, 歧义留给人)。
 CREATE TABLE IF NOT EXISTS config_sector_alias (
     alias           TEXT,
     sector_ts_code  TEXT,
@@ -781,6 +787,49 @@ CREATE TABLE IF NOT EXISTS config_sector_alias (
     updated_at      TIMESTAMP,
     PRIMARY KEY (alias, sector_ts_code)
 );
+
+-- 板块维度一致化 (conformed dimension)。供应商换过码系: `.TI` 码 2024-12-25 起、
+-- 2026-07-24 停更; `.FP` 码 2025-10-09 起至今, 两套并存 124 个交易日, 同名板块
+-- 各算一套、数值不同 (是两种定义, 不是重复行)。另有 53 个码历史上改过名。
+-- 所以 sector_name 不是键: 按名字 GROUP BY 会双计, 按名字 WHERE 会混排两个供应商
+-- 的成分股。本视图把每个码解析到 canonical 码 (走 config_sector_alias), 并给出
+-- 该码在事实表里的真实起止日 (dim_sector.first_seen_date 是维表建行日, 不是事实
+-- 起点)。名字解析走 sector_alias.resolve_sector_codes, 不要拿 sector_name 当键。
+-- 同一 alias 若登记了多条映射, 取 confidence 最高的一条, 保证一码一行。
+-- 依赖 config_sector_alias 与 fact_sector_daily_generation, 必须排在两者之后。
+CREATE OR REPLACE VIEW dim_sector_canonical AS
+WITH alias_pick AS (
+    SELECT alias, sector_ts_code, confidence,
+           ROW_NUMBER() OVER (
+               PARTITION BY alias
+               ORDER BY confidence DESC NULLS LAST, sector_ts_code
+           ) AS rn
+    FROM config_sector_alias
+),
+span AS (
+    SELECT sector_ts_code,
+           MIN(trade_date) AS fact_first_trade_date,
+           MAX(trade_date) AS fact_last_trade_date
+    FROM fact_sector_daily_generation
+    GROUP BY sector_ts_code
+)
+SELECT d.sector_ts_code,
+       d.sector_name,
+       d.sw_l1,
+       d.is_active,
+       CASE
+           WHEN d.sector_ts_code LIKE '%.TI' THEN 'TI'
+           WHEN d.sector_ts_code LIKE '%.FP' THEN 'FP'
+           ELSE 'other'
+       END AS provider,
+       COALESCE(a.sector_ts_code, d.sector_ts_code) AS canonical_sector_ts_code,
+       a.sector_ts_code IS NOT NULL AS is_alias,
+       a.confidence AS alias_confidence,
+       s.fact_first_trade_date,
+       s.fact_last_trade_date
+FROM dim_sector AS d
+LEFT JOIN alias_pick AS a ON a.alias = d.sector_ts_code AND a.rn = 1
+LEFT JOIN span AS s ON s.sector_ts_code = d.sector_ts_code;
 
 CREATE TABLE IF NOT EXISTS config_theme_sector_link (
     theme           TEXT,
