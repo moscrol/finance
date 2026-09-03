@@ -77,7 +77,14 @@ launchctl bootout "gui/$(id -u)/com.a77.finance-workbench"
 # 那个分支不一定有 scripts/audit_deploy_ledger.py（本次停在 feat/reading-rules-baseline-batch1，就没有），
 # 结果是账本静默漏记一次 switch——而切换本身已经生效，事后没人看得出来漏了。
 # FINANCE_WS 仍指主仓（数据仓），只有解释器和脚本路径跟着快照走。
-FINANCE_WS=/Users/a77/finance-workspace-private /Users/a77/finance-workspace-private/.venv-workbench/bin/python ~/.finance-runtime/finance-workspace-${sha:0:12}/scripts/audit_deploy_ledger.py record --action switch --rev "$sha" --snapshot-path ~/.finance-runtime/finance-workspace-${sha:0:12}
+# ⚠️ `--port 8792` 不能省（2026-09-04 实测补入）：`infer_port` 只认 PORT/UVICORN_PORT
+# 或 argv 里的 --port，明写「认不出来就 None，不猜 8792」。本命令两样都没有，于是
+# 落进账本的是一行没有 port 的 switch——**切换本身生效，账本也有行，只是无从归属**。
+# 后果在下游：看板的 last_switch_for_port 找不到匹配，回落到上一条带 port 的行，
+# 于是每个会话的 SessionStart 都把**上一版 rev** 报成 8792 现状（09-03 f4c03b9a 那次
+# 被报成 c88c81da）。账本里已有 16 行是这么来的。执行切换的人是唯一知道端口的人，
+# 别把这个信息留给读取侧去猜。
+FINANCE_WS=/Users/a77/finance-workspace-private /Users/a77/finance-workspace-private/.venv-workbench/bin/python ~/.finance-runtime/finance-workspace-${sha:0:12}/scripts/audit_deploy_ledger.py record --action switch --rev "$sha" --port 8792 --snapshot-path ~/.finance-runtime/finance-workspace-${sha:0:12}
 launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.a77.finance-workbench.plist
 ```
 

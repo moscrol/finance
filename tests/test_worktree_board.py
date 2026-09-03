@@ -140,9 +140,83 @@ def test_last_switch_prefers_port_8792(tmp_path: Path) -> None:
     ledger.write_text(
         "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
     )
-    found = board.last_switch_for_port(ledger, port=8792)
+    found, unattributed = board.last_switch_for_port(ledger, port=8792)
     assert found is not None
     assert found["rev"] == "ccccccc3"
+    assert unattributed is None
+
+
+def test_newer_switch_without_port_is_not_masked_by_older_matched_row(
+    tmp_path: Path,
+) -> None:
+    """现场形状：09-03 那次切换按规程跑、规程没带 --port，账本落了无 port 的行。
+
+    旧实现返回更旧的 c88c81da（末次带 port 的行），看板每个会话都把它当作
+    8792 现状报出来。判据是「不许把旧 rev 当真值报」，不是「必须报新 rev」——
+    账本确实无从归属。
+    """
+
+    ledger = tmp_path / "deploy-ledger.jsonl"
+    rows = [
+        {"action": "switch", "rev": "c88c81da5120", "port": 8792},
+        {"action": "switch", "rev": "f4c03b9ae610"},  # 规程漏了 --port
+    ]
+    ledger.write_text(
+        "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+    )
+    found, unattributed = board.last_switch_for_port(ledger, port=8792)
+    assert unattributed is not None
+    assert unattributed["rev"] == "f4c03b9ae610"
+    assert found is not None and found["rev"] == "c88c81da5120"
+
+
+def test_unattributed_switch_is_not_credited_to_another_port(tmp_path: Path) -> None:
+    """未归属行不许被「取最新」归给随便哪个 port。
+
+    真账本里 8796 末次 switch 之后同样跟着未归属行；把「最新那条」直接当答案，
+    会把 8792 的 rev 报成 8796 的现状。
+    """
+
+    ledger = tmp_path / "deploy-ledger.jsonl"
+    rows = [
+        {"action": "switch", "rev": "76ee1e89ed8a", "port": 8796},
+        {"action": "switch", "rev": "f4c03b9ae610"},
+    ]
+    ledger.write_text(
+        "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+    )
+    found, unattributed = board.last_switch_for_port(ledger, port=8796)
+    assert found is not None and found["rev"] == "76ee1e89ed8a"
+    assert unattributed is not None and unattributed["rev"] == "f4c03b9ae610"
+
+
+def test_board_line_declines_to_assert_when_newest_switch_lacks_port(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _init_repo(tmp_path)
+    ledger = repo / "state" / "deploy-ledger.jsonl"
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    ledger.write_text(
+        "".join(
+            json.dumps(row) + "\n"
+            for row in (
+                {"action": "switch", "rev": "c88c81da5120", "port": 8792},
+                {"action": "switch", "rev": "f4c03b9ae610"},
+            )
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+    monkeypatch.setenv("FINANCE_DEPLOY_LEDGER", str(ledger))
+    sha = _git(repo, "rev-parse", "HEAD")
+    lines = board.this_tree_lines(
+        cwd=str(repo), base="main", base_sha=sha, timeout=10, repo_root=repo
+    )
+    port_line = next(line for line in lines if line.startswith("8792:"))
+    assert "判不出" in port_line
+    assert "f4c03b9ae610" in port_line
+    # 关键：不能把更旧的 rev 摆成 8792 的现状读数
+    assert not port_line.startswith("8792: c88c81da5120")
 
 
 def test_this_tree_lines_when_already_on_base(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

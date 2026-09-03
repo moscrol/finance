@@ -227,15 +227,26 @@ def resolve_ledger_path(repo_root: Path, *, timeout: float = 2.0) -> Path:
     return candidates[0]
 
 
-def last_switch_for_port(ledger: Path, port: int = 8792) -> dict[str, Any] | None:
+def last_switch_for_port(
+    ledger: Path, port: int = 8792
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """返回 ``(该 port 末次 switch, 比它更新且没记 port 的 switch)``。
+
+    第二项不为 None 时，第一项**已经不能代表该 port 的现状**——账本里更新的那次
+    切换没写 port，读取侧无从归属。这里不替它猜：``deploy_ledger.infer_port`` 在
+    写入侧就明写「认不出来就 None，不猜 8792」，读取侧补一个猜测只是把同一个猜测
+    藏得更深，而且会猜错——账本里 8796 的末次 switch 后面同样跟着未归属行，按
+    「取最新」归属会把 8792 的 rev 报成 8796 的。
+    """
+
     if not ledger.is_file():
-        return None
+        return None, None
     matched: dict[str, Any] | None = None
-    fallback: dict[str, Any] | None = None
+    unattributed: dict[str, Any] | None = None
     try:
         text = ledger.read_text(encoding="utf-8")
     except OSError:
-        return None
+        return None, None
     for raw in text.splitlines():
         line = raw.strip()
         if not line:
@@ -248,10 +259,14 @@ def last_switch_for_port(ledger: Path, port: int = 8792) -> dict[str, Any] | Non
             continue
         if not row.get("rev"):
             continue
-        fallback = row
-        if row.get("port") == port or str(row.get("port") or "") == str(port):
+        row_port = row.get("port")
+        if row_port is None or str(row_port).strip() == "":
+            unattributed = row
+        elif str(row_port) == str(port):
+            # 该 port 有了更新的确凿行，之前那条未归属行不再影响判断
             matched = row
-    return matched or fallback
+            unattributed = None
+    return matched, unattributed
 
 
 def display_path(path: str) -> str:
@@ -344,8 +359,19 @@ def this_tree_lines(
             f"合入: 本枝 cherry+{plus} / cherry-{minus} vs {base}={base_sha[:12]}"
         )
     lines = [merge]
-    switch = last_switch_for_port(resolve_ledger_path(repo_root, timeout=timeout))
-    if switch:
+    switch, unattributed = last_switch_for_port(
+        resolve_ledger_path(repo_root, timeout=timeout)
+    )
+    if unattributed is not None:
+        # 报「不知道」而不是报一个更旧的 rev：后者每个会话都读起来像真值。
+        newer = str(unattributed.get("rev") or "")[:12]
+        known = str((switch or {}).get("rev") or "")[:12]
+        known_bit = f"，末次带 port=8792 的是 {known}" if known else ""
+        lines.append(
+            f"8792: 账本判不出——更新的 switch {newer} 未记 port{known_bit}"
+            "；取真值 scripts/audit_deploy_ledger.py check"
+        )
+    elif switch:
         rev = str(switch.get("rev") or "")
         port = switch.get("port")
         same = rev.startswith(base_sha[:12]) or base_sha.startswith(rev[:12])
