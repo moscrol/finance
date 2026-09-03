@@ -65,7 +65,10 @@
 > 的五条不变量只在 scripted 冒烟里过了。要 live 看到它，需要一道让参考 loop 首份终局缺格的题。
 > 详见 decouple spec §9「P2''-live」。
 >
-> **本线未做**：`_recover_finalization` 是否并进 repair cycle（独立决定，§6 红线明写本单不动）；
+> **本线未做**：~~`_recover_finalization` 是否并进 repair cycle（独立决定，§6 红线明写本单不动）~~
+> → **09-03 结案「不动」**：生产 381 份 / 全部 823 份 episode 触发 0 次，且是结构性的——生产合成失败恰好都在
+> 它的前置之外（时钟已死 22 / 零证据 10 / 驳回类未开 allow_recovery 1），见
+> `docs/verification/2026-09-03-finalization-recovery-offline.md`。登记观察点见 §6。
 > `_carry_repair_finish` 两行取舍留 loop。~~`finance-base-ab/shape_lib/reference_loop_arm.py` 的
 > 「resume 抛无修复轮」壳属实验树，可改调 `HarnessReferenceLoop.resume`~~ → 已改（P2''-live 那晚，
 > `reference_loop_arm.py` 的 `resume` 真在调 `HarnessReferenceLoop.resume`；09-03 核对）。
@@ -353,6 +356,10 @@ class ResearchHarness(Protocol):
 
 - **不动 `_recover_finalization` 的「恰好一次、不进 cycle、不经 grant」这个不对称。**
   它是独立状态机，合并进 repair cycle 是另一个决定，需要单独立案。
+  **09-03 结案：维持不动，也不删。** 离线量到生产 0 触发（`2026-09-03-finalization-recovery-offline.md`），
+  并不并无从量起；删掉则等 deep 档（240s / reserve 48s）或预算 P1 改了 reserve 后前置可能开始成立。
+  **观察点**：`finalization_recovery_started` 首次出现在生产 `continuous-episode.json` 时，拿那份 episode
+  重开此题；预算 P1 若动了 reserve，重跑 `scripts/offline_finalization_recovery.py` 一次即知有没有变化。
 - **不放宽任何现有闸门**：`unreachable_repair_goal` 的 docstring 写明它「不放宽任何
   限制、不加任何预算」，拆分后必须保持。
 - 不为让测试绿而改 `episode_protocol.py` 判定。
