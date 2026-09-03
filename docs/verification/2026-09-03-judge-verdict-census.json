@@ -1,0 +1,35 @@
+{
+  "generated_at": "2026-09-03T16:38:51+08:00",
+  "since": "2026-09-03",
+  "runs_scanned": 815,
+  "runs_with_field": 1,
+  "runs_without_field": 5,
+  "runs_unreadable": 0,
+  "runs_skipped_by_date": 809,
+  "verdict_count": 1,
+  "by_stage": {
+    "judge": 1
+  },
+  "by_decision": {
+    "deleted": 1
+  },
+  "by_reason": {
+    "judge": 1
+  },
+  "deleted": {
+    "count": 1,
+    "with_source_count": 0,
+    "with_source_share": 0.0,
+    "unresolved_ordinal_only_count": 0,
+    "no_citation_count": 1,
+    "with_source_tiers": {},
+    "with_source_samples": []
+  },
+  "demoted": {
+    "count": 0,
+    "source_tiers": {},
+    "samples": []
+  },
+  "verdict": "可判：见 deleted.with_source_share 与 with_source_tiers",
+  "runs_root": "/Users/a77/.local/share/finance-workbench/users"
+}

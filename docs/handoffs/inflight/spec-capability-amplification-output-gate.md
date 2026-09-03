@@ -11,7 +11,7 @@
 - ③ 遥测零信号 → ⑥ 不排期
 
 ## 当前状态
-main=`c19f7594`；8792=`c88c81da5120`（未切，不含下面任何一张）。**待合入（需用户确认）**：#553 web_search 修复 · #551 墙钟用例 · #552 门禁/PR 脚本 · #557 P2 拒句账 · 本线 docs PR。五张对 main 冲突探测全净。`fwp-wt-rag-window` 仍有他人未提交 `rag_worker.py`，勿拆。仓外：`~/scripts-local/chrome_debug_agent.sh` 加了 `--user-agent`（去 Headless），`CDP_USER_AGENT` 置空还原。
+用户「你来合并」→ #551/#552/#553/#557/#560 全合，8792 已切 `f4c03b9ae610`（0903e，回滚锚 `~/.finance-runtime/cutover-20260903e-rollback-8792.txt`）。本线无未提交改动。`fwp-wt-rag-window` 仍有他人未提交 `rag_worker.py`，勿拆。仓外：`~/scripts-local/chrome_debug_agent.sh` 加了 `--user-agent`（去 Headless），`CDP_USER_AGENT` 置空还原。
 
 ## 未验证 / 已知边界
 - `web_fetch` 两臂零调用（snippet 里就有数），仍无 live 读数。
@@ -20,11 +20,10 @@ main=`c19f7594`；8792=`c88c81da5120`（未切，不含下面任何一张）。*
 - PLAN/deep 归零原因未查（[推断] 08-22 prompt 重构）。
 
 ## 下一步
-1. 用户拍合入顺序并切 8792（含 #553 才能再测 web）。
-2. 查 PLAN/deep 为何 08-22 后归零——子代理 spec 的前置（spec §7）。
-3. 切流后跑 `scripts/offline_judge_verdict_census.py` 出 P2 第 2 步占比。
-4. 换题复跑两臂验 `web_fetch`（挑 snippet 无数的题）。
-待用户拍：② 改判——RAG「worker ready 但首查慢」不是 failed→藏能管的，选 a 预热后真查一次 / b 预热后 N 秒藏 / c 不动；零授予——web/news/fetch 无地板在 `would_grant=0` 仍可见（live 实锤），加 ~5s 地板还是 <1s 全藏。
+1. 查 PLAN/deep 为何 08-22 后归零——子代理 spec 的前置（spec §7）。
+2. 生产积累后跑 `scripts/offline_judge_verdict_census.py --since 2026-09-03` 出 P2 第 2 步占比（首读 1 run/1 条，只证链路通）。
+3. 换题复跑两臂验 `web_fetch`（挑 snippet 无数的题）。
+待用户拍（今天 live 各 3/3 复现）：② 改判——RAG「worker ready 但首查慢」不是 failed→藏能管的，选 a 预热后真查一次 / b 预热后 N 秒藏 / c 不动；零授予——web/news/fetch 无地板在 `would_grant=0` 仍可见，加 ~5s 地板还是 <1s 全藏。
 
 ## 踩过的坑
 - `status=success` 内容全错：三态看不出，直调一次看结果再跑 live。
