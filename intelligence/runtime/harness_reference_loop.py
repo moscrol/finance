@@ -48,6 +48,7 @@ from intelligence.runtime.episode_tool_batch import (
     ToolBatchExecutor,
     ToolBatchResult,
     timeout_detail_for_model,
+    tool_definitions_for_menu,
 )
 from intelligence.runtime.tier_promotion import apply_mode_promotion
 from intelligence.services.agent_research import AgentEvidence
@@ -242,7 +243,7 @@ class HarnessReferenceLoop:
                 []
                 if finalization_started
                 else self._available_tool_definitions(
-                    session=state.session, registry=registry, context=context
+                    session=state.session, registry=registry, context=context, ledger=ledger
                 )
             )
             try:
@@ -561,7 +562,7 @@ class HarnessReferenceLoop:
 
         definitions = (
             self._available_tool_definitions(
-                session=state.session, registry=registry, context=context
+                session=state.session, registry=registry, context=context, ledger=ledger
             )
             if tools_open
             else []
@@ -753,16 +754,13 @@ class HarnessReferenceLoop:
         session: EpisodeToolBatchSession,
         registry: ResearchToolRegistry,
         context: ResearchRunContext,
+        ledger: _Ledger,
     ) -> list[dict[str, object]]:
-        available = set(session.available_tool_names(registry=registry, context=context))
-        return [
-            definition
-            for definition in registry.tool_definitions(
-                context.contract.allowed_capabilities
-            )
-            if isinstance(function := definition.get("function"), dict)
-            and function.get("name") in available
-        ]
+        menu = session.menu(registry=registry, context=context)
+        # 与 Episode 同一格同一字：藏了工具才记 tool_menu，无裁剪轮事件流不变。
+        if menu.hidden:
+            ledger.add("tool_menu", menu.to_payload())
+        return tool_definitions_for_menu(menu, registry=registry, context=context)
 
 
 def _assistant_message(turn: ModelTurn) -> dict[str, object]:

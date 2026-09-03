@@ -69,6 +69,7 @@ DURABLE_EVENT_KINDS: frozenset[str] = frozenset(
         "plan",
         "mode_decision",
         "prefetch",
+        "tool_menu",
         "model_turn",
         "model_error",
         "tool_request",

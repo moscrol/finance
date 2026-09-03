@@ -962,6 +962,100 @@ def test_available_tool_names_remove_collected_episode_snapshot() -> None:
     ) == ("kb_search",)
 
 
+def _menu_registry(*, kb_floor: float | None) -> ResearchToolRegistry:
+    return ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="market_data",
+                capability="market_data",
+                description="fast local snapshot",
+                cost="local",
+                freshness="current",
+                runner=lambda query, _context: _evidence_result("market_data", query),
+            ),
+            ToolSpec(
+                name="kb_search",
+                capability="kb_search",
+                description="rag search",
+                cost="local",
+                freshness="stable",
+                runner=lambda query, _context: _evidence_result("kb_search", query),
+                min_window_seconds=kb_floor,
+            ),
+        )
+    )
+
+
+def _window_context(*, total: float, reserve: float) -> ResearchRunContext:
+    return replace(
+        _context(allowed=("market_data", "kb_search")),
+        deadline=ResearchDeadline.from_timeout(total, synthesis_reserve=reserve),
+        policy=ResearchPolicy("quick", 4, total, reserve),
+    )
+
+
+def test_menu_hides_tool_whose_min_window_exceeds_this_turns_grant() -> None:
+    """总窗 30 / reserve 15 → 本轮工具窗 15s；申报最少 20s 的 kb_search 不上菜单。
+
+    2026-09-03 生产读数：kb_search 66% 以 tool_timeout 收场、每次烧掉约 23s。这里
+    只裁可见性：would_grant 与派发点 ``deadline.stage_timeout(tool_batch_timeout_seconds)``
+    是同一套算术，授予本身一个字不改。
+    """
+
+    session = ToolBatchExecutor().new_session()
+    context = _window_context(total=30.0, reserve=15.0)
+    menu = session.menu(registry=_menu_registry(kb_floor=20.0), context=context)
+
+    assert menu.visible == ("market_data",)
+    assert menu.hidden == (("kb_search", 20.0),)
+    # 同一套算术；两次读单调钟相差微秒级，用容差比。
+    assert abs(
+        menu.would_grant
+        - context.deadline.stage_timeout(
+            episode_tool_batch.tool_batch_timeout_seconds(context.policy)
+        )
+    ) < 0.05
+    assert 0.0 < menu.would_grant < 20.0
+    assert menu.to_payload() == {
+        "visible": ["market_data"],
+        "hidden": ["kb_search"],
+        "min_window_seconds": {"kb_search": 20.0},
+        "would_grant": round(menu.would_grant, 3),
+        "reason": "min_window_exceeds_grant",
+    }
+    assert session.available_tool_names(
+        registry=_menu_registry(kb_floor=20.0), context=context
+    ) == ("market_data",)
+
+
+def test_menu_keeps_tool_when_window_fits_or_no_floor_declared() -> None:
+    session = ToolBatchExecutor().new_session()
+    wide = _window_context(total=90.0, reserve=30.0)  # 工具窗 60s ≥ 20s
+    fits = session.menu(registry=_menu_registry(kb_floor=20.0), context=wide)
+    assert fits.visible == ("kb_search", "market_data")
+    assert fits.hidden == ()
+
+    narrow = _window_context(total=30.0, reserve=15.0)
+    undeclared = session.menu(registry=_menu_registry(kb_floor=None), context=narrow)
+    assert undeclared.visible == ("kb_search", "market_data")
+    assert undeclared.hidden == ()
+
+
+def test_production_registry_declares_rag_floors_and_nothing_else() -> None:
+    """领域申报表只登记实测有尾巴的两条 RAG 工具；其它工具 None（不裁）。"""
+
+    from intelligence.services.research_tool_registry import MIN_WINDOW_SECONDS, default_registry
+
+    assert MIN_WINDOW_SECONDS == {"kb_search": 20.0, "evidence_search": 30.0}
+    runners = {
+        name: (lambda query, _context: _evidence_result("x", query))
+        for name in ("kb_search", "market_data", "financial_data", "web_search")
+    }
+    specs = {spec.name: spec for spec in default_registry(runners).authorized_specs()}
+    assert specs["kb_search"].min_window_seconds == 20.0
+    assert all(specs[name].min_window_seconds is None for name in ("market_data", "financial_data", "web_search"))
+
+
 def test_same_session_serializes_concurrent_duplicate_admission() -> None:
     runner_started = Event()
     release_runner = Event()
