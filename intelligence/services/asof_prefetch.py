@@ -360,6 +360,22 @@ def _exact_sector_names_in_query(con: Any, query: str) -> tuple[str, ...]:
     return tuple(hit)
 
 
+def _clean_exact_sector_names_in_query(con: Any, query: str) -> tuple[str, ...]:
+    """表内精确名，且不是更长 CJK 片段的嵌入后缀。
+
+    「立新能源」里的「新能源」是嵌入，不是问句点名的板块。过滤用的是
+    输入形态（``cjk_span_embedding_term``），不是板块名白名单。
+    """
+
+    from intelligence.services.query_understanding import cjk_span_embedding_term
+
+    return tuple(
+        name
+        for name in _exact_sector_names_in_query(con, query)
+        if cjk_span_embedding_term(query, name) is None
+    )
+
+
 def resolve_prefetch_sector(con: Any, query: str, subject: str) -> str | None:
     """问句里已出现且表中存在的精确板块名优先；禁止 SQL ``contains`` 近义名。
 
@@ -737,8 +753,10 @@ def collect_prefetch_items(
                     )
             except Exception:
                 pass
-        if question_type == "theme_analysis":
-            # R-20260828-02：题材题确定性供数（精确板块行 + 成员映射），
+        named_in_query = _clean_exact_sector_names_in_query(con, question)
+        if question_type == "theme_analysis" or named_in_query:
+            # R-20260828-02：题材题确定性供数；问句已点名表内干净长名时
+            # 同样上桌——这是加输入，不看 question_type，也不做短名臆配。
             # 内层自捕获——本分支失败不得连坐后续 operator 的预取。
             try:
                 items.extend(
@@ -857,7 +875,9 @@ def _theme_sector_snapshot_items(
     *,
     exclude_sector: str | None = None,
 ) -> tuple[PrefetchItem, ...]:
-    """theme_analysis 确定性预取：精确板块名 → 当日板块行 + 成员表。
+    """精确板块名 → 当日板块行 + 成员表。
+
+    theme_analysis 必跑；问句已点名表内干净长名时，其它题型同样上桌。
 
     `R-20260828-02`（四臂 D5、`R-20260827-09` refuted 升格）：模型自选查询
     从不使用精确板块名（``contains "核"`` 撒网 / 按成交额 top8），判据要的
