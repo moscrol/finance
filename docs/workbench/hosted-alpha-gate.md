@@ -99,52 +99,105 @@ export WORKBENCH_MAX_QUEUED_RUNS=4             # worker 全忙后最多排 4 个
 - `GET /api/readiness` 的 `workers` 段新增 `queued` / `max_active_per_user` / `max_queued`，拨测和排障看这里。
 - 互斥范围仍是**单进程**（与配额同一条边界，见 §4.2）。多 worker 进程部署前必须换共享存储。
 
-### 1.5 额度账本：赠送 + 月度充值（2026-09-03）
+### 1.5 积分账本：赠送 + 月度充值，按真实用量结算（2026-09-03）
 
-代码：`intelligence/api/credits.py` `CreditStore`（测试 `intelligence/tests/test_api_credits.py`，22 例）；
-运营入口 `scripts/workbench_credits.py`。与 §1.2 的**日配额**是两件事：日配额是防刷的节流阀（一天最多 N 次），
-额度账本是**钱包**（一共还能用多少次，由 owner 赠送和用户充值决定）。两道同时生效：先占钱包、再占日配额，
-任一拒绝把另一道退回。
+代码：`intelligence/api/credits.py`（`CreditPricing` 定价 / `read_run_usage` 用量 / `CreditStore` 账本；测试
+`intelligence/tests/test_api_credits.py`，37 例）；运营入口 `scripts/workbench_credits.py`。与 §1.2 的**日配额**是两件事：
+日配额是防刷的节流阀（一天最多 N 次），积分账本是**钱包**。两道同时生效：先预占钱包、再占日配额，任一拒绝把另一道退回。
+
+**单位：积分，100 积分 = 1 元**（用户定：20 元 = 2000 积分）。首次提问自动赠送 2000 积分。
 
 ```bash
-export WORKBENCH_CREDITS=1                 # 开钱包。不设 = 历史行为，不扣不查
-export WORKBENCH_CREDITS_SIGNUP_GIFT=30    # 用户第一次提问时自动赠送的次数（0/不设 = 不自动送，全靠手工 grant）
+export WORKBENCH_CREDITS=1                    # 开钱包。不设 = 历史行为，不扣不查
+export WORKBENCH_CREDITS_SIGNUP_GIFT=2000     # 用户第一次提问时自动赠送的积分（0/不设 = 不自动送）
+export WORKBENCH_CREDITS_PRICING=$HOME/.local/share/finance-workbench/pricing.json   # 价目表；不设用内置占位
 # 豁免复用 WORKBENCH_QUOTA_EXEMPT_USERS（owner 不记账）
 ```
 
-| 概念 | 是什么 | 怎么产生 |
-|---|---|---|
-| `gift` 赠送 | 不过期（也可给到期日），owner 给的缓冲 | 首次提问自动送 `SIGNUP_GIFT` 次；或 `grant --kind gift` |
-| `monthly` 月度充值 | 默认 30 天后到期，用不完作废 | 收到钱后 `grant --kind monthly --runs 200`；将来支付回调调同一个 `CreditStore.grant` |
-| 消费顺序 | **先到期的先扣，不过期的最后扣**；同到期日按授予先后 | 月度额度是买来这个月用的，不该被赠送额度挤掉 |
-| 单位 | 1 run = 1 次，与日配额同口径（不按 token，见 §4.3） | — |
+#### 一次研究花多少积分（算法）
 
-```bash
-# 用 8792 同一个 users 根（FORESIGHT_USERS_DIR 与启动器一致）；写完立即生效，服务端每次扣额都重读文件
-python3 scripts/workbench_credits.py grant   --user alpha-friend-a --kind gift    --runs 30  --note "内测赠送"
-python3 scripts/workbench_credits.py grant   --user alpha-friend-a --kind monthly --runs 200 --note "9 月充值 ¥xx"   # 30 天到期
-python3 scripts/workbench_credits.py grant   --user alpha-friend-a --kind monthly --runs 200 --expires 2026-10-01     # 到 9 月底
-python3 scripts/workbench_credits.py balance --user alpha-friend-a
-python3 scripts/workbench_credits.py list
-python3 scripts/workbench_credits.py revoke  --user alpha-friend-a --grant-id g-2026… --note "退款"
-python3 scripts/workbench_credits.py history --user alpha-friend-a
+```
+cost_yuan = base_fee
+          + markup × Σ_model ( input_tokens[m] × input_rate[m] + output_tokens[m] × output_rate[m] ) / 1_000_000
+          + tool_calls × tool_call_fee
+points    = max( ceil(cost_yuan × 100), min_charge_points )
 ```
 
-用户看到什么：额度为 0 时 `POST /api/runs` 与对话消息都回 429「研究额度已用完（剩余 0 次）。请联系管理员充值…」，
-不带 `Retry-After`（不是等一会就有，别让客户端自动重试）；`GET /api/credits?user=` 给余额、各笔授予、最近到期日；
-`GET /api/workbench/bootstrap` 里多一个 `credits` 摘要（`remaining` / `next_expiry`）；会话栏页脚显示「剩余额度 N 次 · MM-DD 到期」，0 次时警示色并提示充值（提问受理与 run 收口时刷新）。
+- 用量来自 run 目录的 `continuous-episode.json`：逐条 `model_turn` 事件按 `served_model` 归模型累计 token
+  （`outcome.usage` 总量兜底）。费率按模型查价目表，查不到走 `default` 档；费率单位**元 / 百万 token**，与供应商报价同口径，
+  `markup` 单列（成本与利润分开看）。
+- **run 没产生任何模型用量且没有完成**（排队中被取消、开跑即挂）→ 0 积分。**完成但没有模型用量**（确定性罐头答案）→ 只收 `base_fee`。
+  **烧了 token 的失败/取消照收**——分不清谁的锅时按实际发生记，owner 用 `grant` 补偿。
+- 判官（grok-cli）的 token 目前**没有**进用量文件，没计费；要计要先让它把用量写进 episode。
 
-账本长什么样：`users/<id>/credits.json`——`grants`（每笔授予的 `amount / remaining / expires_at`）+ `ledger`
-（grant / run / refund / revoke 逐笔流水，append-only，对账用）。旁边的 `credits.lock` 是 **flock 文件锁**：CLI 与
-服务进程同写一份账本必须靠它，进程内锁护不住；变异实测去掉它跨进程用例必红。
+价目表（`pricing.json`，数字全是字符串以免浮点）——**内置默认是占位，上线前按真实供应商报价改**：
+
+```json
+{
+  "markup": "2.0",
+  "base_fee_yuan": "0.10",
+  "min_charge_yuan": "0.05",
+  "hold_yuan": "1.00",
+  "tool_call_fee_yuan": "0",
+  "models": {
+    "default": {"input_yuan_per_1m": "3.0", "output_yuan_per_1m": "12.0"},
+    "glm-5.3": {"input_yuan_per_1m": "3.0", "output_yuan_per_1m": "12.0"}
+  }
+}
+```
+
+量级校准：09-03 生产长电探针一次 run = 37,256 in / 792 out @ glm-5.3、3 次工具 → 按占位价目 **35 积分（¥0.34）**；
+2000 积分约 57 次这样的研究；deep 档（10 万 in / 5 千 out）约 82 积分。`scripts/workbench_credits.py estimate` 可随时算。
+
+#### 预占 → 结算 → 欠账
+
+| 时刻 | 发生什么 |
+|---|---|
+| 提问受理 | 可用积分 > 0 才受理；**预占** `hold_yuan`（默认 100 积分，只占可用余额，不动 grant），拿到 `hold_id`；run 建好后绑到 run_id |
+| 准入拒收 / 日配额拒绝 / 落盘失败 / 排队中取消 | 释放预占，零扣账、零流水 |
+| run 结束（worker 返回） | 按用量算积分，从**先到期的 grant** 开始逐笔扣（同到期按授予先后）；可用不够 → 记**欠账**；预占同时释放 |
+| 欠账 > 0 | 新提问一律 429「积分已透支 N 分，请充值」；下一笔 `grant` 先抵欠账 |
+| 预占超过 6 小时未结算 | 视为孤儿（进程崩在预占与建 run 之间），不再占余额 |
+
+`可用积分 = Σ 未过期 grant 余量 − Σ 在途预占 − 欠账`。余额 3 积分也能再问一次（最后一次可能透支成欠账），
+而不是「还剩 3 分为什么不让我用」。
+
+| 概念 | 是什么 | 怎么产生 |
+|---|---|---|
+| `gift` 赠送 | 不过期（也可给到期日），owner 给的缓冲 | 首次提问自动送 `SIGNUP_GIFT`；或 `grant --kind gift` |
+| `monthly` 月度充值 | 默认 30 天后到期，用不完作废 | 收到钱后 `grant --kind monthly --yuan 20`；将来支付回调调同一个 `CreditStore.grant` |
+| 消费顺序 | **先到期的先扣，不过期的最后扣**；同到期日按授予先后 | 月度额度是买来这个月用的，不该被赠送额度挤掉 |
+
+```bash
+# 用 8792 同一个 users 根（FORESIGHT_USERS_DIR 与启动器一致）；写完立即生效，服务端每次扣账都重读文件
+python3 scripts/workbench_credits.py grant    --user alpha-friend-a --kind gift    --points 2000 --note "内测赠送"
+python3 scripts/workbench_credits.py grant    --user alpha-friend-a --kind monthly --yuan 20     --note "9 月充值 微信"   # 30 天到期
+python3 scripts/workbench_credits.py grant    --user alpha-friend-a --kind monthly --yuan 20 --expires 2026-10-01        # 到 9 月底
+python3 scripts/workbench_credits.py balance  --user alpha-friend-a       # 可用 / 在途预占 / 欠账 / 各笔授予
+python3 scripts/workbench_credits.py list
+python3 scripts/workbench_credits.py revoke   --user alpha-friend-a --grant-id g-2026… --note "退款"
+python3 scripts/workbench_credits.py history  --user alpha-friend-a       # run 行带 token 用量与算式
+python3 scripts/workbench_credits.py pricing                                # 当前生效价目（含来源）
+python3 scripts/workbench_credits.py estimate --input-tokens 37256 --output-tokens 792 --model glm-5.3 --tool-calls 3
+```
+
+用户看到什么：可用 ≤ 0 时 `POST /api/runs` 与对话消息都回 429（「积分已用完…」或「积分已透支 N 分…」），不带 `Retry-After`
+（不是等一会就有，别让客户端自动重试）；`GET /api/credits?user=` 给可用积分、在途预占、欠账、各笔授予、最近到期日；
+`GET /api/workbench/bootstrap` 里多一个 `credits` 摘要；会话栏页脚显示「剩余 1965 积分 (¥19.65) · 10-03 到期」，
+≤ 0 时警示色并提示充值（提问受理时与 run 收口后刷新）。每次结算服务端记一行 INFO 日志（user / run / charged / cost_yuan / rule / debt）。
+
+账本长什么样：`users/<id>/credits.json`——`grants`（每笔授予的 `amount / remaining / expires_at`）+ `holds`（在途预占）+
+`debt` + `ledger`（grant / run / revoke / debt_repaid 逐笔流水，append-only；run 行带 `usage`、`cost` 算式与 `allocations`
+扣了哪几笔 grant）。旁边的 `credits.lock` 是 **flock 文件锁**：CLI 与服务进程同写一份账本必须靠它，进程内锁护不住；
+变异实测去掉它跨进程用例必红。
 
 纪律：
-- **预占**：与日配额同一套语义，占不到直接 429、零副作用；准入拒收 / 日配额拒绝 / 落盘失败三种「我们自己没服务到」
-  的情形都把额度退回（`release` 退最近一次扣账）。**run 跑完失败不自动退**——分不清是谁的锅，owner 用 `grant` 补偿。
-- **坏账本 fail closed**：`credits.json` 解析不了 → 503「额度账本损坏」且不改写文件。钱的账本坏了不能当空账本重建
-  （那等于把余额清零再送一次赠送）。`balance` / `list` 会标出损坏的用户。
-- 过期 grant 的余量不计入余额、不可用、也不删（账在）；`revoke` 只清余量不改历史。
+- **坏账本 fail closed**：`credits.json` 解析不了 → 503「积分账本损坏」且不改写文件；结算失败只记日志不打崩 worker。
+  钱的账本坏了不能当空账本重建（那等于把余额清零再送一次赠送）。`balance` / `list` 会标出损坏的用户。
+- 过期 grant 的余量不计入可用、不可用、也不删（账在）；`revoke` 只清余量不改历史。
 - 自动赠送的判据是「还没有账本文件」，不是「余额为 0」——用完不会再送。
+- 结算不依赖预占是否还在：重启恢复的 run 没有预占记录也照实扣。
+- 单位是积分不是 token 本身：用户看到的是钱，模型换了、价目改了都在 `pricing.json`，代码不动。
 
 ### 1.3 行为矩阵
 
@@ -245,9 +298,10 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8792/api/conversations
    准入 = `RunSupervisor` 锁内数自己的 futures。当前部署（launchd 单 uvicorn 进程）内正确；
    改多进程/多实例前必须换共享存储（SQLite `BEGIN IMMEDIATE` / Postgres 行锁），
    并把 run 队列持久化——这是设计稿阶段 C「拆 Research Worker」那一项，不在 Alpha 做。
-   额度账本（§1.5）多一把 flock 文件锁，**同一台机器**多进程安全（CLI 与服务进程同写），跨机器仍不行。
-3. **run ≠ token**：日配额与额度账本都按 run 次数记，不按 token 计费。deep 档一次 run 的
-   LLM 花费远大于 quick 档；定价按最贵档位估算，或引导内测用户 BYOK。run 失败不自动退额度（§1.5）。
+   积分账本（§1.5）多一把 flock 文件锁，**同一台机器**多进程安全（CLI 与服务进程同写），跨机器仍不行。
+3. **日配额按次、积分按 token**：日配额仍按 run 次数记（节流阀）；积分账本按 run 的真实模型 token 用量结算（§1.5），
+   deep 档自然比 quick 档贵。边界：判官（grok-cli）的 token 未进用量文件、没计费；价目表是占位、上线前按供应商报价改；
+   烧了 token 的失败照收，owner 用 `grant` 补偿。
 4. **数据新鲜度单点**：`daily-full` 仍依赖本机 Chrome 的 fupanhui 登录态，
    Mac 关机 = 全体用户数据停更。盘后同步写库时段用户查询可能撞 DuckDB
    单写者锁（代码已识别为 lock 错误而非文件缺失），可接受偶发失败。
