@@ -1003,6 +1003,13 @@ def retrieve(
             tel.status = "timeout"
             tel.warning = res.warning
             return res
+    except rag_worker.WorkerRequestAbandoned:
+        # 热 worker 第一次超窗：请求放弃、进程保留，下一次查询不用等模型重载。
+        res.warning = f"wiki-rag 常驻 worker 超时(>{timeout}s)，请求已放弃、worker 保留"
+        tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+        tel.status = "timeout"
+        tel.warning = res.warning
+        return res
     except TimeoutError:
         res.warning = f"wiki-rag 常驻 worker 超时(>{timeout}s)，进程已终止"
         tel.latency_ms = int((time.monotonic() - _t0) * 1000)

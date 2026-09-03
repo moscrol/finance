@@ -74,13 +74,16 @@ def test_worker_reuses_loaded_retriever(tmp_path: Path) -> None:
 
 
 def test_timeout_terminates_worker_and_next_query_restarts(tmp_path: Path) -> None:
+    """冷 worker（还没加载过模型）超时照旧杀：没有「热」可保。"""
+
     _write_fake_rag(tmp_path)
     index = tmp_path / ".rag_index"
     index.mkdir()
     worker = PersistentRagWorker(sys.executable, tmp_path, index)
     try:
-        with pytest.raises(TimeoutError):
+        with pytest.raises(TimeoutError) as excinfo:
             worker.query(["query", "slow", "--json"], timeout=0.02)
+        assert not isinstance(excinfo.value, rag_worker.WorkerRequestAbandoned)
         assert worker.healthy() is False
         recovered = worker.query(["query", "recovered", "--json"], timeout=2)
     finally:
@@ -128,14 +131,14 @@ def test_prewarm_timeout_is_failed_and_stops_process(tmp_path: Path) -> None:
     assert isinstance(payload["prewarm_latency_ms"], int)
 
 
-def test_query_timeout_after_prewarm_self_heals(
+def test_warm_worker_survives_first_timeout_and_drains_the_late_response(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """查询超时杀进程后，worker 按预热配方后台重生，不永久停在 failed。
+    """热 worker 第一次超窗：放弃请求、进程保留、不起自愈；迟到的响应由下一次查询排掉。
 
-    生产失败形状（2026-08-13）：预热窗 240s > 查询窗 90s，模型加载 ~145s。
-    查询超时 `_mark_failed` 杀进程后，「下次查询自然重启」必然二次超时，
-    readiness 的 rag_worker 判据永久红。自愈必须用预热的窗口，不能用查询的。
+    2026-09-03 生产读数：kb_search 66% 的调用超时，老处置「超时即杀 + 重生（模型加载
+    50–145s）」让一次慢查询换来一两分钟的必败。这里守：(1) 进程还活着、状态仍 ready；
+    (2) 没有自愈线程；(3) 下一次查询拿到的是**自己的**响应，不是那条迟到的 slow。
     """
     monkeypatch.setenv("RAG_WORKER_RECOVERY_COOLDOWN_SECONDS", "0")
     _write_fake_rag(tmp_path)
@@ -144,19 +147,67 @@ def test_query_timeout_after_prewarm_self_heals(
     worker = PersistentRagWorker(sys.executable, tmp_path, index)
     try:
         worker.prewarm(["query", "warmup", "--json"], timeout=2)
-        with pytest.raises(TimeoutError):
+        pid_before = worker._process.pid  # type: ignore[union-attr]
+        with pytest.raises(rag_worker.WorkerRequestAbandoned):
             worker.query(["query", "slow", "--json"], timeout=0.02)
+        after_abandon = worker.status()
+        assert worker.healthy() is True
+        assert worker._process.pid == pid_before  # type: ignore[union-attr]
+        assert worker._recovery_thread is None
+        follow_up = worker.query(["query", "next", "--json"], timeout=2)
+        after_drain = worker.status()
+    finally:
+        worker.close()
+
+    assert after_abandon["state"] == "ready"
+    assert after_abandon["abandoned_in_flight"] == 1
+    assert after_abandon["consecutive_timeouts"] == 1
+    assert after_abandon["counters"]["timeouts_abandoned_kept_warm"] == 1
+    assert after_abandon["counters"]["timeouts_killed"] == 0
+    assert '"query": "next"' in follow_up.stdout
+    assert follow_up.model_load_count == 1, "同一个进程、同一次模型加载"
+    assert after_drain["abandoned_in_flight"] == 0
+    assert after_drain["consecutive_timeouts"] == 0
+    assert after_drain["counters"]["stale_responses_drained"] == 1
+    assert after_drain["counters"]["queries_served"] >= 2  # prewarm + next
+
+
+def test_second_consecutive_timeout_kills_and_self_heals(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """热 worker 连续两次超窗才算卡死：第二次杀进程并按预热配方后台重生。
+
+    生产失败形状（2026-08-13）：预热窗 240s > 查询窗 90s，模型加载 ~145s。
+    杀进程后「下次查询自然重启」必然二次超时，readiness 永久红——自愈必须用预热的窗口。
+    这一段保活改动一个字没碰。
+    """
+    monkeypatch.setenv("RAG_WORKER_RECOVERY_COOLDOWN_SECONDS", "0")
+    _write_fake_rag(tmp_path)
+    index = tmp_path / ".rag_index"
+    index.mkdir()
+    worker = PersistentRagWorker(sys.executable, tmp_path, index)
+    try:
+        worker.prewarm(["query", "warmup", "--json"], timeout=2)
+        with pytest.raises(rag_worker.WorkerRequestAbandoned):
+            worker.query(["query", "slow", "--json"], timeout=0.02)
+        with pytest.raises(TimeoutError) as second:
+            worker.query(["query", "slow", "--json"], timeout=0.02)
+        assert not isinstance(second.value, rag_worker.WorkerRequestAbandoned)
+        killed = worker.status()
         thread = worker._recovery_thread
-        assert thread is not None, "查询失败后必须调度后台自愈"
+        assert thread is not None, "连续第二次超时后必须调度后台自愈"
         thread.join(timeout=10)
         assert not thread.is_alive()
         payload = worker.status()
     finally:
         worker.close()
 
+    assert killed["counters"]["timeouts_killed"] == 1
+    assert killed["abandoned_in_flight"] == 0
     assert payload["state"] == "ready"
     assert payload["active"] is True
     assert payload["last_error_type"] is None
+    assert payload["counters"]["recoveries"] == 1
 
 
 def test_query_timeout_without_prewarm_recipe_stays_failed(
@@ -188,15 +239,21 @@ def test_recovery_respects_cooldown(
     index = tmp_path / ".rag_index"
     index.mkdir()
     worker = PersistentRagWorker(sys.executable, tmp_path, index)
-    try:
-        worker.prewarm(["query", "warmup", "--json"], timeout=2)
+
+    def _kill_via_two_timeouts() -> None:
+        # 保活契约：热 worker 第一次超时只放弃，连续第二次才杀——杀一次要两发。
+        with pytest.raises(rag_worker.WorkerRequestAbandoned):
+            worker.query(["query", "slow", "--json"], timeout=0.02)
         with pytest.raises(TimeoutError):
             worker.query(["query", "slow", "--json"], timeout=0.02)
+
+    try:
+        worker.prewarm(["query", "warmup", "--json"], timeout=2)
+        _kill_via_two_timeouts()
         first_thread = worker._recovery_thread
         assert first_thread is not None
         first_thread.join(timeout=10)
-        with pytest.raises(TimeoutError):
-            worker.query(["query", "slow", "--json"], timeout=0.02)
+        _kill_via_two_timeouts()
         assert worker._recovery_thread is first_thread, "冷却期内不得再起新线程"
     finally:
         worker.close()
