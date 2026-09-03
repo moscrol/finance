@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import json
+import subprocess
 from pathlib import Path
 from unittest import mock
 
@@ -393,6 +394,97 @@ def test_kb_rag_uses_enabled_worker_without_cli(tmp_path: Path) -> None:
     assert result.ok is True
     assert result.telemetry.query_protocol == "persistent_worker"
     cli.assert_not_called()
+
+
+def _worker_query_fixture(tmp_path: Path) -> Path:
+    wiki = tmp_path / "wiki"
+    page = wiki / "concepts" / "液冷.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("# 液冷\n", encoding="utf-8")
+    script = tmp_path / kb_rag.RAG_SCRIPT_REL
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text("# fixture\n", encoding="utf-8")
+    (tmp_path / ".rag_index").mkdir()
+    return wiki
+
+
+def _retrieve_with_worker_error(wiki: Path, exc: BaseException, query: str):
+    # CLI 回退真被走到时要能解析：给一个空命中的合法 JSON，让断言落在
+    # 「有没有回退」上，而不是被 MagicMock 的解析异常带偏。
+    cli_proc = subprocess.CompletedProcess(args=[], returncode=0, stdout="[]", stderr="")
+    with mock.patch.dict(
+        "os.environ",
+        {"RAG_WORKER_ENABLED": "1", "KB_RAG_PYTHON": sys.executable},
+        clear=False,
+    ):
+        with mock.patch.object(kb_rag.rag_worker, "query", side_effect=exc):
+            with mock.patch("subprocess.run", return_value=cli_proc) as cli:
+                result = kb_rag.retrieve(query, wiki)
+    return result, cli
+
+
+def test_abandoned_query_returns_timeout_without_reloading_the_model(
+    tmp_path: Path,
+) -> None:
+    """放弃 ≠ 不可用：热 worker 还在，回退 CLI 会重载 4.3G 模型。
+
+    ``WorkerRequestAbandoned`` 继承 ``TimeoutError`` → ``OSError``。这个断言钉的
+    是 ``kb_rag.retrieve`` 里 except 子句的**顺序**：一旦它排到
+    ``(RuntimeError, OSError, json.JSONDecodeError)`` 之后就永远匹配不到，超时会
+    被判成 `persistent_worker_unavailable` 并用残窗起 CLI——2026-09-03 生产实测
+    kb_search 66% 以 tool_timeout 收场就是这条路。
+    """
+
+    wiki = _worker_query_fixture(tmp_path)
+    result, cli = _retrieve_with_worker_error(
+        wiki,
+        rag_worker.WorkerRequestAbandoned("abandoned"),
+        "液冷 放弃",
+    )
+
+    cli.assert_not_called()
+    assert result.telemetry.status == "timeout"
+    assert result.telemetry.fallback_reason != "persistent_worker_unavailable"
+    assert "worker 保留" in (result.warning or "")
+
+
+def test_killed_worker_timeout_returns_timeout_without_reloading_the_model(
+    tmp_path: Path,
+) -> None:
+    """冷 worker / 连续第二次超时：进程已被杀，残窗里重载模型必然再超时。"""
+
+    wiki = _worker_query_fixture(tmp_path)
+    result, cli = _retrieve_with_worker_error(
+        wiki,
+        TimeoutError("rag worker query timeout"),
+        "液冷 已终止",
+    )
+
+    cli.assert_not_called()
+    assert result.telemetry.status == "timeout"
+    assert result.telemetry.fallback_reason != "persistent_worker_unavailable"
+    assert "进程已终止" in (result.warning or "")
+
+
+def test_genuinely_unavailable_worker_still_falls_back_to_cli(
+    tmp_path: Path,
+) -> None:
+    """阳性对照：没有这条，上面两条「不回退」用「永不回退」也能全绿。
+
+    进程没了/协议错乱不是超时——没有热进程可保，CLI 是唯一还能出结果的路，
+    这条回退必须活着。
+    """
+
+    wiki = _worker_query_fixture(tmp_path)
+    result, cli = _retrieve_with_worker_error(
+        wiki,
+        RuntimeError("rag worker exited without response"),
+        "液冷 不可用",
+    )
+
+    cli.assert_called_once()
+    assert result.telemetry.fallback_reason == "persistent_worker_unavailable"
+    assert result.telemetry.degraded is True
 
 
 def test_kb_rag_prewarm_uses_production_runtime_without_business_cache(
