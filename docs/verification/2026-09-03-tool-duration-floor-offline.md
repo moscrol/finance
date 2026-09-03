@@ -91,6 +91,12 @@ p95 < 9s（结构化本地工具全部 < 0.3s，`news_search` 8.7s）。尾巴�
 - **零授权假超时**只有 4 次（全在近 14 天），P0/P0.1 已把它对模型说清；不是 P1 的主体。
 - **`tool_budget_exhausted` 94 次**是次数闸，不在本单口径内，但比真超时（145）同量级，P1 若只看时间闸会漏掉它。
 
+## 处置（2026-09-03 同日）
+
+用户「执行」了三选一的 1 + 2：#545 worker 保活（热 worker 首次超窗放弃请求不杀，连续第二次才杀 + 自愈）、
+#544 装不下的工具不上菜单（`min_window_seconds` kb_search 20 / evidence_search 30，底座按本轮可授窗裁可见性）。
+第 3 项不做。读法与边界见 `2026-09-03-rag-window-gate-and-worker-keepalive.md`。
+
 ## 没做
 
 没烧配额。没改 Episode / 8792 / 档位 / 任何 asked 或 reserve。没量 RAG worker 冷热两态（需 worker 侧埋点，另案）。
