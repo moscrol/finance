@@ -1,8 +1,8 @@
 # 设计：路由之后，harness 是地板不是天花板
 
 - 日期：2026-08-21
-- 状态：Draft **v1.1**。宪章仍有效。子单 C 已有 PR **#288**（开场预取打 `[E<n>]`），**未合**。树 `/Users/a77/fwp-wt-harness-success-path`（`docs/harness-success-path-spec`，从 `gitea/main@dfc25221`）。**禁止**在主检出 `feat/reading-rules-baseline-batch1` 脏树上改。
-- 进度：Gate 0 已过。Gate 1 第一发（创新药→08-07）分叉=**禁错了**（呈现层丢 E 号），子单 C 已修，诊断 `docs/verification/2026-08-21-gate1-prefetch-evidence-id.md`。**下一刀仍是 Gate 1 换新题**，禁止复用创新药；子单 A 等 #288 合入（或叠在 `fix/prefetch-evidence-id` 上）再开。
+- 状态：Draft **v1.2**。宪章仍有效。子单 C：PR **#288**（开场预取打 `[E<n>]`）**未合**；其上未提交一刀=问句精确名优先于缩短 subject。树 `/Users/a77/fwp-wt-harness-success-path`（`docs/harness-success-path-spec`，从 `gitea/main@dfc25221`）。**禁止**在主检出 `feat/reading-rules-baseline-batch1` 脏树上改。
+- 进度：Gate 0 已过。Gate 1 第一发→子单 C（#288）。Gate 1 第二发分叉=**没投递精确名**（短 subject 抢长口径），扩 C 叠在 `fix/prefetch-evidence-id`，诊断在该树 `docs/verification/2026-08-21-gate1-pcb-exact-name.md`。预取已锚长名；公开稿下一分叉在写稿/判官（主线短名旁路 + 减句绑死问句日数字）。**下一刀只开子单 B 或关发酵题 live 主线，不要并行开 A。** 题面不进正文。
 - 父稿：
   - `docs/superpowers/specs/2026-08-20-episode-public-answer-quality-design.md`（P0 传达室 + P1 护栏）
   - `docs/superpowers/specs/2026-08-20-market-cause-sector-routing-design.md`（板块「为什么涨」路由）
@@ -204,8 +204,8 @@ BUILD 对照：事实投递 > 提醒；砍了必须下单前声明；认不出 f
 ## 9. 实施顺序
 
 0. **Gate 0 对齐（只读，无 PR）**：`git fetch`；`/api/health` 确认 8792 rev；读 §1 表。已切已 live 的不要重做。解释器：`/Users/a77/finance-workspace-private/.venv-workbench/bin/python`。**已完成（2026-08-21）。**
-1. **Gate 1 新题第一次分叉（诊断）**：选一道未见过的发酵或次日研判题。分析师侧跑确定性取数；店走 conversation 入口。产出：分叉段 + 三态。**未完成 Gate 1 不得开代码 PR。** 第一发已完成（创新药→子单 C）。**下一发必须换题。**
-2. 按三态开 **恰好一个** 子单 A/B/C。先写该子单的失败测试再接线（TDD）。子单 C 已有 #288。
+1. **Gate 1 新题第一次分叉（诊断）**：选一道未见过的发酵或次日研判题。分析师侧跑确定性取数；店走 conversation 入口。产出：分叉段 + 三态。**未完成 Gate 1 不得开代码 PR。** 第一发完成（创新药→#288）。第二发完成（精确名被短 subject 挤掉→扩 C，未提交）。**不要复用这两题当下一刀合入闸。**
+2. 按三态开 **恰好一个** 子单 A/B/C。先写该子单的失败测试再接线（TDD）。子单 C 已有 #288 + 精确名扩刀。下一刀：**B**（公开稿问句日数字锁 E1）或发酵题 live `mainline_context` 隔离，一次一条。A 仍等 #288 合入。
 3. 定向测试 + 该新题 live。账本新号。
 4. 用户确认后合。生产切另拍。 **#287（切生产读数）与 #288 都未合**；同改 `docs/prediction-ledger.md`，后合方 rebase。
 
