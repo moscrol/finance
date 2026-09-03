@@ -13,8 +13,9 @@
 
 树 `/Users/a77/fwp-wt-capability-switchboard`。已并入 `feat/reading-rules-baseline-r2`。
 `predicate.reading-baseline` 已从「他树候选」挂成真原子：`using({id})` 整包归零，默认盒 `on`。**未合 main。**
+2026-08-23：#344 `90c069cb` 已合 main。解耦树因并入 r2 的 merge 不能干净 `--rebase-merges`，改为 cherry-pick `1bd734d9` → tip `1c52e19f`。**8792 + 8796 切同快照** `finance-workspace-1c52e19f9957`。回滚：`finance-workspace-95c644be5621`。
 
-对照树：`/Users/a77/fwp-wt-code-map-land`（本地 `main`=`411e05ae`）。`gitea/main` 仍可能停在 `b4689295`。
+对照树：`/Users/a77/fwp-wt-code-map-land`（本地 `main`=`411e05ae`）。`gitea/main`=`90c069cb`。
 不要和主仓 `feat/reading-rules-baseline-batch1` 脏区并。
 
 ### 8792 怎么切、怎么切回
