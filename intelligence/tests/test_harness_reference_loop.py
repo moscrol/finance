@@ -371,6 +371,96 @@ def test_zero_grant_timeout_is_the_same_machine() -> None:
     assert _outcome_core(episode) == _outcome_core(reference)
 
 
+def _registry_with_slow_kb() -> ResearchToolRegistry:
+    """market_data（无最小窗）+ kb_search（领域申报最少 20s）。kb 的 runner 不该被点到。"""
+
+    base = _registry()
+
+    def never(query: str, _context: AgentToolContext):
+        raise AssertionError(f"kb_search 本轮应被藏起来，却被调用了：{query}")
+
+    return ResearchToolRegistry(
+        (
+            *base.authorized_specs(),
+            ToolSpec(
+                name="kb_search",
+                capability="kb_search",
+                description="本地知识库检索",
+                cost="local",
+                freshness="stable",
+                runner=never,
+                min_window_seconds=20.0,
+            ),
+        )
+    )
+
+
+def test_tool_hidden_for_too_small_window_is_the_same_machine() -> None:
+    """本轮工具窗装不下的工具，两条 loop 都不摆给模型，且记同一条 ``tool_menu`` 事件。
+
+    2026-09-03 生产读数：kb_search 66% 的调用以 tool_timeout 收场、每次烧掉约 23s
+    研究窗。可见性裁决在底座（``EpisodeToolBatchSession.menu``），领域只申报
+    ``min_window_seconds``；两条 loop 必须同一格同一字，否则模型看到的菜单随 loop 而变。
+    """
+
+    frame = _frame()
+
+    def narrow_window_context() -> ResearchRunContext:
+        # 总窗 30s、reserve 15s → 本轮工具窗 15s < kb_search 的 20s。
+        return replace(
+            _context(frame, max_steps=3),
+            contract=replace(
+                _context(frame).contract, allowed_capabilities=("market_data", "kb_search")
+            ),
+            deadline=ResearchDeadline.from_timeout(30.0, synthesis_reserve=15.0),
+            policy=ResearchPolicy("quick", 3, 30.0, 15.0),
+        )
+
+    script = [_tool_turn(), _finish_turn()]
+    episode_model = _ScriptedModel(list(script))
+    reference_model = _ScriptedModel(list(script))
+    episode = ContinuousAgentEpisode(episode_model).run(
+        task_frame=frame, context=narrow_window_context(), registry=_registry_with_slow_kb()
+    )
+    reference = HarnessReferenceLoop(reference_model).run(
+        task_frame=frame, context=narrow_window_context(), registry=_registry_with_slow_kb()
+    )
+
+    for model in (episode_model, reference_model):
+        names = [t["function"]["name"] for t in model.calls[0]["tools"]]
+        assert names == ["market_data"], names
+    assert episode_model.calls[0]["tools"] == reference_model.calls[0]["tools"]
+
+    # Episode 的账本给每条事件盖 task_frame_hash / at（其它同机用例同样摘掉），
+    # 菜单本身的五个键两边必须一字不差。
+    menu_keys = ("visible", "hidden", "min_window_seconds", "would_grant", "reason")
+
+    def menu_events(outcome):
+        return [
+            {key: _plain(e.payload[key]) for key in menu_keys}
+            for e in outcome.events
+            if e.kind == "tool_menu"
+        ]
+
+    left, right = menu_events(episode), menu_events(reference)
+    assert left and left == right
+    first = left[0]
+    assert first["hidden"] == ["kb_search"]
+    assert first["visible"] == ["market_data"]
+    assert first["min_window_seconds"] == {"kb_search": 20.0}
+    assert first["reason"] == "min_window_exceeds_grant"
+    assert first["would_grant"] < 20.0
+    assert _outcome_core(episode) == _outcome_core(reference)
+
+
+def test_no_pruning_leaves_the_event_stream_untouched() -> None:
+    """窄窗不成立时不记 tool_menu：无裁剪轮的事件流与改前逐字节相同。"""
+
+    (_, episode), (_, reference) = _run_both([_tool_turn(), _finish_turn()])
+    for outcome in (episode, reference):
+        assert not [e for e in outcome.events if e.kind == "tool_menu"]
+
+
 # ── 3. 有 PLAN：深度裁决也经 harness，全程消息归零差 ─────────────────────
 
 

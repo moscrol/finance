@@ -591,6 +591,11 @@ class ToolSpec:
     # 产出某 required_output」。空 frozenset 合法（保守声明：拿不准就留空，
     # 预检会 fail-open 放行，不会误拦）。
     produces: frozenset[str] = field(default_factory=frozenset)
+    # 这个工具**成功一次**至少要几秒（领域申报，来自生产实测；见 MIN_WINDOW_SECONDS）。
+    # 底座在组菜单时拿它对照本轮能授的工具窗：装不下的就不摆给模型——与其让模型
+    # 点一个必超时的工具烧掉 23s 再吃一个 tool_timeout，不如这轮就别让它看见。
+    # None = 没有可靠读数，不裁。这是可见性，不是预算：不改任何授予算术。
+    min_window_seconds: float | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.runner, ToolRunnerAdapter):
@@ -1240,6 +1245,18 @@ def require_tool_contracts(specs: Iterable[ToolSpec]) -> None:
         )
 
 
+# 成功一次至少要的工具窗（秒）。2026-09-03 生产 825 份 episode / 2948 次工具事件的
+# 实测（`docs/verification/2026-09-03-tool-duration-floor-offline.md`）：11 个工具里 9 个
+# p95 < 9s，任何授予都够，不登记；尾巴只有两条 RAG 工具——
+#   kb_search       成功 30 / 真超时 57，成功耗时 p50 9.5s、80% 在 20s 内（一次检索 + 一次相关性裁判）
+#   evidence_search 成功  3 / 真超时 66，成功耗时 32–40s（narrow→broad→counter 多轮检索 + 语义裁判）
+# 数字是成功样本的分位，被 ~23s 的实授窗右截断，只会低估不会高估。改数字要重跑那份脚本。
+MIN_WINDOW_SECONDS: dict[str, float] = {
+    "kb_search": 20.0,
+    "evidence_search": 30.0,
+}
+
+
 def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToolRegistry:
     specs = tuple(
         ToolSpec(
@@ -1250,6 +1267,7 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
             cost="local" if freshness == "stable" else "external",
             freshness=freshness,
             runner=tools[name],
+            min_window_seconds=MIN_WINDOW_SECONDS.get(name),
             query_scope=(
                 "episode"
                 if name in {"market_data", "financial_data", "mainline_context"}
