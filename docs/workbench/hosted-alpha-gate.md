@@ -99,6 +99,53 @@ export WORKBENCH_MAX_QUEUED_RUNS=4             # worker 全忙后最多排 4 个
 - `GET /api/readiness` 的 `workers` 段新增 `queued` / `max_active_per_user` / `max_queued`，拨测和排障看这里。
 - 互斥范围仍是**单进程**（与配额同一条边界，见 §4.2）。多 worker 进程部署前必须换共享存储。
 
+### 1.5 额度账本：赠送 + 月度充值（2026-09-03）
+
+代码：`intelligence/api/credits.py` `CreditStore`（测试 `intelligence/tests/test_api_credits.py`，22 例）；
+运营入口 `scripts/workbench_credits.py`。与 §1.2 的**日配额**是两件事：日配额是防刷的节流阀（一天最多 N 次），
+额度账本是**钱包**（一共还能用多少次，由 owner 赠送和用户充值决定）。两道同时生效：先占钱包、再占日配额，
+任一拒绝把另一道退回。
+
+```bash
+export WORKBENCH_CREDITS=1                 # 开钱包。不设 = 历史行为，不扣不查
+export WORKBENCH_CREDITS_SIGNUP_GIFT=30    # 用户第一次提问时自动赠送的次数（0/不设 = 不自动送，全靠手工 grant）
+# 豁免复用 WORKBENCH_QUOTA_EXEMPT_USERS（owner 不记账）
+```
+
+| 概念 | 是什么 | 怎么产生 |
+|---|---|---|
+| `gift` 赠送 | 不过期（也可给到期日），owner 给的缓冲 | 首次提问自动送 `SIGNUP_GIFT` 次；或 `grant --kind gift` |
+| `monthly` 月度充值 | 默认 30 天后到期，用不完作废 | 收到钱后 `grant --kind monthly --runs 200`；将来支付回调调同一个 `CreditStore.grant` |
+| 消费顺序 | **先到期的先扣，不过期的最后扣**；同到期日按授予先后 | 月度额度是买来这个月用的，不该被赠送额度挤掉 |
+| 单位 | 1 run = 1 次，与日配额同口径（不按 token，见 §4.3） | — |
+
+```bash
+# 用 8792 同一个 users 根（FORESIGHT_USERS_DIR 与启动器一致）；写完立即生效，服务端每次扣额都重读文件
+python3 scripts/workbench_credits.py grant   --user alpha-friend-a --kind gift    --runs 30  --note "内测赠送"
+python3 scripts/workbench_credits.py grant   --user alpha-friend-a --kind monthly --runs 200 --note "9 月充值 ¥xx"   # 30 天到期
+python3 scripts/workbench_credits.py grant   --user alpha-friend-a --kind monthly --runs 200 --expires 2026-10-01     # 到 9 月底
+python3 scripts/workbench_credits.py balance --user alpha-friend-a
+python3 scripts/workbench_credits.py list
+python3 scripts/workbench_credits.py revoke  --user alpha-friend-a --grant-id g-2026… --note "退款"
+python3 scripts/workbench_credits.py history --user alpha-friend-a
+```
+
+用户看到什么：额度为 0 时 `POST /api/runs` 与对话消息都回 429「研究额度已用完（剩余 0 次）。请联系管理员充值…」，
+不带 `Retry-After`（不是等一会就有，别让客户端自动重试）；`GET /api/credits?user=` 给余额、各笔授予、最近到期日；
+`GET /api/workbench/bootstrap` 里多一个 `credits` 摘要（`remaining` / `next_expiry`），前端展示余额从这里取（UI 尚未做）。
+
+账本长什么样：`users/<id>/credits.json`——`grants`（每笔授予的 `amount / remaining / expires_at`）+ `ledger`
+（grant / run / refund / revoke 逐笔流水，append-only，对账用）。旁边的 `credits.lock` 是 **flock 文件锁**：CLI 与
+服务进程同写一份账本必须靠它，进程内锁护不住；变异实测去掉它跨进程用例必红。
+
+纪律：
+- **预占**：与日配额同一套语义，占不到直接 429、零副作用；准入拒收 / 日配额拒绝 / 落盘失败三种「我们自己没服务到」
+  的情形都把额度退回（`release` 退最近一次扣账）。**run 跑完失败不自动退**——分不清是谁的锅，owner 用 `grant` 补偿。
+- **坏账本 fail closed**：`credits.json` 解析不了 → 503「额度账本损坏」且不改写文件。钱的账本坏了不能当空账本重建
+  （那等于把余额清零再送一次赠送）。`balance` / `list` 会标出损坏的用户。
+- 过期 grant 的余量不计入余额、不可用、也不删（账在）；`revoke` 只清余量不改历史。
+- 自动赠送的判据是「还没有账本文件」，不是「余额为 0」——用完不会再送。
+
 ### 1.3 行为矩阵
 
 | WORKBENCH_AUTH_MODE | /api/*（豁免外） | ?user= 与 body user | 适用 |
@@ -198,8 +245,9 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8792/api/conversations
    准入 = `RunSupervisor` 锁内数自己的 futures。当前部署（launchd 单 uvicorn 进程）内正确；
    改多进程/多实例前必须换共享存储（SQLite `BEGIN IMMEDIATE` / Postgres 行锁），
    并把 run 队列持久化——这是设计稿阶段 C「拆 Research Worker」那一项，不在 Alpha 做。
-3. **run ≠ token**：配额按 run 次数记，不按 token 计费。deep 档一次 run 的
-   LLM 花费远大于 quick 档；额度按最贵档位估算，或引导内测用户 BYOK。
+   额度账本（§1.5）多一把 flock 文件锁，**同一台机器**多进程安全（CLI 与服务进程同写），跨机器仍不行。
+3. **run ≠ token**：日配额与额度账本都按 run 次数记，不按 token 计费。deep 档一次 run 的
+   LLM 花费远大于 quick 档；定价按最贵档位估算，或引导内测用户 BYOK。run 失败不自动退额度（§1.5）。
 4. **数据新鲜度单点**：`daily-full` 仍依赖本机 Chrome 的 fupanhui 登录态，
    Mac 关机 = 全体用户数据停更。盘后同步写库时段用户查询可能撞 DuckDB
    单写者锁（代码已识别为 lock 错误而非文件缺失），可接受偶发失败。
