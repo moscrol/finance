@@ -982,7 +982,31 @@ def retrieve(
             )
             # 每次都是新进程，必然重新加载模型与索引。
             tel.model_loaded = True
+    # ⚠ 子句顺序是承重的，别按「宽的放前面」重排：``WorkerRequestAbandoned``
+    # 继承 ``TimeoutError`` → ``OSError``，一旦排在 ``(RuntimeError, OSError,
+    # json.JSONDecodeError)`` 之后就永远匹配不到（2026-09-03 实测：两个超时处置
+    # 器都是死代码，超时被判成 `persistent_worker_unavailable` → 回退 CLI 用
+    # `timeout − 已耗` 的残窗重载 4.3G 模型 → 必然二次超时；生产 kb_search 66%
+    # 以 tool_timeout 收场、常驻 worker `queries_served=1` 里那 1 次就是被放弃的
+    # 那次）。超时不是「worker 不可用」：进程还在，回退 CLI 是最贵的那条路。
+    except rag_worker.WorkerRequestAbandoned:
+        # 热 worker 第一次超窗：请求放弃、进程保留，下一次查询不用等模型重载。
+        res.warning = f"wiki-rag 常驻 worker 超时(>{timeout}s)，请求已放弃、worker 保留"
+        tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+        tel.status = "timeout"
+        tel.warning = res.warning
+        return res
+    except TimeoutError:
+        # 冷 worker 或连续第二次超时：``_on_query_timeout`` 已杀进程。此处同样
+        # 不回退 CLI——残窗里重载模型必然再超时，白烧剩余预算。
+        res.warning = f"wiki-rag 常驻 worker 超时(>{timeout}s)，进程已终止"
+        tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+        tel.status = "timeout"
+        tel.warning = res.warning
+        return res
     except (RuntimeError, OSError, json.JSONDecodeError) as exc:
+        # 真正的「worker 不可用」：进程没了/协议错乱/响应不可解析。这些回退 CLI
+        # 是对的——没有热进程可保，CLI 是唯一还能出结果的路。
         fallback_warnings.append(
             f"wiki-rag 常驻 worker 不可用（{type(exc).__name__}），已回退 CLI"
         )
@@ -1003,19 +1027,6 @@ def retrieve(
             tel.status = "timeout"
             tel.warning = res.warning
             return res
-    except rag_worker.WorkerRequestAbandoned:
-        # 热 worker 第一次超窗：请求放弃、进程保留，下一次查询不用等模型重载。
-        res.warning = f"wiki-rag 常驻 worker 超时(>{timeout}s)，请求已放弃、worker 保留"
-        tel.latency_ms = int((time.monotonic() - _t0) * 1000)
-        tel.status = "timeout"
-        tel.warning = res.warning
-        return res
-    except TimeoutError:
-        res.warning = f"wiki-rag 常驻 worker 超时(>{timeout}s)，进程已终止"
-        tel.latency_ms = int((time.monotonic() - _t0) * 1000)
-        tel.status = "timeout"
-        tel.warning = res.warning
-        return res
     except subprocess.TimeoutExpired:
         res.warning = f"wiki-rag 超时(>{timeout}s)，已跳过"
         tel.latency_ms = int((time.monotonic() - _t0) * 1000)
