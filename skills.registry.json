@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-08-27T12:43:52Z",
+  "generated_at": "2026-09-03T07:29:20Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -13,7 +13,7 @@
       "name": "knowledge-base-private",
       "short": "kb",
       "present": true,
-      "skills": 22
+      "skills": 23
     },
     {
       "name": "finance-research-site",
@@ -960,7 +960,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:f7d7f76e0bcac79790eb14a54dc87252b1f3c713192f0b9a72be4e3cdcfa3869",
+      "computedHash": "sha256:5d0720da673c7ffbae04ed7b748274840716dfe72189f77d347932e91d4ed5ed",
       "agentOnly": false,
       "views": [
         {
@@ -979,7 +979,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:8e43266de0cdb90813bd4952e85a71f4d833ad513d20235561f1a7c457bb968a",
+      "computedHash": "sha256:47a8e7a77c59e0ed19e4ccde7d82ad5eb17152ecc0fb6ceb2cf1a967eee6dff2",
       "agentOnly": false,
       "views": [
         {
@@ -1024,7 +1024,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:a15c5584d011726c675d40aeed5a4219b59a0f4f5dba2f69c6379f5ac8ef5bb0",
+      "computedHash": "sha256:40a5ab6d81fb5ffb02bc2027b20730a02b99568ad221e467ecc968859a25c8f6",
       "agentOnly": false,
       "views": [
         {
@@ -1069,7 +1069,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:d8115d8f550fa501fe9bca7d225d24b3f16300bf510e16eda99a4b83d29753c6",
+      "computedHash": "sha256:f87093ab3372f6c7b047bf55e9925dc2b761077a718d771836a66d64529f3da9",
       "agentOnly": false,
       "views": [
         {
@@ -1150,6 +1150,19 @@
       "note": "",
       "entrypoint": null,
       "computedHash": "sha256:7ec611f9e4b68d93ee329f39a41497e36130b4acd80a8a15e8e38a41ccae5edd",
+      "agentOnly": false,
+      "views": []
+    },
+    "kb/ima-stock-ingest": {
+      "name": "ima-stock-ingest",
+      "repo": "knowledge-base-private",
+      "sourceType": "local",
+      "skillPath": "skills/ima-stock-ingest/SKILL.md",
+      "description": "IMA 个股逻辑卡队列驱动。触发：IMA stock 卡夜批、ima-stock-queue、收编 /tmp 问询脚本。",
+      "triggers": [],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:eb06541164a7a302a9af99884c236f18dd3be80c37a41b5601d9b6a4b903cb61",
       "agentOnly": false,
       "views": []
     },
@@ -1298,7 +1311,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:73bf1d1abc93e44ae3474d4ca2a4b3fec7f1f7c2de6fabd6738c39f1a57cc30e",
+      "computedHash": "sha256:193e78882fa8a0d1abcb9c69ae33dbf4cf467740e14a38da9acf7535d392b068",
       "agentOnly": false,
       "views": [
         {
@@ -1323,7 +1336,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:5330e39e69b5c1801944f15bc2a3e4db172c3889fb945c65b253089a585fb3b7",
+      "computedHash": "sha256:a3a83b13819d23e61e55e9e691d9f1571ab04d73c07b0332f27527771fd9db60",
       "agentOnly": false,
       "views": [
         {
