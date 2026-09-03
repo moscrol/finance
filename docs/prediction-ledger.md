@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-24（D1 关单 `R-20260824-07` confirmed：有色 RuntimeError 非 timeout 漏标，零产品 diff。D0 `R-20260824-10` confirmed。号从 `-07` 起；`-01`…`06` 留给盘面包。`R-20260821-07/-08/-09` 仍 pending。P1 Q1/Q3 仍 pending）
+- last_updated: 2026-08-24（knevo28 spec v2 开 `R-20260824-12`…`19`：P0-A 加深 `view()`，不新开 PublicAnswerCompiler。D1 `R-20260824-07` / D0 `R-20260824-10` confirmed。号 `-01`…`06` 留给盘面包。`R-20260821-07/-08/-09` 仍 pending。P1 Q1/Q3 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -27,6 +27,14 @@
 
 | ID | 来源 | fix_type | verification_prediction | 怎么验 | outcome |
 |---|---|---|---|---|---|
+| `R-20260824-12` | knevo28 spec v2 P0-A（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | B2 形：`invalid_repair_finish` + 证据非空 → 开口不是「现有证据不足」；已兑现槽公开句保留；未兑现槽用户语言 unknown；无 `【结构缺口】` | 夹具重建 + n≥3 改写。正文 `docs/superpowers/specs/2026-08-24-knevo28-program-and-compiler-spec.md` §3/§6 | `pending` |
+| `R-20260824-13` | knevo28 spec v2 P0-A（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | 28 题重放 QC marker=0（靠不拼接，不靠禁语表）。judge unavailable 同 SHA 仍走已有两成因之一，不新开第三扇门 | 离线重放 knevo28 矿。禁止用本行重开 D1 | `pending` |
+| `R-20260824-14` | knevo28 spec v2 P0-A（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | false capability 10/11→0：capability 来自 typed tool receipt 投影，不再 dataset 字符串启发 | capability 单测 + 重放 | `pending` |
+| `R-20260824-15` | knevo28 spec v2 P0-B（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | A4/C6/B5 改写 100% 注册定义+`.TI` universe | 封存改写组。P0-A 合入后再动 | `pending` |
+| `R-20260824-16` | knevo28 spec v2 P0-B（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | A10 走 aggregate；C8 走 catalog 快路 | 封存改写组 + latency | `pending` |
+| `R-20260824-17` | knevo28 spec v2 P1（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | B1–B3 单槽缺不丢整篇；stale≠no-hit | P1；绑定 `ThemeResearchSpec` | `pending` |
+| `R-20260824-18` | knevo28 spec v2 P1（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | 有证据零公开=0；ReAct 空稿 `draft_source` 必填。reserve 在租用循环工具缝执行，不新加 schema 字段 | 重放 A3/B1/B3/B4/B8 | `pending` |
+| `R-20260824-19` | knevo28 spec v2 P2（收口预注册，非标准四阶段分诊） | `EVAL_ONLY` | 2×2 四格按 spec §4 预注册判读出结论；Both 不以盲评追平组件臂为门 | 消融批；盲评可附观察 | `pending` |
 | `R-20260824-10` | spec 2026-08-24 D0（收口预注册，非标准四阶段分诊） | `EVAL_ONLY` | 周一原题复验收据存在，三变量有绿/红结论；不得用 Knevo A1 代替 | **2026-08-24 当场绿**：8792@`8688545b` live `run_20260824_014139_633829`，`subject=科技、医药`，`company_mapping` 在信封且公开稿含六位代码+角色；有色「下」债离线 `subject=有色金属`（与 8792 同 SHA）。Knevo A1 另记，不代本行。正文 `docs/verification/2026-08-24-p0c-monday-recheck.md` | `confirmed` |
 | `R-20260824-07` | spec 2026-08-24 D1（收口预注册，非标准四阶段分诊） | `HARNESS_FIX` | 若判官失败的 cause/HTTP/文案属于已有 transient 标记，则 issue 为 `semantic judge transient provider error` 且走已有候选口。若取证证明不属于这些标记，本行以「无漏标、保持 fail-closed」结案，禁止用「结构 completed」作为放稿条件 | **2026-08-24 取证关单**：有色 8796 `run_20260823_160445_064352` 为 `exc_class=RuntimeError` / `http_status=null` / 进场剩余 233s，走 `complete()` 返回 `LLM 调用失败（RuntimeError）` 的已有兜底，不是 timeout 漏标。#346 夹具 `test_unclassified_runtimeerror_holds_draft_without_evidence_lie` 已锁此路。零产品 diff。正文 `docs/verification/2026-08-24-judge-transient-unwrap.md` | `confirmed` |
 | `R-20260815-03` | 标准 M1 分诊 F-003 | `DATA_CONTRACT_FIX` | `answer_coverage` 与 `structural_verifier` 对同一 `output_id` 改用同一判据函数后，本轮 9 个 run 中的 6 处冲突全部消失或转为显式 warning；B8 的 `evidence_boundary` 不再同时是 present 与 missing | 用本轮冲突的 6 个 run 作回归夹具，断言无静默分歧 | `pending` |
