@@ -958,6 +958,31 @@ def cmd_sector_alias(args) -> int:
     return 2
 
 
+def cmd_maintenance(args) -> int:
+    """库级维护: 成分股表空壳行清除 (装 CHECK) + 整库压缩; 默认只读 dry-run。"""
+    from . import maintenance
+
+    if not args.staged:
+        report = maintenance.dry_run_report()
+        shell = report["shell"]
+        f = report["file"]
+        print(f"目标库: {report['target']}")
+        print(f"  {shell['table']}: 共 {shell['rows_total']:,} 行, 空壳 {shell['rows_shell']:,} 行 "
+              f"({100.0 * shell['rows_shell'] / max(shell['rows_total'], 1):.1f}%), 保留 {shell['rows_keep']:,}")
+        for item in shell["shell_by_source"]:
+            print(f"    - source={item['source']}: {item['rows']:,} 行 {item['first']}~{item['last']}")
+        print(f"  CHECK(至少一个行情值) 已装: {'是' if shell['has_quote_check'] else '否'}")
+        print(f"  文件 {f['bytes'] / 1e9:.2f} GB, 在用 {f['used_bytes'] / 1e9:.2f} GB, 空闲块 {f['free_bytes'] / 1e9:.2f} GB")
+        print(f"  对象: 表 {report['shape']['tables']} / 视图 {report['shape']['views']} / "
+              f"索引 {report['shape']['indexes']} / 约束 {report['shape']['constraints']}")
+        print("  (这是 dry-run; 加 --staged 才会克隆→重建→压缩→换名)")
+        return 0
+
+    result = maintenance.run_maintenance_staged(purge=not args.no_purge, compact=not args.no_compact)
+    print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+    return 0 if result.get("swapped") else 2
+
+
 def _fmt_num(value, digits=2):
     if value is None:
         return "-"
@@ -1460,6 +1485,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_sa.add_argument("--direct", action="store_true",
                       help="apply 用: 急救直写生产库 (短暂持写锁, 落 direct 收据)")
     p_sa.set_defaults(func=cmd_sector_alias)
+
+    p_mt = sub.add_parser(
+        "maintenance",
+        help="库级维护: 成分股表空壳行清除(装 CHECK) + 整库压缩; 默认 dry-run, --staged 才动库",
+    )
+    p_mt.add_argument("--staged", action="store_true",
+                      help="克隆生产库到 staging → 重建+压缩 → 校验 → 原子换名 (唯一会改库的模式)")
+    p_mt.add_argument("--no-purge", action="store_true", help="跳过空壳行清除/CHECK 重建, 只压缩")
+    p_mt.add_argument("--no-compact", action="store_true", help="跳过压缩, 只重建")
+    p_mt.set_defaults(func=cmd_maintenance)
 
     p_qh = sub.add_parser("query-stock-high", help="按一级行业回溯查询某日新高个股")
     p_qh.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")

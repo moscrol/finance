@@ -207,10 +207,13 @@ CREATE INDEX IF NOT EXISTS idx_fact_sw_l1_daily_date ON fact_sw_l1_daily(trade_d
 CREATE INDEX IF NOT EXISTS idx_fact_sw_l1_daily_sw ON fact_sw_l1_daily(sw_l1);
 
 -- 同 fact_sector_daily：写 *_generation，读同名 VIEW（只暴露 published 快照）。
--- ⚠ legacy 分区 2025-01 ~ 2026-03 约 810 万行 price/pct_chg/amount 全 NULL: 是已停用
--- 的 fast_daily_sync「拷昨日成分、改日期」留下的**归属行**, 只回答「谁在这个板块」,
--- 不回答「涨了多少」。COUNT(*) 覆盖率对它们恒真, 审计要数 COUNT(price)
--- (见 skills/duckdb-backfill/scripts/audit_coverage.py)。是否物理删除待裁决。
+-- 写入规则 (2026-09-03): 一行必须至少带一个行情值 (price / pct_chg / amount), 见表尾
+-- CHECK。历史上 fast_daily_sync「拷昨日成分、改日期」与 copy_legacy_member_generation
+-- 写过 810 万行三者全 NULL 的**归属行**——只回答「谁在这个板块」, 不回答「涨了多少」,
+-- COUNT(*) 覆盖率对它们恒真, 日报却全是「暂无」(2026-06-22)。三层拦截: ① 正门
+-- SectorUniverseStore.record_member_result 丢弃无报价行、整板块无报价记 error 回执;
+-- ② 本 CHECK 兜住任何绕过 store 的裸 INSERT; ③ quality.check_daily 的空壳板块检查
+-- 让漏网之鱼在跨日质检上 FAIL。已有库加约束要重建表: cli maintenance --staged。
 CREATE TABLE IF NOT EXISTS fact_sector_stock_daily_generation (
     trade_date        DATE,
     sector_universe_snapshot_id TEXT,
@@ -242,7 +245,8 @@ CREATE TABLE IF NOT EXISTS fact_sector_stock_daily_generation (
     mcap_source       TEXT,
     source            TEXT,
     updated_at        TIMESTAMP,
-    PRIMARY KEY (trade_date, sector_universe_snapshot_id, sector_ts_code, stock_ts_code)
+    PRIMARY KEY (trade_date, sector_universe_snapshot_id, sector_ts_code, stock_ts_code),
+    CHECK (price IS NOT NULL OR pct_chg IS NOT NULL OR amount IS NOT NULL)
 );
 CREATE INDEX IF NOT EXISTS idx_fact_sector_stock_gen_date
     ON fact_sector_stock_daily_generation(trade_date);

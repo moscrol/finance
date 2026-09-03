@@ -186,7 +186,7 @@ git branch --show-current
 |----|------|---------|
 | fact_market_daily | 每日市场指标（阶段/成交/涨家/涨停/集中度/偏离度） | market_feature_store sync |
 | fact_sector_daily (V) | 板块日行情（pct_chg/amount/diff_ratio/strength/多周期共振）—— **双红判断主表** | fupanhui |
-| fact_sector_stock_daily (V) | 板块×个股日行情（含 5/10/20 日涨跌幅、资金流）。⚠ legacy 分区 2025-01-06 ~ 2026-03-30 共 288 个交易日约 810 万行 **price 为 NULL**，是归属行不是行情（见下 fast_daily_sync 段） | fupanhui |
+| fact_sector_stock_daily (V) | 板块×个股日行情（含 5/10/20 日涨跌幅、资金流）。**写入规则**：一行必须至少带一个行情值（`price`/`pct_chg`/`amount`），底层表有 CHECK；2026-09-03 已清掉 810 万行无行情的归属行（`maintenance` 收据 `ef40de4eb9b2`），2025-01-06 ~ 2026-03-30 共 288 个交易日成分股行情**如实为缺**，不是新缺口，以前被空壳盖住 | fupanhui |
 | fact_stock_daily | 个股日行情 | fupanhui |
 | fact_stock_high_daily | 新高（1/2/3 年/历史，含涨停状态） | market_feature_store |
 | fact_theme_limit_heat_daily | 题材涨停热度（limit_up_count/market_share/rank）—— **涨停热度主表** | fupanhui |
@@ -212,9 +212,21 @@ git branch --show-current
 
 `query.sector_stocks` / `stock_sectors` 已改走解析器，返回里带 `resolution` 回执；新写的板块查询一律先解析到码再查事实表。排查用 `cli sector-alias resolve <名或码> [--trade-date]`。106 个 `881xxx.TI` 二级行业码在 FP 体系里没有对应板块，属供应商砍掉，不是匹配失败。
 
+### 成分股表写入规则（空壳行三层拦截，2026-09-03）
+
+`fact_sector_stock_daily_generation` 曾有 810 万行（67%）`price/pct_chg/amount` 全 NULL：`fast_daily_sync`「拷昨日成分、改日期」（2025-01~2026-03，source NULL）与 `SectorUniverseStore.copy_legacy_member_generation`（2026-06-18~22，source `incremental-copy`）写的**归属行**——行数、断档、收缩比全正常，日报却全「暂无」（2026-06-22）。归属行不是行情事实。
+
+| 层 | 落点 | 行为 |
+|---|---|---|
+| ① 正门 | `SectorUniverseStore.record_member_result` | 单只无行情（停牌/接口漏值）**丢弃、计入缺口**（expected − actual）；整板块每一行都无行情 → `last_error_code=member_rows_quoteless`，status=error，可重试、不写。`copy_legacy_member_generation` 一律 `raise`（方法保留让停用脚本的 REFUSED 分支照常） |
+| ② 表 | `schema.sql` `CHECK (price IS NOT NULL OR pct_chg IS NOT NULL OR amount IS NOT NULL)` | 兜住任何绕过 store 的裸 INSERT；legacy 迁移 `_copy_legacy_rows` 同规则过滤 |
+| ③ 量具 | `quality.check_daily` → `quoteless_sectors`；`audit_coverage.py` 的 `value_rows/shell_days` | 当日出现「有行无行情」板块 → 跨日质检 FAIL（后 16 步 SKIP），审计单独报空壳日 |
+
+DuckDB 没有 `ALTER TABLE ADD CONSTRAINT`，已有库装 CHECK 要重建表：`python3 -m market_feature_store.cli maintenance`（默认只读 dry-run：空壳行数、CHECK 是否已装、文件在用/空闲块）；`--staged` 才动库——克隆 → 重建（只搬有行情行 + CHECK）→ `COPY FROM DATABASE` 压缩到新文件 → 逐表行数/索引/约束/视图对账 → 第三方写者守卫 → 原子换名，收据进 `ops_sync_run`（kind=`maintenance`）。DuckDB 删行不缩文件，日常 `daily-full` 的 upsert 会慢慢积空闲块，空闲块占比高时也用它压缩（`--no-purge`）。
+
 > ⚠️ **Legacy 残骸（勿直接跑、勿删，待迁移）**：旧库 `db/market.duckdb`（早期飞书同步阶段）**已退役、文件已移除**；旧表名 `advancers / daily_market / sector_marginal / stocks` 在主库**既非表也非视图、不存在**。当前仍停用、待另行迁移的旧入口是 `scripts/backfill_sector_marginal.py`；新分析一律用 `fact_*` 表。`detect_turning_points.py` 与 `backtest_sector.py` 已迁移为 canonical 只读 CLI，`render_daily_review_template.py` 是现役日报渲染入口，`sync_to_local.py` 已改为无副作用退役 shim。
 
-> ⛔ **`scripts/fast_daily_sync.py` 已停用（2026-08-02）**，失败模式与上面那批不同：它连的是**当前**主库，但写 `fact_sector_daily` / `fact_sector_stock_daily`——这两个**在生产库里已经是 VIEW**（底层 `fact_*_generation` 表 + `sector_universe_snapshot_id`，读取只暴露 `published` 快照），INSERT 会抛 `Catalog Error: ... is not an table`。脚本已自带闸门，默认退出码 2。更要紧的是它的 sector-stocks 步骤是「拷昨日的行、改个日期」，只保留 sector→stock 归属，price/pct_chg/amount 全为 NULL——**行数和 `COUNT(*)` 覆盖率审计都正常，值却是空壳**（2026-06-22 致 daily-review §7/§12 全「暂无」）。这类静默降级只有**跨日期 diff** 能抓到，覆盖率检查永远发现不了。
+> ⛔ **`scripts/fast_daily_sync.py` 已停用（2026-08-02）**，失败模式与上面那批不同：它连的是**当前**主库，但写 `fact_sector_daily` / `fact_sector_stock_daily`——这两个**在生产库里已经是 VIEW**（底层 `fact_*_generation` 表 + `sector_universe_snapshot_id`，读取只暴露 `published` 快照），INSERT 会抛 `Catalog Error: ... is not an table`。脚本已自带闸门，默认退出码 2。更要紧的是它的 sector-stocks 步骤是「拷昨日的行、改个日期」，只保留 sector→stock 归属，price/pct_chg/amount 全为 NULL——**行数和 `COUNT(*)` 覆盖率审计都正常，值却是空壳**（2026-06-22 致 daily-review §7/§12 全「暂无」）。这类静默降级当时只有**跨日期 diff** 能抓到。2026-09-03 起：空壳行已清（810 万行），表上有 CHECK，正门丢无行情行，`check_daily`/`audit_coverage.py` 直接数值不数行——见下「成分股表写入规则」。
 >
 ### 板块快照分代（sector universe snapshot）
 

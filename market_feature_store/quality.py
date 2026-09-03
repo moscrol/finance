@@ -209,23 +209,66 @@ def value_range_violations(trade_date: str, con=None) -> list[dict[str, Any]]:
             con.close()
 
 
+def quoteless_sectors(trade_date: str, con=None) -> list[dict[str, Any]]:
+    """当日 fact_sector_stock_daily 里「有行、但每一行都没有 price/pct_chg/amount」的板块。
+
+    这是「拷成分、改日期」留下的空壳形状：行数、断档、收缩比全部正常，日报却全「暂无」
+    （2026-06-22）。正门 store 与表上的 CHECK 现在都不收这种行，这里是独立于写入路径的
+    量具——真出现了就该 FAIL，而不是让后面 16 步在空壳上跑出一份看起来完整的报告。
+    """
+    import duckdb
+
+    owned = con is None
+    con = con or _connect_ro()
+    try:
+        try:
+            rows = con.execute(
+                """
+                SELECT sector_ts_code, sector_name, COUNT(*) AS rows
+                FROM fact_sector_stock_daily
+                WHERE trade_date = ?
+                GROUP BY sector_ts_code, sector_name
+                HAVING COUNT(price) = 0 AND COUNT(pct_chg) = 0 AND COUNT(amount) = 0
+                ORDER BY rows DESC, sector_ts_code
+                """,
+                [trade_date],
+            ).fetchall()
+        except duckdb.CatalogException:
+            # 表/视图不存在是断档检查的事 (calendar_gaps 报「空表」), 不是空壳。
+            return []
+        return [
+            {"sector_ts_code": code, "sector_name": name, "rows": int(n)}
+            for code, name, n in rows
+        ]
+    finally:
+        if owned:
+            con.close()
+
+
 def check_daily(
     trade_date: str | None = None,
     con=None,
     window: int = DEFAULT_WINDOW,
     tables: list[str] | None = None,
 ) -> dict[str, Any]:
-    """跨日质检总入口；返回 {trade_date, gaps, row_anomalies, range_violations, ok, brief}。"""
+    """跨日质检总入口；返回 {trade_date, gaps, row_anomalies, range_violations, quoteless_sectors, ok, brief}。"""
     owned = con is None
     con = con or _connect_ro()
     try:
         td = trade_date or latest_trade_date(con)
         if td is None:
             return {"trade_date": None, "gaps": [], "row_anomalies": [], "range_violations": [],
+                    "quoteless_sectors": [],
                     "ok": False, "brief": "fact_market_daily 为空，库未初始化或从未同步"}
         gaps = calendar_gaps(con, window=window, tables=tables)
         anomalies = row_count_anomalies(td, con, window=window, tables=tables)
         violations = value_range_violations(td, con)
+        # 与断档/收缩检查同一作用域: 调用方缩窄 tables 时不越界去查别的表。
+        quoteless = (
+            quoteless_sectors(td, con)
+            if "fact_sector_stock_daily" in (tables or GAP_TABLES)
+            else []
+        )
         problems: list[str] = []
         for g in gaps:
             problems.append(f"{g['table']} 断档 {len(g['missing_dates'])} 日（最近 {g['missing_dates'][-1]}）")
@@ -233,10 +276,16 @@ def check_daily(
             problems.append(f"{a['table']} 行数异常收缩（{a['rows']}/{a['median']}）")
         for v in violations:
             problems.append(f"{v['field']}={v['value']} {v['note']}")
+        if quoteless:
+            shell_rows = sum(q["rows"] for q in quoteless)
+            problems.append(
+                f"fact_sector_stock_daily 空壳板块 {len(quoteless)} 个共 {shell_rows} 行"
+                f"（有成分无行情，如 {quoteless[0]['sector_name']}）"
+            )
         ok = not problems
         brief = "；".join(problems[:3]) + (f"（等{len(problems)}项）" if len(problems) > 3 else "") if problems else "通过"
         return {"trade_date": str(td), "window": window, "gaps": gaps, "row_anomalies": anomalies,
-                "range_violations": violations, "ok": ok, "brief": brief}
+                "range_violations": violations, "quoteless_sectors": quoteless, "ok": ok, "brief": brief}
     finally:
         if owned:
             con.close()
