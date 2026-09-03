@@ -1,6 +1,12 @@
 # feat/alpha-run-admission
 
-树 `/Users/a77/fwp-wt-alpha-run-admission`，基座 `gitea/main`=`94f5daae`（干净树）。**未提交、未合 main、8792 未动。**
+> **2026-09-03 13:05 已合入并上生产**：PR #547 → `gitea/main=c88c81da`；8792 切 `c88c81da5120`（0903d），
+> 回滚锚 `~/.finance-runtime/cutover-20260903d-rollback-8792.txt`（回 `d4fade5494ee`）；启动器加 4 行并发守卫 env
+> （备份 `start-finance-workbench.bak-20260903-admission`），**auth 仍 off**。三项验证 + 准入 live 429 实测见 `inflight/main.md` 13:05 行。
+> 剩余全是真人步骤：Cloudflare 后台（Access + Bypass + AUD）→ 隧道 → 启动器 source `alpha.env` → 验收；VPS 差 `user@host`。
+> 下文为合入前原状，供溯源。
+
+树 `/Users/a77/fwp-wt-alpha-run-admission`，基座 `gitea/main`=`94f5daae`（干净树）。
 
 ## 这个分支做什么
 Alpha 内测（3–10 可信用户）前的三块基础：① `RunSupervisor` 准入与排队；② 用户数据异地备份（Mac→VPS，launchd）；③ VPS 外部拨测。运行手册 `docs/workbench/hosted-alpha-gate.md` 增补 §1.4/§2.5/§6/§7。
