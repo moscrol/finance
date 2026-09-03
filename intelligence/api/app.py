@@ -9,7 +9,7 @@ import re
 import threading
 import time
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import asynccontextmanager, nullcontext
 from dataclasses import asdict
@@ -27,7 +27,7 @@ from intelligence import userspace
 from intelligence.paths import data_repo_root, default_market_db_path, default_paths
 from intelligence.api.artifacts import ArtifactRegistry
 from intelligence.api.auth import AuthGate, IdentityRewriteMiddleware
-from intelligence.api.quota import RunQuota
+from intelligence.api.quota import ENV_EXEMPT_USERS, RunQuota
 from intelligence.api.daily_reports import (
     project_daily_agent,
     project_daily_review_html,
@@ -509,7 +509,36 @@ def _build_continuous_turn_adapter(
 
 
 _WORKER_COUNT = 2
+# 准入控制（多用户内测前置）。默认值全部等于历史行为：不限每用户并发、队列无界。
+# 内测启动器设 WORKBENCH_MAX_ACTIVE_RUNS_PER_USER=1、WORKBENCH_MAX_QUEUED_RUNS=<n>。
+ENV_RUN_WORKERS = "WORKBENCH_RUN_WORKERS"
+ENV_MAX_ACTIVE_RUNS_PER_USER = "WORKBENCH_MAX_ACTIVE_RUNS_PER_USER"
+ENV_MAX_QUEUED_RUNS = "WORKBENCH_MAX_QUEUED_RUNS"
 _RESTART_REASON = "workbench_restarted_before_completion"
+
+
+def _int_env(env: Mapping[str, str], name: str, *, minimum: int) -> int | None:
+    raw = (env.get(name) or "").strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} 必须是整数，得到 {raw!r}") from exc
+    if value < minimum:
+        raise ValueError(f"{name} 必须 >= {minimum}，得到 {value}")
+    return value
+
+
+class RunAdmissionError(Exception):
+    """run 未被受理：每用户并发已满或系统队列已满。调用方映射为 429 + Retry-After。"""
+
+    def __init__(self, detail: str, *, retry_after_sec: int) -> None:
+        super().__init__(detail)
+        self.detail = detail
+        self.retry_after_sec = retry_after_sec
+
+
 _STABLE_MACHINE_FALLBACK_REASONS = frozenset(
     {
         "provider_timeout",
@@ -1015,13 +1044,47 @@ class CancellationSignal:
 
 
 class RunSupervisor:
+    """run 执行器：固定线程池 + 有界准入 + 从真正开跑起算的期限。
+
+    准入（``check_admission`` / ``_submit``）在同一把锁内数 ``_futures``，
+    是唯一的真源；端点层先做一次无副作用预检（快速 429），``_submit`` 再原子
+    复核，两者之间的竞态由端点退回配额兜底。
+
+    期限：排队中的 run 不计时。``_submit`` 只入队并标 queued；``_execute`` 在
+    worker 线程真正拿到任务时才写 deadline、起 Timer、标 running。否则满载时
+    排队时间会吃掉执行预算——用户看到「等了很久然后超时，根本没跑」。
+
+    互斥范围是单进程（与 ``RunQuota`` 相同的边界声明）；多进程 worker 部署
+    前必须换共享存储。
+    """
+
     def __init__(
         self,
         max_workers: int = _WORKER_COUNT,
         timeout_sec: float = _SSE_MAX_SECONDS,
+        *,
+        max_active_runs_per_user: int = 0,
+        max_queued_runs: int | None = None,
+        exempt_users: frozenset[str] = frozenset(),
     ) -> None:
+        if max_workers < 1:
+            raise ValueError(f"max_workers 必须 >= 1，得到 {max_workers}")
+        if max_active_runs_per_user < 0:
+            raise ValueError(
+                "max_active_runs_per_user 必须 >= 0（0 = 不限），"
+                f"得到 {max_active_runs_per_user}"
+            )
+        if max_queued_runs is not None and max_queued_runs < 0:
+            raise ValueError(
+                f"max_queued_runs 必须 >= 0（None = 无界），得到 {max_queued_runs}"
+            )
         self.max_workers = max_workers
         self.timeout_sec = timeout_sec
+        self.max_active_runs_per_user = max_active_runs_per_user
+        self.max_queued_runs = max_queued_runs
+        # 与配额共用一份豁免名单：owner 不受每用户并发上限约束（自用脚本会连发），
+        # 但系统队列上限对所有人生效——那条保护的是机器，不是公平性。
+        self.exempt_users = exempt_users
         self._executor = ThreadPoolExecutor(
             max_workers=max_workers,
             thread_name_prefix="workbench-run",
@@ -1033,11 +1096,69 @@ class RunSupervisor:
         self._terminal_handlers: dict[tuple[str, str], Callable[[str], None]] = {}
         self._lock = threading.Lock()
 
-    def submit(self, store: RunStore, run_id: str, req: CreateRunRequest) -> None:
+    @classmethod
+    def from_env(
+        cls,
+        *,
+        timeout_sec: float = _SSE_MAX_SECONDS,
+        env: Mapping[str, str] | None = None,
+    ) -> "RunSupervisor":
+        """按环境变量建执行器；取值非法启动即抛，不带病上线。"""
+        env = os.environ if env is None else env
+        workers = _int_env(env, ENV_RUN_WORKERS, minimum=1)
+        per_user = _int_env(env, ENV_MAX_ACTIVE_RUNS_PER_USER, minimum=0)
+        exempt = frozenset(
+            item.strip()
+            for item in (env.get(ENV_EXEMPT_USERS) or "").split(",")
+            if item.strip()
+        )
+        return cls(
+            max_workers=_WORKER_COUNT if workers is None else workers,
+            timeout_sec=timeout_sec,
+            max_active_runs_per_user=0 if per_user is None else per_user,
+            max_queued_runs=_int_env(env, ENV_MAX_QUEUED_RUNS, minimum=0),
+            exempt_users=exempt,
+        )
+
+    def check_admission(self, user_id: str) -> None:
+        """无副作用预检；不通过抛 ``RunAdmissionError``。"""
+        with self._lock:
+            self._check_admission_locked(user_id)
+
+    def _check_admission_locked(self, user_id: str) -> None:
+        pending = [
+            (key, future) for key, future in self._futures.items() if not future.done()
+        ]
+        if self.max_active_runs_per_user > 0 and user_id not in self.exempt_users:
+            mine = sum(1 for (owner, _), _ in pending if owner == user_id)
+            if mine >= self.max_active_runs_per_user:
+                raise RunAdmissionError(
+                    f"你还有 {mine} 个研究在进行中，请等它完成或先取消，再提新问题",
+                    retry_after_sec=15,
+                )
+        if self.max_queued_runs is None:
+            return
+        queued = sum(1 for _, future in pending if not future.running())
+        running = len(pending) - queued
+        if running >= self.max_workers and queued >= self.max_queued_runs:
+            raise RunAdmissionError(
+                f"系统繁忙：{running} 个研究在跑、{queued} 个在排队，请稍后再试",
+                retry_after_sec=30,
+            )
+
+    def submit(
+        self,
+        store: RunStore,
+        run_id: str,
+        req: CreateRunRequest,
+        *,
+        admitted: bool = False,
+    ) -> None:
         self._submit(
             store,
             run_id,
             lambda _: _run_ask(store, run_id, req),
+            admitted=admitted,
         )
 
     def submit_conversation(
@@ -1056,6 +1177,7 @@ class RunSupervisor:
         selected_perspective_ids: list[str],
         event_id_prefix: str = "",
         llm_providers: tuple[LLMProvider, ...] = (),
+        admitted: bool = False,
     ) -> None:
         self._submit(
             store,
@@ -1084,6 +1206,7 @@ class RunSupervisor:
                 run_id,
                 reason,
             ),
+            admitted=admitted,
         )
 
     def _submit(
@@ -1092,12 +1215,36 @@ class RunSupervisor:
         run_id: str,
         runner: Callable[[CancellationSignal], None],
         on_terminal: Callable[[str], None] | None = None,
+        *,
+        admitted: bool = False,
     ) -> None:
         key = (store.user_id, run_id)
-        store.mark_running(run_id)
-        signal = CancellationSignal(
-            deadline_expires_at=time.monotonic() + self.timeout_sec
-        )
+        signal = CancellationSignal()
+        store.mark_queued(run_id)
+        with self._lock:
+            # 重启恢复的 run 在崩溃前已被受理（admitted=True），不再过准入：
+            # 否则同一用户的两个在途 run 会有一个被永久丢掉。
+            if not admitted:
+                self._check_admission_locked(store.user_id)
+            future = self._executor.submit(
+                self._execute, key, store, run_id, runner, signal
+            )
+            self._futures[key] = future
+            self._stores[key] = store
+            self._signals[key] = signal
+            if on_terminal is not None:
+                self._terminal_handlers[key] = on_terminal
+        future.add_done_callback(lambda completed: self._forget(key, completed))
+
+    def _execute(
+        self,
+        key: tuple[str, str],
+        store: RunStore,
+        run_id: str,
+        runner: Callable[[CancellationSignal], None],
+        signal: CancellationSignal,
+    ) -> None:
+        """worker 线程入口：期限与超时器从这里起算，排队时间不计入。"""
         timer = threading.Timer(
             self.timeout_sec,
             self._expire,
@@ -1105,15 +1252,11 @@ class RunSupervisor:
         )
         timer.daemon = True
         with self._lock:
-            future = self._executor.submit(runner, signal)
-            self._futures[key] = future
             self._timers[key] = timer
-            self._stores[key] = store
-            self._signals[key] = signal
-            if on_terminal is not None:
-                self._terminal_handlers[key] = on_terminal
-        future.add_done_callback(lambda completed: self._forget(key, completed))
+        signal.deadline_expires_at = time.monotonic() + self.timeout_sec
+        store.mark_running(run_id)
         timer.start()
+        runner(signal)
 
     def cancel(self, store: RunStore, run_id: str) -> bool:
         key = (store.user_id, run_id)
@@ -1142,8 +1285,16 @@ class RunSupervisor:
         return self._signals
 
     def active_count(self) -> int:
+        """在途 run 数（排队 + 执行中）。"""
         with self._lock:
             return sum(not future.done() for future in self._futures.values())
+
+    def queued_count(self) -> int:
+        with self._lock:
+            return sum(
+                not future.done() and not future.running()
+                for future in self._futures.values()
+            )
 
     def shutdown(self) -> None:
         with self._lock:
@@ -1403,15 +1554,14 @@ def _terminalize_pending_message(
     }:
         return
     status = rs.STATUS_CANCELLED if reason == "cancelled_by_user" else rs.STATUS_FAILED
-    warning = (
-        "用户已取消本轮执行"
-        if status == rs.STATUS_CANCELLED
-        else (
-            "本轮执行超时"
-            if reason == "executor_timeout"
-            else "本轮执行未完成"
-        )
-    )
+    if status == rs.STATUS_CANCELLED:
+        warning = "用户已取消本轮执行"
+    elif reason == "executor_timeout":
+        warning = "本轮执行超时"
+    elif reason == "admission_rejected":
+        warning = "本轮未受理：你有研究仍在进行或系统繁忙，请稍后重发"
+    else:
+        warning = "本轮执行未完成"
     message = conversation_store.revise_message(
         conversation_id,
         message_id,
@@ -1957,6 +2107,7 @@ def _resume_conversation_run(
     repo_root: Path,
     *,
     llm_providers: tuple[LLMProvider, ...] = (),
+    admitted: bool = False,
 ) -> bool:
     if run.session_id is None:
         return False
@@ -1995,6 +2146,7 @@ def _resume_conversation_run(
         selected_perspective_ids=list(user_message.selected_perspective_ids),
         event_id_prefix=event_id_prefix,
         llm_providers=llm_providers,
+        admitted=admitted,
     )
     return True
 
@@ -2007,6 +2159,7 @@ def create_app(
     llm_settings: SessionLLMSettings | None = None,
     auth_gate: AuthGate | None = None,
     run_quota: RunQuota | None = None,
+    run_supervisor: RunSupervisor | None = None,
 ) -> FastAPI:
     root = (repo_root or REPO_ROOT).resolve()
     effective_default_user_id = userspace.resolve_user_id(None)
@@ -2033,7 +2186,7 @@ def create_app(
     runtime_provenance["agent_runtime"] = runtime_backend_readiness(
         runtime_selection
     ).to_dict()
-    supervisor = RunSupervisor(timeout_sec=run_timeout_sec)
+    supervisor = run_supervisor or RunSupervisor.from_env(timeout_sec=run_timeout_sec)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -2099,6 +2252,7 @@ def create_app(
                         run,
                         root,
                         llm_providers=llm_settings.runtime_providers_for(user_id),
+                        admitted=True,
                     ):
                         continue
                 except (
@@ -2119,6 +2273,7 @@ def create_app(
                         parent_run_id=run.parent_run_id,
                         repo_root=root,
                     ),
+                    admitted=True,
                 )
         except (OSError, ValueError, json.JSONDecodeError):
             continue
@@ -2144,6 +2299,31 @@ def create_app(
                 f"今日研究次数已用完（{decision.used}/{decision.limit}），"
                 "请明天再试或联系管理员提额",
             )
+
+    def _admission_http_error(exc: RunAdmissionError) -> HTTPException:
+        return HTTPException(
+            429,
+            exc.detail,
+            headers={"Retry-After": str(exc.retry_after_sec)},
+        )
+
+    def _precheck_admission(user_id: str) -> None:
+        """占配额之前先问执行器收不收；这里拒掉的请求不留任何痕迹。"""
+        try:
+            supervisor.check_admission(user_id)
+        except RunAdmissionError as exc:
+            raise _admission_http_error(exc) from exc
+
+    def _reject_unadmitted_run(
+        store: RunStore, run_id: str, exc: RunAdmissionError
+    ) -> HTTPException:
+        """预检与 _submit 原子复核之间输了竞态：run 已建、配额已占。
+
+        补偿两件事：run 记终态（不留「排队中」孤儿）、配额退回（用户没得到服务）。
+        """
+        store.finish_run(run_id, rs.STATUS_FAILED, error="admission_rejected")
+        quota.release(store.user_id)
+        return _admission_http_error(exc)
 
     def refresh_session_runtime_readiness(user_id: str) -> None:
         """Refresh global health metadata after the default user's config request.
@@ -2362,7 +2542,10 @@ def create_app(
             },
             "workers": {
                 "active": supervisor.active_count(),
+                "queued": supervisor.queued_count(),
                 "capacity": supervisor.max_workers,
+                "max_active_per_user": supervisor.max_active_runs_per_user,
+                "max_queued": supervisor.max_queued_runs,
                 "timeout_sec": supervisor.timeout_sec,
                 "rag": worker_status,
             },
@@ -2374,6 +2557,7 @@ def create_app(
     def create_run(req: CreateRunRequest) -> dict[str, object]:
         req.repo_root = root
         store = store_for(req.user)
+        _precheck_admission(store.user_id)
         _reserve_run_quota(store.user_id)
         run = store.create_run(
             req.question,
@@ -2381,8 +2565,11 @@ def create_app(
             session_id=req.session_id,
             parent_run_id=req.parent_run_id,
         )
-        supervisor.submit(store, run.run_id, req)
-        return {"run_id": run.run_id, "status": run.status}
+        try:
+            supervisor.submit(store, run.run_id, req)
+        except RunAdmissionError as exc:
+            raise _reject_unadmitted_run(store, run.run_id, exc) from exc
+        return {"run_id": run.run_id, "status": store.load_run(run.run_id).status}
 
     @app.post("/api/runs/{run_id}/cancel")
     def cancel_run(run_id: str, user: str | None = None) -> dict[str, object]:
@@ -2535,6 +2722,7 @@ def create_app(
                 raise HTTPException(422, str(exc)) from exc
             parent_run_id = conversation.last_run_id
             run_store = store_for(req.user)
+            _precheck_admission(run_store.user_id)
             _reserve_run_quota(run_store.user_id)
             run = run_store.create_run(
                 req.content,
@@ -2542,6 +2730,19 @@ def create_app(
                 session_id=conversation_id,
                 parent_run_id=parent_run_id,
             )
+
+            def _compensate_failed_submission() -> None:
+                try:
+                    run_store.finish_run(
+                        run.run_id,
+                        rs.STATUS_FAILED,
+                        error="message persistence or submission failed",
+                    )
+                except Exception as compensation_exc:
+                    raise RuntimeError(
+                        "failed to persist run failure state"
+                    ) from compensation_exc
+
             try:
                 store = conversation_store_for(req.user)
                 user_message = store.append_message(
@@ -2567,6 +2768,10 @@ def create_app(
                 store.update_summary(
                     conversation_id, current.summary, last_run_id=run.run_id
                 )
+            except Exception:
+                _compensate_failed_submission()
+                raise
+            try:
                 supervisor.submit_conversation(
                     run_store,
                     run.run_id,
@@ -2581,17 +2786,20 @@ def create_app(
                     selected_perspective_ids=list(selected_perspective_ids),
                     llm_providers=llm_settings.runtime_providers_for(run_store.user_id),
                 )
+            except RunAdmissionError as exc:
+                http_error = _reject_unadmitted_run(run_store, run.run_id, exc)
+                # 助手气泡已是 pending，不收口会在 UI 里永远转圈。
+                _terminalize_pending_message(
+                    store,
+                    run_store,
+                    conversation_id,
+                    assistant_message.message_id,
+                    run.run_id,
+                    "admission_rejected",
+                )
+                raise http_error from exc
             except Exception:
-                try:
-                    run_store.finish_run(
-                        run.run_id,
-                        rs.STATUS_FAILED,
-                        error="message persistence or submission failed",
-                    )
-                except Exception as compensation_exc:
-                    raise RuntimeError(
-                        "failed to persist run failure state"
-                    ) from compensation_exc
+                _compensate_failed_submission()
                 raise
             return {
                 "conversation_id": conversation_id,

@@ -500,6 +500,18 @@ class RunStore:
             self._write_run(run)
             return run, True
 
+    def mark_queued(self, run_id: str) -> Run:
+        """已受理、等 worker 空出来。终态不回退。"""
+        with self._state_lock:
+            run = self.load_run(run_id)
+            if run.status in _TERMINAL_STATUSES:
+                return run
+            run.status = STATUS_QUEUED
+            run.finished_at = None
+            run.error = None
+            self._write_run(run)
+            return run
+
     def mark_running(self, run_id: str) -> Run:
         with self._state_lock:
             run = self.load_run(run_id)

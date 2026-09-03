@@ -1,7 +1,8 @@
 # Hosted Alpha 身份门与配额：部署 Runbook
 
-- 日期：2026-08-27
-- 代码：`intelligence/api/auth.py`（认证 + 身份改写）、`intelligence/api/quota.py`（日配额）
+- 日期：2026-08-27；2026-09-03 增补 §1.4 并发守卫、§2 第 5 步 Bypass、§6 备份与拨测、§7 接线顺序
+- 代码：`intelligence/api/auth.py`（认证 + 身份改写）、`intelligence/api/quota.py`（日配额）、
+  `intelligence/api/app.py` `RunSupervisor`（准入与排队）、`scripts/install_workbench_backup.py`、`scripts/probe_workbench_health.sh`
 - 上游决策：`docs/superpowers/specs/2026-07-11-workbench-self-use-to-invite-beta-design.md` §10.2
   「服务端可信 user_id、禁止客户端自报 user」。本文是其 **Alpha 缩水实现**（3–10 个可信
   内测用户），不是阶段 C 全量（PostgreSQL / 托管认证 / 证据网关仍按设计稿排期）。
@@ -70,10 +71,33 @@ export FINANCE_WEB_SEARCH=0
 # 方法论端点门（防蒸馏第二道闸）：非名单用户访问 run trace / run context /
 # 学习面板一律 403。未设置 = 不限制：
 export WORKBENCH_FULL_ACCESS_USERS=linxiaoqi5111
+
+# 并发守卫（见 1.4）。三项默认全等于历史行为（2 worker / 不限每用户 / 队列无界）：
+export WORKBENCH_RUN_WORKERS=4                 # run 线程数；run 主要在等 LLM，I/O 等待不吃 GIL
+export WORKBENCH_MAX_ACTIVE_RUNS_PER_USER=1    # 同一用户同时只许 1 个在途（排队+执行），第 2 个 429
+export WORKBENCH_MAX_QUEUED_RUNS=4             # worker 全忙后最多排 4 个，再来 429 + Retry-After
 ```
 
 配置不完整（cf_access 缺团队域/AUD/名单）**启动即抛**，不带病上线。
 依赖：`PyJWT[crypto]>=2.8`（已在 `intelligence/api/requirements.txt`，venv 已含）。
+
+### 1.4 并发守卫：三条规则与用户会看到什么
+
+代码：`intelligence/api/app.py` `RunSupervisor`（测试 `intelligence/tests/test_api_run_admission.py`）。
+
+| 规则 | 触发 | 用户看到 | 为什么 |
+|---|---|---|---|
+| 每用户在途上限 | 同一用户已有 ≥N 个 run 在排队或执行 | 429「你还有 1 个研究在进行中，请等它完成或先取消」，`Retry-After: 15` | 一个人连点五次不该占满全部 worker；公平性 |
+| 系统队列上限 | worker 全忙且队列已满 | 429「系统繁忙：x 个在跑、y 个在排队」，`Retry-After: 30` | 明说「等不了」好过静默排队然后超时 |
+| 排队不计时 | 进队后等 worker | 状态先 `queued` 再 `running`；15 分钟执行期限从**真正开跑**起算 | 此前期限从提交起算，排队 12 分钟只剩 3 分钟可跑 |
+
+细节：
+- `WORKBENCH_QUOTA_EXEMPT_USERS` 里的用户（owner）**同样免于每用户上限**——自用脚本会连发；但系统队列上限对所有人生效，它保护的是机器不是公平性。
+- 准入预检在占配额**之前**，被拒的请求不留 run 记录、不扣当日次数；预检与入队之间输了竞态的极少数请求，run 记 `failed/admission_rejected`、配额退回（`RunQuota.release`）。
+- 对话路径同样受控：被拒时助手气泡收口为 failed 并附「本轮未受理」，不会永远转圈。
+- 重启恢复的 run 不过准入（崩溃前已受理），否则同一用户两个在途 run 会丢一个。
+- `GET /api/readiness` 的 `workers` 段新增 `queued` / `max_active_per_user` / `max_queued`，拨测和排障看这里。
+- 互斥范围仍是**单进程**（与配额同一条边界，见 §4.2）。多 worker 进程部署前必须换共享存储。
 
 ### 1.3 行为矩阵
 
@@ -97,27 +121,10 @@ bash scripts/hosted-alpha-wizard.sh
 
 前提：Cloudflare 账号 + 一个托管在 Cloudflare 的域名（免费计划够用）。现有隧道
 `a77-exec` 已服务 `*.industry7view.com`，向导默认建议在同一条隧道加
-`beta.industry7view.com → 127.0.0.1:8792`，而不是再开一条。
+`beta.industry7view.com → 127.0.0.1:8792`，而不是再开一条（两条 cloudflared 抢同一份 cert 会互相踩）。
 
-```bash
-brew install cloudflared
-cloudflared tunnel login                       # 浏览器授权
-cloudflared tunnel create finance-workbench
-cloudflared tunnel route dns finance-workbench beta.<你的域名>
-```
-
-`~/.cloudflared/config.yml`：
-
-```yaml
-tunnel: finance-workbench
-credentials-file: /Users/a77/.cloudflared/<tunnel-id>.json
-ingress:
-  - hostname: beta.<你的域名>
-    service: http://127.0.0.1:8792
-  - service: http_status:404
-```
-
-常驻：`cloudflared service install`（launchd）。
+**顺序：先建 Access 应用（下面第 1–5 条），再加 DNS 与 ingress。** 主机名一旦回源到 8792 而 Access
+还没建，8792 就是无认证公网可达——后端 auth 此刻仍是 `off`。Access 按主机名配置，DNS 不存在时也能先建。
 
 Zero Trust 控制台 → Access → Applications → Add：
 1. 类型 Self-hosted，域名填 `beta.<你的域名>`；
@@ -125,6 +132,23 @@ Zero Trust 控制台 → Access → Applications → Add：
 3. 登录方式默认 One-time PIN（邮箱验证码），无需接 IdP；
 4. 建好后复制 **Application Audience (AUD) tag** → `WORKBENCH_CF_ACCESS_AUD`；
    团队域在 Zero Trust → Settings → Custom Pages 可见（`<team>.cloudflareaccess.com`）。
+5. **再建一个** Self-hosted 应用，域名 `beta.<你的域名>`、路径 `api/health`，Policy 选 **Bypass**、
+   Include = Everyone。这是给 VPS 外部拨测（§6.2）放行的：后端本来就豁免 `/api/health*`
+   （`auth.py` `_EXEMPT_PATHS`，且剥掉 `user` 参数只暴露默认身份的健康信息），差的只是边缘层这一道。
+   不配这条，拨测拿到的永远是 302 登录页。
+
+Access 建好之后，再开门（在现有隧道上，不新建 tunnel）：
+
+```bash
+cp ~/.cloudflared/config.yml ~/.cloudflared/config.yml.bak.$(date +%Y%m%d%H%M%S)
+# 在 ~/.cloudflared/config.yml 的 ingress: 列表最前面插入两行：
+#   - hostname: beta.<你的域名>
+#     service: http://127.0.0.1:8792
+cloudflared tunnel ingress validate
+cloudflared tunnel ingress rule https://beta.<你的域名>/     # 应命中 8792 那条
+cloudflared tunnel route dns a77-exec beta.<你的域名>
+launchctl kickstart -k gui/$(id -u)/com.cloudflare.cloudflared   # 挂在用户域，不要 sudo/system
+```
 
 ## 3. 验收清单（改完必跑）
 
@@ -139,10 +163,15 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8792/api/conversations
 # 4) 冒充测试：登录 A 账号后 F12 改 fetch 加 ?user=<B 的 id> → 返回的仍是 A 的数据
 # 5) 名单外邮箱登录（若边缘策略放行了）→ 后端 403
 # 6) 配额：普通用户发第 N+1 个问题 → 429 中文提示
+# 7) 并发：同一账号开两个标签页几乎同时提问 → 第二个 429「在进行中」；取消第一个后可再发
+# 8) 备份：python3 scripts/install_workbench_backup.py run（读 plist 同款 env）→ VPS 上
+#    <target>/latest 指向今天、last-success.txt 是今天；再按 §6.1 恢复流程试还原一个测试用户目录
+# 9) 拨测：VPS 上手跑一次 probe 脚本 → 退出码 0；把 8792 停 3 分钟 → 收到 DOWN 通知，拉起后收到 RECOVERED
 ```
 
-自动化：`intelligence/tests/test_api_auth.py`（14 例）与 `test_api_quota.py`（10 例）
-覆盖验签/冒充/豁免/回归/并发不超卖，`pytest intelligence/tests/test_api_auth.py intelligence/tests/test_api_quota.py` 可单独跑。
+自动化：`intelligence/tests/test_api_auth.py`（21 例）、`test_api_quota.py`（10 例）、
+`test_api_run_admission.py`（8 例）覆盖验签/冒充/豁免/回归/并发不超卖/准入与排队，
+`tests/test_install_workbench_backup.py`、`tests/test_probe_workbench_health.py` 覆盖备份快照与拨测状态机。
 
 ## 3.5 防蒸馏立场（为什么是这三道闸）
 
@@ -165,9 +194,10 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8792/api/conversations
 1. **知识库未脱敏**：`kb_search`/`evidence_*` 仍连全量私有 KB（含研报正文、私有笔记）。
    Alpha 仅限可信朋友 + 口头/书面协议；设计稿的证据发布状态机
    （candidate→published）与公开索引是 Beta 硬门槛，未做前不得扩员。
-2. **配额互斥范围是单进程**：预占用进程内锁 + `users/<id>/run_quota.json`。
-   当前部署（launchd 单 uvicorn 进程）内正确；改多进程/多实例前必须换
-   共享存储（SQLite `BEGIN IMMEDIATE` / Redis INCR）。
+2. **配额与准入的互斥范围都是单进程**：配额 = 进程内锁 + `users/<id>/run_quota.json`；
+   准入 = `RunSupervisor` 锁内数自己的 futures。当前部署（launchd 单 uvicorn 进程）内正确；
+   改多进程/多实例前必须换共享存储（SQLite `BEGIN IMMEDIATE` / Postgres 行锁），
+   并把 run 队列持久化——这是设计稿阶段 C「拆 Research Worker」那一项，不在 Alpha 做。
 3. **run ≠ token**：配额按 run 次数记，不按 token 计费。deep 档一次 run 的
    LLM 花费远大于 quick 档；额度按最贵档位估算，或引导内测用户 BYOK。
 4. **数据新鲜度单点**：`daily-full` 仍依赖本机 Chrome 的 fupanhui 登录态，
@@ -184,3 +214,64 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8792/api/conversations
 → `launchctl kickstart -k gui/$(id -u)/com.a77.finance-workbench`，行为立即回到
 本机自用形态。隧道侧可 `cloudflared tunnel delete` 或在 Zero Trust 里禁用
 Access 应用（禁用后无人能过边缘层，等效下线）。
+并发守卫单独回滚：删掉三条 `WORKBENCH_RUN_WORKERS` / `..._PER_USER` / `..._QUEUED_RUNS` 再 kickstart，
+执行器回到「2 worker、不限、无界」的历史行为；代码不用退。
+
+## 6. VPS 的用途：异地备份与外部拨测（应用不搬过去）
+
+Alpha 阶段应用留在 Mac（数据管线依赖本机 Chrome 登录态、Keychain、本地 DuckDB 与 KB 索引）。
+VPS 只做两件 Mac 自己做不到的事：**存一份不在这台机器上的副本**，以及**从外面看服务在不在**。
+
+### 6.1 备份（Mac → VPS，launchd 每晚）
+
+对象：`FORESIGHT_USERS_DIR`（内测用户全部对话 / run / 纠偏 / 配额，实测 151 个用户目录 472MB，本地全量 8 秒）。
+形状：每日快照目录 + `rsync --link-dest` 硬链接（没变的文件不占新空间、变了的保留旧版本）+ `latest` 软链 + 保留 14 天。
+为什么不是单目录镜像：镜像会把「今天写坏的数据」覆盖到唯一副本上，快照才有回退点。
+
+```bash
+# VPS 侧一次性：建目录、确认 Mac 能免密登录（launchd 下没人输密码）
+ssh vps 'mkdir -p /srv/backup/finance-workbench'
+ssh -o BatchMode=yes vps true && echo ok
+
+# Mac 侧（在主检出树跑，plist 会钉住这棵树的脚本路径）
+python3 scripts/install_workbench_backup.py install --target vps:/srv/backup/finance-workbench --at 03:40 --keep-days 14
+python3 scripts/install_workbench_backup.py run     # 立刻跑一次，别等到明早才发现 ssh 不通
+ssh vps 'ls -la /srv/backup/finance-workbench; cat /srv/backup/finance-workbench/last-success.txt'
+```
+
+日志 `~/Library/Logs/com.a77.finance-workbench-backup.log`；退出码 2 = 预检失败（源目录空 / ssh 不通），1 = rsync 失败。
+安装器会先跑一遍预检，跑不通就拒绝挂载——不把一个注定失败的任务塞进 launchd。
+
+**恢复流程（备份没演练过等于没有）**：
+```bash
+# 还原某个用户到某天的状态（先停 8792，避免边写边还原）
+launchctl bootout gui/$(id -u)/com.a77.finance-workbench
+mv ~/.local/share/finance-workbench/users/<uid> ~/.local/share/finance-workbench/users/<uid>.broken-$(date +%Y%m%d)
+rsync -a vps:/srv/backup/finance-workbench/2026-09-02/<uid>/ ~/.local/share/finance-workbench/users/<uid>/
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.a77.finance-workbench.plist
+```
+验收第 8 条要求真的对一个测试用户目录走一遍。
+
+### 6.2 外部拨测（VPS cron 每分钟）
+
+```bash
+# VPS 上
+scp scripts/probe_workbench_health.sh vps:/opt/finance/probe_workbench_health.sh
+ssh vps 'chmod +x /opt/finance/probe_workbench_health.sh'
+# crontab -e（VPS）：
+# * * * * * PROBE_URL=https://beta.<域名>/api/health PROBE_WEBHOOK_URL=<飞书自定义机器人 webhook> PROBE_WEBHOOK_FORMAT=feishu /opt/finance/probe_workbench_health.sh >> /var/log/workbench-probe.log 2>&1
+```
+
+行为：连续 3 次非 200 才判 down；只在 up→down、down→up 翻转时各通知一次，不刷屏。
+探 `/api/health` 是「进程在不在」；想探「真能服务」换 `/api/health/ready`，但盘后 DuckDB 同步窗口会 503（§4.4），阈值要放宽到覆盖那段时间。
+前提是 §2 第 5 步的 Access Bypass；没配的话拿到 302，三分钟后必报 down——把它当成「Bypass 没配」的提醒。
+
+## 7. 接线顺序（人工步骤，一次性）
+
+1. 合入本分支后部署运行快照：`scripts/deploy_workbench_runtime.sh`（合并 ≠ 生产跑上了，见该脚本头部）。
+2. `bash scripts/hosted-alpha-wizard.sh` 走完六步（隧道路由、Access 应用、AUD、名单）；§2 第 5 步的 Bypass 应用一并建。
+3. 把 `alpha.env` 的内容加进 `~/.local/bin/start-finance-workbench`（含 §1.2 的三条并发守卫），
+   `launchctl kickstart -k gui/$(id -u)/com.a77.finance-workbench`。
+4. 跑 §3 验收九条。第 2 条（无 JWT 直打 → 401）不过，其余全部作废。
+5. §6.1 装备份并立刻 `run` 一次、演练一次恢复；§6.2 装拨测并制造一次 down 看通知到不到。
+6. 把 §4 已知边界原样发给内测用户，再加人（改 `beta-users.json` 即可，热重载不重启）。
