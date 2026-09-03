@@ -60,6 +60,8 @@ temp/
 /state/
 
 # Generated market review exports
+# 台账真本源 *-daily-review.json 入库（几十 KB/天，Workbench 与框架解读读它）；
+# md 是它的渲染物，仍忽略（见 docs/learning/ledger-map.md）。
 market_feature_store/exports/*-daily-review.md
 market_feature_store/exports/*-advancers-ma5.png
 market_feature_store/exports/*-triggered-themes.json

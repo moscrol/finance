@@ -3,6 +3,8 @@ import { userFacingIssue } from "../displayText";
 import type {
   DailyReportProjection,
   ReportItem,
+  ReportTable,
+  ReportTableCell,
 } from "../types";
 
 interface DailyReportViewProps {
@@ -15,6 +17,55 @@ const sourceLabels = {
   canonical_markdown: "原始研究报告",
   legacy_html_projection: "历史 HTML 兼容投影",
 };
+
+// 小表默认展开；15 日矩阵、Top20 这类宽/长表默认折叠，避免一页几十张表把结论淹掉。
+const COMPACT_TABLE_ROWS = 12;
+const COMPACT_TABLE_COLUMNS = 8;
+
+function cellText(cell: ReportTableCell): string {
+  if (cell === null || cell === undefined) return "";
+  if (typeof cell === "boolean") return cell ? "是" : "否";
+  return String(cell);
+}
+
+function ReportDataTable({ table }: { table: ReportTable }) {
+  const compact =
+    table.rows.length <= COMPACT_TABLE_ROWS &&
+    table.columns.length <= COMPACT_TABLE_COLUMNS;
+  return (
+    <details className="daily-report-table" open={compact}>
+      <summary>
+        <span>{table.title}</span>
+        <small>
+          {table.rows.length} 行 · {table.columns.length} 列
+        </small>
+        <ChevronDown aria-hidden="true" size={15} />
+      </summary>
+      <div className="daily-report-table-scroll">
+        <table>
+          <thead>
+            <tr>
+              {table.columns.map((column, index) => (
+                <th key={`${column}:${index}`} scope="col">
+                  {column}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {table.rows.map((row, rowIndex) => (
+              <tr key={rowIndex}>
+                {row.map((cell, cellIndex) => (
+                  <td key={cellIndex}>{cellText(cell)}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  );
+}
 
 function ReportRow({ item, ordered }: { item: ReportItem; ordered: boolean }) {
   return (
@@ -127,7 +178,9 @@ export function DailyReportView({
 
       <div className="daily-report-sections" data-testid="daily-sections">
         {projection.sections
-          .filter((section) => section.items.length > 0)
+          .filter(
+            (section) => section.items.length > 0 || !!section.tables?.length,
+          )
           .map((section) => (
             <section
               className="daily-report-section"
@@ -144,6 +197,16 @@ export function DailyReportView({
                   />
                 ))}
               </div>
+              {!!section.tables?.length && (
+                <div
+                  className="daily-report-tables"
+                  data-testid={`daily-tables-${section.title}`}
+                >
+                  {section.tables.map((table, index) => (
+                    <ReportDataTable table={table} key={`${table.title}:${index}`} />
+                  ))}
+                </div>
+              )}
             </section>
           ))}
       </div>

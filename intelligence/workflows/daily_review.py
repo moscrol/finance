@@ -110,10 +110,12 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
     review_argv = ["python3", "-m", "market_feature_store.cli", "daily-review", "--trade-date", date]
     if options.start_date:
         review_argv.extend(["--start-date", options.start_date])
+    # JSON 是台账真本源（Workbench 投影 / 框架解读读它），md 是渲染物。
     plan.append(CommandSpec(
         name="daily-review",
         argv=review_argv,
         outputs=[
+            str(exports / f"{date}-daily-review.json"),
             str(exports / f"{date}-daily-review.md"),
             str(exports / f"{date}-advancers-ma5.png"),
         ],

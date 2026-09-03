@@ -180,6 +180,7 @@ def _daily_canonical(context: ProviderContext, path: Path, category: str) -> str
             exports / f"{date}-theme-candidates.md",
         ],
         "daily_review": [
+            exports / f"{date}-daily-review.json",
             path.with_suffix(".md"),
             exports / f"{date}-daily-review.md",
         ],

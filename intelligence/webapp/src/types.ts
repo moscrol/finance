@@ -129,9 +129,18 @@ export interface ReportItem {
   details?: string[];
 }
 
+export type ReportTableCell = string | number | boolean | null;
+
+export interface ReportTable {
+  title: string;
+  columns: string[];
+  rows: ReportTableCell[][];
+}
+
 export interface ReportSection {
   title: string;
   items: ReportItem[];
+  tables?: ReportTable[];
 }
 
 export interface DailyReportProjection {
