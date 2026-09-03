@@ -21,6 +21,18 @@ class WorkerResponse:
     model_load_count: int = 0
 
 
+class WorkerRequestAbandoned(TimeoutError):
+    """查询超窗，但 worker 还热着：放弃这一条请求、进程保留。
+
+    与「超时即杀」的区别是代价。杀掉热 worker 要按预热配方重生（模型加载 ~50–145s），
+    重生期间所有查询都排在锁后面等——一次慢查询换来一两分钟的 kb_search 必败
+    （2026-09-03 生产读数：kb_search 66% 的调用以 tool_timeout 收场）。放弃只损失这一次：
+    worker 单线程顺序处理，迟到的那行响应会在下一次查询前吐出来，读到就丢。
+    热 worker **连续第二次**超时才判它卡死，走原来的杀 + 自愈。冷 worker（还没加载过
+    模型）超时照旧杀：那时没有「热」可保。
+    """
+
+
 def _recovery_cooldown_seconds() -> float:
     raw = os.environ.get("RAG_WORKER_RECOVERY_COOLDOWN_SECONDS", "").strip()
     try:
@@ -55,11 +67,27 @@ class PersistentRagWorker:
         # 与查询路径（持 self._lock）并发时 check-then-spawn 不能撕开。
         self._schedule_lock = threading.Lock()
         self._closed = False
+        # 已放弃、响应还没到的 request id：下一次查询读到它们时丢掉，不当 id 错位。
+        self._abandoned: set[str] = set()
+        self._consecutive_timeouts = 0
+        self._last_latency_ms: int | None = None
+        # 处置计数走 readiness 的 status() 出去。离线普查只看得到工具层的 elapsed_ms，
+        # 分不出「超时是 worker 冷启还是查询本身慢」——这里是唯一能分的地方。
+        self.counters: dict[str, int] = {
+            "queries_served": 0,
+            "timeouts_abandoned_kept_warm": 0,
+            "timeouts_killed": 0,
+            "stale_responses_drained": 0,
+            "recoveries": 0,
+        }
 
     def query(self, argv: list[str], timeout: float) -> WorkerResponse:
         with self._lock:
             try:
-                response = self._query_locked(argv, timeout)
+                response = self._query_locked(argv, timeout, allow_abandon=True)
+            except WorkerRequestAbandoned:
+                # 进程还热着：不标 failed、不重生、状态不动。
+                raise
             except Exception as exc:
                 self._mark_failed(exc)
                 self._schedule_recovery()
@@ -77,7 +105,8 @@ class PersistentRagWorker:
             self._last_error_type = None
             started = time.monotonic()
             try:
-                response = self._query_locked(argv, timeout)
+                # 预热不放弃：预热窗本来就是按模型加载给的，超了就是真失败。
+                response = self._query_locked(argv, timeout, allow_abandon=False)
                 if response.returncode != 0 or response.model_load_count < 1:
                     raise RuntimeError("rag worker prewarm failed")
             except Exception as exc:
@@ -100,6 +129,10 @@ class PersistentRagWorker:
             "model_load_count": self.model_load_count,
             "prewarm_latency_ms": self._prewarm_latency_ms,
             "last_error_type": self._last_error_type,
+            "last_latency_ms": self._last_latency_ms,
+            "abandoned_in_flight": len(self._abandoned),
+            "consecutive_timeouts": self._consecutive_timeouts,
+            "counters": dict(self.counters),
         }
 
     def healthy(self) -> bool:
@@ -150,7 +183,9 @@ class PersistentRagWorker:
         )
         return self._process
 
-    def _query_locked(self, argv: list[str], timeout: float) -> WorkerResponse:
+    def _query_locked(
+        self, argv: list[str], timeout: float, *, allow_abandon: bool = False
+    ) -> WorkerResponse:
         process = self._ensure_process()
         request_id = uuid.uuid4().hex
         assert process.stdin is not None
@@ -160,22 +195,32 @@ class PersistentRagWorker:
             + "\n"
         )
         process.stdin.flush()
+        started = time.monotonic()
+        deadline = started + max(0.001, float(timeout))
         selector = selectors.DefaultSelector()
         selector.register(process.stdout, selectors.EVENT_READ)
         try:
-            if not selector.select(max(0.001, timeout)):
-                self._stop_process()
-                raise TimeoutError("rag worker query timeout")
-            line = process.stdout.readline()
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0 or not selector.select(max(0.001, remaining)):
+                    self._on_query_timeout(request_id, allow_abandon=allow_abandon)
+                line = process.stdout.readline()
+                if not line:
+                    self._stop_process()
+                    raise RuntimeError("rag worker exited without response")
+                payload = json.loads(line)
+                response_id = payload.get("id")
+                if response_id in self._abandoned:
+                    # 上一条被放弃请求的迟到响应：排掉，继续等自己的。
+                    self._abandoned.discard(response_id)
+                    self.counters["stale_responses_drained"] += 1
+                    continue
+                if response_id != request_id:
+                    self._stop_process()
+                    raise RuntimeError("rag worker response id mismatch")
+                break
         finally:
             selector.close()
-        if not line:
-            self._stop_process()
-            raise RuntimeError("rag worker exited without response")
-        payload = json.loads(line)
-        if payload.get("id") != request_id:
-            self._stop_process()
-            raise RuntimeError("rag worker response id mismatch")
         response = WorkerResponse(
             returncode=int(payload.get("returncode") or 0),
             stdout=str(payload.get("stdout") or ""),
@@ -183,7 +228,27 @@ class PersistentRagWorker:
             model_load_count=int(payload.get("model_load_count") or 0),
         )
         self.model_load_count = response.model_load_count
+        self._last_latency_ms = int((time.monotonic() - started) * 1000)
+        self._consecutive_timeouts = 0
+        self.counters["queries_served"] += 1
         return response
+
+    def _on_query_timeout(self, request_id: str, *, allow_abandon: bool) -> None:
+        """超窗处置：热 worker 第一次放弃请求；冷 worker 或连续第二次才杀。"""
+
+        warm = self.model_load_count > 0 and self.healthy()
+        if allow_abandon and warm and self._consecutive_timeouts == 0:
+            self._abandoned.add(request_id)
+            self._consecutive_timeouts = 1
+            self.counters["timeouts_abandoned_kept_warm"] += 1
+            raise WorkerRequestAbandoned(
+                "rag worker query timeout; request abandoned, worker kept warm"
+            )
+        self._consecutive_timeouts = 0
+        self._abandoned.clear()
+        self.counters["timeouts_killed"] += 1
+        self._stop_process()
+        raise TimeoutError("rag worker query timeout")
 
     def _mark_failed(self, exc: Exception) -> None:
         self._state = "failed"
@@ -242,6 +307,7 @@ class PersistentRagWorker:
         timeout = self._recovery_timeout
         if argv is None or timeout is None or self._closed:
             return
+        self.counters["recoveries"] += 1
         try:
             self.prewarm(argv, timeout)
         except Exception:  # noqa: BLE001 - 失败状态已由 prewarm 内部记账
@@ -385,6 +451,10 @@ def status() -> dict[str, object]:
         ),
         default=None,
     )
+    counters: dict[str, int] = {}
+    for item in worker_states:
+        for key, value in dict(item.get("counters") or {}).items():
+            counters[key] = counters.get(key, 0) + int(value)
     return {
         "enabled": is_enabled,
         "state": state,
@@ -394,4 +464,7 @@ def status() -> dict[str, object]:
         "prewarm_latency_ms": prewarm_latency_ms,
         "last_error_type": last_error_type,
         "lifecycle": "startup_prewarm",
+        # 冷/热处置账：abandoned 多、killed 少 = 保活在起作用；killed 多 = worker 真在卡死。
+        "counters": counters,
+        "abandoned_in_flight": sum(int(item.get("abandoned_in_flight") or 0) for item in worker_states),
     }
