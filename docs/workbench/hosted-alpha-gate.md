@@ -132,7 +132,7 @@ python3 scripts/workbench_credits.py history --user alpha-friend-a
 
 用户看到什么：额度为 0 时 `POST /api/runs` 与对话消息都回 429「研究额度已用完（剩余 0 次）。请联系管理员充值…」，
 不带 `Retry-After`（不是等一会就有，别让客户端自动重试）；`GET /api/credits?user=` 给余额、各笔授予、最近到期日；
-`GET /api/workbench/bootstrap` 里多一个 `credits` 摘要（`remaining` / `next_expiry`），前端展示余额从这里取（UI 尚未做）。
+`GET /api/workbench/bootstrap` 里多一个 `credits` 摘要（`remaining` / `next_expiry`）；会话栏页脚显示「剩余额度 N 次 · MM-DD 到期」，0 次时警示色并提示充值（提问受理与 run 收口时刷新）。
 
 账本长什么样：`users/<id>/credits.json`——`grants`（每笔授予的 `amount / remaining / expires_at`）+ `ledger`
 （grant / run / refund / revoke 逐笔流水，append-only，对账用）。旁边的 `credits.lock` 是 **flock 文件锁**：CLI 与
