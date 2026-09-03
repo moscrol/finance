@@ -11,7 +11,6 @@ from intelligence.services.query_resolution import (
     QueryResolution,
     QueryResolver,
     apply_entity_tristate_answer,
-    format_resolve_clarification,
     is_entity_tristate_clarification,
 )
 from intelligence.services.disclosure_scan_pack import is_disclosure_scan_query
@@ -1090,32 +1089,6 @@ def decide_turn(
             intent,
             task_frame=task_frame,
         )
-    if resolution.context_dependent and previous_intent is None:
-        intent = replace(
-            build_turn_intent(
-                query,
-                envelope,
-                previous_intent=None,
-                previous_turn_id=previous_turn_id,
-                resolution=resolution,
-                task_frame=task_frame,
-            ),
-            pending_task_frame=task_frame.to_dict(),
-            clarification_rounds=1,
-        )
-        return _attach_turn_intent(
-            _decision(
-                "clarify",
-                envelope=envelope,
-                confidence=1.0,
-                reason="追问包含指代或省略，但当前对话没有可继承的研究主体",
-                clarification_questions=(
-                    "你指的是哪家公司、题材或上一条研究逻辑？",
-                ),
-            ),
-            intent,
-            task_frame=task_frame,
-        )
     intent = build_turn_intent(
         query,
         envelope,
@@ -1166,35 +1139,28 @@ def decide_turn(
         task_frame = _rebase_frame_for_decision(task_frame, deterministic)
         return _attach_turn_intent(deterministic, intent, task_frame=task_frame)
     if resolution.status == "candidate" and resolution.candidates:
-        question = format_resolve_clarification(resolution)
-        task_frame = replace(
-            task_frame,
-            ambiguities=tuple(
+        # 减契约：candidate 不再 terminate。两袋上桌检索，不追问、不硬锚。
+        intent = replace(
+            intent,
+            secondary_topics=tuple(
                 dict.fromkeys(
                     (
-                        *task_frame.ambiguities,
-                        "主体可能是公司名，也可能是已登记主题，硬锚会改工具和结论",
+                        *intent.secondary_topics,
+                        *(item.name for item in resolution.candidates if item.name),
                     )
                 )
             ),
-            clarification_question=question,
         )
-        envelope = project_task_frame(task_frame, envelope)
-        resolution = replace(resolution, envelope=envelope)
-        intent = replace(
-            intent,
-            pending_task_frame=task_frame.to_dict(),
-            clarification_rounds=1,
-            task_frame_hash=task_frame.task_frame_hash,
+        decision = _decision(
+            "research",
+            envelope=envelope,
+            needs_retrieval=True,
+            confidence=task_frame.confidence,
+            reason="实体解析处于 candidate，公司袋与主题袋同时上桌检索，不追问、不硬锚",
+            capabilities=("memory", "market_quote", "graph"),
         )
         return _attach_turn_intent(
-            _decision(
-                "clarify",
-                envelope=envelope,
-                confidence=task_frame.confidence,
-                reason="实体解析处于 candidate，硬锚会改主体和工具，追问一次",
-                clarification_questions=(question,),
-            ),
+            _enforce_task_frame_route(decision, task_frame),
             intent,
             task_frame=task_frame,
         )

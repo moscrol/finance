@@ -3746,6 +3746,10 @@ _SLOT_METRIC_LABELS = {
     "pct_chg": "涨跌幅",
     "amount": "成交额亿",
     "diff_ratio": "边际量",
+    "total_amount": "市场成交额亿",
+    "advancers": "上涨家数",
+    "limit_up": "涨停家数",
+    "limit_down": "跌停家数",
 }
 
 _SLOT_HEADING = "【预取事实】"
@@ -3772,7 +3776,7 @@ def slot_line_for_observations(
     parts: list[str] = []
     for (subject, as_of), items in grouped.items():
         fields = "；".join(
-            f"{_SLOT_METRIC_LABELS.get(obs.metric, obs.metric)}={obs.value:g}"
+            f"{_SLOT_METRIC_LABELS.get(obs.metric, obs.metric)}={obs.value:.12g}"
             for obs in items
         )
         parts.append(f"{subject} {as_of}：{fields}")

@@ -149,6 +149,39 @@ def test_collateral_truth_is_restored_into_draft() -> None:
     assert "洗盘" not in draft and "净流入" not in draft
 
 
+def test_named_market_amount_slot_survives_judge_wipe() -> None:
+    """用户点名的全市成交额已绑定后，判官只能删槽外句子，不得抹掉槽里的数。"""
+
+    from intelligence.services.episode_semantic_verifier import (
+        _restore_lost_observations,
+    )
+
+    card = AgentEvidence(
+        tool="finance_query",
+        title="市场日频总览（2026-08-28）",
+        detail="交易日=2026-08-28；市场成交额亿=21014.72；上涨家数=3013；涨停家数=82",
+        source="本地结构化数据 · 市场日频总览",
+        source_date="2026-08-28",
+        observations=(
+            StructuredObservation(
+                subject="全市场",
+                as_of="2026-08-28",
+                metric="total_amount",
+                value=21014.72,
+            ),
+        ),
+    )
+    before = "两市上涨 3013 家、涨停 82 家。两市成交额：约 21014.72 亿元。"
+    after = "两市上涨 3013 家、涨停 82 家。"
+
+    draft, restored = _restore_lost_observations(
+        draft=after, before=before, evidence=(card,)
+    )
+    assert {obs.value for obs in restored} == {21014.72}
+    assert "21014.72" in draft
+    assert draft.startswith(after)
+
+
 def test_no_restore_when_values_survived() -> None:
     """真值还在稿里就不补——不制造重复数字。"""
 

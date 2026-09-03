@@ -294,7 +294,7 @@ def _resolve_tristate(
         ticker = anchor.ticker if anchor is not None and anchor.ticker else None
         return (
             "candidate",
-            "clarify",
+            "proceed",
             (
                 ResolveCandidate(name=token, kind="company", ticker=ticker),
                 ResolveCandidate(name=theme, kind="theme"),

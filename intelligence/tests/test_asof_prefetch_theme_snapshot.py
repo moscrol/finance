@@ -136,7 +136,7 @@ def test_ferment_sector_exclusion_keeps_members(tmp_path: Path) -> None:
 
 
 def test_dispatch_only_for_theme_analysis(tmp_path: Path) -> None:
-    """collect_prefetch_items 只对 theme_analysis 启用本预取。"""
+    """theme_analysis 仍开火；问句没有干净精确板块名时，别的题型不得预取。"""
     db = _theme_db(tmp_path / "theme.duckdb")
 
     theme_items = collect_prefetch_items(
@@ -146,17 +146,70 @@ def test_dispatch_only_for_theme_analysis(tmp_path: Path) -> None:
         as_of=AS_OF,
         market_db_path=db,
     )
-    other_items = collect_prefetch_items(
-        question="2026-06-11 可控核聚变",
+    unnamed = collect_prefetch_items(
+        question="2026-06-11 收盘了今天成交额多少",
         question_type="stock_price",
-        subject=FUSION,
+        subject="",
         as_of=AS_OF,
         market_db_path=db,
     )
 
     assert any(FUSION in item.title and "成员" in item.title for item in theme_items)
     assert any("1134.9" in item.detail for item in theme_items)
-    assert not any("成员" in item.title for item in other_items)
+    assert not any("成员" in item.title for item in unnamed)
+
+
+def test_clean_exact_name_in_query_prefetches_outside_theme_analysis(
+    tmp_path: Path,
+) -> None:
+    """问句已点名表内长名时，上桌是输入，不看 question_type。"""
+    db = _theme_db(tmp_path / "theme.duckdb")
+    items = collect_prefetch_items(
+        question="2026-06-11 可控核聚变",
+        question_type="general_finance_qa",
+        subject="",
+        as_of=AS_OF,
+        market_db_path=db,
+    )
+
+    assert any(FUSION in item.title for item in items)
+    assert any("1134.9" in item.detail for item in items)
+
+
+def test_embedded_short_theme_in_company_like_token_does_not_prefetch(
+    tmp_path: Path,
+) -> None:
+    """立新能源里的「新能源」是嵌入，不得当精确板块名预取。"""
+    db = tmp_path / "embed.duckdb"
+    con = duckdb.connect(str(db))
+    try:
+        con.execute(
+            "create table fact_sector_daily ("
+            "trade_date date, sector_name varchar, "
+            "pct_chg double, diff_ratio double, amount double)"
+        )
+        con.execute(
+            "insert into fact_sector_daily values "
+            "('2026-06-11', '新能源', 1.0, 2.0, 100.0)"
+        )
+        con.execute(
+            "create table fact_sector_stock_daily ("
+            "trade_date date, sector_name varchar, stock_name varchar, "
+            "pct_chg double, amount double, pct_chg_5d double)"
+        )
+    finally:
+        con.close()
+
+    items = collect_prefetch_items(
+        question="立新能源怎么看",
+        question_type="general_finance_qa",
+        subject="",
+        as_of=AS_OF,
+        market_db_path=db,
+    )
+
+    assert not any("新能源" in item.title and "1.0" in item.detail for item in items)
+    assert not any("100.0" in item.detail for item in items)
 
 
 def test_members_use_latest_trade_date_on_or_before_as_of(tmp_path: Path) -> None:

@@ -62,7 +62,7 @@ def test_controller_resolves_each_turn_once() -> None:
     assert resolver.calls == 1
 
 
-def _theme_lexicon_resolver(tmp_path) -> QueryResolver:
+def _theme_lexicon_resolver(tmp_path, *, theme: str = "新能源") -> QueryResolver:
     relations = tmp_path / "relations"
     relations.mkdir(exist_ok=True)
     (relations / "entity_exposures.json").write_text(
@@ -71,7 +71,7 @@ def _theme_lexicon_resolver(tmp_path) -> QueryResolver:
                 "entities": {
                     "宁德时代": {
                         "codes": ["300750.SZ"],
-                        "concepts": {"新能源": {}},
+                        "concepts": {theme: {}},
                     },
                 }
             },
@@ -86,31 +86,98 @@ def _theme_lexicon_resolver(tmp_path) -> QueryResolver:
     return QueryResolver(KnowledgeAdapter(wiki_root=tmp_path))
 
 
-def test_controller_asks_clarify_when_resolver_returns_candidate(tmp_path) -> None:
+def test_controller_does_not_terminate_when_resolver_returns_candidate(
+    tmp_path,
+) -> None:
+    """candidate 是两只袋子上桌，不是问人闸。硬锚主题会重演 R13-A3。"""
     decision = decide_turn(
         "立新能源怎么看",
         llm_complete=_no_llm,
         resolver=_theme_lexicon_resolver(tmp_path),
     )
 
-    assert decision.lane == "clarify"
-    question = " ".join(decision.clarification_questions)
-    assert "立新能源" in question
-    assert "新能源" in question
+    assert decision.lane == "research"
+    assert decision.needs_retrieval is True
+    assert decision.clarification_questions == ()
+    assert decision.question_type != "theme_analysis"
+    assert decision.subject != "新能源"
     assert decision.turn_intent is not None
-    assert decision.turn_intent.pending_task_frame is not None
+    assert decision.turn_intent.pending_task_frame is None
+    topics = set(decision.turn_intent.secondary_topics)
+    assert "立新能源" in topics
+    assert "新能源" in topics
 
 
-def test_controller_resumes_entity_tristate_clarification_as_company(tmp_path) -> None:
-    first = decide_turn(
-        "立新能源怎么看",
+def test_controller_does_not_steal_exact_query_token_to_short_theme(
+    tmp_path,
+) -> None:
+    """问句精确长名（分散染料）不得被登记主题「染料」截走，也不得追问。"""
+    decision = decide_turn(
+        "2026-08-28 分散染料",
         llm_complete=_no_llm,
-        resolver=_theme_lexicon_resolver(tmp_path),
+        resolver=_theme_lexicon_resolver(tmp_path, theme="染料"),
+    )
+
+    assert decision.lane == "research"
+    assert decision.needs_retrieval is True
+    assert decision.clarification_questions == ()
+    assert decision.question_type != "theme_analysis"
+    assert decision.subject != "染料"
+    assert decision.turn_intent is not None
+    topics = set(decision.turn_intent.secondary_topics)
+    assert "分散染料" in topics
+    assert "染料" in topics
+
+
+def test_first_turn_demonstrative_is_whole_sentence_not_clarification() -> None:
+    """首轮没有可继承主体时，指代检测器没有管辖权；整句是输入。
+
+    不得用「那只+高标」这类例外正则放行——卸的是首轮 terminate，不是加白名单。
+    """
+    decision = decide_turn(
+        "2026-08-28 高标股连板高度到哪一级了，6级和7级之间有没有空档，那只票现在是几级",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane != "clarify"
+    assert decision.needs_retrieval is True
+    assert decision.clarification_questions == ()
+
+
+def test_legacy_tristate_pending_still_resumes_as_company(tmp_path) -> None:
+    """旧会话若已停在三态澄清，续答仍应收成公司。新回合不再制造这扇门。"""
+    from intelligence.services.task_frame import TaskFrame
+
+    pending = TaskFrame(
+        raw_question="立新能源怎么看",
+        user_goal="形成条件化判断",
+        question_type="general_finance_qa",
+        subject=None,
+        subject_kind="unknown",
+        market_scope="A股",
+        timeframe=None,
+        required_outputs=("direct_answer", "evidence_boundary"),
+        assumptions=(),
+        ambiguities=("主体可能是公司名，也可能是已登记主题，硬锚会改工具和结论",),
+        clarification_question="你问的是立新能源还是新能源板块？",
+        evidence_policy="general_finance_evidence",
+        confidence=0.4,
+    )
+    previous = TurnIntent(
+        primary_subject=None,
+        secondary_topics=(),
+        question_type="general_finance_qa",
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+        pending_task_frame=pending.to_dict(),
+        clarification_rounds=1,
+        task_frame_hash=pending.task_frame_hash,
     )
 
     resumed = decide_turn(
         "立新能源",
-        previous_intent=first.turn_intent,
+        previous_intent=previous,
         previous_turn_id="msg-kc17",
         llm_complete=_no_llm,
         resolver=_theme_lexicon_resolver(tmp_path),
@@ -720,8 +787,13 @@ def test_clarification_answer_resumes_pending_rebound_task_frame() -> None:
     assert resumed.turn_intent.clarification_rounds == 1
 
 
-def test_legacy_context_dependent_clarification_resumes_same_forecast_frame() -> None:
-    question = "这个反弹还能持续多久"
+def test_legacy_context_dependent_first_turn_does_not_terminate() -> None:
+    """resolver 标了 context_dependent，但首轮没有 previous_intent：整句是输入。
+
+    「这个反弹」无主体时仍由 TaskFrame 追问（见
+    ``test_unbound_rebound_reference_clarifies_once_without_llm``）；
+    本钉锁的是：指代检测器本身不得在首轮 terminate。
+    """
     historical = replace(
         understand_query("昨天的反弹能持续多久"),
         subject="A股市场",
@@ -737,40 +809,15 @@ def test_legacy_context_dependent_clarification_resumes_same_forecast_frame() ->
                 context_dependent=True,
             )
 
-    first = decide_turn(
-        question,
+    decision = decide_turn(
+        "这个反弹还能持续多久",
         resolver=HistoricalContextResolver(),  # type: ignore[arg-type]
-        llm_complete=lambda _messages: pytest.fail(
-            "legacy context-dependent clarification must not call the LLM"
-        ),
+        llm_complete=_no_llm,
     )
 
-    assert first.lane == "clarify"
-    assert first.task_frame is not None
-    assert first.task_frame.raw_question == question
-    assert first.task_frame.question_type == "market_forecast"
-    assert first.turn_intent is not None
-    assert first.turn_intent.pending_task_frame == first.task_frame.to_dict()
-    assert first.turn_intent.clarification_rounds == 1
-
-    resumed = decide_turn(
-        "科创50",
-        previous_intent=first.turn_intent,
-        previous_turn_id="msg-legacy-clarification",
-        llm_complete=lambda _messages: pytest.fail(
-            "clarification answer must resume the stored forecast"
-        ),
-    )
-
-    assert resumed.lane == "research"
-    assert resumed.question_type == "market_forecast"
-    assert resumed.subject == "科创50"
-    assert resumed.task_frame is not None
-    assert resumed.task_frame.raw_question == question
-    assert resumed.task_frame.user_goal == first.task_frame.user_goal
-    assert resumed.task_frame.required_outputs == first.task_frame.required_outputs
-    assert resumed.turn_intent is not None
-    assert resumed.turn_intent.pending_task_frame is None
+    assert decision.lane != "clarify"
+    assert decision.needs_retrieval is True
+    assert decision.clarification_questions == ()
 
 
 def test_rebound_reference_inherits_subject_without_rewriting_raw_question() -> None:
@@ -1255,7 +1302,7 @@ def test_llm_decision_accepts_json_code_fence() -> None:
 def test_low_confidence_llm_decision_abstains_to_clarify() -> None:
     content = json.dumps(
         {
-            "route_id": "stock_deep_dive",
+            "route_id": "chat",
             "subject": None,
             "timeframe": None,
             "confidence": 0.42,
@@ -1264,7 +1311,7 @@ def test_low_confidence_llm_decision_abstains_to_clarify() -> None:
         ensure_ascii=False,
     )
     decision = decide_turn(
-        "那这个呢",
+        "随便聊聊未来",
         llm_complete=lambda _messages: (content, object(), ""),
     )
 

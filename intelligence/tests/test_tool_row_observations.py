@@ -250,7 +250,11 @@ def test_rows_without_subject_dimension_emit_no_observations(
         assert item.observations == ()
 
 
-def test_unlisted_datasets_emit_no_observations(observation_db: Path) -> None:
+def test_market_daily_rows_use_whole_market_as_subject(observation_db: Path) -> None:
+    """全市单行与预取同权：主体是「全市场」，成交额必须进槽。
+
+    未挂观察值时，判官删句会把已绑定的成交额从公开稿抹掉（E1 现场形状）。
+    """
     result = _run(
         observation_db,
         dataset="market_daily",
@@ -259,6 +263,8 @@ def test_unlisted_datasets_emit_no_observations(observation_db: Path) -> None:
         time_range={"start": "2026-08-20", "end": "2026-08-20"},
     )
 
-    assert result.evidence
-    for item in result.evidence:
-        assert item.observations == ()
+    (item,) = result.evidence
+    got = {(obs.subject, obs.as_of, obs.metric, obs.value) for obs in item.observations}
+    assert got == {("全市场", "2026-08-20", "total_amount", 23000.0)}
+    # 指数涨跌幅未登记进全市槽；没有主体的指标仍不产。
+    assert all(obs.metric != "sh_index_pct_chg" for obs in item.observations)

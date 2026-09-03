@@ -73,7 +73,7 @@ def test_theme_term_embedded_in_a_longer_name_is_not_stolen(
 
     实体锚定因 wiki 未登记落空后，旧的无边界子串匹配把问题偷进
     theme_analysis / theme-research，零证据终局。国新能源、宝新能源、
-    华润新能源同形状。无词典时走 candidate 澄清，被偷走不是。
+    华润新能源同形状。无词典时标 candidate 并把两袋上桌，被偷走不是。
     """
 
     resolution = resolver.resolve("立新能源怎么看")
@@ -82,7 +82,7 @@ def test_theme_term_embedded_in_a_longer_name_is_not_stolen(
     assert resolution.envelope.subject_kind != "theme"
     assert resolution.envelope.question_type != "theme_analysis"
     assert resolution.status == "candidate"
-    assert resolution.suggested_action == "clarify"
+    assert resolution.suggested_action == "proceed"
     names = {item.name: item.kind for item in resolution.candidates}
     assert names.get("立新能源") == "company"
     assert names.get("新能源") == "theme"
