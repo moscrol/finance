@@ -268,7 +268,12 @@ ssh vps 'chmod +x /opt/finance/probe_workbench_health.sh'
 
 ## 7. 接线顺序（人工步骤，一次性）
 
-1. 合入本分支后部署运行快照：`scripts/deploy_workbench_runtime.sh`（合并 ≠ 生产跑上了，见该脚本头部）。
+> 进度 2026-09-03：第 1 步已完成——8792 = `c88c81da5120`（PR #547，链切五步，回滚锚 `cutover-20260903d-rollback-8792.txt`），
+> 启动器已带 §1.2 的四条并发守卫 env（`RUN_WORKERS=4 / PER_USER=1 / QUEUED=4 / EXEMPT=linxiaoqi5111`），准入 429 已在生产实测。
+> **auth 仍 `off`**，第 2–6 步待真人。
+
+1. 部署运行快照：按 `docs/workflows/acceptance-workflow.md` §4 链切五步（新建 detached 快照 + 切软链）；
+   `scripts/deploy_workbench_runtime.sh` 是 rsync 进现有快照的旧形态。合并 ≠ 生产跑上了。
 2. `bash scripts/hosted-alpha-wizard.sh` 走完六步（隧道路由、Access 应用、AUD、名单）；§2 第 5 步的 Bypass 应用一并建。
 3. 把 `alpha.env` 的内容加进 `~/.local/bin/start-finance-workbench`（含 §1.2 的三条并发守卫），
    `launchctl kickstart -k gui/$(id -u)/com.a77.finance-workbench`。
