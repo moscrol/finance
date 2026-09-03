@@ -48,9 +48,10 @@ tier 还容忍这一轮吗、上一轮有进展吗）是**申请**，底座 ``ru
 「修完算不算进步」（换了稿或绑定才算，没动手也没改就是 stop）。「付不付得起、几个格折
 几次调用」是预算，不在这里。
 
-``govern_mode``（研究该做多深：quick / deep，以及升档后的预算合同）也是两家没有的：
-它们的 loop 不分档。深度裁决读的是任务框架与 PLAN（领域），落到 context 上的是预算
-上限（底座会计）——本方法两件都做，loop 只记事件、把新 context 用起来。
+``govern_mode``（研究该做多深：quick / deep）也是两家没有的：它们的 loop 不分档。
+深度裁决读的是任务框架与 PLAN（领域）；裁决落到 context 上的是预算上限（底座会计），
+由 loop 拿着 ``decision`` 调 ``runtime/tier_promotion.apply_mode_promotion``——本方法
+只出裁决与话，不碰账本，与修复轮「领域申请、底座授予」同形。
 
 PLAN 是本领域的研究协议（先出计划再动手），两家都没有；它和 ``admit_finish``
 一样只能是领域方法。``steering_message`` 是领域在驳回 / 关闭研究阶段时对模型说的
@@ -342,14 +343,14 @@ class RepairVerdict:
 
 @dataclass(frozen=True)
 class ModeGovernance:
-    """一次深度裁决的三个产物。
+    """一次深度裁决的两个产物。
 
-    ``context``：裁决落到预算合同上之后的 context（deep 升档时换了 policy /
-    contract，否则原样）；loop 从此用它。``decision``：进 ``mode_decision`` 事件的
-    值。``message``：给模型看的 ``MODE_DECISION`` 正文（user 角色）。
+    ``decision``：进 ``mode_decision`` 事件的值，也是 loop 拿去
+    ``runtime/tier_promotion.apply_mode_promotion`` 落账的申请。``message``：给模型看的
+    ``MODE_DECISION`` 正文（user 角色）。裁决落到预算合同上（提 caps / 铸 grant /
+    换 policy）是底座的账，不在这里——与修复轮「领域申请、底座授予」同形。
     """
 
-    context: ResearchRunContext
     decision: ModeDecision
     message: str
 
@@ -397,10 +398,11 @@ class ResearchHarness(Protocol):
         context: ResearchRunContext,
         can_branch: bool,
     ) -> ModeGovernance:
-        """PLAN 到手后裁研究深度，并把裁决落到预算合同与一段给模型的话上。
+        """PLAN 到手后裁研究深度：出裁决值与一段给模型的话。
 
         ``can_branch`` 是底座能力（有没有子研究协调器）：没有就不能批 deep 的
-        分支依赖——这是 loop 告诉领域「我能做什么」，不是领域自己猜。
+        分支依赖——这是 loop 告诉领域「我能做什么」，不是领域自己猜。裁决落到
+        预算合同上由 loop 调 ``runtime/tier_promotion.apply_mode_promotion``。
         """
         ...
 
@@ -649,7 +651,6 @@ class FinanceResearchHarness:
         if plan.branch_goals and not can_branch and signals.dependencies_available:
             signals = replace(signals, dependencies_available=False)
         decision = self._mode_governor.decide(plan, signals)
-        promoted = self._mode_governor.apply(context, decision)
         message = json.dumps(
             {
                 "kind": "MODE_DECISION",
@@ -662,7 +663,7 @@ class FinanceResearchHarness:
             },
             ensure_ascii=False,
         )
-        return ModeGovernance(context=promoted, decision=decision, message=message)
+        return ModeGovernance(decision=decision, message=message)
 
     def project_sub_research(
         self,

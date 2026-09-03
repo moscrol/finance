@@ -37,7 +37,9 @@ from intelligence.runtime.episode_tool_batch import (
     ToolBatchExecutor,
     ToolBatchResult,
     ToolCallResult,
+    timeout_detail_for_model,
 )
+from intelligence.runtime.tier_promotion import apply_mode_promotion
 from intelligence.services.mode_governor import ModeDecision
 from intelligence.services.provider_observability import (
     ProviderTrace,
@@ -298,7 +300,8 @@ def _tool_dispatch_clock_payload(result: ToolCallResult) -> dict[str, object]:
 
     时间闸（``tool_timeout`` + ``stage_timeout_granted``≤0）和次数闸
     （``tool_budget_exhausted`` + ``remaining_slots_at_dispatch``）共用这份
-    快照，靠 error 码分闸。没测到的字段不写，避免把缺席伪装成 0。
+    快照，靠 error 码分闸。零授权与真超时共用 ``tool_timeout``，靠
+    ``detail=stage_timeout_granted=…`` 分开。没测到的字段不写，避免把缺席伪装成 0。
     """
 
     clock = result.dispatch_clock
@@ -386,13 +389,12 @@ class _EpisodeToolAccumulator:
                 public_error = (
                     "tool_timeout" if result.status == "timeout" else "tool_exception"
                 )
-                public_detail = (
-                    ""
-                    if result.status == "timeout"
-                    else _public_tool_exception_detail(
+                if result.status == "timeout":
+                    public_detail = timeout_detail_for_model(result)
+                else:
+                    public_detail = _public_tool_exception_detail(
                         result.detail or result.error
                     )
-                )
                 self.traces.append(
                     ProviderTrace(
                         provider=f"agent:{call.name}",
@@ -2017,17 +2019,19 @@ class ContinuousAgentEpisode:
         ledger: _EpisodeLedger,
         continuation_state: _EpisodeContinuationState | None,
     ) -> tuple[ResearchRunContext, ModeGovernance]:
-        # 深度裁决归 harness；loop 只说自己能不能开分支，然后记账、换 context。
+        # 深度裁决归 harness；loop 只说自己能不能开分支，然后把裁决落账（底座）、
+        # 记事件、换 context。
         governance = self._harness.govern_mode(
             task_frame=task_frame,
             plan=plan,
             context=context,
             can_branch=self._sub_research_coordinator is not None,
         )
+        promoted = apply_mode_promotion(context, governance.decision)
         ledger.add("mode_decision", governance.decision.to_dict())
         if continuation_state is not None:
-            continuation_state.context = governance.context
-        return governance.context, governance
+            continuation_state.context = promoted
+        return promoted, governance
 
     def _run_sub_research(
         self,

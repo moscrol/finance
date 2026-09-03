@@ -3,19 +3,15 @@
 P1 量纲（审查钉死）：``ResearchPolicy.for_tier("deep")`` 的一对
 ``(max_steps, total_seconds)`` = 12×240s。禁止再拧每格剩余预算。
 确定性 owner 题（涨停家数 / dated 事实）永不进本支。
+
+本模块只留领域判定（座位对不对、开口包齐没齐、该不该停机）。「升」的账本动作
+（提 caps / 铸 grant / 重建 deadline / 翻 contract tier）住在
+``intelligence/runtime/tier_promotion.promote_forecast_residual``——领域层不碰账本。
 """
 
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import Iterable
-
-from intelligence.services.repair_coordinator import BudgetGrant
-from intelligence.services.research_contract import (
-    ResearchDeadline,
-    ResearchPolicy,
-    ResearchRunContext,
-)
 
 FORECAST_RESIDUAL_QUESTION_TYPE = "market_forecast"
 DO_NOT_LENGTHEN_QUESTION_TYPES = frozenset(
@@ -73,62 +69,3 @@ def forecast_residual_halt_reason(
     if any(str(error or "") == "duplicate_query" for error in batch_errors):
         return FORECAST_RESIDUAL_SPIN
     return None
-
-
-def promote_forecast_residual(context: ResearchRunContext) -> ResearchRunContext:
-    """把已有 standard 账本升到 deep 一对闸，不另开第二本 root ledger。"""
-
-    deep = ResearchPolicy.for_tier("deep")
-    if context.policy.tier == "deep" and context.contract.research_tier == "deep":
-        return context
-
-    root = context.root_budget
-    if root is not None:
-        episode_id = context.contract.task_id
-        promotion_id = f"forecast-residual:{episode_id}:deep"
-        if not root.promote_caps(
-            episode_id=episode_id,
-            promotion_id=promotion_id,
-            hard_calls_cap=deep.max_steps,
-            hard_seconds_cap=deep.total_seconds,
-        ):
-            return context
-        target_seconds = max(0.0, deep.total_seconds - deep.synthesis_reserve)
-        calls_granted = max(0, deep.max_steps - root.allocated_calls)
-        seconds_granted = max(0.0, target_seconds - root.allocated_seconds)
-        if calls_granted or seconds_granted:
-            if calls_granted <= 0 or seconds_granted <= 0:
-                return context
-            granted = root.grant(
-                BudgetGrant(
-                    grant_id=f"grant-{promotion_id}",
-                    episode_id=episode_id,
-                    cycle=0,
-                    calls_granted=calls_granted,
-                    seconds_granted=seconds_granted,
-                )
-            )
-            if not granted:
-                return context
-
-    deadline = ResearchDeadline.from_timeout(
-        deep.total_seconds,
-        synthesis_reserve=deep.synthesis_reserve,
-    )
-    return replace(
-        context,
-        contract=replace(context.contract, research_tier="deep"),
-        policy=deep,
-        deadline=deadline,
-    )
-
-
-def maybe_promote_forecast_residual(
-    context: ResearchRunContext,
-    *,
-    question_type: str,
-    opening_prefetch: Iterable[object] | None,
-) -> ResearchRunContext:
-    if not should_promote_forecast_residual(question_type, opening_prefetch):
-        return context
-    return promote_forecast_residual(context)

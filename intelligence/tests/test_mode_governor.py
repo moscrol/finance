@@ -4,6 +4,7 @@ from datetime import date
 
 import pytest
 
+from intelligence.runtime.tier_promotion import apply_mode_promotion
 from intelligence.services.mode_governor import ModeGovernor, ModeSignals
 from intelligence.services.research_contract import (
     InformationCutoff,
@@ -211,7 +212,7 @@ def test_approved_deep_mode_promotes_the_existing_context_atomically() -> None:
     )
     before_deadline = context.deadline.expires_at
 
-    promoted = ModeGovernor().apply(context, decision)
+    promoted = apply_mode_promotion(context, decision)
 
     assert promoted.contract is context.contract
     assert promoted.information_cutoff == context.information_cutoff
@@ -231,8 +232,8 @@ def test_deep_promotion_is_idempotent_and_never_mints_a_second_ledger() -> None:
         ModeSignals(complexity_flags=("valuation",)),
     )
 
-    first = ModeGovernor().apply(context, decision)
-    second = ModeGovernor().apply(first, decision)
+    first = apply_mode_promotion(context, decision)
+    second = apply_mode_promotion(first, decision)
 
     assert second.root_budget is context.root_budget
     assert second.root_budget is not None
@@ -245,7 +246,7 @@ def test_denied_or_quick_decision_preserves_the_original_context() -> None:
     context = _standard_context(episode_id="mode-no-promotion")
     decision = ModeGovernor().decide(_plan("quick"), ModeSignals())
 
-    assert ModeGovernor().apply(context, decision) is context
+    assert apply_mode_promotion(context, decision) is context
     assert context.root_budget is not None
     assert context.root_budget.hard_calls_cap == 8
     assert context.root_budget.remaining_calls == 6

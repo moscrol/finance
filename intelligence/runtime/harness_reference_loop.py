@@ -47,7 +47,9 @@ from intelligence.runtime.episode_tool_batch import (
     EpisodeToolBatchSession,
     ToolBatchExecutor,
     ToolBatchResult,
+    timeout_detail_for_model,
 )
+from intelligence.runtime.tier_promotion import apply_mode_promotion
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
     AgentModelClient,
@@ -289,13 +291,15 @@ class HarnessReferenceLoop:
                         )
                         if not mode_decided:
                             # 深度裁决归 harness；本 loop 没有子研究协调器，如实报 False。
+                            # 落账（提 caps / 铸 grant / 换 policy）是底座的事，与 Episode
+                            # 同一个函数。
                             governance = harness.govern_mode(
                                 task_frame=task_frame,
                                 plan=plan,
                                 context=context,
                                 can_branch=False,
                             )
-                            context = governance.context
+                            context = apply_mode_promotion(context, governance.decision)
                             state.context = context
                             max_slots = max(1, int(context.policy.max_steps))
                             ledger.add("mode_decision", governance.decision.to_dict())
@@ -679,7 +683,7 @@ class HarnessReferenceLoop:
                     invalid_actions += 1
                     error, detail = result.error, result.detail
                 elif result.status == "timeout":
-                    error, detail = "tool_timeout", ""
+                    error, detail = "tool_timeout", timeout_detail_for_model(result)
                 else:
                     error, detail = "tool_exception", result.detail or result.error
                 payload = harness.project_tool_error(
