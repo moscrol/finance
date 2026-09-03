@@ -1,0 +1,35 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "linxiaoqi5111--run_20260820_130427_598348",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "cfb70ccc55610627002dfc1cd736a35c0fa6ee514baadaf90373abc07b05ebe5",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      8,
+      11,
+      14,
+      15,
+      23,
+      25,
+      28
+    ],
+    "issues": [
+      "第8句发明2.8万亿元和3900—3950点两个未由证据或可核验计算导出的任意触发阈值。",
+      "第11句把涨停维持100家以上设为领先信号，100这一阈值无证据依据。",
+      "第14句把电子成交占比33%以上设为信号，33%这一阈值无证据依据。",
+      "第15句发明跌停50家以上与退守3800点两个任意阈值。",
+      "第23句把成交额不低于2.8万亿元设为继续成立条件，该阈值无证据依据。",
+      "第25句把涨停不低于100家、跌停不高于30家设为成立条件，两个阈值均未由证据导出。",
+      "第28句把3820点及约-1.2%设为反弹失效线，证据中没有该阈值依据。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

@@ -1,0 +1,255 @@
+{
+  "schema_version": "1.1",
+  "date": "2026-09-03",
+  "agent": "claude",
+  "source": "duckdb",
+  "manifest_sha": "a82110fdb610e05e",
+
+  "evidence_catalog": {
+    "M1": {"level": "L4", "source": "fact_market_daily", "source_time": "2026-09-02", "entity": "market", "field": "advancers", "value": 1541, "direction": "support", "note": "9/2 涨家数，较 9/1 的 3387 腰斩"},
+    "M2": {"level": "L4", "source": "fact_market_daily", "source_time": "2026-09-02", "entity": "market", "field": "total_amount", "value": 17908.79, "direction": "support", "note": "亿元；为 8/12 以来最低"},
+    "M3": {"level": "L4", "source": "fact_market_daily", "source_time": "2026-09-02", "entity": "market", "field": "amount_vs_yesterday_pct", "value": -11.91, "direction": "support", "note": "成交额环比"},
+    "M4": {"level": "L4", "source": "fact_market_daily", "source_time": "2026-09-02", "entity": "market", "field": "volume_ratio", "value": 81.46, "direction": "support", "note": "volume_state=缩量观望"},
+    "M5": {"level": "L4", "source": "fact_market_daily", "source_time": "2026-09-02", "entity": "market", "field": "limit_up", "value": 52, "direction": "support", "note": "涨停 52 家，跌停 8 家"},
+    "M6": {"level": "L4", "source": "fact_market_daily", "source_time": "2026-09-02", "entity": "sh000001", "field": "sh_index_pct_chg", "value": -0.96741415838838, "direction": "support", "note": "上证收 3941.386，偏离度 -0.55"},
+    "M7": {"level": "L4", "source": "fact_market_daily", "source_time": "2026-09-02", "entity": "market", "field": "stage_day", "value": 26, "direction": "neutral", "note": "market_stage=底部横盘阶段第 26 天；8/25-8/31 曾被叠加标注为下跌阶段"},
+    "M8": {"level": "L4", "source": "fact_market_daily", "source_time": "2026-09-01", "entity": "market", "field": "advancers", "value": 3387, "direction": "neutral", "note": "前一日对照值"},
+    "M9": {"level": "L4", "source": "fact_market_daily", "source_time": "2026-09-02", "entity": "market", "field": "amount_ma20", "value": 21984.14, "direction": "support", "note": "9/2 成交额仅为 20 日均量的 81%"},
+    "M10": {"level": "L4", "source": "fact_market_daily", "source_time": "2026-09-01", "entity": "market", "field": "total_amount", "value": 20328.97, "direction": "neutral", "note": "前一日成交额，量能阈值参照"},
+
+    "S1": {"level": "L4", "source": "fact_sector_daily", "source_time": "2026-09-02", "entity": "market", "field": "strict_double_red_count", "value": 2, "direction": "support", "note": "严格双红(pct>0 且 diff>10 且 amount>500)仅国防军工(990144.FP)、军民融合(990086.FP)"},
+    "S2": {"level": "L4", "source": "fact_sector_daily", "source_time": "2026-09-02", "entity": "market", "field": "sector_up_count", "value": 35, "direction": "support", "note": "403 个板块中仅 35 个收红；9/1 为 237 个"},
+    "S3": {"level": "L4", "source": "fact_sector_daily", "source_time": "2026-09-02", "entity": "地面兵装/990147.FP", "field": "pct_chg", "value": 7.2, "direction": "support", "note": "全市场板块涨幅第 1，第 2 名军贸概念仅 2.49"},
+    "S4": {"level": "L4", "source": "fact_sector_daily", "source_time": "2026-09-02", "entity": "地面兵装/990147.FP", "field": "diff_ratio", "value": 86.41, "direction": "support", "note": "边际量%，全市场第 2（第 1 为放量下跌的油服工程）"},
+    "S5": {"level": "L4", "source": "fact_sector_daily", "source_time": "2026-09-02", "entity": "地面兵装/990147.FP", "field": "amount", "value": 110.9, "direction": "support", "note": "亿元；未达严格双红的 amount>500 门槛，属小容量板块"},
+    "S6": {"level": "L4", "source": "fact_sector_daily", "source_time": "2026-09-01", "entity": "地面兵装/990147.FP", "field": "amount", "value": 59.5, "direction": "support", "note": "8/31 为 31.4 亿；两日成交额扩大约 3.5 倍"},
+    "S7": {"level": "L4", "source": "fact_sector_daily", "source_time": "2026-09-02", "entity": "军贸概念/990087.FP", "field": "pct_chg", "value": 2.49, "direction": "support"},
+    "S8": {"level": "L4", "source": "fact_sector_daily", "source_time": "2026-09-02", "entity": "军贸概念/990087.FP", "field": "diff_ratio", "value": 39.06, "direction": "support"},
+    "S9": {"level": "L4", "source": "fact_sector_daily", "source_time": "2026-09-02", "entity": "航空装备/990322.FP", "field": "diff_ratio", "value": 42.92, "direction": "support", "note": "pct_chg +1.01；航空(990321.FP) diff +42.31 同向"},
+    "S10": {"level": "L4", "source": "fact_sector_daily", "source_time": "2026-09-02", "entity": "国防军工/990144.FP", "field": "diff_ratio", "value": 27.1, "direction": "support", "note": "pct_chg +0.52，amount 543.4 亿，构成严格双红之一"},
+    "S11": {"level": "L4", "source": "fact_sector_daily", "source_time": "2026-09-02", "entity": "油服工程/石油石化", "field": "pct_chg", "value": -2.41, "direction": "counter", "note": "diff_ratio 高达 93.12 却收绿——高边际量不等于资金流入，此为派发型放量，是 diff 指标的反例"},
+    "S12": {"level": "L4", "source": "fact_sector_daily", "source_time": "2026-09-02", "entity": "商业航天/990137.FP", "field": "diff_ratio", "value": -9.58, "direction": "counter", "note": "连续两日缩量收绿；军工内部分化，题材支线在退"},
+    "S13": {"level": "L4", "source": "fact_sector_daily", "source_time": "2026-09-02", "entity": "低空经济/990056.FP", "field": "diff_ratio", "value": -8.14, "direction": "counter", "note": "同为军工内部退潮支线；无人机 diff -2.36 同向"},
+    "S14": {"level": "L4", "source": "fact_sector_daily", "source_time": "2026-09-02", "entity": "固态电池", "field": "diff_ratio", "value": -13.33, "direction": "counter", "note": "电池链 9/2 全线缩量收绿（新能源车 -0.38/diff -10.25、储能 -0.56/diff -8.30、钠电池 -1.18/diff -1.40）"},
+    "S15": {"level": "L4", "source": "fact_sector_daily", "source_time": "2026-09-02", "entity": "一带一路", "field": "pct_chg", "value": -1.31, "direction": "counter", "note": "diff -8.61；中俄论坛当日利好未被盘面接住"},
+    "S16": {"level": "L4", "source": "fact_sector_daily", "source_time": "2026-09-01", "entity": "market", "field": "strict_double_red_count", "value": 13, "direction": "neutral", "note": "前一日对照：13 → 2，资金面收敛"},
+    "S17": {"level": "L4", "source": "fact_sector_daily", "source_time": "2026-09-02", "entity": "银行", "field": "diff_ratio", "value": -31.06, "direction": "counter", "note": "8/31 diff +67.72、9/1 +2.68 后急速缩量；价格新高但量能不续"},
+
+    "K1": {"level": "L4", "source": "fact_leader_height_daily", "source_time": "2026-09-02", "entity": "market", "field": "leader_height", "value": 4, "direction": "support", "note": "最高板 4 板（国芳集团/竞业达）"},
+    "K2": {"level": "L4", "source": "fact_leader_height_daily", "source_time": "2026-09-01", "entity": "market", "field": "leader_height", "value": 7, "direction": "neutral", "note": "前一日 7 板（海鸥住工）——一日断三级"},
+    "K3": {"level": "L4", "source": "fact_limit_advance_daily", "source_time": "2026-09-02", "entity": "market", "field": "promotion_rate_1to2", "value": "7/62=11%", "direction": "support", "note": "首板→2 板晋级率；2→3 板为 4/7=57%，3→4 板为 2/4=50%"},
+    "K4": {"level": "L4", "source": "fact_theme_limit_stock_daily", "source_time": "2026-09-02", "entity": "军工", "field": "defense_limit_up_count", "value": 5, "direction": "support", "note": "建设工业 9:32、内蒙一机 9:34、长城军工 9:35、博云新材 11:09、晟楠科技(北交所 +29.96%)；为 52 家涨停中最集中的一条链"},
+    "K5": {"level": "L4", "source": "fact_theme_limit_stock_daily", "source_time": "2026-09-02", "entity": "内蒙一机/600967.SH", "field": "limit_times", "value": 2, "direction": "support", "note": "封单 2.76 亿，9:34:45 首封；博云新材 2.79 亿、长城军工 2.40 亿"},
+    "K6": {"level": "L4", "source": "fact_theme_limit_heat_daily", "source_time": "2026-09-02", "entity": "market", "field": "market_limit_up_count", "value": 52, "direction": "support", "note": "9/1 为 83；且 9/2 热度前二的新能源车/储能板块指数反而收绿，说明其涨停家数来自跨概念交叉打标，不是板块 beta"},
+    "K7": {"level": "L4", "source": "fact_theme_limit_heat_daily", "source_time": "2026-09-01", "entity": "market", "field": "market_limit_up_count", "value": 83, "direction": "neutral", "note": "9/1 热度榜首为人工智能 22 家、新零售 18、乡村振兴 17、粮食概念 13——这批 9/2 全线退潮"},
+
+    "H1": {"level": "L4", "source": "fact_stock_high_daily", "source_time": "2026-09-02", "entity": "market", "field": "history_high_count", "value": 10, "direction": "neutral", "note": "9/1 为 16；1 年新高 62→38，60 日新高 505→294"},
+    "H2": {"level": "L4", "source": "fact_stock_high_daily", "source_time": "2026-09-02", "entity": "银行", "field": "bank_history_high_count", "value": 6, "direction": "counter", "note": "10 只历史新高里 6 只是银行（工行/中行/建行/江苏/南京/成都）——新高集群落在防御端而非进攻端"},
+
+    "P1": {"level": "L4", "source": "fact_sector_stock_daily", "source_time": "2026-09-02", "entity": "内蒙一机/600967.SH", "field": "pct_chg_20d", "value": 15.4, "direction": "neutral", "note": "5 日 +21.03%；池中位置最高，最贵的一只"},
+    "P2": {"level": "L4", "source": "fact_sector_stock_daily", "source_time": "2026-09-02", "entity": "中兵红箭/000519.SZ", "field": "pct_chg_20d", "value": 5.54, "direction": "support", "note": "9/2 +6.69% 未涨停；218 亿流通，链内位置最低的百亿级品种"},
+    "P3": {"level": "L4", "source": "fact_sector_stock_daily", "source_time": "2026-09-02", "entity": "长城军工/601606.SH", "field": "pct_chg_20d", "value": 8.86, "direction": "support", "note": "265 亿流通，链内最大容量"},
+    "P4": {"level": "L4", "source": "fact_sector_stock_daily", "source_time": "2026-09-02", "entity": "博云新材/002297.SZ", "field": "pct_chg_20d", "value": 11.98, "direction": "support", "note": "归属航空装备支线，115 亿流通"},
+    "P5": {"level": "L4", "source": "fact_sector_stock_daily", "source_time": "2026-09-02", "entity": "北方导航/600435.SH", "field": "pct_chg_20d", "value": 7.89, "direction": "support", "note": "9/2 +4.59% 未涨停，176 亿流通"},
+    "P6": {"level": "L4", "source": "fact_sector_stock_daily", "source_time": "2026-09-02", "entity": "地面兵装/990147.FP", "field": "constituent_up_count", "value": 13, "direction": "support", "note": "14 只成分股 13 只收红（仅 ST 应急 -0.94%），是整板块资金而非单票脉冲"},
+
+    "C1": {"level": "L4", "source": "fact_stock_daily", "source_time": "2026-09-02", "entity": "内蒙一机/600967.SH", "field": "close", "value": 13.41, "direction": "neutral", "note": "9/1 收 12.19（起涨首板日收盘）"},
+    "C2": {"level": "L4", "source": "fact_stock_daily", "source_time": "2026-09-02", "entity": "中兵红箭/000519.SZ", "field": "close", "value": 15.62, "direction": "neutral", "note": "9/1 收 14.64"},
+    "C3": {"level": "L4", "source": "fact_stock_daily", "source_time": "2026-09-02", "entity": "长城军工/601606.SH", "field": "close", "value": 36.62, "direction": "neutral", "note": "9/1 收 33.29"},
+    "C4": {"level": "L4", "source": "fact_stock_daily", "source_time": "2026-09-02", "entity": "博云新材/002297.SZ", "field": "close", "value": 20.0, "direction": "neutral", "note": "9/1 收 18.18"},
+    "C5": {"level": "L4", "source": "fact_stock_daily", "source_time": "2026-09-02", "entity": "北方导航/600435.SH", "field": "close", "value": 11.62, "direction": "neutral", "note": "9/1 收 11.11"},
+
+    "B1": {"level": "L3", "source": "回测:fact_market_daily 条件基线(涨家数<1800 且 量能环比<-8%，n=26，2024-12-25~2026-09-02)", "source_time": "2026-09-02", "entity": "market", "field": "next_day_advancers_gt2500_rate", "value": 73.1, "direction": "support", "note": "次日涨家数>2500 的样本占比；无条件基线为 53.3%"},
+    "B2": {"level": "L3", "source": "回测:fact_market_daily 条件基线(同 B1 样本)", "source_time": "2026-09-02", "entity": "market", "field": "next_day_advancers_up_rate", "value": 92.3, "direction": "support", "note": "次日涨家数较当日上升的样本占比，中位次日涨家数 3345"},
+    "B3": {"level": "L3", "source": "回测:fact_market_daily 条件基线(同 B1 样本)", "source_time": "2026-09-02", "entity": "market", "field": "next_day_amount_up_rate", "value": 38.5, "direction": "counter", "note": "次日成交额较当日上升的样本仅 38.5%——广度修复但量能不同步回归，是反抽形态不是反转形态"},
+    "B4": {"level": "L3", "source": "回测:fact_sector_daily 急拉基线(pct>5 且 diff>50 且 amount>50，n=345)", "source_time": "2026-09-02", "entity": "sector", "field": "next_day_sector_up_rate", "value": 39.1, "direction": "counter", "note": "地面兵装 9/2 正落在此桶内；次日板块指数上涨概率反低于 53.3% 的全样本基线"},
+    "B5": {"level": "L3", "source": "回测:fact_sector_daily 急拉基线(同 B4 样本)", "source_time": "2026-09-02", "entity": "sector", "field": "next_day_sector_median_pct", "value": -0.56, "direction": "counter", "note": "次日中位涨幅；板块指数层面均值回归占优"},
+    "B6": {"level": "L3", "source": "回测:fact_sector_daily 全样本(n=105173)", "source_time": "2026-09-02", "entity": "sector", "field": "baseline_sector_up_rate", "value": 53.3, "direction": "neutral", "note": "板块次日上涨的无条件基线，用于对照 B4"},
+    "B7": {"level": "L3", "source": "回测:fact_theme_limit_stock_daily×fact_stock_daily 2 板样本(n=3326)", "source_time": "2026-09-02", "entity": "stock", "field": "next_day_2board_up_rate", "value": 59.1, "direction": "support", "note": "2 板股次日上涨概率；1 板 55.7%、3 板 66.7%"},
+    "B8": {"level": "L3", "source": "回测:fact_theme_limit_stock_daily×fact_stock_daily 2 板样本(同 B7)", "source_time": "2026-09-02", "entity": "stock", "field": "next_day_2board_median_pct", "value": 2.34, "direction": "support", "note": "次日中位涨幅；次日再涨停概率 33.7%"},
+    "B9": {"level": "L3", "source": "回测:fact_theme_limit_stock_daily leader_plate=军工 涨停样本(n=412)", "source_time": "2026-09-02", "entity": "军工", "field": "next_day_defense_limitup_up_rate", "value": 61.2, "direction": "support", "note": "军工涨停股次日上涨概率，中位 +1.82%，高于全板块 1 板基线"},
+    "B10": {"level": "L3", "source": "回测:fact_theme_limit_stock_daily×fact_stock_daily 2 板样本 T+3(n=3307)", "source_time": "2026-09-02", "entity": "stock", "field": "t3_2board_median_pct", "value": 0.37, "direction": "counter", "note": "2 板股 T+3 累计中位仅 +0.37%、上涨率 50.6%——动量优势集中在 T+1，到 T+3 基本抹平"},
+    "B11": {"level": "L3", "source": "回测:fact_market_daily 上证 T+3 基线(n=409)", "source_time": "2026-09-02", "entity": "sh000001", "field": "t3_index_median_pct", "value": 0.265, "direction": "neutral", "note": "基准 T+3 中位涨幅，用于对照 B10：追涨停在 T+3 相对基准无边际"},
+
+    "R1": {"level": "L2", "source": "strategy1-matrix 严格双红定义(CLAUDE.md)", "source_time": "2026-09-02", "entity": "rule", "field": "strict_double_red_rule", "value": "pct_chg>0 且 diff_ratio>10 且 amount>500", "direction": "neutral", "note": "固定规则，非本次拟合"},
+
+    "E1": {"level": "L1", "source": "fact_event_daily(is_future=true，记录于 2026-09-02 10:45)", "source_time": "2026-09-02", "entity": "电池链", "field": "forward_event", "value": "2026世界动力电池大会(9/3，四川，国务院批准)", "direction": "neutral", "note": "视角日已知的前瞻事件；但 9/2 电池链全线缩量收绿(S14)，属『事件已知、盘面零预热』"},
+    "E2": {"level": "L1", "source": "fact_event_daily", "source_time": "2026-09-01", "entity": "锂电链", "field": "policy_event", "value": "9/1 起锂离子电池恢复征收消费税，钠离子/固态/燃料电池免征", "direction": "counter", "note": "对应 9/2 锂 -3.96%、能源金属 -3.49%"},
+    "E3": {"level": "L1", "source": "fact_event_daily", "source_time": "2026-09-02", "entity": "一带一路/能源", "field": "policy_event", "value": "丁薛祥 9/2-9/4 赴俄出席东方经济论坛及中俄投资/能源合作委员会", "direction": "neutral", "note": "盘面未兑现：一带一路 -1.31%(S15)、中俄贸易 -0.15%、石油系放量下跌(S11)"},
+    "E4": {"level": "L1", "source": "fact_event_daily", "source_time": "2026-09-01", "entity": "电子材料", "field": "price_hike_event", "value": "南亚塑料覆铜板涨价 20~25%、三星电机/太阳诱电 MLCC 涨价 30%、卓胜微 RF 全系调价", "direction": "counter", "note": "涨价利好当日即被卖出：9/1 被动元件 -5.34%、PCB -4.74%、电子化学品 -4.67%，9/2 继续缩量收绿——见光死形态"},
+
+    "G1": {"level": "L4", "source": "冻结输入自检(manifest a82110fdb610e05e)", "source_time": "2026-09-02", "entity": "data_gap", "field": "data_gap_count", "value": 3, "direction": "neutral", "note": "①fact_stock_daily.amount 与 fact_sector_stock_daily.amount 在 9/2 全为 0，个股成交额/换手无法交叉验证，封单额只能取自 fact_theme_limit_stock_daily；②fact_stock_technical_snapshot 为空表(0 行)，UP 线/偏离度不可用；③冻结输入的 fact_event_daily 中 8/20-9/2 无任何军工方向消息面事件，本卷军工判断是纯盘面证据，缺消息面交叉验证"}
+  },
+
+  "stage": "底部横盘阶段第 26 天／退潮分歧日：旧主线断板退潮 + 缩量至 20 日均量的 81% + 资金单点集结军工",
+
+  "stage_features": {
+    "rule_id": "market-stage-v1",
+    "as_of": "2026-09-02",
+    "metrics": {
+      "advancers": {"value": 1541, "evidence_ref": "M1"},
+      "total_amount": {"value": 17908.79, "evidence_ref": "M2"},
+      "amount_vs_yesterday_pct": {"value": -11.91, "evidence_ref": "M3"},
+      "volume_ratio": {"value": 81.46, "evidence_ref": "M4"},
+      "limit_up": {"value": 52, "evidence_ref": "M5"},
+      "sh_index_pct_chg": {"value": -0.96741415838838, "evidence_ref": "M6"},
+      "stage_day": {"value": 26, "evidence_ref": "M7"},
+      "amount_ma20": {"value": 21984.14, "evidence_ref": "M9"},
+      "strict_double_red_count": {"value": 2, "evidence_ref": "S1"},
+      "sector_up_count": {"value": 35, "evidence_ref": "S2"},
+      "leader_height": {"value": 4, "evidence_ref": "K1"},
+      "promotion_rate_1to2": {"value": "7/62=11%", "evidence_ref": "K3"},
+      "history_high_count": {"value": 10, "evidence_ref": "H1"}
+    },
+    "evidence_refs": ["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M9", "S1", "S2", "K1", "K3", "H1"]
+  },
+
+  "main_judgment": "9/2 不是普跌日而是换庄日：成交额缩到 17908.79 亿（量比 81.46、20 日均量的 81%）、403 个板块只有 35 个收红、龙头高度一日从 7 板断到 4 板、首板晋级率 7/62=11%，说明 9/1 那批旧主线（人工智能/新零售/乡村振兴/粮食）在集体退潮；但资金没有离场——全市场唯二的严格双红都落在军工，地面兵装 pct+7.2%/边际量+86.41% 且两日成交额从 31.4 亿放大到 110.9 亿，5 只军工涨停股中 3 只在 9:35 前封板。因此 T+1 真正的分歧不在涨跌，而在『广度修复』与『板块强度外推』会不会背离：条件基线说缩量窄幅杀跌后广度大概率修复（涨家数上升 92.3%、>2500 为 73.1%）但量能不跟（次日放量仅 38.5%），而急拉板块的次日指数上涨率只有 39.1%、中位 -0.56%——所以我的方向判断（军工第一）和我的板块指数判断（地面兵装不外推）是刻意相反的。",
+
+  "direction_ranking": [
+    "军工-地面兵装/军贸概念/航空装备（策略四·流动性切换：旧主线退潮释放的资金找到的唯一新容器）",
+    "贵金属-黄金（策略三·分歧回流：diff +28.79/+27.41 为仅有的另一处正边际量，但成分股 20 日已 +30% 以上，位置不佳）",
+    "电池链-钠电/固态（观察不参与：9/3 世界动力电池大会是视角日已知的前瞻事件，但 9/2 全链缩量收绿，属事件已知、盘面零预热）",
+    "石油石化-油服工程/石油开采（回避：diff 93.12/56.03 却收绿 -2.41%/-1.59%，典型放量派发，四分类中属假突破）",
+    "旧主线-农业粮食/AI长剧/消费零售（回避：9/1 涨停热度前列，9/2 粮食 -4.12%、种植业 -6.29%，梯队断层，情绪脉冲已终结）"
+  ],
+
+  "picks": [
+    {
+      "code": "600967",
+      "name": "内蒙一机",
+      "strategy": "策略二·强趋势延续",
+      "reason": "地面兵装龙头：9/2 二连板、9:34:45 首封、封单 2.76 亿；所在板块 pct+7.2%/diff+86.41，成交额两日从 31.4 亿放大到 110.9 亿。2 板股次日上涨基线 59.1%、中位 +2.34%，军工涨停股次日上涨基线 61.2%——T+1 期望为正。但必须写明它是池中最贵的一只：20 日已 +15.4%、5 日 +21.03%，且急拉板块次日指数上涨率仅 39.1%，龙头承担全部均值回归风险。",
+      "evidence_refs": ["S3", "S4", "S5", "S6", "K5", "B7", "B8", "B9", "B4", "P1", "C1"],
+      "evidence_as_of": "2026-09-02"
+    },
+    {
+      "code": "000519",
+      "name": "中兵红箭",
+      "strategy": "策略三·分歧回流",
+      "reason": "同属地面兵装但 9/2 只涨 6.69% 未封板，20 日涨幅仅 +5.54%——链内位置最低的百亿级（218 亿流通）品种。选它正是因为 B4 那条基线：板块急拉后指数层面 60.9% 的概率不延续，此时追涨幅最高的成分股风险最大，未兑现的低位成分在同一方向上给出更好的风险收益比。板块 14 只成分 13 只收红，说明是整板块资金而非单票脉冲。",
+      "evidence_refs": ["S3", "S4", "P2", "P6", "B4", "B5", "C2"],
+      "evidence_as_of": "2026-09-02"
+    },
+    {
+      "code": "601606",
+      "name": "长城军工",
+      "strategy": "策略二·强趋势延续",
+      "reason": "9/2 首板 9:35:57 早封、封单 2.40 亿，265 亿流通为链内最大容量（容量核心承接能力最强）；20 日 +8.86% 位置居中。军贸概念 diff +39.06 与地面兵装 +86.41 同向，说明兵工/军贸是同一批资金在做，不是单板块噪声。",
+      "evidence_refs": ["S3", "S7", "S8", "K4", "P3", "B9", "C3"],
+      "evidence_as_of": "2026-09-02"
+    },
+    {
+      "code": "002297",
+      "name": "博云新材",
+      "strategy": "策略四·流动性切换",
+      "reason": "唯一不在地面兵装的一只，归属航空装备支线（该板块 diff +42.92、航空 +42.31 同向），9/2 首板封单 2.79 亿。放它进池是刻意的对冲设计：本卷 5 只全在军工链上，集中度是最大风险；用航空支线检验这波是『整条军工线扩散』还是『地面兵装单点脉冲』——若只有地面兵装能走而航空支线不跟，说明方向宽度不足，池子应整体减配。同时注意军工内部已分化：商业航天 diff -9.58、低空经济 -8.14、无人机 -2.36 三条题材支线在退。",
+      "evidence_refs": ["S9", "S12", "S13", "K4", "P4", "C4"],
+      "evidence_as_of": "2026-09-02"
+    },
+    {
+      "code": "600435",
+      "name": "北方导航",
+      "strategy": "策略三·分歧回流",
+      "reason": "地面兵装成分，9/2 +4.59% 未涨停，20 日 +7.89%、176 亿流通，位置与容量都居中，是池内『不追高』一侧的第二个表达。与中兵红箭一起构成对冲：若 T+1 板块指数如基线均值回归，未涨停的中低位成分回撤空间显著小于二板龙头。",
+      "evidence_refs": ["S3", "S4", "P5", "P6", "B4", "C5"],
+      "evidence_as_of": "2026-09-02"
+    }
+  ],
+
+  "thresholds": {
+    "market": "T+1 全市场涨家数 > 2500（9/2 为 1541，条件基线 n=26 命中率 73.1%，无条件基线仅 53.3%）；同时成交额大概率仍低于 17908.79 亿（同样本次日放量率仅 38.5%）——即判『广度修复但量能不回归』的反抽形态。涨家数 ≤ 1541 即市场判断证伪。",
+    "direction": "军工方向 T+1 判定用相对强度而非绝对涨幅：地面兵装(990147.FP)、军贸概念(990087.FP)、航空装备(990322.FP) 三者中至少 2 个的板块涨幅排名进入 403 个板块前 40 名（前 10%）＝方向成立；≤1 个进入＝方向证伪。板块指数层面明确不外推：地面兵装 T+1 pct_chg ≤ 0 的基线概率为 60.9%（n=345 急拉样本的次日上涨率仅 39.1%）。",
+    "targets": "逐只触发价，全部机械取自 9/2 收盘与 9/1 收盘（起涨日收盘为止损位）：内蒙一机 收 13.41，跌破 12.19 止损、站上 14.75(+10%) 确认；中兵红箭 收 15.62，跌破 14.64 止损、上破 16.50 确认补涨；长城军工 收 36.62，跌破 33.29 止损、上破 38.00 确认；博云新材 收 20.00，跌破 18.18 止损、上破 21.00 确认；北方导航 收 11.62，跌破 11.11 止损、上破 12.20 确认。",
+    "falsify": "推翻『换庄日』主判断的信号，两条都是 T+1 收盘查一个数就能判定的：① 涨家数 ≤1541 且 成交额 <17908.79 亿 且 严格双红板块数(pct>0 且 diff>10 且 amount>500) ≤2 —— 三者同时成立说明这不是资金换方向而是系统性退潮，主判断作废；② 地面兵装 pct_chg <0 且 amount <110.9 亿（放量急拉次日缩量下跌＝单日脉冲，不是新主线起点）。第二条一旦触发，本卷 5 只标的全在军工链上会整体失效——这是本卷自认的最大集中度风险，写在这里以便回检时直接归因，而不是事后解释。"
+  },
+
+  "threshold_provenance": {
+    "market": {"origin": "backtest", "evidence_ref": "B1", "as_of": "2026-09-02"},
+    "direction": {"origin": "backtest", "evidence_ref": "B4", "as_of": "2026-09-02"},
+    "targets": {"origin": "mechanical", "evidence_ref": "C1", "as_of": "2026-09-02"},
+    "falsify": {"origin": "fixed_rule", "evidence_ref": "R1", "as_of": "2026-09-02"}
+  },
+
+  "hypotheses": [
+    {
+      "id": "market",
+      "category": "market",
+      "claim": "T+1（2026-09-03）全市场涨家数 > 2500",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.72,
+      "evidence_refs": ["M1", "M3", "B1", "B2"],
+      "evidence_as_of": "2026-09-02",
+      "falsify_when": "T+1 涨家数 ≤ 1541（即不高于 9/2 自身水平），该情形在 n=26 条件样本中占 7.7%"
+    },
+    {
+      "id": "market-volume",
+      "category": "market",
+      "claim": "T+1 成交额仍低于 17908.79 亿——广度修复不伴随量能回归（反抽而非反转）",
+      "horizon": "T+1",
+      "confidence": "low",
+      "confidence_probability": 0.6,
+      "evidence_refs": ["M2", "M9", "M10", "B3"],
+      "evidence_as_of": "2026-09-02",
+      "falsify_when": "T+1 成交额 ≥ 17908.79 亿"
+    },
+    {
+      "id": "direction-defense-relative",
+      "category": "direction",
+      "claim": "T+1 地面兵装(990147.FP)、军贸概念(990087.FP)、航空装备(990322.FP) 三者中至少 2 个的板块涨幅排名进入全市场 403 个板块前 40 名",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": ["S3", "S4", "S7", "S8", "S9", "S10", "K4", "P6"],
+      "evidence_as_of": "2026-09-02",
+      "falsify_when": "T+1 三者中 ≤1 个进入板块涨幅前 40 名"
+    },
+    {
+      "id": "direction-defense-mean-revert",
+      "category": "direction",
+      "claim": "地面兵装板块 T+1 pct_chg ≤ 0——板块指数层面均值回归，9/2 的 +7.2% 不可外推（与上一条并列成立，即方向对但板块指数不跟）",
+      "horizon": "T+1",
+      "confidence": "low",
+      "confidence_probability": 0.61,
+      "evidence_refs": ["S3", "S4", "B4", "B5", "B6"],
+      "evidence_as_of": "2026-09-02",
+      "falsify_when": "T+1 地面兵装 pct_chg > 0"
+    },
+    {
+      "id": "target:600967",
+      "category": "target",
+      "claim": "内蒙一机 T+1 收盘价 > 13.41（2 板股次日上涨基线 59.1%，军工涨停股 61.2%）",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.59,
+      "evidence_refs": ["C1", "K5", "B7", "B8", "B9"],
+      "evidence_as_of": "2026-09-02",
+      "falsify_when": "T+1 内蒙一机 收盘 ≤ 12.19（跌回 9/1 起涨首板日收盘之下）"
+    },
+    {
+      "id": "target-pool-t3",
+      "category": "target",
+      "claim": "5 只标的池 T+3 平均收益不跑赢上证指数——动量优势集中在 T+1，到 T+3 基本抹平（2 板股 T+3 中位仅 +0.37% vs 上证 T+3 中位 +0.265%）",
+      "horizon": "T+3",
+      "confidence": "low",
+      "confidence_probability": 0.55,
+      "evidence_refs": ["B10", "B11", "P1", "P2"],
+      "evidence_as_of": "2026-09-02",
+      "falsify_when": "T+3 标的池 5 只平均收益 > 同期上证指数收益"
+    },
+    {
+      "id": "falsify",
+      "category": "falsify",
+      "claim": "『换庄日而非系统性退潮』的主判断会被推翻：T+1 同时出现 涨家数≤1541、成交额<17908.79 亿、严格双红板块数≤2",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.12,
+      "evidence_refs": ["M1", "M2", "S1", "R1", "B1"],
+      "evidence_as_of": "2026-09-02",
+      "falsify_when": "T+1 涨家数 > 2500 或 严格双红板块数 ≥ 5（任一成立即说明主判断未被推翻）"
+    }
+  ],
+
+  "recheck": {}
+}

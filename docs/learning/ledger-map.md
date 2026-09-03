@@ -30,6 +30,22 @@
 | 视角考卷（已知题/边题） | `intelligence/users/<id>/perspectives/exam/<pid>.json` | JSON | `perspective exam add` | 否（用户态） | `perspective exam run` 报告 |
 | 自用摩擦台账 | `docs/learning/self-use-ledger/<date>.jsonl` | JSONL | `scripts/self_use_ledger.py add`（只记真人使用，探针/评测不进账） | 是 | `summary` 子命令（Self-use Gate 读数，见目录 README） |
 | 预测/假设台账（R-号，实验立案与预注册裁决） | `docs/prediction-ledger.md` | md（例外：md 即 canonical） | 号由 `scripts/claim_ledger_id.py claim` 原子预占（禁手工 max+1）；行由立案会话写入 | 是 | —（实验原始收据在 `~/.finance-runtime/<实验名>/`，本表行是唯一住址索引） |
+| IMA 缺口清单（该跑 DeepDive 的题材 / 该补逻辑卡的个股） | `market_feature_store/exports/<date>-ima-gap.json`（`schema_version` 字段） | JSON | 全量入口 `intelligence.cli daily` 的 `ima-gap-report` 步（只出清单，不自动问 IMA） | 是 | 同名 `.md` |
+
+## 双盲夜跑（2026-09-03 用户拍板：退役）
+
+上表「夜跑已退役」三处自 08-20 起只对 finalize 里的 recheck/auto_verdict 成立；出答卷的那条
+launchd `com.financeworkspace.dual-blind-forecast`（工作日 09:10 跑 `scripts/dual_blind_auto.sh`）
+在 2026-08-28 23:00 被重新装回（PR #498 那批），之后每天落 manifest + `answer.claude`，codex 腿一直
+「未落答卷」（1/2）。2026-09-03 用户拍板整条退役：已 `launchctl bootout`，plist 归档为
+`~/Library/LaunchAgents/disabled-by-devin/com.financeworkspace.dual-blind-forecast.plist.retired-2026-09-03`。
+仓内 `intelligence/dream/com.financeworkspace.dual-blind-forecast.plist` 只是模板，**不要再装回**；
+08-31～09-03 的最后四组 manifest/answer 已随本次收拾入库作为终档。`chore/retire-dual-blind-nightly`
+（`~/fwp-wt-retire-dual-blind`）的代码改动早已在 main 等价存在（`nightly_full_review.sh` 第 156 行
+注释即是），该分支按 superseded 处理。
+
+复盘 HTML/PNG（`复盘/daily/<date>/`）自 2026-09-03 起不再入库（用户拍板：渲染物留本地）；
+台账真本源见 PR #555 的 `<date>-daily-review.json`。
 
 ## 保鲜状态（2026-08-28 P3 诊断）
 

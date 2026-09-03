@@ -1,0 +1,31 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "probe-w3-verify-0822--run_20260822_002312_957440",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "dcdfcad505858f5d22da5793fc3b0a61599edb73e83f16639c56ee7946450337",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      1,
+      2,
+      4,
+      5,
+      8
+    ],
+    "issues": [
+      "第1句称2026-08-22为非数据日，注册证据只说明整体盘面数据截至2026-08-21，未直接支持该日性质。",
+      "第2句把8月17日的+20%直接写成20cm涨停，并进一步断言高位缩幅整理、承接仍强；证据仅给出涨跌幅、收盘价和成交额，未登记涨停状态，也不足以直接证明承接强弱。",
+      "第4句把太辰光归入通信/光连接方向并称其所在方向是资金集中区，注册证据没有提供该公司的行业或题材归属。",
+      "第5句以通信板块领先作为太辰光延续强势的条件，但公司与通信板块的映射未获注册证据支持。",
+      "第8句把本轮未提供一手催化证据扩大为当日不存在公开一手催化信息，注册表不足以证明全局性的不存在。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

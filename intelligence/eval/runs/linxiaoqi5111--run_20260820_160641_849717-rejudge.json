@@ -1,0 +1,27 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "linxiaoqi5111--run_20260820_160641_849717",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "dedc7e68db257a2f46a1e7eca3bfe833a8d21a7064f1f15ce5c4bdbb4893cccf",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      1,
+      2,
+      3
+    ],
+    "issues": [
+      "第1句把当日上涨主要归因于板块β而非公司基本面披露，新闻与行情只能证明同日板块走强，不能直接支持该排他性因果。",
+      "第2句断言资金从主线高标轮动到低位资源股，现有证据没有资金流向或轮动因果证据。",
+      "第3句称7月15日后连续缩量整理，但成交额序列在7月21日升至16.5235亿元，并非连续缩量；“右侧反包”也缺少被反包区间的直接证据。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

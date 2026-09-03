@@ -1,0 +1,29 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "linxiaoqi5111--run_20260820_111432_921268",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "b4459e8bf84d6d0b4deffea3213e6ec755a9a330939a22415e22d91932427280",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      3,
+      4,
+      5,
+      8
+    ],
+    "issues": [
+      "第3句使用了不存在或错位的E8、E9、E7引用，无法按句内证据绑定核验所述份额、营收、高端封装占比和Chiplet预测。",
+      "第4句把AI算力认定为先进封装需求的驱动并把公司称为国产链核心暴露，现有证据未直接支持该因果和定位。",
+      "第5句虽有行情数字支持，但“高位放量冲高”和“处于情绪退潮阶段”缺少高位区间与情绪状态的直接证据，且句内E13—E15不存在。",
+      "第8句引入AI算力资本开支指引及先进封装订单验证作为失效条件，现有证据未提供这些事实或指标。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

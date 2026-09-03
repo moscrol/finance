@@ -1,0 +1,29 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "fsr2-r4--run_20260828_182609_628397",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "0873c6d0fa9c1ff1a354fb84c97507d59efbc3c53c3f36c3404929198231f618",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      1,
+      2,
+      9,
+      11
+    ],
+    "issues": [
+      "第1句断言2026-08-22为周六且A股休市，该事实未出现在用户前提或证据注册表中。",
+      "第2句声称用户已确认休市，并据此认定实际交易日只有四天；用户问题未作该确认，数据缺行本身也不能证明休市。",
+      "第9句称当周成交额逐日递减，但证据显示8月19日成交额高于8月18日。",
+      "第11句把8月22日无数据认定为正常休市而非缺口，缺少直接证据。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

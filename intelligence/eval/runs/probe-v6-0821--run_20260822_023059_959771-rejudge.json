@@ -1,0 +1,27 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "probe-v6-0821--run_20260822_023059_959771",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "94578d54932b205cb53eaa5ad7b7a06f5ec589bc8d0504dfc4b09ce9546c69f3",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      6,
+      7,
+      11
+    ],
+    "issues": [
+      "第6句把创新药与CXO同步上涨解释为研发、外包、兑现链条，但所引行情和板块归类证据未直接支持这些产业角色及炒作核心。",
+      "第7句断言叙事重心从管线想象转向收入兑现；新闻标题虽涉及BD、AI和盈利兑现，但未提供此前叙事基准或重心发生转移的直接证据。",
+      "第11句把强度重新站上数千量级并连续放量设为降级判断的失效阈值，该数千量级触发门槛没有证据依据。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

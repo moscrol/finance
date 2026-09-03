@@ -1,0 +1,1389 @@
+{
+  "schema_version": "1.1",
+  "date": "2026-09-01",
+  "agent": "claude",
+  "source": "duckdb",
+  "manifest_sha": "5f81a5d103024633",
+  "perspective_date": "2026-08-31",
+  "input_notes": "只用 manifest(sha 5f81a5d103024633) 冻结输入：DuckDB db/market_feature_store.duckdb 截至 2026-08-31（fact_market_daily/fact_sector_daily/fact_sector_stock_daily/fact_stock_daily/fact_stock_high_daily/fact_theme_limit_heat_daily/fact_limit_advance_daily/fact_leader_height_daily/fact_dragon_summary_daily/fact_auction_stock_daily/fact_mainline_* 共 11 张表）；知识库 commit fbaddd0e 已冻结但本卷未引用其内容；materials=[] 即没有晨汇/卖方/外盘材料（Q3，已知缺口），故本卷为纯盘面流（source=duckdb）答卷。【数据质量核查】(1) 跨日克隆 0.80%，四天 snapshot_id 互不相同且均 published（Q1）；(2) 标的池 5 只 8 月价格链 0 处不一致（Q2）；(3) 当日关键字段无空值、diff_ratio 无全零（Q4）；(4) 『国防军工』是当日唯一重名板块，绝对增量统计已剔除（Q5）。【口径纠错，本卷最重要的一条方法】库内形态『20 日新高连 3 日扩张 + 涨停≥80』的『次日回落率』是 81.1%，但『次日涨停低于 88』的概率只有 59.5%——因为历史样本当日涨停中位 102，回落之后仍在 88 之上。两个口径差 21.6pp。上一卷（2026-08-31）正是用『回落率』当『低于绝对值』的概率、给了 0.75 的置信度并 miss（预测涨停<82、实际 88）。本卷全部市场阈值改用绝对值口径重算，概率相应下调（B1）。【方向排序的诚实交代】按场景 A 权重打分，AI 应用 3.50 vs 国产算力硬件 3.35，分差 0.15 < 框架规定的 0.30，**按纪律应视为等价**（R2）；本卷把 AI 应用排在前面靠的不是盘面强度（板块层面的双红/缩量之争在 T+1 是 0.1pp 量级噪声，B5），而是拥挤度：传媒链 328 只个股 20 日涨幅中位 +3.33%，AI 硬件链 505 只中位 +17.00%（G10/G11），在『拥挤度 10% + 已定价 25%』合计 35% 权重的 A 场景里这是唯一有量级的差异。【追高纪律与主动排除】标的池 5 只里有 4 只是当日涨停或历史新高，这是主动选择而非疏忽：库内『首板涨停+净流入>10 亿+流通市值>800 亿』T+1 胜率 69.5%（B6），而『涨 5-9.8% 未涨停+净流入>5 亿』近 3 个月胜率只有 44.3%、『低位新高补涨』只有 40.2%（B7）——本库里『不追高』才是负期望。代价写明：这些票只能在涨停价附近成交（浪潮信息 13:51:57、大族激光 14:14:21、中文在线 13:00:42 首封，均为换手板非一字，尾盘仍有成交），若 T+1 大幅高开则实际收益低于回测；回检请按收盘价口径统一裁定。同时主动排除了当日最『正确』的两类票：银行（中国银行历史新高、指数最大贡献，但库内同形态近 3 个月 T+1 胜率仅 36.9%，B10）与生益科技（成交额全市场第 3、新高榜第 1，但落在近零期望桶）——这是本卷对『市场路径命中≠标的路径命中』的具体划线。",
+  "evidence_catalog": {
+    "M1": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "direction": "neutral",
+      "entity": "market",
+      "field": "market_stage",
+      "value": "下跌阶段",
+      "note": "库标签『下跌阶段』第 7 天（08-21 起计；08-24 前该字段还是『底部横盘阶段D19』，08-25 改判）。但上证当日 +0.86% 收 3986.298、在周均线上方 1.19%、逼近 08-18 的 3990.304——标签与价格结构冲突，本卷只把它当阶段计数锚，不当方向依据。"
+    },
+    "M2": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "direction": "neutral",
+      "entity": "market",
+      "field": "stage_day",
+      "value": 7,
+      "note": "下跌阶段第 7 天。"
+    },
+    "M3": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "market",
+      "field": "advancers",
+      "value": 3181,
+      "note": "涨家 3181，近 5 日 4234→2946→3394→3013→3181。"
+    },
+    "M4": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "market",
+      "field": "limit_up",
+      "value": 88,
+      "note": "涨停 88 家，自 08-26 的 52 起连升 3 日（52→77→82→88），为 08-17（106）以来最高。"
+    },
+    "M5": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "market",
+      "field": "limit_down",
+      "value": 11,
+      "note": "跌停 11 家，较 08-28 的 1 家明显回升（08-25 起最高），说明分化在加剧而不是全面赚钱。"
+    },
+    "M6": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "market",
+      "field": "total_amount",
+      "value": 21305.63,
+      "note": "成交 21305.63 亿，较 08-28 的 21014.72 仅 +1.38%；广度全面扩张而总量几乎没动=存量再分配。"
+    },
+    "M7": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "market",
+      "field": "amount_vs_yesterday_pct",
+      "value": 1.38,
+      "note": "量能环比 +1.38%，三个交易日锁在 21000–21300 亿区间。"
+    },
+    "M8": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "market",
+      "field": "amount_ma20",
+      "value": 22508.65,
+      "note": "20 日均量 22508.65 亿，当日量比 94.66%，已连续 8 个交易日低于均量。"
+    },
+    "M9": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "market",
+      "field": "volume_ratio",
+      "value": 94.66,
+      "note": "量能比 94.66%，未站上 100%。"
+    },
+    "M10": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "direction": "neutral",
+      "entity": "market",
+      "field": "volume_state",
+      "value": "正常量能",
+      "note": "volume_state=正常量能；ice_point 判『偏冷』(vol_ratio_ma20 94.63、60 日分位 36.67)。"
+    },
+    "M11": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "market",
+      "field": "sh_index_close",
+      "value": 3986.298,
+      "note": "上证收 3986.298（+0.8633%），距 08-18 收盘 3990.304 只差 0.10%。"
+    },
+    "M12": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "market",
+      "field": "sh_week_ma",
+      "value": 3939.4,
+      "note": "周均线 3939.40，指数在其上方 1.19%。"
+    },
+    "M13": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "direction": "neutral",
+      "entity": "market",
+      "field": "top3_industry_ratio",
+      "value": 40.0,
+      "note": "前三行业集中度 40.0%（08-28 为 42.4%），concentration_state=正常，集中度在下降=分散化。"
+    },
+    "M14": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "market",
+      "field": "strength_marginal_pct",
+      "value": 35.33,
+      "note": "强势股成交额边际 +35.33%（08-28 是 -52.51%），强势股资金回流。"
+    },
+    "M15": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "market",
+      "field": "strength_avg_pct",
+      "value": 9.39,
+      "note": "强势股平均涨幅 9.39%，strength_status=沸点，强势股成交额 2528.92 亿占全市场 11.79%。"
+    },
+    "M16": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "market",
+      "field": "stock_high_count_20d",
+      "value": 918,
+      "note": "20 日新高 918 家，连续 3 日扩张（493→866→918）。"
+    },
+    "M17": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "market",
+      "field": "stock_high_count_60d",
+      "value": 307,
+      "note": "60 日新高 307 家（145→262→307）。"
+    },
+    "M18": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "market",
+      "field": "stock_high_count_1y",
+      "value": 41,
+      "note": "≥1 年新高只有 41 家（30→33→41）；名单里银行 8 家、煤炭 5 家，成长方向只有星网锐捷/海鸥股份/华是科技等零星几家——B 场景需要的长周期新高集群在成长侧不存在。"
+    },
+    "M19": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "market",
+      "field": "stock_high_count_history",
+      "value": 13,
+      "note": "历史新高 13 家（2→6→13），三日翻倍扩张。"
+    },
+    "M20": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-18",
+      "direction": "neutral",
+      "entity": "market",
+      "field": "sh_index_close_20260818",
+      "value": 3990.304,
+      "note": "08-18 收盘 3990.304，是 08-19 暴跌（-2.40%）前的高点，也是近 20 日收盘最高值；当日成交 24006.36 亿。08-31 的 3986.298 就在它下方 0.10%，但成交额只有它的 88.75%。"
+    },
+    "M21": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-08-18",
+      "direction": "counter",
+      "entity": "market",
+      "field": "total_amount_20260818",
+      "value": 24006.36,
+      "note": "08-18 成交 24006.36 亿；08-31 的 21305.63 亿比它低 11.25%——同一位置、少一成一的量。"
+    },
+    "G1": {
+      "level": "L3",
+      "source": "fact_market_daily(近5日派生)",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "market",
+      "field": "advancers_ma5",
+      "value": 3353.6,
+      "note": "涨家 MA5 = 3353.6（08-28 为 3009.4），向上拐头。"
+    },
+    "G2": {
+      "level": "L3",
+      "source": "fact_sector_daily(当日全表统计)",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "market",
+      "field": "strict_double_red_count",
+      "value": 30,
+      "note": "严格双红（pct>0 且 diff_ratio>10 且 amount>500 亿）30 个，其中传媒系 5 个（短剧游戏/传媒/IP经济/网络游戏/元宇宙概念）。"
+    },
+    "G3": {
+      "level": "L3",
+      "source": "fact_stock_daily(当日全表统计)",
+      "source_time": "2026-08-31",
+      "direction": "neutral",
+      "entity": "market",
+      "field": "gainers_over_5pct",
+      "value": 420,
+      "note": "涨幅>5% 共 420 家，占上涨家数 3181 的 13.2%（08-28 为 6.9%、08-27 为 14.8%）；跌幅>5% 116 家。"
+    },
+    "G4": {
+      "level": "L3",
+      "source": "fact_sector_daily(绝对增量口径)",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "sector_group",
+      "field": "abs_amount_delta_new",
+      "value": 2457.6,
+      "note": "AI 应用/互联网平台侧绝对增量：人工智能 +500.8、AIGC概念 +410.3、腾讯概念 +346.7、抖音概念 +293.5、传媒 +287.0、阿里概念 +256.6、短剧游戏 +245.1、IP经济 +217.5（亿元，vs 08-28）。"
+    },
+    "G5": {
+      "level": "L3",
+      "source": "fact_sector_daily(绝对增量口径)",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "sector_group",
+      "field": "abs_amount_delta_old",
+      "value": -3009.0,
+      "note": "AI 硬件/通信侧绝对减量：CPO概念 -619.8、光通信 -556.2、数据中心 -491.8、通信设备 -362.1、通信 -352.8、芯片 -348.1、电子 -278.3（亿元，vs 08-28）。绝对减量大于新方向的绝对增量——钱不是全部搬过去了，一部分直接离场。"
+    },
+    "G6": {
+      "level": "L3",
+      "source": "fact_sector_daily(峰值比口径)",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "sector_group",
+      "field": "old_amount_vs_peak_pct",
+      "value": 60.8,
+      "note": "旧方向当日量/近 20 日峰值量：CPO概念 60.8%、光通信 58.8%、数据中心 64.2%、PCB 69.2%、芯片 67.6%、电子 67.0%——四分类『资金切换』要求旧方向缩至峰值<60%，只有光通信一个过线。"
+    },
+    "G7": {
+      "level": "L3",
+      "source": "fact_sector_daily(峰值比口径)",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "sector_group",
+      "field": "new_amount_vs_peak_pct",
+      "value": 80.4,
+      "note": "新方向当日量/近 20 日峰值量：传媒 80.4%、短剧游戏 87.9%、网络游戏 76.7%、AIGC概念 75.7%、多模态AI 71.3%、元宇宙概念 74.2%——只有 IP经济 106.0% 创了自身量能新高，其余仍在自己的 20 日峰值之下。"
+    },
+    "G8": {
+      "level": "L3",
+      "source": "fact_sector_daily(组间等权口径)",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "sector_group",
+      "field": "app_minus_hw_spread_1d",
+      "value": 1.39,
+      "note": "当日『AI 应用组』（AIGC概念/短剧游戏/传媒/IP经济/网络游戏/多模态AI/AI营销/元宇宙概念 8 板块等权 pct_chg 均值）减『AI 硬件组』（CPO概念/光通信/数据中心/PCB/铜缆高速连接/芯片/电子 7 板块等权均值）= +1.39pp。"
+    },
+    "G9": {
+      "level": "L3",
+      "source": "fact_sector_daily(组间等权口径)",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "sector_group",
+      "field": "app_minus_hw_spread_3d",
+      "value": -0.49,
+      "note": "同口径 3 日累计强弱差 = -0.49pp（应用组 +4.32% vs 硬件组 +4.81%）——四分类『资金切换』要求连续 3 日累计反转差 >8pp，实际是负的，切换未确认。"
+    },
+    "G10": {
+      "level": "L3",
+      "source": "fact_sector_stock_daily(链内 20 日涨幅分布)",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "sector_group",
+      "field": "media_chain_p20_median",
+      "value": 3.33,
+      "note": "传媒链 328 只个股 20 日涨幅中位数 +3.33%、均值 +4.80%、75 分位 +9.64%。"
+    },
+    "G11": {
+      "level": "L3",
+      "source": "fact_sector_stock_daily(链内 20 日涨幅分布)",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "sector_group",
+      "field": "hw_chain_p20_median",
+      "value": 17.0,
+      "note": "AI 硬件链 505 只个股 20 日涨幅中位数 +17.00%、均值 +20.78%、75 分位 +31.24%——硬件链的拥挤度/已定价两维明显差于传媒链。"
+    },
+    "G12": {
+      "level": "L3",
+      "source": "fact_sector_stock_daily(链内广度)",
+      "source_time": "2026-08-31",
+      "direction": "neutral",
+      "entity": "sector_group",
+      "field": "chain_breadth_gt5pct",
+      "value": 16.2,
+      "note": "传媒链涨超 5% 占比 16.2%（247/328 上涨）vs AI 硬件链 15.6%（395/506 上涨）——两条链的内部广度质量几乎一样，传媒并没有压倒性的广度优势。"
+    },
+    "S1": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "短剧游戏",
+      "field": "diff_ratio",
+      "value": 76.1,
+      "note": "短剧游戏 pct +4.99%、成交 567.3 亿、diff_ratio +76.10（库内该板块 408 天历史第 3 高，仅次于 2026-04-08 的 125.98 和 2025-08-18 的 86.83）。"
+    },
+    "S2": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "传媒",
+      "field": "diff_ratio",
+      "value": 74.57,
+      "note": "传媒 pct +3.68%、成交 671.8 亿、diff_ratio +74.57——**该板块 408 天库内历史最高值**（次高 2026-07-10 的 40.69）。"
+    },
+    "S3": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "IP经济",
+      "field": "diff_ratio",
+      "value": 70.22,
+      "note": "IP经济 pct +1.89%、成交 527.2 亿（自身历史最大成交额）、diff_ratio +70.22（历史最高）。"
+    },
+    "S4": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "网络游戏",
+      "field": "diff_ratio",
+      "value": 38.46,
+      "note": "网络游戏 pct +2.98%、成交 632.6 亿、diff_ratio +38.46（历史最高）。"
+    },
+    "S5": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "AIGC概念",
+      "field": "diff_ratio",
+      "value": 34.19,
+      "note": "AIGC概念 pct +3.21%、成交 1610.4 亿、diff_ratio +34.19，连续两日扩量（08-28 +19.93）。"
+    },
+    "S6": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "多模态AI",
+      "field": "diff_ratio",
+      "value": 30.04,
+      "note": "多模态AI pct +2.98%、成交 817.2 亿、diff_ratio +30.04。"
+    },
+    "S7": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "AI营销",
+      "field": "diff_ratio",
+      "value": 40.76,
+      "note": "AI营销 pct +4.16%、成交 380.4 亿、diff_ratio +40.76，连续两日大幅扩量（08-28 +68.81）。"
+    },
+    "S8": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "CPO概念",
+      "field": "diff_ratio",
+      "value": -14.68,
+      "note": "CPO概念 pct +2.21% 但 diff_ratio -14.68、成交由 4223.3 缩到 3603.4 亿——价格反弹、边际量走人。"
+    },
+    "S9": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "光通信",
+      "field": "diff_ratio",
+      "value": -18.6,
+      "note": "光通信 pct +1.53%、diff_ratio -18.60、成交 2991.1→2434.9 亿，缩到近 20 日峰值的 58.8%。"
+    },
+    "S10": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "数据中心",
+      "field": "diff_ratio",
+      "value": -8.48,
+      "note": "数据中心 pct +1.73%、diff_ratio -8.48、成交 5796.8→5305.0 亿。"
+    },
+    "S11": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "PCB",
+      "field": "diff_ratio",
+      "value": -14.04,
+      "note": "PCB pct +2.83%、diff_ratio -14.04、成交 1042.7→896.3 亿。"
+    },
+    "S12": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "neutral",
+      "entity": "芯片",
+      "field": "amount",
+      "value": 8114.6,
+      "note": "芯片仍是全市场第一大成交板块 8114.6 亿（diff -4.11、pct +1.72）——绝对量级是传媒 671.8 亿的 12 倍，所谓『切换』在绝对量上远未完成。"
+    },
+    "S13": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "银行",
+      "field": "diff_ratio",
+      "value": 67.72,
+      "note": "银行 pct +2.33%、diff_ratio +67.72、成交 250.2→419.6 亿——上证 +0.86% 的主要贡献来自这里，与 AI 链是两拨不同的钱。"
+    },
+    "S14": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "化工",
+      "field": "diff_ratio",
+      "value": -3.9,
+      "note": "化工 pct -0.01%、diff_ratio -3.90（08-28 是 +19.56/+1.67）；化工原料 -4.44、化肥概念 -6.04、石油化工 pct -0.04——08-27/08-28 那波化工涨价链两日结束。"
+    },
+    "S15": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "创新药",
+      "field": "pct_chg",
+      "value": -1.71,
+      "note": "创新药 -1.71%、医药 -1.66%、CXO -1.42%、黄金概念 -2.59%、贵金属 -2.06%——08-19 以来撑盘的医药/有色防守腿当日全面走弱，资金是从这里挪出来的一部分。"
+    },
+    "S16": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "房地产",
+      "field": "diff_ratio",
+      "value": 91.8,
+      "note": "房地产 diff_ratio +91.80 但 pct -1.67%——放量下跌，是当日最典型的出货形态（我爱我家/深物业A 两只 2 板在里面）。"
+    },
+    "S17": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "neutral",
+      "entity": "算力租赁",
+      "field": "diff_ratio",
+      "value": 17.67,
+      "note": "算力租赁 pct +2.24%、diff_ratio +17.67、成交 1196.4→1407.8 亿——硬件链里唯一还在扩量的分支，与 AI 应用同向。"
+    },
+    "T1": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "人工智能",
+      "field": "limit_up_count",
+      "value": 24,
+      "note": "涨停热度第 1：人工智能 24 家、市场占比 27.27%、封单 39.77 亿。"
+    },
+    "T2": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "机器人概念",
+      "field": "limit_up_count",
+      "value": 20,
+      "note": "涨停热度第 2：机器人概念 20 家（22.73%）。"
+    },
+    "T3": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-08-31",
+      "direction": "neutral",
+      "entity": "芯片",
+      "field": "limit_up_count",
+      "value": 19,
+      "note": "涨停热度第 3：芯片 19 家（21.59%）。"
+    },
+    "T4": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "AIGC概念",
+      "field": "limit_up_count",
+      "value": 17,
+      "note": "涨停热度第 5：AIGC概念 17 家、涨停率 5.84%、封单 29.55 亿。"
+    },
+    "T5": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "传媒",
+      "field": "limit_up_ratio",
+      "value": 10.94,
+      "note": "传媒 14 家涨停 / 128 只成分 = 10.94%，是当日全市场涨停率最高的板块（排名第 11 但密度第 1）。"
+    },
+    "T6": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-08-28",
+      "direction": "counter",
+      "entity": "化工",
+      "field": "limit_up_count_20260828",
+      "value": 16,
+      "note": "08-28 化工涨停热度排第 2（16 家）；08-31 掉到第 62（6 家）——上一交易日的第一方向一天出清。"
+    },
+    "T7": {
+      "level": "L4",
+      "source": "fact_leader_height_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "market",
+      "field": "leader_height",
+      "value": 6,
+      "note": "最高板 6 板（海鸥住工，股权题材）；08-28 是 7 板深中华A，当日断板并跌出连板梯队——高标换人且高度下降。"
+    },
+    "T8": {
+      "level": "L4",
+      "source": "fact_limit_advance_daily",
+      "source_time": "2026-08-31",
+      "direction": "neutral",
+      "entity": "market",
+      "field": "promotion_rate_ladder",
+      "value": "1/1=100%; 2/3=67%; 1/2=50%; 4/9=44%; 10/58=17%",
+      "note": "连板梯队 18 只：6 板 1、5 板 2、4 板 1、3 板 4、2 板 10；首板晋级率 10/58=17%（08-28 是 10/59=17%），三进四 4/9=44%（08-28 是 3/6=50%）——晋级率没有改善，赚钱效应集中在首板而非连板。"
+    },
+    "T9": {
+      "level": "L4",
+      "source": "fact_auction_stock_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "market",
+      "field": "auction_prev_limit_up_pct",
+      "value": 4.71,
+      "note": "当日竞价面板：『昨日涨停』组平均竞价 +4.71%、收盘 +5.95%；『昨日连板』组竞价 +2.78%、收盘 +5.52%——前一日涨停股的次日接力强度很高，是本卷标的池选『首板+大额净流入』的现场旁证。"
+    },
+    "T10": {
+      "level": "L4",
+      "source": "fact_dragon_summary_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "market",
+      "field": "inst_net_buy",
+      "value": -3.41,
+      "note": "龙虎榜 70 只：机构净买 -3.41 亿、游资净买 +10.64 亿、活跃席位 281（08-28 为 205）——推动力是游资不是机构，与『存量换手』一致。"
+    },
+    "N1": {
+      "level": "L4",
+      "source": "fact_mainline_theme_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "AI应用",
+      "field": "mainline_return_day",
+      "value": 1,
+      "note": "fupanhui 主线模型：AI应用 自 08-19 掉出主线名单后，08-31 是 8 个交易日来首次回归（08-17/08-18 在，08-19 起消失）。当日主线名单=农林牧渔/AI应用/有色金属/医药。"
+    },
+    "N2": {
+      "level": "L4",
+      "source": "fact_mainline_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "AIGC概念",
+      "field": "net_inflow_1d",
+      "value": 17527310000.0,
+      "note": "主线表 AI应用-AIGC概念：sort 1、涨停 17 家、最高板 3、净流入 175.27 亿、strength 3781.77。"
+    },
+    "N3": {
+      "level": "L4",
+      "source": "fact_mainline_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "短剧游戏",
+      "field": "net_inflow_1d",
+      "value": 7522965000.0,
+      "note": "主线表 AI应用-短剧游戏：sort 2、涨停 12 家、净流入 75.23 亿、strength 5027.91（当日 strength 最高）。"
+    },
+    "N4": {
+      "level": "L4",
+      "source": "fact_mainline_theme_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "AI算力",
+      "field": "mainline_absent_days",
+      "value": 8,
+      "note": "AI算力 自 08-19 掉出主线名单后至 08-31 仍未回归（中间只有 08-27 的『通信』短暂出现）——硬件侧主线地位没有恢复。"
+    },
+    "N5": {
+      "level": "L4",
+      "source": "fact_mainline_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "有色金属",
+      "field": "net_inflow_1d",
+      "value": -562544700.0,
+      "note": "当日其余三条主线全部净流出：贵金属 -5.63 亿、CXO概念 -9.96 亿、创新药 -39.84 亿、粮食概念 -1.95 亿——只有 AI应用一条腿是正的。"
+    },
+    "C1": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "浪潮信息",
+      "field": "fund_flow_1d",
+      "value": 31.53,
+      "note": "浪潮信息 000977：+9.99% 首板涨停（首封 13:51:57，换手板非一字）、成交 96.01 亿、主力净流入 +31.53 亿（全市场第 1）、20 日新高、流通市值 1249.52 亿、5 日 +16.33%、20 日 +18.87%。"
+    },
+    "C2": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "大族激光",
+      "field": "fund_flow_1d",
+      "value": 14.49,
+      "note": "大族激光 002008：+10.00% 首板涨停（首封 14:14:21）、成交 53.37 亿、主力净流入 +14.49 亿（全市场第 3）、流通市值 922.10 亿、5 日 +11.94%、20 日 +18.68%；所属 PCB概念/先进封装/光刻机/机器人概念（涨停热度第 2）。"
+    },
+    "C3": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "中文在线",
+      "field": "fund_flow_1d",
+      "value": 11.97,
+      "note": "中文在线 300364：+20.02% 首板（首封 13:00:42）、成交 36.41 亿、主力净流入 +11.97 亿（传媒链第 1）、流通市值 180.34 亿、5 日 +22.50%、20 日 +12.08%；覆盖 传媒/短剧游戏/IP经济/网络游戏 四个当日爆量板块。"
+    },
+    "C4": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "星网锐捷",
+      "field": "fund_flow_1d",
+      "value": 10.86,
+      "note": "星网锐捷 002396：+10.00% 第 3 板（首封 13:46:27）、成交 52.55 亿、主力净流入 +10.86 亿、**历史新高**、流通市值 305.69 亿、5 日 +25.81%、20 日 +61.70%。"
+    },
+    "C5": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-08-31",
+      "direction": "neutral",
+      "entity": "中际旭创",
+      "field": "fund_flow_1d",
+      "value": 3.24,
+      "note": "中际旭创 300308：-0.75%、成交 189.26 亿（全市场第 2）、主力仍净流入 +3.24 亿、流通市值 9455.55 亿、5 日 -2.11%、20 日 -5.61%——光模块龙头在全链反弹日滞涨，是当日位置最低、拥挤度最小的容量核心。"
+    },
+    "C6": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "生益科技",
+      "field": "fund_flow_1d",
+      "value": 11.26,
+      "note": "生益科技 600183：+5.32%、成交 157.42 亿（全市场第 3、新高榜第 1）、主力净流入 +11.26 亿、20 日新高、5 日 +21.46%、20 日 +50.35%——PCB 侧容量核心，但位置已陡。"
+    },
+    "C7": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "紫光股份",
+      "field": "fund_flow_1d",
+      "value": 14.36,
+      "note": "紫光股份 000938：+8.53%、成交 100.50 亿、主力净流入 +14.36 亿（全市场第 4）、5 日 +12.93%——国产算力交换机侧。"
+    },
+    "C8": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "亨通光电",
+      "field": "fund_flow_1d",
+      "value": -13.74,
+      "note": "亨通光电 600487：-1.92%、成交 127.38 亿、主力净流出 -13.74 亿（全市场流出第 1）——光通信容量核心当日被砸。"
+    },
+    "C9": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "澜起科技",
+      "field": "fund_flow_1d",
+      "value": -14.53,
+      "note": "澜起科技 688008：-3.78%、成交 90.86 亿、主力净流出 -14.53 亿。"
+    },
+    "C10": {
+      "level": "L4",
+      "source": "fact_stock_high_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "中国银行",
+      "field": "primary_high_label",
+      "value": "历史新高",
+      "note": "中国银行 601988 +5.17% 创历史新高、主力净流入 4.80 亿；建设银行 +2.71%、中信银行 +1.49% 同为历史新高——≥1 年新高榜 41 家里 8 家是银行。"
+    },
+    "C11": {
+      "level": "L4",
+      "source": "fact_stock_high_daily",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "新高榜容量结构",
+      "field": "top_high_amount_composition",
+      "value": "液冷服务器 8 / 银行 6（成交额 top30）",
+      "note": "新高榜按成交额 top30 里：液冷服务器系 8 只（生益科技/浪潮信息/昊华科技/英维克/远东股份/烽火通信/申菱环境/飞荣达）、银行 6 只（招商/工商/中国/北京/邮储/农业）——新高的两条腿是国产算力和银行，不是传媒。"
+    },
+    "B1": {
+      "level": "L2",
+      "source": "fact_market_daily(库内回测 ≤2026-08-31)",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "market",
+      "field": "lu_next_below_88_rate",
+      "value": 59.5,
+      "note": "形态『20 日新高连 3 日扩张 且 当日涨停≥80』n=37：P(次日涨停 < 88)=59.5%(22/37)，次日涨停中位 80、四分位 57–96。⚠ 同一批样本『次日较当日回落』的比例是 81.1%(30/37)，但历史样本当日涨停中位高达 102，所以『回落』≠『低于 88』——两个口径差 21.6pp，本卷按绝对值口径给概率。"
+    },
+    "B2": {
+      "level": "L2",
+      "source": "fact_market_daily(库内回测 ≤2026-08-31)",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "market",
+      "field": "amount_stay_below_ma20_rate",
+      "value": 73.9,
+      "note": "形态『成交额已连续≥8 个交易日低于 20 日均量』n=46：P(次日仍低于均量)=73.9%(34/46)；P(次日额较当日放大>10%)=39.1%。当前连续天数正好是 8。"
+    },
+    "B3": {
+      "level": "L2",
+      "source": "fact_sector_daily(库内回测 ≤2026-08-31)",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "sector_group",
+      "field": "app_hw_spread_persist_rate",
+      "value": 54.5,
+      "note": "组间强弱差在库内 407 天的无条件分布：均值 -0.136pp、P(次日差>0)=45.2%（AI 应用组结构性偏弱）；条件在『当日差≥1.39pp』后 n=44，P(次日差>0)=54.5%、次日均值 +0.530pp、P(T+3 累计>0)=53.5%。——所以方向判断是弱多头，不是强多头。"
+    },
+    "B4": {
+      "level": "L2",
+      "source": "fact_sector_daily(库内回测 ≤2026-08-31)",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "sector",
+      "field": "extreme_diff_next_day_rate",
+      "value": 35.8,
+      "note": "全板块口径『diff_ratio>60 且 pct>3 且 amount>300 亿』n=296：P(次日 diff_ratio 仍>0)=35.8%，即 64.2% 概率次日边际量转负；同组次日 pct 红盘率只有 38.9%、中位 -0.52%。爆量当日更像高潮而非起点。"
+    },
+    "B5": {
+      "level": "L2",
+      "source": "fact_sector_daily(库内日内去均值回测)",
+      "source_time": "2026-08-31",
+      "direction": "neutral",
+      "entity": "sector",
+      "field": "cross_sectional_excess",
+      "value": 0.114,
+      "note": "日内去均值（剔除当日市场 beta）后的板块超额：爆量双红（diff>60&pct>3，n=296）T+1 +0.114%、T+3 -0.038%；缩量上涨（pct>1.5&diff<0&amt>800，n=1357）T+1 +0.127%、T+3 -0.094%；严格双红（n=6797）T+1 +0.081%、T+3 +0.062%。三组差异都在 0.1pp 量级、胜率 46–51%——**板块层面的双红/缩量之争在 T+1 基本是噪声**，本卷不靠它撑方向排序，靠的是拥挤度（G10/G11）。"
+    },
+    "B6": {
+      "level": "L2",
+      "source": "fact_sector_stock_daily(库内回测 ≤2026-08-31)",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "stock",
+      "field": "limitup_bigflow_bigcap_winrate",
+      "value": 69.5,
+      "note": "个股形态『首板涨停 + 主力净流入>10 亿 + 流通市值>800 亿』n=164：T+1 绝对收益>0 占 69.5%、均值 +2.21%、中位 +1.93%；T+1 去市场均值超额 +2.341%、胜率 71.3%；T+3 >0 占 53.0%、均值 +2.40%。近 3 个月（2026-06-01 起）子样本 n=92：T+1 超额 +1.574%、胜率 65.2%，形态未失效。"
+    },
+    "B7": {
+      "level": "L2",
+      "source": "fact_sector_stock_daily(库内回测 ≤2026-08-31)",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "stock",
+      "field": "noLimit_strong_winrate",
+      "value": 44.3,
+      "note": "对照组『当日涨 5–9.8% 未涨停 + 主力净流入>5 亿』近 3 个月 n=704：T+1 超额 -0.098%、胜率 44.3%；『低位新高（新高+净流入>0+5 日涨幅<10%）』n=11671：T+1 胜率 40.2%、T+3 超额 -0.949%。——本库里『买强势但没封板的二线』和『买低位补涨新高』都是负期望，这是本卷不选补涨股的依据。"
+    },
+    "B8": {
+      "level": "L2",
+      "source": "fact_sector_stock_daily(库内回测 ≤2026-08-31)",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "stock",
+      "field": "multi_board_t3_winrate",
+      "value": 41.3,
+      "note": "形态『≥3 连板 + 净流入>10 亿 + 新高』n=46：T+1 绝对收益>0 占 50.0%、均值 +0.80%；但 T+3 >0 只有 41.3%、均值 -0.90%。连板腿只有 T+1 价值、没有 T+3 价值，本卷据此只给星网锐捷 T+1 假设。"
+    },
+    "B9": {
+      "level": "L2",
+      "source": "fact_sector_stock_daily(库内回测 ≤2026-08-31)",
+      "source_time": "2026-08-31",
+      "direction": "neutral",
+      "entity": "stock",
+      "field": "laggard_leader_winrate",
+      "value": 50.9,
+      "note": "形态『流通市值>3000 亿 + 当日 -2%<pct<1% + 成交>80 亿』n=291：T+1 绝对收益>0 占 50.9%、均值 +0.35%；近 3 个月 n=138 T+1 超额 +0.283%、胜率 55.1%，但 T+3 超额 -0.590%、胜率 38.4%。滞涨龙头只适合 T+1 承接，不适合 T+3 持有。"
+    },
+    "B10": {
+      "level": "L2",
+      "source": "fact_sector_stock_daily(库内回测 ≤2026-08-31)",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "stock",
+      "field": "bigcap_newhigh_winrate",
+      "value": 36.9,
+      "note": "形态『流通市值>3000 亿 + 新高 + 涨 1–6%』（银行当日形态）近 3 个月 n=122：T+1 超额 -0.369%、胜率 36.9%，T+3 超额 -0.948%。——银行推指数但个股层面在本库里是负期望，故银行只进方向排序、不进标的池。这是本卷区分『市场路径命中』与『标的路径命中』的具体动作。"
+    },
+    "B11": {
+      "level": "L2",
+      "source": "fact_sector_stock_daily(库内回测 ≤2026-08-31)",
+      "source_time": "2026-08-31",
+      "direction": "support",
+      "entity": "stock",
+      "field": "pool_beat_index_rate",
+      "value": 54.4,
+      "note": "形态『涨停 + 净流入>10 亿』n=579：T+3 跑赢上证的比例 54.4%；对照『成交>20 亿全样本』n=28562 只有 45.2%。"
+    },
+    "B12": {
+      "level": "L2",
+      "source": "fact_mainline_theme_daily(库内回测 ≤2026-08-31)",
+      "source_time": "2026-08-31",
+      "direction": "neutral",
+      "entity": "theme",
+      "field": "mainline_return_event_rate",
+      "value": 57.1,
+      "note": "『主线主题在缺席≥3 日后回归』事件 n=14（主线表只有 51 天历史）：回归日后 T+1 板块超额均值 -0.221%、胜率 42.9%；T+3 超额 +1.392%、胜率 57.1%。前三次 AI应用 回归（07-13/07-31/08-17）T+3 分别 +1.53/+2.31/-1.64。样本太小，本卷只作旁证、不作阈值来源。"
+    },
+    "R1": {
+      "level": "L1",
+      "source": "docs/learning/forecast-scoring-frameworks.md",
+      "source_time": "2026-08-31",
+      "direction": "neutral",
+      "entity": "framework",
+      "field": "scenario_weights",
+      "value": "A: 确定性40%/弹性10%/兑现时间15%/拥挤度10%/已定价25%",
+      "note": "场景 A（恐慌后反弹/止跌初期）权重表；转 B 的条件是『量萎缩 2/3+、价连续 3 日不创新低、强势股不再补跌』。"
+    },
+    "R2": {
+      "level": "L1",
+      "source": "docs/learning/forecast-scoring-frameworks.md",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "framework",
+      "field": "fund_switch_criteria",
+      "value": "≥4 条（含连续 3 日强弱反转累计差>8%）",
+      "note": "板块异动四分类中『资金切换』的确认门槛；纪律要求不做单日判定（T 异动 → T+1 首判 → T+2 确认），分差<0.3 视为等价。"
+    },
+    "Q1": {
+      "level": "L3",
+      "source": "ops_sector_universe_snapshot_daily + fact_sector_stock_daily",
+      "source_time": "2026-08-31",
+      "direction": "neutral",
+      "entity": "data_quality",
+      "field": "cross_date_clone_rate",
+      "value": 0.8,
+      "note": "08-26/08-27/08-28/08-31 四天 sector snapshot_id 互不相同且均 published；52825 对同(板块,个股)记录中 08-28 与 08-31 pct_chg 完全相同者仅 424 对(0.80%)、amount 相同 719 对(1.36%)——输入未被快照回填克隆污染。"
+    },
+    "Q2": {
+      "level": "L3",
+      "source": "fact_stock_daily(链式核验)",
+      "source_time": "2026-08-31",
+      "direction": "neutral",
+      "entity": "data_quality",
+      "field": "price_chain_mismatch_rows",
+      "value": 0,
+      "note": "标的池 5 只 2026-08-01~08-31 各 21 行，close/pre_close 派生涨跌幅与 pct_chg 全部一致（容差 0.02pp），无除权跳空。"
+    },
+    "Q3": {
+      "level": "L3",
+      "source": "manifest 2026-09-01",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "data_quality",
+      "field": "materials_count",
+      "value": 0,
+      "note": "manifest 的 materials=[] ——没有晨汇、卖方、外盘任何材料。本卷是纯盘面流答卷，消息面/事件面整体缺席；『为什么传媒当天爆量』这个问题本卷回答不了，只能观测到资金结果。"
+    },
+    "Q4": {
+      "level": "L3",
+      "source": "fact_sector_stock_daily/fact_sector_daily(空值核验)",
+      "source_time": "2026-08-31",
+      "direction": "neutral",
+      "entity": "data_quality",
+      "field": "null_rate",
+      "value": 0.0,
+      "note": "08-31：fact_sector_stock_daily 52856 行 pct_chg/amount/fund_flow_1d 无空值；fact_sector_daily 403 行 diff_ratio 无空值、无全零（历史上 fupanhui kline 曾整日返回 diff_ratio=0）。"
+    },
+    "Q5": {
+      "level": "L3",
+      "source": "fact_sector_daily",
+      "source_time": "2026-08-31",
+      "direction": "counter",
+      "entity": "data_quality",
+      "field": "duplicate_sector_name",
+      "value": "国防军工×2",
+      "note": "fact_sector_daily 当日唯一重名板块是『国防军工』（990143.FP 2331.5 亿申万口径 / 990144.FP 459.7 亿题材口径）。按名称做跨日 join 会产生交叉配对假象，G4/G5 的绝对增量统计已剔除该板块。"
+    }
+  },
+  "stage": "『下跌阶段』D7（库标签，M1/M2）；本卷读法：08-19 暴跌后修复的第 8 个交易日、指数逼近前高 3990.30 的当天，同时是 AI 链内部『硬件→应用』换挡的第 1 天（N1：AI应用 主线 8 日来首次回归，AI算力 仍未回归）。按 forecast-scoring-frameworks 场景表判 **A（恐慌后反弹/止跌初期）末段**，未进 B：A→B 需要『量萎缩 + 价不创新低 + 强势股不再补跌』三条，前两条已成立（量能连 8 日低于均量 94.66%，M8/M9；指数 5 日 +2.69%），第三条也成立（强势股边际 +35.33%、状态沸点，M14/M15），但 B 场景真正需要的『长周期新高集群出现在成长方向』不成立——≥1 年新高只有 41 家且其中银行 8 家、煤炭 5 家（M18）。故按纪律停在 A 末段，不提前按 B 打权重。",
+  "stage_features": {
+    "rule_id": "market-stage-v1",
+    "as_of": "2026-08-31",
+    "metrics": {
+      "market_stage": {
+        "value": "下跌阶段",
+        "evidence_ref": "M1"
+      },
+      "stage_day": {
+        "value": 7,
+        "evidence_ref": "M2"
+      },
+      "advancers": {
+        "value": 3181,
+        "evidence_ref": "M3"
+      },
+      "limit_up": {
+        "value": 88,
+        "evidence_ref": "M4"
+      },
+      "limit_down": {
+        "value": 11,
+        "evidence_ref": "M5"
+      },
+      "total_amount": {
+        "value": 21305.63,
+        "evidence_ref": "M6"
+      },
+      "amount_vs_yesterday_pct": {
+        "value": 1.38,
+        "evidence_ref": "M7"
+      },
+      "amount_ma20": {
+        "value": 22508.65,
+        "evidence_ref": "M8"
+      },
+      "volume_ratio": {
+        "value": 94.66,
+        "evidence_ref": "M9"
+      },
+      "volume_state": {
+        "value": "正常量能",
+        "evidence_ref": "M10"
+      },
+      "sh_index_close": {
+        "value": 3986.298,
+        "evidence_ref": "M11"
+      },
+      "sh_week_ma": {
+        "value": 3939.4,
+        "evidence_ref": "M12"
+      },
+      "top3_industry_ratio": {
+        "value": 40.0,
+        "evidence_ref": "M13"
+      },
+      "strength_marginal_pct": {
+        "value": 35.33,
+        "evidence_ref": "M14"
+      },
+      "strength_avg_pct": {
+        "value": 9.39,
+        "evidence_ref": "M15"
+      },
+      "stock_high_count_20d": {
+        "value": 918,
+        "evidence_ref": "M16"
+      },
+      "stock_high_count_60d": {
+        "value": 307,
+        "evidence_ref": "M17"
+      },
+      "stock_high_count_1y": {
+        "value": 41,
+        "evidence_ref": "M18"
+      },
+      "stock_high_count_history": {
+        "value": 13,
+        "evidence_ref": "M19"
+      },
+      "advancers_ma5": {
+        "value": 3353.6,
+        "evidence_ref": "G1"
+      },
+      "strict_double_red_count": {
+        "value": 30,
+        "evidence_ref": "G2"
+      },
+      "gainers_over_5pct": {
+        "value": 420,
+        "evidence_ref": "G3"
+      },
+      "leader_height": {
+        "value": 6,
+        "evidence_ref": "T7"
+      },
+      "app_minus_hw_spread_1d": {
+        "value": 1.39,
+        "evidence_ref": "G8"
+      },
+      "app_minus_hw_spread_3d": {
+        "value": -0.49,
+        "evidence_ref": "G9"
+      }
+    },
+    "evidence_refs": [
+      "M1",
+      "M2",
+      "M3",
+      "M4",
+      "M5",
+      "M6",
+      "M8",
+      "M9",
+      "M11",
+      "M12",
+      "M14",
+      "M16",
+      "M18",
+      "M19",
+      "G1",
+      "G2",
+      "G3",
+      "T7",
+      "G8",
+      "G9",
+      "R1"
+    ]
+  },
+  "main_judgment": "08-31 上证 +0.86% 收 3986.298，距 08-19 暴跌前的高点 3990.304 只差 0.10%，但成交额 21305.63 亿只有当时 24006.36 亿的 88.75%（M11/M20/M21）——同一个位置、少一成一的钱。广度看着全面变好（涨停 88 连升 3 日、涨家 3181、MA5 3353.6 拐头、20 日新高 918 连 3 日扩张、历史新高 13 三日翻倍），但总量三个交易日锁死在 21000–21300 亿、连续 8 日低于 20 日均量 22508.65（M6/M8）。所以广度扩张的钱全部来自内部搬家，不是增量：绝对成交额口径，CPO -619.8、光通信 -556.2、数据中心 -491.8、通信设备 -362.1、芯片 -348.1、电子 -278.3 亿（合计 -3009，G5），而人工智能 +500.8、AIGC +410.3、腾讯概念 +346.7、抖音概念 +293.5、传媒 +287.0、阿里概念 +256.6、短剧游戏 +245.1、IP经济 +217.5 亿（合计 +2457.6，G4）——**流出比流入还多 551 亿，说明这不是一次干净的切换，是一次带失血的搬家**。第二条腿是银行：diff +67.72、pct +2.33，中国银行/建设银行/中信银行创历史新高（S13/C10），上证那 0.86% 主要由它贡献，和 AI 链里搬家的那拨钱不是同一批。龙虎榜同步显示机构净买 -3.41 亿、游资净买 +10.64 亿、活跃席位 281（T10）——推力是游资。因此主判断：**这是『AI 硬件 → AI 应用』的存量换挡第 1 天 + 银行红利腿托指数，不是增量资金入场的普涨**；指数的持续性锚在量能能否补上 22508.65 亿，而不在广度本身。在量能补上之前，3990.30 是压力位不是启动位，换挡按 1–3 天的高低切处理，不按 2–6 周的资金切换处理——因为四分类『资金切换』的确认门槛（≥4 条）当日只过了 2 条：旧方向缩至峰值<60% 不成立（CPO 60.8%、数据中心 64.2%、芯片 67.6%，只有光通信 58.8% 过线，G6），连续 3 日强弱反转累计差>8pp 更是负的（-0.49pp，G9）。",
+  "scenario": "A（恐慌后反弹/止跌初期）末段，未进 B。权重按 A：确定性 40%/弹性 10%/兑现时间 15%/拥挤度 10%/已定价 25%（R1）。判据：量能已缩到均量的 94.66% 且连 8 日在均量下（M8/M9）、上证 5 日 +2.69% 连续不创新低、强势股边际由 -52.51% 转 +35.33%（M14）——A 的三条转 B 条件形式上都成立，但 B 要求的长周期新高集群不在成长方向（≥1 年新高 41 家里 8 家银行 5 家煤炭，M18/C11），故按纪律停在 A 末段。异动性质按四分类：判为**『资金切换』候选但未确认**——过了 2 条（驱动源=旧主线叙事裂痕，G5；龙头=换手板持续上攻，中文在线 13:00:42 / 浪潮信息 13:51:57 / 大族激光 14:14:21 均非一字，C1/C2/C3），没过 2 条（旧方向缩至峰值<60% 只 1/6 达标，G6；3 日累计强弱反转差 -0.49pp 远未到 +8pp，G9）。框架要求 ≥4 条，故本卷按『T 异动 → T+1 首判』处理，明确不做单日判定。",
+  "direction_ranking": [
+    "AI 应用·传媒内容（AIGC概念 / 短剧游戏 / 传媒 / IP经济 / 网络游戏 / 多模态AI / AI营销 / 元宇宙概念）",
+    "国产算力硬件（液冷服务器 / 算力租赁 / 数据中心 / PCB / 服务器交换机：浪潮信息·紫光股份·星网锐捷·生益科技所在的那一侧）",
+    "银行·中特估（红利防守腿，只进方向不进标的池）",
+    "光模块·CPO·光通信（置底：绝对减量最大、龙头滞涨、拥挤度最高）"
+  ],
+  "direction_scoring": "场景 A 权重（确定性 40 / 弹性 10 / 兑现时间 15 / 拥挤度 10 / 已定价 25）：\n① AI 应用·传媒内容 = 3.50。确定性 3（板块级资金流可验：AIGC 净流入 175.27 亿、短剧游戏 75.23 亿，主线模型把 AI应用 列回主线，N1/N2/N3；但只有 1 天，3 日累计强弱差仍 -0.49pp，未过资金切换门槛，G9）；弹性 4（传媒 671.8 亿、IP经济 527.2 亿的基数只有芯片 8114.6 亿的 8%/6%，同样的钱推动的价格弹性大，S12）；兑现时间 5（盘面自兑现，≤2 周）；拥挤度 4（传媒当日量仅为自身 20 日峰值的 80.4%，G7；链内 20 日涨幅中位 +3.33%，G10）；已定价 3（中位涨幅个位数，未透支）。\n② 国产算力硬件 = 3.35。确定性 4（个股级资金流最硬：浪潮信息 +31.53 亿全市场第 1、紫光股份 +14.36、生益科技 +11.26、星网锐捷 +10.86，且四只全部涨停或新高，C1/C6/C7/C4；新高榜成交额 top30 里 8 只是液冷服务器系，C11）；弹性 3（数据中心 5305 亿、芯片 8114.6 亿基数大）；兑现时间 5；拥挤度 2（链内 20 日涨幅中位 +17.00%、75 分位 +31.24%，G11）；已定价 2（生益科技 20 日 +50.35%、星网锐捷 +61.70%）。\n**分差 = 0.15 < 0.30，按框架纪律视为等价**（R2）。本卷把 AI 应用放前面，唯一有量级的依据是拥挤度/已定价这 35% 权重（G10 vs G11），不是盘面强度——板块层面双红 vs 缩量的 T+1 差异只有 0.1pp 量级、胜率 46–51%，是噪声（B5）。回检时如果第 1/2 名互换，应记 partial 而非 miss。\n③ 银行·中特估 = 3.20。确定性 4（三家国有行历史新高、板块 diff +67.72，S13/C10）；弹性 1；兑现时间 3；拥挤度 3；已定价 3。**排第 3 但明确不进标的池**：库内『流通市值>3000 亿 + 新高 + 涨 1–6%』近 3 个月 T+1 胜率仅 36.9%、T+3 超额 -0.948%（B10）。\n④ 光模块·CPO·光通信 = 2.95。确定性 2（绝对减量最大，CPO -619.8、光通信 -556.2 亿，G5；亨通光电 净流出 13.74 亿，C8）；弹性 3；兑现时间 3；拥挤度 4（当日量已缩到峰值 60.8%/58.8%，反而是链内最不拥挤的，G6）；已定价 4（中际旭创 20 日 -5.61%）。总分置底但拥挤度/已定价两维最高——这正是标的池里保留中际旭创作策略三对冲腿的理由。\n被主动降级的：化工涨价链——08-28 还是涨停热度第 2（16 家），08-31 掉到第 62（6 家），板块 diff 全线转负（S14/T6），两日行情结束；医药/有色防守腿当日全面走弱（创新药 -1.71%、黄金概念 -2.59%，S15），是本次搬家的资金来源之一。",
+  "picks": [
+    {
+      "code": "000977",
+      "name": "浪潮信息",
+      "strategy": "策略一 · 主线流动性池（国产算力容量核心）",
+      "reason": "全市场主力净流入第 1（+31.53 亿）、成交 96.01 亿、+9.99% 首板涨停（13:51:57 换手板非一字）、20 日新高、流通市值 1249.52 亿（C1）。四个条件同时命中库内最强形态『首板涨停 + 净流入>10 亿 + 流通市值>800 亿』：n=164，T+1 绝对收益>0 占 69.5%、均值 +2.21%、中位 +1.93%，近 3 个月子样本 n=92 仍有 T+1 超额 +1.574%、胜率 65.2%（B6）。同时它横跨方向 ① 和 ②（既在 AIGC概念/元宇宙概念，又是液冷服务器/数据中心/算力租赁的容量核心），无论换挡成立与否都在钱流的正面。风险写明：5 日已 +16.33%，若 T+1 大幅高开则实际收益低于回测口径。",
+      "evidence_refs": [
+        "C1",
+        "B6",
+        "T9",
+        "S17",
+        "C11",
+        "G4"
+      ],
+      "evidence_as_of": "2026-08-31"
+    },
+    {
+      "code": "002008",
+      "name": "大族激光",
+      "strategy": "策略一 · 主线流动性池（第二腿，先进制造侧）",
+      "reason": "+10.00% 首板涨停（14:14:21）、成交 53.37 亿、主力净流入 +14.49 亿（全市场第 3）、流通市值 922.10 亿（C2），与浪潮信息同属库内最强形态桶（B6）。选它作第二腿而不是再加一只传媒股，是为了让池子不全押在换挡假设上：它落在 PCB概念/先进封装/光刻机/机器人概念，而机器人概念是当日涨停热度第 2（20 家，T2）——即便 AI 应用是一日游，这条腿仍有涨停热度支撑。风险写明：所属 PCB 板块当日 diff -14.04（S11），是板块缩量、个股放量的背离结构，个股信号与板块信号方向相反。",
+      "evidence_refs": [
+        "C2",
+        "B6",
+        "T2",
+        "S11",
+        "T9"
+      ],
+      "evidence_as_of": "2026-08-31"
+    },
+    {
+      "code": "002396",
+      "name": "星网锐捷",
+      "strategy": "策略二 · 强趋势延续（历史新高突破）",
+      "reason": "当日 +10.00% 第 3 板（13:46:27）、**创历史新高**、成交 52.55 亿、主力净流入 +10.86 亿、20 日 +61.70%（C4），是 08-31 ≥1 年新高名单里极少数属于成长方向的票之一（M18 指出该名单被银行/煤炭占据，它是反例）。**明确降权**：库内『≥3 连板 + 净流入>10 亿 + 新高』n=46，T+1 绝对收益>0 只有 50.0%、T+3 >0 更掉到 41.3%、均值 -0.90%（B8）。因此本卷只给它 T+1 假设、不给 T+3 假设，且置信度取 low——它进池是为覆盖『强趋势延续』这条策略腿，不是因为期望值高。",
+      "evidence_refs": [
+        "C4",
+        "B8",
+        "M18",
+        "T8",
+        "C11"
+      ],
+      "evidence_as_of": "2026-08-31"
+    },
+    {
+      "code": "300364",
+      "name": "中文在线",
+      "strategy": "策略四 · 流动性切换（AI 硬件 → AI 应用/内容）",
+      "reason": "+20.02% 首板（13:00:42）、主力净流入 +11.97 亿为传媒链第 1、流通市值 180.34 亿，同时覆盖传媒/短剧游戏/IP经济/网络游戏 四个当日爆量板块（C3）；这四个板块的 diff_ratio 分别为 +74.57/+76.10/+70.22/+38.46，其中传媒、IP经济、网络游戏三个是各自 408 天库内历史最高值（S2/S3/S4）。库内『20cm 首板 + 净流入>10 亿』n=74：T+1 绝对收益>0 占 56.8%、均值 +1.07%、中位 +1.54%，T+3 >0 占 56.8%、均值 +1.89%（B6 同族但明显更弱的一档）。它是本池唯一纯粹押方向 ① 的票，也是换挡假设成立与否的最直接读数。",
+      "evidence_refs": [
+        "C3",
+        "S2",
+        "S3",
+        "S4",
+        "N2",
+        "N3",
+        "G10"
+      ],
+      "evidence_as_of": "2026-08-31"
+    },
+    {
+      "code": "300308",
+      "name": "中际旭创",
+      "strategy": "策略三 · 分歧回流（光模块龙头滞涨承接，逆本卷方向排序的对冲腿）",
+      "reason": "当日 -0.75%、成交 189.26 亿（全市场第 2）、主力仍净流入 +3.24 亿、流通市值 9455.55 亿、20 日 -5.61%（C5）——全链反弹日里唯一滞涨的容量核心，也是本池位置最低、拥挤度最小的一只。**它是本卷主动放进去的反向腿**：如果 T+1 涨停家数按 B1 的 59.5% 概率回落、首板梯队接力失败，钱最可能回流到最大最便宜的流动性池，而不是继续往传媒小票走；此时前四只会同时回撤，只有它是对冲。库内『流通市值>3000 亿 + 当日 -2%<pct<1% + 成交>80 亿』n=291：T+1 绝对收益>0 占 50.9%，近 3 个月 n=138 T+1 超额 +0.283%、胜率 55.1%；但 T+3 超额 -0.590%、胜率 38.4%（B9）——**只给 T+1，不给 T+3**。",
+      "evidence_refs": [
+        "C5",
+        "B9",
+        "S8",
+        "S9",
+        "G6",
+        "B1"
+      ],
+      "evidence_as_of": "2026-08-31"
+    }
+  ],
+  "thresholds": {
+    "market": "主项：T+1 涨停家数 < 88（当日 88，自 52→77→82→88 连升 3 日）。库内同形态『20 日新高连 3 日扩张 且 当日涨停≥80』n=37，P(次日涨停 < 88) = 59.5%（22/37），次日涨停中位 80、四分位区间 57–96（B1）。⚠ 口径声明：同一批样本『次日较当日回落』的比例是 81.1%(30/37)，但历史样本当日涨停中位高达 102，回落后仍可能高于 88——两个口径差 21.6pp，本卷按绝对值口径给概率，不用回落率冒充。\n次项：T+1 全市场成交额 < 22508.65 亿（20 日均量）。已连续 8 个交易日低于均量，库内同形态 n=46 中 73.9%(34/46) 次日仍低于均量（B2）。\n两条独立裁定：涨停回落=市场假设主项，量能不过均量=次项。\n市场假设整体作废线：T+1 成交额 ≥ 22508.65 亿 **且** 上证收盘 > 3990.304（08-18 收盘、本轮压力位，M20）——两条同时成立即认定增量资金入场。",
+    "direction": "写成组间相对强度，不写绝对红盘（依据 B5：板块层面双红 vs 缩量的 T+1 超额只有 0.1pp 量级、胜率 46–51%，绝对红盘判断没有 edge）：\n① T+1『AI 应用组』（AIGC概念/短剧游戏/传媒/IP经济/网络游戏/多模态AI/AI营销/元宇宙概念 8 板块 pct_chg 等权均值）> 『AI 硬件组』（CPO概念/光通信/数据中心/PCB/铜缆高速连接/芯片/电子 7 板块等权均值）。当日差 +1.39pp（G8）；库内 407 天该差值无条件为正的概率只有 45.2%（应用组结构性偏弱，日均 -0.136pp），条件在『当日差≥1.39pp』后 n=44 升到 54.5%（B3）——**这是一条弱多头判断，不是强判断**。\n② T+1 传媒板块 diff_ratio < 0（本卷主动预测边际量收缩、而非继续扩张）：当日 +74.57 是该板块 408 天历史最高（S2），全板块口径『diff>60 且 pct>3 且 amount>300 亿』n=296 里只有 35.8% 次日 diff 仍为正，即 64.2% 概率转负（B4）。\n方向瓦解线：传媒 T+1 diff_ratio < 0 **且** pct_chg < 0 → 判 AI 应用一日游；CPO概念 T+1 amount > 4223.3 亿（回到 08-28 水平）**且** pct_chg > 2 → 判切换失败、钱回硬件，方向 ①②④ 排序整体错位。",
+    "targets": "逐只以 08-31 收盘为延续基准、以 08-28 收盘为证伪线（跌破=当日涨幅全部回吐），统一按收盘价裁定：\n浪潮信息 000977 延续 T+1 收盘 ≥ 85.18 / 证伪 < 77.44；大族激光 002008 延续 ≥ 96.38 / 证伪 < 87.62；星网锐捷 002396 延续 ≥ 40.36 / 证伪 < 36.69；中文在线 300364 延续 ≥ 27.28 / 证伪 < 22.73；中际旭创 300308 延续 ≥ 851.90 / 证伪 < 846.00（取近 5 日收盘低点，不取 08-28 收盘 858.35——它当日本就是下跌的滞涨龙头，用 08-28 收盘会让证伪线高于当前价，那样的阈值不可证伪）。\n池级口径：T+3 五只均值收益 > 上证 sh000001 同期收益即记标的路径成立。库内基准：『涨停 + 净流入>10 亿』n=579 的 T+3 跑赢上证比例 54.4%，对照『成交>20 亿全样本』只有 45.2%（B11）。\n执行口径声明：池内 4 只当日涨停或 20cm，只能在涨停价附近成交（首封时间 13:00–14:15，均为换手板非一字，尾盘有成交），若 T+1 大幅高开则实际收益低于本卷阈值；回检一律按收盘价，不按可成交价。",
+    "falsify": "推翻 §2『AI 链内部存量换挡 + 银行托指数、非增量资金普涨』主判断的信号（T+1 收盘查三个数即可判定）：\ntotal_amount ≥ 22508.65 亿（补上 20 日均量）**且** 上证收盘 > 3990.304（破 08-18 压力位）**且** CPO概念 pct_chg > 0 —— 三条同时成立说明是增量资金推动的全链普涨、旧主线同步回归，本卷『存量换挡』定性错（对应 A5 场景错位）。\n反向证伪（扩散判断本身错、实为退潮）：T+1 涨停家数 < 50 **且** 上证收盘 < 3939.40（周均线，M12）。\n结构校验位（不推翻主判断，但推翻方向排序）：若 T+1『AI 硬件组』均值 > 『AI 应用组』均值 **且** 传媒 diff_ratio < 0，说明 08-31 的传媒爆量是单日情绪脉冲而非切换起点，方向 ① 与 ② 应互换——鉴于两者打分只差 0.15（R2 判为等价），此项发生时记 partial 不记 miss。"
+  },
+  "threshold_provenance": {
+    "market": {
+      "origin": "backtest",
+      "evidence_ref": "B1",
+      "as_of": "2026-08-31"
+    },
+    "direction": {
+      "origin": "backtest",
+      "evidence_ref": "B3",
+      "as_of": "2026-08-31"
+    },
+    "targets": {
+      "origin": "mechanical",
+      "evidence_ref": "C1",
+      "as_of": "2026-08-31"
+    },
+    "falsify": {
+      "origin": "mechanical",
+      "evidence_ref": "M20",
+      "as_of": "2026-08-31"
+    }
+  },
+  "hypotheses": [
+    {
+      "id": "market",
+      "category": "market",
+      "claim": "T+1 涨停家数 < 88。库内同形态『20 日新高连 3 日扩张 且 当日涨停≥80』n=37，P(次日涨停<88)=59.5%(22/37)、次日涨停中位 80；旁证：跌停已由 1 家回升到 11 家（M5）、首板晋级率仍只有 17%（T8）、量能连 8 日在均量下（M8）。刻意不用 81.1% 的『回落率』当概率——那是相对口径，与绝对阈值差 21.6pp。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "M4",
+        "M5",
+        "M8",
+        "B1",
+        "T8",
+        "G1"
+      ],
+      "evidence_as_of": "2026-08-31",
+      "falsify_when": "T+1 涨停家数 ≥ 88"
+    },
+    {
+      "id": "market:volume",
+      "category": "market",
+      "claim": "T+1 全市场成交额 < 22508.65 亿（20 日均量）。已连续 8 个交易日低于均量，库内同形态 n=46 中 73.9%(34/46) 次日仍低于；该库同形态下『次日放大>10%』只有 39.1%。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.72,
+      "evidence_refs": [
+        "M6",
+        "M8",
+        "M9",
+        "B2"
+      ],
+      "evidence_as_of": "2026-08-31",
+      "falsify_when": "T+1 全市场成交额 ≥ 22508.65 亿"
+    },
+    {
+      "id": "direction",
+      "category": "direction",
+      "claim": "T+1『AI 应用组』8 板块等权 pct_chg 均值 > 『AI 硬件组』7 板块等权均值（当日差 +1.39pp）。这是弱多头判断：该差值无条件为正的概率只有 45.2%，条件在当日差≥1.39pp 后升到 54.5%(n=44)。支撑不是盘面强度（板块层双红 vs 缩量在 T+1 是 0.1pp 噪声），而是拥挤度差：传媒链 20 日涨幅中位 +3.33% vs 硬件链 +17.00%。",
+      "horizon": "T+1",
+      "confidence": "low",
+      "confidence_probability": 0.55,
+      "evidence_refs": [
+        "G8",
+        "G9",
+        "B3",
+        "B5",
+        "G10",
+        "G11",
+        "N1"
+      ],
+      "evidence_as_of": "2026-08-31",
+      "falsify_when": "T+1『AI 应用组』等权均值 ≤ 『AI 硬件组』等权均值"
+    },
+    {
+      "id": "direction:media_marginal",
+      "category": "direction",
+      "claim": "T+1 传媒板块 diff_ratio < 0（边际量转负）。当日 +74.57 是该板块 408 天库内历史最高值，全板块口径『diff>60 且 pct>3 且 amt>300 亿』n=296 中只有 35.8% 次日 diff 仍为正。本条与上一条同时成立即『价格相对强度还在、但增量资金已经不再加码』——这正是本卷把换挡按 1–3 天而非 2–6 周处理的核心读数。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.64,
+      "evidence_refs": [
+        "S2",
+        "B4",
+        "G7",
+        "R2"
+      ],
+      "evidence_as_of": "2026-08-31",
+      "falsify_when": "T+1 传媒板块 diff_ratio ≥ 0"
+    },
+    {
+      "id": "target:000977",
+      "category": "target",
+      "claim": "浪潮信息 T+1 收盘 ≥ 85.18（当日收盘）。命中库内最强形态桶『首板涨停+净流入>10 亿+流通市值>800 亿』：n=164 中 T+1 绝对收益>0 占 69.5%、中位 +1.93%，近 3 个月子样本仍有 65.2% 超额胜率。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.68,
+      "evidence_refs": [
+        "C1",
+        "B6",
+        "T9"
+      ],
+      "evidence_as_of": "2026-08-31",
+      "falsify_when": "浪潮信息 T+1 收盘 < 77.44（08-28 收盘，当日涨停全部回吐）"
+    },
+    {
+      "id": "target:002008",
+      "category": "target",
+      "claim": "大族激光 T+1 收盘 ≥ 96.38（当日收盘）。同属上述最强形态桶（首板涨停、净流入 +14.49 亿、流通市值 922.10 亿）；但所属 PCB 板块当日 diff -14.04，个股信号与板块信号背离，故概率取比浪潮信息低一档。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.63,
+      "evidence_refs": [
+        "C2",
+        "B6",
+        "S11",
+        "T2"
+      ],
+      "evidence_as_of": "2026-08-31",
+      "falsify_when": "大族激光 T+1 收盘 < 87.62（08-28 收盘）"
+    },
+    {
+      "id": "target:300364",
+      "category": "target",
+      "claim": "中文在线 T+1 收盘 ≥ 27.28（当日收盘）。库内『20cm 首板 + 净流入>10 亿』n=74：T+1 绝对收益>0 占 56.8%、中位 +1.54%。它是本池唯一纯押方向 ① 的票，与 direction 假设同生共死。",
+      "horizon": "T+1",
+      "confidence": "low",
+      "confidence_probability": 0.56,
+      "evidence_refs": [
+        "C3",
+        "B6",
+        "S2",
+        "S3"
+      ],
+      "evidence_as_of": "2026-08-31",
+      "falsify_when": "中文在线 T+1 收盘 < 22.73（08-28 收盘）"
+    },
+    {
+      "id": "target:002396",
+      "category": "target",
+      "claim": "星网锐捷 T+1 收盘 ≥ 40.36（当日收盘）。库内『≥3 连板 + 净流入>10 亿 + 新高』n=46 的 T+1 绝对收益>0 只有 50.0%——本条**明确是一条掷硬币级别的假设**，写出来是为了让『强趋势延续』这条策略腿可回检，不是因为有 edge；同桶 T+3 >0 只有 41.3%、均值 -0.90%，故不设 T+3 假设。",
+      "horizon": "T+1",
+      "confidence": "low",
+      "confidence_probability": 0.5,
+      "evidence_refs": [
+        "C4",
+        "B8",
+        "T8"
+      ],
+      "evidence_as_of": "2026-08-31",
+      "falsify_when": "星网锐捷 T+1 收盘 < 36.69（08-28 收盘）"
+    },
+    {
+      "id": "target:300308",
+      "category": "target",
+      "claim": "中际旭创 T+1 收盘 ≥ 851.90（当日收盘）。库内『流通市值>3000 亿 + 当日 -2%<pct<1% + 成交>80 亿』n=291：T+1 绝对收益>0 占 50.9%，近 3 个月 n=138 超额胜率 55.1%。它是池内唯一在 market 假设成立（涨停回落、首板接力失败）时仍可能为正的一只——与前四只负相关，是对冲腿不是加仓腿。",
+      "horizon": "T+1",
+      "confidence": "low",
+      "confidence_probability": 0.53,
+      "evidence_refs": [
+        "C5",
+        "B9",
+        "S8",
+        "G6"
+      ],
+      "evidence_as_of": "2026-08-31",
+      "falsify_when": "中际旭创 T+1 收盘 < 846.00（近 5 日收盘低点）"
+    },
+    {
+      "id": "target:pool_t3",
+      "category": "target",
+      "claim": "标的池 5 只 T+3 均值收益 > 上证 sh000001 同期收益。库内基准：『涨停 + 净流入>10 亿』n=579 的 T+3 跑赢上证比例 54.4%，对照『成交>20 亿全样本』45.2%。池内 3 只（星网锐捷 41.3%、中际旭创 38.4%、中文在线）的 T+3 桶都偏弱，故整体只给略高于抛硬币的概率。",
+      "horizon": "T+3",
+      "confidence": "low",
+      "confidence_probability": 0.54,
+      "evidence_refs": [
+        "B11",
+        "B6",
+        "B8",
+        "B9"
+      ],
+      "evidence_as_of": "2026-08-31",
+      "falsify_when": "T+3 标的池 5 只均值收益 ≤ 上证 sh000001 同期收益"
+    },
+    {
+      "id": "falsify",
+      "category": "falsify",
+      "claim": "T+1 **不会**同时出现『成交额 ≥ 22508.65 亿』+『上证收盘 > 3990.304』+『CPO概念 pct_chg > 0』这三条——即『存量换挡而非增量普涨』的定性不被推翻。三条的联合发生要求量能一天补上 5.6%、指数破 08-19 前高、且被抛弃的光模块同步回归，在连续 8 日缩量且机构净卖的背景下概率低。",
+      "horizon": "T+1",
+      "confidence": "high",
+      "confidence_probability": 0.85,
+      "evidence_refs": [
+        "M6",
+        "M8",
+        "M20",
+        "M21",
+        "S8",
+        "T10",
+        "B2"
+      ],
+      "evidence_as_of": "2026-08-31",
+      "falsify_when": "T+1 同时满足：total_amount ≥ 22508.65 亿 且 上证收盘 > 3990.304 且 CPO概念 pct_chg > 0"
+    }
+  ],
+  "recheck": {}
+}

@@ -1,0 +1,31 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "fourarm0827-8792--run_20260827_152937_309324",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "9c7c440c1402157b71c3f51c1a6e4f2b2424cd856039be29f5ad7840a4d30dfb",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      4,
+      6,
+      7,
+      8,
+      9
+    ],
+    "issues": [
+      "第4句将7月21日描述为“放量反弹”，但证据中7月20日与7月21日成交额相同，不能支持该观察。",
+      "第6句提出90亿元及130元作为反弹延续阈值，属于证据中没有依据的任意触发条件。",
+      "第7句以113元作为“下跌中继”的触发阈值，证据未支持该阈值。",
+      "第8句所称“连续两个跌停后首根大阳线+次日十字星”与注册证据中的7月20日、7月21日记录不符。",
+      "第9句断言套牢盘密集及反弹阻力较重，现有量价证据不能直接支持该事实性解释。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

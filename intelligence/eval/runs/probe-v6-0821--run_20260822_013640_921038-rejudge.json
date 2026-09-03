@@ -1,0 +1,29 @@
+{
+  "schema": "rejudge_pending.v1",
+  "run_id": "probe-v6-0821--run_20260822_013640_921038",
+  "original_judge_status": "unavailable",
+  "rejudge_judge_status": "rejected",
+  "verdict": "overturn",
+  "overturn": true,
+  "published_answer_unchanged": true,
+  "published_answer_sha256": "42854f968b4b9a105b4bd6128960e3b6179032578899d7160be6ad37129c6d2f",
+  "report": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      6,
+      8,
+      9,
+      12
+    ],
+    "issues": [
+      "第6句把同日新闻事件直接断言为当天行情催化，新闻标题与盘面同时出现不足以直接核验该因果关系。",
+      "第8句断言CXO的外包链定义及普蕊斯、睿智医药对应CRO临床前或临床服务，但E16、E17只登记CXO核心映射，未提供具体业务环节。",
+      "第9句把昭衍新药归入安评、把药明康德定义为平台型龙头，并补充相应产业角色；所引证据未直接支持这些角色断言。",
+      "第12句引入前期超跌和资金轮动作为本轮回升的竞争性原因，但E13只支持凯莱英估值分位线索，未支持超跌事实或资金轮动因果。"
+    ]
+  },
+  "exc_class": null,
+  "timeout_asked": null,
+  "timeout_configured": null,
+  "remaining_seconds_at_entry": null
+}

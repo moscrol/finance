@@ -1,0 +1,145 @@
+{
+  "schema_version": "ima-gap/v1",
+  "date": "2026-09-01",
+  "auto_fetch": false,
+  "note": "只出清单。daily-full 不自动问 IMA；补卡/DeepDive 另开一轮。",
+  "theme_run": [
+    "IP经济",
+    "区块链",
+    "元宇宙"
+  ],
+  "stock_run": [
+    "芒果超媒",
+    "博纳影业",
+    "掌阅科技",
+    "利欧股份",
+    "华胜天成"
+  ],
+  "themes": [
+    {
+      "theme": "IP经济",
+      "bucket": "today_do_ima",
+      "priority": 167.61,
+      "stocks": [
+        "芒果超媒",
+        "博纳影业",
+        "掌阅科技",
+        "中文在线",
+        "天娱数科"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 646,
+      "action": "run_deepdive",
+      "reason": "占位页，走 15 章升 L1"
+    },
+    {
+      "theme": "区块链",
+      "bucket": "today_do_ima",
+      "priority": 166.9,
+      "stocks": [
+        "芒果超媒",
+        "华信永道",
+        "利欧股份",
+        "协鑫能科",
+        "华胜天成"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 665,
+      "action": "run_deepdive",
+      "reason": "占位页，走 15 章升 L1"
+    },
+    {
+      "theme": "元宇宙",
+      "bucket": "today_do_ima",
+      "priority": 159.63,
+      "stocks": [
+        "芒果超媒",
+        "华胜天成",
+        "万兴科技",
+        "昆仑万维",
+        "中文在线"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 625,
+      "action": "run_deepdive",
+      "reason": "占位页，走 15 章升 L1"
+    }
+  ],
+  "stocks": [
+    {
+      "company": "芒果超媒",
+      "theme": "IP经济",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "博纳影业",
+      "theme": "IP经济",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "掌阅科技",
+      "theme": "IP经济",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "中文在线",
+      "theme": "IP经济",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "天娱数科",
+      "theme": "IP经济",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "华信永道",
+      "theme": "区块链",
+      "action": "skip_no_entity",
+      "reason": "无实体页，不空建"
+    },
+    {
+      "company": "利欧股份",
+      "theme": "区块链",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "协鑫能科",
+      "theme": "区块链",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "华胜天成",
+      "theme": "区块链",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "万兴科技",
+      "theme": "元宇宙",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "昆仑万维",
+      "theme": "元宇宙",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    }
+  ],
+  "counts": {
+    "theme_run": 3,
+    "stock_run": 5,
+    "themes": 3,
+    "stocks": 11
+  }
+}
