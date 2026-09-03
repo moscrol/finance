@@ -6,6 +6,7 @@ import type {
   ConfigureLLMRequest,
   CreateMessageRequest,
   CreateMessageResponse,
+  CreditsSummary,
   DailyReportProjection,
   Followup,
   LLMConfig,
@@ -19,11 +20,28 @@ import type {
   WorkbenchOverview,
 } from "./types";
 
+/** FastAPI 的错误体是 `{"detail": "..."}`；给用户看的是里面那句话，不是整个 JSON。 */
+function errorDetail(body: string): string {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      typeof (parsed as { detail?: unknown }).detail === "string"
+    ) {
+      return (parsed as { detail: string }).detail;
+    }
+  } catch {
+    // 不是 JSON 就原样返回
+  }
+  return body;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init);
   if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(detail || `${response.status} ${response.statusText}`);
+    const body = await response.text();
+    throw new Error(errorDetail(body) || `${response.status} ${response.statusText}`);
   }
   return response.json() as Promise<T>;
 }
@@ -36,6 +54,10 @@ function withUser(path: string, user?: string): string {
 
 export function getBootstrap(user?: string): Promise<Bootstrap> {
   return request<Bootstrap>(withUser("/api/workbench/bootstrap", user));
+}
+
+export function getCredits(user?: string): Promise<CreditsSummary> {
+  return request<CreditsSummary>(withUser("/api/credits", user));
 }
 
 export function getWorkbenchOverview(): Promise<WorkbenchOverview> {

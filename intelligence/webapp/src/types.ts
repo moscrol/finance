@@ -299,6 +299,15 @@ export interface SelfUseMaturity {
   passed: boolean;
 }
 
+export interface CreditsSummary {
+  enabled: boolean;
+  exempt: boolean;
+  /** 剩余研究次数；钱包关闭或豁免用户为 null。 */
+  remaining: number | null;
+  /** 最近一笔会到期的额度的到期时刻（ISO）；没有会到期的为 null。 */
+  next_expiry: string | null;
+}
+
 export interface Bootstrap {
   user: string;
   workflows: Workflow[];
@@ -309,6 +318,7 @@ export interface Bootstrap {
   needs_human_action: number;
   data_cutoff: string | null;
   self_use_maturity: SelfUseMaturity;
+  credits?: CreditsSummary;
 }
 
 export type WorkbenchSection =
