@@ -1720,6 +1720,7 @@ def _financials_block_for_llm(
     market_db_path: str | Path | None,
     fetcher: Any = None,
     timeout: float = 8.0,
+    periods: int | None = None,
 ) -> str:
     """Build the D7 quarterly-financials block for a single target stock.
 
@@ -1752,6 +1753,7 @@ def _financials_block_for_llm(
     return market_financials.financials_block_for_target(
         target_code,
         target_name,
+        periods=periods if periods is not None else market_financials.DEFAULT_PERIODS,
         fetcher=fetcher,
         timeout=timeout,
     )

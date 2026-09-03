@@ -149,6 +149,7 @@ _RUNTIME_CAPABILITY_FLOOR: dict[str, tuple[str, ...]] = {
         "kb_search",
         "evidence_lookup",
         "l3_lookup",
+        "web_search",
     ),
     "current_fact_evidence": (
         "market_data",
@@ -555,14 +556,13 @@ def runtime_capabilities_for_frame(frame: TaskFrame) -> tuple[str, ...]:
         for item in plan.requirements
         if (runtime_name := _PLAN_CAPABILITY_TO_RUNTIME.get(item.capability))
     )
-    return tuple(
-        dict.fromkeys(
-            (
-                *floor,
-                *planned,
-            )
-        )
-    )
+    capabilities = tuple(dict.fromkeys((*floor, *planned)))
+    # 取页是检索的延伸，不单独进策略表：授权了 web_search 就授权 web_fetch——
+    # web_search 只回 160 字符 snippet，没有取页那条线索到不了可读证据（spec §3.6）。
+    # 反向不成立：没有 web_search 的策略（本地盘面 / 技术面）也不该取页。
+    if "web_search" in capabilities and "web_fetch" not in capabilities:
+        capabilities = (*capabilities, "web_fetch")
+    return capabilities
 
 
 def plan_capabilities_from_receipt(*, tool: str, dataset: str = "") -> frozenset[str]:

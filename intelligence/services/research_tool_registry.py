@@ -6,12 +6,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from functools import partial
 import json
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal
+import urllib.parse
 
 from intelligence.services.tool_payload import tool_payload_meta
 
@@ -78,6 +79,15 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
         "全网网页检索",
         "current",
         frozenset({"supporting_evidence", "event_facts", "impact_transmission"}),
+    ),
+    # 取页（不是检索）：给 web_search 回来的 URL 拉正文。knevo 在 2026-09-02 茅台题上
+    # 赢的机制就是这一步——我们的 web_search 只回 160 字符 snippet，线索到不了可读证据。
+    # produces 只声明能从 runner 路径确认的：正文里有什么全看页面，保守留两项。
+    "web_fetch": (
+        "web_fetch",
+        "按 URL 取网页正文全文（取页，不是检索；URL 先由 web_search / news_search 给出）",
+        "current",
+        frozenset({"supporting_evidence", "event_facts"}),
     ),
     "news_search": (
         "news_search",
@@ -194,6 +204,25 @@ EMPTY_TOOL_PARAMETERS: dict[str, object] = {
     "properties": {},
     "additionalProperties": False,
 }
+# financial_data 仍是一回合一份快照（query_scope="episode"），但快照的**窗口**由模型
+# 可选指定：不传取最近 6 期；传「2024年报」则放宽到覆盖该期。2026-09-02 茅台题两臂
+# 都拿不到 2024 年报，正是因为它固定 6 期而 2024-12-31 是第 7 行——模型无从告诉工具
+# 自己要哪一期。
+FINANCIAL_DATA_PARAMETERS: dict[str, object] = {
+    "type": "object",
+    "properties": {
+        "report_period": {
+            "type": "string",
+            "minLength": 1,
+            "description": (
+                "可选。要覆盖到的报告期，写年份加期别，"
+                '例："2024年报"、"2025三季报"、"2025Q1"、"2024"（按年报）。'
+                "不传时取最近 6 期。一轮只取一次快照，要看某一期就在这次调用里传。"
+            ),
+        }
+    },
+    "additionalProperties": False,
+}
 
 
 # 逐工具的 query 形状提示。**只给形状确实不同的那几个**，其余用通用描述——
@@ -261,6 +290,67 @@ def parse_snapshot_arguments(
     if arguments:
         raise InvalidResearchToolArguments("snapshot tool accepts no arguments")
     return "", "snapshot"
+
+
+URL_TOOL_PARAMETERS: dict[str, object] = {
+    "type": "object",
+    "properties": {
+        "url": {
+            "type": "string",
+            "minLength": 1,
+            "description": (
+                "要取正文的网页地址，必须是完整的 http(s) URL，"
+                "通常来自 web_search / news_search 返回的 source。"
+                '例："https://money.finance.sina.com.cn/corp/go.php/vFD_FinancialGuideLine/'
+                'stockid/600519.phtml"。一次一个 URL。'
+            ),
+        }
+    },
+    "required": ["url"],
+    "additionalProperties": False,
+}
+
+
+def parse_url_arguments(
+    arguments: Mapping[str, object],
+) -> tuple[str, str]:
+    if set(arguments) != {"url"}:
+        raise InvalidResearchToolArguments("expected one url argument")
+    url = arguments.get("url")
+    if not isinstance(url, str) or not url.strip():
+        raise InvalidResearchToolArguments(
+            "url must be a non-empty string",
+            code="invalid_query",
+        )
+    cleaned = url.strip()
+    parsed = urllib.parse.urlparse(cleaned)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise InvalidResearchToolArguments(
+            "url must be an absolute http(s) URL with a host",
+            code="invalid_query",
+        )
+    return cleaned, cleaned
+
+
+def parse_financial_data_arguments(
+    arguments: Mapping[str, object],
+) -> tuple[str, str]:
+    """快照工具 + 一个可选 ``report_period``。空参合法，等同旧的无参快照。"""
+
+    if not arguments:
+        return "", "snapshot"
+    if set(arguments) != {"report_period"}:
+        raise InvalidResearchToolArguments(
+            "financial_data snapshot accepts only an optional report_period argument"
+        )
+    value = arguments.get("report_period")
+    if not isinstance(value, str) or not value.strip():
+        raise InvalidResearchToolArguments(
+            "report_period must be a non-empty string when given",
+            code="invalid_query",
+        )
+    cleaned = value.strip()
+    return cleaned, cleaned
 
 
 def unwrap_double_encoded_query(
@@ -484,7 +574,9 @@ class ToolSpec:
     # 决定调用某工具时，该工具的约束正好在它的注意力焦点内，而写在系统提示词里
     # 的同一句话需要模型在数万 token 的上下文里「回忆」，长会话中不可靠。
     #
-    # 空字符串合法：没有经过验证的契约就别写，编一句比不写更糟。
+    # 数据类层面空字符串合法（测试与探针替身要用），但装配面不放行：
+    # ``default_registry`` / ``build_episode_registry`` 出口都过 ``require_tool_contracts``，
+    # 模型能点到的工具必须有契约。没有经过验证的契约别编——写不出来就先别挂进注册表。
     contract: str = ""
     # ``episode`` means the tool returns one complete turn-scoped snapshot;
     # rewriting its query cannot produce a different evidence surface.
@@ -982,6 +1074,22 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "涉及公司经营事实时需要 l3_lookup 的公告确认；"
         "只有新闻来源时写成「待验证线索」，不要升级为既定事实。"
     ),
+    # §3.6 三条契约逐条落：① 空结果语义（取不到页 / 页上没字 ≠ 事实不存在）；
+    # ② 来源分档与 as_of 来源（public_web、二手；as_of 取页面日期，取不到才记抓取日且
+    #    观察值里写明）；③ 参数含义与拒绝条件（一个绝对 http(s) URL，其它形状直接拒）。
+    # 依据：runner ``agent_research._web_fetch`` 与 ``web_research.fetch_web_page`` 的
+    # 分状态返回；「二手不升一手」复述 web_search 那条与 CLAUDE.md 的分层红线。
+    "web_fetch": (
+        "取回的是网页正文原文，属二手公开材料（与 web_search 同档）：数字可以读、可以引，"
+        "但公司级硬事实仍以 l3_lookup 公告或 financial_data 一手数据为准，"
+        "只有网页来源时写成「待验证线索」并点明缺的一手材料。"
+        "证据日期取页面自述的发布/更新日；页面没有日期时记为抓取日并在观察值里标明，"
+        "引用时不要把抓取日说成数据日期。"
+        "「取页失败」（HTTP 错误 / 超时 / 无法解析）是工具故障，不是页面没有该信息，"
+        "可换 URL 或改用 web_search；「取页成功但无正文」同样不能当否定证据。"
+        "参数只有一个 url，必须是 web_search / news_search 给出的完整 http(s) 地址，"
+        "不接受站点名或检索词。"
+    ),
     # 依据在 ``market_financials`` 的块构造：口径行逐字写着「均为累计值（中报=上半年
     # 累计、三季报=前三季累计），本块不做单季还原」。而该模块的另一行「使用要求：…」
     # 会被 ``episode_tools._NON_EVIDENCE_PREFIXES`` 过滤掉，模型看不到——所以口径这条
@@ -992,6 +1100,12 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "（中报=上半年累计、三季报=前三季累计），本工具不做单季还原；"
         "要单季必须显式声明是自己推算的。返回为空只说明这两个源没取到，"
         "应写成证据缺口，不得据此推断公司没有该项财务表现。"
+        # P0b（2026-09-03）：窗口可指定，且每行自带日期。这两句都是 runner 行为，
+        # 模型从证据正文读不出来。
+        "默认只取最近 6 期；问的是更早的某一期（如两年前的年报），"
+        "要在 report_period 里写明该期，否则那一行不在返回里，不等于没有该期数据。"
+        "每行的日期是该期披露日（缺披露日时为报告期截止日），引用时按此写 as-of，"
+        "不要用取数日。"
     ),
     # memory_lookup 的 description 已声明「不是市场事实、不能当作证据引用」，这里只补
     # 它无法自述的那半条：空命中的含义。runner 的空分支返回「用户记忆无相关命中」，
@@ -1095,6 +1209,37 @@ _TOOL_CONTRACTS: dict[str, str] = {
 }
 
 
+class ToolContractMissing(ValueError):
+    """装配了一个没有行为契约的工具。"""
+
+
+def require_tool_contracts(specs: Iterable[ToolSpec]) -> None:
+    """装配期守门：进注册表的每个工具都要有非空 ``contract``（spec §3.6 第 8 条）。
+
+    ``ToolSpec.contract`` 在数据类层面允许空串（测试与探针替身要用），但**模型能点到
+    的**每个工具都得说清自己是谁——空了怎么读、as_of 从哪来、参数读不读。knevo 22 次
+    调用里 ``finance_statement`` 无 provider、``finance_graph_context`` 找不到实体、
+    ``finance_shareholders`` 失败，全是「工具挂在菜单上、底下没契约」的形状；这道门
+    防的是把那个状态抄进来。
+
+    2026-09-03 首次对生产装配跑这道门的读数：``build_episode_registry`` 里
+    ``evidence_search`` / ``finance_query`` / ``memory_lookup`` 三个是裸的——
+    ``_TOOL_CONTRACTS`` 早就为它们写好了条目，只是从没接到 spec 上。
+    ``produces`` 不进这道门（§1.2：它是软先验）。
+    """
+
+    bare = sorted(
+        spec.name for spec in specs if not str(spec.contract or "").strip()
+    )
+    if bare:
+        raise ToolContractMissing(
+            "tools registered without a behaviour contract: "
+            + ", ".join(bare)
+            + "；每个进注册表的工具都要在 _TOOL_CONTRACTS 有条目"
+            "（空结果语义 / 来源分档与 as_of 来源 / 参数含义与拒绝条件）"
+        )
+
+
 def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToolRegistry:
     specs = tuple(
         ToolSpec(
@@ -1111,13 +1256,21 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
                 else "query"
             ),
             parameters=(
-                EMPTY_TOOL_PARAMETERS
-                if name in {"market_data", "financial_data", "mainline_context"}
+                FINANCIAL_DATA_PARAMETERS
+                if name == "financial_data"
+                else URL_TOOL_PARAMETERS
+                if name == "web_fetch"
+                else EMPTY_TOOL_PARAMETERS
+                if name in {"market_data", "mainline_context"}
                 else query_parameters(name)
             ),
             parse_arguments=(
-                parse_snapshot_arguments
-                if name in {"market_data", "financial_data", "mainline_context"}
+                parse_financial_data_arguments
+                if name == "financial_data"
+                else parse_url_arguments
+                if name == "web_fetch"
+                else parse_snapshot_arguments
+                if name in {"market_data", "mainline_context"}
                 else parse_query_arguments
             ),
             produces=produces,
@@ -1125,6 +1278,7 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
         for name, (capability, description, freshness, produces) in _DEFAULT_TOOL_METADATA.items()
         if name in tools
     )
+    require_tool_contracts(specs)
     return ResearchToolRegistry(specs)
 
 

@@ -16,6 +16,7 @@ from intelligence.tests.conformance_tools.tools import (
     TOOL_NAMES,
     ToolProbe,
     is_snapshot_tool,
+    is_url_tool,
     make_tool_registry,
 )
 
@@ -45,6 +46,24 @@ def test_bad_arguments_fail_closed(
         assert prepared.tool == tool_name
         return
 
+    if is_url_tool(spec):
+        # url 契约：必须且只能有一个绝对 http(s) URL；检索词、站点名、相对路径一律拒。
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"url": ""})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"url": "贵州茅台 2024 年报"})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"url": "finance.sina.com.cn/600519"})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"query": "https://example.invalid/x"})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"url": "https://example.invalid/x", "extra": 1})
+        prepared = registry.prepare(tool_name, {"url": " https://example.invalid/x "})
+        assert prepared.display_query == "https://example.invalid/x"
+        return
+
     # query 契约：必须且只能有一个非空字符串 query。
     with pytest.raises(InvalidResearchToolArguments):
         registry.prepare(tool_name, {})
@@ -72,6 +91,7 @@ def test_prepared_arguments_for_another_tool_are_rejected() -> None:
         name
         for name in TOOL_NAMES
         if not is_snapshot_tool(registry.resolve(name))
+        and not is_url_tool(registry.resolve(name))
     ]
     first, second = query_tools[0], query_tools[1]
     prepared = registry.prepare(first, {"query": "合法检索词"})

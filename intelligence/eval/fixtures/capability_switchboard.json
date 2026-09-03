@@ -152,6 +152,22 @@
       "notes": "env 门在 web_research.py:120；fixture policy 在 episode_tools.py:783-785 直接 pop 掉工具。"
     },
     {
+      "id": "web_fetch",
+      "kind": "capability",
+      "status": "active",
+      "seam": "intelligence/services/research_tool_registry.py::_DEFAULT_TOOL_METADATA",
+      "close_via": [
+        "allowed_capabilities:remove",
+        "env:FINANCE_WEB_FETCH=0",
+        "fixture_policy:external_search_enabled=false"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "offered_schemas",
+      "notes": "2026-09-03 新增（spec capability-amplification §3.6）：按 URL 取正文。授权不单独进策略表，由 evidence_capabilities.runtime_capabilities_for_frame 从 web_search 派生——关 web_search 授权即连带关它；单关它用 env 门 web_research.fetch_web_page 或 fixture policy 的 pop（与 web_search 同一处）。"
+    },
+    {
       "id": "graph_lookup",
       "kind": "capability",
       "status": "active",

@@ -35,6 +35,108 @@ _REPORT_NAME = "RPT_F10_FINANCE_MAINFINADATA"
 
 DEFAULT_PERIODS = 6
 
+# 年份边界用「前后不是数字」而不是 ``\b``：Python 的 ``\w`` 含 CJK，「2024年」里
+# 4 与 年 之间没有词边界，``\b(20\d{2})\b`` 对中文问句永远不命中（实测 2026-09-03）。
+_FINANCIAL_YEAR_RE = re.compile(r"(?<!\d)(20\d{2})(?!\d)")
+# 报告期词面 → 季末月日。顺序即优先级：显式季度词先于「年报/年度」，两者都没有
+# 但句子在问财务数字时按年报处理——「2024年营业总收入」问的是全年数。
+_REPORT_PERIOD_PATTERNS: tuple[tuple[str, tuple[int, int]], ...] = (
+    (r"一季报|一季度|Q1|q1", (3, 31)),
+    (r"中报|半年报|半年|上半年|H1|h1|二季报|二季度|Q2|q2", (6, 30)),
+    (r"三季报|三季度|前三季|Q3|q3", (9, 30)),
+    (r"四季报|四季度|Q4|q4|年报|年度|全年|12月31|12-31|FY|fy", (12, 31)),
+)
+_FINANCIAL_FIGURE_RE = re.compile(r"营业|净利|营收|利润|收入|财报|财务|报告期|业绩|毛利|EPS|eps")
+# 单次取数最多回溯的季度数：D7 只服务「某期财报数字」，十年以上的问题不是它的题。
+_MAX_LOOKBACK_QUARTERS = 40
+
+
+def _quarter_end_on_or_before(day: date) -> date:
+    if day.month >= 10:
+        return date(day.year, 9, 30)
+    if day.month >= 7:
+        return date(day.year, 6, 30)
+    if day.month >= 4:
+        return date(day.year, 3, 31)
+    return date(day.year - 1, 12, 31)
+
+
+def _previous_quarter_end(end: date) -> date:
+    if end.month == 3:
+        return date(end.year - 1, 12, 31)
+    if end.month == 6:
+        return date(end.year, 3, 31)
+    if end.month == 9:
+        return date(end.year, 6, 30)
+    return date(end.year, 9, 30)
+
+
+def target_report_end_from_query(query: str) -> date | None:
+    """问句 / 模型参数里的年份 + 报告期词面 → 该报告期的季末日；解析不到返回 None。
+
+    只认显式年份。「最近一期」「去年」这类相对表述不在这里解析——它们没有稳定的
+    锚，交给默认窗口。
+    """
+
+    text = str(query or "")
+    if not text.strip():
+        return None
+    year_match = _FINANCIAL_YEAR_RE.search(text)
+    if not year_match:
+        return None
+    year = int(year_match.group(1))
+    for pattern, (month, day) in _REPORT_PERIOD_PATTERNS:
+        if re.search(pattern, text):
+            return date(year, month, day)
+    # 只有一个年份（「2024」「2024年」「FY2024」）：模型在 report_period 里就是这么写的，按年报。
+    if re.fullmatch(r"\s*(?:FY|fy)?\s*20\d{2}\s*年?\s*", text):
+        return date(year, 12, 31)
+    if _FINANCIAL_FIGURE_RE.search(text):
+        return date(year, 12, 31)
+    return None
+
+
+def periods_to_cover(
+    target_end: date,
+    *,
+    as_of: date | None = None,
+    default: int = DEFAULT_PERIODS,
+) -> int:
+    """要取多少个季度行，才能让 ``target_end`` 这一期落进窗口内。
+
+    D7 三个源都按报告期倒序取前 N 行；默认 N=6 只覆盖最近一年半。站在 2026-09-02
+    问「2024 年报」，2024-12-31 是第 7 行——刚好在窗外（实测 F10 600519：第 7 行
+    2024年报 1741.44）。这里从 ``as_of`` 所在季度往回数到目标季末，返回
+    ``max(default, 距离)``：只放宽、不收窄。
+
+    季度按日历数而不按已披露报告数——季末已过但报告未出时会多数一行，多取无害；
+    反向（少取）不可能发生。超过回溯上限时回默认值，不无限放宽。
+    """
+
+    anchor = as_of or date.today()
+    cursor = _quarter_end_on_or_before(anchor)
+    count = 0
+    while count < _MAX_LOOKBACK_QUARTERS:
+        count += 1
+        if cursor <= target_end:
+            return max(default, count)
+        cursor = _previous_quarter_end(cursor)
+    return default
+
+
+def periods_for_financial_query(
+    query: str,
+    *,
+    as_of: date | None = None,
+    default: int = DEFAULT_PERIODS,
+) -> int:
+    """``target_report_end_from_query`` + ``periods_to_cover``；解析不到目标时返回默认值。"""
+
+    target_end = target_report_end_from_query(query)
+    if target_end is None:
+        return default
+    return periods_to_cover(target_end, as_of=as_of, default=default)
+
 # 命中即触发（确定性词面）：财报 / 业绩兑现节奏 / 逐季营收利润 / 毛利率净利率类问题。
 _FINANCIALS_TERMS = (
     "财报",
@@ -77,6 +179,9 @@ class QuarterFinancials:
     inventory_yi: float | None = None  # 存货（亿元）
     holder_num: int | None = None  # 股东户数
     holder_change_pct: float | None = None  # 股东户数环比（%）
+    # 披露日（东财 F10 ``NOTICE_DATE``）。新浪 / AKShare 不给，保持 None——块渲染
+    # 时写「缺」，证据 as_of 退到报告期截止日；两者都不是取数日。
+    notice_date: str | None = None
 
 
 @dataclass(frozen=True)
@@ -170,6 +275,7 @@ def fetch_quarterly_financials(
     out: list[QuarterFinancials] = []
     for r in rows:
         report_date = str(r.get("REPORT_DATE") or "")[:10]
+        notice_date = str(r.get("NOTICE_DATE") or "")[:10] or None
         out.append(
             QuarterFinancials(
                 report_name=str(r.get("REPORT_DATE_NAME") or report_date),
@@ -181,6 +287,7 @@ def fetch_quarterly_financials(
                 gross_margin=_num(r.get("XSMLL")),
                 net_margin=_num(r.get("XSJLL")),
                 ocf_yi=_num(r.get("NETCASH_OPERATE_PK"), 1e8),
+                notice_date=notice_date,
             )
         )
     return out
@@ -672,6 +779,20 @@ def _fmt(value: float | None, unit: str = "") -> str:
     return f"{value}{unit}"
 
 
+def _period_cell(row: QuarterFinancials) -> str:
+    """报告期单元格带截止日 ISO。
+
+    证据投影（``agent_research.block_lines_to_evidence``）取行内最大的 ISO 日期当
+    ``source_date``：有披露日列时取披露日，披露日「缺」时退到这里的截止日。没有
+    这一格，数据行就没有任何日期，as_of 只剩「引用」行上的取数日——那是抓取日，
+    不是这条数字的日期。
+    """
+
+    if row.report_date:
+        return f"{row.report_name}（{row.report_date}）"
+    return row.report_name
+
+
 def _gap_from_result(result: FinancialsFetchResult) -> str:
     attempted = " / ".join(result.attempted) or "无"
     notes = "；".join(result.notes)
@@ -732,20 +853,28 @@ def build_financials_block(
     lines.append(f"- 目标：{target_name}（{ts_code}），近 {len(rows)} 期累计口径（新→旧）：")
     if fetch_result is not None:
         lines.append(f"- 引用：provider={fetch_result.provider} 取数日={fetch_result.as_of}")
-    lines.append("- | 报告期 | 营收(亿) | 营收同比% | 归母净利(亿) | 净利同比% | 销售毛利率% | 销售净利率% |")
-    lines.append("- |---|---|---|---|---|---|---|")
+    lines.append(
+        "- | 报告期（截止日） | 披露日 | 营收(亿) | 营收同比% | 归母净利(亿) | 净利同比% | "
+        "销售毛利率% | 销售净利率% |"
+    )
+    lines.append("- |---|---|---|---|---|---|---|---|")
     for r in rows:
         lines.append(
-            f"- | {r.report_name} | {_fmt(r.revenue_yi)} | {_fmt(r.revenue_yoy)} | "
+            f"- | {_period_cell(r)} | {r.notice_date or '缺'} | "
+            f"{_fmt(r.revenue_yi)} | {_fmt(r.revenue_yoy)} | "
             f"{_fmt(r.netprofit_yi)} | {_fmt(r.netprofit_yoy)} | "
             f"{_fmt(r.gross_margin)} | {_fmt(r.net_margin)} |"
         )
-    lines.append("- | 报告期 | 经营现金流(亿) | 合同负债(亿) | 存货(亿) | 股东户数 | 户数环比% |")
-    lines.append("- |---|---|---|---|---|---|")
+    lines.append(
+        "- | 报告期（截止日） | 披露日 | 经营现金流(亿) | 合同负债(亿) | 存货(亿) | 股东户数 | "
+        "户数环比% |"
+    )
+    lines.append("- |---|---|---|---|---|---|---|")
     for r in rows:
         holder = "缺" if r.holder_num is None else str(r.holder_num)
         lines.append(
-            f"- | {r.report_name} | {_fmt(r.ocf_yi)} | {_fmt(r.contract_liability_yi)} | "
+            f"- | {_period_cell(r)} | {r.notice_date or '缺'} | "
+            f"{_fmt(r.ocf_yi)} | {_fmt(r.contract_liability_yi)} | "
             f"{_fmt(r.inventory_yi)} | {holder} | {_fmt(r.holder_change_pct)} |"
         )
     watch = profit_quality_watch(rows)
@@ -755,6 +884,7 @@ def build_financials_block(
         "- 口径说明：均为**累计值**（中报=上半年累计、三季报=前三季累计），同比为东财原始累计同比；"
         "含金量对照只比上年同期（同报告期），不把一季报和年报横比。"
         "本块不做单季还原，如需单季请显式声明推算。"
+        "每行数字的日期是该期披露日（披露日「缺」时为报告期截止日），不是取数日。"
     )
     lines.append(
         "- 使用要求：业绩兑现节奏/拐点只引用本块逐季硬数据（营收/净利趋势、毛利率变化、同比方向）；"

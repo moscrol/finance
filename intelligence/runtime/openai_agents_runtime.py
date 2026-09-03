@@ -118,6 +118,44 @@ def _sdk_delivery_reserve(runtime_timeout: float) -> float:
     )
 
 
+class ServedModelLog:
+    """httpx 响应钩子：逐响应记下对端自报的 ``model`` 字段。
+
+    SDK 臂的 ``ModelResponse``（agents 0.18.3）只有 output / usage / response_id /
+    request_id，读不到响应体的 model；``Runner.run`` 又把整条 loop 包在里面，没有
+    逐 turn 的 ``ModelTurn``。所以挂在 ``build_glm_sdk_model`` 自建的 ``httpx.AsyncClient``
+    上取，一条响应一项，顺序即 turn 顺序；对端没回该字段的响应记 ``""``（「未回」），
+    不回填配置值（§3.5.4 硬门 3）。
+    """
+
+    def __init__(self) -> None:
+        self.models: list[str] = []
+
+    async def __call__(self, response: object) -> None:
+        headers = getattr(response, "headers", None)
+        content_type = str(headers.get("content-type", "") if headers is not None else "")
+        if "json" not in content_type.lower():
+            return
+        aread = getattr(response, "aread", None)
+        if callable(aread):
+            await aread()
+        try:
+            body = response.json()  # type: ignore[attr-defined]
+        except Exception:
+            self.models.append("")
+            return
+        value = body.get("model") if isinstance(body, Mapping) else None
+        self.models.append(value.strip() if isinstance(value, str) else "")
+
+
+def _served_models_of(model: object) -> tuple[str, ...]:
+    log = getattr(model, "served_model_log", None)
+    models = getattr(log, "models", None)
+    if not isinstance(models, list):
+        return ()
+    return tuple(str(item) for item in models)
+
+
 def build_glm_sdk_model(
     *,
     api_key: str,
@@ -131,13 +169,19 @@ def build_glm_sdk_model(
     from agents.models.openai_chatcompletions import OpenAIChatCompletionsModel
     from openai import AsyncOpenAI
 
+    served_model_log = ServedModelLog()
     client = AsyncOpenAI(
         api_key=api_key,
         base_url=base_url,
         timeout=timeout,
-        http_client=httpx.AsyncClient(trust_env=False),
+        http_client=httpx.AsyncClient(
+            trust_env=False,
+            event_hooks={"response": [served_model_log]},
+        ),
     )
-    return OpenAIChatCompletionsModel(model=model, openai_client=client)
+    sdk_model = OpenAIChatCompletionsModel(model=model, openai_client=client)
+    sdk_model.served_model_log = served_model_log  # type: ignore[attr-defined]
+    return sdk_model
 
 
 def build_gpt_sdk_model(model: str = "gpt-5.6-sol") -> str:
@@ -161,13 +205,18 @@ def build_gpt_sdk_model_factory(
         from agents.models.openai_responses import OpenAIResponsesModel
         from openai import AsyncOpenAI
 
+        served_model_log = ServedModelLog()
         client = AsyncOpenAI(
             api_key=api_key,
             base_url=base_url,
             timeout=timeout,
-            http_client=httpx.AsyncClient(trust_env=False),
+            http_client=httpx.AsyncClient(
+                trust_env=False,
+                event_hooks={"response": [served_model_log]},
+            ),
         )
         sdk_model = OpenAIResponsesModel(model=model, openai_client=client)
+        sdk_model.served_model_log = served_model_log  # type: ignore[attr-defined]
         return sdk_model, client.close
 
     return factory
@@ -240,6 +289,10 @@ def _single_function_call_per_response(model: object) -> object:
         def __init__(self, delegate: Model) -> None:
             self._delegate = delegate
             self.batched_tool_calls_dropped = 0
+
+        @property
+        def served_model_log(self) -> object | None:
+            return getattr(self._delegate, "served_model_log", None)
 
         async def get_response(self, *args, **kwargs) -> ModelResponse:
             response = await self._delegate.get_response(*args, **kwargs)
@@ -365,6 +418,8 @@ class AgentsSdkResult:
     output_tokens: int | None = None
     provider_attempts: int | None = None
     batched_tool_calls_dropped: int = 0
+    # 逐响应的对端 model 字段（``ServedModelLog``），顺序即 turn 顺序；``""`` = 未回。
+    served_models: tuple[str, ...] = ()
     continuation_input: InitVar[object | None] = None
 
     def __post_init__(self, continuation_input: object | None) -> None:
@@ -380,6 +435,9 @@ class AgentsSdkResult:
                 continue
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
                 raise ValueError(f"{name} must be a non-negative integer")
+        if any(not isinstance(item, str) for item in self.served_models):
+            raise ValueError("served_models must contain strings")
+        object.__setattr__(self, "served_models", tuple(self.served_models))
         object.__setattr__(
             self,
             "_provider_continuation",
@@ -548,6 +606,7 @@ def _run_openai_agents_sdk(request: AgentsSdkRequest) -> AgentsSdkResult:
         batched_tool_calls_dropped=int(
             getattr(model, "batched_tool_calls_dropped", 0)
         ),
+        served_models=_served_models_of(model),
         continuation_input=continuation_input,
     )
 
@@ -1362,6 +1421,9 @@ class OpenAIAgentsRuntime:
                 "provider_attempts": (
                     result.provider_attempts if result is not None else None
                 ),
+                "served_models": (
+                    list(result.served_models) if result is not None else []
+                ),
                 "error": run_error,
             },
         )
@@ -1508,6 +1570,7 @@ class OpenAIAgentsRuntime:
                 {
                     "runtime": self._backend,
                     "model": self._model_name,
+                    "served_models": list(result.served_models) if result else [],
                     "input_tokens": result.input_tokens if result else None,
                     "output_tokens": result.output_tokens if result else None,
                     "provider_attempts": (
@@ -1616,7 +1679,10 @@ class OpenAIAgentsRuntime:
                 "runtime_result",
                 {
                     "runtime": self._backend,
+                    # ``model`` 是我们请求的（配置值）；``served_models`` 是对端逐响应
+                    # 自报的（生效值）。两个并列写，A/B 硬门 3 比对的是后者。
                     "model": self._model_name,
+                    "served_models": list(result.served_models) if result else [],
                     "input_tokens": result.input_tokens if result else None,
                     "output_tokens": result.output_tokens if result else None,
                     "provider_attempts": result.provider_attempts if result else None,
