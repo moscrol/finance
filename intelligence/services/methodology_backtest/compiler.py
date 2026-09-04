@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Any
+from typing import Any, Sequence
 
 from .labels import MARKET_ENTITY_ID
 from .rules import METRICS, Predicate, Rule
@@ -40,12 +40,37 @@ class Query:
 class CompiledRule:
     events: Query
     metrics: Query
-    baseline_template: Query  # params 里留两个日期位，见 baseline_for
+    baseline_kind: str  # 规则声明的基准口径（定结论用）；另一种由 runner 作对照列
+    baseline_params: tuple[Any, ...]  # (entity_type, success_value, entity_type, horizon)，日期位由 baseline_for 填
+    metric_col: str
+    success_op: str
 
-    def baseline_for(self, start: date | str, end: date | str) -> Query:
-        """基准率查询：同 universe、[start, end] 内全部 (实体, 日) 的 success 比例。"""
-        head, tail = self.baseline_template.params[:1], self.baseline_template.params[1:]
-        return Query(self.baseline_template.sql, (*head, str(start), str(end), *tail))
+    def baseline_for(
+        self,
+        start: date | str,
+        end: date | str,
+        *,
+        kind: str | None = None,
+        event_dates: Sequence[date | str] = (),
+    ) -> Query:
+        """基准率查询。``all_days``：[start, end] 内同 universe 全部 (实体, 日)；
+        ``event_days``：只取 ``event_dates`` 那些交易日（日期走绑定参数，个数 <= 日历长度）。"""
+        kind = kind or self.baseline_kind
+        if kind not in _BASELINE_SQL:
+            raise ValueError(f"编译器不认识 baseline.kind={kind!r}")
+        entity_type, success_value, _et, horizon = self.baseline_params
+        if kind == "same_universe_event_days":
+            dates = sorted({str(d) for d in event_dates})
+            if not dates:
+                return Query(_EMPTY_BASELINE_SQL, ())
+            sql = _BASELINE_SQL[kind].format(
+                metric_col=self.metric_col,
+                success_op=self.success_op,
+                date_placeholders=", ".join("?" for _ in dates),
+            )
+            return Query(sql, (entity_type, *dates, success_value, entity_type, horizon))
+        sql = _BASELINE_SQL[kind].format(metric_col=self.metric_col, success_op=self.success_op)
+        return Query(sql, (entity_type, str(start), str(end), success_value, entity_type, horizon))
 
 
 def _bind_value(pred: Predicate) -> tuple[Any, ...]:
@@ -161,29 +186,37 @@ def compile_rule(rule: Rule, *, start: date | str, end: date | str) -> CompiledR
         *where_params,
     )
 
-    baseline_sql = _BASELINE_SQL[rule.baseline_kind].format(metric_col=metric_col, success_op=success_op)
-    # 两个日期位由 baseline_for 填：params = (entity_type, <start>, <end>, success_value, entity_type, horizon)
-    baseline_params = (rule.entity_type, rule.success.value, rule.entity_type, rule.success.horizon)
-
     return CompiledRule(
         events=Query(events_sql, events_params),
         metrics=Query(metrics_sql, metrics_params),
-        baseline_template=Query(baseline_sql, baseline_params),
+        baseline_kind=rule.baseline_kind,
+        baseline_params=(rule.entity_type, rule.success.value, rule.entity_type, rule.success.horizon),
+        metric_col=metric_col,
+        success_op=success_op,
     )
 
 
-# baseline.kind → SQL 模板。{metric_col} / {success_op} 只接受白名单映射结果。
+# baseline.kind → SQL 模板。{metric_col} / {success_op} 只接受白名单映射结果；{date_placeholders} 是 ? 序列。
+_BASELINE_TAIL = (
+    "SELECT COUNT(*) AS n,\n"
+    "       COUNT(*) FILTER (WHERE o.{metric_col} {success_op} ?) AS k\n"
+    "FROM u\n"
+    "JOIN history_outcomes o\n"
+    "  ON o.entity_type = ? AND o.entity_id = u.entity_id\n"
+    " AND o.trade_date = u.trade_date AND o.horizon = ? AND o.status = 'ok'"
+)
 _BASELINE_SQL: dict[str, str] = {
     "same_universe_all_days": (
         "WITH u AS (\n"
         "    SELECT DISTINCT entity_id, trade_date FROM history_labels\n"
         "    WHERE entity_type = ? AND trade_date BETWEEN ? AND ?\n"
-        ")\n"
-        "SELECT COUNT(*) AS n,\n"
-        "       COUNT(*) FILTER (WHERE o.{metric_col} {success_op} ?) AS k\n"
-        "FROM u\n"
-        "JOIN history_outcomes o\n"
-        "  ON o.entity_type = ? AND o.entity_id = u.entity_id\n"
-        " AND o.trade_date = u.trade_date AND o.horizon = ? AND o.status = 'ok'"
+        ")\n" + _BASELINE_TAIL
+    ),
+    "same_universe_event_days": (
+        "WITH u AS (\n"
+        "    SELECT DISTINCT entity_id, trade_date FROM history_labels\n"
+        "    WHERE entity_type = ? AND trade_date IN ({date_placeholders})\n"
+        ")\n" + _BASELINE_TAIL
     ),
 }
+_EMPTY_BASELINE_SQL = "SELECT 0 AS n, 0 AS k"

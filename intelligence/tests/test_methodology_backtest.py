@@ -558,6 +558,143 @@ def test_cli_answer_score_gate_refuses_promotion_without_supported_receipt(synth
     assert rows[1]["rule_receipt"].endswith("selftest_positive@v1/2026-09-04.json")
 
 
+# --------------------------------------------------------------------------- #
+# 基准率两种口径：声明的定结论，另一种作对照
+# --------------------------------------------------------------------------- #
+def test_compiler_event_day_baseline_binds_dates():
+    rule = parse_rule({**BASE_RULE, "baseline": {"kind": "same_universe_event_days"}})
+    compiled = compile_rule(rule, start="2026-01-01", end="2026-12-31")
+    assert compiled.baseline_kind == "same_universe_event_days"
+    q = compiled.baseline_for("2026-01-01", "2026-12-31", event_dates=["2026-03-02", "2026-03-04", "2026-03-02"])
+    assert q.sql.count("?") == len(q.params) and q.params[1:3] == ("2026-03-02", "2026-03-04")
+    assert "IN (?, ?)" in q.sql and "BETWEEN" not in q.sql
+    empty = compiled.baseline_for("2026-01-01", "2026-12-31", event_dates=[])
+    assert empty.params == () and "SELECT 0" in empty.sql
+    other = compiled.baseline_for("2026-01-01", "2026-12-31", kind="same_universe_all_days")
+    assert "BETWEEN ? AND ?" in other.sql and other.params[1:3] == ("2026-01-01", "2026-12-31")
+    with pytest.raises(ValueError):
+        compiled.baseline_for("2026-01-01", "2026-12-31", kind="made_up")
+
+
+def test_runner_reports_alternative_baseline_as_comparison(synthetic):
+    """阳性对照下两种口径都该 supported；对照列只记读数，不改结论。"""
+    st = synthetic["st"]
+    con = duckdb.connect(str(synthetic["labels"]), read_only=True)
+    try:
+        primary = run_rule(con, parse_rule(st.POSITIVE_RULE))
+        swapped = run_rule(con, parse_rule({**st.POSITIVE_RULE, "baseline": {"kind": "same_universe_event_days"}}))
+    finally:
+        con.close()
+    assert primary.baseline_alt is not None and primary.baseline_alt.kind == "same_universe_event_days"
+    assert swapped.baseline_alt is not None and swapped.baseline_alt.kind == "same_universe_all_days"
+    # 互为对照：A 的主基准 == B 的对照基准
+    assert primary.baseline_alt.n == swapped.readout.baseline_n and primary.baseline_alt.k == swapped.readout.baseline_k
+    assert swapped.baseline_alt.n == primary.readout.baseline_n
+    assert primary.readout.verdict == swapped.readout.verdict == "supported"
+    assert primary.baseline_alt.verdict_if_used == "supported"
+    # 事件日口径的 universe 只含事件日：行数必然 <= 全日期口径
+    assert primary.baseline_alt.n <= primary.readout.baseline_n
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    receipt = build_receipt(primary, rule_path=None, rule_sha256=None, environment=env)
+    assert receipt["baseline_kind"] == "same_universe_all_days" and receipt["baseline_alt"]["kind"] == "same_universe_event_days"
+    assert "对照基准率" in render_receipt_markdown(receipt)
+
+
+# --------------------------------------------------------------------------- #
+# 纠偏 → 候选规则登记入口
+# --------------------------------------------------------------------------- #
+def test_parse_predicate_grammar():
+    from intelligence.services.methodology_backtest.propose import parse_predicate, parse_success
+
+    assert parse_predicate("dual_red_strict == true") == {"label": "dual_red_strict", "op": "==", "value": True, "lag": 0}
+    assert parse_predicate("dual_red_streak@1 >= 3") == {"label": "dual_red_streak", "op": ">=", "value": 3, "lag": 1}
+    assert parse_predicate("market:market_stage in 主升阶段,主升") == {
+        "label": "market_stage", "op": "in", "value": ["主升阶段", "主升"], "lag": 0, "entity": "market",
+    }
+    assert parse_predicate("limit_heat_rank <= 10.5")["value"] == 10.5
+    assert parse_success("fwd_return 5 > 0") == {"metric": "fwd_return", "horizon": 5, "op": ">", "value": 0.0}
+    for bad in ("dual_red_strict", "dual_red_strict === true", "x@-1 > 0", ""):
+        with pytest.raises(ValueError):
+            parse_predicate(bad)
+    with pytest.raises(ValueError):
+        parse_success("fwd_return > 0")
+
+
+def test_build_rule_doc_validates_and_pins_provenance(tmp_path):
+    from intelligence.services.methodology_backtest.propose import (
+        build_rule_doc,
+        correction_provenance,
+        find_correction,
+        parse_predicate,
+        parse_success,
+        write_rule_file,
+    )
+
+    records = [
+        {"ts": "2026-09-01T10:00:00", "id": "abc123def456", "correction": "双红要连三天才算启动", "principle": "连续双红看第三天", "themes": ["双红"]},
+        {"ts": "2026-09-02T10:00:00", "correction": "无 id 的旧行"},
+    ]
+    assert find_correction(records, "abc123def456") is records[0]
+    assert find_correction(records, "2026-09-02T10:00:00") is records[1]
+    assert find_correction(records, "nope") is None
+    prov = correction_provenance(records[0], user="tester", now=__import__("datetime").datetime(2026, 9, 4, tzinfo=__import__("datetime").timezone.utc))
+    assert prov["kind"] == "correction" and prov["ref"] == "abc123def456" and prov["text"] == "连续双红看第三天" and prov["user"] == "tester"
+
+    doc, rule = build_rule_doc(
+        rule_id="dual_red_third_day",
+        title="连续双红第三天后 5 日上涨",
+        entity_type="sector",
+        predicates=[parse_predicate("dual_red_strict == true"), parse_predicate("dual_red_streak >= 3")],
+        success=parse_success("fwd_return 5 > 0"),
+        horizons=[3, 10],
+        provenance=prov,
+    )
+    assert rule.ref == "dual_red_third_day@v1"
+    assert doc["outcome"]["horizons"] == [3, 5, 10]  # success 的窗口自动并入
+    assert doc["provenance"]["ref"] == "abc123def456"
+    path = write_rule_file(tmp_path, doc)
+    assert path.name == "dual_red_third_day.v1.json"
+    assert load_rule(path).raw["provenance"]["kind"] == "correction"
+    with pytest.raises(FileExistsError):
+        write_rule_file(tmp_path, doc)
+
+    # 白名单仍然生效：谓词短句语法对但 label 不在白名单 → 带字段路径的校验错
+    with pytest.raises(RuleValidationError) as exc:
+        build_rule_doc(
+            rule_id="bad_label_rule", title="t", entity_type="sector",
+            predicates=[parse_predicate("sector_close > 0")], success=parse_success("fwd_return 5 > 0"),
+        )
+    assert any(e.path == "condition.all[0].label" for e in exc.value.errors)
+    # provenance 本身也过白名单
+    rule2, errors = validate_rule({**doc, "rule_id": "prov_bad", "provenance": {"kind": "llm", "sql": "x"}})
+    assert rule2 is None and {e.path for e in errors} >= {"provenance.kind", "provenance.sql"}
+
+
+def test_cli_propose_writes_rule_and_refuses_overwrite(synthetic, tmp_path):
+    cli = _load_script(CLI, "mb_cli_for_pytest_propose")
+    corrections = tmp_path / "corrections.jsonl"
+    corrections.write_text(
+        __import__("json").dumps({"ts": "2026-09-01T10:00:00", "id": "c0ffee000001", "correction": "边际量拐头当天别追", "principle": "拐点看次日"}, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    rules_dir = tmp_path / "rules"
+    args = [
+        "propose", "--rule-id", "turn_up_next_day", "--title", "拐点次日再看 3 日", "--entity-type", "sector",
+        "--pred", "diff_ratio_turn_up@1 == true", "--pred", "market:volume_surge == true",
+        "--success", "fwd_return 3 > 0", "--min-n", "30",
+        "--from-correction", "c0ffee000001", "--corrections-file", str(corrections), "--rules-dir", str(rules_dir),
+    ]
+    assert cli.main(args) == 0
+    written = rules_dir / "turn_up_next_day.v1.json"
+    rule = load_rule(written)
+    assert rule.min_n == 30 and rule.predicates[0].lag == 1 and rule.predicates[1].entity_type == "market"
+    assert rule.raw["provenance"] == {**rule.raw["provenance"], "kind": "correction", "ref": "c0ffee000001", "text": "拐点看次日"}
+    assert cli.main(args) == 2  # 不覆盖已存在版本
+    assert cli.main([*args[:-2], "--rules-dir", str(rules_dir), "--from-correction", "missing"]) == 2
+    # 登记出来的规则能直接跑
+    assert cli.main(["run", str(written), "--labels-db", str(synthetic["labels"]), "--no-write"]) == 0
+
+
 def test_cli_run_and_invalid_rule_exit_codes(synthetic, tmp_path):
     cli = _load_script(CLI, "mb_cli_for_pytest")
     st = synthetic["st"]

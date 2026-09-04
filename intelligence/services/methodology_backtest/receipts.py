@@ -82,6 +82,7 @@ def build_receipt(
             "baseline": {"kind": rule.baseline_kind},
             "min_n": rule.min_n,
             "notes": rule.raw.get("notes"),
+            "provenance": rule.raw.get("provenance"),
         },
         "window": {"start": result.window[0], "end": result.window[1]},
         "baseline_window": (
@@ -99,6 +100,8 @@ def build_receipt(
             "sample": result.events_sample,
         },
         "stats": rd.to_dict(),
+        "baseline_kind": rule.baseline_kind,
+        "baseline_alt": result.baseline_alt.to_dict() if result.baseline_alt else None,
         "verdict": verdict,
         "verdict_single": rd.verdict,
         "verdict_label": _VERDICT_CN.get(verdict, verdict),
@@ -152,10 +155,16 @@ def render_receipt_markdown(receipt: dict[str, Any]) -> str:
     lines.append(f"| 命中 k / 命中率 p | {s['k']} / {_pct(s['p'])} |")
     bw = receipt.get("baseline_window") or {}
     lines.append(
-        f"| 同期基准率 p0 | {_pct(s['p0'])}（{s['baseline_k']}/{s['baseline_n']}，"
+        f"| 同期基准率 p0（`{receipt.get('baseline_kind', 'same_universe_all_days')}`） | {_pct(s['p0'])}（{s['baseline_k']}/{s['baseline_n']}，"
         f"{bw.get('start', '—')} → {bw.get('end', '—')}） |"
     )
     lines.append(f"| 提升 lift | {_pct(s['lift'])} |")
+    alt = receipt.get("baseline_alt")
+    if alt:
+        lines.append(
+            f"| 对照基准率（`{alt['kind']}`） | {_pct(alt['p0'])}（{alt['k']}/{alt['n']}），lift {_pct(alt['lift'])}，"
+            f"若以此定结论 → `{alt['verdict_if_used']}` |"
+        )
     lines.append(f"| Wilson 95% | [{_pct(s['wilson_lo'])}, {_pct(s['wilson_hi'])}] |")
     fh, sh = s["first_half"], s["second_half"]
     lines.append(f"| 前半段 / 后半段 | {_pct(fh['p'])}（{fh['k']}/{fh['n']}） / {_pct(sh['p'])}（{sh['k']}/{sh['n']}） |")
