@@ -421,12 +421,14 @@ recipes:
       - "盘面阶段判据（草案，阈值待回测校准）：发酵 = 知识库首个 L3/认知跃迁之后、题材内首次双红或 fact_theme_limit_heat_daily.limit_up_count≥1 且双红未连续；主升 = 双红连续≥2 日或 fact_sector_daily 多周期共振，且 limit_heat.market_share 与 fact_stock_high_daily 新高家数同升；分歧 = 涨停数 / fact_limit_advance_daily.promotion_rate 回落但 amount 仍过双红容量门、diff_ratio 转负（策略1 的回流日）；退潮 = 双红消失≥N 日 + 涨停热度归零 + 出现跌停。双红谓词只引 signals.is_double_red"
       - "题材↔板块映射走 dim_sector / fact_mainline_theme_daily；发酵起点与起涨/补涨梯队复用 theme-fermentation-tracer 的时间线，不另写一套"
       - "相似题材检索第一期 = market_regime_analogs 的签名法搬到题材级：每题材每日向量（双红天数、涨停份额、边际量、新高家数、认同度★）→ 窗口签名（z 均值, 首尾变化）→ 加权 L1；只列历史事实与之后 5/10/20 日走法，不给概率。第二期叠知识库文档 embedding 过滤「逻辑也像」的（Hybrid：结构化签名 + 语义）"
+      - "知识库题材周期材料定位清单（2026-09-05 round 3-C，只用 rg --files + frontmatter/标题行命中，未读正文；KB 仓 /Users/a77/knowledge-base-private，relations 用 query_relations.py stats）：① wiki/relations/theme_signals.json —— 182 个题材 × {recognition_timeline（认知阶梯事件：time_window/event/recognition_stage/market_consensus/fact_level/direction/related_entities/evidence_summary）, progress_ruler, market_heat, price_signals, action_plan, _meta.stage_floor（如「萌芽 ★★」= 认同度下限）}，updated 2026-08-29 → 逻辑轴的结构化真本源；② wiki/relations/pattern_library.json —— 4 个题材（mSAP/CPO/HBM/玻璃基板）× {keywords, stages, key_signals} 的题材阶段模式库（1.4KB）；③ wiki/relations/fupanhui_panorama.json —— 2 个全景（commercial-space / ai-hardware），盘面轴快照；④ wiki/synthesis/*theme-radar*.md —— 27 篇题材级报告/验收，26 篇带「## 发酵进度」节（实例，非方法论）；⑤ wiki/synthesis/发酵复盘-电子布-2026-06-12.md —— 唯一 type: fermentation_report（theme-fermentation-tracer 实例）。文件名含「周期」的 concepts（猪周期/橡胶周期/化工周期/周期资源）是商品周期概念页，排除。**题材周期方法论类文档：0 篇**——原骨架写的「知识库 36 篇文档」未定位到，方法论正文只在本仓 intelligence/foresight_methodology.md §三"
     proactive: "盘面阶段跨段当日主动报（尤其 主升→分歧、发酵→主升），附逻辑轴位置与签名最相似的 3 个历史题材及其之后走法；未跨段不报"
     status: note
     decisions:
       - "2026-09-04 两轴分开，不用 perspective_lab 的五段词表：兑现属逻辑轴，混进盘面轴判据落不了表"
       - "2026-09-04 相似度先签名法后 Hybrid；弃纯 LLM 语义（不看盘面、不可复现）与纯规则「同阶段即相似」（太粗）"
-    open: "round 2：N 取值、题材级向量各维权重、阈值回测窗口；原骨架写的「知识库 36 篇文档」清单尚未定位[未实测]"
+      - "2026-09-05 round 3-C 只做定位不读正文：题材级向量与阶段判据回放是下一单；「36 篇」这类数字以后不写进骨架，先 rg 数出来再写"
+    open: "round 4：N 取值、题材级向量各维权重、阈值回测窗口；题材级向量的逻辑轴维直接吃 theme_signals.json 的 recognition_timeline / stage_floor，盘面轴维从 fact_* 表算——第一期签名法可以开工"
 
   - key: ma5_rotation_cycle
     question: MA5 拐点的个股交替周期（涨家数 MA5 峰谷切出的周期里，领涨群体是否在加权强度榜与区间涨幅榜之间交替）
@@ -442,7 +444,9 @@ recipes:
       - "2026-09-04 加权公式取 sqrt(amount)×pct（开方压住成交额主导）"
       - "2026-09-04 round 2 默认值生效：Top N=20、重合率=Jaccard、先独立脚本出台账再进夜跑"
       - "2026-09-04 假设 (a)「逐周期交替」未获支持 [探索：72 段 / 36 上升段，2025-01-02~2026-09-02，MA5_MIN_SWING 默认]：两榜确是两群人（J(R,W) 中位 0.2；W 榜个头 25x、R 榜 4.5x），但每段换人（与上一同向段 J≈0），下一段无延续亦无反转（均收益中位 +0.1%，胜率 51~52%），相邻上升段 R 榜个头大/小翻转率 34% < 随机 50%。看到的是多周期 regime（小票领涨连续数周期、再换大票），不是逐周期交替 → 新假设 (a′)：领涨个头的大小是 regime 变量，与 money_effect_clustering 的四簇对照"
-    open: "round 3：(a′) 与赚钱效应簇的交叉表；MA5_MIN_SWING 敏感性（现有 2~3 日的碎段）；(b)/(c) 对照假设是否还值得跑；案例表是否入 feature_ 表（假设未成立前不入）"
+      - "2026-09-05 round 3-B 假设 (a′)「R 榜领涨个头是 regime 变量」**未获支持** [探索：MIN_SWING=500 的 72 段中 62 段有簇标签；簇用 k-means 四簇与 round 2 绝对阈值规则两份对照，分位版未过门槛不用]：R 榜个头中位在四簇里都是 4.0~4.5x，大/小对半（巨量轮动 4/5、放量分化 8/8、主线引领 8/6、缩量普涨 11/12），regime 不区分它。随 regime 单调变化的是 **W 榜个头**（巨量轮动 37.5x → 放量分化 29.9x → 主线引领 19.0x → 缩量普涨 16.2x）和 **两榜分离度 J(R,W)**（巨量轮动 0.11 → 缩量普涨 0.25）：量越大，资金榜与涨幅榜越是两群人 → 若还要追，改问 (a″)「regime 决定两榜分离度与 W 榜个头」，注意 W 榜按 √amount 加权、与量能 regime 部分同源，要先排除同源性再当发现"
+      - "2026-09-05 round 3-B MIN_SWING 敏感性 [探索，三档 300/500/800]：段数 97/72/48、段长中位 5/6/7 日、≤3 日碎段 32/10/0；上升段 R 榜个头大/小翻转率 33%/34%/**52%**——碎段清零后回到随机基线，说明 round 2 的「多周期 regime」（34%<50%）是相邻碎段共享同一批领涨股的假象，不是市场性质。生产 turning_points.MA5_MIN_SWING=500 不动（那是转折信号的口径，非本 recipe 的活）；案例表若继续跑用 800 切段。读数：~/.finance-runtime/experiments/ma5-cycle-20260905/ma5_cycle_regime_cross_2026-09-05.md"
+    open: "round 4：(a)/(a′) 均不成立，本 recipe 是否继续——若继续只剩 (a″) 两榜分离度/W 榜个头 × regime（先排除 √amount 加权与量能 regime 的同源性）与 (b)/(c) 对照假设；不建 feature_ 表、不翻 live，proactive 保留「确认日报周期长度与两榜」的事实播报口径不变"
 
   - key: money_effect_clustering
     question: 市场赚钱效应识别——把交易日按情绪结构聚成可命名的状态（扩散/抱团/分化/收缩/冰点一类），并识别状态切换日
