@@ -1,5 +1,8 @@
 # feat/methodology-backtest-p1-propose
 
+> **2026-09-04 已合入**：PR #581 → `gitea/main=b9f66014`（分支尖 `3ffb6c90`，主门禁 7699P/0F/15S/1x，ruff 0，前端零改动）。纯加法，无运行时行为变化，无需切 8792。
+> 下文为合入前原状，供溯源。
+
 树 `/Users/a77/fwp-wt-methodology-backtest-p1b`，基座 `feat/methodology-backtest-p1-gate`=`1be840f8`（PR #576 的分支尖；#576 合入后本支对 main 只多 3 个提交）。
 设计稿 `2026-09-04-methodology-backtest-structured-history-design.md` §3.4 第三行 + P0 交接「已知边界」里的基准率一条。解释器 `.venv-workbench/bin/python`。
 
@@ -29,7 +32,7 @@ P1 第二刀，两件都是**加法、不改既有运行时行为**：
 ## 已验证（本树）
 - `test_methodology_backtest.py` 39 例 + `test_experience_cards.py` 19 例绿（新增 5：谓词语法、组装 + 溯源 + 拒覆盖、CLI propose 端到端、事件日 SQL 绑定、对照列互为镜像）
 - selftest 12/12；`propose --dry-run` 真环境可用；ruff 0；`unread-fields` 无新增；pre-commit 全过
-- 全量主门禁：见末尾追加行
+- 全量主门禁 `run_main_gate.sh` @ `3ffb6c90`（干净树）：7699 passed / 0 failed / 15 skipped / 1 xfailed，ruff 0
 
 ## 未验证 / 已知边界
 - `propose` 只登记不翻译；谓词短句里的值类型按字面猜（true/false / 数字 / 文本），合法性靠白名单
