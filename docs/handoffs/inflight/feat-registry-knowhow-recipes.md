@@ -18,7 +18,10 @@
   tests/test_tiered_sync_local.py` 18 passed；ruff 绿。
 - 全量门禁（`run_main_gate.sh`，干净树 `92dab79e`）：ruff 绿、pytest **7700P/0F/15S/1x**，收据
   `~/.finance-runtime/test-receipts/20260904T145*-92dab79e.json`；diff 不触碰 `intelligence/webapp`，frontend/e2e 叶子不受影响。
-  PR #586 待用户确认合并。
+  PR #586 **已合入**（用户口令「合并」，`gitea/main@2c5520b3`，2026-09-04 23:0x）。worktree `/Users/a77/fwp-wt-tiered-sync`
+  仍停在已合并的本地分支 `feat/registry-knowhow-recipes`，远程分支已由 Gitea 删除。
+  round 2 默认值已向用户提出（赚钱效应 k=4 + 切换去抖 2 日；MA5 两榜 Top 20 + Jaccard + 先独立脚本；题材退潮 N=3 + 等权），
+  等用户命名四簇 / 反对即改。
 - `money_effect_clustering` 的第一段探索（两段式里的「聚类找边界」）已跑，结论回写进 recipe 的 `decisions`，见下。
 - 另两条只到文本层，未做任何探索或派生表。
 
