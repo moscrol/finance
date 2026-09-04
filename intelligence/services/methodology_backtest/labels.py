@@ -1,4 +1,4 @@
-"""结构化历史标签层 v1（设计稿 §3.1 表前 12 行）：把「图像」编译成表里的一行。
+"""结构化历史标签层（设计稿 §3.1 表前 12 行 + P1 个股三行）：把「图像」编译成表里的一行。
 
     (entity_type, entity_id, trade_date, label, value_num, value_text, label_version, computed_at)
 
@@ -8,7 +8,8 @@
    放量阈值与 MA5 峰谷确认日算法直接调 ``market_feature_store.analysis.turning_points``。
 3. **确定性 + 版本化**：同一主库同一代码同输出；口径的每次改动升 ``LABEL_VERSION``。
 
-标签目录 v1（entity_id 统一用 ``sector_ts_code``，展示时再 join ``dim_sector``）：
+标签目录（sector / theme 的 entity_id 统一用 ``sector_ts_code``，展示时再 join ``dim_sector``；
+stock 用 ``stock_ts_code``）：
 
 | 实体 | 标签 | 值 | 定义 |
 |---|---|---|---|
@@ -24,6 +25,9 @@
 | market | volume_surge | 1/0/NULL | ``amount_vs_yesterday_pct > VOLUME_SURGE_PCT``（与 detect_turning_points 同阈值，真库上两口径 74 日完全一致） |
 | market | ma5_peak_confirmed | 1/0 | ``SignalDetector`` 的 MA5 顶确认日 |
 | market | ma5_valley_confirmed | 1/0 | ``SignalDetector`` 的 MA5 谷确认日 |
+| stock | limit_up | 1/0/NULL | 当日在 ``fact_theme_limit_stock_daily`` 且 ``limit_status='U'``；涨停表整日缺失则 NULL |
+| stock | first_board | 1/0/NULL | 涨停且 ``limit_times = 1``（连板数 1）；不涨停为 0；涨停但连板数缺失或整日缺失为 NULL |
+| stock | new_high_1y | 1/0/NULL | ``fact_stock_high_daily.primary_high_period`` ∈ ``NEW_HIGH_1Y_PERIODS``；新高表整日缺失则 NULL |
 
 ``data_gap``（当日 >90% published 板块 ``diff_ratio = 0``）单独落 ``history_data_gaps``，不占标签名额：
 该日双红类标签置 NULL，既不进事件集也不进基准率，并进收据成立条件。
@@ -32,6 +36,25 @@
 全部出现在 ``fact_sector_daily``，99.3% 的热度行能拿到同日 ``pct_chg``；而 ``fact_mainline_theme_daily``
 的 ``theme_code``（TH000xx.FP）与之不在同一 ID 空间、无法 join，故 ``mainline_flag`` 取
 ``fact_mainline_sector_daily``（同 ID 空间，覆盖 106 日 vs 53 日）。
+
+个股 universe 为什么是「涨停表 ∪ 新高表」而不是全市场（``STOCK_UNIVERSE = limit_high_union``）：
+全市场 5,568 只 × 405 日 ≈ 2.1M 个股日，标签 + 前瞻结果要 ~8M 行，旁路库膨胀十倍，而问题本身
+是「强势股池子里，首板 / 新高这一层选择有没有超额」——基准率取同一池子才是设计稿 §3.2「同 universe」
+的本意；择时效应由 ``same_universe_event_days`` 对照列剥离。并集内三个标签稠密打 1/0，只在源表
+整日缺失时置 NULL（2026-09-04 真库：涨停表 405 日里缺 10 日，主库 ``fact_market_daily.limit_up``
+显示那些天有 40–92 只涨停，是同步缺口不是零涨停日；新高表 405 日全覆盖）。
+
+涨停 / 首板为什么不取设计稿写的 ``fact_limit_advance_daily``：该表由 ``sync_fupanhui_limit_advance``
+写入时固定 ``min_boards=2``，**没有首板行**（真库 4,907 行 boards 全 >= 2），且 ``first_limit_date``
+依赖接口返回的日期列表，真库有大量负 gap（-9 ～ -337 个交易日）；而 ``fact_theme_limit_stock_daily``
+是全量涨停股（``limit_status`` 全 'U'，``limit_times`` 即连板数，首板 21,108 个股日占 79.5%），
+逐日只数与 ``fact_market_daily.limit_up`` 在 336/395 日完全相等，与连板梯队重叠部分
+``boards == limit_times`` 4,671/4,671。同一 (日, 股) 在多个板块下重复出现，``limit_times`` 零冲突，
+按 (日, 股) 折叠。
+
+``new_high_1y`` 为什么用 ``primary_high_period`` 而不解析 ``high_periods_json``：真库核数 primary
+恒为 json 里最长周期且周期嵌套（长周期新高必含短周期），primary ∈ {1y,2y,3y,history} 与
+json 含 "1y" 两种判法行数完全相等（61,635）。``is_new``（当日新进榜 / 周期升级）未做标签，留作候选。
 """
 
 from __future__ import annotations
@@ -61,15 +84,21 @@ from .store import (
     write_meta,
 )
 
-# 口径版本。热度档位、阈值、算法任何一处变动都要升版本，旧收据凭它判「不可比」。
+# 口径版本。热度档位、阈值、算法、标签目录任何一处变动都要升版本，旧收据凭它判「不可比」。
+# v1 → v2：新增 stock 三标签（limit_up / first_board / new_high_1y），sector / theme / market 口径未动。
 HEAT_TIER = {"dimension": "sector", "scope": "all", "data_stage": "final", "is_realtime": False}
-LABEL_VERSION = "v1-heat_sector_all_final_nonrt"
+LABEL_VERSION = "v2-heat_sector_all_final_nonrt-stock_limit_high_union"
 
 DATA_GAP_ZERO_RATIO = 0.9
 DUAL_RED_DIFF_RATIO_GT = 10.0
 DUAL_RED_AMOUNT_GT = 500.0
 HEAT_RANK_JUMP_GE = 5
 AMOUNT_RANK_TOP = 10
+# 个股：涨停状态码（复盘会 limit_status：U 涨停 / Z 炸板 / D 跌停）；一年新高 = primary 周期在此集合内。
+LIMIT_UP_STATUS = "U"
+FIRST_BOARD_LIMIT_TIMES = 1
+NEW_HIGH_1Y_PERIODS = ("1y", "2y", "3y", "history")
+STOCK_UNIVERSE = "limit_high_union"
 
 SECTOR_LABELS = (
     "dual_red_strict",
@@ -80,7 +109,8 @@ SECTOR_LABELS = (
 )
 THEME_LABELS = ("limit_heat_rank", "limit_heat_rank_jump", "mainline_flag")
 MARKET_LABELS = ("market_stage", "volume_surge", "ma5_peak_confirmed", "ma5_valley_confirmed")
-ALL_LABELS = SECTOR_LABELS + THEME_LABELS + MARKET_LABELS
+STOCK_LABELS = ("limit_up", "first_board", "new_high_1y")
+ALL_LABELS = SECTOR_LABELS + THEME_LABELS + MARKET_LABELS + STOCK_LABELS
 MARKET_ENTITY_ID = "market"
 
 # 供收据引用的口径说明；与 LABEL_VERSION 一起落 history_build_meta.source_row_counts。
@@ -94,7 +124,14 @@ LABEL_SPEC: dict[str, Any] = {
     "volume_surge": f"amount_vs_yesterday_pct > {VOLUME_SURGE_PCT:g}",
     "ma5": f"turning_points.SignalDetector(MA5_MIN_SWING={MA5_MIN_SWING}) confirm-day, full fact_market_daily range",
     "mainline_flag": "fact_mainline_sector_daily (trade_date, sector_ts_code) exists; NULL on days without coverage",
-    "entity_id": "sector_ts_code for sector & theme; 'market' for market",
+    "stock_universe": (
+        f"{STOCK_UNIVERSE}: distinct (trade_date, stock_ts_code) in fact_theme_limit_stock_daily UNION "
+        "fact_stock_high_daily; labels dense 1/0 inside, NULL only on days the source table has no rows"
+    ),
+    "limit_up": f"fact_theme_limit_stock_daily row with limit_status='{LIMIT_UP_STATUS}' (collapsed over sectors)",
+    "first_board": f"limit_up AND limit_times = {FIRST_BOARD_LIMIT_TIMES}; not limit_up → 0; limit_times NULL → NULL",
+    "new_high_1y": f"fact_stock_high_daily.primary_high_period IN {list(NEW_HIGH_1Y_PERIODS)}",
+    "entity_id": "sector_ts_code for sector & theme; 'market' for market; stock_ts_code for stock",
 }
 
 
@@ -104,7 +141,7 @@ def build_labels(
     *,
     now: datetime | None = None,
 ) -> BuildReport:
-    """从主库只读重建全部 12 个标签 + data_gap + 交易日历，写入旁路库。幂等：同输入同输出。"""
+    """从主库只读重建全部 15 个标签 + data_gap + 交易日历，写入旁路库。幂等：同输入同输出。"""
     computed_at = naive_utc(now or utc_now())
     con = open_labels_db(labels_db, read_only=False)
     try:
@@ -116,12 +153,14 @@ def build_labels(
             _build_sector_labels(con, computed_at)
             _build_theme_labels(con, computed_at)
             ma5_counts = _build_market_labels(con, computed_at)
+            stock_coverage = _build_stock_labels(con, computed_at)
 
             source_max = con.execute(
                 f"SELECT MAX(trade_date) FROM {SOURCE_ALIAS}.fact_market_daily"
             ).fetchone()[0]
             counts = _source_counts(con)
             counts["ma5_signals"] = ma5_counts
+            counts["stock_coverage"] = stock_coverage
             counts["label_spec"] = LABEL_SPEC
             total = con.execute("SELECT COUNT(*) FROM history_labels").fetchone()[0]
             write_meta(
@@ -440,6 +479,111 @@ def _build_market_labels(con: duckdb.DuckDBPyConnection, computed_at: datetime) 
     return {"peak_confirmed": len(peaks), "valley_confirmed": len(valleys)}
 
 
+# --------------------------------------------------------------------------- #
+# stock（universe = 涨停表 ∪ 新高表，并集内稠密 1/0）
+# --------------------------------------------------------------------------- #
+def _build_stock_labels(con: duckdb.DuckDBPyConnection, computed_at: datetime) -> dict[str, Any]:
+    """三个个股标签。返回覆盖读数（两张源表各有多少日、并集多大、涨停表缺哪些日）供成立条件引用。"""
+    # 涨停表同一 (日, 股) 在多个板块下重复，按 (日, 股) 折叠；limit_times 真库零冲突，MAX 只是折叠手段。
+    con.execute(
+        f"""
+        CREATE OR REPLACE TEMP TABLE _stk_lim AS
+        SELECT t.trade_date, t.stock_ts_code AS entity_id,
+               MAX(CASE WHEN t.limit_status = ? THEN 1 ELSE 0 END) AS is_limit,
+               MAX(CASE WHEN t.limit_status = ? THEN t.limit_times END) AS limit_times
+        FROM {SOURCE_ALIAS}.fact_theme_limit_stock_daily t
+        JOIN history_calendar c ON c.trade_date = t.trade_date
+        WHERE t.stock_ts_code IS NOT NULL
+        GROUP BY 1, 2
+        """,
+        [LIMIT_UP_STATUS, LIMIT_UP_STATUS],
+    )
+    con.execute(
+        f"""
+        CREATE OR REPLACE TEMP TABLE _stk_high AS
+        SELECT h.trade_date, h.stock_ts_code AS entity_id, h.primary_high_period
+        FROM {SOURCE_ALIAS}.fact_stock_high_daily h
+        JOIN history_calendar c ON c.trade_date = h.trade_date
+        WHERE h.stock_ts_code IS NOT NULL
+        QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY h.trade_date, h.stock_ts_code ORDER BY h.updated_at DESC NULLS LAST
+        ) = 1
+        """
+    )
+    period_placeholders = ", ".join("?" for _ in NEW_HIGH_1Y_PERIODS)
+    con.execute(
+        f"""
+        CREATE OR REPLACE TEMP TABLE _stk AS
+        WITH u AS (
+            SELECT trade_date, entity_id FROM _stk_lim
+            UNION
+            SELECT trade_date, entity_id FROM _stk_high
+        ),
+        lim_days AS (SELECT DISTINCT trade_date FROM _stk_lim),
+        high_days AS (SELECT DISTINCT trade_date FROM _stk_high)
+        SELECT u.trade_date, u.entity_id,
+            CASE WHEN ld.trade_date IS NULL THEN NULL
+                 WHEN l.is_limit = 1 THEN 1
+                 ELSE 0 END AS limit_up,
+            CASE WHEN ld.trade_date IS NULL THEN NULL
+                 WHEN l.is_limit IS DISTINCT FROM 1 THEN 0
+                 WHEN l.limit_times IS NULL THEN NULL
+                 WHEN l.limit_times = ? THEN 1
+                 ELSE 0 END AS first_board,
+            CASE WHEN hd.trade_date IS NULL THEN NULL
+                 WHEN h.entity_id IS NOT NULL AND h.primary_high_period IS NULL THEN NULL
+                 WHEN h.primary_high_period IN ({period_placeholders}) THEN 1
+                 ELSE 0 END AS new_high_1y
+        FROM u
+        LEFT JOIN lim_days ld ON ld.trade_date = u.trade_date
+        LEFT JOIN high_days hd ON hd.trade_date = u.trade_date
+        LEFT JOIN _stk_lim l ON l.trade_date = u.trade_date AND l.entity_id = u.entity_id
+        LEFT JOIN _stk_high h ON h.trade_date = u.trade_date AND h.entity_id = u.entity_id
+        """,
+        [FIRST_BOARD_LIMIT_TIMES, *NEW_HIGH_1Y_PERIODS],
+    )
+    for label in STOCK_LABELS:
+        con.execute(
+            f"""
+            INSERT INTO history_labels
+                (entity_type, entity_id, trade_date, label, value_num, value_text, label_version, computed_at)
+            SELECT 'stock', entity_id, trade_date, ?, ({label})::DOUBLE, NULL, ?, ?
+            FROM _stk
+            """,
+            [label, LABEL_VERSION, computed_at],
+        )
+
+    universe_n, lim_days, high_days = con.execute(
+        """
+        SELECT COUNT(*),
+               (SELECT COUNT(DISTINCT trade_date) FROM _stk_lim),
+               (SELECT COUNT(DISTINCT trade_date) FROM _stk_high)
+        FROM _stk
+        """
+    ).fetchone()
+    # 涨停表在自身首末日之间缺的交易日：这些天 limit_up / first_board 为 NULL，读者据此判「缺口还是零涨停」。
+    lim_missing = [
+        str(r[0])
+        for r in con.execute(
+            """
+            SELECT c.trade_date FROM history_calendar c
+            WHERE c.trade_date BETWEEN (SELECT MIN(trade_date) FROM _stk_lim) AND (SELECT MAX(trade_date) FROM _stk_lim)
+              AND NOT EXISTS (SELECT 1 FROM _stk_lim l WHERE l.trade_date = c.trade_date)
+            ORDER BY 1
+            """
+        ).fetchall()
+    ]
+    for name in ("_stk", "_stk_high", "_stk_lim"):
+        con.execute(f"DROP TABLE IF EXISTS {name}")
+    return {
+        "universe": STOCK_UNIVERSE,
+        "universe_stock_days": int(universe_n),
+        "limit_list_days": int(lim_days),
+        "high_list_days": int(high_days),
+        "limit_list_missing_days": lim_missing,
+    }
+
+
 def _source_counts(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
     """成立条件用的源库读数；顺带记下 published 名单里的代码代际分布（.TI/.FP 并存是已知陷阱）。"""
     out: dict[str, Any] = {}
@@ -448,6 +592,9 @@ def _source_counts(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
         "fact_sector_daily",
         "fact_theme_limit_heat_daily",
         "fact_mainline_sector_daily",
+        "fact_theme_limit_stock_daily",
+        "fact_stock_high_daily",
+        "fact_stock_daily",
     ):
         out[table] = con.execute(f"SELECT COUNT(*) FROM {SOURCE_ALIAS}.{table}").fetchone()[0]
     suffixes = con.execute(

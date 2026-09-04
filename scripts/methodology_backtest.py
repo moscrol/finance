@@ -5,7 +5,11 @@
     python scripts/methodology_backtest.py outcomes                # 前瞻结果 3/5/7/10 日
     python scripts/methodology_backtest.py run methodology/rules/dual_red_streak3_continuation.v1.json
     python scripts/methodology_backtest.py scan --rules-dir methodology/rules     # 多条 + BH 校正
+    python scripts/methodology_backtest.py propose --entity-type stock --pred "first_board == true" ...
     python scripts/methodology_backtest.py report                  # 标签盘点 + 最近收据
+
+实体类型 sector / theme / stock；stock 的 universe 是「涨停表 ∪ 新高表」的个股日并集（见 labels.py），
+个股收据的事件样例含个股代码，只供分析师侧核对，不进共享层渲染（设计稿 §6「共享层的合规硬门」）。
 
 路径：主库默认 ``MARKET_FEATURE_STORE_DB`` 或 ``db/market_feature_store.duckdb``（只读打开）；
 旁路库默认与主库同目录 ``history_labels.duckdb``；收据落 ``methodology/receipts/``（gitignore，可重建）。
@@ -49,7 +53,12 @@ from intelligence.services.methodology_backtest.receipts import (  # noqa: E402
     write_receipt,
     write_scan_summary,
 )
-from intelligence.services.methodology_backtest.rules import Rule, RuleValidationError, load_rule  # noqa: E402
+from intelligence.services.methodology_backtest.rules import (  # noqa: E402
+    SCOPE_ENTITY_TYPES,
+    Rule,
+    RuleValidationError,
+    load_rule,
+)
 from intelligence.services.methodology_backtest.runner import (  # noqa: E402
     load_conditions,
     run_rule,
@@ -471,12 +480,12 @@ def build_parser() -> argparse.ArgumentParser:
     pp = sub.add_parser("propose", help="纠偏 → 候选规则：谓词短句解析 + 白名单校验 + 溯源，落 methodology/rules/")
     pp.add_argument("--rule-id", required=True, help="^[a-z][a-z0-9_]{2,63}$")
     pp.add_argument("--title", required=True)
-    pp.add_argument("--entity-type", required=True, choices=["sector", "theme"])
+    pp.add_argument("--entity-type", required=True, choices=list(SCOPE_ENTITY_TYPES))
     pp.add_argument(
         "--pred",
         action="append",
         required=True,
-        help="谓词短句，可重复：`dual_red_streak@1 >= 3`、`market:market_stage in 主升阶段,主升`",
+        help="谓词短句，可重复：`dual_red_streak@1 >= 3`、`market:market_stage in 主升阶段,主升`、`first_board == true`",
     )
     pp.add_argument("--success", required=True, help="成功判据：`fwd_return 5 > 0`")
     pp.add_argument("--horizons", default=None, help="逗号分隔，默认 3,5,7,10（自动并入 success 的窗口）")

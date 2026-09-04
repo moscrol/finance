@@ -6,13 +6,20 @@
 
   阳性对照   植入「严格双红日之后 5 个交易日必为正」的形态 → 结论必须是 supported 且 lo > p0
   阴性对照   与收益独立的随机标签（multi_period_resonance）→ 结论 ∈ {not_distinguishable, insufficient_n}
-  前视对照   把 outcomes 整体前移一个交易日 → 阳性对照的 supported 必须消失（翻转或降级）
+  个股对照   植入「首板之后 5 个交易日必为正」→ supported；limit_up 事件数更多、命中率更低（二连板窗口为负）
+  前视对照   把 outcomes 整体前移一个交易日 → 板块 / 个股两组阳性对照的 supported 都必须消失（翻转或降级）
   拒绝夹具   label 不在白名单 / op 为 "; DROP" / value 含 SQL 片段 → 各返回带字段路径的错误，且不触库
-  幂等       重跑 build-labels 行数一致；删旁路库重建行数一致；data_gap 日被列出
+  幂等       重跑 build-labels 行数一致；删旁路库重建行数一致；data_gap 日被列出；个股 universe 行数 = 植入并集
 
 合成形态（种子固定，确定性）：事件日 D 双红（pct +3 / diff 25 / amount 800），D+1..D+5 每日 +2%，
 D+6 −15%，其余日 diff -5 永不双红、pct 微负随机。前移一天后事件对上的窗口变成 D+2..D+6，
 1.02^4 × 0.85 − 1 ≈ −8%，命中率从 100% 掉到 0%——这就是「任何回测框架第一个 bug」的探针。
+
+个股（P1）同一形状：事件日 D 首板（涨停表 limit_times=1，pct +10），D+1..D+5 每日 +2%，D+6 −15%；
+每 4 只里 1 只在 D+1 二连板（limit_times=2，pct +10）——它是 limit_up 但不是 first_board，且自身
+窗口 D+2..D+6 为负，所以 ``limit_up == true`` 的命中率会低于 ``first_board == true``。新高表按
+(日 + 股) % 4 != 0 铺 3/4 的个股日、周期轮转，构成「涨停表 ∪ 新高表」的稀疏 universe；每 3 只里
+1 只的首板行在两个板块下重复，考折叠。
 
 样本数据全部虚构，仅用于逻辑自测。用法：
     python scripts/methodology_backtest_selftest.py
@@ -55,6 +62,9 @@ SEED = 20260904
 NEGATIVE_LABEL_SEED_SALT = 7
 NEGATIVE_LABEL_RATE = 0.3
 STAGES = ("主升阶段", "顶部横盘阶段", "下跌阶段", "底部横盘阶段", "反弹阶段")
+N_STOCKS = 16
+HIGH_PERIODS = ("20d", "60d", "1y", "history")
+HIGH_LABELS = {"20d": "20日新高", "60d": "60日新高", "1y": "1年新高", "history": "历史新高"}
 
 POSITIVE_RULE = {
     "rule_id": "selftest_positive",
@@ -76,6 +86,13 @@ NEGATIVE_RULE = {
     "rule_id": "selftest_negative",
     "title": "阴性对照：随机标签",
     "condition": {"all": [{"label": "multi_period_resonance", "op": "==", "value": True, "lag": 0}]},
+}
+STOCK_POSITIVE_RULE = {
+    **POSITIVE_RULE,
+    "rule_id": "selftest_stock_positive",
+    "title": "阳性对照（个股）：首板后 5 日为正",
+    "scope": {"entity_type": "stock", "universe": "limit_high_union"},
+    "condition": {"all": [{"label": "first_board", "op": "==", "value": True, "lag": 0}]},
 }
 
 
@@ -160,9 +177,70 @@ def build_sample_db(db_path: Path, *, seed: int = SEED, n_days: int = N_DAYS, n_
             "VALUES (?, ?, ?, ?, ?, ?)",
             ml_rows,
         )
+        stock_stats = _plant_stocks(con, days, rng, n_sectors=n_sectors)
     finally:
         con.close()
-    return {"n_days": n_days, "n_sectors": n_sectors, "n_events": n_events, "gap_day": str(days[GAP_DAY_IDX])}
+    return {
+        "n_days": n_days,
+        "n_sectors": n_sectors,
+        "n_events": n_events,
+        "gap_day": str(days[GAP_DAY_IDX]),
+        **stock_stats,
+    }
+
+
+def _plant_stocks(con: duckdb.DuckDBPyConnection, days: list[date], rng: random.Random, *, n_sectors: int) -> dict:
+    """个股三张表：fact_stock_daily（价格序列）/ fact_theme_limit_stock_daily（涨停）/ fact_stock_high_daily（新高）。"""
+    n_days = len(days)
+    daily: list[tuple] = []
+    limit_rows: list[tuple] = []
+    high_rows: list[tuple] = []
+    universe: set[tuple[int, int]] = set()
+    n_first_boards = 0
+    for s in range(N_STOCKS):
+        code = f"{600000 + s}.SH"
+        name = f"测试个股{s}"
+        evs = set(event_days(s, n_days))
+        n_first_boards += len(evs)
+        plan: dict[int, float] = {}
+        for e in evs:
+            plan[e] = 10.0
+            for k in range(1, 6):
+                plan[e + k] = 2.0
+            plan[e + 6] = -15.0
+            if s % 4 == 0:
+                plan[e + 1] = 10.0  # 二连板：limit_up 但不是 first_board，自身窗口 D+2..D+6 为负
+        for i, d in enumerate(days):
+            daily.append((d, code, name, plan.get(i, rng.gauss(-0.15, 1.2))))
+            sector = f"{880000 + s % n_sectors}.TI"
+            if i in evs:
+                limit_rows.append((d, sector, f"测试板块{s % n_sectors}", code, name, 10.0, 1, "U"))
+                if s % 3 == 0:  # 同一首板挂在第二个板块下：涨停表 PK 含板块，标签层必须按 (日, 股) 折叠
+                    other = f"{880000 + (s + 1) % n_sectors}.TI"
+                    limit_rows.append((d, other, f"测试板块{(s + 1) % n_sectors}", code, name, 10.0, 1, "U"))
+                universe.add((i, s))
+            elif (i - 1) in evs and s % 4 == 0:
+                limit_rows.append((d, sector, f"测试板块{s % n_sectors}", code, name, 10.0, 2, "U"))
+                universe.add((i, s))
+            if (i + s) % 4 != 0:
+                period = HIGH_PERIODS[((i + s) // 4) % len(HIGH_PERIODS)]
+                high_rows.append((d, code, name, period, HIGH_LABELS[period], (i + s) % 8 == 1))
+                universe.add((i, s))
+    con.executemany(
+        "INSERT INTO fact_stock_daily (trade_date, stock_ts_code, stock_name, pct_chg) VALUES (?, ?, ?, ?)",
+        daily,
+    )
+    con.executemany(
+        "INSERT INTO fact_theme_limit_stock_daily (trade_date, sector_ts_code, sector_name, stock_ts_code, stock_name, "
+        "pct_chg, limit_times, limit_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        limit_rows,
+    )
+    con.executemany(
+        "INSERT INTO fact_stock_high_daily (trade_date, stock_ts_code, stock_name, primary_high_period, "
+        "primary_high_label, is_new) VALUES (?, ?, ?, ?, ?, ?)",
+        high_rows,
+    )
+    return {"n_stocks": N_STOCKS, "n_first_boards": n_first_boards, "n_stock_universe": len(universe)}
 
 
 def shift_outcomes_one_day_earlier(labels_db: Path) -> int:
@@ -239,9 +317,16 @@ def main() -> int:
 
         rep1 = build_labels(source_db, labels_db)
         record(
-            "标签层：12 个标签 + data_gap 日",
-            len(rep1.rows_by_label) == 12 and rep1.data_gap_days == [planted["gap_day"]],
+            "标签层：15 个标签 + data_gap 日",
+            len(rep1.rows_by_label) == 15 and rep1.data_gap_days == [planted["gap_day"]],
             f"labels={len(rep1.rows_by_label)} gap={rep1.data_gap_days} rows={rep1.row_count}",
+        )
+        cov = rep1.extras["source_row_counts"]["stock_coverage"]
+        record(
+            "个股 universe = 涨停表 ∪ 新高表的个股日并集",
+            cov["universe_stock_days"] == planted["n_stock_universe"]
+            and rep1.rows_by_label.get("first_board") == planted["n_stock_universe"],
+            f"universe={cov['universe_stock_days']} planted={planted['n_stock_universe']} limit_days={cov['limit_list_days']}",
         )
         rep2 = build_labels(source_db, labels_db)
         record("幂等：重跑 build-labels 行数一致", rep2.row_count == rep1.row_count, f"{rep1.row_count} vs {rep2.row_count}")
@@ -276,6 +361,28 @@ def main() -> int:
             else f"N={nd.n} → {nd.verdict}",
         )
 
+        stk = run(labels_db, STOCK_POSITIVE_RULE)
+        sd = stk.readout
+        record(
+            "阳性对照（个股）：首板后 5 日为正 supported 且 lo > p0",
+            sd.verdict == "supported" and sd.p0 is not None and sd.lo > sd.p0,
+            f"N={sd.n} p={sd.p:.3f} p0={sd.p0:.3f} lo={sd.lo:.3f} → {sd.verdict}"
+            if sd.p is not None and sd.p0 is not None
+            else f"N={sd.n} → {sd.verdict}",
+        )
+        record(
+            "阳性对照（个股）：首板事件数与植入一致（扣除 pending），二连板不算首板",
+            sd.n + stk.n_pending == planted["n_first_boards"],
+            f"ok={sd.n} pending={stk.n_pending} planted={planted['n_first_boards']}",
+        )
+        limit_any = run(labels_db, {**STOCK_POSITIVE_RULE, "rule_id": "selftest_stock_limit_any",
+                                    "condition": {"all": [{"label": "limit_up", "op": "==", "value": True, "lag": 0}]}})
+        record(
+            "个股标签语义：limit_up 事件数 > first_board 事件数，命中率更低（二连板窗口为负）",
+            limit_any.readout.n > sd.n and limit_any.readout.p is not None and limit_any.readout.p < sd.p,
+            f"limit_up N={limit_any.readout.n} p={limit_any.readout.p} vs first_board N={sd.n} p={sd.p}",
+        )
+
         shifted = shift_outcomes_one_day_earlier(labels_db)
         cheat = run(labels_db, POSITIVE_RULE)
         cd = cheat.readout
@@ -284,9 +391,19 @@ def main() -> int:
             shifted > 0 and cd.verdict != "supported",
             f"N={cd.n} p={cd.p:.3f} p0={cd.p0:.3f} → {cd.verdict}" if cd.p is not None and cd.p0 is not None else f"→ {cd.verdict}",
         )
+        cheat_stk = run(labels_db, STOCK_POSITIVE_RULE).readout
+        record(
+            "前视对照（个股）：outcomes 前移一日后首板 supported 消失",
+            cheat_stk.verdict != "supported",
+            f"N={cheat_stk.n} p={cheat_stk.p} p0={cheat_stk.p0} → {cheat_stk.verdict}",
+        )
         build_outcomes(source_db, labels_db)
         again = run(labels_db, POSITIVE_RULE)
         record("前视对照：重建 outcomes 后阳性恢复 supported", again.readout.verdict == "supported", again.readout.verdict)
+        record(
+            "前视对照（个股）：重建 outcomes 后首板恢复 supported",
+            run(labels_db, STOCK_POSITIVE_RULE).readout.verdict == "supported",
+        )
 
     failed = [k for k, ok in checks.items() if not ok]
     if failed:
