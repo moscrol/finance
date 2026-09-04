@@ -16,8 +16,8 @@ from typing import Any, Sequence
 import duckdb
 
 from .compiler import CompiledRule, compile_rule
-from .rules import Rule
-from .stats import Readout, apply_bh_downgrade, benjamini_hochberg, readout
+from .rules import BASELINE_KINDS, Rule
+from .stats import Readout, apply_bh_downgrade, benjamini_hochberg, four_state, readout
 from .store import read_meta
 
 EVENT_SAMPLE_LIMIT = 12
@@ -45,12 +45,28 @@ class HorizonSummary:
         }
 
 
+@dataclass(frozen=True)
+class AltBaseline:
+    """规则没声明的那种基准口径，只作对照列，不参与结论。"""
+
+    kind: str
+    n: int
+    k: int
+    p0: float | None
+    lift: float | None
+    verdict_if_used: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"kind": self.kind, "n": self.n, "k": self.k, "p0": self.p0, "lift": self.lift, "verdict_if_used": self.verdict_if_used}
+
+
 @dataclass
 class RunResult:
     rule: Rule
     window: tuple[str, str]
     baseline_window: tuple[str, str] | None
     readout: Readout
+    baseline_alt: AltBaseline | None
     n_matched: int
     n_pending: int
     n_missing: int
@@ -186,12 +202,13 @@ def execute_compiled(
     baseline_window: tuple[str, str] | None = None
     baseline_n = baseline_k = 0
     baseline_sql: dict[str, Any] | None = None
+    alt: AltBaseline | None = None
     if ok_events:
         dates = [str(e[1]) for e in ok_events]
         baseline_window = (min(dates), max(dates))
-        bq = compiled.baseline_for(*baseline_window)
+        bq = compiled.baseline_for(*baseline_window, event_dates=dates)
         baseline_n, baseline_k = con.execute(bq.sql, list(bq.params)).fetchone()
-        baseline_sql = {"sql": bq.sql, "params": list(bq.params)}
+        baseline_sql = {"kind": compiled.baseline_kind, "sql": bq.sql, "params": list(bq.params)}
 
     rd = readout(
         [s for _eid, _d, s, _m in ok_events],
@@ -199,6 +216,21 @@ def execute_compiled(
         baseline_k=int(baseline_k or 0),
         min_n=rule.min_n,
     )
+    if ok_events:
+        # 另一种口径只作对照：同一事件集换个 p0，看结论会不会变——变了说明读数受择时 / 选择的混杂
+        other = next(k for k in BASELINE_KINDS if k != compiled.baseline_kind)
+        aq = compiled.baseline_for(*baseline_window, kind=other, event_dates=dates)
+        an, ak = con.execute(aq.sql, list(aq.params)).fetchone()
+        an, ak = int(an or 0), int(ak or 0)
+        p0_alt = (ak / an) if an else None
+        alt = AltBaseline(
+            kind=other,
+            n=an,
+            k=ak,
+            p0=p0_alt,
+            lift=(rd.p - p0_alt) if (rd.p is not None and p0_alt is not None) else None,
+            verdict_if_used=four_state(rd.n, rd.k, p0_alt, rd.p_first, rd.p_second, rule.min_n),
+        )
     metric_rows = con.execute(compiled.metrics.sql, list(compiled.metrics.params)).fetchall()
     horizons = _summarize_horizons(metric_rows, rule.horizons)
 
@@ -217,6 +249,7 @@ def execute_compiled(
         window=window,
         baseline_window=baseline_window,
         readout=rd,
+        baseline_alt=alt,
         n_matched=len(events),
         n_pending=n_pending,
         n_missing=n_missing,
