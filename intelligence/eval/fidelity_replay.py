@@ -665,12 +665,24 @@ def _all_trade_dates(db_path: str | Path) -> list[str]:
 
 
 def select_pilot_dates(
-    db_path: str | Path, start: str, end: str, *, count: int = 10
+    db_path: str | Path,
+    start: str,
+    end: str,
+    *,
+    count: int = 10,
+    only_dates: Iterable[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Choose deterministic dates across month × market-stage buckets."""
+    """Choose deterministic dates across month × market-stage buckets.
+
+    ``only_dates``（可选）把候选限制在给定的交易日集合内，分层与补位都只在这个子集上做；
+    缺省 None 时行为与之前完全一致。重放引擎用它把 ``strict`` / ``trade_date_only`` 两档分开抽样。
+    """
     if count <= 0:
         return []
     rows = _market_rows(db_path, start, end)
+    if only_dates is not None:
+        allowed = {str(value)[:10] for value in only_dates}
+        rows = [row for row in rows if row["as_of"] in allowed]
     if not rows:
         return []
     by_bucket: dict[tuple[str, str], list[int]] = defaultdict(list)
@@ -915,13 +927,29 @@ def _best_order(columns: list[str], candidates: tuple[str, ...]) -> str:
     return "trade_date DESC"
 
 
-def _pit_where(columns: list[str], base_where: str) -> str:
+def _pit_where(
+    columns: list[str], base_where: str, *, strict_updated_at: bool = True
+) -> str:
+    """PIT 行过滤。默认（strict）要求 ``updated_at < as_of + 1 day``——这是
+    ``docs/learning/fidelity-replay-evaluation.md`` 的纪律：``trade_date`` 只说事实适用哪天，
+    ``updated_at`` 才证明本地当时已拿到这行。
+
+    ``strict_updated_at=False`` 只放开 ``updated_at`` 条件，``trade_date`` 边界不变；调用方
+    必须把这档标成 ``trade_date_only``（历史回填过的行可能被 D0 之后改写），引擎不替它掩盖。
+    非 strict 模式不再多占一个 ``?``，参数列表由 :func:`_pit_params` 配对。"""
+    if not strict_updated_at:
+        return f"({base_where})"
     if "updated_at" not in columns:
         return f"({base_where}) AND FALSE"
     return (
         f"({base_where}) "
         "AND updated_at < CAST(? AS DATE) + INTERVAL 1 DAY"
     )
+
+
+def _pit_params(as_of: str, *, strict_updated_at: bool = True) -> list[Any]:
+    """与 :func:`_pit_where` 配对的绑定参数：trade_date 边界一个 ``?``，strict 再加 updated_at 一个。"""
+    return [as_of, as_of] if strict_updated_at else [as_of]
 
 
 def _max_embedded_date(value: Any) -> str | None:
@@ -955,11 +983,18 @@ def build_input_snapshot(
     *,
     sector_limit: int = 30,
     stock_limit: int = 30,
+    strict_updated_at: bool = True,
 ) -> dict[str, Any]:
-    """Build an answer-phase artifact that cannot contain future market rows."""
+    """Build an answer-phase artifact that cannot contain future market rows.
+
+    ``strict_updated_at`` 默认 True（既有调用方零行为变化）：行必须 ``updated_at < as_of + 1 day``。
+    置 False 只保留 ``trade_date <= as_of`` 边界——这是 ``pit_grade=trade_date_only`` 档，
+    输出 ``boundary.pit_grade`` 会如实标出；``max_embedded_date > as_of`` 的拒绝在两种模式下都生效。
+    """
     if case.get("status") != "ready":
         raise ValueError(f"{case.get('case_id')} is pending and cannot produce an input snapshot")
     as_of = str(case["as_of"])
+    params = _pit_params(as_of, strict_updated_at=strict_updated_at)
     con = _connect(db_path)
     try:
         market_columns = _table_columns(con, "fact_market_daily")
@@ -970,8 +1005,9 @@ def build_input_snapshot(
                 _pit_where(
                     market_columns,
                     "CAST(trade_date AS DATE) <= CAST(? AS DATE)",
+                    strict_updated_at=strict_updated_at,
                 ),
-                [as_of, as_of],
+                params,
                 order_by="trade_date DESC",
                 limit=20,
             )
@@ -995,8 +1031,9 @@ def build_input_snapshot(
                 _pit_where(
                     columns,
                     "CAST(trade_date AS DATE) = CAST(? AS DATE)",
+                    strict_updated_at=strict_updated_at,
                 ),
-                [as_of, as_of],
+                params,
                 order_by=_best_order(
                     columns,
                     (
@@ -1025,6 +1062,13 @@ def build_input_snapshot(
             "outcome_data_included": False,
         },
     }
+    if not strict_updated_at:
+        # 只在放开时多写两键：默认模式的产物必须与改动前逐字节一致（snapshot_sha256 不变）。
+        body["boundary"]["pit_grade"] = "trade_date_only"
+        body["boundary"]["db_pit"] = (
+            "trade_date <= as_of only; updated_at not required, rows may have been "
+            "rewritten after as_of"
+        )
     max_date = _max_embedded_date(body["data"])
     if max_date and max_date > as_of:
         raise ValueError(f"snapshot contains future date {max_date} > {as_of}")
