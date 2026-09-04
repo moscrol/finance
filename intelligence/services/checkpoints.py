@@ -18,7 +18,13 @@ B 方案（``judgments.jsonl``）让 foresight 站在你旧判断上往前推；
         - ``kb_evidence``    注册后是否出现新证据（``target`` 主题/公司，``target`` 条数阈值）→ 知识库 resolver；
         - ``manual``         人工判定；
     - ``source_judgment_ts`` 反链 B 的核心判断（可选）；
-    - ``session_id``         来源会话（可选）。
+    - ``session_id``         来源会话（可选）；
+    - ``rule_id``            判断依据的方法论规则（``methodology/rules/<rule_id>.v<n>.json``，可选，
+      只由人在 CLI 上给；与经验卡 ``experience_cards.rule_id`` 同名同口径）；
+    - ``rule_verdict`` / ``rule_receipt`` 登记当时该规则最近一次回测收据的四态与路径（可选，
+      随 ``rule_id`` 一起由调用方从 ``methodology_backtest.receipts.latest_receipt`` 读来）；
+    - ``bias_flags``         登记时偏差目录扫描命中的 ``code`` 列表（可选；目录与算法在
+      ``checkpoint_bias``，**只提示不拦截**——任何 flag 都不会让登记失败）。
 - ``verdicts.jsonl``    回检打分：``id`` / ``verdict``(hit|miss|partial|unverifiable) /
     ``score``(1|0|0.5|None) / ``observed`` / ``data_source`` / ``reason`` / ``auto`` / ``checked_at``。
 
@@ -27,6 +33,7 @@ B 方案（``judgments.jsonl``）让 foresight 站在你旧判断上往前推；
 
 本模块只用标准库，不依赖 duckdb / 联网，可离线运行、可独立单测；真正拉数的 resolver
 在 ``checkpoint_resolvers`` 里且**优雅降级**（缺数→unverifiable，绝不编造）。
+偏差目录需要旁路库与规则编译器，所以放在 ``checkpoint_bias`` 而不是这里。
 """
 
 from __future__ import annotations
@@ -51,6 +58,9 @@ VALID_OPS = (">=", ">", "<=", "<", "==")
 
 # market_daily 条件字段名：只允许安全标识符（真实列名在查询时再校验，查不到→unverifiable）。
 _FIELD_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+# 方法论规则 id 的合法形状。与 ``methodology_backtest.rules.RULE_ID_RE`` 逐字相同——那边的包会
+# 拉进 duckdb，这里为守住「只用标准库」的承诺抄一份，由 test_checkpoints 断言两处一致。
+RULE_ID_RE = re.compile(r"^[a-z][a-z0-9_]{2,63}$")
 
 DEFAULT_WINDOW_DAYS = 60
 # 一个类别至少要有多少条终态判定，才给它贴「靠谱 / 参半 / 偏差大」并注入提示词。
@@ -174,8 +184,17 @@ def _make_id(claim: str, ts: str) -> str:
     return f"ck-{ts[:10]}-{digest}"
 
 
-def register_checkpoint(
-    path: str | Path,
+def normalize_rule_id(rule_id: Any) -> str | None:
+    """规整 ``rule_id``：空 → ``None``；非法形状抛 ``ValueError``（与规则文件名 / 收据目录同一正则）。"""
+    rid = str(rule_id or "").strip()
+    if not rid:
+        return None
+    if not RULE_ID_RE.match(rid):
+        raise ValueError(f"非法 rule_id={rule_id!r}（需匹配 {RULE_ID_RE.pattern}，即规则文件名 <rule_id>.v<n>.json 的前缀）")
+    return rid
+
+
+def build_checkpoint_record(
     *,
     claim: str,
     due: str,
@@ -188,16 +207,28 @@ def register_checkpoint(
     session_id: str | None = None,
     framework_version: str | None = None,
     ts: str | None = None,
-) -> tuple[Path, dict[str, Any]]:
-    """登记一个可证伪点到 ``checkpoints.jsonl``，返回 ``(path, record)``。
+    rule_id: str | None = None,
+    rule_verdict: str | None = None,
+    rule_receipt: str | None = None,
+    bias_flags: list[str] | None = None,
+) -> dict[str, Any]:
+    """把登记参数规整成**将要落盘的那条记录**（纯函数，不写文件）。
 
-    ``claim`` 为空或 ``due`` 非法日期时抛 ``ValueError``——可证伪点至少要有陈述与到期日。
+    拆出来是为了让 CLI 能先对同一条记录跑偏差目录扫描，再把 ``bias_flags`` 连同记录一起
+    落盘——id / ts 与最终写入的完全一致。``rule_id`` 非法抛 ``ValueError``；``rule_verdict`` /
+    ``rule_receipt`` 只在带 ``rule_id`` 时有意义，单独给了视为调用方 bug，同样抛。
+    三个 rule 字段与 ``bias_flags`` 为空时**不写出**（与 ``session_id`` 同样处理），旧记录形状不变。
     """
     text = str(claim or "").strip()
     if not text:
         raise ValueError("claim 不能为空：可证伪点至少要有陈述")
     due_norm = _parse_date(due)
     metric_norm = normalize_metric(metric)
+    rid = normalize_rule_id(rule_id)
+    verdict = str(rule_verdict or "").strip() or None
+    receipt = str(rule_receipt or "").strip() or None
+    if rid is None and (verdict or receipt):
+        raise ValueError("rule_verdict / rule_receipt 必须与 rule_id 一起给")
     ts_norm = ts or _now().isoformat(timespec="seconds")
     record: dict[str, Any] = {
         "id": _make_id(text, ts_norm),
@@ -217,6 +248,59 @@ def register_checkpoint(
         record["source_judgment_ts"] = str(source_judgment_ts).strip()
     if session_id and str(session_id).strip():
         record["session_id"] = str(session_id).strip()
+    if rid:
+        record["rule_id"] = rid
+        if verdict:
+            record["rule_verdict"] = verdict
+        if receipt:
+            record["rule_receipt"] = receipt
+    if bias_flags is not None:
+        # 空列表也写：它的含义是「扫过了、没命中」，与「没扫」（键缺失）不同。
+        record["bias_flags"] = [str(c).strip() for c in bias_flags if str(c).strip()]
+    return record
+
+
+def register_checkpoint(
+    path: str | Path,
+    *,
+    claim: str,
+    due: str,
+    category: str | None = None,
+    source: str | None = None,
+    themes: list[str] | None = None,
+    stocks: list[str] | None = None,
+    metric: dict[str, Any] | None = None,
+    source_judgment_ts: str | None = None,
+    session_id: str | None = None,
+    framework_version: str | None = None,
+    ts: str | None = None,
+    rule_id: str | None = None,
+    rule_verdict: str | None = None,
+    rule_receipt: str | None = None,
+    bias_flags: list[str] | None = None,
+) -> tuple[Path, dict[str, Any]]:
+    """登记一个可证伪点到 ``checkpoints.jsonl``，返回 ``(path, record)``。
+
+    ``claim`` 为空、``due`` 非法日期或 ``rule_id`` 不合法时抛 ``ValueError`` 且不落盘——
+    可证伪点至少要有陈述与到期日，引用的规则至少要是一个能找到文件的 id。
+    """
+    record = build_checkpoint_record(
+        claim=claim,
+        due=due,
+        category=category,
+        source=source,
+        themes=themes,
+        stocks=stocks,
+        metric=metric,
+        source_judgment_ts=source_judgment_ts,
+        session_id=session_id,
+        framework_version=framework_version,
+        ts=ts,
+        rule_id=rule_id,
+        rule_verdict=rule_verdict,
+        rule_receipt=rule_receipt,
+        bias_flags=bias_flags,
+    )
     p = Path(path).expanduser()
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("a", encoding="utf-8") as fh:
@@ -368,6 +452,8 @@ class CategoryStat:
 class Calibration:
     by_category: list[CategoryStat] = field(default_factory=list)
     by_source: list[CategoryStat] = field(default_factory=list)
+    # key = rule_id；没带 rule_id 的判断不进这一维（它们不是「按某条规则做的判断」）。
+    by_rule: list[CategoryStat] = field(default_factory=list)
     scored: int = 0
     pending: int = 0
     unverifiable: int = 0
@@ -384,24 +470,31 @@ def calibrate(
     verdicts: list[dict[str, Any]],
     today: str | None = None,
 ) -> Calibration:
-    """按 ``category``（二阶推演类型）与 ``source``（判断产出模块）两个维度聚合终态打分→胜率。
+    """按 ``category``（二阶推演类型）、``source``（判断产出模块）、``rule_id``（引用的方法论规则）
+    三个维度聚合终态打分→胜率。
 
-    category 回答「哪类推演靠谱」；source 回答「哪个模块在产真信号」——命中率长期不达标的模块应降级为资料工具。
-    两个列表均按命中率升序（最该质疑的在前）。"""
+    category 回答「哪类推演靠谱」；source 回答「哪个模块在产真信号」——命中率长期不达标的模块应降级为资料工具；
+    rule 回答「你按规则 X 做的判断命中率多少」——与规则自己的回测收据并排看（收据由 ``render_report`` 的调用方传入，
+    本函数是纯函数、不读文件系统）。三个列表均按命中率升序（最该质疑的在前）。"""
     by_id = {str(c.get("id")): c for c in checkpoints if c.get("id")}
     terminal = _latest_terminal_verdicts(verdicts)
     stats: dict[str, CategoryStat] = {}
     src_stats: dict[str, CategoryStat] = {}
+    rule_stats: dict[str, CategoryStat] = {}
     for cid, v in terminal.items():
         ck = by_id.get(cid)
         if ck is None:
             continue
         cat = str(ck.get("category") or "未分类").strip() or "未分类"
         src = str(ck.get("source") or "未标来源").strip() or "未标来源"
+        rid = str(ck.get("rule_id") or "").strip()
         verdict = str(v.get("verdict"))
         score = v.get("score")
         score = SCORE_MAP.get(verdict, 0.0) if score is None else float(score)
-        for key, bucket in ((cat, stats), (src, src_stats)):
+        buckets: list[tuple[str, dict[str, CategoryStat]]] = [(cat, stats), (src, src_stats)]
+        if rid:
+            buckets.append((rid, rule_stats))
+        for key, bucket in buckets:
             st = bucket.setdefault(key, CategoryStat(category=key))
             st.n += 1
             st.score_sum += score
@@ -418,6 +511,7 @@ def calibrate(
     return Calibration(
         by_category=sorted(stats.values(), key=lambda s: (s.hit_rate, -s.n)),
         by_source=sorted(src_stats.values(), key=lambda s: (s.hit_rate, -s.n)),
+        by_rule=sorted(rule_stats.values(), key=lambda s: (s.hit_rate, -s.n)),
         scored=sum(s.n for s in stats.values()),
         pending=pending,
         unverifiable=unverifiable,
@@ -444,8 +538,46 @@ def render_calibration_for_prompt(cal: Calibration, min_n: int = DEFAULT_CALIBRA
     return "\n".join(lines)
 
 
-def render_report(cal: Calibration) -> str:
-    """CLI 人读的校准报告。"""
+# 回测收据四态 → 中文（与 methodology_backtest.receipts._VERDICT_CN 同表；那边的包会拉进 duckdb，这里抄一份）。
+RULE_VERDICT_CN = {
+    "insufficient_n": "样本不足",
+    "not_distinguishable": "与基准不可区分",
+    "supported": "支持",
+    "refuted": "证伪",
+}
+
+
+def _pct(x: Any, digits: int = 1) -> str:
+    try:
+        return "—" if x is None else f"{float(x) * 100:.{digits}f}%"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def summarize_rule_receipt(receipt: dict[str, Any] | None) -> str:
+    """把一份 ``latest_receipt`` 返回值压成一行：``<四态中文> N=.. p=.. p0=.. Wilson[..,..]（日期）``；无收据 → ``无收据``。
+
+    收据结构以 ``methodology_backtest.receipts.build_receipt`` 为准（``verdict`` / ``stats{n,p,p0,wilson_lo,wilson_hi}`` /
+    ``generated_at``）；这里只读键、不 import 那个包，缺哪个键就显示 ``—``。
+    """
+    if not receipt or not isinstance(receipt, dict):
+        return "无收据"
+    verdict = str(receipt.get("verdict") or "")
+    stats = receipt.get("stats") if isinstance(receipt.get("stats"), dict) else {}
+    cn = str(receipt.get("verdict_label") or RULE_VERDICT_CN.get(verdict, verdict or "—"))
+    day = str(receipt.get("generated_at") or "")[:10] or "—"
+    return (
+        f"{cn}（{verdict or '—'}） N={stats.get('n', '—')} p={_pct(stats.get('p'))} p0={_pct(stats.get('p0'))} "
+        f"Wilson[{_pct(stats.get('wilson_lo'))},{_pct(stats.get('wilson_hi'))}]（{day}）"
+    )
+
+
+def render_report(cal: Calibration, rule_receipts: dict[str, dict[str, Any]] | None = None) -> str:
+    """CLI 人读的校准报告。
+
+    ``rule_receipts``：``{rule_id: latest_receipt(...)}``，由调用方读文件系统后传入；「按规则」段把你按该规则做的
+    判断命中率与规则自己的最近收据并排放在同一行——两处读到的是同一份收据（同源同口径）。
+    """
     lines = ["# 二阶推演校准（哪类判断靠谱）"]
     lines.append(
         f"> 已回检 {cal.scored} 条 · 待回检 {cal.pending} 条 · "
@@ -470,6 +602,15 @@ def render_report(cal: Calibration) -> str:
             lines.append(
                 f"- {st.category}：命中率 {round(st.hit_rate * 100)}%（{st.reliability}）"
                 f"，样本 {st.n}：命中 {st.hits} / 半对 {st.partial} / 落空 {st.miss}"
+            )
+    if cal.by_rule:
+        receipts = rule_receipts or {}
+        lines.append("")
+        lines.append("# 按规则（你按规则 X 做的判断 vs 规则 X 自己的回测收据）")
+        for st in cal.by_rule:
+            lines.append(
+                f"- {st.category}：n={st.n} · 命中率 {round(st.hit_rate * 100)}%（{st.reliability}）"
+                f"｜最近收据：{summarize_rule_receipt(receipts.get(st.category))}"
             )
     return "\n".join(lines) + "\n"
 
