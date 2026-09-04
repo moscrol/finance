@@ -475,8 +475,9 @@ def cmd_sync_fupanhui_public_assets(args) -> int:
     if not td:
         print("无交易日：请传 --trade-date 或先同步 fact_market_daily")
         return 2
-    s = sync_public_assets(td)
-    print(f"交易日: {td}")
+    plan = getattr(args, "plan", "full") or "full"
+    s = sync_public_assets(td, plan=plan)
+    print(f"交易日: {td} | plan={plan}" + (f" | 停跑: {', '.join(s['skipped'])}" if s.get("skipped") else ""))
     for name, result in (s.get("results") or {}).items():
         print(f"  {name}: {result}")
     if s.get("errors"):
@@ -484,6 +485,83 @@ def cmd_sync_fupanhui_public_assets(args) -> int:
         for name, err in s["errors"].items():
             print(f"  {name}: {err}")
     return 0 if s.get("ok") else 2
+
+
+def cmd_stitch_sector_stocks(args) -> int:
+    from .sync.sync_local_sector_members import brief, stitch_sector_members
+
+    s = stitch_sector_members(
+        args.trade_date,
+        fetch_caps=not args.no_caps,
+        dry_run=args.dry_run,
+    )
+    print(f"交易日: {s['trade_date']} | snapshot={s['snapshot_id'][:12]} | {s['identity']}")
+    print(f"候选 {s['candidates']} | 拼接 {s['stitched']} | 剔除无值成员 {s['dropped_members']} | 市值现值 {s['caps_fetched']} 只")
+    if s["skipped"]:
+        for reason, n in s["skipped"].items():
+            codes = s["skipped_codes"].get(reason) or []
+            print(f"  跳过[{reason}] {n}: {', '.join(codes[:10])}{'…' if len(codes) > 10 else ''}")
+    if s["failed"]:
+        print(f"  回执失败 {len(s['failed'])}: {s['failed'][:10]}")
+    print(f"基线日期分布: {s['baseline_dates']}")
+    print(f"留给复盘会 delta 的板块: {s['pending_for_provider']}")
+    if s.get("audit"):
+        print(f"完成度审计: {s['audit']}")
+    print(brief(s))
+    return 0
+
+
+def cmd_sync_sector_daily_local(args) -> int:
+    from .sync.sync_local_sector_daily import brief, sync_sector_daily_local
+
+    s = sync_sector_daily_local(args.trade_date, prefer_payload=not args.no_payload)
+    print(f"交易日: {s['trade_date']} | snapshot={s['snapshot_id'][:12]}")
+    print(f"写入 {s['rows_written']} 行 | 涨幅官方 {s['pct_official']} / 等权 {s['pct_eqw']}")
+    print(f"边际量基准日: {s['prev_date']} (是前一交易日: {s['prev_is_previous_trading_day']}) | 代理昨额板块: {s['prev_proxied']}")
+    if s["prev_proxied_codes"]:
+        print(f"  代理: {', '.join(s['prev_proxied_codes'][:10])}")
+    print(brief(s))
+    return 0
+
+
+def cmd_reconcile_sector_daily(args) -> int:
+    from .sync.sync_local_sector_daily import reconcile_sector_daily
+
+    r = reconcile_sector_daily(args.trade_date, sample=args.sample, seed=args.seed)
+    print(f"交易日: {r['trade_date']} | 抽样 {r['sampled']} | 复盘会返回 {r['provider_rows']} | 可比 {r['compared']}")
+    print(f"成交额相对误差 中位 {r['amount_relerr_median']} 最大 {r['amount_relerr_max']}")
+    print(f"涨幅绝对误差 中位 {r['pct_abs_err_median']} p95 {r['pct_abs_err_p95']} | 符号不一致 {r['pct_sign_mismatch']}")
+    print(f"边际量绝对误差 中位 {r['diff_ratio_abs_err_median']} p95 {r['diff_ratio_abs_err_p95']}")
+    print(f"双红翻转: {r['shuanghong_flips'] or '无'}")
+    print(f"RESULT: {'PASS' if r['ok'] else 'FAIL'}")
+    return 0 if r["ok"] else 2
+
+
+def cmd_sync_dragon_seats_akshare(args) -> int:
+    from .sync.sync_akshare_dragon_seats import sync_dragon_seats_akshare
+
+    s = sync_dragon_seats_akshare(args.trade_date, sleep=args.sleep)
+    print(f"交易日: {args.trade_date} | 榜单 {s['stocks']} 只 | 写入席位行 {s['rows']}")
+    if s.get("errors"):
+        print(f"失败 {len(s['errors'])}: {list(s['errors'].items())[:5]}")
+    if s.get("note"):
+        print(s["note"])
+    return 0 if s["rows"] else 2
+
+
+def cmd_registry_check(_args) -> int:
+    from .consumption_registry import load_registry, summarize, validate_registry
+
+    reg = load_registry()
+    problems = validate_registry(reg)
+    print(summarize(reg))
+    if problems:
+        print("registry 校验未通过:")
+        for p in problems:
+            print(f"  - {p}")
+        return 2
+    print("registry 校验通过（档位/表名/计划步骤归属）")
+    return 0
 
 
 def cmd_sync_limit_advance_feishu(_args) -> int:
@@ -1265,7 +1343,52 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="范围回补只跑这些子任务（如 leader_height），可与 --refresh 联用定点重刷",
     )
+    p_pa.add_argument(
+        "--plan",
+        choices=("full", "cheap"),
+        default="full",
+        help="单日同步分档：cheap = 竞价停抓、席位走 akshare、研报增量翻页（见 consumption_registry.yaml）",
+    )
     p_pa.set_defaults(func=cmd_sync_fupanhui_public_assets)
+
+    p_st = sub.add_parser(
+        "stitch-sector-stocks",
+        help="cheap 计划：identity 未动的板块用最近 fupanhui 名单 × 当日东财真值本地拼接成分行（0 复盘会请求）",
+    )
+    p_st.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD（需已 sync-sectors 且 stock-daily 为东财源）")
+    p_st.add_argument("--no-caps", action="store_true", help="不拉腾讯市值现值，按基线缩放")
+    p_st.add_argument("--dry-run", action="store_true", help="只算不写")
+    p_st.set_defaults(func=cmd_stitch_sector_stocks)
+
+    p_sdl = sub.add_parser(
+        "sync-sector-daily-local",
+        help="cheap 计划：板块日行情本地派生（成交额=成分求和、边际量本地公式、涨幅优先 payload 官方值）",
+    )
+    p_sdl.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD（需当日成分行齐全）")
+    p_sdl.add_argument("--no-payload", action="store_true", help="忽略 payload 官方涨幅，全部用成分等权")
+    p_sdl.set_defaults(func=cmd_sync_sector_daily_local)
+
+    p_rc = sub.add_parser(
+        "reconcile-sector-daily",
+        help="周抽样对账：抽 N 个板块打复盘会 K 线，对比本地派生行（成本 = N 请求）",
+    )
+    p_rc.add_argument("--trade-date", required=True)
+    p_rc.add_argument("--sample", type=int, default=20)
+    p_rc.add_argument("--seed", type=int, default=None)
+    p_rc.set_defaults(func=cmd_reconcile_sector_daily)
+
+    p_ds = sub.add_parser(
+        "sync-dragon-seats-akshare",
+        help="龙虎榜席位明细换源 akshare（榜单仍来自 fact_dragon_tiger_daily）",
+    )
+    p_ds.add_argument("--trade-date", required=True)
+    p_ds.add_argument("--sleep", type=float, default=0.1)
+    p_ds.set_defaults(func=cmd_sync_dragon_seats_akshare)
+
+    sub.add_parser(
+        "registry-check",
+        help="校验 consumption_registry.yaml：档位合法、表在 schema、计划步骤有归属",
+    ).set_defaults(func=cmd_registry_check)
 
     p_skd = sub.add_parser("sync-stock-daily", help="mootdx 全A股前复权日线回补到 fact_stock_daily")
     p_skd.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD, 留空对齐 fact_market_daily 最早日")

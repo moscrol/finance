@@ -243,6 +243,65 @@ class ResidentCardTests(unittest.TestCase):
         self.assertEqual(merged[0]["promotion"], "methodology")
 
 
+class PromotionGateTests(unittest.TestCase):
+    """统计门：带 rule_id 的卡，晋升要 supported、失效要 refuted；无 rule_id 走原流程。"""
+
+    def _score(self):
+        return score_answer("双红连三日的板块后 5 日还涨吗", "会涨。（非投资建议）", local_sources=["market_feature_store"])
+
+    def test_no_rule_id_keeps_original_flow(self) -> None:
+        gate = experience_cards.gate_promotion("promoted", rule_id=None, verdict=None)
+        self.assertTrue(gate.allowed)
+        card = experience_cards.build_card_from_score(self._score(), promotion="promoted")
+        self.assertNotIn("rule_id", card)
+
+    def test_candidate_never_gated(self) -> None:
+        for verdict in (None, "insufficient_n", "not_distinguishable", "refuted", "supported"):
+            gate = experience_cards.gate_promotion("candidate", rule_id="dual_red_streak3_continuation", verdict=verdict)
+            self.assertTrue(gate.allowed, verdict)
+
+    def test_promotion_requires_supported(self) -> None:
+        for promo in ("promoted", "methodology", "promoted_to_code"):
+            ok = experience_cards.gate_promotion(promo, rule_id="r1", verdict="supported", receipt="x.json")
+            self.assertTrue(ok.allowed, promo)
+            for verdict in (None, "insufficient_n", "not_distinguishable", "refuted"):
+                gate = experience_cards.gate_promotion(promo, rule_id="r1", verdict=verdict)
+                self.assertFalse(gate.allowed, (promo, verdict))
+                self.assertIn("r1", gate.reason)
+                self.assertIn(verdict or "无收据", gate.reason)
+
+    def test_invalidation_requires_refuted(self) -> None:
+        self.assertTrue(
+            experience_cards.gate_promotion("candidate", rule_id="r1", verdict="refuted", invalidated=True).allowed
+        )
+        gate = experience_cards.gate_promotion("candidate", rule_id="r1", verdict="not_distinguishable", invalidated=True)
+        self.assertFalse(gate.allowed)
+        self.assertIn("一次落空不构成证伪", gate.reason)
+
+    def test_build_card_stamps_provenance_or_raises(self) -> None:
+        card = experience_cards.build_card_from_score(
+            self._score(),
+            promotion="promoted",
+            rule_id="r1",
+            rule_verdict="supported",
+            rule_receipt="methodology/receipts/r1@v1/2026-09-04.json",
+        )
+        self.assertEqual(card["rule_id"], "r1")
+        self.assertEqual(card["rule_verdict"], "supported")
+        self.assertEqual(card["rule_receipt"], "methodology/receipts/r1@v1/2026-09-04.json")
+        with self.assertRaises(experience_cards.PromotionGateError) as ctx:
+            experience_cards.build_card_from_score(
+                self._score(), promotion="methodology", rule_id="r1", rule_verdict="not_distinguishable"
+            )
+        self.assertFalse(ctx.exception.gate.allowed)
+        # 一次纠偏改不了结论：candidate 仍可落卡并带上溯源字段，等规则累积
+        card2 = experience_cards.build_card_from_score(
+            self._score(), promotion="candidate", rule_id="r1", rule_verdict="not_distinguishable"
+        )
+        self.assertEqual(card2["promotion"], "candidate")
+        self.assertEqual(card2["rule_verdict"], "not_distinguishable")
+
+
 class PromotedToCodeTests(unittest.TestCase):
     def test_load_skips_promoted_to_code_cards(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

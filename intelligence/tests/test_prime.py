@@ -68,30 +68,31 @@ class PrimeTests(unittest.TestCase):
             ):
                 us = user_space("tester")
                 us.ensure_dir()
+                # 校准注入要求类别 >= DEFAULT_CALIBRATION_MIN_N 条终态判定；夹具跟着常量走
+                n = prime.checkpoints_service.DEFAULT_CALIBRATION_MIN_N
                 _write_jsonl(
                     us.checkpoints_path,
                     [
                         {
-                            "id": "ck1",
-                            "claim": "液冷渗透率超预期",
+                            "id": f"ck{i}",
+                            "claim": f"液冷渗透率超预期 {i}",
                             "due": "2026-01-01",
                             "category": "题材节奏",
                             "ts": "2025-12-01T10:00:00",
-                        },
-                        {
-                            "id": "ck2",
-                            "claim": "铜箔加工费反弹",
-                            "due": "2026-01-01",
-                            "category": "题材节奏",
-                            "ts": "2025-12-01T10:00:00",
-                        },
+                        }
+                        for i in range(n)
                     ],
                 )
                 _write_jsonl(
                     us.verdicts_path,
                     [
-                        {"id": "ck1", "verdict": "hit", "score": 1.0, "checked_at": "2026-01-02T10:00:00"},
-                        {"id": "ck2", "verdict": "miss", "score": 0.0, "checked_at": "2026-01-02T10:00:00"},
+                        {
+                            "id": f"ck{i}",
+                            "verdict": "hit" if i % 2 == 0 else "miss",
+                            "score": 1.0 if i % 2 == 0 else 0.0,
+                            "checked_at": "2026-01-02T10:00:00",
+                        }
+                        for i in range(n)
                     ],
                 )
                 _write_jsonl(
