@@ -33,7 +33,7 @@ akshare 优先回退复盘会、研报增量翻页）；`cli.py` 加 `--plan` �
 - **plist 仓内源缺键**：步骤 2 只改了装机副本，仓内源 `intelligence/dream/…-sync.plist` 没有 `REVIEW_SYNC_PLAN`，而
   `install_eval_launchd.sh` 是 `cp 源 → bootout → bootstrap`——下次重装会静默冲回 full。已开 PR #583
   （`fix/tiered-sync-plist-source`）补源 + `test_review_sync_plist_source_carries_tiered_plan` 钉住；新源与装机副本
-  `plistlib` 语义相等，装机侧不必重装。**待用户确认后合并。** 门禁读数（`run_main_gate.sh`，干净树 `9c443f84`）：
+  `plistlib` 语义相等，装机侧不必重装。**已合入**（用户口令「合并」，`gitea/main@111839d4`，2026-09-04 23:0x）。门禁读数（`run_main_gate.sh`，干净树 `9c443f84`）：
   ruff 绿、pytest **7700P/0F/15S/1x**，收据 `~/.finance-runtime/test-receipts/20260904T*-9c443f84*.json`；diff 不触碰
   `intelligence/webapp`，frontend/e2e 叶子不受影响。
 - 主树已 `--ff-only` 到 `gitea/main@5c7fe2eb`（13 个提交全是已合 PR，无一触碰同步代码）。
@@ -68,9 +68,9 @@ akshare 优先回退复盘会、研报增量翻页）；`cli.py` 加 `--plan` �
   最坏陈旧 5 个交易日由周五 full 兜底；未做更细的逐股换血检测。
 
 ## 下一步
-0. 用户确认后合并 PR #583（plist 源补 `REVIEW_SYNC_PLAN`）；合并后主树 `git pull --ff-only gitea main`。
-1. 用户：Chrome 登录 fupanhui.com（周一 18:30 前；步骤见上「接手复核」；验证 `run_review_sync.preflight()` 返回空列表）。
-   登录后决定是否补跑 09-03 / 09-04。
+0. ~~合并 PR #583~~ 已合入；主树已 ff 到 `gitea/main@2c5520b3`（含 #583 / #585 / #586）。
+1. 用户：Chrome 登录 fupanhui.com——**用户 09-04 23:00 定为「明天（周六）再登」**，周一 18:30 前即可（步骤见上「接手复核」；
+   验证 `run_review_sync.preflight()` 返回空列表）。登录后决定是否补跑 09-03 / 09-04。
 2. 周六 18:30 后看 `logs/daily-full-review.out.log` 有无「周末，跳过全量复盘」——有 = launchd 链路活了。
 3. 周一 18:30 首个 cheap 日；若要提前手动验：`REVIEW_SYNC_PLAN=cheap` 手跑 `nightly-full-review-s7.sh sync`（需已登录）。
 首个 cheap 日之后：看 `skills/daily-full-review/state/runlog.md` 的 `plan=cheap` 段；
