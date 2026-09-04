@@ -19,6 +19,10 @@
 Benjamini–Hochberg 控制 FDR；BH 没拒绝的 ``supported`` / ``refuted`` 降级为 ``not_distinguishable``，
 并对每条打 ``exploratory=true``。单条手工跑不校正，收据注明「单次检验」。
 
+按大盘阶段的读数（``stage_readouts``）：每个阶段桶用**该阶段自己的基准率**走同一套 ``readout`` → 四态，
+再把一条规则的 m 个阶段当一个族做 BH——拆 12 个阶段就是 12 次检验，不校正时 α=0.05 下「至少一个假显著」≈ 46%。
+``stage_matched_p0`` 把各阶段 p0 按事件的阶段分布加权，得到「控制住阶段后的期望命中率」作第三列对照。
+
 只用标准库；无 scipy。二项 pmf 用 lgamma 在对数域算，N 到几万也不会溢出。
 """
 
@@ -26,7 +30,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 Z95 = 1.959963984540054
 VERDICTS = ("insufficient_n", "not_distinguishable", "supported", "refuted")
@@ -232,3 +236,86 @@ def apply_bh_downgrade(verdicts: Sequence[str], rejected: Sequence[bool]) -> lis
         else:
             out.append(v)
     return out
+
+
+# --------------------------------------------------------------------------- #
+# 按大盘阶段：每桶自己的基准率 + 规则内阶段族 BH
+# --------------------------------------------------------------------------- #
+@dataclass(frozen=True)
+class StageBucket:
+    """某个大盘阶段下的已到期事件，带该阶段自己的基准率与完整读数。
+
+    ``readout.verdict`` 是单次检验结论；``verdict`` 是规则内阶段族 BH 校正后的结论（供渲染与证伪库用）。
+    """
+
+    stage: str
+    readout: Readout
+    adjusted_p: float | None
+    rejected: bool
+    verdict: str
+
+    @property
+    def n(self) -> int:
+        return self.readout.n
+
+    @property
+    def k(self) -> int:
+        return self.readout.k
+
+    @property
+    def p(self) -> float | None:
+        return self.readout.p
+
+    @property
+    def p0(self) -> float | None:
+        return self.readout.p0
+
+    def to_dict(self) -> dict[str, Any]:
+        rd = self.readout.to_dict()
+        rd["verdict_single"] = rd.pop("verdict")
+        return {"stage": self.stage, **rd, "adjusted_p": self.adjusted_p, "rejected": self.rejected, "verdict": self.verdict}
+
+
+def stage_readouts(
+    successes_by_stage: Mapping[str, Sequence[bool]],
+    baseline_by_stage: Mapping[str, tuple[int, int]],
+    *,
+    min_n: int,
+    q: float,
+) -> list[StageBucket]:
+    """每个阶段桶配自己的基准率 ``(baseline_n, baseline_k)`` 出完整读数，再在规则内按 BH 校正。
+
+    ``successes_by_stage`` 每桶的序列须已按日期排好（前后半段才有意义）。族 = p 值可得且 n >= min_n 的阶段；
+    ``insufficient_n`` 不参与校正也不会被改写。桶按 n 降序、阶段名升序排。
+    """
+    readouts: dict[str, Readout] = {}
+    for stage, seq in successes_by_stage.items():
+        bn, bk = baseline_by_stage.get(stage, (0, 0))
+        readouts[stage] = readout(seq, baseline_n=bn, baseline_k=bk, min_n=min_n)
+    order = sorted(readouts, key=lambda s: (-readouts[s].n, s))
+    testable = [s for s in order if readouts[s].p_value is not None and readouts[s].verdict != "insufficient_n"]
+    adjusted: dict[str, float | None] = {s: None for s in order}
+    rejected: dict[str, bool] = {s: False for s in order}
+    if testable:
+        pvals = [readouts[s].p_value for s in testable]
+        rej, adj = benjamini_hochberg([p for p in pvals if p is not None], q=q)
+        for s, r, a in zip(testable, rej, adj):
+            rejected[s], adjusted[s] = r, a
+    verdicts_bh = apply_bh_downgrade([readouts[s].verdict for s in order], [rejected[s] for s in order])
+    return [
+        StageBucket(stage=s, readout=readouts[s], adjusted_p=adjusted[s], rejected=rejected[s], verdict=v)
+        for s, v in zip(order, verdicts_bh)
+    ]
+
+
+def stage_matched_p0(stages: Sequence[StageBucket]) -> float | None:
+    """p0 = Σ_stage n_stage · p0_stage / Σ n_stage（只算有基准率的阶段）。
+
+    「如果每个事件都拿它当天所处阶段的基准率来比，整体应该命中多少」——把撞上好阶段的择时效应从提升里剥掉。
+    事件所在的 (实体, 日) 本身就在同阶段的 universe 里，所以有事件的阶段一定有基准率；这里的过滤只是防御。
+    """
+    usable = [b for b in stages if b.p0 is not None and b.n > 0]
+    total = sum(b.n for b in usable)
+    if not total:
+        return None
+    return sum(b.n * b.p0 for b in usable) / total  # type: ignore[operator]

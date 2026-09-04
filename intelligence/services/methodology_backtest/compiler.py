@@ -6,7 +6,9 @@
   的 idx 位移到之前第 lag 个交易日（只能往过去看，lag>=0 在 rules 里已卡死）；
 - ``entity: market`` 的谓词 → 按日 join 大盘标签（entity_id 常量 ``'market'``）；
 - 交集 = 事件集；事件集 join ``history_outcomes`` → 逐事件 metrics；``success`` → 命中布尔；
-- ``baseline`` → 同 universe、同日期范围内全部 (实体, 日) 的同一 success 比例。
+- ``baseline`` → 同 universe、同日期范围内全部 (实体, 日) 的同一 success 比例；
+- 按阶段基准率 → 同一条基准率查询多一个 ``GROUP BY 当日 market_stage``（大盘标签按日 LEFT JOIN，缺标签的日
+  归 NULL 桶由 runner 命名）。同 universe、同窗口、同 success 定义，只是按事件日所处的大盘阶段分层。
 
 安全边界：谓词值、日期、horizon 全部走 ``?`` 绑定参数；进入 SQL 文本的只有白名单映射出来的
 列名 / 运算符 / 表别名与整数 lag。任何用户可控字符串都不会拼进 SQL。
@@ -71,6 +73,34 @@ class CompiledRule:
             return Query(sql, (entity_type, *dates, success_value, entity_type, horizon))
         sql = _BASELINE_SQL[kind].format(metric_col=self.metric_col, success_op=self.success_op)
         return Query(sql, (entity_type, str(start), str(end), success_value, entity_type, horizon))
+
+    def baseline_by_stage_for(
+        self,
+        start: date | str,
+        end: date | str,
+        *,
+        kind: str | None = None,
+        event_dates: Sequence[date | str] = (),
+    ) -> Query:
+        """按阶段基准率：与 ``baseline_for`` 同一 universe / 窗口 / success 定义，按当日 ``market_stage`` 分组，
+        返回 ``(stage_text, n, k)`` 多行；缺大盘标签的日 ``stage_text`` 为 NULL。"""
+        kind = kind or self.baseline_kind
+        if kind not in _STAGE_BASELINE_SQL:
+            raise ValueError(f"编译器不认识 baseline.kind={kind!r}")
+        entity_type, success_value, _et, horizon = self.baseline_params
+        stage_params = (MARKET_ENTITY_TYPE, MARKET_ENTITY_ID, STAGE_LABEL)
+        if kind == "same_universe_event_days":
+            dates = sorted({str(d) for d in event_dates})
+            if not dates:
+                return Query(_EMPTY_STAGE_BASELINE_SQL, ())
+            sql = _STAGE_BASELINE_SQL[kind].format(
+                metric_col=self.metric_col,
+                success_op=self.success_op,
+                date_placeholders=", ".join("?" for _ in dates),
+            )
+            return Query(sql, (entity_type, *dates, success_value, entity_type, horizon, *stage_params))
+        sql = _STAGE_BASELINE_SQL[kind].format(metric_col=self.metric_col, success_op=self.success_op)
+        return Query(sql, (entity_type, str(start), str(end), success_value, entity_type, horizon, *stage_params))
 
 
 def _bind_value(pred: Predicate) -> tuple[Any, ...]:
@@ -197,6 +227,20 @@ def compile_rule(rule: Rule, *, start: date | str, end: date | str) -> CompiledR
 
 
 # baseline.kind → SQL 模板。{metric_col} / {success_op} 只接受白名单映射结果；{date_placeholders} 是 ? 序列。
+_BASELINE_UNIVERSE: dict[str, str] = {
+    "same_universe_all_days": (
+        "WITH u AS (\n"
+        "    SELECT DISTINCT entity_id, trade_date FROM history_labels\n"
+        "    WHERE entity_type = ? AND trade_date BETWEEN ? AND ?\n"
+        ")\n"
+    ),
+    "same_universe_event_days": (
+        "WITH u AS (\n"
+        "    SELECT DISTINCT entity_id, trade_date FROM history_labels\n"
+        "    WHERE entity_type = ? AND trade_date IN ({date_placeholders})\n"
+        ")\n"
+    ),
+}
 _BASELINE_TAIL = (
     "SELECT COUNT(*) AS n,\n"
     "       COUNT(*) FILTER (WHERE o.{metric_col} {success_op} ?) AS k\n"
@@ -205,18 +249,24 @@ _BASELINE_TAIL = (
     "  ON o.entity_type = ? AND o.entity_id = u.entity_id\n"
     " AND o.trade_date = u.trade_date AND o.horizon = ? AND o.status = 'ok'"
 )
-_BASELINE_SQL: dict[str, str] = {
-    "same_universe_all_days": (
-        "WITH u AS (\n"
-        "    SELECT DISTINCT entity_id, trade_date FROM history_labels\n"
-        "    WHERE entity_type = ? AND trade_date BETWEEN ? AND ?\n"
-        ")\n" + _BASELINE_TAIL
-    ),
-    "same_universe_event_days": (
-        "WITH u AS (\n"
-        "    SELECT DISTINCT entity_id, trade_date FROM history_labels\n"
-        "    WHERE entity_type = ? AND trade_date IN ({date_placeholders})\n"
-        ")\n" + _BASELINE_TAIL
-    ),
-}
+_BASELINE_SQL: dict[str, str] = {kind: cte + _BASELINE_TAIL for kind, cte in _BASELINE_UNIVERSE.items()}
 _EMPTY_BASELINE_SQL = "SELECT 0 AS n, 0 AS k"
+
+# 按阶段基准率：同一个 u，多一个对大盘阶段标签的按日 LEFT JOIN + GROUP BY。阶段值原文返回（NULL = 当日无标签），
+# 命名 / 归一都不在 SQL 里做。大盘标签的 entity_type / entity_id / label 也走绑定参数，SQL 文本里没有任何常量字面量。
+MARKET_ENTITY_TYPE = "market"
+STAGE_LABEL = "market_stage"
+_STAGE_BASELINE_TAIL = (
+    "SELECT ms.value_text AS stage,\n"
+    "       COUNT(*) AS n,\n"
+    "       COUNT(*) FILTER (WHERE o.{metric_col} {success_op} ?) AS k\n"
+    "FROM u\n"
+    "JOIN history_outcomes o\n"
+    "  ON o.entity_type = ? AND o.entity_id = u.entity_id\n"
+    " AND o.trade_date = u.trade_date AND o.horizon = ? AND o.status = 'ok'\n"
+    "LEFT JOIN history_labels ms\n"
+    "  ON ms.entity_type = ? AND ms.entity_id = ? AND ms.label = ? AND ms.trade_date = u.trade_date\n"
+    "GROUP BY ms.value_text"
+)
+_STAGE_BASELINE_SQL: dict[str, str] = {kind: cte + _STAGE_BASELINE_TAIL for kind, cte in _BASELINE_UNIVERSE.items()}
+_EMPTY_STAGE_BASELINE_SQL = "SELECT NULL AS stage, 0 AS n, 0 AS k WHERE FALSE"
