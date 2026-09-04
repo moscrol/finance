@@ -75,7 +75,9 @@ SET_OPS = ("in", "not_in")
 SUCCESS_OPS = (">", ">=", "<", "<=")
 METRICS = ("fwd_return", "max_return", "days_to_peak", "drawdown_after_peak")
 TARGETS = ("pct_chg",)
-BASELINE_KINDS = ("same_universe_all_days",)
+# same_universe_all_days：首末事件日之间、同 universe 全部 (实体, 日)——设计稿 §3.2 原口径；
+# same_universe_event_days：只取事件发生的那些交易日里的全体实体——把「择时」效应剥掉，只检验「选择」。
+BASELINE_KINDS = ("same_universe_all_days", "same_universe_event_days")
 
 DEFAULT_MIN_N = 20
 MAX_LAG = 20
@@ -87,7 +89,11 @@ RULE_ID_RE = re.compile(r"^[a-z][a-z0-9_]{2,63}$")
 # 文本值：字母数字下划线、CJK、少量连接符。分号、引号、括号、比较符、注释符一律拒——规则里不该有 SQL 味。
 TEXT_VALUE_RE = re.compile(r"^[0-9A-Za-z_\u4e00-\u9fff\u00b7/\-]{1,32}$")
 
-_TOP_KEYS = {"rule_id", "version", "title", "scope", "condition", "outcome", "baseline", "min_n", "notes"}
+_TOP_KEYS = {"rule_id", "version", "title", "scope", "condition", "outcome", "baseline", "min_n", "notes", "provenance"}
+# 候选规则从哪来：kind=correction 时 ref 是 corrections.jsonl 的记录 id / ts。只做溯源，不参与编译。
+_PROVENANCE_KEYS = {"kind", "ref", "ts", "text", "registered_at", "user"}
+PROVENANCE_KINDS = ("correction", "manual")
+MAX_PROVENANCE_TEXT = 500
 _SCOPE_KEYS = {"entity_type", "universe"}
 _PRED_KEYS = {"label", "op", "value", "lag", "entity"}
 _OUTCOME_KEYS = {"target", "horizons", "metrics", "success"}
@@ -387,6 +393,20 @@ def validate_rule(doc: Any) -> tuple[Rule | None, list[RuleError]]:
     min_n = doc.get("min_n", DEFAULT_MIN_N)
     if not _is_int(min_n) or min_n < 1:
         errors.append(RuleError("min_n", f"必须是 >=1 的整数，得到 {min_n!r}"))
+
+    if "provenance" in doc:
+        prov = doc["provenance"]
+        if not isinstance(prov, dict):
+            errors.append(RuleError("provenance", "必须是对象"))
+        else:
+            _unknown_keys(prov, _PROVENANCE_KEYS, "provenance", errors)
+            if prov.get("kind") not in PROVENANCE_KINDS:
+                errors.append(RuleError("provenance.kind", f"必须在 {PROVENANCE_KINDS}，得到 {prov.get('kind')!r}"))
+            for key in ("ref", "ts", "text", "registered_at", "user"):
+                if key in prov and (not isinstance(prov[key], str) or len(prov[key]) > MAX_PROVENANCE_TEXT):
+                    errors.append(RuleError(f"provenance.{key}", f"必须是 <={MAX_PROVENANCE_TEXT} 字的字符串"))
+            if prov.get("kind") == "correction" and not str(prov.get("ref") or "").strip():
+                errors.append(RuleError("provenance.ref", "kind=correction 时必须给纠偏记录的 id 或 ts"))
 
     if errors:
         return None, errors

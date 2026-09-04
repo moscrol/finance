@@ -35,6 +35,14 @@ import duckdb  # noqa: E402
 from intelligence.services import checkpoints as ck  # noqa: E402
 from intelligence.services.methodology_backtest.labels import build_labels  # noqa: E402
 from intelligence.services.methodology_backtest.outcomes import DEFAULT_HORIZONS, build_outcomes  # noqa: E402
+from intelligence.services.methodology_backtest.propose import (  # noqa: E402
+    build_rule_doc,
+    correction_provenance,
+    find_correction,
+    parse_predicate,
+    parse_success,
+    write_rule_file,
+)
 from intelligence.services.methodology_backtest.receipts import (  # noqa: E402
     build_receipt,
     build_scan_summary,
@@ -285,6 +293,59 @@ def cmd_scan(args) -> int:
     return 0
 
 
+def cmd_propose(args) -> int:
+    """纠偏 → 候选规则：人写谓词短句，这里解析、过白名单、钉溯源、落 methodology/rules/。"""
+    predicates = [parse_predicate(p) for p in args.pred]
+    success = parse_success(args.success)
+    provenance = None
+    if args.from_correction:
+        from intelligence import userspace
+        from intelligence.services import corrections
+
+        path = (
+            Path(args.corrections_file).expanduser()
+            if args.corrections_file
+            else userspace.user_space(args.user).corrections_path
+        )
+        records, warn = corrections.load_corrections(path, window=0)
+        if warn:
+            print(warn, file=sys.stderr)
+        rec = find_correction(records, args.from_correction)
+        if rec is None:
+            print(f"错误：{path} 里没有 id/ts 为 {args.from_correction!r} 的纠偏记录", file=sys.stderr)
+            return EXIT_INPUT
+        provenance = correction_provenance(rec, user=args.user)
+    elif args.manual_note:
+        provenance = {
+            "kind": "manual",
+            "text": str(args.manual_note)[:500],
+            "registered_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(timespec="seconds"),
+        }
+    horizons = [int(x) for x in str(args.horizons).split(",") if x.strip()] if args.horizons else None
+    doc, rule = build_rule_doc(
+        rule_id=args.rule_id,
+        title=args.title,
+        entity_type=args.entity_type,
+        predicates=predicates,
+        success=success,
+        horizons=horizons,
+        min_n=args.min_n,
+        version=args.version,
+        notes=args.notes,
+        provenance=provenance,
+    )
+    if args.dry_run:
+        print(json.dumps(doc, ensure_ascii=False, indent=2))
+        return 0
+    path = write_rule_file(args.rules_dir, doc)
+    rel = path.relative_to(ROOT) if path.is_relative_to(ROOT) else path
+    print(f"候选规则已登记 → {rel}（{rule.ref}）")
+    if provenance:
+        print(f"  溯源：{provenance.get('kind')} {provenance.get('ref', '')} {provenance.get('text', '')[:60]}")
+    print(f"  下一步：python scripts/methodology_backtest.py run {rel}")
+    return 0
+
+
 def cmd_report(args) -> int:
     labels_db = Path(args.labels_db).expanduser()
     if not labels_db.is_file():
@@ -407,6 +468,29 @@ def build_parser() -> argparse.ArgumentParser:
     _add_run_args(s)
     s.set_defaults(func=cmd_scan)
 
+    pp = sub.add_parser("propose", help="纠偏 → 候选规则：谓词短句解析 + 白名单校验 + 溯源，落 methodology/rules/")
+    pp.add_argument("--rule-id", required=True, help="^[a-z][a-z0-9_]{2,63}$")
+    pp.add_argument("--title", required=True)
+    pp.add_argument("--entity-type", required=True, choices=["sector", "theme"])
+    pp.add_argument(
+        "--pred",
+        action="append",
+        required=True,
+        help="谓词短句，可重复：`dual_red_streak@1 >= 3`、`market:market_stage in 主升阶段,主升`",
+    )
+    pp.add_argument("--success", required=True, help="成功判据：`fwd_return 5 > 0`")
+    pp.add_argument("--horizons", default=None, help="逗号分隔，默认 3,5,7,10（自动并入 success 的窗口）")
+    pp.add_argument("--min-n", type=int, default=20)
+    pp.add_argument("--version", type=int, default=1)
+    pp.add_argument("--notes", default=None)
+    pp.add_argument("--from-correction", default=None, help="corrections.jsonl 里的记录 id 或 ts，钉进 provenance")
+    pp.add_argument("--user", default=None, help="纠偏记录属于哪个用户（默认 default / FORESIGHT_USER）")
+    pp.add_argument("--corrections-file", default=None, help="覆盖 corrections.jsonl 路径")
+    pp.add_argument("--manual-note", default=None, help="没有纠偏记录时的人工来源说明")
+    pp.add_argument("--rules-dir", default=str(RULES_DIR))
+    pp.add_argument("--dry-run", action="store_true", help="只打印校验后的规则 JSON，不落文件")
+    pp.set_defaults(func=cmd_propose)
+
     rp = sub.add_parser("report", help="标签盘点 + 最近收据")
     _add_db_args(rp, source=False)
     rp.add_argument("--receipts-dir", default=str(RECEIPTS_DIR))
@@ -428,7 +512,7 @@ def main(argv: list[str] | None = None) -> int:
     except RuleValidationError as exc:
         print(str(exc), file=sys.stderr)
         return EXIT_INPUT
-    except (FileNotFoundError, RuntimeError, ValueError) as exc:
+    except (FileNotFoundError, FileExistsError, RuntimeError, ValueError) as exc:
         print(f"错误：{exc}", file=sys.stderr)
         return EXIT_INPUT
 
