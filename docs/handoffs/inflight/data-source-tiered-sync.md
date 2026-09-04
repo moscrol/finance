@@ -26,6 +26,25 @@ akshare 优先回退复盘会、研报增量翻页）；`cli.py` 加 `--plan` �
    现 `launchctl list` 可见、`print` 显示 `REVIEW_SYNC_PLAN => auto`。周六 18:30 会记一条「周末跳过」当冒烟。
 4. **Chrome 登录 fupanhui.com 仍未做**（preflight `login: no`）——不登录周一 18:30 会 rc=3 停在 preflight，任何档位都一样。
 
+**2026-09-04 22:00 接手复核**（cursor）：
+- 夜跑代码路径实测：`nightly-review-sync-staged.py` 只从 S7 树（`.finance-runtime/finance-s7-sync@418515c0`，**不含 #578**）
+  借 clone/守卫/换名四个函数；子进程 `run_review_sync.py` 以主树为 cwd、`PYTHONPATH` 清空，import 的是主树的
+  `market_feature_store`，且 `os.environ.copy()` 继承 `REVIEW_SYNC_PLAN`。切档在夜跑路径里**生效**，不是只在仪表上。
+- **plist 仓内源缺键**：步骤 2 只改了装机副本，仓内源 `intelligence/dream/…-sync.plist` 没有 `REVIEW_SYNC_PLAN`，而
+  `install_eval_launchd.sh` 是 `cp 源 → bootout → bootstrap`——下次重装会静默冲回 full。已开 PR #583
+  （`fix/tiered-sync-plist-source`）补源 + `test_review_sync_plist_source_carries_tiered_plan` 钉住；新源与装机副本
+  `plistlib` 语义相等，装机侧不必重装。**已合入**（用户口令「合并」，`gitea/main@111839d4`，2026-09-04 23:0x）。门禁读数（`run_main_gate.sh`，干净树 `9c443f84`）：
+  ruff 绿、pytest **7700P/0F/15S/1x**，收据 `~/.finance-runtime/test-receipts/20260904T*-9c443f84*.json`；diff 不触碰
+  `intelligence/webapp`，frontend/e2e 叶子不受影响。
+- 主树已 `--ff-only` 到 `gitea/main@5c7fe2eb`（13 个提交全是已合 PR，无一触碰同步代码）。
+- 登录态 22:00 再测仍 `no`。调试 Chrome 是 **Chrome for Testing 独立 profile**（`~/chrome-debug-profile`）、默认 `--headless=new`，
+  只监听 `[::1]:9222`（`curl 127.0.0.1:9222` 会 connection refused，用 `localhost`）。登录要走
+  `launchctl setenv CDP_HEADLESS 0` → `kickstart -k gui/$(id -u)/com.financeworkspace.chrome-debug` → 窗口里登录 → `unsetenv` 再 kickstart 回无头；
+  cookie 落 profile 持久。日常 Google Chrome 里登录**不算**。
+- 09-03（周四）/ 09-04（周五）两个交易日库里没有数据（out.log 09-03 20:40 finalize 守卫 rc=2 列了全部缺表）。登录后补跑
+  用 `nightly-full-review-s7.sh <日期>`（sync 段）+ 手动 finalize；补历史建议显式 `REVIEW_SYNC_PLAN=full`（已知路径），
+  让周一成为受观察的首个 cheap 日。
+
 ## 怎么验收
 1. `python3 -m market_feature_store.cli registry-check` → 校验通过，两档步骤与 build_plan 一致。
 2. `pytest -q tests/test_consumption_registry.py tests/test_tiered_sync_local.py` → 17 passed。
@@ -49,7 +68,9 @@ akshare 优先回退复盘会、研报增量翻页）；`cli.py` 加 `--plan` �
   最坏陈旧 5 个交易日由周五 full 兜底；未做更细的逐股换血检测。
 
 ## 下一步
-1. 用户：Chrome 登录 fupanhui.com（周一 18:30 前）。
+0. ~~合并 PR #583~~ 已合入；主树已 ff 到 `gitea/main@2c5520b3`（含 #583 / #585 / #586）。
+1. 用户：Chrome 登录 fupanhui.com——**用户 09-04 23:00 定为「明天（周六）再登」**，周一 18:30 前即可（步骤见上「接手复核」；
+   验证 `run_review_sync.preflight()` 返回空列表）。登录后决定是否补跑 09-03 / 09-04。
 2. 周六 18:30 后看 `logs/daily-full-review.out.log` 有无「周末，跳过全量复盘」——有 = launchd 链路活了。
 3. 周一 18:30 首个 cheap 日；若要提前手动验：`REVIEW_SYNC_PLAN=cheap` 手跑 `nightly-full-review-s7.sh sync`（需已登录）。
 首个 cheap 日之后：看 `skills/daily-full-review/state/runlog.md` 的 `plan=cheap` 段；

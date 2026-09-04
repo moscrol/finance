@@ -40,16 +40,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .labels import MARKET_LABELS, SECTOR_LABELS, THEME_LABELS
+from .labels import ALL_LABELS, MARKET_LABELS, SECTOR_LABELS, STOCK_LABELS, STOCK_UNIVERSE, THEME_LABELS
 
 # --------------------------------------------------------------------------- #
 # 白名单
 # --------------------------------------------------------------------------- #
-ENTITY_TYPES = ("sector", "theme", "market")
-SCOPE_ENTITY_TYPES = ("sector", "theme")
+ENTITY_TYPES = ("sector", "theme", "market", "stock")
+SCOPE_ENTITY_TYPES = ("sector", "theme", "stock")
 UNIVERSES: dict[str, tuple[str, ...]] = {
     "sector": ("published_snapshot",),
     "theme": ("heat_final",),
+    "stock": (STOCK_UNIVERSE,),
 }
 
 # label → (entity_type, 值类型)。值类型决定允许的 op 与 value 形态。
@@ -63,8 +64,10 @@ LABEL_KINDS: dict[str, tuple[str, str]] = {
     "volume_surge": ("market", "bool"),
     "ma5_peak_confirmed": ("market", "bool"),
     "ma5_valley_confirmed": ("market", "bool"),
+    **{name: ("stock", "bool") for name in STOCK_LABELS},
 }
-assert set(LABEL_KINDS) == set(SECTOR_LABELS + THEME_LABELS + MARKET_LABELS)
+assert set(LABEL_KINDS) == set(ALL_LABELS) == set(SECTOR_LABELS + THEME_LABELS + MARKET_LABELS + STOCK_LABELS)
+assert set(UNIVERSES) == set(SCOPE_ENTITY_TYPES)
 
 OPS_BY_KIND: dict[str, tuple[str, ...]] = {
     "bool": ("==", "!="),
