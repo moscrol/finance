@@ -1,0 +1,20 @@
+{
+  "schema_version": "model-cutoffs/v1",
+  "note": "模型训练 / 知识截止日表，只认官方文档或模型卡 URL；查不到就填 null 并写 note，不用媒体转述。replay_engine.memory_bucket 按 model_pattern（fnmatch，大小写不敏感）匹配实际 provider.model：D0 > cutoff → post_cutoff，D0 <= cutoff → pre_cutoff，null / 无匹配 → unknown；pre_cutoff 与 unknown 都是 memory_contaminated。",
+  "models": [
+    {
+      "model_pattern": "glm-5.2*",
+      "training_cutoff": null,
+      "source_url": null,
+      "checked_at": "2026-09-05",
+      "note": "2026-09-05 逐一核对官方来源均未披露知识 / 训练截止日：docs.z.ai/guides/llm/glm-5.2（含 .md 版）、docs.bigmodel.cn/cn/guide/models/text/glm-5.2、huggingface.co/zai-org/GLM-5.2 模型卡、github.com/zai-org/GLM-5 README。写手默认模型（llm_refine.py 的 glm-5.2 默认）→ 本表 null → 整表 memory_bucket=unknown，这就是当前真相。"
+    },
+    {
+      "model_pattern": "grok-4.6*",
+      "training_cutoff": "2026-02-01",
+      "source_url": "https://docs.x.ai/docs/models",
+      "checked_at": "2026-09-05",
+      "note": "xAI 官方模型页原文：\"The knowledge cut-off date of Grok 4.6 is February 1, 2026.\"（grok_cli_judge.py DEFAULT_MODEL）。知识截止 ≠ 严格意义的预训练数据截止，但这是官方给出的唯一日期，按它分栏。"
+    }
+  ]
+}
