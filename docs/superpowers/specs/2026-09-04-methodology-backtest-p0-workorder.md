@@ -18,7 +18,7 @@
 
 1. `build-labels`：生成设计稿 §3.1 表前 12 行标签（sector 5 / theme 3 / market 4），写入旁路库 `history_labels`，含 `label_version`、`computed_at`、`source_max_trade_date`；`diff_ratio` 全零日打 `data_gap`。
 2. `outcomes`：前瞻结果表，按 sector / theme 两类实体、`horizons=[3,5,7,10]`，字段 `fwd_return / max_return / days_to_peak / drawdown_after_peak`；交易日历取 `fact_market_daily.trade_date`。
-3. 规则 JSON schema v0（设计稿 §3.2 示例为准）+ 编译器 + 白名单校验（非法 `label` / `op` / 自由 SQL 片段一律拒绝并给出字段路径）。
+3. 规则 JSON schema v0（设计稿 §3.2 示例为准）+ 编译器 + 白名单校验（非法 `label` / `op` / 自由 SQL 片段一律拒绝并给出字段路径）。**2026-09-04 补充（设计稿 §6 P1 三条约束的占位字段，P0 只占位不实现逻辑）**：schema 增加 `scope ∈ {shared, private}`（缺省 `shared`）、`owner`（缺省 `system`）、`source_perspective`（可空）；收据顶层带 `scope` 与 `entity_type`；`refuted` 收据与 `supported` 收据同格式、同目录，文件名含 verdict 以便后续单独收集（例如 `<date>.refuted.json`）。不做任何权限、渲染或共享逻辑。
 4. 统计模块：`wilson(k, n)`、基准率、lift、前后半段、BH 校正、四态结论；`min_n` 来自规则文件，缺省 20。
 5. CLI：`scripts/methodology_backtest.py build-labels|outcomes|run|scan|report`；`run` 输出收据 JSON + md，收据含成立条件块（源库 `max(trade_date)`、`label_version`、`rule_id@version`、N、`data_gap` 日数、树 / 解释器 / revision / dirty）。
 6. 三条种子规则进 `methodology/rules/`：`dual_red_streak3_continuation.v1.json`（设计稿示例）、`diff_ratio_turn_up_5d.v1.json`（边际量拐点后 5 日）、`limit_heat_rank_jump_3d.v1.json`（热度跃迁后 3 日）。

@@ -206,6 +206,12 @@ flowchart LR
 - 经验卡 `rule_id` 映射与 promotion 统计门。
 - 纠偏 → 候选规则的人工登记入口。
 
+以下三条是 2026-09-04 BP v0.4 壁垒重构后补入的产品约束（BP §4.3–4.4），**P0 不实施，但 P0 的规则文件与收据格式要为它们留字段**：
+
+- **规则的归属层：共享层 / 私有层。** 规则 JSON 增加 `scope ∈ {shared, private}` 与 `owner`（私有规则 = 用户 id；共享规则 = `shared`，来源写 `source_perspective`，即经视角蒸馏的 KOL 方法论或系统内置）。私有规则只对本人回测与校准，共享规则的升格（`private → shared`）必须过统计门 `supported` 且由人拍板；收据带 `scope`。P0 三条种子规则全部标 `shared`，`owner=system`，字段先占位。
+- **证伪库是资产，不是副产物。** 四态里的 `refuted` 收据不只是打回：单独落 `methodology/refuted/` 并进台账地图登记，字段至少含 `rule_id / rule_version / market_stage / N / ci / refuted_at`。P1 提供 `report --refuted` 按大盘阶段汇总（「这个阶段这招不灵」）。P0 只要求 refuted 收据与 supported 收据同格式、可被后续单独收集。
+- **共享层的合规硬门。** 任何 `scope=shared` 规则的成功率对外呈现必须同时满足：仅登录用户可见；必带 `N` 与 Wilson 区间；实体粒度只到板块 / 题材层（`entity_type ∈ {sector, theme, market}`），不到个股名单；不进入任何营销内容（`docs/marketing/` 契约 `prohibited_rewrites` 追加「策略成功率」条目）；KOL 来源以「策略族 / 视角」匿名化呈现，署名与授权另议。这四条写成渲染层的硬门（缺任一字段即不渲染），不写成约定。依据：BP §9.2「模拟业绩营销」一行与 2026-09-30 起施行的《金融产品网络营销管理办法》。
+
 ### P2（占位）
 
 - 标签层迁入主 schema；`finance_query` 新增 `history_labels` / `methodology_verdicts` 数据集（按 2026-08-20 决策走 dataset 扩展或 harness 预取，**不开 run_sql**）。

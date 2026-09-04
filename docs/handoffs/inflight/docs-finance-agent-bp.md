@@ -61,6 +61,12 @@
 - 申请表：项目简介（100 字，卡满）、核心痛点、核心优势三格按新口径重写，`/tmp/opc_form/fill.py` 重跑，`~/Downloads/…已填草稿-2026-09-04.docx` 已覆盖并验证；`…-form-answers.md` 同步。
 - 全文 `rg` 确认「三张牌 / 壁垒一二三」清零；「证据可追溯」只剩地板 / 入场券语境。
 
+**2026-09-04 第七轮（用户令「执行补充」：三件我方可落的配套）**：
+- **设计稿 P1 补三条产品约束**（`…-structured-history-design.md` §6 P1）：规则 `scope∈{shared,private}` + `owner` + `source_perspective`；证伪库当资产（`methodology/refuted/` 单独落 + 台账登记，P1 `report --refuted` 按阶段汇总）；共享层合规硬门四条（登录可见 / 必带 N 与 CI / 只到板块题材层 / 不进营销内容，KOL 匿名为策略族）。**P0 工单 §2.3 同步补占位字段**（schema 三字段 + 收据带 `scope`/`entity_type` + refuted 收据同格式、文件名含 verdict），不实现逻辑。INDEX #21 一句话更新。
+- **新工单 INDEX #22** `2026-09-04-judge-token-usage-workorder.md`（P1 小单）：判官 token 记进 `LLMCallLedger`（不新开账本、不改 `complete()` 三元组契约）；`_post_chat` 读 usage（双命名，复用 `glm_agent_runtime._message_token_usage` 逻辑但需下沉到 services，layer_audit 禁反向 import）；grok CLI **先探明** stdout 有无 usage，无则估算并全程带 `estimated` 标记；`purpose=judge` ContextVar 包住 `episode_semantic_verifier` 三处 `_judge_request` 之后的调用；`continuous_turn_adapter.metrics.judge_usage` 差分汇总；读者 `intelligence/eval/research_cost.py`（照 `tool_hunger.py` 形状）+ 价目表 `intelligence/eval/pricing/llm-prices.json`（手工核对、带 `checked_at`）。证据路径行号读自本分支 2026-09-04。
+- **评审体验账号清单** `docs/bp/2026-09-opc-reviewer-access-checklist.md`：先拍板 A 录屏 + 现场演示（默认）/ B 时限账号 / C 脱敏账号（未做）；B 的步骤抽自 `hosted-alpha-gate.md` §1–§3（向导、Access 先于 DNS、启动器 env 建议值 配额 5、名单热重载、七条验收）；§4 录屏脚本；§5 收尾。**关键发现：运行手册 §4.1「知识库未脱敏」——评审账号会看到私有研报正文**，故 BP §3.5 / 一页纸 / deck 第 5 页 / 申请表补充材料 / 附录 C 全部改为「录屏 + 现场演示为默认，账号可选待拍板」。
+- 顺带：一条 `sed|rg|ls` 组合命令在本树挂起 41s 被手动 kill（与此前 `git fetch`/全树 `git status` 挂起同现象，原因未查），后续用 Read/Grep 工具替代，不影响产出。
+
 ## 未验证 / 已知边界
 
 - 外部数字全部来自媒体转述或三方报告，未核对监管 / 中国结算原文；BP 已注明「口径以原文为准」。
