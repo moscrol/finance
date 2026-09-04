@@ -1,4 +1,5 @@
-"""方法论回测 P0：编译器白名单 / Wilson 数值 / 四态边界 / 标签语义 / 前视检测 / 重建幂等。
+"""方法论回测 P0/P1：编译器白名单 / Wilson 数值 / 四态边界 / 标签语义 / 前视检测 / 重建幂等 /
+基准率双口径 / 纠偏登记入口 / 个股标签（涨停表 ∪ 新高表 universe、series 键不串线）。
 
 变异测试（记进交接）：把 ``outcomes.WINDOW_START_OFFSET`` 从 1 改成 0（窗口含 D0 = 前视），
 ``test_outcomes_window_excludes_label_day`` 与 ``test_lookahead_shift_flips_positive_control`` 必须变红。
@@ -201,6 +202,45 @@ S2_DIFF = {0: -3.0, 1: 2.0, 2: 1.0, 3: -1.0, 4: 0.0, 5: 1.0, 6: 0.0, 7: 1.0, 8: 
 # S3：第 3 日缺行；第 4 日双红 → streak 1（断档重新计数）、turn_up NULL
 S3_SKIP = {3}
 
+# 个股：K1 全 12 日有价，D0 涨停首板（两个板块下重复）、D1 二连板；K2 第 2 日停牌缺行，D3 涨停但连板数缺失、
+# D4 炸板（status Z）；K3 故意用板块代码 "S1.TI" 当个股代码且日日 -1%，考 series 键不串线；
+# K4 只在涨停表出现（三连板），没有价格行 → outcomes 全 missing。
+# 涨停表缺第 2、6 日（→ limit_up / first_board NULL）；新高表缺第 9 日（→ new_high_1y NULL）。
+K1, K2, K3, K4 = "000001.SZ", "000002.SZ", "S1.TI", "000004.SZ"
+LIMIT_DAYS = {0, 1, 3, 4, 5, 7, 8, 9, 10, 11}
+HIGH_DAYS = {0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11}
+K1_HIGH = {0: "1y", 1: "20d", 2: "history", 3: "20d", 4: "60d", 5: "3y", 6: "120d", 7: "20d", 8: "20d", 10: "20d", 11: "20d"}
+K2_HIGH = {0: "60d", 6: "2y"}
+
+
+def _plant_mini_stocks(con) -> None:
+    daily = []
+    for i, d in enumerate(DAYS):
+        daily.append((d, K1, "个股一", 10.0 if i == 0 else S1[i][0]))
+        if i != 2:
+            daily.append((d, K2, "个股二", 0.3))
+        daily.append((d, K3, "同名个股", -1.0))
+    con.executemany("INSERT INTO fact_stock_daily (trade_date, stock_ts_code, stock_name, pct_chg) VALUES (?,?,?,?)", daily)
+    limit = [
+        (DAYS[0], "S1.TI", "板块一", K1, "个股一", 1, "U"),
+        (DAYS[0], "S2.TI", "板块二", K1, "个股一", 1, "U"),
+        (DAYS[1], "S1.TI", "板块一", K1, "个股一", 2, "U"),
+        (DAYS[3], "S1.TI", "板块一", K2, "个股二", None, "U"),
+        (DAYS[4], "S1.TI", "板块一", K2, "个股二", 1, "Z"),
+        (DAYS[0], "S2.TI", "板块二", K3, "同名个股", 1, "U"),
+    ]
+    limit += [(DAYS[i], "S3.TI", "板块三", K4, "个股四", 3, "U") for i in sorted(LIMIT_DAYS)]
+    con.executemany(
+        "INSERT INTO fact_theme_limit_stock_daily (trade_date, sector_ts_code, sector_name, stock_ts_code, stock_name, limit_times, limit_status) VALUES (?,?,?,?,?,?,?)",
+        limit,
+    )
+    high = [(DAYS[i], K1, "个股一", p, p, i % 2 == 0) for i, p in K1_HIGH.items()]
+    high += [(DAYS[i], K2, "个股二", p, p, True) for i, p in K2_HIGH.items()]
+    con.executemany(
+        "INSERT INTO fact_stock_high_daily (trade_date, stock_ts_code, stock_name, primary_high_period, primary_high_label, is_new) VALUES (?,?,?,?,?,?)",
+        high,
+    )
+
 
 def _build_mini_db(path: Path) -> None:
     con = duckdb.connect(str(path))
@@ -249,6 +289,7 @@ def _build_mini_db(path: Path) -> None:
             "INSERT INTO fact_mainline_sector_daily (trade_date, theme_code, theme_name, sector_ts_code, sector_name, sort_no) VALUES (?,?,?,?,?,?)",
             [DAYS[4], "TH1.FP", "主线", "S2.TI", "板块二", 1],
         )
+        _plant_mini_stocks(con)
     finally:
         con.close()
 
@@ -274,15 +315,132 @@ def _label(con, entity_type, entity_id, label):
 
 def test_labels_inventory_and_data_gap(mini):
     rep = mini["report"]
-    assert len(rep.rows_by_label) == 12
+    assert len(rep.rows_by_label) == 15
     assert rep.data_gap_days == [str(DAYS[GAP])]
     assert rep.label_version == LABEL_VERSION
     con = duckdb.connect(str(mini["labels"]), read_only=True)
     try:
-        assert con.execute("SELECT COUNT(DISTINCT label) FROM history_labels").fetchone()[0] == 12
+        assert con.execute("SELECT COUNT(DISTINCT label) FROM history_labels").fetchone()[0] == 15
         assert con.execute("SELECT MAX(trade_date) FROM history_labels").fetchone()[0] == DAYS[-1]
     finally:
         con.close()
+
+
+def test_stock_label_semantics_dense_within_union_universe(mini):
+    """个股 universe = 涨停表 ∪ 新高表；并集内三标签稠密 1/0，源表整日缺失才 NULL；跨板块重复按 (日, 股) 折叠。"""
+    con = duckdb.connect(str(mini["labels"]), read_only=True)
+    try:
+        cov = mini["report"].extras["source_row_counts"]["stock_coverage"]
+        assert cov["universe"] == "limit_high_union"
+        assert cov["limit_list_days"] == len(LIMIT_DAYS) and cov["high_list_days"] == len(HIGH_DAYS)
+        assert cov["limit_list_missing_days"] == [str(DAYS[2]), str(DAYS[6])]
+        # K1：第 9 日两表都没有 → 根本没有标签行；其余日三标签各一行
+        k1_days = {DAYS.index(d) for (d,) in con.execute(
+            "SELECT DISTINCT trade_date FROM history_labels WHERE entity_type='stock' AND entity_id=?", [K1]).fetchall()}
+        assert k1_days == set(range(12)) - {9}
+        lu = _label(con, "stock", K1, "limit_up")
+        fb = _label(con, "stock", K1, "first_board")
+        nh = _label(con, "stock", K1, "new_high_1y")
+        assert (lu[0], fb[0], nh[0]) == (1, 1, 1)  # 首板 + 一年新高；两个板块下重复只算一次
+        assert (lu[1], fb[1], nh[1]) == (1, 0, 0)  # 二连板：涨停但不是首板
+        assert (lu[2], fb[2], nh[2]) == (None, None, 1)  # 涨停表缺第 2 日
+        assert (lu[3], fb[3], nh[3]) == (0, 0, 0)  # 在榜（20d 新高）但没涨停
+        assert (lu[5], fb[5], nh[5]) == (0, 0, 1)  # 3 年新高 ⊃ 一年新高
+        assert (lu[6], fb[6], nh[6]) == (None, None, 0)  # 120d 不算一年新高；涨停表缺第 6 日
+        assert con.execute(
+            "SELECT COUNT(*) FROM history_labels WHERE entity_type='stock' AND entity_id=? AND label='limit_up'", [K1]
+        ).fetchone()[0] == 11
+        # K2：连板数缺失 → first_board NULL 但 limit_up=1；炸板 Z → 不算涨停
+        assert (_label(con, "stock", K2, "limit_up")[3], _label(con, "stock", K2, "first_board")[3]) == (1, None)
+        assert (_label(con, "stock", K2, "limit_up")[4], _label(con, "stock", K2, "first_board")[4]) == (0, 0)
+        assert _label(con, "stock", K2, "new_high_1y") == {0: 0, 3: 0, 4: 0, 6: 1}
+        assert _label(con, "stock", K2, "limit_up")[6] is None
+        # K4：只在涨停表；新高表缺第 9 日 → new_high_1y NULL，其余日 0
+        k4 = _label(con, "stock", K4, "new_high_1y")
+        assert k4[9] is None and all(k4[i] == 0 for i in LIMIT_DAYS - {9})
+        assert set(_label(con, "stock", K4, "first_board").values()) == {0}
+        # 个股标签只挂在 stock 实体下，板块 / 题材实体不受影响
+        assert con.execute("SELECT COUNT(*) FROM history_labels WHERE entity_type<>'stock' AND label IN ('limit_up','first_board','new_high_1y')").fetchone()[0] == 0
+    finally:
+        con.close()
+
+
+def test_stock_outcomes_use_stock_series_not_sector(mini):
+    """个股前瞻收益取 fact_stock_daily；同代码的板块与个股（K3 = 'S1.TI'）各走各的序列；停牌缺行 → missing。"""
+    con = duckdb.connect(str(mini["labels"]), read_only=True)
+    try:
+        fwd, status = con.execute(
+            "SELECT fwd_return, status FROM history_outcomes WHERE entity_type='stock' AND entity_id=? AND trade_date=? AND horizon=3",
+            [K1, DAYS[0]],
+        ).fetchone()
+        assert status == "ok" and fwd == pytest.approx((1.01 * 1.02 * 1.01 - 1) * 100, abs=1e-9)
+        stock_k3, sector_s1 = con.execute(
+            "SELECT (SELECT fwd_return FROM history_outcomes WHERE entity_type='stock' AND entity_id='S1.TI' AND trade_date=? AND horizon=3),"
+            "       (SELECT fwd_return FROM history_outcomes WHERE entity_type='sector' AND entity_id='S1.TI' AND trade_date=? AND horizon=3)",
+            [DAYS[0], DAYS[0]],
+        ).fetchone()
+        assert stock_k3 == pytest.approx((0.99**3 - 1) * 100, abs=1e-9) and sector_s1 > 0
+        assert con.execute(
+            "SELECT status FROM history_outcomes WHERE entity_type='stock' AND entity_id=? AND trade_date=? AND horizon=3", [K2, DAYS[0]]
+        ).fetchone()[0] == "missing"
+        # K4 没有价格行：日历够长的窗口 missing，够不到 T+h 的仍按既有规矩记 pending，绝不出现 ok
+        k4_status = {DAYS.index(d): s for d, s in con.execute(
+            "SELECT trade_date, status FROM history_outcomes WHERE entity_type='stock' AND entity_id=? AND horizon=3", [K4]).fetchall()}
+        assert k4_status[0] == "missing" and k4_status[11] == "pending" and "ok" not in k4_status.values()
+        # 每个 universe 里的个股日、每个窗口恰一行（含 missing / pending），与 sector / theme 同规矩
+        n_universe, n_outcomes = con.execute(
+            "SELECT (SELECT COUNT(DISTINCT (entity_id, trade_date)) FROM history_labels WHERE entity_type='stock'),"
+            "       (SELECT COUNT(*) FROM history_outcomes WHERE entity_type='stock')"
+        ).fetchone()
+        assert n_outcomes == n_universe * 4 > 0
+    finally:
+        con.close()
+
+
+@pytest.mark.parametrize(
+    "mutate, path",
+    [
+        (lambda d: d["condition"]["all"][0].__setitem__("label", "dual_red_strict"), "condition.all[0].label"),
+        (lambda d: d["scope"].__setitem__("universe", "published_snapshot"), "scope.universe"),
+        (lambda d: d["condition"]["all"][0].__setitem__("value", 1), "condition.all[0].value"),
+    ],
+)
+def test_stock_rule_whitelist_rejections(mutate, path):
+    doc = copy.deepcopy(BASE_RULE)
+    doc["scope"] = {"entity_type": "stock", "universe": "limit_high_union"}
+    doc["condition"] = {"all": [{"label": "first_board", "op": "==", "value": True, "lag": 0}]}
+    assert validate_rule(doc)[0] is not None
+    mutate(doc)
+    rule, errors = validate_rule(doc)
+    assert rule is None and any(e.path == path for e in errors), [str(e) for e in errors]
+    # 反向：板块规则引用个股标签也被拒
+    sector_doc = copy.deepcopy(BASE_RULE)
+    sector_doc["condition"]["all"].append({"label": "new_high_1y", "op": "==", "value": True})
+    rule, errors = validate_rule(sector_doc)
+    assert rule is None and any(e.path == "condition.all[1].label" for e in errors)
+
+
+def test_stock_rule_may_reference_market_labels():
+    doc = copy.deepcopy(BASE_RULE)
+    doc["scope"] = {"entity_type": "stock", "universe": "limit_high_union"}
+    doc["condition"] = {"all": [
+        {"label": "first_board", "op": "==", "value": True, "lag": 0},
+        {"entity": "market", "label": "market_stage", "op": "in", "value": ["主升阶段", "主升"], "lag": 1},
+    ]}
+    rule = parse_rule(doc)
+    compiled = compile_rule(rule, start="2026-01-01", end="2026-12-31")
+    assert compiled.events.params[0] == "stock" and "market" in compiled.events.params
+    assert compiled.events.sql.count("?") == len(compiled.events.params)
+
+
+def test_seed_rules_load_and_stock_seed_targets_stock_universe():
+    files = sorted((REPO / "methodology" / "rules").glob("*.v*.json"))
+    rules = {load_rule(f).rule_id: load_rule(f) for f in files}
+    assert {"dual_red_streak3_continuation", "diff_ratio_turn_up_5d", "limit_heat_rank_jump_3d", "first_board_new_high_1y_5d"} <= set(rules)
+    stock = rules["first_board_new_high_1y_5d"]
+    assert stock.entity_type == "stock" and stock.universe == "limit_high_union"
+    assert {p.label for p in stock.predicates} == {"first_board", "new_high_1y"}
+    assert stock.success.horizon == 5 and stock.min_n == 20
 
 
 def test_sector_label_semantics(mini):
@@ -471,6 +629,45 @@ def test_lookahead_shift_flips_positive_control(synthetic, tmp_path):
     assert st.run(lab, st.POSITIVE_RULE).readout.verdict != "supported"
     build_outcomes(synthetic["src"], lab)
     assert st.run(lab, st.POSITIVE_RULE).readout.verdict == "supported"
+
+
+def test_stock_positive_control_with_union_universe_baseline(synthetic):
+    """个股阳性对照 supported；基准率取「涨停表 ∪ 新高表」并集，比事件集大、比全市场小；对照列同存。"""
+    st = synthetic["st"]
+    planted = synthetic["planted"]
+    res = st.run(synthetic["labels"], st.STOCK_POSITIVE_RULE)
+    rd = res.readout
+    assert rd.verdict == "supported" and rd.lo > rd.p0
+    assert rd.n + res.n_pending == planted["n_first_boards"]
+    full_market = planted["n_stocks"] * planted["n_days"]
+    assert rd.n < rd.baseline_n <= planted["n_stock_universe"] < full_market
+    assert res.baseline_alt is not None and res.baseline_alt.kind == "same_universe_event_days"
+    assert 0 < res.baseline_alt.n <= rd.baseline_n
+    # limit_up 比 first_board 宽（二连板也算），且二连板窗口为负 → 命中率更低
+    wide = st.run(synthetic["labels"], {**st.STOCK_POSITIVE_RULE, "rule_id": "wide",
+                                        "condition": {"all": [{"label": "limit_up", "op": "==", "value": True, "lag": 0}]}}).readout
+    assert wide.n > rd.n and wide.p < rd.p
+    # 个股规则不会误取板块 universe：换成 sector 同谓词直接被白名单拒
+    with pytest.raises(RuleValidationError):
+        parse_rule({**st.STOCK_POSITIVE_RULE, "scope": {"entity_type": "sector", "universe": "published_snapshot"}})
+
+
+def test_cli_propose_stock_rule_and_run(synthetic, tmp_path):
+    cli = _load_script(CLI, "mb_cli_for_pytest_propose_stock")
+    rules_dir = tmp_path / "rules"
+    args = [
+        "propose", "--rule-id", "first_board_then_up", "--title", "首板后 5 日上涨", "--entity-type", "stock",
+        "--pred", "first_board == true", "--pred", "market:volume_surge@1 == false",
+        "--success", "fwd_return 5 > 0", "--manual-note", "个股 P1 冒烟", "--rules-dir", str(rules_dir),
+    ]
+    assert cli.main(args) == 0
+    rule = load_rule(rules_dir / "first_board_then_up.v1.json")
+    assert rule.entity_type == "stock" and rule.universe == "limit_high_union"
+    assert rule.predicates[0].entity_type == "stock" and rule.predicates[1].entity_type == "market"
+    assert cli.main(["run", str(rules_dir / "first_board_then_up.v1.json"), "--labels-db", str(synthetic["labels"]), "--no-write"]) == 0
+    # entity_type 不在白名单 → argparse 直接拒
+    with pytest.raises(SystemExit):
+        cli.main([*args[:5], "--entity-type", "index", *args[7:]])
 
 
 def test_scan_applies_bh_and_marks_exploratory(synthetic):

@@ -11,9 +11,11 @@
 - ``drawdown_after_peak`` 峰值到 T+h 的回撤 ``(1+fwd)/(1+max) - 1``（<=0）
 - ``status``              ok / pending（日历还没走到 T+h）/ missing（日历有日、实体缺行）
 
-交易日历取 ``history_calendar``（源自 ``fact_market_daily.trade_date``）。sector 与 theme 两类实体共用
-``fact_sector_daily.pct_chg`` 作价格序列（题材实体 = 同一 ``sector_ts_code``，见 labels.py 说明）；
-universe 分别取各自在 ``history_labels`` 里的 (实体, 日) 集合，所以基准率也分别计算。
+交易日历取 ``history_calendar``（源自 ``fact_market_daily.trade_date``）。价格序列按 ``SERIES_BY_ENTITY_TYPE``
+选：sector 与 theme 共用 ``fact_sector_daily.pct_chg``（题材实体 = 同一 ``sector_ts_code``，见 labels.py
+说明），stock 用 ``fact_stock_daily.pct_chg``；序列键 ``(series, entity_id)`` 显式区分，不靠代码后缀
+（.TI/.FP vs .SZ/.SH/.BJ）不撞车这种巧合。universe 分别取各自在 ``history_labels`` 里的 (实体, 日) 集合，
+所以基准率也分别计算。个股停牌 / 缺行落在窗口内即 ``missing``——路径未定义就不猜。
 """
 
 from __future__ import annotations
@@ -39,7 +41,9 @@ from .store import (
 )
 
 DEFAULT_HORIZONS: tuple[int, ...] = (3, 5, 7, 10)
-OUTCOME_ENTITY_TYPES = ("sector", "theme")
+# 实体类型 → 价格序列。键与值都是代码常量，拼进 SQL 文本前不经过任何用户输入。
+SERIES_BY_ENTITY_TYPE: dict[str, str] = {"sector": "sector", "theme": "sector", "stock": "stock"}
+OUTCOME_ENTITY_TYPES = tuple(SERIES_BY_ENTITY_TYPE)
 # 路径累计从 D0 之后第 1 个交易日起算。改成 0 就是前视 bug（变异测试靶点）。
 WINDOW_START_OFFSET = 1
 
@@ -51,7 +55,7 @@ def build_outcomes(
     horizons: tuple[int, ...] = DEFAULT_HORIZONS,
     now: datetime | None = None,
 ) -> BuildReport:
-    """按 ``history_labels`` 里的 sector / theme universe 计算多窗口前瞻结果。需先 build-labels。"""
+    """按 ``history_labels`` 里的 sector / theme / stock universe 计算多窗口前瞻结果。需先 build-labels。"""
     horizons = tuple(sorted({int(h) for h in horizons}))
     if not horizons or any(h <= 0 for h in horizons):
         raise ValueError(f"horizons 必须是正整数集合，得到 {horizons}")
@@ -135,30 +139,41 @@ def build_outcomes(
 
 
 def _build_return_series(con: duckdb.DuckDBPyConnection) -> None:
-    """价格序列：published 板块日涨跌幅，按日历 idx 编号。<= -100% 的脏值剔除（LN 定义域）。"""
+    """价格序列：published 板块 + 个股日涨跌幅，按日历 idx 编号，带 series 键。<= -100% 的脏值剔除（LN 定义域）。"""
     con.execute(
         f"""
         CREATE OR REPLACE TEMP TABLE _ret AS
-        SELECT c.idx, f.sector_ts_code AS entity_id, f.pct_chg
+        SELECT 'sector' AS series, c.idx, f.sector_ts_code AS entity_id, f.pct_chg
         FROM {SOURCE_ALIAS}.fact_sector_daily f
         JOIN history_calendar c ON c.trade_date = f.trade_date
         WHERE f.pct_chg IS NOT NULL AND f.pct_chg > -100
         QUALIFY ROW_NUMBER() OVER (
             PARTITION BY f.trade_date, f.sector_ts_code ORDER BY f.updated_at DESC NULLS LAST
         ) = 1
+        UNION ALL
+        SELECT 'stock' AS series, c.idx, s.stock_ts_code AS entity_id, s.pct_chg
+        FROM {SOURCE_ALIAS}.fact_stock_daily s
+        JOIN history_calendar c ON c.trade_date = s.trade_date
+        WHERE s.stock_ts_code IS NOT NULL AND s.pct_chg IS NOT NULL AND s.pct_chg > -100
+        QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY s.trade_date, s.stock_ts_code ORDER BY s.updated_at DESC NULLS LAST
+        ) = 1
         """
     )
 
 
 def _build_base_universe(con: duckdb.DuckDBPyConnection) -> None:
+    series_case = " ".join(f"WHEN '{et}' THEN '{series}'" for et, series in SERIES_BY_ENTITY_TYPE.items())
+    type_list = ", ".join(f"'{et}'" for et in OUTCOME_ENTITY_TYPES)
     con.execute(
-        """
+        f"""
         CREATE OR REPLACE TEMP TABLE _base AS
-        SELECT l.entity_type, l.entity_id, l.trade_date, c.idx
+        SELECT l.entity_type, l.entity_id, l.trade_date, c.idx,
+               CASE l.entity_type {series_case} END AS series
         FROM (
             SELECT DISTINCT entity_type, entity_id, trade_date
             FROM history_labels
-            WHERE entity_type IN ('sector', 'theme')
+            WHERE entity_type IN ({type_list})
         ) l
         JOIN history_calendar c ON c.trade_date = l.trade_date
         """
@@ -177,7 +192,7 @@ def _insert_horizon(con: duckdb.DuckDBPyConnection, h: int, computed_at: datetim
             SELECT b.entity_type, b.entity_id, b.trade_date, b.idx,
                    r.idx - b.idx - {lo} + 1 AS step, r.pct_chg
             FROM _base b
-            JOIN _ret r ON r.entity_id = b.entity_id
+            JOIN _ret r ON r.series = b.series AND r.entity_id = b.entity_id
                        AND r.idx BETWEEN b.idx + {lo} AND b.idx + {hi}
         ),
         path AS (

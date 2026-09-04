@@ -23,7 +23,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .rules import DEFAULT_MIN_N, METRICS, Rule, RuleError, RuleValidationError, parse_rule
+from .rules import (
+    DEFAULT_MIN_N,
+    METRICS,
+    SCOPE_ENTITY_TYPES,
+    UNIVERSES,
+    Rule,
+    RuleError,
+    RuleValidationError,
+    parse_rule,
+)
 
 _PRED_RE = re.compile(
     r"^\s*(?:(?P<entity>[a-z]+):)?(?P<label>[a-z][a-z0-9_]*)(?:@(?P<lag>\d+))?\s+"
@@ -119,10 +128,16 @@ def build_rule_doc(
     notes: str | None = None,
     provenance: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], Rule]:
-    """组装规则文档并校验；不合法抛 RuleValidationError（带字段路径）。返回 (文档, 解析后的 Rule)。"""
-    universe = {"sector": "published_snapshot", "theme": "heat_final"}.get(entity_type)
-    if universe is None:
-        raise RuleValidationError([RuleError("scope.entity_type", f"必须是 sector / theme，得到 {entity_type!r}")])
+    """组装规则文档并校验；不合法抛 RuleValidationError（带字段路径）。返回 (文档, 解析后的 Rule)。
+
+    universe 取该实体类型白名单里的第一个（每类目前只有一个：sector=published_snapshot /
+    theme=heat_final / stock=limit_high_union）。
+    """
+    if entity_type not in UNIVERSES:
+        raise RuleValidationError(
+            [RuleError("scope.entity_type", f"必须在 {SCOPE_ENTITY_TYPES}，得到 {entity_type!r}")]
+        )
+    universe = UNIVERSES[entity_type][0]
     hs = sorted({int(h) for h in (horizons or [3, 5, 7, 10])})
     if int(success.get("horizon", 0)) not in hs:
         hs = sorted({*hs, int(success["horizon"])})
