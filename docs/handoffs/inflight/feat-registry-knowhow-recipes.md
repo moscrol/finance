@@ -14,6 +14,10 @@
 含「待编译/待定义」`，且 `proactive` 非空。
 
 ## 当前状态
+- **PR #588（round 2：四簇命名 + 规则草案回写）已合入 `gitea/main@2087c730`**（2026-09-05，派单口令「合 #588」= 用户确认；
+  门禁收据 `~/.finance-runtime/test-receipts/20260904T153528Z-bf7a8f4a.json` 7710P/0F/15S）。主树已 `--ff-only` 到同一 SHA，
+  `registry-check` 通过（`recipes 6（pending-grilling: -）`）。round 3 在分支 `feat/money-effect-regime-rules` 上进行，
+  本文「Round 3」节随该分支的 PR 一起回写。
 - registry 编译完成：`registry-check` → `recipes 6（pending-grilling: -）`；`pytest tests/test_consumption_registry.py
   tests/test_tiered_sync_local.py` 18 passed；ruff 绿。
 - 全量门禁（`run_main_gate.sh`，干净树 `92dab79e`）：ruff 绿、pytest **7700P/0F/15S/1x**，收据
