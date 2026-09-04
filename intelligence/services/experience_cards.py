@@ -7,12 +7,19 @@
 生命周期：``candidate`` → ``promoted`` / ``methodology``（常驻注入）→
 ``promoted_to_code``（原则已进编排/契约/质检门，``load_cards`` 跳过）。
 ``invalidated`` 是另一条出口：教训被证伪，同样不注入。
+
+统计门（2026-09-04，设计稿 methodology-backtest §3.4 P1）：卡若能映射到一条方法论规则
+（``rule_id``），晋升到常驻 / 固化态的前置条件是该规则**最近一次回测收据为 ``supported``**；
+标 ``invalidated`` 的前置条件是 ``refuted``。映射不到规则的卡走原流程——门只加在能被
+历史数据检验的那部分上，不拦住经验本身。一次纠偏只能给事件集加一行，改不了收据结论，
+所以也改不了一张卡的晋升资格；这就是「不能因为一次错误就否定一套方法」落在经验卡上的形状。
 """
 
 from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -25,6 +32,73 @@ RESIDENT_PROMOTIONS = frozenset({"promoted", "methodology"})
 # 与 invalidated 不同——那些是错的；这些是对的，再喂一遍是重复供给。
 ARCHIVED_PROMOTIONS = frozenset({"promoted_to_code"})
 DEFAULT_RESIDENT_LIMIT = 5
+
+# 带 rule_id 的卡：这些晋升态要求规则最近收据的四态结论 == 对应值。candidate 不设门。
+GATED_PROMOTIONS: dict[str, str] = {
+    "promoted": "supported",
+    "methodology": "supported",
+    "promoted_to_code": "supported",
+}
+INVALIDATION_REQUIRES = "refuted"
+
+
+@dataclass(frozen=True)
+class PromotionGate:
+    allowed: bool
+    reason: str
+    rule_id: str | None
+    verdict: str | None
+    receipt: str | None
+
+
+class PromotionGateError(ValueError):
+    """晋升 / 失效请求没过统计门。带 ``gate`` 供调用方渲染原因。"""
+
+    def __init__(self, gate: PromotionGate):
+        self.gate = gate
+        super().__init__(gate.reason)
+
+
+def gate_promotion(
+    promotion: str,
+    *,
+    rule_id: str | None,
+    verdict: str | None,
+    receipt: str | None = None,
+    invalidated: bool = False,
+) -> PromotionGate:
+    """纯函数：给定卡要去的状态与规则最近收据的结论，判能不能去。
+
+    ``verdict`` 为 None 表示该规则还没有任何收据——没有证据不等于支持，晋升一律拒；
+    ``candidate`` 与无 ``rule_id`` 的卡永远放行。
+    """
+    rid = str(rule_id or "").strip() or None
+    promo = str(promotion or "candidate").strip() or "candidate"
+    if rid is None:
+        return PromotionGate(True, "无 rule_id，走原流程（不经统计门）", None, verdict, receipt)
+    if invalidated:
+        if verdict == INVALIDATION_REQUIRES:
+            return PromotionGate(True, f"规则 {rid} 最近收据为 {verdict}，允许标 invalidated", rid, verdict, receipt)
+        return PromotionGate(
+            False,
+            f"规则 {rid} 最近收据为 {verdict or '无收据'}，不是 {INVALIDATION_REQUIRES}：一次落空不构成证伪，不能标 invalidated",
+            rid,
+            verdict,
+            receipt,
+        )
+    required = GATED_PROMOTIONS.get(promo)
+    if required is None:
+        return PromotionGate(True, f"{promo} 不设统计门", rid, verdict, receipt)
+    if verdict == required:
+        return PromotionGate(True, f"规则 {rid} 最近收据为 {verdict}，允许晋升为 {promo}", rid, verdict, receipt)
+    hint = "先跑 scripts/methodology_backtest.py run 出收据" if verdict is None else "只能以 candidate 落卡，等规则累积到 supported"
+    return PromotionGate(
+        False,
+        f"规则 {rid} 最近收据为 {verdict or '无收据'}，不是 {required}：拒绝晋升为 {promo}；{hint}",
+        rid,
+        verdict,
+        receipt,
+    )
 
 
 def _now() -> datetime:
@@ -152,8 +226,19 @@ def build_card_from_score(
     local_sources: list[str] | None = None,
     promotion: str = "candidate",
     ts: str | None = None,
+    rule_id: str | None = None,
+    rule_verdict: str | None = None,
+    rule_receipt: str | None = None,
 ) -> dict[str, Any]:
-    """从确定性评分结果生成一张机器可读经验卡片。"""
+    """从确定性评分结果生成一张机器可读经验卡片。
+
+    给了 ``rule_id`` 就过统计门：``promoted / methodology / promoted_to_code`` 要求
+    ``rule_verdict == "supported"``，否则抛 ``PromotionGateError``（不落卡）。卡上留
+    ``rule_id / rule_verdict / rule_receipt`` 三个溯源字段。
+    """
+    gate = gate_promotion(promotion, rule_id=rule_id, verdict=rule_verdict, receipt=rule_receipt)
+    if not gate.allowed:
+        raise PromotionGateError(gate)
     weak_dims = [
         {
             "key": dim.key,
@@ -193,6 +278,11 @@ def build_card_from_score(
         card["prompt_rule"] = str(prompt_rule).strip()
     if user_feedback and str(user_feedback).strip():
         card["user_feedback"] = str(user_feedback).strip()
+    if gate.rule_id:
+        card["rule_id"] = gate.rule_id
+        card["rule_verdict"] = gate.verdict
+        if gate.receipt:
+            card["rule_receipt"] = gate.receipt
     return card
 
 
