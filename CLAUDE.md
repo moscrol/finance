@@ -53,14 +53,14 @@
 
 技能桥只开一个、飞书 Bitable 写入退役、飞书 IM（`feishu-bot`）退役——这些是约束不是缺口。
 
-### Agent 可调工具：12 个
+### Agent 可调工具：13 个（2026-09-05 解析器实数）
 
 全部在 `intelligence/services/research_tool_registry.py` 的 `_DEFAULT_TOOL_METADATA`：
 
 ```
-finance_query  evidence_search  kb_search   web_search       news_search
-graph_lookup   evidence_lookup  memory_lookup  l3_lookup     market_data
-financial_data mainline_context
+finance_query  evidence_search  kb_search   web_search       web_fetch
+news_search    graph_lookup     evidence_lookup  memory_lookup  l3_lookup
+market_data    financial_data   mainline_context
 ```
 
 ⚠️ 逐个受 `contract.allowed_capabilities` 门控（`episode_tools.py` 内按 capability 分支）。
@@ -71,18 +71,20 @@ financial_data mainline_context
 > 要数就用解析器：
 > `python -c "import ast,pathlib;t=ast.parse(pathlib.Path('intelligence/services/research_tool_registry.py').read_text());..."`
 > 或至少 `sed -n '/_DEFAULT_TOOL_METADATA/,/^}/p'`。
+> 注意它是带类型注解的赋值，AST 里是 `AnnAssign` 不是 `Assign`——只找 `Assign` 会一个都数不到。
 
 ### 技能：三个位置，数字不一样
 
-| 位置 | 数量 | 是什么 |
+| 位置 | 数量（2026-09-05 `ls` 实数） | 是什么 |
 |---|---|---|
-| `skills/` | 31（含 `lib/` 非技能 → 实为 30） | **仓内真实技能清单** |
-| `.claude/skills/` | 19 | 软链到 `../../skills/`，= Claude Code 能看到的子集 |
-| `<知识库仓>/skills/` | 20 | ingest 类，已迁出本仓 |
+| `skills/` | 38（含 `lib/` 非技能 → 实为 37） | **仓内真实技能清单** |
+| `.claude/skills/` | 24（23 个软链到 `../../skills/` + `l2-moneyflow` 本地实目录） | = Claude Code 能看到的子集 |
+| `<知识库仓>/skills/` | 23（含 `lib/` → 实为 22） | ingest 类，已迁出本仓 |
 
 问「有多少能力 agent 够不着」时，分母是 `skills/` 不是 `.claude/skills/`。
-只在 `skills/` 里、没暴露给 Claude Code 的有 12 个，含 `stock-deep-dive`、
-`researcher-valuation`、`duckdb-backfill`、`opinion-cross`、`serenity-alpha`、`strategy1-matrix` 等。
+只在 `skills/` 里、没暴露给 Claude Code 的有 14 个，含 `stock-deep-dive`、
+`researcher-valuation`、`duckdb-backfill`、`opinion-cross`、`serenity-alpha`、`strategy1-matrix` 等
+（要当前名单：`comm -23 <(ls skills | grep -v '^lib$' | sort) <(ls .claude/skills | sort)`）。
 
 ### 技能桥：存在，且**刻意只开一个**
 
