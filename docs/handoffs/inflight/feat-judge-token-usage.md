@@ -45,8 +45,8 @@
   `llm_refine.py` 的字段、API 解析、CLI 接线、ContextVar 互相引用，拆开需交互式部分暂存。
 
 ## 当前状态
-分支尖 `2ac58896`（= PR #593 head）；代码尖 `8361b7ac`（全量门禁 revision），其上一个 `gitea/main` 合并提交 `2ac58896`。
-本文与 INDEX 行是之后的 docs 提交。提交：`d0121126` 记账层 → `af2a0c48` purpose / judge_usage / 契约 → `7f493e5a`
+代码尖 `8361b7ac`（全量门禁 revision）→ `gitea/main` 合并提交 `2ac58896` → 本文与 INDEX 行的 docs 提交（PR #593 head 即最新 docs 提交，
+以 `git log gitea/feat/judge-token-usage -1` 为准）。提交：`d0121126` 记账层 → `af2a0c48` purpose / judge_usage / 契约 → `7f493e5a`
 research_cost + 价目表 + 台账地图 → `a37f43fd` 测试 → `8361b7ac` 首份真实目录报表 → `2ac58896` merge main → docs。
 改动面：`intelligence/services/{llm_refine,llm_usage(新),grok_cli_judge,episode_semantic_verifier}.py`、
 `intelligence/runtime/{continuous_turn_adapter,glm_agent_runtime}.py`、`intelligence/eval/{research_cost(新),metric_field_contract}.py`、
