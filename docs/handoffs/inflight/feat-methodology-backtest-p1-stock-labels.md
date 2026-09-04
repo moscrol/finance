@@ -1,5 +1,9 @@
 # feat/methodology-backtest-p1-stock-labels
 
+> **2026-09-04 已合入**：PR #585 → `gitea/main=443fe3d5`（分支尖 `42d94692`，主门禁 7708P/0F/15S/1x，ruff 0，前端零改动）。
+> 纯加法，无运行时行为变化，无需切 8792；旁路库已按 v2 重建（213 MB）。下一刀见 `feat-methodology-backtest-p1-refuted.md`。
+> 下文为合入前原状，供溯源。
+
 树 `/Users/a77/fwp-wt-methodology-backtest-p1c`，基座 `gitea/main`=`5c7fe2eb`（#581 已合入后的 main，干净树）。
 设计稿 `2026-09-04-methodology-backtest-structured-history-design.md` §3.1 表「stock（P1）」行 + §6 P1 第一条；
 P1 第二刀交接 `feat-methodology-backtest-p1-propose.md`「下一步 2」。解释器 `.venv-workbench/bin/python`。
