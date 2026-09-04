@@ -1,9 +1,13 @@
 # feat/methodology-backtest-p0
 
+> **2026-09-04 19:50 已合入**：PR #573 → `gitea/main=313b09c9`（分支尖 `7ebdbd7c`，主门禁 7653P/0F/15S/1x，ruff 0，前端零改动）。
+> 合入的是 CLI / services 侧能力，不进 Workbench 合同，无需切 8792。后续 P1 见 `feat-methodology-backtest-p1-gate.md`。
+> 下文为合入前原状，供溯源。
+
 树 `/Users/a77/fwp-wt-methodology-backtest-p0`，基座 `gitea/main`=`2d8eaea5`（干净树）。工单
 `docs/superpowers/specs/2026-09-04-methodology-backtest-p0-workorder.md`（INDEX #21，登记在
 `docs/finance-agent-bp` 分支，尚未合 main），设计稿 `…-structured-history-design.md`。解释器
-`.venv-workbench/bin/python`。**未合 main、未强推。**
+`.venv-workbench/bin/python`。**已合 main（见顶部），未强推。**
 
 ## 这个分支做什么
 把「人眼看图」编译成可查询的结构语言，给「纠偏 → 经验」设统计门：
