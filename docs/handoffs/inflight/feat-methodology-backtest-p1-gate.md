@@ -30,7 +30,8 @@
 - 真收据实测：`answer-score --promotion methodology --rule-id dual_red_streak3_continuation`（真库结论 not_distinguishable）被拒、退出码 2、不落卡；`--promotion candidate` 放行，卡带 `rule_verdict=not_distinguishable` 与收据路径
 - 无收据的 `rule_id`（`nope_rule`）晋升被拒；`latest_receipt` 跨版本取最近、跳过坏 JSON 与 scan 汇总
 - ruff 0；`unread-fields` 无新增；`layer_audit` ERROR 0；pre-commit 每次提交全过
-- 全量主门禁：见本文末尾追加行
+- 全量主门禁 `run_main_gate.sh` @ `33cb89df`（干净树）：**7660 passed / 0 failed / 15 skipped / 1 xfailed**，ruff 0，397s；
+  收据 `~/.finance-runtime/test-receipts/latest.json`（revision 33cb89df17d7，dirty=false）。前端零改动
 
 ## 未验证 / 已知边界
 - 行为变化：类别不足 10 条终态判定时，foresight 提示词、prime 校准行、red_team 弱类别、KC-11 同类胜率行都不再出现；当前真实用户只有「生命周期推演」（n=67）达标，「duckdb_flow/市场路径」（n=2）退出——这是设计目标，不是回归
