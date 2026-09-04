@@ -1,6 +1,7 @@
 # feat/methodology-backtest-p1-refuted
 
-树 `/Users/a77/fwp-wt-methodology-backtest-p1d`，基座 `gitea/main`=`47a4fcde`（#585 已合入 + 回写后的 main，干净树）。
+树 `/Users/a77/fwp-wt-methodology-backtest-p1d`，基座 `gitea/main`=`47a4fcde`（#585 已合入 + 回写后的 main，干净树）；
+2026-09-05 收口时合入 `gitea/main@c6e702a6`（合并提交 `32251769`，无冲突；这 21 个提交零个碰本刀文件）。
 设计稿 `2026-09-04-methodology-backtest-structured-history-design.md` §6「以下三条是 2026-09-04 BP v0.4 壁垒重构后补入的
 产品约束」前两条；上一刀交接 `feat-methodology-backtest-p1-stock-labels.md`。解释器 `.venv-workbench/bin/python`。
 
@@ -54,8 +55,15 @@ P1 第四刀，**加法、不改既有运行时行为**。P1 剩余项里 `lifec
   坏文件 / 别的 schema 跳过、CLI run/scan 只在 refuted 时落条目且 `--no-write` 不落、scan 条目带 BH、`report --refuted`
   两种输出、`propose` 默认 private / shared 自动 system / shared+别的 owner 退出码 2、种子规则全 shared/system/有来源
 - ruff 0；pre-commit 10 道全过（path-literals / unread-fields / layer-audit 基线不变）
-- 真库 `scan` 四条：整体读数与 #585 逐位相同；`report --refuted` 输出「证伪库为空」；`methodology/refuted/` 未被创建
-- 全量主门禁 `run_main_gate.sh` @ `e520e31e`（干净树）：见本文末
+- 真库 `scan` 四条：整体读数与 #585 逐位相同；`report --refuted` 输出「证伪库为空」；`methodology/refuted/` 未被创建。
+  2026-09-05 合 main 后在 `57cb9b3d` 重跑一遍：四条 N / p / p0 / lift / Wilson 与上表逐位相同，按阶段拆分各桶 n / k 逐位相同，
+  收据 JSON 与 09-04 那张只差 `generated_at` / `conditions` 两个键；主库 mtime `09-03 15:10:52`、1,798,320,128 B 不变，无 WAL；
+  `layer_audit.py` ERROR 0 == 基线，`check_unread_fields.py` 无新增
+- 全量主门禁 `run_main_gate.sh` @ `57cb9b3d`（合 `gitea/main@c6e702a6` 后 + 交接文档提交，干净树 `dirty=False`）：
+  **7723 passed / 0 failed / 15 skipped / 1 xfailed**，323 s，ruff 0；较 #585 基线 7708P 多 15 例 = 本刀 13 条新测试 + main 侧
+  两条（`test_consumption_registry` / `test_eval_launchd_wiring`），红集为空。收据
+  `~/.finance-runtime/test-receipts/20260904T173537Z-57cb9b3d.json`，`check_test_receipt.py --expect-revision` 退出码 0
+  （revision / 解释器 / 依赖指纹 / 干净树全部 ✓）。前端零改动，未跑 `pnpm build`
 
 ## 未验证 / 已知边界
 - 证伪库目前是空的：四条种子规则没有一条被证伪，`report --refuted` 的真库输出只有一行「为空」；条目格式只在合成库的前视夹具上验过
@@ -73,5 +81,14 @@ P1 第四刀，**加法、不改既有运行时行为**。P1 剩余项里 `lifec
 4. P2：渲染层硬门；`finance_query` 暴露 `methodology_verdicts`；Beta 后验对照列
 
 ## 踩过的坑
+- **三个全量门禁并行 → 时序测试假红**。09-04 23:24–23:37 本机同时跑 `e520e31e`（本刀）、`bf7a8f4a`、`892a6ec2` 三个全量
+  pytest（16 GB、swap 20/21 GB），本刀那张收据 `20260904T153125Z-e520e31e.json` 7719P/**2F**，红的是
+  `test_conversation_orchestrator.py::test_ask_watchdog_returns_partial_and_suppresses_late_progress` 与
+  `test_workbench_conversation_integration.py::test_skill_timeout_degrades_one_module_and_continues`——看门狗 / 超时类，与本刀
+  diff 零交集。09-05 01:25 机器安静时把这两条**单独重跑 3 次：3/3 绿**（每次 ~75 s），随后干净时段全量 0F。归因「环境红」的判据
+  是三件同时成立：隔离重跑绿 + 干净时段全量绿 + 失败用例与 diff 零交集；缺任一条都不能拿「负载」当结论。跑全量前先
+  `pgrep -fl '[P]ython -m pytest'`（括号技巧防 pgrep 匹配到自己）确认本机没有别的 pytest
+- **交接文档别 stash**。09-04 中断时交接文档在 `git stash -u` 里；stash 是仓级不是树级，多 worktree 共享一个 `.git`，在别的树
+  `git stash list` 也看得见、也能 pop 错分支。宁可先提交一个 `docs(handoff)` 再走
 - `build_rule_doc` 默认 private 后，测试里不传 owner 会被白名单拒（owner 必填）——这是设计好的行为，测试要显式给 `owner="tester"`
 - 同日重跑覆盖同名条目：CLI 测试里先 `run` 再 `scan`，最后留下的条目 `test_mode=scan`，断言要按最后一次写
