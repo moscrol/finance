@@ -42,6 +42,8 @@
 - pytest 32 绿 5s；**变异**：`outcomes.WINDOW_START_OFFSET` 1→0 时 4 例变红（含 `test_outcomes_window_excludes_label_day`、`test_lookahead_shift_flips_positive_control`），selftest 前视对照同步变红；还原后 32 绿
 - Wilson (0,20)/(20,20)/(10,20) 与公开表值一致到三位小数；二项 p(7,20,.5)=0.263176 与 scipy 一致；BH 手算例一致
 - 编译器拒绝夹具三组各带字段路径（`condition.all[0].label` / `.op` / `.value[0]`），不触库；ruff 0；pre-commit 10 道每次提交全过
+- 全量 `pytest intelligence/tests` @ `adb62c66`：**6910 passed / 14 skipped / 1 xfailed / 0 failed**，376s（收据 `~/.finance-runtime/test-receipts/20260904T113136Z-adb62c66.json`）
+- 已 push 到 gitea，PR #573 `http://127.0.0.1:3300/a77/finance-workspace-private/pulls/573`，未合 main
 
 ## 未验证 / 已知边界
 - 只有 413 个交易日；很多规则会落 `insufficient_n`，是正确输出。回补 2019–2024 是 D8 另单
@@ -54,7 +56,7 @@
 - INDEX #21 的状态行在 `docs/finance-agent-bp` 分支，本分支未动它；两支合入后需把 #21 标「P0 已提交」
 
 ## 下一步
-1. push 到 gitea、开 PR（不合 main，等用户确认）；PR 描述附本文「已验证」
+1. PR #573 等用户确认后合 main（`python3 scripts/gitea_pr.py merge` 或 Gitea 页面）；合入后把 INDEX #21 标「P0 已提交」
 2. P1（设计稿 §3.4 / §6）：`calibrate` min_n 改默认值需分支 + 用户确认（读数已在收据附录）；经验卡 `rule_id` 映射 + promotion 统计门；个股标签；`lifecycle_stage` 人工对照集；日期精确配对基准率作对照列
 3. 若要把种子规则立案进 `docs/prediction-ledger.md`，按 R-号流程 `claim_ledger_id.py claim` 另走，本单未取号
 
