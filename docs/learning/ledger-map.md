@@ -32,6 +32,7 @@
 | 自用摩擦台账 | `docs/learning/self-use-ledger/<date>.jsonl` | JSONL | `scripts/self_use_ledger.py add`（只记真人使用，探针/评测不进账） | 是 | `summary` 子命令（Self-use Gate 读数，见目录 README） |
 | 预测/假设台账（R-号，实验立案与预注册裁决） | `docs/prediction-ledger.md` | md（例外：md 即 canonical） | 号由 `scripts/claim_ledger_id.py claim` 原子预占（禁手工 max+1）；行由立案会话写入 | 是 | —（实验原始收据在 `~/.finance-runtime/<实验名>/`，本表行是唯一住址索引） |
 | IMA 缺口清单（该跑 DeepDive 的题材 / 该补逻辑卡的个股） | `market_feature_store/exports/<date>-ima-gap.json`（`schema_version` 字段） | JSON | 全量入口 `intelligence.cli daily` 的 `ima-gap-report` 步（只出清单，不自动问 IMA） | 是 | 同名 `.md` |
+| 方法论回测收据（规则在历史上的 N / 命中率 / 基准率 / Wilson / 四态，带成立条件） | `methodology/receipts/<rule_id>@v<version>/<date>.json`（`schema_version: methodology-backtest-receipt/v0`；scan 汇总 `methodology/receipts/scan/<date>.json`） | JSON | `scripts/methodology_backtest.py run/scan`（规则真本源 `methodology/rules/<rule_id>.v<version>.json` 进 git；旁路库 `db/history_labels.duckdb` 由 `build-labels`/`outcomes` 从主库只读重建） | 否（可重建） | 同名 `.md` |
 
 ## 双盲夜跑（2026-09-03 用户拍板：退役）
 
