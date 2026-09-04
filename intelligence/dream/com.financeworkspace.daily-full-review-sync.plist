@@ -37,6 +37,10 @@
     <string>36</string>
     <key>REVIEW_GATE_LOCK_DELAY_SECONDS</key>
     <string>10</string>
+    <!-- 分档同步（2026-09-04 切档）：auto = 周五 full、其余交易日 cheap；
+         run_review_sync.py 读此变量，未设则 full。改档只改这里，装机副本由安装脚本生成。 -->
+    <key>REVIEW_SYNC_PLAN</key>
+    <string>auto</string>
   </dict>
   <key>RunAtLoad</key>
   <false/>

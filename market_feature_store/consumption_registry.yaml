@@ -410,20 +410,50 @@ recipes:
     proactive: "-"
     status: note
 
+  # ---- 以下三条 2026-09-04 grilling round 1 编译（用户令「按照最优执行」= 推荐答案全部采纳）。
+  # status=note：联立方式与主动触发已写成可实施文本，派生表/扫描未落地；落地后翻 live。
+  # decisions 记被采纳的选型与被弃的替代方案，open 记 round 2 还要敲定的点——决策可推翻，改这里。
+
   - key: theme_logic_cycle
-    question: 题材的逻辑周期与盘面对照（发酵→主升→分歧→退潮的阶段判定与相似题材检索）
-    joins: ["待编译：知识库 36 篇文档 + fact_theme_* + mainline 序列 + market_regime_analogs 签名框架"]
-    proactive: 待定义
-    status: pending-grilling
+    question: 题材的逻辑周期与盘面对照（逻辑轴 × 盘面轴二维格子的阶段判定，加相似题材检索）
+    joins:
+      - "两条轴分开：逻辑轴 = intelligence/foresight_methodology.md §三 认知阶梯（海外验证→A股映射→产业链扩散→卖方覆盖→业绩兑现，认同度★只升不降），来自知识库 theme_signals.recognition_timeline / evidence_index；盘面轴 = 发酵→主升→分歧→退潮 四段（不含「兑现」——兑现是逻辑轴事件）"
+      - "盘面阶段判据（草案，阈值待回测校准）：发酵 = 知识库首个 L3/认知跃迁之后、题材内首次双红或 fact_theme_limit_heat_daily.limit_up_count≥1 且双红未连续；主升 = 双红连续≥2 日或 fact_sector_daily 多周期共振，且 limit_heat.market_share 与 fact_stock_high_daily 新高家数同升；分歧 = 涨停数 / fact_limit_advance_daily.promotion_rate 回落但 amount 仍过双红容量门、diff_ratio 转负（策略1 的回流日）；退潮 = 双红消失≥N 日 + 涨停热度归零 + 出现跌停。双红谓词只引 signals.is_double_red"
+      - "题材↔板块映射走 dim_sector / fact_mainline_theme_daily；发酵起点与起涨/补涨梯队复用 theme-fermentation-tracer 的时间线，不另写一套"
+      - "相似题材检索第一期 = market_regime_analogs 的签名法搬到题材级：每题材每日向量（双红天数、涨停份额、边际量、新高家数、认同度★）→ 窗口签名（z 均值, 首尾变化）→ 加权 L1；只列历史事实与之后 5/10/20 日走法，不给概率。第二期叠知识库文档 embedding 过滤「逻辑也像」的（Hybrid：结构化签名 + 语义）"
+    proactive: "盘面阶段跨段当日主动报（尤其 主升→分歧、发酵→主升），附逻辑轴位置与签名最相似的 3 个历史题材及其之后走法；未跨段不报"
+    status: note
+    decisions:
+      - "2026-09-04 两轴分开，不用 perspective_lab 的五段词表：兑现属逻辑轴，混进盘面轴判据落不了表"
+      - "2026-09-04 相似度先签名法后 Hybrid；弃纯 LLM 语义（不看盘面、不可复现）与纯规则「同阶段即相似」（太粗）"
+    open: "round 2：N 取值、题材级向量各维权重、阈值回测窗口；原骨架写的「知识库 36 篇文档」清单尚未定位[未实测]"
 
   - key: ma5_rotation_cycle
-    question: MA5 拐点的个股交替周期（加权/区间涨幅 × 涨家数 MA5 峰谷 → 周期转换点案例库）
-    joins: ["待编译：detect_turning_points(峰谷已实现) + weighted/interval_gainers + 转换点案例表(feature_*)"]
-    proactive: 待定义
-    status: pending-grilling
+    question: MA5 拐点的个股交替周期（涨家数 MA5 峰谷切出的周期里，领涨群体是否在加权强度榜与区间涨幅榜之间交替）
+    joins:
+      - "周期边界 = scripts/detect_turning_points.py 的 MA5 谷确认日→峰确认日→谷确认日（无前视，只在确认日出信号）；案例表一行一个周期"
+      - "两张榜单都从 fact_stock_daily 本地派生（D 档，0 请求）：区间涨幅 = 周期内 close 首尾；加权强度 = Σ sqrt(amount)×pct_chg（沿用 foresight_methodology §二；弃 high-volume-gainers 的 日均成交额×涨幅/100——线性权重基本退化成成交额榜）"
+      - "案例表（feature_ma5_cycle_case，待建）字段性质：周期起止/长度、上升段与下降段各自的两榜 Top N、两榜重合率、与上一周期领涨群体的重合率。假设 (a) 成立的形状 = 相邻周期两榜的领涨群体交替占优"
+      - "跑马策略纪律：这是假设不是定律——实验台账记输入窗口/候选池/后验，3/5/7/10 日多窗口对比，单次观察不写成规则"
+    proactive: "MA5 峰或谷确认日主动报：本周期长度、领涨群体属于哪张榜、与上一周期是否交替；确认日之前不预判"
+    status: note
+    decisions:
+      - "2026-09-04 先编假设 (a) 领涨群体交替；(b) 同批个股强弱交替、(c) 板块层面交替留作对照假设"
+      - "2026-09-04 加权公式取 sqrt(amount)×pct（开方压住成交额主导）"
+    open: "round 2：Top N 大小、重合率口径（Jaccard 还是加权）、案例表落夜跑 features 步还是独立脚本"
 
   - key: money_effect_clustering
-    question: 市场赚钱效应识别（聚类）
-    joins: ["待编译"]
-    proactive: 待定义
-    status: pending-grilling
+    question: 市场赚钱效应识别——把交易日按情绪结构聚成可命名的状态（扩散/抱团/分化/收缩/冰点一类），并识别状态切换日
+    joins:
+      - "特征底座复用 market_regime_analogs.FEATURES 每日情绪向量与 standardize_vectors 的 z 标准化（单一真本源，不另建第二套特征定义）；「赚钱效应」= 该向量的加权子视图，情绪维（advancers / limit_up / limit_down / max_boards / top1_theme_share）权重高于量能与结构维"
+      - "sh_deviation_pct 维缺口大（tooltip 抓取 2026-07 起失效，见 daily-full-review ops-pitfalls）→ 聚类剔除该维；其余维沿用 D10 的覆盖率规则处理缺失"
+      - "两段式：k-means 探索（k=4~6，多次重启取最优）→ 看质心原始量纲人工命名簇 → 冻结成规则阈值进生产；生产只跑规则，聚类结果不直接进任何 fact_/feature_ 表"
+      - "聚类单位是 trailing 5 日均值（只用当日及之前，无前视），不是单日向量：赚钱效应作为「状态」是多日性质，单日聚类天天换簇，报警会天天响"
+      - "与 D10 分工：D10 回答「历史上哪段像现在」，本 recipe 回答「今天处于哪种状态、何时切换」；共用向量，不共用结论"
+    proactive: "状态切换日主动报（昨日簇≠今日簇），附切换方向与该簇历史上之后 5/10 日的事实走法；连续同簇不报"
+    status: note
+    decisions:
+      - "2026-09-04 特征取 D10 十维底座 (a)；弃只用情绪三件 (b)（要再定义一套）与加结构维 (c)（并入 (a) 的权重即可）"
+      - "2026-09-04 方法取两段式 (d)：聚类找边界、规则守生产；弃纯规则（阈值拍脑袋）、纯 k-means（簇无名、不可测试）、HDBSCAN（几百天大半判噪声）"
+      - "2026-09-04 聚类单位取 trailing 5 日窗口：单日 → 相邻日 71% 换簇、同簇中位 1 天、轮廓 0.16；3 日 → 21% / 3 天 / 0.17；5 日 → 10% / 6 天 / 0.22 [探索，281 个全维可用交易日 2025-01-07~2026-09-02，剔 sh_deviation_pct]。轮廓 ≤0.22 说明是连续谱上的软区域而非硬状态——规则只能定几条可解释的轴，不能照抄簇边界"
+    open: "round 2：簇命名（5 日窗口 k=4 四簇质心见 docs/handoffs/inflight/feat-registry-knowhow-recipes.md）、k 取 4（重启稳定 53%）还是 5（分离更好 0.216 但稳定 20%）、报警去抖天数、规则阈值回测窗口"
