@@ -69,7 +69,7 @@ class ForesightOptions:
     checkpoints_file: str | Path | None = None
     verdicts_file: str | Path | None = None
     use_calibration: bool = True
-    calibration_min_n: int = 2
+    calibration_min_n: int = checkpoints.DEFAULT_CALIBRATION_MIN_N
 
 
 @dataclass
