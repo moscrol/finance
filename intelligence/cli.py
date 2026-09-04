@@ -2171,6 +2171,17 @@ def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
     p_reg.add_argument("--trade-date", default=None, help="market_daily 取数交易日（缺省用 due）")
     p_reg.add_argument("--from-judgment", default=None, help="反链 B 核心判断的 ts（可选）")
     p_reg.add_argument("--session", default=None, help="来源会话 id（可选）")
+    p_reg.add_argument(
+        "--rule-id",
+        default=None,
+        help="这条判断依据的方法论规则 rule_id（methodology/rules/<rule_id>.v<n>.json）。给了就读该规则最近一次回测收据、"
+        "把四态与收据路径写进记录并回显一行；无收据也照常登记（只提示，不拦截）",
+    )
+    p_reg.add_argument(
+        "--receipts-dir",
+        default=None,
+        help="回测收据目录（默认 methodology/receipts），只在 --rule-id 时读取",
+    )
     p_reg.add_argument("--checkpoints-file", default=None, help="覆盖可证伪点台账路径")
     p_reg.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_reg.set_defaults(func=cmd_checkpoint_register)
@@ -2209,11 +2220,12 @@ def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
     p_score.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_score.set_defaults(func=cmd_checkpoint_score)
 
-    p_cal = sub.add_parser("calibrate", help="按类别聚合已回检判断的胜率，定位你哪类二阶推演靠谱/偏差")
+    p_cal = sub.add_parser("calibrate", help="按类别 / 产出模块 / 引用规则聚合已回检判断的胜率，定位你哪类二阶推演靠谱/偏差")
     p_cal.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
     p_cal.add_argument("--date", default=None, help="判定到期/待回检的基准日 YYYY-MM-DD（默认今天）")
     p_cal.add_argument("--checkpoints-file", default=None, help="覆盖可证伪点台账路径")
     p_cal.add_argument("--verdicts-file", default=None, help="覆盖回检打分台账路径")
+    p_cal.add_argument("--receipts-dir", default=None, help="回测收据目录（默认 methodology/receipts）；「按规则」段并排各规则最近收据")
     p_cal.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_cal.set_defaults(func=cmd_checkpoint_calibrate)
 
@@ -2935,6 +2947,23 @@ def cmd_checkpoint_adjudicate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _receipts_dir(args: argparse.Namespace) -> Path:
+    """回测收据目录：``--receipts-dir`` > 仓内 ``methodology/receipts``（与经验卡统计门同一处、同一读法）。"""
+    from intelligence import userspace
+
+    explicit = getattr(args, "receipts_dir", None)
+    return Path(explicit).expanduser() if explicit else userspace.REPO_ROOT / "methodology" / "receipts"
+
+
+def _rule_receipt_line(rule_id: str, receipt: dict | None) -> str:
+    """登记时回显：规则最近收据一行（无收据也回显，不拦截）。"""
+    from intelligence.services import checkpoints
+
+    if receipt is None:
+        return f"规则 {rule_id} 尚无收据——先跑 scripts/methodology_backtest.py run"
+    return f"规则 {rule_id} 最近收据：{checkpoints.summarize_rule_receipt(receipt)}"
+
+
 def cmd_checkpoint_register(args: argparse.Namespace) -> int:
     import json as _json
 
@@ -2955,24 +2984,60 @@ def cmd_checkpoint_register(args: argparse.Namespace) -> int:
                 metric["window_days"] = args.window_days
         if args.target_name:
             metric["target_name"] = args.target_name
-    _, record = checkpoints.register_checkpoint(
-        cpath,
-        claim=args.claim,
-        due=args.due,
-        category=args.category,
-        source=args.source,
-        themes=args.themes,
-        stocks=args.stocks,
-        metric=metric,
-        source_judgment_ts=args.from_judgment,
-        session_id=args.session,
-    )
+
+    # 规则四态：与经验卡统计门同源同口径（latest_receipt 跨版本取最近）。这里只回显、只记录，不设门。
+    rule_id = str(getattr(args, "rule_id", None) or "").strip() or None
+    receipt: dict | None = None
+    rule_verdict: str | None = None
+    rule_receipt: str | None = None
+    if rule_id:
+        try:
+            rule_id = checkpoints.normalize_rule_id(rule_id)
+        except ValueError as exc:
+            print(f"登记失败：{exc}", file=sys.stderr)
+            return 2
+        from intelligence.services.methodology_backtest.receipts import latest_receipt
+
+        receipt = latest_receipt(_receipts_dir(args), rule_id)
+        if receipt is not None:
+            rule_verdict = str(receipt.get("verdict") or "") or None
+            rule_receipt = receipt.get("_path")
+
+    try:
+        _, record = checkpoints.register_checkpoint(
+            cpath,
+            claim=args.claim,
+            due=args.due,
+            category=args.category,
+            source=args.source,
+            themes=args.themes,
+            stocks=args.stocks,
+            metric=metric,
+            source_judgment_ts=args.from_judgment,
+            session_id=args.session,
+            rule_id=rule_id,
+            rule_verdict=rule_verdict,
+            rule_receipt=rule_receipt,
+        )
+    except ValueError as exc:
+        print(f"登记失败：{exc}", file=sys.stderr)
+        return 2
     if args.json:
-        print(_json.dumps({"path": str(cpath), "checkpoint": record}, ensure_ascii=False, indent=2))
+        payload: dict[str, object] = {
+            "path": str(cpath),
+            "checkpoint": record,
+            "rule_id": rule_id,
+            "rule_verdict": rule_verdict,
+            "rule_receipt": rule_receipt,
+            "rule_receipt_line": _rule_receipt_line(rule_id, receipt) if rule_id else None,
+        }
+        print(_json.dumps(payload, ensure_ascii=False, indent=2))
     else:
         mtail = f"｜机检 {record['metric']['type']}" if record.get("metric") else "｜人工判定"
         print(f"已登记可证伪点 {record['id']}（到期 {record['due']}{mtail}）")
         print(f"  {record['claim']}")
+        if rule_id:
+            print(f"  {_rule_receipt_line(rule_id, receipt)}")
         print(f"  → 到期跑 `checkpoint recheck --user {args.user or 'default'} --apply`")
     return 0
 
@@ -3130,7 +3195,32 @@ def cmd_checkpoint_calibrate(args: argparse.Namespace) -> int:
 
     cpath, vpath = _checkpoint_paths(args)
     cal, warnings = checkpoints.load_calibration(cpath, vpath, today=args.date)
+    # 「按规则」段的收据由这里读文件系统再传进纯函数；calibrate / render_report 本身不碰磁盘。
+    rule_receipts: dict[str, dict] = {}
+    if cal.by_rule:
+        from intelligence.services.methodology_backtest.receipts import latest_receipt
+
+        receipts_dir = _receipts_dir(args)
+        for st in cal.by_rule:
+            found = latest_receipt(receipts_dir, st.category)
+            if found is not None:
+                rule_receipts[st.category] = found
     if args.json:
+        def _receipt_summary(receipt: dict | None) -> dict | None:
+            if receipt is None:
+                return None
+            stats = receipt.get("stats") if isinstance(receipt.get("stats"), dict) else {}
+            return {
+                "verdict": receipt.get("verdict"),
+                "n": stats.get("n"),
+                "p": stats.get("p"),
+                "p0": stats.get("p0"),
+                "wilson_lo": stats.get("wilson_lo"),
+                "wilson_hi": stats.get("wilson_hi"),
+                "generated_at": receipt.get("generated_at"),
+                "path": receipt.get("_path"),
+            }
+
         print(_json.dumps(
             {
                 "scored": cal.scored,
@@ -3163,12 +3253,26 @@ def cmd_checkpoint_calibrate(args: argparse.Namespace) -> int:
                     }
                     for s in cal.by_source
                 ],
+                "by_rule": [
+                    {
+                        "rule_id": s.category,
+                        "n": s.n,
+                        "hits": s.hits,
+                        "partial": s.partial,
+                        "miss": s.miss,
+                        "hit_rate": round(s.hit_rate, 4),
+                        "reliability": s.reliability,
+                        "samples": s.samples,
+                        "receipt": _receipt_summary(rule_receipts.get(s.category)),
+                    }
+                    for s in cal.by_rule
+                ],
                 "warnings": warnings,
             },
             ensure_ascii=False, indent=2,
         ))
     else:
-        print(checkpoints.render_report(cal), end="")
+        print(checkpoints.render_report(cal, rule_receipts=rule_receipts), end="")
     return 0
 
 
