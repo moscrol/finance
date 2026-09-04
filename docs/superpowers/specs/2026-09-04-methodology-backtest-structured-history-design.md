@@ -210,6 +210,7 @@ flowchart LR
 - ⏳ 题材消息面标签（复用 `theme-fermentation-tracer` 对齐逻辑）；`lifecycle_stage` 规则设计 + 人工对照集。
 - ⏳ `report --refuted` 按大盘阶段汇总证伪库；`invalidated` 的写入口（目前 jsonl 手改，门的 refuted 分支只在纯函数层生效）。
 - ⏳ 收据保鲜：门只看最近一次收据，不看 `source_max_trade_date` 是否过期；「超过 N 个交易日未刷新视为无收据」。
+- ⏳ **本节下方三条产品约束的占位字段从未实现**：P0 工单 §2.3 是 2026-09-04 21:07 补入的，P0 已于 19:50 合入（`rules.py` `_TOP_KEYS` 无 `owner / source_perspective`，`scope` 是实体范围对象 `{entity_type, universe}`）。占位改由工单 #25 承接，字段名改为 `sharing{level, owner, source_perspective}`；收据文件名不再要求含 verdict（`latest_receipt` 按 `generated_at` 取，证伪库收集走 `report --refuted` 扫 JSON 的 `verdict`）。
 
 以下三条是 2026-09-04 BP v0.4 壁垒重构后补入的产品约束（BP §4.3–4.4），**P0 不实施，但 P0 的规则文件与收据格式要为它们留字段**：
 
@@ -274,7 +275,7 @@ flowchart LR
 一次判断亏了不等于非理性，赚了不等于理性——按结果贴标签就是结果偏差（outcome bias），也正是 §3.3「一次错误只能是一个样本」要治的病。本设计采用的定义：
 
 - **理性判断** = 决策时刻有可查的方法论依据（能映射到一条 `rule_id`，该规则最近收据 ≠ `refuted`）+ 只用了当时可得的信息（确认日语义）+ **在结果出来之前**已登记（可证伪点）。三个条件都是过程条件，与后来涨跌无关。
-- **非理性判断** = 偏离了自己登记的方法论（有 `rule_id` 可对照但当日规则未触发 / 触发的是相反方向）、或无任何规则可依、或命中**偏差目录**里的一条。偏差目录待建，首版只收能用台账字段判定的：追高（触发日已是 `dual_red_streak ≥ k` 的末段）、近因效应（同类判断连错 ≥ 2 次后翻向）、锚定（判断的价位 / 排名引用了 D0 之前 ≥ n 日的旧值）、报复性加码（前一次同类判断刚被回检为错）。每条都要能从可证伪点 + 标签表算出来，算不出来的不进目录。
+- **非理性判断** = 偏离了自己登记的方法论（有 `rule_id` 可对照但当日规则未触发 / 触发的是相反方向）、或无任何规则可依、或命中**偏差目录**里的一条。偏差目录 v1 四条（工单 #24，名字以工单为准）：`late_streak` 追高 / 末段登记（关联板块在登记日 `dual_red_streak ≥ 4` 或热度前三连续 ≥ 3 日）、`post_miss_streak` 近因（同类判断连错 ≥ 2 次后 3 个交易日内再登记同类）、`rule_not_firing` 偏离自己的规则（带 `rule_id` 但规则在登记日对该实体未触发——用编译器以窗口 `[D0, D0]` 取事件集）、`revenge_reentry` 连错再登记（同一标的上一条判断刚落空，5 个交易日内再登记）。每条都要能从可证伪点 + 旁路库确定性算出来，算不出来的不进目录；原拟的「锚定」（判断引用了 D0 之前 ≥ n 日的旧值）因 claim 是自由文本 v1 算不出，**已替换为 `rule_not_firing`**。数据不齐时给 `unverifiable`，规则不适用时不产 flag——两者不混。
 - 「AI 帮规避」的机器实现 = 登记判断时系统当场给出：这条判断对应哪条规则、该规则当前四态、命中偏差目录哪一条。**只提示，不拦截，不改判断**——与 `strategy-evolve` 的 `suggest` 同一原则。
 - 合规边界：全文的「决策」在产品口径里一律是**研究判断**（主线在哪、题材在哪个阶段、板块强弱），不是买卖时点。私用无妨；一旦进产品文案，「AI 辅助复现理性决策」四个字就踩在 BP §3.4 的红线上，要写成「校准研究判断」。
 
@@ -322,10 +323,10 @@ flowchart LR
 
 | 项 | 落在 | 备注 |
 |---|---|---|
-| 可证伪点登记带 `rule_id`；登记时回显规则四态 | P1（余下） | 经验卡已有同字段（PR #576），可证伪点补齐即可 |
-| 偏差目录 v1（4 条，全部可从台账 + 标签算） | P1（余下） | 只提示不拦截 |
-| 重放引擎：结构化判断 → 自动判分 → AI 校准读数；模型截止日分栏；匿名化对照臂 | **P1.5（新）** | 复用 `fidelity_replay` 快照与 `outcomes` 表；不新开数据源 |
-| 发现窗 / 验证窗分开的收据字段；`provenance.kind=discovered` | P1.5 | schema 加字段，编译器不变 |
+| 可证伪点登记带 `rule_id`；登记时回显规则四态 | P1 → **工单 #24** `2026-09-04-checkpoint-rule-id-bias-catalog-workorder.md` | 经验卡已有同字段（PR #576），可证伪点补齐；读者 = `calibrate.by_rule` |
+| 偏差目录 v1（4 条，全部可从台账 + 旁路库算） | P1 → **工单 #24** | 只提示不拦截；`checkpoints.py` 保持只用标准库，目录另开 `checkpoint_bias.py` |
+| 重放引擎：结构化判断 → 自动判分 → AI 校准读数；模型截止日分栏；匿名化对照臂 | **P1.5 → 工单 #25** `2026-09-04-historical-replay-engine-workorder.md` | 复用 `fidelity_replay` 快照、双盲 `hypotheses[]` 格式与 `auto_verdict`、`history_outcomes`、`calibrate`；**PIT 现实**：严格边界只 33 个快照日（07-10→09-02）/ `updated_at` 只过 17 日，其余 380 日只能 `trade_date_only`，两档分开报 |
+| 发现窗 / 验证窗分开的收据字段；`provenance.kind=discovered`；`sharing` 占位 | P1.5 → **工单 #25** | schema 加字段，编译器不变。P0 §2.3 的占位字段（`scope∈{shared,private}` 等）从未实现——它们是 P0 合入后 77 分钟才补进工单的；且 `scope` 已被实体范围对象占用，改名 `sharing` |
 | as-of 因果链 + 双模式差异量化 | P2 | 复用 `theme-fermentation-tracer` |
 | LLM 提议者 | P2 | 输出只能是规则 JSON |
 | 今日触发规则表（`methodology_verdicts` 数据集） | P2 | 已在 §6 P2 |

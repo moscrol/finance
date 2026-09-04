@@ -75,7 +75,15 @@ BP 中数字：仓内为 2026-09-04 只读核数（52 表 / 413 交易日 / 4,59
 - **设计稿回正**：头部状态改「P0 已合 / P1 前两刀已合」；§3.4 表加「结果」列；§6 P0 七条各附真库读数与三处实施偏离（`mainline_flag` 取 `fact_mainline_sector_daily`、`market_stage` 用真库实际值、`data_gap` 单独成表）；P1 拆 ✅ / ⏳；§8 成立条件更新。
 - **设计稿新增 §10「学习闭环路线图」**：把用户当晚六句理念（理性决策巩固复现 / 非理性规避 / 先喂经验 / 再发现规律 / 回顾历史理解为什么 / 站相似节点推导拿后续验证）逐条对到仓内实物——其中四句已有实物：①统计门 + `promoted_to_code`，②可证伪点校准，③`propose`，⑥ `fidelity_replay` 历史重放（2026-07 已建，`input.snapshot.json` / `outcome.snapshot.json` 物理分离）+ 双盲前瞻答卷台账。写死四条守门：理性 / 非理性按**过程**定义不按结果（否则就是结果偏差）并给偏差目录 v1 四条；「发现」只能产出规则 JSON 进同一道门、发现窗 / 验证窗分开；「理解为什么」防事后归因（as-of 因果链 + 重放 / 回顾双模式差异量化）；「站节点推导」的两种泄漏——数据泄漏已有守门，**模型记忆泄漏（训练截止日）全仓无守门**，给三件（收据带模型截止日分栏 / 实体匿名化对照臂 / 与双盲台账按类别对账）。顺序建议把「发现」挪到闭环末端当产出。§10.4 给分期（新增 P1.5 重放引擎），**不派单不取号**。
 - **BP v0.5**：§1 / §4.1 图 / §4.3 三格 / §4.4 / §6.2 矩阵行 / §10.1 / §10.2 V1 / §13.3 / 附录 D 两行 / 附录 E 第 6 问，全部从「规划 / P0 待交付」改为「已上线 + 首批读数」。**叙事选择**：三条种子规则全 `not_distinguishable`、种子规则 1 的 +10 点按事件日配对后归零——写成「统计门先打了我们自己」，作诚实品牌的自证（§4.4、附录 E 第 6 问、deck 第 6 页与讲稿）。附录 D 明写 BP 未重跑这些数字、对外引用前先 `report` 重出。
-- **未做**：没有派 #23；没有立 §10.4 的任何一张单；没有动 `hosted-alpha-gate.md`；申请表母本与已填 docx 未动（这轮改的段落不在申请表三格内）。
+- **未做**：没有派 #23；没有动 `hosted-alpha-gate.md`；申请表母本与已填 docx 未动（这轮改的段落不在申请表三格内）。
+
+**2026-09-04 第九轮（用户令：立 §10.4 的 P1 与 P1.5 单）**：
+- **#24** `2026-09-04-checkpoint-rule-id-bias-catalog-workorder.md`：可证伪点加 `rule_id / rule_verdict / rule_receipt`（读者 `calibrate.by_rule` + `render_report`，unread-fields 门禁要求同提交）；`checkpoint register --rule-id` 用 `latest_receipt` 回显四态（照 `cli.py:885–899` 经验卡写法，**不拦截**）；新模块 `checkpoint_bias.py` 四条偏差 `late_streak / post_miss_streak / rule_not_firing / revenge_reentry` + `bias-scan`。核过的事实：`rg rule_id checkpoints.py` = 0；`register_checkpoint` 非测试调用方 5 处；`checkpoints.py` docstring 承诺只用标准库，所以目录另开模块。设计稿原拟「锚定」不可计算，换成 `rule_not_firing`（编译器窗口 `[D0, D0]` 取事件集）。
+- **#25** `2026-09-04-historical-replay-engine-workorder.md`：重放引擎 `intelligence/eval/replay_engine.py`，两臂（命名 / 匿名）× 两车道（A 规则复现一致率对照编译器，零泄漏；B 双盲 `hypotheses[]` 格式前瞻假设，只 market / direction）→ `history_outcomes` / `market_actuals` 自动判分 → 复用 `checkpoints.calibrate` 出 `pit_grade × memory_bucket × arm × category × horizon` 分格（N<10 不出率）→ 与双盲台账对账。**只读核数发现的硬约束**：`fact_market_daily.updated_at` 最小 2026-08-12（整表重写过），严格 `updated_at` PIT 只过 17/413 日；每日快照 33 份（07-10→09-02，缺 07-21/07-28/08-04/08-06/08-25/08-31）；故 `pit_grade ∈ {strict, trade_date_only}` 定为一等字段，380 个历史节点只能弱边界。模型截止日表 `model_cutoffs.json` 只认官方来源，查不到填 null 视同污染。顺带规则 schema 三加法（`discovered` / `windows` 双窗 / `sharing` 占位）。
+- **发现 P0 §2.3 占位字段从未实现**：那段是 21:07 补进 P0 工单的，P0 19:50 已合；`rules.py` `_TOP_KEYS` 无 `owner / source_perspective`，`scope` 已是实体范围对象。改由 #25 承接并改名 `sharing`。写进设计稿 §6 P1 与 §10.4。
+- 发现双盲台账 `dual_blind_forecast.py manifest --perspective` 只是冻结清单（`duckdb_cutoff` 取当前 max），**不是** PIT 快照；历史重放的输入必须走 `fidelity_replay.build_input_snapshot`（加 `strict_updated_at` 参数，默认不变）。
+- INDEX 加 #24 / #25 两行；设计稿 §10.2 第一条偏差名对齐、§10.4 指向工单、§6 P1 加占位字段未实现一条。
+- **未做**：未派 #24 / #25；两单的行号只对本树（已合 `gitea/main@5c7fe2eb`）复核。
 
 ## 未验证 / 已知边界
 
@@ -91,7 +99,7 @@ BP 中数字：仓内为 2026-09-04 只读核数（52 表 / 413 交易日 / 4,59
 
 - **合 PR**：本分支已合入 `gitea/main`（无冲突残留），等用户确认后合 main。合入后 8792 不必切（纯文档）。
 - 派 **#23** 判官 token 工单（分支 `feat/judge-token-usage`，从 `gitea/main` 新开树）；产出回填 BP §7.3 的 `【待填：Alpha 期含判官的全口径实测】`。
-- 设计稿 §10.4 的 P1（可证伪点带 `rule_id` + 登记时回显四态；偏差目录 v1）与 P1.5（重放引擎：结构化判断 → 自动判分 → AI 校准读数，带模型截止日分栏与匿名化对照臂）**要立单再派**，号从 INDEX 取（下一个空号 #24）。
+- 派 **#24**（`feat/checkpoint-rule-id-bias`）与 **#25**（`feat/historical-replay-engine`），三张单互不依赖可并行；#25 调 LLM 约 160 次，派前确认预算窗口。下一个空号 **#26**。
 - 剩余 P1 中「个股标签」已有树 `fwp-wt-methodology-backtest-p1c`（分支 `feat/methodology-backtest-p1-stock-labels`，尚无提交），不要再开第二棵。
 - 用户拿到目标 OPC 社区的正式材料要求后，按其表格 / 页数 / 时长裁一页纸版与 deck（附录 C 第一行）。
 - 用户填 BP 附录 C 占位（注册状态 / 体验链接与邀请码 / 录屏 / 产品名 / 创始人 / 创始人目标收入 / 月支出两项 / 工位 / 数据商报价 / 入口现状）。
