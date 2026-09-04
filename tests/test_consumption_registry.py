@@ -94,5 +94,27 @@ def test_public_assets_cheap_overrides_agree_with_registry(registry):
 
 def test_known_plans_are_declared(registry):
     assert set(PLANS) <= set(registry.plans)
-    pending = [r.key for r in registry.recipes if r.status == "pending-grilling"]
-    assert pending, "knowhow 骨架必须留着 pending-grilling 占位，编译进来后再改 status"
+
+
+_RECIPE_PLACEHOLDERS = ("待编译", "待定义")
+
+
+def test_recipe_status_matches_placeholder_state(registry):
+    """status 与占位标记必须一致：没编译完不许改 status，编译完了不许留占位。
+
+    原先只断言「至少有一条 pending-grilling」，三条 knowhow 全部编译（2026-09-04）后那条
+    断言就变成永久红，且它守不住真正的漂法——把 status 改成 note 却把「待编译」留在 joins 里。
+    这里按每条 recipe 的文本判：pending-grilling ⇔ 含占位。"""
+    for r in registry.recipes:
+        text = " ".join((*r.joins, r.proactive))
+        has_placeholder = any(p in text for p in _RECIPE_PLACEHOLDERS)
+        if r.status == "pending-grilling":
+            assert has_placeholder, (
+                f"recipe {r.key}: pending-grilling 却没有占位标记——编译进来了就改 status"
+            )
+        else:
+            assert not has_placeholder, (
+                f"recipe {r.key}: status={r.status} 但 joins/proactive 仍含「待编译/待定义」——"
+                "没编译完不要改 status"
+            )
+        assert r.proactive.strip(), f"recipe {r.key}: proactive 不能为空（不主动就写 '-'）"
