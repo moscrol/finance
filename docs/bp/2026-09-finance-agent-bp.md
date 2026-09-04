@@ -102,7 +102,7 @@ flowchart TD
   Door --> Orch[调度器]
   Orch --> EngA[引擎 A 连续 Episode 模型按契约自选只读工具]
   Orch --> EngB[引擎 B 确定性题型流水线]
-  EngA --> Tools[受契约门控的只读工具 12 个]
+  EngA --> Tools[受契约门控的只读工具 13 个]
   EngB --> Tools
   Tools --> DuckDB[本地市场数据仓 52 表 413 交易日]
   Tools --> KB[知识图谱 4599 实体 2343 概念 7036 来源]
@@ -425,6 +425,6 @@ flowchart TD
 | 124 纠偏 / 83 可证伪点 | 用户大脑目录 `corrections.jsonl` / `checkpoints.jsonl` 行数 |
 | 7,386 通过 / 404 测试文件 | 项目交接记录 2026-09-02 主干门禁读数；`intelligence/tests/test_*.py` 计数 |
 | 38 个技能 | `skills/` 目录计数（含 `lib/` 等非技能目录，对外表述用「约 30 个」更稳） |
-| 一个调度器 + 两条引擎 + 12 个工具 | `docs/agent-product-door.md`；工具数以 `research_tool_registry.py::_DEFAULT_TOOL_METADATA` AST 计数为准 |
+| 一个调度器 + 两条引擎 + 13 个工具 | `docs/agent-product-door.md`；工具数以 `research_tool_registry.py::_DEFAULT_TOOL_METADATA` 键计数为准（2026-09-04 在 `gitea/main@2d8eaea5` 上 `sed -n '/^_DEFAULT_TOOL_METADATA/,/^}/p'` 数出 13，CLAUDE.md 写的 12 已过期，多了 `web_fetch`） |
 | Alpha 身份门与配额 | `docs/workbench/hosted-alpha-gate.md` |
 | 可迁移原则（预占配额等） | 项目交接记录「已确立的可迁移原则」 |
