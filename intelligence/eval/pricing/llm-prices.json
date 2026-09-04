@@ -1,0 +1,53 @@
+{
+  "schema": "llm-prices/v1",
+  "currency": "CNY",
+  "unit": "per_million_tokens",
+  "note": "手工核对的价目表（INDEX #23）。research_cost.py 按 model_pattern（fnmatch，忽略大小写）自上而下首个命中取价；价格为 null 表示未核对，报表把对应成本列标为「价目表未录」而不猜数。改价必须同时改 checked_at 与 source_url；不接价格 API。",
+  "prices": [
+    {
+      "model_pattern": "glm-5.2*",
+      "input_cny_per_m": 8.0,
+      "output_cny_per_m": 28.0,
+      "cache_hit_cny_per_m": 2.0,
+      "source_url": "https://bigmodel.cn/pricing",
+      "checked_at": "2026-09-04",
+      "note": "智谱官方定价页（BP 附录 B-22 同日核对）。"
+    },
+    {
+      "model_pattern": "glm-5.3*",
+      "input_cny_per_m": 8.0,
+      "output_cny_per_m": 28.0,
+      "cache_hit_cny_per_m": 2.0,
+      "source_url": "https://bigmodel.cn/pricing",
+      "checked_at": "2026-09-04",
+      "note": "与 GLM-5.2 同档。生产 coding 端点请求 glm-5.2 时服务端实际回 glm-5.3（report.json.llm.model）。"
+    },
+    {
+      "model_pattern": "glm-5",
+      "input_cny_per_m": 6.0,
+      "output_cny_per_m": 22.0,
+      "cache_hit_cny_per_m": 1.5,
+      "source_url": "https://bigmodel.cn/pricing",
+      "checked_at": "2026-09-04",
+      "note": "官方按用量档位给区间 4–6 / 18–22 / 1–1.5，此处取上界（与 BP §7.3「GLM-5 档均值约 0.33 元」的算法一致）。"
+    },
+    {
+      "model_pattern": "glm-4.6*",
+      "input_cny_per_m": 2.0,
+      "output_cny_per_m": 8.0,
+      "cache_hit_cny_per_m": null,
+      "source_url": "https://bigmodel.cn/pricing",
+      "checked_at": "2026-09-04",
+      "note": "官方区间 1–2 / 3–8，取上界；缓存命中价未录。"
+    },
+    {
+      "model_pattern": "grok-4.6*",
+      "input_cny_per_m": null,
+      "output_cny_per_m": null,
+      "cache_hit_cny_per_m": null,
+      "source_url": null,
+      "checked_at": null,
+      "note": "生产判官（LLM_JUDGE_BACKEND=grok-cli, LLM_JUDGE_MODEL=grok-4.6）。xAI 官方定价 2026-09-05 未能核对（实施环境无外网检索），不猜数；填价时写 source_url 与 checked_at。对照点：grok CLI payload 自带 total_cost_usd——2026-09-05 探针一次判官调用 input 19,326 / cache_read 128 / output 970 tokens 报 0.00757 USD。"
+    }
+  ]
+}

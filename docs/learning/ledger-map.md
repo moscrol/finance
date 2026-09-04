@@ -33,6 +33,7 @@
 | 预测/假设台账（R-号，实验立案与预注册裁决） | `docs/prediction-ledger.md` | md（例外：md 即 canonical） | 号由 `scripts/claim_ledger_id.py claim` 原子预占（禁手工 max+1）；行由立案会话写入 | 是 | —（实验原始收据在 `~/.finance-runtime/<实验名>/`，本表行是唯一住址索引） |
 | IMA 缺口清单（该跑 DeepDive 的题材 / 该补逻辑卡的个股） | `market_feature_store/exports/<date>-ima-gap.json`（`schema_version` 字段） | JSON | 全量入口 `intelligence.cli daily` 的 `ima-gap-report` 步（只出清单，不自动问 IMA） | 是 | 同名 `.md` |
 | 方法论回测收据（规则在历史上的 N / 命中率 / 基准率 / Wilson / 四态，带成立条件；实体 sector / theme / stock） | `methodology/receipts/<rule_id>@v<version>/<date>.json`（`schema_version: methodology-backtest-receipt/v0`；scan 汇总 `methodology/receipts/scan/<date>.json`） | JSON | `scripts/methodology_backtest.py run/scan`（规则真本源 `methodology/rules/<rule_id>.v<version>.json` 进 git；旁路库 `db/history_labels.duckdb` 由 `build-labels`/`outcomes` 从主库只读重建） | 否（可重建） | 同名 `.md`（stock 规则的事件样例含个股代码，仅分析师侧核对，不进共享层渲染） |
+| 单次研究成本报表（写手 `outcome.usage` + 判官 `metrics.judge_usage` 的中位/均值/p90 token 与元/次；价目表 `intelligence/eval/pricing/llm-prices.json` 手工核对） | `intelligence/eval/measurements/research-cost-<date>.{json,md}` | JSON/md | `python -m intelligence.eval.research_cost` | 是 | 同名 `.md`（顶部成立条件块：价目表 checked_at / run 数 / 日期范围 / 估算记录占比 / 树·解释器·revision） |
 
 ## 双盲夜跑（2026-09-03 用户拍板：退役）
 
