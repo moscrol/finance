@@ -149,6 +149,10 @@
 
 ## fupanhui API
 
+- **[2026-09-04] 账号被风控/封禁：根因是客户端自己告密，不是「藏得不够好」。**
+  根因：`FUPANHUI_DIRECT` 默认开，Python urllib `UA=Mozilla/5.0` 与 Chrome TLS 双通道打同一 token；`api_get_public` 无论开关都先匿名 urllib，401 后再 CDP（流量翻倍）；板块 K 线/成分股 `Promise.all` 默认 12/8 路；429 没有进程级闩，`cdp_eval` 还会指数重试。
+  做法：默认只走已登录 Chrome 的 CDP fetch；直连改 opt-in；批量串行+间隔；429/超限立刻熔断整进程。换号前必须先部署这套客户端，且夜跑 `FINANCE_CODE_ROOT` 指向的 runtime 树也要切到新代码，否则今晚仍打旧路径。
+
 - **[2026-05-13] fupanhui.com 有内部 REST API，可替代页面 DOM 抓取。**
   发现：通过 `performance.getEntriesByType('resource')` 发现前端调用的 API 端点。用浏览器内 XHR 调用自动携带 session cookie，无需 API key。
   适用：limit-advance（已改造）、market-overview（待改造）、研报入库。

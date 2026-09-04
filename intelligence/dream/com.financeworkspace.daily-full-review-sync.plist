@@ -37,6 +37,10 @@
     <string>36</string>
     <key>REVIEW_GATE_LOCK_DELAY_SECONDS</key>
     <string>10</string>
+    <key>FUPANHUI_DIRECT</key>
+    <string>0</string>
+    <key>FUPANHUI_MIN_INTERVAL</key>
+    <string>0.8</string>
   </dict>
   <key>RunAtLoad</key>
   <false/>

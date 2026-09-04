@@ -298,7 +298,7 @@ def _get_sector_stocks(code: str, trade_date: str, dimension: str, scope: str):
     return json.loads(raw) if raw else {"stocks": []}
 
 
-def _get_sector_stocks_batch(items: list[dict], trade_date: str, dimension: str, scope: str, batch: int = 6):
+def _get_sector_stocks_batch(items: list[dict], trade_date: str, dimension: str, scope: str, batch: int = 1):
     slim = [{"code": item.get("code"), "name": item.get("name")} for item in items if item.get("code")]
     items_json = json.dumps(slim, ensure_ascii=False)
     td_json = json.dumps(trade_date)
@@ -344,7 +344,7 @@ def _get_sector_stocks_batch(items: list[dict], trade_date: str, dimension: str,
     return json.loads(raw) if raw else {}
 
 
-def _get_sector_stocks_resilient(items: list[dict], trade_date: str, dimension: str, scope: str, batch: int = 6):
+def _get_sector_stocks_resilient(items: list[dict], trade_date: str, dimension: str, scope: str, batch: int = 1):
     if not items:
         return {}
     try:

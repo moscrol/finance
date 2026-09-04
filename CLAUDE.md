@@ -365,7 +365,7 @@ Lint 能力（`pdf_ingest_lint.py`）：除 relations 检查外，还检查 conc
 
 ## 回填注意事项
 
-- fupanhui API 有周/月调用上限（429 限流），大批量回填需分批
+- fupanhui API 有周/月调用上限（429 限流），大批量回填需分批。**默认走 CDP、禁止 Python urllib 直连**（`FUPANHUI_DIRECT` 默认 0）；429/「超限」进程级熔断，禁止指数重试。账号被风控后先停 `daily-full`，不要换号继续打。
 - CDP eval 用 IIFE `(function(){...})()` 包裹 + try/catch，避免页面 JS 异常中断
 - 板块边际量字段（fupanhui API，对应主库 `fact_sector_daily`）：`diff_ratio`（边际量%）、`amount`（成交额亿）、`pct_chg`（涨幅%）
 - 早期日期（2025年10-11月）只有 212 个板块有数据，后期扩展到 227 个
