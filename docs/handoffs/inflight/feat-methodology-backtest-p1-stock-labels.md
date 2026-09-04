@@ -70,6 +70,8 @@ P1 第三刀，**加法、不改既有运行时行为**：给标签层加 `stock
 - 全量主门禁 `run_main_gate.sh` @ `a890f48d`（干净树，`dirty=False`）：**7708 passed / 0 failed / 15 skipped / 1 xfailed**，
   377 s，ruff 0；较 #581 基线 7699P 多 9 例即本单新增测试，红集为空。收据
   `~/.finance-runtime/test-receipts/20260904T143232Z-a890f48d.json`
+- 已 push 到 gitea，`merge-tree` 对 `gitea/main@5c7fe2eb` 无冲突；PR #585
+  `http://127.0.0.1:3300/a77/finance-workspace-private/pulls/585`，**未合 main，等用户确认**
 
 ## 未验证 / 已知边界
 - 涨停表比主库 `limit_up` 少数：395 日里 336 日完全相等、380 日差 ≤ 3，个别日少 8–20 只（2026-05 上旬），推测是无板块归属的涨停股
