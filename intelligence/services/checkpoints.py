@@ -53,7 +53,14 @@ VALID_OPS = (">=", ">", "<=", "<", "==")
 _FIELD_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 DEFAULT_WINDOW_DAYS = 60
-DEFAULT_CALIBRATION_MIN_N = 2
+# 一个类别至少要有多少条终态判定，才给它贴「靠谱 / 参半 / 偏差大」并注入提示词。
+# 2026-09-04 前是 2——两个样本就给可靠性标签，正是「一次错误否定一套方法」的机制来源
+# （设计稿 docs/superpowers/specs/2026-09-04-methodology-backtest-structured-history-design.md §3.4）。
+# 只读消融（83 个可证伪点、69 条终态、2 个类别）：min_n=2 → 2 类有标签；10 或 20 → 1 类
+# （掉的是 n=2 的「duckdb_flow/市场路径」）。取 10：与 20 结果相同，但给未来新类别留出
+# 更早进入校准的余地；四个消费者（render_calibration_for_prompt / prime / red_team.weak_categories /
+# user_memory.peer_hit_line）共用这一闸。
+DEFAULT_CALIBRATION_MIN_N = 10
 
 
 def _now() -> datetime:

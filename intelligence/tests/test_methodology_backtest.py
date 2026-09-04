@@ -503,6 +503,61 @@ def test_scan_applies_bh_and_marks_exploratory(synthetic):
     assert "成立条件" in md and "Wilson" in md
 
 
+def test_latest_receipt_picks_newest_across_versions(synthetic, tmp_path):
+    """P1 统计门读的是规则最近一次收据：跨版本按 generated_at 取，坏文件与别的 schema 跳过。"""
+    from intelligence.services.methodology_backtest.receipts import latest_receipt, write_receipt
+
+    st = synthetic["st"]
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    old = build_receipt(res, rule_path=None, rule_sha256=None, environment=env, now=__import__("datetime").datetime(2026, 9, 1, tzinfo=__import__("datetime").timezone.utc))
+    write_receipt(root, old, date_str="2026-09-01")
+    v2_rule = copy.deepcopy(st.POSITIVE_RULE)
+    v2_rule["version"] = 2
+    res2 = st.run(synthetic["labels"], v2_rule)
+    new = build_receipt(res2, rule_path=None, rule_sha256=None, environment=env, now=__import__("datetime").datetime(2026, 9, 3, tzinfo=__import__("datetime").timezone.utc))
+    write_receipt(root, new, date_str="2026-09-03")
+    (root / "selftest_positive@v1" / "broken.json").write_text("{not json", encoding="utf-8")
+    (root / "scan").mkdir()
+    (root / "scan" / "2026-09-04.json").write_text(__import__("json").dumps({"schema_version": "methodology-backtest-scan/v0"}), encoding="utf-8")
+
+    got = latest_receipt(root, "selftest_positive")
+    assert got is not None and got["rule"]["ref"] == "selftest_positive@v2"
+    assert got["verdict"] == "supported" and got["_path"].endswith("selftest_positive@v2/2026-09-03.json")
+    assert latest_receipt(root, "nope") is None
+    assert latest_receipt(tmp_path / "missing", "selftest_positive") is None
+
+
+def test_cli_answer_score_gate_refuses_promotion_without_supported_receipt(synthetic, tmp_path):
+    """经验卡统计门端到端：not_distinguishable 的规则不能把卡晋升为 methodology；candidate 仍可落卡。"""
+    from intelligence import cli as intel_cli
+    from intelligence.services.methodology_backtest.receipts import write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    neg = build_receipt(st.run(synthetic["labels"], st.NEGATIVE_RULE), rule_path=None, rule_sha256=None, environment=env)
+    write_receipt(root, neg, date_str="2026-09-04")
+    pos = build_receipt(st.run(synthetic["labels"], st.POSITIVE_RULE), rule_path=None, rule_sha256=None, environment=env)
+    write_receipt(root, pos, date_str="2026-09-04")
+    cards = tmp_path / "cards.jsonl"
+    common = [
+        "answer-score", "--question", "双红后还涨吗", "--answer", "会涨。（非投资建议）",
+        "--local-source", "market_feature_store", "--save-card", "--card-file", str(cards),
+        "--receipts-dir", str(root), "--json",
+    ]
+    assert intel_cli.main([*common, "--promotion", "methodology", "--rule-id", "selftest_negative"]) == 2
+    assert not cards.exists()
+    assert intel_cli.main([*common, "--promotion", "methodology", "--rule-id", "nope_rule"]) == 2
+    assert intel_cli.main([*common, "--promotion", "candidate", "--rule-id", "selftest_negative"]) == 0
+    assert intel_cli.main([*common, "--promotion", "methodology", "--rule-id", "selftest_positive"]) == 0
+    rows = [__import__("json").loads(line) for line in cards.read_text(encoding="utf-8").splitlines()]
+    assert [r["promotion"] for r in rows] == ["candidate", "methodology"]
+    assert rows[0]["rule_verdict"] != "supported" and rows[1]["rule_verdict"] == "supported"
+    assert rows[1]["rule_receipt"].endswith("selftest_positive@v1/2026-09-04.json")
+
+
 def test_cli_run_and_invalid_rule_exit_codes(synthetic, tmp_path):
     cli = _load_script(CLI, "mb_cli_for_pytest")
     st = synthetic["st"]

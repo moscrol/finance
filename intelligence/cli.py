@@ -467,6 +467,17 @@ def add_answer_score_parser(subparsers: argparse._SubParsersAction) -> None:
         choices=["candidate", "promoted", "methodology", "promoted_to_code"],
         help="经验卡片状态（promoted_to_code=已固化进管线，load_cards 不再注入）",
     )
+    parser.add_argument(
+        "--rule-id",
+        default=None,
+        help="这张卡对应的方法论规则 rule_id（methodology/rules/<rule_id>.v<n>.json）。给了就过统计门："
+        "promoted / methodology / promoted_to_code 要求该规则最近一次回测收据为 supported，否则拒绝落卡（退出码 2）",
+    )
+    parser.add_argument(
+        "--receipts-dir",
+        default=None,
+        help="回测收据目录（默认 methodology/receipts），只在 --rule-id 时读取",
+    )
     parser.set_defaults(func=cmd_answer_score)
 
 
@@ -871,18 +882,41 @@ def cmd_answer_score(args: argparse.Namespace) -> int:
         from intelligence import userspace
         from intelligence.services import experience_cards
 
+        rule_id = str(getattr(args, "rule_id", None) or "").strip() or None
+        rule_verdict: str | None = None
+        rule_receipt: str | None = None
+        if rule_id:
+            from intelligence.services.methodology_backtest.receipts import latest_receipt
+
+            receipts_dir = (
+                Path(args.receipts_dir).expanduser()
+                if getattr(args, "receipts_dir", None)
+                else userspace.REPO_ROOT / "methodology" / "receipts"
+            )
+            receipt = latest_receipt(receipts_dir, rule_id)
+            if receipt is not None:
+                rule_verdict = str(receipt.get("verdict") or "") or None
+                rule_receipt = receipt.get("_path")
         us = userspace.user_space(args.user)
         card_path = Path(args.card_file).expanduser() if args.card_file else us.experience_cards_path
-        card = experience_cards.build_card_from_score(
-            scored,
-            answer=answer,
-            corrected_principle=args.corrected_principle,
-            applies_to=list(args.applies_to or []),
-            prompt_rule=args.prompt_rule,
-            user_feedback=args.user_feedback,
-            local_sources=list(args.local_source or []),
-            promotion=args.promotion,
-        )
+        try:
+            card = experience_cards.build_card_from_score(
+                scored,
+                answer=answer,
+                corrected_principle=args.corrected_principle,
+                applies_to=list(args.applies_to or []),
+                prompt_rule=args.prompt_rule,
+                user_feedback=args.user_feedback,
+                local_sources=list(args.local_source or []),
+                promotion=args.promotion,
+                rule_id=rule_id,
+                rule_verdict=rule_verdict,
+                rule_receipt=rule_receipt,
+            )
+        except experience_cards.PromotionGateError as exc:
+            print(f"统计门拒绝：{exc.gate.reason}", file=sys.stderr)
+            print(rubric.format_score(scored), file=sys.stderr)
+            return 2
         experience_cards.record_card(card_path, card)
     if args.json:
         payload = scored.to_dict()

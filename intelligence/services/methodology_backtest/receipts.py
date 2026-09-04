@@ -236,6 +236,36 @@ def receipt_dir(root: str | Path, rule_ref: str) -> Path:
     return Path(root).expanduser() / rule_ref
 
 
+def latest_receipt(root: str | Path, rule_id: str) -> dict[str, Any] | None:
+    """某条规则（任意版本）最近一次收据；没有则 None。
+
+    「最近」按收据自述的 ``generated_at`` 取，跨版本比较——规则升到 v2 但还没跑过，
+    P1 统计门看的仍是 v1 那份读数，并在 ``rule.ref`` 里说明是哪个版本。返回值多带 ``_path``。
+    """
+    base = Path(root).expanduser()
+    if not base.is_dir():
+        return None
+    best: dict[str, Any] | None = None
+    best_key: tuple[str, str] | None = None
+    for folder in sorted(base.glob(f"{rule_id}@v*")):
+        if not folder.is_dir():
+            continue
+        for path in sorted(folder.glob("*.json")):
+            try:
+                doc = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if not isinstance(doc, dict) or doc.get("schema_version") != RECEIPT_SCHEMA:
+                continue
+            if str(doc.get("rule", {}).get("rule_id")) != rule_id:
+                continue
+            key = (str(doc.get("generated_at") or ""), str(path))
+            if best_key is None or key > best_key:
+                best_key = key
+                best = dict(doc, _path=str(path))
+    return best
+
+
 def write_receipt(root: str | Path, receipt: dict[str, Any], *, date_str: str) -> tuple[Path, Path]:
     """写 ``<root>/<rule_id>@v<version>/<date>.json`` 与同名 md。同日重跑覆盖。"""
     folder = receipt_dir(root, receipt["rule"]["ref"])
