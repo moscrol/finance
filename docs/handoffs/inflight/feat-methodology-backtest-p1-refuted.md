@@ -64,6 +64,9 @@ P1 第四刀，**加法、不改既有运行时行为**。P1 剩余项里 `lifec
   两条（`test_consumption_registry` / `test_eval_launchd_wiring`），红集为空。收据
   `~/.finance-runtime/test-receipts/20260904T173537Z-57cb9b3d.json`，`check_test_receipt.py --expect-revision` 退出码 0
   （revision / 解释器 / 依赖指纹 / 干净树全部 ✓）。前端零改动，未跑 `pnpm build`
+- 已 push 到 gitea，`gitea_pr.py conflict-check` 对 `gitea/main@6cc238df` clean（基座漂移 1 张合并 #588，零个碰本刀文件）；
+  PR #589 `http://127.0.0.1:3300/a77/finance-workspace-private/pulls/589`（head `6871b6b7`），**未合 main，等用户确认**——
+  09-05 派单口令 D 不含「合入」二字，按接手单 §7 停在这里
 
 ## 未验证 / 已知边界
 - 证伪库目前是空的：四条种子规则没有一条被证伪，`report --refuted` 的真库输出只有一行「为空」；条目格式只在合成库的前视夹具上验过
