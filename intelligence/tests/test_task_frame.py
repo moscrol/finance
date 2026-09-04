@@ -6,11 +6,14 @@ import pytest
 
 from intelligence.services.query_understanding import QueryEnvelope, understand_query
 from intelligence.services.task_frame import (
+    MISSING_MATERIAL_CLARIFICATION,
     TaskFrame,
+    align_task_frame,
     build_task_frame,
     derive_required_outputs,
     is_weekly_calendar_question,
     rebase_task_frame,
+    resolve_task_frame_clarification,
     strip_default_a_share_search_token,
 )
 
@@ -93,6 +96,83 @@ def test_llm_alignment_can_only_supplement_code_owned_semantics() -> None:
     assert frame.market_scope == "A股"
     assert frame.timeframe == "最近交易日"
     assert frame.evidence_policy == "current_market_scenarios"
+
+
+# 2026-09-04 预算矩阵 B6 两次开闸 run 里对齐模型真实写出的 ambiguities（题面
+# 「2026-07-23 把这份卖方材料提纯一下…」没附材料）。修前两条都认不出 → None →
+# 研究车道 → 模型稿「材料缺失请提供原文」被结构校验丢弃、发布层换成证据不足模板。
+_B6_QUESTION = "2026-07-23 把这份卖方材料提纯一下，哪些是硬事实、哪些只能进图谱、哪些只能进观察列表"
+_B6_AMBIGUITIES = (
+    "'这份卖方材料'所指文档完全缺失，需用户提供原文或粘贴内容",
+    "'这份卖方材料'具体指哪份：需用户提供材料原文、文件、标题或来源链接，"
+    "当前上下文中不存在任何可指代的对象；材料的发布时间与覆盖标的是否与 timeframe "
+    "2026-07-23 一致也待确认。",
+)
+
+
+def _b6_frame() -> TaskFrame:
+    return build_task_frame(_B6_QUESTION, understand_query(_B6_QUESTION))
+
+
+@pytest.mark.parametrize("ambiguity", _B6_AMBIGUITIES)
+def test_missing_material_ambiguity_asks_for_the_material(ambiguity: str) -> None:
+    frame = _b6_frame()
+    assert frame.clarification_question is None
+
+    content = f'{{"user_goal": "提纯卖方材料", "assumptions": [], "ambiguities": ["{ambiguity}"]}}'
+    aligned = align_task_frame(frame, content)
+
+    assert aligned.clarification_question == MISSING_MATERIAL_CLARIFICATION
+    assert ambiguity in aligned.ambiguities
+
+
+@pytest.mark.parametrize(
+    "ambiguity",
+    (
+        # 模型自己给了默认处置：不是阻塞，不追问（否则每条「先按…」都会变成一轮追问）。
+        "研报发布日期未提供，先按 2026-07-23 处理",
+        "材料口径未给出，默认按公告口径继续",
+        # 没有材料名词：现有行为，仍不追问（对应上面 test_llm_alignment_* 那条）。
+        "观察窗口未明确，先按未来五个交易日评估",
+        "三档分级的判据边界未定义，需确认按默认证据政策还是用户自定义标准执行",
+    ),
+)
+def test_non_blocking_ambiguity_does_not_ask_for_material(ambiguity: str) -> None:
+    content = f'{{"user_goal": "x", "assumptions": [], "ambiguities": ["{ambiguity}"]}}'
+    aligned = align_task_frame(_b6_frame(), content)
+    assert aligned.clarification_question is None
+
+
+def test_missing_material_answer_is_not_read_as_a_subject() -> None:
+    aligned = align_task_frame(
+        _b6_frame(),
+        f'{{"user_goal": "提纯", "assumptions": [], "ambiguities": ["{_B6_AMBIGUITIES[0]}"]}}',
+    )
+    pasted = "【卖方研报正文】公司 2026 年上半年新签订单 12 亿元，同比增长 40%；" * 6
+
+    resumed = resolve_task_frame_clarification(aligned, pasted)
+
+    # 主体 / 类型原样保留——贴进来的是材料，不是主体名；修前这里会被 _safe_subject
+    # 判掉再默认成「A股市场 / market_pattern」，把提纯题改写成盘面题。
+    assert resumed.subject == aligned.subject
+    assert resumed.subject_kind == aligned.subject_kind
+    assert resumed.question_type == aligned.question_type
+    assert resumed.clarification_question is None
+    assert resumed.ambiguities == ()
+    assert any("补充了材料原文" in item for item in resumed.assumptions)
+
+
+def test_rebound_clarification_answer_still_resolves_subject() -> None:
+    # 原有主体澄清路径不受材料分支影响。
+    question = "这个反弹还能持续多久"
+    frame = build_task_frame(question, understand_query(question))
+    assert frame.clarification_question == "你希望我围绕哪个明确主体继续判断？"
+
+    resumed = resolve_task_frame_clarification(frame, "美股")
+
+    assert resumed.subject == "美国股市"
+    assert resumed.market_scope == "美股"
+    assert resumed.clarification_question is None
 
 
 def test_llm_alignment_cannot_append_unowned_required_output() -> None:

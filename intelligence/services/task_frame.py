@@ -366,6 +366,22 @@ def resolve_task_frame_clarification(
     """
 
     cleaned = re.sub(r"\s+", "", str(answer or ""))
+    if is_missing_material_clarification(frame):
+        # 追问的是「材料在哪」，回答是贴进来的材料本身：它不是主体名，不能走下面的
+        # 主体/市场归一（一段研报正文会被 _safe_subject 判掉、再默认成「A股市场 /
+        # market_pattern」，把提纯题改写成盘面题）。主体、类型一律保留，材料由对话
+        # 上下文带进研究轮。
+        assumption = (
+            f"用户在唯一一次澄清中补充了材料原文（约 {len(cleaned)} 字）"
+            if cleaned
+            else "澄清预算已用尽，用户未提供材料，按无材料继续"
+        )
+        return replace(
+            frame,
+            assumptions=_merge_strings(frame.assumptions, (assumption,)),
+            ambiguities=(),
+            clarification_question=None,
+        )
     if any(term in cleaned for term in ("美股", "美国股市", "纳指", "标普")):
         market_scope = "美股"
         subject = "美国股市"
@@ -446,6 +462,39 @@ def _string_tuple(value: object) -> tuple[str, ...]:
     )
 
 
+# 「要处理的材料不在对话里」这一类歧义。2026-09-04 B6（「把这份卖方材料提纯一下」，
+# 题面没附材料）：对齐模型写出了 "'这份卖方材料'所指文档完全缺失，需用户提供原文或
+# 粘贴内容"，但下面那两条只认「主体/市场…不明/冲突/改变」的正则认不出它，
+# clarification_question 落成 None，题进了研究车道；模型稿老老实实写了「材料缺失、
+# 请提供原文」，结构校验却因两个 required_outputs 都 gap 而不放行，发布层换成
+# 「证据不足，暂不能可靠回答」模板——用户根本不知道自己忘了贴附件。认不出来就放行
+# 是 fail open；这里把「材料缺失」补成会拦下的形状。
+_MISSING_MATERIAL_NOUN_RE = re.compile(
+    r"(?:材料|文档|原文|附件|文件|研报|纪要|公告|链接|正文|截图|表格|数据文件)"
+)
+_MISSING_MATERIAL_STATE_RE = re.compile(
+    r"(?:缺失|未附|未提供|未给出|未上传|没有提供|没有附|不存在|"
+    r"需(?:要)?(?:用户)?(?:提供|粘贴|上传|补充)|请(?:用户)?(?:提供|粘贴|上传|补充))"
+)
+# 模型自己已经给了默认处置的歧义（「…未提供，先按 X 处理」）不拦：那是 assumption
+# 写错了栏，不是阻塞。只有「缺 + 没有默认处置」才追问。
+_SELF_RESOLVED_RE = re.compile(r"(?:先按|暂按|默认按|默认|假定|假设|按.{0,12}(?:处理|执行|继续))")
+
+MISSING_MATERIAL_CLARIFICATION = (
+    "这题要处理的材料（原文 / 文件 / 链接）我这边没有拿到——"
+    "请把内容贴进来或给出来源链接，我再继续。"
+)
+
+
+def _is_missing_material_ambiguity(item: str) -> bool:
+    text = str(item or "")
+    if not text or _SELF_RESOLVED_RE.search(text):
+        return False
+    return bool(
+        _MISSING_MATERIAL_NOUN_RE.search(text) and _MISSING_MATERIAL_STATE_RE.search(text)
+    )
+
+
 def _clarification_for(ambiguities: tuple[str, ...]) -> str | None:
     blocking = next(
         (
@@ -457,10 +506,16 @@ def _clarification_for(ambiguities: tuple[str, ...]) -> str | None:
         None,
     )
     if blocking is None:
+        if any(_is_missing_material_ambiguity(item) for item in ambiguities):
+            return MISSING_MATERIAL_CLARIFICATION
         return None
     if "市场" in blocking:
         return "你希望我按 A 股、美股，还是其他市场来判断？"
     return "你希望我围绕哪个明确主体继续判断？"
+
+
+def is_missing_material_clarification(frame: object) -> bool:
+    return getattr(frame, "clarification_question", None) == MISSING_MATERIAL_CLARIFICATION
 
 
 # 周历/周末大事：窗口词 × 日程词。单独「周末发酵了什么新闻」不算，
