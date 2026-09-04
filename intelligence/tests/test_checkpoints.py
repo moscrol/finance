@@ -73,6 +73,89 @@ class RegisterTests(unittest.TestCase):
             checkpoints.normalize_metric({"type": "stock_return", "op": "≈", "target": 1})
 
 
+class RuleIdFieldTests(unittest.TestCase):
+    """可证伪点带 rule_id / rule_verdict / rule_receipt / bias_flags（INDEX #24）。"""
+
+    def test_rule_id_regex_mirrors_methodology_backtest(self) -> None:
+        # checkpoints.py 守「只用标准库」，正则是抄的；抄本与原件必须逐字一致。
+        from intelligence.services.methodology_backtest.rules import RULE_ID_RE
+
+        self.assertEqual(checkpoints.RULE_ID_RE.pattern, RULE_ID_RE.pattern)
+
+    def test_register_with_rule_id_writes_three_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "checkpoints.jsonl"
+            _, rec = checkpoints.register_checkpoint(
+                path,
+                claim="连续双红板块后 5 日续涨",
+                due="2026-09-30",
+                rule_id="dual_red_streak3_continuation",
+                rule_verdict="not_distinguishable",
+                rule_receipt="methodology/receipts/dual_red_streak3_continuation@v1/2026-09-04.json",
+            )
+            self.assertEqual(rec["rule_id"], "dual_red_streak3_continuation")
+            self.assertEqual(rec["rule_verdict"], "not_distinguishable")
+            self.assertTrue(rec["rule_receipt"].endswith("2026-09-04.json"))
+            on_disk = json.loads(path.read_text(encoding="utf-8").strip())
+            self.assertEqual(on_disk["rule_id"], "dual_red_streak3_continuation")
+
+    def test_register_without_rule_id_has_no_rule_keys(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "checkpoints.jsonl"
+            _, rec = checkpoints.register_checkpoint(path, claim="x", due="2026-09-30", category="估值切换")
+            for key in ("rule_id", "rule_verdict", "rule_receipt", "bias_flags"):
+                self.assertNotIn(key, rec)
+            # 旧记录形状不变：五个既有调用方零改动
+            self.assertEqual(
+                set(rec), {"id", "ts", "claim", "due", "category", "source", "themes", "stocks"}
+            )
+
+    def test_bad_rule_id_raises_and_does_not_write(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "checkpoints.jsonl"
+            with self.assertRaises(ValueError):
+                checkpoints.register_checkpoint(path, claim="x", due="2026-09-30", rule_id="Bad Id")
+            with self.assertRaises(ValueError):
+                checkpoints.register_checkpoint(path, claim="x", due="2026-09-30", rule_id="ab")  # 太短
+            self.assertFalse(path.exists())
+
+    def test_rule_verdict_without_rule_id_raises(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "checkpoints.jsonl"
+            with self.assertRaises(ValueError):
+                checkpoints.register_checkpoint(path, claim="x", due="2026-09-30", rule_verdict="supported")
+            self.assertFalse(path.exists())
+
+    def test_rule_id_only_omits_verdict_and_receipt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "checkpoints.jsonl"
+            _, rec = checkpoints.register_checkpoint(path, claim="x", due="2026-09-30", rule_id="nope_rule")
+            self.assertEqual(rec["rule_id"], "nope_rule")
+            self.assertNotIn("rule_verdict", rec)
+            self.assertNotIn("rule_receipt", rec)
+
+    def test_bias_flags_written_as_code_list_even_when_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "checkpoints.jsonl"
+            _, clean = checkpoints.register_checkpoint(path, claim="a", due="2026-09-30", bias_flags=[])
+            _, flagged = checkpoints.register_checkpoint(
+                path, claim="b", due="2026-09-30", bias_flags=["late_streak", " post_miss_streak "]
+            )
+            self.assertEqual(clean["bias_flags"], [])  # 扫过了没命中 ≠ 没扫（键缺失）
+            self.assertEqual(flagged["bias_flags"], ["late_streak", "post_miss_streak"])
+
+    def test_build_record_matches_register_output(self) -> None:
+        """CLI 先对 preview 跑偏差扫描再落盘：两者 id / ts 必须一致。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            preview = checkpoints.build_checkpoint_record(claim="同一条", due="2026-09-30", ts="2026-09-05T10:00:00+00:00")
+            _, rec = checkpoints.register_checkpoint(
+                Path(tmp) / "c.jsonl", claim="同一条", due="2026-09-30", ts=preview["ts"], bias_flags=["late_streak"]
+            )
+            self.assertEqual(rec["id"], preview["id"])
+            self.assertEqual(rec["bias_flags"], ["late_streak"])
+            self.assertNotIn("bias_flags", preview)
+
+
 class LoadAndDueTests(unittest.TestCase):
     def test_missing_files_return_empty(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -202,6 +285,212 @@ class CalibrateTests(unittest.TestCase):
         cal = checkpoints.Calibration()
         report = checkpoints.render_report(cal)
         self.assertIn("还没有已回检的判断", report)
+
+    # ---- by_rule 维度（INDEX #24）：3 条 rule_a（hit/hit/miss）+ 2 条 rule_b + 4 条无 rule_id ---- #
+    # 工单验收写的 r1 / r2 只是示意：RULE_ID_RE 要求 3..64 字，两字的 r1 会被拒（见 test_bad_rule_id_raises）。
+    R1, R2 = "rule_a", "rule_b"
+
+    def _seed_rules(self, cpath: Path, vpath: Path) -> None:
+        plan = [
+            (self.R1, "hit"), (self.R1, "hit"), (self.R1, "miss"),
+            (self.R2, "hit"), (self.R2, "miss"),
+            (None, "hit"), (None, "miss"), (None, "miss"), (None, "hit"),
+        ]
+        for i, (rid, verdict) in enumerate(plan):
+            _, ck = checkpoints.register_checkpoint(
+                cpath, claim=f"判断{i}", due="2026-01-01", category="A" if i % 2 else "B",
+                rule_id=rid, ts=f"2026-06-{10 + i:02d}T00:00:00",
+            )
+            checkpoints.record_verdict(vpath, id=ck["id"], verdict=verdict)
+
+    def _receipt(self, rule_id: str) -> dict:
+        return {
+            "verdict": "not_distinguishable",
+            "verdict_label": "与基准不可区分",
+            "generated_at": "2026-09-04T15:06:53+00:00",
+            "rule": {"rule_id": rule_id, "ref": f"{rule_id}@v1"},
+            "stats": {"n": 88, "p": 0.6818, "p0": 0.5804, "wilson_lo": 0.5787, "wilson_hi": 0.7698},
+            "_path": f"methodology/receipts/{rule_id}@v1/2026-09-04.json",
+        }
+
+    def test_calibrate_by_rule_only_counts_rule_tagged_checkpoints(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cpath = Path(tmp) / "checkpoints.jsonl"
+            vpath = Path(tmp) / "verdicts.jsonl"
+            self._seed_rules(cpath, vpath)
+            cal, _ = checkpoints.load_calibration(cpath, vpath, today="2026-06-30")
+            by_rule = {s.category: s for s in cal.by_rule}
+            self.assertEqual(set(by_rule), {self.R1, self.R2})  # 恰 2 项，无 rule_id 的不进
+            self.assertEqual(by_rule[self.R1].n, 3)
+            self.assertAlmostEqual(by_rule[self.R1].hit_rate, 2 / 3, places=3)
+            self.assertEqual(by_rule[self.R2].n, 2)
+            # 按命中率升序：rule_b（0.5）在 rule_a（0.667）前
+            self.assertEqual([s.category for s in cal.by_rule], [self.R2, self.R1])
+            # by_category 计数不变：9 条全在
+            self.assertEqual(sum(s.n for s in cal.by_category), 9)
+            self.assertEqual(cal.scored, 9)
+
+    def test_render_report_rule_section_with_and_without_receipt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cpath = Path(tmp) / "checkpoints.jsonl"
+            vpath = Path(tmp) / "verdicts.jsonl"
+            self._seed_rules(cpath, vpath)
+            cal, _ = checkpoints.load_calibration(cpath, vpath, today="2026-06-30")
+            report = checkpoints.render_report(cal, rule_receipts={self.R1: self._receipt(self.R1)})
+            self.assertIn("# 按规则", report)
+            r1_line = next(line for line in report.splitlines() if line.startswith(f"- {self.R1}"))
+            for token in ("n=3", "命中率 67%", "not_distinguishable", "N=88", "p=68.2%", "p0=58.0%", "Wilson[57.9%,77.0%]", "2026-09-04"):
+                self.assertIn(token, r1_line)
+            r2_line = next(line for line in report.splitlines() if line.startswith(f"- {self.R2}"))
+            self.assertIn("无收据", r2_line)
+            # 不传收据：所有规则行都显示无收据
+            bare = checkpoints.render_report(cal)
+            self.assertIn(f"- {self.R1}", bare)
+            self.assertEqual(bare.count("无收据"), 2)
+
+    def test_render_for_prompt_does_not_gain_rule_dimension(self) -> None:
+        """提示词注入维度不变（不改 foresight 行为）：by_rule 只进 render_report 与 --json。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            cpath = Path(tmp) / "checkpoints.jsonl"
+            vpath = Path(tmp) / "verdicts.jsonl"
+            self._seed_rules(cpath, vpath)
+            cal, _ = checkpoints.load_calibration(cpath, vpath, today="2026-06-30")
+            rendered = checkpoints.render_calibration_for_prompt(cal, min_n=1)
+            self.assertNotIn(self.R1, rendered)
+            self.assertNotIn(self.R2, rendered)
+            self.assertNotIn("收据", rendered)
+
+    def test_summarize_rule_receipt_tolerates_missing_keys(self) -> None:
+        self.assertEqual(checkpoints.summarize_rule_receipt(None), "无收据")
+        self.assertEqual(checkpoints.summarize_rule_receipt({}), "无收据")
+        line = checkpoints.summarize_rule_receipt({"verdict": "supported"})
+        self.assertIn("支持（supported）", line)
+        self.assertIn("N=—", line)
+        self.assertIn("p=—", line)
+
+
+class CliRegisterRuleTests(unittest.TestCase):
+    """`checkpoint register --rule-id`：有收据回显四态读数，无收据回显「尚无收据」，两者都登记成功、退出码 0。"""
+
+    RULE = "dual_red_streak3_continuation"
+
+    def _write_receipt(self, root: Path, rule_id: str, verdict: str = "not_distinguishable") -> None:
+        from intelligence.services.methodology_backtest.receipts import RECEIPT_SCHEMA
+
+        folder = root / f"{rule_id}@v1"
+        folder.mkdir(parents=True)
+        (folder / "2026-09-04.json").write_text(json.dumps({
+            "schema_version": RECEIPT_SCHEMA,
+            "generated_at": "2026-09-04T15:06:53+00:00",
+            "rule": {"rule_id": rule_id, "version": 1, "ref": f"{rule_id}@v1"},
+            "verdict": verdict,
+            "verdict_label": "与基准不可区分",
+            "stats": {"n": 88, "k": 60, "p": 0.6818, "p0": 0.5804, "wilson_lo": 0.5787, "wilson_hi": 0.7698},
+        }, ensure_ascii=False), encoding="utf-8")
+
+    def _run(self, argv: list[str]) -> tuple[int, str, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = cli.main(argv)
+        return code, out.getvalue(), err.getvalue()
+
+    def _common(self, tmp: Path, receipts: Path) -> list[str]:
+        # 数据源指向不存在的路径：偏差扫描走「旁路库缺失」降级，测试不连真库、不碰真人台账。
+        return [
+            "checkpoint", "register", "--user", "replay-test",
+            "--checkpoints-file", str(tmp / "ck.jsonl"), "--verdicts-file", str(tmp / "vd.jsonl"),
+            "--receipts-dir", str(receipts),
+            "--db-path", str(tmp / "no-main.duckdb"), "--labels-db", str(tmp / "no-labels.duckdb"),
+            "--rules-dir", str(tmp / "no-rules"),
+            "--due", "2026-09-30", "--category", "测试类", "--theme", "人形机器人",
+        ]
+
+    def test_register_with_receipt_echoes_readout_and_registers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_s:
+            tmp = Path(tmp_s)
+            receipts = tmp / "receipts"
+            self._write_receipt(receipts, self.RULE)
+            code, out, _ = self._run(self._common(tmp, receipts) + ["--claim", "有收据", "--rule-id", self.RULE])
+            self.assertEqual(code, 0)
+            self.assertIn("最近收据", out)
+            for token in ("N=88", "p=68.2%", "p0=58.0%", "Wilson[57.9%,77.0%]", "与基准不可区分"):
+                self.assertIn(token, out)
+            rec = json.loads((tmp / "ck.jsonl").read_text(encoding="utf-8").strip())
+            self.assertEqual(rec["rule_id"], self.RULE)
+            self.assertEqual(rec["rule_verdict"], "not_distinguishable")
+            self.assertTrue(rec["rule_receipt"].endswith(f"{self.RULE}@v1/2026-09-04.json"))
+            # 登记后跑了偏差扫描：旁路库缺失 → late_streak / rule_not_firing 为 unverifiable，登记仍成功
+            self.assertIn("late_streak_unverifiable", rec["bias_flags"])
+            self.assertIn("rule_not_firing_unverifiable", rec["bias_flags"])
+            self.assertIn("偏差目录", out)
+
+    def test_register_without_receipt_still_registers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_s:
+            tmp = Path(tmp_s)
+            code, out, _ = self._run(self._common(tmp, tmp / "empty") + ["--claim", "无收据", "--rule-id", "nope_rule"])
+            self.assertEqual(code, 0)
+            self.assertIn("尚无收据", out)
+            self.assertIn("scripts/methodology_backtest.py run", out)
+            rec = json.loads((tmp / "ck.jsonl").read_text(encoding="utf-8").strip())
+            self.assertEqual(rec["rule_id"], "nope_rule")
+            self.assertNotIn("rule_verdict", rec)
+
+    def test_register_json_carries_rule_and_bias_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_s:
+            tmp = Path(tmp_s)
+            receipts = tmp / "receipts"
+            self._write_receipt(receipts, self.RULE)
+            code, out, _ = self._run(self._common(tmp, receipts) + ["--claim", "json", "--rule-id", self.RULE, "--json"])
+            self.assertEqual(code, 0)
+            payload = json.loads(out)
+            self.assertEqual(payload["rule_verdict"], "not_distinguishable")
+            self.assertTrue(payload["rule_receipt"].endswith("2026-09-04.json"))
+            codes = {f["code"] for f in payload["bias_flags"]}
+            self.assertIn("late_streak_unverifiable", codes)
+            self.assertEqual(payload["checkpoint"]["bias_flags"], [f["code"] for f in payload["bias_flags"]])
+
+    def test_bad_rule_id_exits_2_and_writes_nothing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_s:
+            tmp = Path(tmp_s)
+            code, _, err = self._run(self._common(tmp, tmp / "empty") + ["--claim", "坏 id", "--rule-id", "Bad Id"])
+            self.assertEqual(code, 2)
+            self.assertIn("非法 rule_id", err)
+            self.assertFalse((tmp / "ck.jsonl").exists())
+
+    def test_no_bias_scan_flag_skips_scan(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_s:
+            tmp = Path(tmp_s)
+            code, out, _ = self._run(self._common(tmp, tmp / "empty") + ["--claim", "不扫", "--no-bias-scan"])
+            self.assertEqual(code, 0)
+            rec = json.loads((tmp / "ck.jsonl").read_text(encoding="utf-8").strip())
+            self.assertNotIn("bias_flags", rec)
+            self.assertNotIn("偏差目录", out)
+
+    def test_calibrate_json_and_report_show_by_rule(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_s:
+            tmp = Path(tmp_s)
+            receipts = tmp / "receipts"
+            self._write_receipt(receipts, self.RULE)
+            cpath, vpath = tmp / "ck.jsonl", tmp / "vd.jsonl"
+            _, a = checkpoints.register_checkpoint(cpath, claim="a", due="2026-01-01", category="X", rule_id=self.RULE)
+            _, b = checkpoints.register_checkpoint(cpath, claim="b", due="2026-01-01", category="X", rule_id=self.RULE)
+            _, c = checkpoints.register_checkpoint(cpath, claim="c", due="2026-01-01", category="X")
+            for rec, v in ((a, "hit"), (b, "miss"), (c, "hit")):
+                checkpoints.record_verdict(vpath, id=rec["id"], verdict=v)
+            common = ["checkpoint", "calibrate", "--user", "replay-test", "--checkpoints-file", str(cpath),
+                      "--verdicts-file", str(vpath), "--receipts-dir", str(receipts), "--date", "2026-06-30"]
+            code, out, _ = self._run(common + ["--json"])
+            self.assertEqual(code, 0)
+            payload = json.loads(out)
+            self.assertEqual(len(payload["by_rule"]), 1)
+            self.assertEqual(payload["by_rule"][0]["rule_id"], self.RULE)
+            self.assertEqual(payload["by_rule"][0]["n"], 2)
+            self.assertEqual(payload["by_rule"][0]["receipt"]["verdict"], "not_distinguishable")
+            self.assertEqual(payload["by_rule"][0]["receipt"]["n"], 88)
+            code, out, _ = self._run(common)
+            self.assertEqual(code, 0)
+            self.assertIn("# 按规则", out)
+            self.assertIn("N=88", out)
 
 
 class MarketResolverTests(unittest.TestCase):
