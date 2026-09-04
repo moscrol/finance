@@ -1435,6 +1435,67 @@ def _ledger_attempt_count() -> int:
     return _non_negative_int(summary.get("call_count"))
 
 
+def _empty_judge_usage() -> dict[str, object]:
+    return {
+        "calls": 0,
+        "input_tokens": None,
+        "output_tokens": None,
+        "usage_source": None,
+    }
+
+
+def _ledger_judge_usage(attempts_before: int) -> dict[str, object]:
+    """本 turn 内 ``purpose=judge`` 记录的 token 汇总（INDEX #23）。
+
+    与 ``provider_attempts`` 同一种差分：台账是 append-only 的 list，本 turn 的
+    记录就是 ``records[attempts_before:]``。``usage_source`` 的合并规则——只要有一条
+    是 ``estimated``，整块就标 ``estimated``（估算值不得混进真实值而不注明）；全部同源
+    取该源；多种真实来源并存（主判官 CLI + 备胎 API）标 ``mixed``。没有一条带用量
+    时 token 为 None、``usage_source`` 为 None——0 与「没记到」在报表里是两件事。
+    """
+
+    ledger = llm_refine.current_call_ledger()
+    if ledger is None:
+        return _empty_judge_usage()
+    records = ledger.summary().get("records")
+    if not isinstance(records, list):
+        return _empty_judge_usage()
+    judge_records = [
+        record
+        for record in records[max(0, attempts_before):]
+        if isinstance(record, dict) and record.get("purpose") == "judge"
+    ]
+    if not judge_records:
+        return _empty_judge_usage()
+    input_total: int | None = None
+    output_total: int | None = None
+    sources: set[str] = set()
+    for record in judge_records:
+        input_value = record.get("input_tokens")
+        output_value = record.get("output_tokens")
+        if isinstance(input_value, int) and not isinstance(input_value, bool):
+            input_total = (input_total or 0) + input_value
+        if isinstance(output_value, int) and not isinstance(output_value, bool):
+            output_total = (output_total or 0) + output_value
+        source = record.get("usage_source")
+        if isinstance(source, str) and source:
+            sources.add(source)
+    if not sources:
+        usage_source: str | None = None
+    elif "estimated" in sources:
+        usage_source = "estimated"
+    elif len(sources) == 1:
+        usage_source = next(iter(sources))
+    else:
+        usage_source = "mixed"
+    return {
+        "calls": len(judge_records),
+        "input_tokens": input_total,
+        "output_tokens": output_total,
+        "usage_source": usage_source,
+    }
+
+
 def _duplicate_query_count(outcome: AgentOutcome | None) -> int:
     if outcome is None:
         return 0
@@ -1496,6 +1557,8 @@ def _episode_metrics(
             if semantic_status in {"passed", "repaired", "rejected", "unavailable"}
             else "unavailable"
         ),
+        # 判官侧 token（写手侧在 outcome.usage）。读者：intelligence/eval/research_cost.py。
+        "judge_usage": _ledger_judge_usage(attempts_before),
     }
 
 

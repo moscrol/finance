@@ -1882,12 +1882,16 @@ class SemanticEpisodeVerifier:
                 # 台账逐 attempt 记 provider 名，不另加 schema。
                 active_provider = providers[min(attempt, len(providers) - 1)]
                 try:
+                    # purpose=judge 只包住真正发请求的这一层（INDEX #23）：三处
+                    # ``_judge_request`` 都汇到这里，修复轮的写手调用发生在本方法
+                    # 之外，不会被误标。提示词 / 超时 / 判定逻辑一律不动。
                     with llm_refine.provider_override(active_provider):
-                        content, _used, reason = llm_refine.complete(
-                            messages,
-                            timeout=attempt_timeout,
-                            temperature=0.0,
-                        )
+                        with llm_refine.call_purpose("judge"):
+                            content, _used, reason = llm_refine.complete(
+                                messages,
+                                timeout=attempt_timeout,
+                                temperature=0.0,
+                            )
                 except Exception as exc:  # pragma: no cover - adapter boundary
                     issue, retryable, release_safe = _stable_semantic_judge_error(
                         type(exc).__name__
@@ -2042,11 +2046,13 @@ class SemanticEpisodeVerifier:
                     monotonic_release_safe=failure_chain_release_safe,
                 )
             try:
-                turn = primary.complete(
-                    messages=messages,
-                    tools=_JUDGE_REPORT_TOOLS,
-                    timeout=attempt_timeout,
-                )
+                # 相关判官（共用写手模型）同样是判官调用，一样标 judge。
+                with llm_refine.call_purpose("judge"):
+                    turn = primary.complete(
+                        messages=messages,
+                        tools=_JUDGE_REPORT_TOOLS,
+                        timeout=attempt_timeout,
+                    )
             except Exception as exc:
                 issue, retryable, release_safe = _stable_semantic_judge_error(
                     type(exc).__name__

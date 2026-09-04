@@ -226,11 +226,16 @@ CONTRACT: tuple[MetricField, ...] = (
     ),
     MetricField(
         "input/output token 和每个阶段耗时", "Runtime 质量", "derived_from_events",
-        "token=arm['input_tokens']；阶段耗时=events 的 at / queued_ms / elapsed_ms",
+        "token：写手侧 arm['input_tokens'] / continuous-episode.json 的 outcome.usage；"
+        "判官侧 metrics.judge_usage{calls,input_tokens,output_tokens,usage_source}"
+        "（INDEX #23 起写入，usage_source ∈ api/cli/estimated/mixed）；"
+        "阶段耗时=events 的 at / queued_ms / elapsed_ms",
         _stage_durations,
         note="阶段耗时**可推**（272/307 事件带 at，queued_ms 57、elapsed_ms 55，"
-             "排队与执行本就分开记）。⚠ 真正的缺口只有 token：`input_tokens` 仅 29/45，"
-             "缺失机制需说明后才可入功效表。",
+             "排队与执行本就分开记）。⚠ token 缺口分两层：写手侧 `input_tokens` 仅 29/45，"
+             "缺失机制需说明后才可入功效表；判官侧此前**完全没有账**，2026-09-05 起由 "
+             "`metrics.judge_usage` 补上（读者 `intelligence/eval/research_cost.py`；"
+             "旧 run 无此键，报表计入「判官未记账」不回填不估；估算记录带 `estimated` 标记）。",
     ),
     MetricField(
         "Arm B 的跨语言桥接耗时，单独记录，不并入 Runtime 耗时", "Runtime 质量", "unavailable",

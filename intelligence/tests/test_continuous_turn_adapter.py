@@ -3630,7 +3630,7 @@ def test_private_artifact_counts_physical_attempts_and_duplicate_queries() -> No
         usage=AgentUsage(llm_calls=2, tool_calls=1),
     )
 
-    def record_provider_attempt(caller: str) -> None:
+    def record_provider_attempt(caller: str, **usage: object) -> None:
         ledger = llm_refine.current_call_ledger()
         assert ledger is not None
         ledger.record(
@@ -3640,6 +3640,7 @@ def test_private_artifact_counts_physical_attempts_and_duplicate_queries() -> No
                 model="test-model",
                 status="success",
                 elapsed_ms=1,
+                **usage,
             )
         )
 
@@ -3651,7 +3652,15 @@ def test_private_artifact_counts_physical_attempts_and_duplicate_queries() -> No
 
     class Semantic:
         def verify(self, *, structurally_verified, **_kwargs):
-            record_provider_attempt("chat")
+            # 判官调用带 purpose=judge 与 CLI 用量（INDEX #23）：metrics.judge_usage
+            # 只汇总这一条，写手的两条 chat_tools 不进去。
+            record_provider_attempt(
+                "chat",
+                purpose="judge",
+                input_tokens=19_326,
+                output_tokens=970,
+                usage_source="cli",
+            )
             return SemanticEpisodeOutcome(
                 verified=structurally_verified,
                 status="completed",
@@ -3676,6 +3685,12 @@ def test_private_artifact_counts_physical_attempts_and_duplicate_queries() -> No
         "duplicate_queries": 1,
         "structural_status": "completed",
         "semantic_status": "passed",
+        "judge_usage": {
+            "calls": 1,
+            "input_tokens": 19_326,
+            "output_tokens": 970,
+            "usage_source": "cli",
+        },
     }
 
 
