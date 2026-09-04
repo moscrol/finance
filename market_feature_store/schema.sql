@@ -131,6 +131,23 @@ CREATE TABLE IF NOT EXISTS ops_sector_member_sync_daily (
     PRIMARY KEY (trade_date, snapshot_id, sector_ts_code)
 );
 
+-- sectors/search 宇宙请求随行情返回的字段（涨幅/强度等）。同一个请求既是宇宙、
+-- 又是成分 delta 探针、又是板块日行情官方涨幅的来源（consumption_registry.yaml
+-- sector_universe）。raw_json 留全量原文：供应商字段名未经实测确认，先落原文再定映射。
+CREATE TABLE IF NOT EXISTS ops_sector_search_payload_daily (
+    trade_date      DATE,
+    snapshot_id     TEXT,
+    sector_ts_code  TEXT,
+    pct_chg         DOUBLE,
+    strength        DOUBLE,
+    amount          DOUBLE,
+    diff_ratio      DOUBLE,
+    stock_count     INTEGER,
+    raw_json        TEXT,
+    captured_at     TIMESTAMP WITH TIME ZONE NOT NULL,
+    PRIMARY KEY (trade_date, snapshot_id, sector_ts_code)
+);
+
 -- 写入落 *_generation 表（snapshot_id 进主键，同日多版互不覆盖），
 -- 读走同名 VIEW（只暴露 published 那版）。消费方查询无需改写。
 CREATE TABLE IF NOT EXISTS fact_sector_daily_generation (

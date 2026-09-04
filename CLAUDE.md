@@ -218,6 +218,23 @@ python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD
 
 `scripts/sync_to_local.py` 已正式退役，仅保留 `--help` 和明确退出码 2 的提示入口；它不读取凭证、不访问网络、不创建数据库。旧实现可从 Git 历史查阅，不要将其恢复成第二条写入链。
 
+### 分档同步：identity 慢、value 快（2026-09-04）
+
+夜跑真入口 `skills/daily-full-review/scripts/run_review_sync.py` 有 `--plan full|cheap|auto`
+（默认读环境变量 `REVIEW_SYNC_PLAN`，未设为 `full`）。**单一事实源是
+`market_feature_store/consumption_registry.yaml`**：每个数据族的 identity/value 节奏、证据、
+刷新档位（A 停打换源 / B 变更检测 / C 便宜日更 / D 本地派生）、两档计划的步骤名；
+`python3 -m market_feature_store.cli registry-check` 自检，`tests/test_consumption_registry.py`
+把它和 `build_plan` 钉在一起（改一边不改另一边测试就红）。
+
+cheap 日的三件本地组件（0 复盘会请求）：`stitch-sector-stocks`（expected 数没变的板块 =
+最近 fupanhui 名单 × 当日东财真值，走 `record_member_result`，`source='local:stitch'`）→
+`sync-sector-stocks`（只打 pending 的板块）→ `sync-sector-daily-local`（成交额=成分求和、
+边际量本地公式、涨幅优先宇宙 payload 官方值，走 `replace_sector_daily`）。`auto` 周五跑 full
+兜「一进一出数量不变」的换血盲区；`reconcile-sector-daily --sample 20` 是唯一还打 K 线的对账口。
+请求计数按 HTTP 请求算：full ≈ 900/日，cheap ≈ 30~45/日。**未切生产**：切档要在 launchd
+包装脚本环境里设 `REVIEW_SYNC_PLAN=auto`，等用户确认。
+
 ### 信号检测
 
 `detect_turning_points.py` 现在只读 `market_feature_store` 的 `fact_market_daily` / `fact_sector_daily`，并与回测共用无前视的确认日算法；`scripts/archive/compute_features.py` 仅保留历史复现，不是日常入口。
