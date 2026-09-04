@@ -66,7 +66,11 @@ P1 第五刀，**加法、不改既有运行时行为、规则级读数逐位不
   （精确断言 / 独立 SQL / 合成库）+ 1 项 selftest 变红，全部阶段 p0 塌成 0.518；已还原，`rg MUTANT` 为空
 - ruff 0；pre-commit 10 道全过（layer-audit / unread-fields / path-literals / dataset-registration / tool-reachability 基线不变）
 - 真库：上表；规则级四条与 #585 逐位相同
-- 全量主门禁：见本文末（若留白 = 尚未跑，原因写在「未验证」）
+- 全量主门禁 `run_main_gate.sh` @ `41148217`（干净树 `dirty=False`）：**7729 passed / 0 failed / 15 skipped / 1 xfailed**，306 s，
+  ruff 0；较 #589 收据 7723P 多 6 例 = 本刀新增测试，红集为空。收据 `~/.finance-runtime/test-receipts/20260904T183147Z-41148217.json`，
+  `check_test_receipt.py --expect-revision` 退出码 0。**如实记录**：门禁期间 02:27–02:31 本机有另一 agent 的定向 pytest
+  （9 条，含两条看门狗 / 超时时序测试）并行约 3 分钟（监视器 `pgrep` 每 10 s 一采），本刀门禁仍 0F——并行只会制造假红、
+  不会制造假绿，绿收据成立；若对方那 9 条红了，先怀疑是撞上了本门禁。前端零改动，未跑 `pnpm build`
 
 ## 未验证 / 已知边界
 - 阶段级结论**每个都只对应一个时期**（两套写法 = 两段时间），「支持 / 证伪」是「在那段时期内」的结论，不是「在那类阶段」的结论；
