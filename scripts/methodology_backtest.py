@@ -7,9 +7,13 @@
     python scripts/methodology_backtest.py scan --rules-dir methodology/rules     # 多条 + BH 校正
     python scripts/methodology_backtest.py propose --entity-type stock --pred "first_board == true" ...
     python scripts/methodology_backtest.py report                  # 标签盘点 + 最近收据
+    python scripts/methodology_backtest.py report --refuted        # 证伪库按大盘阶段汇总
 
 实体类型 sector / theme / stock；stock 的 universe 是「涨停表 ∪ 新高表」的个股日并集（见 labels.py），
 个股收据的事件样例含个股代码，只供分析师侧核对，不进共享层渲染（设计稿 §6「共享层的合规硬门」）。
+
+规则带归属 ``sharing`` ∈ {shared, private} + ``owner``；``propose`` 登记出来的候选默认 private / owner=用户 id。
+结论为 refuted 的收据另落一条条目到 ``methodology/refuted/``（进 git，证伪是资产）；scan 模式以 BH 校正后结论为准。
 
 路径：主库默认 ``MARKET_FEATURE_STORE_DB`` 或 ``db/market_feature_store.duckdb``（只读打开）；
 旁路库默认与主库同目录 ``history_labels.duckdb``；收据落 ``methodology/receipts/``（gitignore，可重建）。
@@ -48,13 +52,18 @@ from intelligence.services.methodology_backtest.propose import (  # noqa: E402
     write_rule_file,
 )
 from intelligence.services.methodology_backtest.receipts import (  # noqa: E402
+    REFUTED_VERDICT,
     build_receipt,
     build_scan_summary,
+    load_refuted,
+    render_refuted_markdown,
     write_receipt,
+    write_refuted,
     write_scan_summary,
 )
 from intelligence.services.methodology_backtest.rules import (  # noqa: E402
     SCOPE_ENTITY_TYPES,
+    SHARING_LEVELS,
     Rule,
     RuleValidationError,
     load_rule,
@@ -74,6 +83,7 @@ from market_feature_store.db import DatabaseLockedError  # noqa: E402
 
 RULES_DIR = ROOT / "methodology" / "rules"
 RECEIPTS_DIR = ROOT / "methodology" / "receipts"
+REFUTED_DIR = ROOT / "methodology" / "refuted"
 MIN_N_ABLATION = (2, 10, 20)
 EXIT_INPUT = 2
 EXIT_LOCKED = 3
@@ -226,6 +236,18 @@ def _print_readout(res, verdict_bh: str | None = None) -> None:
     print(line)
 
 
+def _rel(path: Path) -> str:
+    return str(path.relative_to(ROOT)) if path.is_relative_to(ROOT) else str(path)
+
+
+def _maybe_write_refuted(args, receipt: dict, json_path: Path, today: str) -> None:
+    """结论（scan 下为 BH 后）为 refuted 才落证伪库；打印落点，让人知道这条进了资产库。"""
+    if receipt.get("verdict") != REFUTED_VERDICT:
+        return
+    path = write_refuted(args.refuted_dir, receipt, date_str=today, receipt_path=_rel(json_path))
+    print(f"→ 证伪库 {_rel(path)}（{receipt['rule']['ref']} refuted，按大盘阶段汇总见 report --refuted）")
+
+
 def cmd_run(args) -> int:
     rules = _load_rules([args.rule], None)
     rule, rule_path = rules[0]
@@ -238,7 +260,7 @@ def cmd_run(args) -> int:
         con.close()
     receipt = build_receipt(
         res,
-        rule_path=str(rule_path.relative_to(ROOT)) if rule_path.is_relative_to(ROOT) else str(rule_path),
+        rule_path=_rel(rule_path),
         rule_sha256=_sha256(rule_path),
         environment=env,
         test_mode="single",
@@ -250,8 +272,10 @@ def cmd_run(args) -> int:
     if args.no_write:
         print(json.dumps(receipt["stats"], ensure_ascii=False, indent=2))
         return 0
-    json_path, md_path = write_receipt(args.receipts_dir, receipt, date_str=_today())
+    today = _today()
+    json_path, md_path = write_receipt(args.receipts_dir, receipt, date_str=today)
     print(f"→ {json_path}\n→ {md_path}")
+    _maybe_write_refuted(args, receipt, json_path, today)
     return 0
 
 
@@ -283,7 +307,7 @@ def cmd_scan(args) -> int:
         rule_path = loaded[i][1]
         receipt = build_receipt(
             res,
-            rule_path=str(rule_path.relative_to(ROOT)) if rule_path.is_relative_to(ROOT) else str(rule_path),
+            rule_path=_rel(rule_path),
             rule_sha256=_sha256(rule_path),
             environment=env,
             test_mode="scan",
@@ -295,6 +319,7 @@ def cmd_scan(args) -> int:
             continue
         json_path, _ = write_receipt(args.receipts_dir, receipt, date_str=today)
         receipt_paths.append(str(json_path))
+        _maybe_write_refuted(args, receipt, json_path, today)
     summary = build_scan_summary(scan, receipt_paths=receipt_paths, environment=env)
     if not args.no_write:
         json_path, md_path = write_scan_summary(args.receipts_dir, summary, date_str=today)
@@ -331,6 +356,11 @@ def cmd_propose(args) -> int:
             "registered_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(timespec="seconds"),
         }
     horizons = [int(x) for x in str(args.horizons).split(",") if x.strip()] if args.horizons else None
+    owner = args.owner
+    if owner is None and args.sharing == "private":
+        from intelligence import userspace
+
+        owner = userspace.resolve_user_id(args.user)
     doc, rule = build_rule_doc(
         rule_id=args.rule_id,
         title=args.title,
@@ -342,20 +372,31 @@ def cmd_propose(args) -> int:
         version=args.version,
         notes=args.notes,
         provenance=provenance,
+        sharing=args.sharing,
+        owner=owner,
+        source_perspective=args.source_perspective,
     )
     if args.dry_run:
         print(json.dumps(doc, ensure_ascii=False, indent=2))
         return 0
     path = write_rule_file(args.rules_dir, doc)
-    rel = path.relative_to(ROOT) if path.is_relative_to(ROOT) else path
-    print(f"候选规则已登记 → {rel}（{rule.ref}）")
+    rel = _rel(path)
+    print(f"候选规则已登记 → {rel}（{rule.ref}，{rule.sharing} / owner {rule.owner}）")
     if provenance:
         print(f"  溯源：{provenance.get('kind')} {provenance.get('ref', '')} {provenance.get('text', '')[:60]}")
     print(f"  下一步：python scripts/methodology_backtest.py run {rel}")
     return 0
 
 
+def cmd_report_refuted(args) -> int:
+    entries = load_refuted(args.refuted_dir)
+    print(render_refuted_markdown(entries), end="")
+    return 0
+
+
 def cmd_report(args) -> int:
+    if args.refuted:
+        return cmd_report_refuted(args)
     labels_db = Path(args.labels_db).expanduser()
     if not labels_db.is_file():
         print(f"旁路库不存在：{labels_db}（先跑 build-labels）", file=sys.stderr)
@@ -442,7 +483,8 @@ def _add_run_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--from", dest="start", type=_date_arg, default=None, help="窗口起点 YYYY-MM-DD（默认日历起点）")
     p.add_argument("--to", dest="end", type=_date_arg, default=None, help="窗口终点 YYYY-MM-DD（默认日历终点）")
     p.add_argument("--receipts-dir", default=str(RECEIPTS_DIR), help="收据目录（默认 methodology/receipts）")
-    p.add_argument("--no-write", action="store_true", help="只打印读数，不落收据")
+    p.add_argument("--refuted-dir", default=str(REFUTED_DIR), help="证伪库目录（默认 methodology/refuted，进 git）")
+    p.add_argument("--no-write", action="store_true", help="只打印读数，不落收据、不落证伪库")
     p.add_argument(
         "--calibration-user-dir",
         default=None,
@@ -496,13 +538,23 @@ def build_parser() -> argparse.ArgumentParser:
     pp.add_argument("--user", default=None, help="纠偏记录属于哪个用户（默认 default / FORESIGHT_USER）")
     pp.add_argument("--corrections-file", default=None, help="覆盖 corrections.jsonl 路径")
     pp.add_argument("--manual-note", default=None, help="没有纠偏记录时的人工来源说明")
+    pp.add_argument(
+        "--sharing",
+        default="private",
+        choices=list(SHARING_LEVELS),
+        help="归属：private（默认，只对本人回测）/ shared（owner 恒为 system；升共享须先 supported 且人拍板）",
+    )
+    pp.add_argument("--owner", default=None, help="owner；private 默认取 --user / FORESIGHT_USER / default，shared 恒为 system")
+    pp.add_argument("--source-perspective", default=None, help="共享规则的来源（视角 / 系统内置），<=200 字")
     pp.add_argument("--rules-dir", default=str(RULES_DIR))
     pp.add_argument("--dry-run", action="store_true", help="只打印校验后的规则 JSON，不落文件")
     pp.set_defaults(func=cmd_propose)
 
-    rp = sub.add_parser("report", help="标签盘点 + 最近收据")
+    rp = sub.add_parser("report", help="标签盘点 + 最近收据；--refuted 看证伪库按大盘阶段汇总")
     _add_db_args(rp, source=False)
     rp.add_argument("--receipts-dir", default=str(RECEIPTS_DIR))
+    rp.add_argument("--refuted-dir", default=str(REFUTED_DIR))
+    rp.add_argument("--refuted", action="store_true", help="只看证伪库：每条证伪规则按事件日大盘阶段展开")
     rp.add_argument("--rule", default=None, help="只看某个 rule_id 的收据")
     rp.set_defaults(func=cmd_report)
     return ap
