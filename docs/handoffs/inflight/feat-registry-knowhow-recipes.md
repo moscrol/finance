@@ -16,6 +16,9 @@
 ## 当前状态
 - registry 编译完成：`registry-check` → `recipes 6（pending-grilling: -）`；`pytest tests/test_consumption_registry.py
   tests/test_tiered_sync_local.py` 18 passed；ruff 绿。
+- 全量门禁（`run_main_gate.sh`，干净树 `92dab79e`）：ruff 绿、pytest **7700P/0F/15S/1x**，收据
+  `~/.finance-runtime/test-receipts/20260904T145*-92dab79e.json`；diff 不触碰 `intelligence/webapp`，frontend/e2e 叶子不受影响。
+  PR #586 待用户确认合并。
 - `money_effect_clustering` 的第一段探索（两段式里的「聚类找边界」）已跑，结论回写进 recipe 的 `decisions`，见下。
 - 另两条只到文本层，未做任何探索或派生表。
 
