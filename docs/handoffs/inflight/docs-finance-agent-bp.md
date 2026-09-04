@@ -83,7 +83,8 @@ BP 中数字：仓内为 2026-09-04 只读核数（52 表 / 413 交易日 / 4,59
 - **发现 P0 §2.3 占位字段从未实现**：那段是 21:07 补进 P0 工单的，P0 19:50 已合；`rules.py` `_TOP_KEYS` 无 `owner / source_perspective`，`scope` 已是实体范围对象。改由 #25 承接并改名 `sharing`。写进设计稿 §6 P1 与 §10.4。
 - 发现双盲台账 `dual_blind_forecast.py manifest --perspective` 只是冻结清单（`duckdb_cutoff` 取当前 max），**不是** PIT 快照；历史重放的输入必须走 `fidelity_replay.build_input_snapshot`（加 `strict_updated_at` 参数，默认不变）。
 - INDEX 加 #24 / #25 两行；设计稿 §10.2 第一条偏差名对齐、§10.4 指向工单、§6 P1 加占位字段未实现一条。
-- **未做**：未派 #24 / #25；两单的行号只对本树（已合 `gitea/main@5c7fe2eb`）复核。
+- **未做**：未派 #24 / #25。
+- **合并前再同步（23:1x）**：`gitea/main` 期间又前进到 `47a4fcde`（PR #585 第三刀个股标签已合），再 `merge gitea/main`（`c6fc7669`）。发现**第四刀在途** `feat/methodology-backtest-p1-refuted`（`e520e31e`，未开 PR）已实现 `sharing / owner / source_perspective` 扁平字段 + 证伪库 + `report --refuted`——与 #25 原拟的 `sharing{level,…}` 嵌套块撞车，**#25 去掉该项**、schema 步骤改为第四刀合入后 rebase 再做；车道 A 只跑 sector / theme 规则（`stock` 现已是合法 scope）。#24 / #25 行号按 `47a4fcde` 重核（`rules.py` `_TOP_KEYS` 95 / `PROVENANCE_KINDS` 98 / `validate_rule` 266；`labels.py` 103–113；`outcomes.py` 46/48）。INDEX #21 补第三刀 ✅ / 第四刀 ⏳；设计稿 §6 P1 与 §10.4 同步。之前写的「占位字段从未实现」改为「P0 没做、第四刀补齐」。
 
 ## 未验证 / 已知边界
 

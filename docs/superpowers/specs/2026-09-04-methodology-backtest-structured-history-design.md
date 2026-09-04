@@ -206,11 +206,12 @@ flowchart LR
 - ✅ 经验卡 `rule_id` 映射与 promotion 统计门（PR #576）。
 - ✅ 纠偏 → 候选规则的人工登记入口 `propose`（PR #581）。
 - ✅ 日期精确配对基准率 `same_universe_event_days` 作对照列（PR #581）：种子规则 1 全日期口径 lift +10.1%，事件日口径 lift **−1.0%**——那 10 个点全是择时效应（触发日本身是强势日，随便一个板块 5 日上涨概率 69%），没有选择效应。对照列的存在意义就是把「提升来自择时还是选择」拆开。
-- ⏳ 个股标签（`limit_up / first_board / new_high_1y`；需给个股建价格序列；树 `fwp-wt-methodology-backtest-p1c` 已开，尚无提交）。
+- ✅ 个股标签 `limit_up / first_board / new_high_1y` + 个股前瞻序列 + 种子规则 `first_board_new_high_1y_5d`（PR #585，第三刀）；`LABEL_VERSION` v1 → v2，旁路库重建 213 MB；板块 / 题材 / 大盘 12 标签读数逐位不变。
+- ⏳ **第四刀在途**（分支 `feat/methodology-backtest-p1-refuted`，2026-09-04 23:06 提交 `e520e31e`，未开 PR）：规则归属 `sharing / owner / source_perspective`（**扁平顶层字段**，不是 P0 工单 §2.3 写的 `scope∈{shared,private}`——`scope` 已被实体范围对象占用）+ 证伪库 `methodology/refuted/` + 按大盘阶段拆分 + `report --refuted`；四条种子规则文件同步加字段。这就是本节下方三条产品约束里前两条的实现；第三条「共享层合规硬门」是渲染层的事，仍待共享层设计。
 - ⏳ 题材消息面标签（复用 `theme-fermentation-tracer` 对齐逻辑）；`lifecycle_stage` 规则设计 + 人工对照集。
-- ⏳ `report --refuted` 按大盘阶段汇总证伪库；`invalidated` 的写入口（目前 jsonl 手改，门的 refuted 分支只在纯函数层生效）。
+- ⏳ `invalidated` 的写入口（目前 jsonl 手改，门的 refuted 分支只在纯函数层生效）。
 - ⏳ 收据保鲜：门只看最近一次收据，不看 `source_max_trade_date` 是否过期；「超过 N 个交易日未刷新视为无收据」。
-- ⏳ **本节下方三条产品约束的占位字段从未实现**：P0 工单 §2.3 是 2026-09-04 21:07 补入的，P0 已于 19:50 合入（`rules.py` `_TOP_KEYS` 无 `owner / source_perspective`，`scope` 是实体范围对象 `{entity_type, universe}`）。占位改由工单 #25 承接，字段名改为 `sharing{level, owner, source_perspective}`；收据文件名不再要求含 verdict（`latest_receipt` 按 `generated_at` 取，证伪库收集走 `report --refuted` 扫 JSON 的 `verdict`）。
+- 备注：P0 工单 §2.3 的占位字段是 2026-09-04 21:07 补入工单的，P0 19:50 已合入，所以 P0 没做它们；由第四刀补齐。收据文件名不含 verdict（`latest_receipt` 按 `generated_at` 取，证伪库收集走 `report --refuted`）。
 
 以下三条是 2026-09-04 BP v0.4 壁垒重构后补入的产品约束（BP §4.3–4.4），**P0 不实施，但 P0 的规则文件与收据格式要为它们留字段**：
 
@@ -326,7 +327,7 @@ flowchart LR
 | 可证伪点登记带 `rule_id`；登记时回显规则四态 | P1 → **工单 #24** `2026-09-04-checkpoint-rule-id-bias-catalog-workorder.md` | 经验卡已有同字段（PR #576），可证伪点补齐；读者 = `calibrate.by_rule` |
 | 偏差目录 v1（4 条，全部可从台账 + 旁路库算） | P1 → **工单 #24** | 只提示不拦截；`checkpoints.py` 保持只用标准库，目录另开 `checkpoint_bias.py` |
 | 重放引擎：结构化判断 → 自动判分 → AI 校准读数；模型截止日分栏；匿名化对照臂 | **P1.5 → 工单 #25** `2026-09-04-historical-replay-engine-workorder.md` | 复用 `fidelity_replay` 快照、双盲 `hypotheses[]` 格式与 `auto_verdict`、`history_outcomes`、`calibrate`；**PIT 现实**：严格边界只 33 个快照日（07-10→09-02）/ `updated_at` 只过 17 日，其余 380 日只能 `trade_date_only`，两档分开报 |
-| 发现窗 / 验证窗分开的收据字段；`provenance.kind=discovered`；`sharing` 占位 | P1.5 → **工单 #25** | schema 加字段，编译器不变。P0 §2.3 的占位字段（`scope∈{shared,private}` 等）从未实现——它们是 P0 合入后 77 分钟才补进工单的；且 `scope` 已被实体范围对象占用，改名 `sharing` |
+| 发现窗 / 验证窗分开的收据字段；`provenance.kind=discovered` | P1.5 → **工单 #25**（在第四刀合入后 rebase 再做） | schema 加字段，编译器不变。`sharing / owner / source_perspective` 由在途第四刀 `feat/methodology-backtest-p1-refuted` 以扁平字段实现，#25 不碰 |
 | as-of 因果链 + 双模式差异量化 | P2 | 复用 `theme-fermentation-tracer` |
 | LLM 提议者 | P2 | 输出只能是规则 JSON |
 | 今日触发规则表（`methodology_verdicts` 数据集） | P2 | 已在 §6 P2 |

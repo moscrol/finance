@@ -55,10 +55,10 @@ INDEX #24。前置：无（方法论回测 P0 / P1 已在 `gitea/main`，PR #573
 | `intelligence/services/experience_cards.py` `:11–15, :36–101` | `rule_id` 字段命名与 `gate_promotion` 纯函数形状——本单**不设门**，但字段名、收据读法照抄 |
 | `intelligence/cli.py` `:471–479` `--rule-id / --receipts-dir` 定义、`:885–899` `latest_receipt` 调用、`:2157–2176` `checkpoint register` 子命令、`:2938–2977` `cmd_checkpoint_register` | CLI 接线照抄；回显放在 `:2973–2976` 的打印块里 |
 | `intelligence/services/methodology_backtest/receipts.py` `:248–276` `latest_receipt` | 返回值带 `verdict / stats / _path / generated_at`；跨版本取最近 |
-| `intelligence/services/methodology_backtest/rules.py` `:88` `RULE_ID_RE`、`:263` `validate_rule`、`:145` `Rule` | `rule_id` 合法性；编译前先 validate |
+| `intelligence/services/methodology_backtest/rules.py` `:91` `RULE_ID_RE`、`:266` `validate_rule`、`:148` `Rule`（PR #585 后行号；在途第四刀 `feat/methodology-backtest-p1-refuted` 合入后还会漂，以 `rg` 为准） | `rule_id` 合法性；编译前先 validate |
 | `intelligence/services/methodology_backtest/compiler.py` + `runner.py` `:134` `resolve_window`、`:189` `execute_compiled` | `rule_not_firing` 用窗口 `[D0, D0]` 取事件集的入口 |
 | `intelligence/services/methodology_backtest/store.py` `:28–85` DDL、`:91` `default_labels_db_path`、`:119` `open_labels_db(read_only=True)` | `history_labels`（`dual_red_streak` / `limit_heat_rank` 在 `value_num`）、`history_calendar`（交易日计数）；旁路库只读打开 |
-| `intelligence/services/methodology_backtest/labels.py` `:74–84` | 标签名常量，`late_streak` 引用 `dual_red_streak` / `limit_heat_rank` |
+| `intelligence/services/methodology_backtest/labels.py` `:103–113` | 标签名常量（PR #585 后含 `STOCK_LABELS`，`LABEL_VERSION` v2），`late_streak` 只引用 `dual_red_streak` / `limit_heat_rank`；旁路库若是 v1 旧库先 `build-labels` 重建 |
 | `market_feature_store/schema.sql` `dim_sector`（:16）、`config_theme_sector_link` | `themes` 文本 → `sector_ts_code` 的映射来源；映射不到就 unverifiable |
 | `intelligence/services/checkpoint_resolvers.py` `:66` `_unverifiable`、`:103` `_spec_gap` | 「缺数据 → unverifiable，绝不编造」的降级形状，flag 的 unverifiable 照它写 |
 | `intelligence/userspace.py` `:93–98, :126–127` | `checkpoints_path / verdicts_path` 解析；台账在用户大脑目录（`FORESIGHT_USERS_DIR`），仓内 `intelligence/users/` 已冻结勿写死 |
