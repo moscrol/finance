@@ -83,6 +83,36 @@ kb 查询在 30s 帽处被放弃。09-03 的生产读数是 kb_search 66% 以 `t
 - 生产 kb_search 以 `tool_timeout` 收场的比例从 66% 降到 ≤ 20%（按切换后前 20 次真实调用算，来源 `users/*/runs/*/continuous-episode.json`）。
 - 全程零 LLM 配额；未改任何预算数字；`freshness_report` 每问仍跑。
 
+## 内存画像（09-04 20:40 补，改变优先级）
+
+`top -o mem` 看**足迹**（含压缩页）而不是 RSS：生产 RAG worker（pid 4665）**7295 MB，其中 6193 MB 在压缩器里**——
+它是整台机器最大的单个进程。同机：Docker Desktop VM 2326 MB + 3093 MB 压缩（默认拿 16 GB 的一半 = 8.3 GB，
+容器实际只用 ~490 MB）、Cursor 三个 helper 合计 ~3.1 GB、其它 agent 会话（两个 `claude`、一个 `cursor-agent`、
+一个 grok 后台 watcher）合计 ~1.5 GB。
+
+worker 的 7.3 GB 拆开（各段单独在子进程里量 `ru_maxrss`，没起第二个模型）：
+
+| 段 | 盘上 | 内存 | 为什么胖 | 能到 |
+|---|---:|---:|---|---:|
+| `RagStore.load` 里的 `dense` | 346 MB **float16** | **692 MB float32** | 加载时被升成 fp32，白涨一倍 | mmap fp16 → 常驻 ≈ 只碰到的页 |
+| `RagStore.load` 里的 `chunks` | 208 MB jsonl | **≈ 1.4 GB** | 169,003 个 dict + str，Python 对象 7× 膨胀 | 只留 offset，正文按需读 → < 50 MB |
+| `bm25.pkl.gz` | 42 MB gz | **1862 MB** | `rank_bm25` 的 per-doc 词频 dict ×169k + idf | scipy CSR 词-文矩阵 ≈ 300–500 MB，且 `get_scores` 从 Python 循环变矩阵乘 |
+| bge-m3（fp32 + torch） | 2.27 GB | ≈ 2.5 GB | 默认 fp32 | fp16 ≈ 1.2 GB（要做分数一致性对照） |
+| 合计 | | **≈ 6.5 GB + 开销 ≈ 7.3 GB** | | **≈ 2.0–2.5 GB** |
+
+两个直接推论：
+
+1. **keepalive 在这台机器上只是缓兵**：7.3 GB 的 worker 和 4–8 GB 的 Docker VM、3 GB 的 IDE 挤 16 GB，分页器每隔几分钟就得
+   把它换出去一部分；keepalive 每次「摸」都是一次几 GB 的换入，越摸越抖。PR #577 保留（默认关、可观测那半是必要的），
+   但**选项 B（瘦身）从「第二刀」升为主刀**，且拆成三段可独立落地：dense mmap（KB 仓，一行 `mmap_mode="r"` + 计算时按块升精度）
+   → chunks 懒读 → BM25 换稀疏矩阵。第三段顺带治的是 08-31 量到的 search 3–18s（`rank_bm25.get_scores` 对 169k 文档的
+   Python 循环，正是那段时间）。
+2. **同机减负已做的部分**（09-04 20:38）：Docker Desktop 显式设 `MemoryMiB=4096 / SwapMiB=512`（原缺省 8.3 GB）并重启，
+   VM 足迹 5.4 GB → 1.5 GB，四个容器（sub2api / redis / postgres / rsshub）按 restart policy 自己回来了；
+   `wechat2rss` 三天里 **4314 次**崩溃重启（08-02 台账：二进制丢失 + license 过期），已 `stop`（`unless-stopped` 不会再拉起）。
+   设置备份 `~/Library/Group Containers/group.com.docker/settings-store.json.bak-20260904-pre-memcap`。
+   8792 的 LLM 上游是 `x.ailzd.com` / `open.bigmodel.cn`，不经 Docker，所以这次重启对生产零影响。
+
 ## 红线
 
 - 不切 8792 除非走既定切换仪式（账本 record/check、回滚锚）。
