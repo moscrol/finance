@@ -564,6 +564,70 @@ def cmd_registry_check(_args) -> int:
     return 0
 
 
+def cmd_money_effect_regime(args) -> int:
+    """赚钱效应 regime（D 档、只读、不落表）：今日/昨日簇名、是否切换、四轴值 vs 分位阈值；
+    ``--replay-since`` 出整段回放，``--cluster-labels`` 给实验目录里的簇标签 JSON 时附一致率与混淆矩阵。"""
+    from . import money_effect_regime as mer
+    from .market_regime_vectors import load_market_regime_vectors
+
+    con = connect(read_only=True)
+    try:
+        vectors, missing = load_market_regime_vectors(con, as_of=args.as_of)
+    finally:
+        con.close()
+    if not vectors:
+        print("fact_market_daily 无数据或不可读", file=sys.stderr)
+        return 2
+
+    if args.replay_since:
+        labels = None
+        if args.cluster_labels:
+            labels = json.loads(Path(args.cluster_labels).expanduser().read_text(encoding="utf-8"))
+        series = mer.compute_regime_series(vectors)
+        result = mer.replay(series, labels, since=args.replay_since)
+        if args.json:
+            payload = dict(result)
+            payload["series"] = [rd.to_dict() for rd in series if rd.regime is not None and rd.trade_date >= args.replay_since]
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+            return 0
+        print(f"赚钱效应回放 since {args.replay_since}：{result['windows']} 个窗口 "
+              f"{result['first_date']} ~ {result['last_date']}")
+        print(f"  切换：去抖前 {result['raw_switches']} 次，{mer.DEBOUNCE_DAYS} 日去抖后 {result['switches']} 次"
+              f"（≈ 每 {result['windows_per_switch']} 个窗口一次，同簇连续中位 {result['median_run']:.0f}）")
+        print("  簇分布：" + "，".join(f"{k} {v}" for k, v in result["regime_counts"].items()))
+        cmp = result.get("cluster_comparison")
+        if cmp:
+            print(f"  与簇标签配对 {cmp['paired_windows']} 个窗口：一致率 去抖前 {cmp['agreement_raw']:.1%}，"
+                  f"去抖后 {cmp['agreement_debounced']:.1%}")
+            print("  混淆（行=簇标签，列=规则去抖前）：")
+            for c, row in cmp["confusion_cluster_rows_rule_cols"].items():
+                print(f"    {c}: " + "，".join(f"{r} {n}" for r, n in row.items()))
+        print("  最近 10 个窗口（原始 / 去抖）：")
+        for rd in [x for x in series if x.regime is not None][-10:]:
+            flag = " ⚠切换" if rd.switched else ""
+            print(f"    {rd.trade_date}: {rd.raw_regime} / {rd.regime}{flag}")
+        return 0
+
+    state = mer.regime_state_from_vectors(vectors, missing)
+    if args.json:
+        print(json.dumps(state.to_dict(), ensure_ascii=False, indent=2))
+        return 0 if state.available else 2
+    if not state.available:
+        print(mer.one_line(state))
+        return 2
+    headline = mer.switch_headline(state)
+    if headline:
+        print(headline)
+    print(mer.one_line(state))
+    assert state.today is not None
+    print(f"  窗口 {state.today.window_dates[0]} ~ {state.today.window_dates[-1]}；昨日簇 {state.today.prev_regime or '-'}；"
+          f"原始规则标签 {state.today.raw_regime}")
+    for row in mer.axis_rows(state.today):
+        print("  " + " | ".join(row))
+    print("  " + mer.forward_facts_text(state.today.regime, state.forward_facts))
+    return 0
+
+
 def cmd_sync_limit_advance_feishu(_args) -> int:
     from .sync.sync_feishu_limit_advance import sync_limit_advance
 
@@ -1389,6 +1453,17 @@ def build_parser() -> argparse.ArgumentParser:
         "registry-check",
         help="校验 consumption_registry.yaml：档位合法、表在 schema、计划步骤有归属",
     ).set_defaults(func=cmd_registry_check)
+
+    p_mer = sub.add_parser(
+        "money-effect-regime",
+        help="赚钱效应 regime（D 档只读、不落表）：今日/昨日簇名、是否切换、四轴 vs 分位阈值；--replay-since 出回放",
+    )
+    p_mer.add_argument("--as-of", default=None, help="截止交易日 YYYY-MM-DD（默认库内最新日）")
+    p_mer.add_argument("--json", action="store_true", help="输出 JSON")
+    p_mer.add_argument("--replay-since", default=None, metavar="YYYY-MM-DD", help="输出该日起的整段回放统计")
+    p_mer.add_argument("--cluster-labels", default=None, metavar="PATH",
+                       help="实验目录里的簇标签 JSON（{trade_date: 簇名}），配合 --replay-since 出一致率与混淆矩阵")
+    p_mer.set_defaults(func=cmd_money_effect_regime)
 
     p_skd = sub.add_parser("sync-stock-daily", help="mootdx 全A股前复权日线回补到 fact_stock_daily")
     p_skd.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD, 留空对齐 fact_market_daily 最早日")
