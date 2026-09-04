@@ -71,6 +71,9 @@ P1 第五刀，**加法、不改既有运行时行为、规则级读数逐位不
   `check_test_receipt.py --expect-revision` 退出码 0。**如实记录**：门禁期间 02:27–02:31 本机有另一 agent 的定向 pytest
   （9 条，含两条看门狗 / 超时时序测试）并行约 3 分钟（监视器 `pgrep` 每 10 s 一采），本刀门禁仍 0F——并行只会制造假红、
   不会制造假绿，绿收据成立；若对方那 9 条红了，先怀疑是撞上了本门禁。前端零改动，未跑 `pnpm build`
+- 已 push 到 gitea，`gitea_pr.py conflict-check` 对 `gitea/main@094f67c9` 与对 #589 head 都 clean；
+  PR #591 `http://127.0.0.1:3300/a77/finance-workspace-private/pulls/591`（head `94d774a1`），**未合 main、请先合 #589**。
+  INDEX #21 行已直接在 main 回写两张 PR 的在途状态（`gitea/main@b603bea4`）
 
 ## 未验证 / 已知边界
 - 阶段级结论**每个都只对应一个时期**（两套写法 = 两段时间），「支持 / 证伪」是「在那段时期内」的结论，不是「在那类阶段」的结论；
