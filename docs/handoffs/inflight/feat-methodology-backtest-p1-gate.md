@@ -1,8 +1,12 @@
 # feat/methodology-backtest-p1-gate
 
+> **2026-09-04 已合入**：PR #576 → `gitea/main=fe3cf459`（分支尖 `1be840f8`，主门禁 7660P/0F/15S/1x，ruff 0，前端零改动）。
+> 行为变化已在 PR 正文列明（min_n 10、带 rule_id 的卡晋升须 supported）。第二刀见 `feat-methodology-backtest-p1-propose.md`。
+> 下文为合入前原状，供溯源。
+
 树 `/Users/a77/fwp-wt-methodology-backtest-p0`（沿用 P0 的树，分支切换），基座 `gitea/main`=`75bc6033`
 （P0 #573 合入后 + 交接回写）。设计稿 `docs/superpowers/specs/2026-09-04-methodology-backtest-structured-history-design.md` §3.4「与学习闭环的接法」。
-解释器 `.venv-workbench/bin/python`。**未合 main、未强推。** 这一刀改的是运行时默认值与经验卡晋升规则，合入前请过目。
+解释器 `.venv-workbench/bin/python`。**已合 main（见顶部），未强推。**
 
 ## 这个分支做什么
 把 P0 的统计四态接进学习闭环，两处：
