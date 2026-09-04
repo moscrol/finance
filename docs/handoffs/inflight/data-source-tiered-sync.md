@@ -14,12 +14,17 @@ akshare 优先回退复盘会、研报增量翻页）；`cli.py` 加 `--plan` �
 `--plan full|cheap|auto`（env `REVIEW_SYNC_PLAN`），cheap 计划把 stock-daily/stock-high/limit-heat 前移到拼接前。
 
 ## 当前状态
-**已合 main**：PR #578 → `gitea/main@9bec1f49`（2026-09-04 20:45，用户口令「确认」）。合并树 = 分支 ∪
-`gitea/main@40f84567`（并入 #573/#574/#575 十八个提交，零冲突、零重叠文件），在合并树上重跑：ruff 绿、
-pytest **7678P/15S/1x**、frontend lint/typecheck/test 71/build 全绿。远程分支已由 Gitea 删除。
-**生产未切档**：主树 `/Users/a77/finance-workspace-private` 仍在 `feat/content-ops-copilot`（该分支比 main 多两个
-内容运营迁出提交，未合），夜跑跑的是主树当前 checkout，所以新代码还没进夜跑路径；两个 LaunchAgent 仍未加载；
-Chrome 仍未登录 fupanhui。切档四步见「下一步」。
+**已合 main 且已切档（等 Chrome 登录）**：PR #578 → `gitea/main@9bec1f49`，收口 #579；2026-09-04 20:56~21:05 按用户「确认/继续」完成切档前三步：
+1. 主树 `/Users/a77/finance-workspace-private` 已从 `feat/content-ops-copilot` 切到 `main@fbb82c71`（含 #578）。
+   阻塞 `pull` 的 142 个未跟踪文件：141 个与 main 提交版本哈希完全一致 → 删除（零丢失）；1 个
+   `docs/handoffs/workspace-cleanup-claim-list-2026-09-03.md` 本地是 **0 字节**（main 有 387 行完整版）→ 移至
+   `~/.finance-runtime/untracked-backup-20260904/`。其余 43 个未跟踪文件被新 `.gitignore` 覆盖，未动。
+2. `~/Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist` 的 `EnvironmentVariables` 加
+   `REVIEW_SYNC_PLAN=auto`（备份 `*.plist.bak-pre-tiered-20260904T205642`）；主树上零副作用验证：周一 → cheap、周五 → full、无变量 → full。
+3. 两个 LaunchAgent（sync 18:30 / finalize 20:40）在 launchd override 库里是 **disabled**（某 agent 09-03 晚~09-04 傍晚未记录的
+   `launchctl disable`/`unload -w`；全仓文档与 `disabled-by-devin/` 均无记录，用户 18:57 仍预期夜跑在跑）→ `launchctl enable` + `bootstrap`，
+   现 `launchctl list` 可见、`print` 显示 `REVIEW_SYNC_PLAN => auto`。周六 18:30 会记一条「周末跳过」当冒烟。
+4. **Chrome 登录 fupanhui.com 仍未做**（preflight `login: no`）——不登录周一 18:30 会 rc=3 停在 preflight，任何档位都一样。
 
 ## 怎么验收
 1. `python3 -m market_feature_store.cli registry-check` → 校验通过，两档步骤与 build_plan 一致。
@@ -43,15 +48,10 @@ Chrome 仍未登录 fupanhui。切档四步见「下一步」。
 - 「expected 不变但名单微动」每天 5~63 个板块，量级落在明细接口 0.25% 随机遗漏噪声带内，
   最坏陈旧 5 个交易日由周五 full 兜底；未做更细的逐股换血检测。
 
-## 下一步（切档四步，都在仓外/主树，等用户口令）
-1. 主树换到含 #578 的 main（先确认 `feat/content-ops-copilot` 那两个提交是否还有人在用；主树 155 条他人未跟踪文件
-   不受 checkout 影响）：`cd /Users/a77/finance-workspace-private && git checkout main && git pull gitea main`
-2. 档位：在 `~/.local/bin/nightly-full-review-s7.sh` 的 `export MARKET_FEATURE_STORE_DB=…` 附近加一行
-   `export REVIEW_SYNC_PLAN="${REVIEW_SYNC_PLAN:-auto}"`（子进程继承；`run_review_sync.py` 默认读它）。
-   不设则仍是 full，不会静默切档。
-3. 重新加载夜跑：`launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist`
-   与 `…-finalize.plist`（它们当前不在 `launchctl list` 里——先弄清是不是有人刻意停的）。
-4. Chrome 登录 fupanhui.com（preflight 当前 `login: no`，不登录任何档位都 rc=3）。
+## 下一步
+1. 用户：Chrome 登录 fupanhui.com（周一 18:30 前）。
+2. 周六 18:30 后看 `logs/daily-full-review.out.log` 有无「周末，跳过全量复盘」——有 = launchd 链路活了。
+3. 周一 18:30 首个 cheap 日；若要提前手动验：`REVIEW_SYNC_PLAN=cheap` 手跑 `nightly-full-review-s7.sh sync`（需已登录）。
 首个 cheap 日之后：看 `skills/daily-full-review/state/runlog.md` 的 `plan=cheap` 段；
 `python3 -m market_feature_store.cli reconcile-sector-daily --trade-date <D> --sample 20`（20 请求）；
 `SELECT raw_json FROM ops_sector_search_payload_daily LIMIT 3` 定官方涨幅字段名。
