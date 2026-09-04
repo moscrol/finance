@@ -32,6 +32,11 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from intelligence.services.llm_usage import (
+    USAGE_SOURCE_CLI,
+    cli_payload_token_usage,
+)
+
 CLI_GROK_URL = "cli://grok"
 BACKEND_ALIASES = frozenset({"grok", "grok-cli", "cli"})
 DEFAULT_MODEL = "grok-4.6"
@@ -170,7 +175,47 @@ class GrokCliEmptyPrompt(RuntimeError):
     """提示词为空——调用方 bug，重试也还是空。刻意与上面三种区分。"""
 
 
-def _extract_text(stdout: str) -> str:
+class GrokCliText(str):
+    """判官正文 + 计费元数据（INDEX #23）。
+
+    是 ``str`` 的子类而不是新的返回类型：``llm_refine.complete()`` 的
+    ``(content, provider, reason)`` 契约、``json.loads(content)`` 的所有调用方、
+    以及测试里把 ``complete_grok_cli`` 替换成「回裸 str」的替身都原样工作。
+    ``_complete_cli_judge`` 用 ``getattr(content, "input_tokens", None)`` 读——
+    裸 str 读不到就走字符估算并标 ``estimated``。
+    ``usage_source`` 只在真的从 payload 读到用量时为 ``cli``，否则 None。
+    """
+
+    input_tokens: int | None
+    output_tokens: int | None
+    usage_source: str | None
+
+    def __new__(
+        cls,
+        text: str,
+        *,
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
+    ) -> "GrokCliText":
+        instance = super().__new__(cls, text)
+        instance.input_tokens = input_tokens
+        instance.output_tokens = output_tokens
+        instance.usage_source = (
+            USAGE_SOURCE_CLI
+            if input_tokens is not None or output_tokens is not None
+            else None
+        )
+        return instance
+
+
+def _extract_payload(stdout: str) -> tuple[str, object]:
+    """把 CLI stdout 拆成 (判官正文, 解析后的顶层 payload)。
+
+    正文规则与改动前逐字节一致：``text`` 字段 → 去围栏；顶层直接是判官对象 →
+    原样 dumps；其他 → 整段原文。payload 只供 ``cli_payload_token_usage`` 读用量，
+    不外泄 ``thought`` / ``sessionId`` 之类的载荷。
+    """
+
     raw = stdout.strip()
     if not raw:
         raise GrokCliEmptyResponse("GrokCliEmpty")
@@ -181,13 +226,23 @@ def _extract_text(stdout: str) -> str:
     if isinstance(payload, dict) and isinstance(payload.get("text"), str):
         text = payload["text"].strip()
     elif isinstance(payload, dict) and "passed" in payload:
-        return json.dumps(payload, ensure_ascii=False)
+        return json.dumps(payload, ensure_ascii=False), payload
     else:
         text = raw
     text = _FENCE.sub("", text).strip()
     if not text:
         raise GrokCliEmptyResponse("GrokCliEmpty")
-    return text
+    return text, payload
+
+
+def _extract_text(stdout: str) -> str:
+    return _extract_payload(stdout)[0]
+
+
+def _extract_with_usage(stdout: str) -> GrokCliText:
+    text, payload = _extract_payload(stdout)
+    input_tokens, output_tokens = cli_payload_token_usage(payload)
+    return GrokCliText(text, input_tokens=input_tokens, output_tokens=output_tokens)
 
 
 def complete_grok_cli(
@@ -196,8 +251,14 @@ def complete_grok_cli(
     timeout: float,
     *,
     runner: Any = subprocess.run,
-) -> str:
-    """Return the judge JSON string. Raises on any CLI failure."""
+) -> GrokCliText:
+    """Return the judge JSON string (a ``str`` carrying CLI token usage).
+
+    Raises on any CLI failure. The return value is :class:`GrokCliText`: plain
+    ``str`` to every existing caller, plus ``input_tokens`` / ``output_tokens``
+    read from the CLI payload's top-level ``usage`` (``modelUsage`` as fallback)
+    so the turn ledger can bill the judge without a second output channel.
+    """
 
     binary = resolve_grok_binary()
     if not binary:
@@ -239,4 +300,4 @@ def complete_grok_cli(
         if int(getattr(completed, "returncode", 1) or 0) != 0:
             stderr = str(getattr(completed, "stderr", "") or "")[:400]
             raise GrokCliExit(f"GrokCliExit {completed.returncode}: {stderr}")
-        return _extract_text(str(getattr(completed, "stdout", "") or ""))
+        return _extract_with_usage(str(getattr(completed, "stdout", "") or ""))

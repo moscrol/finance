@@ -33,6 +33,13 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 
+from intelligence.services.llm_usage import (
+    USAGE_SOURCE_API,
+    USAGE_SOURCE_ESTIMATED,
+    estimate_token_usage,
+    token_usage_counts,
+)
+
 DEFAULT_LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "60"))
 # 发起一次非流式调用所需的最小可行秒数。低于此值不发 HTTP，直接返回降级
 # reason —— 明知不够还发，等于既烧掉这段时间又拿不到结果。
@@ -446,6 +453,20 @@ class LLMCallRecord:
     # 失败原因（成功为空）。不记原因就无法回答"为什么 35% 的 chat 调用失败"，
     # 诊断只能靠猜 elapsed_ms 的分布。
     reason: str = ""
+    # token 用量（INDEX #23）。加在这本账上而不是新开账本：一个 turn 的所有 LLM
+    # 花费在一处，对账不用 join。None = 该次调用没拿到用量（失败、或 provider 不回）。
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    # 用量来源：api（HTTP 响应顶层 usage）/ cli（CLI JSON payload 的 usage）/
+    # estimated（按字符数估算）。估算值必须带标记走完全程（record → summary →
+    # metrics → 报表），任何一层丢标记即为 bug。
+    usage_source: str | None = None
+    # 调用目的：judge / writer / synthesis / other；由 ``call_purpose`` ContextVar
+    # 注入，缺省 None（未标注）。判官调用据此从写手调用里分出来。
+    purpose: str | None = None
+
+
+UNLABELLED_PURPOSE = "unlabelled"
 
 
 @dataclass
@@ -523,18 +544,76 @@ class LLMCallLedger:
             "rejected_count": rejected_count,
             "by_caller": by_caller,
             "failure_reasons": _tally_failure_reasons(records),
-            "records": [
-                {
-                    "caller": record.caller,
-                    "provider": record.provider,
-                    "model": record.model,
-                    "status": record.status,
-                    "elapsed_ms": record.elapsed_ms,
-                    **({"reason": record.reason} if record.reason else {}),
-                }
-                for record in records
-            ],
+            "input_tokens_total": sum(
+                record.input_tokens or 0 for record in records
+            ),
+            "output_tokens_total": sum(
+                record.output_tokens or 0 for record in records
+            ),
+            "tokens_by_purpose": _tokens_by_purpose(records),
+            "estimated_share": _estimated_share(records),
+            "records": [_record_to_dict(record) for record in records],
         }
+
+
+def _record_to_dict(record: LLMCallRecord) -> dict[str, object]:
+    """台账记录的落盘形状；可选字段为 None 时不输出，老读者看到的键一字不变。"""
+
+    payload: dict[str, object] = {
+        "caller": record.caller,
+        "provider": record.provider,
+        "model": record.model,
+        "status": record.status,
+        "elapsed_ms": record.elapsed_ms,
+    }
+    if record.reason:
+        payload["reason"] = record.reason
+    if record.input_tokens is not None:
+        payload["input_tokens"] = record.input_tokens
+    if record.output_tokens is not None:
+        payload["output_tokens"] = record.output_tokens
+    if record.usage_source is not None:
+        payload["usage_source"] = record.usage_source
+    if record.purpose is not None:
+        payload["purpose"] = record.purpose
+    return payload
+
+
+def _has_usage(record: LLMCallRecord) -> bool:
+    return record.input_tokens is not None or record.output_tokens is not None
+
+
+def _tokens_by_purpose(
+    records: list[LLMCallRecord],
+) -> dict[str, dict[str, int]]:
+    """按 purpose 聚合调用数与 token；未标注的记在 ``unlabelled`` 下，不冒充 other。"""
+
+    grouped: dict[str, dict[str, int]] = {}
+    for record in records:
+        key = record.purpose or UNLABELLED_PURPOSE
+        bucket = grouped.setdefault(
+            key, {"calls": 0, "input_tokens": 0, "output_tokens": 0}
+        )
+        bucket["calls"] += 1
+        bucket["input_tokens"] += record.input_tokens or 0
+        bucket["output_tokens"] += record.output_tokens or 0
+    return grouped
+
+
+def _estimated_share(records: list[LLMCallRecord]) -> float:
+    """带用量的记录里估算记录的占比（0.0–1.0）；没有带用量的记录时为 0.0。
+
+    分母只数**有用量**的记录：失败 / 无 usage 的记录既不是真实值也不是估算值，
+    放进分母会把占比稀释成假的「大部分是真实值」。
+    """
+
+    with_usage = [record for record in records if _has_usage(record)]
+    if not with_usage:
+        return 0.0
+    estimated = sum(
+        1 for record in with_usage if record.usage_source == USAGE_SOURCE_ESTIMATED
+    )
+    return estimated / len(with_usage)
 
 
 def _insufficient_budget_reason(
@@ -619,6 +698,32 @@ def current_call_ledger() -> LLMCallLedger | None:
     return _CALL_LEDGER.get()
 
 
+# 调用目的标签（INDEX #23）。判官经 ``complete()`` 调用，与写手 / 合成共用底层
+# ``_post_chat*`` 入口——入口本身不知道自己在替谁干活，只有调用方知道。所以标签由
+# 调用方用上下文管理器在最外层贴上，``_record_llm_call`` 读 ContextVar 落进记录。
+# 与 ``_PROVIDER_OVERRIDE`` 同一套机制：跨线程由调用方 ``copy_context()`` 传播。
+_CALL_PURPOSE: ContextVar[str | None] = ContextVar("llm_call_purpose", default=None)
+
+
+@contextmanager
+def call_purpose(purpose: str) -> Iterator[None]:
+    """把作用域内的 LLM 调用标成 ``purpose``（judge / writer / synthesis / other）。
+
+    嵌套时内层覆盖外层、退出时恢复——判官作用域里若再触发其他调用，调用方给
+    它贴自己的标签即可，不会被误标成 judge；不贴则沿用外层。
+    """
+
+    token = _CALL_PURPOSE.set(purpose)
+    try:
+        yield
+    finally:
+        _CALL_PURPOSE.reset(token)
+
+
+def current_call_purpose() -> str | None:
+    return _CALL_PURPOSE.get()
+
+
 # 重试退避。ch06b «API 通信层»：CC 用 BASE_DELAY_MS=500 的指数退避，并在每次退避上
 # **叠加 0-25% 随机抖动**，避免多个客户端在同一时刻同步重试造成雷群（thundering
 # herd）。我们这边的并发是真实的：API 有 2 个 worker，skill 线程经 copy_context
@@ -686,10 +791,17 @@ def _record_llm_call(
     status: str,
     started: float,
     reason: str = "",
+    *,
+    input_tokens: int | None = None,
+    output_tokens: int | None = None,
+    usage_source: str | None = None,
 ) -> None:
     ledger = _CALL_LEDGER.get()
     if ledger is None:
         return
+    if input_tokens is None and output_tokens is None:
+        # 没有用量就没有来源——不让 usage_source 单独存在，读者才能用它判「有没有」。
+        usage_source = None
     ledger.record(
         LLMCallRecord(
             caller=caller,
@@ -698,6 +810,10 @@ def _record_llm_call(
             status=status,
             elapsed_ms=max(0, round((time.monotonic() - started) * 1000)),
             reason=reason,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            usage_source=usage_source,
+            purpose=_CALL_PURPOSE.get(),
         )
     )
 
@@ -744,7 +860,13 @@ def _complete_cli_judge(
     messages: list[dict],
     timeout: float,
 ) -> str:
-    """CLI judge still goes through the turn-level call ledger."""
+    """CLI judge still goes through the turn-level call ledger.
+
+    用量：``complete_grok_cli`` 返回的是 ``GrokCliText``（str 子类，挂着从 CLI
+    payload 解析出的 ``input_tokens/output_tokens``）。拿到就记 ``usage_source=cli``；
+    拿不到（payload 无 usage、或测试替身直接回了裸 str）就按字符估算并**必须**记
+    ``estimated``——两种来源在报表里分开算，永不混成一个数。
+    """
 
     from intelligence.services.grok_cli_judge import complete_grok_cli
 
@@ -755,8 +877,23 @@ def _complete_cli_judge(
     except Exception as exc:
         _record_llm_call("chat", provider, "failed", started, _failure_reason(exc))
         raise
-    _record_llm_call("chat", provider, "success", started)
-    return content
+    input_tokens = getattr(content, "input_tokens", None)
+    output_tokens = getattr(content, "output_tokens", None)
+    usage_source = getattr(content, "usage_source", None)
+    if input_tokens is None and output_tokens is None:
+        input_tokens, output_tokens = estimate_token_usage(messages, content)
+        usage_source = USAGE_SOURCE_ESTIMATED
+    _record_llm_call(
+        "chat",
+        provider,
+        "success",
+        started,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        usage_source=usage_source,
+    )
+    # 对外仍是纯 str：``complete()`` 的 ``(content, provider, reason)`` 契约不动。
+    return str(content)
 
 
 def _post_chat(
@@ -784,7 +921,20 @@ def _post_chat(
     except Exception as exc:
         _record_llm_call("chat", provider, "failed", started, _failure_reason(exc))
         raise
-    _record_llm_call("chat", provider, "success", started)
+    # 响应顶层 usage 此前被丢弃——API 判官走的就是这条路，判官侧 token 因此一直
+    # 没有账（BP §7.3 只量到写手侧）。缺 usage 的响应记 None，不抛。
+    input_tokens, output_tokens = token_usage_counts(
+        body.get("usage") if isinstance(body, Mapping) else None
+    )
+    _record_llm_call(
+        "chat",
+        provider,
+        "success",
+        started,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        usage_source=USAGE_SOURCE_API,
+    )
     return body["choices"][0]["message"]["content"]
 
 

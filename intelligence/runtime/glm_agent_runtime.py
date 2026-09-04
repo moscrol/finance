@@ -20,6 +20,7 @@ from intelligence.runtime.continuous_sub_research import ContinuousSubResearchWo
 from intelligence.runtime.episode_finalizer import EpisodeFinalizer
 from intelligence.services.draft_stream import DraftStreamDecoder
 from intelligence.services.episode_session import CallbackEpisodeSession, EpisodeSession
+from intelligence.services.llm_usage import token_usage_counts
 from intelligence.services.mode_governor import ModeGovernor, ModeSignals
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_harness import FinanceResearchHarness
@@ -734,23 +735,18 @@ def _message_served_model(message: Mapping[str, object]) -> str | None:
 
 
 def _message_token_usage(message: Mapping[str, object]) -> tuple[int | None, int | None]:
+    """适配器信封的 ``_usage``（退到 ``usage``）→ (input, output)。
+
+    双命名取值下沉到 ``services.llm_usage.token_usage_counts``（判官侧记账复用同一份，
+    services 不能反向 import runtime）；这里只负责挑信封里的哪个键。
+    """
+
     raw = message.get("_usage")
     if not isinstance(raw, Mapping):
         raw = message.get("usage")
     if not isinstance(raw, Mapping):
         return None, None
-
-    def token_value(*names: str) -> int | None:
-        for name in names:
-            value = raw.get(name)
-            if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
-                return value
-        return None
-
-    return (
-        token_value("input_tokens", "prompt_tokens"),
-        token_value("output_tokens", "completion_tokens"),
-    )
+    return token_usage_counts(raw)
 
 
 def _provider_name(provider: object | None) -> str:
