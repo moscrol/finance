@@ -36,6 +36,10 @@
   既有「input/output token 和每个阶段耗时」条目的 locator / note。
 - **价目表 grok-4.6 行价格 null**：实施环境无外网检索，xAI 官方价核对不了，按工单「不猜数」；报表对无价模型显示「价目表未录」
   并列 `unpriced_models`。GLM-5 / GLM-4.6 官方给区间，取上界（与 BP §7.3「GLM-5 档均值约 0.33 元」算法一致）。
+  **2026-09-05 收尾轮已填**（见「未验证 / 已知边界」）：判官默认取 **CLI 实付档**而不是 API list 档 / 否 默认 list、
+  实付只写进 note / 否 两行都填但不动默认——用户拍板取第一种。理由：报表口径是「单次研究全口径成本」，生产判官走 grok CLI，
+  按 list 算出来的判官成本是 xAI 实际计费的 5.9 倍（¥0.3019 vs ¥0.0513 每次判官调用），这个数要进 BP。
+  代价是默认那档不是官方公示价而是反解值，用 `test_cli_selfreported_cost_reproduces_from_the_build_row` 把它钉在 CLI 自报成本上。
 - **报表加 `--writer-price-model` what-if**：真实目录里 243/356 个 run 的 `report.json.llm.model` 是 `gpt-5.6-terra`（8 月中转期），
   按实际模型只能给 113 个 GLM run 定价；BP §7.3 的 0.34 元是「全按 GLM-5.2 档」的 what-if，加这个开关才能复现它。
 - **报表以 `run.json.status=completed` 过滤**（缺 run.json 退到 `outcome.status`）——与 BP 的 356 个 run 口径一致
@@ -45,9 +49,10 @@
   `llm_refine.py` 的字段、API 解析、CLI 接线、ContextVar 互相引用，拆开需交互式部分暂存。
 
 ## 当前状态
-代码尖 `8361b7ac`（全量门禁 revision）→ `gitea/main` 合并提交 `2ac58896` → 本文与 INDEX 行的 docs 提交（PR #593 head 即最新 docs 提交，
-以 `git log gitea/feat/judge-token-usage -1` 为准）。提交：`d0121126` 记账层 → `af2a0c48` purpose / judge_usage / 契约 → `7f493e5a`
-research_cost + 价目表 + 台账地图 → `a37f43fd` 测试 → `8361b7ac` 首份真实目录报表 → `2ac58896` merge main → docs。
+代码尖 `80f6a01e`（全量门禁 revision）→ 其后只有 docs 提交（PR #593 head 以 `git log gitea/feat/judge-token-usage -1` 为准）。
+提交：`d0121126` 记账层 → `af2a0c48` purpose / judge_usage / 契约 → `7f493e5a` research_cost + 价目表 + 台账地图 →
+`a37f43fd` 测试 → `8361b7ac` 首份真实目录报表 → `2ac58896` merge main → docs → **`7cbe5af6` 落 grok 价目 + 默认判官取价改
+CLI 实付档 → `80f6a01e` 报表按新价目表重出**。
 改动面：`intelligence/services/{llm_refine,llm_usage(新),grok_cli_judge,episode_semantic_verifier}.py`、
 `intelligence/runtime/{continuous_turn_adapter,glm_agent_runtime}.py`、`intelligence/eval/{research_cost(新),metric_field_contract}.py`、
 `intelligence/eval/pricing/llm-prices.json`（新）、`intelligence/eval/measurements/research-cost-2026-09-05.{json,md}`（新）、
@@ -71,7 +76,15 @@ research_cost + 价目表 + 台账地图 → `a37f43fd` 测试 → `8361b7ac` �
 - **变异**：`_post_chat` 的 `token_usage_counts(...)` 改成 `(None, None)` → `test_llm_call_ledger_usage` **4 红**
   （`test_post_chat_records_usage_from_either_naming` ×2、`test_call_purpose_nesting_does_not_leak`、
   `test_verifier_judge_call_is_labelled_judge_end_to_end`），恢复后 30 绿。
-- **全量门禁** `bash scripts/run_main_gate.sh` @`8361b7ac` 干净树：**7744 passed / 9 failed / 15 skipped / 1 xfailed**，640.7s；
+- **合并点全量门禁（2026-09-05 收尾轮）** `bash scripts/run_main_gate.sh` @`80f6a01e` 干净树：**7760 passed / 0 failed /
+  15 skipped / 1 xfailed**，335.7s；收据 `20260905T014007Z-80f6a01e.json`，`check_test_receipt.py --expect-revision
+  $(git rev-parse HEAD) --base-drift-max 5` → **exit 0**（基座漂移 0：分支已含 `gitea/main` 全部提交）。
+  同日先在 PR head `035c38cf`（填价前）跑过一轮：**7758 passed / 0 failed**，收据 `20260905T012327Z-035c38cf.json`，
+  同样 exit 0；两轮 `same_red_set=True`、`passed_non_decreasing=True`，+2 是新增的两条价目表守门测试。
+  **下面那轮 9 红已全部消失**——9 条里 7 条当时被归因为知识库仓解析态（`~/knowledge-base-private` 74 条未提交改动，
+  今天仍是 74 条、HEAD 仍是 09-02 的 `e4c9a939`，但那些用例现在全绿），2 条本就判为 flaky。即：**那 9 条不是本分支的红，
+  且现在整棵树 0 红**；结论「9 红与本单无关」成立，但当时给 7 条写的那个 KB 归因没有被今天的读数证实，只能算未证伪。
+- 上一轮（填价前）读数留档：`bash scripts/run_main_gate.sh` @`8361b7ac` 干净树：**7744 passed / 9 failed / 15 skipped / 1 xfailed**，640.7s；
   收据 `~/.finance-runtime/test-receipts/20260904T182620Z-8361b7ac.json`；`check_test_receipt.py <收据> --expect-revision $(git rev-parse HEAD)
   --base-drift-max 5` → **exit 0**（revision / 解释器 / 依赖指纹 / 干净树 / 基座漂移 4≤5 全 ✓）。
   9 红逐条对待：**7 条在纯净基线 `c6e702a6`（临时 detached 检出树 `/tmp/fwp-baseline-c6e702a6`，用完已删）上同样红**——
@@ -108,8 +121,19 @@ research_cost + 价目表 + 台账地图 → `a37f43fd` 测试 → `8361b7ac` �
   `【待填：Alpha 期含判官的全口径实测】` 原样。上线后：`python -m intelligence.eval.research_cost --runs-root $FORESIGHT_USERS_DIR/linxiaoqi5111/runs --since <上线日>`。
 - **验收第一条「新 run 的 continuous-episode.json 里 metrics.judge_usage 存在、calls ≥ 1」**只在测试里验过（adapter 全等断言 +
   `_episode_metrics` 单测），没有真实新 run——同上，需上线。
-- **grok-4.6 价目为 null**：判官成本列在填价前显示「价目表未录」，合计列同。填价时改 `llm-prices.json` 的 `input/output_cny_per_m`
-  + `source_url` + `checked_at`。对照点：CLI 自报一次判官调用 0.00757 USD（19,326 in / 128 cache / 970 out）。
+- ~~**grok-4.6 价目为 null**~~ **已填（2026-09-05 收尾轮，`7cbe5af6`）**：官方页 `https://docs.x.ai/developers/grok-4-6` 今天可达，
+  list = $2.00 / $6.00 每 M（同页 models 注册表 `promptTextTokenPrice=20000` / `completionTextTokenPrice=60000` /
+  `cachedPromptTokenPrice=5000`，单位 1e-4 USD 每 M，与页面文字互证）。价目表现在两行：
+  `grok-4.6-build*`（生产 CLI 实付档 $0.34 / $1.02 / $0.085）在前、`grok-4.6*`（API list）在后，顺序有语义——
+  `grok-4.6*` 也 fnmatch 得上 `grok-4.6-build`。`DEFAULT_JUDGE_MODEL` 随之改成 `grok-4.6-build`（用户 2026-09-05 拍板：
+  生产判官走 CLI，按 list 计价会把判官侧放大 5.9 倍）；API 备胎判官取价用 `--judge-model grok-4.6`。
+  USD→CNY 走价目表新增的 `fx` 块（中国货币网中间价 2026-09-04，6.7787），汇率与折算分离。
+  **build 档那三个数是反解来的，不是官方公示**：xAI 没有单独公示 CLI 档，是用 list × 0.17 三档同系数复现 CLI 自报
+  `costUSD=0.00757112`（19,326 in / 970 out / 128 cache_read；`total_cost_usd_ticks=75711200` 同值，8 位有效数字吻合）。
+  复核办法：重跑判官探针比 `costUSD`；CLI 换版或 xAI 调折扣时这行会静默过期，`test_cli_selfreported_cost_reproduces_from_the_build_row`
+  只钉住「这三个数与 0.00757112 自洽」，钉不住「今天的 CLI 还按这个折扣计费」。
+- **>200k 上下文档未建模**：官方对 grok-4.6 超 200k 上下文翻倍计价（$4 / $12），价目表没有这一档；判官提示词约 2 万 token，
+  够不着这道坎，真出现长上下文判官会少算一半。
 - 判官模型名不在产物里，报表按 `--judge-model`（默认 grok-4.6）取价；备胎 API 判官接管的 run 会被按 grok 价算——
   `judge_usage.usage_source=mixed` 能看出混源，但分不出各自 token。要精确需在 `judge_usage` 里落 model（另单，需读者）。
 - 缓存命中 token 未单列：grok `input_tokens` 不含 `cache_read`（样本 0.7%），GLM `prompt_tokens` 含 cached——报表统一按输入价算，
@@ -118,16 +142,21 @@ research_cost + 价目表 + 台账地图 → `a37f43fd` 测试 → `8361b7ac` �
   CLI 版本变了，先看 `raw.json` 形状。
 - `_post_chat_synthesis` / `_post_chat_message*` 未改（工单只点名 `_post_chat`）；写手 token 仍以 `outcome.usage` 为准，
   台账里写手记录的 token 为空、`purpose` 为空（`tokens_by_purpose.unlabelled`）。
-- 全量门禁跑在 `8361b7ac`（合 main 前）；合 main 后只跑了 448 条定向。合入的 10 个提交是 RAG worker perf / 注册表 knowhow / docs，
-  与本单无文件交集，但批次门禁应由验收方在合并时点重跑。
+- ~~全量门禁跑在 `8361b7ac`（合 main 前）……批次门禁应由验收方在合并时点重跑。~~ **已重跑**：见上「合并点全量门禁」，
+  `80f6a01e` 7760 P / 0 F，基座漂移 0（`git log gitea/feat/judge-token-usage..gitea/main` 为空，merge-base == `gitea/main`）。
 - 快路径（`deterministic_fast_path`）的 metrics 不带 `judge_usage`——读者靠写手 usage 为 0 把它们归入 `writer_unrecorded_runs`。
 
 ## 下一步
-1. PR #593 等用户确认后合 main；切流按 cutover 流程（本单改 runtime 记账，需上生产才有新 run）。
-2. 上线积累 ≥ 20 个新 run 后跑 `research_cost --since <上线日>`，把写手 / 判官 / 合计三列与元/次回填 BP §7.3 与本文；
-   `estimated_share > 0` 时 BP 里注明「判官侧为估算」。
-3. 填 grok-4.6 价目（xAI 官方页 + `checked_at`），否则合计列出不来。
+1. **合 main 这一下由用户点**（2026-09-05 收尾轮确认的分工）。合并点门禁读数与收据见上，PR `mergeable=true`、基座漂移 0。
+   合并后切流按 cutover 流程（本单改 runtime 记账，需上生产才有新 run）。
+2. 上线积累 ≥ 20 个新 run 后跑
+   `python -m intelligence.eval.research_cost --runs-root /Users/a77/.local/share/finance-workbench/users/linxiaoqi5111/runs --since <上线日>`，
+   把写手 / 判官 / 合计三列与元/次回填 BP §7.3 与本文；`estimated_share > 0` 时 BP 里注明「判官侧为估算」。
+   **回填时连口径一起写**：判官侧按 CLI 实付档（¥2.3048 / ¥6.9143 每 M），不是 API list。
+3. ~~填 grok-4.6 价目~~ 已完成（见上）。首个新 run 落地后做一次对账：把 `metrics.judge_usage` 的 token 代进价目表算出的元/次，
+   与同一次调用 CLI 自报的 `total_cost_usd × 汇率` 比——对不上就是 build 档折扣变了，改 `llm-prices.json` 而不是改报表。
 4. 可选另单：`judge_usage` 落判官模型名 / 捞 CLI 自报 `total_cost_usd`（都要先有读者，否则 unread-fields 门禁拦）。
+   捞 `total_cost_usd` 能把上一条对账变成自动的，优先级比模型名高。
 5. INDEX #23 行在合入后改「✅ 已合（PR #593）」。
 
 ## 踩过的坑
