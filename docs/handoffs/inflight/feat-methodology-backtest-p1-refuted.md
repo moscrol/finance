@@ -1,5 +1,9 @@
 # feat/methodology-backtest-p1-refuted
 
+**状态：已合入（2026-09-05）。** PR #589 → `gitea/main@9bd0efd7`（合并提交；分支尖 `8cc32c98`，与收据 `57cb9b3d`
+只差一个纯文档提交）。合入时基座已漂到 `gitea/main@8af84269`（多 #587 / #588 两张，碰的 7 个文件与本刀 13 个文件零交集），
+gitea 判 mergeable、无冲突。第五刀 PR #591 随后合入 `gitea/main@87d731f7`。
+
 树 `/Users/a77/fwp-wt-methodology-backtest-p1d`，基座 `gitea/main`=`47a4fcde`（#585 已合入 + 回写后的 main，干净树）；
 2026-09-05 收口时合入 `gitea/main@c6e702a6`（合并提交 `32251769`，无冲突；这 21 个提交零个碰本刀文件）。
 设计稿 `2026-09-04-methodology-backtest-structured-history-design.md` §6「以下三条是 2026-09-04 BP v0.4 壁垒重构后补入的
