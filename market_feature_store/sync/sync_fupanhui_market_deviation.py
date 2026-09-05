@@ -168,13 +168,22 @@ def sync_market_deviation(trade_date: str | None = None) -> dict:
                 raise RuntimeError(
                     f"tooltip 失败且 MA 兜底无数据(当日 sh_index_close 缺失)：{exc}"
                 ) from exc
+        # data["source"] 之前算了却没写库——于是存量里哪些是 tooltip、哪些是复算兜底
+        # 全部分不出来（2026-09-06 审计：221 天只能一律标 unknown_preexisting）。
+        # 只有这一层知道这个值，扔掉就再也补不回来了。
         con.execute(
             """
             UPDATE fact_market_daily
-            SET sh_week_ma = ?, sh_deviation_pct = ?, updated_at = ?
+            SET sh_week_ma = ?, sh_deviation_pct = ?, sh_week_ma_source = ?, updated_at = ?
             WHERE trade_date = ?
             """,
-            [data["sh_week_ma"], data["sh_deviation_pct"], datetime.now(), trade_date],
+            [
+                data["sh_week_ma"],
+                data["sh_deviation_pct"],
+                data.get("source"),
+                datetime.now(),
+                trade_date,
+            ],
         )
         row = con.execute(
             """
