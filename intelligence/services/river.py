@@ -440,6 +440,73 @@ def _opinion_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
                 },
             )
         )
+    out.extend(_fundamental_docs(con, as_of, eid, ename))
+    return out
+
+
+def _fundamental_docs(con: Any, as_of: str, eid: str, ename: str) -> list[RiverObject]:
+    """产业基本面研究文档（`fact_theme_fundamental_doc`）。
+
+    2026-09-06 审计发现这张表**整表无生产读取方**——37 份带核心逻辑、验证要点、
+    关联板块的产业研究，抓回来一次没被读过。这里接上它。
+
+    **覆盖现实要写在这儿，别让下一个人以为有 37 份可用**：37 份里只有 **5 份**
+    挂了 `linked_sectors`（覆盖 MLCC / 化工原料 / 化工 / 人脑工程 / 航空 / 石油 /
+    石油化工 / 医药 8 个板块），其余 32 份只挂 `linked_themes`。而题材命名空间与
+    板块之间没有桥接表（`config_theme_sector_link` 实测 0 行），所以按板块取切片
+    最多只能拿到那 5 份。要拿全 37 份，得先有题材实体的切片入口。
+
+    好处是这一批**天然严格 PIT 干净**：`produced_at` 是写一次的生成时刻，
+    没有被批量重写抹平过——和 `fact_research_report_catalog.created_at` 同族。
+
+    `core_theme` / `verification_points` 是散文：可读、可进 prompt，但**不可重算**，
+    所以它们只进 payload，不参与任何度量。
+    """
+    rows = _rows(
+        con,
+        """
+        SELECT document_pk, title, analysis_type, workflow_name, core_theme,
+               verification_points, linked_sectors, produced_at
+        FROM fact_theme_fundamental_doc
+        WHERE produced_at <= ? ORDER BY produced_at
+        """,
+        [f"{as_of}T23:59:59"],
+    )
+    out: list[RiverObject] = []
+    for r in rows:
+        try:
+            linked = json.loads(r["linked_sectors"] or "[]")
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(linked, list):
+            continue
+        # 精确匹配：代码或板块名。两边都在 .FP 空间，实测 8/8 命中。
+        if not any(
+            str(x.get("sector_code")) == eid or str(x.get("sector_name")) == ename
+            for x in linked
+            if isinstance(x, dict)
+        ):
+            continue
+        produced = str(r["produced_at"])
+        out.append(
+            RiverObject(
+                track="opinion",
+                entity_id=eid,
+                object_type="narrative_version",
+                ref=f"fact_theme_fundamental_doc:{r['document_pk']}",
+                source_hash=_hash(r),
+                valid_from=produced[:10],
+                recorded_at=produced,
+                payload={
+                    "title": r["title"],
+                    "analysis_type": r["analysis_type"],
+                    "workflow_name": r["workflow_name"],
+                    # 散文：可读不可重算，不进任何度量
+                    "core_theme": r["core_theme"],
+                    "verification_points": r["verification_points"],
+                },
+            )
+        )
     return out
 
 

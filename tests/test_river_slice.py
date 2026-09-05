@@ -223,6 +223,37 @@ def test_舆论轨用_created_at_不用_updated_at(sl: RiverSlice) -> None:
         assert obj.recorded_at[:10] <= AS_OF, f"{obj.ref} 的 recorded_at 晚于切片日"
 
 
+def test_产业基本面文档接进舆论轨() -> None:
+    """`fact_theme_fundamental_doc` 2026-09-06 审计时整表无生产读取方。
+
+    只有 5/37 份挂了 linked_sectors，所以用一个已知有文档的板块做阳性对照——
+    换成没文档的板块，本用例会变成永远空转的假门禁。
+    """
+    sl = slice_river("2026-09-02", "医药")
+    opinion = sl.tracks["opinion"]
+    assert not isinstance(opinion, Gap), "医药应有卖方覆盖，前提失效"
+    docs = [o for o in opinion if o.object_type == "narrative_version"]
+    assert docs, "产业文档没接上——审计发现的那张无人读的表又断了"
+    for d in docs:
+        assert d.ref.startswith("fact_theme_fundamental_doc:")
+        # produced_at 是写一次的生成时刻，没被批量重写抹平过 → 天然严格 PIT 干净
+        assert d.recorded_at and d.recorded_at[:10] <= "2026-09-02"
+        assert d.payload["core_theme"], "核心逻辑是这批文档的价值所在，不能丢"
+
+
+def test_产业文档不参与任何度量() -> None:
+    """core_theme / verification_points 是散文：可读、可进 prompt，但不可重算。
+    它们只能待在 payload 里，不得混进覆盖度量那个对象。"""
+    sl = slice_river("2026-09-02", "医药")
+    opinion = sl.tracks["opinion"]
+    assert not isinstance(opinion, Gap)
+    coverage = [o for o in opinion if o.object_type == "label"]
+    assert coverage
+    for obj in coverage:
+        assert "core_theme" not in obj.payload
+        assert "verification_points" not in obj.payload
+
+
 def test_舆论轨不发明阶段词(sl: RiverSlice) -> None:
     """阶段词表是 G-06 待拍板项，且当前样本撑不住密度斜率——只能标 unverifiable。"""
     opinion = sl.tracks["opinion"]
