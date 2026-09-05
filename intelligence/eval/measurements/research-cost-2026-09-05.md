@@ -2,13 +2,13 @@
 
 ## 成立条件
 
-- 价目表：`/Users/a77/fwp-wt-judge-token-usage/intelligence/eval/pricing/llm-prices.json`，checked_at = 2026-09-04
+- 价目表：`/Users/a77/fwp-wt-judge-token-usage/intelligence/eval/pricing/llm-prices.json`，checked_at = 2026-09-04, 2026-09-05
 - run 数：扫描 495，完成且有写手 usage（进统计） 356；判官有记账 0（其中判官未调用 0），判官未记账（旧格式）356
 - 日期范围：2026-08-12T17:18:00+08:00 → 2026-08-31T23:09:13+08:00；since = 2026-08-12T00:00:00+08:00
 - 估算记录占比（判官调用 run 中 usage_source=estimated 的比例）：0.0%
-- 树 / 解释器 / revision：`/Users/a77/fwp-wt-judge-token-usage` / `/Users/a77/finance-workspace-private/.venv-workbench/bin/python` / `a37f43fd2d0588ed7baf920143e64c18184e957c`
-- 判官模型按 `grok-4.6` 取价（产物不落判官模型名）；写手模型取 report.json.llm.model，缺则 `glm-5.2`
-- 生成时间：2026-09-05T02:13:36+08:00
+- 树 / 解释器 / revision：`/Users/a77/fwp-wt-judge-token-usage` / `/Users/a77/finance-workspace-private/.venv-workbench/bin/python` / `7cbe5af60b38233aade54735f5238c25a3e0b74b`
+- 判官模型按 `grok-4.6-build` 取价（产物不落判官模型名）；写手模型取 report.json.llm.model，缺则 `glm-5.2`
+- 生成时间：2026-09-05T09:33:59+08:00
 
 ## 每次研究 token（中位 / 均值 / p90）
 
@@ -45,4 +45,5 @@
 | `glm-5.3*` | 8 | 28 | 2 | 2026-09-04 |
 | `glm-5` | 6 | 22 | 1.5 | 2026-09-04 |
 | `glm-4.6*` | 2 | 8 | 未录 | 2026-09-04 |
-| `grok-4.6*` | 未录 | 未录 | 未录 | 未核对 |
+| `grok-4.6-build*` | 2.3048 | 6.9143 | 0.5762 | 2026-09-05 |
+| `grok-4.6*` | 13.5574 | 40.6722 | 3.3894 | 2026-09-05 |

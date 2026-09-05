@@ -1,6 +1,6 @@
 {
   "schema": "research-cost/v1",
-  "generated_at": "2026-09-05T02:13:36+08:00",
+  "generated_at": "2026-09-05T09:33:59+08:00",
   "runs_root": "/Users/a77/.local/share/finance-workbench/users/linxiaoqi5111/runs",
   "since": "2026-08-12T00:00:00+08:00",
   "date_range": {
@@ -92,7 +92,7 @@
     },
     "contains_estimated": false
   },
-  "judge_model_assumed": "grok-4.6",
+  "judge_model_assumed": "grok-4.6-build",
   "writer_model_default": "glm-5.2",
   "writer_price_model": null,
   "unpriced_models": {
@@ -134,19 +134,27 @@
         "source_url": "https://bigmodel.cn/pricing"
       },
       {
+        "model_pattern": "grok-4.6-build*",
+        "input_cny_per_m": 2.3048,
+        "output_cny_per_m": 6.9143,
+        "cache_hit_cny_per_m": 0.5762,
+        "checked_at": "2026-09-05",
+        "source_url": "https://docs.x.ai/developers/grok-4-6"
+      },
+      {
         "model_pattern": "grok-4.6*",
-        "input_cny_per_m": null,
-        "output_cny_per_m": null,
-        "cache_hit_cny_per_m": null,
-        "checked_at": null,
-        "source_url": null
+        "input_cny_per_m": 13.5574,
+        "output_cny_per_m": 40.6722,
+        "cache_hit_cny_per_m": 3.3894,
+        "checked_at": "2026-09-05",
+        "source_url": "https://docs.x.ai/developers/grok-4-6"
       }
     ]
   },
   "conditions": {
     "repo_root": "/Users/a77/fwp-wt-judge-token-usage",
     "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
-    "revision": "a37f43fd2d0588ed7baf920143e64c18184e957c"
+    "revision": "7cbe5af60b38233aade54735f5238c25a3e0b74b"
   },
   "runs": [
     {
