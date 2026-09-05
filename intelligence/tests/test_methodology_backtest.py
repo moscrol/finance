@@ -50,6 +50,8 @@ BASE_RULE = {
     },
     "baseline": {"kind": "same_universe_all_days"},
     "min_n": 20,
+    "sharing": "shared",
+    "owner": "system",
 }
 
 
@@ -441,6 +443,180 @@ def test_seed_rules_load_and_stock_seed_targets_stock_universe():
     assert stock.entity_type == "stock" and stock.universe == "limit_high_union"
     assert {p.label for p in stock.predicates} == {"first_board", "new_high_1y"}
     assert stock.success.horizon == 5 and stock.min_n == 20
+    # 种子规则全部共享层、owner=system、来源写明（设计稿 §6 产品约束第一条）
+    for r in rules.values():
+        assert (r.sharing, r.owner) == ("shared", "system") and r.raw.get("source_perspective"), r.ref
+
+
+# --------------------------------------------------------------------------- #
+# 归属层（sharing / owner）白名单
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize(
+    "mutate, path",
+    [
+        (lambda d: d.pop("sharing"), "sharing"),
+        (lambda d: d.__setitem__("sharing", "public"), "sharing"),
+        (lambda d: d.pop("owner"), "owner"),
+        (lambda d: d.__setitem__("owner", "alice"), "owner"),  # shared 必须 system
+        (lambda d: d.update(sharing="private", owner="system"), "owner"),  # private 不能 system
+        (lambda d: d.__setitem__("owner", "a; DROP TABLE x"), "owner"),
+        (lambda d: d.__setitem__("source_perspective", ""), "source_perspective"),
+        (lambda d: d.__setitem__("source_perspective", "x" * 201), "source_perspective"),
+    ],
+)
+def test_sharing_owner_whitelist_rejections(mutate, path):
+    rule, errors = validate_rule(_bad(mutate))
+    assert rule is None and any(e.path == path for e in errors), [str(e) for e in errors]
+
+
+def test_sharing_owner_accepted_and_carried_into_receipt(mini):
+    private = parse_rule({**BASE_RULE, "sharing": "private", "owner": "alice@x"})
+    assert (private.sharing, private.owner) == ("private", "alice@x")
+    shared = parse_rule({**BASE_RULE, "source_perspective": "某 KOL 视角蒸馏"})
+    assert (shared.sharing, shared.owner) == ("shared", "system")
+    con = duckdb.connect(str(mini["labels"]), read_only=True)
+    try:
+        res = run_rule(con, shared)
+    finally:
+        con.close()
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    receipt = build_receipt(res, rule_path=None, rule_sha256=None, environment=env)
+    assert (receipt["sharing"], receipt["owner"]) == ("shared", "system")
+    assert receipt["rule"]["source_perspective"] == "某 KOL 视角蒸馏"
+    md = render_receipt_markdown(receipt)
+    assert "归属 `shared` / owner `system`" in md and "某 KOL 视角蒸馏" in md
+
+
+# --------------------------------------------------------------------------- #
+# 按大盘阶段拆分 + 证伪库
+# --------------------------------------------------------------------------- #
+def test_stage_breakdown_splits_ok_events_by_market_stage(mini):
+    """mini 库：第 0–5 日主升阶段、第 6 日起下跌阶段；双红事件 T+3 已到期的 8 个里 6 个在主升、2 个在下跌。"""
+    doc = copy.deepcopy(BASE_RULE)
+    doc["outcome"]["success"]["horizon"] = 3
+    con = duckdb.connect(str(mini["labels"]), read_only=True)
+    try:
+        res = run_rule(con, parse_rule(doc))
+    finally:
+        con.close()
+    buckets = {b.stage: (b.n, b.k) for b in res.stage_breakdown}
+    assert buckets == {"主升阶段": (6, 5), "下跌阶段": (2, 2)}  # S3 第 4 日双红后三日 -1% 是唯一落空
+    assert sum(b.n for b in res.stage_breakdown) == res.readout.n == 8
+    assert sum(b.k for b in res.stage_breakdown) == res.readout.k == 7
+    assert res.stage_breakdown[0].stage == "主升阶段" and res.stage_breakdown[0].p == pytest.approx(5 / 6)
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    receipt = build_receipt(res, rule_path=None, rule_sha256=None, environment=env)
+    assert [b["stage"] for b in receipt["by_market_stage"]] == ["主升阶段", "下跌阶段"]
+    assert "按大盘阶段拆分" in render_receipt_markdown(receipt)
+
+
+def _shifted_labels_db(st, src: Path, path: Path) -> Path:
+    build_labels(src, path)
+    build_outcomes(src, path)
+    assert st.shift_outcomes_one_day_earlier(path) > 0
+    return path
+
+
+def test_refuted_entry_written_only_for_refuted_verdict(synthetic, tmp_path):
+    """前视夹具把阳性对照打成 refuted → 落证伪库，字段齐；supported / not_distinguishable 不落。"""
+    from intelligence.services.methodology_backtest.receipts import (
+        REFUTED_SCHEMA,
+        build_refuted_entry,
+        load_refuted,
+        render_refuted_markdown,
+        summarize_refuted_by_stage,
+        write_refuted,
+    )
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    shifted = _shifted_labels_db(st, synthetic["src"], tmp_path / "labels-shift.duckdb")
+    res = st.run(shifted, st.POSITIVE_RULE)
+    assert res.readout.verdict == "refuted"
+    receipt = build_receipt(res, rule_path="methodology/rules/x.v1.json", rule_sha256=None, environment=env)
+    root = tmp_path / "refuted"
+    assert load_refuted(root) == [] and "证伪库为空" in render_refuted_markdown([])
+    path = write_refuted(root, receipt, date_str="2026-09-04", receipt_path="methodology/receipts/x@v1/2026-09-04.json")
+    assert path == root / "selftest_positive@v1" / "2026-09-04.json"
+    entry = __import__("json").loads(path.read_text(encoding="utf-8"))
+    assert entry["schema_version"] == REFUTED_SCHEMA
+    for key in ("rule_id", "rule_version", "sharing", "owner", "n", "p", "p0", "ci", "by_market_stage", "refuted_at", "receipt_path"):
+        assert key in entry, key
+    assert entry["rule_id"] == "selftest_positive" and entry["rule_version"] == 1 and entry["n"] == res.readout.n
+    assert entry["ci"]["lo"] == res.readout.lo and entry["ci"]["hi"] < entry["p0"]
+    assert entry["by_market_stage"] and sum(b["n"] for b in entry["by_market_stage"]) == entry["n"]
+    assert entry["refuted_at"] == receipt["generated_at"]
+
+    loaded = load_refuted(root)
+    assert len(loaded) == 1 and loaded[0]["_path"] == str(path)
+    rows = summarize_refuted_by_stage(loaded)
+    assert rows and all(r["rule_ref"] == "selftest_positive@v1" and r["p0"] == entry["p0"] for r in rows)
+    assert {r["stage"] for r in rows} == {b["stage"] for b in entry["by_market_stage"]}
+    md = render_refuted_markdown(loaded)
+    assert "selftest_positive@v1" in md and "| 大盘阶段 |" in md
+
+    # 非 refuted 的收据进证伪库 → 拒
+    good = build_receipt(st.run(synthetic["labels"], st.POSITIVE_RULE), rule_path=None, rule_sha256=None, environment=env)
+    assert good["verdict"] == "supported"
+    with pytest.raises(ValueError):
+        build_refuted_entry(good, receipt_path=None)
+    # 坏文件 / 别的 schema 跳过
+    (root / "selftest_positive@v1" / "broken.json").write_text("{", encoding="utf-8")
+    (root / "selftest_positive@v1" / "other.json").write_text('{"schema_version": "x"}', encoding="utf-8")
+    assert len(load_refuted(root)) == 1
+
+
+def test_cli_run_scan_write_refuted_and_report_refuted(synthetic, tmp_path, capsys):
+    cli = _load_script(CLI, "mb_cli_for_pytest_refuted")
+    st = synthetic["st"]
+    shifted = _shifted_labels_db(st, synthetic["src"], tmp_path / "labels-shift.duckdb")
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    pos = rules_dir / "selftest_positive.v1.json"
+    pos.write_text(__import__("json").dumps(st.POSITIVE_RULE, ensure_ascii=False), encoding="utf-8")
+    neg = rules_dir / "selftest_negative.v1.json"
+    neg.write_text(__import__("json").dumps(st.NEGATIVE_RULE, ensure_ascii=False), encoding="utf-8")
+    receipts, refuted = tmp_path / "receipts", tmp_path / "refuted"
+    common = ["--receipts-dir", str(receipts), "--refuted-dir", str(refuted)]
+
+    # 正常库：supported → 有收据、无证伪条目
+    assert cli.main(["run", str(pos), "--labels-db", str(synthetic["labels"]), *common]) == 0
+    assert list((receipts / "selftest_positive@v1").glob("*.json")) and not refuted.exists()
+    # 前视库：refuted → 证伪条目落地；--no-write 不落
+    assert cli.main(["run", str(pos), "--labels-db", str(shifted), *common, "--no-write"]) == 0
+    assert not refuted.exists()
+    assert cli.main(["run", str(pos), "--labels-db", str(shifted), *common]) == 0
+    entries = list((refuted / "selftest_positive@v1").glob("*.json"))
+    assert len(entries) == 1
+    capsys.readouterr()
+    # scan：阳性 refuted（BH 拒绝 H0）落库，阴性不落
+    assert cli.main(["scan", str(pos), str(neg), "--labels-db", str(shifted), *common]) == 0
+    assert not (refuted / "selftest_negative@v1").exists()
+    doc = __import__("json").loads(entries[0].read_text(encoding="utf-8"))
+    assert doc["test_mode"] == "scan" and doc["bh"]["rejected"] is True  # 同日重跑覆盖，最后一次是 scan
+    capsys.readouterr()
+    assert cli.main(["report", "--refuted", "--refuted-dir", str(refuted), "--labels-db", str(tmp_path / "nope.duckdb")]) == 0
+    out = capsys.readouterr().out
+    assert "证伪库 · 1 条规则" in out and "selftest_positive@v1" in out and "| 大盘阶段 |" in out
+    assert cli.main(["report", "--refuted", "--refuted-dir", str(tmp_path / "empty"), "--labels-db", str(tmp_path / "nope.duckdb")]) == 0
+    assert "证伪库为空" in capsys.readouterr().out
+
+
+def test_cli_propose_sharing_defaults_and_shared_owner_rule(synthetic, tmp_path):
+    cli = _load_script(CLI, "mb_cli_for_pytest_propose_sharing")
+    rules_dir = tmp_path / "rules"
+    base = [
+        "propose", "--title", "t", "--entity-type", "sector",
+        "--pred", "dual_red_strict == true", "--success", "fwd_return 5 > 0", "--manual-note", "n", "--rules-dir", str(rules_dir),
+    ]
+    assert cli.main([*base, "--rule-id", "priv_rule", "--user", "alice"]) == 0
+    priv = load_rule(rules_dir / "priv_rule.v1.json")
+    assert (priv.sharing, priv.owner) == ("private", "alice")
+    assert cli.main([*base, "--rule-id", "shared_rule", "--sharing", "shared", "--source-perspective", "系统内置"]) == 0
+    shared = load_rule(rules_dir / "shared_rule.v1.json")
+    assert (shared.sharing, shared.owner, shared.raw["source_perspective"]) == ("shared", "system", "系统内置")
+    assert cli.main([*base, "--rule-id", "bad_shared", "--sharing", "shared", "--owner", "alice"]) == 2
+    assert not (rules_dir / "bad_shared.v1.json").exists()
 
 
 def test_sector_label_semantics(mini):
@@ -845,10 +1021,12 @@ def test_build_rule_doc_validates_and_pins_provenance(tmp_path):
         success=parse_success("fwd_return 5 > 0"),
         horizons=[3, 10],
         provenance=prov,
+        owner="tester",
     )
     assert rule.ref == "dual_red_third_day@v1"
     assert doc["outcome"]["horizons"] == [3, 5, 10]  # success 的窗口自动并入
     assert doc["provenance"]["ref"] == "abc123def456"
+    assert (rule.sharing, rule.owner) == ("private", "tester")  # 纠偏是某人的纠偏，候选默认私有
     path = write_rule_file(tmp_path, doc)
     assert path.name == "dual_red_third_day.v1.json"
     assert load_rule(path).raw["provenance"]["kind"] == "correction"
@@ -858,10 +1036,22 @@ def test_build_rule_doc_validates_and_pins_provenance(tmp_path):
     # 白名单仍然生效：谓词短句语法对但 label 不在白名单 → 带字段路径的校验错
     with pytest.raises(RuleValidationError) as exc:
         build_rule_doc(
-            rule_id="bad_label_rule", title="t", entity_type="sector",
+            rule_id="bad_label_rule", title="t", entity_type="sector", owner="tester",
             predicates=[parse_predicate("sector_close > 0")], success=parse_success("fwd_return 5 > 0"),
         )
     assert any(e.path == "condition.all[0].label" for e in exc.value.errors)
+    # 归属：private 没给 owner 拒；shared 自动 owner=system
+    with pytest.raises(RuleValidationError) as exc:
+        build_rule_doc(
+            rule_id="no_owner", title="t", entity_type="sector",
+            predicates=[parse_predicate("dual_red_strict == true")], success=parse_success("fwd_return 5 > 0"),
+        )
+    assert any(e.path == "owner" for e in exc.value.errors)
+    _, shared = build_rule_doc(
+        rule_id="shared_rule", title="t", entity_type="sector", sharing="shared", source_perspective="某视角",
+        predicates=[parse_predicate("dual_red_strict == true")], success=parse_success("fwd_return 5 > 0"),
+    )
+    assert (shared.sharing, shared.owner, shared.raw["source_perspective"]) == ("shared", "system", "某视角")
     # provenance 本身也过白名单
     rule2, errors = validate_rule({**doc, "rule_id": "prov_bad", "provenance": {"kind": "llm", "sql": "x"}})
     assert rule2 is None and {e.path for e in errors} >= {"provenance.kind", "provenance.sql"}

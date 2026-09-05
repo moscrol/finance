@@ -2,7 +2,10 @@
 
 流程：读成立条件（labels / outcomes 两次构建必须同源同版本，否则 fail closed）→ 解析窗口 →
 编译 → 事件集 + 命中 → 基准率（同 universe、[首个事件日, 末个事件日]）→ 逐窗口 metrics 汇总 →
-四态。``scan_rules`` 在此之上做 Benjamini–Hochberg 降级。
+按大盘阶段拆事件（``market_stage`` 标签，事件日当日）→ 四态。``scan_rules`` 在此之上做 Benjamini–Hochberg 降级。
+
+大盘阶段拆分只是读数拆分，不参与四态：p0 是整个 universe 的，各阶段的 p 与它相比只能看「哪个阶段拖后腿」，
+不能单独下结论——那需要按阶段的基准率，是另一刀。证伪库 ``report --refuted`` 按这一块汇总「这个阶段这招不灵」。
 
 不写任何东西：主库、旁路库、用户台账、params.json、经验卡、画像都不碰。
 """
@@ -16,11 +19,14 @@ from typing import Any, Sequence
 import duckdb
 
 from .compiler import CompiledRule, compile_rule
+from .labels import MARKET_ENTITY_ID
 from .rules import BASELINE_KINDS, Rule
 from .stats import Readout, apply_bh_downgrade, benjamini_hochberg, four_state, readout
 from .store import read_meta
 
 EVENT_SAMPLE_LIMIT = 12
+STAGE_LABEL = "market_stage"
+UNKNOWN_STAGE = "(无大盘阶段)"
 
 
 @dataclass(frozen=True)
@@ -60,6 +66,22 @@ class AltBaseline:
         return {"kind": self.kind, "n": self.n, "k": self.k, "p0": self.p0, "lift": self.lift, "verdict_if_used": self.verdict_if_used}
 
 
+@dataclass(frozen=True)
+class StageBucket:
+    """某个大盘阶段下的已到期事件：n / k / p。p 与整体 p0 比只能看方向，不单独定结论。"""
+
+    stage: str
+    n: int
+    k: int
+
+    @property
+    def p(self) -> float | None:
+        return (self.k / self.n) if self.n else None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"stage": self.stage, "n": self.n, "k": self.k, "p": self.p}
+
+
 @dataclass
 class RunResult:
     rule: Rule
@@ -73,6 +95,7 @@ class RunResult:
     first_event_date: str | None
     last_event_date: str | None
     horizons: list[HorizonSummary]
+    stage_breakdown: list[StageBucket]
     conditions: dict[str, Any]
     events_sample: list[dict[str, Any]]
     sql: dict[str, Any] = field(default_factory=dict)
@@ -186,6 +209,30 @@ def _summarize_horizons(rows: Sequence[tuple], horizons: Sequence[int]) -> list[
     return out
 
 
+def _stage_breakdown(con: duckdb.DuckDBPyConnection, ok_events: Sequence[tuple]) -> list[StageBucket]:
+    """按事件日当日的 ``market_stage`` 把已到期事件拆桶。日期走绑定参数（个数 <= 日历长度）；阶段值按原文，不归一。"""
+    if not ok_events:
+        return []
+    dates = sorted({str(e[1]) for e in ok_events})
+    placeholders = ", ".join("?" for _ in dates)
+    rows = con.execute(
+        "SELECT trade_date, value_text FROM history_labels "
+        f"WHERE entity_type = 'market' AND entity_id = ? AND label = ? AND trade_date IN ({placeholders})",
+        [MARKET_ENTITY_ID, STAGE_LABEL, *dates],
+    ).fetchall()
+    stage_by_date = {str(d): (s if s else UNKNOWN_STAGE) for d, s in rows}
+    counts: dict[str, list[int]] = {}
+    for _eid, d, success, _m in ok_events:
+        stage = stage_by_date.get(str(d), UNKNOWN_STAGE)
+        bucket = counts.setdefault(stage, [0, 0])
+        bucket[0] += 1
+        bucket[1] += 1 if success else 0
+    return [
+        StageBucket(stage=stage, n=n, k=k)
+        for stage, (n, k) in sorted(counts.items(), key=lambda kv: (-kv[1][0], kv[0]))
+    ]
+
+
 def execute_compiled(
     con: duckdb.DuckDBPyConnection,
     rule: Rule,
@@ -233,6 +280,7 @@ def execute_compiled(
         )
     metric_rows = con.execute(compiled.metrics.sql, list(compiled.metrics.params)).fetchall()
     horizons = _summarize_horizons(metric_rows, rule.horizons)
+    stages = _stage_breakdown(con, ok_events)
 
     sample = [
         {
@@ -256,6 +304,7 @@ def execute_compiled(
         first_event_date=min(all_dates) if all_dates else None,
         last_event_date=max(all_dates) if all_dates else None,
         horizons=horizons,
+        stage_breakdown=stages,
         conditions=conditions,
         events_sample=sample,
         sql={

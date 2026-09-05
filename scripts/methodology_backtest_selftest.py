@@ -8,6 +8,7 @@
   阴性对照   与收益独立的随机标签（multi_period_resonance）→ 结论 ∈ {not_distinguishable, insufficient_n}
   个股对照   植入「首板之后 5 个交易日必为正」→ supported；limit_up 事件数更多、命中率更低（二连板窗口为负）
   前视对照   把 outcomes 整体前移一个交易日 → 板块 / 个股两组阳性对照的 supported 都必须消失（翻转或降级）
+  证伪库     前视对照打出的 refuted 落 methodology/refuted/ 条目：字段齐、按大盘阶段拆分的 n 之和 = N
   拒绝夹具   label 不在白名单 / op 为 "; DROP" / value 含 SQL 片段 → 各返回带字段路径的错误，且不触库
   幂等       重跑 build-labels 行数一致；删旁路库重建行数一致；data_gap 日被列出；个股 universe 行数 = 植入并集
 
@@ -43,6 +44,12 @@ import duckdb  # noqa: E402
 
 from intelligence.services.methodology_backtest.labels import build_labels  # noqa: E402
 from intelligence.services.methodology_backtest.outcomes import build_outcomes  # noqa: E402
+from intelligence.services.methodology_backtest.receipts import (  # noqa: E402
+    REFUTED_SCHEMA,
+    build_receipt,
+    load_refuted,
+    write_refuted,
+)
 from intelligence.services.methodology_backtest.rules import parse_rule, validate_rule  # noqa: E402
 from intelligence.services.methodology_backtest.runner import run_rule  # noqa: E402
 from market_feature_store.db import init_db  # noqa: E402
@@ -80,6 +87,8 @@ POSITIVE_RULE = {
     },
     "baseline": {"kind": "same_universe_all_days"},
     "min_n": 20,
+    "sharing": "shared",
+    "owner": "system",
 }
 NEGATIVE_RULE = {
     **POSITIVE_RULE,
@@ -397,6 +406,27 @@ def main() -> int:
             cheat_stk.verdict != "supported",
             f"N={cheat_stk.n} p={cheat_stk.p} p0={cheat_stk.p0} → {cheat_stk.verdict}",
         )
+        # 证伪库：前视夹具打出来的 refuted 是唯一能稳定拿到的证伪样本，用它验条目字段与按阶段拆分
+        env = {"tree": "selftest", "branch": "-", "revision": "-", "dirty": False, "interpreter": sys.executable,
+               "python_version": "-", "duckdb_version": duckdb.__version__}
+        receipt = build_receipt(cheat, rule_path=None, rule_sha256=None, environment=env)
+        refuted_root = tmp_path / "refuted"
+        entry_ok = False
+        detail = f"verdict={receipt['verdict']}"
+        if receipt["verdict"] == "refuted":
+            path = write_refuted(refuted_root, receipt, date_str="selftest", receipt_path=None)
+            entries = load_refuted(refuted_root)
+            entry = entries[0] if entries else {}
+            required = ("rule_id", "rule_version", "sharing", "owner", "n", "p0", "ci", "by_market_stage", "refuted_at")
+            entry_ok = (
+                len(entries) == 1
+                and entry.get("schema_version") == REFUTED_SCHEMA
+                and all(k in entry for k in required)
+                and sum(b["n"] for b in entry["by_market_stage"]) == entry["n"] == cd.n
+                and entry["ci"]["hi"] < entry["p0"]
+            )
+            detail = f"{path.name} stages={[(b['stage'], b['n'], b['k']) for b in entry.get('by_market_stage', [])]}"
+        record("证伪库：前视对照的 refuted 落条目，字段齐、各阶段 n 之和 = N、区间上界 < p0", entry_ok, detail)
         build_outcomes(source_db, labels_db)
         again = run(labels_db, POSITIVE_RULE)
         record("前视对照：重建 outcomes 后阳性恢复 supported", again.readout.verdict == "supported", again.readout.verdict)
