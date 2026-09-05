@@ -50,6 +50,8 @@ BASE_RULE = {
     },
     "baseline": {"kind": "same_universe_all_days"},
     "min_n": 20,
+    "sharing": "shared",
+    "owner": "system",
 }
 
 
@@ -441,6 +443,348 @@ def test_seed_rules_load_and_stock_seed_targets_stock_universe():
     assert stock.entity_type == "stock" and stock.universe == "limit_high_union"
     assert {p.label for p in stock.predicates} == {"first_board", "new_high_1y"}
     assert stock.success.horizon == 5 and stock.min_n == 20
+    # 种子规则全部共享层、owner=system、来源写明（设计稿 §6 产品约束第一条）
+    for r in rules.values():
+        assert (r.sharing, r.owner) == ("shared", "system") and r.raw.get("source_perspective"), r.ref
+
+
+# --------------------------------------------------------------------------- #
+# 归属层（sharing / owner）白名单
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize(
+    "mutate, path",
+    [
+        (lambda d: d.pop("sharing"), "sharing"),
+        (lambda d: d.__setitem__("sharing", "public"), "sharing"),
+        (lambda d: d.pop("owner"), "owner"),
+        (lambda d: d.__setitem__("owner", "alice"), "owner"),  # shared 必须 system
+        (lambda d: d.update(sharing="private", owner="system"), "owner"),  # private 不能 system
+        (lambda d: d.__setitem__("owner", "a; DROP TABLE x"), "owner"),
+        (lambda d: d.__setitem__("source_perspective", ""), "source_perspective"),
+        (lambda d: d.__setitem__("source_perspective", "x" * 201), "source_perspective"),
+    ],
+)
+def test_sharing_owner_whitelist_rejections(mutate, path):
+    rule, errors = validate_rule(_bad(mutate))
+    assert rule is None and any(e.path == path for e in errors), [str(e) for e in errors]
+
+
+def test_sharing_owner_accepted_and_carried_into_receipt(mini):
+    private = parse_rule({**BASE_RULE, "sharing": "private", "owner": "alice@x"})
+    assert (private.sharing, private.owner) == ("private", "alice@x")
+    shared = parse_rule({**BASE_RULE, "source_perspective": "某 KOL 视角蒸馏"})
+    assert (shared.sharing, shared.owner) == ("shared", "system")
+    con = duckdb.connect(str(mini["labels"]), read_only=True)
+    try:
+        res = run_rule(con, shared)
+    finally:
+        con.close()
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    receipt = build_receipt(res, rule_path=None, rule_sha256=None, environment=env)
+    assert (receipt["sharing"], receipt["owner"]) == ("shared", "system")
+    assert receipt["rule"]["source_perspective"] == "某 KOL 视角蒸馏"
+    md = render_receipt_markdown(receipt)
+    assert "归属 `shared` / owner `system`" in md and "某 KOL 视角蒸馏" in md
+
+
+# --------------------------------------------------------------------------- #
+# 按大盘阶段拆分 + 证伪库
+# --------------------------------------------------------------------------- #
+def test_stage_breakdown_splits_ok_events_by_market_stage(mini):
+    """mini 库：第 0–5 日主升阶段、第 6 日起下跌阶段；双红事件 T+3 已到期的 8 个里 6 个在主升、2 个在下跌。"""
+    doc = copy.deepcopy(BASE_RULE)
+    doc["outcome"]["success"]["horizon"] = 3
+    con = duckdb.connect(str(mini["labels"]), read_only=True)
+    try:
+        res = run_rule(con, parse_rule(doc))
+    finally:
+        con.close()
+    buckets = {b.stage: (b.n, b.k) for b in res.stage_breakdown}
+    assert buckets == {"主升阶段": (6, 5), "下跌阶段": (2, 2)}  # S3 第 4 日双红后三日 -1% 是唯一落空
+    assert sum(b.n for b in res.stage_breakdown) == res.readout.n == 8
+    assert sum(b.k for b in res.stage_breakdown) == res.readout.k == 7
+    assert res.stage_breakdown[0].stage == "主升阶段" and res.stage_breakdown[0].p == pytest.approx(5 / 6)
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    receipt = build_receipt(res, rule_path=None, rule_sha256=None, environment=env)
+    assert [b["stage"] for b in receipt["by_market_stage"]] == ["主升阶段", "下跌阶段"]
+    assert "按大盘阶段拆分" in render_receipt_markdown(receipt)
+
+
+# --------------------------------------------------------------------------- #
+# 按阶段基准率（第五刀）：每桶自己的 p0、规则内阶段族 BH、第三列对照 same_stage_days
+# --------------------------------------------------------------------------- #
+_ENV = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+
+
+def _mini_stage_run(mini, *, min_n: int = 20):
+    doc = copy.deepcopy(BASE_RULE)
+    doc["outcome"]["success"]["horizon"] = 3
+    doc["min_n"] = min_n
+    con = duckdb.connect(str(mini["labels"]), read_only=True)
+    try:
+        return run_rule(con, parse_rule(doc))
+    finally:
+        con.close()
+
+
+def test_stage_buckets_carry_their_own_baseline_exact(mini):
+    """mini 库手算：主升阶段 universe 内 ok 的 (板块, 日) 14 个、12 个为正 → p0=6/7；下跌阶段 9 个、6 个 → p0=2/3。
+    整体 p0=18/23。若阶段过滤被去掉（退化成整体 p0），两桶 p0 都会变成 18/23——这条断言就是那个变异的哨兵。"""
+    res = _mini_stage_run(mini)
+    rd = res.readout
+    assert (rd.baseline_n, rd.baseline_k) == (23, 18) and rd.p0 == pytest.approx(18 / 23)
+    by = {b.stage: b for b in res.stage_breakdown}
+    assert set(by) == {"主升阶段", "下跌阶段"}
+    up, down = by["主升阶段"], by["下跌阶段"]
+    assert (up.n, up.k, up.readout.baseline_n, up.readout.baseline_k) == (6, 5, 14, 12)
+    assert (down.n, down.k, down.readout.baseline_n, down.readout.baseline_k) == (2, 2, 9, 6)
+    assert up.p0 == pytest.approx(6 / 7) and down.p0 == pytest.approx(2 / 3)
+    assert up.p0 != pytest.approx(rd.p0) and down.p0 != pytest.approx(rd.p0) and up.p0 != pytest.approx(down.p0)
+    # 各阶段基准率的 n / k 之和 = 整体基准率的 n / k（同 universe 同窗口，只是分层）
+    assert sum(b.readout.baseline_n for b in res.stage_breakdown) == rd.baseline_n
+    assert sum(b.readout.baseline_k for b in res.stage_breakdown) == rd.baseline_k
+    assert sum(b.n for b in res.stage_breakdown) == rd.n == 8
+    assert up.readout.lift == pytest.approx(5 / 6 - 6 / 7) and down.readout.lift == pytest.approx(1 - 2 / 3)
+    # n < min_n=20 → 阶段级一律 insufficient_n，不进 BH 族
+    assert all(b.verdict == b.readout.verdict == "insufficient_n" and b.adjusted_p is None and not b.rejected for b in res.stage_breakdown)
+    # 第三列对照：p0 = (6·6/7 + 2·2/3) / 8 = 17/21
+    sm = res.baseline_stage_matched
+    assert sm is not None and sm.kind == "same_stage_days" and (sm.n, sm.k) == (23, 18)
+    assert sm.p0 == pytest.approx(17 / 21) and sm.lift == pytest.approx(7 / 8 - 17 / 21)
+    assert sm.verdict_if_used == "insufficient_n"
+
+    receipt = build_receipt(res, rule_path=None, rule_sha256=None, environment=_ENV)
+    for b in receipt["by_market_stage"]:
+        for key in ("p0", "baseline_n", "baseline_k", "lift", "wilson_lo", "wilson_hi", "p_value", "adjusted_p", "verdict_single", "verdict"):
+            assert key in b, key
+    assert receipt["baseline_stage_matched"]["kind"] == "same_stage_days"
+    assert receipt["baseline_stage_matched"]["p0"] == pytest.approx(17 / 21)
+    assert receipt["sql"]["baseline_by_stage"]["sql"].count("?") == len(receipt["sql"]["baseline_by_stage"]["params"])
+    md = render_receipt_markdown(receipt)
+    assert "p0（阶段）" in md and "same_stage_days" in md and "| 主升阶段 | 6 | 5 | 83.3% | 85.7% | -2.4% |" in md
+
+
+def test_stage_baseline_matches_independent_sql(mini):
+    """另写一条不经编译器的 SQL 算各阶段基准率，与 runner 逐桶相等——两条独立路径对账。"""
+    res = _mini_stage_run(mini)
+    start, end = res.baseline_window
+    con = duckdb.connect(str(mini["labels"]), read_only=True)
+    try:
+        rows = con.execute(
+            """
+            WITH u AS (SELECT DISTINCT entity_id, trade_date FROM history_labels WHERE entity_type='sector' AND trade_date BETWEEN ? AND ?)
+            SELECT ms.value_text, COUNT(*), COUNT(*) FILTER (WHERE o.fwd_return > 0)
+            FROM u
+            JOIN history_outcomes o ON o.entity_type='sector' AND o.entity_id=u.entity_id AND o.trade_date=u.trade_date AND o.horizon=3 AND o.status='ok'
+            LEFT JOIN history_labels ms ON ms.entity_type='market' AND ms.entity_id='market' AND ms.label='market_stage' AND ms.trade_date=u.trade_date
+            GROUP BY 1
+            """,
+            [start, end],
+        ).fetchall()
+    finally:
+        con.close()
+    independent = {stage: (n, k) for stage, n, k in rows}
+    assert independent == {b.stage: (b.readout.baseline_n, b.readout.baseline_k) for b in res.stage_breakdown}
+
+
+def test_stage_readouts_bh_within_rule_downgrades_borderline_stage():
+    """纯函数：阶段 A 单次 supported（15/20 对 p0=0.5，双侧 p≈0.041，Wilson lo≈0.53>0.5，两半 8/10、7/10）；
+    单独一个阶段时保住 supported；加进一个不显著的阶段 B（12/20，p≈0.50）后族 m=2，A 的 BH adjusted p≈0.083 > q → 降级。
+    n < min_n 的阶段不进族、不被改写。"""
+    from intelligence.services.methodology_backtest.stats import stage_readouts
+
+    seq_a = [True] * 8 + [False] * 2 + [True] * 7 + [False] * 3
+    seq_b = [True] * 6 + [False] * 4 + [True] * 6 + [False] * 4
+    base = {"A": (1000, 500), "B": (1000, 500), "C": (1000, 500)}
+    alone = stage_readouts({"A": seq_a}, base, min_n=20, q=0.05)
+    assert [(b.stage, b.readout.verdict, b.verdict, b.rejected) for b in alone] == [("A", "supported", "supported", True)]
+    assert alone[0].adjusted_p == pytest.approx(alone[0].readout.p_value)
+
+    both = stage_readouts({"B": seq_b, "A": seq_a, "C": [True, False, True]}, base, min_n=20, q=0.05)
+    by = {b.stage: b for b in both}
+    assert [b.stage for b in both] == ["A", "B", "C"]  # n 降序、同 n 按名
+    assert by["A"].readout.verdict == "supported" and by["A"].verdict == "not_distinguishable" and not by["A"].rejected
+    assert by["A"].adjusted_p == pytest.approx(min(1.0, by["A"].readout.p_value * 2)) and by["A"].adjusted_p > 0.05
+    assert by["B"].readout.verdict == by["B"].verdict == "not_distinguishable"
+    assert by["C"].readout.verdict == by["C"].verdict == "insufficient_n" and by["C"].adjusted_p is None
+    d = by["A"].to_dict()
+    assert d["verdict_single"] == "supported" and d["verdict"] == "not_distinguishable" and d["stage"] == "A" and "verdict" in d
+
+
+def test_stage_matched_p0_weights_by_event_distribution():
+    from intelligence.services.methodology_backtest.stats import stage_matched_p0, stage_readouts
+
+    buckets = stage_readouts({"上": [True] * 6, "下": [True, False]}, {"上": (14, 12), "下": (9, 6)}, min_n=20, q=0.05)
+    assert stage_matched_p0(buckets) == pytest.approx((6 * 6 / 7 + 2 * 2 / 3) / 8)
+    assert stage_matched_p0([]) is None
+    no_base = stage_readouts({"x": [True] * 3}, {}, min_n=20, q=0.05)
+    assert no_base[0].p0 is None and stage_matched_p0(no_base) is None
+
+
+def test_compiler_stage_baseline_sql_parameterized_for_both_kinds():
+    rule = parse_rule(BASE_RULE)
+    compiled = compile_rule(rule, start="2026-01-01", end="2026-12-31")
+    for kind in ("same_universe_all_days", "same_universe_event_days"):
+        q = compiled.baseline_by_stage_for("2026-01-01", "2026-12-31", kind=kind, event_dates=["2026-03-02", "2026-03-03"])
+        assert q.sql.count("?") == len(q.params) and "GROUP BY ms.value_text" in q.sql
+        assert "'market'" not in q.sql and "'market_stage'" not in q.sql  # 大盘标签定位全走绑定参数
+        assert q.params[-3:] == ("market", "market", "market_stage")
+    empty = compiled.baseline_by_stage_for("2026-01-01", "2026-12-31", kind="same_universe_event_days")
+    assert empty.params == () and "WHERE FALSE" in empty.sql
+    with pytest.raises(ValueError):
+        compiled.baseline_by_stage_for("2026-01-01", "2026-12-31", kind="same_stage_days")
+
+
+def test_synthetic_positive_control_supported_in_every_stage_with_own_baseline(synthetic, tmp_path):
+    """合成库阳性对照（120 日 / 12 板块）：五个阶段各自 p=1.0、各自 p0≈0.5；n ≥ min_n 的阶段 supported 且过规则内 BH，
+    n < min_n 的阶段一律 insufficient_n（不因 p=1.0 而升格）；前视夹具翻转后同样按 n 分成 refuted / insufficient_n；
+    证伪库条目与 report 带阶段级 p0 / 结论。"""
+    from intelligence.services.methodology_backtest.receipts import load_refuted, render_refuted_markdown, summarize_refuted_by_stage, write_refuted
+
+    st = synthetic["st"]
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    stages = res.stage_breakdown
+    assert len(stages) == 5 and all(b.p == 1.0 for b in stages)
+    assert all(0.3 < b.p0 < 0.7 for b in stages), [(b.stage, b.p0) for b in stages]
+    big = [b for b in stages if b.n >= 20]
+    small = [b for b in stages if b.n < 20]
+    assert len(big) >= 3 and small, [(b.stage, b.n) for b in stages]
+    assert all(b.readout.verdict == b.verdict == "supported" and b.rejected for b in big)
+    assert all(b.readout.verdict == b.verdict == "insufficient_n" and b.adjusted_p is None for b in small)
+    assert sum(b.readout.baseline_n for b in stages) == res.readout.baseline_n
+    sm = res.baseline_stage_matched
+    assert sm is not None and sm.verdict_if_used == "supported" and sm.lift > 0.3
+
+    shifted = _shifted_labels_db(st, synthetic["src"], tmp_path / "labels-shift.duckdb")
+    bad = st.run(shifted, st.POSITIVE_RULE)
+    assert bad.readout.verdict == "refuted" and all(b.p == 0.0 for b in bad.stage_breakdown)
+    assert {b.verdict for b in bad.stage_breakdown if b.n >= 20} == {"refuted"}
+    assert {b.verdict for b in bad.stage_breakdown if b.n < 20} <= {"insufficient_n"}
+    receipt = build_receipt(bad, rule_path=None, rule_sha256=None, environment=_ENV)
+    root = tmp_path / "refuted"
+    write_refuted(root, receipt, date_str="2026-09-05", receipt_path=None)
+    loaded = load_refuted(root)
+    entry = loaded[0]
+    assert entry["baseline_stage_matched"]["kind"] == "same_stage_days"
+    rows = summarize_refuted_by_stage(loaded)
+    assert all(r["p0_stage"] is not None for r in rows)
+    assert {r["verdict_stage"] for r in rows if r["n"] >= 20} == {"refuted"}
+    md = render_refuted_markdown(loaded)
+    assert "p0（阶段）" in md and "`refuted`" in md
+    # 老条目（没有阶段级字段）仍能汇总渲染
+    legacy = [dict(entry, by_market_stage=[{"stage": "主升阶段", "n": 3, "k": 0, "p": 0.0}])]
+    legacy_rows = summarize_refuted_by_stage(legacy)
+    assert legacy_rows[0]["p0_stage"] is None and legacy_rows[0]["verdict_stage"] is None
+    assert "| — |" in render_refuted_markdown(legacy)
+
+
+def _shifted_labels_db(st, src: Path, path: Path) -> Path:
+    build_labels(src, path)
+    build_outcomes(src, path)
+    assert st.shift_outcomes_one_day_earlier(path) > 0
+    return path
+
+
+def test_refuted_entry_written_only_for_refuted_verdict(synthetic, tmp_path):
+    """前视夹具把阳性对照打成 refuted → 落证伪库，字段齐；supported / not_distinguishable 不落。"""
+    from intelligence.services.methodology_backtest.receipts import (
+        REFUTED_SCHEMA,
+        build_refuted_entry,
+        load_refuted,
+        render_refuted_markdown,
+        summarize_refuted_by_stage,
+        write_refuted,
+    )
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    shifted = _shifted_labels_db(st, synthetic["src"], tmp_path / "labels-shift.duckdb")
+    res = st.run(shifted, st.POSITIVE_RULE)
+    assert res.readout.verdict == "refuted"
+    receipt = build_receipt(res, rule_path="methodology/rules/x.v1.json", rule_sha256=None, environment=env)
+    root = tmp_path / "refuted"
+    assert load_refuted(root) == [] and "证伪库为空" in render_refuted_markdown([])
+    path = write_refuted(root, receipt, date_str="2026-09-04", receipt_path="methodology/receipts/x@v1/2026-09-04.json")
+    assert path == root / "selftest_positive@v1" / "2026-09-04.json"
+    entry = __import__("json").loads(path.read_text(encoding="utf-8"))
+    assert entry["schema_version"] == REFUTED_SCHEMA
+    for key in ("rule_id", "rule_version", "sharing", "owner", "n", "p", "p0", "ci", "by_market_stage", "refuted_at", "receipt_path"):
+        assert key in entry, key
+    assert entry["rule_id"] == "selftest_positive" and entry["rule_version"] == 1 and entry["n"] == res.readout.n
+    assert entry["ci"]["lo"] == res.readout.lo and entry["ci"]["hi"] < entry["p0"]
+    assert entry["by_market_stage"] and sum(b["n"] for b in entry["by_market_stage"]) == entry["n"]
+    assert entry["refuted_at"] == receipt["generated_at"]
+
+    loaded = load_refuted(root)
+    assert len(loaded) == 1 and loaded[0]["_path"] == str(path)
+    rows = summarize_refuted_by_stage(loaded)
+    assert rows and all(r["rule_ref"] == "selftest_positive@v1" and r["p0"] == entry["p0"] for r in rows)
+    assert {r["stage"] for r in rows} == {b["stage"] for b in entry["by_market_stage"]}
+    md = render_refuted_markdown(loaded)
+    assert "selftest_positive@v1" in md and "| 大盘阶段 |" in md
+
+    # 非 refuted 的收据进证伪库 → 拒
+    good = build_receipt(st.run(synthetic["labels"], st.POSITIVE_RULE), rule_path=None, rule_sha256=None, environment=env)
+    assert good["verdict"] == "supported"
+    with pytest.raises(ValueError):
+        build_refuted_entry(good, receipt_path=None)
+    # 坏文件 / 别的 schema 跳过
+    (root / "selftest_positive@v1" / "broken.json").write_text("{", encoding="utf-8")
+    (root / "selftest_positive@v1" / "other.json").write_text('{"schema_version": "x"}', encoding="utf-8")
+    assert len(load_refuted(root)) == 1
+
+
+def test_cli_run_scan_write_refuted_and_report_refuted(synthetic, tmp_path, capsys):
+    cli = _load_script(CLI, "mb_cli_for_pytest_refuted")
+    st = synthetic["st"]
+    shifted = _shifted_labels_db(st, synthetic["src"], tmp_path / "labels-shift.duckdb")
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    pos = rules_dir / "selftest_positive.v1.json"
+    pos.write_text(__import__("json").dumps(st.POSITIVE_RULE, ensure_ascii=False), encoding="utf-8")
+    neg = rules_dir / "selftest_negative.v1.json"
+    neg.write_text(__import__("json").dumps(st.NEGATIVE_RULE, ensure_ascii=False), encoding="utf-8")
+    receipts, refuted = tmp_path / "receipts", tmp_path / "refuted"
+    common = ["--receipts-dir", str(receipts), "--refuted-dir", str(refuted)]
+
+    # 正常库：supported → 有收据、无证伪条目
+    assert cli.main(["run", str(pos), "--labels-db", str(synthetic["labels"]), *common]) == 0
+    assert list((receipts / "selftest_positive@v1").glob("*.json")) and not refuted.exists()
+    # 前视库：refuted → 证伪条目落地；--no-write 不落
+    assert cli.main(["run", str(pos), "--labels-db", str(shifted), *common, "--no-write"]) == 0
+    assert not refuted.exists()
+    assert cli.main(["run", str(pos), "--labels-db", str(shifted), *common]) == 0
+    entries = list((refuted / "selftest_positive@v1").glob("*.json"))
+    assert len(entries) == 1
+    capsys.readouterr()
+    # scan：阳性 refuted（BH 拒绝 H0）落库，阴性不落
+    assert cli.main(["scan", str(pos), str(neg), "--labels-db", str(shifted), *common]) == 0
+    assert not (refuted / "selftest_negative@v1").exists()
+    doc = __import__("json").loads(entries[0].read_text(encoding="utf-8"))
+    assert doc["test_mode"] == "scan" and doc["bh"]["rejected"] is True  # 同日重跑覆盖，最后一次是 scan
+    capsys.readouterr()
+    assert cli.main(["report", "--refuted", "--refuted-dir", str(refuted), "--labels-db", str(tmp_path / "nope.duckdb")]) == 0
+    out = capsys.readouterr().out
+    assert "证伪库 · 1 条规则" in out and "selftest_positive@v1" in out and "| 大盘阶段 |" in out
+    assert cli.main(["report", "--refuted", "--refuted-dir", str(tmp_path / "empty"), "--labels-db", str(tmp_path / "nope.duckdb")]) == 0
+    assert "证伪库为空" in capsys.readouterr().out
+
+
+def test_cli_propose_sharing_defaults_and_shared_owner_rule(synthetic, tmp_path):
+    cli = _load_script(CLI, "mb_cli_for_pytest_propose_sharing")
+    rules_dir = tmp_path / "rules"
+    base = [
+        "propose", "--title", "t", "--entity-type", "sector",
+        "--pred", "dual_red_strict == true", "--success", "fwd_return 5 > 0", "--manual-note", "n", "--rules-dir", str(rules_dir),
+    ]
+    assert cli.main([*base, "--rule-id", "priv_rule", "--user", "alice"]) == 0
+    priv = load_rule(rules_dir / "priv_rule.v1.json")
+    assert (priv.sharing, priv.owner) == ("private", "alice")
+    assert cli.main([*base, "--rule-id", "shared_rule", "--sharing", "shared", "--source-perspective", "系统内置"]) == 0
+    shared = load_rule(rules_dir / "shared_rule.v1.json")
+    assert (shared.sharing, shared.owner, shared.raw["source_perspective"]) == ("shared", "system", "系统内置")
+    assert cli.main([*base, "--rule-id", "bad_shared", "--sharing", "shared", "--owner", "alice"]) == 2
+    assert not (rules_dir / "bad_shared.v1.json").exists()
 
 
 def test_sector_label_semantics(mini):
@@ -845,10 +1189,12 @@ def test_build_rule_doc_validates_and_pins_provenance(tmp_path):
         success=parse_success("fwd_return 5 > 0"),
         horizons=[3, 10],
         provenance=prov,
+        owner="tester",
     )
     assert rule.ref == "dual_red_third_day@v1"
     assert doc["outcome"]["horizons"] == [3, 5, 10]  # success 的窗口自动并入
     assert doc["provenance"]["ref"] == "abc123def456"
+    assert (rule.sharing, rule.owner) == ("private", "tester")  # 纠偏是某人的纠偏，候选默认私有
     path = write_rule_file(tmp_path, doc)
     assert path.name == "dual_red_third_day.v1.json"
     assert load_rule(path).raw["provenance"]["kind"] == "correction"
@@ -858,10 +1204,22 @@ def test_build_rule_doc_validates_and_pins_provenance(tmp_path):
     # 白名单仍然生效：谓词短句语法对但 label 不在白名单 → 带字段路径的校验错
     with pytest.raises(RuleValidationError) as exc:
         build_rule_doc(
-            rule_id="bad_label_rule", title="t", entity_type="sector",
+            rule_id="bad_label_rule", title="t", entity_type="sector", owner="tester",
             predicates=[parse_predicate("sector_close > 0")], success=parse_success("fwd_return 5 > 0"),
         )
     assert any(e.path == "condition.all[0].label" for e in exc.value.errors)
+    # 归属：private 没给 owner 拒；shared 自动 owner=system
+    with pytest.raises(RuleValidationError) as exc:
+        build_rule_doc(
+            rule_id="no_owner", title="t", entity_type="sector",
+            predicates=[parse_predicate("dual_red_strict == true")], success=parse_success("fwd_return 5 > 0"),
+        )
+    assert any(e.path == "owner" for e in exc.value.errors)
+    _, shared = build_rule_doc(
+        rule_id="shared_rule", title="t", entity_type="sector", sharing="shared", source_perspective="某视角",
+        predicates=[parse_predicate("dual_red_strict == true")], success=parse_success("fwd_return 5 > 0"),
+    )
+    assert (shared.sharing, shared.owner, shared.raw["source_perspective"]) == ("shared", "system", "某视角")
     # provenance 本身也过白名单
     rule2, errors = validate_rule({**doc, "rule_id": "prov_bad", "provenance": {"kind": "llm", "sql": "x"}})
     assert rule2 is None and {e.path for e in errors} >= {"provenance.kind", "provenance.sql"}

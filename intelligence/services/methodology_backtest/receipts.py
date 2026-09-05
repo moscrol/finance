@@ -5,6 +5,12 @@
 ``rule_id@version``、N、data_gap 日数、树 / 解释器 / revision / dirty——下一个读者比对条件即可
 决定采信还是重跑，不用重跑一遍来验证。
 
+证伪库（设计稿 §6 BP v0.4 产品约束第二条）：结论为 ``refuted`` 的收据另落一条精简条目到
+``methodology/refuted/<rule_id>@v<version>/<date>.json``（**进 git**——证伪是资产不是副产物，收据目录
+是本机可重建物，条目要跨机器、跨旁路库重建留下来），字段含 rule_id / rule_version / sharing / owner /
+N / p / p0 / ci / 按大盘阶段拆分 / refuted_at / 收据路径。``report --refuted`` 按大盘阶段汇总它。
+scan 模式以 BH 校正后的结论为准：单次 refuted、BH 降级的不落库。
+
 收据**不是**预注册假设：要立案走 ``docs/prediction-ledger.md`` 的 R-号流程，本模块不写那张表。
 """
 
@@ -19,6 +25,8 @@ from .runner import RunResult, ScanResult
 
 RECEIPT_SCHEMA = "methodology-backtest-receipt/v0"
 SCAN_SCHEMA = "methodology-backtest-scan/v0"
+REFUTED_SCHEMA = "methodology-backtest-refuted/v0"
+REFUTED_VERDICT = "refuted"
 
 _VERDICT_CN = {
     "insufficient_n": "样本不足",
@@ -81,9 +89,15 @@ def build_receipt(
             "outcome": rule.raw.get("outcome"),
             "baseline": {"kind": rule.baseline_kind},
             "min_n": rule.min_n,
+            "sharing": rule.sharing,
+            "owner": rule.owner,
+            "source_perspective": rule.raw.get("source_perspective"),
             "notes": rule.raw.get("notes"),
             "provenance": rule.raw.get("provenance"),
         },
+        # 顶层再放一份：渲染层合规硬门按顶层字段判「缺任一即不渲染」，不用钻进 rule 块
+        "sharing": rule.sharing,
+        "owner": rule.owner,
         "window": {"start": result.window[0], "end": result.window[1]},
         "baseline_window": (
             {"start": result.baseline_window[0], "end": result.baseline_window[1]}
@@ -102,11 +116,14 @@ def build_receipt(
         "stats": rd.to_dict(),
         "baseline_kind": rule.baseline_kind,
         "baseline_alt": result.baseline_alt.to_dict() if result.baseline_alt else None,
+        # 第三列对照：按事件阶段分布加权的阶段基准率；同 baseline_alt 一样只对照、不定结论
+        "baseline_stage_matched": result.baseline_stage_matched.to_dict() if result.baseline_stage_matched else None,
         "verdict": verdict,
         "verdict_single": rd.verdict,
         "verdict_label": _VERDICT_CN.get(verdict, verdict),
         "bh": bh,
         "horizons": [h.to_dict() for h in result.horizons],
+        "by_market_stage": [b.to_dict() for b in result.stage_breakdown],
         "conditions": {
             "source_db": result.conditions.get("source_db"),
             "source_max_trade_date": result.conditions.get("source_max_trade_date"),
@@ -144,6 +161,11 @@ def render_receipt_markdown(receipt: dict[str, Any]) -> str:
         f"> 窗口 {receipt['window']['start']} → {receipt['window']['end']}；"
         f"{receipt['multiple_testing_note']}；生成于 {receipt['generated_at']}。"
     )
+    lines.append(
+        f"> 归属 `{receipt.get('sharing')}` / owner `{receipt.get('owner')}`"
+        + (f"，来源 {r['source_perspective']}" if r.get("source_perspective") else "")
+        + "。"
+    )
     if receipt["test_mode"] == "scan" and receipt.get("verdict_single") != receipt["verdict"]:
         lines.append(f"> 单次检验结论为 `{receipt['verdict_single']}`，经 BH 校正降级为 `{receipt['verdict']}`。")
     lines.append("")
@@ -164,6 +186,12 @@ def render_receipt_markdown(receipt: dict[str, Any]) -> str:
         lines.append(
             f"| 对照基准率（`{alt['kind']}`） | {_pct(alt['p0'])}（{alt['k']}/{alt['n']}），lift {_pct(alt['lift'])}，"
             f"若以此定结论 → `{alt['verdict_if_used']}` |"
+        )
+    sm = receipt.get("baseline_stage_matched")
+    if sm:
+        lines.append(
+            f"| 对照基准率（`{sm['kind']}`，按事件阶段分布加权） | {_pct(sm['p0'])}，lift {_pct(sm['lift'])}，"
+            f"若以此定结论 → `{sm['verdict_if_used']}` |"
         )
     lines.append(f"| Wilson 95% | [{_pct(s['wilson_lo'])}, {_pct(s['wilson_hi'])}] |")
     fh, sh = s["first_half"], s["second_half"]
@@ -189,13 +217,29 @@ def render_receipt_markdown(receipt: dict[str, Any]) -> str:
             f"| T+{h['horizon']} | {h['n']} | {_pct(h['win_rate'])} | {_num(h['mean_fwd_return'])} | "
             f"{_num(h['mean_max_return'])} | {_num(h['mean_days_to_peak'], 1)} | {_num(h['mean_drawdown_after_peak'])} |"
         )
+    stages = receipt.get("by_market_stage") or []
+    if stages:
+        lines.append("")
+        lines.append(
+            "## 按大盘阶段拆分（事件日当日 `market_stage`；p0 为该阶段自己的基准率，"
+            f"阶段级结论在规则内按 BH 校正，n < min_n={s['min_n']} 记 insufficient_n）"
+        )
+        lines.append("")
+        lines.append("| 大盘阶段 | n | k | p | p0（阶段） | lift | Wilson 95% | adj p | 结论 |")
+        lines.append("|---|---:|---:|---:|---:|---:|---|---:|---|")
+        for b in stages:
+            lines.append(
+                f"| {b['stage']} | {b['n']} | {b['k']} | {_pct(b.get('p'))} | {_pct(b.get('p0'))} | {_pct(b.get('lift'))} | "
+                f"[{_pct(b.get('wilson_lo'))}, {_pct(b.get('wilson_hi'))}] | {_num(b.get('adjusted_p'), 4)} | "
+                f"`{b.get('verdict', '—')}` |"
+            )
     lines.append("")
     lines.append("## 规则")
     lines.append("")
     lines.append("```json")
     lines.append(
         json.dumps(
-            {k: r[k] for k in ("scope", "condition", "outcome", "baseline", "min_n")},
+            {k: r[k] for k in ("scope", "condition", "outcome", "baseline", "min_n", "sharing", "owner")},
             ensure_ascii=False,
             indent=2,
         )
@@ -284,6 +328,135 @@ def write_receipt(root: str | Path, receipt: dict[str, Any], *, date_str: str) -
     json_path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     md_path.write_text(render_receipt_markdown(receipt), encoding="utf-8")
     return json_path, md_path
+
+
+# --------------------------------------------------------------------------- #
+# 证伪库
+# --------------------------------------------------------------------------- #
+def build_refuted_entry(receipt: dict[str, Any], *, receipt_path: str | None) -> dict[str, Any]:
+    """从一张 ``refuted`` 收据抽精简条目。结论不是 refuted 抛 ValueError——证伪库只收证伪。"""
+    if receipt.get("verdict") != REFUTED_VERDICT:
+        raise ValueError(f"证伪库只收 verdict=refuted 的收据，得到 {receipt.get('verdict')!r}")
+    r = receipt["rule"]
+    s = receipt["stats"]
+    cond = receipt.get("conditions", {})
+    return {
+        "schema_version": REFUTED_SCHEMA,
+        "rule_id": r["rule_id"],
+        "rule_version": r["version"],
+        "rule_ref": r["ref"],
+        "title": r.get("title"),
+        "sharing": receipt.get("sharing"),
+        "owner": receipt.get("owner"),
+        "entity_type": (r.get("scope") or {}).get("entity_type"),
+        "universe": (r.get("scope") or {}).get("universe"),
+        "success": (r.get("outcome") or {}).get("success"),
+        "n": s["n"],
+        "k": s["k"],
+        "p": s["p"],
+        "p0": s["p0"],
+        "baseline_kind": receipt.get("baseline_kind"),
+        "lift": s["lift"],
+        "ci": {"lo": s["wilson_lo"], "hi": s["wilson_hi"], "level": 0.95, "method": "wilson"},
+        "first_half": s.get("first_half"),
+        "second_half": s.get("second_half"),
+        "by_market_stage": receipt.get("by_market_stage") or [],
+        "baseline_stage_matched": receipt.get("baseline_stage_matched"),
+        "test_mode": receipt.get("test_mode"),
+        "exploratory": receipt.get("exploratory"),
+        "bh": receipt.get("bh"),
+        "refuted_at": receipt.get("generated_at"),
+        "window": receipt.get("window"),
+        "baseline_window": receipt.get("baseline_window"),
+        "source_max_trade_date": cond.get("source_max_trade_date"),
+        "label_version": cond.get("label_version"),
+        "revision": (cond.get("environment") or {}).get("revision"),
+        "receipt_path": receipt_path,
+    }
+
+
+def write_refuted(root: str | Path, receipt: dict[str, Any], *, date_str: str, receipt_path: str | None) -> Path:
+    """落 ``<root>/<rule_id>@v<version>/<date>.json``。同日重跑覆盖（与收据同规矩）。"""
+    entry = build_refuted_entry(receipt, receipt_path=receipt_path)
+    folder = Path(root).expanduser() / receipt["rule"]["ref"]
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{date_str}.json"
+    path.write_text(json.dumps(entry, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def load_refuted(root: str | Path) -> list[dict[str, Any]]:
+    """读整个证伪库（schema 不对或坏文件跳过），按 refuted_at 倒序。"""
+    base = Path(root).expanduser()
+    if not base.is_dir():
+        return []
+    out: list[dict[str, Any]] = []
+    for path in sorted(base.glob("*@v*/*.json")):
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(doc, dict) or doc.get("schema_version") != REFUTED_SCHEMA:
+            continue
+        out.append(dict(doc, _path=str(path)))
+    out.sort(key=lambda d: (str(d.get("refuted_at") or ""), d["_path"]), reverse=True)
+    return out
+
+
+def summarize_refuted_by_stage(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """「这个阶段这招不灵」：每条证伪规则的事件按大盘阶段展开成行，同一规则多张条目只取最近一张。
+
+    ``p0_stage`` / ``verdict_stage`` 来自阶段自己的基准率（第五刀起才有；老条目没有这两个键，显示为空）。
+    """
+    latest: dict[str, dict[str, Any]] = {}
+    for e in entries:  # entries 已按 refuted_at 倒序
+        latest.setdefault(e["rule_ref"], e)
+    rows: list[dict[str, Any]] = []
+    for e in latest.values():
+        for b in e.get("by_market_stage") or []:
+            rows.append(
+                {
+                    "stage": b["stage"],
+                    "rule_ref": e["rule_ref"],
+                    "title": e.get("title"),
+                    "n": b["n"],
+                    "k": b["k"],
+                    "p": b.get("p"),
+                    "p0": e.get("p0"),
+                    "p0_stage": b.get("p0"),
+                    "lift_stage": b.get("lift"),
+                    "verdict_stage": b.get("verdict"),
+                    "ci": e.get("ci"),
+                    "refuted_at": e.get("refuted_at"),
+                }
+            )
+    rows.sort(key=lambda r: (r["stage"], -r["n"], r["rule_ref"]))
+    return rows
+
+
+def render_refuted_markdown(entries: list[dict[str, Any]]) -> str:
+    rows = summarize_refuted_by_stage(entries)
+    lines = [f"# 证伪库 · {len({e['rule_ref'] for e in entries})} 条规则 / {len(entries)} 张条目"]
+    lines.append("")
+    if not entries:
+        lines.append("证伪库为空：目前没有任何规则在统计门下被证伪（不可区分 ≠ 证伪）。")
+        return "\n".join(lines) + "\n"
+    lines.append(
+        "> 每条证伪规则按事件日当日大盘阶段展开；p0 是该规则整体 universe 的基准率，p0（阶段）是该阶段自己的基准率，"
+        "阶段级结论已在规则内按 BH 校正（老条目无此两列）。"
+    )
+    lines.append("")
+    lines.append("| 大盘阶段 | 规则 | n | k | p | p0 | p0（阶段） | 阶段结论 | Wilson 95%（整体） | 证伪于 |")
+    lines.append("|---|---|---:|---:|---:|---:|---:|---|---|---|")
+    for r in rows:
+        ci = r.get("ci") or {}
+        vs = r.get("verdict_stage")
+        lines.append(
+            f"| {r['stage']} | `{r['rule_ref']}` | {r['n']} | {r['k']} | {_pct(r.get('p'))} | {_pct(r.get('p0'))} | "
+            f"{_pct(r.get('p0_stage'))} | {f'`{vs}`' if vs else '—'} | "
+            f"[{_pct(ci.get('lo'))}, {_pct(ci.get('hi'))}] | {r.get('refuted_at')} |"
+        )
+    return "\n".join(lines) + "\n"
 
 
 # --------------------------------------------------------------------------- #
