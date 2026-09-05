@@ -124,6 +124,28 @@ CLI 实付档 → `80f6a01e` 报表按新价目表重出 → docs → `9ef40ef5`
   | 合计 | 3 | 0.5980 / 0.6170 / 0.7452 |   ← [0.471,0.598,0.782]
   ```
   全部手算对照（p90 线性插值）钉在 `test_research_cost.py`。
+- **真实新 run 端到端（2026-09-05 15:15，旁路 server，验收第一条不再只有单测）**：按
+  `memory: workbench-canary-side-server` 的配方起 8795 旁路 server——env 直接 `source` 生产启动器前 224 行
+  （不维护第二份清单），只覆盖 `PYTHONPATH` / `WORKBENCH_REPO_ROOT` / `FORESIGHT_USERS_DIR` / 端口，`cd` 到本树；
+  四条防坑检查全过（`address already in use` 0 / PYTHONPATH 是本树 / **cwd 是本树** / RAG·KB env 4 条）。
+  8792 全程未动（前后 health 均 200）。用户目录用临时目录 `~/.finance-runtime/judge-usage-canary-2026-09-05/users`，
+  **不污染生产 run 语料**。一次真实对话（`scripts/smoke_workbench_self_use.py`，75.3s，`smoke outcome: completed`）：
+
+  ```
+  run_20260905_151535_465859
+  outcome.usage      : input 50,458 / output 977（llm_calls 4, tool_calls 3）
+  metrics.judge_usage: {"calls": 1, "input_tokens": 20348, "output_tokens": 1783, "usage_source": "cli"}
+  provider_attempts 5 · semantic_status repaired · outcome.status partial
+  ```
+
+  → **验收第一条成立**：`judge_usage` 存在、`calls=1 ≥ 1`、`usage_source="cli" ∈ {api,cli,estimated}`、
+  `outcome.usage` 写手字段不变。这条**单测覆盖不到**：单测是单线程的，真实 episode 里判官在别处跑，
+  `call_purpose` 那个 ContextVar 传不传得过去只有真跑一次才知道——现在知道了，传得过去。
+  顺带证明加载的是本分支代码：`main` 上根本没有 `judge_usage` 这个键。
+  → 读者链也在真 run 上跑通（报表存 `~/.finance-runtime/judge-usage-canary-2026-09-05/canary-judge-usage.{json,md}`，
+  n=1 的旁路语料**不进仓**）：判官有记账 1 / 未记账 0，**写手 ¥0.4310 + 判官 ¥0.0592 = 合计 ¥0.4902 每次研究**——
+  这是第一个真正的全口径数（判官占 12.1%，与用价目表估的 ~15% 同量级）。n=1 不是 BP 要的统计读数，
+  但「机制通不通」这一问已经答完，剩下的只是上线后攒样本。
 - **报表 · 真实旧 run 目录**（`linxiaoqi5111/runs`，`--since 2026-08-12`，已进仓 `intelligence/eval/measurements/research-cost-2026-09-05.{json,md}`）：
   扫描 495，进统计 **356**（与 BP §7.3 同一集合：均值 48,293 / 1,719 一致；中位 37,389 / 1,398、p90 79,860 / 2,898 与 BP 的
   37,504 / 1,403、79,988 / 2,930 差在分位算法），**判官有记账 0 / 判官未记账（旧格式）356**；写手按实际模型 113 个 GLM run
@@ -133,8 +155,11 @@ CLI 实付档 → `80f6a01e` 报表按新价目表重出 → docs → `9ef40ef5`
 ## 未验证 / 已知边界
 - **工单目标 9 / 验收最后一条（≥ 20 个新 run 真库读数 → 交接 + BP §7.3）本轮做不到**：依赖改动上线后积累数据。BP 未动，
   `【待填：Alpha 期含判官的全口径实测】` 原样。上线后：`python -m intelligence.eval.research_cost --runs-root $FORESIGHT_USERS_DIR/linxiaoqi5111/runs --since <上线日>`。
-- **验收第一条「新 run 的 continuous-episode.json 里 metrics.judge_usage 存在、calls ≥ 1」**只在测试里验过（adapter 全等断言 +
-  `_episode_metrics` 单测），没有真实新 run——同上，需上线。
+  目前手上只有 n=1 的旁路读数（合计 ¥0.4902），**不能当 Alpha 期实测填进 BP**——一个 run 的写手 token（50,458）
+  就比旧语料均值（48,293）高，样本量不足以谈分位。
+- ~~**验收第一条**只在测试里验过，没有真实新 run~~ **已用旁路 server 真跑一次**（见「已验证」段）：
+  `judge_usage={"calls":1,...,"usage_source":"cli"}`。仍未覆盖的是**生产实例**上的行为——旁路 server 与 8792
+  的差别只有代码根 / 用户目录 / 端口，env 同源，但严格说这条对 8792 尚未成立，切流后仍应看一眼第一条新 run。
 - ~~**grok-4.6 价目为 null**~~ **已填（2026-09-05 收尾轮，`7cbe5af6`）**：官方页 `https://docs.x.ai/developers/grok-4-6` 今天可达，
   list = $2.00 / $6.00 每 M（同页 models 注册表 `promptTextTokenPrice=20000` / `completionTextTokenPrice=60000` /
   `cachedPromptTokenPrice=5000`，单位 1e-4 USD 每 M，与页面文字互证）。价目表现在两行：
