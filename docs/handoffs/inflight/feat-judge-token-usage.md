@@ -49,10 +49,15 @@
   `llm_refine.py` 的字段、API 解析、CLI 接线、ContextVar 互相引用，拆开需交互式部分暂存。
 
 ## 当前状态
-代码尖 `80f6a01e`（全量门禁 revision）→ 其后只有 docs 提交（PR #593 head 以 `git log gitea/feat/judge-token-usage -1` 为准）。
+代码尖 = 合并提交 `03259062`（全量门禁 revision，含 `gitea/main` 全部提交）→ 其后只有 docs 提交
+（PR #593 head 以 `git log gitea/feat/judge-token-usage -1` 为准）。
 提交：`d0121126` 记账层 → `af2a0c48` purpose / judge_usage / 契约 → `7f493e5a` research_cost + 价目表 + 台账地图 →
 `a37f43fd` 测试 → `8361b7ac` 首份真实目录报表 → `2ac58896` merge main → docs → **`7cbe5af6` 落 grok 价目 + 默认判官取价改
-CLI 实付档 → `80f6a01e` 报表按新价目表重出**。
+CLI 实付档 → `80f6a01e` 报表按新价目表重出 → docs → `9ef40ef5` 判官取价按 `usage_source` 分路 → `c2780713` 报表重出 →
+`03259062` merge main（#589/#591/#595 那批）**。
+
+合 main 那次唯一冲突是 `docs/learning/ledger-map.md`——双方各自在表尾加了一行（main 加「方法论回测证伪库」、
+本分支加「单次研究成本报表」），两行都留、把 methodology 那行排在同族的收据行之后。`INDEX` 自动合并成功。
 改动面：`intelligence/services/{llm_refine,llm_usage(新),grok_cli_judge,episode_semantic_verifier}.py`、
 `intelligence/runtime/{continuous_turn_adapter,glm_agent_runtime}.py`、`intelligence/eval/{research_cost(新),metric_field_contract}.py`、
 `intelligence/eval/pricing/llm-prices.json`（新）、`intelligence/eval/measurements/research-cost-2026-09-05.{json,md}`（新）、
@@ -76,11 +81,20 @@ CLI 实付档 → `80f6a01e` 报表按新价目表重出**。
 - **变异**：`_post_chat` 的 `token_usage_counts(...)` 改成 `(None, None)` → `test_llm_call_ledger_usage` **4 红**
   （`test_post_chat_records_usage_from_either_naming` ×2、`test_call_purpose_nesting_does_not_leak`、
   `test_verifier_judge_call_is_labelled_judge_end_to_end`），恢复后 30 绿。
-- **合并点全量门禁（2026-09-05 收尾轮）** `bash scripts/run_main_gate.sh` @`80f6a01e` 干净树：**7760 passed / 0 failed /
-  15 skipped / 1 xfailed**，335.7s；收据 `20260905T014007Z-80f6a01e.json`，`check_test_receipt.py --expect-revision
-  $(git rev-parse HEAD) --base-drift-max 5` → **exit 0**（基座漂移 0：分支已含 `gitea/main` 全部提交）。
-  同日先在 PR head `035c38cf`（填价前）跑过一轮：**7758 passed / 0 failed**，收据 `20260905T012327Z-035c38cf.json`，
-  同样 exit 0；两轮 `same_red_set=True`、`passed_non_decreasing=True`，+2 是新增的两条价目表守门测试。
+- **合并点全量门禁（2026-09-05 收尾轮，四轮，全部干净树 + `check_test_receipt --expect-revision` exit 0）**：
+
+  | revision | 读数 | 耗时 | 收据 | 说明 |
+  |---|---|---|---|---|
+  | `035c38cf` | 7758 P / 0 F / 15 S / 1 xfail | 290.7s | `20260905T012327Z-035c38cf.json` | 填价前的 PR head |
+  | `80f6a01e` | 7760 P / 0 F | 335.7s | `20260905T014007Z-80f6a01e.json` | +2 = 价目表两条守门 |
+  | `c2780713` | 7764 P / 0 F | 526.9s | `20260905T020321Z-c2780713.json` | +4 = 取价分路四条 |
+  | **`03259062`** | **7783 P / 0 F** | 562.5s | `20260905T021432Z-03259062.json` | **合 main 后的真合并点**，+19 来自 main 的 #589/#591 |
+
+  相邻两轮全部 `same_red_set=True`、`passed_non_decreasing=True`，基座漂移最终 0（`HEAD..gitea/main` 为空）。
+  后两轮耗时翻倍是同机另一个会话在并跑门禁，不是本单代码变慢。
+  ⚠️ **本树没有 `db/`**：main 的 INDEX #21 行记着 `main@87d731f7` 在主 clone（有真库）上有 1 条存量红
+  `test_conversation_orchestrator::test_completed_stream_persists_human_readable_answer`，本树看不见它。
+  即上表 0 红成立的条件里含「无 `db/` 的 worktree」，不能推广成「主 clone 也 0 红」。
   **下面那轮 9 红已全部消失**——9 条里 7 条当时被归因为知识库仓解析态（`~/knowledge-base-private` 74 条未提交改动，
   今天仍是 74 条、HEAD 仍是 09-02 的 `e4c9a939`，但那些用例现在全绿），2 条本就判为 flaky。即：**那 9 条不是本分支的红，
   且现在整棵树 0 红**；结论「9 红与本单无关」成立，但当时给 7 条写的那个 KB 归因没有被今天的读数证实，只能算未证伪。
@@ -134,8 +148,13 @@ CLI 实付档 → `80f6a01e` 报表按新价目表重出**。
   只钉住「这三个数与 0.00757112 自洽」，钉不住「今天的 CLI 还按这个折扣计费」。
 - **>200k 上下文档未建模**：官方对 grok-4.6 超 200k 上下文翻倍计价（$4 / $12），价目表没有这一档；判官提示词约 2 万 token，
   够不着这道坎，真出现长上下文判官会少算一半。
-- 判官模型名不在产物里，报表按 `--judge-model`（默认 grok-4.6）取价；备胎 API 判官接管的 run 会被按 grok 价算——
-  `judge_usage.usage_source=mixed` 能看出混源，但分不出各自 token。要精确需在 `judge_usage` 里落 model（另单，需读者）。
+- ~~判官模型名不在产物里……备胎 API 判官接管的 run 会被按 grok 价算~~ **已按 `usage_source` 分路**（`9ef40ef5`）：
+  `judge_price_model()` 把 `cli`/`estimated` 归 `--judge-model`、`api` 归新的 `--judge-api-model`、`mixed` 与无来源不定价，
+  不定价的 run 判官成本与合计留空并按 `judge(usage_source=api)` 这样的 key 进 `unpriced_models`。
+  **仍然做不到的**：`mixed` 的 run 分不出主备各自的 token（要精确得在 `judge_usage` 里落 model，另单，需读者）；
+  `api` 那档要报表调用方自己把 `LLM_JUDGE_FALLBACK_MODEL` 的值传进 `--judge-api-model`，读不到 env。
+  现网这条路走不到：`start-finance-workbench` 只导出 `LLM_JUDGE_BACKEND=grok-cli` / `LLM_JUDGE_MODEL=grok-4.6`，
+  **没有 `LLM_JUDGE_FALLBACK_API_KEY`**，`judge_provider_chain()` 退化为单主，上线后新 run 的 `usage_source` 应当都是 `cli`。
 - 缓存命中 token 未单列：grok `input_tokens` 不含 `cache_read`（样本 0.7%），GLM `prompt_tokens` 含 cached——报表统一按输入价算，
   偏差方向是少算缓存那部分。
 - 估算分支只在 CLI payload 无 usage 时触发，当前 grok 1.0.5 / 1.0.13 都带 usage，生产里预期 `estimated_share=0`；若出现 >0 就是
