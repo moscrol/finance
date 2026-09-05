@@ -565,8 +565,9 @@ def cmd_registry_check(_args) -> int:
 
 
 def cmd_money_effect_regime(args) -> int:
-    """赚钱效应 regime（D 档、只读、不落表）：今日/昨日簇名、是否切换、四轴值 vs 分位阈值；
-    ``--replay-since`` 出整段回放，``--cluster-labels`` 给实验目录里的簇标签 JSON 时附一致率与混淆矩阵。"""
+    """赚钱效应 regime（D 档、只读、不落表）：今日/昨日簇名、是否切换、四轴值 vs 冻结阈值；
+    ``--replay-since`` 出整段回放，``--cluster-labels`` 给实验目录里的簇标签 JSON 时附一致率与混淆矩阵；
+    ``--recalibration`` 只出到期检查与建议阈值（不改任何东西，换阈值是人的决定）。"""
     from . import money_effect_regime as mer
     from .market_regime_vectors import load_market_regime_vectors
 
@@ -578,6 +579,24 @@ def cmd_money_effect_regime(args) -> int:
     if not vectors:
         print("fact_market_daily 无数据或不可读", file=sys.stderr)
         return 2
+
+    if args.recalibration:
+        days = mer.available_days(vectors)
+        report = mer.recalibration_report(mer.trailing_windows(days))
+        if args.json:
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0
+        print(f"阈值校准日 {report['calibrated_on']}（样本 {mer.CALIBRATION_SAMPLE}）；"
+              f"此后新增 {report['windows_since_calibration']} 个窗口 / 到期线 {report['due_after_windows']} → "
+              + ("**已到期，建议重校准**" if report["due"] else "未到期"))
+        if report["proposed_thresholds"]:
+            print(f"  若现在按同一组分位在全样本（{report['sample_windows']} 窗口）重取：")
+            for key, d in report["proposed_thresholds"].items():
+                print(f"    {key}: 冻结 {d['frozen']:,.0f} → 建议 {d['proposed']:,.0f}（{d['delta_pct']:+.1f}%）")
+            print("  换阈值要连同新校准日一起改源码与 registry decisions——本命令只报不改。")
+        else:
+            print(f"  样本 {report['sample_windows']} 个窗口 < {mer.CALIBRATION_MIN_WINDOWS}，拒绝在短样本上重校准。")
+        return 0
 
     if args.replay_since:
         labels = None
@@ -1461,6 +1480,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_mer.add_argument("--as-of", default=None, help="截止交易日 YYYY-MM-DD（默认库内最新日）")
     p_mer.add_argument("--json", action="store_true", help="输出 JSON")
     p_mer.add_argument("--replay-since", default=None, metavar="YYYY-MM-DD", help="输出该日起的整段回放统计")
+    p_mer.add_argument("--recalibration", action="store_true",
+                       help="只出阈值重校准到期检查与建议值（不改任何东西）")
     p_mer.add_argument("--cluster-labels", default=None, metavar="PATH",
                        help="实验目录里的簇标签 JSON（{trade_date: 簇名}），配合 --replay-since 出一致率与混淆矩阵")
     p_mer.set_defaults(func=cmd_money_effect_regime)

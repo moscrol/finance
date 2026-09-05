@@ -17,11 +17,20 @@ D 档纯派生：0 请求、只读主库、不落表。k-means 的簇标签只�
     可用日序列有缺口（库里 2026-01~03 没数据）时窗口直接跨过缺口，不补零、不插值。
 
 阈值
-    不写死亿元——同一个 2.2 万亿在牛熊两头含义不同。改为对每个轴取
-    「最近 ``PERCENTILE_LOOKBACK`` 个窗口（含今日）」的经验分位，分位数由 round 2 的绝对阈值
-    在 277 窗口样本上反推一次（``THRESHOLD_QUANTILES``，2026-09-05）。这就是监控里的
-    动态基线（dynamic baseline）：阈值定义在「相对当下的历史」上，代价是基线本身要有窗口与
-    最小样本——不足 ``MIN_HISTORY`` 个窗口时**不出簇名**（fail closed），不用短样本硬算分位。
+    「阈值会随市值漂」有两种标准解法：动态基线（每天按最近 N 个窗口取分位）与定期重校准
+    （冻结绝对值、到期重取）。round 3 两条都试了：动态基线版与簇标签只有 57.8% 一致，
+    而**它不是规则变差，是样本太短**——簇标签用全样本 z 标准化（固定基线），因果分位基线
+    在 2025→2026 单向抬量里必然滞后，且滚动 250 与 lookback=∞ 结果完全相同。
+    277 个窗口不到 lookback 的两倍，动态基线在这段样本上**不可测**。
+
+    所以 round 4（用户选 (1)）取定期重校准：``THRESHOLDS`` 是冻结的绝对值，
+    由 ``THRESHOLD_QUANTILES`` 在校准样本上取一次分位得到（``CALIBRATED_ON`` 那天做的），
+    之后每天照搬同一张表——今天的判定不依赖今天的样本分布，可复现、可回放、可测。
+    代价是它会随市值漂，所以漂移必须**看得见**：距校准日超过 ``RECALIBRATE_AFTER_WINDOWS``
+    个窗口时 ``recalibration_due`` 置位，一路带进 CLI 与日报措辞。
+    到期不是 fail closed——停报会把消费者饿死，而漂移中的标签仍有信息，只是要标明它在漂。
+    重校准动作见 ``recalibration_report``：同一组分位、新样本、重取绝对值，改完把新校准日
+    写进 registry ``decisions``（这是选 (1) 付的账，别省）。
 
 规则
     4 条决策表按序命中，见 ``classify``。
@@ -43,10 +52,10 @@ from typing import Any
 
 from market_feature_store.market_regime_vectors import FEATURES, load_market_regime_vectors
 
-WINDOW = 5                 # trailing 窗口长度（可用交易日数）
-PERCENTILE_LOOKBACK = 250  # 分位阈值的滚动窗口（个窗口，含今日）
-MIN_HISTORY = 60           # 分位阈值至少要这么多个窗口；不足则不出簇名
-DEBOUNCE_DAYS = 2          # 新簇连续 N 日才算切换
+WINDOW = 5                        # trailing 窗口长度（可用交易日数）
+DEBOUNCE_DAYS = 2                 # 新簇连续 N 日才算切换
+RECALIBRATE_AFTER_WINDOWS = 250   # 距校准日超过这么多个窗口 → recalibration_due 置位
+CALIBRATION_MIN_WINDOWS = 60      # 重校准样本下限；不足则拒绝重校准（不拿短样本硬算分位）
 
 # 四簇名（round 2，用户「你来命名，没有异议」）；顺序即决策表命中顺序。
 REGIME_HUGE_ROTATION = "巨量轮动"
@@ -69,7 +78,7 @@ AXIS_LABELS: dict[str, tuple[str, str]] = {
     "max_boards": ("最高连板₅", "板"),
 }
 
-# 分位阈值——**唯一**一份定义。值 = (轴, 分位数)。
+# 校准配方——**唯一**一份分位定义。值 = (轴, 分位数)。重校准时照这张表在新样本上重取绝对值。
 # 分位数由 round 2 冻结的绝对阈值在 277 个 5 日窗口（2025-01-14 ~ 2026-09-02）上反推：
 #   amount_huge  26196 亿 → P78    amount_high  22114 亿 → P59
 #   new_high_low   464 家 → P36    share_high      29 %  → P50    boards_high  6 板 → P75
@@ -80,6 +89,18 @@ THRESHOLD_QUANTILES: dict[str, tuple[str, float]] = {
     "new_high_low": ("new_high_count", 0.36),
     "share_high": ("top1_theme_share", 0.50),
     "boards_high": ("max_boards", 0.75),
+}
+
+# 生产阈值——**唯一**一份绝对值定义，别处（cli / reports / 测试夹具）不得再抄一份数字。
+# 这就是 round 2 冻结的那张表；round 3 的分位反推证明它等价于校准样本上的 P78/P59/P36/P50/P75。
+CALIBRATED_ON = "2026-09-05"
+CALIBRATION_SAMPLE = "2025-01-14 ~ 2026-09-02，277 个 5 日窗口"
+THRESHOLDS: dict[str, float] = {
+    "amount_huge": 26196.0,   # 亿
+    "amount_high": 22114.0,   # 亿
+    "new_high_low": 464.0,    # 家
+    "share_high": 29.0,       # %
+    "boards_high": 6.0,       # 板
 }
 
 # 「可用日」要求非空的维：九维（剔 sh_deviation_pct）。
@@ -136,29 +157,63 @@ def trailing_windows(days: list[dict[str, Any]], window: int = WINDOW) -> list[R
     return out
 
 
-def rolling_thresholds(
+def quantile_thresholds(
     windows: list[RegimeWindow],
-    index: int,
     *,
-    lookback: int = PERCENTILE_LOOKBACK,
-    min_history: int = MIN_HISTORY,
+    min_windows: int = CALIBRATION_MIN_WINDOWS,
 ) -> dict[str, float] | None:
-    """第 index 个窗口的分位阈值：取 [index-lookback+1, index] 的窗口均值算分位。
+    """**校准用**：按 ``THRESHOLD_QUANTILES`` 在给定窗口样本上取分位，得到一张绝对值表。
 
-    样本不足 min_history 个 → None（调用方据此不出簇名）。
+    生产判定不调用它——那条路读冻结的 ``THRESHOLDS``。这里只在重校准（和测试）时跑。
+    样本不足 ``min_windows`` → None（拒绝在短样本上重校准，见模块头「阈值」段）。
     """
-    start = max(0, index - lookback + 1)
-    sample = windows[start : index + 1]
-    if len(sample) < min_history:
+    if len(windows) < min_windows:
         return None
-    thresholds: dict[str, float] = {}
-    for key, (axis, q) in THRESHOLD_QUANTILES.items():
-        thresholds[key] = quantile([w.means[axis] for w in sample], q)
-    return thresholds
+    return {
+        key: quantile([w.means[axis] for w in windows], q)
+        for key, (axis, q) in THRESHOLD_QUANTILES.items()
+    }
+
+
+def windows_since_calibration(windows: list[RegimeWindow], *, calibrated_on: str = CALIBRATED_ON) -> int:
+    """校准日之后新增了多少个窗口。基准是源码里的 ``CALIBRATED_ON`` 常量，不是数据自己派生的
+    「最新日减最早日」——后者在整体停更时会一起停住，测不出漂移。"""
+    return sum(1 for w in windows if w.trade_date > calibrated_on)
+
+
+def recalibration_report(
+    windows: list[RegimeWindow],
+    *,
+    calibrated_on: str = CALIBRATED_ON,
+    due_after: int = RECALIBRATE_AFTER_WINDOWS,
+) -> dict[str, Any]:
+    """到期检查 + 重校准建议值：同一组分位、当前全样本、重取绝对值，并列出与冻结值的偏移。
+
+    只报不改——换阈值要连同新校准日一起写进源码与 registry ``decisions``，那是人的决定。
+    """
+    since = windows_since_calibration(windows, calibrated_on=calibrated_on)
+    proposed = quantile_thresholds(windows)
+    drift: dict[str, dict[str, float]] = {}
+    if proposed is not None:
+        for key, frozen in THRESHOLDS.items():
+            new = proposed[key]
+            drift[key] = {
+                "frozen": frozen,
+                "proposed": round(new, 1),
+                "delta_pct": round((new - frozen) / frozen * 100.0, 1) if frozen else 0.0,
+            }
+    return {
+        "calibrated_on": calibrated_on,
+        "windows_since_calibration": since,
+        "due_after_windows": due_after,
+        "due": since > due_after,
+        "sample_windows": len(windows),
+        "proposed_thresholds": drift or None,
+    }
 
 
 def classify(means: dict[str, float], thresholds: dict[str, float]) -> str:
-    """4 条决策表，按序命中（round 2 冻结的形状，阈值换成分位）。"""
+    """4 条决策表，按序命中（round 2 冻结的形状与阈值）。"""
     amount = means["total_amount"]
     new_high = means["new_high_count"]
     share = means["top1_theme_share"]
@@ -211,24 +266,26 @@ class RegimeDay:
     trade_date: str
     window_dates: tuple[str, ...]
     means: dict[str, float]
-    thresholds: dict[str, float] | None
-    lookback_windows: int
+    thresholds: dict[str, float]
     raw_regime: str | None
     regime: str | None
     prev_regime: str | None
     switched: bool
+    windows_since_calibration: int = 0
+    recalibration_due: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "trade_date": self.trade_date,
             "window_dates": list(self.window_dates),
             "means": dict(self.means),
-            "thresholds": dict(self.thresholds) if self.thresholds is not None else None,
-            "lookback_windows": self.lookback_windows,
+            "thresholds": dict(self.thresholds),
             "raw_regime": self.raw_regime,
             "regime": self.regime,
             "prev_regime": self.prev_regime,
             "switched": self.switched,
+            "windows_since_calibration": self.windows_since_calibration,
+            "recalibration_due": self.recalibration_due,
         }
 
 
@@ -236,39 +293,37 @@ def compute_regime_series(
     vectors: list[dict[str, Any]],
     *,
     window: int = WINDOW,
-    lookback: int = PERCENTILE_LOOKBACK,
-    min_history: int = MIN_HISTORY,
+    thresholds: dict[str, float] | None = None,
     debounce_days: int = DEBOUNCE_DAYS,
+    calibrated_on: str = CALIBRATED_ON,
+    due_after: int = RECALIBRATE_AFTER_WINDOWS,
 ) -> list[RegimeDay]:
-    """整段历史的逐日 regime。每一天只用它之前（含）的数据，所以整段一次算完
-    与逐日 ``as_of`` 截断后各算一次结果相同（测试守着这条）。"""
+    """整段历史的逐日 regime。阈值是冻结常量，**每一天的判定不依赖任何样本统计量**——
+    因此整段一次算完 == 逐日 ``as_of`` 截断各算一次（测试守着这条），回放也可复现。"""
+    table = THRESHOLDS if thresholds is None else thresholds
     days = available_days(vectors)
     windows = trailing_windows(days, window)
-    raw: list[str | None] = []
-    thresholds_by_index: list[dict[str, float] | None] = []
-    lookback_n: list[int] = []
-    for i, w in enumerate(windows):
-        thr = rolling_thresholds(windows, i, lookback=lookback, min_history=min_history)
-        thresholds_by_index.append(thr)
-        lookback_n.append(min(i + 1, lookback))
-        raw.append(classify(w.means, thr) if thr is not None else None)
+    raw: list[str | None] = [classify(w.means, table) for w in windows]
     committed = debounce(raw, debounce_days)
     series: list[RegimeDay] = []
     prev: str | None = None
     for i, w in enumerate(windows):
         regime = committed[i]
         switched = regime is not None and prev is not None and regime != prev
+        # 「校准至今新增了几个窗口」按该日的可见历史算，保持无前视：今天不该知道明天也在漂。
+        since = sum(1 for x in windows[: i + 1] if x.trade_date > calibrated_on)
         series.append(
             RegimeDay(
                 trade_date=w.trade_date,
                 window_dates=w.dates,
                 means=w.means,
-                thresholds=thresholds_by_index[i],
-                lookback_windows=lookback_n[i],
+                thresholds=dict(table),
                 raw_regime=raw[i],
                 regime=regime,
                 prev_regime=prev,
                 switched=switched,
+                windows_since_calibration=since,
+                recalibration_due=since > due_after,
             )
         )
         if regime is not None:
@@ -405,9 +460,11 @@ class RegimeState:
             "forward_facts": self.forward_facts,
             "parameters": {
                 "window": WINDOW,
-                "percentile_lookback": PERCENTILE_LOOKBACK,
-                "min_history": MIN_HISTORY,
                 "debounce_days": DEBOUNCE_DAYS,
+                "calibrated_on": CALIBRATED_ON,
+                "calibration_sample": CALIBRATION_SAMPLE,
+                "recalibrate_after_windows": RECALIBRATE_AFTER_WINDOWS,
+                "thresholds": dict(THRESHOLDS),
                 "threshold_quantiles": {k: {"axis": a, "q": q} for k, (a, q) in THRESHOLD_QUANTILES.items()},
             },
         }
@@ -426,10 +483,8 @@ def regime_state_from_vectors(vectors: list[dict[str, Any]], missing: list[str])
     if not series:
         return _unavailable(f"可用交易日不足 {WINDOW} 天，无法构成窗口")
     today = series[-1]
-    if today.regime is None:
-        return _unavailable(
-            f"分位阈值样本不足：可用窗口 {len(series)} 个 < MIN_HISTORY {MIN_HISTORY}"
-        )
+    # 冻结阈值下每个窗口都判得出簇名（不像分位版会样本不足），这里不再有「样本不足」出口。
+    assert today.regime is not None, "冻结阈值下 regime 不应为 None"
     run_length = 0
     for rd in reversed(series):
         if rd.regime != today.regime:
@@ -462,8 +517,7 @@ def format_axis_value(axis: str, value: float) -> str:
 
 
 def axis_rows(day: RegimeDay) -> list[list[str]]:
-    """日报表格行：轴 / 5 日均值 / 阈值（分位）/ 命中。"""
-    assert day.thresholds is not None
+    """日报表格行：轴 / 5 日均值 / 阈值（冻结绝对值，附它在校准样本上的分位）/ 命中。"""
     hits = rule_hits(day.means, day.thresholds)
     rows: list[list[str]] = []
     for key, (axis, q) in THRESHOLD_QUANTILES.items():
@@ -475,7 +529,7 @@ def axis_rows(day: RegimeDay) -> list[list[str]]:
         rows.append([
             f"{label}（{key}）",
             f"{fmt.format(value)} {unit}",
-            f"{op} P{int(round(q * 100))} = {fmt.format(thr)} {unit}",
+            f"{op} {fmt.format(thr)} {unit}（校准样本 P{int(round(q * 100))}）",
             "命中" if hits[key] else "未命中",
         ])
     return rows
@@ -506,7 +560,17 @@ def one_line(state: RegimeState) -> str:
     axes = "、".join(format_axis_value(a, d.means[a]) for a in AXES)
     return (
         f"赚钱效应状态：**{d.regime}**（连续第 {state.run_length} 个窗口；{axes}；"
-        f"规则阈值为近 {d.lookback_windows} 个窗口的分位，D 档本地派生）"
+        f"规则阈值 {CALIBRATED_ON} 校准、D 档本地派生{recalibration_note(d)}）"
+    )
+
+
+def recalibration_note(day: RegimeDay) -> str:
+    """到期提示。没到期时是空串——不到期就别在每天的日报里念一遍校准制度。"""
+    if not day.recalibration_due:
+        return ""
+    return (
+        f"；⚠ 距校准日已新增 {day.windows_since_calibration} 个窗口"
+        f"（> {RECALIBRATE_AFTER_WINDOWS}），阈值该重校准了，当前簇名按旧基线读"
     )
 
 

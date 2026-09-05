@@ -6,6 +6,7 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 
+from .. import money_effect_regime
 from ..db import PROJECT_DIR, connect
 from ..signals import DOUBLE_RED_SQL
 
@@ -1264,6 +1265,24 @@ def collect_daily_review(con, trade_date: str | None = None, *, out_path: Path, 
     if ma5_wave:
         sentiment_blocks.append(_table_block(["区间", "日期区间", "状态", "MA5区间", "变化"], ma5_wave["rows"], title="涨家数 MA5 波段区间"))
         sentiment_blocks.append(_note(f"**MA5位置**：当前处于 **{ma5_wave['position']}**，趋势为 **{ma5_wave['trend']}**；{ma5_wave['peak_text']}，{ma5_wave['trough_text']}。"))
+    # 赚钱效应 regime（D 档本地派生，只读、不落表）：切换日多说三块，平日一行。
+    # 阈值 2026-09-05 校准、到期提示由模块自己带；这里不复制任何数字。
+    regime_state = money_effect_regime.load_regime_state(con, td)
+    if regime_state.available and regime_state.today is not None:
+        headline = money_effect_regime.switch_headline(regime_state)
+        if headline:
+            sentiment_blocks.append(_note(headline))
+            sentiment_blocks.append(_table_block(
+                ["轴", "5 日均值", "阈值", "命中"],
+                money_effect_regime.axis_rows(regime_state.today),
+                title="赚钱效应规则命中",
+            ))
+            sentiment_blocks.append(_note(money_effect_regime.forward_facts_text(
+                regime_state.today.regime, regime_state.forward_facts)))
+        else:
+            sentiment_blocks.append(_note(money_effect_regime.one_line(regime_state)))
+    else:
+        sentiment_blocks.append(_note(money_effect_regime.one_line(regime_state)))
     sentiment_blocks.append(_conclusion(f"涨家数 {cur_adv.get('advancers', '-')}，MA5 {cur_adv.get('ma5', '-')}；涨停{_change_text(today.get('limit_up'), yesterday.get('limit_up'), '只')}，跌停{_change_text(today.get('limit_down'), yesterday.get('limit_down'), '只')}。"))
     add_section("sentiment", "市场情绪", sentiment_blocks)
 
