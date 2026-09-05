@@ -32,7 +32,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -100,6 +100,10 @@ class RiverSlice:
     entity_name: str
     knowledge_cutoff: str
     tracks: dict[Track, TrackResult]
+    # 本次实体身份经过了跨供应商归一。归一的是**身份**不是**可比性**：
+    # config_sector_alias 的 note 明写「两套口径成分不同，跨切换日数值不可直接比较」。
+    # 跨换源日做数值比较（区间、队列、聚类）的调用方必须自己看这个标记。
+    alias_applied: bool = False
 
     @property
     def gaps(self) -> list[Gap]:
@@ -288,7 +292,11 @@ def _theme_track(con: Any, as_of: str, eid: str, _ename: str) -> TrackResult:
     rows = _rows(
         con,
         """
-        SELECT stock_ts_code, stock_name, limit_status, limit_times, up_stat,
+        -- up_stat_days / up_stat_boards 是 sync 已经解析好的整数（97% 填充），
+        -- 而 up_stat 是原始字符串「1/1」。2026-09-05 审计发现整数列全仓无人读、
+        -- 下游还在解析字符串——这里直接取整数，字符串只作原样留档。
+        SELECT stock_ts_code, stock_name, limit_status, limit_times,
+               up_stat, up_stat_days, up_stat_boards,
                first_limit_time, theme_names_json, leader_plate, amount, updated_at
         FROM fact_theme_limit_stock_daily
         WHERE CAST(trade_date AS DATE) = CAST(? AS DATE) AND sector_ts_code = ?
@@ -587,11 +595,48 @@ def _judgment_track(
 # --------------------------------------------------------------------------- #
 # 联立
 # --------------------------------------------------------------------------- #
-def resolve_entity(con: Any, as_of: str, entity: str) -> tuple[str, str] | None:
-    """把用户给的实体解析成 ``(sector_ts_code, sector_name)``，只做精确匹配。
+@dataclass(frozen=True)
+class EntityRef:
+    """实体在河上的身份。
 
-    接受代码或板块名。解析不出就返回 None——**不做模糊匹配**：三套命名空间之间
-    没有桥接表，猜错会静默串轨，比读不出来更糟。
+    ``canonical_id`` 是跨供应商稳定的主键，``code_on_date`` 是那一天库里真实的代码。
+    两者分开是因为 2026 年换过一次板块数据供应商（同花顺 ``.TI`` → fupanhui ``.FP``），
+    而且**不是一刀切**：实测 ``.TI`` 覆盖 2024-12-25~2026-07-24、``.FP`` 覆盖
+    2025-10-09~2026-09-02，两套重叠九个月，每个板块的切换日还各不相同
+    （2026-07-14 那天「半导体」已是 ``.FP``、「钢铁」还是 ``.TI``）。
+
+    不做这层归一，同一个板块在换源前后就是两个 entity_id，区间与队列查询会把
+    一个板块悄悄劈成两个实体，而断点因板块而异——查不出来也报不出来。
+    """
+
+    canonical_id: str
+    code_on_date: str
+    name: str
+    alias_applied: bool = False
+
+
+def _alias_map(con: Any) -> dict[str, str]:
+    """``config_sector_alias``：旧供应商代码 → 现行代码。
+
+    这张表 2026-09-05 审计时**全仓零引用**（连写入方都没有），但内容是对的：
+    117 条 provider-migration 映射，每条都带 ``confidence`` 与两段覆盖区间。
+    """
+    try:
+        rows = _rows(con, "SELECT alias, sector_ts_code FROM config_sector_alias", [])
+    except Exception:  # 表不存在的老库：退化成不归一，不报错
+        return {}
+    return {str(r["alias"]): str(r["sector_ts_code"]) for r in rows if r["alias"] and r["sector_ts_code"]}
+
+
+def resolve_entity(con: Any, as_of: str, entity: str) -> EntityRef | None:
+    """把用户给的实体解析成跨供应商稳定的身份，只做精确匹配。
+
+    接受代码或板块名。解析不出就返回 None——**不做模糊匹配**：几套命名空间之间
+    没有通用桥接表，猜错会静默串轨，比读不出来更糟。
+
+    ⚠ 归一的是**身份**，不是**可比性**。别名表自己的 note 写着「两套口径成分不同，
+    跨切换日数值不可直接比较」——所以 ``alias_applied`` 会一路带到切片上，
+    跨换源日做数值比较的调用方必须自己看这个标记。
     """
     rows = _rows(
         con,
@@ -604,8 +649,30 @@ def resolve_entity(con: Any, as_of: str, entity: str) -> tuple[str, str] | None:
         [as_of, entity, entity],
     )
     if not rows:
-        return None
-    return str(rows[0]["sector_ts_code"]), str(rows[0]["sector_name"])
+        # 用户给的可能是现行代码，而这一天库里还是旧代码——反查别名表。
+        alias = _alias_map(con)
+        old_codes = [old for old, new in alias.items() if new == entity]
+        for old in sorted(old_codes):
+            rows = _rows(
+                con,
+                """
+                SELECT sector_ts_code, sector_name FROM fact_sector_daily
+                WHERE CAST(trade_date AS DATE) = CAST(? AS DATE) AND sector_ts_code = ?
+                LIMIT 1
+                """,
+                [as_of, old],
+            )
+            if rows:
+                break
+        if not rows:
+            return None
+
+    code = str(rows[0]["sector_ts_code"])
+    name = str(rows[0]["sector_name"])
+    canonical = _alias_map(con).get(code, code)
+    return EntityRef(
+        canonical_id=canonical, code_on_date=code, name=name, alias_applied=canonical != code
+    )
 
 
 def _enforce_cutoff(tracks: dict[Track, TrackResult], cutoff: str) -> dict[Track, TrackResult]:
@@ -664,8 +731,8 @@ def slice_river(
 
     con = duckdb.connect(str(db), read_only=True)
     try:
-        resolved = resolve_entity(con, as_of, entity)
-        if resolved is None:
+        ref = resolve_entity(con, as_of, entity)
+        if ref is None:
             # 实体在这一天解析不出来：六条轨全部是缺口，且原因是同一个。
             # 不回落到「最近一个有该板块的交易日」——那会把切片的 as-of 悄悄挪走。
             reason = f"{as_of} 的板块宇宙里没有「{entity}」（不做模糊匹配）"
@@ -676,7 +743,10 @@ def slice_river(
                 knowledge_cutoff=cutoff,
                 tracks={t: Gap(t, "entity_unresolved", reason) for t in TRACKS},
             )
-        eid, ename = resolved
+        # 各轨用**当天真实的代码**去查（否则查不到行），出来的对象再把 entity_id
+        # 换成跨供应商稳定的 canonical_id。ref 保留当天的代码不动——它指向的是
+        # 那一行真实数据，改了就回溯不过去。
+        eid, ename = ref.code_on_date, ref.name
         tracks: dict[Track, TrackResult] = {
             "market": _market_track(con, as_of, eid, ename),
             "theme": _theme_track(con, as_of, eid, ename),
@@ -687,10 +757,25 @@ def slice_river(
         }
     finally:
         con.close()
+    if ref.alias_applied:
+        tracks = {
+            track: result
+            if isinstance(result, Gap)
+            else [
+                obj if obj.entity_id == "__market__" else replace(obj, entity_id=ref.canonical_id)
+                for obj in result
+            ]
+            for track, result in tracks.items()
+        }
     if require_strict:
         tracks = _enforce_cutoff(tracks, cutoff)
     return RiverSlice(
-        as_of=as_of, entity_id=eid, entity_name=ename, knowledge_cutoff=cutoff, tracks=tracks
+        as_of=as_of,
+        entity_id=ref.canonical_id,
+        entity_name=ref.name,
+        knowledge_cutoff=cutoff,
+        tracks=tracks,
+        alias_applied=ref.alias_applied,
     )
 
 

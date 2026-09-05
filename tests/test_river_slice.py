@@ -159,6 +159,50 @@ def test_判断轨按实体精确匹配_不串轨(checkpoints_file: Path) -> Non
     assert isinstance(other.tracks["judgment"], Gap)
 
 
+def test_实体身份跨供应商换源必须稳定() -> None:
+    """2026 年换过板块数据供应商（.TI → .FP），且不是一刀切：两套代码重叠九个月、
+    每个板块切换日不同。不归一的话，同一个板块在换源前后是两个 entity_id，
+    区间与队列查询会把它悄悄劈成两个实体，而断点因板块而异。"""
+    before = slice_river("2026-03-02", "半导体")
+    after = slice_river("2026-09-02", "半导体")
+    assert before.entity_id == after.entity_id, "跨换源日 entity_id 不一致，河上实体断代了"
+    assert before.alias_applied is True and after.alias_applied is False, (
+        "alias_applied 没如实标记——前提失效则本用例证不了归一行为"
+    )
+    for obj in before.objects:
+        if obj.entity_id != "__market__":
+            assert obj.entity_id == before.entity_id
+
+
+def test_归一的是身份不是可比性() -> None:
+    """别名表自己写着「两套口径成分不同，跨切换日数值不可直接比较」。
+    所以标记必须一路带到切片上，让跨换源日做数值比较的调用方看得见。"""
+    sl = slice_river("2026-03-02", "半导体")
+    assert sl.alias_applied is True
+    assert "alias_applied" in RiverSlice.__dataclass_fields__
+
+
+def test_ref_保留当天真实代码不被归一改写() -> None:
+    """entity_id 归一，但 ref 指向的是那一行真实数据——改了就回溯不过去。"""
+    sl = slice_river("2026-03-02", "半导体")
+    refs = [o.ref for o in sl.objects if o.entity_id != "__market__" and "fact_sector_daily" in o.ref]
+    assert refs, "这一天的盘面轨没有板块量价对象，本用例证不了 ref 行为"
+    assert all(".TI" in r for r in refs), f"ref 被归一改写了：{refs[:2]}"
+
+
+def test_题材轨用已解析的整数而不是字符串(sl: RiverSlice) -> None:
+    """sync 已经把「1/1」解析成 up_stat_days / up_stat_boards 两个整数存好了，
+    2026-09-05 审计发现整数列全仓无人读、下游还在解析字符串。"""
+    theme = sl.tracks["theme"]
+    if isinstance(theme, Gap):
+        pytest.skip(f"{AS_OF} 的「{ENTITY}」当日无涨停成分")
+    for obj in theme:
+        assert "up_stat_days" in obj.payload
+        assert "up_stat_boards" in obj.payload
+        days = obj.payload["up_stat_days"]
+        assert days is None or isinstance(days, int), f"应是整数而不是字符串：{days!r}"
+
+
 def test_六个维度就是终局钦定的那六条(sl: RiverSlice) -> None:
     """初版把「板块」单列、漏了「舆论」，与终局 §3 + F9 对不上。钉死，防再漂。"""
     assert TRACKS == ("market", "theme", "opinion", "capital", "stock", "judgment")
