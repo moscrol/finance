@@ -6,9 +6,9 @@
 - run 数：扫描 495，完成且有写手 usage（进统计） 356；判官有记账 0（其中判官未调用 0），判官未记账（旧格式）356
 - 日期范围：2026-08-12T17:18:00+08:00 → 2026-08-31T23:09:13+08:00；since = 2026-08-12T00:00:00+08:00
 - 估算记录占比（判官调用 run 中 usage_source=estimated 的比例）：0.0%
-- 树 / 解释器 / revision：`/Users/a77/fwp-wt-judge-token-usage` / `/Users/a77/finance-workspace-private/.venv-workbench/bin/python` / `7cbe5af60b38233aade54735f5238c25a3e0b74b`
-- 判官模型按 `grok-4.6-build` 取价（产物不落判官模型名）；写手模型取 report.json.llm.model，缺则 `glm-5.2`
-- 生成时间：2026-09-05T09:33:59+08:00
+- 树 / 解释器 / revision：`/Users/a77/fwp-wt-judge-token-usage` / `/Users/a77/finance-workspace-private/.venv-workbench/bin/python` / `9ef40ef5e2b5020dc845d667cc6ce4757f272e8a`
+- 判官取价按 `usage_source` 分路（产物不落判官模型名）：`cli`/`estimated` → `grok-4.6-build`，`api` → `未给 --judge-api-model，不定价`，`mixed` 不定价；写手模型取 report.json.llm.model，缺则 `glm-5.2`
+- 生成时间：2026-09-05T09:54:15+08:00
 
 ## 每次研究 token（中位 / 均值 / p90）
 

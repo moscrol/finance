@@ -1,6 +1,6 @@
 {
   "schema": "research-cost/v1",
-  "generated_at": "2026-09-05T09:33:59+08:00",
+  "generated_at": "2026-09-05T09:54:15+08:00",
   "runs_root": "/Users/a77/.local/share/finance-workbench/users/linxiaoqi5111/runs",
   "since": "2026-08-12T00:00:00+08:00",
   "date_range": {
@@ -93,6 +93,7 @@
     "contains_estimated": false
   },
   "judge_model_assumed": "grok-4.6-build",
+  "judge_api_model_assumed": null,
   "writer_model_default": "glm-5.2",
   "writer_price_model": null,
   "unpriced_models": {
@@ -154,7 +155,7 @@
   "conditions": {
     "repo_root": "/Users/a77/fwp-wt-judge-token-usage",
     "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
-    "revision": "7cbe5af60b38233aade54735f5238c25a3e0b74b"
+    "revision": "9ef40ef5e2b5020dc845d667cc6ce4757f272e8a"
   },
   "runs": [
     {
