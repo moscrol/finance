@@ -23,8 +23,10 @@ Usage::
   ``estimated_share`` = 估算 run / 判官有记账且 calls ≥ 1 的 run；> 0 时成本列标
   「含估算」——估算值不得与真实值混成一个数而不注明。
 - 元/次：按 ``intelligence/eval/pricing/llm-prices.json`` 折算，写手模型取
-  ``report.json.llm.model``（缺则 ``--writer-model``），判官模型取 ``--judge-model``
-  （产物里不落判官模型名；生产判官 = grok-4.6）。价目表无价（null 或无匹配）的
+  ``report.json.llm.model``（缺则 ``--writer-model``）。判官模型不落进产物，只能按
+  ``usage_source`` 反推走的哪条路（见 ``judge_price_model``）：``cli``/``estimated``
+  用 ``--judge-model``（默认 ``grok-4.6-build``，即生产 grok CLI 的实付档），``api``
+  用 ``--judge-api-model``，``mixed`` 与无来源不定价。价目表无价（null 或无匹配）的
   模型不猜：对应成本列标「价目表未录」，并列出 ``unpriced_models``。
 - 分位数：p90 用线性插值（numpy 默认口径）；中位同。
 """
@@ -130,6 +132,32 @@ def cost_cny(
         (input_tokens or 0) * row.input_cny_per_m
         + (output_tokens or 0) * row.output_cny_per_m
     ) / 1_000_000
+
+
+def judge_price_model(
+    usage_source: str | None,
+    *,
+    judge_model: str | None,
+    judge_api_model: str | None,
+) -> str | None:
+    """按 `judge_usage.usage_source` 决定这个 run 的判官该用哪一行价目。
+
+    判官侧的模型名不落进产物，报表只能按 `usage_source` 反推走的是哪条路：
+
+    - `cli` / `estimated`：grok CLI 主判官。`estimated` 估的是 token 数不是 SKU，
+      仍按 CLI 那档计价（估算标记另有 `estimated_share` 承担）。
+    - `api`：备胎判官，模型由 `LLM_JUDGE_FALLBACK_MODEL` 定（默认 `gpt-4o-mini`，
+      与 grok 无关）——**不给 `--judge-api-model` 就不定价**，宁可少一个数也不按
+      CLI 档硬算（那会把备胎的成本按 grok 折扣价记，且报表看不出异常）。
+    - `mixed`：主备各服务了一部分，`judge_usage` 分不出各自 token，不定价。
+    - None：一条带用量的记录都没有，无从定价。
+    """
+
+    if usage_source in ("cli", "estimated"):
+        return judge_model
+    if usage_source == "api":
+        return judge_api_model
+    return None
 
 
 # ── 单个 run ───────────────────────────────────────────────────────────
@@ -263,6 +291,7 @@ def run_cost_from_dir(
     judge_model: str | None,
     writer_model_default: str | None,
     writer_price_model: str | None = None,
+    judge_api_model: str | None = None,
 ) -> tuple[RunCost | None, str]:
     """返回 (RunCost, 分类)。分类：measured / not_completed / no_episode / writer_unrecorded。
 
@@ -300,7 +329,15 @@ def run_cost_from_dir(
         run.judge_output = _token(judge_usage.get("output_tokens"))
         source = judge_usage.get("usage_source")
         run.judge_source = source if isinstance(source, str) and source else None
-        run.judge_model = judge_model if run.judge_calls else None
+        run.judge_model = (
+            judge_price_model(
+                run.judge_source,
+                judge_model=judge_model,
+                judge_api_model=judge_api_model,
+            )
+            if run.judge_calls
+            else None
+        )
     if not run.writer_measured:
         return run, "writer_unrecorded"
     run.writer_cost = cost_cny(
@@ -310,7 +347,7 @@ def run_cost_from_dir(
     )
     if run.judge_recorded and run.judge_calls:
         run.judge_cost = cost_cny(
-            run.judge_input, run.judge_output, match_price(judge_model, pricing)
+            run.judge_input, run.judge_output, match_price(run.judge_model, pricing)
         )
     return run, "measured"
 
@@ -376,6 +413,7 @@ def aggregate_research_cost(
     judge_model: str | None = DEFAULT_JUDGE_MODEL,
     writer_model_default: str | None = DEFAULT_WRITER_MODEL,
     writer_price_model: str | None = None,
+    judge_api_model: str | None = None,
 ) -> dict[str, Any]:
     cutoff = parse_since(since) if isinstance(since, str) else since
     pricing = load_pricing(pricing_path)
@@ -407,6 +445,7 @@ def aggregate_research_cost(
             judge_model=judge_model,
             writer_model_default=writer_model_default,
             writer_price_model=writer_price_model,
+            judge_api_model=judge_api_model,
         )
         if category == "not_completed":
             counts["runs_not_completed"] += 1
@@ -434,7 +473,9 @@ def aggregate_research_cost(
         if run.judge_source == "mixed":
             counts["judge_mixed_source_runs"] += 1
         if run.judge_cost is None:
-            key = judge_model or "unknown"
+            # 没有价目行时别把它记成 judge_model——那会谎报「grok 未录价」，
+            # 真相是这个 run 的判官压根不是走 CLI 那条路。
+            key = run.judge_model or f"judge(usage_source={run.judge_source or '无'})"
             unpriced[key] = unpriced.get(key, 0) + 1
 
     judge_called = [run for run in measured if run.judge_recorded and run.judge_calls]
@@ -489,6 +530,7 @@ def aggregate_research_cost(
         "tokens": tokens,
         "cost_cny_per_run": cost,
         "judge_model_assumed": judge_model,
+        "judge_api_model_assumed": judge_api_model,
         "writer_model_default": writer_model_default,
         "writer_price_model": writer_price_model,
         "unpriced_models": dict(sorted(unpriced.items())),
@@ -563,7 +605,10 @@ def render_research_cost_markdown(report: dict[str, Any]) -> str:
             f"`{conditions.get('interpreter')}` / `{conditions.get('revision') or '—'}`"
         ),
         (
-            f"- 判官模型按 `{report.get('judge_model_assumed') or '—'}` 取价（产物不落判官模型名）；"
+            f"- 判官取价按 `usage_source` 分路（产物不落判官模型名）："
+            f"`cli`/`estimated` → `{report.get('judge_model_assumed') or '—'}`，"
+            f"`api` → `{report.get('judge_api_model_assumed') or '未给 --judge-api-model，不定价'}`，"
+            f"`mixed` 不定价；"
             f"写手模型取 report.json.llm.model，缺则 `{report.get('writer_model_default') or '—'}`"
             + (
                 f"；**写手成本按 `{report['writer_price_model']}` 价目 what-if 折算**"
@@ -712,7 +757,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--judge-model",
         default=DEFAULT_JUDGE_MODEL,
-        help="判官模型名（用于取价；产物不落判官模型名）",
+        help="CLI 主判官（usage_source=cli/estimated）的取价模型名（产物不落判官模型名）",
+    )
+    parser.add_argument(
+        "--judge-api-model",
+        default=None,
+        help=(
+            "备胎判官（usage_source=api）的取价模型名，取 LLM_JUDGE_FALLBACK_MODEL 的值；"
+            "不给则那些 run 的判官成本不定价，并列进 unpriced_models"
+        ),
     )
     parser.add_argument(
         "--writer-model",
@@ -737,6 +790,7 @@ def main(argv: list[str] | None = None) -> int:
         judge_model=args.judge_model,
         writer_model_default=args.writer_model,
         writer_price_model=args.writer_price_model,
+        judge_api_model=args.judge_api_model,
     )
     today = datetime.now().date().isoformat()
     stem = args.stem or f"research-cost-{today}"

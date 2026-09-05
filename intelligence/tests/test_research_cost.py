@@ -281,6 +281,74 @@ def test_cli_selfreported_cost_reproduces_from_the_build_row() -> None:
     assert abs(cny / fx - 0.00757112) < 5e-7, "反解出的实付价必须与 CLI 自报 costUSD 对得上"
 
 
+def _api_judge_root(tmp_path: Path, source: str) -> tuple[Path, Path]:
+    root = tmp_path / "runs"
+    root.mkdir()
+    _write_run(
+        root,
+        "run_20260901_100000_a",
+        created_at="2026-09-01T10:00:00+08:00",
+        writer=(40_000, 1_000),
+        judge=_judge(1, 20_000, 1_000, source),
+    )
+    pricing = tmp_path / "prices.json"
+    pricing.write_text(json.dumps(PRICING), encoding="utf-8")
+    return root, pricing
+
+
+@pytest.mark.parametrize("source", ["api", "mixed"])
+def test_judge_not_served_by_cli_is_left_unpriced_not_charged_at_the_cli_rate(
+    tmp_path, source: str
+) -> None:
+    """备胎判官 / 主备混源的 run，判官成本必须留空而不是按 CLI 那档硬算。
+
+    `judge_usage` 不落模型名，只有 `usage_source`。备胎判官的模型由
+    `LLM_JUDGE_FALLBACK_MODEL` 决定（默认 gpt-4o-mini），与 grok 无关——按 `--judge-model`
+    的 CLI 实付档给它定价，会得到一个既错又看不出错的数（CLI 档是 list 的 0.17）。
+    """
+
+    root, pricing = _api_judge_root(tmp_path, source)
+    report = research_cost.aggregate_research_cost(
+        root, pricing_path=pricing, judge_model="test-judge"
+    )
+    run = report["runs"][0]
+    assert run["judge_usage_source"] == source
+    assert run["judge_input_tokens"] == 20_000, "token 照记，不定价不等于不计量"
+    assert run["judge_cost_cny"] is None
+    assert run["total_cost_cny"] is None, "判官那截没价，合计不能只报写手那截"
+    assert report["unpriced_models"] == {f"judge(usage_source={source})": 1}
+    assert report["cost_cny_per_run"]["judge"]["n"] == 0
+    # 写手侧不受影响
+    assert run["writer_cost_cny"] == pytest.approx(0.348)
+
+
+def test_api_sourced_judge_prices_from_judge_api_model_when_given(tmp_path) -> None:
+    root, pricing = _api_judge_root(tmp_path, "api")
+    report = research_cost.aggregate_research_cost(
+        root, pricing_path=pricing, judge_model="test-judge", judge_api_model="glm-5.2"
+    )
+    run = report["runs"][0]
+    assert run["judge_model"] == "glm-5.2", "备胎那条路要按备胎的模型取价"
+    # 手算：20,000 × 8/1e6 + 1,000 × 28/1e6 = 0.16 + 0.028
+    assert run["judge_cost_cny"] == pytest.approx(0.188)
+    assert run["total_cost_cny"] == pytest.approx(0.536)
+    assert report["unpriced_models"] == {}
+    assert report["judge_api_model_assumed"] == "glm-5.2"
+
+
+def test_judge_price_model_maps_source_to_row() -> None:
+    """映射本身的真值表——estimated 估的是 token 数不是 SKU，仍走 CLI 那档。"""
+
+    call = lambda src: research_cost.judge_price_model(  # noqa: E731
+        src, judge_model="cli-row", judge_api_model="api-row"
+    )
+    assert call("cli") == "cli-row"
+    assert call("estimated") == "cli-row"
+    assert call("api") == "api-row"
+    assert call("mixed") is None
+    assert call(None) is None
+
+
 def test_judge_no_call_run_counts_zero_judge_cost_in_total(tmp_path) -> None:
     root = tmp_path / "runs"
     root.mkdir()
