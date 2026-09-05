@@ -9,6 +9,8 @@
   个股对照   植入「首板之后 5 个交易日必为正」→ supported；limit_up 事件数更多、命中率更低（二连板窗口为负）
   前视对照   把 outcomes 整体前移一个交易日 → 板块 / 个股两组阳性对照的 supported 都必须消失（翻转或降级）
   证伪库     前视对照打出的 refuted 落 methodology/refuted/ 条目：字段齐、按大盘阶段拆分的 n 之和 = N
+  阶段基准率 每个阶段桶用自己的 p0：各阶段 p0 ≠ 整体 p0（阶段过滤被去掉就红）、n / baseline_n 之和守恒、
+             n ≥ min_n 的阶段各自 supported 且过规则内 BH、第三列对照 same_stage_days 亦 supported
   拒绝夹具   label 不在白名单 / op 为 "; DROP" / value 含 SQL 片段 → 各返回带字段路径的错误，且不触库
   幂等       重跑 build-labels 行数一致；删旁路库重建行数一致；data_gap 日被列出；个股 universe 行数 = 植入并集
 
@@ -359,6 +361,29 @@ def main() -> int:
             rd.n + pos.n_pending == planted["n_events"],
             f"ok={rd.n} pending={pos.n_pending} planted={planted['n_events']}",
         )
+        # 按阶段基准率：各阶段自己的 p0 与整体 p0 不全相等（阶段过滤若被去掉、退化成整体 p0，这里就红），
+        # 各阶段 n 之和 = N、各阶段 baseline_n 之和 = 整体 baseline_n；n ≥ min_n 的阶段各自 supported 且过规则内 BH
+        stages = pos.stage_breakdown
+        stage_p0s = [b.p0 for b in stages if b.p0 is not None]
+        sm = pos.baseline_stage_matched
+        big = [b for b in stages if b.n >= POSITIVE_RULE["min_n"]]
+        record(
+            "按阶段基准率：各阶段 p0 ≠ 整体 p0、n 与 baseline_n 之和守恒、n ≥ min_n 的阶段 supported、第三列 same_stage_days",
+            len(stages) == len(STAGES)
+            and len(stage_p0s) == len(stages)
+            and any(abs(p0 - rd.p0) > 1e-9 for p0 in stage_p0s)
+            and len(set(round(p0, 9) for p0 in stage_p0s)) > 1
+            and sum(b.n for b in stages) == rd.n
+            and sum(b.readout.baseline_n for b in stages) == rd.baseline_n
+            and sum(b.readout.baseline_k for b in stages) == rd.baseline_k
+            and big
+            and all(b.verdict == "supported" and b.rejected for b in big)
+            and sm is not None
+            and sm.kind == "same_stage_days"
+            and sm.verdict_if_used == "supported",
+            f"stages={[(b.stage, b.n, round(b.p0, 3) if b.p0 is not None else None, b.verdict) for b in stages]} "
+            f"overall p0={rd.p0:.3f} stage_matched p0={sm.p0:.3f}" if sm and sm.p0 is not None and rd.p0 is not None else f"stages={len(stages)}",
+        )
 
         neg = run(labels_db, NEGATIVE_RULE)
         nd = neg.readout
@@ -424,6 +449,8 @@ def main() -> int:
                 and all(k in entry for k in required)
                 and sum(b["n"] for b in entry["by_market_stage"]) == entry["n"] == cd.n
                 and entry["ci"]["hi"] < entry["p0"]
+                and all("p0" in b and "verdict" in b for b in entry["by_market_stage"])
+                and (entry.get("baseline_stage_matched") or {}).get("kind") == "same_stage_days"
             )
             detail = f"{path.name} stages={[(b['stage'], b['n'], b['k']) for b in entry.get('by_market_stage', [])]}"
         record("证伪库：前视对照的 refuted 落条目，字段齐、各阶段 n 之和 = N、区间上界 < p0", entry_ok, detail)

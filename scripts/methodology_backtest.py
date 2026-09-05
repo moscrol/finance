@@ -234,6 +234,14 @@ def _print_readout(res, verdict_bh: str | None = None) -> None:
     if verdict_bh is not None and verdict_bh != rd.verdict:
         line += f" (BH: {verdict_bh})"
     print(line)
+    # 阶段级结论只报「有结论」的桶（supported / refuted，已过规则内 BH）；全部不可区分或样本不足就不占行
+    decided = [b for b in res.stage_breakdown if b.verdict in ("supported", "refuted")]
+    if decided:
+        parts = [f"{b.stage} n={b.n} p={fmt(b.p)} p0={fmt(b.p0)} → {b.verdict}" for b in decided]
+        print(f"{'':<4}按阶段（各自基准率，规则内 BH）: " + "; ".join(parts))
+    sm = res.baseline_stage_matched
+    if sm is not None and sm.verdict_if_used != rd.verdict:
+        print(f"{'':<4}对照 same_stage_days: p0={fmt(sm.p0)} lift={fmt(sm.lift)} → 若以此定结论 {sm.verdict_if_used}")
 
 
 def _rel(path: Path) -> str:

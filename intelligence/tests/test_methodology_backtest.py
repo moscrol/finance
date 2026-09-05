@@ -510,6 +510,174 @@ def test_stage_breakdown_splits_ok_events_by_market_stage(mini):
     assert "按大盘阶段拆分" in render_receipt_markdown(receipt)
 
 
+# --------------------------------------------------------------------------- #
+# 按阶段基准率（第五刀）：每桶自己的 p0、规则内阶段族 BH、第三列对照 same_stage_days
+# --------------------------------------------------------------------------- #
+_ENV = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+
+
+def _mini_stage_run(mini, *, min_n: int = 20):
+    doc = copy.deepcopy(BASE_RULE)
+    doc["outcome"]["success"]["horizon"] = 3
+    doc["min_n"] = min_n
+    con = duckdb.connect(str(mini["labels"]), read_only=True)
+    try:
+        return run_rule(con, parse_rule(doc))
+    finally:
+        con.close()
+
+
+def test_stage_buckets_carry_their_own_baseline_exact(mini):
+    """mini 库手算：主升阶段 universe 内 ok 的 (板块, 日) 14 个、12 个为正 → p0=6/7；下跌阶段 9 个、6 个 → p0=2/3。
+    整体 p0=18/23。若阶段过滤被去掉（退化成整体 p0），两桶 p0 都会变成 18/23——这条断言就是那个变异的哨兵。"""
+    res = _mini_stage_run(mini)
+    rd = res.readout
+    assert (rd.baseline_n, rd.baseline_k) == (23, 18) and rd.p0 == pytest.approx(18 / 23)
+    by = {b.stage: b for b in res.stage_breakdown}
+    assert set(by) == {"主升阶段", "下跌阶段"}
+    up, down = by["主升阶段"], by["下跌阶段"]
+    assert (up.n, up.k, up.readout.baseline_n, up.readout.baseline_k) == (6, 5, 14, 12)
+    assert (down.n, down.k, down.readout.baseline_n, down.readout.baseline_k) == (2, 2, 9, 6)
+    assert up.p0 == pytest.approx(6 / 7) and down.p0 == pytest.approx(2 / 3)
+    assert up.p0 != pytest.approx(rd.p0) and down.p0 != pytest.approx(rd.p0) and up.p0 != pytest.approx(down.p0)
+    # 各阶段基准率的 n / k 之和 = 整体基准率的 n / k（同 universe 同窗口，只是分层）
+    assert sum(b.readout.baseline_n for b in res.stage_breakdown) == rd.baseline_n
+    assert sum(b.readout.baseline_k for b in res.stage_breakdown) == rd.baseline_k
+    assert sum(b.n for b in res.stage_breakdown) == rd.n == 8
+    assert up.readout.lift == pytest.approx(5 / 6 - 6 / 7) and down.readout.lift == pytest.approx(1 - 2 / 3)
+    # n < min_n=20 → 阶段级一律 insufficient_n，不进 BH 族
+    assert all(b.verdict == b.readout.verdict == "insufficient_n" and b.adjusted_p is None and not b.rejected for b in res.stage_breakdown)
+    # 第三列对照：p0 = (6·6/7 + 2·2/3) / 8 = 17/21
+    sm = res.baseline_stage_matched
+    assert sm is not None and sm.kind == "same_stage_days" and (sm.n, sm.k) == (23, 18)
+    assert sm.p0 == pytest.approx(17 / 21) and sm.lift == pytest.approx(7 / 8 - 17 / 21)
+    assert sm.verdict_if_used == "insufficient_n"
+
+    receipt = build_receipt(res, rule_path=None, rule_sha256=None, environment=_ENV)
+    for b in receipt["by_market_stage"]:
+        for key in ("p0", "baseline_n", "baseline_k", "lift", "wilson_lo", "wilson_hi", "p_value", "adjusted_p", "verdict_single", "verdict"):
+            assert key in b, key
+    assert receipt["baseline_stage_matched"]["kind"] == "same_stage_days"
+    assert receipt["baseline_stage_matched"]["p0"] == pytest.approx(17 / 21)
+    assert receipt["sql"]["baseline_by_stage"]["sql"].count("?") == len(receipt["sql"]["baseline_by_stage"]["params"])
+    md = render_receipt_markdown(receipt)
+    assert "p0（阶段）" in md and "same_stage_days" in md and "| 主升阶段 | 6 | 5 | 83.3% | 85.7% | -2.4% |" in md
+
+
+def test_stage_baseline_matches_independent_sql(mini):
+    """另写一条不经编译器的 SQL 算各阶段基准率，与 runner 逐桶相等——两条独立路径对账。"""
+    res = _mini_stage_run(mini)
+    start, end = res.baseline_window
+    con = duckdb.connect(str(mini["labels"]), read_only=True)
+    try:
+        rows = con.execute(
+            """
+            WITH u AS (SELECT DISTINCT entity_id, trade_date FROM history_labels WHERE entity_type='sector' AND trade_date BETWEEN ? AND ?)
+            SELECT ms.value_text, COUNT(*), COUNT(*) FILTER (WHERE o.fwd_return > 0)
+            FROM u
+            JOIN history_outcomes o ON o.entity_type='sector' AND o.entity_id=u.entity_id AND o.trade_date=u.trade_date AND o.horizon=3 AND o.status='ok'
+            LEFT JOIN history_labels ms ON ms.entity_type='market' AND ms.entity_id='market' AND ms.label='market_stage' AND ms.trade_date=u.trade_date
+            GROUP BY 1
+            """,
+            [start, end],
+        ).fetchall()
+    finally:
+        con.close()
+    independent = {stage: (n, k) for stage, n, k in rows}
+    assert independent == {b.stage: (b.readout.baseline_n, b.readout.baseline_k) for b in res.stage_breakdown}
+
+
+def test_stage_readouts_bh_within_rule_downgrades_borderline_stage():
+    """纯函数：阶段 A 单次 supported（15/20 对 p0=0.5，双侧 p≈0.041，Wilson lo≈0.53>0.5，两半 8/10、7/10）；
+    单独一个阶段时保住 supported；加进一个不显著的阶段 B（12/20，p≈0.50）后族 m=2，A 的 BH adjusted p≈0.083 > q → 降级。
+    n < min_n 的阶段不进族、不被改写。"""
+    from intelligence.services.methodology_backtest.stats import stage_readouts
+
+    seq_a = [True] * 8 + [False] * 2 + [True] * 7 + [False] * 3
+    seq_b = [True] * 6 + [False] * 4 + [True] * 6 + [False] * 4
+    base = {"A": (1000, 500), "B": (1000, 500), "C": (1000, 500)}
+    alone = stage_readouts({"A": seq_a}, base, min_n=20, q=0.05)
+    assert [(b.stage, b.readout.verdict, b.verdict, b.rejected) for b in alone] == [("A", "supported", "supported", True)]
+    assert alone[0].adjusted_p == pytest.approx(alone[0].readout.p_value)
+
+    both = stage_readouts({"B": seq_b, "A": seq_a, "C": [True, False, True]}, base, min_n=20, q=0.05)
+    by = {b.stage: b for b in both}
+    assert [b.stage for b in both] == ["A", "B", "C"]  # n 降序、同 n 按名
+    assert by["A"].readout.verdict == "supported" and by["A"].verdict == "not_distinguishable" and not by["A"].rejected
+    assert by["A"].adjusted_p == pytest.approx(min(1.0, by["A"].readout.p_value * 2)) and by["A"].adjusted_p > 0.05
+    assert by["B"].readout.verdict == by["B"].verdict == "not_distinguishable"
+    assert by["C"].readout.verdict == by["C"].verdict == "insufficient_n" and by["C"].adjusted_p is None
+    d = by["A"].to_dict()
+    assert d["verdict_single"] == "supported" and d["verdict"] == "not_distinguishable" and d["stage"] == "A" and "verdict" in d
+
+
+def test_stage_matched_p0_weights_by_event_distribution():
+    from intelligence.services.methodology_backtest.stats import stage_matched_p0, stage_readouts
+
+    buckets = stage_readouts({"上": [True] * 6, "下": [True, False]}, {"上": (14, 12), "下": (9, 6)}, min_n=20, q=0.05)
+    assert stage_matched_p0(buckets) == pytest.approx((6 * 6 / 7 + 2 * 2 / 3) / 8)
+    assert stage_matched_p0([]) is None
+    no_base = stage_readouts({"x": [True] * 3}, {}, min_n=20, q=0.05)
+    assert no_base[0].p0 is None and stage_matched_p0(no_base) is None
+
+
+def test_compiler_stage_baseline_sql_parameterized_for_both_kinds():
+    rule = parse_rule(BASE_RULE)
+    compiled = compile_rule(rule, start="2026-01-01", end="2026-12-31")
+    for kind in ("same_universe_all_days", "same_universe_event_days"):
+        q = compiled.baseline_by_stage_for("2026-01-01", "2026-12-31", kind=kind, event_dates=["2026-03-02", "2026-03-03"])
+        assert q.sql.count("?") == len(q.params) and "GROUP BY ms.value_text" in q.sql
+        assert "'market'" not in q.sql and "'market_stage'" not in q.sql  # 大盘标签定位全走绑定参数
+        assert q.params[-3:] == ("market", "market", "market_stage")
+    empty = compiled.baseline_by_stage_for("2026-01-01", "2026-12-31", kind="same_universe_event_days")
+    assert empty.params == () and "WHERE FALSE" in empty.sql
+    with pytest.raises(ValueError):
+        compiled.baseline_by_stage_for("2026-01-01", "2026-12-31", kind="same_stage_days")
+
+
+def test_synthetic_positive_control_supported_in_every_stage_with_own_baseline(synthetic, tmp_path):
+    """合成库阳性对照（120 日 / 12 板块）：五个阶段各自 p=1.0、各自 p0≈0.5；n ≥ min_n 的阶段 supported 且过规则内 BH，
+    n < min_n 的阶段一律 insufficient_n（不因 p=1.0 而升格）；前视夹具翻转后同样按 n 分成 refuted / insufficient_n；
+    证伪库条目与 report 带阶段级 p0 / 结论。"""
+    from intelligence.services.methodology_backtest.receipts import load_refuted, render_refuted_markdown, summarize_refuted_by_stage, write_refuted
+
+    st = synthetic["st"]
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    stages = res.stage_breakdown
+    assert len(stages) == 5 and all(b.p == 1.0 for b in stages)
+    assert all(0.3 < b.p0 < 0.7 for b in stages), [(b.stage, b.p0) for b in stages]
+    big = [b for b in stages if b.n >= 20]
+    small = [b for b in stages if b.n < 20]
+    assert len(big) >= 3 and small, [(b.stage, b.n) for b in stages]
+    assert all(b.readout.verdict == b.verdict == "supported" and b.rejected for b in big)
+    assert all(b.readout.verdict == b.verdict == "insufficient_n" and b.adjusted_p is None for b in small)
+    assert sum(b.readout.baseline_n for b in stages) == res.readout.baseline_n
+    sm = res.baseline_stage_matched
+    assert sm is not None and sm.verdict_if_used == "supported" and sm.lift > 0.3
+
+    shifted = _shifted_labels_db(st, synthetic["src"], tmp_path / "labels-shift.duckdb")
+    bad = st.run(shifted, st.POSITIVE_RULE)
+    assert bad.readout.verdict == "refuted" and all(b.p == 0.0 for b in bad.stage_breakdown)
+    assert {b.verdict for b in bad.stage_breakdown if b.n >= 20} == {"refuted"}
+    assert {b.verdict for b in bad.stage_breakdown if b.n < 20} <= {"insufficient_n"}
+    receipt = build_receipt(bad, rule_path=None, rule_sha256=None, environment=_ENV)
+    root = tmp_path / "refuted"
+    write_refuted(root, receipt, date_str="2026-09-05", receipt_path=None)
+    loaded = load_refuted(root)
+    entry = loaded[0]
+    assert entry["baseline_stage_matched"]["kind"] == "same_stage_days"
+    rows = summarize_refuted_by_stage(loaded)
+    assert all(r["p0_stage"] is not None for r in rows)
+    assert {r["verdict_stage"] for r in rows if r["n"] >= 20} == {"refuted"}
+    md = render_refuted_markdown(loaded)
+    assert "p0（阶段）" in md and "`refuted`" in md
+    # 老条目（没有阶段级字段）仍能汇总渲染
+    legacy = [dict(entry, by_market_stage=[{"stage": "主升阶段", "n": 3, "k": 0, "p": 0.0}])]
+    legacy_rows = summarize_refuted_by_stage(legacy)
+    assert legacy_rows[0]["p0_stage"] is None and legacy_rows[0]["verdict_stage"] is None
+    assert "| — |" in render_refuted_markdown(legacy)
+
+
 def _shifted_labels_db(st, src: Path, path: Path) -> Path:
     build_labels(src, path)
     build_outcomes(src, path)

@@ -116,6 +116,8 @@ def build_receipt(
         "stats": rd.to_dict(),
         "baseline_kind": rule.baseline_kind,
         "baseline_alt": result.baseline_alt.to_dict() if result.baseline_alt else None,
+        # 第三列对照：按事件阶段分布加权的阶段基准率；同 baseline_alt 一样只对照、不定结论
+        "baseline_stage_matched": result.baseline_stage_matched.to_dict() if result.baseline_stage_matched else None,
         "verdict": verdict,
         "verdict_single": rd.verdict,
         "verdict_label": _VERDICT_CN.get(verdict, verdict),
@@ -185,6 +187,12 @@ def render_receipt_markdown(receipt: dict[str, Any]) -> str:
             f"| 对照基准率（`{alt['kind']}`） | {_pct(alt['p0'])}（{alt['k']}/{alt['n']}），lift {_pct(alt['lift'])}，"
             f"若以此定结论 → `{alt['verdict_if_used']}` |"
         )
+    sm = receipt.get("baseline_stage_matched")
+    if sm:
+        lines.append(
+            f"| 对照基准率（`{sm['kind']}`，按事件阶段分布加权） | {_pct(sm['p0'])}，lift {_pct(sm['lift'])}，"
+            f"若以此定结论 → `{sm['verdict_if_used']}` |"
+        )
     lines.append(f"| Wilson 95% | [{_pct(s['wilson_lo'])}, {_pct(s['wilson_hi'])}] |")
     fh, sh = s["first_half"], s["second_half"]
     lines.append(f"| 前半段 / 后半段 | {_pct(fh['p'])}（{fh['k']}/{fh['n']}） / {_pct(sh['p'])}（{sh['k']}/{sh['n']}） |")
@@ -212,13 +220,19 @@ def render_receipt_markdown(receipt: dict[str, Any]) -> str:
     stages = receipt.get("by_market_stage") or []
     if stages:
         lines.append("")
-        lines.append("## 按大盘阶段拆分（事件日当日 `market_stage`；p0 是整体基准，各阶段只看方向，不单独定结论）")
+        lines.append(
+            "## 按大盘阶段拆分（事件日当日 `market_stage`；p0 为该阶段自己的基准率，"
+            f"阶段级结论在规则内按 BH 校正，n < min_n={s['min_n']} 记 insufficient_n）"
+        )
         lines.append("")
-        lines.append("| 大盘阶段 | n | k | p | p − p0 |")
-        lines.append("|---|---:|---:|---:|---:|")
+        lines.append("| 大盘阶段 | n | k | p | p0（阶段） | lift | Wilson 95% | adj p | 结论 |")
+        lines.append("|---|---:|---:|---:|---:|---:|---|---:|---|")
         for b in stages:
-            diff = (b["p"] - s["p0"]) if (b.get("p") is not None and s.get("p0") is not None) else None
-            lines.append(f"| {b['stage']} | {b['n']} | {b['k']} | {_pct(b.get('p'))} | {_pct(diff)} |")
+            lines.append(
+                f"| {b['stage']} | {b['n']} | {b['k']} | {_pct(b.get('p'))} | {_pct(b.get('p0'))} | {_pct(b.get('lift'))} | "
+                f"[{_pct(b.get('wilson_lo'))}, {_pct(b.get('wilson_hi'))}] | {_num(b.get('adjusted_p'), 4)} | "
+                f"`{b.get('verdict', '—')}` |"
+            )
     lines.append("")
     lines.append("## 规则")
     lines.append("")
@@ -347,6 +361,7 @@ def build_refuted_entry(receipt: dict[str, Any], *, receipt_path: str | None) ->
         "first_half": s.get("first_half"),
         "second_half": s.get("second_half"),
         "by_market_stage": receipt.get("by_market_stage") or [],
+        "baseline_stage_matched": receipt.get("baseline_stage_matched"),
         "test_mode": receipt.get("test_mode"),
         "exploratory": receipt.get("exploratory"),
         "bh": receipt.get("bh"),
@@ -389,7 +404,10 @@ def load_refuted(root: str | Path) -> list[dict[str, Any]]:
 
 
 def summarize_refuted_by_stage(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """「这个阶段这招不灵」：每条证伪规则的事件按大盘阶段展开成行，同一规则多张条目只取最近一张。"""
+    """「这个阶段这招不灵」：每条证伪规则的事件按大盘阶段展开成行，同一规则多张条目只取最近一张。
+
+    ``p0_stage`` / ``verdict_stage`` 来自阶段自己的基准率（第五刀起才有；老条目没有这两个键，显示为空）。
+    """
     latest: dict[str, dict[str, Any]] = {}
     for e in entries:  # entries 已按 refuted_at 倒序
         latest.setdefault(e["rule_ref"], e)
@@ -405,6 +423,9 @@ def summarize_refuted_by_stage(entries: list[dict[str, Any]]) -> list[dict[str, 
                     "k": b["k"],
                     "p": b.get("p"),
                     "p0": e.get("p0"),
+                    "p0_stage": b.get("p0"),
+                    "lift_stage": b.get("lift"),
+                    "verdict_stage": b.get("verdict"),
                     "ci": e.get("ci"),
                     "refuted_at": e.get("refuted_at"),
                 }
@@ -420,14 +441,19 @@ def render_refuted_markdown(entries: list[dict[str, Any]]) -> str:
     if not entries:
         lines.append("证伪库为空：目前没有任何规则在统计门下被证伪（不可区分 ≠ 证伪）。")
         return "\n".join(lines) + "\n"
-    lines.append("> 每条证伪规则按事件日当日大盘阶段展开；p0 是该规则整体 universe 的基准率，各阶段 p 与它比只看方向。")
+    lines.append(
+        "> 每条证伪规则按事件日当日大盘阶段展开；p0 是该规则整体 universe 的基准率，p0（阶段）是该阶段自己的基准率，"
+        "阶段级结论已在规则内按 BH 校正（老条目无此两列）。"
+    )
     lines.append("")
-    lines.append("| 大盘阶段 | 规则 | n | k | p | p0 | Wilson 95%（整体） | 证伪于 |")
-    lines.append("|---|---|---:|---:|---:|---:|---|---|")
+    lines.append("| 大盘阶段 | 规则 | n | k | p | p0 | p0（阶段） | 阶段结论 | Wilson 95%（整体） | 证伪于 |")
+    lines.append("|---|---|---:|---:|---:|---:|---:|---|---|---|")
     for r in rows:
         ci = r.get("ci") or {}
+        vs = r.get("verdict_stage")
         lines.append(
             f"| {r['stage']} | `{r['rule_ref']}` | {r['n']} | {r['k']} | {_pct(r.get('p'))} | {_pct(r.get('p0'))} | "
+            f"{_pct(r.get('p0_stage'))} | {f'`{vs}`' if vs else '—'} | "
             f"[{_pct(ci.get('lo'))}, {_pct(ci.get('hi'))}] | {r.get('refuted_at')} |"
         )
     return "\n".join(lines) + "\n"
