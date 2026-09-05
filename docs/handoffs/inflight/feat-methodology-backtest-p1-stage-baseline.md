@@ -1,5 +1,17 @@
 # feat/methodology-backtest-p1-stage-baseline
 
+**状态：已合入（2026-09-05）。** PR #591 → `gitea/main@87d731f7`，在 #589（→ `gitea/main@9bd0efd7`）之后合。
+「下一步 1」预设的「本树先 merge 再开 PR」没有发生也不需要：#589 一合，#591 的 diff 自动从 16 文件缩到
+**8 文件 +591/−68**（只剩第五刀），gitea 对合并后的 main 直接判 mergeable、无冲突，故按原分支尖 `10beb788` 合入。
+
+合并后在**主 clone**（`/Users/a77/finance-workspace-private`，干净树）跑全量门禁：**7740P / 1F / 8skip / 1xfail，ruff 0，419 s**，
+收据 `20260905T015418Z-87d731f7.json`。唯一那条红是存量、与本两刀零交集，判据三条都成立：①合并前 `8af84269` 检出
+同一棵环境复现同样红；②同版代码在没有 `db/` 的 worktree（本树）里隔离重跑绿；③主 clone 的收据史 08-27 `a178595a`、
+08-30 `52710ee8` 已经是同一条红。**这也暴露了门禁本身的盲区**：分支门禁都在没有 `db/` 的 worktree 里跑，而
+`market_watch_pack` 只有在真库存在时才前置「## 指定日盘面组件包」，于是
+`test_completed_stream_persists_human_readable_answer` 的等值断言在 worktree 里恒绿、在主 clone 里恒红——
+「干净环境里验过了」在这里等于「没验到」。修它不属本工单。
+
 树 `/Users/a77/fwp-wt-methodology-backtest-p1e`，**叠在第四刀分支尖 `feat/methodology-backtest-p1-refuted@8cc32c98`（PR #589，未合）之上**，
 不是从 `gitea/main` 开的——理由见「决策与被否方案」第一条。#589 合入后在本树 `git merge gitea/main` 一次即可，diff 不变。
 设计稿 `2026-09-04-methodology-backtest-structured-history-design.md` §3.2「同 universe」延伸；接手单 D
