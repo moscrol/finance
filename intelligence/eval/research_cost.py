@@ -48,7 +48,9 @@ from intelligence.eval.tool_hunger import discover_run_dirs, parse_since
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PRICING_PATH = Path(__file__).resolve().parent / "pricing" / "llm-prices.json"
-DEFAULT_JUDGE_MODEL = "grok-4.6"
+# 生产判官走 grok CLI，xAI 的计费表把它记在 `grok-4.6-build` 这个 SKU 上（探针 modelUsage 的键），
+# 实付约 API list 价的 0.17；按 list 计价会把判官侧读数放大 5.9 倍。API 备胎判官请用 --judge-model grok-4.6。
+DEFAULT_JUDGE_MODEL = "grok-4.6-build"
 DEFAULT_WRITER_MODEL = "glm-5.2"
 EPISODE_FILENAME = "continuous-episode.json"
 

@@ -225,7 +225,7 @@ def test_unpriced_judge_model_is_declared_not_guessed(synthetic_runs) -> None:
     assert "`unpriced-judge`：3 个 run" in md
 
 
-def test_default_pricing_table_has_zhipu_rows_and_declares_grok_unverified() -> None:
+def test_default_pricing_table_has_zhipu_rows_and_priced_rows_carry_sources() -> None:
     rows = research_cost.load_pricing()
     patterns = [row.model_pattern for row in rows]
     assert "glm-5.2*" in patterns and "glm-5.3*" in patterns and "glm-5" in patterns
@@ -233,12 +233,52 @@ def test_default_pricing_table_has_zhipu_rows_and_declares_grok_unverified() -> 
     assert glm52 is not None and (glm52.input_cny_per_m, glm52.output_cny_per_m, glm52.cache_hit_cny_per_m) == (8.0, 28.0, 2.0)
     assert glm52.checked_at == "2026-09-04" and glm52.source_url == "https://bigmodel.cn/pricing"
     assert research_cost.match_price("GLM-5.3", rows) is not None, "忽略大小写"
-    grok = research_cost.match_price(research_cost.DEFAULT_JUDGE_MODEL, rows)
-    assert grok is not None and grok.priced is False, "grok 价未核对时必须是 null，而不是猜一个数"
     assert research_cost.match_price("gpt-5.6-terra", rows) is None
     for row in rows:
         if row.priced:
             assert row.checked_at and row.source_url, "有价的行必须带 checked_at 与来源"
+
+
+def test_judge_default_resolves_to_cli_billed_row_not_api_list_price() -> None:
+    """默认判官取价必须落在 CLI 实付那行。
+
+    `grok-4.6*` 也能 fnmatch 上 `grok-4.6-build`——两行顺序反了就会静默按 API list 价算，
+    判官侧读数直接放大 5.9 倍且报表看不出异常。这条钉的是顺序，不只是数值。
+    """
+
+    rows = research_cost.load_pricing()
+    assert research_cost.DEFAULT_JUDGE_MODEL == "grok-4.6-build"
+    build = research_cost.match_price(research_cost.DEFAULT_JUDGE_MODEL, rows)
+    api = research_cost.match_price("grok-4.6", rows)
+    assert build is not None and api is not None
+    assert build.model_pattern == "grok-4.6-build*"
+    assert api.model_pattern == "grok-4.6*"
+    assert build.priced and api.priced
+    # 两行同源同一天核对；build 档 = list × 0.17（由 CLI 自报 costUSD 反解，见价目表 note）。
+    assert build.checked_at == api.checked_at == "2026-09-05"
+    for got, want in (
+        (build.input_cny_per_m, api.input_cny_per_m * 0.17),
+        (build.output_cny_per_m, api.output_cny_per_m * 0.17),
+        (build.cache_hit_cny_per_m, api.cache_hit_cny_per_m * 0.17),
+    ):
+        assert abs(got - want) < 1e-3, "build 档与 list 档必须保持 0.17 的换算关系，改一行必须改另一行"
+
+
+def test_cli_selfreported_cost_reproduces_from_the_build_row() -> None:
+    """价目表的 build 档要能复现 grok CLI 自己报的那次成本，否则这行是编的。
+
+    探针 `~/.finance-runtime/judge-usage-probe-2026-09-05/raw.json`：
+    19,326 input / 970 output / 128 cache_read → costUSD = 0.00757112。
+    """
+
+    rows = research_cost.load_pricing()
+    fx = json.loads(research_cost.DEFAULT_PRICING_PATH.read_text(encoding="utf-8"))["fx"]["usd_cny"]
+    build = research_cost.match_price("grok-4.6-build", rows)
+    assert build is not None
+    cny = (
+        19_326 * build.input_cny_per_m + 970 * build.output_cny_per_m + 128 * build.cache_hit_cny_per_m
+    ) / 1e6
+    assert abs(cny / fx - 0.00757112) < 5e-7, "反解出的实付价必须与 CLI 自报 costUSD 对得上"
 
 
 def test_judge_no_call_run_counts_zero_judge_cost_in_total(tmp_path) -> None:

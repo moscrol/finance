@@ -2,7 +2,13 @@
   "schema": "llm-prices/v1",
   "currency": "CNY",
   "unit": "per_million_tokens",
-  "note": "手工核对的价目表（INDEX #23）。research_cost.py 按 model_pattern（fnmatch，忽略大小写）自上而下首个命中取价；价格为 null 表示未核对，报表把对应成本列标为「价目表未录」而不猜数。改价必须同时改 checked_at 与 source_url；不接价格 API。",
+  "note": "手工核对的价目表（INDEX #23）。research_cost.py 按 model_pattern（fnmatch，忽略大小写）自上而下首个命中取价；价格为 null 表示未核对，报表把对应成本列标为「价目表未录」而不猜数。改价必须同时改 checked_at 与 source_url；不接价格 API。顺序有语义：更窄的 pattern 必须排在更宽的前面（`grok-4.6-build*` 在 `grok-4.6*` 之前，否则前者永远命中不到）。",
+  "fx": {
+    "usd_cny": 6.7787,
+    "source_url": "https://www.chinamoney.com.cn/chinese/bkccpr/",
+    "checked_at": "2026-09-05",
+    "note": "中国货币网人民币汇率中间价 2026-09-04 09:15 美元/人民币。以美元计价的行（grok 两行）按此汇率折 CNY，CNY 数字随汇率漂移；核对时改这里再回改对应行。"
+  },
   "prices": [
     {
       "model_pattern": "glm-5.2*",
@@ -41,13 +47,22 @@
       "note": "官方区间 1–2 / 3–8，取上界；缓存命中价未录。"
     },
     {
+      "model_pattern": "grok-4.6-build*",
+      "input_cny_per_m": 2.3048,
+      "output_cny_per_m": 6.9143,
+      "cache_hit_cny_per_m": 0.5762,
+      "source_url": "https://docs.x.ai/developers/grok-4-6",
+      "checked_at": "2026-09-05",
+      "note": "生产判官实付档（LLM_JUDGE_BACKEND=grok-cli）。grok CLI 的 modelUsage 键是 `grok-4.6-build`，不是 API 的 grok-4.6：2026-09-05 探针一次判官调用 19,326 in / 970 out / 128 cache_read 自报 costUSD=0.00757112，而 list 价($2/$6/$0.5 每 M)算出来是 0.04454 USD。用同一个系数 0.17 乘 list 的三档（→ $0.34 / $1.02 / $0.085 每 M）能把 0.00757112 复现到 8 位有效数字（19326×0.34e-6 + 970×1.02e-6 + 128×0.085e-6 = 0.00757112，CLI 的 total_cost_usd_ticks=75711200 同值）。**这三个数是从 CLI 自报成本反解的，xAI 官方页没有单独公示 build 档**；复核办法是重跑探针比 costUSD。USD→CNY 用本文件 fx 块的中间价 6.7787：0.34/1.02/0.085 → 2.3048/6.9143/0.5762。"
+    },
+    {
       "model_pattern": "grok-4.6*",
-      "input_cny_per_m": null,
-      "output_cny_per_m": null,
-      "cache_hit_cny_per_m": null,
-      "source_url": null,
-      "checked_at": null,
-      "note": "生产判官（LLM_JUDGE_BACKEND=grok-cli, LLM_JUDGE_MODEL=grok-4.6）。xAI 官方定价 2026-09-05 未能核对（实施环境无外网检索），不猜数；填价时写 source_url 与 checked_at。对照点：grok CLI payload 自带 total_cost_usd——2026-09-05 探针一次判官调用 input 19,326 / cache_read 128 / output 970 tokens 报 0.00757 USD。"
+      "input_cny_per_m": 13.5574,
+      "output_cny_per_m": 40.6722,
+      "cache_hit_cny_per_m": 3.3894,
+      "source_url": "https://docs.x.ai/developers/grok-4-6",
+      "checked_at": "2026-09-05",
+      "note": "xAI 官方 API list 价：Input $2.00 / Output $6.00 每 1M tokens（同页 models 注册表 promptTextTokenPrice=20000 / completionTextTokenPrice=60000 / cachedPromptTokenPrice=5000，单位 1e-4 USD 每 M）。走 API 备胎判官（LLM_JUDGE_BACKEND=api）时按这行计价；生产 CLI 判官走上面的 build 行。>200k 上下文官方翻倍（$4/$12），本行未建模——判官提示词约 2 万 token，够不着这道坎。USD→CNY 用本文件 fx 块的中间价 6.7787。"
     }
   ]
 }
