@@ -1,4 +1,15 @@
-"""Narrow regression tests for the public BP generator and staged budget."""
+"""Narrow regression tests for the public BP generator and staged budget.
+
+⚠ 被测对象 ``scripts/build_bp_public.py`` **尚未提交进仓**（2026-09-06 实测
+``git ls-files`` 为空，只在某棵工作树上以未跟踪文件存在）。
+
+本文件原来在**模块级** ``exec_module``，于是在任何干净检出上 pytest
+**整个收集阶段直接中断**（是 ERROR 不是 skip，后面所有测试一条都跑不了）。
+主树上之所以是绿的，只因为那个未跟踪文件恰好在——那份绿依赖别人没提交的东西，
+不能当验收结论。
+
+改成延迟加载 + 缺失即 skip：脚本一旦提交进来，这些用例自动恢复执行。
+"""
 
 import importlib.util
 import json
@@ -7,11 +18,20 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location(
-    "build_bp_public", ROOT / "scripts/build_bp_public.py"
+SCRIPT = ROOT / "scripts/build_bp_public.py"
+
+pytestmark = pytest.mark.skipif(
+    not SCRIPT.exists(),
+    reason=f"被测脚本未提交进仓：{SCRIPT.relative_to(ROOT)}（提交后本组用例自动恢复）",
 )
-bp = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(bp)
+
+
+if SCRIPT.exists():  # 缺失时不加载：模块级 exec 失败会中断整个收集阶段
+    _SPEC = importlib.util.spec_from_file_location("build_bp_public", SCRIPT)
+    bp = importlib.util.module_from_spec(_SPEC)
+    _SPEC.loader.exec_module(bp)
+else:
+    bp = None  # 上面的 pytestmark 会把本文件全部 skip，不会走到解引用
 
 
 @pytest.fixture

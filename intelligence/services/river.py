@@ -104,6 +104,10 @@ class RiverSlice:
     # config_sector_alias 的 note 明写「两套口径成分不同，跨切换日数值不可直接比较」。
     # 跨换源日做数值比较（区间、队列、聚类）的调用方必须自己看这个标记。
     alias_applied: bool = False
+    # ``knowledge_cutoff > as_of``：这一片**看得见 as-of 之后才被记录的对象**。
+    # 终局 spec §4.1 只在「事后人工复核」那一档允许它，且明写「不得进入任何校准或
+    # 方法有效性统计」。所以它是一等字段而不是注释：下游必须能机器判定。
+    hindsight: bool = False
 
     @property
     def gaps(self) -> list[Gap]:
@@ -129,6 +133,11 @@ class RiverSlice:
         泄漏。要机器保证无前视，用 ``require_strict=True`` 让本层直接滤掉，
         不要依赖调用方自觉。
         """
+        if self.hindsight:
+            # 事后复核片永远不是 strict：它的 cutoff 晚于 as_of，按定义看得见后来的事。
+            # 不在这里 fail closed 的话，`grade == "strict"` 这个判据会替它背书，
+            # 而所有回放 / 校准消费方用的正是这个判据。
+            return "trade_date_only"
         if not self.objects:
             # 空切片不能报 strict：``all([])`` 恒真，会让「六轨全缺」伪装成
             # 「六轨全部通过严格 PIT」，而消费方的判据通常就是 ``grade == strict``。
@@ -146,8 +155,10 @@ class RiverSlice:
             "entity_name": self.entity_name,
             "knowledge_cutoff": self.knowledge_cutoff,
             "pit_grade": self.pit_grade,
-            # 序列化必须带上它：从收据 / JSON 重建切片的消费方（带读、回放）如果看不到
-            # 这个标记，就会在跨换源日做出不可比的数值比较，而且没人会发现。
+            # 两个限定语都必须活过序列化：从收据 / JSON 重建切片的消费方（带读、回放）
+            # 看不到它们，就会在跨换源日做不可比的比较、或把事后视角当无前视用，
+            # 而且两种都不会有人发现。
+            "hindsight": self.hindsight,
             "alias_applied": self.alias_applied,
             "tracks": {
                 k: (v.to_dict() if isinstance(v, Gap) else [o.to_dict() for o in v])
@@ -774,13 +785,18 @@ def slice_river(
     *,
     knowledge_cutoff: str | None = None,
     require_strict: bool = False,
+    allow_hindsight: bool = False,
     db_path: str | Path | None = None,
     checkpoints_path: str | Path | None = None,
 ) -> RiverSlice:
     """取 ``as_of`` 这一天、``entity`` 这个实体的六轨对齐切片。
 
     ``knowledge_cutoff`` 缺省 = ``as_of``（当日带读口径）。回放 / 校准要显式传，
-    且必须 ``<= as_of`` 收盘（#25 已定）。
+    且必须 ``<= as_of``——**本层强制**，不是文档约定。
+
+    ``allow_hindsight=True`` 才允许 ``cutoff > as_of``，对应终局 spec §4.1 的第三档
+    「事后人工复核」。这一档的切片 ``hindsight=True`` 且 ``pit_grade`` 永远不是
+    ``strict``，spec 明写它「不得进入任何校准或方法有效性统计」。
 
     ``require_strict=True`` 时本层直接滤掉 ``recorded_at > C`` 与 ``recorded_at``
     缺失的对象，被滤空的轨返回 ``Gap(reason="pit_filtered")``。回放、校准、
@@ -789,6 +805,20 @@ def slice_river(
     import duckdb
 
     cutoff = knowledge_cutoff or as_of
+    # 未来日期当 cutoff = 时间穿越：`_enforce_cutoff` 与 `pit_grade` 都拿它做比较，
+    # 传 2099-01-01 会让**所有**对象通过 PIT 检查，回放结果因此偏乐观且自称可信。
+    # 默认拒绝而不是默认放行：无前视是这条河的核心承诺，破它要显式签字。
+    hindsight = cutoff > as_of
+    if hindsight and not allow_hindsight:
+        raise ValueError(
+            f"knowledge_cutoff={cutoff!r} 晚于 as_of={as_of!r}：那是事后视角，会带上后来才知道的事。"
+            " 人工复核确需如此就显式传 allow_hindsight=True（该片 pit_grade 永远不是 strict，"
+            "且不得进入校准与方法有效性统计）。"
+        )
+    if hindsight and require_strict:
+        raise ValueError(
+            "allow_hindsight 与 require_strict 互斥：前者放进未来对象，后者要求无前视。"
+        )
     db = Path(db_path or os.environ.get("MARKET_FEATURE_STORE_DB", DEFAULT_DB)).expanduser()
     if not db.exists():
         raise FileNotFoundError(f"数据库不存在：{db}（不自动创建）")
@@ -812,6 +842,7 @@ def slice_river(
                 entity_name=entity,
                 knowledge_cutoff=cutoff,
                 tracks={t: Gap(t, "entity_unresolved", reason) for t in TRACKS},
+                hindsight=hindsight,
             )
         # 各轨用**当天真实的代码**去查（否则查不到行），出来的对象再把 entity_id
         # 换成跨供应商稳定的 canonical_id。ref 保留当天的代码不动——它指向的是
@@ -846,13 +877,15 @@ def slice_river(
         knowledge_cutoff=cutoff,
         tracks=tracks,
         alias_applied=ref.alias_applied,
+        hindsight=hindsight,
     )
 
 
 def render(sl: RiverSlice) -> str:
     lines = [
         f"as_of={sl.as_of}  entity={sl.entity_id} {sl.entity_name}  "
-        f"cutoff={sl.knowledge_cutoff}  pit_grade={sl.pit_grade}",
+        f"cutoff={sl.knowledge_cutoff}  pit_grade={sl.pit_grade}"
+        + ("  ⚠ hindsight=true（事后视角，不得进入校准与方法有效性统计）" if sl.hindsight else ""),
         "",
     ]
     for track in TRACKS:
@@ -874,11 +907,18 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="时间长河 as-of 切片（垂直切片 v0）")
     ap.add_argument("as_of")
     ap.add_argument("entity", help="板块代码或板块名")
-    ap.add_argument("--cutoff", default=None, help="knowledge_cutoff，缺省 = as_of")
+    ap.add_argument("--cutoff", default=None, help="knowledge_cutoff，缺省 = as_of；晚于 as_of 会被拒绝")
+    ap.add_argument(
+        "--allow-hindsight",
+        action="store_true",
+        help="允许 cutoff 晚于 as_of（事后人工复核档）。该片 pit_grade 永远不是 strict，不得进校准",
+    )
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
-    sl = slice_river(args.as_of, args.entity, knowledge_cutoff=args.cutoff)
+    sl = slice_river(
+        args.as_of, args.entity, knowledge_cutoff=args.cutoff, allow_hindsight=args.allow_hindsight
+    )
     print(json.dumps(sl.to_dict(), ensure_ascii=False, indent=2) if args.json else render(sl))
     return 0
 
