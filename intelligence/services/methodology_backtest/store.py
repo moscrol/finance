@@ -97,7 +97,7 @@ TEACHING_DDL = (
         value_num     DOUBLE,
         value_text    VARCHAR,
         label_version VARCHAR NOT NULL,
-        status        VARCHAR NOT NULL,
+        status        VARCHAR NOT NULL DEFAULT 'ok',
         status_reason VARCHAR,
         computed_at   TIMESTAMP NOT NULL,
         PRIMARY KEY (entity_type, entity_id, trade_date, label)
@@ -109,7 +109,7 @@ TEACHING_DDL = (
         gap_kind          VARCHAR NOT NULL,
         missing_cols      VARCHAR,
         framework_version VARCHAR NOT NULL,
-        status             VARCHAR NOT NULL,
+        status             VARCHAR NOT NULL DEFAULT 'gap',
         status_reason     VARCHAR,
         computed_at       TIMESTAMP NOT NULL,
         PRIMARY KEY (trade_date, gap_kind)
@@ -134,7 +134,7 @@ TEACHING_DDL = (
         context_break   VARCHAR,
         context_birth   VARCHAR,
         framework_version VARCHAR,
-        status          VARCHAR NOT NULL,
+        status          VARCHAR NOT NULL DEFAULT 'ok',
         status_reason   VARCHAR,
         computed_at     TIMESTAMP NOT NULL
     )
@@ -145,7 +145,7 @@ TEACHING_DDL = (
         leader_i        VARCHAR NOT NULL,
         leader_next     VARCHAR NOT NULL,
         granularity     VARCHAR NOT NULL,
-        status          VARCHAR NOT NULL,
+        status          VARCHAR NOT NULL DEFAULT 'ok',
         status_reason   VARCHAR,
         computed_at     TIMESTAMP NOT NULL,
         PRIMARY KEY (event_day, leader_i, leader_next)
@@ -165,7 +165,7 @@ TEACHING_DDL = (
         coverage_summary     VARCHAR,
         gap_summary          VARCHAR,
         canonical_hash       VARCHAR,
-        status               VARCHAR NOT NULL,
+        status               VARCHAR NOT NULL DEFAULT 'ok',
         status_reason        VARCHAR,
         computed_at          TIMESTAMP NOT NULL
     )
