@@ -836,6 +836,7 @@ def build_episode_registry(
     perspective_ids: tuple[str, ...] = (),
     perspective_mode: str = "neutral",
     user_space=None,
+    sub_research_runner: agent_research.ToolRunner | None = None,
 ) -> ResearchToolRegistry:
     """Build a read-only registry from the repository's current tool runners."""
 
@@ -1266,6 +1267,10 @@ def build_episode_registry(
         )
     ):
         tools["l3_lookup"] = selected_l3_runner
+    if sub_research_runner is not None:
+        # 装配层拿不到协调器与父证据账本，所以 runner 只能由运行时按 episode 绑好
+        # 传进来；没传就不挂（spec 09-03 §5：没源不挂，不做「装了再报 unknown_tool」）。
+        tools["sub_research"] = sub_research_runner
     base_registry = default_registry(tools)
     specs = list(base_registry.authorized_specs())
     if market_window_end is not None:

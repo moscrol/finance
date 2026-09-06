@@ -64,6 +64,11 @@ TOOL_NOTES: dict[str, str] = {
         "参数面是一个必填 url（不是 query）；拒绝条件与来源分档由"
         " test_web_fetch_tool 钉。授权派生自 web_search（runtime_capabilities_for_frame）。"
     ),
+    "sub_research": (
+        "参数面是一个必填 goals 数组（1–3 条、去重）；runner 输入是 goals 的 JSON 串。"
+        "生产装配为条件工具（runner 由 runtime 按 episode 绑，tool-reachability 门禁已声明）；"
+        "深度 1 / 账本 / 拒绝语义由 test_sub_research_tool 钉。"
+    ),
 }
 
 
@@ -143,21 +148,32 @@ def is_url_tool(spec: ToolSpec) -> bool:
     return isinstance(properties, Mapping) and set(properties) == {"url"}
 
 
+def is_goals_tool(spec: ToolSpec) -> bool:
+    """参数面只有一个 ``goals`` 数组的派单类工具（sub_research）。"""
+
+    properties = spec.parameters.get("properties")
+    return isinstance(properties, Mapping) and set(properties) == {"goals"}
+
+
 def valid_arguments(spec: ToolSpec) -> Mapping[str, object]:
     if is_snapshot_tool(spec):
         return {}
     if is_url_tool(spec):
         return {"url": "https://example.invalid/report/600519"}
+    if is_goals_tool(spec):
+        return {"goals": ["瑞华泰 产能", "聚酰亚胺薄膜 需求"]}
     return {"query": "瑞华泰 产能"}
 
 
 def invalid_arguments(spec: ToolSpec) -> Mapping[str, object]:
-    """每种形状各自的坏参数：快照多给键、取页给空 url、query 给空串。"""
+    """每种形状各自的坏参数：快照多给键、取页给空 url、派单给空数组、query 给空串。"""
 
     if is_snapshot_tool(spec):
         return {"query": "多余参数"}
     if is_url_tool(spec):
         return {"url": ""}
+    if is_goals_tool(spec):
+        return {"goals": []}
     return {"query": ""}
 
 

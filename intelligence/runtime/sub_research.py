@@ -299,7 +299,9 @@ class SubResearchCoordinator:
         normalized = _clean_goals(goals)
         if not normalized:
             return SubResearchResult(())
-        if context.policy.tier != "deep":
+        # deep 之上的档位（max，2026-09-06）同样够起分支：判据是「不低于 deep」，
+        # 不是「等于 deep」——否则 max 起步的 run 永远拿 deep_mode_required。
+        if context.policy.tier not in {"deep", "max"}:
             return SubResearchResult((), "deep_mode_required")
         root = context.root_budget
         if root is None:

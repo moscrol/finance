@@ -73,6 +73,7 @@ from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
 )
 from intelligence.runtime.repair_budget import grant_for_transient_model_retry
+from intelligence.runtime.sub_research_tool import bind_sub_research_tool
 from intelligence.runtime.sub_research import (
     SubResearchCoordinator,
     SubResearchResult,
@@ -544,6 +545,22 @@ def _seed_opening_prefetch(
         )
 
 
+class _ContextRef:
+    """loop 手里「当前 context」的可变引用。
+
+    PLAN 升档会 ``replace`` 出新 context；episode 期绑好的 ``sub_research`` runner 在批执行器
+    线程里跑，得按换过之后的档位与账本起分支，所以给它一个会跟着变的引用而不是起步时的值。
+    """
+
+    __slots__ = ("value",)
+
+    def __init__(self, value: ResearchRunContext) -> None:
+        self.value = value
+
+    def __call__(self) -> ResearchRunContext:
+        return self.value
+
+
 @dataclass
 class _EpisodeContinuationState:
     task_frame: TaskFrame
@@ -560,6 +577,9 @@ class _EpisodeContinuationState:
     # ——这里显式暴露引用，是让会话层（RuntimeHandle）能把生命周期收据与
     # 能力收据钉在同一个对象上，而不是各拿各的。
     episode_scope: EpisodeScope
+    # run() 绑 sub_research 工具时用的当前 context 引用；resume 换 context 也要更新它。
+    # None = 本 episode 没有协调器、没绑该工具（分支里的嵌套 Episode、参考 loop）。
+    context_ref: _ContextRef | None = None
 
 
 class ContinuousAgentEpisode:
@@ -628,6 +648,24 @@ class ContinuousAgentEpisode:
         #
         # 只在真有下游 sink 时才挂：否则 ``dump()`` 的 ``event_sink_attached``
         # 会在没人接收时报 True——收据不说谎优先于形式上"接线了"。
+        #
+        # 证据账本要在绑 sub_research 之前建：分支证据经它的 branch_sink 进父账本。
+        # 建得早不改任何事件——它只依赖 context。
+        evidence_ledger = EvidenceLedger(
+            information_cutoff=context.information_cutoff.as_of_date,
+        )
+        for required in context.contract.required_outputs:
+            if required.required and required.grounding_mode == "evidence":
+                evidence_ledger.open_gap(required.output_id)
+        context_ref = _ContextRef(context)
+        ledger = _EpisodeLedger(task_frame, event_sink=self._event_sink)
+        registry = self._with_sub_research_tool(
+            task_frame=task_frame,
+            context_ref=context_ref,
+            registry=registry,
+            evidence_ledger=evidence_ledger,
+            ledger=ledger,
+        )
         episode_scope = EpisodeScope(
             episode_id=context.contract.task_id,
             # 用户身份不在本层：memory 身份是装配期输入（build_episode_registry
@@ -648,7 +686,6 @@ class ContinuousAgentEpisode:
         ):
             raise ValueError("research contract task frame hash mismatch")
 
-        ledger = _EpisodeLedger(task_frame, event_sink=self._event_sink)
         llm_calls = 0
         tool_calls = 0
         invalid_actions = 0
@@ -663,12 +700,6 @@ class ContinuousAgentEpisode:
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ]
-        evidence_ledger = EvidenceLedger(
-            information_cutoff=context.information_cutoff.as_of_date,
-        )
-        for required in context.contract.required_outputs:
-            if required.required and required.grounding_mode == "evidence":
-                evidence_ledger.open_gap(required.output_id)
         initial_evidence_snapshot = evidence_ledger.snapshot()
         accumulator = _EpisodeToolAccumulator(
             messages=messages,
@@ -690,6 +721,7 @@ class ContinuousAgentEpisode:
                 evidence_ledger=evidence_ledger,
                 initial_evidence_snapshot=initial_evidence_snapshot,
                 episode_scope=episode_scope,
+                context_ref=context_ref,
             )
             _continuation_sink.append(continuation_state)
         finalization_started = False
@@ -1009,6 +1041,7 @@ class ContinuousAgentEpisode:
                                 context=context,
                                 ledger=ledger,
                                 continuation_state=continuation_state,
+                                context_ref=context_ref,
                             )
                             mode_decided = True
                         pending_branch_result = self._run_sub_research(
@@ -1049,6 +1082,7 @@ class ContinuousAgentEpisode:
                             context=context,
                             ledger=ledger,
                             continuation_state=continuation_state,
+                            context_ref=context_ref,
                         )
                         mode_decided = True
                     pending_branch_result = self._run_sub_research(
@@ -1461,6 +1495,8 @@ class ContinuousAgentEpisode:
         """Continue one captured provider history for a verifier repair goal."""
 
         context = state.context
+        if state.context_ref is not None:
+            state.context_ref.value = context
         ledger = state.ledger
         accumulator = state.accumulator
         messages = state.messages
@@ -1496,6 +1532,8 @@ class ContinuousAgentEpisode:
         if downgraded_contract is not context.contract:
             context = replace(context, contract=downgraded_contract)
             state.context = context
+            if state.context_ref is not None:
+                state.context_ref.value = context
             repair_context = replace(repair_context, contract=downgraded_contract)
             repair_tool_context = replace(
                 repair_tool_context,
@@ -2023,6 +2061,7 @@ class ContinuousAgentEpisode:
         context: ResearchRunContext,
         ledger: _EpisodeLedger,
         continuation_state: _EpisodeContinuationState | None,
+        context_ref: _ContextRef | None = None,
     ) -> tuple[ResearchRunContext, ModeGovernance]:
         # 深度裁决归 harness；loop 只说自己能不能开分支，然后把裁决落账（底座）、
         # 记事件、换 context。
@@ -2036,6 +2075,8 @@ class ContinuousAgentEpisode:
         ledger.add("mode_decision", governance.decision.to_dict())
         if continuation_state is not None:
             continuation_state.context = promoted
+        if context_ref is not None:
+            context_ref.value = promoted
         return promoted, governance
 
     def _run_sub_research(
@@ -2109,6 +2150,91 @@ class ContinuousAgentEpisode:
                     },
                 )
         return result
+
+    def _with_sub_research_tool(
+        self,
+        *,
+        task_frame: TaskFrame,
+        context_ref: _ContextRef,
+        registry: ResearchToolRegistry,
+        evidence_ledger: EvidenceLedger,
+        ledger: _EpisodeLedger,
+    ) -> ResearchToolRegistry:
+        """有协调器的 episode 把 ``sub_research`` 绑成模型可点的工具并进注册表。
+
+        spec 2026-09-03：不新建子代理，包现有协调器；前台同步、深度 1。没有协调器
+        （分支里的嵌套 Episode、参考 loop）就原样返回——工具不存在，而不是存在但报错。
+        授权仍由 contract 决定：``sub_research`` 不在 ``allowed_capabilities`` 里时，
+        ``authorized_specs`` 根本不会把它摆给模型。
+        """
+
+        coordinator = self._sub_research_coordinator
+        if coordinator is None:
+            return registry
+
+        def record(goals: tuple[str, ...], result: SubResearchResult) -> None:
+            # 与 PLAN 路径同一组 durable 事件（branch_started / completed / failed），
+            # 事件流的消费者不必区分分支是模型点的还是 PLAN 批的。
+            self._record_branch_events(ledger, goals=goals, result=result)
+
+        spec = bind_sub_research_tool(
+            coordinator=coordinator,
+            task_frame=task_frame,
+            current_context=context_ref,
+            base_registry=registry,
+            evidence_ledger=evidence_ledger,
+            on_result=record,
+        )
+        return registry.with_specs(spec)
+
+    @staticmethod
+    def _record_branch_events(
+        ledger: _EpisodeLedger,
+        *,
+        goals: tuple[str, ...],
+        result: SubResearchResult,
+    ) -> None:
+        for index, goal in enumerate(goals, start=1):
+            ledger.add(
+                "branch_started",
+                {"branch_id": f"branch-{index}", "goal": goal, "origin": "tool"},
+            )
+        completed_ids: set[str] = set()
+        for branch in result.branches:
+            completed_ids.add(branch.branch_id)
+            ledger.add(
+                (
+                    "branch_completed"
+                    if branch.status in {"completed", "partial"}
+                    else "branch_failed"
+                ),
+                {
+                    "branch_id": branch.branch_id,
+                    "goal": branch.goal,
+                    "status": branch.status,
+                    "error": branch.error,
+                    "evidence_count": len(branch.evidence),
+                    "gap_count": len(branch.gaps),
+                    "llm_calls": branch.llm_calls,
+                    "tool_calls": branch.tool_calls,
+                    "input_tokens": branch.input_tokens,
+                    "output_tokens": branch.output_tokens,
+                    "origin": "tool",
+                },
+            )
+        for index, goal in enumerate(goals, start=1):
+            branch_id = f"branch-{index}"
+            if branch_id not in completed_ids:
+                ledger.add(
+                    "branch_failed",
+                    {
+                        "branch_id": branch_id,
+                        "goal": goal,
+                        "status": "failed",
+                        "reason": result.refused_reason or "branch_not_executed",
+                        "origin": "tool",
+                    },
+                )
 
     @staticmethod
     def _append_mode_decision_message(

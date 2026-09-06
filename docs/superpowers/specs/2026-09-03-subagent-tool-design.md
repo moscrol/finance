@@ -1,8 +1,15 @@
 # 设计：子代理作为模型可点的工具——抄 dsh `tool-subagent` 的形状，账本用我们的
 
 日期：2026-09-03
-状态：**设计稿，未实施、未开分支。** 能力放大线交接「下一步 ⑤」。写完先停：§1.3 的前置事实（deep 升档在生产上已归零）
-没查清之前，实施了也够不着。
+状态：**已实施（2026-09-07，分支 `feat/sub-research-tool`）。** §7 的前置「deep 在 GLM 下怎么可达」被两件事一起解掉：
+生产出口 09-06 切到 sol@57244（gpt 交 PLAN 30%，GLM 0%），且 #608 加了 `max` 档（600s / 32 步）并作为生产起步档位——
+「standard 窗装不下一支 60s 分支」（§4）不再成立，工具不再依赖 PLAN 升档才够得着。实施与 §2–§6 的差异只有两处：
+① 分支事件 `branch_started / completed / failed` 由 runner 的 `on_result` 回调在批执行器线程里记（`_EpisodeLedger` 有 RLock），
+带 `origin=tool` 与 PLAN 路径区分；② 分支 deadline 收进**本批工具窗 × 0.9** 而不是 episode deadline——批执行器等的是那个窗，
+超了会记 `tool_timeout` 而线程照跑，先收窗才守得住「父臂走掉后分支不再往账本写」。验收 §6 第 1–6 条由
+`intelligence/tests/test_sub_research_tool.py` 13 例钉住（三个变异各击杀一条）；第 7 条 live 待切流后跑；第 8 条读数即上面两件事。
+`SubResearchCoordinator` 的档位门从 `== deep` 改为 `∈ {deep, max}`，否则 max 起步的 run 永远拿 `deep_mode_required`。
+（原状态：设计稿，未实施、未开分支。能力放大线交接「下一步 ⑤」。）
 父稿：`2026-09-02-capability-amplification-output-gate-design.md` §3.5.1（两家的子代理都是插件）、§3.5.5（子代理回文本不回证据
 这条形状不能原样抄）、§3.6（三条契约缺一不挂）；`docs/handoffs/2026-08-15-dsh-absorption-p0-execution-handoff.md`（现有协调器的来历）。
 

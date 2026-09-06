@@ -80,8 +80,17 @@ def _all_capability_frame() -> TaskFrame:
     )
 
 
-def _assemble(*, memory_identity: bool) -> set[str]:
-    """跑一次真实装配，返回产出的工具名。"""
+def _probe_sub_research_runner(_goals: str, _context: object) -> object:
+    raise AssertionError("audit probe runner must never be invoked")
+
+
+def _assemble(*, extra_inputs: bool) -> set[str]:
+    """跑一次真实装配，返回产出的工具名。
+
+    ``extra_inputs=True`` 时补上「能力授权之外还要的输入」：memory 身份（``memory_lookup``）
+    与运行时按 episode 绑好的子研究 runner（``sub_research``：要协调器 + 父证据账本，
+    装配层拿不到，spec 2026-09-03 §5）。这两个都是「条件装配」，报告但不算够不着。
+    """
 
     frame = _all_capability_frame()
     # 全能力授权：审计问的是「结构性够不着」，不是「这一轮授没授权」。
@@ -94,7 +103,8 @@ def _assemble(*, memory_identity: bool) -> set[str]:
     registry = build_episode_registry(
         frame,
         context,
-        memory_user="__audit_probe__" if memory_identity else None,
+        memory_user="__audit_probe__" if extra_inputs else None,
+        sub_research_runner=_probe_sub_research_runner if extra_inputs else None,
     )
     return set(registry.names())
 
@@ -117,8 +127,8 @@ def audit() -> tuple[list[str], list[str], list[str], list[str]]:
     """
 
     declared = sorted(_DEFAULT_TOOL_METADATA)
-    bare = _assemble(memory_identity=False)
-    enriched = _assemble(memory_identity=True)
+    bare = _assemble(extra_inputs=False)
+    enriched = _assemble(extra_inputs=True)
     unreachable = sorted(set(declared) - enriched)
     conditional = sorted(enriched - bare)
     return declared, sorted(bare), unreachable, conditional
