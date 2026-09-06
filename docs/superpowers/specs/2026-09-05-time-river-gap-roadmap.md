@@ -5,6 +5,20 @@
 > 上游：`2026-09-05-time-river-endstate-design.md`（终局；§13 审阅裁决）；BP v0.7 `docs/bp/2026-09-finance-agent-bp.md`（对外承诺：3 / 6 / 12 个月，§13.3）；`2026-08-13-memory-analog-lifecycle-design.md`（已实施六 slice）；`2026-08-19-user-framework-perspective-bootstrap-design.md`（私有层容器，待审）；`2026-09-04-methodology-backtest-structured-history-design.md` + INDEX #21 / #23 / #24 / #25。
 > 读法：每条缺口 = 终局零件 → 仓内已有 [实测锚点] → 缺什么 → 验收判据（可机器核或可人核）→ 依赖 → 对外可说的话（做完前 / 做完后）。「[实测]」指本次在仓内 `rg` / `ls` 到的路径；未标者是从上游 spec 抄的。
 
+> **实施状态回写（2026-09-06）**——下面 §2 的缺口清单写于 09-05，其中两条已经不成立，
+> 别照原文当缺口再做一遍：
+>
+> | 缺口 | 09-06 实测 | 在哪 |
+> |---|---|---|
+> | G-02a 联立读取面 | **已落地，且是六轨不是三轨**；另有横扫纵扫（`river_query.py`）与区间聚类（`river_window.py`）、`scripts/river_pit_audit.py` | `feat/river-slice-v0`（未合，领先 `gitea/main@4ed8b62c` 4 个提交） |
+> | G-02 两个时钟 / `pit_grade` | **已落地**：`RiverObject.recorded_at`、`slice(as_of, knowledge_cutoff)`、空切片 fail-closed 成 `trade_date_only` | 同上 |
+> | G-03 观察剧本 + 带读 | **本轮落地**：对象 + 硬门 + 带读管线 + T+1 回检登记；**判读段留空**（等 G-01 母本）、**未接进每日复盘** | `feat/observation-script`（未合，基线是上面那条分支） |
+> | G-12a 合规硬门 / lint | **前半已落地**（剧本 scope 门 + 营销禁词，共用 `compliance_gate` 一份词表）；判官概率数字检查未做 | 同上 |
+> | G-05 `market_stage` 归一 | **仍是缺口**：只有读取侧补丁 `river_query.normalize_stage`（它自己注释「这是补丁不是修复」），标签层未归一、`LABEL_VERSION` 未升 v3 | — |
+>
+> 收据 `docs/verification/2026-09-06-observation-script-g03.md`；交接 `docs/handoffs/inflight/feat-observation-script.md`。
+> 终局 spec 已由 `2026-09-06-personal-research-calibration-endstate-design.md` 承接，本文件只留缺口顺序。
+
 ---
 
 ## 0. 一句话

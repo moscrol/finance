@@ -2146,6 +2146,61 @@ def cmd_theme(args: argparse.Namespace) -> int:
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
 
+def add_observation_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "observation",
+        help="观察剧本（G-03）：今日带读 → 确认 / 修改 / 跳过 → 登记 T+1 回检。"
+        "只到指数 / 板块 / 题材，不出个股名单、不给方向与时点",
+    )
+    sub = parser.add_subparsers(dest="action", required=True)
+
+    p_read = sub.add_parser("read", help="今日带读：读 as-of 河切片 → 事实 / 限制 / 缺口 + 剧本骨架")
+    p_read.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_read.add_argument("--as-of", required=True, help="交易日 YYYY-MM-DD")
+    p_read.add_argument("--entity", required=True, help="板块 / 题材名或代码（不接受个股）")
+    p_read.add_argument("--knowledge-cutoff", default=None, help="知识截止（回放用；缺省=as-of 当日带读口径）")
+    p_read.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径")
+    p_read.add_argument("--on", dest="force", action="store_const", const=True, default=None, help="强制开带读（默认：新用户开、老用户关）")
+    p_read.add_argument("--off", dest="force", action="store_const", const=False, help="强制关带读")
+    p_read.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_read.set_defaults(func=cmd_observation_read)
+
+    p_conf = sub.add_parser("confirm", help="确认登记一条观察剧本（不传变量则用当日骨架）")
+    p_conf.add_argument("--user", default=None, help="用户 id")
+    p_conf.add_argument("--as-of", required=True, help="交易日 YYYY-MM-DD")
+    p_conf.add_argument("--entity", dest="entities", action="append", default=[], help="实体（可多次）；缺省用 --from-slice 的实体")
+    p_conf.add_argument("--scope", default=None, choices=list(observation_scope_choices()), help="作用域（缺省由骨架决定）")
+    p_conf.add_argument("--variable", dest="variables", action="append", default=[], help="要观察的变量（可多次）")
+    p_conf.add_argument("--upgrade", dest="upgrades", action="append", default=[], help="升级条件（可多次）")
+    p_conf.add_argument("--abandon", dest="abandons", action="append", default=[], help="降级 / 放弃条件（可多次，至少一条）")
+    p_conf.add_argument("--condition", dest="conditions", action="append", default=[], help="可机检盘面条件（可多次），形如 advancers>=3000；缺省到期走人工判定")
+    p_conf.add_argument("--from-slice", default=None, help="用该实体的当日骨架补齐未给的字段（板块 / 题材名）")
+    p_conf.add_argument("--due", default=None, help="回检日（缺省 T+1 自然日）")
+    p_conf.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径（仅 --from-slice 时用）")
+    p_conf.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_conf.set_defaults(func=cmd_observation_confirm)
+
+    p_skip = sub.add_parser("skip", help="跳过当日剧本（有效行为，不计失败；只进负担指标）")
+    p_skip.add_argument("--user", default=None, help="用户 id")
+    p_skip.add_argument("--as-of", required=True, help="交易日 YYYY-MM-DD")
+    p_skip.add_argument("--entity", required=True, help="板块 / 题材名或代码")
+    p_skip.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径")
+    p_skip.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_skip.set_defaults(func=cmd_observation_skip)
+
+    p_ls = sub.add_parser("list", help="列出剧本台账与状态分布")
+    p_ls.add_argument("--user", default=None, help="用户 id")
+    p_ls.add_argument("--as-of", default=None, help="只看某一天")
+    p_ls.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_ls.set_defaults(func=cmd_observation_list)
+
+
+def observation_scope_choices() -> tuple[str, ...]:
+    from intelligence.services.observation_script import SCOPES
+
+    return SCOPES
+
+
 def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "checkpoint",
@@ -2935,6 +2990,163 @@ def cmd_checkpoint_adjudicate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _observation_user_space(args: argparse.Namespace):
+    from intelligence import userspace
+
+    return userspace.user_space(getattr(args, "user", None))
+
+
+def _observation_slice(args: argparse.Namespace, us, entity: str) -> dict[str, object]:
+    from intelligence.services import river
+
+    return river.slice_river(
+        args.as_of,
+        entity,
+        knowledge_cutoff=getattr(args, "knowledge_cutoff", None),
+        db_path=getattr(args, "db_path", None),
+        checkpoints_path=us.checkpoints_path,
+    ).to_dict()
+
+
+def _print_rejections(exc, as_json: bool) -> int:
+    """硬门拒绝：退出码 2（区别于 1=运行错误），错误清单可直接改。"""
+    import json as _json
+
+    if as_json:
+        print(_json.dumps(exc.to_dict(), ensure_ascii=False, indent=2))
+    else:
+        print("观察剧本被硬门拒绝（改完再登记）：")
+        for r in exc.rejections:
+            print(f"  - [{r.code}] {r.field}：{r.detail}")
+            if r.hint:
+                print(f"      → {r.hint}")
+    return 2
+
+
+def cmd_observation_read(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import guided_reading
+
+    us = _observation_user_space(args)
+    sl = _observation_slice(args, us, args.entity)
+    gr, reason = guided_reading.run(us, sl, override=args.force)
+    if gr is None:
+        print(f"带读未开启（{reason}）。要看今天的带读：加 --on")
+        return 0
+    text = guided_reading.render(gr)
+    hits = guided_reading.lint_output(text)
+    if hits:
+        # 产品自己的输出过不了自己的门，是硬故障：宁可不出，也不能把方向词发出去。
+        print("带读输出未过用词 lint（G-12a），已拦下：")
+        for h in hits:
+            print(f"  - [{h.code}] {h.term}：{h.context}")
+        return 1
+    if args.json:
+        print(_json.dumps({"enabled": True, "reason": reason, **gr.to_dict()}, ensure_ascii=False, indent=2))
+    else:
+        print(text)
+    return 0
+
+
+def cmd_observation_confirm(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import guided_reading, observation_script
+
+    us = _observation_user_space(args)
+    draft = None
+    if args.from_slice:
+        sl = _observation_slice(args, us, args.from_slice)
+        draft = guided_reading.build(sl).draft
+        if draft is None:
+            print(f"{args.as_of} 的「{args.from_slice}」六轨全缺，没有可确认的骨架")
+            return 1
+
+    script = observation_script.make(
+        as_of=args.as_of,
+        scope=args.scope or (draft.scope if draft else ""),
+        entity_ids=args.entities or (list(draft.entity_ids) if draft else []),
+        variables=args.variables or (list(draft.variables) if draft else []),
+        downgrade_or_abandon_conditions=args.abandons
+        or (list(draft.downgrade_or_abandon_conditions) if draft else []),
+        upgrade_conditions=args.upgrades,
+        machine_conditions=args.conditions,
+        evidence_refs=list(draft.evidence_refs) if draft else [],
+        knowledge_cutoff=draft.knowledge_cutoff if draft else None,
+        user_id=us.user_id,
+        status="confirmed",
+    )
+    # late 判据用**交易日历**而不是自然日：周六补做周五的功课不该被判迟到。
+    # 查不到日历（无库 / 老库）时 register 内部回落自然日——更早的截止线，安全方向。
+    next_open = observation_script.next_trading_open(args.as_of, db_path=args.db_path)
+    try:
+        _, record = observation_script.register(
+            us.observation_scripts_path,
+            script,
+            checkpoints_path=us.checkpoints_path,
+            due=args.due,
+            next_open=next_open,
+        )
+    except observation_script.ObservationScriptRejected as exc:
+        return _print_rejections(exc, args.json)
+
+    if args.json:
+        print(_json.dumps(record, ensure_ascii=False, indent=2))
+    else:
+        tail = f"｜checkpoint {record['checkpoint_id']}" if record.get("checkpoint_id") else ""
+        print(f"已登记观察剧本 {record['id']}（status={record['status']}｜到期 {record['due']}{tail}）")
+        if record["status"] == "late":
+            print("  ⚠ 晚于次日开盘登记，标记 late：入台账但不进方法校准（避免前视污染）")
+        print(f"  {observation_script.DISCLAIMER}")
+    return 0
+
+
+def cmd_observation_skip(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import guided_reading, observation_script
+
+    us = _observation_user_space(args)
+    sl = _observation_slice(args, us, args.entity)
+    draft = guided_reading.build(sl).draft
+    if draft is None:
+        print(f"{args.as_of} 的「{args.entity}」六轨全缺，没有可跳过的剧本")
+        return 1
+    # ``make`` 不吃 id / checkpoint_id（登记时才生成），先摘掉再改状态。
+    payload = {k: v for k, v in draft.to_dict().items() if k not in {"id", "checkpoint_id"}}
+    skipped = observation_script.make(**{**payload, "status": "skipped", "user_id": us.user_id})
+    try:
+        _, record = observation_script.register(us.observation_scripts_path, skipped)
+    except observation_script.ObservationScriptRejected as exc:
+        return _print_rejections(exc, args.json)
+    if args.json:
+        print(_json.dumps(record, ensure_ascii=False, indent=2))
+    else:
+        print(f"已记跳过 {record['id']}——跳过是有效行为，不计失败，只进负担指标")
+    return 0
+
+
+def cmd_observation_list(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import observation_script
+
+    us = _observation_user_space(args)
+    records = observation_script.expire_stale(observation_script.load(us.observation_scripts_path))
+    if args.as_of:
+        records = [r for r in records if str(r.get("as_of")) == args.as_of]
+    counts = observation_script.status_counts(records)
+    if args.json:
+        print(_json.dumps({"counts": counts, "records": records}, ensure_ascii=False, indent=2))
+        return 0
+    print(f"观察剧本台账：{us.observation_scripts_path}")
+    print("  " + "｜".join(f"{k}={v}" for k, v in counts.items()))
+    for rec in records[-20:]:
+        print(f"  - {rec['id']}｜{rec['as_of']}｜{rec['status']}｜{'/'.join(rec.get('entity_ids') or [])}")
+    return 0
+
+
 def cmd_checkpoint_register(args: argparse.Namespace) -> int:
     import json as _json
 
@@ -3610,6 +3822,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_dream_nightly_parser(subparsers)
     add_subconscious_parser(subparsers)
     add_checkpoint_parser(subparsers)
+    add_observation_parser(subparsers)
     add_red_team_parser(subparsers)
     add_retrieval_audit_parser(subparsers)
     add_perspective_parser(subparsers)
