@@ -91,7 +91,7 @@ def test_goals_argument_is_read_and_rejections_are_loud() -> None:
     assert display == "甲；乙"
     for bad, reason in (
         ({"goals": []}, "non-empty"),
-        ({"goals": ["a", "a"]}, "duplicate"),
+        ({"goals": ["a", "a"]}, "repeats"),
         ({"goals": ["a", "b", "c", "d"]}, "at most 3"),
         ({"goals": ["a", ""]}, "non-empty string"),
         ({"goals": "a"}, "array"),

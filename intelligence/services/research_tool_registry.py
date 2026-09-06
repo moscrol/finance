@@ -383,26 +383,26 @@ def parse_sub_research_arguments(
     raw_goals = arguments.get("goals")
     if not isinstance(raw_goals, list) or not raw_goals:
         raise InvalidResearchToolArguments(
-            "goals must be a non-empty array of strings",
+            "goals argument must be a non-empty array of strings",
             code="invalid_query",
         )
     goals: list[str] = []
     for item in raw_goals:
         if not isinstance(item, str) or not item.strip():
             raise InvalidResearchToolArguments(
-                "each goal must be a non-empty string",
+                "each item in the goals argument must be a non-empty string",
                 code="invalid_query",
             )
         goal = item.strip()
         if goal in goals:
             raise InvalidResearchToolArguments(
-                f"duplicate goal: {goal}",
+                f"goals argument repeats a goal: {goal}",
                 code="invalid_query",
             )
         goals.append(goal)
     if len(goals) > SUB_RESEARCH_MAX_GOALS:
         raise InvalidResearchToolArguments(
-            f"sub_research supports at most {SUB_RESEARCH_MAX_GOALS} unique goals",
+            f"goals argument supports at most {SUB_RESEARCH_MAX_GOALS} unique goals",
             code="invalid_query",
         )
     return json.dumps(goals, ensure_ascii=False), "；".join(goals)

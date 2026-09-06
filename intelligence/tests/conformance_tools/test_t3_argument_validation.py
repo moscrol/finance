@@ -15,6 +15,7 @@ from intelligence.tests.conformance_tools.baseline import ratchet
 from intelligence.tests.conformance_tools.tools import (
     TOOL_NAMES,
     ToolProbe,
+    is_goals_tool,
     is_snapshot_tool,
     is_url_tool,
     make_tool_registry,
@@ -64,6 +65,28 @@ def test_bad_arguments_fail_closed(
         assert prepared.display_query == "https://example.invalid/x"
         return
 
+    if is_goals_tool(spec):
+        # goals 契约：必须且只能有一个 1–3 条、非空、去重的字符串数组；不静默截断。
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"goals": []})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"goals": "单个字符串"})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"goals": ["甲", ""]})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"goals": ["甲", "甲"]})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"goals": ["甲", "乙", "丙", "丁"]})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"query": "甲"})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"goals": ["甲"], "extra": 1})
+        prepared = registry.prepare(tool_name, {"goals": [" 甲 ", "乙"]})
+        assert prepared.display_query == "甲；乙"
+        return
+
     # query 契约：必须且只能有一个非空字符串 query。
     with pytest.raises(InvalidResearchToolArguments):
         registry.prepare(tool_name, {})
@@ -92,6 +115,7 @@ def test_prepared_arguments_for_another_tool_are_rejected() -> None:
         for name in TOOL_NAMES
         if not is_snapshot_tool(registry.resolve(name))
         and not is_url_tool(registry.resolve(name))
+        and not is_goals_tool(registry.resolve(name))
     ]
     first, second = query_tools[0], query_tools[1]
     prepared = registry.prepare(first, {"query": "合法检索词"})
