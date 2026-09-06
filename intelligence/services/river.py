@@ -186,6 +186,56 @@ def _ts(value: Any) -> str | None:
     return text or None
 
 
+# --------------------------------------------------------------------------- #
+# 板块系表的记录时刻：两个来源取较早
+# --------------------------------------------------------------------------- #
+# `updated_at` 是**刷新时间**（`schema.sql:10`），各 sync 一律
+# `ON CONFLICT DO UPDATE SET updated_at = excluded.updated_at`——重发布会把整段历史推到今天。
+# 关键性质：它只会**变晚、不会变早**。所以 `updated_at <= 交易日` 是「那时已存在」的
+# **充分**证据（可信），而 `updated_at > 交易日` **不是**「那时不存在」的证据（不可信）。
+#
+# 快照台账 `ops_sector_universe_snapshot_daily.captured_at` 是那一版板块宇宙的真实抓取时刻，
+# 不随重发布移动，同样是存在性的合法证据。两个都在时取**较早**的那个。
+#
+# ⚠ 不要整轨换成 `captured_at`：实测资金轨 `fact_sector_stock_daily` 会从 47 天 strict
+# 掉到 20 天——台账 2026-07-27 才开始，之前的行都是 `snapshot_id='legacy'`，
+# 而它们的 `updated_at` 里有一批是诚实的。换源不是升级，取较早才是。
+#
+# 实测收益（2026-09-06 主库）：六轨联立可 strict 重放 **1 天 → 16 天**（2026-07-30~09-02）。
+# 存量 384 天仍是 legacy 无台账行，记录时刻确实丢了，不猜——它们继续按 trade_date_only 走。
+SECTOR_LEDGER_TABLE = "ops_sector_universe_snapshot_daily"
+
+
+def sector_ledger_join(alias: str = "v") -> str:
+    """板块系表 → 快照台账的左连接。表不存在时调用方应跳过（见 ``_has_table``）。"""
+    return (
+        f" LEFT JOIN {SECTOR_LEDGER_TABLE} snap"
+        f" ON snap.snapshot_id = {alias}.sector_universe_snapshot_id "
+    )
+
+
+def sector_recorded_at_sql(alias: str = "v", *, with_ledger: bool = True) -> str:
+    """记录时刻表达式。``LEAST`` 在 DuckDB 里忽略 NULL（实测），故不必再包 COALESCE。
+
+    **审计脚本 `scripts/river_pit_audit.py` 按同一对函数取 SQL**，不各写一套——
+    两处口径必漂，而漂的时候审计会替河说谎（报的 strict 天数不是河真能给出的）。
+    """
+    upd = f"CAST({alias}.updated_at AS TIMESTAMP)"
+    if not with_ledger:
+        return upd
+    # captured_at 带时区（Asia/Taipei = +08:00，与交易日同一时区），CAST 成朴素时间戳
+    # 取的就是当地墙上时间——正是要拿来和交易日比的那个量。
+    return f"LEAST({upd}, CAST(snap.captured_at AS TIMESTAMP))"
+
+
+def _has_table(con: Any, table: str) -> bool:
+    rows = con.execute(
+        "SELECT 1 FROM information_schema.tables WHERE table_schema='main' AND table_name=? LIMIT 1",
+        [table],
+    ).fetchall()
+    return bool(rows)
+
+
 def _rows(con: Any, sql: str, params: list[Any]) -> list[dict[str, Any]]:
     cur = con.execute(sql, params)
     cols = [d[0] for d in cur.description]
@@ -233,20 +283,23 @@ def _market_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
             )
         )
 
+    ledger = _has_table(con, SECTOR_LEDGER_TABLE)
     quote = _rows(
         con,
-        """
-        SELECT trade_date, sector_ts_code, sector_name, sw_l1, pct_chg, amount,
-               diff_ratio, strength, multi_period_resonance, updated_at,
-               sector_universe_snapshot_id
-        FROM fact_sector_daily
-        WHERE CAST(trade_date AS DATE) = CAST(? AS DATE) AND sector_ts_code = ?
+        f"""
+        SELECT v.trade_date, v.sector_ts_code, v.sector_name, v.sw_l1, v.pct_chg, v.amount,
+               v.diff_ratio, v.strength, v.multi_period_resonance,
+               v.sector_universe_snapshot_id,
+               {sector_recorded_at_sql("v", with_ledger=ledger)} AS recorded_at
+        FROM fact_sector_daily v
+        {sector_ledger_join("v") if ledger else ""}
+        WHERE CAST(v.trade_date AS DATE) = CAST(? AS DATE) AND v.sector_ts_code = ?
         """,
         [as_of, eid],
     )
     if quote:
         r = quote[0]
-        upd = r.pop("updated_at")
+        upd = r.pop("recorded_at")
         pct, diff, amt = r.get("pct_chg"), r.get("diff_ratio"), r.get("amount")
         payload = {k: v for k, v in r.items() if k != "trade_date"}
         payload["strict_double_red"] = (
@@ -529,23 +582,28 @@ def _capital_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
 
     两个来源故意分开成两个对象：它们的实体命名空间不同，合并会掩盖口径接缝。
     """
+    ledger = _has_table(con, SECTOR_LEDGER_TABLE)
+    # 聚合对象的记录时刻取 ``MAX``：整份聚合要等最后一条成分股落地才算可知。
+    # 逐行先按「两来源取较早」解析、再对解析后的值取 MAX——反过来（先 MAX 再取较早）
+    # 会把某一行的早时刻安到整份聚合上，等于宣称聚合比它的成分先存在。
     agg = _rows(
         con,
-        """
+        f"""
         SELECT COUNT(*) AS n_stocks,
-               SUM(fund_flow_1d) AS fund_flow_1d_sum,
-               SUM(fund_flow_5d) AS fund_flow_5d_sum,
-               SUM(amount) AS amount_sum,
-               MAX(updated_at) AS updated_at
-        FROM fact_sector_stock_daily
-        WHERE CAST(trade_date AS DATE) = CAST(? AS DATE) AND sector_ts_code = ?
+               SUM(v.fund_flow_1d) AS fund_flow_1d_sum,
+               SUM(v.fund_flow_5d) AS fund_flow_5d_sum,
+               SUM(v.amount) AS amount_sum,
+               MAX({sector_recorded_at_sql("v", with_ledger=ledger)}) AS recorded_at
+        FROM fact_sector_stock_daily v
+        {sector_ledger_join("v") if ledger else ""}
+        WHERE CAST(v.trade_date AS DATE) = CAST(? AS DATE) AND v.sector_ts_code = ?
         """,
         [as_of, eid],
     )
     out: list[RiverObject] = []
     if agg and agg[0]["n_stocks"]:
         r = dict(agg[0])
-        upd = r.pop("updated_at")
+        upd = r.pop("recorded_at")
         out.append(
             RiverObject(
                 track="capital",
