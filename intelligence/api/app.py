@@ -206,6 +206,23 @@ def _research_tier_from_env() -> str:
     return raw if raw in research_contract.RESEARCH_TIERS else "standard"
 
 
+def _deployment_execution_policy():
+    """「deep-research」profile 的执行策略 + 按起步档位放大的 turn 级 LLM 调用保险丝。
+
+    保险丝 ``max_llm_calls`` 缺省 40，controller / judge / agent / 分支 / 合成共用一本账。
+    max 档下子研究分支的模型调用也记在这本账上，40 会在判官之前烧穿（09-07 实测），
+    而判官是最不该被拒的那个调用。只在保险丝比档位值小时抬，不往下压。
+    """
+
+    from dataclasses import replace
+
+    policy = profile_named("deep-research").execution_policy()
+    fuse = research_contract.llm_call_fuse_for_tier(_research_tier_from_env())
+    if fuse > policy.max_llm_calls:
+        policy = replace(policy, max_llm_calls=fuse)
+    return policy
+
+
 def _runtime_market_reference_date() -> str | None:
     paths = default_paths()
     snapshot_date: str | None = None
@@ -1500,7 +1517,7 @@ def _run_conversation_turn(
             # reserve its measured frozen-replay envelope explicitly.  The
             # continuous adapter below keeps its separate 120s contract.
             # Budget numbers stay on grounded_deep; this envelope only holds it.
-            research_policy=profile_named("deep-research").execution_policy(),
+            research_policy=_deployment_execution_policy(),
             continuous_turn_adapter=_build_continuous_turn_adapter(
                 providers=llm_providers,
                 run_id=run_id,
