@@ -6,6 +6,7 @@ import hashlib
 import json
 import uuid
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from typing import Any, Iterable, Sequence
 
 import duckdb
@@ -23,12 +24,16 @@ def canonical_json(value: Any) -> str:
 def _json_default(value: Any) -> str:
     if isinstance(value, (datetime, date)):
         return value.isoformat()
+    if isinstance(value, Decimal):
+        return format(value, "f")
     raise TypeError(f"cannot canonicalize {type(value).__name__}")
 
 
 def _canonical_value(value: Any) -> Any:
     if isinstance(value, (datetime, date)):
         return value.isoformat()
+    if isinstance(value, Decimal):
+        return format(value, "f")
     if isinstance(value, float):
         # JSON's shortest decimal representation is stable across DuckDB and
         # Python for the finite values used by these labels.
