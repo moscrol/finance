@@ -16,7 +16,7 @@
 
 ## 当前状态
 
-8792=`ed22039a6152`（0907c：#612 前瞻方向出口硬门；0907b：#610 `sub_research`；0907：#608 max 档、出口 cockpit `:57244` sol/terra）。回滚锚 `~/.finance-runtime/cutover-20260907c-*`（回 `a11d76ca`）；启动器备份 `.bak-20260907-pre-max`。收据 `docs/verification/2026-09-07-*.md`。**登录钥匙串 09-06 被重置**（`login_renamed_1.keychain-db`），GLM / 中转 key 未恢复。
+8792=`d65ed0155eb9`（0907f：#617 LLM 保险丝；#616 修复轮表达槽；#615 分支预算；#612 方向硬门；#610 `sub_research`；#608 max 档、出口 cockpit `:57244`）。回滚锚 `~/.finance-runtime/cutover-20260907f-*`（回 `0399b980`）；启动器备份 `.bak-20260907-pre-max`。收据 `docs/verification/2026-09-07-*.md`。**登录钥匙串 09-06 被重置**（`login_renamed_1.keychain-db`），GLM / 中转 key 未恢复。
 
 ## 已验证
 
