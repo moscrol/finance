@@ -55,6 +55,12 @@ VALID_OPS = (">=", ">", "<=", "<", "==")
 # 要按这个维度分列，所以字段必须在**登记时**就写下，事后从 category 反推是猜。
 OBJECT_TYPES = ("judgment", "agent_judgment", "observation_script")
 DEFAULT_OBJECT_TYPE = "judgment"
+OBJECT_TYPE_CN = {
+    "judgment": "用户判断",
+    "agent_judgment": "agent 判断",
+    "observation_script": "观察剧本",
+    "unknown_legacy": "存量未标类型",
+}
 
 # market_daily 条件字段名：只允许安全标识符（真实列名在查询时再校验，查不到→unverifiable）。
 _FIELD_RE = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -176,8 +182,16 @@ def _normalize_market_daily_metric(metric: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def _make_id(claim: str, ts: str) -> str:
-    digest = hashlib.sha1(f"{ts}|{claim}".encode("utf-8")).hexdigest()[:6]
+def _make_id(claim: str, ts: str, due: str = "") -> str:
+    """内容派生 id。``due`` 进哈希：**同一陈述 + 不同到期日 = 两个检查点**。
+
+    2026-09-06 实测：观察剧本因 due 落在非交易日而改点时，新旧两条 claim 相同、
+    又在同一秒登记（``ts`` 只到秒），算出的 id 完全一样——那条「旧点判不了」的
+    verdict 会同时打在新点上，新点一登记就被判过了。
+    ``framework_interpretation`` 早就按 ``(claim, due)`` 做幂等，本函数只是补齐同一口径。
+    存量 id 已落盘不受影响（内容派生只在写入时算一次）。
+    """
+    digest = hashlib.sha1(f"{ts}|{claim}|{due}".encode("utf-8")).hexdigest()[:6]
     return f"ck-{ts[:10]}-{digest}"
 
 
@@ -211,7 +225,7 @@ def register_checkpoint(
     metric_norm = normalize_metric(metric)
     ts_norm = ts or _now().isoformat(timespec="seconds")
     record: dict[str, Any] = {
-        "id": _make_id(text, ts_norm),
+        "id": _make_id(text, ts_norm, due_norm),
         "ts": ts_norm,
         "claim": text,
         "due": due_norm,
@@ -403,6 +417,11 @@ class CategoryStat:
 class Calibration:
     by_category: list[CategoryStat] = field(default_factory=list)
     by_source: list[CategoryStat] = field(default_factory=list)
+    # 判断轨对象分三类（用户决策 / agent 判断 / 观察剧本）。不分列的话，
+    # 「观察剧本这类判断准不准」这个问题**问不出来**：系统生成经确认的剧本
+    # 会和用户自己下的判断混在同一个分母里，互相稀释。
+    # 存量记录进 unknown_legacy 单独一格，不折进 judgment（见 object_type_of）。
+    by_object_type: list[CategoryStat] = field(default_factory=list)
     scored: int = 0
     pending: int = 0
     unverifiable: int = 0
@@ -427,16 +446,20 @@ def calibrate(
     terminal = _latest_terminal_verdicts(verdicts)
     stats: dict[str, CategoryStat] = {}
     src_stats: dict[str, CategoryStat] = {}
+    obj_stats: dict[str, CategoryStat] = {}
     for cid, v in terminal.items():
         ck = by_id.get(cid)
         if ck is None:
             continue
         cat = str(ck.get("category") or "未分类").strip() or "未分类"
         src = str(ck.get("source") or "未标来源").strip() or "未标来源"
+        # 对象类型从 checkpoint 记录回连取，**不在 verdict 里再存一份**：
+        # 同一事实存两处必漂，而漂的时候胜率面板会按过期那份分列。
+        obj = object_type_of(ck)
         verdict = str(v.get("verdict"))
         score = v.get("score")
         score = SCORE_MAP.get(verdict, 0.0) if score is None else float(score)
-        for key, bucket in ((cat, stats), (src, src_stats)):
+        for key, bucket in ((cat, stats), (src, src_stats), (obj, obj_stats)):
             st = bucket.setdefault(key, CategoryStat(category=key))
             st.n += 1
             st.score_sum += score
@@ -453,6 +476,7 @@ def calibrate(
     return Calibration(
         by_category=sorted(stats.values(), key=lambda s: (s.hit_rate, -s.n)),
         by_source=sorted(src_stats.values(), key=lambda s: (s.hit_rate, -s.n)),
+        by_object_type=sorted(obj_stats.values(), key=lambda s: (s.hit_rate, -s.n)),
         scored=sum(s.n for s in stats.values()),
         pending=pending,
         unverifiable=unverifiable,
@@ -504,6 +528,15 @@ def render_report(cal: Calibration) -> str:
         for st in cal.by_source:
             lines.append(
                 f"- {st.category}：命中率 {round(st.hit_rate * 100)}%（{st.reliability}）"
+                f"，样本 {st.n}：命中 {st.hits} / 半对 {st.partial} / 落空 {st.miss}"
+            )
+    if cal.by_object_type:
+        lines.append("")
+        lines.append("# 按对象类型（用户决策 / agent 判断 / 观察剧本，分开算不互相稀释）")
+        for st in cal.by_object_type:
+            lines.append(
+                f"- {OBJECT_TYPE_CN.get(st.category, st.category)}："
+                f"命中率 {round(st.hit_rate * 100)}%（{st.reliability}）"
                 f"，样本 {st.n}：命中 {st.hits} / 半对 {st.partial} / 落空 {st.miss}"
             )
     return "\n".join(lines) + "\n"
