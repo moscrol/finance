@@ -134,6 +134,83 @@ class TestCoverage:
         assert agg.coverage.expected_days == len(DAYS)
 
 
+class TestDuplicateRows:
+    """2026-09-06 评审 #601 硬伤：同日重复行会被重复连乘，而覆盖率仍报「完整、可信」。"""
+
+    def _dup(self, db: str) -> None:
+        con = duckdb.connect(db)
+        con.execute(
+            "INSERT INTO fact_sector_daily VALUES (?, '886013.TI', '测试板块', 10.0, 100.0)",
+            [DAYS[1]],
+        )
+        con.close()
+
+    def test_duplicate_day_is_not_compounded_twice(self, db: str) -> None:
+        """三天各 +10% 应为 33.1%；多乘一天会变成 46.41%（1.1**4）。"""
+        con = duckdb.connect(db)
+        con.execute("DELETE FROM fact_sector_daily")
+        for d in DAYS:
+            con.execute(
+                "INSERT INTO fact_sector_daily VALUES (?, '886013.TI', '测试板块', 10.0, 100.0)", [d]
+            )
+        con.execute(
+            "INSERT INTO fact_sector_daily VALUES (?, '886013.TI', '测试板块', 10.0, 100.0)", [DAYS[1]]
+        )
+        con.close()
+        agg = range_aggregate(DAYS[0], DAYS[-1], "测试板块", db_path=db)
+        assert agg.values["cumulative_return_pct"] == pytest.approx(33.1, abs=1e-6)
+        assert agg.values["cumulative_return_pct"] != pytest.approx(46.41, abs=1e-6)
+
+    def test_duplicate_is_reported_not_silently_deduped(self, db: str) -> None:
+        self._dup(db)
+        agg = range_aggregate(DAYS[0], DAYS[-1], "测试板块", db_path=db)
+        assert agg.coverage.duplicate_dates == (DAYS[1],)
+        assert any("同一天读到多行" in c for c in agg.caveats)
+
+    def test_duplicate_makes_it_untrustworthy(self, db: str) -> None:
+        """去重只是止血：无从判断哪一行对，所以不能自称可信。"""
+        self._dup(db)
+        agg = range_aggregate(DAYS[0], DAYS[-1], "测试板块", db_path=db)
+        assert agg.coverage.complete is True, "去重后天数是齐的——complete 回答不了重复"
+        assert agg.coverage.clean is False
+        assert agg.trustworthy is False
+
+    def test_require_complete_refuses_on_duplicates(self, db: str) -> None:
+        self._dup(db)
+        agg = range_aggregate(DAYS[0], DAYS[-1], "测试板块", db_path=db, require_complete=True)
+        assert all(v is None for v in agg.values.values())
+
+    def test_dedupe_is_deterministic(self, db: str) -> None:
+        """「两次调用结果相同」不能因为去重取哪一行而变成假绿。"""
+        self._dup(db)
+        a = range_aggregate(DAYS[0], DAYS[-1], "测试板块", db_path=db).to_dict()
+        b = range_aggregate(DAYS[0], DAYS[-1], "测试板块", db_path=db).to_dict()
+        assert a == b
+
+    def test_duplicate_does_not_hide_provider_switch(self, db: str) -> None:
+        """去重可能丢掉换源那一侧的代码——codes_seen 必须用去重前的行算。"""
+        con = duckdb.connect(db)
+        con.execute(
+            "INSERT INTO fact_sector_daily VALUES (?, '990062.FP', '测试板块', 1.0, 100.0)", [DAYS[0]]
+        )
+        con.close()
+        agg = range_aggregate(DAYS[0], DAYS[-1], "测试板块", db_path=db)
+        assert "990062.FP" in agg.codes_seen and "886013.TI" in agg.codes_seen
+        assert any("换源" in c for c in agg.caveats)
+
+    def test_stock_path_also_deduped(self, db: str) -> None:
+        """个股走 close 首尾相除，重复行会打乱首尾与回撤曲线，同样要去重。"""
+        con = duckdb.connect(db)
+        con.execute(
+            "INSERT INTO fact_stock_daily VALUES (?, '600000.SH', '测试股', 999.0, 999.0, 1.0, NULL)",
+            [DAYS[2]],
+        )
+        con.close()
+        agg = range_aggregate(DAYS[0], DAYS[-1], "600000.SH", db_path=db)
+        assert agg.coverage.duplicate_dates == (DAYS[2],)
+        assert agg.trustworthy is False
+
+
 class TestRequireComplete:
     def test_refuses_to_emit_numbers_when_incomplete(self, db: str) -> None:
         agg = range_aggregate(DAYS[0], DAYS[-1], "测试板块", db_path=db, require_complete=True)

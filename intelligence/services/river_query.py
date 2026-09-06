@@ -456,17 +456,28 @@ class RangeCoverage:
     expected_days: int
     actual_days: int
     missing_dates: tuple[str, ...] = ()
+    # 同一天读到多行。连乘一旦按行遍历就会把那天乘两次：三天各 +10% 本该 33.1%，
+    # 多乘一天变成 46.41%（1.1**4）。而 actual_days 数的是**去重日期**，
+    # 所以覆盖率照样报「完整」——错得又大又安静，正是最该拦的形状。
+    duplicate_dates: tuple[str, ...] = ()
 
     @property
     def complete(self) -> bool:
         return self.expected_days > 0 and self.actual_days == self.expected_days
+
+    @property
+    def clean(self) -> bool:
+        """既不缺天也不重复。``complete`` 只回答缺不缺，回答不了重不重。"""
+        return self.complete and not self.duplicate_dates
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "expected_days": self.expected_days,
             "actual_days": self.actual_days,
             "complete": self.complete,
+            "clean": self.clean,
             "missing_dates": list(self.missing_dates),
+            "duplicate_dates": list(self.duplicate_dates),
         }
 
 
@@ -498,8 +509,12 @@ class RangeAggregate:
 
     @property
     def trustworthy(self) -> bool:
-        """能不能直接拿去用：覆盖完整且没跨过换源日。"""
-        return self.coverage.complete and len(self.codes_seen) <= 1
+        """能不能直接拿去用：覆盖**干净**（不缺天且无重复）且没跨过换源日。
+
+        用 ``clean`` 而不是 ``complete``：同一天重复时 ``complete`` 仍为真
+        （它数的是去重日期），于是一个被多乘过的数会自称「数据完整、结果可信」。
+        """
+        return self.coverage.clean and len(self.codes_seen) <= 1
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -574,6 +589,27 @@ def _sector_rows(con: Any, start: str, end: str, entity: str) -> list[dict[str, 
     )
 
 
+def _dedupe_by_date(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], tuple[str, ...]]:
+    """一天只留一行，并把出现重复的日子报出来。
+
+    为什么不静默去重：同一天两行、值还不一样时，**没有依据判断哪一行是对的**。
+    去重只是止血（不让它重复连乘），不代表结果可信——所以重复日期一并返回，
+    由调用方标成 caveat 并把 ``trustworthy`` 判否。
+
+    留哪一行：按 ``(日期, 行内容的稳定序列化)`` 排序后取第一条。这个选择是**任意但确定**的
+    ——任意是因为确实无从判断，确定是因为「两次调用结果相同」那条验收不能因它变假绿。
+    """
+    seen: dict[str, dict[str, Any]] = {}
+    dups: set[str] = set()
+    for row in sorted(rows, key=lambda r: (str(r["d"]), json.dumps(r, ensure_ascii=False, sort_keys=True, default=str))):
+        day = str(row["d"])
+        if day in seen:
+            dups.add(day)
+            continue
+        seen[day] = row
+    return [seen[d] for d in sorted(seen)], tuple(sorted(dups))
+
+
 def _rows_dict(con: Any, sql: str, params: list[Any]) -> list[dict[str, Any]]:
     cur = con.execute(sql, params)
     cols = [c[0] for c in cur.description]
@@ -625,10 +661,15 @@ def range_aggregate(
     finally:
         con.close()
 
+    # 先去重再算任何东西：下面的连乘、首尾取值、回撤曲线全都按行遍历，
+    # 重复行会被算两遍。codes_seen 用**去重前**的行，跨换源检测不受影响。
+    all_rows = rows
+    rows, duplicate_dates = _dedupe_by_date(rows) if rows else ([], ())
     coverage = RangeCoverage(
         expected_days=len(expected),
         actual_days=len({str(r["d"]) for r in rows}),
         missing_dates=tuple(sorted(set(expected) - {str(r["d"]) for r in rows})),
+        duplicate_dates=duplicate_dates,
     )
     if not rows:
         return RangeAggregate(
@@ -644,7 +685,8 @@ def range_aggregate(
 
     code_key = "stock_ts_code" if resolved_kind == "stock" else "sector_ts_code"
     name_key = "stock_name" if resolved_kind == "stock" else "sector_name"
-    codes_seen = tuple(sorted({str(r[code_key]) for r in rows if r.get(code_key)}))
+    # 用去重**前**的行：去重可能恰好丢掉换源那一侧的代码，那就检测不出跨换源了。
+    codes_seen = tuple(sorted({str(r[code_key]) for r in all_rows if r.get(code_key)}))
     entity_name = str(rows[-1].get(name_key) or entity)
 
     gaps: list[MetricGap] = []
@@ -698,15 +740,23 @@ def range_aggregate(
             f"覆盖不完整：应有 {coverage.expected_days} 个交易日、实读 {coverage.actual_days} 个"
             f"（缺 {len(coverage.missing_dates)} 天）"
         )
+    if coverage.duplicate_dates:
+        caveats.append(
+            f"同一天读到多行：{'、'.join(coverage.duplicate_dates)}（共 {len(coverage.duplicate_dates)} 天）。"
+            "已按日去重止血，但无从判断哪一行是对的——这个数不可直接使用，先查数据源"
+        )
     if len(codes_seen) > 1:
         caveats.append(
             f"区间跨过供应商换源：读到 {len(codes_seen)} 套代码 {codes_seen}，"
             "两套口径成分不同，连乘等于把两个宇宙接在一起"
         )
 
-    if require_complete and (not coverage.complete or len(codes_seen) > 1):
+    if require_complete and not (coverage.clean and len(codes_seen) <= 1):
         gaps.append(
-            MetricGap("*", "require_complete=True：覆盖不完整或跨换源，本层不给数（缺口见 caveats）")
+            MetricGap(
+                "*",
+                "require_complete=True：覆盖不完整 / 同日重复 / 跨换源，本层不给数（缺口见 caveats）",
+            )
         )
         values = dict.fromkeys(values, None)
         peak_date = None
@@ -735,6 +785,7 @@ def render_range(agg: RangeAggregate) -> str:
         head,
         f"  覆盖 {cov.actual_days}/{cov.expected_days} 个交易日"
         + ("" if cov.complete else f"，缺 {len(cov.missing_dates)} 天")
+        + ("" if not cov.duplicate_dates else f"，{len(cov.duplicate_dates)} 天有重复行")
         + (f"｜代码 {'/'.join(agg.codes_seen)}" if agg.codes_seen else ""),
         f"  可直接使用：{'是' if agg.trustworthy else '否——先看下面的限制'}",
         "",
