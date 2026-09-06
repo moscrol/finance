@@ -28,8 +28,15 @@
         "success": {"metric": "fwd_return", "horizon": 5, "op": ">", "value": 0}
       },
       "baseline": {"kind": "same_universe_all_days"},
-      "min_n": 20
+      "min_n": 20,
+      "sharing": "shared",
+      "owner": "system"
     }
+
+归属层（设计稿 §6 BP v0.4 产品约束第一条）：``sharing`` ∈ {shared, private}，``owner`` 共享规则恒为 ``system``
+（来源写 ``source_perspective``：经视角蒸馏的 KOL 方法论或系统内置），私有规则为用户 id。两字段**必填**——
+渲染层的合规硬门是「缺任一字段即不渲染」，规则层就不给默认值，免得一条漏写的私有规则被当成共享规则渲染出去。
+私有 → 共享的升格必须过统计门 ``supported`` 且由人拍板：改文件、升 version，不在这里自动做。
 """
 
 from __future__ import annotations
@@ -91,8 +98,16 @@ MAX_LIST_VALUES = 16
 RULE_ID_RE = re.compile(r"^[a-z][a-z0-9_]{2,63}$")
 # 文本值：字母数字下划线、CJK、少量连接符。分号、引号、括号、比较符、注释符一律拒——规则里不该有 SQL 味。
 TEXT_VALUE_RE = re.compile(r"^[0-9A-Za-z_\u4e00-\u9fff\u00b7/\-]{1,32}$")
+# 归属：共享 / 私有；owner 是用户 id 或 system。
+SHARING_LEVELS = ("shared", "private")
+SYSTEM_OWNER = "system"
+OWNER_RE = re.compile(r"^[0-9A-Za-z_.@\-]{1,64}$")
+MAX_SOURCE_PERSPECTIVE = 200
 
-_TOP_KEYS = {"rule_id", "version", "title", "scope", "condition", "outcome", "baseline", "min_n", "notes", "provenance"}
+_TOP_KEYS = {
+    "rule_id", "version", "title", "scope", "condition", "outcome", "baseline", "min_n", "notes", "provenance",
+    "sharing", "owner", "source_perspective",
+}
 # 候选规则从哪来：kind=correction 时 ref 是 corrections.jsonl 的记录 id / ts。只做溯源，不参与编译。
 _PROVENANCE_KEYS = {"kind", "ref", "ts", "text", "registered_at", "user"}
 PROVENANCE_KINDS = ("correction", "manual")
@@ -158,6 +173,8 @@ class Rule:
     success: Success
     baseline_kind: str
     min_n: int
+    sharing: str
+    owner: str
     raw: dict[str, Any]
 
     @property
@@ -397,6 +414,22 @@ def validate_rule(doc: Any) -> tuple[Rule | None, list[RuleError]]:
     if not _is_int(min_n) or min_n < 1:
         errors.append(RuleError("min_n", f"必须是 >=1 的整数，得到 {min_n!r}"))
 
+    # 归属层：两字段必填，不给默认值（漏写的私有规则不能默认成共享）
+    sharing = doc.get("sharing")
+    owner = doc.get("owner")
+    if sharing not in SHARING_LEVELS:
+        errors.append(RuleError("sharing", f"必填，必须在 {SHARING_LEVELS}，得到 {sharing!r}"))
+    if not isinstance(owner, str) or not OWNER_RE.match(owner):
+        errors.append(RuleError("owner", f"必填，必须匹配 {OWNER_RE.pattern}，得到 {owner!r}"))
+    elif sharing == "shared" and owner != SYSTEM_OWNER:
+        errors.append(RuleError("owner", f"共享规则的 owner 必须是 {SYSTEM_OWNER!r}（来源写 source_perspective），得到 {owner!r}"))
+    elif sharing == "private" and owner == SYSTEM_OWNER:
+        errors.append(RuleError("owner", f"私有规则的 owner 必须是用户 id，不能是 {SYSTEM_OWNER!r}"))
+    if "source_perspective" in doc:
+        sp = doc["source_perspective"]
+        if not isinstance(sp, str) or not sp.strip() or len(sp) > MAX_SOURCE_PERSPECTIVE:
+            errors.append(RuleError("source_perspective", f"必须是 1..{MAX_SOURCE_PERSPECTIVE} 字的非空字符串"))
+
     if "provenance" in doc:
         prov = doc["provenance"]
         if not isinstance(prov, dict):
@@ -427,6 +460,8 @@ def validate_rule(doc: Any) -> tuple[Rule | None, list[RuleError]]:
         success=success,
         baseline_kind=baseline_kind,
         min_n=int(min_n),
+        sharing=str(sharing),
+        owner=str(owner),
         raw=doc,
     )
     return rule, []

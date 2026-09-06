@@ -27,6 +27,7 @@ from .rules import (
     DEFAULT_MIN_N,
     METRICS,
     SCOPE_ENTITY_TYPES,
+    SYSTEM_OWNER,
     UNIVERSES,
     Rule,
     RuleError,
@@ -127,11 +128,16 @@ def build_rule_doc(
     version: int = 1,
     notes: str | None = None,
     provenance: dict[str, Any] | None = None,
+    sharing: str = "private",
+    owner: str | None = None,
+    source_perspective: str | None = None,
 ) -> tuple[dict[str, Any], Rule]:
     """组装规则文档并校验；不合法抛 RuleValidationError（带字段路径）。返回 (文档, 解析后的 Rule)。
 
     universe 取该实体类型白名单里的第一个（每类目前只有一个：sector=published_snapshot /
-    theme=heat_final / stock=limit_high_union）。
+    theme=heat_final / stock=limit_high_union）。归属默认 **private**——纠偏是某个用户的纠偏，登记出来的候选
+    规则只对本人回测；升共享要过统计门 supported 且由人拍板。``owner`` 未给时：private 由调用方传用户 id，
+    shared 恒为 system。
     """
     if entity_type not in UNIVERSES:
         raise RuleValidationError(
@@ -141,6 +147,8 @@ def build_rule_doc(
     hs = sorted({int(h) for h in (horizons or [3, 5, 7, 10])})
     if int(success.get("horizon", 0)) not in hs:
         hs = sorted({*hs, int(success["horizon"])})
+    if owner is None and sharing == "shared":
+        owner = SYSTEM_OWNER
     doc: dict[str, Any] = {
         "rule_id": rule_id,
         "version": int(version),
@@ -155,7 +163,11 @@ def build_rule_doc(
         },
         "baseline": {"kind": "same_universe_all_days"},
         "min_n": int(min_n),
+        "sharing": sharing,
+        "owner": owner,
     }
+    if source_perspective:
+        doc["source_perspective"] = str(source_perspective)
     if notes:
         doc["notes"] = str(notes)
     if provenance:
