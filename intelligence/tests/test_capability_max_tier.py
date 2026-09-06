@@ -288,6 +288,35 @@ def test_all_tools_env_does_not_leak_market_tools_into_method_questions(
     assert context.contract.allowed_capabilities == ()
 
 
+def test_llm_call_fuse_scales_with_the_deployment_tier_without_touching_the_rest_of_the_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """09-07 04:11 读数：max 形状 + 两次 sub_research（5 支分支 28 次模型调用）烧穿 40 的保险丝，
+    最后被拒的是判官 → judge unavailable、答案降级。max 档 120；其它档与 profile 其余字段不变。"""
+
+    from intelligence.services.research_contract import (
+        DEFAULT_LLM_CALL_FUSE,
+        llm_call_fuse_for_tier,
+    )
+
+    assert llm_call_fuse_for_tier("max") == 120
+    for tier in ("quick", "standard", "deep", None, "bogus"):
+        assert llm_call_fuse_for_tier(tier) == DEFAULT_LLM_CALL_FUSE == 40
+
+    monkeypatch.delenv(app._RESEARCH_TIER_ENV, raising=False)
+    baseline = app._deployment_execution_policy()
+    assert baseline.max_llm_calls == 40
+    monkeypatch.setenv(app._RESEARCH_TIER_ENV, "max")
+    maximal = app._deployment_execution_policy()
+    assert maximal.max_llm_calls == 120
+    # 只抬保险丝：墙钟、合成保留、grounded profile 一个不动。
+    assert (maximal.max_elapsed_seconds, maximal.synthesis_reserve_seconds) == (
+        baseline.max_elapsed_seconds,
+        baseline.synthesis_reserve_seconds,
+    )
+    assert maximal.grounded_budget_profile == baseline.grounded_budget_profile
+
+
 # ---------------------------------------------------------------------------
 # 4. 菜单不藏 + 每批帽
 # ---------------------------------------------------------------------------

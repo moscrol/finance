@@ -390,6 +390,17 @@ PRODUCT_MAX_SECONDS = 600.0
 
 RESEARCH_TIERS: frozenset[str] = frozenset({"quick", "standard", "deep", "max"})
 
+# turn 级 LLM 调用保险丝（``ResearchExecutionPolicy.max_llm_calls``，缺省 40）按档位放大。
+# 2026-09-07 04:11 读数：max 形状 + 两次 sub_research（5 支分支合计 28 次模型调用）把 40 烧穿，
+# 最后一个要发的调用是**判官**——被拒后 judge unavailable、答案降级。保险丝的对象是失控，
+# 不是并行分支的正常开销；max 档给 120：5 支 × 10 + 父臂 ~15 + 判官 3 + 控制器 ~5 ≈ 75。
+LLM_CALL_FUSE_BY_TIER: dict[str, int] = {"max": 120}
+DEFAULT_LLM_CALL_FUSE = 40
+
+
+def llm_call_fuse_for_tier(tier: str | None) -> int:
+    return LLM_CALL_FUSE_BY_TIER.get(str(tier or "").strip().lower(), DEFAULT_LLM_CALL_FUSE)
+
 
 @dataclass(frozen=True)
 class ResearchPolicy:
