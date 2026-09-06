@@ -25,8 +25,28 @@ from intelligence.services.task_frame import TaskFrame
 BranchStatus = Literal["completed", "partial", "failed"]
 _BRANCH_STATUSES = frozenset({"completed", "partial", "failed"})
 MAX_SUB_RESEARCH_BRANCHES = 3
+# 缺省（deep 及以下）的每支上限。这也是 ``sub_research`` 工具申报的最小窗
+# （``research_tool_registry.SUB_RESEARCH_MIN_WINDOW_SECONDS``，测试钉相等）。
 MAX_CALLS_PER_BRANCH = 8
 MAX_SECONDS_PER_BRANCH = 60.0
+# 按档位放大的上限。2026-09-07 三道可拆题 9 支分支读数：60s 下 9/9 没有一支跑完
+# （7 partial、2 failed=deadline_exhausted 零证据），而父臂每次派发时都还剩 ~590s、
+# ``sub_research`` 整个调用只用 60–97s。父臂的窗不是瓶颈，分支的顶才是。
+# max 档 600s 里给每支 150s / 10 次：三支并行占父臂约 2.5 分钟，父臂自己还剩 7 分钟。
+# 调用同样从父账本扣（非铸币视图不变），所以 max 档的起步调用数同步 32 → 40
+# （``ResearchPolicy.for_tier("max")``）——昨晚长电 vs 通富那题分支 20 + 父臂 12 恰好用满 32。
+_BRANCH_LIMITS_BY_TIER: dict[str, tuple[int, float]] = {
+    "max": (10, 150.0),
+}
+
+
+def branch_limits(tier: str | None) -> tuple[int, float]:
+    """一支分支最多几次调用、多少秒。缺省 (8, 60.0)；max 档 (10, 150.0)。"""
+
+    return _BRANCH_LIMITS_BY_TIER.get(
+        str(tier or "").strip().lower(),
+        (MAX_CALLS_PER_BRANCH, MAX_SECONDS_PER_BRANCH),
+    )
 
 
 def _clean_goals(values: Iterable[str]) -> tuple[str, ...]:
@@ -314,14 +334,15 @@ class SubResearchCoordinator:
             return SubResearchResult((), "deadline_exhausted")
 
         branch_count = len(normalized)
+        max_calls, max_seconds = branch_limits(context.policy.tier)
         calls_per_branch = max(
             1,
-            min(MAX_CALLS_PER_BRANCH, root.remaining_calls // branch_count),
+            min(max_calls, root.remaining_calls // branch_count),
         )
         seconds_per_branch = max(
             0.001,
             min(
-                MAX_SECONDS_PER_BRANCH,
+                max_seconds,
                 context.deadline.remaining(),
                 root.remaining_seconds / branch_count,
             ),
@@ -450,6 +471,7 @@ class SubResearchCoordinator:
 
 __all__ = [
     "BranchRequest",
+    "branch_limits",
     "BranchResult",
     "BranchStatus",
     "MAX_SUB_RESEARCH_BRANCHES",

@@ -18,6 +18,7 @@ import pytest
 from intelligence.runtime.agent_episode import ContinuousAgentEpisode
 from intelligence.runtime.episode_tool_batch import ToolBatchExecutor
 from intelligence.runtime.sub_research import (
+    MAX_CALLS_PER_BRANCH,
     MAX_SECONDS_PER_BRANCH,
     BranchResult,
     SubResearchCoordinator,
@@ -289,6 +290,47 @@ def test_bound_runner_enforces_depth_one_and_stays_inside_the_batch_window() -> 
         assert owners["branch-evidence-1"] == "branch-1"
     finally:
         release_root_budget(context.contract.task_id)
+
+
+def test_branch_limits_scale_with_tier_and_the_coordinator_sizes_branches_by_them() -> None:
+    """09-07 三道可拆题 9 支分支读数：60s 下 9/9 没跑完（2 支零证据 failed），父臂每次剩 ~590s。
+
+    max 档每支 150s / 10 次；deep 及以下仍 60s / 8 次（工具申报的最小窗 60 不动）。
+    协调器给分支的 deadline / 账本视图要真按这个数切，不是只改常数。
+    """
+
+    from intelligence.runtime.sub_research import branch_limits
+
+    assert branch_limits("max") == (10, 150.0)
+    for tier in ("quick", "standard", "deep", None, "", "MAX "):
+        expected = (10, 150.0) if str(tier or "").strip().lower() == "max" else (8, 60.0)
+        assert branch_limits(tier) == expected
+    assert branch_limits("deep") == (MAX_CALLS_PER_BRANCH, MAX_SECONDS_PER_BRANCH)
+
+    seen: list[tuple[int, float]] = []
+
+    class _SizingWorker:
+        def run(self, request):
+            budget = request.context.root_budget
+            seen.append((budget.initial_calls, round(budget.initial_seconds, 1)))
+            return _branch(request.branch_id, request.goal)
+
+    # 档位上限之外，父账本仍是上界：deep 起步 12 次 ÷ 2 支 = 6 < 8，所以 deep 拿 6；
+    # max 起步 40 次 ÷ 2 = 20 > 10，所以 max 拿满 10。秒数两档都不被账本压住。
+    for tier, expected in (("max", (10, 150.0)), ("deep", (6, 60.0))):
+        context = _context(tier, allowed=("market_data",))
+        try:
+            seen.clear()
+            SubResearchCoordinator(_SizingWorker()).run(
+                goals=("甲", "乙"),
+                task_frame=_frame(),
+                context=context,
+                registry=_market_registry(_successful_runner),
+                evidence_sink_factory=EvidenceLedger(information_cutoff=date(2026, 7, 22)).branch_sink,
+            )
+            assert seen == [expected, expected], (tier, seen)
+        finally:
+            release_root_budget(context.contract.task_id)
 
 
 def test_coordinator_accepts_max_tier_and_still_refuses_standard() -> None:
