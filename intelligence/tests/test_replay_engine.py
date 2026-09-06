@@ -91,6 +91,36 @@ def test_pit_grade_strict_when_validation_passes(tmp_path, monkeypatch):
     assert grade == "strict" and meta["manifest_sha"] == "m" * 64
 
 
+def test_pit_grade_empty_snapshot_is_not_strict(tmp_path, monkeypatch):
+    """checksum 过但 required_failures 含引擎要读的表（2026-07-31 / 08-13 / 08-14 的真实形状）→ trade_date_only。"""
+    (tmp_path / "2026-07-31.manifest.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        engine,
+        "validate_frozen_snapshot",
+        lambda root, as_of: {
+            "manifest_sha": "m" * 64,
+            "replay_eligible": False,
+            "required_failures": ["fact_market_daily", "fact_sector_daily", "fact_stock_daily"],
+        },
+    )
+    grade, meta = engine.pit_grade_for("2026-07-31", tmp_path)
+    assert grade == "trade_date_only" and meta["reason"].startswith("snapshot_missing_tables")
+    assert "fact_market_daily" in meta["reason"] and meta["manifest_sha"] == "m" * 64
+    # 只缺引擎不读的表（如 fact_sw_l1_daily）仍是 strict
+    monkeypatch.setattr(
+        engine,
+        "validate_frozen_snapshot",
+        lambda root, as_of: {"manifest_sha": "m" * 64, "replay_eligible": False, "required_failures": ["fact_sw_l1_daily"]},
+    )
+    assert engine.pit_grade_for("2026-07-31", tmp_path)[0] == "strict"
+
+
+def test_run_local_date_uses_run_start_in_shanghai():
+    assert engine.run_local_date({"started_at": "2026-09-04T18:42:03+00:00"}) == "2026-09-05"
+    assert engine.run_local_date({"started_at": "2026-09-04T10:00:00+00:00"}) == "2026-09-04"
+    assert engine.run_local_date({}) is None
+
+
 def test_select_nodes_forces_reconciliation_dates_only_in_strict(synthetic, monkeypatch):
     cal = synthetic["calendar"]
     strict_dates = set(cal[30:50])
@@ -431,6 +461,43 @@ def test_reconciliation_insufficient_dates_is_written_not_blank(tmp_path):
     assert section["status"] == "insufficient" and "不足对账最小样本" in section["note"]
     assert section["overlap_dates"] == ["2026-07-13", "2026-07-14"] and section["included_dates"] == ["2026-07-13", "2026-07-14"]
     assert sorted(p.name for p in ledger.iterdir()) == ["2026-07-13.answer.claude.json", "2026-07-14.answer.claude.json", "2026-07-15.answer.claude.json"]
+
+
+def test_rebuild_report_regrades_and_excludes_changed_nodes(synthetic, tmp_path, monkeypatch):
+    """report 子命令从 run 目录重出：分档规则收紧后档位变了的节点整个剔除，不进任何格子，报表列出原因。"""
+    cal = synthetic["calendar"]
+    nodes = [_node(synthetic, cal[30]), _node(synthetic, cal[45])]
+
+    def stub(prompt, meta):
+        if meta["lane"] == "A":
+            return {"content": json.dumps({"rule_triggers": {r.rule_id: [] for r in engine.load_lane_a_rules()}}), "model": "stub", "reason": ""}
+        as_of_label = meta["as_of"] if meta["arm"] == "named" else "T-0"
+        hyps = [
+            {"id": f"m{i}", "category": "market", "claim": f"T+1 涨家数 > {i}", "horizon": "T+1", "confidence": "low", "confidence_probability": 0.5, "evidence_refs": ["x"], "evidence_as_of": as_of_label, "falsify_when": f"T+1 涨家数 <= {i}"}
+            for i in range(3)
+        ]
+        return {"content": json.dumps({"hypotheses": hyps}), "model": "stub", "reason": ""}
+
+    report = engine.run_replay(
+        db_path=synthetic["src"], labels_db=synthetic["labels"], snapshot_root=synthetic["snapshots"], runtime_root=tmp_path,
+        nodes_override=nodes, llm=stub, ledger_dir=None, reconcile=False, measurements_dir=None, run_id="regrade", abort_failure_rate=None, log=lambda _m: None,
+    )
+    assert report["conditions"]["nodes_by_grade"] == {"trade_date_only": 2}
+    monkeypatch.setattr(engine, "pit_grade_for", lambda as_of, root: ("strict", {"manifest_sha": "x"}) if as_of == cal[30] else ("trade_date_only", {"reason": "no_manifest"}))
+    rebuilt = engine.rebuild_report(
+        tmp_path / "regrade", db_path=synthetic["src"], labels_db=synthetic["labels"], snapshot_root=synthetic["snapshots"], ledger_dir=None,
+        measurements_dir=tmp_path / "measurements", log=lambda _m: None,
+    )
+    assert [n["as_of"] for n in rebuilt["excluded_nodes"]] == [cal[30]]
+    assert rebuilt["excluded_nodes"][0]["pit_grade_at_run"] == "trade_date_only" and rebuilt["excluded_nodes"][0]["pit_grade_now"] == "strict"
+    assert rebuilt["conditions"]["nodes_by_grade"] == {"trade_date_only": 1}
+    assert [n["as_of"] for n in rebuilt["nodes"]] == [cal[45]]
+    assert sum(r["hypotheses"] for r in rebuilt["memory_bucket_distribution"]) == 6  # 1 节点 × 2 臂 × 3 条
+    assert rebuilt["conditions"]["llm"]["calls"] == 4 and rebuilt["conditions"]["llm"]["calls_in_run_dir"] == 8
+    assert rebuilt["excluded_nodes"][0]["llm_calls_spent"] == 4
+    assert "整节点剔除" in (tmp_path / "regrade" / "report.md").read_text(encoding="utf-8")
+    stem_dates = sorted(p.name for p in (tmp_path / "measurements").glob("replay-*.json"))
+    assert len(stem_dates) == 1
 
 
 def test_report_markdown_renders_all_sections(synthetic):

@@ -88,6 +88,8 @@ REPLAY_CONFIDENCE = ("high", "medium", "low")
 MEMORY_BUCKETS = ("post_cutoff", "pre_cutoff", "unknown")
 MEMORY_CONTAMINATED = ("pre_cutoff", "unknown")
 LANE_A_ENTITY_TYPES = ("sector", "theme")  # 本单不跑个股规则，输入里也不放 STOCK_LABELS
+# strict 档要从冻结快照里读的表：manifest.required_failures 含任一即不算 strict（空快照不冒充 PIT 输入）
+STRICT_REQUIRED_TABLES = ("fact_market_daily", "fact_sector_daily")
 MIN_HYPOTHESES = 3
 MAX_HYPOTHESES = 8
 DEFAULT_COUNT_PER_GRADE = 20
@@ -305,8 +307,10 @@ def environment_block(*, snapshot_root: Path, db_path: Path, labels_db: Path) ->
 # 1. 节点选择与 PIT 分档
 # --------------------------------------------------------------------------- #
 def pit_grade_for(as_of: str, snapshot_root: str | Path = DEFAULT_SNAPSHOT_ROOT) -> tuple[str, dict[str, Any]]:
-    """``strict`` 当且仅当 ``<D0>.manifest.json`` 存在且 ``validate_frozen_snapshot`` 通过（checksum、
-    hash chain、逐行 known_at / source_time）；否则 ``trade_date_only``，并写明原因。"""
+    """``strict`` 当且仅当 ``<D0>.manifest.json`` 存在、``validate_frozen_snapshot`` 通过（checksum、hash chain、
+    逐行 known_at / source_time），**且引擎要读的表不在 manifest 的 ``required_failures`` 里**——2026-07-31 / 08-13 / 08-14
+    三份快照 checksum 都过，但 required_failures 含全部基线表（当晚捕获到的是空表），按 pit-snapshot-inventory.md 它们只是
+    诊断产物（``replay_eligible=false``），不是 PIT 输入；否则 ``trade_date_only``，并写明原因。"""
     root = Path(snapshot_root).expanduser()
     manifest_path = root / f"{as_of}.manifest.json"
     if not manifest_path.exists():
@@ -315,6 +319,13 @@ def pit_grade_for(as_of: str, snapshot_root: str | Path = DEFAULT_SNAPSHOT_ROOT)
         manifest = validate_frozen_snapshot(root, as_of)
     except (ValueError, OSError, json.JSONDecodeError) as exc:
         return "trade_date_only", {"reason": f"snapshot_validation_failed: {exc}"}
+    missing = sorted(set(STRICT_REQUIRED_TABLES) & {str(t) for t in (manifest.get("required_failures") or [])})
+    if missing:
+        return "trade_date_only", {
+            "reason": f"snapshot_missing_tables: {missing}",
+            "manifest_sha": manifest.get("manifest_sha"),
+            "replay_eligible": manifest.get("replay_eligible"),
+        }
     return "strict", {
         "manifest_file": manifest_path.name,
         "manifest_sha": manifest.get("manifest_sha"),
@@ -1783,7 +1794,8 @@ def render_report_markdown(report: dict[str, Any]) -> str:
         f"- 旁路库：label_version=`{c['label_version']}`，source_max_trade_date={c['source_max_trade_date']}，outcomes_horizons={c['outcomes_horizons']}，WINDOW_START_OFFSET={c['window_start_offset']}",
         f"- 树 {env.get('worktree')} @ {env.get('branch')} · revision `{env.get('revision')}` · dirty={str(env.get('dirty')).lower()} · 解释器 {env.get('interpreter')}",
         f"- LLM：入口 {c['llm']['entry']}，temperature={c['llm']['temperature']}，调用 {c['llm']['calls']} 次 / 失败 {c['llm']['failures']} 次 / 答卷无效 {c['llm']['invalid_answers']} 次，"
-        f"输入 token 估算 {c['llm']['estimated_input_tokens']}（estimated）",
+        f"输入 token 估算 {c['llm']['estimated_input_tokens']}（estimated）"
+        + (f"；真跑实际调用（含剔除节点）{c['llm']['calls_in_run_dir']} 次" if c["llm"].get("calls_in_run_dir") else ""),
         f"- 配置：{json.dumps(c['config'], ensure_ascii=False)}",
         "",
         "## 节点",
@@ -1802,6 +1814,13 @@ def render_report_markdown(report: dict[str, Any]) -> str:
             f"| {n['as_of']} | {n['pit_grade']} | {n.get('market_stage')} | {'✓' if n.get('forced') else ''} | "
             f"{total.get('sector', '—')}/{total.get('theme', '—')} | {vis_txt} | {tag} |"
         )
+    excluded = report.get("excluded_nodes") or []
+    if excluded:
+        lines += ["", "> 重出报表时按当前分档规则重判、**整节点剔除**（答卷仍在 run 目录，不计入任何格子）：", ""]
+        lines.append("| D0 | 真跑时档位 | 现判档位 | 原因 |")
+        lines.append("|---|---|---|---|")
+        for n in excluded:
+            lines.append(f"| {n['as_of']} | {n['pit_grade_at_run']} | {n['pit_grade_now']} | {n['reason']} |")
     lines += [
         "",
         "## 车道 A · 规则复现一致率（无泄漏：不涉及 D0 之后的数据）",
@@ -2129,6 +2148,22 @@ def run_replay(
         labels_con.close()
 
 
+def run_local_date(run_meta: dict[str, Any]) -> str | None:
+    """报表文件名里的日期 = 真跑开始的本地日（Asia/Shanghai），重出报表时沿用，不用重出那天的日期。"""
+    from zoneinfo import ZoneInfo
+
+    raw = str(run_meta.get("started_at") or "")
+    if not raw:
+        return None
+    try:
+        started = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    if started.tzinfo is None:
+        started = started.replace(tzinfo=timezone.utc)
+    return started.astimezone(ZoneInfo("Asia/Shanghai")).date().isoformat()
+
+
 def rebuild_report(
     run_dir: str | Path,
     *,
@@ -2158,6 +2193,7 @@ def rebuild_report(
     calls: list[dict[str, Any]] = []
     lane_a_records: list[dict[str, Any]] = []
     lane_b_records: list[dict[str, Any]] = []
+    excluded_nodes: list[dict[str, Any]] = []
     try:
         conditions = load_conditions(labels_con)
         calendar = [str(r[0])[:10] for r in labels_con.execute("SELECT trade_date FROM history_calendar ORDER BY trade_date").fetchall()]
@@ -2166,6 +2202,25 @@ def rebuild_report(
             as_of = node["as_of"]
             node_dir = run_dir / "nodes" / as_of
             if not (node_dir / "input.json").exists():
+                continue
+            # 重判分档：分档规则若在真跑之后收紧（如空快照不算 strict），档位变了的节点整个剔除——
+            # 它的答卷是按旧档位的输入生成的，既不能留在 strict 也不能冒充抽样出来的 trade_date_only 节点
+            regrade, regrade_meta = pit_grade_for(as_of, snapshot_root)
+            if regrade != node["pit_grade"]:
+                spent = 0
+                for arm in arms:
+                    answer_path = node_dir / f"answer.{arm}.json"
+                    if answer_path.exists():
+                        spent += sum(1 for lane in lanes if (_read_json(answer_path)).get(lane))
+                excluded_nodes.append(
+                    {
+                        "as_of": as_of,
+                        "pit_grade_at_run": node["pit_grade"],
+                        "pit_grade_now": regrade,
+                        "reason": regrade_meta.get("reason") or "regraded",
+                        "llm_calls_spent": spent,
+                    }
+                )
                 continue
             seen_nodes.append(node)
             replay_input = _read_json(node_dir / "input.json")
@@ -2223,13 +2278,18 @@ def rebuild_report(
             config=config,
         )
         report["rebuilt_at"] = _utc_now_iso()
+        report["excluded_nodes"] = excluded_nodes
+        report["conditions"]["config"]["excluded_after_regrade"] = [n["as_of"] for n in excluded_nodes]
+        # 花掉的预算按整个 run 目录算：剔除节点的调用也是真钱，不能从统计里消失
+        report["conditions"]["llm"]["calls_in_run_dir"] = len(calls) + sum(n["llm_calls_spent"] for n in excluded_nodes)
+        report["conditions"]["llm"]["calls_note"] = "calls = 进入统计的节点；calls_in_run_dir = 真跑实际调用（含剔除节点）"
         _write_json(run_dir / "report.json", report)
         (run_dir / "report.md").write_text(render_report_markdown(report), encoding="utf-8")
         if measurements_dir is not None:
-            stem = f"replay-{datetime.now().date().isoformat()}"
+            stem = f"replay-{run_local_date(meta) or datetime.now().date().isoformat()}"
             paths = write_report(report, Path(measurements_dir).expanduser(), stem=stem)
             report["measurement_paths"] = {k: str(v) for k, v in paths.items()}
-        log(f"[replay] report rebuilt: nodes={len(seen_nodes)} calls={len(calls)} run_dir={run_dir}")
+        log(f"[replay] report rebuilt: nodes={len(seen_nodes)} excluded={len(excluded_nodes)} calls={len(calls)} run_dir={run_dir}")
         return report
     finally:
         db_con.close()
