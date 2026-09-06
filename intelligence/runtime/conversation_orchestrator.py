@@ -871,7 +871,7 @@ def _generic_research_deadline(
     # synthesis.
     synthesis_reserve = (
         max(root_deadline.synthesis_reserve, policy.synthesis_reserve)
-        if policy.tier == "deep"
+        if policy.tier in {"deep", "max"}
         else policy.synthesis_reserve
     )
     return ResearchDeadline(

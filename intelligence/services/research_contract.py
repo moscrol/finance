@@ -380,6 +380,15 @@ class ResearchDeadline:
         )
 
 
+# 单个 episode 的产品级硬顶：任何 tier、升档、grant 都不得越过。2026-09-06 之前这两个
+# 数（24 次 / 240s）就是 deep 档本身，写死在 promote_caps 与 tier_promotion 两处；
+# 加 max 档后抬到 max 档的账本上限，并收成一对常数，改一处两处同时变。
+PRODUCT_MAX_TOOL_CALLS = 48
+PRODUCT_MAX_SECONDS = 600.0
+
+RESEARCH_TIERS: frozenset[str] = frozenset({"quick", "standard", "deep", "max"})
+
+
 @dataclass(frozen=True)
 class ResearchPolicy:
     """Generic owner 的确定性档位，不允许由 LLM 提高上限。"""
@@ -395,6 +404,11 @@ class ResearchPolicy:
             "quick": cls("quick", 3, 30.0, 20.0),
             "standard": cls("standard", 6, 90.0, 20.0),
             "deep": cls("deep", 12, 240.0, 48.0),
+            # 「能力 max」档（用户 2026-09-06 决策：先找到能力上限，再按超限的部分设约束，
+            # 而不是上来就约束）。knevo 同题打了 22 次工具；我们 standard 档 8 次里
+            # 2 次零授予。这一档给足调用与墙钟，出口硬层（admit_finish / 判官 / 来源分档）
+            # 一字不动——放开的是输入侧预算，不是正确性。
+            "max": cls("max", 32, PRODUCT_MAX_SECONDS, 60.0),
         }
         return policies.get(tier, policies["standard"])
 
@@ -592,7 +606,11 @@ class InMemoryRootBudgetLedger:
             seconds_cap = float(hard_seconds_cap)
         except (TypeError, ValueError):
             return False
-        if seconds_cap < 0 or hard_calls_cap > 24 or seconds_cap > 240.0:
+        if (
+            seconds_cap < 0
+            or hard_calls_cap > PRODUCT_MAX_TOOL_CALLS
+            or seconds_cap > PRODUCT_MAX_SECONDS
+        ):
             return False
         with self._lock:
             if episode != self.episode_id:
@@ -690,6 +708,7 @@ def root_budget_for_policy(
         "quick": 4,
         "standard": 8,
         "deep": 24,
+        "max": PRODUCT_MAX_TOOL_CALLS,
     }.get(str(policy.tier).strip().lower(), policy.max_steps)
     with _LIVE_ROOT_BUDGETS_LOCK:
         if episode in _LIVE_ROOT_BUDGETS:
@@ -811,7 +830,7 @@ class ResearchTaskContract:
             )
         if not self.task_id.strip() or not self.question.strip():
             raise ResearchContractError("task_id/question 不能为空")
-        if self.research_tier not in {"quick", "standard", "deep"}:
+        if self.research_tier not in RESEARCH_TIERS:
             raise ResearchContractError(f"未知研究档位：{self.research_tier}")
         if any(not item.output_id.strip() for item in self.required_outputs):
             raise ResearchContractError("required output id 不能为空")

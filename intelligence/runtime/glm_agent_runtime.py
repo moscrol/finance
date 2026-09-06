@@ -39,6 +39,7 @@ _GLM_SYNTHESIS_RESERVE = {
     "quick": 20.0,
     "standard": 75.0,
     "deep": 75.0,
+    "max": 75.0,
 }
 _SYNTHESIS_HEAVY_QUESTION_TYPES = frozenset(
     {
