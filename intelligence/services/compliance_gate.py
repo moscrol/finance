@@ -34,6 +34,11 @@ E_NEXT_DAY_DIRECTION = "E_NEXT_DAY_DIRECTION"  # 「第二天的方向」——�
 E_TARGET_PRICE = "E_TARGET_PRICE"  # 目标价
 E_PROBABILITY = "E_PROBABILITY"  # 概率承诺（带数字）
 E_STRATEGY_WORD = "E_STRATEGY_WORD"  # 「策略」单独出现
+# 对下一个交易日的领涨 / 方向判断（「最可能先动的是 X」「预计明天将反弹」「首选方向是」）。
+# 2026-09-07 D9 读数：max 形状下「明天开盘哪个方向会先起来」被答成「7月23日开盘最可能先动的是
+# 电力—风电链，次选贵金属」，判官放行；08-27 产品臂同题 0.5 分——这条早就在漏。它与
+# E_DIRECTION（买卖动作词）不同：这里拦的是**预测**，不是**动作**。
+E_FORWARD_CALL = "E_FORWARD_CALL"
 
 # 观察剧本硬门用全套；对外物料 lint 只用后两条（前五条在营销文案里本来就不该出现，
 # 但 products.yaml 已有自己的 PROHIBITED_PATTERNS，两边不重复造）。
@@ -55,6 +60,10 @@ CODE_HINTS: dict[str, str] = {
     E_TARGET_PRICE: "去掉目标价——剧本不承诺价位",
     E_PROBABILITY: "去掉概率数字——样本不足时产品显示「样本不足」，不出比率",
     E_STRATEGY_WORD: "「策略」不单独出现；内部模块名（策略一 / 策略进化）不受此限",
+    E_FORWARD_CALL: (
+        "不判断明天哪个方向先动 / 会涨会跌，改写成观察剧本："
+        "明天要看的变量（指数 / 板块 / 题材级）+ 升级条件 + 降级或放弃条件"
+    ),
 }
 
 
@@ -124,7 +133,67 @@ _STOCK_CODE_RE = re.compile(
     r"|(?<!\d)(?:00|30|60|68|43|83|87)\d{4}(?!\d)(?!\.[A-Za-z])"
 )
 
+# 领涨 / 方向判断的形态，三族（词表冻结，扩词必须带新夹具）：
+#   ① 「（最可能 / 更可能 / 大概率）先动 / 先起来 / 率先启动 / 领涨 的（板块 / 方向 / 题材 / 链）是」
+#   ② 「明天 / 次日 / 开盘 …（会 / 将 / 最可能 / 大概率）上涨 / 下跌 / 走强 / 领涨 / 高开 …」
+#   ③ 「首选 / 次选（方向 / 板块 / 题材）是」
+# 不收「优先关注」「重点观察」——那是观察剧本自己的语言。
+_FORWARD_CALL_RE = re.compile(
+    r"(?:最可能|更可能|最有可能|大概率|预计|预期)?"
+    r"(?:先动|先起来|先起|率先启动|率先走强|率先反弹|领涨|领跌|先走强)"
+    r"的?(?:板块|方向|题材|链|品种)?(?:是|为|将是|会是|应是)"
+    r"|(?:明天|明日|次日|下个交易日|下一交易日|开盘|明早)[^。；\n]{0,16}?"
+    r"(?:最可能|更可能|最有可能|大概率|预计|预期|会|将)"
+    r"(?:先动|先起|领涨|领跌|走强|走弱|上涨|下跌|反弹|回调|高开|低开|冲高|回落|补涨|补跌|承压|企稳)"
+    r"|(?:首选|次选)(?:方向|板块|题材|品种)?(?:是|为)"
+)
+
+# 条件句免检：观察剧本的升级 / 降级条件本来就长这样（「若明天开盘半导体高开，视为升级」），
+# 子句里在命中位置之前出现这些词就不算判断。与 reading_direction_gate 的 _CONDITIONAL 同理，
+# 但那张表是它自己的（读向闸），这里不共用——两个闸的免检语义不同（那边还免「将」）。
+_FORWARD_CONDITIONAL = ("如果", "若", "假如", "一旦", "倘若", "除非", "取决于", "要看", "观察", "视为", "算作", "条件")
+_FORWARD_CLAUSE_RE = re.compile(r"(?<=[。；，\n])")
+
+# 问句侧：什么问题算「问明天的方向」。两组都要命中：时间词 + 方向 / 走势 / 挑方向的问法。
+_NEXT_DAY_TIME_RE = re.compile(r"明天|明日|次日|下个交易日|下一交易日|明早|开盘")
+_NEXT_DAY_ASK_RE = re.compile(
+    r"方向|先起来|先动|领涨|会怎么走|怎么走|走势|涨还是跌|会涨|会跌|涨不涨|跌不跌"
+    r"|买什么|买哪|哪个板块|什么板块|哪些板块|哪个题材|什么题材|机会在哪|先起|谁先"
+)
+
 _CONTEXT_PAD = 12
+
+
+def is_next_day_direction_question(question: str) -> bool:
+    """用户是不是在问「明天哪个方向 / 会怎么走」。两组词都命中才算，宁可漏不可滥。"""
+
+    text = str(question or "")
+    return bool(_NEXT_DAY_TIME_RE.search(text) and _NEXT_DAY_ASK_RE.search(text))
+
+
+def forward_call_hits(text: str) -> list["Hit"]:
+    """答案里的领涨 / 方向判断。按子句判：命中位置之前有条件词的子句免检。
+
+    与 ``scan`` 分开：``scan`` 是整段词表扫描（观察剧本登记、营销 lint），
+    这里多一层条件句免检——剧本的升级 / 降级条件天然带「明天 … 高开」这类形态，
+    整段扫会把剧本自己拦掉。
+    """
+
+    raw = str(text or "")
+    if not raw:
+        return []
+    hits: list[Hit] = []
+    offset = 0
+    for clause in _FORWARD_CLAUSE_RE.split(raw):
+        if clause:
+            for m in _FORWARD_CALL_RE.finditer(clause):
+                prefix = clause[: m.start()]
+                if any(marker in prefix for marker in _FORWARD_CONDITIONAL):
+                    continue
+                start = offset + m.start()
+                hits.append(Hit(E_FORWARD_CALL, m.group(0), start, _context(raw, start, start + len(m.group(0)))))
+        offset += len(clause)
+    return hits
 
 
 def _context(text: str, start: int, end: int) -> str:
@@ -189,6 +258,8 @@ def scan(text: str, *, codes: tuple[str, ...] = OBSERVATION_SCRIPT_CODES) -> lis
         hits += _re_hits(text, _PROBABILITY_RE, E_PROBABILITY)
     if E_STRATEGY_WORD in codes:
         hits += _strategy_hits(text)
+    if E_FORWARD_CALL in codes:
+        hits += forward_call_hits(text)
 
     seen: set[int] = set()
     out: list[Hit] = []
