@@ -2146,6 +2146,42 @@ def cmd_theme(args: argparse.Namespace) -> int:
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
 
+def add_personal_export_parser(subparsers: argparse._SubParsersAction) -> None:
+    p = subparsers.add_parser(
+        "personal-export",
+        help="导出你自己的判断台账（判断 / 可证伪点 / 回检 / 观察剧本 / 纠偏 / 经验卡 / 画像）。"
+        "只读，只含本 user_id，不含共享层与他人记录",
+    )
+    p.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p.add_argument("--out", default=None, help="写到这个文件（缺省只打印摘要，不落盘）")
+    p.add_argument("--json", action="store_true", help="把整份导出打到 stdout")
+    p.set_defaults(func=cmd_personal_export)
+
+
+def cmd_personal_export(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence import userspace
+    from intelligence.services import personal_export
+
+    us = userspace.user_space(args.user)
+    result = personal_export.export_ledger(us)
+    payload = result.to_dict()
+
+    if args.out:
+        out = Path(args.out).expanduser()
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(_json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(personal_export.render(result))
+        print(f"\n  已写入 {out}")
+        return 0
+    if args.json:
+        print(_json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+    print(personal_export.render(result))
+    return 0
+
+
 def add_observation_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "observation",
@@ -3889,6 +3925,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_subconscious_parser(subparsers)
     add_checkpoint_parser(subparsers)
     add_observation_parser(subparsers)
+    add_personal_export_parser(subparsers)
     add_red_team_parser(subparsers)
     add_retrieval_audit_parser(subparsers)
     add_perspective_parser(subparsers)
