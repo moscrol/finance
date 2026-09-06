@@ -280,6 +280,13 @@ def build_succession(
         if not prior or prior.status != "ok":
             continue
         if now.status == "missing":
+            node_hash = hashlib.sha256(f"{prior.stock_ts_code}|{day}".encode()).hexdigest()[:16]
+            gap_node = SuccessionNode(node_hash, prior.stock_ts_code, prior.stock_name, prior.boards, day)
+            gap_node.context_break = dict((context_by_date or {}).get(day, {}))
+            gap_node.context_break.setdefault("anchor_as_of", day)
+            gap_node.context_break.setdefault("knowledge_cutoff", day)
+            gap_node.status, gap_node.status_reason = "unverifiable", "data_gap"
+            nodes.append(gap_node)
             continue
         prev_row = _row_for(coverage, day, prior.stock_ts_code or "")
         if prev_row is not None:

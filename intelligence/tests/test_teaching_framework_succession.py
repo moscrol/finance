@@ -44,7 +44,8 @@ def test_data_gap_and_open_tail():
     assert out["nodes"][0].status_reason == "data_gap"
     rows = {dates[0]: [{"stock_ts_code": "A", "limit_times": 3}]}
     out = build_succession(dates, rows, covered_dates=[dates[0]])
-    assert out["nodes"] == []  # no covered break day; source gap is not a break
+    assert out["nodes"][0].status == "unverifiable"
+    assert out["nodes"][0].status_reason == "data_gap"
 
 
 def test_time_normalization_and_unknown_shape():
