@@ -174,6 +174,16 @@ def compute_flags(
         prev = _prev(rows, i, cal)
         d = _date(row.get("trade_date"))
         rec = {"trade_date": d}
+        for passthrough in (
+            "market_stage",
+            "volume_state",
+            "ice_point",
+            "sh_week_ma_source",
+            "total_amount",
+            "limit_up",
+            "advancers",
+        ):
+            rec[passthrough] = row.get(passthrough)
         close, ma = _num(row.get("sh_index_close")), _num(row.get("sh_week_ma"))
         rec["above_week_ma"] = None if close is None or ma is None else close > ma
         rec["cross_above_week_ma"] = (
@@ -305,8 +315,19 @@ def _vendor_share(by_day, d, market, prev, prev_rows):
 
 
 def _vendor_rising(by_day, d, n, rows, i, cal):
-    # The vendor table has no all-market denominator; expose a conservative NULL unless amount rows are supplied.
-    return None
+    if i < n - 1:
+        return None
+    points = []
+    for j in range(i - n + 1, i + 1):
+        day = _date(rows[j].get("trade_date"))
+        entries = by_day.get(day)
+        if not entries:
+            return None
+        vals = [_num(r.get("amount")) for r in entries]
+        if not vals or any(v is None for v in vals):
+            return None
+        points.append(sum(vals))
+    return all(a < b for a, b in zip(points, points[1:]))
 
 
 def _rising_streak(rows, i, col, n, cal):
