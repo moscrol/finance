@@ -97,6 +97,7 @@ TEACHING_DDL = (
         value_num     DOUBLE,
         value_text    VARCHAR,
         label_version VARCHAR NOT NULL,
+        framework_version VARCHAR NOT NULL,
         status        VARCHAR NOT NULL DEFAULT 'ok',
         status_reason VARCHAR,
         computed_at   TIMESTAMP NOT NULL,
@@ -133,6 +134,7 @@ TEACHING_DDL = (
         handoff         BOOLEAN,
         context_break   VARCHAR,
         context_birth   VARCHAR,
+        forward         VARCHAR,
         framework_version VARCHAR,
         status          VARCHAR NOT NULL DEFAULT 'ok',
         status_reason   VARCHAR,
@@ -205,6 +207,23 @@ def ensure_schema(con: duckdb.DuckDBPyConnection) -> None:
         con.execute(stmt)
     for stmt in TEACHING_DDL:
         con.execute(stmt)
+    # Keep existing sidecars readable when a new teaching slice adds a
+    # version/context column.  Fresh databases get the stricter DDL above;
+    # upgraded databases receive nullable columns and a conservative backfill.
+    columns = {
+        "history_teaching_labels": {"framework_version": "VARCHAR"},
+        "history_leader_succession": {"forward": "VARCHAR"},
+    }
+    for table, additions in columns.items():
+        existing = {
+            str(row[1])
+            for row in con.execute(f"PRAGMA table_info('{table}')").fetchall()
+        }
+        for name, ddl_type in additions.items():
+            if name not in existing:
+                con.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl_type}")
+        if table == "history_teaching_labels" and "framework_version" not in existing:
+            con.execute("UPDATE history_teaching_labels SET framework_version = label_version WHERE framework_version IS NULL")
 
 
 def reset_tables(con: duckdb.DuckDBPyConnection, tables: tuple[str, ...]) -> None:

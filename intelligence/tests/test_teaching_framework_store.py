@@ -31,7 +31,7 @@ def test_teaching_schema_and_reset_do_not_touch_legacy_tables() -> None:
         "INSERT INTO history_labels VALUES ('market', 'market', DATE '2026-01-01', 'x', 1, NULL, 'v2', TIMESTAMP '2026-01-02')"
     )
     con.execute(
-        "INSERT INTO history_teaching_labels VALUES ('market', 'market', DATE '2026-01-01', 'tf.x', 1, NULL, 'tf-v0.1', 'ok', NULL, TIMESTAMP '2026-01-02')"
+        "INSERT INTO history_teaching_labels VALUES ('market', 'market', DATE '2026-01-01', 'tf.x', 1, NULL, 'supplier-v1', 'tf-v0.1', 'ok', NULL, TIMESTAMP '2026-01-02')"
     )
     reset_teaching_tables(con)
     assert con.execute("SELECT count(*) FROM history_labels").fetchone()[0] == 1

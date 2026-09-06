@@ -165,6 +165,11 @@ def compute_flags(
     amounts = _dedupe_rows(
         amount_rows or [], identity_keys=("stock_ts_code", "stock", "ts_code", "code")
     )
+    amount_values_by_day: dict[Any, list[float]] = {}
+    for (amount_day, _), amount_row in amounts.items():
+        amount_value = _num(amount_row.get("amount"))
+        if amount_value is not None:
+            amount_values_by_day.setdefault(amount_day, []).append(amount_value)
     vendor_by_day: dict[Any, list[Mapping[str, Any]]] = {}
     for (d, _), r in vendor.items():
         vendor_by_day.setdefault(d, []).append(r)
@@ -235,12 +240,8 @@ def compute_flags(
             prev,
             vendor_by_day.get(_date(prev.get("trade_date")) if prev else None),
         )
-        rec["mainline_amount_stepping_up.volume_top3"] = _rising_streak(
-            rows,
-            i,
-            "total_amount",
-            int(p.get("mainline_amount_stepping_up_days", 3)),
-            cal,
+        rec["mainline_amount_stepping_up.volume_top3"] = _rising_top3_streak(
+            rows, i, int(p.get("mainline_amount_stepping_up_days", 3)), cal
         )
         rec["mainline_amount_stepping_up.vendor"] = _vendor_rising(
             vendor_by_day,
@@ -259,7 +260,7 @@ def compute_flags(
             if prev is not None and dd == _date(prev.get("trade_date"))
         ]
         rec["promotion_rate_total"] = _promotion(day_stocks, prev_stocks)
-        rec["top100_amount_share"] = _top100_share(d, row, amounts)
+        rec["top100_amount_share"] = _top100_share(d, row, amount_values_by_day)
         out.append(rec)
     return out
 
@@ -334,9 +335,9 @@ def _rising_streak(rows, i, col, n, cal):
     if i < n - 1:
         return None
     vals = []
-    for j in range(i - n + 1, i + 1):
+    for j in range(i - n + 2, i + 1):
         v = _num(rows[j].get(col))
-        pv = _num(rows[j - 1].get(col)) if j else None
+        pv = _num(rows[j - 1].get(col))
         if v is None or pv is None:
             return None
         if cal is not None:
@@ -349,6 +350,26 @@ def _rising_streak(rows, i, col, n, cal):
                 return None
         vals.append(v > pv)
     return all(vals)
+
+
+def _rising_top3_streak(rows, i, n, cal):
+    """Compare the derived top-three amount (market amount × top-three share)."""
+
+    if i < n - 1:
+        return None
+    indexes = {_date(value): pos for pos, value in enumerate(cal)} if cal is not None else None
+    for j in range(i - n + 2, i + 1):
+        current = _num(rows[j].get("total_amount"))
+        previous = _num(rows[j - 1].get("total_amount"))
+        current_share = _num(rows[j].get("top3_industry_ratio"))
+        previous_share = _num(rows[j - 1].get("top3_industry_ratio"))
+        if None in (current, previous, current_share, previous_share):
+            return None
+        if indexes is not None and indexes.get(_date(rows[j].get("trade_date"))) != indexes.get(_date(rows[j - 1].get("trade_date"))) + 1:
+            return None
+        if not current * current_share > previous * previous_share:
+            return False
+    return True
 
 
 def _scalar_max(rows, col):
@@ -365,10 +386,9 @@ def _promotion(today, prev):
     return k / n if n else None
 
 
-def _top100_share(d, market, amount_rows):
+def _top100_share(d, market, amount_values_by_day):
     den = _num(market.get("total_amount"))
-    vals = [_num(r.get("amount")) for (dd, _), r in amount_rows.items() if dd == d]
-    vals = sorted((v for v in vals if v is not None), reverse=True)
+    vals = sorted(amount_values_by_day.get(d, ()), reverse=True)
     if den is None or den <= 0 or len(vals) < 100:
         return None
     return sum(vals[:100]) / den

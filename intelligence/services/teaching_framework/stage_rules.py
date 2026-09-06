@@ -13,6 +13,7 @@ STAGES = (
     "回踩周均线",
 )
 UNDER_MA = ("左底向下", "左底向上", "缩量右底")
+SEVEN_STAGES = STAGES
 GRAPH = {
     STAGES[0]: (STAGES[1],),
     STAGES[1]: (STAGES[2],),
