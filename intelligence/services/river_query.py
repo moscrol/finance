@@ -42,10 +42,9 @@
 
 两个已知的读数陷阱（写在这里，因为它们会伪装成结论）
 --------------------------------------------------
-1. **`market_stage` 有两套写法**——「顶部横盘阶段」与「顶部横盘」、「下跌阶段」与
-   「下跌」在库里各算各的。不归一，一个阶段会被劈成两格、每格样本减半，
-   纵扫直接失真。本模块用 `normalize_stage` 兜住，但那只是补丁：
-   正解是 roadmap G-05 归一并升 `LABEL_VERSION`。
+1. **`market_stage` 上游曾有两套写法**——「顶部横盘阶段」与「顶部横盘」、「下跌阶段」与
+   「下跌」。历史标签层已由 G-05 统一；本模块读取仍保留 `normalize_stage` 这个兼容入口，
+   以便直接查询尚未迁移的主库原始事实时使用同一套 canonical 规则。
 2. **研报覆盖的累计数被回填批次污染**——469 份里 249 份（53%）在 2026-01。
    横扫一律按近 90 日覆盖排序，累计只作背景列。理由见 `river.coverage_metrics`。
 """
@@ -65,6 +64,7 @@ from intelligence.services.methodology_backtest.stats import (
     split_halves,
     wilson,
 )
+from intelligence.services.market_stage import normalize_market_stage
 from intelligence.services.river import (
     DEFAULT_DB,
     coverage_hits,
@@ -79,16 +79,9 @@ BH_Q = 0.05
 
 
 def normalize_stage(value: Any) -> str:
-    """`market_stage` 两套写法归一。「顶部横盘阶段」→「顶部横盘」。
+    """兼容旧调用方：主库原始事实投影到 G-05 canonical 阶段名。"""
 
-    ⚠ 这是**读取侧的补丁**，不是修复。真正的归一要在标签层做并升
-    `LABEL_VERSION`（roadmap G-05），否则每个读取方都得记得打这个补丁，
-    而漏打的那个会安静地给出减半的样本。
-    """
-    text = str(value or "").strip()
-    if not text:
-        return "未知"
-    return text[:-2] if text.endswith("阶段") else text
+    return normalize_market_stage(value) or "未知"
 
 
 # --------------------------------------------------------------------------- #
