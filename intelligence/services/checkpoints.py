@@ -49,6 +49,19 @@ METRIC_TYPES = ("stock_return", "kb_evidence", "market_daily", "manual")
 NUMERIC_METRIC_TYPES = ("stock_return", "kb_evidence")
 VALID_OPS = (">=", ">", "<=", "<", "==")
 
+# 判断轨对象分三类（时间长河 roadmap §13.2 F2 / 终局 spec §2.2「判断轨」）：
+# 用户自己下的判断、agent 下的判断、系统生成经用户确认的观察剧本。
+# 三类混进同一个胜率分母，会让「用户决策」的读数被另外两类稀释——G-09 的胜率面板
+# 要按这个维度分列，所以字段必须在**登记时**就写下，事后从 category 反推是猜。
+OBJECT_TYPES = ("judgment", "agent_judgment", "observation_script")
+DEFAULT_OBJECT_TYPE = "judgment"
+OBJECT_TYPE_CN = {
+    "judgment": "用户判断",
+    "agent_judgment": "agent 判断",
+    "observation_script": "观察剧本",
+    "unknown_legacy": "存量未标类型",
+}
+
 # market_daily 条件字段名：只允许安全标识符（真实列名在查询时再校验，查不到→unverifiable）。
 _FIELD_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
@@ -169,8 +182,16 @@ def _normalize_market_daily_metric(metric: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def _make_id(claim: str, ts: str) -> str:
-    digest = hashlib.sha1(f"{ts}|{claim}".encode("utf-8")).hexdigest()[:6]
+def _make_id(claim: str, ts: str, due: str = "") -> str:
+    """内容派生 id。``due`` 进哈希：**同一陈述 + 不同到期日 = 两个检查点**。
+
+    2026-09-06 实测：观察剧本因 due 落在非交易日而改点时，新旧两条 claim 相同、
+    又在同一秒登记（``ts`` 只到秒），算出的 id 完全一样——那条「旧点判不了」的
+    verdict 会同时打在新点上，新点一登记就被判过了。
+    ``framework_interpretation`` 早就按 ``(claim, due)`` 做幂等，本函数只是补齐同一口径。
+    存量 id 已落盘不受影响（内容派生只在写入时算一次）。
+    """
+    digest = hashlib.sha1(f"{ts}|{claim}|{due}".encode("utf-8")).hexdigest()[:6]
     return f"ck-{ts[:10]}-{digest}"
 
 
@@ -187,20 +208,24 @@ def register_checkpoint(
     source_judgment_ts: str | None = None,
     session_id: str | None = None,
     framework_version: str | None = None,
+    object_type: str = DEFAULT_OBJECT_TYPE,
     ts: str | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     """登记一个可证伪点到 ``checkpoints.jsonl``，返回 ``(path, record)``。
 
     ``claim`` 为空或 ``due`` 非法日期时抛 ``ValueError``——可证伪点至少要有陈述与到期日。
+    ``object_type`` 非法同样抛错：认不出类型就 fail closed，不默默按「用户判断」记。
     """
     text = str(claim or "").strip()
     if not text:
         raise ValueError("claim 不能为空：可证伪点至少要有陈述")
+    if object_type not in OBJECT_TYPES:
+        raise ValueError(f"非法 object_type={object_type!r}（允许 {OBJECT_TYPES}）")
     due_norm = _parse_date(due)
     metric_norm = normalize_metric(metric)
     ts_norm = ts or _now().isoformat(timespec="seconds")
     record: dict[str, Any] = {
-        "id": _make_id(text, ts_norm),
+        "id": _make_id(text, ts_norm, due_norm),
         "ts": ts_norm,
         "claim": text,
         "due": due_norm,
@@ -208,6 +233,7 @@ def register_checkpoint(
         "source": str(source).strip() if source and str(source).strip() else None,
         "themes": _clean_terms(themes),
         "stocks": _clean_terms(stocks),
+        "object_type": object_type,
     }
     if metric_norm:
         record["metric"] = metric_norm
@@ -250,6 +276,29 @@ def load_checkpoints(path: str | Path) -> tuple[list[dict[str, Any]], str | None
     """读取全部可证伪点（保留出现顺序）。文件不存在时返回空列表。"""
     records, warn = _load_jsonl(path, "可证伪点台账")
     return [r for r in records if str(r.get("claim") or "").strip() and r.get("id")], warn
+
+
+LEGACY_OBJECT_TYPE = "unknown_legacy"
+# 存量记录（``object_type`` 字段上线前登记的）只能从 ``source`` 反推，而且只反推**确定**的那部分。
+# 这三个 source 是 agent 侧产出：框架解读步、逻辑生命周期、下期关注。
+# ``foresight_judgment`` 是用户 accept 后入账的用户判断，其余无 source 的手工登记同样多为用户判断——
+# 但「多为」不是「是」，所以剩下的一律进 ``unknown_legacy`` 单独一格。
+# 把它们折进 ``judgment``，等于用一个默认值把三种来源合成一种，胜率面板就再也分不开了。
+_AGENT_SOURCES = ("framework_interpretation", "logic_lifecycle", "track_next_watch")
+_USER_SOURCES = ("foresight_judgment",)
+
+
+def object_type_of(record: dict[str, Any]) -> str:
+    """读一条 checkpoint 的对象类型；存量记录返回 ``unknown_legacy`` 而不是瞎猜。"""
+    declared = str(record.get("object_type") or "").strip()
+    if declared in OBJECT_TYPES:
+        return declared
+    source = str(record.get("source") or "").strip()
+    if source in _AGENT_SOURCES:
+        return "agent_judgment"
+    if source in _USER_SOURCES:
+        return "judgment"
+    return LEGACY_OBJECT_TYPE
 
 
 def load_verdicts(path: str | Path) -> tuple[list[dict[str, Any]], str | None]:
@@ -368,6 +417,11 @@ class CategoryStat:
 class Calibration:
     by_category: list[CategoryStat] = field(default_factory=list)
     by_source: list[CategoryStat] = field(default_factory=list)
+    # 判断轨对象分三类（用户决策 / agent 判断 / 观察剧本）。不分列的话，
+    # 「观察剧本这类判断准不准」这个问题**问不出来**：系统生成经确认的剧本
+    # 会和用户自己下的判断混在同一个分母里，互相稀释。
+    # 存量记录进 unknown_legacy 单独一格，不折进 judgment（见 object_type_of）。
+    by_object_type: list[CategoryStat] = field(default_factory=list)
     scored: int = 0
     pending: int = 0
     unverifiable: int = 0
@@ -392,16 +446,20 @@ def calibrate(
     terminal = _latest_terminal_verdicts(verdicts)
     stats: dict[str, CategoryStat] = {}
     src_stats: dict[str, CategoryStat] = {}
+    obj_stats: dict[str, CategoryStat] = {}
     for cid, v in terminal.items():
         ck = by_id.get(cid)
         if ck is None:
             continue
         cat = str(ck.get("category") or "未分类").strip() or "未分类"
         src = str(ck.get("source") or "未标来源").strip() or "未标来源"
+        # 对象类型从 checkpoint 记录回连取，**不在 verdict 里再存一份**：
+        # 同一事实存两处必漂，而漂的时候胜率面板会按过期那份分列。
+        obj = object_type_of(ck)
         verdict = str(v.get("verdict"))
         score = v.get("score")
         score = SCORE_MAP.get(verdict, 0.0) if score is None else float(score)
-        for key, bucket in ((cat, stats), (src, src_stats)):
+        for key, bucket in ((cat, stats), (src, src_stats), (obj, obj_stats)):
             st = bucket.setdefault(key, CategoryStat(category=key))
             st.n += 1
             st.score_sum += score
@@ -418,6 +476,7 @@ def calibrate(
     return Calibration(
         by_category=sorted(stats.values(), key=lambda s: (s.hit_rate, -s.n)),
         by_source=sorted(src_stats.values(), key=lambda s: (s.hit_rate, -s.n)),
+        by_object_type=sorted(obj_stats.values(), key=lambda s: (s.hit_rate, -s.n)),
         scored=sum(s.n for s in stats.values()),
         pending=pending,
         unverifiable=unverifiable,
@@ -469,6 +528,15 @@ def render_report(cal: Calibration) -> str:
         for st in cal.by_source:
             lines.append(
                 f"- {st.category}：命中率 {round(st.hit_rate * 100)}%（{st.reliability}）"
+                f"，样本 {st.n}：命中 {st.hits} / 半对 {st.partial} / 落空 {st.miss}"
+            )
+    if cal.by_object_type:
+        lines.append("")
+        lines.append("# 按对象类型（用户决策 / agent 判断 / 观察剧本，分开算不互相稀释）")
+        for st in cal.by_object_type:
+            lines.append(
+                f"- {OBJECT_TYPE_CN.get(st.category, st.category)}："
+                f"命中率 {round(st.hit_rate * 100)}%（{st.reliability}）"
                 f"，样本 {st.n}：命中 {st.hits} / 半对 {st.partial} / 落空 {st.miss}"
             )
     return "\n".join(lines) + "\n"

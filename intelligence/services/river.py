@@ -155,7 +155,11 @@ class RiverSlice:
             "entity_name": self.entity_name,
             "knowledge_cutoff": self.knowledge_cutoff,
             "pit_grade": self.pit_grade,
+            # 两个限定语都必须活过序列化：从收据 / JSON 重建切片的消费方（带读、回放）
+            # 看不到它们，就会在跨换源日做不可比的比较、或把事后视角当无前视用，
+            # 而且两种都不会有人发现。
             "hindsight": self.hindsight,
+            "alias_applied": self.alias_applied,
             "tracks": {
                 k: (v.to_dict() if isinstance(v, Gap) else [o.to_dict() for o in v])
                 for k, v in self.tracks.items()
