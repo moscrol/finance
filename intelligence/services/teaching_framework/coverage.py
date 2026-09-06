@@ -104,6 +104,10 @@ def collapse_limit_rows(rows: Iterable[Any]) -> dict[str, tuple[dict[str, Any], 
     order: list[tuple[str, Any]] = []
     for raw in rows:
         row = normalize_limit_row(raw)
+        # The canonical source stores only sealed limit-up rows.  Fixtures may
+        # include other statuses; ignore them when the status column is present.
+        if row.get("limit_status") not in (None, "U", "u"):
+            continue
         day, stock = row.get("trade_date"), row.get("stock_ts_code")
         if not day or stock is None:
             continue
