@@ -396,6 +396,46 @@ def cmd_propose(args) -> int:
     return 0
 
 
+def cmd_queue(args) -> int:
+    """候选经验队列：每条规则现在在生命周期的哪一档、卡在什么上。
+
+    状态**从收据推导**，不读也不写任何 status 字段——同一个事实开第二个真源必漂。
+    """
+    import json as _json
+
+    from intelligence.services.methodology_backtest import lifecycle
+
+    rules_dir = Path(args.rules_dir).expanduser()
+    receipts_dir = Path(args.receipts_dir).expanduser()
+    approvals: dict[str, dict] = {}
+    if args.approvals:
+        apath = Path(args.approvals).expanduser()
+        if apath.exists():
+            loaded = _json.loads(apath.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                approvals = {str(k): v for k, v in loaded.items() if isinstance(v, dict)}
+
+    states: list[lifecycle.MethodState] = []
+    for path in sorted(rules_dir.glob("*.json")):
+        try:
+            doc = _json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(doc, dict):
+            continue
+        rule_id = str(doc.get("rule_id") or doc.get("id") or path.stem.split(".v")[0])
+        steps = lifecycle.load_steps(receipts_dir, rule_id)
+        states.append(
+            lifecycle.derive_state({**doc, "rule_id": rule_id}, steps, human_approval=approvals.get(rule_id))
+        )
+
+    if args.json:
+        print(_json.dumps([s.to_dict() for s in states], ensure_ascii=False, indent=2))
+    else:
+        print(lifecycle.render_queue(states))
+    return 0
+
+
 def cmd_report_refuted(args) -> int:
     entries = load_refuted(args.refuted_dir)
     print(render_refuted_markdown(entries), end="")
@@ -526,6 +566,22 @@ def build_parser() -> argparse.ArgumentParser:
     _add_db_args(s, source=False)
     _add_run_args(s)
     s.set_defaults(func=cmd_scan)
+
+    q = sub.add_parser(
+        "queue",
+        help="候选经验队列：每条规则在生命周期哪一档（candidate → 发现 → 验证 → holdout → "
+        "个人方法 → 共享），卡在什么上。状态由收据推导，不存第二份 status",
+    )
+    q.add_argument("--rules-dir", default=str(RULES_DIR))
+    q.add_argument("--receipts-dir", default=str(RECEIPTS_DIR))
+    q.add_argument(
+        "--approvals",
+        default=None,
+        help="人工审阅记录 JSON（{rule_id: {state, approved_by, ...}}）。"
+        "升共享层只能靠它——agent 推导永远到不了 shared_*",
+    )
+    q.add_argument("--json", action="store_true")
+    q.set_defaults(func=cmd_queue)
 
     pp = sub.add_parser("propose", help="纠偏 → 候选规则：谓词短句解析 + 白名单校验 + 溯源，落 methodology/rules/")
     pp.add_argument("--rule-id", required=True, help="^[a-z][a-z0-9_]{2,63}$")
