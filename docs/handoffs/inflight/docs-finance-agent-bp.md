@@ -1,5 +1,10 @@
 # 在途交接 · docs/finance-agent-bp
 
+> **2026-09-04 已合入**：PR #584 → `gitea/main=c6e702a6`（分支尖 `ead7366d`，纯文档 11 文件，用户确认后合）。合入后 8792 不必切。
+> 本分支自己的 main-tip 批次门禁没跑成（等其他 agent 的 pytest 时 shell 会话结束、等待脚本被带走）；但 #23 执行方在含本次合入的合并点 `03259062` 跑了全量门禁 **7783P/0F/15S/1x**（收据 `20260905T021432Z-03259062.json`），代码与 main 逐字节同源，视为已覆盖。
+> **09-05 派单结果**：#23 → PR #593（`feat/judge-token-usage`，首个全口径成本 ¥0.4902/次，判官 grok CLI 有 usage）；#24 → PR #592（`feat/checkpoint-rule-id-bias`，真库 `bias-scan`：late_streak 2 / post_miss_streak 34 / revenge_reentry 9 / rule_not_firing 83 不适用）；#25 → 分支 `feat/historical-replay-engine`，真跑 160 次调用出首份重放读数（`memory_bucket` 全 unknown：glm-5.2 官方未披露截止日；臂间差 strict −2.6 pt / trade_date_only **+11.2 pt**），收尾中（schema 两加法 / 交接 / PR）。三张都**未合 main，等用户确认**。
+> 下文为合入前原状，供溯源。
+
 ## 这个分支做什么
 
 两件纯文档：
