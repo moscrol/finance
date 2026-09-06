@@ -203,6 +203,11 @@ def build(
 
     pit_grade = str(slice_dict.get("pit_grade") or "trade_date_only")
     limits: list[str] = []
+    if slice_dict.get("hindsight"):
+        limits.append(
+            "hindsight=true：本片的 knowledge_cutoff 晚于 as_of，看得见后来才被记录的对象。"
+            "只可人工复核；由它派生的观察剧本不会进入方法校准"
+        )
     if pit_grade != "strict":
         limits.append(
             f"pit_grade={pit_grade}：切片里有对象缺 recorded_at，可用于当日带读，"
@@ -256,6 +261,9 @@ def _draft_script(
         framework_version=framework_version,
         scope_note="由数据面派生的骨架，待用户改写；未经授课框架判读",
         status="drafted",
+        # 从切片继承：事后视角的切片派生出的剧本，同样不得进校准（spec §4.1）。
+        # 这一跳断了，下游 checkpoint 与 calibrate 就再也看不到这个事实。
+        hindsight=bool(slice_dict.get("hindsight")),
     )
 
 
