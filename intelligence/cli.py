@@ -2188,6 +2188,17 @@ def add_observation_parser(subparsers: argparse._SubParsersAction) -> None:
     p_skip.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_skip.set_defaults(func=cmd_observation_skip)
 
+    p_rp = sub.add_parser(
+        "repoint",
+        help="把 due 落在非交易日（节假日）的剧本改点到下一个真交易日——"
+        "不改的话它每晚重判一次、每次 unverifiable，永远卡在队列里",
+    )
+    p_rp.add_argument("--user", default=None, help="用户 id")
+    p_rp.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径（交易日历来源）")
+    p_rp.add_argument("--apply", action="store_true", help="真正改点（缺省只预览）")
+    p_rp.add_argument("--json", action="store_true")
+    p_rp.set_defaults(func=cmd_observation_repoint)
+
     p_ls = sub.add_parser("list", help="列出剧本台账与状态分布")
     p_ls.add_argument("--user", default=None, help="用户 id")
     p_ls.add_argument("--as-of", default=None, help="只看某一天")
@@ -3087,6 +3098,7 @@ def cmd_observation_confirm(args: argparse.Namespace) -> int:
             checkpoints_path=us.checkpoints_path,
             due=args.due,
             next_open=next_open,
+            db_path=args.db_path,
         )
     except observation_script.ObservationScriptRejected as exc:
         return _print_rejections(exc, args.json)
@@ -3124,6 +3136,60 @@ def cmd_observation_skip(args: argparse.Namespace) -> int:
         print(_json.dumps(record, ensure_ascii=False, indent=2))
     else:
         print(f"已记跳过 {record['id']}——跳过是有效行为，不计失败，只进负担指标")
+    return 0
+
+
+def cmd_observation_repoint(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import observation_script, river
+
+    us = _observation_user_space(args)
+    records = observation_script.load(us.observation_scripts_path)
+    try:
+        import duckdb
+
+        db = args.db_path or river.DEFAULT_DB
+        con = duckdb.connect(str(db), read_only=True)
+        try:
+            days = {
+                str(r[0])
+                for r in con.execute(
+                    "SELECT DISTINCT CAST(trade_date AS DATE) FROM fact_market_daily"
+                ).fetchall()
+            }
+        finally:
+            con.close()
+    except Exception as exc:
+        print(f"读不到交易日历（{type(exc).__name__}）：没有日历就判不出哪天不开盘，不猜。")
+        return 2
+
+    stuck = observation_script.nontrading_dues(records, days)
+    if not stuck:
+        print("没有 due 落在非交易日的剧本。")
+        return 0
+    if not args.apply:
+        print(f"发现 {len(stuck)} 条 due 落在非交易日（加 --apply 才改点）：")
+        for rec in stuck:
+            print(f"  - {rec['id']}｜as_of={rec['as_of']}｜due={rec['due']}（不开盘）")
+        return 0
+
+    moved = []
+    for rec in stuck:
+        new = observation_script.repoint_due(
+            us.observation_scripts_path,
+            rec,
+            checkpoints_path=us.checkpoints_path,
+            verdicts_path=us.verdicts_path,
+            trading_days=days,
+        )
+        if new:
+            moved.append({"from": rec["id"], "to": new["id"], "old_due": rec["due"], "new_due": new["due"]})
+    if args.json:
+        print(_json.dumps(moved, ensure_ascii=False, indent=2))
+    else:
+        for m in moved:
+            print(f"已改点 {m['from']} → {m['to']}：{m['old_due']} → {m['new_due']}")
     return 0
 
 
