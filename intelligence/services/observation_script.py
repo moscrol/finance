@@ -129,6 +129,11 @@ class ObservationScript:
     recorded_at: str | None = None
     checkpoint_id: str | None = None
     id: str | None = None
+    # 这条剧本是从**事后视角**的切片派生的（上游 knowledge_cutoff > as_of）。
+    # 终局 spec §4.1：hindsight 只用于人工复核，不得进入任何校准或方法有效性统计。
+    # 标记必须逐跳传下去：切片 → 带读草稿 → 剧本 → checkpoint → calibrate，
+    # 中间断在哪一跳，最后那道门就形同虚设。
+    hindsight: bool = False
 
     @property
     def text_fields(self) -> dict[str, tuple[str, ...]]:
@@ -180,6 +185,7 @@ def make(
     knowledge_cutoff: str | None = None,
     status: str = "drafted",
     recorded_at: str | None = None,
+    hindsight: bool = False,
 ) -> ObservationScript:
     """构造对象（只规整、不校验）。校验走 ``validate`` / 登记走 ``register``。"""
     return ObservationScript(
@@ -198,6 +204,7 @@ def make(
         knowledge_cutoff=knowledge_cutoff,
         status=str(status or "drafted").strip(),
         recorded_at=recorded_at,
+        hindsight=bool(hindsight),
     )
 
 
@@ -343,12 +350,15 @@ def is_late(script: ObservationScript, *, next_open: datetime | None = None) -> 
 
 
 def enters_calibration(record: dict[str, Any]) -> bool:
-    """能不能进方法校准：只有**及时确认**的剧本算数。
+    """能不能进方法校准：只有**及时确认、且非事后视角**的剧本算数。
 
     ``skipped`` 不是失败（spec §3.1「跳过本身是有效行为」），但它也不是判断，
     所以同样不进分母——把跳过记成落空，会把「今天没看法」惩罚成「今天看错了」。
+
+    ``hindsight`` 一票否决：它是从 ``knowledge_cutoff > as_of`` 的切片派生的，
+    拿它进校准等于用「后来才知道的事」证明「当时判得准」（spec §4.1 明禁）。
     """
-    return str(record.get("status")) == "confirmed"
+    return str(record.get("status")) == "confirmed" and not record.get("hindsight")
 
 
 # --------------------------------------------------------------------------- #
@@ -484,6 +494,7 @@ def repoint_due(
         metric=build_metric(script, due=new_due),
         framework_version=script.framework_version,
         object_type=OBJECT_TYPE,
+        hindsight=script.hindsight,
     )
     checkpoints_svc.record_verdict(
         Path(verdicts_path),
@@ -564,6 +575,7 @@ def register(
             metric=build_metric(stamped, due=due_norm),
             framework_version=stamped.framework_version,
             object_type=OBJECT_TYPE,
+            hindsight=stamped.hindsight,
             session_id=session_id,
         )
         checkpoint_id = str(ck["id"])

@@ -209,6 +209,7 @@ def register_checkpoint(
     session_id: str | None = None,
     framework_version: str | None = None,
     object_type: str = DEFAULT_OBJECT_TYPE,
+    hindsight: bool = False,
     ts: str | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     """登记一个可证伪点到 ``checkpoints.jsonl``，返回 ``(path, record)``。
@@ -234,6 +235,10 @@ def register_checkpoint(
         "themes": _clean_terms(themes),
         "stocks": _clean_terms(stocks),
         "object_type": object_type,
+        # 这条判断是不是站在**事后视角**建立的（上游切片 knowledge_cutoff > as_of）。
+        # 终局 spec §4.1：hindsight 只用于人工复核，**不得进入任何校准或方法有效性统计**。
+        # 必须落进记录：标记若只活在上游那一跳，到 calibrate 这里就没人知道了。
+        "hindsight": bool(hindsight),
     }
     if metric_norm:
         record["metric"] = metric_norm
@@ -425,6 +430,9 @@ class Calibration:
     scored: int = 0
     pending: int = 0
     unverifiable: int = 0
+    # 因 hindsight 被挡在校准之外的条数。**必须报出来**：静默剔除会让样本
+    # 莫名其妙变少，而「样本少」和「样本被规则挡了」是两件事，后者是产品在守纪律。
+    hindsight_excluded: int = 0
 
     @property
     def overall_rate(self) -> float:
@@ -447,9 +455,16 @@ def calibrate(
     stats: dict[str, CategoryStat] = {}
     src_stats: dict[str, CategoryStat] = {}
     obj_stats: dict[str, CategoryStat] = {}
+    hindsight_excluded = 0
     for cid, v in terminal.items():
         ck = by_id.get(cid)
         if ck is None:
+            continue
+        if ck.get("hindsight"):
+            # 事后视角建立的判断进校准 = 拿「后来才知道的事」去证明「当时判得准」。
+            # 这里是**机器保证**，不是提醒：spec §4.1 那句「不得进入任何校准」，
+            # 靠消费方自觉看 pit_grade 是保不住的——今天它就一处没人读。
+            hindsight_excluded += 1
             continue
         cat = str(ck.get("category") or "未分类").strip() or "未分类"
         src = str(ck.get("source") or "未标来源").strip() or "未标来源"
@@ -480,6 +495,7 @@ def calibrate(
         scored=sum(s.n for s in stats.values()),
         pending=pending,
         unverifiable=unverifiable,
+        hindsight_excluded=hindsight_excluded,
     )
 
 
@@ -509,6 +525,12 @@ def render_report(cal: Calibration) -> str:
     lines.append(
         f"> 已回检 {cal.scored} 条 · 待回检 {cal.pending} 条 · "
         f"暂无法判定 {cal.unverifiable} 条 · 总命中率 {round(cal.overall_rate * 100)}%"
+        + (
+            f"\n> ⚠ 另有 {cal.hindsight_excluded} 条因**事后视角**被挡在校准之外"
+            "（knowledge_cutoff 晚于 as_of，只可人工复核）"
+            if cal.hindsight_excluded
+            else ""
+        )
     )
     if not cal.by_category:
         lines.append("")
