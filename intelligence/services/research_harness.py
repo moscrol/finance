@@ -135,6 +135,7 @@ from intelligence.services.repair_coordinator import (
     unreachable_repair_goal,
     warrant_repair,
 )
+from intelligence.services.track_contract import TRACK_CONTRACT_OUTPUT_ID_SET
 from intelligence.services.research_contract import (
     ResearchRunContext,
     ResearchTaskContract,
@@ -923,22 +924,33 @@ class FinanceResearchHarness:
 
     def repair_goal_message(self, goal: RepairGoal, *, tools_open: bool) -> str:
         # 逐字搬自 agent_episode.resume()：REPAIR_GOAL 正文 + 工具开/关两套指令。
-        return json.dumps(
-            {
-                "kind": "REPAIR_GOAL",
-                **goal.to_dict(),
-                "instruction": (
-                    "保留最初任务、全部原始观察和当前工具账本。"
-                    + (
-                        "自主选择一个新的、未重复的动作补齐缺口；"
-                        if tools_open
-                        else "研究工具已关闭，只能基于已有观察修复措辞或证据绑定；"
-                    )
-                    + "不得重启研究或改写用户问题。"
-                ),
-            },
-            ensure_ascii=False,
+        payload: dict[str, object] = {
+            "kind": "REPAIR_GOAL",
+            **goal.to_dict(),
+            "instruction": (
+                "保留最初任务、全部原始观察和当前工具账本。"
+                + (
+                    "自主选择一个新的、未重复的动作补齐缺口；"
+                    if tools_open
+                    else "研究工具已关闭，只能基于已有观察修复措辞或证据绑定；"
+                )
+                + "不得重启研究或改写用户问题。"
+            ),
+        }
+        # 跟踪题的表达槽以合成 id 混在 missing_answer_elements 里；不说明的话模型会把它们
+        # 当 output 去绑（2026-09-07 两轮 theme_track 修复 2/2 因此被 unknown_output 硬拒）。
+        # 只在真有表达槽时加这一键：其它修复轮的消息逐字节不变。
+        expression_slots = tuple(
+            item for item in goal.missing_answer_elements if item in TRACK_CONTRACT_OUTPUT_ID_SET
         )
+        if expression_slots:
+            payload["expression_elements_note"] = (
+                "以下缺件是正文表达要求，写进 draft 即可，不要作为 bindings 的 output_id："
+                + "、".join(expression_slots)
+                + "（track_ttl → 一行「复核期限：YYYY-MM-DD」；track_next_watch → 一段「下期关注：…」；"
+                "track_quad_or_baseline → 四态对照或「无上期基线」声明）"
+            )
+        return json.dumps(payload, ensure_ascii=False)
 
     def admit_repair_result(
         self,
