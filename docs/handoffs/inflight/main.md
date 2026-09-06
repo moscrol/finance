@@ -16,7 +16,7 @@
 
 ## 当前状态
 
-8792=`5cc5aa8bf1e9`（0907：#608 max 档 + 三开关；出口改 cockpit `:57244` sol/terra）。回滚锚 `cutover-20260907-max-rollback-8792.txt`；启动器备份 `.bak-20260907-pre-max`。全文 `docs/verification/2026-09-07-cutover-max-cockpit.md`。**登录钥匙串 09-06 被重置**（`login_renamed_1.keychain-db`），GLM / 中转 key 未恢复。
+8792=`a11d76cabf77`（0907b：#610 `sub_research`；0907：#608 max 档、出口 cockpit `:57244` sol/terra）。回滚锚 `~/.finance-runtime/cutover-20260907b-*`（回 `5cc5aa8b`）；启动器备份 `.bak-20260907-pre-max`。收据 `docs/verification/2026-09-07-*.md`（D 组 0 错 0 弃权；D9 方向预测越线→出口侧硬门）。**登录钥匙串 09-06 被重置**（`login_renamed_1.keychain-db`），GLM / 中转 key 未恢复。
 
 ## 已验证
 
