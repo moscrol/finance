@@ -1,6 +1,6 @@
 {
   "schema_version": "replay-report/v1",
-  "generated_at": "2026-09-04T19:18:43+00:00",
+  "generated_at": "2026-09-06T02:54:47+00:00",
   "run_id": "replay-20260904T184203Z-514d2369",
   "run_dir": "/Users/a77/.finance-runtime/replay/replay-20260904T184203Z-514d2369",
   "decision_eligible": false,
@@ -21,7 +21,7 @@
     ],
     "cutoffs_file": "/Users/a77/fwp-wt-replay-engine/intelligence/eval/model_cutoffs.json",
     "nodes_by_grade": {
-      "strict": 20,
+      "strict": 17,
       "trade_date_only": 20
     },
     "manifest_shas": [
@@ -29,7 +29,6 @@
       "2842d1e21e66fb0df2e726eb6cf10d674c453da18cc6df67d4b06b3e2f805022",
       "2f908fc56ea441fdb26023c327a8fb517723c27ae529be649a60c259a5fa645a",
       "37a322a86cd2085e2d49398cd8d3fcc2729a0a37bfcbbf6fbfbba7e699ead557",
-      "3804b8604db9cf784c61969030223fae37218c808ac5163568793517f4e41f17",
       "458be17de4c7b5325d01a0e2cb6b17a4083f232998a96e22a06f43abd4f2e7f9",
       "4c311dab71a9025e5ab66edb23eaddc11605020ab095eade9e0f2aa5dd0240c0",
       "54d14b06ff11c96696fd1edbeff313141adc7f7097484794e3b222e76683bf6b",
@@ -37,11 +36,9 @@
       "5c6d784205cce7db0276e31e1cf455950a2f5b1457a496c0bbc1976e74cc53ee",
       "7992b391c80a0de6e8b5106c1795747e61a922f98169661ddf115429fd26ddea",
       "8ef1b19d3bc6b547f882872d560f0d259e597a56749e2ec094131d17fbdec399",
-      "98d828bf4bdee88d96b4105fe9271b600cc1a937e53e2c78193c9f1a91f46c8c",
       "997131fb95069d059ce3804fcad686631f6cd5066ab4f9d912941091423e0ddf",
       "9a7ab975781a2f12af0dbfdb8685a4847a97cf00839d28fab4008fec3c35f5c8",
       "aaa51ad02efbf29206c571f13703935d00775379a865010a62744cfd32c636dc",
-      "b263ebdd009ba17bef7c0f54a64ab31b1fe04e5da8c9845c93787efe7aaefbac",
       "b75466882e1c750b28db4c7ad540b4afffacd7f210bab4045fbaeb90ca17bbaa",
       "c95b15f96a9e884a4bad30472ac5cb40ba017e17fad96ab540b4f421fa444fc0",
       "fc9180d99df2cda0d23ac52d512d3750c59ed294e69d98acb8350077e23b599c"
@@ -62,24 +59,18 @@
       "temperature": 0.2,
       "timeout_seconds": 180.0,
       "system_prompt_sha256": "3732e6dd6f07d760dd604a3bb79861a0e4fc9792d03ed6dd79a20fd2207ac3d1",
-      "calls": 160,
+      "calls": 148,
       "failures": 0,
       "invalid_answers": 9,
-      "estimated_input_tokens": 1471412,
+      "estimated_input_tokens": 1440295,
       "estimated": true,
-      "ledger": {
-        "call_count": 160,
-        "reserved_count": 160,
-        "failure_count": 0,
-        "rejected_count": 0,
-        "max_calls": 200,
-        "failure_reasons": {}
-      }
+      "calls_in_run_dir": 160,
+      "calls_note": "calls = 进入统计的节点；calls_in_run_dir = 真跑实际调用（含剔除节点）"
     },
     "environment": {
       "worktree": "/Users/a77/fwp-wt-replay-engine",
       "branch": "feat/historical-replay-engine",
-      "revision": "514d23692af563fd63ec1e1df2584f00ea6c9c97",
+      "revision": "7bc358e07fd6c6017415e070ebff672d6cabe991",
       "dirty": false,
       "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
       "python": "3.12.13",
@@ -119,6 +110,12 @@
         "diff_ratio_turn_up_5d",
         "dual_red_streak3_continuation",
         "limit_heat_rank_jump_3d"
+      ],
+      "rebuilt_from": "/Users/a77/.finance-runtime/replay/replay-20260904T184203Z-514d2369",
+      "excluded_after_regrade": [
+        "2026-07-31",
+        "2026-08-13",
+        "2026-08-14"
       ]
     }
   },
@@ -284,22 +281,6 @@
       }
     },
     {
-      "as_of": "2026-07-31",
-      "market_stage": "底部横盘阶段",
-      "pit_grade": "strict",
-      "forced": false,
-      "manifest_sha": "3804b8604db9cf784c61969030223fae37218c808ac5163568793517f4e41f17",
-      "grade_reason": null,
-      "labels_total": {
-        "sector": 403,
-        "theme": 248
-      },
-      "labels_visible_at_d0": {
-        "sector": 0,
-        "theme": 0
-      }
-    },
-    {
       "as_of": "2026-08-03",
       "market_stage": "底部横盘阶段",
       "pit_grade": "strict",
@@ -329,38 +310,6 @@
       "labels_visible_at_d0": {
         "sector": 403,
         "theme": 251
-      }
-    },
-    {
-      "as_of": "2026-08-13",
-      "market_stage": "底部横盘阶段",
-      "pit_grade": "strict",
-      "forced": false,
-      "manifest_sha": "b263ebdd009ba17bef7c0f54a64ab31b1fe04e5da8c9845c93787efe7aaefbac",
-      "grade_reason": null,
-      "labels_total": {
-        "sector": 403,
-        "theme": 213
-      },
-      "labels_visible_at_d0": {
-        "sector": 0,
-        "theme": 0
-      }
-    },
-    {
-      "as_of": "2026-08-14",
-      "market_stage": "底部横盘阶段",
-      "pit_grade": "strict",
-      "forced": false,
-      "manifest_sha": "98d828bf4bdee88d96b4105fe9271b600cc1a937e53e2c78193c9f1a91f46c8c",
-      "grade_reason": null,
-      "labels_total": {
-        "sector": 403,
-        "theme": 214
-      },
-      "labels_visible_at_d0": {
-        "sector": 0,
-        "theme": 0
       }
     },
     {
@@ -712,7 +661,7 @@
         "pit_grade": "strict",
         "arm": "anonymized",
         "rule_id": "diff_ratio_turn_up_5d",
-        "nodes": 20,
+        "nodes": 17,
         "expected_total": 1281,
         "predicted_total": 1122,
         "tp": 1118,
@@ -720,14 +669,14 @@
         "fn": 163,
         "precision_micro": 0.9964,
         "recall_micro": 0.8728,
-        "exact_match_rate": 0.65,
+        "exact_match_rate": 0.5882,
         "nodes_with_expected_events": 17
       },
       {
         "pit_grade": "strict",
         "arm": "anonymized",
         "rule_id": "dual_red_streak3_continuation",
-        "nodes": 20,
+        "nodes": 17,
         "expected_total": 0,
         "predicted_total": 0,
         "tp": 0,
@@ -742,7 +691,7 @@
         "pit_grade": "strict",
         "arm": "anonymized",
         "rule_id": "limit_heat_rank_jump_3d",
-        "nodes": 20,
+        "nodes": 17,
         "expected_total": 799,
         "predicted_total": 777,
         "tp": 775,
@@ -750,14 +699,14 @@
         "fn": 24,
         "precision_micro": 0.9974,
         "recall_micro": 0.97,
-        "exact_match_rate": 0.5,
+        "exact_match_rate": 0.4118,
         "nodes_with_expected_events": 14
       },
       {
         "pit_grade": "strict",
         "arm": "named",
         "rule_id": "diff_ratio_turn_up_5d",
-        "nodes": 20,
+        "nodes": 17,
         "expected_total": 1281,
         "predicted_total": 1263,
         "tp": 1205,
@@ -765,14 +714,14 @@
         "fn": 76,
         "precision_micro": 0.9541,
         "recall_micro": 0.9407,
-        "exact_match_rate": 0.7,
+        "exact_match_rate": 0.6471,
         "nodes_with_expected_events": 17
       },
       {
         "pit_grade": "strict",
         "arm": "named",
         "rule_id": "dual_red_streak3_continuation",
-        "nodes": 20,
+        "nodes": 17,
         "expected_total": 0,
         "predicted_total": 0,
         "tp": 0,
@@ -787,7 +736,7 @@
         "pit_grade": "strict",
         "arm": "named",
         "rule_id": "limit_heat_rank_jump_3d",
-        "nodes": 20,
+        "nodes": 17,
         "expected_total": 799,
         "predicted_total": 702,
         "tp": 610,
@@ -795,7 +744,7 @@
         "fn": 189,
         "precision_micro": 0.8689,
         "recall_micro": 0.7635,
-        "exact_match_rate": 0.45,
+        "exact_match_rate": 0.3529,
         "nodes_with_expected_events": 14
       },
       {
@@ -892,7 +841,7 @@
   },
   "lane_b": {
     "min_n": 10,
-    "scored": 527,
+    "scored": 498,
     "unverifiable": 23,
     "cells": [
       {
@@ -982,16 +931,16 @@
         "arm": "anonymized",
         "category": "market",
         "horizon": "T+1",
-        "n": 29,
+        "n": 25,
         "unverifiable": 0,
-        "hits": 18,
+        "hits": 15,
         "partial": 1,
-        "miss": 10,
-        "hit_rate": 0.6379,
-        "strict_hit_rate": 0.6207,
+        "miss": 9,
+        "hit_rate": 0.62,
+        "strict_hit_rate": 0.6,
         "wilson_95": [
-          0.44,
-          0.7731
+          0.4074,
+          0.766
         ],
         "reliability": "参半"
       },
@@ -1002,96 +951,96 @@
         "arm": "named",
         "category": "market",
         "horizon": "T+1",
-        "n": 30,
-        "unverifiable": 0,
-        "hits": 21,
-        "partial": 2,
-        "miss": 7,
-        "hit_rate": 0.7333,
-        "strict_hit_rate": 0.7,
-        "wilson_95": [
-          0.5212,
-          0.8334
-        ],
-        "reliability": "靠谱"
-      },
-      {
-        "pit_grade": "strict",
-        "memory_bucket": "unknown",
-        "memory_contaminated": true,
-        "arm": "anonymized",
-        "category": "market",
-        "horizon": "T+3",
-        "n": 23,
-        "unverifiable": 0,
-        "hits": 12,
-        "partial": 5,
-        "miss": 6,
-        "hit_rate": 0.6304,
-        "strict_hit_rate": 0.5217,
-        "wilson_95": [
-          0.3296,
-          0.7076
-        ],
-        "reliability": "参半"
-      },
-      {
-        "pit_grade": "strict",
-        "memory_bucket": "unknown",
-        "memory_contaminated": true,
-        "arm": "named",
-        "category": "market",
-        "horizon": "T+3",
-        "n": 22,
-        "unverifiable": 0,
-        "hits": 11,
-        "partial": 4,
-        "miss": 7,
-        "hit_rate": 0.5909,
-        "strict_hit_rate": 0.5,
-        "wilson_95": [
-          0.3072,
-          0.6928
-        ],
-        "reliability": "参半"
-      },
-      {
-        "pit_grade": "strict",
-        "memory_bucket": "unknown",
-        "memory_contaminated": true,
-        "arm": "anonymized",
-        "category": "market",
-        "horizon": "T+5",
-        "n": 20,
-        "unverifiable": 0,
-        "hits": 15,
-        "partial": 0,
-        "miss": 5,
-        "hit_rate": 0.75,
-        "strict_hit_rate": 0.75,
-        "wilson_95": [
-          0.5313,
-          0.8881
-        ],
-        "reliability": "靠谱"
-      },
-      {
-        "pit_grade": "strict",
-        "memory_bucket": "unknown",
-        "memory_contaminated": true,
-        "arm": "named",
-        "category": "market",
-        "horizon": "T+5",
-        "n": 21,
+        "n": 24,
         "unverifiable": 0,
         "hits": 16,
-        "partial": 1,
-        "miss": 4,
-        "hit_rate": 0.7857,
-        "strict_hit_rate": 0.7619,
+        "partial": 2,
+        "miss": 6,
+        "hit_rate": 0.7083,
+        "strict_hit_rate": 0.6667,
         "wilson_95": [
-          0.5491,
-          0.8937
+          0.4671,
+          0.8203
+        ],
+        "reliability": "靠谱"
+      },
+      {
+        "pit_grade": "strict",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "anonymized",
+        "category": "market",
+        "horizon": "T+3",
+        "n": 18,
+        "unverifiable": 0,
+        "hits": 9,
+        "partial": 4,
+        "miss": 5,
+        "hit_rate": 0.6111,
+        "strict_hit_rate": 0.5,
+        "wilson_95": [
+          0.2903,
+          0.7097
+        ],
+        "reliability": "参半"
+      },
+      {
+        "pit_grade": "strict",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "named",
+        "category": "market",
+        "horizon": "T+3",
+        "n": 18,
+        "unverifiable": 0,
+        "hits": 9,
+        "partial": 3,
+        "miss": 6,
+        "hit_rate": 0.5833,
+        "strict_hit_rate": 0.5,
+        "wilson_95": [
+          0.2903,
+          0.7097
+        ],
+        "reliability": "参半"
+      },
+      {
+        "pit_grade": "strict",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "anonymized",
+        "category": "market",
+        "horizon": "T+5",
+        "n": 15,
+        "unverifiable": 0,
+        "hits": 13,
+        "partial": 0,
+        "miss": 2,
+        "hit_rate": 0.8667,
+        "strict_hit_rate": 0.8667,
+        "wilson_95": [
+          0.6212,
+          0.9626
+        ],
+        "reliability": "靠谱"
+      },
+      {
+        "pit_grade": "strict",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "named",
+        "category": "market",
+        "horizon": "T+5",
+        "n": 16,
+        "unverifiable": 0,
+        "hits": 13,
+        "partial": 1,
+        "miss": 2,
+        "hit_rate": 0.8438,
+        "strict_hit_rate": 0.8125,
+        "wilson_95": [
+          0.5699,
+          0.9341
         ],
         "reliability": "靠谱"
       },
@@ -1299,10 +1248,10 @@
     "by_model": [
       {
         "model": "glm-5.2",
-        "n": 527,
-        "hits": 290,
-        "partial": 24,
-        "miss": 213
+        "n": 498,
+        "hits": 272,
+        "partial": 22,
+        "miss": 204
       }
     ],
     "arm_gap": [
@@ -1312,14 +1261,14 @@
         "memory_contaminated": true,
         "pooled_over": "category × horizon（同档同桶内）",
         "named": {
-          "n": 135,
-          "hit_rate": 0.5667
+          "n": 120,
+          "hit_rate": 0.55
         },
         "anonymized": {
-          "n": 130,
-          "hit_rate": 0.5923
+          "n": 116,
+          "hit_rate": 0.5905
         },
-        "gap_named_minus_anonymized": -0.0256,
+        "gap_named_minus_anonymized": -0.0405,
         "memory_signal": "臂间差是记忆成分上界（消融）：named 高于 anonymized 的部分最多是记忆，不能归为能力"
       },
       {
@@ -1345,14 +1294,14 @@
       "pit_grade": "strict",
       "memory_bucket": "unknown",
       "arm": "anonymized",
-      "hypotheses": 140,
+      "hypotheses": 126,
       "memory_contaminated": true
     },
     {
       "pit_grade": "strict",
       "memory_bucket": "unknown",
       "arm": "named",
-      "hypotheses": 146,
+      "hypotheses": 131,
       "memory_contaminated": true
     },
     {
@@ -1481,11 +1430,28 @@
     "两档 PIT 不出混合平均",
     "只量不调：提示词 / 温度 / 模型本单内冻结"
   ],
-  "dry_run": {
-    "nodes": 40,
-    "planned_calls": 160,
-    "estimated_input_tokens": 1471412,
-    "estimated": true,
-    "chars_per_token": 1.6
-  }
+  "rebuilt_at": "2026-09-06T02:54:47+00:00",
+  "excluded_nodes": [
+    {
+      "as_of": "2026-07-31",
+      "pit_grade_at_run": "strict",
+      "pit_grade_now": "trade_date_only",
+      "reason": "snapshot_missing_tables: ['fact_market_daily', 'fact_sector_daily']",
+      "llm_calls_spent": 4
+    },
+    {
+      "as_of": "2026-08-13",
+      "pit_grade_at_run": "strict",
+      "pit_grade_now": "trade_date_only",
+      "reason": "snapshot_missing_tables: ['fact_market_daily', 'fact_sector_daily']",
+      "llm_calls_spent": 4
+    },
+    {
+      "as_of": "2026-08-14",
+      "pit_grade_at_run": "strict",
+      "pit_grade_now": "trade_date_only",
+      "reason": "snapshot_missing_tables: ['fact_market_daily', 'fact_sector_daily']",
+      "llm_calls_spent": 4
+    }
+  ]
 }
