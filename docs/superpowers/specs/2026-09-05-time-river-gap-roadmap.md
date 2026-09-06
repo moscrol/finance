@@ -17,6 +17,14 @@
 > | G-12a 合规硬门 / lint | **前半已落地**（剧本 scope 门 + 营销禁词，共用 `compliance_gate` 一份词表）；判官概率数字检查未做 | 同上 |
 > | G-05 `market_stage` 归一 | **仍是缺口**：只有读取侧补丁 `river_query.normalize_stage`（它自己注释「这是补丁不是修复」），标签层未归一、`LABEL_VERSION` 未升 v3 | — |
 >
+> **终局 spec §10「最小验收集」8 条，对 `main@0546668f` 实测 7/8**（PR #598~#604 全部已合）：
+> 1 ✅ 对象可回溯 · 2 ✅ 缺轨返回 gap · **3 ❌ 含 `framework_version` 的幂等** ·
+> 4 ✅ 违规剧本被拒 · 5 ✅ N<10 不出率 · 6 ✅ 一次反馈不改共享输出 ·
+> 7 ✅ hindsight 进不了校准 · 8 ✅ 导出台账 + 用户隔离。
+>
+> **唯一没过的第 3 条卡在 G-01**：没有授课框架就没有 `framework_version` 可钉，
+> 这是依赖不是欠债——母本由创始人写，agent 代笔会毁掉整条方法链的可信度。
+>
 > 收据 `docs/verification/2026-09-06-observation-script-g03.md`；交接 `docs/handoffs/inflight/feat-observation-script.md`。
 > 终局 spec 已由 `2026-09-06-personal-research-calibration-endstate-design.md` 承接，本文件只留缺口顺序。
 
