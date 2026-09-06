@@ -383,7 +383,9 @@ class ResearchDeadline:
 # 单个 episode 的产品级硬顶：任何 tier、升档、grant 都不得越过。2026-09-06 之前这两个
 # 数（24 次 / 240s）就是 deep 档本身，写死在 promote_caps 与 tier_promotion 两处；
 # 加 max 档后抬到 max 档的账本上限，并收成一对常数，改一处两处同时变。
-PRODUCT_MAX_TOOL_CALLS = 48
+# 2026-09-07 二改：48 → 60 / 32 → 40。三道可拆题 9 支分支读数见 runtime/sub_research.branch_limits：
+# 分支调用从父账本扣，max 档 3 支 × 10 次 = 30，父臂自己还要 10+ 次；起步 32 会把父臂饿死。
+PRODUCT_MAX_TOOL_CALLS = 60
 PRODUCT_MAX_SECONDS = 600.0
 
 RESEARCH_TIERS: frozenset[str] = frozenset({"quick", "standard", "deep", "max"})
@@ -408,7 +410,7 @@ class ResearchPolicy:
             # 而不是上来就约束）。knevo 同题打了 22 次工具；我们 standard 档 8 次里
             # 2 次零授予。这一档给足调用与墙钟，出口硬层（admit_finish / 判官 / 来源分档）
             # 一字不动——放开的是输入侧预算，不是正确性。
-            "max": cls("max", 32, PRODUCT_MAX_SECONDS, 60.0),
+            "max": cls("max", 40, PRODUCT_MAX_SECONDS, 60.0),
         }
         return policies.get(tier, policies["standard"])
 

@@ -7,7 +7,7 @@
 
 本文件钉四件事，每件都有「关掉开关就回到旧形状」的对照，不是同义反复：
 
-1. ``max`` 档：32 步 / 600s / reserve 60，账本硬顶 48 / 600，契约认这个档位。
+1. ``max`` 档：40 步 / 600s / reserve 60，账本硬顶 60 / 600，契约认这个档位（09-07 二改：分支读数后 32/48 → 40/60）。
 2. 起步在 max 的 run，PLAN 批 deep 时账本动作是空操作——否则 600s 会被「升」成 240s。
 3. ``WORKBENCH_TOOL_AUTHORIZATION=all``：要检索的题拿全部工具；不要检索的题仍是空授权。
 4. ``WORKBENCH_TOOL_MENU_HIDE=off``：不再按 ``min_window_seconds`` 藏工具；每批帽在 max 档抬到 8。
@@ -75,7 +75,7 @@ def test_max_tier_policy_ledger_and_contract_agree() -> None:
     policy = ResearchPolicy.for_tier("max")
     assert (policy.tier, policy.max_steps, policy.total_seconds, policy.synthesis_reserve) == (
         "max",
-        32,
+        40,
         PRODUCT_MAX_SECONDS,
         60.0,
     )
@@ -87,8 +87,8 @@ def test_max_tier_policy_ledger_and_contract_agree() -> None:
     episode_id = f"max-tier-{uuid4().hex[:12]}"
     ledger = root_budget_for_policy(policy, episode_id=episode_id)
     try:
-        assert ledger.initial_calls == 32
-        assert ledger.hard_calls_cap == PRODUCT_MAX_TOOL_CALLS == 48
+        assert ledger.initial_calls == 40
+        assert ledger.hard_calls_cap == PRODUCT_MAX_TOOL_CALLS == 60
         assert ledger.initial_seconds == 540.0
         assert ledger.hard_seconds_cap == PRODUCT_MAX_SECONDS == 600.0
     finally:
@@ -162,9 +162,9 @@ def test_deep_decision_on_a_max_run_is_a_ledger_no_op() -> None:
         promoted = apply_mode_promotion(context, _approved_deep())
         assert promoted is context
         assert promoted.policy.tier == "max"
-        assert promoted.policy.total_seconds == 600.0 and promoted.policy.max_steps == 32
-        assert root.hard_calls_cap == 48 and root.hard_seconds_cap == 600.0
-        assert root.allocated_calls == 32
+        assert promoted.policy.total_seconds == 600.0 and promoted.policy.max_steps == 40
+        assert root.hard_calls_cap == 60 and root.hard_seconds_cap == 600.0
+        assert root.allocated_calls == 40
     finally:
         release_root_budget(context.contract.task_id)
 
