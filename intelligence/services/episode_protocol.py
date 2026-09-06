@@ -31,7 +31,10 @@ from intelligence.services.degraded_fallback import (
 )
 from intelligence.services.longtail_baseline import episode_rule
 from intelligence.services.scenario_tree import episode_scenario_rule
-from intelligence.services.track_contract import episode_track_rule
+from intelligence.services.track_contract import (
+    TRACK_CONTRACT_OUTPUT_ID_SET,
+    episode_track_rule,
+)
 
 
 _FINISH_STATUSES = frozenset({"completed", "partial"})
@@ -497,6 +500,9 @@ REJECTION_KINDS: dict[str, RejectionKind] = {
     "forged_hash": RejectionKind.INTEGRITY,
     # 抄漏最后一位：结构滑档，不是伪造。见 `_is_unique_one_char_truncation`。
     "truncated_hash": RejectionKind.FORMAT,
+    # 把跟踪题表达槽（track_ttl / track_next_watch / track_quad_or_baseline）当 output 绑：
+    # 是系统自己在修复目标里给的 id，不是伪造——回灌重写。
+    "expression_slot_binding": RejectionKind.FORMAT,
 }
 
 
@@ -824,6 +830,18 @@ def validate_episode_finish(
             basis=str(raw.get("basis") or "evidence"),
         )
         if binding.output_id not in allowed_outputs:
+            if binding.output_id in TRACK_CONTRACT_OUTPUT_ID_SET:
+                # 跟踪题的表达槽（四态 / TTL / 下期关注）由 track_contract 以合成 id 并进
+                # 修复目标的 missing_answer_elements，模型看见 id 就当 output 去绑——
+                # 2026-09-07 两轮 theme_track 修复 2/2 死在这里：系统自己要的东西被自己
+                # 当「越界输出」硬拒（INTEGRITY 不回灌、不恢复）。它不是伪造，是把正文
+                # 要求当成了绑定槛；按 FORMAT 回灌，告诉模型写进 draft、不进 bindings。
+                raise _reject(
+                    "expression_slot_binding",
+                    f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
+                    "把「复核期限：YYYY-MM-DD」「下期关注：…」这类内容写进 draft，"
+                    "bindings 里只保留契约列出的 output_id",
+                )
             raise _reject(
                 "unknown_output",
                 f"unknown required output: {binding.output_id}",
