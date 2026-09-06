@@ -69,7 +69,12 @@ def canonical_rows_hash(
             raise ValueError("iterable rows 输入必须提供 columns")
         selected = [name for name in columns if name not in set(exclude_columns)]
         indexes = [list(columns).index(name) for name in selected]
-        materialized = [[_canonical_value(row[i]) for i in indexes] for row in rows]
+        materialized = []
+        for row in rows:
+            if isinstance(row, dict):
+                materialized.append([_canonical_value(row.get(name)) for name in selected])
+            else:
+                materialized.append([_canonical_value(row[i]) for i in indexes])
         if primary_key:
             key_indexes = [list(selected).index(name) for name in primary_key if name in selected]
             materialized.sort(key=lambda row: tuple(row[i] for i in key_indexes))
@@ -192,4 +197,3 @@ def write_receipt(con: duckdb.DuckDBPyConnection, receipt: dict[str, Any]) -> st
 # CLI to use terminology from the spec without duplicating implementation.
 build_receipt = make_receipt
 persist_receipt = write_receipt
-
