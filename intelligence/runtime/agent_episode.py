@@ -52,6 +52,7 @@ from intelligence.services.provider_latency import (
 )
 from intelligence.services.repair_coordinator import RepairGoal
 from intelligence.services.research_contract import (
+    PRODUCT_MAX_TOOL_CALLS,
     ResearchDeadline,
     ResearchRunContext,
 )
@@ -115,8 +116,9 @@ def budget_status_enabled() -> bool:
 MAX_PLAN_TURNS = 2
 # The loop must be able to represent the largest governed mode without giving
 # quick runs that budget. Actual execution remains bounded by the current root
-# ledger and deadline.
-MAX_EPISODE_TOOL_CALLS = 24
+# ledger and deadline. Pinned to the product cap so a ``max`` tier ledger is
+# not silently clipped here to the old deep number.
+MAX_EPISODE_TOOL_CALLS = PRODUCT_MAX_TOOL_CALLS
 
 
 def _token_usage_from_events(

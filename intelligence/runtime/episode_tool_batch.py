@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from collections.abc import Callable
 from concurrent.futures import (
@@ -42,6 +43,28 @@ _TOOL_CALL_STATUSES = frozenset({"success", "empty", "rejected", "timeout", "err
 MAX_BATCH_TOOL_CALLS = 4
 MAX_GLOBAL_TOOL_WORKERS = 8
 DEFAULT_TOOL_BATCH_TIMEOUT_SECONDS = 30.0
+# 菜单「窗小就藏」的部署开关。默认开（与接线前逐字节一致）；设 off/0/false/no 关掉，
+# 此后领域申报的 ``min_window_seconds`` 只进事件不影响可见性。2026-09-06「能力 max」
+# 决策：先让模型看见全部工具、量出真实超时率，再决定要不要藏、藏哪个。
+TOOL_MENU_HIDE_ENV = "WORKBENCH_TOOL_MENU_HIDE"
+
+
+def menu_hiding_enabled() -> bool:
+    raw = str(os.environ.get(TOOL_MENU_HIDE_ENV) or "").strip().lower()
+    return raw not in {"off", "0", "false", "no"}
+
+
+def batch_call_cap(policy: ResearchPolicy | None) -> int:
+    """一批最多派几次工具。
+
+    默认 ``MAX_BATCH_TOOL_CALLS``（4）。max 档抬到全局 worker 数：09-06 生产探针里 sol
+    首轮一次点了 6 个工具，4 的帽把后 2 个打成 ``tool_budget_exhausted``，模型下一轮
+    还得再要一遍——在 600s 的档里这是纯浪费。其它档位逐字节不变。
+    """
+
+    if policy is not None and str(policy.tier or "").strip().lower() == "max":
+        return MAX_GLOBAL_TOOL_WORKERS
+    return MAX_BATCH_TOOL_CALLS
 # 时间闸（含授权额 ≤0 未派发、真跑了再超时）共用 error=tool_timeout。
 # detail 只允许实授值本身，见 stage_timeout_granted_detail。
 STAGE_TIMEOUT_GRANTED_DETAIL_RE = re.compile(
@@ -303,6 +326,7 @@ class EpisodeToolBatchSession:
         would_grant = context.deadline.stage_timeout(
             tool_batch_timeout_seconds(context.policy)
         )
+        hide = menu_hiding_enabled()
         visible: list[str] = []
         hidden: list[tuple[str, float]] = []
         with self._lock:
@@ -313,7 +337,7 @@ class EpisodeToolBatchSession:
                 ):
                     continue
                 floor = spec.min_window_seconds
-                if floor is not None and floor > would_grant:
+                if hide and floor is not None and floor > would_grant:
                     hidden.append((spec.name, float(floor)))
                     continue
                 visible.append(spec.name)
@@ -502,6 +526,7 @@ class EpisodeToolBatchSession:
         selected = self._select(
             candidates,
             remaining_slots=remaining_slots,
+            per_batch_cap=batch_call_cap(context.policy),
         )
         selected_indexes = {candidate.index for candidate in selected}
         for candidate in candidates:
@@ -615,8 +640,9 @@ class EpisodeToolBatchSession:
         candidates: list[_Candidate],
         *,
         remaining_slots: int,
+        per_batch_cap: int = MAX_BATCH_TOOL_CALLS,
     ) -> tuple[_Candidate, ...]:
-        budget = min(MAX_BATCH_TOOL_CALLS, max(0, int(remaining_slots)))
+        budget = min(int(per_batch_cap), max(0, int(remaining_slots)))
         return tuple(candidates[:budget])
 
     def _dispatch(

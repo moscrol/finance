@@ -277,7 +277,7 @@ def unreachable_repair_goal(
 
 def max_repair_cycles_for_tier(research_tier: str) -> int:
     tier = str(research_tier or "").strip().lower()
-    if tier == "deep":
+    if tier in {"deep", "max"}:
         return 3
     if tier in {"quick", "standard"}:
         return 1
