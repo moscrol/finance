@@ -1042,11 +1042,19 @@ def test_menu_keeps_tool_when_window_fits_or_no_floor_declared() -> None:
 
 
 def test_production_registry_declares_rag_floors_and_nothing_else() -> None:
-    """领域申报表只登记实测有尾巴的两条 RAG 工具；其它工具 None（不裁）。"""
+    """领域申报表只登记：实测有尾巴的两条 RAG 工具 + 子研究的设计常数；其它工具 None（不裁）。
+
+    ``sub_research`` 那条不是延迟实测，是一支分支的时间上限（spec 2026-09-03 §4：
+    ``min_window_seconds = MAX_SECONDS_PER_BRANCH``），两边相等由 ``test_sub_research_tool`` 钉。
+    """
 
     from intelligence.services.research_tool_registry import MIN_WINDOW_SECONDS, default_registry
 
-    assert MIN_WINDOW_SECONDS == {"kb_search": 20.0, "evidence_search": 30.0}
+    assert MIN_WINDOW_SECONDS == {
+        "kb_search": 20.0,
+        "evidence_search": 30.0,
+        "sub_research": 60.0,
+    }
     runners = {
         name: (lambda query, _context: _evidence_result("x", query))
         for name in ("kb_search", "market_data", "financial_data", "web_search")
