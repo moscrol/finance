@@ -51,6 +51,10 @@ from intelligence.services.market_regime_analogs import (
     window_signature,
 )
 from intelligence.services.river import DEFAULT_DB, TRACKS, Track
+# 双红阈值只许有一处真源（market_feature_store/signals.py）。写死字面量会被
+# `test_double_red_single_source` 的棘轮拦下——那道门的意义是：口径改一处就全仓跟着改，
+# 而不是让某个新模块悄悄钉死一份自己的定义。
+from market_feature_store.signals import DOUBLE_RED_SQL
 
 
 @dataclass(frozen=True)
@@ -78,7 +82,7 @@ FEATURES: tuple[FeatureSpec, ...] = (
         "double_red_count",
         "theme",
         "fact_sector_daily",
-        "COUNT(pct_chg>0 AND diff_ratio>10 AND amount>500)：严格双红定义见 CLAUDE.md",
+        f"COUNT({DOUBLE_RED_SQL})：阈值真源是 market_feature_store/signals.py",
         "双红题材数",
     ),
     FeatureSpec(
@@ -201,11 +205,11 @@ def build_daily_vectors(
         ).fetchall()
         double_red = dict(
             con.execute(
-                """
+                f"""
                 SELECT CAST(trade_date AS DATE),
-                       COUNT(*) FILTER (WHERE pct_chg > 0 AND diff_ratio > 10 AND amount > 500)
+                       COUNT(*) FILTER (WHERE {DOUBLE_RED_SQL})
                 FROM fact_sector_daily GROUP BY 1
-                """
+                """  # noqa: S608 - 谓词来自本仓常量，不接受外部输入
             ).fetchall()
         )
         top1 = dict(

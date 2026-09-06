@@ -396,9 +396,114 @@ def default_due(as_of: str) -> str:
     """默认回检日 = ``default_next_open`` 那一天（同一条跳周末规则，不另立第二套）。
 
     周六当回检日会让盘面 resolver 查不到当日行 → ``unverifiable`` 挂在队列里重试，
-    读数上像「判不了」，其实是「问错了日子」。
+    读数上像「判不了」，其实是「问错了日子」。**节假日同理，但周末规则挡不住**——
+    所以能查日历时一律走 ``resolve_due``。
     """
     return default_next_open(as_of).date().isoformat()
+
+
+def resolve_due(as_of: str, *, db_path: str | Path | None = None) -> str:
+    """回检日 = 下一个**交易日**；查不到日历时回落到跳周末规则。
+
+    为什么必须这么绕：``default_due`` 只跳周末，节假日照样会落在不开盘的日子上。
+    那时盘面 resolver 查无当日行 → ``unverifiable``，而 ``unverifiable`` 是**非终态**，
+    于是这条剧本每晚重判一次、每次都判不了，**永远卡在队列里**。
+    resolver 那边不肯拿相邻交易日顶替是对的（原文「那是换了个题目在答」），
+    所以只能在**登记侧**把日子定对。
+
+    ⚠ 「今天登记明天」这条主路径仍然可能落空：库里最新一天是已收盘的交易日，
+    明天还没发生，日历查不到 → 回落周末规则 → 撞上节假日就还是错的。
+    那批漏网的靠 ``nontrading_dues`` 检出、``repoint_due`` 改点，不靠猜。
+    """
+    day = next_trading_open(as_of, db_path=db_path)
+    return day.date().isoformat() if day else default_due(as_of)
+
+
+def nontrading_dues(
+    records: list[dict[str, Any]], trading_days: set[str], *, today: str | None = None
+) -> list[dict[str, Any]]:
+    """挑出 ``due`` 落在非交易日、且那天已经过去（日历已知）的剧本。
+
+    只挑已过去的：未来的 due 还没到，日历本来就查不到，不算错。
+    """
+    today = today or date_cls.today().isoformat()
+    out: list[dict[str, Any]] = []
+    for rec in records:
+        due = str(rec.get("due") or "")
+        if not due or due > today:
+            continue
+        if rec.get("status") != "confirmed" or not rec.get("checkpoint_id"):
+            continue
+        if due not in trading_days:
+            out.append(rec)
+    return out
+
+
+def repoint_due(
+    path: str | Path,
+    record: dict[str, Any],
+    *,
+    checkpoints_path: str | Path,
+    verdicts_path: str | Path,
+    trading_days: set[str],
+) -> dict[str, Any] | None:
+    """把一条 due 落在非交易日的剧本改点到下一个真交易日，返回新记录。
+
+    三件事一起做，缺一件都会留下不一致：
+
+    1. 追加一条新的剧本记录（``due`` 修正、``repointed_from`` 指回旧的）——台账 append-only，
+       不改写历史行；
+    2. 用修正后的 due 登记**新的 checkpoint**；
+    3. 给旧 checkpoint 记一条 ``unverifiable``，``degradation`` 里写明改点到哪天。
+       用 ``unverifiable`` 而不是造一个终态：它本来就判不了，这是实话；而且它不进胜率，
+       不会污染校准。旧点仍留在队列里但带着去向，人一看就知道该看新的那条。
+    """
+    due = str(record.get("due") or "")
+    as_of = str(record.get("as_of") or "")
+    later = sorted(d for d in trading_days if d > as_of)
+    if not later:
+        return None  # 日历还没长到那儿，改不了就别乱改
+    new_due = later[0]
+    if new_due == due:
+        return None
+
+    script = make(
+        **{
+            k: v
+            for k, v in record.items()
+            if k in ObservationScript.__dataclass_fields__ and k not in {"id", "checkpoint_id"}
+        }
+    )
+    _, ck = checkpoints_svc.register_checkpoint(
+        Path(checkpoints_path),
+        claim=to_claim(script),
+        due=new_due,
+        category=CHECKPOINT_CATEGORY,
+        source=CHECKPOINT_SOURCE,
+        themes=list(script.entity_ids),
+        metric=build_metric(script, due=new_due),
+        framework_version=script.framework_version,
+        object_type=OBJECT_TYPE,
+    )
+    checkpoints_svc.record_verdict(
+        Path(verdicts_path),
+        id=str(record["checkpoint_id"]),
+        verdict="unverifiable",
+        data_source="observation_script:repoint",
+        reason=f"due={due} 不是交易日，已改点到 {new_due}",
+        degradation={"kind": "nontrading_due", "old_due": due, "new_due": new_due, "new_checkpoint_id": ck["id"]},
+    )
+    new_record = {
+        **record,
+        "id": f"{record['id']}-rp{new_due.replace('-', '')}",
+        "due": new_due,
+        "checkpoint_id": str(ck["id"]),
+        "repointed_from": {"id": record["id"], "due": due, "checkpoint_id": record["checkpoint_id"]},
+    }
+    p = Path(path).expanduser()
+    with p.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(new_record, ensure_ascii=False) + "\n")
+    return new_record
 
 
 def register(
@@ -410,6 +515,7 @@ def register(
     next_open: datetime | None = None,
     recorded_at: str | None = None,
     session_id: str | None = None,
+    db_path: str | Path | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     """登记剧本，返回 ``(path, record)``。硬门不过直接抛 ``ObservationScriptRejected``。
 
@@ -441,7 +547,8 @@ def register(
 
     record_id = _make_id(stamped, str(stamped.recorded_at))
     checkpoint_id: str | None = None
-    due_norm = due or default_due(stamped.as_of)
+    # 能查日历就用真交易日，查不到才回落跳周末规则——节假日周末规则挡不住。
+    due_norm = due or resolve_due(stamped.as_of, db_path=db_path)
 
     if status == "confirmed":
         cpath = Path(checkpoints_path).expanduser() if checkpoints_path else None
