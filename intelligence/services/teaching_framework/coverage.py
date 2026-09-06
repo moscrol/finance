@@ -148,7 +148,13 @@ def build_coverage(
     dates = sorted({_date(d) for d in calendar_dates})
     mapping_days: set[str] = set()
     if isinstance(rows, Mapping):
-        raw_by_day = {_date(k): tuple(v or ()) for k, v in rows.items()}
+        raw_by_day = {}
+        for key, value in rows.items():
+            if isinstance(value, Mapping):
+                values = (value,)
+            else:
+                values = tuple(value or ())
+            raw_by_day[_date(key)] = values
         mapping_days = set(raw_by_day)
         flat: list[Any] = []
         for day, values in raw_by_day.items():
