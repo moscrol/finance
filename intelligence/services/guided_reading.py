@@ -313,6 +313,85 @@ def run(
     return build(slice_dict, alias_applied=alias_applied, framework_version=framework_version), reason
 
 
+# --------------------------------------------------------------------------- #
+# 接进每日复盘
+# --------------------------------------------------------------------------- #
+DAILY_SECTION_TITLE = "## 今日带读"
+
+
+def pick_entity(report: dict[str, Any]) -> str | None:
+    """从 daily-agent report 里确定性地挑出「今天带读读哪个题材」。
+
+    取 ``logic_batch.results`` 里 ``priority_score`` 最高的那条的题材名；
+    同分按名字升序断连——**排序键必须确定**，否则同一份 report 两次渲染出不同的带读，
+    「同一切片两次读取结构化结果一致」那条验收就会假绿。
+
+    挑不出来返回 ``None``：宁可不出这一段，也不要随便找个题材凑数。
+    """
+    results = ((report or {}).get("logic_batch") or {}).get("results") or []
+    cands: list[tuple[float, str]] = []
+    for r in results:
+        if not isinstance(r, dict):
+            continue
+        name = str(r.get("market_theme") or r.get("matched_theme") or "").strip()
+        if not name:
+            continue
+        try:
+            score = float(r.get("priority_score") or 0)
+        except (TypeError, ValueError):
+            score = 0.0
+        cands.append((score, name))
+    if not cands:
+        return None
+    return sorted(cands, key=lambda x: (-x[0], x[1]))[0][1]
+
+
+def merge_into_daily_review(text: str, gr: GuidedReading | None) -> str:
+    """把带读并进每日复盘正文。**关闭时原样返回同一个对象**。
+
+    这条 ``is`` 级别的等价是刻意的：spec / roadmap 要求「关掉带读 = 现有行为逐字节不变」。
+    只做 ``==`` 相等还留着「重新拼一遍恰好拼回原样」的余地，那种实现一旦哪天多加一个
+    换行，验收就悄悄不成立了。返回同一个对象，改动无处藏身。
+    """
+    if gr is None:
+        return text
+    body = text or ""
+    section = render(gr)
+    if section in body:  # 幂等：重复合并不叠加
+        return body
+    return (body.rstrip("\n") + "\n\n" + section + "\n") if body else section + "\n"
+
+
+def build_for_daily_review(
+    report: dict[str, Any],
+    us: Any,
+    *,
+    override: bool | None = None,
+    db_path: str | Path | None = None,
+) -> tuple[GuidedReading | None, str]:
+    """每日复盘用的带读。返回 ``(带读 | None, 理由)``——关闭或挑不出实体都返回 None。
+
+    ``import river`` 放函数里：本模块其余部分不碰数据库，保持可离线单测。
+    """
+    enabled, reason = resolve_enabled(us, override=override)
+    if not enabled:
+        return None, reason
+    entity = pick_entity(report)
+    if not entity:
+        return None, "report 里挑不出可带读的题材（logic_batch.results 为空或无题材名）"
+    as_of = str((report or {}).get("date") or "").strip()
+    if not as_of:
+        return None, "report 没有 date，无法定 as_of"
+
+    from intelligence.services import river
+
+    try:
+        sl = river.slice_river(as_of, entity, db_path=db_path, checkpoints_path=us.checkpoints_path)
+    except Exception as exc:  # 读不到就不出这一段，不让带读把整份复盘带崩
+        return None, f"切片读取失败：{type(exc).__name__}: {exc}"
+    return build(sl.to_dict(), framework_version=None), f"带读 {entity}（{reason}）"
+
+
 def lint_output(text: str) -> list[compliance_gate.Hit]:
     """带读产物的用词 lint（G-12a）：产品语言里不许出现「策略」「第二天的方向」等。"""
     return compliance_gate.scan(

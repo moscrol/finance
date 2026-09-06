@@ -605,6 +605,21 @@ def add_daily_agent_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--wiki-rag-timeout", type=int, default=120, help="单次 W 召回超时时间")
     parser.add_argument("--effectiveness-window", type=int, default=20, help="历史有效性评估回看的 theme-candidates 交易日数")
     parser.add_argument("--catalyst-window-days", type=int, default=5, help="催化归因回看的自然日数（卖方观点/晨汇）")
+    parser.add_argument(
+        "--guided-reading",
+        dest="guided_reading",
+        action="store_const",
+        const=True,
+        default=None,
+        help="强制在日报里附今日带读（默认：新用户开、老用户关；老用户不加此参数时输出逐字节不变）",
+    )
+    parser.add_argument(
+        "--no-guided-reading",
+        dest="guided_reading",
+        action="store_const",
+        const=False,
+        help="强制关闭今日带读",
+    )
     parser.add_argument("--out-json", default=None, help="写出完整 agent 日报 JSON（best-effort；研究队列写在其 sibling）")
     parser.add_argument("--out-md", default=None, help="写出完整 agent 日报 Markdown（best-effort）")
     parser.add_argument("--out-html", default=None, help="写出完整 agent 日报 HTML（best-effort；工作台优先读研究队列 HTML）")
@@ -748,6 +763,20 @@ def cmd_daily_agent(args: argparse.Namespace) -> int:
     queue_md = sibling_queue_path(out_md)
     queue_html = sibling_queue_path(out_html)
     kb_queue_path = out_json.with_name(f"{args.date}-kb-ingest-queue.json")
+    # 今日带读（G-03）：默认「新用户开、老用户关」，所以既有用户这里是**零动作**、
+    # `answer` 原样传下去。关掉后逐字节不变不是靠约定，是靠 merge_into_daily_review
+    # 在 gr 为 None 时返回同一个对象。
+    from intelligence import userspace as _userspace
+    from intelligence.services import guided_reading as _gr
+
+    _guided, _gr_reason = _gr.build_for_daily_review(
+        report, _userspace.user_space(getattr(args, "user", None)),
+        override=getattr(args, "guided_reading", None),
+    )
+    if _guided is not None:
+        answer = _gr.merge_into_daily_review(answer, _guided)
+        print(f"带读已并入日报：{_gr_reason}", file=sys.stderr)
+
     full_written = True
     try:
         write_daily_agent_outputs(report, answer, out_json, out_md, out_html)
