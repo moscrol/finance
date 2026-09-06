@@ -193,7 +193,14 @@ def _unknown_shape(path: list[dict[str, Any]], params: Mapping[str, Any]) -> dic
             before = limit_values[:i]
             if any(isinstance(v, (int, float)) and v >= 2 for v in before):
                 rebound = True
-            if any(v == 1 for v in before):
+            # N shape is specifically a one-to-two trading-day hiatus after a
+            # first board, rather than an arbitrarily long absence.
+            off_days = 0
+            for k in range(i - 1, -1, -1):
+                if in_table[k]:
+                    break
+                off_days += 1
+            if off_days in (1, 2) and any(v == 1 for v in before):
                 nshape = True
     open_unknown = any(p.get("in_table") and p.get("open_times") is None for p in path)
     birth = path[-1] if path else {}
