@@ -114,6 +114,7 @@ BP 中数字：仓内为 2026-09-04 只读核数（52 表 / 413 交易日 / 4,59
 
 ## 踩过的坑
 
+- **09-05/06 派单撞车**：三个执行 agent 的运行时都报「failed after relaunch recovery」，但它们其实还在跑（#25 是被模型用量上限打断，另一条对话「A 线」用同一上下文把它续起来了）。本线据「失败」通知给 #25 又派了一个收尾者，两个执行者在同一棵树 `/Users/a77/fwp-wt-replay-engine` 上先后 merge main、提交同两个报表文件，原执行者 hard reset 掉了收尾者的提交（blob 逐字节相同，读数未丢），收尾者随即按 AGENTS.md「同树两 agent → 先停」自行停手。**教训**：派单 / 接手前除开工三连，还要看 `git reflog` 最近时间戳与正在运行的 shell / transcript；「失败」通知不等于执行者已停。同一张单只能有一个 dispatcher。
 - 主检出树在 `feat/content-ops-copilot` 且有他人 51 个未提交改动，故另开树 `/Users/a77/fwp-wt-finance-agent-bp`。
 - 本机 `git fetch gitea` 与全树 `git status` 曾长时间挂起；本地 `gitea/main` ref 可直接用于 `worktree add`。
 - shell 会话 cwd 不一定在仓内，git 命令要显式 `cd` 或 `-C`。
