@@ -1,0 +1,1491 @@
+{
+  "schema_version": "replay-report/v1",
+  "generated_at": "2026-09-04T19:18:43+00:00",
+  "run_id": "replay-20260904T184203Z-514d2369",
+  "run_dir": "/Users/a77/.finance-runtime/replay/replay-20260904T184203Z-514d2369",
+  "decision_eligible": false,
+  "stopped_reason": null,
+  "conditions": {
+    "models": [
+      "glm-5.2"
+    ],
+    "model_cutoffs": [
+      {
+        "model": "glm-5.2",
+        "model_pattern": "glm-5.2*",
+        "training_cutoff": null,
+        "source_url": null,
+        "checked_at": "2026-09-05",
+        "note": "2026-09-05 逐一核对官方来源均未披露知识 / 训练截止日：docs.z.ai/guides/llm/glm-5.2（含 .md 版）、docs.bigmodel.cn/cn/guide/models/text/glm-5.2、huggingface.co/zai-org/GLM-5.2 模型卡、github.com/zai-org/GLM-5 README。写手默认模型（llm_refine.py 的 glm-5.2 默认）→ 本表 null → 整表 memory_bucket=unknown，这就是当前真相。"
+      }
+    ],
+    "cutoffs_file": "/Users/a77/fwp-wt-replay-engine/intelligence/eval/model_cutoffs.json",
+    "nodes_by_grade": {
+      "strict": 20,
+      "trade_date_only": 20
+    },
+    "manifest_shas": [
+      "1bde3c073a36f7fccae42dbd239e81b88c49cf426a0aa6b94e7927b5d0b132a9",
+      "2842d1e21e66fb0df2e726eb6cf10d674c453da18cc6df67d4b06b3e2f805022",
+      "2f908fc56ea441fdb26023c327a8fb517723c27ae529be649a60c259a5fa645a",
+      "37a322a86cd2085e2d49398cd8d3fcc2729a0a37bfcbbf6fbfbba7e699ead557",
+      "3804b8604db9cf784c61969030223fae37218c808ac5163568793517f4e41f17",
+      "458be17de4c7b5325d01a0e2cb6b17a4083f232998a96e22a06f43abd4f2e7f9",
+      "4c311dab71a9025e5ab66edb23eaddc11605020ab095eade9e0f2aa5dd0240c0",
+      "54d14b06ff11c96696fd1edbeff313141adc7f7097484794e3b222e76683bf6b",
+      "556f35b55144b90acad4f885a975407550264d32f228df94ee40e9a1a2cd732f",
+      "5c6d784205cce7db0276e31e1cf455950a2f5b1457a496c0bbc1976e74cc53ee",
+      "7992b391c80a0de6e8b5106c1795747e61a922f98169661ddf115429fd26ddea",
+      "8ef1b19d3bc6b547f882872d560f0d259e597a56749e2ec094131d17fbdec399",
+      "98d828bf4bdee88d96b4105fe9271b600cc1a937e53e2c78193c9f1a91f46c8c",
+      "997131fb95069d059ce3804fcad686631f6cd5066ab4f9d912941091423e0ddf",
+      "9a7ab975781a2f12af0dbfdb8685a4847a97cf00839d28fab4008fec3c35f5c8",
+      "aaa51ad02efbf29206c571f13703935d00775379a865010a62744cfd32c636dc",
+      "b263ebdd009ba17bef7c0f54a64ab31b1fe04e5da8c9845c93787efe7aaefbac",
+      "b75466882e1c750b28db4c7ad540b4afffacd7f210bab4045fbaeb90ca17bbaa",
+      "c95b15f96a9e884a4bad30472ac5cb40ba017e17fad96ab540b4f421fa444fc0",
+      "fc9180d99df2cda0d23ac52d512d3750c59ed294e69d98acb8350077e23b599c"
+    ],
+    "label_version": "v2-heat_sector_all_final_nonrt-stock_limit_high_union",
+    "source_max_trade_date": "2026-09-02",
+    "labels_computed_at": "2026-09-04T14:21:47+00:00",
+    "outcomes_computed_at": "2026-09-04T14:22:00+00:00",
+    "outcomes_horizons": [
+      3,
+      5,
+      7,
+      10
+    ],
+    "window_start_offset": 1,
+    "llm": {
+      "entry": "intelligence.services.llm_refine.complete",
+      "temperature": 0.2,
+      "timeout_seconds": 180.0,
+      "system_prompt_sha256": "3732e6dd6f07d760dd604a3bb79861a0e4fc9792d03ed6dd79a20fd2207ac3d1",
+      "calls": 160,
+      "failures": 0,
+      "invalid_answers": 9,
+      "estimated_input_tokens": 1471412,
+      "estimated": true,
+      "ledger": {
+        "call_count": 160,
+        "reserved_count": 160,
+        "failure_count": 0,
+        "rejected_count": 0,
+        "max_calls": 200,
+        "failure_reasons": {}
+      }
+    },
+    "environment": {
+      "worktree": "/Users/a77/fwp-wt-replay-engine",
+      "branch": "feat/historical-replay-engine",
+      "revision": "514d23692af563fd63ec1e1df2584f00ea6c9c97",
+      "dirty": false,
+      "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "python": "3.12.13",
+      "snapshot_root": "/Users/a77/fidelity-replay/pit-snapshots",
+      "db_path": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+      "labels_db": "/Users/a77/finance-workspace-private/db/history_labels.duckdb"
+    },
+    "config": {
+      "start": "2024-12-20",
+      "end": "2026-08-26",
+      "count_per_grade": 20,
+      "arms": [
+        "named",
+        "anonymized"
+      ],
+      "lanes": [
+        "A",
+        "B"
+      ],
+      "max_calls": 200,
+      "dry_run": false,
+      "reconcile": true,
+      "forced_dates": [
+        "2026-07-10",
+        "2026-07-13",
+        "2026-07-14",
+        "2026-07-15",
+        "2026-07-16",
+        "2026-07-17",
+        "2026-07-20",
+        "2026-07-22",
+        "2026-07-24",
+        "2026-09-01",
+        "2026-09-02"
+      ],
+      "rules": [
+        "diff_ratio_turn_up_5d",
+        "dual_red_streak3_continuation",
+        "limit_heat_rank_jump_3d"
+      ]
+    }
+  },
+  "nodes": [
+    {
+      "as_of": "2026-07-13",
+      "market_stage": "下跌阶段",
+      "pit_grade": "strict",
+      "forced": true,
+      "manifest_sha": "c95b15f96a9e884a4bad30472ac5cb40ba017e17fad96ab540b4f421fa444fc0",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 630,
+        "theme": 65
+      },
+      "labels_visible_at_d0": {
+        "sector": 224,
+        "theme": 65
+      }
+    },
+    {
+      "as_of": "2026-07-14",
+      "market_stage": "下跌阶段",
+      "pit_grade": "strict",
+      "forced": true,
+      "manifest_sha": "4c311dab71a9025e5ab66edb23eaddc11605020ab095eade9e0f2aa5dd0240c0",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 630,
+        "theme": 139
+      },
+      "labels_visible_at_d0": {
+        "sector": 224,
+        "theme": 139
+      }
+    },
+    {
+      "as_of": "2026-07-16",
+      "market_stage": "下跌阶段",
+      "pit_grade": "strict",
+      "forced": true,
+      "manifest_sha": "1bde3c073a36f7fccae42dbd239e81b88c49cf426a0aa6b94e7927b5d0b132a9",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 630,
+        "theme": 93
+      },
+      "labels_visible_at_d0": {
+        "sector": 224,
+        "theme": 93
+      }
+    },
+    {
+      "as_of": "2026-07-17",
+      "market_stage": "下跌阶段",
+      "pit_grade": "strict",
+      "forced": true,
+      "manifest_sha": "2f908fc56ea441fdb26023c327a8fb517723c27ae529be649a60c259a5fa645a",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 630,
+        "theme": 0
+      },
+      "labels_visible_at_d0": {
+        "sector": 224,
+        "theme": 0
+      }
+    },
+    {
+      "as_of": "2026-07-20",
+      "market_stage": "下跌阶段",
+      "pit_grade": "strict",
+      "forced": true,
+      "manifest_sha": "5c6d784205cce7db0276e31e1cf455950a2f5b1457a496c0bbc1976e74cc53ee",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 630,
+        "theme": 85
+      },
+      "labels_visible_at_d0": {
+        "sector": 224,
+        "theme": 85
+      }
+    },
+    {
+      "as_of": "2026-07-22",
+      "market_stage": "反弹阶段",
+      "pit_grade": "strict",
+      "forced": true,
+      "manifest_sha": "37a322a86cd2085e2d49398cd8d3fcc2729a0a37bfcbbf6fbfbba7e699ead557",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 630,
+        "theme": 96
+      },
+      "labels_visible_at_d0": {
+        "sector": 224,
+        "theme": 96
+      }
+    },
+    {
+      "as_of": "2026-07-23",
+      "market_stage": "反弹阶段",
+      "pit_grade": "strict",
+      "forced": false,
+      "manifest_sha": "7992b391c80a0de6e8b5106c1795747e61a922f98169661ddf115429fd26ddea",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 630,
+        "theme": 138
+      },
+      "labels_visible_at_d0": {
+        "sector": 224,
+        "theme": 138
+      }
+    },
+    {
+      "as_of": "2026-07-27",
+      "market_stage": "探底阶段",
+      "pit_grade": "strict",
+      "forced": false,
+      "manifest_sha": "2842d1e21e66fb0df2e726eb6cf10d674c453da18cc6df67d4b06b3e2f805022",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 403,
+        "theme": 286
+      },
+      "labels_visible_at_d0": {
+        "sector": 403,
+        "theme": 286
+      }
+    },
+    {
+      "as_of": "2026-07-29",
+      "market_stage": "底部横盘阶段",
+      "pit_grade": "strict",
+      "forced": false,
+      "manifest_sha": "54d14b06ff11c96696fd1edbeff313141adc7f7097484794e3b222e76683bf6b",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 403,
+        "theme": 211
+      },
+      "labels_visible_at_d0": {
+        "sector": 403,
+        "theme": 211
+      }
+    },
+    {
+      "as_of": "2026-07-30",
+      "market_stage": "底部横盘阶段",
+      "pit_grade": "strict",
+      "forced": false,
+      "manifest_sha": "556f35b55144b90acad4f885a975407550264d32f228df94ee40e9a1a2cd732f",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 403,
+        "theme": 188
+      },
+      "labels_visible_at_d0": {
+        "sector": 403,
+        "theme": 188
+      }
+    },
+    {
+      "as_of": "2026-07-31",
+      "market_stage": "底部横盘阶段",
+      "pit_grade": "strict",
+      "forced": false,
+      "manifest_sha": "3804b8604db9cf784c61969030223fae37218c808ac5163568793517f4e41f17",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 403,
+        "theme": 248
+      },
+      "labels_visible_at_d0": {
+        "sector": 0,
+        "theme": 0
+      }
+    },
+    {
+      "as_of": "2026-08-03",
+      "market_stage": "底部横盘阶段",
+      "pit_grade": "strict",
+      "forced": false,
+      "manifest_sha": "fc9180d99df2cda0d23ac52d512d3750c59ed294e69d98acb8350077e23b599c",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 403,
+        "theme": 234
+      },
+      "labels_visible_at_d0": {
+        "sector": 403,
+        "theme": 234
+      }
+    },
+    {
+      "as_of": "2026-08-05",
+      "market_stage": "底部横盘阶段",
+      "pit_grade": "strict",
+      "forced": false,
+      "manifest_sha": "9a7ab975781a2f12af0dbfdb8685a4847a97cf00839d28fab4008fec3c35f5c8",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 403,
+        "theme": 251
+      },
+      "labels_visible_at_d0": {
+        "sector": 403,
+        "theme": 251
+      }
+    },
+    {
+      "as_of": "2026-08-13",
+      "market_stage": "底部横盘阶段",
+      "pit_grade": "strict",
+      "forced": false,
+      "manifest_sha": "b263ebdd009ba17bef7c0f54a64ab31b1fe04e5da8c9845c93787efe7aaefbac",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 403,
+        "theme": 213
+      },
+      "labels_visible_at_d0": {
+        "sector": 0,
+        "theme": 0
+      }
+    },
+    {
+      "as_of": "2026-08-14",
+      "market_stage": "底部横盘阶段",
+      "pit_grade": "strict",
+      "forced": false,
+      "manifest_sha": "98d828bf4bdee88d96b4105fe9271b600cc1a937e53e2c78193c9f1a91f46c8c",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 403,
+        "theme": 214
+      },
+      "labels_visible_at_d0": {
+        "sector": 0,
+        "theme": 0
+      }
+    },
+    {
+      "as_of": "2026-08-17",
+      "market_stage": "底部横盘阶段",
+      "pit_grade": "strict",
+      "forced": false,
+      "manifest_sha": "aaa51ad02efbf29206c571f13703935d00775379a865010a62744cfd32c636dc",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 403,
+        "theme": 271
+      },
+      "labels_visible_at_d0": {
+        "sector": 403,
+        "theme": 271
+      }
+    },
+    {
+      "as_of": "2026-08-18",
+      "market_stage": "底部横盘阶段",
+      "pit_grade": "strict",
+      "forced": false,
+      "manifest_sha": "8ef1b19d3bc6b547f882872d560f0d259e597a56749e2ec094131d17fbdec399",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 403,
+        "theme": 214
+      },
+      "labels_visible_at_d0": {
+        "sector": 403,
+        "theme": 214
+      }
+    },
+    {
+      "as_of": "2026-08-19",
+      "market_stage": "底部横盘阶段",
+      "pit_grade": "strict",
+      "forced": false,
+      "manifest_sha": "458be17de4c7b5325d01a0e2cb6b17a4083f232998a96e22a06f43abd4f2e7f9",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 403,
+        "theme": 121
+      },
+      "labels_visible_at_d0": {
+        "sector": 403,
+        "theme": 121
+      }
+    },
+    {
+      "as_of": "2026-08-20",
+      "market_stage": "底部横盘阶段",
+      "pit_grade": "strict",
+      "forced": false,
+      "manifest_sha": "997131fb95069d059ce3804fcad686631f6cd5066ab4f9d912941091423e0ddf",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 403,
+        "theme": 197
+      },
+      "labels_visible_at_d0": {
+        "sector": 403,
+        "theme": 197
+      }
+    },
+    {
+      "as_of": "2026-08-26",
+      "market_stage": "下跌阶段",
+      "pit_grade": "strict",
+      "forced": false,
+      "manifest_sha": "b75466882e1c750b28db4c7ad540b4afffacd7f210bab4045fbaeb90ca17bbaa",
+      "grade_reason": null,
+      "labels_total": {
+        "sector": 403,
+        "theme": 195
+      },
+      "labels_visible_at_d0": {
+        "sector": 403,
+        "theme": 195
+      }
+    },
+    {
+      "as_of": "2024-12-26",
+      "market_stage": "unknown",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "no_manifest",
+      "labels_total": {
+        "sector": 211,
+        "theme": 0
+      },
+      "labels_visible_at_d0": null
+    },
+    {
+      "as_of": "2025-01-23",
+      "market_stage": "探底阶段",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "no_manifest",
+      "labels_total": {
+        "sector": 220,
+        "theme": 95
+      },
+      "labels_visible_at_d0": null
+    },
+    {
+      "as_of": "2025-02-13",
+      "market_stage": "主升阶段",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "no_manifest",
+      "labels_total": {
+        "sector": 221,
+        "theme": 117
+      },
+      "labels_visible_at_d0": null
+    },
+    {
+      "as_of": "2025-03-26",
+      "market_stage": "下跌阶段",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "no_manifest",
+      "labels_total": {
+        "sector": 221,
+        "theme": 118
+      },
+      "labels_visible_at_d0": null
+    },
+    {
+      "as_of": "2025-04-29",
+      "market_stage": "底部横盘阶段",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "no_manifest",
+      "labels_total": {
+        "sector": 221,
+        "theme": 112
+      },
+      "labels_visible_at_d0": null
+    },
+    {
+      "as_of": "2025-05-13",
+      "market_stage": "主升阶段",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "no_manifest",
+      "labels_total": {
+        "sector": 221,
+        "theme": 82
+      },
+      "labels_visible_at_d0": null
+    },
+    {
+      "as_of": "2025-06-27",
+      "market_stage": "主升阶段",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "no_manifest",
+      "labels_total": {
+        "sector": 221,
+        "theme": 110
+      },
+      "labels_visible_at_d0": null
+    },
+    {
+      "as_of": "2025-08-27",
+      "market_stage": "顶部横盘阶段",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "no_manifest",
+      "labels_total": {
+        "sector": 222,
+        "theme": 104
+      },
+      "labels_visible_at_d0": null
+    },
+    {
+      "as_of": "2025-11-10",
+      "market_stage": "横盘",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "no_manifest",
+      "labels_total": {
+        "sector": 223,
+        "theme": 113
+      },
+      "labels_visible_at_d0": null
+    },
+    {
+      "as_of": "2025-12-01",
+      "market_stage": "反弹",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "no_manifest",
+      "labels_total": {
+        "sector": 223,
+        "theme": 125
+      },
+      "labels_visible_at_d0": null
+    },
+    {
+      "as_of": "2025-12-30",
+      "market_stage": "主升",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "no_manifest",
+      "labels_total": {
+        "sector": 222,
+        "theme": 98
+      },
+      "labels_visible_at_d0": null
+    },
+    {
+      "as_of": "2026-02-04",
+      "market_stage": "下跌",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "no_manifest",
+      "labels_total": {
+        "sector": 223,
+        "theme": 102
+      },
+      "labels_visible_at_d0": null
+    },
+    {
+      "as_of": "2026-02-26",
+      "market_stage": "横盘",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "no_manifest",
+      "labels_total": {
+        "sector": 224,
+        "theme": 119
+      },
+      "labels_visible_at_d0": null
+    },
+    {
+      "as_of": "2026-03-25",
+      "market_stage": "反弹",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "no_manifest",
+      "labels_total": {
+        "sector": 223,
+        "theme": 138
+      },
+      "labels_visible_at_d0": null
+    },
+    {
+      "as_of": "2026-04-23",
+      "market_stage": "主升",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "no_manifest",
+      "labels_total": {
+        "sector": 223,
+        "theme": 119
+      },
+      "labels_visible_at_d0": null
+    },
+    {
+      "as_of": "2026-05-21",
+      "market_stage": "顶部横盘",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "no_manifest",
+      "labels_total": {
+        "sector": 224,
+        "theme": 10
+      },
+      "labels_visible_at_d0": null
+    },
+    {
+      "as_of": "2026-06-10",
+      "market_stage": "下跌阶段",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "no_manifest",
+      "labels_total": {
+        "sector": 224,
+        "theme": 134
+      },
+      "labels_visible_at_d0": null
+    },
+    {
+      "as_of": "2026-06-30",
+      "market_stage": "底部横盘阶段",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "no_manifest",
+      "labels_total": {
+        "sector": 630,
+        "theme": 161
+      },
+      "labels_visible_at_d0": null
+    },
+    {
+      "as_of": "2026-07-24",
+      "market_stage": "下跌阶段",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "snapshot_validation_failed: wiki input material link mismatch for 2026-07-24",
+      "labels_total": {
+        "sector": 630,
+        "theme": 90
+      },
+      "labels_visible_at_d0": null
+    },
+    {
+      "as_of": "2026-08-25",
+      "market_stage": "下跌阶段",
+      "pit_grade": "trade_date_only",
+      "forced": false,
+      "manifest_sha": null,
+      "grade_reason": "no_manifest",
+      "labels_total": {
+        "sector": 403,
+        "theme": 205
+      },
+      "labels_visible_at_d0": null
+    }
+  ],
+  "pit_caveat": "strict 档的严格性只覆盖冻结快照里的行情表；标签值来自旁路库（从当前主库重建），两档同源、不可证明 PIT。strict 档标签表与车道 A 对照集只取 D0 可见实体（快照里出现过的代码），后补实体不冒充 PIT。",
+  "lane_a": {
+    "note": "规则复现一致率：不涉及 D0 之后的数据，无泄漏读数；微平均 P/R + 集合完全一致比例",
+    "cells": [
+      {
+        "pit_grade": "strict",
+        "arm": "anonymized",
+        "rule_id": "diff_ratio_turn_up_5d",
+        "nodes": 20,
+        "expected_total": 1281,
+        "predicted_total": 1122,
+        "tp": 1118,
+        "fp": 4,
+        "fn": 163,
+        "precision_micro": 0.9964,
+        "recall_micro": 0.8728,
+        "exact_match_rate": 0.65,
+        "nodes_with_expected_events": 17
+      },
+      {
+        "pit_grade": "strict",
+        "arm": "anonymized",
+        "rule_id": "dual_red_streak3_continuation",
+        "nodes": 20,
+        "expected_total": 0,
+        "predicted_total": 0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision_micro": null,
+        "recall_micro": null,
+        "exact_match_rate": 1.0,
+        "nodes_with_expected_events": 0
+      },
+      {
+        "pit_grade": "strict",
+        "arm": "anonymized",
+        "rule_id": "limit_heat_rank_jump_3d",
+        "nodes": 20,
+        "expected_total": 799,
+        "predicted_total": 777,
+        "tp": 775,
+        "fp": 2,
+        "fn": 24,
+        "precision_micro": 0.9974,
+        "recall_micro": 0.97,
+        "exact_match_rate": 0.5,
+        "nodes_with_expected_events": 14
+      },
+      {
+        "pit_grade": "strict",
+        "arm": "named",
+        "rule_id": "diff_ratio_turn_up_5d",
+        "nodes": 20,
+        "expected_total": 1281,
+        "predicted_total": 1263,
+        "tp": 1205,
+        "fp": 58,
+        "fn": 76,
+        "precision_micro": 0.9541,
+        "recall_micro": 0.9407,
+        "exact_match_rate": 0.7,
+        "nodes_with_expected_events": 17
+      },
+      {
+        "pit_grade": "strict",
+        "arm": "named",
+        "rule_id": "dual_red_streak3_continuation",
+        "nodes": 20,
+        "expected_total": 0,
+        "predicted_total": 0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision_micro": null,
+        "recall_micro": null,
+        "exact_match_rate": 1.0,
+        "nodes_with_expected_events": 0
+      },
+      {
+        "pit_grade": "strict",
+        "arm": "named",
+        "rule_id": "limit_heat_rank_jump_3d",
+        "nodes": 20,
+        "expected_total": 799,
+        "predicted_total": 702,
+        "tp": 610,
+        "fp": 92,
+        "fn": 189,
+        "precision_micro": 0.8689,
+        "recall_micro": 0.7635,
+        "exact_match_rate": 0.45,
+        "nodes_with_expected_events": 14
+      },
+      {
+        "pit_grade": "trade_date_only",
+        "arm": "anonymized",
+        "rule_id": "diff_ratio_turn_up_5d",
+        "nodes": 20,
+        "expected_total": 1633,
+        "predicted_total": 1611,
+        "tp": 1606,
+        "fp": 5,
+        "fn": 27,
+        "precision_micro": 0.9969,
+        "recall_micro": 0.9835,
+        "exact_match_rate": 0.25,
+        "nodes_with_expected_events": 20
+      },
+      {
+        "pit_grade": "trade_date_only",
+        "arm": "anonymized",
+        "rule_id": "dual_red_streak3_continuation",
+        "nodes": 20,
+        "expected_total": 0,
+        "predicted_total": 0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision_micro": null,
+        "recall_micro": null,
+        "exact_match_rate": 1.0,
+        "nodes_with_expected_events": 0
+      },
+      {
+        "pit_grade": "trade_date_only",
+        "arm": "anonymized",
+        "rule_id": "limit_heat_rank_jump_3d",
+        "nodes": 20,
+        "expected_total": 679,
+        "predicted_total": 670,
+        "tp": 670,
+        "fp": 0,
+        "fn": 9,
+        "precision_micro": 1.0,
+        "recall_micro": 0.9867,
+        "exact_match_rate": 0.7,
+        "nodes_with_expected_events": 18
+      },
+      {
+        "pit_grade": "trade_date_only",
+        "arm": "named",
+        "rule_id": "diff_ratio_turn_up_5d",
+        "nodes": 20,
+        "expected_total": 1633,
+        "predicted_total": 1599,
+        "tp": 1597,
+        "fp": 2,
+        "fn": 36,
+        "precision_micro": 0.9987,
+        "recall_micro": 0.978,
+        "exact_match_rate": 0.25,
+        "nodes_with_expected_events": 20
+      },
+      {
+        "pit_grade": "trade_date_only",
+        "arm": "named",
+        "rule_id": "dual_red_streak3_continuation",
+        "nodes": 20,
+        "expected_total": 0,
+        "predicted_total": 0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision_micro": null,
+        "recall_micro": null,
+        "exact_match_rate": 1.0,
+        "nodes_with_expected_events": 0
+      },
+      {
+        "pit_grade": "trade_date_only",
+        "arm": "named",
+        "rule_id": "limit_heat_rank_jump_3d",
+        "nodes": 20,
+        "expected_total": 679,
+        "predicted_total": 654,
+        "tp": 651,
+        "fp": 3,
+        "fn": 28,
+        "precision_micro": 0.9954,
+        "recall_micro": 0.9588,
+        "exact_match_rate": 0.45,
+        "nodes_with_expected_events": 18
+      }
+    ]
+  },
+  "lane_b": {
+    "min_n": 10,
+    "scored": 527,
+    "unverifiable": 23,
+    "cells": [
+      {
+        "pit_grade": "strict",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "anonymized",
+        "category": "direction",
+        "horizon": "T+3",
+        "n": 31,
+        "unverifiable": 3,
+        "hits": 13,
+        "partial": 0,
+        "miss": 18,
+        "hit_rate": 0.4194,
+        "strict_hit_rate": 0.4194,
+        "wilson_95": [
+          0.2642,
+          0.5923
+        ],
+        "reliability": "参半"
+      },
+      {
+        "pit_grade": "strict",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "named",
+        "category": "direction",
+        "horizon": "T+3",
+        "n": 32,
+        "unverifiable": 6,
+        "hits": 15,
+        "partial": 0,
+        "miss": 17,
+        "hit_rate": 0.4688,
+        "strict_hit_rate": 0.4688,
+        "wilson_95": [
+          0.3087,
+          0.6355
+        ],
+        "reliability": "参半"
+      },
+      {
+        "pit_grade": "strict",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "anonymized",
+        "category": "direction",
+        "horizon": "T+5",
+        "n": 27,
+        "unverifiable": 7,
+        "hits": 16,
+        "partial": 0,
+        "miss": 11,
+        "hit_rate": 0.5926,
+        "strict_hit_rate": 0.5926,
+        "wilson_95": [
+          0.4073,
+          0.7549
+        ],
+        "reliability": "参半"
+      },
+      {
+        "pit_grade": "strict",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "named",
+        "category": "direction",
+        "horizon": "T+5",
+        "n": 30,
+        "unverifiable": 5,
+        "hits": 10,
+        "partial": 0,
+        "miss": 20,
+        "hit_rate": 0.3333,
+        "strict_hit_rate": 0.3333,
+        "wilson_95": [
+          0.1923,
+          0.5122
+        ],
+        "reliability": "偏差大"
+      },
+      {
+        "pit_grade": "strict",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "anonymized",
+        "category": "market",
+        "horizon": "T+1",
+        "n": 29,
+        "unverifiable": 0,
+        "hits": 18,
+        "partial": 1,
+        "miss": 10,
+        "hit_rate": 0.6379,
+        "strict_hit_rate": 0.6207,
+        "wilson_95": [
+          0.44,
+          0.7731
+        ],
+        "reliability": "参半"
+      },
+      {
+        "pit_grade": "strict",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "named",
+        "category": "market",
+        "horizon": "T+1",
+        "n": 30,
+        "unverifiable": 0,
+        "hits": 21,
+        "partial": 2,
+        "miss": 7,
+        "hit_rate": 0.7333,
+        "strict_hit_rate": 0.7,
+        "wilson_95": [
+          0.5212,
+          0.8334
+        ],
+        "reliability": "靠谱"
+      },
+      {
+        "pit_grade": "strict",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "anonymized",
+        "category": "market",
+        "horizon": "T+3",
+        "n": 23,
+        "unverifiable": 0,
+        "hits": 12,
+        "partial": 5,
+        "miss": 6,
+        "hit_rate": 0.6304,
+        "strict_hit_rate": 0.5217,
+        "wilson_95": [
+          0.3296,
+          0.7076
+        ],
+        "reliability": "参半"
+      },
+      {
+        "pit_grade": "strict",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "named",
+        "category": "market",
+        "horizon": "T+3",
+        "n": 22,
+        "unverifiable": 0,
+        "hits": 11,
+        "partial": 4,
+        "miss": 7,
+        "hit_rate": 0.5909,
+        "strict_hit_rate": 0.5,
+        "wilson_95": [
+          0.3072,
+          0.6928
+        ],
+        "reliability": "参半"
+      },
+      {
+        "pit_grade": "strict",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "anonymized",
+        "category": "market",
+        "horizon": "T+5",
+        "n": 20,
+        "unverifiable": 0,
+        "hits": 15,
+        "partial": 0,
+        "miss": 5,
+        "hit_rate": 0.75,
+        "strict_hit_rate": 0.75,
+        "wilson_95": [
+          0.5313,
+          0.8881
+        ],
+        "reliability": "靠谱"
+      },
+      {
+        "pit_grade": "strict",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "named",
+        "category": "market",
+        "horizon": "T+5",
+        "n": 21,
+        "unverifiable": 0,
+        "hits": 16,
+        "partial": 1,
+        "miss": 4,
+        "hit_rate": 0.7857,
+        "strict_hit_rate": 0.7619,
+        "wilson_95": [
+          0.5491,
+          0.8937
+        ],
+        "reliability": "靠谱"
+      },
+      {
+        "pit_grade": "trade_date_only",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "anonymized",
+        "category": "direction",
+        "horizon": "T+3",
+        "n": 34,
+        "unverifiable": 1,
+        "hits": 13,
+        "partial": 0,
+        "miss": 21,
+        "hit_rate": 0.3824,
+        "strict_hit_rate": 0.3824,
+        "wilson_95": [
+          0.239,
+          0.5496
+        ],
+        "reliability": "偏差大"
+      },
+      {
+        "pit_grade": "trade_date_only",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "named",
+        "category": "direction",
+        "horizon": "T+3",
+        "n": 39,
+        "unverifiable": 0,
+        "hits": 22,
+        "partial": 0,
+        "miss": 17,
+        "hit_rate": 0.5641,
+        "strict_hit_rate": 0.5641,
+        "wilson_95": [
+          0.4098,
+          0.707
+        ],
+        "reliability": "参半"
+      },
+      {
+        "pit_grade": "trade_date_only",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "anonymized",
+        "category": "direction",
+        "horizon": "T+5",
+        "n": 40,
+        "unverifiable": 0,
+        "hits": 18,
+        "partial": 0,
+        "miss": 22,
+        "hit_rate": 0.45,
+        "strict_hit_rate": 0.45,
+        "wilson_95": [
+          0.3071,
+          0.6017
+        ],
+        "reliability": "参半"
+      },
+      {
+        "pit_grade": "trade_date_only",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "named",
+        "category": "direction",
+        "horizon": "T+5",
+        "n": 41,
+        "unverifiable": 1,
+        "hits": 22,
+        "partial": 0,
+        "miss": 19,
+        "hit_rate": 0.5366,
+        "strict_hit_rate": 0.5366,
+        "wilson_95": [
+          0.3875,
+          0.6794
+        ],
+        "reliability": "参半"
+      },
+      {
+        "pit_grade": "trade_date_only",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "anonymized",
+        "category": "market",
+        "horizon": "T+1",
+        "n": 19,
+        "unverifiable": 0,
+        "hits": 9,
+        "partial": 2,
+        "miss": 8,
+        "hit_rate": 0.5263,
+        "strict_hit_rate": 0.4737,
+        "wilson_95": [
+          0.2733,
+          0.6829
+        ],
+        "reliability": "参半"
+      },
+      {
+        "pit_grade": "trade_date_only",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "named",
+        "category": "market",
+        "horizon": "T+1",
+        "n": 24,
+        "unverifiable": 0,
+        "hits": 13,
+        "partial": 1,
+        "miss": 10,
+        "hit_rate": 0.5625,
+        "strict_hit_rate": 0.5417,
+        "wilson_95": [
+          0.3507,
+          0.7211
+        ],
+        "reliability": "参半"
+      },
+      {
+        "pit_grade": "trade_date_only",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "anonymized",
+        "category": "market",
+        "horizon": "T+3",
+        "n": 17,
+        "unverifiable": 0,
+        "hits": 9,
+        "partial": 4,
+        "miss": 4,
+        "hit_rate": 0.6471,
+        "strict_hit_rate": 0.5294,
+        "wilson_95": [
+          0.3096,
+          0.7383
+        ],
+        "reliability": "参半"
+      },
+      {
+        "pit_grade": "trade_date_only",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "named",
+        "category": "market",
+        "horizon": "T+3",
+        "n": 19,
+        "unverifiable": 0,
+        "hits": 13,
+        "partial": 4,
+        "miss": 2,
+        "hit_rate": 0.7895,
+        "strict_hit_rate": 0.6842,
+        "wilson_95": [
+          0.4601,
+          0.8464
+        ],
+        "reliability": "靠谱"
+      },
+      {
+        "pit_grade": "trade_date_only",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "anonymized",
+        "category": "market",
+        "horizon": "T+5",
+        "n": 14,
+        "unverifiable": 0,
+        "hits": 11,
+        "partial": 0,
+        "miss": 3,
+        "hit_rate": 0.7857,
+        "strict_hit_rate": 0.7857,
+        "wilson_95": [
+          0.5241,
+          0.9243
+        ],
+        "reliability": "靠谱"
+      },
+      {
+        "pit_grade": "trade_date_only",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "arm": "named",
+        "category": "market",
+        "horizon": "T+5",
+        "n": 15,
+        "unverifiable": 0,
+        "hits": 13,
+        "partial": 0,
+        "miss": 2,
+        "hit_rate": 0.8667,
+        "strict_hit_rate": 0.8667,
+        "wilson_95": [
+          0.6212,
+          0.9626
+        ],
+        "reliability": "靠谱"
+      }
+    ],
+    "by_model": [
+      {
+        "model": "glm-5.2",
+        "n": 527,
+        "hits": 290,
+        "partial": 24,
+        "miss": 213
+      }
+    ],
+    "arm_gap": [
+      {
+        "pit_grade": "strict",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "pooled_over": "category × horizon（同档同桶内）",
+        "named": {
+          "n": 135,
+          "hit_rate": 0.5667
+        },
+        "anonymized": {
+          "n": 130,
+          "hit_rate": 0.5923
+        },
+        "gap_named_minus_anonymized": -0.0256,
+        "memory_signal": "臂间差是记忆成分上界（消融）：named 高于 anonymized 的部分最多是记忆，不能归为能力"
+      },
+      {
+        "pit_grade": "trade_date_only",
+        "memory_bucket": "unknown",
+        "memory_contaminated": true,
+        "pooled_over": "category × horizon（同档同桶内）",
+        "named": {
+          "n": 138,
+          "hit_rate": 0.6196
+        },
+        "anonymized": {
+          "n": 124,
+          "hit_rate": 0.5081
+        },
+        "gap_named_minus_anonymized": 0.1115,
+        "memory_signal": "臂间差是记忆成分上界（消融）：named 高于 anonymized 的部分最多是记忆，不能归为能力"
+      }
+    ]
+  },
+  "memory_bucket_distribution": [
+    {
+      "pit_grade": "strict",
+      "memory_bucket": "unknown",
+      "arm": "anonymized",
+      "hypotheses": 140,
+      "memory_contaminated": true
+    },
+    {
+      "pit_grade": "strict",
+      "memory_bucket": "unknown",
+      "arm": "named",
+      "hypotheses": 146,
+      "memory_contaminated": true
+    },
+    {
+      "pit_grade": "trade_date_only",
+      "memory_bucket": "unknown",
+      "arm": "anonymized",
+      "hypotheses": 125,
+      "memory_contaminated": true
+    },
+    {
+      "pit_grade": "trade_date_only",
+      "memory_bucket": "unknown",
+      "arm": "named",
+      "hypotheses": 139,
+      "memory_contaminated": true
+    }
+  ],
+  "reconciliation": {
+    "overlap_dates": [
+      "2026-07-10",
+      "2026-07-13",
+      "2026-07-14",
+      "2026-07-15",
+      "2026-07-16",
+      "2026-07-17",
+      "2026-07-20",
+      "2026-07-22",
+      "2026-07-24",
+      "2026-09-01",
+      "2026-09-02"
+    ],
+    "included_dates": [
+      "2026-07-13",
+      "2026-07-14",
+      "2026-07-16",
+      "2026-07-17",
+      "2026-07-20",
+      "2026-07-22"
+    ],
+    "excluded_dates": {
+      "2026-07-10": "不在本次 strict 节点集（超出 judgeable end 或未入选）",
+      "2026-07-15": "不在本次 strict 节点集（超出 judgeable end 或未入选）",
+      "2026-07-24": "不在本次 strict 节点集（超出 judgeable end 或未入选）",
+      "2026-09-01": "不在本次 strict 节点集（超出 judgeable end 或未入选）",
+      "2026-09-02": "不在本次 strict 节点集（超出 judgeable end 或未入选）"
+    },
+    "min_dates": 5,
+    "comparability_note": "重放 market 类取 horizon=T+1 与台账「盘面 / T+1」对齐；命中率 = hit / (hit+miss+partial)，两侧同口径；差值只记录不做结论",
+    "status": "ok",
+    "ledger_subset_dir": "/Users/a77/.finance-runtime/replay/replay-20260904T184203Z-514d2369/ledger-subset",
+    "ledger_files_copied": 14,
+    "human": {
+      "pooled": {
+        "category": "market",
+        "n": 5,
+        "hit_rate": 0.4,
+        "unverifiable": 0
+      },
+      "by_agent": [
+        {
+          "agent": "claude",
+          "source": "duckdb",
+          "category": "market",
+          "n": 2,
+          "unverifiable": 0,
+          "hit_rate": 1.0,
+          "answers": 4
+        },
+        {
+          "agent": "claude",
+          "source": "sellside",
+          "category": "market",
+          "n": 0,
+          "unverifiable": 0,
+          "hit_rate": null,
+          "answers": 1
+        },
+        {
+          "agent": "codex",
+          "source": "duckdb",
+          "category": "market",
+          "n": 3,
+          "unverifiable": 0,
+          "hit_rate": 0.0,
+          "answers": 4
+        },
+        {
+          "agent": "codex",
+          "source": "sellside",
+          "category": "market",
+          "n": 0,
+          "unverifiable": 0,
+          "hit_rate": null,
+          "answers": 1
+        }
+      ]
+    },
+    "replay": [
+      {
+        "arm": "named",
+        "pit_grade": "strict",
+        "memory_bucket": "unknown",
+        "category": "market",
+        "horizon": "T+1",
+        "n": 8,
+        "unverifiable": 0,
+        "hit_rate": 0.625,
+        "diff_vs_human_pooled": 0.225
+      },
+      {
+        "arm": "anonymized",
+        "pit_grade": "strict",
+        "memory_bucket": "unknown",
+        "category": "market",
+        "horizon": "T+1",
+        "n": 9,
+        "unverifiable": 0,
+        "hit_rate": 0.4444,
+        "diff_vs_human_pooled": 0.0444
+      }
+    ]
+  },
+  "rules": [
+    "pre_cutoff 与 unknown 都是 memory_contaminated，报表任何一格都不与 post_cutoff 相加",
+    "格子 N<10 只给 N",
+    "两档 PIT 不出混合平均",
+    "只量不调：提示词 / 温度 / 模型本单内冻结"
+  ],
+  "dry_run": {
+    "nodes": 40,
+    "planned_calls": 160,
+    "estimated_input_tokens": 1471412,
+    "estimated": true,
+    "chars_per_token": 1.6
+  }
+}
