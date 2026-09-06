@@ -16,7 +16,7 @@
 
 ## 当前状态
 
-8792=`f4c03b9ae610`（0903e：web_search 修复、判官拒句账、墙钟用例容差、门禁/PR 脚本）。回滚锚 `~/.finance-runtime/cutover-20260903e-rollback-8792.txt`（回滚目标 `c88c81da5120`），启动器未动（备份仍 `.bak-20260903-admission`）。`gitea/main` == 8792。足迹分支 `wip/mainline-move-footprints-20260903` 待认领。
+8792=`5cc5aa8bf1e9`（0907：#608 max 档 + 三开关；出口改 cockpit `:57244` sol/terra）。回滚锚 `cutover-20260907-max-rollback-8792.txt`；启动器备份 `.bak-20260907-pre-max`。全文 `docs/verification/2026-09-07-cutover-max-cockpit.md`。**登录钥匙串 09-06 被重置**（`login_renamed_1.keychain-db`），GLM / 中转 key 未恢复。
 
 ## 已验证
 
