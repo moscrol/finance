@@ -84,8 +84,103 @@ DDL = (
     """,
 )
 
+# Teaching-framework objects intentionally use a separate namespace.  The
+# existing label reset is a whole-table rebuild; putting these rows in
+# ``history_labels`` would allow an unrelated rebuild to delete them.
+TEACHING_DDL = (
+    """
+    CREATE TABLE IF NOT EXISTS history_teaching_labels (
+        entity_type   VARCHAR NOT NULL,
+        entity_id     VARCHAR NOT NULL,
+        trade_date    DATE NOT NULL,
+        label         VARCHAR NOT NULL,
+        value_num     DOUBLE,
+        value_text    VARCHAR,
+        label_version VARCHAR NOT NULL,
+        status        VARCHAR NOT NULL,
+        status_reason VARCHAR,
+        computed_at   TIMESTAMP NOT NULL,
+        PRIMARY KEY (entity_type, entity_id, trade_date, label)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS history_teaching_gaps (
+        trade_date        DATE NOT NULL,
+        gap_kind          VARCHAR NOT NULL,
+        missing_cols      VARCHAR,
+        framework_version VARCHAR NOT NULL,
+        status             VARCHAR NOT NULL,
+        status_reason     VARCHAR,
+        computed_at       TIMESTAMP NOT NULL,
+        PRIMARY KEY (trade_date, gap_kind)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS history_leader_succession (
+        node_id         VARCHAR UNIQUE,
+        break_day       DATE PRIMARY KEY,
+        leader_i        VARCHAR,
+        leader_i_name   VARCHAR,
+        leader_i_peak_boards INTEGER,
+        birth_day       DATE,
+        leader_next     VARCHAR,
+        leader_next_name VARCHAR,
+        birth_boards    INTEGER,
+        candidates_json VARCHAR,
+        gap_days        INTEGER,
+        path_json       VARCHAR,
+        shape_tags_json VARCHAR,
+        handoff         BOOLEAN,
+        context_break   VARCHAR,
+        context_birth   VARCHAR,
+        framework_version VARCHAR,
+        status          VARCHAR NOT NULL,
+        status_reason   VARCHAR,
+        computed_at     TIMESTAMP NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS history_overtaken (
+        event_day       DATE NOT NULL,
+        leader_i        VARCHAR NOT NULL,
+        leader_next     VARCHAR NOT NULL,
+        granularity     VARCHAR NOT NULL,
+        status          VARCHAR NOT NULL,
+        status_reason   VARCHAR,
+        computed_at     TIMESTAMP NOT NULL,
+        PRIMARY KEY (event_day, leader_i, leader_next)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS history_teaching_receipts (
+        build_id             VARCHAR PRIMARY KEY,
+        build_kind           VARCHAR NOT NULL,
+        framework_version    VARCHAR NOT NULL,
+        label_version        VARCHAR NOT NULL,
+        source_db            VARCHAR NOT NULL,
+        source_max_trade_date DATE,
+        source_row_counts    VARCHAR,
+        source_fingerprint   VARCHAR,
+        parameter_hash       VARCHAR NOT NULL,
+        coverage_summary     VARCHAR,
+        gap_summary          VARCHAR,
+        canonical_hash       VARCHAR,
+        status               VARCHAR NOT NULL,
+        status_reason        VARCHAR,
+        computed_at          TIMESTAMP NOT NULL
+    )
+    """,
+)
+
 LABELS_TABLES = ("history_calendar", "history_labels", "history_data_gaps")
 OUTCOMES_TABLES = ("history_outcomes",)
+TEACHING_TABLES = (
+    "history_teaching_labels",
+    "history_teaching_gaps",
+    "history_leader_succession",
+    "history_overtaken",
+    "history_teaching_receipts",
+)
 
 
 def default_labels_db_path(source_db: str | Path | None = None) -> Path:
@@ -108,12 +203,23 @@ def naive_utc(ts: datetime) -> datetime:
 def ensure_schema(con: duckdb.DuckDBPyConnection) -> None:
     for stmt in DDL:
         con.execute(stmt)
+    for stmt in TEACHING_DDL:
+        con.execute(stmt)
 
 
 def reset_tables(con: duckdb.DuckDBPyConnection, tables: tuple[str, ...]) -> None:
     for name in tables:
         con.execute(f"DROP TABLE IF EXISTS {name}")
     ensure_schema(con)
+
+
+def reset_teaching_tables(con: duckdb.DuckDBPyConnection) -> None:
+    """Rebuild only teaching tables, preserving all legacy sidecar tables."""
+
+    for name in TEACHING_TABLES:
+        con.execute(f"DROP TABLE IF EXISTS {name}")
+    for stmt in TEACHING_DDL:
+        con.execute(stmt)
 
 
 def open_labels_db(path: str | Path, *, read_only: bool) -> duckdb.DuckDBPyConnection:
