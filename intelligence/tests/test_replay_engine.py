@@ -458,3 +458,118 @@ def test_report_markdown_renders_all_sections(synthetic):
 def test_selftest_passes_end_to_end():
     st_replay = _load_script(REPLAY_SELFTEST, "replay_selftest_main_for_tests")
     assert st_replay.main() == 0
+
+
+# --------------------------------------------------------------------------- #
+# 规则 schema 两加法（工单 §2.10）：provenance.kind=discovered / windows 双窗
+# --------------------------------------------------------------------------- #
+WINDOWS_RULE = {
+    "rule_id": "windows_rule",
+    "version": 1,
+    "title": "双窗测试规则",
+    "scope": {"entity_type": "sector", "universe": "published_snapshot"},
+    "condition": {"all": [{"label": "dual_red_strict", "op": "==", "value": True, "lag": 0}]},
+    "outcome": {
+        "target": "pct_chg",
+        "horizons": [3, 5, 7, 10],
+        "metrics": ["fwd_return", "max_return", "days_to_peak", "drawdown_after_peak"],
+        "success": {"metric": "fwd_return", "horizon": 5, "op": ">", "value": 0},
+    },
+    "baseline": {"kind": "same_universe_all_days"},
+    "min_n": 20,
+    "sharing": "shared",
+    "owner": "system",
+}
+
+
+def test_discovered_is_legal_provenance_but_nothing_writes_it():
+    from intelligence.services.methodology_backtest import propose
+    from intelligence.services.methodology_backtest.rules import PROVENANCE_KINDS, validate_rule
+
+    assert "discovered" in PROVENANCE_KINDS
+    doc = {**json.loads(json.dumps(WINDOWS_RULE)), "provenance": {"kind": "discovered", "text": "P2 提议者占位"}}
+    rule, errors = validate_rule(doc)
+    assert errors == [] and rule is not None and rule.raw["provenance"]["kind"] == "discovered"
+    bad = {**json.loads(json.dumps(WINDOWS_RULE)), "provenance": {"kind": "invented"}}
+    _, errors = validate_rule(bad)
+    assert any(e.path == "provenance.kind" for e in errors)
+    # propose 仍只产 correction：源码里没有任何 "discovered" 写入点
+    source = Path(propose.__file__).read_text(encoding="utf-8")
+    assert '"discovered"' not in source and "'discovered'" not in source
+    assert "correction" in source
+
+
+def test_windows_validation_requires_validation_after_discovery():
+    from intelligence.services.methodology_backtest.rules import validate_rule
+
+    ok = {**json.loads(json.dumps(WINDOWS_RULE)), "windows": {"discovery": ["2026-01-05", "2026-03-31"], "validation": ["2026-04-01", "2026-06-30"]}}
+    rule, errors = validate_rule(ok)
+    assert errors == [] and rule.windows == {"discovery": ("2026-01-05", "2026-03-31"), "validation": ("2026-04-01", "2026-06-30")}
+
+    overlap = {**json.loads(json.dumps(WINDOWS_RULE)), "windows": {"discovery": ["2026-01-05", "2026-03-31"], "validation": ["2026-03-31", "2026-06-30"]}}
+    rule, errors = validate_rule(overlap)
+    assert rule is None and [e.path for e in errors] == ["windows.validation[0]"]
+    assert "必须晚于 discovery.end" in errors[0].message
+
+    for mutate, path in (
+        (lambda w: w.__setitem__("validation", ["2026-04-01"]), "windows.validation"),
+        (lambda w: w.__setitem__("discovery", ["2026-1-5", "2026-03-31"]), "windows.discovery[0]"),
+        (lambda w: w.__setitem__("discovery", ["2026-03-31", "2026-01-05"]), "windows.discovery"),
+        (lambda w: w.__setitem__("extra", []), "windows.extra"),
+        (lambda w: w.pop("validation"), "windows.validation"),
+    ):
+        doc = json.loads(json.dumps(ok))
+        mutate(doc["windows"])
+        rule, errors = validate_rule(doc)
+        assert rule is None and any(e.path == path for e in errors), (path, [str(e) for e in errors])
+    rule, errors = validate_rule({**json.loads(json.dumps(WINDOWS_RULE)), "windows": "2026"})
+    assert rule is None and [e.path for e in errors] == ["windows"]
+
+    # 没有 windows：既有解析路径不变
+    plain, errors = validate_rule(json.loads(json.dumps(WINDOWS_RULE)))
+    assert errors == [] and plain.windows is None
+
+
+def test_windows_receipt_has_both_verdicts_and_plain_receipt_is_unchanged(synthetic):
+    from intelligence.services.methodology_backtest.receipts import build_receipt, render_receipt_markdown
+    from intelligence.services.methodology_backtest.rules import parse_rule
+    from intelligence.services.methodology_backtest.runner import run_rule
+
+    cal = synthetic["calendar"]
+    disc = (cal[0], cal[55])
+    val = (cal[56], cal[-12])
+    windows_rule = parse_rule({**json.loads(json.dumps(WINDOWS_RULE)), "windows": {"discovery": list(disc), "validation": list(val)}})
+    plain_rule = parse_rule(json.loads(json.dumps(WINDOWS_RULE)))
+    con = duckdb.connect(str(synthetic["labels"]), read_only=True)
+    try:
+        both = run_rule(con, windows_rule)
+        plain_val = run_rule(con, plain_rule, start=val[0], end=val[1])
+        plain_full = run_rule(con, plain_rule)
+        clamped = run_rule(con, windows_rule, start=cal[10], end=cal[-14])
+    finally:
+        con.close()
+    assert both.discovery is not None and plain_full.discovery is None
+    assert both.window == val and both.discovery.window == disc
+    # 双窗的 validation 读数 == 同一窗口单窗跑法（同一编译器 / 执行器）
+    assert both.readout.to_dict() == plain_val.readout.to_dict()
+    assert (both.n_matched, both.n_pending, both.n_missing) == (plain_val.n_matched, plain_val.n_pending, plain_val.n_missing)
+    assert both.discovery.n_matched + both.n_matched <= plain_full.n_matched
+    # 调用方 start / end 只夹紧
+    assert clamped.discovery.window == (cal[10], cal[55]) and clamped.window == (cal[56], cal[-14])
+
+    env = {"revision": "test"}
+    receipt = build_receipt(both, rule_path=None, rule_sha256=None, environment=env)
+    assert receipt["verdict"] == receipt["verdict_validation"] == both.readout.verdict
+    assert receipt["verdict_discovery"] == both.discovery.readout.verdict
+    assert set(receipt["windows"]) == {"discovery", "validation"}
+    assert receipt["windows"]["discovery"]["window"] == {"start": disc[0], "end": disc[1]}
+    assert receipt["rule"]["windows"] == {"discovery": list(disc), "validation": list(val)}
+    md = render_receipt_markdown(receipt)
+    assert "发现窗 / 验证窗" in md and "discovery" in md and "validation" in md
+
+    plain_receipt = build_receipt(plain_full, rule_path=None, rule_sha256=None, environment=env)
+    for key in ("windows", "verdict_discovery", "verdict_validation", "windows_note"):
+        assert key not in plain_receipt
+    assert "windows" not in plain_receipt["rule"]
+    assert set(plain_receipt) == set(receipt) - {"windows", "verdict_discovery", "verdict_validation", "windows_note"}
+    assert "发现窗" not in render_receipt_markdown(plain_receipt)

@@ -44,6 +44,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -107,11 +108,17 @@ MAX_SOURCE_PERSPECTIVE = 200
 _TOP_KEYS = {
     "rule_id", "version", "title", "scope", "condition", "outcome", "baseline", "min_n", "notes", "provenance",
     "sharing", "owner", "source_perspective",
+    "windows",
 }
 # 候选规则从哪来：kind=correction 时 ref 是 corrections.jsonl 的记录 id / ts。只做溯源，不参与编译。
+# kind=discovered 为设计稿 §10.2 第二条「AI 作提议者」占位（P2）：目前只是合法值，仓内没有任何代码会产生它。
 _PROVENANCE_KEYS = {"kind", "ref", "ts", "text", "registered_at", "user"}
-PROVENANCE_KINDS = ("correction", "manual")
+PROVENANCE_KINDS = ("correction", "manual", "discovered")
 MAX_PROVENANCE_TEXT = 500
+# 发现窗 / 验证窗（设计稿 §10.2 第二条）：在 discovery 窗上提出的规则，结论只认 validation 窗；validation 必须整体
+# 晚于 discovery（validation.start > discovery.end）。可选键，缺省行为与之前完全一致；编译器 SQL 不变。
+_WINDOWS_KEYS = {"discovery", "validation"}
+WINDOW_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _SCOPE_KEYS = {"entity_type", "universe"}
 _PRED_KEYS = {"label", "op", "value", "lag", "entity"}
 _OUTCOME_KEYS = {"target", "horizons", "metrics", "success"}
@@ -176,6 +183,8 @@ class Rule:
     sharing: str
     owner: str
     raw: dict[str, Any]
+    # (discovery=(start, end), validation=(start, end))；None = 规则没声明双窗，runner 单窗跑法不变
+    windows: dict[str, tuple[str, str]] | None = None
 
     @property
     def ref(self) -> str:
@@ -444,6 +453,8 @@ def validate_rule(doc: Any) -> tuple[Rule | None, list[RuleError]]:
             if prov.get("kind") == "correction" and not str(prov.get("ref") or "").strip():
                 errors.append(RuleError("provenance.ref", "kind=correction 时必须给纠偏记录的 id 或 ts"))
 
+    windows = _validate_windows(doc.get("windows"), errors) if "windows" in doc else None
+
     if errors:
         return None, errors
     assert entity_type is not None and universe is not None and success is not None and baseline_kind is not None
@@ -463,8 +474,51 @@ def validate_rule(doc: Any) -> tuple[Rule | None, list[RuleError]]:
         sharing=str(sharing),
         owner=str(owner),
         raw=doc,
+        windows=windows,
     )
     return rule, []
+
+
+def _validate_windows(doc: Any, errors: list[RuleError]) -> dict[str, tuple[str, str]] | None:
+    """``windows: {"discovery": [start, end], "validation": [start, end]}``。两窗各自 start <= end，
+    且 validation.start > discovery.end（验证窗必须整体在发现窗之后，否则「发现」与「验证」看的是同一段行情）。
+    每个错误带字段路径。"""
+    if not isinstance(doc, dict):
+        errors.append(RuleError("windows", "必须是对象 {discovery: [start, end], validation: [start, end]}"))
+        return None
+    _unknown_keys(doc, _WINDOWS_KEYS, "windows", errors)
+    parsed: dict[str, tuple[str, str]] = {}
+    for name in ("discovery", "validation"):
+        span = doc.get(name)
+        if not isinstance(span, list) or len(span) != 2:
+            errors.append(RuleError(f"windows.{name}", "必须是 [start, end] 两个 YYYY-MM-DD 字符串"))
+            continue
+        ok = True
+        for i, value in enumerate(span):
+            if not isinstance(value, str) or not WINDOW_DATE_RE.match(value):
+                errors.append(RuleError(f"windows.{name}[{i}]", f"必须是 YYYY-MM-DD 字符串，得到 {value!r}"))
+                ok = False
+                continue
+            try:
+                date.fromisoformat(value)
+            except ValueError:
+                errors.append(RuleError(f"windows.{name}[{i}]", f"不是合法日期：{value!r}"))
+                ok = False
+        if not ok:
+            continue
+        if span[0] > span[1]:
+            errors.append(RuleError(f"windows.{name}", f"start {span[0]} 晚于 end {span[1]}"))
+            continue
+        parsed[name] = (str(span[0]), str(span[1]))
+    if len(parsed) == 2 and parsed["validation"][0] <= parsed["discovery"][1]:
+        errors.append(
+            RuleError(
+                "windows.validation[0]",
+                f"validation.start {parsed['validation'][0]} 必须晚于 discovery.end {parsed['discovery'][1]}（验证窗要整体在发现窗之后）",
+            )
+        )
+        return None
+    return parsed if len(parsed) == 2 else None
 
 
 def parse_rule(doc: Any, *, source: str | None = None) -> Rule:

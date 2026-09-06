@@ -143,7 +143,40 @@ def build_receipt(
         "appendix": appendix or {},
         "sql": result.sql,
     }
+    if result.discovery is not None:
+        # 双窗（设计稿 §10.2 第二条）：顶层 verdict 已是 validation 窗的；这里把两窗读数并排放出来。
+        # 没声明 windows 的规则不进这个分支——收据键集与之前逐键一致。
+        disc = result.discovery
+        receipt["rule"]["windows"] = rule.raw.get("windows")
+        receipt["windows"] = {
+            "discovery": _window_block(disc),
+            "validation": _window_block(result),
+        }
+        receipt["verdict_discovery"] = disc.readout.verdict
+        receipt["verdict_validation"] = rd.verdict
+        receipt["windows_note"] = "结论只认 validation 窗（verdict == verdict_validation）；discovery 窗只作对照，supported 不能从它来"
     return receipt
+
+
+def _window_block(result: RunResult) -> dict[str, Any]:
+    rd = result.readout
+    return {
+        "window": {"start": result.window[0], "end": result.window[1]},
+        "baseline_window": (
+            {"start": result.baseline_window[0], "end": result.baseline_window[1]} if result.baseline_window else None
+        ),
+        "events": {
+            "n_matched": result.n_matched,
+            "n_ok": rd.n,
+            "n_pending": result.n_pending,
+            "n_missing": result.n_missing,
+            "first_date": result.first_event_date,
+            "last_date": result.last_event_date,
+        },
+        "stats": rd.to_dict(),
+        "verdict": rd.verdict,
+        "verdict_label": _VERDICT_CN.get(rd.verdict, rd.verdict),
+    }
 
 
 def render_receipt_markdown(receipt: dict[str, Any]) -> str:
@@ -207,6 +240,22 @@ def render_receipt_markdown(receipt: dict[str, Any]) -> str:
         )
     for note in s.get("notes", []):
         lines.append(f"| 备注 | {note} |")
+    windows = receipt.get("windows")
+    if windows:
+        lines.append("")
+        lines.append("## 发现窗 / 验证窗（结论只认验证窗；发现窗只作对照）")
+        lines.append("")
+        lines.append("| 窗 | 起止 | N | k | p | p0 | Wilson 95% | 结论 |")
+        lines.append("|---|---|---:|---:|---:|---:|---|---|")
+        for name in ("discovery", "validation"):
+            w = windows[name]
+            ws = w["stats"]
+            lines.append(
+                f"| {name} | {w['window']['start']} → {w['window']['end']} | {ws['n']} | {ws['k']} | {_pct(ws['p'])} | "
+                f"{_pct(ws['p0'])} | [{_pct(ws['wilson_lo'])}, {_pct(ws['wilson_hi'])}] | `{w['verdict']}` |"
+            )
+        lines.append("")
+        lines.append(f"> {receipt.get('windows_note', '')}")
     lines.append("")
     lines.append("## 多窗口（仅已到期事件）")
     lines.append("")

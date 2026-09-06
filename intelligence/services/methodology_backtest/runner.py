@@ -99,6 +99,9 @@ class RunResult:
     conditions: dict[str, Any]
     events_sample: list[dict[str, Any]]
     sql: dict[str, Any] = field(default_factory=dict)
+    # 规则声明了 windows 时：本对象是 validation 窗的读数（顶层结论只认它），discovery 窗的读数挂在这里作对照。
+    # 没声明 windows 时恒为 None，收据不多任何键。
+    discovery: "RunResult | None" = None
 
 
 @dataclass
@@ -379,6 +382,20 @@ def run_rule(
 ) -> RunResult:
     conditions = conditions or load_conditions(con)
     _check_horizons(rule, conditions)
+    if rule.windows:
+        # 双窗（设计稿 §10.2 第二条）：discovery / validation 各跑一次，同一编译器、同一执行器；调用方给的 start / end
+        # 只作夹紧（与各窗取交集），不会把两窗合成一窗。顶层结论 = validation 窗；discovery 挂在 .discovery 作对照。
+        results: dict[str, RunResult] = {}
+        for name in ("discovery", "validation"):
+            w_start, w_end = rule.windows[name]
+            clamped_start = max(w_start, str(start)) if start else w_start
+            clamped_end = min(w_end, str(end)) if end else w_end
+            window = resolve_window(conditions, clamped_start, clamped_end)
+            compiled = compile_rule(rule, start=window[0], end=window[1])
+            results[name] = execute_compiled(con, rule, compiled, window=window, conditions=conditions, q=q)
+        validation = results["validation"]
+        validation.discovery = results["discovery"]
+        return validation
     window = resolve_window(conditions, start, end)
     compiled = compile_rule(rule, start=window[0], end=window[1])
     return execute_compiled(con, rule, compiled, window=window, conditions=conditions, q=q)
