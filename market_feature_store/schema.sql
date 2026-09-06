@@ -43,6 +43,10 @@ CREATE TABLE IF NOT EXISTS fact_market_daily (
     limit_down               INTEGER,
     sh_week_ma               DOUBLE,
     sh_deviation_pct         DOUBLE,
+    -- 周均线来源：tooltip（fupanhui 抓取）/ ma_recompute（当日兜底复算）/
+    -- ma5_recompute_backfill（2026-09-06 历史回填）/ unknown_preexisting（此列上线前的存量，证不了是哪种）。
+    -- 「周均线」= 一周 = 5 个交易日，不是 55 周均线（2026-09-05 对 221 天真值比对八个候选：日 MA5 MAE 3.70，周 MA55 MAE 271.54）。
+    sh_week_ma_source        VARCHAR,
     sh_index_close           DOUBLE,
     sh_index_pct_chg         DOUBLE,
     sh_index_open            DOUBLE,
