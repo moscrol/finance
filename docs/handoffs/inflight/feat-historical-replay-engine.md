@@ -3,7 +3,7 @@
 树 `/Users/a77/fwp-wt-replay-engine`，基座 `gitea/main`=`c6e702a6`（派单时）；2026-09-06 收尾时合入 `gitea/main@3f6a3ce5`
 （合并提交 `08ac5232`，无冲突；第四刀 #589 / 第五刀 #591 已在里面）。工单
 `docs/superpowers/specs/2026-09-04-historical-replay-engine-workorder.md`；设计稿 §10.2 第二 / 四条、§10.3 第 2 步。
-解释器 `.venv-workbench/bin/python`。PR：`feat/historical-replay-engine → main`（号见本文末「当前状态」）。**未合 main，等用户确认。**
+解释器 `.venv-workbench/bin/python`。**PR #597** `http://127.0.0.1:3300/a77/finance-workspace-private/pulls/597`（`feat/historical-replay-engine → main`）。**未合 main，等用户确认。**
 
 ## 这个分支做什么
 
@@ -213,4 +213,4 @@ codex 0/3）vs 重放 named 62.5%（N=8）/ anonymized 44.4%（N=9），差 +22.
 分支 `feat/historical-replay-engine`，提交序列：`d730a29c`（fidelity_replay 两参数）→ `48e49305`（引擎 + CLI + 下沉）→
 `3116d650`（截止日表）→ `950cb20f`（selftest）→ `514d2369`（测试）→ `08ac5232`（合 main@3f6a3ce5）→ `ba4a7752`（报表原样）→
 `ac2082ab`（schema 两加法）→ `7bc358e0`（空快照不算 strict + report 重判）→ `934552ca`（报表重出）→ 本文 + ledger-map + INDEX。
-PR 号与分支尖 SHA见 PR 正文与 INDEX 行。**不合 main，等用户确认。**
+`2dac32e0`（文档三件）→ 本提交（补 PR 号）。PR #597 已开（`gitea_pr.py` 在主树运行，conflict-check clean）。**不合 main，等用户确认。**
