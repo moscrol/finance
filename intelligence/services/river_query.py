@@ -1,13 +1,33 @@
-"""在时间长河上的两种查询形状：横扫与纵扫。
+"""在时间长河上的三种查询形状：横扫、纵扫、区间聚合。
 
-`river.py` 给的是**点查**——一天 × 一个实体的六维切片。真实问题基本落在另外两种形状：
+`river.py` 给的是**点查**——一天 × 一个实体的六维切片。真实问题基本落在另外三种形状：
 
 - **横扫 `scan_cross_section`**：一天 × 全部实体，跨维度比较，找错位。
   例：「盘面较弱、但近期卖方覆盖多的板块」。
 - **纵扫 `cohort_compare`**：一个条件筛出一批日子 × 同一个特征，与同期基准比。
   例：「MA5 波谷确认日之后，盘面阶段有没有共性」。
+- **区间聚合 `range_aggregate`**：一个实体 × 一段日子，出区间涨幅 / 最大回撤 / 成交额。
+  例：「算力租赁 8 月涨了多少」。
 
-两条都**不新增存储**，都在现有事实表上现算。
+三条都**不新增存储**，都在现有事实表上现算。
+
+区间聚合为什么不能只返回一个数
+------------------------------
+区间涨幅是最常被问、也最容易静默算错的量，两个坑都不报错（2026-09-06 实测）：
+
+1. **板块没有收盘点位**。`fact_sector_daily` 只有每日 `pct_chg`，区间涨幅只能连乘。
+   缺一天就少乘一天，**结果偏低而不报错**。1 个月窗口 402 个板块 0 个缺天，看着没事；
+   3 个月窗口 549 个里 **431 个缺天**。窗口一拉长坑就张开。
+2. **换过数据供应商**（`.TI` → `.FP`，每个板块切换日还不同）。2026-03~09 区间里
+   **128 个板块名跨了两套代码**，两套成分不同——直接按名连乘等于把两个宇宙接在一起。
+
+所以本模块的返回值**强制携带 `coverage` 与 `codes_seen`**，缺天与跨换源都写成显式
+`caveats`；`require_complete=True` 时干脆不给数、只给 gap。这和 `river` 的
+「缺轨返回 `Gap` 不猜」是同一条纪律：宁可说不出来，不给一个不知道偏了多少的数。
+
+第三个坑是**列在库里但一行都没写过值**（实测 `fact_stock_daily.turnover` 非空 0 行）：
+这类 SQL 跑得通、不报错、返回 NULL，看起来像「这段时间没数据」。本模块把它判成
+`MetricGap` 并写明原因，不混进正常读数。
 
 纵扫必须挂统计门，这不是可选项
 --------------------------------
@@ -404,11 +424,401 @@ def render_cohort(rep: CohortReport) -> str:
     return "\n".join(out)
 
 
+# --------------------------------------------------------------------------- #
+# 区间聚合：一个实体 × 一段日子
+# --------------------------------------------------------------------------- #
+# 个股与板块的算法**必须不同**，因为可得的原料不同：
+#   个股 `fact_stock_daily` 有 close / pre_close → 首尾直接相除，精确；
+#   板块 `fact_sector_daily` **没有点位**，只有每日 pct_chg → 只能连乘。
+# 把两者混成一个「区间涨幅」函数、内部偷偷用连乘，是最容易过审但最错的做法：
+# 个股本来能精确算，连乘会引入完全不必要的缺天误差。
+STOCK_METHOD = "close_to_close"
+SECTOR_METHOD = "compounded_daily"
+
+RANGE_METRICS: tuple[str, ...] = (
+    "cumulative_return_pct",
+    "max_drawdown_pct",
+    "peak_return_pct",
+    "amount_sum",
+    "amount_avg",
+    "turnover_avg",
+)
+
+
+@dataclass(frozen=True)
+class RangeCoverage:
+    """区间里**应该**有几个交易日、**实际**读到几个、缺了哪些。
+
+    `expected` 取自 `fact_market_daily`——它是库里唯一的交易日历。缺天数不是
+    附注，是判断这个数能不能用的前提，所以进主结构而不是日志。
+    """
+
+    expected_days: int
+    actual_days: int
+    missing_dates: tuple[str, ...] = ()
+    # 同一天读到多行。连乘一旦按行遍历就会把那天乘两次：三天各 +10% 本该 33.1%，
+    # 多乘一天变成 46.41%（1.1**4）。而 actual_days 数的是**去重日期**，
+    # 所以覆盖率照样报「完整」——错得又大又安静，正是最该拦的形状。
+    duplicate_dates: tuple[str, ...] = ()
+
+    @property
+    def complete(self) -> bool:
+        return self.expected_days > 0 and self.actual_days == self.expected_days
+
+    @property
+    def clean(self) -> bool:
+        """既不缺天也不重复。``complete`` 只回答缺不缺，回答不了重不重。"""
+        return self.complete and not self.duplicate_dates
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "expected_days": self.expected_days,
+            "actual_days": self.actual_days,
+            "complete": self.complete,
+            "clean": self.clean,
+            "missing_dates": list(self.missing_dates),
+            "duplicate_dates": list(self.duplicate_dates),
+        }
+
+
+@dataclass(frozen=True)
+class MetricGap:
+    """某个量算不出来，且**说明为什么**。不要用 None 冒充 0，也不要用 0 冒充没数据。"""
+
+    metric: str
+    reason: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {"metric": self.metric, "reason": self.reason}
+
+
+@dataclass(frozen=True)
+class RangeAggregate:
+    kind: str  # stock | sector
+    entity_id: str
+    entity_name: str
+    start: str
+    end: str
+    method: str
+    coverage: RangeCoverage
+    codes_seen: tuple[str, ...] = ()
+    values: dict[str, float | None] = field(default_factory=dict)
+    peak_date: str | None = None
+    gaps: tuple[MetricGap, ...] = ()
+    caveats: tuple[str, ...] = ()
+
+    @property
+    def trustworthy(self) -> bool:
+        """能不能直接拿去用：覆盖**干净**（不缺天且无重复）且没跨过换源日。
+
+        用 ``clean`` 而不是 ``complete``：同一天重复时 ``complete`` 仍为真
+        （它数的是去重日期），于是一个被多乘过的数会自称「数据完整、结果可信」。
+        """
+        return self.coverage.clean and len(self.codes_seen) <= 1
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "entity_id": self.entity_id,
+            "entity_name": self.entity_name,
+            "start": self.start,
+            "end": self.end,
+            "method": self.method,
+            "trustworthy": self.trustworthy,
+            "coverage": self.coverage.to_dict(),
+            "codes_seen": list(self.codes_seen),
+            "values": self.values,
+            "peak_date": self.peak_date,
+            "gaps": [g.to_dict() for g in self.gaps],
+            "caveats": list(self.caveats),
+        }
+
+
+def trading_days(con: Any, start: str, end: str) -> list[str]:
+    """区间内的交易日（`fact_market_daily` 是库里唯一的交易日历）。"""
+    rows = con.execute(
+        "SELECT DISTINCT CAST(trade_date AS DATE) d FROM fact_market_daily "
+        "WHERE CAST(trade_date AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE) ORDER BY d",
+        [start, end],
+    ).fetchall()
+    return [str(r[0]) for r in rows]
+
+
+def _drawdown_and_peak(curve: list[tuple[str, float]]) -> tuple[float | None, float | None, str | None]:
+    """从累计收益曲线（相对起点的倍数）算最大回撤与峰值。曲线不足两点时不出数。"""
+    if len(curve) < 2:
+        return None, None, None
+    peak_v, peak_d, max_dd = curve[0][1], curve[0][0], 0.0
+    for day, value in curve:
+        if value > peak_v:
+            peak_v, peak_d = value, day
+        if peak_v > 0:
+            max_dd = min(max_dd, value / peak_v - 1.0)
+    return round(max_dd * 100, 4), round((peak_v - 1.0) * 100, 4), peak_d
+
+
+def _stock_rows(con: Any, start: str, end: str, entity: str) -> list[dict[str, Any]]:
+    return _rows_dict(
+        con,
+        """
+        SELECT CAST(trade_date AS DATE) AS d, stock_ts_code, stock_name,
+               close, pre_close, amount, turnover
+        FROM fact_stock_daily
+        WHERE CAST(trade_date AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+          AND (stock_ts_code = ? OR stock_name = ?)
+        ORDER BY d
+        """,
+        [start, end, entity, entity],
+    )
+
+
+def _sector_rows(con: Any, start: str, end: str, entity: str) -> list[dict[str, Any]]:
+    # 按**名字**取而不是代码：代码会随供应商换代，名字不会——这也是为什么必须
+    # 把 codes_seen 摆出来，让调用方看见这段区间横跨了几套代码。
+    return _rows_dict(
+        con,
+        """
+        SELECT CAST(trade_date AS DATE) AS d, sector_ts_code, sector_name,
+               pct_chg, amount
+        FROM fact_sector_daily
+        WHERE CAST(trade_date AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+          AND (sector_name = ? OR sector_ts_code = ?)
+        ORDER BY d
+        """,
+        [start, end, entity, entity],
+    )
+
+
+def _dedupe_by_date(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], tuple[str, ...]]:
+    """一天只留一行，并把出现重复的日子报出来。
+
+    为什么不静默去重：同一天两行、值还不一样时，**没有依据判断哪一行是对的**。
+    去重只是止血（不让它重复连乘），不代表结果可信——所以重复日期一并返回，
+    由调用方标成 caveat 并把 ``trustworthy`` 判否。
+
+    留哪一行：按 ``(日期, 行内容的稳定序列化)`` 排序后取第一条。这个选择是**任意但确定**的
+    ——任意是因为确实无从判断，确定是因为「两次调用结果相同」那条验收不能因它变假绿。
+    """
+    seen: dict[str, dict[str, Any]] = {}
+    dups: set[str] = set()
+    for row in sorted(rows, key=lambda r: (str(r["d"]), json.dumps(r, ensure_ascii=False, sort_keys=True, default=str))):
+        day = str(row["d"])
+        if day in seen:
+            dups.add(day)
+            continue
+        seen[day] = row
+    return [seen[d] for d in sorted(seen)], tuple(sorted(dups))
+
+
+def _rows_dict(con: Any, sql: str, params: list[Any]) -> list[dict[str, Any]]:
+    cur = con.execute(sql, params)
+    cols = [c[0] for c in cur.description]
+    return [dict(zip(cols, row, strict=True)) for row in cur.fetchall()]
+
+
+def _agg_numeric(rows: list[dict[str, Any]], key: str) -> tuple[float | None, float | None, int]:
+    vals = [float(r[key]) for r in rows if r.get(key) is not None]
+    if not vals:
+        return None, None, 0
+    return round(sum(vals), 4), round(sum(vals) / len(vals), 4), len(vals)
+
+
+def range_aggregate(
+    start: str,
+    end: str,
+    entity: str,
+    *,
+    kind: str | None = None,
+    db_path: str | Path | None = None,
+    require_complete: bool = False,
+) -> RangeAggregate:
+    """一个实体在 ``[start, end]`` 上的区间读数。
+
+    ``require_complete=True``：覆盖不完整或跨过换源日时**不给数**，只给 gap
+    ——回放、校准、方法检验这类不能吃「偏低但不知道偏多少」的消费方必须传它。
+    与 `river.slice_river(require_strict=True)` 是同一个态度，参数名也照它。
+
+    个股走 ``close_to_close``（精确），板块走 ``compounded_daily``（连乘，缺天会偏低）。
+    """
+    import duckdb
+
+    db = Path(db_path or os.environ.get("MARKET_FEATURE_STORE_DB", DEFAULT_DB)).expanduser()
+    if not db.exists():
+        raise FileNotFoundError(f"数据库不存在：{db}（不自动创建）")
+
+    con = duckdb.connect(str(db), read_only=True)
+    try:
+        expected = trading_days(con, start, end)
+        rows = _stock_rows(con, start, end, entity) if kind == "stock" else []
+        if not rows and kind != "stock":
+            rows = _sector_rows(con, start, end, entity)
+            resolved_kind = "sector"
+        else:
+            resolved_kind = "stock"
+        if not rows and kind is None:
+            rows = _stock_rows(con, start, end, entity)
+            resolved_kind = "stock" if rows else "sector"
+    finally:
+        con.close()
+
+    # 先去重再算任何东西：下面的连乘、首尾取值、回撤曲线全都按行遍历，
+    # 重复行会被算两遍。codes_seen 用**去重前**的行，跨换源检测不受影响。
+    all_rows = rows
+    rows, duplicate_dates = _dedupe_by_date(rows) if rows else ([], ())
+    coverage = RangeCoverage(
+        expected_days=len(expected),
+        actual_days=len({str(r["d"]) for r in rows}),
+        missing_dates=tuple(sorted(set(expected) - {str(r["d"]) for r in rows})),
+        duplicate_dates=duplicate_dates,
+    )
+    if not rows:
+        return RangeAggregate(
+            kind=resolved_kind,
+            entity_id=entity,
+            entity_name=entity,
+            start=start,
+            end=end,
+            method="none",
+            coverage=coverage,
+            gaps=(MetricGap("*", f"{start}~{end} 区间内读不到「{entity}」的任何行"),),
+        )
+
+    code_key = "stock_ts_code" if resolved_kind == "stock" else "sector_ts_code"
+    name_key = "stock_name" if resolved_kind == "stock" else "sector_name"
+    # 用去重**前**的行：去重可能恰好丢掉换源那一侧的代码，那就检测不出跨换源了。
+    codes_seen = tuple(sorted({str(r[code_key]) for r in all_rows if r.get(code_key)}))
+    entity_name = str(rows[-1].get(name_key) or entity)
+
+    gaps: list[MetricGap] = []
+    caveats: list[str] = []
+    values: dict[str, float | None] = {}
+    peak_date: str | None = None
+
+    if resolved_kind == "stock":
+        method = STOCK_METHOD
+        first = next((r for r in rows if r.get("pre_close")), None)
+        last = next((r for r in reversed(rows) if r.get("close")), None)
+        if first and last and float(first["pre_close"]):
+            base = float(first["pre_close"])
+            values["cumulative_return_pct"] = round((float(last["close"]) / base - 1) * 100, 4)
+            curve = [(str(r["d"]), float(r["close"]) / base) for r in rows if r.get("close")]
+            dd, peak, peak_date = _drawdown_and_peak(curve)
+            values["max_drawdown_pct"], values["peak_return_pct"] = dd, peak
+        else:
+            gaps.append(MetricGap("cumulative_return_pct", "区间内没有可用的 close / pre_close"))
+    else:
+        method = SECTOR_METHOD
+        daily = [(str(r["d"]), float(r["pct_chg"])) for r in rows if r.get("pct_chg") is not None]
+        if daily:
+            curve, level = [], 1.0
+            for day, pct in daily:
+                level *= 1 + pct / 100.0
+                curve.append((day, level))
+            values["cumulative_return_pct"] = round((level - 1) * 100, 4)
+            dd, peak, peak_date = _drawdown_and_peak([(daily[0][0], 1.0), *curve])
+            values["max_drawdown_pct"], values["peak_return_pct"] = dd, peak
+            caveats.append(
+                "板块无收盘点位，区间涨幅由每日涨幅连乘得到；缺一天就少乘一天，结果偏低且不报错"
+            )
+        else:
+            gaps.append(MetricGap("cumulative_return_pct", "区间内 pct_chg 全为空"))
+
+    for metric, column in (("amount_sum", "amount"), ("amount_avg", "amount"), ("turnover_avg", "turnover")):
+        if column not in rows[0]:
+            gaps.append(MetricGap(metric, f"本表没有 {column} 列"))
+            continue
+        total, avg, n = _agg_numeric(rows, column)
+        if n == 0:
+            # 列在库里但一行都没写过值：SQL 跑得通、不报错、返回 NULL，
+            # 看起来像「这段时间没数据」。实测 fact_stock_daily.turnover 全库非空 0 行。
+            gaps.append(MetricGap(metric, f"{column} 列存在但区间内 0 行有值（写入侧从未填充）"))
+            continue
+        values[metric] = total if metric.endswith("_sum") else avg
+
+    if not coverage.complete:
+        caveats.append(
+            f"覆盖不完整：应有 {coverage.expected_days} 个交易日、实读 {coverage.actual_days} 个"
+            f"（缺 {len(coverage.missing_dates)} 天）"
+        )
+    if coverage.duplicate_dates:
+        caveats.append(
+            f"同一天读到多行：{'、'.join(coverage.duplicate_dates)}（共 {len(coverage.duplicate_dates)} 天）。"
+            "已按日去重止血，但无从判断哪一行是对的——这个数不可直接使用，先查数据源"
+        )
+    if len(codes_seen) > 1:
+        caveats.append(
+            f"区间跨过供应商换源：读到 {len(codes_seen)} 套代码 {codes_seen}，"
+            "两套口径成分不同，连乘等于把两个宇宙接在一起"
+        )
+
+    if require_complete and not (coverage.clean and len(codes_seen) <= 1):
+        gaps.append(
+            MetricGap(
+                "*",
+                "require_complete=True：覆盖不完整 / 同日重复 / 跨换源，本层不给数（缺口见 caveats）",
+            )
+        )
+        values = dict.fromkeys(values, None)
+        peak_date = None
+
+    return RangeAggregate(
+        kind=resolved_kind,
+        entity_id=codes_seen[-1] if codes_seen else entity,
+        entity_name=entity_name,
+        start=start,
+        end=end,
+        method=method,
+        coverage=coverage,
+        codes_seen=codes_seen,
+        values=values,
+        peak_date=peak_date,
+        gaps=tuple(gaps),
+        caveats=tuple(caveats),
+    )
+
+
+def render_range(agg: RangeAggregate) -> str:
+    """人读版。**caveats 与 gaps 永远打印**——它们被折叠掉的那一刻，这个数就变危险了。"""
+    head = f"{agg.entity_name}（{agg.entity_id}）  {agg.start} ~ {agg.end}  [{agg.kind}/{agg.method}]"
+    cov = agg.coverage
+    out = [
+        head,
+        f"  覆盖 {cov.actual_days}/{cov.expected_days} 个交易日"
+        + ("" if cov.complete else f"，缺 {len(cov.missing_dates)} 天")
+        + ("" if not cov.duplicate_dates else f"，{len(cov.duplicate_dates)} 天有重复行")
+        + (f"｜代码 {'/'.join(agg.codes_seen)}" if agg.codes_seen else ""),
+        f"  可直接使用：{'是' if agg.trustworthy else '否——先看下面的限制'}",
+        "",
+    ]
+    for key in RANGE_METRICS:
+        if key in agg.values:
+            v = agg.values[key]
+            tail = f"（峰值日 {agg.peak_date}）" if key == "peak_return_pct" and agg.peak_date else ""
+            out.append(f"  {key:<22} {'—' if v is None else f'{v:+.2f}'}{tail}")
+    if agg.gaps:
+        out += ["", "  算不出来的："] + [f"    - {g.metric}：{g.reason}" for g in agg.gaps]
+    if agg.caveats:
+        out += ["", "  限制："] + [f"    - {c}" for c in agg.caveats]
+    return "\n".join(out)
+
+
 def main() -> int:
     import argparse
 
-    ap = argparse.ArgumentParser(description="时间长河查询：横扫 / 纵扫")
+    ap = argparse.ArgumentParser(description="时间长河查询：横扫 / 纵扫 / 区间聚合")
     sub = ap.add_subparsers(dest="cmd", required=True)
+
+    r = sub.add_parser("range", help="区间聚合：一个实体 × 一段日子（涨幅 / 回撤 / 成交额）")
+    r.add_argument("entity", help="板块名 / 题材名 / 个股代码或名称")
+    r.add_argument("start")
+    r.add_argument("end")
+    r.add_argument("--kind", choices=["stock", "sector"], default=None, help="缺省自动判别")
+    r.add_argument(
+        "--require-complete",
+        action="store_true",
+        help="覆盖不完整或跨换源时不给数、只给 gap（回放 / 校准必须带）",
+    )
+    r.add_argument("--json", action="store_true")
 
     s = sub.add_parser("scan", help="横扫：一天 × 全部板块，找盘面弱 × 舆论热")
     s.add_argument("as_of")
@@ -422,6 +832,14 @@ def main() -> int:
     c.add_argument("--json", action="store_true")
 
     args = ap.parse_args()
+    if args.cmd == "range":
+        agg = range_aggregate(
+            args.start, args.end, args.entity,
+            kind=args.kind, require_complete=args.require_complete,
+        )
+        print(json.dumps(agg.to_dict(), ensure_ascii=False, indent=2) if args.json else render_range(agg))
+        return 0
+
     if args.cmd == "scan":
         rows = find_dislocation(
             args.as_of,
