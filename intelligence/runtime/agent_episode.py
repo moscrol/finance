@@ -42,6 +42,11 @@ from intelligence.runtime.episode_tool_batch import (
     tool_definitions_for_menu,
 )
 from intelligence.runtime.tier_promotion import apply_mode_promotion
+from intelligence.services.episode_history_compaction import (
+    compact_history,
+    history_compaction_enabled,
+    history_keep_batches,
+)
 from intelligence.services.mode_governor import ModeDecision
 from intelligence.services.provider_observability import (
     ProviderTrace,
@@ -223,6 +228,9 @@ class _EpisodeLedger:
         self.events: list[EpisodeEvent] = []
         self.plan: ResearchPlan | None = None
         self.time_budget_injected = False
+        # 历史折叠（spec 2026-09-07 §3.2）的累计账，随 finish 事件落盘让 eval 分得开臂。
+        self.history_compaction_folded = 0
+        self.history_compaction_saved = 0
         self.add(
             "task",
             {
@@ -237,6 +245,14 @@ class _EpisodeLedger:
         if kind == "finish":
             event_payload.setdefault(
                 "time_budget_injected", self.time_budget_injected
+            )
+            event_payload.setdefault(
+                "history_compaction",
+                {
+                    "enabled": history_compaction_enabled(),
+                    "folded_messages": self.history_compaction_folded,
+                    "chars_saved": self.history_compaction_saved,
+                },
             )
         # 事件发生的挂钟时刻。相邻两条事件的时间差就是上一步的耗时——所以不需要
         # 给每一步单独开 span，就能算出「哪一步吃掉了时钟」。
@@ -800,6 +816,12 @@ class ContinuousAgentEpisode:
                     invalid_actions=invalid_actions,
                 )
 
+            self._compact_history_for_model(
+                messages=messages,
+                accumulator=accumulator,
+                ledger=ledger,
+                llm_calls=llm_calls,
+            )
             model_started = monotonic()
             try:
                 definitions = self._available_tool_definitions(
@@ -1614,6 +1636,12 @@ class ContinuousAgentEpisode:
         # 失败 turn 不进消息历史。
         transient_retries_left = _TRANSIENT_RETRY_LIMIT
         repair_expires_before = repair_deadline.expires_at
+        self._compact_history_for_model(
+            messages=messages,
+            accumulator=accumulator,
+            ledger=ledger,
+            llm_calls=llm_calls,
+        )
         (
             turn,
             llm_calls,
@@ -1740,6 +1768,12 @@ class ContinuousAgentEpisode:
                     carried_draft=previous.draft,
                     carried_bindings=previous.bindings,
                 )
+            self._compact_history_for_model(
+                messages=messages,
+                accumulator=accumulator,
+                ledger=ledger,
+                llm_calls=llm_calls,
+            )
             (
                 turn,
                 llm_calls,
@@ -2257,6 +2291,37 @@ class ContinuousAgentEpisode:
         if menu.hidden:
             ledger.add("tool_menu", menu.to_payload())
         return tool_definitions_for_menu(menu, registry=registry, context=context)
+
+    @staticmethod
+    def _compact_history_for_model(
+        *,
+        messages: list[dict[str, object]],
+        accumulator: _EpisodeToolAccumulator,
+        ledger: _EpisodeLedger,
+        llm_calls: int,
+    ) -> None:
+        """进模型前把比最近 K 批更早的工具观察折成 E 号索引（spec 2026-09-07 §3.2）。
+
+        就地改 ``messages``（修复轮复用同一份，所以不能只做视图），只改 tool 消息的
+        ``content``；durable ``tool_result`` 事件早已落全量，这里另记一条
+        ``history_compacted`` 让收据能重算模型当时看到的字数。开关缺省关，关时不碰。
+        """
+
+        if not history_compaction_enabled():
+            return
+        report = compact_history(
+            messages,
+            evidence=tuple(accumulator.evidence),
+            keep_batches=history_keep_batches(),
+        )
+        if not report.folded:
+            return
+        ledger.history_compaction_folded += len(report.folded)
+        ledger.history_compaction_saved += report.chars_saved
+        ledger.add(
+            "history_compacted",
+            {**report.to_payload(), "llm_calls_before": int(llm_calls)},
+        )
 
     @staticmethod
     def _append_tool_budget_state(
