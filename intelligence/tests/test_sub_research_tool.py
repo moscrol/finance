@@ -500,6 +500,44 @@ def test_episode_mounts_sub_research_only_with_a_coordinator_and_binds_branch_ev
         release_root_budget(context.contract.task_id)
 
 
+def test_bound_runner_records_parent_ledger_before_and_after_branches() -> None:
+    """父账本分支前后余量进 telemetry：三支并行各记 150s，父账本会被累加扣 450s——
+    这条读数要能直接从收据读出来，不靠人算（09-07 11:09 候选口第二遍的形状）。"""
+
+    class DebitingCoordinator(_CapturingCoordinator):
+        def run(self, **kwargs):
+            root = kwargs["context"].root_budget
+            for _ in range(3):
+                root.consume_seconds(seconds=150.0)  # 三支并行、各自把 150s 记到父账本
+                root.consume_call(seconds=0.001)
+            return super().run(**kwargs)
+
+    context = _context("max", allowed=("market_data", SUB_RESEARCH_TOOL))
+    try:
+        assert context.root_budget is not None
+        spec = bind_sub_research_tool(
+            coordinator=DebitingCoordinator(),  # type: ignore[arg-type]
+            task_frame=_frame(),
+            current_context=lambda: context,
+            base_registry=_market_registry(_successful_runner),
+            evidence_ledger=EvidenceLedger(information_cutoff=date(2026, 7, 22)),
+        )
+        result = spec.runner(
+            json.dumps(["查找反方驱动"]),
+            AgentToolContext(context.deadline, lambda: False, context.information_cutoff),
+        )
+        ledger = result.telemetry["root_budget"]
+        assert ledger["before"] == {"remaining_calls": 40, "remaining_seconds": 540.0}
+        # 540 − 3 × 150 = 90：墙钟只过了 150s，账本却只剩 90s——这就是要暴露的数。
+        assert ledger["after_branches"] == {"remaining_calls": 37, "remaining_seconds": pytest.approx(89.997, abs=0.01)}
+    finally:
+        release_root_budget(context.contract.task_id)
+
+    # 没有账本就不写键。
+    plain = tool_result_from_branches(("甲",), SubResearchResult((_branch("branch-1", "甲"),)))
+    assert "root_budget" not in plain.telemetry
+
+
 def test_branch_completed_event_carries_budget_and_batches_from_the_tool_path() -> None:
     """durable 事件是对账权威：分支预算账与逐批派发账必须进 branch_completed，不只进 telemetry。"""
 

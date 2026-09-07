@@ -25,8 +25,8 @@
 | 处 | 改动 |
 |---|---|
 | `runtime/sub_research.py` | 新增 `BranchBatch`（一批的派发账：requested / succeeded / rejected_by_cap / timed_out / errored / rejected_other / tools + 派发时钟三元组）、`BranchBudgetReceipt`（allocated_calls / consumed_calls / allocated_seconds / remaining_seconds / batch_call_cap）、纯函数 `branch_batches_from_events(events)`；`BranchResult` 加 `stop_reason / batches / budget` 三个可选字段；协调器 `_run_one` 从 `_BranchBudgetView` 读出预算账挂上（worker 自报无效，与 `tool_calls` 同一纪律） |
-| `runtime/continuous_sub_research.py` | worker 返回前把 `outcome.events` 切成 `batches`、带出 `stop_reason`（此前 partial 分支「为什么停」只能从 gaps 文案猜） |
-| `runtime/sub_research_tool.py` | 新增 `branch_telemetry(branch)`：一支分支进收据的全部字段。有账写全，没账（取消 / worker 异常）不写键 |
+| `runtime/continuous_sub_research.py` | worker 返回前把 `outcome.events` 切成 `batches`、摘出 `invalid_actions`（终局拒绝码 code / kind / disposition）、带出 `stop_reason`（此前 partial 分支「为什么停」只能从 gaps 文案猜） |
+| `runtime/sub_research_tool.py` | 新增 `branch_telemetry(branch)`：一支分支进收据的全部字段。有账写全，没账（取消 / worker 异常）不写键。runner 另记父账本分支前后余量 `root_budget.before / after_branches` |
 | `runtime/agent_episode.py` | PLAN 路径与工具路径的 `branch_completed / branch_failed` payload 都改用 `branch_telemetry`——此前两处各写一份，字段已经漂开（事件有 tokens、telemetry 没有） |
 
 派发账从**事件**重算而不是 worker 自述：每一批 `requested == succeeded + rejected_by_cap + timed_out + errored + rejected_other`
@@ -35,7 +35,7 @@
 
 事件本体仍**不进**父账本：父臂一条 `tool_result` 的审计底稿装不下三支分支的整条事件流；进的是摘要。
 
-## 2. 测试（6 新，5 个变异各击杀 ≥1）
+## 2. 测试（9 新，8 个变异各击杀 ≥1）
 
 | 测试 | 钉什么 | 变异 → 红 |
 |---|---|---|
@@ -45,9 +45,12 @@
 | `test_failed_or_cancelled_branches_carry_no_budget_or_batches` | worker 异常的分支 `budget is None`、`batches == ()`；类型守门 | — |
 | `test_telemetry_carries_budget_and_per_batch_dispatch_only_when_measured` | telemetry 有账写全、没账不写键；`branch_telemetry` 与 telemetry 逐字同源 | telemetry 去掉 `budget` → 2F |
 | `test_branch_completed_event_carries_budget_and_batches_from_the_tool_path` | 工具路径的 durable `branch_completed` 带 `stop_reason / budget / batches`；同一 run 的 `sub_research` `tool_result.telemetry` 也带 | 同上 |
+| `test_branch_invalid_actions_are_lifted_with_their_rejection_code` | `invalid_action` 逐条摘出、顺序保留、缺字段不写键、reason 截 200 | — |
+| `test_continuous_branch_worker_surfaces_a_rejected_finish_with_its_code` | 分支模型把结论绑到契约没有的 output → `unknown_output / integrity / integrity_violation` 随 BranchResult 出来（第 1 遍 live 的假设机制） | worker 不带 `invalid_actions` → 1F；telemetry 去掉 → 1F |
+| `test_bound_runner_records_parent_ledger_before_and_after_branches` | 三支各记 150s 后父账本 540 → 90 直接可读；无账本不写键 | runner 不传 `root_budget` → 1F |
 
 读数（解释器 `.venv-workbench/bin/python`，树 `~/fwp-wt-branch-trace` @ `504cbbc9` + 本改动）：
-`test_sub_research.py` + `test_sub_research_tool.py` 33P/0F（基线 27）；邻接 10 个套件 272P/0F；
+`test_sub_research.py` + `test_sub_research_tool.py` 36P/0F（基线 27）；邻接 10 个套件 272P/0F；
 `ruff check .` 全仓通过；全量 pytest **7986P / 0F / 76S / 1 xfail**——脏树先跑一遍（286s），提交 `66de98c2` 后
 干净树复跑同数（293s），`check_test_receipt.py --expect-revision HEAD --base-drift-max 5` 判「可采信」
 （revision 一致 / 干净树 / 依赖指纹一致 / 基座漂移 0）。
@@ -68,12 +71,66 @@
 注明 `sub_research` 只在 `AUTHORIZATION=all` 下进授权——max 档能力与 sub_research 可用性被同一个粗粒度 env 绑在一起，
 这是「应由 registry + 显式 tier grant 控制」那条建议的具体形态。
 
-## 4. 未做 / 下一步
+## 4. live 读数：候选口 8799，同题两遍（10:56 / 11:09 CST）
 
-- **未切 8792、未重跑那道题**。切流走既有 `scripts/audit_deploy_ledger.py record --action switch` 流程，回滚锚照旧；
-  切完用同一道 `theme_track` 题（固态 vs 钠电）重跑一遍，读 `branch_completed.batches[*].rejected_by_cap` 与
-  `budget.remaining_seconds`：若 `rejected_by_cap` 普遍 >0 且 `remaining_slots_at_dispatch ≥ requested`，帽 4 就是咬人的那道；
-  若 `remaining_seconds ≈ 0` 而 `rejected_by_cap = 0`，慢的不是帽，是每批的工具本身（看 `stage_timeout_granted` 与 `timed_out`）。
-- 在没有那份读数前，quick 每批帽 4 不动。
-- 分层预留（发分支前先扣出判官 / 合成的 LLM 调用额度）是下一刀，接缝在 `api/app._deployment_execution_policy` 那本共享账。
-- A/B/C 28 题仍等用户拍。
+不切 8792：从本分支树起候选口 `127.0.0.1:8799`（`/tmp/start-candidate-8799.sh` = 生产启动器只改代码根与端口，
+env 逐字相同：`WORKBENCH_RESEARCH_TIER=max` / `TOOL_AUTHORIZATION=all` / `TOOL_MENU_HIDE=off`，sol@57244 主、terra 兜底，
+判官 grok-cli），`/api/health` 自证 `source_dirty=false`，readiness 与 8792 同一条红（`market_data_consistency`，日常窗口）。
+探针用户 `probe-branchtrace-0907`，题目与 #618 四遍同一道（固态 vs 钠电 `theme_track`）。**8792 全程未动。**
+
+| 遍 | 代码 | run | 父臂 | 判官 | 分支 |
+|---|---|---|---|---|---|
+| 1（10:56） | `fc367365` | `run_20260907_105656_605883` | completed，200s，4 次模型调用 | repaired | partial ×3，`invalid_model_finish`，各剩 71 / 38 / 81s，零超时 |
+| 2（11:09） | `ad54d4b0` | `run_20260907_110932_860284` | **partial，`deadline_exhausted`，224s 停，墙钟还剩 396s** | **unavailable** | partial ×3，`deadline_exhausted`，各剩 0s，零超时 |
+
+逐批派发账（`requested→succeeded`，`+n` = `rejected_by_cap`）：
+
+| 遍 | branch-1 | branch-2 | branch-3 | 帽拒 / 请求 |
+|---|---|---|---|---|
+| 1 | 5→4 +1 · 5→4 +1 · 1→1 | 5→4 +1 · 6→4 +2 · 2→2 | 6→4 +2 · 4→4 · 1→1 | 7 / 40 |
+| 2 | 7→4 +3 · 6→4 +2 · 2→2 | 5→4 +1 · 5→4 +1 · 2→2 | 6→4 +2 · 4→4 | 9 / 37 |
+
+每一次被帽拒时 `remaining_slots_at_dispatch`（10 / 6）都 ≥ `requested`——拒的是**每批帽 4**，不是分支剩余次数。
+预算账：每支 `allocated_calls=10, allocated_seconds=150, batch_call_cap=4`；第 1 遍 consumed 9 / 10 / 9，第 2 遍 10 / 10 / 8。
+
+### 4.1 帽 4 在咬，但两遍的 partial 都不是它造成的
+
+- 17 批里 8 批被帽拒，16 / 77 个请求被打回，模型下一轮得再点一遍——这是帽的**代价**（多一个模型往返），成立。
+- 但第 1 遍分支各剩 38–81s、零超时就停了：终局理由 `invalid_model_finish`，即分支模型的收尾 JSON 被出口拒。拒绝码当时
+  没带出来（`invalid_actions` 摘要是第 1 遍之后才加的，`ad54d4b0`）。单测复现了一条同形状路径：分支契约 `required_outputs=()`，
+  模型把结论绑到父题的 output id 上 → `unknown_output` / `integrity` / `integrity_violation`，INTEGRITY 类不回灌、直接 partial。
+  这是假设，下一遍 live 由 `branch_completed.invalid_actions[*].code` 判。
+- 第 2 遍分支是真撞 150s：三支首次派发时只剩 85–96s，即**首轮模型调用花了 55–65s**（第 1 遍同一位置约 7s；同一网关，
+  sol 延迟波动），之后三批工具把余量吃完。帽在这里的代价被放大：每多一轮往返 = 多一次 60s 级的模型等待。
+
+### 4.2 新顶：父账本把并行分支的秒**累加**，再被本批墙钟记第二次
+
+第 2 遍父臂在 224s 停、`stop_reason=deadline_exhausted`，而 `tool_request.episode_remaining_at_dispatch=396s`——墙钟没到，
+是**账本秒**先空了（`agent_episode` 第二轮 `model_turn` 后 `_consume_root_seconds` 抛 → 冲掉待发工具 → 停机）。账本算术：
+
+```
+root initial_seconds = 600 − 60 = 540
+− 父臂首轮 model_turn                              10
+− 三支分支经 _BranchBudgetView 各记 150            450   （并行 150s 墙钟，记 3 份）
+− 父臂 _settle_batch_calls：本批 4 个调用 × 180/4  180   （同一段墙钟再记一次，且 3 个 <1s 的 lookup 各背 45s）
+= −100  → 第二轮 model_turn（13s）consume_seconds 失败
+```
+
+spec `2026-09-03-subagent-tool-design.md` §6-4 写的是「三支总耗 ≤ 3 × 60s，父 remaining_seconds 单调减」——累加是当时的设计，
+deep 档 3 × 60 = 180 装得进 192s 的账本；#615 把每支抬到 150 后 3 × 150 = 450 只给父臂留 90s，再被批结算记一次就穿。
+这就是同题同码两遍一 completed 一 partial 的机制：**触发条件是分支首轮模型延迟**，分支跑满 150s 父臂必死，判官必 unavailable。
+它不是能力上限，是账本口径。#617 把 LLM 调用保险丝 40 → 120 解的是「次数」那本账；「秒」这本账没人碰过。
+
+## 5. 未做 / 待拍
+
+- **账本口径要拍**（本 PR 只量不改）。三个形状：
+  - A. 秒 = 墙钟：分支视图只向父账本扣**次数**，秒由父臂批结算记一次。改 `_BranchBudgetView` 与 spec §6-4 措辞，
+    `test_branch_view_settle*` 要改口径。
+  - B. 保留累加：去掉批结算对 `sub_research` 那次的重复记秒；分支秒改成 `min(150, (root.remaining − 父臂预留)/n)`，
+    父臂预留显式给（判官 + 合成 + 至少一轮）。改动最小，但分支跑满时父臂仍被挤。
+  - C. 准入时分层预留（原路线第 3 步）：发分支前先扣出判官 / 合成 / 父臂轮次的秒与次数，分支只拿剩下的，秒按墙钟记一次。
+    我倾向 C（= A 的口径 + B 的预留），它同时覆盖 #617 那本调用账。
+- 分支收尾被拒的码：下一遍 live 读 `invalid_actions`；若是 `unknown_output`，修法与 #616 同族（分支契约没有 output，
+  模型却被提示词引导去绑 output）。
+- quick 每批帽 4：有读数了——它在咬，代价是每被拒一批多一次模型往返；但先修账本再动帽，否则帽放开后分支更容易跑满、父臂更容易被挤死。
+- 候选口 8799 已停；8792 未切；A/B/C 28 题仍等用户拍。
