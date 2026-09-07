@@ -56,7 +56,12 @@ class ContextEfficiency:
     tool_message_chars: int | None = None
     largest_tool_message_chars: int | None = None
     largest_tool: str | None = None
+    # 「后续每一轮实际重发的字数」：有 history_compacted 事件时，折叠之后的轮按存根字数算；
+    # 没有则等于原文 × 后续轮数（即 2026-09-07 之前的口径）。
     resent_chars_estimate: int | None = None
+    # 历史折叠（spec 2026-09-07 §3.2）的账：finish.history_compaction.enabled 与各次折叠省下的字数之和。
+    history_compaction_enabled: bool | None = None
+    compacted_chars_saved: int | None = None
 
     @property
     def input_tokens_per_llm_call(self) -> float | None:
@@ -231,14 +236,30 @@ def _tool_context_costs(events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     turns = sum(1 for event in events if event.get("kind") == "model_turn")
     seen: frozenset[str] = frozenset()
     turn_index = 0
-    sizes: list[tuple[int, str, int]] = []
+    sizes: list[tuple[int, str, str, int]] = []  # (turn, call_id, tool, chars)
+    # call_id → (从哪一轮起模型看到的是存根, 存根字数)
+    folded_at: dict[str, tuple[int, int]] = {}
+    compacted_saved = 0
+    compaction_enabled: bool | None = None
     for event in events:
-        if event.get("kind") == "model_turn":
+        kind = event.get("kind")
+        payload = event["payload"]
+        if kind == "model_turn":
             turn_index += 1
             continue
-        if event.get("kind") != "tool_result":
+        if kind == "history_compacted":
+            # 折叠发生在下一次模型调用之前：从第 turn_index + 1 轮起看到存根。
+            compacted_saved += _int_or_none(payload.get("chars_saved")) or 0
+            for item in payload.get("folded") or []:
+                if isinstance(item, dict) and item.get("call_id"):
+                    folded_at[str(item["call_id"])] = (turn_index + 1, _int_or_none(item.get("chars_after")) or 0)
             continue
-        payload = event["payload"]
+        if kind == "finish" and isinstance(payload.get("history_compaction"), dict):
+            enabled = payload["history_compaction"].get("enabled")
+            compaction_enabled = bool(enabled) if enabled is not None else None
+            continue
+        if kind != "tool_result":
+            continue
         view = {key: value for key, value in payload.items() if key not in _AUDIT_ONLY_KEYS}
         try:
             pruned, seen = prune_tool_observation(view, seen_prose=seen)
@@ -247,16 +268,23 @@ def _tool_context_costs(events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
             )
         except Exception:  # 投影函数换了形状就别猜：这一条记不出来
             continue
-        sizes.append((turn_index, str(payload.get("tool") or ""), len(content)))
+        sizes.append((turn_index, str(payload.get("call_id") or ""), str(payload.get("tool") or ""), len(content)))
     if not sizes:
-        return {"model_turns": turns or None}
-    largest = max(sizes, key=lambda item: item[2])
+        return {"model_turns": turns or None, "history_compaction_enabled": compaction_enabled}
+    largest = max(sizes, key=lambda item: item[3])
+    resent = 0
+    for turn, call_id, _, chars in sizes:
+        fold = folded_at.get(call_id)
+        for later in range(turn + 1, turns + 1):
+            resent += fold[1] if fold is not None and later >= fold[0] else chars
     return {
         "model_turns": turns,
-        "tool_message_chars": sum(item[2] for item in sizes),
-        "largest_tool_message_chars": largest[2],
-        "largest_tool": largest[1],
-        "resent_chars_estimate": sum(chars * max(0, turns - turn) for turn, _, chars in sizes),
+        "tool_message_chars": sum(item[3] for item in sizes),
+        "largest_tool_message_chars": largest[3],
+        "largest_tool": largest[2],
+        "resent_chars_estimate": resent,
+        "history_compaction_enabled": compaction_enabled,
+        "compacted_chars_saved": compacted_saved if folded_at else (0 if compaction_enabled else None),
     }
 
 
@@ -504,6 +532,7 @@ def _md_cells(vector: FrontierVector) -> dict[str, str]:
         "tool_context": (
             f"{show(ce.tool_message_chars)} / {show(ce.resent_chars_estimate)}"
             + (f" ({ce.largest_tool} {ce.largest_tool_message_chars})" if ce.largest_tool else "")
+            + (f" · 折叠省 {ce.compacted_chars_saved}" if ce.compacted_chars_saved else "")
         ),
         "repair": f"{show(rr.repair_attempts)} attempt(s)",
         "clock": f"{show(wc.episode_seconds)} / {show(wc.sub_research_seconds)} / {show(wc.ledger_remaining_seconds_at_finish)}",

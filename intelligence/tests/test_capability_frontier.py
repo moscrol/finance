@@ -213,6 +213,51 @@ def test_tool_message_resend_cost_is_recomputed_with_the_harness_projection(tmp_
     assert f"(sub_research {ce.largest_tool_message_chars})" in cell
 
 
+def test_resent_estimate_follows_history_compaction_events(tmp_path: Path) -> None:
+    """spec §6.1-10：有 history_compacted 事件时，重发量按「折叠之后的轮看存根」算，
+    compacted_chars_saved 等于各次折叠 chars_saved 之和，finish 带 enabled。"""
+
+    run_dir = tmp_path / "compact"
+    run_dir.mkdir()
+    at = "2026-09-07T16:00:00.000+08:00"
+    big = {
+        "ok": True, "tool": "news_search", "query": "q", "observation": "叙述" * 300,
+        "evidence": [{"tool": "news_search", "title": f"t{i}", "detail": "d" * 100, "source": "s", "source_date": "2026-09-01",
+                      "evidence_tier": "news", "content_hash": f"{i:064x}", "evidence_id": f"E{i+1}"} for i in range(10)],
+        "evidence_hashes": [f"{i:064x}" for i in range(10)], "evidence_ids": [f"E{i+1}" for i in range(10)],
+        "gaps": [], "dataset": "", "caliber": "", "payload_field_names": [], "payload_sha256": "", "call_id": "c1",
+    }
+    small = {**big, "call_id": "c2", "evidence": big["evidence"][:1], "evidence_hashes": big["evidence_hashes"][:1], "evidence_ids": ["E1"], "observation": "短"}
+    stub_chars = 400
+    episode = {
+        "contract": {"allowed_capabilities": ["news_search"]},
+        "outcome": {"status": "completed", "stop_reason": "model_finish", "evidence": [], "bindings": [],
+                    "usage": {"llm_calls": 4, "tool_calls": 2, "input_tokens": 1000, "output_tokens": 10}},
+        "events": [
+            _event(1, "task", at),
+            _event(2, "model_turn", at, tool_calls=[{}]),
+            _event(3, "tool_result", at, **big),           # 第 1 轮后 → 第 2 轮原文、第 3、4 轮存根
+            _event(4, "model_turn", at, tool_calls=[{}]),
+            _event(5, "tool_result", at, **small),         # 第 2 轮后 → 第 3、4 轮原文（未折）
+            _event(6, "history_compacted", at, folded=[{"call_id": "c1", "tool": "news_search", "chars_before": 9000, "chars_after": stub_chars, "evidence_count": 10}],
+                   folded_messages=1, chars_saved=8600, batches_total=2, batches_kept=1, llm_calls_before=2),
+            _event(7, "model_turn", at, tool_calls=[{}]),
+            _event(8, "model_turn", at, tool_calls=[]),
+            _event(9, "finish", at, status="completed", stop_reason="model_finish", history_compaction={"enabled": True, "folded_messages": 1, "chars_saved": 8600}),
+        ],
+    }
+    (run_dir / "continuous-episode.json").write_text(json.dumps(episode, ensure_ascii=False), encoding="utf-8")
+
+    ce = frontier_vector(run_dir).context_efficiency
+
+    assert ce.model_turns == 4 and ce.history_compaction_enabled is True and ce.compacted_chars_saved == 8600
+    big_chars = ce.largest_tool_message_chars
+    small_chars = ce.tool_message_chars - big_chars
+    # big：第 2 轮原文，第 3、4 轮存根；small：第 3、4 轮原文。
+    assert ce.resent_chars_estimate == big_chars + 2 * stub_chars + 2 * small_chars
+    assert "折叠省 8600" in render_markdown([frontier_vector(run_dir)])
+
+
 def test_ledger_exhaustion_with_wall_clock_left_is_called_out(tmp_path: Path) -> None:
     """第 2 遍的形状：stop_reason=deadline_exhausted 而账本秒为 0——向量要在 notes 里点名，别让它躲在 partial 后面。"""
 
