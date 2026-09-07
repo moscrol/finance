@@ -98,7 +98,9 @@ plans:
     - limit-stats-local
     - market-overview-local
     - market-editorial-local
+    - market-stage-local
     - stock-high-local
+    - mainline-local
     - features
 
 # ============================================================================
@@ -214,7 +216,7 @@ datasets:
     label: 市场总览（要拆开看）
     tables: [fact_market_daily]
     endpoint: /reviews/market + /summary + /cycle
-    steps: {full: [market-overview, market-deviation], cheap: [market-overview, market-deviation], local: [market-overview-local, market-editorial-local]}
+    steps: {full: [market-overview, market-deviation], cheap: [market-overview, market-deviation], local: [market-overview-local, market-editorial-local, market-stage-local]}
     identity:
       what: market_stage 阶段名
       cadence: 偏慢
@@ -236,7 +238,7 @@ datasets:
   - key: mainline
     label: 主线题材 / 主线股 / 主线板块
     tables: [fact_mainline_theme_daily, fact_mainline_stock_daily, fact_mainline_sector_daily]
-    steps: {full: [mainline-daily, mainline-sector-daily], cheap: [mainline-daily, mainline-sector-daily]}
+    steps: {full: [mainline-daily, mainline-sector-daily], cheap: [mainline-daily, mainline-sector-daily], local: [mainline-local]}
     identity:
       what: 主线题材代码 TH*.FP
       cadence: 偏慢

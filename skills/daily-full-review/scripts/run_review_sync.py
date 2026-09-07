@@ -383,7 +383,9 @@ def build_local_plan(trade_date: str, timeout: int, heavy_timeout: int):
         ("limit-stats-local", lambda: run_step("limit-stats-local", CLI + ["compute-limit-stats-local", "--trade-date", trade_date], timeout)),
         ("market-overview-local", lambda: run_step("market-overview-local", CLI + ["compute-market-overview-local", "--trade-date", trade_date], timeout)),
         ("market-editorial-local", lambda: run_step("market-editorial-local", CLI + ["compute-market-editorial-local", "--trade-date", trade_date], timeout)),
+        ("market-stage-local", lambda: run_step("market-stage-local", CLI + ["compute-market-stage-local", "--trade-date", trade_date], timeout)),
         ("stock-high-local", lambda: run_step("stock-high-local", CLI + ["compute-stock-high-local", "--trade-date", trade_date], timeout)),
+        ("mainline-local", lambda: run_step("mainline-local", CLI + ["compute-mainline-local", "--trade-date", trade_date], timeout)),
         ("features", lambda: run_step("features", [PY, "-m", "scripts.compute_features", "--trade-date", trade_date], heavy_timeout)),
     ]
 
