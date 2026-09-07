@@ -307,3 +307,21 @@ teaching 90 + methodology 67 passed；ruff 通过；layer_audit ERROR 0 == 基�
 王朝对象的无前视契约（测试锁死）：顶部块内的日子没有王朝对象；下一波未见顶时上一波仍是「最近一波」、不写覆灭窗终点；
        进入这一波的那次衔接（分离确认旗标）只在这一波见顶后出现；永不出现候选新王朝名单
 ```
+
+## 20. 带读接授课框架读数 + 上证卡片（用户「接线」，默认关）
+
+```text
+pytest intelligence/tests/test_teaching_framework_reading.py → 6 passed（读数句 / 衔接句 / SVG 卡片 / 带读分段 / 开关解析 / 卡片写盘）
+pytest intelligence/tests/test_guided_reading*.py → 32 passed（老用户默认关的接缝不动）；test_teaching_framework_river_objects.py 4 + 1（真库）
+teaching 90 + methodology 67 passed；ruff 通过；layer_audit ERROR 0 == 基线；intelligence/runtime/ 零触碰
+
+产品面边界（测试锁死）：读数句不出个股名字与代码（夹具 8 个名字 / 代码零出现）；compliance_gate.lint_output 零命中；
+  无教学对象时 GuidedReading.teaching == []、渲染无「授课框架读数」段、卡片名不挂；teaching_card 只在有读数时写
+真库试渲染（/tmp/tf15-full-A.duckdb，2026-09-02）：
+  阶段：歧义（证据并列，当日未判）｜来源状态：共建主线
+  量能：shrink（量能比 81）｜偏离度带：below｜周均线下方第 1 天（首次下穿周期）
+  亏钱效应：否｜承接 5 日均值 1.54%
+  王朝链：最近见顶的王朝 W4（2026-04-08 → 2026-06-05），覆灭窗自 2026-06-08 起，至今有标签 59 天、亏钱效应日 15 天；其前 10：申万一级 3 个（电子 6、机械设备 3、电力设备 1）；载体 趋势 9，连板 1｜进入这一波的衔接：上一王朝 W3 覆灭窗 2026-02-02 → 2026-04-07，本波前 10 里 3 只相对分离、6 只窗内创新高
+  区间涨幅高标：20 日前 10：申万一级 6 个（农林牧渔 3、机械设备 2、电子 2），连板高标 0 只，在位天数中位 4，入组门槛 88%；…
+  SVG 7.2 KB，高度随读数行数走（636 px），qlmanage 转 PNG 预览可读
+```
