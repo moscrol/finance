@@ -15,6 +15,10 @@
   "index_new_high_windows": [20, 60],
   "upgrade_new_high_window": 20,
   "double_volume_dod_pct": 10,
+  "left_down_entry": {
+    "persist_days": 3,
+    "volume": "shrink"
+  },
   "breakout_confirm_days": 3,
   "deviation_streak_min": 3,
   "transition_policy": "entry_or_reachable",

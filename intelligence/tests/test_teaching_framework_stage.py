@@ -171,16 +171,27 @@ def test_bands_and_catalog_follow_the_parameter_file():
 
 def test_entry_predicates_are_the_founders_turning_points_and_bands_score_membership():
     flags = {
-        "cross_below_kind": "first", "gap_down_open": True, "deviation_band": "below", "days_since_cross_above": None,
+        "cross_below_kind": "first", "below_ma_cycle_day": 1, "below_ma_cycle_retest_seen": False, "gap_down_open": True,
+        "deviation_band": "below", "days_since_cross_above": None, "volume_band": "shrink",
         "volume_expanding": False, "above_week_ma": False, "amount_vs_ma20_pct": 84.0, "stock_ma10_deviation_median": -1.9,
         "stock_up_ratio_ma5_pct": 40.0, "sh_index_pct_chg_10d": -2.4, "ma_episode_pct_chg": -1.9, "src.sh_deviation_pct": -1.2,
     }
-    hits = predicate_hits(flags, BANDS)
+    hits = predicate_hits(flags, BANDS)  # BANDS carries the 09-06 口径: day 1, 放量 or 跳空
     assert ("左底向下", "E:first_cross_below") in hits  # 跳空低开跌破周均
     # 09-06: a first cross below on shrinking volume without a gap down is not the start of the decline.
     quiet = {**flags, "gap_down_open": False}
     assert ("左底向下", "E:first_cross_below") not in predicate_hits(quiet, BANDS)
     assert ("左底向下", "E:first_cross_below") in predicate_hits({**quiet, "volume_expanding": True}, BANDS)
+    # 第十二段 family: persist_days delays the entry to the k-th day below; volume = shrink / any are the other 口径.
+    shrink3 = {**BANDS, "left_down_entry": {"persist_days": 3, "volume": "shrink"}}
+    assert ("左底向下", "E:first_cross_below") not in predicate_hits(quiet, shrink3)  # day 1 of the cycle
+    assert ("左底向下", "E:first_cross_below") in predicate_hits({**quiet, "below_ma_cycle_day": 3}, shrink3)
+    assert ("左底向下", "E:first_cross_below") not in predicate_hits({**quiet, "below_ma_cycle_day": 3, "volume_band": "moderate"}, shrink3)
+    assert ("左底向下", "E:first_cross_below") not in predicate_hits({**quiet, "below_ma_cycle_day": 3, "above_week_ma": True}, shrink3)  # popped back above
+    assert ("左底向下", "E:first_cross_below") not in predicate_hits({**quiet, "below_ma_cycle_day": 3, "below_ma_cycle_retest_seen": True}, shrink3)
+    assert ("左底向下", "E:first_cross_below") in predicate_hits(
+        {**quiet, "below_ma_cycle_day": 2, "volume_band": "surge"}, {**BANDS, "left_down_entry": {"persist_days": 2, "volume": "any"}}
+    )
     assert ("左底向下", "H:in_band:amount_vs_ma20_pct") in hits and ("左底向下", "H:in_band:stock_ma10_deviation_median") in hits
     assert ("二次探底", "H:in_band:amount_vs_ma20_pct") in hits  # 84 also sits inside 二次探底's wide band
     assert not any(stage == "主流主升" for stage, _ in hits)
@@ -219,6 +230,8 @@ def test_every_catalogued_predicate_can_fire_and_nothing_else_does():
     # 第十一段 upgrade entry: only from 高位震荡, on a 双量日 that closes at a new high of the configured window.
     upgrade = {"double_volume_day": True, "index_new_high_20d": True, "index_new_high_60d": False}
     seen.update(predicate_hits(upgrade, BANDS, origin="高位震荡"))
+    # 左底向下 entry lives in the first phase of a below-MA cycle (the generated grid above stays above the MA).
+    seen.update(predicate_hits({"below_ma_cycle_day": 1, "below_ma_cycle_retest_seen": False, "above_week_ma": False, "gap_down_open": True}, BANDS))
     catalog = {(stage, pid) for stage, pids in stage_predicates(BANDS).items() for pid in pids}
     assert seen == catalog
     assert confidence("ambiguous", {s: 0 for s in STAGES}, [], BANDS) is None

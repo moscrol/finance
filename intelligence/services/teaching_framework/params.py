@@ -51,6 +51,8 @@ REQUIRED_KEYS = (
     "index_new_high_windows",
     "upgrade_new_high_window",
     "double_volume_dod_pct",
+    # 第十二段「定义不精确、结合特征值来看」：左底向下进入的持续天数与量能口径。
+    "left_down_entry",
 )
 
 # slice 1.5 第二遍（用户「继续按照最优推进」）：阶段不能无转点地跳到不相邻的段（词表「从什么
@@ -181,6 +183,15 @@ def validate_params(params: dict[str, Any]) -> dict[str, Any]:
     dod = params["double_volume_dod_pct"]
     if not isinstance(dod, (int, float)) or isinstance(dod, bool) or dod <= 0:
         raise ValueError("double_volume_dod_pct 必须是正数（双量日的成交额环比门槛，每日复盘口径 10）")
+    from .stage_rules import LEFT_DOWN_VOLUME_RULES  # local import: stage_rules must not depend on params
+
+    entry = params["left_down_entry"]
+    if (
+        not isinstance(entry, dict)
+        or not isinstance(entry.get("persist_days"), int) or isinstance(entry.get("persist_days"), bool) or entry["persist_days"] < 1
+        or entry.get("volume") not in LEFT_DOWN_VOLUME_RULES
+    ):
+        raise ValueError(f"left_down_entry 必须是 {{persist_days: ≥1 的整数, volume: {LEFT_DOWN_VOLUME_RULES}}}")
     if params["leader_top"] != SUPPORTED_LEADER_TOP:
         raise ValueError(f"leader_top 目前只支持 {SUPPORTED_LEADER_TOP}（最高标并列成组、全员断板才算断板）")
     if params["surge_in_trend"] != SUPPORTED_SURGE_IN_TREND:
