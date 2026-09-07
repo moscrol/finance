@@ -27,11 +27,15 @@ from intelligence.services.research_tool_registry import (
     ToolSpec,
 )
 from intelligence.runtime.sub_research import (
+    BranchBatch,
+    BranchBudgetReceipt,
     BranchResult,
     BranchRequest,
     SubResearchCoordinator,
     _BranchBudgetView,
+    branch_batches_from_events,
 )
+from intelligence.services.agent_runtime import EpisodeEvent
 from intelligence.services.task_frame import TaskFrame
 
 
@@ -557,3 +561,257 @@ def test_coordinator_run_does_not_return_while_branch_threads_are_alive() -> Non
         if thread.is_alive() and thread.name.startswith("sub-research")
     ]
     assert live == []
+
+
+# ---------------------------------------------------------------------------
+# 分支级 trace：逐批派发账 + 预算账（2026-09-07 四遍读数的 L6 缺口）
+# ---------------------------------------------------------------------------
+
+
+def _event(sequence: int, kind: str, **payload: object) -> EpisodeEvent:
+    return EpisodeEvent(sequence, kind, payload)
+
+
+def test_branch_batches_are_cut_at_model_turns_and_classify_every_tool_error() -> None:
+    """一条 model_turn 开一批；requested 恒等于五类结果之和；无工具的模型轮不算批。"""
+
+    clock = {
+        "remaining_slots_at_dispatch": 8,
+        "stage_timeout_granted": 120.0,
+        "episode_remaining_at_dispatch": 140.0,
+    }
+    events = (
+        _event(1, "task"),
+        _event(2, "prefetch", count=1),  # model_turn 之前的事件不归任何批
+        _event(3, "model_turn", phase="research"),
+        *(
+            _event(4 + i, "tool_request", name=f"tool_{i}", call_id=f"c{i}", **clock)
+            for i in range(6)
+        ),
+        _event(10, "tool_result", tool="tool_0", call_id="c0"),
+        _event(11, "tool_result", tool="tool_1", call_id="c1"),
+        _event(12, "tool_result", tool="tool_2", call_id="c2"),
+        _event(13, "tool_result", tool="tool_3", call_id="c3"),
+        _event(14, "tool_error", tool="tool_4", error="tool_budget_exhausted", call_id="c4"),
+        _event(15, "tool_error", tool="tool_5", error="tool_budget_exhausted", call_id="c5"),
+        _event(16, "model_turn", phase="research"),
+        _event(17, "tool_request", name="tool_a", call_id="ca", remaining_slots_at_dispatch=4),
+        _event(18, "tool_request", name="tool_b", call_id="cb", remaining_slots_at_dispatch=4),
+        _event(19, "tool_request", name="tool_c", call_id="cc", remaining_slots_at_dispatch=4),
+        _event(20, "tool_error", tool="tool_a", error="tool_timeout", call_id="ca"),
+        _event(21, "tool_error", tool="tool_b", error="duplicate_query", call_id="cb"),
+        _event(22, "tool_error", tool="tool_c", error="tool_exception", call_id="cc"),
+        _event(23, "model_turn", phase="research"),  # finish 轮：没点工具
+        _event(24, "finish", status="partial"),
+    )
+
+    batches = branch_batches_from_events(events)
+
+    assert len(batches) == 2
+    first, second = batches
+    assert (first.index, first.requested, first.succeeded, first.rejected_by_cap) == (1, 6, 4, 2)
+    assert (first.timed_out, first.errored, first.rejected_other) == (0, 0, 0)
+    assert first.tools == tuple(f"tool_{i}" for i in range(6))
+    assert (
+        first.remaining_slots_at_dispatch,
+        first.stage_timeout_granted,
+        first.episode_remaining_at_dispatch,
+    ) == (8, 120.0, 140.0)
+    assert (second.index, second.requested, second.succeeded) == (2, 3, 0)
+    assert (second.timed_out, second.rejected_other, second.errored) == (1, 1, 1)
+    # 没测到的时钟字段留 None，to_dict 不写键——不把缺席伪装成 0。
+    assert second.stage_timeout_granted is None
+    assert "stage_timeout_granted" not in second.to_dict()
+    assert second.to_dict()["remaining_slots_at_dispatch"] == 4
+    for batch in batches:
+        assert batch.requested == (
+            batch.succeeded
+            + batch.rejected_by_cap
+            + batch.timed_out
+            + batch.errored
+            + batch.rejected_other
+        )
+    # 分支撞 deadline 时事件流常以一批工具收尾、后面没有再来一条 model_turn：
+    # 最后一批也必须入账（变异：去掉末尾 flush，本条必红）。
+    truncated = events[:15]  # 到第一批最后一条 tool_error 为止，后面没有 model_turn
+    assert [batch.requested for batch in branch_batches_from_events(truncated)] == [6]
+    assert branch_batches_from_events(()) == ()
+
+
+def test_continuous_branch_worker_reports_per_batch_dispatch_and_the_cap_that_bit() -> None:
+    """分支上下文带 quick 标签 → 每批帽 4：模型一轮点 5 个，第 5 个必须记成 rejected_by_cap。
+
+    这正是 09-07 收据 §5 想量而量不到的数：分支 150s 仍 9/9 partial，候选原因是
+    每批帽——现在它出现在 BranchResult.batches 里，而不是靠人翻日志。
+    """
+
+    class FiveToolModel:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def complete(self, *, messages, tools, timeout):
+            self.calls += 1
+            if self.calls == 1:
+                return ModelTurn(
+                    "",
+                    tuple(
+                        ModelToolCall(f"branch-call-{i}", "news_search", {"query": f"反方驱动 线索{i}"})
+                        for i in range(5)
+                    ),
+                    "scripted",
+                    "",
+                )
+            return ModelTurn(
+                json.dumps(
+                    {"status": "completed", "draft": "分支草稿", "gaps": [], "bindings": []},
+                    ensure_ascii=False,
+                ),
+                (),
+                "scripted",
+                "",
+            )
+
+    def runner(query, _tool_context):
+        evidence = AgentEvidence(
+            tool="news_search",
+            title=f"{query} 标题",
+            detail=f"{query} 返回反方事实",
+            source="公开来源",
+            source_date="2026-07-20",
+            independent_key=f"family-{query}",
+            content_hash=f"hash-{query}",
+        )
+        return (
+            [evidence],
+            "branch observation",
+            ProviderTrace(
+                provider="test:branch-worker",
+                capability="news_search",
+                status="success",
+                result_count=1,
+            ),
+        )
+
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="news_search",
+                capability="news_search",
+                description="财经新闻检索",
+                cost="remote",
+                freshness="current",
+                runner=runner,
+            ),
+        )
+    )
+    context = _context(tier="max", calls=40)
+
+    result = SubResearchCoordinator(ContinuousSubResearchWorker(FiveToolModel())).run(
+        goals=("查找反方驱动",),
+        task_frame=_frame(),
+        context=context,
+        registry=registry,
+        evidence_sink_factory=EvidenceLedger(information_cutoff=date(2026, 7, 24)).branch_sink,
+    )
+
+    branch = result.branches[0]
+    assert branch.status == "completed"
+    assert branch.stop_reason  # partial / completed 一样带终局理由，不再只有 failed 才有 error
+    assert [batch.to_dict() for batch in branch.batches] == [
+        {
+            "index": 1,
+            "requested": 5,
+            "succeeded": 4,
+            "rejected_by_cap": 1,
+            "timed_out": 0,
+            "errored": 0,
+            "rejected_other": 0,
+            "tools": ["news_search"] * 5,
+            # 分支拿到 max 档的 10 次；派发时 5 个候选里选 min(帽 4, 剩余 10) = 4。
+            "remaining_slots_at_dispatch": 10,
+            "stage_timeout_granted": pytest.approx(branch.batches[0].stage_timeout_granted),
+            "episode_remaining_at_dispatch": pytest.approx(
+                branch.batches[0].episode_remaining_at_dispatch
+            ),
+        }
+    ]
+    assert branch.budget is not None
+    assert (branch.budget.allocated_calls, branch.budget.consumed_calls) == (10, 4)
+    assert branch.budget.batch_call_cap == 4  # quick 标签的帽，不是 max 的 8
+    assert branch.budget.allocated_seconds == pytest.approx(150.0)
+    assert 0.0 <= branch.budget.remaining_seconds <= branch.budget.allocated_seconds
+    assert branch.tool_calls == branch.budget.consumed_calls == 4
+
+
+def test_branch_budget_receipt_comes_from_child_ledger_not_worker_claims() -> None:
+    """worker 自报的预算账被协调器用子账本真值覆盖——与 tool_calls 同一条纪律。"""
+
+    class LyingWorker:
+        def run(self, request: BranchRequest) -> BranchResult:
+            request.context.root_budget.consume_call(seconds=2.0)  # type: ignore[union-attr]
+            return BranchResult(
+                branch_id=request.branch_id,
+                goal=request.goal,
+                status="partial",
+                evidence=(),
+                traces=(),
+                gaps=("只用了一次",),
+                llm_calls=1,
+                tool_calls=99,
+                budget=BranchBudgetReceipt(
+                    allocated_calls=99,
+                    consumed_calls=99,
+                    allocated_seconds=9999.0,
+                    remaining_seconds=0.0,
+                    batch_call_cap=99,
+                ),
+            )
+
+    result = SubResearchCoordinator(LyingWorker()).run(
+        goals=("核验预算账",),
+        task_frame=_frame(),
+        context=_context(tier="deep", calls=24),
+        registry=ResearchToolRegistry(()),
+        evidence_sink_factory=EvidenceLedger().branch_sink,
+    )
+
+    budget = result.branches[0].budget
+    assert budget is not None
+    assert (budget.allocated_calls, budget.consumed_calls) == (8, 1)
+    assert budget.allocated_seconds == pytest.approx(60.0)
+    assert budget.remaining_seconds == pytest.approx(58.0)
+    assert budget.batch_call_cap == 4
+    assert result.branches[0].tool_calls == 1
+
+
+def test_failed_or_cancelled_branches_carry_no_budget_or_batches() -> None:
+    """worker 抛异常 / 分支被取消时没有分支 Episode 可读：账不存在就不写，不伪造零值。"""
+
+    result = SubResearchCoordinator(ScriptedWorker(fail_goal="会炸的分支")).run(
+        goals=("会炸的分支",),
+        task_frame=_frame(),
+        context=_context(),
+        registry=ResearchToolRegistry(()),
+        evidence_sink_factory=EvidenceLedger().branch_sink,
+    )
+
+    failed = result.branches[0]
+    assert failed.status == "failed"
+    assert failed.budget is None and failed.batches == ()
+    with pytest.raises(TypeError):
+        BranchResult(
+            branch_id="branch-1",
+            goal="类型守门",
+            status="partial",
+            evidence=(),
+            traces=(),
+            gaps=(),
+            llm_calls=0,
+            tool_calls=0,
+            batches=({"index": 1},),  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError):
+        BranchBatch(
+            index=0, requested=1, succeeded=1, rejected_by_cap=0,
+            timed_out=0, errored=0, rejected_other=0, tools=(),
+        )

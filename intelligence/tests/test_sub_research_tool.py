@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 
 import pytest
@@ -20,6 +21,8 @@ from intelligence.runtime.episode_tool_batch import ToolBatchExecutor
 from intelligence.runtime.sub_research import (
     MAX_CALLS_PER_BRANCH,
     MAX_SECONDS_PER_BRANCH,
+    BranchBatch,
+    BranchBudgetReceipt,
     BranchResult,
     SubResearchCoordinator,
     SubResearchResult,
@@ -27,6 +30,7 @@ from intelligence.runtime.sub_research import (
 from intelligence.runtime.sub_research_tool import (
     SUB_RESEARCH_TOOL,
     bind_sub_research_tool,
+    branch_telemetry,
     tool_result_from_branches,
 )
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
@@ -180,6 +184,61 @@ def test_failed_branch_says_unresearched_and_all_failed_is_error() -> None:
     assert result.trace.status == "error"
     assert "该子问题未被研究，不是没有答案" in result.observation
     assert result.gaps[0].startswith("子研究分支「甲」未完成（branch_worker_exception:X）")
+
+
+_BUDGET = BranchBudgetReceipt(
+    allocated_calls=10,
+    consumed_calls=8,
+    allocated_seconds=150.0,
+    remaining_seconds=3.5,
+    batch_call_cap=4,
+)
+_BATCHES = (
+    BranchBatch(
+        index=1, requested=6, succeeded=4, rejected_by_cap=2, timed_out=0, errored=0,
+        rejected_other=0, tools=("news_search",) * 6, remaining_slots_at_dispatch=10,
+        stage_timeout_granted=135.0, episode_remaining_at_dispatch=149.0,
+    ),
+    BranchBatch(
+        index=2, requested=4, succeeded=3, rejected_by_cap=0, timed_out=1, errored=0,
+        rejected_other=0, tools=("web_search",) * 4, remaining_slots_at_dispatch=6,
+    ),
+)
+
+
+def test_telemetry_carries_budget_and_per_batch_dispatch_only_when_measured() -> None:
+    """L6 缺口：收据要能独立重算「每批派发了几个、几个被帽拒、分支还剩多少」。
+
+    有账就写全；没账（取消 / worker 异常）就不写键——不把「没测到」写成 0。
+    """
+
+    measured = replace(
+        _branch("branch-1", "甲", status="partial", evidence=(_EVIDENCE,)),
+        stop_reason="deadline_exhausted",
+        budget=_BUDGET,
+        batches=_BATCHES,
+    )
+    unmeasured = _branch("branch-2", "乙", status="failed", error="cancelled")
+
+    result = tool_result_from_branches(("甲", "乙"), SubResearchResult((measured, unmeasured)))
+
+    first, second = result.telemetry["branches"]
+    assert first["stop_reason"] == "deadline_exhausted"
+    assert first["budget"] == {
+        "allocated_calls": 10,
+        "consumed_calls": 8,
+        "allocated_seconds": 150.0,
+        "remaining_seconds": 3.5,
+        "batch_call_cap": 4,
+    }
+    assert [batch["requested"] for batch in first["batches"]] == [6, 4]
+    assert [batch["rejected_by_cap"] for batch in first["batches"]] == [2, 0]
+    assert first["batches"][0]["stage_timeout_granted"] == 135.0
+    assert "stage_timeout_granted" not in first["batches"][1]
+    assert "budget" not in second and "batches" not in second
+    assert second["stop_reason"] == ""
+    # 事件与 telemetry 同源：同一个函数产出，字段不再各漂一份。
+    assert branch_telemetry(measured) == first
 
 
 def test_evidence_passes_through_with_its_own_tier_and_date() -> None:
@@ -419,6 +478,45 @@ def test_episode_mounts_sub_research_only_with_a_coordinator_and_binds_branch_ev
         assert started.payload["origin"] == "tool"
         # 分支事件在 runner 里（批执行器线程）记，先于批结束后才落的 tool_request / tool_result。
         assert kinds.index("model_turn") < kinds.index("branch_started") < kinds.index("tool_result")
+    finally:
+        release_root_budget(context.contract.task_id)
+
+
+def test_branch_completed_event_carries_budget_and_batches_from_the_tool_path() -> None:
+    """durable 事件是对账权威：分支预算账与逐批派发账必须进 branch_completed，不只进 telemetry。"""
+
+    class MeasuredCoordinator(_CapturingCoordinator):
+        def run(self, **kwargs):
+            plain = super().run(**kwargs)
+            return SubResearchResult(
+                tuple(
+                    replace(b, stop_reason="deadline_exhausted", budget=_BUDGET, batches=_BATCHES)
+                    for b in plain.branches
+                )
+            )
+
+    context = _context("max", allowed=("market_data", SUB_RESEARCH_TOOL))
+    try:
+        model = ScriptedModel(
+            [_sub_research_turn(["查找反方驱动"]), _finish_turn(hashes=("branch-evidence-1",))]
+        )
+        outcome = ContinuousAgentEpisode(
+            model,
+            sub_research_coordinator=MeasuredCoordinator(),  # type: ignore[arg-type]
+        ).run(task_frame=_frame(), context=context, registry=_market_registry(_successful_runner))
+        assert outcome.status == "completed", outcome.stop_reason
+        completed = next(e for e in outcome.events if e.kind == "branch_completed")
+        assert completed.payload["origin"] == "tool"
+        assert completed.payload["stop_reason"] == "deadline_exhausted"
+        assert completed.payload["budget"]["batch_call_cap"] == 4
+        assert completed.payload["budget"]["consumed_calls"] == 8
+        assert [b["rejected_by_cap"] for b in completed.payload["batches"]] == [2, 0]
+        # 同一份 sub_research tool_result 的审计底稿里也有这份账（telemetry 落盘）。
+        tool_result = next(
+            e for e in outcome.events
+            if e.kind == "tool_result" and e.payload.get("tool") == SUB_RESEARCH_TOOL
+        )
+        assert tool_result.payload["telemetry"]["branches"][0]["budget"]["allocated_calls"] == 10
     finally:
         release_root_budget(context.contract.task_id)
 

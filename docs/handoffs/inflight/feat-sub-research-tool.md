@@ -22,7 +22,7 @@
 
 ## 下一步
 1. ~~出口硬门~~ #612 已合；~~分支预算~~ #615 已合；顺带修了修复轮表达槽硬拒（#616）与 LLM 保险丝（#617），见 `2026-09-07-branch-budget-repair-fuse.md`。
-2. 分支内每批帽（quick=4）是否是分支慢的原因：先量分支的 tool_menu / 派发数再动。
+2. 分支内每批帽（quick=4）是否是分支慢的原因：先量分支的 tool_menu / 派发数再动。→ 量的代码在 `feat/branch-level-trace`（`inflight/feat-branch-level-trace.md`），合入切流后重跑同题读 `branch_completed.batches`。
 3. A/B/C 28 题 max 全景：Codex 5h 窗 70% / 周 69%，等用户拍。
 4. 09-06 22:56 成批文件改写写者未查明——用户侧确认。
 

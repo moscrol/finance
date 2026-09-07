@@ -186,25 +186,44 @@ def tool_result_from_branches(
         gaps=gaps,
         telemetry={
             "refused_reason": "",
-            "branches": [
-                {
-                    "branch_id": b.branch_id,
-                    "goal": b.goal,
-                    "status": b.status,
-                    "evidence_count": len(b.evidence),
-                    "gap_count": len(b.gaps),
-                    "llm_calls": b.llm_calls,
-                    "tool_calls": b.tool_calls,
-                    "error": b.error,
-                }
-                for b in branches
-            ],
+            "branches": [branch_telemetry(b) for b in branches],
         },
     )
+
+
+def branch_telemetry(branch: BranchResult) -> dict[str, object]:
+    """一支分支进收据的全部读数：合计数 + 终局理由 + 预算账 + 逐批派发账。
+
+    同一份 dict 进两处：``sub_research`` 的 ``tool_result.telemetry``（审计底稿）与
+    durable 的 ``branch_completed`` 事件。两处此前各写一份、字段已经漂开
+    （事件里有 tokens、telemetry 里没有）；收成一个函数，改一处两处同时变。
+    预算账与派发账没有就不写键——分支被取消 / worker 抛异常时它们确实不存在，
+    写空值会把「没测到」伪装成「测到是零」。
+    """
+
+    payload: dict[str, object] = {
+        "branch_id": branch.branch_id,
+        "goal": branch.goal,
+        "status": branch.status,
+        "error": branch.error,
+        "stop_reason": branch.stop_reason,
+        "evidence_count": len(branch.evidence),
+        "gap_count": len(branch.gaps),
+        "llm_calls": branch.llm_calls,
+        "tool_calls": branch.tool_calls,
+        "input_tokens": branch.input_tokens,
+        "output_tokens": branch.output_tokens,
+    }
+    if branch.budget is not None:
+        payload["budget"] = branch.budget.to_dict()
+    if branch.batches:
+        payload["batches"] = [batch.to_dict() for batch in branch.batches]
+    return payload
 
 
 __all__ = [
     "SUB_RESEARCH_TOOL",
     "bind_sub_research_tool",
+    "branch_telemetry",
     "tool_result_from_branches",
 ]

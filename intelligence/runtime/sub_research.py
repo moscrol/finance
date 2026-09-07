@@ -9,7 +9,9 @@ from dataclasses import dataclass, replace
 from threading import RLock
 from typing import Literal, Protocol
 
+from intelligence.runtime.episode_tool_batch import batch_call_cap
 from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.agent_runtime import EpisodeEvent
 from intelligence.services.evidence_ledger import BranchEvidenceSink
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
@@ -191,6 +193,207 @@ class BranchRequest:
     is_cancelled: Callable[[], bool]
 
 
+def _non_negative_int(value: object, *, field_name: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"{field_name} must be non-negative")
+
+
+@dataclass(frozen=True)
+class BranchBatch:
+    """分支里一批工具的派发账，由分支 Episode 的 durable 事件重算。
+
+    2026-09-07 四遍读数里「分支 150s 仍 9/9 partial」的下一个候选原因是分支上下文
+    的每批帽（``batch_call_cap`` 对 quick 标签 = 4）。此前分支内部的
+    ``tool_request`` / ``tool_result`` / ``tool_error`` 在 worker 返回时被整段丢掉，
+    父臂事件流里只剩 ``branch_completed`` 的合计数——「每批点了几个、几个被帽拒」
+    在收据里根本判不出来，只能靠人翻日志。这份账就是补那一段：
+
+    - ``requested`` 模型这一轮点了几个工具（``tool_request`` 条数）；
+    - ``succeeded`` 拿到 ``tool_result`` 的；
+    - ``rejected_by_cap`` 派发前被次数闸拒的（``tool_budget_exhausted``，含每批帽
+      与分支剩余次数两种来源，事件里同码，靠 ``remaining_slots_at_dispatch`` 分）；
+    - ``timed_out`` / ``errored`` 真派发了但超时 / 抛错；
+    - ``rejected_other`` 其它派发前拒绝（重复查询、参数不合法、未授权……）。
+
+    时钟三元组取自本批第一条 ``tool_request``（同批共享同一份派发快照），没测到
+    就留 ``None``，不写 0 把缺席伪装成读数。
+    """
+
+    index: int
+    requested: int
+    succeeded: int
+    rejected_by_cap: int
+    timed_out: int
+    errored: int
+    rejected_other: int
+    tools: tuple[str, ...]
+    remaining_slots_at_dispatch: int | None = None
+    stage_timeout_granted: float | None = None
+    episode_remaining_at_dispatch: float | None = None
+
+    def __post_init__(self) -> None:
+        if isinstance(self.index, bool) or not isinstance(self.index, int) or self.index < 1:
+            raise ValueError("batch index must be a positive integer")
+        for field_name in (
+            "requested",
+            "succeeded",
+            "rejected_by_cap",
+            "timed_out",
+            "errored",
+            "rejected_other",
+        ):
+            _non_negative_int(getattr(self, field_name), field_name=f"batch {field_name}")
+        if any(not isinstance(tool, str) or not tool.strip() for tool in self.tools):
+            raise ValueError("batch tools must be non-empty strings")
+        object.__setattr__(self, "tools", tuple(self.tools))
+
+    def to_dict(self) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "index": self.index,
+            "requested": self.requested,
+            "succeeded": self.succeeded,
+            "rejected_by_cap": self.rejected_by_cap,
+            "timed_out": self.timed_out,
+            "errored": self.errored,
+            "rejected_other": self.rejected_other,
+            "tools": list(self.tools),
+        }
+        for field_name in (
+            "remaining_slots_at_dispatch",
+            "stage_timeout_granted",
+            "episode_remaining_at_dispatch",
+        ):
+            value = getattr(self, field_name)
+            if value is not None:
+                payload[field_name] = value
+        return payload
+
+
+@dataclass(frozen=True)
+class BranchBudgetReceipt:
+    """一支分支的预算账：给了多少、用了多少、跑完还剩多少、在什么帽下跑的。
+
+    由协调器从 ``_BranchBudgetView`` 读出，不由 worker 自报（与 ``tool_calls``
+    同一条纪律：``test_branch_usage_comes_from_child_budget_not_worker_claims``）。
+    ``batch_call_cap`` 是解释 ``BranchBatch.rejected_by_cap`` 的成立条件——
+    分支上下文带 quick 标签时它是 4，父臂 max 是 8。
+    """
+
+    allocated_calls: int
+    consumed_calls: int
+    allocated_seconds: float
+    remaining_seconds: float
+    batch_call_cap: int
+
+    def __post_init__(self) -> None:
+        _non_negative_int(self.allocated_calls, field_name="allocated_calls")
+        _non_negative_int(self.consumed_calls, field_name="consumed_calls")
+        _non_negative_int(self.batch_call_cap, field_name="batch_call_cap")
+        for field_name in ("allocated_seconds", "remaining_seconds"):
+            value = getattr(self, field_name)
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+                raise ValueError(f"{field_name} must be non-negative")
+        object.__setattr__(self, "allocated_seconds", float(self.allocated_seconds))
+        object.__setattr__(self, "remaining_seconds", float(self.remaining_seconds))
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "allocated_calls": self.allocated_calls,
+            "consumed_calls": self.consumed_calls,
+            "allocated_seconds": self.allocated_seconds,
+            "remaining_seconds": self.remaining_seconds,
+            "batch_call_cap": self.batch_call_cap,
+        }
+
+
+_TOOL_ERROR_REJECTED_BY_CAP = "tool_budget_exhausted"
+_TOOL_ERROR_TIMEOUT = "tool_timeout"
+_TOOL_ERROR_EXCEPTION = "tool_exception"
+_BATCH_CLOCK_FIELDS = (
+    "remaining_slots_at_dispatch",
+    "stage_timeout_granted",
+    "episode_remaining_at_dispatch",
+)
+
+
+def branch_batches_from_events(
+    events: Iterable[EpisodeEvent],
+) -> tuple[BranchBatch, ...]:
+    """把分支 Episode 的 durable 事件按 ``model_turn`` 切成一批批工具派发账。
+
+    每条 ``model_turn`` 开一批；随后到下一条 ``model_turn`` 之前的
+    ``tool_request`` / ``tool_result`` / ``tool_error`` 归这一批。没点工具的模型轮
+    （比如 finish）不算批——它们已经在 ``llm_calls`` 里。只认事件不认 worker 自述，
+    所以 ``requested == succeeded + rejected_by_cap + timed_out + errored + rejected_other``
+    对每一批都成立，对不上就是事件流本身缺了条。
+    """
+
+    batches: list[BranchBatch] = []
+    current: dict[str, object] | None = None
+
+    def flush() -> None:
+        if current is None or int(current["requested"]) == 0:
+            return
+        batches.append(
+            BranchBatch(
+                index=len(batches) + 1,
+                requested=int(current["requested"]),
+                succeeded=int(current["succeeded"]),
+                rejected_by_cap=int(current["rejected_by_cap"]),
+                timed_out=int(current["timed_out"]),
+                errored=int(current["errored"]),
+                rejected_other=int(current["rejected_other"]),
+                tools=tuple(current["tools"]),  # type: ignore[arg-type]
+                remaining_slots_at_dispatch=current["remaining_slots_at_dispatch"],  # type: ignore[arg-type]
+                stage_timeout_granted=current["stage_timeout_granted"],  # type: ignore[arg-type]
+                episode_remaining_at_dispatch=current["episode_remaining_at_dispatch"],  # type: ignore[arg-type]
+            )
+        )
+
+    for event in events:
+        if event.kind == "model_turn":
+            flush()
+            current = {
+                "requested": 0,
+                "succeeded": 0,
+                "rejected_by_cap": 0,
+                "timed_out": 0,
+                "errored": 0,
+                "rejected_other": 0,
+                "tools": [],
+                "remaining_slots_at_dispatch": None,
+                "stage_timeout_granted": None,
+                "episode_remaining_at_dispatch": None,
+            }
+            continue
+        if current is None:
+            continue
+        payload = event.payload
+        if event.kind == "tool_request":
+            current["requested"] = int(current["requested"]) + 1
+            name = str(payload.get("name") or "").strip()
+            if name:
+                current["tools"].append(name)  # type: ignore[union-attr]
+            for field_name in _BATCH_CLOCK_FIELDS:
+                if current[field_name] is None and payload.get(field_name) is not None:
+                    current[field_name] = payload[field_name]
+        elif event.kind == "tool_result":
+            current["succeeded"] = int(current["succeeded"]) + 1
+        elif event.kind == "tool_error":
+            error = str(payload.get("error") or "").strip()
+            if error == _TOOL_ERROR_REJECTED_BY_CAP:
+                key = "rejected_by_cap"
+            elif error == _TOOL_ERROR_TIMEOUT:
+                key = "timed_out"
+            elif error == _TOOL_ERROR_EXCEPTION:
+                key = "errored"
+            else:
+                key = "rejected_other"
+            current[key] = int(current[key]) + 1
+    flush()
+    return tuple(batches)
+
+
 @dataclass(frozen=True)
 class BranchResult:
     branch_id: str
@@ -204,6 +407,12 @@ class BranchResult:
     input_tokens: int | None = None
     output_tokens: int | None = None
     error: str = ""
+    # 分支 Episode 自己的终局理由（``AgentOutcome.stop_reason``），不论 status。
+    # ``error`` 只在 failed 时填；partial 分支「为什么停」此前只能从 gaps 文案猜。
+    stop_reason: str = ""
+    # 分支内逐批派发账（worker 从分支事件重算）与预算账（协调器从子账本读出）。
+    batches: tuple[BranchBatch, ...] = ()
+    budget: BranchBudgetReceipt | None = None
 
     def __post_init__(self) -> None:
         if self.status not in _BRANCH_STATUSES:
@@ -226,6 +435,13 @@ class BranchResult:
                 or value < 0
             ):
                 raise ValueError(f"branch {field_name} must be non-negative")
+        if not isinstance(self.stop_reason, str):
+            raise ValueError("branch stop_reason must be a string")
+        if any(not isinstance(item, BranchBatch) for item in self.batches):
+            raise TypeError("branch batches must contain BranchBatch values")
+        if self.budget is not None and not isinstance(self.budget, BranchBudgetReceipt):
+            raise TypeError("branch budget must be a BranchBudgetReceipt")
+        object.__setattr__(self, "batches", tuple(self.batches))
 
 
 @dataclass(frozen=True)
@@ -451,6 +667,7 @@ class SubResearchCoordinator:
         result = replace(
             result,
             tool_calls=self._consumed_tool_calls(request),
+            budget=self._budget_receipt(request),
         )
         request.evidence_sink.append(result.evidence)
         owners = dict(request.evidence_sink.snapshot().evidence_branch_owners)
@@ -468,9 +685,26 @@ class SubResearchCoordinator:
             return 0
         return max(0, int(budget.initial_calls) - int(budget.remaining_calls))
 
+    @staticmethod
+    def _budget_receipt(request: BranchRequest) -> BranchBudgetReceipt | None:
+        budget = request.context.root_budget
+        if budget is None:
+            return None
+        allocated_calls = int(budget.initial_calls)
+        return BranchBudgetReceipt(
+            allocated_calls=allocated_calls,
+            consumed_calls=max(0, allocated_calls - int(budget.remaining_calls)),
+            allocated_seconds=float(budget.initial_seconds),
+            remaining_seconds=max(0.0, float(budget.remaining_seconds)),
+            batch_call_cap=batch_call_cap(request.context.policy),
+        )
+
 
 __all__ = [
+    "BranchBatch",
+    "BranchBudgetReceipt",
     "BranchRequest",
+    "branch_batches_from_events",
     "branch_limits",
     "BranchResult",
     "BranchStatus",

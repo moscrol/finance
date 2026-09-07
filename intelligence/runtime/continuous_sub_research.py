@@ -14,6 +14,7 @@ from intelligence.services.research_harness import FinanceResearchHarness
 from intelligence.runtime.sub_research import (
     BranchRequest,
     BranchResult,
+    branch_batches_from_events,
 )
 from intelligence.services.task_frame import TaskFrame
 
@@ -65,6 +66,10 @@ class ContinuousSubResearchWorker:
             if outcome.status in {"completed", "partial"}
             else "failed"
         )
+        # 分支 Episode 没接 event_sink，它的 durable 事件只活在 outcome 里；此前
+        # 到这里就被丢掉，父臂只剩 branch_completed 的合计数。逐批派发账在这里
+        # 从事件重算后随 BranchResult 带出去——事件本体仍不进父账本（父臂的
+        # tool_result 审计底稿装不下三支分支的整条事件流）。
         return BranchResult(
             branch_id=request.branch_id,
             goal=request.goal,
@@ -77,6 +82,8 @@ class ContinuousSubResearchWorker:
             input_tokens=outcome.usage.input_tokens,
             output_tokens=outcome.usage.output_tokens,
             error=outcome.stop_reason if status == "failed" else "",
+            stop_reason=outcome.stop_reason,
+            batches=branch_batches_from_events(outcome.events),
         )
 
     @staticmethod
