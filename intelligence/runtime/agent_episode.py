@@ -37,6 +37,7 @@ from intelligence.runtime.episode_tool_batch import (
     ToolBatchExecutor,
     ToolBatchResult,
     ToolCallResult,
+    batch_call_cap,
     timeout_detail_for_model,
     tool_definitions_for_menu,
 )
@@ -1227,6 +1228,7 @@ class ContinuousAgentEpisode:
                             tool_calls=tool_calls,
                         ),
                     ),
+                    per_batch_cap=batch_call_cap(context.policy),
                 )
                 if injected:
                     ledger.time_budget_injected = True
@@ -2263,6 +2265,7 @@ class ContinuousAgentEpisode:
         remaining_slots: int,
         remaining_seconds: float | None = None,
         total_seconds: float | None = None,
+        per_batch_cap: int | None = None,
     ) -> bool:
         if not messages or messages[-1].get("role") != "tool":
             return False
@@ -2282,6 +2285,24 @@ class ContinuousAgentEpisode:
                 "只能调用当前菜单中仍可见的工具；证据足够时直接输出 FINAL_JSON。"
             ),
         }
+        # 派发节奏（2026-09-07 收据 §10）：同题七遍里工具消息合计稳定 8–12 万字，变量是模型轮数——
+        # 19 轮那遍连续 17 轮每轮只点 1 个工具，把历史重发了 96 万字、多等了 ~150s 模型往返。
+        # 上面那句只是**上限**（「不得超过」），没有一句话说并行是被期待的。这里把每批帽和
+        # 「一起点」写进同一条注入：改的是 harness 自己的 steering 通道，不动宪法；
+        # 只剩 1 次可点时不说这话（没什么可并行的）。
+        batch_now = (
+            min(int(per_batch_cap), int(remaining_slots))
+            if per_batch_cap is not None and per_batch_cap > 0
+            else None
+        )
+        if batch_now is not None and batch_now > 1:
+            budget["per_batch_cap"] = batch_now
+            budget["instruction"] = (
+                str(budget["instruction"])
+                + f"互不依赖的工具应在同一轮一起点出（本轮最多 {batch_now} 个）："
+                "一轮只点一个会多花一轮模型往返并重发整段上下文；"
+                "只有下一步取决于上一步结果时才逐轮点。"
+            )
         # Steps were already exposed here; *time* was gated off.  Bookgap S1
         # turns the clock on in the same payload so the model does not hunt
         # for a second budget channel.  The CJK status_line is the v1
