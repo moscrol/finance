@@ -1,102 +1,85 @@
 ---
 name: duckdb-backfill
-disable-model-invocation: true
 metadata:
   pattern: tool-wrapper
   also: [pipeline]
-description: "DuckDB market_feature_store 回补。用户说「回补 duckdb」「全量回补」「补缺口」「修 fact_* 覆盖」或 sync 挂起需短命令重试时用。按覆盖审计与超时兜底跑。不改策略、不改 vault。"
+description: "DuckDB market_feature_store 历史日回补与验收。触发：断档回补（某天/几天的复盘没抓、夜跑失败补数）、回补 duckdb、补单表缺口、修 fact_* 覆盖、fupanhui 429 后续跑、验收回补是否与基线对齐。当日全量复盘走 daily-full-review。"
 ---
 
-# DuckDB Backfill
+> 红线在前；模块顺序、命令、已知语义坑见 `references/backfill-runbook.md`。
 
-## Overview
+# DuckDB 历史日回补（duckdb-backfill）
 
-Use this skill to backfill `/Users/lbq/Desktop/c c/金融/db/market_feature_store.duckdb` safely and incrementally. Prefer small observable commands, read-only audits first, and script improvements whenever a sync path hangs or becomes fragile.
+## 红线（违反任一条 = 该日回补作废重来）
 
-## Mandatory start
+1. **历史日只用日期参数化源。** `daily-full` / `daily-update` / `sync-stock-daily-snapshot`（东财快照）/ `sync-sw-l1-daily` 的 realtime 分支是「取最新」语义，只在交易日当天盘后写；写到历史日 = 把今天盘中价写成那天收盘（2026-09-07 两张表同时中招）。历史日的源：个股 mootdx `sync-stock-daily`（北交所缺口用东财 hist kline）、申万 `index_hist_sw`、复盘会各模块带 `--trade-date`。
+2. **fupanhui 配额是全机共享的单一资源。** 同一时刻一个写者、一个探针（多个 agent 同时抓 = 同一份配额）；板块日线用 `sync-sector-daily-local`（0 请求，回测误差 0.001%）；成分 `sync-sector-stocks` 用 `chunk=1 sleep>=1.0`。收到 429 立刻停手，按 `retry-after` 静默到期再单发探针——09-07 二次突发后被报价 `retry-after=251318s`（≈2.9 天），密集探测续期惩罚。
+3. **日历行最后写。** `fact_market_daily` 当日行一落库就进 `check-daily` 的 20 日日历；GAP_TABLES 齐了才跑 `sync-market-overview` / `sync-index-daily` / `sync-market-deviation`，否则当晚 cross-day-gate FAIL、S7 不换名，好数据也进不了生产库。
+4. **每步写完回读值，不数行。** `sync-market-overview` 撞 429 会把整行写成 NULL 仍 rc=0；`sync-limit-advance` 0 行也报 ok。回读用第 8 步的 `qa_backfill_align.py`。
+5. **写锁。** 开工 `python3 scripts/check_db_lock.py`；18:30 前释放（S7 `probe_no_active_writer` 拒开工）。DuckDB 写是本地状态，不提交 `*.duckdb` 与 exports，源码改动分开提交。
 
-Run and report:
+## 标准流程（历史日 D；多日时逐日做完再做下一日，后一日的边际量依赖前一日全量板块额）
 
-```bash
-git status --short
-git branch --show-current
-```
+| 步 | 做什么 | 完成判据 |
+|---|---|---|
+| 0 | `git status --short && git branch --show-current && git worktree list`；`python3 skills/duckdb-backfill/scripts/audit_coverage.py` | 说得出缺哪几张表、哪几天 |
+| 1 | 单发探针 `GET /api/v1/client/reviews/latest-date`；429 → 记 `retry-after`，静默 | 状态码非 429 |
+| 2 | 不吃配额的两张先做：mootdx `sync-stock-daily --start-date D`（北交所缺口东财 hist kline）；`sync-sw-l1-daily` hist 模式 | `fact_stock_daily` ≥ 基线 98%；申万 31 行且 `pre_close` = 前日 `close` |
+| 3 | 复盘会轻表，按 runbook 顺序：sectors → mainline-daily → mainline-sector-daily → theme-flow-daily → limit-heat → limit-advance → stock-high → public-assets `--plan full` | 每表回读：行数 > 0 且价格/涨幅/成交额非空 |
+| 4 | `sync-sector-stocks` 逐板块（`chunk=1 sleep=1.0 only_missing`），断点续跑到等于宇宙数 | `fact_sector_stock_daily` 覆盖 = `fact_sector_universe_daily` 板块数 |
+| 5 | `sync-sector-daily-local --trade-date D` | 板块日线 = 宇宙数；与 `ops_sector_search_payload_daily.pct_chg` 逐板块一致 |
+| 6 | 头部：`sync-market-overview` → `sync-index-daily` → `sync-market-deviation`；回读 `total_amount` / `advancers` | 非空；空壳则退避后重跑 |
+| 7 | `python3 -m scripts.compute_features --trade-date D` | 派生层五张表都有当日行 |
+| 8 | 验收四件（下节） | 四件全绿 |
 
-Do not stage DB files or generated exports. DuckDB writes are local state changes; keep source edits separate from data sync.
+## 验收交付物（四件，缺一不收）
+
+验收方独立复算每一件，不抄执行方数字；四条命令的**原始输出**贴进 `docs/handoffs/inflight/<分支>.md`。
+
+1. `python3 scripts/check_daily_review_data.py D --phase data` → `RESULT: COMPLETE`
+2. `python3 -m market_feature_store.cli check-daily --trade-date D --json skills/daily-full-review/state/quality-D.json` → `"ok": true`
+3. `python3 skills/duckdb-backfill/scripts/qa_backfill_align.py D [--json …]` → `RESULT: PASS`（只读零网络；WARN 逐条说明为什么可接受）
+4. 双红名单：第 3 件输出的 `double-red` 行
+
+第 1、2 件回答「有没有」，第 3 件回答「像不像基线」：行数、来源语义、`pre_close`/`pct_chg` 链、金额量纲、字段空值、板块 payload 对账、日历副作用。三者缺任一都出现过「行数全对、值是空壳」的静默降级。
+
+## 只读审计与 QA 脚本
+
+- `scripts/audit_coverage.py`：按 `fact_market_daily` 日历审各 fact 表覆盖缺口。
+- `scripts/qa_backfill_align.py`：目标日 vs 最近 N 个完整日基线逐项对齐（只读、零网络、可验 staging `--db`）。
+- `scripts/verify_backfill.py`：题材表完整性 + 抽样回源对账（吃配额，429 期间不跑）。
+- `scripts/qa_fupanhui_public_assets.py`：公开资产结构门 + API 抽查。
+- `scripts/run_missing_dates.py` / `run_stock_high_missing.py`：按缺失日逐日跑的驱动器，带超时、skip 文件、连续失败阈值。
 
 ## CDP proxy 前置
 
-`daily-full` 中的多个 sync 步骤（sync-sectors、sync-market-overview、sync-market-deviation、sync-sector-daily、sync-limit-heat、sync-stock-high、sync-limit-advance）依赖 CDP proxy（localhost:3456）。运行 `daily-full` 前必须确保 CDP proxy 已启动：
+`sync-sectors`、`sync-market-overview`、`sync-market-deviation`、`sync-sector-daily`、`sync-limit-heat`、`sync-stock-high`、`sync-limit-advance` 走 CDP proxy（`localhost:3456`，携带 Chrome 里的 fupanhui 登录态）：
 
 ```bash
-# 检查 Chrome DevToolsActivePort 是否存在（必须已启动 Chrome）
-cat ~/Library/Application\ Support/Google/Chrome/DevToolsActivePort
-# 启动 CDP proxy
-node ~/.claude/skills/web-access/scripts/cdp-proxy.mjs
-# 验证
-curl -s http://localhost:3456/targets
+cat ~/Library/Application\ Support/Google/Chrome/DevToolsActivePort   # Chrome 已开 remote debugging
+node ~/.claude/skills/web-access/scripts/cdp-proxy.mjs                 # 启动
+curl -s http://localhost:3456/targets                                   # 验证
 ```
-
-如果不启动 CDP proxy，上述 7 个步骤会全部报错 `无法连接 CDP proxy`，但其余步骤（sync-index-daily、sync-sector-stocks、advancers-chart）不依赖 CDP，会正常完成。飞书 `sync-market-daily` 已退役。
-
-## Core rules
-
-- **Audit first**: Run `python3 skills/duckdb-backfill/scripts/audit_coverage.py` before writing.
-- **Use short units**: Prefer one table, one quarter/month, or 5 trading days. Avoid long SQL heredocs and silent range jobs.
-- **Stop silent hangs**: If a command has no output and CPU is 0 for about 2 minutes, terminate it and improve the skill/script instead of retrying blindly.
-- **Prefer idempotent CLI commands**: Use existing `python3 -m market_feature_store.cli ...` commands before adding new data logic.
-- **全A日线分两条路径**: 单日盘后增量用东财快照 `sync-stock-daily-snapshot`（数十秒，`daily-full`/`daily-update` 默认 `--stock-source snapshot`）；补历史多日区间仍用 mootdx `sync-stock-daily`（`--stock-source mootdx` 可强制）。详见 `references/backfill-runbook.md`「单日快照 vs 历史 mootdx」。
-- **Separate facts from sparse tables**: `fact_limit_advance_presence` is the daily coverage table; `fact_limit_advance_daily` is sparse by design.
-- **Record blockers**: Keep a list of skipped dates/sectors and explain why they were skipped.
-- **入库后必接消费层**：新增/回填一张 `fact_*` 表后，**必须**判断要不要在 `intelligence/services/finance_query.py` 的 `_DATASETS` 注册成 dataset。**入库 ≠ agent 能查到**——agent 读 DuckDB 只走 `finance_query`，没注册的表它够不着（2026-08-13 实测：龙虎榜/核心股/龙头高度/外盘入库多轮但从未注册，agent 一直用不上）。详见下方「收尾对齐」。
-
-## Backfill runbook（顺序 / 常用命令 / 已知覆盖状态）
-
-回补 runbook（按表顺序：日历/基础 fact → 轻表 → stock_high 中表 → limit_heat/sector_stock 重表；常用 CLI 命令清单；以及 2026-06-15 起的已知覆盖状态、卡死/超时/CDP 500 日期与 skip 文件）见 `references/backfill-runbook.md`。回补前加载，按顺序小批执行。
 
 ## 复盘会公开资产（2026-08-13 起）
 
-十类公开 API 资产（keywords/相似日/龙头高度/外盘/龙虎榜/监管/核心个股/竞价/事件/研报目录/题材挖掘）已进 `daily-full` 一步 `sync-fupanhui-public-assets`，无需 CDP。回补与质检：
+十类公开 API 资产（keywords/相似日/龙头高度/外盘/龙虎榜/监管/核心个股/竞价/事件/研报目录/题材挖掘）由 `sync-fupanhui-public-assets` 一步同步，无需 CDP。
 
 ```bash
-# 按其它日表窗口回补缺口（跳过已有行；空结果记 ops 不死循环）
-python3 -m market_feature_store.cli sync-fupanhui-public-assets --align --sleep 0.2
-# 定点重刷单个子任务（如龙头 as-of）
+python3 -m market_feature_store.cli sync-fupanhui-public-assets --align --sleep 0.2          # 按其它日表窗口补缺口
 python3 -m market_feature_store.cli sync-fupanhui-public-assets --align --only leader_height --refresh
-# 质检：结构门（全窗口）+ 公开 API 抽查对账，只读
-python3 skills/duckdb-backfill/scripts/qa_fupanhui_public_assets.py
-QA_SAMPLE=2026-07-01,2025-06-03 python3 skills/duckdb-backfill/scripts/qa_fupanhui_public_assets.py
-# 席位表大窗口回补（~70 次 detail/日，断点续跑+撞锁退避+完整性修复，建议 spawn.py 守护）
+python3 skills/duckdb-backfill/scripts/qa_fupanhui_public_assets.py                          # 结构门 + API 抽查
 python3 skills/duckdb-backfill/scripts/backfill_dragon_seats_full.py --start-date 2025-01-02 --end-date 2026-05-19
 ```
 
-三条硬约束（都是实测事故换来的）：
+三条硬约束（实测事故换来的）：外盘/核心股等主键 = 请求的 A 股日历日，不信接口回写的 `trade_date`；龙头高度按请求日 as-of UPSERT，趋势图历史点只填洞；验收对源头抽查，不只数行数。恒定宇宙（core 50 / global_index 5 / global_stock 194）已进 `check_daily` 断档 + 行数收缩门禁；auction / events / mapping / regulation_event 天然稀疏，靠 ops `empty` 台账区分「接口没有」和「没同步」。
 
-- **外盘/核心股等主键 = 请求的 A 股日历日**，不能信接口回写的 `trade_date`（DESC 回补会互相覆盖，390 日只剩 258）。
-- **龙头高度：请求日 as-of UPSERT，趋势图历史点只填洞**（同一天在当天图和事后图上龙头可不同）。
-- **验收不能只数行数**：必须跑 QA 脚本对源头抽查（本仓有过「行数全对、值是空壳」的静默降级）。
+## 收尾对齐（新表/新列入库后逐条过）
 
-恒定宇宙（core 每日 50 / global_index 每日 5 / global_stock 每日 194）已进 `check_daily` 的断档 + 行数收缩门禁；auction / events / mapping / regulation_event 天然稀疏，不进门禁，靠 ops `empty` 台账区分「接口没有」和「没同步」。
-
-## 收尾对齐（每次入库/新表后逐条过，别漏）
-
-一张 fact 表从「写进 DuckDB」到「agent 真能用」有三段，缺任一段都白做。落库后对着走：
-
-1. **门禁**（数据别悄悄断/塌）：稳定每日有的表进 `market_feature_store/quality.py` 的 `GAP_TABLES`（断档）；宇宙规模恒定的再进 `ROW_ANOMALY_TABLES`（行数收缩）。**棘轮**：历史空的先回补齐再进门禁，否则天天误报。天然稀疏的表不进，靠 `ops_pipeline_run_daily` 的 `empty` 台账区分「源头没有」和「没同步」。
-2. **消费层**（agent 够得着）：在 `intelligence/services/finance_query.py` 的 `_DATASETS` 注册成语义 dataset（`dimensions`/`metrics` 映射到真实列，列名对齐 `schema.sql`）。工具的 dataset/字段枚举从 `_DATASETS` 自动派生，注册即生效，无需改工具 schema。稀疏/半结构、低查询价值的可暂不注册以收敛工具面，但要在收尾里显式说明「暂不注册及原因」，不能默认漏。
-3. **质检**（值对不对，不只是行数对）：跑对源头的抽查对账（参考 `scripts/qa_fupanhui_public_assets.py` 的结构门 + API 抽样两层），别只数 `COUNT(*)`。
-
-写锁约束：DuckDB 单写者，线上 agent API 服务（`uvicorn intelligence.api.app`，端口 8792）在跑时会占写锁，批量回填得在其停止的写窗口进行，或走 `daily-full` 既有写窗口。
-
-## 已知问题（2026-06-20 更新）
-
-- **sync-market-deviation tooltip 提取失败**：`sync-market-deviation` 通过 hover K 线图 tooltip 提取周均线/偏离度，偶发失败。Fallback：手动查询最近 5 个交易日上证收盘价，计算 MA5，然后直接 SQL 写入：
-  ```sql
-  UPDATE fact_market_daily SET sh_week_ma = <MA5>, sh_deviation_pct = <dev> WHERE trade_date = 'YYYY-MM-DD'
-  ```
-- **sync-stock-daily 东财快照 502**：东财 `push2.eastmoney.com` API 从 Mac 偏发性返回 502。通常重试可解，也可用 `--stock-source mootdx` 回退。
-- **sync-sw-l1-daily SSL 错误**：swsresearch.com 的 SSL 连接偏发性失败，重试通常可解。
+1. **门禁**：稳定每日有的表进 `market_feature_store/quality.py` 的 `GAP_TABLES`；宇宙恒定的再进 `ROW_ANOMALY_TABLES`。棘轮：历史空的先补齐再进门禁。
+2. **消费层**：在 `intelligence/services/finance_query.py` 的 `_DATASETS` 注册成 dataset，否则 agent 够不着（2026-08-13 实测龙虎榜等入库多轮但从未注册）。暂不注册要在收尾里写明原因。
+3. **质检**：对源头抽查对账，不只 `COUNT(*)`。
 
 ## Iteration rule
 
-Whenever a backfill path hangs, returns misleading success, or needs manual rescue, update this skill or its scripts immediately before continuing large-scale backfill.
+回补路径一旦挂起、报假成功、或需要人工救援：**先改本 skill 或 runbook，再继续**。教训写进 `references/backfill-runbook.md`「已知语义坑」和本文红线——交接记录不会被下一个 agent 开工时读到。
