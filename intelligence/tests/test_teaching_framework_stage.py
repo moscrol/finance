@@ -437,9 +437,14 @@ def test_views_by_event_reports_common_ranges_and_forward_path():
     assert trend["forward_pct_chg"]["3"]["median"] == round((99 / 105 - 1) * 100, 4)
     assert trend["forward_pct_chg"]["5"] is None and trend["next_5_days"]["observed"] == 0
     breakout = events["breakout_confirmed"]
-    assert breakout["next_5_days"] == {"observed": 1, "below_ma": 0, "higher_close": 1}
+    assert breakout["next_5_days"] == {"observed": 1, "below_ma": 0, "above_ma": 1, "higher_close": 1}
     assert breakout["views"]["tf.ma_episode_pct_chg"]["n"] == 1
+    assert breakout["forward_share_negative"]["3"] == 0.0 and breakout["forward_pct_chg"]["20"] is None
     assert events["overheated"]["days"] == 6
+    # 第十三段: cross-below days split by how they opened.  The only cross below (day 9, open 98.8 < close 99 ≤ MA 100)
+    # gapped down and opened under the MA; there is no intraday cross.
+    assert events["cross_below_gap_down"]["days"] == 1 and events["cross_below_gap_through_ma"]["days"] == 1
+    assert events["cross_below_intraday"]["days"] == 0 and events["cross_below_gap_down"]["min_close_within_10_pct_chg"] is None
 
 
 def test_perturbing_a_future_day_leaves_earlier_flags_and_stages_untouched():

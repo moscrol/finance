@@ -198,6 +198,9 @@ def compute_flags(
             _num(prev.get("sh_index_close")) if prev else None,
         )
         rec["gap_down_open"] = None if op is None or pc is None else op < pc
+        # 第十三段「跳空低开跌破周均」：低开本身在下穿日里是常态（真库 53 次下穿 38 次低开），有区别的是
+        # 开盘就已经在周均线之下——缺口本身穿过了周均线。作旗标写出，供事件回溯与 ``left_down_entry`` 可选读法用。
+        rec["open_below_week_ma"] = None if op is None or ma is None else op < ma
         # 创始人 09-07 第六段：「上穿周均线往往就伴随放量和指数的阳线」——阳线只是一个视角。
         rec["up_candle"] = None if op is None or close is None else close > op
         amount, ma20 = _num(row.get("total_amount")), _num(row.get("amount_ma20"))

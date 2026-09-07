@@ -92,7 +92,11 @@ DEFAULT_UPGRADE_NEW_HIGH_WINDOW = 20
 # ``volume`` = 当日量能条件：expanding_or_gap（09-06 第三轮「放量跌破或跳空低开跌破」）/ shrink（平台起点
 # 的形状：缩量）/ any。哪一组是 B 类候选，按训练期选、验证期验。
 LEFT_DOWN_VOLUME_RULES = ("expanding_or_gap", "shrink", "shrink_or_gap", "any")
-DEFAULT_LEFT_DOWN_ENTRY = {"persist_days": 1, "volume": "expanding_or_gap"}
+# ``gap_through_ma_day1``（可选，缺省 False）：第十三段「印象中跳空低开跌破周均的，后续往往指数是继续向下」——
+# 首次下穿当天开盘就已在周均线之下（缺口穿过周均）时，不等 persist_days、不看量能，当天就算进入。
+# 真库（09-07，固定快照）：16 次这样的下穿 20 日后 64% 收在下方（全部交易日基准 36%），但作进入证据时一致率
+# 训练期持平 50.5、验证期 40.0 → 39.1，多判的 4 天平台都不叫左底向下，所以只作可选项，不是默认。
+DEFAULT_LEFT_DOWN_ENTRY = {"persist_days": 1, "volume": "expanding_or_gap", "gap_through_ma_day1": False}
 
 
 def left_down_entry(params: Mapping[str, Any] | None) -> dict[str, Any]:
@@ -100,6 +104,7 @@ def left_down_entry(params: Mapping[str, Any] | None) -> dict[str, Any]:
     return {
         "persist_days": int(raw.get("persist_days", DEFAULT_LEFT_DOWN_ENTRY["persist_days"])),
         "volume": str(raw.get("volume", DEFAULT_LEFT_DOWN_ENTRY["volume"])),
+        "gap_through_ma_day1": bool(raw.get("gap_through_ma_day1", DEFAULT_LEFT_DOWN_ENTRY["gap_through_ma_day1"])),
     }
 
 
@@ -216,7 +221,11 @@ def predicate_hits(
         isinstance(cycle_day, (int, float)) and cycle_day >= entry["persist_days"]
         and v("below_ma_cycle_retest_seen") is False and v("above_week_ma") is False
     )
-    if in_first_phase and _left_down_volume_ok(v, entry["volume"]):
+    gap_through_ma = (
+        entry["gap_through_ma_day1"] and v("cross_below_kind") == "first" and v("open_below_week_ma") is True
+        and v("above_week_ma") is False
+    )
+    if (in_first_phase and _left_down_volume_ok(v, entry["volume"])) or gap_through_ma:
         hits.append(("左底向下", "E:first_cross_below"))
     if v("cross_below_kind") == "retest":
         hits.append(("二次探底", "E:retest_cross_below"))

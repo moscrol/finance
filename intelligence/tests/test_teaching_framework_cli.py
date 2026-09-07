@@ -77,15 +77,15 @@ def source_db(tmp_path: Path) -> Path:
         "INSERT INTO fact_theme_limit_stock_daily VALUES (?, ?, ?, ?, NULL, '093000', NULL, 1000.0, 50.0, 'U')",
         [(d, s, s, b) for d, s, b in LIMIT_ROWS],
     )
-    con.execute("CREATE TABLE fact_stock_daily (trade_date DATE, stock_ts_code VARCHAR, stock_name VARCHAR, close DOUBLE, pct_chg DOUBLE, amount DOUBLE)")
+    con.execute("CREATE TABLE fact_stock_daily (trade_date DATE, stock_ts_code VARCHAR, stock_name VARCHAR, close DOUBLE, pct_chg DOUBLE, amount DOUBLE, high DOUBLE)")
     con.executemany(
-        "INSERT INTO fact_stock_daily VALUES (?, ?, ?, ?, ?, ?)",
-        [(d, s, s.lower(), 10.0 * (k + 1) + i, 1.0 * (k - 1), a) for i, d in enumerate(DAYS) for k, (s, a) in enumerate((("X", 30.0), ("Y", 20.0), ("Z", 10.0)))],
+        "INSERT INTO fact_stock_daily VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [(d, s, s.lower(), 10.0 * (k + 1) + i, 1.0 * (k - 1), a, 10.0 * (k + 1) + i + 0.5) for i, d in enumerate(DAYS) for k, (s, a) in enumerate((("X", 30.0), ("Y", 20.0), ("Z", 10.0)))],
     )
     # 承接 rows for the limit-up stocks: +2 on a day they limit again, −3 otherwise; NULL close keeps them out of breadth.
     limit_days = {(d, s) for d, s, _ in LIMIT_ROWS}
     con.executemany(
-        "INSERT INTO fact_stock_daily VALUES (?, ?, ?, NULL, ?, NULL)",
+        "INSERT INTO fact_stock_daily VALUES (?, ?, ?, NULL, ?, NULL, NULL)",
         [(d, s, s.lower(), 2.0 if (d, s) in limit_days else -3.0) for d in DAYS for s in "ABCDEFGH"],
     )
     # Sector side (第二刀): two sectors a day, one strict 双红 on even days; 3 limit-ups in S1; new highs = day index + 1
@@ -432,6 +432,59 @@ def test_build_range_leaders_writes_group_rows_handoffs_and_receipt(capsys, tmp_
     assert again["canonical_hash"] == out["canonical_hash"]
     report = _run(capsys, "report", "--labels-db", str(sidecar))
     assert report["counts"]["range_leader_rows"] == 16 and report["counts"]["range_leader_handoffs"] == 0
+
+
+def test_build_dynasties_cuts_waves_from_the_reference_and_flags_separation(capsys, tmp_path, source_db, params_file) -> None:
+    """王朝链 (创始人 09-07 第十三段): waves come from the platform stages; the new dynasty's members are read in the old one's collapse window."""
+    params = json.loads(params_file.read_text(encoding="utf-8"))
+    params.update({"dynasty_top": 2, "dynasty_cohort": 3})
+    params_file.write_text(json.dumps(params, ensure_ascii=False, indent=2), encoding="utf-8")
+    sidecar = tmp_path / "labels.duckdb"
+    common = ["--db-path", str(source_db), "--labels-db", str(sidecar), "--params", str(params_file), "--computed-at", "2026-09-07T00:00:00Z"]
+    # Without a reference the command fails closed: waves are cut on the platform's stages, nothing else.
+    assert main(["build-dynasties", *common]) == 2 and "参照" in capsys.readouterr().err
+    # 承接 ×5 | 左底向下 | 共建 共建 承接 2.0 → wave 0 (truncated, peaks day 5), one-day collapse (day 6), wave 1 (open) from day 7.
+    stages = ["承接盘反复", "承接盘反复", "承接盘反复", "承接盘反复", "承接盘反复", "左底向下", "共建主线", "共建主线", "承接盘反复", "主流主升2.0"]
+    payload = {"source": "fupanhui.com /api/v1/client/reviews/overview", "pulled_at": "2026-09-07T04:00:00Z", "available_since": "2021-09-13",
+               "items": [_reference_item(d, s, "顶部横盘阶段", 100.0) for d, s in zip(DAYS, stages)]}
+    ref_json = tmp_path / "reference.json"
+    ref_json.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    _run(capsys, "load-reference", "--json", str(ref_json), "--labels-db", str(sidecar), "--db-path", str(source_db), "--computed-at", "2026-09-07T05:00:00Z")
+    out = _run(capsys, "build-dynasties", *common)
+    assert out["waves"] == 2 and out["handoff_rows"] == 3
+    waves = out["readouts"]["waves"]
+    assert [w["status"] for w in waves] == ["truncated", "open"]
+    assert waves[0]["collapse"] == [DAYS[5], DAYS[5]] and waves[0]["first_down_end"] == DAYS[5] and waves[0]["ranked_stocks"] == 0
+    # New wave (01-13 → 01-16, base 01-12): X 19/15, Y 29/25, Z 39/35 → X, Y, Z; the 连板 stocks A..H have no close and never rank.
+    assert waves[1]["start"] == DAYS[6] and waves[1]["peak_end"] == DAYS[9] and waves[1]["ranked_stocks"] == 3
+    assert waves[1]["entry_gain_pct"]["top2"] == pytest.approx((29 / 25 - 1) * 100) and waves[1]["forms"]["cohort3"] == {"趋势": 3}
+    side = duckdb.connect(str(sidecar), read_only=True)
+    try:
+        members = side.execute("SELECT wave_idx, rank, stock_ts_code, wave_status, form, collapse_ret_pct FROM history_dynasties ORDER BY wave_idx, rank").fetchall()
+        assert members == [(1, 1, "X", "open", "趋势", None), (1, 2, "Y", "open", "趋势", None), (1, 3, "Z", "open", "趋势", None)]
+        rows = side.execute(
+            """SELECT new_rank, stock_ts_code, old_wave_rank, collapse_ret_pct, collapse_ret_percentile, new_high_in_collapse, separation_relative, first_leg_ret_pct
+               FROM history_dynasty_handoffs ORDER BY new_rank"""
+        ).fetchall()
+        # Collapse day 01-12 over 01-09: X 15/14, Y 25/24, Z 35/34 → percentiles 66.67 / 33.33 / 0 (none reaches 0.9); every stock's
+        # high (close + 0.5) is above the window before it → 新高分离 for all; the old wave has no visible start, so no old rank.
+        assert [(r[0], r[1], r[2], r[5], r[6]) for r in rows] == [(1, "X", None, True, False), (2, "Y", None, True, False), (3, "Z", None, True, False)]
+        assert rows[0][3] == pytest.approx((15 / 14 - 1) * 100, abs=1e-6) and rows[0][4] == 66.67 and rows[0][7] == rows[0][3]
+        kinds = [r[0] for r in side.execute("SELECT build_kind FROM history_teaching_receipts ORDER BY build_kind").fetchall()]
+        assert kinds == ["dynasties"]
+    finally:
+        side.close()
+    (handoff,) = out["readouts"]["handoffs"]
+    assert handoff["handoff"] == "W0→W1" and handoff["old_wave_status"] == "truncated" and handoff["money_losing"]["stocks"] == 3
+    assert handoff["money_losing"]["index_ret_pct"] == pytest.approx((99 / 101 - 1) * 100, abs=1e-3)  # the fixture's gap-down day against the day before
+    assert handoff["top2"]["new_in_collapse"]["share_separation_new_high"] == 1.0 and handoff["top2"]["new_in_collapse"]["share_separation_relative"] == 0.0
+    assert handoff["top2"]["old_in_collapse"]["ret_pct"] is None  # truncated old wave: nothing to fall
+    gate = out["readouts"]["separation_gate"]
+    assert gate["cycles"] == 1 and gate["top2"]["n"] == 0 and gate["top2"]["verdict"] == "insufficient_n" and gate["cohort3"]["baseline_k"] == 3
+    again = _run(capsys, "build-dynasties", *[*common[:-2], "--computed-at", "2026-09-08T00:00:00Z"])
+    assert again["canonical_hash"] == out["canonical_hash"]
+    report = _run(capsys, "report", "--labels-db", str(sidecar))
+    assert report["counts"]["dynasty_rows"] == 3 and report["counts"]["dynasty_handoffs"] == 3
 
 
 def test_stale_sidecar_schema_fails_closed(capsys, tmp_path, source_db, params_file) -> None:
