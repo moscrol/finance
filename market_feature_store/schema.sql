@@ -86,9 +86,14 @@ CREATE TABLE IF NOT EXISTS fact_market_daily (
     note                     TEXT,
     summary_keywords         TEXT,
     source                   TEXT,
-    updated_at               TIMESTAMP
+    updated_at               TIMESTAMP,
+    -- 2026-09-07：周期阶段自训分类器的来源与置信（老库由 models/market_stage.ensure_stage_columns 追加）
+    market_stage_source      TEXT,
+    market_stage_confidence  DOUBLE
 );
 ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS summary_keywords TEXT;
+ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS market_stage_source TEXT;
+ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS market_stage_confidence DOUBLE;
 
 -- 板块 universe 快照台账：同一交易日可有多份候选，只有 published 那份对外可见。
 -- 供应商会换代码、改名单，没有这层就无法回答「当时用的是哪一版板块清单」。

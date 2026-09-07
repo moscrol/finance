@@ -55,7 +55,7 @@ GATES = {
 }
 # 已知还对不上、只出读数不设门的族
 INFO_ONLY = {
-    "stock_high": "新高家数：需要 OHLC（日内最高价）+ 复权；收盘价口径差 ±20%",
+    "stock_high": "新高家数：按日内最高价（high）；fupanhui 用前复权，20 日相对误差中位 ~12%",
     "strength_top5": "市场强度：fupanhui 的 top5 集合未逆向出；自家口径=涨幅前 5% 个股（compute-market-editorial-local），见上方编辑层读数",
 }
 
@@ -324,6 +324,27 @@ def run(start, end, n, json_path):
             }
             print(f"编辑层替代版 vs fph（{n_ed} 日）：强度均涨幅(前5%口径) 相对误差中位 {median(rel) if rel else float('nan'):.1%}；"
                   f"强度状态一致 {st_hit}/{n_ed}；量能状态一致 {vs_hit}/{len(vs_pairs)}")
+
+        # ---- F. 主线 / 周期阶段：local 与 fupanhui 同日都有时才有对照（fupanhui 恢复后自动出读数）
+        ml = q(con, f"""
+            WITH f AS (SELECT trade_date, theme_name FROM fact_mainline_theme_daily WHERE source NOT LIKE 'local:%' AND trade_date IN ({ph})),
+                 l AS (SELECT trade_date, theme_name FROM fact_mainline_theme_daily WHERE source LIKE 'local:%' AND trade_date IN ({ph}))
+            SELECT CAST(d.trade_date AS VARCHAR),
+                   (SELECT COUNT(*) FROM f WHERE f.trade_date = d.trade_date AND theme_name IN (SELECT theme_name FROM l WHERE l.trade_date = d.trade_date)),
+                   (SELECT COUNT(DISTINCT theme_name) FROM (SELECT theme_name FROM f WHERE f.trade_date = d.trade_date UNION SELECT theme_name FROM l WHERE l.trade_date = d.trade_date))
+            FROM (SELECT DISTINCT trade_date FROM f INTERSECT SELECT DISTINCT trade_date FROM l) d""", dates + dates)
+        if ml:
+            jac = [inter / uni for _d, inter, uni in ml if uni]
+            out["families"]["mainline_jaccard"] = {"days": len(jac), "median": median(jac) if jac else None}
+            print(f"主线题材 local vs fph 同日对照 {len(jac)} 日：Jaccard 中位 {median(jac) if jac else float('nan'):.2f}")
+        st = q(con, f"""
+            SELECT COUNT(*), COUNT(*) FILTER (WHERE l.market_stage = f.market_stage)
+            FROM fact_market_daily f JOIN fact_market_daily l ON l.trade_date = f.trade_date
+            WHERE f.trade_date IN ({ph}) AND f.market_stage IS NOT NULL AND f.market_stage_source IS NULL AND l.market_stage_source LIKE 'local:%'""", dates) if "market_stage_source" in {r[0] for r in q(con, "DESCRIBE fact_market_daily")} else []
+        # 同一行不可能同时存两份标签；恢复访问后 fupanhui 标签走 ops 对照表再比。这里只在两份都在时输出。
+        if st and st[0][0]:
+            out["families"]["stage_agree"] = st[0][1] / st[0][0]
+            print(f"周期阶段 local vs fph 一致 {st[0][1]}/{st[0][0]}")
 
         # ---- 判定
         print("\n== 判定（干净日 %d 个）==" % len(clean))

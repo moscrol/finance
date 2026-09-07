@@ -188,3 +188,24 @@ def test_stock_high_uses_intraday_high_and_longest_period():
     assert r["action"] == "written" and r["rows"] == 1 and r["by_label"] == {"20日新高": 1}
     row = con.execute("SELECT stock_ts_code, primary_high_period, high_periods_json, source FROM fact_stock_high_daily").fetchone()
     assert row[0] == "600001.SH" and row[1] == "20d" and '"20d"' in row[2] and row[3] == "local:high-ohlc"
+
+
+def test_mainline_local_picks_popular_theme_and_limit_up_stocks():
+    con = _db()
+    _seed_two_days(con)
+    _seed_universe_and_members(con)
+    # 板块日线两天：题材A 的板块强（20 日涨幅高、有双红），题材B 的板块弱
+    for d, pa, pb in (("2026-09-01", 3.0, -1.0), ("2026-09-02", 4.0, -2.0)):
+        con.execute("INSERT INTO fact_sector_daily_generation (trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name, pct_chg, amount, diff_ratio, source, updated_at) "
+                    "SELECT ?, snapshot_id, '990001.FP', '题材A', ?, 900.0, 20.0, 'local:agg', now() FROM ops_sector_universe_snapshot_daily WHERE trade_date='2026-09-02' AND status='published'", [d, pa])
+        con.execute("INSERT INTO fact_sector_daily_generation (trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name, pct_chg, amount, diff_ratio, source, updated_at) "
+                    "SELECT ?, snapshot_id, '990002.FP', '题材B', ?, 100.0, -5.0, 'local:agg', now() FROM ops_sector_universe_snapshot_daily WHERE trade_date='2026-09-02' AND status='published'", [d, pb])
+    # 没有 fupanhui 主线历史 → 题材归组退到申万一级
+    con.execute("UPDATE dim_sector SET sw_l1 = '电子' WHERE sector_ts_code = '990001.FP'")
+    con.execute("UPDATE dim_sector SET sw_l1 = '医药生物' WHERE sector_ts_code = '990002.FP'")
+    r = cls_.compute_mainline_local("2026-09-02", con=con, topk=1)
+    assert r["action"] == "written" and r["themes"] == ["电子"]
+    stocks = con.execute("SELECT stock_ts_code, pct_chg FROM fact_mainline_stock_daily ORDER BY pct_chg DESC").fetchall()
+    # 题材A 成员：甲(涨停 10%)、乙(20% 板)、平安(0%)；涨停优先且不含 ST
+    assert [s for s, _ in stocks][:2] == ["300001.SZ", "600001.SH"] and all(s != "002514.SZ" for s, _ in stocks)
+    assert con.execute("SELECT theme_code, sector_count, source FROM fact_mainline_theme_daily").fetchone() == ("LM001.LOCAL", 1, "local:mainline-v1")

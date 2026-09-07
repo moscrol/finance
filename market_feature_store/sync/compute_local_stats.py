@@ -673,3 +673,136 @@ def compute_stock_high_local(trade_date, *, con=None, force: bool = False) -> di
     finally:
         if own:
             con.close()
+
+
+# ---------------------------------------------------------------------------
+# 6. 主线题材自家替代版（人气值：20 日涨幅 ×2 + 5 日涨停数 ×1 + 5 日均额 ×0.5 + 5 日双红 ×0.5）
+# ---------------------------------------------------------------------------
+LOCAL_MAINLINE_SOURCE = "local:mainline-v1"
+MAINLINE_WEIGHTS = {"ret20": 2.0, "lu5": 1.0, "amt5": 0.5, "red5": 0.5}
+MAINLINE_TOPK = 4
+MAINLINE_STOCKS_PER_THEME = 20
+
+
+def _z(values):
+    import numpy as np
+
+    v = np.array(values, dtype=float)
+    s = v.std() or 1.0
+    return (v - v.mean()) / s
+
+
+def sector_theme_map(con) -> dict[str, str]:
+    """板块→题材：先用 fupanhui 主线历史的归组（73 板块/14 题材，稳定），其余板块退到申万一级。"""
+    hist = con.execute(
+        "SELECT sector_ts_code, theme_name, COUNT(*) FROM fact_mainline_sector_daily WHERE source NOT LIKE 'local:%' GROUP BY 1, 2"
+    ).fetchall()
+    best: dict[str, tuple[str, int]] = {}
+    for code, theme, n in hist:
+        if code not in best or n > best[code][1]:
+            best[code] = (theme, n)
+    out = {c: t for c, (t, _n) in best.items()}
+    for code, sw in con.execute("SELECT sector_ts_code, sw_l1 FROM dim_sector WHERE sw_l1 IS NOT NULL").fetchall():
+        out.setdefault(code, sw)
+    return out
+
+
+def compute_mainline_local(trade_date, *, con=None, force: bool = False, topk: int = MAINLINE_TOPK) -> dict:
+    """主线题材 = 人气值最高的 topk 个题材（题材分 = 成员板块分 top-3 均值）。
+
+    与 fupanhui 主线历史（53 日）对照：题材集合 Jaccard 0.28（随机 0.09；只在其 14 个题材里选时 0.47）。
+    fupanhui 的主线是编辑判断且题材是动态归组的，这里是**自家口径**，标 local:mainline-v1。
+    主线个股：主线题材成员板块里的涨停股（不计 ST）优先，再按 涨幅×log(成交额) 补足，每题材最多 20 只。
+    """
+    import numpy as np
+
+    td = _as_date(trade_date)
+    own = con is None
+    if own:
+        init_db()
+        con = connect()
+    try:
+        tables = ("fact_mainline_theme_daily", "fact_mainline_sector_daily", "fact_mainline_stock_daily")
+        skipped = {t: _has_foreign_rows(con, t, td) for t in tables}
+        skipped = {t: n for t, n in skipped.items() if n}
+        if skipped and not force:
+            return {"trade_date": td.isoformat(), "action": "skipped-has-foreign-rows", "skipped": skipped}
+        from ..signals import DOUBLE_RED_SQL  # 双红阈值单一真本源（R-20260830-03）
+
+        rows = con.execute(
+            f"""
+            WITH sd AS (
+              SELECT trade_date, sector_ts_code, sector_name, pct_chg, amount,
+                     SUM(pct_chg) OVER (PARTITION BY sector_ts_code ORDER BY trade_date ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) ret20,
+                     AVG(amount) OVER (PARTITION BY sector_ts_code ORDER BY trade_date ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) amt5,
+                     SUM(CASE WHEN {DOUBLE_RED_SQL} THEN 1 ELSE 0 END)
+                       OVER (PARTITION BY sector_ts_code ORDER BY trade_date ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) red5
+              FROM fact_sector_daily WHERE trade_date <= ? AND trade_date >= CAST(? AS DATE) - INTERVAL 45 DAY),
+            lh AS (
+              SELECT trade_date, sector_ts_code,
+                     SUM(limit_up_count) OVER (PARTITION BY sector_ts_code ORDER BY trade_date ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) lu5
+              FROM fact_theme_limit_heat_daily WHERE dimension = 'sector' AND scope = 'all' AND trade_date <= ?)
+            SELECT sd.sector_ts_code, sd.sector_name, COALESCE(sd.ret20, 0), COALESCE(sd.amt5, 0), COALESCE(sd.red5, 0), COALESCE(lh.lu5, 0)
+            FROM sd LEFT JOIN lh USING (trade_date, sector_ts_code) WHERE sd.trade_date = ?
+            """,
+            [td, td, td, td],
+        ).fetchall()
+        if not rows:
+            raise RuntimeError(f"{td} fact_sector_daily 无行，先跑 sector-daily-local")
+        codes = [r[0] for r in rows]
+        names = {r[0]: r[1] for r in rows}
+        score = (MAINLINE_WEIGHTS["ret20"] * _z([r[2] for r in rows]) + MAINLINE_WEIGHTS["amt5"] * _z(np.log1p([r[3] for r in rows]))
+                 + MAINLINE_WEIGHTS["red5"] * _z([r[4] for r in rows]) + MAINLINE_WEIGHTS["lu5"] * _z(np.log1p([r[5] for r in rows])))
+        mapping = sector_theme_map(con)
+        theme_sectors: dict[str, list[tuple[str, float]]] = {}
+        for c, s in zip(codes, score):
+            t = mapping.get(c)
+            if t:
+                theme_sectors.setdefault(t, []).append((c, float(s)))
+        theme_score = {t: float(np.mean(sorted((s for _c, s in v), reverse=True)[:3])) for t, v in theme_sectors.items()}
+        chosen = sorted(theme_score, key=theme_score.get, reverse=True)[:topk]
+
+        today, _series = _limit_flags(con, td, lookback_days=1)
+        stock_row = {r[1]: r for r in today}
+        now = datetime.now()
+        theme_rows, sector_rows, stock_rows = [], [], []
+        for rank, t in enumerate(chosen, start=1):
+            code = f"LM{rank:03d}.LOCAL"
+            secs = sorted(theme_sectors[t], key=lambda x: -x[1])
+            theme_rows.append((td, code, t, len(secs), rank, LOCAL_MAINLINE_SOURCE, now))
+            for c, _s in secs:
+                sector_rows.append((td, code, t, c, names[c], LOCAL_MAINLINE_SOURCE, now))
+            members = con.execute(
+                f"SELECT DISTINCT stock_ts_code FROM fact_sector_stock_daily WHERE trade_date = ? AND sector_ts_code IN ({','.join('?' for _ in secs)})",
+                [td, *[c for c, _s in secs]],
+            ).fetchall()
+            cands = []
+            for (stk,) in members:
+                r = stock_row.get(stk)
+                if not r or r[8] or r[5] is None or not r[6]:  # 无行 / ST / 无涨幅 / 无成交
+                    continue
+                cands.append((1 if r[9] else 0, float(r[5]) * float(np.log1p(r[6])), stk, r))
+            cands.sort(key=lambda x: (-x[0], -x[1]))
+            for _up, _k, stk, r in cands[:MAINLINE_STOCKS_PER_THEME]:
+                stock_rows.append((td, code, t, "mainline", stk, r[2], r[3], r[5], r[6], LOCAL_MAINLINE_SOURCE, now))
+        con.execute("BEGIN TRANSACTION")
+        for t in tables:
+            con.execute(f"DELETE FROM {t} WHERE trade_date = ?", [td])
+        con.executemany("INSERT INTO fact_mainline_theme_daily (trade_date, theme_code, theme_name, sector_count, min_sort, source, updated_at) VALUES (?,?,?,?,?,?,?)", theme_rows)
+        con.executemany("INSERT INTO fact_mainline_sector_daily (trade_date, theme_code, theme_name, sector_ts_code, sector_name, source, updated_at) VALUES (?,?,?,?,?,?,?)", sector_rows)
+        con.executemany(
+            "INSERT INTO fact_mainline_stock_daily (trade_date, theme_code, theme_name, group_type, stock_ts_code, stock_name, price, pct_chg, amount, source, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            stock_rows,
+        )
+        con.execute("COMMIT")
+        return {"trade_date": td.isoformat(), "action": "written", "themes": chosen, "theme_scores": {t: round(theme_score[t], 2) for t in chosen},
+                "sector_rows": len(sector_rows), "stock_rows": len(stock_rows)}
+    except Exception:
+        try:
+            con.execute("ROLLBACK")
+        except Exception:  # noqa: BLE001
+            pass
+        raise
+    finally:
+        if own:
+            con.close()

@@ -571,6 +571,40 @@ def cmd_compute_stock_high_local(args) -> int:
     return 0
 
 
+def cmd_train_market_stage(args) -> int:
+    from .models.market_stage import ARTIFACT, train
+
+    art = train(out_path=args.out or ARTIFACT)
+    cv = art["cv"]
+    print(f"训练 {art['train_days']} 日 {art['train_range'][0]}~{art['train_range'][1]} | 分块{cv['folds']}折 精确 {cv['exact_acc_mean']:.1%} 粗粒度 {cv['coarse_acc_mean']:.1%} "
+          f"| 各块精确 {[round(x, 2) for x in cv['exact_acc_by_block']]} | 对照手写规则 37%/58%")
+    print(f"产物: {args.out or ARTIFACT}")
+    return 0
+
+
+def cmd_compute_market_stage_local(args) -> int:
+    from .models.market_stage import predict_stage
+
+    r = predict_stage(args.trade_date, write=not args.dry_run)
+    if r["action"] == "kept-fupanhui-label":
+        print(f"交易日: {r['trade_date']} | 已有 fupanhui 标签 {r['market_stage']}，不覆盖")
+        return 0
+    top = sorted(r["proba"].items(), key=lambda kv: -kv[1])[:3]
+    print(f"交易日: {r['trade_date']} | 周期阶段(自训 v1) {r['market_stage']} 第{r['stage_day']}天 置信 {r['confidence']} | argmax {r['argmax']} | 前一日 {r['prev_stage']} | top3 {top}")
+    return 0
+
+
+def cmd_compute_mainline_local(args) -> int:
+    from .sync.compute_local_stats import compute_mainline_local
+
+    r = compute_mainline_local(args.trade_date, force=args.force, topk=args.topk)
+    if r["action"] != "written":
+        print(f"交易日: {r['trade_date']} | {r['action']} {r.get('skipped', '')}（--force 覆盖）")
+        return 0
+    print(f"交易日: {r['trade_date']} | 主线题材(人气值 v1) {r['themes']} 分 {r['theme_scores']} | 核心板块 {r['sector_rows']} 行 / 主线个股 {r['stock_rows']} 只")
+    return 0
+
+
 def cmd_sync_sector_daily_local(args) -> int:
     from .sync.sync_local_sector_daily import brief, sync_sector_daily_local
 
@@ -1457,6 +1491,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_csh.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
     p_csh.add_argument("--force", action="store_true", help="当日已有非 local 来源行时也覆盖")
     p_csh.set_defaults(func=cmd_compute_stock_high_local)
+
+    p_tms = sub.add_parser("train-market-stage", help="用 fupanhui 历史周期阶段标签训练本地分类器（numpy 逻辑回归），导出 JSON 权重并打印分块 CV 读数")
+    p_tms.add_argument("--out", default=None, help="产物路径，默认 market_feature_store/models/market_stage_lr_v1.json")
+    p_tms.set_defaults(func=cmd_train_market_stage)
+
+    p_cms = sub.add_parser("compute-market-stage-local", help="周期阶段自训分类器 v1 预测并写 market_stage/stage_day（带 source/confidence；有 fupanhui 标签的日子不覆盖）")
+    p_cms.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_cms.add_argument("--dry-run", action="store_true", help="只预测不写")
+    p_cms.set_defaults(func=cmd_compute_market_stage_local)
+
+    p_cml = sub.add_parser("compute-mainline-local", help="主线题材自家替代版：人气值（20日涨幅×2+5日涨停数+5日均额×0.5+5日双红×0.5）取 top4 题材，写三张 mainline 表")
+    p_cml.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_cml.add_argument("--topk", type=int, default=4, help="主线题材数，默认 4")
+    p_cml.add_argument("--force", action="store_true", help="当日已有非 local 来源行时也覆盖")
+    p_cml.set_defaults(func=cmd_compute_mainline_local)
 
     p_sdl = sub.add_parser(
         "sync-sector-daily-local",
