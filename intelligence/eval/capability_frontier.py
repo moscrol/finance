@@ -49,6 +49,14 @@ class ContextEfficiency:
     input_tokens: int | None
     output_tokens: int | None
     llm_calls: int | None
+    # 工具消息进模型的那份（按 harness 同一套投影从审计底稿重算）：一共多少字、最大的一条是谁、
+    # 以及它们在后续每一轮被原样重发的累计字数——上下文成本 = 轮数 × 历史长度，这一项把「轮数」
+    # 那个乘数摆出来。2026-09-07 0907h：15 条工具消息 7.7 万字，19 轮重发累计 96 万字。
+    model_turns: int | None = None
+    tool_message_chars: int | None = None
+    largest_tool_message_chars: int | None = None
+    largest_tool: str | None = None
+    resent_chars_estimate: int | None = None
 
     @property
     def input_tokens_per_llm_call(self) -> float | None:
@@ -192,6 +200,64 @@ def _sub_research_result(events: Sequence[Mapping[str, Any]]) -> Mapping[str, An
         if event.get("kind") == "tool_result" and payload.get("tool") == SUB_RESEARCH_TOOL:
             return payload
     return None
+
+
+# 审计底稿 = 模型视图 + loop 追加的账（call_id / 计时 / 派发时钟）+ ledger 追加的（task_frame_hash / at）。
+# 去掉这些再走一遍 harness 的投影，就是模型当时真正看到的那条 tool 消息。
+_AUDIT_ONLY_KEYS = frozenset(
+    {
+        "telemetry",
+        "call_id",
+        "queued_ms",
+        "elapsed_ms",
+        "batch_grant_asked",
+        "stage_timeout_granted",
+        "episode_remaining_at_dispatch",
+        "remaining_slots_at_dispatch",
+        "turn_elapsed_at_dispatch",
+        "task_frame_hash",
+        "at",
+    }
+)
+
+
+def _tool_context_costs(events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """把每条 tool_result 按 harness 的投影重算成模型视图字数，并按后续轮数累计重发量。"""
+
+    from intelligence.services.episode_protocol import strip_hashes_for_model
+    from intelligence.services.tool_observation_noise import prune_tool_observation
+    from intelligence.services.tool_result_budget import budget_tool_observation
+
+    turns = sum(1 for event in events if event.get("kind") == "model_turn")
+    seen: frozenset[str] = frozenset()
+    turn_index = 0
+    sizes: list[tuple[int, str, int]] = []
+    for event in events:
+        if event.get("kind") == "model_turn":
+            turn_index += 1
+            continue
+        if event.get("kind") != "tool_result":
+            continue
+        payload = event["payload"]
+        view = {key: value for key, value in payload.items() if key not in _AUDIT_ONLY_KEYS}
+        try:
+            pruned, seen = prune_tool_observation(view, seen_prose=seen)
+            content = json.dumps(
+                strip_hashes_for_model(budget_tool_observation(pruned)), ensure_ascii=False
+            )
+        except Exception:  # 投影函数换了形状就别猜：这一条记不出来
+            continue
+        sizes.append((turn_index, str(payload.get("tool") or ""), len(content)))
+    if not sizes:
+        return {"model_turns": turns or None}
+    largest = max(sizes, key=lambda item: item[2])
+    return {
+        "model_turns": turns,
+        "tool_message_chars": sum(item[2] for item in sizes),
+        "largest_tool_message_chars": largest[2],
+        "largest_tool": largest[1],
+        "resent_chars_estimate": sum(chars * max(0, turns - turn) for turn, _, chars in sizes),
+    }
 
 
 def _gate_receipt(report: Mapping[str, Any], episode: Mapping[str, Any]) -> Verification:
@@ -379,6 +445,7 @@ def frontier_vector(run_dir: Path) -> FrontierVector:
             input_tokens=_int_or_none(usage.get("input_tokens")),
             output_tokens=_int_or_none(usage.get("output_tokens")),
             llm_calls=_int_or_none(usage.get("llm_calls")),
+            **_tool_context_costs(events),
         ),
         repair_recovery=RepairRecovery(
             status=str(outcome.get("status")) if outcome.get("status") is not None else None,
@@ -401,6 +468,7 @@ _MD_COLUMNS: tuple[tuple[str, str], ...] = (
     ("tools used/offered", "tools"),
     ("evidence parent+branch/bound", "evidence"),
     ("input tok / llm", "context"),
+    ("tool msg chars / resent (largest)", "tool_context"),
     ("repair", "repair"),
     ("episode s / sub_research s / ledger left", "clock"),
     ("branches ok/partial/fail · accepted · invalid · cap rej/req", "branches"),
@@ -433,6 +501,10 @@ def _md_cells(vector: FrontierVector) -> dict[str, str]:
         ),
         "evidence": f"{show(ey.parent_evidence)}+{ey.branch_evidence}/{show(ey.bound_hashes)}",
         "context": f"{show(ce.input_tokens)} / {show(ce.llm_calls)}",
+        "tool_context": (
+            f"{show(ce.tool_message_chars)} / {show(ce.resent_chars_estimate)}"
+            + (f" ({ce.largest_tool} {ce.largest_tool_message_chars})" if ce.largest_tool else "")
+        ),
         "repair": f"{show(rr.repair_attempts)} attempt(s)",
         "clock": f"{show(wc.episode_seconds)} / {show(wc.sub_research_seconds)} / {show(wc.ledger_remaining_seconds_at_finish)}",
         "branches": (

@@ -159,6 +159,60 @@ def test_missing_trace_fields_stay_none_instead_of_zero(tmp_path: Path) -> None:
     assert "—" in render_markdown([vector])
 
 
+def test_tool_message_resend_cost_is_recomputed_with_the_harness_projection(tmp_path: Path) -> None:
+    """上下文成本 = 轮数 × 历史长度。工具消息按 harness 同一套投影重算成模型视图字数，
+    再按「之后还有几轮」累计重发量（0907h：15 条 7.7 万字，19 轮重发累计 96 万字）。"""
+
+    run_dir = tmp_path / "ctx"
+    run_dir.mkdir()
+    big = {
+        "ok": True, "tool": "sub_research", "query": "goals", "observation": "子研究返回：" + "证据。" * 200,
+        "evidence": [
+            {"tool": "news_search", "title": f"标题{i}", "detail": "细节" * 40, "source": "s", "source_date": "2026-09-01",
+             "evidence_tier": "news", "supports": [], "contradicts": [], "independent_key": f"k{i}", "freshness": "current",
+             "content_hash": f"{i:064x}", "evidence_id": f"E{i+1}"}
+            for i in range(20)
+        ],
+        "evidence_hashes": [f"{i:064x}" for i in range(20)], "evidence_ids": [f"E{i+1}" for i in range(20)],
+        "gaps": [], "dataset": "", "caliber": "", "payload_field_names": [], "payload_sha256": "",
+        # 审计才有的键：不该算进模型视图
+        "telemetry": {"branches": [{"x": "y" * 5000}]}, "call_id": "c1", "elapsed_ms": 1.0, "task_frame_hash": "h",
+    }
+    small = {
+        "ok": True, "tool": "market_data", "query": "q", "observation": "无可用数据", "evidence": [], "evidence_hashes": [],
+        "evidence_ids": [], "gaps": [], "dataset": "", "caliber": "", "payload_field_names": [], "payload_sha256": "",
+        "call_id": "c2", "task_frame_hash": "h",
+    }
+    at = "2026-09-07T13:40:00.000+08:00"
+    episode = {
+        "contract": {"allowed_capabilities": ["sub_research", "market_data"]},
+        "outcome": {"status": "completed", "stop_reason": "model_finish", "evidence": [], "bindings": [],
+                    "usage": {"llm_calls": 3, "tool_calls": 2, "input_tokens": 300000, "output_tokens": 1000}},
+        "events": [
+            _event(1, "task", at),
+            _event(2, "model_turn", at, tool_calls=[{}]),
+            _event(3, "tool_result", at, **big),          # 第 1 轮之后 → 还会被重发 2 轮
+            _event(4, "model_turn", at, tool_calls=[{}]),
+            _event(5, "tool_result", at, **small),        # 第 2 轮之后 → 还会被重发 1 轮
+            _event(6, "model_turn", at, tool_calls=[]),
+            _event(7, "finish", at, status="completed", stop_reason="model_finish"),
+        ],
+    }
+    (run_dir / "continuous-episode.json").write_text(json.dumps(episode, ensure_ascii=False), encoding="utf-8")
+
+    ce = frontier_vector(run_dir).context_efficiency
+
+    assert ce.model_turns == 3 and ce.largest_tool == "sub_research"
+    assert ce.tool_message_chars is not None and ce.largest_tool_message_chars is not None
+    # telemetry（5000 字）不在模型视图里；大消息远大于小消息。
+    assert ce.largest_tool_message_chars < len(json.dumps(big, ensure_ascii=False))
+    assert ce.largest_tool_message_chars > 10 * (ce.tool_message_chars - ce.largest_tool_message_chars)
+    small_chars = ce.tool_message_chars - ce.largest_tool_message_chars
+    assert ce.resent_chars_estimate == ce.largest_tool_message_chars * 2 + small_chars * 1
+    cell = render_markdown([frontier_vector(run_dir)])
+    assert f"(sub_research {ce.largest_tool_message_chars})" in cell
+
+
 def test_ledger_exhaustion_with_wall_clock_left_is_called_out(tmp_path: Path) -> None:
     """第 2 遍的形状：stop_reason=deadline_exhausted 而账本秒为 0——向量要在 notes 里点名，别让它躲在 partial 后面。"""
 
