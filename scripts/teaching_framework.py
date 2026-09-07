@@ -959,6 +959,176 @@ def cmd_build_range_leaders(args: argparse.Namespace) -> int:
     return 0
 
 
+L1_STATIC_SQL = """
+l1_latest AS (
+    SELECT stock_ts_code, split_part(sw_industry, '-', 1) AS sw_l1,
+           ROW_NUMBER() OVER (PARTITION BY stock_ts_code ORDER BY trade_date DESC, sw_industry) AS rn
+    FROM fact_sector_stock_daily WHERE sw_industry IS NOT NULL
+),
+l1 AS (SELECT stock_ts_code, sw_l1 FROM l1_latest WHERE rn = 1)
+"""
+
+WAVE_GAIN_SQL = f"""
+WITH {L1_STATIC_SQL},
+px AS (
+    SELECT trade_date, stock_ts_code, rtrim(replace(stock_name, chr(0), '')) AS stock_name, close
+    FROM fact_stock_daily WHERE close IS NOT NULL AND close > 0
+),
+boards AS (
+    SELECT stock_ts_code, MAX(limit_times) AS max_boards
+    FROM fact_theme_limit_stock_daily WHERE limit_status = 'U' AND trade_date BETWEEN ? AND ? GROUP BY 1
+)
+SELECT b.stock_ts_code, e.stock_name, (e.close / b.close - 1) * 100 AS gain_pct, l1.sw_l1, boards.max_boards
+FROM px b JOIN px e USING (stock_ts_code) LEFT JOIN l1 USING (stock_ts_code) LEFT JOIN boards USING (stock_ts_code)
+WHERE b.trade_date = ? AND e.trade_date = ?
+ORDER BY gain_pct DESC, b.stock_ts_code
+"""
+
+# 覆灭窗内每只个股：区间收益、最大回撤（收盘对窗内滚动最高收盘）、是否创 N 日新高（窗内最高价 > 窗前 N 个
+# 交易日的最高价）、第一段（见顶后第一个左底向下段）收益。两端都要有收盘，缺一天的不算（fail closed）。
+COLLAPSE_STATS_SQL = """
+WITH px AS (
+    SELECT trade_date, stock_ts_code, close, high FROM fact_stock_daily WHERE close IS NOT NULL AND close > 0
+),
+base AS (SELECT stock_ts_code, close AS c0 FROM px WHERE trade_date = ?),
+last AS (SELECT stock_ts_code, close AS c1 FROM px WHERE trade_date = ?),
+first_leg AS (SELECT stock_ts_code, close AS c_leg FROM px WHERE trade_date = ?),
+w AS (SELECT stock_ts_code, trade_date, close, high FROM px WHERE trade_date BETWEEN ? AND ?),
+run AS (
+    SELECT stock_ts_code, close, high, MAX(close) OVER (PARTITION BY stock_ts_code ORDER BY trade_date) AS runmax FROM w
+),
+inwin AS (SELECT stock_ts_code, MIN(close / runmax - 1) * 100 AS max_dd_pct, MAX(high) AS win_high FROM run GROUP BY 1),
+pre AS (SELECT stock_ts_code, MAX(high) AS pre_high FROM px WHERE trade_date BETWEEN ? AND ? GROUP BY 1)
+SELECT b.stock_ts_code, (l.c1 / b.c0 - 1) * 100 AS ret_pct, i.max_dd_pct,
+       CASE WHEN i.win_high IS NULL OR p.pre_high IS NULL THEN NULL ELSE i.win_high > p.pre_high END AS new_high,
+       CASE WHEN f.c_leg IS NULL THEN NULL ELSE (f.c_leg / b.c0 - 1) * 100 END AS first_leg_ret_pct
+FROM base b JOIN last l USING (stock_ts_code) JOIN inwin i USING (stock_ts_code)
+LEFT JOIN pre p USING (stock_ts_code) LEFT JOIN first_leg f USING (stock_ts_code)
+ORDER BY b.stock_ts_code
+"""
+
+
+def cmd_build_dynasties(args: argparse.Namespace) -> int:
+    """王朝链（第十三段）：按平台阶段切波，每波区间涨幅前 N 是一个王朝；旧王朝覆灭窗里新王朝成员的「分离确认」进收据。"""
+    from intelligence.services.teaching_framework.dynasties import build_dynasties, segment_waves
+
+    params = load_params(args.params)
+    fw = framework_version(params)
+    build_time = _now(args.computed_at)
+    source_path = Path(args.db_path).expanduser()
+    labels_path = Path(args.labels_db).expanduser()
+    top, cohort = int(params["dynasty_top"]), int(params["dynasty_cohort"])
+    sep_pct, sep_window = float(params["separation_percentile"]), int(params["separation_new_high_window"])
+    reference = _read_reference(labels_path)
+    if not reference:
+        raise RuntimeError("旁路库没有参照标注（history_reference_stages 为空）——王朝按平台阶段切，先跑 load-reference")
+    source = duckdb.connect(str(source_path), read_only=True)
+    try:
+        calendar = [row["trade_date"] for row in _rows(source, "SELECT DISTINCT trade_date FROM fact_stock_daily ORDER BY 1")]
+        cal_index = {d: i for i, d in enumerate(calendar)}
+        waves = segment_waves(((d, r.get("cycle_stage")) for d, r in reference.items()), calendar)
+        index_close = {row["trade_date"]: row["sh_index_close"] for row in _rows(source, "SELECT trade_date, sh_index_close FROM fact_market_daily WHERE sh_index_close IS NOT NULL")}
+        wave_gains: dict[int, list[dict[str, Any]]] = {}
+        collapse_stats: dict[int, list[dict[str, Any]]] = {}
+        index_returns: dict[int, float | None] = {}
+        for w in waves:
+            wi = int(w["wave_idx"])
+            if w.get("start_prev") is None:
+                wave_gains[wi] = []
+            else:
+                wave_gains[wi] = _rows(source, WAVE_GAIN_SQL, [w["start"], w["peak_end"], w["start_prev"], w["peak_end"]])
+            if w.get("collapse_start") is None or w.get("collapse_end") is None:
+                continue
+            c_start, c_end = w["collapse_start"], w["collapse_end"]
+            lookback_start = calendar[max(0, cal_index[c_start] - sep_window)]
+            lookback_end = calendar[cal_index[c_start] - 1]
+            first_leg_end = w.get("first_down_end") or c_end
+            collapse_stats[wi] = _rows(
+                source, COLLAPSE_STATS_SQL,
+                [w["peak_end"], c_end, first_leg_end, c_start, c_end, lookback_start, lookback_end],
+            )
+            c0, c1 = index_close.get(w["peak_end"]), index_close.get(c_end)
+            index_returns[wi] = None if not c0 or not c1 else (float(c1) / float(c0) - 1) * 100
+        source_counts = _source_counts(source)
+    finally:
+        source.close()
+    result = build_dynasties(
+        waves, wave_gains, collapse_stats, top=top, cohort=cohort, separation_percentile=sep_pct,
+        index_returns=index_returns, min_n=int(params.get("min_n", 10)),
+    )
+    readouts = {
+        "definition": {
+            "wave": "maximal run of platform stages {主流主升, 主流主升2.0, 承接盘反复} is a wave's peak block; the wave starts at the first day of the 共建主线 run right before it (else the block's first day); peak day = block's last day",
+            "dynasty": f"top {top} stocks by close(peak day) / close(day before wave start) − 1 (cohort {cohort} for readouts); form 连板 when the stock's max limit_times inside the wave ≥ 3, else 趋势",
+            "collapse": "day after the peak day → day before the next wave starts (亏钱效应窗); open when no next wave; first leg = the first 左底向下 run after the peak",
+            "separation": f"relative: collapse-window return percentile among all stocks ≥ {sep_pct}; new-high: made a {sep_window}-day high inside the collapse window",
+            "handoff": "relation description only (创始人 09-07 第九、十三段): where the new members ranked in the old wave, whether any came from the old cohort, L1 overlap, form",
+        },
+        **result["readouts"],
+    }
+    side = _open_sidecar_for_write(labels_path)
+    try:
+        side.execute("DELETE FROM history_dynasties")
+        side.execute("DELETE FROM history_dynasty_handoffs")
+        ts = build_time.replace(tzinfo=None)
+        member_rows = [
+            (m["wave_idx"], m["rank"], m["wave_start"], m["peak_end"], m["collapse_start"], m["collapse_end"], m["wave_status"],
+             m["stock_ts_code"], m["stock_name"], _round_scalar(m["wave_gain_pct"]), m["sw_l1"], m["max_boards"], m["form"],
+             _round_scalar(m["collapse_ret_pct"]), _round_scalar(m["collapse_max_dd_pct"]), fw, ts)
+            for m in result["members"]
+        ]
+        handoff_rows = [
+            (h["old_wave_idx"], h["new_wave_idx"], h["new_rank"], h["stock_ts_code"], h["stock_name"], _round_scalar(h["new_wave_gain_pct"]),
+             h["sw_l1"], h["form"], h["old_wave_rank"], h["in_old_cohort"], h["l1_in_old_top"], _round_scalar(h["collapse_ret_pct"]),
+             _round_scalar(h["collapse_ret_percentile"]), _round_scalar(h["collapse_max_dd_pct"]), _round_scalar(h["first_leg_ret_pct"]),
+             h["new_high_in_collapse"], h["separation_relative"], h["separation_new_high"], fw, ts)
+            for h in result["handoffs"]
+        ]
+        if member_rows:
+            side.executemany(
+                """INSERT INTO history_dynasties
+                   (wave_idx, rank, wave_start, peak_end, collapse_start, collapse_end, wave_status, stock_ts_code, stock_name,
+                    wave_gain_pct, sw_l1, max_boards, form, collapse_ret_pct, collapse_max_dd_pct, framework_version, computed_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                member_rows,
+            )
+        if handoff_rows:
+            side.executemany(
+                """INSERT INTO history_dynasty_handoffs
+                   (old_wave_idx, new_wave_idx, new_rank, stock_ts_code, stock_name, new_wave_gain_pct, sw_l1, form, old_wave_rank,
+                    in_old_cohort, l1_in_old_top, collapse_ret_pct, collapse_ret_percentile, collapse_max_dd_pct, first_leg_ret_pct,
+                    new_high_in_collapse, separation_relative, separation_new_high, framework_version, computed_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                handoff_rows,
+            )
+        members_hash = canonical_rows_hash(side, table="history_dynasties", primary_key=("wave_idx", "rank"))
+        handoffs_hash = canonical_rows_hash(side, table="history_dynasty_handoffs", primary_key=("old_wave_idx", "new_rank"))
+        canonical = hashlib.sha256(f"{members_hash}\n{handoffs_hash}".encode("utf-8")).hexdigest()
+        receipt = make_receipt(
+            build_kind="dynasties", framework_version=fw, label_version=LABEL_VERSION,
+            source_db=str(source_path), source_max_trade_date=max(calendar) if calendar else None,
+            source_row_counts=source_counts, parameter_hash=parameter_hash(params), canonical_hash=canonical,
+            coverage_summary={
+                "reference_days": len(reference), "waves": len(waves),
+                "waves_by_status": dict(Counter(str(w["status"]) for w in waves)),
+                "completed_handoffs": sum(1 for h in result["readouts"]["handoffs"] if h.get("status") == "ok"),
+                "member_rows": len(result["members"]), "handoff_rows": len(result["handoffs"]),
+            },
+            gap_summary={"waves_without_visible_start": [int(w["wave_idx"]) for w in waves if w.get("start_prev") is None]},
+            readouts=readouts, computed_at=build_time,
+        )
+        write_receipt(side, receipt)
+    finally:
+        side.close()
+    print(json.dumps({
+        "build_kind": "dynasties", "framework_version": fw, "waves": len(waves), "member_rows": len(result["members"]),
+        "handoff_rows": len(result["handoffs"]), "canonical_hash": canonical,
+        "table_hashes": {"history_dynasties": members_hash, "history_dynasty_handoffs": handoffs_hash},
+        "readouts": readouts,
+    }, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     side = open_labels_db(Path(args.labels_db).expanduser(), read_only=True)
     try:
@@ -972,6 +1142,8 @@ def cmd_report(args: argparse.Namespace) -> int:
             "reference_stages": side.execute("SELECT COUNT(*) FROM history_reference_stages").fetchone()[0],
             "range_leader_rows": side.execute("SELECT COUNT(*) FROM history_range_leaders").fetchone()[0],
             "range_leader_handoffs": side.execute("SELECT COUNT(*) FROM history_range_leader_handoffs").fetchone()[0],
+            "dynasty_rows": side.execute("SELECT COUNT(*) FROM history_dynasties").fetchone()[0],
+            "dynasty_handoffs": side.execute("SELECT COUNT(*) FROM history_dynasty_handoffs").fetchone()[0],
         }
         receipt_rows = side.execute(
             """SELECT build_id, build_kind, framework_version, label_version, parameter_hash,
@@ -1009,6 +1181,7 @@ def parser() -> argparse.ArgumentParser:
     for name, func in (
         ("build-labels", cmd_build_labels), ("build-succession", cmd_build_succession),
         ("build-sector-roles", cmd_build_sector_roles), ("build-range-leaders", cmd_build_range_leaders),
+        ("build-dynasties", cmd_build_dynasties),
     ):
         p = sub.add_parser(name)
         p.add_argument("--db-path", default="db/market_feature_store.duckdb")
