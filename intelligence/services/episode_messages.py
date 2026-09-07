@@ -1,76 +1,71 @@
-"""模型可见即已落账（INV-R1）：从 durable 事件派生模型消息，并在每次请求前对账。
+"""Episode 消息类型 + 模型可见即已落账（INV-R1）。
 
 来源：``docs/superpowers/specs/2026-09-07-runtime-base-endstate-design.md`` §3 INV-R1、
-§6.1 P0。形状来自 dsh ``architecture.md``「Model-visible means logged」
-（``deriveMessages()`` 从日志派生模型历史，运行时断言）与 pi ``harness.md`` §0.3
-「每个 payload 只在一处」。搬的是不变量，不搬实现。
+§6.1 P0（派生与对账）、§6.2 P1（消息类型）。形状来自 dsh ``architecture.md``
+「Model-visible means logged」与 pi「loop 全程 ``AgentMessage``，只在 LLM 边界
+``convertToLlm``」。搬的是不变量，不搬实现。
 
 --------------------------------------------------------------------------
-为什么要有这一层
+为什么 loop 要有自己的消息类型（P1）
 --------------------------------------------------------------------------
 
-loop 手里有两份状态：``messages``（真发给 provider 的列表）与 ``ledger.events``
-（重放日志、对账权威）。它们由同一段代码在相邻两行分别维护，没有任何东西保证一致。
-[实测 2026-09-07] 三处不一致：``tool_result`` 事件存 ``audit_payload``、模型看的是
-``model_content``；四处 user 角色注入只落 reason 不落文本；system prompt 只有 hash。
-后果是事后从产物看不出模型到底看到了什么。
-
-修法不是「把 messages 也存一份」——那是第二事实源。修法是让 messages 成为事件的
-**派生物**：每一条进入 messages 的内容都先有一条 durable 事件承载它，
-``derive_messages`` 是对事件流的纯 fold，请求前断言 ``derive == messages``。
-P1 把 messages 换成 ``EpisodeMessage`` 类型后，这条断言变成
-``to_provider(derive) == to_provider(messages)``，本模块的 fold 规则不变。
+此前 ``messages: list[dict]`` 是 OpenAI 线格式贯穿整条 loop：换 provider 消息格式
+（Anthropic content blocks、GLM thinking 字段）要碰 loop；审计-only 的消息无处放；
+``_append_tool_budget_state`` 直接 ``messages[-1]["content"] = …`` 原地改字典。
+``EpisodeMessage`` 是 DDD 意义上的防腐层：loop 只认它，``to_provider`` 在
+``AgentModelClient.complete`` 之前一次性转线格式。``AgentModelClient`` 协议**不变**
+（仍收 ``list[dict]``），所有模型客户端与测试替身零改动。
 
 --------------------------------------------------------------------------
-fold 规则（一个 kind 一行；改这里必改终态稿 §6.1）
+为什么 messages 必须是事件的派生物（P0）
 --------------------------------------------------------------------------
+
+loop 手里有两份状态：``messages``（真发给 provider 的）与 ``ledger.events``
+（重放日志、对账权威）。修法不是「把 messages 也存一份」——那是第二事实源。修法是让
+每一条进入 messages 的内容都先有一条 durable 事件承载它，``derive_messages`` 是对事件流
+的纯 fold，请求前断言 ``to_provider(derive) == to_provider(messages)``。
+
+fold 规则（一个 kind 一行；改这里必改终态稿 §6.1）：
 
 ===================  ======================================================
 ``prompt_assembled``  → ``[system(content), user(content)]``
 ``model_input``       → ``user(content)``
 ``model_turn``        → ``assistant(content, tool_calls)``，**仅当** ``error`` 为空
-                        （失败 turn 不进消息历史，两条 loop 同此）
 ``tool_result``       → ``tool(call_id, model_content)``
 ``tool_error``        → ``tool(call_id, model_content)``
 ``tool_budget_state`` → 覆写最后一条 ``tool`` 消息的 content 为 ``model_content``
 其余 kind              → 不产生消息
 ===================  ======================================================
 
-``tool_result`` / ``tool_error`` 的 ``model_content`` 是本轮新加的字段。没有它的老事件
-（本轮之前的产物）**无法派生**，``derive_messages`` 抛 ``DerivationUnavailable`` 而不是
-猜——猜出来的历史比没有历史更糟。
+没有 ``model_content`` 的老事件**无法派生**，抛 ``DerivationUnavailable`` 而不是猜。
 
---------------------------------------------------------------------------
-严格与宽松
---------------------------------------------------------------------------
-
-生产不炸：不一致只记 ``derive_mismatch``（``EpisodeScope.dump()`` 与两条 loop 的
-账本各留一份），主路径照跑——观测设施故障不改变被观测对象的结论，与
-``EpisodeScope.emit`` 吞 sink 异常同一条纪律。
-
-测试炸：``conftest.py`` 强制 ``FORESIGHT_STRICT_DERIVATION=1``，于是全量套件里每一次
-脚本化模型请求都在验 INV-R1，不另写一套「覆盖」它的用例。
+严格与宽松：生产不炸只记 ``derive_mismatch``；``conftest`` 强制
+``FORESIGHT_STRICT_DERIVATION=1``，全量套件里每一次脚本化请求都在验。
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping, MutableSequence
+from collections.abc import Callable, Iterable, Mapping, MutableSequence, Sequence
+from dataclasses import dataclass, replace
 import hashlib
 import json
 import os
 from typing import Literal, Protocol
 
-from intelligence.services.agent_runtime import EpisodeEvent, ModelTurn
+from intelligence.services.agent_runtime import EpisodeEvent, ModelToolCall, ModelTurn
 
 __all__ = [
     "DerivationMismatch",
     "DerivationUnavailable",
+    "EpisodeMessage",
     "MODEL_INPUT_KIND",
     "MODEL_INPUT_SOURCES",
     "MODEL_VISIBLE_TEXT_FIELDS",
     "MessageLedger",
+    "MessageRole",
     "ModelInputSource",
     "PROMPT_ASSEMBLED_KIND",
+    "ProviderDialect",
     "STRICT_DERIVATION_ENV",
     "TOOL_BUDGET_STATE_KIND",
     "append_model_input",
@@ -81,9 +76,11 @@ __all__ = [
     "describe_mismatch",
     "record_prompt_assembled",
     "record_tool_budget_state",
+    "rewrite_last_tool_content",
     "sha256_text",
     "strict_derivation_enabled",
     "system_message",
+    "to_provider",
     "tool_message",
     "user_message",
 ]
@@ -92,6 +89,11 @@ MODEL_INPUT_KIND = "model_input"
 PROMPT_ASSEMBLED_KIND = "prompt_assembled"
 TOOL_BUDGET_STATE_KIND = "tool_budget_state"
 STRICT_DERIVATION_ENV = "FORESIGHT_STRICT_DERIVATION"
+
+MessageRole = Literal["system", "user", "assistant", "tool"]
+_ROLES: frozenset[str] = frozenset({"system", "user", "assistant", "tool"})
+
+ProviderDialect = Literal["openai"]
 
 # user 角色注入的来源。值进事件 payload，是评测 / 投影分类的依据；新增来源先加这里，
 # 再在发射点用——``append_model_input`` 对不在表里的 source 抛错，防止字面量漂移。
@@ -154,72 +156,146 @@ def strict_derivation_enabled() -> bool:
     return os.environ.get(STRICT_DERIVATION_ENV, "") == "1"
 
 
-# ── 消息构造器：四种角色只在这里拼形状 ─────────────────────────────────────
+# ── 消息类型 ────────────────────────────────────────────────────────────────
 
 
-def system_message(content: str) -> dict[str, object]:
-    return {"role": "system", "content": content}
+@dataclass(frozen=True)
+class EpisodeMessage:
+    """loop 内部唯一的消息表示。线格式只在 ``to_provider`` 出现。
+
+    ``source`` 是审计字段（哪条注入 / 哪种事件产生了它），不进线格式；INV-R1 比较的是
+    ``to_provider`` 之后的结果，所以 source 不同不算分歧。
+    """
+
+    role: MessageRole
+    content: str
+    tool_calls: tuple[ModelToolCall, ...] = ()
+    tool_call_id: str = ""
+    source: str = ""
+
+    def __post_init__(self) -> None:
+        if self.role not in _ROLES:
+            raise ValueError(f"未知消息角色: {self.role!r}")
+        if not isinstance(self.content, str):
+            raise ValueError("消息 content 必须是 str")
+        if self.tool_calls and self.role != "assistant":
+            raise ValueError("只有 assistant 消息可带 tool_calls")
+        if self.role == "tool" and not str(self.tool_call_id).strip():
+            raise ValueError("tool 消息必须带 tool_call_id")
+        if self.tool_call_id and self.role != "tool":
+            raise ValueError("只有 tool 消息可带 tool_call_id")
+        object.__setattr__(self, "tool_calls", tuple(self.tool_calls))
 
 
-def user_message(content: str) -> dict[str, object]:
-    return {"role": "user", "content": content}
+def system_message(content: str, *, source: str = "prompt") -> EpisodeMessage:
+    return EpisodeMessage(role="system", content=str(content), source=source)
 
 
-def tool_message(call_id: str, content: str) -> dict[str, object]:
-    return {"role": "tool", "tool_call_id": call_id, "content": content}
+def user_message(content: str, *, source: str = "prompt") -> EpisodeMessage:
+    return EpisodeMessage(role="user", content=str(content), source=source)
 
 
-def _assistant_tool_calls(
-    calls: Iterable[tuple[str, str, object]],
-) -> list[dict[str, object]]:
-    return [
-        {
-            "id": call_id,
-            "type": "function",
-            "function": {
-                "name": name,
-                "arguments": json.dumps(arguments, ensure_ascii=False),
-            },
-        }
-        for call_id, name, arguments in calls
-    ]
+def tool_message(call_id: str, content: str, *, source: str = "tool_result") -> EpisodeMessage:
+    return EpisodeMessage(
+        role="tool", content=str(content), tool_call_id=str(call_id), source=source
+    )
 
 
-def assistant_message(turn: ModelTurn) -> dict[str, object]:
-    """loop 侧：从 ``ModelTurn`` 拼 assistant 消息。与 ``assistant_message_from_payload``
-    必须逐字节同形——那是 INV-R1 成立的前提，``test_episode_messages`` 钉住。"""
+def assistant_message(turn: ModelTurn) -> EpisodeMessage:
+    """loop 侧：从 ``ModelTurn`` 拼 assistant 消息。"""
 
-    message: dict[str, object] = {"role": "assistant", "content": turn.content}
-    if turn.tool_calls:
-        message["tool_calls"] = _assistant_tool_calls(
-            (call.call_id, call.name, call.to_dict()["arguments"])
-            for call in turn.tool_calls
-        )
-    return message
+    return EpisodeMessage(
+        role="assistant",
+        content=turn.content,
+        tool_calls=tuple(turn.tool_calls),
+        source="model_turn",
+    )
 
 
-def assistant_message_from_payload(payload: Mapping[str, object]) -> dict[str, object]:
-    """派生侧：从 ``model_turn`` 事件 payload（``ModelTurn.to_dict()`` 的形状）拼 assistant 消息。"""
+def assistant_message_from_payload(payload: Mapping[str, object]) -> EpisodeMessage:
+    """派生侧：从 ``model_turn`` 事件 payload（``ModelTurn.to_dict()`` 形状）拼 assistant 消息。
 
-    message: dict[str, object] = {
-        "role": "assistant",
-        "content": str(payload.get("content") or ""),
-    }
+    与 ``assistant_message`` 经 ``to_provider`` 后必须逐字节同形——INV-R1 成立的前提，
+    ``test_episode_messages`` 钉住。
+    """
+
     raw_calls = payload.get("tool_calls") or []
-    if isinstance(raw_calls, (list, tuple)) and raw_calls:
-        calls: list[tuple[str, str, object]] = []
+    calls: list[ModelToolCall] = []
+    if isinstance(raw_calls, (list, tuple)):
         for item in raw_calls:
             if not isinstance(item, Mapping):
                 raise DerivationUnavailable("model_turn.tool_calls 元素不是对象")
+            arguments = item.get("arguments")
+            if not isinstance(arguments, Mapping):
+                raise DerivationUnavailable("model_turn.tool_calls.arguments 不是对象")
             calls.append(
-                (
+                ModelToolCall(
                     str(item.get("call_id") or ""),
                     str(item.get("name") or ""),
-                    item.get("arguments"),
+                    arguments,
                 )
             )
-        message["tool_calls"] = _assistant_tool_calls(calls)
-    return message
+    return EpisodeMessage(
+        role="assistant",
+        content=str(payload.get("content") or ""),
+        tool_calls=tuple(calls),
+        source="model_turn",
+    )
+
+
+def rewrite_last_tool_content(
+    messages: MutableSequence[EpisodeMessage], content: str
+) -> EpisodeMessage:
+    """覆写最后一条 tool 消息的 content（底座预算注入唯一的原地改写点）。返回新消息。"""
+
+    if not messages or messages[-1].role != "tool":
+        raise ValueError("最后一条不是 tool 消息，无处覆写")
+    updated = replace(messages[-1], content=str(content))
+    messages[-1] = updated
+    return updated
+
+
+# ── 线格式边界 ──────────────────────────────────────────────────────────────
+
+
+def _openai_tool_calls(calls: Iterable[ModelToolCall]) -> list[dict[str, object]]:
+    return [
+        {
+            "id": call.call_id,
+            "type": "function",
+            "function": {
+                "name": call.name,
+                "arguments": json.dumps(call.to_dict()["arguments"], ensure_ascii=False),
+            },
+        }
+        for call in calls
+    ]
+
+
+def _to_openai(message: EpisodeMessage) -> dict[str, object]:
+    if message.role == "tool":
+        return {
+            "role": "tool",
+            "tool_call_id": message.tool_call_id,
+            "content": message.content,
+        }
+    if message.role == "assistant":
+        payload: dict[str, object] = {"role": "assistant", "content": message.content}
+        if message.tool_calls:
+            payload["tool_calls"] = _openai_tool_calls(message.tool_calls)
+        return payload
+    return {"role": message.role, "content": message.content}
+
+
+def to_provider(
+    messages: Sequence[EpisodeMessage], *, dialect: ProviderDialect = "openai"
+) -> list[dict[str, object]]:
+    """``AgentModelClient.complete`` 之前唯一的转线格式点。今天只有 OpenAI 方言——
+    provider 链（GLM / gpt 中转）都吃它；加方言在这里加分支，不碰 loop。"""
+
+    if dialect != "openai":
+        raise ValueError(f"未支持的 provider 方言: {dialect!r}")
+    return [_to_openai(message) for message in messages]
 
 
 # ── 发射助手：进 messages 的内容先有 durable 事件承载 ─────────────────────
@@ -245,12 +321,12 @@ def record_prompt_assembled(
 
 
 def append_model_input(
-    messages: MutableSequence[dict[str, object]],
+    messages: MutableSequence[EpisodeMessage],
     ledger: MessageLedger,
     *,
     content: str,
     source: ModelInputSource,
-) -> None:
+) -> EpisodeMessage:
     """user 角色注入的唯一入口：先落事件，再进 messages。
 
     顺序是有意的：事件在前，消息在后——崩溃只可能留下「事件有、消息无」，
@@ -265,7 +341,9 @@ def append_model_input(
         "model_input",
         {"role": "user", "source": source, "content": text},
     )
-    messages.append(user_message(text))
+    message = user_message(text, source=source)
+    messages.append(message)
+    return message
 
 
 def record_tool_budget_state(
@@ -302,13 +380,13 @@ def _require_text(payload: Mapping[str, object], key: str, *, event: EpisodeEven
     return str(payload[key])
 
 
-def derive_messages(events: Iterable[EpisodeEvent]) -> list[dict[str, object]]:
+def derive_messages(events: Iterable[EpisodeEvent]) -> list[EpisodeMessage]:
     """对 durable 事件流做纯 fold，得到模型在下一次请求时会看到的消息列表。
 
     只读、无 IO、无模型、不依赖 loop 内部状态——它必须能在事后对着产物重跑。
     """
 
-    messages: list[dict[str, object]] = []
+    messages: list[EpisodeMessage] = []
     for event in events:
         kind = event.kind
         if kind == PROMPT_ASSEMBLED_KIND:
@@ -317,7 +395,12 @@ def derive_messages(events: Iterable[EpisodeEvent]) -> list[dict[str, object]]:
             messages.append(user_message(_require_text(payload, "user", event=event)))
         elif kind == MODEL_INPUT_KIND:
             payload = _payload_dict(event)
-            messages.append(user_message(_require_text(payload, "content", event=event)))
+            messages.append(
+                user_message(
+                    _require_text(payload, "content", event=event),
+                    source=str(payload.get("source") or MODEL_INPUT_KIND),
+                )
+            )
         elif kind == "model_turn":
             payload = _payload_dict(event)
             if str(payload.get("error") or ""):
@@ -329,25 +412,26 @@ def derive_messages(events: Iterable[EpisodeEvent]) -> list[dict[str, object]]:
                 tool_message(
                     _require_text(payload, "call_id", event=event),
                     _require_text(payload, "model_content", event=event),
+                    source=kind,
                 )
             )
         elif kind == TOOL_BUDGET_STATE_KIND:
             payload = _payload_dict(event)
-            if not messages or messages[-1].get("role") != "tool":
+            if not messages or messages[-1].role != "tool":
                 raise DerivationUnavailable(
                     f"tool_budget_state#{event.sequence} 前面不是 tool 消息，无处覆写"
                 )
-            messages[-1] = {
-                **messages[-1],
-                "content": _require_text(payload, "model_content", event=event),
-            }
+            messages[-1] = replace(
+                messages[-1], content=_require_text(payload, "model_content", event=event)
+            )
     return messages
 
 
 def describe_mismatch(
-    derived: list[dict[str, object]], actual: list[dict[str, object]]
+    derived: Sequence[Mapping[str, object]], actual: Sequence[Mapping[str, object]]
 ) -> str:
-    """一句话定位第一处分歧：位置、两边角色、内容 hash。不回显正文——这段话会进收据。"""
+    """一句话定位第一处分歧（线格式两侧）：位置、两边角色、内容 hash。不回显正文——
+    这段话会进收据。"""
 
     if len(derived) != len(actual):
         head = f"长度 {len(derived)} (derived) vs {len(actual)} (actual)"
@@ -366,24 +450,25 @@ def describe_mismatch(
 
 def check_derivation(
     events: Iterable[EpisodeEvent],
-    messages: list[dict[str, object]],
+    messages: Sequence[EpisodeMessage],
     *,
     on_mismatch: Callable[[str], None] | None = None,
 ) -> bool:
-    """请求前对账。一致返回 True；不一致时严格模式抛 ``DerivationMismatch``，
-    否则调 ``on_mismatch(detail)`` 并返回 False（主路径不受影响）。
+    """请求前对账：比较两侧 ``to_provider`` 的结果（模型真看到的）。一致返回 True；
+    不一致时严格模式抛 ``DerivationMismatch``，否则调 ``on_mismatch(detail)`` 并返回 False。
 
     ``DerivationUnavailable``（缺字段）按不一致处理：它是发射点漏账，不是派生器的错。
     """
 
     try:
-        derived = derive_messages(events)
+        derived = to_provider(derive_messages(events))
     except DerivationUnavailable as exc:
         detail = f"unavailable: {exc}"
     else:
-        if derived == list(messages):
+        actual = to_provider(messages)
+        if derived == actual:
             return True
-        detail = describe_mismatch(derived, list(messages))
+        detail = describe_mismatch(derived, actual)
     if strict_derivation_enabled():
         raise DerivationMismatch(detail)
     if on_mismatch is not None:

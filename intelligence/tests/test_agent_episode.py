@@ -29,6 +29,7 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
     is_transient_model_error,
 )
+from intelligence.services.episode_messages import EpisodeMessage, to_provider
 from intelligence.services.evidence_capabilities import EvidencePlan
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.mode_governor import ModeSignals
@@ -2689,7 +2690,7 @@ def test_accumulator_strips_raw_timeout_detail_before_the_model() -> None:
 
     sentinel = "TimeoutError: RAW_TIMEOUT_EXCEPTION_SENTINEL"
     frame = _frame()
-    messages: list[dict[str, object]] = []
+    messages: list[EpisodeMessage] = []
     accumulator = _EpisodeToolAccumulator(
         messages=messages,
         ledger=_EpisodeLedger(frame),
@@ -2708,8 +2709,9 @@ def test_accumulator_strips_raw_timeout_detail_before_the_model() -> None:
         normalized_queries=(),
     )
     accumulator.consume(batch, _context(frame))
-    payload = json.loads(str(messages[-1]["content"]))
-    blob = json.dumps({"messages": messages}, ensure_ascii=False)
+    wire = to_provider(messages)
+    payload = json.loads(str(wire[-1]["content"]))
+    blob = json.dumps({"messages": wire}, ensure_ascii=False)
     assert payload["error"] == "tool_timeout"
     assert payload["detail"] == ""
     assert sentinel not in blob
@@ -2728,7 +2730,7 @@ def test_accumulator_forwards_positive_grant_to_the_model() -> None:
 
     sentinel = "TimeoutError: RAW_TIMEOUT_EXCEPTION_SENTINEL"
     frame = _frame()
-    messages: list[dict[str, object]] = []
+    messages: list[EpisodeMessage] = []
     accumulator = _EpisodeToolAccumulator(
         messages=messages,
         ledger=_EpisodeLedger(frame),
@@ -2754,8 +2756,9 @@ def test_accumulator_forwards_positive_grant_to_the_model() -> None:
         normalized_queries=(),
     )
     accumulator.consume(batch, _context(frame))
-    payload = json.loads(str(messages[-1]["content"]))
-    blob = json.dumps({"messages": messages}, ensure_ascii=False)
+    wire = to_provider(messages)
+    payload = json.loads(str(wire[-1]["content"]))
+    blob = json.dumps({"messages": wire}, ensure_ascii=False)
     assert payload["error"] == "tool_timeout"
     assert payload["detail"] == "stage_timeout_granted=11.5"
     assert sentinel not in blob
@@ -4494,7 +4497,7 @@ def test_rejected_tool_message_carries_the_reason_to_the_model() -> None:
     from intelligence.services.agent_runtime import ModelToolCall
     from intelligence.services.evidence_ledger import EvidenceLedger
 
-    messages: list[dict[str, object]] = []
+    messages: list[EpisodeMessage] = []
     # 用真的构造函数，别拿 __new__ + setattr 拼桩：拼桩每加一个内部字段就断一次，
     # 而且断的时候看起来像被测代码坏了。
     accumulator = _EpisodeToolAccumulator(
@@ -4509,7 +4512,7 @@ def test_rejected_tool_message_carries_the_reason_to_the_model() -> None:
         "order_by must be an array",
     )
 
-    payload = json.loads(messages[-1]["content"])
+    payload = json.loads(to_provider(messages)[-1]["content"])
     assert payload["error"] == "invalid_arguments"
     assert payload["detail"] == "order_by must be an array"
 

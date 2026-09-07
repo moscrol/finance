@@ -62,10 +62,15 @@ from intelligence.services.agent_runtime import (
     OutputEvidenceBinding,
 )
 from intelligence.services.episode_messages import (
+    EpisodeMessage,
     append_model_input,
     assistant_message,
     check_derivation,
     record_prompt_assembled,
+    system_message,
+    to_provider,
+    tool_message,
+    user_message,
 )
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
@@ -99,7 +104,7 @@ class _Ledger:
     def add(self, kind: str, payload: dict[str, object]) -> None:
         self.events.append(EpisodeEvent(len(self.events) + 1, kind, payload))
 
-    def verify_model_visible(self, messages: list[dict[str, object]]) -> bool:
+    def verify_model_visible(self, messages: list[EpisodeMessage]) -> bool:
         return check_derivation(
             tuple(self.events), messages, on_mismatch=self.derive_mismatches.append
         )
@@ -119,7 +124,7 @@ class ReferenceLoopState:
     registry: ResearchToolRegistry
     session: EpisodeToolBatchSession
     ledger: _Ledger
-    messages: list[dict[str, object]]
+    messages: list[EpisodeMessage]
     evidence: list[AgentEvidence]
     evidence_hashes: set[str]
     successful_tools: set[str]
@@ -177,10 +182,7 @@ class HarnessReferenceLoop:
             registry=registry,
             session=self._tool_executor.new_session(),
             ledger=ledger,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
+            messages=[system_message(system), user_message(user)],
             evidence=[],
             evidence_hashes=set(),
             successful_tools=set(),
@@ -261,7 +263,7 @@ class HarnessReferenceLoop:
             ledger.verify_model_visible(messages)
             try:
                 turn = self._model.complete(
-                    messages=list(messages),
+                    messages=to_provider(messages),
                     tools=definitions,
                     timeout=self._llm_timeout,
                 )
@@ -562,7 +564,7 @@ class HarnessReferenceLoop:
             ledger.verify_model_visible(messages)
             try:
                 turn = self._model.complete(
-                    messages=list(messages), tools=tools, timeout=self._llm_timeout
+                    messages=to_provider(messages), tools=tools, timeout=self._llm_timeout
                 )
             except Exception as exc:
                 llm_calls += 1
@@ -714,11 +716,7 @@ class HarnessReferenceLoop:
                     {**payload, "call_id": call.call_id, "model_content": model_content},
                 )
                 state.messages.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": call.call_id,
-                        "content": model_content,
-                    }
+                    tool_message(call.call_id, model_content, source="tool_error")
                 )
                 continue
             observation = result.observation
@@ -753,11 +751,7 @@ class HarnessReferenceLoop:
                 },
             )
             state.messages.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": call.call_id,
-                    "content": projection.model_content,
-                }
+                tool_message(call.call_id, projection.model_content, source="tool_result")
             )
         return invalid_actions
 
@@ -789,7 +783,7 @@ class HarnessReferenceLoop:
         return tool_definitions_for_menu(menu, registry=registry, context=context)
 
 
-def _assistant_message(turn: ModelTurn) -> dict[str, object]:
+def _assistant_message(turn: ModelTurn) -> EpisodeMessage:
     # 与 Episode 同源（``episode_messages.assistant_message``）：两条 loop 的 assistant
     # 消息形状只定义一次，派生侧才能对两条 loop 用同一条规则。
     return assistant_message(turn)
