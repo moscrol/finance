@@ -1,0 +1,40 @@
+{
+  "framework_version_base": "tf-v0.1",
+  "week_ma_col": "sh_week_ma",
+  "deviation_bands": {
+    "oversold_le": -2.5,
+    "overheated_ge": 1.5
+  },
+  "volume_level": {
+    "basis": "amount_vs_ma20_pct",
+    "moderate_from_pct": 100,
+    "surge_from_pct": 120
+  },
+  "breadth_min_stocks": 4000,
+  "index_range_windows": [5, 10],
+  "breakout_confirm_days": 3,
+  "deviation_streak_min": 3,
+  "transition_policy": "entry_or_reachable",
+  "ambiguity_memory": "last_valid_stage",
+  "surge_in_trend": {
+    "role": "view"
+  },
+  "shrink_day": {
+    "basis": "amount_ma20",
+    "alt_basis_noted": "prev_day"
+  },
+  "shrink_streak_min": 2,
+  "mainline_amount_stepping_up_days": 3,
+  "mainline_share_basis": "prev_day",
+  "mainline_definitions": ["vendor", "volume_top3"],
+  "leader_top": {
+    "tie_policy": "group",
+    "break_rule": "all_members_off_table"
+  },
+  "instant_seal_time": "09:35",
+  "rebound_window_days": 5,
+  "high_turnover_ratio": null,
+  "amount_unit_policy": "fail_closed_on_mismatch",
+  "top100_n": 100,
+  "min_n": 10
+}
