@@ -265,7 +265,10 @@ def test_continuous_branch_worker_returns_evidence_but_no_publishable_answer() -
                         "status": "completed",
                         "draft": "这段分支草稿不得成为公开答案。",
                         "gaps": [],
-                        "bindings": [],
+                        # 分支契约唯一的 output：取到的证据绑到它上面。
+                        "bindings": [
+                            {"output_id": "branch_findings", "evidence_hashes": ["E1"], "basis": "evidence"}
+                        ],
                     },
                     ensure_ascii=False,
                 ),
@@ -327,6 +330,9 @@ def test_continuous_branch_worker_returns_evidence_but_no_publishable_answer() -
     assert not hasattr(result.branches[0], "answer")
     assert "这段分支草稿" not in str(result)
     assert "查找反方驱动" in str(model.calls[0]["messages"])
+    # 模型在契约里看得见那个唯一的 output——否则它只能自己造 id 去撞 unknown_output。
+    assert "branch_findings" in str(model.calls[0]["messages"])
+    assert result.branches[0].invalid_actions == ()
     assert context.root_budget is not None
     assert context.root_budget.remaining_calls == 23
 
@@ -678,7 +684,18 @@ def test_continuous_branch_worker_reports_per_batch_dispatch_and_the_cap_that_bi
                 )
             return ModelTurn(
                 json.dumps(
-                    {"status": "completed", "draft": "分支草稿", "gaps": [], "bindings": []},
+                    {
+                        "status": "completed",
+                        "draft": "分支草稿",
+                        "gaps": [],
+                        "bindings": [
+                            {
+                                "output_id": "branch_findings",
+                                "evidence_hashes": ["E1", "E2", "E3", "E4"],
+                                "basis": "evidence",
+                            }
+                        ],
+                    },
                     ensure_ascii=False,
                 ),
                 (),
@@ -1010,6 +1027,82 @@ def test_parallel_branches_charge_the_parent_wall_clock_once_through_the_coordin
         assert branch.budget is not None
         assert branch.budget.consumed_calls == 1
         assert branch.budget.remaining_seconds == pytest.approx(149.0)
+
+
+def test_branch_contract_declares_one_findings_output_so_the_finish_has_a_legal_target() -> None:
+    """09-07 候选口三遍 live 6/6 支：模型把取证绑到自造的 output id（window_progress /
+    baseline_judgment / trading_heat）→ unknown_output（INTEGRITY）→ 每支必 partial。
+    根因是分支契约 required_outputs=()，而宪法要求把事实绑到「对应 required output」。
+    现在契约里有且只有 ``branch_findings``：绑它 → completed；绑自造 id 仍 INTEGRITY。"""
+
+    from intelligence.runtime.continuous_sub_research import BRANCH_FINDINGS_OUTPUT
+
+    assert BRANCH_FINDINGS_OUTPUT.output_id == "branch_findings"
+    assert (BRANCH_FINDINGS_OUTPUT.required, BRANCH_FINDINGS_OUTPUT.grounding_mode) == (True, "evidence")
+
+    def finish_bound_to(output_id: str) -> ModelTurn:
+        return ModelTurn(
+            json.dumps(
+                {
+                    "status": "completed",
+                    "draft": "分支草稿",
+                    "gaps": [],
+                    "bindings": [{"output_id": output_id, "evidence_hashes": ["E1"], "basis": "evidence"}],
+                },
+                ensure_ascii=False,
+            ),
+            (),
+            "scripted",
+            "",
+        )
+
+    class OneToolThenFinish:
+        def __init__(self, output_id: str) -> None:
+            self.output_id = output_id
+            self.calls = 0
+
+        def complete(self, *, messages, tools, timeout):
+            self.calls += 1
+            if self.calls == 1:
+                return ModelTurn(
+                    "",
+                    (ModelToolCall("c1", "news_search", {"query": "分支取证"}),),
+                    "scripted",
+                    "",
+                )
+            return finish_bound_to(self.output_id)
+
+    def runner(query, _tool_context):
+        evidence = AgentEvidence(
+            tool="news_search", title=f"{query} 标题", detail="事实", source="公开来源",
+            source_date="2026-07-20", independent_key="fam", content_hash=f"hash-{query}",
+        )
+        return ([evidence], "obs", ProviderTrace(provider="t", capability="news_search", status="success", result_count=1))
+
+    registry = ResearchToolRegistry(
+        (ToolSpec(name="news_search", capability="news_search", description="新闻", cost="remote", freshness="current", runner=runner),)
+    )
+
+    def run_with(output_id: str) -> BranchResult:
+        result = SubResearchCoordinator(ContinuousSubResearchWorker(OneToolThenFinish(output_id))).run(
+            goals=("查找反方驱动",),
+            task_frame=_frame(),
+            context=_context(tier="max", calls=40),
+            registry=registry,
+            evidence_sink_factory=EvidenceLedger(information_cutoff=date(2026, 7, 24)).branch_sink,
+        )
+        return result.branches[0]
+
+    legal = run_with("branch_findings")
+    assert (legal.status, legal.stop_reason, legal.invalid_actions) == ("completed", "model_finish", ())
+    assert legal.llm_calls == 2 and len(legal.evidence) == 1
+
+    invented = run_with("window_progress")  # 第三遍 live branch-1 的原话
+    assert (invented.status, invented.stop_reason) == ("partial", "invalid_model_finish")
+    assert invented.invalid_actions[-1].code == "unknown_output"
+    assert invented.invalid_actions[-1].reason == "unknown required output: window_progress"
+    # 证据照旧回父账本——这就是为什么这条错一直没被当成故障。
+    assert len(invented.evidence) == 1
 
 
 def test_failed_or_cancelled_branches_carry_no_budget_or_batches() -> None:

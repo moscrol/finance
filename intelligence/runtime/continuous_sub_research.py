@@ -10,6 +10,7 @@ from intelligence.runtime.agent_episode import (
 )
 from intelligence.services.agent_runtime import AgentModelClient
 from intelligence.services.mode_governor import ModeSignals
+from intelligence.services.research_contract import RequiredOutput
 from intelligence.services.research_harness import FinanceResearchHarness
 from intelligence.runtime.sub_research import (
     BranchRequest,
@@ -18,6 +19,22 @@ from intelligence.runtime.sub_research import (
     branch_invalid_actions_from_events,
 )
 from intelligence.services.task_frame import TaskFrame
+
+# 分支契约里唯一的 output。宪法（episode_protocol.build_episode_instructions）要求
+# 「正文里每条事实都绑到对应 required output」「completed 必须覆盖所有 required outputs」，
+# 而分支契约此前 ``required_outputs=()``——模型被要求绑定却没有合法目标，只能自己造 id
+# （2026-09-07 候选口三遍 live：window_progress / baseline_judgment / trading_heat），
+# 撞 ``unknown_output``（INTEGRITY，不回灌）→ 每支必 partial、白烧一次收尾调用、父臂收到
+# 「模型未能返回可验证的结构化终止结果」这条假缺口。证据本身照旧回父账本，所以这条一直没
+# 被当成故障。给它一个合法目标，取证绑上去就是 completed。分支草稿仍不进任何公开答案
+# （spec：dsh「Success contains only the child's final text」那条不抄）。
+BRANCH_FINDINGS_OUTPUT = RequiredOutput(
+    output_id="branch_findings",
+    description="本分支为父题查到的事实与反证：逐条绑定证据序号；分支只负责取证，不下最终结论",
+    evidence_types=(),
+    required=True,
+    grounding_mode="evidence",
+)
 
 
 class ContinuousSubResearchWorker:
@@ -42,7 +59,7 @@ class ContinuousSubResearchWorker:
             task_id=root_budget.episode_id,
             question=request.goal,
             question_type="general_finance_qa",
-            required_outputs=(),
+            required_outputs=(BRANCH_FINDINGS_OUTPUT,),
             research_tier="quick",
             presentation_profile="general",
             task_frame_hash=frame.task_frame_hash,
@@ -99,7 +116,7 @@ class ContinuousSubResearchWorker:
             subject_kind=parent.subject_kind,
             market_scope=parent.market_scope,
             timeframe=parent.timeframe,
-            required_outputs=(),
+            required_outputs=(BRANCH_FINDINGS_OUTPUT.output_id,),
             assumptions=tuple(
                 dict.fromkeys(
                     (*parent.assumptions, "分支只负责取证，不负责最终结论")
@@ -112,4 +129,4 @@ class ContinuousSubResearchWorker:
         )
 
 
-__all__ = ["ContinuousSubResearchWorker"]
+__all__ = ["BRANCH_FINDINGS_OUTPUT", "ContinuousSubResearchWorker"]
