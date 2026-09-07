@@ -72,6 +72,10 @@
       "new_high_1y_count": [
         47.0,
         76.0
+      ],
+      "rps5_outside_top3_pct": [
+        60.0,
+        90.0
       ]
     },
     "左底向上": {
@@ -102,6 +106,10 @@
       "new_high_1y_count": [
         57.0,
         74.0
+      ],
+      "rps5_outside_top3_pct": [
+        50.0,
+        60.0
       ]
     },
     "二次探底": {
@@ -132,6 +140,10 @@
       "new_high_1y_count": [
         65.0,
         86.0
+      ],
+      "rps5_outside_top3_pct": [
+        70.0,
+        100.0
       ]
     },
     "缩量右底": {
@@ -162,6 +174,10 @@
       "new_high_1y_count": [
         65.0,
         122.0
+      ],
+      "rps5_outside_top3_pct": [
+        30.0,
+        50.0
       ]
     },
     "共建主线": {
@@ -192,6 +208,10 @@
       "new_high_1y_count": [
         72.0,
         119.0
+      ],
+      "rps5_outside_top3_pct": [
+        60.0,
+        90.0
       ]
     },
     "主流主升": {
@@ -222,6 +242,10 @@
       "new_high_1y_count": [
         111.0,
         147.0
+      ],
+      "rps5_outside_top3_pct": [
+        20.0,
+        80.0
       ]
     },
     "主流主升2.0": {
@@ -252,6 +276,10 @@
       "new_high_1y_count": [
         223.0,
         307.0
+      ],
+      "rps5_outside_top3_pct": [
+        50.0,
+        70.0
       ]
     },
     "高位震荡": {
@@ -282,6 +310,10 @@
       "new_high_1y_count": [
         131.0,
         217.0
+      ],
+      "rps5_outside_top3_pct": [
+        30.0,
+        80.0
       ]
     }
   },
@@ -342,7 +374,8 @@
       "sh_index_pct_chg_10d",
       "ma_episode_pct_chg",
       "src.sh_deviation_pct",
-      "new_high_1y_count"
+      "new_high_1y_count",
+      "rps5_outside_top3_pct"
     ],
     "labels_framework_version": [
       "tf-v0.1+4374f925"

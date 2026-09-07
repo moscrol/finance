@@ -532,6 +532,9 @@ SECTOR_FIELDS = (
     ("dual_red_theme_count", "dual_red_theme_count"),
     ("limit_themes_ge3", "limit_themes_ge3"),
     ("limit_top1_share_pct", "limit_top1_share_pct"),
+    # 5 日涨幅前 10 的板块里落在成交占比前三申万一级之外的比例（创始人第五段的「赚钱效应不在成交
+    # 占比前三」；候选规则在此定义下 supported：下方 59.6% vs 上方 45.6%）。
+    ("rps5_outside_top3_pct", "rps5_outside_top3_pct"),
 )
 
 

@@ -48,6 +48,7 @@ def canonical_rows_hash(
     primary_key: Sequence[str] | None = None,
     exclude_columns: Sequence[str] = ("computed_at",),
     table: str | None = None,
+    where: str | None = None,
 ) -> str:
     """Hash rows in deterministic column/key order.
 
@@ -67,6 +68,10 @@ def canonical_rows_hash(
         selected = sorted(name for name in all_columns if name not in set(exclude_columns))
         order = list(primary_key or selected)
         query = f"SELECT {', '.join(selected)} FROM {table}"
+        if where:
+            # A fixed predicate (e.g. entity_type = 'market') so that two builds sharing one
+            # table — market labels and sector labels — each hash only their own rows.
+            query += f" WHERE {where}"
         if order:
             query += " ORDER BY " + ", ".join(order)
         result = rows.execute(query).fetchall()
