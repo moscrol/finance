@@ -48,8 +48,9 @@
 
 读数（解释器 `.venv-workbench/bin/python`，树 `~/fwp-wt-branch-trace` @ `504cbbc9` + 本改动）：
 `test_sub_research.py` + `test_sub_research_tool.py` 33P/0F（基线 27）；邻接 10 个套件 272P/0F；
-`ruff check .` 全仓通过；全量 pytest **7986P / 0F / 76S / 1 xfail**（286s）。这份全量读数来自**脏树**
-（`check_test_receipt.py` 判「收据来自脏树，需重跑」）——提交后在干净树重跑的收据见下一条提交回写。
+`ruff check .` 全仓通过；全量 pytest **7986P / 0F / 76S / 1 xfail**——脏树先跑一遍（286s），提交 `66de98c2` 后
+干净树复跑同数（293s），`check_test_receipt.py --expect-revision HEAD --base-drift-max 5` 判「可采信」
+（revision 一致 / 干净树 / 依赖指纹一致 / 基座漂移 0）。
 
 ## 3. 顺手核对的三条审查措辞（写进这里，免得下一个人再发现一遍）
 
