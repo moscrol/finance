@@ -293,3 +293,25 @@ remaining_tool_calls」这一句**上限**；现在同一条带 `per_batch_cap =
 
 决定：合入切流。理由是它只加了一句期待、没加任何上限，分支侧读数方向明确，出口层零变化；父臂那 2–3 轮单工具留给下一步
 （第一轮无注入、以及模型自己的「先看一条再决定」）。历史压实那把杠杆继续留在 §10 待 spec。
+
+## 12. 0907i：派发注入合入切流（#628，8792=`b594a5e7`），切后同题一遍——分支跟、父臂不跟
+
+切后探针 `probe-cutover-0907i/run_20260907_164332_208527`：completed（修复 1 轮）、judge repaired、`judge_unavailable_count=0`、
+`content_degraded_count=0`、l3 证据 8 条、分支收尾 3/3 被接受（1 支 completed）、父账本秒分支前后不动。**但父臂 10 轮里 8 轮每轮只点 1 个工具**
+（[1,1,1,1,1,1,1,1,0,0]），97 万 input tokens、417s；分支 b1 [4,4,2]、b2 [5,4,2] 跟着帽走，b3 [1×9] 没理。
+
+合并 n=3（候选口两遍 + 8792 一遍）：分支 9 支里 7 支从第二批起按帽成批，此前分支是逐个点；父臂三遍分别 [1,1,1,6,0]、[1,8,1,1,0]、
+[1,1,1,1,1,1,1,1,0,0]——**这句话对父臂没有可靠效果**。看父臂单工具轮点的是什么：`sub_research` 之后多是 web_search → web_fetch →
+l3_lookup（按上一步结果决定下一步），这类本来就该逐轮点；注入里那句「只有下一步取决于上一步结果时才逐轮点」恰好放行了它们。
+所以父臂那部分成本不是节奏问题，是**每一轮都把 5–8 万字的 `sub_research` 消息和整段历史重发一遍**——第二把杠杆（历史压实）才是父臂的解。
+
+决定：#628 留着（分支侧有效、出口零变化、不加上限）；父臂的上下文成本进下一刀，需要单独 spec：只保留最近 K 条工具观察原文、
+更早的折成「E12–E48 已入账，标题见证据表」存根，证据仍按 E 号绑；单变量 A/B 用 `capability_frontier` 的 `resent_chars_estimate` 与
+`input_tokens / llm_calls` 判。0907i 的 main tip 同时带了 #627（授课框架，`services/teaching_framework` 等，不在本线），回滚锚
+`cutover-20260907i-pacing-rollback-8792.txt`（回 `d4cb6484`）。
+
+| run | rev | status/stop | judge | tools used/offered | evidence parent+branch/bound | input tok / llm | tool msg chars / resent (largest) | repair | episode s / sub_research s / ledger left | branches ok/partial/fail · accepted · invalid · cap rej/req | branch→parent s |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| run_20260907_161318_091726（候选口） | 7980be360c5b | partial / model_finish | repaired (unavail 0, degraded 0) | 9/14 (父 6 · 支 7) | 178+129/32 | 517243 / 5 | 93608 / 287515 (sub_research 61754) | 0 | 228.5 / 109.0 / 311.7 | 0/3/0 · 3 · 0 · 2/31 | 0.0 |
+| run_20260907_161748_970275（候选口） | 7980be360c5b | completed / model_finish | repaired (unavail 0, degraded 0) | 11/14 (父 5 · 支 8) | 207+133/25 | 699776 / 5 | 104451 / 283489 (sub_research 56939) | 0 | 245.2 / 130.2 / 295.0 | 1/2/0 · 3 · 0 · 0/28 | 0.0 |
+| run_20260907_164332_208527（8792） | b594a5e7f8ae | completed / repair_model_finish | repaired (unavail 0, degraded 0) | 12/14 (父 6 · 支 8) | 206+132/36 | 974147 / 10 | 97936 / 680884 (sub_research 55285) | 1 | 416.8 / 131.0 / 163.4 | 1/2/0 · 3 · 0 · 1/30 | 0.0 |
