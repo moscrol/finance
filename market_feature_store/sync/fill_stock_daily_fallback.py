@@ -20,6 +20,7 @@ FALLBACK_SOURCE = "fupanhui:sector_stock_daily:fallback"
 
 UPSERT_SQL = """
 INSERT INTO fact_stock_daily
+  (trade_date, stock_ts_code, stock_name, close, pre_close, pct_chg, amount, turnover, source, updated_at)
 SELECT
   trade_date,
   stock_ts_code,

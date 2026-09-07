@@ -118,6 +118,46 @@ def test_tool_events_fold_to_tool_messages_and_budget_state_overwrites_the_last(
     ]
 
 
+def test_history_compacted_overwrites_the_folded_tool_messages_by_call_id() -> None:
+    """历史折叠（spec 2026-09-07 §3.2）改的是更早批次 tool 消息的正文：事件按 call_id 带
+    替换后的 model_content，派生按 call_id 覆写，不动其余消息、不动配对。"""
+
+    ledger = _Ledger()
+    ledger.add("tool_result", {"call_id": "call-1", "model_content": '{"ok": true, "big": 1}'})
+    ledger.add("tool_result", {"call_id": "call-2", "model_content": '{"ok": true, "big": 2}'})
+    ledger.add("tool_result", {"call_id": "call-3", "model_content": '{"ok": true, "big": 3}'})
+    folded = '{"ok": true, "compacted": true, "evidence_index": []}'
+    ledger.add(
+        "history_compacted",
+        {
+            "folded": [
+                {"call_id": "call-1", "tool": "market_data", "model_content": folded},
+                {"call_id": "call-2", "tool": "market_data", "model_content": folded},
+            ],
+            "folded_messages": 2,
+        },
+    )
+
+    assert derive_messages(ledger.events) == [
+        {"role": "tool", "tool_call_id": "call-1", "content": folded},
+        {"role": "tool", "tool_call_id": "call-2", "content": folded},
+        {"role": "tool", "tool_call_id": "call-3", "content": '{"ok": true, "big": 3}'},
+    ]
+
+
+def test_history_compacted_without_model_content_or_target_is_refused() -> None:
+    ledger = _Ledger()
+    ledger.add("tool_result", {"call_id": "call-1", "model_content": "{}"})
+    ledger.add("history_compacted", {"folded": [{"call_id": "call-1", "tool": "x"}]})
+    with pytest.raises(DerivationUnavailable, match="model_content"):
+        derive_messages(ledger.events)
+
+    ledger = _Ledger()
+    ledger.add("history_compacted", {"folded": [{"call_id": "ghost", "model_content": "{}"}]})
+    with pytest.raises(DerivationUnavailable, match="找不到"):
+        derive_messages(ledger.events)
+
+
 def test_unrelated_kinds_produce_no_messages() -> None:
     ledger = _Ledger()
     for kind in ("task", "plan", "tool_request", "tool_menu", "finalization", "finish"):
@@ -242,6 +282,37 @@ def test_projection_redacts_model_visible_text_by_default_but_keeps_hashes() -> 
     full = project_durable_events(ledger.events, include_model_visible_text=True)
     assert full.events[1]["payload"]["system"] == "宪法正文"
     assert full.events[3]["payload"]["model_content"] == "工具正文"
+
+
+def test_projection_redacts_folded_text_inside_history_compacted_items() -> None:
+    """``list[].field`` 形式：history_compacted.folded 里每一项的 model_content 剔正文留哈希。"""
+
+    ledger = _Ledger()
+    ledger.add("task", {"question": "q", "task_frame_hash": "h"})
+    ledger.add(
+        "history_compacted",
+        {
+            "folded": [
+                {"call_id": "c1", "tool": "market_data", "chars_before": 900, "model_content": "折叠正文一"},
+                {"call_id": "c2", "tool": "market_data", "chars_before": 800, "model_content": "折叠正文二"},
+            ],
+            "folded_messages": 2,
+            "chars_saved": 1500,
+        },
+    )
+
+    projection = project_durable_events(ledger.events)
+    dumped = json.dumps(list(projection.events), ensure_ascii=False)
+    assert "折叠正文一" not in dumped and "折叠正文二" not in dumped
+    folded = projection.events[1]["payload"]["folded"]
+    assert [item["call_id"] for item in folded] == ["c1", "c2"]
+    assert folded[0]["model_content_sha256"] == sha256_text("折叠正文一")
+    assert folded[0]["model_content_chars"] == len("折叠正文一")
+    assert folded[0]["chars_before"] == 900 and "model_content" not in folded[0]
+    assert projection.events[1]["payload"]["chars_saved"] == 1500
+    assert not projection.has_anomalies
+    full = project_durable_events(ledger.events, include_model_visible_text=True)
+    assert full.events[1]["payload"]["folded"][1]["model_content"] == "折叠正文二"
 
 
 def test_projection_leaves_events_without_model_visible_text_byte_identical() -> None:

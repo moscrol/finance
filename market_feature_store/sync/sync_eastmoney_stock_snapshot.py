@@ -31,6 +31,7 @@ from .sync_mootdx_stock_daily import (
     COLS,
     _isnan,
     _ts_code,
+    ensure_stock_daily_columns,
 )
 
 # 复盘为盘后运行: 默认用延时行情 host (push2delay), 收盘后其值 == 实时收盘值;
@@ -43,12 +44,14 @@ EM_PAGE_MAX = 100
 # 沪深京 A 股 (与 akshare stock_zh_a_spot_em 同口径), fs 内 '+' 为东财字段分隔符须保留字面量
 EM_FS = "m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048"
 # f12=代码 f14=名称 f2=最新价(收盘) f3=涨跌幅% f18=昨收 f6=成交额(元) f8=换手率%
+# f17=今开 f15=最高 f16=最低 f5=成交量(手) —— 2026-09-07 起落 open/high/low/volume,
+# 新高等派生要日内最高价, 收盘价对不上 fupanhui 新高家数 (双轨对账差 ±20%)。
 #
 # **请求了就必须接住**，由 tests/test_eastmoney_snapshot_fields.py 钉住。
 # 曾经请求了 f13(市场) 却从不读它: 交易所后缀由 `_ts_code` 按代码前缀派生, 而且
 # **必须与 mootdx 用同一套派生**——改用 f13 会让同一只股票在两个来源下拿到不同的
 # stock_ts_code, 在同一张表里裂成两个实体。所以正解是不请求它, 不是改派生。
-EM_FIELDS = "f12,f14,f2,f3,f18,f6,f8"
+EM_FIELDS = "f12,f14,f2,f3,f18,f6,f8,f17,f15,f16,f5"
 EM_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -146,6 +149,7 @@ def sync_fact_stock_daily_snapshot(trade_date: str | None = None,
     init_db()
     con = connect()
     try:
+        ensure_stock_daily_columns(con)
         diff = fetch_snapshot(page_size=page_size, timeout=timeout)
         now = datetime.now()
         buf: list[tuple] = []
@@ -181,6 +185,10 @@ def sync_fact_stock_daily_snapshot(trade_date: str | None = None,
                 round(turnover, 4) if turnover is not None else None,
                 source,
                 now,
+                _num(it.get("f17")),  # open
+                _num(it.get("f15")),  # high
+                _num(it.get("f16")),  # low
+                _num(it.get("f5")),   # volume 手
             ))
 
         rows_written = 0

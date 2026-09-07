@@ -44,11 +44,71 @@ no model call, clock, or randomness, so the same observation always yields the
 same bytes.  A provider's prompt cache keys on the exact prefix; a preview that
 varied per call would invalidate the cache on every resume and cost more than
 the tokens it saved.
+
+Layer 1b（2026-09-07，spec ``2026-09-07-episode-history-compaction-design.md`` §3.1）：
+``lean_tool_observation`` 去掉**空值**与 ``independent_key``。上面的红线一条不破——
+一条非空的 ``contradicts`` 仍在、非空的 ``freshness`` 仍在；被去掉的是 ``"supports": []``
+``"contradicts": []`` ``"evidence_tier": ""`` ``"source_date": "None"`` 这类每条都带、
+但不携带任何信息的键，以及只给校验器判来源独立性用的 ``independent_key``（宪法与绑定
+都不引用它）。同题 17 个 run 实测：sub_research 那条 5.2 万字的 evidence JSON 里 2/3 是
+这种脚手架；红线内可去掉的合计 −21%。缺省关（``ASK_EPISODE_LEAN_OBSERVATION``），A/B 拍板后翻。
 """
 
 from __future__ import annotations
 
+import os
 from typing import Any, Mapping
+
+LEAN_OBSERVATION_ENV = "ASK_EPISODE_LEAN_OBSERVATION"
+# 顶层这些键在空的时候对模型没有信息量（hash 已由 strip_hashes_for_model 换成 E 号）。
+_LEAN_TOP_LEVEL_WHEN_EMPTY = frozenset(
+    {"evidence_hashes", "payload_field_names", "payload_sha256", "dataset", "caliber"}
+)
+# 每条证据里只给校验器用、模型从不引用的键。
+_LEAN_EVIDENCE_DROP = frozenset({"independent_key"})
+_EMPTY_VALUES: tuple[object, ...] = ("", "None", None)
+
+
+def lean_observation_enabled() -> bool:
+    raw = str(os.environ.get(LEAN_OBSERVATION_ENV) or "").strip().lower()
+    return raw in {"on", "1", "true", "yes"}
+
+
+def _is_empty(value: object) -> bool:
+    if value in _EMPTY_VALUES:
+        return True
+    return isinstance(value, (list, tuple, dict)) and len(value) == 0
+
+
+def lean_tool_observation(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """去掉模型视图里的空值与 ``independent_key``；非空字段一个不动。
+
+    与 ``budget_tool_observation`` 同样是纯函数、不动输入。红线（来源 / 时点 / 分档 /
+    缺口 / 非空的 supports·contradicts·freshness）全部保留：空列表不是「没有矛盾」的
+    声明，只是这条证据没有被标注过。
+    """
+
+    leaned: dict[str, Any] = {}
+    for key, value in payload.items():
+        if key in _LEAN_TOP_LEVEL_WHEN_EMPTY and _is_empty(value):
+            continue
+        leaned[key] = value
+    raw_evidence = payload.get("evidence")
+    if isinstance(raw_evidence, list):
+        items: list[Any] = []
+        for item in raw_evidence:
+            if not isinstance(item, Mapping):
+                items.append(item)
+                continue
+            items.append(
+                {
+                    key: value
+                    for key, value in item.items()
+                    if key not in _LEAN_EVIDENCE_DROP and not _is_empty(value)
+                }
+            )
+        leaned["evidence"] = items
+    return leaned
 
 # Matches ``agent_research._MAX_OBSERVATION_CHARS`` so the two engines bound
 # their context the same way.  Engine B has had this cap for a while; Engine A

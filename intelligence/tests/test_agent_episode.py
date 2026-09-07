@@ -3288,6 +3288,60 @@ def test_next_model_turn_sees_dynamic_tools_and_remaining_budget() -> None:
     assert finish.payload["time_budget_injected"] is True
     assert outcome.status == "completed"
     assert outcome.usage.invalid_actions == 0
+    # 只剩 1 次可点：不劝并行（没什么可并行的），也不写 per_batch_cap。
+    assert "per_batch_cap" not in budget
+    assert "同一轮一起点出" not in budget["instruction"]
+
+
+def test_budget_injection_asks_for_parallel_batches_with_the_tier_cap() -> None:
+    """派发节奏（收据 §10）：19 轮那遍连续 17 轮每轮只点 1 个工具，历史重发 96 万字。
+    预算注入此前只说「不得超过」（上限），现在把每批帽和「一起点」写进同一条；数字 = min(帽, 剩余)。"""
+
+    class RecordingLedger:
+        """预算注入的 durable 载体（INV-R1）：模型看到的整段 content 落 tool_budget_state。"""
+
+        def __init__(self) -> None:
+            self.events: list[tuple[str, dict[str, object]]] = []
+
+        def add(self, kind: str, payload: dict[str, object]) -> None:
+            self.events.append((kind, dict(payload)))
+
+    ledger = RecordingLedger()
+    messages: list[dict[str, object]] = [
+        {"role": "tool", "tool_call_id": "c1", "content": json.dumps({"ok": True, "tool": "market_data"})}
+    ]
+    injected = ContinuousAgentEpisode._append_tool_budget_state(
+        messages=messages,
+        ledger=ledger,
+        remaining_slots=22,
+        remaining_seconds=400.0,
+        total_seconds=600.0,
+        per_batch_cap=8,
+    )
+    assert injected is True
+    budget = json.loads(messages[-1]["content"])["runtime_budget"]
+    assert budget["per_batch_cap"] == 8
+    assert "互不依赖的工具应在同一轮一起点出（本轮最多 8 个）" in budget["instruction"]
+    assert "只有下一步取决于上一步结果时才逐轮点" in budget["instruction"]
+    assert "不得超过 remaining_tool_calls" in budget["instruction"]  # 上限那句仍在
+    # durable 载体与模型可见正文同一份（模型可见即已落账）。
+    assert [kind for kind, _payload in ledger.events] == ["tool_budget_state"]
+    assert ledger.events[0][1]["model_content"] == messages[-1]["content"]
+
+    # 剩余 3 次、帽 8 → 本轮最多 3；帽 4（quick 标签的分支）→ 4。
+    for slots, cap, expected in ((3, 8, 3), (22, 4, 4)):
+        msgs = [{"role": "tool", "tool_call_id": "c", "content": json.dumps({"ok": True})}]
+        ContinuousAgentEpisode._append_tool_budget_state(
+            messages=msgs, ledger=RecordingLedger(), remaining_slots=slots, per_batch_cap=cap
+        )
+        assert json.loads(msgs[-1]["content"])["runtime_budget"]["per_batch_cap"] == expected
+    # 没传帽（旧调用方 / 参考 loop）→ 逐字节同前。
+    plain = [{"role": "tool", "tool_call_id": "c", "content": json.dumps({"ok": True})}]
+    ContinuousAgentEpisode._append_tool_budget_state(
+        messages=plain, ledger=RecordingLedger(), remaining_slots=22
+    )
+    plain_budget = json.loads(plain[-1]["content"])["runtime_budget"]
+    assert "per_batch_cap" not in plain_budget and "一起点出" not in plain_budget["instruction"]
 
 
 def test_episode_snapshot_binding_expands_to_the_complete_atomic_snapshot() -> None:

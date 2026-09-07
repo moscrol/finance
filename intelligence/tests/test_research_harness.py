@@ -532,6 +532,30 @@ def test_default_project_tool_result_equals_the_inline_projection() -> None:
     assert json.loads(again.model_content).get("observation") != facing["observation"]
 
 
+def test_lean_switch_slims_only_the_model_view_and_leaves_the_audit_untouched(monkeypatch) -> None:
+    """spec 2026-09-07 §3.1：开关开 → 模型正文去掉空值与 independent_key；审计底稿逐字节同前；关 → 同前。"""
+
+    evidence = (_evidence("evidence-1"), _evidence("evidence-2", title="第二条"))
+    observation = _observation(evidence, telemetry={"queued_ms": 3})
+    harness = FinanceResearchHarness()
+
+    monkeypatch.delenv("ASK_EPISODE_LEAN_OBSERVATION", raising=False)
+    baseline = harness.project_tool_result(observation, evidence_so_far=evidence, seen_prose=set())
+    monkeypatch.setenv("ASK_EPISODE_LEAN_OBSERVATION", "on")
+    leaned = harness.project_tool_result(observation, evidence_so_far=evidence, seen_prose=set())
+
+    assert leaned.audit_payload == baseline.audit_payload  # 审计底稿不动
+    base_view, lean_view = json.loads(baseline.model_content), json.loads(leaned.model_content)
+    assert all("independent_key" in row for row in base_view["evidence"])
+    assert all("independent_key" not in row for row in lean_view["evidence"])
+    for row in lean_view["evidence"]:
+        assert all(value not in ("", None, []) for value in row.values())
+    # 红线字段：来源 / 时点 / 分档 / E 号仍在；非空 gaps 仍在。
+    assert {"source", "source_date", "evidence_tier", "evidence_id", "title", "detail"} <= set(lean_view["evidence"][0])
+    assert lean_view["gaps"] == ["缺少反方证据"] and lean_view["evidence_ids"] == ["E1", "E2"]
+    assert len(leaned.model_content) < len(baseline.model_content)
+
+
 def test_default_govern_mode_equals_governor_decide_and_message() -> None:
     """govern_mode = 信号 → 依赖修正 → decide → MODE_DECISION 文案，与原
     `_decide_mode` + `_append_mode_decision_message` 逐字段相同。

@@ -67,6 +67,7 @@ __all__ = [
     "DerivationUnavailable",
     "MODEL_INPUT_KIND",
     "MODEL_INPUT_SOURCES",
+    "HISTORY_COMPACTED_KIND",
     "MODEL_VISIBLE_TEXT_FIELDS",
     "MessageLedger",
     "ModelInputSource",
@@ -91,6 +92,7 @@ __all__ = [
 MODEL_INPUT_KIND = "model_input"
 PROMPT_ASSEMBLED_KIND = "prompt_assembled"
 TOOL_BUDGET_STATE_KIND = "tool_budget_state"
+HISTORY_COMPACTED_KIND = "history_compacted"
 STRICT_DERIVATION_ENV = "FORESIGHT_STRICT_DERIVATION"
 
 # user 角色注入的来源。值进事件 payload，是评测 / 投影分类的依据；新增来源先加这里，
@@ -120,6 +122,7 @@ MODEL_INPUT_SOURCES: frozenset[str] = frozenset(
 
 # 投影层默认剔除的模型可见正文字段：``(kind, field)``。私有 durable 流带正文，
 # 对外 artifact 只留 sha256 与字符数（``episode_projection.project_durable_events``）。
+# ``list[].field`` 形式指列表字段里每一项的正文（历史折叠一条事件折多条消息）。
 MODEL_VISIBLE_TEXT_FIELDS: frozenset[tuple[str, str]] = frozenset(
     {
         (PROMPT_ASSEMBLED_KIND, "system"),
@@ -128,6 +131,7 @@ MODEL_VISIBLE_TEXT_FIELDS: frozenset[tuple[str, str]] = frozenset(
         (TOOL_BUDGET_STATE_KIND, "model_content"),
         ("tool_result", "model_content"),
         ("tool_error", "model_content"),
+        (HISTORY_COMPACTED_KIND, "folded[].model_content"),
     }
 )
 
@@ -341,7 +345,37 @@ def derive_messages(events: Iterable[EpisodeEvent]) -> list[dict[str, object]]:
                 **messages[-1],
                 "content": _require_text(payload, "model_content", event=event),
             }
+        elif kind == HISTORY_COMPACTED_KIND:
+            # 历史折叠（spec 2026-09-07 episode-history-compaction §3.2）：更早批次的 tool
+            # 消息正文被换成 E 号索引。事件里每条 folded 都带替换后的 ``model_content``，
+            # 派生按 call_id 找到那条 tool 消息覆写——没带正文的老事件无法派生，不猜。
+            payload = _payload_dict(event)
+            folded = payload.get("folded") or []
+            if not isinstance(folded, list):
+                raise DerivationUnavailable(f"history_compacted#{event.sequence} 的 folded 不是列表")
+            for item in folded:
+                if not isinstance(item, Mapping):
+                    raise DerivationUnavailable(f"history_compacted#{event.sequence} 的 folded 项不是对象")
+                call_id = str(item.get("call_id") or "")
+                if "model_content" not in item:
+                    raise DerivationUnavailable(
+                        f"history_compacted#{event.sequence} 折叠项 {call_id!r} 缺 model_content，无法派生"
+                    )
+                target = _last_tool_message_index(messages, call_id)
+                if target is None:
+                    raise DerivationUnavailable(
+                        f"history_compacted#{event.sequence} 折叠的 {call_id!r} 在派生消息里找不到"
+                    )
+                messages[target] = {**messages[target], "content": str(item["model_content"])}
     return messages
+
+
+def _last_tool_message_index(messages: list[dict[str, object]], call_id: str) -> int | None:
+    for index in range(len(messages) - 1, -1, -1):
+        message = messages[index]
+        if message.get("role") == "tool" and str(message.get("tool_call_id") or "") == call_id:
+            return index
+    return None
 
 
 def describe_mismatch(
