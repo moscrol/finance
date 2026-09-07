@@ -77,7 +77,10 @@ launchctl bootout "gui/$(id -u)/com.a77.finance-workbench"
 # 那个分支不一定有 scripts/audit_deploy_ledger.py（本次停在 feat/reading-rules-baseline-batch1，就没有），
 # 结果是账本静默漏记一次 switch——而切换本身已经生效，事后没人看得出来漏了。
 # FINANCE_WS 仍指主仓（数据仓），只有解释器和脚本路径跟着快照走。
-FINANCE_WS=/Users/a77/finance-workspace-private /Users/a77/finance-workspace-private/.venv-workbench/bin/python ~/.finance-runtime/finance-workspace-${sha:0:12}/scripts/audit_deploy_ledger.py record --action switch --rev "$sha" --snapshot-path ~/.finance-runtime/finance-workspace-${sha:0:12}
+# ⚠️ `--port` 与 `--ledger` 不能省（2026-09-07 0907g 实测补入）：不带 `--ledger` 时脚本写的是
+# `$FINANCE_WS/state/deploy-ledger.jsonl`（app 自己记 startup 的那本），而看板 `worktree_board.py` 与
+# SessionStart 事实读的是 `~/.finance-runtime/deploy-ledger.jsonl`——切换生效了、看板却判不出 8792 在哪个 rev。
+FINANCE_WS=/Users/a77/finance-workspace-private /Users/a77/finance-workspace-private/.venv-workbench/bin/python ~/.finance-runtime/finance-workspace-${sha:0:12}/scripts/audit_deploy_ledger.py record --action switch --rev "$sha" --snapshot-path ~/.finance-runtime/finance-workspace-${sha:0:12} --port 8792 --ledger ~/.finance-runtime/deploy-ledger.jsonl
 launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.a77.finance-workbench.plist
 ```
 
