@@ -787,12 +787,49 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "amount": _metric("amount", "成交额亿", "sum"),
         },
     ),
+    "core_leader_daily": _DatasetDefinition(
+        table="fact_core_leader_daily",
+        label="核心个股（自家：主线 × 正宗 × 人气）",
+        population="subset",
+        coverage=(
+            "**每日约 20 只**，从当日主线题材的成员股里选：人气分（成交额/涨停/连板/新高/5日涨幅 "
+            "各取池内百分位加权）+ 0.15 × 正宗度（知识库年报/主营暴露度）。"
+            "与 `core_stock_daily` 是两个口径，别混着说：那张是成交额前 50，这张是主线里的正宗龙头。"
+            "⚠️ 106 日消融实测：正宗度加权**不提高**前瞻收益（w 越大越低，且差异在噪声带内）——"
+            "这张表回答「谁是正宗龙头」，不是选股信号，不要拿它写「买入建议」。"
+            "`kb_sector_covered=false` 时 `authenticity=0` 只表示知识库没有该板块的概念（没得查），"
+            "不表示「查过、不正宗」。"
+        ),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+            "theme_name": _dimension("theme_name", "所属主线题材"),
+            "sector_name": _dimension("sector_name", "命中板块"),
+            "kb_concept": _dimension("kb_concept", "知识库概念（正宗度出处）"),
+            "kb_strength": _dimension("kb_strength", "暴露强度 core/related/peripheral"),
+            "kb_evidence_layer": _dimension("kb_evidence_layer", "证据层 L1/L2/L3 硬，*_candidate/graph_only 软"),
+        },
+        metrics={
+            "rank": _metric("rank", "核心榜名次", "min", "integer"),
+            "close": _metric("close", "收盘价"),
+            "return_pct": _metric("pct_chg", "涨跌幅"),
+            "amount": _metric("amount", "成交额亿", "sum"),
+            "gain_5d": _metric("gain_5d", "5日涨幅"),
+            "boards": _metric("boards", "连板高度", "max", "integer"),
+            "popularity": _metric("popularity", "人气分 0~1"),
+            "authenticity": _metric("authenticity", "正宗度 0~1"),
+            "score": _metric("score", "综合分"),
+        },
+    ),
     "core_stock_daily": _DatasetDefinition(
         table="fact_core_stock_daily",
         label="市场核心个股 TOP50",
         population="subset",
         coverage=(
             "**固定 50 只的核心股池**，不是全市个股——不要在这张表上写「全市最…」。"
+            "口径已反推：就是当日全市场成交额前 50（405 日 20250 行实测命中 99.5%）。"
         ),
         time_field="trade_date",
         dimensions={

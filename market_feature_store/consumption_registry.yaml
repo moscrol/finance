@@ -101,6 +101,8 @@ plans:
     - market-stage-local
     - stock-high-local
     - mainline-local
+    - core-stock-local
+    - core-leader-local
     - features
 
 # ============================================================================
@@ -296,13 +298,33 @@ datasets:
   - key: core_stocks
     label: 核心股 TOP50
     tables: [fact_core_stock_daily]
-    steps: {full: [public-assets], cheap: [public-assets]}
+    steps: {full: [public-assets], cheap: [public-assets], local: [core-stock-local]}
     identity:
       what: 名单本身
       cadence: 快（名字像名单，实测是快变量）
       evidence: "J=0.54~0.64，每天进出约 14 只 [用户实测]"
     value: {what: 排名/行情, cadence: 极快}
-    refresh: {tier: C-daily, policy: "每天 1 请求。他们的『核心』≠涨幅榜，产品判断不可替代。"}
+    refresh:
+      tier: D-derived
+      policy: >-
+        2026-09-07 反推：这个『核心』既不是编辑判断也不是涨幅榜，就是**当日成交额前 50**
+        （405 日 20250 行，集合命中 99.5%，rank 与 amount 降序一致 99.98%）。local 档自算，
+        不再需要请求；full/cheap 仍走 public-assets 拿 fund_flow_today（唯一自算不了的字段）。
+
+  - key: core_leaders
+    label: 核心个股（自家：主线 × 正宗 × 人气）
+    tables: [fact_core_leader_daily]
+    steps: {local: [core-leader-local]}
+    identity:
+      what: 主线题材成员池
+      cadence: 跟随 mainline
+      evidence: "池 = 当日主线板块成分股 [实测]"
+    value: {what: 正宗度 × 人气排序, cadence: 极快}
+    refresh:
+      tier: D-derived
+      policy: >-
+        纯本地派生：行情来自 fact_stock_daily / fact_stock_high_daily，正宗度来自知识库
+        entity_exposures（无网络）。与 core_stocks 是两个口径，不混表。
 
   - key: regulation
     label: 监管事件 / 监管池

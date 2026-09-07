@@ -209,3 +209,109 @@ def test_mainline_local_picks_popular_theme_and_limit_up_stocks():
     # 题材A 成员：甲(涨停 10%)、乙(20% 板)、平安(0%)；涨停优先且不含 ST
     assert [s for s, _ in stocks][:2] == ["300001.SZ", "600001.SH"] and all(s != "002514.SZ" for s, _ in stocks)
     assert con.execute("SELECT theme_code, sector_count, source FROM fact_mainline_theme_daily").fetchone() == ("LM001.LOCAL", 1, "local:mainline-v1")
+
+
+def test_core_stock_local_is_top_turnover_and_carries_forward_sw_l1():
+    """核心个股复刻口径：成交额降序前 N，rank 跟着成交额；申万一级从历史行承接。"""
+    con = _db()
+    for code, name, amt in (("600001.SH", "甲", 50.0), ("300001.SZ", "乙", 30.0),
+                            ("000001.SZ", "丙", 10.0), ("002514.SZ", "丁", 0.0)):
+        _stock(con, "2026-09-01", code, name, 10.0, 10.0, amount=amt)
+        _stock(con, "2026-09-02", code, name, 11.0, 10.0, amount=amt)
+    # 只有「甲」在更早的 fupanhui 核心榜出现过 → 只有它拿得到 sw_l1
+    con.execute("INSERT INTO fact_core_stock_daily (trade_date, rank, stock_ts_code, stock_name, sw_l1_name, source, updated_at) "
+                "VALUES ('2026-08-01', 1, '600001.SH', '甲', '电子', 'fupanhui:public-api/core-stocks/list', now())")
+    r = cls_.compute_core_stock_local("2026-09-02", con=con, topn=3)
+    assert r["action"] == "written" and r["rows"] == 3 and r["sw_l1_filled"] == 1
+    rows = con.execute("SELECT rank, stock_ts_code, sw_l1_name, gain_5d, fund_flow_today, source "
+                       "FROM fact_core_stock_daily WHERE trade_date='2026-09-02' ORDER BY rank").fetchall()
+    assert [(x[0], x[1]) for x in rows] == [(1, "600001.SH"), (2, "300001.SZ"), (3, "000001.SZ")]
+    assert rows[0][2] == "电子" and rows[1][2] is None      # 承接只对历史上出现过的那只生效
+    assert all(x[3] is None for x in rows)                   # 只有 2 天数据，5 日涨幅算不出来就留空
+    assert all(x[4] is None for x in rows)                   # 资金流无本地源，永远 NULL
+    assert rows[0][5] == "local:core-turnover-v1"
+    # 停牌（amount=0）不进榜：池里 4 只，只取到 3 只且不含丁
+    assert all(x[1] != "002514.SZ" for x in rows)
+
+
+def test_core_stock_local_does_not_overwrite_fupanhui_rows():
+    con = _db()
+    _stock(con, "2026-09-02", "600001.SH", "甲", 11.0, 10.0, amount=50.0)
+    con.execute("INSERT INTO fact_core_stock_daily (trade_date, rank, stock_ts_code, stock_name, source, updated_at) "
+                "VALUES ('2026-09-02', 1, '999999.SH', '真身', 'fupanhui:public-api/core-stocks/list', now())")
+    r = cls_.compute_core_stock_local("2026-09-02", con=con)
+    assert r["action"] == "skipped-has-foreign-rows"
+    assert con.execute("SELECT stock_ts_code FROM fact_core_stock_daily").fetchone()[0] == "999999.SH"
+
+
+def _seed_kb(tmp_path, monkeypatch, *, concepts):
+    import json
+    rel = tmp_path / "wiki" / "relations"
+    rel.mkdir(parents=True)
+    (rel / "entity_exposures.json").write_text(
+        json.dumps({"entities": {"甲公司": {"name": "甲公司", "codes": ["600001"], "concepts": concepts}}},
+                   ensure_ascii=False), encoding="utf-8")
+    (rel / "aliases.json").write_text(json.dumps({"aliases": {}}), encoding="utf-8")
+    monkeypatch.setenv("KB_VAULT", str(tmp_path / "wiki"))
+
+
+def _seed_mainline(con):
+    """把 09-02 的题材A 标成主线（成员 600001/300001/000001 三只，见 _seed_universe_and_members）。"""
+    con.execute("INSERT INTO fact_mainline_theme_daily (trade_date, theme_code, theme_name, sector_count, min_sort, source, updated_at) "
+                "VALUES ('2026-09-02', 'LM001.LOCAL', '题材A', 1, 1, 'local:mainline-v1', now())")
+    con.execute("INSERT INTO fact_mainline_sector_daily (trade_date, theme_code, theme_name, sector_ts_code, sector_name, source, updated_at) "
+                "VALUES ('2026-09-02', 'LM001.LOCAL', '题材A', '990001.FP', '题材A', 'local:mainline-v1', now())")
+
+
+def test_core_leader_authenticity_lifts_an_otherwise_lower_ranked_stock(tmp_path, monkeypatch):
+    """同一个池、同一套人气分，只有正宗度不同 → 名次要真的因此改变，否则这个字段是摆设。"""
+    con = _db()
+    _seed_two_days(con)
+    _seed_universe_and_members(con)
+    _seed_mainline(con)
+    # 让 300001 成交额碾压 600001 → 纯人气时 300001 第一；600001 只多一个板
+    con.execute("UPDATE fact_stock_daily SET amount = 500.0 WHERE trade_date='2026-09-02' AND stock_ts_code='300001.SZ'")
+    # 600001 有年报级(L2)正宗证据，300001 没有 → 正宗度要能把它推回第一
+    _seed_kb(tmp_path, monkeypatch, concepts={"题材A": {"strength": "core", "evidence_layer": "L2",
+                                                        "updated": "2026-01-01"}})
+    with_kb = cls_.compute_core_leader_local("2026-09-02", con=con, topn=3, auth_weight=1.0)
+    assert with_kb["action"] == "written" and with_kb["kb_status"] == "ok"
+    ranked = [r[0] for r in con.execute(
+        "SELECT stock_ts_code FROM fact_core_leader_daily WHERE trade_date='2026-09-02' ORDER BY rank").fetchall()]
+    assert ranked[0] == "600001.SH"
+    row = con.execute("SELECT authenticity, kb_concept, kb_strength, kb_evidence_layer, kb_sector_covered, source "
+                      "FROM fact_core_leader_daily WHERE stock_ts_code='600001.SH'").fetchone()
+    assert row[:5] == (1.0, "题材A", "core", "L2", True)   # 分数带着可回查的收据
+    assert row[5] == "local:core-leader-v1"
+    # 权重归零 = 纯人气基线，此时 600001 应当掉到 300001 后面（消融跑得通，A/B 才成立）
+    baseline = cls_.compute_core_leader_local("2026-09-02", con=con, topn=3, auth_weight=0.0, force=True)
+    assert baseline["action"] == "written"
+    assert con.execute("SELECT stock_ts_code FROM fact_core_leader_daily WHERE rank=1").fetchone()[0] == "300001.SZ"
+
+
+def test_core_leader_separates_unmeasurable_from_measured_zero(tmp_path, monkeypatch):
+    """板块在知识库里根本没这个概念时，authenticity=0 只代表『没得查』，要能与『查过、不正宗』分开。"""
+    con = _db()
+    _seed_two_days(con)
+    _seed_universe_and_members(con)
+    _seed_mainline(con)
+    _seed_kb(tmp_path, monkeypatch, concepts={"别的题材": {"strength": "core", "evidence_layer": "L2",
+                                                           "updated": "2026-01-01"}})
+    cls_.compute_core_leader_local("2026-09-02", con=con, topn=3)
+    rows = con.execute("SELECT authenticity, kb_sector_covered FROM fact_core_leader_daily").fetchall()
+    assert rows and all(a == 0.0 and covered is False for a, covered in rows)
+
+
+def test_core_leader_fails_closed_without_knowledge_base(tmp_path, monkeypatch):
+    con = _db()
+    _seed_two_days(con)
+    _seed_universe_and_members(con)
+    _seed_mainline(con)
+    monkeypatch.setenv("KB_VAULT", str(tmp_path / "nope"))
+    with pytest.raises(Exception, match="知识库"):
+        cls_.compute_core_leader_local("2026-09-02", con=con)
+    assert con.execute("SELECT COUNT(*) FROM fact_core_leader_daily").fetchone()[0] == 0
+    # 显式放行才降级，且 source 带 -nokb，事后能从库里认出这批是没正宗度的
+    r = cls_.compute_core_leader_local("2026-09-02", con=con, allow_no_kb=True)
+    assert r["kb_status"] == "missing"
+    assert con.execute("SELECT DISTINCT source FROM fact_core_leader_daily").fetchone()[0] == "local:core-leader-v1-nokb"

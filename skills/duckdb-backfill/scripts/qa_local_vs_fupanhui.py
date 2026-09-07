@@ -346,6 +346,35 @@ def run(start, end, n, json_path):
             out["families"]["stage_agree"] = st[0][1] / st[0][0]
             print(f"周期阶段 local vs fph 一致 {st[0][1]}/{st[0][0]}")
 
+        # 核心个股：口径已反推为「当日成交额前 50」，所以这里对的是**全历史**，不只抽样日。
+        # 不命中的行按「我们当天有没有这只股的行」拆开——不拆的话数据缺口会伪装成口径差。
+        cs = q(con, """
+            WITH t AS (SELECT trade_date, stock_ts_code,
+                              ROW_NUMBER() OVER (PARTITION BY trade_date ORDER BY amount DESC) rn
+                       FROM fact_stock_daily),
+                 top50 AS (SELECT trade_date, stock_ts_code FROM t WHERE rn <= 50)
+            SELECT COUNT(*),
+                   COUNT(*) FILTER (WHERE top50.stock_ts_code IS NOT NULL),
+                   COUNT(*) FILTER (WHERE top50.stock_ts_code IS NULL AND s.stock_ts_code IS NULL),
+                   COUNT(*) FILTER (WHERE top50.stock_ts_code IS NULL AND s.stock_ts_code IS NOT NULL
+                                      AND s.amount IS NULL),
+                   COUNT(*) FILTER (WHERE top50.stock_ts_code IS NULL AND s.amount IS NOT NULL),
+                   COUNT(DISTINCT c.trade_date)
+            FROM fact_core_stock_daily c
+            LEFT JOIN top50 ON top50.trade_date = c.trade_date AND top50.stock_ts_code = c.stock_ts_code
+            LEFT JOIN fact_stock_daily s ON s.trade_date = c.trade_date AND s.stock_ts_code = c.stock_ts_code
+            WHERE c.source NOT LIKE 'local:%'""")
+        if cs and cs[0][0]:
+            n, hit, no_row, null_amt, value_gap, days = cs[0]
+            out["families"]["core_stock_replay"] = {
+                "days": days, "rows": n, "hit": hit,
+                "miss": {"no_row": no_row, "null_amount": null_amt, "value_gap": value_gap}}
+            print(f"核心个股复刻 {days} 日 {n} 行：命中成交额前 50 {hit}/{n} = {hit / n:.2%}")
+            # 未命中必须拆到底数据层面。三个桶都在**我们这一侧**，没有一个是口径差；
+            # 只报一个总数会让人以为「复刻不准」，而真相是那几天我们的 amount 本身就是坏的。
+            print(f"  未命中 {n - hit} 行归因：没有这只股的行 {no_row} | 有行但 amount 为空 {null_amt}"
+                  f" | 有值但我们的偏小 {value_gap}")
+
         # ---- 判定
         print("\n== 判定（干净日 %d 个）==" % len(clean))
         failed = []

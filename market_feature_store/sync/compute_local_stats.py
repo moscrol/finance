@@ -692,6 +692,24 @@ def _z(values):
     return (v - v.mean()) / s
 
 
+def _pct_rank(values):
+    """池内百分位 ∈ [0, 1]，并列取平均名次。异质分量合成时比 z 分稳：不吃重尾也不被稀有二值放大。"""
+    import numpy as np
+
+    v = np.asarray(values, dtype=float)
+    n = len(v)
+    if n <= 1:
+        return np.zeros(n)
+    order = v.argsort(kind="stable")
+    ranks = np.empty(n, dtype=float)
+    ranks[order] = np.arange(n, dtype=float)
+    # 并列取平均名次：否则同为「没涨停」的票会因输入顺序拿到不同分
+    for value in np.unique(v):
+        mask = v == value
+        ranks[mask] = ranks[mask].mean()
+    return ranks / (n - 1)
+
+
 def sector_theme_map(con) -> dict[str, str]:
     """板块→题材：先用 fupanhui 主线历史的归组（73 板块/14 题材，稳定），其余板块退到申万一级。"""
     hist = con.execute(
@@ -797,6 +815,322 @@ def compute_mainline_local(trade_date, *, con=None, force: bool = False, topk: i
         con.execute("COMMIT")
         return {"trade_date": td.isoformat(), "action": "written", "themes": chosen, "theme_scores": {t: round(theme_score[t], 2) for t in chosen},
                 "sector_rows": len(sector_rows), "stock_rows": len(stock_rows)}
+    except Exception:
+        try:
+            con.execute("ROLLBACK")
+        except Exception:  # noqa: BLE001
+            pass
+        raise
+    finally:
+        if own:
+            con.close()
+
+
+# ---------------------------------------------------------------------------
+# 7. 核心个股复刻版（fupanhui 口径反推：当日全市场成交额前 50，rank 按成交额降序）
+# ---------------------------------------------------------------------------
+LOCAL_CORE_STOCK_SOURCE = "local:core-turnover-v1"
+CORE_STOCK_TOPN = 50
+
+
+def _stock_sw_l1_map(con, td: date) -> dict[str, str]:
+    """个股 → 申万一级。**只用 td 当天及以前的行**，避免用未来信息回填历史日。
+
+    个股级 sw_l1 我们自己算不出来（申万成分表没入库），三张 fupanhui 派生表各带一份：
+    core_stock（最权威，就是这个字段本身）、theme_limit_stock、stock_high。取每只股最近一次的值。
+    不含 core_stock 的独立对照见 tests/test_core_stock_local.py：2026-08 起 1121/1150 覆盖、一致 91%。
+    """
+    rows = con.execute(
+        """
+        WITH src AS (
+          SELECT stock_ts_code, sw_l1_name AS sw, trade_date FROM fact_core_stock_daily
+           WHERE trade_date <= ? AND sw_l1_name IS NOT NULL AND sw_l1_name <> ''
+          UNION ALL
+          SELECT stock_ts_code, sw_l1, trade_date FROM fact_theme_limit_stock_daily
+           WHERE trade_date <= ? AND sw_l1 IS NOT NULL AND sw_l1 <> ''
+          UNION ALL
+          SELECT stock_ts_code, sw_l1, trade_date FROM fact_stock_high_daily
+           WHERE trade_date <= ? AND sw_l1 IS NOT NULL AND sw_l1 <> ''
+        )
+        SELECT stock_ts_code, ARG_MAX(sw, trade_date) FROM src GROUP BY 1
+        """,
+        [td, td, td],
+    ).fetchall()
+    return {r[0]: r[1] for r in rows}
+
+
+def compute_core_stock_local(trade_date, *, con=None, force: bool = False, topn: int = CORE_STOCK_TOPN) -> dict:
+    """复刻 fupanhui 的「核心个股」——它不是编辑池，是**当日全市场成交额前 50**。
+
+    反推依据（2026-09-07 实测，405 个 fupanhui 日 / 20250 行）：
+    - 集合：核心个股 ⊆ 我们自算的成交额前 50，命中 20148/20250 = 99.5%；
+      不命中的 102 行分布在 25 天，全部是**我们 fact_stock_daily 当天缺那只股的行**（LEFT JOIN 为 NULL），
+      不是口径差；两侧都是 50 只，所以命中 50/50 的日子就是集合完全相等。
+    - rank：与 amount 降序 ROW_NUMBER 精确相同 20246/20250 = 99.98%。
+    - gain_5d / gain_10d = 5 / 10 个交易日累计涨幅%（中位绝对误差 0.003pp）。
+    - circ_mv 取 fact_sector_stock_daily（相对误差 <1% 的占 99.3%）。
+
+    自算不了、留 NULL 的两个字段：``fund_flow_today``（个股资金流无本地源）、
+    ``leader_plate``（fupanhui 自己也只有 15.5% 非空，逆向不出）。
+    """
+    td = _as_date(trade_date)
+    own = con is None
+    if own:
+        init_db()
+        con = connect()
+    try:
+        foreign = _has_foreign_rows(con, "fact_core_stock_daily", td)
+        if foreign and not force:
+            return {"trade_date": td.isoformat(), "action": "skipped-has-foreign-rows",
+                    "skipped": {"fact_core_stock_daily": foreign}}
+        rows = con.execute(
+            """
+            WITH px AS (
+              SELECT trade_date, stock_ts_code, stock_name, close, pct_chg, amount,
+                     LAG(close, 5) OVER (PARTITION BY stock_ts_code ORDER BY trade_date) c5,
+                     LAG(close, 10) OVER (PARTITION BY stock_ts_code ORDER BY trade_date) c10
+              FROM fact_stock_daily
+              WHERE trade_date <= ? AND trade_date >= CAST(? AS DATE) - INTERVAL 40 DAY),
+            mv AS (
+              SELECT stock_ts_code, MAX(circ_mv) circ_mv FROM fact_sector_stock_daily
+               WHERE trade_date = ? GROUP BY 1)
+            SELECT px.stock_ts_code, px.stock_name, px.close, px.pct_chg, px.amount, mv.circ_mv,
+                   CASE WHEN px.c5 > 0 THEN (px.close / px.c5 - 1) * 100 END gain_5d,
+                   CASE WHEN px.c10 > 0 THEN (px.close / px.c10 - 1) * 100 END gain_10d
+            FROM px LEFT JOIN mv USING (stock_ts_code)
+            WHERE px.trade_date = ? AND px.amount > 0
+            ORDER BY px.amount DESC
+            LIMIT ?
+            """,
+            [td, td, td, td, topn],
+        ).fetchall()
+        if not rows:
+            raise RuntimeError(f"{td} fact_stock_daily 无行，先跑 stock-daily")
+        sw = _stock_sw_l1_map(con, td)
+        now = datetime.now()
+        out = [
+            (td, i, r[0], r[1], r[2], r[3], r[4], r[5], sw.get(r[0]), None, None, r[6], r[7],
+             LOCAL_CORE_STOCK_SOURCE, now)
+            for i, r in enumerate(rows, start=1)
+        ]
+        con.execute("BEGIN TRANSACTION")
+        con.execute("DELETE FROM fact_core_stock_daily WHERE trade_date = ?", [td])
+        con.executemany(
+            "INSERT INTO fact_core_stock_daily (trade_date, rank, stock_ts_code, stock_name, close, pct_chg, "
+            "amount, circ_mv, sw_l1_name, leader_plate, fund_flow_today, gain_5d, gain_10d, source, updated_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            out,
+        )
+        con.execute("COMMIT")
+        return {"trade_date": td.isoformat(), "action": "written", "rows": len(out),
+                "amount_cut": round(rows[-1][4], 2), "top1": rows[0][1],
+                "sw_l1_filled": sum(1 for r in out if r[8])}
+    except Exception:
+        try:
+            con.execute("ROLLBACK")
+        except Exception:  # noqa: BLE001
+            pass
+        raise
+    finally:
+        if own:
+            con.close()
+
+
+# ---------------------------------------------------------------------------
+# 8. 自家核心个股 = 主线题材成员 × 知识库正宗度 × 人气
+# ---------------------------------------------------------------------------
+LOCAL_CORE_LEADER_SOURCE = "local:core-leader-v1"
+#: 人气分权重。五个分量各自取**池内百分位**（不是 z 分）后加权平均 → 人气 ∈ [0, 1]。
+#: 为什么不用 z：池里 1700 只票只有二十几只涨停，二值量的 z 分能到 9 以上，
+#: 稀有 flag 会把连续量和正宗度一起淹掉（v1 实测人气跨度 8.4~17.9，权重 1.0 的正宗度等于没有）。
+#: 百分位是有界的，五个分量与正宗度同在 [0,1]，权重才真的是权重。
+#: 这条在任何「把异质分量合成一个分」的地方都适用——排序融合、打分卡、多路召回。
+CORE_LEADER_POP_WEIGHTS = {"amount": 1.0, "gain5": 1.0, "limit_up": 0.8, "boards": 0.5, "new_high": 0.4}
+#: 正宗度权重（与人气同量纲 [0,1]）。0 = 纯人气基线。0.15 是量出来的，不是拍的：
+#: - 前瞻收益（106 日消融，scripts/eval_core_leader_authenticity.py）：w 越大收益越低，
+#:   w=0.1~0.2 时 T+1 只差 -0.07~-0.24pp，远在置换检验的噪声带（sd 1.1pp）内；w≥0.3 掉 -0.45pp。
+#: - 名单效果（2026-09-07）：w=0.15 时正宗股占 top20 的 9/20（基线 3/20），换掉 7 只；
+#:   w=0.3 换掉 14 只——那已经不是权重是**过滤器**了，二值判断伪装成连续分会把它的抖动放大。
+#: 取 0.15 = 让正宗度当决胜项而不是一票否决。
+CORE_LEADER_AUTH_WEIGHT = 0.15
+CORE_LEADER_TOPN = 20
+CORE_LEADER_PER_THEME = 8
+
+
+def _mainline_membership(con, td: date) -> tuple[dict[str, list[tuple[str, str, str, str]]], dict[str, int]]:
+    """当日主线的 (股票 → [(theme_code, theme_name, sector_ts_code, sector_name)]) 与题材排名。"""
+    secs = con.execute(
+        "SELECT theme_code, theme_name, sector_ts_code, sector_name, COALESCE(sort_no, min_sort, 99) "
+        "FROM fact_mainline_sector_daily m LEFT JOIN ("
+        "  SELECT theme_code AS tc, min_sort FROM fact_mainline_theme_daily WHERE trade_date = ?"
+        ") t ON t.tc = m.theme_code WHERE m.trade_date = ?",
+        [td, td],
+    ).fetchall()
+    if not secs:
+        raise RuntimeError(f"{td} fact_mainline_sector_daily 无行，先跑 compute-mainline-local")
+    theme_rank = {}
+    for tc, _tn, _sc, _sn, sort_no in secs:
+        theme_rank[tc] = min(theme_rank.get(tc, 99), int(sort_no or 99))
+    by_sector = {s[2]: s for s in secs}
+    members = con.execute(
+        f"SELECT stock_ts_code, sector_ts_code FROM fact_sector_stock_daily "
+        f"WHERE trade_date = ? AND sector_ts_code IN ({','.join('?' for _ in by_sector)})",
+        [td, *by_sector],
+    ).fetchall()
+    out: dict[str, list[tuple[str, str, str, str]]] = defaultdict(list)
+    for stk, sec in members:
+        s = by_sector[sec]
+        out[stk].append((s[0], s[1], s[2], s[3]))
+    return out, theme_rank
+
+
+def core_leader_candidates(con, td: date, *, membership, aliases, index, kb_concepts) -> list[dict]:
+    """主线成员池 → 带 popularity / authenticity 的候选列表（不写库，不排序）。
+
+    生产（``compute_core_leader_local``）与回测（``scripts/eval_core_leader_authenticity.py``）
+    共用这一段：口径只有一份，回测量到的增量才等于生产会拿到的增量。
+    """
+    from ..sources import kb_exposure as kbx
+
+    today, series = _limit_flags(con, td, lookback_days=60)
+    gain5 = dict(con.execute(
+        """
+        WITH px AS (
+          SELECT trade_date, stock_ts_code, close,
+                 LAG(close, 5) OVER (PARTITION BY stock_ts_code ORDER BY trade_date) c5
+          FROM fact_stock_daily WHERE trade_date <= ? AND trade_date >= CAST(? AS DATE) - INTERVAL 20 DAY)
+        SELECT stock_ts_code, CASE WHEN c5 > 0 THEN (close / c5 - 1) * 100 END FROM px WHERE trade_date = ?
+        """,
+        [td, td, td],
+    ).fetchall())
+    highs = {r[0] for r in con.execute(
+        "SELECT stock_ts_code FROM fact_stock_high_daily WHERE trade_date = ? AND COALESCE(is_new, TRUE)", [td],
+    ).fetchall()}
+
+    cands = []
+    for row in today:
+        stk = row[1]
+        seats = membership.get(stk)
+        if not seats or row[8] or row[7] or not row[6]:  # 不在主线 / ST / 新股 / 停牌
+            continue
+        best_score, best_edge, best_seat, covered = 0.0, None, None, False
+        for seat in seats:
+            names = kbx.concept_candidates(seat[3], aliases) | kbx.concept_candidates(seat[1], aliases)
+            covered = covered or bool(names & kb_concepts)
+            s, edge = kbx.best_exposure(index.get(kbx.code6(stk)), names)
+            # 同分时优先留下带边的那个席位——边是正宗度的收据，丢了就查不回来了
+            better = s > best_score or (s == best_score and best_edge is None and edge is not None)
+            if best_seat is None or better:
+                best_score, best_edge, best_seat = s, edge, seat
+        if best_edge is None:  # 无 KB 边时归到成员里板块名字典序最小的席位，保证归属确定
+            best_seat = min(seats, key=lambda x: (x[0], x[3]))
+        boards, _first = _streak(series.get(stk, []), td)
+        cands.append({
+            "code": stk, "name": row[2], "close": row[3], "pct_chg": row[5], "amount": row[6],
+            "gain5": gain5.get(stk), "boards": boards, "limit_up": 1.0 if row[9] else 0.0,
+            "new_high": 1.0 if stk in highs else 0.0, "auth": best_score, "edge": best_edge,
+            "seat": best_seat, "covered": covered,
+        })
+    if not cands:
+        raise RuntimeError(f"{td} 主线成员里没有可用候选（检查 fact_sector_stock_daily / fact_stock_daily）")
+
+    feats = {
+        "amount": [c["amount"] for c in cands],
+        "gain5": [c["gain5"] if c["gain5"] is not None else 0.0 for c in cands],
+        "limit_up": [c["limit_up"] for c in cands],
+        "boards": [min(c["boards"], 5) for c in cands],
+        "new_high": [c["new_high"] for c in cands],
+    }
+    wsum = sum(CORE_LEADER_POP_WEIGHTS.values())
+    pop = sum(CORE_LEADER_POP_WEIGHTS[k] * _pct_rank(v) for k, v in feats.items()) / wsum
+    for c, p in zip(cands, pop):
+        c["pop"] = float(p)
+    return cands
+
+
+def compute_core_leader_local(trade_date, *, con=None, force: bool = False, topn: int = CORE_LEADER_TOPN,
+                              per_theme: int = CORE_LEADER_PER_THEME,
+                              auth_weight: float = CORE_LEADER_AUTH_WEIGHT,
+                              allow_no_kb: bool = False) -> dict:
+    """自家「核心个股」：在主线题材成员里，挑**正宗**（知识库年报/主营暴露度）且**有人气**的。
+
+    与 ``compute_core_stock_local`` 是两个产品：那个复刻 fupanhui 的「成交额前 50」（大票天然占满），
+    这个回答「主线里谁是真龙头」——正宗度是一份与当日行情无关的先验，专治沾边炒作。
+
+    分数 = 人气 z 分加权和 + ``auth_weight`` × 正宗度。正宗度**加在分上而不是乘在分上**：
+    它本质是个二值/四档判断，乘法会把它的抖动按人气大小放大，加法则让它的影响可预算、可消融
+    （``auth_weight=0`` 即纯人气基线，能直接跑 A/B）。
+    """
+    from ..sources import kb_exposure as kbx
+
+    td = _as_date(trade_date)
+    own = con is None
+    if own:
+        init_db()
+        con = connect()
+    try:
+        # 老库建表时还没这列（本表 2026-09-07 上线当天加的），照 sync_akshare_index_daily 的惯例就地补
+        con.execute("ALTER TABLE fact_core_leader_daily ADD COLUMN IF NOT EXISTS kb_sector_covered BOOLEAN")
+        foreign = _has_foreign_rows(con, "fact_core_leader_daily", td)
+        if foreign and not force:
+            return {"trade_date": td.isoformat(), "action": "skipped-has-foreign-rows",
+                    "skipped": {"fact_core_leader_daily": foreign}}
+        membership, _theme_rank = _mainline_membership(con, td)
+        try:
+            aliases = kbx.concept_aliases()
+            index = kbx.exposure_index()
+            kb_status = "ok"
+        except kbx.KbExposureUnavailable:
+            if not allow_no_kb:
+                raise
+            aliases, index, kb_status = {}, {}, "missing"
+        # 板块/题材名在知识库里**有没有这个概念**——与「这只股有没有边」是两件事。
+        # 分不开的话，authenticity=0 会同时意味着「查过，不正宗」和「压根没得查」（覆盖率问题伪装成判断）。
+        kb_concepts = {e["concept"] for edges in index.values() for e in edges}
+
+        cands = core_leader_candidates(con, td, membership=membership, aliases=aliases, index=index,
+                                       kb_concepts=kb_concepts)
+        for c in cands:
+            c["score"] = c["pop"] + auth_weight * c["auth"]
+        cands.sort(key=lambda c: -c["score"])
+
+        now, per_theme_n, picked = datetime.now(), defaultdict(int), []
+        for c in cands:
+            tc = c["seat"][0]
+            if per_theme_n[tc] >= per_theme:
+                continue
+            per_theme_n[tc] += 1
+            picked.append(c)
+            if len(picked) >= topn:
+                break
+        source = LOCAL_CORE_LEADER_SOURCE if kb_status == "ok" else LOCAL_CORE_LEADER_SOURCE + "-nokb"
+        out = []
+        for rank, c in enumerate(picked, start=1):
+            e = c["edge"] or {}
+            out.append((td, rank, c["code"], c["name"], c["seat"][0], c["seat"][1], c["seat"][2], c["seat"][3],
+                        c["close"], c["pct_chg"], c["amount"], c["gain5"], c["boards"], bool(c["limit_up"]),
+                        bool(c["new_high"]), round(c["pop"], 4), c["auth"], round(c["score"], 4), c["covered"],
+                        e.get("raw_concept"), e.get("strength"), e.get("evidence_layer"), e.get("updated"),
+                        source, now))
+        con.execute("BEGIN TRANSACTION")
+        con.execute("DELETE FROM fact_core_leader_daily WHERE trade_date = ?", [td])
+        con.executemany(
+            "INSERT INTO fact_core_leader_daily (trade_date, rank, stock_ts_code, stock_name, theme_code, "
+            "theme_name, sector_ts_code, sector_name, close, pct_chg, amount, gain_5d, boards, is_limit_up, "
+            "is_new_high, popularity, authenticity, score, kb_sector_covered, kb_concept, kb_strength, "
+            "kb_evidence_layer, kb_updated, source, updated_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            out,
+        )
+        con.execute("COMMIT")
+        by_theme = defaultdict(int)
+        for c in picked:
+            by_theme[c["seat"][1]] += 1
+        return {"trade_date": td.isoformat(), "action": "written", "rows": len(out), "pool": len(cands),
+                "kb_status": kb_status, "auth_weight": auth_weight,
+                "authentic": sum(1 for c in picked if c["auth"] > 0),
+                "kb_checkable": sum(1 for c in picked if c["covered"]), "by_theme": dict(by_theme),
+                "top": [(c["name"], round(c["score"], 2), c["auth"]) for c in picked[:5]]}
     except Exception:
         try:
             con.execute("ROLLBACK")
