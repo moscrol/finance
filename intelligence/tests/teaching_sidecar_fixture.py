@@ -34,6 +34,12 @@ def build_sidecar(path: Path) -> Path:
         _label("2026-01-12", "tf.money_losing_streak", num=2), _label("2026-01-12", "tf.limit_premium_ma5_pct", num=0.8),
         _label("2026-01-12", "tf.amount_vs_ma20_pct", num=84.0), _label("2026-01-12", "tf.turn_down", num=1),
         _label("2026-01-12", "tf.stock_price_mean", num=21.0),  # 切片不读的标签，不该漏进 payload
+        # 资金面（第十五段）：龙虎榜 / 封单 / 竞价 / 成交占比 的市场级读数。
+        _label("2026-01-12", "tf.dragon_net_amount", num=12.3), _label("2026-01-12", "tf.dragon_net_amount_ratio_pm", num=0.71),
+        _label("2026-01-12", "tf.dragon_net_amount_ratio_pm_ma5", num=0.55), _label("2026-01-12", "tf.dragon_buy_sell_ratio", num=1.9),
+        _label("2026-01-12", "tf.dragon_buy_sell_ratio_ma5", num=1.7), _label("2026-01-12", "tf.limit_seal_mv_ratio_median", num=96.4),
+        _label("2026-01-12", "tf.limit_thick_seal_share_pct", num=48.0), _label("2026-01-12", "tf.auction_zt_pct_median", num=3.25),
+        _label("2026-01-12", "tf.auction_zt_positive_share_pct", num=80.0), _label("2026-01-12", "tf.top100_amount_share", num=0.187),
         _label("2026-01-13", "tf.money_losing_day", num=0), _label("2026-01-14", "tf.money_losing_day", num=1),
         _label("2026-02-06", "tf.money_losing_day", num=1),
     ]

@@ -71,11 +71,12 @@ def source_db(tmp_path: Path) -> Path:
     con.execute(
         """CREATE TABLE fact_theme_limit_stock_daily (
             trade_date DATE, stock_ts_code VARCHAR, stock_name VARCHAR, limit_times INTEGER, open_times INTEGER,
-            first_limit_time VARCHAR, up_stat VARCHAR, circ_mv DOUBLE, amount DOUBLE, limit_status VARCHAR)"""
+            first_limit_time VARCHAR, up_stat VARCHAR, circ_mv DOUBLE, amount DOUBLE, limit_status VARCHAR, fd_amount DOUBLE)"""
     )
+    # 封单金额 = 板数 × 3000 万，流通市值 1000 亿：封单占流通市值 = 30 × 板数，只有 ≥ 4 板的算「厚封单」（≥ 100）。
     con.executemany(
-        "INSERT INTO fact_theme_limit_stock_daily VALUES (?, ?, ?, ?, NULL, '093000', NULL, 1000.0, 50.0, 'U')",
-        [(d, s, s, b) for d, s, b in LIMIT_ROWS],
+        "INSERT INTO fact_theme_limit_stock_daily VALUES (?, ?, ?, ?, NULL, '093000', NULL, 1000.0, 50.0, 'U', ?)",
+        [(d, s, s, b, 3000.0 * b) for d, s, b in LIMIT_ROWS],
     )
     con.execute("CREATE TABLE fact_stock_daily (trade_date DATE, stock_ts_code VARCHAR, stock_name VARCHAR, close DOUBLE, pct_chg DOUBLE, amount DOUBLE, high DOUBLE)")
     con.executemany(
@@ -106,6 +107,14 @@ def source_db(tmp_path: Path) -> Path:
         "INSERT INTO fact_sector_stock_daily VALUES (?, 'S1', ?, ?)",
         [(d, s, ind) for d in DAYS for s, ind in (("X", "电子-半导体"), ("Y", "通信-通信设备"), ("Z", None))],
     )
+    # 资金面（第十五段）：龙虎榜两只、竞价面板一只；01-13 起才有龙虎榜，所以 5 日均在窗口凑不齐前是 NULL。
+    con.execute("CREATE TABLE fact_dragon_tiger_daily (trade_date DATE, stock_ts_code VARCHAR, stock_name VARCHAR, net_amount DOUBLE, l_amount DOUBLE)")
+    con.executemany(
+        "INSERT INTO fact_dragon_tiger_daily VALUES (?, ?, ?, ?, ?)",
+        [row for d in DAYS[6:] for row in ((d, "X", "x", 2.0, 5.0), (d, "Y", "y", -0.5, 3.0))],
+    )
+    con.execute("CREATE TABLE fact_auction_stock_daily (trade_date DATE, panel_key VARCHAR, stock_ts_code VARCHAR, auction_pct DOUBLE, auction_amount DOUBLE)")
+    con.executemany("INSERT INTO fact_auction_stock_daily VALUES (?, 'zt', 'X', ?, 0.5)", [(d, 3.0 if i % 2 else -1.0) for i, d in enumerate(DAYS)])
     con.execute("CREATE TABLE fact_stock_high_daily (trade_date DATE, stock_ts_code VARCHAR, primary_high_period VARCHAR, sw_l1 VARCHAR)")
     con.executemany(
         "INSERT INTO fact_stock_high_daily VALUES (?, ?, ?, ?)",

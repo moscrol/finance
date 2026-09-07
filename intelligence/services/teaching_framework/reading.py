@@ -90,6 +90,33 @@ def teaching_lines(objects: list[dict[str, Any]]) -> list[str]:
         else:
             yes = "亏钱效应：是" + (f"（连续第 {int(streak)} 天）" if streak is not None else "")
             lines.append((yes if losing == 1 else "亏钱效应：否") + f"｜承接 5 日均值 {_fmt(prem, 2)}%")
+    cap = by_type.get("teaching_capital")
+    if cap:
+        parts = []
+        if cap.get("dragon_net_amount") is not None:
+            seg = f"龙虎榜席位净流入 {_fmt(cap.get('dragon_net_amount'), 1)} 亿"  # 「净买入」会撞合规门的动作词，产品面写「净流入」
+            if cap.get("dragon_net_amount_ratio_pm") is not None:
+                seg += f"（占全市场成交 {_fmt(cap.get('dragon_net_amount_ratio_pm'), 2)}‰"
+                seg += f"，5 日均 {_fmt(cap.get('dragon_net_amount_ratio_pm_ma5'), 2)}‰）" if cap.get("dragon_net_amount_ratio_pm_ma5") is not None else "）"
+            if cap.get("dragon_buy_sell_ratio") is not None:
+                seg += f"，买盘/卖盘 {_fmt(cap.get('dragon_buy_sell_ratio'), 2)}"
+                if cap.get("dragon_buy_sell_ratio_ma5") is not None:
+                    seg += f"（5 日均 {_fmt(cap.get('dragon_buy_sell_ratio_ma5'), 2)}）"
+            parts.append(seg)
+        if cap.get("limit_seal_mv_ratio_median") is not None:
+            seg = f"涨停封单占流通市值中位 {_fmt(cap.get('limit_seal_mv_ratio_median'), 0)}（万/亿）"
+            if cap.get("limit_thick_seal_share_pct") is not None:
+                seg += f"，厚封单占比 {_fmt(cap.get('limit_thick_seal_share_pct'), 0)}%"
+            parts.append(seg)
+        if cap.get("auction_zt_pct_median") is not None:
+            seg = f"昨日涨停股竞价涨幅中位 {_fmt(cap.get('auction_zt_pct_median'), 2)}%"
+            if cap.get("auction_zt_positive_share_pct") is not None:
+                seg += f"，为正 {_fmt(cap.get('auction_zt_positive_share_pct'), 0)}%"
+            parts.append(seg)
+        if cap.get("top100_amount_share") is not None:
+            parts.append(f"成交额前 100 占全市场 {_fmt(100 * float(cap['top100_amount_share']), 1)}%")
+        if parts:
+            lines.append("资金面：" + "｜".join(parts))
     dyn = by_type.get("teaching_dynasty")
     if dyn:
         top = dyn.get("dynasty_top") or []

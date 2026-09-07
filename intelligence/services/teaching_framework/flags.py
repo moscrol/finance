@@ -576,6 +576,21 @@ SECTOR_FIELDS = (
     # 区间涨幅高标的门槛：当日 20 / 60 日涨幅榜第 top 名的涨幅（第八段「涨幅多少算多，是基于历史行情去对比的」）。
     ("range_leader_entry_gain_20d_pct", "range_leader_entry_gain_20d_pct"),
     ("range_leader_entry_gain_60d_pct", "range_leader_entry_gain_60d_pct"),
+    # 资金面（第十五段）市场级视角，全部只写出：龙虎榜净买入（亿 / 占全市场成交‰ / 买盘卖盘比，各带 5 日均）、
+    # 涨停封单（中位万元 / 封单占流通市值中位 / 厚封单占比）、昨日涨停股竞价（涨幅中位 / 为正比例 / 竞价成交额）。
+    # 先量（骨架 §8.15）：只有龙虎榜的两条 5 日均在训练 / 验证两期都把底部与顶部分开，进带区的实验读数见同节。
+    ("dragon_count", "dragon_count"),
+    ("dragon_net_amount", "dragon_net_amount"),
+    ("dragon_net_amount_ratio_pm", "dragon_net_amount_ratio_pm"),
+    ("dragon_net_amount_ratio_pm_ma5", "dragon_net_amount_ratio_pm_ma5"),
+    ("dragon_buy_sell_ratio", "dragon_buy_sell_ratio"),
+    ("dragon_buy_sell_ratio_ma5", "dragon_buy_sell_ratio_ma5"),
+    ("limit_seal_amount_median_wan", "limit_seal_amount_median_wan"),
+    ("limit_seal_mv_ratio_median", "limit_seal_mv_ratio_median"),
+    ("limit_thick_seal_share_pct", "limit_thick_seal_share_pct"),
+    ("auction_zt_pct_median", "auction_zt_pct_median"),
+    ("auction_zt_positive_share_pct", "auction_zt_positive_share_pct"),
+    ("auction_zt_amount", "auction_zt_amount"),
 )
 
 

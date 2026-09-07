@@ -33,6 +33,13 @@ STAGE_LABELS = (
     "tf.limit_premium_ma5_pct", "tf.amount_vs_ma20_pct", "tf.new_high_1y_count", "tf.turn_up", "tf.turn_top", "tf.turn_down",
 )
 EVIDENCE_KEYS = ("confidence", "from", "entered", "eligible", "resolution", "tied")
+# 资金面（第十五段）：单独一个对象，免得阶段对象超过「payload ≤ 20 键」的索引层约束。全部是市场级当日读数。
+CAPITAL_LABELS = (
+    "tf.dragon_count", "tf.dragon_net_amount", "tf.dragon_net_amount_ratio_pm", "tf.dragon_net_amount_ratio_pm_ma5",
+    "tf.dragon_buy_sell_ratio", "tf.dragon_buy_sell_ratio_ma5", "tf.limit_seal_amount_median_wan", "tf.limit_seal_mv_ratio_median",
+    "tf.limit_thick_seal_share_pct", "tf.auction_zt_pct_median", "tf.auction_zt_positive_share_pct", "tf.auction_zt_amount",
+    "tf.top100_amount_share", "tf.mainline_share_expanding.volume_top3",
+)
 
 
 def _date(value: Any) -> date | None:
@@ -65,6 +72,9 @@ def teaching_objects(labels_db: str | Path, as_of: str, *, top: int = 10) -> lis
         stage = _stage_object(con, day, as_of)
         if stage is not None:
             out.append(stage)
+        capital = _capital_object(con, day, as_of)
+        if capital is not None:
+            out.append(capital)
         dynasty = _dynasty_object(con, day, as_of, top=top)
         if dynasty is not None:
             out.append(dynasty)
@@ -112,6 +122,29 @@ def _stage_object(con: Any, day: date, as_of: str) -> RiverObject | None:
         track="market", entity_id="__market__", object_type="teaching_stage",
         ref=f"history_teaching_labels:{as_of}:market", source_hash=_hash(hashed),
         valid_from=as_of, recorded_at=_ts(max(computed)) if computed else None, payload=payload,
+    )
+
+
+def _capital_object(con: Any, day: date, as_of: str) -> RiverObject | None:
+    """资金面当日读数（龙虎榜 / 封单 / 竞价 / 成交占比），只搬不解释；全 NULL 的日子没有这个对象。"""
+    if not _has_table(con, "history_teaching_labels"):
+        return None
+    rows = _rows(
+        con,
+        f"""SELECT label, value_num, framework_version, computed_at FROM history_teaching_labels
+            WHERE entity_type = 'market' AND entity_id = 'market' AND status = 'ok' AND trade_date = ?
+              AND label IN ({", ".join("?" for _ in CAPITAL_LABELS)}) AND value_num IS NOT NULL
+            ORDER BY label""",
+        [day, *CAPITAL_LABELS],
+    )
+    if not rows:
+        return None
+    payload: dict[str, Any] = {str(r["label"]).removeprefix("tf."): r["value_num"] for r in rows}
+    payload["framework_version"] = sorted({str(r["framework_version"]) for r in rows})[0]
+    return RiverObject(
+        track="market", entity_id="__market__", object_type="teaching_capital",
+        ref=f"history_teaching_labels:{as_of}:market:capital", source_hash=_hash(payload),
+        valid_from=as_of, recorded_at=_ts(max(r["computed_at"] for r in rows)), payload=payload,
     )
 
 
