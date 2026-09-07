@@ -77,16 +77,16 @@ def source_db(tmp_path: Path) -> Path:
         "INSERT INTO fact_theme_limit_stock_daily VALUES (?, ?, ?, ?, NULL, '093000', NULL, 1000.0, 50.0, 'U')",
         [(d, s, s, b) for d, s, b in LIMIT_ROWS],
     )
-    con.execute("CREATE TABLE fact_stock_daily (trade_date DATE, stock_ts_code VARCHAR, close DOUBLE, pct_chg DOUBLE, amount DOUBLE)")
+    con.execute("CREATE TABLE fact_stock_daily (trade_date DATE, stock_ts_code VARCHAR, stock_name VARCHAR, close DOUBLE, pct_chg DOUBLE, amount DOUBLE)")
     con.executemany(
-        "INSERT INTO fact_stock_daily VALUES (?, ?, ?, ?, ?)",
-        [(d, s, 10.0 * (k + 1) + i, 1.0 * (k - 1), a) for i, d in enumerate(DAYS) for k, (s, a) in enumerate((("X", 30.0), ("Y", 20.0), ("Z", 10.0)))],
+        "INSERT INTO fact_stock_daily VALUES (?, ?, ?, ?, ?, ?)",
+        [(d, s, s.lower(), 10.0 * (k + 1) + i, 1.0 * (k - 1), a) for i, d in enumerate(DAYS) for k, (s, a) in enumerate((("X", 30.0), ("Y", 20.0), ("Z", 10.0)))],
     )
     # 承接 rows for the limit-up stocks: +2 on a day they limit again, −3 otherwise; NULL close keeps them out of breadth.
     limit_days = {(d, s) for d, s, _ in LIMIT_ROWS}
     con.executemany(
-        "INSERT INTO fact_stock_daily VALUES (?, ?, NULL, ?, NULL)",
-        [(d, s, 2.0 if (d, s) in limit_days else -3.0) for d in DAYS for s in "ABCDEFGH"],
+        "INSERT INTO fact_stock_daily VALUES (?, ?, ?, NULL, ?, NULL)",
+        [(d, s, s.lower(), 2.0 if (d, s) in limit_days else -3.0) for d in DAYS for s in "ABCDEFGH"],
     )
     # Sector side (第二刀): two sectors a day, one strict 双红 on even days; 3 limit-ups in S1; new highs = day index + 1
     # stocks at 1y-or-longer periods, except day 4 which has no high rows at all.
@@ -99,6 +99,12 @@ def source_db(tmp_path: Path) -> Path:
     con.executemany(
         "INSERT INTO fact_theme_limit_heat_daily VALUES (?, ?, 'final', ?, ?, ?)",
         [row for d in DAYS for row in ((d, "S1", 3, 60.0, 9000.0), (d, "S2", 1, 20.0, 1000.0))],
+    )
+    # Stock → own 申万 industry ("一级-二级"), one theme row per stock a day is enough for the range-leader chain.
+    con.execute("CREATE TABLE fact_sector_stock_daily (trade_date DATE, sector_ts_code VARCHAR, stock_ts_code VARCHAR, sw_industry VARCHAR)")
+    con.executemany(
+        "INSERT INTO fact_sector_stock_daily VALUES (?, 'S1', ?, ?)",
+        [(d, s, ind) for d in DAYS for s, ind in (("X", "电子-半导体"), ("Y", "通信-通信设备"), ("Z", None))],
     )
     con.execute("CREATE TABLE fact_stock_high_daily (trade_date DATE, stock_ts_code VARCHAR, primary_high_period VARCHAR, sw_l1 VARCHAR)")
     con.executemany(
@@ -391,6 +397,41 @@ def test_build_sector_roles_writes_sector_labels_and_rule_readout(capsys, tmp_pa
     assert rule["limit_top10"]["below_ma_days"] + rule["limit_top10"]["above_ma_days"] + sum(rule["limit_top10"]["excluded"].values()) == 10
     report = _run(capsys, "report", "--labels-db", str(sidecar))
     assert report["counts"]["sector_label_rows"] == 360
+
+
+def test_build_range_leaders_writes_group_rows_handoffs_and_receipt(capsys, tmp_path, source_db, params_file) -> None:
+    """区间涨幅高标链 (创始人 09-07 第九、十段): top-N by N-day gain per window, same-day exits/births paired as 衔接."""
+    params = json.loads(params_file.read_text(encoding="utf-8"))
+    params.update({"range_leader_windows": [2], "range_leader_top": 2, "range_leader_context": 3})
+    params_file.write_text(json.dumps(params, ensure_ascii=False, indent=2), encoding="utf-8")
+    sidecar = tmp_path / "labels.duckdb"
+    common = ["--db-path", str(source_db), "--labels-db", str(sidecar), "--params", str(params_file), "--computed-at", "2026-09-07T00:00:00Z"]
+    _run(capsys, "build-labels", *common)
+    _run(capsys, "build-succession", *common)
+    out = _run(capsys, "build-range-leaders", *common)
+    # Closes are 10·(k+1) + i: X gains fastest, then Y, then Z — the top-2 group is {X, Y} on every day with a 2-day window (8 of 10).
+    assert out["leader_rows"] == 16 and out["handoffs"] == 0
+    side = duckdb.connect(str(sidecar), read_only=True)
+    try:
+        rows = side.execute("SELECT trade_date, rank, stock_ts_code, sw_l1, tenure_day, prev_rank FROM history_range_leaders ORDER BY trade_date, rank").fetchall()
+        assert rows[0] == (date(2026, 1, 7), 1, "X", "电子", 1, None) and rows[1] == (date(2026, 1, 7), 2, "Y", "通信", 1, None)
+        assert rows[-1] == (date(2026, 1, 16), 2, "Y", "通信", 8, 2)
+        # 01-07 over 01-05: X 12/10 − 1 = 20 %, rounded like every other view scalar.
+        assert side.execute("SELECT gain_pct FROM history_range_leaders WHERE trade_date = DATE '2026-01-07' AND rank = 1").fetchone() == (20.0,)
+        assert side.execute("SELECT COUNT(*) FROM history_range_leader_handoffs").fetchone() == (0,)
+        kinds = [r[0] for r in side.execute("SELECT build_kind FROM history_teaching_receipts ORDER BY build_kind").fetchall()]
+        assert kinds == ["leader_succession", "range_leaders", "teaching_labels"]
+    finally:
+        side.close()
+    readout = out["readouts"]["handoffs"]["2"]
+    assert readout["days_ok"] == 8 and readout["days_gap"] == 2 and readout["handoffs"] == 0 and readout["births_per_day_mean"] == 0.0
+    assert readout["entry_gain_pct_quartiles"]["n"] == 8 and readout["l1_distinct_median"] == 2
+    assert out["readouts"]["cross_chain"]["succession_nodes"] == 4  # the four ok nodes of the 连板 chain; none of A..H has a close, so no overlap
+    assert out["readouts"]["cross_chain"]["leader_i_in_range_top_on_break_day"] == {}
+    again = _run(capsys, "build-range-leaders", *[*common[:-2], "--computed-at", "2026-09-08T00:00:00Z"])
+    assert again["canonical_hash"] == out["canonical_hash"]
+    report = _run(capsys, "report", "--labels-db", str(sidecar))
+    assert report["counts"]["range_leader_rows"] == 16 and report["counts"]["range_leader_handoffs"] == 0
 
 
 def test_stale_sidecar_schema_fails_closed(capsys, tmp_path, source_db, params_file) -> None:

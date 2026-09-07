@@ -53,6 +53,10 @@ REQUIRED_KEYS = (
     "double_volume_dod_pct",
     # 第十二段「定义不精确、结合特征值来看」：左底向下进入的持续天数与量能口径。
     "left_down_entry",
+    # 第九 / 十段：区间涨幅高标链——窗口（平台梯队高度）、取前几（「取前 10」）、配对时看近旁几名。
+    "range_leader_windows",
+    "range_leader_top",
+    "range_leader_context",
 )
 
 # slice 1.5 第二遍（用户「继续按照最优推进」）：阶段不能无转点地跳到不相邻的段（词表「从什么
@@ -183,6 +187,19 @@ def validate_params(params: dict[str, Any]) -> dict[str, Any]:
     dod = params["double_volume_dod_pct"]
     if not isinstance(dod, (int, float)) or isinstance(dod, bool) or dod <= 0:
         raise ValueError("double_volume_dod_pct 必须是正数（双量日的成交额环比门槛，每日复盘口径 10）")
+    rl_windows = params["range_leader_windows"]
+    if (
+        not isinstance(rl_windows, list)
+        or not rl_windows
+        or any(not isinstance(n, int) or isinstance(n, bool) or n <= 0 for n in rl_windows)
+        or len(set(rl_windows)) != len(rl_windows)
+    ):
+        raise ValueError("range_leader_windows 必须是互不重复的正整数数组（区间涨幅高标的窗口天数，平台梯队高度 20 / 60 / 90 / 120）")
+    rl_top, rl_context = params["range_leader_top"], params["range_leader_context"]
+    if not isinstance(rl_top, int) or isinstance(rl_top, bool) or rl_top <= 0:
+        raise ValueError("range_leader_top 必须是正整数（创始人第十段「取前 10」）")
+    if not isinstance(rl_context, int) or isinstance(rl_context, bool) or rl_context < rl_top:
+        raise ValueError("range_leader_context 必须是 ≥ range_leader_top 的整数（判断递进 / 突入时看的近旁名次）")
     from .stage_rules import LEFT_DOWN_VOLUME_RULES  # local import: stage_rules must not depend on params
 
     entry = params["left_down_entry"]

@@ -188,6 +188,48 @@ TEACHING_DDL = (
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS history_range_leaders (
+        window_days     INTEGER NOT NULL,
+        trade_date      DATE NOT NULL,
+        rank            INTEGER NOT NULL,
+        stock_ts_code   VARCHAR NOT NULL,
+        stock_name      VARCHAR,
+        gain_pct        DOUBLE,
+        sw_l1           VARCHAR,
+        limit_times     INTEGER,
+        tenure_day      INTEGER,
+        prev_rank       INTEGER,
+        framework_version VARCHAR,
+        computed_at     TIMESTAMP NOT NULL,
+        PRIMARY KEY (window_days, trade_date, rank)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS history_range_leader_handoffs (
+        window_days     INTEGER NOT NULL,
+        trade_date      DATE NOT NULL,
+        birth_stock     VARCHAR NOT NULL,
+        birth_name      VARCHAR,
+        birth_rank      INTEGER,
+        birth_prev_rank INTEGER,
+        birth_sw_l1     VARCHAR,
+        birth_limit_times INTEGER,
+        birth_gain_pct  DOUBLE,
+        exit_stock      VARCHAR,
+        exit_name       VARCHAR,
+        exit_prev_rank  INTEGER,
+        exit_next_rank  INTEGER,
+        exit_sw_l1      VARCHAR,
+        exit_limit_times INTEGER,
+        exit_tenure_days INTEGER,
+        same_l1         BOOLEAN,
+        form            VARCHAR,
+        framework_version VARCHAR,
+        computed_at     TIMESTAMP NOT NULL,
+        PRIMARY KEY (window_days, trade_date, birth_stock)
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS history_teaching_receipts (
         build_id             VARCHAR PRIMARY KEY,
         build_kind           VARCHAR NOT NULL,
@@ -217,6 +259,8 @@ TEACHING_TABLES = (
     "history_leader_succession",
     "history_overtaken",
     "history_reference_stages",
+    "history_range_leaders",
+    "history_range_leader_handoffs",
     "history_teaching_receipts",
 )
 

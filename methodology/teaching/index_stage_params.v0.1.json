@@ -19,6 +19,9 @@
     "persist_days": 3,
     "volume": "shrink"
   },
+  "range_leader_windows": [20, 60, 90, 120],
+  "range_leader_top": 10,
+  "range_leader_context": 30,
   "breakout_confirm_days": 3,
   "deviation_streak_min": 3,
   "transition_policy": "entry_or_reachable",

@@ -25,6 +25,14 @@
     "persist_days": 3,
     "volume": "shrink"
   },
+  "range_leader_windows": [
+    20,
+    60,
+    90,
+    120
+  ],
+  "range_leader_top": 10,
+  "range_leader_context": 30,
   "breakout_confirm_days": 3,
   "deviation_streak_min": 3,
   "transition_policy": "entry_or_reachable",
@@ -380,9 +388,9 @@
       "limit_premium_ma5_pct"
     ],
     "labels_framework_version": [
-      "tf-v0.1+91cb4ec2"
+      "tf-v0.1+cf0557c6"
     ],
-    "labels_canonical_hash": "b897cf7e7ec7b50bc299fce6eec959592bb21250d82f2397d8f5b3944ca358e2",
+    "labels_canonical_hash": "801b2ba7f08060360de34529a6934124787d19a3aaedba87ac3a9c0041f3cc6d",
     "labels_source_fingerprint": "fa2e2096f7d4a066125286173f243fd4d4879f02477f85456458c5067a1323a8",
     "labels_source_max_trade_date": "2026-09-03",
     "transition_counts": {
