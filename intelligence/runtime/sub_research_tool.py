@@ -90,6 +90,12 @@ def bind_sub_research_tool(
                 max(0.0, window * _WINDOW_SAFETY_FRACTION)
             ),
         )
+        # 父账本在分支前后的余量。分支经 _BranchBudgetView 把自己的调用与秒**累加**
+        # 记到父账本（三支并行 150s 记 450s），随后父臂 _settle_batch_calls 再按本批墙钟
+        # 记一次——2026-09-07 11:09 候选口读数：父臂墙钟还剩 396s、账本秒已归零，
+        # 第二轮 model_turn 直接 deadline_exhausted、判官 unavailable。没有这两个数，
+        # 「墙钟没到、账本先空」在收据里长得和真超时一模一样。
+        before = _root_budget_snapshot(parent.root_budget)
         result = coordinator.run(
             goals=goals,
             task_frame=task_frame,
@@ -97,11 +103,29 @@ def bind_sub_research_tool(
             registry=branch_registry,
             evidence_sink_factory=evidence_ledger.branch_sink,
         )
+        after = _root_budget_snapshot(parent.root_budget)
         if on_result is not None:
             on_result(goals, result)
-        return tool_result_from_branches(goals, result)
+        root_budget = (
+            {"before": before, "after_branches": after}
+            if before is not None and after is not None
+            else None
+        )
+        return tool_result_from_branches(goals, result, root_budget=root_budget)
 
     return sub_research_tool_spec(runner)
+
+
+def _root_budget_snapshot(ledger: object) -> dict[str, object] | None:
+    if ledger is None:
+        return None
+    try:
+        return {
+            "remaining_calls": int(getattr(ledger, "remaining_calls")),
+            "remaining_seconds": round(float(getattr(ledger, "remaining_seconds")), 3),
+        }
+    except (AttributeError, TypeError, ValueError):
+        return None
 
 
 def _branch_line(branch: BranchResult) -> str:
@@ -129,6 +153,8 @@ def _branch_gaps(branch: BranchResult) -> tuple[str, ...]:
 def tool_result_from_branches(
     goals: tuple[str, ...],
     result: SubResearchResult,
+    *,
+    root_budget: dict[str, object] | None = None,
 ) -> ToolRunResult:
     """把协调器的结果翻成注册表的一份 ``ToolRunResult``（spec §3 三条契约在这里落）。
 
@@ -136,10 +162,16 @@ def tool_result_from_branches(
     - 协调器整体拒绝（deep_mode_required / root_budget_exhausted / …）→ ``error`` 带原因，
       不静默回空。
     - 全部分支 failed → ``error``；有证据 → ``success``；跑完了但一条都没有 → ``empty``。
+    - ``root_budget``（父账本分支前后余量）有就进 telemetry，没有不写键。
     """
 
     if result.refused_reason:
         reason = result.refused_reason
+        refused_telemetry: dict[str, object] = {"refused_reason": reason, "branches": []}
+        if result.admission is not None:
+            refused_telemetry["admission"] = result.admission.to_dict()
+        if root_budget is not None:
+            refused_telemetry["root_budget"] = dict(root_budget)
         return ToolRunResult(
             evidence=(),
             observation=(
@@ -153,7 +185,7 @@ def tool_result_from_branches(
                 detail=f"refused={reason}; goals={len(goals)}",
             ),
             gaps=tuple(f"子研究分支「{goal}」未执行（{reason}）" for goal in goals),
-            telemetry={"refused_reason": reason, "branches": []},
+            telemetry=refused_telemetry,
         )
 
     branches = result.branches
@@ -169,6 +201,14 @@ def tool_result_from_branches(
     if evidence:
         observation += f"。共 {len(evidence)} 条证据已并入本轮证据表，结论请绑到这些证据上。"
     gaps = tuple(gap for branch in branches for gap in _branch_gaps(branch))
+    telemetry: dict[str, object] = {
+        "refused_reason": "",
+        "branches": [branch_telemetry(b) for b in branches],
+    }
+    if result.admission is not None:
+        telemetry["admission"] = result.admission.to_dict()
+    if root_budget is not None:
+        telemetry["root_budget"] = dict(root_budget)
     return ToolRunResult(
         evidence=evidence,
         observation=observation,
@@ -184,27 +224,45 @@ def tool_result_from_branches(
             result_count=len(evidence),
         ),
         gaps=gaps,
-        telemetry={
-            "refused_reason": "",
-            "branches": [
-                {
-                    "branch_id": b.branch_id,
-                    "goal": b.goal,
-                    "status": b.status,
-                    "evidence_count": len(b.evidence),
-                    "gap_count": len(b.gaps),
-                    "llm_calls": b.llm_calls,
-                    "tool_calls": b.tool_calls,
-                    "error": b.error,
-                }
-                for b in branches
-            ],
-        },
+        telemetry=telemetry,
     )
+
+
+def branch_telemetry(branch: BranchResult) -> dict[str, object]:
+    """一支分支进收据的全部读数：合计数 + 终局理由 + 预算账 + 逐批派发账。
+
+    同一份 dict 进两处：``sub_research`` 的 ``tool_result.telemetry``（审计底稿）与
+    durable 的 ``branch_completed`` 事件。两处此前各写一份、字段已经漂开
+    （事件里有 tokens、telemetry 里没有）；收成一个函数，改一处两处同时变。
+    预算账与派发账没有就不写键——分支被取消 / worker 抛异常时它们确实不存在，
+    写空值会把「没测到」伪装成「测到是零」。
+    """
+
+    payload: dict[str, object] = {
+        "branch_id": branch.branch_id,
+        "goal": branch.goal,
+        "status": branch.status,
+        "error": branch.error,
+        "stop_reason": branch.stop_reason,
+        "evidence_count": len(branch.evidence),
+        "gap_count": len(branch.gaps),
+        "llm_calls": branch.llm_calls,
+        "tool_calls": branch.tool_calls,
+        "input_tokens": branch.input_tokens,
+        "output_tokens": branch.output_tokens,
+    }
+    if branch.budget is not None:
+        payload["budget"] = branch.budget.to_dict()
+    if branch.batches:
+        payload["batches"] = [batch.to_dict() for batch in branch.batches]
+    if branch.invalid_actions:
+        payload["invalid_actions"] = [item.to_dict() for item in branch.invalid_actions]
+    return payload
 
 
 __all__ = [
     "SUB_RESEARCH_TOOL",
     "bind_sub_research_tool",
+    "branch_telemetry",
     "tool_result_from_branches",
 ]

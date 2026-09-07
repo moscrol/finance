@@ -73,7 +73,10 @@ from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
 )
 from intelligence.runtime.repair_budget import grant_for_transient_model_retry
-from intelligence.runtime.sub_research_tool import bind_sub_research_tool
+from intelligence.runtime.sub_research_tool import (
+    bind_sub_research_tool,
+    branch_telemetry,
+)
 from intelligence.runtime.sub_research import (
     SubResearchCoordinator,
     SubResearchResult,
@@ -2113,29 +2116,18 @@ class ContinuousAgentEpisode:
         completed_ids: set[str] = set()
         for branch in result.branches:
             completed_ids.add(branch.branch_id)
+            # 台账 §5.3-2：payload 里的 ``error`` 不能省——不带它，「单分支取消」在
+            # 事件流里与「worker 异常失败」完全同形（同为 status=failed、gap_count=1），
+            # 「cancelled 分支可区分」这条对账要求在 Projection 上根本判不出来。
+            # BranchResult.error 无错时是空串，照抄即可，不另造 cancelled 布尔位。
+            # 字段清单归 ``branch_telemetry``，与 sub_research 工具的 telemetry 同源。
             ledger.add(
                 (
                     "branch_completed"
                     if branch.status in {"completed", "partial"}
                     else "branch_failed"
                 ),
-                {
-                    "branch_id": branch.branch_id,
-                    "goal": branch.goal,
-                    "status": branch.status,
-                    # 台账 §5.3-2：不带这个字段，「单分支取消」在事件流里与
-                    # 「worker 异常失败」完全同形（同为 status=failed、gap_count=1），
-                    # 于是「cancelled 分支可区分」这条对账要求在 Projection 上根本
-                    # 判不出来。BranchResult.error 无错时是空串，照抄即可，不另造
-                    # 一个 cancelled 布尔位——那会变成第二事实源。
-                    "error": branch.error,
-                    "evidence_count": len(branch.evidence),
-                    "gap_count": len(branch.gaps),
-                    "llm_calls": branch.llm_calls,
-                    "tool_calls": branch.tool_calls,
-                    "input_tokens": branch.input_tokens,
-                    "output_tokens": branch.output_tokens,
-                },
+                branch_telemetry(branch),
             )
         for index, goal in enumerate(plan.branch_goals, start=1):
             branch_id = f"branch-{index}"
@@ -2208,19 +2200,7 @@ class ContinuousAgentEpisode:
                     if branch.status in {"completed", "partial"}
                     else "branch_failed"
                 ),
-                {
-                    "branch_id": branch.branch_id,
-                    "goal": branch.goal,
-                    "status": branch.status,
-                    "error": branch.error,
-                    "evidence_count": len(branch.evidence),
-                    "gap_count": len(branch.gaps),
-                    "llm_calls": branch.llm_calls,
-                    "tool_calls": branch.tool_calls,
-                    "input_tokens": branch.input_tokens,
-                    "output_tokens": branch.output_tokens,
-                    "origin": "tool",
-                },
+                {**branch_telemetry(branch), "origin": "tool"},
             )
         for index, goal in enumerate(goals, start=1):
             branch_id = f"branch-{index}"

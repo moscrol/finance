@@ -27,11 +27,20 @@ from intelligence.services.research_tool_registry import (
     ToolSpec,
 )
 from intelligence.runtime.sub_research import (
+    PARENT_TAIL_LLM_RESERVE,
+    BranchBatch,
+    BranchBudgetReceipt,
+    BranchInvalidAction,
     BranchResult,
     BranchRequest,
     SubResearchCoordinator,
     _BranchBudgetView,
+    admit_branches,
+    branch_batches_from_events,
+    branch_invalid_actions_from_events,
 )
+from intelligence.services.agent_runtime import EpisodeEvent
+from intelligence.services.llm_refine import call_ledger_scope
 from intelligence.services.task_frame import TaskFrame
 
 
@@ -256,7 +265,10 @@ def test_continuous_branch_worker_returns_evidence_but_no_publishable_answer() -
                         "status": "completed",
                         "draft": "这段分支草稿不得成为公开答案。",
                         "gaps": [],
-                        "bindings": [],
+                        # 分支契约唯一的 output：取到的证据绑到它上面。
+                        "bindings": [
+                            {"output_id": "branch_findings", "evidence_hashes": ["E1"], "basis": "evidence"}
+                        ],
                     },
                     ensure_ascii=False,
                 ),
@@ -318,6 +330,9 @@ def test_continuous_branch_worker_returns_evidence_but_no_publishable_answer() -
     assert not hasattr(result.branches[0], "answer")
     assert "这段分支草稿" not in str(result)
     assert "查找反方驱动" in str(model.calls[0]["messages"])
+    # 模型在契约里看得见那个唯一的 output——否则它只能自己造 id 去撞 unknown_output。
+    assert "branch_findings" in str(model.calls[0]["messages"])
+    assert result.branches[0].invalid_actions == ()
     assert context.root_budget is not None
     assert context.root_budget.remaining_calls == 23
 
@@ -445,50 +460,60 @@ def test_branch_view_settles_concurrent_seconds_without_losing_a_debit() -> None
     # The branch cannot pay out more than its own share...
     assert sum(settled) == pytest.approx(view.initial_seconds)
     assert view.remaining_seconds == pytest.approx(0.0, abs=1e-9)
-    # ...and every second the branch reported must have left the parent too,
-    # which is the invariant a lost debit would break.
-    assert parent.initial_seconds - parent.remaining_seconds == pytest.approx(
-        sum(settled)
-    )
+    # ...and none of it touches the parent: seconds are wall clock, charged once
+    # by the parent's own batch settlement when ``sub_research`` returns.
+    assert parent.remaining_seconds == pytest.approx(parent.initial_seconds)
     assert sorted(settled) == [
         pytest.approx(view.initial_seconds - requested_each),
         pytest.approx(requested_each),
     ]
 
 
-def test_branch_view_settlement_follows_the_parent_not_its_own_clamp() -> None:
-    """When the root has less than the branch thinks, the root's answer wins.
+def test_branch_view_charges_call_slots_but_never_seconds_to_the_parent() -> None:
+    """秒是墙钟：三支并行各 150s 对父臂只是 150s。
 
-    The branch share is carved out up front, so a parent drained by a sibling
-    can release less than this view would locally allow. Deducting the local
-    clamp instead of the parent's return value would credit the branch with
-    seconds the root never gave up.
+    2026-09-07 候选口第二遍：分支把秒累加转记父账本（450s）+ 父臂批结算再记 180s，
+    540s 账本在墙钟 190s 归零，父臂墙钟还剩 396s 却 deadline_exhausted、判官 unavailable。
+    调用仍从父账本扣——那是真实的共享资源，并行不会让它变便宜。
     """
 
     parent = InMemoryRootBudgetLedger(
-        episode_id="branch-parent-clamp",
-        initial_calls=4,
-        hard_calls_cap=4,
-        initial_seconds=5.0,
-        hard_seconds_cap=5.0,
+        episode_id="branch-wall-clock",
+        initial_calls=40,
+        hard_calls_cap=60,
+        initial_seconds=540.0,
+        hard_seconds_cap=600.0,
     )
-    view = _BranchBudgetView(
-        parent=parent,
-        episode_id="branch-parent-clamp:branch-0",
-        calls=2,
-        seconds=4.0,
+    views = [
+        _BranchBudgetView(parent=parent, episode_id=f"branch-wall-clock:branch-{i}", calls=10, seconds=150.0)
+        for i in range(3)
+    ]
+    for view in views:
+        for _ in range(4):
+            view.consume_call(seconds=20.0)  # 4 次工具，每次 20s
+        view.consume_seconds(seconds=50.0)   # 模型轮
+        assert view.settle_seconds(seconds=100.0) == pytest.approx(20.0)  # 只剩 20，clamp 到自己的份
+        assert view.remaining_seconds == pytest.approx(0.0, abs=1e-9)
+        assert view.remaining_calls == 6
+
+    # 三支共 12 次调用从父账本扣掉；父账本的秒一分未动（由父臂批结算按墙钟记一次）。
+    assert parent.remaining_calls == 40 - 12
+    assert parent.remaining_seconds == pytest.approx(540.0)
+    # 分支自己的次数守门仍在。
+    exhausted = _BranchBudgetView(parent=parent, episode_id="branch-wall-clock:x", calls=1, seconds=10.0)
+    exhausted.consume_call_slot()
+    with pytest.raises(ValueError, match="branch call budget exhausted"):
+        exhausted.consume_call(seconds=1.0)
+    assert parent.remaining_calls == 40 - 13
+    # 父账本没有次数时分支也发不出调用。
+    drained = InMemoryRootBudgetLedger(
+        episode_id="branch-wall-clock-drained", initial_calls=0, hard_calls_cap=0,
+        initial_seconds=10.0, hard_seconds_cap=10.0,
     )
-    # A sibling drains the root below this branch's remaining share.
-    parent.consume_seconds(seconds=4.5)
-    assert parent.remaining_seconds == pytest.approx(0.5)
-
-    settled = view.settle_seconds(seconds=3.0)
-
-    # The parent only had 0.5 left, so that -- not the locally clamped 3.0 --
-    # is what was spent and what the branch balance drops by.
-    assert settled == pytest.approx(0.5)
-    assert parent.remaining_seconds == pytest.approx(0.0, abs=1e-9)
-    assert view.remaining_seconds == pytest.approx(3.5)
+    starving = _BranchBudgetView(parent=drained, episode_id="branch-wall-clock-drained:b", calls=2, seconds=5.0)
+    with pytest.raises(ValueError, match="root call budget exhausted"):
+        starving.consume_call(seconds=1.0)
+    assert (starving.remaining_calls, starving.remaining_seconds) == (2, 5.0)
 
 
 def test_cancelled_coordinator_does_not_launch_workers() -> None:
@@ -557,3 +582,557 @@ def test_coordinator_run_does_not_return_while_branch_threads_are_alive() -> Non
         if thread.is_alive() and thread.name.startswith("sub-research")
     ]
     assert live == []
+
+
+# ---------------------------------------------------------------------------
+# 分支级 trace：逐批派发账 + 预算账（2026-09-07 四遍读数的 L6 缺口）
+# ---------------------------------------------------------------------------
+
+
+def _event(sequence: int, kind: str, **payload: object) -> EpisodeEvent:
+    return EpisodeEvent(sequence, kind, payload)
+
+
+def test_branch_batches_are_cut_at_model_turns_and_classify_every_tool_error() -> None:
+    """一条 model_turn 开一批；requested 恒等于五类结果之和；无工具的模型轮不算批。"""
+
+    clock = {
+        "remaining_slots_at_dispatch": 8,
+        "stage_timeout_granted": 120.0,
+        "episode_remaining_at_dispatch": 140.0,
+    }
+    events = (
+        _event(1, "task"),
+        _event(2, "prefetch", count=1),  # model_turn 之前的事件不归任何批
+        _event(3, "model_turn", phase="research"),
+        *(
+            _event(4 + i, "tool_request", name=f"tool_{i}", call_id=f"c{i}", **clock)
+            for i in range(6)
+        ),
+        _event(10, "tool_result", tool="tool_0", call_id="c0"),
+        _event(11, "tool_result", tool="tool_1", call_id="c1"),
+        _event(12, "tool_result", tool="tool_2", call_id="c2"),
+        _event(13, "tool_result", tool="tool_3", call_id="c3"),
+        _event(14, "tool_error", tool="tool_4", error="tool_budget_exhausted", call_id="c4"),
+        _event(15, "tool_error", tool="tool_5", error="tool_budget_exhausted", call_id="c5"),
+        _event(16, "model_turn", phase="research"),
+        _event(17, "tool_request", name="tool_a", call_id="ca", remaining_slots_at_dispatch=4),
+        _event(18, "tool_request", name="tool_b", call_id="cb", remaining_slots_at_dispatch=4),
+        _event(19, "tool_request", name="tool_c", call_id="cc", remaining_slots_at_dispatch=4),
+        _event(20, "tool_error", tool="tool_a", error="tool_timeout", call_id="ca"),
+        _event(21, "tool_error", tool="tool_b", error="duplicate_query", call_id="cb"),
+        _event(22, "tool_error", tool="tool_c", error="tool_exception", call_id="cc"),
+        _event(23, "model_turn", phase="research"),  # finish 轮：没点工具
+        _event(24, "finish", status="partial"),
+    )
+
+    batches = branch_batches_from_events(events)
+
+    assert len(batches) == 2
+    first, second = batches
+    assert (first.index, first.requested, first.succeeded, first.rejected_by_cap) == (1, 6, 4, 2)
+    assert (first.timed_out, first.errored, first.rejected_other) == (0, 0, 0)
+    assert first.tools == tuple(f"tool_{i}" for i in range(6))
+    assert (
+        first.remaining_slots_at_dispatch,
+        first.stage_timeout_granted,
+        first.episode_remaining_at_dispatch,
+    ) == (8, 120.0, 140.0)
+    assert (second.index, second.requested, second.succeeded) == (2, 3, 0)
+    assert (second.timed_out, second.rejected_other, second.errored) == (1, 1, 1)
+    # 没测到的时钟字段留 None，to_dict 不写键——不把缺席伪装成 0。
+    assert second.stage_timeout_granted is None
+    assert "stage_timeout_granted" not in second.to_dict()
+    assert second.to_dict()["remaining_slots_at_dispatch"] == 4
+    for batch in batches:
+        assert batch.requested == (
+            batch.succeeded
+            + batch.rejected_by_cap
+            + batch.timed_out
+            + batch.errored
+            + batch.rejected_other
+        )
+    # 分支撞 deadline 时事件流常以一批工具收尾、后面没有再来一条 model_turn：
+    # 最后一批也必须入账（变异：去掉末尾 flush，本条必红）。
+    truncated = events[:15]  # 到第一批最后一条 tool_error 为止，后面没有 model_turn
+    assert [batch.requested for batch in branch_batches_from_events(truncated)] == [6]
+    assert branch_batches_from_events(()) == ()
+
+
+def test_continuous_branch_worker_reports_per_batch_dispatch_and_the_cap_that_bit() -> None:
+    """分支上下文带 quick 标签 → 每批帽 4：模型一轮点 5 个，第 5 个必须记成 rejected_by_cap。
+
+    这正是 09-07 收据 §5 想量而量不到的数：分支 150s 仍 9/9 partial，候选原因是
+    每批帽——现在它出现在 BranchResult.batches 里，而不是靠人翻日志。
+    """
+
+    class FiveToolModel:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def complete(self, *, messages, tools, timeout):
+            self.calls += 1
+            if self.calls == 1:
+                return ModelTurn(
+                    "",
+                    tuple(
+                        ModelToolCall(f"branch-call-{i}", "news_search", {"query": f"反方驱动 线索{i}"})
+                        for i in range(5)
+                    ),
+                    "scripted",
+                    "",
+                )
+            return ModelTurn(
+                json.dumps(
+                    {
+                        "status": "completed",
+                        "draft": "分支草稿",
+                        "gaps": [],
+                        "bindings": [
+                            {
+                                "output_id": "branch_findings",
+                                "evidence_hashes": ["E1", "E2", "E3", "E4"],
+                                "basis": "evidence",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                (),
+                "scripted",
+                "",
+            )
+
+    def runner(query, _tool_context):
+        evidence = AgentEvidence(
+            tool="news_search",
+            title=f"{query} 标题",
+            detail=f"{query} 返回反方事实",
+            source="公开来源",
+            source_date="2026-07-20",
+            independent_key=f"family-{query}",
+            content_hash=f"hash-{query}",
+        )
+        return (
+            [evidence],
+            "branch observation",
+            ProviderTrace(
+                provider="test:branch-worker",
+                capability="news_search",
+                status="success",
+                result_count=1,
+            ),
+        )
+
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="news_search",
+                capability="news_search",
+                description="财经新闻检索",
+                cost="remote",
+                freshness="current",
+                runner=runner,
+            ),
+        )
+    )
+    context = _context(tier="max", calls=40)
+
+    result = SubResearchCoordinator(ContinuousSubResearchWorker(FiveToolModel())).run(
+        goals=("查找反方驱动",),
+        task_frame=_frame(),
+        context=context,
+        registry=registry,
+        evidence_sink_factory=EvidenceLedger(information_cutoff=date(2026, 7, 24)).branch_sink,
+    )
+
+    branch = result.branches[0]
+    assert branch.status == "completed"
+    assert branch.stop_reason  # partial / completed 一样带终局理由，不再只有 failed 才有 error
+    assert [batch.to_dict() for batch in branch.batches] == [
+        {
+            "index": 1,
+            "requested": 5,
+            "succeeded": 4,
+            "rejected_by_cap": 1,
+            "timed_out": 0,
+            "errored": 0,
+            "rejected_other": 0,
+            "tools": ["news_search"] * 5,
+            # 分支拿到 max 档的 10 次；派发时 5 个候选里选 min(帽 4, 剩余 10) = 4。
+            "remaining_slots_at_dispatch": 10,
+            "stage_timeout_granted": pytest.approx(branch.batches[0].stage_timeout_granted),
+            "episode_remaining_at_dispatch": pytest.approx(
+                branch.batches[0].episode_remaining_at_dispatch
+            ),
+        }
+    ]
+    assert branch.budget is not None
+    assert (branch.budget.allocated_calls, branch.budget.consumed_calls) == (10, 4)
+    assert branch.budget.batch_call_cap == 4  # quick 标签的帽，不是 max 的 8
+    assert branch.budget.allocated_seconds == pytest.approx(150.0)
+    assert 0.0 <= branch.budget.remaining_seconds <= branch.budget.allocated_seconds
+    assert branch.tool_calls == branch.budget.consumed_calls == 4
+
+
+def test_branch_budget_receipt_comes_from_child_ledger_not_worker_claims() -> None:
+    """worker 自报的预算账被协调器用子账本真值覆盖——与 tool_calls 同一条纪律。"""
+
+    class LyingWorker:
+        def run(self, request: BranchRequest) -> BranchResult:
+            request.context.root_budget.consume_call(seconds=2.0)  # type: ignore[union-attr]
+            return BranchResult(
+                branch_id=request.branch_id,
+                goal=request.goal,
+                status="partial",
+                evidence=(),
+                traces=(),
+                gaps=("只用了一次",),
+                llm_calls=1,
+                tool_calls=99,
+                budget=BranchBudgetReceipt(
+                    allocated_calls=99,
+                    consumed_calls=99,
+                    allocated_seconds=9999.0,
+                    remaining_seconds=0.0,
+                    batch_call_cap=99,
+                ),
+            )
+
+    result = SubResearchCoordinator(LyingWorker()).run(
+        goals=("核验预算账",),
+        task_frame=_frame(),
+        context=_context(tier="deep", calls=24),
+        registry=ResearchToolRegistry(()),
+        evidence_sink_factory=EvidenceLedger().branch_sink,
+    )
+
+    budget = result.branches[0].budget
+    assert budget is not None
+    assert (budget.allocated_calls, budget.consumed_calls) == (8, 1)
+    assert budget.allocated_seconds == pytest.approx(60.0)
+    assert budget.remaining_seconds == pytest.approx(58.0)
+    assert budget.batch_call_cap == 4
+    assert result.branches[0].tool_calls == 1
+
+
+def test_branch_invalid_actions_are_lifted_with_their_rejection_code() -> None:
+    """终局被拒的码只在分支 invalid_action 事件里；摘出来时保留顺序、缺字段不写键、reason 截 200。"""
+
+    events = (
+        _event(1, "task"),
+        _event(2, "model_turn"),
+        _event(3, "invalid_action", reason="PLAN 缺 branch_goals"),
+        _event(4, "model_turn"),
+        EpisodeEvent(
+            5,
+            "invalid_action",
+            {
+                "reason": "x" * 300,
+                "code": "unknown_output",
+                "kind": "integrity",
+                "disposition": "integrity_violation",
+            },
+        ),
+        _event(6, "finish", status="partial"),
+    )
+
+    records = branch_invalid_actions_from_events(events)
+
+    assert [r.to_dict() for r in records] == [
+        {"reason": "PLAN 缺 branch_goals"},
+        {
+            "reason": "x" * 200,
+            "code": "unknown_output",
+            "kind": "integrity",
+            "disposition": "integrity_violation",
+        },
+    ]
+    assert branch_invalid_actions_from_events(()) == ()
+    with pytest.raises(TypeError):
+        BranchResult(
+            branch_id="branch-1", goal="类型守门", status="partial", evidence=(), traces=(),
+            gaps=(), llm_calls=0, tool_calls=0, invalid_actions=({"reason": "x"},),  # type: ignore[arg-type]
+        )
+    assert isinstance(records[1], BranchInvalidAction)
+
+
+def test_continuous_branch_worker_surfaces_a_rejected_finish_with_its_code() -> None:
+    """分支模型的收尾绑到契约里不存在的 output → 出口拒 → partial；拒绝码必须随 BranchResult 出来。
+
+    这是 09-07 10:57 候选口 live 读数的形状：三支各剩 38–81s、零超时，全部 invalid_model_finish。
+    """
+
+    class BadFinishModel:
+        def complete(self, *, messages, tools, timeout):
+            return ModelTurn(
+                json.dumps(
+                    {
+                        "status": "completed",
+                        "draft": "分支草稿",
+                        "gaps": [],
+                        "bindings": [
+                            {"output_id": "direct_assessment", "evidence_hashes": ["nope"], "basis": "evidence"}
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                (),
+                "scripted",
+                "",
+            )
+
+    result = SubResearchCoordinator(ContinuousSubResearchWorker(BadFinishModel())).run(
+        goals=("查找反方驱动",),
+        task_frame=_frame(),
+        context=_context(tier="max", calls=40),
+        registry=ResearchToolRegistry(()),
+        evidence_sink_factory=EvidenceLedger(information_cutoff=date(2026, 7, 24)).branch_sink,
+    )
+
+    branch = result.branches[0]
+    assert branch.status == "partial"
+    assert branch.stop_reason == "invalid_model_finish"
+    assert branch.invalid_actions, "拒绝码没有随分支结果出来"
+    last = branch.invalid_actions[-1]
+    # disposition 是协议层对这次拒绝的处置（INTEGRITY 类 = integrity_violation，不回灌），
+    # 与 Episode 最终的 stop_reason=invalid_model_finish 是两层的事，都要能从收据读出来。
+    assert (last.code, last.kind, last.disposition) == (
+        "unknown_output", "integrity", "integrity_violation"
+    )
+    assert branch.batches == ()  # 没点过工具，没有派发账；不伪造空批
+
+
+# ---------------------------------------------------------------------------
+# 准入预留：父臂先留尾段，分支只拿剩下的（用户 09-07 拍 C）
+# ---------------------------------------------------------------------------
+
+
+def test_admission_reserves_one_parent_batch_and_one_synthesis_window() -> None:
+    """max 档 40 次 / 540s：留 8 次 + 60s，三支各拿 10 次 / 150s（与 #615 相同）；
+    秒按墙钟、不按支数除——三支并行共享同一段窗。"""
+
+    context = _context(tier="max", calls=40)
+    admission = admit_branches(
+        context=context, root=context.root_budget, branch_count=3,
+        max_calls=10, max_seconds=150.0, llm_headroom=None,
+    )
+    assert admission.refused_reason == ""
+    assert (admission.reserved_calls, admission.reserved_seconds) == (8, 60.0)
+    assert (admission.calls_per_branch, admission.seconds_per_branch) == (10, 150.0)
+    assert admission.llm_headroom is None
+    # 每支 ceil(10/4)=3 批 + 收尾 + 余量 = 5；三支 15 + 父臂尾段 8。
+    assert admission.llm_expected == 3 * 5 + PARENT_TAIL_LLM_RESERVE
+    assert admission.to_dict()["root_remaining_seconds"] == 540.0
+    assert "refused_reason" not in admission.to_dict()
+
+    # 父臂账本只剩 200s：分支拿 200 − 60 = 140，而不是 150，也不是 200/3。
+    context.root_budget.consume_seconds(seconds=340.0)
+    tight = admit_branches(
+        context=context, root=context.root_budget, branch_count=3,
+        max_calls=10, max_seconds=150.0, llm_headroom=None,
+    )
+    assert tight.seconds_per_branch == pytest.approx(140.0)
+    # 次数只剩 9：留 8 剩 1，三支各要 1 次都不够 → 拒，且理由说明是哪本账。
+    for _ in range(31):
+        context.root_budget.consume_call_slot()
+    assert context.root_budget.remaining_calls == 9
+    refused = admit_branches(
+        context=context, root=context.root_budget, branch_count=3,
+        max_calls=10, max_seconds=150.0, llm_headroom=None,
+    )
+    assert refused.refused_reason == "parent_reserve_exhausted:calls"
+    assert refused.to_dict()["refused_reason"] == "parent_reserve_exhausted:calls"
+
+
+def test_admission_refuses_when_parent_seconds_or_llm_headroom_cannot_cover_the_tail() -> None:
+    context = _context(tier="max", calls=40)
+    root = context.root_budget
+    assert root is not None
+    # 账本秒只剩 50 < 预留 60 → 拒（秒），分支再短也不该起：它的墙钟回来会把父臂最后一点账本吃掉。
+    root.consume_seconds(seconds=490.0)
+    by_seconds = admit_branches(
+        context=context, root=root, branch_count=2, max_calls=10, max_seconds=150.0, llm_headroom=None,
+    )
+    assert by_seconds.refused_reason == "parent_reserve_exhausted:seconds"
+
+    fresh = _context(tier="max", calls=40)
+    # 保险丝余量 20 < 两支 (3+2)×2=10 + 尾段 8 = 18？够。余量 17 → 不够 → 拒。
+    ok = admit_branches(
+        context=fresh, root=fresh.root_budget, branch_count=2, max_calls=10, max_seconds=150.0, llm_headroom=20,
+    )
+    assert ok.refused_reason == "" and ok.llm_expected == 18
+    short = admit_branches(
+        context=fresh, root=fresh.root_budget, branch_count=2, max_calls=10, max_seconds=150.0, llm_headroom=17,
+    )
+    assert short.refused_reason == "llm_call_reserve_exhausted"
+
+
+def test_coordinator_reads_the_turn_llm_ledger_and_refuses_loudly_when_the_tail_is_not_covered() -> None:
+    """协调器从 contextvar 台账读余量：40 上限已预占 30 → 余 10 < 三支 15 + 8 → 拒，worker 不跑；
+    结果带 admission，工具层能把数字写进收据。"""
+
+    class _NeverWorker:
+        def run(self, request):  # pragma: no cover - refused before worker runs
+            raise AssertionError("worker must not run")
+
+    with call_ledger_scope(max_calls=40) as ledger:
+        for _ in range(30):
+            assert ledger.try_reserve()
+        result = SubResearchCoordinator(_NeverWorker()).run(
+            goals=("甲", "乙", "丙"),
+            task_frame=_frame(),
+            context=_context(tier="max", calls=40),
+            registry=ResearchToolRegistry(()),
+            evidence_sink_factory=EvidenceLedger().branch_sink,
+        )
+    assert result.refused_reason == "llm_call_reserve_exhausted"
+    assert result.branches == ()
+    assert result.admission is not None
+    assert (result.admission.llm_headroom, result.admission.llm_expected) == (10, 3 * 5 + 8)
+
+    # 余量够（40 上限只占 5）→ 正常起分支，admission 随结果带出。
+    with call_ledger_scope(max_calls=40) as ledger:
+        for _ in range(5):
+            assert ledger.try_reserve()
+        ran = SubResearchCoordinator(ScriptedWorker()).run(
+            goals=("甲", "乙", "丙"),
+            task_frame=_frame(),
+            context=_context(tier="max", calls=40),
+            registry=ResearchToolRegistry(()),
+            evidence_sink_factory=EvidenceLedger().branch_sink,
+        )
+    assert ran.refused_reason == "" and len(ran.branches) == 3
+    assert ran.admission is not None and ran.admission.llm_headroom == 35
+    assert (ran.admission.calls_per_branch, ran.admission.seconds_per_branch) == (10, 150.0)
+
+
+def test_parallel_branches_charge_the_parent_wall_clock_once_through_the_coordinator() -> None:
+    """走协调器：三支 ScriptedWorker 各 consume_call(1.0s)，父账本次数 −3、秒不动。"""
+
+    context = _context(tier="max", calls=40)
+    root = context.root_budget
+    assert root is not None
+    result = SubResearchCoordinator(ScriptedWorker()).run(
+        goals=("甲", "乙", "丙"),
+        task_frame=_frame(),
+        context=context,
+        registry=ResearchToolRegistry(()),
+        evidence_sink_factory=EvidenceLedger().branch_sink,
+    )
+    assert [b.status for b in result.branches] == ["completed"] * 3
+    assert root.remaining_calls == 37
+    assert root.remaining_seconds == pytest.approx(540.0)
+    for branch in result.branches:
+        assert branch.budget is not None
+        assert branch.budget.consumed_calls == 1
+        assert branch.budget.remaining_seconds == pytest.approx(149.0)
+
+
+def test_branch_contract_declares_one_findings_output_so_the_finish_has_a_legal_target() -> None:
+    """09-07 候选口三遍 live 6/6 支：模型把取证绑到自造的 output id（window_progress /
+    baseline_judgment / trading_heat）→ unknown_output（INTEGRITY）→ 每支必 partial。
+    根因是分支契约 required_outputs=()，而宪法要求把事实绑到「对应 required output」。
+    现在契约里有且只有 ``branch_findings``：绑它 → completed；绑自造 id 仍 INTEGRITY。"""
+
+    from intelligence.runtime.continuous_sub_research import BRANCH_FINDINGS_OUTPUT
+
+    assert BRANCH_FINDINGS_OUTPUT.output_id == "branch_findings"
+    assert (BRANCH_FINDINGS_OUTPUT.required, BRANCH_FINDINGS_OUTPUT.grounding_mode) == (True, "evidence")
+
+    def finish_bound_to(output_id: str) -> ModelTurn:
+        return ModelTurn(
+            json.dumps(
+                {
+                    "status": "completed",
+                    "draft": "分支草稿",
+                    "gaps": [],
+                    "bindings": [{"output_id": output_id, "evidence_hashes": ["E1"], "basis": "evidence"}],
+                },
+                ensure_ascii=False,
+            ),
+            (),
+            "scripted",
+            "",
+        )
+
+    class OneToolThenFinish:
+        def __init__(self, output_id: str) -> None:
+            self.output_id = output_id
+            self.calls = 0
+
+        def complete(self, *, messages, tools, timeout):
+            self.calls += 1
+            if self.calls == 1:
+                return ModelTurn(
+                    "",
+                    (ModelToolCall("c1", "news_search", {"query": "分支取证"}),),
+                    "scripted",
+                    "",
+                )
+            return finish_bound_to(self.output_id)
+
+    def runner(query, _tool_context):
+        evidence = AgentEvidence(
+            tool="news_search", title=f"{query} 标题", detail="事实", source="公开来源",
+            source_date="2026-07-20", independent_key="fam", content_hash=f"hash-{query}",
+        )
+        return ([evidence], "obs", ProviderTrace(provider="t", capability="news_search", status="success", result_count=1))
+
+    registry = ResearchToolRegistry(
+        (ToolSpec(name="news_search", capability="news_search", description="新闻", cost="remote", freshness="current", runner=runner),)
+    )
+
+    def run_with(output_id: str) -> BranchResult:
+        result = SubResearchCoordinator(ContinuousSubResearchWorker(OneToolThenFinish(output_id))).run(
+            goals=("查找反方驱动",),
+            task_frame=_frame(),
+            context=_context(tier="max", calls=40),
+            registry=registry,
+            evidence_sink_factory=EvidenceLedger(information_cutoff=date(2026, 7, 24)).branch_sink,
+        )
+        return result.branches[0]
+
+    legal = run_with("branch_findings")
+    assert (legal.status, legal.stop_reason, legal.invalid_actions) == ("completed", "model_finish", ())
+    assert legal.llm_calls == 2 and len(legal.evidence) == 1
+
+    invented = run_with("window_progress")  # 第三遍 live branch-1 的原话
+    assert (invented.status, invented.stop_reason) == ("partial", "invalid_model_finish")
+    assert invented.invalid_actions[-1].code == "unknown_output"
+    assert invented.invalid_actions[-1].reason == "unknown required output: window_progress"
+    # 证据照旧回父账本——这就是为什么这条错一直没被当成故障。
+    assert len(invented.evidence) == 1
+
+
+def test_failed_or_cancelled_branches_carry_no_budget_or_batches() -> None:
+    """worker 抛异常 / 分支被取消时没有分支 Episode 可读：账不存在就不写，不伪造零值。"""
+
+    result = SubResearchCoordinator(ScriptedWorker(fail_goal="会炸的分支")).run(
+        goals=("会炸的分支",),
+        task_frame=_frame(),
+        context=_context(),
+        registry=ResearchToolRegistry(()),
+        evidence_sink_factory=EvidenceLedger().branch_sink,
+    )
+
+    failed = result.branches[0]
+    assert failed.status == "failed"
+    assert failed.budget is None and failed.batches == ()
+    with pytest.raises(TypeError):
+        BranchResult(
+            branch_id="branch-1",
+            goal="类型守门",
+            status="partial",
+            evidence=(),
+            traces=(),
+            gaps=(),
+            llm_calls=0,
+            tool_calls=0,
+            batches=({"index": 1},),  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError):
+        BranchBatch(
+            index=0, requested=1, succeeded=1, rejected_by_cap=0,
+            timed_out=0, errored=0, rejected_other=0, tools=(),
+        )

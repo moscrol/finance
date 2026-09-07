@@ -515,6 +515,8 @@ class RootBudgetLedger(Protocol):
 
     def consume_call(self, *, seconds: float) -> None: ...
 
+    def consume_call_slot(self) -> None: ...
+
     def consume_seconds(self, *, seconds: float) -> None: ...
 
     def settle_seconds(self, *, seconds: float) -> float: ...
@@ -654,6 +656,20 @@ class InMemoryRootBudgetLedger:
                 raise ValueError("root seconds budget exhausted")
             self.remaining_calls -= 1
             self.remaining_seconds = max(0.0, self.remaining_seconds - seconds)
+
+    def consume_call_slot(self) -> None:
+        """Spend one finance-tool call slot without debiting wall time.
+
+        分支视图用它向父账本记调用。秒是墙钟：三支并行跑 150s 对父臂只是 150s，
+        由父臂对 ``sub_research`` 那一批做批结算时按墙钟记**一次**；分支自己的秒只记在
+        自己的视图里。2026-09-07 候选口读数：分支把秒累加记到父账本（450s）+ 批结算
+        再记 180s，540s 的账本在墙钟 190s 归零，父臂墙钟还剩 396s 却 deadline_exhausted。
+        """
+
+        with self._lock:
+            if self.remaining_calls <= 0:
+                raise ValueError("root call budget exhausted")
+            self.remaining_calls -= 1
 
     def consume_seconds(self, *, seconds: float) -> None:
         """Debit wall time without spending a finance-tool call slot."""
