@@ -121,6 +121,7 @@ def compute_flags(
     stock_rows: Iterable[Mapping[str, Any]] | None = None,
     amount_rows: Iterable[Mapping[str, Any]] | None = None,
     breadth_rows: Iterable[Mapping[str, Any]] | None = None,
+    sector_rows: Iterable[Mapping[str, Any]] | None = None,
     params: Mapping[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Compute all A flags plus B scalars. Rows must represent fact_market_daily.
@@ -146,6 +147,9 @@ def compute_flags(
     moderate_from = float(level_cfg.get("moderate_from_pct", 100))
     breadth_by_day = {
         _date(row.get("trade_date")): row for row in (breadth_rows or []) if row.get("trade_date") is not None
+    }
+    sector_by_day = {
+        _date(row.get("trade_date")): row for row in (sector_rows or []) if row.get("trade_date") is not None
     }
     rows = sorted((dict(r) for r in rows), key=lambda r: _date(r.get("trade_date")))
     cal_index = (
@@ -283,6 +287,10 @@ def compute_flags(
         rec["stock_up_ratio_ma5_pct"], reason = _up_ratio_ma(rows, i, cal_index, breadth_by_day, breadth_floor, UP_RATIO_MA_DAYS)
         if reason:
             rec["scalar_gaps"]["stock_up_ratio_ma5_pct"] = reason
+        for label, value, reason in _sector_scalars(sector_by_day.get(d)):
+            rec[label] = value
+            if reason:
+                rec["scalar_gaps"][label] = reason
         for label, value, reason in _index_range_scalars(rows, i, cal_index, range_windows):
             rec[label] = value
             if reason:
@@ -511,6 +519,32 @@ BREADTH_FIELDS = (
     ("stock_up_ratio_pct", "up_ratio_pct", "stock_count"),
 )
 UP_RATIO_MA_DAYS = 5
+
+
+# Market-level aggregates of the sector side, one row per day (the CLI computes them in SQL).
+# 创始人 09-07 第六段：「向下左底和缩量右底，和成交占比前三板块主流板块是一体两面的，还有市场的
+# 赚钱效应也是相关的」。Against the platform's daily stages, two of these separate the top range
+# from the bottom range where every index view fails: 1-year-plus new highs (高位震荡 median 176
+# vs 缩量右底 60 / 共建主线 119) and 严格双红 theme count (共建主线 15 / 缩量右底 13 vs 高位震荡 5).
+# (label, source field)
+SECTOR_FIELDS = (
+    ("new_high_1y_count", "new_high_1y_count"),
+    ("dual_red_theme_count", "dual_red_theme_count"),
+    ("limit_themes_ge3", "limit_themes_ge3"),
+    ("limit_top1_share_pct", "limit_top1_share_pct"),
+)
+
+
+def _sector_scalars(row: Mapping[str, Any] | None) -> list[tuple[str, float | None, str | None]]:
+    """Fail closed on days the sector tables did not cover; each field NULL is its own gap."""
+    out: list[tuple[str, float | None, str | None]] = []
+    for label, field in SECTOR_FIELDS:
+        if row is None:
+            out.append((label, None, "sector_rows_absent"))
+            continue
+        value = _num(row.get(field))
+        out.append((label, None, f"{field}_null") if value is None else (label, round(value, SCALAR_DECIMALS), None))
+    return out
 
 
 # View scalars are canonicalized to this many decimals.  A parallel SQL AVG

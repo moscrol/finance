@@ -80,6 +80,23 @@ def source_db(tmp_path: Path) -> Path:
         "INSERT INTO fact_stock_daily VALUES (?, ?, ?, ?, ?)",
         [(d, s, 10.0 * (k + 1) + i, 1.0 * (k - 1), a) for i, d in enumerate(DAYS) for k, (s, a) in enumerate((("X", 30.0), ("Y", 20.0), ("Z", 10.0)))],
     )
+    # Sector side (第二刀): two sectors a day, one strict 双红 on even days; 3 limit-ups in S1; new highs = day index + 1
+    # stocks at 1y-or-longer periods, except day 4 which has no high rows at all.
+    con.execute("CREATE TABLE fact_sector_daily (trade_date DATE, sector_ts_code VARCHAR, sector_name VARCHAR, sw_l1 VARCHAR, pct_chg DOUBLE, diff_ratio DOUBLE, amount DOUBLE)")
+    con.executemany(
+        "INSERT INTO fact_sector_daily VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [row for i, d in enumerate(DAYS) for row in ((d, "S1", "甲", "电子", 1.0 if i % 2 == 0 else -0.5, 12.0, 600.0), (d, "S2", "乙", "通信", 0.5, 5.0, 300.0))],
+    )
+    con.execute("CREATE TABLE fact_theme_limit_heat_daily (trade_date DATE, sector_ts_code VARCHAR, data_stage VARCHAR, limit_up_count INTEGER, market_share DOUBLE)")
+    con.executemany(
+        "INSERT INTO fact_theme_limit_heat_daily VALUES (?, ?, 'final', ?, ?)",
+        [row for d in DAYS for row in ((d, "S1", 3, 60.0), (d, "S2", 1, 20.0))],
+    )
+    con.execute("CREATE TABLE fact_stock_high_daily (trade_date DATE, stock_ts_code VARCHAR, primary_high_period VARCHAR)")
+    con.executemany(
+        "INSERT INTO fact_stock_high_daily VALUES (?, ?, ?)",
+        [(d, f"H{n}", "1y" if n % 2 else "20d") for i, d in enumerate(DAYS) if i != 3 for n in range(2 * (i + 1))],
+    )
     con.close()
     return path
 
@@ -193,6 +210,15 @@ def test_end_to_end_build_is_deterministic_and_receipts_carry_readouts(capsys, t
         assert readouts["views_by_event"]["breakout_confirmed"]["days"] == 1
         assert "src.sh_index_close" in labels_present
         assert readouts["reference_comparison"] is None  # no platform reference loaded in this fixture
+        # Sector side (第二刀): day-indexed 1y+ new highs (day 4 has no high rows → NULL + gap), 双红 only on even days,
+        # one theme with ≥ 3 limit-ups every day.
+        nh = dict(side.execute("SELECT trade_date, value_num FROM history_teaching_labels WHERE label='tf.new_high_1y_count'").fetchall())
+        assert nh[date(2026, 1, 6)] == 2 and nh[date(2026, 1, 8)] is None and nh[date(2026, 1, 16)] == 10
+        assert gaps["tf.new_high_1y_count"] == 1
+        dual = dict(side.execute("SELECT trade_date, value_num FROM history_teaching_labels WHERE label='tf.dual_red_theme_count'").fetchall())
+        assert dual[date(2026, 1, 5)] == 1 and dual[date(2026, 1, 6)] == 0
+        assert side.execute("SELECT DISTINCT value_num FROM history_teaching_labels WHERE label='tf.limit_themes_ge3'").fetchall() == [(1.0,)]
+        assert "tf.new_high_1y_count" in readouts["view_scalars_by_stage"]
         # Ties are leader groups (创始人 09-07): B's break on day 6 hands off to the tied group {D, E}
         # (both came out of the 2-board candidates), and E's lone break on day 7 is a partial break, not a node.
         statuses = dict(side.execute("SELECT status, COUNT(*) FROM history_leader_succession GROUP BY status").fetchall())

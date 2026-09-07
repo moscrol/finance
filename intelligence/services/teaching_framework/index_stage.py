@@ -7,7 +7,7 @@ from collections import Counter
 from datetime import datetime
 from typing import Any, Callable, Iterable, Mapping
 
-from .flags import BREADTH_FIELDS, EPISODE_FIELDS, RANGE_SCALAR_STEMS, SOURCE_PREFIX, compute_flags
+from .flags import BREADTH_FIELDS, EPISODE_FIELDS, RANGE_SCALAR_STEMS, SECTOR_FIELDS, SOURCE_PREFIX, compute_flags
 from .stage_rules import (
     BAND_VIEWS,
     FOUNDER_UNCONFIRMED,
@@ -56,6 +56,7 @@ def build_index_stage(
     stock_rows: Iterable[Mapping[str, Any]] | None = None,
     amount_rows: Iterable[Mapping[str, Any]] | None = None,
     breadth_rows: Iterable[Mapping[str, Any]] | None = None,
+    sector_rows: Iterable[Mapping[str, Any]] | None = None,
     params: Mapping[str, Any] | None = None,
     supplier_normalizer: Callable[[Any], str] | None = None,
 ) -> list[dict[str, Any]]:
@@ -74,6 +75,7 @@ def build_index_stage(
         stock_rows=stock_rows,
         amount_rows=amount_rows,
         breadth_rows=breadth_rows,
+        sector_rows=sector_rows,
         params=params,
     )
     out: list[dict[str, Any]] = []
@@ -253,6 +255,8 @@ def _is_view_scalar(label: str) -> bool:
     if stem in EPISODE_FIELDS and stem not in ("cross_below_kind", "below_ma_cycle_retest_seen"):
         return True
     if stem in ("amount_vs_ma20_pct", "stock_up_ratio_ma5_pct"):  # 量能比与 5 日上涨比例：两条平台维度
+        return True
+    if stem in {name for name, _ in SECTOR_FIELDS}:  # 板块侧市场级：新高家数 / 双红题材数 / 涨停题材数 / 第一题材份额
         return True
     return any(stem.startswith(f"{prefix}_") and stem.endswith("d") for prefix in RANGE_SCALAR_STEMS)
 
