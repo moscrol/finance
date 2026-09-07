@@ -66,6 +66,13 @@ EventLane = Literal["durable", "live"]
 DURABLE_EVENT_KINDS: frozenset[str] = frozenset(
     {
         "task",
+        # 模型可见即已落账（终态稿 §6.1 P0）：三种承载「模型看到的字」的事件。
+        # prompt_assembled = system + 首轮 user；model_input = 每条 user 角色注入；
+        # tool_budget_state = 底座覆写最后一条 tool 消息时的整段 content。
+        # 归 durable 是必然：它们是重放消费者重建模型历史的唯一来源。
+        "prompt_assembled",
+        "model_input",
+        "tool_budget_state",
         "plan",
         "mode_decision",
         "prefetch",

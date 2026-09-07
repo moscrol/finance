@@ -1,7 +1,7 @@
 # 运行底座终局：从「跑完才落盘的研究流程」到「每一步可恢复、可拦截、可重建、可机器验证的运行时」
 
 > 日期：2026-09-07
-> 状态：**草稿待审**（§12 待拍板五题；未拍板前按推荐答案执行）。P0 切片与本稿同分支落地（见 §6.1），其余阶段各开工单。
+> 状态：**草稿待审**（§12 待拍板五题；未拍板前按推荐答案执行）。**P0 已随本分支落地**（09-07：`services/episode_messages.py`、三种载体事件、两条 loop 请求前对账、投影剔正文、`scripts/gen_runtime_catalog.py` + `docs/runtime/`；见 §6.1 与在途交接），其余阶段各开工单。
 > 触发：用户 2026-09-07 拍板——「既然换不了底座，那就把他俩的工程设计我们欠缺的部分补上。总之我要达到他们那种运行底座的效果。其他的就是我们领域 harness 的优化，那部分我让 agent 继续打磨。」
 > 对照源（只读，不引入为运行时）：pi `/Users/a77/pi` @ `853a80d26`（2026-08-28；`packages/agent/docs/harness.md` 2900 行实现规格、`packages/agent/src/{types,agent-loop}.ts`、`harness/`）；dsh `/Users/a77/deepseek-harness` @ `99f6f02`（0.1.0-rc.7；`docs/architecture.md`、`docs/defensive-patterns.md`、`docs/subsystems/{core,invariants}.md`、`packages/core/{agent,session,tools}/src`）。两者都比 08-15 吸收稿钉的 `47f9438` 新。
 > 父稿：`2026-08-15-agent-base-dsh-absorption-design.md`（决策记录，停变：生产主线 Python、dsh 只做形状尺）；`2026-08-22-harness-seams-to-learn-design.md`（学习合同：§2「已经接上，别再当缺口」本稿全部遵守）；`2026-09-02-research-harness-loop-decouple-design.md`（接缝线：16 方法、第二条 loop）；`2026-09-01-finance-base-shape-alignment-design.md`（形态对齐；只在足迹分支 `10f7d73c`）。
@@ -115,7 +115,7 @@
    - 新 kind `model_input`：payload `{role: "user", content, source ∈ {steering_invalid_plan, steering_invalid_finish, finalization, mode_decision, tool_budget_state, opening}}`，四处注入点各发一条。归 **durable**（它是模型可见内容，重放消费者必须看得到）。
    - 新 kind `prompt_assembled`：payload `{system, user, tool_schema_hash, instructions_hash}`，`assemble_prompt` 之后、首轮请求之前发一条。归 durable。
 3. 断言：`ContinuousAgentEpisode` 与 `HarnessReferenceLoop` 每次调 `model.complete` 前调 `check_derivation(ledger.events, messages)`；不等时 `EpisodeScope` 计 `derive_mismatch`（与 `event_sink_failures` 同族：**生产不炸**），测试模式（`FORESIGHT_STRICT_DERIVATION=1` 或 pytest 下）抛错。
-4. 投影边界：`project_durable_events` 对 `prompt_assembled.{system,user}` 与 `model_input.content` **默认剔正文只留 sha256**——workbench trace「不带 prompt 正文」纪律（`test_conversation_orchestrator.py:6364`）只约束对外投影，私有 durable 流带正文。加参数 `include_model_visible_text: bool = False`，`continuous-episode.json`（`visibility="internal"`）传 `True`。
+4. 投影边界：`project_durable_events` 对全部模型可见正文字段（`prompt_assembled.{system,user}`、`model_input.content`、`tool_budget_state.model_content`、`tool_result.model_content`、`tool_error.model_content`；表在 `episode_messages.MODEL_VISIBLE_TEXT_FIELDS`）**默认剔正文只留 `<field>_sha256` + `<field>_chars`**——workbench trace「不带 prompt 正文」纪律（`test_conversation_orchestrator.py:6364`）只约束对外投影，进程内的 ledger 与 P2 的私有 store 带正文。加参数 `include_model_visible_text: bool = False`，只给不出仓的读者。**落地口径（09-07）**：artifact 仍是一个 `events` 数组（五个下游共用），默认剔正文；不为 `continuous-episode.json` 另造第二份全文数组——INV-R1 的在线对账在进程内对未剔的 ledger 做，离线全文重建等 P2 store。
 5. `scripts/gen_runtime_catalog.py`：从 `DURABLE_EVENT_KINDS` / `LIVE_EVENT_KINDS` + 各发射点 docstring、`_DEFAULT_TOOL_METADATA` + `_TOOL_CONTRACTS`、`ResearchHarness` 协议方法签名与 docstring 生成 `docs/runtime/{events,tools,harness-seams}.md`；`test_runtime_catalog_fresh` 比对生成物与仓内文件，不一致即红（pre-commit 第 12 道候选，先只做 pytest）。
 
 **验收**
@@ -128,7 +128,7 @@
 
 **非目标**：不改 harness 方法签名；不改 90/60/30；不换消息类型；不落盘。
 
-### 6.2 P1：Episode 消息类型 + 取消类型化 + 错误码拆分
+**已知边界（09-07 落地时确认）**：(a) `EpisodeFinalizer.recover` 的兜底合成是一次独立的小模型调用，用自己拼的 prompt，不在 episode `messages` 里，INV-R1 不覆盖它——P2 若要覆盖，给它发 `prompt_assembled{source: finalizer}`；(b) `openai_agents_runtime`（sdk 臂）与 `headless_tool_gateway` 也发 `tool_result` / `tool_error`，但不带 `model_content`，`derive_messages` 对这些流抛 `DerivationUnavailable`——它们不是 R 系列的适用臂（§3 末段），投影层对缺字段的事件原样保留；(c) 派生规则里 `model_turn` 带 `error` 不产生 assistant 消息，参考 loop 修复轮原本在错误检查前 append，本轮改为检查后（错误后无请求，模型可见行为不变）。：Episode 消息类型 + 取消类型化 + 错误码拆分
 
 1. `services/episode_messages.py` 加 `EpisodeMessage`（frozen dataclass：`role ∈ {system,user,assistant,tool}`、`content`、`tool_calls`、`tool_call_id`、`source`、`visible_to_model: bool = True`）与 `to_provider(messages, dialect="openai") -> list[dict]`；`_EpisodeContinuationState.messages` 换类型；`glm_agent_runtime.py` 的 provider 链在边界转线格式。`derive_messages` 改返回 `list[EpisodeMessage]`，INV-R1 比较两边 `to_provider()` 结果。
 2. `services/runtime_handle.py`：`CancelCause = Literal["user", "parent", "hook", "deadline", "disposed"]`；`request_cancel(cause: CancelCause, detail: str = "")`；`is_cancelled` 谓词换 `CancelSignal`（`.requested`、`.cause`、`.detail`），first cause wins；`agent_episode` 与 `episode_tool_batch` 读 `.cause` 写进 `finish.stop_reason_detail`。

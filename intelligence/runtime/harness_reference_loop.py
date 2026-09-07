@@ -61,6 +61,12 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
     OutputEvidenceBinding,
 )
+from intelligence.services.episode_messages import (
+    append_model_input,
+    assistant_message,
+    check_derivation,
+    record_prompt_assembled,
+)
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_harness import (
@@ -87,9 +93,16 @@ __all__ = ["HarnessReferenceLoop", "ReferenceLoopState"]
 class _Ledger:
     def __init__(self) -> None:
         self.events: list[EpisodeEvent] = []
+        # INV-R1 对账失败的落账点（本 loop 没有 EpisodeScope，账就在这里）。
+        self.derive_mismatches: list[str] = []
 
     def add(self, kind: str, payload: dict[str, object]) -> None:
         self.events.append(EpisodeEvent(len(self.events) + 1, kind, payload))
+
+    def verify_model_visible(self, messages: list[dict[str, object]]) -> bool:
+        return check_derivation(
+            tuple(self.events), messages, on_mismatch=self.derive_mismatches.append
+        )
 
 
 @dataclass
@@ -157,6 +170,7 @@ class HarnessReferenceLoop:
             },
         )
         system, user = harness.assemble_prompt(task_frame, context, registry)
+        record_prompt_assembled(ledger, system=system, user=user)
         state = ReferenceLoopState(
             task_frame=task_frame,
             context=context,
@@ -223,13 +237,11 @@ class HarnessReferenceLoop:
             nonlocal finalization_started
             finalization_started = True
             ledger.add("finalization", {"reason": reason})
-            messages.append(
-                {
-                    "role": "user",
-                    "content": harness.steering_message(
-                        "begin_finalization", detail=reason
-                    ),
-                }
+            append_model_input(
+                messages,
+                ledger,
+                content=harness.steering_message("begin_finalization", detail=reason),
+                source="begin_finalization",
             )
 
         for _round in range(max_slots + MAX_PLAN_TURNS + 4):
@@ -246,6 +258,7 @@ class HarnessReferenceLoop:
                     session=state.session, registry=registry, context=context, ledger=ledger
                 )
             )
+            ledger.verify_model_visible(messages)
             try:
                 turn = self._model.complete(
                     messages=list(messages),
@@ -309,8 +322,11 @@ class HarnessReferenceLoop:
                         if not turn.tool_calls:
                             plan_turns += 1
                             if pending_mode_message is not None:
-                                messages.append(
-                                    {"role": "user", "content": pending_mode_message}
+                                append_model_input(
+                                    messages,
+                                    ledger,
+                                    content=pending_mode_message,
+                                    source="mode_decision",
                                 )
                             continue
                 if plan_result.error:
@@ -318,13 +334,13 @@ class HarnessReferenceLoop:
                     invalid_actions += 1
                     ledger.add("invalid_action", {"reason": plan_result.error})
                     if plan_failures == 1:
-                        messages.append(
-                            {
-                                "role": "user",
-                                "content": harness.steering_message(
-                                    "invalid_plan", detail=plan_result.error
-                                ),
-                            }
+                        append_model_input(
+                            messages,
+                            ledger,
+                            content=harness.steering_message(
+                                "invalid_plan", detail=plan_result.error
+                            ),
+                            source="steering_invalid_plan",
                         )
                         continue
 
@@ -383,7 +399,9 @@ class HarnessReferenceLoop:
                             },
                         )
                 if pending_mode_message is not None:
-                    messages.append({"role": "user", "content": pending_mode_message})
+                    append_model_input(
+                        messages, ledger, content=pending_mode_message, source="mode_decision"
+                    )
                 if not finalization_started and harness.retrieval_complete(
                     context=context,
                     registry=registry,
@@ -417,13 +435,13 @@ class HarnessReferenceLoop:
                     and finish_failures == 1
                     and not finalization_started
                 ):
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": harness.steering_message(
-                                "invalid_finish", detail=admission.reason
-                            ),
-                        }
+                    append_model_input(
+                        messages,
+                        ledger,
+                        content=harness.steering_message(
+                            "invalid_finish", detail=admission.reason
+                        ),
+                        source="steering_invalid_finish",
                     )
                     continue
                 return stop(
@@ -497,13 +515,11 @@ class HarnessReferenceLoop:
         # 底座策略（与 Episode 同）：工具开不开只看研究窗——底座批了重开、或窗还没关。
         # 额度为 0 时窗仍算开着，模型若真调工具，由批次执行器按 remaining_slots 拒掉。
         tools_open = goal.reopen_tools or not context.deadline.expired
-        messages.append(
-            {
-                "role": "user",
-                "content": harness.repair_goal_message(
-                    downgrade.goal, tools_open=tools_open
-                ),
-            }
+        append_model_input(
+            messages,
+            ledger,
+            content=harness.repair_goal_message(downgrade.goal, tools_open=tools_open),
+            source="repair_goal",
         )
 
         def stop(
@@ -543,6 +559,7 @@ class HarnessReferenceLoop:
 
         def complete(tools: list[dict[str, object]]) -> ModelTurn | AgentOutcome:
             nonlocal llm_calls
+            ledger.verify_model_visible(messages)
             try:
                 turn = self._model.complete(
                     messages=list(messages), tools=tools, timeout=self._llm_timeout
@@ -554,10 +571,11 @@ class HarnessReferenceLoop:
                 return stop("repair_model_unavailable", reason)
             llm_calls += turn.provider_attempts
             ledger.add("model_turn", turn.to_dict())
-            messages.append(_assistant_message(turn))
             if turn.error:
+                # 失败 turn 不进消息历史（与 Episode 主路径、派生规则同一口径）。
                 ledger.add("model_error", {"reason": turn.error})
                 return stop("repair_model_unavailable", turn.error)
+            messages.append(_assistant_message(turn))
             return turn
 
         definitions = (
@@ -583,11 +601,11 @@ class HarnessReferenceLoop:
             tool_calls += batch.executed_count
             performed_tool_action = batch.executed_count > 0
             invalid_actions += self._ingest_batch(state, batch)
-            messages.append(
-                {
-                    "role": "user",
-                    "content": harness.steering_message("repair_finalize", detail=""),
-                }
+            append_model_input(
+                messages,
+                ledger,
+                content=harness.steering_message("repair_finalize", detail=""),
+                source="steering_repair_finalize",
             )
             turn = complete([])
             if isinstance(turn, AgentOutcome):
@@ -690,12 +708,16 @@ class HarnessReferenceLoop:
                 payload = harness.project_tool_error(
                     tool=call.name, error=error, detail=detail
                 )
-                state.ledger.add("tool_error", {**payload, "call_id": call.call_id})
+                model_content = json.dumps(payload, ensure_ascii=False)
+                state.ledger.add(
+                    "tool_error",
+                    {**payload, "call_id": call.call_id, "model_content": model_content},
+                )
                 state.messages.append(
                     {
                         "role": "tool",
                         "tool_call_id": call.call_id,
-                        "content": json.dumps(payload, ensure_ascii=False),
+                        "content": model_content,
                     }
                 )
                 continue
@@ -724,7 +746,11 @@ class HarnessReferenceLoop:
             state.seen_prose = set(projection.seen_prose)
             state.ledger.add(
                 "tool_result",
-                {**projection.audit_payload, "call_id": call.call_id},
+                {
+                    **projection.audit_payload,
+                    "call_id": call.call_id,
+                    "model_content": projection.model_content,
+                },
             )
             state.messages.append(
                 {
@@ -764,19 +790,6 @@ class HarnessReferenceLoop:
 
 
 def _assistant_message(turn: ModelTurn) -> dict[str, object]:
-    message: dict[str, object] = {"role": "assistant", "content": turn.content}
-    if turn.tool_calls:
-        message["tool_calls"] = [
-            {
-                "id": call.call_id,
-                "type": "function",
-                "function": {
-                    "name": call.name,
-                    "arguments": json.dumps(
-                        call.to_dict()["arguments"], ensure_ascii=False
-                    ),
-                },
-            }
-            for call in turn.tool_calls
-        ]
-    return message
+    # 与 Episode 同源（``episode_messages.assistant_message``）：两条 loop 的 assistant
+    # 消息形状只定义一次，派生侧才能对两条 loop 用同一条规则。
+    return assistant_message(turn)

@@ -1,0 +1,256 @@
+"""INV-R1「模型可见即已落账」：派生规则、对账与投影剔正文。
+
+终态稿 ``2026-09-07-runtime-base-endstate-design.md`` §6.1 P0 验收。两条 loop 的端到端
+对账不在这里另写：``conftest`` 已强制 ``FORESIGHT_STRICT_DERIVATION=1``，全量套件里每次
+脚本化模型请求前都在验；本文件只钉派生器自己的性质。
+"""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from intelligence.services.agent_runtime import EpisodeEvent, ModelToolCall, ModelTurn
+from intelligence.services.episode_messages import (
+    MODEL_INPUT_SOURCES,
+    MODEL_VISIBLE_TEXT_FIELDS,
+    STRICT_DERIVATION_ENV,
+    DerivationMismatch,
+    DerivationUnavailable,
+    append_model_input,
+    assistant_message,
+    assistant_message_from_payload,
+    check_derivation,
+    derive_messages,
+    describe_mismatch,
+    record_prompt_assembled,
+    record_tool_budget_state,
+    sha256_text,
+)
+from intelligence.services.episode_event_lanes import DURABLE_EVENT_KINDS, lane_for
+from intelligence.services.episode_projection import project_durable_events
+
+
+class _Ledger:
+    def __init__(self) -> None:
+        self.events: list[EpisodeEvent] = []
+
+    def add(self, kind: str, payload: dict[str, object]) -> EpisodeEvent:
+        event = EpisodeEvent(len(self.events) + 1, kind, payload)
+        self.events.append(event)
+        return event
+
+
+def _tool_turn() -> ModelTurn:
+    return ModelTurn(
+        "",
+        (ModelToolCall("call-1", "market_data", {"query": "当前市场结构", "n": 3}),),
+        "scripted",
+        "",
+    )
+
+
+# ── fold 规则 ─────────────────────────────────────────────────────────────
+
+
+def test_prompt_and_inputs_fold_into_system_then_user_messages() -> None:
+    ledger = _Ledger()
+    messages: list[dict[str, object]] = []
+    record_prompt_assembled(ledger, system="宪法", user='{"question": "今天怎么看"}')
+    messages.extend(
+        [{"role": "system", "content": "宪法"}, {"role": "user", "content": '{"question": "今天怎么看"}'}]
+    )
+    append_model_input(messages, ledger, content="先给 PLAN", source="steering_invalid_plan")
+
+    assert derive_messages(ledger.events) == messages
+    assert [event.kind for event in ledger.events] == ["prompt_assembled", "model_input"]
+    assert ledger.events[0].payload["system_sha256"] == sha256_text("宪法")
+    assert ledger.events[1].payload["source"] == "steering_invalid_plan"
+
+
+def test_assistant_message_shape_is_identical_from_turn_and_from_payload() -> None:
+    """loop 侧从 ModelTurn 拼、派生侧从事件 payload 拼，必须逐字节同形——INV-R1 的前提。"""
+
+    turn = _tool_turn()
+    ledger = _Ledger()
+    event = ledger.add("model_turn", turn.to_dict())
+
+    from_turn = assistant_message(turn)
+    from_payload = assistant_message_from_payload(event.to_dict()["payload"])
+
+    assert from_turn == from_payload
+    assert from_turn["tool_calls"][0]["function"]["arguments"] == json.dumps(
+        {"query": "当前市场结构", "n": 3}, ensure_ascii=False
+    )
+    assert derive_messages(ledger.events) == [from_turn]
+
+
+def test_errored_model_turn_produces_no_assistant_message() -> None:
+    """失败 turn 不进消息历史：两条 loop 都这样，派生器必须同口径。"""
+
+    ledger = _Ledger()
+    ledger.add("model_turn", ModelTurn("", (), "scripted", "TimeoutError").to_dict())
+    ledger.add("model_error", {"reason": "TimeoutError"})
+    ledger.add("repair_model_retry", {"attempt": 1})
+
+    assert derive_messages(ledger.events) == []
+
+
+def test_tool_events_fold_to_tool_messages_and_budget_state_overwrites_the_last() -> None:
+    ledger = _Ledger()
+    ledger.add(
+        "tool_result",
+        {"tool": "market_data", "call_id": "call-1", "model_content": '{"ok": true, "n": 1}'},
+    )
+    ledger.add(
+        "tool_error",
+        {"ok": False, "error": "tool_timeout", "call_id": "call-2", "model_content": '{"ok": false}'},
+    )
+    rewritten = json.dumps({"ok": False, "runtime_budget": {"remaining_tool_calls": 2}})
+    record_tool_budget_state(
+        ledger, runtime_budget={"remaining_tool_calls": 2}, model_content=rewritten
+    )
+
+    assert derive_messages(ledger.events) == [
+        {"role": "tool", "tool_call_id": "call-1", "content": '{"ok": true, "n": 1}'},
+        {"role": "tool", "tool_call_id": "call-2", "content": rewritten},
+    ]
+
+
+def test_unrelated_kinds_produce_no_messages() -> None:
+    ledger = _Ledger()
+    for kind in ("task", "plan", "tool_request", "tool_menu", "finalization", "finish"):
+        ledger.add(kind, {"x": 1})
+
+    assert derive_messages(ledger.events) == []
+
+
+# ── 不能派生就不猜 ─────────────────────────────────────────────────────────
+
+
+def test_legacy_tool_result_without_model_content_is_refused_not_guessed() -> None:
+    ledger = _Ledger()
+    ledger.add("tool_result", {"tool": "market_data", "call_id": "call-1"})
+
+    with pytest.raises(DerivationUnavailable, match="model_content"):
+        derive_messages(ledger.events)
+
+
+def test_budget_state_without_a_preceding_tool_message_is_refused() -> None:
+    ledger = _Ledger()
+    record_tool_budget_state(ledger, runtime_budget={}, model_content="{}")
+
+    with pytest.raises(DerivationUnavailable, match="tool_budget_state"):
+        derive_messages(ledger.events)
+
+
+def test_unregistered_model_input_source_is_rejected_at_the_emitter() -> None:
+    ledger = _Ledger()
+    with pytest.raises(ValueError, match="model_input"):
+        append_model_input([], ledger, content="x", source="made_up")  # type: ignore[arg-type]
+    assert ledger.events == []
+
+
+# ── 对账：严格炸、宽松记账 ─────────────────────────────────────────────────
+
+
+def test_check_derivation_raises_in_strict_mode_and_records_otherwise(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ledger = _Ledger()
+    record_prompt_assembled(ledger, system="s", user="u")
+    actual = [
+        {"role": "system", "content": "s"},
+        {"role": "user", "content": "u"},
+        {"role": "user", "content": "偷偷 append 的、没有事件的一条"},
+    ]
+
+    monkeypatch.setenv(STRICT_DERIVATION_ENV, "1")
+    with pytest.raises(DerivationMismatch, match="长度 2 \\(derived\\) vs 3 \\(actual\\)"):
+        check_derivation(ledger.events, actual)
+
+    monkeypatch.setenv(STRICT_DERIVATION_ENV, "0")
+    recorded: list[str] = []
+    assert check_derivation(ledger.events, actual, on_mismatch=recorded.append) is False
+    assert len(recorded) == 1 and "@2" in recorded[0]
+    # 一致时两种模式都安静。
+    assert check_derivation(ledger.events, actual[:2], on_mismatch=recorded.append) is True
+    assert len(recorded) == 1
+
+
+def test_mismatch_description_never_echoes_prompt_text() -> None:
+    secret = "这一段不能进收据"
+    derived = [{"role": "user", "content": "a"}]
+    actual = [{"role": "user", "content": secret}]
+
+    detail = describe_mismatch(derived, actual)
+
+    assert secret not in detail
+    assert "@0" in detail and "role=user" in detail
+
+
+def test_unavailable_derivation_counts_as_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(STRICT_DERIVATION_ENV, "0")
+    ledger = _Ledger()
+    ledger.add("tool_result", {"tool": "market_data", "call_id": "call-1"})
+    recorded: list[str] = []
+
+    assert check_derivation(ledger.events, [], on_mismatch=recorded.append) is False
+    assert recorded and recorded[0].startswith("unavailable:")
+
+
+# ── 与车道表 / 投影的契约 ─────────────────────────────────────────────────
+
+
+def test_model_visible_carriers_are_durable_kinds() -> None:
+    for kind in ("prompt_assembled", "model_input", "tool_budget_state"):
+        assert kind in DURABLE_EVENT_KINDS
+        assert lane_for(kind) == "durable"
+    assert {kind for kind, _ in MODEL_VISIBLE_TEXT_FIELDS} <= DURABLE_EVENT_KINDS
+    assert MODEL_INPUT_SOURCES  # 表非空且被发射点引用（见 emitter 扫描测试）
+
+
+def test_projection_redacts_model_visible_text_by_default_but_keeps_hashes() -> None:
+    ledger = _Ledger()
+    ledger.add("task", {"question": "今天怎么看", "task_frame_hash": "h"})
+    record_prompt_assembled(ledger, system="宪法正文", user="首轮 user 正文")
+    append_model_input([], ledger, content="注入正文", source="begin_finalization")
+    ledger.add(
+        "tool_result",
+        {"tool": "market_data", "call_id": "c1", "model_content": "工具正文", "hash": "abc"},
+    )
+
+    projection = project_durable_events(ledger.events)
+    dumped = json.dumps(list(projection.events), ensure_ascii=False)
+
+    for text in ("宪法正文", "首轮 user 正文", "注入正文", "工具正文"):
+        assert text not in dumped
+    prompt = projection.events[1]["payload"]
+    assert prompt["system_sha256"] == sha256_text("宪法正文")
+    assert prompt["system_chars"] == len("宪法正文")
+    assert "system" not in prompt and "user" not in prompt
+    model_input = projection.events[2]["payload"]
+    assert model_input["content_sha256"] == sha256_text("注入正文")
+    assert model_input["source"] == "begin_finalization"
+    tool = projection.events[3]["payload"]
+    assert tool["hash"] == "abc" and "model_content" not in tool
+    assert tool["model_content_sha256"] == sha256_text("工具正文")
+    assert not projection.has_anomalies
+
+    # 私有读者要正文时显式要，且派生仍能从完整投影的事件重建。
+    full = project_durable_events(ledger.events, include_model_visible_text=True)
+    assert full.events[1]["payload"]["system"] == "宪法正文"
+    assert full.events[3]["payload"]["model_content"] == "工具正文"
+
+
+def test_projection_leaves_events_without_model_visible_text_byte_identical() -> None:
+    events = (
+        EpisodeEvent(1, "task", {"question": "今天怎么看"}),
+        EpisodeEvent(2, "tool_request", {"call_id": "c1", "name": "finance_query"}),
+        EpisodeEvent(3, "tool_result", {"call_id": "c1", "tool": "finance_query"}),
+    )
+
+    projection = project_durable_events(events)
+
+    assert list(projection.events) == [event.to_dict() for event in events]

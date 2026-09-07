@@ -261,7 +261,9 @@ def test_progress_sink_observes_append_only_events_before_and_during_model_work(
     class ProgressAwareModel(ScriptedModel):
         def complete(self, *, messages, tools, timeout):
             if not self.calls:
-                assert [event.kind for event in observed] == ["task"]
+                # 首轮请求前 durable 侧已有两条：task，以及模型可见即已落账（INV-R1）
+                # 要求的 prompt_assembled——system 与首轮 user 先落事件再进 messages。
+                assert [event.kind for event in observed] == ["task", "prompt_assembled"]
             return super().complete(messages=messages, tools=tools, timeout=timeout)
 
     frame = _frame()
