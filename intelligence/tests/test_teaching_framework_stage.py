@@ -216,9 +216,26 @@ def test_every_catalogued_predicate_can_fire_and_nothing_else_does():
                         "stock_ma10_deviation_median": level, "stock_up_ratio_ma5_pct": 55.0,
                         "sh_index_pct_chg_10d": -1.0, "ma_episode_pct_chg": 2.0, "src.sh_deviation_pct": 1.0,
                     }, BANDS))
+    # 第十一段 upgrade entry: only from 高位震荡, on a 双量日 that closes at a new high of the configured window.
+    upgrade = {"double_volume_day": True, "index_new_high_20d": True, "index_new_high_60d": False}
+    seen.update(predicate_hits(upgrade, BANDS, origin="高位震荡"))
     catalog = {(stage, pid) for stage, pids in stage_predicates(BANDS).items() for pid in pids}
     assert seen == catalog
     assert confidence("ambiguous", {s: 0 for s in STAGES}, [], BANDS) is None
+
+
+def test_upgrade_entry_needs_top_origin_double_volume_and_new_high_of_the_configured_window():
+    hit = ("主流主升2.0", "E:upgrade_double_volume_new_high")
+    base = {"double_volume_day": True, "index_new_high_20d": True, "index_new_high_60d": False}
+    assert hit in predicate_hits(base, BANDS, origin="高位震荡")
+    # The first leg out of the bottom also makes 20-day highs on volume: not an upgrade.
+    for origin in ("主流主升", "共建主线", "左底向下", None):
+        assert hit not in predicate_hits(base, BANDS, origin=origin)
+    assert hit not in predicate_hits({**base, "double_volume_day": False}, BANDS, origin="高位震荡")
+    assert hit not in predicate_hits({**base, "index_new_high_20d": None}, BANDS, origin="高位震荡")
+    # The window is a B-class parameter: with 60 the same day is not a new high.
+    assert hit not in predicate_hits(base, {**BANDS, "upgrade_new_high_window": 60}, origin="高位震荡")
+    assert hit in predicate_hits({**base, "index_new_high_60d": True}, {**BANDS, "upgrade_new_high_window": 60}, origin="高位震荡")
 
 
 def _replay_turns(sequence: list[str | None]) -> dict[str, int]:

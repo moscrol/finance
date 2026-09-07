@@ -80,9 +80,13 @@ ENTRY_PREDICATES: dict[str, tuple[str, ...]] = {
     "缩量右底": (),
     "共建主线": ("E:breakout_volume_within_window",),
     "主流主升": (),
-    "主流主升2.0": (),
+    # 第十一段「升级 2.0，大概率是进一步放量指数进一步走强」：高位震荡（承接盘反复）之后的双量日 + 指数新高。
+    "主流主升2.0": ("E:upgrade_double_volume_new_high",),
     "高位震荡": ("E:overheated",),
 }
+
+UPGRADE_ORIGIN = "高位震荡"  # 平台序列里 2.0 三次都紧跟承接盘反复；第一腿从底部起的新高不算升级
+DEFAULT_UPGRADE_NEW_HIGH_WINDOW = 20
 
 # Continuing predicates that are founder sentences rather than calibrated bands.
 # 第六段：「缩量右底是下穿后反弹到周均线那一段，然后又回踩探底」+ 第三轮「二次探底会有个
@@ -197,6 +201,11 @@ def predicate_hits(
     from_bottom = origin is None or origin in BOTTOM_STAGES
     if from_bottom and in_window and v("volume_expanding") is True and v("above_week_ma") is True:
         hits.append(("共建主线", "E:breakout_volume_within_window"))
+    # 第十一段「升级 2.0，大概率是进一步放量指数进一步走强」：来源是高位震荡（承接盘反复），当日是双量日
+    # （每日复盘口径：环比 > 10% 且量能比 > 120），且收盘创前 n 日新高；n 是 B 类候选（upgrade_new_high_window）。
+    upgrade_window = int((params or {}).get("upgrade_new_high_window", DEFAULT_UPGRADE_NEW_HIGH_WINDOW))
+    if origin == UPGRADE_ORIGIN and v("double_volume_day") is True and v(f"index_new_high_{upgrade_window}d") is True:
+        hits.append(("主流主升2.0", "E:upgrade_double_volume_new_high"))
     # 第六段流程：回踩下穿之后（周期仍在）、放量突破之前的缩量日 = 缩量右底的「缩量的过程」。
     if v("below_ma_cycle_retest_seen") is True and v("volume_band") == "shrink":
         hits.append(("缩量右底", "H:shrink_after_retest"))

@@ -15,6 +15,12 @@
     5,
     10
   ],
+  "index_new_high_windows": [
+    20,
+    60
+  ],
+  "upgrade_new_high_window": 20,
+  "double_volume_dod_pct": 10,
   "breakout_confirm_days": 3,
   "deviation_streak_min": 3,
   "transition_policy": "entry_or_reachable",
@@ -370,9 +376,9 @@
       "limit_premium_ma5_pct"
     ],
     "labels_framework_version": [
-      "tf-v0.1+4374f925"
+      "tf-v0.1+1a1cab5b"
     ],
-    "labels_canonical_hash": "7744b342cf635bbcecb0841c771488400b2e2707f39b3a687d36e974718c2314",
+    "labels_canonical_hash": "fd04190929f693bc6c47dd230d7c994591f6f94f241ddfb39a9e3ee6ec4d2f40",
     "labels_source_fingerprint": "fa2e2096f7d4a066125286173f243fd4d4879f02477f85456458c5067a1323a8",
     "labels_source_max_trade_date": "2026-09-03",
     "transition_counts": {

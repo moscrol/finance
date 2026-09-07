@@ -172,6 +172,9 @@ EVIDENCE_INPUTS = (
     "above_week_ma",
     "volume_band",
     "volume_surge",
+    "double_volume_day",
+    "index_new_high_20d",
+    "index_new_high_60d",
 ) + tuple(view for view, _ in BAND_VIEWS)
 
 
@@ -350,6 +353,9 @@ EVENT_PREDICATES: dict[str, Any] = {
     "surge_in_trend": lambda f, hits: f.get("tf.surge_in_trend") is True,
     "cross_below_first": lambda f, hits: f.get("tf.cross_below_kind") == "first",
     "cross_below_retest": lambda f, hits: f.get("tf.cross_below_kind") == "retest",
+    # 第十一段：双量日 + 指数新高（不看来源）与 真正算进升级进入的日子（来源 = 高位震荡）分开读。
+    "double_volume_new_high": lambda f, hits: f.get("tf.double_volume_day") is True and f.get("tf.index_new_high_20d") is True,
+    "upgrade_entered": lambda f, hits: "主流主升2.0:E:upgrade_double_volume_new_high" in hits,
 }
 FORWARD_HORIZONS = (3, 5, 10)
 
