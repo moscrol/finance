@@ -1,5 +1,7 @@
 # 在途交接 · main
 
+更新：2026-09-08 00:30 CST（工单 #32 合入）。`fact_stock_daily` 五天坏数据（06-22/06-23 半数无价、07-20/08-06 整天次日复制、**08-13 北交所 335 行是次日盘中价**——后者是新 QA 规则量出来的）沪深部分已修并验收（fupanhui 核心 50 只四天 50/50、总额比 0.9998~1.0）；三层拦截入库（快照 `f297` 日期闸拒写 / QA「相邻日复制」+「写入时刻越过下一交易日开盘」全历史扫描 / 日门禁复制检查）；runbook 坑⑤原文声称的 QA 检查从未实现，已改写。特征层 06-22~09-07 重算；周期阶段模型产物在修好的数据上重训替换（CV 43.7→41.6%，三天标签不变）。批次门禁 main tip `2c5e81ba150a` **8158P / 76S / 1xfail**、ruff 0、webapp 四件套绿、`check_test_receipt` exit 0（收据 `20260907T162407Z-2c5e81ba.json`）。**北交所七天**（#32 五天 + 上一单卡住的 09-03/09-04）等 push2his 解封，轮询 `/tmp/wo32_bj_after_unblock.py` 通了自动补，随后上一单 `local_chain_finish → mainline → core_leader` 链自动续跑；`~/fwp-wt-stock-daily-fix` / `~/fwp-wt-backfill-qa-gate` / `~/fwp-wt-core-stock` 三棵树被这些轮询引用，**先别拆**。**8792 仍未切，待裁决**。细节 `docs/handoffs/inflight/fix-stock-daily-misdated-snapshot.md`。
+
 更新：2026-09-07 22:50 CST（核心个股批次验收）。#642 → #644 → #647 堆叠链独立复算后合入；质检推翻 #647 两条结论并随枝修补（07-20 / 08-06 个股日线是次日复制而非「快照偏小」→ 立单 #32；置换检验噪声底量纲错，「噪声内」改「按前瞻收益显著有害」）。批次门禁 main tip `f5805c72db66` 干净树 **8143P / 76S / 1xfail**、ruff 0、webapp 四件套绿、`check_test_receipt` exit 0（收据 `~/.finance-runtime/test-receipts/20260907T144519Z-f5805c72.json`）。**8792 未切，待裁决**：main 领先 8792（`b594a5e7f8ae`）多张与本批无关的合并。裁决全文在 #647 评论；细节 `docs/handoffs/inflight/feat-core-stock-local.md`「质检修补」节。
 
 更新：2026-09-03 16:40 CST（0903e 切流）。08-13→09-03 时间线归档 `docs/handoffs/2026-09-03-main-inflight-archive-0813-0903.md`，本文只留接手要的。
