@@ -53,6 +53,13 @@ from intelligence.services.teaching_framework.receipts import (  # noqa: E402
     make_receipt,
     write_receipt,
 )
+from intelligence.services.teaching_framework.sector_roles import (  # noqa: E402
+    MONEY_EFFECT_DEFINITIONS,
+    SECTOR_LABELS,
+    build_sector_roles,
+    money_effect_rule_rows,
+)
+from intelligence.services.methodology_backtest.stats import readout as stats_readout  # noqa: E402
 
 SOURCE_TABLES = (
     "fact_market_daily", "fact_mainline_sector_daily", "fact_theme_limit_stock_daily", "fact_stock_daily",
@@ -161,9 +168,35 @@ lh AS (
            MAX(market_share) AS limit_top1_share_pct
     FROM fact_theme_limit_heat_daily WHERE data_stage = 'final'
     GROUP BY trade_date
+),
+-- 赚钱效应（5 日涨幅前 10 的板块）里有多大比例落在当日成交占比前三的申万一级之外。
+-- 创始人第五段「周均线下方……赚钱效应往往就不在成交占比前三的主流板块」；候选规则在此定义下 supported。
+-- 5 日涨幅 = 连续 5 个日历交易日（按 fact_market_daily 日历索引）都有行的板块的复合涨幅，窗口不完整不排名。
+idx AS (SELECT trade_date, ROW_NUMBER() OVER (ORDER BY trade_date) AS i FROM fact_market_daily),
+sw AS (
+    SELECT s.trade_date, s.sector_ts_code, s.sw_l1, c.i,
+           SUM(LN(1 + s.pct_chg / 100.0)) OVER (PARTITION BY s.sector_ts_code ORDER BY c.i ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) AS lg5,
+           COUNT(*) OVER (PARTITION BY s.sector_ts_code ORDER BY c.i ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) AS n5,
+           LAG(c.i, 4) OVER (PARTITION BY s.sector_ts_code ORDER BY c.i) AS i_lag4
+    FROM fact_sector_daily s JOIN idx c USING (trade_date)
+    WHERE s.pct_chg IS NOT NULL AND s.pct_chg > -100
+),
+ranked AS (
+    SELECT trade_date, sector_ts_code, sw_l1,
+           ROW_NUMBER() OVER (PARTITION BY trade_date ORDER BY lg5 DESC, sector_ts_code) AS rn
+    FROM sw WHERE n5 = 5 AND i_lag4 = i - 4
+),
+me AS (
+    SELECT r.trade_date,
+           COUNT(CASE WHEN r.sw_l1 IS NOT NULL THEN 1 END) AS known,
+           COUNT(CASE WHEN r.sw_l1 IS NOT NULL AND r.sw_l1 NOT IN (m.industry_1, m.industry_2, m.industry_3) THEN 1 END) AS outside
+    FROM ranked r JOIN fact_market_daily m USING (trade_date)
+    WHERE r.rn <= 10 AND m.industry_1 IS NOT NULL AND m.industry_2 IS NOT NULL AND m.industry_3 IS NOT NULL
+    GROUP BY r.trade_date
 )
-SELECT cal.trade_date, nh.new_high_1y_count, dr.dual_red_theme_count, lh.limit_themes_ge3, lh.limit_top1_share_pct
-FROM cal LEFT JOIN nh USING (trade_date) LEFT JOIN dr USING (trade_date) LEFT JOIN lh USING (trade_date)
+SELECT cal.trade_date, nh.new_high_1y_count, dr.dual_red_theme_count, lh.limit_themes_ge3, lh.limit_top1_share_pct,
+       CASE WHEN me.known > 0 THEN 100.0 * me.outside / me.known END AS rps5_outside_top3_pct
+FROM cal LEFT JOIN nh USING (trade_date) LEFT JOIN dr USING (trade_date) LEFT JOIN lh USING (trade_date) LEFT JOIN me USING (trade_date)
 ORDER BY cal.trade_date
 """
 
@@ -374,6 +407,126 @@ def cmd_calibrate_stages(args: argparse.Namespace) -> int:
     return 0
 
 
+def _bulk_insert_labels(side: duckdb.DuckDBPyConnection, rows: list[tuple[Any, ...]]) -> None:
+    """Insert label rows through a temporary CSV + COPY: ~2M sector rows a day-by-day INSERT would take minutes."""
+    import csv
+    import tempfile
+
+    with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False, newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        for row in rows:
+            writer.writerow(["" if v is None else v for v in row])
+        tmp_path = handle.name
+    try:
+        side.execute(
+            """INSERT INTO history_teaching_labels
+               (entity_type, entity_id, trade_date, label, value_num, value_text, label_version, framework_version, status, status_reason, computed_at)
+               SELECT * FROM read_csv(?, header=false, nullstr='', columns={
+                 'entity_type':'VARCHAR','entity_id':'VARCHAR','trade_date':'DATE','label':'VARCHAR','value_num':'DOUBLE',
+                 'value_text':'VARCHAR','label_version':'VARCHAR','framework_version':'VARCHAR','status':'VARCHAR',
+                 'status_reason':'VARCHAR','computed_at':'TIMESTAMP'})""",
+            [tmp_path],
+        )
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+
+def cmd_build_sector_roles(args: argparse.Namespace) -> int:
+    """C 类：板块角色逐日标签 + 板块级赚钱效应集合 + 候选规则 money_effect_outside_volume_top3_below_ma 的四态."""
+    params = load_params(args.params)
+    fw = framework_version(params)
+    build_time = _now(args.computed_at)
+    source_path = Path(args.db_path).expanduser()
+    labels_path = Path(args.labels_db).expanduser()
+    source = duckdb.connect(str(source_path), read_only=True)
+    try:
+        market, dates = _load_market(source)
+        sectors = _rows(source, "SELECT trade_date, sector_ts_code, sector_name, sw_l1, pct_chg, amount, diff_ratio FROM fact_sector_daily ORDER BY trade_date, sector_ts_code")
+        heat = _rows(source, "SELECT trade_date, sector_ts_code, limit_up_count, fd_amount FROM fact_theme_limit_heat_daily WHERE data_stage = 'final' ORDER BY trade_date, sector_ts_code")
+        source_counts = _source_counts(source)
+    finally:
+        source.close()
+    result = build_sector_roles(sectors, heat, market, calendar=dates)
+    context = _read_context(labels_path)  # market teaching labels (above_week_ma / stage_coarse) from build-labels
+    reference = _read_reference(labels_path)
+    rows: list[tuple[Any, ...]] = []
+    stamp = build_time.replace(tzinfo=None)
+    for rec in result["sectors"]:
+        for label in SECTOR_LABELS:
+            value = rec.get(label)
+            if isinstance(value, bool):
+                num, text = int(value), None
+            elif isinstance(value, (int, float)):
+                num, text = float(value), None
+            elif value is None:
+                num, text = None, None
+            else:
+                num, text = None, str(value)
+            rows.append(("sector", rec["sector_ts_code"], rec["trade_date"], f"tf.{label}", num, text, LABEL_VERSION, fw, "ok", None, stamp))
+    # 候选规则四态：条件 = 周均线下方，基准 = 上方，每个赚钱效应定义各出一份。
+    min_n = int(params["min_n"])
+    rule_readouts = {}
+    for definition in MONEY_EFFECT_DEFINITIONS:
+        parts = money_effect_rule_rows(result["days"], context, definition=definition)
+        ro = stats_readout(parts["below_ma"], baseline_n=len(parts["above_ma"]), baseline_k=sum(parts["above_ma"]), min_n=min_n)
+        rule_readouts[definition] = {"readout": ro.to_dict(), "below_ma_days": len(parts["below_ma"]), "above_ma_days": len(parts["above_ma"]), "excluded": parts["excluded"]}
+    # 先量再建：各定义的集合大小与「在前三申万之外」比例，按平台参照阶段分布。
+    by_ref_stage: dict[str, dict[str, list[float]]] = {}
+    for s in result["days"]:
+        if s.get("status") != "ok":
+            continue
+        ref_stage = str((reference.get(str(s["trade_date"])[:10]) or {}).get("cycle_stage") or "unlabeled")
+        bucket = by_ref_stage.setdefault(ref_stage, {})
+        for definition in MONEY_EFFECT_DEFINITIONS:
+            for key in ("size", "outside_top3_share"):
+                v = s.get(f"{definition}.{key}")
+                if v is not None:
+                    bucket.setdefault(f"{definition}.{key}", []).append(float(v))
+    def _q(vals: list[float]) -> dict[str, Any]:
+        vals = sorted(vals)
+        n = len(vals)
+        pick = lambda q: vals[min(n - 1, max(0, int(round(q * (n - 1)))))]  # noqa: E731
+        return {"n": n, "p25": round(pick(0.25), 4), "median": round(pick(0.5), 4), "p75": round(pick(0.75), 4)}
+    views_by_reference_stage = {stage: {k: _q(v) for k, v in sorted(m.items())} for stage, m in sorted(by_ref_stage.items())}
+    day_status = Counter(str(s.get("status")) for s in result["days"])
+    side = _open_sidecar_for_write(labels_path)
+    try:
+        side.execute("DELETE FROM history_teaching_labels WHERE entity_type = 'sector'")
+        _bulk_insert_labels(side, rows)
+        canonical = canonical_rows_hash(
+            side, table="history_teaching_labels", primary_key=("entity_type", "entity_id", "trade_date", "label"),
+            where="entity_type = 'sector'",
+        )
+        readouts = {
+            "days": dict(sorted(day_status.items())),
+            "sector_rows": len(result["sectors"]),
+            "labels": list(SECTOR_LABELS),
+            "money_effect_definitions": list(MONEY_EFFECT_DEFINITIONS),
+            "money_effect_rule": {
+                "name": "money_effect_outside_volume_top3_below_ma",
+                "provenance": "teaching（用户 2026-09-07 第五段）",
+                "condition": "tf.above_week_ma = 0（周均线下方）",
+                "outcome": "赚钱效应集合里 sw_l1 已知的板块中，> 50% 不属于当日 industry_1..3",
+                "baseline": "tf.above_week_ma = 1 的日子，同一 outcome",
+                "by_definition": rule_readouts,
+            },
+            "views_by_reference_stage": views_by_reference_stage,
+        }
+        receipt = make_receipt(
+            build_kind="sector_roles", framework_version=fw, label_version=LABEL_VERSION,
+            source_db=str(source_path), source_max_trade_date=max(dates) if dates else None,
+            source_row_counts=source_counts, parameter_hash=parameter_hash(params), canonical_hash=canonical,
+            coverage_summary={"calendar_days": len(dates), "sector_days_ok": day_status.get("ok", 0), "sector_label_rows": len(rows)},
+            gap_summary={"sector_rows_absent_days": day_status.get("sector_rows_absent", 0)},
+            readouts=readouts, computed_at=build_time,
+        )
+        write_receipt(side, receipt)
+    finally:
+        side.close()
+    print(json.dumps({"build_kind": "sector_roles", "framework_version": fw, "rows": len(rows), "canonical_hash": canonical, "readouts": readouts}, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+
 def cmd_build_labels(args: argparse.Namespace) -> int:
     params = load_params(args.params)
     fw = framework_version(params)
@@ -407,7 +560,7 @@ def cmd_build_labels(args: argparse.Namespace) -> int:
     readouts = label_readouts(records, params, reference=_read_reference(labels_path) or None)
     side = _open_sidecar_for_write(labels_path)
     try:
-        side.execute("DELETE FROM history_teaching_labels")
+        side.execute("DELETE FROM history_teaching_labels WHERE entity_type = 'market'")
         side.execute("DELETE FROM history_teaching_gaps")
         side.executemany(
             """INSERT INTO history_teaching_labels
@@ -432,6 +585,7 @@ def cmd_build_labels(args: argparse.Namespace) -> int:
             )
         canonical = canonical_rows_hash(
             side, table="history_teaching_labels", primary_key=("entity_type", "entity_id", "trade_date", "label"),
+            where="entity_type = 'market'",
         )
         receipt = make_receipt(
             build_kind="teaching_labels", framework_version=fw, label_version=LABEL_VERSION,
@@ -581,6 +735,7 @@ def cmd_report(args: argparse.Namespace) -> int:
             "succession_nodes": side.execute("SELECT COUNT(*) FROM history_leader_succession").fetchone()[0],
             "succession_status": dict(side.execute("SELECT status, COUNT(*) FROM history_leader_succession GROUP BY status").fetchall()),
             "overtaken": side.execute("SELECT COUNT(*) FROM history_overtaken").fetchone()[0],
+            "sector_label_rows": side.execute("SELECT COUNT(*) FROM history_teaching_labels WHERE entity_type = 'sector'").fetchone()[0],
             "reference_stages": side.execute("SELECT COUNT(*) FROM history_reference_stages").fetchone()[0],
         }
         receipt_rows = side.execute(
@@ -616,7 +771,7 @@ def cmd_report(args: argparse.Namespace) -> int:
 def parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="Teaching framework slice 1")
     sub = ap.add_subparsers(dest="command", required=True)
-    for name, func in (("build-labels", cmd_build_labels), ("build-succession", cmd_build_succession)):
+    for name, func in (("build-labels", cmd_build_labels), ("build-succession", cmd_build_succession), ("build-sector-roles", cmd_build_sector_roles)):
         p = sub.add_parser(name)
         p.add_argument("--db-path", default="db/market_feature_store.duckdb")
         p.add_argument("--labels-db", default=None)

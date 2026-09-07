@@ -49,7 +49,8 @@ def _market_row(i: int, day: str) -> tuple:
     limit_up = sum(1 for d, _, _ in LIMIT_ROWS if d == day)
     stage = "主升阶段" if i % 2 == 0 else "震荡阶段"
     high, low = close + 1.0, open_ - 1.0
-    return (day, close, open_, high, low, 100.0, dev, amount, 90.0, surge, top3, stage, "放量", None, "vendor", limit_up, 2500)
+    return (day, close, open_, high, low, 100.0, dev, amount, 90.0, surge, top3, stage, "放量", None, "vendor", limit_up, 2500,
+            "电子", "机械设备", "电力设备")
 
 
 @pytest.fixture
@@ -61,9 +62,10 @@ def source_db(tmp_path: Path) -> Path:
             trade_date DATE, sh_index_close DOUBLE, sh_index_open DOUBLE, sh_index_high DOUBLE, sh_index_low DOUBLE,
             sh_week_ma DOUBLE, sh_deviation_pct DOUBLE, total_amount DOUBLE, amount_ma20 DOUBLE, amount_vs_yesterday_pct DOUBLE,
             top3_industry_ratio DOUBLE, market_stage VARCHAR, volume_state VARCHAR, ice_point VARCHAR,
-            sh_week_ma_source VARCHAR, limit_up INTEGER, advancers INTEGER)"""
+            sh_week_ma_source VARCHAR, limit_up INTEGER, advancers INTEGER,
+            industry_1 VARCHAR, industry_2 VARCHAR, industry_3 VARCHAR)"""
     )
-    con.executemany("INSERT INTO fact_market_daily VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [_market_row(i, d) for i, d in enumerate(DAYS)])
+    con.executemany("INSERT INTO fact_market_daily VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [_market_row(i, d) for i, d in enumerate(DAYS)])
     con.execute("CREATE TABLE fact_mainline_sector_daily (trade_date DATE, sector_ts_code VARCHAR, amount DOUBLE)")
     con.executemany("INSERT INTO fact_mainline_sector_daily VALUES (?, ?, ?)", [(d, "S1", 10.0) for d in DAYS])
     con.execute(
@@ -87,10 +89,10 @@ def source_db(tmp_path: Path) -> Path:
         "INSERT INTO fact_sector_daily VALUES (?, ?, ?, ?, ?, ?, ?)",
         [row for i, d in enumerate(DAYS) for row in ((d, "S1", "甲", "电子", 1.0 if i % 2 == 0 else -0.5, 12.0, 600.0), (d, "S2", "乙", "通信", 0.5, 5.0, 300.0))],
     )
-    con.execute("CREATE TABLE fact_theme_limit_heat_daily (trade_date DATE, sector_ts_code VARCHAR, data_stage VARCHAR, limit_up_count INTEGER, market_share DOUBLE)")
+    con.execute("CREATE TABLE fact_theme_limit_heat_daily (trade_date DATE, sector_ts_code VARCHAR, data_stage VARCHAR, limit_up_count INTEGER, market_share DOUBLE, fd_amount DOUBLE)")
     con.executemany(
-        "INSERT INTO fact_theme_limit_heat_daily VALUES (?, ?, 'final', ?, ?)",
-        [row for d in DAYS for row in ((d, "S1", 3, 60.0), (d, "S2", 1, 20.0))],
+        "INSERT INTO fact_theme_limit_heat_daily VALUES (?, ?, 'final', ?, ?, ?)",
+        [row for d in DAYS for row in ((d, "S1", 3, 60.0, 9000.0), (d, "S2", 1, 20.0, 1000.0))],
     )
     con.execute("CREATE TABLE fact_stock_high_daily (trade_date DATE, stock_ts_code VARCHAR, primary_high_period VARCHAR)")
     con.executemany(
@@ -219,6 +221,11 @@ def test_end_to_end_build_is_deterministic_and_receipts_carry_readouts(capsys, t
         assert dual[date(2026, 1, 5)] == 1 and dual[date(2026, 1, 6)] == 0
         assert side.execute("SELECT DISTINCT value_num FROM history_teaching_labels WHERE label='tf.limit_themes_ge3'").fetchall() == [(1.0,)]
         assert "tf.new_high_1y_count" in readouts["view_scalars_by_stage"]
+        # 5-day gainers S1 (电子, in the top three) and S2 (通信, outside): half of the set sits outside the top-three
+        # industries once five contiguous days exist (from 01-09 on); days 1, 2 and 4 lack a window (day 3 is a market gap).
+        outside = dict(side.execute("SELECT trade_date, value_num FROM history_teaching_labels WHERE label='tf.rps5_outside_top3_pct'").fetchall())
+        assert outside[date(2026, 1, 9)] == 50.0 and outside[date(2026, 1, 12)] == 50.0 and outside[date(2026, 1, 6)] is None
+        assert gaps["tf.rps5_outside_top3_pct"] == 3
         # Ties are leader groups (创始人 09-07): B's break on day 6 hands off to the tied group {D, E}
         # (both came out of the 2-board candidates), and E's lone break on day 7 is a partial break, not a node.
         statuses = dict(side.execute("SELECT status, COUNT(*) FROM history_leader_succession GROUP BY status").fetchall())
@@ -320,6 +327,41 @@ def test_load_reference_and_compare_against_platform_stages(capsys, tmp_path, so
     assert labels_no_ref["canonical_hash"] == labels["canonical_hash"]
     report = _run(capsys, "report", "--labels-db", str(sidecar))
     assert report["counts"]["reference_stages"] == 10
+
+
+def test_build_sector_roles_writes_sector_labels_and_rule_readout(capsys, tmp_path, source_db, params_file) -> None:
+    """第二刀 C 类: sector labels ride in the same table under entity_type='sector'; market rows and their hash are untouched."""
+    sidecar = tmp_path / "labels.duckdb"
+    common = ["--db-path", str(source_db), "--labels-db", str(sidecar), "--params", str(params_file), "--computed-at", "2026-09-07T00:00:00Z"]
+    labels = _run(capsys, "build-labels", *common)
+    roles = _run(capsys, "build-sector-roles", *common)
+    # Two sectors × 10 days × 12 labels.
+    assert roles["rows"] == 2 * 10 * 12 and roles["readouts"]["days"] == {"ok": 10}
+    side = duckdb.connect(str(sidecar), read_only=True)
+    try:
+        # 电子 is industry_1 on every fixture day (the 3-day rank needs three contiguous days: NULL on days 1-2).
+        s1 = {r[0]: r[1] for r in side.execute("SELECT label, value_num FROM history_teaching_labels WHERE entity_type='sector' AND entity_id='S1' AND trade_date=DATE '2026-01-09'").fetchall()}
+        assert s1["tf.role_volume_top3"] == 1 and s1["tf.limit_up_count"] == 3 and s1["tf.sharpness_limit_rank"] == 1
+        assert s1["tf.rps_3d_rank"] in (1, 2) and s1["tf.money_effect.limit_top10"] == 1
+        assert s1["tf.dual_red_strict"] == 1  # day index 4 is even: pct 1.0, diff 12, amount 600
+        s2 = {r[0]: r[1] for r in side.execute("SELECT label, value_num FROM history_teaching_labels WHERE entity_type='sector' AND entity_id='S2' AND trade_date=DATE '2026-01-09'").fetchall()}
+        assert s2["tf.role_volume_top3"] == 0 and s2["tf.role_price_top10"] == 1 and s2["tf.dual_red_strict"] == 0
+        assert side.execute("SELECT value_num FROM history_teaching_labels WHERE entity_type='sector' AND entity_id='S1' AND trade_date=DATE '2026-01-05' AND label='tf.rps_3d_rank'").fetchone() == (None,)
+        # Market rows survive the sector build and hash identically.
+        assert side.execute("SELECT COUNT(*) FROM history_teaching_labels WHERE entity_type='market'").fetchone()[0] > 0
+        kinds = [r[0] for r in side.execute("SELECT build_kind FROM history_teaching_receipts ORDER BY build_kind").fetchall()]
+        assert kinds == ["sector_roles", "teaching_labels"]
+    finally:
+        side.close()
+    labels_again = _run(capsys, "build-labels", *common)
+    assert labels_again["canonical_hash"] == labels["canonical_hash"]
+    rule = roles["readouts"]["money_effect_rule"]["by_definition"]
+    assert set(rule) == {"limit_top10", "dual_red", "rps5_top10", "rank_mean_top10"}
+    # Every fixture day has S1 (电子, the top-1 industry) in the limit_top10 set, so the outcome is never met; verdict stays insufficient_n at n < 10.
+    assert rule["limit_top10"]["readout"]["verdict"] == "insufficient_n"
+    assert rule["limit_top10"]["below_ma_days"] + rule["limit_top10"]["above_ma_days"] + sum(rule["limit_top10"]["excluded"].values()) == 10
+    report = _run(capsys, "report", "--labels-db", str(sidecar))
+    assert report["counts"]["sector_label_rows"] == 240
 
 
 def test_stale_sidecar_schema_fails_closed(capsys, tmp_path, source_db, params_file) -> None:
