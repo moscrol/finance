@@ -292,6 +292,7 @@ def check_data(date: str, plan: str | None = None) -> list[str]:
         missing.extend(_check_sector_coverage(con, date))
         missing.extend(_check_sector_stock_fields(con, date))
         missing.extend(_check_stock_coverage(con, date))
+        missing.extend(_check_stock_daily_not_copied(con, date))
         missing.extend(_feature_family_gap(counts, date))
         if missing:
             _print_staging_contrast(date, counts)
@@ -443,6 +444,49 @@ def _check_stock_coverage(con, date: str) -> list[str]:
         problems.append(
             f"fact_stock_daily 覆盖率 {ratio:.2%} < {STOCK_COVERAGE_MIN:.0%} "
             f"({covered_cnt}/{member_cnt})，缺失示例: {','.join(missing_codes)}"
+        )
+    return problems
+
+
+#: 当日个股日线与前一交易日逐股 (close, amount) 完全相同的比例超过这条线 → 判为「整天是复制」。
+#: 真实市场里相邻两天同一只股收盘价与成交额都一模一样的极少 (长期停牌股), 5% 已经是很宽的线;
+#: 2026-07-20 / 08-06 两次事故各是 99.96% / 100%。
+STOCK_DAILY_DUP_MAX = 0.05
+
+
+def _check_stock_daily_not_copied(con, date: str) -> list[str]:
+    """个股日线不能是前一交易日的整份复制（工单 #32）。
+
+    事故形状：东财快照只有「最新」语义，事后补历史日会把次日截面贴到历史日期上，整天 5500 行逐股与
+    相邻日相同——行数、覆盖率、字段非空全部正常，只有逐股比对能看出来。这里比的是**前一交易日**：
+    门禁跑在当天，「当天 == 前一天」抓的是「拿昨天的快照写今天」；「今天 == 明天」在当天还没法比，
+    由 `qa_local_vs_fupanhui.py` 的全历史扫描兜底。
+    """
+    problems: list[str] = []
+    row = con.execute(
+        """
+        WITH prev AS (
+          SELECT MAX(trade_date) d FROM fact_stock_daily WHERE trade_date < ?
+        )
+        SELECT prev.d, COUNT(*),
+               COUNT(*) FILTER (WHERE a.close = b.close AND a.amount = b.amount)
+        FROM fact_stock_daily a
+        JOIN fact_stock_daily b ON b.stock_ts_code = a.stock_ts_code
+        JOIN prev ON b.trade_date = prev.d
+        WHERE a.trade_date = ? AND a.close IS NOT NULL AND a.amount IS NOT NULL
+        GROUP BY prev.d
+        """,
+        [date, date],
+    ).fetchone()
+    if not row or not row[1]:
+        return problems  # 没有前一日或当日无行, 交给覆盖率/缺行检查去报
+    prev_date, paired, same = row
+    ratio = same / paired
+    print(f"fact_stock_daily 与前一交易日 {prev_date} 逐股相同: {same}/{paired} = {ratio:.2%}")
+    if ratio > STOCK_DAILY_DUP_MAX:
+        problems.append(
+            f"fact_stock_daily {date} 与 {prev_date} 逐股 close+amount 相同 {ratio:.1%} > {STOCK_DAILY_DUP_MAX:.0%}"
+            f"——像是拿旧快照写了新日期 (07-20/08-06 同型)，用 mootdx sync-stock-daily --refresh 重抓"
         )
     return problems
 

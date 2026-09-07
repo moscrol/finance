@@ -22,8 +22,9 @@ from market_feature_store.sync import sync_eastmoney_stock_snapshot as em
 
 
 def _row(**over) -> dict:
+    # f297 = 行情自身的交易日期; 与 _run_capture 传的 trade_date 一致, 才过得了日期闸 (见 test_snapshot_date_gate)
     row = {"f12": "600000", "f13": 1, "f14": "浦发银行", "f2": 10.0,
-           "f3": 1.5, "f18": 9.85, "f6": 1.2e8, "f8": 3.42}
+           "f3": 1.5, "f18": 9.85, "f6": 1.2e8, "f8": 3.42, "f297": 20260902}
     row.update(over)
     return row
 

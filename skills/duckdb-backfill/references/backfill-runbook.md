@@ -32,7 +32,14 @@
 ② **`sync_fupanhui_market_daily.sync_fupanhui_market_overview` 空响应写空壳**：只检查响应是 dict，429 错误体也是 dict → 全字段解析成 None，`OVERVIEW_UPSERT_SQL` 无 COALESCE 整行覆写，rc=0。写完回读 `total_amount`/`advancers`；空则退避后重跑。
 ③ **mootdx `sync-stock-daily` 默认 `qfq=False`**：`pre_close` = 前一根裸收盘，除息日 `pct_chg` 含股息缺口（东财快照的 `pre_close` 已做除息调整，每日约 0.1–0.2% 行 `pre_close ≠ 前收`，mootdx 行是 0%）。`stock_name` 来自 TDX 定长字段，三字名带 `\x00` 填充（`sync_mootdx_stock_daily.py` 写入前需 `rstrip('\x00')`）。qa 脚本对两者分别 WARN / FAIL。
 ④ **`check-daily` 的 20 日日历 = `fact_market_daily` 最近 20 行，不受 `--trade-date` 约束**：历史日一旦有了 `fact_market_daily` 行而 GAP_TABLES 未齐，当晚 cross-day-gate 连坐 FAIL → `run_review_sync` rc=1 → S7 不换名。头部模块最后跑。
-⑤ **东财快照 `sync-stock-daily-snapshot` 只在交易日当天盘后有效**：盘中写实时价、非交易日把上一交易日写到所传日期。qa 脚本对「`source='eastmoney:snapshot'` 且 `updated_at` 日期 ≠ `trade_date`」直接 FAIL。
+⑤ **东财快照 `sync-stock-daily-snapshot` 只在交易日当天盘后有效**：盘中写实时价、非交易日把上一交易日写到所传日期。
+   **2026-09-07 工单 #32 更正**：这条以前只写在文档里，代码不拦，本行原来声称的「qa 脚本对 `updated_at` 日期 ≠ `trade_date` 直接 FAIL」**从未实现过**——
+   07-20 / 08-06 整天被写成次日复制、08-13 北交所 335 行被写成次日 10:50 盘中价，三次都没人报警。现在三层拦：
+   (a) 快照同步多请求 `f297`（行情自身交易日），与 `--trade-date` 不一致**拒写**（`SnapshotMisdated`；`--allow-misdated` 才放行且 source 标 `-misdated`）；
+   (b) `qa_local_vs_fupanhui.py` 全历史扫「相邻日逐股相同 >50%」与「快照行写入时刻晚于下一交易日 09:30」，命中即 FAIL——
+       **不能**按「`updated_at` 日期 ≠ `trade_date`」判：凌晨 / 周末补前一交易日是常态（07~08 月 8 天），那些行是对的；
+   (c) `check_daily_review_data` data 阶段比当日与前一交易日逐股相同比例，>5% 报缺。
+   历史日一律走 mootdx `sync-stock-daily --start-date D --end-date D --refresh`（北交所 mootdx std 客户端不回，用东财 hist kline 临时脚本，见上表）。
 ⑥ **fupanhui 限流是突发触发**：`sync-sector-daily` 一步 403 请求/29 秒必炸；二次突发后 `retry-after=251318s`。模块化 + `sector-daily-local` + 成分 1 req/s 能活；429 期间不跑 `reconcile-sector-daily` / `verify_backfill.py` 的回源抽样。
 
 ## local 计划实跑记录（2026-09-07，生产库）
