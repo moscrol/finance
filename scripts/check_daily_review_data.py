@@ -72,6 +72,8 @@ TABLES = [
     "fact_mainline_sector_daily",
     "fact_theme_flow_daily",
     "fact_sector_period_rank_daily",
+    "fact_core_stock_daily",
+    "fact_core_leader_daily",
     "feature_market_window",
     "feature_sector_window",
     "feature_stock_window",
@@ -131,12 +133,18 @@ PLAN_UNAVAILABLE_MARKET_FIELDS: dict[str, set[str]] = {
 
 
 def plan_scope(plan: str | None) -> tuple[list[str], list[str]]:
-    """按计划返回 (要检查的表, 要检查的 fact_market_daily 字段)。plan 为空/full/cheap = 全量不变。"""
-    if not plan or plan in ("full", "cheap", "auto"):
-        return list(TABLES), list(MARKET_FIELDS)
+    """按计划返回 (要检查的表, 要检查的 fact_market_daily 字段)。
+
+    两个方向都从 ``consumption_registry`` 派生，不在这里写第二份名单：
+    - local 只查 local 会写的表（fupanhui 独有的那些缺行是设计）；
+    - full/cheap 也要**减掉**该计划根本不产的表（如 ``fact_core_leader_daily`` 只在 local 链路里算），
+      否则把它加进 TABLES 就会让全量日凭空报缺。
+    """
     from market_feature_store.consumption_registry import load_registry, tables_for_plan
 
-    expected = tables_for_plan(load_registry(), plan) | set(FEATURE_FAMILY)
+    registry = load_registry()
+    plan_key = "full" if (not plan or plan == "auto") else plan
+    expected = tables_for_plan(registry, plan_key) | set(FEATURE_FAMILY)
     tables = [t for t in TABLES if t in expected]
     fields = [f for f in MARKET_FIELDS if f not in PLAN_UNAVAILABLE_MARKET_FIELDS.get(plan, set())]
     return tables, fields

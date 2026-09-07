@@ -605,6 +605,35 @@ def cmd_compute_mainline_local(args) -> int:
     return 0
 
 
+def cmd_compute_core_stock_local(args) -> int:
+    from .sync.compute_local_stats import compute_core_stock_local
+
+    r = compute_core_stock_local(args.trade_date, force=args.force, topn=args.topn)
+    if r["action"] != "written":
+        print(f"交易日: {r['trade_date']} | {r['action']} {r.get('skipped', '')}（--force 覆盖）")
+        return 0
+    print(f"交易日: {r['trade_date']} | 核心个股(复刻 成交额前{args.topn}) {r['rows']} 行 | 榜首 {r['top1']} | "
+          f"入围线 {r['amount_cut']} 亿 | 申万一级已填 {r['sw_l1_filled']}/{r['rows']}")
+    return 0
+
+
+def cmd_compute_core_leader_local(args) -> int:
+    from .sync.compute_local_stats import CORE_LEADER_AUTH_WEIGHT, compute_core_leader_local
+
+    weight = CORE_LEADER_AUTH_WEIGHT if args.auth_weight is None else args.auth_weight
+    r = compute_core_leader_local(args.trade_date, force=args.force, topn=args.topn,
+                                  per_theme=args.per_theme, auth_weight=weight,
+                                  allow_no_kb=args.allow_no_kb)
+    if r["action"] != "written":
+        print(f"交易日: {r['trade_date']} | {r['action']} {r.get('skipped', '')}（--force 覆盖）")
+        return 0
+    print(f"交易日: {r['trade_date']} | 核心个股(自家 主线×正宗×人气) {r['rows']}/{r['pool']} 只 | "
+          f"知识库 {r['kb_status']} 正宗权重 {r['auth_weight']} | 有正宗证据 {r['authentic']} 只 | "
+          f"分题材 {r['by_theme']}")
+    print(f"  前 5: {r['top']}")
+    return 0
+
+
 def cmd_sync_sector_daily_local(args) -> int:
     from .sync.sync_local_sector_daily import brief, sync_sector_daily_local
 
@@ -1506,6 +1535,25 @@ def build_parser() -> argparse.ArgumentParser:
     p_cml.add_argument("--topk", type=int, default=4, help="主线题材数，默认 4")
     p_cml.add_argument("--force", action="store_true", help="当日已有非 local 来源行时也覆盖")
     p_cml.set_defaults(func=cmd_compute_mainline_local)
+
+    p_ccs = sub.add_parser("compute-core-stock-local",
+                           help="核心个股复刻版：fupanhui 口径反推 = 当日全市场成交额前 50（405 日实测集合一致 99.5%）")
+    p_ccs.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_ccs.add_argument("--topn", type=int, default=50, help="取前 N 只，默认 50（fupanhui 口径）")
+    p_ccs.add_argument("--force", action="store_true", help="当日已有非 local 来源行时也覆盖")
+    p_ccs.set_defaults(func=cmd_compute_core_stock_local)
+
+    p_ccl = sub.add_parser("compute-core-leader-local",
+                           help="核心个股自家版：主线题材成员 × 知识库年报暴露度（正宗）× 人气（涨停/连板/成交额/新高）")
+    p_ccl.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_ccl.add_argument("--topn", type=int, default=20, help="取前 N 只，默认 20")
+    p_ccl.add_argument("--per-theme", type=int, default=8, help="每个题材最多几只，默认 8")
+    p_ccl.add_argument("--auth-weight", type=float, default=None,
+                       help="正宗度权重（与人气同在 [0,1]）；不给则用 CORE_LEADER_AUTH_WEIGHT，0 = 纯人气基线（消融对照）")
+    p_ccl.add_argument("--allow-no-kb", action="store_true",
+                       help="知识库读不到时也出（正宗度全 0，source 标 -nokb）；默认 fail-closed")
+    p_ccl.add_argument("--force", action="store_true", help="当日已有非 local 来源行时也覆盖")
+    p_ccl.set_defaults(func=cmd_compute_core_leader_local)
 
     p_sdl = sub.add_parser(
         "sync-sector-daily-local",
