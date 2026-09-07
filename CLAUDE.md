@@ -75,15 +75,17 @@ market_data    financial_data   mainline_context
 
 ### 技能：三个位置，数字不一样
 
-| 位置 | 数量（2026-09-05 `ls` 实数） | 是什么 |
+| 位置 | 数量（2026-09-07 `ls` 实数） | 是什么 |
 |---|---|---|
 | `skills/` | 38（含 `lib/` 非技能 → 实为 37） | **仓内真实技能清单** |
-| `.claude/skills/` | 24（23 个软链到 `../../skills/` + `l2-moneyflow` 本地实目录） | = Claude Code 能看到的子集 |
+| `.claude/skills/` | 25（24 个软链到 `../../skills/` + `l2-moneyflow` 本地实目录） | = Claude Code 能看到的子集 |
 | `<知识库仓>/skills/` | 23（含 `lib/` → 实为 22） | ingest 类，已迁出本仓 |
 
 问「有多少能力 agent 够不着」时，分母是 `skills/` 不是 `.claude/skills/`。
-只在 `skills/` 里、没暴露给 Claude Code 的有 14 个，含 `stock-deep-dive`、
-`researcher-valuation`、`duckdb-backfill`、`opinion-cross`、`serenity-alpha`、`strategy1-matrix` 等
+只在 `skills/` 里、没暴露给 Claude Code 的有 13 个，含 `stock-deep-dive`、
+`researcher-valuation`、`daily-full-review`、`opinion-cross`、`serenity-alpha`、`strategy1-matrix` 等
+（`duckdb-backfill` 2026-09-07 起已暴露且可被模型触发——此前 `disable-model-invocation: true` 加不在软链里，
+回补任务从来读不到它，agent 只能照上面工作流 #1 的 `daily-full` 硬跑历史日）
 （要当前名单：`comm -23 <(ls skills | grep -v '^lib$' | sort) <(ls .claude/skills | sort)`）。
 
 ### 技能桥：存在，且**刻意只开一个**
@@ -146,7 +148,7 @@ git branch --show-current
 
 ## 核心工作流
 
-1. **每日复盘（全量复盘）** → 确保 CDP proxy 已启动（`node ~/.claude/skills/web-access/scripts/cdp-proxy.mjs`）→ `python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD` → 写入 DuckDB → `audit_coverage.py` 验证覆盖
+1. **每日复盘（全量复盘，只对当天）** → 确保 CDP proxy 已启动（`node ~/.claude/skills/web-access/scripts/cdp-proxy.mjs`）→ `python3 -m market_feature_store.cli daily-full --trade-date <今天>` → 写入 DuckDB → `audit_coverage.py` 验证覆盖。**历史日 / 断档回补走 `skills/duckdb-backfill/SKILL.md`**：`daily-full`、东财快照、申万 realtime 都是「取最新」语义，写到历史日就是把今天盘中价写成那天收盘（2026-09-07 实测）；验收四件缺一不收。
    > ⚠ 飞书 Bitable 写入已废弃，复盘数据统一走 `daily-full` → DuckDB 路径。
    > ⚠ stock-daily 用默认东财快照（`--stock-source snapshot`），日常单日复盘**不要带 `--stock-source mootdx`**（mootdx 仅首次建库/多日历史回填，慢且当日值与快照一致）。详见 market-overview SKILL.md。
 2. **连板晋级** → `limit-advance/scripts/scrape.py [日期]` → 展示 + 写入飞书
