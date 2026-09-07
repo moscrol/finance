@@ -63,6 +63,8 @@ REQUIRED_KEYS = (
     "dynasty_cohort",
     "separation_percentile",
     "separation_new_high_window",
+    # 第十四段「亏钱效应也要可量」：亏钱效应日 = 承接 5 日均值 < lt_pct（九个候选里唯一两期都分得开的一维）。
+    "money_losing",
 )
 
 # slice 1.5 第二遍（用户「继续按照最优推进」）：阶段不能无转点地跳到不相邻的段（词表「从什么
@@ -217,6 +219,14 @@ def validate_params(params: dict[str, Any]) -> dict[str, Any]:
     sep_win = params["separation_new_high_window"]
     if not isinstance(sep_win, int) or isinstance(sep_win, bool) or sep_win <= 0:
         raise ValueError("separation_new_high_window 必须是正整数（覆灭窗内创几日新高算「新高分离」）")
+    losing = params["money_losing"]
+    if (
+        not isinstance(losing, dict)
+        or losing.get("basis") != "limit_premium_ma5_pct"
+        or not isinstance(losing.get("lt_pct"), (int, float)) or isinstance(losing.get("lt_pct"), bool)
+        or set(losing) - {"basis", "lt_pct", "derived_from"}
+    ):
+        raise ValueError("money_losing 必须是 {basis: 'limit_premium_ma5_pct', lt_pct: 数字, derived_from?: 文字}（亏钱效应日 = 承接 5 日均值低于门槛；目前只实现这一种基准）")
     from .stage_rules import LEFT_DOWN_VOLUME_RULES  # local import: stage_rules must not depend on params
 
     entry = params["left_down_entry"]

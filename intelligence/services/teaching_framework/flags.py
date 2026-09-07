@@ -179,6 +179,8 @@ def compute_flags(
     range_windows = [int(n) for n in (p.get("index_range_windows") or DEFAULT_RANGE_WINDOWS)]
     new_high_windows = [int(n) for n in (p.get("index_new_high_windows") or DEFAULT_NEW_HIGH_WINDOWS)]
     double_volume_dod = float(p.get("double_volume_dod_pct", DOUBLE_VOLUME_DOD_PCT))
+    money_losing_lt = float((p.get("money_losing") or {}).get("lt_pct", DEFAULT_MONEY_LOSING["lt_pct"]))
+    losing_streak = 0
     for i, row in enumerate(rows):
         prev = _prev(rows, i, cal_index)
         d = _date(row.get("trade_date"))
@@ -309,6 +311,21 @@ def compute_flags(
         rec["double_volume_day"] = (
             None if dod is None or rec["volume_surge"] is None else bool(dod > double_volume_dod and rec["volume_surge"])
         )
+        # 亏钱效应日（创始人 09-07 第十四段「亏钱效应也要可量」）：承接 5 日均值（昨日涨停股今日平均涨幅的 5 日均）低于
+        # 门槛——打板的钱连 1% 都拿不到。九个候选口径里只有承接这一维在训练 / 验证两期都把底部四段与顶部三段分开
+        # （< 1.0：15.8% vs 5.1% / 27.8% vs 8.5%，主升与 2.0 两段 0%）；5 日上涨比例低于分位在验证期分不开（2026 的
+        # 窄行情顶部宽度也低）。门槛取训练期 p10（1.045）取整，进参数文件 ``money_losing``。
+        premium_ma5 = rec.get("limit_premium_ma5_pct")
+        rec["money_losing_day"] = None if premium_ma5 is None else bool(premium_ma5 < money_losing_lt)
+        if rec["money_losing_day"] is None:
+            losing_streak = 0
+            rec["money_losing_streak"] = None
+        elif rec["money_losing_day"]:
+            losing_streak += 1
+            rec["money_losing_streak"] = losing_streak
+        else:
+            losing_streak = 0
+            rec["money_losing_streak"] = 0
         out.append(rec)
     return out
 
@@ -723,6 +740,8 @@ def _range_structure_flags(
 # （第一腿从底部起、只到 20 日新高），承接盘反复 16%。
 DEFAULT_NEW_HIGH_WINDOWS = (20, 60)
 DOUBLE_VOLUME_DOD_PCT = 10.0  # 每日复盘 双量日 的环比门槛（daily_review._market_label）
+# 亏钱效应日的口径（参数 ``money_losing``）：承接 5 日均值 < lt_pct。数字是候选（训练期 p10 取整），见骨架 §8.14。
+DEFAULT_MONEY_LOSING = {"basis": "limit_premium_ma5_pct", "lt_pct": 1.0}
 
 
 def new_high_labels(windows: Iterable[int]) -> list[str]:
