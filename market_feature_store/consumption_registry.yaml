@@ -84,6 +84,20 @@ plans:
     - theme-flow-daily
     - public-assets
     - features
+  # local（2026-09-07 起）：不发任何 fupanhui 请求。名单冻结在最后一份 published 宇宙
+  # （carry-forward-universe → stitch），加工层按公开规则自算（limit-stats-local / market-overview-local）。
+  # 不产 mainline / theme_flow / stock_high / 公开资产——门禁按 tables_for_plan('local') 裁剪。
+  local:
+    - db-lock
+    - stock-daily
+    - index-daily
+    - sw-l1-daily
+    - carry-forward-universe
+    - stitch-sector-stocks
+    - sector-daily-local
+    - limit-stats-local
+    - market-overview-local
+    - features
 
 # ============================================================================
 # 数据族层
@@ -94,7 +108,7 @@ datasets:
     label: 板块宇宙 (990.FP)
     tables: [dim_sector, fact_sector_universe_daily, ops_sector_universe_snapshot_daily, ops_sector_search_payload_daily]
     endpoint: /reviews/sectors/search
-    steps: {full: [sectors], cheap: [sectors]}
+    steps: {full: [sectors], cheap: [sectors], local: [carry-forward-universe]}
     identity:
       what: 板块代码集合（活宇宙只有 990.FP）
       cadence: 极慢
@@ -117,7 +131,7 @@ datasets:
     label: 板块成分（谁在哪个题材里）
     tables: [fact_sector_stock_daily, ops_sector_member_sync_daily]
     endpoint: /reviews/sector-cycle/{ts}/stocks
-    steps: {full: [sector-stocks], cheap: [stitch-sector-stocks, sector-stocks-delta]}
+    steps: {full: [sector-stocks], cheap: [stitch-sector-stocks, sector-stocks-delta], local: [stitch-sector-stocks]}
     identity:
       what: sector→stock 归属关系
       cadence: 极慢
@@ -157,7 +171,7 @@ datasets:
     label: 板块日行情 + 边际量
     tables: [fact_sector_daily]
     endpoint: "/reviews/sector-cycle/{ts}/kline（full）→ sectors/search payload + 本地聚合（cheap）"
-    steps: {full: [sector-daily], cheap: [sector-daily-local]}
+    steps: {full: [sector-daily], cheap: [sector-daily-local], local: [sector-daily-local]}
     identity: {what: 与宇宙同, cadence: 极慢, evidence: 同 sector_universe}
     value:
       what: pct_chg / amount / diff_ratio / strength
@@ -184,7 +198,7 @@ datasets:
   - key: stock_daily
     label: 全 A 个股日线
     tables: [fact_stock_daily]
-    steps: {full: [stock-daily], cheap: [stock-daily]}
+    steps: {full: [stock-daily], cheap: [stock-daily], local: [stock-daily]}
     identity: {what: 全A股票宇宙, cadence: 慢}
     value: {what: 收盘/涨幅/成交额, cadence: 极快}
     refresh:
@@ -198,7 +212,7 @@ datasets:
     label: 市场总览（要拆开看）
     tables: [fact_market_daily]
     endpoint: /reviews/market + /summary + /cycle
-    steps: {full: [market-overview, market-deviation], cheap: [market-overview, market-deviation]}
+    steps: {full: [market-overview, market-deviation], cheap: [market-overview, market-deviation], local: [market-overview-local]}
     identity:
       what: market_stage 阶段名
       cadence: 偏慢
@@ -214,7 +228,7 @@ datasets:
   - key: index_and_sw_l1
     label: 上证指数 / 申万一级
     tables: [fact_sw_l1_daily]
-    steps: {full: [index-daily, sw-l1-daily], cheap: [index-daily, sw-l1-daily]}
+    steps: {full: [index-daily, sw-l1-daily], cheap: [index-daily, sw-l1-daily], local: [index-daily, sw-l1-daily]}
     refresh: {tier: A-replace, policy: "已是 akshare（非复盘会）。维持。"}
 
   - key: mainline
@@ -237,7 +251,7 @@ datasets:
   - key: limit_heat
     label: 涨停热度（题材归属）
     tables: [fact_theme_limit_heat_daily, fact_theme_limit_stock_daily]
-    steps: {full: [limit-heat], cheap: [limit-heat]}
+    steps: {full: [limit-heat], cheap: [limit-heat], local: [limit-stats-local]}
     identity:
       what: 哪些题材上榜
       cadence: 快
@@ -260,7 +274,7 @@ datasets:
   - key: limit_advance
     label: 连板晋级梯队
     tables: [fact_limit_advance_daily]
-    steps: {full: [limit-advance], cheap: [limit-advance]}
+    steps: {full: [limit-advance], cheap: [limit-advance], local: [limit-stats-local]}
     identity: {what: 梯队名单, cadence: 快, evidence: "J=0.24，龙头高度日更 [用户实测]"}
     value: {what: boards/晋级率, cadence: 极快}
     refresh: {tier: C-daily, policy: "每天 1 请求，便宜。"}
@@ -336,7 +350,7 @@ datasets:
   - key: leader_height_similar_days
     label: 龙头高度 / 历史相似日
     tables: [fact_leader_height_daily, fact_historical_mapping]
-    steps: {full: [public-assets], cheap: [public-assets]}
+    steps: {full: [public-assets], cheap: [public-assets], local: [limit-stats-local]}
     identity: {what: 当日龙头/相似日集合, cadence: 快, evidence: "海鸥住工7板→国芳集团4板 结构日更 [用户实测]"}
     value: {what: 高度/相似度, cadence: 极快}
     refresh: {tier: C-daily, policy: "各 1 请求。相似日是产品相似度判断，独有。"}
@@ -378,7 +392,7 @@ datasets:
   - key: sector_period_rank
     label: 板块多周期涨幅排名
     tables: [fact_sector_period_rank_daily]
-    steps: {full: [features], cheap: [features]}
+    steps: {full: [features], cheap: [features], local: [features]}
     refresh: {tier: D-derived, policy: "compute_features 本地派生，无请求。"}
 
 # ============================================================================

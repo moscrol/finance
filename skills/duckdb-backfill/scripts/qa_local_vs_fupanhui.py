@@ -42,7 +42,7 @@ BAD_BASE_RATIO = 0.10  # 我们的沪深成交额与 fph 总额差 >10% → 底�
 
 # 每族的门（对干净日统计）。数值来自 2026-08-14~09-02 十四个干净日的实测。
 GATES = {
-    "advancers": ("涨家数 |Δ|≤3 的日子占比", 0.90),
+    "advancers": ("涨家数 |Δ|≤10 的日子占比（mootdx 裸前收日与东财差几只）", 0.90),
     "total_amount": ("沪深成交额比 fph/自算 在 0.998~1.002 的日子占比", 0.90),
     "limit_up": ("涨停家数 |Δ|≤6 的日子占比", 0.90),
     "limit_down": ("跌停家数 |Δ|≤6 的日子占比", 0.80),
@@ -177,7 +177,7 @@ def run(start, end, n, json_path):
             return sum(vals) / len(vals) if vals else 0.0
 
         fam = out["families"]
-        fam["advancers"] = share(lambda p: abs(p["advancers"][0] - p["advancers"][1]) <= 3)
+        fam["advancers"] = share(lambda p: abs(p["advancers"][0] - p["advancers"][1]) <= 10)
         fam["total_amount"] = share(lambda p: p["amount_ratio"] is not None and 0.998 <= p["amount_ratio"] <= 1.002)
         fam["limit_up"] = share(lambda p: abs(p["limit_up"][0] - p["limit_up"][1]) <= 6)
         fam["limit_down"] = share(lambda p: abs(p["limit_down"][0] - p["limit_down"][1]) <= 6)

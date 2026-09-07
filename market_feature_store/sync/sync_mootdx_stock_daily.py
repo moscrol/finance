@@ -208,7 +208,8 @@ def sync_fact_stock_daily(start_date: str | None = None, offset: int = 180,
                           limit: int | None = None, only_missing: bool = True,
                           sleep: float = 0.0, qfq: bool = False,
                           timeout: int = 0, progress_every: int = 200,
-                          end_date: str | None = None, ohlc_only: bool = False) -> dict:
+                          end_date: str | None = None, ohlc_only: bool = False,
+                          skip: int = 0) -> dict:
     """回补全A股日线到 fact_stock_daily。
 
     start_date: 起始交易日 (YYYY-MM-DD), 默认对齐 fact_market_daily 最早日。
@@ -221,6 +222,9 @@ def sync_fact_stock_daily(start_date: str | None = None, offset: int = 180,
     timeout: 单只 bars 请求超时秒数 (>0 启用 SIGALRM 兜底); 超时记 failure 跳过, 不卡死整批。
     progress_every: 每处理多少只打一行心跳进度 (0 关闭); 避免长时间无输出被误判卡死。
     ohlc_only: 只写 open/high/low/volume; 已有行的其余字段不动 (给东财日线补 OHLC / 拉长历史)。
+    skip: 跳过宇宙前 N 只 (与 --refresh + --limit 配合做确定性分页: 第 i 批 skip=i*limit)。
+          ohlc_only 的 only_missing 启发式 (区间内已有 high) 在「先补过单日」的库上会把所有股票都当已抓,
+          2026-09-07 3 年回拉就是这样一行没拉; 分页模式不依赖它。
     """
     from mootdx.quotes import Quotes
 
@@ -248,6 +252,8 @@ def sync_fact_stock_daily(start_date: str | None = None, offset: int = 180,
         universe = get_universe(client)
         universe_n = len(universe)
         pending = [(c, n) for c, n in universe if _ts_code(c) not in done]
+        if skip:
+            pending = pending[skip:]
         if limit:
             pending = pending[:limit]
 

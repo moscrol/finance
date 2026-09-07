@@ -122,6 +122,25 @@ MARKET_FIELDS = [
     "strength_amount_pct",
     "strength_status",
 ]
+# 计划档位裁剪：local（fupanhui 停抓后的自算链路）不产这些字段，缺它们是设计不是缺数。
+# 表的裁剪不写死在这里——从 consumption_registry.tables_for_plan 派生（单一真本源）。
+PLAN_UNAVAILABLE_MARKET_FIELDS = {
+    "local": {"strength_avg_pct", "strength_amount_pct", "strength_status"},
+}
+
+
+def plan_scope(plan: str | None) -> tuple[list[str], list[str]]:
+    """按计划返回 (要检查的表, 要检查的 fact_market_daily 字段)。plan 为空/full/cheap = 全量不变。"""
+    if not plan or plan in ("full", "cheap", "auto"):
+        return list(TABLES), list(MARKET_FIELDS)
+    from market_feature_store.consumption_registry import load_registry, tables_for_plan
+
+    expected = tables_for_plan(load_registry(), plan) | set(FEATURE_FAMILY)
+    tables = [t for t in TABLES if t in expected]
+    fields = [f for f in MARKET_FIELDS if f not in PLAN_UNAVAILABLE_MARKET_FIELDS.get(plan, set())]
+    return tables, fields
+
+
 PLACEHOLDERS = [
     "| 周均线 | - |",
     "| 偏离度 | - |",
@@ -190,13 +209,14 @@ def _print_staging_contrast(date: str, prod_counts: dict[str, int]) -> None:
         con.close()
 
 
-def check_data(date: str) -> list[str]:
+def check_data(date: str, plan: str | None = None) -> list[str]:
     missing: list[str] = []
+    tables, market_fields = plan_scope(plan)
     con = _connect_read_only()
     try:
-        print(f"CHECK DATA {date}")
+        print(f"CHECK DATA {date}" + (f" (plan={plan}: {len(tables)}/{len(TABLES)} 表)" if plan and len(tables) != len(TABLES) else ""))
         counts: dict[str, int] = {}
-        for table in TABLES:
+        for table in tables:
             date_column = DATE_COLUMNS.get(table, "trade_date")
             max_date, count = con.execute(
                 f"SELECT MAX({date_column}), COUNT(*) FILTER (WHERE {date_column} = ?) FROM {table}",
@@ -213,7 +233,7 @@ def check_data(date: str) -> list[str]:
             missing.append("fact_market_daily 缺失整行")
         else:
             row = {column[0]: value for column, value in zip(cursor.description, values)}
-            for field in MARKET_FIELDS:
+            for field in market_fields:
                 if field not in row:
                     missing.append(f"fact_market_daily.{field} 字段不存在")
                     continue
@@ -533,12 +553,16 @@ def main(argv: list[str] | str | None = None, data_only: bool = False) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("date")
     parser.add_argument("--phase", choices=("data", "report", "l2", "all"), default="all")
+    parser.add_argument(
+        "--plan", default=os.environ.get("REVIEW_SYNC_PLAN") or None,
+        help="计划档位（full/cheap/local）；local 按 registry 裁剪期望表与字段。默认读 REVIEW_SYNC_PLAN",
+    )
     args = parser.parse_args(argv)
 
     missing: list[str] = []
     try:
         if args.phase in {"data", "all"}:
-            missing.extend(check_data(args.date))
+            missing.extend(check_data(args.date, plan=args.plan))
         if args.phase in {"report", "all"}:
             missing.extend(check_report(args.date))
         if args.phase in {"l2", "all"}:

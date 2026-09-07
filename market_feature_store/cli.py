@@ -490,10 +490,14 @@ def cmd_sync_fupanhui_public_assets(args) -> int:
 def cmd_stitch_sector_stocks(args) -> int:
     from .sync.sync_local_sector_members import brief, stitch_sector_members
 
+    kwargs = {}
+    if getattr(args, "max_baseline_age_days", None):
+        kwargs["max_baseline_age_days"] = args.max_baseline_age_days
     s = stitch_sector_members(
         args.trade_date,
         fetch_caps=not args.no_caps,
         dry_run=args.dry_run,
+        **kwargs,
     )
     print(f"交易日: {s['trade_date']} | snapshot={s['snapshot_id'][:12]} | {s['identity']}")
     print(f"候选 {s['candidates']} | 拼接 {s['stitched']} | 剔除无值成员 {s['dropped_members']} | 市值现值 {s['caps_fetched']} 只")
@@ -508,6 +512,39 @@ def cmd_stitch_sector_stocks(args) -> int:
     if s.get("audit"):
         print(f"完成度审计: {s['audit']}")
     print(brief(s))
+    return 0
+
+
+def cmd_carry_forward_universe(args) -> int:
+    from .sync.compute_local_stats import carry_forward_universe
+
+    r = carry_forward_universe(args.trade_date, supersede=args.supersede, base_date=args.base_date)
+    print(f"交易日: {r['trade_date']} | {r['action']} | snapshot={str(r['snapshot_id'])[:12]} | provider={r['provider_source']}"
+          + (f" | 板块 {r['sectors']} 承接自 {r['base_date']}" if r.get("sectors") else ""))
+    return 0
+
+
+def cmd_compute_limit_stats_local(args) -> int:
+    from .sync.compute_local_stats import compute_limit_stats_local
+
+    r = compute_limit_stats_local(args.trade_date, force=args.force, min_boards=args.min_boards)
+    if r["action"] != "written":
+        print(f"交易日: {r['trade_date']} | {r['action']} {r.get('skipped', '')}（--force 覆盖）")
+        return 0
+    print(f"交易日: {r['trade_date']} | 全市场涨停 {r['market_limit_up']} 跌停 {r['market_limit_down']}（不计 ST/新股/停牌）")
+    print(f"涨停题材 {r['sectors_with_limit_up']} 个 / 明细 {r['detail_rows']} 行 / 连板梯队 {r['ladder_rows']} 只 / 龙头高度 {r['leader_height']} | 成分行 {r['members_seen']}")
+    return 0
+
+
+def cmd_compute_market_overview_local(args) -> int:
+    from .sync.compute_local_stats import compute_market_overview_local
+
+    r = compute_market_overview_local(args.trade_date, force=args.force)
+    if r["action"] != "written":
+        print(f"交易日: {r['trade_date']} | {r['action']} source={r.get('source')}（--force 覆盖）")
+        return 0
+    print(f"交易日: {r['trade_date']} | 沪深成交额 {r['total_amount']} 亿 | 涨家数 {r['advancers']} | 涨停 {r['limit_up']} 跌停 {r['limit_down']}")
+    print(f"MA20 {r['amount_ma20']} 量能比 {r['volume_ratio']}% | 前三行业 {r['top3']} 合计 {r['top3_ratio']}% | 20日新高 {r['stock_high_20d']} | 周均线 {r['sh_week_ma']}")
     return 0
 
 
@@ -632,6 +669,7 @@ def cmd_sync_stock_daily(args) -> int:
         progress_every=args.progress_every,
         end_date=args.end_date,
         ohlc_only=args.ohlc_only,
+        skip=args.skip,
     )
     mode = " | 模式: 只补 OHLC" if args.ohlc_only else ""
     print(f"起始日: {stats['start_date']}{' ~ ' + args.end_date if args.end_date else ''} | 全A股池: {stats['universe']}{mode}")
@@ -920,8 +958,8 @@ def cmd_check_daily(args) -> int:
 
     from .quality import check_daily
 
-    res = check_daily(trade_date=args.trade_date, window=args.window)
-    print(f"\u8de8\u65e5\u8d28\u68c0 @{res['trade_date']} (\u65e5\u5386\u7a97\u53e3={args.window})")
+    res = check_daily(trade_date=args.trade_date, window=args.window, plan=args.plan)
+    print(f"跨日质检 @{res['trade_date']} (日历窗口={args.window}" + (f", plan={args.plan}" if args.plan else "") + ")")
     for g in res["gaps"]:
         print(f"  [\u65ad\u6863] {g['table']}: {', '.join(g['missing_dates'])}" + (f" ({g['note']})" if g.get("note") else ""))
     for a in res["row_anomalies"]:
@@ -1361,7 +1399,29 @@ def build_parser() -> argparse.ArgumentParser:
     p_st.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD（需已 sync-sectors 且 stock-daily 为东财源）")
     p_st.add_argument("--no-caps", action="store_true", help="不拉腾讯市值现值，按基线缩放")
     p_st.add_argument("--dry-run", action="store_true", help="只算不写")
+    p_st.add_argument("--max-baseline-age-days", type=int, default=None,
+                      help="identity 基线最多多旧（日历日），默认 10；名单冻结（fupanhui 停抓）时放宽到 120+")
     p_st.set_defaults(func=cmd_stitch_sector_stocks)
+
+    p_cfu = sub.add_parser("carry-forward-universe",
+                           help="名单冻结：把最近一份 published 宇宙按当日重新发布（provider=local:carry），供 stitch/sector-daily-local 使用")
+    p_cfu.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_cfu.add_argument("--base-date", default=None, help="承接哪一天的快照，默认取之前最近一份 published")
+    p_cfu.add_argument("--supersede", action="store_true", help="当日已有 published 快照也顶替（原快照留 superseded）——名单没抓全的那天用")
+    p_cfu.set_defaults(func=cmd_carry_forward_universe)
+
+    p_cls = sub.add_parser("compute-limit-stats-local",
+                           help="本地涨跌停统计：题材涨停热度/涨停明细/连板梯队/龙头高度（不计 ST；沪深四舍五入、北交所向下取整）")
+    p_cls.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_cls.add_argument("--min-boards", type=int, default=2, help="梯队最低连板数，默认 2")
+    p_cls.add_argument("--force", action="store_true", help="当日已有非 local 来源行时也覆盖")
+    p_cls.set_defaults(func=cmd_compute_limit_stats_local)
+
+    p_cmo = sub.add_parser("compute-market-overview-local",
+                           help="本地市场总览数字层：沪深总额/涨家数/涨跌停/量能/前三行业/新高家数/周均线（不碰周期阶段等编辑字段）")
+    p_cmo.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_cmo.add_argument("--force", action="store_true", help="当日已有 fupanhui 数值时也覆盖")
+    p_cmo.set_defaults(func=cmd_compute_market_overview_local)
 
     p_sdl = sub.add_parser(
         "sync-sector-daily-local",
@@ -1399,6 +1459,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_skd.add_argument("--ohlc-only", action="store_true", help="只补 open/high/low/volume, 不碰已有行的收盘/昨收/涨幅/名字/来源 (给东财日线补 OHLC / 拉长历史)")
     p_skd.add_argument("--offset", type=int, default=180, help="每只股票拉取日线根数, 默认180(~8个月); 3 年历史用 800")
     p_skd.add_argument("--limit", type=int, default=None, help="本次最多抓多少只 (续跑用)")
+    p_skd.add_argument("--skip", type=int, default=0, help="跳过宇宙前 N 只; 与 --refresh --limit 配合做确定性分页 (第 i 批 skip=i*limit)")
     p_skd.add_argument("--refresh", action="store_true", help="不跳过已抓股票, 强制重抓")
     p_skd.add_argument("--sleep", type=float, default=0.0, help="股票间隔秒数, 默认0")
     p_skd.add_argument("--qfq", action="store_true", help="用前复权(慢, 吃CPU); 默认裸收盘价(快)")
@@ -1468,6 +1529,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_cd.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
     p_cd.add_argument("--window", type=int, default=20, help="交易日历窗口, 默认20")
     p_cd.add_argument("--json", default=None, help="质检报告 JSON 落盘路径, 可选")
+    p_cd.add_argument("--plan", default=None, help="计划档位 full/cheap/local；local 按 registry 裁剪期望表（自算链路不产 fupanhui 独有表）")
     p_cd.set_defaults(func=cmd_check_daily)
 
     p_wg = sub.add_parser("weighted-gainers", help="区间加权涨幅排行 (本地计算)")
