@@ -1,7 +1,7 @@
 # 设计：Episode 历史压实——工具观察先瘦身、再按批折成 E 号索引；不调模型、不动账本
 
 日期：2026-09-07
-状态：**设计稿，未实施、未开分支。** 上文 `docs/verification/2026-09-07-branch-level-trace.md` §10–§12（读数）。
+状态：**两刀已实施（#635 lean / #636 折叠，main `e1d22b89`），env 缺省关；候选口 A/B n=3 见 `docs/verification/2026-09-07-branch-level-trace.md` §13——成本轴成立（折叠 −30–57%，10 轮对 10 轮每次调用 −20%），出口不退，绑定数 n=3 判不出，缺省未翻。** 实施与本稿差异：折叠函数放 `services/episode_history_compaction`、loop 直接调（未经 harness 方法）；`history_compacted` 事件不映射阶段。（原状态：设计稿。） 上文 `docs/verification/2026-09-07-branch-level-trace.md` §10–§12（读数）。
 父稿：`2026-09-03-subagent-tool-design.md`（分支证据经父账本、按 E 号绑）；`2026-09-02-capability-amplification-output-gate-design.md`
 §3.5（两家的上下文管理都是插件）。dsh 形状只读 `/Users/a77/deepseek-harness/packages/compaction/{compaction-basic,compaction-tool-result-pruner}/README.md`。
 
