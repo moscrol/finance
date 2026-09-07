@@ -180,3 +180,32 @@ deep 档 3 × 60 = 180 装得进 192s 的账本；#615 把每支抬到 150 后 3
 - quick 每批帽 4 不动。A/B/C 28 题仍等用户拍。
 - 顺带发现：`test_run_agent_runtime_benchmark::test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state` 用 `id()` 比两个已回收对象，
   地址复用时假红（本 PR 一遍全量撞上，复跑即绿），值得改成持有引用；不在本 PR。
+
+## 8. 能力 frontier 向量（路线第 4 步）：同题六遍并排
+
+`python -m intelligence.eval.capability_frontier <run_dir>… --format md|json`（`intelligence/eval/capability_frontier.py`，只读工件、不调模型）。
+七个轴：工具发现 / 证据产出 / 上下文效率 / 修复恢复 / 验证完整性 / 墙钟 / 分支健康度；缺件留 `—`（None），不写 0。
+下表第一行是 #618 那份收据的第 4 遍（`d65ed015`，切前 8792），后五行是本文的候选口四遍 + 切后 8792 一遍：
+
+| run | rev | status/stop | judge | tools used/offered | evidence parent+branch/bound | input tok / llm | repair | episode s / sub_research s / ledger left | branches ok/partial/fail · accepted · invalid · cap rej/req | branch→parent s |
+|---|---|---|---|---|---|---|---|---|---|---|
+| run_20260907_042658_105490 | d65ed0155eb9 | completed / model_finish | repaired (unavail 0, degraded 0) | 7/14 (父 7 · 支 0) | 161+147/45 | 657700 / 5 | 0 attempt(s) | 172.3 / 87.2 / 143.4 | 0/3/0 · — · — · —/— | — |
+| run_20260907_105656_605883 | fc36736539fc | completed / model_finish | repaired (unavail 0, degraded 0) | 10/14 (父 7 · 支 8) | 167+147/33 | 475828 / 4 | 0 attempt(s) | 190.6 / 111.8 / 90.8 | 0/3/0 · 0 · 0 · 7/35 | — |
+| run_20260907_110932_860284 | ad54d4b0a3c8 | partial / deadline_exhausted | unavailable (unavail 1, degraded 0) | 10/14 (父 7 · 支 8) | 187+159/0 | 342318 / 2 | 0 attempt(s) | 224.0 / 180.0 / 0.0 | 0/3/0 · 0 · 0 · 9/37 | — |
+| run_20260907_115729_781807 | 204e607aa153 | completed / model_finish | passed (unavail 0, degraded 0) | 10/14 (父 9 · 支 6) | 226+69/53 | 635647 / 6 | 0 attempt(s) | 200.6 / 89.7 / 339.6 | 0/3/0 · 0 · 3 · 0/14 | 0.0 |
+| run_20260907_120927_086134 | 64428242cc3c | completed / repair_model_finish | repaired (unavail 0, degraded 0) | 11/14 (父 8 · 支 8) | 204+185/36 | 1102840 / 5 | 1 attempt(s) | 222.9 / 109.9 / 357.3 | 0/3/0 · 3 · 0 · 0/27 | 0.0 |
+| run_20260907_123827_249342 | 1010970acc85 | completed / repair_model_finish | repaired (unavail 0, degraded 0) | 9/14 (父 4 · 支 7) | 165+140/23 | 707055 / 9 | 1 attempt(s) | 227.7 / 114.0 / 352.5 | 0/3/0 · 3 · 0 · 5/35 | 0.0 |
+
+- run_20260907_105656_605883: branch stop_reasons not accepted: invalid_model_finish
+- run_20260907_110932_860284: ledger seconds exhausted (stop_reason=deadline_exhausted): check wall clock vs ledger
+- run_20260907_110932_860284: branch stop_reasons not accepted: deadline_exhausted
+- run_20260907_115729_781807: branch finish rejected: unknown_output
+- run_20260907_115729_781807: branch stop_reasons not accepted: invalid_model_finish
+
+读法：
+- **`completed / judge repaired` 六遍里五遍都有，但只有最后三遍的分支收尾是被接受的、父账本秒没被分支扣走**——
+  单看终局标签，第 1 遍和第 4、5 遍长得一样；分支健康度与「branch→parent s」把它们分开。
+- 上下文效率是下一道顶的候选：父臂每次模型调用 11 万–22 万 input tokens，整轮 34 万–110 万；分支回流 140–185 条证据全部进了父臂消息，
+  而最终绑上的只有 23–53 个 hash。放开预算后，「证据怎么回父臂」比「再给多少秒」更决定能力上限。未量、未改。
+- 工具发现 7–11 / 14：分支把工具面扩到父臂契约之外（比值可 >1）；`sub_research` 之后模型自己再点的工具数没有下降。
+- 帽拒 0–9 / 14–37：同模型同题两种节奏（每批 1 个 vs 5–7 个）都出现；不是首要变量。
