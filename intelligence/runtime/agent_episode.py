@@ -67,6 +67,7 @@ from intelligence.services.research_plan import (
 from intelligence.services.cancel_signal import CancelSignal
 from intelligence.services.episode_event_lanes import LiveEventSink
 from intelligence.services.episode_messages import (
+    PROMPT_SOURCE_FINALIZER,
     EpisodeMessage,
     append_model_input,
     assistant_message,
@@ -2774,6 +2775,11 @@ class ContinuousAgentEpisode:
                 evidence=tuple(accumulator.evidence),
                 gaps=tuple(accumulator.gaps),
                 failure_reason=failure_reason,
+                # 兜底合成那段独立 prompt 也是模型可见内容：落账（source=finalizer），
+                # 但不进 episode 的消息历史，派生器对它跳过。
+                on_prompt=lambda system, user: record_prompt_assembled(
+                    ledger, system=system, user=user, source=PROMPT_SOURCE_FINALIZER
+                ),
             )
         except Exception as exc:
             budget_remaining = _consume_root_seconds(

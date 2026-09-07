@@ -67,8 +67,13 @@ EpisodeScope）。
 
 1. **事件出口级 close 门**：EpisodeScope.event_sink 仍为 None（第 4 步 1/2 的
    决定），事件出口合流与 sink 级「close 后拒发」属第 5 步 Durable/Live。
-2. **收据落盘**：``dump()`` 本轮只在对象上可取（经 ``session.runtime_handle``），
-   进 artifact/Projection 属第 5 步。
+2. **收据落盘**：~~``dump()`` 本轮只在对象上可取~~ → 运行底座 P2（2026-09-07，工单 #29）
+   已落：``ContinuousTurnAdapter`` 在会话关闭后把 ``dump()`` 写进 ``continuous-episode.json``
+   的 ``runtime_handle`` 键（含 ``scope.derive_mismatches``，INV-R1 的落盘收据）。
+   **进程重启**（08-15 §7.3 四类验收场景的第四类）同轮由 ``services/episode_store`` +
+   ``episode_restore`` 兑现：每步落盘、``EpisodeState`` 覆写、重启后 ``restore`` 读状态
+   给下一动作或闭合；Tier A 套件 ``test_episode_restore.py`` 逐 phase × 逐 crash 前缀验。
+   Handle 本身仍是进程内对象——重启后的新 Handle 从 ``created`` 起，不伪造上一进程的收据。
 3. **其余会话构造点的接线**（第 4 步收尾轮已逐个裁定，结论如下）：
 
    已接：``GLMAgentRuntime.start``（Arm A，生产主线）+ ``ContinuousTurnAdapter``

@@ -3609,6 +3609,28 @@ def test_model_failure_after_tools_close_gets_exactly_one_compact_recovery() -> 
     assert [event.kind for event in outcome.events].count(
         "finalization_recovery_started"
     ) == 1
+    # 兜底合成那段独立 prompt 也「模型可见即已落账」（P0 已知边界 a，P2 补）：
+    # 一条 prompt_assembled{source=finalizer}，正文哈希与第三次请求真发出的逐字节对得上；
+    # 它不进 episode 消息历史——派生器跳过它，严格模式下前两次请求的对账仍成立。
+    finalizer_prompts = [
+        event
+        for event in outcome.events
+        if event.kind == "prompt_assembled" and event.payload.get("source") == "finalizer"
+    ]
+    assert len(finalizer_prompts) == 1
+    recovery_call = model.calls[2]["messages"]
+    assert finalizer_prompts[0].payload["system"] == recovery_call[0]["content"]
+    assert finalizer_prompts[0].payload["user"] == recovery_call[1]["content"]
+    started = next(
+        event for event in outcome.events if event.kind == "finalization_recovery_started"
+    )
+    assert started.sequence < finalizer_prompts[0].sequence
+    episode_prompts = [
+        event
+        for event in outcome.events
+        if event.kind == "prompt_assembled" and "source" not in event.payload
+    ]
+    assert len(episode_prompts) == 1, "episode 自己那条形状不变（不带 source 键）"
 
 
 def test_invalid_finish_after_normal_repair_recovers_only_once() -> None:

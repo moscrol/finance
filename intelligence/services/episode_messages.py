@@ -65,6 +65,9 @@ __all__ = [
     "MessageRole",
     "ModelInputSource",
     "PROMPT_ASSEMBLED_KIND",
+    "PROMPT_SOURCE_EPISODE",
+    "PROMPT_SOURCE_FINALIZER",
+    "PromptSource",
     "ProviderDialect",
     "STRICT_DERIVATION_ENV",
     "TOOL_BUDGET_STATE_KIND",
@@ -301,23 +304,42 @@ def to_provider(
 # ── 发射助手：进 messages 的内容先有 durable 事件承载 ─────────────────────
 
 
+PromptSource = Literal["episode", "finalizer"]
+PROMPT_SOURCE_EPISODE = "episode"
+# 兜底合成（EpisodeFinalizer.recover）自己拼一段 prompt 单独问一次模型：它是模型可见内容，
+# 所以也落 prompt_assembled（INV-R1 的覆盖面，P0 已知边界 a），但**不进** episode 的消息历史，
+# 派生器对它跳过。
+PROMPT_SOURCE_FINALIZER = "finalizer"
+
+
 def record_prompt_assembled(
-    ledger: MessageLedger, *, system: str, user: str
+    ledger: MessageLedger,
+    *,
+    system: str,
+    user: str,
+    source: PromptSource = PROMPT_SOURCE_EPISODE,
 ) -> None:
     """``assemble_prompt`` 之后、首轮请求之前发一条。正文进 durable 私有流；
-    hash 同时落下，投影剔正文后仍能对账「system 变过没有」。"""
+    hash 同时落下，投影剔正文后仍能对账「system 变过没有」。
 
-    ledger.add(
-        "prompt_assembled",
-        {
-            "system": system,
-            "user": user,
-            "system_sha256": sha256_text(system),
-            "user_sha256": sha256_text(user),
-            "system_chars": len(system),
-            "user_chars": len(user),
-        },
-    )
+    ``source="episode"`` 的一条派生成 ``[system, user]`` 两条消息；``"finalizer"`` 的只落账
+    不派生。老产物没有 ``source`` 键，读作 ``episode``。
+    """
+
+    if source not in {PROMPT_SOURCE_EPISODE, PROMPT_SOURCE_FINALIZER}:
+        raise ValueError(f"未登记的 prompt_assembled 来源: {source!r}")
+    payload: dict[str, object] = {
+        "system": system,
+        "user": user,
+        "system_sha256": sha256_text(system),
+        "user_sha256": sha256_text(user),
+        "system_chars": len(system),
+        "user_chars": len(user),
+    }
+    if source != PROMPT_SOURCE_EPISODE:
+        # 只在非默认来源时带键：episode 那条的形状与 P0 逐字节相同。
+        payload["source"] = source
+    ledger.add("prompt_assembled", payload)
 
 
 def append_model_input(
@@ -391,6 +413,9 @@ def derive_messages(events: Iterable[EpisodeEvent]) -> list[EpisodeMessage]:
         kind = event.kind
         if kind == PROMPT_ASSEMBLED_KIND:
             payload = _payload_dict(event)
+            if str(payload.get("source") or PROMPT_SOURCE_EPISODE) != PROMPT_SOURCE_EPISODE:
+                # 兜底合成的 prompt 是另一段独立对话，不在 episode 的 messages 里。
+                continue
             messages.append(system_message(_require_text(payload, "system", event=event)))
             messages.append(user_message(_require_text(payload, "user", event=event)))
         elif kind == MODEL_INPUT_KIND:

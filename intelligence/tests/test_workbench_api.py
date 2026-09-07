@@ -1710,6 +1710,38 @@ def test_health_endpoints_report_worker_and_storage_state(client: TestClient) ->
     assert payload["workers"]["capacity"] == 2
 
 
+def test_readiness_registers_open_episodes_without_restoring_them(
+    client: TestClient, monkeypatch, tmp_path
+) -> None:
+    """运行底座 P2（母单 §12 第 3 题：只登记）：store 里非 done 的 episode 进 readiness，
+    但 readiness 不去 restore、不改 store。"""
+
+    from intelligence.services.episode_store import (
+        EPISODE_STORE_ENV,
+        EpisodeState,
+        JsonlEpisodeStore,
+    )
+
+    root = tmp_path / "episodes"
+    monkeypatch.setenv(EPISODE_STORE_ENV, str(root))
+    store = JsonlEpisodeStore(root)
+    store.put_state("run_a:msg_1", EpisodeState(episode_id="run_a:msg_1", phase="tools_pending"))
+    store.put_state("run_b:msg_2", EpisodeState(episode_id="run_b:msg_2", phase="done"))
+    snapshot = sorted((path.name, path.stat().st_size) for path in root.rglob("*"))
+
+    response = client.get("/api/readiness")
+
+    payload = response.json()
+    assert payload["open_episodes"] == {
+        "count": 1,
+        "episode_ids": ["run_a:msg_1"],
+        "truncated": False,
+    }
+    assert sorted((path.name, path.stat().st_size) for path in root.rglob("*")) == snapshot, (
+        "readiness 只读 store，不 restore、不改写"
+    )
+
+
 def test_readiness_probe_schedules_dead_worker_recovery(
     client: TestClient, monkeypatch
 ) -> None:
