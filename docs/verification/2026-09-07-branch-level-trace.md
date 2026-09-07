@@ -209,3 +209,32 @@ deep 档 3 × 60 = 180 装得进 192s 的账本；#615 把每支抬到 150 后 3
   而最终绑上的只有 23–53 个 hash。放开预算后，「证据怎么回父臂」比「再给多少秒」更决定能力上限。未量、未改。
 - 工具发现 7–11 / 14：分支把工具面扩到父臂契约之外（比值可 >1）；`sub_research` 之后模型自己再点的工具数没有下降。
 - 帽拒 0–9 / 14–37：同模型同题两种节奏（每批 1 个 vs 5–7 个）都出现；不是首要变量。
+
+## 9. 0907h：L3 一手口径打通（#623 + 启动器 `--source cninfo,irm_szse`），8792=`d4cb6484`
+
+向量 §8 的「证据产出」轴里有一项一直是零：同题五遍父臂 8 次 `l3_lookup` 全空，分支零条 l3 证据，答案只能写
+「公司公告检索未取得可用一手证据」。拆开是三半：
+
+1. **题材名被当公司名**：一半 query 是「固态电池 量产 产线 公告」，`_extract_stock_hint` 抓「固态电池」当公司送 CLI，
+   CLI 回 `[warn] 无法解析公司` + `[]`，解析侧只剩「查询成功但没有解析到可用证据」——模型分不出「没公告」和「不是公司」。
+   修：多一条可操作警告（只按公司名 / 6 位代码查，题材走 news/web）；真公司只有 P2 定期报告时不给这条。
+2. **互动易行只给提问、丢答复**：`irm_szse` 行 `summary` 是投资者提问，公司答复在 `raw_excerpt` 的「||答复：」之后，
+   常是否认 / 反证（`is_reverse=True`）。修：summary = 提问头 ‖ 答复：…，标题加 `[反向口径]`。
+3. **生产只开了 cninfo**：启动器 `FINANCE_L3_COMPANY_CMD` 写死 `--source cninfo`，互动易通道整个不可见；cninfo 近 90 天多为
+   P2 定期报告，被低信号门丢掉。实测 `irm_szse`：盛弘股份 P0 ×2、0.3s；SSE 公司上该源报 warn、cninfo 结果照常。
+   改启动器为 `cninfo,irm_szse`（备份 `.bak-20260907-pre-irm`，回滚锚 `cutover-20260907h-l3irm-rollback-8792.txt`）。
+
+切后同题探针 `probe-cutover-0907h/run_20260907_134001_643129`：**l3 证据 7 条**（父臂 1 次调用 5 条 + 分支 2 条），
+含万顺新材投关原话「高达因电池铝箔…6 月末开始进入中批量供货阶段」——上一遍答案里那句「万顺新材中批量供货目前仅有新闻转述」
+现在有公司自己的口径可绑；另有盛弘股份 `[反向口径]` 否认。父臂 completed、judge repaired、`judge_unavailable_count=0`、
+`content_degraded_count=0`、父账本秒分支前后 512.1 → 512.1。门禁：main tip `d4cb6484` 干净树 8000P/0F/77S 可采信；webapp 与 `1010970a` 逐字节相同。
+
+同时暴露下一道顶（本轮只记录）：这一遍父臂 **19 次模型调用、126 万 input tokens、406s**——`sub_research` 之后连续 17 轮每轮只点 1 个工具
+（前几遍是 4–6 个一批），每轮都把整个上下文重发一遍；分支 2、3 在同一时段 `model_unavailable`（sol 网关并发下失败）。
+「每批 1 个工具」这个节奏在分支（第 3、4 遍）和父臂（本遍）都出现过，与 `_append_tool_budget_state` 注入的余量文案是否有关未量。
+上下文效率 + 派发节奏是接下来最值钱的一刀，比再抬任何预算数字都值。
+
+| run | rev | status/stop | judge | tools used/offered | evidence parent+branch/bound | input tok / llm | repair | episode s / sub_research s / ledger left | branches ok/partial/fail · accepted · invalid · cap rej/req | branch→parent s |
+|---|---|---|---|---|---|---|---|---|---|---|
+| run_20260907_123827_249342 | 1010970acc85 | completed / repair_model_finish | repaired (unavail 0, degraded 0) | 9/14 (父 4 · 支 7) | 165+140/23 | 707055 / 9 | 1 attempt(s) | 227.7 / 114.0 / 352.5 | 0/3/0 · 3 · 0 · 5/35 | 0.0 |
+| run_20260907_134001_643129 | d4cb64844ec6 | completed / model_finish | repaired (unavail 0, degraded 0) | 12/14 (父 11 · 支 7) | 121+67/20 | 1264726 / 19 | 0 attempt(s) | 406.3 / 178.4 / 134.4 | 0/3/0 · 1 · 0 · 0/18 | 0.0 |
