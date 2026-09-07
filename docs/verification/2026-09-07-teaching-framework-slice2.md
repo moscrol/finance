@@ -78,6 +78,49 @@ build-sector-roles（真库）
 
 两期都涨（验证 +1.6 个点，43 / 119 对 41 / 119），采纳。主流主升判对 4 → 10、左底向上 0 → 4。两次重建：labels `aee9474d23b4f1db6d1530e0c1abe404197122e7e8023e2528afe20271b06534`、sector `0e7ea7d7…`、succession 均一致。
 
-## 6. 结论
+## 6. 第二至四步结论
 
-第二刀落了三样：板块侧市场级视角（新高家数、赚钱效应在前三之外的比例）进八段证据，一致率 33.3% → 40.2%（验证 35.3 → 36.1）；C 类板块角色逐日标签 127 万行；第一条教学来源的候选规则四态 supported。待做：板块级赚钱效应的 k-means 并排（spec §3 (v)）、题材层再走一遍先量再建（§5）、全量参照重校准。全部改动在领域层，`intelligence/runtime/` 不动。
+第二刀落了三样：板块侧市场级视角（新高家数、赚钱效应在前三之外的比例）进八段证据，一致率 33.3% → 40.2%（验证 35.3 → 36.1）；C 类板块角色逐日标签 127 万行；第一条教学来源的候选规则四态 supported。全部改动在领域层，`intelligence/runtime/` 不动。
+
+## 7. 第三步 (v) + 第五步：k-means 并排、宽度 / 主流两口径 / 锐度合成、题材层先量再建（`tf-v0.2+28a900ad`）
+
+```text
+pytest intelligence/tests/test_teaching_framework_*.py  → 80 passed（78 + 2：kmeans 确定性 / 最热簇；宽度 · 供应商主流 · 锐度合成 · kmeans 标签 · 5 日 Jaccard）
+pytest intelligence/tests/test_methodology_backtest*.py → 67 passed
+ruff check .                                             → All checks passed
+scripts/layer_audit.py                                   → ERROR 0 条 == 基线；git diff 不含 intelligence/runtime/；services 内无 runtime import
+```
+
+源库这一小时里被另一会话回填（`fact_stock_daily` 2,111,255 → 3,732,054 行，`fact_market_daily` 加了 2026-09-03），宽度类视角随之变，一致率在 ±0.3 个点上漂。为了对照成立，把库连 WAL 拷到 `/tmp/mfs-snap2.duckdb`（18:24），下面所有数字都出自这份快照；参数文件 `stage_bands_derived_from` 新增 `labels_canonical_hash = 7744b342…` / `labels_source_fingerprint = fa2e2096…` / `labels_source_max_trade_date = 2026-09-03`，钉住区间读自哪次构建。
+
+```text
+calibrate-stages --train-until 2025-12-31（v0.1 → v0.2，视角 9 条，新增 limit_premium_ma5_pct）
+  framework_version = tf-v0.2+28a900ad
+  limit_premium_ma5_pct 区间：左底向下 0.93–2.10 · 左底向上 1.59–1.96 · 二次探底 1.44–3.08 · 共建主线 1.05–2.33 ·
+                              主流主升 2.13–2.94 · 高位震荡 1.54–2.52；缩量右底 / 2.0 训练期 <10 天不出区间
+
+三次全新重建（--computed-at 11:00 / 12:00 / 13:00Z），逐份哈希：
+  labels     fd23aab89a89c857…  identical ×3   rows=31356（68 个 tf.* + 10 个 src.* × 402 个可用日；414 日里 12 日缺）gap_rows=323
+  sector     f9720d98d8dfd6d0…  identical ×3   rows=1,910,322（18 个 tf.* 板块标签 × 106,129 个（日, 板块）行，411 天，15.5 s）
+  succession 764760e171cb3f7c…  identical ×3
+  stage_coarse: 共建主线 80 · 高位震荡 77 · 左底向下 68 · 二次探底 43 · 主流主升 34 · 主流主升2.0 27 · 左底向上 5 · ambiguous 68   未决率 16.9%
+  turns: up 26 · top 19 · down 25
+```
+
+第一轮两次重建 labels / succession **不一致**：`tf.limit_premium_pct` 在 2025-02-27（0.6590625）与 2025-03-19（1.4765625）两天 6 位小数进位不同——`AVG(DOUBLE)` 在 DuckDB 并行哈希聚合里求和顺序不定，落在进位边界上就翻。改成 `SUM(CAST(pct_chg AS DECIMAL(18,6))) / COUNT(*)`（整数精确求和、与顺序无关），`price_mean` 同法预防，之后三次一致。这条进 spec §6 验收第 6 项。
+
+| 版本 | 进区间的板块 / 题材侧视角 | 全期 | 训练期 | 验证期 | 未决日 | 承接盘反复判对 |
+|---|---|---|---|---|---|---|
+| `5bf7d66b`（#633，当时的库） | 新高 + 赚钱效应在前三之外 | 40.2% | 42.6% | 36.1% | 80 | 57 |
+| 同视角，快照重标定 `e94eeb22` | 同上 | 40.0% | 42.6% | 35.6% | 82 | 57 |
+| **`28a900ad`（采纳）** | 同上 + 承接 5 日均值 | **41.3%** | **44.9%** | 35.4% | **68** | **61** |
+
+试过没进的（spec §5.2 全表）：承接当日值 / 负溢价天数 / 翻转次数 单条验证期掉 1.8–3.4 个点；两条以上合并训练期冲到 51% 而验证期掉到 26%（典型过拟合）；双红申万一级数单看过门但对源数据不稳（回填前后验证期 32.0 / 35.5）；涨停前 10 持续度训练期掉 3.5。
+
+赚钱效应第五套（确定性 k-means，k=3、五特征当日 z 分、分位点初始化、≤20 轮）：集合中位 17–29 个板块；候选规则四态 **not_distinguishable**（下方 157 / 75 / 0.478 vs 上方 0.443，前 / 后半段 0.38 / 0.57）。前四套读数与 §5 不变。
+
+新板块标签（`entity_type='sector'`）：`tf.sharpness_rank_mean` / `tf.role_sharpness_top10`（两名次均值前 10，候选合成）、`tf.role_breadth_top_l1`（1 年以上新高最多的申万一级）、`tf.mainline_vendor` / `tf.mainline_volume_top3`（主流两口径并排；供应商表 113 日，其余 NULL）、`tf.money_effect.kmeans_hot`。新市场级视角标签：`tf.dual_red_l1_distinct`、`tf.limit_top10_persist_5d_pct`、`tf.limit_premium_pct / _ma5_pct / _neg_5d / _flips_5d`（缺口分别 68 / 25 / 11 / 35 / 35 / 35 天，按列记）。
+
+## 8. 结论
+
+第二刀到此五步全落：一致率 33.3% → 41.3%（验证 35.3 → 35.4 持平），承接盘反复判对 48 → 61，未决日 80 → 68。剩下的瓶颈不在数据在定义（spec §5.3 的 25 天短促下穿、主升 vs 2.0 的「升级」），已列进 spec §7 待创始人。全部改动在领域层，`intelligence/runtime/` 不动。
