@@ -16,7 +16,7 @@
 
 ## 当前状态
 
-8792=`d65ed0155eb9`（0907f：#617 LLM 保险丝；#616 修复轮表达槽；#615 分支预算；#612 方向硬门；#610 `sub_research`；#608 max 档、出口 cockpit `:57244`）。回滚锚 `~/.finance-runtime/cutover-20260907f-*`（回 `0399b980`）；启动器备份 `.bak-20260907-pre-max`。收据 `docs/verification/2026-09-07-*.md`。**登录钥匙串 09-06 被重置**（`login_renamed_1.keychain-db`），GLM / 中转 key 未恢复。
+8792=`1010970acc85`（0907g：#619 分支秒按墙钟记一次 + 父臂预留尾段 + 分支契约 `branch_findings` + 分支级 trace；此前 0907f：#617 LLM 保险丝；#616 修复轮表达槽；#615 分支预算；#612 方向硬门；#610 `sub_research`；#608 max 档、出口 cockpit `:57244`）。回滚锚 `~/.finance-runtime/cutover-20260907g-branchtrace-rollback-8792.txt`（回 `d65ed0155eb9`）；启动器未动，备份 `.bak-20260907-pre-max`。收据 `docs/verification/2026-09-07-branch-level-trace.md`（切后探针 `probe-cutover-0907g/run_20260907_123827_249342`：judge repaired、`judge_unavailable_count=0`、`content_degraded_count=0`、分支 3/3 `model_finish`、父账本秒分支前后 525.3 → 525.3）。**登录钥匙串 09-06 被重置**（`login_renamed_1.keychain-db`），GLM / 中转 key 未恢复。
 
 ## 已验证
 
