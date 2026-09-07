@@ -47,6 +47,10 @@ REQUIRED_KEYS = (
     "transition_policy",
     "ambiguity_memory",
     "min_n",
+    # 第十一段「升级 2.0 = 进一步放量 + 指数进一步走强」：新高窗口（写出的候选）、进入谓词用的那一个、双量日环比门槛。
+    "index_new_high_windows",
+    "upgrade_new_high_window",
+    "double_volume_dod_pct",
 )
 
 # slice 1.5 第二遍（用户「继续按照最优推进」）：阶段不能无转点地跳到不相邻的段（词表「从什么
@@ -163,6 +167,20 @@ def validate_params(params: dict[str, Any]) -> dict[str, Any]:
         or len(set(windows)) != len(windows)
     ):
         raise ValueError("index_range_windows 必须是互不重复的正整数数组（区间涨幅 / 振幅 / 偏离度变化的窗口天数）")
+    high_windows = params["index_new_high_windows"]
+    if (
+        not isinstance(high_windows, list)
+        or not high_windows
+        or any(not isinstance(n, int) or isinstance(n, bool) or n <= 0 for n in high_windows)
+        or len(set(high_windows)) != len(high_windows)
+    ):
+        raise ValueError("index_new_high_windows 必须是互不重复的正整数数组（指数收盘新高的回看天数）")
+    upgrade_window = params["upgrade_new_high_window"]
+    if not isinstance(upgrade_window, int) or isinstance(upgrade_window, bool) or upgrade_window not in high_windows:
+        raise ValueError("upgrade_new_high_window 必须是 index_new_high_windows 里的一个窗口（2.0 进入谓词用哪一个新高）")
+    dod = params["double_volume_dod_pct"]
+    if not isinstance(dod, (int, float)) or isinstance(dod, bool) or dod <= 0:
+        raise ValueError("double_volume_dod_pct 必须是正数（双量日的成交额环比门槛，每日复盘口径 10）")
     if params["leader_top"] != SUPPORTED_LEADER_TOP:
         raise ValueError(f"leader_top 目前只支持 {SUPPORTED_LEADER_TOP}（最高标并列成组、全员断板才算断板）")
     if params["surge_in_trend"] != SUPPORTED_SURGE_IN_TREND:

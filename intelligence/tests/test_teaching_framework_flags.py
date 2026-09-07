@@ -86,6 +86,25 @@ def test_index_range_scalars_use_base_close_and_require_contiguous_window():
     assert sixth["sh_index_pct_chg_2d"] is None and sixth["scalar_gaps"]["sh_deviation_change_2d"] == "window_incomplete"
 
 
+def test_index_new_high_windows_and_double_volume_day():
+    """第十一段「进一步放量指数进一步走强」: close above the prior n adjacent closes; 双量日 = 环比 > 10 且量能比 > 120."""
+    days = ["2026-01-05", "2026-01-06", "2026-01-07", "2026-01-08", "2026-01-09", "2026-01-12", "2026-01-13"]
+    rows = []
+    for d, close, amount, dod in zip(days, (100.0, 103.0, 102.0, 104.0, 103.5, 104.0, 104.0),
+                                     (100.0, 130.0, 90.0, 125.0, 121.0, 121.0, None), (0.0, 30.0, -30.0, 38.9, -3.2, 12.0, 5.0)):
+        rows.append({**_market(d, amount), "sh_index_close": close, "amount_vs_yesterday_pct": dod})
+    out = compute_flags(rows, calendar=days, params={"index_new_high_windows": [2, 3], "double_volume_dod_pct": 10})
+    # 2-day window: 01-07 (102 vs 103, 100) no; 01-08 (104 vs 103, 102) yes; 01-12 (104 vs 104, 103.5) not strictly above.
+    assert [r["index_new_high_2d"] for r in out] == [None, None, False, True, False, False, False]
+    assert [r["index_new_high_3d"] for r in out] == [None, None, None, True, False, False, False]
+    # 双量日: 01-06 (dod 30, ratio 130) yes; 01-08 (38.9, 125) yes; 01-09 ratio 121 but dod −3.2 no; 01-12 dod 12 & 121 yes; NULL amount → NULL.
+    assert [r["double_volume_day"] for r in out] == [False, True, False, True, False, True, None]
+    # A missing calendar day inside the look-back leaves the window unknown.
+    gap_rows = [r for r in rows if r["trade_date"] != "2026-01-07"]
+    out_gap = compute_flags(gap_rows, calendar=days, params={"index_new_high_windows": [2]})
+    assert out_gap[2]["index_new_high_2d"] is None and out_gap[3]["index_new_high_2d"] is None and out_gap[5]["index_new_high_2d"] is False
+
+
 def test_index_range_scalars_fail_closed_per_field():
     days = ["2026-01-05", "2026-01-06", "2026-01-07"]
     rows = [_ohlc(days[0], 100.0, 101.0, 99.0, 0.0), _ohlc(days[1], 102.0, None, 101.0, None), _ohlc(days[2], 103.0, 105.0, 101.0, 1.0)]

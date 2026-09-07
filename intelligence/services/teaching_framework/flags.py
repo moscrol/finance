@@ -177,6 +177,8 @@ def compute_flags(
     dev_streaks = _DeviationStreaks()
     episode = _MaSideEpisode(int(p.get("breakout_confirm_days", 3)))
     range_windows = [int(n) for n in (p.get("index_range_windows") or DEFAULT_RANGE_WINDOWS)]
+    new_high_windows = [int(n) for n in (p.get("index_new_high_windows") or DEFAULT_NEW_HIGH_WINDOWS)]
+    double_volume_dod = float(p.get("double_volume_dod_pct", DOUBLE_VOLUME_DOD_PCT))
     for i, row in enumerate(rows):
         prev = _prev(rows, i, cal_index)
         d = _date(row.get("trade_date"))
@@ -296,6 +298,14 @@ def compute_flags(
             if reason:
                 rec["scalar_gaps"][label] = reason
         rec.update(_range_structure_flags(rows, i, cal_index, range_windows))
+        rec.update(_index_new_high_flags(rows, i, cal_index, new_high_windows))
+        # 双量日（每日复盘 `market_feature_store/reports/daily_review.py::_market_label` 的既有口径）：成交额环比
+        # > 10% 且量能比 > 120。创始人 09-07 第十一段：「升级 2.0，大概率是进一步放量指数进一步走强」——
+        # 「进一步放量」用这条既有尺子，「进一步走强」用 index_new_high_*d。
+        dod = _num(row.get("amount_vs_yesterday_pct"))
+        rec["double_volume_day"] = (
+            None if dod is None or rec["volume_surge"] is None else bool(dod > double_volume_dod and rec["volume_surge"])
+        )
         out.append(rec)
     return out
 
@@ -698,6 +708,41 @@ def _range_structure_flags(
             continue
         out[not_rising_label] = max(highs_r) <= max(highs_e)
         out[converging_label] = (max(highs_r) - min(lows_r)) < (max(highs_e) - min(lows_e))
+    return out
+
+
+# 创始人 2026-09-07 第十一段：「升级 2.0，大概率是进一步放量指数进一步走强」。「进一步走强」= 收盘创出
+# 前 n 个交易日的新高；n 是 B 类候选值（参数 ``index_new_high_windows``，写出每个窗口；进入谓词用
+# ``upgrade_new_high_window`` 指定的那一个）。平台八段上：2.0 有 58% 的日子是 60 日新高，主流主升只 14%
+# （第一腿从底部起、只到 20 日新高），承接盘反复 16%。
+DEFAULT_NEW_HIGH_WINDOWS = (20, 60)
+DOUBLE_VOLUME_DOD_PCT = 10.0  # 每日复盘 双量日 的环比门槛（daily_review._market_label）
+
+
+def new_high_labels(windows: Iterable[int]) -> list[str]:
+    return [f"index_new_high_{int(n)}d" for n in windows]
+
+
+def _index_new_high_flags(
+    rows: list[Mapping[str, Any]],
+    i: int,
+    cal_index: Mapping[Any, int] | None,
+    windows: Iterable[int],
+) -> dict[str, bool | None]:
+    """Close above the highest close of the previous ``n`` adjacent calendar days; unknown when the window is short."""
+    out: dict[str, bool | None] = {}
+    for n in windows:
+        n = int(n)
+        label = f"index_new_high_{n}d"
+        if i < n or not _contiguous(rows, i - n, i, cal_index):
+            out[label] = None
+            continue
+        close = _num(rows[i].get("sh_index_close"))
+        prior = [_num(rows[j].get("sh_index_close")) for j in range(i - n, i)]
+        if close is None or any(x is None for x in prior):
+            out[label] = None
+            continue
+        out[label] = close > max(prior)
     return out
 
 
