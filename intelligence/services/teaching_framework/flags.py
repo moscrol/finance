@@ -591,6 +591,17 @@ SECTOR_FIELDS = (
     ("auction_zt_pct_median", "auction_zt_pct_median"),
     ("auction_zt_positive_share_pct", "auction_zt_positive_share_pct"),
     ("auction_zt_amount", "auction_zt_amount"),
+    # 消息面（第十六段）：知识库卖方观点事件聚成的市场级叙事读数（``teaching_framework/narrative.py``），只写出。
+    # 没给知识库 → 缺口 narrative_source_absent；源断更 → narrative_stale；都不是 0。
+    ("narrative_events", "narrative_events"),
+    ("narrative_events_ratio_ma20_pct", "narrative_events_ratio_ma20_pct"),
+    ("narrative_concepts", "narrative_concepts"),
+    ("narrative_new_concepts", "narrative_new_concepts"),
+    ("narrative_new_concept_share_pct", "narrative_new_concept_share_pct"),
+    ("narrative_hard_share_pct", "narrative_hard_share_pct"),
+    ("narrative_bull_share_pct", "narrative_bull_share_pct"),
+    ("narrative_top3_share_pct", "narrative_top3_share_pct"),
+    ("narrative_cover_rps5_pct", "narrative_cover_rps5_pct"),
 )
 
 
@@ -602,7 +613,11 @@ def _sector_scalars(row: Mapping[str, Any] | None) -> list[tuple[str, float | No
             out.append((label, None, "sector_rows_absent"))
             continue
         value = _num(row.get(field))
-        out.append((label, None, f"{field}_null") if value is None else (label, round(value, SCALAR_DECIMALS), None))
+        if value is None:
+            reason = row.get("narrative_gap") if field.startswith("narrative_") and row.get("narrative_gap") else f"{field}_null"
+            out.append((label, None, str(reason)))
+        else:
+            out.append((label, round(value, SCALAR_DECIMALS), None))
     return out
 
 

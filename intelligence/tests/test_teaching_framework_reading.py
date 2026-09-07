@@ -36,9 +36,10 @@ def test_teaching_lines_read_the_numbers_and_never_name_a_stock(sidecar: Path) -
     assert lines[2] == "亏钱效应：是（连续第 2 天）｜承接 5 日均值 0.80%"
     assert lines[3] == ("资金面：龙虎榜席位净流入 12.3 亿（占全市场成交 0.71‰，5 日均 0.55‰），买盘/卖盘 1.90（5 日均 1.70）"
                         "｜涨停封单占流通市值中位 96（万/亿），厚封单占比 48%｜昨日涨停股竞价涨幅中位 3.25%，为正 80%｜成交额前 100 占全市场 18.7%")
-    assert lines[4].startswith("王朝链：最近见顶的王朝 W0（2025-12-12 → 2026-01-09），覆灭窗自 2026-01-12 起，至今有标签 1 天、亏钱效应日 1 天；其前 2：申万一级 2 个（电子 1、通信 1）；载体 趋势 1，连板 1")
-    assert "进入这一波的衔接" not in lines[4]  # W0 是第一波：没有进入它的衔接
-    assert lines[5] == "区间涨幅高标：20 日前 2：申万一级 2 个（电子 1、通信 1），连板高标 1 只，在位天数中位 2，入组门槛 40%；60 日前 1：申万一级 1 个（汽车 1），连板高标 0 只，在位天数中位 9，入组门槛 120%"
+    assert lines[4] == "消息面：隔夜卖方事件 61 条（对 20 日均 118%），覆盖概念 34 个，其中首次出现 3 个｜硬证据占比 14%，前三概念集中度 27%｜今日赚钱效应板块里过去 5 天有卖方叙事的占 40%"
+    assert lines[5].startswith("王朝链：最近见顶的王朝 W0（2025-12-12 → 2026-01-09），覆灭窗自 2026-01-12 起，至今有标签 1 天、亏钱效应日 1 天；其前 2：申万一级 2 个（电子 1、通信 1）；载体 趋势 1，连板 1")
+    assert "进入这一波的衔接" not in lines[5]  # W0 是第一波：没有进入它的衔接
+    assert lines[6] == "区间涨幅高标：20 日前 2：申万一级 2 个（电子 1、通信 1），连板高标 1 只，在位天数中位 2，入组门槛 40%；60 日前 1：申万一级 1 个（汽车 1），连板高标 0 只，在位天数中位 9，入组门槛 120%"
     # 不出名单、不出代码：夹具里的名字与代码一个都不许出现；合规门（方向词 / 时点词 / 概率 / 代码）零命中。
     assert not any(name in text for name in STOCK_NAMES) and ".SH" not in text and ".SZ" not in text
     assert gr.lint_output(text) == []
@@ -46,6 +47,7 @@ def test_teaching_lines_read_the_numbers_and_never_name_a_stock(sidecar: Path) -
 
 def test_teaching_lines_describe_the_handoff_once_the_next_wave_has_peaked(sidecar: Path) -> None:
     lines = teaching_lines(_objects(sidecar, "2026-02-06"))
+    assert "消息面：卖方观点事件源断更（超过 7 天没有新报告），今日不出读数" in lines  # 缺口要说清，不是「今天没消息」
     dyn = next(x for x in lines if x.startswith("王朝链"))
     assert "最近见顶的王朝 W1（2026-01-21 → 2026-02-05）" in dyn
     assert "进入这一波的衔接：上一王朝 W0 覆灭窗 2026-01-12 → 2026-01-20，本波前 2 里 1 只相对分离、2 只窗内创新高" in dyn

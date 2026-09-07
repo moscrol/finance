@@ -7,7 +7,7 @@ import hashlib
 import json
 import sys
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -328,6 +328,58 @@ SELECT cal.trade_date, dt_w.dragon_count, dt_w.dragon_net_amount, dt_w.dragon_ne
 FROM cal LEFT JOIN dt_w USING (trade_date) LEFT JOIN seal_day USING (trade_date) LEFT JOIN au USING (trade_date)
 ORDER BY cal.trade_date
 """
+
+
+# 赚钱效应板块名（5 日涨幅前 10，与 SECTOR_SQL 的 ranked 同口径），给叙事覆盖率用：概念名与板块名精确匹配。
+RPS5_NAMES_SQL = """
+WITH idx AS (SELECT trade_date, ROW_NUMBER() OVER (ORDER BY trade_date) AS i FROM fact_market_daily),
+sw AS (
+    SELECT s.trade_date, s.sector_name, s.sector_ts_code, c.i,
+           SUM(LN(1 + s.pct_chg / 100.0)) OVER (PARTITION BY s.sector_ts_code ORDER BY c.i ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) AS lg5,
+           COUNT(*) OVER (PARTITION BY s.sector_ts_code ORDER BY c.i ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) AS n5,
+           LAG(c.i, 4) OVER (PARTITION BY s.sector_ts_code ORDER BY c.i) AS i_lag4
+    FROM fact_sector_daily s JOIN idx c USING (trade_date) WHERE s.pct_chg IS NOT NULL AND s.pct_chg > -100
+),
+r AS (SELECT trade_date, sector_name, ROW_NUMBER() OVER (PARTITION BY trade_date ORDER BY lg5 DESC, sector_ts_code) AS rn FROM sw WHERE n5 = 5 AND i_lag4 = i - 4)
+SELECT trade_date, sector_name FROM r WHERE rn <= 10 ORDER BY trade_date, rn
+"""
+
+
+def _load_rps5_names(source: duckdb.DuckDBPyConnection) -> dict[Any, list[str]]:
+    out: dict[Any, list[str]] = {}
+    for row in _rows(source, RPS5_NAMES_SQL):
+        out.setdefault(row["trade_date"], []).append(str(row["sector_name"]))
+    return out
+
+
+def _merge_narrative(sector_rows: list[dict[str, Any]], kb_wiki: str | None, dates: list[str], rps5_names: Mapping[Any, list[str]]) -> dict[str, Any]:
+    """把知识库卖方事件的市场级叙事读数并进板块侧行；没给知识库 / 源断更 都写成缺口原因，不写 0。"""
+    from intelligence.services.teaching_framework.narrative import NARRATIVE_FIELDS, load_opinion_events, narrative_daily
+
+    if not kb_wiki:
+        for row in sector_rows:
+            row["narrative_gap"] = "narrative_source_absent"
+        return {"status": "absent", "detail": "未给 --kb-wiki，叙事读数全部记缺口"}
+    events = load_opinion_events(kb_wiki)
+    if not events:
+        for row in sector_rows:
+            row["narrative_gap"] = "narrative_source_missing"
+        return {"status": "missing", "detail": f"{kb_wiki} 下没有 opinion-events.jsonl 或为空"}
+    daily = narrative_daily(events, dates, rps5_names={str(k)[:10]: v for k, v in rps5_names.items()})
+    stale = 0
+    for row in sector_rows:
+        rec = daily.get(date.fromisoformat(str(row["trade_date"])[:10]))
+        if rec is None:
+            row["narrative_gap"] = "narrative_rows_absent"
+            continue
+        if rec.get("gap"):
+            row["narrative_gap"] = rec["gap"]
+            stale += 1
+            continue
+        for field in NARRATIVE_FIELDS:
+            row[field] = rec.get(field)
+    report_dates = sorted({str(e.get("report_date"))[:10] for e in events if e.get("report_date")})
+    return {"status": "ok", "events": len(events), "report_dates": [report_dates[0], report_dates[-1]], "stale_days": stale}
 
 
 def _load_sector_breadth(source: duckdb.DuckDBPyConnection, params: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -685,9 +737,11 @@ def cmd_build_labels(args: argparse.Namespace) -> int:
         amounts = _rows(source, "SELECT trade_date, stock_ts_code, amount FROM fact_stock_daily ORDER BY trade_date, stock_ts_code")
         breadth = _load_breadth(source)
         sector_breadth = _load_sector_breadth(source, params)
+        rps5_names = _load_rps5_names(source) if getattr(args, "kb_wiki", None) else {}
         source_counts = _source_counts(source)
     finally:
         source.close()
+    narrative_note = _merge_narrative(sector_breadth, getattr(args, "kb_wiki", None), dates, rps5_names)
     records = build_index_stage(
         market, calendar=dates, vendor_rows=vendor, stock_rows=stocks,
         amount_rows=amounts, breadth_rows=breadth, sector_rows=sector_breadth, params=params, supplier_normalizer=normalize_stage,
@@ -702,6 +756,7 @@ def cmd_build_labels(args: argparse.Namespace) -> int:
         for label, reason in sorted(record.get("scalar_gaps", {}).items()):
             gap_rows.append((day, f"tf.{label}", None, fw, "gap", reason))
     readouts = label_readouts(records, params, reference=_read_reference(labels_path) or None)
+    readouts["narrative_source"] = narrative_note
     side = _open_sidecar_for_write(labels_path)
     try:
         side.execute("DELETE FROM history_teaching_labels WHERE entity_type = 'market'")
@@ -1309,6 +1364,8 @@ def parser() -> argparse.ArgumentParser:
         p.add_argument("--labels-db", default=None)
         p.add_argument("--params", default=None)
         p.add_argument("--computed-at", default=None)
+        if name == "build-labels":
+            p.add_argument("--kb-wiki", default=None, help="知识库 wiki 目录（消息面：卖方观点事件 → tf.narrative_* 市场级读数）；不给则这些读数记缺口 narrative_source_absent")
         p.set_defaults(func=func)
     p = sub.add_parser("report")
     p.add_argument("--labels-db", default=None)

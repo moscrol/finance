@@ -343,3 +343,19 @@ teaching 90 + methodology 67 passed；ruff 通过；layer_audit ERROR 0 == 基�
          昨日涨停股竞价涨幅中位 3.00%，为正 100%｜成交额前 100 占全市场 25.7%      lint 零命中（「净买入」会撞动作词，改「净流入」）
 pytest teaching 90 + reading 6 + river_objects 4(+1 真库) + guided 32 + methodology 67；ruff 通过；layer_audit ERROR 0 == 基线
 ```
+
+## 22. 消息面视角（用户第十六段）
+
+```text
+先量（/tmp/tf17_measure_narrative.py）：卖方观点事件 9,733 条，报告日 2026-02-08 → 07-05（121 天、日中位 61 条），07-05 起断更；
+  ingested_at 同日只 4.6%；stance 中性 77% / 看多 23%；hardness 硬证据 14%；Tier 1 恒为 0（盘面共振在晨汇正文里）
+  板块名与概念名精确重合 83 个；叙事覆盖率（5 日涨幅前 10 板块里过去 5 天有卖方叙事）验证期 底 10% vs 顶 20%（2.0 45%）
+再建：narrative.py（隔夜窗口）→ build-labels --kb-wiki → tf.narrative_* 九个市场级视角；缺口三类（before_source 268 天 / stale 35 天 / 不给知识库 absent）
+  带知识库两次构建（00:30 / 01:30Z）labels 哈希一致 d5b39dda4ac11539…，行 39396 → 43014；一致率不变 46.57 / 50.48 / 40.00
+  按八段中位（n 6–21）：事件数对 20 日均 2.0 265% · 缩量右底 38%；新概念占比 二次探底 14.2 / 共建 13.9 vs 主升 4.3；硬证据占比 2.0 23.6；
+                        叙事覆盖率 左底向上 50 / 2.0 40 / 承接 40 vs 主升 10 / 底部三段 10
+读取面：teaching_narrative 对象；带读一行（真库 2026-05-06）：
+  消息面：隔夜卖方事件 261 条（对 20 日均 402%），覆盖概念 101 个，其中首次出现 16 个｜硬证据占比 22%，前三概念集中度 18%｜今日赚钱效应板块里过去 5 天有卖方叙事的占 20%
+  2026-09-02：消息面：卖方观点事件源断更（超过 7 天没有新报告），今日不出读数      lint 零命中
+pytest teaching + reading + river_objects + narrative + guided：135 passed（+1 真库 skip）；methodology 67；ruff 通过；layer_audit ERROR 0 == 基线
+```

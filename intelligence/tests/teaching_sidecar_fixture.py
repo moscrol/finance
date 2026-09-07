@@ -40,6 +40,11 @@ def build_sidecar(path: Path) -> Path:
         _label("2026-01-12", "tf.dragon_buy_sell_ratio_ma5", num=1.7), _label("2026-01-12", "tf.limit_seal_mv_ratio_median", num=96.4),
         _label("2026-01-12", "tf.limit_thick_seal_share_pct", num=48.0), _label("2026-01-12", "tf.auction_zt_pct_median", num=3.25),
         _label("2026-01-12", "tf.auction_zt_positive_share_pct", num=80.0), _label("2026-01-12", "tf.top100_amount_share", num=0.187),
+        # 消息面（第十六段）：隔夜卖方事件的市场级读数。
+        _label("2026-01-12", "tf.narrative_events", num=61.0), _label("2026-01-12", "tf.narrative_events_ratio_ma20_pct", num=118.0),
+        _label("2026-01-12", "tf.narrative_concepts", num=34.0), _label("2026-01-12", "tf.narrative_new_concepts", num=3.0),
+        _label("2026-01-12", "tf.narrative_hard_share_pct", num=14.0), _label("2026-01-12", "tf.narrative_top3_share_pct", num=27.0),
+        _label("2026-01-12", "tf.narrative_cover_rps5_pct", num=40.0),
         _label("2026-01-13", "tf.money_losing_day", num=0), _label("2026-01-14", "tf.money_losing_day", num=1),
         _label("2026-02-06", "tf.money_losing_day", num=1),
     ]
@@ -49,6 +54,10 @@ def build_sidecar(path: Path) -> Path:
         if day != "2026-01-12":  # 01-12 的这两条已经在上面
             rows += [_label(day, "tf.above_week_ma", num=1 if i < 5 else 0), _label(day, "tf.stage_coarse", text="高位震荡" if i < 5 else "左底向下")]
     con.executemany("INSERT INTO history_teaching_labels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", rows)
+    # 02-06 没有叙事读数：源断更的缺口行（河对象把原因挂到阶段对象上，带读要说清）。
+    con.execute("INSERT INTO history_teaching_gaps (trade_date, gap_kind, missing_cols, framework_version, status, status_reason, computed_at) VALUES (?, 'tf.narrative_events', NULL, ?, 'gap', 'narrative_stale', ?)",
+                [date(2026, 2, 6), FW, BUILT_AT])
+    con.executemany("INSERT INTO history_teaching_labels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [_label("2026-02-06", "tf.stage_coarse", text="左底向下")])
     con.executemany(
         """INSERT INTO history_dynasties (wave_idx, rank, wave_start, peak_end, collapse_start, collapse_end, wave_status, stock_ts_code,
            stock_name, wave_gain_pct, sw_l1, max_boards, form, collapse_ret_pct, collapse_max_dd_pct, framework_version, computed_at)

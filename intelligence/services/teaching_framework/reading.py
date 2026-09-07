@@ -117,6 +117,38 @@ def teaching_lines(objects: list[dict[str, Any]]) -> list[str]:
             parts.append(f"成交额前 100 占全市场 {_fmt(100 * float(cap['top100_amount_share']), 1)}%")
         if parts:
             lines.append("资金面：" + "｜".join(parts))
+    nar = by_type.get("teaching_narrative")
+    if not nar and stage and stage.get("narrative_gap"):
+        reason = {
+            "narrative_source_absent": "未接知识库（每日复盘没传 --kb-wiki）",
+            "narrative_source_missing": "知识库里没有卖方观点事件文件",
+            "narrative_stale": "卖方观点事件源断更（超过 7 天没有新报告），今日不出读数",
+            "narrative_before_source": "早于卖方观点事件源的起点",
+            "narrative_rows_absent": "当日无叙事行",
+        }.get(str(stage["narrative_gap"]), str(stage["narrative_gap"]))
+        lines.append(f"消息面：{reason}")
+    if nar:
+        parts = []
+        if nar.get("narrative_events") is not None:
+            seg = f"隔夜卖方事件 {int(nar['narrative_events'])} 条"
+            if nar.get("narrative_events_ratio_ma20_pct") is not None:
+                seg += f"（对 20 日均 {_fmt(nar.get('narrative_events_ratio_ma20_pct'), 0)}%）"
+            if nar.get("narrative_concepts") is not None:
+                seg += f"，覆盖概念 {int(nar['narrative_concepts'])} 个"
+            if nar.get("narrative_new_concepts") is not None:
+                seg += f"，其中首次出现 {int(nar['narrative_new_concepts'])} 个"
+            parts.append(seg)
+        detail = []
+        if nar.get("narrative_hard_share_pct") is not None:
+            detail.append(f"硬证据占比 {_fmt(nar.get('narrative_hard_share_pct'), 0)}%")
+        if nar.get("narrative_top3_share_pct") is not None:
+            detail.append(f"前三概念集中度 {_fmt(nar.get('narrative_top3_share_pct'), 0)}%")
+        if detail:
+            parts.append("，".join(detail))
+        if nar.get("narrative_cover_rps5_pct") is not None:
+            parts.append(f"今日赚钱效应板块里过去 5 天有卖方叙事的占 {_fmt(nar.get('narrative_cover_rps5_pct'), 0)}%")
+        if parts:
+            lines.append("消息面：" + "｜".join(parts))
     dyn = by_type.get("teaching_dynasty")
     if dyn:
         top = dyn.get("dynasty_top") or []

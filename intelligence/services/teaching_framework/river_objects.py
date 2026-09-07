@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from intelligence.services.methodology_backtest.store import open_labels_db
 from intelligence.services.river import RiverObject, _hash, _ts
@@ -40,6 +40,12 @@ CAPITAL_LABELS = (
     "tf.limit_thick_seal_share_pct", "tf.auction_zt_pct_median", "tf.auction_zt_positive_share_pct", "tf.auction_zt_amount",
     "tf.top100_amount_share", "tf.mainline_share_expanding.volume_top3",
 )
+# 消息面（第十六段）：知识库卖方观点事件聚成的市场级叙事读数（隔夜可知的那部分），只搬不解释。
+NARRATIVE_LABELS = tuple(f"tf.{name}" for name in (
+    "narrative_events", "narrative_events_ratio_ma20_pct", "narrative_concepts", "narrative_new_concepts",
+    "narrative_new_concept_share_pct", "narrative_hard_share_pct", "narrative_bull_share_pct", "narrative_top3_share_pct",
+    "narrative_cover_rps5_pct",
+))
 
 
 def _date(value: Any) -> date | None:
@@ -69,12 +75,17 @@ def teaching_objects(labels_db: str | Path, as_of: str, *, top: int = 10) -> lis
     con = open_labels_db(path, read_only=True)
     try:
         out: list[RiverObject] = []
-        stage = _stage_object(con, day, as_of)
+        narrative = _labels_object(con, day, as_of, labels=NARRATIVE_LABELS, object_type="teaching_narrative", suffix="narrative")
+        # 没有叙事读数要说清为什么（未接知识库 / 源断更 / 早于源起点），不能让读者以为「今天没消息」；挂在阶段对象上。
+        extra = {} if narrative is not None else {"narrative_gap": _narrative_gap(con, day)}
+        stage = _stage_object(con, day, as_of, extra={k: v for k, v in extra.items() if v})
         if stage is not None:
             out.append(stage)
         capital = _capital_object(con, day, as_of)
         if capital is not None:
             out.append(capital)
+        if narrative is not None:
+            out.append(narrative)
         dynasty = _dynasty_object(con, day, as_of, top=top)
         if dynasty is not None:
             out.append(dynasty)
@@ -86,7 +97,7 @@ def teaching_objects(labels_db: str | Path, as_of: str, *, top: int = 10) -> lis
         con.close()
 
 
-def _stage_object(con: Any, day: date, as_of: str) -> RiverObject | None:
+def _stage_object(con: Any, day: date, as_of: str, extra: Mapping[str, Any] | None = None) -> RiverObject | None:
     if not _has_table(con, "history_teaching_labels"):
         return None
     rows = _rows(
@@ -117,6 +128,7 @@ def _stage_object(con: Any, day: date, as_of: str) -> RiverObject | None:
         versions.add(str(r["framework_version"]))
         computed.append(r["computed_at"])
     payload["framework_version"] = sorted(versions)[0] if len(versions) == 1 else sorted(versions)
+    payload.update(dict(extra or {}))
     hashed = {k: v for k, v in payload.items()}
     return RiverObject(
         track="market", entity_id="__market__", object_type="teaching_stage",
@@ -125,27 +137,41 @@ def _stage_object(con: Any, day: date, as_of: str) -> RiverObject | None:
     )
 
 
-def _capital_object(con: Any, day: date, as_of: str) -> RiverObject | None:
-    """资金面当日读数（龙虎榜 / 封单 / 竞价 / 成交占比），只搬不解释；全 NULL 的日子没有这个对象。"""
+def _labels_object(con: Any, day: date, as_of: str, *, labels: tuple[str, ...], object_type: str, suffix: str) -> RiverObject | None:
+    """一组市场级数值标签 → 一个对象，只搬不解释；全 NULL 的日子没有这个对象。"""
     if not _has_table(con, "history_teaching_labels"):
         return None
     rows = _rows(
         con,
         f"""SELECT label, value_num, framework_version, computed_at FROM history_teaching_labels
             WHERE entity_type = 'market' AND entity_id = 'market' AND status = 'ok' AND trade_date = ?
-              AND label IN ({", ".join("?" for _ in CAPITAL_LABELS)}) AND value_num IS NOT NULL
+              AND label IN ({", ".join("?" for _ in labels)}) AND value_num IS NOT NULL
             ORDER BY label""",
-        [day, *CAPITAL_LABELS],
+        [day, *labels],
     )
     if not rows:
         return None
     payload: dict[str, Any] = {str(r["label"]).removeprefix("tf."): r["value_num"] for r in rows}
     payload["framework_version"] = sorted({str(r["framework_version"]) for r in rows})[0]
     return RiverObject(
-        track="market", entity_id="__market__", object_type="teaching_capital",
-        ref=f"history_teaching_labels:{as_of}:market:capital", source_hash=_hash(payload),
+        track="market", entity_id="__market__", object_type=object_type,
+        ref=f"history_teaching_labels:{as_of}:market:{suffix}", source_hash=_hash(payload),
         valid_from=as_of, recorded_at=_ts(max(r["computed_at"] for r in rows)), payload=payload,
     )
+
+
+def _narrative_gap(con: Any, day: date) -> str | None:
+    if not _has_table(con, "history_teaching_gaps"):
+        return None
+    row = con.execute(
+        "SELECT status_reason FROM history_teaching_gaps WHERE trade_date = ? AND gap_kind = 'tf.narrative_events' LIMIT 1", [day]
+    ).fetchone()
+    return None if row is None or row[0] is None else str(row[0])
+
+
+def _capital_object(con: Any, day: date, as_of: str) -> RiverObject | None:
+    """资金面当日读数（龙虎榜 / 封单 / 竞价 / 成交占比）。"""
+    return _labels_object(con, day, as_of, labels=CAPITAL_LABELS, object_type="teaching_capital", suffix="capital")
 
 
 def _dynasty_object(con: Any, day: date, as_of: str, *, top: int) -> RiverObject | None:
