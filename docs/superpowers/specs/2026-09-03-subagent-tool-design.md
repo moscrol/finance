@@ -122,7 +122,8 @@ prompt 重构的 [推断] **撤回**。读数 `docs/verification/2026-09-03-plan
 1. 注册表守门：`sub_research` 在 `_TOOL_CONTRACTS` 有条目（§3 三条），缺则装配抛（沿用父稿第 8 条的有牙测试）。
 2. 深度 = 1：分支拿到的 `authorized_specs` 不含 `sub_research`；分支里点它 → `tool_hunger` 记 `capability_denied`（有牙：去掉过滤 → 红）。
 3. 证据绑定：父臂结论句绑到分支证据 hash 才过 `admit_finish`；构造一条只绑 `SUB_RESEARCH_RESULTS` 文本的结论 → 驳回（有牙）。
-4. 预算：三支总耗 ≤ 3 × 60s，父 `remaining_seconds` 单调减且不越 reserve；`_BranchBudgetView.grant()` 仍返回 False。
+4. 预算：**秒是墙钟**——并行分支共享同一段窗（deep 60s / max 150s），父账本的秒由父臂对 `sub_research` 那一批做批结算时记**一次**，分支只向父账本扣**次数**；起分支前父臂先留尾段（一批次数 `batch_call_cap` + 一次合成的秒 `synthesis_reserve` + 保险丝 8 次），留不下就拒（`parent_reserve_exhausted:calls|seconds` / `llm_call_reserve_exhausted`），拒绝带准入账；`_BranchBudgetView.grant()` 仍返回 False。
+   （2026-09-07 改口径。原文「三支总耗 ≤ 3 × 60s，父 `remaining_seconds` 单调减」是把并行秒累加记到父账本：#615 把每支抬到 150s 后三支跑满记 450s、批结算再记 180s，540s 账本在墙钟 190s 归零，父臂墙钟还剩 396s 却 `deadline_exhausted`、判官 unavailable。读数与三个候选形状见 `docs/verification/2026-09-07-branch-level-trace.md` §4.2 / §5，用户拍 C。）
 5. 菜单：standard 档 `tool_menu.hidden` 含 `sub_research`，`min_window_seconds` 记 60；deep 档首轮 visible。
 6. 排空：Episode 关闭后无分支线程存活（复用 `test_sub_research.py` 的 `is_alive()` 断言，改成钉协调器返回后）。
 7. live：deep 档一题两臂，Episode 臂 `sub_research` 被点、分支证据进 `bindings`；参考臂按 §5 预期为菜单不含该工具。n=1 只断言结构。

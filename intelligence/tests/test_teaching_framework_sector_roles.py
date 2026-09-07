@@ -1,0 +1,97 @@
+from __future__ import annotations
+
+from intelligence.services.teaching_framework.sector_roles import (
+    MONEY_EFFECT_DEFINITIONS,
+    SECTOR_LABELS,
+    build_sector_roles,
+    money_effect_rule_rows,
+)
+
+DAYS = ["2026-01-05", "2026-01-06", "2026-01-07", "2026-01-08", "2026-01-09", "2026-01-12"]
+
+
+def _sector(day: str, code: str, sw_l1: str | None, pct: float, amount: float = 300.0, diff: float = 5.0) -> dict:
+    return {"trade_date": day, "sector_ts_code": code, "sector_name": code, "sw_l1": sw_l1, "pct_chg": pct, "amount": amount, "diff_ratio": diff}
+
+
+def _heat(day: str, code: str, count: int, fd: float = 1000.0) -> dict:
+    return {"trade_date": day, "sector_ts_code": code, "limit_up_count": count, "fd_amount": fd}
+
+
+def _market(day: str, *top3: str | None) -> dict:
+    return {"trade_date": day, "industry_1": top3[0], "industry_2": top3[1], "industry_3": top3[2]}
+
+
+def test_rps_ranks_need_contiguous_complete_windows():
+    # Three sectors; C is missing on 01-07, so its 3-day rank is NULL on 01-07..01-09 and back on 01-12.
+    rows = []
+    for i, d in enumerate(DAYS):
+        rows.append(_sector(d, "A", "电子", 2.0))
+        rows.append(_sector(d, "B", "通信", 1.0))
+        if d != "2026-01-07":
+            rows.append(_sector(d, "C", None, 3.0))
+    out = build_sector_roles(rows, [], [_market(d, "电子", "机械设备", "电力设备") for d in DAYS], calendar=DAYS)
+    by = {(str(r["trade_date"]), r["sector_ts_code"]): r for r in out["sectors"]}
+    assert by[("2026-01-05", "A")]["rps_3d_rank"] is None  # first day: no 3-day window yet
+    assert (by[("2026-01-07", "A")]["rps_3d_rank"], by[("2026-01-07", "B")]["rps_3d_rank"]) == (1, 2)  # C absent → ranked among A, B
+    assert by[("2026-01-09", "C")]["rps_3d_rank"] is None  # window 01-07..01-09 has a hole for C
+    assert by[("2026-01-12", "C")]["rps_3d_rank"] == 1  # 01-08..01-12 complete again: C's 3% a day is strongest
+    assert by[("2026-01-12", "A")]["rps_5d_rank"] == 1 and by[("2026-01-12", "C")]["rps_5d_rank"] is None
+    # sw_l1 unknown → 量板块 role unknown, hence 价板块 unknown too.
+    assert by[("2026-01-12", "C")]["role_volume_top3"] is None and by[("2026-01-12", "C")]["role_price_top10"] is None
+    assert by[("2026-01-12", "A")]["role_volume_top3"] is True and by[("2026-01-12", "A")]["role_price_top10"] is False
+    assert by[("2026-01-12", "B")]["role_volume_top3"] is False and by[("2026-01-12", "B")]["role_price_top10"] is True
+
+
+def test_limit_ranks_dual_red_and_money_effect_sets():
+    day = DAYS[0]
+    rows = [
+        _sector(day, "A", "电子", 1.0, amount=800.0, diff=12.0),   # 双红
+        _sector(day, "B", "通信", 0.5, amount=800.0, diff=12.0),   # 双红
+        _sector(day, "C", "医药生物", -0.2, amount=900.0, diff=15.0),  # not 双红: pct ≤ 0
+        _sector(day, "D", None, 2.0, amount=100.0, diff=1.0),
+    ]
+    heat = [_heat(day, "A", 5, 900.0), _heat(day, "B", 5, 1200.0), _heat(day, "C", 2)]
+    out = build_sector_roles(rows, heat, [_market(day, "电子", "机械设备", "电力设备")], calendar=[day])
+    by = {r["sector_ts_code"]: r for r in out["sectors"]}
+    assert (by["B"]["sharpness_limit_rank"], by["A"]["sharpness_limit_rank"], by["C"]["sharpness_limit_rank"]) == (1, 2, 3)  # tie on 5 broken by 封单
+    assert by["D"]["sharpness_limit_rank"] is None and by["D"]["limit_up_count"] == 0  # absent from the heat table = no limit-ups that day
+    assert [by[c]["dual_red_strict"] for c in "ABCD"] == [True, True, False, False]
+    assert by["A"]["money_effect.limit_top10"] is True and by["D"]["money_effect.limit_top10"] is False
+    assert by["A"]["money_effect.dual_red"] is True and by["C"]["money_effect.dual_red"] is False
+    assert all(by[c]["money_effect.rps5_top10"] is None for c in "ABCD")  # single day: no 5-day window
+    assert all(by[c]["money_effect.rank_mean_top10"] is None for c in "ABCD")  # needs all three ranks
+    summary = out["days"][0]
+    assert summary["status"] == "ok" and summary["top3_l1"] == ["机械设备", "电力设备", "电子"]
+    # limit_top10 set = {A, B, C}; sw_l1 known for all three; outside the top three: B (通信), C (医药生物) → 2/3.
+    assert summary["limit_top10.size"] == 3 and summary["limit_top10.known_l1"] == 3
+    assert abs(summary["limit_top10.outside_top3_share"] - 2 / 3) < 1e-9
+    assert summary["dual_red.size"] == 2 and abs(summary["dual_red.outside_top3_share"] - 0.5) < 1e-9
+    assert set(SECTOR_LABELS) >= {f"money_effect.{d}" for d in MONEY_EFFECT_DEFINITIONS}
+
+
+def test_days_without_sector_rows_or_heat_are_reported_not_zeroed():
+    rows = [_sector(DAYS[0], "A", "电子", 1.0)]
+    out = build_sector_roles(rows, [], [_market(DAYS[0], None, None, None), _market(DAYS[1], "电子", "通信", "银行")], calendar=DAYS[:2])
+    first, second = out["days"]
+    assert first["status"] == "ok" and first["top3_l1"] is None and first["heat_covered"] is False
+    assert first["limit_top10.outside_top3_share"] is None  # no top-three that day → nothing to compare against
+    assert second["status"] == "sector_rows_absent"
+    rec = out["sectors"][0]
+    assert rec["limit_up_count"] is None and rec["sharpness_limit_rank"] is None  # heat table did not cover the day
+    assert rec["role_volume_top3"] is None  # top-three unknown
+
+
+def test_money_effect_rule_rows_split_by_ma_side_and_exclude_unknowns():
+    days = [
+        {"trade_date": "2026-01-05", "status": "ok", "limit_top10.outside_top3_share": 0.8},
+        {"trade_date": "2026-01-06", "status": "ok", "limit_top10.outside_top3_share": 0.2},
+        {"trade_date": "2026-01-07", "status": "ok", "limit_top10.outside_top3_share": 0.9},
+        {"trade_date": "2026-01-08", "status": "ok", "limit_top10.outside_top3_share": None},
+        {"trade_date": "2026-01-09", "status": "sector_rows_absent"},
+        {"trade_date": "2026-01-12", "status": "ok", "limit_top10.outside_top3_share": 0.6},
+    ]
+    context = {"2026-01-05": {"above_week_ma": 0}, "2026-01-06": {"above_week_ma": 0}, "2026-01-07": {"above_week_ma": 1}, "2026-01-08": {"above_week_ma": 0}}
+    parts = money_effect_rule_rows(days, context, definition="limit_top10")
+    assert parts["below_ma"] == [True, False] and parts["above_ma"] == [True]
+    assert parts["excluded"] == {"no_ma_side": 1, "no_top3_or_empty_set": 1}

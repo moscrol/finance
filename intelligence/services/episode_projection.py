@@ -79,15 +79,40 @@ def _redact_model_visible_text(event_dict: dict[str, object]) -> dict[str, objec
     payload = event_dict.get("payload")
     if not isinstance(payload, dict):
         return event_dict
-    fields = [name for k, name in MODEL_VISIBLE_TEXT_FIELDS if k == kind and name in payload]
-    if not fields:
+    redacted: dict[str, object] | None = None
+    for field_kind, name in MODEL_VISIBLE_TEXT_FIELDS:
+        if field_kind != kind:
+            continue
+        if "[]." in name:
+            # ``list[].field``：列表里每一项的正文（history_compacted.folded[].model_content）。
+            list_name, inner = name.split("[].", 1)
+            items = payload.get(list_name)
+            if not isinstance(items, list) or not any(
+                isinstance(item, dict) and inner in item for item in items
+            ):
+                continue
+            redacted = dict(payload) if redacted is None else redacted
+            redacted[list_name] = [
+                _redact_text_field(item, inner) if isinstance(item, dict) and inner in item else item
+                for item in items
+            ]
+            continue
+        if name not in payload:
+            continue
+        redacted = _redact_text_field(dict(payload) if redacted is None else redacted, name)
+    if redacted is None:
         return event_dict
-    redacted = dict(payload)
-    for name in fields:
-        text = str(redacted.pop(name))
-        redacted.setdefault(f"{name}_sha256", sha256_text(text))
-        redacted.setdefault(f"{name}_chars", len(text))
     return {**event_dict, "payload": redacted}
+
+
+def _redact_text_field(mapping: dict[str, object], name: str) -> dict[str, object]:
+    """把 ``mapping[name]`` 的正文换成 ``<name>_sha256`` + ``<name>_chars``，返回新 dict。"""
+
+    result = dict(mapping)
+    text = str(result.pop(name))
+    result.setdefault(f"{name}_sha256", sha256_text(text))
+    result.setdefault(f"{name}_chars", len(text))
+    return result
 
 
 def _branch_id_of(event: EpisodeEvent) -> str:

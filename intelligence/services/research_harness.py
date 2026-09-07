@@ -152,7 +152,11 @@ from intelligence.services.research_tool_registry import (
 )
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.tool_observation_noise import prune_tool_observation
-from intelligence.services.tool_result_budget import budget_tool_observation
+from intelligence.services.tool_result_budget import (
+    budget_tool_observation,
+    lean_observation_enabled,
+    lean_tool_observation,
+)
 
 __all__ = [
     "BranchOutcome",
@@ -747,10 +751,11 @@ class FinanceResearchHarness:
         model_view = dict(audit)
         model_view.pop("telemetry", None)
         pruned, seen = prune_tool_observation(model_view, seen_prose=seen_prose)
-        content = json.dumps(
-            strip_hashes_for_model(budget_tool_observation(pruned)),
-            ensure_ascii=False,
-        )
+        budgeted = budget_tool_observation(pruned)
+        if lean_observation_enabled():
+            # 空值与 independent_key 不进模型上下文（−21%）；开关缺省关，关时逐字节同前。
+            budgeted = lean_tool_observation(budgeted)
+        content = json.dumps(strip_hashes_for_model(budgeted), ensure_ascii=False)
         return ToolResultProjection(
             audit_payload=audit,
             model_content=content,

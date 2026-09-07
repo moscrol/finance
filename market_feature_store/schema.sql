@@ -299,6 +299,11 @@ CREATE TABLE IF NOT EXISTS fact_stock_daily (
     turnover       DOUBLE,
     source         TEXT,
     updated_at     TIMESTAMP,
+    -- 2026-09-07: 日内价量 (新高/振幅派生需要日内最高价); 老库由 sync_mootdx_stock_daily.ensure_stock_daily_columns 追加
+    open           DOUBLE,
+    high           DOUBLE,
+    low            DOUBLE,
+    volume         DOUBLE,   -- 手 (东财 f5 / mootdx vol 同单位)
     PRIMARY KEY (trade_date, stock_ts_code)
 );
 CREATE INDEX IF NOT EXISTS idx_fact_stock_daily_date ON fact_stock_daily(trade_date);

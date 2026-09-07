@@ -10,7 +10,7 @@ import time
 from dataclasses import dataclass, field
 from hashlib import sha256
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Mapping
 
 from intelligence.services.answer_orchestrator import (
     QUESTION_FACT_CHECK,
@@ -291,6 +291,7 @@ def _run_source(
         items = _parse_lookup_output(source_type, cached_stdout)
         if not items:
             bundle.warnings.append(f"{source_type} 缓存命中但没有解析到可用证据。")
+            _warn_if_company_unresolved(cached_stdout, "", bundle)
         bundle.items.extend(items[: cfg.limit])
         return
     try:
@@ -318,7 +319,31 @@ def _run_source(
     items = _parse_lookup_output(source_type, completed.stdout)
     if not items:
         bundle.warnings.append(f"{source_type} 查询成功但没有解析到可用证据。")
+        _warn_if_company_unresolved(completed.stdout, completed.stderr, bundle)
     bundle.items.extend(items[: cfg.limit])
+
+
+_UNRESOLVED_COMPANY_MARKER = "无法解析公司"
+UNRESOLVED_COMPANY_WARNING = (
+    "未识别出公司：l3_lookup 只按**公司名或 6 位代码**查公告 / 互动易，题材名、产品名不是公司。"
+    "请把 query 改成具体公司（如「盛弘股份」「300693」），一次一家；"
+    "题材层面的产业进展请用 news_search / web_search。"
+)
+
+
+def _warn_if_company_unresolved(stdout: str, stderr: str, bundle: L3EvidenceBundle) -> None:
+    """把 CLI 的「无法解析公司」翻成模型能改的指令。
+
+    2026-09-07 同题五遍 live：父臂 8 次 l3_lookup 全空，其中一半 query 是题材名
+    （「固态电池 量产 产线 公告」）——``_extract_stock_hint`` 抓到「固态电池」当公司名送下去，
+    CLI 回 ``[warn] 无法解析公司`` + ``[]``，这里只剩一句「查询成功但没有解析到可用证据」，
+    模型分不出「这家公司近 90 天没有 P0/P1 公告」和「你给的根本不是公司」，下一轮照样
+    用题材名再点一次。拒绝理由要能让模型改写（ToolCallResult.detail 同一条纪律）。
+    """
+
+    text = f"{stdout or ''}\n{stderr or ''}"
+    if _UNRESOLVED_COMPANY_MARKER in text and UNRESOLVED_COMPANY_WARNING not in bundle.warnings:
+        bundle.warnings.append(UNRESOLVED_COMPANY_WARNING)
 
 
 def _render_command(
@@ -425,6 +450,13 @@ def _try_parse_json_items(source_type: str, text: str) -> list[L3EvidenceItem]:
         body = str(row.get("summary") or row.get("content") or row.get("answer") or row.get("text") or "")
         if not body:
             continue
+        reply = _interactive_reply(row)
+        if reply:
+            # 互动易行的 summary 只是投资者的提问；公司的答复在 raw_excerpt 的「||答复：」之后——
+            # 那才是一手口径（常是否认 / 反证，is_reverse=True）。只给提问等于把反证扔掉。
+            body = f"{_squash(body, 90)} ‖ 答复：{reply}"
+        if row.get("is_reverse") is True:
+            title = f"[反向口径] {title}"
         date = row.get("date") or row.get("publish_date") or row.get("source_date") or ""
         url = row.get("url") or row.get("source") or row.get("id") or "runtime cli"
         prefix = f"{date} " if date else ""
@@ -438,6 +470,22 @@ def _try_parse_json_items(source_type: str, text: str) -> list[L3EvidenceItem]:
             )
         )
     return out
+
+
+_REPLY_MARKERS = ("||答复：", "||答复:", "答复：", "答复:")
+
+
+def _interactive_reply(row: Mapping[str, Any]) -> str:
+    """从互动易 / e 互动行里取公司答复正文；没有答复标记就返回空串。"""
+
+    for key in ("raw_excerpt", "answer", "reply", "回答内容"):
+        text = str(row.get(key) or "")
+        for marker in _REPLY_MARKERS:
+            if marker in text:
+                reply = text.split(marker, 1)[1].strip()
+                if reply:
+                    return _squash(reply, 160)
+    return ""
 
 
 def _decode_json_payload(text: str) -> Any | None:
