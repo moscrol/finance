@@ -53,6 +53,15 @@ def test_state_round_trips_through_dict_and_freezes_mappings() -> None:
         state.retry["remaining"] = 0  # type: ignore[index]
 
 
+def test_state_accepts_nested_frozen_payloads_as_snapshot() -> None:
+    """contract_snapshot 常直接来自冻结的 configure 事件 payload（mappingproxy / tuple 嵌套）。"""
+
+    configure = EpisodeEvent(1, "configure", {"tool_replay": {"a": "safe"}, "providers": [{"name": "x"}]})
+    state = EpisodeState(episode_id="ep", phase="planning", contract_snapshot=configure.payload)
+    assert state.contract_snapshot["tool_replay"] == {"a": "safe"}
+    assert json.loads(json.dumps(state.to_dict()))["contract_snapshot"]["providers"] == [{"name": "x"}]
+
+
 def test_state_rejects_unknown_phase_and_missing_id() -> None:
     with pytest.raises(ValueError):
         EpisodeState(episode_id="ep", phase="sleeping")  # type: ignore[arg-type]

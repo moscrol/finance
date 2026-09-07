@@ -37,7 +37,7 @@ import threading
 from types import MappingProxyType
 from typing import Literal, Protocol
 
-from intelligence.services.agent_runtime import EpisodeEvent
+from intelligence.services.agent_runtime import EpisodeEvent, _json_copy
 from intelligence.services.episode_event_lanes import DURABLE_EVENT_KINDS
 
 __all__ = [
@@ -94,8 +94,11 @@ def _frozen_mapping(value: Mapping[str, object] | None, *, path: str) -> Mapping
         return MappingProxyType({})
     if not isinstance(value, Mapping):
         raise ValueError(f"{path} 必须是对象")
-    # JSON 往返一次：既校验可序列化，也切断与调用方活对象的引用。
-    return MappingProxyType(json.loads(json.dumps(dict(value), ensure_ascii=False)))
+    # 递归复制成普通 dict / list（嵌套的冻结 payload——mappingproxy / tuple——也吃得下），
+    # 既校验 JSON 安全，也切断与调用方活对象的引用。
+    copied = _json_copy(value, path=path)
+    assert isinstance(copied, dict)
+    return MappingProxyType(copied)
 
 
 @dataclass(frozen=True)

@@ -79,6 +79,7 @@ from intelligence.services.episode_messages import (
     tool_message,
     user_message,
 )
+from intelligence.services.episode_restore import RestoreResult, restore_episode
 from intelligence.services.episode_scope import EpisodeScope
 from intelligence.services.episode_store import (
     EPISODE_LOG_VERSION,
@@ -860,6 +861,25 @@ class ContinuousAgentEpisode:
         self._is_cancelled: Callable[[], bool] = self._cancel
         self._sub_research_coordinator = sub_research_coordinator
         self._event_sink = event_sink
+
+    @staticmethod
+    def restore(
+        episode_id: str,
+        store: EpisodeStore,
+        *,
+        registry: ResearchToolRegistry | None = None,
+        harness: ResearchHarness | None = None,
+        now: datetime | None = None,
+    ) -> RestoreResult:
+        """崩溃后恢复（INV-R3）：读 ``EpisodeState``、按预留 id 点查结算、给下一动作或直接闭合。
+
+        策略与合成全在 ``services.episode_restore``——它不需要模型、不需要 loop，能对着产物
+        事后重跑。本单只给 ``ResumePlan``，不重新驱动 loop（P4 ``step()``）。
+        """
+
+        return restore_episode(
+            episode_id, store, registry=registry, harness=harness, now=now
+        )
 
     def run(
         self,
