@@ -35,6 +35,27 @@
 ⑤ **东财快照 `sync-stock-daily-snapshot` 只在交易日当天盘后有效**：盘中写实时价、非交易日把上一交易日写到所传日期。qa 脚本对「`source='eastmoney:snapshot'` 且 `updated_at` 日期 ≠ `trade_date`」直接 FAIL。
 ⑥ **fupanhui 限流是突发触发**：`sync-sector-daily` 一步 403 请求/29 秒必炸；二次突发后 `retry-after=251318s`。模块化 + `sector-daily-local` + 成分 1 req/s 能活；429 期间不跑 `reconcile-sector-daily` / `verify_backfill.py` 的回源抽样。
 
+## 自算口径（双轨实测，2026-08-14～09-02 十四个干净日）
+
+`qa_local_vs_fupanhui.py` 用的规则，也是各族切到本地源时的实现口径：
+
+| 字段 | 规则 | 实测 |
+|---|---|---|
+| 涨家数 | `COUNT(pct_chg > 0)` 全A | 13/14 日 \|Δ\|≤2 |
+| 成交额 | 全A **不含北交所** 的 `SUM(amount)` | 比值 0.9996~1.0010 |
+| 涨跌停板幅 | 北交所 30%、创业(30x)/科创(68x) 20%、其余 10%；**ST 现行也是 10%** | 按 5% 会多报 5 只/日 |
+| 涨停价取整 | 沪深：四舍五入到分（tie 434/451 向上）；**北交所：向下取整到分**（40/40；16.25×1.3=21.125→21.12） | 用 round 会漏北交所连板 |
+| 涨停统计口径 | 不计 ST、不计新股（名字 N/C 开头）、不计停牌（amount=0） | fupanhui 明细 0 只 ST；剔后板块一致率 91.7%→97.9% |
+| 量能 | 量比昨日 = 今/昨−1；MA20 **含当日**；量能比 = 今/MA20×100 | 三项逐日一致 |
+| 前三行业 | 申万一级成交份额 top3 | 名次 14/14，占比差 ≤0.85pp |
+| 连板 boards | 连续收盘涨停天数（同上取整规则） | 150/150 |
+| 龙头高度 | 当日 max(boards) | 14/14 |
+| 新高 | 需日内最高价（`high`）；收盘价口径差 ±20% | 待 `--ohlc-only` 补齐后再定门 |
+| 市场强度 top5 | 不是「涨幅前五板块」（自算 3.69 vs 6.81） | 待逆向/自定义 |
+
+底数据坏日的形状：2026-08-13 东财快照写在 08-14 01:53，成交额是次日的 53%（半日量），涨家数差 600。
+这类日子 `qa_local_vs_fupanhui.py` 会标出来，用 `sync-stock-daily --start-date D --end-date D --refresh` 重抓。
+
 ## Backfill order（多日/大窗口）
 
 1. **Calendar/base facts**
@@ -72,6 +93,10 @@ python3 skills/duckdb-backfill/scripts/run_stock_high_missing.py --max-days 5 --
 python3 -m market_feature_store.cli sync-stock-daily-snapshot --trade-date YYYY-MM-DD
 # 全A日线：历史区间回填（mootdx 逐只，慢）
 python3 -m market_feature_store.cli sync-stock-daily --start-date YYYY-MM-DD --offset 180
+# 给已有东财日线补 open/high/low/volume、拉 3 年历史：只填 OHLC，不碰东财行的收盘/昨收/涨幅/名字（可 --limit 分批续跑让锁）
+python3 -m market_feature_store.cli sync-stock-daily --start-date 2023-09-01 --offset 800 --ohlc-only --limit 300 --sleep 0.1
+# 重抓东财快照写坏的单日（如 2026-08-13 半日量）：区间掐成一天 + --refresh
+python3 -m market_feature_store.cli sync-stock-daily --start-date 2026-08-13 --end-date 2026-08-13 --offset 30 --refresh
 # 一键复盘强制用 mootdx 跑全A日线（默认 snapshot）
 python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD --stock-source mootdx
 ```

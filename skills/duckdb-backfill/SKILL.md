@@ -43,10 +43,30 @@ description: "DuckDB market_feature_store 历史日回补与验收。触发：�
 
 第 1、2 件回答「有没有」，第 3 件回答「像不像基线」：行数、来源语义、`pre_close`/`pct_chg` 链、金额量纲、字段空值、板块 payload 对账、日历副作用。三者缺任一都出现过「行数全对、值是空壳」的静默降级。
 
+## 剥离 fupanhui：双轨切换门（2026-09-07 起）
+
+定位：fupanhui 是**参照源**，不是抓取源头。加工字段用自己的底数据（东财/mootdx 个股、申万官方）按公开规则算，
+`scripts/qa_local_vs_fupanhui.py` 每天把自算值和库里的 fupanhui 值逐日比，某族读数连续稳定在门内才把该族的源切到本地。
+规则口径与实测读数见 runbook「自算口径（双轨实测）」。
+
+- 已对上（08-14～09-02 十四个干净日全部过门）：涨家数、沪深成交额、涨停/跌停家数、量比/MA20/量能比、前三行业、
+  板块涨停数、涨停明细、连板 boards、龙头高度。
+- 只出读数不设门：新高（要 OHLC，本 skill 的 `sync-stock-daily --ohlc-only` 补）、市场强度 top5（定义未知）。
+- 自算不了、只能低频参照或自定义：板块分类与成分（名单）、周期阶段、主线题材、summary/keywords、核心个股、资金流类。
+
+```bash
+python3 skills/duckdb-backfill/scripts/qa_local_vs_fupanhui.py                      # 最近 15 个完整日
+python3 skills/duckdb-backfill/scripts/qa_local_vs_fupanhui.py --start D1 --end D2 --json /tmp/dt.json
+```
+
+脚本会把「底数据坏日」（我们的沪深成交额与 fupanhui 差 >10%）单列并剔出统计——那是回补问题，按本 skill 用
+`sync-stock-daily --start-date D --end-date D --refresh` 重抓那一天。
+
 ## 只读审计与 QA 脚本
 
 - `scripts/audit_coverage.py`：按 `fact_market_daily` 日历审各 fact 表覆盖缺口。
 - `scripts/qa_backfill_align.py`：目标日 vs 最近 N 个完整日基线逐项对齐（只读、零网络、可验 staging `--db`）。
+- `scripts/qa_local_vs_fupanhui.py`：自算 vs fupanhui 双轨对账（只读、零网络），剥离切换门。
 - `scripts/verify_backfill.py`：题材表完整性 + 抽样回源对账（吃配额，429 期间不跑）。
 - `scripts/qa_fupanhui_public_assets.py`：公开资产结构门 + API 抽查。
 - `scripts/run_missing_dates.py` / `run_stock_high_missing.py`：按缺失日逐日跑的驱动器，带超时、skip 文件、连续失败阈值。
