@@ -51,9 +51,10 @@
 
 读数（解释器 `.venv-workbench/bin/python`，树 `~/fwp-wt-branch-trace` @ `504cbbc9` + 本改动）：
 `test_sub_research.py` + `test_sub_research_tool.py` 36P/0F（基线 27）；邻接 10 个套件 272P/0F；
-`ruff check .` 全仓通过；全量 pytest **7986P / 0F / 76S / 1 xfail**——脏树先跑一遍（286s），提交 `66de98c2` 后
-干净树复跑同数（293s），`check_test_receipt.py --expect-revision HEAD --base-drift-max 5` 判「可采信」
-（revision 一致 / 干净树 / 依赖指纹一致 / 基座漂移 0）。
+`ruff check .` 全仓通过；全量 pytest：`66de98c2` 干净树 **7986P / 0F / 76S / 1 xfail**；`4f79bd56` 干净树第一遍
+7988P / **1F**（`test_run_agent_runtime_benchmark::test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state`，
+拿 `id(context)` 比两个已释放对象、地址复用 `4845507632 != 4845507632`，单跑即绿，与本改动无关），第二遍 **7989P / 0F**；
+`check_test_receipt.py --expect-revision HEAD --base-drift-max 5` 判「可采信」（revision 一致 / 干净树 / 依赖指纹一致 / 基座漂移 0）。
 
 ## 3. 顺手核对的三条审查措辞（写进这里，免得下一个人再发现一遍）
 
