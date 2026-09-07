@@ -50,7 +50,9 @@ fupanhui 账号风控后的生产链路。`run_review_sync.py --date D --plan lo
 `stock-daily`（东财快照，仅当日）→ `index-daily` → `sw-l1-daily` → `carry-forward-universe`（名单冻结：把最近一份
 published 宇宙按当日重发，provider=`local:carry`）→ `stitch-sector-stocks --max-baseline-age-days 180`（最后一份 fupanhui
 成分 × 当日东财真值）→ `sector-daily-local` → `compute-limit-stats-local`（题材涨停/明细/连板/龙头，不计 ST）→
-`compute-market-overview-local`（沪深总额/涨家数/涨跌停/量能/前三行业/新高/周均线）→ `features`。
+`compute-market-overview-local`（沪深总额/涨家数/涨跌停/量能/前三行业/新高家数/周均线）→
+`compute-market-editorial-local`（编辑层自家替代版：强度=涨幅前 5% 个股、强度状态 2/5/8 阈值、量能状态四档、冰点 JSON）→
+`compute-stock-high-local`（新高名单，按日内最高价）→ `features`。
 
 - 历史日补数同一条链，个股用 mootdx（`sync-stock-daily --start-date D --end-date D`），不用东财快照。
 - **顺序按日串行**：后一日的板块边际量用前一日全量板块额，09-03 没补完不要跑 09-04。
@@ -60,8 +62,10 @@ published 宇宙按当日重发，provider=`local:carry`）→ `stitch-sector-st
   （09-03/09-04 各 9 个），先补齐个股再跑。
 - 门禁带 `--plan local`：期望表由 `consumption_registry.tables_for_plan('local')` 派生，fupanhui 独有的表（主线×3、资金流、
   新高、公开资产）和 `strength_*` 字段不算缺。cross-day `check-daily --plan local` 同理。
-- 不产：主线题材、summary/keywords、核心个股、资金流、周期阶段、市场强度、`fact_stock_high_daily`（新高家数已进 market 行，
-  按 `high` 算，与 fupanhui 的前复权口径差 ~12%，只作参考）。
+- 编辑层替代版与 fupanhui 历史对照（15 日）：强度均涨幅相对误差中位 1.8%、强度状态一致 14/15、量能状态一致 15/15；新高名单按裸价
+  `high`，与 fupanhui 前复权口径差 ~12%。这些是**自家口径**，fupanhui 值恢复可读时只作对照（`qa_local_vs_fupanhui.py` 编辑层段）。
+- 仍留空：**周期阶段 `market_stage`**（价格趋势规则粗粒度一致率仅 58%，不进日报标题；405 个有标签日可作训练集另立单）、
+  主线题材、summary/keywords、核心个股、资金流。
 
 ## 剥离 fupanhui：双轨切换门（2026-09-07 起）
 

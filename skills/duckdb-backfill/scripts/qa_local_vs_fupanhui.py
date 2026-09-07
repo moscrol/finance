@@ -56,7 +56,7 @@ GATES = {
 # 已知还对不上、只出读数不设门的族
 INFO_ONLY = {
     "stock_high": "新高家数：需要 OHLC（日内最高价）+ 复权；收盘价口径差 ±20%",
-    "strength_top5": "市场强度 top5：fupanhui 定义未知（不是涨幅前五板块），待逆向或自定义",
+    "strength_top5": "市场强度：fupanhui 的 top5 集合未逆向出；自家口径=涨幅前 5% 个股（compute-market-editorial-local），见上方编辑层读数",
 }
 
 LIMIT_RULE_SQL = """
@@ -292,6 +292,38 @@ def run(start, end, n, json_path):
         out["families"]["stock_high"] = {"price_basis": px, "rel_err_20d_median": median(rel) if rel else None,
                                          "sample": [(d, f"{a}|{b}", f"{c}|{e}", f"{g}|{h}") for d, a, b, c, e, g, h in rows[-3:]]}
         print(f"新高家数（{px} 口径）20 日相对误差中位 {median(rel) if rel else float('nan'):.1%}；最近三日 fph|自算: {out['families']['stock_high']['sample']}")
+
+        # ---- E. 编辑层替代版 vs fupanhui（有 fupanhui 值的日子才有对照；只出读数）
+        ed = q(con, f"""
+            WITH u AS (
+              SELECT trade_date, pct_chg, amount,
+                     ROW_NUMBER() OVER (PARTITION BY trade_date ORDER BY pct_chg DESC) rn,
+                     COUNT(*) OVER (PARTITION BY trade_date) n
+              FROM fact_stock_daily WHERE trade_date IN ({ph}) AND stock_ts_code NOT LIKE '%.BJ' AND pct_chg IS NOT NULL AND amount > 0),
+            t AS (SELECT trade_date, AVG(pct_chg) avg5, SUM(amount) amt5 FROM u WHERE rn <= ROUND(n * 0.05) GROUP BY 1)
+            SELECT CAST(f.trade_date AS VARCHAR), f.strength_avg_pct, t.avg5, f.strength_amount, t.amt5, f.strength_status, f.volume_state, f.volume_ratio
+            FROM fact_market_daily f JOIN t USING (trade_date) WHERE f.trade_date IN ({ph}) AND f.strength_avg_pct IS NOT NULL
+              AND f.strength_source NOT LIKE 'local:%'""", dates + dates)
+        if ed:
+            def _status(a):
+                return "冰点" if a < 2 else "正常" if a < 5 else "强势" if a < 8 else "沸点"
+
+            def _vol(v):
+                return None if v is None else ("缩量观望" if v < 85 else "正常量能" if v < 100 else "主线抱团" if v < 120 else "放量突破")
+
+            rel = [abs(a5 - a) / a for d, a, a5, *_ in ed if d in clean and a]
+            st_hit = sum(1 for d, a, a5, *_r in ed if d in clean and _status(a5) == _r[2])
+            vs_pairs = [(vs_, _vol(vr)) for d, a, a5, amt, amt5, st, vs_, vr in ed if d in clean and vs_ in ("缩量观望", "正常量能", "主线抱团", "放量突破")]
+            vs_hit = sum(1 for a_, b_ in vs_pairs if a_ == b_)
+            n_ed = sum(1 for d, *_ in ed if d in clean)
+            out["families"]["editorial"] = {
+                "strength_avg_pct_rel_err_median": median(rel) if rel else None,
+                "strength_status_agree": st_hit / max(n_ed, 1),
+                "volume_state_agree": vs_hit / max(len(vs_pairs), 1) if vs_pairs else None,
+                "days": n_ed,
+            }
+            print(f"编辑层替代版 vs fph（{n_ed} 日）：强度均涨幅(前5%口径) 相对误差中位 {median(rel) if rel else float('nan'):.1%}；"
+                  f"强度状态一致 {st_hit}/{n_ed}；量能状态一致 {vs_hit}/{len(vs_pairs)}")
 
         # ---- 判定
         print("\n== 判定（干净日 %d 个）==" % len(clean))

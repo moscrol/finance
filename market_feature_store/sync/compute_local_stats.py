@@ -445,3 +445,231 @@ def compute_market_overview_local(trade_date, *, con=None, force: bool = False) 
     finally:
         if own:
             con.close()
+
+
+# ---------------------------------------------------------------------------
+# 4. 编辑层自家替代版：强度 / 量能状态 / 冰点（周期阶段仍留空，见 docstring）
+# ---------------------------------------------------------------------------
+LOCAL_STRENGTH_SOURCE = "local:top5pct"
+STRENGTH_TOP_FRACTION = 0.05  # 涨幅前 5% 个股（不含北交所）。与 fupanhui 的 strength_amount 中位误差 ~3%，尾部 25%
+# fupanhui 405 个有标签日实测：强势 5.20~8.00、沸点 ≥8.01、正常 3.71~4.83、冰点 0.69 → 阈值 2 / 5 / 8，一致率 99.75%
+STRENGTH_STATUS_BANDS = ((2.0, "冰点"), (5.0, "正常"), (8.0, "强势"), (float("inf"), "沸点"))
+# fupanhui 当前口径四档，247 个有标签日一致率 100%
+VOLUME_STATE_BANDS = ((85.0, "缩量观望"), (100.0, "正常量能"), (120.0, "主线抱团"), (float("inf"), "放量突破"))
+# fupanhui ice_point JSON 里自述的分区：<78 极冰、[78,85) 接近冰点、[85,95) 偏冷、其余正常；资格判断依赖其周期阶段，本地不做
+ICE_BANDS = ((78.0, "极冰"), (85.0, "接近冰点"), (95.0, "偏冷"), (float("inf"), "正常"))
+
+
+def _band(value, bands):
+    if value is None:
+        return None
+    for upper, label in bands:
+        if value < upper:
+            return label
+    return bands[-1][1]
+
+
+def compute_market_editorial_local(trade_date, *, con=None, force: bool = False) -> dict:
+    """fact_market_daily 编辑层字段的自家替代版。
+
+    - strength_*：涨幅前 5% 个股（不含北交所、剔停牌）的平均涨幅 / 成交额合计 / 占沪深总额比 / 与昨日强度额的边际变化；
+      status 按 2/5/8 阈值。fupanhui 的 "top5" 集合定义未逆向出来，这是**自家口径**，双轨对照中位误差 ~3%。
+    - volume_state：量能比四档。ice_point：量能比分区 JSON（不做周期资格判断）。
+    - market_stage / stage_day / summary_keywords：**留空**。周期阶段是 fupanhui 的周期模型，价格趋势规则粗粒度一致率只有 58%，
+      不值得放进日报标题；405 个有标签日可作训练集另立单。
+    """
+    td = _as_date(trade_date)
+    own = con is None
+    if own:
+        init_db()
+        con = connect()
+    try:
+        row = con.execute(
+            "SELECT strength_source, strength_avg_pct, total_amount, volume_ratio FROM fact_market_daily WHERE trade_date = ?", [td]
+        ).fetchone()
+        if row is None or row[2] is None:
+            raise RuntimeError(f"{td} fact_market_daily 无当日行或 total_amount 为空，先跑 compute-market-overview-local")
+        if row[0] and not str(row[0]).startswith("local:") and row[1] is not None and not force:
+            return {"trade_date": td.isoformat(), "action": "skipped-has-foreign-values", "strength_source": row[0]}
+        total_amount, volume_ratio = float(row[2]), row[3]
+
+        top = con.execute(
+            """
+            WITH u AS (
+              SELECT pct_chg, amount FROM fact_stock_daily
+              WHERE trade_date = ? AND stock_ts_code NOT LIKE '%.BJ' AND pct_chg IS NOT NULL AND amount > 0
+            ), n AS (SELECT CAST(ROUND(COUNT(*) * ?) AS INT) AS k FROM u),
+            t AS (SELECT * FROM u ORDER BY pct_chg DESC LIMIT (SELECT k FROM n))
+            SELECT (SELECT k FROM n), AVG(pct_chg), SUM(amount) FROM t
+            """,
+            [td, STRENGTH_TOP_FRACTION],
+        ).fetchone()
+        k, avg_pct, amt = top
+        if not k:
+            raise RuntimeError(f"{td} fact_stock_daily 无行，先同步个股日线")
+        avg_pct = round(float(avg_pct), 2)
+        amt = round(float(amt), 2)
+        amount_pct = round(100.0 * amt / total_amount, 2) if total_amount else None
+        hist = con.execute(
+            """
+            SELECT strength_avg_pct, strength_amount FROM fact_market_daily
+            WHERE trade_date < ? AND strength_avg_pct IS NOT NULL ORDER BY trade_date DESC LIMIT 20
+            """,
+            [td],
+        ).fetchall()
+        y_avg = float(hist[0][0]) if hist else None
+        y_amt = float(hist[0][1]) if hist and hist[0][1] is not None else None
+        marginal = round((amt / y_amt - 1) * 100, 2) if y_amt else None
+        ma5 = round((sum(float(h[0]) for h in hist[:4]) + avg_pct) / (min(len(hist), 4) + 1), 2) if hist else avg_pct
+        ma20 = round((sum(float(h[0]) for h in hist[:19]) + avg_pct) / (min(len(hist), 19) + 1), 2) if hist else avg_pct
+        status = _band(avg_pct, STRENGTH_STATUS_BANDS)
+        volume_state = _band(volume_ratio, VOLUME_STATE_BANDS)
+
+        prev_ice = con.execute(
+            "SELECT ice_point FROM fact_market_daily WHERE trade_date < ? AND ice_point IS NOT NULL ORDER BY trade_date DESC LIMIT 1", [td]
+        ).fetchone()
+        prev_day = 0
+        if prev_ice and prev_ice[0]:
+            try:
+                prev_day = int(json.loads(str(prev_ice[0]).replace("'", '"')).get("ice_point_day") or 0)
+            except Exception:  # noqa: BLE001
+                prev_day = 0
+        level = _band(volume_ratio, ICE_BANDS)
+        is_ice = level in ("极冰", "接近冰点")
+        ice = {
+            "is_eligible": None,
+            "is_ice_point": is_ice,
+            "level": level,
+            "confidence": "rule",
+            "ice_point_day": (prev_day + 1) if is_ice else 0,
+            "vol_ratio_ma20": volume_ratio,
+            "reason": (f"vol_ratio_ma20={volume_ratio}%：<78 极冰 / [78,85) 接近冰点 / [85,95) 偏冷 / 其余正常；"
+                       "本地规则只判量能分区，不做周期阶段资格判断（周期阶段未建模）"),
+            "source": "local:ice-rule",
+        }
+        now = datetime.now()
+        con.execute("BEGIN TRANSACTION")
+        con.execute(
+            """
+            UPDATE fact_market_daily SET
+                strength_avg_pct = ?, strength_amount_pct = ?, strength_amount = ?, strength_marginal_pct = ?,
+                strength_yesterday_avg_pct = ?, strength_ma5_avg_pct = ?, strength_ma20_avg_pct = ?, strength_status = ?,
+                strength_source = ?, strength_updated_at = ?,
+                volume_state = ?, ice_point = ?, updated_at = ?
+            WHERE trade_date = ?
+            """,
+            [avg_pct, amount_pct, amt, marginal, y_avg, ma5, ma20, status, LOCAL_STRENGTH_SOURCE, now,
+             volume_state, json.dumps(ice, ensure_ascii=False), now, td],
+        )
+        con.execute("COMMIT")
+        return {"trade_date": td.isoformat(), "action": "written", "top_k": int(k), "strength_avg_pct": avg_pct,
+                "strength_amount": amt, "strength_amount_pct": amount_pct, "strength_marginal_pct": marginal,
+                "strength_status": status, "volume_state": volume_state, "ice_level": level}
+    except Exception:
+        try:
+            con.execute("ROLLBACK")
+        except Exception:  # noqa: BLE001
+            pass
+        raise
+    finally:
+        if own:
+            con.close()
+
+
+# ---------------------------------------------------------------------------
+# 5. 新高名单（fact_stock_high_daily），按日内最高价
+# ---------------------------------------------------------------------------
+LOCAL_HIGH_SOURCE = "local:high-ohlc"
+# 库里历史从 2023-09 起（≈730 根）：history 要 ≥720 根可比历史，3y 放宽到 700，避免「历史新高命中而 3 年新高缺席」
+HIGH_PERIODS = (("history", "历史新高", 720), ("3y", "3年新高", 700), ("2y", "2年新高", 488),
+                ("1y", "1年新高", 244), ("120d", "120日新高", 120), ("60d", "60日新高", 60), ("20d", "20日新高", 20))
+
+
+def compute_stock_high_local(trade_date, *, con=None, force: bool = False) -> dict:
+    """当日创 N 日新高的个股名单：high(D) > max(high 前 N 个交易日)。
+
+    与 fupanhui 的差异（双轨 20 日相对误差中位 ~12%）：fupanhui 用前复权价，我们用裸价；库里历史从 2023-09 起，
+    「历史新高」= 至少 700 根（≈3 年）可比历史内的新高。primary 取满足的最长周期。
+    """
+    td = _as_date(trade_date)
+    own = con is None
+    if own:
+        init_db()
+        con = connect()
+    try:
+        n = _has_foreign_rows(con, "fact_stock_high_daily", td)
+        if n and not force:
+            return {"trade_date": td.isoformat(), "action": "skipped-has-foreign-rows", "skipped": n}
+        has_high = con.execute("SELECT COUNT(high), COUNT(*) FROM fact_stock_daily WHERE trade_date = ?", [td]).fetchone()
+        if not has_high[1] or has_high[0] / has_high[1] < 0.9:
+            raise RuntimeError(f"{td} fact_stock_daily 的 high 覆盖不足（{has_high[0]}/{has_high[1]}），先补 OHLC")
+        wins = ", ".join(
+            f"MAX(high) OVER (PARTITION BY stock_ts_code ORDER BY trade_date ROWS BETWEEN {n} PRECEDING AND 1 PRECEDING) AS m_{key}"
+            for key, _label, n in HIGH_PERIODS
+        )
+        flags = ", ".join(f"(n_prev >= {n} AND high > m_{key}) AS f_{key}" for key, _label, n in HIGH_PERIODS)
+        rows = con.execute(
+            f"""
+            WITH h AS (
+              SELECT trade_date, stock_ts_code, stock_name, close, pct_chg, amount, high, {wins},
+                     COUNT(high) OVER (PARTITION BY stock_ts_code ORDER BY trade_date ROWS BETWEEN 732 PRECEDING AND 1 PRECEDING) AS n_prev,
+                     LAG(close, 10) OVER (PARTITION BY stock_ts_code ORDER BY trade_date) AS c10
+              FROM fact_stock_daily
+              WHERE trade_date <= ? AND trade_date >= CAST(? AS DATE) - INTERVAL 1200 DAY AND high IS NOT NULL
+            )
+            SELECT stock_ts_code, stock_name, close, pct_chg, amount, c10, {flags}
+            FROM h WHERE trade_date = ? AND n_prev >= 20
+            """,
+            [td, td, td],
+        ).fetchall()
+        streaks = {}
+        try:
+            today, series = _limit_flags(con, td)
+            streaks = {r[1]: _streak(series[r[1]], td)[0] for r in today if r[9]}
+        except Exception:  # noqa: BLE001
+            streaks = {}
+        sw = dict(con.execute(
+            "SELECT stock_ts_code, ANY_VALUE(sw_industry) FROM fact_sector_stock_daily WHERE trade_date = ? AND sw_industry IS NOT NULL GROUP BY 1", [td]
+        ).fetchall())
+        now = datetime.now()
+        out = []
+        for r in rows:
+            code, name, close, pct, amt, c10 = r[:6]
+            hit = [(key, label) for (key, label, _n), f in zip(HIGH_PERIODS, r[6:]) if f]
+            if not hit:
+                continue
+            primary = hit[0]  # HIGH_PERIODS 从长到短，第一个命中即最长周期
+            out.append((
+                td, code, name, primary[0], primary[1],
+                json.dumps([{"period": k, "label": lb} for k, lb in hit], ensure_ascii=False),
+                None, close, pct, round((close / c10 - 1) * 100, 2) if (c10 and close) else None, amt,
+                None, None, "涨停" if streaks.get(code) else None, streaks.get(code), sw.get(code), None, None, None,
+                LOCAL_HIGH_SOURCE, now,
+            ))
+        con.execute("BEGIN TRANSACTION")
+        con.execute("DELETE FROM fact_stock_high_daily WHERE trade_date = ?", [td])
+        if out:
+            con.executemany(
+                """
+                INSERT INTO fact_stock_high_daily
+                  (trade_date, stock_ts_code, stock_name, primary_high_period, primary_high_label, high_periods_json,
+                   is_new, price, pct_chg, pct_chg_10d, amount, market_cap, fund_today, limit_status, limit_times,
+                   sw_l1, sw_l2, plate, whitelist_sectors_json, source, updated_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                out,
+            )
+        con.execute("COMMIT")
+        dist = {}
+        for r in out:
+            dist[r[4]] = dist.get(r[4], 0) + 1
+        return {"trade_date": td.isoformat(), "action": "written", "rows": len(out), "by_label": dist}
+    except Exception:
+        try:
+            con.execute("ROLLBACK")
+        except Exception:  # noqa: BLE001
+            pass
+        raise
+    finally:
+        if own:
+            con.close()

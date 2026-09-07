@@ -548,6 +548,29 @@ def cmd_compute_market_overview_local(args) -> int:
     return 0
 
 
+def cmd_compute_market_editorial_local(args) -> int:
+    from .sync.compute_local_stats import compute_market_editorial_local
+
+    r = compute_market_editorial_local(args.trade_date, force=args.force)
+    if r["action"] != "written":
+        print(f"交易日: {r['trade_date']} | {r['action']} strength_source={r.get('strength_source')}（--force 覆盖）")
+        return 0
+    print(f"交易日: {r['trade_date']} | 强度(涨幅前5% {r['top_k']} 只) 均涨 {r['strength_avg_pct']}% 额 {r['strength_amount']} 亿 占比 {r['strength_amount_pct']}% "
+          f"边际 {r['strength_marginal_pct']} → {r['strength_status']} | 量能状态 {r['volume_state']} | 冰点 {r['ice_level']}")
+    return 0
+
+
+def cmd_compute_stock_high_local(args) -> int:
+    from .sync.compute_local_stats import compute_stock_high_local
+
+    r = compute_stock_high_local(args.trade_date, force=args.force)
+    if r["action"] != "written":
+        print(f"交易日: {r['trade_date']} | {r['action']} {r.get('skipped', '')}（--force 覆盖）")
+        return 0
+    print(f"交易日: {r['trade_date']} | 新高名单 {r['rows']} 只 | {r['by_label']}")
+    return 0
+
+
 def cmd_sync_sector_daily_local(args) -> int:
     from .sync.sync_local_sector_daily import brief, sync_sector_daily_local
 
@@ -1422,6 +1445,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_cmo.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
     p_cmo.add_argument("--force", action="store_true", help="当日已有 fupanhui 数值时也覆盖")
     p_cmo.set_defaults(func=cmd_compute_market_overview_local)
+
+    p_cme = sub.add_parser("compute-market-editorial-local",
+                           help="编辑层自家替代版：强度(涨幅前5%个股)/量能状态/冰点 JSON；周期阶段留空")
+    p_cme.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_cme.add_argument("--force", action="store_true", help="当日已有 fupanhui 强度值时也覆盖")
+    p_cme.set_defaults(func=cmd_compute_market_editorial_local)
+
+    p_csh = sub.add_parser("compute-stock-high-local",
+                           help="新高名单 fact_stock_high_daily：按日内最高价 high 判 20/60/120日、1/2/3年、历史新高")
+    p_csh.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_csh.add_argument("--force", action="store_true", help="当日已有非 local 来源行时也覆盖")
+    p_csh.set_defaults(func=cmd_compute_stock_high_local)
 
     p_sdl = sub.add_parser(
         "sync-sector-daily-local",
