@@ -97,6 +97,8 @@ plans:
     - sector-daily-local
     - limit-stats-local
     - market-overview-local
+    - market-editorial-local
+    - stock-high-local
     - features
 
 # ============================================================================
@@ -212,7 +214,7 @@ datasets:
     label: 市场总览（要拆开看）
     tables: [fact_market_daily]
     endpoint: /reviews/market + /summary + /cycle
-    steps: {full: [market-overview, market-deviation], cheap: [market-overview, market-deviation], local: [market-overview-local]}
+    steps: {full: [market-overview, market-deviation], cheap: [market-overview, market-deviation], local: [market-overview-local, market-editorial-local]}
     identity:
       what: market_stage 阶段名
       cadence: 偏慢
@@ -264,7 +266,7 @@ datasets:
   - key: stock_high
     label: 新高个股
     tables: [fact_stock_high_daily]
-    steps: {full: [stock-high], cheap: [stock-high]}
+    steps: {full: [stock-high], cheap: [stock-high], local: [stock-high-local]}
     identity: {what: 新高集合, cadence: 快, evidence: "J=0.32（1243 vs 768），口径还漂 [用户实测]"}
     value: {what: 价格/映射, cadence: 极快}
     refresh:

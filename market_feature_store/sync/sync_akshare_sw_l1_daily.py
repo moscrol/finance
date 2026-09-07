@@ -133,6 +133,17 @@ def _fetch_hist_by_code(code: str, start: date, end: date) -> dict[date, dict]:
     return out
 
 
+# akshare index_realtime_sw 的「成交额」单位是百万元（2026-09-07 实测：电子 506527.36 ↔ index_hist_sw 同日约 5065 亿），
+# 而 index_hist_sw 是亿。表里统一存亿，realtime 分支必须 /100，否则当日 31 行比历史大两个量级
+# （qa_backfill_align 的 全A/申万 成交额比 0.0102 就是这样抓出来的）。
+REALTIME_AMOUNT_TO_YI = 100.0
+
+
+def realtime_amount_to_yi(value):
+    n = _num(value)
+    return n / REALTIME_AMOUNT_TO_YI if n is not None else None
+
+
 def _fetch_realtime() -> dict[str, dict]:
     import akshare as ak
 
@@ -150,7 +161,7 @@ def _fetch_realtime() -> dict[str, dict]:
                 "close": close,
                 "pre_close": pre_close,
                 "pct_chg": pct_chg,
-                "amount": _num(_pick(raw, "成交额")),
+                "amount": realtime_amount_to_yi(_pick(raw, "成交额")),
                 "source": f"akshare:index_realtime_sw:{code}",
             }
     return out

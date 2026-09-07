@@ -135,3 +135,56 @@ def test_carry_forward_universe_publishes_and_supersedes():
     assert dict(st)["published"] == 1
     snap = SectorUniverseStore(con).published_snapshot("2026-09-03")  # 默认不限 provider
     assert snap.provider_source == "local:carry" and snap.sector_count == 2
+
+
+def test_market_editorial_strength_volume_ice_labels():
+    con = _db()
+    _seed_two_days(con)
+    # 补足 60 只非 BJ 个股让「前 5%」= 3 只：前三涨幅 20%(乙) / 10.19%(*ST 宝馨) / 10%(甲)
+    for i in range(60):
+        _stock(con, "2026-09-02", f"6{100 + i:05d}.SH", f"填充{i}", 10.0, 10.0, amount=1.0)
+    con.execute("INSERT INTO fact_market_daily (trade_date, total_amount, advancers, volume_ratio, source) VALUES ('2026-09-02', 200.0, 4, 82.0, 'local:overview')")
+    con.execute("INSERT INTO fact_market_daily (trade_date, total_amount, strength_avg_pct, strength_amount, strength_source) VALUES ('2026-09-01', 150.0, 4.0, 10.0, 'local:top5pct')")
+    r = cls_.compute_market_editorial_local("2026-09-02", con=con)
+    assert r["action"] == "written" and r["top_k"] == 3
+    assert r["strength_avg_pct"] == pytest.approx((20.0 + 10.19 + 10.0) / 3, abs=0.01)
+    assert r["strength_status"] == "沸点"          # ≥8 → 沸点（fupanhui 405 日 99.75% 口径）
+    assert r["volume_state"] == "缩量观望"          # volume_ratio 82 < 85
+    assert r["ice_level"] == "接近冰点"             # [78, 85)
+    row = con.execute("SELECT strength_source, strength_yesterday_avg_pct, strength_marginal_pct, ice_point FROM fact_market_daily WHERE trade_date='2026-09-02'").fetchone()
+    assert row[0] == "local:top5pct" and row[1] == 4.0
+    assert row[2] == pytest.approx((3.0 / 10.0 - 1) * 100, abs=0.01)  # 今日前5%额 3.0 vs 昨 10.0
+    assert '"is_ice_point": true' in row[3] and '"ice_point_day": 1' in row[3]
+
+
+def test_market_editorial_refuses_fupanhui_strength_unless_forced():
+    con = _db()
+    _seed_two_days(con)
+    con.execute("INSERT INTO fact_market_daily (trade_date, total_amount, strength_avg_pct, strength_source) VALUES ('2026-09-02', 200.0, 6.72, 'fupanhui:reviews/market')")
+    assert cls_.compute_market_editorial_local("2026-09-02", con=con)["action"] == "skipped-has-foreign-values"
+
+
+def test_stock_high_uses_intraday_high_and_longest_period():
+    con = _db()
+    # 25 个交易日历史：high 稳定 10；最后一日 high 11 → 20 日新高；另一个股最后一日 high 9 → 不是新高
+    import datetime as _dt
+    d0 = _dt.date(2026, 7, 1)
+    days = []
+    d = d0
+    while len(days) < 25:
+        if d.weekday() < 5:
+            days.append(d)
+        d += _dt.timedelta(days=1)
+    for i, day in enumerate(days):
+        last = i == len(days) - 1
+        for code, hi_last in (("600001.SH", 11.0), ("600002.SH", 9.0)):
+            hi = hi_last if last else 10.0
+            con.execute(
+                "INSERT INTO fact_stock_daily (trade_date, stock_ts_code, stock_name, close, pre_close, pct_chg, amount, source, updated_at, open, high, low, volume) "
+                "VALUES (?, ?, ?, ?, 9.5, 1.0, 1.0, 'mootdx', now(), 9.6, ?, 9.4, 100)",
+                [day, code, code[:6], hi - 0.1, hi],
+            )
+    r = cls_.compute_stock_high_local(days[-1].isoformat(), con=con)
+    assert r["action"] == "written" and r["rows"] == 1 and r["by_label"] == {"20日新高": 1}
+    row = con.execute("SELECT stock_ts_code, primary_high_period, high_periods_json, source FROM fact_stock_high_daily").fetchone()
+    assert row[0] == "600001.SH" and row[1] == "20d" and '"20d"' in row[2] and row[3] == "local:high-ohlc"

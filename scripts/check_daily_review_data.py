@@ -124,8 +124,9 @@ MARKET_FIELDS = [
 ]
 # 计划档位裁剪：local（fupanhui 停抓后的自算链路）不产这些字段，缺它们是设计不是缺数。
 # 表的裁剪不写死在这里——从 consumption_registry.tables_for_plan 派生（单一真本源）。
-PLAN_UNAVAILABLE_MARKET_FIELDS = {
-    "local": {"strength_avg_pct", "strength_amount_pct", "strength_status"},
+# local 现在自算强度（涨幅前 5% 口径，compute-market-editorial-local），MARKET_FIELDS 全部可检；留字典给未来的裁剪。
+PLAN_UNAVAILABLE_MARKET_FIELDS: dict[str, set[str]] = {
+    "local": set(),
 }
 
 
