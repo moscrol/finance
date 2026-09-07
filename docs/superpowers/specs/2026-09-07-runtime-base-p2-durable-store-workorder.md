@@ -7,6 +7,8 @@
 >
 > **落地记录（09-07）**：A `services/episode_store.py`（`EpisodeStore` Protocol、`Memory` / `Jsonl`、`EpisodeState`、`EPISODE_LOG_VERSION`、`EpisodeEvent.ignorable` + `require_known_kinds`）；B `ToolSpec.replay` / `EpisodeToolBatchSession.on_dispatch` + `DispatchIntent` / `_EpisodeLedger` 落盘（意图 fsync）+ `record_model_intent` + `record_dispatch_intent` + `put_state` + `configure` 首条 / 两处 `complete` 前 `model_intent{turn_id}` / `GLMAgentRuntime(episode_store=…)` / `conformance/oracle.py` + `test_inv_r2_write_order`；C `services/episode_restore.py` + `ContinuousAgentEpisode.restore` + `test_episode_restore.py`（逐前缀 oracle：五种动作全到过）+ `test_inv_r3_restore`；D `api/app.py` 装配 `JsonlEpisodeStore` + readiness `open_episodes` / adapter 产物 `log_version` + `runtime_handle` / `EpisodeFinalizer.recover(on_prompt)` + `prompt_assembled{source: finalizer}`。既有断言按意图改两处（首条 `configure`；一批多调用请求先于任何结算）。`normalize_harness_trace` L1 加 `model_intent → intent`；三张目录再生成（durable 30 种）。
 >
+> **与 main 的整合（09-07 傍晚）**：开 PR #638 时 main 已到 92c7826c（#628 / #635 / #636 都碰 `agent_episode.py`），三张 PR 全部冲突。三级前向合并（`main → P0 3d4a254c → P1 0d006a2a → 本枝 962aed84`，不改写历史），三张 PR 对 main 重新 clean。顺手补了历史折叠在 INV-R1 上的洞（`history_compacted.folded[].model_content` + 派生规则 + 投影 `list[].field` 剔正文；`compact_history` 改在 `EpisodeMessage` 上工作）。整合后头 962aed84 干净树全量 **8195 passed / 0 failed / 76 skipped**（收据 `20260907T105919Z-962aed84.json`）——即三张 PR 依次合入后 main 的模样。
+>
 > **与 §2 步骤的差异**：`configure` 快照不含 `instructions_hash`（它必须先于 `task`，而 system 提示词在绑完 sub_research 之后才拼得出来；同一事实由紧随的 `prompt_assembled.system_sha256` 承载）。`restore` 一次只给一个下一动作（部分意图落地时先重跑落了的那条），驾驭方迭代收敛。
 
 ## 0. 开工前核对的两处事实（与母单 §4 G1 有出入，按实测改）
