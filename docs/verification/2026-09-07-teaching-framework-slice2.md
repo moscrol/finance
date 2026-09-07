@@ -292,3 +292,18 @@ pytest intelligence/tests/test_methodology_backtest*.py → 67 passed；ruff 通
 亏钱效应量出来了：承接 5 日均值 < 1% 是两期都分得开的唯一一维，覆灭窗里的亏钱日占比是顶部块的 2–4 倍，且先于平台的左底向下标注出现。它同时改了一句话的含义——新王朝在亏钱日本身上没有一致的分离（分位中位 34–66），被打的是旧王朝。
 
 补：把覆灭窗拆成亏钱日 / 其余日子再看（`history_dynasty_handoffs` +3 列 `other_days_*`，dynasties 哈希 31f82b769e45255a…，两次重建一致）——新前 10 分位中位 整窗 / 亏钱日 / 其余日子：W0→W1 82.7 / 34.5 / 83.4，W1→W2 65.3 / 66.4 / 36.9，W2→W3 75.6 / 32.1 / 81.4，W3→W4 48.9 / 54.9 / 46.6。常态覆灭的分离全在其余日子，关税暴跌那次反在亏钱日上抗跌，日级没有一致形状；「在亏钱效应下酝酿走强」= 整个亏钱效应期间的相对强弱，建议定义取整窗（现口径），待创始人认（骨架 §8.14 (4)）。覆灭窗仍按阶段段落定。一致率维持 46.6%。全部改动在领域层，`intelligence/runtime/` 不动。
+
+## 19. 授课框架接进时间长河读取面（用户「继续推进」，G-01 (b) 前置）
+
+```text
+pytest intelligence/tests/test_teaching_framework_river_objects.py → 4 passed + 1（真库：临时链接 db/market_feature_store.duckdb 跑过，之后清理）
+  真库用例：slice_river 不给 teaching_labels_db 与给 None 逐字节相同；给旁路库 → 盘面轨追加 teaching_stage / teaching_dynasty /
+           teaching_range_leaders；pit_grade 降为 trade_date_only（构建时刻 09-07 晚于 as_of）；require_strict 把三者全部滤掉
+tests/test_river_*.py 29 passed（真库）；intelligence/tests/test_guided_reading*.py 32 passed（带读默认路径不动）
+teaching 90 + methodology 67 passed；ruff 通过；layer_audit ERROR 0 == 基线；intelligence/runtime/ 零触碰
+
+顺手修：river 资金轨聚合 SUM(DOUBLE) 并行求和顺序不定——2026-01-12 算力租赁 amount_sum 两次调用 2413.130000000001 vs 2413.1299999999997，
+       source_hash 随之变，破「同一入参两次调用逐字段相同」；三个 SUM 改 DECIMAL(24,6) 精确求和后一致
+王朝对象的无前视契约（测试锁死）：顶部块内的日子没有王朝对象；下一波未见顶时上一波仍是「最近一波」、不写覆灭窗终点；
+       进入这一波的那次衔接（分离确认旗标）只在这一波见顶后出现；永不出现候选新王朝名单
+```
