@@ -2804,7 +2804,8 @@ def test_zero_grant_timeout_tells_model_it_was_not_dispatched() -> None:
         if message.get("role") == "tool"
     ]
     assert tool_messages, outcome.stop_reason
-    assert tool_messages[0]["error"] == "tool_timeout"
+    # 零授权未派发：码是 tool_not_dispatched，不是 tool_timeout（INV-R4，#28）。
+    assert tool_messages[0]["error"] == "tool_not_dispatched"
     assert tool_messages[0]["detail"] == stage_timeout_granted_detail(0.0)
     assert "stage_timeout_granted=0" in json.dumps(outcome.to_dict(), ensure_ascii=False)
 

@@ -2,7 +2,9 @@
 
 > 母单：#27 `2026-09-07-runtime-base-endstate-design.md` §6.2。前置：P0（PR #620）。
 > 分支：`feat/runtime-base-p1-messages-cancel`（叠在 `spec/runtime-base-endstate` 上；#620 合入后 rebase 到 main）。
-> 状态：🟡 执行中（2026-09-07，用户「开单执行」；§12 未拍板按推荐执行）。
+> 状态：🟡 代码已落、门禁绿、PR 待确认（2026-09-07，用户「开单执行」；§12 未拍板按推荐执行）。A/B/C/D/E 步骤已在分支上完成；F 的 live 探针见分支交接。
+>
+> **落地记录（09-07）**：A `EpisodeMessage` + `to_provider`（`AgentModelClient` 协议不变，替身零改动）；B `services/cancel_signal.py`：`CancelSignal`（可调用、first cause wins、`coerce` / `child`），`GLMAgentRuntime` 一次类型化并给子研究 `child(cause="parent")`，`RuntimeHandle.request_cancel(reason, *, cause)` + `dump()["cancel_cause"]`，两条 loop 的取消终局 `finish` 带 `cancel_cause / cancel_detail`；C `episode_tool_batch.TOOL_NOT_DISPATCHED_ERROR` + `time_gate_error_for_model`，两条 loop 改读 `result.error`，离线读者两代词表并存；D conformance 新增 `INV-R4`（continuous SUPPORTED，其余臂 UNSUPPORTED_DECLARED 验「确实不在场」）+ 批次层三码互斥 + `test_cancel_signal.py` 10 条；E 目录 `--check` 一致。四条零授权断言随词表更新（含 R13 史料夹具按新词表重放）。
 > 判据：INV-R4 成立；INV-R1 在新消息类型上仍成立；除拆码那一格外模型可见内容零字节变化。
 
 ## 1. 三件事、各自的失败形状

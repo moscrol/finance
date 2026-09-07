@@ -18,6 +18,7 @@ from intelligence.services.agent_runtime import (
 )
 from intelligence.runtime.continuous_sub_research import ContinuousSubResearchWorker
 from intelligence.runtime.episode_finalizer import EpisodeFinalizer
+from intelligence.services.cancel_signal import CancelSignal
 from intelligence.services.draft_stream import DraftStreamDecoder
 from intelligence.services.episode_session import CallbackEpisodeSession, EpisodeSession
 from intelligence.services.mode_governor import ModeGovernor, ModeSignals
@@ -483,11 +484,14 @@ class GLMAgentRuntime:
             raise ValueError(
                 "injected client owns its own draft stream; pass on_draft_delta to it"
             )
+        # 取消信号在这里一次类型化（INV-R4）：上游裸谓词来自 API 取消端点 / 定时器，
+        # 原因记 user；子研究分支拿 child 信号，父取消传下去时原因记 parent。
+        cancel_signal = CancelSignal.coerce(is_cancelled, cause="user")
         selected_client = client or GLMModelClient(
             model,
             providers=providers,
             complete_fn=complete_fn,
-            is_cancelled=is_cancelled,
+            is_cancelled=cancel_signal,
             on_draft_delta=on_draft_delta,
         )
         selected_coordinator = sub_research_coordinator or SubResearchCoordinator(
@@ -495,16 +499,16 @@ class GLMAgentRuntime:
                 selected_client,
                 llm_timeout=llm_timeout,
             ),
-            is_cancelled=is_cancelled,
+            is_cancelled=cancel_signal.child(cause="parent"),
         )
         # RuntimeHandle 折叠的上游取消信号与 episode/coordinator 收到的是同一个
         # ——生命周期收据必须与实际执行看同一份事实，不能各订阅各的。
-        self._upstream_cancelled = is_cancelled
+        self._upstream_cancelled = cancel_signal
         self._episode = ContinuousAgentEpisode(
             selected_client,
             llm_timeout=llm_timeout,
             finalizer=finalizer,
-            is_cancelled=is_cancelled,
+            is_cancelled=cancel_signal,
             # 深度裁决的注入件直接进 harness 构造器——Episode 上那层转交壳已删。
             harness=FinanceResearchHarness(
                 mode_governor=mode_governor,

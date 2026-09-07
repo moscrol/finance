@@ -37,6 +37,7 @@ from intelligence.runtime.episode_tool_batch import (
     ToolBatchExecutor,
     ToolBatchResult,
     ToolCallResult,
+    time_gate_error_for_model,
     timeout_detail_for_model,
     tool_definitions_for_menu,
 )
@@ -61,6 +62,7 @@ from intelligence.services.research_plan import (
     ResearchPlan,
     plan_to_public_dict,
 )
+from intelligence.services.cancel_signal import CancelSignal
 from intelligence.services.episode_event_lanes import LiveEventSink
 from intelligence.services.episode_messages import (
     EpisodeMessage,
@@ -335,10 +337,10 @@ def _tool_timing_payload(result: ToolCallResult) -> dict[str, object]:
 def _tool_dispatch_clock_payload(result: ToolCallResult) -> dict[str, object]:
     """派发点五元组：名义窗 / 实授 / 剩余 / 次数 / 思考耗时。
 
-    时间闸（``tool_timeout`` + ``stage_timeout_granted``≤0）和次数闸
+    时间闸（``tool_not_dispatched`` 零授权未派发 / ``tool_timeout`` 真超时）和次数闸
     （``tool_budget_exhausted`` + ``remaining_slots_at_dispatch``）共用这份
-    快照，靠 error 码分闸。零授权与真超时共用 ``tool_timeout``，靠
-    ``detail=stage_timeout_granted=…`` 分开。没测到的字段不写，避免把缺席伪装成 0。
+    快照，靠 error 码分闸；``detail=stage_timeout_granted=…`` 给实授值。
+    没测到的字段不写，避免把缺席伪装成 0。
     """
 
     clock = result.dispatch_clock
@@ -423,8 +425,11 @@ class _EpisodeToolAccumulator:
                 continue
 
             if result.status in {"error", "timeout"}:
+                # 时间闸两码（未派发 / 真超时）由批次执行器分好，这里原样带给模型。
                 public_error = (
-                    "tool_timeout" if result.status == "timeout" else "tool_exception"
+                    time_gate_error_for_model(result)
+                    if result.status == "timeout"
+                    else "tool_exception"
                 )
                 if result.status == "timeout":
                     public_detail = timeout_detail_for_model(result)
@@ -630,7 +635,7 @@ class ContinuousAgentEpisode:
         llm_timeout: float = DEFAULT_LLM_TIMEOUT,
         tool_executor: ToolBatchExecutor | None = None,
         finalizer: EpisodeFinalizer | None = None,
-        is_cancelled: Callable[[], bool] | None = None,
+        is_cancelled: Callable[[], bool] | CancelSignal | None = None,
         sub_research_coordinator: SubResearchCoordinator | None = None,
         event_sink: Callable[[EpisodeEvent], None] | None = None,
         repair_seconds_cap: float | None = None,
@@ -659,7 +664,10 @@ class ContinuousAgentEpisode:
             if finalizer is not None
             else EpisodeFinalizer(model, llm_timeout=self._llm_timeout)
         )
-        self._is_cancelled = is_cancelled or (lambda: False)
+        # 取消信号类型化（INV-R4）：裸谓词包成 CancelSignal，原因默认 user。
+        # ``_is_cancelled`` 仍是可调用的——所有既有检查点零改动，多出来的是 ``.cause``。
+        self._cancel = CancelSignal.coerce(is_cancelled)
+        self._is_cancelled: Callable[[], bool] = self._cancel
         self._sub_research_coordinator = sub_research_coordinator
         self._event_sink = event_sink
 
@@ -2622,6 +2630,8 @@ class ContinuousAgentEpisode:
         tool_calls: int,
         invalid_actions: int,
     ) -> AgentOutcome:
+        # INV-R4：cancelled 终局必带类型化原因。first cause wins 由 CancelSignal 保证。
+        cancel = self._cancel.snapshot()
         return self._stopped_outcome(
             task_frame=task_frame,
             status="failed",
@@ -2634,6 +2644,10 @@ class ContinuousAgentEpisode:
             llm_calls=llm_calls,
             tool_calls=tool_calls,
             invalid_actions=invalid_actions,
+            finish_extra={
+                "cancel_cause": cancel["cause"],
+                "cancel_detail": cancel["detail"],
+            },
         )
 
     @staticmethod
@@ -2760,6 +2774,7 @@ class ContinuousAgentEpisode:
         carried_bindings: tuple[OutputEvidenceBinding, ...] = (),
         rejection_code: str = "none",
         rejection_reason: str = "",
+        finish_extra: Mapping[str, object] | None = None,
     ) -> AgentOutcome:
         """Stop this episode, optionally carrying an earlier answer forward.
 
@@ -2791,6 +2806,8 @@ class ContinuousAgentEpisode:
                 "caveat_slips": 0,
                 "rejection_code": rejection_code,
                 "rejection_reason": rejection_reason,
+                # 只有取消终局带 cancel_cause / cancel_detail（INV-R4）；其余路径不带该键。
+                **dict(finish_extra or {}),
             },
         )
         return AgentOutcome(

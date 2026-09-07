@@ -88,6 +88,8 @@ def extract_run(source: str, user: str, run_dir: Path) -> dict[str, Any] | None:
     events = _events(episode)
     tool_ok = 0
     tool_timeout = 0
+    # 工单 #28（INV-R4）起零授权未派发单独计：它们没被尝试，不进 tool_attempts。
+    tool_not_dispatched = 0
     tool_error = 0
     kb_ok = 0
     kb_timeout = 0
@@ -113,7 +115,9 @@ def extract_run(source: str, user: str, run_dir: Path) -> dict[str, Any] | None:
                 fd_ok += 1
         elif kind == "tool_error":
             error = str(payload.get("error") or "")
-            if error == "tool_timeout":
+            if error == "tool_not_dispatched":
+                tool_not_dispatched += 1
+            elif error == "tool_timeout":
                 tool_timeout += 1
                 if tool == "kb_search":
                     kb_timeout += 1
@@ -164,6 +168,7 @@ def extract_run(source: str, user: str, run_dir: Path) -> dict[str, Any] | None:
         "used_repair": any(event.get("kind") == "repair_reentry" for event in events),
         "tool_ok": tool_ok,
         "tool_timeout": tool_timeout,
+        "tool_not_dispatched": tool_not_dispatched,
         "tool_error": tool_error,
         "tool_attempts": tool_attempts,
         "kb_ok": kb_ok,
