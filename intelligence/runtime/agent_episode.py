@@ -56,7 +56,7 @@ from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
 )
-from intelligence.services.repair_coordinator import RepairGoal
+from intelligence.services.repair_coordinator import BudgetGrant, RepairGoal
 from intelligence.services.research_contract import (
     PRODUCT_MAX_TOOL_CALLS,
     ResearchDeadline,
@@ -917,6 +917,20 @@ class ContinuousAgentEpisode:
                     ),
                 },
             )
+            if not turn.tool_calls and not turn.error:
+                # 写作轮（没点工具的模型轮）超出研究额度的部分从合成保留的余量里出。
+                # 账本 initial_seconds = total − reserve 是研究额度，reserve 本就是留给
+                # 写结论的钱，但此前写作轮照样从研究额度扣：2026-09-08 GLM 思考臂
+                # max 档 reserve 抬到 240 后研究额度缩到 360，写作 181s 一到账本就溢出、
+                # 墙钟还剩 167s 却报 deadline_exhausted（收据 glm-ceiling-20260907 §7）。
+                # 只铸差额、不铸整段：sol 写作 15–40s 研究额度盖得住 → 一笔不铸、账本
+                # 逐字节同前；余量尽量留给修复（修复也从同一段余量铸）。
+                self._grant_writing_shortfall(
+                    context=context,
+                    ledger=ledger,
+                    elapsed=model_elapsed,
+                    llm_calls=llm_calls,
+                )
             if not _consume_root_seconds(context, model_elapsed):
                 if context.root_budget is not None:
                     context.root_budget.settle_seconds(seconds=model_elapsed)
@@ -2711,6 +2725,61 @@ class ContinuousAgentEpisode:
             cleaned = str(value or "").strip()
             if cleaned and cleaned not in target:
                 target.append(cleaned)
+
+    @staticmethod
+    def _grant_writing_shortfall(
+        *,
+        context: ResearchRunContext,
+        ledger: "_EpisodeLedger",
+        elapsed: float,
+        llm_calls: int,
+    ) -> float:
+        """写作轮超出研究额度的秒数，从根账本的余量（= 合成保留）里铸一笔补上。
+
+        余量 = ``hard_seconds_cap − allocated_seconds``，正是档位表留给写结论的
+        ``synthesis_reserve``。只铸 ``min(差额, 余量)``：研究额度盖得住的写作轮
+        一笔不铸（sol 路径逐字节同前），铸不满时照旧走 ``consume_seconds`` 失败 →
+        ``_carry_just_written_finish`` 补救。修复轮从同一段余量铸窗，所以这里
+        绝不预铸整段 reserve。账本鸭子类型：替身没有 ``grant`` 就什么也不做。
+        """
+
+        root = context.root_budget
+        if root is None or elapsed <= 0.0:
+            return 0.0
+        grant_fn = getattr(root, "grant", None)
+        if not callable(grant_fn):
+            return 0.0
+        remaining = max(0.0, float(getattr(root, "remaining_seconds", 0.0) or 0.0))
+        shortfall = max(0.0, float(elapsed) - remaining)
+        if shortfall <= 1e-9:
+            return 0.0
+        hard_cap = float(getattr(root, "hard_seconds_cap", 0.0) or 0.0)
+        allocated = float(getattr(root, "allocated_seconds", hard_cap) or 0.0)
+        headroom = max(0.0, hard_cap - allocated)
+        seconds = min(shortfall, headroom)
+        if seconds <= 1e-9:
+            return 0.0
+        episode_id = str(getattr(root, "episode_id", "") or "").strip()
+        grant = BudgetGrant(
+            grant_id=f"writing-{episode_id}-{int(llm_calls)}",
+            episode_id=episode_id,
+            cycle=0,
+            calls_granted=0,
+            seconds_granted=seconds,
+        )
+        if not grant_fn(grant):
+            return 0.0
+        ledger.add(
+            "writing_grant",
+            {
+                "seconds_granted": round(seconds, 3),
+                "model_elapsed": round(float(elapsed), 3),
+                "shortfall": round(shortfall, 3),
+                "headroom_before": round(headroom, 3),
+                "llm_calls": int(llm_calls),
+            },
+        )
+        return seconds
 
     def _carry_just_written_finish(
         self,

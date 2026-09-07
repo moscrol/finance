@@ -50,7 +50,10 @@ from intelligence.services import market_moneyflow
 from intelligence.services import perspective_lab
 from intelligence.services import research_contract
 from intelligence.services import run_store as rs
-from intelligence.services.provider_latency import repair_seconds_cap_for
+from intelligence.services.provider_latency import (
+    repair_seconds_cap_for,
+    synthesis_reserve_floor_for,
+)
 from intelligence.runtime.agent_runtime_factory import (
     resolve_runtime_backend,
     runtime_backend_readiness,
@@ -254,6 +257,31 @@ def _zero_inner_synthesis_reserve(
 
     del tier, question_type
     return 0.0
+
+
+def _model_floored_synthesis_reserve(
+    base: Callable[..., float],
+    providers: tuple[LLMProvider, ...],
+) -> Callable[..., float]:
+    """按任务形状算的合成保留，再按链首模型的实测写作成本取地板。
+
+    ``GLMAgentRuntime.synthesis_reserve_for_task`` 只看档位与题型（「不由模型
+    自选预算」的红线不动——这里的地板是部署侧按实测填的表，不是 LLM 说的）。
+    链首 ``provider.model`` + ``LLM_REASONING_EFFORT`` 查 ``provider_latency``
+    的写作成本表：没有条目（sol、未开思考的 GLM）返回原函数，预算逐字节同前。
+    """
+
+    floor = synthesis_reserve_floor_for(
+        providers[0].model if providers else None,
+        os.environ.get(llm_refine.REASONING_EFFORT_ENV),
+    )
+    if floor is None:
+        return base
+
+    def reserve(*, tier: str, question_type: str) -> float:
+        return max(float(base(tier=tier, question_type=question_type)), float(floor))
+
+    return reserve
 
 
 def _memory_bound_registry_factory(
@@ -527,11 +555,17 @@ def _build_continuous_turn_adapter(
         timeout=timeout,
         # 组合根这里已经握着生效链。只靠 adapter 问 runtime 会落空：
         # GLMAgentRuntime 没有 _providers，帽会静默回到 30。
+        # 修复帽再按链首**模型**取地板（spec 2026-09-08 P1）：provider 名量不出
+        # 「GLM 思考臂修复轮要 60–210s」，sol / 未开思考的 GLM 不命中表、帽同前。
         repair_seconds_cap=repair_seconds_cap_for(
-            providers[0].name if providers else None
+            providers[0].name if providers else None,
+            model_name=providers[0].model if providers else None,
+            reasoning_effort=os.environ.get(llm_refine.REASONING_EFFORT_ENV),
         ),
         synthesis_reserve_for_task=(
-            GLMAgentRuntime.synthesis_reserve_for_task
+            _model_floored_synthesis_reserve(
+                GLMAgentRuntime.synthesis_reserve_for_task, providers
+            )
             if selection.name == "continuous_glm"
             else _zero_inner_synthesis_reserve
         ),

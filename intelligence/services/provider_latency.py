@@ -70,19 +70,36 @@ _REPAIR_SECONDS_BY_PROVIDER: dict[str, float] = {
 # 非法值（非数、≤0）一律忽略并落回表值——配置写错不该让修复轮静默变成 0 秒。
 ENV_OVERRIDE = "ASK_REPAIR_SECONDS_CAP"
 
+# 修复轮单笔授予的**模型侧**地板（spec 2026-09-08 P1）。上表按 provider.name 键，
+# 但生产链首 name="zhipu" 实际是 sol@cockpit，且同一 GLM 在 low 与 max 下修复轮
+# 长度差 3 倍——provider 名量不出这个。键是（配置模型名前缀，推理档集合）。
+#
+# 2026-09-07 max 档 GLM-5.3-flash 思考臂修复轮 n=6：1.9K–6.8K token @ ≈33 tok/s
+# ≈ 60–210s；40s 帽（按 glm-5.2 不思考 p90 34.4 标）下 6.8K 那发把已 completed 的稿
+# 降成 partial（glm-ceiling-20260907 §7）。200 取 p90 量级。修复能铸的余量上限是
+# synthesis_reserve（账本硬顶 − 研究额度），所以这个数只有在合成保留地板（P2）≥
+# 写作 + 修复之后才起作用——两者同批上线，见 spec §4.2。
+_REPAIR_SECONDS_FLOOR_BY_MODEL: tuple[tuple[str, frozenset[str], float], ...] = (
+    ("glm-5.3", frozenset({"max", "high"}), 200.0),
+)
+
 
 def repair_seconds_cap_for(
     provider_name: str | None,
     *,
+    model_name: str | None = None,
+    reasoning_effort: str | None = None,
     env: dict[str, str] | None = None,
 ) -> float:
     """Return the repair-window cap (seconds) for one provider.
 
     ``provider_name`` 取 ``llm_refine.LLMProvider.name``（``zhipu`` / ``openai`` /
     ``custom``）。None、空串或表中没有的名字一律落 ``DEFAULT_REPAIR_SECONDS_CAP``。
+    传了 ``model_name`` / ``reasoning_effort`` 时再按模型侧实测表取地板（只抬不压）；
+    不传即老行为。
 
-    环境变量 ``ASK_REPAIR_SECONDS_CAP`` 覆盖一切（含未知 provider）；无法解析成
-    正数时忽略。
+    环境变量 ``ASK_REPAIR_SECONDS_CAP`` 覆盖一切（含未知 provider 与模型地板）；
+    无法解析成正数时忽略。
     """
 
     source = os.environ if env is None else env
@@ -95,13 +112,80 @@ def repair_seconds_cap_for(
         if override > 0.0:
             return override
     key = str(provider_name or "").strip().casefold()
-    return _REPAIR_SECONDS_BY_PROVIDER.get(key, DEFAULT_REPAIR_SECONDS_CAP)
+    cap = _REPAIR_SECONDS_BY_PROVIDER.get(key, DEFAULT_REPAIR_SECONDS_CAP)
+    floor = _model_floor(_REPAIR_SECONDS_FLOOR_BY_MODEL, model_name, reasoning_effort)
+    return cap if floor is None else max(cap, floor)
+
+
+def _model_floor(
+    table: tuple[tuple[str, frozenset[str], float], ...],
+    model_name: str | None,
+    reasoning_effort: str | None,
+) -> float | None:
+    model = str(model_name or "").strip().casefold()
+    effort = str(reasoning_effort or "").strip().casefold()
+    if not model or not effort:
+        return None
+    for prefix, efforts, seconds in table:
+        if model.startswith(prefix) and effort in efforts:
+            return seconds
+    return None
 
 
 def known_providers() -> tuple[str, ...]:
     """已有实测条目的 provider 名，供收据与测试枚举。"""
 
     return tuple(sorted(_REPAIR_SECONDS_BY_PROVIDER))
+
+
+# ── 写作轮成本 → 合成保留地板（模型侧） ─────────────────────────────────────
+#
+# 合成保留（``ResearchPolicy.synthesis_reserve``）回答的是「留多少秒给模型写结论」。
+# 答案长度归产品（档位表 quick 20 / standard 20 / deep 48 / max 60），输出速度归模型
+# ——同一份档位值在不同模型上是两个完全不同的写作时长。60s 是按 sol 写 1.4–1.7K
+# token 标的（sol 规划轮 0.03–0.25K、写作 1.7K，无隐藏推理）。
+#
+# 2026-09-07 max 档 GLM-5.3-flash 思考臂（LLM_REASONING_EFFORT=max/high）n=11 实测：
+#   单个写作轮输出 3.3K–7.7K token（p50 4.9K，含隐藏推理），解码 27.5–40.6 tok/s（p50 32.8）
+#   → 写作轮 p50 ≈150s、p90 ≈210s；Q1 上 3/6 还要一次修复轮（1.9–4.8K token ≈ 60–150s）。
+#   被切的那发（high×Q1-r3）：研究到剩 161s 才开始写，写作 7.3K token 要 200s+ →
+#   deadline_exhausted → 修复轮也没写完 → partial。60s 保留在这类模型上等于没有保留。
+# 240 = 写作 p90（210）单独可容，或写作 p50 + 修复 p50（150 + 90）。max 档 600s 里留 240
+# 还剩 360s 研究，盖过实测研究阶段 270–300s。收据 ~/.finance-runtime/glm-ceiling-20260907/。
+#
+# 键是（配置模型名前缀，推理档集合）：provider.name 不行——生产链首 name="zhipu" 实际是
+# sol@cockpit（启动器注释在案），且同一 GLM 在 low 与 max 下写作成本差 4 倍。
+# 未命中返回 None = 沿用档位值，sol / 未开思考的 GLM 请求体与预算逐字节同前。
+# 新增条目必须附实测样本量与分位数（同上表规矩）。
+_SYNTHESIS_RESERVE_FLOOR_BY_MODEL: tuple[tuple[str, frozenset[str], float], ...] = (
+    ("glm-5.3", frozenset({"max", "high"}), 240.0),
+)
+ENV_SYNTHESIS_RESERVE_FLOOR = "ASK_SYNTHESIS_RESERVE_FLOOR"
+
+
+def synthesis_reserve_floor_for(
+    model_name: str | None,
+    reasoning_effort: str | None,
+    *,
+    env: dict[str, str] | None = None,
+) -> float | None:
+    """该模型在该推理档下写一次结论至少要留的秒数；无实测条目返回 None。
+
+    ``model_name`` 取配置的 ``LLMProvider.model``（如 ``glm-5.3-flash``），前缀匹配；
+    ``reasoning_effort`` 取 ``LLM_REASONING_EFFORT`` 生效值。环境变量
+    ``ASK_SYNTHESIS_RESERVE_FLOOR`` 覆盖一切（实验窗口用）；非法值忽略。
+    """
+
+    source = os.environ if env is None else env
+    raw = str(source.get(ENV_SYNTHESIS_RESERVE_FLOOR) or "").strip()
+    if raw:
+        try:
+            override = float(raw)
+        except ValueError:
+            override = 0.0
+        if override > 0.0:
+            return override
+    return _model_floor(_SYNTHESIS_RESERVE_FLOOR_BY_MODEL, model_name, reasoning_effort)
 
 
 def provider_name_from(
@@ -151,8 +235,10 @@ def provider_name_from(
 __all__ = [
     "DEFAULT_REPAIR_SECONDS_CAP",
     "ENV_OVERRIDE",
+    "ENV_SYNTHESIS_RESERVE_FLOOR",
     "GLM_MEASURED_P90_SECONDS",
     "known_providers",
     "provider_name_from",
     "repair_seconds_cap_for",
+    "synthesis_reserve_floor_for",
 ]

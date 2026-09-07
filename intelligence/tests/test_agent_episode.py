@@ -996,6 +996,159 @@ def test_deadline_after_tool_turn_does_not_invent_a_draft(
     assert any(event.kind == "tool_result" for event in outcome.events)
 
 
+class _ClockedScriptedModel(ScriptedModel):
+    """每一发按 ``costs`` 推进假钟，模拟「这一轮模型花了多少秒」。"""
+
+    def __init__(self, turns, costs: list[float], clock: dict[str, float]) -> None:
+        super().__init__(turns)
+        self._costs = iter(costs)
+        self._clock = clock
+
+    def complete(self, *, messages, tools, timeout):
+        self._clock["now"] += next(self._costs)
+        return super().complete(messages=messages, tools=tools, timeout=timeout)
+
+
+def _freeze_episode_clock(monkeypatch: pytest.MonkeyPatch) -> dict[str, float]:
+    clock = {"now": 1000.0}
+    monkeypatch.setattr(agent_episode_module, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(research_contract_module.time, "monotonic", lambda: clock["now"])
+    return clock
+
+
+def test_writing_turn_draws_only_its_shortfall_from_reserve_headroom(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """spec 2026-09-08 P0：写作轮超出研究额度的部分从余量铸，不再溢出成 deadline_exhausted。
+
+    账本研究额度 30、硬顶 60（余量 30 = 合成保留）。研究轮 25s，写作轮 20s：
+    旧行为 25 + 20 > 30 → consume 失败 → 只能靠 ``_carry_just_written_finish`` 补救；
+    新行为只铸差额 20 − 5 = 15（不是整段 20，更不是整段余量 30），写作轮正常交卷，
+    余量还剩 15 给修复。GLM 思考臂 max 档的现场：研究 251 + 写作 181 对 360 额度
+    （glm-ceiling-20260907 §7）。
+    """
+
+    clock = _freeze_episode_clock(monkeypatch)
+    frame = _frame()
+    base = _context(frame, max_steps=2)
+    root = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id,
+        initial_calls=4,
+        hard_calls_cap=8,
+        initial_seconds=30.0,
+        hard_seconds_cap=60.0,
+    )
+    context = replace(base, root_budget=root)
+    draft = "阶段判断：国产算力已退出主线，不是管道陈旧。"
+    model = _ClockedScriptedModel(
+        [_tool_turn("当前市场结构"), _finish_turn(draft=draft)],
+        costs=[25.0, 20.0],
+        clock=clock,
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.stop_reason == "model_finish"
+    assert outcome.draft == draft
+    grants = [e for e in outcome.events if e.kind == "writing_grant"]
+    assert len(grants) == 1
+    assert grants[0].payload["seconds_granted"] == pytest.approx(15.0)
+    assert grants[0].payload["shortfall"] == pytest.approx(15.0)
+    assert grants[0].payload["headroom_before"] == pytest.approx(30.0)
+    assert root.allocated_seconds == pytest.approx(45.0)
+    assert root.remaining_seconds == pytest.approx(0.0)
+    # 余量还剩 15：修复轮仍能从这里铸窗。
+    assert root.hard_seconds_cap - root.allocated_seconds == pytest.approx(15.0)
+    finish = next(event for event in outcome.events if event.kind == "finish")
+    # 正常交卷，不是补救路径（补救路径才会写 carried_draft_chars）。
+    assert finish.payload.get("carried_draft_chars", 0) == 0
+
+
+def test_writing_turn_within_research_allocation_mints_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """研究额度盖得住的写作轮一笔不铸——sol 路径（写作 15–40s）账本逐字节同前。"""
+
+    clock = _freeze_episode_clock(monkeypatch)
+    frame = _frame()
+    base = _context(frame, max_steps=2)
+    root = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id,
+        initial_calls=4,
+        hard_calls_cap=8,
+        initial_seconds=30.0,
+        hard_seconds_cap=60.0,
+    )
+    context = replace(base, root_budget=root)
+    model = _ClockedScriptedModel(
+        [_tool_turn("当前市场结构"), _finish_turn()],
+        costs=[5.0, 10.0],
+        clock=clock,
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.stop_reason == "model_finish"
+    assert not [e for e in outcome.events if e.kind == "writing_grant"]
+    assert root.allocated_seconds == pytest.approx(30.0)
+    assert root.remaining_seconds == pytest.approx(15.0)
+
+
+def test_writing_grant_is_capped_by_headroom_and_tool_turns_never_draw(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """差额大于余量时只铸余量，其余照旧走补救路；工具轮溢出不铸。
+
+    研究额度 30 / 硬顶 40（余量 10）。研究轮 28s，写作轮 30s：差额 28 > 余量 10 →
+    铸 10，consume 仍失败 → ``_carry_just_written_finish`` 交卷（R-20260817-01 的路不变）。
+    """
+
+    clock = _freeze_episode_clock(monkeypatch)
+    frame = _frame()
+    base = _context(frame, max_steps=2)
+    root = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id,
+        initial_calls=4,
+        hard_calls_cap=8,
+        initial_seconds=30.0,
+        hard_seconds_cap=40.0,
+    )
+    context = replace(base, root_budget=root)
+    draft = "阶段判断：国产算力已退出主线，不是管道陈旧。"
+    model = _ClockedScriptedModel(
+        [_tool_turn("当前市场结构"), _finish_turn(draft=draft)],
+        costs=[28.0, 30.0],
+        clock=clock,
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+
+    grants = [e for e in outcome.events if e.kind == "writing_grant"]
+    assert len(grants) == 1
+    assert grants[0].payload["seconds_granted"] == pytest.approx(10.0)
+    assert root.allocated_seconds == pytest.approx(40.0)
+    # 研究轮 28s 时账本还剩 2s、余量 10s——工具轮不铸（无 writing_grant 在研究轮）。
+    assert grants[0].payload["llm_calls"] == 2
+    # 铸满余量仍不够：走既有补救路，稿子不丢。
+    assert outcome.stop_reason == "model_finish"
+    assert outcome.draft == draft
+    finish = next(event for event in outcome.events if event.kind == "finish")
+    assert finish.payload["carried_draft_chars"] == len(draft)
+
+
 def test_repair_retries_transient_model_error_once_then_finishes() -> None:
     """修复轮对超时类错误要有一次 harness 层补救，而不是一击终局。
 

@@ -674,6 +674,82 @@ def test_production_continuous_adapter_shares_provider_client_across_gates(
     assert adapter._repair_seconds_cap == repair_seconds_cap_for("zhipu")
 
 
+def _glm_thinking_adapter(monkeypatch, tmp_path: Path, *, model: str, effort: str | None):
+    if effort is None:
+        monkeypatch.delenv("LLM_REASONING_EFFORT", raising=False)
+    else:
+        monkeypatch.setenv("LLM_REASONING_EFFORT", effort)
+    monkeypatch.delenv("ASK_SYNTHESIS_RESERVE_FLOOR", raising=False)
+    providers = (
+        app_module.LLMProvider(
+            "zhipu",
+            "primary-secret",
+            "https://glm.example.invalid/v1",
+            model,
+        ),
+    )
+    run_store = RunStore(user_id="reserve", root=tmp_path / "runs")
+    run = run_store.create_run("固态电池题材", "ask", session_id="conversation-r")
+    return app_module._build_continuous_turn_adapter(
+        providers=providers,
+        run_id=run.run_id,
+        assistant_message_id="message-r",
+        run_store=run_store,
+        conversation_id="conversation-r",
+        is_cancelled=lambda: False,
+        timeout=900.0,
+        deadline_expires_at=time.monotonic() + 900.0,
+    )
+
+
+def test_continuous_adapter_floors_synthesis_reserve_by_thinking_model(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """链首是 GLM-5.3 且开了思考：合成保留取模型写作成本地板 240，不再是档位的 60。
+
+    2026-09-07 high×Q1-r3：60s 保留下模型研究到剩 161s 才写，7.3K token 写作轮到点被切。
+    地板来自 provider_latency 的实测表；档位/题型逻辑本身不动（quick 仍走 20 → 取大得 240）。
+    """
+
+    adapter = _glm_thinking_adapter(monkeypatch, tmp_path, model="glm-5.3-flash", effort="max")
+    assert (
+        adapter._synthesis_reserve_for_task(tier="max", question_type="theme_analysis")
+        == 240.0
+    )
+    # P1：同一链首、同一 effort，修复帽也按模型取地板（zhipu 表值 40 → 200）。
+    assert adapter._repair_seconds_cap == 200.0
+    assert (
+        adapter._synthesis_reserve_for_task(tier="standard", question_type="market_cause")
+        == 240.0
+    )
+    # 地板是地板：题型/档位算出来更大时沿用更大的那个（这里没有更大的，故仍 240）。
+    assert (
+        adapter._synthesis_reserve_for_task(tier="quick", question_type="quick_fact")
+        == 240.0
+    )
+
+
+def test_continuous_adapter_keeps_tier_reserve_for_sol_and_non_thinking_glm(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """sol@cockpit（链首 name=zhipu 但 model 是 sol）与未开思考的 GLM：预算逐字节同前。"""
+
+    sol = _glm_thinking_adapter(monkeypatch, tmp_path, model="gpt-5.6-sol", effort="max")
+    assert sol._synthesis_reserve_for_task(tier="max", question_type="theme_analysis") == 60.0
+    assert sol._repair_seconds_cap == 40.0
+    assert sol._synthesis_reserve_for_task(tier="quick", question_type="quick_fact") == 20.0
+
+    glm_low = _glm_thinking_adapter(monkeypatch, tmp_path, model="glm-5.3-flash", effort="low")
+    assert glm_low._synthesis_reserve_for_task(tier="max", question_type="theme_analysis") == 60.0
+    assert glm_low._repair_seconds_cap == 40.0
+
+    glm_unset = _glm_thinking_adapter(monkeypatch, tmp_path, model="glm-5.3-flash", effort=None)
+    assert (
+        glm_unset._synthesis_reserve_for_task(tier="standard", question_type="market_cause")
+        == 75.0
+    )
+
+
 def test_production_adapter_composes_sdk_glm_without_changing_verifier(
     monkeypatch,
 ) -> None:

@@ -15,10 +15,12 @@ import pytest
 from intelligence.services.provider_latency import (
     DEFAULT_REPAIR_SECONDS_CAP,
     ENV_OVERRIDE,
+    ENV_SYNTHESIS_RESERVE_FLOOR,
     GLM_MEASURED_P90_SECONDS,
     known_providers,
     provider_name_from,
     repair_seconds_cap_for,
+    synthesis_reserve_floor_for,
 )
 from intelligence.runtime.repair_budget import (
     _REPAIR_SECONDS_CAP,
@@ -260,3 +262,75 @@ def test_provider_name_from_walks_glm_runtime_episode_client() -> None:
         _episode = _Episode()
 
     assert provider_name_from(_Runtime()) == "zhipu"
+
+
+# ── 合成保留地板（写作轮成本，模型侧） ──────────────────────────────────────
+
+
+def test_synthesis_reserve_floor_only_for_measured_thinking_models() -> None:
+    """有实测的 (glm-5.3*, max/high) 给 240；其余全部 None = 档位值不变。
+
+    2026-09-07 n=11：GLM-5.3-flash 思考臂单个写作轮 3.3K–7.7K token、解码 p50 32.8 tok/s
+    → 写作 p50 ≈150s / p90 ≈210s，Q1 上 3/6 还要一次修复轮；60s 保留下 high×Q1-r3 被
+    deadline 切在写作轮。sol 与未开思考的 GLM 请求体和预算必须逐字节同前。
+    """
+
+    env: dict[str, str] = {}
+    assert synthesis_reserve_floor_for("glm-5.3-flash", "max", env=env) == 240.0
+    assert synthesis_reserve_floor_for("glm-5.3", "high", env=env) == 240.0
+    assert synthesis_reserve_floor_for("GLM-5.3-Flash", "MAX", env=env) == 240.0
+    # 未开思考 / low：写作 1.3–1.5K token ≈ 40s，档位 60 够用。
+    assert synthesis_reserve_floor_for("glm-5.3-flash", "low", env=env) is None
+    assert synthesis_reserve_floor_for("glm-5.3-flash", None, env=env) is None
+    assert synthesis_reserve_floor_for("glm-5.3-flash", "", env=env) is None
+    # 生产链首：name="zhipu" 但 model 是 sol——键必须是模型名，不是 provider 名。
+    assert synthesis_reserve_floor_for("gpt-5.6-sol", "max", env=env) is None
+    assert synthesis_reserve_floor_for("gpt-5.6-terra", "high", env=env) is None
+    assert synthesis_reserve_floor_for("glm-5.2", "max", env=env) is None
+    assert synthesis_reserve_floor_for(None, "max", env=env) is None
+
+
+def test_synthesis_reserve_floor_env_override_and_invalid_values() -> None:
+    assert (
+        synthesis_reserve_floor_for("gpt-5.6-sol", None, env={ENV_SYNTHESIS_RESERVE_FLOOR: "180"})
+        == 180.0
+    )
+    assert (
+        synthesis_reserve_floor_for("glm-5.3-flash", "max", env={ENV_SYNTHESIS_RESERVE_FLOOR: "300"})
+        == 300.0
+    )
+    # 写错了不该让保留静默归零：非数 / 非正数一律忽略，落回表值。
+    assert (
+        synthesis_reserve_floor_for("glm-5.3-flash", "max", env={ENV_SYNTHESIS_RESERVE_FLOOR: "abc"})
+        == 240.0
+    )
+    assert (
+        synthesis_reserve_floor_for("gpt-5.6-sol", None, env={ENV_SYNTHESIS_RESERVE_FLOOR: "-5"})
+        is None
+    )
+
+
+# ── 修复帽模型侧地板（spec 2026-09-08 P1） ──────────────────────────────────
+
+
+def test_repair_cap_floors_by_thinking_model_and_keeps_provider_table_otherwise() -> None:
+    """(glm-5.3*, max/high) → max(provider 帽, 200)；其余调用与不传模型时逐字节同前。
+
+    2026-09-07 修复轮 n=6：1.9K–6.8K token @ ≈33 tok/s ≈ 60–210s，40s 帽下 6.8K 那发把
+    已 completed 的稿降成 partial。键必须是模型名：生产链首 name="zhipu" 实际是 sol。
+    """
+
+    env: dict[str, str] = {}
+    assert repair_seconds_cap_for("zhipu", env=env) == 40.0
+    assert repair_seconds_cap_for("zhipu", model_name="glm-5.3-flash", reasoning_effort="max", env=env) == 200.0
+    assert repair_seconds_cap_for("zhipu", model_name="glm-5.3", reasoning_effort="high", env=env) == 200.0
+    assert repair_seconds_cap_for("custom", model_name="GLM-5.3-Flash", reasoning_effort="MAX", env=env) == 200.0
+    # 未开思考 / low / 未设 effort：provider 帽不变。
+    assert repair_seconds_cap_for("zhipu", model_name="glm-5.3-flash", reasoning_effort="low", env=env) == 40.0
+    assert repair_seconds_cap_for("zhipu", model_name="glm-5.3-flash", reasoning_effort=None, env=env) == 40.0
+    # 生产：name="zhipu" 但 model 是 sol → 40 同前；openai → 30 同前。
+    assert repair_seconds_cap_for("zhipu", model_name="gpt-5.6-sol", reasoning_effort="max", env=env) == 40.0
+    assert repair_seconds_cap_for("openai", model_name="gpt-5.6-terra", reasoning_effort="high", env=env) == 30.0
+    assert repair_seconds_cap_for("zhipu", model_name="glm-5.2", reasoning_effort="max", env=env) == 40.0
+    # 地板只抬不压；env 逃生阀仍覆盖一切。
+    assert repair_seconds_cap_for("zhipu", model_name="glm-5.3-flash", reasoning_effort="max", env={ENV_OVERRIDE: "55"}) == 55.0
