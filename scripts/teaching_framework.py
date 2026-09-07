@@ -16,7 +16,11 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from intelligence.services.methodology_backtest.labels import LABEL_VERSION  # noqa: E402
+from intelligence.services.methodology_backtest.labels import (  # noqa: E402
+    DUAL_RED_AMOUNT_GT,
+    DUAL_RED_DIFF_RATIO_GT,
+    LABEL_VERSION,
+)
 from intelligence.services.methodology_backtest.store import (  # noqa: E402
     check_teaching_schema,
     default_labels_db_path,
@@ -50,7 +54,10 @@ from intelligence.services.teaching_framework.receipts import (  # noqa: E402
     write_receipt,
 )
 
-SOURCE_TABLES = ("fact_market_daily", "fact_mainline_sector_daily", "fact_theme_limit_stock_daily", "fact_stock_daily")
+SOURCE_TABLES = (
+    "fact_market_daily", "fact_mainline_sector_daily", "fact_theme_limit_stock_daily", "fact_stock_daily",
+    "fact_sector_daily", "fact_theme_limit_heat_daily", "fact_stock_high_daily",
+)
 BIRTH_COHORT_FEATURES = ("tf.stage_coarse", "tf.deviation_band", "volume_state")
 
 
@@ -127,6 +134,42 @@ ORDER BY trade_date
 
 def _load_breadth(source: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
     return _rows(source, BREADTH_SQL)
+
+
+# 板块侧的市场级日聚合（第二刀，创始人第六段「一体两面」）：
+#   new_high_1y_count      1 年及以上周期新高的个股数（fact_stock_high_daily.primary_high_period ∈ 1y/2y/3y/history）
+#   dual_red_theme_count   严格双红题材数，口径与回测层 dual_red_strict 完全一致（pct>0 ∧ diff>10 ∧ amount>500）
+#   limit_themes_ge3       当日涨停家数 ≥ 3 的题材数（fact_theme_limit_heat_daily final）
+#   limit_top1_share_pct   第一题材占全市场涨停的份额
+# 某张表当日没有行 → 该列 NULL（flags 侧记缺口），不用 0 冒充。
+SECTOR_SQL = f"""
+WITH cal AS (SELECT trade_date FROM fact_market_daily),
+nh AS (
+    SELECT trade_date, COUNT(*) AS new_high_1y_count
+    FROM fact_stock_high_daily WHERE primary_high_period IN ('1y', '2y', '3y', 'history')
+    GROUP BY trade_date
+),
+dr AS (
+    SELECT trade_date,
+           SUM(CASE WHEN pct_chg > 0 AND diff_ratio > {DUAL_RED_DIFF_RATIO_GT} AND amount > {DUAL_RED_AMOUNT_GT} THEN 1 ELSE 0 END) AS dual_red_theme_count
+    FROM fact_sector_daily WHERE pct_chg IS NOT NULL AND diff_ratio IS NOT NULL AND amount IS NOT NULL
+    GROUP BY trade_date
+),
+lh AS (
+    SELECT trade_date,
+           SUM(CASE WHEN limit_up_count >= 3 THEN 1 ELSE 0 END) AS limit_themes_ge3,
+           MAX(market_share) AS limit_top1_share_pct
+    FROM fact_theme_limit_heat_daily WHERE data_stage = 'final'
+    GROUP BY trade_date
+)
+SELECT cal.trade_date, nh.new_high_1y_count, dr.dual_red_theme_count, lh.limit_themes_ge3, lh.limit_top1_share_pct
+FROM cal LEFT JOIN nh USING (trade_date) LEFT JOIN dr USING (trade_date) LEFT JOIN lh USING (trade_date)
+ORDER BY cal.trade_date
+"""
+
+
+def _load_sector_breadth(source: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
+    return _rows(source, SECTOR_SQL)
 
 
 def _open_sidecar_for_write(path: Path) -> duckdb.DuckDBPyConnection:
@@ -344,12 +387,13 @@ def cmd_build_labels(args: argparse.Namespace) -> int:
         stocks = _load_limit_rows(source)
         amounts = _rows(source, "SELECT trade_date, stock_ts_code, amount FROM fact_stock_daily ORDER BY trade_date, stock_ts_code")
         breadth = _load_breadth(source)
+        sector_breadth = _load_sector_breadth(source)
         source_counts = _source_counts(source)
     finally:
         source.close()
     records = build_index_stage(
         market, calendar=dates, vendor_rows=vendor, stock_rows=stocks,
-        amount_rows=amounts, breadth_rows=breadth, params=params, supplier_normalizer=normalize_stage,
+        amount_rows=amounts, breadth_rows=breadth, sector_rows=sector_breadth, params=params, supplier_normalizer=normalize_stage,
     )
     label_rows = to_label_rows(records, framework_version=fw, computed_at=build_time)
     gap_rows: list[tuple[Any, ...]] = []

@@ -234,6 +234,22 @@ def test_ma_side_episode_is_unknown_across_a_calendar_break():
     assert out[2]["ma_episode_day"] is None and out[3]["ma_episode_day"] is None  # 01-07 missing: the run lost its anchor
 
 
+def test_sector_scalars_fail_closed_per_field_and_per_day():
+    """板块侧市场级视角 (第二刀): a day without sector rows is a gap for all four; a NULL field is its own gap."""
+    days = ["2026-01-05", "2026-01-06", "2026-01-07"]
+    sector = [
+        {"trade_date": days[0], "new_high_1y_count": 176, "dual_red_theme_count": 5, "limit_themes_ge3": 38, "limit_top1_share_pct": 26.58},
+        {"trade_date": days[1], "new_high_1y_count": 60, "dual_red_theme_count": None, "limit_themes_ge3": 50, "limit_top1_share_pct": 27.7},
+    ]
+    out = compute_flags([_market(d, 100.0) for d in days], calendar=days, sector_rows=sector)
+    full, partial, absent = out
+    assert (full["new_high_1y_count"], full["dual_red_theme_count"], full["limit_themes_ge3"], full["limit_top1_share_pct"]) == (176.0, 5.0, 38.0, 26.58)
+    assert "new_high_1y_count" not in full["scalar_gaps"]
+    assert partial["dual_red_theme_count"] is None and partial["scalar_gaps"]["dual_red_theme_count"] == "dual_red_theme_count_null"
+    assert partial["new_high_1y_count"] == 60.0
+    assert absent["limit_themes_ge3"] is None and absent["scalar_gaps"]["limit_themes_ge3"] == "sector_rows_absent"
+
+
 def test_breadth_scalars_fail_closed_on_absent_day_and_thin_coverage():
     days = ["2026-01-05", "2026-01-06", "2026-01-07"]
     breadth = [
