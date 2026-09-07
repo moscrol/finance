@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-09-03T07:29:20Z",
+  "generated_at": "2026-09-07T09:40:13Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -220,13 +220,19 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/duckdb-backfill/SKILL.md",
-      "description": "DuckDB market_feature_store 回补。用户说「回补 duckdb」「全量回补」「补缺口」「修 fact_* 覆盖」或 sync 挂起需短命令重试时用。按覆盖审计与超时兜底跑。不改策略、不改 vault。",
+      "description": "DuckDB market_feature_store 历史日回补与验收。触发：断档回补（某天/几天的复盘没抓、夜跑失败补数）、回补 duckdb、补单表缺口、修 fact_* 覆盖、fupanhui 429 后续跑、验收回补是否与基线对齐。当日全量复盘走 daily-full-review。",
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:c945164a21711481a096d4d4954fde4ee50643f711af45c014fb3ad5aa33b7b6",
+      "computedHash": "sha256:4372eb617d1581caecb799befda791980736158ce96fb0aa22034782f4ce5d5e",
       "agentOnly": false,
-      "views": []
+      "views": [
+        {
+          "path": ".claude/skills/duckdb-backfill",
+          "type": "symlink",
+          "target": "../../skills/duckdb-backfill"
+        }
+      ]
     },
     "ws/finance-degraded-fallback": {
       "name": "finance-degraded-fallback",
@@ -497,7 +503,7 @@
       ],
       "note": "只切换/使用已有视角回答问题不用本 skill，直接在 Workbench 选视角即可。",
       "entrypoint": null,
-      "computedHash": "sha256:5f2fd1a4c86095e9f7b9d05096951bc3084903ac9bd852e6b0d0233ac570ac46",
+      "computedHash": "sha256:6bff08b3fb65fa673e0605166348c5b0e7a5ba0a3d2d6382ad9014e147b8fc72",
       "agentOnly": false,
       "views": [
         {

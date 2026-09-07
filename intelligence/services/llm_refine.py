@@ -469,6 +469,18 @@ class LLMCallLedger:
                 and self._reservation_count >= self.max_calls
             )
 
+    def headroom(self) -> int | None:
+        """本轮还能发几次模型调用；无上限时 None。
+
+        给准入判断用（子研究起分支前看余量够不够分支 + 判官 / 合成的尾段），
+        不是保留位：预占仍只在 ``try_reserve`` 那道 HTTP 边界发生。
+        """
+
+        with self._lock:
+            if self.max_calls is None:
+                return None
+            return max(0, int(self.max_calls) - int(self._reservation_count))
+
     def try_reserve(self) -> bool:
         """Atomically reserve one real provider attempt.
 

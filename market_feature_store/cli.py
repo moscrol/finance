@@ -630,8 +630,11 @@ def cmd_sync_stock_daily(args) -> int:
         qfq=args.qfq,
         timeout=args.timeout,
         progress_every=args.progress_every,
+        end_date=args.end_date,
+        ohlc_only=args.ohlc_only,
     )
-    print(f"起始日: {stats['start_date']} | 全A股池: {stats['universe']}")
+    mode = " | 模式: 只补 OHLC" if args.ohlc_only else ""
+    print(f"起始日: {stats['start_date']}{' ~ ' + args.end_date if args.end_date else ''} | 全A股池: {stats['universe']}{mode}")
     print(f"本次抓取: {stats['processed']} 只 | 写入行: {stats['rows_written']}")
     print(f"已覆盖个股: {stats['stocks_done']}/{stats['universe']} | 剩余: {stats['stocks_remaining']}")
     print(f"fact_stock_daily: {stats['table_total']} 行, {stats['distinct_stocks']} 股, "
@@ -1390,9 +1393,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="校验 consumption_registry.yaml：档位合法、表在 schema、计划步骤有归属",
     ).set_defaults(func=cmd_registry_check)
 
-    p_skd = sub.add_parser("sync-stock-daily", help="mootdx 全A股前复权日线回补到 fact_stock_daily")
+    p_skd = sub.add_parser("sync-stock-daily", help="mootdx 全A股日线回补到 fact_stock_daily (历史日的日期参数化源; 含 open/high/low/volume)")
     p_skd.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD, 留空对齐 fact_market_daily 最早日")
-    p_skd.add_argument("--offset", type=int, default=180, help="每只股票拉取日线根数, 默认180(~8个月)")
+    p_skd.add_argument("--end-date", default=None, help="截止交易日(含); 与 --start-date 相同即只重写单日, 如东财快照写坏的那天")
+    p_skd.add_argument("--ohlc-only", action="store_true", help="只补 open/high/low/volume, 不碰已有行的收盘/昨收/涨幅/名字/来源 (给东财日线补 OHLC / 拉长历史)")
+    p_skd.add_argument("--offset", type=int, default=180, help="每只股票拉取日线根数, 默认180(~8个月); 3 年历史用 800")
     p_skd.add_argument("--limit", type=int, default=None, help="本次最多抓多少只 (续跑用)")
     p_skd.add_argument("--refresh", action="store_true", help="不跳过已抓股票, 强制重抓")
     p_skd.add_argument("--sleep", type=float, default=0.0, help="股票间隔秒数, 默认0")

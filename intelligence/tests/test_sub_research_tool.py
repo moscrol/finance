@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 
 import pytest
@@ -20,6 +21,10 @@ from intelligence.runtime.episode_tool_batch import ToolBatchExecutor
 from intelligence.runtime.sub_research import (
     MAX_CALLS_PER_BRANCH,
     MAX_SECONDS_PER_BRANCH,
+    BranchAdmission,
+    BranchBatch,
+    BranchBudgetReceipt,
+    BranchInvalidAction,
     BranchResult,
     SubResearchCoordinator,
     SubResearchResult,
@@ -27,6 +32,7 @@ from intelligence.runtime.sub_research import (
 from intelligence.runtime.sub_research_tool import (
     SUB_RESEARCH_TOOL,
     bind_sub_research_tool,
+    branch_telemetry,
     tool_result_from_branches,
 )
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
@@ -163,6 +169,34 @@ def test_refusal_is_an_error_with_reason_not_a_silent_empty() -> None:
     assert result.telemetry["refused_reason"] == "deep_mode_required"
 
 
+def test_admission_numbers_ride_along_in_telemetry_for_refusals_and_runs() -> None:
+    """准入账（预留多少、每支拿多少、保险丝余量）进 telemetry；拒绝时也带，这样
+    「为什么没起分支」在收据里是数字不是一句 reason。"""
+
+    admission = BranchAdmission(
+        branch_count=3, calls_per_branch=1, seconds_per_branch=140.0,
+        reserved_calls=8, reserved_seconds=60.0, root_remaining_calls=9,
+        root_remaining_seconds=200.0, llm_headroom=35, llm_expected=17,
+        refused_reason="parent_reserve_exhausted:calls",
+    )
+    refused = tool_result_from_branches(
+        ("甲", "乙", "丙"),
+        SubResearchResult((), refused_reason=admission.refused_reason, admission=admission),
+    )
+    assert refused.telemetry["admission"]["refused_reason"] == "parent_reserve_exhausted:calls"
+    assert refused.telemetry["admission"]["reserved_calls"] == 8
+    assert "parent_reserve_exhausted:calls" in refused.observation
+
+    ran = tool_result_from_branches(
+        ("甲",),
+        SubResearchResult((_branch("branch-1", "甲"),), admission=replace(admission, refused_reason="")),
+    )
+    assert ran.telemetry["admission"]["calls_per_branch"] == 1
+    assert "refused_reason" not in ran.telemetry["admission"]
+    plain = tool_result_from_branches(("甲",), SubResearchResult((_branch("branch-1", "甲"),)))
+    assert "admission" not in plain.telemetry
+
+
 def test_completed_with_zero_evidence_reads_as_gap_not_negation() -> None:
     result = tool_result_from_branches(
         ("甲",), SubResearchResult((_branch("branch-1", "甲"),))
@@ -180,6 +214,78 @@ def test_failed_branch_says_unresearched_and_all_failed_is_error() -> None:
     assert result.trace.status == "error"
     assert "该子问题未被研究，不是没有答案" in result.observation
     assert result.gaps[0].startswith("子研究分支「甲」未完成（branch_worker_exception:X）")
+
+
+_BUDGET = BranchBudgetReceipt(
+    allocated_calls=10,
+    consumed_calls=8,
+    allocated_seconds=150.0,
+    remaining_seconds=3.5,
+    batch_call_cap=4,
+)
+_BATCHES = (
+    BranchBatch(
+        index=1, requested=6, succeeded=4, rejected_by_cap=2, timed_out=0, errored=0,
+        rejected_other=0, tools=("news_search",) * 6, remaining_slots_at_dispatch=10,
+        stage_timeout_granted=135.0, episode_remaining_at_dispatch=149.0,
+    ),
+    BranchBatch(
+        index=2, requested=4, succeeded=3, rejected_by_cap=0, timed_out=1, errored=0,
+        rejected_other=0, tools=("web_search",) * 4, remaining_slots_at_dispatch=6,
+    ),
+)
+
+
+def test_telemetry_carries_budget_and_per_batch_dispatch_only_when_measured() -> None:
+    """L6 缺口：收据要能独立重算「每批派发了几个、几个被帽拒、分支还剩多少」。
+
+    有账就写全；没账（取消 / worker 异常）就不写键——不把「没测到」写成 0。
+    """
+
+    measured = replace(
+        _branch("branch-1", "甲", status="partial", evidence=(_EVIDENCE,)),
+        stop_reason="invalid_model_finish",
+        budget=_BUDGET,
+        batches=_BATCHES,
+        invalid_actions=(
+            BranchInvalidAction(
+                reason="unknown output: direct_assessment",
+                code="unknown_output",
+                kind="integrity",
+                disposition="integrity_violation",
+            ),
+        ),
+    )
+    unmeasured = _branch("branch-2", "乙", status="failed", error="cancelled")
+
+    result = tool_result_from_branches(("甲", "乙"), SubResearchResult((measured, unmeasured)))
+
+    first, second = result.telemetry["branches"]
+    assert first["stop_reason"] == "invalid_model_finish"
+    assert first["invalid_actions"] == [
+        {
+            "reason": "unknown output: direct_assessment",
+            "code": "unknown_output",
+            "kind": "integrity",
+            "disposition": "integrity_violation",
+        }
+    ]
+    assert "invalid_actions" not in second
+    assert first["budget"] == {
+        "allocated_calls": 10,
+        "consumed_calls": 8,
+        "allocated_seconds": 150.0,
+        "remaining_seconds": 3.5,
+        "batch_call_cap": 4,
+    }
+    assert [batch["requested"] for batch in first["batches"]] == [6, 4]
+    assert [batch["rejected_by_cap"] for batch in first["batches"]] == [2, 0]
+    assert first["batches"][0]["stage_timeout_granted"] == 135.0
+    assert "stage_timeout_granted" not in first["batches"][1]
+    assert "budget" not in second and "batches" not in second
+    assert second["stop_reason"] == ""
+    # 事件与 telemetry 同源：同一个函数产出，字段不再各漂一份。
+    assert branch_telemetry(measured) == first
 
 
 def test_evidence_passes_through_with_its_own_tier_and_date() -> None:
@@ -315,9 +421,11 @@ def test_branch_limits_scale_with_tier_and_the_coordinator_sizes_branches_by_the
             seen.append((budget.initial_calls, round(budget.initial_seconds, 1)))
             return _branch(request.branch_id, request.goal)
 
-    # 档位上限之外，父账本仍是上界：deep 起步 12 次 ÷ 2 支 = 6 < 8，所以 deep 拿 6；
-    # max 起步 40 次 ÷ 2 = 20 > 10，所以 max 拿满 10。秒数两档都不被账本压住。
-    for tier, expected in (("max", (10, 150.0)), ("deep", (6, 60.0))):
+    # 档位上限之外，父账本仍是上界，且父臂先留一批（batch_call_cap：max 8 / deep 4）：
+    # deep 起步 12 次 − 留 4 = 8 ÷ 2 支 = 4，所以 deep 拿 4（不留就是 6，父臂分支回来后一次
+    # 工具都发不出）；max 起步 40 − 8 = 32 ÷ 2 = 16 > 10，所以 max 拿满 10。
+    # 秒是墙钟、并行不按支数除：两档都不被账本压住（540 − 60 预留 ≫ 150；192 − 48 ≫ 60）。
+    for tier, expected in (("max", (10, 150.0)), ("deep", (4, 60.0))):
         context = _context(tier, allowed=("market_data",))
         try:
             seen.clear()
@@ -419,6 +527,83 @@ def test_episode_mounts_sub_research_only_with_a_coordinator_and_binds_branch_ev
         assert started.payload["origin"] == "tool"
         # 分支事件在 runner 里（批执行器线程）记，先于批结束后才落的 tool_request / tool_result。
         assert kinds.index("model_turn") < kinds.index("branch_started") < kinds.index("tool_result")
+    finally:
+        release_root_budget(context.contract.task_id)
+
+
+def test_bound_runner_records_parent_ledger_before_and_after_branches() -> None:
+    """父账本分支前后余量进 telemetry：三支并行各记 150s，父账本会被累加扣 450s——
+    这条读数要能直接从收据读出来，不靠人算（09-07 11:09 候选口第二遍的形状）。"""
+
+    class DebitingCoordinator(_CapturingCoordinator):
+        def run(self, **kwargs):
+            root = kwargs["context"].root_budget
+            for _ in range(3):
+                root.consume_seconds(seconds=150.0)  # 三支并行、各自把 150s 记到父账本
+                root.consume_call(seconds=0.001)
+            return super().run(**kwargs)
+
+    context = _context("max", allowed=("market_data", SUB_RESEARCH_TOOL))
+    try:
+        assert context.root_budget is not None
+        spec = bind_sub_research_tool(
+            coordinator=DebitingCoordinator(),  # type: ignore[arg-type]
+            task_frame=_frame(),
+            current_context=lambda: context,
+            base_registry=_market_registry(_successful_runner),
+            evidence_ledger=EvidenceLedger(information_cutoff=date(2026, 7, 22)),
+        )
+        result = spec.runner(
+            json.dumps(["查找反方驱动"]),
+            AgentToolContext(context.deadline, lambda: False, context.information_cutoff),
+        )
+        ledger = result.telemetry["root_budget"]
+        assert ledger["before"] == {"remaining_calls": 40, "remaining_seconds": 540.0}
+        # 540 − 3 × 150 = 90：墙钟只过了 150s，账本却只剩 90s——这就是要暴露的数。
+        assert ledger["after_branches"] == {"remaining_calls": 37, "remaining_seconds": pytest.approx(89.997, abs=0.01)}
+    finally:
+        release_root_budget(context.contract.task_id)
+
+    # 没有账本就不写键。
+    plain = tool_result_from_branches(("甲",), SubResearchResult((_branch("branch-1", "甲"),)))
+    assert "root_budget" not in plain.telemetry
+
+
+def test_branch_completed_event_carries_budget_and_batches_from_the_tool_path() -> None:
+    """durable 事件是对账权威：分支预算账与逐批派发账必须进 branch_completed，不只进 telemetry。"""
+
+    class MeasuredCoordinator(_CapturingCoordinator):
+        def run(self, **kwargs):
+            plain = super().run(**kwargs)
+            return SubResearchResult(
+                tuple(
+                    replace(b, stop_reason="deadline_exhausted", budget=_BUDGET, batches=_BATCHES)
+                    for b in plain.branches
+                )
+            )
+
+    context = _context("max", allowed=("market_data", SUB_RESEARCH_TOOL))
+    try:
+        model = ScriptedModel(
+            [_sub_research_turn(["查找反方驱动"]), _finish_turn(hashes=("branch-evidence-1",))]
+        )
+        outcome = ContinuousAgentEpisode(
+            model,
+            sub_research_coordinator=MeasuredCoordinator(),  # type: ignore[arg-type]
+        ).run(task_frame=_frame(), context=context, registry=_market_registry(_successful_runner))
+        assert outcome.status == "completed", outcome.stop_reason
+        completed = next(e for e in outcome.events if e.kind == "branch_completed")
+        assert completed.payload["origin"] == "tool"
+        assert completed.payload["stop_reason"] == "deadline_exhausted"
+        assert completed.payload["budget"]["batch_call_cap"] == 4
+        assert completed.payload["budget"]["consumed_calls"] == 8
+        assert [b["rejected_by_cap"] for b in completed.payload["batches"]] == [2, 0]
+        # 同一份 sub_research tool_result 的审计底稿里也有这份账（telemetry 落盘）。
+        tool_result = next(
+            e for e in outcome.events
+            if e.kind == "tool_result" and e.payload.get("tool") == SUB_RESEARCH_TOOL
+        )
+        assert tool_result.payload["telemetry"]["branches"][0]["budget"]["allocated_calls"] == 10
     finally:
         release_root_budget(context.contract.task_id)
 
