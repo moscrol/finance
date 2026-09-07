@@ -836,23 +836,32 @@ CORE_STOCK_TOPN = 50
 def _stock_sw_l1_map(con, td: date) -> dict[str, str]:
     """个股 → 申万一级。**只用 td 当天及以前的行**，避免用未来信息回填历史日。
 
-    个股级 sw_l1 我们自己算不出来（申万成分表没入库），三张 fupanhui 派生表各带一份：
-    core_stock（最权威，就是这个字段本身）、theme_limit_stock、stock_high。取每只股最近一次的值。
-    不含 core_stock 的独立对照见 tests/test_core_stock_local.py：2026-08 起 1121/1150 覆盖、一致 91%。
+    个股级 sw_l1 我们自己算不出来（申万成分表没入库），三张 fupanhui 派生表各带一份，按可信度排优先级：
+    core_stock（就是这个字段本身，只认 fupanhui 来源行）> theme_limit_stock > stock_high；
+    同一优先级内取最近一次。不能只按日期取最新——stock_high 的 ``sw_l1`` 有 1545 行是「一级-二级」
+    串（如「通信-通信设备」），日期一新就会盖掉 core 的纯一级值，让下游按 sw_l1_name 聚合时
+    把「通信」裂成两组（2026-09-07 首版 150 行里 40 行中招）。所有来源统一只留「-」前的一级名。
+    独立对照（2026-09-07 一次性核对，未入测试；排除 core 自身，只用另两张表）：2026-08 起覆盖 1121/1150、一致 91%。
     """
     rows = con.execute(
         """
         WITH src AS (
-          SELECT stock_ts_code, sw_l1_name AS sw, trade_date FROM fact_core_stock_daily
+          SELECT stock_ts_code, sw_l1_name AS sw, trade_date, 0 AS prio FROM fact_core_stock_daily
            WHERE trade_date <= ? AND sw_l1_name IS NOT NULL AND sw_l1_name <> ''
+             AND (source IS NULL OR source NOT LIKE 'local:%')
           UNION ALL
-          SELECT stock_ts_code, sw_l1, trade_date FROM fact_theme_limit_stock_daily
+          SELECT stock_ts_code, sw_l1, trade_date, 1 FROM fact_theme_limit_stock_daily
            WHERE trade_date <= ? AND sw_l1 IS NOT NULL AND sw_l1 <> ''
           UNION ALL
-          SELECT stock_ts_code, sw_l1, trade_date FROM fact_stock_high_daily
+          SELECT stock_ts_code, sw_l1, trade_date, 2 FROM fact_stock_high_daily
            WHERE trade_date <= ? AND sw_l1 IS NOT NULL AND sw_l1 <> ''
+        ),
+        ranked AS (
+          SELECT stock_ts_code, split_part(sw, '-', 1) AS sw,
+                 ROW_NUMBER() OVER (PARTITION BY stock_ts_code ORDER BY prio, trade_date DESC) rn
+          FROM src
         )
-        SELECT stock_ts_code, ARG_MAX(sw, trade_date) FROM src GROUP BY 1
+        SELECT stock_ts_code, sw FROM ranked WHERE rn = 1 AND sw <> ''
         """,
         [td, td, td],
     ).fetchall()
@@ -863,10 +872,15 @@ def compute_core_stock_local(trade_date, *, con=None, force: bool = False, topn:
     """复刻 fupanhui 的「核心个股」——它不是编辑池，是**当日全市场成交额前 50**。
 
     反推依据（2026-09-07 实测，405 个 fupanhui 日 / 20250 行）：
-    - 集合：核心个股 ⊆ 我们自算的成交额前 50，命中 20148/20250 = 99.5%；
-      不命中的 102 行分布在 25 天，全部是**我们 fact_stock_daily 当天缺那只股的行**（LEFT JOIN 为 NULL），
-      不是口径差；两侧都是 50 只，所以命中 50/50 的日子就是集合完全相等。
-    - rank：与 amount 降序 ROW_NUMBER 精确相同 20246/20250 = 99.98%。
+    - 集合：核心个股 ⊆ 我们自算的成交额前 50，命中 20148/20250 = 99.5%；两侧都是 50 只，
+      所以命中 50/50 的日子就是集合完全相等。不命中的 102 行没有一行是口径差，全是我们
+      fact_stock_daily 这一侧的病，且是三种：当天没有该股的行 37；有行但 amount 为空 57
+      （06-22 / 06-23 两天 amount 填充率仅 55% / 22%）；有值但仍不在我们前 50 的 8——这 8 行落在
+      07-20 / 08-06，那两天我们的 fact_stock_daily **整份是次日数据的复制**（逐股 close/amount 相同
+      5524/5526、5534/5534；东财快照事后补写把次日截面贴了历史日期），不是「快照成交额偏小」。
+    - rank：fupanhui 自己的 rank 与其 amount 降序 ROW_NUMBER 相同 20246/20250 = 99.98%，即它的
+      rank 就是成交额名次。用**我们的** amount 排出来的名次与它逐位相同只有 93.7%（±1 名内 99.1%），
+      来自两侧成交额万分之几的差；复刻版的 rank 不保证逐位相等。
     - gain_5d / gain_10d = 5 / 10 个交易日累计涨幅%（中位绝对误差 0.003pp）。
     - circ_mv 取 fact_sector_stock_daily（相对误差 <1% 的占 99.3%）。
 
@@ -946,9 +960,13 @@ LOCAL_CORE_LEADER_SOURCE = "local:core-leader-v1"
 #: 百分位是有界的，五个分量与正宗度同在 [0,1]，权重才真的是权重。
 #: 这条在任何「把异质分量合成一个分」的地方都适用——排序融合、打分卡、多路召回。
 CORE_LEADER_POP_WEIGHTS = {"amount": 1.0, "gain5": 1.0, "limit_up": 0.8, "boards": 0.5, "new_high": 0.4}
-#: 正宗度权重（与人气同量纲 [0,1]）。0 = 纯人气基线。0.15 是量出来的，不是拍的：
-#: - 前瞻收益（106 日消融，scripts/eval_core_leader_authenticity.py）：w 越大收益越低，
-#:   w=0.1~0.2 时 T+1 只差 -0.07~-0.24pp，远在置换检验的噪声带（sd 1.1pp）内；w≥0.3 掉 -0.45pp。
+#: 正宗度权重（与人气同量纲 [0,1]）。0 = 纯人气基线。0.15 **不是按前瞻收益调出来的**：
+#: - 前瞻收益（scripts/eval_core_leader_authenticity.py，2026-04-01~09-02）：w 越大收益越低
+#:   （w=0.15：T+1/3/5 各 -0.15/-0.24/-0.10pp；w=0.3：-0.45/-0.63/-0.30pp），且按同量纲的置换检验
+#:   （每次置换取全窗均值，sd 0.07~0.14pp）**显著为负**——按这个判据正宗度是有害的，不是「噪声内」。
+#:   但前瞻收益不是这张榜的目标函数：同窗 fupanhui 自己的主线个股 T+5 是 -3.12%，榜单回答的是
+#:   「今天谁在台上」。另注意知识库边的 updated 从 2026-05 起，as_of 过滤后 4 月整月零边，
+#:   有效窗口约 65 日且集中在 8 月，读数与日历时间混杂。
 #: - 名单效果（2026-09-07）：w=0.15 时正宗股占 top20 的 9/20（基线 3/20），换掉 7 只；
 #:   w=0.3 换掉 14 只——那已经不是权重是**过滤器**了，二值判断伪装成连续分会把它的抖动放大。
 #: 取 0.15 = 让正宗度当决胜项而不是一票否决。
@@ -1057,7 +1075,7 @@ def compute_core_leader_local(trade_date, *, con=None, force: bool = False, topn
     与 ``compute_core_stock_local`` 是两个产品：那个复刻 fupanhui 的「成交额前 50」（大票天然占满），
     这个回答「主线里谁是真龙头」——正宗度是一份与当日行情无关的先验，专治沾边炒作。
 
-    分数 = 人气 z 分加权和 + ``auth_weight`` × 正宗度。正宗度**加在分上而不是乘在分上**：
+    分数 = 人气（五分量池内百分位加权，∈[0,1]）+ ``auth_weight`` × 正宗度。正宗度**加在分上而不是乘在分上**：
     它本质是个二值/四档判断，乘法会把它的抖动按人气大小放大，加法则让它的影响可预算、可消融
     （``auth_weight=0`` 即纯人气基线，能直接跑 A/B）。
     """

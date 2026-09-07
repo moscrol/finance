@@ -618,9 +618,7 @@ def cmd_compute_core_stock_local(args) -> int:
 
 
 def cmd_compute_core_leader_local(args) -> int:
-    from .sync.compute_local_stats import compute_core_leader_local
-
-    from .sync.compute_local_stats import CORE_LEADER_AUTH_WEIGHT
+    from .sync.compute_local_stats import CORE_LEADER_AUTH_WEIGHT, compute_core_leader_local
 
     weight = CORE_LEADER_AUTH_WEIGHT if args.auth_weight is None else args.auth_weight
     r = compute_core_leader_local(args.trade_date, force=args.force, topn=args.topn,

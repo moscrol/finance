@@ -371,9 +371,35 @@ def run(start, end, n, json_path):
                 "miss": {"no_row": no_row, "null_amount": null_amt, "value_gap": value_gap}}
             print(f"核心个股复刻 {days} 日 {n} 行：命中成交额前 50 {hit}/{n} = {hit / n:.2%}")
             # 未命中必须拆到底数据层面。三个桶都在**我们这一侧**，没有一个是口径差；
-            # 只报一个总数会让人以为「复刻不准」，而真相是那几天我们的 amount 本身就是坏的。
+            # 只报一个总数会让人以为「复刻不准」，而真相是那几天我们的 fact_stock_daily 本身就是坏的。
+            # 第三桶「有值但仍不在我们前 50」别读成「快照偏小」：2026-09-07 实测那 8 行全落在 07-20 / 08-06，
+            # 两天的个股日线是次日数据的整份复制（见下 stock_daily_dup_days），amount 有大有小。
             print(f"  未命中 {n - hit} 行归因：没有这只股的行 {no_row} | 有行但 amount 为空 {null_amt}"
-                  f" | 有值但我们的偏小 {value_gap}")
+                  f" | 有值但仍不在我们前 50 {value_gap}")
+
+        # 个股日线「整天是相邻日复制」扫描：坏日阈值 BAD_BASE_RATIO=10% 抓不到它
+        # （07-20 总额只差 9.1%、08-06 差 5.8%），而逐股比对一眼就是——两天各 5524/5526、5534/5534 只相同。
+        # 成因是东财快照事后补写历史日（快照只有「最新」语义，见 backfill-runbook 坑⑤）。全历史扫，不只抽样日。
+        dup = q(con, """
+            WITH d AS (SELECT DISTINCT trade_date FROM fact_stock_daily),
+                 pairs AS (SELECT trade_date d1, LEAD(trade_date) OVER (ORDER BY trade_date) d2 FROM d)
+            SELECT CAST(p.d1 AS VARCHAR), CAST(p.d2 AS VARCHAR), COUNT(*),
+                   COUNT(*) FILTER (WHERE a.close = b.close AND a.amount = b.amount)
+            FROM pairs p
+            JOIN fact_stock_daily a ON a.trade_date = p.d1
+            JOIN fact_stock_daily b ON b.trade_date = p.d2 AND b.stock_ts_code = a.stock_ts_code
+            WHERE p.d2 IS NOT NULL
+            GROUP BY 1, 2
+            HAVING COUNT(*) FILTER (WHERE a.close = b.close AND a.amount = b.amount) > 0.5 * COUNT(*)
+            ORDER BY 1""")
+        out["families"]["stock_daily_dup_days"] = [
+            {"day": d1, "same_as": d2, "stocks": n_, "identical": same} for d1, d2, n_, same in dup]
+        if dup:
+            print("!! 个股日线整天与相邻日相同（需用 mootdx sync-stock-daily --refresh 重抓）：")
+            for d1, d2, n_, same in dup:
+                print(f"   {d1} == {d2}: {same}/{n_} 只 close+amount 完全相同")
+        else:
+            print("个股日线相邻日复制扫描：无")
 
         # ---- 判定
         print("\n== 判定（干净日 %d 个）==" % len(clean))
@@ -386,6 +412,10 @@ def run(start, end, n, json_path):
             print(f"[{status}] {key:<18} {val:6.1%}  门 {gate:.0%}  {desc}")
         for key, desc in INFO_ONLY.items():
             print(f"[INFO] {key:<18} {desc}")
+        if dup:
+            # 整天复制不是「某族读数偏低」，是底数据错位——与坏底数据日同级，直接判 FAIL
+            failed.append("stock_daily_dup_days")
+            print(f"[FAIL] {'stock_daily_dup_days':<18} {len(dup)} 天个股日线与相邻日整份相同")
         out["clean_days"] = clean
         out["failed"] = failed
         out["ok"] = not failed

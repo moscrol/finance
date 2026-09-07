@@ -234,6 +234,32 @@ def test_core_stock_local_is_top_turnover_and_carries_forward_sw_l1():
     assert all(x[1] != "002514.SZ" for x in rows)
 
 
+def test_core_stock_local_sw_l1_prefers_core_history_and_strips_l2_suffix():
+    """承接映射按可信度取，不按日期取最新；stock_high 的「一级-二级」串只留一级。
+
+    首版 ARG_MAX(trade_date) 让 stock_high 更新的「通信-通信设备」盖掉 core 的「通信」，
+    150 行里 40 行格式与 fupanhui 的 20250 行不一致，下游按 sw_l1_name 聚合会把「通信」裂成两组。
+    """
+    con = _db()
+    for code, name, amt in (("600001.SH", "甲", 50.0), ("300001.SZ", "乙", 30.0), ("000001.SZ", "丙", 10.0)):
+        _stock(con, "2026-09-02", code, name, 11.0, 10.0, amount=amt)
+    # 甲：core 老值「通信」 vs stock_high 新值「通信-通信设备」→ 要 core 的
+    con.execute("INSERT INTO fact_core_stock_daily (trade_date, rank, stock_ts_code, stock_name, sw_l1_name, source, updated_at) "
+                "VALUES ('2026-08-01', 1, '600001.SH', '甲', '通信', 'fupanhui:public-api/core-stocks/list', now())")
+    con.execute("INSERT INTO fact_stock_high_daily (trade_date, stock_ts_code, stock_name, sw_l1, source, updated_at) "
+                "VALUES ('2026-09-01', '600001.SH', '甲', '通信-通信设备', 'fupanhui:x', now())")
+    # 乙：只有 stock_high 的「汽车-汽车零部件」→ 剥到一级「汽车」
+    con.execute("INSERT INTO fact_stock_high_daily (trade_date, stock_ts_code, stock_name, sw_l1, source, updated_at) "
+                "VALUES ('2026-09-01', '300001.SZ', '乙', '汽车-汽车零部件', 'fupanhui:x', now())")
+    # 丙：只有一条 local 来源的 core 行 → 自己派生的不算证据，留 NULL
+    con.execute("INSERT INTO fact_core_stock_daily (trade_date, rank, stock_ts_code, stock_name, sw_l1_name, source, updated_at) "
+                "VALUES ('2026-09-01', 3, '000001.SZ', '丙', '银行', 'local:core-turnover-v1', now())")
+    r = cls_.compute_core_stock_local("2026-09-02", con=con, topn=3)
+    assert r["action"] == "written" and r["sw_l1_filled"] == 2
+    got = dict(con.execute("SELECT stock_ts_code, sw_l1_name FROM fact_core_stock_daily WHERE trade_date='2026-09-02'").fetchall())
+    assert got == {"600001.SH": "通信", "300001.SZ": "汽车", "000001.SZ": None}
+
+
 def test_core_stock_local_does_not_overwrite_fupanhui_rows():
     con = _db()
     _stock(con, "2026-09-02", "600001.SH", "甲", 11.0, 10.0, amount=50.0)
