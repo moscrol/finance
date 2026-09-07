@@ -6,8 +6,28 @@ import math
 from datetime import date, datetime, time
 from typing import Any, Iterable, Mapping
 
+from .coverage import collapse_limit_rows
 
 NULL = None
+
+# Source values copied next to the teaching flags for context and contingency
+# tables.  They are written under the ``src.`` namespace, never ``tf.``: the
+# supplier's ``market_stage`` must stay distinguishable from ``tf.stage_coarse``.
+# The raw 环比 and 偏离度 ride along so a reader sees the number, not only the
+# band or threshold verdict derived from it (创始人 09-07：都是分析视角).
+SOURCE_PASSTHROUGH = (
+    "market_stage",
+    "volume_state",
+    "ice_point",
+    "sh_week_ma_source",
+    "total_amount",
+    "amount_vs_yesterday_pct",
+    "sh_deviation_pct",
+    "sh_index_close",
+    "limit_up",
+    "advancers",
+)
+SOURCE_PREFIX = "src."
 
 
 def _date(v: Any) -> Any:
@@ -35,32 +55,18 @@ def _bool_cmp(a: Any, op: str, b: Any) -> bool | None:
     return {"gt": x > y, "ge": x >= y, "lt": x < y, "le": x <= y, "eq": x == y}[op]
 
 
-def _adjacent(rows: list[Mapping[str, Any]], i: int) -> bool:
-    return i > 0 and (
-        _date(rows[i - 1].get("trade_date")) is not None
-        and _date(rows[i].get("trade_date")) is not None
-    )
-
-
 def _prev(
-    rows: list[Mapping[str, Any]], i: int, calendar: Iterable[Any] | None
+    rows: list[Mapping[str, Any]], i: int, calendar_index: Mapping[Any, int] | None
 ) -> Mapping[str, Any] | None:
+    """Previous row only when it is the adjacent calendar day; otherwise unknown."""
     if i <= 0:
         return None
     prev = rows[i - 1]
-    if calendar is None:
+    if calendar_index is None:
         return prev
-    days = [_date(d) for d in calendar]
-    indexes = {d: n for n, d in enumerate(days)}
-    cur_i, prev_i = (
-        indexes.get(_date(rows[i].get("trade_date"))),
-        indexes.get(_date(prev.get("trade_date"))),
-    )
-    return (
-        prev
-        if cur_i is not None and prev_i is not None and cur_i - prev_i == 1
-        else None
-    )
+    cur_i = calendar_index.get(_date(rows[i].get("trade_date")))
+    prev_i = calendar_index.get(_date(prev.get("trade_date")))
+    return prev if cur_i is not None and prev_i is not None and cur_i - prev_i == 1 else None
 
 
 def normalize_hhmm(value: Any) -> time | None:
@@ -103,37 +109,7 @@ def _dedupe_rows(
         )
         if d is None or ident is None:
             continue
-        key = (d, str(ident))
-        prev = out.get(key)
-        if prev is None:
-            out[key] = row
-        elif prev.get("limit_times") != row.get("limit_times"):
-            marker = dict(prev)
-            marker["_conflict"] = True
-            out[key] = marker
-    return out
-
-
-def _dedupe_stock_rows(
-    rows: Iterable[Mapping[str, Any]],
-) -> dict[tuple[Any, str], Mapping[str, Any]]:
-    out: dict[tuple[Any, str], Mapping[str, Any]] = {}
-    for row in rows:
-        d, stock = (
-            _date(row.get("trade_date")),
-            row.get("stock_ts_code", row.get("stock")),
-        )
-        if d is None or stock is None:
-            continue
-        key = (d, str(stock))
-        prev = out.get(key)
-        # conflicting limit_times is unsafe; retain a marker for consumers
-        if prev is not None and prev.get("limit_times") != row.get("limit_times"):
-            r = dict(prev)
-            r["_conflict"] = True
-            out[key] = r
-        elif prev is None:
-            out[key] = row
+        out.setdefault((d, str(ident)), row)
     return out
 
 
@@ -144,24 +120,43 @@ def compute_flags(
     vendor_rows: Iterable[Mapping[str, Any]] | None = None,
     stock_rows: Iterable[Mapping[str, Any]] | None = None,
     amount_rows: Iterable[Mapping[str, Any]] | None = None,
+    breadth_rows: Iterable[Mapping[str, Any]] | None = None,
     params: Mapping[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Compute all A flags plus B scalars. Rows must represent fact_market_daily.
 
-    Missing previous calendar day or any required NULL yields NULL; no false is inferred.
+    Missing previous calendar day or any required NULL yields NULL; no false is
+    inferred.  B scalars that cannot be computed are NULL with the reason kept in
+    ``scalar_gaps`` so the caller can write gap rows instead of silently skipping.
+    ``breadth_rows`` are per-day aggregates over ``fact_stock_daily`` (see
+    ``BREADTH_FIELDS``); they carry the founder's 「整体的水位」 views.
     """
     p = params or {}
     bands = p.get("deviation_bands", {})
     over_le = float(bands.get("oversold_le", -2.5))
     hot_ge = float(bands.get("overheated_ge", 1.5))
+    top_n = int(p.get("top100_n", 100))
+    breadth_floor = int(p.get("breadth_min_stocks", 4000))
+    # 量能三档的尺子（创始人 2026-09-07 第十段：「20 日均量，量能比吧」）：当日成交额 /
+    # 20 日均量 × 100，与复盘会同一口径。「100–120 属于温和放量」「20 是一个阈值」落在
+    # 这把尺子上：< 100 缩量 · 100–120 温和放量 · > 120 暴量。回测层的 ``volume_surge``
+    # 标签（环比 > 10）是另一个对象，这里不复用；环比本身仍以 ``src.`` 旁列写出。
+    level_cfg = p.get("volume_level") or {}
+    surge_threshold = float(level_cfg.get("surge_from_pct", 120))
+    moderate_from = float(level_cfg.get("moderate_from_pct", 100))
+    breadth_by_day = {
+        _date(row.get("trade_date")): row for row in (breadth_rows or []) if row.get("trade_date") is not None
+    }
     rows = sorted((dict(r) for r in rows), key=lambda r: _date(r.get("trade_date")))
-    cal = [_date(x) for x in calendar] if calendar is not None else None
+    cal_index = (
+        {_date(x): n for n, x in enumerate(calendar)} if calendar is not None else None
+    )
     vendor = _dedupe_rows(
         vendor_rows or [], identity_keys=("sector_ts_code", "sector", "stock_ts_code")
     )
-    stock = _dedupe_rows(
-        stock_rows or [], identity_keys=("stock_ts_code", "stock", "ts_code", "code")
-    )
+    # The limit table is collapsed with the same policy the succession builder
+    # uses, so ``tf.max_boards`` and ``top(d)`` can never disagree on a stock-day.
+    stock_by_day = collapse_limit_rows(stock_rows or [])
     amounts = _dedupe_rows(
         amount_rows or [], identity_keys=("stock_ts_code", "stock", "ts_code", "code")
     )
@@ -175,20 +170,15 @@ def compute_flags(
         vendor_by_day.setdefault(d, []).append(r)
     out: list[dict[str, Any]] = []
     streak = 0
+    dev_streaks = _DeviationStreaks()
+    episode = _MaSideEpisode(int(p.get("breakout_confirm_days", 3)))
+    range_windows = [int(n) for n in (p.get("index_range_windows") or DEFAULT_RANGE_WINDOWS)]
     for i, row in enumerate(rows):
-        prev = _prev(rows, i, cal)
+        prev = _prev(rows, i, cal_index)
         d = _date(row.get("trade_date"))
-        rec = {"trade_date": d}
-        for passthrough in (
-            "market_stage",
-            "volume_state",
-            "ice_point",
-            "sh_week_ma_source",
-            "total_amount",
-            "limit_up",
-            "advancers",
-        ):
-            rec[passthrough] = row.get(passthrough)
+        rec: dict[str, Any] = {"trade_date": d, "scalar_gaps": {}}
+        for passthrough in SOURCE_PASSTHROUGH:
+            rec[f"{SOURCE_PREFIX}{passthrough}"] = row.get(passthrough)
         close, ma = _num(row.get("sh_index_close")), _num(row.get("sh_week_ma"))
         rec["above_week_ma"] = None if close is None or ma is None else close > ma
         rec["cross_above_week_ma"] = (
@@ -202,6 +192,8 @@ def compute_flags(
             _num(prev.get("sh_index_close")) if prev else None,
         )
         rec["gap_down_open"] = None if op is None or pc is None else op < pc
+        # 创始人 09-07 第六段：「上穿周均线往往就伴随放量和指数的阳线」——阳线只是一个视角。
+        rec["up_candle"] = None if op is None or close is None else close > op
         amount, ma20 = _num(row.get("total_amount")), _num(row.get("amount_ma20"))
         rec["shrink_day"] = None if amount is None or ma20 is None else amount < ma20
         if rec["shrink_day"] is None:
@@ -221,11 +213,27 @@ def compute_flags(
             if dev is None or prev_dev is None or rec["above_week_ma"] is None
             else (rec["above_week_ma"] is False and dev > prev_dev)
         )
-        rec["volume_surge"] = (
-            _num(row.get("amount_vs_yesterday_pct")) > 10
-            if _num(row.get("amount_vs_yesterday_pct")) is not None
-            else None
+        rec.update(dev_streaks.step(dev, prev_dev))
+        ratio_pct = None if amount is None or ma20 is None or ma20 <= 0 else round(amount / ma20 * 100, SCALAR_DECIMALS)
+        rec["amount_vs_ma20_pct"] = ratio_pct
+        rec["volume_band"] = _volume_band(ratio_pct, moderate_from, surge_threshold)
+        rec["volume_surge"] = None if ratio_pct is None else ratio_pct > surge_threshold
+        # 「放量」= 至少温和放量（量能比 ≥ 100）：突破确认与残差判断都用它；暴量另有 volume_surge。
+        rec["volume_expanding"] = None if ratio_pct is None else ratio_pct >= moderate_from
+        rec.update(
+            episode.step(
+                rec["above_week_ma"], dev, adjacent=prev is not None, close=close, prev_close=pc,
+                high=_num(row.get("sh_index_high")), low=_num(row.get("sh_index_low")), surge=rec["volume_expanding"],
+            )
         )
+        # 趋势中暴量：周均线上方、突破窗口之外的量能比 > 120。创始人第八段：是个双向因子，
+        # 「有好有坏，出现的时候需要特殊情况特殊分析」——只写出，不计分，收据回溯其后走势。
+        since_cross = rec["days_since_cross_above"]
+        if rec["above_week_ma"] is None or rec["volume_surge"] is None:
+            rec["surge_in_trend"] = None
+        else:
+            in_window = isinstance(since_cross, (int, float)) and since_cross <= episode.confirm_days
+            rec["surge_in_trend"] = bool(rec["above_week_ma"] and rec["volume_surge"] and not in_window)
         top3, prev_top3 = (
             _num(row.get("top3_industry_ratio")),
             _num(prev.get("top3_industry_ratio")) if prev else None,
@@ -241,7 +249,7 @@ def compute_flags(
             vendor_by_day.get(_date(prev.get("trade_date")) if prev else None),
         )
         rec["mainline_amount_stepping_up.volume_top3"] = _rising_top3_streak(
-            rows, i, int(p.get("mainline_amount_stepping_up_days", 3)), cal
+            rows, i, int(p.get("mainline_amount_stepping_up_days", 3)), cal_index
         )
         rec["mainline_amount_stepping_up.vendor"] = _vendor_rising(
             vendor_by_day,
@@ -249,20 +257,417 @@ def compute_flags(
             int(p.get("mainline_amount_stepping_up_days", 3)),
             rows,
             i,
-            cal,
         )
         # B scalars
-        day_stocks = [r for (dd, _), r in stock.items() if dd == d]
+        day_stocks = stock_by_day.get(d.isoformat(), ()) if d is not None else ()
+        prev_stocks = (
+            stock_by_day.get(_date(prev.get("trade_date")).isoformat(), ())
+            if prev is not None
+            else ()
+        )
         rec["max_boards"] = _scalar_max(day_stocks, "limit_times")
-        prev_stocks = [
-            r
-            for (dd, _), r in stock.items()
-            if prev is not None and dd == _date(prev.get("trade_date"))
-        ]
-        rec["promotion_rate_total"] = _promotion(day_stocks, prev_stocks)
-        rec["top100_amount_share"] = _top100_share(d, row, amount_values_by_day)
+        if rec["max_boards"] is None:
+            rec["scalar_gaps"]["max_boards"] = "limit_rows_absent"
+        rec["promotion_rate_total"], reason = _promotion(day_stocks, prev_stocks)
+        if reason:
+            rec["scalar_gaps"]["promotion_rate_total"] = reason
+        rec["top100_amount_share"], reason = _top100_share(
+            d, row, amount_values_by_day, top_n
+        )
+        if reason:
+            rec["scalar_gaps"]["top100_amount_share"] = reason
+        for label, value, reason in _breadth_scalars(breadth_by_day.get(d), breadth_floor):
+            rec[label] = value
+            if reason:
+                rec["scalar_gaps"][label] = reason
+        rec["stock_up_ratio_ma5_pct"], reason = _up_ratio_ma(rows, i, cal_index, breadth_by_day, breadth_floor, UP_RATIO_MA_DAYS)
+        if reason:
+            rec["scalar_gaps"]["stock_up_ratio_ma5_pct"] = reason
+        for label, value, reason in _index_range_scalars(rows, i, cal_index, range_windows):
+            rec[label] = value
+            if reason:
+                rec["scalar_gaps"][label] = reason
+        rec.update(_range_structure_flags(rows, i, cal_index, range_windows))
         out.append(rec)
     return out
+
+
+def _volume_band(ratio_pct: float | None, moderate_from: float, surge_threshold: float) -> str | None:
+    """量能比（当日 / 20 日均量 × 100）分三档：shrink (< moderate_from) / moderate [moderate_from, threshold] / surge (> threshold).
+
+    创始人 2026-09-07：「100–120 属于温和放量」「超过 20 很可能盛极而衰」，第十段定尺子为
+    「20 日均量，量能比」——即 100–120 温和放量、> 120 暴量。低于 100 的一档叫 ``shrink``
+    是 agent 起的名（复盘会在这一档里再分 85–100 抱团 / 60–85 强势抱团与冰点规则）。
+    """
+    if ratio_pct is None:
+        return None
+    if ratio_pct < moderate_from:
+        return "shrink"
+    if ratio_pct <= surge_threshold:
+        return "moderate"
+    return "surge"
+
+
+class _DeviationStreaks:
+    """Consecutive-day runs of the weekly-MA deviation: rising, falling, and moving toward the MA.
+
+    创始人 09-07 第六段：「偏离度的变化就是和周均线的偏离度，比如说偏离度持续走高，或者说
+    回归周均，或者说逐渐走低」。The three runs are the founder's three words; how many days
+    make 「持续」 is a B 类 number applied later, so only counts are written here.  A NULL
+    deviation or a non-adjacent previous day resets every run to unknown.
+    """
+
+    def __init__(self) -> None:
+        self.rising = 0
+        self.falling = 0
+        self.toward = 0
+
+    def step(self, dev: float | None, prev_dev: float | None) -> dict[str, int | None]:
+        if dev is None or prev_dev is None:
+            self.rising = self.falling = self.toward = 0
+            return {"deviation_rising_streak": None, "deviation_falling_streak": None, "deviation_toward_ma_streak": None}
+        self.rising = self.rising + 1 if dev > prev_dev else 0
+        self.falling = self.falling + 1 if dev < prev_dev else 0
+        self.toward = self.toward + 1 if abs(dev) < abs(prev_dev) else 0
+        return {
+            "deviation_rising_streak": self.rising,
+            "deviation_falling_streak": self.falling,
+            "deviation_toward_ma_streak": self.toward,
+        }
+
+
+EPISODE_FIELDS = (
+    "ma_episode_day",
+    "ma_episode_extreme_dev",
+    "ma_episode_retrace_pts",
+    "ma_episode_retrace_peak_pts",
+    "ma_episode_pct_chg",
+    "ma_episode_amplitude",
+    "ma_episode_days_since_high",
+    "days_since_cross_above",
+    "cross_below_kind",
+    "below_ma_cycle_day",
+    "below_ma_cycle_retest_seen",
+)
+
+
+class _MaSideEpisode:
+    """Structure of the current run of days on one side of the weekly MA, and the below-MA cycle.
+
+    创始人 09-07 第六 / 七段 describe the below-MA flow as 下穿 → 探底 → 反弹到周均线（「一般都会
+    触碰一下周均」）→ 回踩探底 → 放量上穿, with 「数据的残差」 in between, and say a cross above
+    only counts as a turn when volume expands on the cross day or within ``confirm_days`` after
+    it (「上穿要配合放量，不然很多上穿基本都是回落」).  Per day this writes:
+
+    * the run's day index, extreme deviation, retrace from the extreme and retrace peak
+      (a retrace now smaller than its peak is the 「又回踩」);
+    * the run's index gain and amplitude against the close of the day before the cross —
+      「那一个区间就是」: the founder's 区间 is the leg, not a fixed window;
+    * days since the run's highest high (「高点不抬高」 reads as this staying > 0);
+    * ``days_since_cross_above`` (0 on the cross day) so 「上穿后三天内放量」 is a predicate
+      over today's inputs only;
+    * ``cross_below_kind``: ``first`` when the cross below starts a cycle, ``retest`` when the
+      above-MA excursion before it was a residual — it lasted at most ``confirm_days`` days
+      and never saw a surge — so the touch of the MA was the 反弹, not a turn;
+    * ``below_ma_cycle_day``: days since the cycle's first cross below, counted through
+      residual excursions; it ends (NULL) once an above-MA run surges or outlives
+      ``confirm_days`` without falling back.
+
+    Everything is anchored at an observed cross; a run whose start was never seen (history
+    begins mid-run, or a gap day) is unknown, never guessed.  The residual tolerance
+    (= ``confirm_days``, no surge) is an agent reading of 「残差」 and is flagged as such.
+    """
+
+    def __init__(self, confirm_days: int = 3) -> None:
+        self.confirm_days = int(confirm_days)
+        self.side: bool | None = None
+        self.day = 0
+        self.extreme: float | None = None
+        self.retrace_peak = 0.0
+        self.anchored = False
+        self.base_close: float | None = None
+        self.max_high: float | None = None
+        self.min_low: float | None = None
+        self.hl_complete = True
+        self.days_since_high = 0
+        self.surge_seen = False
+        self.cycle_day: int | None = None
+        self.cycle_retest_seen = False
+
+    def _reset(self) -> None:
+        self.side, self.day, self.extreme, self.retrace_peak, self.anchored = None, 0, None, 0.0, False
+        self.base_close = self.max_high = self.min_low = None
+        self.hl_complete, self.days_since_high, self.surge_seen = True, 0, False
+        self.cycle_day = None
+        self.cycle_retest_seen = False
+
+    @staticmethod
+    def _unknown() -> dict[str, Any]:
+        return {name: None for name in EPISODE_FIELDS}
+
+    def step(
+        self,
+        above: bool | None,
+        dev: float | None,
+        *,
+        adjacent: bool,
+        close: float | None,
+        prev_close: float | None,
+        high: float | None,
+        low: float | None,
+        surge: bool | None,
+    ) -> dict[str, Any]:
+        if above is None or dev is None or not adjacent:
+            # Unknown side or a break in the calendar: the run cannot be continued or started.
+            self._reset()
+            if above is not None and dev is not None and not adjacent:
+                # We can see today's side but not whether a cross happened: mid-run, unanchored.
+                self.side = above
+            return self._unknown()
+        cross_below_kind: str | None = None
+        if self.side is None or above != self.side:
+            # Side changed relative to the previous known day: a cross was observed today,
+            # unless we had no previous side at all (first row) — then the run is unanchored.
+            anchored_now = self.side is not None
+            if anchored_now and not above:
+                # Crossing below.  The above run just ended: was it a residual excursion?
+                residual = self.anchored and self.day <= self.confirm_days and not self.surge_seen
+                if residual and self.cycle_day is not None:
+                    cross_below_kind = "retest"
+                    self.cycle_day += 1
+                    self.cycle_retest_seen = True
+                else:
+                    cross_below_kind = "first"
+                    self.cycle_day = 1
+                    self.cycle_retest_seen = False
+            elif anchored_now and above:
+                # Crossing above: the cycle is pending until this run confirms or fades.
+                if self.cycle_day is not None:
+                    self.cycle_day += 1
+            else:
+                self.cycle_day = None
+                self.cycle_retest_seen = False
+            self.side, self.day, self.extreme, self.retrace_peak, self.anchored = above, 1, dev, 0.0, anchored_now
+            self.base_close, self.max_high, self.min_low = prev_close, high, low
+            self.hl_complete = high is not None and low is not None
+            self.days_since_high, self.surge_seen = 0, surge is True
+        else:
+            self.day += 1
+            if self.extreme is None:
+                self.extreme = dev
+            elif (not above and dev < self.extreme) or (above and dev > self.extreme):
+                self.extreme = dev
+            if high is None or low is None:
+                self.hl_complete = False
+            else:
+                if self.max_high is None or high > self.max_high:
+                    self.max_high, self.days_since_high = high, 0
+                else:
+                    self.days_since_high += 1
+                if self.min_low is None or low < self.min_low:
+                    self.min_low = low
+            if surge is True:
+                self.surge_seen = True
+            if self.cycle_day is not None:
+                self.cycle_day += 1
+        if above and self.cycle_day is not None and (self.surge_seen or self.day > self.confirm_days):
+            # A real above-MA leg (volume, or outlived the tolerance): the below cycle is over.
+            self.cycle_day = None
+            self.cycle_retest_seen = False
+        if not self.anchored or self.extreme is None:
+            return self._unknown()
+        retrace = (dev - self.extreme) if not above else (self.extreme - dev)
+        self.retrace_peak = max(self.retrace_peak, retrace)
+        base_ok = self.base_close is not None and self.base_close > 0 and close is not None
+        return {
+            "ma_episode_day": self.day,
+            "ma_episode_extreme_dev": round(self.extreme, SCALAR_DECIMALS),
+            "ma_episode_retrace_pts": round(retrace, SCALAR_DECIMALS),
+            "ma_episode_retrace_peak_pts": round(self.retrace_peak, SCALAR_DECIMALS),
+            "ma_episode_pct_chg": round((close / self.base_close - 1) * 100, SCALAR_DECIMALS) if base_ok else None,
+            "ma_episode_amplitude": (
+                round((self.max_high - self.min_low) / self.base_close * 100, SCALAR_DECIMALS)
+                if base_ok and self.hl_complete and self.max_high is not None and self.min_low is not None
+                else None
+            ),
+            "ma_episode_days_since_high": self.days_since_high if self.hl_complete else None,
+            "days_since_cross_above": (self.day - 1) if above else None,
+            "cross_below_kind": cross_below_kind,
+            "below_ma_cycle_day": self.cycle_day,
+            # Inside a below-MA cycle: has the 回踩探底 (retest cross below) happened yet?
+            "below_ma_cycle_retest_seen": (self.cycle_retest_seen if self.cycle_day is not None else None),
+        }
+
+
+# Per-day aggregates over ``fact_stock_daily`` that the CLI computes in SQL.
+# 创始人 2026-09-07：「整体的水位就是市场涨幅中位数，或者 MA5、MA10 的偏离度……平均股价也可以」。
+# (label, source field, count field that must clear ``breadth_min_stocks``)
+BREADTH_FIELDS = (
+    ("stock_pct_chg_median", "pct_chg_median", "stock_count"),
+    ("stock_price_mean", "price_mean", "stock_count"),
+    ("stock_ma5_deviation_median", "ma5_deviation_median", "ma5_count"),
+    ("stock_ma10_deviation_median", "ma10_deviation_median", "ma10_count"),
+    # 复盘会「情绪均值回归」的原料：当日上涨家数占比；其 5 日均值另算（UP_RATIO_MA_DAYS）。
+    ("stock_up_ratio_pct", "up_ratio_pct", "stock_count"),
+)
+UP_RATIO_MA_DAYS = 5
+
+
+# View scalars are canonicalized to this many decimals.  A parallel SQL AVG
+# over ~5000 stocks sums in a different order run to run and moves the last
+# bit of the mean; that must not change the content hash of an identical build.
+SCALAR_DECIMALS = 6
+
+
+def _breadth_scalars(
+    row: Mapping[str, Any] | None, floor: int
+) -> list[tuple[str, float | None, str | None]]:
+    """Fail closed on absent days and on days covering too few stocks for a median to mean anything."""
+    out: list[tuple[str, float | None, str | None]] = []
+    for label, field, count_field in BREADTH_FIELDS:
+        if row is None:
+            out.append((label, None, "stock_rows_absent"))
+            continue
+        count = _num(row.get(count_field))
+        value = _num(row.get(field))
+        if count is None or count < floor:
+            out.append((label, None, f"{count_field}_below_floor"))
+        elif value is None:
+            out.append((label, None, f"{field}_null"))
+        else:
+            out.append((label, round(value, SCALAR_DECIMALS), None))
+    return out
+
+
+def _up_ratio_ma(
+    rows: list[Mapping[str, Any]],
+    i: int,
+    cal_index: Mapping[Any, int] | None,
+    breadth_by_day: Mapping[Any, Mapping[str, Any]],
+    floor: int,
+    n: int,
+) -> tuple[float | None, str | None]:
+    """Mean of the last ``n`` days' up-ratio (复盘会 up_rate_ma5); every day must be adjacent and above the coverage floor."""
+    if i < n - 1 or not _contiguous(rows, i - n + 1, i, cal_index):
+        return None, "window_incomplete"
+    values: list[float] = []
+    for j in range(i - n + 1, i + 1):
+        row = breadth_by_day.get(_date(rows[j].get("trade_date")))
+        if row is None:
+            return None, "stock_rows_absent"
+        count, value = _num(row.get("stock_count")), _num(row.get("up_ratio_pct"))
+        if count is None or count < floor:
+            return None, "stock_count_below_floor"
+        if value is None:
+            return None, "up_ratio_pct_null"
+        values.append(value)
+    return round(sum(values) / len(values), SCALAR_DECIMALS), None
+
+
+# 创始人 2026-09-07 第四段：「高位震荡并不是只看周均和量能，还要看指数的形态，区间涨幅和
+# 振幅，周均偏离度的变化。」这三样能从 fact_market_daily 的上证 OHLC / 偏离度确定性算出，
+# 先作视角写出、不进计分；窗口天数是 B 类候选值（参数 ``index_range_windows``）。「形态」
+# 没有可对照的字段口径，仍待创始人填。
+DEFAULT_RANGE_WINDOWS = (5, 10)
+RANGE_SCALAR_STEMS = ("sh_index_pct_chg", "sh_index_amplitude", "sh_deviation_change")
+
+
+def range_scalar_labels(windows: Iterable[int]) -> list[str]:
+    """Label stems × windows, e.g. ``sh_index_pct_chg_5d``; order is stable for receipts."""
+    return [f"{stem}_{int(n)}d" for n in windows for stem in RANGE_SCALAR_STEMS]
+
+
+def _index_range_scalars(
+    rows: list[Mapping[str, Any]],
+    i: int,
+    cal_index: Mapping[Any, int] | None,
+    windows: Iterable[int],
+) -> list[tuple[str, float | None, str | None]]:
+    """Interval gain, interval amplitude and deviation change of the index over each window.
+
+    For a window of ``n`` days ending today the base day is the day before the
+    window; gain and amplitude are both expressed against the base close so the
+    two read on one scale.  Every one of the ``n + 1`` rows must be an adjacent
+    calendar day, otherwise the window is unknown rather than shortened.
+    """
+    out: list[tuple[str, float | None, str | None]] = []
+    for n in windows:
+        n = int(n)
+        labels = range_scalar_labels((n,))
+        if i < n or not _contiguous(rows, i - n, i, cal_index):
+            out.extend((label, None, "window_incomplete") for label in labels)
+            continue
+        base, today = rows[i - n], rows[i]
+        base_close, close = _num(base.get("sh_index_close")), _num(today.get("sh_index_close"))
+        gain_label, amp_label, dev_label = labels
+        if base_close is None or base_close <= 0 or close is None:
+            out.append((gain_label, None, "close_null"))
+            out.append((amp_label, None, "close_null"))
+        else:
+            out.append((gain_label, round((close / base_close - 1) * 100, SCALAR_DECIMALS), None))
+            highs = [_num(rows[j].get("sh_index_high")) for j in range(i - n + 1, i + 1)]
+            lows = [_num(rows[j].get("sh_index_low")) for j in range(i - n + 1, i + 1)]
+            if any(x is None for x in highs) or any(x is None for x in lows):
+                out.append((amp_label, None, "high_low_null"))
+            else:
+                amplitude = (max(highs) - min(lows)) / base_close * 100
+                out.append((amp_label, round(amplitude, SCALAR_DECIMALS), None))
+        base_dev, dev = _num(base.get("sh_deviation_pct")), _num(today.get("sh_deviation_pct"))
+        if base_dev is None or dev is None:
+            out.append((dev_label, None, "deviation_null"))
+        else:
+            out.append((dev_label, round(dev - base_dev, SCALAR_DECIMALS), None))
+    return out
+
+
+RANGE_STRUCTURE_STEMS = ("index_high_not_rising", "index_range_converging")
+
+
+def _range_structure_flags(
+    rows: list[Mapping[str, Any]],
+    i: int,
+    cal_index: Mapping[Any, int] | None,
+    windows: Iterable[int],
+) -> dict[str, bool | None]:
+    """区间结构 of the last ``n`` days against the ``n`` days before them.
+
+    创始人 09-07 第七段 confirmed 高位震荡's 形态 as 「高点不抬高加收敛」: the recent block's
+    highest high does not exceed the previous block's, and its high-low range is narrower.
+    Both blocks must be adjacent calendar days with high / low present; otherwise unknown.
+    """
+    out: dict[str, bool | None] = {}
+    for n in windows:
+        n = int(n)
+        not_rising_label, converging_label = (f"{stem}_{n}d" for stem in RANGE_STRUCTURE_STEMS)
+        if i < 2 * n - 1 or not _contiguous(rows, i - 2 * n + 1, i, cal_index):
+            out[not_rising_label] = out[converging_label] = None
+            continue
+        recent = rows[i - n + 1 : i + 1]
+        earlier = rows[i - 2 * n + 1 : i - n + 1]
+        highs_r = [_num(r.get("sh_index_high")) for r in recent]
+        lows_r = [_num(r.get("sh_index_low")) for r in recent]
+        highs_e = [_num(r.get("sh_index_high")) for r in earlier]
+        lows_e = [_num(r.get("sh_index_low")) for r in earlier]
+        if any(x is None for x in highs_r + lows_r + highs_e + lows_e):
+            out[not_rising_label] = out[converging_label] = None
+            continue
+        out[not_rising_label] = max(highs_r) <= max(highs_e)
+        out[converging_label] = (max(highs_r) - min(lows_r)) < (max(highs_e) - min(lows_e))
+    return out
+
+
+def _contiguous(
+    rows: list[Mapping[str, Any]], start: int, end: int, cal_index: Mapping[Any, int] | None
+) -> bool:
+    """True when rows[start..end] are consecutive calendar days (or no calendar was given)."""
+    if cal_index is None:
+        return True
+    for j in range(start, end):
+        a = cal_index.get(_date(rows[j].get("trade_date")))
+        b = cal_index.get(_date(rows[j + 1].get("trade_date")))
+        if a is None or b is None or b - a != 1:
+            return False
+    return True
 
 
 def _cross(prev: Mapping[str, Any], row: Mapping[str, Any], side: str) -> bool | None:
@@ -315,7 +720,7 @@ def _vendor_share(by_day, d, market, prev, prev_rows):
     return a / den_now > b / den_old
 
 
-def _vendor_rising(by_day, d, n, rows, i, cal):
+def _vendor_rising(by_day, d, n, rows, i):
     if i < n - 1:
         return None
     points = []
@@ -331,33 +736,11 @@ def _vendor_rising(by_day, d, n, rows, i, cal):
     return all(a < b for a, b in zip(points, points[1:]))
 
 
-def _rising_streak(rows, i, col, n, cal):
-    if i < n - 1:
-        return None
-    vals = []
-    for j in range(i - n + 2, i + 1):
-        v = _num(rows[j].get(col))
-        pv = _num(rows[j - 1].get(col))
-        if v is None or pv is None:
-            return None
-        if cal is not None:
-            idx = {_date(x): n for n, x in enumerate(cal)}
-            if (
-                idx.get(_date(rows[j].get("trade_date"))) is None
-                or idx.get(_date(rows[j - 1].get("trade_date")))
-                != idx.get(_date(rows[j].get("trade_date"))) - 1
-            ):
-                return None
-        vals.append(v > pv)
-    return all(vals)
-
-
-def _rising_top3_streak(rows, i, n, cal):
+def _rising_top3_streak(rows, i, n, cal_index):
     """Compare the derived top-three amount (market amount × top-three share)."""
 
     if i < n - 1:
         return None
-    indexes = {_date(value): pos for pos, value in enumerate(cal)} if cal is not None else None
     for j in range(i - n + 2, i + 1):
         current = _num(rows[j].get("total_amount"))
         previous = _num(rows[j - 1].get("total_amount"))
@@ -365,8 +748,11 @@ def _rising_top3_streak(rows, i, n, cal):
         previous_share = _num(rows[j - 1].get("top3_industry_ratio"))
         if None in (current, previous, current_share, previous_share):
             return None
-        if indexes is not None and indexes.get(_date(rows[j].get("trade_date"))) != indexes.get(_date(rows[j - 1].get("trade_date"))) + 1:
-            return None
+        if cal_index is not None:
+            cur_i = cal_index.get(_date(rows[j].get("trade_date")))
+            prev_i = cal_index.get(_date(rows[j - 1].get("trade_date")))
+            if cur_i is None or prev_i is None or cur_i - prev_i != 1:
+                return None
         if not current * current_share > previous * previous_share:
             return False
     return True
@@ -378,17 +764,34 @@ def _scalar_max(rows, col):
     return max(vals) if vals else None
 
 
-def _promotion(today, prev):
+def _promotion(today, prev) -> tuple[float | None, str | None]:
+    """Today's ``limit_times >= 2`` count over yesterday's limit-up count.
+
+    A NULL ``limit_times`` today makes the numerator unknowable; it is not
+    counted as "below 2".
+    """
     if not prev:
-        return None
-    n = len(prev)
-    k = sum(1 for r in today if (_num(r.get("limit_times")) or 0) >= 2)
-    return k / n if n else None
+        return None, "prev_day_limit_rows_absent"
+    values = [_num(r.get("limit_times")) for r in today]
+    if any(v is None for v in values):
+        return None, "limit_times_null"
+    return sum(1 for v in values if v >= 2) / len(prev), None
 
 
-def _top100_share(d, market, amount_values_by_day):
+def _top100_share(d, market, amount_values_by_day, top_n) -> tuple[float | None, str | None]:
+    """Top-N stock amount over market total; fail closed when units disagree.
+
+    Both columns must share a unit for the share to be meaningful.  A share above
+    one is impossible when they do, so it is treated as a unit mismatch rather
+    than reported.
+    """
     den = _num(market.get("total_amount"))
+    if den is None or den <= 0:
+        return None, "total_amount_null_or_zero"
     vals = sorted(amount_values_by_day.get(d, ()), reverse=True)
-    if den is None or den <= 0 or len(vals) < 100:
-        return None
-    return sum(vals[:100]) / den
+    if len(vals) < top_n:
+        return None, f"amount_rows_lt_top{top_n}"
+    share = sum(vals[:top_n]) / den
+    if share > 1:
+        return None, "unit_mismatch_share_gt_1"
+    return share, None

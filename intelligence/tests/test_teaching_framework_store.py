@@ -8,6 +8,7 @@ import pytest
 
 from intelligence.services.methodology_backtest.store import (
     TEACHING_TABLES,
+    check_teaching_schema,
     ensure_schema,
     reset_teaching_tables,
 )
@@ -48,7 +49,7 @@ def test_parameter_hash_ignores_json_formatting(tmp_path) -> None:
     p1.write_text(json.dumps(params, ensure_ascii=False, indent=2), encoding="utf-8")
     p2.write_text(canonical_json(params) + "\n", encoding="utf-8")
     assert parameter_hash(p1) == parameter_hash(p2)
-    assert framework_version(p1).startswith("tf-v0.1+")
+    assert framework_version(p1).startswith("tf-v0.2+")  # default file is the slice-1.5 calibrated one
 
 
 def test_parameter_loader_rejects_invalid_time(tmp_path) -> None:
@@ -57,6 +58,32 @@ def test_parameter_loader_rejects_invalid_time(tmp_path) -> None:
     p = tmp_path / "bad.json"
     p.write_text(json.dumps(params), encoding="utf-8")
     with pytest.raises(ValueError, match="HH:MM"):
+        load_params(p)
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("leader_top", {"tie_policy": "unique", "break_rule": "all_members_off_table"}),
+        ("surge_in_trend", {"role": "top_evidence"}),
+    ],
+)
+def test_parameter_loader_rejects_unsupported_methodology_choices(tmp_path, key, value) -> None:
+    params = load_params()
+    params[key] = value
+    p = tmp_path / "bad.json"
+    p.write_text(json.dumps(params), encoding="utf-8")
+    with pytest.raises(ValueError, match=key):
+        load_params(p)
+
+
+@pytest.mark.parametrize("windows", [[], [0, 5], [5, 5], [5, "10"], "5"])
+def test_parameter_loader_rejects_bad_range_windows(tmp_path, windows) -> None:
+    params = load_params()
+    params["index_range_windows"] = windows
+    p = tmp_path / "bad.json"
+    p.write_text(json.dumps(params), encoding="utf-8")
+    with pytest.raises(ValueError, match="index_range_windows"):
         load_params(p)
 
 
@@ -73,6 +100,34 @@ def test_canonical_hash_excludes_computed_at_and_sorts_primary_key() -> None:
     assert canonical_rows_hash(rows1, columns=columns, primary_key=("trade_date", "label")) == canonical_rows_hash(
         rows2, columns=columns, primary_key=("trade_date", "label")
     )
+
+
+def test_canonical_hash_is_independent_of_physical_column_order() -> None:
+    """A sidecar that grew a column via ALTER TABLE must hash like a fresh one."""
+    rows_ab = [("2026-01-01", "tf.a", 1.0, "x")]
+    rows_ba = [("x", 1.0, "tf.a", "2026-01-01")]
+    h1 = canonical_rows_hash(rows_ab, columns=("trade_date", "label", "value_num", "extra"), primary_key=("trade_date", "label"))
+    h2 = canonical_rows_hash(rows_ba, columns=("extra", "value_num", "label", "trade_date"), primary_key=("trade_date", "label"))
+    assert h1 == h2
+
+    fresh = duckdb.connect(":memory:")
+    fresh.execute("CREATE TABLE t (k INTEGER, forward VARCHAR, status VARCHAR, computed_at TIMESTAMP)")
+    fresh.execute("INSERT INTO t VALUES (1, 'f', 'ok', TIMESTAMP '2026-01-01')")
+    migrated = duckdb.connect(":memory:")
+    migrated.execute("CREATE TABLE t (k INTEGER, status VARCHAR, computed_at TIMESTAMP)")
+    migrated.execute("INSERT INTO t VALUES (1, 'ok', TIMESTAMP '2027-06-06')")
+    migrated.execute("ALTER TABLE t ADD COLUMN forward VARCHAR")
+    migrated.execute("UPDATE t SET forward = 'f'")
+    assert canonical_rows_hash(fresh, table="t", primary_key=("k",)) == canonical_rows_hash(migrated, table="t", primary_key=("k",))
+
+
+def test_check_teaching_schema_reports_stale_sidecar() -> None:
+    con = duckdb.connect(":memory:")
+    ensure_schema(con)
+    assert check_teaching_schema(con) == []
+    con.execute("ALTER TABLE history_teaching_receipts DROP COLUMN readouts")
+    problems = check_teaching_schema(con)
+    assert len(problems) == 1 and "history_teaching_receipts" in problems[0] and "readouts" in problems[0]
 
 
 def test_old_receipts_remain_queryable_and_become_incomparable() -> None:

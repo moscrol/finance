@@ -52,8 +52,11 @@ def canonical_rows_hash(
     """Hash rows in deterministic column/key order.
 
     ``computed_at`` is excluded by default because it records build time, not
-    the derived object.  A connection plus ``table`` is accepted for callers
-    rebuilding a sidecar table; an iterable is convenient in unit tests.
+    the derived object.  Columns are hashed in name order, not physical order:
+    a sidecar that gained a column through ``ALTER TABLE`` and a freshly created
+    one must hash identical content to the same value.  A connection plus
+    ``table`` is accepted for callers rebuilding a sidecar table; an iterable is
+    convenient in unit tests.
     """
 
     if isinstance(rows, duckdb.DuckDBPyConnection):
@@ -61,7 +64,7 @@ def canonical_rows_hash(
             raise ValueError("connection 输入必须同时提供 table")
         description = rows.execute(f"SELECT * FROM {table} LIMIT 0").description
         all_columns = [str(item[0]) for item in description]
-        selected = [name for name in all_columns if name not in set(exclude_columns)]
+        selected = sorted(name for name in all_columns if name not in set(exclude_columns))
         order = list(primary_key or selected)
         query = f"SELECT {', '.join(selected)} FROM {table}"
         if order:
@@ -72,7 +75,7 @@ def canonical_rows_hash(
     else:
         if columns is None:
             raise ValueError("iterable rows 输入必须提供 columns")
-        selected = [name for name in columns if name not in set(exclude_columns)]
+        selected = sorted(name for name in columns if name not in set(exclude_columns))
         indexes = [list(columns).index(name) for name in selected]
         materialized = []
         for row in rows:
@@ -114,6 +117,7 @@ def make_receipt(
     canonical_hash: str | None,
     coverage_summary: dict[str, Any] | None = None,
     gap_summary: dict[str, Any] | None = None,
+    readouts: dict[str, Any] | None = None,
     computed_at: datetime | None = None,
     build_id: str | None = None,
 ) -> dict[str, Any]:
@@ -137,6 +141,7 @@ def make_receipt(
         "parameter_hash": parameter_hash,
         "coverage_summary": coverage_summary or {},
         "gap_summary": gap_summary or {},
+        "readouts": readouts or {},
         "canonical_hash": canonical_hash,
         "status": RECEIPT_STATUS_OK,
         "status_reason": None,
@@ -173,9 +178,9 @@ def write_receipt(con: duckdb.DuckDBPyConnection, receipt: dict[str, Any]) -> st
         INSERT INTO history_teaching_receipts
         (build_id, build_kind, framework_version, label_version, source_db,
          source_max_trade_date, source_row_counts, source_fingerprint,
-         parameter_hash, coverage_summary, gap_summary, canonical_hash,
+         parameter_hash, coverage_summary, gap_summary, readouts, canonical_hash,
          status, status_reason, computed_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         [
             receipt["build_id"],
@@ -189,6 +194,7 @@ def write_receipt(con: duckdb.DuckDBPyConnection, receipt: dict[str, Any]) -> st
             receipt["parameter_hash"],
             canonical_json(receipt["coverage_summary"]),
             canonical_json(receipt["gap_summary"]),
+            canonical_json(receipt.get("readouts") or {}),
             receipt["canonical_hash"],
             receipt["status"],
             receipt["status_reason"],

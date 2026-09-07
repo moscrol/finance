@@ -289,7 +289,7 @@ def cohort_compare(
     feature: str = "market_stage",
     db_path: str | Path | None = None,
     labels_db_path: str | Path | None = None,
-    label_version: str | None = None,
+    framework_version: str | None = None,
 ) -> CohortReport:
     """把一批日子的某个盘面特征，与全样本基准比，逐格给四态判词。
 
@@ -318,12 +318,13 @@ def cohort_compare(
             if not sidecar.is_file():
                 raise FileNotFoundError(f"旁路库不存在: {sidecar}")
             # 旁路库沿用对外特征名（含 ``tf.`` 命名空间）；不能在这里
-            # 剥掉前缀，否则 CLI 写入的标签永远读不到。
+            # 剥掉前缀，否则 CLI 写入的标签永远读不到。版本过滤打在
+            # ``framework_version`` 列上——``label_version`` 列存的是供应商版本。
             label = feature
             quoted = str(sidecar).replace("'", "''")
             con.execute(f"ATTACH '{quoted}' AS teaching_labels (READ_ONLY)")
-            version_clause = "AND label_version = ?" if label_version else ""
-            params = [label_version] if label_version else []
+            version_clause = "AND framework_version = ?" if framework_version else ""
+            params = [framework_version] if framework_version else []
             base_rows = con.execute(
                 f"""SELECT CAST(trade_date AS DATE), COALESCE(value_text, CAST(value_num AS VARCHAR))
                     FROM teaching_labels.history_teaching_labels
@@ -344,16 +345,18 @@ def cohort_compare(
                 pass
         con.close()
 
-    by_date = {
-        str(d): (str(v) if teaching_feature and v is not None else normalize_stage(v))
-        for d, v in base_rows
-        if v is not None
-    }
+    if teaching_feature:
+        # 教学值原样入桶（``ambiguous`` / ``no_evidence`` 各自成桶），不过
+        # ``normalize_stage``——它会剥掉「阶段」后缀。没有值的日子不进宇宙。
+        by_date = {str(d): str(v) for d, v in base_rows if v is not None}
+    else:
+        by_date = {str(d): normalize_stage(v) for d, v in base_rows}
     wanted = [d for d in sorted(dates) if d in by_date]
     missing = sorted(set(dates) - set(by_date))
     notes: list[str] = []
     if missing:
-        notes.append(f"{len(missing)} 个日期在 fact_market_daily 里没有行，已剔除：{missing[:5]}")
+        where = "旁路库该标签" if teaching_feature else "fact_market_daily"
+        notes.append(f"{len(missing)} 个日期在 {where} 里没有行，已剔除：{missing[:5]}")
     if len(wanted) < MIN_N:
         notes.append(f"队列只有 {len(wanted)} 天，低于 MIN_N={MIN_N}，所有格必为 insufficient_n")
 

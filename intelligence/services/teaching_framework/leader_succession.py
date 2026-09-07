@@ -23,25 +23,47 @@ def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
+GROUP_SEP = "|"
+
+
+def join_group(stocks: Iterable[Any]) -> str | None:
+    """Canonical text form of a leader group (sorted, ``|``-joined); None for an empty group."""
+    items = sorted(str(s) for s in stocks)
+    return GROUP_SEP.join(items) if items else None
+
+
 @dataclass(frozen=True)
 class TopResult:
+    """The market's highest-board leader(s) on a day.
+
+    创始人 2026-09-07 第六段：「最高标不要求唯一，可以并列多个」。``stocks`` is the whole
+    group at the maximum board count (sorted); ``stock_ts_code`` / ``stock_name`` keep the
+    first member for display only and must not be used to compare leaders.
+    """
+
     trade_date: str
-    status: str  # ok / none / tie / field_null / data_gap
+    status: str  # ok / none / field_null / data_gap
     stock_ts_code: str | None = None
     stock_name: str | None = None
     boards: int | None = None
-    tied_stocks: tuple[str, ...] = ()
+    stocks: tuple[str, ...] = ()
+    names: tuple[str | None, ...] = ()
     reason: str | None = None
 
     @property
-    def unique(self) -> bool:
-        return self.status == "ok"
+    def tie_size(self) -> int:
+        return len(self.stocks)
+
+    @property
+    def tied_stocks(self) -> tuple[str, ...]:
+        return self.stocks if len(self.stocks) > 1 else ()
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "trade_date": self.trade_date, "status": self.status,
             "stock_ts_code": self.stock_ts_code, "stock_name": self.stock_name,
-            "boards": self.boards, "tied_stocks": self.tied_stocks, "reason": self.reason,
+            "boards": self.boards, "stocks": list(self.stocks), "names": list(self.names),
+            "tie_size": self.tie_size, "reason": self.reason,
         }
 
 
@@ -52,21 +74,22 @@ class SuccessionNode:
     leader_i_name: str | None
     leader_i_peak_boards: int | None
     break_day: str | None
+    leader_i_group: list[str] = field(default_factory=list)
     candidates: list[dict[str, Any]] = field(default_factory=list)
     leader_next: str | None = None
     leader_next_name: str | None = None
+    leader_next_group: list[str] = field(default_factory=list)
     birth_day: str | None = None
     birth_boards: int | None = None
     handoff: bool | None = None
     gap_days: int | None = None
-    path: list[dict[str, Any]] = field(default_factory=list)
-    shape_tags: dict[str, Any] = field(default_factory=dict)
+    path: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    shape_tags: dict[str, dict[str, Any]] = field(default_factory=dict)
     context_break: dict[str, Any] = field(default_factory=dict)
     context_birth: dict[str, Any] = field(default_factory=dict)
     forward: dict[str, Any] = field(default_factory=dict)
     status: str = "ok"
     status_reason: str | None = None
-    hindsight: bool = False
     framework_version: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
@@ -74,19 +97,21 @@ class SuccessionNode:
         return {
             "node_id": self.node_id, "leader_i": self.leader_i,
             "leader_i_name": self.leader_i_name, "leader_i_peak_boards": self.leader_i_peak_boards,
+            "leader_i_group": self.leader_i_group,
             "break_day": self.break_day, "candidates": self.candidates,
             "leader_next": self.leader_next, "leader_next_name": self.leader_next_name,
+            "leader_next_group": self.leader_next_group,
             "birth_day": self.birth_day, "birth_boards": self.birth_boards,
             "handoff": self.handoff, "gap_days": self.gap_days, "path": self.path,
             "shape_tags": self.shape_tags, "context_break": self.context_break,
             "context_birth": self.context_birth, "forward": self.forward,
             "status": self.status, "status_reason": self.status_reason,
-            "hindsight": self.hindsight, "framework_version": self.framework_version,
+            "framework_version": self.framework_version,
         }
 
 
 def top_by_day(coverage: Mapping[str, CoverageDay] | Mapping[str, Iterable[Mapping[str, Any]]]) -> dict[str, TopResult]:
-    """Compute unique top for every calendar day, fail-closed on NULL and ties."""
+    """Compute the top group for every calendar day, fail-closed on NULL; ties are a group, not an error."""
     result: dict[str, TopResult] = {}
     for day, value in coverage.items():
         day = _date(day)
@@ -116,15 +141,13 @@ def top_by_day(coverage: Mapping[str, CoverageDay] | Mapping[str, Iterable[Mappi
             result[day] = TopResult(day, "field_null", reason="limit_times_malformed")
             continue
         max_boards = max(b for _, b in parsed)
-        leaders = [r for r, b in parsed if b == max_boards]
+        leaders = sorted((r for r, b in parsed if b == max_boards), key=lambda r: str(r.get("stock_ts_code")))
         if max_boards < 3:
             result[day] = TopResult(day, "none", boards=max_boards)
-        elif len(leaders) > 1:
-            tied = tuple(sorted(str(r.get("stock_ts_code")) for r in leaders))
-            result[day] = TopResult(day, "tie", boards=max_boards, tied_stocks=tied)
         else:
-            row = leaders[0]
-            result[day] = TopResult(day, "ok", str(row.get("stock_ts_code")), row.get("stock_name"), max_boards)
+            stocks = tuple(str(r.get("stock_ts_code")) for r in leaders)
+            names = tuple(r.get("stock_name") for r in leaders)
+            result[day] = TopResult(day, "ok", stocks[0], names[0], max_boards, stocks=stocks, names=names)
     return result
 
 
@@ -148,24 +171,27 @@ def detect_overtaken(
     events: list[dict[str, Any]] = []
     for previous, current in zip(dates, dates[1:]):
         a, b = tops.get(previous), tops.get(current)
-        if not a or not b or a.status != "ok" or b.status != "ok" or a.stock_ts_code == b.stock_ts_code:
+        if not a or not b or a.status != "ok" or b.status != "ok":
             continue
-        row = _row_for(coverage, current, a.stock_ts_code)
-        if row is None or row.get("limit_times") is None:
-            continue
-        try:
-            prior_boards = int(float(row["limit_times"]))
-        except (TypeError, ValueError):
-            continue
-        if b.boards is not None and b.boards > prior_boards:
-            events.append({
-                "event_day": current,
-                "previous_top": a.stock_ts_code,
-                "previous_top_boards": prior_boards,
-                "overtaken_by": b.stock_ts_code,
-                "overtaken_by_boards": b.boards,
-                "event_granularity": "daily",
-            })
+        for stock in a.stocks:
+            if stock in b.stocks:
+                continue
+            row = _row_for(coverage, current, stock)
+            if row is None or row.get("limit_times") is None:
+                continue
+            try:
+                prior_boards = int(float(row["limit_times"]))
+            except (TypeError, ValueError):
+                continue
+            if b.boards is not None and b.boards > prior_boards:
+                events.append({
+                    "event_day": current,
+                    "previous_top": stock,
+                    "previous_top_boards": prior_boards,
+                    "overtaken_by": join_group(b.stocks),
+                    "overtaken_by_boards": b.boards,
+                    "event_granularity": "daily",
+                })
     return events
 
 
@@ -176,13 +202,12 @@ def _unknown_shape(path: list[dict[str, Any]], params: Mapping[str, Any]) -> dic
     limit_values = vals("limit_times")
     in_table = [bool(p.get("in_table")) for p in path]
     has_null_limit = any(p.get("in_table") and p.get("limit_times") is None for p in path)
-    def tri(predicate: bool, unknown: bool = False) -> str | bool:
-        return "unknown" if unknown else predicate
+    # A missing source day looks like "off table" and would fake a re-entry.
+    has_missing_day = any(p.get("coverage") == "missing" for p in path)
 
-    rebound = False
-    nshape = False
-    # Any missing limit value in an observed path prevents guessing shape.
-    if has_null_limit:
+    rebound: str | bool = False
+    nshape: str | bool = False
+    if has_null_limit or has_missing_day:
         rebound = nshape = "unknown"
     else:
         for i in range(1, len(path)):
@@ -269,33 +294,44 @@ def build_succession(
     tops = top_by_day(coverage)
     overtaken = detect_overtaken(dates, tops, coverage)
     nodes: list[SuccessionNode] = []
+    # Days where some but not all members of a tied leader group broke: the
+    # market's highest board is still one of yesterday's leaders, so by the
+    # founder's definition (「前一天的市场最高连板第二天不是了，那就是断板日」) this
+    # is not a break.  Counted so the alternative reading can be sized.
+    partial_breaks: list[dict[str, Any]] = []
     for i, day in enumerate(dates):
         if i == 0:
             continue
         previous = dates[i - 1]
         prior = tops.get(previous)
         now = coverage[day]
-        # A break requires a unique prior top and a covered current day where it is
-        # absent.  Missing source days are data gaps, never breaks.
+        # A break requires a prior top group and a covered current day where none
+        # of its members is sealed.  Missing source days are data gaps, never breaks.
         if not prior or prior.status != "ok":
             continue
+        prior_group = list(prior.stocks)
+        prior_key = join_group(prior_group) or ""
+        prior_names = GROUP_SEP.join(str(n) for n in prior.names) if prior.names else None
+
+        def new_node(node_day: str) -> SuccessionNode:
+            node_hash = hashlib.sha256(f"{prior_key}|{node_day}".encode()).hexdigest()[:16]
+            node = SuccessionNode(node_hash, prior_key, prior_names, prior.boards, node_day, leader_i_group=list(prior_group))
+            node.context_break = dict((context_by_date or {}).get(node_day, {}))
+            node.context_break.setdefault("anchor_as_of", node_day)
+            node.context_break.setdefault("knowledge_cutoff", node_day)
+            return node
+
         if now.status == "missing":
-            node_hash = hashlib.sha256(f"{prior.stock_ts_code}|{day}".encode()).hexdigest()[:16]
-            gap_node = SuccessionNode(node_hash, prior.stock_ts_code, prior.stock_name, prior.boards, day)
-            gap_node.context_break = dict((context_by_date or {}).get(day, {}))
-            gap_node.context_break.setdefault("anchor_as_of", day)
-            gap_node.context_break.setdefault("knowledge_cutoff", day)
+            gap_node = new_node(day)
             gap_node.status, gap_node.status_reason = "unverifiable", "data_gap"
             nodes.append(gap_node)
             continue
-        prev_row = _row_for(coverage, day, prior.stock_ts_code or "")
-        if prev_row is not None:
-            continue  # still sealed; an overtaken event is recorded separately
-        node_hash = hashlib.sha256(f"{prior.stock_ts_code}|{day}".encode()).hexdigest()[:16]
-        base = SuccessionNode(node_hash, prior.stock_ts_code, prior.stock_name, prior.boards, day)
-        base.context_break = dict((context_by_date or {}).get(day, {}))
-        base.context_break.setdefault("anchor_as_of", day)
-        base.context_break.setdefault("knowledge_cutoff", day)
+        still_sealed = [s for s in prior_group if _row_for(coverage, day, s) is not None]
+        if still_sealed:
+            if len(still_sealed) < len(prior_group):
+                partial_breaks.append({"day": day, "group": prior_group, "still_sealed": still_sealed})
+            continue  # the market's highest is still one of yesterday's leaders
+        base = new_node(day)
         # Candidate window is T-1/T/T+1 and must have complete source coverage.
         win_idx = [j for j in (i - 1, i, i + 1) if 0 <= j < len(dates)]
         win_days = [dates[j] for j in win_idx]
@@ -311,7 +347,7 @@ def build_succession(
                         lt_num = int(float(lt))
                     except (TypeError, ValueError):
                         continue
-                    if lt_num <= 2 and str(row.get("stock_ts_code")) != str(prior.stock_ts_code):
+                    if lt_num <= 2 and str(row.get("stock_ts_code")) not in prior_group:
                         base.candidates.append({"stock": row.get("stock_ts_code"), "name": row.get("stock_name"), "day": cday, "limit_times": lt_num})
         # De-dupe candidate stock while retaining first observation.
         seen: set[Any] = set()
@@ -324,10 +360,12 @@ def build_succession(
             if t.status == "data_gap":
                 base.status, base.status_reason = "unverifiable", "data_gap"
                 break
-            if t.status in {"tie", "field_null"}:
+            if t.status == "field_null":
                 base.status, base.status_reason = "unverifiable", t.status
                 break
-            if t.status == "ok" and t.stock_ts_code != prior.stock_ts_code:
+            # The next leader group must be wholly new: a member of the broken
+            # group re-emerging at the top is not a succession.
+            if t.status == "ok" and not set(t.stocks) & set(prior_group):
                 next_top, next_idx = t, j
                 break
         if base.status != "ok":
@@ -343,14 +381,34 @@ def build_succession(
             base.status, base.status_reason = "unverifiable", "data_gap"
             nodes.append(base)
             continue
-        base.leader_next, base.leader_next_name, base.birth_day, base.birth_boards = next_top.stock_ts_code, next_top.stock_name, birth_day, next_top.boards
+        base.leader_next_group = list(next_top.stocks)
+        base.leader_next = join_group(next_top.stocks)
+        base.leader_next_name = GROUP_SEP.join(str(n) for n in next_top.names) if next_top.names else None
+        base.birth_day, base.birth_boards = birth_day, next_top.boards
         base.gap_days = next_idx - i
-        base.handoff = any(str(c.get("stock")) == str(next_top.stock_ts_code) for c in base.candidates)
+        candidate_codes = {str(c.get("stock")) for c in base.candidates}
+        handoff_members = [s for s in next_top.stocks if s in candidate_codes]
+        # 「衔接」 holds when any member of the new top group came out of the
+        # low-board candidates; the members are listed so an all-members reading
+        # can be derived from the same rows.
+        base.handoff = bool(handoff_members)
+        # Shape tags describe what each successor did *before* its current streak
+        # (断板反包 / N 字 are re-entries).  The lookback window therefore starts
+        # ``rebound_window_days`` before the streak began, not before birth day;
+        # anchored at birth, a 4+ board successor would fill the window with its
+        # own streak and every shape would read false.
         lookback = int(params.get("rebound_window_days", 5) or 5)
-        start = max(0, next_idx - lookback + 1)
-        base.path = _make_path(coverage, dates[start : next_idx + 1], next_top.stock_ts_code or "")
-        base.shape_tags = _unknown_shape(base.path, params)
-        base.forward = {"realized": True, "anchor_as_of": day, "target": birth_day, "knowledge_cutoff": birth_day}
+        for stock in next_top.stocks:
+            streak_start = next_idx
+            while streak_start > 0 and _row_for(coverage, dates[streak_start - 1], stock) is not None:
+                streak_start -= 1
+            start = max(0, streak_start - lookback)
+            base.path[stock] = _make_path(coverage, dates[start : next_idx + 1], stock)
+            base.shape_tags[stock] = _unknown_shape(base.path[stock], params)
+        base.forward = {
+            "realized": True, "anchor_as_of": day, "target": birth_day, "knowledge_cutoff": birth_day,
+            "leader_next_size": len(next_top.stocks), "handoff_members": handoff_members,
+        }
         cutoff = _date(knowledge_cutoff) if knowledge_cutoff is not None else None
         if cutoff is not None and cutoff >= birth_day:
             base.context_birth = dict((context_by_date or {}).get(birth_day, {}))
@@ -359,12 +417,12 @@ def build_succession(
         else:
             base.context_birth = {"context_target": birth_day, "knowledge_cutoff": cutoff, "status": "withheld_until_cutoff"}
         nodes.append(base)
-    return {"nodes": nodes, "overtaken": overtaken, "coverage": coverage, "tops": tops}
+    return {"nodes": nodes, "overtaken": overtaken, "coverage": coverage, "tops": tops, "partial_breaks": partial_breaks}
 
 
 build_leader_succession = build_succession
 
 __all__ = [
-    "SuccessionNode", "TopResult", "build_succession", "build_leader_succession",
-    "detect_overtaken", "top_by_day",
+    "GROUP_SEP", "SuccessionNode", "TopResult", "build_succession", "build_leader_succession",
+    "detect_overtaken", "join_group", "top_by_day",
 ]

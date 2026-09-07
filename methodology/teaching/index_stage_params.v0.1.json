@@ -5,8 +5,19 @@
     "oversold_le": -2.5,
     "overheated_ge": 1.5
   },
-  "volume_surge": {
-    "reuse_label": "volume_surge"
+  "volume_level": {
+    "basis": "amount_vs_ma20_pct",
+    "moderate_from_pct": 100,
+    "surge_from_pct": 120
+  },
+  "breadth_min_stocks": 4000,
+  "index_range_windows": [5, 10],
+  "breakout_confirm_days": 3,
+  "deviation_streak_min": 3,
+  "transition_policy": "entry_or_reachable",
+  "ambiguity_memory": "last_valid_stage",
+  "surge_in_trend": {
+    "role": "view"
   },
   "shrink_day": {
     "basis": "amount_ma20",
@@ -16,6 +27,10 @@
   "mainline_amount_stepping_up_days": 3,
   "mainline_share_basis": "prev_day",
   "mainline_definitions": ["vendor", "volume_top3"],
+  "leader_top": {
+    "tie_policy": "group",
+    "break_rule": "all_members_off_table"
+  },
   "instant_seal_time": "09:35",
   "rebound_window_days": 5,
   "high_turnover_ratio": null,

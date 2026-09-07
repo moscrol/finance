@@ -123,9 +123,11 @@ TEACHING_DDL = (
         leader_i        VARCHAR,
         leader_i_name   VARCHAR,
         leader_i_peak_boards INTEGER,
+        leader_i_group_json VARCHAR,
         birth_day       DATE,
         leader_next     VARCHAR,
         leader_next_name VARCHAR,
+        leader_next_group_json VARCHAR,
         birth_boards    INTEGER,
         candidates_json VARCHAR,
         gap_days        INTEGER,
@@ -154,6 +156,38 @@ TEACHING_DDL = (
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS history_reference_stages (
+        source              VARCHAR NOT NULL,
+        trade_date          DATE NOT NULL,
+        cycle_stage         VARCHAR,
+        external_cycle      VARCHAR,
+        internal_cycle      VARCHAR,
+        is_ice_point        BOOLEAN,
+        ice_point_level     VARCHAR,
+        amount_yi           DOUBLE,
+        amount_change_pct   DOUBLE,
+        amount_ma20_yi      DOUBLE,
+        amount_vs_ma20_pct  DOUBLE,
+        up_rate_ma5_pct     DOUBLE,
+        up_count            INTEGER,
+        limit_up_count_non_st INTEGER,
+        top3_market_share_pct DOUBLE,
+        amount_top5_share_pct DOUBLE,
+        amount_top5_rising_share_pct DOUBLE,
+        amount_top5_rising_avg_change_pct DOUBLE,
+        price_top5_avg_change_pct DOUBLE,
+        price_top5_market_share_pct DOUBLE,
+        price_top5_amount_change_pct DOUBLE,
+        formula_version     VARCHAR,
+        data_version        VARCHAR,
+        vendor_updated_at   TIMESTAMP,
+        raw_json            VARCHAR,
+        pulled_at           TIMESTAMP,
+        loaded_at           TIMESTAMP NOT NULL,
+        PRIMARY KEY (source, trade_date)
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS history_teaching_receipts (
         build_id             VARCHAR PRIMARY KEY,
         build_kind           VARCHAR NOT NULL,
@@ -166,6 +200,7 @@ TEACHING_DDL = (
         parameter_hash       VARCHAR NOT NULL,
         coverage_summary     VARCHAR,
         gap_summary          VARCHAR,
+        readouts             VARCHAR,
         canonical_hash       VARCHAR,
         status               VARCHAR NOT NULL DEFAULT 'ok',
         status_reason        VARCHAR,
@@ -181,6 +216,7 @@ TEACHING_TABLES = (
     "history_teaching_gaps",
     "history_leader_succession",
     "history_overtaken",
+    "history_reference_stages",
     "history_teaching_receipts",
 )
 
@@ -207,23 +243,31 @@ def ensure_schema(con: duckdb.DuckDBPyConnection) -> None:
         con.execute(stmt)
     for stmt in TEACHING_DDL:
         con.execute(stmt)
-    # Keep existing sidecars readable when a new teaching slice adds a
-    # version/context column.  Fresh databases get the stricter DDL above;
-    # upgraded databases receive nullable columns and a conservative backfill.
-    columns = {
-        "history_teaching_labels": {"framework_version": "VARCHAR"},
-        "history_leader_succession": {"forward": "VARCHAR"},
-    }
-    for table, additions in columns.items():
-        existing = {
-            str(row[1])
-            for row in con.execute(f"PRAGMA table_info('{table}')").fetchall()
-        }
-        for name, ddl_type in additions.items():
-            if name not in existing:
-                con.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl_type}")
-        if table == "history_teaching_labels" and "framework_version" not in existing:
-            con.execute("UPDATE history_teaching_labels SET framework_version = label_version WHERE framework_version IS NULL")
+    # No in-place migration of teaching tables: the sidecar is disposable by
+    # contract, and appending columns via ALTER TABLE produced a different
+    # physical column order than a fresh CREATE.  A stale sidecar must be
+    # deleted and rebuilt; ``check_teaching_schema`` reports that explicitly.
+
+
+def check_teaching_schema(con: duckdb.DuckDBPyConnection) -> list[str]:
+    """Return human-readable column-set mismatches between live teaching tables and the DDL."""
+
+    reference = duckdb.connect(":memory:")
+    try:
+        for stmt in TEACHING_DDL:
+            reference.execute(stmt)
+        problems: list[str] = []
+        for name in TEACHING_TABLES:
+            expected = {str(row[1]) for row in reference.execute(f"PRAGMA table_info('{name}')").fetchall()}
+            actual = {str(row[1]) for row in con.execute(f"PRAGMA table_info('{name}')").fetchall()}
+            if actual != expected:
+                problems.append(
+                    f"{name}: 列集合与 DDL 不一致（缺 {sorted(expected - actual) or '无'}，"
+                    f"多 {sorted(actual - expected) or '无'}）；旁路库可删可重建，请删除后重跑"
+                )
+        return problems
+    finally:
+        reference.close()
 
 
 def reset_tables(con: duckdb.DuckDBPyConnection, tables: tuple[str, ...]) -> None:
