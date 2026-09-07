@@ -19,6 +19,7 @@ from intelligence.services.agent_runtime import (
 from intelligence.runtime.continuous_sub_research import ContinuousSubResearchWorker
 from intelligence.runtime.episode_finalizer import EpisodeFinalizer
 from intelligence.services.cancel_signal import CancelSignal
+from intelligence.services.episode_store import EpisodeStore
 from intelligence.services.draft_stream import DraftStreamDecoder
 from intelligence.services.episode_session import CallbackEpisodeSession, EpisodeSession
 from intelligence.services.mode_governor import ModeGovernor, ModeSignals
@@ -471,6 +472,7 @@ class GLMAgentRuntime:
         sub_research_coordinator: SubResearchCoordinator | None = None,
         event_sink: Callable[[EpisodeEvent], None] | None = None,
         on_draft_delta: Callable[[str], None] | None = None,
+        episode_store: EpisodeStore | None = None,
     ) -> None:
         if client is not None and (
             model is not None or providers is not None or complete_fn is not None
@@ -504,6 +506,17 @@ class GLMAgentRuntime:
         # RuntimeHandle 折叠的上游取消信号与 episode/coordinator 收到的是同一个
         # ——生命周期收据必须与实际执行看同一份事实，不能各订阅各的。
         self._upstream_cancelled = cancel_signal
+        # ``configure`` 快照里装配根才知道的那几格：模型名与 provider 链（只记名字与
+        # 模型，不记 key / URL）。注入 client 时链在 client 里，这里如实留空。
+        chain = getattr(selected_client, "_providers", None)
+        runtime_config: dict[str, object] = {
+            "model": str(model or ""),
+            "providers": [
+                {"name": str(item.name), "model": str(item.model)}
+                for item in (chain or ())
+                if hasattr(item, "name") and hasattr(item, "model")
+            ],
+        }
         self._episode = ContinuousAgentEpisode(
             selected_client,
             llm_timeout=llm_timeout,
@@ -516,6 +529,9 @@ class GLMAgentRuntime:
             ),
             sub_research_coordinator=selected_coordinator,
             event_sink=event_sink,
+            # P2：durable store（None = 只在内存记账；生产装配传 JsonlEpisodeStore）。
+            store=episode_store,
+            runtime_config=runtime_config,
         )
 
     @staticmethod

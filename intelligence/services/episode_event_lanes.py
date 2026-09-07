@@ -73,6 +73,9 @@ DURABLE_EVENT_KINDS: frozenset[str] = frozenset(
         "prompt_assembled",
         "model_input",
         "tool_budget_state",
+        # 效果三明治（终态稿 §6.3 P2）：模型请求前的意图，预留 turn_id 给 model_turn /
+        # model_error 结算复用。工具侧的意图沿用既有 tool_request（挪到派发前）。
+        "model_intent",
         "plan",
         "mode_decision",
         "prefetch",

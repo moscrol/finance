@@ -672,6 +672,11 @@ class ToolSpec:
     # 点一个必超时的工具烧掉 23s 再吃一个 tool_timeout，不如这轮就别让它看见。
     # None = 没有可靠读数，不裁。这是可见性，不是预算：不改任何授予算术。
     min_window_seconds: float | None = None
+    # 重放安全（运行底座终态稿 §2 钦定词 / §5 接触点 1）：崩溃后能否用同参数重跑。
+    # 这是**意图侧的声明**，不是效果侧的「幂等」——读工具默认 ``safe``；将来注册写工具
+    # （下单、落库、发消息）必须显式 ``never``，恢复时对它只合成 ``tool_error{interrupted}``、
+    # 绝不重跑。底座读它，不改任何执行行为。
+    replay: Literal["safe", "never"] = "safe"
 
     def __post_init__(self) -> None:
         if not isinstance(self.runner, ToolRunnerAdapter):
@@ -682,6 +687,8 @@ class ToolSpec:
         object.__setattr__(self, "parameters", frozen_parameters)
         if not isinstance(self.produces, frozenset):
             object.__setattr__(self, "produces", frozenset(self.produces))
+        if self.replay not in ("safe", "never"):
+            raise ValueError(f"tool replay declaration must be safe|never: {self.replay!r}")
 
 
 class ResearchToolRegistry:

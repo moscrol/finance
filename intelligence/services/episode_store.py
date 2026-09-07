@@ -68,8 +68,10 @@ EPISODE_PHASES: frozenset[str] = frozenset(
     {"planning", "model_pending", "tools_pending", "repair", "finalizing", "done"}
 )
 
-# 意图类事件：外部效果（模型请求 / 工具执行）之前落下的那一条。append 后 fsync。
-INTENT_KINDS: frozenset[str] = frozenset({"model_intent", "tool_request"})
+# 意图类事件：外部效果（模型请求 / 工具执行 / 兜底合成）之前落下的那一条。append 后 fsync。
+INTENT_KINDS: frozenset[str] = frozenset(
+    {"model_intent", "tool_request", "finalization_recovery_started"}
+)
 
 EPISODE_STORE_ENV = "FORESIGHT_EPISODE_STORE"
 

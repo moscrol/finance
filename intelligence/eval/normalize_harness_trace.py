@@ -339,6 +339,9 @@ _BENCHMARK_STEPS: dict[str, tuple[str, str]] = {
     # loop-injected user-role text (steering / finalization / mode decision …):
     # the runtime steering the model, so L1 `intent`, not an observation.
     "model_input": ("intent", "control"),
+    # effect-sandwich intent written before every provider request (INV-R2):
+    # the runtime deciding to ask the model, so L1 `intent` like `task`.
+    "model_intent": ("intent", "control"),
     # budget block overwritten onto the last tool message -- an observation of
     # runtime state, same L1 bucket as the `budget` keyword in workbench traces.
     "tool_budget_state": ("observe", "control"),
