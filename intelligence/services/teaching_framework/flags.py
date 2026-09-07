@@ -553,6 +553,9 @@ SECTOR_FIELDS = (
     ("limit_premium_ma5_pct", "limit_premium_ma5_pct"),
     ("limit_premium_neg_5d", "limit_premium_neg_5d"),
     ("limit_premium_flips_5d", "limit_premium_flips_5d"),
+    # 区间涨幅高标的门槛：当日 20 / 60 日涨幅榜第 top 名的涨幅（第八段「涨幅多少算多，是基于历史行情去对比的」）。
+    ("range_leader_entry_gain_20d_pct", "range_leader_entry_gain_20d_pct"),
+    ("range_leader_entry_gain_60d_pct", "range_leader_entry_gain_60d_pct"),
 )
 
 

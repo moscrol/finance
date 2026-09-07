@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import duckdb
 
@@ -27,6 +28,7 @@ from intelligence.services.methodology_backtest.store import (  # noqa: E402
     open_labels_db,
 )
 from intelligence.services.river_query import cohort_compare, normalize_stage  # noqa: E402
+from intelligence.services.teaching_framework.flags import SCALAR_DECIMALS  # noqa: E402
 from intelligence.services.teaching_framework.index_stage import (  # noqa: E402
     build_index_stage,
     label_readouts,
@@ -237,6 +239,30 @@ prem_w AS (
            SUM(CASE WHEN limit_premium_pct < 0 THEN 1 ELSE 0 END) OVER w AS neg5,
            SUM(CASE WHEN prev_i = i - 1 AND SIGN(limit_premium_pct) <> SIGN(prev_pct) THEN 1 ELSE 0 END) OVER w AS flips5
     FROM prem_lag WINDOW w AS (ORDER BY i ROWS BETWEEN 4 PRECEDING AND CURRENT ROW)
+),
+-- 区间涨幅高标的门槛（创始人第八段「涨幅多少算多，是基于历史行情去对比的」）：当日 20 / 60 日涨幅榜第 __RANGE_TOP__ 名的涨幅，
+-- 即进入「区间涨幅高标」组要多少。与 build-range-leaders 同一口径（个股第 N 个前行必须正好在 N 个交易日前）。
+rl_px AS (
+    SELECT s.trade_date, s.stock_ts_code, s.close, c.i
+    FROM fact_stock_daily s JOIN idx c USING (trade_date) WHERE s.close IS NOT NULL AND s.close > 0
+),
+rl_lag AS (
+    SELECT *, LAG(close, 20) OVER w AS b20, LAG(i, 20) OVER w AS i20, LAG(close, 60) OVER w AS b60, LAG(i, 60) OVER w AS i60
+    FROM rl_px WINDOW w AS (PARTITION BY stock_ts_code ORDER BY i)
+),
+rl20 AS (
+    SELECT trade_date, (close / b20 - 1) * 100 AS g, ROW_NUMBER() OVER (PARTITION BY trade_date ORDER BY close / b20 DESC, stock_ts_code) AS rn
+    FROM rl_lag WHERE b20 IS NOT NULL AND b20 > 0 AND i20 = i - 20
+),
+rl60 AS (
+    SELECT trade_date, (close / b60 - 1) * 100 AS g, ROW_NUMBER() OVER (PARTITION BY trade_date ORDER BY close / b60 DESC, stock_ts_code) AS rn
+    FROM rl_lag WHERE b60 IS NOT NULL AND b60 > 0 AND i60 = i - 60
+),
+rle AS (
+    SELECT cal.trade_date,
+           (SELECT g FROM rl20 WHERE rl20.trade_date = cal.trade_date AND rn = __RANGE_TOP__) AS range_leader_entry_gain_20d_pct,
+           (SELECT g FROM rl60 WHERE rl60.trade_date = cal.trade_date AND rn = __RANGE_TOP__) AS range_leader_entry_gain_60d_pct
+    FROM cal
 )
 SELECT cal.trade_date, nh.new_high_1y_count, dr.dual_red_theme_count, dr.dual_red_l1_distinct, lh.limit_themes_ge3, lh.limit_top1_share_pct,
        CASE WHEN me.known > 0 THEN 100.0 * me.outside / me.known END AS rps5_outside_top3_pct,
@@ -244,15 +270,16 @@ SELECT cal.trade_date, nh.new_high_1y_count, dr.dual_red_theme_count, dr.dual_re
        prem_w.limit_premium_pct,
        CASE WHEN prem_w.n5 = 5 AND prem_w.i_lag4 = prem_w.i - 4 THEN prem_w.ma5 END AS limit_premium_ma5_pct,
        CASE WHEN prem_w.n5 = 5 AND prem_w.i_lag4 = prem_w.i - 4 THEN prem_w.neg5 END AS limit_premium_neg_5d,
-       CASE WHEN prem_w.n5 = 5 AND prem_w.i_lag4 = prem_w.i - 4 THEN prem_w.flips5 END AS limit_premium_flips_5d
+       CASE WHEN prem_w.n5 = 5 AND prem_w.i_lag4 = prem_w.i - 4 THEN prem_w.flips5 END AS limit_premium_flips_5d,
+       rle.range_leader_entry_gain_20d_pct, rle.range_leader_entry_gain_60d_pct
 FROM cal LEFT JOIN nh USING (trade_date) LEFT JOIN dr USING (trade_date) LEFT JOIN lh USING (trade_date) LEFT JOIN me USING (trade_date)
-     LEFT JOIN lj USING (trade_date) LEFT JOIN prem_w USING (trade_date)
+     LEFT JOIN lj USING (trade_date) LEFT JOIN prem_w USING (trade_date) LEFT JOIN rle USING (trade_date)
 ORDER BY cal.trade_date
 """
 
 
-def _load_sector_breadth(source: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
-    return _rows(source, SECTOR_SQL)
+def _load_sector_breadth(source: duckdb.DuckDBPyConnection, params: Mapping[str, Any]) -> list[dict[str, Any]]:
+    return _rows(source, SECTOR_SQL.replace("__RANGE_TOP__", str(int(params["range_leader_top"]))))
 
 
 def _open_sidecar_for_write(path: Path) -> duckdb.DuckDBPyConnection:
@@ -600,7 +627,7 @@ def cmd_build_labels(args: argparse.Namespace) -> int:
         stocks = _load_limit_rows(source)
         amounts = _rows(source, "SELECT trade_date, stock_ts_code, amount FROM fact_stock_daily ORDER BY trade_date, stock_ts_code")
         breadth = _load_breadth(source)
-        sector_breadth = _load_sector_breadth(source)
+        sector_breadth = _load_sector_breadth(source, params)
         source_counts = _source_counts(source)
     finally:
         source.close()
@@ -786,6 +813,152 @@ def cmd_build_succession(args: argparse.Namespace) -> int:
     return 0
 
 
+def _range_leader_sql(windows: list[int], context: int) -> str:
+    """Top-``context`` stocks by N-day close-to-close gain per day, for each window, with sw_l1 and limit_times.
+
+    A stock needs a row exactly N calendar trading days back (its own N-th previous row must sit at
+    calendar index i − N), so suspensions inside the window drop it rather than shorten the window.
+    Ties are broken by code.  ``sw_l1`` is the stock's own 申万一级 (prefix of ``sw_industry`` in
+    ``fact_sector_stock_daily``, unique per stock-day); ``limit_times`` comes from the theme limit table.
+    """
+    lags = ",\n           ".join(
+        f"LAG(close, {n}) OVER w AS base_close_{n}, LAG(i, {n}) OVER w AS base_i_{n}" for n in windows
+    )
+    unions = "\n    UNION ALL\n".join(
+        f"    SELECT trade_date, i, stock_ts_code, stock_name, {n} AS window_days, (close / base_close_{n} - 1) * 100 AS gain_pct\n"
+        f"    FROM lagged WHERE base_close_{n} IS NOT NULL AND base_close_{n} > 0 AND base_i_{n} = i - {n}"
+        for n in windows
+    )
+    return f"""
+WITH idx AS (SELECT trade_date, ROW_NUMBER() OVER (ORDER BY trade_date) AS i FROM fact_market_daily),
+px AS (
+    SELECT s.trade_date, s.stock_ts_code, rtrim(replace(s.stock_name, chr(0), '')) AS stock_name, s.close, c.i
+    FROM fact_stock_daily s JOIN idx c USING (trade_date)
+    WHERE s.close IS NOT NULL AND s.close > 0
+),
+lagged AS (
+    SELECT *,
+           {lags}
+    FROM px WINDOW w AS (PARTITION BY stock_ts_code ORDER BY i)
+),
+gains AS (
+{unions}
+),
+ranked AS (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY window_days, trade_date ORDER BY gain_pct DESC, stock_ts_code) AS rank
+    FROM gains
+),
+-- 个股的申万一级：fact_sector_stock_daily.sw_industry 只从 2026-04 起逐日覆盖全市场（更早只有零星日子），
+-- 而行业归属基本不随时间变（5574 只里 97 只在覆盖期内换过一次一级）。取每只股票最近一天的归属作静态维表，
+-- 用到全部日期；同日多行按 sw_industry 排序取首，确定性。
+l1_latest AS (
+    SELECT stock_ts_code, split_part(sw_industry, '-', 1) AS sw_l1,
+           ROW_NUMBER() OVER (PARTITION BY stock_ts_code ORDER BY trade_date DESC, sw_industry) AS rn
+    FROM fact_sector_stock_daily WHERE sw_industry IS NOT NULL
+),
+l1 AS (SELECT stock_ts_code, sw_l1 FROM l1_latest WHERE rn = 1),
+lim AS (
+    SELECT trade_date, stock_ts_code, MAX(limit_times) AS limit_times
+    FROM fact_theme_limit_stock_daily WHERE limit_status = 'U' GROUP BY 1, 2
+)
+SELECT r.window_days, r.trade_date, r.rank, r.stock_ts_code, r.stock_name, r.gain_pct, l1.sw_l1, lim.limit_times
+FROM ranked r LEFT JOIN l1 USING (stock_ts_code) LEFT JOIN lim USING (trade_date, stock_ts_code)
+WHERE r.rank <= {int(context)}
+ORDER BY r.window_days, r.trade_date, r.rank
+"""
+
+
+def _round_scalar(value: Any) -> float | None:
+    return None if value is None else round(float(value), SCALAR_DECIMALS)
+
+
+def cmd_build_range_leaders(args: argparse.Namespace) -> int:
+    """区间涨幅高标链（第九、十段）：每窗口每天涨幅前 N 的一组品种，消亡 / 诞生按名次配对成「衔接」，形式分布进收据。"""
+    from intelligence.services.teaching_framework.range_leaders import build_range_leaders, cross_chain, handoff_readouts
+
+    params = load_params(args.params)
+    fw = framework_version(params)
+    build_time = _now(args.computed_at)
+    source_path = Path(args.db_path).expanduser()
+    labels_path = Path(args.labels_db).expanduser()
+    windows = [int(n) for n in params["range_leader_windows"]]
+    top = int(params["range_leader_top"])
+    context = int(params["range_leader_context"])
+    source = duckdb.connect(str(source_path), read_only=True)
+    try:
+        _, dates = _load_market(source)
+        ranked = _rows(source, _range_leader_sql(windows, context))
+        source_counts = _source_counts(source)
+    finally:
+        source.close()
+    result = build_range_leaders(ranked, calendar=dates, windows=windows, top=top, context=context)
+    reference = _read_reference(labels_path)
+    readouts = {
+        "definition": {
+            "group": f"top {top} stocks by N-day close-to-close gain (N in {windows}); a stock needs its N-th previous row exactly N trading days back; ties by code",
+            "handoff": "same-day exits (in yesterday's group, not today's) and births (today's, not yesterday's) paired in rank order — a relation description, not a causal claim (创始人 09-07 第九段)",
+            "forms": "同L1 / 跨L1 (stock's own 申万一级) × 递进 (birth was already inside the top-%d context yesterday) / 突入 (came from outside); L1未知 when either side lacks sw_l1" % context,
+            "limit_leader": "limit_times >= 3 on the day (same bar as the 连板 chain's top(d))",
+        },
+        "handoffs": handoff_readouts(result, reference or None),
+    }
+    side = _open_sidecar_for_write(labels_path)
+    try:
+        succession_rows = _rows(side, "SELECT break_day, birth_day, leader_i, leader_i_group_json, leader_next, leader_next_group_json FROM history_leader_succession WHERE status = 'ok'")
+        readouts["cross_chain"] = cross_chain(result, succession_rows)
+        side.execute("DELETE FROM history_range_leaders")
+        side.execute("DELETE FROM history_range_leader_handoffs")
+        ts = build_time.replace(tzinfo=None)
+        leader_rows = [
+            (r["window_days"], r["trade_date"], r["rank"], r["stock_ts_code"], r["stock_name"], _round_scalar(r["gain_pct"]), r["sw_l1"],
+             r["limit_times"], r["tenure_day"], r["prev_rank"], fw, ts)
+            for r in result["leaders"]
+        ]
+        handoff_rows = [
+            (h["window_days"], h["trade_date"], h["birth_stock"], h["birth_name"], h["birth_rank"], h["birth_prev_rank"], h["birth_sw_l1"],
+             h["birth_limit_times"], _round_scalar(h["birth_gain_pct"]), h["exit_stock"], h["exit_name"], h["exit_prev_rank"], h["exit_next_rank"],
+             h["exit_sw_l1"], h["exit_limit_times"], h["exit_tenure_days"], h["same_l1"], h["form"], fw, ts)
+            for h in result["handoffs"]
+        ]
+        if leader_rows:  # DuckDB rejects executemany on an empty parameter list
+            side.executemany(
+                """INSERT INTO history_range_leaders
+                   (window_days, trade_date, rank, stock_ts_code, stock_name, gain_pct, sw_l1, limit_times, tenure_day, prev_rank, framework_version, computed_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                leader_rows,
+            )
+        if handoff_rows:
+            side.executemany(
+                """INSERT INTO history_range_leader_handoffs
+                   (window_days, trade_date, birth_stock, birth_name, birth_rank, birth_prev_rank, birth_sw_l1, birth_limit_times, birth_gain_pct,
+                    exit_stock, exit_name, exit_prev_rank, exit_next_rank, exit_sw_l1, exit_limit_times, exit_tenure_days, same_l1, form,
+                    framework_version, computed_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                handoff_rows,
+            )
+        leaders_hash = canonical_rows_hash(side, table="history_range_leaders", primary_key=("window_days", "trade_date", "rank"))
+        handoffs_hash = canonical_rows_hash(side, table="history_range_leader_handoffs", primary_key=("window_days", "trade_date", "birth_stock"))
+        canonical = hashlib.sha256(f"{leaders_hash}\n{handoffs_hash}".encode("utf-8")).hexdigest()
+        gap_days = {str(w): sum(1 for s in summaries if s.get("status") != "ok") for w, summaries in result["days"].items()}
+        receipt = make_receipt(
+            build_kind="range_leaders", framework_version=fw, label_version=LABEL_VERSION,
+            source_db=str(source_path), source_max_trade_date=max(dates) if dates else None,
+            source_row_counts=source_counts, parameter_hash=parameter_hash(params), canonical_hash=canonical,
+            coverage_summary={"calendar_days": len(dates), "windows": windows, "top": top, "leader_rows": len(result["leaders"]), "handoffs": len(result["handoffs"])},
+            gap_summary={"days_without_ranked_rows": gap_days},
+            readouts=readouts, computed_at=build_time,
+        )
+        write_receipt(side, receipt)
+    finally:
+        side.close()
+    print(json.dumps({
+        "build_kind": "range_leaders", "framework_version": fw, "leader_rows": len(result["leaders"]), "handoffs": len(result["handoffs"]),
+        "canonical_hash": canonical, "table_hashes": {"history_range_leaders": leaders_hash, "history_range_leader_handoffs": handoffs_hash},
+        "readouts": readouts,
+    }, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     side = open_labels_db(Path(args.labels_db).expanduser(), read_only=True)
     try:
@@ -797,6 +970,8 @@ def cmd_report(args: argparse.Namespace) -> int:
             "overtaken": side.execute("SELECT COUNT(*) FROM history_overtaken").fetchone()[0],
             "sector_label_rows": side.execute("SELECT COUNT(*) FROM history_teaching_labels WHERE entity_type = 'sector'").fetchone()[0],
             "reference_stages": side.execute("SELECT COUNT(*) FROM history_reference_stages").fetchone()[0],
+            "range_leader_rows": side.execute("SELECT COUNT(*) FROM history_range_leaders").fetchone()[0],
+            "range_leader_handoffs": side.execute("SELECT COUNT(*) FROM history_range_leader_handoffs").fetchone()[0],
         }
         receipt_rows = side.execute(
             """SELECT build_id, build_kind, framework_version, label_version, parameter_hash,
@@ -831,7 +1006,10 @@ def cmd_report(args: argparse.Namespace) -> int:
 def parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="Teaching framework slice 1")
     sub = ap.add_subparsers(dest="command", required=True)
-    for name, func in (("build-labels", cmd_build_labels), ("build-succession", cmd_build_succession), ("build-sector-roles", cmd_build_sector_roles)):
+    for name, func in (
+        ("build-labels", cmd_build_labels), ("build-succession", cmd_build_succession),
+        ("build-sector-roles", cmd_build_sector_roles), ("build-range-leaders", cmd_build_range_leaders),
+    ):
         p = sub.add_parser(name)
         p.add_argument("--db-path", default="db/market_feature_store.duckdb")
         p.add_argument("--labels-db", default=None)
