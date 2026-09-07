@@ -29,11 +29,13 @@ from intelligence.services.research_tool_registry import (
 from intelligence.runtime.sub_research import (
     BranchBatch,
     BranchBudgetReceipt,
+    BranchInvalidAction,
     BranchResult,
     BranchRequest,
     SubResearchCoordinator,
     _BranchBudgetView,
     branch_batches_from_events,
+    branch_invalid_actions_from_events,
 )
 from intelligence.services.agent_runtime import EpisodeEvent
 from intelligence.services.task_frame import TaskFrame
@@ -782,6 +784,93 @@ def test_branch_budget_receipt_comes_from_child_ledger_not_worker_claims() -> No
     assert budget.remaining_seconds == pytest.approx(58.0)
     assert budget.batch_call_cap == 4
     assert result.branches[0].tool_calls == 1
+
+
+def test_branch_invalid_actions_are_lifted_with_their_rejection_code() -> None:
+    """终局被拒的码只在分支 invalid_action 事件里；摘出来时保留顺序、缺字段不写键、reason 截 200。"""
+
+    events = (
+        _event(1, "task"),
+        _event(2, "model_turn"),
+        _event(3, "invalid_action", reason="PLAN 缺 branch_goals"),
+        _event(4, "model_turn"),
+        EpisodeEvent(
+            5,
+            "invalid_action",
+            {
+                "reason": "x" * 300,
+                "code": "unknown_output",
+                "kind": "integrity",
+                "disposition": "integrity_violation",
+            },
+        ),
+        _event(6, "finish", status="partial"),
+    )
+
+    records = branch_invalid_actions_from_events(events)
+
+    assert [r.to_dict() for r in records] == [
+        {"reason": "PLAN 缺 branch_goals"},
+        {
+            "reason": "x" * 200,
+            "code": "unknown_output",
+            "kind": "integrity",
+            "disposition": "integrity_violation",
+        },
+    ]
+    assert branch_invalid_actions_from_events(()) == ()
+    with pytest.raises(TypeError):
+        BranchResult(
+            branch_id="branch-1", goal="类型守门", status="partial", evidence=(), traces=(),
+            gaps=(), llm_calls=0, tool_calls=0, invalid_actions=({"reason": "x"},),  # type: ignore[arg-type]
+        )
+    assert isinstance(records[1], BranchInvalidAction)
+
+
+def test_continuous_branch_worker_surfaces_a_rejected_finish_with_its_code() -> None:
+    """分支模型的收尾绑到契约里不存在的 output → 出口拒 → partial；拒绝码必须随 BranchResult 出来。
+
+    这是 09-07 10:57 候选口 live 读数的形状：三支各剩 38–81s、零超时，全部 invalid_model_finish。
+    """
+
+    class BadFinishModel:
+        def complete(self, *, messages, tools, timeout):
+            return ModelTurn(
+                json.dumps(
+                    {
+                        "status": "completed",
+                        "draft": "分支草稿",
+                        "gaps": [],
+                        "bindings": [
+                            {"output_id": "direct_assessment", "evidence_hashes": ["nope"], "basis": "evidence"}
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                (),
+                "scripted",
+                "",
+            )
+
+    result = SubResearchCoordinator(ContinuousSubResearchWorker(BadFinishModel())).run(
+        goals=("查找反方驱动",),
+        task_frame=_frame(),
+        context=_context(tier="max", calls=40),
+        registry=ResearchToolRegistry(()),
+        evidence_sink_factory=EvidenceLedger(information_cutoff=date(2026, 7, 24)).branch_sink,
+    )
+
+    branch = result.branches[0]
+    assert branch.status == "partial"
+    assert branch.stop_reason == "invalid_model_finish"
+    assert branch.invalid_actions, "拒绝码没有随分支结果出来"
+    last = branch.invalid_actions[-1]
+    # disposition 是协议层对这次拒绝的处置（INTEGRITY 类 = integrity_violation，不回灌），
+    # 与 Episode 最终的 stop_reason=invalid_model_finish 是两层的事，都要能从收据读出来。
+    assert (last.code, last.kind, last.disposition) == (
+        "unknown_output", "integrity", "integrity_violation"
+    )
+    assert branch.batches == ()  # 没点过工具，没有派发账；不伪造空批
 
 
 def test_failed_or_cancelled_branches_carry_no_budget_or_batches() -> None:

@@ -23,6 +23,7 @@ from intelligence.runtime.sub_research import (
     MAX_SECONDS_PER_BRANCH,
     BranchBatch,
     BranchBudgetReceipt,
+    BranchInvalidAction,
     BranchResult,
     SubResearchCoordinator,
     SubResearchResult,
@@ -214,16 +215,33 @@ def test_telemetry_carries_budget_and_per_batch_dispatch_only_when_measured() ->
 
     measured = replace(
         _branch("branch-1", "甲", status="partial", evidence=(_EVIDENCE,)),
-        stop_reason="deadline_exhausted",
+        stop_reason="invalid_model_finish",
         budget=_BUDGET,
         batches=_BATCHES,
+        invalid_actions=(
+            BranchInvalidAction(
+                reason="unknown output: direct_assessment",
+                code="unknown_output",
+                kind="integrity",
+                disposition="integrity_violation",
+            ),
+        ),
     )
     unmeasured = _branch("branch-2", "乙", status="failed", error="cancelled")
 
     result = tool_result_from_branches(("甲", "乙"), SubResearchResult((measured, unmeasured)))
 
     first, second = result.telemetry["branches"]
-    assert first["stop_reason"] == "deadline_exhausted"
+    assert first["stop_reason"] == "invalid_model_finish"
+    assert first["invalid_actions"] == [
+        {
+            "reason": "unknown output: direct_assessment",
+            "code": "unknown_output",
+            "kind": "integrity",
+            "disposition": "integrity_violation",
+        }
+    ]
+    assert "invalid_actions" not in second
     assert first["budget"] == {
         "allocated_calls": 10,
         "consumed_calls": 8,

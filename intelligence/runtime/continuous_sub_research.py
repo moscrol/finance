@@ -15,6 +15,7 @@ from intelligence.runtime.sub_research import (
     BranchRequest,
     BranchResult,
     branch_batches_from_events,
+    branch_invalid_actions_from_events,
 )
 from intelligence.services.task_frame import TaskFrame
 
@@ -84,6 +85,7 @@ class ContinuousSubResearchWorker:
             error=outcome.stop_reason if status == "failed" else "",
             stop_reason=outcome.stop_reason,
             batches=branch_batches_from_events(outcome.events),
+            invalid_actions=branch_invalid_actions_from_events(outcome.events),
         )
 
     @staticmethod

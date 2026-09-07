@@ -218,6 +218,8 @@ def branch_telemetry(branch: BranchResult) -> dict[str, object]:
         payload["budget"] = branch.budget.to_dict()
     if branch.batches:
         payload["batches"] = [batch.to_dict() for batch in branch.batches]
+    if branch.invalid_actions:
+        payload["invalid_actions"] = [item.to_dict() for item in branch.invalid_actions]
     return payload
 
 

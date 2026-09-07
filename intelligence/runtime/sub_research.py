@@ -306,6 +306,57 @@ class BranchBudgetReceipt:
         }
 
 
+@dataclass(frozen=True)
+class BranchInvalidAction:
+    """分支 Episode 的一次 ``invalid_action``：终局被拒 / PLAN 无效 / 终局阶段仍点工具。
+
+    2026-09-07 10:57 候选口首个 live 读数：三支分支各剩 38–81s、零超时，却全部
+    ``stop_reason=invalid_model_finish``——分支不是被预算打成 partial 的，是收尾 JSON
+    被出口拒了。拒绝码（``unknown_output`` / ``unsupported_claims`` / …）只在分支自己的
+    ``invalid_action`` 事件里，此前随事件流一起被丢掉。``reason`` 截 200 字。
+    """
+
+    reason: str
+    code: str = ""
+    kind: str = ""
+    disposition: str = ""
+
+    def __post_init__(self) -> None:
+        for field_name in ("reason", "code", "kind", "disposition"):
+            if not isinstance(getattr(self, field_name), str):
+                raise ValueError(f"invalid action {field_name} must be a string")
+        object.__setattr__(self, "reason", self.reason.strip()[:200])
+
+    def to_dict(self) -> dict[str, object]:
+        payload: dict[str, object] = {"reason": self.reason}
+        for field_name in ("code", "kind", "disposition"):
+            value = getattr(self, field_name)
+            if value:
+                payload[field_name] = value
+        return payload
+
+
+def branch_invalid_actions_from_events(
+    events: Iterable[EpisodeEvent],
+) -> tuple[BranchInvalidAction, ...]:
+    """把分支事件流里的 ``invalid_action`` 逐条摘出来（顺序保留）。"""
+
+    records: list[BranchInvalidAction] = []
+    for event in events:
+        if event.kind != "invalid_action":
+            continue
+        payload = event.payload
+        records.append(
+            BranchInvalidAction(
+                reason=str(payload.get("reason") or ""),
+                code=str(payload.get("code") or ""),
+                kind=str(payload.get("kind") or ""),
+                disposition=str(payload.get("disposition") or ""),
+            )
+        )
+    return tuple(records)
+
+
 _TOOL_ERROR_REJECTED_BY_CAP = "tool_budget_exhausted"
 _TOOL_ERROR_TIMEOUT = "tool_timeout"
 _TOOL_ERROR_EXCEPTION = "tool_exception"
@@ -413,6 +464,8 @@ class BranchResult:
     # 分支内逐批派发账（worker 从分支事件重算）与预算账（协调器从子账本读出）。
     batches: tuple[BranchBatch, ...] = ()
     budget: BranchBudgetReceipt | None = None
+    # 分支 Episode 里的 invalid_action（终局被拒的码在这里），同样从事件重算。
+    invalid_actions: tuple[BranchInvalidAction, ...] = ()
 
     def __post_init__(self) -> None:
         if self.status not in _BRANCH_STATUSES:
@@ -441,7 +494,10 @@ class BranchResult:
             raise TypeError("branch batches must contain BranchBatch values")
         if self.budget is not None and not isinstance(self.budget, BranchBudgetReceipt):
             raise TypeError("branch budget must be a BranchBudgetReceipt")
+        if any(not isinstance(item, BranchInvalidAction) for item in self.invalid_actions):
+            raise TypeError("branch invalid_actions must contain BranchInvalidAction values")
         object.__setattr__(self, "batches", tuple(self.batches))
+        object.__setattr__(self, "invalid_actions", tuple(self.invalid_actions))
 
 
 @dataclass(frozen=True)
@@ -703,8 +759,10 @@ class SubResearchCoordinator:
 __all__ = [
     "BranchBatch",
     "BranchBudgetReceipt",
+    "BranchInvalidAction",
     "BranchRequest",
     "branch_batches_from_events",
+    "branch_invalid_actions_from_events",
     "branch_limits",
     "BranchResult",
     "BranchStatus",
