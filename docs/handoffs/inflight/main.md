@@ -1,5 +1,7 @@
 # 在途交接 · main
 
+更新：2026-09-07 22:50 CST（核心个股批次验收）。#642 → #644 → #647 堆叠链独立复算后合入；质检推翻 #647 两条结论并随枝修补（07-20 / 08-06 个股日线是次日复制而非「快照偏小」→ 立单 #32；置换检验噪声底量纲错，「噪声内」改「按前瞻收益显著有害」）。批次门禁 main tip `f5805c72db66` 干净树 **8143P / 76S / 1xfail**、ruff 0、webapp 四件套绿、`check_test_receipt` exit 0（收据 `~/.finance-runtime/test-receipts/20260907T144519Z-f5805c72.json`）。**8792 未切，待裁决**：main 领先 8792（`b594a5e7f8ae`）多张与本批无关的合并。裁决全文在 #647 评论；细节 `docs/handoffs/inflight/feat-core-stock-local.md`「质检修补」节。
+
 更新：2026-09-03 16:40 CST（0903e 切流）。08-13→09-03 时间线归档 `docs/handoffs/2026-09-03-main-inflight-archive-0813-0903.md`，本文只留接手要的。
 
 ## 这个分支做什么
