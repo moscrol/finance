@@ -450,8 +450,29 @@ def test_build_dynasties_cuts_waves_from_the_reference_and_flags_separation(caps
     ref_json = tmp_path / "reference.json"
     ref_json.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
     _run(capsys, "load-reference", "--json", str(ref_json), "--labels-db", str(sidecar), "--db-path", str(source_db), "--computed-at", "2026-09-07T05:00:00Z")
+    # 第十四段: 亏钱效应 must be measurable — without the market labels (tf.money_losing_day) the chain refuses to build.
+    assert main(["build-dynasties", *common]) == 2 and "money_losing_day" in capsys.readouterr().err
+    _run(capsys, "build-labels", *common)
     out = _run(capsys, "build-dynasties", *common)
     assert out["waves"] == 2 and out["handoff_rows"] == 3
+    # 亏钱效应 counts are read back from the labels the same build wrote: the one-day collapse window (01-12) is flagged iff
+    # tf.money_losing_day says so that day; the peak block of wave 0 covers its five labelled days.
+    side = duckdb.connect(str(sidecar), read_only=True)
+    try:
+        losing = {r[0]: r[1] for r in side.execute("SELECT trade_date, value_num FROM history_teaching_labels WHERE label = 'tf.money_losing_day'").fetchall()}
+    finally:
+        side.close()
+    assert set(losing) and all(v in (None, 0.0, 1.0) for v in losing.values())
+
+    def expected(day_from: date, day_to: date) -> dict:
+        labelled = {d: v for d, v in losing.items() if day_from <= d <= day_to and v is not None}
+        return {"days": len(labelled), "flagged": sum(1 for v in labelled.values() if v == 1.0)}
+
+    ml = out["readouts"]["waves"][0]["money_losing"]
+    assert {k: ml["peak_block"][k] for k in ("days", "flagged")} == expected(date(2026, 1, 5), date(2026, 1, 9))
+    assert {k: ml["collapse"][k] for k in ("days", "flagged")} == expected(date(2026, 1, 12), date(2026, 1, 12))
+    assert ml["collapse_flagged_days"] == ([DAYS[5]] if losing.get(date(2026, 1, 12)) == 1.0 else [])
+    assert out["readouts"]["waves"][1]["money_losing"]["collapse"] is None  # open wave: no collapse window to count
     waves = out["readouts"]["waves"]
     assert [w["status"] for w in waves] == ["truncated", "open"]
     assert waves[0]["collapse"] == [DAYS[5], DAYS[5]] and waves[0]["first_down_end"] == DAYS[5] and waves[0]["ranked_stocks"] == 0
@@ -471,7 +492,7 @@ def test_build_dynasties_cuts_waves_from_the_reference_and_flags_separation(caps
         assert [(r[0], r[1], r[2], r[5], r[6]) for r in rows] == [(1, "X", None, True, False), (2, "Y", None, True, False), (3, "Z", None, True, False)]
         assert rows[0][3] == pytest.approx((15 / 14 - 1) * 100, abs=1e-6) and rows[0][4] == 66.67 and rows[0][7] == rows[0][3]
         kinds = [r[0] for r in side.execute("SELECT build_kind FROM history_teaching_receipts ORDER BY build_kind").fetchall()]
-        assert kinds == ["dynasties"]
+        assert kinds == ["dynasties", "teaching_labels"]
     finally:
         side.close()
     (handoff,) = out["readouts"]["handoffs"]

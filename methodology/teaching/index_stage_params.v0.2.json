@@ -37,6 +37,11 @@
   "dynasty_cohort": 30,
   "separation_percentile": 0.9,
   "separation_new_high_window": 60,
+  "money_losing": {
+    "basis": "limit_premium_ma5_pct",
+    "lt_pct": 1.0,
+    "derived_from": "训练期（≤ 2025-12-31）承接 5 日均值 p10 = 1.045 取整；底部四段 vs 顶部三段标出比例 训练 15.8% vs 5.1%、验证 27.8% vs 8.5%，主升 / 2.0 为 0%（骨架 §8.14）"
+  },
   "breakout_confirm_days": 3,
   "deviation_streak_min": 3,
   "transition_policy": "entry_or_reachable",

@@ -1007,6 +1007,32 @@ LEFT JOIN pre p USING (stock_ts_code) LEFT JOIN first_leg f USING (stock_ts_code
 ORDER BY b.stock_ts_code
 """
 
+# 亏钱日上的累计收益（第十四段）：只取旁路库标为 tf.money_losing_day = 1 的日子，逐日 pct_chg 复合；该股在每个亏钱日
+# 都要有行才算（停牌过的不算），用 LN 求和保证与顺序无关。
+LOSING_DAYS_RET_SQL = """
+SELECT stock_ts_code, (EXP(SUM(LN(1 + pct_chg / 100.0))) - 1) * 100 AS losing_ret_pct
+FROM fact_stock_daily
+WHERE trade_date IN ({placeholders}) AND pct_chg IS NOT NULL AND pct_chg > -100
+GROUP BY 1 HAVING COUNT(*) = ?
+ORDER BY 1
+"""
+
+
+def _read_money_losing_days(labels_path: Path) -> dict[Any, bool] | None:
+    """``tf.money_losing_day`` per labelled day from the sidecar; None when build-labels has not written it."""
+    if not labels_path.is_file():
+        return None
+    side = open_labels_db(labels_path, read_only=True)
+    try:
+        rows = side.execute(
+            "SELECT trade_date, value_num FROM history_teaching_labels WHERE entity_type = 'market' AND label = 'tf.money_losing_day'"
+        ).fetchall()
+    finally:
+        side.close()
+    if not rows:
+        return None
+    return {row[0]: (row[1] == 1) for row in rows if row[1] is not None}
+
 
 def cmd_build_dynasties(args: argparse.Namespace) -> int:
     """王朝链（第十三段）：按平台阶段切波，每波区间涨幅前 N 是一个王朝；旧王朝覆灭窗里新王朝成员的「分离确认」进收据。"""
@@ -1022,6 +1048,9 @@ def cmd_build_dynasties(args: argparse.Namespace) -> int:
     reference = _read_reference(labels_path)
     if not reference:
         raise RuntimeError("旁路库没有参照标注（history_reference_stages 为空）——王朝按平台阶段切，先跑 load-reference")
+    losing_by_day = _read_money_losing_days(labels_path)
+    if losing_by_day is None:
+        raise RuntimeError("旁路库没有 tf.money_losing_day 标签——亏钱效应要可量（第十四段），先跑 build-labels")
     source = duckdb.connect(str(source_path), read_only=True)
     try:
         calendar = [row["trade_date"] for row in _rows(source, "SELECT DISTINCT trade_date FROM fact_stock_daily ORDER BY 1")]
@@ -1031,22 +1060,44 @@ def cmd_build_dynasties(args: argparse.Namespace) -> int:
         wave_gains: dict[int, list[dict[str, Any]]] = {}
         collapse_stats: dict[int, list[dict[str, Any]]] = {}
         index_returns: dict[int, float | None] = {}
+        money_losing: dict[int, dict[str, Any]] = {}
+
+        def losing_counts(d0: Any, d1: Any) -> dict[str, int]:
+            labelled = [d for d in calendar if d0 <= d <= d1 and d in losing_by_day]
+            return {"days": len(labelled), "flagged": sum(1 for d in labelled if losing_by_day[d])}
+
         for w in waves:
             wi = int(w["wave_idx"])
             if w.get("start_prev") is None:
                 wave_gains[wi] = []
             else:
                 wave_gains[wi] = _rows(source, WAVE_GAIN_SQL, [w["start"], w["peak_end"], w["start_prev"], w["peak_end"]])
-            if w.get("collapse_start") is None or w.get("collapse_end") is None:
+            counts: dict[str, Any] = {"peak_block": losing_counts(w["start"], w["peak_end"])}
+            c_start, c_end = w.get("collapse_start"), w.get("collapse_end")
+            if c_start is not None:
+                lead_start = calendar[max(0, cal_index[c_start] - 10)]
+                counts["lead"] = losing_counts(lead_start, calendar[cal_index[c_start] - 1])
+                open_end = c_end if c_end is not None else calendar[-1]
+                counts["collapse"] = losing_counts(c_start, open_end)
+                counts["collapse_days"] = [d for d in calendar if c_start <= d <= open_end and losing_by_day.get(d)]
+            money_losing[wi] = counts
+            if c_start is None or c_end is None:
                 continue
-            c_start, c_end = w["collapse_start"], w["collapse_end"]
             lookback_start = calendar[max(0, cal_index[c_start] - sep_window)]
             lookback_end = calendar[cal_index[c_start] - 1]
             first_leg_end = w.get("first_down_end") or c_end
-            collapse_stats[wi] = _rows(
+            stats = _rows(
                 source, COLLAPSE_STATS_SQL,
                 [w["peak_end"], c_end, first_leg_end, c_start, c_end, lookback_start, lookback_end],
             )
+            losing_days = counts["collapse_days"]
+            losing_ret: dict[str, float] = {}
+            if losing_days:
+                sql = LOSING_DAYS_RET_SQL.format(placeholders=", ".join("?" for _ in losing_days))
+                losing_ret = {row["stock_ts_code"]: row["losing_ret_pct"] for row in _rows(source, sql, [*losing_days, len(losing_days)])}
+            for row in stats:
+                row["losing_ret_pct"] = losing_ret.get(row["stock_ts_code"])
+            collapse_stats[wi] = stats
             c0, c1 = index_close.get(w["peak_end"]), index_close.get(c_end)
             index_returns[wi] = None if not c0 or not c1 else (float(c1) / float(c0) - 1) * 100
         source_counts = _source_counts(source)
@@ -1054,14 +1105,15 @@ def cmd_build_dynasties(args: argparse.Namespace) -> int:
         source.close()
     result = build_dynasties(
         waves, wave_gains, collapse_stats, top=top, cohort=cohort, separation_percentile=sep_pct,
-        index_returns=index_returns, min_n=int(params.get("min_n", 10)),
+        index_returns=index_returns, min_n=int(params.get("min_n", 10)), money_losing=money_losing,
     )
     readouts = {
         "definition": {
             "wave": "maximal run of platform stages {主流主升, 主流主升2.0, 承接盘反复} is a wave's peak block; the wave starts at the first day of the 共建主线 run right before it (else the block's first day); peak day = block's last day",
             "dynasty": f"top {top} stocks by close(peak day) / close(day before wave start) − 1 (cohort {cohort} for readouts); form 连板 when the stock's max limit_times inside the wave ≥ 3, else 趋势",
             "collapse": "day after the peak day → day before the next wave starts (亏钱效应窗); open when no next wave; first leg = the first 左底向下 run after the peak",
-            "separation": f"relative: collapse-window return percentile among all stocks ≥ {sep_pct}; new-high: made a {sep_window}-day high inside the collapse window",
+            "separation": f"relative: collapse-window return percentile among all stocks ≥ {sep_pct}; new-high: made a {sep_window}-day high inside the collapse window; on-losing-days: percentile of the return compounded over the window's 亏钱效应日 only",
+            "money_losing": f"亏钱效应日 = tf.money_losing_day (承接 5 日均值 < {params['money_losing']['lt_pct']}%, 第十四段); counted over the peak block, the 10 days before the collapse and the collapse window",
             "handoff": "relation description only (创始人 09-07 第九、十三段): where the new members ranked in the old wave, whether any came from the old cohort, L1 overlap, form",
         },
         **result["readouts"],
@@ -1081,7 +1133,8 @@ def cmd_build_dynasties(args: argparse.Namespace) -> int:
             (h["old_wave_idx"], h["new_wave_idx"], h["new_rank"], h["stock_ts_code"], h["stock_name"], _round_scalar(h["new_wave_gain_pct"]),
              h["sw_l1"], h["form"], h["old_wave_rank"], h["in_old_cohort"], h["l1_in_old_top"], _round_scalar(h["collapse_ret_pct"]),
              _round_scalar(h["collapse_ret_percentile"]), _round_scalar(h["collapse_max_dd_pct"]), _round_scalar(h["first_leg_ret_pct"]),
-             h["new_high_in_collapse"], h["separation_relative"], h["separation_new_high"], fw, ts)
+             h["new_high_in_collapse"], h["separation_relative"], h["separation_new_high"],
+             _round_scalar(h["losing_days_ret_pct"]), _round_scalar(h["losing_days_ret_percentile"]), h["separation_on_losing_days"], fw, ts)
             for h in result["handoffs"]
         ]
         if member_rows:
@@ -1097,8 +1150,9 @@ def cmd_build_dynasties(args: argparse.Namespace) -> int:
                 """INSERT INTO history_dynasty_handoffs
                    (old_wave_idx, new_wave_idx, new_rank, stock_ts_code, stock_name, new_wave_gain_pct, sw_l1, form, old_wave_rank,
                     in_old_cohort, l1_in_old_top, collapse_ret_pct, collapse_ret_percentile, collapse_max_dd_pct, first_leg_ret_pct,
-                    new_high_in_collapse, separation_relative, separation_new_high, framework_version, computed_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    new_high_in_collapse, separation_relative, separation_new_high,
+                    losing_days_ret_pct, losing_days_ret_percentile, separation_on_losing_days, framework_version, computed_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 handoff_rows,
             )
         members_hash = canonical_rows_hash(side, table="history_dynasties", primary_key=("wave_idx", "rank"))
