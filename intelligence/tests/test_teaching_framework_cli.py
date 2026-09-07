@@ -82,6 +82,12 @@ def source_db(tmp_path: Path) -> Path:
         "INSERT INTO fact_stock_daily VALUES (?, ?, ?, ?, ?)",
         [(d, s, 10.0 * (k + 1) + i, 1.0 * (k - 1), a) for i, d in enumerate(DAYS) for k, (s, a) in enumerate((("X", 30.0), ("Y", 20.0), ("Z", 10.0)))],
     )
+    # 承接 rows for the limit-up stocks: +2 on a day they limit again, −3 otherwise; NULL close keeps them out of breadth.
+    limit_days = {(d, s) for d, s, _ in LIMIT_ROWS}
+    con.executemany(
+        "INSERT INTO fact_stock_daily VALUES (?, ?, NULL, ?, NULL)",
+        [(d, s, 2.0 if (d, s) in limit_days else -3.0) for d in DAYS for s in "ABCDEFGH"],
+    )
     # Sector side (第二刀): two sectors a day, one strict 双红 on even days; 3 limit-ups in S1; new highs = day index + 1
     # stocks at 1y-or-longer periods, except day 4 which has no high rows at all.
     con.execute("CREATE TABLE fact_sector_daily (trade_date DATE, sector_ts_code VARCHAR, sector_name VARCHAR, sw_l1 VARCHAR, pct_chg DOUBLE, diff_ratio DOUBLE, amount DOUBLE)")
@@ -94,10 +100,10 @@ def source_db(tmp_path: Path) -> Path:
         "INSERT INTO fact_theme_limit_heat_daily VALUES (?, ?, 'final', ?, ?, ?)",
         [row for d in DAYS for row in ((d, "S1", 3, 60.0, 9000.0), (d, "S2", 1, 20.0, 1000.0))],
     )
-    con.execute("CREATE TABLE fact_stock_high_daily (trade_date DATE, stock_ts_code VARCHAR, primary_high_period VARCHAR)")
+    con.execute("CREATE TABLE fact_stock_high_daily (trade_date DATE, stock_ts_code VARCHAR, primary_high_period VARCHAR, sw_l1 VARCHAR)")
     con.executemany(
-        "INSERT INTO fact_stock_high_daily VALUES (?, ?, ?)",
-        [(d, f"H{n}", "1y" if n % 2 else "20d") for i, d in enumerate(DAYS) if i != 3 for n in range(2 * (i + 1))],
+        "INSERT INTO fact_stock_high_daily VALUES (?, ?, ?, ?)",
+        [(d, f"H{n}", "1y" if n % 2 else "20d", "通信" if n % 4 == 1 else "电子") for i, d in enumerate(DAYS) if i != 3 for n in range(2 * (i + 1))],
     )
     con.close()
     return path
@@ -226,6 +232,20 @@ def test_end_to_end_build_is_deterministic_and_receipts_carry_readouts(capsys, t
         outside = dict(side.execute("SELECT trade_date, value_num FROM history_teaching_labels WHERE label='tf.rps5_outside_top3_pct'").fetchall())
         assert outside[date(2026, 1, 9)] == 50.0 and outside[date(2026, 1, 12)] == 50.0 and outside[date(2026, 1, 6)] is None
         assert gaps["tf.rps5_outside_top3_pct"] == 3
+        # 题材层第二轮: 双红 (S1 on even days, 电子 only) spans one L1 or none; the limit-up top-10 is {S1, S2} every day → Jaccard 100.
+        l1d = dict(side.execute("SELECT trade_date, value_num FROM history_teaching_labels WHERE label='tf.dual_red_l1_distinct'").fetchall())
+        assert l1d[date(2026, 1, 5)] == 1 and l1d[date(2026, 1, 6)] is None
+        persist = dict(side.execute("SELECT trade_date, value_num FROM history_teaching_labels WHERE label='tf.limit_top10_persist_5d_pct'").fetchall())
+        assert persist[date(2026, 1, 12)] == 100.0 and persist[date(2026, 1, 9)] is None
+        # 承接: yesterday's limit-up stocks gain +2 when they limit again and −3 otherwise (fixture rows with NULL close, so
+        # breadth is untouched). 01-16: G alone broke → −3; the five-day window 01-12..16 = (1/3, 1/3, −1/2, −1/2, −3).
+        prem = dict(side.execute("SELECT trade_date, value_num FROM history_teaching_labels WHERE label='tf.limit_premium_pct'").fetchall())
+        assert prem[date(2026, 1, 5)] is None and prem[date(2026, 1, 6)] == 2.0 and prem[date(2026, 1, 16)] == -3.0
+        ma5 = dict(side.execute("SELECT trade_date, value_num FROM history_teaching_labels WHERE label='tf.limit_premium_ma5_pct'").fetchall())
+        assert ma5[date(2026, 1, 9)] is None and ma5[date(2026, 1, 16)] == round((1 / 3 + 1 / 3 - 0.5 - 0.5 - 3.0) / 5, 6)
+        neg = dict(side.execute("SELECT trade_date, value_num FROM history_teaching_labels WHERE label='tf.limit_premium_neg_5d'").fetchall())
+        flips = dict(side.execute("SELECT trade_date, value_num FROM history_teaching_labels WHERE label='tf.limit_premium_flips_5d'").fetchall())
+        assert neg[date(2026, 1, 16)] == 3 and flips[date(2026, 1, 16)] == 1 and flips[date(2026, 1, 12)] == 2
         # Ties are leader groups (创始人 09-07): B's break on day 6 hands off to the tied group {D, E}
         # (both came out of the 2-board candidates), and E's lone break on day 7 is a partial break, not a node.
         statuses = dict(side.execute("SELECT status, COUNT(*) FROM history_leader_succession GROUP BY status").fetchall())
@@ -335,8 +355,8 @@ def test_build_sector_roles_writes_sector_labels_and_rule_readout(capsys, tmp_pa
     common = ["--db-path", str(source_db), "--labels-db", str(sidecar), "--params", str(params_file), "--computed-at", "2026-09-07T00:00:00Z"]
     labels = _run(capsys, "build-labels", *common)
     roles = _run(capsys, "build-sector-roles", *common)
-    # Two sectors × 10 days × 12 labels.
-    assert roles["rows"] == 2 * 10 * 12 and roles["readouts"]["days"] == {"ok": 10}
+    # Two sectors × 10 days × 18 labels.
+    assert roles["rows"] == 2 * 10 * 18 and roles["readouts"]["days"] == {"ok": 10}
     side = duckdb.connect(str(sidecar), read_only=True)
     try:
         # 电子 is industry_1 on every fixture day (the 3-day rank needs three contiguous days: NULL on days 1-2).
@@ -346,6 +366,14 @@ def test_build_sector_roles_writes_sector_labels_and_rule_readout(capsys, tmp_pa
         assert s1["tf.dual_red_strict"] == 1  # day index 4 is even: pct 1.0, diff 12, amount 600
         s2 = {r[0]: r[1] for r in side.execute("SELECT label, value_num FROM history_teaching_labels WHERE entity_type='sector' AND entity_id='S2' AND trade_date=DATE '2026-01-09'").fetchall()}
         assert s2["tf.role_volume_top3"] == 0 and s2["tf.role_price_top10"] == 1 and s2["tf.dual_red_strict"] == 0
+        # 宽度: on 01-09 the 1y+ highs are 通信 ×3 (n = 1, 5, 9) vs 电子 ×2 → S2 carries the breadth role.
+        assert s2["tf.role_breadth_top_l1"] == 1 and s1["tf.role_breadth_top_l1"] == 0
+        # 主流两口径: the fixture's vendor mainline table lists S1 every day; the volume top-3 口径 is 电子 = S1.
+        assert s1["tf.mainline_vendor"] == 1 and s2["tf.mainline_vendor"] == 0 and s1["tf.mainline_volume_top3"] == 1
+        # 锐度合成: S1 (limit rank 1, rps5 rank 2) and S2 (2, 1) tie at 1.5 — both inside the top 10.
+        assert s1["tf.sharpness_rank_mean"] == 1.5 and s2["tf.sharpness_rank_mean"] == 1.5 and s1["tf.role_sharpness_top10"] == 1
+        # k-means needs at least k = 3 rows: the two-sector fixture leaves it NULL.
+        assert s1["tf.money_effect.kmeans_hot"] is None
         assert side.execute("SELECT value_num FROM history_teaching_labels WHERE entity_type='sector' AND entity_id='S1' AND trade_date=DATE '2026-01-05' AND label='tf.rps_3d_rank'").fetchone() == (None,)
         # Market rows survive the sector build and hash identically.
         assert side.execute("SELECT COUNT(*) FROM history_teaching_labels WHERE entity_type='market'").fetchone()[0] > 0
@@ -356,12 +384,13 @@ def test_build_sector_roles_writes_sector_labels_and_rule_readout(capsys, tmp_pa
     labels_again = _run(capsys, "build-labels", *common)
     assert labels_again["canonical_hash"] == labels["canonical_hash"]
     rule = roles["readouts"]["money_effect_rule"]["by_definition"]
-    assert set(rule) == {"limit_top10", "dual_red", "rps5_top10", "rank_mean_top10"}
+    assert set(rule) == {"limit_top10", "dual_red", "rps5_top10", "rank_mean_top10", "kmeans_hot"}
+    assert roles["readouts"]["labels"][-1] == "money_effect.kmeans_hot"
     # Every fixture day has S1 (电子, the top-1 industry) in the limit_top10 set, so the outcome is never met; verdict stays insufficient_n at n < 10.
     assert rule["limit_top10"]["readout"]["verdict"] == "insufficient_n"
     assert rule["limit_top10"]["below_ma_days"] + rule["limit_top10"]["above_ma_days"] + sum(rule["limit_top10"]["excluded"].values()) == 10
     report = _run(capsys, "report", "--labels-db", str(sidecar))
-    assert report["counts"]["sector_label_rows"] == 240
+    assert report["counts"]["sector_label_rows"] == 360
 
 
 def test_stale_sidecar_schema_fails_closed(capsys, tmp_path, source_db, params_file) -> None:

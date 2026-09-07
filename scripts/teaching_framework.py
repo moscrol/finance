@@ -128,7 +128,7 @@ SELECT trade_date,
        COUNT(*)                                                       AS stock_count,
        MEDIAN(pct_chg)                                                AS pct_chg_median,
        100.0 * COUNT(CASE WHEN pct_chg > 0 THEN 1 END) / COUNT(*)    AS up_ratio_pct,
-       AVG(close)                                                     AS price_mean,
+       SUM(CAST(close AS DECIMAL(18, 4))) / COUNT(*)                  AS price_mean,  -- exact sum: order-independent
        MEDIAN(CASE WHEN n5 = 5 AND idx_lag4 = idx - 4 THEN (close / ma5 - 1) * 100 END)   AS ma5_deviation_median,
        COUNT(CASE WHEN n5 = 5 AND idx_lag4 = idx - 4 THEN 1 END)                            AS ma5_count,
        MEDIAN(CASE WHEN n10 = 10 AND idx_lag9 = idx - 9 THEN (close / ma10 - 1) * 100 END) AS ma10_deviation_median,
@@ -158,7 +158,9 @@ nh AS (
 ),
 dr AS (
     SELECT trade_date,
-           SUM(CASE WHEN pct_chg > 0 AND diff_ratio > {DUAL_RED_DIFF_RATIO_GT} AND amount > {DUAL_RED_AMOUNT_GT} THEN 1 ELSE 0 END) AS dual_red_theme_count
+           SUM(CASE WHEN pct_chg > 0 AND diff_ratio > {DUAL_RED_DIFF_RATIO_GT} AND amount > {DUAL_RED_AMOUNT_GT} THEN 1 ELSE 0 END) AS dual_red_theme_count,
+           -- 双红题材散布在几个申万一级（题材层的「先量再建」：左底向上 6 / 共建主线 5 vs 左底向下 2 / 二次探底 2）；没有双红则 NULL。
+           NULLIF(COUNT(DISTINCT CASE WHEN pct_chg > 0 AND diff_ratio > {DUAL_RED_DIFF_RATIO_GT} AND amount > {DUAL_RED_AMOUNT_GT} THEN sw_l1 END), 0) AS dual_red_l1_distinct
     FROM fact_sector_daily WHERE pct_chg IS NOT NULL AND diff_ratio IS NOT NULL AND amount IS NOT NULL
     GROUP BY trade_date
 ),
@@ -193,10 +195,58 @@ me AS (
     FROM ranked r JOIN fact_market_daily m USING (trade_date)
     WHERE r.rn <= 10 AND m.industry_1 IS NOT NULL AND m.industry_2 IS NOT NULL AND m.industry_3 IS NOT NULL
     GROUP BY r.trade_date
+),
+-- 涨停领涨集合（涨停家数前 10，家数同则封板金额大者先，再按代码）与 5 个交易日前同一集合的 Jaccard（%）。
+-- 题材层的「先量再建」读数：主流主升 中位 50 / 2.0 43 vs 共建主线 33 / 承接盘反复 33 / 缩量右底 25——主升期领涨题材持续。
+-- 任一侧无集合（当日或 5 日前热度表未覆盖、或无涨停）则 NULL，不当作全部更替。
+lt AS (
+    SELECT h.trade_date, h.sector_ts_code, c.i,
+           ROW_NUMBER() OVER (PARTITION BY h.trade_date ORDER BY h.limit_up_count DESC, COALESCE(h.fd_amount, 0) DESC, h.sector_ts_code) AS rn
+    FROM fact_theme_limit_heat_daily h JOIN idx c USING (trade_date)
+    WHERE h.data_stage = 'final' AND h.limit_up_count > 0
+),
+lt10 AS (SELECT trade_date, i, sector_ts_code FROM lt WHERE rn <= 10),
+la AS (SELECT i, trade_date, COUNT(*) AS n_a FROM lt10 GROUP BY i, trade_date),
+lb AS (SELECT i + 5 AS i, COUNT(*) AS n_b FROM lt10 GROUP BY i),
+li AS (SELECT a.i, COUNT(*) AS inter FROM lt10 a JOIN lt10 b ON b.i = a.i - 5 AND b.sector_ts_code = a.sector_ts_code GROUP BY a.i),
+lj AS (
+    SELECT la.trade_date, 100.0 * COALESCE(li.inter, 0) / (la.n_a + lb.n_b - COALESCE(li.inter, 0)) AS limit_top10_persist_5d_pct
+    FROM la JOIN lb USING (i) LEFT JOIN li USING (i)
+),
+-- 承接：昨日涨停股（题材涨停股表 limit_status='U'，按股票去重）今日在个股日线上的平均涨幅（%）。
+-- 平台「承接盘反复」的字面对象：主流主升 5 日内负溢价天数均值 0.07 / 2.0 0.23，承接盘反复 0.59，共建主线 0.70，
+-- 左底向下 1.21 / 缩量右底 1.15；正负翻转次数 主升 0.18、承接盘反复 0.91、共建主线 1.36、二次探底 1.97。
+-- 昨日无涨停股或今日个股日线缺则 NULL；5 日窗口要求连续 5 个日历交易日都有值。
+lim AS (
+    SELECT DISTINCT l.trade_date, c.i, l.stock_ts_code
+    FROM fact_theme_limit_stock_daily l JOIN idx c USING (trade_date) WHERE l.limit_status = 'U'
+),
+prem AS (
+    -- exact DECIMAL sum, not AVG(DOUBLE): the parallel hash aggregate sums in arbitrary order and a value sitting on a
+    -- 6-decimal rounding boundary (0.6590625) flipped between two otherwise identical rebuilds.
+    SELECT c.trade_date, c.i, SUM(CAST(s.pct_chg AS DECIMAL(18, 6))) / COUNT(*) AS limit_premium_pct
+    FROM lim JOIN idx c ON c.i = lim.i + 1
+    JOIN fact_stock_daily s ON s.trade_date = c.trade_date AND s.stock_ts_code = lim.stock_ts_code
+    WHERE s.pct_chg IS NOT NULL
+    GROUP BY c.trade_date, c.i
+),
+prem_lag AS (SELECT *, LAG(limit_premium_pct) OVER (ORDER BY i) AS prev_pct, LAG(i) OVER (ORDER BY i) AS prev_i FROM prem),
+prem_w AS (
+    SELECT trade_date, i, limit_premium_pct,
+           AVG(limit_premium_pct) OVER w AS ma5, COUNT(*) OVER w AS n5, LAG(i, 4) OVER (ORDER BY i) AS i_lag4,
+           SUM(CASE WHEN limit_premium_pct < 0 THEN 1 ELSE 0 END) OVER w AS neg5,
+           SUM(CASE WHEN prev_i = i - 1 AND SIGN(limit_premium_pct) <> SIGN(prev_pct) THEN 1 ELSE 0 END) OVER w AS flips5
+    FROM prem_lag WINDOW w AS (ORDER BY i ROWS BETWEEN 4 PRECEDING AND CURRENT ROW)
 )
-SELECT cal.trade_date, nh.new_high_1y_count, dr.dual_red_theme_count, lh.limit_themes_ge3, lh.limit_top1_share_pct,
-       CASE WHEN me.known > 0 THEN 100.0 * me.outside / me.known END AS rps5_outside_top3_pct
+SELECT cal.trade_date, nh.new_high_1y_count, dr.dual_red_theme_count, dr.dual_red_l1_distinct, lh.limit_themes_ge3, lh.limit_top1_share_pct,
+       CASE WHEN me.known > 0 THEN 100.0 * me.outside / me.known END AS rps5_outside_top3_pct,
+       lj.limit_top10_persist_5d_pct,
+       prem_w.limit_premium_pct,
+       CASE WHEN prem_w.n5 = 5 AND prem_w.i_lag4 = prem_w.i - 4 THEN prem_w.ma5 END AS limit_premium_ma5_pct,
+       CASE WHEN prem_w.n5 = 5 AND prem_w.i_lag4 = prem_w.i - 4 THEN prem_w.neg5 END AS limit_premium_neg_5d,
+       CASE WHEN prem_w.n5 = 5 AND prem_w.i_lag4 = prem_w.i - 4 THEN prem_w.flips5 END AS limit_premium_flips_5d
 FROM cal LEFT JOIN nh USING (trade_date) LEFT JOIN dr USING (trade_date) LEFT JOIN lh USING (trade_date) LEFT JOIN me USING (trade_date)
+     LEFT JOIN lj USING (trade_date) LEFT JOIN prem_w USING (trade_date)
 ORDER BY cal.trade_date
 """
 
@@ -345,6 +395,11 @@ def cmd_calibrate_stages(args: argparse.Namespace) -> int:
         labels_version = side.execute(
             "SELECT DISTINCT framework_version FROM history_teaching_labels WHERE framework_version IS NOT NULL"
         ).fetchall()
+        # Pin the exact label build the bands were read from: the source data moves (backfills), and so do the quantiles.
+        labels_receipt = side.execute(
+            """SELECT canonical_hash, source_fingerprint, source_max_trade_date FROM history_teaching_receipts
+               WHERE build_kind = 'teaching_labels' ORDER BY computed_at DESC LIMIT 1"""
+        ).fetchone()
     finally:
         side.close()
     by_day: dict[str, dict[str, float]] = {}
@@ -393,6 +448,9 @@ def cmd_calibrate_stages(args: argparse.Namespace) -> int:
         "min_days": int(args.min_days),
         "views": [view for view, _ in BAND_VIEWS],
         "labels_framework_version": sorted(str(v[0]) for v in labels_version),
+        "labels_canonical_hash": labels_receipt[0] if labels_receipt else None,
+        "labels_source_fingerprint": labels_receipt[1] if labels_receipt else None,
+        "labels_source_max_trade_date": str(labels_receipt[2]) if labels_receipt and labels_receipt[2] is not None else None,
         "transition_counts": {stage: dict(sorted(c.items())) for stage, c in transitions.items() if c},
         "method": "nearest-rank quantiles of each view on the platform's stage days up to train_until; edges = stage moves observed in the same period",
     }
@@ -443,10 +501,12 @@ def cmd_build_sector_roles(args: argparse.Namespace) -> int:
         market, dates = _load_market(source)
         sectors = _rows(source, "SELECT trade_date, sector_ts_code, sector_name, sw_l1, pct_chg, amount, diff_ratio FROM fact_sector_daily ORDER BY trade_date, sector_ts_code")
         heat = _rows(source, "SELECT trade_date, sector_ts_code, limit_up_count, fd_amount FROM fact_theme_limit_heat_daily WHERE data_stage = 'final' ORDER BY trade_date, sector_ts_code")
+        highs = _rows(source, "SELECT trade_date, sw_l1 FROM fact_stock_high_daily WHERE primary_high_period IN ('1y', '2y', '3y', 'history') ORDER BY trade_date")
+        vendor = _rows(source, "SELECT trade_date, sector_ts_code FROM fact_mainline_sector_daily ORDER BY trade_date, sector_ts_code")
         source_counts = _source_counts(source)
     finally:
         source.close()
-    result = build_sector_roles(sectors, heat, market, calendar=dates)
+    result = build_sector_roles(sectors, heat, market, calendar=dates, high_rows=highs, vendor_rows=vendor)
     context = _read_context(labels_path)  # market teaching labels (above_week_ma / stage_coarse) from build-labels
     reference = _read_reference(labels_path)
     rows: list[tuple[Any, ...]] = []
@@ -477,11 +537,11 @@ def cmd_build_sector_roles(args: argparse.Namespace) -> int:
             continue
         ref_stage = str((reference.get(str(s["trade_date"])[:10]) or {}).get("cycle_stage") or "unlabeled")
         bucket = by_ref_stage.setdefault(ref_stage, {})
-        for definition in MONEY_EFFECT_DEFINITIONS:
-            for key in ("size", "outside_top3_share"):
-                v = s.get(f"{definition}.{key}")
-                if v is not None:
-                    bucket.setdefault(f"{definition}.{key}", []).append(float(v))
+        for key, v in s.items():
+            # every numeric day-level aggregate (set sizes, outside-top3 shares, L1 concentration, 5-day Jaccard, 价板块 count)
+            if key in ("trade_date", "sectors") or isinstance(v, bool) or not isinstance(v, (int, float)):
+                continue
+            bucket.setdefault(key, []).append(float(v))
     def _q(vals: list[float]) -> dict[str, Any]:
         vals = sorted(vals)
         n = len(vals)

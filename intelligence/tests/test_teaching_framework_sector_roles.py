@@ -82,6 +82,52 @@ def test_days_without_sector_rows_or_heat_are_reported_not_zeroed():
     assert rec["role_volume_top3"] is None  # top-three unknown
 
 
+def test_kmeans_hot_cluster_is_deterministic_and_picks_the_strongest_group():
+    from intelligence.services.teaching_framework.sector_roles import kmeans_hot_cluster
+
+    table = {}
+    # Three obvious groups: hot (H*), middle (M*), cold (C*), each on all five features.
+    for i in range(4):
+        table[f"H{i}"] = {"pct_chg": 5.0 + i * 0.1, "amount_share_pct": 3.0, "limit_up_count": 6.0, "rps5_gain_pct": 12.0, "diff_ratio": 20.0}
+        table[f"M{i}"] = {"pct_chg": 0.5, "amount_share_pct": 1.0, "limit_up_count": 1.0, "rps5_gain_pct": 2.0, "diff_ratio": 3.0}
+        table[f"C{i}"] = {"pct_chg": -2.0, "amount_share_pct": 0.3, "limit_up_count": 0.0, "rps5_gain_pct": -4.0, "diff_ratio": -5.0}
+    hot = kmeans_hot_cluster(table)
+    assert hot == {"H0", "H1", "H2", "H3"}
+    assert kmeans_hot_cluster(dict(reversed(list(table.items())))) == hot  # input order does not matter
+    assert kmeans_hot_cluster({"A": table["H0"], "B": table["C0"]}) == set()  # fewer rows than k: nothing to cluster
+
+
+def test_breadth_vendor_sharpness_and_kmeans_labels_and_jaccard():
+    days = [f"2026-01-{d:02d}" for d in (5, 6, 7, 8, 9, 12, 13, 14, 15, 16)]
+    rows, heat, highs, vendor = [], [], [], []
+    for i, d in enumerate(days):
+        # A: strong every day, 电子; B: mid, 通信; C: weak, 医药生物.
+        rows += [_sector(d, "A", "电子", 3.0, amount=900.0, diff=15.0), _sector(d, "B", "通信", 1.0, amount=400.0, diff=6.0), _sector(d, "C", "医药生物", -1.0, amount=200.0, diff=-2.0)]
+        heat += [_heat(d, "A", 6, 5000.0), _heat(d, "B", 1, 500.0)]
+        highs += [{"trade_date": d, "sw_l1": "通信"}, {"trade_date": d, "sw_l1": "通信"}, {"trade_date": d, "sw_l1": "电子"}]
+        if i < 3:
+            vendor.append({"trade_date": d, "sector_ts_code": "B"})
+    out = build_sector_roles(rows, heat, [_market(d, "电子", "机械设备", "电力设备") for d in days], calendar=days, high_rows=highs, vendor_rows=vendor)
+    by = {(str(r["trade_date"]), r["sector_ts_code"]): r for r in out["sectors"]}
+    last = days[-1]
+    # 宽度: 通信 has the most 1y+ new highs → only B carries the breadth-top role.
+    assert (by[(last, "B")]["role_breadth_top_l1"], by[(last, "A")]["role_breadth_top_l1"]) == (True, False)
+    # 主流两口径: vendor table covers the first three days only → NULL afterwards; volume top-3 is 电子.
+    assert by[(days[0], "B")]["mainline_vendor"] is True and by[(days[0], "A")]["mainline_vendor"] is False
+    assert by[(last, "B")]["mainline_vendor"] is None and by[(last, "A")]["mainline_volume_top3"] is True
+    # 锐度合成: A ranks 1 on both components → mean 1.0 → top; C is absent from the heat table → no composite.
+    assert by[(last, "A")]["sharpness_rank_mean"] == 1.0 and by[(last, "A")]["role_sharpness_top10"] is True
+    assert by[(last, "C")]["sharpness_rank_mean"] is None and by[(last, "C")]["role_sharpness_top10"] is None
+    # k-means on a 3-row cross-section: exactly k rows, A alone in the hot cluster.
+    assert by[(last, "A")]["money_effect.kmeans_hot"] is True and by[(last, "C")]["money_effect.kmeans_hot"] is False
+    summary = out["days"][-1]
+    assert summary["breadth_top_l1"] == "通信" and summary["vendor_covered"] is False and summary["price_top10.count"] == 2
+    # rps5_top10 set is {A, B, C} on every day with a window (from day 5): Jaccard against five days back is 1.0 once both
+    # sides have a set (day 10 vs day 5) and unknown while the earlier side had no window (day 9 vs day 4).
+    assert summary["rps5_top10.jaccard_5d"] == 1.0 and out["days"][8]["rps5_top10.jaccard_5d"] is None
+    assert summary["rps5_top10.l1_distinct"] == 3
+
+
 def test_money_effect_rule_rows_split_by_ma_side_and_exclude_unknowns():
     days = [
         {"trade_date": "2026-01-05", "status": "ok", "limit_top10.outside_top3_share": 0.8},

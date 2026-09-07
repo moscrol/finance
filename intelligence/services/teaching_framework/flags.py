@@ -535,6 +535,14 @@ SECTOR_FIELDS = (
     # 5 日涨幅前 10 的板块里落在成交占比前三申万一级之外的比例（创始人第五段的「赚钱效应不在成交
     # 占比前三」；候选规则在此定义下 supported：下方 59.6% vs 上方 45.6%）。
     ("rps5_outside_top3_pct", "rps5_outside_top3_pct"),
+    # 题材层「先量再建」第二轮：双红题材散布的申万一级数；涨停领涨集合与 5 日前的 Jaccard（领涨题材持续度）。
+    ("dual_red_l1_distinct", "dual_red_l1_distinct"),
+    ("limit_top10_persist_5d_pct", "limit_top10_persist_5d_pct"),
+    # 承接：昨日涨停股今日平均涨幅及其 5 日均值 / 负溢价天数 / 正负翻转次数（平台「承接盘反复」的字面对象）。
+    ("limit_premium_pct", "limit_premium_pct"),
+    ("limit_premium_ma5_pct", "limit_premium_ma5_pct"),
+    ("limit_premium_neg_5d", "limit_premium_neg_5d"),
+    ("limit_premium_flips_5d", "limit_premium_flips_5d"),
 )
 
 
