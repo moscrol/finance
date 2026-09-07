@@ -1,8 +1,17 @@
-# 分支级 trace：逐批派发账 + 预算账进收据（2026-09-07 上午）
+# 分支级 trace → 账本口径 → 分支契约：候选口同题四遍（2026-09-07 上午，PR #619）
 
 上文：`2026-09-07-branch-budget-repair-fuse.md`（同题四遍撞出三道顶，#615–#617）。那份收据 §5 留的下一步是
 「分支起步用 quick 档的 4 次每批帽，可能是分支慢的原因之一，**先量分支内每批派发数再动**」。
-本文是「先量」这一步的代码侧：让分支内部逐批派发账与预算账进收据，**不动 quick 每批帽、不动任何预算数字、不跑 28 题**。
+本文从「先量」开始（§1–§3），量出两道新顶（§4），用户拍 C 修账本口径（§5），再修分支契约（§6）。
+**quick 每批帽 4 全程未动，28 题未跑，8792 未切。**
+
+| 提交 | 内容 |
+|---|---|
+| `66de98c2` / `fc367365` | 分支逐批派发账 + 预算账进收据 |
+| `ad54d4b0` | 分支 `invalid_action`（终局拒绝码）随结果出来 |
+| `4f79bd56` / `14ef58d3` | `sub_research` telemetry 带父账本前后余量；live 第 1、2 遍收据 |
+| `204e607a` | **C**：分支秒按墙钟记一次 + 起分支前父臂预留尾段（次数 / 秒 / 保险丝） |
+| `64428242` | 分支契约声明唯一 output `branch_findings`，收尾不再撞 `unknown_output` |
 
 ## 0. 为什么先补 trace 而不是直接改帽
 
@@ -122,16 +131,52 @@ deep 档 3 × 60 = 180 装得进 192s 的账本；#615 把每支抬到 150 后 3
 这就是同题同码两遍一 completed 一 partial 的机制：**触发条件是分支首轮模型延迟**，分支跑满 150s 父臂必死，判官必 unavailable。
 它不是能力上限，是账本口径。#617 把 LLM 调用保险丝 40 → 120 解的是「次数」那本账；「秒」这本账没人碰过。
 
-## 5. 未做 / 待拍
+## 5. 用户拍 C（11:20）：秒按墙钟记一次 + 起分支前父臂预留尾段（`204e607a`）
 
-- **账本口径要拍**（本 PR 只量不改）。三个形状：
-  - A. 秒 = 墙钟：分支视图只向父账本扣**次数**，秒由父臂批结算记一次。改 `_BranchBudgetView` 与 spec §6-4 措辞，
-    `test_branch_view_settle*` 要改口径。
-  - B. 保留累加：去掉批结算对 `sub_research` 那次的重复记秒；分支秒改成 `min(150, (root.remaining − 父臂预留)/n)`，
-    父臂预留显式给（判官 + 合成 + 至少一轮）。改动最小，但分支跑满时父臂仍被挤。
-  - C. 准入时分层预留（原路线第 3 步）：发分支前先扣出判官 / 合成 / 父臂轮次的秒与次数，分支只拿剩下的，秒按墙钟记一次。
-    我倾向 C（= A 的口径 + B 的预留），它同时覆盖 #617 那本调用账。
-- 分支收尾被拒的码：下一遍 live 读 `invalid_actions`；若是 `unknown_output`，修法与 #616 同族（分支契约没有 output，
-  模型却被提示词引导去绑 output）。
-- quick 每批帽 4：有读数了——它在咬，代价是每被拒一批多一次模型往返；但先修账本再动帽，否则帽放开后分支更容易跑满、父臂更容易被挤死。
-- 候选口 8799 已停；8792 未切；A/B/C 28 题仍等用户拍。
+三个形状（A 秒=墙钟 / B 保留累加去重复 / C 准入分层预留 = A 口径 + B 预留）用户拍 C，原则是「尽量探寻能力 max，
+不让约束把能力挡住」——三支跑满就把父臂挤死，正是约束放错了地方。
+
+- **口径**：`_BranchBudgetView` 只向父账本扣**次数**（新 `RootBudgetLedger.consume_call_slot`），秒留在分支自己的视图里守 150s
+  与出收据；父账本的秒由父臂对 `sub_research` 那一批做批结算时按墙钟记一次。调用仍从父账本扣：调用是真实共享资源，并行不会让它变便宜。
+- **准入**（`admit_branches`）：父臂先留一批次数（`batch_call_cap`：max 8 / 其它 4）、一次合成的秒（`synthesis_reserve`：max 60）、
+  保险丝尾段 8 次（`PARENT_TAIL_LLM_RESERVE`，读 turn 级 `LLMCallLedger.headroom()`）；分支拿剩下的，秒**不再按支数除**（并行共享一段窗）；
+  留不下就拒，理由分账本：`parent_reserve_exhausted:calls|seconds` / `llm_call_reserve_exhausted`；准入账（预留多少、每支拿多少、
+  保险丝余量与预计用量）进 telemetry，拒绝时也带。
+- 数字：max 档三支仍 10 次 / 150s（与 #615 相同）；deep 两支 6 → 4（此前分支回来父臂一次工具都发不出）。
+- spec `2026-09-03-subagent-tool-design.md` §6-4 改口径，原文与理由留在旁边。
+
+## 6. live 第三、四遍：C 生效；分支 partial 的真因与修法（`64428242`）
+
+| 遍 | 代码 | run | 父臂 | 判官 | 账本秒（分支前 → 后 → 收尾） | 分支 |
+|---|---|---|---|---|---|---|
+| 3（11:57） | `204e607a`（C） | `run_20260907_115729_781807` | completed，200s，`model_finish` | **passed** | 480.3 → **480.3** → 339.6 | partial ×3，`invalid_model_finish`，各剩 60 / 68 / 91s |
+| 4（12:09） | `64428242`（C + 分支契约） | `run_20260907_120927_086134` | completed，223s，`repair_model_finish`（修复 1 轮） | repaired | 532.4 → **532.4** → 357.3 | partial ×3，**`model_finish`**（收尾被接受，模型自报缺口 4 / 6 / 5） |
+
+- **C 生效**：两遍分支前后父账本秒一分未动（`root_budget.before == after_branches`），父臂收尾时账本还剩 340 / 357s，
+  判官两遍都上场。第二遍那种「墙钟剩 396s、账本归零」的形状没有再出现。准入账：第 3 遍父臂先自己跑了 3 批（用掉 15 次），
+  `root_remaining_calls=25` → 留 8 → 每支 5 次；第 4 遍首轮就点 `sub_research`，40 → 留 8 → 每支 10 次。
+- **分支 partial 的真因**（第 3 遍 `invalid_actions` 首次带出）：三支收尾全是 `unknown_output` ——
+  `unknown required output: window_progress / baseline_judgment / trading_heat`。宪法要求「正文事实绑到对应 required output」
+  「completed 必须覆盖所有 required outputs」，而分支契约 `required_outputs=()`：模型被要求绑定却没有合法目标，只能自己造 id，
+  撞 INTEGRITY 不回灌 → 必 partial、白烧一次收尾调用、父臂收到「模型未能返回可验证的结构化终止结果」这条假缺口。
+  证据本身照旧回父账本（20 / 11 / 38 条），所以这条一直没被当成故障。三遍 live 6/6 支同一形状。
+- **修法**（#616 同族，`continuous_sub_research.BRANCH_FINDINGS_OUTPUT`）：分支契约声明唯一 output `branch_findings`
+  （required、evidence），取证绑上去就是合法收尾；绑自造 id 仍 INTEGRITY（单测两条都钉住）。第 4 遍 3/3 支收尾被接受，
+  `invalid_actions` 为空；仍是 partial 是**模型自己**报的缺口（各支 4–6 条，如缺一手公告），父臂能读、能用。
+- 每批帽 4 在第 3、4 遍**一次都没咬**：模型改成每批点 1 个工具（9 批 × 1）。第 1、2 遍每批点 5–7 个。同一模型同一题，
+  两种节奏都出现过；帽 4 不动的决定不变，它现在既不是瓶颈也不是首要变量。
+- 帐：四遍 live 各约 200–270s、父臂 input_tokens 34 万–110 万；候选口全程 8792 未动。
+
+### 6.1 测试 / 门禁
+
+`test_sub_research.py` + `test_sub_research_tool.py` **42P/0F**（基线 27，新增 15）；14 个变异各击杀 ≥1（含：分支秒再记父账本 → 红、
+去预留 → 红、去保险丝准入 → 红、秒再按支数除 → 红、分支契约退回无 output → 3 红）。干净树全量 `64428242` **7995P / 0F / 76S / 1 xfail**，
+`check_test_receipt.py --expect-revision HEAD --base-drift-max 5` 可采信。
+
+## 7. 未做 / 待拍
+
+- 合入 #619 → 切 8792。切后同题再跑一遍读 `branch_completed.stop_reason`（应为 `model_finish`）与 `root_budget`（`before == after_branches`）。
+- 分支模型自报的缺口（缺一手公告等）是真缺口，属于工具面 / 数据面，不是运行时约束。
+- quick 每批帽 4 不动。A/B/C 28 题仍等用户拍。
+- 顺带发现：`test_run_agent_runtime_benchmark::test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state` 用 `id()` 比两个已回收对象，
+  地址复用时假红（本 PR 一遍全量撞上，复跑即绿），值得改成持有引用；不在本 PR。
