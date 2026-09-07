@@ -1,0 +1,54 @@
+{
+  "_what": "事件定价第一刀的全部候选值与事件类白名单。任何一个数字或词表改动 = 新 ev_version = 新收据；旧收据按版本判不可比。数字全是 B 类候选值，进收据不进结论。设计稿：docs/superpowers/specs/2026-09-07-event-pricing-slice1-calendar-reaction-design.md",
+  "ev_version_base": "ev-v0.1",
+  "schedule_dir": "references/calendars",
+  "pre_days": 5,
+  "post_horizons": [3, 5, 10],
+  "shape_horizon": 5,
+  "shape_threshold_pct": {"sector": 2.0, "market": 1.0},
+  "amount_ratio_lookback_days": 20,
+  "crowding_lookback_days": 60,
+  "crowding_min_obs": 30,
+  "min_n": 10,
+  "bh_q": 0.05,
+  "cross_section_top_k": 5,
+  "lpr_rule": {"day_of_month": 20, "rule": "20th_or_next_trading_day", "rule_published_at": "2019-08-17"},
+  "event_classes": {
+    "cn_lpr": {
+      "scope": "market", "scheduled": true, "reaction_rule": "same_day_or_next",
+      "indicators": ["cn_lpr"], "period_kind": "release_month",
+      "editorial": {"title_any": ["LPR"], "title_none": []}
+    },
+    "cn_pmi_official": {
+      "scope": "market", "scheduled": true, "reaction_rule": "same_day_or_next",
+      "indicators": ["cn_pmi_official"], "period_kind": "title_month",
+      "editorial": {"title_any": ["PMI"], "title_none": ["财新", "RatingDog", "标普", "Markit", "美国", "欧元区", "日本", "英国", "德国", "法国", "ISM"]}
+    },
+    "cn_cpi_ppi": {
+      "scope": "market", "scheduled": true, "reaction_rule": "same_day_or_next",
+      "indicators": ["cn_cpi", "cn_ppi"], "period_kind": "title_month",
+      "editorial": {"title_any": ["CPI", "PPI", "居民消费价格", "工业生产者价格"], "title_none": ["香港", "新加坡", "美国", "欧元区", "日本", "英国", "德国", "法国", "韩国", "澳大利亚", "加拿大", "印度", "东京", "美联储", "欧洲", "瑞士", "瑞典", "挪威", "巴西", "墨西哥", "俄罗斯", "土耳其", "越南", "泰国", "印尼", "马来西亚", "菲律宾", "台湾"]}
+    },
+    "cn_credit_data": {
+      "scope": "market", "scheduled": false, "reaction_rule": "next_trading_day",
+      "indicators": ["cn_credit_data"], "period_kind": "title_month",
+      "editorial": {"title_any": ["社融", "社会融资", "金融数据", "M2", "新增贷款", "新增人民币贷款", "货币供应", "金融统计数据"], "title_none": ["美国", "欧元区", "日本", "美联储", "欧洲央行", "英国", "澳门", "香港", "台湾", "新加坡", "国新办", "发布会", "介绍", "解读"]}
+    },
+    "fomc_decision": {
+      "scope": "market", "scheduled": true, "reaction_rule": "next_trading_day_after_us_date",
+      "indicators": ["fomc_decision"], "period_kind": "event_date",
+      "_editorial_reaction_rule_why": "复盘会编辑日历把 FOMC 记在北京日期（决议次日凌晨），已经是 A 股可反应日，不能再套美国日期 +1 的规则",
+      "editorial": {"reaction_rule": "same_day_or_next", "title_any": ["FOMC", "美联储"], "title_all_any": ["决议", "利率决定", "利率决策", "议息会议", "议息", "宣布利率"], "title_none": ["纪要", "讲话", "听证", "褐皮书", "点阵图解读", "预期", "概率", "前瞻", "预热", "倒计时"]}
+    },
+    "policy_release": {
+      "scope": "sector", "scheduled": false, "reaction_rule": "same_day_or_next", "reaction_day_confidence": "low",
+      "indicators": [], "period_kind": "none",
+      "editorial": {"event_type_in": ["政策", "政策发布", "会议/政策"], "require_sectors": true}
+    },
+    "industry_event": {
+      "scope": "sector", "scheduled": false, "reaction_rule": "same_day_or_next", "reaction_day_confidence": "low",
+      "indicators": [], "period_kind": "none",
+      "editorial": {"event_type_in": ["行业事件"], "require_sectors": true}
+    }
+  }
+}

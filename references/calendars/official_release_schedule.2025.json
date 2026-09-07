@@ -1,0 +1,490 @@
+{
+  "schema_version": 1,
+  "year": 2025,
+  "entered_at": "2026-09-07",
+  "entered_by": "agent（curl 抓官方页后脚本转录；中文星期与计算星期逐条断言一致）；待用户抽查",
+  "what_this_is": "官方发布日程：只记『何时』，不记任何数值。用于事件锚点日历 source_grade=official 与 pre_window_semantics=expectation 判定。",
+  "sources": [
+    {
+      "id": "nbs_2025",
+      "event_classes": [
+        "cn_pmi_official",
+        "cn_cpi_ppi"
+      ],
+      "title": "2025年国家统计局主要统计信息发布日程表",
+      "url": "https://www.stats.gov.cn/sj/fbrc/ljxxfb/202412/t20241230_1957931.html",
+      "schedule_published_at": "2024-12-30",
+      "published_at_basis": "页面标注 2024/12/30 09:30",
+      "fetched_at": "2026-09-07",
+      "notes": [
+        "页面注 1：发布日期为初步计划，届时可能有所调整",
+        "页面注 2：除采购经理指数外均为上月数据（PMI 为当月）",
+        "2 月 PMI 因春节假期挪至 3 月初发布（注 5）"
+      ]
+    },
+    {
+      "id": "fomc_2025",
+      "event_classes": [
+        "fomc_decision"
+      ],
+      "title": "2025 FOMC Meetings",
+      "url": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
+      "schedule_published_at": "2024-12-31",
+      "published_at_basis": "页面未标注公布日；美联储通常在前一年年中公布次年日程，取保守上界 2024-12-31",
+      "fetched_at": "2026-09-07",
+      "notes": [
+        "event_date 取两日会议的第二天（决议与声明 14:00 ET 发布）",
+        "单日条目（如 2025-08-22 长期目标声明）不是会议，未录"
+      ]
+    },
+    {
+      "id": "nifc_lpr_api",
+      "event_classes": [
+        "cn_lpr"
+      ],
+      "title": "全国银行间同业拆借中心 LPR 历史报价",
+      "url": "https://www.chinamoney.com.cn/chinese/bklpr/",
+      "api": "https://www.chinamoney.com.cn/ags/ms/cm-u-bk-currency/LprHis",
+      "schedule_published_at": "2019-08-17",
+      "published_at_basis": "LPR 改革公告（2019-08-17）确立每月 20 日（遇节假日顺延）报价规则，此后每期日期均可提前知道",
+      "fetched_at": "2026-09-07",
+      "notes": [
+        "接口只提供近一年历史（本次取到 2025-09-22 起）；更早月份由构建器按规则派生并标 rule_derived，不写进本文件"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_cpi",
+      "event_date": "2025-01-09",
+      "period": "2024-12",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_ppi",
+      "event_date": "2025-01-09",
+      "period": "2024-12",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_pmi_official",
+      "indicator": "cn_pmi_official",
+      "event_date": "2025-01-27",
+      "period": "2025-01",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "fomc_decision",
+      "indicator": "fomc_decision",
+      "event_date": "2025-01-29",
+      "period": "2025-01-29",
+      "time_local": "14:00",
+      "tz": "America/New_York",
+      "source_id": "fomc_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_cpi",
+      "event_date": "2025-02-09",
+      "period": "2025-01",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_ppi",
+      "event_date": "2025-02-09",
+      "period": "2025-01",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_pmi_official",
+      "indicator": "cn_pmi_official",
+      "event_date": "2025-03-01",
+      "period": "2025-02",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_cpi",
+      "event_date": "2025-03-09",
+      "period": "2025-02",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_ppi",
+      "event_date": "2025-03-09",
+      "period": "2025-02",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "fomc_decision",
+      "indicator": "fomc_decision",
+      "event_date": "2025-03-19",
+      "period": "2025-03-19",
+      "time_local": "14:00",
+      "tz": "America/New_York",
+      "source_id": "fomc_2025"
+    },
+    {
+      "event_class": "cn_pmi_official",
+      "indicator": "cn_pmi_official",
+      "event_date": "2025-03-31",
+      "period": "2025-03",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_cpi",
+      "event_date": "2025-04-10",
+      "period": "2025-03",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_ppi",
+      "event_date": "2025-04-10",
+      "period": "2025-03",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_pmi_official",
+      "indicator": "cn_pmi_official",
+      "event_date": "2025-04-30",
+      "period": "2025-04",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "fomc_decision",
+      "indicator": "fomc_decision",
+      "event_date": "2025-05-07",
+      "period": "2025-05-07",
+      "time_local": "14:00",
+      "tz": "America/New_York",
+      "source_id": "fomc_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_cpi",
+      "event_date": "2025-05-10",
+      "period": "2025-04",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_ppi",
+      "event_date": "2025-05-10",
+      "period": "2025-04",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_pmi_official",
+      "indicator": "cn_pmi_official",
+      "event_date": "2025-05-31",
+      "period": "2025-05",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_cpi",
+      "event_date": "2025-06-09",
+      "period": "2025-05",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_ppi",
+      "event_date": "2025-06-09",
+      "period": "2025-05",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "fomc_decision",
+      "indicator": "fomc_decision",
+      "event_date": "2025-06-18",
+      "period": "2025-06-18",
+      "time_local": "14:00",
+      "tz": "America/New_York",
+      "source_id": "fomc_2025"
+    },
+    {
+      "event_class": "cn_pmi_official",
+      "indicator": "cn_pmi_official",
+      "event_date": "2025-06-30",
+      "period": "2025-06",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_cpi",
+      "event_date": "2025-07-09",
+      "period": "2025-06",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_ppi",
+      "event_date": "2025-07-09",
+      "period": "2025-06",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "fomc_decision",
+      "indicator": "fomc_decision",
+      "event_date": "2025-07-30",
+      "period": "2025-07-30",
+      "time_local": "14:00",
+      "tz": "America/New_York",
+      "source_id": "fomc_2025"
+    },
+    {
+      "event_class": "cn_pmi_official",
+      "indicator": "cn_pmi_official",
+      "event_date": "2025-07-31",
+      "period": "2025-07",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_cpi",
+      "event_date": "2025-08-09",
+      "period": "2025-07",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_ppi",
+      "event_date": "2025-08-09",
+      "period": "2025-07",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_pmi_official",
+      "indicator": "cn_pmi_official",
+      "event_date": "2025-08-31",
+      "period": "2025-08",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_cpi",
+      "event_date": "2025-09-10",
+      "period": "2025-08",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_ppi",
+      "event_date": "2025-09-10",
+      "period": "2025-08",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "fomc_decision",
+      "indicator": "fomc_decision",
+      "event_date": "2025-09-17",
+      "period": "2025-09-17",
+      "time_local": "14:00",
+      "tz": "America/New_York",
+      "source_id": "fomc_2025"
+    },
+    {
+      "event_class": "cn_lpr",
+      "indicator": "cn_lpr",
+      "event_date": "2025-09-22",
+      "period": "2025-09",
+      "time_local": "09:00",
+      "tz": "Asia/Shanghai",
+      "source_id": "nifc_lpr_api"
+    },
+    {
+      "event_class": "cn_pmi_official",
+      "indicator": "cn_pmi_official",
+      "event_date": "2025-09-30",
+      "period": "2025-09",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_cpi",
+      "event_date": "2025-10-15",
+      "period": "2025-09",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_ppi",
+      "event_date": "2025-10-15",
+      "period": "2025-09",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_lpr",
+      "indicator": "cn_lpr",
+      "event_date": "2025-10-20",
+      "period": "2025-10",
+      "time_local": "09:00",
+      "tz": "Asia/Shanghai",
+      "source_id": "nifc_lpr_api"
+    },
+    {
+      "event_class": "fomc_decision",
+      "indicator": "fomc_decision",
+      "event_date": "2025-10-29",
+      "period": "2025-10-29",
+      "time_local": "14:00",
+      "tz": "America/New_York",
+      "source_id": "fomc_2025"
+    },
+    {
+      "event_class": "cn_pmi_official",
+      "indicator": "cn_pmi_official",
+      "event_date": "2025-10-31",
+      "period": "2025-10",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_cpi",
+      "event_date": "2025-11-09",
+      "period": "2025-10",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_ppi",
+      "event_date": "2025-11-09",
+      "period": "2025-10",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_lpr",
+      "indicator": "cn_lpr",
+      "event_date": "2025-11-20",
+      "period": "2025-11",
+      "time_local": "09:00",
+      "tz": "Asia/Shanghai",
+      "source_id": "nifc_lpr_api"
+    },
+    {
+      "event_class": "cn_pmi_official",
+      "indicator": "cn_pmi_official",
+      "event_date": "2025-11-30",
+      "period": "2025-11",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_cpi",
+      "event_date": "2025-12-10",
+      "period": "2025-11",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "cn_cpi_ppi",
+      "indicator": "cn_ppi",
+      "event_date": "2025-12-10",
+      "period": "2025-11",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    },
+    {
+      "event_class": "fomc_decision",
+      "indicator": "fomc_decision",
+      "event_date": "2025-12-10",
+      "period": "2025-12-10",
+      "time_local": "14:00",
+      "tz": "America/New_York",
+      "source_id": "fomc_2025"
+    },
+    {
+      "event_class": "cn_lpr",
+      "indicator": "cn_lpr",
+      "event_date": "2025-12-22",
+      "period": "2025-12",
+      "time_local": "09:00",
+      "tz": "Asia/Shanghai",
+      "source_id": "nifc_lpr_api"
+    },
+    {
+      "event_class": "cn_pmi_official",
+      "indicator": "cn_pmi_official",
+      "event_date": "2025-12-31",
+      "period": "2025-12",
+      "time_local": "09:30",
+      "tz": "Asia/Shanghai",
+      "source_id": "nbs_2025"
+    }
+  ]
+}
