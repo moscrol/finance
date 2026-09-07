@@ -14,7 +14,7 @@ implied.  Counting views, ties broken by the graph, no guessing — unchanged fr
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
 STAGES = (
     "左底向下",
@@ -87,6 +87,30 @@ ENTRY_PREDICATES: dict[str, tuple[str, ...]] = {
 
 UPGRADE_ORIGIN = "高位震荡"  # 平台序列里 2.0 三次都紧跟承接盘反复；第一腿从底部起的新高不算升级
 DEFAULT_UPGRADE_NEW_HIGH_WINDOW = 20
+
+# 左底向下进入口径（参数 ``left_down_entry``）：``persist_days`` = 首次下穿后第几天起算（1 = 下穿当天），
+# ``volume`` = 当日量能条件：expanding_or_gap（09-06 第三轮「放量跌破或跳空低开跌破」）/ shrink（平台起点
+# 的形状：缩量）/ any。哪一组是 B 类候选，按训练期选、验证期验。
+LEFT_DOWN_VOLUME_RULES = ("expanding_or_gap", "shrink", "shrink_or_gap", "any")
+DEFAULT_LEFT_DOWN_ENTRY = {"persist_days": 1, "volume": "expanding_or_gap"}
+
+
+def left_down_entry(params: Mapping[str, Any] | None) -> dict[str, Any]:
+    raw = (params or {}).get("left_down_entry") or {}
+    return {
+        "persist_days": int(raw.get("persist_days", DEFAULT_LEFT_DOWN_ENTRY["persist_days"])),
+        "volume": str(raw.get("volume", DEFAULT_LEFT_DOWN_ENTRY["volume"])),
+    }
+
+
+def _left_down_volume_ok(v: Callable[[str], Any], rule: str) -> bool:
+    if rule == "expanding_or_gap":
+        return v("volume_expanding") is True or v("gap_down_open") is True
+    if rule == "shrink":
+        return v("volume_band") == "shrink"
+    if rule == "shrink_or_gap":
+        return v("volume_band") == "shrink" or v("gap_down_open") is True
+    return rule == "any"
 
 # Continuing predicates that are founder sentences rather than calibrated bands.
 # 第六段：「缩量右底是下穿后反弹到周均线那一段，然后又回踩探底」+ 第三轮「二次探底会有个
@@ -183,9 +207,16 @@ def predicate_hits(
 
     hits: list[tuple[str, str]] = []
     # 进入证据：创始人的转点原话。
-    # 第六段「左底向下是第一次从周均线下穿」+ 09-06 第三轮「放量跌破周均或者跳空低开跌破周均基本
-    # 就是要开始向下继续调整了」：第一次下穿还要带量或跳空，顶部区间里缩量的普通下穿不算。
-    if v("cross_below_kind") == "first" and (v("volume_expanding") is True or v("gap_down_open") is True):
+    # 第六段「左底向下是第一次从周均线下穿」。创始人第十二段：定义不精确、结合特征值定——平台的左底向下
+    # 在下穿后第 2–3 天、缩量（量能比 84–97）时才开始，高位横盘里带量的短促下穿（中位 2.5 天就收回）不算。
+    # 落法：首次下穿周期（未见回踩）的第 persist_days 天起、仍在周均线下方、量能满足 volume 口径的每一天都算进入。
+    entry = left_down_entry(params)
+    cycle_day = v("below_ma_cycle_day")
+    in_first_phase = (
+        isinstance(cycle_day, (int, float)) and cycle_day >= entry["persist_days"]
+        and v("below_ma_cycle_retest_seen") is False and v("above_week_ma") is False
+    )
+    if in_first_phase and _left_down_volume_ok(v, entry["volume"]):
         hits.append(("左底向下", "E:first_cross_below"))
     if v("cross_below_kind") == "retest":
         hits.append(("二次探底", "E:retest_cross_below"))
