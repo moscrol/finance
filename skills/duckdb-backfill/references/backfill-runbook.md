@@ -35,6 +35,16 @@
 ⑤ **东财快照 `sync-stock-daily-snapshot` 只在交易日当天盘后有效**：盘中写实时价、非交易日把上一交易日写到所传日期。qa 脚本对「`source='eastmoney:snapshot'` 且 `updated_at` 日期 ≠ `trade_date`」直接 FAIL。
 ⑥ **fupanhui 限流是突发触发**：`sync-sector-daily` 一步 403 请求/29 秒必炸；二次突发后 `retry-after=251318s`。模块化 + `sector-daily-local` + 成分 1 req/s 能活；429 期间不跑 `reconcile-sector-daily` / `verify_backfill.py` 的回源抽样。
 
+## local 计划实跑记录（2026-09-07，生产库）
+
+| 日 | 结果 | 备注 |
+|---|---|---|
+| 09-07 | 生产库全链绿：stitch 403/403、板块日线 403（等权涨幅，边际量暂以 09-02 为基准）、沪深成交额 19451.9 亿、涨家数 3167、涨停 93 / 跌停 2、连板 13 只、龙头 6 板；same-day `--plan local` COMPLETE | 首个不靠 fupanhui 的完整交易日 |
+| 09-03 / 09-04 | stitch 394/403，`sector-daily-local` fail closed（9 个 BJ 密集板块无成分行） | 等东财 hist kline 补齐 ~190 只北交所后重跑 stitch → sector-daily-local → limit-stats(--force) → overview(--force) → features |
+
+坑：`fact_sector_daily` / `fact_sector_stock_daily` 是只暴露 **published** 代际的 VIEW。`carry-forward-universe --supersede`
+顶替某日快照后，挂在旧快照上的板块日线/成分行会从视图里消失（代际表还在）；必须紧接着把该日重新派生完，否则那天在视图里是空的。
+
 ## 自算口径（双轨实测，2026-08-14～09-02 十四个干净日）
 
 `qa_local_vs_fupanhui.py` 用的规则，也是各族切到本地源时的实现口径：

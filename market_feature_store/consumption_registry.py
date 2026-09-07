@@ -25,7 +25,7 @@ SCHEMA_PATH = PACKAGE_DIR / "schema.sql"
 
 TIERS = ("A-replace", "B-identity", "C-daily", "D-derived")
 RECIPE_STATUSES = ("live", "note", "pending-grilling")
-PLANS = ("full", "cheap")
+PLANS = ("full", "cheap", "local")
 
 _DDL_OBJECT = re.compile(
     r"CREATE\s+(?:TABLE\s+IF\s+NOT\s+EXISTS|OR\s+REPLACE\s+VIEW|VIEW\s+IF\s+NOT\s+EXISTS|TABLE)\s+"
@@ -77,6 +77,20 @@ class Registry:
 
     def datasets_for_step(self, step: str, plan: str) -> tuple[Dataset, ...]:
         return tuple(ds for ds in self.datasets if step in ds.steps.get(plan, ()))
+
+
+def tables_for_plan(registry: "Registry", plan: str) -> set[str]:
+    """某计划会写到的表：所有在该计划下有步骤的数据族的 tables 之并。
+
+    门禁按这个集合裁剪期望表——local 计划（fupanhui 停抓后的自算链路）不产 mainline /
+    theme_flow / 公开资产，这些表在 local 日缺行是设计，不是断档。"""
+    if plan not in registry.plans:
+        raise KeyError(f"unknown plan {plan!r}; known: {', '.join(sorted(registry.plans))}")
+    out: set[str] = set()
+    for ds in registry.datasets:
+        if ds.steps.get(plan):
+            out.update(ds.tables)
+    return out
 
 
 def _as_tuple(value) -> tuple[str, ...]:

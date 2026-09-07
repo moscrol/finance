@@ -43,6 +43,26 @@ description: "DuckDB market_feature_store 历史日回补与验收。触发：�
 
 第 1、2 件回答「有没有」，第 3 件回答「像不像基线」：行数、来源语义、`pre_close`/`pct_chg` 链、金额量纲、字段空值、板块 payload 对账、日历副作用。三者缺任一都出现过「行数全对、值是空壳」的静默降级。
 
+## local 计划：不发任何 fupanhui 请求的日更 / 补日链路（2026-09-07 起）
+
+fupanhui 账号风控后的生产链路。`run_review_sync.py --date D --plan local`（或逐步 `--only`）：
+
+`stock-daily`（东财快照，仅当日）→ `index-daily` → `sw-l1-daily` → `carry-forward-universe`（名单冻结：把最近一份
+published 宇宙按当日重发，provider=`local:carry`）→ `stitch-sector-stocks --max-baseline-age-days 180`（最后一份 fupanhui
+成分 × 当日东财真值）→ `sector-daily-local` → `compute-limit-stats-local`（题材涨停/明细/连板/龙头，不计 ST）→
+`compute-market-overview-local`（沪深总额/涨家数/涨跌停/量能/前三行业/新高/周均线）→ `features`。
+
+- 历史日补数同一条链，个股用 mootdx（`sync-stock-daily --start-date D --end-date D`），不用东财快照。
+- **顺序按日串行**：后一日的板块边际量用前一日全量板块额，09-03 没补完不要跑 09-04。
+- 名单没抓全的那天（identity 变了、成分 0 行，如 2026-09-03）用 `carry-forward-universe --supersede --base-date <最后完整日>`
+  冻回最后一份完整名单，原快照留 `superseded`；否则 stitch 把变动板块留给已不存在的 provider。
+- `sector-daily-local` 对无成分板块 fail closed（不把「没抓到」写成 0）。北交所个股缺行会让 BJ 密集的小板块整块 pending
+  （09-03/09-04 各 9 个），先补齐个股再跑。
+- 门禁带 `--plan local`：期望表由 `consumption_registry.tables_for_plan('local')` 派生，fupanhui 独有的表（主线×3、资金流、
+  新高、公开资产）和 `strength_*` 字段不算缺。cross-day `check-daily --plan local` 同理。
+- 不产：主线题材、summary/keywords、核心个股、资金流、周期阶段、市场强度、`fact_stock_high_daily`（新高家数已进 market 行，
+  按 `high` 算，与 fupanhui 的前复权口径差 ~12%，只作参考）。
+
 ## 剥离 fupanhui：双轨切换门（2026-09-07 起）
 
 定位：fupanhui 是**参照源**，不是抓取源头。加工字段用自己的底数据（东财/mootdx 个股、申万官方）按公开规则算，
