@@ -2,8 +2,12 @@
 
 > 母单：#27 `2026-09-07-runtime-base-endstate-design.md` §6.3、§7（切流）。前置：P1（#28，PR #624）合入。
 > 分支：`feat/runtime-base-p2-durable-store`（叠在 `feat/runtime-base-p1-messages-cancel` 上；#624 合后 rebase 到 main）。
-> 状态：🟡 执行中（2026-09-07 下午，用户「继续按最优路径推进」）。§12 第 1 / 3 题**按推荐执行**：JSONL 后端、重启后只登记。
-> 判据：INV-R2 / INV-R3 成立；`RuntimeHandle` 四类验收场景改回 08-15 原文（含**进程重启**）。
+> 状态：🟡 代码已落、门禁绿、PR 待确认（2026-09-07 下午，用户「继续按最优路径推进」）。§12 第 1 / 3 题**按推荐执行**：JSONL 后端、重启后只登记。A–D 四刀四 commit（`d1e77051` / `78789f6f` / `f1110c7f` / `e59f03ea`）；E 干净树全量 **8063 passed / 0 failed / 77 skipped**（收据 `20260907T102315Z-e59f03ea.json`，对 P1 基线 red set 相同、+42 全为本单新增）。**未做**：8792 切流 + `kill -9` 演练（母单 §7，需用户在场）。
+> 判据：INV-R2 / INV-R3 成立（conformance 矩阵 + Tier A 逐前缀 oracle）；`RuntimeHandle` 四类验收场景改回 08-15 原文（含**进程重启**）——docstring 写死认领第 2 条已改为已落。
+>
+> **落地记录（09-07）**：A `services/episode_store.py`（`EpisodeStore` Protocol、`Memory` / `Jsonl`、`EpisodeState`、`EPISODE_LOG_VERSION`、`EpisodeEvent.ignorable` + `require_known_kinds`）；B `ToolSpec.replay` / `EpisodeToolBatchSession.on_dispatch` + `DispatchIntent` / `_EpisodeLedger` 落盘（意图 fsync）+ `record_model_intent` + `record_dispatch_intent` + `put_state` + `configure` 首条 / 两处 `complete` 前 `model_intent{turn_id}` / `GLMAgentRuntime(episode_store=…)` / `conformance/oracle.py` + `test_inv_r2_write_order`；C `services/episode_restore.py` + `ContinuousAgentEpisode.restore` + `test_episode_restore.py`（逐前缀 oracle：五种动作全到过）+ `test_inv_r3_restore`；D `api/app.py` 装配 `JsonlEpisodeStore` + readiness `open_episodes` / adapter 产物 `log_version` + `runtime_handle` / `EpisodeFinalizer.recover(on_prompt)` + `prompt_assembled{source: finalizer}`。既有断言按意图改两处（首条 `configure`；一批多调用请求先于任何结算）。`normalize_harness_trace` L1 加 `model_intent → intent`；三张目录再生成（durable 30 种）。
+>
+> **与 §2 步骤的差异**：`configure` 快照不含 `instructions_hash`（它必须先于 `task`，而 system 提示词在绑完 sub_research 之后才拼得出来；同一事实由紧随的 `prompt_assembled.system_sha256` 承载）。`restore` 一次只给一个下一动作（部分意图落地时先重跑落了的那条），驾驭方迭代收敛。
 
 ## 0. 开工前核对的两处事实（与母单 §4 G1 有出入，按实测改）
 
