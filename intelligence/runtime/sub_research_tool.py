@@ -167,6 +167,11 @@ def tool_result_from_branches(
 
     if result.refused_reason:
         reason = result.refused_reason
+        refused_telemetry: dict[str, object] = {"refused_reason": reason, "branches": []}
+        if result.admission is not None:
+            refused_telemetry["admission"] = result.admission.to_dict()
+        if root_budget is not None:
+            refused_telemetry["root_budget"] = dict(root_budget)
         return ToolRunResult(
             evidence=(),
             observation=(
@@ -180,7 +185,7 @@ def tool_result_from_branches(
                 detail=f"refused={reason}; goals={len(goals)}",
             ),
             gaps=tuple(f"子研究分支「{goal}」未执行（{reason}）" for goal in goals),
-            telemetry={"refused_reason": reason, "branches": []},
+            telemetry=refused_telemetry,
         )
 
     branches = result.branches
@@ -200,6 +205,8 @@ def tool_result_from_branches(
         "refused_reason": "",
         "branches": [branch_telemetry(b) for b in branches],
     }
+    if result.admission is not None:
+        telemetry["admission"] = result.admission.to_dict()
     if root_budget is not None:
         telemetry["root_budget"] = dict(root_budget)
     return ToolRunResult(

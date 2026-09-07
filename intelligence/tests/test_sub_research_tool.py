@@ -21,6 +21,7 @@ from intelligence.runtime.episode_tool_batch import ToolBatchExecutor
 from intelligence.runtime.sub_research import (
     MAX_CALLS_PER_BRANCH,
     MAX_SECONDS_PER_BRANCH,
+    BranchAdmission,
     BranchBatch,
     BranchBudgetReceipt,
     BranchInvalidAction,
@@ -166,6 +167,34 @@ def test_refusal_is_an_error_with_reason_not_a_silent_empty() -> None:
     assert result.evidence == ()
     assert len(result.gaps) == 2 and all("未执行" in gap for gap in result.gaps)
     assert result.telemetry["refused_reason"] == "deep_mode_required"
+
+
+def test_admission_numbers_ride_along_in_telemetry_for_refusals_and_runs() -> None:
+    """准入账（预留多少、每支拿多少、保险丝余量）进 telemetry；拒绝时也带，这样
+    「为什么没起分支」在收据里是数字不是一句 reason。"""
+
+    admission = BranchAdmission(
+        branch_count=3, calls_per_branch=1, seconds_per_branch=140.0,
+        reserved_calls=8, reserved_seconds=60.0, root_remaining_calls=9,
+        root_remaining_seconds=200.0, llm_headroom=35, llm_expected=17,
+        refused_reason="parent_reserve_exhausted:calls",
+    )
+    refused = tool_result_from_branches(
+        ("甲", "乙", "丙"),
+        SubResearchResult((), refused_reason=admission.refused_reason, admission=admission),
+    )
+    assert refused.telemetry["admission"]["refused_reason"] == "parent_reserve_exhausted:calls"
+    assert refused.telemetry["admission"]["reserved_calls"] == 8
+    assert "parent_reserve_exhausted:calls" in refused.observation
+
+    ran = tool_result_from_branches(
+        ("甲",),
+        SubResearchResult((_branch("branch-1", "甲"),), admission=replace(admission, refused_reason="")),
+    )
+    assert ran.telemetry["admission"]["calls_per_branch"] == 1
+    assert "refused_reason" not in ran.telemetry["admission"]
+    plain = tool_result_from_branches(("甲",), SubResearchResult((_branch("branch-1", "甲"),)))
+    assert "admission" not in plain.telemetry
 
 
 def test_completed_with_zero_evidence_reads_as_gap_not_negation() -> None:
@@ -392,9 +421,11 @@ def test_branch_limits_scale_with_tier_and_the_coordinator_sizes_branches_by_the
             seen.append((budget.initial_calls, round(budget.initial_seconds, 1)))
             return _branch(request.branch_id, request.goal)
 
-    # 档位上限之外，父账本仍是上界：deep 起步 12 次 ÷ 2 支 = 6 < 8，所以 deep 拿 6；
-    # max 起步 40 次 ÷ 2 = 20 > 10，所以 max 拿满 10。秒数两档都不被账本压住。
-    for tier, expected in (("max", (10, 150.0)), ("deep", (6, 60.0))):
+    # 档位上限之外，父账本仍是上界，且父臂先留一批（batch_call_cap：max 8 / deep 4）：
+    # deep 起步 12 次 − 留 4 = 8 ÷ 2 支 = 4，所以 deep 拿 4（不留就是 6，父臂分支回来后一次
+    # 工具都发不出）；max 起步 40 − 8 = 32 ÷ 2 = 16 > 10，所以 max 拿满 10。
+    # 秒是墙钟、并行不按支数除：两档都不被账本压住（540 − 60 预留 ≫ 150；192 − 48 ≫ 60）。
+    for tier, expected in (("max", (10, 150.0)), ("deep", (4, 60.0))):
         context = _context(tier, allowed=("market_data",))
         try:
             seen.clear()

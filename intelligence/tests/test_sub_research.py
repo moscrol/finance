@@ -27,6 +27,7 @@ from intelligence.services.research_tool_registry import (
     ToolSpec,
 )
 from intelligence.runtime.sub_research import (
+    PARENT_TAIL_LLM_RESERVE,
     BranchBatch,
     BranchBudgetReceipt,
     BranchInvalidAction,
@@ -34,10 +35,12 @@ from intelligence.runtime.sub_research import (
     BranchRequest,
     SubResearchCoordinator,
     _BranchBudgetView,
+    admit_branches,
     branch_batches_from_events,
     branch_invalid_actions_from_events,
 )
 from intelligence.services.agent_runtime import EpisodeEvent
+from intelligence.services.llm_refine import call_ledger_scope
 from intelligence.services.task_frame import TaskFrame
 
 
@@ -451,50 +454,60 @@ def test_branch_view_settles_concurrent_seconds_without_losing_a_debit() -> None
     # The branch cannot pay out more than its own share...
     assert sum(settled) == pytest.approx(view.initial_seconds)
     assert view.remaining_seconds == pytest.approx(0.0, abs=1e-9)
-    # ...and every second the branch reported must have left the parent too,
-    # which is the invariant a lost debit would break.
-    assert parent.initial_seconds - parent.remaining_seconds == pytest.approx(
-        sum(settled)
-    )
+    # ...and none of it touches the parent: seconds are wall clock, charged once
+    # by the parent's own batch settlement when ``sub_research`` returns.
+    assert parent.remaining_seconds == pytest.approx(parent.initial_seconds)
     assert sorted(settled) == [
         pytest.approx(view.initial_seconds - requested_each),
         pytest.approx(requested_each),
     ]
 
 
-def test_branch_view_settlement_follows_the_parent_not_its_own_clamp() -> None:
-    """When the root has less than the branch thinks, the root's answer wins.
+def test_branch_view_charges_call_slots_but_never_seconds_to_the_parent() -> None:
+    """秒是墙钟：三支并行各 150s 对父臂只是 150s。
 
-    The branch share is carved out up front, so a parent drained by a sibling
-    can release less than this view would locally allow. Deducting the local
-    clamp instead of the parent's return value would credit the branch with
-    seconds the root never gave up.
+    2026-09-07 候选口第二遍：分支把秒累加转记父账本（450s）+ 父臂批结算再记 180s，
+    540s 账本在墙钟 190s 归零，父臂墙钟还剩 396s 却 deadline_exhausted、判官 unavailable。
+    调用仍从父账本扣——那是真实的共享资源，并行不会让它变便宜。
     """
 
     parent = InMemoryRootBudgetLedger(
-        episode_id="branch-parent-clamp",
-        initial_calls=4,
-        hard_calls_cap=4,
-        initial_seconds=5.0,
-        hard_seconds_cap=5.0,
+        episode_id="branch-wall-clock",
+        initial_calls=40,
+        hard_calls_cap=60,
+        initial_seconds=540.0,
+        hard_seconds_cap=600.0,
     )
-    view = _BranchBudgetView(
-        parent=parent,
-        episode_id="branch-parent-clamp:branch-0",
-        calls=2,
-        seconds=4.0,
+    views = [
+        _BranchBudgetView(parent=parent, episode_id=f"branch-wall-clock:branch-{i}", calls=10, seconds=150.0)
+        for i in range(3)
+    ]
+    for view in views:
+        for _ in range(4):
+            view.consume_call(seconds=20.0)  # 4 次工具，每次 20s
+        view.consume_seconds(seconds=50.0)   # 模型轮
+        assert view.settle_seconds(seconds=100.0) == pytest.approx(20.0)  # 只剩 20，clamp 到自己的份
+        assert view.remaining_seconds == pytest.approx(0.0, abs=1e-9)
+        assert view.remaining_calls == 6
+
+    # 三支共 12 次调用从父账本扣掉；父账本的秒一分未动（由父臂批结算按墙钟记一次）。
+    assert parent.remaining_calls == 40 - 12
+    assert parent.remaining_seconds == pytest.approx(540.0)
+    # 分支自己的次数守门仍在。
+    exhausted = _BranchBudgetView(parent=parent, episode_id="branch-wall-clock:x", calls=1, seconds=10.0)
+    exhausted.consume_call_slot()
+    with pytest.raises(ValueError, match="branch call budget exhausted"):
+        exhausted.consume_call(seconds=1.0)
+    assert parent.remaining_calls == 40 - 13
+    # 父账本没有次数时分支也发不出调用。
+    drained = InMemoryRootBudgetLedger(
+        episode_id="branch-wall-clock-drained", initial_calls=0, hard_calls_cap=0,
+        initial_seconds=10.0, hard_seconds_cap=10.0,
     )
-    # A sibling drains the root below this branch's remaining share.
-    parent.consume_seconds(seconds=4.5)
-    assert parent.remaining_seconds == pytest.approx(0.5)
-
-    settled = view.settle_seconds(seconds=3.0)
-
-    # The parent only had 0.5 left, so that -- not the locally clamped 3.0 --
-    # is what was spent and what the branch balance drops by.
-    assert settled == pytest.approx(0.5)
-    assert parent.remaining_seconds == pytest.approx(0.0, abs=1e-9)
-    assert view.remaining_seconds == pytest.approx(3.5)
+    starving = _BranchBudgetView(parent=drained, episode_id="branch-wall-clock-drained:b", calls=2, seconds=5.0)
+    with pytest.raises(ValueError, match="root call budget exhausted"):
+        starving.consume_call(seconds=1.0)
+    assert (starving.remaining_calls, starving.remaining_seconds) == (2, 5.0)
 
 
 def test_cancelled_coordinator_does_not_launch_workers() -> None:
@@ -871,6 +884,132 @@ def test_continuous_branch_worker_surfaces_a_rejected_finish_with_its_code() -> 
         "unknown_output", "integrity", "integrity_violation"
     )
     assert branch.batches == ()  # 没点过工具，没有派发账；不伪造空批
+
+
+# ---------------------------------------------------------------------------
+# 准入预留：父臂先留尾段，分支只拿剩下的（用户 09-07 拍 C）
+# ---------------------------------------------------------------------------
+
+
+def test_admission_reserves_one_parent_batch_and_one_synthesis_window() -> None:
+    """max 档 40 次 / 540s：留 8 次 + 60s，三支各拿 10 次 / 150s（与 #615 相同）；
+    秒按墙钟、不按支数除——三支并行共享同一段窗。"""
+
+    context = _context(tier="max", calls=40)
+    admission = admit_branches(
+        context=context, root=context.root_budget, branch_count=3,
+        max_calls=10, max_seconds=150.0, llm_headroom=None,
+    )
+    assert admission.refused_reason == ""
+    assert (admission.reserved_calls, admission.reserved_seconds) == (8, 60.0)
+    assert (admission.calls_per_branch, admission.seconds_per_branch) == (10, 150.0)
+    assert admission.llm_headroom is None
+    # 每支 ceil(10/4)=3 批 + 收尾 + 余量 = 5；三支 15 + 父臂尾段 8。
+    assert admission.llm_expected == 3 * 5 + PARENT_TAIL_LLM_RESERVE
+    assert admission.to_dict()["root_remaining_seconds"] == 540.0
+    assert "refused_reason" not in admission.to_dict()
+
+    # 父臂账本只剩 200s：分支拿 200 − 60 = 140，而不是 150，也不是 200/3。
+    context.root_budget.consume_seconds(seconds=340.0)
+    tight = admit_branches(
+        context=context, root=context.root_budget, branch_count=3,
+        max_calls=10, max_seconds=150.0, llm_headroom=None,
+    )
+    assert tight.seconds_per_branch == pytest.approx(140.0)
+    # 次数只剩 9：留 8 剩 1，三支各要 1 次都不够 → 拒，且理由说明是哪本账。
+    for _ in range(31):
+        context.root_budget.consume_call_slot()
+    assert context.root_budget.remaining_calls == 9
+    refused = admit_branches(
+        context=context, root=context.root_budget, branch_count=3,
+        max_calls=10, max_seconds=150.0, llm_headroom=None,
+    )
+    assert refused.refused_reason == "parent_reserve_exhausted:calls"
+    assert refused.to_dict()["refused_reason"] == "parent_reserve_exhausted:calls"
+
+
+def test_admission_refuses_when_parent_seconds_or_llm_headroom_cannot_cover_the_tail() -> None:
+    context = _context(tier="max", calls=40)
+    root = context.root_budget
+    assert root is not None
+    # 账本秒只剩 50 < 预留 60 → 拒（秒），分支再短也不该起：它的墙钟回来会把父臂最后一点账本吃掉。
+    root.consume_seconds(seconds=490.0)
+    by_seconds = admit_branches(
+        context=context, root=root, branch_count=2, max_calls=10, max_seconds=150.0, llm_headroom=None,
+    )
+    assert by_seconds.refused_reason == "parent_reserve_exhausted:seconds"
+
+    fresh = _context(tier="max", calls=40)
+    # 保险丝余量 20 < 两支 (3+2)×2=10 + 尾段 8 = 18？够。余量 17 → 不够 → 拒。
+    ok = admit_branches(
+        context=fresh, root=fresh.root_budget, branch_count=2, max_calls=10, max_seconds=150.0, llm_headroom=20,
+    )
+    assert ok.refused_reason == "" and ok.llm_expected == 18
+    short = admit_branches(
+        context=fresh, root=fresh.root_budget, branch_count=2, max_calls=10, max_seconds=150.0, llm_headroom=17,
+    )
+    assert short.refused_reason == "llm_call_reserve_exhausted"
+
+
+def test_coordinator_reads_the_turn_llm_ledger_and_refuses_loudly_when_the_tail_is_not_covered() -> None:
+    """协调器从 contextvar 台账读余量：40 上限已预占 30 → 余 10 < 三支 15 + 8 → 拒，worker 不跑；
+    结果带 admission，工具层能把数字写进收据。"""
+
+    class _NeverWorker:
+        def run(self, request):  # pragma: no cover - refused before worker runs
+            raise AssertionError("worker must not run")
+
+    with call_ledger_scope(max_calls=40) as ledger:
+        for _ in range(30):
+            assert ledger.try_reserve()
+        result = SubResearchCoordinator(_NeverWorker()).run(
+            goals=("甲", "乙", "丙"),
+            task_frame=_frame(),
+            context=_context(tier="max", calls=40),
+            registry=ResearchToolRegistry(()),
+            evidence_sink_factory=EvidenceLedger().branch_sink,
+        )
+    assert result.refused_reason == "llm_call_reserve_exhausted"
+    assert result.branches == ()
+    assert result.admission is not None
+    assert (result.admission.llm_headroom, result.admission.llm_expected) == (10, 3 * 5 + 8)
+
+    # 余量够（40 上限只占 5）→ 正常起分支，admission 随结果带出。
+    with call_ledger_scope(max_calls=40) as ledger:
+        for _ in range(5):
+            assert ledger.try_reserve()
+        ran = SubResearchCoordinator(ScriptedWorker()).run(
+            goals=("甲", "乙", "丙"),
+            task_frame=_frame(),
+            context=_context(tier="max", calls=40),
+            registry=ResearchToolRegistry(()),
+            evidence_sink_factory=EvidenceLedger().branch_sink,
+        )
+    assert ran.refused_reason == "" and len(ran.branches) == 3
+    assert ran.admission is not None and ran.admission.llm_headroom == 35
+    assert (ran.admission.calls_per_branch, ran.admission.seconds_per_branch) == (10, 150.0)
+
+
+def test_parallel_branches_charge_the_parent_wall_clock_once_through_the_coordinator() -> None:
+    """走协调器：三支 ScriptedWorker 各 consume_call(1.0s)，父账本次数 −3、秒不动。"""
+
+    context = _context(tier="max", calls=40)
+    root = context.root_budget
+    assert root is not None
+    result = SubResearchCoordinator(ScriptedWorker()).run(
+        goals=("甲", "乙", "丙"),
+        task_frame=_frame(),
+        context=context,
+        registry=ResearchToolRegistry(()),
+        evidence_sink_factory=EvidenceLedger().branch_sink,
+    )
+    assert [b.status for b in result.branches] == ["completed"] * 3
+    assert root.remaining_calls == 37
+    assert root.remaining_seconds == pytest.approx(540.0)
+    for branch in result.branches:
+        assert branch.budget is not None
+        assert branch.budget.consumed_calls == 1
+        assert branch.budget.remaining_seconds == pytest.approx(149.0)
 
 
 def test_failed_or_cancelled_branches_carry_no_budget_or_batches() -> None:

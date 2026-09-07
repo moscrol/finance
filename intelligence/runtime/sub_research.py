@@ -13,6 +13,7 @@ from intelligence.runtime.episode_tool_batch import batch_call_cap
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import EpisodeEvent
 from intelligence.services.evidence_ledger import BranchEvidenceSink
+from intelligence.services.llm_refine import current_call_ledger
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     ResearchDeadline,
@@ -65,7 +66,15 @@ def _clean_goals(values: Iterable[str]) -> tuple[str, ...]:
 
 
 class _BranchBudgetView:
-    """A non-minting child view whose consumption debits one parent ledger."""
+    """A non-minting child view: calls debit the parent, seconds stay local.
+
+    秒是墙钟。三支并行各跑 150s，对父臂只是 150s 的墙钟——父臂对 ``sub_research`` 那一批
+    做批结算时按墙钟记一次；分支自己的秒只用来守自己的 150s 与出收据。此前分支把秒也
+    转记到父账本，三支累加 450s、批结算再 180s，540s 的账本在墙钟 190s 归零，父臂墙钟
+    还剩 396s 却 ``deadline_exhausted``、判官 unavailable（2026-09-07 候选口第二遍，
+    ``docs/verification/2026-09-07-branch-level-trace.md`` §4.2）。调用仍从父账本扣：
+    调用是真实的共享资源（``PRODUCT_MAX_TOOL_CALLS``），并行不会让它变便宜。
+    """
 
     def __init__(
         self,
@@ -112,6 +121,15 @@ class _BranchBudgetView:
         del episode_id, promotion_id, hard_calls_cap, hard_seconds_cap
         return False
 
+    def _debit_parent_call_slot(self) -> None:
+        slot = getattr(self._parent, "consume_call_slot", None)
+        if callable(slot):
+            slot()
+            return
+        # Parent predates the Protocol method (third-party/test stub): spend the
+        # slot through the old seconds-coupled entry with a negligible debit.
+        self._parent.consume_call(seconds=1e-9)
+
     def consume_call(self, *, seconds: float) -> None:
         if seconds <= 0:
             raise ValueError("consumed call seconds must be positive")
@@ -120,9 +138,16 @@ class _BranchBudgetView:
                 raise ValueError("branch call budget exhausted")
             if seconds > self.remaining_seconds + 1e-9:
                 raise ValueError("branch seconds budget exhausted")
-            self._parent.consume_call(seconds=seconds)
+            self._debit_parent_call_slot()
             self.remaining_calls -= 1
             self.remaining_seconds = max(0.0, self.remaining_seconds - seconds)
+
+    def consume_call_slot(self) -> None:
+        with self._lock:
+            if self.remaining_calls <= 0:
+                raise ValueError("branch call budget exhausted")
+            self._debit_parent_call_slot()
+            self.remaining_calls -= 1
 
     def consume_seconds(self, *, seconds: float) -> None:
         if seconds < 0:
@@ -130,19 +155,16 @@ class _BranchBudgetView:
         with self._lock:
             if seconds > self.remaining_seconds + 1e-9:
                 raise ValueError("branch seconds budget exhausted")
-            self._parent.consume_seconds(seconds=seconds)
             self.remaining_seconds = max(0.0, self.remaining_seconds - seconds)
 
     def settle_seconds(self, *, seconds: float) -> float:
-        """Clamp against this branch's share, then debit the parent, and report
-        what the parent actually took.
+        """Clamp against this branch's own share and report what was spent.
 
         Settling finished work cannot be undone, so this never raises on
         overdraft. Clamping inside ``self._lock`` is what keeps concurrent
-        settling from losing a debit; the parent is debited first so a child
-        balance never claims seconds the root has not released. The parent may
-        take *less* than asked (it clamps too), so its return value -- not the
-        locally clamped request -- is what gets deducted here and returned.
+        settling from losing a debit. The parent is **not** debited here: the
+        branch's wall time is inside the parent's ``sub_research`` batch, which
+        the parent settles once against its own ledger when the batch returns.
         """
 
         try:
@@ -152,20 +174,7 @@ class _BranchBudgetView:
         if requested < 0:
             raise ValueError("settled seconds must be non-negative")
         with self._lock:
-            claimed = min(requested, max(0.0, self.remaining_seconds))
-            parent_settle = getattr(self._parent, "settle_seconds", None)
-            if callable(parent_settle):
-                settled = float(parent_settle(seconds=claimed))
-            else:
-                # Parent predates the Protocol method (third-party/test stub).
-                # Fall back to the strict debit, treating a rejection as "the
-                # parent released nothing" rather than silently crediting this
-                # branch for seconds the root never gave up.
-                try:
-                    self._parent.consume_seconds(seconds=claimed)
-                except (TypeError, ValueError):
-                    return 0.0
-                settled = claimed
+            settled = min(requested, max(0.0, self.remaining_seconds))
             self.remaining_seconds = max(0.0, self.remaining_seconds - settled)
             return settled
 
@@ -500,10 +509,115 @@ class BranchResult:
         object.__setattr__(self, "invalid_actions", tuple(self.invalid_actions))
 
 
+# 父臂尾段在 turn 级 LLM 调用保险丝上的预留：分支回来后父臂至少一轮消化 + 一次合成 +
+# 判官（≤3）+ 修复轮（≤2），取整 8。#617 那一遍就是分支把 40 烧到判官发不出去。
+PARENT_TAIL_LLM_RESERVE = 8
+
+
+@dataclass(frozen=True)
+class BranchAdmission:
+    """起分支前的准入账：父臂先留下自己的尾段，分支只拿剩下的。
+
+    「能力 max」的反面不是约束多，是约束放错了地方：#615 把每支抬到 150s 后，三支跑满
+    会把父臂挤到一次工具都发不出、判官没时间上场（09-07 候选口第二遍）。预留的三样是
+    父臂把分支成果变成答案所需的最小量——一批工具（``batch_call_cap``）、一次合成的秒
+    （``policy.synthesis_reserve``）、保险丝上的尾段调用（``PARENT_TAIL_LLM_RESERVE``）。
+    分支能拿多少由这三条与档位上限共同决定，账本余量不够留尾段就拒起分支、让模型直接
+    点工具——分支是放大能力的手段，不能反过来吃掉出答案的能力。
+    """
+
+    branch_count: int
+    calls_per_branch: int
+    seconds_per_branch: float
+    reserved_calls: int
+    reserved_seconds: float
+    root_remaining_calls: int
+    root_remaining_seconds: float
+    llm_headroom: int | None
+    llm_expected: int
+    refused_reason: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "branch_count": self.branch_count,
+            "calls_per_branch": self.calls_per_branch,
+            "seconds_per_branch": round(self.seconds_per_branch, 3),
+            "reserved_calls": self.reserved_calls,
+            "reserved_seconds": round(self.reserved_seconds, 3),
+            "root_remaining_calls": self.root_remaining_calls,
+            "root_remaining_seconds": round(self.root_remaining_seconds, 3),
+            "llm_headroom": self.llm_headroom,
+            "llm_expected": self.llm_expected,
+        }
+        if self.refused_reason:
+            payload["refused_reason"] = self.refused_reason
+        return payload
+
+
+def admit_branches(
+    *,
+    context: ResearchRunContext,
+    root: RootBudgetLedger,
+    branch_count: int,
+    max_calls: int,
+    max_seconds: float,
+    llm_headroom: int | None,
+) -> BranchAdmission:
+    """给 ``branch_count`` 支分支切额度，先扣父臂尾段。
+
+    - 次数：父臂预留一批（``batch_call_cap(policy)``，max 档 8 / 其它 4）；剩下的按支均分，
+      再被档位上限压住。剩不够每支一次 → 拒。
+    - 秒：墙钟。并行分支共享同一段窗，**不按支数除**；父臂预留一次合成（``synthesis_reserve``），
+      分支拿 ``min(档位上限, deadline 余量, 账本余量 − 预留)``。预留后为零 → 拒。
+    - 保险丝：分支预计模型调用 = 每支（批数 + 收尾 + 1 余量）× 支数，加父臂尾段 8；
+      余量不够 → 拒。无台账（None）不判。
+    """
+
+    reserved_calls = batch_call_cap(context.policy)
+    reserved_seconds = max(0.0, float(context.policy.synthesis_reserve))
+    root_calls = int(root.remaining_calls)
+    root_seconds = float(root.remaining_seconds)
+    available_calls = root_calls - reserved_calls
+    available_seconds = min(
+        float(context.deadline.remaining()),
+        root_seconds - reserved_seconds,
+    )
+    calls_per_branch = max(
+        1,
+        min(max_calls, max(0, available_calls) // max(1, branch_count)),
+    )
+    seconds_per_branch = max(0.001, min(max_seconds, available_seconds))
+    # 分支上下文带 quick 标签，每批帽是 quick 的那个数；批数 = ceil(次数 / 帽)。
+    branch_cap = batch_call_cap(ResearchPolicy("quick", calls_per_branch, seconds_per_branch, 0.0))
+    per_branch_llm = -(-calls_per_branch // max(1, branch_cap)) + 2
+    llm_expected = branch_count * per_branch_llm + PARENT_TAIL_LLM_RESERVE
+
+    refused = ""
+    if available_calls < branch_count:
+        refused = "parent_reserve_exhausted:calls"
+    elif available_seconds <= 0.0:
+        refused = "parent_reserve_exhausted:seconds"
+    elif llm_headroom is not None and llm_headroom < llm_expected:
+        refused = "llm_call_reserve_exhausted"
+    return BranchAdmission(
+        branch_count=branch_count,
+        calls_per_branch=calls_per_branch,
+        seconds_per_branch=seconds_per_branch,
+        reserved_calls=reserved_calls,
+        reserved_seconds=reserved_seconds,
+        root_remaining_calls=root_calls,
+        root_remaining_seconds=root_seconds,
+        llm_headroom=llm_headroom,
+        llm_expected=llm_expected,
+        refused_reason=refused,
+    )
+
+
 @dataclass(frozen=True)
 class SubResearchResult:
     branches: tuple[BranchResult, ...]
     refused_reason: str = ""
+    admission: BranchAdmission | None = None
 
     @property
     def tool_calls(self) -> int:
@@ -607,18 +721,17 @@ class SubResearchCoordinator:
 
         branch_count = len(normalized)
         max_calls, max_seconds = branch_limits(context.policy.tier)
-        calls_per_branch = max(
-            1,
-            min(max_calls, root.remaining_calls // branch_count),
+        llm_ledger = current_call_ledger()
+        admission = admit_branches(
+            context=context,
+            root=root,
+            branch_count=branch_count,
+            max_calls=max_calls,
+            max_seconds=max_seconds,
+            llm_headroom=llm_ledger.headroom() if llm_ledger is not None else None,
         )
-        seconds_per_branch = max(
-            0.001,
-            min(
-                max_seconds,
-                context.deadline.remaining(),
-                root.remaining_seconds / branch_count,
-            ),
-        )
+        if admission.refused_reason:
+            return SubResearchResult((), admission.refused_reason, admission=admission)
         requests = tuple(
             self._request(
                 index=index,
@@ -628,8 +741,8 @@ class SubResearchCoordinator:
                 registry=registry,
                 evidence_sink_factory=evidence_sink_factory,
                 root=root,
-                calls=calls_per_branch,
-                seconds=seconds_per_branch,
+                calls=admission.calls_per_branch,
+                seconds=admission.seconds_per_branch,
             )
             for index, goal in enumerate(normalized, start=1)
         )
@@ -664,7 +777,8 @@ class SubResearchCoordinator:
                     )
                 results[request.branch_id] = result
         return SubResearchResult(
-            tuple(results[request.branch_id] for request in requests)
+            tuple(results[request.branch_id] for request in requests),
+            admission=admission,
         )
 
     def _request(
@@ -757,10 +871,13 @@ class SubResearchCoordinator:
 
 
 __all__ = [
+    "BranchAdmission",
     "BranchBatch",
     "BranchBudgetReceipt",
     "BranchInvalidAction",
     "BranchRequest",
+    "PARENT_TAIL_LLM_RESERVE",
+    "admit_branches",
     "branch_batches_from_events",
     "branch_invalid_actions_from_events",
     "branch_limits",
