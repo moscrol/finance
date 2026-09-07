@@ -66,7 +66,8 @@ published 宇宙按当日重发，provider=`local:carry`）→ `stitch-sector-st
 - 编辑层替代版与 fupanhui 历史对照（15 日）：强度均涨幅相对误差中位 1.8%、强度状态一致 14/15、量能状态一致 15/15；新高名单按裸价
   `high`，与 fupanhui 前复权口径差 ~12%。这些是**自家口径**，fupanhui 值恢复可读时只作对照（`qa_local_vs_fupanhui.py` 编辑层段）。
 - **周期阶段**：自训 numpy 逻辑回归 v1（`market_feature_store/models/market_stage.py`，监督 = fupanhui 343 个标签日），
-  分块 5 折精确 43.7% / 粗粒度 55.1%（手写规则 37%/58%），写库带 `market_stage_source='local:stage-lr-v1'` 与 `market_stage_confidence`，
+  分块 5 折精确 41.6% / 粗粒度 53.0%（手写规则 37%/58%；首版在含 4 天坏日线的数据上是 43.7%/55.1%，工单 #32 修数后重训，
+  权重最大漂 21.7%——1.2% 的样本就能晃动这么多，读数按 ±2pp 抖动看），写库带 `market_stage_source='local:stage-lr-v1'` 与 `market_stage_confidence`，
   滞回平滑（新阶段概率高出 0.15 才切换）。标签多了 `cli train-market-stage` 重训，产物 JSON 进仓。
 - **主线题材**：人气值 v1 = 20 日涨幅×2 + 5 日涨停数×1 + 5 日均额×0.5 + 5 日双红×0.5，题材分取成员板块 top-3 均值，取前 4 题材；
   板块→题材用 fupanhui 主线历史归组（73 板块/14 题材）兜底申万一级。与其 53 日历史 Jaccard 0.28（随机 0.09；只在其 14 题材内选 0.47）。

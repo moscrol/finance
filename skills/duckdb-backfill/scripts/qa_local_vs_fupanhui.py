@@ -401,6 +401,27 @@ def run(start, end, n, json_path):
         else:
             print("个股日线相邻日复制扫描：无")
 
+        # 东财快照行「写入时刻晚于下一交易日开盘」：快照只有「最新」语义，那一刻的最新已经不是 trade_date 的了。
+        # 不能写成「updated_at 日期 ≠ trade_date」——凌晨 / 周末补前一交易日是常态（2026-07~08 有 8 天），
+        # 那些行总额比 0.9997~0.9999、零复制，是对的。以「下一交易日 09:30」为界才分得开：
+        # 07-20 写于 07-22 00:36（过了 07-21 整个交易日）、08-06 写于 08-09 23:05 → 命中；其余 8 天不命中。
+        late = q(con, """
+            WITH d AS (SELECT DISTINCT trade_date FROM fact_stock_daily),
+                 nxt AS (SELECT trade_date, LEAD(trade_date) OVER (ORDER BY trade_date) next_td FROM d)
+            SELECT CAST(s.trade_date AS VARCHAR), CAST(nxt.next_td AS VARCHAR), COUNT(*), CAST(MIN(s.updated_at) AS VARCHAR)
+            FROM fact_stock_daily s JOIN nxt USING (trade_date)
+            WHERE s.source LIKE 'eastmoney:snapshot%' AND nxt.next_td IS NOT NULL
+              AND s.updated_at > nxt.next_td + INTERVAL '9 hours 30 minutes'
+            GROUP BY 1, 2 ORDER BY 1""")
+        out["families"]["snapshot_written_after_next_session"] = [
+            {"day": d1, "next_td": d2, "rows": n_, "first_write": ts} for d1, d2, n_, ts in late]
+        if late:
+            print("!! 东财快照行写入时刻已过下一交易日开盘（那份「最新」不可能是该日数据，需重抓）：")
+            for d1, d2, n_, ts in late:
+                print(f"   {d1}: {n_} 行写于 {ts}，而 {d2} 已开盘")
+        else:
+            print("东财快照写入时刻扫描：无越过下一交易日开盘的行")
+
         # ---- 判定
         print("\n== 判定（干净日 %d 个）==" % len(clean))
         failed = []
@@ -416,6 +437,9 @@ def run(start, end, n, json_path):
             # 整天复制不是「某族读数偏低」，是底数据错位——与坏底数据日同级，直接判 FAIL
             failed.append("stock_daily_dup_days")
             print(f"[FAIL] {'stock_daily_dup_days':<18} {len(dup)} 天个股日线与相邻日整份相同")
+        if late:
+            failed.append("snapshot_written_after_next_session")
+            print(f"[FAIL] {'snapshot_late_write':<18} {len(late)} 天东财快照写入时刻已过下一交易日开盘")
         out["clean_days"] = clean
         out["failed"] = failed
         out["ok"] = not failed

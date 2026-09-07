@@ -790,8 +790,9 @@ def cmd_sync_stock_daily_snapshot(args) -> int:
     stats = sync_fact_stock_daily_snapshot(
         trade_date=args.trade_date,
         page_size=args.page_size,
+        allow_misdated=args.allow_misdated,
     )
-    print(f"交易日: {stats['trade_date']} | 来源: {stats['source']}")
+    print(f"交易日: {stats['trade_date']} | 快照实际日期: {stats['snapshot_trade_date']} | 来源: {stats['source']}")
     print(f"快照拉取: {stats['fetched']} 行 | 写入: {stats['rows_written']} | 跳过: {stats['skipped']}")
     print(f"当日入库: {stats['day_rows']} 股")
     print(f"fact_stock_daily: {stats['table_total']} 行, {stats['distinct_stocks']} 股, "
@@ -1608,6 +1609,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_sks = sub.add_parser("sync-stock-daily-snapshot", help="东财全市场快照写单日 fact_stock_daily (盘后增量快路径)")
     p_sks.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取当天")
     p_sks.add_argument("--page-size", type=int, default=100, help="东财分页大小, 单页上限100")
+    p_sks.add_argument("--allow-misdated", action="store_true",
+                       help="快照实际日期(f297) ≠ --trade-date 时仍然写, source 标 -misdated。默认拒写——"
+                            "补历史日请用 sync-stock-daily (mootdx), 07-20/08-06 两次事故都是这里写坏的")
     p_sks.set_defaults(func=cmd_sync_stock_daily_snapshot)
 
     p_du = sub.add_parser("daily-update", help="一键日更同步+补字段+质检")

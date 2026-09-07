@@ -8,6 +8,10 @@
    - numpy 多分类逻辑回归（环境无 sklearn；不动共享 venv），30 个特征全来自本地表：上证收盘链（ret/MA/位置/波动）、量能比、涨家数广度、
      涨跌停、强度、前三行业占比、全A等权涨跌、站上 20 日线比例、20 日新高比例。监督 = fupanhui 343 个可用标签日（2025-04-08～2026-09-02）。
    - **分块 5 折：精确 43.7%，粗粒度（上行/下行/横盘）55.1%**；手写规则 37%/58%。最近一块（2026-05-28～09-02）只有 22%。
+     **2026-09-07 深夜更正（工单 #32）**：上面这组数是在含 4 天坏日线（06-22/06-23 半数股票无价、07-20/08-06 整天是次日复制）的
+     数据上训出来的。修数后重训并已替换产物：**精确 41.6% / 粗粒度 53.0%**，各块 [0.45, 0.59, 0.49, 0.37, 0.18]；特征 μ/σ 只动 ≤0.11%，
+     但权重最大漂 21.7%——1.2% 的样本就让权重晃这么多，说明这个 LR 对样本敏感，读数按 ±2pp 抖动看，两组数字都不足以说「谁更准」。
+     生产 09-03/04/07 三天用新产物重写：标签仍是下跌阶段第 1/2/3 天，置信 0.681/0.631/0.545（原 0.697/0.645/0.549）。
      结论：fupanhui 的周期不是价格/量能/广度的线性函数；v1 是**自家低置信标签**，写库带 `market_stage_source='local:stage-lr-v1'`、
      `market_stage_confidence`（schema 加两列，老库 `ensure_stage_columns`）。滞回：新阶段概率高出当前 0.15 才切换，`stage_day` 随切换累计。
      有 fupanhui 标签的日子不覆盖。CLI `train-market-stage`（重训并导出 JSON 产物 `models/market_stage_lr_v1.json`，8.5KB）、`compute-market-stage-local`。
@@ -32,7 +36,7 @@ fupanhui 的 `fact_core_stock_daily` 50 只是编辑池。我们的标准建议�
 - 门禁：ruff 绿；pytest 见 PR；`registry-check` 通过。
 
 ## 验收标准
-1. `compute-market-stage-local --trade-date 2026-09-07 --dry-run` 输出与库中一致（下跌阶段 第3天 0.549）；`train-market-stage --out /tmp/x.json` 复现 CV ≈43.7%（±1pp，随机初始化为零、确定性）。
+1. `compute-market-stage-local --trade-date 2026-09-07 --dry-run` 输出与库中一致（下跌阶段 第3天 0.545；工单 #32 修数换产物前是 0.549）；`train-market-stage --out /tmp/x.json` 复现 CV ≈41.6%（±1pp，随机初始化为零、确定性；修数前的数据上是 43.7%）。
 2. `SELECT theme_name FROM fact_mainline_theme_daily WHERE trade_date='2026-09-07'` = 农林牧渔/AI算力/电子/通信，source `local:mainline-v1`。
 3. `pytest tests/test_market_stage_model.py tests/test_compute_local_stats.py` 13 passed。
 4. fupanhui 访问恢复后：`qa_local_vs_fupanhui.py` 编辑层/主线/周期段出对照读数。
