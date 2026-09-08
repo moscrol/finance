@@ -622,13 +622,16 @@ def _capital_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
     # 聚合对象的记录时刻取 ``MAX``：整份聚合要等最后一条成分股落地才算可知。
     # 逐行先按「两来源取较早」解析、再对解析后的值取 MAX——反过来（先 MAX 再取较早）
     # 会把某一行的早时刻安到整份聚合上，等于宣称聚合比它的成分先存在。
+    # 三个 SUM 先转 DECIMAL 再加：DuckDB 并行 SUM(DOUBLE) 的求和顺序不定，同一入参两次调用
+    # amount_sum 会在最后一位上翻（实测 2026-01-12 算力租赁 2413.130000000001 vs 2413.1299999999997），
+    # 连带 source_hash 变——破的是本模块「两次调用逐字段相同」的硬约束。
     agg = _rows(
         con,
         f"""
         SELECT COUNT(*) AS n_stocks,
-               SUM(v.fund_flow_1d) AS fund_flow_1d_sum,
-               SUM(v.fund_flow_5d) AS fund_flow_5d_sum,
-               SUM(v.amount) AS amount_sum,
+               CAST(SUM(CAST(v.fund_flow_1d AS DECIMAL(24, 6))) AS DOUBLE) AS fund_flow_1d_sum,
+               CAST(SUM(CAST(v.fund_flow_5d AS DECIMAL(24, 6))) AS DOUBLE) AS fund_flow_5d_sum,
+               CAST(SUM(CAST(v.amount AS DECIMAL(24, 6))) AS DOUBLE) AS amount_sum,
                MAX({sector_recorded_at_sql("v", with_ledger=ledger)}) AS recorded_at
         FROM fact_sector_stock_daily v
         {sector_ledger_join("v") if ledger else ""}
@@ -882,11 +885,16 @@ def slice_river(
     allow_hindsight: bool = False,
     db_path: str | Path | None = None,
     checkpoints_path: str | Path | None = None,
+    teaching_labels_db: str | Path | None = None,
 ) -> RiverSlice:
     """取 ``as_of`` 这一天、``entity`` 这个实体的六轨对齐切片。
 
     ``knowledge_cutoff`` 缺省 = ``as_of``（当日带读口径）。回放 / 校准要显式传，
     且必须 ``<= as_of``——**本层强制**，不是文档约定。
+
+    ``teaching_labels_db`` 给了授课框架旁路库时，盘面轨多出 ``teaching_*`` 对象（当日阶段读数、
+    王朝链截至当日的状态、区间涨幅高标组，见 ``teaching_framework.river_objects``）；不给则
+    切片与此前**逐字节相同**——roadmap G-01 (b)「关掉后输出与当前一致」在本层就成立。
 
     ``allow_hindsight=True`` 才允许 ``cutoff > as_of``，对应终局 spec §4.1 的第三档
     「事后人工复核」。这一档的切片 ``hindsight=True`` 且 ``pit_grade`` 永远不是
@@ -952,6 +960,15 @@ def slice_river(
         }
     finally:
         con.close()
+    if teaching_labels_db is not None:
+        from intelligence.services.teaching_framework.river_objects import teaching_objects
+
+        teaching = teaching_objects(teaching_labels_db, as_of)
+        if teaching:
+            market = tracks["market"]
+            # 教学对象本来就是盘面轨的对象（指数阶段），不是拿别的轨补编；盘面轨若是缺口而
+            # 教学标签有值（实测不会——标签的输入就是盘面行），也如实放出对象而不是留缺口。
+            tracks["market"] = [*market, *teaching] if isinstance(market, list) else teaching
     if ref.alias_applied:
         tracks = {
             track: result
@@ -1008,10 +1025,16 @@ def main() -> int:
         help="允许 cutoff 晚于 as_of（事后人工复核档）。该片 pit_grade 永远不是 strict，不得进校准",
     )
     ap.add_argument("--json", action="store_true")
+    ap.add_argument(
+        "--teaching-labels-db",
+        default=None,
+        help="授课框架旁路库（scripts/teaching_framework.py 的 --labels-db）；给了盘面轨多出 teaching_* 对象，不给逐字节同前",
+    )
     args = ap.parse_args()
 
     sl = slice_river(
-        args.as_of, args.entity, knowledge_cutoff=args.cutoff, allow_hindsight=args.allow_hindsight
+        args.as_of, args.entity, knowledge_cutoff=args.cutoff, allow_hindsight=args.allow_hindsight,
+        teaching_labels_db=args.teaching_labels_db,
     )
     print(json.dumps(sl.to_dict(), ensure_ascii=False, indent=2) if args.json else render(sl))
     return 0

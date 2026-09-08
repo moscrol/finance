@@ -35,6 +35,10 @@ from typing import Any
 from intelligence.services import compliance_gate, observation_script, river_projection
 
 ENV_FLAG = "FORESIGHT_GUIDED_READING"
+# 授课框架旁路库（scripts/teaching_framework.py 的 --labels-db）。给了才读教学标签、才出「授课框架读数」
+# 一段与上证卡片；不给 = 现状，逐字节不变（G-03 (d)、G-01 (b)）。显式参数 > 环境变量 > 不接。
+ENV_TEACHING_DB = "FORESIGHT_TEACHING_LABELS_DB"
+TEACHING_CARD_SUFFIX = "-teaching-card.svg"
 
 # 带读是投影的一个消费方（工单 #34 / 09-06 spec §4.5）：选什么、省什么、限制与缺口全部由
 # ``river_projection.project`` 决定并哈希，本模块只渲染。``task`` 是投影的输入之一——同一切片
@@ -81,6 +85,10 @@ class GuidedReading:
     # 这份带读是从哪一片投影渲染出来的。回放时用它重算投影、对账「当时看到了什么」。
     projection_hash: str | None = None
     omitted: dict[str, int] = field(default_factory=dict)
+    # 授课框架读数（只摆读数不下结论，不出名单）与上证卡片的相对路径；没接旁路库时都是空。
+    # 它们不进投影块（v0 的投影只收六轨事实对象；G-01 规则成为选择器后再进 blocks 并标 selected_by）。
+    teaching: list[str] = field(default_factory=list)
+    teaching_card: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -95,6 +103,8 @@ class GuidedReading:
             "limits": self.limits,
             "gaps": self.gaps,
             "draft": self.draft.to_dict() if self.draft else None,
+            "teaching": self.teaching,
+            "teaching_card": self.teaching_card,
         }
 
 
@@ -133,6 +143,15 @@ def resolve_enabled(us: Any, *, override: bool | None = None) -> tuple[bool, str
     return False, "已有历史台账的用户默认关"
 
 
+def resolve_teaching_db(override: str | Path | None = None) -> Path | None:
+    """授课框架旁路库：显式参数 > 环境变量 > None（不接）。路径不存在按没接处理，不抛——带读不该因它崩。"""
+    raw = str(override or os.environ.get(ENV_TEACHING_DB) or "").strip()
+    if not raw:
+        return None
+    path = Path(raw).expanduser()
+    return path if path.is_file() else None
+
+
 # --------------------------------------------------------------------------- #
 # 构建：切片 → 投影 → 带读
 # --------------------------------------------------------------------------- #
@@ -148,11 +167,16 @@ def project_slice(
     )
 
 
+def _is_teaching(obj: dict[str, Any]) -> bool:
+    return str(obj.get("object_type") or "").startswith("teaching_")
+
+
 def build(
     slice_dict: dict[str, Any],
     *,
     alias_applied: bool | None = None,
     framework_version: str | None = None,
+    teaching_card: str | None = None,
 ) -> GuidedReading:
     """河切片 → 带读对象。纯函数：不读盘、不调模型、同一输入同一输出。
 
@@ -160,10 +184,26 @@ def build(
     回放器喂历史 JSON，绑死对象会把「从收据重建当日带读」这条路堵死。
 
     选什么、省什么、限制与缺口由投影决定；本函数只把投影块按轨归拢成可渲染的行。
+
+    切片里若有 ``teaching_*`` 对象（``slice_river`` 接了授课框架旁路库才有），它们不进逐轨事实、
+    不进投影（v0 投影只收六轨事实对象），单独换成「授课框架读数」的句子（只摆读数、不出名单）；
+    没有就没有这一段，其余逐字节同前。
     """
+    tracks = slice_dict.get("tracks") or {}
+    teaching_objs: list[dict[str, Any]] = []
+    market = tracks.get("market")
+    if isinstance(market, list) and any(_is_teaching(o) for o in market):
+        teaching_objs = [o for o in market if _is_teaching(o)]
+        tracks = {**tracks, "market": [o for o in market if not _is_teaching(o)]}
+    teaching: list[str] = []
+    if teaching_objs:
+        from intelligence.services.teaching_framework.reading import teaching_lines
+
+        teaching = teaching_lines(teaching_objs)
+
     # 缺省从切片自己读：调用方漏传就丢掉换源警告，是「限定语被静默吃掉」的老形状。
     # 显式传了就以显式为准——投影读的是切片，所以这里把显式值写回切片副本再投影。
-    source = dict(slice_dict)
+    source = {**slice_dict, "tracks": tracks}
     if alias_applied is not None:
         source["alias_applied"] = bool(alias_applied)
     cp = project_slice(source, framework_version=framework_version)
@@ -186,6 +226,8 @@ def build(
         draft=draft,
         projection_hash=cp.projection_hash,
         omitted=dict(cp.omitted),
+        teaching=teaching,
+        teaching_card=teaching_card if teaching else None,
     )
 
 
@@ -251,6 +293,12 @@ def render(gr: GuidedReading) -> str:
         lines.append("- （无）")
     if gr.omitted:
         lines.append("- 未进上下文（按块整体省略，不截断）：" + "，".join(f"{t}×{n}" for t, n in gr.omitted.items()))
+
+    if gr.teaching:
+        lines += ["", "## 授课框架读数（只摆读数，不下结论；不出名单）"]
+        lines += [f"- {x}" for x in gr.teaching]
+        if gr.teaching_card:
+            lines.append(f"- 卡片：![上证指数 · 授课框架读数]({gr.teaching_card})")
 
     lines += ["", "## 判读", "- 待授课框架 v0（G-01）落地；母本由人写，此处不生成推断。"]
 
@@ -334,10 +382,16 @@ def build_for_daily_review(
     *,
     override: bool | None = None,
     db_path: str | Path | None = None,
+    teaching_labels_db: str | Path | None = None,
+    card_dir: str | Path | None = None,
 ) -> tuple[GuidedReading | None, str]:
     """每日复盘用的带读。返回 ``(带读 | None, 理由)``——关闭或挑不出实体都返回 None。
 
     ``import river`` 放函数里：本模块其余部分不碰数据库，保持可离线单测。
+
+    ``teaching_labels_db`` 给了（经 ``resolve_teaching_db`` 解析）才接授课框架：切片多出 ``teaching_*``
+    对象、带读多一段读数；再给 ``card_dir`` 就把上证卡片写成 ``<as_of>-teaching-card.svg``——这是本函数
+    唯一的写盘，且只在带读开启且旁路库接上时发生。两者都不给 = 现状。
     """
     enabled, reason = resolve_enabled(us, override=override)
     if not enabled:
@@ -351,11 +405,32 @@ def build_for_daily_review(
 
     from intelligence.services import river
 
+    teaching_db = resolve_teaching_db(teaching_labels_db)
     try:
-        sl = river.slice_river(as_of, entity, db_path=db_path, checkpoints_path=us.checkpoints_path)
+        sl = river.slice_river(
+            as_of, entity, db_path=db_path, checkpoints_path=us.checkpoints_path, teaching_labels_db=teaching_db,
+        )
     except Exception as exc:  # 读不到就不出这一段，不让带读把整份复盘带崩
         return None, f"切片读取失败：{type(exc).__name__}: {exc}"
-    return build(sl.to_dict(), framework_version=None), f"带读 {entity}（{reason}）"
+    slice_dict = sl.to_dict()
+    card_name: str | None = None
+    if teaching_db is not None and card_dir is not None:
+        card_name = write_teaching_card(teaching_db, as_of, slice_dict, Path(card_dir) / f"{as_of}{TEACHING_CARD_SUFFIX}")
+    tail = "，授课框架读数已接" if teaching_db is not None else ""
+    return build(slice_dict, framework_version=None, teaching_card=card_name), f"带读 {entity}（{reason}{tail}）"
+
+
+def write_teaching_card(teaching_db: str | Path, as_of: str, slice_dict: dict[str, Any], out_path: Path) -> str | None:
+    """把上证卡片写到 ``out_path``；切片里没有教学对象就不写、返回 None。返回写出的文件名（相对复盘产物目录）。"""
+    from intelligence.services.teaching_framework.reading import index_card_svg, teaching_lines
+
+    market = (slice_dict.get("tracks") or {}).get("market")
+    objs = [o for o in (market if isinstance(market, list) else []) if _is_teaching(o)]
+    if not objs:
+        return None
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(index_card_svg(teaching_db, as_of, teaching_lines(objs)), encoding="utf-8")
+    return out_path.name
 
 
 def lint_output(text: str) -> list[compliance_gate.Hit]:
