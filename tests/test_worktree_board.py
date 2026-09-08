@@ -127,7 +127,84 @@ def test_ledger_falls_back_to_git_common_dir_parent(
     monkeypatch.delenv("FINANCE_DEPLOY_LEDGER", raising=False)
     monkeypatch.delenv("FINANCE_WS", raising=False)
     monkeypatch.setattr(board, "_git", fake_git)
+    # 密封：宿主 ~/.finance-runtime 真账本有带 unix 的 8792 切换，会盖过这份夹具
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path / "home"))
     assert board.resolve_ledger_path(worktree) == ledger
+
+
+def _write_ledger(path: Path, rows: list[dict]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+    return path
+
+
+def _no_common_dir(args: list[str], *, cwd: str | None, timeout: float) -> tuple[int, str]:
+    return 1, ""
+
+
+def test_ledger_picks_the_home_with_the_freshest_switch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """两份账本都在：主树 state/ 停在一天前的切换，~/.finance-runtime 记着之后两次。
+
+    2026-09-08 实测形状：按覆盖序取第一份会把 8792 报成 b594a5e7，生产其实已是
+    0060da5c。读取侧要在存在的候选里取该 port 末次 switch 最新的那份。
+    """
+
+    repo = tmp_path / "repo"
+    home = tmp_path / "home"
+    stale = _write_ledger(
+        repo / "state" / "deploy-ledger.jsonl",
+        [
+            {"action": "switch", "rev": "b594a5e7f8ae", "port": 8792, "unix": 1788770530.6},
+            # 更晚的行，但不是 8792 的 switch：不能让它把这份账本抬成「最新」
+            {"action": "startup", "rev": "2431da494ad4", "port": 8799, "unix": 1788805233.7},
+        ],
+    )
+    fresh = _write_ledger(
+        home / ".finance-runtime" / "deploy-ledger.jsonl",
+        [
+            {"action": "switch", "rev": "b594a5e7f8ae", "port": 8792, "unix": 1788770530.6},
+            {"action": "switch", "rev": "af370f529681", "port": 8792, "unix": 1788798729.5},
+            {"action": "switch", "rev": "0060da5c1a08", "port": 8792, "unix": 1788804095.0},
+        ],
+    )
+    monkeypatch.delenv("FINANCE_DEPLOY_LEDGER", raising=False)
+    monkeypatch.delenv("FINANCE_WS", raising=False)
+    monkeypatch.setattr(board, "_git", _no_common_dir)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+
+    assert board.resolve_ledger_path(repo) == fresh
+    assert board.last_switch_for_port(fresh, port=8792)["rev"] == "0060da5c1a08"
+    # 反向：主树那份更新时仍取主树，说明是按时刻不是按位置
+    _write_ledger(
+        stale,
+        [{"action": "switch", "rev": "eeeeeeeeeeee", "port": 8792, "unix": 1788900000.0}],
+    )
+    assert board.resolve_ledger_path(repo) == stale
+
+
+def test_ledger_keeps_override_order_when_no_switch_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """都没有该 port 的 switch 行（或旧格式没写 unix）时，退回覆盖序第一份。"""
+
+    repo = tmp_path / "repo"
+    home = tmp_path / "home"
+    first = _write_ledger(
+        repo / "state" / "deploy-ledger.jsonl",
+        [{"action": "startup", "rev": "aaaaaaaaaaaa", "port": 8792}],
+    )
+    _write_ledger(
+        home / ".finance-runtime" / "deploy-ledger.jsonl",
+        [{"action": "switch", "rev": "cccccccccccc", "port": 8796, "unix": 1788900000.0}],
+    )
+    monkeypatch.delenv("FINANCE_DEPLOY_LEDGER", raising=False)
+    monkeypatch.delenv("FINANCE_WS", raising=False)
+    monkeypatch.setattr(board, "_git", _no_common_dir)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+
+    assert board.resolve_ledger_path(repo) == first
 
 
 def test_last_switch_prefers_port_8792(tmp_path: Path) -> None:
