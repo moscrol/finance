@@ -220,16 +220,16 @@ datasets:
     endpoint: /reviews/market + /summary + /cycle
     steps: {full: [market-overview, market-deviation], cheap: [market-overview, market-deviation], local: [market-overview-local, market-editorial-local, market-stage-local]}
     identity:
-      what: market_stage 阶段名
+      what: market_stage 阶段名（外层六类）+ cycle_stage 内层八段（2026-09-08 起，授课框架的校准参照，带平台 updated_at）
       cadence: 偏慢
-      evidence: "「底部横盘」可连持十几天（stage_day 到 19、25~26）[用户实测]"
+      evidence: "「底部横盘」可连持十几天（stage_day 到 19、25~26）[用户实测]；内层标注平台会事后改写（440 天里 435 天 updated_at 晚于交易日）[2026-09-07 实测]"
     value:
       what: stage_day(+1/日)、冰点、涨停家数、AI摘要 note、成交额、涨跌家
       cadence: 快
       evidence: "冰点等级、摘要每天重写 [用户实测]"
     refresh:
       tier: C-daily
-      policy: "保留复盘会（阶段/冰点/摘要是编辑判断，独有价值），~3 请求。成交额/涨跌家等客观量已有 akshare 上证交叉验证。周均线/偏离度走 CDP 页面 hover，失效时 MA5 本地复算兜底。"
+      policy: "保留复盘会（阶段/冰点/摘要是编辑判断，独有价值），~3 请求；内层八段先从 summary / cycle 取，两者都没有字段时才多 1 次 overview?days=1（页面自己加载复盘总览就是这个请求），一天最多 4 次。成交额/涨跌家等客观量已有 akshare 上证交叉验证。周均线/偏离度走 CDP 页面 hover，失效时 MA5 本地复算兜底。禁止对复盘总览做历史翻页（2026-09-07 一次 440 天触发 entity_breadth、账号被禁）。"
 
   - key: index_and_sw_l1
     label: 上证指数 / 申万一级
