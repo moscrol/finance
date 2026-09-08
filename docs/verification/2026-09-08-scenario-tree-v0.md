@@ -35,7 +35,7 @@
 
 干净树 `~/fwp-wt-scenario-tree` @ `d04f25a1`（叠在 #667 `d563729a` + #670 `aa4472df` 上）、`.venv-workbench`、`env -u MARKET_FEATURE_STORE_DB`：ruff 0；pytest **8217P / 0F / 76S / 1xfail**（362s）；`check_test_receipt --expect-revision HEAD` 可采信。#667 / #670 合入 main 后本分支前向合并再跑一次。
 
-**新基线（main  + 更新后的 #667 / #670）**： 干净树全量 **8243P / 0F / 77S / 1xfail**（359s），可采信。
+**新基线（main `368b7a66` + 更新后的 #667 / #670）**：`b7de9a22` 干净树全量 **8243P / 0F / 77S / 1xfail**（359s），可采信。
 
 ## 未做 / 边界
 
