@@ -36,7 +36,7 @@
 
 ## 门禁
 
-（合入前在干净树补跑，读数回填到本节）
+干净树 `~/fwp-wt-opinion-stage` @ `97ea28fb`、`.venv-workbench`、`env -u MARKET_FEATURE_STORE_DB`：ruff 0；pytest **8177P / 0F / 76S / 1xfail**（848s，与另两条门禁并跑）；`check_test_receipt --expect-revision HEAD` 可采信。红集为空是判据（基线树与本分支基线不同，不作横向减法）。
 
 ## 已知边界
 
