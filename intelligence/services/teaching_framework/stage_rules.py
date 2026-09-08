@@ -79,14 +79,22 @@ ENTRY_PREDICATES: dict[str, tuple[str, ...]] = {
     "二次探底": ("E:retest_cross_below",),
     "缩量右底": (),
     "共建主线": ("E:breakout_volume_within_window",),
-    "主流主升": (),
+    # 第十九段（09-08）「共建主线到主流主升，就是成交占比不断放大，量能也逐步放大的过程……不是按日期来看，单日可能小缩量」：
+    # 来源是共建主线、成交占比前三的 n 日均在升、成交额的 n 日均在升（窗口均值比窗口均值，单日缩量不翻它）。
+    "主流主升": ("E:share_and_volume_trend_up",),
     # 第十一段「升级 2.0，大概率是进一步放量指数进一步走强」：高位震荡（承接盘反复）之后的双量日 + 指数新高。
     "主流主升2.0": ("E:upgrade_double_volume_new_high",),
     "高位震荡": ("E:overheated",),
 }
 
 UPGRADE_ORIGIN = "高位震荡"  # 平台序列里 2.0 三次都紧跟承接盘反复；第一腿从底部起的新高不算升级
+MAIN_RISE_ORIGIN = "共建主线"  # 第十九段：主流主升是从共建主线升级上来的过程
 DEFAULT_UPGRADE_NEW_HIGH_WINDOW = 20
+
+# 创始人的结构性硬条件（A 类，不是校准出来的）：某段只能在满足它时得分。第十九段：「缩量右底是在周均线的下方」。
+STAGE_GATES: dict[str, Callable[[Callable[[str], Any]], bool]] = {
+    "缩量右底": lambda v: v("above_week_ma") is False,
+}
 
 # 左底向下进入口径（参数 ``left_down_entry``）：``persist_days`` = 首次下穿后第几天起算（1 = 下穿当天），
 # ``volume`` = 当日量能条件：expanding_or_gap（09-06 第三轮「放量跌破或跳空低开跌破」）/ shrink（平台起点
@@ -122,6 +130,8 @@ def _left_down_volume_ok(v: Callable[[str], Any], rule: str) -> bool:
 # 缩量的过程」→ 回踩下穿之后、周期未被放量突破结束之前的缩量日。
 CONTINUING_PREDICATES: dict[str, tuple[str, ...]] = {
     "缩量右底": ("H:shrink_after_retest",),
+    # 第十九段：主流主升是「成交占比不断放大、量能逐步放大的过程」——过程在持续，就是这一段的持续证据。
+    "主流主升": ("H:share_and_volume_trend_up",),
 }
 
 # No predicate is an agent invention any more: entries are founder sentences, continuing
@@ -246,6 +256,12 @@ def predicate_hits(
     upgrade_window = int((params or {}).get("upgrade_new_high_window", DEFAULT_UPGRADE_NEW_HIGH_WINDOW))
     if origin == UPGRADE_ORIGIN and v("double_volume_day") is True and v(f"index_new_high_{upgrade_window}d") is True:
         hits.append(("主流主升2.0", "E:upgrade_double_volume_new_high"))
+    # 第十九段：成交占比与量能的 n 日均都在升（过程，不是单日）。从共建主线来算进入；已在主升里算持续。
+    trend_up = v("mainline_share_trend_up") is True and v("volume_trend_up") is True
+    if trend_up and origin == MAIN_RISE_ORIGIN:
+        hits.append(("主流主升", "E:share_and_volume_trend_up"))
+    if trend_up:
+        hits.append(("主流主升", "H:share_and_volume_trend_up"))
     # 第六段流程：回踩下穿之后（周期仍在）、放量突破之前的缩量日 = 缩量右底的「缩量的过程」。
     if v("below_ma_cycle_retest_seen") is True and v("volume_band") == "shrink":
         hits.append(("缩量右底", "H:shrink_after_retest"))
@@ -257,7 +273,9 @@ def predicate_hits(
                 continue
             if lo <= float(value) <= hi:
                 hits.append((stage, f"H:in_band:{view}"))
-    return hits
+    # 创始人的结构性硬条件：不满足的段今天一分都不得（第十九段：缩量右底在周均线下方）。
+    gated = {stage for stage, gate in STAGE_GATES.items() if not gate(v)}
+    return [(stage, pid) for stage, pid in hits if stage not in gated]
 
 
 def score_flags(

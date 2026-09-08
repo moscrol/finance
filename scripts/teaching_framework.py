@@ -608,6 +608,18 @@ def _nearest_rank(values: list[float], q: float) -> float:
     return ordered[min(len(ordered) - 1, max(0, int(round(q * (len(ordered) - 1)))))]
 
 
+def _flag_reader(day_labels: Mapping[str, float]):
+    """把旁路库里一天的数值标签包成 predicate / gate 读的 ``v(name)``：布尔旗标（0/1）还原成 True/False，没有的是 None。"""
+    def v(name: str):
+        value = day_labels.get(name if name.startswith("src.") else f"tf.{name}")
+        if value is None:
+            return None
+        if name in ("above_week_ma",):
+            return bool(value)
+        return value
+    return v
+
+
 def cmd_calibrate_stages(args: argparse.Namespace) -> int:
     """Read each stage's common ranges and the observed transitions off the platform labels, into a new parameter file.
 
@@ -616,7 +628,7 @@ def cmd_calibrate_stages(args: argparse.Namespace) -> int:
     ``agreement_validate``.  Quantiles are nearest-rank on the sidecar's view labels, so the
     output is reproducible from the same sidecar.
     """
-    from intelligence.services.teaching_framework.stage_rules import BAND_VIEWS, REFERENCE_STAGE_ALIASES, STAGES
+    from intelligence.services.teaching_framework.stage_rules import BAND_VIEWS, REFERENCE_STAGE_ALIASES, STAGE_GATES, STAGES
 
     params = load_params(args.params)
     labels_path = Path(args.labels_db).expanduser()
@@ -651,6 +663,7 @@ def cmd_calibrate_stages(args: argparse.Namespace) -> int:
     view_keys = {view: (view if view.startswith("src.") else f"tf.{view}") for view, _ in BAND_VIEWS}
     samples: dict[str, dict[str, list[float]]] = {stage: {view: [] for view in view_keys} for stage in STAGES}
     days_per_stage: Counter[str] = Counter()
+    gated_out: Counter[str] = Counter()
     sequence: list[tuple[str, str]] = []
     for day in sorted(reference):
         if day > args.train_until:
@@ -660,6 +673,12 @@ def cmd_calibrate_stages(args: argparse.Namespace) -> int:
             continue
         sequence.append((day, stage))
         if day not in by_day:
+            continue
+        # 创始人的结构性硬条件也约束校准样本（第十九段「缩量右底是在周均线的下方」）：平台标成缩量右底但在周均线
+        # 上方的日子，按创始人的定义不是缩量右底，不拿它算缩量右底的区间。转移图仍按平台原序列数。
+        gate = STAGE_GATES.get(stage)
+        if gate is not None and not gate(_flag_reader(by_day[day])):
+            gated_out[stage] += 1
             continue
         days_per_stage[stage] += 1
         for view, key in view_keys.items():
@@ -687,6 +706,8 @@ def cmd_calibrate_stages(args: argparse.Namespace) -> int:
         "train_until": args.train_until,
         "reference_days_used": sum(days_per_stage.values()),
         "days_per_stage": dict(sorted(days_per_stage.items())),
+        "days_gated_out": dict(sorted(gated_out.items())),
+        "gates": {stage: "above_week_ma is False" for stage in STAGE_GATES},
         "quantiles": [lo_q, hi_q],
         "min_days": int(args.min_days),
         "views": [view for view, _ in BAND_VIEWS],

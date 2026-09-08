@@ -20,6 +20,7 @@
     60
   ],
   "upgrade_new_high_window": 20,
+  "upgrade_trend_window": 5,
   "double_volume_dod_pct": 10,
   "left_down_entry": {
     "persist_days": 3,
@@ -369,7 +370,7 @@
   "stage_bands_derived_from": {
     "source": "fupanhui.reviews_overview",
     "train_until": "2025-12-31",
-    "reference_days_used": 243,
+    "reference_days_used": 237,
     "days_per_stage": {
       "主流主升": 16,
       "主流主升2.0": 20,
@@ -377,14 +378,20 @@
       "共建主线": 18,
       "左底向上": 12,
       "左底向下": 24,
-      "缩量右底": 8,
+      "缩量右底": 2,
       "高位震荡": 127
+    },
+    "days_gated_out": {
+      "缩量右底": 6
+    },
+    "gates": {
+      "缩量右底": "above_week_ma is False"
     },
     "quantiles": [
       0.25,
       0.75
     ],
-    "min_days": 10,
+    "min_days": 8,
     "views": [
       "amount_vs_ma20_pct",
       "stock_ma10_deviation_median",
@@ -397,9 +404,9 @@
       "limit_premium_ma5_pct"
     ],
     "labels_framework_version": [
-      "tf-v0.1+cf0557c6"
+      "tf-v0.2+3ebd57e4"
     ],
-    "labels_canonical_hash": "801b2ba7f08060360de34529a6934124787d19a3aaedba87ac3a9c0041f3cc6d",
+    "labels_canonical_hash": "5097a3a2fe702e44642cf6ff23990da9486cbb1800d0be1a27d5d6b2a2082e76",
     "labels_source_fingerprint": "fa2e2096f7d4a066125286173f243fd4d4879f02477f85456458c5067a1323a8",
     "labels_source_max_trade_date": "2026-09-03",
     "transition_counts": {

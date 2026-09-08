@@ -175,6 +175,8 @@ EVIDENCE_INPUTS = (
     "double_volume_day",
     "index_new_high_20d",
     "index_new_high_60d",
+    "mainline_share_trend_up",
+    "volume_trend_up",
 ) + tuple(view for view, _ in BAND_VIEWS)
 
 

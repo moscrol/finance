@@ -273,6 +273,17 @@ def compute_flags(
             rows,
             i,
         )
+        # 创始人 09-08 第十九段：「共建主线到主流主升，就是成交占比不断放大，量能也逐步放大的过程，不是按日期看，
+        # 一个阶段中单日的成交可能会有小缩量」→ 用窗口均值比窗口均值（近 n 日均 vs 再前 n 日均），单日缩量不翻它。
+        # 三条：成交占比前三的均值在升、成交额的均值在升、两者相乘（主流板块自己的成交额）的均值在升。n 是 B 类候选。
+        trend_n = int(p.get("upgrade_trend_window", UPGRADE_TREND_WINDOW))
+        rec["mainline_share_trend_up"] = _window_mean_up(rows, i, trend_n, cal_index, lambda r: _num(r.get("top3_industry_ratio")))
+        rec["volume_trend_up"] = _window_mean_up(rows, i, trend_n, cal_index, lambda r: _num(r.get("total_amount")))
+        rec["mainline_amount_trend_up"] = _window_mean_up(
+            rows, i, trend_n, cal_index,
+            lambda r: (None if _num(r.get("total_amount")) is None or _num(r.get("top3_industry_ratio")) is None
+                       else _num(r.get("total_amount")) * _num(r.get("top3_industry_ratio"))),
+        )
         # B scalars
         day_stocks = stock_by_day.get(d.isoformat(), ()) if d is not None else ()
         prev_stocks = (
@@ -906,6 +917,29 @@ def _vendor_rising(by_day, d, n, rows, i):
             return None
         points.append(sum(vals))
     return all(a < b for a, b in zip(points, points[1:]))
+
+
+UPGRADE_TREND_WINDOW = 5
+
+
+def _window_mean_up(rows, i, n, cal_index, value_of) -> bool | None:
+    """Mean of ``value_of`` over the last ``n`` trading days vs the ``n`` before them — a process, not a day.
+
+    Both windows must be calendar-contiguous and fully populated (2n consecutive trading days with a value);
+    otherwise None.  A single shrinking day inside a rising window does not flip it (创始人 09-08：「单日的成交可能会有小缩量」).
+    """
+    if i < 2 * n - 1:
+        return None
+    if cal_index is not None:
+        first = cal_index.get(_date(rows[i - 2 * n + 1].get("trade_date")))
+        last = cal_index.get(_date(rows[i].get("trade_date")))
+        if first is None or last is None or last - first != 2 * n - 1:
+            return None
+    recent = [value_of(rows[j]) for j in range(i - n + 1, i + 1)]
+    before = [value_of(rows[j]) for j in range(i - 2 * n + 1, i - n + 1)]
+    if any(v is None for v in recent) or any(v is None for v in before):
+        return None
+    return sum(recent) / n > sum(before) / n
 
 
 def _rising_top3_streak(rows, i, n, cal_index):
