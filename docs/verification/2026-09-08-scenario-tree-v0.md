@@ -35,6 +35,8 @@
 
 干净树 `~/fwp-wt-scenario-tree` @ `d04f25a1`（叠在 #667 `d563729a` + #670 `aa4472df` 上）、`.venv-workbench`、`env -u MARKET_FEATURE_STORE_DB`：ruff 0；pytest **8217P / 0F / 76S / 1xfail**（362s）；`check_test_receipt --expect-revision HEAD` 可采信。#667 / #670 合入 main 后本分支前向合并再跑一次。
 
+**新基线（main  + 更新后的 #667 / #670）**： 干净树全量 **8243P / 0F / 77S / 1xfail**（359s），可采信。
+
 ## 未做 / 边界
 
 - 绑定 vs 旁路库 30 抽一致性 oracle（工单 §3 第 7 条）未单独跑——`market_stage` 与 `dual_red_strict` 两个绑定已与旁路库同源（归一函数 / 阈值常量），`volume_surge` 走 `turning_points.VOLUME_SURGE_PCT`；合入后在验收 session 用 `history_labels.duckdb` 抽 30 格核一次。
