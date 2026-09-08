@@ -19,9 +19,18 @@
 是 #27 点名的「重发布冲短河」）；上一交易日行不存在、close 为 0/NULL、或与本日相隔 > 7 个自然日
 （长停牌，除权 / 复牌口径不明）的行**留 NULL 并列出**，不猜。
 
+**物理约束（2026-09-08 验收 session 量出的缺陷后加）**：派生值不得越过所属板块的涨跌停档
+（主板 10% / 创业板・科创板 20% / 北交所 30%），越过即多半是除权日（潍柴重机 2025-09-19 close
+48.21 → 32.43 = 10 转 5，派生 −32.73% 物理上不可能）——这类行**不派生、留 NULL 并列出**。
+容差取 1.2 倍档位：ST 5% 与 10% 的归属在库里判不准，涨跌停价的 tick 取整也会让真实封板读成 10.12%，
+用 1.2 倍只拦「不可能」的值，不拦「贴着档位」的值。``--revert-violations`` 把已写入的越界派生行撤回
+NULL（``source`` 去掉派生后缀）。抽样验收对除权天然零覆盖（核心 50 / 涨停股都按活跃度选），
+所以这条断言是全量的，成本几乎为零。
+
 用法：
     python3 scripts/backfill_stock_daily_pct_from_prev_close.py --dates 2025-09-18 2025-09-19 --dry-run
     python3 scripts/backfill_stock_daily_pct_from_prev_close.py --dates 2025-09-18 2025-09-19
+    python3 scripts/backfill_stock_daily_pct_from_prev_close.py --dates 2025-09-19 --revert-violations [--dry-run]
 """
 
 from __future__ import annotations
@@ -43,6 +52,23 @@ from market_feature_store.db import DB_PATH, is_lock_conflict  # noqa: E402
 
 MAX_GAP_DAYS = 7
 SOURCE_SUFFIX = "+derived:close_ratio"
+# 越界容差：1.2 × 板块档位。只拦物理上不可能的值（除权 / 数据错），不拦贴着涨跌停的真封板。
+LIMIT_TOLERANCE = 1.2
+
+
+def board_limit_pct(code: str) -> float:
+    """所属板块的涨跌停档（%）。ST 的 5% 在库里判不准（名字里的 ST 有时不在 5% 规则下），按所在板块给。"""
+    c = str(code)
+    if c.endswith(".BJ"):
+        return 30.0
+    if c.startswith(("300", "301", "688", "689")):
+        return 20.0
+    return 10.0
+
+
+def limit_violation(code: str, pct: float) -> bool:
+    return abs(float(pct)) > board_limit_pct(code) * LIMIT_TOLERANCE
+
 
 CANDIDATES_SQL = """
 WITH holes AS (
@@ -101,11 +127,42 @@ def plan(con: duckdb.DuckDBPyConnection, date: str) -> tuple[list[tuple], list[d
             continue
         pre = round(float(prev_close), 3)
         pct = round((float(close) / pre - 1) * 100, 2)
+        if limit_violation(code, pct):
+            # 越过档位 = 物理上不可能的涨跌幅：多半是除权日（例：10 转 5 → 收盘直接掉三分之一）。
+            # 库里没有除权表，算不出真值，就不给值——留 NULL 让下游看得见缺口。
+            skipped.append({"stock_ts_code": code, "reason": f"limit_violation:possible_ex_rights pct={pct} > {board_limit_pct(code)}×{LIMIT_TOLERANCE}", "prev_date": str(prev_date), "prev_close": pre, "close": float(close)})
+            continue
         new_source = str(source or "unknown")
         if SOURCE_SUFFIX not in new_source:
             new_source += SOURCE_SUFFIX
         todo.append((pre, pct, new_source, str(trade_date), code, str(prev_date)))
     return todo, skipped
+
+
+REVERT_SCAN_SQL = """
+SELECT trade_date, stock_ts_code, stock_name, pre_close, close, pct_chg, source
+FROM fact_stock_daily
+WHERE trade_date = ? AND source LIKE ? AND pct_chg IS NOT NULL
+"""
+REVERT_SQL = """
+UPDATE fact_stock_daily
+SET pre_close = NULL, pct_chg = NULL, source = ?, updated_at = ?
+WHERE trade_date = ? AND stock_ts_code = ? AND source LIKE ?
+"""
+
+
+def plan_revert(con: duckdb.DuckDBPyConnection, date: str) -> list[dict]:
+    """已写入的派生行里越过档位的那些：撤回 NULL 的计划。"""
+    out: list[dict] = []
+    for trade_date, code, name, pre, close, pct, source in con.execute(REVERT_SCAN_SQL, [date, f"%{SOURCE_SUFFIX}%"]).fetchall():
+        if pct is not None and limit_violation(code, pct):
+            out.append({
+                "trade_date": str(trade_date), "stock_ts_code": code, "stock_name": (name or "").strip("\x00"),
+                "pre_close": pre, "close": close, "pct_chg": pct,
+                "restore_source": str(source).replace(SOURCE_SUFFIX, ""),
+                "reason": f"limit_violation:possible_ex_rights (> {board_limit_pct(code)}×{LIMIT_TOLERANCE})",
+            })
+    return out
 
 
 def fill_stats(con: duckdb.DuckDBPyConnection, date: str) -> dict:
@@ -121,10 +178,44 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--db-path", default=str(DB_PATH))
     ap.add_argument("--dry-run", action="store_true", help="只打印计划，不写")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--revert-violations", action="store_true", help="把已写入的越界派生行撤回 NULL（除权日误派生的修正）")
     args = ap.parse_args(argv)
 
     db_path = Path(args.db_path).expanduser()
     report: dict = {"db_path": str(db_path), "dry_run": bool(args.dry_run), "dates": {}}
+
+    if args.revert_violations:
+        ro = _connect(db_path, read_only=True)
+        try:
+            plans_rv = {d: plan_revert(ro, d) for d in args.dates}
+            for d in args.dates:
+                report["dates"][d] = {"before": fill_stats(ro, d), "to_revert": plans_rv[d]}
+        finally:
+            ro.close()
+        if not args.dry_run and any(plans_rv.values()):
+            now = datetime.now()
+            con = _connect(db_path, read_only=False)
+            try:
+                con.execute("BEGIN TRANSACTION")
+                for d, items in plans_rv.items():
+                    for it in items:
+                        con.execute(REVERT_SQL, [it["restore_source"], now, it["trade_date"], it["stock_ts_code"], f"%{SOURCE_SUFFIX}%"])
+                con.execute("COMMIT")
+                for d in args.dates:
+                    report["dates"][d]["after"] = fill_stats(con, d)
+            except Exception:
+                con.execute("ROLLBACK")
+                raise
+            finally:
+                con.close()
+        if args.json:
+            print(json.dumps(report, ensure_ascii=False, indent=2, default=str))
+        else:
+            for d, info in report["dates"].items():
+                print(f"{d}: 越界派生行 {len(info['to_revert'])} 条" + (f" → 已撤回，pct_chg 填充 {info['after']['pct_fill']}%" if "after" in info else ""))
+                for it in info["to_revert"]:
+                    print(f"    {it['stock_ts_code']} {it['stock_name']} pre={it['pre_close']} close={it['close']} pct={it['pct_chg']}  {it['reason']}")
+        return 0
 
     ro = _connect(db_path, read_only=True)
     plans: dict[str, tuple[list[tuple], list[dict]]] = {}
