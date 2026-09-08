@@ -49,3 +49,9 @@ INDEX 冲突规则（本批与 #620 / #624 / #638 / #597 都改本文件）：**
 | 拍板 | #567 / #568 / #663 / #659 | 工具窗地板 / deep 不经 PLAN / 事件定价 / 写作成本 | 各自 | 用户决定 |
 
 只有创始人能做：授课母本判读内容（G-01）、`methodology/reference/theme_stage_reference_set.jsonl` 的 `stage_manual`（42 条）、工单 #33 参照标注导出。
+
+#### 2026-09-08 20:00 · 验收 session 复核后的三处修正（都已做）
+
+1. **错数撤回**：`000880.SZ 潍柴重机 2025-09-19` 派生 `pct_chg −32.73%` 是 10 转 5 除权日误派生（深市主板 ±10% 物理不可能），已 `--revert-violations` 撤回 NULL（09-19 填充率 99.98%），脚本加 1.2 × 板块档位的物理约束，旁路库 outcomes 再重建、四态不变；#662 基线条目评论已订正为「09-19 留 1 行 NULL，不能删」。可迁移的点：抽样验收对除权零覆盖（核心 50 / 涨停股都按活跃度选），一条全量物理约束断言比加大样本有效。
+2. **基线漂移**：main 17:22 合入 #653 + #665（20 条提交）后，#667 / #674 在 `guided_reading.py` 真冲突（#653 的授课框架读数与投影消费方改同一文件）。已全部前向合并到 `368b7a66`：`guided_reading` 两边都留（teaching_* 对象不进投影块、单独一段渲染），13 个分支 `merge-tree` 全 clean、`behind=0`；**全量门禁按新基线重跑中**，读数以各收据「门禁」节最新一行为准，本表上面那组 8177–8250 是旧基线读数。
+3. **main 自己那 1 红** `test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket`：同一台机 11:46 在 main 基线树里单跑绿（`/Applications/ChatGPT.app/Contents/Resources/codex` 在），11:29 门禁树里红——环境 / 时序 flake，不是真红；合入判据「红集 ⊆ 基线红集」里把它当基线 flake 看，出现即单跑复核。
