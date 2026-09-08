@@ -776,6 +776,13 @@ def cmd_daily_agent(args: argparse.Namespace) -> int:
     if _guided is not None:
         answer = _gr.merge_into_daily_review(answer, _guided)
         print(f"带读已并入日报：{_gr_reason}", file=sys.stderr)
+    # 情景树逐日解析（#37 / G-15）：默认关，`FORESIGHT_SCENARIO_TREE_RESOLVE=1` 才跑；
+    # 关着时 answer 是同一个对象——逐字节不变靠 is 等价，不靠约定。
+    from intelligence.services import scenario_trees as _st
+
+    answer = _st.daily_review_hook(
+        answer, _userspace.user_space(getattr(args, "user", None)), args.date, db_path=getattr(args, "db_path", None)
+    )
 
     full_written = True
     try:

@@ -53,7 +53,8 @@ VALID_OPS = (">=", ">", "<=", "<", "==")
 # 用户自己下的判断、agent 下的判断、系统生成经用户确认的观察剧本。
 # 三类混进同一个胜率分母，会让「用户决策」的读数被另外两类稀释——G-09 的胜率面板
 # 要按这个维度分列，所以字段必须在**登记时**就写下，事后从 category 反推是猜。
-OBJECT_TYPES = ("judgment", "agent_judgment", "observation_script")
+# 判断轨四类对象（09-06 spec §2 / §3.3）：用户判断 / agent 判断 / 观察剧本 / 情景树（#37）。
+OBJECT_TYPES = ("judgment", "agent_judgment", "observation_script", "scenario_tree")
 DEFAULT_OBJECT_TYPE = "judgment"
 # ``projection_hash_missing`` 的唯一合法取值：用户在产品外手写、本来就没有上下文投影。
 USER_AUTHORED = "user_authored"
@@ -61,6 +62,7 @@ OBJECT_TYPE_CN = {
     "judgment": "用户判断",
     "agent_judgment": "agent 判断",
     "observation_script": "观察剧本",
+    "scenario_tree": "情景树",
     "unknown_legacy": "存量未标类型",
 }
 
@@ -241,11 +243,11 @@ def register_checkpoint(
     ph = (str(projection_hash).strip() or None) if projection_hash else None
     mid = (str(model_id).strip() or None) if model_id else None
     missing_reason: str | None = None
-    if object_type == "agent_judgment":
+    if object_type in ("agent_judgment", "scenario_tree"):
         lacking = [name for name, v in (("projection_hash", ph), ("model_id", mid)) if v is None]
         if lacking:
             raise ValueError(
-                f"object_type=agent_judgment 缺 {'/'.join(lacking)}：agent 判断必须带生成时的上下文投影哈希与模型号"
+                f"object_type={object_type} 缺 {'/'.join(lacking)}：agent 产物必须带生成时的上下文投影哈希与模型号"
                 "（09-06 spec §4.2），台账拒收"
             )
     elif object_type == "observation_script" and ph is None:
