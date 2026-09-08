@@ -34,6 +34,7 @@ RECENT_DAYS = 14
 CANDIDATE_FLOORS = (5.0, 10.0, 15.0, 20.0, 30.0)
 # 零授权假超时：派发点实授 ≤ 0，工具压根没跑（P0/P0.1 让模型看见的那一格）。
 ZERO_GRANT_EPS = 1e-9
+TIME_GATE_ERRORS = frozenset({"tool_timeout", "tool_not_dispatched"})
 
 
 def _events(episode: dict[str, Any]) -> list[dict[str, Any]]:
@@ -169,9 +170,14 @@ def _coverage(values: list[float], floor: float) -> dict[str, Any]:
 def cohort_stats(rows: list[dict[str, Any]]) -> dict[str, Any]:
     success = [row for row in rows if row["kind"] == "tool_result" and row["elapsed_s"] is not None]
     errors = [row for row in rows if row["kind"] == "tool_error"]
-    timeouts = [row for row in errors if row["error"] == "tool_timeout"]
+    # 两代词表并存：工单 #28（INV-R4）起零授权未派发写 tool_not_dispatched；更早的产物
+    # 把它也写成 tool_timeout，只能靠 granted<=ε 分。两种都当时间闸收进来。
+    timeouts = [row for row in errors if row["error"] in TIME_GATE_ERRORS]
     zero_grant = [
-        row for row in timeouts if row["granted"] is not None and row["granted"] <= ZERO_GRANT_EPS
+        row
+        for row in timeouts
+        if row["error"] == "tool_not_dispatched"
+        or (row["granted"] is not None and row["granted"] <= ZERO_GRANT_EPS)
     ]
     real_timeouts = [row for row in timeouts if row not in zero_grant]
     granted_unknown = [row for row in timeouts if row["granted"] is None]
@@ -257,7 +263,10 @@ def main() -> None:
         "method": {
             "duration_field": "payload.elapsed_ms / 1000 (worker-thread monotonic, not event at)",
             "grant_field": "payload.stage_timeout_granted at dispatch",
-            "zero_grant_rule": f"tool_timeout with stage_timeout_granted <= {ZERO_GRANT_EPS}",
+            "zero_grant_rule": (
+                f"error == tool_not_dispatched (>= #28) or tool_timeout with "
+                f"stage_timeout_granted <= {ZERO_GRANT_EPS} (legacy artifacts)"
+            ),
             "near_cut_rule": "success with elapsed >= 0.8 * granted",
             "candidate_floors_s": list(CANDIDATE_FLOORS),
             "production_user": PRODUCTION_USER,

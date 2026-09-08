@@ -623,7 +623,9 @@ def test_production_continuous_adapter_shares_provider_client_across_gates(
     assert semantic._finalizer is episode._finalizer
     assert episode._model._providers == providers
     assert episode._model._is_cancelled is is_cancelled
-    assert episode._is_cancelled is is_cancelled
+    # 工单 #28：Episode 持有的是包住同一个谓词的 CancelSignal（类型化原因），
+    # 「几处接缝看同一份事实」的判据从对象同一变成 upstream 同一。
+    assert episode._is_cancelled.upstream is is_cancelled
     assert adapter._is_cancelled is is_cancelled
     assert adapter._deadline_expires_at == deadline_expires_at
     assert 0 < adapter._remaining_timeout() <= 42.0

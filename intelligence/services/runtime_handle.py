@@ -113,6 +113,8 @@ from collections.abc import Callable
 from time import monotonic
 from typing import TYPE_CHECKING, Literal
 
+from intelligence.services.cancel_signal import CANCEL_CAUSES, CancelCause, CancelSignal
+
 if TYPE_CHECKING:  # pragma: no cover - 仅类型检查；运行期无循环依赖但保持轻量
     from intelligence.services.episode_scope import EpisodeScope
 
@@ -178,6 +180,8 @@ class RuntimeHandle:
         self._state: RuntimeState = "created"
         self._in_flight = 0
         self._cancel_reason: str | None = None
+        # INV-R4：取消原因类型化。上游若是 CancelSignal 就抄它的 cause；裸谓词记 user。
+        self._cancel_cause: CancelCause | None = None
         self._close_reason: str | None = None
         self._scope: EpisodeScope | None = None
         # 收据行按发生顺序追加：state 行是状态转移，note 行是不改状态的事实
@@ -241,7 +245,10 @@ class RuntimeHandle:
             # 信号谓词自己坏了不等于取消。不折叠、不吞状态机其他职责。
             return
         if fired:
-            self._request_cancel_locked("upstream_signal")
+            cause: CancelCause = "user"
+            if isinstance(upstream, CancelSignal):
+                cause = upstream.cause or "user"
+            self._request_cancel_locked("upstream_signal", cause=cause)
 
     # ── 转移 ─────────────────────────────────────────────────────────
 
@@ -282,20 +289,26 @@ class RuntimeHandle:
                 f"mark_running 只能从 started 出发，当前 {self._state}"
             )
 
-    def request_cancel(self, reason: str = "cancel_requested") -> None:
+    def request_cancel(
+        self, reason: str = "cancel_requested", *, cause: CancelCause = "user"
+    ) -> None:
+        if cause not in CANCEL_CAUSES:
+            raise ValueError(f"未知取消原因: {cause!r}")
         with self._lock:
             if self._state == "closed":
                 # 对已结束的运行时请求取消不是错误，但值得留痕。
                 self._record_note("cancel_after_close", reason)
                 return
-            self._request_cancel_locked(reason)
+            self._request_cancel_locked(reason, cause=cause)
 
-    def _request_cancel_locked(self, reason: str) -> None:
+    def _request_cancel_locked(self, reason: str, *, cause: CancelCause = "user") -> None:
         if self._cancel_reason is not None:
-            self._record_note("cancel_repeated", reason)
+            # first cause wins：第二次请求只留痕，不改原因。
+            self._record_note("cancel_repeated", f"{cause}:{reason}")
             return
         self._cancel_reason = str(reason)
-        self._advance_locked("cancel_requested", reason)
+        self._cancel_cause = cause
+        self._advance_locked("cancel_requested", f"{cause}:{reason}")
         if self._in_flight > 0:
             # 有已启动的工作要收尾，这才配叫排空。
             self._advance_locked(
@@ -396,6 +409,7 @@ class RuntimeHandle:
                 "state": self._state,
                 "cancel_requested": self._cancel_reason is not None,
                 "cancel_reason": self._cancel_reason,
+                "cancel_cause": self._cancel_cause,
                 "close_reason": self._close_reason,
                 "in_flight": self._in_flight,
                 "receipts": [dict(row) for row in self._receipts],

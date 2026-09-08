@@ -29,6 +29,7 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
     is_transient_model_error,
 )
+from intelligence.services.episode_messages import EpisodeMessage, to_provider
 from intelligence.services.evidence_capabilities import EvidencePlan
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.mode_governor import ModeSignals
@@ -2689,7 +2690,7 @@ def test_accumulator_strips_raw_timeout_detail_before_the_model() -> None:
 
     sentinel = "TimeoutError: RAW_TIMEOUT_EXCEPTION_SENTINEL"
     frame = _frame()
-    messages: list[dict[str, object]] = []
+    messages: list[EpisodeMessage] = []
     accumulator = _EpisodeToolAccumulator(
         messages=messages,
         ledger=_EpisodeLedger(frame),
@@ -2708,8 +2709,9 @@ def test_accumulator_strips_raw_timeout_detail_before_the_model() -> None:
         normalized_queries=(),
     )
     accumulator.consume(batch, _context(frame))
-    payload = json.loads(str(messages[-1]["content"]))
-    blob = json.dumps({"messages": messages}, ensure_ascii=False)
+    wire = to_provider(messages)
+    payload = json.loads(str(wire[-1]["content"]))
+    blob = json.dumps({"messages": wire}, ensure_ascii=False)
     assert payload["error"] == "tool_timeout"
     assert payload["detail"] == ""
     assert sentinel not in blob
@@ -2728,7 +2730,7 @@ def test_accumulator_forwards_positive_grant_to_the_model() -> None:
 
     sentinel = "TimeoutError: RAW_TIMEOUT_EXCEPTION_SENTINEL"
     frame = _frame()
-    messages: list[dict[str, object]] = []
+    messages: list[EpisodeMessage] = []
     accumulator = _EpisodeToolAccumulator(
         messages=messages,
         ledger=_EpisodeLedger(frame),
@@ -2754,8 +2756,9 @@ def test_accumulator_forwards_positive_grant_to_the_model() -> None:
         normalized_queries=(),
     )
     accumulator.consume(batch, _context(frame))
-    payload = json.loads(str(messages[-1]["content"]))
-    blob = json.dumps({"messages": messages}, ensure_ascii=False)
+    wire = to_provider(messages)
+    payload = json.loads(str(wire[-1]["content"]))
+    blob = json.dumps({"messages": wire}, ensure_ascii=False)
     assert payload["error"] == "tool_timeout"
     assert payload["detail"] == "stage_timeout_granted=11.5"
     assert sentinel not in blob
@@ -2801,7 +2804,8 @@ def test_zero_grant_timeout_tells_model_it_was_not_dispatched() -> None:
         if message.get("role") == "tool"
     ]
     assert tool_messages, outcome.stop_reason
-    assert tool_messages[0]["error"] == "tool_timeout"
+    # 零授权未派发：码是 tool_not_dispatched，不是 tool_timeout（INV-R4，#28）。
+    assert tool_messages[0]["error"] == "tool_not_dispatched"
     assert tool_messages[0]["detail"] == stage_timeout_granted_detail(0.0)
     assert "stage_timeout_granted=0" in json.dumps(outcome.to_dict(), ensure_ascii=False)
 
@@ -3306,10 +3310,11 @@ def test_budget_injection_asks_for_parallel_batches_with_the_tier_cap() -> None:
         def add(self, kind: str, payload: dict[str, object]) -> None:
             self.events.append((kind, dict(payload)))
 
+    from intelligence.services.episode_messages import tool_message
+
     ledger = RecordingLedger()
-    messages: list[dict[str, object]] = [
-        {"role": "tool", "tool_call_id": "c1", "content": json.dumps({"ok": True, "tool": "market_data"})}
-    ]
+    # loop 里的消息是 EpisodeMessage（P1）：量具走同一类型，读属性不拿字典。
+    messages = [tool_message("c1", json.dumps({"ok": True, "tool": "market_data"}))]
     injected = ContinuousAgentEpisode._append_tool_budget_state(
         messages=messages,
         ledger=ledger,
@@ -3319,28 +3324,28 @@ def test_budget_injection_asks_for_parallel_batches_with_the_tier_cap() -> None:
         per_batch_cap=8,
     )
     assert injected is True
-    budget = json.loads(messages[-1]["content"])["runtime_budget"]
+    budget = json.loads(messages[-1].content)["runtime_budget"]
     assert budget["per_batch_cap"] == 8
     assert "互不依赖的工具应在同一轮一起点出（本轮最多 8 个）" in budget["instruction"]
     assert "只有下一步取决于上一步结果时才逐轮点" in budget["instruction"]
     assert "不得超过 remaining_tool_calls" in budget["instruction"]  # 上限那句仍在
     # durable 载体与模型可见正文同一份（模型可见即已落账）。
     assert [kind for kind, _payload in ledger.events] == ["tool_budget_state"]
-    assert ledger.events[0][1]["model_content"] == messages[-1]["content"]
+    assert ledger.events[0][1]["model_content"] == messages[-1].content
 
     # 剩余 3 次、帽 8 → 本轮最多 3；帽 4（quick 标签的分支）→ 4。
     for slots, cap, expected in ((3, 8, 3), (22, 4, 4)):
-        msgs = [{"role": "tool", "tool_call_id": "c", "content": json.dumps({"ok": True})}]
+        msgs = [tool_message("c", json.dumps({"ok": True}))]
         ContinuousAgentEpisode._append_tool_budget_state(
             messages=msgs, ledger=RecordingLedger(), remaining_slots=slots, per_batch_cap=cap
         )
-        assert json.loads(msgs[-1]["content"])["runtime_budget"]["per_batch_cap"] == expected
+        assert json.loads(msgs[-1].content)["runtime_budget"]["per_batch_cap"] == expected
     # 没传帽（旧调用方 / 参考 loop）→ 逐字节同前。
-    plain = [{"role": "tool", "tool_call_id": "c", "content": json.dumps({"ok": True})}]
+    plain = [tool_message("c", json.dumps({"ok": True}))]
     ContinuousAgentEpisode._append_tool_budget_state(
         messages=plain, ledger=RecordingLedger(), remaining_slots=22
     )
-    plain_budget = json.loads(plain[-1]["content"])["runtime_budget"]
+    plain_budget = json.loads(plain[-1].content)["runtime_budget"]
     assert "per_batch_cap" not in plain_budget and "一起点出" not in plain_budget["instruction"]
 
 
@@ -4548,7 +4553,7 @@ def test_rejected_tool_message_carries_the_reason_to_the_model() -> None:
     from intelligence.services.agent_runtime import ModelToolCall
     from intelligence.services.evidence_ledger import EvidenceLedger
 
-    messages: list[dict[str, object]] = []
+    messages: list[EpisodeMessage] = []
     # 用真的构造函数，别拿 __new__ + setattr 拼桩：拼桩每加一个内部字段就断一次，
     # 而且断的时候看起来像被测代码坏了。
     accumulator = _EpisodeToolAccumulator(
@@ -4563,7 +4568,7 @@ def test_rejected_tool_message_carries_the_reason_to_the_model() -> None:
         "order_by must be an array",
     )
 
-    payload = json.loads(messages[-1]["content"])
+    payload = json.loads(to_provider(messages)[-1]["content"])
     assert payload["error"] == "invalid_arguments"
     assert payload["detail"] == "order_by must be an array"
 

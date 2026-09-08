@@ -18,6 +18,7 @@ from intelligence.services.episode_messages import (
     STRICT_DERIVATION_ENV,
     DerivationMismatch,
     DerivationUnavailable,
+    EpisodeMessage,
     append_model_input,
     assistant_message,
     assistant_message_from_payload,
@@ -26,7 +27,12 @@ from intelligence.services.episode_messages import (
     describe_mismatch,
     record_prompt_assembled,
     record_tool_budget_state,
+    rewrite_last_tool_content,
     sha256_text,
+    system_message,
+    to_provider,
+    tool_message,
+    user_message,
 )
 from intelligence.services.episode_event_lanes import DURABLE_EVENT_KINDS, lane_for
 from intelligence.services.episode_projection import project_durable_events
@@ -56,14 +62,18 @@ def _tool_turn() -> ModelTurn:
 
 def test_prompt_and_inputs_fold_into_system_then_user_messages() -> None:
     ledger = _Ledger()
-    messages: list[dict[str, object]] = []
+    messages: list[EpisodeMessage] = []
     record_prompt_assembled(ledger, system="宪法", user='{"question": "今天怎么看"}')
-    messages.extend(
-        [{"role": "system", "content": "宪法"}, {"role": "user", "content": '{"question": "今天怎么看"}'}]
-    )
+    messages.extend([system_message("宪法"), user_message('{"question": "今天怎么看"}')])
     append_model_input(messages, ledger, content="先给 PLAN", source="steering_invalid_plan")
 
-    assert derive_messages(ledger.events) == messages
+    assert to_provider(derive_messages(ledger.events)) == to_provider(messages)
+    assert to_provider(messages) == [
+        {"role": "system", "content": "宪法"},
+        {"role": "user", "content": '{"question": "今天怎么看"}'},
+        {"role": "user", "content": "先给 PLAN"},
+    ]
+    assert messages[-1].source == "steering_invalid_plan"
     assert [event.kind for event in ledger.events] == ["prompt_assembled", "model_input"]
     assert ledger.events[0].payload["system_sha256"] == sha256_text("宪法")
     assert ledger.events[1].payload["source"] == "steering_invalid_plan"
@@ -79,11 +89,13 @@ def test_assistant_message_shape_is_identical_from_turn_and_from_payload() -> No
     from_turn = assistant_message(turn)
     from_payload = assistant_message_from_payload(event.to_dict()["payload"])
 
-    assert from_turn == from_payload
-    assert from_turn["tool_calls"][0]["function"]["arguments"] == json.dumps(
+    assert to_provider([from_turn]) == to_provider([from_payload])
+    wire = to_provider([from_turn])[0]
+    assert wire["tool_calls"][0]["function"]["arguments"] == json.dumps(
         {"query": "当前市场结构", "n": 3}, ensure_ascii=False
     )
-    assert derive_messages(ledger.events) == [from_turn]
+    assert wire["tool_calls"][0]["id"] == "call-1" and wire["tool_calls"][0]["type"] == "function"
+    assert to_provider(derive_messages(ledger.events)) == [wire]
 
 
 def test_errored_model_turn_produces_no_assistant_message() -> None:
@@ -112,10 +124,12 @@ def test_tool_events_fold_to_tool_messages_and_budget_state_overwrites_the_last(
         ledger, runtime_budget={"remaining_tool_calls": 2}, model_content=rewritten
     )
 
-    assert derive_messages(ledger.events) == [
+    derived = derive_messages(ledger.events)
+    assert to_provider(derived) == [
         {"role": "tool", "tool_call_id": "call-1", "content": '{"ok": true, "n": 1}'},
         {"role": "tool", "tool_call_id": "call-2", "content": rewritten},
     ]
+    assert [message.source for message in derived] == ["tool_result", "tool_error"]
 
 
 def test_history_compacted_overwrites_the_folded_tool_messages_by_call_id() -> None:
@@ -138,11 +152,14 @@ def test_history_compacted_overwrites_the_folded_tool_messages_by_call_id() -> N
         },
     )
 
-    assert derive_messages(ledger.events) == [
+    derived = derive_messages(ledger.events)
+    assert to_provider(derived) == [
         {"role": "tool", "tool_call_id": "call-1", "content": folded},
         {"role": "tool", "tool_call_id": "call-2", "content": folded},
         {"role": "tool", "tool_call_id": "call-3", "content": '{"ok": true, "big": 3}'},
     ]
+    # 折叠只换正文：来源审计字段仍是 tool_result（不是第二种消息）。
+    assert [message.source for message in derived] == ["tool_result"] * 3
 
 
 def test_history_compacted_without_model_content_or_target_is_refused() -> None:
@@ -164,6 +181,73 @@ def test_unrelated_kinds_produce_no_messages() -> None:
         ledger.add(kind, {"x": 1})
 
     assert derive_messages(ledger.events) == []
+
+
+# ── P1：消息类型与线格式边界 ─────────────────────────────────────────────────
+
+
+def test_episode_message_validates_role_specific_fields() -> None:
+    with pytest.raises(ValueError, match="角色"):
+        EpisodeMessage(role="narrator", content="x")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="tool_call_id"):
+        EpisodeMessage(role="tool", content="x")
+    with pytest.raises(ValueError, match="tool_calls"):
+        EpisodeMessage(role="user", content="x", tool_calls=_tool_turn().tool_calls)
+    with pytest.raises(ValueError, match="tool_call_id"):
+        EpisodeMessage(role="user", content="x", tool_call_id="c1")
+
+
+def test_to_provider_openai_shape_is_byte_stable_and_drops_audit_fields() -> None:
+    """线格式只含 provider 认识的键：source 是审计字段，不出边界。"""
+
+    messages = [
+        system_message("s", source="prompt"),
+        user_message("u", source="steering_invalid_plan"),
+        assistant_message(_tool_turn()),
+        tool_message("call-1", '{"ok": true}', source="tool_result"),
+        assistant_message(ModelTurn("最终答案", (), "scripted", "")),
+    ]
+
+    wire = to_provider(messages)
+
+    assert wire == [
+        {"role": "system", "content": "s"},
+        {"role": "user", "content": "u"},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call-1",
+                    "type": "function",
+                    "function": {
+                        "name": "market_data",
+                        "arguments": json.dumps(
+                            {"query": "当前市场结构", "n": 3}, ensure_ascii=False
+                        ),
+                    },
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call-1", "content": '{"ok": true}'},
+        {"role": "assistant", "content": "最终答案"},
+    ]
+    assert not any("source" in row for row in wire)
+    with pytest.raises(ValueError, match="方言"):
+        to_provider(messages, dialect="anthropic")  # type: ignore[arg-type]
+
+
+def test_rewrite_last_tool_content_replaces_immutably() -> None:
+    messages = [tool_message("c1", '{"ok": true}')]
+    before = messages[0]
+
+    rewritten = rewrite_last_tool_content(messages, '{"ok": true, "runtime_budget": {}}')
+
+    assert messages[0] is rewritten and messages[0] is not before
+    assert before.content == '{"ok": true}'
+    assert rewritten.tool_call_id == "c1" and rewritten.source == before.source
+    with pytest.raises(ValueError, match="tool"):
+        rewrite_last_tool_content([user_message("u")], "x")
 
 
 # ── 不能派生就不猜 ─────────────────────────────────────────────────────────
@@ -201,9 +285,9 @@ def test_check_derivation_raises_in_strict_mode_and_records_otherwise(
     ledger = _Ledger()
     record_prompt_assembled(ledger, system="s", user="u")
     actual = [
-        {"role": "system", "content": "s"},
-        {"role": "user", "content": "u"},
-        {"role": "user", "content": "偷偷 append 的、没有事件的一条"},
+        system_message("s"),
+        user_message("u"),
+        user_message("偷偷 append 的、没有事件的一条"),
     ]
 
     monkeypatch.setenv(STRICT_DERIVATION_ENV, "1")

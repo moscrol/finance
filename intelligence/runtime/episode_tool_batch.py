@@ -65,8 +65,15 @@ def batch_call_cap(policy: ResearchPolicy | None) -> int:
     if policy is not None and str(policy.tier or "").strip().lower() == "max":
         return MAX_GLOBAL_TOOL_WORKERS
     return MAX_BATCH_TOOL_CALLS
-# 时间闸（含授权额 ≤0 未派发、真跑了再超时）共用 error=tool_timeout。
-# detail 只允许实授值本身，见 stage_timeout_granted_detail。
+# 时间闸两种事实各一个码（INV-R4「未派发 ≠ 超时」，工单 #28 步骤 C）：
+#   tool_not_dispatched —— 授权额 ≤0，根本没进线程池；
+#   tool_timeout        —— 真跑了、在实授窗内没跑完。
+# 两者同属 status=timeout 族（下游按 status 的逻辑不变），detail 都只允许实授值本身
+# （见 stage_timeout_granted_detail）。09-01 之前两者共用 tool_timeout，模型只能靠
+# detail=stage_timeout_granted=0 猜自己是被饿死还是真慢，于是换工具再试、序列分叉。
+TOOL_NOT_DISPATCHED_ERROR = "tool_not_dispatched"
+TOOL_TIMEOUT_ERROR = "tool_timeout"
+TIME_GATE_ERRORS: frozenset[str] = frozenset({TOOL_NOT_DISPATCHED_ERROR, TOOL_TIMEOUT_ERROR})
 STAGE_TIMEOUT_GRANTED_DETAIL_RE = re.compile(
     r"^stage_timeout_granted=\d+(\.\d+)?$"
 )
@@ -175,6 +182,18 @@ def public_timeout_detail(raw: str) -> str:
 
     text = str(raw or "").strip()
     return text if STAGE_TIMEOUT_GRANTED_DETAIL_RE.fullmatch(text) else ""
+
+
+def time_gate_error_for_model(result: ToolCallResult) -> str:
+    """一条 ``status=timeout`` 的结果，模型该看到的 error 码。
+
+    批次执行器已经分好了 ``tool_not_dispatched`` / ``tool_timeout``；这里只是把它原样
+    带给模型，不认识的（老产物、替身）回落 ``tool_timeout``。两条 loop 共用，模型在这一格
+    看到的东西不随 loop 而变。
+    """
+
+    error = str(result.error or "").strip()
+    return error if error in TIME_GATE_ERRORS else TOOL_TIMEOUT_ERROR
 
 
 def timeout_detail_for_model(result: ToolCallResult) -> str:
@@ -541,11 +560,12 @@ class EpisodeToolBatchSession:
         selected_in_model_order = tuple(sorted(selected, key=lambda item: item.index))
         timeout = clock.stage_timeout_granted
         if selected and timeout <= 0.0:
+            # 授权额为零：不进线程池，也不假装跑过。码是 tool_not_dispatched，不是超时。
             for candidate in selected:
                 items[candidate.index] = ToolCallResult(
                     candidate.call,
                     "timeout",
-                    error="tool_timeout",
+                    error=TOOL_NOT_DISPATCHED_ERROR,
                     step_id=step_ids[candidate.index],
                 )
             return self._result(

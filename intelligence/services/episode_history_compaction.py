@@ -23,10 +23,11 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from dataclasses import dataclass, replace
+from typing import Any, Mapping, MutableSequence, Sequence
 
 from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.episode_messages import EpisodeMessage
 from intelligence.services.episode_protocol import evidence_ordinal_table
 
 HISTORY_COMPACTION_ENV = "ASK_EPISODE_HISTORY_COMPACTION"
@@ -95,14 +96,14 @@ class CompactionReport:
         }
 
 
-def _tool_batches(messages: Sequence[Mapping[str, Any]]) -> list[list[int]]:
+def _tool_batches(messages: Sequence[EpisodeMessage]) -> list[list[int]]:
     """把 messages 切成工具批：一条带 tool_calls 的 assistant 之后连续的 role=tool 消息是一批。"""
 
     batches: list[list[int]] = []
     current: list[int] | None = None
     for index, message in enumerate(messages):
-        role = message.get("role")
-        if role == "assistant" and message.get("tool_calls"):
+        role = message.role
+        if role == "assistant" and message.tool_calls:
             current = []
             batches.append(current)
             continue
@@ -186,12 +187,16 @@ def _fold_content(
 
 
 def compact_history(
-    messages: list[dict[str, Any]],
+    messages: MutableSequence[EpisodeMessage],
     *,
     evidence: Sequence[AgentEvidence],
     keep_batches: int = DEFAULT_KEEP_BATCHES,
 ) -> CompactionReport:
-    """就地把比最近 ``keep_batches`` 批更早的 tool 消息折成索引；返回本次折了什么。"""
+    """就地把比最近 ``keep_batches`` 批更早的 tool 消息折成索引；返回本次折了什么。
+
+    ``messages`` 是 loop 的 ``EpisodeMessage`` 列表（运行底座 P1：线格式只在 provider 边界出现）；
+    消息本身冻结，折叠 = 用 ``replace`` 换掉列表里那一格，role / tool_call_id 原样带过去。
+    """
 
     keep = max(1, int(keep_batches))
     batches = _tool_batches(messages)
@@ -206,9 +211,7 @@ def compact_history(
     for batch in foldable:
         for index in batch:
             message = messages[index]
-            content = message.get("content")
-            if not isinstance(content, str):
-                continue
+            content = message.content
             try:
                 payload = json.loads(content)
             except json.JSONDecodeError:
@@ -217,10 +220,10 @@ def compact_history(
                 continue
             stub = _fold_content(payload, by_ordinal=by_ordinal)
             replacement = json.dumps(stub, ensure_ascii=False)
-            message["content"] = replacement
+            messages[index] = replace(message, content=replacement)
             folded.append(
                 FoldedMessage(
-                    call_id=str(message.get("tool_call_id") or ""),
+                    call_id=message.tool_call_id,
                     tool=str(payload.get("tool") or ""),
                     chars_before=len(content),
                     chars_after=len(replacement),
