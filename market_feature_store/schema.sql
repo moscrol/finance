@@ -89,11 +89,20 @@ CREATE TABLE IF NOT EXISTS fact_market_daily (
     updated_at               TIMESTAMP,
     -- 2026-09-07：周期阶段自训分类器的来源与置信（老库由 models/market_stage.ensure_stage_columns 追加）
     market_stage_source      TEXT,
-    market_stage_confidence  DOUBLE
+    market_stage_confidence  DOUBLE,
+    -- 2026-09-08：复盘会内层八段（左底向下 / 左底向上 / 二次探底 / 缩量右底 / 共建主线 / 主流主升 / 主流主升2.0 / 承接盘反复），
+    -- market_stage 是外层六类。平台事后会改写标注，所以带平台 updated_at（转成 UTC 无时区，与旁路库 vendor_updated_at 同口径）；
+    -- 这列只作授课框架的校准参照，不进标签计算。
+    cycle_stage              TEXT,
+    cycle_stage_source       TEXT,
+    cycle_stage_updated_at   TIMESTAMP
 );
 ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS summary_keywords TEXT;
 ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS market_stage_source TEXT;
 ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS market_stage_confidence DOUBLE;
+ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS cycle_stage TEXT;
+ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS cycle_stage_source TEXT;
+ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS cycle_stage_updated_at TIMESTAMP;
 
 -- 板块 universe 快照台账：同一交易日可有多份候选，只有 published 那份对外可见。
 -- 供应商会换代码、改名单，没有这层就无法回答「当时用的是哪一版板块清单」。
