@@ -40,7 +40,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -180,15 +180,27 @@ class WindowFeatures:
 # --------------------------------------------------------------------------- #
 def build_daily_vectors(
     *,
+    knowledge_cutoff: str,
     db_path: str | Path | None = None,
     checkpoints_path: str | Path | None = None,
 ) -> list[dict[str, Any]]:
-    """全历史逐日六维向量。缺数留 None，**不补零、不前向填充**。
+    """截至 ``knowledge_cutoff`` 的逐日六维向量。缺数留 None，**不补零、不前向填充**。
 
     补零会把「这天没数据」变成「这天是 0」，在标准化之后是一个真实的极端值——
     资金轨只有 51 天，补零会造出 360 多天的假极值，聚类必然被它主导。
+
+    ``knowledge_cutoff`` **必填**（工单 #35 / 09-06 spec §4.4「PIT 在区间上不能断」）：
+    有效时间只取 ``trade_date <= C``；记录时间用各源的 ``updated_at``（刷新时间，``<= C`` 是「那时已存在」
+    的充分证据）判每行 ``pit_grade``——四个带 ``updated_at`` 的源都在 C 前刷过才 ``strict``，否则
+    ``trade_date_only``。这是上界而不是真值：重发布过的旧日子会被判降档，但不会把未知说成已知。
+    ``pit_evidence`` 逐源列出判据，读数能回答「为什么这天不是 strict」。
     """
     import duckdb
+
+    # 先验参数再碰库：cutoff 空是调用方的错，不该被「数据库不存在」遮住。
+    cutoff = str(knowledge_cutoff or "").strip()[:10]
+    if not cutoff:
+        raise ValueError("knowledge_cutoff 必填：区间读数必须声明「站在哪天回看」，否则就是读全历史的前视泄漏（工单 #35 / spec §4.4）")
 
     db = Path(db_path or os.environ.get("MARKET_FEATURE_STORE_DB", DEFAULT_DB)).expanduser()
     if not db.exists():
@@ -196,50 +208,91 @@ def build_daily_vectors(
 
     con = duckdb.connect(str(db), read_only=True)
     try:
+        # 有效时间：只取 trade_date <= C 的行（每个源都截）。
         base = con.execute(
             """
             SELECT CAST(trade_date AS DATE) AS d, total_amount, advancers, limit_up,
-                   sh_deviation_pct, stock_high_count_1y
-            FROM fact_market_daily ORDER BY trade_date
-            """
+                   sh_deviation_pct, stock_high_count_1y, updated_at
+            FROM fact_market_daily WHERE CAST(trade_date AS DATE) <= CAST(? AS DATE) ORDER BY trade_date
+            """,
+            [cutoff],
         ).fetchall()
-        double_red = dict(
-            con.execute(
-                f"""
-                SELECT CAST(trade_date AS DATE),
-                       COUNT(*) FILTER (WHERE {DOUBLE_RED_SQL})
-                FROM fact_sector_daily GROUP BY 1
-                """  # noqa: S608 - 谓词来自本仓常量，不接受外部输入
-            ).fetchall()
-        )
-        top1 = dict(
-            con.execute(
-                """
-                SELECT CAST(trade_date AS DATE), MAX(market_share)
-                FROM fact_theme_limit_heat_daily WHERE rank = 1 GROUP BY 1
-                """
-            ).fetchall()
-        )
-        flow = {
-            d: (None if v is None else float(v))
-            for d, v in con.execute(
-                """
-                SELECT CAST(trade_date AS DATE), SUM(CAST(total_fund AS DECIMAL(18,4)))
-                FROM fact_theme_flow_daily GROUP BY 1
-                """
-            ).fetchall()
-        }
+        sector_rows = con.execute(
+            f"""
+            SELECT CAST(trade_date AS DATE),
+                   COUNT(*) FILTER (WHERE {DOUBLE_RED_SQL}),
+                   MAX(updated_at)
+            FROM fact_sector_daily WHERE CAST(trade_date AS DATE) <= CAST(? AS DATE) GROUP BY 1
+            """,  # noqa: S608 - 谓词来自本仓常量，不接受外部输入
+            [cutoff],
+        ).fetchall()
+        double_red = {d: n for d, n, _ in sector_rows}
+        sector_upd = {d: u for d, _, u in sector_rows}
+        heat_rows = con.execute(
+            """
+            SELECT CAST(trade_date AS DATE), MAX(market_share), MAX(updated_at)
+            FROM fact_theme_limit_heat_daily WHERE rank = 1 AND CAST(trade_date AS DATE) <= CAST(? AS DATE) GROUP BY 1
+            """,
+            [cutoff],
+        ).fetchall()
+        top1 = {d: v for d, v, _ in heat_rows}
+        heat_upd = {d: u for d, _, u in heat_rows}
+        flow_rows = con.execute(
+            """
+            SELECT CAST(trade_date AS DATE), SUM(CAST(total_fund AS DECIMAL(18,4))), MAX(updated_at)
+            FROM fact_theme_flow_daily WHERE CAST(trade_date AS DATE) <= CAST(? AS DATE) GROUP BY 1
+            """,
+            [cutoff],
+        ).fetchall()
+        flow = {d: (None if v is None else float(v)) for d, v, _ in flow_rows}
+        flow_upd = {d: u for d, _, u in flow_rows}
+        # 舆论轨用 created_at（唯一有真记录时刻的表，见 river._opinion_track）；记录时刻 > C 的研报当时还不存在。
         reports = con.execute(
-            "SELECT report_date, sector_tags, concept_tags FROM fact_research_report_catalog"
+            """
+            SELECT report_date FROM fact_research_report_catalog
+            WHERE CAST(report_date AS DATE) <= CAST(? AS DATE)
+              AND (created_at IS NULL OR CAST(created_at AS TIMESTAMP) <= CAST(? AS TIMESTAMP) + INTERVAL 1 DAY)
+            """,
+            [cutoff, cutoff],
         ).fetchall()
     finally:
         con.close()
 
     report_days = sorted(r[0] for r in reports)
     checkpoints = _checkpoint_counts(checkpoints_path)
+    cutoff_end = datetime.fromisoformat(cutoff) + timedelta(days=1)  # C 当天收盘后写入的也算「C 已知」
+
+    def _known_by_cutoff(stamp: Any) -> bool | None:
+        """``updated_at <= C`` 是「那时已存在」的**充分**证据；> C 不是「不存在」的证据（刷新会推后）。"""
+        if stamp is None:
+            return None
+        try:
+            ts = stamp if isinstance(stamp, datetime) else datetime.fromisoformat(str(stamp))
+        except ValueError:
+            return None
+        return ts < cutoff_end
+
+    def _source_evidence(present: bool, stamp: Any) -> bool | str | None:
+        """三种情形要分开：源当天**没有行**（"absent"，是维度缺口不是 PIT 问题，已经以 None 维出现在向量里）；
+        有行但 updated_at 空 / 解析不了（None，判不了 → 降档）；有行且能比（True / False）。"""
+        if not present:
+            return "absent"
+        return _known_by_cutoff(stamp)
 
     rows: list[dict[str, Any]] = []
-    for d, amount, adv, lu, dev, nh in base:
+    for d, amount, adv, lu, dev, nh, upd in base:
+        # 记录时间：当天**有行**的源都在 C 之前刷过才算 strict；任一有行的源判不了或晚于 C → trade_date_only。
+        # 没有行的源是维度缺口（向量里那一维本来就是 None），不参与 PIT 判定——把「缺数」当成「前视」
+        # 会让 51 天的资金轨把其余 360 多天全判成降档，读数就没有分辨力了。
+        # 保守方向不变：会把「后来被重发布过的旧日子」判成降档，不会把未知说成已知。
+        evidence = {
+            "fact_market_daily": _source_evidence(True, upd),
+            "fact_sector_daily": _source_evidence(d in sector_upd, sector_upd.get(d)),
+            "fact_theme_limit_heat_daily": _source_evidence(d in heat_upd, heat_upd.get(d)),
+            "fact_theme_flow_daily": _source_evidence(d in flow_upd, flow_upd.get(d)),
+        }
+        judged = [v for v in evidence.values() if v != "absent"]
+        pit_grade = "strict" if judged and all(v is True for v in judged) else "trade_date_only"
         rows.append(
             {
                 "trade_date": str(d),
@@ -253,6 +306,9 @@ def build_daily_vectors(
                 "theme_net_flow": flow.get(d),
                 "report_count_30d": _rolling_count(report_days, d, 30),
                 "checkpoints_registered": checkpoints.get(str(d)) if checkpoints is not None else None,
+                "knowledge_cutoff": cutoff,
+                "pit_grade": pit_grade,
+                "pit_evidence": evidence,
             }
         )
     return rows
@@ -482,6 +538,11 @@ def main() -> int:
     ap.add_argument("--after", type=int, default=9, help="锚点后几个交易日")
     ap.add_argument("--threshold", type=float, default=1.0, help="层次聚类的距离切断阈值")
     ap.add_argument("--checkpoints", default=None, help="判断轨 checkpoints.jsonl 路径")
+    ap.add_argument(
+        "--cutoff",
+        required=True,
+        help="knowledge_cutoff（YYYY-MM-DD）：站在哪天回看。必填——不声明就是读全历史的前视泄漏（#35）",
+    )
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
@@ -496,7 +557,7 @@ def main() -> int:
         else:
             anchors.append(token)
 
-    daily = build_daily_vectors(checkpoints_path=args.checkpoints)
+    daily = build_daily_vectors(knowledge_cutoff=args.cutoff, checkpoints_path=args.checkpoints)
     z_rows, dropped_global = standardize_vectors(daily, FEATURE_NAMES)
     windows = windows_around(daily, anchors, before=args.before, after=args.after, z_rows=z_rows)
     clusters, orphan = cluster_windows(windows, threshold=args.threshold)
