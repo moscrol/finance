@@ -7,7 +7,7 @@ the exact previous artifact; RunStore remains the only artifact writer.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, fields, replace
 from datetime import date
 import json
 from typing import Literal
@@ -350,10 +350,151 @@ def research_draft_schema() -> dict[str, object]:
     }
 
 
+@dataclass(frozen=True)
+class HypothesisPatch:
+    """Sparse edits to an existing hypothesis; every list is append-only."""
+
+    hypothesis_id: str
+    statement: str | None = None
+    status: DraftStatus | None = None
+    source_case_refs: tuple[str, ...] = ()
+    feature_definitions: tuple[str, ...] = ()
+    alternatives: tuple[str, ...] = ()
+    support_refs: tuple[str, ...] = ()
+    counterevidence_refs: tuple[str, ...] = ()
+    failed_sample_refs: tuple[str, ...] = ()
+    exposed_sample_refs: tuple[str, ...] = ()
+    unresolved_definitions: tuple[str, ...] = ()
+
+    def __post_init__(self):
+        object.__setattr__(self, "hypothesis_id", _text(self.hypothesis_id, "hypothesis_id"))
+        if self.statement is not None:
+            object.__setattr__(self, "statement", _text(self.statement, "statement"))
+        if self.status is not None and self.status not in _DRAFT_STATUSES:
+            raise ValueError("unsupported draft status; a patch cannot promote a draft")
+        for item in fields(self):
+            if item.name not in {"hypothesis_id", "statement", "status"}:
+                object.__setattr__(self, item.name, _strings(getattr(self, item.name), item.name))
+
+    @classmethod
+    def from_dict(cls, value):
+        payload = _object(value, cls)
+        for key in ("statement", "status"):
+            if key in payload:
+                _text(payload[key], key)
+        try:
+            return cls(**payload)
+        except TypeError as exc:
+            raise ValueError(f"invalid HypothesisPatch: {exc}") from exc
+
+
+@dataclass(frozen=True)
+class ResearchCasePatch:
+    """No identity, deletion, lineage, or ownership controls are model-writable."""
+
+    hypotheses: tuple[HypothesisPatch, ...] = ()
+    source_refs: tuple[str, ...] = ()
+    exposed_sample_refs: tuple[str, ...] = ()
+    open_questions: tuple[str, ...] = ()
+    stop_reason: str | None = None
+
+    def __post_init__(self):
+        if not isinstance(self.hypotheses, (list, tuple)) or any(
+            not isinstance(item, HypothesisPatch) for item in self.hypotheses
+        ):
+            raise ValueError("patch hypotheses must be HypothesisPatch values")
+        object.__setattr__(self, "hypotheses", tuple(self.hypotheses))
+        if len({item.hypothesis_id for item in self.hypotheses}) != len(self.hypotheses):
+            raise ValueError("duplicate patch hypothesis_id")
+        for name in ("source_refs", "exposed_sample_refs", "open_questions"):
+            object.__setattr__(self, name, _strings(getattr(self, name), name))
+        if self.stop_reason is not None:
+            object.__setattr__(self, "stop_reason", _text(self.stop_reason, "stop_reason"))
+
+    @classmethod
+    def from_dict(cls, value):
+        payload = _object(value, cls)
+        raw = payload.get("hypotheses", ())
+        if not isinstance(raw, (list, tuple)):
+            raise ValueError("patch hypotheses must be a list")
+        payload["hypotheses"] = tuple(HypothesisPatch.from_dict(item) for item in raw)
+        if "stop_reason" in payload:
+            _text(payload["stop_reason"], "stop_reason")
+        try:
+            return cls(**payload)
+        except TypeError as exc:
+            raise ValueError(f"invalid ResearchCasePatch: {exc}") from exc
+
+
+def prepare_research_patch(
+    payload: object,
+    *,
+    previous: ResearchCase,
+    available_result_refs: Iterable[str],
+    available_definition_refs: Iterable[str] = (),
+) -> ResearchCase:
+    """Merge sparse edits, retain all prior records, then use the strict validator.
+
+    A no-op returns the exact previous value; callers still check the current
+    transaction head. Modified hypotheses and cases each advance one version.
+    """
+    patch = ResearchCasePatch.from_dict(payload)
+    old = {item.hypothesis_id: item for item in previous.hypotheses}
+    changed = {}
+    for item in patch.hypotheses:
+        prior = old.get(item.hypothesis_id)
+        if prior is None:
+            raise ValueError("unknown hypothesis_id in patch; use a full draft to add a new hypothesis")
+        updates = {}
+        for field in fields(item):
+            name, value = field.name, getattr(item, field.name)
+            if name == "hypothesis_id" or value is None:
+                continue
+            updates[name] = tuple(dict.fromkeys((*getattr(prior, name), *value))) if isinstance(value, tuple) else value
+        merged = replace(prior, **updates)
+        changed[item.hypothesis_id] = (
+            replace(merged, version=prior.version + 1, parent_version=prior.version)
+            if merged != prior else prior
+        )
+    merged = replace(
+        previous,
+        hypotheses=tuple(changed.get(item.hypothesis_id, item) for item in previous.hypotheses),
+        source_refs=tuple(dict.fromkeys((*previous.source_refs, *patch.source_refs))),
+        exposed_sample_refs=tuple(dict.fromkeys((*previous.exposed_sample_refs, *patch.exposed_sample_refs))),
+        open_questions=tuple(dict.fromkeys((*previous.open_questions, *patch.open_questions))),
+        stop_reason=patch.stop_reason if patch.stop_reason is not None else previous.stop_reason,
+    )
+    revised = replace(merged, revision=previous.revision + 1, parent_revision=previous.revision)
+    validated = prepare_research_draft(
+        revised.to_dict(), previous=previous,
+        available_result_refs=available_result_refs,
+        available_definition_refs=available_definition_refs,
+    )
+    return previous if merged == previous else validated
+
+
+def research_patch_schema() -> dict[str, object]:
+    """Append-only sparse update; versions and identity come from the parent."""
+    draft = research_draft_schema()
+    hypothesis = draft["properties"]["hypotheses"]["items"]
+    allowed = {item.name for item in fields(HypothesisPatch)}
+    hypothesis["properties"] = {key: value for key, value in hypothesis["properties"].items() if key in allowed}
+    hypothesis["required"] = ["hypothesis_id"]
+    return {
+        "type": "object", "additionalProperties": False,
+        "description": "按已有hypothesis_id稀疏更新。所有列表只追加去重，空列表不删除旧记录；未提及假设完整保留；版本自动递增。",
+        "properties": {
+            "hypotheses": {"type": "array", "items": hypothesis},
+            **{key: draft["properties"][key] for key in ("source_refs", "exposed_sample_refs", "open_questions", "stop_reason")},
+        },
+    }
+
+
 _HISTORY_POLICY = """历史研究领域策略（仅本研究用途生效）：
 - 允许事后选强势股/板块，读取完整走势、后验峰值发现特征，提出候选假设；不要求发现前锁对象、预注册、申请 R 号或等待未来样本。
 - 从当前证据主动提出相互竞争的解释，选择最能区分解释的可取得观察；新反证出现时改变下一查询、修订或削弱假设。研究轴不是固定模板，不强排同日事件先后，不把量能和行情先后写成资金因果。
 - 用户要追到历史时，沿原假设比较多份历史样本，主动查失败、无特征却走强及不可判案例。相似 Top-K 只帮助发现，条件全集才是描述性比较分母；25 行预览不是完整样本。来源案例和已暴露样本不冒充独立验证。
+- 历史研究需使用 history_query 留下可复算原件；旧 finance_query 可以补事实。historical_comparison 用途只有单案例或相似列表时，应继续选择可执行的条件做 compare_cases；若定义/数据/预算不支持，明确交付部分结果和未完成比较，不把原假设的竞争解释当成原假设的失败样本。
 - 对每个解释保留支持/反对/未知、来源与定义版本、失败样本和待查问题。未支持的计算定义记录 unresolved_definitions / unsupported_definition，不简化成另一条规则，不宣称已执行。
 - 引用特征时按工具返回的 feature_definitions 解释，不凭名称猜口径；自定义的两条件量价同升不能称为库内严格双红，也不能把“成交额首末比”称为量比。报告条件比较时，正文同时说明实体与时间范围、样本窗口与步长、条件阈值、随后多少交易日及成功阈值、四格分母/缺失/未到期与重叠边界。只写“续强”或只给比率不算可复算的报告。
 - L2、晚间卖方、晨汇在未同步的目标范围保持 pending_sync；缺失不等于零或无催化，成交额不能替代主买净额。可用盘面继续研究，依赖缺轨的假设保持未知。
@@ -376,8 +517,10 @@ def history_research_prompt(
         policy += "\n本轮没有授权的 history_query；仅交付已有证据和计算缺口，不声称已经回测或完成历史条件比较。"
     if "save_history_research" in tools:
         policy += "\n保存候选与修订时使用 save_history_research 的 draft 与 previous_result_ref；case_id 由服务生成或继承，hypothesis.source_case_refs 可以引用已有 query_id/result_ref，无需预知 case_id。旧失败/反证及暴露记录必须保留，身份与原件持久化由工具核准。"
+        policy += "\n修订已有案例优先用 {previous_result_ref,patch:{hypotheses:[{hypothesis_id,statement,status,可选新增引用}]}}；patch与draft二选一，无需复制旧长引用或填写版本。服务端保留未提及假设及旧来源/失败/反证/暴露记录，列表仅追加；否定旧解释用status=unsupported或weakened，不删除。新增假设仍用完整draft。"
     if "read_history_result" in tools:
         policy += "\n追问时先用 read_history_result 读取相关已存 case/query，再续查或修订，避免遗忘原假设和失败样本。case 中的候选解释是研究草稿，不能当成新增事实证据。"
+        policy += "\ncase读取返回完整紧凑JSON摘要和假设分页；statement_truncated是明确摘要标志，next_offset非空时可按offset续读全部hypothesis_id。完整旧记录留在原件，由patch服务端合并保留。"
     summaries = [
         {
             key: result[key]
@@ -452,10 +595,18 @@ def assess_history_finish(
         for key in ("query_id", "result_ref")
         if isinstance(ref := result.get(key), str) and ref
     }
+    comparison_missing = (
+        intent.purpose == "historical_comparison"
+        and not any(result.get("operation") == "compare_cases" for result in successful)
+    )
+    comparison_gap = "已有历史观察，但尚未完成声明条件全集的历史比较；单案例和相似列表不能作为规律验证。"
     raw = decoded.get("history_research")
     if raw is None:
         if successful:
-            return HistoryFinishAssessment("single_case")
+            return HistoryFinishAssessment(
+                "single_case", gap=comparison_gap if comparison_missing else "",
+                force_partial=comparison_missing,
+            )
         return HistoryFinishAssessment(
             "insufficient_evidence",
             gap="尚无可核验的历史计算原件，未完成历史样本检验。",
@@ -527,6 +678,6 @@ def assess_history_finish(
         claimed_refs,
         gap="历史证据不足，尚不能形成完整样本比较。"
         if level == "insufficient_evidence"
-        else "",
-        force_partial=level == "insufficient_evidence",
+        else comparison_gap if comparison_missing else "",
+        force_partial=level == "insufficient_evidence" or comparison_missing,
     )

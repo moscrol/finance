@@ -94,6 +94,7 @@ class QueryResolution:
     status: ResolveStatus = "resolved"
     candidates: tuple[ResolveCandidate, ...] = ()
     suggested_action: SuggestedAction = "proceed"
+    comparison_entities: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -172,13 +173,50 @@ class QueryResolver:
 
     def resolve(self, query: str) -> QueryResolution:
         cleaned = str(query or "").strip()
+        from intelligence.services.historical_research.intent import (
+            infer_history_intent,
+            named_wave_subject,
+        )
+
+        historical = infer_history_intent(cleaned)
+        named = named_wave_subject(cleaned) if historical else None
+        named_theme = self._resolve_theme(named) if named else None
         anchor = resolve_entity_anchor(cleaned, self.knowledge)
-        matched_theme = None if anchor is not None else self._resolve_theme(cleaned)
+        # Only an exact registered theme may beat a shorter embedded company
+        # name. Explicit tickers and full company names retain their authority.
+        if named and named_theme == named and (
+            anchor is None
+            or (anchor.matched_by != "code" and anchor.entity != named and anchor.entity in named)
+        ):
+            anchor = None
+            matched_theme = named_theme
+        else:
+            matched_theme = None if anchor is not None else self._resolve_theme(cleaned)
         reference_kind = classify_reference(cleaned)
+        if historical is not None and reference_kind == "none" and re.search(
+            r"(?:复盘|分析|比较)(?:一下)?(?:它们|它|这两只|这几只|这家公司)", cleaned
+        ):
+            reference_kind = "entity_pronoun"
         envelope = understand_query(
             cleaned,
             matched_theme=matched_theme,
             anchor=anchor,
+        )
+        if named and anchor is None and envelope.matched_by == "explicit" and envelope.subject != named:
+            # A named historical wave outranks prose guessed as a company by
+            # generic cues such as “看看历史上...”. Real entity/code anchors above
+            # retain priority; the raw question remains the source of the frame.
+            from intelligence.services.task_frame import build_task_frame
+
+            envelope = replace(envelope, subject=named, subject_kind="theme", question_type="theme_analysis")
+            envelope = replace(envelope, task_frame=build_task_frame(cleaned, envelope))
+        comparison_entities = (
+            self._comparison_entities(cleaned)
+            if historical is not None and (
+                "comparison" in envelope.operators
+                or re.search(r"相比|比较|对比|各自|分别|差异|差别|相同|不同", cleaned)
+            )
+            else ()
         )
         status, action, candidates = _resolve_tristate(
             query=cleaned,
@@ -192,11 +230,35 @@ class QueryResolver:
             envelope=envelope,
             anchor=anchor,
             reference_kind=reference_kind,
-            context_dependent=reference_kind != "none",
+            context_dependent=reference_kind != "none" and not comparison_entities,
             status=status,
             candidates=candidates,
             suggested_action=action,
+            comparison_entities=comparison_entities,
         )
+
+    def _comparison_entities(self, query: str) -> tuple[str, ...]:
+        """Resolve explicit company mentions using the existing entity lexicon."""
+        remaining = query
+        found: dict[str, int] = {}
+        for _ in range(8):
+            anchor = resolve_entity_anchor(remaining, self.knowledge)
+            if anchor is None:
+                break
+            names = [anchor.entity]
+            if anchor.ticker:
+                names.append(anchor.ticker.split(".")[0])
+            positions = [query.find(name) for name in names if name in query]
+            if not positions:
+                break
+            found.setdefault(anchor.entity, min(positions))
+            masked = remaining
+            for name in names:
+                masked = masked.replace(name, " " * len(name))
+            if masked == remaining:
+                break
+            remaining = masked
+        return tuple(sorted(found, key=found.get)) if len(found) >= 2 else ()
 
     def _resolve_theme(self, query: str) -> str | None:
         folded = query.casefold()

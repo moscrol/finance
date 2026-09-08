@@ -17,6 +17,11 @@ _COMPARISON = re.compile(
     r"(?:找|看看|查|比较).{0,15}(?:失败案例|历史样本|反例)|条件全集"
 )
 _DATE = re.compile(r"(?<!\d)(20\d{2})[-/年](\d{1,2})[-/月](\d{1,2})日?(?!\d)")
+_SHORT_RANGE_END = re.compile(
+    r"\s*(?:到|至|~|～|—|-)\s*"
+    r"(?:(?P<month>\d{1,2})[月/-](?P<day>\d{1,2})日?|(?P<same_month_day>\d{1,2})日)"
+    r"(?!\d)"
+)
 
 
 @dataclass(frozen=True)
@@ -96,6 +101,30 @@ def infer_history_intent(question: str) -> HistoryIntent | None:
             strict_window=strict,
             window_error="历史日期无效，请明确有效的研究日期",
         )
+    # Chinese ranges commonly omit the repeated year/month. Only inherit from
+    # a directly connected full anchor; never infer a year rollover or turn
+    # separate comparison dates into a single authorized range.
+    if matches:
+        short_end = _SHORT_RANGE_END.match(question, matches[0].end())
+        if short_end is not None:
+            start = date.fromisoformat(dates[0])
+            try:
+                end = date(
+                    start.year,
+                    int(short_end["month"]) if short_end["month"] else start.month,
+                    int(short_end["day"] or short_end["same_month_day"]),
+                )
+            except ValueError:
+                return HistoryIntent(
+                    purpose, strict_window=strict,
+                    window_error="历史日期无效，请明确有效的研究日期",
+                )
+            if end < start:
+                return HistoryIntent(
+                    purpose, strict_window=strict,
+                    window_error="历史起止日期顺序相反或跨年不明，请明确完整研究窗口",
+                )
+            return HistoryIntent(purpose, start.isoformat(), end.isoformat(), strict_window=strict)
     if len(matches) >= 2 and re.fullmatch(
         r"\s*(?:到|至|~|～|—|-)\s*", question[matches[0].end() : matches[1].start()]
     ):
@@ -106,16 +135,42 @@ def infer_history_intent(question: str) -> HistoryIntent | None:
                 window_error="历史起止日期顺序相反，请明确研究窗口",
             )
         return HistoryIntent(purpose, dates[0], dates[1], strict_window=strict)
+    if strict and matches:
+        return HistoryIntent(
+            purpose, strict_window=True,
+            window_error="限定的历史窗口终点不明确，请给出完整起止日期",
+        )
     return HistoryIntent(purpose, strict_window=strict)
 
 
 def named_wave_subject(question: str) -> str | None:
     match = re.search(
-        r"(?:这一波|这波|那一波|上一波)([\u4e00-\u9fffA-Za-z0-9]{2,20}?)(?:是?怎么|如何|的)",
+        r"(?:这一波|这波|那一波|上一波)(?:的)?([\u4e00-\u9fffA-Za-z0-9]{2,20}?)(?:是?怎么|如何|的)",
         question,
     )
-    if match and match[1] not in {"行情", "题材", "板块", "强势股", "上涨", "下跌"}:
-        return match[1]
+    if match is None:
+        match = re.search(
+            r"(?:这一波|这波|那一波|上一波)(?:的)?([\u4e00-\u9fffA-Za-z0-9]{2,20}?)"
+            r"(?:行情|走势)(?=[，,。；;！？!?\s]|$)",
+            question,
+        )
+    if match:
+        subject = re.sub(r"(?:行情|走势|板块|题材)$", "", match[1])
+        if subject and subject not in {
+            "行情",
+            "题材",
+            "板块",
+            "强势股",
+            "上涨",
+            "下跌",
+        }:
+            return subject
+    for cue in re.finditer(r"(?:这一段|这段|这一波|这波)(?:行情|走势)", question):
+        prefix = re.split(r"[，,。；;！？!?]", question[:cue.start()])[-1].strip()
+        prefix = re.sub(r"^(?:请|帮我|事后|复盘|回溯|研究|分析|\s)+", "", prefix)
+        prefix = re.sub(r"^[\d年月日./至到~～—\-\s]+", "", prefix)
+        if re.fullmatch(r"[\u4e00-\u9fffA-Za-z][\u4e00-\u9fffA-Za-z0-9.]{1,19}", prefix):
+            return prefix
     return None
 
 

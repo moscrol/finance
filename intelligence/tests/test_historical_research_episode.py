@@ -544,3 +544,140 @@ def test_source_restriction_preserves_explicit_history_continuation(question):
     )
     assert result.task_frame.history_intent == previous.history_intent
     assert result.subject == "农业"
+
+
+@pytest.mark.parametrize("subject", ["农业", "人形机器人", "储能"])
+def test_named_wave_with_punctuation_keeps_its_explicit_subject(subject):
+    from intelligence.services.turn_controller import decide_turn
+
+    question = (
+        f"事后复盘2026年8月5日至9月1日这波{subject}行情，它是怎么一步步走出来的？"
+    )
+    result = decide_turn(question, llm_complete=lambda _: (None, None, "offline"))
+    assert result.task_frame.history_intent is not None
+    assert result.subject == subject
+    assert result.lane != "clarify"
+
+
+@pytest.fixture
+def named_history_resolver(tmp_path, monkeypatch):
+    import json
+    from intelligence.adapters.knowledge import KnowledgeAdapter
+    from intelligence.services.query_resolution import QueryResolver
+
+    monkeypatch.setenv("ENTITY_ANCHOR_SECURITIES_DB", "off")
+    relations = tmp_path / "relations"
+    relations.mkdir()
+    entities = {
+        "机器人": {"codes": ["300024.SZ"], "concepts": {"机器人": {}, "人形机器人": {}}},
+        "宁德时代": {"codes": ["300750.SZ"], "concepts": {"新能源": {}}},
+        "立新能源": {"codes": ["001258.SZ"], "concepts": {"新能源": {}}},
+        "国投丰乐": {"codes": ["000713.SZ"], "concepts": {"农业": {}}},
+        "隆平高科": {"codes": ["000998.SZ"], "concepts": {"农业": {}}},
+    }
+    (relations / "entity_exposures.json").write_text(json.dumps({"entities": entities}, ensure_ascii=False))
+    (relations / "aliases.json").write_text(json.dumps({"aliases": {"新能源车": "新能源"}}, ensure_ascii=False))
+    return QueryResolver(KnowledgeAdapter(wiki_root=tmp_path))
+
+
+@pytest.mark.parametrize("question,subject,kind", [
+    ("事后复盘这波人形机器人行情，它是怎么一步步走出来的？", "人形机器人", "theme"),
+    ("事后复盘这一波的农业行情，它是怎么一步步走出来的？", "农业", "theme"),
+    ("事后复盘这波的农业走势，它是怎么走出来的？", "农业", "theme"),
+    ("事后复盘这波宁德时代行情，它是怎么走出来的？", "宁德时代", "company"),
+    ("事后复盘这波立新能源行情，它是怎么走出来的？", "立新能源", "company"),
+    ("事后复盘这波机器人行情，它是怎么走出来的？", "机器人", "company"),
+    ("事后复盘2026年7月31日至8月27日储能这一段行情，看看历史上出现相同特征却没有继续走强的情况", "储能", "theme"),
+    ("事后复盘这波300024行情，它是怎么走出来的？", "机器人", "company"),
+    ("事后复盘这波300024.SZ行情，它是怎么走出来的？", "机器人", "company"),
+    ("事后复盘人形机器人相关公司300024这波行情，它是怎么走出来的？", "机器人", "company"),
+])
+def test_historical_named_theme_does_not_steal_explicit_company_or_ticker(
+    named_history_resolver, question, subject, kind
+):
+    from intelligence.services.turn_controller import decide_turn
+
+    result = decide_turn(question, resolver=named_history_resolver, llm_complete=lambda _: (None, None, "offline"))
+    assert result.subject == subject
+    assert result.task_frame.subject_kind == kind
+    assert result.lane != "clarify"
+
+
+@pytest.mark.parametrize("with_previous", [False, True])
+def test_frozen_multi_company_question_binds_its_own_pronoun(named_history_resolver, with_previous):
+    from intelligence.services.turn_controller import decide_turn
+
+    def offline(_):
+        return None, None, "offline"
+    previous = decide_turn("事后复盘这波宁德时代行情怎么走出来的？", resolver=named_history_resolver, llm_complete=offline).turn_intent
+    question = "事后复盘2025年8月1日至8月29日国投丰乐与隆平高科的走势。它们各自表现如何，相比同期大盘有什么差异？据此提出值得继续验证的解释。"
+    result = decide_turn(question, resolver=named_history_resolver, previous_intent=previous if with_previous else None, previous_turn_id="previous" if with_previous else None, llm_complete=offline)
+    assert result.lane == "research"
+    assert result.task_frame.question_type == "comparison_analog"
+    assert result.task_frame.history_intent is not None
+    assert result.turn_intent.comparison_entities == ("国投丰乐", "隆平高科")
+    assert result.turn_intent.inherited_from_turn is None
+    assert result.subject != "宁德时代"
+
+
+@pytest.mark.parametrize("question,entities", [
+    ("事后复盘国投丰乐这段走势，与隆平高科相比如何？", ("国投丰乐", "隆平高科")),
+    ("事后复盘000998与000713的走势。它们与同期大盘相比如何？", ("隆平高科", "国投丰乐")),
+])
+def test_explicit_history_comparison_preserves_named_and_ticker_order(named_history_resolver, question, entities):
+    from intelligence.services.turn_controller import decide_turn
+
+    result = decide_turn(question, resolver=named_history_resolver, llm_complete=lambda _: (None, None, "offline"))
+    assert result.lane == "research"
+    assert result.turn_intent.comparison_entities == entities
+
+
+@pytest.mark.parametrize("question", [
+    "事后复盘这段走势。它们各自表现如何，与大盘相比呢？",
+    "事后复盘它们的走势，各自表现如何？",
+    "事后复盘这一波，它是怎么走出来的？",
+])
+def test_history_pronoun_without_explicit_objects_still_requires_clarification(named_history_resolver, question):
+    from intelligence.services.turn_controller import decide_turn
+
+    result = decide_turn(question, resolver=named_history_resolver, llm_complete=lambda _: (None, None, "offline"))
+    assert result.lane == "clarify"
+    assert result.turn_intent.comparison_entities == ()
+
+
+@pytest.mark.parametrize("question,subject,kind", [
+    ("事后复盘这波人形机器人行情，它是怎么走出来的？", "人形机器人", "theme"),
+    ("事后复盘这一波的农业行情，它是怎么走出来的？", "农业", "theme"),
+    ("事后复盘这波300024行情，它是怎么走出来的？", "机器人", "company"),
+])
+def test_explicit_named_history_subject_is_not_overwritten_by_old_conversation(
+    named_history_resolver, question, subject, kind
+):
+    from intelligence.services.turn_controller import decide_turn
+
+    def offline(_):
+        return None, None, "offline"
+
+    previous = decide_turn("事后复盘这波宁德时代行情怎么走出来的？", resolver=named_history_resolver, llm_complete=offline).turn_intent
+    result = decide_turn(question, resolver=named_history_resolver, previous_intent=previous, previous_turn_id="old", llm_complete=offline)
+    assert result.subject == subject
+    assert result.task_frame.subject_kind == kind
+    assert result.turn_intent.inherited_from_turn is None
+
+
+@pytest.mark.parametrize("name,subject", [
+    ("国投丰乐", "国投丰乐"), ("隆平高科", "隆平高科"), ("300024", "机器人"),
+])
+def test_resolved_history_company_without_wave_word_replaces_old_subject(
+    named_history_resolver, name, subject
+):
+    from intelligence.services.turn_controller import decide_turn
+
+    def offline(_):
+        return None, None, "offline"
+
+    previous = decide_turn("事后复盘这波宁德时代行情怎么走出来的？", resolver=named_history_resolver, llm_complete=offline).turn_intent
+    result = decide_turn(f"事后复盘{name}这段走势，它是怎么一步步走出来的？", resolver=named_history_resolver, previous_intent=previous, previous_turn_id="old", llm_complete=offline)
+    assert result.task_frame.subject == subject
+    assert result.turn_intent.primary_subject == subject
+    assert result.turn_intent.inherited_from_turn is None

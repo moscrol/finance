@@ -31,6 +31,8 @@ halt_after_tool_batch afterToolCall.terminate     tools/post-execute → block
 fallback_after_empty_batch **—（pi 没有）**       **—（dsh 没有）**
 retrieval_complete   shouldStopAfterTurn          —
 admit_finish         **—（pi 没有）**              **—（dsh 没有）**
+assess_publication   **—（pi 没有）**              **—（dsh 没有）**
+recovery_evidence_priority **—（pi 没有）**         **—（dsh 没有）**
 classify_repair_need **—（pi 没有）**              **—（dsh 没有）**
 warrant_repair       **—（pi 没有）**              **—（dsh 没有）**
 downgrade_unreachable **—（pi 没有）**             **—（dsh 没有）**
@@ -170,6 +172,7 @@ __all__ = [
     "FinishAdmission",
     "ModeGovernance",
     "ModeSignalsFactory",
+    "PublicationAssessment",
     "RepairDowngrade",
     # 值类型：修复轮五个方法的签名都收 / 发它。第二条 loop 只从本模块取名字，
     # 所以它也是 harness 公开面的一部分。
@@ -319,6 +322,18 @@ class ToolResultProjection:
     audit_payload: dict[str, object]
     model_content: str
     seen_prose: frozenset[str]
+
+
+@dataclass(frozen=True)
+class PublicationAssessment:
+    """Domain completion ceiling and notices that must survive public projection.
+
+    A semantic pass may improve prose but cannot erase an unfinished domain
+    requirement. The adapter applies this value without knowing that domain.
+    """
+
+    max_status: Literal["completed", "partial"] = "completed"
+    required_public_notices: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -512,6 +527,21 @@ class ResearchHarness(Protocol):
         不看预算、不看 cycle。底座拿它去 ``admit_repair``——给不给窗、给多大，
         是底座的事。
         """
+        ...
+
+    def assess_publication(
+        self, *, context: ResearchRunContext
+    ) -> PublicationAssessment:
+        """Final domain requirements after repairs and semantic verification."""
+        ...
+
+    def recovery_evidence_priority(
+        self,
+        *,
+        context: ResearchRunContext,
+        evidence: tuple[AgentEvidence, ...],
+    ) -> tuple[str, ...]:
+        """Existing evidence hashes to retain first in a bounded recovery view."""
         ...
 
     def warrant_repair(
@@ -916,6 +946,34 @@ class FinanceResearchHarness:
             rejection=finish_rejection_fields(),
             declared_gaps=tuple(finish.gaps),
         )
+
+    def assess_publication(
+        self, *, context: ResearchRunContext
+    ) -> PublicationAssessment:
+        # Recheck the final execution metadata: repairs may have supplied the
+        # missing source after the original finish. No prose matching or model
+        # self-certification can substitute for an executed history result.
+        historical = assess_history_finish({}, context=context)
+        if historical is not None and historical.force_partial:
+            return PublicationAssessment(
+                max_status="partial",
+                required_public_notices=(historical.gap,) if historical.gap else (),
+            )
+        return PublicationAssessment()
+
+    def recovery_evidence_priority(
+        self,
+        *,
+        context: ResearchRunContext,
+        evidence: tuple[AgentEvidence, ...],
+    ) -> tuple[str, ...]:
+        if context.history_intent is None:
+            return ()
+        from intelligence.services.historical_research.recovery import (
+            recovery_evidence_priority,
+        )
+
+        return recovery_evidence_priority(evidence)
 
     def classify_repair_need(
         self,

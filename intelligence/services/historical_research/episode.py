@@ -107,6 +107,58 @@ def _compact(value) -> str:
     )
 
 
+def _draft_page(payload: dict, result_ref: str, offset: int, limit: int) -> str:
+    """Whole JSON under the real prose budget, never a market evidence card."""
+    from intelligence.services.tool_result_budget import MAX_OBSERVATION_CHARS
+
+    draft = payload["draft"]
+    hypotheses = draft.get("hypotheses", [])
+    question = draft["question"]
+    page = {
+        "kind": "research_draft", "research_only": True,
+        "case_id": draft["case_id"], "revision": draft["revision"],
+        "result_ref": result_ref,
+        "question": question[:96], "question_truncated": len(question) > 96,
+        "total_hypotheses": len(hypotheses), "offset": offset,
+        "returned_count": 0, "next_offset": None, "hypotheses": [],
+        "source_refs_count": len(draft.get("source_refs", [])),
+        "exposed_sample_refs_count": len(draft.get("exposed_sample_refs", [])),
+        "raw_artifact_preserved": True,
+    }
+    for index in range(offset, min(len(hypotheses), offset + limit)):
+        hypothesis = hypotheses[index]
+        statement = hypothesis["statement"]
+        item = {
+            "hypothesis_id": hypothesis["hypothesis_id"],
+            "statement": statement[:120], "statement_truncated": len(statement) > 120,
+            "status": hypothesis["status"], "version": hypothesis["version"],
+        }
+
+        def candidate(value):
+            return dict(page, hypotheses=[*page["hypotheses"], value],
+                returned_count=len(page["hypotheses"]) + 1,
+                next_offset=index + 1 if index + 1 < len(hypotheses) else None)
+
+        updated = candidate(item)
+        if len(_compact(updated)) > MAX_OBSERVATION_CHARS:
+            if page["hypotheses"]:
+                break
+            # Old immutable artifacts can contain arbitrarily long text/IDs.
+            # Shorten only labelled statement prose, never a patch identifier.
+            while item["statement"] and len(_compact(updated)) > MAX_OBSERVATION_CHARS:
+                item["statement"] = item["statement"][:-1]
+                item["statement_truncated"] = True
+                updated = candidate(item)
+            if len(_compact(updated)) > MAX_OBSERVATION_CHARS:
+                updated = candidate({"hypothesis_index": index,
+                    "projection_status": "oversized_hypothesis_id_requires_raw_artifact"})
+        page = updated
+    rendered = _compact(page)
+    if len(rendered) > MAX_OBSERVATION_CHARS:
+        raise ValueError("research case metadata exceeds model summary budget")
+    return rendered
+
+
 def _model_blocks(identity: dict, atoms: list[dict]) -> list[str]:
     """Pack whole semantic fields into the real model-facing detail budget.
 
@@ -499,7 +551,7 @@ def history_tool_specs(
         if "/history-case-" in ref:
             return ToolRunResult(
                 evidence=(),
-                observation="研究草稿，不是已验证事实：" + _compact(payload),
+                observation=_draft_page(payload, ref, offset, limit),
                 trace=ProviderTrace(
                     provider="history_artifact",
                     capability="finance_query",
@@ -537,7 +589,7 @@ def history_tool_specs(
         ToolSpec(
             name="read_history_result",
             capability="finance_query",
-            description="通过本会话研究原件引用读取完整结果的指定页；可以继续读取上一轮结果。",
+            description="读取同会话上一轮query/case原件的指定页；case返回未认证草稿摘要和hypotheses分页，按next_offset续读。旧完整引用由patch服务端保留。",
             contract=_TOOL_CONTRACTS["read_history_result"],
             cost="local",
             freshness="historical",
@@ -557,8 +609,11 @@ def history_tool_specs(
     )
     from intelligence.services.historical_research.research import (
         ResearchCase,
+        ResearchCasePatch,
         prepare_research_draft,
+        prepare_research_patch,
         research_draft_schema,
+        research_patch_schema,
     )
 
     draft_schema = research_draft_schema()
@@ -566,22 +621,44 @@ def history_tool_specs(
     draft_schema["required"].remove("case_id")
 
     def parse_save(arguments):
-        if set(arguments) - {"draft", "previous_result_ref"} or not isinstance(
-            arguments.get("draft"), dict
-        ):
-            raise ValueError("save_history_research requires a typed draft")
+        if set(arguments) - {"draft", "patch", "previous_result_ref"} or ("draft" in arguments) == ("patch" in arguments):
+            raise ValueError("save_history_research requires exactly one of draft or patch")
+        mode = "patch" if "patch" in arguments else "draft"
+        if not isinstance(arguments[mode], dict):
+            raise ValueError(f"save_history_research requires a typed {mode}")
         if len(_compact(arguments)) > 32000:
             raise ValueError("research draft exceeds 32000 character limit")
-        if "case_id" in arguments["draft"]:
+        if "case_id" in arguments[mode]:
             raise ValueError("case identity is assigned by the server")
         previous_ref = arguments.get("previous_result_ref")
         if previous_ref is not None and not isinstance(previous_ref, str):
             raise ValueError("invalid previous case reference")
-        return (arguments["draft"], previous_ref), _compact(arguments)
+        if mode == "patch":
+            if not previous_ref:
+                raise ValueError("patch requires previous_result_ref of the exact saved case")
+            ResearchCasePatch.from_dict(arguments[mode])
+        return (arguments[mode], previous_ref, mode), _compact(arguments)
+
+    def saved_result(prepared, ref, *, unchanged=False):
+        metadata = {
+            "operation": "save_history_research", "execution_status": "success",
+            "status": "research_only", "case_id": prepared.case_id,
+            "revision": prepared.revision, "result_ref": ref,
+        }
+        context.history_results.append(metadata)
+        context.history_artifact_index[:] = session.index()
+        return ToolRunResult(
+            evidence=(),
+            observation=_compact(dict(metadata, kind="research_draft", research_only=True,
+                unchanged=unchanged, hypotheses_count=len(prepared.hypotheses),
+                exposed_sample_refs_count=len(prepared.exposed_sample_refs))),
+            trace=ProviderTrace(provider="history_artifact", capability="finance_query", status="success"),
+            dataset="historical_research_draft", telemetry=metadata,
+        )
 
     def save_case(value, tool_context):
         tool_context.remaining()
-        draft, previous_ref = value
+        draft, previous_ref, mode = value
         previous = None
         if previous_ref:
             if "/history-case-" not in previous_ref:
@@ -609,18 +686,22 @@ def history_tool_specs(
         exposed.update(
             str(item["result_ref"])
             for item in context.history_results
-            if item.get("result_ref")
+            if item.get("result_ref") and item.get("operation") in {
+                "inspect_history", "compute_history", "find_analogues", "compare_cases"
+            }
         )
-        payload = dict(draft, case_id=identity, exposed_sample_refs=sorted(exposed))
+        payload = dict(draft, exposed_sample_refs=sorted(exposed))
         definitions = set(session.definition_refs)
         for item in context.history_results:
             definitions.update(item.get("definition_refs") or ())
-        prepared = prepare_research_draft(
-            payload,
-            available_result_refs=allowed,
-            previous=previous,
-            available_definition_refs=definitions,
-        )
+        if mode == "patch":
+            prepared = prepare_research_patch(payload, previous=previous,
+                available_result_refs=allowed, available_definition_refs=definitions)
+        else:
+            prepared = prepare_research_draft(
+                dict(payload, case_id=identity), available_result_refs=allowed,
+                previous=previous, available_definition_refs=definitions,
+            )
         assert_dependency_scope(prepared.to_dict(), session.query_aliases)
         existing = []
         for known_ref in tuple(session.refs):
@@ -632,9 +713,7 @@ def history_tool_specs(
         if existing:
             head_ref, head = max(existing, key=lambda item: item[1]["revision"])
             if _compact(prepared.to_dict()) == _compact(head):
-                return ToolRunResult(evidence=(), observation="同一研究草稿已保存：" + _compact({"case_id": identity, "result_ref": head_ref}),
-                    trace=ProviderTrace(provider="history_artifact", capability="finance_query", status="success"),
-                    dataset="historical_research_draft", telemetry={"result_ref": head_ref, "case_id": identity})
+                return saved_result(prepared, head_ref, unchanged=True)
             if previous is None:
                 raise ValueError("existing_case_requires_previous_result_ref: 修改已存案例必须保留原版本并声明parent")
             if previous_ref != head_ref:
@@ -651,32 +730,10 @@ def history_tool_specs(
             "promotion_eligible": False,
         }
         ref = session.save("case", artifact)
-        context.history_artifact_index[:] = session.index()
-        return ToolRunResult(
-            evidence=(),
-            observation="已保存候选研究草稿；尚未认证。"
-            + _compact(
-                {
-                    "case_id": identity,
-                    "revision": prepared.revision,
-                    "result_ref": ref,
-                    "hypothesis_ids": [
-                        item.hypothesis_id for item in prepared.hypotheses
-                    ],
-                    "exposed_sample_refs": sorted(exposed),
-                }
-            ),
-            trace=ProviderTrace(
-                provider="history_artifact",
-                capability="finance_query",
-                status="success",
-            ),
-            dataset="historical_research_draft",
-            telemetry={"result_ref": ref, "case_id": identity},
-        )
+        return saved_result(prepared, ref)
 
     def save(value, tool_context):
-        _, previous_ref = value
+        _, previous_ref, _ = value
         if previous_ref:
             message = "previous_result_ref must reference a saved history case; omit for initial draft"
             if "/history-case-" not in previous_ref:
@@ -698,7 +755,7 @@ def history_tool_specs(
         ToolSpec(
             name="save_history_research",
             capability="finance_query",
-            description="保存当前研究案例、候选解释、反证与未决问题；case_id由服务端分配。修改既有研究需previous_result_ref并保留旧失败与暴露记录。",
+            description="初次保存用draft；修订优先用previous_result_ref+patch，按已有hypothesis_id只传变化及新增引用，不用复制旧记录或手填版本。旧假设/来源/反证/失败/暴露均保留；列表只追加。完整draft模式仍支持严格版本修订。",
             contract=_TOOL_CONTRACTS["save_history_research"],
             cost="local",
             freshness="historical",
@@ -708,9 +765,13 @@ def history_tool_specs(
                 "type": "object",
                 "properties": {
                     "draft": draft_schema,
-                    "previous_result_ref": {"type": "string"},
+                    "patch": research_patch_schema(),
+                    "previous_result_ref": {"type": "string", "description": "修订或patch必须引用确切已存history-case原件，不能填query原件"},
                 },
-                "required": ["draft"],
+                "oneOf": [
+                    {"required": ["draft"], "not": {"required": ["patch"]}},
+                    {"required": ["patch", "previous_result_ref"], "not": {"required": ["draft"]}},
+                ],
                 "additionalProperties": False,
             },
         )

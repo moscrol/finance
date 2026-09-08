@@ -200,7 +200,9 @@ def build_task_frame(
     question = str(raw_question or "").strip()
     question_type = str(envelope.question_type or "general_finance_qa")
     history_intent = infer_history_intent(question)
-    if history_intent is not None and history_intent.purpose == "historical_comparison":
+    if history_intent is not None and (
+        history_intent.purpose == "historical_comparison" or question_type == "comparison"
+    ):
         question_type = "comparison_analog"
     elif history_intent is not None and question_type not in {
         "theme_analysis",
@@ -218,8 +220,9 @@ def build_task_frame(
     )
     subject_kind = str(envelope.subject_kind or "unknown")
     if history_intent is not None and subject is None:
-        subject = named_wave_subject(question)
-        if subject is not None:
+        named_subject = named_wave_subject(question)
+        if named_subject:
+            subject = named_subject
             subject_kind = "theme"
     unbound_rebound_reference = bool(
         subject is None

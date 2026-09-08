@@ -21,6 +21,123 @@ from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.run_store import RunStore
 
 
+@pytest.mark.parametrize("has_history_result", [False, True])
+@pytest.mark.parametrize("repair", [False, True])
+def test_history_finish_gap_survives_semantic_completion_and_publication(
+    tmp_path, has_history_result, repair
+):
+    """M3: ordinary finance evidence filled slots but no history query ran."""
+    from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
+    from intelligence.runtime.turn_control_core import TurnControlResult
+    from intelligence.services.agent_research import AgentEvidence
+
+    frame, context, registry = _history_episode(tmp_path)
+    evidence = (
+        AgentEvidence(
+            tool="finance_query",
+            title="农业同期行情",
+            detail="农业样本共同上涨，但现有资料无法区分独立催化与同期行情共振。",
+            source="本地行情",
+            source_date="2026-08-04",
+            content_hash="local-finance-evidence",
+        ),
+    )
+    if has_history_result:
+        query_result = registry.execute(
+            "history_query",
+            {
+                "operation": "compute_history",
+                "start": "2026-08-03",
+                "end": "2026-08-04",
+                "entity_codes": ["A.FP"],
+                "features": ["return_pct"],
+            },
+            context=context,
+            step_id="query",
+        )
+        evidence = query_result.evidence
+    draft = (
+        "农业样本存在共同上涨的现象。竞争性解释是同期行情共振，尚不能认定独立催化。"
+        "证据边界是缺少可靠新闻与独立多样本比较；这只是历史探索，尚非认证规律。"
+    )
+    admission = FinanceResearchHarness().admit_finish(
+        {
+            "status": "completed",
+            "draft": draft,
+            "gaps": [],
+            "bindings": [
+                {
+                    "output_id": output.output_id,
+                    "evidence_hashes": ["E1"],
+                    "basis": output.grounding_mode,
+                    "gap": "",
+                }
+                for output in context.contract.required_outputs
+            ],
+        },
+        context=context,
+        evidence=evidence,
+        registry=registry,
+    )
+    assert admission.accepted, admission.reason
+    assert admission.status == ("completed" if has_history_result else "partial")
+    assert bool(context.history_results) is has_history_result
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status=admission.status,
+        draft=admission.draft,
+        evidence=evidence,
+        traces=(),
+        gaps=admission.gaps,
+        stop_reason="model_finish",
+        events=(EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),),
+        bindings=admission.bindings,
+        usage=AgentUsage(llm_calls=0, tool_calls=0),
+    )
+
+    class Runtime:
+        def run(self, **_kwargs):
+            return outcome
+
+    judge_calls = []
+
+    def judge(request):
+        judge_calls.append(request)
+        reject = repair and len(judge_calls) == 1
+        return {
+            "passed": not reject,
+            "rejected_sentence_indexes": [2] if reject else [],
+            "issues": ["因果证据不足"] if reject else [],
+        }
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: registry,
+        semantic_verifier=SemanticEpisodeVerifier(judge_fn=judge),
+    ).handle(
+        frame=frame,
+        control=TurnControlResult(
+            task_frame=frame,
+            execution_route=frame.question_type,
+            terminal_kind="research",
+            needs_retrieval=True,
+            capabilities=("finance_query",),
+            contract_required=True,
+        ),
+    )
+    assert result.status == ("completed" if has_history_result else "partial")
+    notice = "尚无可核验的历史计算原件，未完成历史样本检验。"
+    assert (notice in result.answer) is not has_history_result
+    assert (notice in result.open_gaps) is not has_history_result
+    assert "农业样本存在共同上涨的现象" in result.answer
+    assert result.citations
+    assert result.private_artifact["semantic_verifier"]["judge_status"] == (
+        "repaired" if repair else "passed"
+    )
+
+
 def _history_episode(tmp_path):
     question = "这一波农业是怎么走出来的？"
     path = tmp_path / "history.duckdb"

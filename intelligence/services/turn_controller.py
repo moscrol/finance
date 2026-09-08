@@ -1053,6 +1053,8 @@ def decide_turn(
     )
     from intelligence.services.historical_research.intent import (
         inherit_history_followup,
+        infer_history_intent,
+        named_wave_subject,
     )
 
     history_followup = inherit_history_followup(
@@ -1068,7 +1070,12 @@ def decide_turn(
         )
     )
     inherit_subject = inherit_subject or history_followup is not None
-    if history_cancelled:
+    explicit_comparison = bool(resolution.comparison_entities)
+    explicit_resolved_history = bool(
+        infer_history_intent(query) is not None
+        and (resolution.anchor is not None or resolution.envelope.subject is not None)
+    )
+    if history_cancelled or explicit_comparison or explicit_resolved_history:
         inherit_subject = False
     task_frame = build_task_frame(
         query,
@@ -1091,6 +1098,11 @@ def decide_turn(
             else "theme_multi_layer_evidence",
             required_outputs=("direct_assessment", "counterpoint", "evidence_boundary"),
         )
+    explicit_history_context = explicit_comparison or explicit_resolved_history or bool(
+        task_frame.history_intent is not None
+        and task_frame.subject is not None
+        and named_wave_subject(query) is not None
+    )
     envelope = project_task_frame(task_frame, resolution.envelope)
     resolution = replace(resolution, envelope=envelope)
     if task_frame.clarification_question is not None:
@@ -1121,7 +1133,8 @@ def decide_turn(
         resolution.context_dependent
         and previous_intent is None
         and not (
-            task_frame.history_intent is not None and task_frame.subject is not None
+            task_frame.history_intent is not None
+            and (task_frame.subject is not None or explicit_comparison)
         )
     ):
         intent = replace(
@@ -1150,15 +1163,22 @@ def decide_turn(
     intent = build_turn_intent(
         query,
         envelope,
-        previous_intent=previous_intent,
+        previous_intent=None if explicit_history_context else previous_intent,
         previous_turn_id=previous_turn_id,
         resolution=resolution,
         task_frame=task_frame,
     )
+    if explicit_comparison:
+        intent = replace(
+            intent,
+            primary_subject=task_frame.subject,
+            comparison_entities=resolution.comparison_entities,
+            inherited_from_turn=None,
+        )
     if history_cancelled:
         intent = replace(intent, inherited_from_turn=None, history_intent=None,
                          primary_subject=task_frame.subject)
-    if history_followup is not None and previous_intent is not None:
+    if history_followup is not None and previous_intent is not None and not explicit_history_context:
         intent = replace(
             intent,
             inherited_from_turn=previous_turn_id,

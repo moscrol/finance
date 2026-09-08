@@ -1069,6 +1069,22 @@ class ContinuousTurnAdapter:
             status = "degraded"
         else:
             status = "failed"
+        publication = self._harness.assess_publication(context=context)
+        if status == "completed" and publication.max_status == "partial":
+            status = "partial"
+        if not answer and final_outcome.evidence:
+            answer = _episode_gap_answer(frame, structural)
+        answer = _with_calendar_disclosure(answer, frame)
+        public_notices = tuple(
+            dict.fromkeys(
+                safe
+                for notice in publication.required_public_notices
+                if (safe := _safe_public_text(notice, private_tokens=private_tokens))
+            )
+        )
+        for notice in public_notices:
+            if notice not in answer:
+                answer = "\n\n".join(part for part in (answer, notice) if part)
         _phase_note(
             phase_recorder,
             status,
@@ -1078,9 +1094,6 @@ class ContinuousTurnAdapter:
             outcome=outcome,
             repair_attempts=repair_attempts,
         )
-        if not answer and final_outcome.evidence:
-            answer = _episode_gap_answer(frame, structural)
-        answer = _with_calendar_disclosure(answer, frame)
         semantic_verifier_stale = semantic_verifier_stale or (
             semantic.verified.outcome.events != outcome.events
         )
@@ -1105,6 +1118,7 @@ class ContinuousTurnAdapter:
             "structural_verifier": structural.to_dict(),
             "satisfiability_precheck": _satisfiability_payload(satisfiability),
             "semantic_verifier": semantic.to_dict(),
+            "publication_assessment": asdict(publication),
             "semantic_verifier_stale": semantic_verifier_stale,
             "repair_attempts": repair_attempts,
             "repair_cycles": repair_cycles,
@@ -1155,9 +1169,13 @@ class ContinuousTurnAdapter:
                 outcome,
                 runtime_name=self._runtime_name,
             ),
-            open_gaps=_open_gap_labels(
-                context.contract,
-                fulfilled_output_ids=fulfilled_output_ids,
+            open_gaps=tuple(
+                dict.fromkeys(
+                    (*_open_gap_labels(
+                        context.contract,
+                        fulfilled_output_ids=fulfilled_output_ids,
+                    ), *public_notices)
+                )
             ),
         )
 

@@ -2942,6 +2942,12 @@ class ContinuousAgentEpisode:
         )
         recovery_started = monotonic()
         try:
+            recovery_options = {}
+            priority_hook = getattr(self._harness, "recovery_evidence_priority", None)
+            if callable(priority_hook):
+                priority = priority_hook(context=context, evidence=tuple(accumulator.evidence))
+                if isinstance(priority, tuple) and priority:
+                    recovery_options["evidence_priority"] = priority
             turn = self._finalizer.recover(
                 task_frame=task_frame,
                 context=context,
@@ -2953,6 +2959,7 @@ class ContinuousAgentEpisode:
                 on_prompt=lambda system, user: record_prompt_assembled(
                     ledger, system=system, user=user, source=PROMPT_SOURCE_FINALIZER
                 ),
+                **recovery_options,
             )
         except Exception as exc:
             budget_remaining = _consume_root_seconds(

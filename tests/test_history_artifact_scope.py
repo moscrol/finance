@@ -1,6 +1,7 @@
 """Stored research keeps the scope of its underlying queries across turns."""
 
 from dataclasses import replace
+import json
 
 import pytest
 
@@ -153,7 +154,9 @@ def test_in_scope_case_retains_query_aliases_for_the_next_revision(tmp_path):
         context=read_context,
         step_id="read",
     )
-    assert "研究草稿" in result.observation
+    page = json.loads(result.observation)
+    assert page["kind"] == "research_draft"
+    assert page["research_only"] is True
     assert next_session.query_aliases[query.telemetry["query_id"]] == query.telemetry[
         "result_ref"
     ]
