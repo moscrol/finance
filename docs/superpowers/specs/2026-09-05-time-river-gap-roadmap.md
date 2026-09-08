@@ -11,7 +11,7 @@
 > | 缺口 | 09-06 实测 | 在哪 |
 > |---|---|---|
 > | G-02a 联立读取面 | **已落地，且是六轨不是三轨**；另有横扫纵扫（`river_query.py`）与区间聚类（`river_window.py`）、`scripts/river_pit_audit.py` | `feat/river-slice-v0`（未合，领先 `gitea/main@4ed8b62c` 4 个提交） |
-> | G-02 两个时钟 / `pit_grade` | **已落地**：`RiverObject.recorded_at`、`slice(as_of, knowledge_cutoff)`、空切片 fail-closed 成 `trade_date_only`。09-06 追加：板块系表的记录时刻改从快照台账 `captured_at` 与 `updated_at` **取较早**，六轨联立可 strict 重放 **1 天 → 16 天**（没加数据，只是把库里已有的证据接上） | 同上 + `feat/river-recorded-at-ledger` |
+> | G-02 两个时钟 / `pit_grade` | **已落地**：`RiverObject.recorded_at`、`slice(as_of, knowledge_cutoff)`、空切片 fail-closed 成 `trade_date_only`。09-06 追加：板块系表的记录时刻改从快照台账 `captured_at` 与 `updated_at` **取较早**，六轨联立可 strict 重放 **1 天 → 16 天**（没加数据，只是把库里已有的证据接上）。**09-08 撤回（工单 #43 / 补强 spec OPT-01）**：名单时刻证明不了行情内容——同 generation 行情被 sync 覆盖时 `captured_at` 不动，T+7 修订值会被标成 T 日 strict；记录时刻改回只用 `updated_at`，那 15 天主动放弃，恢复靠内容级写一次 `recorded_at`（`2026-09-05-river-recorded-at-workorder.md`） | 同上 + `feat/river-recorded-at-ledger` + `feat/river-pit-strict-gate` |
 > | 契约字段 | **只落了一半**：`valid_to` / `expired_at` / `superseded_by` / `hardness` / `label_version` 全树零命中——所以「纠正通过新对象表达、不覆盖旧记录」这条**还没有载体**，§4.1 的回放读取条件只能执行前半句 | — |
 > | G-03 观察剧本 + 带读 | **本轮落地**：对象 + 硬门 + 带读管线 + T+1 回检登记；**判读段留空**（等 G-01 母本）、**未接进每日复盘** | `feat/observation-script`（未合，基线是上面那条分支） |
 > | G-12a 合规硬门 / lint | **前半已落地**（剧本 scope 门 + 营销禁词，共用 `compliance_gate` 一份词表）；判官概率数字检查未做 | 同上 |

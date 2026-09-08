@@ -1,8 +1,13 @@
-"""板块系表记录时刻的解析规则（`updated_at` 与快照台账 `captured_at` 取较早）。
+"""板块系表记录时刻的解析规则：只认这一行自己的 `updated_at`（工单 #43 / 补强 spec OPT-01）。
 
-用合成库而不是真库：要复现的失败形状是「重发布把 `updated_at` 推到今天、而快照台账
-`captured_at` 还留着真时刻」，真库里这两种行混在一起，钉不出**方向**。方向钉反的代价
-是实测的：整轨换成 `captured_at` 会让资金轨从 47 天 strict 掉到 20 天。
+用合成库而不是真库：要复现的失败形状是「T 日 1%、T+7 修订成 9%，名单快照台账的
+`captured_at` 还留着 T」——真库里这种行和「重发布没改内容」的行长得一模一样，钉不出**方向**。
+
+2026-09-06 ~ 09-08 这里钉的是反方向（`LEAST(updated_at, captured_at)`，把 strict 覆盖从 1 天抬到
+16 天）。那 15 天建立在「重发布不改内容」的假设上，而 sync 的 `ON CONFLICT DO UPDATE` 合同不保证
+它：同 generation 的行情被覆盖时 `sector_universe_snapshot_id` 不变、`captured_at` 也就不变，
+河会把修订后的值标成 T 日 strict。本文件把反例钉成回归；覆盖面靠内容级写一次 `recorded_at`
+（`2026-09-05-river-recorded-at-workorder.md`）拿回来，不靠再找一个更早的别的时刻。
 """
 
 from __future__ import annotations
@@ -13,7 +18,9 @@ import pytest
 
 from intelligence.services.river import (
     Gap,
+    RiverSlice,
     _capital_track,
+    _enforce_cutoff,
     _market_track,
     sector_recorded_at_sql,
 )
@@ -24,11 +31,12 @@ AS_OF = "2026-08-20"
 EID = "990306.FP"
 ENAME = "算力租赁"
 SNAP = "snap-a"
+REVISED_AT = "2026-08-27 11:00:00"  # T+7：同一行被 sync 覆盖成修订值
 
 
 def _db(*, snapshot_id: str = SNAP, captured_at: str | None = "2026-08-20 18:30:00+08",
-        updated_at: str = "2026-09-05 11:00:00", with_ledger: bool = True) -> Any:
-    """最小合成库。``updated_at`` 默认是「被重发布推到今天」的那种脏值。"""
+        updated_at: str = REVISED_AT, pct_chg: float = 9.0, with_ledger: bool = True) -> Any:
+    """最小合成库。默认就是反例形状：T 日的行在 T+7 被覆盖成 9%，台账 `captured_at` 仍是 T。"""
     con = duckdb.connect(":memory:")
     con.execute(
         "CREATE TABLE fact_market_daily (trade_date DATE, market_stage VARCHAR, stage_day INT,"
@@ -48,7 +56,7 @@ def _db(*, snapshot_id: str = SNAP, captured_at: str | None = "2026-08-20 18:30:
     )
     con.execute(
         f"INSERT INTO fact_sector_daily VALUES (DATE '{AS_OF}','{EID}','{ENAME}','计算机',"
-        f"3.2, 620.0, 18.0, 1.1, '共振', TIMESTAMP '{updated_at}', '{snapshot_id}')"
+        f"{pct_chg}, 620.0, 18.0, 1.1, '共振', TIMESTAMP '{updated_at}', '{snapshot_id}')"
     )
     con.execute(
         "CREATE TABLE fact_theme_limit_heat_daily (trade_date DATE, sector_name VARCHAR,"
@@ -88,45 +96,59 @@ def _sector_label(result: Any) -> Any:
     return next(o for o in result if o.ref.startswith("fact_sector_daily:"))
 
 
-class TestLedgerRecovery:
-    def test_dirty_updated_at_recovered_from_ledger(self) -> None:
-        """重发布把 `updated_at` 推到 09-05，台账还留着 08-20 18:30——取台账那个。"""
+def _slice(tracks: dict) -> RiverSlice:
+    return RiverSlice(as_of=AS_OF, entity_id=EID, entity_name=ENAME, knowledge_cutoff=AS_OF, tracks=tracks)
+
+
+class TestRevisedRowIsNotStrict:
+    """补强 spec §1.3 的最小反例转回归：T+7 修订过的行，在 C=T 下不能既返回修订值又标 strict。"""
+
+    def test_recorded_at_follows_the_row_not_the_roster(self) -> None:
         con = _db()
         obj = _sector_label(_market_track(con, AS_OF, EID, ENAME))
+        assert obj.payload["pct_chg"] == 9.0, "库里现在就是修订值，河如实返回它"
         assert obj.recorded_at is not None
-        assert obj.recorded_at[:10] == "2026-08-20"
+        assert obj.recorded_at[:10] == "2026-08-27", "记录时刻必须跟着这一行的 updated_at，不能被名单 captured_at 拉早"
 
-    def test_capital_aggregate_also_recovered(self) -> None:
+    def test_slice_downgrades_and_strict_mode_filters_it(self) -> None:
+        con = _db()
+        market = _market_track(con, AS_OF, EID, ENAME)
+        assert _slice({"market": market}).pit_grade == "trade_date_only"
+        strict = _enforce_cutoff({"market": market}, AS_OF)
+        surviving = [o.ref for o in strict["market"]] if isinstance(strict["market"], list) else []
+        assert not any(ref.startswith("fact_sector_daily:") for ref in surviving), "require_strict 下修订行必须被滤掉"
+
+    def test_capital_aggregate_follows_its_rows_too(self) -> None:
         con = _db()
         result = _capital_track(con, AS_OF, EID, ENAME)
         assert not isinstance(result, Gap)
         agg = next(o for o in result if o.ref.endswith(":agg"))
-        assert agg.recorded_at is not None and agg.recorded_at[:10] == "2026-08-20"
+        assert agg.recorded_at is not None and agg.recorded_at[:10] == "2026-08-27"
 
-    def test_earlier_updated_at_wins_over_later_capture(self) -> None:
-        """方向钉死：`updated_at` 更早时用它。
+    def test_honest_row_is_still_strict(self) -> None:
+        """不能修成「全部降档」：T 日写入、之后没被碰过的行仍然 strict。"""
+        con = _db(updated_at="2026-08-20 16:05:00", pct_chg=1.0)
+        market = _market_track(con, AS_OF, EID, ENAME)
+        obj = _sector_label(market)
+        assert obj.recorded_at is not None and obj.recorded_at[:10] == "2026-08-20"
+        assert _slice({"market": market}).pit_grade == "strict"
 
-        整轨换成 `captured_at` 会倒退——实测资金轨 47 天 strict 掉到 20 天，
-        因为台账 2026-07-27 才开始，而更早那些行的 `updated_at` 里有一批是诚实的。
-        """
-        con = _db(updated_at="2026-08-19 09:00:00", captured_at="2026-08-21 18:30:00+08")
-        obj = _sector_label(_market_track(con, AS_OF, EID, ENAME))
-        assert obj.recorded_at is not None and obj.recorded_at[:10] == "2026-08-19"
 
-    def test_legacy_snapshot_falls_back_to_updated_at(self) -> None:
-        """`snapshot_id='legacy'` 的存量行接不上台账：用 `updated_at`，不猜、不报错。"""
+class TestLedgerIsNotContentEvidence:
+    def test_legacy_snapshot_uses_updated_at(self) -> None:
+        """`snapshot_id='legacy'` 的存量行：`updated_at`，不猜、不报错。"""
         con = _db(snapshot_id="legacy")
         obj = _sector_label(_market_track(con, AS_OF, EID, ENAME))
-        assert obj.recorded_at is not None and obj.recorded_at[:10] == "2026-09-05"
+        assert obj.recorded_at is not None and obj.recorded_at[:10] == "2026-08-27"
 
-    def test_missing_ledger_table_degrades_quietly(self) -> None:
-        """老库没有台账表：退回只看 `updated_at`，读取面照常出对象。"""
-        con = _db(with_ledger=False)
-        obj = _sector_label(_market_track(con, AS_OF, EID, ENAME))
-        assert obj.recorded_at is not None and obj.recorded_at[:10] == "2026-09-05"
+    def test_missing_ledger_table_changes_nothing(self) -> None:
+        """有没有台账表，读取面输出逐字段相同——台账已不是记录时刻的输入。"""
+        with_ledger = _sector_label(_market_track(_db(with_ledger=True), AS_OF, EID, ENAME))
+        without = _sector_label(_market_track(_db(with_ledger=False), AS_OF, EID, ENAME))
+        assert with_ledger == without
 
-    def test_resolved_time_never_later_than_either_source(self) -> None:
-        """不变量：解析结果不会晚于任何一个来源——晚了就等于宣称它比证据更晚才存在。"""
+    def test_resolved_time_equals_updated_at(self) -> None:
+        """不变量：记录时刻就是这一行的 `updated_at`，不早于它（早了 = 替后来的内容背书）。"""
         for upd, cap in (
             ("2026-08-19 09:00:00", "2026-08-21 18:30:00+08"),
             ("2026-09-05 11:00:00", "2026-08-20 18:30:00+08"),
@@ -134,14 +156,21 @@ class TestLedgerRecovery:
             con = _db(updated_at=upd, captured_at=cap)
             obj = _sector_label(_market_track(con, AS_OF, EID, ENAME))
             assert obj.recorded_at is not None
-            assert obj.recorded_at[:10] <= min(upd[:10], cap[:10])
+            assert obj.recorded_at[:10] == upd[:10]
+
+    def test_source_hash_excludes_recorded_at(self) -> None:
+        """记录时刻规则变了，`source_hash` 不能变——冻结快照与既有收据按哈希对内容。"""
+        a = _sector_label(_market_track(_db(updated_at="2026-08-20 16:05:00"), AS_OF, EID, ENAME))
+        b = _sector_label(_market_track(_db(updated_at=REVISED_AT), AS_OF, EID, ENAME))
+        assert a.source_hash == b.source_hash and a.recorded_at != b.recorded_at
 
 
 class TestSqlContract:
-    def test_expression_drops_ledger_when_asked(self) -> None:
-        """无台账时表达式里不能再出现 `snap.`，否则查询会因未连接而报错。"""
-        assert "snap." not in sector_recorded_at_sql("v", with_ledger=False)
-        assert "snap.captured_at" in sector_recorded_at_sql("v", with_ledger=True)
+    def test_expression_never_touches_the_ledger(self) -> None:
+        """表达式里不许出现 `snap.`：名单时刻不是行情内容的证据。"""
+        expr = sector_recorded_at_sql("v")
+        assert "snap." not in expr and "captured_at" not in expr
+        assert "v.updated_at" in expr
 
     def test_audit_uses_the_same_rule(self) -> None:
         """审计脚本必须从 river 取规则，不许自己另写一套 SQL。
@@ -153,3 +182,4 @@ class TestSqlContract:
         src = Path("scripts/river_pit_audit.py").read_text(encoding="utf-8")
         assert "from intelligence.services.river import" in src
         assert "sector_recorded_at_sql" in src
+        assert "sector_ledger_join" not in src

@@ -38,12 +38,7 @@ if str(REPO_ROOT) not in sys.path:
 
 # 记录时刻的解析规则从 river 取，**不在本文件另写一套 SQL**：两处口径必漂，
 # 而漂的时候审计会替河说谎——报出来的 strict 天数不是河真能给出的那些天。
-from intelligence.services.river import (  # noqa: E402  （需先补 sys.path）
-    SECTOR_LEDGER_TABLE,
-    _has_table,
-    sector_ledger_join,
-    sector_recorded_at_sql,
-)
+from intelligence.services.river import sector_recorded_at_sql  # noqa: E402  （需先补 sys.path）
 
 DEFAULT_DB = "db/market_feature_store.duckdb"
 
@@ -71,10 +66,10 @@ TRACKS: dict[str, list[str]] = {
 DATE_COL: dict[str, str] = {"fact_research_report_catalog": "report_date"}
 RECORDED_COL: dict[str, str] = {"fact_research_report_catalog": "created_at"}
 
-# 板块系两张 VIEW 的记录时刻不只看 `updated_at`：还能从快照台账 `captured_at` 取，
-# 两者取较早（规则与理由见 river.sector_recorded_at_sql）。这两张表由 river 的
-# 同名规则驱动，所以审计和读取面报的是同一批天。
-LEDGER_TABLES: frozenset[str] = frozenset({"fact_sector_daily", "fact_sector_stock_daily"})
+# 板块系两张 VIEW 的记录时刻表达式从 river 取（`river.sector_recorded_at_sql`），审计和读取面
+# 报的是同一批天。它现在就是 `updated_at`：曾经拿名单快照台账 `captured_at` 取较早，工单 #43
+# 去掉了——名单时刻证明不了行情内容（同 generation 被覆盖时 `captured_at` 不动）。
+SECTOR_TABLES: frozenset[str] = frozenset({"fact_sector_daily", "fact_sector_stock_daily"})
 
 # 累计轨：读取面按 `date <= as_of` 取（覆盖密度是累计量，不是当日事件），
 # 所以「那天有没有新增一条」和「那天能不能读出这条轨」是两回事。
@@ -131,14 +126,9 @@ def audit_table(con: Any, table: str) -> dict[str, Any]:
         # _pit_where 对没有记录时刻的表返回 AND FALSE：strict 下整表读不到任何行。
         return {"table": table, "status": f"no_{rec_col}", "strict_days": 0}
 
-    # 板块系表走 river 的同一份解析规则（`updated_at` 与快照台账 `captured_at` 取较早）；
-    # 台账表不存在的老库自动退回只看 `updated_at`，不报错。
-    use_ledger = table in LEDGER_TABLES and _has_table(con, SECTOR_LEDGER_TABLE)
-    if table in LEDGER_TABLES:
-        rec_expr = sector_recorded_at_sql("v", with_ledger=use_ledger)
-    else:
-        rec_expr = f"v.{rec_col}"
-    from_clause = f"{table} v" + (sector_ledger_join("v") if use_ledger else "")
+    # 板块系表走 river 的同一份解析规则，不在这里另写。
+    rec_expr = sector_recorded_at_sql("v") if table in SECTOR_TABLES else f"v.{rec_col}"
+    from_clause = f"{table} v"
 
     rows = con.execute(
         f"""
