@@ -33,7 +33,7 @@
 
 ## 门禁
 
-（合入前在干净树补跑，读数回填到本节；本分支叠在 #667 + #670 之上，两者先合）
+干净树 `~/fwp-wt-scenario-tree` @ `d04f25a1`（叠在 #667 `d563729a` + #670 `aa4472df` 上）、`.venv-workbench`、`env -u MARKET_FEATURE_STORE_DB`：ruff 0；pytest **8217P / 0F / 76S / 1xfail**（362s）；`check_test_receipt --expect-revision HEAD` 可采信。#667 / #670 合入 main 后本分支前向合并再跑一次。
 
 ## 未做 / 边界
 
