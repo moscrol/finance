@@ -45,6 +45,10 @@ def build_sidecar(path: Path) -> Path:
         _label("2026-01-12", "tf.narrative_concepts", num=34.0), _label("2026-01-12", "tf.narrative_new_concepts", num=3.0),
         _label("2026-01-12", "tf.narrative_hard_share_pct", num=14.0), _label("2026-01-12", "tf.narrative_top3_share_pct", num=27.0),
         _label("2026-01-12", "tf.narrative_cover_rps5_pct", num=40.0),
+        # 消息面第二个源：晨汇 Tier 投影（二维晨汇：盘面共振那一格没有行，是缺口不是 0；回填批次写成滞后 23 天）。
+        _label("2026-01-12", "tf.briefing_tier1_items", num=3.0), _label("2026-01-12", "tf.briefing_tier2_items", num=5.0),
+        _label("2026-01-12", "tf.briefing_tier3_items", num=10.0), _label("2026-01-12", "tf.briefing_dimensions", num=2.0),
+        _label("2026-01-12", "tf.briefing_hit_rps5_pct", num=12.5), _label("2026-01-12", "tf.briefing_lag_days", num=23.0),
         _label("2026-01-13", "tf.money_losing_day", num=0), _label("2026-01-14", "tf.money_losing_day", num=1),
         _label("2026-02-06", "tf.money_losing_day", num=1),
     ]
@@ -54,9 +58,12 @@ def build_sidecar(path: Path) -> Path:
         if day != "2026-01-12":  # 01-12 的这两条已经在上面
             rows += [_label(day, "tf.above_week_ma", num=1 if i < 5 else 0), _label(day, "tf.stage_coarse", text="高位震荡" if i < 5 else "左底向下")]
     con.executemany("INSERT INTO history_teaching_labels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", rows)
-    # 02-06 没有叙事读数：源断更的缺口行（河对象把原因挂到阶段对象上，带读要说清）。
-    con.execute("INSERT INTO history_teaching_gaps (trade_date, gap_kind, missing_cols, framework_version, status, status_reason, computed_at) VALUES (?, 'tf.narrative_events', NULL, ?, 'gap', 'narrative_stale', ?)",
-                [date(2026, 2, 6), FW, BUILT_AT])
+    # 02-06 没有叙事读数：两个源各自的缺口行（卖方断更、当日没有晨汇；河对象把原因挂到阶段对象上，带读要说清）。
+    con.executemany(
+        "INSERT INTO history_teaching_gaps (trade_date, gap_kind, missing_cols, framework_version, status, status_reason, computed_at) VALUES (?, ?, NULL, ?, 'gap', ?, ?)",
+        [(date(2026, 2, 6), "tf.narrative_events", FW, "narrative_stale", BUILT_AT), (date(2026, 2, 6), "tf.briefing_tier1_items", FW, "briefing_absent_day", BUILT_AT),
+         (date(2026, 1, 12), "tf.briefing_market_confirmed", FW, "briefing_no_market_input", BUILT_AT)],
+    )
     con.executemany("INSERT INTO history_teaching_labels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [_label("2026-02-06", "tf.stage_coarse", text="左底向下")])
     con.executemany(
         """INSERT INTO history_dynasties (wave_idx, rank, wave_start, peak_end, collapse_start, collapse_end, wave_status, stock_ts_code,

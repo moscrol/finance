@@ -19,8 +19,14 @@ def sidecar(tmp_path: Path) -> Path:
 
 def test_stage_object_carries_the_days_reading_and_only_the_slice_fields(sidecar: Path) -> None:
     objs = {o.object_type: o for o in teaching_objects(sidecar, "2026-01-12", top=2)}
-    assert set(objs) == {"teaching_stage", "teaching_capital", "teaching_narrative", "teaching_dynasty", "teaching_range_leaders"}
+    assert set(objs) == {"teaching_stage", "teaching_capital", "teaching_narrative", "teaching_briefing", "teaching_dynasty", "teaching_range_leaders"}
     assert objs["teaching_narrative"].payload["narrative_cover_rps5_pct"] == 40.0 and objs["teaching_narrative"].ref.endswith(":narrative")
+    brief = objs["teaching_briefing"].payload
+    # 二维晨汇：盘面共振那一格没有值就没有键（不可知不是 0）；维度、条数、机器对照、写成滞后都在。
+    assert (brief["briefing_tier1_items"], brief["briefing_tier2_items"], brief["briefing_dimensions"], brief["briefing_lag_days"]) == (3.0, 5.0, 2.0, 23.0)
+    assert "briefing_market_confirmed" not in brief and objs["teaching_briefing"].ref.endswith(":briefing")
+    # 两个叙事对象都在的日子，阶段对象上不挂任何缺口原因。
+    assert "narrative_gap" not in objs["teaching_stage"].payload and "briefing_gap" not in objs["teaching_stage"].payload
     capital = objs["teaching_capital"]
     assert capital.payload["dragon_buy_sell_ratio_ma5"] == 1.7 and capital.payload["top100_amount_share"] == 0.187 and len(capital.payload) <= 20
     assert capital.ref == "history_teaching_labels:2026-01-12:market:capital"
@@ -55,7 +61,11 @@ def test_dynasty_object_only_exposes_what_the_day_already_knows(sidecar: Path) -
     (d3,) = [o for o in teaching_objects(sidecar, "2026-02-03", top=2) if o.object_type == "teaching_dynasty"]
     assert d3.payload["wave_idx"] == 0 and "last_completed_handoff" not in d3.payload
     # Wave 1's first collapse day: wave 1 is known, and so is the whole W0→W1 handoff (分离确认 of F and G in W0's collapse).
-    (d4,) = [o for o in teaching_objects(sidecar, "2026-02-06", top=2) if o.object_type == "teaching_dynasty"]
+    objs_0206 = {o.object_type: o for o in teaching_objects(sidecar, "2026-02-06", top=2)}
+    # 02-06 两个叙事源都没有读数：各自的原因挂在阶段对象上，两个对象都不出现。
+    assert "teaching_narrative" not in objs_0206 and "teaching_briefing" not in objs_0206
+    assert objs_0206["teaching_stage"].payload["narrative_gap"] == "narrative_stale" and objs_0206["teaching_stage"].payload["briefing_gap"] == "briefing_absent_day"
+    d4 = objs_0206["teaching_dynasty"]
     p4 = d4.payload
     assert p4["wave_idx"] == 1 and [m["stock_ts_code"] for m in p4["dynasty_top"]] == ["300006.SZ", "300007.SZ"]
     assert p4["labelled_days_since_collapse_start"] == 1 and p4["money_losing_days_since_collapse_start"] == 1
@@ -92,7 +102,7 @@ def test_river_slice_is_byte_identical_without_the_sidecar_and_strict_pit_filter
     assert json.dumps(plain, sort_keys=True, default=str) == json.dumps(again, sort_keys=True, default=str)
     with_teaching = slice_river("2026-01-12", "算力租赁", checkpoints_path=ck, teaching_labels_db=sidecar)
     kinds = [o.object_type for o in with_teaching.objects if o.object_type.startswith("teaching_")]
-    assert kinds == ["teaching_stage", "teaching_capital", "teaching_narrative", "teaching_dynasty", "teaching_range_leaders"]
+    assert kinds == ["teaching_stage", "teaching_capital", "teaching_narrative", "teaching_briefing", "teaching_dynasty", "teaching_range_leaders"]
     assert with_teaching.pit_grade == "trade_date_only"  # built on 2026-09-07, after as_of
     strict = slice_river("2026-01-12", "算力租赁", checkpoints_path=ck, teaching_labels_db=sidecar, require_strict=True)
     assert not [o for o in strict.objects if o.object_type.startswith("teaching_")]

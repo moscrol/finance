@@ -353,33 +353,61 @@ def _load_rps5_names(source: duckdb.DuckDBPyConnection) -> dict[Any, list[str]]:
 
 
 def _merge_narrative(sector_rows: list[dict[str, Any]], kb_wiki: str | None, dates: list[str], rps5_names: Mapping[Any, list[str]]) -> dict[str, Any]:
-    """把知识库卖方事件的市场级叙事读数并进板块侧行；没给知识库 / 源断更 都写成缺口原因，不写 0。"""
-    from intelligence.services.teaching_framework.narrative import NARRATIVE_FIELDS, load_opinion_events, narrative_daily
+    """把知识库两个叙事源的市场级读数并进板块侧行：卖方观点事件（tf.narrative_*）与晨汇 Tier 投影（tf.briefing_*）。
+
+    没给知识库 / 文件不在 / 源断更 / 当日没有晨汇 都写成各自的缺口原因（``narrative_gap`` / ``briefing_gap``），不写 0。
+    """
+    from intelligence.services.teaching_framework.narrative import (
+        BRIEFING_FIELDS, NARRATIVE_FIELDS, briefing_daily, load_briefing_tier_events, load_opinion_events, narrative_daily,
+    )
 
     if not kb_wiki:
         for row in sector_rows:
             row["narrative_gap"] = "narrative_source_absent"
-        return {"status": "absent", "detail": "未给 --kb-wiki，叙事读数全部记缺口"}
+            row["briefing_gap"] = "briefing_source_absent"
+        return {"status": "absent", "detail": "未给 --kb-wiki，叙事读数全部记缺口", "briefing": {"status": "absent"}}
+    rps5 = {str(k)[:10]: v for k, v in rps5_names.items()}
+    note: dict[str, Any]
     events = load_opinion_events(kb_wiki)
     if not events:
         for row in sector_rows:
             row["narrative_gap"] = "narrative_source_missing"
-        return {"status": "missing", "detail": f"{kb_wiki} 下没有 opinion-events.jsonl 或为空"}
-    daily = narrative_daily(events, dates, rps5_names={str(k)[:10]: v for k, v in rps5_names.items()})
-    stale = 0
+        note = {"status": "missing", "detail": f"{kb_wiki} 下没有 opinion-events.jsonl 或为空"}
+    else:
+        stale = _merge_daily(sector_rows, narrative_daily(events, dates, rps5_names=rps5), NARRATIVE_FIELDS, "narrative_gap", "narrative_rows_absent")
+        report_dates = sorted({str(e.get("report_date"))[:10] for e in events if e.get("report_date")})
+        note = {"status": "ok", "events": len(events), "report_dates": [report_dates[0], report_dates[-1]], "stale_days": stale}
+    briefings = load_briefing_tier_events(kb_wiki)
+    if not briefings:
+        for row in sector_rows:
+            row["briefing_gap"] = "briefing_source_missing"
+        note["briefing"] = {"status": "missing", "detail": f"{kb_wiki} 下没有 briefing-tier-events.jsonl 或为空（知识库 morning-briefing 的 extract_tier_events.py 产出）"}
+    else:
+        gaps = _merge_daily(sector_rows, briefing_daily(briefings, dates, rps5_names=rps5), BRIEFING_FIELDS, "briefing_gap", "briefing_rows_absent")
+        available = sorted({str(r.get("available_from"))[:10] for r in briefings if r.get("available_from")})
+        note["briefing"] = {
+            "status": "ok", "rows": len(briefings), "available_from": [available[0], available[-1]], "gap_days": gaps,
+            "market_confirmed_rows": sum(1 for r in briefings if r.get("market_confirmed")),
+            "dimensions_3_files": sorted({str(r.get("source_file")) for r in briefings if r.get("dimensions") == 3}),
+        }
+    return note
+
+
+def _merge_daily(sector_rows: list[dict[str, Any]], daily: Mapping[date, Mapping[str, Any]], fields: tuple[str, ...], gap_key: str, absent_reason: str) -> int:
+    gaps = 0
     for row in sector_rows:
         rec = daily.get(date.fromisoformat(str(row["trade_date"])[:10]))
         if rec is None:
-            row["narrative_gap"] = "narrative_rows_absent"
+            row[gap_key] = absent_reason
+            gaps += 1
             continue
         if rec.get("gap"):
-            row["narrative_gap"] = rec["gap"]
-            stale += 1
+            row[gap_key] = rec["gap"]
+            gaps += 1
             continue
-        for field in NARRATIVE_FIELDS:
+        for field in fields:
             row[field] = rec.get(field)
-    report_dates = sorted({str(e.get("report_date"))[:10] for e in events if e.get("report_date")})
-    return {"status": "ok", "events": len(events), "report_dates": [report_dates[0], report_dates[-1]], "stale_days": stale}
+    return gaps
 
 
 def _load_sector_breadth(source: duckdb.DuckDBPyConnection, params: Mapping[str, Any]) -> list[dict[str, Any]]:

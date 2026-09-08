@@ -12,6 +12,8 @@ roadmap G-01 (b)「复盘 run 新增 teaching 模式，可关，关掉后输出�
                           亏钱日数；下一波的成员只在下一波**也见顶之后**（其覆灭窗开始 ≤ 当日）才出现——
                           那时整节衔接才算「走出来」。当日之后才定下来的边界（覆灭窗终点、下一波起点）不写。
 - ``teaching_range_leaders`` 当日各窗口的区间涨幅前 N 组（名次、涨幅、在位第几天、申万一级）——当日的事实。
+- ``teaching_capital`` / ``teaching_narrative`` / ``teaching_briefing`` 资金面与消息面（卖方观点事件、晨汇 Tier 投影）的
+                          市场级当日读数，各一个对象；某个源没有读数的日子，原因（未接知识库 / 断更 / 当日无晨汇）挂在阶段对象上。
 
 ``recorded_at`` 一律取旁路库行的 ``computed_at``（构建时刻）：标签是事后重算的，回放 / 校准用 ``require_strict``
 时这些对象会被无前视门滤掉，这是对的——它们在历史那天并不存在。当日带读（cutoff = as_of）能看到。
@@ -46,6 +48,13 @@ NARRATIVE_LABELS = tuple(f"tf.{name}" for name in (
     "narrative_new_concept_share_pct", "narrative_hard_share_pct", "narrative_bull_share_pct", "narrative_top3_share_pct",
     "narrative_cover_rps5_pct",
 ))
+# 消息面第二个源：晨汇 Tier 投影。两个源各自一个对象、各自的缺口原因（卖方断更时晨汇可能还在，反之亦然）。
+BRIEFING_LABELS = tuple(f"tf.{name}" for name in (
+    "briefing_tier1_items", "briefing_tier2_items", "briefing_tier3_items", "briefing_market_confirmed",
+    "briefing_dimensions", "briefing_hit_rps5_pct", "briefing_lag_days",
+))
+# 没有某个叙事对象的日子，要说清为什么（未接知识库 / 源断更 / 当日无晨汇），不能让读者以为「今天没消息」；挂在阶段对象上。
+_SOURCE_GAPS = (("narrative_gap", "tf.narrative_events"), ("briefing_gap", "tf.briefing_tier1_items"))
 
 
 def _date(value: Any) -> date | None:
@@ -76,9 +85,14 @@ def teaching_objects(labels_db: str | Path, as_of: str, *, top: int = 10) -> lis
     try:
         out: list[RiverObject] = []
         narrative = _labels_object(con, day, as_of, labels=NARRATIVE_LABELS, object_type="teaching_narrative", suffix="narrative")
-        # 没有叙事读数要说清为什么（未接知识库 / 源断更 / 早于源起点），不能让读者以为「今天没消息」；挂在阶段对象上。
-        extra = {} if narrative is not None else {"narrative_gap": _narrative_gap(con, day)}
-        stage = _stage_object(con, day, as_of, extra={k: v for k, v in extra.items() if v})
+        briefing = _labels_object(con, day, as_of, labels=BRIEFING_LABELS, object_type="teaching_briefing", suffix="briefing")
+        extra: dict[str, Any] = {}
+        for (gap_key, gap_kind), obj in zip(_SOURCE_GAPS, (narrative, briefing), strict=True):
+            if obj is None:
+                reason = _gap_reason(con, day, gap_kind)
+                if reason:
+                    extra[gap_key] = reason
+        stage = _stage_object(con, day, as_of, extra=extra)
         if stage is not None:
             out.append(stage)
         capital = _capital_object(con, day, as_of)
@@ -86,6 +100,8 @@ def teaching_objects(labels_db: str | Path, as_of: str, *, top: int = 10) -> lis
             out.append(capital)
         if narrative is not None:
             out.append(narrative)
+        if briefing is not None:
+            out.append(briefing)
         dynasty = _dynasty_object(con, day, as_of, top=top)
         if dynasty is not None:
             out.append(dynasty)
@@ -160,11 +176,11 @@ def _labels_object(con: Any, day: date, as_of: str, *, labels: tuple[str, ...], 
     )
 
 
-def _narrative_gap(con: Any, day: date) -> str | None:
+def _gap_reason(con: Any, day: date, gap_kind: str) -> str | None:
     if not _has_table(con, "history_teaching_gaps"):
         return None
     row = con.execute(
-        "SELECT status_reason FROM history_teaching_gaps WHERE trade_date = ? AND gap_kind = 'tf.narrative_events' LIMIT 1", [day]
+        "SELECT status_reason FROM history_teaching_gaps WHERE trade_date = ? AND gap_kind = ? LIMIT 1", [day, gap_kind]
     ).fetchone()
     return None if row is None or row[0] is None else str(row[0])
 

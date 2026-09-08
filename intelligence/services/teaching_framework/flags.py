@@ -602,7 +602,20 @@ SECTOR_FIELDS = (
     ("narrative_bull_share_pct", "narrative_bull_share_pct"),
     ("narrative_top3_share_pct", "narrative_top3_share_pct"),
     ("narrative_cover_rps5_pct", "narrative_cover_rps5_pct"),
+    # 消息面第二个源：晨汇 Tier 投影（知识库 ``briefing-tier-events.jsonl``）。Tier 1 / 2 / 3 条目数、盘面共振条数
+    # （只有带盘面输入的三维晨汇才有数，二维晨汇记缺口 briefing_no_market_input——不可知不是 0）、维度数、
+    # 当日赚钱效应板块点名了多少比例的 Tier 1 / 2 主题（精确匹配）、晨汇写成滞后天数（回填批次晚数周）。
+    ("briefing_tier1_items", "briefing_tier1_items"),
+    ("briefing_tier2_items", "briefing_tier2_items"),
+    ("briefing_tier3_items", "briefing_tier3_items"),
+    ("briefing_market_confirmed", "briefing_market_confirmed"),
+    ("briefing_dimensions", "briefing_dimensions"),
+    ("briefing_hit_rps5_pct", "briefing_hit_rps5_pct"),
+    ("briefing_lag_days", "briefing_lag_days"),
 )
+
+# 每个叙事源自己的缺口键：字段 NULL 时先看源级原因（未接知识库 / 断更 / 当日无晨汇），再退回 ``<field>_null``。
+_SOURCE_GAP_KEYS = (("narrative_", "narrative_gap"), ("briefing_", "briefing_gap"))
 
 
 def _sector_scalars(row: Mapping[str, Any] | None) -> list[tuple[str, float | None, str | None]]:
@@ -614,8 +627,13 @@ def _sector_scalars(row: Mapping[str, Any] | None) -> list[tuple[str, float | No
             continue
         value = _num(row.get(field))
         if value is None:
-            reason = row.get("narrative_gap") if field.startswith("narrative_") and row.get("narrative_gap") else f"{field}_null"
-            out.append((label, None, str(reason)))
+            reason = f"{field}_null"
+            for prefix, gap_key in _SOURCE_GAP_KEYS:
+                if field.startswith(prefix) and row.get(gap_key):
+                    reason = str(row[gap_key])
+            if field == "briefing_market_confirmed" and row.get("briefing_dimensions") == 2:
+                reason = "briefing_no_market_input"
+            out.append((label, None, reason))
         else:
             out.append((label, round(value, SCALAR_DECIMALS), None))
     return out

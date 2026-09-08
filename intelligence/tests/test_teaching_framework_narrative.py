@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-from intelligence.services.teaching_framework.narrative import NARRATIVE_FIELDS, load_opinion_events, narrative_daily
+from intelligence.services.teaching_framework.narrative import (
+    BRIEFING_FIELDS, NARRATIVE_FIELDS, briefing_daily, load_briefing_tier_events, load_opinion_events, narrative_daily,
+)
 
 # 交易日：周一 01-05 … 周五 01-09，周一 01-12 … 周三 01-14；周末 01-10 / 01-11 有报告，归到周一 01-12。
 CAL = ["2026-01-05", "2026-01-06", "2026-01-07", "2026-01-08", "2026-01-09", "2026-01-12", "2026-01-13", "2026-01-14"]
@@ -58,4 +60,54 @@ def test_stale_source_is_a_gap_not_zero():
 
 def test_missing_events_file_is_an_empty_source(tmp_path: Path):
     assert load_opinion_events(tmp_path) == []
+    assert load_briefing_tier_events(tmp_path) == []
     assert narrative_daily([], CAL) == {}
+    assert briefing_daily([], CAL) == {}
+
+
+def _brief(available_from, tier, *, dims=2, links=(), theme="主题", recorded=None, market_confirmed=False):
+    return {
+        "available_from": available_from, "recorded_at": recorded or available_from, "tier": tier, "dimensions": dims,
+        "market_confirmed": market_confirmed, "wikilinks": list(links), "theme": theme, "source_file": f"wiki/briefings/{available_from}.md",
+    }
+
+
+# 晨汇：材料日 01-05（周一）→ 01-06 可知；材料日 01-09（周五）→ 01-10 可知 → 落到周一 01-12；01-12 另有一份三维交叉（盘前，当日可知）。
+BRIEFS = [
+    _brief("2026-01-06", 1, links=["CPO"], recorded="2026-01-30"), _brief("2026-01-06", 2, links=["PCB"], recorded="2026-01-30"),
+    _brief("2026-01-06", 2, theme="固态电池", recorded="2026-01-30"), _brief("2026-01-06", 3, recorded="2026-01-30"),
+    _brief("2026-01-10", 2, links=["光模块"], recorded="2026-01-11"),
+    _brief("2026-01-12", 1, dims=3, links=["CPO"], market_confirmed=True, recorded="2026-01-12"),
+    _brief("2026-01-12", 1, dims=3, links=["锂电"], market_confirmed=False, recorded="2026-01-12"),
+    _brief("2026-01-12", 3, dims=3, recorded="2026-01-12"),
+]
+
+
+def test_briefing_lands_on_the_first_trading_day_it_is_knowable_and_two_dimension_tier1_is_not_market_confirmed():
+    daily = briefing_daily(BRIEFS, CAL, rps5_names={"2026-01-06": ["CPO", "固态电池", "电子布"], "2026-01-12": ["光模块", "电子布"]})
+    # 01-05 早于第一份晨汇可知日 → 缺口，不是 0。
+    assert daily[date(2026, 1, 5)] == {"gap": "briefing_before_source", "earliest_available_from": date(2026, 1, 6)}
+    d6 = daily[date(2026, 1, 6)]
+    assert (d6["briefing_tier1_items"], d6["briefing_tier2_items"], d6["briefing_tier3_items"]) == (1, 2, 1)
+    # 二维晨汇：盘面共振不可知 → None（不是 0）；维度 2。
+    assert d6["briefing_market_confirmed"] is None and d6["briefing_dimensions"] == 2
+    # 机器版对照：Tier 1 / 2 三条里 CPO（双链）与 固态电池（标题）在当日赚钱效应板块里 → 2/3；回填批次写成滞后 24 天。
+    assert round(d6["briefing_hit_rps5_pct"], 2) == 66.67 and d6["briefing_lag_days"] == 24 and d6["recorded_at"] == "2026-01-30"
+    # 01-07 … 01-09 在起点与最新一期之间、当日没有晨汇 → 缺口 briefing_absent_day。
+    assert daily[date(2026, 1, 7)] == {"gap": "briefing_absent_day"} and daily[date(2026, 1, 9)] == {"gap": "briefing_absent_day"}
+    # 周一 01-12：周末可知的那份（Tier 2 光模块）与当日盘前的三维交叉合在一起；维度取 3，盘面共振只数 Tier 1 里真带盘面的那条。
+    d12 = daily[date(2026, 1, 12)]
+    assert (d12["briefing_tier1_items"], d12["briefing_tier2_items"], d12["briefing_tier3_items"]) == (2, 1, 1)
+    assert d12["briefing_dimensions"] == 3 and d12["briefing_market_confirmed"] == 1
+    # Tier 1 / 2 三条里只有 光模块 在当日赚钱效应板块里 → 1/3；写成不晚于可知日 → 滞后 0。
+    assert round(d12["briefing_hit_rps5_pct"], 2) == 33.33 and d12["briefing_lag_days"] == 0
+    # 没有赚钱效应板块名的日子，对照那一格是 None。
+    assert set(BRIEFING_FIELDS) <= set(d12)
+
+
+def test_stale_briefing_source_is_a_gap_not_zero():
+    cal = CAL + ["2026-01-15", "2026-01-16", "2026-01-19", "2026-01-20", "2026-01-21"]
+    daily = briefing_daily(BRIEFS, cal, stale_after_days=7)
+    # 最新可知日 01-12：01-19 距它 7 天仍算活着（只是当日没有晨汇），01-20 起断更。
+    assert daily[date(2026, 1, 19)] == {"gap": "briefing_absent_day"}
+    assert daily[date(2026, 1, 20)] == {"gap": "briefing_stale", "latest_available_from": date(2026, 1, 12)}

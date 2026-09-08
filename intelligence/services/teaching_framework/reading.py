@@ -41,6 +41,10 @@ def _fmt(value: Any, digits: int = 1) -> str:
     return str(value)
 
 
+def _count(value: Any) -> str:
+    return "—" if value is None else str(int(value))
+
+
 def _composition(members: list[dict[str, Any]]) -> str:
     """名单 → 组成：申万一级前几、载体几连板几趋势。不出名字、不出代码。"""
     if not members:
@@ -50,6 +54,69 @@ def _composition(members: list[dict[str, Any]]) -> str:
     l1_text = "、".join(f"{k} {v}" for k, v in l1.most_common(3)) or "一级未知"
     form_text = "，".join(f"{k} {v}" for k, v in sorted(forms.items())) if forms else ""
     return f"申万一级 {len(l1)} 个（{l1_text}）" + (f"；载体 {form_text}" if form_text else "")
+
+
+NARRATIVE_GAP_TEXT = {
+    "narrative_source_absent": "未接知识库（每日复盘没传 --kb-wiki）",
+    "narrative_source_missing": "知识库里没有卖方观点事件文件",
+    "narrative_stale": "卖方观点事件源断更（超过 7 天没有新报告），今日不出读数",
+    "narrative_before_source": "早于卖方观点事件源的起点",
+    "narrative_rows_absent": "当日无叙事行",
+}
+BRIEFING_GAP_TEXT = {
+    "briefing_source_absent": "未接知识库（每日复盘没传 --kb-wiki）",
+    "briefing_source_missing": "知识库里没有晨汇 Tier 事件文件（morning-briefing 的 extract_tier_events.py 未跑）",
+    "briefing_stale": "晨汇断更（超过 7 天没有新一期），今日不出晨汇读数",
+    "briefing_before_source": "早于晨汇的起点",
+    "briefing_absent_day": "当日没有晨汇",
+    "briefing_rows_absent": "当日无晨汇行",
+}
+
+
+def _narrative_line(stage: dict[str, Any], nar: dict[str, Any] | None, brief: dict[str, Any] | None) -> str | None:
+    """消息面一行：两个源（隔夜卖方事件、晨汇 Tier）各自的读数或缺口原因；两个都没接知识库时只说一遍。"""
+    parts: list[str] = []
+    if nar:
+        if nar.get("narrative_events") is not None:
+            seg = f"隔夜卖方事件 {int(nar['narrative_events'])} 条"
+            if nar.get("narrative_events_ratio_ma20_pct") is not None:
+                seg += f"（对 20 日均 {_fmt(nar.get('narrative_events_ratio_ma20_pct'), 0)}%）"
+            if nar.get("narrative_concepts") is not None:
+                seg += f"，覆盖概念 {int(nar['narrative_concepts'])} 个"
+            if nar.get("narrative_new_concepts") is not None:
+                seg += f"，其中首次出现 {int(nar['narrative_new_concepts'])} 个"
+            parts.append(seg)
+        detail = []
+        if nar.get("narrative_hard_share_pct") is not None:
+            detail.append(f"硬证据占比 {_fmt(nar.get('narrative_hard_share_pct'), 0)}%")
+        if nar.get("narrative_top3_share_pct") is not None:
+            detail.append(f"前三概念集中度 {_fmt(nar.get('narrative_top3_share_pct'), 0)}%")
+        if detail:
+            parts.append("，".join(detail))
+        if nar.get("narrative_cover_rps5_pct") is not None:
+            parts.append(f"今日赚钱效应板块里过去 5 天有卖方叙事的占 {_fmt(nar.get('narrative_cover_rps5_pct'), 0)}%")
+    elif stage.get("narrative_gap"):
+        parts.append(NARRATIVE_GAP_TEXT.get(str(stage["narrative_gap"]), str(stage["narrative_gap"])))
+    if brief:
+        seg = (
+            f"晨汇 Tier 1 / 2 / 3 各 {_count(brief.get('briefing_tier1_items'))} / {_count(brief.get('briefing_tier2_items'))} / "
+            f"{_count(brief.get('briefing_tier3_items'))} 条"
+        )
+        if brief.get("briefing_dimensions") == 3:
+            seg += f"（三维，盘面共振 {_count(brief.get('briefing_market_confirmed'))} 条）"
+        else:
+            seg += "（二维：无盘面输入，Tier 1 不算盘面共振）"
+        if brief.get("briefing_hit_rps5_pct") is not None:
+            seg += f"，Tier 1 / 2 主题被今日赚钱效应板块点名的占 {_fmt(brief.get('briefing_hit_rps5_pct'), 0)}%"
+        lag = brief.get("briefing_lag_days")
+        if lag is not None and lag >= 2:
+            seg += f"，晨汇写成滞后 {int(lag)} 天"
+        parts.append(seg)
+    elif stage.get("briefing_gap"):
+        reason = BRIEFING_GAP_TEXT.get(str(stage["briefing_gap"]), str(stage["briefing_gap"]))
+        if not (str(stage["briefing_gap"]) == "briefing_source_absent" and str(stage.get("narrative_gap")) == "narrative_source_absent"):
+            parts.append(reason)
+    return "消息面：" + "｜".join(parts) if parts else None
 
 
 def teaching_lines(objects: list[dict[str, Any]]) -> list[str]:
@@ -117,38 +184,9 @@ def teaching_lines(objects: list[dict[str, Any]]) -> list[str]:
             parts.append(f"成交额前 100 占全市场 {_fmt(100 * float(cap['top100_amount_share']), 1)}%")
         if parts:
             lines.append("资金面：" + "｜".join(parts))
-    nar = by_type.get("teaching_narrative")
-    if not nar and stage and stage.get("narrative_gap"):
-        reason = {
-            "narrative_source_absent": "未接知识库（每日复盘没传 --kb-wiki）",
-            "narrative_source_missing": "知识库里没有卖方观点事件文件",
-            "narrative_stale": "卖方观点事件源断更（超过 7 天没有新报告），今日不出读数",
-            "narrative_before_source": "早于卖方观点事件源的起点",
-            "narrative_rows_absent": "当日无叙事行",
-        }.get(str(stage["narrative_gap"]), str(stage["narrative_gap"]))
-        lines.append(f"消息面：{reason}")
-    if nar:
-        parts = []
-        if nar.get("narrative_events") is not None:
-            seg = f"隔夜卖方事件 {int(nar['narrative_events'])} 条"
-            if nar.get("narrative_events_ratio_ma20_pct") is not None:
-                seg += f"（对 20 日均 {_fmt(nar.get('narrative_events_ratio_ma20_pct'), 0)}%）"
-            if nar.get("narrative_concepts") is not None:
-                seg += f"，覆盖概念 {int(nar['narrative_concepts'])} 个"
-            if nar.get("narrative_new_concepts") is not None:
-                seg += f"，其中首次出现 {int(nar['narrative_new_concepts'])} 个"
-            parts.append(seg)
-        detail = []
-        if nar.get("narrative_hard_share_pct") is not None:
-            detail.append(f"硬证据占比 {_fmt(nar.get('narrative_hard_share_pct'), 0)}%")
-        if nar.get("narrative_top3_share_pct") is not None:
-            detail.append(f"前三概念集中度 {_fmt(nar.get('narrative_top3_share_pct'), 0)}%")
-        if detail:
-            parts.append("，".join(detail))
-        if nar.get("narrative_cover_rps5_pct") is not None:
-            parts.append(f"今日赚钱效应板块里过去 5 天有卖方叙事的占 {_fmt(nar.get('narrative_cover_rps5_pct'), 0)}%")
-        if parts:
-            lines.append("消息面：" + "｜".join(parts))
+    narrative_line = _narrative_line(stage or {}, by_type.get("teaching_narrative"), by_type.get("teaching_briefing"))
+    if narrative_line:
+        lines.append(narrative_line)
     dyn = by_type.get("teaching_dynasty")
     if dyn:
         top = dyn.get("dynasty_top") or []
