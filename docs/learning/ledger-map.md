@@ -6,6 +6,7 @@
 
 | 台账 | canonical 路径 | 格式 | 唯一写入者 | 提交? | 渲染物 |
 |---|---|---|---|---|---|
+| 方法验证实验（固定三组、当日前瞻观察、到期回检） | `userspace.user_space(user).root/method_validation/<protocol_id>/protocol.json`；`history/<记录日>/<hash>.json`、`capture/<D0>/<hash>.json`、`recheck/<记录日>/<hash>.json`（`FORESIGHT_USERS_DIR` 优先；CLI `--root` 可明确指定离线研究目录） | JSON，不可覆盖；协议/每次输入/结果均有内容摘要 | `scripts/method_validation.py register/history/capture/recheck`；主实验 R 号仍由 claim_ledger_id 领取并在 prediction-ledger 索引；不重复写问答 checkpoints | 否（私人研究应用态）；方法代码与工作流文档提交 | `report --record` → Markdown；当前全部 research_only，不进入 lifecycle/画像/参数推广 |
 | 每日市场复盘（正式日报） | `market_feature_store/exports/<date>-daily-review.json`（schema `daily-review/v1`：核心看板 + `facts` 口径字段 + 15 节 `sections[].blocks[]`） | JSON | `market_feature_store.cli daily-review`（`reports/daily_review.py::build_daily_review`，全量入口 `intelligence.cli daily` 的 `daily-review` 步） | 是（几十 KB/天） | 同名 `.md`（不提交，`render_daily_review_markdown`）→ `复盘/daily/<date>/<date>-daily-review.html`（`render_daily_review_briefing.py`）；Workbench 产物库投影 `project_daily_review_json`；框架解读 `load_facts_digest` |
 | 复盘输入冻结 | `docs/learning/forecast-review-ledger/<date>.manifest.json` | JSON | `dual_blind_forecast.py manifest`（**夜跑已退役**，仅手动） | 是 | — |
 | 复盘答卷 | `docs/learning/forecast-review-ledger/<date>.answer.<agent>.json` | JSON | `dual_blind_forecast.py validate`（校验；**夜跑已退役**） | 是 | `<date>.md` |
