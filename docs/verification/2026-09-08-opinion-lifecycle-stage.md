@@ -38,6 +38,8 @@
 
 干净树 `~/fwp-wt-opinion-stage` @ `97ea28fb`、`.venv-workbench`、`env -u MARKET_FEATURE_STORE_DB`：ruff 0；pytest **8177P / 0F / 76S / 1xfail**（848s，与另两条门禁并跑）；`check_test_receipt --expect-revision HEAD` 可采信。红集为空是判据（基线树与本分支基线不同，不作横向减法）。
 
+**新基线（main ）**：前向合并  后干净树全量 **8203P / 0F / 77S / 1xfail**（386s），可采信。
+
 ## 已知边界
 
 - **扩散不要求斜率为正**（工单表里写了「30 日斜率 > 0」）：≥ 3 份但持平 / 下滑且从未拥挤的日子否则无段可去；斜率进 `inputs.slope_30` 供读者判。
