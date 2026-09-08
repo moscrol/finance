@@ -56,6 +56,8 @@ def _seed(us) -> None:
             downgrade_or_abandon_conditions=["题材轨阶段标签回退或转为缺口"],
             recorded_at="2026-09-03T08:00:00+08:00",
             status="confirmed",
+            projection_hash="cp:fixture000000001",  # 工单 #34：从切片派生的剧本必带投影哈希
+            model_id="deterministic",
         ),
         checkpoints_path=us.checkpoints_path,
     )
