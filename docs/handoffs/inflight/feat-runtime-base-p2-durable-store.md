@@ -43,3 +43,5 @@
 - 三张 PR 已前向合并到 `gitea/main@8e452e72`（不 rebase 不强推）：#620 `09e54b5d` ← main；#624 `9a4d5c76` ← #620；#638 `ef5f4c70` ← #624。唯一冲突都在 `2026-09-01-workorders-INDEX.md`，按「只加行、按号排序」解（#27–#31 + main 的 #32）。本机 `merge-tree` 三张对 main 全 clean（Gitea 的 `mergeable` 字段刷新滞后，不看它）。
 - 干净树全量门禁（`.venv-workbench`、`env -u MARKET_FEATURE_STORE_DB`）：#620 **8183P/0F/76S/1xfail**、#624 **8207P/0F**、#638 **8250P/0F**；ruff 0；`check_test_receipt --expect-revision HEAD` 三张均「可采信」。三张都不碰 `intelligence/webapp`。
 - **下一步要用户**：按 #620 → #624 → #638 顺序确认合入（`gitea_pr.py merge N --yes`）；P2 合入后单独切 8792（0908c）+ `kill -9` 演练，步骤在工单 #38 §2.5。
+
+- **2026-09-08 21:30 复跑**：main 17:22 合入 #653 + #665 后三张再前向合并到 `368b7a66`（`0aab9038` / `ba6e9525` / `673cc8da`），`merge-tree` 全 clean；新基线干净树全量 #620 **8209P** / #624 **8233P** / #638 **8276P**，全 0F、可采信。合入确认仍等用户。
