@@ -18,7 +18,7 @@ Files: `docs/handoffs/2026-09-09-historical-discovery-implementation.md`；外�
 
 - [x] 记录当前线上 revision、真实 UI 自然问题和结果；不要用 CLI 冒充 Workbench。
 - [x] 对精确板块代码/交易日/成员/非空值核验，保留热度和事件时间缺口。
-- [ ] 在相同数据与当前基线上验证新入口，区分线上旧 revision 的观察与可归因的回归。
+- [x] 在相同数据与当前基线上验证新入口，区分线上旧 revision 的观察与可归因的回归。只读冻结库与基线/实现各一轮自然问题已保留；外部新闻与知识库未全部冻结，只用于入口/原件链路的结构对照，不宣称金融正确率或速度提升。
 
 ## Task 2 — 受限历史计算
 
@@ -47,6 +47,7 @@ Modify: `intelligence/services/run_store.py`；test `tests/test_run_store_histor
 - [x] 验证同 run 同 payload 幂等、修改条件产生新文件、路径穿越/未知 run/未登记原件/内容篡改被拒、既有通用 artifact 行为不变。
 - [x] RunStore 实现 `add_history_artifact(run_id, kind, payload)` 和 `read_history_artifact(run_id, filename)`；采用 canonical JSON+sha256 文件名与不可覆盖创建，登记到既有 RunRecord，禁止另建 writer。
 - [x] Run `/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q tests/test_run_store_history_artifacts.py`，预期通过。
+- [x] 真实追问暴露的长草稿截断问题改用完整 JSON 假设分页；稀疏 patch 在既有案例锁内保留旧假设/反证/来源，自动版本，拒绝过期父版本和非法引用，重复保存幂等。
 
 ## Task 4 — 意图、授权与真实工具装配
 
@@ -65,14 +66,17 @@ Modify: `intelligence/services/research_harness.py`；create `intelligence/servi
 - [x] Prompt 允许完整路径发现、提出相互竞争解释、选择最有区分力查询、主动找反例，明确记录支持/反对/未知和停止原因；不固定农业因果树。
 - [x] ResearchCase / HypothesisDraft 作为版本化产物记录来源案例、观察/检验用途、已暴露样本、替代解释、未支持定义和候选去向。修订保留旧版本与失败样本；不自动申请 R 号或晋升规律。
 - [x] finish 检查可核查的工具引用、研究用途和结论资格；数据不足交付部分事实和下一步，不伪称完成多样本确认。
+- [x] 领域发布上限在语义判官之后仍生效；历史比较用途只有单案例/相似召回时公开未完成缺口。异常恢复通过领域提供的已有证据优先序保留计算值与缺失状态，原始 E 引用编号和 runtime 预算保持不变。
 - [x] Run `/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q intelligence/tests/test_historical_research_harness.py`，策略测试覆盖农业与迁移题材；未来结果不改变触发匹配的差分在 query 测试中。实际 Episode 的证据驱动分支另补专项，真实模型表现由 Task 6 验收。
 
 ## Task 6 — 验收与交接
 
 - [ ] 真实 Workbench 运行农业复盘→相似样本/失败案例→改条件追问；再运行至少两个异题材场景。保存 run、trace、完整原件引用与数据/revision。
-- [ ] 独立 spec review 后 quality review；修复发现后重跑相关回归。
-- [ ] Run 定向 pytest 与改动文件 ruff；不以混合树/未执行全仓检查声称合并就绪。
-- [ ] 文档记录确切已实现项和 S3/S4 依赖；同步 product door/capability graph，按 pathspec 提交并写在途 handoff。不合 main、不启动数据同步、不部署替换当前服务。
+- [x] 现有代码切片独立 review 后修复并重跑回归；最终真实回答的逐题质量验收仍未通过，不以这项代替上一项。
+- [x] 定向 pytest 1101P、改动文件 ruff 与提交钩子通过；没有跑全仓等价 CI，不声称合并就绪。
+- [x] 文档记录确切已实现项和 S3/S4 依赖；同步 product door/capability graph，按 pathspec 提交并写在途 handoff。不合 main、不启动数据同步、不部署替换当前服务。
+
+**2026-09-09 用户要求交接，停止新增实现。** 代码固定 `5c980d79`。六道冻结自然题与 UI 修订均已实际运行，完整状态见 `docs/handoffs/2026-09-09-historical-discovery-implementation.md`：UI 确实保存 v2，但最终回答因合法 case 引用被误拒而未交付；M3 发现应用回退工具消息缺对应调用声明，M5/M6 遇到 HTTP 429。下一位先修两处确定问题再降低并发复验；不要勾选端到端验收或启动 S3/S4。
 
 ## S3 候选桥接的准确边界
 
