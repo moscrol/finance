@@ -567,6 +567,13 @@ BREADTH_FIELDS = (
     ("stock_ma10_deviation_median", "ma10_deviation_median", "ma10_count"),
     # 复盘会「情绪均值回归」的原料：当日上涨家数占比；其 5 日均值另算（UP_RATIO_MA_DAYS）。
     ("stock_up_ratio_pct", "up_ratio_pct", "stock_count"),
+    # 第二十五段候选维度（先量再进靶子）：个股周均线上方占比、20 日 / 一年新低家数、20 日新高家数、背离广度。
+    ("stock_above_ma5_share_pct", "above_ma5_share_pct", "ma5_count"),
+    ("new_low_20d_count", "new_low_20d_count", "window20_count"),
+    ("new_high_20d_count", "new_high_20d_count", "window20_count"),
+    ("new_low_1y_count", "new_low_1y_count", "window250_count"),
+    ("stock_div_bottom_observe_share_pct", "div_bottom_observe_share_pct", "stock_count"),
+    ("stock_div_top_share_pct", "div_top_share_pct", "stock_count"),
 )
 UP_RATIO_MA_DAYS = 5
 

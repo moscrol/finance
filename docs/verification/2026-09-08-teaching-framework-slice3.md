@@ -62,3 +62,16 @@ exits：触碰周均 {左底向下 19, 缩量右底 18, 共建主线 1}；二次
 lint_output("阶段：左底向上（细分 触碰周均）") == []
 pytest 126 passed + 1 skip（新增 fine 规则 + exits 两条）；ruff 通过
 ```
+
+## 第二十五段：候选维度（`tf-v0.2+b5be80b8`，哈希 de23f56ee05f7536）
+
+```text
+BREADTH_SQL 加：above_ma5_share_pct / new_low_20d_count / new_high_20d_count / new_low_1y_count（窗口内逐日有行才算）；
+_merge_divergence_breadth：全部个股跑 divergence_events（与 build-structure 同口径，<120 可用日不算），5 日内出过底背离观察 / 顶背离的个股占比
+index_stage.CANDIDATE_METRICS 六项 → stage_separation()["candidates"]（不进 summary 平均）
+真库两次全新构建 00:10Z / 04:00Z 哈希一致 de23f56ee05f7536；标签行 61,506；官方 16 项 η² 0.1490/0.1548/0.1989 不变；build-labels 28 s（+8 s 背离广度）
+候选 η²（全/训/验）：20 日新高 0.463/0.445/0.525；个股 MA5 上方占比 0.371/0.431/0.298；20 日新低 0.273/0.346/0.231；一年新低 0.184/—/0.182（96 天）；
+  底背离广度 0.039/0.112/0.068；顶背离广度 0.032/0.080/0.098
+个股 MA5 上方占比阈值：40% → 底部两段在下方 0.74 / 上行三段在上方 0.88；50% → 0.89 / 0.77
+pytest 126 passed + 1 skip；ruff 通过
+```

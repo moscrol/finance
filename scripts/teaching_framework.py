@@ -107,6 +107,8 @@ def _source_counts(source: duckdb.DuckDBPyConnection) -> dict[str, int]:
 # 「整体的水位」（创始人 2026-09-07）：全市场个股的涨幅中位数、平均股价、个股相对自身
 # MA5 / MA10 偏离度的中位数。均线只用截至当日的收盘；一只股票要在窗口内每个交易日都有
 # 行（按 fact_market_daily 日历索引连续）才计入偏离度中位数，停牌股当日不算。
+DIVERGENCE_BREADTH_WINDOW = 5
+
 BREADTH_SQL = """
 WITH cal AS (
     SELECT trade_date, ROW_NUMBER() OVER (ORDER BY trade_date) AS idx FROM fact_market_daily
@@ -123,7 +125,15 @@ w AS (
         LAG(idx, 4)  OVER (PARTITION BY stock_ts_code ORDER BY idx) AS idx_lag4,
         AVG(close)   OVER (PARTITION BY stock_ts_code ORDER BY idx ROWS BETWEEN 9 PRECEDING AND CURRENT ROW) AS ma10,
         COUNT(*)     OVER (PARTITION BY stock_ts_code ORDER BY idx ROWS BETWEEN 9 PRECEDING AND CURRENT ROW) AS n10,
-        LAG(idx, 9)  OVER (PARTITION BY stock_ts_code ORDER BY idx) AS idx_lag9
+        LAG(idx, 9)  OVER (PARTITION BY stock_ts_code ORDER BY idx) AS idx_lag9,
+        -- 第二十五段候选维度：个股自身的 20 日 / 250 日（约一年）新高新低，窗口内每个交易日都要有行才算
+        MIN(close)   OVER (PARTITION BY stock_ts_code ORDER BY idx ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS low20,
+        MAX(close)   OVER (PARTITION BY stock_ts_code ORDER BY idx ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS high20,
+        COUNT(*)     OVER (PARTITION BY stock_ts_code ORDER BY idx ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS n20,
+        LAG(idx, 19) OVER (PARTITION BY stock_ts_code ORDER BY idx) AS idx_lag19,
+        MIN(close)   OVER (PARTITION BY stock_ts_code ORDER BY idx ROWS BETWEEN 249 PRECEDING AND CURRENT ROW) AS low250,
+        COUNT(*)     OVER (PARTITION BY stock_ts_code ORDER BY idx ROWS BETWEEN 249 PRECEDING AND CURRENT ROW) AS n250,
+        LAG(idx, 249) OVER (PARTITION BY stock_ts_code ORDER BY idx) AS idx_lag249
     FROM s
 )
 SELECT trade_date,
@@ -134,15 +144,62 @@ SELECT trade_date,
        MEDIAN(CASE WHEN n5 = 5 AND idx_lag4 = idx - 4 THEN (close / ma5 - 1) * 100 END)   AS ma5_deviation_median,
        COUNT(CASE WHEN n5 = 5 AND idx_lag4 = idx - 4 THEN 1 END)                            AS ma5_count,
        MEDIAN(CASE WHEN n10 = 10 AND idx_lag9 = idx - 9 THEN (close / ma10 - 1) * 100 END) AS ma10_deviation_median,
-       COUNT(CASE WHEN n10 = 10 AND idx_lag9 = idx - 9 THEN 1 END)                          AS ma10_count
+       COUNT(CASE WHEN n10 = 10 AND idx_lag9 = idx - 9 THEN 1 END)                          AS ma10_count,
+       -- 个股周均线（MA5，与上证 sh_week_ma 同口径）上方占比：创始人「周均线」规则的个股广度版
+       100.0 * COUNT(CASE WHEN n5 = 5 AND idx_lag4 = idx - 4 AND close > ma5 THEN 1 END)
+             / NULLIF(COUNT(CASE WHEN n5 = 5 AND idx_lag4 = idx - 4 THEN 1 END), 0)          AS above_ma5_share_pct,
+       COUNT(CASE WHEN n20 = 20 AND idx_lag19 = idx - 19 AND close = low20 THEN 1 END)       AS new_low_20d_count,
+       COUNT(CASE WHEN n20 = 20 AND idx_lag19 = idx - 19 AND close = high20 THEN 1 END)      AS new_high_20d_count,
+       COUNT(CASE WHEN n20 = 20 AND idx_lag19 = idx - 19 THEN 1 END)                         AS window20_count,
+       COUNT(CASE WHEN n250 = 250 AND idx_lag249 = idx - 249 AND close = low250 THEN 1 END)  AS new_low_1y_count,
+       COUNT(CASE WHEN n250 = 250 AND idx_lag249 = idx - 249 THEN 1 END)                     AS window250_count
 FROM w
 GROUP BY trade_date
 ORDER BY trade_date
 """
 
 
-def _load_breadth(source: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
-    return _rows(source, BREADTH_SQL)
+def _load_breadth(source: duckdb.DuckDBPyConnection, params: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
+    rows = _rows(source, BREADTH_SQL)
+    _merge_divergence_breadth(rows, source, params or {})
+    return rows
+
+
+def _merge_divergence_breadth(rows: list[dict[str, Any]], source: duckdb.DuckDBPyConnection, params: Mapping[str, Any]) -> None:
+    """第二十五段候选维度「背离广度」：全部个股跑同一份正式口径（structure.divergence_events），按日数出
+    最近 ``window`` 个交易日内出过底背离观察 / 顶背离的个股占比（分母 = 当日有收盘的个股数）。
+    个股序列 < 120 个可用日不算（MACD 预热），与 build-structure 完全同一口径，所以两处数字能对上。"""
+    from intelligence.services.teaching_framework.structure import divergence_events, structure_params
+
+    window = int((params.get("breadth") or {}).get("divergence_window_days", DIVERGENCE_BREADTH_WINDOW))
+    sp = structure_params(params)
+    calendar = [str(r["trade_date"])[:10] for r in rows]
+    if not calendar:
+        return
+    stocks = _rows(source, "SELECT trade_date, stock_ts_code, close FROM fact_stock_daily WHERE close IS NOT NULL AND close > 0 ORDER BY stock_ts_code, trade_date")
+    series = _series_on_calendar(stocks, calendar, key_col="stock_ts_code", id_col="stock_ts_code", name_col="stock_ts_code", value_col="close", cumulative_pct=False)
+    bottom = [0] * len(calendar)
+    top = [0] * len(calendar)
+    for _, (_name, close, _ids) in series.items():
+        if sum(1 for v in close if v is not None) < 120:
+            continue
+        events = divergence_events(close, k=sp["swing_k"], lookback=sp["lookback"], fail_horizon=sp["fail_horizon"])
+        last_bottom = last_top = -10**9
+        for i, ev in enumerate(events):
+            if ev.get("macd_bottom_div_observe") is True:
+                last_bottom = i
+            if ev.get("macd_top_div") is True:
+                last_top = i
+            if close[i] is None:
+                continue
+            if i - last_bottom < window:
+                bottom[i] += 1
+            if i - last_top < window:
+                top[i] += 1
+    for i, r in enumerate(rows):
+        n = _num(r.get("stock_count")) or 0
+        r["div_bottom_observe_share_pct"] = round(100.0 * bottom[i] / n, 6) if n else None
+        r["div_top_share_pct"] = round(100.0 * top[i] / n, 6) if n else None
 
 
 # 板块侧的市场级日聚合（第二刀，创始人第六段「一体两面」）：
@@ -865,7 +922,7 @@ def cmd_build_labels(args: argparse.Namespace) -> int:
         vendor = _rows(source, "SELECT trade_date, sector_ts_code, amount FROM fact_mainline_sector_daily ORDER BY trade_date, sector_ts_code")
         stocks = _load_limit_rows(source)
         amounts = _rows(source, "SELECT trade_date, stock_ts_code, amount FROM fact_stock_daily ORDER BY trade_date, stock_ts_code")
-        breadth = _load_breadth(source)
+        breadth = _load_breadth(source, params)
         sector_breadth = _load_sector_breadth(source, params)
         rps5_names = _load_rps5_names(source) if getattr(args, "kb_wiki", None) else {}
         source_counts = _source_counts(source)
