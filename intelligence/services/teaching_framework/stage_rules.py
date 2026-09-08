@@ -245,10 +245,13 @@ def predicate_hits(
     if v("deviation_band") == "overheated":
         hits.append(("高位震荡", "E:overheated"))
     # 第七段「上穿要配合放量……或者上穿后三天内放量」；放量 = 量能比 ≥ 100（第十段尺子）。
+    # 来源限制是 B 类候选（参数 breakout_entry_origin）：bottom = 只从周期下半场来算（第六段流程的读法）；
+    # any = 顶部横盘里的放量上穿也算（创始人 09-08 第二十段「应该是算的」，让数据定）。
     confirm_days = int((params or {}).get("breakout_confirm_days", 3))
     since_cross = v("days_since_cross_above")
     in_window = isinstance(since_cross, (int, float)) and since_cross <= confirm_days
-    from_bottom = origin is None or origin in BOTTOM_STAGES
+    origin_policy = str((params or {}).get("breakout_entry_origin", "bottom"))
+    from_bottom = origin_policy == "any" or origin is None or origin in BOTTOM_STAGES
     if from_bottom and in_window and v("volume_expanding") is True and v("above_week_ma") is True:
         hits.append(("共建主线", "E:breakout_volume_within_window"))
     # 第十一段「升级 2.0，大概率是进一步放量指数进一步走强」：来源是高位震荡（承接盘反复），当日是双量日
@@ -275,6 +278,10 @@ def predicate_hits(
                 hits.append((stage, f"H:in_band:{view}"))
     # 创始人的结构性硬条件：不满足的段今天一分都不得（第十九段：缩量右底在周均线下方）。
     gated = {stage for stage, gate in STAGE_GATES.items() if not gate(v)}
+    # 对照口径（参数 mainline_build_from_bottom_only = true）：共建主线只能从周期下半场进入——来源是顶部段时它一分不得。
+    # 与 breakout_entry_origin = any 是同一问题的两端，供 stage_separation 靶子比较。
+    if (params or {}).get("mainline_build_from_bottom_only") and origin is not None and origin not in BOTTOM_STAGES + (MAIN_RISE_ORIGIN,):
+        gated.add("共建主线")
     return [(stage, pid) for stage, pid in hits if stage not in gated]
 
 

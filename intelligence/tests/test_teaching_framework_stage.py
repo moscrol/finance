@@ -187,6 +187,25 @@ def test_主流主升_is_the_process_of_share_and_volume_expanding_from_共建�
     assert catalog[:2] == ("E:share_and_volume_trend_up", "H:share_and_volume_trend_up")
 
 
+def test_breakout_entry_origin_policy_and_bottom_only_gate_are_parameter_variants():
+    """第二十段「顶部横盘里的放量上穿算不算共建主线——你看下算不算」：两端都做成参数供靶子比较，默认维持 bottom。"""
+    top_breakout = {"days_since_cross_above": 1, "volume_expanding": True, "above_week_ma": True}
+    # 默认：来源是顶部段（高位震荡）时放量上穿不算进入；来源是底部段或未知才算。
+    assert ("共建主线", "E:breakout_volume_within_window") not in predicate_hits(top_breakout, BANDS, origin="高位震荡")
+    assert ("共建主线", "E:breakout_volume_within_window") in predicate_hits(top_breakout, BANDS, origin="缩量右底")
+    assert ("共建主线", "E:breakout_volume_within_window") in predicate_hits(top_breakout, BANDS, origin=None)
+    # B：任何来源都算（真库上靶子全面变差：平均 η² 0.140 → 0.123，见骨架第二十段）。
+    any_origin = {**BANDS, "breakout_entry_origin": "any"}
+    assert ("共建主线", "E:breakout_volume_within_window") in predicate_hits(top_breakout, any_origin, origin="高位震荡")
+    # C：共建主线只能从底部来——来源是顶部段时带区分也不算；来源是底部段 / 共建主线自己 / 未知照常。
+    bottom_only = {**BANDS, "mainline_build_from_bottom_only": True}
+    band_day = {"amount_vs_ma20_pct": 100.0, "stock_ma10_deviation_median": 0.5}
+    assert not [pid for stage, pid in predicate_hits(band_day, bottom_only, origin="高位震荡") if stage == "共建主线"]
+    assert [pid for stage, pid in predicate_hits(band_day, bottom_only, origin="共建主线") if stage == "共建主线"]
+    assert [pid for stage, pid in predicate_hits(band_day, bottom_only, origin="二次探底") if stage == "共建主线"]
+    assert [pid for stage, pid in predicate_hits(band_day, BANDS, origin="高位震荡") if stage == "共建主线"]  # 默认不关这道门
+
+
 def test_window_mean_trend_flags_tolerate_a_single_shrinking_day():
     """窗口均值比窗口均值：近 5 日均 vs 前 5 日均；中间一天小缩量不翻它；不足 2n 天或日历不连续 → None。"""
     days = [f"2026-01-{d:02d}" for d in range(5, 21) if d not in (10, 11, 17, 18)]  # 12 个交易日
