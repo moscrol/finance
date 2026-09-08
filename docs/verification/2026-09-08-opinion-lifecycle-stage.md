@@ -38,7 +38,7 @@
 
 干净树 `~/fwp-wt-opinion-stage` @ `97ea28fb`、`.venv-workbench`、`env -u MARKET_FEATURE_STORE_DB`：ruff 0；pytest **8177P / 0F / 76S / 1xfail**（848s，与另两条门禁并跑）；`check_test_receipt --expect-revision HEAD` 可采信。红集为空是判据（基线树与本分支基线不同，不作横向减法）。
 
-**新基线（main ）**：前向合并  后干净树全量 **8203P / 0F / 77S / 1xfail**（386s），可采信。
+**新基线（main `368b7a66`）**：前向合并 `2494751a` 后干净树全量 **8203P / 0F / 77S / 1xfail**（386s），可采信。
 
 ## 已知边界
 
