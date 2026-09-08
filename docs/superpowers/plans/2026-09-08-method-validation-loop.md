@@ -36,9 +36,10 @@
 
 ```python
 def build_protocol(rule_path, *, history_start, history_end, forward_start, now=None): ...
-def validate_protocol(protocol): ...
+def protocol_id_for(rule_path, *, history_start, history_end, forward_start): ...
+def validate_protocol(protocol, *, require_current=True): ...
 def read_features(labels_db, protocol, *, start, end): ...
-def read_outcomes(labels_db, protocol, features): ...
+def read_outcomes(labels_db, protocol, features, *, now=None): ...
 def compare(protocol, features, outcomes): ...
 def validate_capture(protocol, features, *, now=None): ...
 def register(root, protocol): ...
@@ -55,7 +56,7 @@ def read_record(path): ...
 
 ## Task 1：协议、数据读数与不可变存储
 
-- [ ] 在新包和 `test_method_validation.py` 先写有手算答案的小库测试：三板块 A/B/C，D0 双红分别 1/1/0、连续天数3/1/0，五日收益6/2/-2。预期总体2、双红4、连续6、增量2百分点；增加同日板块数不能增加日期数。
+- [x] 在新包和 `test_method_validation.py` 先写有手算答案的小库测试：三板块 A/B/C，D0 双红分别 1/1/0、连续天数3/1/0，五日收益6/2/-2。预期总体2、双红4、连续6、增量2百分点；增加同日板块数不能增加日期数。
 
 ```python
 assert result["daily"][0]["means"]["universe"] == 2.0
@@ -65,7 +66,7 @@ assert result["summary"]["paired_dates"] == 1
 assert result["promotion_eligible"] is False
 ```
 
-- [ ] 运行本文件测试确认新增入口尚不存在；实现上表四个包文件。使用 `open_labels_db(..., read_only=True)`；每次读取在单个连接内取得元数据与行，校验双方 label_version、源路径、水位等；不声称这些等同严格 PIT 认证。所有 SQL 固定模板与参数绑定。
+- [x] 运行本文件测试确认新增入口尚不存在；实现上表四个包文件。使用 `open_labels_db(..., read_only=True)`；每次读取在单个连接内取得元数据与行，校验双方 label_version、源路径、水位等；不声称这些等同严格 PIT 认证。所有 SQL 固定模板与参数绑定。
 
 同日公式：
 
@@ -77,14 +78,14 @@ increment = means["streak3"] - means["dual_red"]
 relative = means["streak3"] - means["universe"]
 ```
 
-- [ ] 冻结方法卡：假设、适用环境、观察顺序、预期五日相对表现、弃用条件；正反例来自测试/未来观测并标来源，不冒充用户已经认可的实证经验。原 seed 的“绝对上涨成功”不被改写。
-- [ ] 前向门：未来开始日严格晚于协议登记本地日期；capture 的 D0 必须等于机器当前 Asia/Shanghai 日期、已过15:00、位于协议前向区间、等于源库水位和日历末日、有当天特征。构建时间不晚于当前时间，且为 D0 收盘后；生产 CLI 不暴露改时钟参数。历史只能 history，拒绝补登记。任何结果数据进入 capture 载荷都应被测试发现。
-- [ ] 覆盖坏数据/时序：pending、missing、NULL标签、不适用阶段、无命中、缺日历、标签版本不匹配、源路径不匹配、结果<=-100%、无穷数、伪造已到期但日历不足、登记后改标签不改变回检成员、协议篡改、同一内容重跑、写失败无半文件。
-- [ ] 运行 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q intelligence/tests/test_method_validation.py`；独立规格审查通过后再做质量审查，修完发现项。
+- [x] 冻结方法卡：假设、适用环境、观察顺序、预期五日相对表现、弃用条件；正反例来自测试/未来观测并标来源，不冒充用户已经认可的实证经验。原 seed 的“绝对上涨成功”不被改写。
+- [x] 前向门：未来开始日严格晚于协议登记本地日期；capture 的 D0 必须等于机器当前 Asia/Shanghai 日期、已过15:00、位于协议前向区间、等于源库水位和日历末日、有当天特征。构建时间不晚于当前时间，且为 D0 收盘后；生产 CLI 不暴露改时钟参数。历史只能 history，拒绝补登记。任何结果数据进入 capture 载荷都应被测试发现。
+- [x] 覆盖坏数据/时序：pending、missing、NULL标签、不适用阶段、无命中、缺日历、标签版本不匹配、源路径不匹配、结果<=-100%、无穷数、伪造已到期但日历不足、登记后改标签不改变回检成员、协议篡改、同一内容重跑、写失败无半文件。
+- [x] 运行 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q intelligence/tests/test_method_validation.py`；独立规格审查通过后再做质量审查，修完发现项。
 
 ## Task 2：CLI、台账与第一轮真实运行
 
-- [ ] 在台账地图登记 canonical 路径与唯一写入者，然后实现五个命令。`register` 读内置 seed/历史起止/forward-start；`history` 冻结特征+结果+比较收据；`capture` 只读特征并保存成员；`recheck --observation` 验 hash 后只读结果、保存新版本回检；`report` 从完整收据重新渲染，不重新选样。失败返回2；锁占用返回3，不吞错误。
+- [x] 在台账地图登记 canonical 路径与唯一写入者，然后实现五个命令。`register` 读内置 seed/历史起止/forward-start；`history` 冻结特征+结果+比较收据；`capture` 只读特征并保存成员；`recheck --observation` 验 hash 后只读结果、保存新版本回检；`report` 从完整收据重新渲染，不重新选样。失败返回2；锁占用返回3，不吞错误。
 
 ```sh
 python scripts/method_validation.py register --history-start 2025-01-01 --history-end 2026-09-07 --forward-start 2026-09-10
@@ -94,8 +95,12 @@ python scripts/method_validation.py recheck --study-dir "$STUDY_DIR" --observati
 python scripts/method_validation.py report --record "$RECORD"
 ```
 
-- [ ] CLI 测试做 register→history→report，以及时钟注入测试内的 capture→先pending→后成熟recheck；进程公共入口不得允许 `--now`。为协议/收据篡改、跨实验观察、输出路径及用户隔离建立失败断言。
-- [ ] 用真实只读旁路库运行 history，先检查水位和 label_version；若需重建，用现有 build-labels/outcomes 写本实验临时旁路，不动共享旁路。主库锁占用时使用已有旁路历史并明示截止日。记录实际三组样本/日期、缺口和描述性差值，不能据此认定有效。
-- [ ] 文档给出实际产物位置和下一次 capture/recheck 的可执行命令；明确程序完成和市场样本尚待发生是两种状态。不安装计划任务，不自动交易，不修改基础 spec。
-- [ ] 跑新测试、既有 methodology/observation/checkpoint 相关回归、ruff与layer_audit；只在要合 main 前才扩大为等价全仓CI。独立规格、质量审查通过后 pathspec 提交。
-- [ ] 用 handoff 技能回写自己的分支交接与项目记忆索引。未授权合 main，不切运行时。
+- [x] CLI 测试做 register→history→report，以及时钟注入测试内的 capture→先pending→后成熟recheck；进程公共入口不得允许 `--now`。为协议/收据篡改、跨实验观察、输出路径及用户隔离建立失败断言。
+- [x] 用真实只读旁路库运行 history，先检查水位和 label_version；若需重建，用现有 build-labels/outcomes 写本实验临时旁路，不动共享旁路。主库锁占用时使用已有旁路历史并明示截止日。记录实际三组样本/日期、缺口和描述性差值，不能据此认定有效。
+- [x] 文档给出实际产物位置和下一次 capture/recheck 的可执行命令；明确程序完成和市场样本尚待发生是两种状态。不安装计划任务，不自动交易，不修改基础 spec。
+- [x] 跑新测试、既有 methodology/observation/checkpoint 相关回归、ruff与layer_audit；只在要合 main 前才扩大为等价全仓CI。独立规格、质量审查通过后 pathspec 提交。
+- [x] 用 handoff 技能回写自己的分支交接与项目记忆索引。未授权合 main，不切运行时。
+
+## 执行收据
+
+代码 `e41ef60b`；干净代码树上240项相关测试通过，独立规格/质量审查通过。真实历史416日仅2个共同完整日期，不判方法有效或无效；前向起点2026-09-10，真实观察未发生。完整验证、原件位置与成立边界见 [交付说明](../../verification/2026-09-08-method-validation-loop.md)。
