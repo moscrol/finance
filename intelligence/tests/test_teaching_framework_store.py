@@ -102,6 +102,14 @@ def test_canonical_hash_excludes_computed_at_and_sorts_primary_key() -> None:
     )
 
 
+def test_canonical_hash_treats_negative_zero_as_zero() -> None:
+    """DuckDB 的并行 MEDIAN / AVG 对同样的输入可能给出 -0.0 或 0.0；两者相等，JSON 却写成两个字符串——哈希必须一样。"""
+    columns = ("trade_date", "label", "value_num")
+    a = canonical_rows_hash([("2026-07-15", "tf.sector_pct_chg_median", 0.0)], columns=columns, primary_key=("trade_date", "label"))
+    b = canonical_rows_hash([("2026-07-15", "tf.sector_pct_chg_median", -0.0)], columns=columns, primary_key=("trade_date", "label"))
+    assert a == b
+
+
 def test_canonical_hash_is_independent_of_physical_column_order() -> None:
     """A sidecar that grew a column via ALTER TABLE must hash like a fresh one."""
     rows_ab = [("2026-01-01", "tf.a", 1.0, "x")]
