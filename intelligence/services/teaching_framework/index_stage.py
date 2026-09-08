@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from datetime import datetime
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from .flags import BREADTH_FIELDS, EPISODE_FIELDS, RANGE_SCALAR_STEMS, SECTOR_FIELDS, SOURCE_PREFIX, compute_flags
 from .stage_rules import (
@@ -680,6 +680,28 @@ def _flag_by_stage(usable: list[Mapping[str, Any]], label: str) -> dict[str, dic
     return {stage: dict(sorted(c.items())) for stage, c in sorted(grouped.items())}
 
 
+FINE_EXIT_HORIZON = 30
+
+
+def stage_fine_exits(usable: Sequence[Mapping[str, Any]], horizon: int = FINE_EXIT_HORIZON) -> dict[str, dict[str, int]]:
+    """每个细分子态（fine ≠ coarse）之后落到哪个粗段：从该日往后数，第一个与当日粗段不同的有效粗段（未决日跳过），
+    ``horizon`` 个可用日内没换段记 ``still_same``。第二十四段：触碰周均 38 天里 37 天回落（19 左底向下、18 缩量右底）、
+    1 天升级共建主线——「上穿不配合放量基本都是回落」这句在数据上的形状。"""
+    out: dict[str, Counter[str]] = {}
+    for i, r in enumerate(usable):
+        fine, coarse = r.get("stage_fine"), r.get("stage_coarse")
+        if not fine or fine == coarse or coarse not in STAGES:
+            continue
+        nxt = "still_same"
+        for later in usable[i + 1 : i + 1 + horizon]:
+            c2 = later.get("stage_coarse")
+            if c2 in STAGES and c2 != coarse:
+                nxt = str(c2)
+                break
+        out.setdefault(str(fine), Counter())[nxt] += 1
+    return {fine: dict(sorted(c.items())) for fine, c in sorted(out.items())}
+
+
 def label_readouts(
     records: Iterable[Mapping[str, Any]],
     params: Mapping[str, Any] | None = None,
@@ -752,6 +774,7 @@ def label_readouts(
         "days_gap": len(rows) - len(usable),
         "stage_coarse_distribution": dict(sorted(stages.items())),
         "stage_fine_distribution": dict(sorted(fine.items())),
+        "stage_fine_exits": stage_fine_exits(usable),
         "resolution_distribution": dict(sorted(resolutions.items())),
         "unresolved_days": unresolved,
         "unresolved_rate": round(unresolved / len(usable), 4) if usable else None,

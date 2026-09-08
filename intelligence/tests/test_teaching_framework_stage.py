@@ -597,3 +597,31 @@ def test_二次探底_is_fine_inside_缩量右底():
     assert stage_fine("缩量右底", {"cross_below_kind": "retest"}) == "二次探底"
     assert stage_fine("缩量右底", {"cross_below_kind": "first"}) == "缩量右底"
     assert stage_fine("缩量右底", {}) == "缩量右底"
+
+
+def test_触碰周均_is_fine_inside_左底向上_only_above_the_weekly_ma():
+    """第二十四段：左底向上里站在周均线上方、还没放量突破的日子 fine = 触碰周均；下方反弹的日子仍是左底向上。"""
+    from intelligence.services.teaching_framework.stage_rules import stage_fine
+    assert stage_fine("左底向上", {"above_week_ma": True}) == "触碰周均"
+    assert stage_fine("左底向上", {"above_week_ma": False}) == "左底向上"
+    assert stage_fine("左底向上", {}) == "左底向上"
+    assert stage_fine("共建主线", {"above_week_ma": True}) == "共建主线"
+
+
+def test_stage_fine_exits_counts_where_each_sub_state_resolves():
+    from intelligence.services.teaching_framework.index_stage import stage_fine_exits
+    usable = [
+        {"stage_coarse": "左底向上", "stage_fine": "触碰周均"},
+        {"stage_coarse": "ambiguous", "stage_fine": "unassigned"},       # 未决日跳过
+        {"stage_coarse": "左底向上", "stage_fine": "触碰周均"},
+        {"stage_coarse": "左底向下", "stage_fine": "左底向下"},          # 两天都回落到这里
+        {"stage_coarse": "缩量右底", "stage_fine": "二次探底"},
+        {"stage_coarse": "缩量右底", "stage_fine": "缩量右底"},          # fine == coarse，不计
+        {"stage_coarse": "共建主线", "stage_fine": "共建主线"},
+        {"stage_coarse": "高位震荡", "stage_fine": "见顶"},              # 之后没有换段 → still_same
+    ]
+    assert stage_fine_exits(usable) == {
+        "二次探底": {"共建主线": 1},
+        "见顶": {"still_same": 1},
+        "触碰周均": {"左底向下": 2},
+    }

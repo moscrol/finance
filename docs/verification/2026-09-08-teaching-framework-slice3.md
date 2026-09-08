@@ -51,3 +51,14 @@ scripts/teaching_framework.py：build-structure（板块按名字接序列、∏
 pytest intelligence/tests/test_teaching_framework_*.py 124 passed + 1 skip（新增：正式事件四态 + 镜像顶背离、证据只给两段 + 门 + 开关、
   build-structure / structure-screen 端到端含「重跑只删自己的标签」）；ruff 通过
 ```
+
+## 第二十四段：fine「触碰周均」（`tf-v0.2+b5be80b8`，哈希 b2c0556aa97739c5）
+
+```text
+stage_rules.stage_fine：左底向上 ∧ above_week_ma → 触碰周均；index_stage.stage_fine_exits（fine ≠ coarse 的日子之后第一个不同的有效粗段，30 可用日内，未决跳过）
+真库两次全新构建 23:50Z / 03:00Z 哈希一致 b2c0556aa97739c5；粗段分布、η² 0.1490/0.1548/0.1989 与 1f0d266d… 相同
+fine 分布：触碰周均 38、左底向上 3、二次探底 8、缩量右底 20、见顶 21、高位震荡 58（其余同粗段）
+exits：触碰周均 {左底向下 19, 缩量右底 18, 共建主线 1}；二次探底 {共建主线 8}；见顶 {主流主升2.0 11, 左底向下 9, 缩量右底 1}
+lint_output("阶段：左底向上（细分 触碰周均）") == []
+pytest 126 passed + 1 skip（新增 fine 规则 + exits 两条）；ruff 通过
+```

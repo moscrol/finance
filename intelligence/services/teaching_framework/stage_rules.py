@@ -382,7 +382,8 @@ def stage_fine(
     previous: str | None = None,
     params: Mapping[str, Any] | None = None,
 ) -> str:
-    """Fine stage: 见顶 marks the entry day of 高位震荡；二次探底 marks the retest-cross day inside 缩量右底."""
+    """Fine stage: 见顶 marks the entry day of 高位震荡；二次探底 marks the retest-cross day inside 缩量右底；
+    触碰周均 marks the days of 左底向上 spent above the weekly MA without the volume breakout."""
     if coarse not in STAGES:
         return "unassigned"
     if coarse == "高位震荡" and previous != coarse:
@@ -390,6 +391,10 @@ def stage_fine(
     # 第二十一段：二次探底是缩量右底的前段细标——回踩下穿当日。
     if coarse == "缩量右底" and flags.get("cross_below_kind") == "retest":
         return "二次探底"
+    # 第二十四段（创始人第七段「上穿要配合放量，不然基本都是回落」）：左底向上里站在周均线上方、还没放量突破的日子
+    # 单独叫「触碰周均」；周均线下方往上反弹的日子仍是素的左底向上。放量上穿本身是共建主线的进入证据，不在这里。
+    if coarse == "左底向上" and flags.get("above_week_ma") is True:
+        return "触碰周均"
     return coarse
 
 
