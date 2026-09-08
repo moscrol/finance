@@ -359,3 +359,28 @@ pytest teaching 90 + reading 6 + river_objects 4(+1 真库) + guided 32 + method
   2026-09-02：消息面：卖方观点事件源断更（超过 7 天没有新报告），今日不出读数      lint 零命中
 pytest teaching + reading + river_objects + narrative + guided：135 passed（+1 真库 skip）；methodology 67；ruff 通过；layer_audit ERROR 0 == 基线
 ```
+
+## 23. 晨汇 Tier 写进事件文件（用户 09-08 第十七段）
+
+```text
+源核实：opinion-events.jsonl 9,733 条 = 晚间卖方研报那条流——report_title「晚间卖方研报YYYYMMDD」6,687 条（112 报告日）、
+  无题 2,187 条（06-10 → 06-12 按题材批灌，来源同一批机构）、单篇研报标题 668 条、[晨汇转述] 191 条（2%）；
+  入库晚于报告日 ≥ 56 天的 4,338/6,687。用户拍板两条源都补不满一年 → 只作视角，不对八段校准。
+知识库侧（kb-wt-briefing-tier-events，PR knowledge-base-private #144，未合）：
+  skills/morning-briefing/scripts/extract_tier_events.py → wiki/raw/theme-radar/opinion-store/briefing-tier-events.jsonl
+  87 份 → 1,159 行（T1 187 / T2 427 / T3 545）；逐份 T1 / T2 条目数 == 正文 T1-x / T2-x 编号数；空内容条目 0；两次运行 cmp 相同；--check OK
+  维度：只有 2026-06-12-三维交叉.md dimensions = 3（盘面共振 2 条）；185 条 Tier 1 全 downgraded；43 份回填写成晚材料日 20–56 天
+  精确匹配：438 个双链里 71 个是 fact_sector_daily 板块名；25 个条目标题是板块名
+本仓：narrative.py::briefing_daily（可知日 → 其后第一个交易日；缺口 before_source / absent_day / stale；二维日子 market_confirmed 记 briefing_no_market_input）
+  → SECTOR_FIELDS 七个 tf.briefing_*；river_objects teaching_briefing（缺口挂阶段对象 briefing_gap）；reading 消息面第二段
+  真库两次全新构建（03:00 / 04:00Z，/tmp/mfs-snap2.duckdb + kb 工作树 wiki）：market 标签逐行哈希一致 94c4b1274458e87a；
+    有读数 78 天（04-17 → 08-20；08-17 / 08-21 / 08-24 是 market_input 缺口日，晨汇读数随之不写），
+    缺口 before_source 310 / absent_day 11 / stale 3 / no_market_input 77；market_confirmed 有数 1 天（06-12 = 2）
+  按平台八段（n 3–18）：Tier 1+2 条目中位 5.5–8.5 八段不分；主题被赚钱效应板块点名 均值 0–10.7%，78 天里 22 天非零；lag 中位 承接 17.5 / 2.0 33.5 / 左底向上 0
+  带读（真库）：
+    2026-05-21：…｜晨汇 Tier 1 / 2 / 3 各 3 / 5 / 10 条（二维：无盘面输入，Tier 1 不算盘面共振），Tier 1 / 2 主题被今日赚钱效应板块点名的占 12%，晨汇写成滞后 22 天
+    2026-06-12：…｜晨汇 Tier 1 / 2 / 3 各 5 / 14 / 15 条（三维，盘面共振 2 条），Tier 1 / 2 主题被今日赚钱效应板块点名的占 5%
+    2026-09-02：消息面：卖方观点事件源断更（超过 7 天没有新报告），今日不出读数｜晨汇断更（超过 7 天没有新一期），今日不出晨汇读数
+    lint 零命中
+pytest test_teaching_framework_*.py 106 passed（+1 真库 skip）；knowledge-base tests/test_extract_tier_events.py 5 passed；ruff 通过；pre-commit 11 道全过；conflict-check clean
+```
