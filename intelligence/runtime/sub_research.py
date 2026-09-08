@@ -239,6 +239,9 @@ class BranchBatch:
     remaining_slots_at_dispatch: int | None = None
     stage_timeout_granted: float | None = None
     episode_remaining_at_dispatch: float | None = None
+    # 本批里等全局工具线程池等得最久的那条（工单 #39 §2.3）：``tool_result / tool_error.queued_ms`` 的最大值。
+    # 分支 ×3 与父臂共用 8 个 worker，池被占满时它会涨；没测到留 None，不写 0。
+    queue_wait_ms_max: float | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.index, bool) or not isinstance(self.index, int) or self.index < 1:
@@ -271,6 +274,7 @@ class BranchBatch:
             "remaining_slots_at_dispatch",
             "stage_timeout_granted",
             "episode_remaining_at_dispatch",
+            "queue_wait_ms_max",
         ):
             value = getattr(self, field_name)
             if value is not None:
@@ -407,8 +411,16 @@ def branch_batches_from_events(
                 remaining_slots_at_dispatch=current["remaining_slots_at_dispatch"],  # type: ignore[arg-type]
                 stage_timeout_granted=current["stage_timeout_granted"],  # type: ignore[arg-type]
                 episode_remaining_at_dispatch=current["episode_remaining_at_dispatch"],  # type: ignore[arg-type]
+                queue_wait_ms_max=current["queue_wait_ms_max"],  # type: ignore[arg-type]
             )
         )
+
+    def note_queue_wait(payload: dict[str, object]) -> None:
+        raw = payload.get("queued_ms")
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+            return
+        prev = current["queue_wait_ms_max"] if current is not None else None
+        current["queue_wait_ms_max"] = float(raw) if prev is None else max(float(prev), float(raw))  # type: ignore[index]
 
     for event in events:
         if event.kind == "model_turn":
@@ -424,6 +436,7 @@ def branch_batches_from_events(
                 "remaining_slots_at_dispatch": None,
                 "stage_timeout_granted": None,
                 "episode_remaining_at_dispatch": None,
+                "queue_wait_ms_max": None,
             }
             continue
         if current is None:
@@ -439,7 +452,9 @@ def branch_batches_from_events(
                     current[field_name] = payload[field_name]
         elif event.kind == "tool_result":
             current["succeeded"] = int(current["succeeded"]) + 1
+            note_queue_wait(payload)
         elif event.kind == "tool_error":
+            note_queue_wait(payload)
             error = str(payload.get("error") or "").strip()
             if error == _TOOL_ERROR_REJECTED_BY_CAP:
                 key = "rejected_by_cap"
