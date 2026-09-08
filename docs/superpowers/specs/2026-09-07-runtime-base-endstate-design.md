@@ -162,6 +162,15 @@
 
 **验收**：INV-R5；竞态「steer 到达 vs 模型停下」两序；`derive_messages` 仍逐字节相等（收件箱消息是 durable 事件，天然进派生）。
 
+> **落地回写（2026-09-08，分支 `feat/runtime-base-p3-inbox` 叠 P2）**：第 1、2、3、5 条已落——`services/episode_inbox.py`
+> （正文只在 `inbox_inserted` 落一份，`inbox_claimed` 只带 `message_id`，派生按 id 回找）；`FinanceResearchHarness.admit_inbox_message`
+> 默认 True，判定在 `send` 时做、抛异常按拒收；`_append_sub_research_message` 改走 `inbox.send(next_step, source="sub_research")`；
+> 清箱挂在 `_EpisodeLedger.add("finish")` 这个唯一出口（取消 → `cancelled`，其余 → `episode_finished`），`keep_inbox` 落为 `Inbox.keep_on_cancel`。
+> 认领点：每次模型请求前 `claim(next_step)`（主 loop 与修复轮）；模型停下且未收口时 `claim(next_turn)` + 此刻已到的 `next_step`，再给一轮。
+> 外部入口 `ContinuousAgentEpisode.steer` / `GLMAgentRuntime.steer`（回执 `InboxReceipt`，不抛）。第 4 条端点按 §12 第 4 题推荐未做。
+> 两处与原文的差别：`wakeup` 只记账（同步 loop 没有可唤醒的空闲态，等 P4 `step()`）；收口阶段不认领 `next_turn`（episode 正按预算关门）。
+> 验收落点：`conformance/test_inv_r5_inbox.py`（两序竞态、取消丢弃、收口丢弃、接缝有牙、子研究经箱、非适用臂不在场）+ `test_episode_inbox.py`（单元）。
+
 ### 6.5 P4：竞态目录 + 写序 oracle 正式化 + 防御模式
 
 1. loop 拆出 `step()` 可单步驱动（P2 的 `restore` 已需要）；`intelligence/tests/conformance/races/` 目录表 v1 至少八条：`cancel vs model_turn 结算`、`cancel vs tool_result 结算`、`cancel vs finish`、`steer vs 模型停下`、`close vs 结算`、`两个 begin_work 同 Handle`、`store.append 失败 vs 内存 ledger`、`restore vs 仍在飞的驱动`。每条两序、断言两种合法历史。
@@ -212,7 +221,7 @@ P0 / P1 零 live 判据，随下次切流带上；P1 的错误码拆分合入前
 | INV-R2 | `conformance/oracle.py` + `test_episode_store.py::test_intent_before_effect_before_settlement` | P2 |
 | INV-R3 | `test_episode_restore.py`（每 phase × 每 crash 前缀） | P2 |
 | 版本 | `test_episode_store.py::test_unknown_required_kind_refused` | P2 |
-| INV-R5 | `test_episode_inbox.py` | P3 |
+| INV-R5 | `test_episode_inbox.py`（单元）+ `conformance/test_inv_r5_inbox.py`（两序竞态 / 取消 / 收口 / 接缝有牙 / 非适用臂） | P3 ✅ 09-08 |
 | INV-R6 | `conformance/races/test_*.py`（≥ 8 条 × 2 序） | P4 |
 
 ---

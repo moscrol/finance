@@ -5,7 +5,7 @@
 
 loop 只在这些方法上调领域 harness（`research_harness.ResearchHarness`）。签名与首段 docstring 直接取自 Protocol 源码，顺序即源码顺序。改接缝先改 Protocol，本表随之再生成；接缝的取舍见 `docs/superpowers/specs/2026-09-02-research-harness-loop-decouple-design.md` §4。
 
-16 个方法
+17 个方法
 
 ## `assemble_prompt`
 
@@ -134,4 +134,12 @@ def admit_repair_result(self, *, admission: 'FinishAdmission', previous: 'AgentO
 ```
 
 修复轮的终局已被 ``admit_finish`` 接受——那它算不算修好了。
+
+## `admit_inbox_message`
+
+```python
+def admit_inbox_message(self, message: 'EpisodeMessage') -> 'bool'
+```
+
+收件箱（INV-R5）里这句话收不收——终态稿 §5 第 2 条、本 Protocol 唯一新增的接触点。
 

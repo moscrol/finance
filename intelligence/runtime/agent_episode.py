@@ -72,6 +72,7 @@ from intelligence.services.research_plan import (
 )
 from intelligence.services.cancel_signal import CancelSignal
 from intelligence.services.episode_event_lanes import LiveEventSink
+from intelligence.services.episode_inbox import Inbox, InboxReceipt, InboxTarget
 from intelligence.services.episode_messages import (
     PROMPT_SOURCE_FINALIZER,
     EpisodeMessage,
@@ -288,6 +289,10 @@ class _EpisodeLedger:
         self.state: EpisodeState | None = None
         # 状态写入要算「截止还剩多久」；loop 在换 context（深度裁决 / 修复轮）时更新它。
         self.active_context: ResearchRunContext | None = None
+        # ── P3 收件箱（INV-R5）────────────────────────────────────────────
+        # run() 建好账本后挂上；``finish`` 落账前由 add() 统一清箱（收口 / 取消各一个 reason），
+        # 与 ``done`` 挂在同一个出口——十个 return 点没有一个能漏掉箱里的话。
+        self.inbox: Inbox | None = None
         self._turn_counter = 0
         if configure is not None:
             # 配置快照是唯一允许先于 ``task`` 的事件（AgentOutcome 不变量）。
@@ -451,6 +456,18 @@ class _EpisodeLedger:
         event_payload = dict(payload)
         event_payload["task_frame_hash"] = self._task_frame_hash
         if kind == "finish":
+            # INV-R5：收口前清箱。箱里没送到模型的话逐条落 inbox_discarded，reason 按终局分
+            # （取消 → cancelled，其余 → episode_finished），事件序都在 finish 之前——
+            # 读事件流的人不会看到「finish 之后还有未决的 inserted」。
+            inbox = self.inbox
+            if inbox is not None and not inbox.closed:
+                inbox.discard_all(
+                    reason=(
+                        "cancelled"
+                        if str(event_payload.get("stop_reason") or "") == "cancelled"
+                        else "episode_finished"
+                    )
+                )
             event_payload.setdefault(
                 "time_budget_injected", self.time_budget_injected
             )
@@ -882,6 +899,59 @@ class ContinuousAgentEpisode:
         self._is_cancelled: Callable[[], bool] = self._cancel
         self._sub_research_coordinator = sub_research_coordinator
         self._event_sink = event_sink
+        # P3：当前在跑的 episode 的收件箱（INV-R5）。``steer()`` 从这里递话；run() 进门时换新。
+        # 没在跑时是 None——递话方拿到 ``no_active_episode`` 回执，不是异常。
+        self._active_inbox: Inbox | None = None
+
+    # ── 收件箱：外部输入的唯一入口（INV-R5）───────────────────────────────
+
+    @property
+    def inbox(self) -> Inbox | None:
+        """当前 episode 的收件箱；run() 之外为 None。测试与装配审计用。"""
+
+        return self._active_inbox
+
+    def steer(
+        self,
+        content: str,
+        *,
+        target: InboxTarget = "next_step",
+        source: str = "steer",
+        wakeup: bool = False,
+    ) -> InboxReceipt:
+        """外部给正在跑的 episode 递一句话（user 角色）。
+
+        ``next_step``：下一次模型请求前送达；``next_turn``：模型停下时送达并让它再跑一轮。
+        收不收由 ``ResearchHarness.admit_inbox_message`` 判；三个事实都进 durable 流。
+        没有在跑的 episode 时回 ``accepted=False, reason="no_active_episode"``——不抛：
+        递话方不该能把研究主路径打断。
+        """
+
+        inbox = self._active_inbox
+        if inbox is None:
+            return InboxReceipt(message_id="", accepted=False, reason="no_active_episode")
+        return inbox.send(
+            user_message(str(content), source=str(source or "steer")),
+            target=target,
+            wakeup=wakeup,
+        )
+
+    @staticmethod
+    def _claim_inbox(
+        *,
+        messages: list[EpisodeMessage],
+        ledger: _EpisodeLedger,
+        target: InboxTarget,
+    ) -> int:
+        """把该队列的话取出来 append 进 messages。认领事件先落、消息后进——与
+        ``append_model_input`` 同一个「事件在前、派生物在后」的写序。"""
+
+        inbox = ledger.inbox
+        if inbox is None:
+            return 0
+        claimed = inbox.claim(target)
+        messages.extend(claimed)
+        return len(claimed)
 
     @staticmethod
     def restore(
@@ -945,6 +1015,11 @@ class ContinuousAgentEpisode:
             configure=self._configure_snapshot(context=context, registry=registry),
         )
         ledger.active_context = context
+        # INV-R5：收件箱在账本之后、任何模型请求之前建好——从此外部输入只有这一扇门。
+        # 收不收由 harness 判（§5 第 2 条接触点）；子研究回灌也走它（§6.4 第 3 条）。
+        inbox = Inbox(ledger, admit=self._harness.admit_inbox_message)
+        ledger.inbox = inbox
+        self._active_inbox = inbox
         registry = self._with_sub_research_tool(
             task_frame=task_frame,
             context_ref=context_ref,
@@ -1088,6 +1163,9 @@ class ContinuousAgentEpisode:
                     invalid_actions=invalid_actions,
                 )
 
+            # INV-R5：每次模型请求前认领 next_step（pi steering）。先于历史折叠——
+            # 认领的是 user 消息，折叠只碰 tool 消息，两者互不改写；先于对账是必然。
+            self._claim_inbox(messages=messages, ledger=ledger, target="next_step")
             # 历史折叠先于对账：它改的是模型即将看到的 tool 消息正文，并以
             # ``history_compacted`` 事件承载替换后的正文，所以对账必须在它之后。
             self._compact_history_for_model(
@@ -1582,6 +1660,17 @@ class ContinuousAgentEpisode:
                 )
                 continue
 
+            # INV-R5：模型停下（无工具调用）且还没收口——箱里有话就不结束，把 next_turn
+            # （pi follow-up）连同此刻已到的 next_step 一起认领，再给模型一轮。模型刚写的
+            # 终局留在历史里当普通 assistant 消息；下一轮它对着新话重新给终局。
+            # 收口阶段不认领：episode 正按预算关门，留到 finish 统一 discarded。
+            # 竞态「steer 到达 vs 模型停下」两序在这里汇合：先到的在请求前就被认领，
+            # 后到的在这里被认领——两种历史都合法，都不丢话。
+            if not finalization_started and ledger.inbox is not None and ledger.inbox.pending():
+                self._claim_inbox(messages=messages, ledger=ledger, target="next_turn")
+                self._claim_inbox(messages=messages, ledger=ledger, target="next_step")
+                continue
+
             admission = self._harness.admit_finish(
                 turn.content,
                 context=context,
@@ -1733,6 +1822,9 @@ class ContinuousAgentEpisode:
         """
 
         while True:
+            # INV-R5：修复轮的每次模型请求前同样认领 next_step——收件箱是唯一输入面，
+            # 不因阶段而关。瞬态重试之间到的话在下一次重问价前送达。
+            self._claim_inbox(messages=messages, ledger=ledger, target="next_step")
             # INV-R1：每次重问价前都对账（瞬态重试不改 messages，但重试之间可能多了
             # repair_model_retry 事件——那不是模型可见内容，派生必须对它无感）。
             ledger.verify_model_visible(messages)
@@ -1840,6 +1932,10 @@ class ContinuousAgentEpisode:
         if state.context_ref is not None:
             state.context_ref.value = context
         ledger = state.ledger
+        # INV-R5：上一轮 finish 已清箱并关箱；修复轮 episode 又活了，外部输入面随之重开。
+        if ledger.inbox is not None:
+            ledger.inbox.reopen()
+            self._active_inbox = ledger.inbox
         accumulator = state.accumulator
         messages = state.messages
         tool_session = state.tool_session
@@ -2594,16 +2690,25 @@ class ContinuousAgentEpisode:
         result: SubResearchResult,
         evidence: tuple[AgentEvidence, ...] = (),
     ) -> None:
-        append_model_input(
-            messages,
-            ledger,
-            content=self._harness.project_sub_research(
-                branches=result.branches,
-                refused_reason=result.refused_reason,
-                evidence=evidence,
-            ),
-            source="sub_research",
+        """子研究回灌走收件箱（终态稿 §6.4 第 3 条）：``inbox.send(target=next_step,
+        source="sub_research")``，下一次模型请求前被认领进 messages。
+
+        与直接 append 的差别只有一个：它成了三事实 durable 的收件箱消息（inserted /
+        claimed），不再是 ``model_input``；位置从「批后立刻」挪到「下一次请求前」——
+        中间若插了收口指令，回灌排在指令之后。没有收件箱的账本（旧调用方 / 替身）
+        退回直接 append，事件流与 P2 相同。
+        """
+
+        content = self._harness.project_sub_research(
+            branches=result.branches,
+            refused_reason=result.refused_reason,
+            evidence=evidence,
         )
+        inbox = ledger.inbox
+        if inbox is None:
+            append_model_input(messages, ledger, content=content, source="sub_research")
+            return
+        inbox.send(user_message(content, source="sub_research"), target="next_step")
 
     @staticmethod
     def _available_tool_definitions(

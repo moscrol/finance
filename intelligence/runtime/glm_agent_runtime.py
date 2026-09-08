@@ -8,6 +8,7 @@ import time
 
 from intelligence.services import llm_refine
 from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.services.episode_inbox import InboxReceipt, InboxTarget
 from intelligence.services.agent_runtime import (
     AgentModelClient,
     AgentOutcome,
@@ -570,6 +571,18 @@ class GLMAgentRuntime:
             context=context,
             registry=registry,
         )
+
+    def steer(
+        self,
+        content: str,
+        *,
+        target: InboxTarget = "next_step",
+        source: str = "steer",
+    ) -> InboxReceipt:
+        """给正在跑的 episode 递话（INV-R5 收件箱）。纯转交；没在跑时回 ``no_active_episode``。
+        Workbench 端点（终态稿 §12 第 4 题）接这里，不直接碰 Episode。"""
+
+        return self._episode.steer(content, target=target, source=source)
 
     def start(
         self,

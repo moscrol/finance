@@ -339,6 +339,10 @@ _BENCHMARK_STEPS: dict[str, tuple[str, str]] = {
     # loop-injected user-role text (steering / finalization / mode decision …):
     # the runtime steering the model, so L1 `intent`, not an observation.
     "model_input": ("intent", "control"),
+    # inbox message claimed into the model's history (INV-R5): same L1 bucket as
+    # `model_input` -- it is the runtime handing the model a user-role line.
+    # `inbox_inserted` / `inbox_discarded` are bookkeeping, not a step.
+    "inbox_claimed": ("intent", "control"),
     # effect-sandwich intent written before every provider request (INV-R2):
     # the runtime deciding to ask the model, so L1 `intent` like `task`.
     "model_intent": ("intent", "control"),

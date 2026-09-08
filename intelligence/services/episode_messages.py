@@ -58,6 +58,9 @@ __all__ = [
     "DerivationMismatch",
     "DerivationUnavailable",
     "EpisodeMessage",
+    "INBOX_CLAIMED_KIND",
+    "INBOX_DISCARDED_KIND",
+    "INBOX_INSERTED_KIND",
     "MODEL_INPUT_KIND",
     "MODEL_INPUT_SOURCES",
     "HISTORY_COMPACTED_KIND",
@@ -93,6 +96,11 @@ MODEL_INPUT_KIND = "model_input"
 PROMPT_ASSEMBLED_KIND = "prompt_assembled"
 TOOL_BUDGET_STATE_KIND = "tool_budget_state"
 HISTORY_COMPACTED_KIND = "history_compacted"
+# 收件箱三事实（终态稿 §6.4 P3，INV-R5）。正文只在 ``inbox_inserted`` 落一份；
+# ``inbox_claimed`` 只带 message_id——派生器按 id 回找正文，模型可见的那一刻才进消息。
+INBOX_INSERTED_KIND = "inbox_inserted"
+INBOX_CLAIMED_KIND = "inbox_claimed"
+INBOX_DISCARDED_KIND = "inbox_discarded"
 STRICT_DERIVATION_ENV = "FORESIGHT_STRICT_DERIVATION"
 
 MessageRole = Literal["system", "user", "assistant", "tool"]
@@ -137,6 +145,7 @@ MODEL_VISIBLE_TEXT_FIELDS: frozenset[tuple[str, str]] = frozenset(
         ("tool_result", "model_content"),
         ("tool_error", "model_content"),
         (HISTORY_COMPACTED_KIND, "folded[].model_content"),
+        (INBOX_INSERTED_KIND, "content"),
     }
 )
 
@@ -413,9 +422,31 @@ def derive_messages(events: Iterable[EpisodeEvent]) -> list[EpisodeMessage]:
     """
 
     messages: list[EpisodeMessage] = []
+    # 收件箱：已入箱、尚未认领 / 丢弃的正文，按 message_id 暂存。认领那一刻才成为模型可见。
+    inbox_pending: dict[str, tuple[str, str]] = {}
     for event in events:
         kind = event.kind
-        if kind == PROMPT_ASSEMBLED_KIND:
+        if kind == INBOX_INSERTED_KIND:
+            payload = _payload_dict(event)
+            message_id = _require_text(payload, "message_id", event=event)
+            inbox_pending[message_id] = (
+                _require_text(payload, "content", event=event),
+                str(payload.get("source") or INBOX_CLAIMED_KIND),
+            )
+        elif kind == INBOX_CLAIMED_KIND:
+            payload = _payload_dict(event)
+            message_id = _require_text(payload, "message_id", event=event)
+            pending = inbox_pending.pop(message_id, None)
+            if pending is None:
+                raise DerivationUnavailable(
+                    f"inbox_claimed#{event.sequence} 认领的 {message_id!r} 没有在箱的 inbox_inserted，无法派生"
+                )
+            content, source = pending
+            messages.append(user_message(content, source=source))
+        elif kind == INBOX_DISCARDED_KIND:
+            payload = _payload_dict(event)
+            inbox_pending.pop(str(payload.get("message_id") or ""), None)
+        elif kind == PROMPT_ASSEMBLED_KIND:
             payload = _payload_dict(event)
             if str(payload.get("source") or PROMPT_SOURCE_EPISODE) != PROMPT_SOURCE_EPISODE:
                 # 兜底合成的 prompt 是另一段独立对话，不在 episode 的 messages 里。
