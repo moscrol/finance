@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Generator, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 import hashlib
@@ -479,6 +479,10 @@ class _EpisodeLedger:
                     "chars_saved": self.history_compaction_saved,
                 },
             )
+            # P4 竞态目录「store.append 失败 vs 内存 ledger」：落盘失败不拥有执行，但要有收据。
+            # 收据只能落在内存 / 产物这一侧——store 已经写不进了；读产物的人由此知道
+            # durable 副本从哪一条序号起是不完整的（空列表 = 全部落盘）。
+            event_payload.setdefault("store_failures", list(self.store_failures))
         # 事件发生的挂钟时刻。相邻两条事件的时间差就是上一步的耗时——所以不需要
         # 给每一步单独开 span，就能算出「哪一步吃掉了时钟」。
         #
@@ -847,6 +851,67 @@ class _EpisodeContinuationState:
     context_ref: _ContextRef | None = None
 
 
+STEP_PHASES: tuple[str, ...] = (
+    "model_pending",
+    "model_settled",
+    "before_tool_dispatch",
+    "tools_settled",
+    "before_finish",
+)
+
+
+@dataclass(frozen=True)
+class StepPoint:
+    """``manual_drive().step()`` 停下的那个点（运行底座 P4）。只给驱动方 / 竞态测试看。"""
+
+    phase: str
+    llm_calls: int
+    tool_calls: int
+    turn_id: str = ""
+
+
+class EpisodeDrive:
+    """一次性的单步驱动器：包着 ``ContinuousAgentEpisode._drive`` 生成器。
+
+    ``step()`` 跑到下一个 ``StepPoint``（终态时回 ``None`` 并填好 ``outcome``）；
+    ``run_until(phase)`` 连跑到某类步点；``run_to_end()`` 排空。生成器抛过异常后不可再驱动。
+    """
+
+    def __init__(self, generator: Generator[StepPoint, None, AgentOutcome]) -> None:
+        self._generator = generator
+        self.outcome: AgentOutcome | None = None
+        self.finished = False
+        self.steps: list[StepPoint] = []
+
+    def step(self) -> StepPoint | None:
+        if self.finished:
+            return None
+        try:
+            point = next(self._generator)
+        except StopIteration as stop:
+            self.outcome = stop.value
+            self.finished = True
+            return None
+        self.steps.append(point)
+        return point
+
+    def run_until(self, phase: str) -> StepPoint | None:
+        """跑到下一个 ``phase`` 步点；先到终态就回 ``None``。"""
+
+        if phase not in STEP_PHASES:
+            raise ValueError(f"unknown step phase: {phase!r}")
+        while True:
+            point = self.step()
+            if point is None or point.phase == phase:
+                return point
+
+    def run_to_end(self) -> AgentOutcome:
+        while not self.finished:
+            self.step()
+        assert self.outcome is not None
+        return self.outcome
+
+
 class ContinuousAgentEpisode:
     """Run a task without rebuilding the model's observable message history."""
 
@@ -980,6 +1045,54 @@ class ContinuousAgentEpisode:
         registry: ResearchToolRegistry,
         _continuation_sink: list[_EpisodeContinuationState] | None = None,
     ) -> AgentOutcome:
+        """跑到终态。控制流全在 ``_drive`` 里；这里只是把生成器排空（P4 ``step()``）。"""
+
+        return self.manual_drive(
+            task_frame=task_frame,
+            context=context,
+            registry=registry,
+            _continuation_sink=_continuation_sink,
+        ).run_to_end()
+
+    def manual_drive(
+        self,
+        *,
+        task_frame: TaskFrame,
+        context: ResearchRunContext,
+        registry: ResearchToolRegistry,
+        _continuation_sink: list[_EpisodeContinuationState] | None = None,
+    ) -> EpisodeDrive:
+        """单步驱动（运行底座 P4 / 工单 #31）：每次 ``step()`` 跑到下一个效果边界停下。
+
+        与 ``run()`` 是**同一段代码**——``run()`` 就是把这个生成器排空。停下的点只有五种
+        （``STEP_PHASES``）：模型意图已 durable、结算未发（``model_pending``）；模型结算刚落
+        （``model_settled``）；工具意图将落、批次未派发（``before_tool_dispatch``）；批次结算
+        刚落（``tools_settled``）；终局 ``finish`` 将落（``before_finish``）。竞态目录
+        （``conformance/races/``）就是在这些点上把取消 / steer / restore 插进去，两种顺序各跑一遍。
+
+        为什么是生成器而不是状态机重写：run() 有几十个局部变量与十来个 return 点，改成
+        显式状态对象等于重写一遍控制流、再靠测试证明它没变；生成器让**同一份代码**在
+        ``yield`` 处暂停，局部变量原地保留，事件序、写序、消息序逐字节不变（全量套件在
+        严格派生下就是证明）。代价是驱动对象一次性：生成器抛过异常就不能再 ``step()``。
+        """
+
+        return EpisodeDrive(
+            self._drive(
+                task_frame=task_frame,
+                context=context,
+                registry=registry,
+                _continuation_sink=_continuation_sink,
+            )
+        )
+
+    def _drive(
+        self,
+        *,
+        task_frame: TaskFrame,
+        context: ResearchRunContext,
+        registry: ResearchToolRegistry,
+        _continuation_sink: list[_EpisodeContinuationState] | None = None,
+    ) -> Generator[StepPoint, None, AgentOutcome]:
         # EpisodeScope 在这里构造——这是 Episode 的入口，contract、注册表、
         # 身份都齐了。第 3 步把接缝接到了执行路径上，但生产链路一直没人构造 Scope，
         # 于是事件、调用登记和 dump 收据在生产里都不发生（机制休眠）。
@@ -1193,6 +1306,8 @@ class ContinuousAgentEpisode:
                 retries_remaining=1,
                 context=context,
             )
+            # P4 步点①：意图已 durable、结算未发——INV-R2 的「不确定窗口」入口。
+            yield StepPoint("model_pending", llm_calls, tool_calls, turn_id=turn_id)
             model_started = monotonic()
             try:
                 # 线格式只在这里出现：loop 全程 EpisodeMessage，边界一次转换。
@@ -1289,6 +1404,8 @@ class ContinuousAgentEpisode:
                     ),
                 },
             )
+            # P4 步点②：模型结算刚落，下一件外部效果（派发 / 收口）还没开始。
+            yield StepPoint("model_settled", llm_calls, tool_calls, turn_id=turn_id)
             if not _consume_root_seconds(context, model_elapsed):
                 if context.root_budget is not None:
                     context.root_budget.settle_seconds(seconds=model_elapsed)
@@ -1552,6 +1669,8 @@ class ContinuousAgentEpisode:
                         tool_calls=tool_calls,
                         invalid_actions=invalid_actions,
                     )
+                # P4 步点③：工具批次将派发（意图 tool_request 在 _dispatch 前由 ledger 落）。
+                yield StepPoint("before_tool_dispatch", llm_calls, tool_calls, turn_id=turn_id)
                 batch_started = monotonic()
                 batch = tool_session.execute(
                     turn.tool_calls,
@@ -1567,6 +1686,8 @@ class ContinuousAgentEpisode:
                 batch_elapsed = max(0.0, monotonic() - batch_started)
                 tool_calls += batch.executed_count
                 invalid_actions += accumulator.consume(batch, context)
+                # P4 步点④：这一批的结算（tool_result / tool_error）全部落账。
+                yield StepPoint("tools_settled", llm_calls, tool_calls, turn_id=turn_id)
                 halt = self._harness.halt_after_tool_batch(
                     context=context,
                     batch_errors=tuple(item.error for item in batch.items),
@@ -1742,6 +1863,9 @@ class ContinuousAgentEpisode:
             assert admission.status is not None
             status, draft = admission.status, admission.draft
             bindings, current_gaps = admission.bindings, admission.gaps
+            # P4 步点⑤：终局已获准入、finish 事件将落（其它停机路径经 _stopped_outcome /
+            # _cancelled_outcome / _recover_finalization 直接返回，不设步点）。
+            yield StepPoint("before_finish", llm_calls, tool_calls, turn_id=turn_id)
             ledger.record_runtime_result()
             ledger.add(
                 "finish",
