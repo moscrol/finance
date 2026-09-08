@@ -22,6 +22,20 @@ def _market(day: str, *top3: str | None) -> dict:
     return {"trade_date": day, "industry_1": top3[0], "industry_2": top3[1], "industry_3": top3[2]}
 
 
+def test_rps_uses_close_to_close_when_points_present():
+    """有真收盘时用点位比，不再 ∏(1+pct)。pct 故意写小，点位涨 10%。"""
+    days = DAYS[:6]
+    rows = []
+    for i, d in enumerate(days):
+        rows.append({**_sector(d, "A", "电子", 0.1), "close": 100.0 + i * 2.5})
+        rows.append({**_sector(d, "B", "通信", 5.0), "close": 100.0})
+    out = build_sector_roles(rows, [], [_market(d, "电子", "机械设备", "电力设备") for d in days], calendar=days)
+    by = {(str(r["trade_date"]), r["sector_ts_code"]): r for r in out["sectors"]}
+    last = days[-1]
+    assert by[(last, "A")]["rps_5d_rank"] == 1
+    assert by[(last, "B")]["rps_5d_rank"] == 2
+
+
 def test_rps_ranks_need_contiguous_complete_windows():
     # Three sectors; C is missing on 01-07, so its 3-day rank is NULL on 01-07..01-09 and back on 01-12.
     rows = []
