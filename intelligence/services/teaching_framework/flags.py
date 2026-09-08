@@ -7,6 +7,7 @@ from datetime import date, datetime, time
 from typing import Any, Iterable, Mapping
 
 from .coverage import collapse_limit_rows
+from .structure import DIVERGENCE_LOOKBACK, structure_daily
 
 NULL = None
 
@@ -185,12 +186,16 @@ def compute_flags(
     double_volume_dod = float(p.get("double_volume_dod_pct", DOUBLE_VOLUME_DOD_PCT))
     money_losing_lt = float((p.get("money_losing") or {}).get("lt_pct", DEFAULT_MONEY_LOSING["lt_pct"]))
     losing_streak = 0
+    # 结构视角（创始人 09-08「MACD 底背离和缠论的用法能结合起来吗」）：上证日线 MACD 背离与缠论分型 / 笔 / 中枢 / 三买，
+    # 整段序列一次算完、逐日只写出（每个事件记在被确认的那一天）。参数 structure.divergence_lookback（背离两极值最大间隔）。
+    structure = structure_daily(rows, lookback=int((p.get("structure") or {}).get("divergence_lookback", DIVERGENCE_LOOKBACK)))
     for i, row in enumerate(rows):
         prev = _prev(rows, i, cal_index)
         d = _date(row.get("trade_date"))
         rec: dict[str, Any] = {"trade_date": d, "scalar_gaps": {}}
         for passthrough in SOURCE_PASSTHROUGH:
             rec[f"{SOURCE_PREFIX}{passthrough}"] = row.get(passthrough)
+        rec.update(structure[i])
         close, ma = _num(row.get("sh_index_close")), _num(row.get("sh_week_ma"))
         rec["above_week_ma"] = None if close is None or ma is None else close > ma
         rec["cross_above_week_ma"] = (

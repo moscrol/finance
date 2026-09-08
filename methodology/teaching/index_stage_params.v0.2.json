@@ -433,5 +433,9 @@
     "method": "nearest-rank quantiles of each view on the platform's stage days up to train_until; edges = stage moves observed in the same period"
   },
   "upgrade_entry_mode": "day",
-  "upgrade_process_continuing": false
+  "upgrade_process_continuing": false,
+  "structure": {
+    "divergence_lookback": 60,
+    "note": "第二十二段：MACD 背离比较的两个极值最多相隔 60 个交易日（agent 候选）；分型 / 笔 / 中枢定义见 structure.py 模块头"
+  }
 }
