@@ -89,11 +89,15 @@ def _bind_volume_surge(sl: RiverSlice) -> tuple[bool | None, list[str]]:
 
 
 def _bind_market_stage(sl: RiverSlice) -> tuple[str | None, list[str]]:
+    """河切片里的 ``market_stage`` 是供应商原值（可能带「阶段」后缀）；绑定到注册标签要走 G-05 的归一函数，
+    否则 ``in ["底部横盘"]`` 对着「底部横盘阶段」永远不命中——旁路库 v3 已归一，切片这边必须同口径。"""
+    from intelligence.services.market_stage import normalize_market_stage
+
     o = _first(track_objects(sl, "market"), "stage")
     if o is None:
         return None, []
-    v = o.payload.get("market_stage")
-    return (str(v) if v not in (None, "") else None), [o.ref]
+    v = normalize_market_stage(o.payload.get("market_stage"))
+    return (v if v not in (None, "") else None), [o.ref]
 
 
 def _bind_limit_heat_rank(sl: RiverSlice) -> tuple[float | None, list[str]]:

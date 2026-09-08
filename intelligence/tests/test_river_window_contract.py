@@ -337,3 +337,12 @@ class ForwardLookingRatchetTests(unittest.TestCase):
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
+
+
+class MarketStageBindingTests(unittest.TestCase):
+    def test_market_stage_binding_normalizes_vendor_suffix(self) -> None:
+        """G-05：切片里是「底部横盘阶段」，注册标签值是「底部横盘」——绑定必须归一，否则条件永远不命中。"""
+        sl = _slice("2026-09-02", market_stage="底部横盘阶段")
+        value, refs = rd.bind("market_stage", sl)
+        self.assertEqual(value, "底部横盘")
+        self.assertTrue(refs)
