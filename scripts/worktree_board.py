@@ -197,13 +197,55 @@ def classify_worktree(
     )
 
 
-def resolve_ledger_path(repo_root: Path, *, timeout: float = 2.0) -> Path:
+def _last_switch_unix(ledger: Path, port: int) -> float:
+    """账本里该 port 末次 ``switch`` 行的时刻；没有就 -inf（排在任何有记录的后面）。
+
+    只认写入侧落的 ``unix``（``deploy_ledger.record`` 每行都写），不解析 ``ts``
+    字串——两个字段同源，少一套解析就少一处漂。
+    """
+
+    latest = float("-inf")
+    try:
+        text = ledger.read_text(encoding="utf-8")
+    except OSError:
+        return latest
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(row, dict) or row.get("action") != "switch":
+            continue
+        if str(row.get("port") or "") != str(port):
+            continue
+        try:
+            unix = float(row.get("unix"))
+        except (TypeError, ValueError):
+            continue
+        latest = max(latest, unix)
+    return latest
+
+
+def resolve_ledger_path(
+    repo_root: Path, *, timeout: float = 2.0, port: int = 8792
+) -> Path:
     """覆盖序对齐 ``intelligence.runtime.deploy_ledger.resolve_ledger_path``。
 
     SessionStart 必须能在宿主 python3、不 import 包的情况下跑，所以这里抄序
     不抄模块。Hook 环境通常没有 ``FINANCE_WS``，附属 worktree 也没有数据仓
     里的 ledger；多探一步 git common-dir 的父目录（主检出树），改覆盖序时
     与 ``deploy_ledger`` 一起改。
+
+    失败形状（2026-09-08 实测）：账本有两个家——主检出树 ``state/`` 那份
+    （dev server 从主树起时按 ``<repo_root>/state`` 落）与 ``~/.finance-runtime``
+    那份（生产快照没有 ``state/``，走最后一级回落）。两份都在时按固定顺序取
+    第一份，SessionStart 就把 8792 报成一天前的 rev，而生产早切了两次；
+    ``audit_deploy_ledger.py check`` 读的是另一份，所以说一切正常。
+    读取侧不再按顺序取「第一份存在的」，而是在**存在的**候选里取该 port 末次
+    switch 最新的那份；都没有 switch 行才回到顺序。写入侧的分家不在本函数治。
     """
 
     override = os.environ.get("FINANCE_DEPLOY_LEDGER", "").strip()
@@ -221,10 +263,11 @@ def resolve_ledger_path(repo_root: Path, *, timeout: float = 2.0) -> Path:
     if code == 0 and common:
         candidates.append(Path(common).resolve().parent / "state" / LEDGER_NAME)
     candidates.append(Path.home() / ".finance-runtime" / LEDGER_NAME)
-    for path in candidates:
-        if path.is_file():
-            return path
-    return candidates[0]
+    existing = [path for path in candidates if path.is_file()]
+    if not existing:
+        return candidates[0]
+    # 稳定排序：时刻相同（含都没有 switch 行）时保持覆盖序，与旧行为一致。
+    return max(existing, key=lambda path: _last_switch_unix(path, port))
 
 
 def last_switch_for_port(ledger: Path, port: int = 8792) -> dict[str, Any] | None:
