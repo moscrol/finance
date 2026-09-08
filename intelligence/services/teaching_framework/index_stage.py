@@ -560,12 +560,13 @@ SEPARATION_METRICS: tuple[tuple[str, str, str], ...] = (
     ("资金", "个股区间涨幅门槛 20 日 %", "tf.range_leader_entry_gain_20d_pct"),
     ("资金", "加权涨幅 %", "src.strength_avg_pct"),
     ("资金", "平均股价", "tf.stock_price_mean"),
-)
-# 第二十五段：候选维度——同一套 η² 读出来、单列，不进靶子平均；两半都分得开、创始人认了才挪进 SEPARATION_METRICS。
-CANDIDATE_METRICS: tuple[tuple[str, str, str], ...] = (
-    ("广度", "个股周均线上方占比 %", "tf.stock_above_ma5_share_pct"),
-    ("亏钱效应", "20 日新低家数", "tf.new_low_20d_count"),
+    # 第二十五段，创始人「认可」：三个广度维度进靶子（16 → 19 项）。进靶子前在 16 项上量过：η² 0.46 / 0.37 / 0.27。
     ("赚钱效应", "20 日新高家数", "tf.new_high_20d_count"),
+    ("赚钱效应", "个股周均线上方占比 %", "tf.stock_above_ma5_share_pct"),
+    ("亏钱效应", "20 日新低家数", "tf.new_low_20d_count"),
+)
+# 候选维度——同一套 η² 读出来、单列，不进靶子平均；两半都分得开、创始人认了才挪进 SEPARATION_METRICS。
+CANDIDATE_METRICS: tuple[tuple[str, str, str], ...] = (
     ("亏钱效应", "一年新低家数", "tf.new_low_1y_count"),
     ("结构", "底背离观察广度 %（5 日内）", "tf.stock_div_bottom_observe_share_pct"),
     ("结构", "顶背离广度 %（5 日内）", "tf.stock_div_top_share_pct"),

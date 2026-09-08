@@ -75,3 +75,15 @@ index_stage.CANDIDATE_METRICS 六项 → stage_separation()["candidates"]（不�
 个股 MA5 上方占比阈值：40% → 底部两段在下方 0.74 / 上行三段在上方 0.88；50% → 0.89 / 0.77
 pytest 126 passed + 1 skip；ruff 通过
 ```
+
+## 第二十六段：三个维度进靶子 + 进证据（`tf-v0.2+c2c3faa1`，哈希 07398377fe207962）
+
+```text
+BAND_VIEWS += new_high_20d_count / stock_above_ma5_share_pct / new_low_20d_count；calibrate-stages --train-until 2025-12-31 --quantiles 0.25 0.75 --min-days 8（样本钉 de23f56e…）
+SEPARATION_METRICS 16 → 19；CANDIDATE_METRICS 剩 一年新低 / 底背离广度 / 顶背离广度
+五变体（/tmp/tf25_band_variants.py，旧 16 项靶子 全/训/验）：V1 三个 0.1608/0.1618/0.2012 ✓；V2 新高+MA5 0.1548/0.1582/0.2018 ✓；V3 MA5 0.1542/0.1644/0.2000 ✓；
+  V4 新高 0.1486/0.1542/0.1978 ✗；V5 新低 0.1474/0.1517/0.1909 ✗；基线 0.1490/0.1548/0.1989 → 取 V1
+真库两次全新构建 06:00Z / 07:00Z 哈希一致 07398377fe207962；19 项靶子 0.2078/0.2111/0.2419；旧 16 项 0.1608/0.1618/0.2012；一致率 0.3815；未决 35
+分布：左底向下 72 / 左底向上 45 / 缩量右底 28 / 共建主线 81 / 主升 48 / 2.0 29 / 高位震荡 64 / 未决 35；触碰周均 40 → 回落 36（左底向下 11、缩量右底 25）、升级 4
+river_objects 新增 teaching_breadth；reading 新增「广度」行（夹具 28% / 240 / 812）；pytest 126 passed + 1 skip；ruff 通过
+```

@@ -108,6 +108,18 @@
       "limit_premium_ma5_pct": [
         0.9266,
         2.102
+      ],
+      "new_high_20d_count": [
+        218.0,
+        406.0
+      ],
+      "stock_above_ma5_share_pct": [
+        17.0556,
+        38.3556
+      ],
+      "new_low_20d_count": [
+        717.0,
+        1526.0
       ]
     },
     "左底向上": {
@@ -146,6 +158,18 @@
       "limit_premium_ma5_pct": [
         1.5855,
         1.9559
+      ],
+      "new_high_20d_count": [
+        234.0,
+        370.0
+      ],
+      "stock_above_ma5_share_pct": [
+        58.2742,
+        79.5975
+      ],
+      "new_low_20d_count": [
+        117.0,
+        419.0
       ]
     },
     "缩量右底": {
@@ -184,6 +208,18 @@
       "limit_premium_ma5_pct": [
         1.25,
         2.0458
+      ],
+      "new_high_20d_count": [
+        193.0,
+        233.0
+      ],
+      "stock_above_ma5_share_pct": [
+        18.9642,
+        32.2962
+      ],
+      "new_low_20d_count": [
+        336.0,
+        1106.0
       ]
     },
     "共建主线": {
@@ -222,6 +258,18 @@
       "limit_premium_ma5_pct": [
         1.0538,
         2.3269
+      ],
+      "new_high_20d_count": [
+        309.0,
+        892.0
+      ],
+      "stock_above_ma5_share_pct": [
+        33.6768,
+        80.8465
+      ],
+      "new_low_20d_count": [
+        65.0,
+        482.0
       ]
     },
     "主流主升": {
@@ -260,6 +308,18 @@
       "limit_premium_ma5_pct": [
         2.1326,
         2.9401
+      ],
+      "new_high_20d_count": [
+        623.0,
+        1168.0
+      ],
+      "stock_above_ma5_share_pct": [
+        36.6939,
+        68.0055
+      ],
+      "new_low_20d_count": [
+        68.0,
+        148.0
       ]
     },
     "主流主升2.0": {
@@ -294,6 +354,18 @@
       "rps5_outside_top3_pct": [
         50.0,
         70.0
+      ],
+      "new_high_20d_count": [
+        898.0,
+        1287.0
+      ],
+      "stock_above_ma5_share_pct": [
+        62.6976,
+        77.0012
+      ],
+      "new_low_20d_count": [
+        52.0,
+        128.0
       ]
     },
     "高位震荡": {
@@ -332,6 +404,18 @@
       "limit_premium_ma5_pct": [
         1.541,
         2.5232
+      ],
+      "new_high_20d_count": [
+        449.0,
+        879.0
+      ],
+      "stock_above_ma5_share_pct": [
+        36.1927,
+        62.5881
+      ],
+      "new_low_20d_count": [
+        140.0,
+        523.0
       ]
     }
   },
@@ -395,13 +479,16 @@
       "src.sh_deviation_pct",
       "new_high_1y_count",
       "rps5_outside_top3_pct",
-      "limit_premium_ma5_pct"
+      "limit_premium_ma5_pct",
+      "new_high_20d_count",
+      "stock_above_ma5_share_pct",
+      "new_low_20d_count"
     ],
     "labels_framework_version": [
-      "tf-v0.2+d9b223e1"
+      "tf-v0.2+b5be80b8"
     ],
-    "labels_canonical_hash": "f973501ac5c5b7e8ccd9bc298ff2dee00a1ce66b4135c5a9d57ff9b6312c4c96",
-    "labels_source_fingerprint": "fa2e2096f7d4a066125286173f243fd4d4879f02477f85456458c5067a1323a8",
+    "labels_canonical_hash": "de23f56ee05f7536dcb90313bc485e8bba630c976a3f4c3949ea4ab8f85bed47",
+    "labels_source_fingerprint": "78a2eba3eb4e88530cb66cf801036632fa14c8fc84fafc2ec6608865c7c55d3e",
     "labels_source_max_trade_date": "2026-09-03",
     "transition_counts": {
       "左底向下": {

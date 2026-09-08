@@ -157,6 +157,16 @@ def teaching_lines(objects: list[dict[str, Any]]) -> list[str]:
         else:
             yes = "亏钱效应：是" + (f"（连续第 {int(streak)} 天）" if streak is not None else "")
             lines.append((yes if losing == 1 else "亏钱效应：否") + f"｜承接 5 日均值 {_fmt(prem, 2)}%")
+    breadth = by_type.get("teaching_breadth")
+    if breadth:
+        # 第二十五段：个股层的广度——创始人「周均线」规则的个股版 + 20 日新高 / 新低家数（赚钱 / 亏钱两头）。只报数，不解释。
+        seg = [f"个股周均线上方 {_fmt(breadth.get('stock_above_ma5_share_pct'), 0)}%"] if breadth.get("stock_above_ma5_share_pct") is not None else []
+        if breadth.get("new_high_20d_count") is not None or breadth.get("new_low_20d_count") is not None:
+            seg.append(f"20 日新高 {_fmt(breadth.get('new_high_20d_count'), 0)} 家 / 新低 {_fmt(breadth.get('new_low_20d_count'), 0)} 家")
+        if breadth.get("new_low_1y_count") is not None:
+            seg.append(f"一年新低 {_fmt(breadth.get('new_low_1y_count'), 0)} 家")
+        if seg:
+            lines.append("广度：" + "｜".join(seg))
     cap = by_type.get("teaching_capital")
     if cap:
         parts = []

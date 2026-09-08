@@ -19,7 +19,10 @@ def sidecar(tmp_path: Path) -> Path:
 
 def test_stage_object_carries_the_days_reading_and_only_the_slice_fields(sidecar: Path) -> None:
     objs = {o.object_type: o for o in teaching_objects(sidecar, "2026-01-12", top=2)}
-    assert set(objs) == {"teaching_stage", "teaching_capital", "teaching_narrative", "teaching_briefing", "teaching_dynasty", "teaching_range_leaders"}
+    assert set(objs) == {"teaching_stage", "teaching_capital", "teaching_breadth", "teaching_narrative", "teaching_briefing", "teaching_dynasty", "teaching_range_leaders"}
+    breadth = objs["teaching_breadth"]
+    assert breadth.payload == {"stock_above_ma5_share_pct": 28.5, "new_high_20d_count": 240.0, "new_low_20d_count": 812.0, "framework_version": breadth.payload["framework_version"]}
+    assert "stock_price_mean" not in breadth.payload
     assert objs["teaching_narrative"].payload["narrative_cover_rps5_pct"] == 40.0 and objs["teaching_narrative"].ref.endswith(":narrative")
     brief = objs["teaching_briefing"].payload
     # 二维晨汇：盘面共振那一格没有值就没有键（不可知不是 0）；维度、条数、机器对照、写成滞后都在。

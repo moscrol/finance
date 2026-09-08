@@ -12,6 +12,7 @@ roadmap G-01 (b)「复盘 run 新增 teaching 模式，可关，关掉后输出�
                           亏钱日数；下一波的成员只在下一波**也见顶之后**（其覆灭窗开始 ≤ 当日）才出现——
                           那时整节衔接才算「走出来」。当日之后才定下来的边界（覆灭窗终点、下一波起点）不写。
 - ``teaching_range_leaders`` 当日各窗口的区间涨幅前 N 组（名次、涨幅、在位第几天、申万一级）——当日的事实。
+- ``teaching_breadth``   广度（第二十五段）：个股周均线上方占比、20 日新高 / 新低家数、一年新低、上涨比例、涨幅中位、偏离度中位、背离广度。
 - ``teaching_capital`` / ``teaching_narrative`` / ``teaching_briefing`` 资金面与消息面（卖方观点事件、晨汇 Tier 投影）的
                           市场级当日读数，各一个对象；某个源没有读数的日子，原因（未接知识库 / 断更 / 当日无晨汇）挂在阶段对象上。
 
@@ -52,6 +53,12 @@ NARRATIVE_LABELS = tuple(f"tf.{name}" for name in (
 BRIEFING_LABELS = tuple(f"tf.{name}" for name in (
     "briefing_tier1_items", "briefing_tier2_items", "briefing_tier3_items", "briefing_market_confirmed",
     "briefing_dimensions", "briefing_hit_rps5_pct", "briefing_lag_days",
+))
+# 广度（第二十五段）：全市场个股层的市场级读数，单独一个对象——阶段对象已接近 payload ≤ 20 键的上限。
+BREADTH_LABELS = tuple(f"tf.{name}" for name in (
+    "stock_above_ma5_share_pct", "new_high_20d_count", "new_low_20d_count", "new_low_1y_count",
+    "stock_up_ratio_pct", "stock_pct_chg_median", "stock_ma5_deviation_median", "stock_ma10_deviation_median",
+    "stock_div_bottom_observe_share_pct", "stock_div_top_share_pct",
 ))
 # 没有某个叙事对象的日子，要说清为什么（未接知识库 / 源断更 / 当日无晨汇），不能让读者以为「今天没消息」；挂在阶段对象上。
 _SOURCE_GAPS = (("narrative_gap", "tf.narrative_events"), ("briefing_gap", "tf.briefing_tier1_items"))
@@ -98,6 +105,9 @@ def teaching_objects(labels_db: str | Path, as_of: str, *, top: int = 10) -> lis
         capital = _capital_object(con, day, as_of)
         if capital is not None:
             out.append(capital)
+        breadth = _labels_object(con, day, as_of, labels=BREADTH_LABELS, object_type="teaching_breadth", suffix="breadth")
+        if breadth is not None:
+            out.append(breadth)
         if narrative is not None:
             out.append(narrative)
         if briefing is not None:

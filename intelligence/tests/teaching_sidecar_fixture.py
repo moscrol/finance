@@ -34,6 +34,9 @@ def build_sidecar(path: Path) -> Path:
         _label("2026-01-12", "tf.money_losing_streak", num=2), _label("2026-01-12", "tf.limit_premium_ma5_pct", num=0.8),
         _label("2026-01-12", "tf.amount_vs_ma20_pct", num=84.0), _label("2026-01-12", "tf.turn_down", num=1),
         _label("2026-01-12", "tf.stock_price_mean", num=21.0),  # 切片不读的标签，不该漏进 payload
+        # 广度（第二十五段）：个股周均线上方占比、20 日新高 / 新低家数 → teaching_breadth 对象与带读「广度」行。
+        _label("2026-01-12", "tf.stock_above_ma5_share_pct", num=28.5), _label("2026-01-12", "tf.new_high_20d_count", num=240),
+        _label("2026-01-12", "tf.new_low_20d_count", num=812),
         # 资金面（第十五段）：龙虎榜 / 封单 / 竞价 / 成交占比 的市场级读数。
         _label("2026-01-12", "tf.dragon_net_amount", num=12.3), _label("2026-01-12", "tf.dragon_net_amount_ratio_pm", num=0.71),
         _label("2026-01-12", "tf.dragon_net_amount_ratio_pm_ma5", num=0.55), _label("2026-01-12", "tf.dragon_buy_sell_ratio", num=1.9),
