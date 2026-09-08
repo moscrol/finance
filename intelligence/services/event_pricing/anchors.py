@@ -32,7 +32,7 @@ from .params import EventParams, load_params
 from .store import ensure_event_schema
 
 GAP_KIND_ANCHOR = "anchor"
-GRADE_RANK = {"official": 0, "both": 1, "conflict": 2, "rule_derived": 3, "editorial": 4}
+GRADE_RANK = {"official": 0, "both": 1, "conflict": 2, "rule_derived": 3, "editorial": 4, "narrative": 5}
 
 
 def anchor_label(event_class: str) -> str:

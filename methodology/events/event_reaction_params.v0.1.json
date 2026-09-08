@@ -49,6 +49,23 @@
       "scope": "sector", "scheduled": false, "reaction_rule": "same_day_or_next", "reaction_day_confidence": "low",
       "indicators": [], "period_kind": "none",
       "editorial": {"event_type_in": ["行业事件"], "require_sectors": true}
+    },
+    "sellside_hard_evidence": {
+      "_why": "创始人 09-08「卖方事件文件让 ev 直接消费」：一个概念当天至少一条硬证据（订单 / 产能 / 招标等可核事实）的卖方观点 → 次一交易日该板块一条锚点；概念名须精确等于板块名",
+      "scope": "sector", "scheduled": false, "reaction_rule": "next_trading_day", "reaction_day_confidence": "normal",
+      "indicators": [], "period_kind": "none",
+      "narrative": {"select": "hard_evidence", "min_events": 1}
+    },
+    "sellside_first_mention": {
+      "_why": "新叙事：概念在事件文件里第一次出现的那天（文件起点后 20 个交易日内的首提只是记录刚开始，记缺口不入锚点）",
+      "scope": "sector", "scheduled": false, "reaction_rule": "next_trading_day", "reaction_day_confidence": "normal",
+      "indicators": [], "period_kind": "none",
+      "narrative": {"select": "first_mention", "burn_in_days": 20}
     }
+  },
+  "narrative_source": {
+    "relpath": "raw/theme-radar/opinion-store/opinion-events.jsonl",
+    "stale_after_days": 30,
+    "_note": "相对知识库 wiki 根（build-calendar --kb-wiki）。ingested_at 是我们入库日，普遍滞后报告日一周以上，写进构建元数据 ingest_lag_days；锚点日按报告日次一交易日"
   }
 }

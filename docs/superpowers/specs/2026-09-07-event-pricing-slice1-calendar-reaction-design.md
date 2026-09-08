@@ -136,6 +136,19 @@ history_event_calendar                         每 (event_class, reaction_day) �
 
 不放进 `history_labels`（v3 构建的 `reset_tables` 会整表 DROP，第一刀 §3.5 同理）。`history_build_meta.build_kind='event_calendar' / 'event_anchors'`，`label_version = ev_version`。
 
+### 3.6 第三个源：知识库的卖方观点事件文件（2026-09-08 补，用户「卖方事件文件让 ev 直接消费」）
+
+编辑日历 1,966 行 `unparsed`、叙事类只有 `industry_event` 107 行还多半没板块；而知识库 `raw/theme-radar/opinion-store/opinion-events.jsonl`（你的 agent 从晚间卖方研报投影出的结构化观点，一条一行，带 `report_date / ingested_at / concept / hardness / stance`）是更好的叙事源。`build-calendar --kb-wiki <wiki 根>` 直接读它，来源等级 **`narrative`**，只产板块类锚点，不参与官方 / 编辑的合并仲裁（它说的是「卖方在讲什么」，不是「何时发布什么数据」）。实现：`event_pricing/narrative.py`。
+
+| `event_class` | `narrative.select` | 一条锚点 = | 反应日 |
+|---|---|---|---|
+| `sellside_hard_evidence` | `hard_evidence`（`min_events=1`） | 一个概念当天 ≥ 1 条 `hardness = 硬证据` 的观点 | 报告日次一交易日（`next_trading_day`） |
+| `sellside_first_mention` | `first_mention`（`burn_in_days=20`） | 概念在文件里第一次出现的那天；文件起点后 20 个交易日内的首提记缺口 `first_mention_in_burn_in` | 同上 |
+
+三条纪律：(1) **概念名与板块名精确相同**才成板块事件（实测 593 个概念里 120 个），其余记缺口 `concept_not_sector`（一个概念一条，detail 是条数），不做模糊匹配、不猜归属；(2) 板块代码按**反应日当天有价格序列**的那套取（07-27 宇宙切换后同名两套 `.TI` / `.FP`，都覆盖时取历史更长的），当天哪套都没有 → `no_sector_series_on_day`；(3) `ingested_at` 是我们入库日、普遍滞后报告日一周以上（p50 / p90 进构建元数据 `ingest_lag_days`，日历行 `title_sample` 带 `ingested_at≤…`），锚点日按报告日算——研报当晚就公开了，滞后的是我们，回放按需过滤。指标位放概念名，同类同概念同反应日多条观点合成一行（周五 + 周六的研报 → 周一一条）。没给 `--kb-wiki` 或文件不存在：一条缺口 `narrative/source_absent`，零行，不静默。
+
+[实测 2026-09-08，快照主库 + 生产旁路库副本，`ev-v0.1+75bb9e16`]：文件 9,733 行（02-08 → 07-05，07-05 起断更），硬证据类 218 条锚点（70 个锚点日，ok 217）、首提类 26 条（burn-in 挡掉 79）；缺口 `concept_not_sector` 473、`no_sector_series_on_day` 81、`row_unusable` 18。硬证据类读数（state_only，n=217，基准 N=15,993）：事前 5 日板块超额中位 **+3.34%、74% 为正**——卖方的硬证据多在板块已经动了之后写；`continuation_up` 54/217 = 25%（基准 8.9%）**supported**、`pre_up_post_down` 21/217 = 9.7%（基准 5.4%）supported、`flat` 12%（基准 29%）refuted、`pre_down_post_up` 1.4%（基准 5.1%）refuted；事后 5 日超额中位 +1.45%、65% 为正；拥挤度分位中位 82–94。读法：卖方硬证据落在**已启动、已拥挤**的板块上，之后延续多于反转，但「事前涨 → 事后跌」也比基准多——两头都比常态厚，中间的「没反应」少。首提类 n=25 无一形状过门（N 决定）。
+
 ---
 
 ## 4. 设计 B：`EventReaction`
@@ -290,6 +303,7 @@ history_event_reaction
 10. `source_grade` 分布进收据；`conflict` 条数与 `editorial_date` 列可查；无官方日程的类 0 条 `official`。
 11. 参数文件或日程文件任一改动后重建，`history_build_meta.label_version` 变化且旧收据标 `incomparable`。
 12. 门禁：`.venv-workbench` 跑 pytest 与 ruff 全绿；pre-commit 11 道通过；不新增硬编码路径；代码不读 `docs/`。
+13. （§3.6）narrative 源：夹具事件文件里概念精确匹配板块名的硬证据日 → `source_grade='narrative'` 的板块日历行、锚点、反应记录（`state_only`）；不匹配的概念 → `concept_not_sector`；burn-in 内的首提 → `first_mention_in_burn_in`；周五 + 周六两条 → 同一反应日一行；没给 `--kb-wiki` → `source_absent` 且零行；参数拒绝 `select` 非法 / market 作用域 / 与 `editorial` 同时出现。
 
 ---
 

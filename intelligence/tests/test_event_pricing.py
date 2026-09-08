@@ -548,3 +548,156 @@ def test_code_does_not_read_docs_directory():
         text = f.read_text(encoding="utf-8")
         assert "docs/learning" not in text.replace("docs/superpowers/specs", "") or "设计稿" in text
         assert 'open("docs' not in text and "Path(\"docs" not in text
+
+
+# --------------------------------------------------------------------------- #
+# 第三个源：知识库卖方观点事件文件（narrative）
+# --------------------------------------------------------------------------- #
+def _write_opinion_events(kb_wiki: Path) -> None:
+    p = kb_wiki / "raw" / "theme-radar" / "opinion-store" / "opinion-events.jsonl"
+    p.parent.mkdir(parents=True)
+    rows = [
+        # 板块一：首提在文件起点的 burn-in 里（03-03）→ 只记缺口；04-14 一条硬证据 → 次一交易日 04-15 一条锚点
+        ("o1", "2026-03-03", "2026-03-03", "板块一", "中性陈述", "中性"),
+        ("o2", "2026-04-14", "2026-04-24", "板块一", "硬证据", "看多"),
+        ("o3", "2026-04-14", "2026-04-24", "板块一", "软推演", "看多"),
+        ("o4", "2026-04-16", "2026-04-17", "板块一", "软推演", "中性"),          # 没硬证据 → 不成事件
+        # 板块二：首提 04-21（burn-in 之后）、没硬证据 → 只有 first_mention 一条，反应日 04-22
+        ("o5", "2026-04-21", "2026-04-21", "板块二", "中性陈述", "中性"),
+        # 板块三：周五 04-17 + 周六 04-18 各一条硬证据 → 同一反应日（04-20 是假日 → 04-21），合成一行、事件日取 04-17
+        ("o6", "2026-04-17", "2026-04-20", "板块三", "硬证据", "看多"),
+        ("o7", "2026-04-18", "2026-04-20", "板块三", "硬证据", "看多"),
+        # 不是板块名 → concept_not_sector；报告日超日历 → beyond_calendar；缺 concept → row_unusable
+        ("o8", "2026-04-14", "2026-04-14", "不是板块", "硬证据", "看多"),
+        ("o9", "2026-09-01", "2026-09-02", "小板块1", "硬证据", "看多"),
+        ("o10", "2026-04-14", "2026-04-14", "", "硬证据", "看多"),
+    ]
+    with p.open("w", encoding="utf-8") as fh:
+        for eid, rd, ing, concept, hardness, stance in rows:
+            fh.write(json.dumps({"event_id": eid, "report_date": rd, "ingested_at": ing, "concept": concept, "hardness": hardness, "stance": stance, "target": "某公司"}, ensure_ascii=False) + "\n")
+
+
+@pytest.fixture(scope="module")
+def built_narrative(tmp_path_factory):
+    root = tmp_path_factory.mktemp("event_pricing_narrative")
+    db, labels, sched, kb = root / "mini.duckdb", root / "history_labels.duckdb", root / "calendars", root / "kb" / "wiki"
+    sched.mkdir()
+    _write_schedule(sched)
+    _write_opinion_events(kb)
+    params_path = _write_params(root / "params.json")
+    _build_mini_db(db)
+    build_labels(db, labels)
+    build_outcomes(db, labels)
+    params = load_params(params_path, schedule_dir=sched)
+    cal = build_calendar(db, labels, params=params, kb_wiki=kb)
+    build_anchors(db, labels, params=params)
+    rea = build_reaction(db, labels, params=params)
+    return {"db": db, "labels": labels, "params": params, "kb": kb, "cal": cal, "rea": rea, "root": root}
+
+
+def test_narrative_rows_grade_indicator_and_reaction_day(built_narrative):
+    labels = built_narrative["labels"]
+    rows = _q(labels, "SELECT event_class, indicator, event_date, reaction_day, source_grade, sectors_json, event_ids_json, title_sample FROM history_event_calendar WHERE source_grade = 'narrative' ORDER BY 1,2,3")
+    by = {(r[0], r[1]): r for r in rows}
+    # 一个概念日可以同时是硬证据日和首提日（板块三 04-17、小板块1 09-01）：两类各一行
+    assert set(by) == {
+        ("sellside_hard_evidence", "板块一"), ("sellside_hard_evidence", "板块三"), ("sellside_hard_evidence", "小板块1"),
+        ("sellside_first_mention", "板块二"), ("sellside_first_mention", "板块三"), ("sellside_first_mention", "小板块1"),
+    }
+    r1 = by[("sellside_hard_evidence", "板块一")]
+    assert str(r1[2]) == "2026-04-14" and str(r1[3]) == "2026-04-15" and json.loads(r1[5]) == [{"ts_code": S1, "name": "板块一"}]
+    assert sorted(json.loads(r1[6])) == ["o2", "o3"] and "硬证据 1" in r1[7] and "ingested_at≤2026-04-24" in r1[7]
+    # 周五 + 周六两条 → 同一反应日一行，事件日取最早，两条 id 都在
+    r3 = by[("sellside_hard_evidence", "板块三")]
+    assert str(r3[2]) == "2026-04-17" and str(r3[3]) == "2026-04-21" and sorted(json.loads(r3[6])) == ["o6", "o7"]
+    # 首提在 burn-in 之后的板块二成事件；板块一的首提（03-03）不成
+    r2 = by[("sellside_first_mention", "板块二")]
+    assert str(r2[2]) == "2026-04-21" and str(r2[3]) == "2026-04-22" and "首提" in r2[7]
+    # 超日历的报告日：行在、反应日空、进 beyond_calendar
+    assert by[("sellside_hard_evidence", "小板块1")][3] is None
+    gaps = {(r[0], r[1]): r[2] for r in _q(labels, "SELECT gap_kind, reason, COUNT(*) FROM history_event_gaps GROUP BY 1,2")}
+    assert gaps[("narrative", "concept_not_sector")] == 1 and gaps[("narrative", "first_mention_in_burn_in")] == 1
+    assert gaps[("narrative", "row_unusable")] == 1 and gaps[("calendar", "beyond_calendar")] >= 1
+    assert ("narrative", "source_absent") not in gaps
+    stats = built_narrative["cal"].to_dict()
+    assert stats["label_version"] == built_narrative["params"].ev_version
+
+
+def test_narrative_anchors_and_reaction_flow_through_with_their_grade(built_narrative):
+    labels = built_narrative["labels"]
+    anchors = _q(labels, "SELECT entity_type, entity_id, trade_date, label FROM history_event_anchors WHERE label LIKE 'ev.sellside_%' ORDER BY 3, 4")
+    assert [(a[0], a[1], str(a[2]), a[3]) for a in anchors] == [
+        ("sector", S1, "2026-04-15", "ev.sellside_hard_evidence"),
+        ("sector", S3, "2026-04-21", "ev.sellside_first_mention"),
+        ("sector", S3, "2026-04-21", "ev.sellside_hard_evidence"),
+        ("sector", S2, "2026-04-22", "ev.sellside_first_mention"),
+    ]
+    rea = _q(labels, "SELECT event_class, entity_id, source_grade, scheduled, pre_window_semantics, status FROM history_event_reaction WHERE event_class LIKE 'sellside_%' ORDER BY reaction_day")
+    assert len(rea) == 4 and all(r[2] == "narrative" and r[3] is False and r[4] == "state_only" for r in rea)
+    receipt = build_receipt(built_narrative["db"], labels, params=built_narrative["params"])
+    assert receipt["calendar"]["by_source_grade"].get("narrative") == 6
+    assert receipt["classes"]["sellside_hard_evidence"]["records_by_source_grade"] == {"narrative": 2}
+    assert receipt["classes"]["sellside_first_mention"]["records_by_source_grade"] == {"narrative": 2}
+    md = render_markdown(receipt)
+    assert_no_forbidden_words(md)
+    assert "sellside_hard_evidence" in md and not STOCK_CODE_RE.search(md)
+
+
+def test_narrative_source_absent_when_no_kb_wiki(built):
+    gaps = {(r[0], r[1]): r[2] for r in _q(built["labels"], "SELECT gap_kind, reason, detail FROM history_event_gaps WHERE gap_kind = 'narrative'")}
+    assert ("narrative", "source_absent") in gaps and "--kb-wiki" in gaps[("narrative", "source_absent")]
+    assert _q(built["labels"], "SELECT COUNT(*) FROM history_event_calendar WHERE source_grade = 'narrative'")[0][0] == 0
+
+
+def test_sector_resolver_prefers_the_code_with_price_series_on_the_day():
+    from intelligence.services.event_pricing.narrative import SectorSeries, sector_resolver
+    resolve = sector_resolver({
+        "BC电池": [SectorSeries("886053.TI", date(2024, 12, 25), date(2026, 7, 24)), SectorSeries("990010.FP", date(2026, 7, 27), date(2026, 9, 3))],
+        "两套都有": [SectorSeries("A.FP", date(2026, 4, 29), date(2026, 9, 3)), SectorSeries("B.TI", date(2024, 12, 25), date(2026, 7, 24))],
+    })
+    assert resolve("BC电池", date(2026, 7, 1)) == "886053.TI" and resolve("BC电池", date(2026, 8, 1)) == "990010.FP"
+    assert resolve("BC电池", date(2026, 7, 25)) is None and resolve("不存在", date(2026, 7, 1)) is None
+    assert resolve("两套都有", date(2026, 6, 1)) == "B.TI" and resolve("两套都有", date(2026, 8, 1)) == "A.FP"
+
+
+def test_params_reject_bad_narrative_blocks(tmp_path):
+    from intelligence.services.event_pricing.params import load_params as lp
+    base = json.loads(DEFAULT_PARAMS_PATH.read_text(encoding="utf-8"))
+
+    def with_class(extra: dict) -> dict:
+        doc = dict(base)
+        doc["event_classes"] = dict(base["event_classes"])
+        doc["event_classes"]["x"] = {"scope": "sector", "reaction_rule": "next_trading_day", **extra}
+        return doc
+
+    cases = (
+        (with_class({"narrative": {"select": "vibes"}}), "select"),
+        (with_class({"scope": "market", "narrative": {"select": "hard_evidence"}}), "sector"),
+        (with_class({"narrative": {"select": "hard_evidence"}, "editorial": {"event_type_in": ["行业事件"]}}), "editorial"),
+    )
+    for doc, needle in cases:
+        p = tmp_path / "p.json"
+        p.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+        with pytest.raises(ValueError, match=needle):
+            lp(p)
+
+
+def test_narrative_source_stale_is_a_gap_not_silence(built_narrative):
+    """文件最后一条报告日离日历末端超过 stale_after_days → 记 source_stale（行照常在：历史锚点仍然有效）。"""
+    import shutil
+
+    root = built_narrative["root"]
+    stale_kb = root / "kb_stale" / "wiki"
+    p = stale_kb / "raw" / "theme-radar" / "opinion-store" / "opinion-events.jsonl"
+    p.parent.mkdir(parents=True)
+    p.write_text(json.dumps({"event_id": "s1", "report_date": "2026-03-03", "ingested_at": "2026-03-04", "concept": "板块一", "hardness": "硬证据", "stance": "看多"}, ensure_ascii=False) + "\n", encoding="utf-8")
+    labels_copy = root / "labels_stale.duckdb"
+    shutil.copy(built_narrative["labels"], labels_copy)
+    build_calendar(built_narrative["db"], labels_copy, params=built_narrative["params"], kb_wiki=stale_kb)
+    gaps = {r[0]: r[1] for r in _q(labels_copy, "SELECT reason, detail FROM history_event_gaps WHERE gap_kind = 'narrative'")}
+    assert "source_stale" in gaps and "last_report_date=2026-03-03" in gaps["source_stale"]
+    # 唯一那条硬证据日仍成行（03-03 → 03-04）
+    rows = _q(labels_copy, "SELECT indicator, reaction_day FROM history_event_calendar WHERE source_grade = 'narrative'")
+    assert [(r[0], str(r[1])) for r in rows] == [("板块一", "2026-03-04")]
+    # 没断更的夹具没有这条缺口
+    assert not _q(built_narrative["labels"], "SELECT 1 FROM history_event_gaps WHERE gap_kind = 'narrative' AND reason = 'source_stale'")

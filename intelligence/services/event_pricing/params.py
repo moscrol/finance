@@ -17,6 +17,9 @@ DEFAULT_PARAMS_PATH = REPO_ROOT / "methodology" / "events" / "event_reaction_par
 REACTION_RULES = ("same_day_or_next", "next_trading_day", "next_trading_day_after_us_date")
 SCOPES = ("market", "sector")
 PERIOD_KINDS = ("release_month", "title_month", "event_date", "none")
+# 第三个源：知识库的卖方观点事件文件（``narrative`` 块）。select 决定一个「概念 × 报告日」什么时候算一条事件。
+NARRATIVE_SELECTS = ("hard_evidence", "first_mention")
+DEFAULT_NARRATIVE_RELPATH = "raw/theme-radar/opinion-store/opinion-events.jsonl"
 
 
 @dataclass(frozen=True)
@@ -34,10 +37,17 @@ class EventClassSpec:
     event_type_in: tuple[str, ...]
     require_sectors: bool
     editorial_reaction_rule: str | None = None
+    narrative_select: str | None = None
+    narrative_min_events: int = 1
+    narrative_burn_in_days: int = 20
 
     @property
     def rule_for_editorial(self) -> str:
         return self.editorial_reaction_rule or self.reaction_rule
+
+    @property
+    def is_narrative(self) -> bool:
+        return self.narrative_select is not None
 
 
 @dataclass(frozen=True)
@@ -58,11 +68,17 @@ class EventParams:
     cross_section_top_k: int
     lpr_day_of_month: int
     lpr_rule_published_at: str
+    narrative_relpath: str = DEFAULT_NARRATIVE_RELPATH
+    narrative_stale_after_days: int = 30
     classes: dict[str, EventClassSpec] = field(default_factory=dict)
 
     @property
     def market_classes(self) -> list[str]:
         return [c for c, s in self.classes.items() if s.scope == "market"]
+
+    @property
+    def narrative_classes(self) -> list[str]:
+        return [c for c, s in self.classes.items() if s.is_narrative]
 
     @property
     def sector_classes(self) -> list[str]:
@@ -91,6 +107,8 @@ class EventParams:
             "bh_q": self.bh_q,
             "cross_section_top_k": self.cross_section_top_k,
             "event_classes": sorted(self.classes),
+            "narrative_relpath": self.narrative_relpath,
+            "narrative_classes": self.narrative_classes,
         }
 
 
@@ -116,6 +134,23 @@ def _parse_class(name: str, raw: dict[str, Any]) -> EventClassSpec:
     ed_rule = ed.get("reaction_rule")
     if ed_rule is not None and str(ed_rule) not in REACTION_RULES:
         raise ValueError(f"event_classes.{name}.editorial.reaction_rule 必须是 {REACTION_RULES}，得到 {ed_rule!r}")
+    narr = raw.get("narrative")
+    narr_select: str | None = None
+    narr_min_events, narr_burn_in = 1, 20
+    if narr is not None:
+        if not isinstance(narr, dict):
+            raise ValueError(f"event_classes.{name}.narrative 必须是对象")
+        narr_select = str(narr.get("select") or "")
+        if narr_select not in NARRATIVE_SELECTS:
+            raise ValueError(f"event_classes.{name}.narrative.select 必须是 {NARRATIVE_SELECTS}，得到 {narr_select!r}")
+        if scope != "sector":
+            raise ValueError(f"event_classes.{name}: narrative 类只能是 sector 作用域（概念名精确对板块名）")
+        if ed:
+            raise ValueError(f"event_classes.{name}: narrative 类不能同时带 editorial 块（一类一个源）")
+        narr_min_events = int(narr.get("min_events", 1))
+        narr_burn_in = int(narr.get("burn_in_days", 20))
+        if narr_min_events < 1 or narr_burn_in < 0:
+            raise ValueError(f"event_classes.{name}.narrative: min_events ≥ 1、burn_in_days ≥ 0")
     return EventClassSpec(
         name=name,
         scope=scope,
@@ -130,6 +165,9 @@ def _parse_class(name: str, raw: dict[str, Any]) -> EventClassSpec:
         event_type_in=_tuple(ed.get("event_type_in")),
         require_sectors=bool(ed.get("require_sectors", False)),
         editorial_reaction_rule=(str(ed_rule) if ed_rule is not None else None),
+        narrative_select=narr_select,
+        narrative_min_events=narr_min_events,
+        narrative_burn_in_days=narr_burn_in,
     )
 
 
@@ -168,6 +206,9 @@ def load_params(path: str | Path | None = None, *, schedule_dir: str | Path | No
         raise ValueError("event_classes 不能为空")
     classes = {str(n): _parse_class(str(n), c) for n, c in classes_raw.items()}
     lpr_rule = raw.get("lpr_rule") or {}
+    narr_src = raw.get("narrative_source") or {}
+    if not isinstance(narr_src, dict):
+        raise ValueError("narrative_source 必须是对象")
     return EventParams(
         path=p,
         schedule_dir=sdir,
@@ -185,5 +226,7 @@ def load_params(path: str | Path | None = None, *, schedule_dir: str | Path | No
         cross_section_top_k=int(raw.get("cross_section_top_k") or 5),
         lpr_day_of_month=int(lpr_rule.get("day_of_month") or 20),
         lpr_rule_published_at=str(lpr_rule.get("rule_published_at") or "2019-08-17"),
+        narrative_relpath=str(narr_src.get("relpath") or DEFAULT_NARRATIVE_RELPATH),
+        narrative_stale_after_days=int(narr_src.get("stale_after_days") or 30),
         classes=classes,
     )

@@ -1,4 +1,7 @@
-"""事件锚点日历：编辑日历 + 官方日程 → ``history_event_calendar``；``latest_known`` 只答何时。
+"""事件锚点日历：编辑日历 + 官方日程 (+ 知识库卖方观点事件文件) → ``history_event_calendar``；``latest_known`` 只答何时。
+
+第三个源（``narrative``，见 ``narrative.py``）只产板块类锚点，来源等级 ``narrative``，不参与官方 / 编辑的合并仲裁——
+它说的是「卖方在讲什么」，不是「什么时候发布什么数据」。
 
 反应日映射（设计稿 §3.3）每类一条规则：
   same_day_or_next                  首个 ≥ event_date 的交易日（09:30 前发布的国内数据、LPR）
@@ -30,7 +33,8 @@ from intelligence.services.methodology_backtest.store import (
     write_meta,
 )
 
-from .classify import ClassifiedEvent, EditorialRow, classify_rows, summarize
+from .classify import ClassifiedEvent, ClassifyGap, EditorialRow, classify_rows, summarize
+from .narrative import GAP_SOURCE_ABSENT, GAP_SOURCE_STALE, SectorSeries, load_opinion_events, narrative_events, sector_resolver
 from .params import EventParams, load_params
 from .schedule import (
     SOURCE_GRADE_BOTH,
@@ -46,7 +50,9 @@ from .store import CALENDAR_TABLES, ensure_event_schema, reset_event_tables
 CONFLICT_WINDOW_TRADING_DAYS = 3
 GAP_KIND_CLASSIFY = "classify"
 GAP_KIND_CALENDAR = "calendar"
+GAP_KIND_NARRATIVE = "narrative"
 SOURCE_GRADE_EDITORIAL_AMBIGUOUS = "editorial_ambiguous"
+SOURCE_GRADE_NARRATIVE = "narrative"
 
 
 # --------------------------------------------------------------------------- #
@@ -140,6 +146,45 @@ def _read_editorial(con: duckdb.DuckDBPyConnection) -> list[EditorialRow]:
     ]
 
 
+def _read_sector_series(con: duckdb.DuckDBPyConnection) -> dict[str, list[SectorSeries]]:
+    """板块名 → 各套代码的有价日期范围（同名多套：宇宙切换前后的 .TI / .FP）。"""
+    rows = con.execute(
+        f"""
+        SELECT sector_name, sector_ts_code, MIN(trade_date), MAX(trade_date)
+        FROM {SOURCE_ALIAS}.fact_sector_daily
+        WHERE sector_name IS NOT NULL AND sector_ts_code IS NOT NULL AND pct_chg IS NOT NULL
+        GROUP BY 1, 2 ORDER BY 1, 2
+        """
+    ).fetchall()
+    out: dict[str, list[SectorSeries]] = {}
+    for name, code, first, last in rows:
+        out.setdefault(str(name), []).append(SectorSeries(str(code), first, last))
+    return out
+
+
+def _narrative_rows(
+    con: duckdb.DuckDBPyConnection, params: EventParams, tds: list[date], kb_wiki: str | Path | None
+) -> tuple[dict[tuple[str, str, str], CalendarRow], list[ClassifyGap], dict[str, Any]]:
+    """知识库卖方观点事件文件 → narrative 等级的板块日历行。没给 kb_wiki / 文件不存在：记一条 source_absent，零行。"""
+    if not params.narrative_classes:
+        return {}, [], {"status": "no_narrative_classes"}
+    if not kb_wiki:
+        return {}, [ClassifyGap("kb_wiki", "", GAP_SOURCE_ABSENT, "build-calendar 未给 --kb-wiki")], {"status": "absent"}
+    rows, row_gaps = load_opinion_events(kb_wiki, params.narrative_relpath)
+    if not rows:
+        return {}, [ClassifyGap("kb_wiki", "", GAP_SOURCE_ABSENT, f"{kb_wiki}/{params.narrative_relpath} 不存在或为空")], {"status": "missing"}
+    series = _read_sector_series(con)
+    events, gaps, stats = narrative_events(rows, params, tds, sector_resolver(series), set(series))
+    # 源断更是缺口不是 0：最后一条报告日离日历末端超过 stale_after_days 就写出来（历史锚点照常有效）。
+    last_report = max(r.report_date for r in rows)
+    stale_days = (tds[-1] - date.fromisoformat(last_report)).days if tds else 0
+    if stale_days > params.narrative_stale_after_days:
+        gaps.append(ClassifyGap("kb_wiki", "", GAP_SOURCE_STALE, f"last_report_date={last_report} calendar_end={tds[-1].isoformat()} stale_days={stale_days}"))
+    stats["status"] = "stale" if stale_days > params.narrative_stale_after_days else "ok"
+    stats["row_gaps"] = len(row_gaps)
+    return _editorial_rows(events, params, tds, grade=SOURCE_GRADE_NARRATIVE), row_gaps + gaps, stats
+
+
 def _official_rows(entries: list[ScheduleEntry], params: EventParams, tds: list[date]) -> dict[tuple[str, str, str], CalendarRow]:
     out: dict[tuple[str, str, str], CalendarRow] = {}
     for e in entries:
@@ -165,8 +210,10 @@ def _official_rows(entries: list[ScheduleEntry], params: EventParams, tds: list[
     return out
 
 
-def _editorial_rows(events: list[ClassifiedEvent], params: EventParams, tds: list[date]) -> dict[tuple[str, str, str], CalendarRow]:
-    """同 (类, 指标, 反应日) 的多条编辑行合成一条（08-31 三条 PMI → 一条锚点）。"""
+def _editorial_rows(
+    events: list[ClassifiedEvent], params: EventParams, tds: list[date], grade: str = SOURCE_GRADE_EDITORIAL
+) -> dict[tuple[str, str, str], CalendarRow]:
+    """同 (类, 指标, 反应日) 的多条编辑行合成一条（08-31 三条 PMI → 一条锚点）。narrative 源同一套合并，指标位是概念名。"""
     grouped: dict[tuple[str, str, str | None], CalendarRow] = {}
     for ev in events:
         spec = params.classes[ev.event_class]
@@ -181,7 +228,7 @@ def _editorial_rows(events: list[ClassifiedEvent], params: EventParams, tds: lis
                 event_date=ev.event_date,
                 reaction_day=rd_s,
                 scheduled=spec.scheduled,
-                source_grade=SOURCE_GRADE_EDITORIAL,
+                source_grade=grade,
                 schedule_published_at=None,
                 period=ev.period,
                 editorial_date=None,
@@ -333,8 +380,9 @@ def build_calendar(
     *,
     params: EventParams | None = None,
     now: datetime | None = None,
+    kb_wiki: str | Path | None = None,
 ) -> BuildReport:
-    """主库 ``fact_event_daily`` + 官方日程文件 → 旁路库 ``history_event_calendar``（可重建、幂等）。"""
+    """主库 ``fact_event_daily`` + 官方日程文件 (+ ``kb_wiki`` 下的卖方观点事件文件) → 旁路库 ``history_event_calendar``（可重建、幂等）。"""
     params = params or load_params()
     source = Path(source_db).expanduser() if source_db else CANONICAL_DB_PATH
     labels_path = Path(labels_db).expanduser() if labels_db else default_labels_db_path(source)
@@ -353,6 +401,8 @@ def build_calendar(
             official = _official_rows(entries, params, tds)
             editorial = _editorial_rows(events, params, tds)
             rows, conflicts, absorbed = merge_rows(official, editorial, tds)
+            narrative, narrative_gaps, narrative_stats = _narrative_rows(con, params, tds, kb_wiki)
+            rows = sorted(rows + list(narrative.values()), key=lambda r: (r.event_class, r.indicator, r.event_date))
 
             reset_event_tables(con, CALENDAR_TABLES)
             con.executemany(
@@ -391,6 +441,11 @@ def build_calendar(
                 if r.source_grade == SOURCE_GRADE_EDITORIAL_AMBIGUOUS
             ]
             _write_gaps(con, GAP_KIND_CALENDAR, cal_items, params.ev_version, computed_at)
+            _write_gaps(
+                con, GAP_KIND_NARRATIVE,
+                [(f"{g.event_id}:{g.event_date}" if g.event_date else g.event_id, g.reason, g.detail) for g in narrative_gaps],
+                params.ev_version, computed_at,
+            )
 
             source_max = con.execute(f"SELECT MAX(trade_date) FROM {SOURCE_ALIAS}.fact_market_daily").fetchone()[0]
             by_grade = dict(
@@ -418,6 +473,7 @@ def build_calendar(
                     "conflicts": len(conflicts),
                     "absorbed_adjacent_editorial": len(absorbed),
                     "schedule_files": sources_meta,
+                    "narrative": narrative_stats,
                 },
                 row_count=len(rows),
                 horizons=None,

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """event_reaction —— 事件定价第一刀 CLI（事件锚点日历 / 锚点标签 / 事件反应 / 读数 / latest_known）。
 
-    python scripts/event_reaction.py build-calendar          # fact_event_daily + 官方日程 → history_event_calendar
+    python scripts/event_reaction.py build-calendar --kb-wiki ~/knowledge-base-private/wiki   # fact_event_daily + 官方日程 + 卖方观点事件文件 → history_event_calendar
     python scripts/event_reaction.py build-anchors           # → history_event_anchors（market / sector 两层）
     python scripts/event_reaction.py build-reaction          # → history_event_reaction + 横截面（需先 build-labels / outcomes）
     python scripts/event_reaction.py report                  # 四态读数 + 收据（methodology/receipts/event_pricing/）
@@ -52,7 +52,7 @@ def _params(args):
 
 
 def cmd_build_calendar(args) -> int:
-    _print(build_calendar(args.db_path, args.labels_db, params=_params(args)))
+    _print(build_calendar(args.db_path, args.labels_db, params=_params(args), kb_wiki=args.kb_wiki))
     return 0
 
 
@@ -91,7 +91,7 @@ def cmd_latest_known(args) -> int:
 
 def cmd_all(args) -> int:
     params = _params(args)
-    _print(build_calendar(args.db_path, args.labels_db, params=params))
+    _print(build_calendar(args.db_path, args.labels_db, params=params, kb_wiki=args.kb_wiki))
     _print(build_anchors(args.db_path, args.labels_db, params=params))
     _print(build_reaction(args.db_path, args.labels_db, params=params))
     receipt = build_receipt(args.db_path, args.labels_db, params=params)
@@ -114,6 +114,7 @@ def _common(p: argparse.ArgumentParser) -> None:
     p.add_argument("--labels-db", default=None, help="旁路库路径，默认与主库同目录的 history_labels.duckdb")
     p.add_argument("--params", default=str(DEFAULT_PARAMS_PATH), help="参数文件")
     p.add_argument("--schedule-dir", default=None, help="官方日程目录，默认参数文件里的 schedule_dir")
+    p.add_argument("--kb-wiki", default=None, help="知识库 wiki 根目录（读卖方观点事件文件作 narrative 源）；不给则 narrative 类记 source_absent 缺口")
 
 
 def build_parser() -> argparse.ArgumentParser:
