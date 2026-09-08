@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-09-07T11:41:38Z",
+  "generated_at": "2026-09-08T14:21:09Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -953,7 +953,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:e6c998f02d6317cf805f78753195dfd9d42b16df730f55d52839b51ad935d014",
+      "computedHash": "sha256:f07d3ab4fd5e704490863edfc082f9eda19f2e3cdef476ec03467a9e2f94db7a",
       "agentOnly": false,
       "views": []
     },
@@ -1030,7 +1030,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:40a5ab6d81fb5ffb02bc2027b20730a02b99568ad221e467ecc968859a25c8f6",
+      "computedHash": "sha256:52a27ffb26a3b5a12f0493c12ae5117f5267a262b5d3b5b17d4835ac39437dcc",
       "agentOnly": false,
       "views": [
         {
@@ -1155,7 +1155,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:7ec611f9e4b68d93ee329f39a41497e36130b4acd80a8a15e8e38a41ccae5edd",
+      "computedHash": "sha256:571db1861e88a426a684da428d7e44b473d7e9ee0f8cf5e8a9ed99fed16bc981",
       "agentOnly": false,
       "views": []
     },
@@ -1181,7 +1181,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:d82694816e9f271cb8ac7b30430277fb99939a129732cea911803f89d68c1aff",
+      "computedHash": "sha256:068f1b7d218c3b79b2861c7a7bde5dde05e3ca52ee2541d07fd9a429dfe3105d",
       "agentOnly": false,
       "views": []
     },
@@ -1221,7 +1221,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:a5531894b41f3361a7d93f595dd1aed0351565829caf755ee547fa4d9eaf2bce",
+      "computedHash": "sha256:3f6589df209bfeb95c2e3a6cfb8f61778375a85b838e4beb5d805ea7bd44388c",
       "agentOnly": false,
       "views": []
     },
@@ -1234,7 +1234,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:7f5c7439169775e95887d5a23afc1bea4fa5c6708e22ac1004b21c8fed7d5ff6",
+      "computedHash": "sha256:e6769eab1c44a0d81dbf35602adf44d6b5dfb065f4e47623de1047ccf998a8c4",
       "agentOnly": false,
       "views": [
         {
@@ -1296,7 +1296,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:f501aca199500f2e33a25810ad77599abfe7e39d23182a69c571d0b0f4540dd1",
+      "computedHash": "sha256:d6f0f893b7ab02f8d0f3e492ee031533c2dd6121013d80745879aeb5be4de8ca",
       "agentOnly": false,
       "views": []
     },

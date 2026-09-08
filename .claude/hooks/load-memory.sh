@@ -75,8 +75,17 @@ fi
 # ── 项目笔记：只注入开工必读段，跳过历史流水 ──────────────────────────
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -n "$repo_root" ] || repo_root="$(pwd)"
-remote="$(git -C "$repo_root" remote get-url origin 2>/dev/null || true)"
-if [ -n "${remote:-}" ]; then repo="$(basename "${remote%.git}")"; else repo="$(basename "$repo_root")"; fi
+# 仓名取 git common dir 的父目录名（主检出树目录名），不取 origin URL：
+# origin 已改指 github.com/moscrol/finance.git，按 URL 推出 "finance"，笔记 20_projects/finance.md
+# 不存在，于是项目笔记整段静默缺席（2026-09-08 实测），而输出看起来只是「短了点」。
+# common dir 在附属 worktree 里也指向主树的 .git，所以多棵树得到同一个仓名。
+common="$(git -C "$repo_root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+repo=""
+[ -n "${common:-}" ] && repo="$(basename "$(dirname "$common")")"
+[ -n "$repo" ] && [ -f "$V/20_projects/$repo.md" ] || {
+  remote="$(git -C "$repo_root" remote get-url origin 2>/dev/null || true)"
+  if [ -n "${remote:-}" ]; then repo="$(basename "${remote%.git}")"; else repo="$(basename "$repo_root")"; fi
+}
 note="$V/20_projects/$repo.md"
 
 # ── 尾部固定段：先生成到变量，用**实测长度**做预留，不写死 RESERVED ──────
@@ -150,7 +159,6 @@ if [ -f "$note" ]; then
   # 取到「## 交接记录」为止，再删掉那一行本身；文件里没有该标题时退回全文。
   head_part="$(sed -n '1,/^## 交接记录/p' "$note" 2>/dev/null | sed '$d')"
   [ -n "$head_part" ] || head_part="$(cat "$note" 2>/dev/null)"
-  full_bytes="$(printf '%s' "$head_part" | wc -c | tr -d ' ')"
   # 折叠任务看板：进入该段后只放行前 BOARD_ROWS 行，之后到下一个 ## 为止全部跳过。
   # 匹配用 `任.*板` 而不是 `任务看板`：笔记里的标题实际是 `## 任**务**看**板**`
   # ——中文字符之间夹着 markdown 粗体标记。用 od -c 才看出来，肉眼读渲染后的
@@ -166,6 +174,8 @@ if [ -f "$note" ]; then
       if (n == keep + 1) print "> …看板其余条目已折叠（含历史排查细节）。需要全部任务时 Read 笔记全文。"
     }
   ')"
+  # 折叠之后再量必读段：看板折叠掉的字节不是预算截断，不该报成「被预算截断」。
+  full_bytes="$(printf '%s' "$head_part" | wc -c | tr -d ' ')"
   # 减去 RESERVED：尾部「Git 现状」「回写约定」两段是固定要输出的，必须先占位，
   # 否则项目笔记会吃满预算、尾部再无条件追加，总量必然超支（实测 13,298 > 12,000）。
   remain=$((BUDGET - used - RESERVED))
