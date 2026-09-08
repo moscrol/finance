@@ -620,6 +620,12 @@ def add_daily_agent_parser(subparsers: argparse._SubParsersAction) -> None:
         const=False,
         help="强制关闭今日带读",
     )
+    parser.add_argument(
+        "--teaching-labels-db",
+        default=None,
+        help="授课框架旁路库路径（scripts/teaching_framework.py 的 --labels-db；也可用环境变量 FORESIGHT_TEACHING_LABELS_DB）。"
+        "给了且带读开启时，带读多一段「授课框架读数」并写上证卡片 SVG；不给 = 现状，逐字节不变",
+    )
     parser.add_argument("--out-json", default=None, help="写出完整 agent 日报 JSON（best-effort；研究队列写在其 sibling）")
     parser.add_argument("--out-md", default=None, help="写出完整 agent 日报 Markdown（best-effort）")
     parser.add_argument("--out-html", default=None, help="写出完整 agent 日报 HTML（best-effort；工作台优先读研究队列 HTML）")
@@ -772,6 +778,8 @@ def cmd_daily_agent(args: argparse.Namespace) -> int:
     _guided, _gr_reason = _gr.build_for_daily_review(
         report, _userspace.user_space(getattr(args, "user", None)),
         override=getattr(args, "guided_reading", None),
+        teaching_labels_db=getattr(args, "teaching_labels_db", None),
+        card_dir=out_md.parent,
     )
     if _guided is not None:
         answer = _gr.merge_into_daily_review(answer, _guided)
