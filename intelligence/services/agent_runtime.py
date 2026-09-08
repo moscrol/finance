@@ -264,6 +264,12 @@ class EpisodeEvent:
     sequence: int
     kind: str
     payload: Mapping[str, object]
+    # 版本语义（运行底座终态稿 §6.3 第 6 条）：写方给一个老读者不认识的 kind 打上
+    # ``ignorable=True``，老读者（``restore`` / ``derive_messages`` 的入口校验）就可以跳过它；
+    # 未打标的未知 kind 一律拒绝而不是静默跳——「缺一条」不能被读成「没发生」。
+    # 有默认值：既有 ``EpisodeEvent(seq, kind, payload)`` 构造零改动；``to_dict`` 只在
+    # True 时带键，老产物与老读者的哈希 / 对账不受影响。
+    ignorable: bool = False
 
     def __post_init__(self) -> None:
         if isinstance(self.sequence, bool) or not isinstance(self.sequence, int):
@@ -274,16 +280,21 @@ class EpisodeEvent:
             raise ValueError("episode event kind must be non-empty")
         if not isinstance(self.payload, Mapping):
             raise ValueError("episode event payload must be an object")
+        if not isinstance(self.ignorable, bool):
+            raise ValueError("event ignorable flag must be a bool")
         copied = _json_freeze(self.payload, path="event payload")
         object.__setattr__(self, "kind", self.kind.strip())
         object.__setattr__(self, "payload", copied)
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        record: dict[str, object] = {
             "sequence": self.sequence,
             "kind": self.kind,
             "payload": _json_copy(self.payload, path="event payload"),
         }
+        if self.ignorable:
+            record["ignorable"] = True
+        return record
 
 
 @dataclass(frozen=True)

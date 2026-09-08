@@ -42,10 +42,9 @@
 
 两个已知的读数陷阱（写在这里，因为它们会伪装成结论）
 --------------------------------------------------
-1. **`market_stage` 有两套写法**——「顶部横盘阶段」与「顶部横盘」、「下跌阶段」与
-   「下跌」在库里各算各的。不归一，一个阶段会被劈成两格、每格样本减半，
-   纵扫直接失真。本模块用 `normalize_stage` 兜住，但那只是补丁：
-   正解是 roadmap G-05 归一并升 `LABEL_VERSION`。
+1. **`market_stage` 上游曾有两套写法**——「顶部横盘阶段」与「顶部横盘」、「下跌阶段」与
+   「下跌」。历史标签层已由 G-05 统一；本模块读取仍保留 `normalize_stage` 这个兼容入口，
+   以便直接查询尚未迁移的主库原始事实时使用同一套 canonical 规则。
 2. **研报覆盖的累计数被回填批次污染**——469 份里 249 份（53%）在 2026-01。
    横扫一律按近 90 日覆盖排序，累计只作背景列。理由见 `river.coverage_metrics`。
 """
@@ -65,6 +64,7 @@ from intelligence.services.methodology_backtest.stats import (
     split_halves,
     wilson,
 )
+from intelligence.services.market_stage import normalize_market_stage
 from intelligence.services.river import (
     DEFAULT_DB,
     coverage_hits,
@@ -79,16 +79,9 @@ BH_Q = 0.05
 
 
 def normalize_stage(value: Any) -> str:
-    """`market_stage` 两套写法归一。「顶部横盘阶段」→「顶部横盘」。
+    """兼容旧调用方：主库原始事实投影到 G-05 canonical 阶段名。"""
 
-    ⚠ 这是**读取侧的补丁**，不是修复。真正的归一要在标签层做并升
-    `LABEL_VERSION`（roadmap G-05），否则每个读取方都得记得打这个补丁，
-    而漏打的那个会安静地给出减半的样本。
-    """
-    text = str(value or "").strip()
-    if not text:
-        return "未知"
-    return text[:-2] if text.endswith("阶段") else text
+    return normalize_market_stage(value) or "未知"
 
 
 # --------------------------------------------------------------------------- #
@@ -288,6 +281,8 @@ def cohort_compare(
     *,
     feature: str = "market_stage",
     db_path: str | Path | None = None,
+    labels_db_path: str | Path | None = None,
+    framework_version: str | None = None,
 ) -> CohortReport:
     """把一批日子的某个盘面特征，与全样本基准比，逐格给四态判词。
 
@@ -303,23 +298,58 @@ def cohort_compare(
     db = Path(db_path or os.environ.get("MARKET_FEATURE_STORE_DB", DEFAULT_DB)).expanduser()
     if not db.exists():
         raise FileNotFoundError(f"数据库不存在：{db}（不自动创建）")
-    if feature not in {"market_stage", "volume_state", "concentration_state"}:
-        raise ValueError(f"未知特征 {feature}（只接受 fact_market_daily 上的类别列）")
+    teaching_feature = feature.startswith("tf.")
+    if teaching_feature and not labels_db_path:
+        raise ValueError("tf.* 特征必须显式提供 labels_db_path")
+    if not teaching_feature and feature not in {"market_stage", "volume_state", "concentration_state"}:
+        raise ValueError(f"未知特征 {feature}（只接受 fact_market_daily 上的类别列或 tf.*）")
 
     con = duckdb.connect(str(db), read_only=True)
     try:
-        base_rows = con.execute(
-            f"SELECT CAST(trade_date AS DATE), {feature} FROM fact_market_daily ORDER BY trade_date"  # noqa: S608
-        ).fetchall()
+        if teaching_feature:
+            sidecar = Path(labels_db_path).expanduser()
+            if not sidecar.is_file():
+                raise FileNotFoundError(f"旁路库不存在: {sidecar}")
+            # 旁路库沿用对外特征名（含 ``tf.`` 命名空间）；不能在这里
+            # 剥掉前缀，否则 CLI 写入的标签永远读不到。版本过滤打在
+            # ``framework_version`` 列上——``label_version`` 列存的是供应商版本。
+            label = feature
+            quoted = str(sidecar).replace("'", "''")
+            con.execute(f"ATTACH '{quoted}' AS teaching_labels (READ_ONLY)")
+            version_clause = "AND framework_version = ?" if framework_version else ""
+            params = [framework_version] if framework_version else []
+            base_rows = con.execute(
+                f"""SELECT CAST(trade_date AS DATE), COALESCE(value_text, CAST(value_num AS VARCHAR))
+                    FROM teaching_labels.history_teaching_labels
+                    WHERE entity_type='market' AND entity_id='market' AND label=?
+                      AND status='ok' {version_clause}
+                    ORDER BY trade_date""",
+                [label, *params],
+            ).fetchall()
+        else:
+            base_rows = con.execute(
+                f"SELECT CAST(trade_date AS DATE), {feature} FROM fact_market_daily ORDER BY trade_date"  # noqa: S608
+            ).fetchall()
     finally:
+        if teaching_feature:
+            try:
+                con.execute("DETACH teaching_labels")
+            except duckdb.Error:
+                pass
         con.close()
 
-    by_date = {str(d): normalize_stage(v) for d, v in base_rows}
+    if teaching_feature:
+        # 教学值原样入桶（``ambiguous`` / ``no_evidence`` 各自成桶），不过
+        # ``normalize_stage``——它会剥掉「阶段」后缀。没有值的日子不进宇宙。
+        by_date = {str(d): str(v) for d, v in base_rows if v is not None}
+    else:
+        by_date = {str(d): normalize_stage(v) for d, v in base_rows}
     wanted = [d for d in sorted(dates) if d in by_date]
     missing = sorted(set(dates) - set(by_date))
     notes: list[str] = []
     if missing:
-        notes.append(f"{len(missing)} 个日期在 fact_market_daily 里没有行，已剔除：{missing[:5]}")
+        where = "旁路库该标签" if teaching_feature else "fact_market_daily"
+        notes.append(f"{len(missing)} 个日期在 {where} 里没有行，已剔除：{missing[:5]}")
     if len(wanted) < MIN_N:
         notes.append(f"队列只有 {len(wanted)} 天，低于 MIN_N={MIN_N}，所有格必为 insufficient_n")
 

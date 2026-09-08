@@ -8,6 +8,7 @@ import time
 
 from intelligence.services import llm_refine
 from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.services.episode_inbox import InboxReceipt, InboxTarget
 from intelligence.services.agent_runtime import (
     AgentModelClient,
     AgentOutcome,
@@ -18,6 +19,8 @@ from intelligence.services.agent_runtime import (
 )
 from intelligence.runtime.continuous_sub_research import ContinuousSubResearchWorker
 from intelligence.runtime.episode_finalizer import EpisodeFinalizer
+from intelligence.services.cancel_signal import CancelSignal
+from intelligence.services.episode_store import EpisodeStore
 from intelligence.services.draft_stream import DraftStreamDecoder
 from intelligence.services.episode_session import CallbackEpisodeSession, EpisodeSession
 from intelligence.services.mode_governor import ModeGovernor, ModeSignals
@@ -39,6 +42,7 @@ _GLM_SYNTHESIS_RESERVE = {
     "quick": 20.0,
     "standard": 75.0,
     "deep": 75.0,
+    "max": 75.0,
 }
 _SYNTHESIS_HEAVY_QUESTION_TYPES = frozenset(
     {
@@ -469,6 +473,7 @@ class GLMAgentRuntime:
         sub_research_coordinator: SubResearchCoordinator | None = None,
         event_sink: Callable[[EpisodeEvent], None] | None = None,
         on_draft_delta: Callable[[str], None] | None = None,
+        episode_store: EpisodeStore | None = None,
     ) -> None:
         if client is not None and (
             model is not None or providers is not None or complete_fn is not None
@@ -482,11 +487,14 @@ class GLMAgentRuntime:
             raise ValueError(
                 "injected client owns its own draft stream; pass on_draft_delta to it"
             )
+        # 取消信号在这里一次类型化（INV-R4）：上游裸谓词来自 API 取消端点 / 定时器，
+        # 原因记 user；子研究分支拿 child 信号，父取消传下去时原因记 parent。
+        cancel_signal = CancelSignal.coerce(is_cancelled, cause="user")
         selected_client = client or GLMModelClient(
             model,
             providers=providers,
             complete_fn=complete_fn,
-            is_cancelled=is_cancelled,
+            is_cancelled=cancel_signal,
             on_draft_delta=on_draft_delta,
         )
         selected_coordinator = sub_research_coordinator or SubResearchCoordinator(
@@ -494,16 +502,27 @@ class GLMAgentRuntime:
                 selected_client,
                 llm_timeout=llm_timeout,
             ),
-            is_cancelled=is_cancelled,
+            is_cancelled=cancel_signal.child(cause="parent"),
         )
         # RuntimeHandle 折叠的上游取消信号与 episode/coordinator 收到的是同一个
         # ——生命周期收据必须与实际执行看同一份事实，不能各订阅各的。
-        self._upstream_cancelled = is_cancelled
+        self._upstream_cancelled = cancel_signal
+        # ``configure`` 快照里装配根才知道的那几格：模型名与 provider 链（只记名字与
+        # 模型，不记 key / URL）。注入 client 时链在 client 里，这里如实留空。
+        chain = getattr(selected_client, "_providers", None)
+        runtime_config: dict[str, object] = {
+            "model": str(model or ""),
+            "providers": [
+                {"name": str(item.name), "model": str(item.model)}
+                for item in (chain or ())
+                if hasattr(item, "name") and hasattr(item, "model")
+            ],
+        }
         self._episode = ContinuousAgentEpisode(
             selected_client,
             llm_timeout=llm_timeout,
             finalizer=finalizer,
-            is_cancelled=is_cancelled,
+            is_cancelled=cancel_signal,
             # 深度裁决的注入件直接进 harness 构造器——Episode 上那层转交壳已删。
             harness=FinanceResearchHarness(
                 mode_governor=mode_governor,
@@ -511,6 +530,9 @@ class GLMAgentRuntime:
             ),
             sub_research_coordinator=selected_coordinator,
             event_sink=event_sink,
+            # P2：durable store（None = 只在内存记账；生产装配传 JsonlEpisodeStore）。
+            store=episode_store,
+            runtime_config=runtime_config,
         )
 
     @staticmethod
@@ -549,6 +571,18 @@ class GLMAgentRuntime:
             context=context,
             registry=registry,
         )
+
+    def steer(
+        self,
+        content: str,
+        *,
+        target: InboxTarget = "next_step",
+        source: str = "steer",
+    ) -> InboxReceipt:
+        """给正在跑的 episode 递话（INV-R5 收件箱）。纯转交；没在跑时回 ``no_active_episode``。
+        Workbench 端点（终态稿 §12 第 4 题）接这里，不直接碰 Episode。"""
+
+        return self._episode.steer(content, target=target, source=source)
 
     def start(
         self,

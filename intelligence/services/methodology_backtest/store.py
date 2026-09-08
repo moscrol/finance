@@ -84,8 +84,240 @@ DDL = (
     """,
 )
 
+# Teaching-framework objects intentionally use a separate namespace.  The
+# existing label reset is a whole-table rebuild; putting these rows in
+# ``history_labels`` would allow an unrelated rebuild to delete them.
+TEACHING_DDL = (
+    """
+    CREATE TABLE IF NOT EXISTS history_teaching_labels (
+        entity_type   VARCHAR NOT NULL,
+        entity_id     VARCHAR NOT NULL,
+        trade_date    DATE NOT NULL,
+        label         VARCHAR NOT NULL,
+        value_num     DOUBLE,
+        value_text    VARCHAR,
+        label_version VARCHAR NOT NULL,
+        framework_version VARCHAR NOT NULL,
+        status        VARCHAR NOT NULL DEFAULT 'ok',
+        status_reason VARCHAR,
+        computed_at   TIMESTAMP NOT NULL,
+        PRIMARY KEY (entity_type, entity_id, trade_date, label)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS history_teaching_gaps (
+        trade_date        DATE NOT NULL,
+        gap_kind          VARCHAR NOT NULL,
+        missing_cols      VARCHAR,
+        framework_version VARCHAR NOT NULL,
+        status             VARCHAR NOT NULL DEFAULT 'gap',
+        status_reason     VARCHAR,
+        computed_at       TIMESTAMP NOT NULL,
+        PRIMARY KEY (trade_date, gap_kind)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS history_leader_succession (
+        node_id         VARCHAR UNIQUE,
+        break_day       DATE PRIMARY KEY,
+        leader_i        VARCHAR,
+        leader_i_name   VARCHAR,
+        leader_i_peak_boards INTEGER,
+        leader_i_group_json VARCHAR,
+        birth_day       DATE,
+        leader_next     VARCHAR,
+        leader_next_name VARCHAR,
+        leader_next_group_json VARCHAR,
+        birth_boards    INTEGER,
+        candidates_json VARCHAR,
+        gap_days        INTEGER,
+        path_json       VARCHAR,
+        shape_tags_json VARCHAR,
+        handoff         BOOLEAN,
+        context_break   VARCHAR,
+        context_birth   VARCHAR,
+        forward         VARCHAR,
+        framework_version VARCHAR,
+        status          VARCHAR NOT NULL DEFAULT 'ok',
+        status_reason   VARCHAR,
+        computed_at     TIMESTAMP NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS history_overtaken (
+        event_day       DATE NOT NULL,
+        leader_i        VARCHAR NOT NULL,
+        leader_next     VARCHAR NOT NULL,
+        granularity     VARCHAR NOT NULL,
+        status          VARCHAR NOT NULL DEFAULT 'ok',
+        status_reason   VARCHAR,
+        computed_at     TIMESTAMP NOT NULL,
+        PRIMARY KEY (event_day, leader_i, leader_next)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS history_reference_stages (
+        source              VARCHAR NOT NULL,
+        trade_date          DATE NOT NULL,
+        cycle_stage         VARCHAR,
+        external_cycle      VARCHAR,
+        internal_cycle      VARCHAR,
+        is_ice_point        BOOLEAN,
+        ice_point_level     VARCHAR,
+        amount_yi           DOUBLE,
+        amount_change_pct   DOUBLE,
+        amount_ma20_yi      DOUBLE,
+        amount_vs_ma20_pct  DOUBLE,
+        up_rate_ma5_pct     DOUBLE,
+        up_count            INTEGER,
+        limit_up_count_non_st INTEGER,
+        top3_market_share_pct DOUBLE,
+        amount_top5_share_pct DOUBLE,
+        amount_top5_rising_share_pct DOUBLE,
+        amount_top5_rising_avg_change_pct DOUBLE,
+        price_top5_avg_change_pct DOUBLE,
+        price_top5_market_share_pct DOUBLE,
+        price_top5_amount_change_pct DOUBLE,
+        formula_version     VARCHAR,
+        data_version        VARCHAR,
+        vendor_updated_at   TIMESTAMP,
+        raw_json            VARCHAR,
+        pulled_at           TIMESTAMP,
+        loaded_at           TIMESTAMP NOT NULL,
+        PRIMARY KEY (source, trade_date)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS history_range_leaders (
+        window_days     INTEGER NOT NULL,
+        trade_date      DATE NOT NULL,
+        rank            INTEGER NOT NULL,
+        stock_ts_code   VARCHAR NOT NULL,
+        stock_name      VARCHAR,
+        gain_pct        DOUBLE,
+        sw_l1           VARCHAR,
+        limit_times     INTEGER,
+        tenure_day      INTEGER,
+        prev_rank       INTEGER,
+        framework_version VARCHAR,
+        computed_at     TIMESTAMP NOT NULL,
+        PRIMARY KEY (window_days, trade_date, rank)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS history_range_leader_handoffs (
+        window_days     INTEGER NOT NULL,
+        trade_date      DATE NOT NULL,
+        birth_stock     VARCHAR NOT NULL,
+        birth_name      VARCHAR,
+        birth_rank      INTEGER,
+        birth_prev_rank INTEGER,
+        birth_sw_l1     VARCHAR,
+        birth_limit_times INTEGER,
+        birth_gain_pct  DOUBLE,
+        exit_stock      VARCHAR,
+        exit_name       VARCHAR,
+        exit_prev_rank  INTEGER,
+        exit_next_rank  INTEGER,
+        exit_sw_l1      VARCHAR,
+        exit_limit_times INTEGER,
+        exit_tenure_days INTEGER,
+        same_l1         BOOLEAN,
+        form            VARCHAR,
+        framework_version VARCHAR,
+        computed_at     TIMESTAMP NOT NULL,
+        PRIMARY KEY (window_days, trade_date, birth_stock)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS history_dynasties (
+        wave_idx        INTEGER NOT NULL,
+        rank            INTEGER NOT NULL,
+        wave_start      DATE,
+        peak_end        DATE NOT NULL,
+        collapse_start  DATE,
+        collapse_end    DATE,
+        wave_status     VARCHAR NOT NULL,
+        stock_ts_code   VARCHAR NOT NULL,
+        stock_name      VARCHAR,
+        wave_gain_pct   DOUBLE,
+        sw_l1           VARCHAR,
+        max_boards      INTEGER,
+        form            VARCHAR,
+        collapse_ret_pct DOUBLE,
+        collapse_max_dd_pct DOUBLE,
+        framework_version VARCHAR,
+        computed_at     TIMESTAMP NOT NULL,
+        PRIMARY KEY (wave_idx, rank)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS history_dynasty_handoffs (
+        old_wave_idx    INTEGER NOT NULL,
+        new_wave_idx    INTEGER NOT NULL,
+        new_rank        INTEGER NOT NULL,
+        stock_ts_code   VARCHAR NOT NULL,
+        stock_name      VARCHAR,
+        new_wave_gain_pct DOUBLE,
+        sw_l1           VARCHAR,
+        form            VARCHAR,
+        old_wave_rank   INTEGER,
+        in_old_cohort   BOOLEAN,
+        l1_in_old_top   BOOLEAN,
+        collapse_ret_pct DOUBLE,
+        collapse_ret_percentile DOUBLE,
+        collapse_max_dd_pct DOUBLE,
+        first_leg_ret_pct DOUBLE,
+        new_high_in_collapse BOOLEAN,
+        separation_relative BOOLEAN,
+        separation_new_high BOOLEAN,
+        losing_days_ret_pct DOUBLE,
+        losing_days_ret_percentile DOUBLE,
+        separation_on_losing_days BOOLEAN,
+        other_days_ret_pct DOUBLE,
+        other_days_ret_percentile DOUBLE,
+        separation_on_other_days BOOLEAN,
+        framework_version VARCHAR,
+        computed_at     TIMESTAMP NOT NULL,
+        PRIMARY KEY (old_wave_idx, new_rank)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS history_teaching_receipts (
+        build_id             VARCHAR PRIMARY KEY,
+        build_kind           VARCHAR NOT NULL,
+        framework_version    VARCHAR NOT NULL,
+        label_version        VARCHAR NOT NULL,
+        source_db            VARCHAR NOT NULL,
+        source_max_trade_date DATE,
+        source_row_counts    VARCHAR,
+        source_fingerprint   VARCHAR,
+        parameter_hash       VARCHAR NOT NULL,
+        coverage_summary     VARCHAR,
+        gap_summary          VARCHAR,
+        readouts             VARCHAR,
+        canonical_hash       VARCHAR,
+        status               VARCHAR NOT NULL DEFAULT 'ok',
+        status_reason        VARCHAR,
+        computed_at          TIMESTAMP NOT NULL
+    )
+    """,
+)
+
 LABELS_TABLES = ("history_calendar", "history_labels", "history_data_gaps")
 OUTCOMES_TABLES = ("history_outcomes",)
+TEACHING_TABLES = (
+    "history_teaching_labels",
+    "history_teaching_gaps",
+    "history_leader_succession",
+    "history_overtaken",
+    "history_reference_stages",
+    "history_range_leaders",
+    "history_range_leader_handoffs",
+    "history_dynasties",
+    "history_dynasty_handoffs",
+    "history_teaching_receipts",
+)
 
 
 def default_labels_db_path(source_db: str | Path | None = None) -> Path:
@@ -108,12 +340,48 @@ def naive_utc(ts: datetime) -> datetime:
 def ensure_schema(con: duckdb.DuckDBPyConnection) -> None:
     for stmt in DDL:
         con.execute(stmt)
+    for stmt in TEACHING_DDL:
+        con.execute(stmt)
+    # No in-place migration of teaching tables: the sidecar is disposable by
+    # contract, and appending columns via ALTER TABLE produced a different
+    # physical column order than a fresh CREATE.  A stale sidecar must be
+    # deleted and rebuilt; ``check_teaching_schema`` reports that explicitly.
+
+
+def check_teaching_schema(con: duckdb.DuckDBPyConnection) -> list[str]:
+    """Return human-readable column-set mismatches between live teaching tables and the DDL."""
+
+    reference = duckdb.connect(":memory:")
+    try:
+        for stmt in TEACHING_DDL:
+            reference.execute(stmt)
+        problems: list[str] = []
+        for name in TEACHING_TABLES:
+            expected = {str(row[1]) for row in reference.execute(f"PRAGMA table_info('{name}')").fetchall()}
+            actual = {str(row[1]) for row in con.execute(f"PRAGMA table_info('{name}')").fetchall()}
+            if actual != expected:
+                problems.append(
+                    f"{name}: 列集合与 DDL 不一致（缺 {sorted(expected - actual) or '无'}，"
+                    f"多 {sorted(actual - expected) or '无'}）；旁路库可删可重建，请删除后重跑"
+                )
+        return problems
+    finally:
+        reference.close()
 
 
 def reset_tables(con: duckdb.DuckDBPyConnection, tables: tuple[str, ...]) -> None:
     for name in tables:
         con.execute(f"DROP TABLE IF EXISTS {name}")
     ensure_schema(con)
+
+
+def reset_teaching_tables(con: duckdb.DuckDBPyConnection) -> None:
+    """Rebuild only teaching tables, preserving all legacy sidecar tables."""
+
+    for name in TEACHING_TABLES:
+        con.execute(f"DROP TABLE IF EXISTS {name}")
+    for stmt in TEACHING_DDL:
+        con.execute(stmt)
 
 
 def open_labels_db(path: str | Path, *, read_only: bool) -> duckdb.DuckDBPyConnection:

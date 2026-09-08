@@ -623,7 +623,9 @@ def test_production_continuous_adapter_shares_provider_client_across_gates(
     assert semantic._finalizer is episode._finalizer
     assert episode._model._providers == providers
     assert episode._model._is_cancelled is is_cancelled
-    assert episode._is_cancelled is is_cancelled
+    # 工单 #28：Episode 持有的是包住同一个谓词的 CancelSignal（类型化原因），
+    # 「几处接缝看同一份事实」的判据从对象同一变成 upstream 同一。
+    assert episode._is_cancelled.upstream is is_cancelled
     assert adapter._is_cancelled is is_cancelled
     assert adapter._deadline_expires_at == deadline_expires_at
     assert 0 < adapter._remaining_timeout() <= 42.0
@@ -1706,6 +1708,38 @@ def test_health_endpoints_report_worker_and_storage_state(client: TestClient) ->
     assert payload["market_snapshot"]["requested_date"] == "2026-07-17"
     assert payload["missing_critical"] == []
     assert payload["workers"]["capacity"] == 2
+
+
+def test_readiness_registers_open_episodes_without_restoring_them(
+    client: TestClient, monkeypatch, tmp_path
+) -> None:
+    """运行底座 P2（母单 §12 第 3 题：只登记）：store 里非 done 的 episode 进 readiness，
+    但 readiness 不去 restore、不改 store。"""
+
+    from intelligence.services.episode_store import (
+        EPISODE_STORE_ENV,
+        EpisodeState,
+        JsonlEpisodeStore,
+    )
+
+    root = tmp_path / "episodes"
+    monkeypatch.setenv(EPISODE_STORE_ENV, str(root))
+    store = JsonlEpisodeStore(root)
+    store.put_state("run_a:msg_1", EpisodeState(episode_id="run_a:msg_1", phase="tools_pending"))
+    store.put_state("run_b:msg_2", EpisodeState(episode_id="run_b:msg_2", phase="done"))
+    snapshot = sorted((path.name, path.stat().st_size) for path in root.rglob("*"))
+
+    response = client.get("/api/readiness")
+
+    payload = response.json()
+    assert payload["open_episodes"] == {
+        "count": 1,
+        "episode_ids": ["run_a:msg_1"],
+        "truncated": False,
+    }
+    assert sorted((path.name, path.stat().st_size) for path in root.rglob("*")) == snapshot, (
+        "readiness 只读 store，不 restore、不改写"
+    )
 
 
 def test_readiness_probe_schedules_dead_worker_recovery(

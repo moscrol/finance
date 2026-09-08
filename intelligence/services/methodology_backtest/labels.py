@@ -21,7 +21,7 @@ stock 用 ``stock_ts_code``）：
 | theme | limit_heat_rank | rank | 涨停热度排名，档位写死见 ``HEAT_TIER`` |
 | theme | limit_heat_rank_jump | 1/0/NULL | 排名较前一交易日提升 >=5；前一日无名次则 NULL |
 | theme | mainline_flag | 1/0/NULL | 当日出现在 ``fact_mainline_sector_daily``；主线表无覆盖的日子为 NULL |
-| market | market_stage | text | 直接投影 ``fact_market_daily.market_stage`` |
+| market | market_stage | text | 投影 ``fact_market_daily.market_stage``，去掉末尾「阶段」别名；NULL 保留 |
 | market | volume_surge | 1/0/NULL | ``amount_vs_yesterday_pct > VOLUME_SURGE_PCT``（与 detect_turning_points 同阈值，真库上两口径 74 日完全一致） |
 | market | ma5_peak_confirmed | 1/0 | ``SignalDetector`` 的 MA5 顶确认日 |
 | market | ma5_valley_confirmed | 1/0 | ``SignalDetector`` 的 MA5 谷确认日 |
@@ -71,6 +71,8 @@ from market_feature_store.analysis.turning_points import (
     SignalDetector,
 )
 
+from intelligence.services.market_stage import normalize_market_stage
+
 from .store import (
     LABELS_TABLES,
     SOURCE_ALIAS,
@@ -86,8 +88,9 @@ from .store import (
 
 # 口径版本。热度档位、阈值、算法、标签目录任何一处变动都要升版本，旧收据凭它判「不可比」。
 # v1 → v2：新增 stock 三标签（limit_up / first_board / new_high_1y），sector / theme / market 口径未动。
+# v2 → v3：market_stage 去掉上游值末尾的「阶段」别名，NULL 仍为 NULL。
 HEAT_TIER = {"dimension": "sector", "scope": "all", "data_stage": "final", "is_realtime": False}
-LABEL_VERSION = "v2-heat_sector_all_final_nonrt-stock_limit_high_union"
+LABEL_VERSION = "v3-heat_sector_all_final_nonrt-stock_limit_high_union-market_stage_normalized"
 
 DATA_GAP_ZERO_RATIO = 0.9
 DUAL_RED_DIFF_RATIO_GT = 10.0
@@ -123,6 +126,7 @@ LABEL_SPEC: dict[str, Any] = {
     "amount_rank_top10": f"RANK() by amount DESC within trade_date <= {AMOUNT_RANK_TOP}",
     "volume_surge": f"amount_vs_yesterday_pct > {VOLUME_SURGE_PCT:g}",
     "ma5": f"turning_points.SignalDetector(MA5_MIN_SWING={MA5_MIN_SWING}) confirm-day, full fact_market_daily range",
+    "market_stage": "normalize_market_stage(fact_market_daily.market_stage): strip one trailing '阶段'; NULL stays NULL",
     "mainline_flag": "fact_mainline_sector_daily (trade_date, sector_ts_code) exists; NULL on days without coverage",
     "stock_universe": (
         f"{STOCK_UNIVERSE}: distinct (trade_date, stock_ts_code) in fact_theme_limit_stock_daily UNION "
@@ -424,15 +428,26 @@ def _market_series(con: duckdb.DuckDBPyConnection) -> tuple[list[dict], list[dic
 
 
 def _build_market_labels(con: duckdb.DuckDBPyConnection, computed_at: datetime) -> dict[str, int]:
-    con.execute(
+    # Apply the canonical projection in Python so the source fact table stays
+    # untouched and every writer shares exactly the same missing-value rules.
+    stage_rows = con.execute(
         f"""
-        INSERT INTO history_labels
-            (entity_type, entity_id, trade_date, label, value_num, value_text, label_version, computed_at)
-        SELECT 'market', '{MARKET_ENTITY_ID}', m.trade_date, 'market_stage', NULL, m.market_stage, ?, ?
+        SELECT m.trade_date, m.market_stage
         FROM {SOURCE_ALIAS}.fact_market_daily m
         JOIN history_calendar c ON c.trade_date = m.trade_date
+        ORDER BY m.trade_date
+        """
+    ).fetchall()
+    con.executemany(
+        """
+        INSERT INTO history_labels
+            (entity_type, entity_id, trade_date, label, value_num, value_text, label_version, computed_at)
+        VALUES (?, ?, ?, 'market_stage', NULL, ?, ?, ?)
         """,
-        [LABEL_VERSION, computed_at],
+        [
+            ("market", MARKET_ENTITY_ID, trade_date, normalize_market_stage(stage), LABEL_VERSION, computed_at)
+            for trade_date, stage in stage_rows
+        ],
     )
     con.execute(
         f"""

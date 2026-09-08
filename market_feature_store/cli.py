@@ -490,10 +490,14 @@ def cmd_sync_fupanhui_public_assets(args) -> int:
 def cmd_stitch_sector_stocks(args) -> int:
     from .sync.sync_local_sector_members import brief, stitch_sector_members
 
+    kwargs = {}
+    if getattr(args, "max_baseline_age_days", None):
+        kwargs["max_baseline_age_days"] = args.max_baseline_age_days
     s = stitch_sector_members(
         args.trade_date,
         fetch_caps=not args.no_caps,
         dry_run=args.dry_run,
+        **kwargs,
     )
     print(f"交易日: {s['trade_date']} | snapshot={s['snapshot_id'][:12]} | {s['identity']}")
     print(f"候选 {s['candidates']} | 拼接 {s['stitched']} | 剔除无值成员 {s['dropped_members']} | 市值现值 {s['caps_fetched']} 只")
@@ -508,6 +512,125 @@ def cmd_stitch_sector_stocks(args) -> int:
     if s.get("audit"):
         print(f"完成度审计: {s['audit']}")
     print(brief(s))
+    return 0
+
+
+def cmd_carry_forward_universe(args) -> int:
+    from .sync.compute_local_stats import carry_forward_universe
+
+    r = carry_forward_universe(args.trade_date, supersede=args.supersede, base_date=args.base_date)
+    print(f"交易日: {r['trade_date']} | {r['action']} | snapshot={str(r['snapshot_id'])[:12]} | provider={r['provider_source']}"
+          + (f" | 板块 {r['sectors']} 承接自 {r['base_date']}" if r.get("sectors") else ""))
+    return 0
+
+
+def cmd_compute_limit_stats_local(args) -> int:
+    from .sync.compute_local_stats import compute_limit_stats_local
+
+    r = compute_limit_stats_local(args.trade_date, force=args.force, min_boards=args.min_boards)
+    if r["action"] != "written":
+        print(f"交易日: {r['trade_date']} | {r['action']} {r.get('skipped', '')}（--force 覆盖）")
+        return 0
+    print(f"交易日: {r['trade_date']} | 全市场涨停 {r['market_limit_up']} 跌停 {r['market_limit_down']}（不计 ST/新股/停牌）")
+    print(f"涨停题材 {r['sectors_with_limit_up']} 个 / 明细 {r['detail_rows']} 行 / 连板梯队 {r['ladder_rows']} 只 / 龙头高度 {r['leader_height']} | 成分行 {r['members_seen']}")
+    return 0
+
+
+def cmd_compute_market_overview_local(args) -> int:
+    from .sync.compute_local_stats import compute_market_overview_local
+
+    r = compute_market_overview_local(args.trade_date, force=args.force)
+    if r["action"] != "written":
+        print(f"交易日: {r['trade_date']} | {r['action']} source={r.get('source')}（--force 覆盖）")
+        return 0
+    print(f"交易日: {r['trade_date']} | 沪深成交额 {r['total_amount']} 亿 | 涨家数 {r['advancers']} | 涨停 {r['limit_up']} 跌停 {r['limit_down']}")
+    print(f"MA20 {r['amount_ma20']} 量能比 {r['volume_ratio']}% | 前三行业 {r['top3']} 合计 {r['top3_ratio']}% | 20日新高 {r['stock_high_20d']} | 周均线 {r['sh_week_ma']}")
+    return 0
+
+
+def cmd_compute_market_editorial_local(args) -> int:
+    from .sync.compute_local_stats import compute_market_editorial_local
+
+    r = compute_market_editorial_local(args.trade_date, force=args.force)
+    if r["action"] != "written":
+        print(f"交易日: {r['trade_date']} | {r['action']} strength_source={r.get('strength_source')}（--force 覆盖）")
+        return 0
+    print(f"交易日: {r['trade_date']} | 强度(涨幅前5% {r['top_k']} 只) 均涨 {r['strength_avg_pct']}% 额 {r['strength_amount']} 亿 占比 {r['strength_amount_pct']}% "
+          f"边际 {r['strength_marginal_pct']} → {r['strength_status']} | 量能状态 {r['volume_state']} | 冰点 {r['ice_level']}")
+    return 0
+
+
+def cmd_compute_stock_high_local(args) -> int:
+    from .sync.compute_local_stats import compute_stock_high_local
+
+    r = compute_stock_high_local(args.trade_date, force=args.force)
+    if r["action"] != "written":
+        print(f"交易日: {r['trade_date']} | {r['action']} {r.get('skipped', '')}（--force 覆盖）")
+        return 0
+    print(f"交易日: {r['trade_date']} | 新高名单 {r['rows']} 只 | {r['by_label']}")
+    return 0
+
+
+def cmd_train_market_stage(args) -> int:
+    from .models.market_stage import ARTIFACT, train
+
+    art = train(out_path=args.out or ARTIFACT)
+    cv = art["cv"]
+    print(f"训练 {art['train_days']} 日 {art['train_range'][0]}~{art['train_range'][1]} | 分块{cv['folds']}折 精确 {cv['exact_acc_mean']:.1%} 粗粒度 {cv['coarse_acc_mean']:.1%} "
+          f"| 各块精确 {[round(x, 2) for x in cv['exact_acc_by_block']]} | 对照手写规则 37%/58%")
+    print(f"产物: {args.out or ARTIFACT}")
+    return 0
+
+
+def cmd_compute_market_stage_local(args) -> int:
+    from .models.market_stage import predict_stage
+
+    r = predict_stage(args.trade_date, write=not args.dry_run)
+    if r["action"] == "kept-fupanhui-label":
+        print(f"交易日: {r['trade_date']} | 已有 fupanhui 标签 {r['market_stage']}，不覆盖")
+        return 0
+    top = sorted(r["proba"].items(), key=lambda kv: -kv[1])[:3]
+    print(f"交易日: {r['trade_date']} | 周期阶段(自训 v1) {r['market_stage']} 第{r['stage_day']}天 置信 {r['confidence']} | argmax {r['argmax']} | 前一日 {r['prev_stage']} | top3 {top}")
+    return 0
+
+
+def cmd_compute_mainline_local(args) -> int:
+    from .sync.compute_local_stats import compute_mainline_local
+
+    r = compute_mainline_local(args.trade_date, force=args.force, topk=args.topk)
+    if r["action"] != "written":
+        print(f"交易日: {r['trade_date']} | {r['action']} {r.get('skipped', '')}（--force 覆盖）")
+        return 0
+    print(f"交易日: {r['trade_date']} | 主线题材(人气值 v1) {r['themes']} 分 {r['theme_scores']} | 核心板块 {r['sector_rows']} 行 / 主线个股 {r['stock_rows']} 只")
+    return 0
+
+
+def cmd_compute_core_stock_local(args) -> int:
+    from .sync.compute_local_stats import compute_core_stock_local
+
+    r = compute_core_stock_local(args.trade_date, force=args.force, topn=args.topn)
+    if r["action"] != "written":
+        print(f"交易日: {r['trade_date']} | {r['action']} {r.get('skipped', '')}（--force 覆盖）")
+        return 0
+    print(f"交易日: {r['trade_date']} | 核心个股(复刻 成交额前{args.topn}) {r['rows']} 行 | 榜首 {r['top1']} | "
+          f"入围线 {r['amount_cut']} 亿 | 申万一级已填 {r['sw_l1_filled']}/{r['rows']}")
+    return 0
+
+
+def cmd_compute_core_leader_local(args) -> int:
+    from .sync.compute_local_stats import CORE_LEADER_AUTH_WEIGHT, compute_core_leader_local
+
+    weight = CORE_LEADER_AUTH_WEIGHT if args.auth_weight is None else args.auth_weight
+    r = compute_core_leader_local(args.trade_date, force=args.force, topn=args.topn,
+                                  per_theme=args.per_theme, auth_weight=weight,
+                                  allow_no_kb=args.allow_no_kb)
+    if r["action"] != "written":
+        print(f"交易日: {r['trade_date']} | {r['action']} {r.get('skipped', '')}（--force 覆盖）")
+        return 0
+    print(f"交易日: {r['trade_date']} | 核心个股(自家 主线×正宗×人气) {r['rows']}/{r['pool']} 只 | "
+          f"知识库 {r['kb_status']} 正宗权重 {r['auth_weight']} | 有正宗证据 {r['authentic']} 只 | "
+          f"分题材 {r['by_theme']}")
+    print(f"  前 5: {r['top']}")
     return 0
 
 
@@ -630,8 +753,12 @@ def cmd_sync_stock_daily(args) -> int:
         qfq=args.qfq,
         timeout=args.timeout,
         progress_every=args.progress_every,
+        end_date=args.end_date,
+        ohlc_only=args.ohlc_only,
+        skip=args.skip,
     )
-    print(f"起始日: {stats['start_date']} | 全A股池: {stats['universe']}")
+    mode = " | 模式: 只补 OHLC" if args.ohlc_only else ""
+    print(f"起始日: {stats['start_date']}{' ~ ' + args.end_date if args.end_date else ''} | 全A股池: {stats['universe']}{mode}")
     print(f"本次抓取: {stats['processed']} 只 | 写入行: {stats['rows_written']}")
     print(f"已覆盖个股: {stats['stocks_done']}/{stats['universe']} | 剩余: {stats['stocks_remaining']}")
     print(f"fact_stock_daily: {stats['table_total']} 行, {stats['distinct_stocks']} 股, "
@@ -663,8 +790,9 @@ def cmd_sync_stock_daily_snapshot(args) -> int:
     stats = sync_fact_stock_daily_snapshot(
         trade_date=args.trade_date,
         page_size=args.page_size,
+        allow_misdated=args.allow_misdated,
     )
-    print(f"交易日: {stats['trade_date']} | 来源: {stats['source']}")
+    print(f"交易日: {stats['trade_date']} | 快照实际日期: {stats['snapshot_trade_date']} | 来源: {stats['source']}")
     print(f"快照拉取: {stats['fetched']} 行 | 写入: {stats['rows_written']} | 跳过: {stats['skipped']}")
     print(f"当日入库: {stats['day_rows']} 股")
     print(f"fact_stock_daily: {stats['table_total']} 行, {stats['distinct_stocks']} 股, "
@@ -917,8 +1045,8 @@ def cmd_check_daily(args) -> int:
 
     from .quality import check_daily
 
-    res = check_daily(trade_date=args.trade_date, window=args.window)
-    print(f"\u8de8\u65e5\u8d28\u68c0 @{res['trade_date']} (\u65e5\u5386\u7a97\u53e3={args.window})")
+    res = check_daily(trade_date=args.trade_date, window=args.window, plan=args.plan)
+    print(f"跨日质检 @{res['trade_date']} (日历窗口={args.window}" + (f", plan={args.plan}" if args.plan else "") + ")")
     for g in res["gaps"]:
         print(f"  [\u65ad\u6863] {g['table']}: {', '.join(g['missing_dates'])}" + (f" ({g['note']})" if g.get("note") else ""))
     for a in res["row_anomalies"]:
@@ -1358,7 +1486,75 @@ def build_parser() -> argparse.ArgumentParser:
     p_st.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD（需已 sync-sectors 且 stock-daily 为东财源）")
     p_st.add_argument("--no-caps", action="store_true", help="不拉腾讯市值现值，按基线缩放")
     p_st.add_argument("--dry-run", action="store_true", help="只算不写")
+    p_st.add_argument("--max-baseline-age-days", type=int, default=None,
+                      help="identity 基线最多多旧（日历日），默认 10；名单冻结（fupanhui 停抓）时放宽到 120+")
     p_st.set_defaults(func=cmd_stitch_sector_stocks)
+
+    p_cfu = sub.add_parser("carry-forward-universe",
+                           help="名单冻结：把最近一份 published 宇宙按当日重新发布（provider=local:carry），供 stitch/sector-daily-local 使用")
+    p_cfu.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_cfu.add_argument("--base-date", default=None, help="承接哪一天的快照，默认取之前最近一份 published")
+    p_cfu.add_argument("--supersede", action="store_true", help="当日已有 published 快照也顶替（原快照留 superseded）——名单没抓全的那天用")
+    p_cfu.set_defaults(func=cmd_carry_forward_universe)
+
+    p_cls = sub.add_parser("compute-limit-stats-local",
+                           help="本地涨跌停统计：题材涨停热度/涨停明细/连板梯队/龙头高度（不计 ST；沪深四舍五入、北交所向下取整）")
+    p_cls.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_cls.add_argument("--min-boards", type=int, default=2, help="梯队最低连板数，默认 2")
+    p_cls.add_argument("--force", action="store_true", help="当日已有非 local 来源行时也覆盖")
+    p_cls.set_defaults(func=cmd_compute_limit_stats_local)
+
+    p_cmo = sub.add_parser("compute-market-overview-local",
+                           help="本地市场总览数字层：沪深总额/涨家数/涨跌停/量能/前三行业/新高家数/周均线（不碰周期阶段等编辑字段）")
+    p_cmo.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_cmo.add_argument("--force", action="store_true", help="当日已有 fupanhui 数值时也覆盖")
+    p_cmo.set_defaults(func=cmd_compute_market_overview_local)
+
+    p_cme = sub.add_parser("compute-market-editorial-local",
+                           help="编辑层自家替代版：强度(涨幅前5%个股)/量能状态/冰点 JSON；周期阶段留空")
+    p_cme.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_cme.add_argument("--force", action="store_true", help="当日已有 fupanhui 强度值时也覆盖")
+    p_cme.set_defaults(func=cmd_compute_market_editorial_local)
+
+    p_csh = sub.add_parser("compute-stock-high-local",
+                           help="新高名单 fact_stock_high_daily：按日内最高价 high 判 20/60/120日、1/2/3年、历史新高")
+    p_csh.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_csh.add_argument("--force", action="store_true", help="当日已有非 local 来源行时也覆盖")
+    p_csh.set_defaults(func=cmd_compute_stock_high_local)
+
+    p_tms = sub.add_parser("train-market-stage", help="用 fupanhui 历史周期阶段标签训练本地分类器（numpy 逻辑回归），导出 JSON 权重并打印分块 CV 读数")
+    p_tms.add_argument("--out", default=None, help="产物路径，默认 market_feature_store/models/market_stage_lr_v1.json")
+    p_tms.set_defaults(func=cmd_train_market_stage)
+
+    p_cms = sub.add_parser("compute-market-stage-local", help="周期阶段自训分类器 v1 预测并写 market_stage/stage_day（带 source/confidence；有 fupanhui 标签的日子不覆盖）")
+    p_cms.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_cms.add_argument("--dry-run", action="store_true", help="只预测不写")
+    p_cms.set_defaults(func=cmd_compute_market_stage_local)
+
+    p_cml = sub.add_parser("compute-mainline-local", help="主线题材自家替代版：人气值（20日涨幅×2+5日涨停数+5日均额×0.5+5日双红×0.5）取 top4 题材，写三张 mainline 表")
+    p_cml.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_cml.add_argument("--topk", type=int, default=4, help="主线题材数，默认 4")
+    p_cml.add_argument("--force", action="store_true", help="当日已有非 local 来源行时也覆盖")
+    p_cml.set_defaults(func=cmd_compute_mainline_local)
+
+    p_ccs = sub.add_parser("compute-core-stock-local",
+                           help="核心个股复刻版：fupanhui 口径反推 = 当日全市场成交额前 50（405 日实测集合一致 99.5%）")
+    p_ccs.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_ccs.add_argument("--topn", type=int, default=50, help="取前 N 只，默认 50（fupanhui 口径）")
+    p_ccs.add_argument("--force", action="store_true", help="当日已有非 local 来源行时也覆盖")
+    p_ccs.set_defaults(func=cmd_compute_core_stock_local)
+
+    p_ccl = sub.add_parser("compute-core-leader-local",
+                           help="核心个股自家版：主线题材成员 × 知识库年报暴露度（正宗）× 人气（涨停/连板/成交额/新高）")
+    p_ccl.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_ccl.add_argument("--topn", type=int, default=20, help="取前 N 只，默认 20")
+    p_ccl.add_argument("--per-theme", type=int, default=8, help="每个题材最多几只，默认 8")
+    p_ccl.add_argument("--auth-weight", type=float, default=None,
+                       help="正宗度权重（与人气同在 [0,1]）；不给则用 CORE_LEADER_AUTH_WEIGHT，0 = 纯人气基线（消融对照）")
+    p_ccl.add_argument("--allow-no-kb", action="store_true",
+                       help="知识库读不到时也出（正宗度全 0，source 标 -nokb）；默认 fail-closed")
+    p_ccl.add_argument("--force", action="store_true", help="当日已有非 local 来源行时也覆盖")
+    p_ccl.set_defaults(func=cmd_compute_core_leader_local)
 
     p_sdl = sub.add_parser(
         "sync-sector-daily-local",
@@ -1390,10 +1586,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="校验 consumption_registry.yaml：档位合法、表在 schema、计划步骤有归属",
     ).set_defaults(func=cmd_registry_check)
 
-    p_skd = sub.add_parser("sync-stock-daily", help="mootdx 全A股前复权日线回补到 fact_stock_daily")
+    p_skd = sub.add_parser("sync-stock-daily", help="mootdx 全A股日线回补到 fact_stock_daily (历史日的日期参数化源; 含 open/high/low/volume)")
     p_skd.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD, 留空对齐 fact_market_daily 最早日")
-    p_skd.add_argument("--offset", type=int, default=180, help="每只股票拉取日线根数, 默认180(~8个月)")
+    p_skd.add_argument("--end-date", default=None, help="截止交易日(含); 与 --start-date 相同即只重写单日, 如东财快照写坏的那天")
+    p_skd.add_argument("--ohlc-only", action="store_true", help="只补 open/high/low/volume, 不碰已有行的收盘/昨收/涨幅/名字/来源 (给东财日线补 OHLC / 拉长历史)")
+    p_skd.add_argument("--offset", type=int, default=180, help="每只股票拉取日线根数, 默认180(~8个月); 3 年历史用 800")
     p_skd.add_argument("--limit", type=int, default=None, help="本次最多抓多少只 (续跑用)")
+    p_skd.add_argument("--skip", type=int, default=0, help="跳过宇宙前 N 只; 与 --refresh --limit 配合做确定性分页 (第 i 批 skip=i*limit)")
     p_skd.add_argument("--refresh", action="store_true", help="不跳过已抓股票, 强制重抓")
     p_skd.add_argument("--sleep", type=float, default=0.0, help="股票间隔秒数, 默认0")
     p_skd.add_argument("--qfq", action="store_true", help="用前复权(慢, 吃CPU); 默认裸收盘价(快)")
@@ -1410,6 +1609,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_sks = sub.add_parser("sync-stock-daily-snapshot", help="东财全市场快照写单日 fact_stock_daily (盘后增量快路径)")
     p_sks.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取当天")
     p_sks.add_argument("--page-size", type=int, default=100, help="东财分页大小, 单页上限100")
+    p_sks.add_argument("--allow-misdated", action="store_true",
+                       help="快照实际日期(f297) ≠ --trade-date 时仍然写, source 标 -misdated。默认拒写——"
+                            "补历史日请用 sync-stock-daily (mootdx), 07-20/08-06 两次事故都是这里写坏的")
     p_sks.set_defaults(func=cmd_sync_stock_daily_snapshot)
 
     p_du = sub.add_parser("daily-update", help="一键日更同步+补字段+质检")
@@ -1463,6 +1665,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_cd.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
     p_cd.add_argument("--window", type=int, default=20, help="交易日历窗口, 默认20")
     p_cd.add_argument("--json", default=None, help="质检报告 JSON 落盘路径, 可选")
+    p_cd.add_argument("--plan", default=None, help="计划档位 full/cheap/local；local 按 registry 裁剪期望表（自算链路不产 fupanhui 独有表）")
     p_cd.set_defaults(func=cmd_check_daily)
 
     p_wg = sub.add_parser("weighted-gainers", help="区间加权涨幅排行 (本地计算)")

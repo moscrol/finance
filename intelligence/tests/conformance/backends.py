@@ -60,7 +60,41 @@ INVARIANT_IDS: tuple[str, ...] = (
     "INV-6",
     "INV-7",
     "INV-8",
+    # 运行底座终态稿 R 系列（2026-09-07 §3）：只对生产臂 continuous 与参考 loop 要求成立，
+    # 其余臂声明 UNSUPPORTED_DECLARED（母单 §3 末段），断言只验「确实不在场」。
+    # R2 效果三明治 / R3 程序计数器恢复（P2）；R4 取消类型化（P1）；R5 收件箱三事实（P3）。
+    "INV-R2",
+    "INV-R3",
+    "INV-R4",
+    "INV-R5",
 )
+
+# R 系列在非适用臂上的统一理由（每个非 SUPPORTED 声明都必须带 notes）。
+_R_SERIES_NOT_APPLICABLE_ARM = (
+    "运行底座 R 系列只对 continuous_glm 与 HarnessReferenceLoop 要求成立"
+    "（2026-09-07-runtime-base-endstate-design.md §3 末段）；本臂的取消终局不带 "
+    "cancel_cause，断言验证「确实不在场」，不要求实现。"
+)
+_R_DURABLE_NOT_APPLICABLE_ARM = (
+    "运行底座 R2 / R3 只对 continuous_glm 要求成立（母单 §6.3 P2：store 只接在 "
+    "ContinuousAgentEpisode 上）；本臂事件流里没有 model_intent、tool_request 不带 "
+    "replay，断言验证「确实不在场」，不要求实现。"
+)
+_R_INBOX_NOT_APPLICABLE_ARM = (
+    "运行底座 R5 收件箱只对 continuous_glm 要求成立（母单 §6.4 P3：Inbox 挂在 "
+    "_EpisodeLedger 上，只有 ContinuousAgentEpisode 认领）；本臂事件流里没有 "
+    "inbox_inserted / inbox_claimed / inbox_discarded，断言验证「确实不在场」，不要求实现。"
+)
+_R_DURABLE_DECLARED: dict[str, Verdict] = {
+    "INV-R2": Verdict.UNSUPPORTED_DECLARED,
+    "INV-R3": Verdict.UNSUPPORTED_DECLARED,
+    "INV-R5": Verdict.UNSUPPORTED_DECLARED,
+}
+_R_DURABLE_NOTES: dict[str, str] = {
+    "INV-R2": _R_DURABLE_NOT_APPLICABLE_ARM,
+    "INV-R3": _R_DURABLE_NOT_APPLICABLE_ARM,
+    "INV-R5": _R_INBOX_NOT_APPLICABLE_ARM,
+}
 
 
 @dataclass
@@ -413,6 +447,8 @@ _SDK_CAPABILITIES: dict[str, Verdict] = {
     "INV-6": Verdict.SUPPORTED,
     "INV-7": Verdict.SUPPORTED,
     "INV-8": Verdict.SUPPORTED,
+    **_R_DURABLE_DECLARED,
+    "INV-R4": Verdict.UNSUPPORTED_DECLARED,
 }
 
 _SDK_NOTES: dict[str, str] = {
@@ -422,6 +458,8 @@ _SDK_NOTES: dict[str, str] = {
         "adapter 层内层合成保底给零（api/app.py _zero_inner_synthesis_reserve）。"
         "断言按缩减语义：request.timeout < 总窗，且合成保底不归 runtime 管。"
     ),
+    **_R_DURABLE_NOTES,
+    "INV-R4": _R_SERIES_NOT_APPLICABLE_ARM,
 }
 
 
@@ -467,8 +505,12 @@ BACKENDS: tuple[BackendDescriptor, ...] = (
             "INV-6": Verdict.REDUCED,
             "INV-7": Verdict.SUPPORTED,
             "INV-8": Verdict.UNSUPPORTED_DECLARED,
+            **_R_DURABLE_DECLARED,
+            "INV-R4": Verdict.UNSUPPORTED_DECLARED,
         },
         notes={
+            **_R_DURABLE_NOTES,
+            "INV-R4": _R_SERIES_NOT_APPLICABLE_ARM,
             "INV-3": (
                 "契约传入但内部单发执行，无内层检索/合成分窗机制"
                 "（codex_headless_runtime.run 一次 command；核查表 2026-08-29）。"
@@ -507,8 +549,12 @@ BACKENDS: tuple[BackendDescriptor, ...] = (
             "INV-6": Verdict.SUPPORTED,
             "INV-7": Verdict.NOT_APPLICABLE,
             "INV-8": Verdict.SUPPORTED,
+            **_R_DURABLE_DECLARED,
+            "INV-R4": Verdict.UNSUPPORTED_DECLARED,
         },
         notes={
+            **_R_DURABLE_NOTES,
+            "INV-R4": _R_SERIES_NOT_APPLICABLE_ARM,
             "INV-3": (
                 "脚本化协议参照桩：无模型轮、无检索/合成窗语义"
                 "（DshStubRuntime._play 顺序回放脚本），deadline 分窗不变量"

@@ -67,8 +67,13 @@ EpisodeScope）。
 
 1. **事件出口级 close 门**：EpisodeScope.event_sink 仍为 None（第 4 步 1/2 的
    决定），事件出口合流与 sink 级「close 后拒发」属第 5 步 Durable/Live。
-2. **收据落盘**：``dump()`` 本轮只在对象上可取（经 ``session.runtime_handle``），
-   进 artifact/Projection 属第 5 步。
+2. **收据落盘**：~~``dump()`` 本轮只在对象上可取~~ → 运行底座 P2（2026-09-07，工单 #29）
+   已落：``ContinuousTurnAdapter`` 在会话关闭后把 ``dump()`` 写进 ``continuous-episode.json``
+   的 ``runtime_handle`` 键（含 ``scope.derive_mismatches``，INV-R1 的落盘收据）。
+   **进程重启**（08-15 §7.3 四类验收场景的第四类）同轮由 ``services/episode_store`` +
+   ``episode_restore`` 兑现：每步落盘、``EpisodeState`` 覆写、重启后 ``restore`` 读状态
+   给下一动作或闭合；Tier A 套件 ``test_episode_restore.py`` 逐 phase × 逐 crash 前缀验。
+   Handle 本身仍是进程内对象——重启后的新 Handle 从 ``created`` 起，不伪造上一进程的收据。
 3. **其余会话构造点的接线**（第 4 步收尾轮已逐个裁定，结论如下）：
 
    已接：``GLMAgentRuntime.start``（Arm A，生产主线）+ ``ContinuousTurnAdapter``
@@ -112,6 +117,8 @@ import threading
 from collections.abc import Callable
 from time import monotonic
 from typing import TYPE_CHECKING, Literal
+
+from intelligence.services.cancel_signal import CANCEL_CAUSES, CancelCause, CancelSignal
 
 if TYPE_CHECKING:  # pragma: no cover - 仅类型检查；运行期无循环依赖但保持轻量
     from intelligence.services.episode_scope import EpisodeScope
@@ -178,6 +185,8 @@ class RuntimeHandle:
         self._state: RuntimeState = "created"
         self._in_flight = 0
         self._cancel_reason: str | None = None
+        # INV-R4：取消原因类型化。上游若是 CancelSignal 就抄它的 cause；裸谓词记 user。
+        self._cancel_cause: CancelCause | None = None
         self._close_reason: str | None = None
         self._scope: EpisodeScope | None = None
         # 收据行按发生顺序追加：state 行是状态转移，note 行是不改状态的事实
@@ -241,7 +250,10 @@ class RuntimeHandle:
             # 信号谓词自己坏了不等于取消。不折叠、不吞状态机其他职责。
             return
         if fired:
-            self._request_cancel_locked("upstream_signal")
+            cause: CancelCause = "user"
+            if isinstance(upstream, CancelSignal):
+                cause = upstream.cause or "user"
+            self._request_cancel_locked("upstream_signal", cause=cause)
 
     # ── 转移 ─────────────────────────────────────────────────────────
 
@@ -282,20 +294,26 @@ class RuntimeHandle:
                 f"mark_running 只能从 started 出发，当前 {self._state}"
             )
 
-    def request_cancel(self, reason: str = "cancel_requested") -> None:
+    def request_cancel(
+        self, reason: str = "cancel_requested", *, cause: CancelCause = "user"
+    ) -> None:
+        if cause not in CANCEL_CAUSES:
+            raise ValueError(f"未知取消原因: {cause!r}")
         with self._lock:
             if self._state == "closed":
                 # 对已结束的运行时请求取消不是错误，但值得留痕。
                 self._record_note("cancel_after_close", reason)
                 return
-            self._request_cancel_locked(reason)
+            self._request_cancel_locked(reason, cause=cause)
 
-    def _request_cancel_locked(self, reason: str) -> None:
+    def _request_cancel_locked(self, reason: str, *, cause: CancelCause = "user") -> None:
         if self._cancel_reason is not None:
-            self._record_note("cancel_repeated", reason)
+            # first cause wins：第二次请求只留痕，不改原因。
+            self._record_note("cancel_repeated", f"{cause}:{reason}")
             return
         self._cancel_reason = str(reason)
-        self._advance_locked("cancel_requested", reason)
+        self._cancel_cause = cause
+        self._advance_locked("cancel_requested", f"{cause}:{reason}")
         if self._in_flight > 0:
             # 有已启动的工作要收尾，这才配叫排空。
             self._advance_locked(
@@ -396,6 +414,7 @@ class RuntimeHandle:
                 "state": self._state,
                 "cancel_requested": self._cancel_reason is not None,
                 "cancel_reason": self._cancel_reason,
+                "cancel_cause": self._cancel_cause,
                 "close_reason": self._close_reason,
                 "in_flight": self._in_flight,
                 "receipts": [dict(row) for row in self._receipts],

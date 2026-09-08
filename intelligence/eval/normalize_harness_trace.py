@@ -332,8 +332,23 @@ def _codex_mapping(record: Mapping[str, Any]) -> tuple[str, str, str] | None:
 _BENCHMARK_STEPS: dict[str, tuple[str, str]] = {
     # pre-run assembly
     "configure": ("configure", "control"),
+    # system + first user prompt as the model will see them (INV-R1 carrier)
+    "prompt_assembled": ("configure", "control"),
     # intent
     "task": ("intent", "control"),
+    # loop-injected user-role text (steering / finalization / mode decision …):
+    # the runtime steering the model, so L1 `intent`, not an observation.
+    "model_input": ("intent", "control"),
+    # inbox message claimed into the model's history (INV-R5): same L1 bucket as
+    # `model_input` -- it is the runtime handing the model a user-role line.
+    # `inbox_inserted` / `inbox_discarded` are bookkeeping, not a step.
+    "inbox_claimed": ("intent", "control"),
+    # effect-sandwich intent written before every provider request (INV-R2):
+    # the runtime deciding to ask the model, so L1 `intent` like `task`.
+    "model_intent": ("intent", "control"),
+    # budget block overwritten onto the last tool message -- an observation of
+    # runtime state, same L1 bucket as the `budget` keyword in workbench traces.
+    "tool_budget_state": ("observe", "control"),
     # planning: what steps, how deep, what to repair -- L1 `plan`
     "plan": ("plan", "control"),
     "mode_decision": ("plan", "control"),

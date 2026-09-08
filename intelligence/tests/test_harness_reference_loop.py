@@ -320,7 +320,7 @@ def _gap_finish_turn() -> ModelTurn:
 
 
 def test_zero_grant_timeout_is_the_same_machine() -> None:
-    """时间闸零授权（研究窗已被 reserve 吃光）：两条 loop 给模型看的 ``tool_timeout``
+    """时间闸零授权（研究窗已被 reserve 吃光）：两条 loop 给模型看的 ``tool_not_dispatched``
     detail 必须同为实授值 ``stage_timeout_granted=0``，不是一边有数一边空串。
 
     2026-09-01 预算单 P0/P0.1 让 Episode 在零授权未派发时回灌实授值；这一格是底座
@@ -365,7 +365,8 @@ def test_zero_grant_timeout_is_the_same_machine() -> None:
             for m in model.calls[1]["messages"]
             if m.get("role") == "tool"
         ]
-        assert tool_payloads and tool_payloads[0]["error"] == "tool_timeout"
+        # 零授权未派发是 tool_not_dispatched（INV-R4，#28），不再与真超时共用 tool_timeout。
+        assert tool_payloads and tool_payloads[0]["error"] == "tool_not_dispatched"
         assert tool_payloads[0]["detail"] == stage_timeout_granted_detail(0.0)
 
     assert _outcome_core(episode) == _outcome_core(reference)

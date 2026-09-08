@@ -591,7 +591,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--pred",
         action="append",
         required=True,
-        help="谓词短句，可重复：`dual_red_streak@1 >= 3`、`market:market_stage in 主升阶段,主升`、`first_board == true`",
+        help="谓词短句，可重复：`dual_red_streak@1 >= 3`、`market:market_stage in 主升,反弹`、`first_board == true`",
     )
     pp.add_argument("--success", required=True, help="成功判据：`fwd_return 5 > 0`")
     pp.add_argument("--horizons", default=None, help="逗号分隔，默认 3,5,7,10（自动并入 success 的窗口）")

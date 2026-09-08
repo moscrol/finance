@@ -72,6 +72,8 @@ TABLES = [
     "fact_mainline_sector_daily",
     "fact_theme_flow_daily",
     "fact_sector_period_rank_daily",
+    "fact_core_stock_daily",
+    "fact_core_leader_daily",
     "feature_market_window",
     "feature_sector_window",
     "feature_stock_window",
@@ -122,6 +124,32 @@ MARKET_FIELDS = [
     "strength_amount_pct",
     "strength_status",
 ]
+# 计划档位裁剪：local（fupanhui 停抓后的自算链路）不产这些字段，缺它们是设计不是缺数。
+# 表的裁剪不写死在这里——从 consumption_registry.tables_for_plan 派生（单一真本源）。
+# local 现在自算强度（涨幅前 5% 口径，compute-market-editorial-local），MARKET_FIELDS 全部可检；留字典给未来的裁剪。
+PLAN_UNAVAILABLE_MARKET_FIELDS: dict[str, set[str]] = {
+    "local": set(),
+}
+
+
+def plan_scope(plan: str | None) -> tuple[list[str], list[str]]:
+    """按计划返回 (要检查的表, 要检查的 fact_market_daily 字段)。
+
+    两个方向都从 ``consumption_registry`` 派生，不在这里写第二份名单：
+    - local 只查 local 会写的表（fupanhui 独有的那些缺行是设计）；
+    - full/cheap 也要**减掉**该计划根本不产的表（如 ``fact_core_leader_daily`` 只在 local 链路里算），
+      否则把它加进 TABLES 就会让全量日凭空报缺。
+    """
+    from market_feature_store.consumption_registry import load_registry, tables_for_plan
+
+    registry = load_registry()
+    plan_key = "full" if (not plan or plan == "auto") else plan
+    expected = tables_for_plan(registry, plan_key) | set(FEATURE_FAMILY)
+    tables = [t for t in TABLES if t in expected]
+    fields = [f for f in MARKET_FIELDS if f not in PLAN_UNAVAILABLE_MARKET_FIELDS.get(plan, set())]
+    return tables, fields
+
+
 PLACEHOLDERS = [
     "| 周均线 | - |",
     "| 偏离度 | - |",
@@ -190,13 +218,14 @@ def _print_staging_contrast(date: str, prod_counts: dict[str, int]) -> None:
         con.close()
 
 
-def check_data(date: str) -> list[str]:
+def check_data(date: str, plan: str | None = None) -> list[str]:
     missing: list[str] = []
+    tables, market_fields = plan_scope(plan)
     con = _connect_read_only()
     try:
-        print(f"CHECK DATA {date}")
+        print(f"CHECK DATA {date}" + (f" (plan={plan}: {len(tables)}/{len(TABLES)} 表)" if plan and len(tables) != len(TABLES) else ""))
         counts: dict[str, int] = {}
-        for table in TABLES:
+        for table in tables:
             date_column = DATE_COLUMNS.get(table, "trade_date")
             max_date, count = con.execute(
                 f"SELECT MAX({date_column}), COUNT(*) FILTER (WHERE {date_column} = ?) FROM {table}",
@@ -213,7 +242,7 @@ def check_data(date: str) -> list[str]:
             missing.append("fact_market_daily 缺失整行")
         else:
             row = {column[0]: value for column, value in zip(cursor.description, values)}
-            for field in MARKET_FIELDS:
+            for field in market_fields:
                 if field not in row:
                     missing.append(f"fact_market_daily.{field} 字段不存在")
                     continue
@@ -263,6 +292,7 @@ def check_data(date: str) -> list[str]:
         missing.extend(_check_sector_coverage(con, date))
         missing.extend(_check_sector_stock_fields(con, date))
         missing.extend(_check_stock_coverage(con, date))
+        missing.extend(_check_stock_daily_not_copied(con, date))
         missing.extend(_feature_family_gap(counts, date))
         if missing:
             _print_staging_contrast(date, counts)
@@ -418,6 +448,49 @@ def _check_stock_coverage(con, date: str) -> list[str]:
     return problems
 
 
+#: 当日个股日线与前一交易日逐股 (close, amount) 完全相同的比例超过这条线 → 判为「整天是复制」。
+#: 真实市场里相邻两天同一只股收盘价与成交额都一模一样的极少 (长期停牌股), 5% 已经是很宽的线;
+#: 2026-07-20 / 08-06 两次事故各是 99.96% / 100%。
+STOCK_DAILY_DUP_MAX = 0.05
+
+
+def _check_stock_daily_not_copied(con, date: str) -> list[str]:
+    """个股日线不能是前一交易日的整份复制（工单 #32）。
+
+    事故形状：东财快照只有「最新」语义，事后补历史日会把次日截面贴到历史日期上，整天 5500 行逐股与
+    相邻日相同——行数、覆盖率、字段非空全部正常，只有逐股比对能看出来。这里比的是**前一交易日**：
+    门禁跑在当天，「当天 == 前一天」抓的是「拿昨天的快照写今天」；「今天 == 明天」在当天还没法比，
+    由 `qa_local_vs_fupanhui.py` 的全历史扫描兜底。
+    """
+    problems: list[str] = []
+    row = con.execute(
+        """
+        WITH prev AS (
+          SELECT MAX(trade_date) d FROM fact_stock_daily WHERE trade_date < ?
+        )
+        SELECT prev.d, COUNT(*),
+               COUNT(*) FILTER (WHERE a.close = b.close AND a.amount = b.amount)
+        FROM fact_stock_daily a
+        JOIN fact_stock_daily b ON b.stock_ts_code = a.stock_ts_code
+        JOIN prev ON b.trade_date = prev.d
+        WHERE a.trade_date = ? AND a.close IS NOT NULL AND a.amount IS NOT NULL
+        GROUP BY prev.d
+        """,
+        [date, date],
+    ).fetchone()
+    if not row or not row[1]:
+        return problems  # 没有前一日或当日无行, 交给覆盖率/缺行检查去报
+    prev_date, paired, same = row
+    ratio = same / paired
+    print(f"fact_stock_daily 与前一交易日 {prev_date} 逐股相同: {same}/{paired} = {ratio:.2%}")
+    if ratio > STOCK_DAILY_DUP_MAX:
+        problems.append(
+            f"fact_stock_daily {date} 与 {prev_date} 逐股 close+amount 相同 {ratio:.1%} > {STOCK_DAILY_DUP_MAX:.0%}"
+            f"——像是拿旧快照写了新日期 (07-20/08-06 同型)，用 mootdx sync-stock-daily --refresh 重抓"
+        )
+    return problems
+
+
 def check_report(date: str) -> list[str]:
     missing: list[str] = []
     report = Path(f"market_feature_store/exports/{date}-daily-review.md")
@@ -533,12 +606,16 @@ def main(argv: list[str] | str | None = None, data_only: bool = False) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("date")
     parser.add_argument("--phase", choices=("data", "report", "l2", "all"), default="all")
+    parser.add_argument(
+        "--plan", default=os.environ.get("REVIEW_SYNC_PLAN") or None,
+        help="计划档位（full/cheap/local）；local 按 registry 裁剪期望表与字段。默认读 REVIEW_SYNC_PLAN",
+    )
     args = parser.parse_args(argv)
 
     missing: list[str] = []
     try:
         if args.phase in {"data", "all"}:
-            missing.extend(check_data(args.date))
+            missing.extend(check_data(args.date, plan=args.plan))
         if args.phase in {"report", "all"}:
             missing.extend(check_report(args.date))
         if args.phase in {"l2", "all"}:

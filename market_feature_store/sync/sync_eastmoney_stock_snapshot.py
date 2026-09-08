@@ -15,6 +15,12 @@
 
 注意: 快照取的是「最近一个交易日/最新」行情, 必须在交易日盘后调用并显式传入 trade_date。
 盘中调用 close 会是实时价; 非交易日调用会把上一交易日的数据写到所传 trade_date 上。
+
+**日期闸（2026-09-07 起，工单 #32）**：上面这句警告只写在文档里、代码不拦，结果 07-20 与 08-06 两次
+「事后补历史日」把次日截面贴了历史日期，整天 5500 行逐股与次日相同，坏日阈值 10% 抓不到。现在每行
+多请求 ``f297``（行情自身的交易日期 YYYYMMDD），全场占多数的那个日期 ≠ 所传 ``trade_date`` 就**拒写**；
+回不了 ``f297`` 也拒写（认不出日期不给写）。历史日的源是 mootdx ``sync-stock-daily``，不是这里。
+``allow_misdated=True`` 才放行，且 source 标 ``eastmoney:snapshot-misdated``，事后能从库里认出这批。
 """
 from __future__ import annotations
 
@@ -31,6 +37,7 @@ from .sync_mootdx_stock_daily import (
     COLS,
     _isnan,
     _ts_code,
+    ensure_stock_daily_columns,
 )
 
 # 复盘为盘后运行: 默认用延时行情 host (push2delay), 收盘后其值 == 实时收盘值;
@@ -43,12 +50,46 @@ EM_PAGE_MAX = 100
 # 沪深京 A 股 (与 akshare stock_zh_a_spot_em 同口径), fs 内 '+' 为东财字段分隔符须保留字面量
 EM_FS = "m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048"
 # f12=代码 f14=名称 f2=最新价(收盘) f3=涨跌幅% f18=昨收 f6=成交额(元) f8=换手率%
+# f17=今开 f15=最高 f16=最低 f5=成交量(手) —— 2026-09-07 起落 open/high/low/volume,
+# 新高等派生要日内最高价, 收盘价对不上 fupanhui 新高家数 (双轨对账差 ±20%)。
 #
 # **请求了就必须接住**，由 tests/test_eastmoney_snapshot_fields.py 钉住。
 # 曾经请求了 f13(市场) 却从不读它: 交易所后缀由 `_ts_code` 按代码前缀派生, 而且
 # **必须与 mootdx 用同一套派生**——改用 f13 会让同一只股票在两个来源下拿到不同的
 # stock_ts_code, 在同一张表里裂成两个实体。所以正解是不请求它, 不是改派生。
-EM_FIELDS = "f12,f14,f2,f3,f18,f6,f8"
+#
+# f297=该行行情的交易日期 (YYYYMMDD 整数)。只用来判「这份快照到底是哪天的」, 不落库——
+# 落库日期是所传 trade_date, 两者不一致就是不该写 (见模块 docstring「日期闸」)。
+EM_FIELDS = "f12,f14,f2,f3,f18,f6,f8,f17,f15,f16,f5,f297"
+#: 日期闸的判定线: 全部行里, 最多的那个 f297 日期要**超过**这个比例才算「认出了快照日期」。
+SNAPSHOT_DATE_QUORUM = 0.5
+
+
+class SnapshotMisdated(RuntimeError):
+    """快照数据日 ≠ 所传 trade_date (或认不出日期)。不是瞬时错误, 重试没用; 历史日请走 mootdx。"""
+
+
+def snapshot_trade_date(diff: list[dict]) -> str | None:
+    """从 f297 里读出这份快照实际是哪个交易日 (ISO)。
+
+    占多数的日期不足 ``SNAPSHOT_DATE_QUORUM``、或压根没有 f297 → None (认不出)。
+    个别行日期不同是正常的 (长期停牌股的 f297 停在最后成交日), 所以按多数判, 不要求全场一致。
+    """
+    counts: dict[str, int] = {}
+    for it in diff:
+        raw = it.get("f297")
+        if raw is None or raw == "-" or raw == "":
+            continue
+        s = str(raw).strip()
+        if not (len(s) == 8 and s.isdigit()):
+            continue
+        counts[s] = counts.get(s, 0) + 1
+    if not counts or not diff:
+        return None
+    best, n = max(counts.items(), key=lambda kv: kv[1])
+    if n <= SNAPSHOT_DATE_QUORUM * len(diff):  # 要「过半」, 恰好一半算认不出
+        return None
+    return f"{best[:4]}-{best[4:6]}-{best[6:]}"
 EM_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -134,11 +175,14 @@ def fetch_snapshot(page_size: int = EM_PAGE_MAX, timeout: float = 20.0,
 def sync_fact_stock_daily_snapshot(trade_date: str | None = None,
                                    page_size: int = EM_PAGE_MAX,
                                    timeout: float = 20.0,
-                                   source: str = "eastmoney:snapshot") -> dict:
+                                   source: str = "eastmoney:snapshot",
+                                   allow_misdated: bool = False) -> dict:
     """东财全市场快照写入 fact_stock_daily 的单个交易日 (盘后增量快路径)。
 
     trade_date: 目标交易日 YYYY-MM-DD, 留空取当天。
     page_size: 分页大小, 东财单页上限100, 超过按100处理 (全A约6千只, ~60页)。
+    allow_misdated: 快照实际日期 ≠ trade_date (或认不出) 时仍然写, source 加 ``-misdated`` 后缀。
+        默认 False → 抛 ``SnapshotMisdated``, 一行都不写。
     """
     if trade_date is None:
         trade_date = date.today().isoformat()
@@ -146,7 +190,18 @@ def sync_fact_stock_daily_snapshot(trade_date: str | None = None,
     init_db()
     con = connect()
     try:
+        ensure_stock_daily_columns(con)
         diff = fetch_snapshot(page_size=page_size, timeout=timeout)
+        # 日期闸: 先于一切写入。快照是「最新」语义, 这里是它与所传日期唯一一次对账的机会。
+        actual = snapshot_trade_date(diff)
+        if actual != trade_date:
+            if not allow_misdated:
+                raise SnapshotMisdated(
+                    f"东财快照实际是 {actual or '认不出的日期 (无 f297)'} 的行情, 所传 trade_date={trade_date}, 拒写。"
+                    f"快照只有「最新」语义; 补历史日用 mootdx: sync-stock-daily --start-date {trade_date} "
+                    f"--end-date {trade_date} --refresh。确认要写请 allow_misdated (source 会标 -misdated)。"
+                )
+            source = source + "-misdated"
         now = datetime.now()
         buf: list[tuple] = []
         skipped = 0
@@ -181,6 +236,10 @@ def sync_fact_stock_daily_snapshot(trade_date: str | None = None,
                 round(turnover, 4) if turnover is not None else None,
                 source,
                 now,
+                _num(it.get("f17")),  # open
+                _num(it.get("f15")),  # high
+                _num(it.get("f16")),  # low
+                _num(it.get("f5")),   # volume 手
             ))
 
         rows_written = 0
@@ -208,6 +267,7 @@ def sync_fact_stock_daily_snapshot(trade_date: str | None = None,
 
     return {
         "trade_date": trade_date,
+        "snapshot_trade_date": actual,
         "source": source,
         "fetched": len(diff),
         "rows_written": rows_written,

@@ -29,6 +29,7 @@ from intelligence.services.episode_issues import (
 from intelligence.services.episode_phase import PhaseRecorder
 from intelligence.services.episode_projection import project_durable_events
 from intelligence.services.episode_progress import EpisodeProgress
+from intelligence.services.episode_store import EPISODE_LOG_VERSION
 from intelligence.services.episode_semantic_verifier import (
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
     SemanticEpisodeOutcome,
@@ -1089,8 +1090,13 @@ class ContinuousTurnAdapter:
         event_projection = project_durable_events(outcome.events)
         artifact = {
             "schema_version": 1,
+            # 事件日志的 schema 版本（运行底座 P2 G9）：与 store 里 state.json 的同一个数。
+            "log_version": EPISODE_LOG_VERSION,
             "execution_kind": "continuous_episode",
             "runtime_backend": self._runtime_name,
+            # RuntimeHandle 生命周期收据 + Scope 能力收据（含 INV-R1 的 derive_mismatches）。
+            # 09-07 探针发现它至今只在内存里；session 已在 finally 关闭，dump 是终态全貌。
+            "runtime_handle": _runtime_handle_receipt(session),
             "research_context": _episode_context_provenance(context),
             "contract": context.contract.to_dict(),
             "outcome": _private_outcome(outcome),
@@ -1894,6 +1900,23 @@ def _private_outcome(outcome: AgentOutcome) -> dict[str, object]:
     payload = outcome.to_dict()
     payload["evidence"] = [asdict(item) for item in outcome.evidence]
     return payload
+
+
+def _runtime_handle_receipt(session: object | None) -> dict[str, object] | None:
+    """会话上挂着的 RuntimeHandle 收据；没有会话接缝的臂（codex）如实给 None。
+
+    收据是观测，不拥有执行：dump 抛了也只记一个 unavailable 标记，不顶替产物。
+    """
+
+    handle = getattr(session, "runtime_handle", None)
+    dump = getattr(handle, "dump", None)
+    if not callable(dump):
+        return None
+    try:
+        receipt = dump()
+    except Exception as exc:  # noqa: BLE001 - 收据不可用不是产物不可用
+        return {"unavailable": type(exc).__name__}
+    return receipt if isinstance(receipt, dict) else None
 
 
 def _private_tokens(outcome: AgentOutcome) -> frozenset[str]:

@@ -86,9 +86,23 @@ CREATE TABLE IF NOT EXISTS fact_market_daily (
     note                     TEXT,
     summary_keywords         TEXT,
     source                   TEXT,
-    updated_at               TIMESTAMP
+    updated_at               TIMESTAMP,
+    -- 2026-09-07：周期阶段自训分类器的来源与置信（老库由 models/market_stage.ensure_stage_columns 追加）
+    market_stage_source      TEXT,
+    market_stage_confidence  DOUBLE,
+    -- 2026-09-08：复盘会内层八段（左底向下 / 左底向上 / 二次探底 / 缩量右底 / 共建主线 / 主流主升 / 主流主升2.0 / 承接盘反复），
+    -- market_stage 是外层六类。平台事后会改写标注，所以带平台 updated_at（转成 UTC 无时区，与旁路库 vendor_updated_at 同口径）；
+    -- 这列只作授课框架的校准参照，不进标签计算。
+    cycle_stage              TEXT,
+    cycle_stage_source       TEXT,
+    cycle_stage_updated_at   TIMESTAMP
 );
 ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS summary_keywords TEXT;
+ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS market_stage_source TEXT;
+ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS market_stage_confidence DOUBLE;
+ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS cycle_stage TEXT;
+ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS cycle_stage_source TEXT;
+ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS cycle_stage_updated_at TIMESTAMP;
 
 -- 板块 universe 快照台账：同一交易日可有多份候选，只有 published 那份对外可见。
 -- 供应商会换代码、改名单，没有这层就无法回答「当时用的是哪一版板块清单」。
@@ -299,6 +313,11 @@ CREATE TABLE IF NOT EXISTS fact_stock_daily (
     turnover       DOUBLE,
     source         TEXT,
     updated_at     TIMESTAMP,
+    -- 2026-09-07: 日内价量 (新高/振幅派生需要日内最高价); 老库由 sync_mootdx_stock_daily.ensure_stock_daily_columns 追加
+    open           DOUBLE,
+    high           DOUBLE,
+    low            DOUBLE,
+    volume         DOUBLE,   -- 手 (东财 f5 / mootdx vol 同单位)
     PRIMARY KEY (trade_date, stock_ts_code)
 );
 CREATE INDEX IF NOT EXISTS idx_fact_stock_daily_date ON fact_stock_daily(trade_date);
@@ -651,6 +670,45 @@ CREATE TABLE IF NOT EXISTS fact_core_stock_daily (
     PRIMARY KEY (trade_date, stock_ts_code)
 );
 CREATE INDEX IF NOT EXISTS idx_fact_core_stock_date ON fact_core_stock_daily(trade_date);
+
+-- 自家「核心个股」：主线题材成员 × 知识库正宗度 × 人气。
+-- 与上面 fact_core_stock_daily 是**两个口径**，故分表不混写：那张是「成交额前 50」（复刻 fupanhui），
+-- 这张是「主线里正宗且有人气的龙头」。混进同一张表会让下游按 COUNT 判覆盖的门禁与 finance_query
+-- 的 core_stock_daily 数据集同时读到两种语义的行。
+-- kb_* 四列是**正宗度的收据**：拿 kb_concept 去知识库 query_relations.py 能查到那条边，
+-- 分数不是不可回溯的黑箱。
+CREATE TABLE IF NOT EXISTS fact_core_leader_daily (
+    trade_date        DATE,
+    rank              INTEGER,
+    stock_ts_code     TEXT,
+    stock_name        TEXT,
+    theme_code        TEXT,
+    theme_name        TEXT,
+    sector_ts_code    TEXT,
+    sector_name       TEXT,
+    close             DOUBLE,
+    pct_chg           DOUBLE,
+    amount            DOUBLE,
+    gain_5d           DOUBLE,
+    boards            INTEGER,
+    is_limit_up       BOOLEAN,
+    is_new_high       BOOLEAN,
+    popularity        DOUBLE,
+    authenticity      DOUBLE,
+    score             DOUBLE,
+    -- 该股所属主线板块在知识库里有没有对应概念。FALSE 时 authenticity=0 只代表「没得查」，
+    -- 与 TRUE 时的「查过、不正宗」是两回事——不分开的话覆盖率缺口会伪装成判断结果。
+    kb_sector_covered BOOLEAN,
+    kb_concept        TEXT,
+    kb_strength       TEXT,
+    kb_evidence_layer TEXT,
+    kb_updated        TEXT,
+    source            TEXT,
+    updated_at        TIMESTAMP,
+    PRIMARY KEY (trade_date, stock_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_core_leader_date ON fact_core_leader_daily(trade_date);
+CREATE INDEX IF NOT EXISTS idx_fact_core_leader_theme ON fact_core_leader_daily(theme_code);
 
 CREATE TABLE IF NOT EXISTS fact_auction_stock_daily (
     trade_date       DATE,

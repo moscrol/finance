@@ -462,23 +462,44 @@ class SectorUniverseStore:
     def published_snapshot(
         self,
         trade_date: str | date,
-        provider_source: str = "fupanhui",
+        provider_source: str | None = None,
     ) -> PublishedSectorSnapshot:
-        """Return and revalidate the single published generation for one date."""
+        """Return and revalidate the single published generation for one date.
+
+        provider_source=None（默认）= 该日唯一的 published 快照，不限 provider——
+        2026-09-07 起名单可能是 ``local:carry``（fupanhui 停抓后的冻结名单），
+        消费方（本地板块日线等）不该再假设 provider 一定是 fupanhui。
+        """
         canonical_date = _normalize_trade_date(trade_date)
-        canonical_provider = _canonical_text(provider_source).casefold()
-        headers = self._con.execute(
-            """
-            SELECT snapshot_id, sector_count, declared_relationship_count, captured_at
-            FROM ops_sector_universe_snapshot_daily
-            WHERE trade_date = ? AND provider_source = ? AND status = 'published'
-            """,
-            [canonical_date, canonical_provider],
-        ).fetchall()
-        if len(headers) != 1:
-            raise SectorUniverseValidationError(
-                "expected exactly one published snapshot for trade date and provider"
-            )
+        if provider_source is None:
+            headers = self._con.execute(
+                """
+                SELECT snapshot_id, sector_count, declared_relationship_count, captured_at, provider_source
+                FROM ops_sector_universe_snapshot_daily
+                WHERE trade_date = ? AND status = 'published'
+                """,
+                [canonical_date],
+            ).fetchall()
+            if len(headers) != 1:
+                raise SectorUniverseValidationError(
+                    "expected exactly one published snapshot for trade date"
+                )
+            canonical_provider = headers[0][4]
+            headers = [headers[0][:4]]
+        else:
+            canonical_provider = _canonical_text(provider_source).casefold()
+            headers = self._con.execute(
+                """
+                SELECT snapshot_id, sector_count, declared_relationship_count, captured_at
+                FROM ops_sector_universe_snapshot_daily
+                WHERE trade_date = ? AND provider_source = ? AND status = 'published'
+                """,
+                [canonical_date, canonical_provider],
+            ).fetchall()
+            if len(headers) != 1:
+                raise SectorUniverseValidationError(
+                    "expected exactly one published snapshot for trade date and provider"
+                )
         snapshot_id, sector_count, declared_relationship_count, captured_at = headers[0]
         sector_rows = self._con.execute(
             """

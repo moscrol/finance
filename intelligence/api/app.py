@@ -48,6 +48,7 @@ from intelligence.services import kb_rag
 from intelligence.services import llm_refine
 from intelligence.services import market_moneyflow
 from intelligence.services import perspective_lab
+from intelligence.services import research_contract
 from intelligence.services import run_store as rs
 from intelligence.services.provider_latency import repair_seconds_cap_for
 from intelligence.runtime.agent_runtime_factory import (
@@ -86,6 +87,10 @@ from intelligence.services.episode_progress import (
     RunEpisodeProgressPublisher,
     project_episode_progress,
     public_progress_messages,
+)
+from intelligence.services.episode_store import (
+    JsonlEpisodeStore,
+    resolve_episode_store_root,
 )
 from intelligence.services.episode_tools import (
     build_episode_registry,
@@ -186,6 +191,40 @@ def _positive_float_env(name: str, default: float) -> float:
 def _continuous_runtime_mode() -> str:
     mode = os.environ.get("ASK_CONTINUOUS_RUNTIME", "off").strip().lower()
     return mode if mode in _CONTINUOUS_RUNTIME_MODES else "off"
+
+
+_RESEARCH_TIER_ENV = "WORKBENCH_RESEARCH_TIER"
+
+
+def _research_tier_from_env() -> str:
+    """Episode 起步档位（quick / standard / deep / max），部署侧可覆盖。
+
+    此前 ``ContinuousTurnAdapter`` 没传 ``tier``，生产每一轮都从 standard 起步（90s /
+    6 步 / 8 次），只能靠模型自愿交 PLAN 才升 deep——GLM 交 PLAN 0/113，deep 事实关闭。
+    2026-09-06 用户决策「先找能力 max、再按超限加约束」，起步档位改成部署可选。
+    未设或非法值回落 standard：这是服务启动路径，一个拼错的 env 不该让服务起不来，
+    也不该静默把每轮放大到 600s。
+    """
+
+    raw = os.environ.get(_RESEARCH_TIER_ENV, "").strip().lower()
+    return raw if raw in research_contract.RESEARCH_TIERS else "standard"
+
+
+def _deployment_execution_policy():
+    """「deep-research」profile 的执行策略 + 按起步档位放大的 turn 级 LLM 调用保险丝。
+
+    保险丝 ``max_llm_calls`` 缺省 40，controller / judge / agent / 分支 / 合成共用一本账。
+    max 档下子研究分支的模型调用也记在这本账上，40 会在判官之前烧穿（09-07 实测），
+    而判官是最不该被拒的那个调用。只在保险丝比档位值小时抬，不往下压。
+    """
+
+    from dataclasses import replace
+
+    policy = profile_named("deep-research").execution_policy()
+    fuse = research_contract.llm_call_fuse_for_tier(_research_tier_from_env())
+    if fuse > policy.max_llm_calls:
+        policy = replace(policy, max_llm_calls=fuse)
+    return policy
 
 
 def _runtime_market_reference_date() -> str | None:
@@ -305,6 +344,28 @@ def _memory_bound_registry_factory(
     return registry_factory
 
 
+_OPEN_EPISODES_LIST_CAP = 50
+
+
+def _open_episodes_registry() -> dict[str, object]:
+    """``/api/readiness`` 里的登记表：store 中仍未终局的 episode（运行底座 P2）。
+
+    只登记，不恢复——自动恢复要等 P4 竞态目录里「restore vs 在飞驱动」有测（母单 §12 第 3 题）。
+    列表截到 ``_OPEN_EPISODES_LIST_CAP`` 条，count 给全量。
+    """
+
+    store = JsonlEpisodeStore(resolve_episode_store_root())
+    try:
+        open_ids = store.list_open()
+    except Exception as exc:  # noqa: BLE001 - 探针路径：读不出 store 不该拖垮 readiness
+        return {"count": None, "episode_ids": [], "unavailable": type(exc).__name__}
+    return {
+        "count": len(open_ids),
+        "episode_ids": list(open_ids[:_OPEN_EPISODES_LIST_CAP]),
+        "truncated": len(open_ids) > _OPEN_EPISODES_LIST_CAP,
+    }
+
+
 def _build_continuous_turn_adapter(
     *,
     providers: tuple[LLMProvider, ...],
@@ -402,6 +463,9 @@ def _build_continuous_turn_adapter(
             event_sink=(
                 publish_episode_event if progress_publisher is not None else None
             ),
+            # 运行底座 P2：每步落盘（events.jsonl 追加 + state.json 覆写），进程重启后
+            # ``restore`` 能读回。store 对象只是根路径 + 锁，按次构造即可，目录首次 append 才建。
+            episode_store=JsonlEpisodeStore(resolve_episode_store_root()),
         )
     elif selection.name == "sdk_glm":
         if not providers:
@@ -486,6 +550,7 @@ def _build_continuous_turn_adapter(
         semantic_verifier=semantic_verifier,
         runtime_name=selection.name,
         mode=_continuous_runtime_mode(),
+        tier=_research_tier_from_env(),
         registry_factory=registry_factory,
         task_id_factory=lambda: task_id,
         timeout=timeout,
@@ -1481,7 +1546,7 @@ def _run_conversation_turn(
             # reserve its measured frozen-replay envelope explicitly.  The
             # continuous adapter below keeps its separate 120s contract.
             # Budget numbers stay on grounded_deep; this envelope only holds it.
-            research_policy=profile_named("deep-research").execution_policy(),
+            research_policy=_deployment_execution_policy(),
             continuous_turn_adapter=_build_continuous_turn_adapter(
                 providers=llm_providers,
                 run_id=run_id,
@@ -2551,6 +2616,10 @@ def create_app(
                 "rag": worker_status,
             },
             "recovered_runs": len(recovered_runs),
+            # 运行底座 P2（§12 第 3 题：只登记、不自动恢复）：进程重启后 store 里仍
+            # 非 done 的 episode。列出来让人 / Workbench 决定是否 ``restore``；
+            # 读不出 store 时如实报 unavailable，不让它拖红 readiness。
+            "open_episodes": _open_episodes_registry(),
         }
         return JSONResponse(payload, status_code=200 if ready else 503)
 
