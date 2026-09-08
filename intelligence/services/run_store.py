@@ -24,11 +24,15 @@
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
 import re
+import tempfile
 import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -61,6 +65,10 @@ _TERMINAL_STATUSES = (STATUS_COMPLETED, STATUS_FAILED, STATUS_CANCELLED)
 
 STEP_STATUSES = ("running", "completed", "failed", "skipped")
 ARTIFACT_VISIBILITIES = ("public", "internal")
+HISTORY_ARTIFACT_KINDS = ("query", "case", "hypothesis")
+_HISTORY_ARTIFACT_NAME = re.compile(
+    r"history-(query|case|hypothesis)-([0-9a-f]{64})\.json"
+)
 _LEGACY_INTERNAL_ARTIFACT_PATHS = frozenset({"continuous-episode.json"})
 
 
@@ -77,6 +85,7 @@ def artifact_visibility(artifact: dict[str, Any]) -> str:
         if str(artifact.get("path") or "") in _LEGACY_INTERNAL_ARTIFACT_PATHS
         else "public"
     )
+
 
 # 常见密钥形态：Authorization 头/JWT、OpenAI/GitHub/飞书前缀 token，
 # 以及 key=value 形式的赋值。先匹配完整 Authorization 头，避免只遮掉
@@ -120,6 +129,19 @@ def _stream_lock(path: Path) -> Lock:
     key = str(path.resolve())
     with _STREAM_LOCKS_GUARD:
         return _STREAM_LOCKS.setdefault(key, Lock())
+
+
+@contextmanager
+def _file_transaction_lock(path: Path) -> Iterator[None]:
+    """Hold a non-reentrant lock shared by threads, stores and processes."""
+    with _stream_lock(path):
+        fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+            os.close(fd)
 
 
 def redact(text: str) -> str:
@@ -296,7 +318,8 @@ class RunStore:
         )
         run_dir = self.run_dir(run.run_id)
         run_dir.mkdir(parents=True, exist_ok=True)
-        self._write_run(run)
+        with self._run_state_lock(run.run_id):
+            self._write_run(run)
         return run
 
     def append_step(
@@ -416,7 +439,7 @@ class RunStore:
         previewable: bool = True,
         downloadable: bool = True,
     ) -> Artifact:
-        with self._state_lock:
+        with self._run_state_lock(run_id):
             if visibility not in ARTIFACT_VISIBILITIES:
                 raise ValueError(f"invalid artifact visibility: {visibility!r}")
             data = content.encode("utf-8") if isinstance(content, str) else content
@@ -439,9 +462,220 @@ class RunStore:
             self._write_run(run)
             return artifact
 
+    def add_history_artifact(
+        self,
+        run_id: str,
+        kind: str,
+        payload: dict[str, Any],
+        *,
+        visibility: str = "public",
+    ) -> Artifact:
+        """Commit a complete JSON original without replacing earlier evidence.
+
+        A retry repairs an unregistered, intact content file after a failed index
+        write. Registered files that disappeared or changed always fail closed.
+        The caller supplies research JSON; unlike summaries it is not truncated
+        or rewritten. The normal artifact visibility rules still apply.
+        """
+        with self._state_lock:
+            self._history_run(run_id)
+            if kind not in HISTORY_ARTIFACT_KINDS:
+                raise ValueError(f"invalid history artifact kind: {kind!r}")
+            if visibility not in ARTIFACT_VISIBILITIES:
+                raise ValueError(f"invalid artifact visibility: {visibility!r}")
+            data = self._history_json_bytes(payload)
+            digest = hashlib.sha256(data).hexdigest()
+            filename = f"history-{kind}-{digest}.json"
+            artifact = Artifact(
+                artifact_id=f"artifact_{filename.replace('.', '_')}",
+                path=filename,
+                renderer="json",
+                title=f"History {kind}",
+                sha256=digest,
+                bytes=len(data),
+                visibility=visibility,
+            )
+            with self._run_state_lock(run_id):
+                run, run_dir = self._history_run(run_id)
+                path = self._history_path(run_dir, filename)
+                registered = [a for a in run.artifacts if a.get("path") == filename]
+                if registered:
+                    if len(registered) != 1:
+                        raise ValueError(
+                            "history artifact integrity: duplicate registration"
+                        )
+                    self._verified_history_bytes(path, registered[0])
+                    if registered[0] != asdict(artifact):
+                        raise ValueError("conflicting history artifact registration")
+                    return artifact
+
+                # Publish a fully written file with link(2), which cannot replace
+                # an existing destination. An interrupted index write leaves an
+                # intact orphan that this same path can verify and register.
+                if not path.exists():
+                    with tempfile.NamedTemporaryFile(
+                        dir=run_dir, prefix=".history-", suffix=".tmp", delete=False
+                    ) as fh:
+                        temporary = Path(fh.name)
+                        try:
+                            fh.write(data)
+                            fh.flush()
+                            os.fsync(fh.fileno())
+                            try:
+                                os.link(temporary, path)
+                            except FileExistsError:
+                                pass
+                        finally:
+                            temporary.unlink(missing_ok=True)
+                self._verified_history_bytes(path, asdict(artifact))
+                directory_fd = os.open(run_dir, os.O_RDONLY)
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
+                run.artifacts.append(asdict(artifact))
+                self._write_run(run)
+                return artifact
+
+    def read_history_artifact(self, run_id: str, filename: str) -> dict[str, Any]:
+        """Read only a registered, public original owned by this store's user."""
+        with self._state_lock:
+            run, run_dir = self._history_run(run_id)
+            path = self._history_path(run_dir, filename)
+            registered = [a for a in run.artifacts if a.get("path") == filename]
+            if len(registered) > 1:
+                raise ValueError("history artifact integrity: duplicate registration")
+            if (
+                not registered
+                or artifact_visibility(registered[0]) != "public"
+                or registered[0].get("downloadable", True) is not True
+            ):
+                raise FileNotFoundError(f"history artifact not available: {filename}")
+            data = self._verified_history_bytes(path, registered[0])
+            payload = json.loads(data)
+            self._history_json_bytes(payload)
+            return payload
+
+    @contextmanager
+    def history_case_transaction(
+        self, conversation_id: str, case_id: str
+    ) -> Iterator[None]:
+        """Coordinate case-head checks and writes to existing run artifacts.
+
+        The caller refreshes authorized conversation references, reads the head,
+        validates the revision and saves through this RunStore while holding the
+        transaction. The empty lock file is coordination, not another index or
+        ledger. Always acquire this case lock before any per-run metadata lock;
+        ordinary run writers never acquire a case lock. Neither lock is reentrant.
+        """
+        for name, value in (("conversation_id", conversation_id), ("case_id", case_id)):
+            if not isinstance(value, str) or not re.fullmatch(
+                r"[A-Za-z0-9][A-Za-z0-9._-]{0,199}", value
+            ):
+                raise ValueError(f"invalid history {name}")
+        identity = json.dumps(
+            [self.user_id, conversation_id, case_id], separators=(",", ":")
+        ).encode("utf-8")
+        directory = self.root / ".history-case-locks"
+        if directory.is_symlink() or directory.resolve().parent != self.root.resolve():
+            raise ValueError("invalid history case lock path")
+        directory.mkdir(mode=0o700, exist_ok=True)
+        path = directory / f"{hashlib.sha256(identity).hexdigest()}.lock"
+        with _file_transaction_lock(path):
+            yield
+
+    def _history_run(self, run_id: str) -> tuple[Run, Path]:
+        if not isinstance(run_id, str) or not run_id:
+            raise ValueError("invalid history run path")
+        run_dir = self.run_dir(run_id)
+        if run_dir.is_symlink() or run_dir.resolve().parent != self.root.resolve():
+            raise ValueError("invalid history run path")
+        run_path = run_dir / "run.json"
+        if run_path.is_symlink():
+            raise ValueError("invalid history run metadata path")
+        if not run_path.is_file():
+            raise FileNotFoundError(f"run not found: {run_id}")
+        run = self.load_run(run_id)
+        if run.user != self.user_id:
+            raise PermissionError("history artifact belongs to another user")
+        if run.run_id != run_id:
+            raise ValueError("history run identity mismatch")
+        return run, run_dir
+
+    @contextmanager
+    def _run_state_lock(self, run_id: str) -> Iterator[None]:
+        # Every metadata read/modify/write uses the same per-run lock, including
+        # cancellation, ordinary artifacts and recovery. Locking only history
+        # writes would let another store commit a stale Run over their result.
+        # No locked operation calls another metadata writer: the file lock is
+        # intentionally non-reentrant. O_NOFOLLOW rejects lock-file symlinks.
+        path = self.run_dir(run_id) / ".run-state.lock"
+        with _file_transaction_lock(path):
+            yield
+
+    @staticmethod
+    def _history_json_bytes(payload: dict[str, Any]) -> bytes:
+        def validate(value: Any) -> None:
+            if isinstance(value, dict):
+                for key, item in value.items():
+                    if not isinstance(key, str):
+                        raise ValueError("history JSON object keys must be strings")
+                    validate(item)
+            elif isinstance(value, list):
+                for item in value:
+                    validate(item)
+            elif value is not None and not isinstance(value, (str, int, float, bool)):
+                raise ValueError("history payload must contain only JSON values")
+
+        if not isinstance(payload, dict):
+            raise ValueError("history payload must be a JSON object")
+        validate(payload)
+        return (
+            json.dumps(
+                payload,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            )
+            + "\n"
+        ).encode("utf-8")
+
+    @staticmethod
+    def _history_path(run_dir: Path, filename: str) -> Path:
+        if not isinstance(filename, str) or not _HISTORY_ARTIFACT_NAME.fullmatch(
+            filename
+        ):
+            raise ValueError("invalid history artifact path")
+        path = run_dir / filename
+        if path.is_symlink() or path.resolve().parent != run_dir.resolve():
+            raise ValueError("invalid history artifact path")
+        return path
+
+    @staticmethod
+    def _verified_history_bytes(path: Path, artifact: dict[str, Any]) -> bytes:
+        if path.is_symlink():
+            raise ValueError("invalid history artifact path")
+        if not path.is_file():
+            raise FileNotFoundError(f"history artifact missing: {path.name}")
+        with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW), "rb") as fh:
+            data = fh.read()
+        match = _HISTORY_ARTIFACT_NAME.fullmatch(path.name)
+        digest = hashlib.sha256(data).hexdigest()
+        if (
+            match is None
+            or match[2] != digest
+            or artifact.get("sha256") != digest
+            or type(artifact.get("bytes")) is not int
+            or artifact["bytes"] != len(data)
+            or artifact.get("renderer") != "json"
+        ):
+            raise ValueError("history artifact integrity check failed")
+        return data
+
     def add_degrade(self, run_id: str, reason: str) -> None:
         """数据源降级一等公民化：录屏里「ftshare 不可用」这类事件落到 run 元数据。"""
-        with self._state_lock:
+        with self._run_state_lock(run_id):
             run = self.load_run(run_id)
             reason = redact(reason)
             if reason not in run.degrades:
@@ -458,7 +692,7 @@ class RunStore:
         kb_index_built_at: str | None = None,
         kb_index_freshness: str | None = None,
     ) -> Run:
-        with self._state_lock:
+        with self._run_state_lock(run_id):
             run = self.load_run(run_id)
             if source_date is not None:
                 run.source_date = source_date
@@ -490,7 +724,7 @@ class RunStore:
             raise ValueError(
                 f"finish_run 只接受终态：{_TERMINAL_STATUSES}，得到 {status!r}"
             )
-        with self._state_lock:
+        with self._run_state_lock(run_id):
             run = self.load_run(run_id)
             if run.status in _TERMINAL_STATUSES:
                 return run, False
@@ -502,7 +736,7 @@ class RunStore:
 
     def mark_queued(self, run_id: str) -> Run:
         """已受理、等 worker 空出来。终态不回退。"""
-        with self._state_lock:
+        with self._run_state_lock(run_id):
             run = self.load_run(run_id)
             if run.status in _TERMINAL_STATUSES:
                 return run
@@ -513,7 +747,7 @@ class RunStore:
             return run
 
     def mark_running(self, run_id: str) -> Run:
-        with self._state_lock:
+        with self._run_state_lock(run_id):
             run = self.load_run(run_id)
             if run.status in _TERMINAL_STATUSES:
                 return run
@@ -532,7 +766,7 @@ class RunStore:
     ) -> tuple[Run, bool]:
         """Atomically claim failure together with its public degradation reason."""
 
-        with self._state_lock:
+        with self._run_state_lock(run_id):
             run = self.load_run(run_id)
             if run.status in _TERMINAL_STATUSES:
                 return run, False
@@ -555,22 +789,25 @@ class RunStore:
 
     def requeue_incomplete_runs(self, *, reason: str) -> list[Run]:
         recovered: list[Run] = []
-        for run in self.list_runs():
-            if run.status not in {STATUS_QUEUED, STATUS_RUNNING}:
-                continue
-            if reason not in run.degrades:
-                run.degrades.append(redact(reason))
-            run.status = STATUS_QUEUED
-            run.finished_at = None
-            run.error = None
-            self._write_run(run)
-            self.append_stream_event(
-                run.run_id,
-                event_id=f"recovery:{_now_iso()}",
-                event_type="run_recovered",
-                payload={"reason": reason},
-            )
-            recovered.append(run)
+        for candidate in self.list_runs():
+            with self._run_state_lock(candidate.run_id):
+                # The listing can be stale by the time this run's lock is held.
+                run = self.load_run(candidate.run_id)
+                if run.status not in {STATUS_QUEUED, STATUS_RUNNING}:
+                    continue
+                if reason not in run.degrades:
+                    run.degrades.append(redact(reason))
+                run.status = STATUS_QUEUED
+                run.finished_at = None
+                run.error = None
+                self._write_run(run)
+                self.append_stream_event(
+                    run.run_id,
+                    event_id=f"recovery:{_now_iso()}",
+                    event_type="run_recovered",
+                    payload={"reason": reason},
+                )
+                recovered.append(run)
         return recovered
 
     # ---------- 读路径 ----------

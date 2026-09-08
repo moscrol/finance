@@ -8,7 +8,7 @@ module can be introduced beside the old path without changing its public API.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import inspect
 from typing import TYPE_CHECKING, Callable, Literal
 
@@ -264,6 +264,8 @@ class TurnControlCore:
             required_outputs=intent.required_outputs,
         )
         frame = build_task_frame(query, envelope)
+        if frame.history_intent is None and intent.history_intent is not None:
+            frame = replace(frame, history_intent=intent.history_intent)
         return rebase_task_frame(
             frame,
             question_type=intent.question_type,

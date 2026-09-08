@@ -6,6 +6,7 @@ question and never imports private helpers from the legacy orchestrator.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date
 import re
 
@@ -166,6 +167,7 @@ def _require_output_description(output_id: str) -> str:
         raise ValueError(
             f"missing _OUTPUT_DESCRIPTIONS[{output_id!r}]"
         ) from exc
+
 
 # 用户在问题里引用了自己过去的看法。这类问题要回答的不是「现在怎么样」，而是
 # 「跟我上次说的比，变了什么」——后者需要先取回那份先验。
@@ -737,6 +739,26 @@ def build_episode_context(
         evidence_plan=evidence_plan,
         task_frame_hash=frame.task_frame_hash,
     )
+    if frame.history_intent is not None and "finance_query" in capability_tuple:
+        # Capability authorizes execution; evidence_types admits the actual
+        # producer names. Keep historical provenance and narrow output contracts
+        # (for example memory/news/financial anchors) intact.
+        contract = replace(
+            contract,
+            required_outputs=tuple(
+                replace(
+                    output,
+                    evidence_types=tuple(
+                        dict.fromkeys(
+                            (*output.evidence_types, "history_query", "read_history_result")
+                        )
+                    ),
+                )
+                if "finance_query" in output.evidence_types
+                else output
+                for output in contract.required_outputs
+            ),
+        )
     contract = apply_static_chain_mapping_precheck(contract, knowledge=knowledge)
     cutoff = (
         information_cutoff
@@ -746,6 +768,11 @@ def build_episode_context(
             latest_data_date=latest_data_date,
         )
     )
+    if frame.history_intent is not None and frame.history_intent.strict_window and frame.history_intent.requested_end:
+        cutoff = InformationCutoff(
+            min(cutoff.as_of_date, date.fromisoformat(frame.history_intent.requested_end)),
+            "requested",
+        )
     return ResearchRunContext(
         contract=contract,
         deadline=ResearchDeadline.from_timeout(
@@ -762,6 +789,7 @@ def build_episode_context(
         perspective_context=str(perspective_context or "").strip(),
         stance_pack=stance_pack,
         retrieval_stages=tuple(retrieval_stages or ()),
+        history_intent=frame.history_intent,
     )
 
 

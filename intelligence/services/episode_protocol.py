@@ -148,10 +148,15 @@ def _question_type_rules(
     track_rule = episode_track_rule(
         task_frame.raw_question,
         task_frame.question_type,
-    ) + episode_scenario_rule(
-        task_frame.raw_question,
-        task_frame.question_type,
     )
+    # "怎么走出来" is retrospective, although the shared scenario detector
+    # matches "怎么走". Historical research owns its answer shape. Explicit
+    # additional outlook requests retain the factory's optional reasoning slots.
+    if context.history_intent is None:
+        track_rule += episode_scenario_rule(
+            task_frame.raw_question,
+            task_frame.question_type,
+        )
     longtail_rule = episode_rule(task_frame)
     # ASK_DEGRADED_FALLBACK（默认 off）：降级回答章法，off 时空串。
     degraded_rule = degraded_episode_rule(task_frame)

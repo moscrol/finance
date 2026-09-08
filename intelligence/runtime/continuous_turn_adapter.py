@@ -80,7 +80,7 @@ RuntimeMode = Literal["off", "canary", "on"]
 ContinuousTurnStatus = Literal["completed", "partial", "degraded", "failed"]
 # episode 前零 LLM 快路径名单 = runner 支持集本身，不另抄一份：往这里加
 # 题型而 runner 不认识时，得到的是「尚未接入」占位而不是快路径答案
-#（R-20260828-08 对账门禁；等式另由 test_route_composition_gate 钉住防回退）。
+# （R-20260828-08 对账门禁；等式另由 test_route_composition_gate 钉住防回退）。
 CONTINUOUS_FAST_PATH_TYPES = FAST_PATH_RUNNER_SUPPORTED_TYPES
 _SUCCESSFUL_REPAIR_STOP_REASONS = frozenset(
     {"model_finish", "repair_model_finish"}
@@ -1589,14 +1589,18 @@ def _episode_context_provenance(
         "today": context.today,
         "latest_data_date": context.latest_data_date,
         "trace_parent_id": context.trace_parent_id,
+        "history_intent": (
+            context.history_intent.to_dict()
+            if context.history_intent is not None
+            else None
+        ),
+        "history_results": list(context.history_results),
     }
     pack = getattr(context, "stance_pack", None)
     if pack is None:
         return payload
     to_receipt = getattr(pack, "to_receipt", None)
-    payload["stance_pack"] = (
-        to_receipt() if callable(to_receipt) else {"present": True}
-    )
+    payload["stance_pack"] = to_receipt() if callable(to_receipt) else {"present": True}
     return payload
 
 

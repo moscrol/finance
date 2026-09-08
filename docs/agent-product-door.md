@@ -29,6 +29,16 @@
 
 编码任务「仓库里有没有现成实现」走 `python3 scripts/code_map.py query "<问题>"`，不是本页，也不是问答门。空图不得写成架构结论。
 
+### 历史发现研究
+
+入口仍是 Workbench 对话，例如「这一波农业怎么走出来的，找出值得检验的特征」→「以前有没有类似，失败案例也看看」→「把观察窗口改成……」。`TaskFrame.history_intent` 区分事后发现与历史比较，随 `TurnIntent` 跨轮传递；普通概念解释与明确取消历史研究不会继承该权限。用户明确限定日期时，历史计算、普通结构化查询与原件读取共用范围门。
+
+`historical_research` 是引擎 A 上的领域应用：有类型 `history_query` 负责精确代码的日轴、受支持的时间特征、类比及声明窗口全集比较；`read_history_result` 读取原件；`save_history_research` 保存候选、失败与修订。它们复用 `finance_query` capability，预算、工具循环与取消仍由 Episode 管理。完整分母与模型预览分离，原件只经 RunStore 写入；案例修订与普通取消/产物写入均有并发保护。
+
+当前结果均是探索研究：相似案例不等于独立验证，重叠窗口不当作独立样本；不支持的组合定义明确返回缺口。L2、晚间卖方与晨汇未同步目标范围为 `pending_sync`，没有安排同步。严格时点认证、样本独立性与正式方法晋升继续消费基础评价器合同；本工具不颁发认证。
+
+实现和分期验收见 [历史发现 spec](superpowers/specs/2026-09-09-historical-discovery-research-design.md) 与 [执行计划](superpowers/plans/2026-09-09-historical-discovery.md)。部署状态以运行服务 `/api/health` 的 revision 为准，仓内存在代码不等于线上已更新。
+
 ## 两条引擎（调度器后面）
 
 一个调度器（`conversation_orchestrator` / `TurnOrchestrator`）+ 两条引擎。两条都调 LLM，差别是**流程谁定**：

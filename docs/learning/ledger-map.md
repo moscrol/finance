@@ -25,6 +25,7 @@
 | 机构胜率 | `~/kb_work/winrate_cache/` + `~/kb_work/winrate/` | md | refresh_winrate | 仓外 | 同上 |
 | 每日运营总账 | `build_daily_ops_ledger.py` 输出 | JSON | 该脚本 | 生成物 | cockpit |
 | 工作台 Run | `intelligence/users/<id>/runs/<run_id>/run.json` + `trace.jsonl` | JSON/JSONL | `run_store.py` | 否（用户态） | Workbench UI（协议见 `docs/superpowers/plans/2026-07-08-run-protocol.md`） |
+| 历史研究查询 / 案例 / 假设原件 | `userspace.user_space(user).root/runs/<run_id>/history-{query,case,hypothesis}-<sha256>.json`（用户根由 `FORESIGHT_USERS_DIR` 解析；登记在同 run 的 `run.json`，不写冻结的 `intelligence/users/`） | 内容寻址 JSON，不可覆盖 | `RunStore.add_history_artifact`；案例修订在 `history_case_transaction` 内核对当前 head | 否（用户态） | Workbench 既有 JSON 产物查看器；Agent `read_history_result` 同用户同会话、截止及范围核验后读取 |
 | 工具饥饿 | `$FORESIGHT_USERS_DIR/<user>/runs/<run_id>/tool_hunger.jsonl` | JSONL | episode/inline 运行时（fail-open） | 否（用户态） | `python -m intelligence.eval.tool_hunger` → `intelligence/eval/measurements/tool-hunger-YYYY-MM-DD.{json,md}` |
 | 工作台会话 | `intelligence/users/<id>/conversations/<conversation_id>/conversation.json` + `messages.jsonl` | JSON/JSONL | `ConversationStore` | 否（用户态） | Chat-first Workbench UI |
 | Fidelity 前向验收 | `/Users/a77/fidelity-runtime/forward-acceptance/records/<date>/*.json` | JSON | `fidelity_forward_acceptance.py record` | 仓外 | `latest/<date>.json` + `summary` 子命令 |

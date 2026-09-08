@@ -101,6 +101,8 @@ def _finance_payload_kwargs(
         "caliber": table or spec.dataset,
         "payload_field_names": names,
     }
+
+
 _DEFAULT_EVIDENCE_SEARCH_JUDGE = object()
 _AGENT_FINANCE_QUERY_MAX_ROWS = 25
 
@@ -371,6 +373,8 @@ def _task_authorizes_historical_window(
     """Only user-owned task semantics may relax the current-data floor."""
 
     if frame.question_type == "dated_market_review":
+        return True
+    if frame.history_intent is not None:
         return True
     timeframe_date = _iso_date(frame.timeframe)
     if timeframe_date is not None and (floor is None or timeframe_date < floor):
@@ -837,6 +841,7 @@ def build_episode_registry(
     perspective_mode: str = "neutral",
     user_space=None,
     sub_research_runner: agent_research.ToolRunner | None = None,
+    history_session=None,
 ) -> ResearchToolRegistry:
     """Build a read-only registry from the repository's current tool runners."""
 
@@ -864,9 +869,7 @@ def build_episode_registry(
         )
         if market_window_end is None and market_reference_date:
             try:
-                market_window_end = date.fromisoformat(
-                    str(market_reference_date)[:10]
-                )
+                market_window_end = date.fromisoformat(str(market_reference_date)[:10])
             except ValueError:
                 market_window_end = None
         if market_window_end is None:
@@ -912,9 +915,7 @@ def build_episode_registry(
             excerpt_chars=240,
             budget_query=frame.raw_question,
             require_fresh=(
-                fixture_policy.require_fresh_kb
-                if fixture_policy is not None
-                else True
+                fixture_policy.require_fresh_kb if fixture_policy is not None else True
             ),
             cache_scope=context.contract.task_id,
             index_dir=(
@@ -928,9 +929,7 @@ def build_episode_registry(
                 else None
             ),
             python_executable=(
-                fixture_policy.knowledge_python
-                if fixture_policy is not None
-                else None
+                fixture_policy.knowledge_python if fixture_policy is not None else None
             ),
             worker_enabled=(False if fixture_policy is not None else None),
         )
@@ -952,9 +951,12 @@ def build_episode_registry(
         tool_context.check_cancelled()
         if tool_context.deadline.expired:
             raise TimeoutError("market-data deadline expired")
-        if frame.question_type != "valuation_estimate" and _structured_provider_is_stale(
-            structured_source_date,
-            floor=freshness_floor,
+        if (
+            frame.question_type != "valuation_estimate"
+            and _structured_provider_is_stale(
+                structured_source_date,
+                floor=freshness_floor,
+            )
         ):
             assert freshness_floor is not None
             return _stale_structured_result(
@@ -1138,7 +1140,9 @@ def build_episode_registry(
         observation = observation or "逐季财务指标无可用结果"
         if window_note:
             observation = f"{window_note}；{observation}"
-        detail = f"quarterly_financials_snapshot; periods={periods}; window={period_source}"
+        detail = (
+            f"quarterly_financials_snapshot; periods={periods}; window={period_source}"
+        )
         if target_end is not None:
             detail += f"; target_report_end={target_end.isoformat()}"
         return (
@@ -1262,8 +1266,7 @@ def build_episode_registry(
         "l3_lookup" in context.contract.allowed_capabilities
         and callable(selected_l3_runner)
         and not (
-            fixture_policy is not None
-            and not fixture_policy.external_search_enabled
+            fixture_policy is not None and not fixture_policy.external_search_enabled
         )
     ):
         tools["l3_lookup"] = selected_l3_runner
@@ -1273,6 +1276,12 @@ def build_episode_registry(
         tools["sub_research"] = sub_research_runner
     base_registry = default_registry(tools)
     specs = list(base_registry.authorized_specs())
+    if frame.history_intent is not None:
+        from intelligence.services.historical_research.episode import history_tool_specs
+
+        specs.extend(
+            history_tool_specs(frame, context, market_db_path, history_session)
+        )
     if market_window_end is not None:
 
         def causal_tool_cutoff(
@@ -1324,6 +1333,15 @@ def build_episode_registry(
             # 归一化要在所有判定之前，否则新鲜度判定读 spec.time_range 会读到 None。
             # normalize_spec 是幂等的，run() 内部还会再调一次，代价极小。
             normalized, normalization_notes = finance_query.normalize_spec(value)
+            if frame.history_intent is not None and frame.history_intent.strict_window:
+                from intelligence.services.historical_research.intent import assert_history_window
+                intent = frame.history_intent
+                window = normalized.time_range
+                if window is None and intent.requested_start and intent.requested_end:
+                    window = finance_query.TimeRange(date.fromisoformat(intent.requested_start), date.fromisoformat(intent.requested_end))
+                    normalized = replace(normalized, time_range=window)
+                    normalization_notes = (*normalization_notes, "已按用户明确限定的历史窗口查询")
+                assert_history_window(intent, window.start if window else None, window.end if window else None)
             bounded_value = replace(
                 normalized,
                 limit=min(normalized.limit, _AGENT_FINANCE_QUERY_MAX_ROWS),
@@ -1336,10 +1354,13 @@ def build_episode_registry(
                 bounded_value,
                 context.authorized_trade_dates,
             )
-            if _requests_earlier_window(
-                bounded_value,
-                floor=freshness_floor,
-            ) and not historical_authorized:
+            if (
+                _requests_earlier_window(
+                    bounded_value,
+                    floor=freshness_floor,
+                )
+                and not historical_authorized
+            ):
                 assert freshness_floor is not None
                 return ToolRunResult(
                     evidence=(),
@@ -1487,7 +1508,7 @@ def build_episode_registry(
                 capability="finance_query",
                 description=(
                     "查询本地结构化金融数据。dataset 必须选自当前注册表"
-                    f"（{ '、'.join(finance_query._PUBLIC_DATASETS) }）；"
+                    f"（{'、'.join(finance_query._PUBLIC_DATASETS)}）；"
                     "周历/周末大事用 event_daily。"
                     "由你选择指标、维度、筛选、分组、排序和时间范围。"
                     "字段必须按 dataset 对应关系选择，不要混用不同 dataset 的字段。"

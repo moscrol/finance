@@ -47,6 +47,24 @@ TOOL_ERROR = "tool/error"
 # 「这套授权工具在理论上能不能产出某个 required_output」。预检 fail-open——
 # 声明不全只会漏抓，不会误拦（详见 ``check_satisfiability``）。
 _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
+    "history_query": (
+        "finance_query",
+        "可复算历史行情与完整样本比较",
+        "historical",
+        frozenset(),
+    ),
+    "read_history_result": (
+        "finance_query",
+        "读取本会话历史研究原件",
+        "historical",
+        frozenset(),
+    ),
+    "save_history_research": (
+        "finance_query",
+        "保存版本化研究假设与反例",
+        "historical",
+        frozenset(),
+    ),
     "finance_query": (
         "finance_query",
         "按语义数据集、指标、维度、筛选和时间范围查询本地结构化金融数据",
@@ -72,7 +90,14 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
         "kb_search",
         "本地知识库检索",
         "stable",
-        frozenset({"supporting_evidence", "direct_definition", "direct_explanation", "direct_answer"}),
+        frozenset(
+            {
+                "supporting_evidence",
+                "direct_definition",
+                "direct_explanation",
+                "direct_answer",
+            }
+        ),
     ),
     "web_search": (
         "web_search",
@@ -280,6 +305,8 @@ ToolArgumentParser = Callable[
     [Mapping[str, object]],
     tuple[ToolInput, str],
 ]
+
+
 def parse_query_arguments(
     arguments: Mapping[str, object],
 ) -> tuple[str, str]:
@@ -1159,6 +1186,14 @@ class ResearchToolRegistry:
 # 失败模式，要么是复述 CLAUDE.md 里已有的红线。没有依据的宁可留空——工具提示词是
 # 模型判断「该不该用、结果怎么读」的依据，编一句进去比不写更糟。
 _TOOL_CONTRACTS: dict[str, str] = {
+    "history_query": (
+        "只读已授权历史窗口；精确实体代码不跨源拼接。rows为完整分母，preview为截断摘要；"
+        "相似Top-K只用于发现，不代表条件命中全集。触发时点匹配不使用后续结果。"
+        "缺字段/未成熟不算失败；同波和重叠窗口不视为独立样本。结果仅research_only，"
+        "不证明因果或可交易规律；成交额不是主动资金流。未知定义返回unsupported_definition。"
+    ),
+    "read_history_result": "仅读取当前用户同一会话已登记的不可覆盖原件；引用不是任意文件路径。摘要分页不改变全集统计。",
+    "save_history_research": "保存候选研究草稿与版本引用，不写市场事实或升级规律；修订保留失败案例，正式认证交现有评价器。",
     "market_data": (
         "返回的是最近一个已收盘交易日的快照，不是实时也不一定是今天："
         "当日盘中或次日开盘前查询会回退到上一交易日，此时应明写数据截至日期，"

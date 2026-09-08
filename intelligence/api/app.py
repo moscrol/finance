@@ -260,11 +260,22 @@ def _zero_inner_synthesis_reserve(
     return 0.0
 
 
+def _history_session_for_run(store, run_id, conversation_id):
+    # Resolve lazily: ordinary questions do not scan or instantiate history state.
+    def create():
+        from intelligence.services.historical_research.episode import HistorySession
+
+        return HistorySession(store, run_id, conversation_id)
+
+    return create
+
+
 def _memory_bound_registry_factory(
     memory_user: str | None,
     *,
     perspective_ids: tuple[str, ...] = (),
     perspective_mode: str = "neutral",
+    history_session=None,
 ) -> Callable[..., object]:
     """把 memory 身份绑进装配工厂，并断言身份真的穿透到了装配产物。
 
@@ -308,8 +319,14 @@ def _memory_bound_registry_factory(
     一起钉住。可达性审计的 ⓘ 注记说的也是这一档残留，本轮未改。
     """
 
+    def history_kwargs(frame):
+        if frame.history_intent is None or history_session is None:
+            return {}
+        session = history_session() if callable(history_session) else history_session
+        return {"history_session": session}
+
     if not memory_user:
-        if not perspective_ids:
+        if not perspective_ids and history_session is None:
             return build_episode_registry
 
         def perspective_only_factory(frame, context):
@@ -318,6 +335,7 @@ def _memory_bound_registry_factory(
                 context,
                 perspective_ids=perspective_ids,
                 perspective_mode=perspective_mode,
+                **history_kwargs(frame),
             )
 
         return perspective_only_factory
@@ -329,6 +347,7 @@ def _memory_bound_registry_factory(
             memory_user=memory_user,
             perspective_ids=perspective_ids,
             perspective_mode=perspective_mode,
+            **history_kwargs(frame),
         )
         if (
             "memory_lookup" in context.contract.allowed_capabilities
@@ -517,10 +536,7 @@ def _build_continuous_turn_adapter(
             ),
         )
     else:
-        if (
-            os.environ.get("AGENT_RUNTIME_BENCHMARK_ENABLE", "").strip()
-            != "1"
-        ):
+        if os.environ.get("AGENT_RUNTIME_BENCHMARK_ENABLE", "").strip() != "1":
             raise RuntimeError("Codex headless runtime is benchmark-only")
         from intelligence.runtime.codex_headless_runtime import (
             CodexHeadlessRuntime,
@@ -544,6 +560,15 @@ def _build_continuous_turn_adapter(
         memory_user,
         perspective_ids=perspective_ids,
         perspective_mode=perspective_mode,
+        **(
+            {
+                "history_session": _history_session_for_run(
+                    run_store, run_id, conversation_id
+                )
+            }
+            if run_store is not None and conversation_id
+            else {}
+        ),
     )
     return ContinuousTurnAdapter(
         runtime=runtime,

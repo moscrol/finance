@@ -1042,9 +1042,21 @@ def decide_turn(
         decision = deterministic or _safe_fallback(task_frame.raw_question, envelope)
         return _attach_turn_intent(decision, intent, task_frame=task_frame)
 
+    from intelligence.services.historical_research.intent import history_research_cancelled
+    history_cancelled = history_research_cancelled(query)
+    resolution_query = query
+    if history_cancelled and re.search(r"[，,；;]", query):
+        resolution_query = re.split(r"[，,；;]", query, maxsplit=1)[1]
     resolution = _canonicalize_head_resolution(
         query,
-        (resolver or QueryResolver()).resolve(query),
+        (resolver or QueryResolver()).resolve(resolution_query),
+    )
+    from intelligence.services.historical_research.intent import (
+        inherit_history_followup,
+    )
+
+    history_followup = inherit_history_followup(
+        query, previous_intent.history_intent if previous_intent is not None else None
     )
     inherit_subject = bool(
         previous_intent is not None
@@ -1055,6 +1067,9 @@ def decide_turn(
             resolution=resolution,
         )
     )
+    inherit_subject = inherit_subject or history_followup is not None
+    if history_cancelled:
+        inherit_subject = False
     task_frame = build_task_frame(
         query,
         resolution.envelope,
@@ -1064,6 +1079,18 @@ def decide_turn(
             else None
         ),
     )
+    if task_frame.history_intent is None and history_followup is not None:
+        task_frame = replace(
+            task_frame,
+            history_intent=history_followup,
+            question_type="comparison_analog"
+            if history_followup.purpose == "historical_comparison"
+            else "theme_analysis",
+            evidence_policy="comparable_multi_source_evidence"
+            if history_followup.purpose == "historical_comparison"
+            else "theme_multi_layer_evidence",
+            required_outputs=("direct_assessment", "counterpoint", "evidence_boundary"),
+        )
     envelope = project_task_frame(task_frame, resolution.envelope)
     resolution = replace(resolution, envelope=envelope)
     if task_frame.clarification_question is not None:
@@ -1090,7 +1117,13 @@ def decide_turn(
             intent,
             task_frame=task_frame,
         )
-    if resolution.context_dependent and previous_intent is None:
+    if (
+        resolution.context_dependent
+        and previous_intent is None
+        and not (
+            task_frame.history_intent is not None and task_frame.subject is not None
+        )
+    ):
         intent = replace(
             build_turn_intent(
                 query,
@@ -1109,9 +1142,7 @@ def decide_turn(
                 envelope=envelope,
                 confidence=1.0,
                 reason="追问包含指代或省略，但当前对话没有可继承的研究主体",
-                clarification_questions=(
-                    "你指的是哪家公司、题材或上一条研究逻辑？",
-                ),
+                clarification_questions=("你指的是哪家公司、题材或上一条研究逻辑？",),
             ),
             intent,
             task_frame=task_frame,
@@ -1124,10 +1155,24 @@ def decide_turn(
         resolution=resolution,
         task_frame=task_frame,
     )
+    if history_cancelled:
+        intent = replace(intent, inherited_from_turn=None, history_intent=None,
+                         primary_subject=task_frame.subject)
+    if history_followup is not None and previous_intent is not None:
+        intent = replace(
+            intent,
+            inherited_from_turn=previous_turn_id,
+            primary_subject=task_frame.subject or previous_intent.primary_subject,
+        )
     if intent.inherited_from_turn is not None:
+        if task_frame.history_intent is None and previous_intent is not None:
+            task_frame = replace(
+                task_frame, history_intent=previous_intent.history_intent
+            )
         inherited_kind = (
             "company"
-            if intent.answer_owner in {
+            if intent.answer_owner
+            in {
                 "stock-deep-dive",
                 "financial-analysis",
                 "news-impact",
@@ -1276,9 +1321,9 @@ def decide_turn(
             effective_query,
             envelope,
             llm_failure_reason="unparsable_response",
-            llm_failure_detail=(
-                f"重试一次仍不可解析；首次输出：{content}"
-            )[:_FAILURE_DETAIL_LIMIT],
+            llm_failure_detail=(f"重试一次仍不可解析；首次输出：{content}")[
+                :_FAILURE_DETAIL_LIMIT
+            ],
         )
     )
     task_frame = _rebase_frame_for_decision(task_frame, decision)
@@ -1301,6 +1346,7 @@ def _attach_turn_intent(
             timeframe=task_frame.timeframe,
             required_outputs=task_frame.required_outputs,
             task_frame_hash=task_frame.task_frame_hash,
+            history_intent=task_frame.history_intent,
         )
     inherited_research_intent = (
         intent.answer_owner is not None
@@ -1313,11 +1359,9 @@ def _attach_turn_intent(
     if (
         intent.inherited_from_turn is not None
         and inherited_research_intent
-        and (
-            task_frame is None
-            or task_frame.clarification_question is None
-        )
-        and decision.lane in {
+        and (task_frame is None or task_frame.clarification_question is None)
+        and decision.lane
+        in {
             "chat",
             "clarify",
             "knowledge",

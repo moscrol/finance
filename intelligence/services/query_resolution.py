@@ -314,11 +314,16 @@ def _embedded_theme_conflict(
     knowledge: KnowledgeAdapter,
 ) -> tuple[str, str] | None:
     terms = _theme_terms(knowledge)
-    registered = {term for term, _canonical in terms} | {canonical for _term, canonical in terms}
+    registered = {term for term, _canonical in terms} | {
+        canonical for _term, canonical in terms
+    }
     for term, canonical in terms:
         if sum(1 for char in term if "\u4e00" <= char <= "\u9fff") < 2:
             continue
         token = cjk_span_embedding_term(query, term)
+        # A temporal wave qualifier is not part of a company name (e.g. 这一波农业).
+        if token:
+            token = re.sub(r"^(?:这一波|这波|上一波|那一波)", "", token)
         if not token or token == term or token == canonical:
             continue
         if token in registered:

@@ -117,6 +117,10 @@ from intelligence.services.episode_protocol import (
 from intelligence.services.forecast_residual_budget import (
     forecast_residual_halt_reason,
 )
+from intelligence.services.historical_research.research import (
+    assess_history_finish,
+    history_research_prompt,
+)
 from intelligence.services.mode_governor import (
     ModeDecision,
     ModeGovernor,
@@ -587,7 +591,17 @@ class FinanceResearchHarness:
         context: ResearchRunContext,
         registry: ResearchToolRegistry,
     ) -> tuple[str, str]:
-        return split_episode_prompt(task_frame, context, registry)
+        system, user = split_episode_prompt(task_frame, context, registry)
+        policy, history_context = history_research_prompt(
+            context,
+            available_tools=(
+                spec.name
+                for spec in registry.authorized_specs(context.contract.allowed_capabilities)
+            ),
+        )
+        if policy:
+            return f"{system}\n\n{policy}", f"{user}\n\n{history_context}"
+        return system, user
 
     def steering_message(self, kind: SteeringKind, *, detail: str) -> str:
         # 三段文案逐字搬自 agent_episode（run() 两处回灌 + _begin_finalization）。
@@ -866,6 +880,7 @@ class FinanceResearchHarness:
                 context=context,
                 evidence=evidence,
             )
+            historical = assess_history_finish(content, context=context)
         except ValueError as exc:
             return FinishAdmission(
                 accepted=False,
@@ -885,6 +900,12 @@ class FinanceResearchHarness:
             registry=registry,
             draft=finish.draft,
         )
+        if historical is not None and historical.gap:
+            finish = replace(
+                finish,
+                status="partial" if historical.force_partial else finish.status,
+                gaps=tuple(dict.fromkeys((*finish.gaps, historical.gap))),
+            )
         return FinishAdmission(
             accepted=True,
             status=finish.status,

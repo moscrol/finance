@@ -15,6 +15,11 @@ from typing import TYPE_CHECKING, Callable
 
 from intelligence.services.trading_calendar import question_non_trading_note
 from intelligence.services.user_task import UserTask
+from intelligence.services.historical_research.intent import (
+    HistoryIntent,
+    infer_history_intent,
+    named_wave_subject,
+)
 
 if TYPE_CHECKING:
     from intelligence.services.query_understanding import QueryEnvelope
@@ -100,11 +105,15 @@ class TaskFrame:
     clarification_question: str | None
     evidence_policy: str
     confidence: float
+    history_intent: HistoryIntent | None = None
 
     @property
     def task_frame_hash(self) -> str:
+        payload = asdict(self)
+        if self.history_intent is None:
+            payload.pop("history_intent")  # Keep legacy frame identities stable.
         encoded = json.dumps(
-            asdict(self),
+            payload,
             ensure_ascii=False,
             sort_keys=True,
             separators=(",", ":"),
@@ -148,8 +157,7 @@ class TaskFrame:
             raw_question_type = value.get("question_type")
             question_type = (
                 raw_question_type.strip()
-                if isinstance(raw_question_type, str)
-                and raw_question_type.strip()
+                if isinstance(raw_question_type, str) and raw_question_type.strip()
                 else _legacy_question_type(
                     evidence_policy,
                     tuple(required_outputs),
@@ -174,6 +182,7 @@ class TaskFrame:
                 clarification_question=clarification,
                 evidence_policy=evidence_policy,
                 confidence=max(0.0, min(1.0, float(value["confidence"]))),
+                history_intent=HistoryIntent.from_dict(value.get("history_intent")),
             )
         except (KeyError, TypeError, ValueError):
             return None
@@ -190,6 +199,15 @@ def build_task_frame(
 
     question = str(raw_question or "").strip()
     question_type = str(envelope.question_type or "general_finance_qa")
+    history_intent = infer_history_intent(question)
+    if history_intent is not None and history_intent.purpose == "historical_comparison":
+        question_type = "comparison_analog"
+    elif history_intent is not None and question_type not in {
+        "theme_analysis",
+        "comparison_analog",
+        "stock_deep_dive",
+    }:
+        question_type = "theme_analysis"
     market_scope, market_is_default = _market_scope(question)
     timeframe, timeframe_assumption = _timeframe(envelope.timeframe)
     subject = _safe_subject(
@@ -199,6 +217,10 @@ def build_task_frame(
         in {"ticker", "entity", "candidate", "alias"},
     )
     subject_kind = str(envelope.subject_kind or "unknown")
+    if history_intent is not None and subject is None:
+        subject = named_wave_subject(question)
+        if subject is not None:
+            subject_kind = "theme"
     unbound_rebound_reference = bool(
         subject is None
         and not inherited_subject
@@ -222,11 +244,16 @@ def build_task_frame(
             assumptions.append(calendar_note)
     if subject is None and inherited_subject:
         subject = _safe_subject(inherited_subject, question)
-    if subject is None and not unbound_rebound_reference and question_type in {
-        "market_forecast",
-        "market_cause",
-        "market_technical",
-    }:
+    if (
+        subject is None
+        and not unbound_rebound_reference
+        and question_type
+        in {
+            "market_forecast",
+            "market_cause",
+            "market_technical",
+        }
+    ):
         subject = "A股市场" if market_scope == "A股" else f"{market_scope}市场"
         subject_kind = "market_pattern"
 
@@ -235,11 +262,15 @@ def build_task_frame(
         question,
         extra=tuple(str(item) for item in envelope.required_outputs),
     )
+    if history_intent is not None:
+        outputs = ("direct_assessment", "counterpoint", "evidence_boundary")
     ambiguities = (
         ("“这个反弹”缺少可唯一绑定的主体，可能改变工具和结论",)
         if unbound_rebound_reference
         else ()
     )
+    if history_intent is not None and history_intent.window_error:
+        ambiguities = (*ambiguities, history_intent.window_error)
     frame = TaskFrame(
         raw_question=question,
         user_goal=_user_goal(question_type, question, envelope.decision_goal),
@@ -251,12 +282,13 @@ def build_task_frame(
         required_outputs=outputs,
         assumptions=tuple(assumptions),
         ambiguities=ambiguities,
-        clarification_question=_clarification_for(ambiguities),
+        clarification_question=(history_intent.window_error if history_intent and history_intent.window_error else _clarification_for(ambiguities)),
         evidence_policy=_POLICY_BY_QUESTION_TYPE.get(
             question_type,
             _POLICY_BY_QUESTION_TYPE["general_finance_qa"],
         ),
         confidence=max(0.0, min(1.0, float(envelope.confidence))),
+        history_intent=history_intent,
     )
     if llm_complete is None:
         return frame
@@ -309,6 +341,15 @@ def rebase_task_frame(
     required_outputs: tuple[str, ...] = (),
 ) -> TaskFrame:
     """Apply validated conversation inheritance before downstream projection."""
+
+    if frame.history_intent is not None:
+        question_type = (
+            frame.question_type
+            if frame.question_type
+            in {"theme_analysis", "comparison_analog", "stock_deep_dive"}
+            else "theme_analysis"
+        )
+        required_outputs = frame.required_outputs
 
     explicit_outputs = _explicit_required_outputs(frame.raw_question)
     question_type_changed = question_type != frame.question_type
@@ -366,6 +407,14 @@ def resolve_task_frame_clarification(
     """
 
     cleaned = re.sub(r"\s+", "", str(answer or ""))
+    if frame.history_intent is not None and frame.history_intent.window_error:
+        resolved = infer_history_intent("历史行情复盘，只研究" + cleaned)
+        if resolved and resolved.requested_start and resolved.requested_end and not resolved.window_error:
+            resolved = replace(resolved, purpose=frame.history_intent.purpose,
+                               strict_window=frame.history_intent.strict_window)
+            return replace(frame, history_intent=resolved, ambiguities=(), clarification_question=None,
+                           assumptions=_merge_strings(frame.assumptions, ("用户澄清历史窗口为" + resolved.requested_start + "至" + resolved.requested_end,)))
+        return frame  # Unresolved explicit bounds must never turn into unbounded permission.
     if is_missing_material_clarification(frame):
         # 追问的是「材料在哪」，回答是贴进来的材料本身：它不是主体名，不能走下面的
         # 主体/市场归一（一段研报正文会被 _safe_subject 判掉、再默认成「A股市场 /
