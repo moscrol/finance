@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from concurrent.futures import (
     FIRST_COMPLETED,
     Executor,
@@ -65,8 +65,15 @@ def batch_call_cap(policy: ResearchPolicy | None) -> int:
     if policy is not None and str(policy.tier or "").strip().lower() == "max":
         return MAX_GLOBAL_TOOL_WORKERS
     return MAX_BATCH_TOOL_CALLS
-# 时间闸（含授权额 ≤0 未派发、真跑了再超时）共用 error=tool_timeout。
-# detail 只允许实授值本身，见 stage_timeout_granted_detail。
+# 时间闸两种事实各一个码（INV-R4「未派发 ≠ 超时」，工单 #28 步骤 C）：
+#   tool_not_dispatched —— 授权额 ≤0，根本没进线程池；
+#   tool_timeout        —— 真跑了、在实授窗内没跑完。
+# 两者同属 status=timeout 族（下游按 status 的逻辑不变），detail 都只允许实授值本身
+# （见 stage_timeout_granted_detail）。09-01 之前两者共用 tool_timeout，模型只能靠
+# detail=stage_timeout_granted=0 猜自己是被饿死还是真慢，于是换工具再试、序列分叉。
+TOOL_NOT_DISPATCHED_ERROR = "tool_not_dispatched"
+TOOL_TIMEOUT_ERROR = "tool_timeout"
+TIME_GATE_ERRORS: frozenset[str] = frozenset({TOOL_NOT_DISPATCHED_ERROR, TOOL_TIMEOUT_ERROR})
 STAGE_TIMEOUT_GRANTED_DETAIL_RE = re.compile(
     r"^stage_timeout_granted=\d+(\.\d+)?$"
 )
@@ -175,6 +182,18 @@ def public_timeout_detail(raw: str) -> str:
 
     text = str(raw or "").strip()
     return text if STAGE_TIMEOUT_GRANTED_DETAIL_RE.fullmatch(text) else ""
+
+
+def time_gate_error_for_model(result: ToolCallResult) -> str:
+    """一条 ``status=timeout`` 的结果，模型该看到的 error 码。
+
+    批次执行器已经分好了 ``tool_not_dispatched`` / ``tool_timeout``；这里只是把它原样
+    带给模型，不认识的（老产物、替身）回落 ``tool_timeout``。两条 loop 共用，模型在这一格
+    看到的东西不随 loop 而变。
+    """
+
+    error = str(result.error or "").strip()
+    return error if error in TIME_GATE_ERRORS else TOOL_TIMEOUT_ERROR
 
 
 def timeout_detail_for_model(result: ToolCallResult) -> str:
@@ -294,6 +313,22 @@ def _run_with_publish_guard(
         return operation()
 
 
+@dataclass(frozen=True)
+class DispatchIntent:
+    """就要进线程池的那一批调用：效果三明治的「意图」一侧（INV-R2）。
+
+    在 ``_dispatch`` 之前、所有拒绝（未授权 / 重复 / 预算 / 零授权额 / 取消）都已分完之后
+    交给 ``on_dispatch``。此时 ``clock`` 已算出，所以意图里能带与事后 ``tool_request`` 完全
+    相同的 dispatch clock 字段；``replay`` 抄自各 ``ToolSpec.replay``，恢复时按它决定重跑还是
+    合成 interrupted。``calls`` 按模型给出的顺序。
+    """
+
+    calls: tuple[ModelToolCall, ...]
+    clock: ToolDispatchClock
+    replay: Mapping[str, str]
+    request_extras: Mapping[str, Mapping[str, object]]
+
+
 class EpisodeToolBatchSession:
     """Own episode query state and execute independent tool calls concurrently."""
 
@@ -310,6 +345,12 @@ class EpisodeToolBatchSession:
         self._executor = executor if executor is not None else _SHARED_TOOL_EXECUTOR
         # 缺省 None：不传 scope 的调用方行为与接线前逐字节一致。
         self._scope = scope
+        # 意图出口（INV-R2）。Episode 建完 session 设一次，主循环 / 空池回退 / flush /
+        # 修复轮所有 ``execute`` 路径自动生效——不必给每个调用点都递参数。
+        # 缺省 None：不接线的调用方（参考 loop、旧测试）逐字节不变。
+        # 它**在派发之前**被调，抛了就不派发：意图落不下去时执行外部效果是 INV-R2
+        # 唯一不允许的形状，所以这里不吞。
+        self.on_dispatch: Callable[[DispatchIntent], None] | None = None
 
     def menu(
         self,
@@ -362,6 +403,7 @@ class EpisodeToolBatchSession:
         remaining_slots: int,
         is_cancelled: Callable[[], bool] | None = None,
         turn_elapsed_at_dispatch: float | None = None,
+        request_extras: Mapping[str, Mapping[str, object]] | None = None,
     ) -> ToolBatchResult:
         with self._lock:
             return self._execute_locked(
@@ -371,6 +413,7 @@ class EpisodeToolBatchSession:
                 remaining_slots=remaining_slots,
                 is_cancelled=is_cancelled,
                 turn_elapsed_at_dispatch=turn_elapsed_at_dispatch,
+                request_extras=request_extras,
             )
 
     def _execute_locked(
@@ -382,6 +425,7 @@ class EpisodeToolBatchSession:
         remaining_slots: int,
         is_cancelled: Callable[[], bool] | None,
         turn_elapsed_at_dispatch: float | None,
+        request_extras: Mapping[str, Mapping[str, object]] | None = None,
     ) -> ToolBatchResult:
         ordered_calls = tuple(calls)
         cancelled = is_cancelled or (lambda: False)
@@ -541,11 +585,12 @@ class EpisodeToolBatchSession:
         selected_in_model_order = tuple(sorted(selected, key=lambda item: item.index))
         timeout = clock.stage_timeout_granted
         if selected and timeout <= 0.0:
+            # 授权额为零：不进线程池，也不假装跑过。码是 tool_not_dispatched，不是超时。
             for candidate in selected:
                 items[candidate.index] = ToolCallResult(
                     candidate.call,
                     "timeout",
-                    error="tool_timeout",
+                    error=TOOL_NOT_DISPATCHED_ERROR,
                     step_id=step_ids[candidate.index],
                 )
             return self._result(
@@ -573,6 +618,25 @@ class EpisodeToolBatchSession:
         normalized_queries = tuple(
             candidate.key for candidate in selected_in_model_order
         )
+        if selected and self.on_dispatch is not None:
+            # 意图先于效果（INV-R2）：这一批真要进线程池的调用，在派发前整批落账。
+            # 放在这里而不是 Episode 里，是因为只有这里知道「哪些真会跑」与授予的 clock。
+            extras = request_extras or {}
+            self.on_dispatch(
+                DispatchIntent(
+                    calls=tuple(candidate.call for candidate in selected_in_model_order),
+                    clock=clock,
+                    replay={
+                        candidate.call.call_id: candidate.spec.replay
+                        for candidate in selected_in_model_order
+                    },
+                    request_extras={
+                        candidate.call.call_id: dict(extras[candidate.call.call_id])
+                        for candidate in selected_in_model_order
+                        if candidate.call.call_id in extras
+                    },
+                )
+            )
         if selected:
             self._dispatch(
                 selected,
@@ -829,6 +893,7 @@ class ToolBatchExecutor:
 
 
 __all__ = [
+    "DispatchIntent",
     "EpisodeToolBatchSession",
     "ToolBatchExecutor",
     "ToolBatchResult",

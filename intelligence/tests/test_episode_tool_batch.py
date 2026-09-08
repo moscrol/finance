@@ -1832,7 +1832,8 @@ def test_expired_standard_batch_stamps_time_gate_clock_without_running_tools() -
     assert asked == 70.0
     assert runner_calls == 0
     assert result.executed_count == 0
-    assert [item.error for item in result.items] == ["tool_timeout"] * 4
+    # 零授权 = 没派发，不是超时（INV-R4）。
+    assert [item.error for item in result.items] == ["tool_not_dispatched"] * 4
     assert [item.detail for item in result.items] == [
         stage_timeout_granted_detail(0.0)
     ] * 4
@@ -1939,8 +1940,11 @@ def test_r13_frozen_starvation_shape_replays_two_distinct_gates() -> None:
         turn_elapsed_at_dispatch=60.0,
     )
 
-    assert [item.error for item in result.items] == errors
-    time_gate = [item for item in result.items if item.error == "tool_timeout"]
+    # 夹具是 09-01 前的老词表：零授权当时也写 tool_timeout。工单 #28（INV-R4）起
+    # 零授权未派发是 tool_not_dispatched——重放按新词表判，夹具原文不改（它是史料）。
+    expected = ["tool_not_dispatched" if error == "tool_timeout" else error for error in errors]
+    assert [item.error for item in result.items] == expected
+    time_gate = [item for item in result.items if item.error == "tool_not_dispatched"]
     slot_gate = [item for item in result.items if item.error == "tool_budget_exhausted"]
     assert len(time_gate) == 4
     assert len(slot_gate) == 1

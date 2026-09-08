@@ -641,6 +641,102 @@ def test_verifier_gap_reenters_same_session_without_second_runtime_run() -> None
     assert result.private_artifact["repair_cycles"] == 1
 
 
+def test_private_artifact_carries_runtime_handle_receipt_and_log_version() -> None:
+    """RuntimeHandle 收据落进 continuous-episode.json（运行底座 P2）。
+
+    09-07 探针发现它至今只在内存：INV-R1 的 derive_mismatches 只有进程内断言、无落盘收据。
+    session 在适配器 finally 里已关闭，所以收据是终态全貌（state=closed）；没有会话接缝
+    的 runtime（只有 run()）如实给 None。
+    """
+
+    from intelligence.services.runtime_handle import RuntimeHandle
+
+    frame = _frame(required_outputs=("direct_assessment",))
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-handle-receipt",
+        capabilities=control.capabilities,
+        timeout=60.0,
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="handle-evidence-1",
+        supports=("direct_assessment",),
+        independent_key="market",
+    )
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="当前偏修复。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+            EpisodeEvent(2, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+        ),
+        bindings=(OutputEvidenceBinding("direct_assessment", ("handle-evidence-1",), ""),),
+        usage=AgentUsage(1, 1, 0),
+    )
+
+    class Runtime:
+        def run(self, **_kwargs):
+            raise AssertionError("session runtime must go through start()")
+
+        def start(self, task_frame, *, context, registry):
+            del task_frame, registry
+            handle = RuntimeHandle(episode_id=context.contract.task_id)
+            handle.mark_started()
+            handle.mark_running()
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=outcome,
+                resume_callback=lambda previous, goal: previous,
+                runtime_handle=handle,
+            )
+
+    class Semantic:
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "completed"
+    artifact = result.private_artifact
+    assert artifact["log_version"] == 1
+    receipt = artifact["runtime_handle"]
+    assert receipt["episode_id"] == "adapter-handle-receipt"
+    assert receipt["state"] == "closed"
+    assert receipt["cancel_requested"] is False
+    assert [row["state"] for row in receipt["receipts"] if row["kind"] == "transition"] == [
+        "created",
+        "started",
+        "running",
+        "closed",
+    ]
+    # 收据不带 prompt 正文之类的东西：全是状态与理由，可对外私有产物直接落。
+    assert "scope" in receipt
+
+
 def test_adapter_keeps_the_answer_when_a_repair_comes_back_empty() -> None:
     """修复候选比原件更差时，适配器不得无条件接受它。
 

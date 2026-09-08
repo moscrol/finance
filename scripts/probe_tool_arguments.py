@@ -291,10 +291,14 @@ def _feedback_messages(
     )
     from intelligence.services.evidence_ledger import EvidenceLedger
 
-    messages: list[dict[str, object]] = [
-        ContinuousAgentEpisode._assistant_message(turn)
-    ]
-    error_sink: list[dict[str, object]] = []
+    from intelligence.services.episode_messages import EpisodeMessage, to_provider
+
+    # 生产 loop 内部是 EpisodeMessage（工单 #28），本量具输出的是 OpenAI 线格式的回灌
+    # 历史——在这里过一次 to_provider，与真请求走的是同一道边界。
+    messages: list[dict[str, object]] = to_provider(
+        [ContinuousAgentEpisode._assistant_message(turn)]
+    )
+    error_sink: list[EpisodeMessage] = []
     accumulator = _EpisodeToolAccumulator(
         messages=error_sink,
         ledger=_EpisodeLedger(task_frame),
@@ -323,7 +327,7 @@ def _feedback_messages(
                 str(result.get("error_code") or "invalid_arguments"),
                 str(result.get("detail") or ""),
             )
-            messages.append(dict(error_sink[-1]))
+            messages.append(to_provider([error_sink[-1]])[0])
         else:
             # 编译期：生产走 _finance_query_failure_result，是一条正常观测，
             # 正文含「结构化查询参数无效：…；重试提示：…」。

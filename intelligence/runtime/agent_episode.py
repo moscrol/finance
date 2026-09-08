@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
-from datetime import datetime
+from datetime import datetime, timedelta
+import hashlib
 import json
 import os
 import re
@@ -33,11 +34,13 @@ from intelligence.services.episode_protocol import (
     finish_rejection_fields,
 )
 from intelligence.runtime.episode_tool_batch import (
+    DispatchIntent,
     EpisodeToolBatchSession,
     ToolBatchExecutor,
     ToolBatchResult,
     ToolCallResult,
     batch_call_cap,
+    time_gate_error_for_model,
     timeout_detail_for_model,
     tool_definitions_for_menu,
 )
@@ -67,8 +70,33 @@ from intelligence.services.research_plan import (
     ResearchPlan,
     plan_to_public_dict,
 )
+from intelligence.services.cancel_signal import CancelSignal
 from intelligence.services.episode_event_lanes import LiveEventSink
+from intelligence.services.episode_inbox import Inbox, InboxReceipt, InboxTarget
+from intelligence.services.episode_messages import (
+    PROMPT_SOURCE_FINALIZER,
+    EpisodeMessage,
+    append_model_input,
+    assistant_message,
+    check_derivation,
+    record_prompt_assembled,
+    record_tool_budget_state,
+    rewrite_last_tool_content,
+    system_message,
+    to_provider,
+    tool_message,
+    user_message,
+)
+from intelligence.services.episode_restore import RestoreResult, restore_episode
 from intelligence.services.episode_scope import EpisodeScope
+from intelligence.services.episode_store import (
+    EPISODE_LOG_VERSION,
+    INTENT_KINDS,
+    EpisodePhase,
+    EpisodeState,
+    EpisodeStore,
+    now_iso,
+)
 from intelligence.services.research_harness import (
     FinanceResearchHarness,
     FinishAdmission,
@@ -213,12 +241,23 @@ def _settle_batch_calls(
             root_budget.consume_call(seconds=seconds_per_call)
         except ValueError:
             root_budget.settle_seconds(seconds=seconds_per_call)
+def _wall_clock_after(seconds: float) -> str:
+    """把 ``ResearchDeadline`` 的单调钟余量换成恢复时能读的挂钟时刻。"""
+
+    return (
+        datetime.now().astimezone() + timedelta(seconds=max(0.0, float(seconds)))
+    ).isoformat(timespec="milliseconds")
+
+
 class _EpisodeLedger:
     def __init__(
         self,
         task_frame: TaskFrame,
         *,
         event_sink: Callable[[EpisodeEvent], None] | None = None,
+        store: EpisodeStore | None = None,
+        episode_id: str = "",
+        configure: Mapping[str, object] | None = None,
     ) -> None:
         self._task_frame_hash = task_frame.task_frame_hash
         self._event_sink = event_sink
@@ -228,9 +267,36 @@ class _EpisodeLedger:
         self.events: list[EpisodeEvent] = []
         self.plan: ResearchPlan | None = None
         self.time_budget_injected = False
+        # INV-R1 对账失败的落账点。run() 在 Scope 建好后把它接到
+        # ``EpisodeScope.record_derive_mismatch``；接线前（或没有 Scope 的调用方）
+        # 落在本地列表，收据不因接线时机而丢。
+        self.derive_mismatches: list[str] = []
+        self.derive_mismatch_sink: Callable[[str], None] | None = None
         # 历史折叠（spec 2026-09-07 §3.2）的累计账，随 finish 事件落盘让 eval 分得开臂。
         self.history_compaction_folded = 0
         self.history_compaction_saved = 0
+        # ── P2 durable（INV-R2 / INV-R3）───────────────────────────────────
+        # store 是可选的：不传的调用方（参考 loop 的替身、旧测试）事件流逐字节不变——
+        # 多出来的只有 ``configure`` 首条与 ``model_intent``，它们与 store 无关。
+        self._store = store
+        self.episode_id = str(episode_id or "").strip() or task_frame.task_frame_hash
+        # 落盘失败不拥有执行（与 event_sink_failures / derive_mismatch 同族）；但失败一次后
+        # 不再写：半份日志会让恢复读出一个自信的错答案，比「没有日志」更坏。
+        self.store_failures: list[str] = []
+        # 已落意图、等结算的工具调用；``consume`` 对它们不再补事后 ``tool_request``。
+        self.intended_call_ids: set[str] = set()
+        self.contract_snapshot: Mapping[str, object] = dict(configure or {})
+        self.state: EpisodeState | None = None
+        # 状态写入要算「截止还剩多久」；loop 在换 context（深度裁决 / 修复轮）时更新它。
+        self.active_context: ResearchRunContext | None = None
+        # ── P3 收件箱（INV-R5）────────────────────────────────────────────
+        # run() 建好账本后挂上；``finish`` 落账前由 add() 统一清箱（收口 / 取消各一个 reason），
+        # 与 ``done`` 挂在同一个出口——十个 return 点没有一个能漏掉箱里的话。
+        self.inbox: Inbox | None = None
+        self._turn_counter = 0
+        if configure is not None:
+            # 配置快照是唯一允许先于 ``task`` 的事件（AgentOutcome 不变量）。
+            self.add("configure", dict(configure))
         self.add(
             "task",
             {
@@ -239,10 +305,169 @@ class _EpisodeLedger:
             },
         )
 
+    def note_derive_mismatch(self, detail: str) -> None:
+        self.derive_mismatches.append(str(detail))
+        if self.derive_mismatch_sink is not None:
+            self.derive_mismatch_sink(str(detail))
+
+    # ── durable：意图 / 状态 ─────────────────────────────────────────────
+
+    def _persist(self, event: EpisodeEvent) -> None:
+        store = self._store
+        if store is None:
+            return
+        try:
+            store.append(self.episode_id, (event,), sync=event.kind in INTENT_KINDS)
+        except Exception as exc:  # noqa: BLE001 - 落盘失败进收据，不拥有执行
+            self.store_failures.append(f"append#{event.sequence}:{type(exc).__name__}")
+            self._store = None
+
+    def put_state(
+        self,
+        *,
+        phase: EpisodePhase,
+        reserved_ids: tuple[str, ...] = (),
+        context: ResearchRunContext | None = None,
+        retry: Mapping[str, object] | None = None,
+        cancel: Mapping[str, object] | None = None,
+    ) -> EpisodeState:
+        """覆写一份完整的程序计数器（INV-R3）。每次 phase 转移调一次。
+
+        ``deadline_at`` / ``consumed_seconds`` 从 ``context``（缺省 ``active_context``）的
+        截止算成挂钟；没有 context 就沿用上一份——终局 ``done`` 不需要它们。
+        """
+
+        previous = self.state
+        source = context if context is not None else self.active_context
+        deadline_at = previous.deadline_at if previous is not None else ""
+        consumed = previous.consumed_seconds if previous is not None else 0.0
+        if source is not None:
+            remaining = float(source.deadline.remaining())
+            deadline_at = _wall_clock_after(remaining)
+            consumed = max(0.0, float(source.policy.total_seconds) - remaining)
+        carried_cancel = (
+            dict(cancel)
+            if cancel is not None
+            else (dict(previous.cancel) if previous is not None and previous.cancel else None)
+        )
+        with self._lock:
+            state = EpisodeState(
+                episode_id=self.episode_id,
+                phase=phase,
+                turn_index=self._turn_counter,
+                reserved_ids=tuple(reserved_ids),
+                consumed_seconds=consumed,
+                deadline_at=deadline_at,
+                retry=dict(retry) if retry is not None else {},
+                contract_snapshot=self.contract_snapshot,
+                cancel=carried_cancel,
+                last_sequence=len(self.events),
+                updated_at=now_iso(),
+            )
+            self.state = state
+            store = self._store
+            if store is not None:
+                try:
+                    store.put_state(self.episode_id, state)
+                except Exception as exc:  # noqa: BLE001 - 同 _persist
+                    self.store_failures.append(f"state:{phase}:{type(exc).__name__}")
+                    self._store = None
+        return state
+
+    def record_model_intent(
+        self,
+        *,
+        timeout_asked: float,
+        phase: str,
+        retries_remaining: int,
+        context: ResearchRunContext | None = None,
+    ) -> str:
+        """模型请求前的意图（效果三明治左片）。返回预留给结算复用的 ``turn_id``。
+
+        ``retries_remaining`` 是**捕获的**重试策略：恢复时发现意图无结算，允许再问几次。
+        写在意图与状态里而不是恢复时现算——策略是当时的决定，以后的代码不该改写它。
+        """
+
+        with self._lock:
+            self._turn_counter += 1
+            turn_id = f"turn-{self._turn_counter}"
+        self.add(
+            "model_intent",
+            {
+                "turn_id": turn_id,
+                "timeout_asked": float(timeout_asked),
+                "phase": str(phase),
+                "retries_remaining": int(retries_remaining),
+            },
+        )
+        self.put_state(
+            phase="model_pending",
+            reserved_ids=(turn_id,),
+            context=context,
+            retry={"remaining": int(retries_remaining)},
+        )
+        return turn_id
+
+    def record_dispatch_intent(self, intent: DispatchIntent) -> None:
+        """工具派发前的意图：这一批真要进线程池的每个调用各一条 ``tool_request``。
+
+        payload 与事后写法同形（``call.to_dict()`` + dispatch clock + 空池回退标记），多一个
+        ``replay``——恢复时决定「同参数重跑」还是「合成 interrupted」的依据。
+        """
+
+        clock = intent.clock.to_payload()
+        for call in intent.calls:
+            payload: dict[str, object] = {
+                **call.to_dict(),
+                **clock,
+                "replay": str(intent.replay.get(call.call_id, "safe")),
+            }
+            extra = intent.request_extras.get(call.call_id)
+            if extra:
+                payload.update(extra)
+            self.add("tool_request", payload)
+            with self._lock:
+                self.intended_call_ids.add(call.call_id)
+        self.put_state(
+            phase="tools_pending",
+            reserved_ids=tuple(call.call_id for call in intent.calls),
+        )
+
+    def settle_tool_request(self, call_id: str) -> bool:
+        """结算到达：该调用若有在飞意图则销掉并返回 True（调用方不再补事后 tool_request）。"""
+
+        with self._lock:
+            if call_id in self.intended_call_ids:
+                self.intended_call_ids.discard(call_id)
+                return True
+            return False
+
+    def verify_model_visible(self, messages: list[EpisodeMessage]) -> bool:
+        """请求前对账（INV-R1）：即将发出的 messages 必须能从本账本的事件派生。
+
+        严格模式（测试）不一致即抛；生产只记账不炸——见 ``episode_messages`` 文首。
+        """
+
+        with self._lock:
+            snapshot = tuple(self.events)
+        return check_derivation(snapshot, messages, on_mismatch=self.note_derive_mismatch)
+
     def add(self, kind: str, payload: dict[str, object]) -> EpisodeEvent:
         event_payload = dict(payload)
         event_payload["task_frame_hash"] = self._task_frame_hash
         if kind == "finish":
+            # INV-R5：收口前清箱。箱里没送到模型的话逐条落 inbox_discarded，reason 按终局分
+            # （取消 → cancelled，其余 → episode_finished），事件序都在 finish 之前——
+            # 读事件流的人不会看到「finish 之后还有未决的 inserted」。
+            inbox = self.inbox
+            if inbox is not None and not inbox.closed:
+                inbox.discard_all(
+                    reason=(
+                        "cancelled"
+                        if str(event_payload.get("stop_reason") or "") == "cancelled"
+                        else "episode_finished"
+                    )
+                )
             event_payload.setdefault(
                 "time_budget_injected", self.time_budget_injected
             )
@@ -272,6 +497,10 @@ class _EpisodeLedger:
         with self._lock:
             event = EpisodeEvent(len(self.events) + 1, kind, event_payload)
             self.events.append(event)
+            # 落盘留在锁内：store 里的行序必须等于 sequence 序，两个线程各拿到号再
+            # 抢着写会让 JSONL 乱序（读回时按「1..N 连续」判损坏）。意图类 fsync，
+            # 结算类不 fsync——见 episode_store 文首。
+            self._persist(event)
         # sink 调用**留在锁外**：它是外部回调（UI/进度），持锁调外部代码是经典死锁
         # 源，且慢 sink 会把研究主路径一起卡住。代价是并发时 sink 的到达顺序可能与
         # sequence 不一致——消费者按 sequence 排序，别按到达顺序。
@@ -282,6 +511,10 @@ class _EpisodeLedger:
                 # Progress is observability, never an alternate execution
                 # owner. A broken UI sink must not abort financial research.
                 pass
+        if kind == "finish":
+            # 终局只有一个出口种类（finish 事件），所以 ``done`` 挂在这里而不是十个
+            # return 点上：任何停机路径都不可能漏掉程序计数器的终态。
+            self.put_state(phase="done")
         return event
 
     def record_plan(self, plan: ResearchPlan) -> EpisodeEvent:
@@ -322,10 +555,10 @@ def _tool_timing_payload(result: ToolCallResult) -> dict[str, object]:
 def _tool_dispatch_clock_payload(result: ToolCallResult) -> dict[str, object]:
     """派发点五元组：名义窗 / 实授 / 剩余 / 次数 / 思考耗时。
 
-    时间闸（``tool_timeout`` + ``stage_timeout_granted``≤0）和次数闸
+    时间闸（``tool_not_dispatched`` 零授权未派发 / ``tool_timeout`` 真超时）和次数闸
     （``tool_budget_exhausted`` + ``remaining_slots_at_dispatch``）共用这份
-    快照，靠 error 码分闸。零授权与真超时共用 ``tool_timeout``，靠
-    ``detail=stage_timeout_granted=…`` 分开。没测到的字段不写，避免把缺席伪装成 0。
+    快照，靠 error 码分闸；``detail=stage_timeout_granted=…`` 给实授值。
+    没测到的字段不写，避免把缺席伪装成 0。
     """
 
     clock = result.dispatch_clock
@@ -359,7 +592,7 @@ def _public_tool_exception_detail(raw: str) -> str:
 
 @dataclass
 class _EpisodeToolAccumulator:
-    messages: list[dict[str, object]]
+    messages: list[EpisodeMessage]
     ledger: _EpisodeLedger
     evidence_ledger: EvidenceLedger
     # 「审计留什么、模型看什么」归 harness；本类只管账：事件、证据去重、traces、gaps。
@@ -391,7 +624,11 @@ class _EpisodeToolAccumulator:
             extra = extras_by_id.get(call.call_id)
             if extra:
                 request_payload.update(extra)
-            self.ledger.add("tool_request", request_payload)
+            # 派发过的调用在 ``_dispatch`` 之前已由 ``record_dispatch_intent`` 落过意图
+            # （INV-R2）；这里只给**没派发**的（拒绝 / 零授权 / 取消）补事后记录——它们没有
+            # 外部效果，不需要意图，但读者仍指望每个调用恰好一条 tool_request。
+            if not self.ledger.settle_tool_request(call.call_id):
+                self.ledger.add("tool_request", request_payload)
 
             if result.status == "rejected":
                 invalid_actions += 1
@@ -410,8 +647,11 @@ class _EpisodeToolAccumulator:
                 continue
 
             if result.status in {"error", "timeout"}:
+                # 时间闸两码（未派发 / 真超时）由批次执行器分好，这里原样带给模型。
                 public_error = (
-                    "tool_timeout" if result.status == "timeout" else "tool_exception"
+                    time_gate_error_for_model(result)
+                    if result.status == "timeout"
+                    else "tool_exception"
                 )
                 if result.status == "timeout":
                     public_detail = timeout_detail_for_model(result)
@@ -457,17 +697,19 @@ class _EpisodeToolAccumulator:
             )
             self.seen_observation_prose = set(projection.seen_prose)
             # call_id 与 timing 只进 ledger 展开，不进审计底稿——那个 dict 是
-            # 模型视图的来源（R-20260827-15）。
+            # 模型视图的来源（R-20260827-15）。``model_content`` 是模型真看到的那段
+            # （INV-R1）：审计底稿与模型正文同一份事实两个出口，两个都进事件。
             self.ledger.add(
                 "tool_result",
-                {**projection.audit_payload, "call_id": call.call_id, **timing},
+                {
+                    **projection.audit_payload,
+                    "call_id": call.call_id,
+                    "model_content": projection.model_content,
+                    **timing,
+                },
             )
             self.messages.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": call.call_id,
-                    "content": projection.model_content,
-                }
+                tool_message(call.call_id, projection.model_content, source="tool_result")
             )
         return invalid_actions
 
@@ -484,17 +726,18 @@ class _EpisodeToolAccumulator:
         )
         # 耗时与 call_id 只进 ledger，**不进 payload**——下面那条 messages 是喂模型的，
         # 给它塞毫秒数既没用又占预算。审计要全量、模型要够用，同一份事实两个出口。
+        # ``model_content`` 是那段序列化后的正文本身（INV-R1 派生用）。
+        model_content = json.dumps(payload, ensure_ascii=False)
         self.ledger.add(
             "tool_error",
-            {**payload, "call_id": call.call_id, **(timing or {})},
-        )
-        self.messages.append(
             {
-                "role": "tool",
-                "tool_call_id": call.call_id,
-                "content": json.dumps(payload, ensure_ascii=False),
-            }
+                **payload,
+                "call_id": call.call_id,
+                "model_content": model_content,
+                **(timing or {}),
+            },
         )
+        self.messages.append(tool_message(call.call_id, model_content, source="tool_error"))
 
     def _extend_unique_gaps(self, values: tuple[str, ...]) -> None:
         for value in values:
@@ -536,7 +779,7 @@ class _EpisodeToolAccumulator:
 
 def _seed_opening_prefetch(
     accumulator: _EpisodeToolAccumulator,
-    messages: list[dict[str, object]],
+    messages: list[EpisodeMessage],
     registry: ResearchToolRegistry,
 ) -> None:
     """把 harness 预取放进证据账本和开场 user 消息，不伪造 tool_call_id。"""
@@ -555,7 +798,9 @@ def _seed_opening_prefetch(
         accumulator.evidence_ledger.append(item)
     message = format_opening_prefetch_message(evidence)
     if message:
-        messages.append({"role": "user", "content": message})
+        append_model_input(
+            messages, accumulator.ledger, content=message, source="opening_prefetch"
+        )
         accumulator.ledger.add(
             "prefetch",
             {
@@ -587,7 +832,7 @@ class _EpisodeContinuationState:
     context: ResearchRunContext
     registry: ResearchToolRegistry
     tool_session: EpisodeToolBatchSession
-    messages: list[dict[str, object]]
+    messages: list[EpisodeMessage]
     ledger: _EpisodeLedger
     accumulator: _EpisodeToolAccumulator
     evidence_ledger: EvidenceLedger
@@ -612,13 +857,20 @@ class ContinuousAgentEpisode:
         llm_timeout: float = DEFAULT_LLM_TIMEOUT,
         tool_executor: ToolBatchExecutor | None = None,
         finalizer: EpisodeFinalizer | None = None,
-        is_cancelled: Callable[[], bool] | None = None,
+        is_cancelled: Callable[[], bool] | CancelSignal | None = None,
         sub_research_coordinator: SubResearchCoordinator | None = None,
         event_sink: Callable[[EpisodeEvent], None] | None = None,
         repair_seconds_cap: float | None = None,
         harness: ResearchHarness | None = None,
+        store: EpisodeStore | None = None,
+        runtime_config: Mapping[str, object] | None = None,
     ) -> None:
         self._model = model
+        # P2：durable store（INV-R2 / R3）。None = 只在内存记账，事件流形状仍与落盘时相同。
+        # ``runtime_config`` 是装配根（GLMAgentRuntime）知道、Episode 不知道的配置
+        # （模型名 / provider 链），只进 ``configure`` 快照，不参与任何判断。
+        self._store = store
+        self._runtime_config: dict[str, object] = dict(runtime_config or {})
         # 领域门（prompt / 批后停机 / 取证面 / 终局准入 / 深度裁决）由 harness 回答，
         # loop 只调。默认金融 harness 是对既有函数的纯委托；传别的实现进来就是换领域。
         # 深度裁决的两个注入件（mode_governor / mode_signals）归 harness 构造器：
@@ -641,9 +893,84 @@ class ContinuousAgentEpisode:
             if finalizer is not None
             else EpisodeFinalizer(model, llm_timeout=self._llm_timeout)
         )
-        self._is_cancelled = is_cancelled or (lambda: False)
+        # 取消信号类型化（INV-R4）：裸谓词包成 CancelSignal，原因默认 user。
+        # ``_is_cancelled`` 仍是可调用的——所有既有检查点零改动，多出来的是 ``.cause``。
+        self._cancel = CancelSignal.coerce(is_cancelled)
+        self._is_cancelled: Callable[[], bool] = self._cancel
         self._sub_research_coordinator = sub_research_coordinator
         self._event_sink = event_sink
+        # P3：当前在跑的 episode 的收件箱（INV-R5）。``steer()`` 从这里递话；run() 进门时换新。
+        # 没在跑时是 None——递话方拿到 ``no_active_episode`` 回执，不是异常。
+        self._active_inbox: Inbox | None = None
+
+    # ── 收件箱：外部输入的唯一入口（INV-R5）───────────────────────────────
+
+    @property
+    def inbox(self) -> Inbox | None:
+        """当前 episode 的收件箱；run() 之外为 None。测试与装配审计用。"""
+
+        return self._active_inbox
+
+    def steer(
+        self,
+        content: str,
+        *,
+        target: InboxTarget = "next_step",
+        source: str = "steer",
+        wakeup: bool = False,
+    ) -> InboxReceipt:
+        """外部给正在跑的 episode 递一句话（user 角色）。
+
+        ``next_step``：下一次模型请求前送达；``next_turn``：模型停下时送达并让它再跑一轮。
+        收不收由 ``ResearchHarness.admit_inbox_message`` 判；三个事实都进 durable 流。
+        没有在跑的 episode 时回 ``accepted=False, reason="no_active_episode"``——不抛：
+        递话方不该能把研究主路径打断。
+        """
+
+        inbox = self._active_inbox
+        if inbox is None:
+            return InboxReceipt(message_id="", accepted=False, reason="no_active_episode")
+        return inbox.send(
+            user_message(str(content), source=str(source or "steer")),
+            target=target,
+            wakeup=wakeup,
+        )
+
+    @staticmethod
+    def _claim_inbox(
+        *,
+        messages: list[EpisodeMessage],
+        ledger: _EpisodeLedger,
+        target: InboxTarget,
+    ) -> int:
+        """把该队列的话取出来 append 进 messages。认领事件先落、消息后进——与
+        ``append_model_input`` 同一个「事件在前、派生物在后」的写序。"""
+
+        inbox = ledger.inbox
+        if inbox is None:
+            return 0
+        claimed = inbox.claim(target)
+        messages.extend(claimed)
+        return len(claimed)
+
+    @staticmethod
+    def restore(
+        episode_id: str,
+        store: EpisodeStore,
+        *,
+        registry: ResearchToolRegistry | None = None,
+        harness: ResearchHarness | None = None,
+        now: datetime | None = None,
+    ) -> RestoreResult:
+        """崩溃后恢复（INV-R3）：读 ``EpisodeState``、按预留 id 点查结算、给下一动作或直接闭合。
+
+        策略与合成全在 ``services.episode_restore``——它不需要模型、不需要 loop，能对着产物
+        事后重跑。本单只给 ``ResumePlan``，不重新驱动 loop（P4 ``step()``）。
+        """
+
+        return restore_episode(
+            episode_id, store, registry=registry, harness=harness, now=now
+        )
 
     def run(
         self,
@@ -678,7 +1005,21 @@ class ContinuousAgentEpisode:
             if required.required and required.grounding_mode == "evidence":
                 evidence_ledger.open_gap(required.output_id)
         context_ref = _ContextRef(context)
-        ledger = _EpisodeLedger(task_frame, event_sink=self._event_sink)
+        # 配置快照先于 task（G6）：恢复只读它，不读活对象。快照在绑 sub_research 之前
+        # 算——那一步需要 ledger 已存在；sub_research 的在场只记一个布尔位。
+        ledger = _EpisodeLedger(
+            task_frame,
+            event_sink=self._event_sink,
+            store=self._store,
+            episode_id=context.contract.task_id,
+            configure=self._configure_snapshot(context=context, registry=registry),
+        )
+        ledger.active_context = context
+        # INV-R5：收件箱在账本之后、任何模型请求之前建好——从此外部输入只有这一扇门。
+        # 收不收由 harness 判（§5 第 2 条接触点）；子研究回灌也走它（§6.4 第 3 条）。
+        inbox = Inbox(ledger, admit=self._harness.admit_inbox_message)
+        ledger.inbox = inbox
+        self._active_inbox = inbox
         registry = self._with_sub_research_tool(
             task_frame=task_frame,
             context_ref=context_ref,
@@ -700,6 +1041,11 @@ class ContinuousAgentEpisode:
             ),
         )
         tool_session = self._tool_executor.new_session(scope=episode_scope)
+        # INV-R2：工具意图出口。批次执行器在 ``_dispatch`` 之前把真要跑的调用整批交给它，
+        # ledger 落 ``tool_request{replay}`` 并把程序计数器推到 ``tools_pending``。
+        tool_session.on_dispatch = ledger.record_dispatch_intent
+        # INV-R1 对账失败落进 Scope 收据（dump()["derive_mismatches"]）。
+        ledger.derive_mismatch_sink = episode_scope.record_derive_mismatch
         if (
             context.contract.task_frame_hash
             and context.contract.task_frame_hash != task_frame.task_frame_hash
@@ -716,10 +1062,11 @@ class ContinuousAgentEpisode:
         # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: system is byte-stable; user/tool
         # rebuild each turn. cache_control is not implemented this increment.
         _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
-        messages: list[dict[str, object]] = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ]
+        # 模型可见即已落账：system 与首轮 user 先进 durable 事件，再进 messages。
+        record_prompt_assembled(ledger, system=system, user=user)
+        # 程序计数器第一份：prompt 已落、还没向模型开口。
+        ledger.put_state(phase="planning", context=context)
+        messages: list[EpisodeMessage] = [system_message(system), user_message(user)]
         initial_evidence_snapshot = evidence_ledger.snapshot()
         accumulator = _EpisodeToolAccumulator(
             messages=messages,
@@ -816,22 +1163,41 @@ class ContinuousAgentEpisode:
                     invalid_actions=invalid_actions,
                 )
 
+            # INV-R5：每次模型请求前认领 next_step（pi steering）。先于历史折叠——
+            # 认领的是 user 消息，折叠只碰 tool 消息，两者互不改写；先于对账是必然。
+            self._claim_inbox(messages=messages, ledger=ledger, target="next_step")
+            # 历史折叠先于对账：它改的是模型即将看到的 tool 消息正文，并以
+            # ``history_compacted`` 事件承载替换后的正文，所以对账必须在它之后。
             self._compact_history_for_model(
                 messages=messages,
                 accumulator=accumulator,
                 ledger=ledger,
                 llm_calls=llm_calls,
             )
+            # INV-R1：请求前对账。放在 try 之外——严格模式的 DerivationMismatch 是
+            # 测试要看见的红，不能被下面那个「模型异常」的 except 吞成 model_error。
+            ledger.verify_model_visible(messages)
+            # INV-R2：模型请求前的意图（含预留 turn_id）。菜单在意图之前算——它只读状态，
+            # 不是外部效果；``tool_menu`` 事件因此仍先于 ``model_intent``。
+            definitions = self._available_tool_definitions(
+                tool_session=tool_session,
+                registry=registry,
+                context=context,
+                ledger=ledger,
+            )
+            turn_id = ledger.record_model_intent(
+                timeout_asked=timeout,
+                phase="finalizing" if finalization_started else "planning",
+                # 主循环没有瞬态重试；崩溃恢复允许把这一问**再发一次**（结果丢了、
+                # 请求本身是只读的）。
+                retries_remaining=1,
+                context=context,
+            )
             model_started = monotonic()
             try:
-                definitions = self._available_tool_definitions(
-                    tool_session=tool_session,
-                    registry=registry,
-                    context=context,
-                    ledger=ledger,
-                )
+                # 线格式只在这里出现：loop 全程 EpisodeMessage，边界一次转换。
                 turn = self._model.complete(
-                    messages=list(messages),
+                    messages=to_provider(messages),
                     tools=[] if finalization_started else definitions,
                     timeout=timeout,
                 )
@@ -842,6 +1208,10 @@ class ContinuousAgentEpisode:
                 )
                 llm_calls += 1
                 if not budget_remaining:
+                    ledger.add(
+                        "model_error",
+                        {"reason": f"model_exception:{type(exc).__name__}", "turn_id": turn_id},
+                    )
                     return self._stopped_outcome(
                         task_frame=task_frame,
                         status="partial" if accumulator.evidence else "failed",
@@ -856,7 +1226,7 @@ class ContinuousAgentEpisode:
                         invalid_actions=invalid_actions,
                     )
                 reason = f"model_exception:{type(exc).__name__}"
-                ledger.add("model_error", {"reason": reason})
+                ledger.add("model_error", {"reason": reason, "turn_id": turn_id})
                 if (
                     not finalization_started
                     and self._can_recover_finalization(
@@ -910,6 +1280,8 @@ class ContinuousAgentEpisode:
                 "model_turn",
                 {
                     **turn.to_dict(),
+                    # 结算复用意图预留的关联 id（INV-R2）。
+                    "turn_id": turn_id,
                     "timeout_asked": float(timeout),
                     "timeout_configured": float(self._llm_timeout),
                     "remaining_seconds_at_entry": float(
@@ -989,7 +1361,7 @@ class ContinuousAgentEpisode:
                     invalid_actions=invalid_actions,
                 )
             if turn.error:
-                ledger.add("model_error", {"reason": turn.error})
+                ledger.add("model_error", {"reason": turn.error, "turn_id": turn_id})
                 if (
                     not finalization_started
                     and self._can_recover_finalization(
@@ -1090,11 +1462,13 @@ class ContinuousAgentEpisode:
                         if pending_mode_message is not None:
                             self._append_mode_decision_message(
                                 messages=messages,
+                                ledger=ledger,
                                 governance=pending_mode_message,
                             )
                         if pending_branch_result is not None:
                             self._append_sub_research_message(
                                 messages=messages,
+                                ledger=ledger,
                                 result=pending_branch_result,
                                 evidence=tuple(accumulator.evidence),
                             )
@@ -1133,13 +1507,13 @@ class ContinuousAgentEpisode:
                 invalid_actions += 1
                 ledger.add("invalid_action", {"reason": plan_result.error})
                 if plan_failures == 1:
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": self._harness.steering_message(
-                                "invalid_plan", detail=plan_result.error
-                            ),
-                        }
+                    append_model_input(
+                        messages,
+                        ledger,
+                        content=self._harness.steering_message(
+                            "invalid_plan", detail=plan_result.error
+                        ),
+                        source="steering_invalid_plan",
                     )
                     continue
             if turn.tool_calls:
@@ -1233,6 +1607,7 @@ class ContinuousAgentEpisode:
                     )
                 injected = self._append_tool_budget_state(
                     messages=messages,
+                    ledger=ledger,
                     remaining_seconds=(
                         context.deadline.remaining()
                         if budget_status_enabled()
@@ -1257,11 +1632,13 @@ class ContinuousAgentEpisode:
                 if pending_mode_message is not None:
                     self._append_mode_decision_message(
                         messages=messages,
+                        ledger=ledger,
                         governance=pending_mode_message,
                     )
                 if pending_branch_result is not None:
                     self._append_sub_research_message(
                         messages=messages,
+                        ledger=ledger,
                         result=pending_branch_result,
                         evidence=tuple(accumulator.evidence),
                     )
@@ -1276,6 +1653,22 @@ class ContinuousAgentEpisode:
                         ledger=ledger,
                         reason="snapshot_surface_satisfied",
                     )
+                # 这一批的结算全部落下、无在飞外部效果：程序计数器回到规划 / 收口。
+                ledger.put_state(
+                    phase="finalizing" if finalization_started else "planning",
+                    context=context,
+                )
+                continue
+
+            # INV-R5：模型停下（无工具调用）且还没收口——箱里有话就不结束，把 next_turn
+            # （pi follow-up）连同此刻已到的 next_step 一起认领，再给模型一轮。模型刚写的
+            # 终局留在历史里当普通 assistant 消息；下一轮它对着新话重新给终局。
+            # 收口阶段不认领：episode 正按预算关门，留到 finish 统一 discarded。
+            # 竞态「steer 到达 vs 模型停下」两序在这里汇合：先到的在请求前就被认领，
+            # 后到的在这里被认领——两种历史都合法，都不丢话。
+            if not finalization_started and ledger.inbox is not None and ledger.inbox.pending():
+                self._claim_inbox(messages=messages, ledger=ledger, target="next_turn")
+                self._claim_inbox(messages=messages, ledger=ledger, target="next_step")
                 continue
 
             admission = self._harness.admit_finish(
@@ -1307,13 +1700,13 @@ class ContinuousAgentEpisode:
                     and finish_failures == 1
                     and not finalization_started
                 ):
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": self._harness.steering_message(
-                                "invalid_finish", detail=reason
-                            ),
-                        }
+                    append_model_input(
+                        messages,
+                        ledger,
+                        content=self._harness.steering_message(
+                            "invalid_finish", detail=reason
+                        ),
+                        source="steering_invalid_finish",
                     )
                     continue
                 if response.allow_recovery and self._can_recover_finalization(
@@ -1397,7 +1790,7 @@ class ContinuousAgentEpisode:
     def _repair_model_complete(
         self,
         *,
-        messages: list[dict[str, object]],
+        messages: list[EpisodeMessage],
         tools: list[dict[str, object]],
         timeout: float,
         repair_deadline: ResearchDeadline,
@@ -1429,10 +1822,24 @@ class ContinuousAgentEpisode:
         """
 
         while True:
+            # INV-R5：修复轮的每次模型请求前同样认领 next_step——收件箱是唯一输入面，
+            # 不因阶段而关。瞬态重试之间到的话在下一次重问价前送达。
+            self._claim_inbox(messages=messages, ledger=ledger, target="next_step")
+            # INV-R1：每次重问价前都对账（瞬态重试不改 messages，但重试之间可能多了
+            # repair_model_retry 事件——那不是模型可见内容，派生必须对它无感）。
+            ledger.verify_model_visible(messages)
+            # INV-R2：每一次重问价都是一次外部效果，各自一条意图；捕获的重试余量就是
+            # 修复轮此刻还剩的瞬态补救次数。
+            turn_id = ledger.record_model_intent(
+                timeout_asked=timeout,
+                phase=phase,
+                retries_remaining=transient_retries_left,
+                context=repair_context,
+            )
             model_started = monotonic()
             try:
                 turn = self._model.complete(
-                    messages=list(messages),
+                    messages=to_provider(messages),
                     tools=tools,
                     timeout=timeout,
                 )
@@ -1446,7 +1853,7 @@ class ContinuousAgentEpisode:
                 )
             model_elapsed = max(0.0, monotonic() - model_started)
             llm_calls += turn.provider_attempts
-            ledger.add("model_turn", {"phase": phase, **turn.to_dict()})
+            ledger.add("model_turn", {"phase": phase, "turn_id": turn_id, **turn.to_dict()})
             budget_alive = _consume_root_seconds(repair_context, model_elapsed)
             if (
                 turn.error
@@ -1525,6 +1932,10 @@ class ContinuousAgentEpisode:
         if state.context_ref is not None:
             state.context_ref.value = context
         ledger = state.ledger
+        # INV-R5：上一轮 finish 已清箱并关箱；修复轮 episode 又活了，外部输入面随之重开。
+        if ledger.inbox is not None:
+            ledger.inbox.reopen()
+            self._active_inbox = ledger.inbox
         accumulator = state.accumulator
         messages = state.messages
         tool_session = state.tool_session
@@ -1590,15 +2001,18 @@ class ContinuousAgentEpisode:
                 "previous_draft_chars": len(previous.draft),
             },
         )
-        messages.append(
-            {
-                "role": "user",
-                "content": self._harness.repair_goal_message(
-                    prompt_goal,
-                    tools_open=research_tools_open,
-                ),
-            }
+        append_model_input(
+            messages,
+            ledger,
+            content=self._harness.repair_goal_message(
+                prompt_goal,
+                tools_open=research_tools_open,
+            ),
+            source="repair_goal",
         )
+        # 程序计数器进修复阶段；此后 deadline_at 按修复窗算。
+        ledger.active_context = repair_context
+        ledger.put_state(phase="repair", context=repair_context)
         llm_calls = previous.usage.llm_calls
         tool_calls = previous.usage.tool_calls
         invalid_actions = previous.usage.invalid_actions
@@ -1738,18 +2152,18 @@ class ContinuousAgentEpisode:
             tool_calls += batch.executed_count
             performed_tool_action = batch.executed_count > 0
             invalid_actions += accumulator.consume(batch, repair_context)
+            # 修复轮的工具结算全部落下，程序计数器回到 repair。
+            ledger.put_state(phase="repair", context=repair_context)
             _settle_batch_calls(
                 repair_context.root_budget,
                 executed_count=batch.executed_count,
                 batch_elapsed=batch_elapsed,
             )
-            messages.append(
-                {
-                    "role": "user",
-                    "content": self._harness.steering_message(
-                        "repair_finalize", detail=""
-                    ),
-                }
+            append_model_input(
+                messages,
+                ledger,
+                content=self._harness.steering_message("repair_finalize", detail=""),
+                source="steering_repair_finalize",
             )
             final_timeout = repair_deadline.synthesis_timeout(self._llm_timeout)
             if final_timeout <= 0.001:
@@ -1957,6 +2371,7 @@ class ContinuousAgentEpisode:
         if fallback is None:
             return None
         started = monotonic()
+        extras = {fallback.call.call_id: fallback.request_extras}
         fallback_batch = tool_session.execute(
             (fallback.call,),
             registry=registry,
@@ -1964,10 +2379,12 @@ class ContinuousAgentEpisode:
             remaining_slots=remaining,
             is_cancelled=self._is_cancelled,
             turn_elapsed_at_dispatch=model_elapsed,
+            # 意图在派发前落账，领域要盖在 tool_request 上的标记得跟着意图走。
+            request_extras=extras,
         )
         return (
             fallback_batch,
-            {fallback.call.call_id: fallback.request_extras},
+            extras,
             max(0.0, monotonic() - started),
         )
 
@@ -2116,6 +2533,8 @@ class ContinuousAgentEpisode:
             continuation_state.context = promoted
         if context_ref is not None:
             context_ref.value = promoted
+        # 程序计数器之后按新 context 的截止算 deadline_at。
+        ledger.active_context = promoted
         return promoted, governance
 
     def _run_sub_research(
@@ -2255,28 +2674,41 @@ class ContinuousAgentEpisode:
     @staticmethod
     def _append_mode_decision_message(
         *,
-        messages: list[dict[str, object]],
+        messages: list[EpisodeMessage],
+        ledger: _EpisodeLedger,
         governance: ModeGovernance,
     ) -> None:
-        messages.append({"role": "user", "content": governance.message})
+        append_model_input(
+            messages, ledger, content=governance.message, source="mode_decision"
+        )
 
     def _append_sub_research_message(
         self,
         *,
-        messages: list[dict[str, object]],
+        messages: list[EpisodeMessage],
+        ledger: _EpisodeLedger,
         result: SubResearchResult,
         evidence: tuple[AgentEvidence, ...] = (),
     ) -> None:
-        messages.append(
-            {
-                "role": "user",
-                "content": self._harness.project_sub_research(
-                    branches=result.branches,
-                    refused_reason=result.refused_reason,
-                    evidence=evidence,
-                ),
-            }
+        """子研究回灌走收件箱（终态稿 §6.4 第 3 条）：``inbox.send(target=next_step,
+        source="sub_research")``，下一次模型请求前被认领进 messages。
+
+        与直接 append 的差别只有一个：它成了三事实 durable 的收件箱消息（inserted /
+        claimed），不再是 ``model_input``；位置从「批后立刻」挪到「下一次请求前」——
+        中间若插了收口指令，回灌排在指令之后。没有收件箱的账本（旧调用方 / 替身）
+        退回直接 append，事件流与 P2 相同。
+        """
+
+        content = self._harness.project_sub_research(
+            branches=result.branches,
+            refused_reason=result.refused_reason,
+            evidence=evidence,
         )
+        inbox = ledger.inbox
+        if inbox is None:
+            append_model_input(messages, ledger, content=content, source="sub_research")
+            return
+        inbox.send(user_message(content, source="sub_research"), target="next_step")
 
     @staticmethod
     def _available_tool_definitions(
@@ -2295,7 +2727,7 @@ class ContinuousAgentEpisode:
     @staticmethod
     def _compact_history_for_model(
         *,
-        messages: list[dict[str, object]],
+        messages: list[EpisodeMessage],
         accumulator: _EpisodeToolAccumulator,
         ledger: _EpisodeLedger,
         llm_calls: int,
@@ -2326,17 +2758,16 @@ class ContinuousAgentEpisode:
     @staticmethod
     def _append_tool_budget_state(
         *,
-        messages: list[dict[str, object]],
+        messages: list[EpisodeMessage],
+        ledger: _EpisodeLedger,
         remaining_slots: int,
         remaining_seconds: float | None = None,
         total_seconds: float | None = None,
         per_batch_cap: int | None = None,
     ) -> bool:
-        if not messages or messages[-1].get("role") != "tool":
+        if not messages or messages[-1].role != "tool":
             return False
-        content = messages[-1].get("content")
-        if not isinstance(content, str):
-            return False
+        content = messages[-1].content
         try:
             payload = json.loads(content)
         except json.JSONDecodeError:
@@ -2390,25 +2821,71 @@ class ContinuousAgentEpisode:
             )
             injected = True
         payload["runtime_budget"] = budget
-        messages[-1]["content"] = json.dumps(payload, ensure_ascii=False)
+        model_content = json.dumps(payload, ensure_ascii=False)
+        # 这是对最后一条 tool 消息的**覆写**，不是追加：durable 侧记整段新 content，
+        # 派生规则同样是覆写（INV-R1）。消息不可变，覆写 = 换一条新的。
+        rewrite_last_tool_content(messages, model_content)
+        record_tool_budget_state(ledger, runtime_budget=budget, model_content=model_content)
         return injected
 
     def _begin_finalization(
         self,
         *,
-        messages: list[dict[str, object]],
+        messages: list[EpisodeMessage],
         ledger: _EpisodeLedger,
         reason: str,
     ) -> None:
         ledger.add("finalization", {"reason": reason})
-        messages.append(
-            {
-                "role": "user",
-                "content": self._harness.steering_message(
-                    "begin_finalization", detail=reason
-                ),
-            }
+        append_model_input(
+            messages,
+            ledger,
+            content=self._harness.steering_message("begin_finalization", detail=reason),
+            source="begin_finalization",
         )
+        # phase 转移：从这里起模型只被要求收口（tools=[]）。恢复读到它就不再派工具。
+        ledger.put_state(phase="finalizing")
+
+    def _configure_snapshot(
+        self,
+        *,
+        context: ResearchRunContext,
+        registry: ResearchToolRegistry,
+    ) -> dict[str, object]:
+        """``configure`` 事件 / ``EpisodeState.contract_snapshot`` 的内容（G6）。
+
+        只放标量与哈希，不抄文本：恢复只需要「当时授权了什么、工具各自 replay 声明、
+        截止与超时怎么配」。``instructions_hash`` 不在这里——system 提示词在绑完
+        sub_research 之后才拼得出来，而本事件必须先于 ``task``；它的哈希由紧随其后的
+        ``prompt_assembled.system_sha256`` 承载，同一事实不落两处。
+        """
+
+        contract = context.contract
+        authorized = tuple(
+            sorted(
+                (spec.name, spec.replay)
+                for spec in registry.authorized_specs(contract.allowed_capabilities)
+            )
+        )
+        tool_contracts_hash = hashlib.sha256(
+            json.dumps(authorized, ensure_ascii=False).encode("utf-8")
+        ).hexdigest()
+        return {
+            **self._runtime_config,
+            "log_version": EPISODE_LOG_VERSION,
+            "task_id": contract.task_id,
+            "research_tier": contract.research_tier,
+            "allowed_capabilities": list(contract.allowed_capabilities),
+            "authorized_tools": [name for name, _replay in authorized],
+            "tool_replay": {name: replay for name, replay in authorized},
+            "tool_contracts_hash": tool_contracts_hash,
+            "sub_research_available": self._sub_research_coordinator is not None,
+            "policy_total_seconds": float(context.policy.total_seconds),
+            "policy_max_steps": int(context.policy.max_steps),
+            "llm_timeout": float(self._llm_timeout),
+            "repair_seconds_cap": float(self._repair_seconds_cap),
+            "provider_name": provider_name_from(self._model),
+            "harness": type(self._harness).__name__,
+        }
 
     def _can_recover_finalization(
         self,
@@ -2456,6 +2933,13 @@ class ContinuousAgentEpisode:
             "finalization_recovery_started",
             {"failure_reason": failure_reason},
         )
+        # 兜底合成也是一次外部效果：``finalization_recovery_started`` 即其意图（INTENT_KINDS
+        # 里 fsync），结算是 ``finalization_recovery_outcome``；程序计数器把它记成在飞。
+        ledger.put_state(
+            phase="finalizing",
+            reserved_ids=("finalization_recovery",),
+            context=context,
+        )
         recovery_started = monotonic()
         try:
             turn = self._finalizer.recover(
@@ -2464,6 +2948,11 @@ class ContinuousAgentEpisode:
                 evidence=tuple(accumulator.evidence),
                 gaps=tuple(accumulator.gaps),
                 failure_reason=failure_reason,
+                # 兜底合成那段独立 prompt 也是模型可见内容：落账（source=finalizer），
+                # 但不进 episode 的消息历史，派生器对它跳过。
+                on_prompt=lambda system, user: record_prompt_assembled(
+                    ledger, system=system, user=user, source=PROMPT_SOURCE_FINALIZER
+                ),
             )
         except Exception as exc:
             budget_remaining = _consume_root_seconds(
@@ -2634,6 +3123,14 @@ class ContinuousAgentEpisode:
         tool_calls: int,
         invalid_actions: int,
     ) -> AgentOutcome:
+        # INV-R4：cancelled 终局必带类型化原因。first cause wins 由 CancelSignal 保证。
+        cancel = self._cancel.snapshot()
+        # 取消先 durable、再写 finish（INV-R4 的存储侧）：两者之间崩溃，恢复读到
+        # state.cancel 非空就合成 cancelled 终局，而不是把用户的停当成没发生。
+        ledger.put_state(
+            phase=ledger.state.phase if ledger.state is not None else "planning",
+            cancel=cancel,
+        )
         return self._stopped_outcome(
             task_frame=task_frame,
             status="failed",
@@ -2646,6 +3143,10 @@ class ContinuousAgentEpisode:
             llm_calls=llm_calls,
             tool_calls=tool_calls,
             invalid_actions=invalid_actions,
+            finish_extra={
+                "cancel_cause": cancel["cause"],
+                "cancel_detail": cancel["detail"],
+            },
         )
 
     @staticmethod
@@ -2683,27 +3184,10 @@ class ContinuousAgentEpisode:
         )
 
     @staticmethod
-    def _assistant_message(turn: ModelTurn) -> dict[str, object]:
-        message: dict[str, object] = {
-            "role": "assistant",
-            "content": turn.content,
-        }
-        if turn.tool_calls:
-            message["tool_calls"] = [
-                {
-                    "id": call.call_id,
-                    "type": "function",
-                    "function": {
-                        "name": call.name,
-                        "arguments": json.dumps(
-                            call.to_dict()["arguments"],
-                            ensure_ascii=False,
-                        ),
-                    },
-                }
-                for call in turn.tool_calls
-            ]
-        return message
+    def _assistant_message(turn: ModelTurn) -> EpisodeMessage:
+        # 形状唯一定义在 ``episode_messages.assistant_message``：派生侧
+        # ``assistant_message_from_payload`` 与它同源，INV-R1 才能逐字节成立。
+        return assistant_message(turn)
 
     @staticmethod
     def _extend_unique(target: list[str], values: tuple[str, ...]) -> None:
@@ -2789,6 +3273,7 @@ class ContinuousAgentEpisode:
         carried_bindings: tuple[OutputEvidenceBinding, ...] = (),
         rejection_code: str = "none",
         rejection_reason: str = "",
+        finish_extra: Mapping[str, object] | None = None,
     ) -> AgentOutcome:
         """Stop this episode, optionally carrying an earlier answer forward.
 
@@ -2820,6 +3305,8 @@ class ContinuousAgentEpisode:
                 "caveat_slips": 0,
                 "rejection_code": rejection_code,
                 "rejection_reason": rejection_reason,
+                # 只有取消终局带 cancel_cause / cancel_detail（INV-R4）；其余路径不带该键。
+                **dict(finish_extra or {}),
             },
         )
         return AgentOutcome(
