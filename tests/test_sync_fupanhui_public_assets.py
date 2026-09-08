@@ -432,13 +432,13 @@ def test_inner_stage_prefers_summary_then_cycle_then_one_overview_call():
 
     # summary 里有 internal_cycle：直接用，不调 overview；后缀「阶段」去掉。
     got = market_sync._inner_stage({"internal_cycle": "缩量右底阶段", "updated_at": "2026-08-12T19:00:00+08:00"}, {}, td, overview)
-    assert got == ("缩量右底", "fupanhui:reviews/summary.internal_cycle", market_sync.datetime(2026, 8, 12, 19, 0, 0)) and calls == []
+    assert got == ("缩量右底", "fupanhui:reviews/summary.internal_cycle", market_sync.datetime(2026, 8, 12, 11, 0, 0)) and calls == []  # +08:00 → UTC
     # summary 没有、cycle 有。
     got = market_sync._inner_stage({"external_cycle": "底部横盘阶段"}, {"internal_stage": "二次探底"}, td, overview)
     assert got[:2] == ("二次探底", "fupanhui:reviews/cycle.internal_stage") and got[2] is None and calls == []
     # 两个都没有：调一次 overview，取同一天那条（不是最新那条）。
     got = market_sync._inner_stage({"external_cycle": "底部横盘阶段"}, {"current_stage": "底部横盘阶段"}, td, overview)
-    assert got == ("缩量右底", "fupanhui:reviews/overview.cycle_stage", market_sync.datetime(2026, 8, 12, 18, 55, 13, 848610)) and calls == [1]
+    assert got == ("缩量右底", "fupanhui:reviews/overview.cycle_stage", market_sync.datetime(2026, 8, 12, 10, 55, 13, 848610)) and calls == [1]
     # overview 也没有这一天 / 请求失败：三个 None，不拖垮同步。
     assert market_sync._inner_stage({}, {}, _date(2026, 8, 1), overview) == (None, None, None)
 
@@ -482,7 +482,7 @@ def test_market_overview_persists_inner_cycle_stage_with_platform_timestamp(patc
     finally:
         con.close()
     # 外层六类照旧在 market_stage；内层八段单独一列，带平台自己的 updated_at（平台会事后改写标注，回放要靠它）。
-    assert row == ("底部横盘阶段", "缩量右底", "fupanhui:reviews/overview.cycle_stage", market_sync.datetime(2026, 8, 12, 18, 55, 13))
+    assert row == ("底部横盘阶段", "缩量右底", "fupanhui:reviews/overview.cycle_stage", market_sync.datetime(2026, 8, 12, 10, 55, 13))  # 平台 +08:00 → UTC 无时区
 
     # 第二天同步时平台把这一天改写成别的段：新值覆盖；接口没给内层时保留旧值（COALESCE），不擦成 NULL。
     def fake_api_get_revised(path, params=None, timeout=60):

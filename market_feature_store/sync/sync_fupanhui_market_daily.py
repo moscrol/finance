@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 import json
 import re
 import time
@@ -218,15 +218,19 @@ def _normalize_stage(value) -> str | None:
 
 
 def _parse_timestamp(value):
+    """平台 updated_at（带 +08:00）→ UTC 无时区，与旁路库 history_reference_stages.vendor_updated_at 同一口径，好比大小。"""
     if not value:
         return None
     if isinstance(value, datetime):
-        return value.replace(tzinfo=None)
-    text = str(value).strip().replace("Z", "+00:00")
-    try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError:
-        return None
+        parsed = value
+    else:
+        text = str(value).strip().replace("Z", "+00:00")
+        try:
+            parsed = datetime.fromisoformat(text)
+        except ValueError:
+            return None
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc)
     return parsed.replace(tzinfo=None)
 
 

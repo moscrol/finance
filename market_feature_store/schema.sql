@@ -91,7 +91,8 @@ CREATE TABLE IF NOT EXISTS fact_market_daily (
     market_stage_source      TEXT,
     market_stage_confidence  DOUBLE,
     -- 2026-09-08：复盘会内层八段（左底向下 / 左底向上 / 二次探底 / 缩量右底 / 共建主线 / 主流主升 / 主流主升2.0 / 承接盘反复），
-    -- market_stage 是外层六类。平台事后会改写标注，所以带平台 updated_at；这列只作授课框架的校准参照，不进标签计算。
+    -- market_stage 是外层六类。平台事后会改写标注，所以带平台 updated_at（转成 UTC 无时区，与旁路库 vendor_updated_at 同口径）；
+    -- 这列只作授课框架的校准参照，不进标签计算。
     cycle_stage              TEXT,
     cycle_stage_source       TEXT,
     cycle_stage_updated_at   TIMESTAMP
