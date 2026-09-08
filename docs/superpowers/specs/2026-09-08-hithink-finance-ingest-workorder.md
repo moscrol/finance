@@ -78,9 +78,9 @@
 1. 龙虎榜一年：每日 `board_type=all` 一次 + `hot_money` 一次；热榜一年每日一次；竞价风向标 2026-01 起每日一次；竞价终态日更（需当日代码表，`meta/tickers/list` 一次 + 分批 100 个 `thscodes` ≈ 56 次请求）。
 2. **验收**：龙虎榜净额与 `fact_dragon_tiger_daily.net_amount` 同日同股对比一致率；`hot_money` 组数与 `fact_dragon_seat_daily` 游资侧行数对比；写差异不硬改。
 
-### E. 消费方切主（等 A–D 对数报告出来再做，另开单）
+### E. 消费方（等 A–D 对数报告出来再做，另开单）
 
-`build-structure` 个股 / 板块层改读新表；`tf.dragon_*` / `tf.auction_zt_*` 改读新表；新高家数从十年 K 线自算替代 `fact_stock_high_daily`。每处切主都要重跑两次全新构建哈希一致，并在骨架 §1.3 记一段。
+设计稿：`2026-09-08-hithink-data-as-river-context-design.md`——这批数据怎么按我们的契约变成长河对象与 agent 的 context（六年涨停池回算校准靶子、`capital_exit` 流动性出口一等对象、板块层真点位、`attention` 舆论第三源、涨停原因归题材），不照搬看板。切主部分：`build-structure` 个股 / 板块层改读新表；`tf.dragon_*` / `tf.auction_zt_*` 改读新表；新高家数从十年 K 线自算替代 `fact_stock_high_daily`。每处切主都要重跑两次全新构建哈希一致，并在骨架 §1.3 记一段。
 
 ## 3. 验收总表（每张 PR 自己的 `docs/verification/2026-09-xx-hithink-<x>.md`）
 
