@@ -416,6 +416,92 @@ def test_market_overview_persists_keywords(patched_db, monkeypatch):
         con.close()
 
 
+def test_inner_stage_prefers_summary_then_cycle_then_one_overview_call():
+    """内层八段：summary → cycle → overview?days=1 兜底；「阶段」后缀归一；都没有 → None 不猜。"""
+    from datetime import date as _date
+
+    td = _date(2026, 8, 12)
+    calls = []
+
+    def overview():
+        calls.append(1)
+        return {"items": [
+            {"trade_date": "2026-08-13", "cycle_stage": "共建主线", "updated_at": "2026-08-13T18:50:00+08:00"},
+            {"trade_date": "2026-08-12", "cycle_stage": "缩量右底", "internal_cycle": "缩量右底阶段", "updated_at": "2026-08-12T18:55:13.848610+08:00"},
+        ]}
+
+    # summary 里有 internal_cycle：直接用，不调 overview；后缀「阶段」去掉。
+    got = market_sync._inner_stage({"internal_cycle": "缩量右底阶段", "updated_at": "2026-08-12T19:00:00+08:00"}, {}, td, overview)
+    assert got == ("缩量右底", "fupanhui:reviews/summary.internal_cycle", market_sync.datetime(2026, 8, 12, 19, 0, 0)) and calls == []
+    # summary 没有、cycle 有。
+    got = market_sync._inner_stage({"external_cycle": "底部横盘阶段"}, {"internal_stage": "二次探底"}, td, overview)
+    assert got[:2] == ("二次探底", "fupanhui:reviews/cycle.internal_stage") and got[2] is None and calls == []
+    # 两个都没有：调一次 overview，取同一天那条（不是最新那条）。
+    got = market_sync._inner_stage({"external_cycle": "底部横盘阶段"}, {"current_stage": "底部横盘阶段"}, td, overview)
+    assert got == ("缩量右底", "fupanhui:reviews/overview.cycle_stage", market_sync.datetime(2026, 8, 12, 18, 55, 13, 848610)) and calls == [1]
+    # overview 也没有这一天 / 请求失败：三个 None，不拖垮同步。
+    assert market_sync._inner_stage({}, {}, _date(2026, 8, 1), overview) == (None, None, None)
+
+    def boom():
+        raise RuntimeError("401")
+
+    assert market_sync._inner_stage({}, {}, td, boom) == (None, None, None)
+    assert market_sync._normalize_stage("  主流主升2.0阶段 ") == "主流主升2.0" and market_sync._normalize_stage(None) is None and market_sync._normalize_stage("阶段") is None
+
+
+def test_market_overview_persists_inner_cycle_stage_with_platform_timestamp(patched_db, monkeypatch):
+    monkeypatch.setattr(market_sync.fs, "get_latest_date", lambda: "2026-08-12")
+    overview_calls = []
+
+    def fake_api_get(path, params=None, timeout=60):
+        if path.endswith("/reviews/summary"):
+            return {"trade_date": "2026-08-12", "content": "底部横盘", "external_cycle": "底部横盘阶段", "external_cycle_day": 11}
+        if path.endswith("/reviews/cycle"):
+            return {"current_stage": "底部横盘阶段", "ice_point": {"is_ice_point": False}}
+        if path.endswith("/reviews/overview"):
+            overview_calls.append(params)
+            return {"items": [{"trade_date": "2026-08-12", "cycle_stage": "缩量右底", "external_cycle": "底部横盘阶段",
+                               "updated_at": "2026-08-12T18:55:13+08:00"}]}
+        return {
+            "trade_date": "2026-08-12",
+            "volume": {"total_amount": 100.0, "change_pct": -1.0, "ma20_amount": 110.0, "ma20_ratio": 90.0, "volume_status": "正常量能"},
+            "sentiment": {"rise_count": 3000, "distribution": [{"label": "涨停", "value": 80, "type": "up-limit"}]},
+            "industry_spread": {"top3_total_pct": 12.0, "top3_industries": [{"name": "电子", "ratio": 5.0}]},
+            "strength": {"top5_avg_pct": 3.0, "strength_status": "强"},
+        }
+
+    monkeypatch.setattr(market_sync.fs, "api_get", fake_api_get)
+    stats = market_sync.sync_fupanhui_market_overview(trade_date="2026-08-12", days=1)
+    assert stats["cycle_stage"] == "缩量右底" and stats["cycle_stage_source"] == "fupanhui:reviews/overview.cycle_stage"
+    assert overview_calls == [{"days": 1, "offset": 0, "direction": "older"}]  # 兜底只多一次、只要一天
+    con = patched_db()
+    try:
+        row = con.execute(
+            "SELECT market_stage, cycle_stage, cycle_stage_source, cycle_stage_updated_at FROM fact_market_daily WHERE trade_date = DATE '2026-08-12'"
+        ).fetchone()
+    finally:
+        con.close()
+    # 外层六类照旧在 market_stage；内层八段单独一列，带平台自己的 updated_at（平台会事后改写标注，回放要靠它）。
+    assert row == ("底部横盘阶段", "缩量右底", "fupanhui:reviews/overview.cycle_stage", market_sync.datetime(2026, 8, 12, 18, 55, 13))
+
+    # 第二天同步时平台把这一天改写成别的段：新值覆盖；接口没给内层时保留旧值（COALESCE），不擦成 NULL。
+    def fake_api_get_revised(path, params=None, timeout=60):
+        if path.endswith("/reviews/summary"):
+            return {"trade_date": "2026-08-12", "external_cycle": "底部横盘阶段", "internal_cycle": "二次探底阶段", "updated_at": "2026-08-13T09:00:00+08:00"}
+        return fake_api_get(path, params, timeout)
+
+    monkeypatch.setattr(market_sync.fs, "api_get", fake_api_get_revised)
+    market_sync.sync_fupanhui_market_overview(trade_date="2026-08-12", days=1)
+    monkeypatch.setattr(market_sync.fs, "api_get", lambda path, params=None, timeout=60: fake_api_get(path, params, timeout) if not path.endswith("/reviews/overview") else {"items": []})
+    market_sync.sync_fupanhui_market_overview(trade_date="2026-08-12", days=1)
+    con = patched_db()
+    try:
+        row = con.execute("SELECT cycle_stage, cycle_stage_source FROM fact_market_daily WHERE trade_date = DATE '2026-08-12'").fetchone()
+    finally:
+        con.close()
+    assert row == ("二次探底", "fupanhui:reviews/summary.internal_cycle")
+
+
 def _stub_empty_daily_apis(monkeypatch):
     monkeypatch.setattr(assets.fs, "get_review_summary", lambda td: {"keywords": ["光纤"]})
     monkeypatch.setattr(

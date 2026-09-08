@@ -23,6 +23,17 @@ STRENGTH_COLUMNS = {
     "summary_keywords": "TEXT",
 }
 
+# 复盘会内层八段（cycle_stage）：外层六类已在 market_stage。summary / cycle 两个接口的字段名在真库里未实测
+# （2026-09-08 账号被禁，拿不到样本），所以按候选名依次找；都没有才多发一次 overview?days=1（页面自己加载
+# 复盘总览就是这个请求）。平台事后会改写标注，带上它的 updated_at；来源写进 cycle_stage_source。
+STAGE_COLUMNS = {
+    "cycle_stage": "TEXT",
+    "cycle_stage_source": "TEXT",
+    "cycle_stage_updated_at": "TIMESTAMP",
+}
+INNER_STAGE_KEYS = ("cycle_stage", "internal_cycle", "internal_stage", "inner_cycle", "current_internal_stage")
+OVERVIEW_PATH = "/api/v1/client/reviews/overview"
+
 
 UPSERT_SQL = """
     INSERT INTO fact_market_daily
@@ -53,11 +64,15 @@ OVERVIEW_UPSERT_SQL = """
          industry_3, industry_3_ratio, strength_avg_pct, strength_amount_pct,
          strength_amount, strength_marginal_pct, strength_yesterday_avg_pct,
          strength_ma5_avg_pct, strength_ma20_avg_pct, strength_status,
-         strength_source, strength_updated_at, note, summary_keywords, source, updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         strength_source, strength_updated_at, note, summary_keywords, source, updated_at,
+         cycle_stage, cycle_stage_source, cycle_stage_updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT (trade_date) DO UPDATE SET
         market_stage = excluded.market_stage,
         stage_day = excluded.stage_day,
+        cycle_stage = COALESCE(excluded.cycle_stage, fact_market_daily.cycle_stage),
+        cycle_stage_source = COALESCE(excluded.cycle_stage_source, fact_market_daily.cycle_stage_source),
+        cycle_stage_updated_at = COALESCE(excluded.cycle_stage_updated_at, fact_market_daily.cycle_stage_updated_at),
         ice_point = excluded.ice_point,
         total_amount = excluded.total_amount,
         amount_vs_yesterday_pct = excluded.amount_vs_yesterday_pct,
@@ -187,8 +202,60 @@ def _keywords_json(summary: dict | None) -> str | None:
 
 
 def _ensure_columns(con):
-    for name, typ in STRENGTH_COLUMNS.items():
+    for name, typ in {**STRENGTH_COLUMNS, **STAGE_COLUMNS}.items():
         con.execute(f"ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS {name} {typ}")
+
+
+_STAGE_SUFFIX_RE = re.compile(r"(阶段)$")
+
+
+def _normalize_stage(value) -> str | None:
+    """「缩量右底阶段」→「缩量右底」；空 / 非字符串 → None。与 overview 的 cycle_stage 写法对齐。"""
+    if not isinstance(value, str):
+        return None
+    text = _STAGE_SUFFIX_RE.sub("", value.strip())
+    return text or None
+
+
+def _parse_timestamp(value):
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value.replace(tzinfo=None)
+    text = str(value).strip().replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    return parsed.replace(tzinfo=None)
+
+
+def _inner_stage(summary: dict, cycle: dict, trade_date: date, fetch_overview) -> tuple[str | None, str | None, datetime | None]:
+    """内层八段 → (cycle_stage, 来源, 平台 updated_at)。
+
+    先在 summary、再在 cycle 里按候选字段名找；都没有才调一次 ``fetch_overview()``（复盘总览 days=1 那一页，
+    页面自己加载就是这个请求），取与 trade_date 同日的那条；仍没有 → 全 None，不猜。
+    """
+    for name, payload in (("summary", summary), ("cycle", cycle)):
+        if not isinstance(payload, dict):
+            continue
+        for key in INNER_STAGE_KEYS:
+            stage = _normalize_stage(payload.get(key))
+            if stage:
+                return stage, f"fupanhui:reviews/{name}.{key}", _parse_timestamp(payload.get("updated_at"))
+    try:
+        overview = fetch_overview()
+    except Exception:  # noqa: BLE001 - 兜底请求失败不该拖垮整日同步；这一格留空
+        return None, None, None
+    items = overview.get("items") if isinstance(overview, dict) else None
+    for item in items or []:
+        if not isinstance(item, dict) or _parse_date(item.get("trade_date")) != trade_date:
+            continue
+        for key in INNER_STAGE_KEYS:
+            stage = _normalize_stage(item.get(key))
+            if stage:
+                return stage, f"fupanhui:reviews/overview.{key}", _parse_timestamp(item.get("updated_at"))
+    return None, None, None
 
 
 def _resolve_range_dates(con, start_date: str | None, end_date: str | None, days: int | None):
@@ -286,6 +353,10 @@ def sync_fupanhui_market_overview(trade_date: str | None = None, days: int = 60)
 
     top3_ratio = _num(spread.get("top3_total_pct"))
     now = datetime.now()
+    cycle_stage, cycle_stage_source, cycle_stage_updated_at = _inner_stage(
+        summary, cycle, current_date,
+        lambda: fs.api_get(OVERVIEW_PATH, {"days": 1, "offset": 0, "direction": "older"}, timeout=60),
+    )
     row = (
         current_date,
         summary.get("external_cycle") or cycle.get("current_stage"),
@@ -321,6 +392,9 @@ def sync_fupanhui_market_overview(trade_date: str | None = None, days: int = 60)
         _keywords_json(summary),
         "fupanhui:reviews",
         now,
+        cycle_stage,
+        cycle_stage_source,
+        cycle_stage_updated_at,
     )
 
     con = connect()
@@ -339,7 +413,7 @@ def sync_fupanhui_market_overview(trade_date: str | None = None, days: int = 60)
         current = con.execute(
             """
             SELECT market_stage, stage_day, total_amount, volume_ratio,
-                   advancers, limit_up, limit_down, top3_industry_ratio
+                   advancers, limit_up, limit_down, top3_industry_ratio, cycle_stage
             FROM fact_market_daily WHERE trade_date = ?
             """,
             [current_date],
@@ -363,6 +437,8 @@ def sync_fupanhui_market_overview(trade_date: str | None = None, days: int = 60)
         "date_min": str(stats[4]) if stats[4] else None,
         "date_max": str(stats[5]) if stats[5] else None,
         "current": current,
+        "cycle_stage": cycle_stage,
+        "cycle_stage_source": cycle_stage_source,
     }
 
 
