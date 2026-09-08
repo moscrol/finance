@@ -218,6 +218,7 @@ def derive_stages(
     ebb_break_days: int = EBB_BREAK_DAYS,
     reflow_confirm_days: int = REFLOW_CONFIRM_DAYS,
     min_phase_days: int = MIN_PHASE_DAYS,
+    daily: dict[str, str] | None = None,
 ) -> tuple[list[StageSegment], list[str]]:
     """从升序逐日行派生阶段段落。rows 每行至少含：
 
@@ -231,6 +232,11 @@ def derive_stages(
     min_phase_days：最短阶段时长，派生后再合并短于 N 日的切段（与滞回正交；
     设 1 关闭）。返回（阶段段落列表, 缺口声明列表）。
     全程确定性规则，可对任意区间重放。
+
+    daily（工单 #21 剩余 / G-04）：传一个 dict 进来，循环里每处理完一天就记下**当天机器所在的段**
+    （``daily[day] = stage``）。这是「站在当天」的读数：退潮 / 回流的起点回溯与 ``merge_short_phases``
+    会在事后改写段落边界，但不会改写这里已经记下的值——旁路库标签与河切片都读它，回测才无前视。
+    首个盘面信号之前的日子不在里面（gap）。
     """
     gaps: list[str] = []
     if not rows:
@@ -389,6 +395,8 @@ def derive_stages(
                     )
                     cycle_amount_max = None
                     boards_at_ferment = None
+        if daily is not None and stage is not None:
+            daily[day] = stage
         prev_date = day
 
     close_segment(prev_date)

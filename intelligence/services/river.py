@@ -354,8 +354,89 @@ def _market_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
     return out
 
 
-def _theme_track(con: Any, as_of: str, eid: str, _ename: str) -> TrackResult:
-    """题材轨：该板块当日的涨停个股与它们挂的题材名（叙事在市场上的落点）。"""
+def theme_lifecycle_stage_object(con: Any, as_of: str, eid: str, ename: str) -> RiverObject | None:
+    """题材生命周期七段的当日读数（工单 #21 剩余 / G-04）——与旁路库 ``lifecycle_stage`` 同一台状态机、同一份原料。
+
+    行取到 ``as_of`` 为止（有效时间），状态机跑完取当天所在段；落在段外（首个盘面信号之前 / 段间空档）
+    返回 None——那是 gap 不是「酝酿」（酝酿要消息面证据，这里不读知识库）。``recorded_at`` 取所用板块行里
+    最晚的记录时刻（两来源取较早的口径，见 ``sector_recorded_at_sql``）。
+    """
+    from intelligence.services import theme_lifecycle_timeline as _tl
+    from intelligence.services.theme_stage_vocab import GAP, MAPPING_VERSION
+
+    ledger = _has_table(con, SECTOR_LEDGER_TABLE)
+    base = _rows(
+        con,
+        f"""
+        SELECT CAST(v.trade_date AS DATE) AS d, v.pct_chg, v.diff_ratio, v.amount, v.sector_name,
+               {sector_recorded_at_sql("v", with_ledger=ledger)} AS recorded_at
+        FROM fact_sector_daily v
+        {sector_ledger_join("v") if ledger else ""}
+        WHERE v.sector_ts_code = ? AND CAST(v.trade_date AS DATE) <= CAST(? AS DATE)
+        ORDER BY d
+        """,
+        [eid, as_of],
+    )
+    if not base:
+        return None
+    names = {str(r["sector_name"]) for r in base if r.get("sector_name")}
+    heat: dict[str, Any] = {}
+    if names:
+        placeholders = ",".join("?" for _ in names)
+        for r in _rows(
+            con,
+            f"""
+            SELECT CAST(trade_date AS DATE) AS d, MAX(limit_up_count) AS lu
+            FROM fact_theme_limit_heat_daily
+            WHERE sector_name IN ({placeholders}) AND CAST(trade_date AS DATE) <= CAST(? AS DATE)
+            GROUP BY 1
+            """,  # noqa: S608 - 占位符数量来自集合大小，值走参数
+            [*sorted(names), as_of],
+        ):
+            heat[str(r["d"])] = r["lu"]
+    series = [
+        {
+            "trade_date": str(r["d"]),
+            "pct_chg": r["pct_chg"],
+            "diff_ratio": r["diff_ratio"],
+            "amount": r["amount"],
+            "limit_up_count": heat.get(str(r["d"])),
+            "market_share": None,
+            "max_boards": None,
+            "first_board_count": None,
+        }
+        for r in base
+    ]
+    daily: dict[str, str] = {}
+    segments, gaps = _tl.derive_stages(series, daily=daily)
+    # 站在当天的读数（与旁路库 lifecycle_stage 同一口径）；段落表只用来给出触发说明。
+    stage = daily.get(as_of, GAP)
+    if stage == GAP:
+        return None
+    seg = next((s for s in segments if str(s.start_date)[:10] <= as_of <= str(s.end_date)[:10]), None)
+    recorded = [r["recorded_at"] for r in base if r.get("recorded_at") is not None]
+    payload = {
+        "stage": stage,
+        # 段落表是事后视角（起点回溯 / 短段合并），只作说明；它的段名可能与站在当天的 stage 不同，两者都给。
+        "segment_hindsight": None if seg is None else {"stage": seg.stage, "start": str(seg.start_date)[:10], "end": str(seg.end_date)[:10], "trigger": seg.trigger},
+        "gaps_declared": list(gaps),
+        "mapping_version": MAPPING_VERSION,
+        "derivation_rule": {"name": "theme_lifecycle_timeline.derive_stages[daily]", "version": MAPPING_VERSION},
+    }
+    return RiverObject(
+        track="theme",
+        entity_id=eid,
+        object_type="stage",
+        ref=f"lifecycle_stage:{eid}:{as_of}",
+        source_hash=_hash({"stage": stage, "as_of": as_of, "rows": len(series)}),
+        valid_from=as_of,
+        recorded_at=_ts(max(recorded)) if recorded else None,
+        payload=payload,
+    )
+
+
+def _theme_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
+    """题材轨：该板块当日的涨停个股与它们挂的题材名（叙事在市场上的落点）+ 生命周期七段读数。"""
     rows = _rows(
         con,
         """
@@ -372,9 +453,12 @@ def _theme_track(con: Any, as_of: str, eid: str, _ename: str) -> TrackResult:
         """,
         [as_of, eid, NODE_LIMIT],
     )
-    if not rows:
-        return Gap("theme", "no_data", f"fact_theme_limit_stock_daily 无 {as_of} 的 {eid}（当日无涨停成分）")
+    stage_obj = theme_lifecycle_stage_object(con, as_of, eid, ename)
+    if not rows and stage_obj is None:
+        return Gap("theme", "no_data", f"fact_theme_limit_stock_daily 无 {as_of} 的 {eid}（当日无涨停成分），且生命周期状态机在段外")
     out: list[RiverObject] = []
+    if stage_obj is not None:
+        out.append(stage_obj)
     for r in rows:
         upd = r.pop("updated_at")
         out.append(

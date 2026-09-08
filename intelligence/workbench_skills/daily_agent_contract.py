@@ -162,6 +162,24 @@ def _candidate_atoms(
                 value=stage,
             )
         )
+        # 报告里的阶段词是八阶段诊断（读法层别名，工单 #21 剩余 / G-04）；旁边并排给出七段钦定词，
+        # 让消费方能和旁路库 lifecycle_stage / 河的 stage 对象对上。翻译不到（不在任何词表）就不加，不猜。
+        try:
+            from intelligence.services.theme_stage_vocab import GAP, canonical_of
+
+            tr = canonical_of(stage)
+        except ValueError:
+            tr = None
+        if tr is not None and tr.canonical != GAP:
+            atoms.append(
+                atom(
+                    "lifecycle_canonical",
+                    f"{theme} 生命周期七段钦定词为「{tr.canonical}」"
+                    + ("（八阶段一词对两段，按持续态取）" if tr.ambiguous else ""),
+                    metric="lifecycle_stage_canonical",
+                    value=tr.canonical,
+                )
+            )
     stage_change = _text(lifecycle.get("阶段变化"))
     if stage_change:
         atoms.append(

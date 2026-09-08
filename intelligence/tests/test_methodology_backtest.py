@@ -318,12 +318,12 @@ def _label(con, entity_type, entity_id, label):
 
 def test_labels_inventory_and_data_gap(mini):
     rep = mini["report"]
-    assert len(rep.rows_by_label) == 15
+    assert len(rep.rows_by_label) == 16
     assert rep.data_gap_days == [str(DAYS[GAP])]
     assert rep.label_version == LABEL_VERSION
     con = duckdb.connect(str(mini["labels"]), read_only=True)
     try:
-        assert con.execute("SELECT COUNT(DISTINCT label) FROM history_labels").fetchone()[0] == 15
+        assert con.execute("SELECT COUNT(DISTINCT label) FROM history_labels").fetchone()[0] == 16
         assert con.execute("SELECT MAX(trade_date) FROM history_labels").fetchone()[0] == DAYS[-1]
     finally:
         con.close()
@@ -1290,3 +1290,28 @@ def test_cli_run_and_invalid_rule_exit_codes(synthetic, tmp_path):
     bad.write_text('{"rule_id": "bad_rule", "version": 1}', encoding="utf-8")
     assert cli.main(["run", str(bad), "--labels-db", str(synthetic["labels"]), "--no-write"]) == 2
     assert cli.main(["run", str(rule_path), "--labels-db", str(tmp_path / "nope.duckdb"), "--no-write"]) == 2
+
+
+def test_lifecycle_stage_label_matches_state_machine_and_leaves_gaps_null(mini):
+    """#21 剩余 / G-04：旁路库 lifecycle_stage 与 theme_lifecycle_timeline.derive_stages 同一台机器；段外不落行。"""
+    from intelligence.services import theme_lifecycle_timeline as tl
+    from intelligence.services.methodology_backtest.labels import lifecycle_stage_rows_by_code
+    from intelligence.services.theme_stage_vocab import CANONICAL_STAGES
+
+    con = duckdb.connect(str(mini["labels"]), read_only=True)
+    try:
+        got = _label(con, "theme", "S1.TI", "lifecycle_stage")
+        # 用同一份原料在测试里重跑状态机
+        con.execute(f"ATTACH '{mini['src']}' AS src (READ_ONLY)")
+        try:
+            series = lifecycle_stage_rows_by_code(con)["S1.TI"]
+        finally:
+            con.execute("DETACH src")
+    finally:
+        con.close()
+    daily: dict[str, str] = {}
+    tl.derive_stages(series, daily=daily)
+    expected = {i: daily[str(d)] for i, d in enumerate(DAYS) if str(d) in daily}
+    assert got == expected
+    assert got, "夹具 S1 有双红日，状态机至少要开一段"
+    assert set(got.values()) <= set(CANONICAL_STAGES)

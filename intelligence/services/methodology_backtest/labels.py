@@ -21,6 +21,7 @@ stock 用 ``stock_ts_code``）：
 | theme | limit_heat_rank | rank | 涨停热度排名，档位写死见 ``HEAT_TIER`` |
 | theme | limit_heat_rank_jump | 1/0/NULL | 排名较前一交易日提升 >=5；前一日无名次则 NULL |
 | theme | mainline_flag | 1/0/NULL | 当日出现在 ``fact_mainline_sector_daily``；主线表无覆盖的日子为 NULL |
+| theme | lifecycle_stage | text/NULL | 题材生命周期七段（酝酿/首发/发酵/主升/分歧/退潮/回流；``theme_lifecycle_timeline.derive_stages`` 状态机，阈值不复制）；首个盘面信号之前与段间空档为 NULL（gap，不是「酝酿」——酝酿要消息面证据，旁路库不读知识库） |
 | market | market_stage | text | 投影 ``fact_market_daily.market_stage``，去掉末尾「阶段」别名；NULL 保留 |
 | market | volume_surge | 1/0/NULL | ``amount_vs_yesterday_pct > VOLUME_SURGE_PCT``（与 detect_turning_points 同阈值，真库上两口径 74 日完全一致） |
 | market | ma5_peak_confirmed | 1/0 | ``SignalDetector`` 的 MA5 顶确认日 |
@@ -89,8 +90,9 @@ from .store import (
 # 口径版本。热度档位、阈值、算法、标签目录任何一处变动都要升版本，旧收据凭它判「不可比」。
 # v1 → v2：新增 stock 三标签（limit_up / first_board / new_high_1y），sector / theme / market 口径未动。
 # v2 → v3：market_stage 去掉上游值末尾的「阶段」别名，NULL 仍为 NULL。
+# v3 → v4：新增 theme 标签 lifecycle_stage（工单 #21 剩余 / G-04：七段单一词表，theme_lifecycle_timeline 状态机）；其余口径未动。
 HEAT_TIER = {"dimension": "sector", "scope": "all", "data_stage": "final", "is_realtime": False}
-LABEL_VERSION = "v3-heat_sector_all_final_nonrt-stock_limit_high_union-market_stage_normalized"
+LABEL_VERSION = "v4-heat_sector_all_final_nonrt-stock_limit_high_union-market_stage_normalized-lifecycle_stage_tsm_v1"
 
 DATA_GAP_ZERO_RATIO = 0.9
 DUAL_RED_DIFF_RATIO_GT = 10.0
@@ -110,7 +112,7 @@ SECTOR_LABELS = (
     "multi_period_resonance",
     "amount_rank_top10",
 )
-THEME_LABELS = ("limit_heat_rank", "limit_heat_rank_jump", "mainline_flag")
+THEME_LABELS = ("limit_heat_rank", "limit_heat_rank_jump", "mainline_flag", "lifecycle_stage")
 MARKET_LABELS = ("market_stage", "volume_surge", "ma5_peak_confirmed", "ma5_valley_confirmed")
 STOCK_LABELS = ("limit_up", "first_board", "new_high_1y")
 ALL_LABELS = SECTOR_LABELS + THEME_LABELS + MARKET_LABELS + STOCK_LABELS
@@ -128,6 +130,7 @@ LABEL_SPEC: dict[str, Any] = {
     "ma5": f"turning_points.SignalDetector(MA5_MIN_SWING={MA5_MIN_SWING}) confirm-day, full fact_market_daily range",
     "market_stage": "normalize_market_stage(fact_market_daily.market_stage): strip one trailing '阶段'; NULL stays NULL",
     "mainline_flag": "fact_mainline_sector_daily (trade_date, sector_ts_code) exists; NULL on days without coverage",
+    "lifecycle_stage": "theme_lifecycle_timeline.derive_stages(fact_sector_daily rows + limit_heat limit_up_count; no message dates, no boards) → 酝酿/首发/发酵/主升/分歧/退潮/回流 per day; NULL before first market signal / between segments",
     "stock_universe": (
         f"{STOCK_UNIVERSE}: distinct (trade_date, stock_ts_code) in fact_theme_limit_stock_daily UNION "
         "fact_stock_high_daily; labels dense 1/0 inside, NULL only on days the source table has no rows"
@@ -145,7 +148,7 @@ def build_labels(
     *,
     now: datetime | None = None,
 ) -> BuildReport:
-    """从主库只读重建全部 15 个标签 + data_gap + 交易日历，写入旁路库。幂等：同输入同输出。"""
+    """从主库只读重建全部 16 个标签 + data_gap + 交易日历，写入旁路库。幂等：同输入同输出。"""
     computed_at = naive_utc(now or utc_now())
     con = open_labels_db(labels_db, read_only=False)
     try:
@@ -156,6 +159,7 @@ def build_labels(
             gap_days = _build_data_gaps(con, computed_at)
             _build_sector_labels(con, computed_at)
             _build_theme_labels(con, computed_at)
+            _build_lifecycle_stage_labels(con, computed_at)
             ma5_counts = _build_market_labels(con, computed_at)
             stock_coverage = _build_stock_labels(con, computed_at)
 
@@ -385,6 +389,86 @@ def _build_theme_labels(con: duckdb.DuckDBPyConnection, computed_at: datetime) -
         )
     con.execute("DROP TABLE IF EXISTS _heat_feat")
     con.execute("DROP TABLE IF EXISTS _heat")
+
+
+# --------------------------------------------------------------------------- #
+# theme：生命周期七段（工单 #21 剩余 / G-04）
+# --------------------------------------------------------------------------- #
+def lifecycle_stage_rows_by_code(con: duckdb.DuckDBPyConnection) -> dict[str, list[dict[str, Any]]]:
+    """每个 ``sector_ts_code`` 的升序逐日行，形状与 ``theme_lifecycle_timeline.load_theme_daily_rows`` 一致。
+
+    涨停数按 ``sector_name`` 精确匹配热度表（同一代码历史上可能多名，全部认）；连板高度 / 首板数不接
+    （``fact_limit_advance_daily.theme LIKE`` 是模糊匹配，进标签会把口径变成猜）——状态机对缺失有声明：
+    「连板高度数据缺失：主升判定放宽为仅连续双红」。
+    """
+    base = con.execute(
+        f"""
+        SELECT sector_ts_code, sector_name, CAST(trade_date AS DATE) AS d, pct_chg, diff_ratio, amount
+        FROM {SOURCE_ALIAS}.fact_sector_daily
+        WHERE sector_ts_code IS NOT NULL
+        ORDER BY sector_ts_code, d
+        """
+    ).fetchall()
+    heat: dict[tuple[str, str], float | None] = {}
+    try:
+        for name, d, lu in con.execute(
+            f"""
+            SELECT sector_name, CAST(trade_date AS DATE), MAX(limit_up_count)
+            FROM {SOURCE_ALIAS}.fact_theme_limit_heat_daily
+            WHERE sector_name IS NOT NULL GROUP BY 1, 2
+            """
+        ).fetchall():
+            heat[(str(name), str(d))] = lu
+    except duckdb.Error:
+        heat = {}
+    by_code: dict[str, list[dict[str, Any]]] = {}
+    for code, name, d, pct, diff, amt in base:
+        by_code.setdefault(str(code), []).append(
+            {
+                "trade_date": str(d),
+                "pct_chg": pct,
+                "diff_ratio": diff,
+                "amount": amt,
+                "limit_up_count": heat.get((str(name), str(d))),
+                "market_share": None,
+                "max_boards": None,
+                "first_board_count": None,
+            }
+        )
+    return by_code
+
+
+def _build_lifecycle_stage_labels(con: duckdb.DuckDBPyConnection, computed_at: datetime) -> int:
+    """每个（板块, 交易日）一条 ``lifecycle_stage``：段内落七段词，段外不落行（NULL）。
+
+    值是**站在当天**的读数（``derive_stages(..., daily=)``：循环里每天记下机器当时所在的段），不是事后
+    段落表按天取值——退潮 / 回流的起点回溯与 ``merge_short_phases`` 会事后改写段边界，按它们取值就是前视。
+    与 ``river.theme_lifecycle_stage_object`` 同一函数同一口径，随机抽 30 格两边逐字节相等（测试钉住）。
+    """
+    from intelligence.services import theme_lifecycle_timeline as _tl
+
+    by_code = lifecycle_stage_rows_by_code(con)
+    days = set(str(r[0]) for r in con.execute("SELECT trade_date FROM history_calendar").fetchall())
+    if not days or not by_code:
+        return 0
+    rows: list[tuple] = []
+    for code, series in sorted(by_code.items()):
+        daily: dict[str, str] = {}
+        _tl.derive_stages(series, daily=daily)
+        for day, stage in daily.items():
+            if day not in days:
+                continue
+            rows.append(("theme", code, day, "lifecycle_stage", None, stage, LABEL_VERSION, computed_at))
+    if rows:
+        con.executemany(
+            """
+            INSERT INTO history_labels
+                (entity_type, entity_id, trade_date, label, value_num, value_text, label_version, computed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+    return len(rows)
 
 
 # --------------------------------------------------------------------------- #

@@ -84,6 +84,7 @@ from market_feature_store.db import DatabaseLockedError  # noqa: E402
 RULES_DIR = ROOT / "methodology" / "rules"
 RECEIPTS_DIR = ROOT / "methodology" / "receipts"
 REFUTED_DIR = ROOT / "methodology" / "refuted"
+REFERENCE_DIR = ROOT / "methodology" / "reference"
 MIN_N_ABLATION = (2, 10, 20)
 EXIT_INPUT = 2
 EXIT_LOCKED = 3
@@ -540,6 +541,110 @@ def _add_run_args(p: argparse.ArgumentParser) -> None:
     )
 
 
+
+# --------------------------------------------------------------------------- #
+# 题材生命周期人工对照集（工单 #21 剩余 / G-04）
+# --------------------------------------------------------------------------- #
+def cmd_stage_reference(args: argparse.Namespace) -> int:
+    """从旁路库 lifecycle_stage 分层抽样，生成待人工标注的对照集草稿（stage_manual 留 null，agent 不填）。"""
+    import random
+
+    from intelligence.services.theme_stage_vocab import CANONICAL_STAGES
+
+    con = open_labels_db(args.labels_db, read_only=True)
+    try:
+        rows = con.execute(
+            "SELECT entity_id, trade_date, value_text FROM history_labels WHERE label = 'lifecycle_stage' ORDER BY entity_id, trade_date"
+        ).fetchall()
+    finally:
+        con.close()
+    if not rows:
+        raise SystemExit("旁路库没有 lifecycle_stage 标签，先 build-labels")
+    by_stage: dict[str, list[tuple[str, str]]] = {}
+    for code, day, stage in rows:
+        by_stage.setdefault(str(stage), []).append((str(code), str(day)))
+    rng = random.Random(int(args.seed))
+    picked: list[dict] = []
+    per_stage = max(4, int(args.n) // max(1, len([s for s in CANONICAL_STAGES if s in by_stage])))
+    for stage in CANONICAL_STAGES:
+        pool = by_stage.get(stage, [])
+        if not pool:
+            continue
+        # 分层 + 跨月：先按月分桶再轮转抽，避免同一段连续日全被抽走
+        months: dict[str, list[tuple[str, str]]] = {}
+        for code, day in pool:
+            months.setdefault(day[:7], []).append((code, day))
+        keys = sorted(months)
+        rng.shuffle(keys)
+        taken = 0
+        i = 0
+        while taken < per_stage and any(months.values()):
+            m = keys[i % len(keys)]
+            i += 1
+            if not months[m]:
+                continue
+            code, day = months[m].pop(rng.randrange(len(months[m])))
+            picked.append({
+                "theme": code,
+                "as_of": day,
+                "stage_machine": stage,
+                "stage_manual": None,
+                "evidence_refs": [f"fact_sector_daily:{day}:{code}", f"history_labels:theme:{code}:{day}:lifecycle_stage"],
+                "note": "",
+            })
+            taken += 1
+    out = Path(args.out).expanduser()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8") as fh:
+        for rec in picked:
+            fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    counts = {}
+    for rec in picked:
+        counts[rec["stage_machine"]] = counts.get(rec["stage_machine"], 0) + 1
+    months_covered = len({rec["as_of"][:7] for rec in picked})
+    print(json.dumps({"written": str(out), "n": len(picked), "per_stage": counts, "months": months_covered,
+                      "stage_manual_filled": 0, "note": "stage_manual 由创始人 / 用户填；agent 不填"}, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_stage_agreement(args: argparse.Namespace) -> int:
+    """人工标注 vs 状态机的一致率 + 混淆矩阵；已填 < min_n 只出计数不出率。"""
+    from intelligence.services.theme_stage_vocab import CANONICAL_STAGES, canonical_of
+
+    ref = Path(args.reference).expanduser()
+    if not ref.exists():
+        raise SystemExit(f"对照集不存在：{ref}（先 stage-reference）")
+    records = [json.loads(line) for line in ref.read_text(encoding="utf-8").splitlines() if line.strip()]
+    filled = [r for r in records if r.get("stage_manual")]
+    report: dict = {"reference": str(ref), "n_total": len(records), "n_filled": len(filled), "min_n": int(args.min_n)}
+    if len(filled) < int(args.min_n):
+        report["status"] = "insufficient_n"
+        report["note"] = f"已标注 {len(filled)} 条 < {args.min_n}，只出计数不出率；待标注 {len(records) - len(filled)} 条"
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0
+    agree = 0
+    confusion: dict[str, dict[str, int]] = {}
+    disagreements: list[dict] = []
+    for r in filled:
+        manual = canonical_of(r["stage_manual"]).canonical  # 人可以用任一套词写，统一到七段再比
+        machine = str(r.get("stage_machine"))
+        confusion.setdefault(manual, {}).setdefault(machine, 0)
+        confusion[manual][machine] += 1
+        if manual == machine:
+            agree += 1
+        else:
+            disagreements.append({"theme": r["theme"], "as_of": r["as_of"], "manual": manual, "machine": machine, "note": r.get("note", "")})
+    report.update({
+        "status": "ok",
+        "agreement_rate": round(agree / len(filled), 4),
+        "confusion": {m: {k: confusion[m][k] for k in sorted(confusion[m])} for m in sorted(confusion)},
+        "stages": list(CANONICAL_STAGES),
+        "disagreements": disagreements,
+        "attribution_required": "每条不一致要人工归因：阈值 / 缺原料 / 映射歧义 / 人工标注存疑——本报告不替归因",
+    })
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0
+
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="方法论回测：标签层 / 前瞻结果 / 规则运行 / 扫描 / 报告")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -621,6 +726,18 @@ def build_parser() -> argparse.ArgumentParser:
     rp.add_argument("--refuted", action="store_true", help="只看证伪库：每条证伪规则按事件日大盘阶段展开")
     rp.add_argument("--rule", default=None, help="只看某个 rule_id 的收据")
     rp.set_defaults(func=cmd_report)
+
+    sr = sub.add_parser("stage-reference", help="题材生命周期人工对照集草稿：从旁路库 lifecycle_stage 分层抽样，stage_manual 留空（#21 剩余 / G-04）")
+    _add_db_args(sr, source=False)
+    sr.add_argument("--n", type=int, default=42, help="目标条数（七段各 ≥4，跨月轮转），默认 42")
+    sr.add_argument("--seed", type=int, default=20260908)
+    sr.add_argument("--out", default=str(REFERENCE_DIR / "theme_stage_reference_set.jsonl"))
+    sr.set_defaults(func=cmd_stage_reference)
+
+    sa = sub.add_parser("stage-agreement", help="人工标注 vs 状态机一致率 + 混淆矩阵；已填 < min_n 只出计数")
+    sa.add_argument("--reference", default=str(REFERENCE_DIR / "theme_stage_reference_set.jsonl"))
+    sa.add_argument("--min-n", type=int, default=30)
+    sa.set_defaults(func=cmd_stage_agreement)
     return ap
 
 

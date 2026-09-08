@@ -67,6 +67,8 @@ LABEL_KINDS: dict[str, tuple[str, str]] = {
     "limit_heat_rank": ("theme", "num"),
     "limit_heat_rank_jump": ("theme", "bool"),
     "mainline_flag": ("theme", "bool"),
+    # 题材生命周期七段（#21 剩余 / G-04）：文本标签，词表见 theme_stage_vocab.CANONICAL_STAGES。
+    "lifecycle_stage": ("theme", "text"),
     "market_stage": ("market", "text"),
     "volume_surge": ("market", "bool"),
     "ma5_peak_confirmed": ("market", "bool"),
