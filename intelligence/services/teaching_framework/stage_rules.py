@@ -14,7 +14,7 @@ implied.  Counting views, ties broken by the graph, no guessing — unchanged fr
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
 STAGES = (
     "左底向下",
@@ -66,6 +66,11 @@ BAND_VIEWS: tuple[tuple[str, str], ...] = (
     # 第五段「周均线下方赚钱效应不在成交占比前三」：5 日涨幅前 10 板块在前三申万之外的比例。
     # 平台八段上 左底向下 / 缩量右底 0.70 → 共建主线 0.40（主线成形 = 赚钱的与量板块重合）。
     ("rps5_outside_top3_pct", "赚钱效应·5日涨幅前10在前三申万之外的比例"),
+    # 题材层第二轮「先量再建」：承接 = 昨日涨停股今日平均涨幅的 5 日均值（平台「承接盘反复」的字面对象；
+    # 平台八段中位 主流主升2.0 2.65 / 主流主升 2.33 > 承接盘反复 1.90 / 共建主线 1.87 > 二次探底 1.58 /
+    # 缩量右底 1.25 / 左底向下 1.19）。同时试过的 负溢价天数 / 正负翻转次数 / 双红申万一级数 / 涨停领涨集合
+    # 持续度 只作视角写出：单独或合并进带区都是训练期升、验证期降（详见 slice2 spec §6）。
+    ("limit_premium_ma5_pct", "承接·昨日涨停股今日均涨幅5日均值"),
 )
 
 ENTRY_PREDICATES: dict[str, tuple[str, ...]] = {
@@ -75,9 +80,42 @@ ENTRY_PREDICATES: dict[str, tuple[str, ...]] = {
     "缩量右底": (),
     "共建主线": ("E:breakout_volume_within_window",),
     "主流主升": (),
-    "主流主升2.0": (),
+    # 第十一段「升级 2.0，大概率是进一步放量指数进一步走强」：高位震荡（承接盘反复）之后的双量日 + 指数新高。
+    "主流主升2.0": ("E:upgrade_double_volume_new_high",),
     "高位震荡": ("E:overheated",),
 }
+
+UPGRADE_ORIGIN = "高位震荡"  # 平台序列里 2.0 三次都紧跟承接盘反复；第一腿从底部起的新高不算升级
+DEFAULT_UPGRADE_NEW_HIGH_WINDOW = 20
+
+# 左底向下进入口径（参数 ``left_down_entry``）：``persist_days`` = 首次下穿后第几天起算（1 = 下穿当天），
+# ``volume`` = 当日量能条件：expanding_or_gap（09-06 第三轮「放量跌破或跳空低开跌破」）/ shrink（平台起点
+# 的形状：缩量）/ any。哪一组是 B 类候选，按训练期选、验证期验。
+LEFT_DOWN_VOLUME_RULES = ("expanding_or_gap", "shrink", "shrink_or_gap", "any")
+# ``gap_through_ma_day1``（可选，缺省 False）：第十三段「印象中跳空低开跌破周均的，后续往往指数是继续向下」——
+# 首次下穿当天开盘就已在周均线之下（缺口穿过周均）时，不等 persist_days、不看量能，当天就算进入。
+# 真库（09-07，固定快照）：16 次这样的下穿 20 日后 64% 收在下方（全部交易日基准 36%），但作进入证据时一致率
+# 训练期持平 50.5、验证期 40.0 → 39.1，多判的 4 天平台都不叫左底向下，所以只作可选项，不是默认。
+DEFAULT_LEFT_DOWN_ENTRY = {"persist_days": 1, "volume": "expanding_or_gap", "gap_through_ma_day1": False}
+
+
+def left_down_entry(params: Mapping[str, Any] | None) -> dict[str, Any]:
+    raw = (params or {}).get("left_down_entry") or {}
+    return {
+        "persist_days": int(raw.get("persist_days", DEFAULT_LEFT_DOWN_ENTRY["persist_days"])),
+        "volume": str(raw.get("volume", DEFAULT_LEFT_DOWN_ENTRY["volume"])),
+        "gap_through_ma_day1": bool(raw.get("gap_through_ma_day1", DEFAULT_LEFT_DOWN_ENTRY["gap_through_ma_day1"])),
+    }
+
+
+def _left_down_volume_ok(v: Callable[[str], Any], rule: str) -> bool:
+    if rule == "expanding_or_gap":
+        return v("volume_expanding") is True or v("gap_down_open") is True
+    if rule == "shrink":
+        return v("volume_band") == "shrink"
+    if rule == "shrink_or_gap":
+        return v("volume_band") == "shrink" or v("gap_down_open") is True
+    return rule == "any"
 
 # Continuing predicates that are founder sentences rather than calibrated bands.
 # 第六段：「缩量右底是下穿后反弹到周均线那一段，然后又回踩探底」+ 第三轮「二次探底会有个
@@ -174,9 +212,20 @@ def predicate_hits(
 
     hits: list[tuple[str, str]] = []
     # 进入证据：创始人的转点原话。
-    # 第六段「左底向下是第一次从周均线下穿」+ 09-06 第三轮「放量跌破周均或者跳空低开跌破周均基本
-    # 就是要开始向下继续调整了」：第一次下穿还要带量或跳空，顶部区间里缩量的普通下穿不算。
-    if v("cross_below_kind") == "first" and (v("volume_expanding") is True or v("gap_down_open") is True):
+    # 第六段「左底向下是第一次从周均线下穿」。创始人第十二段：定义不精确、结合特征值定——平台的左底向下
+    # 在下穿后第 2–3 天、缩量（量能比 84–97）时才开始，高位横盘里带量的短促下穿（中位 2.5 天就收回）不算。
+    # 落法：首次下穿周期（未见回踩）的第 persist_days 天起、仍在周均线下方、量能满足 volume 口径的每一天都算进入。
+    entry = left_down_entry(params)
+    cycle_day = v("below_ma_cycle_day")
+    in_first_phase = (
+        isinstance(cycle_day, (int, float)) and cycle_day >= entry["persist_days"]
+        and v("below_ma_cycle_retest_seen") is False and v("above_week_ma") is False
+    )
+    gap_through_ma = (
+        entry["gap_through_ma_day1"] and v("cross_below_kind") == "first" and v("open_below_week_ma") is True
+        and v("above_week_ma") is False
+    )
+    if (in_first_phase and _left_down_volume_ok(v, entry["volume"])) or gap_through_ma:
         hits.append(("左底向下", "E:first_cross_below"))
     if v("cross_below_kind") == "retest":
         hits.append(("二次探底", "E:retest_cross_below"))
@@ -192,6 +241,11 @@ def predicate_hits(
     from_bottom = origin is None or origin in BOTTOM_STAGES
     if from_bottom and in_window and v("volume_expanding") is True and v("above_week_ma") is True:
         hits.append(("共建主线", "E:breakout_volume_within_window"))
+    # 第十一段「升级 2.0，大概率是进一步放量指数进一步走强」：来源是高位震荡（承接盘反复），当日是双量日
+    # （每日复盘口径：环比 > 10% 且量能比 > 120），且收盘创前 n 日新高；n 是 B 类候选（upgrade_new_high_window）。
+    upgrade_window = int((params or {}).get("upgrade_new_high_window", DEFAULT_UPGRADE_NEW_HIGH_WINDOW))
+    if origin == UPGRADE_ORIGIN and v("double_volume_day") is True and v(f"index_new_high_{upgrade_window}d") is True:
+        hits.append(("主流主升2.0", "E:upgrade_double_volume_new_high"))
     # 第六段流程：回踩下穿之后（周期仍在）、放量突破之前的缩量日 = 缩量右底的「缩量的过程」。
     if v("below_ma_cycle_retest_seen") is True and v("volume_band") == "shrink":
         hits.append(("缩量右底", "H:shrink_after_retest"))

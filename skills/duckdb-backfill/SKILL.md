@@ -43,6 +43,37 @@ description: "DuckDB market_feature_store 历史日回补与验收。触发：�
 
 第 1、2 件回答「有没有」，第 3 件回答「像不像基线」：行数、来源语义、`pre_close`/`pct_chg` 链、金额量纲、字段空值、板块 payload 对账、日历副作用。三者缺任一都出现过「行数全对、值是空壳」的静默降级。
 
+## local 计划：不发任何 fupanhui 请求的日更 / 补日链路（2026-09-07 起）
+
+fupanhui 账号风控后的生产链路。`run_review_sync.py --date D --plan local`（或逐步 `--only`）：
+
+`stock-daily`（东财快照，仅当日）→ `index-daily` → `sw-l1-daily` → `carry-forward-universe`（名单冻结：把最近一份
+published 宇宙按当日重发，provider=`local:carry`）→ `stitch-sector-stocks --max-baseline-age-days 180`（最后一份 fupanhui
+成分 × 当日东财真值）→ `sector-daily-local` → `compute-limit-stats-local`（题材涨停/明细/连板/龙头，不计 ST）→
+`compute-market-overview-local`（沪深总额/涨家数/涨跌停/量能/前三行业/新高家数/周均线）→
+`compute-market-editorial-local`（编辑层自家替代版：强度=涨幅前 5% 个股、强度状态 2/5/8 阈值、量能状态四档、冰点 JSON）→
+`compute-market-stage-local`（周期阶段自训分类器 v1）→ `compute-stock-high-local`（新高名单，按日内最高价）→
+`compute-mainline-local`（主线题材人气值 v1）→ `features`。
+
+- 历史日补数同一条链，个股用 mootdx（`sync-stock-daily --start-date D --end-date D`），不用东财快照。
+- **顺序按日串行**：后一日的板块边际量用前一日全量板块额，09-03 没补完不要跑 09-04。
+- 名单没抓全的那天（identity 变了、成分 0 行，如 2026-09-03）用 `carry-forward-universe --supersede --base-date <最后完整日>`
+  冻回最后一份完整名单，原快照留 `superseded`；否则 stitch 把变动板块留给已不存在的 provider。
+- `sector-daily-local` 对无成分板块 fail closed（不把「没抓到」写成 0）。北交所个股缺行会让 BJ 密集的小板块整块 pending
+  （09-03/09-04 各 9 个），先补齐个股再跑。
+- 门禁带 `--plan local`：期望表由 `consumption_registry.tables_for_plan('local')` 派生，fupanhui 独有的表（主线×3、资金流、
+  新高、公开资产）和 `strength_*` 字段不算缺。cross-day `check-daily --plan local` 同理。
+- 编辑层替代版与 fupanhui 历史对照（15 日）：强度均涨幅相对误差中位 1.8%、强度状态一致 14/15、量能状态一致 15/15；新高名单按裸价
+  `high`，与 fupanhui 前复权口径差 ~12%。这些是**自家口径**，fupanhui 值恢复可读时只作对照（`qa_local_vs_fupanhui.py` 编辑层段）。
+- **周期阶段**：自训 numpy 逻辑回归 v1（`market_feature_store/models/market_stage.py`，监督 = fupanhui 343 个标签日），
+  分块 5 折精确 41.6% / 粗粒度 53.0%（手写规则 37%/58%；首版在含 4 天坏日线的数据上是 43.7%/55.1%，工单 #32 修数后重训，
+  权重最大漂 21.7%——1.2% 的样本就能晃动这么多，读数按 ±2pp 抖动看），写库带 `market_stage_source='local:stage-lr-v1'` 与 `market_stage_confidence`，
+  滞回平滑（新阶段概率高出 0.15 才切换）。标签多了 `cli train-market-stage` 重训，产物 JSON 进仓。
+- **主线题材**：人气值 v1 = 20 日涨幅×2 + 5 日涨停数×1 + 5 日均额×0.5 + 5 日双红×0.5，题材分取成员板块 top-3 均值，取前 4 题材；
+  板块→题材用 fupanhui 主线历史归组（73 板块/14 题材）兜底申万一级。与其 53 日历史 Jaccard 0.28（随机 0.09；只在其 14 题材内选 0.47）。
+  主线个股 = 主线板块成员里的涨停股优先、再按涨幅×log(成交额)，每题材 ≤20。
+- 仍留空：summary/keywords、核心个股（方向：题材成员按知识库年报暴露度 + 人气排序）、资金流。
+
 ## 剥离 fupanhui：双轨切换门（2026-09-07 起）
 
 定位：fupanhui 是**参照源**，不是抓取源头。加工字段用自己的底数据（东财/mootdx 个股、申万官方）按公开规则算，

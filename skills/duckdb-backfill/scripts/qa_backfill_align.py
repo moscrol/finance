@@ -113,8 +113,15 @@ def counts_by_date(con, table: str, col: str, dates: list[str]) -> dict[str, int
     return out
 
 
-def check_rows(con, rep: Report, gate, quality, target: str, baseline: list[str]) -> None:
+def check_rows(con, rep: Report, gate, quality, target: str, baseline: list[str], plan: str | None = None) -> None:
     tables = list(dict.fromkeys([*gate.TABLES, "fact_sector_universe_daily", *quality.GAP_TABLES]))
+    if plan and plan not in ("full", "cheap", "auto"):
+        # local 等自算计划：只对该计划会写的表比行数（fupanhui 独有表缺行是设计不是缺数）
+        scoped, _fields = gate.plan_scope(plan)
+        from market_feature_store.consumption_registry import load_registry, tables_for_plan
+
+        expected = tables_for_plan(load_registry(), plan) | set(scoped) | set(gate.FEATURE_FAMILY) | {"fact_sector_universe_daily"}
+        tables = [t for t in tables if t in expected]
     constant = set(quality.ROW_ANOMALY_TABLES) | {"fact_sector_universe_daily"}
     for table in tables:
         col = _date_column(table, gate)
@@ -139,14 +146,15 @@ def check_rows(con, rep: Report, gate, quality, target: str, baseline: list[str]
             rep.warn(target, "rows", f"{table} {cur} 行 < 基线中位 {med:.0f} × {VOLATILE_SHRINK_RATIO}")
 
 
-def check_market_row(con, rep: Report, gate, target: str) -> bool:
+def check_market_row(con, rep: Report, gate, target: str, plan: str | None = None) -> bool:
     cur = con.execute("SELECT * FROM fact_market_daily WHERE trade_date = ?", [target])
     values = cur.fetchone()
     if values is None:
         rep.fail(target, "market", "fact_market_daily 无当日行")
         return False
     row = {c[0]: v for c, v in zip(cur.description, values)}
-    empty = [f for f in gate.MARKET_FIELDS if gate.is_null(row.get(f))]
+    _tables, fields = gate.plan_scope(plan)
+    empty = [f for f in fields if gate.is_null(row.get(f))]
     if empty:
         rep.fail(
             target,
@@ -159,13 +167,13 @@ def check_market_row(con, rep: Report, gate, target: str) -> bool:
     return True
 
 
-def check_calendar_side_effect(con, rep: Report, quality, target: str, has_market_row: bool) -> None:
+def check_calendar_side_effect(con, rep: Report, quality, target: str, has_market_row: bool, plan: str | None = None) -> None:
     """有日历行（fact_market_daily）而 GAP_TABLES 缺行：check-daily 的 20 日日历会把它算成断档，
     夜跑 cross-day-gate FAIL → S7 不换名。头部模块（market-overview/index-daily）必须最后写。"""
     if not has_market_row:
         return
     missing = []
-    for table in quality.GAP_TABLES:
+    for table in quality.tables_in_plan(plan, quality.GAP_TABLES):
         n = con.execute(f"SELECT COUNT(*) FROM {table} WHERE trade_date = ?", [target]).fetchone()[0]
         if not n:
             missing.append(table)
@@ -431,7 +439,7 @@ def double_red(con, rep: Report, target: str, baseline: list[str]) -> list[dict]
     return [{"sector": r[0], "pct_chg": r[1], "diff_ratio": r[2], "amount": r[3]} for r in rows]
 
 
-def run(dates: list[str], baseline_n: int, json_path: str | None) -> int:
+def run(dates: list[str], baseline_n: int, json_path: str | None, plan: str | None = None) -> int:
     from market_feature_store import quality
     from market_feature_store.db import DatabaseLockedError, connect, connect_read_only_with_retry
 
@@ -454,9 +462,9 @@ def run(dates: list[str], baseline_n: int, json_path: str | None) -> int:
             print(f"\n== {target} | 基线 {baseline_n} 个完整日: {baseline} ==")
             if len(baseline) < max(2, baseline_n // 2):
                 rep.warn(target, "baseline", f"完整基线日只有 {len(baseline)} 个，比例类判定可信度低")
-            check_rows(con, rep, gate, quality, target, baseline)
-            has_market = check_market_row(con, rep, gate, target)
-            check_calendar_side_effect(con, rep, quality, target, has_market)
+            check_rows(con, rep, gate, quality, target, baseline, plan=plan)
+            has_market = check_market_row(con, rep, gate, target, plan=plan)
+            check_calendar_side_effect(con, rep, quality, target, has_market, plan=plan)
             check_latest_snapshot_sources(con, rep, target)
             check_sources(con, rep, target, baseline)
             check_stock_chain(con, rep, target, baseline)
@@ -489,12 +497,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--baseline", type=int, default=6, help="基线取目标日之前最近 N 个完整交易日，默认 6")
     parser.add_argument("--json", default=None, help="把逐项结果写成 JSON（贴进交接）")
     parser.add_argument("--db", default=None, help="验 staging 时指向那份库；默认生产库（也可用 MARKET_FEATURE_STORE_DB）")
+    parser.add_argument("--plan", default=None, help="计划档位（local 等）：只对该计划会写的表/字段比对齐")
     args = parser.parse_args(argv)
     for d in args.dates:
         date.fromisoformat(d)
     if args.db:
         os.environ["MARKET_FEATURE_STORE_DB"] = args.db
-    return run(args.dates, args.baseline, args.json)
+    return run(args.dates, args.baseline, args.json, plan=args.plan)
 
 
 if __name__ == "__main__":

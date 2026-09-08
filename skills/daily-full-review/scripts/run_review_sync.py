@@ -198,12 +198,15 @@ def run_step(label: str, argv: list[str], timeout: int) -> dict:
     return {"label": label, "status": status, "code": code, "elapsed": elapsed}
 
 
-def run_release_steps(trade_date: str, timeout: int) -> tuple[list[dict], bool]:
-    """质量门全部通过后才允许导出；任一 gate 失败即停止下游产物。"""
+def run_release_steps(trade_date: str, timeout: int, plan: str = "full") -> tuple[list[dict], bool]:
+    """质量门全部通过后才允许导出；任一 gate 失败即停止下游产物。
+
+    plan 传给两道门：local 计划不产 fupanhui 独有的表/字段，门禁按 registry 的 tables_for_plan 裁剪期望，
+    否则「设计上不抓」会被判成「断档」。full/cheap 传下去不改变既有行为。"""
     results: list[dict] = []
     same_day = run_step(
         "same-day-gate",
-        [PY, "scripts/check_daily_review_data.py", trade_date, "--phase", "data"],
+        [PY, "scripts/check_daily_review_data.py", trade_date, "--phase", "data", "--plan", plan],
         timeout,
     )
     results.append(same_day)
@@ -213,7 +216,7 @@ def run_release_steps(trade_date: str, timeout: int) -> tuple[list[dict], bool]:
     quality_json = SKILL_DIR / "state" / f"quality-{trade_date}.json"
     cross_day = run_step(
         "cross-day-gate",
-        CLI + ["check-daily", "--trade-date", trade_date, "--json", str(quality_json)],
+        CLI + ["check-daily", "--trade-date", trade_date, "--json", str(quality_json), "--plan", plan],
         timeout,
     )
     results.append(cross_day)
@@ -345,7 +348,7 @@ def _count_by_source(table: str, trade_date: str, source: str) -> int:
         con.close()
 
 
-PLANS = ("full", "cheap", "auto")
+PLANS = ("full", "cheap", "local", "auto")
 
 
 def resolve_plan(plan: str, trade_date: str) -> str:
@@ -357,9 +360,43 @@ def resolve_plan(plan: str, trade_date: str) -> str:
     return "full" if date.fromisoformat(trade_date).isoweekday() == 5 else "cheap"
 
 
+def build_local_plan(trade_date: str, timeout: int, heavy_timeout: int):
+    """local：不发任何 fupanhui 请求（2026-09-07 账号风控后的日更链路）。
+
+    名单冻结：carry-forward-universe 把最近一份 published 宇宙按当日重发（provider=local:carry），
+    stitch 用最后一份 fupanhui 成分 × 当日东财真值；加工层 limit-stats-local / market-overview-local
+    按 skills/duckdb-backfill 双轨实测的公开规则算。顺序依赖：stock-daily 先于 stitch（拼接要当日真值），
+    stitch 先于 sector-daily-local（成分求和），sector-daily-local 先于 limit-stats-local（题材涨停借名单），
+    index/sw 先于 market-overview-local（周均线、前三行业）。"""
+    return [
+        ("db-lock", lambda: run_step("db-lock", [PY, "scripts/check_db_lock.py"], 120)),
+        ("stock-daily", lambda: sync_stock_daily(trade_date, heavy_timeout)),
+        ("index-daily", lambda: run_step("index-daily", CLI + ["sync-index-daily", "--trade-date", trade_date], timeout)),
+        ("sw-l1-daily", lambda: run_step("sw-l1-daily", CLI + ["sync-sw-l1-daily", "--trade-date", trade_date, "--days", "20"], heavy_timeout)),
+        ("carry-forward-universe", lambda: run_step("carry-forward-universe", CLI + ["carry-forward-universe", "--trade-date", trade_date], timeout)),
+        ("stitch-sector-stocks", lambda: run_step(
+            "stitch-sector-stocks",
+            CLI + ["stitch-sector-stocks", "--trade-date", trade_date, "--max-baseline-age-days", "180"],
+            heavy_timeout,
+        )),
+        ("sector-daily-local", lambda: run_step("sector-daily-local", CLI + ["sync-sector-daily-local", "--trade-date", trade_date], timeout)),
+        ("limit-stats-local", lambda: run_step("limit-stats-local", CLI + ["compute-limit-stats-local", "--trade-date", trade_date], timeout)),
+        ("market-overview-local", lambda: run_step("market-overview-local", CLI + ["compute-market-overview-local", "--trade-date", trade_date], timeout)),
+        ("market-editorial-local", lambda: run_step("market-editorial-local", CLI + ["compute-market-editorial-local", "--trade-date", trade_date], timeout)),
+        ("market-stage-local", lambda: run_step("market-stage-local", CLI + ["compute-market-stage-local", "--trade-date", trade_date], timeout)),
+        ("stock-high-local", lambda: run_step("stock-high-local", CLI + ["compute-stock-high-local", "--trade-date", trade_date], timeout)),
+        ("mainline-local", lambda: run_step("mainline-local", CLI + ["compute-mainline-local", "--trade-date", trade_date], timeout)),
+        ("core-stock-local", lambda: run_step("core-stock-local", CLI + ["compute-core-stock-local", "--trade-date", trade_date], timeout)),
+        ("core-leader-local", lambda: run_step("core-leader-local", CLI + ["compute-core-leader-local", "--trade-date", trade_date], timeout)),
+        ("features", lambda: run_step("features", [PY, "-m", "scripts.compute_features", "--trade-date", trade_date], heavy_timeout)),
+    ]
+
+
 def build_plan(trade_date: str, timeout: int, heavy_timeout: int, plan: str = "full"):
+    if plan == "local":
+        return build_local_plan(trade_date, timeout, heavy_timeout)
     if plan not in ("full", "cheap"):
-        raise ValueError(f"build_plan 只接受 full/cheap（auto 先经 resolve_plan），得到 {plan!r}")
+        raise ValueError(f"build_plan 只接受 full/cheap/local（auto 先经 resolve_plan），得到 {plan!r}")
     head = [
         ("db-lock", lambda: run_step("db-lock", [PY, "scripts/check_db_lock.py"], 120)),
         ("sectors", lambda: run_step("sectors", CLI + ["sync-sectors", "--trade-date", trade_date], timeout)),
@@ -406,7 +443,7 @@ def build_plan(trade_date: str, timeout: int, heavy_timeout: int, plan: str = "f
 
 def plan_step_names(trade_date: str = "2026-01-05") -> dict[str, list[str]]:
     """各计划的步骤名（供 registry 一致性测试；日期只影响 lambda 捕获，不影响名单）。"""
-    return {plan: [name for name, _ in build_plan(trade_date, 1, 1, plan)] for plan in ("full", "cheap")}
+    return {plan: [name for name, _ in build_plan(trade_date, 1, 1, plan)] for plan in ("full", "cheap", "local")}
 
 
 def write_runlog(trade_date: str, results: list[dict], gate_ok: bool | None, plan: str = "full") -> None:
@@ -503,7 +540,7 @@ def main() -> int:
     if bad:
         _notify(f"⚠️ 全量复盘 {args.date} 同步段模块未全绿（plan={plan}）：{', '.join(bad)}；详见 state/runlog.md")
 
-    release_results, gate_ok = run_release_steps(args.date, args.timeout)
+    release_results, gate_ok = run_release_steps(args.date, args.timeout, plan)
     results.extend(release_results)
 
     write_runlog(args.date, results, gate_ok, plan=plan)

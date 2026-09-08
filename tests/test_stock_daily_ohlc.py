@@ -134,7 +134,7 @@ class TestEastmoneyOhlc:
             em,
             "fetch_snapshot",
             lambda **k: [{"f12": "600000", "f14": "浦发银行", "f2": 11.0, "f3": 4.27, "f18": 10.55, "f6": 2.31e8,
-                          "f8": 1.2, "f17": 10.6, "f15": 11.2, "f16": 10.5, "f5": 231000}],
+                          "f8": 1.2, "f17": 10.6, "f15": 11.2, "f16": 10.5, "f5": 231000, "f297": 20260902}],
         )
         em.sync_fact_stock_daily_snapshot(trade_date="2026-09-02")
         df = captured["_buf_df"]

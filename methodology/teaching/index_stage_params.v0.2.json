@@ -15,6 +15,33 @@
     5,
     10
   ],
+  "index_new_high_windows": [
+    20,
+    60
+  ],
+  "upgrade_new_high_window": 20,
+  "double_volume_dod_pct": 10,
+  "left_down_entry": {
+    "persist_days": 3,
+    "volume": "shrink"
+  },
+  "range_leader_windows": [
+    20,
+    60,
+    90,
+    120
+  ],
+  "range_leader_top": 10,
+  "range_leader_context": 30,
+  "dynasty_top": 10,
+  "dynasty_cohort": 30,
+  "separation_percentile": 0.9,
+  "separation_new_high_window": 60,
+  "money_losing": {
+    "basis": "limit_premium_ma5_pct",
+    "lt_pct": 1.0,
+    "derived_from": "训练期（≤ 2025-12-31）承接 5 日均值 p10 = 1.045 取整；底部四段 vs 顶部三段标出比例 训练 15.8% vs 5.1%、验证 27.8% vs 8.5%，主升 / 2.0 为 0%（骨架 §8.14）"
+  },
   "breakout_confirm_days": 3,
   "deviation_streak_min": 3,
   "transition_policy": "entry_or_reachable",
@@ -50,12 +77,12 @@
         86.522
       ],
       "stock_ma10_deviation_median": [
-        -2.6696,
-        -1.2505
+        -3.5128,
+        -1.798
       ],
       "stock_up_ratio_ma5_pct": [
-        37.268,
-        42.6835
+        33.1689,
+        40.8201
       ],
       "sh_index_pct_chg_10d": [
         -4.7845,
@@ -76,6 +103,10 @@
       "rps5_outside_top3_pct": [
         60.0,
         90.0
+      ],
+      "limit_premium_ma5_pct": [
+        0.9266,
+        2.102
       ]
     },
     "左底向上": {
@@ -84,8 +115,8 @@
         98.2966
       ],
       "stock_ma10_deviation_median": [
-        -2.3301,
-        1.8253
+        -1.5699,
+        1.6718
       ],
       "stock_up_ratio_ma5_pct": [
         49.332,
@@ -110,6 +141,10 @@
       "rps5_outside_top3_pct": [
         50.0,
         60.0
+      ],
+      "limit_premium_ma5_pct": [
+        1.5855,
+        1.9559
       ]
     },
     "二次探底": {
@@ -144,42 +179,13 @@
       "rps5_outside_top3_pct": [
         70.0,
         100.0
+      ],
+      "limit_premium_ma5_pct": [
+        1.4373,
+        3.0756
       ]
     },
-    "缩量右底": {
-      "amount_vs_ma20_pct": [
-        98.8439,
-        105.3278
-      ],
-      "stock_ma10_deviation_median": [
-        -0.3397,
-        0.2613
-      ],
-      "stock_up_ratio_ma5_pct": [
-        44.9792,
-        47.2321
-      ],
-      "sh_index_pct_chg_10d": [
-        0.9397,
-        2.2757
-      ],
-      "ma_episode_pct_chg": [
-        0.6327,
-        0.697
-      ],
-      "src.sh_deviation_pct": [
-        0.09,
-        0.39
-      ],
-      "new_high_1y_count": [
-        65.0,
-        122.0
-      ],
-      "rps5_outside_top3_pct": [
-        30.0,
-        50.0
-      ]
-    },
+    "缩量右底": {},
     "共建主线": {
       "amount_vs_ma20_pct": [
         96.6578,
@@ -212,6 +218,10 @@
       "rps5_outside_top3_pct": [
         60.0,
         90.0
+      ],
+      "limit_premium_ma5_pct": [
+        1.0538,
+        2.3269
       ]
     },
     "主流主升": {
@@ -246,6 +256,10 @@
       "rps5_outside_top3_pct": [
         20.0,
         80.0
+      ],
+      "limit_premium_ma5_pct": [
+        2.1326,
+        2.9401
       ]
     },
     "主流主升2.0": {
@@ -314,6 +328,10 @@
       "rps5_outside_top3_pct": [
         30.0,
         80.0
+      ],
+      "limit_premium_ma5_pct": [
+        1.541,
+        2.5232
       ]
     }
   },
@@ -366,7 +384,7 @@
       0.25,
       0.75
     ],
-    "min_days": 8,
+    "min_days": 10,
     "views": [
       "amount_vs_ma20_pct",
       "stock_ma10_deviation_median",
@@ -375,11 +393,15 @@
       "ma_episode_pct_chg",
       "src.sh_deviation_pct",
       "new_high_1y_count",
-      "rps5_outside_top3_pct"
+      "rps5_outside_top3_pct",
+      "limit_premium_ma5_pct"
     ],
     "labels_framework_version": [
-      "tf-v0.1+4374f925"
+      "tf-v0.1+cf0557c6"
     ],
+    "labels_canonical_hash": "801b2ba7f08060360de34529a6934124787d19a3aaedba87ac3a9c0041f3cc6d",
+    "labels_source_fingerprint": "fa2e2096f7d4a066125286173f243fd4d4879f02477f85456458c5067a1323a8",
+    "labels_source_max_trade_date": "2026-09-03",
     "transition_counts": {
       "左底向下": {
         "二次探底": 1,
