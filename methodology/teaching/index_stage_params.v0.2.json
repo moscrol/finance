@@ -434,8 +434,11 @@
   },
   "upgrade_entry_mode": "day",
   "upgrade_process_continuing": false,
+  "structure_evidence": true,
   "structure": {
     "divergence_lookback": 60,
-    "note": "第二十二段：MACD 背离比较的两个极值最多相隔 60 个交易日（agent 候选）；分型 / 笔 / 中枢定义见 structure.py 模块头"
+    "swing_k": 2,
+    "fail_horizon": 20,
+    "note": "第二十二段：MACD 背离比较的两个极值最多相隔 60 个交易日（agent 候选）；分型 / 笔 / 中枢定义见 structure.py 模块头。第二十三段：正式口径 = 收盘摆动低点（前后 swing_k 天唯一最低）上的 DIF 背离，两低观察 / 三低确认 / fail_horizon 日内跌破锚点失效；structure_evidence 开时观察或确认日给缩量右底（周均线下方）与共建主线各记 H:macd_bottom_div 一分（全 A 横截面：这两段里背离后 20 日为正的占比 58%，其余段 51%）"
   }
 }

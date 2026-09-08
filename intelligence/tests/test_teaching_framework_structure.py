@@ -119,3 +119,48 @@ def test_flags_carry_structure_fields_as_tf_labels():
     out = compute_flags(rows, calendar=days)
     assert "macd_dif" in out[-1] and "chan_stroke_dir" in out[-1] and "chan_third_buy" in out[-1]
     assert isinstance(out[-1]["macd_bottom_div_dif"], bool)
+
+
+def test_formal_divergence_events_observe_confirm_fail_and_top_on_a_close_series():
+    """正式口径（第二十三段）：收盘摆动低点上的 DIF 背离——两低观察、三低确认、跌破锚点失效、顶背离 DIF 两高；事件记在确认日。"""
+    from intelligence.services.teaching_framework.structure import DIVERGENCE_EVENT_FIELDS, close_swings, divergence_events, macd
+
+    close = [float(x) for x in (
+        [20, 18, 16, 14, 12, 8]                      # 0-5：急跌到 8（低点 A = 5，EMA 还在预热，DIF 只到 −1.9）
+        + [9, 10, 10, 9.5, 9, 8.5, 8, 7, 6.5, 6]     # 6-15：反弹后跌到 6（低点 B = 15，DIF −3.3：比 A 更低，不是背离）
+        + [7, 8, 9, 8.5, 8, 7.5, 7, 6.5, 5.5, 5]     # 16-25：缓跌到 5（低点 C = 25，DIF −2.4 > B → 两低观察）
+        + [6, 7, 8, 9, 10, 9, 8, 7, 6, 5.5, 4.5, 5, 6]  # 26-38：反弹到 10 后跌破 5（36 失效）；36 又是新低点 4.5、DIF −1.3 → B/C/36 三低确认
+    )]
+    dif, _, _ = macd(close)
+    lows = close_swings(close, 2, "low")
+    assert lows == [5, 15, 25, 36] and dif[15] < dif[5] and dif[25] > dif[15] and dif[36] > dif[25]
+    ev = divergence_events(close, lookback=60, fail_horizon=20)
+    assert set(ev[0]) == set(DIVERGENCE_EVENT_FIELDS)
+    fired = {i: [k for k, v in e.items() if v is True] for i, e in enumerate(ev) if any(v is True for v in e.values())}
+    # A→B 价格更低、DIF 也更低 → 不算；B→C 价格更低、DIF 更高 → 观察，记在 C + 2 = 27，锚点 25。
+    assert fired[27] == ["macd_bottom_div_observe"] and ev[27]["macd_div_anchor_idx"] == 25
+    # 第 36 根收盘 4.5 跌破锚点低点 5 → 失效，记在跌破那天。
+    assert fired[36] == ["macd_bottom_div_failed"] and ev[36]["macd_div_anchor_idx"] == 25
+    # 36 本身是新的摆动低点：C→36 又是两低观察，B→C→36 递降而 DIF 递升 → 三低确认；都记在 36 + 2 = 38。
+    assert sorted(fired[38]) == ["macd_bottom_div_confirm", "macd_bottom_div_observe"] and ev[38]["macd_div_anchor_idx"] == 36
+    assert set(fired) == {27, 36, 38}
+    # 顶背离：镜像序列（价格更高的高点、DIF 更低）。
+    mirror = [30.0 - c for c in close]
+    top = divergence_events(mirror, lookback=60)
+    assert [i for i, e in enumerate(top) if e["macd_top_div"]] == [27, 38]
+
+
+def test_macd_bottom_div_is_evidence_only_for_right_bottom_and_mainline_build():
+    from intelligence.services.teaching_framework.stage_rules import predicate_hits, stage_predicates
+
+    day = {"macd_bottom_div_observe": True, "above_week_ma": False}
+    hits = predicate_hits(day, {})
+    assert ("缩量右底", "H:macd_bottom_div") in hits and ("共建主线", "H:macd_bottom_div") in hits
+    assert not any(stage not in ("缩量右底", "共建主线") for stage, pid in hits if pid == "H:macd_bottom_div")
+    # 缩量右底的门：周均线上方那天它一分不得，共建主线照常。
+    above = predicate_hits({"macd_bottom_div_confirm": True, "above_week_ma": True}, {})
+    assert ("共建主线", "H:macd_bottom_div") in above and ("缩量右底", "H:macd_bottom_div") not in above
+    # 关掉 structure_evidence：不计分、目录里也没有。
+    off = {"structure_evidence": False}
+    assert not [pid for _, pid in predicate_hits(day, off) if pid == "H:macd_bottom_div"]
+    assert "H:macd_bottom_div" not in stage_predicates(off)["共建主线"] and "H:macd_bottom_div" in stage_predicates({})["共建主线"]

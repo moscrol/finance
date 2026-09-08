@@ -419,6 +419,42 @@ def test_load_reference_from_market_daily_accumulates_and_merges_by_platform_upd
     assert (again["inserted"], again["updated"], again["kept"]) == (0, 0, 3)
 
 
+def test_build_structure_writes_sector_and_stock_divergence_events_and_screen_lists_them(capsys, tmp_path, source_db, params_file) -> None:
+    """第二十三段：板块 / 个股层的 MACD 背离事件只落事件日（entity_type = sector / stock），screen 按日列清单并带市场阶段；不是买卖点。"""
+    sidecar = tmp_path / "labels.duckdb"
+    common = ["--db-path", str(source_db), "--labels-db", str(sidecar), "--params", str(params_file), "--computed-at", "2026-09-08T00:00:00Z"]
+    _run(capsys, "build-labels", *common)
+    # 夹具只有 10 天：120 天以下的序列不算（MACD 预热不够），所以两层都是 0 行，但表、收据、哈希都要在。
+    out = _run(capsys, "build-structure", *common)
+    assert out["build_kind"] == "structure_events" and out["sector_rows"] == 0 and out["stock_rows"] == 0
+    assert out["readouts"]["entities"] == {"sector": 2, "stock": 3}  # 承接股 A–H 的收盘全 NULL，不算实体 and set(out["table_hashes"]) == {"sector", "stock"}
+    # 往旁路库塞一条板块事件与一条个股事件，screen 要按日列出并带当日市场阶段与板块角色。
+    side = duckdb.connect(str(sidecar))
+    try:
+        side.executemany(
+            "INSERT INTO history_teaching_labels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [("sector", "S1", DAYS[6], "tf.macd_bottom_div_observe", 1.0, DAYS[4], "v-test", "tf-test", "ok", "甲", "2026-09-08 00:00:00"),
+             ("stock", "X", DAYS[6], "tf.macd_bottom_div_confirm", 1.0, DAYS[4], "v-test", "tf-test", "ok", "x", "2026-09-08 00:00:00"),
+             ("sector", "S1", DAYS[6], "tf.role_volume_top3", 1.0, None, "v-test", "tf-test", "ok", None, "2026-09-08 00:00:00")],
+        )
+    finally:
+        side.close()
+    screen = _run(capsys, "structure-screen", "--date", DAYS[6], "--labels-db", str(sidecar), "--db-path", str(source_db))
+    assert screen["counts"] == {"sector": 1, "stock": 1} and screen["market_stage"] is not None
+    assert screen["sector"][0] == {"id": "S1", "name": "甲", "event": "macd_bottom_div_observe", "anchor_day": DAYS[4], "roles": {"role_volume_top3": 1.0}}
+    assert screen["stock"][0]["event"] == "macd_bottom_div_confirm" and "买" not in screen["note"].replace("买卖建议", "")
+    only = _run(capsys, "structure-screen", "--date", DAYS[6], "--labels-db", str(sidecar), "--db-path", str(source_db), "--events", "macd_top_div")
+    assert only["counts"] == {"sector": 0, "stock": 0}
+    # 重跑 build-structure 会清掉自己的四个标签、不碰别的（role_volume_top3 那条留着）。
+    _run(capsys, "build-structure", *common)
+    side = duckdb.connect(str(sidecar), read_only=True)
+    try:
+        left = side.execute("SELECT label FROM history_teaching_labels WHERE entity_type IN ('sector','stock') AND trade_date = ?", [DAYS[6]]).fetchall()
+    finally:
+        side.close()
+    assert left == [("tf.role_volume_top3",)]
+
+
 def test_build_sector_roles_writes_sector_labels_and_rule_readout(capsys, tmp_path, source_db, params_file) -> None:
     """第二刀 C 类: sector labels ride in the same table under entity_type='sector'; market rows and their hash are untouched."""
     sidecar = tmp_path / "labels.duckdb"

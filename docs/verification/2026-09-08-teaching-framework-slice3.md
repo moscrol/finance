@@ -30,3 +30,24 @@ pytest intelligence/tests/test_teaching_framework_*.py 121 passed + 1 skip（新
 顶·DIF·两高 22889 0.528 supported −0.60% ｜ 顶·柱·两高 29788 0.510 not_distinguishable −0.20% ｜ 对照 两高不背离 87595 0.510 −0.20%
 按阶段 底·DIF·两低：缩量右底 1931/0.58/+1.3 共建主线 5648/0.58/+1.4 左底向下 4979/0.52 左底向上 1708/0.52 主升 2273/0.51 2.0 1076/0.51 高位震荡 6877/0.51
 ```
+
+## 第二十三段：正式口径 + 证据候选 + 板块 / 个股层（`tf-v0.2+b5be80b8`）
+
+```text
+structure.py：close_swings / divergence_events（swing_k=2、lookback=60、fail_horizon=20，参数块 structure.*）→ 四个正式事件并入 structure_daily
+  观察 = 两摆动低点收盘更低 DIF 更高（记第二低点确认日，anchor = 该低点）；确认 = 三低递降 DIF 递升；失效 = 20 日内收盘跌破锚点；顶 = 两高 DIF 更低
+stage_rules：H:macd_bottom_div → 缩量右底（受周均线门）+ 共建主线；参数 structure_evidence（默认 true；false 只写出不计分、目录不列）
+index_stage：EVENT_PREDICATES / STRUCTURE_EVENTS / EVIDENCE_INPUTS 加四个正式事件
+scripts/teaching_framework.py：build-structure（板块按名字接序列、∏(1+pct_chg) 合成点位、entity_id 取事件日代码；个股收盘；<120 可用日不算；
+  只删 / 只哈希自己四个标签；收据 build_kind=structure_events）；structure-screen --date [--events]（事件清单 + 市场粗段 + 板块角色；分析师侧）
+  build-sector-roles 改为只删 / 只哈希 SECTOR_LABELS（原先清整个 entity_type='sector'，会抹掉结构行）
+真库两次全新构建：build-labels 23:30Z / 02:00Z 哈希一致 1f0d266d7f53991a；平均 η² 0.1490 / 训 0.1548 / 验 0.1989、一致率 0.4454、未决 54、
+  七段分布与 80dd72e0 完全相同；H:macd_bottom_div 亮 4 天（共建主线 3、缩量右底 1）
+  build-structure 23:40Z / 02:10Z 哈希一致 29c9d9dc6a2fcb5e（sector efdec366… / stock dd531f05…）；板块 549 序列（116 跨代码）2,916 行：
+  观察 899 / 确认 70 / 失效 501 / 顶 1,446；个股 5,568 只 74,594 行：观察 29,817 / 确认 3,313 / 失效 17,423 / 顶 24,041；两层都到 2026-09-03
+  structure-screen --date 2026-09-02：market_stage=ambiguous，板块 6 行（失效 5 / 顶 1，都带四个角色标签），个股 214 行（确认 1 / 观察 11 / 失效 105 / 顶 97）
+板块层事后读数（绝对 20 日收益，见骨架 §8.19）：观察 749/65.8%（基线 58.2%）、确认 47/63.8%、失效 386/58.5%、顶 1,430/53.8%；
+  观察按阶段：缩量右底 78/85.9%（基线 62.7%）、共建主线 170/80.6%（61.0%）、左底向下 118/46.6%（53.0%）
+pytest intelligence/tests/test_teaching_framework_*.py 124 passed + 1 skip（新增：正式事件四态 + 镜像顶背离、证据只给两段 + 门 + 开关、
+  build-structure / structure-screen 端到端含「重跑只删自己的标签」）；ruff 通过
+```

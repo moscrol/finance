@@ -27,6 +27,11 @@ MACD_FAST, MACD_SLOW, MACD_SIGNAL = 12, 26, 9
 STROKE_MIN_GAP = 4          # 老笔：相邻顶 / 底分型的中间 K 线（合并后序号）至少隔 4 根 → 至少 5 根 K 线
 DIVERGENCE_LOOKBACK = 60    # 背离比较的两个极值不超过 60 个交易日
 
+# 正式口径（第二十三段，全 A 个股日线过四态门后定）：只看 DIF；两低 = 观察，三低 = 确认；跌破锚点低点 = 失效；顶背离只记 DIF 两高。
+# 摆动低点按收盘算（前后各 SWING_K 天里唯一最低，第 SWING_K 天后确认），指数 / 板块 / 个股同一定义。
+DIVERGENCE_EVENT_FIELDS: tuple[str, ...] = (
+    "macd_bottom_div_observe", "macd_bottom_div_confirm", "macd_bottom_div_failed", "macd_top_div", "macd_div_anchor_idx",
+)
 STRUCTURE_FIELDS: tuple[str, ...] = (
     "macd_dif", "macd_dea", "macd_hist",
     "macd_bottom_div_dif", "macd_bottom_div_hist", "macd_top_div_dif", "macd_top_div_hist",
@@ -34,7 +39,82 @@ STRUCTURE_FIELDS: tuple[str, ...] = (
     "chan_fractal", "chan_stroke_dir", "chan_stroke_day", "chan_stroke_count",
     "chan_pivot_zg", "chan_pivot_zd", "chan_pivot_pos", "chan_pivot_strokes",
     "chan_third_buy", "chan_third_sell", "chan_stroke_bottom_divergence", "chan_stroke_top_divergence",
-)
+) + DIVERGENCE_EVENT_FIELDS
+SWING_K = 2
+FAIL_HORIZON = 20
+
+
+def structure_params(params: Mapping[str, Any] | None) -> dict[str, int]:
+    """参数文件 ``structure`` 块 → ``structure_daily`` / ``divergence_events`` 的关键字参数（指数、板块、个股共用同一份口径）。"""
+    block = (params or {}).get("structure") or {}
+    return {
+        "lookback": int(block.get("divergence_lookback", DIVERGENCE_LOOKBACK)),
+        "swing_k": int(block.get("swing_k", SWING_K)),
+        "fail_horizon": int(block.get("fail_horizon", FAIL_HORIZON)),
+    }
+
+
+def close_swings(close: Sequence[float | None], k: int = SWING_K, kind: str = "low") -> list[int]:
+    """收盘的摆动低点 / 高点：位置 i 的收盘是 [i−k, i+k] 里唯一的最小 / 最大值（窗口内不能有 None）。"""
+    out: list[int] = []
+    pick = min if kind == "low" else max
+    for i in range(k, len(close) - k):
+        window = close[i - k : i + k + 1]
+        if any(v is None for v in window):
+            continue
+        if close[i] == pick(window) and window.count(close[i]) == 1:
+            out.append(i)
+    return out
+
+
+def divergence_events(
+    close: Sequence[float | None], *, k: int = SWING_K, lookback: int = DIVERGENCE_LOOKBACK, fail_horizon: int = FAIL_HORIZON
+) -> list[dict[str, Any]]:
+    """正式的 MACD 背离事件序列（观察 / 确认 / 失效 / 顶背离），每个记在可知的那一天，任何收盘序列都能套。
+
+    观察 = 相邻两个摆动低点，后者收盘更低而 DIF 更高（两低相隔 ≤ lookback），记在后一个低点确认日（低点 + k）；
+    确认 = 连续三个摆动低点收盘递降、DIF 递升，记在第三个低点确认日；失效 = 观察 / 确认之后 fail_horizon 个交易日内
+    收盘跌破锚点低点的第一天；顶背离 = 相邻两个摆动高点收盘更高而 DIF 更低。``macd_div_anchor_idx`` 是当日事件指向的极值位置。
+    全 A 个股日线上的读数（骨架 §8.18）：两低 52.9% / 三低 56.6% 的 20 日超额为正（基准 50%），三低超额中位 +1.25%。
+    """
+    n = len(close)
+    dif, _, _ = macd(close)
+    out: list[dict[str, Any]] = [
+        {"macd_bottom_div_observe": False, "macd_bottom_div_confirm": False, "macd_bottom_div_failed": False, "macd_top_div": False, "macd_div_anchor_idx": None}
+        for _ in range(n)
+    ]
+    lows = close_swings(close, k, "low")
+    anchors: list[tuple[int, int]] = []  # (确认日, 锚点低点)
+    for a, b in zip(lows, lows[1:]):
+        if b - a > lookback or dif[a] is None or dif[b] is None or b + k >= n:
+            continue
+        if close[b] < close[a] and dif[b] > dif[a]:
+            out[b + k]["macd_bottom_div_observe"] = True
+            out[b + k]["macd_div_anchor_idx"] = b
+            anchors.append((b + k, b))
+    for a, b, c in zip(lows, lows[1:], lows[2:]):
+        if c - a > lookback or any(dif[x] is None for x in (a, b, c)) or c + k >= n:
+            continue
+        if close[c] < close[b] < close[a] and dif[c] > dif[b] > dif[a]:
+            out[c + k]["macd_bottom_div_confirm"] = True
+            out[c + k]["macd_div_anchor_idx"] = c
+    for confirm_i, low_i in anchors:
+        floor = close[low_i]
+        for j in range(confirm_i + 1, min(n, confirm_i + 1 + fail_horizon)):
+            if close[j] is not None and close[j] < floor:
+                out[j]["macd_bottom_div_failed"] = True
+                if out[j]["macd_div_anchor_idx"] is None:
+                    out[j]["macd_div_anchor_idx"] = low_i
+                break
+    highs = close_swings(close, k, "high")
+    for a, b in zip(highs, highs[1:]):
+        if b - a > lookback or dif[a] is None or dif[b] is None or b + k >= n:
+            continue
+        if close[b] > close[a] and dif[b] < dif[a]:
+            out[b + k]["macd_top_div"] = True
+            if out[b + k]["macd_div_anchor_idx"] is None:
+                out[b + k]["macd_div_anchor_idx"] = b
+    return out
 
 
 def ema(values: Sequence[float | None], n: int) -> list[float | None]:
@@ -253,6 +333,8 @@ def structure_daily(
     high_col: str = "sh_index_high",
     low_col: str = "sh_index_low",
     lookback: int = DIVERGENCE_LOOKBACK,
+    swing_k: int = SWING_K,
+    fail_horizon: int = FAIL_HORIZON,
 ) -> list[dict[str, Any]]:
     """Per day: MACD values, divergence events, 缠论 fractal / stroke / pivot state, third buy / sell — each only on the day it is knowable.
 
@@ -266,8 +348,10 @@ def structure_daily(
     low = [_num(r.get(low_col)) for r in rows]
     dif, dea, hist = macd(close)
     out: list[dict[str, Any]] = [{k: None for k in STRUCTURE_FIELDS} for _ in range(n)]
+    formal = divergence_events(close, k=swing_k, lookback=lookback, fail_horizon=fail_horizon)
     for i in range(n):
         out[i]["macd_dif"], out[i]["macd_dea"], out[i]["macd_hist"] = dif[i], dea[i], hist[i]
+        out[i].update(formal[i])
     # 缠论只在高低收齐全的最长尾段上算（中间缺一天就从缺口后重来），分段处理。
     segments: list[tuple[int, int]] = []
     start: int | None = None

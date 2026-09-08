@@ -177,6 +177,8 @@ EVIDENCE_INPUTS = (
     "index_new_high_60d",
     "mainline_share_trend_up",
     "volume_trend_up",
+    "macd_bottom_div_observe",
+    "macd_bottom_div_confirm",
 ) + tuple(view for view, _ in BAND_VIEWS)
 
 
@@ -377,8 +379,14 @@ EVENT_PREDICATES: dict[str, Any] = {
     "chan_stroke_top_divergence": lambda f, hits: f.get("tf.chan_stroke_top_divergence") is True,
     "chan_third_buy": lambda f, hits: f.get("tf.chan_third_buy") is True,
     "chan_third_sell": lambda f, hits: f.get("tf.chan_third_sell") is True,
+    # 正式口径（第二十三段）：收盘摆动低点上的 DIF 背离——两低观察、三低确认、跌破锚点失效；顶背离 DIF 两高。
+    "macd_bottom_div_observe": lambda f, hits: f.get("tf.macd_bottom_div_observe") is True,
+    "macd_bottom_div_confirm": lambda f, hits: f.get("tf.macd_bottom_div_confirm") is True,
+    "macd_bottom_div_failed": lambda f, hits: f.get("tf.macd_bottom_div_failed") is True,
+    "macd_top_div": lambda f, hits: f.get("tf.macd_top_div") is True,
 }
 STRUCTURE_EVENTS = (
+    "macd_bottom_div_observe", "macd_bottom_div_confirm", "macd_bottom_div_failed", "macd_top_div",
     "macd_bottom_div_dif", "macd_bottom_div_hist", "macd_top_div_dif", "macd_top_div_hist",
     "chan_stroke_bottom_divergence", "chan_stroke_top_divergence", "chan_third_buy", "chan_third_sell",
 )

@@ -230,8 +230,8 @@ def test_bands_and_catalog_follow_the_parameter_file():
     assert bands["主流主升"] == {"amount_vs_ma20_pct": (115.0, 135.0), "stock_ma10_deviation_median": (1.4, 2.5)}
     assert stage_bands(None) == {stage: {} for stage in STAGES}
     catalog = stage_predicates(BANDS)
-    assert catalog["共建主线"] == ("E:breakout_volume_within_window", "H:in_band:amount_vs_ma20_pct", "H:in_band:stock_ma10_deviation_median")
-    assert catalog["缩量右底"] == ("E:retest_cross_below", "H:shrink_after_retest", "H:in_band:amount_vs_ma20_pct", "H:in_band:stock_ma10_deviation_median")
+    assert catalog["共建主线"] == ("E:breakout_volume_within_window", "H:macd_bottom_div", "H:in_band:amount_vs_ma20_pct", "H:in_band:stock_ma10_deviation_median")
+    assert catalog["缩量右底"] == ("E:retest_cross_below", "H:shrink_after_retest", "H:macd_bottom_div", "H:in_band:amount_vs_ma20_pct", "H:in_band:stock_ma10_deviation_median")
     assert stage_predicates(None) == {stage: ENTRY_PREDICATES[stage] + CONTINUING_PREDICATES.get(stage, ()) for stage in STAGES}
     assert {view for view, _ in BAND_VIEWS} >= {"amount_vs_ma20_pct", "stock_ma10_deviation_median", "stock_up_ratio_ma5_pct", "src.sh_deviation_pct"}
 
@@ -307,6 +307,8 @@ def test_every_catalogued_predicate_can_fire_and_nothing_else_does():
         "amount_vs_ma20_pct": 95.0, "stock_ma10_deviation_median": 0.5,
     }, BANDS))
     seen.update(predicate_hits({"mainline_share_trend_up": True, "volume_trend_up": True}, BANDS, origin="共建主线"))
+    # 第二十三段：底背离观察日给缩量右底（周均线下方）与共建主线各一分。
+    seen.update(predicate_hits({"macd_bottom_div_observe": True, "above_week_ma": False}, BANDS))
     catalog = {(stage, pid) for stage, pids in stage_predicates(BANDS).items() for pid in pids}
     assert seen == catalog
     assert confidence("ambiguous", {s: 0 for s in STAGES}, [], BANDS) is None
@@ -408,7 +410,7 @@ def test_stage_evidence_is_structured_json_and_uses_band_membership():
     assert records[1]["stage_coarse"] == "共建主线" and evidence["resolution"] == "entry"
     assert evidence["from"] == "左底向下" and evidence["entered"] == ["共建主线"] and "共建主线" in evidence["eligible"]
     assert evidence["inputs"]["amount_vs_ma20_pct"] == round(98 / 90 * 100, 6)
-    assert records[1]["confidence"] == {"stage": "共建主线", "hits": 3, "possible": 3, "missing": [], "margin": 1}
+    assert records[1]["confidence"] == {"stage": "共建主线", "hits": 3, "possible": 4, "missing": ["H:macd_bottom_div"], "margin": 1}
 
 
 def test_gap_day_writes_no_labels_and_breaks_the_stage_chain():

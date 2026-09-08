@@ -131,7 +131,10 @@ def _left_down_volume_ok(v: Callable[[str], Any], rule: str) -> bool:
 # 第六段：「缩量右底是下穿后反弹到周均线那一段，然后又回踩探底」+ 第三轮「二次探底会有个
 # 缩量的过程」→ 回踩下穿之后、周期未被放量突破结束之前的缩量日。
 CONTINUING_PREDICATES: dict[str, tuple[str, ...]] = {
-    "缩量右底": ("H:shrink_after_retest",),
+    # 第二十三段：MACD 底背离（正式口径：DIF，两低观察 / 三低确认）——全 A 个股日线上它只在缩量右底与共建主线里值钱（58% vs 基准 50%，
+    # 主升 / 2.0 / 高位震荡 51%），所以只作这两段的证据候选（参数 structure_evidence，默认开；关掉只写出不计分）。
+    "缩量右底": ("H:shrink_after_retest", "H:macd_bottom_div"),
+    "共建主线": ("H:macd_bottom_div",),
     # 第十九段：主流主升是「成交占比不断放大、量能逐步放大的过程」——过程在持续，就是这一段的持续证据。
     "主流主升": ("H:share_and_volume_trend_up",),
 }
@@ -177,9 +180,10 @@ def stage_predicates(params: Mapping[str, Any] | None = None) -> dict[str, tuple
     extra: dict[str, tuple[str, ...]] = {}
     if (params or {}).get("upgrade_process_continuing"):
         extra["主流主升2.0"] = ("H:share_and_volume_trend_up",)
+    structure_on = (params or {}).get("structure_evidence", True)
     return {
         stage: ENTRY_PREDICATES[stage]
-        + CONTINUING_PREDICATES.get(stage, ())
+        + tuple(pid for pid in CONTINUING_PREDICATES.get(stage, ()) if structure_on or pid != "H:macd_bottom_div")
         + extra.get(stage, ())
         + tuple(f"H:in_band:{view}" for view in bands[stage])
         for stage in STAGES
@@ -286,6 +290,10 @@ def predicate_hits(
     # 第六段流程：回踩下穿之后（周期仍在）、放量突破之前的缩量日 = 缩量右底的「缩量的过程」。
     if v("below_ma_cycle_retest_seen") is True and v("volume_band") == "shrink":
         hits.append(("缩量右底", "H:shrink_after_retest"))
+    # 第二十三段：上证日线 MACD 底背离的观察 / 确认日，给缩量右底与共建主线各记一分（事件日才有，稀）。
+    if (params or {}).get("structure_evidence", True) and (v("macd_bottom_div_observe") is True or v("macd_bottom_div_confirm") is True):
+        hits.append(("缩量右底", "H:macd_bottom_div"))
+        hits.append(("共建主线", "H:macd_bottom_div"))
     # 持续证据：视角值落在该段的共性区间内（区间从平台参照标注的校准期算出，见参数文件）。
     for stage, bands in stage_bands(params).items():
         for view, (lo, hi) in bands.items():

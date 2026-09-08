@@ -7,7 +7,7 @@ from datetime import date, datetime, time
 from typing import Any, Iterable, Mapping
 
 from .coverage import collapse_limit_rows
-from .structure import DIVERGENCE_LOOKBACK, structure_daily
+from .structure import structure_daily, structure_params
 
 NULL = None
 
@@ -187,8 +187,8 @@ def compute_flags(
     money_losing_lt = float((p.get("money_losing") or {}).get("lt_pct", DEFAULT_MONEY_LOSING["lt_pct"]))
     losing_streak = 0
     # 结构视角（创始人 09-08「MACD 底背离和缠论的用法能结合起来吗」）：上证日线 MACD 背离与缠论分型 / 笔 / 中枢 / 三买，
-    # 整段序列一次算完、逐日只写出（每个事件记在被确认的那一天）。参数 structure.divergence_lookback（背离两极值最大间隔）。
-    structure = structure_daily(rows, lookback=int((p.get("structure") or {}).get("divergence_lookback", DIVERGENCE_LOOKBACK)))
+    # 整段序列一次算完、逐日只写出（每个事件记在被确认的那一天）。参数块 structure（divergence_lookback 背离两极值最大间隔 / swing_k 摆动确认天数 / fail_horizon 失效观察期）。
+    structure = structure_daily(rows, **structure_params(p))
     for i, row in enumerate(rows):
         prev = _prev(rows, i, cal_index)
         d = _date(row.get("trade_date"))

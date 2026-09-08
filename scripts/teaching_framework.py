@@ -815,11 +815,13 @@ def cmd_build_sector_roles(args: argparse.Namespace) -> int:
     day_status = Counter(str(s.get("status")) for s in result["days"])
     side = _open_sidecar_for_write(labels_path)
     try:
-        side.execute("DELETE FROM history_teaching_labels WHERE entity_type = 'sector'")
+        # 只动自己的标签：板块层的结构事件（tf.macd_*，build-structure 所有）与角色标签同住 entity_type = 'sector'。
+        own_labels = ", ".join(repr(f"tf.{x}") for x in SECTOR_LABELS)
+        side.execute(f"DELETE FROM history_teaching_labels WHERE entity_type = 'sector' AND label IN ({own_labels})")
         _bulk_insert_labels(side, rows)
         canonical = canonical_rows_hash(
             side, table="history_teaching_labels", primary_key=("entity_type", "entity_id", "trade_date", "label"),
-            where="entity_type = 'sector'",
+            where=f"entity_type = 'sector' AND label IN ({own_labels})",
         )
         readouts = {
             "days": dict(sorted(day_status.items())),
@@ -1199,6 +1201,189 @@ def cmd_build_range_leaders(args: argparse.Namespace) -> int:
     return 0
 
 
+STRUCTURE_ENTITY_LABELS = ("tf.macd_bottom_div_observe", "tf.macd_bottom_div_confirm", "tf.macd_bottom_div_failed", "tf.macd_top_div")
+
+
+def _structure_event_rows(
+    entity_type: str, series_by_key: Mapping[str, tuple[str, list[float | None], list[str | None]]], calendar: list[str],
+    *, fw: str, ts: Any, lookback: int, swing_k: int, fail_horizon: int,
+) -> list[tuple[Any, ...]]:
+    """每条收盘序列 → 只落事件日的行（观察 / 确认 / 失效 / 顶背离），entity_id 取事件日当天的代码，value_text = 锚点日（事件指向的极值日）。"""
+    from intelligence.services.teaching_framework.structure import divergence_events
+
+    rows: list[tuple[Any, ...]] = []
+    for _key, (name, close, ids) in sorted(series_by_key.items()):
+        if sum(1 for v in close if v is not None) < 120:
+            continue
+        events = divergence_events(close, k=swing_k, lookback=lookback, fail_horizon=fail_horizon)
+        for i, ev in enumerate(events):
+            anchor = ev.get("macd_div_anchor_idx")
+            anchor_day = calendar[anchor] if anchor is not None else None
+            for field in ("macd_bottom_div_observe", "macd_bottom_div_confirm", "macd_bottom_div_failed", "macd_top_div"):
+                if ev.get(field) is True:
+                    rows.append((entity_type, ids[i], calendar[i], f"tf.{field}", 1.0, anchor_day, LABEL_VERSION, fw, "ok", name, ts))
+    return rows
+
+
+def _series_on_calendar(
+    rows: list[dict[str, Any]], calendar: list[str], *, key_col: str, id_col: str, name_col: str, value_col: str, cumulative_pct: bool
+) -> dict[str, tuple[str, list[float | None], list[str | None]]]:
+    """按 key_col 拼到全局日历上，逐日记下当天的 id_col（板块宇宙切换后代码会换，序列按名字接、代码按天取）。
+
+    板块没有收盘价，用 ∏(1 + pct_chg) 从 100 起造合成点位（缺一天少乘一天，与 river_query 同一坑，缺天处留 None）。
+    """
+    idx = {d: i for i, d in enumerate(calendar)}
+    out: dict[str, tuple[str, list[float | None], list[str | None]]] = {}
+    level: dict[str, float] = {}
+    for r in rows:
+        key = str(r[key_col])
+        i = idx.get(str(r["trade_date"])[:10])
+        if i is None:
+            continue
+        if key not in out:
+            out[key] = (str(r.get(name_col) or key), [None] * len(calendar), [None] * len(calendar))
+            level[key] = 100.0
+        v = _num(r.get(value_col))
+        if v is None or out[key][1][i] is not None:
+            continue
+        out[key][2][i] = str(r[id_col])
+        if cumulative_pct:
+            level[key] *= 1.0 + v / 100.0
+            out[key][1][i] = level[key]
+        else:
+            out[key][1][i] = v
+    return out
+
+
+def cmd_build_structure(args: argparse.Namespace) -> int:
+    """板块 / 个股层的 MACD 背离事件（第二十三段「板块和个股层面我也希望可以用」）：只落事件日，entity_type = sector / stock。
+
+    输出是观察 / 确认 / 失效事件，不是买卖点；名字只进旁路库（分析师侧），带读 / 产品面不读这些行。
+    """
+    params = load_params(args.params)
+    fw = framework_version(params)
+    build_time = _now(args.computed_at)
+    from intelligence.services.teaching_framework.structure import structure_params
+
+    sp = structure_params(params)
+    source_path = Path(args.db_path).expanduser()
+    labels_path = Path(args.labels_db).expanduser()
+    source = duckdb.connect(str(source_path), read_only=True)
+    try:
+        _, dates = _load_market(source)
+        calendar = [str(d)[:10] for d in dates]
+        sectors = _rows(source, "SELECT trade_date, sector_ts_code, sector_name, pct_chg FROM fact_sector_daily WHERE pct_chg IS NOT NULL AND pct_chg > -100 ORDER BY sector_name, trade_date, sector_ts_code")
+        stocks = _rows(source, "SELECT trade_date, stock_ts_code, rtrim(replace(stock_name, chr(0), '')) AS stock_name, close FROM fact_stock_daily WHERE close IS NOT NULL AND close > 0 ORDER BY stock_ts_code, trade_date")
+        source_counts = _source_counts(source)
+    finally:
+        source.close()
+    ts = build_time.replace(tzinfo=None)
+    # 板块按名字接序列：2026-07-27 宇宙快照切换后 630 个 .TI 代码换成 403 个 .FP 代码，按代码算每条只剩 28 天、全被 120 天门槛挡掉。
+    sector_series = _series_on_calendar(sectors, calendar, key_col="sector_name", id_col="sector_ts_code", name_col="sector_name", value_col="pct_chg", cumulative_pct=True)
+    stock_series = _series_on_calendar(stocks, calendar, key_col="stock_ts_code", id_col="stock_ts_code", name_col="stock_name", value_col="close", cumulative_pct=False)
+    spliced = sum(1 for _, _, ids in sector_series.values() if len({x for x in ids if x is not None}) > 1)
+    sector_rows = _structure_event_rows("sector", sector_series, calendar, fw=fw, ts=ts, **sp)
+    stock_rows = _structure_event_rows("stock", stock_series, calendar, fw=fw, ts=ts, **sp)
+    side = _open_sidecar_for_write(labels_path)
+    try:
+        placeholders = ", ".join("?" for _ in STRUCTURE_ENTITY_LABELS)
+        for entity_type in ("sector", "stock"):
+            side.execute(f"DELETE FROM history_teaching_labels WHERE entity_type = ? AND label IN ({placeholders})", [entity_type, *STRUCTURE_ENTITY_LABELS])
+        all_rows = sector_rows + stock_rows
+        if all_rows:
+            side.executemany(
+                """INSERT INTO history_teaching_labels
+                   (entity_type, entity_id, trade_date, label, value_num, value_text, label_version, framework_version, status, status_reason, computed_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                all_rows,
+            )
+        hashes = {
+            et: canonical_rows_hash(
+                side, table="history_teaching_labels", primary_key=("entity_type", "entity_id", "trade_date", "label"),
+                where=f"entity_type = '{et}' AND label IN ({', '.join(repr(x) for x in STRUCTURE_ENTITY_LABELS)})",
+            )
+            for et in ("sector", "stock")
+        }
+        canonical = hashlib.sha256(f"{hashes['sector']}\n{hashes['stock']}".encode("utf-8")).hexdigest()
+        counts = {
+            et: dict(side.execute(
+                f"SELECT label, COUNT(*) FROM history_teaching_labels WHERE entity_type = ? AND label IN ({placeholders}) GROUP BY label ORDER BY label",
+                [et, *STRUCTURE_ENTITY_LABELS],
+            ).fetchall())
+            for et in ("sector", "stock")
+        }
+        readouts = {
+            "definition": f"收盘摆动低点（前后各 {sp['swing_k']} 天唯一最低）上的 DIF 背离：两低 = 观察、三低 = 确认、{sp['fail_horizon']} 日内收盘跌破锚点低点 = 失效；顶背离 = DIF 两高（两极值相隔 ≤ {sp['lookback']} 日）。板块按名字接序列、用 ∏(1+pct_chg) 合成点位，entity_id 取事件日当天代码。事件不是买卖点。",
+            "params": sp,
+            "entities": {"sector": len(sector_series), "stock": len(stock_series)},
+            "sector_series_spliced_across_codes": spliced,
+            "event_rows": counts,
+        }
+        receipt = make_receipt(
+            build_kind="structure_events", framework_version=fw, label_version=LABEL_VERSION,
+            source_db=str(source_path), source_max_trade_date=max(dates) if dates else None,
+            source_row_counts=source_counts, parameter_hash=parameter_hash(params), canonical_hash=canonical,
+            coverage_summary={"calendar_days": len(calendar), "sector_rows": len(sector_rows), "stock_rows": len(stock_rows)},
+            gap_summary={}, readouts=readouts, computed_at=build_time,
+        )
+        write_receipt(side, receipt)
+    finally:
+        side.close()
+    print(json.dumps({"build_kind": "structure_events", "framework_version": fw, "sector_rows": len(sector_rows), "stock_rows": len(stock_rows),
+                      "canonical_hash": canonical, "table_hashes": hashes, "readouts": readouts}, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+
+def cmd_structure_screen(args: argparse.Namespace) -> int:
+    """某一天板块 / 个股的 MACD 背离事件清单（分析师侧，带名字），并列当日市场阶段与该实体的板块角色标签。
+
+    只报事件（观察 / 确认 / 失效 / 顶背离）与上下文，不报建议——「找低吸买点」这一步是创始人自己做的判读。
+    """
+    labels_path = Path(args.labels_db).expanduser()
+    side = open_labels_db(labels_path, read_only=True)
+    try:
+        day = date.fromisoformat(args.date)
+        stage = side.execute(
+            "SELECT value_text FROM history_teaching_labels WHERE entity_type='market' AND label='tf.stage_coarse' AND status='ok' AND trade_date = ?", [day]
+        ).fetchone()
+        rows = _rows(
+            side,
+            f"""SELECT entity_type, entity_id, label, value_text AS anchor_day, status_reason AS name
+                FROM history_teaching_labels
+                WHERE entity_type IN ('sector', 'stock') AND trade_date = ? AND label IN ({', '.join('?' for _ in STRUCTURE_ENTITY_LABELS)})
+                ORDER BY entity_type, label, entity_id""",
+            [day, *STRUCTURE_ENTITY_LABELS],
+        )
+        roles = {
+            (r["entity_id"], str(r["label"]).removeprefix("tf.")): r["value_num"]
+            for r in _rows(
+                side,
+                """SELECT entity_id, label, value_num FROM history_teaching_labels
+                   WHERE entity_type='sector' AND trade_date = ? AND label IN ('tf.role_volume_top3', 'tf.role_price_top10', 'tf.dual_red_strict', 'tf.rps_5d_rank')""",
+                [day],
+            )
+        }
+    finally:
+        side.close()
+    out: dict[str, Any] = {
+        "date": args.date, "market_stage": stage[0] if stage else None,
+        "note": "观察 / 确认 / 失效 / 顶背离 是结构事件，不是买卖建议；名字只在分析师侧，带读不读这些行",
+        "sector": [], "stock": [],
+    }
+    for r in rows:
+        item = {"id": r["entity_id"], "name": r["name"], "event": str(r["label"]).removeprefix("tf."), "anchor_day": r["anchor_day"]}
+        if r["entity_type"] == "sector":
+            item["roles"] = {k: v for (eid, k), v in roles.items() if eid == r["entity_id"] and v is not None}
+        out[r["entity_type"]].append(item)
+    if args.events:
+        wanted = set(args.events.split(","))
+        for key in ("sector", "stock"):
+            out[key] = [x for x in out[key] if x["event"] in wanted]
+    out["counts"] = {k: len(out[k]) for k in ("sector", "stock")}
+    print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+
 L1_STATIC_SQL = """
 l1_latest AS (
     SELECT stock_ts_code, split_part(sw_industry, '-', 1) AS sw_l1,
@@ -1443,6 +1628,9 @@ def cmd_report(args: argparse.Namespace) -> int:
             "succession_status": dict(side.execute("SELECT status, COUNT(*) FROM history_leader_succession GROUP BY status").fetchall()),
             "overtaken": side.execute("SELECT COUNT(*) FROM history_overtaken").fetchone()[0],
             "sector_label_rows": side.execute("SELECT COUNT(*) FROM history_teaching_labels WHERE entity_type = 'sector'").fetchone()[0],
+            "structure_event_rows": dict(side.execute(
+                f"SELECT entity_type, COUNT(*) FROM history_teaching_labels WHERE label IN ({', '.join(repr(x) for x in STRUCTURE_ENTITY_LABELS)}) GROUP BY entity_type ORDER BY entity_type"
+            ).fetchall()),
             "reference_stages": side.execute("SELECT COUNT(*) FROM history_reference_stages").fetchone()[0],
             "range_leader_rows": side.execute("SELECT COUNT(*) FROM history_range_leaders").fetchone()[0],
             "range_leader_handoffs": side.execute("SELECT COUNT(*) FROM history_range_leader_handoffs").fetchone()[0],
@@ -1485,7 +1673,7 @@ def parser() -> argparse.ArgumentParser:
     for name, func in (
         ("build-labels", cmd_build_labels), ("build-succession", cmd_build_succession),
         ("build-sector-roles", cmd_build_sector_roles), ("build-range-leaders", cmd_build_range_leaders),
-        ("build-dynasties", cmd_build_dynasties),
+        ("build-dynasties", cmd_build_dynasties), ("build-structure", cmd_build_structure),
     ):
         p = sub.add_parser(name)
         p.add_argument("--db-path", default="db/market_feature_store.duckdb")
@@ -1498,6 +1686,12 @@ def parser() -> argparse.ArgumentParser:
     p = sub.add_parser("report")
     p.add_argument("--labels-db", default=None)
     p.set_defaults(func=cmd_report)
+    p = sub.add_parser("structure-screen", help="某一天板块 / 个股的 MACD 背离事件清单（观察 / 确认 / 失效 / 顶背离）+ 当日市场阶段；分析师侧，不是买卖建议")
+    p.add_argument("--date", required=True, help="交易日 YYYY-MM-DD")
+    p.add_argument("--labels-db", default=None)
+    p.add_argument("--db-path", default="db/market_feature_store.duckdb")
+    p.add_argument("--events", default=None, help="只看这些事件，逗号分隔：macd_bottom_div_observe,macd_bottom_div_confirm,macd_bottom_div_failed,macd_top_div")
+    p.set_defaults(func=cmd_structure_screen)
     p = sub.add_parser("load-reference", help="载入平台参照标注：复盘会 reviews/overview 快照 JSON，或主库每日同步落下的 fact_market_daily.cycle_stage（PR #665）；同日以平台 updated_at 较新者为准")
     p.add_argument("--json", default=None, help="reviews/overview 快照 JSON（scripts/fupanhui_review_overview_pull.py 的输出；该脚本已停用，仅平台许可后可用）")
     p.add_argument("--from-market-daily", action="store_true", help="从 --db-path 主库的 fact_market_daily.cycle_stage 载入（每日同步累积的内层八段）")
