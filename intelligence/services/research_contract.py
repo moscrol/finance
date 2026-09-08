@@ -432,6 +432,8 @@ class StageCaps:
 
     tool_batch_seconds: float
     judge_window_seconds: float
+    # 单次判官尝试的档位地板；None = 沿用 verifier 构造时配置的帽（历史行为）。
+    judge_attempt_seconds: float | None = None
 
 
 # Shared judge window per second of synthesis reserve.  Current deep reserve
@@ -443,6 +445,21 @@ _JUDGE_WINDOW_PER_RESERVE = 50.0 / 48.0
 # Floor standard to deep's 50s. 08-20: first attempt uses the full window
 # (cap 50), not window×0.5. Does not change synthesis_reserve or tool_batch.
 _STANDARD_JUDGE_WINDOW_FLOOR = 50.0
+# max 档判官：单次尝试 75s、共享窗 150s（= 两次完整尝试）。
+#
+# 2026-09-07 max 档 D5 两发 judge=unavailable（glm-5.3-flash 思考臂，答案 21/27 句、
+# 判官载荷 13.3K/13.6K 字符）。把留在收据里的 judge_request 原样重放 grok-4.6
+# （grok-cli 1.0.5，与生产同二进制）n=6：44.1 / 60.6 / 50.6 / 12.4 / 58.4 / 53.3s，
+# p50 52.0、max 60.6，**4/6 超过 50s 单次帽**；给足 180s 时 6/6 返回有效判定
+# （拒 0–13 句）。也就是在 max 档载荷上 50s 帽是「中位数即超时」，不再是尾部。
+# 75 = 实测 max 60.6 加约 24% 余量（n=6 小样本，余量比 GLM 修复帽的 16% 放宽）。
+# 窗取两次完整尝试：首发超时后仍能发一次完整重试，重试机制才有意义——此前
+# 首发吃满整窗、第二发拿 0 秒，收据写「deadline exhausted」而根期限还剩 400s+。
+#
+# 只加 max 档：quick / standard / deep 的窗与帽一字不变（standard 地板 50、deep
+# 48×50/48=50 仍由上面两条钉住）。收据 ~/.finance-runtime/glm-ceiling-20260907/。
+_MAX_TIER_JUDGE_ATTEMPT_SECONDS = 75.0
+_MAX_TIER_JUDGE_WINDOW_FLOOR = 2.0 * _MAX_TIER_JUDGE_ATTEMPT_SECONDS
 
 
 def derive_stage_caps(policy: ResearchPolicy) -> StageCaps:
@@ -457,11 +474,16 @@ def derive_stage_caps(policy: ResearchPolicy) -> StageCaps:
     total = max(0.0, float(policy.total_seconds))
     reserve = max(0.0, float(policy.synthesis_reserve))
     judge_window = reserve * _JUDGE_WINDOW_PER_RESERVE
+    judge_attempt: float | None = None
     if policy.tier == "standard":
         judge_window = max(judge_window, _STANDARD_JUDGE_WINDOW_FLOOR)
+    elif policy.tier == "max":
+        judge_window = max(judge_window, _MAX_TIER_JUDGE_WINDOW_FLOOR)
+        judge_attempt = _MAX_TIER_JUDGE_ATTEMPT_SECONDS
     return StageCaps(
         tool_batch_seconds=max(0.0, total - reserve),
         judge_window_seconds=judge_window,
+        judge_attempt_seconds=judge_attempt,
     )
 
 

@@ -77,10 +77,16 @@ def source_db(tmp_path: Path) -> Path:
         "INSERT INTO fact_theme_limit_stock_daily VALUES (?, ?, ?, ?, NULL, '093000', NULL, 1000.0, 50.0, 'U')",
         [(d, s, s, b) for d, s, b in LIMIT_ROWS],
     )
-    con.execute("CREATE TABLE fact_stock_daily (trade_date DATE, stock_ts_code VARCHAR, close DOUBLE, pct_chg DOUBLE, amount DOUBLE)")
+    con.execute("CREATE TABLE fact_stock_daily (trade_date DATE, stock_ts_code VARCHAR, stock_name VARCHAR, close DOUBLE, pct_chg DOUBLE, amount DOUBLE, high DOUBLE)")
     con.executemany(
-        "INSERT INTO fact_stock_daily VALUES (?, ?, ?, ?, ?)",
-        [(d, s, 10.0 * (k + 1) + i, 1.0 * (k - 1), a) for i, d in enumerate(DAYS) for k, (s, a) in enumerate((("X", 30.0), ("Y", 20.0), ("Z", 10.0)))],
+        "INSERT INTO fact_stock_daily VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [(d, s, s.lower(), 10.0 * (k + 1) + i, 1.0 * (k - 1), a, 10.0 * (k + 1) + i + 0.5) for i, d in enumerate(DAYS) for k, (s, a) in enumerate((("X", 30.0), ("Y", 20.0), ("Z", 10.0)))],
+    )
+    # 承接 rows for the limit-up stocks: +2 on a day they limit again, −3 otherwise; NULL close keeps them out of breadth.
+    limit_days = {(d, s) for d, s, _ in LIMIT_ROWS}
+    con.executemany(
+        "INSERT INTO fact_stock_daily VALUES (?, ?, ?, NULL, ?, NULL, NULL)",
+        [(d, s, s.lower(), 2.0 if (d, s) in limit_days else -3.0) for d in DAYS for s in "ABCDEFGH"],
     )
     # Sector side (第二刀): two sectors a day, one strict 双红 on even days; 3 limit-ups in S1; new highs = day index + 1
     # stocks at 1y-or-longer periods, except day 4 which has no high rows at all.
@@ -94,10 +100,16 @@ def source_db(tmp_path: Path) -> Path:
         "INSERT INTO fact_theme_limit_heat_daily VALUES (?, ?, 'final', ?, ?, ?)",
         [row for d in DAYS for row in ((d, "S1", 3, 60.0, 9000.0), (d, "S2", 1, 20.0, 1000.0))],
     )
-    con.execute("CREATE TABLE fact_stock_high_daily (trade_date DATE, stock_ts_code VARCHAR, primary_high_period VARCHAR)")
+    # Stock → own 申万 industry ("一级-二级"), one theme row per stock a day is enough for the range-leader chain.
+    con.execute("CREATE TABLE fact_sector_stock_daily (trade_date DATE, sector_ts_code VARCHAR, stock_ts_code VARCHAR, sw_industry VARCHAR)")
     con.executemany(
-        "INSERT INTO fact_stock_high_daily VALUES (?, ?, ?)",
-        [(d, f"H{n}", "1y" if n % 2 else "20d") for i, d in enumerate(DAYS) if i != 3 for n in range(2 * (i + 1))],
+        "INSERT INTO fact_sector_stock_daily VALUES (?, 'S1', ?, ?)",
+        [(d, s, ind) for d in DAYS for s, ind in (("X", "电子-半导体"), ("Y", "通信-通信设备"), ("Z", None))],
+    )
+    con.execute("CREATE TABLE fact_stock_high_daily (trade_date DATE, stock_ts_code VARCHAR, primary_high_period VARCHAR, sw_l1 VARCHAR)")
+    con.executemany(
+        "INSERT INTO fact_stock_high_daily VALUES (?, ?, ?, ?)",
+        [(d, f"H{n}", "1y" if n % 2 else "20d", "通信" if n % 4 == 1 else "电子") for i, d in enumerate(DAYS) if i != 3 for n in range(2 * (i + 1))],
     )
     con.close()
     return path
@@ -226,6 +238,20 @@ def test_end_to_end_build_is_deterministic_and_receipts_carry_readouts(capsys, t
         outside = dict(side.execute("SELECT trade_date, value_num FROM history_teaching_labels WHERE label='tf.rps5_outside_top3_pct'").fetchall())
         assert outside[date(2026, 1, 9)] == 50.0 and outside[date(2026, 1, 12)] == 50.0 and outside[date(2026, 1, 6)] is None
         assert gaps["tf.rps5_outside_top3_pct"] == 3
+        # 题材层第二轮: 双红 (S1 on even days, 电子 only) spans one L1 or none; the limit-up top-10 is {S1, S2} every day → Jaccard 100.
+        l1d = dict(side.execute("SELECT trade_date, value_num FROM history_teaching_labels WHERE label='tf.dual_red_l1_distinct'").fetchall())
+        assert l1d[date(2026, 1, 5)] == 1 and l1d[date(2026, 1, 6)] is None
+        persist = dict(side.execute("SELECT trade_date, value_num FROM history_teaching_labels WHERE label='tf.limit_top10_persist_5d_pct'").fetchall())
+        assert persist[date(2026, 1, 12)] == 100.0 and persist[date(2026, 1, 9)] is None
+        # 承接: yesterday's limit-up stocks gain +2 when they limit again and −3 otherwise (fixture rows with NULL close, so
+        # breadth is untouched). 01-16: G alone broke → −3; the five-day window 01-12..16 = (1/3, 1/3, −1/2, −1/2, −3).
+        prem = dict(side.execute("SELECT trade_date, value_num FROM history_teaching_labels WHERE label='tf.limit_premium_pct'").fetchall())
+        assert prem[date(2026, 1, 5)] is None and prem[date(2026, 1, 6)] == 2.0 and prem[date(2026, 1, 16)] == -3.0
+        ma5 = dict(side.execute("SELECT trade_date, value_num FROM history_teaching_labels WHERE label='tf.limit_premium_ma5_pct'").fetchall())
+        assert ma5[date(2026, 1, 9)] is None and ma5[date(2026, 1, 16)] == round((1 / 3 + 1 / 3 - 0.5 - 0.5 - 3.0) / 5, 6)
+        neg = dict(side.execute("SELECT trade_date, value_num FROM history_teaching_labels WHERE label='tf.limit_premium_neg_5d'").fetchall())
+        flips = dict(side.execute("SELECT trade_date, value_num FROM history_teaching_labels WHERE label='tf.limit_premium_flips_5d'").fetchall())
+        assert neg[date(2026, 1, 16)] == 3 and flips[date(2026, 1, 16)] == 1 and flips[date(2026, 1, 12)] == 2
         # Ties are leader groups (创始人 09-07): B's break on day 6 hands off to the tied group {D, E}
         # (both came out of the 2-board candidates), and E's lone break on day 7 is a partial break, not a node.
         statuses = dict(side.execute("SELECT status, COUNT(*) FROM history_leader_succession GROUP BY status").fetchall())
@@ -335,8 +361,8 @@ def test_build_sector_roles_writes_sector_labels_and_rule_readout(capsys, tmp_pa
     common = ["--db-path", str(source_db), "--labels-db", str(sidecar), "--params", str(params_file), "--computed-at", "2026-09-07T00:00:00Z"]
     labels = _run(capsys, "build-labels", *common)
     roles = _run(capsys, "build-sector-roles", *common)
-    # Two sectors × 10 days × 12 labels.
-    assert roles["rows"] == 2 * 10 * 12 and roles["readouts"]["days"] == {"ok": 10}
+    # Two sectors × 10 days × 18 labels.
+    assert roles["rows"] == 2 * 10 * 18 and roles["readouts"]["days"] == {"ok": 10}
     side = duckdb.connect(str(sidecar), read_only=True)
     try:
         # 电子 is industry_1 on every fixture day (the 3-day rank needs three contiguous days: NULL on days 1-2).
@@ -346,6 +372,14 @@ def test_build_sector_roles_writes_sector_labels_and_rule_readout(capsys, tmp_pa
         assert s1["tf.dual_red_strict"] == 1  # day index 4 is even: pct 1.0, diff 12, amount 600
         s2 = {r[0]: r[1] for r in side.execute("SELECT label, value_num FROM history_teaching_labels WHERE entity_type='sector' AND entity_id='S2' AND trade_date=DATE '2026-01-09'").fetchall()}
         assert s2["tf.role_volume_top3"] == 0 and s2["tf.role_price_top10"] == 1 and s2["tf.dual_red_strict"] == 0
+        # 宽度: on 01-09 the 1y+ highs are 通信 ×3 (n = 1, 5, 9) vs 电子 ×2 → S2 carries the breadth role.
+        assert s2["tf.role_breadth_top_l1"] == 1 and s1["tf.role_breadth_top_l1"] == 0
+        # 主流两口径: the fixture's vendor mainline table lists S1 every day; the volume top-3 口径 is 电子 = S1.
+        assert s1["tf.mainline_vendor"] == 1 and s2["tf.mainline_vendor"] == 0 and s1["tf.mainline_volume_top3"] == 1
+        # 锐度合成: S1 (limit rank 1, rps5 rank 2) and S2 (2, 1) tie at 1.5 — both inside the top 10.
+        assert s1["tf.sharpness_rank_mean"] == 1.5 and s2["tf.sharpness_rank_mean"] == 1.5 and s1["tf.role_sharpness_top10"] == 1
+        # k-means needs at least k = 3 rows: the two-sector fixture leaves it NULL.
+        assert s1["tf.money_effect.kmeans_hot"] is None
         assert side.execute("SELECT value_num FROM history_teaching_labels WHERE entity_type='sector' AND entity_id='S1' AND trade_date=DATE '2026-01-05' AND label='tf.rps_3d_rank'").fetchone() == (None,)
         # Market rows survive the sector build and hash identically.
         assert side.execute("SELECT COUNT(*) FROM history_teaching_labels WHERE entity_type='market'").fetchone()[0] > 0
@@ -356,12 +390,122 @@ def test_build_sector_roles_writes_sector_labels_and_rule_readout(capsys, tmp_pa
     labels_again = _run(capsys, "build-labels", *common)
     assert labels_again["canonical_hash"] == labels["canonical_hash"]
     rule = roles["readouts"]["money_effect_rule"]["by_definition"]
-    assert set(rule) == {"limit_top10", "dual_red", "rps5_top10", "rank_mean_top10"}
+    assert set(rule) == {"limit_top10", "dual_red", "rps5_top10", "rank_mean_top10", "kmeans_hot"}
+    assert roles["readouts"]["labels"][-1] == "money_effect.kmeans_hot"
     # Every fixture day has S1 (电子, the top-1 industry) in the limit_top10 set, so the outcome is never met; verdict stays insufficient_n at n < 10.
     assert rule["limit_top10"]["readout"]["verdict"] == "insufficient_n"
     assert rule["limit_top10"]["below_ma_days"] + rule["limit_top10"]["above_ma_days"] + sum(rule["limit_top10"]["excluded"].values()) == 10
     report = _run(capsys, "report", "--labels-db", str(sidecar))
-    assert report["counts"]["sector_label_rows"] == 240
+    assert report["counts"]["sector_label_rows"] == 360
+
+
+def test_build_range_leaders_writes_group_rows_handoffs_and_receipt(capsys, tmp_path, source_db, params_file) -> None:
+    """区间涨幅高标链 (创始人 09-07 第九、十段): top-N by N-day gain per window, same-day exits/births paired as 衔接."""
+    params = json.loads(params_file.read_text(encoding="utf-8"))
+    params.update({"range_leader_windows": [2], "range_leader_top": 2, "range_leader_context": 3})
+    params_file.write_text(json.dumps(params, ensure_ascii=False, indent=2), encoding="utf-8")
+    sidecar = tmp_path / "labels.duckdb"
+    common = ["--db-path", str(source_db), "--labels-db", str(sidecar), "--params", str(params_file), "--computed-at", "2026-09-07T00:00:00Z"]
+    _run(capsys, "build-labels", *common)
+    _run(capsys, "build-succession", *common)
+    out = _run(capsys, "build-range-leaders", *common)
+    # Closes are 10·(k+1) + i: X gains fastest, then Y, then Z — the top-2 group is {X, Y} on every day with a 2-day window (8 of 10).
+    assert out["leader_rows"] == 16 and out["handoffs"] == 0
+    side = duckdb.connect(str(sidecar), read_only=True)
+    try:
+        rows = side.execute("SELECT trade_date, rank, stock_ts_code, sw_l1, tenure_day, prev_rank FROM history_range_leaders ORDER BY trade_date, rank").fetchall()
+        assert rows[0] == (date(2026, 1, 7), 1, "X", "电子", 1, None) and rows[1] == (date(2026, 1, 7), 2, "Y", "通信", 1, None)
+        assert rows[-1] == (date(2026, 1, 16), 2, "Y", "通信", 8, 2)
+        # 01-07 over 01-05: X 12/10 − 1 = 20 %, rounded like every other view scalar.
+        assert side.execute("SELECT gain_pct FROM history_range_leaders WHERE trade_date = DATE '2026-01-07' AND rank = 1").fetchone() == (20.0,)
+        assert side.execute("SELECT COUNT(*) FROM history_range_leader_handoffs").fetchone() == (0,)
+        kinds = [r[0] for r in side.execute("SELECT build_kind FROM history_teaching_receipts ORDER BY build_kind").fetchall()]
+        assert kinds == ["leader_succession", "range_leaders", "teaching_labels"]
+    finally:
+        side.close()
+    readout = out["readouts"]["handoffs"]["2"]
+    assert readout["days_ok"] == 8 and readout["days_gap"] == 2 and readout["handoffs"] == 0 and readout["births_per_day_mean"] == 0.0
+    assert readout["entry_gain_pct_quartiles"]["n"] == 8 and readout["l1_distinct_median"] == 2
+    assert out["readouts"]["cross_chain"]["succession_nodes"] == 4  # the four ok nodes of the 连板 chain; none of A..H has a close, so no overlap
+    assert out["readouts"]["cross_chain"]["leader_i_in_range_top_on_break_day"] == {}
+    again = _run(capsys, "build-range-leaders", *[*common[:-2], "--computed-at", "2026-09-08T00:00:00Z"])
+    assert again["canonical_hash"] == out["canonical_hash"]
+    report = _run(capsys, "report", "--labels-db", str(sidecar))
+    assert report["counts"]["range_leader_rows"] == 16 and report["counts"]["range_leader_handoffs"] == 0
+
+
+def test_build_dynasties_cuts_waves_from_the_reference_and_flags_separation(capsys, tmp_path, source_db, params_file) -> None:
+    """王朝链 (创始人 09-07 第十三段): waves come from the platform stages; the new dynasty's members are read in the old one's collapse window."""
+    params = json.loads(params_file.read_text(encoding="utf-8"))
+    params.update({"dynasty_top": 2, "dynasty_cohort": 3})
+    params_file.write_text(json.dumps(params, ensure_ascii=False, indent=2), encoding="utf-8")
+    sidecar = tmp_path / "labels.duckdb"
+    common = ["--db-path", str(source_db), "--labels-db", str(sidecar), "--params", str(params_file), "--computed-at", "2026-09-07T00:00:00Z"]
+    # Without a reference the command fails closed: waves are cut on the platform's stages, nothing else.
+    assert main(["build-dynasties", *common]) == 2 and "参照" in capsys.readouterr().err
+    # 承接 ×5 | 左底向下 | 共建 共建 承接 2.0 → wave 0 (truncated, peaks day 5), one-day collapse (day 6), wave 1 (open) from day 7.
+    stages = ["承接盘反复", "承接盘反复", "承接盘反复", "承接盘反复", "承接盘反复", "左底向下", "共建主线", "共建主线", "承接盘反复", "主流主升2.0"]
+    payload = {"source": "fupanhui.com /api/v1/client/reviews/overview", "pulled_at": "2026-09-07T04:00:00Z", "available_since": "2021-09-13",
+               "items": [_reference_item(d, s, "顶部横盘阶段", 100.0) for d, s in zip(DAYS, stages)]}
+    ref_json = tmp_path / "reference.json"
+    ref_json.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    _run(capsys, "load-reference", "--json", str(ref_json), "--labels-db", str(sidecar), "--db-path", str(source_db), "--computed-at", "2026-09-07T05:00:00Z")
+    # 第十四段: 亏钱效应 must be measurable — without the market labels (tf.money_losing_day) the chain refuses to build.
+    assert main(["build-dynasties", *common]) == 2 and "money_losing_day" in capsys.readouterr().err
+    _run(capsys, "build-labels", *common)
+    out = _run(capsys, "build-dynasties", *common)
+    assert out["waves"] == 2 and out["handoff_rows"] == 3
+    # 亏钱效应 counts are read back from the labels the same build wrote: the one-day collapse window (01-12) is flagged iff
+    # tf.money_losing_day says so that day; the peak block of wave 0 covers its five labelled days.
+    side = duckdb.connect(str(sidecar), read_only=True)
+    try:
+        losing = {r[0]: r[1] for r in side.execute("SELECT trade_date, value_num FROM history_teaching_labels WHERE label = 'tf.money_losing_day'").fetchall()}
+    finally:
+        side.close()
+    assert set(losing) and all(v in (None, 0.0, 1.0) for v in losing.values())
+
+    def expected(day_from: date, day_to: date) -> dict:
+        labelled = {d: v for d, v in losing.items() if day_from <= d <= day_to and v is not None}
+        return {"days": len(labelled), "flagged": sum(1 for v in labelled.values() if v == 1.0)}
+
+    ml = out["readouts"]["waves"][0]["money_losing"]
+    assert {k: ml["peak_block"][k] for k in ("days", "flagged")} == expected(date(2026, 1, 5), date(2026, 1, 9))
+    assert {k: ml["collapse"][k] for k in ("days", "flagged")} == expected(date(2026, 1, 12), date(2026, 1, 12))
+    assert ml["collapse_flagged_days"] == ([DAYS[5]] if losing.get(date(2026, 1, 12)) == 1.0 else [])
+    assert out["readouts"]["waves"][1]["money_losing"]["collapse"] is None  # open wave: no collapse window to count
+    waves = out["readouts"]["waves"]
+    assert [w["status"] for w in waves] == ["truncated", "open"]
+    assert waves[0]["collapse"] == [DAYS[5], DAYS[5]] and waves[0]["first_down_end"] == DAYS[5] and waves[0]["ranked_stocks"] == 0
+    # New wave (01-13 → 01-16, base 01-12): X 19/15, Y 29/25, Z 39/35 → X, Y, Z; the 连板 stocks A..H have no close and never rank.
+    assert waves[1]["start"] == DAYS[6] and waves[1]["peak_end"] == DAYS[9] and waves[1]["ranked_stocks"] == 3
+    assert waves[1]["entry_gain_pct"]["top2"] == pytest.approx((29 / 25 - 1) * 100) and waves[1]["forms"]["cohort3"] == {"趋势": 3}
+    side = duckdb.connect(str(sidecar), read_only=True)
+    try:
+        members = side.execute("SELECT wave_idx, rank, stock_ts_code, wave_status, form, collapse_ret_pct FROM history_dynasties ORDER BY wave_idx, rank").fetchall()
+        assert members == [(1, 1, "X", "open", "趋势", None), (1, 2, "Y", "open", "趋势", None), (1, 3, "Z", "open", "趋势", None)]
+        rows = side.execute(
+            """SELECT new_rank, stock_ts_code, old_wave_rank, collapse_ret_pct, collapse_ret_percentile, new_high_in_collapse, separation_relative, first_leg_ret_pct
+               FROM history_dynasty_handoffs ORDER BY new_rank"""
+        ).fetchall()
+        # Collapse day 01-12 over 01-09: X 15/14, Y 25/24, Z 35/34 → percentiles 66.67 / 33.33 / 0 (none reaches 0.9); every stock's
+        # high (close + 0.5) is above the window before it → 新高分离 for all; the old wave has no visible start, so no old rank.
+        assert [(r[0], r[1], r[2], r[5], r[6]) for r in rows] == [(1, "X", None, True, False), (2, "Y", None, True, False), (3, "Z", None, True, False)]
+        assert rows[0][3] == pytest.approx((15 / 14 - 1) * 100, abs=1e-6) and rows[0][4] == 66.67 and rows[0][7] == rows[0][3]
+        kinds = [r[0] for r in side.execute("SELECT build_kind FROM history_teaching_receipts ORDER BY build_kind").fetchall()]
+        assert kinds == ["dynasties", "teaching_labels"]
+    finally:
+        side.close()
+    (handoff,) = out["readouts"]["handoffs"]
+    assert handoff["handoff"] == "W0→W1" and handoff["old_wave_status"] == "truncated" and handoff["money_losing"]["stocks"] == 3
+    assert handoff["money_losing"]["index_ret_pct"] == pytest.approx((99 / 101 - 1) * 100, abs=1e-3)  # the fixture's gap-down day against the day before
+    assert handoff["top2"]["new_in_collapse"]["share_separation_new_high"] == 1.0 and handoff["top2"]["new_in_collapse"]["share_separation_relative"] == 0.0
+    assert handoff["top2"]["old_in_collapse"]["ret_pct"] is None  # truncated old wave: nothing to fall
+    gate = out["readouts"]["separation_gate"]
+    assert gate["cycles"] == 1 and gate["top2"]["n"] == 0 and gate["top2"]["verdict"] == "insufficient_n" and gate["cohort3"]["baseline_k"] == 3
+    again = _run(capsys, "build-dynasties", *[*common[:-2], "--computed-at", "2026-09-08T00:00:00Z"])
+    assert again["canonical_hash"] == out["canonical_hash"]
+    report = _run(capsys, "report", "--labels-db", str(sidecar))
+    assert report["counts"]["dynasty_rows"] == 3 and report["counts"]["dynasty_handoffs"] == 3
 
 
 def test_stale_sidecar_schema_fails_closed(capsys, tmp_path, source_db, params_file) -> None:

@@ -47,6 +47,24 @@ REQUIRED_KEYS = (
     "transition_policy",
     "ambiguity_memory",
     "min_n",
+    # 第十一段「升级 2.0 = 进一步放量 + 指数进一步走强」：新高窗口（写出的候选）、进入谓词用的那一个、双量日环比门槛。
+    "index_new_high_windows",
+    "upgrade_new_high_window",
+    "double_volume_dod_pct",
+    # 第十二段「定义不精确、结合特征值来看」：左底向下进入的持续天数与量能口径。
+    "left_down_entry",
+    # 第九 / 十段：区间涨幅高标链——窗口（平台梯队高度）、取前几（「取前 10」）、配对时看近旁几名。
+    "range_leader_windows",
+    "range_leader_top",
+    "range_leader_context",
+    # 第十三段「旧王朝覆灭 → 亏钱效应 → 分离确认 → 新王朝」：王朝取前几（第十段「取前 10」）、读数用的宽队列、
+    # 「相对分离」的收益分位门槛、「新高分离」的回看天数。
+    "dynasty_top",
+    "dynasty_cohort",
+    "separation_percentile",
+    "separation_new_high_window",
+    # 第十四段「亏钱效应也要可量」：亏钱效应日 = 承接 5 日均值 < lt_pct（九个候选里唯一两期都分得开的一维）。
+    "money_losing",
 )
 
 # slice 1.5 第二遍（用户「继续按照最优推进」）：阶段不能无转点地跳到不相邻的段（词表「从什么
@@ -163,6 +181,66 @@ def validate_params(params: dict[str, Any]) -> dict[str, Any]:
         or len(set(windows)) != len(windows)
     ):
         raise ValueError("index_range_windows 必须是互不重复的正整数数组（区间涨幅 / 振幅 / 偏离度变化的窗口天数）")
+    high_windows = params["index_new_high_windows"]
+    if (
+        not isinstance(high_windows, list)
+        or not high_windows
+        or any(not isinstance(n, int) or isinstance(n, bool) or n <= 0 for n in high_windows)
+        or len(set(high_windows)) != len(high_windows)
+    ):
+        raise ValueError("index_new_high_windows 必须是互不重复的正整数数组（指数收盘新高的回看天数）")
+    upgrade_window = params["upgrade_new_high_window"]
+    if not isinstance(upgrade_window, int) or isinstance(upgrade_window, bool) or upgrade_window not in high_windows:
+        raise ValueError("upgrade_new_high_window 必须是 index_new_high_windows 里的一个窗口（2.0 进入谓词用哪一个新高）")
+    dod = params["double_volume_dod_pct"]
+    if not isinstance(dod, (int, float)) or isinstance(dod, bool) or dod <= 0:
+        raise ValueError("double_volume_dod_pct 必须是正数（双量日的成交额环比门槛，每日复盘口径 10）")
+    rl_windows = params["range_leader_windows"]
+    if (
+        not isinstance(rl_windows, list)
+        or not rl_windows
+        or any(not isinstance(n, int) or isinstance(n, bool) or n <= 0 for n in rl_windows)
+        or len(set(rl_windows)) != len(rl_windows)
+    ):
+        raise ValueError("range_leader_windows 必须是互不重复的正整数数组（区间涨幅高标的窗口天数，平台梯队高度 20 / 60 / 90 / 120）")
+    rl_top, rl_context = params["range_leader_top"], params["range_leader_context"]
+    if not isinstance(rl_top, int) or isinstance(rl_top, bool) or rl_top <= 0:
+        raise ValueError("range_leader_top 必须是正整数（创始人第十段「取前 10」）")
+    if not isinstance(rl_context, int) or isinstance(rl_context, bool) or rl_context < rl_top:
+        raise ValueError("range_leader_context 必须是 ≥ range_leader_top 的整数（判断递进 / 突入时看的近旁名次）")
+    dyn_top, dyn_cohort = params["dynasty_top"], params["dynasty_cohort"]
+    if not isinstance(dyn_top, int) or isinstance(dyn_top, bool) or dyn_top <= 0:
+        raise ValueError("dynasty_top 必须是正整数（一波里区间涨幅前几算王朝，第十段「取前 10」）")
+    if not isinstance(dyn_cohort, int) or isinstance(dyn_cohort, bool) or dyn_cohort < dyn_top:
+        raise ValueError("dynasty_cohort 必须是 ≥ dynasty_top 的整数（读数用的宽队列）")
+    sep_pct = params["separation_percentile"]
+    if not isinstance(sep_pct, (int, float)) or isinstance(sep_pct, bool) or not (0 < float(sep_pct) < 1):
+        raise ValueError("separation_percentile 必须在 (0, 1) 内（覆灭窗里收益分位 ≥ 此值算「相对分离」）")
+    sep_win = params["separation_new_high_window"]
+    if not isinstance(sep_win, int) or isinstance(sep_win, bool) or sep_win <= 0:
+        raise ValueError("separation_new_high_window 必须是正整数（覆灭窗内创几日新高算「新高分离」）")
+    losing = params["money_losing"]
+    if (
+        not isinstance(losing, dict)
+        or losing.get("basis") != "limit_premium_ma5_pct"
+        or not isinstance(losing.get("lt_pct"), (int, float)) or isinstance(losing.get("lt_pct"), bool)
+        or set(losing) - {"basis", "lt_pct", "derived_from"}
+    ):
+        raise ValueError("money_losing 必须是 {basis: 'limit_premium_ma5_pct', lt_pct: 数字, derived_from?: 文字}（亏钱效应日 = 承接 5 日均值低于门槛；目前只实现这一种基准）")
+    from .stage_rules import LEFT_DOWN_VOLUME_RULES  # local import: stage_rules must not depend on params
+
+    entry = params["left_down_entry"]
+    if (
+        not isinstance(entry, dict)
+        or not isinstance(entry.get("persist_days"), int) or isinstance(entry.get("persist_days"), bool) or entry["persist_days"] < 1
+        or entry.get("volume") not in LEFT_DOWN_VOLUME_RULES
+        or not isinstance(entry.get("gap_through_ma_day1", False), bool)
+        or set(entry) - {"persist_days", "volume", "gap_through_ma_day1"}
+    ):
+        raise ValueError(
+            f"left_down_entry 必须是 {{persist_days: ≥1 的整数, volume: {LEFT_DOWN_VOLUME_RULES}, gap_through_ma_day1?: bool}}"
+            "（gap_through_ma_day1 = 首次下穿当天开盘已在周均之下时立刻算进入，第十三段「跳空低开跌破」的可选读法）"
+        )
     if params["leader_top"] != SUPPORTED_LEADER_TOP:
         raise ValueError(f"leader_top 目前只支持 {SUPPORTED_LEADER_TOP}（最高标并列成组、全员断板才算断板）")
     if params["surge_in_trend"] != SUPPORTED_SURGE_IN_TREND:

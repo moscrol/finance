@@ -721,6 +721,27 @@ def synthesis_thinking_disabled() -> bool:
     return configured.lower() == "disabled"
 
 
+# 思考强度直传（2026-09-07）。GLM-5.3 / GLM-5.3-FLASH 强制开启思考：官方 paas 端点对
+# ``thinking.type=disabled`` 报错，Coding Plan 端点静默改成 enabled；推理程度由
+# ``reasoning_effort`` 控制，5.3 系列只认 ``max / high / low``（5.2 的 ``xhigh`` 映射到 ``max``）。
+# 本仓 agent 轮此前硬传 ``disable_thinking=True``（省 token、稳工具调用），切到 5.3 会撞这条。
+# 设了本 env 就压过 disable_thinking：thinking=enabled + reasoning_effort=值；没设则老行为一字不变。
+# 只在 GLM 出口的启动器里设；sol@cockpit 那条不设，请求体逐字节同前。
+REASONING_EFFORT_ENV = "LLM_REASONING_EFFORT"
+
+
+def _apply_thinking_controls(payload: dict, *, disable_thinking: bool) -> None:
+    """``thinking`` / ``reasoning_effort`` 两个键的唯一写入点。"""
+
+    effort = str(os.environ.get(REASONING_EFFORT_ENV) or "").strip()
+    if effort:
+        payload["thinking"] = {"type": "enabled"}
+        payload["reasoning_effort"] = effort
+        return
+    if disable_thinking:
+        payload["thinking"] = {"type": "disabled"}
+
+
 def _stable_finish_reason(value: object) -> str | None:
     if not isinstance(value, str):
         return None
@@ -780,8 +801,9 @@ def _post_chat(
     _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload = {"model": provider.model, "messages": messages, "temperature": temperature}
-    if os.environ.get("LLM_THINKING") == "disabled":
-        payload["thinking"] = {"type": "disabled"}
+    _apply_thinking_controls(
+        payload, disable_thinking=os.environ.get("LLM_THINKING") == "disabled"
+    )
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -816,8 +838,7 @@ def _post_chat_synthesis(
         "temperature": temperature,
         "max_tokens": max_tokens,
     }
-    if synthesis_thinking_disabled():
-        payload["thinking"] = {"type": "disabled"}
+    _apply_thinking_controls(payload, disable_thinking=synthesis_thinking_disabled())
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -977,10 +998,13 @@ def _post_chat_message_stream(
         # 最后一个 chunk 出现，且要显式开。丢了它 episode 的 token 账会归零。
         "stream_options": {"include_usage": True},
     }
-    if disable_thinking is True or (
-        disable_thinking is None and os.environ.get("LLM_THINKING") == "disabled"
-    ):
-        payload["thinking"] = {"type": "disabled"}
+    _apply_thinking_controls(
+        payload,
+        disable_thinking=(
+            disable_thinking is True
+            or (disable_thinking is None and os.environ.get("LLM_THINKING") == "disabled")
+        ),
+    )
     if tools:
         payload["tools"] = tools
         if tool_choice is not None:
@@ -1085,11 +1109,13 @@ def _post_chat_message(
     _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload: dict = {"model": provider.model, "messages": messages, "temperature": temperature}
-    if disable_thinking is True or (
-        disable_thinking is None
-        and os.environ.get("LLM_THINKING") == "disabled"
-    ):
-        payload["thinking"] = {"type": "disabled"}
+    _apply_thinking_controls(
+        payload,
+        disable_thinking=(
+            disable_thinking is True
+            or (disable_thinking is None and os.environ.get("LLM_THINKING") == "disabled")
+        ),
+    )
     if tools:
         payload["tools"] = tools
         if tool_choice is not None:
@@ -1838,8 +1864,7 @@ def _post_chat_stream_raw(
         "stream": True,
         "max_tokens": max_tokens,
     }
-    if synthesis_thinking_disabled():
-        payload["thinking"] = {"type": "disabled"}
+    _apply_thinking_controls(payload, disable_thinking=synthesis_thinking_disabled())
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),

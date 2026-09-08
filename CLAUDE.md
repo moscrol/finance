@@ -224,7 +224,7 @@ python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD
 
 ### 分档同步：identity 慢、value 快（2026-09-04）
 
-夜跑真入口 `skills/daily-full-review/scripts/run_review_sync.py` 有 `--plan full|cheap|auto`
+夜跑真入口 `skills/daily-full-review/scripts/run_review_sync.py` 有 `--plan full|cheap|local|auto`（`local` = 2026-09-07 起不发任何 fupanhui 请求的自算链路，见 `skills/duckdb-backfill/SKILL.md`「local 计划」；fupanhui 账号风控期间夜跑与补日只用它）
 （默认读环境变量 `REVIEW_SYNC_PLAN`，未设为 `full`）。**单一事实源是
 `market_feature_store/consumption_registry.yaml`**：每个数据族的 identity/value 节奏、证据、
 刷新档位（A 停打换源 / B 变更检测 / C 便宜日更 / D 本地派生）、两档计划的步骤名；
