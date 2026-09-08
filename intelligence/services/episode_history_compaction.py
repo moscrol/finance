@@ -59,6 +59,10 @@ class FoldedMessage:
     chars_before: int
     chars_after: int
     evidence_count: int
+    # 替换后模型真看到的正文（运行底座 INV-R1「模型可见即已落账」）：``derive_messages``
+    # 按 call_id 把它覆写到派生出的 tool 消息上；对外投影把它剔成 sha256 + 字符数
+    # （``MODEL_VISIBLE_TEXT_FIELDS`` 的 ``folded[].model_content``）。
+    model_content: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -67,6 +71,7 @@ class FoldedMessage:
             "chars_before": self.chars_before,
             "chars_after": self.chars_after,
             "evidence_count": self.evidence_count,
+            "model_content": self.model_content,
         }
 
 
@@ -220,6 +225,7 @@ def compact_history(
                     chars_before=len(content),
                     chars_after=len(replacement),
                     evidence_count=len(stub.get("evidence_index") or []),
+                    model_content=replacement,
                 )
             )
     return CompactionReport(

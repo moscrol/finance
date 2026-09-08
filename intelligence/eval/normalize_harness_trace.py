@@ -332,8 +332,16 @@ def _codex_mapping(record: Mapping[str, Any]) -> tuple[str, str, str] | None:
 _BENCHMARK_STEPS: dict[str, tuple[str, str]] = {
     # pre-run assembly
     "configure": ("configure", "control"),
+    # system + first user prompt as the model will see them (INV-R1 carrier)
+    "prompt_assembled": ("configure", "control"),
     # intent
     "task": ("intent", "control"),
+    # loop-injected user-role text (steering / finalization / mode decision …):
+    # the runtime steering the model, so L1 `intent`, not an observation.
+    "model_input": ("intent", "control"),
+    # budget block overwritten onto the last tool message -- an observation of
+    # runtime state, same L1 bucket as the `budget` keyword in workbench traces.
+    "tool_budget_state": ("observe", "control"),
     # planning: what steps, how deep, what to repair -- L1 `plan`
     "plan": ("plan", "control"),
     "mode_decision": ("plan", "control"),

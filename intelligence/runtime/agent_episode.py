@@ -68,6 +68,13 @@ from intelligence.services.research_plan import (
     plan_to_public_dict,
 )
 from intelligence.services.episode_event_lanes import LiveEventSink
+from intelligence.services.episode_messages import (
+    append_model_input,
+    assistant_message,
+    check_derivation,
+    record_prompt_assembled,
+    record_tool_budget_state,
+)
 from intelligence.services.episode_scope import EpisodeScope
 from intelligence.services.research_harness import (
     FinanceResearchHarness,
@@ -228,6 +235,11 @@ class _EpisodeLedger:
         self.events: list[EpisodeEvent] = []
         self.plan: ResearchPlan | None = None
         self.time_budget_injected = False
+        # INV-R1 对账失败的落账点。run() 在 Scope 建好后把它接到
+        # ``EpisodeScope.record_derive_mismatch``；接线前（或没有 Scope 的调用方）
+        # 落在本地列表，收据不因接线时机而丢。
+        self.derive_mismatches: list[str] = []
+        self.derive_mismatch_sink: Callable[[str], None] | None = None
         # 历史折叠（spec 2026-09-07 §3.2）的累计账，随 finish 事件落盘让 eval 分得开臂。
         self.history_compaction_folded = 0
         self.history_compaction_saved = 0
@@ -238,6 +250,21 @@ class _EpisodeLedger:
                 "task_frame": task_frame.to_dict(),
             },
         )
+
+    def note_derive_mismatch(self, detail: str) -> None:
+        self.derive_mismatches.append(str(detail))
+        if self.derive_mismatch_sink is not None:
+            self.derive_mismatch_sink(str(detail))
+
+    def verify_model_visible(self, messages: list[dict[str, object]]) -> bool:
+        """请求前对账（INV-R1）：即将发出的 messages 必须能从本账本的事件派生。
+
+        严格模式（测试）不一致即抛；生产只记账不炸——见 ``episode_messages`` 文首。
+        """
+
+        with self._lock:
+            snapshot = tuple(self.events)
+        return check_derivation(snapshot, messages, on_mismatch=self.note_derive_mismatch)
 
     def add(self, kind: str, payload: dict[str, object]) -> EpisodeEvent:
         event_payload = dict(payload)
@@ -457,10 +484,16 @@ class _EpisodeToolAccumulator:
             )
             self.seen_observation_prose = set(projection.seen_prose)
             # call_id 与 timing 只进 ledger 展开，不进审计底稿——那个 dict 是
-            # 模型视图的来源（R-20260827-15）。
+            # 模型视图的来源（R-20260827-15）。``model_content`` 是模型真看到的那段
+            # （INV-R1）：审计底稿与模型正文同一份事实两个出口，两个都进事件。
             self.ledger.add(
                 "tool_result",
-                {**projection.audit_payload, "call_id": call.call_id, **timing},
+                {
+                    **projection.audit_payload,
+                    "call_id": call.call_id,
+                    "model_content": projection.model_content,
+                    **timing,
+                },
             )
             self.messages.append(
                 {
@@ -484,15 +517,22 @@ class _EpisodeToolAccumulator:
         )
         # 耗时与 call_id 只进 ledger，**不进 payload**——下面那条 messages 是喂模型的，
         # 给它塞毫秒数既没用又占预算。审计要全量、模型要够用，同一份事实两个出口。
+        # ``model_content`` 是那段序列化后的正文本身（INV-R1 派生用）。
+        model_content = json.dumps(payload, ensure_ascii=False)
         self.ledger.add(
             "tool_error",
-            {**payload, "call_id": call.call_id, **(timing or {})},
+            {
+                **payload,
+                "call_id": call.call_id,
+                "model_content": model_content,
+                **(timing or {}),
+            },
         )
         self.messages.append(
             {
                 "role": "tool",
                 "tool_call_id": call.call_id,
-                "content": json.dumps(payload, ensure_ascii=False),
+                "content": model_content,
             }
         )
 
@@ -555,7 +595,9 @@ def _seed_opening_prefetch(
         accumulator.evidence_ledger.append(item)
     message = format_opening_prefetch_message(evidence)
     if message:
-        messages.append({"role": "user", "content": message})
+        append_model_input(
+            messages, accumulator.ledger, content=message, source="opening_prefetch"
+        )
         accumulator.ledger.add(
             "prefetch",
             {
@@ -700,6 +742,8 @@ class ContinuousAgentEpisode:
             ),
         )
         tool_session = self._tool_executor.new_session(scope=episode_scope)
+        # INV-R1 对账失败落进 Scope 收据（dump()["derive_mismatches"]）。
+        ledger.derive_mismatch_sink = episode_scope.record_derive_mismatch
         if (
             context.contract.task_frame_hash
             and context.contract.task_frame_hash != task_frame.task_frame_hash
@@ -716,6 +760,8 @@ class ContinuousAgentEpisode:
         # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: system is byte-stable; user/tool
         # rebuild each turn. cache_control is not implemented this increment.
         _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
+        # 模型可见即已落账：system 与首轮 user 先进 durable 事件，再进 messages。
+        record_prompt_assembled(ledger, system=system, user=user)
         messages: list[dict[str, object]] = [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -816,12 +862,17 @@ class ContinuousAgentEpisode:
                     invalid_actions=invalid_actions,
                 )
 
+            # 历史折叠先于对账：它改的是模型即将看到的 tool 消息正文，并以
+            # ``history_compacted`` 事件承载替换后的正文，所以对账必须在它之后。
             self._compact_history_for_model(
                 messages=messages,
                 accumulator=accumulator,
                 ledger=ledger,
                 llm_calls=llm_calls,
             )
+            # INV-R1：请求前对账。放在 try 之外——严格模式的 DerivationMismatch 是
+            # 测试要看见的红，不能被下面那个「模型异常」的 except 吞成 model_error。
+            ledger.verify_model_visible(messages)
             model_started = monotonic()
             try:
                 definitions = self._available_tool_definitions(
@@ -1090,11 +1141,13 @@ class ContinuousAgentEpisode:
                         if pending_mode_message is not None:
                             self._append_mode_decision_message(
                                 messages=messages,
+                                ledger=ledger,
                                 governance=pending_mode_message,
                             )
                         if pending_branch_result is not None:
                             self._append_sub_research_message(
                                 messages=messages,
+                                ledger=ledger,
                                 result=pending_branch_result,
                                 evidence=tuple(accumulator.evidence),
                             )
@@ -1133,13 +1186,13 @@ class ContinuousAgentEpisode:
                 invalid_actions += 1
                 ledger.add("invalid_action", {"reason": plan_result.error})
                 if plan_failures == 1:
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": self._harness.steering_message(
-                                "invalid_plan", detail=plan_result.error
-                            ),
-                        }
+                    append_model_input(
+                        messages,
+                        ledger,
+                        content=self._harness.steering_message(
+                            "invalid_plan", detail=plan_result.error
+                        ),
+                        source="steering_invalid_plan",
                     )
                     continue
             if turn.tool_calls:
@@ -1233,6 +1286,7 @@ class ContinuousAgentEpisode:
                     )
                 injected = self._append_tool_budget_state(
                     messages=messages,
+                    ledger=ledger,
                     remaining_seconds=(
                         context.deadline.remaining()
                         if budget_status_enabled()
@@ -1257,11 +1311,13 @@ class ContinuousAgentEpisode:
                 if pending_mode_message is not None:
                     self._append_mode_decision_message(
                         messages=messages,
+                        ledger=ledger,
                         governance=pending_mode_message,
                     )
                 if pending_branch_result is not None:
                     self._append_sub_research_message(
                         messages=messages,
+                        ledger=ledger,
                         result=pending_branch_result,
                         evidence=tuple(accumulator.evidence),
                     )
@@ -1307,13 +1363,13 @@ class ContinuousAgentEpisode:
                     and finish_failures == 1
                     and not finalization_started
                 ):
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": self._harness.steering_message(
-                                "invalid_finish", detail=reason
-                            ),
-                        }
+                    append_model_input(
+                        messages,
+                        ledger,
+                        content=self._harness.steering_message(
+                            "invalid_finish", detail=reason
+                        ),
+                        source="steering_invalid_finish",
                     )
                     continue
                 if response.allow_recovery and self._can_recover_finalization(
@@ -1429,6 +1485,9 @@ class ContinuousAgentEpisode:
         """
 
         while True:
+            # INV-R1：每次重问价前都对账（瞬态重试不改 messages，但重试之间可能多了
+            # repair_model_retry 事件——那不是模型可见内容，派生必须对它无感）。
+            ledger.verify_model_visible(messages)
             model_started = monotonic()
             try:
                 turn = self._model.complete(
@@ -1590,14 +1649,14 @@ class ContinuousAgentEpisode:
                 "previous_draft_chars": len(previous.draft),
             },
         )
-        messages.append(
-            {
-                "role": "user",
-                "content": self._harness.repair_goal_message(
-                    prompt_goal,
-                    tools_open=research_tools_open,
-                ),
-            }
+        append_model_input(
+            messages,
+            ledger,
+            content=self._harness.repair_goal_message(
+                prompt_goal,
+                tools_open=research_tools_open,
+            ),
+            source="repair_goal",
         )
         llm_calls = previous.usage.llm_calls
         tool_calls = previous.usage.tool_calls
@@ -1743,13 +1802,11 @@ class ContinuousAgentEpisode:
                 executed_count=batch.executed_count,
                 batch_elapsed=batch_elapsed,
             )
-            messages.append(
-                {
-                    "role": "user",
-                    "content": self._harness.steering_message(
-                        "repair_finalize", detail=""
-                    ),
-                }
+            append_model_input(
+                messages,
+                ledger,
+                content=self._harness.steering_message("repair_finalize", detail=""),
+                source="steering_repair_finalize",
             )
             final_timeout = repair_deadline.synthesis_timeout(self._llm_timeout)
             if final_timeout <= 0.001:
@@ -2256,26 +2313,30 @@ class ContinuousAgentEpisode:
     def _append_mode_decision_message(
         *,
         messages: list[dict[str, object]],
+        ledger: _EpisodeLedger,
         governance: ModeGovernance,
     ) -> None:
-        messages.append({"role": "user", "content": governance.message})
+        append_model_input(
+            messages, ledger, content=governance.message, source="mode_decision"
+        )
 
     def _append_sub_research_message(
         self,
         *,
         messages: list[dict[str, object]],
+        ledger: _EpisodeLedger,
         result: SubResearchResult,
         evidence: tuple[AgentEvidence, ...] = (),
     ) -> None:
-        messages.append(
-            {
-                "role": "user",
-                "content": self._harness.project_sub_research(
-                    branches=result.branches,
-                    refused_reason=result.refused_reason,
-                    evidence=evidence,
-                ),
-            }
+        append_model_input(
+            messages,
+            ledger,
+            content=self._harness.project_sub_research(
+                branches=result.branches,
+                refused_reason=result.refused_reason,
+                evidence=evidence,
+            ),
+            source="sub_research",
         )
 
     @staticmethod
@@ -2327,6 +2388,7 @@ class ContinuousAgentEpisode:
     def _append_tool_budget_state(
         *,
         messages: list[dict[str, object]],
+        ledger: _EpisodeLedger,
         remaining_slots: int,
         remaining_seconds: float | None = None,
         total_seconds: float | None = None,
@@ -2390,7 +2452,11 @@ class ContinuousAgentEpisode:
             )
             injected = True
         payload["runtime_budget"] = budget
-        messages[-1]["content"] = json.dumps(payload, ensure_ascii=False)
+        model_content = json.dumps(payload, ensure_ascii=False)
+        messages[-1]["content"] = model_content
+        # 这是对最后一条 tool 消息的**覆写**，不是追加：durable 侧记整段新 content，
+        # 派生规则同样是覆写（INV-R1）。
+        record_tool_budget_state(ledger, runtime_budget=budget, model_content=model_content)
         return injected
 
     def _begin_finalization(
@@ -2401,13 +2467,11 @@ class ContinuousAgentEpisode:
         reason: str,
     ) -> None:
         ledger.add("finalization", {"reason": reason})
-        messages.append(
-            {
-                "role": "user",
-                "content": self._harness.steering_message(
-                    "begin_finalization", detail=reason
-                ),
-            }
+        append_model_input(
+            messages,
+            ledger,
+            content=self._harness.steering_message("begin_finalization", detail=reason),
+            source="begin_finalization",
         )
 
     def _can_recover_finalization(
@@ -2684,26 +2748,9 @@ class ContinuousAgentEpisode:
 
     @staticmethod
     def _assistant_message(turn: ModelTurn) -> dict[str, object]:
-        message: dict[str, object] = {
-            "role": "assistant",
-            "content": turn.content,
-        }
-        if turn.tool_calls:
-            message["tool_calls"] = [
-                {
-                    "id": call.call_id,
-                    "type": "function",
-                    "function": {
-                        "name": call.name,
-                        "arguments": json.dumps(
-                            call.to_dict()["arguments"],
-                            ensure_ascii=False,
-                        ),
-                    },
-                }
-                for call in turn.tool_calls
-            ]
-        return message
+        # 形状唯一定义在 ``episode_messages.assistant_message``：派生侧
+        # ``assistant_message_from_payload`` 与它同源，INV-R1 才能逐字节成立。
+        return assistant_message(turn)
 
     @staticmethod
     def _extend_unique(target: list[str], values: tuple[str, ...]) -> None:
