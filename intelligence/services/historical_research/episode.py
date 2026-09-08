@@ -107,6 +107,148 @@ def _compact(value) -> str:
     )
 
 
+def _model_blocks(identity: dict, atoms: list[dict]) -> list[str]:
+    """Pack whole semantic fields into the real model-facing detail budget.
+
+    The artifact keeps every field. A single oversized value is explicitly
+    omitted here instead of producing a clipped JSON string or numeric prefix.
+    """
+    from intelligence.services.tool_result_budget import MAX_EVIDENCE_DETAIL_CHARS
+
+    def encode(value):
+        return json.dumps(value, ensure_ascii=False, default=str, separators=(",", ":"))
+
+    def merge(left, right):
+        result = dict(left)
+        for key, value in right.items():
+            result[key] = (
+                {**result[key], **value}
+                if isinstance(result.get(key), dict) and isinstance(value, dict)
+                else value
+            )
+        return result
+
+    blocks, current = [], dict(identity)
+    for atom in atoms:
+        candidate = merge(current, atom)
+        if len(encode(candidate)) <= MAX_EVIDENCE_DETAIL_CHARS:
+            current = candidate
+            continue
+        if current != identity:
+            blocks.append(encode(current))
+        current = merge(identity, atom)
+        if len(encode(current)) > MAX_EVIDENCE_DETAIL_CHARS:
+            current = {
+                "sample": identity.get("sample"),
+                "projection_status": "oversized_field_omitted",
+                "fields": list(atom),
+            }
+            blocks.append(encode(current))
+            current = dict(identity)
+    if current != identity or (not atoms and len(encode(identity)) <= MAX_EVIDENCE_DETAIL_CHARS):
+        blocks.append(encode(current))
+    return blocks
+
+
+def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, str | None]]:
+    """Project data and definitions, keeping row count distinct from card count."""
+    projected = []
+
+    def add(title, identity, atoms, source_date=None):
+        projected.extend(
+            (title, detail, source_date) for detail in _model_blocks(identity, atoms)
+        )
+
+    add("历史研究范围与完整分母", {}, [
+        {key: payload.get(key)}
+        for key in ("operation", "status", "total_matched", "returned_count", "truncated")
+    ] + [{"research_only": True, "decision_eligible": False, "promotion_eligible": False}])
+    add("历史研究原件引用", {}, [{"result_ref": result_ref}])
+    add("历史研究使用边界", {}, [{
+        "pit_grade": payload.get("pit_grade", "hindsight_reconstruction"),
+        "null": "未知或不可计算，非0；具体原因见每项status；not_observed表示该窗口未观察到触发。",
+    }])
+    spec = payload.get("spec", {})
+    comparison = payload.get("comparison")
+    if isinstance(comparison, dict):
+        add("历史条件比较定义", {}, [
+            {"condition": spec.get("condition")},
+            {"outcome_definition": payload.get("outcome_definition")},
+        ])
+        add("历史条件比较完整统计", {}, [{key: value} for key, value in comparison.items()])
+    universe = payload.get("universe")
+    if isinstance(universe, dict):
+        add("历史比较宇宙与窗口", {}, [
+            {key: value} for key, value in universe.items() if key != "entity_codes"
+        ] + [{"entity_count": len(universe.get("entity_codes", []))}])
+    if payload.get("matching_use"):
+        add("历史相似召回用途", {}, [{"matching_use": payload["matching_use"]}])
+    for name, definition in payload.get("feature_definitions", {}).items():
+        add("历史特征严格定义", {"feature": name}, [
+            {key: definition[key]} for key in ("rule", "unit", "version") if key in definition
+        ])
+
+    names: dict[str, set[str]] = {}
+    for rows in payload.get("inputs", {}).values():
+        for row in rows:
+            for prefix in ("sector", "stock"):
+                code, name = row.get(f"{prefix}_ts_code"), row.get(f"{prefix}_name")
+                if code and name:
+                    names.setdefault(code, set()).add(name)
+    preview = payload.get("preview", [])
+    records = list(enumerate(preview[:25] if isinstance(preview, list) else []))
+    reference = payload.get("reference")
+    if isinstance(reference, dict):
+        records.insert(0, ("reference", reference))
+    for index, row in records:
+        if not isinstance(row, dict):
+            continue
+        identity = {"sample": index, "entity_code": row.get("entity_code")}
+        if isinstance(reference, dict):
+            identity["role"] = "reference" if index == "reference" else "candidate"
+        for key in ("trade_date", "start", "end"):
+            if key in row:
+                identity[key] = row[key]
+        atoms = []
+        known = names.get(row.get("entity_code"), set())
+        name = row.get("entity_name") or (next(iter(known)) if len(known) == 1 else None)
+        if name:
+            atoms.append({"entity_name": name})
+        if "comparison_state" in row:
+            atoms.extend({key: row[key]} for key in (
+                "comparison_state", "x", "y", "forward_return_pct", "outcome_end"
+            ) if key in row)
+        for name, value in row.get("features", {}).items():
+            atoms.append({
+                "features": {name: value},
+                "status": {name: row.get("feature_coverage", {}).get(name, {}).get("status", "unknown")},
+            })
+        atoms.extend(
+            {"feature_differences": {name: value}}
+            for name, value in row.get("feature_differences", {}).items()
+        )
+        for kind in ("sector", "stock"):
+            values = row.get(kind)
+            if isinstance(values, dict):
+                atoms.extend({kind: {key: values[key]}} for key in (
+                    "pct_chg", "amount", "diff_ratio", "price", "close", "turnover_rate"
+                ) if key in values)
+        for key in ("distance", "feature_cutoff", "first_date", "last_date", "observed_dates", "dates"):
+            if key in row:
+                atoms.append({key: row[key]})
+        # Large members/events/coverage remain in the original. These counts
+        # distinguish an empty collection from a hidden detailed collection.
+        atoms.extend({f"{key}_count": len(row[key])} for key in (
+            "members", "sector_memberships", "events", "heat"
+        ) if isinstance(row.get(key), list))
+        if "market" in row:
+            atoms.append({"market_status": "missing_or_ambiguous" if row["market"] is None else "observed"})
+        date_value = str(row.get("trade_date", row.get("end", ""))) or None
+        sample_scope = " ".join(str(value) for key, value in identity.items() if key != "sample")
+        add(f"历史观察样本 {sample_scope}", identity, atoms, date_value)
+    return projected
+
+
 def _result(payload: dict, *, result_ref: str = "", tool: str = "history_query"):
     metadata = {
         key: payload[key]
@@ -129,6 +271,8 @@ def _result(payload: dict, *, result_ref: str = "", tool: str = "history_query")
             "contingency",
             "selection_fingerprint",
             "independence_policy",
+            "spec",
+            "feature_definitions",
         )
         if key in payload
     }
@@ -138,44 +282,39 @@ def _result(payload: dict, *, result_ref: str = "", tool: str = "history_query")
         decision_eligible=False,
         promotion_eligible=False,
     )
-    preview = payload.get("preview", [])
-    if not isinstance(preview, list):
-        preview = []
     query_id = str(payload.get("query_id", ""))
+    projection = _model_projection(payload, result_ref)
+    metadata["projected_evidence_count"] = len(projection)
+    spec = payload.get("spec", {})
+    scope = " ".join(str(value) for value in (
+        ",".join(spec.get("entity_codes", [])[:2]), spec.get("start"), spec.get("end")
+    ) if value)
     evidence = [
         AgentEvidence(
             tool=tool,
-            title="历史研究计算口径与完整样本统计",
-            detail=_compact(metadata),
+            # Citation UI deduplicates by title/source/date. A block is a public
+            # observation, not an independent sample; independent_key stays qid.
+            title=f"{title}｜{query_id[:8]}·{index + 1}｜{scope}".rstrip("｜"),
+            detail=detail,
             source="本地历史研究 · 可复算原件",
             internal_locator=result_ref,
+            source_date=source_date,
             evidence_tier="L4_market_signal",
             freshness="historical",
             independent_key=query_id,
         )
+        for index, (title, detail, source_date) in enumerate(projection)
     ]
-    evidence.extend(
-        AgentEvidence(
-            tool=tool,
-            title="历史观察样本",
-            detail=_compact(row),
-            source="本地历史研究 · 样本明细",
-            internal_locator=result_ref,
-            source_date=str(row.get("trade_date", row.get("end", ""))) or None,
-            evidence_tier="L4_market_signal",
-            freshness="historical",
-            independent_key=query_id,
-        )
-        for row in preview[:25]
-        if isinstance(row, dict)
-    )
     return ToolRunResult(
         evidence=tuple(evidence),
-        observation="探索结果，未认证规律；完整分母独立于摘要截断。"
+        observation="探索结果，未认证规律；完整分母独立于投影条数。"
         + _compact({"result_ref": result_ref, "query_id": query_id,
                     "total_matched": payload.get("total_matched"), "returned_count": payload.get("returned_count"),
-                    "truncated": payload.get("truncated")})
-        + _compact(metadata),
+                    "truncated": payload.get("truncated"),
+                    "projected_evidence_count": len(projection)})
+        + "样本以完整JSON语义块展示，同sample属于同一原件行；特征定义卡给出真实rule/unit/version。"
+        "大成员、覆盖明细和超长字段仅在完整artifact；需更多日期用read_history_result分页。"
+        "需未展示字段请缩窄日期/实体/特征查询，仍不足就明确缺口或由用户查看原件，不把null当0。",
         trace=ProviderTrace(
             provider="duckdb_history_query",
             capability="finance_query",
@@ -311,6 +450,15 @@ def history_tool_specs(
 
     query_parameters = history_query_parameters()
     query_parameters["properties"]["preview_limit"]["maximum"] = 25
+    from intelligence.services.historical_research.features import FEATURES, FEATURE_VERSION
+
+    query_parameters["properties"]["features"]["description"] = (
+        f"版本{FEATURE_VERSION}；不得凭名称改定义。null为未知或不可计算，见status，非0。"
+        + "；".join(
+            f"{name}[{definition['unit']}]={definition['rule']}"
+            for name, definition in FEATURES.items()
+        )
+    )
     specs = [
         ToolSpec(
             name="history_query",
@@ -530,7 +678,14 @@ def history_tool_specs(
     def save(value, tool_context):
         _, previous_ref = value
         if previous_ref:
-            identity = session.read(previous_ref)["draft"]["case_id"]
+            message = "previous_result_ref must reference a saved history case; omit for initial draft"
+            if "/history-case-" not in previous_ref:
+                raise ValueError(message)
+            previous_payload = session.read(previous_ref)
+            try:
+                identity = ResearchCase.from_dict(previous_payload["draft"]).case_id
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValueError(message) from exc
         else:
             identity = "case-" + hashlib.sha256(
                 f"{session.store.user_id}:{session.conversation_id}:{frame.raw_question}".encode()
