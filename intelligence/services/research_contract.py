@@ -380,6 +380,28 @@ class ResearchDeadline:
         )
 
 
+# 单个 episode 的产品级硬顶：任何 tier、升档、grant 都不得越过。2026-09-06 之前这两个
+# 数（24 次 / 240s）就是 deep 档本身，写死在 promote_caps 与 tier_promotion 两处；
+# 加 max 档后抬到 max 档的账本上限，并收成一对常数，改一处两处同时变。
+# 2026-09-07 二改：48 → 60 / 32 → 40。三道可拆题 9 支分支读数见 runtime/sub_research.branch_limits：
+# 分支调用从父账本扣，max 档 3 支 × 10 次 = 30，父臂自己还要 10+ 次；起步 32 会把父臂饿死。
+PRODUCT_MAX_TOOL_CALLS = 60
+PRODUCT_MAX_SECONDS = 600.0
+
+RESEARCH_TIERS: frozenset[str] = frozenset({"quick", "standard", "deep", "max"})
+
+# turn 级 LLM 调用保险丝（``ResearchExecutionPolicy.max_llm_calls``，缺省 40）按档位放大。
+# 2026-09-07 04:11 读数：max 形状 + 两次 sub_research（5 支分支合计 28 次模型调用）把 40 烧穿，
+# 最后一个要发的调用是**判官**——被拒后 judge unavailable、答案降级。保险丝的对象是失控，
+# 不是并行分支的正常开销；max 档给 120：5 支 × 10 + 父臂 ~15 + 判官 3 + 控制器 ~5 ≈ 75。
+LLM_CALL_FUSE_BY_TIER: dict[str, int] = {"max": 120}
+DEFAULT_LLM_CALL_FUSE = 40
+
+
+def llm_call_fuse_for_tier(tier: str | None) -> int:
+    return LLM_CALL_FUSE_BY_TIER.get(str(tier or "").strip().lower(), DEFAULT_LLM_CALL_FUSE)
+
+
 @dataclass(frozen=True)
 class ResearchPolicy:
     """Generic owner 的确定性档位，不允许由 LLM 提高上限。"""
@@ -395,6 +417,11 @@ class ResearchPolicy:
             "quick": cls("quick", 3, 30.0, 20.0),
             "standard": cls("standard", 6, 90.0, 20.0),
             "deep": cls("deep", 12, 240.0, 48.0),
+            # 「能力 max」档（用户 2026-09-06 决策：先找到能力上限，再按超限的部分设约束，
+            # 而不是上来就约束）。knevo 同题打了 22 次工具；我们 standard 档 8 次里
+            # 2 次零授予。这一档给足调用与墙钟，出口硬层（admit_finish / 判官 / 来源分档）
+            # 一字不动——放开的是输入侧预算，不是正确性。
+            "max": cls("max", 40, PRODUCT_MAX_SECONDS, 60.0),
         }
         return policies.get(tier, policies["standard"])
 
@@ -405,6 +432,8 @@ class StageCaps:
 
     tool_batch_seconds: float
     judge_window_seconds: float
+    # 单次判官尝试的档位地板；None = 沿用 verifier 构造时配置的帽（历史行为）。
+    judge_attempt_seconds: float | None = None
 
 
 # Shared judge window per second of synthesis reserve.  Current deep reserve
@@ -416,6 +445,21 @@ _JUDGE_WINDOW_PER_RESERVE = 50.0 / 48.0
 # Floor standard to deep's 50s. 08-20: first attempt uses the full window
 # (cap 50), not window×0.5. Does not change synthesis_reserve or tool_batch.
 _STANDARD_JUDGE_WINDOW_FLOOR = 50.0
+# max 档判官：单次尝试 75s、共享窗 150s（= 两次完整尝试）。
+#
+# 2026-09-07 max 档 D5 两发 judge=unavailable（glm-5.3-flash 思考臂，答案 21/27 句、
+# 判官载荷 13.3K/13.6K 字符）。把留在收据里的 judge_request 原样重放 grok-4.6
+# （grok-cli 1.0.5，与生产同二进制）n=6：44.1 / 60.6 / 50.6 / 12.4 / 58.4 / 53.3s，
+# p50 52.0、max 60.6，**4/6 超过 50s 单次帽**；给足 180s 时 6/6 返回有效判定
+# （拒 0–13 句）。也就是在 max 档载荷上 50s 帽是「中位数即超时」，不再是尾部。
+# 75 = 实测 max 60.6 加约 24% 余量（n=6 小样本，余量比 GLM 修复帽的 16% 放宽）。
+# 窗取两次完整尝试：首发超时后仍能发一次完整重试，重试机制才有意义——此前
+# 首发吃满整窗、第二发拿 0 秒，收据写「deadline exhausted」而根期限还剩 400s+。
+#
+# 只加 max 档：quick / standard / deep 的窗与帽一字不变（standard 地板 50、deep
+# 48×50/48=50 仍由上面两条钉住）。收据 ~/.finance-runtime/glm-ceiling-20260907/。
+_MAX_TIER_JUDGE_ATTEMPT_SECONDS = 75.0
+_MAX_TIER_JUDGE_WINDOW_FLOOR = 2.0 * _MAX_TIER_JUDGE_ATTEMPT_SECONDS
 
 
 def derive_stage_caps(policy: ResearchPolicy) -> StageCaps:
@@ -430,11 +474,16 @@ def derive_stage_caps(policy: ResearchPolicy) -> StageCaps:
     total = max(0.0, float(policy.total_seconds))
     reserve = max(0.0, float(policy.synthesis_reserve))
     judge_window = reserve * _JUDGE_WINDOW_PER_RESERVE
+    judge_attempt: float | None = None
     if policy.tier == "standard":
         judge_window = max(judge_window, _STANDARD_JUDGE_WINDOW_FLOOR)
+    elif policy.tier == "max":
+        judge_window = max(judge_window, _MAX_TIER_JUDGE_WINDOW_FLOOR)
+        judge_attempt = _MAX_TIER_JUDGE_ATTEMPT_SECONDS
     return StageCaps(
         tool_batch_seconds=max(0.0, total - reserve),
         judge_window_seconds=judge_window,
+        judge_attempt_seconds=judge_attempt,
     )
 
 
@@ -487,6 +536,8 @@ class RootBudgetLedger(Protocol):
     ) -> bool: ...
 
     def consume_call(self, *, seconds: float) -> None: ...
+
+    def consume_call_slot(self) -> None: ...
 
     def consume_seconds(self, *, seconds: float) -> None: ...
 
@@ -592,7 +643,11 @@ class InMemoryRootBudgetLedger:
             seconds_cap = float(hard_seconds_cap)
         except (TypeError, ValueError):
             return False
-        if seconds_cap < 0 or hard_calls_cap > 24 or seconds_cap > 240.0:
+        if (
+            seconds_cap < 0
+            or hard_calls_cap > PRODUCT_MAX_TOOL_CALLS
+            or seconds_cap > PRODUCT_MAX_SECONDS
+        ):
             return False
         with self._lock:
             if episode != self.episode_id:
@@ -623,6 +678,20 @@ class InMemoryRootBudgetLedger:
                 raise ValueError("root seconds budget exhausted")
             self.remaining_calls -= 1
             self.remaining_seconds = max(0.0, self.remaining_seconds - seconds)
+
+    def consume_call_slot(self) -> None:
+        """Spend one finance-tool call slot without debiting wall time.
+
+        分支视图用它向父账本记调用。秒是墙钟：三支并行跑 150s 对父臂只是 150s，
+        由父臂对 ``sub_research`` 那一批做批结算时按墙钟记**一次**；分支自己的秒只记在
+        自己的视图里。2026-09-07 候选口读数：分支把秒累加记到父账本（450s）+ 批结算
+        再记 180s，540s 的账本在墙钟 190s 归零，父臂墙钟还剩 396s 却 deadline_exhausted。
+        """
+
+        with self._lock:
+            if self.remaining_calls <= 0:
+                raise ValueError("root call budget exhausted")
+            self.remaining_calls -= 1
 
     def consume_seconds(self, *, seconds: float) -> None:
         """Debit wall time without spending a finance-tool call slot."""
@@ -690,6 +759,7 @@ def root_budget_for_policy(
         "quick": 4,
         "standard": 8,
         "deep": 24,
+        "max": PRODUCT_MAX_TOOL_CALLS,
     }.get(str(policy.tier).strip().lower(), policy.max_steps)
     with _LIVE_ROOT_BUDGETS_LOCK:
         if episode in _LIVE_ROOT_BUDGETS:
@@ -811,7 +881,7 @@ class ResearchTaskContract:
             )
         if not self.task_id.strip() or not self.question.strip():
             raise ResearchContractError("task_id/question 不能为空")
-        if self.research_tier not in {"quick", "standard", "deep"}:
+        if self.research_tier not in RESEARCH_TIERS:
             raise ResearchContractError(f"未知研究档位：{self.research_tier}")
         if any(not item.output_id.strip() for item in self.required_outputs):
             raise ResearchContractError("required output id 不能为空")

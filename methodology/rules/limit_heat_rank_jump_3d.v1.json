@@ -1,0 +1,21 @@
+{
+  "rule_id": "limit_heat_rank_jump_3d",
+  "version": 1,
+  "title": "涨停热度排名较前一交易日提升 ≥5 的题材，后 3 日上涨",
+  "notes": "热度档位写死 dimension=sector / scope=all / data_stage=final / is_realtime=false（进 label_version）；前一日不在榜内不打标。",
+  "scope": {"entity_type": "theme", "universe": "heat_final"},
+  "condition": {"all": [
+    {"label": "limit_heat_rank_jump", "op": "==", "value": true, "lag": 0}
+  ]},
+  "outcome": {
+    "target": "pct_chg",
+    "horizons": [3, 5, 7, 10],
+    "metrics": ["fwd_return", "max_return", "days_to_peak", "drawdown_after_peak"],
+    "success": {"metric": "fwd_return", "horizon": 3, "op": ">", "value": 0}
+  },
+  "baseline": {"kind": "same_universe_all_days"},
+  "min_n": 20,
+  "sharing": "shared",
+  "owner": "system",
+  "source_perspective": "系统内置：复盘会涨停热度榜"
+}

@@ -133,6 +133,18 @@ def test_split_review_plists_are_repo_sourced(plist_path: Path) -> None:
     assert "ops-health.log" in health
 
 
+def test_review_sync_plist_source_carries_tiered_plan() -> None:
+    """切档决定必须落在仓内源，不能只活在 ~/Library 的装机副本里。
+
+    2026-09-04 切档时只改了装机副本；install_eval_launchd.sh 是 cp 源 → bootstrap，
+    下一次安装就会把 REVIEW_SYNC_PLAN 静默冲回 full。这里钉住源里有这个键、且是
+    当前生产决定的档位；改档要连这条一起改。"""
+    with SPLIT_REVIEW_PLISTS[0].open("rb") as handle:
+        plist = plistlib.load(handle)
+    env = plist["EnvironmentVariables"]
+    assert env.get("REVIEW_SYNC_PLAN") == "auto"
+
+
 def test_checkpoint_installer_defaults_to_venv_and_runtime() -> None:
     text = BUILD_PLIST.read_text(encoding="utf-8")
     assert 'os.environ.get("PYTHON", "/usr/bin/python3")' not in text

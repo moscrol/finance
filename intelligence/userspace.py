@@ -102,6 +102,16 @@ class UserSpace:
     def is_default(self) -> bool:
         return self.user_id == DEFAULT_USER
 
+    @property
+    def observation_scripts_path(self) -> Path:
+        """观察剧本台账（roadmap G-03）。
+
+        做成 property 而不是构造字段：``UserSpace`` 是 frozen dataclass，仓内有多处
+        直接构造（含测试桩），加必填字段会当场炸；加带默认值的字段则更糟——那些构造点
+        会拿到一个相对路径的默认值，静默写到进程 cwd 下。派生自 ``root`` 没有这两种失败。
+        """
+        return self.root / "observation_scripts.jsonl"
+
     def ensure_dir(self) -> Path:
         self.root.mkdir(parents=True, exist_ok=True)
         return self.root

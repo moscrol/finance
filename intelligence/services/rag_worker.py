@@ -42,6 +42,54 @@ def _recovery_cooldown_seconds() -> float:
     return max(0.0, value)
 
 
+def _float_env(name: str, default: float) -> float:
+    raw = os.environ.get(name, "").strip()
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    return max(0.0, value)
+
+
+def keepalive_interval_seconds() -> float:
+    """请求间隔多久没有真实查询就发一条轻查询把 worker 的页「摸」一遍。0 = 关（默认）。
+
+    2026-09-04 生产读数：16 GB 机器 swap 14.4/15.4 GB，8792 常驻 worker 起来 27.5 小时
+    `queries_served=1`，RSS 只剩 3.7 MB——bge-m3 + 346 MB dense.npy + 17 万 chunks 整个在盘上。
+    请求之间隔几分钟到几小时，worker 被整个换出，下一次真实查询先付 20–60s 换入，
+    `episode_tools` 的 30s 帽必超时（08-31 背靠背分段实测检索本身只要 3–18s）。
+    keepalive 治的就是「两次请求之间」这段：定时把模型/索引页摸成 active，让分页器先换别人。
+    它治症不治本（机器 swap 满时是按周期把别人换出去），根治在减负 / mmap / fp16，
+    见 docs/superpowers/specs/2026-09-04-rag-worker-resident-memory-workorder.md。
+    """
+    return _float_env("RAG_WORKER_KEEPALIVE_SECONDS", 0.0)
+
+
+def keepalive_timeout_seconds() -> float:
+    """keepalive 那条查询的窗口。给得比生产工具窗宽：换入本来就是它替真实查询预付的成本。"""
+    return _float_env("RAG_WORKER_KEEPALIVE_TIMEOUT_SECONDS", 60.0) or 60.0
+
+
+def _process_rss_bytes(pid: int | None) -> int | None:
+    """子进程当前常驻集（bytes）。macOS/Linux 的 `ps -o rss=` 单位是 KiB。拿不到返回 None，不猜。"""
+    if pid is None:
+        return None
+    try:
+        completed = subprocess.run(
+            ["ps", "-o", "rss=", "-p", str(pid)],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    text = completed.stdout.strip()
+    if not text.isdigit():
+        return None
+    return int(text) * 1024
+
+
 class PersistentRagWorker:
     def __init__(self, python: str, kb_root: Path, index_dir: Path) -> None:
         self.python = python
@@ -71,6 +119,11 @@ class PersistentRagWorker:
         self._abandoned: set[str] = set()
         self._consecutive_timeouts = 0
         self._last_latency_ms: int | None = None
+        # 上一次查询（含预热 / keepalive）**完成**的时刻；None = 还没服务过。
+        # readiness 的 idle_seconds 从这里算——「多久没人碰它」正是它被换出的解释变量。
+        self._last_query_finished_at: float | None = None
+        self._keepalive_thread: threading.Thread | None = None
+        self._keepalive_stop = threading.Event()
         # 处置计数走 readiness 的 status() 出去。离线普查只看得到工具层的 elapsed_ms，
         # 分不出「超时是 worker 冷启还是查询本身慢」——这里是唯一能分的地方。
         self.counters: dict[str, int] = {
@@ -79,23 +132,32 @@ class PersistentRagWorker:
             "timeouts_killed": 0,
             "stale_responses_drained": 0,
             "recoveries": 0,
+            # keepalive 账：sent 多、真实查询的 last_latency_ms 降 = 在起作用；
+            # skipped_busy 多 = 真实流量本来就够密，keepalive 可以关。
+            "keepalive_sent": 0,
+            "keepalive_timeouts": 0,
+            "keepalive_skipped_busy": 0,
         }
 
     def query(self, argv: list[str], timeout: float) -> WorkerResponse:
         with self._lock:
-            try:
-                response = self._query_locked(argv, timeout, allow_abandon=True)
-            except WorkerRequestAbandoned:
-                # 进程还热着：不标 failed、不重生、状态不动。
-                raise
-            except Exception as exc:
-                self._mark_failed(exc)
-                self._schedule_recovery()
-                raise
-            if response.returncode == 0 and response.model_load_count > 0:
-                self._state = "ready"
-                self._last_error_type = None
-            return response
+            return self._serve(argv, timeout)
+
+    def _serve(self, argv: list[str], timeout: float) -> WorkerResponse:
+        """持锁调用。真实查询与 keepalive 共用同一套失败处置，不给 keepalive 开第二套规矩。"""
+        try:
+            response = self._query_locked(argv, timeout, allow_abandon=True)
+        except WorkerRequestAbandoned:
+            # 进程还热着：不标 failed、不重生、状态不动。
+            raise
+        except Exception as exc:
+            self._mark_failed(exc)
+            self._schedule_recovery()
+            raise
+        if response.returncode == 0 and response.model_load_count > 0:
+            self._state = "ready"
+            self._last_error_type = None
+        return response
 
     def prewarm(self, argv: list[str], timeout: float) -> WorkerResponse:
         with self._lock:
@@ -120,9 +182,18 @@ class PersistentRagWorker:
             )
             self._state = "ready"
             self._last_error_type = None
-            return response
+        # 预热成功才开 keepalive：冷 worker 没有「热」可保，那是预热/自愈的活。
+        self._start_keepalive()
+        return response
+
+    def idle_seconds(self) -> float | None:
+        if self._last_query_finished_at is None:
+            return None
+        return max(0.0, time.monotonic() - self._last_query_finished_at)
 
     def status(self) -> dict[str, object]:
+        process = self._process
+        idle = self.idle_seconds()
         return {
             "state": self._state,
             "active": self.healthy(),
@@ -132,6 +203,14 @@ class PersistentRagWorker:
             "last_latency_ms": self._last_latency_ms,
             "abandoned_in_flight": len(self._abandoned),
             "consecutive_timeouts": self._consecutive_timeouts,
+            # 常驻集与空闲时长并列：RSS 从几 GB 掉到几 MB 而 idle 很长 = 被换出了，
+            # 下一次查询的 last_latency_ms 会先付换入。这两个数以前只能现场 ps 才看得到。
+            "rss_bytes": _process_rss_bytes(process.pid if process is not None else None),
+            "idle_seconds": round(idle, 1) if idle is not None else None,
+            "keepalive_interval_seconds": keepalive_interval_seconds(),
+            "keepalive_thread_alive": bool(
+                self._keepalive_thread is not None and self._keepalive_thread.is_alive()
+            ),
             "counters": dict(self.counters),
         }
 
@@ -140,11 +219,77 @@ class PersistentRagWorker:
 
     def close(self) -> None:
         self._closed = True
+        self._keepalive_stop.set()
         # 先无锁杀一次：恢复线程可能正持锁阻塞在预热的 select 里（上限=预热窗）。
         # 杀掉子进程会让它立刻读到 EOF 抛错并释放锁，否则这里要等满整个预热窗。
         self._stop_process()
         with self._lock:
             self._stop_process()
+        thread = self._keepalive_thread
+        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
+            thread.join(timeout=2)
+
+    # ── keepalive ──────────────────────────────────────────────────────────
+
+    def _start_keepalive(self) -> None:
+        interval = keepalive_interval_seconds()
+        if interval <= 0 or self._closed:
+            return
+        if self._keepalive_thread is not None and self._keepalive_thread.is_alive():
+            return
+        self._keepalive_stop.clear()
+        thread = threading.Thread(
+            target=self._keepalive_loop,
+            args=(interval,),
+            name="rag-worker-keepalive",
+            daemon=True,
+        )
+        self._keepalive_thread = thread
+        thread.start()
+
+    def keepalive_due(self, interval: float) -> bool:
+        """现在该不该摸一下：worker 活着且热、离上次查询 ≥ interval。冷/死/刚服务过都不该。"""
+        if self._closed or not self.healthy() or self.model_load_count <= 0:
+            return False
+        idle = self.idle_seconds()
+        return idle is not None and idle >= interval
+
+    def keepalive_once(self, interval: float) -> bool:
+        """发一条 keepalive。返回是否真的发了。
+
+        不排队：`_lock` 被真实查询占着就跳过——真实流量本身就把页摸热了，keepalive
+        排在它后面只会白烧一次。超时走与真实查询同一套处置（热则放弃保留、连续两次才杀）。
+        """
+        if not self.keepalive_due(interval):
+            return False
+        argv = self._recovery_argv
+        if not argv:
+            return False
+        if not self._lock.acquire(blocking=False):
+            self.counters["keepalive_skipped_busy"] += 1
+            return False
+        try:
+            self.counters["keepalive_sent"] += 1
+            try:
+                self._serve(list(argv), keepalive_timeout_seconds())
+            except WorkerRequestAbandoned:
+                self.counters["keepalive_timeouts"] += 1
+            except Exception:  # noqa: BLE001 - _serve 已记账（failed + 自愈调度）
+                self.counters["keepalive_timeouts"] += 1
+        finally:
+            self._lock.release()
+        return True
+
+    def _keepalive_loop(self, interval: float) -> None:
+        # 醒来的节拍比 interval 密一档，这样「刚有真实查询」之后不会等满两个周期才补摸。
+        tick = max(0.05, min(interval, interval / 4.0))
+        while not self._keepalive_stop.wait(tick):
+            if self._closed:
+                return
+            try:
+                self.keepalive_once(interval)
+            except Exception:  # noqa: BLE001 - 后台线程不得因一次异常退出
+                continue
 
     def _ensure_process(self) -> subprocess.Popen[str]:
         if self._process is not None and self._process.poll() is None:
@@ -229,6 +374,7 @@ class PersistentRagWorker:
         )
         self.model_load_count = response.model_load_count
         self._last_latency_ms = int((time.monotonic() - started) * 1000)
+        self._last_query_finished_at = time.monotonic()
         self._consecutive_timeouts = 0
         self.counters["queries_served"] += 1
         return response
@@ -455,6 +601,16 @@ def status() -> dict[str, object]:
     for item in worker_states:
         for key, value in dict(item.get("counters") or {}).items():
             counters[key] = counters.get(key, 0) + int(value)
+    rss_values = [
+        int(item["rss_bytes"])
+        for item in worker_states
+        if isinstance(item.get("rss_bytes"), int)
+    ]
+    idle_values = [
+        float(item["idle_seconds"])
+        for item in worker_states
+        if isinstance(item.get("idle_seconds"), (int, float))
+    ]
     return {
         "enabled": is_enabled,
         "state": state,
@@ -467,4 +623,8 @@ def status() -> dict[str, object]:
         # 冷/热处置账：abandoned 多、killed 少 = 保活在起作用；killed 多 = worker 真在卡死。
         "counters": counters,
         "abandoned_in_flight": sum(int(item.get("abandoned_in_flight") or 0) for item in worker_states),
+        # 换出可观测：rss 从几 GB 掉到几 MB 且 idle 很长 = 模型/索引在盘上，下一次查询先付换入。
+        "rss_bytes": sum(rss_values) if rss_values else None,
+        "idle_seconds": round(max(idle_values), 1) if idle_values else None,
+        "keepalive_interval_seconds": keepalive_interval_seconds(),
     }

@@ -43,6 +43,10 @@ CREATE TABLE IF NOT EXISTS fact_market_daily (
     limit_down               INTEGER,
     sh_week_ma               DOUBLE,
     sh_deviation_pct         DOUBLE,
+    -- 周均线来源：tooltip（fupanhui 抓取）/ ma_recompute（当日兜底复算）/
+    -- ma5_recompute_backfill（2026-09-06 历史回填）/ unknown_preexisting（此列上线前的存量，证不了是哪种）。
+    -- 「周均线」= 一周 = 5 个交易日，不是 55 周均线（2026-09-05 对 221 天真值比对八个候选：日 MA5 MAE 3.70，周 MA55 MAE 271.54）。
+    sh_week_ma_source        VARCHAR,
     sh_index_close           DOUBLE,
     sh_index_pct_chg         DOUBLE,
     sh_index_open            DOUBLE,
@@ -82,9 +86,14 @@ CREATE TABLE IF NOT EXISTS fact_market_daily (
     note                     TEXT,
     summary_keywords         TEXT,
     source                   TEXT,
-    updated_at               TIMESTAMP
+    updated_at               TIMESTAMP,
+    -- 2026-09-07：周期阶段自训分类器的来源与置信（老库由 models/market_stage.ensure_stage_columns 追加）
+    market_stage_source      TEXT,
+    market_stage_confidence  DOUBLE
 );
 ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS summary_keywords TEXT;
+ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS market_stage_source TEXT;
+ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS market_stage_confidence DOUBLE;
 
 -- 板块 universe 快照台账：同一交易日可有多份候选，只有 published 那份对外可见。
 -- 供应商会换代码、改名单，没有这层就无法回答「当时用的是哪一版板块清单」。
@@ -128,6 +137,23 @@ CREATE TABLE IF NOT EXISTS ops_sector_member_sync_daily (
     last_attempted_at    TIMESTAMP WITH TIME ZONE,
     completed_at         TIMESTAMP WITH TIME ZONE,
     CHECK (status IN ('pending', 'success', 'empty', 'error')),
+    PRIMARY KEY (trade_date, snapshot_id, sector_ts_code)
+);
+
+-- sectors/search 宇宙请求随行情返回的字段（涨幅/强度等）。同一个请求既是宇宙、
+-- 又是成分 delta 探针、又是板块日行情官方涨幅的来源（consumption_registry.yaml
+-- sector_universe）。raw_json 留全量原文：供应商字段名未经实测确认，先落原文再定映射。
+CREATE TABLE IF NOT EXISTS ops_sector_search_payload_daily (
+    trade_date      DATE,
+    snapshot_id     TEXT,
+    sector_ts_code  TEXT,
+    pct_chg         DOUBLE,
+    strength        DOUBLE,
+    amount          DOUBLE,
+    diff_ratio      DOUBLE,
+    stock_count     INTEGER,
+    raw_json        TEXT,
+    captured_at     TIMESTAMP WITH TIME ZONE NOT NULL,
     PRIMARY KEY (trade_date, snapshot_id, sector_ts_code)
 );
 
@@ -278,6 +304,11 @@ CREATE TABLE IF NOT EXISTS fact_stock_daily (
     turnover       DOUBLE,
     source         TEXT,
     updated_at     TIMESTAMP,
+    -- 2026-09-07: 日内价量 (新高/振幅派生需要日内最高价); 老库由 sync_mootdx_stock_daily.ensure_stock_daily_columns 追加
+    open           DOUBLE,
+    high           DOUBLE,
+    low            DOUBLE,
+    volume         DOUBLE,   -- 手 (东财 f5 / mootdx vol 同单位)
     PRIMARY KEY (trade_date, stock_ts_code)
 );
 CREATE INDEX IF NOT EXISTS idx_fact_stock_daily_date ON fact_stock_daily(trade_date);
@@ -630,6 +661,45 @@ CREATE TABLE IF NOT EXISTS fact_core_stock_daily (
     PRIMARY KEY (trade_date, stock_ts_code)
 );
 CREATE INDEX IF NOT EXISTS idx_fact_core_stock_date ON fact_core_stock_daily(trade_date);
+
+-- 自家「核心个股」：主线题材成员 × 知识库正宗度 × 人气。
+-- 与上面 fact_core_stock_daily 是**两个口径**，故分表不混写：那张是「成交额前 50」（复刻 fupanhui），
+-- 这张是「主线里正宗且有人气的龙头」。混进同一张表会让下游按 COUNT 判覆盖的门禁与 finance_query
+-- 的 core_stock_daily 数据集同时读到两种语义的行。
+-- kb_* 四列是**正宗度的收据**：拿 kb_concept 去知识库 query_relations.py 能查到那条边，
+-- 分数不是不可回溯的黑箱。
+CREATE TABLE IF NOT EXISTS fact_core_leader_daily (
+    trade_date        DATE,
+    rank              INTEGER,
+    stock_ts_code     TEXT,
+    stock_name        TEXT,
+    theme_code        TEXT,
+    theme_name        TEXT,
+    sector_ts_code    TEXT,
+    sector_name       TEXT,
+    close             DOUBLE,
+    pct_chg           DOUBLE,
+    amount            DOUBLE,
+    gain_5d           DOUBLE,
+    boards            INTEGER,
+    is_limit_up       BOOLEAN,
+    is_new_high       BOOLEAN,
+    popularity        DOUBLE,
+    authenticity      DOUBLE,
+    score             DOUBLE,
+    -- 该股所属主线板块在知识库里有没有对应概念。FALSE 时 authenticity=0 只代表「没得查」，
+    -- 与 TRUE 时的「查过、不正宗」是两回事——不分开的话覆盖率缺口会伪装成判断结果。
+    kb_sector_covered BOOLEAN,
+    kb_concept        TEXT,
+    kb_strength       TEXT,
+    kb_evidence_layer TEXT,
+    kb_updated        TEXT,
+    source            TEXT,
+    updated_at        TIMESTAMP,
+    PRIMARY KEY (trade_date, stock_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_core_leader_date ON fact_core_leader_daily(trade_date);
+CREATE INDEX IF NOT EXISTS idx_fact_core_leader_theme ON fact_core_leader_daily(theme_code);
 
 CREATE TABLE IF NOT EXISTS fact_auction_stock_daily (
     trade_date       DATE,

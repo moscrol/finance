@@ -2541,21 +2541,23 @@ def test_memory_lookup_appends_peer_hit_when_category_has_enough_verdicts(tmp_pa
         + "\n",
         encoding="utf-8",
     )
+    # 类别刚够 PEER_HIT_MIN_N 条终态判定（跟常量走；2026-09-04 前是 2，三条就出胜率行）
+    n_ck, hits = user_memory.PEER_HIT_MIN_N, user_memory.PEER_HIT_MIN_N - 1
     (root / "checkpoints.jsonl").write_text(
         "\n".join(
             json.dumps(
                 {"id": f"c{i}", "claim": f"光刻胶{i}", "category": "生命周期推演", "due": "2026-06-01"},
                 ensure_ascii=False,
             )
-            for i in range(1, 4)
+            for i in range(1, n_ck + 1)
         )
         + "\n",
         encoding="utf-8",
     )
     (root / "verdicts.jsonl").write_text(
         "\n".join(
-            json.dumps({"id": f"c{i}", "verdict": verdict}, ensure_ascii=False)
-            for i, verdict in enumerate(("hit", "hit", "miss"), start=1)
+            json.dumps({"id": f"c{i}", "verdict": "hit" if i <= hits else "miss"}, ensure_ascii=False)
+            for i in range(1, n_ck + 1)
         )
         + "\n",
         encoding="utf-8",
@@ -2572,7 +2574,7 @@ def test_memory_lookup_appends_peer_hit_when_category_has_enough_verdicts(tmp_pa
         step_id="memory-lookup-peer-hit:1",
     )
     details = [item.detail for item in result.evidence]
-    assert any("同类判断历史 2/3 命中（分母=已裁决数）" in detail for detail in details)
+    assert any(f"同类判断历史 {hits}/{n_ck} 命中（分母=已裁决数）" in detail for detail in details)
     assert all("99" not in detail for detail in details)
 
 

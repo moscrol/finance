@@ -7,6 +7,8 @@ import pytest
 from intelligence.runtime.tier_promotion import apply_mode_promotion
 from intelligence.services.mode_governor import ModeGovernor, ModeSignals
 from intelligence.services.research_contract import (
+    PRODUCT_MAX_SECONDS,
+    PRODUCT_MAX_TOOL_CALLS,
     InformationCutoff,
     ResearchDeadline,
     ResearchPolicy,
@@ -319,12 +321,23 @@ def test_root_budget_promotion_is_episode_bound_increase_only_and_capped() -> No
         )
         is False
     )
+    # 产品硬顶绑常数不绑字面量：2026-09-06 加 max 档把顶从 24/240 抬到 48/600，
+    # 「越过顶就拒」这条判据不变。
     assert (
         root.promote_caps(
             episode_id="mode-ledger-authority",
             promotion_id="promotion-too-large",
-            hard_calls_cap=25,
+            hard_calls_cap=PRODUCT_MAX_TOOL_CALLS + 1,
             hard_seconds_cap=240.0,
+        )
+        is False
+    )
+    assert (
+        root.promote_caps(
+            episode_id="mode-ledger-authority",
+            promotion_id="promotion-too-long",
+            hard_calls_cap=24,
+            hard_seconds_cap=PRODUCT_MAX_SECONDS + 1.0,
         )
         is False
     )

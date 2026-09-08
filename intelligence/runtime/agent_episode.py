@@ -37,10 +37,16 @@ from intelligence.runtime.episode_tool_batch import (
     ToolBatchExecutor,
     ToolBatchResult,
     ToolCallResult,
+    batch_call_cap,
     timeout_detail_for_model,
     tool_definitions_for_menu,
 )
 from intelligence.runtime.tier_promotion import apply_mode_promotion
+from intelligence.services.episode_history_compaction import (
+    compact_history,
+    history_compaction_enabled,
+    history_keep_batches,
+)
 from intelligence.services.mode_governor import ModeDecision
 from intelligence.services.provider_observability import (
     ProviderTrace,
@@ -52,6 +58,7 @@ from intelligence.services.provider_latency import (
 )
 from intelligence.services.repair_coordinator import RepairGoal
 from intelligence.services.research_contract import (
+    PRODUCT_MAX_TOOL_CALLS,
     ResearchDeadline,
     ResearchRunContext,
 )
@@ -72,6 +79,10 @@ from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
 )
 from intelligence.runtime.repair_budget import grant_for_transient_model_retry
+from intelligence.runtime.sub_research_tool import (
+    bind_sub_research_tool,
+    branch_telemetry,
+)
 from intelligence.runtime.sub_research import (
     SubResearchCoordinator,
     SubResearchResult,
@@ -115,8 +126,9 @@ def budget_status_enabled() -> bool:
 MAX_PLAN_TURNS = 2
 # The loop must be able to represent the largest governed mode without giving
 # quick runs that budget. Actual execution remains bounded by the current root
-# ledger and deadline.
-MAX_EPISODE_TOOL_CALLS = 24
+# ledger and deadline. Pinned to the product cap so a ``max`` tier ledger is
+# not silently clipped here to the old deep number.
+MAX_EPISODE_TOOL_CALLS = PRODUCT_MAX_TOOL_CALLS
 
 
 def _token_usage_from_events(
@@ -216,6 +228,9 @@ class _EpisodeLedger:
         self.events: list[EpisodeEvent] = []
         self.plan: ResearchPlan | None = None
         self.time_budget_injected = False
+        # 历史折叠（spec 2026-09-07 §3.2）的累计账，随 finish 事件落盘让 eval 分得开臂。
+        self.history_compaction_folded = 0
+        self.history_compaction_saved = 0
         self.add(
             "task",
             {
@@ -230,6 +245,14 @@ class _EpisodeLedger:
         if kind == "finish":
             event_payload.setdefault(
                 "time_budget_injected", self.time_budget_injected
+            )
+            event_payload.setdefault(
+                "history_compaction",
+                {
+                    "enabled": history_compaction_enabled(),
+                    "folded_messages": self.history_compaction_folded,
+                    "chars_saved": self.history_compaction_saved,
+                },
             )
         # 事件发生的挂钟时刻。相邻两条事件的时间差就是上一步的耗时——所以不需要
         # 给每一步单独开 span，就能算出「哪一步吃掉了时钟」。
@@ -542,6 +565,22 @@ def _seed_opening_prefetch(
         )
 
 
+class _ContextRef:
+    """loop 手里「当前 context」的可变引用。
+
+    PLAN 升档会 ``replace`` 出新 context；episode 期绑好的 ``sub_research`` runner 在批执行器
+    线程里跑，得按换过之后的档位与账本起分支，所以给它一个会跟着变的引用而不是起步时的值。
+    """
+
+    __slots__ = ("value",)
+
+    def __init__(self, value: ResearchRunContext) -> None:
+        self.value = value
+
+    def __call__(self) -> ResearchRunContext:
+        return self.value
+
+
 @dataclass
 class _EpisodeContinuationState:
     task_frame: TaskFrame
@@ -558,6 +597,9 @@ class _EpisodeContinuationState:
     # ——这里显式暴露引用，是让会话层（RuntimeHandle）能把生命周期收据与
     # 能力收据钉在同一个对象上，而不是各拿各的。
     episode_scope: EpisodeScope
+    # run() 绑 sub_research 工具时用的当前 context 引用；resume 换 context 也要更新它。
+    # None = 本 episode 没有协调器、没绑该工具（分支里的嵌套 Episode、参考 loop）。
+    context_ref: _ContextRef | None = None
 
 
 class ContinuousAgentEpisode:
@@ -626,6 +668,24 @@ class ContinuousAgentEpisode:
         #
         # 只在真有下游 sink 时才挂：否则 ``dump()`` 的 ``event_sink_attached``
         # 会在没人接收时报 True——收据不说谎优先于形式上"接线了"。
+        #
+        # 证据账本要在绑 sub_research 之前建：分支证据经它的 branch_sink 进父账本。
+        # 建得早不改任何事件——它只依赖 context。
+        evidence_ledger = EvidenceLedger(
+            information_cutoff=context.information_cutoff.as_of_date,
+        )
+        for required in context.contract.required_outputs:
+            if required.required and required.grounding_mode == "evidence":
+                evidence_ledger.open_gap(required.output_id)
+        context_ref = _ContextRef(context)
+        ledger = _EpisodeLedger(task_frame, event_sink=self._event_sink)
+        registry = self._with_sub_research_tool(
+            task_frame=task_frame,
+            context_ref=context_ref,
+            registry=registry,
+            evidence_ledger=evidence_ledger,
+            ledger=ledger,
+        )
         episode_scope = EpisodeScope(
             episode_id=context.contract.task_id,
             # 用户身份不在本层：memory 身份是装配期输入（build_episode_registry
@@ -646,7 +706,6 @@ class ContinuousAgentEpisode:
         ):
             raise ValueError("research contract task frame hash mismatch")
 
-        ledger = _EpisodeLedger(task_frame, event_sink=self._event_sink)
         llm_calls = 0
         tool_calls = 0
         invalid_actions = 0
@@ -661,12 +720,6 @@ class ContinuousAgentEpisode:
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ]
-        evidence_ledger = EvidenceLedger(
-            information_cutoff=context.information_cutoff.as_of_date,
-        )
-        for required in context.contract.required_outputs:
-            if required.required and required.grounding_mode == "evidence":
-                evidence_ledger.open_gap(required.output_id)
         initial_evidence_snapshot = evidence_ledger.snapshot()
         accumulator = _EpisodeToolAccumulator(
             messages=messages,
@@ -688,6 +741,7 @@ class ContinuousAgentEpisode:
                 evidence_ledger=evidence_ledger,
                 initial_evidence_snapshot=initial_evidence_snapshot,
                 episode_scope=episode_scope,
+                context_ref=context_ref,
             )
             _continuation_sink.append(continuation_state)
         finalization_started = False
@@ -762,6 +816,12 @@ class ContinuousAgentEpisode:
                     invalid_actions=invalid_actions,
                 )
 
+            self._compact_history_for_model(
+                messages=messages,
+                accumulator=accumulator,
+                ledger=ledger,
+                llm_calls=llm_calls,
+            )
             model_started = monotonic()
             try:
                 definitions = self._available_tool_definitions(
@@ -1007,6 +1067,7 @@ class ContinuousAgentEpisode:
                                 context=context,
                                 ledger=ledger,
                                 continuation_state=continuation_state,
+                                context_ref=context_ref,
                             )
                             mode_decided = True
                         pending_branch_result = self._run_sub_research(
@@ -1047,6 +1108,7 @@ class ContinuousAgentEpisode:
                             context=context,
                             ledger=ledger,
                             continuation_state=continuation_state,
+                            context_ref=context_ref,
                         )
                         mode_decided = True
                     pending_branch_result = self._run_sub_research(
@@ -1188,6 +1250,7 @@ class ContinuousAgentEpisode:
                             tool_calls=tool_calls,
                         ),
                     ),
+                    per_batch_cap=batch_call_cap(context.policy),
                 )
                 if injected:
                     ledger.time_budget_injected = True
@@ -1459,6 +1522,8 @@ class ContinuousAgentEpisode:
         """Continue one captured provider history for a verifier repair goal."""
 
         context = state.context
+        if state.context_ref is not None:
+            state.context_ref.value = context
         ledger = state.ledger
         accumulator = state.accumulator
         messages = state.messages
@@ -1494,6 +1559,8 @@ class ContinuousAgentEpisode:
         if downgraded_contract is not context.contract:
             context = replace(context, contract=downgraded_contract)
             state.context = context
+            if state.context_ref is not None:
+                state.context_ref.value = context
             repair_context = replace(repair_context, contract=downgraded_contract)
             repair_tool_context = replace(
                 repair_tool_context,
@@ -1569,6 +1636,12 @@ class ContinuousAgentEpisode:
         # 失败 turn 不进消息历史。
         transient_retries_left = _TRANSIENT_RETRY_LIMIT
         repair_expires_before = repair_deadline.expires_at
+        self._compact_history_for_model(
+            messages=messages,
+            accumulator=accumulator,
+            ledger=ledger,
+            llm_calls=llm_calls,
+        )
         (
             turn,
             llm_calls,
@@ -1695,6 +1768,12 @@ class ContinuousAgentEpisode:
                     carried_draft=previous.draft,
                     carried_bindings=previous.bindings,
                 )
+            self._compact_history_for_model(
+                messages=messages,
+                accumulator=accumulator,
+                ledger=ledger,
+                llm_calls=llm_calls,
+            )
             (
                 turn,
                 llm_calls,
@@ -2021,6 +2100,7 @@ class ContinuousAgentEpisode:
         context: ResearchRunContext,
         ledger: _EpisodeLedger,
         continuation_state: _EpisodeContinuationState | None,
+        context_ref: _ContextRef | None = None,
     ) -> tuple[ResearchRunContext, ModeGovernance]:
         # 深度裁决归 harness；loop 只说自己能不能开分支，然后把裁决落账（底座）、
         # 记事件、换 context。
@@ -2034,6 +2114,8 @@ class ContinuousAgentEpisode:
         ledger.add("mode_decision", governance.decision.to_dict())
         if continuation_state is not None:
             continuation_state.context = promoted
+        if context_ref is not None:
+            context_ref.value = promoted
         return promoted, governance
 
     def _run_sub_research(
@@ -2070,29 +2152,18 @@ class ContinuousAgentEpisode:
         completed_ids: set[str] = set()
         for branch in result.branches:
             completed_ids.add(branch.branch_id)
+            # 台账 §5.3-2：payload 里的 ``error`` 不能省——不带它，「单分支取消」在
+            # 事件流里与「worker 异常失败」完全同形（同为 status=failed、gap_count=1），
+            # 「cancelled 分支可区分」这条对账要求在 Projection 上根本判不出来。
+            # BranchResult.error 无错时是空串，照抄即可，不另造 cancelled 布尔位。
+            # 字段清单归 ``branch_telemetry``，与 sub_research 工具的 telemetry 同源。
             ledger.add(
                 (
                     "branch_completed"
                     if branch.status in {"completed", "partial"}
                     else "branch_failed"
                 ),
-                {
-                    "branch_id": branch.branch_id,
-                    "goal": branch.goal,
-                    "status": branch.status,
-                    # 台账 §5.3-2：不带这个字段，「单分支取消」在事件流里与
-                    # 「worker 异常失败」完全同形（同为 status=failed、gap_count=1），
-                    # 于是「cancelled 分支可区分」这条对账要求在 Projection 上根本
-                    # 判不出来。BranchResult.error 无错时是空串，照抄即可，不另造
-                    # 一个 cancelled 布尔位——那会变成第二事实源。
-                    "error": branch.error,
-                    "evidence_count": len(branch.evidence),
-                    "gap_count": len(branch.gaps),
-                    "llm_calls": branch.llm_calls,
-                    "tool_calls": branch.tool_calls,
-                    "input_tokens": branch.input_tokens,
-                    "output_tokens": branch.output_tokens,
-                },
+                branch_telemetry(branch),
             )
         for index, goal in enumerate(plan.branch_goals, start=1):
             branch_id = f"branch-{index}"
@@ -2107,6 +2178,79 @@ class ContinuousAgentEpisode:
                     },
                 )
         return result
+
+    def _with_sub_research_tool(
+        self,
+        *,
+        task_frame: TaskFrame,
+        context_ref: _ContextRef,
+        registry: ResearchToolRegistry,
+        evidence_ledger: EvidenceLedger,
+        ledger: _EpisodeLedger,
+    ) -> ResearchToolRegistry:
+        """有协调器的 episode 把 ``sub_research`` 绑成模型可点的工具并进注册表。
+
+        spec 2026-09-03：不新建子代理，包现有协调器；前台同步、深度 1。没有协调器
+        （分支里的嵌套 Episode、参考 loop）就原样返回——工具不存在，而不是存在但报错。
+        授权仍由 contract 决定：``sub_research`` 不在 ``allowed_capabilities`` 里时，
+        ``authorized_specs`` 根本不会把它摆给模型。
+        """
+
+        coordinator = self._sub_research_coordinator
+        if coordinator is None:
+            return registry
+
+        def record(goals: tuple[str, ...], result: SubResearchResult) -> None:
+            # 与 PLAN 路径同一组 durable 事件（branch_started / completed / failed），
+            # 事件流的消费者不必区分分支是模型点的还是 PLAN 批的。
+            self._record_branch_events(ledger, goals=goals, result=result)
+
+        spec = bind_sub_research_tool(
+            coordinator=coordinator,
+            task_frame=task_frame,
+            current_context=context_ref,
+            base_registry=registry,
+            evidence_ledger=evidence_ledger,
+            on_result=record,
+        )
+        return registry.with_specs(spec)
+
+    @staticmethod
+    def _record_branch_events(
+        ledger: _EpisodeLedger,
+        *,
+        goals: tuple[str, ...],
+        result: SubResearchResult,
+    ) -> None:
+        for index, goal in enumerate(goals, start=1):
+            ledger.add(
+                "branch_started",
+                {"branch_id": f"branch-{index}", "goal": goal, "origin": "tool"},
+            )
+        completed_ids: set[str] = set()
+        for branch in result.branches:
+            completed_ids.add(branch.branch_id)
+            ledger.add(
+                (
+                    "branch_completed"
+                    if branch.status in {"completed", "partial"}
+                    else "branch_failed"
+                ),
+                {**branch_telemetry(branch), "origin": "tool"},
+            )
+        for index, goal in enumerate(goals, start=1):
+            branch_id = f"branch-{index}"
+            if branch_id not in completed_ids:
+                ledger.add(
+                    "branch_failed",
+                    {
+                        "branch_id": branch_id,
+                        "goal": goal,
+                        "status": "failed",
+                        "reason": result.refused_reason or "branch_not_executed",
+                        "origin": "tool",
+                    },
+                )
 
     @staticmethod
     def _append_mode_decision_message(
@@ -2149,12 +2293,44 @@ class ContinuousAgentEpisode:
         return tool_definitions_for_menu(menu, registry=registry, context=context)
 
     @staticmethod
+    def _compact_history_for_model(
+        *,
+        messages: list[dict[str, object]],
+        accumulator: _EpisodeToolAccumulator,
+        ledger: _EpisodeLedger,
+        llm_calls: int,
+    ) -> None:
+        """进模型前把比最近 K 批更早的工具观察折成 E 号索引（spec 2026-09-07 §3.2）。
+
+        就地改 ``messages``（修复轮复用同一份，所以不能只做视图），只改 tool 消息的
+        ``content``；durable ``tool_result`` 事件早已落全量，这里另记一条
+        ``history_compacted`` 让收据能重算模型当时看到的字数。开关缺省关，关时不碰。
+        """
+
+        if not history_compaction_enabled():
+            return
+        report = compact_history(
+            messages,
+            evidence=tuple(accumulator.evidence),
+            keep_batches=history_keep_batches(),
+        )
+        if not report.folded:
+            return
+        ledger.history_compaction_folded += len(report.folded)
+        ledger.history_compaction_saved += report.chars_saved
+        ledger.add(
+            "history_compacted",
+            {**report.to_payload(), "llm_calls_before": int(llm_calls)},
+        )
+
+    @staticmethod
     def _append_tool_budget_state(
         *,
         messages: list[dict[str, object]],
         remaining_slots: int,
         remaining_seconds: float | None = None,
         total_seconds: float | None = None,
+        per_batch_cap: int | None = None,
     ) -> bool:
         if not messages or messages[-1].get("role") != "tool":
             return False
@@ -2174,6 +2350,24 @@ class ContinuousAgentEpisode:
                 "只能调用当前菜单中仍可见的工具；证据足够时直接输出 FINAL_JSON。"
             ),
         }
+        # 派发节奏（2026-09-07 收据 §10）：同题七遍里工具消息合计稳定 8–12 万字，变量是模型轮数——
+        # 19 轮那遍连续 17 轮每轮只点 1 个工具，把历史重发了 96 万字、多等了 ~150s 模型往返。
+        # 上面那句只是**上限**（「不得超过」），没有一句话说并行是被期待的。这里把每批帽和
+        # 「一起点」写进同一条注入：改的是 harness 自己的 steering 通道，不动宪法；
+        # 只剩 1 次可点时不说这话（没什么可并行的）。
+        batch_now = (
+            min(int(per_batch_cap), int(remaining_slots))
+            if per_batch_cap is not None and per_batch_cap > 0
+            else None
+        )
+        if batch_now is not None and batch_now > 1:
+            budget["per_batch_cap"] = batch_now
+            budget["instruction"] = (
+                str(budget["instruction"])
+                + f"互不依赖的工具应在同一轮一起点出（本轮最多 {batch_now} 个）："
+                "一轮只点一个会多花一轮模型往返并重发整段上下文；"
+                "只有下一步取决于上一步结果时才逐轮点。"
+            )
         # Steps were already exposed here; *time* was gated off.  Bookgap S1
         # turns the clock on in the same payload so the model does not hunt
         # for a second budget channel.  The CJK status_line is the v1

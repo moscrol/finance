@@ -213,3 +213,11 @@ def test_data_only_gate_does_not_require_a_report_file(tmp_path, monkeypatch):
 
     assert check_daily_review_data.main("2026-07-10", data_only=True) == 0
     assert check_daily_review_data.main("2026-07-10", data_only=False) == 1
+
+
+def test_realtime_amount_is_converted_from_million_to_yi():
+    """akshare 实时接口成交额是百万元，hist 是亿；表里统一亿（2026-09-07 全A/申万比 0.0102 抓出的坑）。"""
+    from market_feature_store.sync.sync_akshare_sw_l1_daily import realtime_amount_to_yi
+
+    assert abs(realtime_amount_to_yi(506527.36) - 5065.2736) < 1e-6
+    assert realtime_amount_to_yi(None) is None

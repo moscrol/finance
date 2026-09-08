@@ -154,6 +154,17 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
         "current",
         frozenset({"mainline_structure", "supporting_evidence"}),
     ),
+    # 子研究（spec 2026-09-03-subagent-tool-design：抄 dsh tool-subagent 的形状，账本用我们的）。
+    # 它不是新数据源：每支分支跑的是同一台 Episode 机器、同一份只读工具，证据 append 进
+    # 父账本、hash 由父账本铸——所以 produces 只声明「证据」这一项，分支拿到什么全看它
+    # 点了哪些工具。runner 由运行时按 episode 绑定（要协调器 + 父证据账本），装配层
+    # 没有 runner 就不挂（没源不挂）。
+    "sub_research": (
+        "sub_research",
+        "把 1–3 个可独立取证的子问题并行交给子研究分支，各支带自己的工具预算跑到终态后一次返回证据",
+        "current",
+        frozenset({"supporting_evidence"}),
+    ),
 }
 DEFAULT_RESEARCH_CAPABILITIES = tuple(
     dict.fromkeys(
@@ -330,6 +341,71 @@ def parse_url_arguments(
             code="invalid_query",
         )
     return cleaned, cleaned
+
+
+SUB_RESEARCH_MAX_GOALS = 3
+# 一支分支成功一次的最小工具窗（秒）。不是延迟实测，是设计常数：与
+# ``runtime/sub_research.MAX_SECONDS_PER_BRANCH`` 同值（测试钉相等）——窗比它小，
+# 分支拿到的预算就装不下一次「查一两个工具 + 收口」，spec §4 的可达性判据就是这个数。
+SUB_RESEARCH_MIN_WINDOW_SECONDS = 60.0
+SUB_RESEARCH_PARAMETERS: dict[str, object] = {
+    "type": "object",
+    "properties": {
+        "goals": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": SUB_RESEARCH_MAX_GOALS,
+            "items": {"type": "string", "minLength": 1},
+            "description": (
+                "1–3 个彼此独立、各自可以直接去取证的子问题，每条一句话写清要查什么。"
+                '例：["长电科技 2025 年报 先进封装收入占比", "封测行业 2026 年产能利用率 卖方数据"]。'
+                "同一个问题不要拆成因果相连的两步（第二步依赖第一步结果的不要拆）；"
+                "重复或空的条目会被拒绝，不会静默截断。"
+            ),
+        }
+    },
+    "required": ["goals"],
+    "additionalProperties": False,
+}
+
+
+def parse_sub_research_arguments(
+    arguments: Mapping[str, object],
+) -> tuple[str, str]:
+    """``goals`` 读且只读这一个参数；空 / 超 3 / 重复 → 拒绝带原因，不静默截断（spec §3 第 3 条）。
+
+    runner 输入是 goals 的 JSON 数组串（工具 runner 的第一个位置参数是字符串），
+    display 用「；」连接给事件与模型看。
+    """
+
+    if set(arguments) != {"goals"}:
+        raise InvalidResearchToolArguments("sub_research accepts exactly one goals argument")
+    raw_goals = arguments.get("goals")
+    if not isinstance(raw_goals, list) or not raw_goals:
+        raise InvalidResearchToolArguments(
+            "goals argument must be a non-empty array of strings",
+            code="invalid_query",
+        )
+    goals: list[str] = []
+    for item in raw_goals:
+        if not isinstance(item, str) or not item.strip():
+            raise InvalidResearchToolArguments(
+                "each item in the goals argument must be a non-empty string",
+                code="invalid_query",
+            )
+        goal = item.strip()
+        if goal in goals:
+            raise InvalidResearchToolArguments(
+                f"goals argument repeats a goal: {goal}",
+                code="invalid_query",
+            )
+        goals.append(goal)
+    if len(goals) > SUB_RESEARCH_MAX_GOALS:
+        raise InvalidResearchToolArguments(
+            f"goals argument supports at most {SUB_RESEARCH_MAX_GOALS} unique goals",
+            code="invalid_query",
+        )
+    return json.dumps(goals, ensure_ascii=False), "；".join(goals)
 
 
 def parse_financial_data_arguments(
@@ -623,6 +699,27 @@ class ResearchToolRegistry:
         if spec is None:
             raise UnknownResearchTool(str(name))
         return spec
+
+    def with_specs(self, *extra: ToolSpec) -> "ResearchToolRegistry":
+        """同一份注册表加几个 episode 期才绑得出 runner 的工具（如 ``sub_research``）。
+
+        原注册表不动；同名以新的为准。``opening_prefetch`` 原样带过去。
+        """
+
+        merged = {**self._specs, **{spec.name: spec for spec in extra}}
+        return ResearchToolRegistry(
+            tuple(merged.values()),
+            opening_prefetch=self.opening_prefetch,
+        )
+
+    def without(self, *names: str) -> "ResearchToolRegistry":
+        """去掉几个工具的副本——子研究分支的注册表不含 ``sub_research``（深度 = 1）。"""
+
+        dropped = {str(name).strip() for name in names}
+        return ResearchToolRegistry(
+            tuple(spec for spec in self._specs.values() if spec.name not in dropped),
+            opening_prefetch=self.opening_prefetch,
+        )
 
     def names(self) -> tuple[str, ...]:
         return tuple(self._specs)
@@ -1211,6 +1308,21 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "不能据此说当天没有主线；数据比行情快照旧时会退回并说明，"
         "此时应写出数据截至日期，不要当作提问当天的主线。"
     ),
+    # spec 2026-09-03-subagent-tool-design §3 三条契约逐条落：① 空结果语义；② 来源分档
+    # 与 as_of 继承自分支里真正调的那个工具、不因经过子研究而升档；③ 参数含义与拒绝条件。
+    # dsh 「Success contains only the child's final text」那条**不抄**：分支回的是带 hash
+    # 的证据条目，父臂结论只能绑到这些证据上，绑到分支总结文本进不了 admit_finish。
+    "sub_research": (
+        "返回的是各分支查到的证据条目本身（每条带来源、日期、档次），不是分支写的总结："
+        "结论要绑到这些证据上，分支的状态说明不能当依据引用。"
+        "证据的档次与日期继承自分支里实际调用的工具（公告仍是一手、网页仍是二手），"
+        "不因为经过子研究而升档。"
+        "某支 completed 但零证据，只说明该方向本轮没找到可绑定的证据，是缺口不是否定结论；"
+        "某支 failed 会带失败原因，表示该子问题没有被研究过，不是没有答案。"
+        "参数只有 goals：1–3 个彼此独立、能直接取证的子问题；空、重复或超过 3 个会被拒绝而不是截断。"
+        "每支分支有自己的调用与时间预算（≤ 60 秒），适合并行拆几个互不依赖的取证方向，"
+        "不适合把一个需要先后依赖的推理链拆开。"
+    ),
 }
 
 
@@ -1254,6 +1366,8 @@ def require_tool_contracts(specs: Iterable[ToolSpec]) -> None:
 MIN_WINDOW_SECONDS: dict[str, float] = {
     "kb_search": 20.0,
     "evidence_search": 30.0,
+    # 设计常数而非实测：一支分支的时间上限（见 SUB_RESEARCH_MIN_WINDOW_SECONDS）。
+    "sub_research": SUB_RESEARCH_MIN_WINDOW_SECONDS,
 }
 
 
@@ -1278,6 +1392,8 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
                 if name == "financial_data"
                 else URL_TOOL_PARAMETERS
                 if name == "web_fetch"
+                else SUB_RESEARCH_PARAMETERS
+                if name == "sub_research"
                 else EMPTY_TOOL_PARAMETERS
                 if name in {"market_data", "mainline_context"}
                 else query_parameters(name)
@@ -1287,6 +1403,8 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
                 if name == "financial_data"
                 else parse_url_arguments
                 if name == "web_fetch"
+                else parse_sub_research_arguments
+                if name == "sub_research"
                 else parse_snapshot_arguments
                 if name in {"market_data", "mainline_context"}
                 else parse_query_arguments
@@ -1298,6 +1416,19 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
     )
     require_tool_contracts(specs)
     return ResearchToolRegistry(specs)
+
+
+def sub_research_tool_spec(
+    runner: agent_research.ToolRunner | ToolRunnerAdapter,
+) -> ToolSpec:
+    """把一个 episode 期绑好的 runner 装成 ``sub_research`` 的 ToolSpec。
+
+    走 ``default_registry`` 同一条装配路径，描述 / 契约 / 参数面 / 地板都取自同一张表，
+    不在运行时另抄一份——第二份必然漂。runner 由 ``runtime`` 层提供（要协调器与父证据
+    账本，``services`` 层拿不到）。
+    """
+
+    return default_registry({"sub_research": runner}).resolve("sub_research")
 
 
 # ---------------------------------------------------------------------------

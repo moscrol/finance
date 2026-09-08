@@ -17,8 +17,8 @@ products:
         - 替代专业投顾
         - 保证信息全覆盖或零延迟
   - id: finance_agent
-    name: 金融 Agent
-    positioning: 面向 A 股主题研究的个人市场情报工作台，把盘面数据、研报/公告证据、题材图谱和个人认知框架对齐，输出带出处、可复盘、可证伪的研究结论
+    name: Foresight
+    positioning: 会校准你判断的 A 股个人研究工作台：把盘面数据、研报/公告证据、题材图谱和个人认知框架对齐，判断登记为可证伪点并被次日回检，方法论按历史成功率升格或证伪；结论带出处、可复盘、可证伪
     primary_audience: [主观交易者]
     secondary_audience: [财经内容创作者, AI 工具爱好者]
     repo: finance-workspace-private
@@ -33,3 +33,4 @@ products:
         - 自动下单或替你买卖
         - 保证收益或抓涨停
         - 提供确定性投资建议
+        - 把 Foresight 说成能预测行情或预见涨跌（名字指「先见」，做的是校准；任何物料不得让 Foresight 单独出现而不带「不预测、只校准」的限定）

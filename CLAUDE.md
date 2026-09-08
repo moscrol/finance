@@ -53,14 +53,14 @@
 
 技能桥只开一个、飞书 Bitable 写入退役、飞书 IM（`feishu-bot`）退役——这些是约束不是缺口。
 
-### Agent 可调工具：12 个
+### Agent 可调工具：13 个（2026-09-05 解析器实数）
 
 全部在 `intelligence/services/research_tool_registry.py` 的 `_DEFAULT_TOOL_METADATA`：
 
 ```
-finance_query  evidence_search  kb_search   web_search       news_search
-graph_lookup   evidence_lookup  memory_lookup  l3_lookup     market_data
-financial_data mainline_context
+finance_query  evidence_search  kb_search   web_search       web_fetch
+news_search    graph_lookup     evidence_lookup  memory_lookup  l3_lookup
+market_data    financial_data   mainline_context
 ```
 
 ⚠️ 逐个受 `contract.allowed_capabilities` 门控（`episode_tools.py` 内按 capability 分支）。
@@ -71,18 +71,22 @@ financial_data mainline_context
 > 要数就用解析器：
 > `python -c "import ast,pathlib;t=ast.parse(pathlib.Path('intelligence/services/research_tool_registry.py').read_text());..."`
 > 或至少 `sed -n '/_DEFAULT_TOOL_METADATA/,/^}/p'`。
+> 注意它是带类型注解的赋值，AST 里是 `AnnAssign` 不是 `Assign`——只找 `Assign` 会一个都数不到。
 
 ### 技能：三个位置，数字不一样
 
-| 位置 | 数量 | 是什么 |
+| 位置 | 数量（2026-09-07 `ls` 实数） | 是什么 |
 |---|---|---|
-| `skills/` | 31（含 `lib/` 非技能 → 实为 30） | **仓内真实技能清单** |
-| `.claude/skills/` | 19 | 软链到 `../../skills/`，= Claude Code 能看到的子集 |
-| `<知识库仓>/skills/` | 20 | ingest 类，已迁出本仓 |
+| `skills/` | 38（含 `lib/` 非技能 → 实为 37） | **仓内真实技能清单** |
+| `.claude/skills/` | 25（24 个软链到 `../../skills/` + `l2-moneyflow` 本地实目录） | = Claude Code 能看到的子集 |
+| `<知识库仓>/skills/` | 23（含 `lib/` → 实为 22） | ingest 类，已迁出本仓 |
 
 问「有多少能力 agent 够不着」时，分母是 `skills/` 不是 `.claude/skills/`。
-只在 `skills/` 里、没暴露给 Claude Code 的有 12 个，含 `stock-deep-dive`、
-`researcher-valuation`、`duckdb-backfill`、`opinion-cross`、`serenity-alpha`、`strategy1-matrix` 等。
+只在 `skills/` 里、没暴露给 Claude Code 的有 13 个，含 `stock-deep-dive`、
+`researcher-valuation`、`daily-full-review`、`opinion-cross`、`serenity-alpha`、`strategy1-matrix` 等
+（`duckdb-backfill` 2026-09-07 起已暴露且可被模型触发——此前 `disable-model-invocation: true` 加不在软链里，
+回补任务从来读不到它，agent 只能照上面工作流 #1 的 `daily-full` 硬跑历史日）
+（要当前名单：`comm -23 <(ls skills | grep -v '^lib$' | sort) <(ls .claude/skills | sort)`）。
 
 ### 技能桥：存在，且**刻意只开一个**
 
@@ -144,7 +148,7 @@ git branch --show-current
 
 ## 核心工作流
 
-1. **每日复盘（全量复盘）** → 确保 CDP proxy 已启动（`node ~/.claude/skills/web-access/scripts/cdp-proxy.mjs`）→ `python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD` → 写入 DuckDB → `audit_coverage.py` 验证覆盖
+1. **每日复盘（全量复盘，只对当天）** → 确保 CDP proxy 已启动（`node ~/.claude/skills/web-access/scripts/cdp-proxy.mjs`）→ `python3 -m market_feature_store.cli daily-full --trade-date <今天>` → 写入 DuckDB → `audit_coverage.py` 验证覆盖。**历史日 / 断档回补走 `skills/duckdb-backfill/SKILL.md`**：`daily-full`、东财快照、申万 realtime 都是「取最新」语义，写到历史日就是把今天盘中价写成那天收盘（2026-09-07 实测）；验收四件缺一不收。
    > ⚠ 飞书 Bitable 写入已废弃，复盘数据统一走 `daily-full` → DuckDB 路径。
    > ⚠ stock-daily 用默认东财快照（`--stock-source snapshot`），日常单日复盘**不要带 `--stock-source mootdx`**（mootdx 仅首次建库/多日历史回填，慢且当日值与快照一致）。详见 market-overview SKILL.md。
 2. **连板晋级** → `limit-advance/scripts/scrape.py [日期]` → 展示 + 写入飞书
@@ -217,6 +221,23 @@ python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD
 ```
 
 `scripts/sync_to_local.py` 已正式退役，仅保留 `--help` 和明确退出码 2 的提示入口；它不读取凭证、不访问网络、不创建数据库。旧实现可从 Git 历史查阅，不要将其恢复成第二条写入链。
+
+### 分档同步：identity 慢、value 快（2026-09-04）
+
+夜跑真入口 `skills/daily-full-review/scripts/run_review_sync.py` 有 `--plan full|cheap|local|auto`（`local` = 2026-09-07 起不发任何 fupanhui 请求的自算链路，见 `skills/duckdb-backfill/SKILL.md`「local 计划」；fupanhui 账号风控期间夜跑与补日只用它）
+（默认读环境变量 `REVIEW_SYNC_PLAN`，未设为 `full`）。**单一事实源是
+`market_feature_store/consumption_registry.yaml`**：每个数据族的 identity/value 节奏、证据、
+刷新档位（A 停打换源 / B 变更检测 / C 便宜日更 / D 本地派生）、两档计划的步骤名；
+`python3 -m market_feature_store.cli registry-check` 自检，`tests/test_consumption_registry.py`
+把它和 `build_plan` 钉在一起（改一边不改另一边测试就红）。
+
+cheap 日的三件本地组件（0 复盘会请求）：`stitch-sector-stocks`（expected 数没变的板块 =
+最近 fupanhui 名单 × 当日东财真值，走 `record_member_result`，`source='local:stitch'`）→
+`sync-sector-stocks`（只打 pending 的板块）→ `sync-sector-daily-local`（成交额=成分求和、
+边际量本地公式、涨幅优先宇宙 payload 官方值，走 `replace_sector_daily`）。`auto` 周五跑 full
+兜「一进一出数量不变」的换血盲区；`reconcile-sector-daily --sample 20` 是唯一还打 K 线的对账口。
+请求计数按 HTTP 请求算：full ≈ 900/日，cheap ≈ 30~45/日。**未切生产**：切档要在 launchd
+包装脚本环境里设 `REVIEW_SYNC_PLAN=auto`，等用户确认。
 
 ### 信号检测
 

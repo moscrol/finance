@@ -121,6 +121,11 @@ MAX_SEMANTIC_JUDGE_WINDOW_SECONDS = 60.0
 LEFTOVER_WINDOW_ISSUE = (
     "semantic judge leftover window below one complete attempt"
 )
+# 共享窗被**上一次尝试**吃光、本次拿到 0 秒——与「根期限到点」是两回事。
+# 2026-09-07 max 档 D5 两发收据：judge_attempt_index=1、timeout_asked=0.0，
+# remaining_seconds_at_entry=415/469，却写着 deadline exhausted，归因被带偏了一轮。
+WINDOW_EXHAUSTED_ISSUE = "semantic judge window exhausted by prior attempt"
+ROOT_DEADLINE_EXHAUSTED_ISSUE = "semantic judge deadline exhausted"
 
 
 def semantic_judge_window_seconds(policy: ResearchPolicy | None = None) -> float:
@@ -135,6 +140,34 @@ def semantic_judge_window_seconds(policy: ResearchPolicy | None = None) -> float
 
     caps = derive_stage_caps(policy or policy_for_env())
     return apply_env_ceiling(caps.judge_window_seconds, "ASK_SEMANTIC_JUDGE_WINDOW")
+
+
+def judge_attempt_seconds(
+    configured_attempt_timeout: float,
+    policy: ResearchPolicy | None = None,
+) -> float:
+    """Per-attempt cap: the configured value, floored by the tier's own cap.
+
+    档位地板只有 max 档有（``derive_stage_caps``）；其余档位返回配置值，
+    与改动前逐字节一致。``policy`` 缺省走 ``policy_for_env()``——注意那读的是
+    ``ASK_RESEARCH_TIER``，生产设的是 ``WORKBENCH_RESEARCH_TIER``，所以 episode
+    路径必须把合同上的真实档位传进来，不能靠缺省。
+    """
+
+    configured = max(0.1, float(configured_attempt_timeout))
+    floor = derive_stage_caps(policy or policy_for_env()).judge_attempt_seconds
+    if floor is None:
+        return configured
+    return max(configured, float(floor))
+
+
+def policy_for_contract(contract: object | None) -> ResearchPolicy | None:
+    """The episode's real tier from its contract; None when there is no contract."""
+
+    tier = getattr(contract, "research_tier", None)
+    if not isinstance(tier, str) or not tier.strip():
+        return None
+    return ResearchPolicy.for_tier(tier.strip().lower())
 MAX_SEMANTIC_JUDGE_ATTEMPTS = 3
 JudgeFn = Callable[..., object]
 
@@ -698,6 +731,9 @@ class SemanticEpisodeVerifier:
         self._primary_judge = primary_judge or judge_client
         self._finalizer = finalizer
         self._judge_timeout = max(0.1, float(judge_timeout))
+        # 本次 verify 的 episode 档位（来自合同）。判官窗与单次帽按它派生；
+        # None 时回到 policy_for_env()，即改动前的行为。
+        self._active_policy: ResearchPolicy | None = None
         self._active_hygiene: _HygieneSnapshot | None = None
         self._semantic_reject_texts: tuple[str, ...] = ()
         self._semantic_reject_issues: tuple[str, ...] = ()
@@ -886,6 +922,7 @@ class SemanticEpisodeVerifier:
         self._semantic_reject_issues = ()
         structural = structurally_verified
         contract = structural.contract
+        self._active_policy = policy_for_contract(contract)
         guard_status: SemanticStatus = (
             "failed" if structural.verified_status == "failed" else "partial"
         )
@@ -1082,14 +1119,17 @@ class SemanticEpisodeVerifier:
                 first,
                 report=None,
                 unavailable=True,
-                issue="semantic judge deadline exhausted",
+                issue=ROOT_DEADLINE_EXHAUSTED_ISSUE,
                 root_deadline_exhausted=True,
                 monotonic_release_safe=deadline_release_safe,
             )
         if first.report is None:
             issue = first.issue or "semantic judge unavailable"
+            # 窗被前一发吃光与根期限到点走同一条瞬态候选路：拆标签只为归因，
+            # 不改这里的放行判定。
             if first.monotonic_release_safe and issue in {
-                "semantic judge deadline exhausted",
+                ROOT_DEADLINE_EXHAUSTED_ISSUE,
+                WINDOW_EXHAUSTED_ISSUE,
                 "semantic judge transient provider error",
                 LEFTOVER_WINDOW_ISSUE,
             }:
@@ -1778,24 +1818,45 @@ class SemanticEpisodeVerifier:
             transient_provider_failure=transient_provider_failure,
             monotonic_release_safe=monotonic_release_safe,
             timeout_asked=asked,
-            timeout_configured=self._judge_timeout,
+            timeout_configured=self._judge_attempt_cap(),
             remaining_seconds_at_entry=remaining,
             exc_class=exc_class,
             http_status=http_status,
             judge_attempt_index=judge_attempt_index,
         )
 
+    def _judge_attempt_cap(self) -> float:
+        """构造时配置的单次帽，按本次 episode 的档位取地板（只有 max 档有）。"""
+
+        return judge_attempt_seconds(self._judge_timeout, self._active_policy)
+
+    @staticmethod
+    def _window_starved_issue(attempt: int, deadline: ResearchDeadline) -> str:
+        """0 秒尝试的归因。
+
+        根期限到点（``deadline.expired``）或首发就拿 0 → 根期限耗尽；
+        期限未到、后发拿 0 → 共享窗被前一发吃光（2026-09-07 D5：剩 415s、
+        attempt 1、asked 0.0）。``expired`` 用 getattr 读：测试替身是鸭子类型。
+        """
+
+        if attempt == 0 or bool(getattr(deadline, "expired", False)):
+            return ROOT_DEADLINE_EXHAUSTED_ISSUE
+        return WINDOW_EXHAUSTED_ISSUE
+
     def _run_judge(
         self,
         request: dict[str, object],
         deadline: ResearchDeadline,
     ) -> _JudgeCall:
+        policy = self._active_policy
+        attempt_cap = self._judge_attempt_cap()
         total_window = semantic_total_judge_window(
-            deadline, configured_attempt_timeout=self._judge_timeout
+            deadline, configured_attempt_timeout=attempt_cap, policy=policy
         )
         attempt_timeouts = semantic_attempts_for_window(
             total_window,
-            configured_attempt_timeout=self._judge_timeout,
+            configured_attempt_timeout=attempt_cap,
+            policy=policy,
         )
         if not attempt_timeouts:
             return self._clocked_judge_call(
@@ -1803,7 +1864,7 @@ class SemanticEpisodeVerifier:
                 remaining=_deadline_remaining_seconds(deadline),
                 correlated=False,
                 unavailable=True,
-                issue="semantic judge deadline exhausted",
+                issue=ROOT_DEADLINE_EXHAUSTED_ISSUE,
                 root_deadline_exhausted=True,
                 monotonic_release_safe=True,
             )
@@ -1820,7 +1881,7 @@ class SemanticEpisodeVerifier:
         if provider is not None:
             leftover = _deadline_remaining_seconds(deadline)
             if leftover_window_blocks_complete_attempt(
-                leftover, self._judge_timeout
+                leftover, attempt_cap, policy
             ):
                 return self._clocked_judge_call(
                     asked=0.0,
@@ -1850,7 +1911,7 @@ class SemanticEpisodeVerifier:
                 previous_remaining = remaining_at_entry
                 timeout_limit = min(timeout_limit, max(0.0, window_left))
                 if leftover_window_blocks_complete_attempt(
-                    remaining_at_entry, self._judge_timeout
+                    remaining_at_entry, attempt_cap, policy
                 ):
                     return self._clocked_judge_call(
                         asked=0.0,
@@ -1867,13 +1928,16 @@ class SemanticEpisodeVerifier:
                     failure_chain_release_safe = (
                         attempt == 0 or prior_failures_release_safe
                     )
+                    # root_deadline_exhausted 保持 True：释放语义（预算到点 →
+                    # 只删不改地放行早先完成的报告）对「窗被吃光」同样成立，
+                    # 这里只把归因写对，不改放行行为。
                     return self._clocked_judge_call(
                         asked=attempt_timeout,
                         judge_attempt_index=attempt,
                         remaining=remaining_at_entry,
                         correlated=False,
                         unavailable=True,
-                        issue="semantic judge deadline exhausted",
+                        issue=self._window_starved_issue(attempt, deadline),
                         root_deadline_exhausted=True,
                         monotonic_release_safe=failure_chain_release_safe,
                     )
@@ -1982,7 +2046,7 @@ class SemanticEpisodeVerifier:
                 request,
                 asked,
                 True,
-                timeout_configured=self._judge_timeout,
+                timeout_configured=attempt_cap,
                 remaining_seconds_at_entry=remaining_at_entry,
             )
 
@@ -2005,7 +2069,7 @@ class SemanticEpisodeVerifier:
                 request,
                 asked,
                 True,
-                timeout_configured=self._judge_timeout,
+                timeout_configured=attempt_cap,
                 remaining_seconds_at_entry=remaining_at_entry,
             )
         messages = [
@@ -2037,7 +2101,7 @@ class SemanticEpisodeVerifier:
                     remaining=remaining_at_entry,
                     correlated=True,
                     unavailable=True,
-                    issue="semantic judge deadline exhausted",
+                    issue=self._window_starved_issue(attempt, deadline),
                     root_deadline_exhausted=True,
                     monotonic_release_safe=failure_chain_release_safe,
                 )
@@ -3425,7 +3489,7 @@ def _apply_optional_rejudge_deadline(
             call,
             report=None,
             unavailable=True,
-            issue="semantic judge deadline exhausted",
+            issue=ROOT_DEADLINE_EXHAUSTED_ISSUE,
             root_deadline_exhausted=True,
         )
     return call
@@ -4788,12 +4852,19 @@ def _stable_semantic_judge_error(value: object) -> tuple[str, bool, bool]:
     return "semantic judge provider error", False, False
 
 
-def complete_judge_attempt_seconds(configured_attempt_timeout: float) -> float:
-    """One complete first attempt under a full window, not a leftover sliver."""
+def complete_judge_attempt_seconds(
+    configured_attempt_timeout: float,
+    policy: ResearchPolicy | None = None,
+) -> float:
+    """One complete first attempt under a full window, not a leftover sliver.
 
-    per_attempt_cap = max(0.1, float(configured_attempt_timeout))
+    ``policy`` 是 episode 的真实档位：窗与单次帽都按它派生。缺省仍走
+    ``policy_for_env()``，历史调用点逐字节不变。
+    """
+
+    per_attempt_cap = judge_attempt_seconds(configured_attempt_timeout, policy)
     full_window = min(
-        semantic_judge_window_seconds(),
+        semantic_judge_window_seconds(policy),
         per_attempt_cap * MAX_SEMANTIC_JUDGE_ATTEMPTS,
     )
     return min(per_attempt_cap, full_window)
@@ -4802,13 +4873,14 @@ def complete_judge_attempt_seconds(configured_attempt_timeout: float) -> float:
 def leftover_window_blocks_complete_attempt(
     remaining_seconds: float | None,
     configured_attempt_timeout: float,
+    policy: ResearchPolicy | None = None,
 ) -> bool:
     """True when the leftover window cannot fit one complete judge attempt."""
 
     if remaining_seconds is None:
         return False
     return float(remaining_seconds) + 1e-9 < complete_judge_attempt_seconds(
-        configured_attempt_timeout
+        configured_attempt_timeout, policy
     )
 
 
@@ -4816,6 +4888,7 @@ def _semantic_attempt_timeouts(
     deadline: ResearchDeadline,
     *,
     configured_attempt_timeout: float,
+    policy: ResearchPolicy | None = None,
 ) -> tuple[float, ...]:
     """Reserve one bounded semantic window; spend it without pre-splitting.
 
@@ -4830,12 +4903,13 @@ def _semantic_attempt_timeouts(
     时守卫拒发——对 grok 来说那本就是半截。
     """
 
-    per_attempt_cap = max(0.1, float(configured_attempt_timeout))
+    per_attempt_cap = judge_attempt_seconds(configured_attempt_timeout, policy)
     return semantic_attempts_for_window(
         semantic_total_judge_window(
-            deadline, configured_attempt_timeout=per_attempt_cap
+            deadline, configured_attempt_timeout=per_attempt_cap, policy=policy
         ),
         configured_attempt_timeout=per_attempt_cap,
+        policy=policy,
     )
 
 
@@ -4843,6 +4917,7 @@ def semantic_attempts_for_window(
     total_window: float,
     *,
     configured_attempt_timeout: float,
+    policy: ResearchPolicy | None = None,
 ) -> tuple[float, ...]:
     """Attempt quotes for an already-measured window.
 
@@ -4851,10 +4926,12 @@ def semantic_attempts_for_window(
     就会把它的计数器错开。
     """
 
-    per_attempt_cap = max(0.1, float(configured_attempt_timeout))
+    per_attempt_cap = judge_attempt_seconds(configured_attempt_timeout, policy)
     if total_window <= 0.001:
         return ()
-    complete = min(complete_judge_attempt_seconds(per_attempt_cap), total_window)
+    complete = min(
+        complete_judge_attempt_seconds(per_attempt_cap, policy), total_window
+    )
     if complete <= 0.001:
         return ()
     return tuple(complete for _ in range(MAX_SEMANTIC_JUDGE_ATTEMPTS))
@@ -4864,13 +4941,14 @@ def semantic_total_judge_window(
     deadline: ResearchDeadline,
     *,
     configured_attempt_timeout: float,
+    policy: ResearchPolicy | None = None,
 ) -> float:
     """Total wall clock all judge attempts may share. Unchanged by the repartition."""
 
-    per_attempt_cap = max(0.1, float(configured_attempt_timeout))
+    per_attempt_cap = judge_attempt_seconds(configured_attempt_timeout, policy)
     return deadline.synthesis_timeout(
         min(
-            semantic_judge_window_seconds(),
+            semantic_judge_window_seconds(policy),
             per_attempt_cap * MAX_SEMANTIC_JUDGE_ATTEMPTS,
         )
     )

@@ -63,6 +63,44 @@ def call_stream(body: bytes, **kwargs):
     return message, deltas
 
 
+def _captured_payload(monkeypatch: pytest.MonkeyPatch) -> dict:
+    """跑一次流式工具轮，抓 urlopen 收到的请求体。"""
+
+    captured: dict = {}
+
+    def fake_urlopen(request, timeout):  # noqa: ARG001
+        captured.update(json.loads(request.data.decode("utf-8")))
+        return _FakeResponse(sse({"choices": [{"delta": {"content": "ok"}, "finish_reason": "stop"}]}))
+
+    with (
+        mock.patch.object(llm_refine, "_reserve_llm_call"),
+        mock.patch.object(llm_refine, "_record_llm_call"),
+        mock.patch("urllib.request.urlopen", side_effect=fake_urlopen),
+    ):
+        llm_refine._post_chat_message_stream(
+            PROVIDER, [{"role": "user", "content": "q"}], timeout=30.0, temperature=0.0,
+            tools=None, tool_choice=None, disable_thinking=True, on_content_delta=lambda _s: None,
+        )
+    return captured
+
+
+def test_reasoning_effort_env_forces_thinking_on_and_overrides_disable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """GLM-5.3 系列强制思考、只认 max/high/low；agent 轮硬传的 disable_thinking 在设了
+    LLM_REASONING_EFFORT 时被压过；没设则请求体逐字节同前（thinking=disabled）。"""
+
+    monkeypatch.delenv("LLM_REASONING_EFFORT", raising=False)
+    before = _captured_payload(monkeypatch)
+    assert before["thinking"] == {"type": "disabled"} and "reasoning_effort" not in before
+
+    monkeypatch.setenv("LLM_REASONING_EFFORT", "max")
+    after = _captured_payload(monkeypatch)
+    assert after["thinking"] == {"type": "enabled"} and after["reasoning_effort"] == "max"
+    # 其它键不受影响。
+    assert {k: v for k, v in after.items() if k not in ("thinking", "reasoning_effort")} == {
+        k: v for k, v in before.items() if k != "thinking"
+    }
+
+
 def test_content_reaches_the_callback_piece_by_piece() -> None:
     message, deltas = call_stream(
         sse(
