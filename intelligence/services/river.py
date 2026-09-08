@@ -51,10 +51,32 @@ PitGrade = Literal["strict", "trade_date_only"]
 # 排序键必须确定（金额降序 + 代码升序），否则「两次调用结果相同」这条验收会假绿。
 NODE_LIMIT = 10
 
+# 09-06 spec §4.2：有效期语义按 validity_kind 分三种，valid_to 才有确定含义。
+#   point —— 只对 valid_from 那一天成立（逐日标签、当日事件）
+#   state —— 从 valid_from 持续到被替代（阶段、叙事版本、判断）
+#   range —— 由区间派生（river_window_contract / river_derive），只由 window() 返回，不混进单点切片
+ValidityKind = Literal["point", "state", "range"]
+# 两类派生：deterministic（代码从事实算出，可进条件与统计）/ frozen_llm（模型写一次的散文，只进上下文）。
+Derivation = Literal["deterministic", "frozen_llm"]
+_STATE_OBJECT_TYPES = frozenset({"stage", "narrative_version", "checkpoint", "judgment", "observation_script", "verdict"})
+_FROZEN_LLM_OBJECT_TYPES = frozenset({"narrative_version"})
+
+
+def default_validity_kind(object_type: str) -> ValidityKind:
+    return "state" if object_type in _STATE_OBJECT_TYPES else "point"
+
+
+def default_derivation(object_type: str) -> Derivation:
+    return "frozen_llm" if object_type in _FROZEN_LLM_OBJECT_TYPES else "deterministic"
+
 
 @dataclass(frozen=True)
 class RiverObject:
-    """河上的一个对象。字段对齐 roadmap G-02 契约，v0 只落必需的那些。"""
+    """河上的一个对象。字段对齐 roadmap G-02 契约 + 09-06 spec §4.2 的 validity_kind / derivation。
+
+    两个新字段缺省按 ``object_type`` 映射（见 ``default_validity_kind / default_derivation``），
+    **不进 ``source_hash``**——它们是契约层的标注，不是主数据内容，加上不该改变任何现有对象的指纹。
+    """
 
     track: Track
     entity_id: str
@@ -64,6 +86,17 @@ class RiverObject:
     valid_from: str  # 世界里什么时候为真 = as-of 交易日
     recorded_at: str | None  # 系统什么时候知道；None = 不可判 → 整片降档
     payload: dict[str, Any] = field(default_factory=dict)
+    validity_kind: str | None = None  # None → 按 object_type 映射
+    derivation: str | None = None  # None → 按 object_type 映射
+    valid_to: str | None = None  # state：null = 现行；range：区间尾；point：= valid_from
+
+    def __post_init__(self) -> None:
+        if self.validity_kind is None:
+            object.__setattr__(self, "validity_kind", default_validity_kind(self.object_type))
+        if self.derivation is None:
+            object.__setattr__(self, "derivation", default_derivation(self.object_type))
+        if self.validity_kind == "point" and self.valid_to is None:
+            object.__setattr__(self, "valid_to", self.valid_from)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -73,7 +106,10 @@ class RiverObject:
             "ref": self.ref,
             "source_hash": self.source_hash,
             "valid_from": self.valid_from,
+            "valid_to": self.valid_to,
             "recorded_at": self.recorded_at,
+            "validity_kind": self.validity_kind,
+            "derivation": self.derivation,
             "payload": self.payload,
         }
 

@@ -286,8 +286,15 @@ def build_succession(
     knowledge_cutoff: Any | None = None,
     context_by_date: Mapping[str, Mapping[str, Any]] | None = None,
     framework_version: str | None = None,
+    river_db_path: Any | None = None,
+    river_entity: str = "上证指数",
 ) -> dict[str, Any]:
-    """Build succession nodes and overtaken events from a calendar and limit rows."""
+    """Build succession nodes and overtaken events from a calendar and limit rows.
+
+    ``river_db_path``（工单 #35）：非空时，把锚点日 / 诞生日的河切片挂进
+    ``context_break`` / ``context_birth``（``river_anchor.river_context_dict``），
+    **教学标签字段原样保留**——handoff 读数与不传时逐字节相同。
+    """
     params = params or {}
     dates = sorted({_date(d) for d in calendar_dates})
     coverage = build_coverage(dates, rows, covered_dates=covered_dates)
@@ -299,6 +306,26 @@ def build_succession(
     # founder's definition (「前一天的市场最高连板第二天不是了，那就是断板日」) this
     # is not a break.  Counted so the alternative reading can be sized.
     partial_breaks: list[dict[str, Any]] = []
+
+    def _enrich(base: dict[str, Any], day: str, *, cutoff: str) -> dict[str, Any]:
+        """教学标签 ∪ 河切片。河读失败不挡主路径——上下文是附加，不是条件。"""
+        out = dict(base)
+        if river_db_path is None:
+            return out
+        try:
+            from intelligence.services.river_anchor import river_context_dict
+            from intelligence.services.river import slice_river
+
+            sl = slice_river(day, river_entity, knowledge_cutoff=cutoff, db_path=river_db_path)
+            river = river_context_dict(sl)
+            # 教学标签优先：同名键不被河切片覆盖（stage_coarse 等决定 handoff 分桶）。
+            merged = {**river, **out}
+            merged["river_enriched"] = True
+            return merged
+        except Exception as exc:  # noqa: BLE001 — 上下文附加失败不能拖垮断板检测
+            out.setdefault("river_enrich_error", f"{type(exc).__name__}: {exc}"[:160])
+            return out
+
     for i, day in enumerate(dates):
         if i == 0:
             continue
@@ -316,9 +343,10 @@ def build_succession(
         def new_node(node_day: str) -> SuccessionNode:
             node_hash = hashlib.sha256(f"{prior_key}|{node_day}".encode()).hexdigest()[:16]
             node = SuccessionNode(node_hash, prior_key, prior_names, prior.boards, node_day, leader_i_group=list(prior_group))
-            node.context_break = dict((context_by_date or {}).get(node_day, {}))
-            node.context_break.setdefault("anchor_as_of", node_day)
-            node.context_break.setdefault("knowledge_cutoff", node_day)
+            base_ctx = dict((context_by_date or {}).get(node_day, {}))
+            base_ctx.setdefault("anchor_as_of", node_day)
+            base_ctx.setdefault("knowledge_cutoff", node_day)
+            node.context_break = _enrich(base_ctx, node_day, cutoff=str(node_day))
             return node
 
         if now.status == "missing":
@@ -411,9 +439,10 @@ def build_succession(
         }
         cutoff = _date(knowledge_cutoff) if knowledge_cutoff is not None else None
         if cutoff is not None and cutoff >= birth_day:
-            base.context_birth = dict((context_by_date or {}).get(birth_day, {}))
-            base.context_birth.setdefault("context_target", birth_day)
-            base.context_birth.setdefault("knowledge_cutoff", cutoff)
+            base_ctx = dict((context_by_date or {}).get(birth_day, {}))
+            base_ctx.setdefault("context_target", birth_day)
+            base_ctx.setdefault("knowledge_cutoff", cutoff)
+            base.context_birth = _enrich(base_ctx, birth_day, cutoff=str(cutoff))
         else:
             base.context_birth = {"context_target": birth_day, "knowledge_cutoff": cutoff, "status": "withheld_until_cutoff"}
         nodes.append(base)

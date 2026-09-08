@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -125,6 +125,10 @@ class MarketRegimeArtifact:
     missing_features: tuple[str, ...]
     evidence_id: str = "D10"
     degrade_reason: str | None = None
+    # 工单 #35：区间读数带 PIT 档位。strict = 当前窗与每段类比窗的每一天都在 knowledge_cutoff 前刷过；
+    # 否则 trade_date_only——两档分开报，不出混合平均（#25 已定口径）。None = 调用方没给 cutoff（老路径）。
+    knowledge_cutoff: str | None = None
+    pit_grade: str | None = None
 
     @property
     def available(self) -> bool:
@@ -133,6 +137,8 @@ class MarketRegimeArtifact:
     def to_payload(self) -> dict[str, object]:
         return {
             "evidence_id": self.evidence_id,
+            "knowledge_cutoff": self.knowledge_cutoff,
+            "pit_grade": self.pit_grade,
             "window": self.window,
             "available": self.available,
             "current_summary": dict(self.current_summary),
@@ -254,6 +260,14 @@ def _forward_facts(rows: list[dict[str, Any]], horizon: int) -> dict[str, Any] |
     }
 
 
+def window_pit_grade(rows: list[dict[str, Any]]) -> str | None:
+    """一段逐日向量的 PIT 档位：每行都 strict 才 strict；任一行 trade_date_only 整段降档；行上没带 → None。"""
+    grades = [r.get("pit_grade") for r in rows]
+    if not rows or any(g is None for g in grades):
+        return None
+    return "strict" if all(g == "strict" for g in grades) else "trade_date_only"
+
+
 def find_regime_analogs(
     vectors: list[dict[str, Any]],
     window: int = DEFAULT_WINDOW,
@@ -297,6 +311,8 @@ def find_regime_analogs(
                 "distance": round(d, 3),
                 "raw_summary": _raw_window_summary(seg),
                 "forwards": forwards,
+                # 段级 PIT：窗内任一天不是 strict 整段降档（#35；污点传播）。向量没带 pit_grade 时为 None。
+                "pit_grade": window_pit_grade(seg),
             }
         )
         used.append((start, end))
@@ -331,18 +347,35 @@ _AUX_QUERIES: dict[str, str] = {
 
 
 def load_market_regime_vectors(
-    con: Any, as_of: date | str | None = None
+    con: Any,
+    as_of: date | str | None = None,
+    *,
+    knowledge_cutoff: date | str | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """从只读连接拼每日情绪向量。返回 (升序向量列表, 缺失特征名列表)。
 
-    ``as_of`` 非空时只取 ``trade_date <= as_of``。这是 D10 唯一的截断点：
-    当前窗口签名、z 标准化系数、候选窗口、后续 5/10/20 日事实全部只消费本函数
-    的返回值，因此截在这里即可杜绝未来数据。辅表不必再加同一条件——辅表值按
-    日期键回查 base 行，as_of 之后的辅表行不可达。
+    ``as_of`` 非空时只取 ``trade_date <= as_of``——这是**有效时间**的截断：杜绝未来的行。
+    但它挡不住「过去的行被今天重写」（#27 量出 413 天里只有 1 天可 strict 的原因）。
+    ``knowledge_cutoff``（#35）补上**记录时间**这一轴：每行按 ``fact_market_daily.updated_at <= C``
+    给 ``pit_grade``（``updated_at`` 是刷新时间，``<= C`` 是「那时已存在」的充分证据，> C 不是
+    「不存在」的证据——所以这是上界、保守方向）。不传 cutoff 时行上 ``pit_grade=None``：不猜。
+    辅表不必再加 as_of 条件——辅表值按日期键回查 base 行，as_of 之后的辅表行不可达。
     """
+    # 老库 / 夹具可能没有 updated_at 列：没有就取 NULL——判不了记录时间，PIT 走 trade_date_only，不猜。
+    has_updated_at = False
+    try:
+        has_updated_at = bool(
+            con.execute(
+                "select 1 from information_schema.columns "
+                "where table_name = 'fact_market_daily' and column_name = 'updated_at' limit 1"
+            ).fetchall()
+        )
+    except Exception:
+        has_updated_at = False
+    upd_col = "updated_at" if has_updated_at else "NULL as updated_at"
     base_sql = (
         "select trade_date, total_amount, advancers, limit_up, limit_down, "
-        "sh_deviation_pct, sh_index_pct_chg "
+        f"sh_deviation_pct, sh_index_pct_chg, {upd_col} "
         "from fact_market_daily"
     )
     params: list[Any] = []
@@ -367,6 +400,9 @@ def load_market_regime_vectors(
         aux_maps[feat] = {
             str(r[0]): float(r[1]) for r in rows if r[1] is not None
         }
+    cutoff_end: datetime | None = None
+    if knowledge_cutoff is not None:
+        cutoff_end = datetime.fromisoformat(str(knowledge_cutoff)[:10]) + timedelta(days=1)  # C 当天收盘后写入的也算 C 已知
     vectors: list[dict[str, Any]] = []
     for row in base:
         day = str(row[0])
@@ -379,6 +415,18 @@ def load_market_regime_vectors(
             "sh_deviation_pct": row[5],
             "sh_index_pct_chg": row[6],
         }
+        if cutoff_end is not None:
+            stamp = row[7]
+            known: bool | None
+            if stamp is None:
+                known = None
+            else:
+                try:
+                    ts = stamp if isinstance(stamp, datetime) else datetime.fromisoformat(str(stamp))
+                    known = ts < cutoff_end
+                except ValueError:
+                    known = None
+            vec["pit_grade"] = "strict" if known is True else "trade_date_only"
         for feat in _AUX_QUERIES:
             vec[feat] = aux_maps.get(feat, {}).get(day) if feat in aux_maps else None
         vectors.append(vec)
@@ -389,7 +437,10 @@ def load_market_regime_artifact(
     market_db_path: str | Path | None,
     window: int = DEFAULT_WINDOW,
     as_of: date | str | None = None,
+    knowledge_cutoff: date | str | None = None,
 ) -> MarketRegimeArtifact:
+    """``knowledge_cutoff`` 缺省 = ``as_of``（站在 as_of 那天回看）；两者都空 → 不判 PIT（``pit_grade=None``，老路径）。"""
+    cutoff = knowledge_cutoff if knowledge_cutoff is not None else as_of
     db_path = (
         Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     )
@@ -404,7 +455,7 @@ def load_market_regime_artifact(
         )
     con = db_result.connection
     try:
-        vectors, missing = load_market_regime_vectors(con, as_of=as_of)
+        vectors, missing = load_market_regime_vectors(con, as_of=as_of, knowledge_cutoff=cutoff)
         if not vectors:
             return MarketRegimeArtifact(
                 window, {}, (), tuple(missing),
@@ -417,11 +468,20 @@ def load_market_regime_artifact(
                 window, {}, (), all_missing,
                 degrade_reason="D10 历史不足或无可比情绪窗口",
             )
+        current_pit = window_pit_grade(vectors[-window:])
+        analog_pits = [a.get("pit_grade") for a in analogs]
+        overall: str | None
+        if current_pit is None or any(p is None for p in analog_pits):
+            overall = None
+        else:
+            overall = "strict" if current_pit == "strict" and all(p == "strict" for p in analog_pits) else "trade_date_only"
         return MarketRegimeArtifact(
             window,
             _raw_window_summary(vectors[-window:]),
             tuple(analogs),
             all_missing,
+            knowledge_cutoff=(str(cutoff)[:10] if cutoff is not None else None),
+            pit_grade=overall,
         )
     except Exception:
         return MarketRegimeArtifact(
@@ -501,6 +561,12 @@ def regime_block_for_llm(
         lines.append(
             f"- 数据缺口：{labels} 维缺失（对应表无数据），匹配时已按覆盖率降权，"
             "该缺口不得由其他来源臆补。"
+        )
+    if artifact.pit_grade is not None and artifact.pit_grade != "strict":
+        # 只加一行限定语，其余文案逐字节不动（#35 刀 3）。
+        lines.append(
+            f"- PIT 档位：{artifact.pit_grade}（knowledge_cutoff={artifact.knowledge_cutoff}）——"
+            "当前窗或类比窗里有交易日在 cutoff 之后被重写过，本块可读不可进回放与方法校准。"
         )
     lines.append("")
     lines.append(
