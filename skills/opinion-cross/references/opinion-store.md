@@ -20,7 +20,9 @@
 <vault>/raw/theme-radar/opinion-store/
 ├── opinion-events.jsonl   # 事实底账（append-only，唯一真相源）→ 时间线/个股进展/回溯全从这算
 ├── sources.json           # 机构注册表（别名归一，稳定 source_id）→ 将来算机构胜率的 join 键
-└── outcomes.jsonl         # （b 阶段，`build_outcomes.py` 写）盘面 T+N 回溯结果，机构胜率的原料
+├── outcomes.jsonl         # （b 阶段，`build_outcomes.py` 写）盘面 T+N 回溯结果，机构胜率的原料
+└── briefing-tier-events.jsonl  # 晨汇 Tier 1/2/3 条目的确定性投影（知识库 morning-briefing 的 extract_tier_events.py 全量重建；
+                                #  不是本库的 ingest 产物，也不进 opinion-events；金融仓 build-labels --kb-wiki 读它出 tf.briefing_*）
 ```
 
 为什么放这：`wiki/raw/` 是机器数据区（manifest/baseline/theme-radar context 都在此），Obsidian 只把 `.md` 当笔记，`.jsonl/.json` 不进笔记/双链图谱 → 与笔记零干扰。
