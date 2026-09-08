@@ -32,8 +32,25 @@
 ② **`sync_fupanhui_market_daily.sync_fupanhui_market_overview` 空响应写空壳**：只检查响应是 dict，429 错误体也是 dict → 全字段解析成 None，`OVERVIEW_UPSERT_SQL` 无 COALESCE 整行覆写，rc=0。写完回读 `total_amount`/`advancers`；空则退避后重跑。
 ③ **mootdx `sync-stock-daily` 默认 `qfq=False`**：`pre_close` = 前一根裸收盘，除息日 `pct_chg` 含股息缺口（东财快照的 `pre_close` 已做除息调整，每日约 0.1–0.2% 行 `pre_close ≠ 前收`，mootdx 行是 0%）。`stock_name` 来自 TDX 定长字段，三字名带 `\x00` 填充（`sync_mootdx_stock_daily.py` 写入前需 `rstrip('\x00')`）。qa 脚本对两者分别 WARN / FAIL。
 ④ **`check-daily` 的 20 日日历 = `fact_market_daily` 最近 20 行，不受 `--trade-date` 约束**：历史日一旦有了 `fact_market_daily` 行而 GAP_TABLES 未齐，当晚 cross-day-gate 连坐 FAIL → `run_review_sync` rc=1 → S7 不换名。头部模块最后跑。
-⑤ **东财快照 `sync-stock-daily-snapshot` 只在交易日当天盘后有效**：盘中写实时价、非交易日把上一交易日写到所传日期。qa 脚本对「`source='eastmoney:snapshot'` 且 `updated_at` 日期 ≠ `trade_date`」直接 FAIL。
+⑤ **东财快照 `sync-stock-daily-snapshot` 只在交易日当天盘后有效**：盘中写实时价、非交易日把上一交易日写到所传日期。
+   **2026-09-07 工单 #32 更正**：这条以前只写在文档里，代码不拦，本行原来声称的「qa 脚本对 `updated_at` 日期 ≠ `trade_date` 直接 FAIL」**从未实现过**——
+   07-20 / 08-06 整天被写成次日复制、08-13 北交所 335 行被写成次日 10:50 盘中价，三次都没人报警。现在三层拦：
+   (a) 快照同步多请求 `f297`（行情自身交易日），与 `--trade-date` 不一致**拒写**（`SnapshotMisdated`；`--allow-misdated` 才放行且 source 标 `-misdated`）；
+   (b) `qa_local_vs_fupanhui.py` 全历史扫「相邻日逐股相同 >50%」与「快照行写入时刻晚于下一交易日 09:30」，命中即 FAIL——
+       **不能**按「`updated_at` 日期 ≠ `trade_date`」判：凌晨 / 周末补前一交易日是常态（07~08 月 8 天），那些行是对的；
+   (c) `check_daily_review_data` data 阶段比当日与前一交易日逐股相同比例，>5% 报缺。
+   历史日一律走 mootdx `sync-stock-daily --start-date D --end-date D --refresh`（北交所 mootdx std 客户端不回，用东财 hist kline 临时脚本，见上表）。
 ⑥ **fupanhui 限流是突发触发**：`sync-sector-daily` 一步 403 请求/29 秒必炸；二次突发后 `retry-after=251318s`。模块化 + `sector-daily-local` + 成分 1 req/s 能活；429 期间不跑 `reconcile-sector-daily` / `verify_backfill.py` 的回源抽样。
+
+## local 计划实跑记录（2026-09-07，生产库）
+
+| 日 | 结果 | 备注 |
+|---|---|---|
+| 09-07 | 生产库全链绿：stitch 403/403、板块日线 403（等权涨幅，边际量暂以 09-02 为基准）、沪深成交额 19451.9 亿、涨家数 3167、涨停 93 / 跌停 2、连板 13 只、龙头 6 板；same-day `--plan local` COMPLETE | 首个不靠 fupanhui 的完整交易日 |
+| 09-03 / 09-04 | stitch 394/403，`sector-daily-local` fail closed（9 个 BJ 密集板块无成分行） | 等东财 hist kline 补齐 ~190 只北交所后重跑 stitch → sector-daily-local → limit-stats(--force) → overview(--force) → features |
+
+坑：`fact_sector_daily` / `fact_sector_stock_daily` 是只暴露 **published** 代际的 VIEW。`carry-forward-universe --supersede`
+顶替某日快照后，挂在旧快照上的板块日线/成分行会从视图里消失（代际表还在）；必须紧接着把该日重新派生完，否则那天在视图里是空的。
 
 ## 自算口径（双轨实测，2026-08-14～09-02 十四个干净日）
 
@@ -50,8 +67,13 @@
 | 前三行业 | 申万一级成交份额 top3 | 名次 14/14，占比差 ≤0.85pp |
 | 连板 boards | 连续收盘涨停天数（同上取整规则） | 150/150 |
 | 龙头高度 | 当日 max(boards) | 14/14 |
-| 新高 | 需日内最高价（`high`）；收盘价口径差 ±20% | 待 `--ohlc-only` 补齐后再定门 |
-| 市场强度 top5 | 不是「涨幅前五板块」（自算 3.69 vs 6.81） | 待逆向/自定义 |
+| 新高 | 日内最高价 `high` > 前 N 日最高；primary 取最长周期 | high 口径 20 日相对误差中位 ~12%（fupanhui 用前复权） |
+| 市场强度 | **自家口径**：涨幅前 5% 个股（不含北交所）均涨幅/成交额/占比；状态阈值 2/5/8（冰点/正常/强势/沸点） | 均涨幅误差中位 1.8%；状态 14/15；阈值口径对 405 日 99.75% |
+| 量能状态 | 量能比 <85 缩量观望 / <100 正常量能 / <120 主线抱团 / ≥120 放量突破 | 247 个当前口径日 100% |
+| 冰点 | 量能比 <78 极冰 / [78,85) 接近冰点 / [85,95) 偏冷 / 其余正常；不做周期资格判断 | fupanhui JSON 自述分区 |
+| 周期阶段 | 自训逻辑回归 v1（30 个价格/量能/广度特征，滞回 0.15） | 分块 5 折精确 41.6% / 粗 53.0%（工单 #32 修数后重训；修前 43.7%/55.1%）；写 `market_stage_source/confidence` |
+| 主线题材 | 人气值 = 20 日涨幅×2 + 5 日涨停数 + 5 日均额×0.5 + 5 日双红×0.5，前 4 题材 | fupanhui 主线板块在 20 日涨幅 72 分位、当日涨幅 50 分位、61% 有涨停；Jaccard 0.28（其 14 题材内 0.47） |
+| 申万实时成交额 | akshare `index_realtime_sw` 是百万元，hist 是亿；realtime 分支 /100 | 09-07 实测 电子 506527 ↔ 5065 亿 |
 
 底数据坏日的形状：2026-08-13 东财快照写在 08-14 01:53，成交额是次日的 53%（半日量），涨家数差 600。
 这类日子 `qa_local_vs_fupanhui.py` 会标出来，用 `sync-stock-daily --start-date D --end-date D --refresh` 重抓。

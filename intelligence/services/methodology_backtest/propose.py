@@ -9,7 +9,7 @@
     dual_red_strict == true
     dual_red_streak >= 3
     dual_red_streak@1 >= 2            # @lag：之前第 1 个交易日
-    market:market_stage in 主升阶段,主升   # entity:label；in / not_in 用逗号分列表
+    market:market_stage in 主升,反弹   # entity:label；in / not_in 用逗号分列表（G-05 canonical 值）
     market:volume_surge@1 == true
 
 值的类型只按字面猜（true/false → 布尔，数字 → 数值，其余 → 文本或列表），合法性交给 ``rules.validate_rule``。
@@ -61,7 +61,7 @@ def parse_predicate(text: str) -> dict[str, Any]:
     """把一条谓词短句解析成规则 JSON 里的谓词对象。语法错抛 ValueError（白名单校验在后面）。"""
     m = _PRED_RE.match(text or "")
     if not m:
-        raise ValueError(f"谓词短句不合语法：{text!r}（形如 `dual_red_streak@1 >= 3` 或 `market:market_stage in 主升阶段,主升`）")
+        raise ValueError(f"谓词短句不合语法：{text!r}（形如 `dual_red_streak@1 >= 3` 或 `market:market_stage in 主升,反弹`）")
     op = m.group("op")
     raw = m.group("value")
     if op in ("in", "not_in"):

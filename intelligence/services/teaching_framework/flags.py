@@ -177,6 +177,10 @@ def compute_flags(
     dev_streaks = _DeviationStreaks()
     episode = _MaSideEpisode(int(p.get("breakout_confirm_days", 3)))
     range_windows = [int(n) for n in (p.get("index_range_windows") or DEFAULT_RANGE_WINDOWS)]
+    new_high_windows = [int(n) for n in (p.get("index_new_high_windows") or DEFAULT_NEW_HIGH_WINDOWS)]
+    double_volume_dod = float(p.get("double_volume_dod_pct", DOUBLE_VOLUME_DOD_PCT))
+    money_losing_lt = float((p.get("money_losing") or {}).get("lt_pct", DEFAULT_MONEY_LOSING["lt_pct"]))
+    losing_streak = 0
     for i, row in enumerate(rows):
         prev = _prev(rows, i, cal_index)
         d = _date(row.get("trade_date"))
@@ -196,6 +200,9 @@ def compute_flags(
             _num(prev.get("sh_index_close")) if prev else None,
         )
         rec["gap_down_open"] = None if op is None or pc is None else op < pc
+        # 第十三段「跳空低开跌破周均」：低开本身在下穿日里是常态（真库 53 次下穿 38 次低开），有区别的是
+        # 开盘就已经在周均线之下——缺口本身穿过了周均线。作旗标写出，供事件回溯与 ``left_down_entry`` 可选读法用。
+        rec["open_below_week_ma"] = None if op is None or ma is None else op < ma
         # 创始人 09-07 第六段：「上穿周均线往往就伴随放量和指数的阳线」——阳线只是一个视角。
         rec["up_candle"] = None if op is None or close is None else close > op
         amount, ma20 = _num(row.get("total_amount")), _num(row.get("amount_ma20"))
@@ -296,6 +303,29 @@ def compute_flags(
             if reason:
                 rec["scalar_gaps"][label] = reason
         rec.update(_range_structure_flags(rows, i, cal_index, range_windows))
+        rec.update(_index_new_high_flags(rows, i, cal_index, new_high_windows))
+        # 双量日（每日复盘 `market_feature_store/reports/daily_review.py::_market_label` 的既有口径）：成交额环比
+        # > 10% 且量能比 > 120。创始人 09-07 第十一段：「升级 2.0，大概率是进一步放量指数进一步走强」——
+        # 「进一步放量」用这条既有尺子，「进一步走强」用 index_new_high_*d。
+        dod = _num(row.get("amount_vs_yesterday_pct"))
+        rec["double_volume_day"] = (
+            None if dod is None or rec["volume_surge"] is None else bool(dod > double_volume_dod and rec["volume_surge"])
+        )
+        # 亏钱效应日（创始人 09-07 第十四段「亏钱效应也要可量」）：承接 5 日均值（昨日涨停股今日平均涨幅的 5 日均）低于
+        # 门槛——打板的钱连 1% 都拿不到。九个候选口径里只有承接这一维在训练 / 验证两期都把底部四段与顶部三段分开
+        # （< 1.0：15.8% vs 5.1% / 27.8% vs 8.5%，主升与 2.0 两段 0%）；5 日上涨比例低于分位在验证期分不开（2026 的
+        # 窄行情顶部宽度也低）。门槛取训练期 p10（1.045）取整，进参数文件 ``money_losing``。
+        premium_ma5 = rec.get("limit_premium_ma5_pct")
+        rec["money_losing_day"] = None if premium_ma5 is None else bool(premium_ma5 < money_losing_lt)
+        if rec["money_losing_day"] is None:
+            losing_streak = 0
+            rec["money_losing_streak"] = None
+        elif rec["money_losing_day"]:
+            losing_streak += 1
+            rec["money_losing_streak"] = losing_streak
+        else:
+            losing_streak = 0
+            rec["money_losing_streak"] = 0
         out.append(rec)
     return out
 
@@ -535,6 +565,17 @@ SECTOR_FIELDS = (
     # 5 日涨幅前 10 的板块里落在成交占比前三申万一级之外的比例（创始人第五段的「赚钱效应不在成交
     # 占比前三」；候选规则在此定义下 supported：下方 59.6% vs 上方 45.6%）。
     ("rps5_outside_top3_pct", "rps5_outside_top3_pct"),
+    # 题材层「先量再建」第二轮：双红题材散布的申万一级数；涨停领涨集合与 5 日前的 Jaccard（领涨题材持续度）。
+    ("dual_red_l1_distinct", "dual_red_l1_distinct"),
+    ("limit_top10_persist_5d_pct", "limit_top10_persist_5d_pct"),
+    # 承接：昨日涨停股今日平均涨幅及其 5 日均值 / 负溢价天数 / 正负翻转次数（平台「承接盘反复」的字面对象）。
+    ("limit_premium_pct", "limit_premium_pct"),
+    ("limit_premium_ma5_pct", "limit_premium_ma5_pct"),
+    ("limit_premium_neg_5d", "limit_premium_neg_5d"),
+    ("limit_premium_flips_5d", "limit_premium_flips_5d"),
+    # 区间涨幅高标的门槛：当日 20 / 60 日涨幅榜第 top 名的涨幅（第八段「涨幅多少算多，是基于历史行情去对比的」）。
+    ("range_leader_entry_gain_20d_pct", "range_leader_entry_gain_20d_pct"),
+    ("range_leader_entry_gain_60d_pct", "range_leader_entry_gain_60d_pct"),
 )
 
 
@@ -690,6 +731,43 @@ def _range_structure_flags(
             continue
         out[not_rising_label] = max(highs_r) <= max(highs_e)
         out[converging_label] = (max(highs_r) - min(lows_r)) < (max(highs_e) - min(lows_e))
+    return out
+
+
+# 创始人 2026-09-07 第十一段：「升级 2.0，大概率是进一步放量指数进一步走强」。「进一步走强」= 收盘创出
+# 前 n 个交易日的新高；n 是 B 类候选值（参数 ``index_new_high_windows``，写出每个窗口；进入谓词用
+# ``upgrade_new_high_window`` 指定的那一个）。平台八段上：2.0 有 58% 的日子是 60 日新高，主流主升只 14%
+# （第一腿从底部起、只到 20 日新高），承接盘反复 16%。
+DEFAULT_NEW_HIGH_WINDOWS = (20, 60)
+DOUBLE_VOLUME_DOD_PCT = 10.0  # 每日复盘 双量日 的环比门槛（daily_review._market_label）
+# 亏钱效应日的口径（参数 ``money_losing``）：承接 5 日均值 < lt_pct。数字是候选（训练期 p10 取整），见骨架 §8.14。
+DEFAULT_MONEY_LOSING = {"basis": "limit_premium_ma5_pct", "lt_pct": 1.0}
+
+
+def new_high_labels(windows: Iterable[int]) -> list[str]:
+    return [f"index_new_high_{int(n)}d" for n in windows]
+
+
+def _index_new_high_flags(
+    rows: list[Mapping[str, Any]],
+    i: int,
+    cal_index: Mapping[Any, int] | None,
+    windows: Iterable[int],
+) -> dict[str, bool | None]:
+    """Close above the highest close of the previous ``n`` adjacent calendar days; unknown when the window is short."""
+    out: dict[str, bool | None] = {}
+    for n in windows:
+        n = int(n)
+        label = f"index_new_high_{n}d"
+        if i < n or not _contiguous(rows, i - n, i, cal_index):
+            out[label] = None
+            continue
+        close = _num(rows[i].get("sh_index_close"))
+        prior = [_num(rows[j].get("sh_index_close")) for j in range(i - n, i)]
+        if close is None or any(x is None for x in prior):
+            out[label] = None
+            continue
+        out[label] = close > max(prior)
     return out
 
 

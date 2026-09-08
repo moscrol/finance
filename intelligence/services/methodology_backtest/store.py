@@ -188,6 +188,98 @@ TEACHING_DDL = (
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS history_range_leaders (
+        window_days     INTEGER NOT NULL,
+        trade_date      DATE NOT NULL,
+        rank            INTEGER NOT NULL,
+        stock_ts_code   VARCHAR NOT NULL,
+        stock_name      VARCHAR,
+        gain_pct        DOUBLE,
+        sw_l1           VARCHAR,
+        limit_times     INTEGER,
+        tenure_day      INTEGER,
+        prev_rank       INTEGER,
+        framework_version VARCHAR,
+        computed_at     TIMESTAMP NOT NULL,
+        PRIMARY KEY (window_days, trade_date, rank)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS history_range_leader_handoffs (
+        window_days     INTEGER NOT NULL,
+        trade_date      DATE NOT NULL,
+        birth_stock     VARCHAR NOT NULL,
+        birth_name      VARCHAR,
+        birth_rank      INTEGER,
+        birth_prev_rank INTEGER,
+        birth_sw_l1     VARCHAR,
+        birth_limit_times INTEGER,
+        birth_gain_pct  DOUBLE,
+        exit_stock      VARCHAR,
+        exit_name       VARCHAR,
+        exit_prev_rank  INTEGER,
+        exit_next_rank  INTEGER,
+        exit_sw_l1      VARCHAR,
+        exit_limit_times INTEGER,
+        exit_tenure_days INTEGER,
+        same_l1         BOOLEAN,
+        form            VARCHAR,
+        framework_version VARCHAR,
+        computed_at     TIMESTAMP NOT NULL,
+        PRIMARY KEY (window_days, trade_date, birth_stock)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS history_dynasties (
+        wave_idx        INTEGER NOT NULL,
+        rank            INTEGER NOT NULL,
+        wave_start      DATE,
+        peak_end        DATE NOT NULL,
+        collapse_start  DATE,
+        collapse_end    DATE,
+        wave_status     VARCHAR NOT NULL,
+        stock_ts_code   VARCHAR NOT NULL,
+        stock_name      VARCHAR,
+        wave_gain_pct   DOUBLE,
+        sw_l1           VARCHAR,
+        max_boards      INTEGER,
+        form            VARCHAR,
+        collapse_ret_pct DOUBLE,
+        collapse_max_dd_pct DOUBLE,
+        framework_version VARCHAR,
+        computed_at     TIMESTAMP NOT NULL,
+        PRIMARY KEY (wave_idx, rank)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS history_dynasty_handoffs (
+        old_wave_idx    INTEGER NOT NULL,
+        new_wave_idx    INTEGER NOT NULL,
+        new_rank        INTEGER NOT NULL,
+        stock_ts_code   VARCHAR NOT NULL,
+        stock_name      VARCHAR,
+        new_wave_gain_pct DOUBLE,
+        sw_l1           VARCHAR,
+        form            VARCHAR,
+        old_wave_rank   INTEGER,
+        in_old_cohort   BOOLEAN,
+        l1_in_old_top   BOOLEAN,
+        collapse_ret_pct DOUBLE,
+        collapse_ret_percentile DOUBLE,
+        collapse_max_dd_pct DOUBLE,
+        first_leg_ret_pct DOUBLE,
+        new_high_in_collapse BOOLEAN,
+        separation_relative BOOLEAN,
+        separation_new_high BOOLEAN,
+        losing_days_ret_pct DOUBLE,
+        losing_days_ret_percentile DOUBLE,
+        separation_on_losing_days BOOLEAN,
+        framework_version VARCHAR,
+        computed_at     TIMESTAMP NOT NULL,
+        PRIMARY KEY (old_wave_idx, new_rank)
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS history_teaching_receipts (
         build_id             VARCHAR PRIMARY KEY,
         build_kind           VARCHAR NOT NULL,
@@ -217,6 +309,10 @@ TEACHING_TABLES = (
     "history_leader_succession",
     "history_overtaken",
     "history_reference_stages",
+    "history_range_leaders",
+    "history_range_leader_handoffs",
+    "history_dynasties",
+    "history_dynasty_handoffs",
     "history_teaching_receipts",
 )
 

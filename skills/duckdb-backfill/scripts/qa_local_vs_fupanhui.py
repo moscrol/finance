@@ -42,7 +42,7 @@ BAD_BASE_RATIO = 0.10  # 我们的沪深成交额与 fph 总额差 >10% → 底�
 
 # 每族的门（对干净日统计）。数值来自 2026-08-14~09-02 十四个干净日的实测。
 GATES = {
-    "advancers": ("涨家数 |Δ|≤3 的日子占比", 0.90),
+    "advancers": ("涨家数 |Δ|≤10 的日子占比（mootdx 裸前收日与东财差几只）", 0.90),
     "total_amount": ("沪深成交额比 fph/自算 在 0.998~1.002 的日子占比", 0.90),
     "limit_up": ("涨停家数 |Δ|≤6 的日子占比", 0.90),
     "limit_down": ("跌停家数 |Δ|≤6 的日子占比", 0.80),
@@ -55,8 +55,8 @@ GATES = {
 }
 # 已知还对不上、只出读数不设门的族
 INFO_ONLY = {
-    "stock_high": "新高家数：需要 OHLC（日内最高价）+ 复权；收盘价口径差 ±20%",
-    "strength_top5": "市场强度 top5：fupanhui 定义未知（不是涨幅前五板块），待逆向或自定义",
+    "stock_high": "新高家数：按日内最高价（high）；fupanhui 用前复权，20 日相对误差中位 ~12%",
+    "strength_top5": "市场强度：fupanhui 的 top5 集合未逆向出；自家口径=涨幅前 5% 个股（compute-market-editorial-local），见上方编辑层读数",
 }
 
 LIMIT_RULE_SQL = """
@@ -177,7 +177,7 @@ def run(start, end, n, json_path):
             return sum(vals) / len(vals) if vals else 0.0
 
         fam = out["families"]
-        fam["advancers"] = share(lambda p: abs(p["advancers"][0] - p["advancers"][1]) <= 3)
+        fam["advancers"] = share(lambda p: abs(p["advancers"][0] - p["advancers"][1]) <= 10)
         fam["total_amount"] = share(lambda p: p["amount_ratio"] is not None and 0.998 <= p["amount_ratio"] <= 1.002)
         fam["limit_up"] = share(lambda p: abs(p["limit_up"][0] - p["limit_up"][1]) <= 6)
         fam["limit_down"] = share(lambda p: abs(p["limit_down"][0] - p["limit_down"][1]) <= 6)
@@ -293,6 +293,135 @@ def run(start, end, n, json_path):
                                          "sample": [(d, f"{a}|{b}", f"{c}|{e}", f"{g}|{h}") for d, a, b, c, e, g, h in rows[-3:]]}
         print(f"新高家数（{px} 口径）20 日相对误差中位 {median(rel) if rel else float('nan'):.1%}；最近三日 fph|自算: {out['families']['stock_high']['sample']}")
 
+        # ---- E. 编辑层替代版 vs fupanhui（有 fupanhui 值的日子才有对照；只出读数）
+        ed = q(con, f"""
+            WITH u AS (
+              SELECT trade_date, pct_chg, amount,
+                     ROW_NUMBER() OVER (PARTITION BY trade_date ORDER BY pct_chg DESC) rn,
+                     COUNT(*) OVER (PARTITION BY trade_date) n
+              FROM fact_stock_daily WHERE trade_date IN ({ph}) AND stock_ts_code NOT LIKE '%.BJ' AND pct_chg IS NOT NULL AND amount > 0),
+            t AS (SELECT trade_date, AVG(pct_chg) avg5, SUM(amount) amt5 FROM u WHERE rn <= ROUND(n * 0.05) GROUP BY 1)
+            SELECT CAST(f.trade_date AS VARCHAR), f.strength_avg_pct, t.avg5, f.strength_amount, t.amt5, f.strength_status, f.volume_state, f.volume_ratio
+            FROM fact_market_daily f JOIN t USING (trade_date) WHERE f.trade_date IN ({ph}) AND f.strength_avg_pct IS NOT NULL
+              AND f.strength_source NOT LIKE 'local:%'""", dates + dates)
+        if ed:
+            def _status(a):
+                return "冰点" if a < 2 else "正常" if a < 5 else "强势" if a < 8 else "沸点"
+
+            def _vol(v):
+                return None if v is None else ("缩量观望" if v < 85 else "正常量能" if v < 100 else "主线抱团" if v < 120 else "放量突破")
+
+            rel = [abs(a5 - a) / a for d, a, a5, *_ in ed if d in clean and a]
+            st_hit = sum(1 for d, a, a5, *_r in ed if d in clean and _status(a5) == _r[2])
+            vs_pairs = [(vs_, _vol(vr)) for d, a, a5, amt, amt5, st, vs_, vr in ed if d in clean and vs_ in ("缩量观望", "正常量能", "主线抱团", "放量突破")]
+            vs_hit = sum(1 for a_, b_ in vs_pairs if a_ == b_)
+            n_ed = sum(1 for d, *_ in ed if d in clean)
+            out["families"]["editorial"] = {
+                "strength_avg_pct_rel_err_median": median(rel) if rel else None,
+                "strength_status_agree": st_hit / max(n_ed, 1),
+                "volume_state_agree": vs_hit / max(len(vs_pairs), 1) if vs_pairs else None,
+                "days": n_ed,
+            }
+            print(f"编辑层替代版 vs fph（{n_ed} 日）：强度均涨幅(前5%口径) 相对误差中位 {median(rel) if rel else float('nan'):.1%}；"
+                  f"强度状态一致 {st_hit}/{n_ed}；量能状态一致 {vs_hit}/{len(vs_pairs)}")
+
+        # ---- F. 主线 / 周期阶段：local 与 fupanhui 同日都有时才有对照（fupanhui 恢复后自动出读数）
+        ml = q(con, f"""
+            WITH f AS (SELECT trade_date, theme_name FROM fact_mainline_theme_daily WHERE source NOT LIKE 'local:%' AND trade_date IN ({ph})),
+                 l AS (SELECT trade_date, theme_name FROM fact_mainline_theme_daily WHERE source LIKE 'local:%' AND trade_date IN ({ph}))
+            SELECT CAST(d.trade_date AS VARCHAR),
+                   (SELECT COUNT(*) FROM f WHERE f.trade_date = d.trade_date AND theme_name IN (SELECT theme_name FROM l WHERE l.trade_date = d.trade_date)),
+                   (SELECT COUNT(DISTINCT theme_name) FROM (SELECT theme_name FROM f WHERE f.trade_date = d.trade_date UNION SELECT theme_name FROM l WHERE l.trade_date = d.trade_date))
+            FROM (SELECT DISTINCT trade_date FROM f INTERSECT SELECT DISTINCT trade_date FROM l) d""", dates + dates)
+        if ml:
+            jac = [inter / uni for _d, inter, uni in ml if uni]
+            out["families"]["mainline_jaccard"] = {"days": len(jac), "median": median(jac) if jac else None}
+            print(f"主线题材 local vs fph 同日对照 {len(jac)} 日：Jaccard 中位 {median(jac) if jac else float('nan'):.2f}")
+        st = q(con, f"""
+            SELECT COUNT(*), COUNT(*) FILTER (WHERE l.market_stage = f.market_stage)
+            FROM fact_market_daily f JOIN fact_market_daily l ON l.trade_date = f.trade_date
+            WHERE f.trade_date IN ({ph}) AND f.market_stage IS NOT NULL AND f.market_stage_source IS NULL AND l.market_stage_source LIKE 'local:%'""", dates) if "market_stage_source" in {r[0] for r in q(con, "DESCRIBE fact_market_daily")} else []
+        # 同一行不可能同时存两份标签；恢复访问后 fupanhui 标签走 ops 对照表再比。这里只在两份都在时输出。
+        if st and st[0][0]:
+            out["families"]["stage_agree"] = st[0][1] / st[0][0]
+            print(f"周期阶段 local vs fph 一致 {st[0][1]}/{st[0][0]}")
+
+        # 核心个股：口径已反推为「当日成交额前 50」，所以这里对的是**全历史**，不只抽样日。
+        # 不命中的行按「我们当天有没有这只股的行」拆开——不拆的话数据缺口会伪装成口径差。
+        cs = q(con, """
+            WITH t AS (SELECT trade_date, stock_ts_code,
+                              ROW_NUMBER() OVER (PARTITION BY trade_date ORDER BY amount DESC) rn
+                       FROM fact_stock_daily),
+                 top50 AS (SELECT trade_date, stock_ts_code FROM t WHERE rn <= 50)
+            SELECT COUNT(*),
+                   COUNT(*) FILTER (WHERE top50.stock_ts_code IS NOT NULL),
+                   COUNT(*) FILTER (WHERE top50.stock_ts_code IS NULL AND s.stock_ts_code IS NULL),
+                   COUNT(*) FILTER (WHERE top50.stock_ts_code IS NULL AND s.stock_ts_code IS NOT NULL
+                                      AND s.amount IS NULL),
+                   COUNT(*) FILTER (WHERE top50.stock_ts_code IS NULL AND s.amount IS NOT NULL),
+                   COUNT(DISTINCT c.trade_date)
+            FROM fact_core_stock_daily c
+            LEFT JOIN top50 ON top50.trade_date = c.trade_date AND top50.stock_ts_code = c.stock_ts_code
+            LEFT JOIN fact_stock_daily s ON s.trade_date = c.trade_date AND s.stock_ts_code = c.stock_ts_code
+            WHERE c.source NOT LIKE 'local:%'""")
+        if cs and cs[0][0]:
+            n, hit, no_row, null_amt, value_gap, days = cs[0]
+            out["families"]["core_stock_replay"] = {
+                "days": days, "rows": n, "hit": hit,
+                "miss": {"no_row": no_row, "null_amount": null_amt, "value_gap": value_gap}}
+            print(f"核心个股复刻 {days} 日 {n} 行：命中成交额前 50 {hit}/{n} = {hit / n:.2%}")
+            # 未命中必须拆到底数据层面。三个桶都在**我们这一侧**，没有一个是口径差；
+            # 只报一个总数会让人以为「复刻不准」，而真相是那几天我们的 fact_stock_daily 本身就是坏的。
+            # 第三桶「有值但仍不在我们前 50」别读成「快照偏小」：2026-09-07 实测那 8 行全落在 07-20 / 08-06，
+            # 两天的个股日线是次日数据的整份复制（见下 stock_daily_dup_days），amount 有大有小。
+            print(f"  未命中 {n - hit} 行归因：没有这只股的行 {no_row} | 有行但 amount 为空 {null_amt}"
+                  f" | 有值但仍不在我们前 50 {value_gap}")
+
+        # 个股日线「整天是相邻日复制」扫描：坏日阈值 BAD_BASE_RATIO=10% 抓不到它
+        # （07-20 总额只差 9.1%、08-06 差 5.8%），而逐股比对一眼就是——两天各 5524/5526、5534/5534 只相同。
+        # 成因是东财快照事后补写历史日（快照只有「最新」语义，见 backfill-runbook 坑⑤）。全历史扫，不只抽样日。
+        dup = q(con, """
+            WITH d AS (SELECT DISTINCT trade_date FROM fact_stock_daily),
+                 pairs AS (SELECT trade_date d1, LEAD(trade_date) OVER (ORDER BY trade_date) d2 FROM d)
+            SELECT CAST(p.d1 AS VARCHAR), CAST(p.d2 AS VARCHAR), COUNT(*),
+                   COUNT(*) FILTER (WHERE a.close = b.close AND a.amount = b.amount)
+            FROM pairs p
+            JOIN fact_stock_daily a ON a.trade_date = p.d1
+            JOIN fact_stock_daily b ON b.trade_date = p.d2 AND b.stock_ts_code = a.stock_ts_code
+            WHERE p.d2 IS NOT NULL
+            GROUP BY 1, 2
+            HAVING COUNT(*) FILTER (WHERE a.close = b.close AND a.amount = b.amount) > 0.5 * COUNT(*)
+            ORDER BY 1""")
+        out["families"]["stock_daily_dup_days"] = [
+            {"day": d1, "same_as": d2, "stocks": n_, "identical": same} for d1, d2, n_, same in dup]
+        if dup:
+            print("!! 个股日线整天与相邻日相同（需用 mootdx sync-stock-daily --refresh 重抓）：")
+            for d1, d2, n_, same in dup:
+                print(f"   {d1} == {d2}: {same}/{n_} 只 close+amount 完全相同")
+        else:
+            print("个股日线相邻日复制扫描：无")
+
+        # 东财快照行「写入时刻晚于下一交易日开盘」：快照只有「最新」语义，那一刻的最新已经不是 trade_date 的了。
+        # 不能写成「updated_at 日期 ≠ trade_date」——凌晨 / 周末补前一交易日是常态（2026-07~08 有 8 天），
+        # 那些行总额比 0.9997~0.9999、零复制，是对的。以「下一交易日 09:30」为界才分得开：
+        # 07-20 写于 07-22 00:36（过了 07-21 整个交易日）、08-06 写于 08-09 23:05 → 命中；其余 8 天不命中。
+        late = q(con, """
+            WITH d AS (SELECT DISTINCT trade_date FROM fact_stock_daily),
+                 nxt AS (SELECT trade_date, LEAD(trade_date) OVER (ORDER BY trade_date) next_td FROM d)
+            SELECT CAST(s.trade_date AS VARCHAR), CAST(nxt.next_td AS VARCHAR), COUNT(*), CAST(MIN(s.updated_at) AS VARCHAR)
+            FROM fact_stock_daily s JOIN nxt USING (trade_date)
+            WHERE s.source LIKE 'eastmoney:snapshot%' AND nxt.next_td IS NOT NULL
+              AND s.updated_at > nxt.next_td + INTERVAL '9 hours 30 minutes'
+            GROUP BY 1, 2 ORDER BY 1""")
+        out["families"]["snapshot_written_after_next_session"] = [
+            {"day": d1, "next_td": d2, "rows": n_, "first_write": ts} for d1, d2, n_, ts in late]
+        if late:
+            print("!! 东财快照行写入时刻已过下一交易日开盘（那份「最新」不可能是该日数据，需重抓）：")
+            for d1, d2, n_, ts in late:
+                print(f"   {d1}: {n_} 行写于 {ts}，而 {d2} 已开盘")
+        else:
+            print("东财快照写入时刻扫描：无越过下一交易日开盘的行")
+
         # ---- 判定
         print("\n== 判定（干净日 %d 个）==" % len(clean))
         failed = []
@@ -304,6 +433,13 @@ def run(start, end, n, json_path):
             print(f"[{status}] {key:<18} {val:6.1%}  门 {gate:.0%}  {desc}")
         for key, desc in INFO_ONLY.items():
             print(f"[INFO] {key:<18} {desc}")
+        if dup:
+            # 整天复制不是「某族读数偏低」，是底数据错位——与坏底数据日同级，直接判 FAIL
+            failed.append("stock_daily_dup_days")
+            print(f"[FAIL] {'stock_daily_dup_days':<18} {len(dup)} 天个股日线与相邻日整份相同")
+        if late:
+            failed.append("snapshot_written_after_next_session")
+            print(f"[FAIL] {'snapshot_late_write':<18} {len(late)} 天东财快照写入时刻已过下一交易日开盘")
         out["clean_days"] = clean
         out["failed"] = failed
         out["ok"] = not failed

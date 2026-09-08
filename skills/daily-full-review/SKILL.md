@@ -45,6 +45,8 @@ stock-daily）静默挂起，整个 daily 就卡死且无进度输出。**
   `state/runlog.md`，顺的路径记住，坑的路径下次规避。
 - **末尾自动补偿重试**：编排器跑完一轮后会对 fail/timeout 的模块统一重跑
   `--retry-rounds` 轮（默认1），CDP 500 等瞬态故障到末尾往往已自愈；runlog 备注会带 `[retry rN]`。
+- **fupanhui 停抓期间只用 `--plan local`**（2026-09-07 账号风控起）：不发任何复盘会请求，名单冻结 + 加工层自算，
+  门禁按计划裁剪期望表。步骤与坑见 `skills/duckdb-backfill/SKILL.md`「local 计划」。full/cheap 会打复盘会，跑了必失败且续期惩罚。
 - **必须用编排层 run_review_sync.py**：不要手动逐步跑 sync-* 命令，参数极易搞错
   （如 sync-stock-daily --refresh 默认 offset=180 ≈ 90min）。编排层自带正确参数 + 超时 + 兜底。
 - **禁止 `cli daily-update` / `daily-full-exec` 直写生产**：默认 fail closed。急救必须 `--direct`（会写 `ops_sync_run` 与 `state/direct-write-*.json`）。`cli daily-full` 走 staging 换名，不要绕过它手跑 exec。

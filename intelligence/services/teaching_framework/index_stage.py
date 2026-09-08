@@ -172,6 +172,9 @@ EVIDENCE_INPUTS = (
     "above_week_ma",
     "volume_band",
     "volume_surge",
+    "double_volume_day",
+    "index_new_high_20d",
+    "index_new_high_60d",
 ) + tuple(view for view, _ in BAND_VIEWS)
 
 
@@ -350,8 +353,16 @@ EVENT_PREDICATES: dict[str, Any] = {
     "surge_in_trend": lambda f, hits: f.get("tf.surge_in_trend") is True,
     "cross_below_first": lambda f, hits: f.get("tf.cross_below_kind") == "first",
     "cross_below_retest": lambda f, hits: f.get("tf.cross_below_kind") == "retest",
+    # 第十三段「印象中跳空低开跌破周均的，后续往往指数是继续向下……其他的规律你可以通过特征回溯来下定义」：
+    # 下穿日按 低开 / 开盘已在周均之下（缺口穿过周均）/ 盘中跌破 三种拆开读后续走势。
+    "cross_below_gap_down": lambda f, hits: f.get("tf.cross_below_week_ma") is True and f.get("tf.gap_down_open") is True,
+    "cross_below_gap_through_ma": lambda f, hits: f.get("tf.cross_below_week_ma") is True and f.get("tf.open_below_week_ma") is True,
+    "cross_below_intraday": lambda f, hits: f.get("tf.cross_below_week_ma") is True and f.get("tf.gap_down_open") is False,
+    # 第十一段：双量日 + 指数新高（不看来源）与 真正算进升级进入的日子（来源 = 高位震荡）分开读。
+    "double_volume_new_high": lambda f, hits: f.get("tf.double_volume_day") is True and f.get("tf.index_new_high_20d") is True,
+    "upgrade_entered": lambda f, hits: "主流主升2.0:E:upgrade_double_volume_new_high" in hits,
 }
-FORWARD_HORIZONS = (3, 5, 10)
+FORWARD_HORIZONS = (3, 5, 10, 20)
 
 
 def views_by_event(usable: list[Mapping[str, Any]]) -> dict[str, Any]:
@@ -371,7 +382,8 @@ def views_by_event(usable: list[Mapping[str, Any]]) -> dict[str, Any]:
         idx = [i for i, f in enumerate(flags) if predicate(f, hits[i])]
         views: dict[str, list[float]] = {}
         forward: dict[str, list[float]] = {str(k): [] for k in FORWARD_HORIZONS}
-        below_within_5 = higher_close_within_5 = observed_5 = 0
+        min_within_10: list[float] = []
+        below_within_5 = above_within_5 = higher_close_within_5 = observed_5 = 0
         for i in idx:
             for label, value in flags[i].items():
                 if _is_view_scalar(label) and isinstance(value, (int, float)) and not isinstance(value, bool):
@@ -382,18 +394,27 @@ def views_by_event(usable: list[Mapping[str, Any]]) -> dict[str, Any]:
             for k in FORWARD_HORIZONS:
                 if i + k < len(closes) and isinstance(closes[i + k], (int, float)):
                     forward[str(k)].append((closes[i + k] / c0 - 1) * 100)
+            ahead = [c for c in closes[i + 1 : i + 11] if isinstance(c, (int, float))]
+            if len(ahead) == 10:
+                min_within_10.append((min(ahead) / c0 - 1) * 100)
             window = flags[i + 1 : i + 6]
             if len(window) == 5:
                 observed_5 += 1
                 if any(g.get("tf.above_week_ma") is False for g in window):
                     below_within_5 += 1
+                if any(g.get("tf.above_week_ma") is True for g in window):
+                    above_within_5 += 1
                 if any(isinstance(g.get("src.sh_index_close"), (int, float)) and g["src.sh_index_close"] > c0 for g in window):
                     higher_close_within_5 += 1
         out[event] = {
             "days": len(idx),
             "views": {label: _quartiles(values) for label, values in sorted(views.items())},
             "forward_pct_chg": {k: (_quartiles(v) if v else None) for k, v in forward.items()},
-            "next_5_days": {"observed": observed_5, "below_ma": below_within_5, "higher_close": higher_close_within_5},
+            "forward_share_negative": {
+                k: (round(sum(1 for x in v if x < 0) / len(v), 4) if v else None) for k, v in forward.items()
+            },
+            "min_close_within_10_pct_chg": _quartiles(min_within_10) if min_within_10 else None,
+            "next_5_days": {"observed": observed_5, "below_ma": below_within_5, "above_ma": above_within_5, "higher_close": higher_close_within_5},
         }
     return out
 

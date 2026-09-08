@@ -30,6 +30,7 @@ from intelligence.services.methodology_backtest.stats import (
     readout,
     wilson,
 )
+from intelligence.services.market_stage import normalize_market_stage
 from market_feature_store.db import init_db
 
 REPO = Path(__file__).resolve().parents[2]
@@ -328,6 +329,31 @@ def test_labels_inventory_and_data_gap(mini):
         con.close()
 
 
+def test_market_stage_labels_are_canonical_and_versioned(mini):
+    """G-05: label rows collapse upstream aliases and carry the v3 contract."""
+    assert normalize_market_stage("主升阶段") == "主升"
+    assert normalize_market_stage("主升") == "主升"
+    assert normalize_market_stage(None) is None
+    con = duckdb.connect(str(mini["labels"]), read_only=True)
+    try:
+        values = {
+            row[0]
+            for row in con.execute(
+                "SELECT DISTINCT value_text FROM history_labels "
+                "WHERE entity_type='market' AND entity_id='market' AND label='market_stage'"
+            ).fetchall()
+            if row[0] is not None
+        }
+        assert values == {"主升", "下跌"}
+        assert all(not value.endswith("阶段") for value in values)
+        assert con.execute(
+            "SELECT DISTINCT label_version FROM history_labels "
+            "WHERE entity_type='market' AND entity_id='market' AND label='market_stage'"
+        ).fetchall() == [(LABEL_VERSION,)]
+    finally:
+        con.close()
+
+
 def test_stock_label_semantics_dense_within_union_universe(mini):
     """个股 universe = 涨停表 ∪ 新高表；并集内三标签稠密 1/0，源表整日缺失才 NULL；跨板块重复按 (日, 股) 折叠。"""
     con = duckdb.connect(str(mini["labels"]), read_only=True)
@@ -427,7 +453,7 @@ def test_stock_rule_may_reference_market_labels():
     doc["scope"] = {"entity_type": "stock", "universe": "limit_high_union"}
     doc["condition"] = {"all": [
         {"label": "first_board", "op": "==", "value": True, "lag": 0},
-        {"entity": "market", "label": "market_stage", "op": "in", "value": ["主升阶段", "主升"], "lag": 1},
+        {"entity": "market", "label": "market_stage", "op": "in", "value": ["主升"], "lag": 1},
     ]}
     rule = parse_rule(doc)
     compiled = compile_rule(rule, start="2026-01-01", end="2026-12-31")
@@ -500,13 +526,13 @@ def test_stage_breakdown_splits_ok_events_by_market_stage(mini):
     finally:
         con.close()
     buckets = {b.stage: (b.n, b.k) for b in res.stage_breakdown}
-    assert buckets == {"主升阶段": (6, 5), "下跌阶段": (2, 2)}  # S3 第 4 日双红后三日 -1% 是唯一落空
+    assert buckets == {"主升": (6, 5), "下跌": (2, 2)}  # S3 第 4 日双红后三日 -1% 是唯一落空
     assert sum(b.n for b in res.stage_breakdown) == res.readout.n == 8
     assert sum(b.k for b in res.stage_breakdown) == res.readout.k == 7
-    assert res.stage_breakdown[0].stage == "主升阶段" and res.stage_breakdown[0].p == pytest.approx(5 / 6)
+    assert res.stage_breakdown[0].stage == "主升" and res.stage_breakdown[0].p == pytest.approx(5 / 6)
     env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
     receipt = build_receipt(res, rule_path=None, rule_sha256=None, environment=env)
-    assert [b["stage"] for b in receipt["by_market_stage"]] == ["主升阶段", "下跌阶段"]
+    assert [b["stage"] for b in receipt["by_market_stage"]] == ["主升", "下跌"]
     assert "按大盘阶段拆分" in render_receipt_markdown(receipt)
 
 
@@ -534,8 +560,8 @@ def test_stage_buckets_carry_their_own_baseline_exact(mini):
     rd = res.readout
     assert (rd.baseline_n, rd.baseline_k) == (23, 18) and rd.p0 == pytest.approx(18 / 23)
     by = {b.stage: b for b in res.stage_breakdown}
-    assert set(by) == {"主升阶段", "下跌阶段"}
-    up, down = by["主升阶段"], by["下跌阶段"]
+    assert set(by) == {"主升", "下跌"}
+    up, down = by["主升"], by["下跌"]
     assert (up.n, up.k, up.readout.baseline_n, up.readout.baseline_k) == (6, 5, 14, 12)
     assert (down.n, down.k, down.readout.baseline_n, down.readout.baseline_k) == (2, 2, 9, 6)
     assert up.p0 == pytest.approx(6 / 7) and down.p0 == pytest.approx(2 / 3)
@@ -561,7 +587,7 @@ def test_stage_buckets_carry_their_own_baseline_exact(mini):
     assert receipt["baseline_stage_matched"]["p0"] == pytest.approx(17 / 21)
     assert receipt["sql"]["baseline_by_stage"]["sql"].count("?") == len(receipt["sql"]["baseline_by_stage"]["params"])
     md = render_receipt_markdown(receipt)
-    assert "p0（阶段）" in md and "same_stage_days" in md and "| 主升阶段 | 6 | 5 | 83.3% | 85.7% | -2.4% |" in md
+    assert "p0（阶段）" in md and "same_stage_days" in md and "| 主升 | 6 | 5 | 83.3% | 85.7% | -2.4% |" in md
 
 
 def test_stage_baseline_matches_independent_sql(mini):
@@ -821,7 +847,7 @@ def test_theme_and_market_label_semantics(mini):
         ml = _label(con, "theme", "S1.TI", "mainline_flag")
         assert ml == {0: None, 1: None, 2: 1, 4: 0}
         stage = _label(con, "market", "market", "market_stage")
-        assert stage[0] == "主升阶段" and stage[6] == "下跌阶段"
+        assert stage[0] == "主升" and stage[6] == "下跌"
         vs = _label(con, "market", "market", "volume_surge")
         assert vs[0] is None and vs[3] == 1 and vs[4] == 0
         assert set(_label(con, "market", "market", "ma5_peak_confirmed").values()) <= {0, 1}
@@ -1149,8 +1175,8 @@ def test_parse_predicate_grammar():
 
     assert parse_predicate("dual_red_strict == true") == {"label": "dual_red_strict", "op": "==", "value": True, "lag": 0}
     assert parse_predicate("dual_red_streak@1 >= 3") == {"label": "dual_red_streak", "op": ">=", "value": 3, "lag": 1}
-    assert parse_predicate("market:market_stage in 主升阶段,主升") == {
-        "label": "market_stage", "op": "in", "value": ["主升阶段", "主升"], "lag": 0, "entity": "market",
+    assert parse_predicate("market:market_stage in 主升,反弹") == {
+        "label": "market_stage", "op": "in", "value": ["主升", "反弹"], "lag": 0, "entity": "market",
     }
     assert parse_predicate("limit_heat_rank <= 10.5")["value"] == 10.5
     assert parse_success("fwd_return 5 > 0") == {"metric": "fwd_return", "horizon": 5, "op": ">", "value": 0.0}
