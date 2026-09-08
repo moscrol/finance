@@ -165,6 +165,19 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
         "current",
         frozenset({"supporting_evidence"}),
     ),
+    # 派生计算（spec capability-amplification §3.4，2026-09-08）：对本回合已绑定的证据跑一段
+    # Python（口径核对 / 差额 / 敏感性 / 统计检验），沙箱不外呼不写库，产物带
+    # input_evidence_hashes + 原样脚本 + 继承自输入的 as_of。它不修任何已量出的缺陷，
+    # 开的是「现有工具完全答不了」的一类题。runner 由运行时按 episode 绑（要证据账本），
+    # 装配层没有账本就不挂（与 sub_research 同规矩）。produces 不写自己的名字——
+    # 词表里 output_id ≠ 工具名（test_produces_only_contains_known_output_ids）；派生结果
+    # 以 supporting_evidence 身份进绑定，档次由 evidence_tier=derived_calculation 说明。
+    "derived_calculation": (
+        "derived_calculation",
+        "在只读沙箱里对本回合已取到的证据跑一段 Python 做计算或跨源口径核对，结果作为带输入哈希链的派生证据返回",
+        "current",
+        frozenset({"supporting_evidence"}),
+    ),
 }
 DEFAULT_RESEARCH_CAPABILITIES = tuple(
     dict.fromkeys(
@@ -406,6 +419,100 @@ def parse_sub_research_arguments(
             code="invalid_query",
         )
     return json.dumps(goals, ensure_ascii=False), "；".join(goals)
+
+
+# 派生计算（spec capability-amplification §3.4）：模型写一段 Python，在沙箱里对**本回合
+# 已绑定的证据**做算术 / 口径核对 / 敏感性，产物带 input_evidence_hashes + script + as_of。
+# 参数面只有四个键；脚本正文的合法性（禁用模块等）在 runner 里判，回结构化错误，
+# 不在这里拒——模型改一次脚本就能过，不该按「参数错」计一次 invalid_action。
+DERIVED_CALCULATION_MAX_TIMEOUT = 60
+DERIVED_CALCULATION_DEFAULT_TIMEOUT = 20
+DERIVED_CALCULATION_PARAMETERS: dict[str, object] = {
+    "type": "object",
+    "properties": {
+        "script": {
+            "type": "string",
+            "minLength": 1,
+            "description": (
+                "要在沙箱里运行的 Python 脚本正文。可用变量 EVIDENCE（本回合已有证据的列表，"
+                "每条含 ref（E 号）/ hash / tool / title / detail / source / as_of / tier / "
+                "observations[{metric, value, as_of, subject}]）；用 emit({...}) 输出唯一结果字典"
+                "（数值、判定、说明都放进去），不 emit 视为没有结果。可 import 标准库与 "
+                "numpy / pandas；不能联网、不能起进程、不能写工作目录以外的文件。"
+                "需要查本地行情库时先传 use_duckdb=true，再用 duckdb_connect() 拿只读连接。"
+            ),
+        },
+        "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": (
+                "一句话说明这次计算要回答什么（例：「核对 2024 年报净利润两个来源是否一致」）。"
+                "会原样写进产物标题，供读收据的人对照脚本。"
+            ),
+        },
+        "use_duckdb": {
+            "type": "boolean",
+            "description": "是否挂载本地行情 DuckDB 的只读连接（默认 false；只在脚本要查库时开）。",
+        },
+        "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": DERIVED_CALCULATION_MAX_TIMEOUT,
+            "description": f"脚本墙钟上限秒数，默认 {DERIVED_CALCULATION_DEFAULT_TIMEOUT}，最多 {DERIVED_CALCULATION_MAX_TIMEOUT}。",
+        },
+    },
+    "required": ["script", "purpose"],
+    "additionalProperties": False,
+}
+
+
+def parse_derived_calculation_arguments(
+    arguments: Mapping[str, object],
+) -> tuple[str, str]:
+    """四个键各按类型读，多余键 / 空脚本 / 空目的直接拒，不猜不补。
+
+    runner 输入是规整后参数的 JSON 串（工具 runner 的第一个位置参数是字符串），
+    display 用 purpose 给事件与模型看——脚本正文不进 display。
+    """
+
+    allowed = {"script", "purpose", "use_duckdb", "timeout_seconds"}
+    unknown = set(arguments) - allowed
+    if unknown:
+        raise InvalidResearchToolArguments(
+            "derived_calculation accepts only the script / purpose / use_duckdb / timeout_seconds "
+            "arguments; unexpected: " + ", ".join(sorted(str(item) for item in unknown))
+        )
+    script = arguments.get("script")
+    if not isinstance(script, str) or not script.strip():
+        raise InvalidResearchToolArguments(
+            "script argument must be a non-empty Python source string",
+            code="invalid_query",
+        )
+    purpose = arguments.get("purpose")
+    if not isinstance(purpose, str) or not purpose.strip():
+        raise InvalidResearchToolArguments(
+            "purpose argument must be a non-empty string (one sentence: what the calculation answers)",
+            code="invalid_query",
+        )
+    use_duckdb = arguments.get("use_duckdb", False)
+    if not isinstance(use_duckdb, bool):
+        raise InvalidResearchToolArguments("use_duckdb argument must be a boolean")
+    timeout = arguments.get("timeout_seconds", DERIVED_CALCULATION_DEFAULT_TIMEOUT)
+    if isinstance(timeout, bool) or not isinstance(timeout, int):
+        raise InvalidResearchToolArguments("timeout_seconds argument must be an integer")
+    if not 1 <= timeout <= DERIVED_CALCULATION_MAX_TIMEOUT:
+        raise InvalidResearchToolArguments(
+            f"timeout_seconds argument must be between 1 and {DERIVED_CALCULATION_MAX_TIMEOUT}"
+        )
+    cleaned_purpose = purpose.strip()[:200]
+    payload = {
+        "script": script,
+        "purpose": cleaned_purpose,
+        "use_duckdb": use_duckdb,
+        "timeout_seconds": timeout,
+    }
+    return json.dumps(payload, ensure_ascii=False), cleaned_purpose
 
 
 def parse_financial_data_arguments(
@@ -1330,6 +1437,22 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "每支分支有自己的调用与时间预算（≤ 60 秒），适合并行拆几个互不依赖的取证方向，"
         "不适合把一个需要先后依赖的推理链拆开。"
     ),
+    # §3.6 三条契约逐条落：① 空结果语义（没 emit / 脚本报错 / 超时 / 越界都是「计算没产出」，
+    #    不是任何数值，也不是否定证据）；② 来源分档与 as_of 来源（派生证据档次不高于输入里
+    #    最低的那档；as_of 取输入里最旧的一条，不是运行日）；③ 参数含义与拒绝条件（四个键；
+    #    禁用模块 / 外呼 / 越界写在 runner 里回结构化错误码）。依据：``derived_calculation.py``
+    #    的 runner 分状态返回与 ``calculation_sandbox`` 的两层隔离。
+    "derived_calculation": (
+        "返回的是对本回合已有证据做计算后的派生证据（带 input_evidence_hashes 与原样脚本）："
+        "它的档次不高于输入里最低的那一档，日期取输入里最旧的 as_of，不是今天。"
+        "结论要绑到这条派生证据上，并同时引用它的输入证据；沙箱算出的数与某个来源不一致时，"
+        "先看两边的输入是否同一批证据，不要二选一。"
+        "「没有 emit」「脚本报错」「超时」「触发沙箱限制」都表示计算没产出，不是任何数值，"
+        "也不能当否定证据；错误码会带原因，改脚本可重试。"
+        "本回合还没有任何证据时会拒绝（no_bound_evidence）：先取证再计算。"
+        "参数 script 是 Python 正文（用 EVIDENCE 读证据、emit 出结果，不能联网 / 起进程 / 越界写文件），"
+        "purpose 一句话说明算什么，use_duckdb 只在要查本地行情库时开，timeout_seconds 默认 20 最多 60。"
+    ),
 }
 
 
@@ -1401,6 +1524,8 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
                 if name == "web_fetch"
                 else SUB_RESEARCH_PARAMETERS
                 if name == "sub_research"
+                else DERIVED_CALCULATION_PARAMETERS
+                if name == "derived_calculation"
                 else EMPTY_TOOL_PARAMETERS
                 if name in {"market_data", "mainline_context"}
                 else query_parameters(name)
@@ -1412,6 +1537,8 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
                 if name == "web_fetch"
                 else parse_sub_research_arguments
                 if name == "sub_research"
+                else parse_derived_calculation_arguments
+                if name == "derived_calculation"
                 else parse_snapshot_arguments
                 if name in {"market_data", "mainline_context"}
                 else parse_query_arguments
@@ -1436,6 +1563,19 @@ def sub_research_tool_spec(
     """
 
     return default_registry({"sub_research": runner}).resolve("sub_research")
+
+
+def derived_calculation_tool_spec(
+    runner: agent_research.ToolRunner | ToolRunnerAdapter,
+) -> ToolSpec:
+    """把一个 episode 期绑好的沙箱 runner 装成 ``derived_calculation`` 的 ToolSpec。
+
+    与 ``sub_research_tool_spec`` 同一条路：描述 / 契约 / 参数面取自同一张表。runner 要
+    这一个 episode 的证据账本，由 ``services.derived_calculation.bind_derived_calculation_tool``
+    绑好、``ContinuousAgentEpisode`` 起步时并进注册表。
+    """
+
+    return default_registry({"derived_calculation": runner}).resolve("derived_calculation")
 
 
 # ---------------------------------------------------------------------------

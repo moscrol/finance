@@ -88,8 +88,9 @@ def _assemble(*, extra_inputs: bool) -> set[str]:
     """跑一次真实装配，返回产出的工具名。
 
     ``extra_inputs=True`` 时补上「能力授权之外还要的输入」：memory 身份（``memory_lookup``）
-    与运行时按 episode 绑好的子研究 runner（``sub_research``：要协调器 + 父证据账本，
-    装配层拿不到，spec 2026-09-03 §5）。这两个都是「条件装配」，报告但不算够不着。
+    与运行时按 episode 绑好的两个 runner——子研究（``sub_research``：要协调器 + 父证据账本，
+    spec 2026-09-03 §5）与派生计算（``derived_calculation``：要证据账本，capability-amplification
+    §3.4）。这三个都是「条件装配」，报告但不算够不着。
     """
 
     frame = _all_capability_frame()
@@ -105,6 +106,7 @@ def _assemble(*, extra_inputs: bool) -> set[str]:
         context,
         memory_user="__audit_probe__" if extra_inputs else None,
         sub_research_runner=_probe_sub_research_runner if extra_inputs else None,
+        derived_calculation_runner=_probe_sub_research_runner if extra_inputs else None,
     )
     return set(registry.names())
 

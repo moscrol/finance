@@ -837,6 +837,7 @@ def build_episode_registry(
     perspective_mode: str = "neutral",
     user_space=None,
     sub_research_runner: agent_research.ToolRunner | None = None,
+    derived_calculation_runner: agent_research.ToolRunner | None = None,
 ) -> ResearchToolRegistry:
     """Build a read-only registry from the repository's current tool runners."""
 
@@ -1271,6 +1272,11 @@ def build_episode_registry(
         # 装配层拿不到协调器与父证据账本，所以 runner 只能由运行时按 episode 绑好
         # 传进来；没传就不挂（spec 09-03 §5：没源不挂，不做「装了再报 unknown_tool」）。
         tools["sub_research"] = sub_research_runner
+    if derived_calculation_runner is not None:
+        # 同一条规矩：派生计算要这一个 episode 的证据账本（capability-amplification §3.4），
+        # 生产由 ContinuousAgentEpisode 起步时经 with_specs 绑；这里只给「装配时已有账本」
+        # 的调用方（与可达性审计）留同一个座位，没传就不挂。
+        tools["derived_calculation"] = derived_calculation_runner
     base_registry = default_registry(tools)
     specs = list(base_registry.authorized_specs())
     if market_window_end is not None:

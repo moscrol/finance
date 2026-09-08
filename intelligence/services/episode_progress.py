@@ -113,6 +113,7 @@ _TOOL_LABELS: dict[str, str] = {
     "web_search": "公开网页",
     "web_fetch": "网页正文",
     "sub_research": "子研究分支",
+    "derived_calculation": "沙箱派生计算",
     "news_search": "财经新闻",
     "graph_lookup": "题材图谱",
     "evidence_lookup": "证据原文",

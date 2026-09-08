@@ -69,6 +69,12 @@ TOOL_NOTES: dict[str, str] = {
         "生产装配为条件工具（runner 由 runtime 按 episode 绑，tool-reachability 门禁已声明）；"
         "深度 1 / 账本 / 拒绝语义由 test_sub_research_tool 钉。"
     ),
+    "derived_calculation": (
+        "参数面是必填 script + purpose 与可选 use_duckdb / timeout_seconds；runner 输入是"
+        "规整后参数的 JSON 串。生产装配为条件工具（runner 由 runtime 按 episode 绑证据账本，"
+        "tool-reachability 门禁已声明）；沙箱两层隔离 / 产物协议 / admit_finish 门由"
+        " test_calculation_sandbox + test_derived_calculation 钉。"
+    ),
 }
 
 
@@ -155,6 +161,13 @@ def is_goals_tool(spec: ToolSpec) -> bool:
     return isinstance(properties, Mapping) and set(properties) == {"goals"}
 
 
+def is_script_tool(spec: ToolSpec) -> bool:
+    """参数面以 ``script`` + ``purpose`` 为必填的沙箱计算类工具（derived_calculation）。"""
+
+    properties = spec.parameters.get("properties")
+    return isinstance(properties, Mapping) and {"script", "purpose"} <= set(properties)
+
+
 def valid_arguments(spec: ToolSpec) -> Mapping[str, object]:
     if is_snapshot_tool(spec):
         return {}
@@ -162,11 +175,13 @@ def valid_arguments(spec: ToolSpec) -> Mapping[str, object]:
         return {"url": "https://example.invalid/report/600519"}
     if is_goals_tool(spec):
         return {"goals": ["瑞华泰 产能", "聚酰亚胺薄膜 需求"]}
+    if is_script_tool(spec):
+        return {"script": "emit({'n': len(EVIDENCE)})", "purpose": "数一数证据条数"}
     return {"query": "瑞华泰 产能"}
 
 
 def invalid_arguments(spec: ToolSpec) -> Mapping[str, object]:
-    """每种形状各自的坏参数：快照多给键、取页给空 url、派单给空数组、query 给空串。"""
+    """每种形状各自的坏参数：快照多给键、取页给空 url、派单给空数组、脚本给空正文、query 给空串。"""
 
     if is_snapshot_tool(spec):
         return {"query": "多余参数"}
@@ -174,6 +189,8 @@ def invalid_arguments(spec: ToolSpec) -> Mapping[str, object]:
         return {"url": ""}
     if is_goals_tool(spec):
         return {"goals": []}
+    if is_script_tool(spec):
+        return {"script": "", "purpose": "空脚本"}
     return {"query": ""}
 
 

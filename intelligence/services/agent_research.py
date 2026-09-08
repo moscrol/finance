@@ -170,6 +170,11 @@ class AgentEvidence:
     # 不进 ``evidence_content_hash``（该哈希只吃 tool/title/detail/source），
     # 因此补上本字段不会改变任何既有证据身份。
     observations: tuple[StructuredObservation, ...] = ()
+    # 派生证据的输入哈希链（spec capability-amplification §3.4 ``input_evidence_hashes``）：
+    # ``derived_calculation`` 产物必带、其余工具为空。``validate_episode_finish`` 读它——
+    # 绑定到一条没有输入链的派生证据的结论会被驳回（derived_without_inputs）。
+    # 不进 ``evidence_content_hash``：同脚本同输入的 calc_id 已在 source 里，身份不靠它。
+    derived_from: tuple[str, ...] = ()
     # V9a 只读遥测。None = 未跑重摘录（历史 run 缺字段，报不可判不报 0）。
     reexcerpted: bool | None = None
     pointer_dropped: int | None = None

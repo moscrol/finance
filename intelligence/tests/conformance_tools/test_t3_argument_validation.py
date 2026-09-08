@@ -16,6 +16,7 @@ from intelligence.tests.conformance_tools.tools import (
     TOOL_NAMES,
     ToolProbe,
     is_goals_tool,
+    is_script_tool,
     is_snapshot_tool,
     is_url_tool,
     make_tool_registry,
@@ -85,6 +86,27 @@ def test_bad_arguments_fail_closed(
             registry.prepare(tool_name, {"goals": ["甲"], "extra": 1})
         prepared = registry.prepare(tool_name, {"goals": [" 甲 ", "乙"]})
         assert prepared.display_query == "甲；乙"
+        return
+
+    if is_script_tool(spec):
+        # script 契约：script + purpose 必填非空；use_duckdb 只收布尔、timeout_seconds 只收
+        # 1–60 的整数；多余键拒。脚本正文是否合法（禁用模块）不在这里判——runner 回结构化码。
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"script": "", "purpose": "p"})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"script": "emit({})"})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"script": "emit({})", "purpose": "p", "use_duckdb": "yes"})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"script": "emit({})", "purpose": "p", "timeout_seconds": 0})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"script": "emit({})", "purpose": "p", "extra": 1})
+        with pytest.raises(InvalidResearchToolArguments):
+            registry.prepare(tool_name, {"query": "emit({})"})
+        prepared = registry.prepare(tool_name, {"script": "emit({})", "purpose": " 数证据 "})
+        assert prepared.display_query == "数证据"
         return
 
     # query 契约：必须且只能有一个非空字符串 query。

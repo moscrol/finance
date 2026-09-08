@@ -28,6 +28,7 @@ from intelligence.runtime.episode_finalizer import (
     MIN_FINALIZATION_RECOVERY_SECONDS,
     EpisodeFinalizer,
 )
+from intelligence.services.derived_calculation import bind_derived_calculation_tool
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_protocol import (
     SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
@@ -1020,7 +1021,7 @@ class ContinuousAgentEpisode:
         inbox = Inbox(ledger, admit=self._harness.admit_inbox_message)
         ledger.inbox = inbox
         self._active_inbox = inbox
-        registry = self._with_sub_research_tool(
+        registry = self._with_episode_bound_tools(
             task_frame=task_frame,
             context_ref=context_ref,
             registry=registry,
@@ -2598,7 +2599,7 @@ class ContinuousAgentEpisode:
                 )
         return result
 
-    def _with_sub_research_tool(
+    def _with_episode_bound_tools(
         self,
         *,
         task_frame: TaskFrame,
@@ -2607,14 +2608,22 @@ class ContinuousAgentEpisode:
         evidence_ledger: EvidenceLedger,
         ledger: _EpisodeLedger,
     ) -> ResearchToolRegistry:
-        """有协调器的 episode 把 ``sub_research`` 绑成模型可点的工具并进注册表。
+        """把只有 episode 期才绑得出 runner 的工具并进注册表：``derived_calculation`` 与 ``sub_research``。
 
-        spec 2026-09-03：不新建子代理，包现有协调器；前台同步、深度 1。没有协调器
-        （分支里的嵌套 Episode、参考 loop）就原样返回——工具不存在，而不是存在但报错。
-        授权仍由 contract 决定：``sub_research`` 不在 ``allowed_capabilities`` 里时，
-        ``authorized_specs`` 根本不会把它摆给模型。
+        两个都要这一个 episode 的证据账本，装配层（``build_episode_registry``）拿不到，
+        所以在这里绑（没账本不挂）。授权仍由 contract 决定：不在 ``allowed_capabilities``
+        里的工具 ``authorized_specs`` 根本不会摆给模型。
+
+        ``derived_calculation``（spec capability-amplification §3.4）：读的是账本对象，
+        模型第 N 轮算的是前 N-1 轮取到的证据。
+
+        ``sub_research``（spec 2026-09-03）：不新建子代理，包现有协调器；前台同步、深度 1。
+        没有协调器（分支里的嵌套 Episode、参考 loop）就不挂——工具不存在，而不是存在但报错。
         """
 
+        registry = registry.with_specs(
+            bind_derived_calculation_tool(evidence_ledger=evidence_ledger)
+        )
         coordinator = self._sub_research_coordinator
         if coordinator is None:
             return registry

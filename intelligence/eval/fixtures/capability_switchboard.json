@@ -183,6 +183,21 @@
       "notes": "2026-09-07 新增（spec 2026-09-03-subagent-tool-design）：把既有 SubResearchCoordinator 包成模型可点的工具，前台同步、深度 1，分支证据经父账本 branch_sink 进账。生产装配为条件工具：runner 由 runtime 按 episode 绑（要协调器 + 父证据账本），build_episode_registry 没 runner 不挂；没有协调器的 Episode（分支嵌套、参考 loop）不存在此工具。无独立 env 门：关它走授权（策略表默认不含，只在 WORKBENCH_TOOL_AUTHORIZATION=all 下进授权）或不给协调器。"
     },
     {
+      "id": "derived_calculation",
+      "kind": "capability",
+      "status": "active",
+      "seam": "intelligence/services/research_tool_registry.py::_DEFAULT_TOOL_METADATA",
+      "close_via": [
+        "allowed_capabilities:remove",
+        "env:FORESIGHT_SANDBOX_SEATBELT=0（只降到进程层隔离，不是关工具）"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "offered_schemas",
+      "notes": "2026-09-08 新增（spec capability-amplification §3.4）：模型写一段 Python 在两层沙箱（进程层守卫 + macOS Seatbelt）里对本回合已绑定证据做计算 / 跨源口径核对，产物带 input_evidence_hashes + 原样脚本 + 继承自输入最旧的 as_of。授权不单独进策略表，由 evidence_capabilities.runtime_capabilities_for_frame 从 financial_data 派生——关 financial_data 授权即连带关它。生产装配为条件工具：runner 由 ContinuousAgentEpisode 按 episode 绑（要证据账本），build_episode_registry 没账本不挂；参考 loop 没有此工具。无独立 env 门；FORESIGHT_SANDBOX_SEATBELT=0 只关系统层隔离（产物 enforcement 会如实记 process）。"
+    },
+    {
       "id": "graph_lookup",
       "kind": "capability",
       "status": "active",

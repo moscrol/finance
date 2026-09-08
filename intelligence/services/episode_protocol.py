@@ -38,6 +38,9 @@ from intelligence.services.track_contract import (
 
 
 _FINISH_STATUSES = frozenset({"completed", "partial"})
+# 与 research_tool_registry._DEFAULT_TOOL_METADATA 里的工具名同一字面量；这里不 import
+# derived_calculation 模块（它反向依赖注册表，成环），只认名字。
+DERIVED_CALCULATION_TOOL = "derived_calculation"
 # A few OpenAI-compatible adapters append one unmatched quote after an
 # otherwise exact fenced payload. Accept only that observed one-character
 # suffix; arbitrary prose before/after the fence remains invalid.
@@ -498,6 +501,9 @@ REJECTION_KINDS: dict[str, RejectionKind] = {
     # 地基破坏 → 硬拒
     "unknown_output": RejectionKind.INTEGRITY,
     "forged_hash": RejectionKind.INTEGRITY,
+    # 派生计算证据没有输入哈希链：算出来的数指不回它算的证据，与伪造哈希同一族——
+    # 证据体系的地基问题，不是写法问题（spec capability-amplification §3.4）。
+    "derived_without_inputs": RejectionKind.INTEGRITY,
     # 抄漏最后一位：结构滑档，不是伪造。见 `_is_unique_one_char_truncation`。
     "truncated_hash": RejectionKind.FORMAT,
     # 把跟踪题表达槽（track_ttl / track_next_watch / track_quad_or_baseline）当 output 绑：
@@ -891,6 +897,21 @@ def validate_episode_finish(
                 "evidence_type_floor",
                 f"required output lacks evidence type {binding.output_id}: "
                 + ",".join(missing_floor),
+            )
+        # 派生计算产物没有输入哈希链就不是证据（spec capability-amplification §3.4 / §5 第 16 条）：
+        # 一段算出来的数如果说不清算的是哪几条证据，既不可复现也无法与 provider 数对账。
+        derived_without_inputs = tuple(
+            evidence_hash
+            for evidence_hash in binding.evidence_hashes
+            if evidence_by_hash[evidence_hash].tool == DERIVED_CALCULATION_TOOL
+            and not evidence_by_hash[evidence_hash].derived_from
+        )
+        if derived_without_inputs:
+            raise _reject(
+                "derived_without_inputs",
+                f"{binding.output_id} 绑定的派生计算证据没有 input_evidence_hashes: "
+                + ",".join(derived_without_inputs)
+                + "；派生数必须能指回它算的那几条证据",
             )
 
     binding_map = {item.output_id: item for item in bindings}

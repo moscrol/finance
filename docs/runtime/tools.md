@@ -5,10 +5,11 @@
 
 来源：`research_tool_registry.default_registry`（用哑 runner 装配）+ `_TOOL_CONTRACTS`。`query_scope=episode` 的工具参数表为空，截止日在 context 上而不在参数里。说明书只写实测过的失败模式，空即合法。
 
-14 个工具
+15 个工具
 
 | 工具 | 能力 | 成本 | 新鲜度 | 查询范围 | 最小窗(s) | 参数键 | produces | 描述 |
 |---|---|---|---|---|---|---|---|---|
+| `derived_calculation` | derived_calculation | external | current | query | — | `purpose`, `script`, `timeout_seconds`, `use_duckdb` | supporting_evidence | 在只读沙箱里对本回合已取到的证据跑一段 Python 做计算或跨源口径核对，结果作为带输入哈希链的派生证据返回 |
 | `evidence_lookup` | evidence_lookup | local | stable | query | — | `query` | supporting_evidence | 本地证据索引 |
 | `evidence_search` | evidence_search | external | current | query | 30.0 | `query` | counterpoint, supporting_evidence | 对本地知识证据执行窄口径、宽口径和反方闭环检索 |
 | `finance_query` | finance_query | external | current | query | — | `query` | data_date, market_change, risk_signals, supporting_evidence | 按语义数据集、指标、维度、筛选和时间范围查询本地结构化金融数据 |
@@ -25,6 +26,10 @@
 | `web_search` | web_search | external | current | query | — | `query` | event_facts, impact_transmission, supporting_evidence | 全网网页检索 |
 
 ## 说明书（`ToolSpec.contract`）
+
+### `derived_calculation`
+
+返回的是对本回合已有证据做计算后的派生证据（带 input_evidence_hashes 与原样脚本）：它的档次不高于输入里最低的那一档，日期取输入里最旧的 as_of，不是今天。结论要绑到这条派生证据上，并同时引用它的输入证据；沙箱算出的数与某个来源不一致时，先看两边的输入是否同一批证据，不要二选一。「没有 emit」「脚本报错」「超时」「触发沙箱限制」都表示计算没产出，不是任何数值，也不能当否定证据；错误码会带原因，改脚本可重试。本回合还没有任何证据时会拒绝（no_bound_evidence）：先取证再计算。参数 script 是 Python 正文（用 EVIDENCE 读证据、emit 出结果，不能联网 / 起进程 / 越界写文件），purpose 一句话说明算什么，use_duckdb 只在要查本地行情库时开，timeout_seconds 默认 20 最多 60。
 
 ### `evidence_lookup`
 
