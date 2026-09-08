@@ -592,17 +592,33 @@ def _drawdown_and_peak(curve: list[tuple[str, float]]) -> tuple[float | None, fl
     return round(max_dd * 100, 4), round((peak_v - 1.0) * 100, 4), peak_d
 
 
+def _has_column(con: Any, table: str, column: str) -> bool:
+    """老库 / 测试夹具可能没有 ``updated_at``：没有就取 NULL——记录时间判不了，PIT 走 trade_date_only，不猜。"""
+    try:
+        rows = con.execute(
+            "SELECT 1 FROM information_schema.columns WHERE table_name = ? AND column_name = ? LIMIT 1",
+            [table, column],
+        ).fetchall()
+    except Exception:
+        return False
+    return bool(rows)
+
+
+def _updated_at_expr(con: Any, table: str) -> str:
+    return "updated_at" if _has_column(con, table, "updated_at") else "NULL AS updated_at"
+
+
 def _stock_rows(con: Any, start: str, end: str, entity: str) -> list[dict[str, Any]]:
     return _rows_dict(
         con,
-        """
+        f"""
         SELECT CAST(trade_date AS DATE) AS d, stock_ts_code, stock_name,
-               close, pre_close, amount, turnover, updated_at
+               close, pre_close, amount, turnover, {_updated_at_expr(con, "fact_stock_daily")}
         FROM fact_stock_daily
         WHERE CAST(trade_date AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
           AND (stock_ts_code = ? OR stock_name = ?)
         ORDER BY d
-        """,
+        """,  # noqa: S608 - 列表达式只有两种字面量，值走参数
         [start, end, entity, entity],
     )
 
@@ -612,14 +628,14 @@ def _sector_rows(con: Any, start: str, end: str, entity: str) -> list[dict[str, 
     # 把 codes_seen 摆出来，让调用方看见这段区间横跨了几套代码。
     return _rows_dict(
         con,
-        """
+        f"""
         SELECT CAST(trade_date AS DATE) AS d, sector_ts_code, sector_name,
-               pct_chg, amount, updated_at
+               pct_chg, amount, {_updated_at_expr(con, "fact_sector_daily")}
         FROM fact_sector_daily
         WHERE CAST(trade_date AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
           AND (sector_name = ? OR sector_ts_code = ?)
         ORDER BY d
-        """,
+        """,  # noqa: S608 - 同上
         [start, end, entity, entity],
     )
 
