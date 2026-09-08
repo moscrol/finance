@@ -210,7 +210,11 @@ def _summarize_horizons(rows: Sequence[tuple], horizons: Sequence[int]) -> list[
 
 
 def _stage_of_dates(con: duckdb.DuckDBPyConnection, dates: Sequence[str]) -> dict[str, str]:
-    """事件日 → 当日 ``market_stage``（原文，不归一；无标签 → UNKNOWN_STAGE）。日期走绑定参数（个数 <= 日历长度）。"""
+    """事件日 → 当日 canonical ``market_stage``；无标签 → UNKNOWN_STAGE。
+
+    G-05 在标签构建时完成归一，这里只读取旁路库，不再承担别名折叠。
+    日期走绑定参数（个数 <= 日历长度）。
+    """
     if not dates:
         return {}
     placeholders = ", ".join("?" for _ in dates)
@@ -246,7 +250,7 @@ def _stage_breakdown(
     min_n: int,
     q: float,
 ) -> list[StageBucket]:
-    """按事件日当日的 ``market_stage`` 把已到期事件拆桶（阶段值按原文，不归一），取各阶段自己的基准率，
+    """按事件日当日的 canonical ``market_stage`` 把已到期事件拆桶，取各阶段自己的基准率，
     交给 ``stats.stage_readouts`` 出读数与规则内 BH。ok_events 已按日期排好（编译器 ORDER BY），每桶内序列也是按日期的。
     """
     if not ok_events:

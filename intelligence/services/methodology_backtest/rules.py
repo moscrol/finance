@@ -19,7 +19,7 @@
       "condition": {"all": [
         {"label": "dual_red_strict", "op": "==", "value": true, "lag": 0},
         {"label": "dual_red_streak", "op": ">=", "value": 3, "lag": 0},
-        {"entity": "market", "label": "market_stage", "op": "in", "value": ["主升阶段", "主升"], "lag": 0}
+        {"entity": "market", "label": "market_stage", "op": "in", "value": ["主升"], "lag": 0}
       ]},
       "outcome": {
         "target": "pct_chg",
