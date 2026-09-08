@@ -33,7 +33,14 @@
 
 ## 门禁
 
-（合入前在干净树补跑，读数回填到本节）
+干净树 `~/fwp-wt-river-projection`、`.venv-workbench`、`env -u MARKET_FEATURE_STORE_DB`：
+
+| 分支尖 | ruff | pytest | `check_test_receipt` |
+|---|---|---|---|
+| 第一轮 `be558d7d` | 0 | 11F / 8174P——11 红全部是「从切片派生的确认剧本没带 `projection_hash`」（`test_hindsight_excluded` 2、`test_personal_export_and_isolation` 9），门禁按设计拒收，夹具补哈希 | — |
+| 第二轮（夹具修后） | 0 | **8185P / 0F / 76S / 1xfail**（306s） | `--expect-revision HEAD` 可采信 |
+
+对照 main 基线 8183P（#620 树同日读数）：+2 = 本单净增测试数减去被删的私有渲染函数测试。
 
 ## 未做 / 边界
 
