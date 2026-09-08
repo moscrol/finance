@@ -115,7 +115,7 @@ def _validate_stage_calibration(params: dict[str, Any]) -> None:
     bands = params.get("stage_bands")
     if bands is not None:
         if not isinstance(bands, dict) or any(stage not in STAGES for stage in bands):
-            raise ValueError(f"stage_bands 的键必须是八段之一 {STAGES}")
+            raise ValueError(f"stage_bands 的键必须是粗段之一 {STAGES}")
         for stage, per_view in bands.items():
             if not isinstance(per_view, dict):
                 raise ValueError(f"stage_bands[{stage}] 必须是 {{视角: [lo, hi]}}")
@@ -131,10 +131,10 @@ def _validate_stage_calibration(params: dict[str, Any]) -> None:
     graph = params.get("transition_graph")
     if graph is not None:
         if not isinstance(graph, dict) or any(stage not in STAGES for stage in graph):
-            raise ValueError("transition_graph 的键必须是八段之一")
+            raise ValueError("transition_graph 的键必须是粗段之一")
         for stage, targets in graph.items():
             if not isinstance(targets, list) or any(t not in STAGES for t in targets):
-                raise ValueError(f"transition_graph[{stage}] 必须是八段名的数组")
+                raise ValueError(f"transition_graph[{stage}] 必须是粗段名的数组")
     if (bands is None) != (graph is None):
         raise ValueError("stage_bands 与 transition_graph 必须同时给出或同时缺省（同一次校准的产物）")
 
