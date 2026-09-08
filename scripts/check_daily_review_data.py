@@ -293,6 +293,7 @@ def check_data(date: str, plan: str | None = None) -> list[str]:
         missing.extend(_check_sector_stock_fields(con, date))
         missing.extend(_check_stock_coverage(con, date))
         missing.extend(_check_stock_daily_not_copied(con, date))
+        missing.extend(_check_fill_rates(con, date))
         missing.extend(_feature_family_gap(counts, date))
         if missing:
             _print_staging_contrast(date, counts)
@@ -491,6 +492,140 @@ def _check_stock_daily_not_copied(con, date: str) -> list[str]:
     return problems
 
 
+#: 第四层拦截（2026-09-08 评审）：前三层（快照日期闸 / 相邻日复制扫描 / 当日逐股相同）只覆盖「复制 / 错日」
+#: 一族，没有一层看空值。事实：`fact_market_daily.sh_index_pct_chg` 在 2026-08-17 为 NULL，事件定价当晚因此丢了
+#: 77 个 market 锚点里的 3 个；`fact_stock_daily` 2025-09-19 的 pct_chg 填充率只有 79%，没人知道。
+#: 这一层看**全历史**：必填列只许在钉住的日期为空、个股三列逐日填充率不得低于阈值；基线是 git 里的 JSON，
+#: 改动走 diff 让人看见。基线只钉「已知的洞」，洞补上了不用改基线（少一个空值日不报）。
+FILL_RATE_BASELINE_PATH = ROOT / "fill-rate-baseline.json"
+STOCK_FILL_COLUMNS = ("close", "amount", "pct_chg")
+#: 已知缺口再恶化多少个百分点算回归（同一天同一列，填充率比钉住的值还低）。
+FILL_GAP_TOLERANCE_PCT = 0.5
+
+
+def load_fill_rate_baseline(path: Path = FILL_RATE_BASELINE_PATH) -> dict:
+    import json
+
+    if not path.exists():
+        return {"fact_market_daily": {"known_null_dates": {}}, "fact_stock_daily": {"min_fill_pct": {}, "known_gaps": []}}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _fill_rate_scan(con) -> dict:
+    """真库现状：必填列的空值日、个股三列逐日填充率。只读，不判。"""
+    market_null_dates: dict[str, list[str]] = {}
+    for field in MARKET_FIELDS:
+        try:
+            rows = con.execute(
+                f'SELECT trade_date FROM fact_market_daily WHERE "{field}" IS NULL ORDER BY 1'
+            ).fetchall()
+        except Exception as exc:  # noqa: BLE001 - 字段不存在由当日检查报，这里不重复
+            print(f"fill-rate: fact_market_daily.{field} 跳过（{exc.__class__.__name__}）")
+            continue
+        market_null_dates[field] = [str(r[0]) for r in rows]
+    selects = ", ".join(
+        f"ROUND(100.0 * COUNT({c}) / COUNT(*), 2) AS {c}_pct" for c in STOCK_FILL_COLUMNS
+    )
+    try:
+        stock_rows = con.execute(
+            f"SELECT trade_date, COUNT(*), {selects} FROM fact_stock_daily GROUP BY trade_date ORDER BY trade_date"
+        ).fetchall()
+    except Exception as exc:  # noqa: BLE001 - 表不存在由 TABLES 行数检查报
+        print(f"fill-rate: fact_stock_daily 跳过（{exc.__class__.__name__}）")
+        stock_rows = []
+    stock_fill = {
+        str(r[0]): {"rows": int(r[1]), **{c: float(r[2 + i]) for i, c in enumerate(STOCK_FILL_COLUMNS)}}
+        for r in stock_rows
+    }
+    return {"fact_market_daily": market_null_dates, "fact_stock_daily": stock_fill}
+
+
+def _check_fill_rates(con, date: str, baseline: dict | None = None) -> list[str]:
+    """第四层拦截：全历史逐列填充率闸，对钉住的基线只许变好。
+
+    - `fact_market_daily` 必填列（MARKET_FIELDS）：出现基线之外的空值日即报。当日那一行由上面的
+      逐字段检查报，这里排除 `date` 免得同一件事报两遍。
+    - `fact_stock_daily` close / amount / pct_chg：任一交易日填充率低于阈值且不在已知缺口里即报；
+      已知缺口再掉超过 FILL_GAP_TOLERANCE_PCT 也报（钉的是「不许更坏」）。
+    """
+    baseline = baseline if baseline is not None else load_fill_rate_baseline()
+    scan = _fill_rate_scan(con)
+    problems: list[str] = []
+
+    known_null = baseline.get("fact_market_daily", {}).get("known_null_dates", {})
+    for field, null_dates in scan["fact_market_daily"].items():
+        extra = sorted(set(null_dates) - set(known_null.get(field, [])) - {date})
+        if extra:
+            shown = ",".join(extra[:6]) + ("…" if len(extra) > 6 else "")
+            problems.append(
+                f"fact_market_daily.{field} 出现基线之外的空值日 {len(extra)} 个: {shown}"
+                "——历史行被写空或补数漏列（08-17 同型），修数后若确认不可补再钉进 fill-rate-baseline.json"
+            )
+
+    stock_cfg = baseline.get("fact_stock_daily", {})
+    min_fill = stock_cfg.get("min_fill_pct", {})
+    known_gaps = {
+        (g["trade_date"], g["column"]): float(g.get("fill_pct", 0.0))
+        for g in stock_cfg.get("known_gaps", [])
+    }
+    for day, stats in scan["fact_stock_daily"].items():
+        for column in STOCK_FILL_COLUMNS:
+            threshold = min_fill.get(column)
+            if threshold is None:
+                continue
+            pct = stats[column]
+            if pct >= threshold:
+                continue
+            pinned = known_gaps.get((day, column))
+            if pinned is None:
+                problems.append(
+                    f"fact_stock_daily {day} {column} 填充率 {pct:.2f}% < {threshold:.0f}%（{stats['rows']} 行）"
+                    "——不在已知缺口里；先查源再决定补数还是钉基线"
+                )
+            elif pct < pinned - FILL_GAP_TOLERANCE_PCT:
+                problems.append(
+                    f"fact_stock_daily {day} {column} 填充率 {pct:.2f}% 比已知缺口钉住的 {pinned:.2f}% 更低——已知的洞变大了"
+                )
+    scanned_days = len(scan["fact_stock_daily"])
+    print(f"fill-rate: fact_market_daily {len(scan['fact_market_daily'])} 列 / fact_stock_daily {scanned_days} 日已扫，问题 {len(problems)}")
+    return problems
+
+
+def update_fill_rate_baseline(con, path: Path = FILL_RATE_BASELINE_PATH, *, today: str | None = None) -> dict:
+    """把真库现状写成基线：已有缺口的 reason 保留，新缺口标「待查」。写出的 diff 就是评审对象。"""
+    import json
+
+    previous = load_fill_rate_baseline(path)
+    scan = _fill_rate_scan(con)
+    prev_gaps = {
+        (g["trade_date"], g["column"]): g for g in previous.get("fact_stock_daily", {}).get("known_gaps", [])
+    }
+    min_fill = previous.get("fact_stock_daily", {}).get("min_fill_pct") or {c: 99.0 for c in STOCK_FILL_COLUMNS}
+    gaps = []
+    for day, stats in scan["fact_stock_daily"].items():
+        for column in STOCK_FILL_COLUMNS:
+            if stats[column] < min_fill.get(column, 99.0):
+                old = prev_gaps.get((day, column), {})
+                gaps.append({
+                    "trade_date": day,
+                    "column": column,
+                    "fill_pct": stats[column],
+                    "rows": stats["rows"],
+                    "reason": old.get("reason") or f"待查（{today or 'unknown'} 填充率闸量出）",
+                })
+    baseline = {
+        "_doc": previous.get("_doc") or (
+            "第四层拦截：逐列填充率闸（check_daily_review_data._check_fill_rates）。"
+            "fact_market_daily 必填列全历史只许在这里钉住的日期为空；fact_stock_daily 三列逐日填充率 ≥ min_fill_pct，"
+            "已知缺口带原因列在 known_gaps。更新：check_daily_review_data.py <date> --update-fill-rate-baseline，改动进 git diff。"
+        ),
+        "fact_market_daily": {"known_null_dates": scan["fact_market_daily"]},
+        "fact_stock_daily": {"min_fill_pct": min_fill, "known_gaps": gaps},
+    }
+    path.write_text(json.dumps(baseline, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return baseline
+
+
 def check_report(date: str) -> list[str]:
     missing: list[str] = []
     report = Path(f"market_feature_store/exports/{date}-daily-review.md")
@@ -610,10 +745,25 @@ def main(argv: list[str] | str | None = None, data_only: bool = False) -> int:
         "--plan", default=os.environ.get("REVIEW_SYNC_PLAN") or None,
         help="计划档位（full/cheap/local）；local 按 registry 裁剪期望表与字段。默认读 REVIEW_SYNC_PLAN",
     )
+    parser.add_argument(
+        "--update-fill-rate-baseline", action="store_true",
+        help="只做一件事：把真库现状写进 fill-rate-baseline.json（已有缺口的 reason 保留，新缺口标待查），然后退出",
+    )
     args = parser.parse_args(argv)
 
     missing: list[str] = []
     try:
+        if args.update_fill_rate_baseline:
+            con = _connect_read_only()
+            try:
+                baseline = update_fill_rate_baseline(con, today=args.date)
+            finally:
+                con.close()
+            gaps = baseline["fact_stock_daily"]["known_gaps"]
+            print(f"fill-rate-baseline.json 已写：fact_market_daily {len(baseline['fact_market_daily']['known_null_dates'])} 列，fact_stock_daily 已知缺口 {len(gaps)} 条")
+            for g in gaps:
+                print(f"- {g['trade_date']} {g['column']} {g['fill_pct']}% — {g['reason']}")
+            return 0
         if args.phase in {"data", "all"}:
             missing.extend(check_data(args.date, plan=args.plan))
         if args.phase in {"report", "all"}:

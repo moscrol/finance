@@ -38,7 +38,13 @@
    (a) 快照同步多请求 `f297`（行情自身交易日），与 `--trade-date` 不一致**拒写**（`SnapshotMisdated`；`--allow-misdated` 才放行且 source 标 `-misdated`）；
    (b) `qa_local_vs_fupanhui.py` 全历史扫「相邻日逐股相同 >50%」与「快照行写入时刻晚于下一交易日 09:30」，命中即 FAIL——
        **不能**按「`updated_at` 日期 ≠ `trade_date`」判：凌晨 / 周末补前一交易日是常态（07~08 月 8 天），那些行是对的；
-   (c) `check_daily_review_data` data 阶段比当日与前一交易日逐股相同比例，>5% 报缺。
+   (c) `check_daily_review_data` data 阶段比当日与前一交易日逐股相同比例，>5% 报缺；
+   (d) **逐列填充率闸（2026-09-08 评审补）**：前三层只看复制 / 错日，没有一层看空值——`fact_market_daily.sh_index_pct_chg`
+       08-17 为 NULL 两周无人知（事件定价丢 3 个锚点）、`fact_stock_daily` 2025-09-19 `pct_chg` 只有 79%。
+       `check_daily_review_data` data 阶段每次扫**全历史**：必填列只许在 `fill-rate-baseline.json` 钉住的日期为空，
+       个股 close / amount / pct_chg 逐日填充率 ≥ 99%，已知缺口带原因列在基线 `known_gaps`，再恶化 > 0.5 个点也报。
+       基线更新：`check_daily_review_data.py <date> --update-fill-rate-baseline`（旧缺口原因保留、新缺口标待查，改动进 git diff）。
+       洞补上了不用改基线（少一个空值日不报）。
    历史日一律走 mootdx `sync-stock-daily --start-date D --end-date D --refresh`（北交所 mootdx std 客户端不回，用东财 hist kline 临时脚本，见上表）。
 ⑥ **fupanhui 限流是突发触发**：`sync-sector-daily` 一步 403 请求/29 秒必炸；二次突发后 `retry-after=251318s`。模块化 + `sector-daily-local` + 成分 1 req/s 能活；429 期间不跑 `reconcile-sector-daily` / `verify_backfill.py` 的回源抽样。
 
