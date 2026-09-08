@@ -36,7 +36,14 @@
 
 ## 门禁
 
-（合入前在干净树补跑，读数回填到本节）
+干净树 `~/fwp-wt-river-window`、`.venv-workbench`、`env -u MARKET_FEATURE_STORE_DB`：
+
+| 分支尖 | ruff | pytest | `check_test_receipt` |
+|---|---|---|---|
+| `cb2146fa`（第一轮） | 0 | 22F / 8155P——21 条 `tests/test_river_range.py`（夹具表没有 `updated_at` 列，`range_aggregate` 新 SQL 选它即炸）+ 1 条 `test_ask_watchdog…`（并发跑门禁时的墙钟 flake，单跑绿） | — |
+| `aa4472df`（列存在性探测 + `market_stage` 绑定归一后） | 0 | **8178P / 0F / 76S / 1xfail**（939s，与另两条门禁并跑） | `--expect-revision HEAD` 可采信 |
+
+红集为空是判据；通过数不与其它树横向减法（各分支基线不同）。
 
 ## 未做 / 边界
 
