@@ -3152,6 +3152,10 @@ def cmd_observation_confirm(args: argparse.Namespace) -> int:
         knowledge_cutoff=draft.knowledge_cutoff if draft else None,
         user_id=us.user_id,
         status="confirmed",
+        # 从切片确认的剧本带着带读投影的哈希（工单 #34）；没有 --from-slice 的是用户手写，
+        # 没有投影可引用——登记时显式声明 user_authored，台账单列，而不是伪造一个哈希。
+        projection_hash=draft.projection_hash if draft else None,
+        model_id=draft.model_id if draft else None,
     )
     # late 判据用**交易日历**而不是自然日：周六补做周五的功课不该被判迟到。
     # 查不到日历（无库 / 老库）时 register 内部回落自然日——更早的截止线，安全方向。
@@ -3164,6 +3168,7 @@ def cmd_observation_confirm(args: argparse.Namespace) -> int:
             due=args.due,
             next_open=next_open,
             db_path=args.db_path,
+            user_authored=draft is None,
         )
     except observation_script.ObservationScriptRejected as exc:
         return _print_rejections(exc, args.json)

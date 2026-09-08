@@ -32,9 +32,18 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from intelligence.services import compliance_gate, observation_script
+from intelligence.services import compliance_gate, observation_script, river_projection
 
 ENV_FLAG = "FORESIGHT_GUIDED_READING"
+
+# 带读是投影的一个消费方（工单 #34 / 09-06 spec §4.5）：选什么、省什么、限制与缺口全部由
+# ``river_projection.project`` 决定并哈希，本模块只渲染。``task`` 是投影的输入之一——同一切片
+# 给不同任务投影得到不同哈希，是设计不是 bug。v0 不限块数：带读今天渲染全部对象，只在
+# 每对象显示键数上做渲染层的省略（不影响哈希）。
+PROJECTION_TASK = "guided_reading"
+PROJECTION_BUDGET: int | None = None
+# 数据面派生的骨架没有模型参与；台账要 model_id 时填这个，不填空——空会被当成「忘了」。
+DETERMINISTIC_MODEL_ID = "deterministic"
 
 # 「有历史」的判据台账。只要其中任何一条有内容，就是老用户 → 默认关。
 _HISTORY_LEDGERS = ("checkpoints_path", "judgments_path", "interactions_path")
@@ -58,10 +67,6 @@ _TRACK_ABANDON: dict[str, str] = {
     "judgment": "判断轨该实体无未到期的可证伪点",
 }
 
-# 每个对象最多摊开几个 payload 键：切片是给人读的，不是导出全量。
-_PAYLOAD_KEYS = 6
-
-
 @dataclass(frozen=True)
 class GuidedReading:
     as_of: str
@@ -73,6 +78,9 @@ class GuidedReading:
     limits: list[str] = field(default_factory=list)
     gaps: list[str] = field(default_factory=list)
     draft: observation_script.ObservationScript | None = None
+    # 这份带读是从哪一片投影渲染出来的。回放时用它重算投影、对账「当时看到了什么」。
+    projection_hash: str | None = None
+    omitted: dict[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -81,6 +89,8 @@ class GuidedReading:
             "entity_name": self.entity_name,
             "knowledge_cutoff": self.knowledge_cutoff,
             "pit_grade": self.pit_grade,
+            "projection_hash": self.projection_hash,
+            "omitted": self.omitted,
             "facts": self.facts,
             "limits": self.limits,
             "gaps": self.gaps,
@@ -124,52 +134,18 @@ def resolve_enabled(us: Any, *, override: bool | None = None) -> tuple[bool, str
 
 
 # --------------------------------------------------------------------------- #
-# 渲染
+# 构建：切片 → 投影 → 带读
 # --------------------------------------------------------------------------- #
-def _fact_line(obj: dict[str, Any]) -> str:
-    payload = obj.get("payload") or {}
-    keys = sorted(k for k in payload if payload[k] is not None)[:_PAYLOAD_KEYS]
-    body = "，".join(f"{k}={payload[k]}" for k in keys)
-    return f"{obj.get('object_type')}｜{body}｜ref={obj.get('ref')}｜hash={obj.get('source_hash')}"
-
-
-def _is_stock_node(obj: dict[str, Any]) -> bool:
-    """这个对象是不是「一只个股的一条记录」。
-
-    判据按**对象形状**，不按轨名：题材轨也会发个股涨停节点
-    （``fact_theme_limit_stock_daily``），个股轨更不用说。按轨名收边界，
-    下一个 provider 一接进来就漏。
-    """
-    payload = obj.get("payload") or {}
-    return bool(payload.get("stock_ts_code")) or compliance_gate.is_stock_entity(str(obj.get("ref") or ""))
-
-
-def _collapse_stock_nodes(objs: list[dict[str, Any]]) -> list[str]:
-    """个股级对象在带读里只出**计数与标签**，不出名单。
-
-    数据层把它们叫「节点」（``river._stock_track`` 原文：不是推荐名单），这在 river
-    那个查询面上成立——那是给操作者的数据出口。但带读是**小白产品面**：十条按成交额
-    降序、带涨幅的个股行渲染出来，读者看到的就是一张名单，无论我们管它叫什么。
-    边界得产品面自己收住，不能指望读者理解「这不是推荐」。明细留在 river 切片里。
-    """
-    labels: dict[str, int] = {}
-    for obj in objs:
-        payload = obj.get("payload") or {}
-        for key in ("high_status_label", "limit_status", "up_stat"):
-            label = str(payload.get(key) or "").strip()
-            if label:
-                labels[label] = labels.get(label, 0) + 1
-    tail = "，".join(f"{k}×{v}" for k, v in sorted(labels.items())) or "无特征标签"
-    return [f"个股级节点 {len(objs)} 条（{tail}）；明细见 river 切片，带读不出名单"]
-
-
-def _fact_lines(objs: list[dict[str, Any]]) -> list[str]:
-    """非个股级对象逐条摊开；个股级对象折叠成一行计数。"""
-    stock_nodes = [o for o in objs if _is_stock_node(o)]
-    lines = [_fact_line(o) for o in objs if not _is_stock_node(o)]
-    if stock_nodes:
-        lines += _collapse_stock_nodes(stock_nodes)
-    return lines
+def project_slice(
+    slice_dict: dict[str, Any], *, framework_version: str | None = None
+) -> river_projection.ContextProjection:
+    """带读用的投影。参数钉死（task / budget），保证同一切片两次得到同一个哈希。"""
+    return river_projection.project(
+        slice_dict,
+        framework_version=framework_version,
+        task=PROJECTION_TASK,
+        budget=PROJECTION_BUDGET,
+    )
 
 
 def build(
@@ -182,64 +158,51 @@ def build(
 
     入参是 ``RiverSlice.to_dict()`` 的形状，不直接吃 ``RiverSlice``——带读要能被
     回放器喂历史 JSON，绑死对象会把「从收据重建当日带读」这条路堵死。
+
+    选什么、省什么、限制与缺口由投影决定；本函数只把投影块按轨归拢成可渲染的行。
     """
-    tracks = slice_dict.get("tracks") or {}
-    facts: dict[str, list[str]] = {}
-    gaps: list[str] = []
-    present: list[str] = []
-
-    for track in sorted(tracks):
-        value = tracks[track]
-        if isinstance(value, dict) and value.get("gap"):
-            detail = str(value.get("detail") or "").strip()
-            gaps.append(f"{track}：{value.get('reason')}" + (f"（{detail}）" if detail else ""))
-            continue
-        objs = value if isinstance(value, list) else []
-        if not objs:
-            gaps.append(f"{track}：empty（读取面返回空列表，按缺口处理，不当作「没变化」）")
-            continue
-        facts[track] = _fact_lines(objs)
-        present.append(track)
-
-    pit_grade = str(slice_dict.get("pit_grade") or "trade_date_only")
-    limits: list[str] = []
-    if slice_dict.get("hindsight"):
-        limits.append(
-            "hindsight=true：本片的 knowledge_cutoff 晚于 as_of，看得见后来才被记录的对象。"
-            "只可人工复核；由它派生的观察剧本不会进入方法校准"
-        )
-    if pit_grade != "strict":
-        limits.append(
-            f"pit_grade={pit_grade}：切片里有对象缺 recorded_at，可用于当日带读，"
-            "但不能进回放与方法校准"
-        )
     # 缺省从切片自己读：调用方漏传就丢掉换源警告，是「限定语被静默吃掉」的老形状。
-    if alias_applied if alias_applied is not None else bool(slice_dict.get("alias_applied")):
-        limits.append("alias_applied=true：实体身份跨供应商归一过，跨换源日的数值不可直接比较")
-    if not present:
-        limits.append("六轨全缺：本日无可读对象，带读只报缺口")
+    # 显式传了就以显式为准——投影读的是切片，所以这里把显式值写回切片副本再投影。
+    source = dict(slice_dict)
+    if alias_applied is not None:
+        source["alias_applied"] = bool(alias_applied)
+    cp = project_slice(source, framework_version=framework_version)
 
-    draft = _draft_script(slice_dict, present, framework_version=framework_version) if present else None
+    facts: dict[str, list[str]] = {}
+    for block in cp.blocks:
+        facts.setdefault(block.track, []).extend(line for line in block.rendered_text.split("\n") if line)
+    present = [t for t in facts]
+
+    draft = _draft_script(source, present, cp, framework_version=framework_version) if present else None
     return GuidedReading(
-        as_of=str(slice_dict.get("as_of") or ""),
-        entity_id=str(slice_dict.get("entity_id") or ""),
-        entity_name=str(slice_dict.get("entity_name") or ""),
-        knowledge_cutoff=str(slice_dict.get("knowledge_cutoff") or ""),
-        pit_grade=pit_grade,
+        as_of=str(source.get("as_of") or ""),
+        entity_id=str(source.get("entity_id") or ""),
+        entity_name=str(source.get("entity_name") or ""),
+        knowledge_cutoff=str(source.get("knowledge_cutoff") or ""),
+        pit_grade=str(source.get("pit_grade") or "trade_date_only"),
         facts=facts,
-        limits=limits,
-        gaps=gaps,
+        limits=list(cp.limits),
+        gaps=list(cp.gaps),
         draft=draft,
+        projection_hash=cp.projection_hash,
+        omitted=dict(cp.omitted),
     )
 
 
 def _draft_script(
-    slice_dict: dict[str, Any], present: list[str], *, framework_version: str | None
+    slice_dict: dict[str, Any],
+    present: list[str],
+    cp: river_projection.ContextProjection,
+    *,
+    framework_version: str | None,
 ) -> observation_script.ObservationScript:
     """按「哪几条轨读得出来」生成剧本骨架，状态 ``drafted``。
 
     骨架不是判读：变量与放弃条件只说「哪条轨的什么对象要复看」，不说该怎么做。
     用户确认前它没有任何效力——``drafted`` 不进回检队列、不进校准。
+
+    ``evidence_refs`` 取**投影选中的** ref 而不是切片里的全部 ref：骨架引用的证据就是
+    读者当时看到的那些，两者一旦分叉，``projection_hash`` 对账就对不上。
     """
     entity_id = str(slice_dict.get("entity_id") or "")
     scope = "index" if entity_id.upper().startswith("SH0") or entity_id in {"上证指数", "全市场"} else "theme"
@@ -251,12 +214,7 @@ def _draft_script(
         entity_ids=[slice_dict.get("entity_name") or entity_id],
         variables=variables,
         downgrade_or_abandon_conditions=abandon,
-        evidence_refs=[
-            o.get("ref")
-            for track in present
-            for o in (slice_dict.get("tracks") or {}).get(track, [])
-            if isinstance(o, dict) and o.get("ref")
-        ],
+        evidence_refs=list(cp.selected_refs),
         knowledge_cutoff=str(slice_dict.get("knowledge_cutoff") or "") or None,
         framework_version=framework_version,
         scope_note="由数据面派生的骨架，待用户改写；未经授课框架判读",
@@ -264,29 +222,37 @@ def _draft_script(
         # 从切片继承：事后视角的切片派生出的剧本，同样不得进校准（spec §4.1）。
         # 这一跳断了，下游 checkpoint 与 calibrate 就再也看不到这个事实。
         hindsight=bool(slice_dict.get("hindsight")),
+        projection_hash=cp.projection_hash,
+        model_id=DETERMINISTIC_MODEL_ID,
     )
 
 
 def render(gr: GuidedReading) -> str:
-    """人类可读带读。段序固定：事实 → 限制 → 缺口 → 待确认剧本。"""
+    """人类可读带读。段序固定：限制 → 缺口 → 事实 → 判读 → 待确认剧本。
+
+    限制与缺口排在事实之前是 09-06 spec §4.5 第 2 条：缺口是判读的边界条件，不是脚注。
+    """
     lines = [
         f"# 今日带读｜{gr.entity_name or gr.entity_id}｜{gr.as_of}",
-        f"（knowledge_cutoff={gr.knowledge_cutoff}｜pit_grade={gr.pit_grade}）",
+        f"（knowledge_cutoff={gr.knowledge_cutoff}｜pit_grade={gr.pit_grade}｜projection={gr.projection_hash or 'none'}）",
         "",
-        "## 事实（逐轨，只搬不解释）",
+        "## 限制",
     ]
-    if gr.facts:
-        for track in sorted(gr.facts):
-            lines.append(f"- **{track}**")
-            lines += [f"  - {line}" for line in gr.facts[track]]
-    else:
-        lines.append("- （无）")
-
-    lines += ["", "## 判读", "- 待授课框架 v0（G-01）落地；母本由人写，此处不生成推断。"]
-    lines += ["", "## 限制"]
     lines += [f"- {x}" for x in gr.limits] or ["- （无）"]
     lines += ["", "## 缺口（缺轨不用别的轨补）"]
     lines += [f"- {x}" for x in gr.gaps] or ["- （无）"]
+
+    lines += ["", "## 事实（逐轨，只搬不解释；轨序 = 盘面 → 题材 → 舆论 → 资金 → 个股 → 判断）"]
+    if gr.facts:
+        for track, fact_lines in gr.facts.items():
+            lines.append(f"- **{track}**")
+            lines += [f"  - {line}" for line in fact_lines]
+    else:
+        lines.append("- （无）")
+    if gr.omitted:
+        lines.append("- 未进上下文（按块整体省略，不截断）：" + "，".join(f"{t}×{n}" for t, n in gr.omitted.items()))
+
+    lines += ["", "## 判读", "- 待授课框架 v0（G-01）落地；母本由人写，此处不生成推断。"]
 
     lines += ["", "## 明天要看什么（待你确认 / 修改 / 跳过）"]
     if gr.draft:

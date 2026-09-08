@@ -32,6 +32,9 @@ def _script(**over) -> osc.ObservationScript:
         variables=["题材轨：题材所处阶段是否推进"],
         downgrade_or_abandon_conditions=["题材轨阶段标签回退或转为缺口"],
         recorded_at=IN_TIME,
+        # 夹具剧本视为从切片派生：带投影哈希（工单 #34 门禁；用户手写的另测 user_authored）。
+        projection_hash="cp:fixture000000001",
+        model_id="deterministic",
     )
     base.update(over)
     return osc.make(**base)

@@ -134,6 +134,11 @@ class ObservationScript:
     # 标记必须逐跳传下去：切片 → 带读草稿 → 剧本 → checkpoint → calibrate，
     # 中间断在哪一跳，最后那道门就形同虚设。
     hindsight: bool = False
+    # 生成这条剧本时读者 / 模型看到的上下文投影（工单 #34；09-06 spec §4.2 / §4.5）。
+    # agent 派生的剧本必带；用户在产品外手写的可以为空，登记时显式声明 ``user_authored``，
+    # 台账单列——「忘了传」与「本来就没有」必须分得开。
+    projection_hash: str | None = None
+    model_id: str | None = None
 
     @property
     def text_fields(self) -> dict[str, tuple[str, ...]]:
@@ -186,6 +191,8 @@ def make(
     status: str = "drafted",
     recorded_at: str | None = None,
     hindsight: bool = False,
+    projection_hash: str | None = None,
+    model_id: str | None = None,
 ) -> ObservationScript:
     """构造对象（只规整、不校验）。校验走 ``validate`` / 登记走 ``register``。"""
     return ObservationScript(
@@ -205,6 +212,8 @@ def make(
         status=str(status or "drafted").strip(),
         recorded_at=recorded_at,
         hindsight=bool(hindsight),
+        projection_hash=(str(projection_hash).strip() or None) if projection_hash else None,
+        model_id=(str(model_id).strip() or None) if model_id else None,
     )
 
 
@@ -495,6 +504,10 @@ def repoint_due(
         framework_version=script.framework_version,
         object_type=OBJECT_TYPE,
         hindsight=script.hindsight,
+        # 改点不是新判断：沿用原记录的投影哈希与「用户手写」声明，不重新要一份。
+        projection_hash=script.projection_hash,
+        model_id=script.model_id,
+        user_authored=str(record.get("projection_hash_missing") or "") == checkpoints_svc.USER_AUTHORED,
     )
     checkpoints_svc.record_verdict(
         Path(verdicts_path),
@@ -527,11 +540,16 @@ def register(
     recorded_at: str | None = None,
     session_id: str | None = None,
     db_path: str | Path | None = None,
+    user_authored: bool = False,
 ) -> tuple[Path, dict[str, Any]]:
     """登记剧本，返回 ``(path, record)``。硬门不过直接抛 ``ObservationScriptRejected``。
 
     只有 ``status=confirmed`` 且不 late 时才登记 checkpoint——草稿和跳过不该进回检队列，
     late 的不该进校准。登记成功后 ``checkpoint_id`` 回写进剧本记录，两条台账可互相追溯。
+
+    ``user_authored``：剧本是用户在产品外手写的、没有对应的上下文投影。只有这样声明了，
+    ``projection_hash`` 才允许为空（台账单列）；否则 agent 派生的剧本缺哈希是硬故障，
+    ``register_checkpoint`` 会拒收（工单 #34）。
     """
     stamped = ObservationScript(
         **{
@@ -577,6 +595,9 @@ def register(
             object_type=OBJECT_TYPE,
             hindsight=stamped.hindsight,
             session_id=session_id,
+            projection_hash=stamped.projection_hash,
+            model_id=stamped.model_id,
+            user_authored=user_authored,
         )
         checkpoint_id = str(ck["id"])
 
@@ -591,6 +612,8 @@ def register(
             "object_type": OBJECT_TYPE,
         }
     )
+    if stamped.projection_hash is None and user_authored:
+        record["projection_hash_missing"] = checkpoints_svc.USER_AUTHORED
     p = Path(path).expanduser()
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("a", encoding="utf-8") as fh:
