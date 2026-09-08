@@ -148,45 +148,44 @@
         1.9559
       ]
     },
-    "二次探底": {
+    "缩量右底": {
       "amount_vs_ma20_pct": [
-        84.1255,
-        100.2184
+        93.2866,
+        110.9749
       ],
       "stock_ma10_deviation_median": [
-        -0.6921,
-        0.7185
+        -1.9068,
+        0.2613
       ],
       "stock_up_ratio_ma5_pct": [
-        47.4541,
-        57.7335
+        44.4044,
+        47.2321
       ],
       "sh_index_pct_chg_10d": [
-        -2.6407,
-        0.5845
+        -1.7417,
+        -0.3534
       ],
       "ma_episode_pct_chg": [
-        -0.5057,
-        2.9349
+        -0.8943,
+        -0.5624
       ],
       "src.sh_deviation_pct": [
-        -0.31,
-        0.69
+        -0.68,
+        -0.31
       ],
       "new_high_1y_count": [
         65.0,
         86.0
       ],
       "rps5_outside_top3_pct": [
-        70.0,
-        100.0
+        40.0,
+        80.0
       ],
       "limit_premium_ma5_pct": [
-        1.4373,
-        3.0756
+        1.25,
+        2.0458
       ]
     },
-    "缩量右底": {},
     "共建主线": {
       "amount_vs_ma20_pct": [
         96.6578,
@@ -339,14 +338,10 @@
   "transition_graph": {
     "左底向下": [
       "左底向上",
-      "二次探底"
+      "缩量右底"
     ],
     "左底向上": [
-      "二次探底"
-    ],
-    "二次探底": [
-      "缩量右底",
-      "共建主线"
+      "缩量右底"
     ],
     "缩量右底": [
       "共建主线"
@@ -370,19 +365,18 @@
   "stage_bands_derived_from": {
     "source": "fupanhui.reviews_overview",
     "train_until": "2025-12-31",
-    "reference_days_used": 237,
+    "reference_days_used": 225,
     "days_per_stage": {
       "主流主升": 16,
       "主流主升2.0": 20,
-      "二次探底": 18,
       "共建主线": 18,
       "左底向上": 12,
       "左底向下": 24,
-      "缩量右底": 2,
+      "缩量右底": 8,
       "高位震荡": 127
     },
     "days_gated_out": {
-      "缩量右底": 6
+      "缩量右底": 18
     },
     "gates": {
       "缩量右底": "above_week_ma is False"
@@ -404,25 +398,21 @@
       "limit_premium_ma5_pct"
     ],
     "labels_framework_version": [
-      "tf-v0.2+3ebd57e4"
+      "tf-v0.2+d9b223e1"
     ],
-    "labels_canonical_hash": "5097a3a2fe702e44642cf6ff23990da9486cbb1800d0be1a27d5d6b2a2082e76",
+    "labels_canonical_hash": "f973501ac5c5b7e8ccd9bc298ff2dee00a1ce66b4135c5a9d57ff9b6312c4c96",
     "labels_source_fingerprint": "fa2e2096f7d4a066125286173f243fd4d4879f02477f85456458c5067a1323a8",
     "labels_source_max_trade_date": "2026-09-03",
     "transition_counts": {
       "左底向下": {
-        "二次探底": 1,
-        "左底向上": 3
+        "左底向上": 3,
+        "缩量右底": 1
       },
       "左底向上": {
-        "二次探底": 3
-      },
-      "二次探底": {
-        "共建主线": 1,
         "缩量右底": 3
       },
       "缩量右底": {
-        "共建主线": 3
+        "共建主线": 4
       },
       "共建主线": {
         "主流主升": 3,
@@ -441,5 +431,7 @@
       }
     },
     "method": "nearest-rank quantiles of each view on the platform's stage days up to train_until; edges = stage moves observed in the same period"
-  }
+  },
+  "upgrade_entry_mode": "day",
+  "upgrade_process_continuing": false
 }

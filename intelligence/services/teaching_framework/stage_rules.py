@@ -16,30 +16,31 @@ from __future__ import annotations
 
 from typing import Any, Callable, Iterable, Mapping
 
+# 第二十一段（09-08）：二次探底与缩量右底「应该是一个东西」——赚钱/亏钱效应上两两 η² 只有 0.060，与主升 vs 2.0 同级。
+# stage_coarse 七段；二次探底降为 stage_fine（回踩下穿当日）。平台仍可能标「二次探底」，折到缩量右底。
 STAGES = (
     "左底向下",
     "左底向上",
-    "二次探底",
     "缩量右底",
     "共建主线",
     "主流主升",
     "主流主升2.0",
     "高位震荡",
 )
-# 周期的下半场：从这四段进入共建主线才算 turn_up。
-BOTTOM_STAGES = ("左底向下", "左底向上", "二次探底", "缩量右底")
+# 周期的下半场：从这三段进入共建主线才算 turn_up。
+BOTTOM_STAGES = ("左底向下", "左底向上", "缩量右底")
 
-# 复盘会内层阶段 → 本框架八段。除「承接盘反复 = 高位震荡」（创始人 09-07 第十段）外同名。
+# 复盘会内层阶段 → 本框架粗段。承接盘反复 = 高位震荡（第十段）；二次探底 = 缩量右底（第二十一段）。
 REFERENCE_STAGE_ALIASES: dict[str, str] = {stage: stage for stage in STAGES}
 REFERENCE_STAGE_ALIASES["承接盘反复"] = "高位震荡"
+REFERENCE_STAGE_ALIASES["二次探底"] = "缩量右底"
 
 # Stage-to-stage moves observed in the platform sequence 2024-11-15 → 2025-10-31 (the default
 # calibration period); ``calibrate-stages`` rewrites this from the reference table and the
 # parameter file wins whenever it carries ``transition_graph``.
 DEFAULT_TRANSITIONS: dict[str, tuple[str, ...]] = {
-    "左底向下": ("左底向上", "二次探底"),
-    "左底向上": ("二次探底",),
-    "二次探底": ("缩量右底", "共建主线"),
+    "左底向下": ("左底向上", "缩量右底"),
+    "左底向上": ("缩量右底",),
     "缩量右底": ("共建主线",),
     "共建主线": ("主流主升", "左底向下"),
     "主流主升": ("高位震荡",),
@@ -76,13 +77,14 @@ BAND_VIEWS: tuple[tuple[str, str], ...] = (
 ENTRY_PREDICATES: dict[str, tuple[str, ...]] = {
     "左底向下": ("E:first_cross_below",),
     "左底向上": ("E:oversold",),
-    "二次探底": ("E:retest_cross_below",),
-    "缩量右底": (),
+    # 第二十一段：回踩下穿是缩量右底（粗段）的进入；当日 fine = 二次探底。
+    "缩量右底": ("E:retest_cross_below",),
     "共建主线": ("E:breakout_volume_within_window",),
     # 第十九段（09-08）「共建主线到主流主升，就是成交占比不断放大，量能也逐步放大的过程……不是按日期来看，单日可能小缩量」：
     # 来源是共建主线、成交占比前三的 n 日均在升、成交额的 n 日均在升（窗口均值比窗口均值，单日缩量不翻它）。
     "主流主升": ("E:share_and_volume_trend_up",),
     # 第十一段「升级 2.0，大概率是进一步放量指数进一步走强」：高位震荡（承接盘反复）之后的双量日 + 指数新高。
+    # 第二十一段「2.0 也是看一段」：过程口径（upgrade_entry_mode / upgrade_process_continuing）是参数可选项，默认仍是单日。
     "主流主升2.0": ("E:upgrade_double_volume_new_high",),
     "高位震荡": ("E:overheated",),
 }
@@ -172,9 +174,13 @@ def stage_bands(params: Mapping[str, Any] | None) -> dict[str, dict[str, tuple[f
 def stage_predicates(params: Mapping[str, Any] | None = None) -> dict[str, tuple[str, ...]]:
     """Every predicate each stage can score on: the denominator of the confidence tier."""
     bands = stage_bands(params)
+    extra: dict[str, tuple[str, ...]] = {}
+    if (params or {}).get("upgrade_process_continuing"):
+        extra["主流主升2.0"] = ("H:share_and_volume_trend_up",)
     return {
         stage: ENTRY_PREDICATES[stage]
         + CONTINUING_PREDICATES.get(stage, ())
+        + extra.get(stage, ())
         + tuple(f"H:in_band:{view}" for view in bands[stage])
         for stage in STAGES
     }
@@ -238,7 +244,7 @@ def predicate_hits(
     if (in_first_phase and _left_down_volume_ok(v, entry["volume"])) or gap_through_ma:
         hits.append(("左底向下", "E:first_cross_below"))
     if v("cross_below_kind") == "retest":
-        hits.append(("二次探底", "E:retest_cross_below"))
+        hits.append(("缩量右底", "E:retest_cross_below"))
     # 词表「偏离度接近 −2.5 更容易进入左底向上」；「接近 +1.5 更容易进入高位震荡」。
     if v("deviation_band") == "oversold":
         hits.append(("左底向上", "E:oversold"))
@@ -257,10 +263,22 @@ def predicate_hits(
     # 第十一段「升级 2.0，大概率是进一步放量指数进一步走强」：来源是高位震荡（承接盘反复），当日是双量日
     # （每日复盘口径：环比 > 10% 且量能比 > 120），且收盘创前 n 日新高；n 是 B 类候选（upgrade_new_high_window）。
     upgrade_window = int((params or {}).get("upgrade_new_high_window", DEFAULT_UPGRADE_NEW_HIGH_WINDOW))
-    if origin == UPGRADE_ORIGIN and v("double_volume_day") is True and v(f"index_new_high_{upgrade_window}d") is True:
-        hits.append(("主流主升2.0", "E:upgrade_double_volume_new_high"))
-    # 第十九段：成交占比与量能的 n 日均都在升（过程，不是单日）。从共建主线来算进入；已在主升里算持续。
     trend_up = v("mainline_share_trend_up") is True and v("volume_trend_up") is True
+    new_high = v(f"index_new_high_{upgrade_window}d") is True
+    # 2.0 的起点（第二十一段「2.0 也是看一段吧」，B 类候选 upgrade_entry_mode）：day = 双量日 + 新高那一天（第十一段原话的
+    # 单日读法）；process = 成交占比与量能的窗口均值都在升 + 新高（看一段）；either = 两者任一。来源都必须是高位震荡。
+    upgrade_mode = str((params or {}).get("upgrade_entry_mode", "day"))
+    day_trigger = v("double_volume_day") is True and new_high
+    process_trigger = trend_up and new_high
+    if origin == UPGRADE_ORIGIN and (
+        (upgrade_mode == "day" and day_trigger) or (upgrade_mode == "process" and process_trigger)
+        or (upgrade_mode == "either" and (day_trigger or process_trigger))
+    ):
+        hits.append(("主流主升2.0", "E:upgrade_double_volume_new_high"))
+    # 「升级往往伴随放量和主流板块的放量」（第十九段）：过程在持续也是 2.0 的持续证据（参数 upgrade_process_continuing）。
+    if trend_up and (params or {}).get("upgrade_process_continuing"):
+        hits.append(("主流主升2.0", "H:share_and_volume_trend_up"))
+    # 第十九段：成交占比与量能的 n 日均都在升（过程，不是单日）。从共建主线来算进入；已在主升里算持续。
     if trend_up and origin == MAIN_RISE_ORIGIN:
         hits.append(("主流主升", "E:share_and_volume_trend_up"))
     if trend_up:
@@ -356,11 +374,14 @@ def stage_fine(
     previous: str | None = None,
     params: Mapping[str, Any] | None = None,
 ) -> str:
-    """Fine stage: the eight stages are already the platform's inner vocabulary; 见顶 marks the entry day of 高位震荡."""
+    """Fine stage: 见顶 marks the entry day of 高位震荡；二次探底 marks the retest-cross day inside 缩量右底."""
     if coarse not in STAGES:
         return "unassigned"
     if coarse == "高位震荡" and previous != coarse:
         return "见顶"
+    # 第二十一段：二次探底是缩量右底的前段细标——回踩下穿当日。
+    if coarse == "缩量右底" and flags.get("cross_below_kind") == "retest":
+        return "二次探底"
     return coarse
 
 
