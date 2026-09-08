@@ -26,6 +26,10 @@ SOURCE_PASSTHROUGH = (
     "sh_index_close",
     "limit_up",
     "advancers",
+    # 创始人 09-08：校准的靶子看赚钱 / 亏钱效应和资金——「成交占比前三、加权涨幅」两个供应商原值随行写出，
+    # 供 stage_separation 读数用；此前只在派生旗标里用到，没有单独落列。
+    "top3_industry_ratio",
+    "strength_avg_pct",
 )
 SOURCE_PREFIX = "src."
 
@@ -268,6 +272,17 @@ def compute_flags(
             int(p.get("mainline_amount_stepping_up_days", 3)),
             rows,
             i,
+        )
+        # 创始人 09-08 第十九段：「共建主线到主流主升，就是成交占比不断放大，量能也逐步放大的过程，不是按日期看，
+        # 一个阶段中单日的成交可能会有小缩量」→ 用窗口均值比窗口均值（近 n 日均 vs 再前 n 日均），单日缩量不翻它。
+        # 三条：成交占比前三的均值在升、成交额的均值在升、两者相乘（主流板块自己的成交额）的均值在升。n 是 B 类候选。
+        trend_n = int(p.get("upgrade_trend_window", UPGRADE_TREND_WINDOW))
+        rec["mainline_share_trend_up"] = _window_mean_up(rows, i, trend_n, cal_index, lambda r: _num(r.get("top3_industry_ratio")))
+        rec["volume_trend_up"] = _window_mean_up(rows, i, trend_n, cal_index, lambda r: _num(r.get("total_amount")))
+        rec["mainline_amount_trend_up"] = _window_mean_up(
+            rows, i, trend_n, cal_index,
+            lambda r: (None if _num(r.get("total_amount")) is None or _num(r.get("top3_industry_ratio")) is None
+                       else _num(r.get("total_amount")) * _num(r.get("top3_industry_ratio"))),
         )
         # B scalars
         day_stocks = stock_by_day.get(d.isoformat(), ()) if d is not None else ()
@@ -576,7 +591,49 @@ SECTOR_FIELDS = (
     # 区间涨幅高标的门槛：当日 20 / 60 日涨幅榜第 top 名的涨幅（第八段「涨幅多少算多，是基于历史行情去对比的」）。
     ("range_leader_entry_gain_20d_pct", "range_leader_entry_gain_20d_pct"),
     ("range_leader_entry_gain_60d_pct", "range_leader_entry_gain_60d_pct"),
+    # 板块涨幅（创始人 09-08 校准靶子的一项）：当日全部板块涨幅的中位数与上涨比例。只写出。
+    ("sector_pct_chg_median", "sector_pct_chg_median"),
+    ("sector_up_ratio_pct", "sector_up_ratio_pct"),
+    # 资金面（第十五段）市场级视角，全部只写出：龙虎榜净买入（亿 / 占全市场成交‰ / 买盘卖盘比，各带 5 日均）、
+    # 涨停封单（中位万元 / 封单占流通市值中位 / 厚封单占比）、昨日涨停股竞价（涨幅中位 / 为正比例 / 竞价成交额）。
+    # 先量（骨架 §8.15）：只有龙虎榜的两条 5 日均在训练 / 验证两期都把底部与顶部分开，进带区的实验读数见同节。
+    ("dragon_count", "dragon_count"),
+    ("dragon_net_amount", "dragon_net_amount"),
+    ("dragon_net_amount_ratio_pm", "dragon_net_amount_ratio_pm"),
+    ("dragon_net_amount_ratio_pm_ma5", "dragon_net_amount_ratio_pm_ma5"),
+    ("dragon_buy_sell_ratio", "dragon_buy_sell_ratio"),
+    ("dragon_buy_sell_ratio_ma5", "dragon_buy_sell_ratio_ma5"),
+    ("limit_seal_amount_median_wan", "limit_seal_amount_median_wan"),
+    ("limit_seal_mv_ratio_median", "limit_seal_mv_ratio_median"),
+    ("limit_thick_seal_share_pct", "limit_thick_seal_share_pct"),
+    ("auction_zt_pct_median", "auction_zt_pct_median"),
+    ("auction_zt_positive_share_pct", "auction_zt_positive_share_pct"),
+    ("auction_zt_amount", "auction_zt_amount"),
+    # 消息面（第十六段）：知识库卖方观点事件聚成的市场级叙事读数（``teaching_framework/narrative.py``），只写出。
+    # 没给知识库 → 缺口 narrative_source_absent；源断更 → narrative_stale；都不是 0。
+    ("narrative_events", "narrative_events"),
+    ("narrative_events_ratio_ma20_pct", "narrative_events_ratio_ma20_pct"),
+    ("narrative_concepts", "narrative_concepts"),
+    ("narrative_new_concepts", "narrative_new_concepts"),
+    ("narrative_new_concept_share_pct", "narrative_new_concept_share_pct"),
+    ("narrative_hard_share_pct", "narrative_hard_share_pct"),
+    ("narrative_bull_share_pct", "narrative_bull_share_pct"),
+    ("narrative_top3_share_pct", "narrative_top3_share_pct"),
+    ("narrative_cover_rps5_pct", "narrative_cover_rps5_pct"),
+    # 消息面第二个源：晨汇 Tier 投影（知识库 ``briefing-tier-events.jsonl``）。Tier 1 / 2 / 3 条目数、盘面共振条数
+    # （只有带盘面输入的三维晨汇才有数，二维晨汇记缺口 briefing_no_market_input——不可知不是 0）、维度数、
+    # 当日赚钱效应板块点名了多少比例的 Tier 1 / 2 主题（精确匹配）、晨汇写成滞后天数（回填批次晚数周）。
+    ("briefing_tier1_items", "briefing_tier1_items"),
+    ("briefing_tier2_items", "briefing_tier2_items"),
+    ("briefing_tier3_items", "briefing_tier3_items"),
+    ("briefing_market_confirmed", "briefing_market_confirmed"),
+    ("briefing_dimensions", "briefing_dimensions"),
+    ("briefing_hit_rps5_pct", "briefing_hit_rps5_pct"),
+    ("briefing_lag_days", "briefing_lag_days"),
 )
+
+# 每个叙事源自己的缺口键：字段 NULL 时先看源级原因（未接知识库 / 断更 / 当日无晨汇），再退回 ``<field>_null``。
+_SOURCE_GAP_KEYS = (("narrative_", "narrative_gap"), ("briefing_", "briefing_gap"))
 
 
 def _sector_scalars(row: Mapping[str, Any] | None) -> list[tuple[str, float | None, str | None]]:
@@ -587,7 +644,18 @@ def _sector_scalars(row: Mapping[str, Any] | None) -> list[tuple[str, float | No
             out.append((label, None, "sector_rows_absent"))
             continue
         value = _num(row.get(field))
-        out.append((label, None, f"{field}_null") if value is None else (label, round(value, SCALAR_DECIMALS), None))
+        if value is None:
+            reason = f"{field}_null"
+            for prefix, gap_key in _SOURCE_GAP_KEYS:
+                if field.startswith(prefix) and row.get(gap_key):
+                    reason = str(row[gap_key])
+            if field == "briefing_market_confirmed" and row.get("briefing_dimensions") == 2:
+                reason = "briefing_no_market_input"
+            out.append((label, None, reason))
+        else:
+            rounded = round(value, SCALAR_DECIMALS)
+            # -0.0 → 0.0：并行 MEDIAN 对同样的输入可能给出任一符号的零，写库前归一，免得两次重建哈希不同。
+            out.append((label, 0.0 if rounded == 0 else rounded, None))
     return out
 
 
@@ -849,6 +917,29 @@ def _vendor_rising(by_day, d, n, rows, i):
             return None
         points.append(sum(vals))
     return all(a < b for a, b in zip(points, points[1:]))
+
+
+UPGRADE_TREND_WINDOW = 5
+
+
+def _window_mean_up(rows, i, n, cal_index, value_of) -> bool | None:
+    """Mean of ``value_of`` over the last ``n`` trading days vs the ``n`` before them — a process, not a day.
+
+    Both windows must be calendar-contiguous and fully populated (2n consecutive trading days with a value);
+    otherwise None.  A single shrinking day inside a rising window does not flip it (创始人 09-08：「单日的成交可能会有小缩量」).
+    """
+    if i < 2 * n - 1:
+        return None
+    if cal_index is not None:
+        first = cal_index.get(_date(rows[i - 2 * n + 1].get("trade_date")))
+        last = cal_index.get(_date(rows[i].get("trade_date")))
+        if first is None or last is None or last - first != 2 * n - 1:
+            return None
+    recent = [value_of(rows[j]) for j in range(i - n + 1, i + 1)]
+    before = [value_of(rows[j]) for j in range(i - 2 * n + 1, i - n + 1)]
+    if any(v is None for v in recent) or any(v is None for v in before):
+        return None
+    return sum(recent) / n > sum(before) / n
 
 
 def _rising_top3_streak(rows, i, n, cal_index):

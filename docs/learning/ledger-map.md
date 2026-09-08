@@ -21,6 +21,7 @@
 | 晨汇原料 | 知识库仓 `wiki/raw/briefings/<date>/` | 原文 | morning-briefing | 是 | — |
 | 卖方原文 | 知识库仓 `wiki/raw/sellside/` | md/pdf 转写 | material-router（表定）/ 近月实写 sellside-coverage-cross | 是 | — |
 | 卖方观点事件 | 知识库仓 `wiki/raw/theme-radar/opinion-store/opinion-events.jsonl` | JSONL | opinion-cross | 是 | `复盘/winrate/*.html`（不提交） |
+| 晨汇 Tier 事件（晨汇正文 Tier 1 / 2 / 3 条目的确定性投影：维度 / 是否盘面共振 / 主题 / 信号 / 映射标的 / 双链 / 材料日 / 最早可知日 / 写成日；一条条目一行，全量重建、可复现） | 知识库仓 `wiki/raw/theme-radar/opinion-store/briefing-tier-events.jsonl` | JSONL | 知识库 `skills/morning-briefing/scripts/extract_tier_events.py`（morning-briefing Stage 4.5；`--check` 作收尾门禁） | 是 | 金融仓 `build-labels --kb-wiki` → `tf.briefing_*` / 河对象 `teaching_briefing` / 带读「消息面」一行 |
 | 机构胜率 | `~/kb_work/winrate_cache/` + `~/kb_work/winrate/` | md | refresh_winrate | 仓外 | 同上 |
 | 每日运营总账 | `build_daily_ops_ledger.py` 输出 | JSON | 该脚本 | 生成物 | cockpit |
 | 工作台 Run | `intelligence/users/<id>/runs/<run_id>/run.json` + `trace.jsonl` | JSON/JSONL | `run_store.py` | 否（用户态） | Workbench UI（协议见 `docs/superpowers/plans/2026-07-08-run-protocol.md`） |

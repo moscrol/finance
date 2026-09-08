@@ -7,7 +7,7 @@ import hashlib
 import json
 import sys
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -263,6 +263,14 @@ rle AS (
            (SELECT g FROM rl20 WHERE rl20.trade_date = cal.trade_date AND rn = __RANGE_TOP__) AS range_leader_entry_gain_20d_pct,
            (SELECT g FROM rl60 WHERE rl60.trade_date = cal.trade_date AND rn = __RANGE_TOP__) AS range_leader_entry_gain_60d_pct
     FROM cal
+),
+-- 板块涨幅（创始人 09-08：校准靶子里的「板块涨幅」；骨架 §1.5 那条「板块涨幅中位数要不要建」由此落地）：
+-- 当日全部有行板块涨幅的中位数与上涨比例。MEDIAN 与顺序无关，不会像并行 AVG 那样翻末位。
+sp AS (
+    SELECT trade_date, MEDIAN(pct_chg) AS sector_pct_chg_median,
+           100.0 * SUM(CASE WHEN pct_chg > 0 THEN 1 ELSE 0 END) / COUNT(*) AS sector_up_ratio_pct
+    FROM fact_sector_daily WHERE pct_chg IS NOT NULL AND pct_chg > -100
+    GROUP BY trade_date
 )
 SELECT cal.trade_date, nh.new_high_1y_count, dr.dual_red_theme_count, dr.dual_red_l1_distinct, lh.limit_themes_ge3, lh.limit_top1_share_pct,
        CASE WHEN me.known > 0 THEN 100.0 * me.outside / me.known END AS rps5_outside_top3_pct,
@@ -271,15 +279,153 @@ SELECT cal.trade_date, nh.new_high_1y_count, dr.dual_red_theme_count, dr.dual_re
        CASE WHEN prem_w.n5 = 5 AND prem_w.i_lag4 = prem_w.i - 4 THEN prem_w.ma5 END AS limit_premium_ma5_pct,
        CASE WHEN prem_w.n5 = 5 AND prem_w.i_lag4 = prem_w.i - 4 THEN prem_w.neg5 END AS limit_premium_neg_5d,
        CASE WHEN prem_w.n5 = 5 AND prem_w.i_lag4 = prem_w.i - 4 THEN prem_w.flips5 END AS limit_premium_flips_5d,
-       rle.range_leader_entry_gain_20d_pct, rle.range_leader_entry_gain_60d_pct
+       rle.range_leader_entry_gain_20d_pct, rle.range_leader_entry_gain_60d_pct,
+       sp.sector_pct_chg_median, sp.sector_up_ratio_pct
 FROM cal LEFT JOIN nh USING (trade_date) LEFT JOIN dr USING (trade_date) LEFT JOIN lh USING (trade_date) LEFT JOIN me USING (trade_date)
-     LEFT JOIN lj USING (trade_date) LEFT JOIN prem_w USING (trade_date) LEFT JOIN rle USING (trade_date)
+     LEFT JOIN lj USING (trade_date) LEFT JOIN prem_w USING (trade_date) LEFT JOIN rle USING (trade_date) LEFT JOIN sp USING (trade_date)
 ORDER BY cal.trade_date
 """
 
 
+# 资金面（创始人第十五段：「资金面主要是 L2 那个大单，然后成交占比那些也算」）。L2 大单表只有 2026-06 起两个半月且停更，
+# 先接库里历史够长的三样，全部聚到市场级一天一个数：龙虎榜（机构 / 游资净买入，2025-01 起全覆盖）、涨停封单（封板的钱
+# 有多厚）、昨日涨停股竞价（开盘那一刻的承接，2026-01 起）。SUM 一律 DECIMAL 精确求和（并行哈希聚合顺序不定，见 slice2 spec §6）。
+# 5 日均值要求连续 5 个日历交易日都有值，与承接 5 日均值同一口径。
+CAPITAL_SQL = """
+WITH cal AS (SELECT trade_date, total_amount FROM fact_market_daily),
+idx AS (SELECT trade_date, ROW_NUMBER() OVER (ORDER BY trade_date) AS i FROM fact_market_daily),
+dt AS (
+    SELECT trade_date, COUNT(DISTINCT stock_ts_code) AS dragon_count,
+           CAST(SUM(CAST(net_amount AS DECIMAL(18, 6))) AS DOUBLE) AS dragon_net_amount,
+           CAST(SUM(CAST(CASE WHEN net_amount > 0 THEN net_amount ELSE 0 END AS DECIMAL(18, 6))) AS DOUBLE) AS buy_sum,
+           CAST(SUM(CAST(CASE WHEN net_amount < 0 THEN -net_amount ELSE 0 END AS DECIMAL(18, 6))) AS DOUBLE) AS sell_sum
+    FROM fact_dragon_tiger_daily WHERE net_amount IS NOT NULL GROUP BY trade_date
+),
+dt_day AS (
+    SELECT c.trade_date, c.i, dt.dragon_count, dt.dragon_net_amount,
+           CASE WHEN cal.total_amount > 0 THEN 1000.0 * dt.dragon_net_amount / cal.total_amount END AS dragon_net_amount_ratio_pm,
+           CASE WHEN dt.sell_sum > 0 THEN dt.buy_sum / dt.sell_sum END AS dragon_buy_sell_ratio
+    FROM idx c JOIN cal USING (trade_date) LEFT JOIN dt USING (trade_date)
+),
+dt_w AS (
+    SELECT trade_date, dragon_count, dragon_net_amount, dragon_net_amount_ratio_pm, dragon_buy_sell_ratio,
+           AVG(dragon_net_amount_ratio_pm) OVER w AS ratio_ma5, AVG(dragon_buy_sell_ratio) OVER w AS bs_ma5,
+           COUNT(dragon_net_amount_ratio_pm) OVER w AS n5_ratio, COUNT(dragon_buy_sell_ratio) OVER w AS n5_bs,
+           LAG(i, 4) OVER (ORDER BY i) AS i_lag4, i
+    FROM dt_day WINDOW w AS (ORDER BY i ROWS BETWEEN 4 PRECEDING AND CURRENT ROW)
+),
+seal AS (
+    SELECT trade_date, stock_ts_code, MAX(fd_amount) AS fd, MAX(circ_mv) AS mv
+    FROM fact_theme_limit_stock_daily WHERE limit_status = 'U' GROUP BY 1, 2
+),
+seal_day AS (
+    SELECT trade_date, MEDIAN(fd) AS limit_seal_amount_median_wan, MEDIAN(fd / NULLIF(mv, 0)) AS limit_seal_mv_ratio_median,
+           CAST(SUM(CASE WHEN fd / NULLIF(mv, 0) >= 100 THEN 1 ELSE 0 END) AS DOUBLE) * 100.0 / NULLIF(COUNT(fd), 0) AS limit_thick_seal_share_pct
+    FROM seal GROUP BY trade_date
+),
+au AS (
+    SELECT trade_date, MEDIAN(auction_pct) AS auction_zt_pct_median,
+           CAST(SUM(CASE WHEN auction_pct > 0 THEN 1 ELSE 0 END) AS DOUBLE) * 100.0 / NULLIF(COUNT(auction_pct), 0) AS auction_zt_positive_share_pct,
+           CAST(SUM(CAST(auction_amount AS DECIMAL(18, 6))) AS DOUBLE) AS auction_zt_amount
+    FROM fact_auction_stock_daily WHERE panel_key = 'zt' GROUP BY trade_date
+)
+SELECT cal.trade_date, dt_w.dragon_count, dt_w.dragon_net_amount, dt_w.dragon_net_amount_ratio_pm, dt_w.dragon_buy_sell_ratio,
+       CASE WHEN dt_w.n5_ratio = 5 AND dt_w.i_lag4 = dt_w.i - 4 THEN dt_w.ratio_ma5 END AS dragon_net_amount_ratio_pm_ma5,
+       CASE WHEN dt_w.n5_bs = 5 AND dt_w.i_lag4 = dt_w.i - 4 THEN dt_w.bs_ma5 END AS dragon_buy_sell_ratio_ma5,
+       seal_day.limit_seal_amount_median_wan, seal_day.limit_seal_mv_ratio_median, seal_day.limit_thick_seal_share_pct,
+       au.auction_zt_pct_median, au.auction_zt_positive_share_pct, au.auction_zt_amount
+FROM cal LEFT JOIN dt_w USING (trade_date) LEFT JOIN seal_day USING (trade_date) LEFT JOIN au USING (trade_date)
+ORDER BY cal.trade_date
+"""
+
+
+# 赚钱效应板块名（5 日涨幅前 10，与 SECTOR_SQL 的 ranked 同口径），给叙事覆盖率用：概念名与板块名精确匹配。
+RPS5_NAMES_SQL = """
+WITH idx AS (SELECT trade_date, ROW_NUMBER() OVER (ORDER BY trade_date) AS i FROM fact_market_daily),
+sw AS (
+    SELECT s.trade_date, s.sector_name, s.sector_ts_code, c.i,
+           SUM(LN(1 + s.pct_chg / 100.0)) OVER (PARTITION BY s.sector_ts_code ORDER BY c.i ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) AS lg5,
+           COUNT(*) OVER (PARTITION BY s.sector_ts_code ORDER BY c.i ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) AS n5,
+           LAG(c.i, 4) OVER (PARTITION BY s.sector_ts_code ORDER BY c.i) AS i_lag4
+    FROM fact_sector_daily s JOIN idx c USING (trade_date) WHERE s.pct_chg IS NOT NULL AND s.pct_chg > -100
+),
+r AS (SELECT trade_date, sector_name, ROW_NUMBER() OVER (PARTITION BY trade_date ORDER BY lg5 DESC, sector_ts_code) AS rn FROM sw WHERE n5 = 5 AND i_lag4 = i - 4)
+SELECT trade_date, sector_name FROM r WHERE rn <= 10 ORDER BY trade_date, rn
+"""
+
+
+def _load_rps5_names(source: duckdb.DuckDBPyConnection) -> dict[Any, list[str]]:
+    out: dict[Any, list[str]] = {}
+    for row in _rows(source, RPS5_NAMES_SQL):
+        out.setdefault(row["trade_date"], []).append(str(row["sector_name"]))
+    return out
+
+
+def _merge_narrative(sector_rows: list[dict[str, Any]], kb_wiki: str | None, dates: list[str], rps5_names: Mapping[Any, list[str]]) -> dict[str, Any]:
+    """把知识库两个叙事源的市场级读数并进板块侧行：卖方观点事件（tf.narrative_*）与晨汇 Tier 投影（tf.briefing_*）。
+
+    没给知识库 / 文件不在 / 源断更 / 当日没有晨汇 都写成各自的缺口原因（``narrative_gap`` / ``briefing_gap``），不写 0。
+    """
+    from intelligence.services.teaching_framework.narrative import (
+        BRIEFING_FIELDS, NARRATIVE_FIELDS, briefing_daily, load_briefing_tier_events, load_opinion_events, narrative_daily,
+    )
+
+    if not kb_wiki:
+        for row in sector_rows:
+            row["narrative_gap"] = "narrative_source_absent"
+            row["briefing_gap"] = "briefing_source_absent"
+        return {"status": "absent", "detail": "未给 --kb-wiki，叙事读数全部记缺口", "briefing": {"status": "absent"}}
+    rps5 = {str(k)[:10]: v for k, v in rps5_names.items()}
+    note: dict[str, Any]
+    events = load_opinion_events(kb_wiki)
+    if not events:
+        for row in sector_rows:
+            row["narrative_gap"] = "narrative_source_missing"
+        note = {"status": "missing", "detail": f"{kb_wiki} 下没有 opinion-events.jsonl 或为空"}
+    else:
+        stale = _merge_daily(sector_rows, narrative_daily(events, dates, rps5_names=rps5), NARRATIVE_FIELDS, "narrative_gap", "narrative_rows_absent")
+        report_dates = sorted({str(e.get("report_date"))[:10] for e in events if e.get("report_date")})
+        note = {"status": "ok", "events": len(events), "report_dates": [report_dates[0], report_dates[-1]], "stale_days": stale}
+    briefings = load_briefing_tier_events(kb_wiki)
+    if not briefings:
+        for row in sector_rows:
+            row["briefing_gap"] = "briefing_source_missing"
+        note["briefing"] = {"status": "missing", "detail": f"{kb_wiki} 下没有 briefing-tier-events.jsonl 或为空（知识库 morning-briefing 的 extract_tier_events.py 产出）"}
+    else:
+        gaps = _merge_daily(sector_rows, briefing_daily(briefings, dates, rps5_names=rps5), BRIEFING_FIELDS, "briefing_gap", "briefing_rows_absent")
+        available = sorted({str(r.get("available_from"))[:10] for r in briefings if r.get("available_from")})
+        note["briefing"] = {
+            "status": "ok", "rows": len(briefings), "available_from": [available[0], available[-1]], "gap_days": gaps,
+            "market_confirmed_rows": sum(1 for r in briefings if r.get("market_confirmed")),
+            "dimensions_3_files": sorted({str(r.get("source_file")) for r in briefings if r.get("dimensions") == 3}),
+        }
+    return note
+
+
+def _merge_daily(sector_rows: list[dict[str, Any]], daily: Mapping[date, Mapping[str, Any]], fields: tuple[str, ...], gap_key: str, absent_reason: str) -> int:
+    gaps = 0
+    for row in sector_rows:
+        rec = daily.get(date.fromisoformat(str(row["trade_date"])[:10]))
+        if rec is None:
+            row[gap_key] = absent_reason
+            gaps += 1
+            continue
+        if rec.get("gap"):
+            row[gap_key] = rec["gap"]
+            gaps += 1
+            continue
+        for field in fields:
+            row[field] = rec.get(field)
+    return gaps
+
+
 def _load_sector_breadth(source: duckdb.DuckDBPyConnection, params: Mapping[str, Any]) -> list[dict[str, Any]]:
-    return _rows(source, SECTOR_SQL.replace("__RANGE_TOP__", str(int(params["range_leader_top"]))))
+    rows = _rows(source, SECTOR_SQL.replace("__RANGE_TOP__", str(int(params["range_leader_top"]))))
+    capital = {row["trade_date"]: row for row in _rows(source, CAPITAL_SQL)}
+    for row in rows:
+        extra = capital.get(row["trade_date"]) or {}
+        row.update({k: v for k, v in extra.items() if k != "trade_date"})
+    return rows
 
 
 def _open_sidecar_for_write(path: Path) -> duckdb.DuckDBPyConnection:
@@ -340,37 +486,30 @@ def _num(value: Any) -> float | None:
 
 
 def cmd_load_reference(args: argparse.Namespace) -> int:
-    """Load a pulled reviews/overview JSON (see scripts/fupanhui_review_overview_pull.py) into the sidecar."""
-    payload = json.loads(Path(args.json).expanduser().read_text(encoding="utf-8"))
-    items = payload.get("items") or []
-    if not items:
-        raise ValueError("参考标注 JSON 里没有 items")
-    pulled_at = payload.get("pulled_at")
+    """Load platform reference stages into the sidecar: from a pulled reviews/overview JSON, or from the main DB's daily
+    ``fact_market_daily.cycle_stage`` (the every-day accumulation that replaced history paging after the 09-07 incident).
+
+    Both paths upsert by ``(source, trade_date)`` with the same rule — a day already present is replaced only when the incoming
+    platform ``updated_at`` is later (the platform rewrites labels after the fact) — so the two can coexist.
+    """
+    if bool(args.json) == bool(getattr(args, "from_market_daily", False)):
+        raise ValueError("load-reference 要么 --json <复盘总览 JSON>，要么 --from-market-daily，二选一")
     loaded_at = _now(args.computed_at).replace(tzinfo=None)
+    if args.json:
+        payload = json.loads(Path(args.json).expanduser().read_text(encoding="utf-8"))
+        items = payload.get("items") or []
+        if not items:
+            raise ValueError("参考标注 JSON 里没有 items")
+        pulled_at = payload.get("pulled_at")
+        pulled_ts = datetime.fromisoformat(pulled_at.replace("Z", "+00:00")).astimezone(timezone.utc).replace(tzinfo=None) if pulled_at else None
+        rows = [_reference_row_from_overview(it, pulled_ts, loaded_at) for it in items]
+        origin: dict[str, Any] = {"from": "reviews/overview json", "pulled_at": pulled_at}
+    else:
+        rows = _reference_rows_from_market_daily(Path(args.db_path).expanduser(), loaded_at)
+        origin = {"from": "fact_market_daily.cycle_stage", "db_path": str(args.db_path)}
     side = _open_sidecar_for_write(Path(args.labels_db).expanduser())
     try:
-        side.execute("DELETE FROM history_reference_stages WHERE source = ?", [REFERENCE_SOURCE])
-        rows = []
-        for it in items:
-            liq, br, a5, sw, p5 = (it.get(k) or {} for k in ("liquidity", "breadth", "amount_top5", "sw_industry", "price_top5"))
-            vendor_updated = it.get("updated_at")
-            rows.append((
-                REFERENCE_SOURCE, it["trade_date"], it.get("cycle_stage"), it.get("external_cycle"), it.get("internal_cycle"),
-                it.get("is_ice_point"), it.get("ice_point_level"),
-                _num(liq.get("market_amount_yi")), _num(liq.get("market_amount_change_pct")), _num(liq.get("market_amount_ma20_yi")), _num(liq.get("market_amount_vs_ma20_pct")),
-                _num(br.get("up_rate_ma5_pct")), br.get("up_count"), br.get("limit_up_count_non_st"),
-                _num(sw.get("top3_market_share_pct")), _num(a5.get("market_share_pct")), _num(a5.get("rising_amount_share_pct")), _num(a5.get("rising_avg_change_pct")),
-                _num(p5.get("avg_change_pct")), _num(p5.get("market_share_pct")), _num(p5.get("amount_change_pct")),
-                it.get("formula_version"), it.get("data_version"),
-                datetime.fromisoformat(vendor_updated).astimezone(timezone.utc).replace(tzinfo=None) if vendor_updated else None,
-                json.dumps(it, ensure_ascii=False, sort_keys=True),
-                datetime.fromisoformat(pulled_at.replace("Z", "+00:00")).astimezone(timezone.utc).replace(tzinfo=None) if pulled_at else None,
-                loaded_at,
-            ))
-        side.executemany(
-            """INSERT INTO history_reference_stages VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            rows,
-        )
+        counts = _upsert_reference_rows(side, rows)
         summary = _rows(
             side,
             """SELECT cycle_stage, COUNT(*) AS days, MIN(trade_date) AS first_day, MAX(trade_date) AS last_day
@@ -381,15 +520,104 @@ def cmd_load_reference(args: argparse.Namespace) -> int:
     finally:
         side.close()
     print(json.dumps({
-        "source": REFERENCE_SOURCE, "rows": len(rows), "first_day": span[0], "last_day": span[1],
-        "by_cycle_stage": summary, "pulled_at": pulled_at, "note": "reference stages are vendor labels written after the fact (updated_at); comparison only, never a label input",
+        "source": REFERENCE_SOURCE, "rows": len(rows), **counts, "table_rows": span[2], "first_day": span[0], "last_day": span[1],
+        "by_cycle_stage": summary, **origin, "note": "reference stages are vendor labels written after the fact (updated_at); comparison only, never a label input",
     }, ensure_ascii=False, indent=2, default=str))
     return 0
+
+
+def _reference_row_from_overview(it: Mapping[str, Any], pulled_ts: datetime | None, loaded_at: datetime) -> tuple[Any, ...]:
+    liq, br, a5, sw, p5 = (it.get(k) or {} for k in ("liquidity", "breadth", "amount_top5", "sw_industry", "price_top5"))
+    vendor_updated = it.get("updated_at")
+    return (
+        REFERENCE_SOURCE, it["trade_date"], it.get("cycle_stage"), it.get("external_cycle"), it.get("internal_cycle"),
+        it.get("is_ice_point"), it.get("ice_point_level"),
+        _num(liq.get("market_amount_yi")), _num(liq.get("market_amount_change_pct")), _num(liq.get("market_amount_ma20_yi")), _num(liq.get("market_amount_vs_ma20_pct")),
+        _num(br.get("up_rate_ma5_pct")), br.get("up_count"), br.get("limit_up_count_non_st"),
+        _num(sw.get("top3_market_share_pct")), _num(a5.get("market_share_pct")), _num(a5.get("rising_amount_share_pct")), _num(a5.get("rising_avg_change_pct")),
+        _num(p5.get("avg_change_pct")), _num(p5.get("market_share_pct")), _num(p5.get("amount_change_pct")),
+        it.get("formula_version"), it.get("data_version"),
+        datetime.fromisoformat(vendor_updated).astimezone(timezone.utc).replace(tzinfo=None) if vendor_updated else None,
+        json.dumps(it, ensure_ascii=False, sort_keys=True),
+        pulled_ts,
+        loaded_at,
+    )
+
+
+# 每日同步落在主库的列（PR #665）→ 参照行。只搬平台自己给的字段：外层 market_stage、冰点档、20 日量能比、涨家数、申万前三占比；
+# 成交额不搬（主库单位与平台「亿」未核），其余列留 NULL，不猜。
+_MARKET_DAILY_REFERENCE_COLS = (
+    "trade_date", "cycle_stage", "market_stage", "ice_point", "volume_ratio", "advancers", "top3_industry_ratio",
+    "cycle_stage_source", "cycle_stage_updated_at", "updated_at",
+)
+
+
+def _reference_rows_from_market_daily(db_path: Path, loaded_at: datetime) -> list[tuple[Any, ...]]:
+    con = duckdb.connect(str(db_path), read_only=True)
+    try:
+        present = {r[0] for r in con.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'fact_market_daily'").fetchall()}
+        if "cycle_stage" not in present:
+            raise ValueError(f"主库 {db_path} 的 fact_market_daily 没有 cycle_stage 列——每日同步还没落过内层八段（PR #665），没有可载入的参照")
+        select = ", ".join(c if c in present else f"NULL AS {c}" for c in _MARKET_DAILY_REFERENCE_COLS)
+        rows = _rows(con, f"SELECT {select} FROM fact_market_daily WHERE cycle_stage IS NOT NULL ORDER BY trade_date")
+    finally:
+        con.close()
+    out: list[tuple[Any, ...]] = []
+    for r in rows:
+        vendor_updated = r.get("cycle_stage_updated_at")
+        out.append((
+            REFERENCE_SOURCE, str(r["trade_date"])[:10], r["cycle_stage"], r.get("market_stage"), None,
+            None, r.get("ice_point"),
+            None, None, None, _num(r.get("volume_ratio")),
+            None, r.get("advancers"), None,
+            _num(r.get("top3_industry_ratio")), None, None, None,
+            None, None, None,
+            "fact_market_daily.cycle_stage", r.get("cycle_stage_source"),
+            vendor_updated if isinstance(vendor_updated, datetime) else None,
+            json.dumps({k: (str(v) if isinstance(v, (datetime, date)) else v) for k, v in r.items()}, ensure_ascii=False, sort_keys=True),
+            r.get("updated_at") if isinstance(r.get("updated_at"), datetime) else None,
+            loaded_at,
+        ))
+    return out
+
+
+def _upsert_reference_rows(side: duckdb.DuckDBPyConnection, rows: list[tuple[Any, ...]]) -> dict[str, int]:
+    """Insert new days; replace an existing day only when the incoming platform ``updated_at`` is later (or the existing one is unknown)."""
+    existing = {
+        str(d)[:10]: ts
+        for d, ts in side.execute("SELECT trade_date, vendor_updated_at FROM history_reference_stages WHERE source = ?", [REFERENCE_SOURCE]).fetchall()
+    }
+    inserted = updated = kept = 0
+    for row in rows:
+        day = str(row[1])[:10]
+        incoming = row[23]
+        if day not in existing:
+            inserted += 1
+        elif existing[day] is None or (incoming is not None and incoming > existing[day]):
+            side.execute("DELETE FROM history_reference_stages WHERE source = ? AND trade_date = ?", [REFERENCE_SOURCE, day])
+            updated += 1
+        else:
+            kept += 1
+            continue
+        side.execute("INSERT INTO history_reference_stages VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", list(row))
+    return {"inserted": inserted, "updated": updated, "kept": kept}
 
 
 def _nearest_rank(values: list[float], q: float) -> float:
     ordered = sorted(values)
     return ordered[min(len(ordered) - 1, max(0, int(round(q * (len(ordered) - 1)))))]
+
+
+def _flag_reader(day_labels: Mapping[str, float]):
+    """把旁路库里一天的数值标签包成 predicate / gate 读的 ``v(name)``：布尔旗标（0/1）还原成 True/False，没有的是 None。"""
+    def v(name: str):
+        value = day_labels.get(name if name.startswith("src.") else f"tf.{name}")
+        if value is None:
+            return None
+        if name in ("above_week_ma",):
+            return bool(value)
+        return value
+    return v
 
 
 def cmd_calibrate_stages(args: argparse.Namespace) -> int:
@@ -400,7 +628,7 @@ def cmd_calibrate_stages(args: argparse.Namespace) -> int:
     ``agreement_validate``.  Quantiles are nearest-rank on the sidecar's view labels, so the
     output is reproducible from the same sidecar.
     """
-    from intelligence.services.teaching_framework.stage_rules import BAND_VIEWS, REFERENCE_STAGE_ALIASES, STAGES
+    from intelligence.services.teaching_framework.stage_rules import BAND_VIEWS, REFERENCE_STAGE_ALIASES, STAGE_GATES, STAGES
 
     params = load_params(args.params)
     labels_path = Path(args.labels_db).expanduser()
@@ -435,6 +663,7 @@ def cmd_calibrate_stages(args: argparse.Namespace) -> int:
     view_keys = {view: (view if view.startswith("src.") else f"tf.{view}") for view, _ in BAND_VIEWS}
     samples: dict[str, dict[str, list[float]]] = {stage: {view: [] for view in view_keys} for stage in STAGES}
     days_per_stage: Counter[str] = Counter()
+    gated_out: Counter[str] = Counter()
     sequence: list[tuple[str, str]] = []
     for day in sorted(reference):
         if day > args.train_until:
@@ -444,6 +673,12 @@ def cmd_calibrate_stages(args: argparse.Namespace) -> int:
             continue
         sequence.append((day, stage))
         if day not in by_day:
+            continue
+        # 创始人的结构性硬条件也约束校准样本（第十九段「缩量右底是在周均线的下方」）：平台标成缩量右底但在周均线
+        # 上方的日子，按创始人的定义不是缩量右底，不拿它算缩量右底的区间。转移图仍按平台原序列数。
+        gate = STAGE_GATES.get(stage)
+        if gate is not None and not gate(_flag_reader(by_day[day])):
+            gated_out[stage] += 1
             continue
         days_per_stage[stage] += 1
         for view, key in view_keys.items():
@@ -471,6 +706,8 @@ def cmd_calibrate_stages(args: argparse.Namespace) -> int:
         "train_until": args.train_until,
         "reference_days_used": sum(days_per_stage.values()),
         "days_per_stage": dict(sorted(days_per_stage.items())),
+        "days_gated_out": dict(sorted(gated_out.items())),
+        "gates": {stage: "above_week_ma is False" for stage in STAGE_GATES},
         "quantiles": [lo_q, hi_q],
         "min_days": int(args.min_days),
         "views": [view for view, _ in BAND_VIEWS],
@@ -628,9 +865,11 @@ def cmd_build_labels(args: argparse.Namespace) -> int:
         amounts = _rows(source, "SELECT trade_date, stock_ts_code, amount FROM fact_stock_daily ORDER BY trade_date, stock_ts_code")
         breadth = _load_breadth(source)
         sector_breadth = _load_sector_breadth(source, params)
+        rps5_names = _load_rps5_names(source) if getattr(args, "kb_wiki", None) else {}
         source_counts = _source_counts(source)
     finally:
         source.close()
+    narrative_note = _merge_narrative(sector_breadth, getattr(args, "kb_wiki", None), dates, rps5_names)
     records = build_index_stage(
         market, calendar=dates, vendor_rows=vendor, stock_rows=stocks,
         amount_rows=amounts, breadth_rows=breadth, sector_rows=sector_breadth, params=params, supplier_normalizer=normalize_stage,
@@ -645,6 +884,7 @@ def cmd_build_labels(args: argparse.Namespace) -> int:
         for label, reason in sorted(record.get("scalar_gaps", {}).items()):
             gap_rows.append((day, f"tf.{label}", None, fw, "gap", reason))
     readouts = label_readouts(records, params, reference=_read_reference(labels_path) or None)
+    readouts["narrative_source"] = narrative_note
     side = _open_sidecar_for_write(labels_path)
     try:
         side.execute("DELETE FROM history_teaching_labels WHERE entity_type = 'market'")
@@ -1008,14 +1248,21 @@ ORDER BY b.stock_ts_code
 """
 
 # 亏钱日上的累计收益（第十四段）：只取旁路库标为 tf.money_losing_day = 1 的日子，逐日 pct_chg 复合；该股在每个亏钱日
-# 都要有行才算（停牌过的不算），用 LN 求和保证与顺序无关。
-LOSING_DAYS_RET_SQL = """
-SELECT stock_ts_code, (EXP(SUM(LN(1 + pct_chg / 100.0))) - 1) * 100 AS losing_ret_pct
+# 都要有行才算（停牌过的不算），用 LN 求和保证与顺序无关。同一条 SQL 也算「亏钱日之外的日子」（覆灭窗里其余的日子）。
+DAYS_RET_SQL = """
+SELECT stock_ts_code, (EXP(SUM(LN(1 + pct_chg / 100.0))) - 1) * 100 AS ret_pct
 FROM fact_stock_daily
 WHERE trade_date IN ({placeholders}) AND pct_chg IS NOT NULL AND pct_chg > -100
 GROUP BY 1 HAVING COUNT(*) = ?
 ORDER BY 1
 """
+
+
+def _compound_over_days(source: duckdb.DuckDBPyConnection, days: list[Any]) -> dict[str, float]:
+    if not days:
+        return {}
+    sql = DAYS_RET_SQL.format(placeholders=", ".join("?" for _ in days))
+    return {row["stock_ts_code"]: row["ret_pct"] for row in _rows(source, sql, [*days, len(days)])}
 
 
 def _read_money_losing_days(labels_path: Path) -> dict[Any, bool] | None:
@@ -1091,12 +1338,13 @@ def cmd_build_dynasties(args: argparse.Namespace) -> int:
                 [w["peak_end"], c_end, first_leg_end, c_start, c_end, lookback_start, lookback_end],
             )
             losing_days = counts["collapse_days"]
-            losing_ret: dict[str, float] = {}
-            if losing_days:
-                sql = LOSING_DAYS_RET_SQL.format(placeholders=", ".join("?" for _ in losing_days))
-                losing_ret = {row["stock_ts_code"]: row["losing_ret_pct"] for row in _rows(source, sql, [*losing_days, len(losing_days)])}
+            other_days = [d for d in calendar if c_start <= d <= c_end and d not in set(losing_days)]
+            counts["collapse_other_days"] = len(other_days)
+            losing_ret = _compound_over_days(source, losing_days)
+            other_ret = _compound_over_days(source, other_days)
             for row in stats:
                 row["losing_ret_pct"] = losing_ret.get(row["stock_ts_code"])
+                row["other_ret_pct"] = other_ret.get(row["stock_ts_code"])
             collapse_stats[wi] = stats
             c0, c1 = index_close.get(w["peak_end"]), index_close.get(c_end)
             index_returns[wi] = None if not c0 or not c1 else (float(c1) / float(c0) - 1) * 100
@@ -1112,7 +1360,7 @@ def cmd_build_dynasties(args: argparse.Namespace) -> int:
             "wave": "maximal run of platform stages {主流主升, 主流主升2.0, 承接盘反复} is a wave's peak block; the wave starts at the first day of the 共建主线 run right before it (else the block's first day); peak day = block's last day",
             "dynasty": f"top {top} stocks by close(peak day) / close(day before wave start) − 1 (cohort {cohort} for readouts); form 连板 when the stock's max limit_times inside the wave ≥ 3, else 趋势",
             "collapse": "day after the peak day → day before the next wave starts (亏钱效应窗); open when no next wave; first leg = the first 左底向下 run after the peak",
-            "separation": f"relative: collapse-window return percentile among all stocks ≥ {sep_pct}; new-high: made a {sep_window}-day high inside the collapse window; on-losing-days: percentile of the return compounded over the window's 亏钱效应日 only",
+            "separation": f"relative: collapse-window return percentile among all stocks ≥ {sep_pct}; new-high: made a {sep_window}-day high inside the collapse window; on-losing-days / on-other-days: percentile of the return compounded over the window's 亏钱效应日 only / over the window's remaining days",
             "money_losing": f"亏钱效应日 = tf.money_losing_day (承接 5 日均值 < {params['money_losing']['lt_pct']}%, 第十四段); counted over the peak block, the 10 days before the collapse and the collapse window",
             "handoff": "relation description only (创始人 09-07 第九、十三段): where the new members ranked in the old wave, whether any came from the old cohort, L1 overlap, form",
         },
@@ -1134,7 +1382,8 @@ def cmd_build_dynasties(args: argparse.Namespace) -> int:
              h["sw_l1"], h["form"], h["old_wave_rank"], h["in_old_cohort"], h["l1_in_old_top"], _round_scalar(h["collapse_ret_pct"]),
              _round_scalar(h["collapse_ret_percentile"]), _round_scalar(h["collapse_max_dd_pct"]), _round_scalar(h["first_leg_ret_pct"]),
              h["new_high_in_collapse"], h["separation_relative"], h["separation_new_high"],
-             _round_scalar(h["losing_days_ret_pct"]), _round_scalar(h["losing_days_ret_percentile"]), h["separation_on_losing_days"], fw, ts)
+             _round_scalar(h["losing_days_ret_pct"]), _round_scalar(h["losing_days_ret_percentile"]), h["separation_on_losing_days"],
+             _round_scalar(h["other_days_ret_pct"]), _round_scalar(h["other_days_ret_percentile"]), h["separation_on_other_days"], fw, ts)
             for h in result["handoffs"]
         ]
         if member_rows:
@@ -1151,8 +1400,9 @@ def cmd_build_dynasties(args: argparse.Namespace) -> int:
                    (old_wave_idx, new_wave_idx, new_rank, stock_ts_code, stock_name, new_wave_gain_pct, sw_l1, form, old_wave_rank,
                     in_old_cohort, l1_in_old_top, collapse_ret_pct, collapse_ret_percentile, collapse_max_dd_pct, first_leg_ret_pct,
                     new_high_in_collapse, separation_relative, separation_new_high,
-                    losing_days_ret_pct, losing_days_ret_percentile, separation_on_losing_days, framework_version, computed_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    losing_days_ret_pct, losing_days_ret_percentile, separation_on_losing_days,
+                    other_days_ret_pct, other_days_ret_percentile, separation_on_other_days, framework_version, computed_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 handoff_rows,
             )
         members_hash = canonical_rows_hash(side, table="history_dynasties", primary_key=("wave_idx", "rank"))
@@ -1242,12 +1492,15 @@ def parser() -> argparse.ArgumentParser:
         p.add_argument("--labels-db", default=None)
         p.add_argument("--params", default=None)
         p.add_argument("--computed-at", default=None)
+        if name == "build-labels":
+            p.add_argument("--kb-wiki", default=None, help="知识库 wiki 目录（消息面：卖方观点事件 → tf.narrative_* 市场级读数）；不给则这些读数记缺口 narrative_source_absent")
         p.set_defaults(func=func)
     p = sub.add_parser("report")
     p.add_argument("--labels-db", default=None)
     p.set_defaults(func=cmd_report)
-    p = sub.add_parser("load-reference", help="载入复盘会 reviews/overview 快照（scripts/fupanhui_review_overview_pull.py 的输出）作参照标注")
-    p.add_argument("--json", required=True)
+    p = sub.add_parser("load-reference", help="载入平台参照标注：复盘会 reviews/overview 快照 JSON，或主库每日同步落下的 fact_market_daily.cycle_stage（PR #665）；同日以平台 updated_at 较新者为准")
+    p.add_argument("--json", default=None, help="reviews/overview 快照 JSON（scripts/fupanhui_review_overview_pull.py 的输出；该脚本已停用，仅平台许可后可用）")
+    p.add_argument("--from-market-daily", action="store_true", help="从 --db-path 主库的 fact_market_daily.cycle_stage 载入（每日同步累积的内层八段）")
     p.add_argument("--labels-db", default=None)
     p.add_argument("--db-path", default="db/market_feature_store.duckdb")
     p.add_argument("--computed-at", default=None)
