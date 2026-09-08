@@ -63,6 +63,9 @@
 
 #### G-04 题材生命周期两套词表统一
 
+> **2026-09-08 实施状态**：已落——PR #673 `feat/methodology-backtest-p1-lifecycle-stage`（七段为唯一标签值、八阶段降为别名、五段预留作废；旁路库 `lifecycle_stage`，`LABEL_VERSION` v4；对照集草稿 42 条 `stage_manual` 待创始人填）。**待合入**；一致率等标注 ≥ 30 条。
+
+
 - **已有**：八阶段诊断与七段时间线两套口径；旁路库 `lifecycle_stage` 标签（#21 P1 剩余项：人工对照集）。
 - **缺**：一张映射表 + 一套钦定词表进 `UBIQUITOUS_LANGUAGE.md`；`LABEL_VERSION` 升版；「引用必须标模块」的临时纪律退出。
 - **验收**：(a) 词表里只剩一套题材阶段词，两模块输出经映射后同名；(b) 在人工对照集上出两模块一致率报告，不一致的样本逐条有归因；(c) `lifecycle_stage` 重建后，已有规则收据重跑要么无漂移、要么漂移有记录。
@@ -157,6 +160,9 @@ RiverObject
 
 #### G-06 舆论生命周期阶段词表 + 派生器
 
+> **2026-09-08 实施状态**：已落——PR #671 `feat/opinion-lifecycle-stage`（萌芽 / 扩散 / 拥挤 / 退热 / 证伪 + unverifiable；`opinion_stage.derive_stage` 无状态派生；旁路库 `opinion_stage`，`LABEL_VERSION` v4；§5 第 3 题按推荐执行）。**待合入**；与 #673 撞 v4，后合者升 v5。
+
+
 - **已有**：`consensus_staging.py` 两轨；观点事件库；`wiki/sources` 7,036 份带日期的研报来源（覆盖密度可算）。
 - **缺**：(1) 钦定 4–5 段词表（例：萌芽 → 扩散 → 拥挤 → 退热 / 证伪；「无人问津」需要负证据，先不入词表或标 `unverifiable`）；(2) 派生规则只从事件算：首次卖方覆盖日、覆盖密度斜率、观点版本 v1 概念 → v2 订单 → v3 兑现 / 证伪的切换、证伪事件；(3) 不落状态机、不新增抓取器（§13.1 第 2 题条件）。
 - **验收**：(a) 每一段都有确定性派生规则且能在历史上重算；(b) 覆盖率报告：多少 `(theme, as_of)` 能出阶段、多少 `unverifiable`；(c) 与题材轴并排时能输出「错位」标记；(d) 词表进 `UBIQUITOUS_LANGUAGE.md`，与题材八阶段不混名。
@@ -220,6 +226,9 @@ RiverObject
 
 #### G-02c 区间契约 `river.window` + 区间 PIT
 
+> **2026-09-08 实施状态**：已落——PR #670 `feat/river-window-contract`（`river_window_contract.window` / 五类派生 `river_derive` / `river_anchor.anchor_windows`；`build_daily_vectors` 必填 `knowledge_cutoff`，`market_regime_analogs` / `range_aggregate` 出 `pit_grade`；前视棘轮测试）。**待合入**；事件定价（#663）迁移仍是其义务；`leader_succession` 接 river 为 opt-in。
+
+
 - **已有**：`river_window.py`（六维签名、层次聚类、`FeatureSpec` 回溯链）、`river_query.range_aggregate`（带 `coverage / codes_seen / caveats`，`require_complete` 时只给 gap）、`market_regime_analogs` 的签名与距离。
 - **缺**：`window(start, end, C)` 契约与 `RiverWindow` 对象（切片序列 + `derived[]` + `coverage` + 段级 `pit_grade`）；五类派生对象 `streak / transition / cumulative / first_event / signature`，各带 `derivation_rule` 与 `member_refs`、`gap_policy` 默认 `unverifiable`；`build_daily_vectors` 与 D10 窗口读数改走契约。[实测] 今天它们读全历史、不接 C、不出 `pit_grade`——单点守住的无前视到区间断了。**另含 `anchor_windows`（09-06 spec §4.6 事件锚点回溯）**：锚点日上下文 + 前瞻窗 + 回看窗合成一条记录，`windows_around` 与 `cohort_compare` 是两段原型；锚点 / 目标 / 形态三个定义由创始人在母本骨架 §4 填，没定义前不能跑。**2026-09-07 第二实例设计稿已落**：`2026-09-07-event-pricing-slice1-calendar-reaction-design.md`——外生事件锚点（事件锚点日历：编辑日历 + 手录官方日程，确定性反应日，`latest_known` 只答何时不答数值）+ `EventReaction`（事前 / 当日 / 事后窗，事后窗复用 `history_outcomes`，形状标签过四态，预期内 / 非预期分表，「已定价」三代理并排）；不等 `river.window` 契约，契约落地后改走并带 `pit_grade` 是本项验收的迁移义务。**2026-09-07 晚已执行**：`intelligence/services/event_pricing/` + `scripts/event_reaction.py`，真库读数与数据现实见 `docs/verification/2026-09-07-event-pricing-slice1.md`（板块价格序列 07-24 起从 `.TI` 换到 `.FP`，板块级锚点只覆盖 2026-06-30 起；主库 2026-08-17 指数涨跌幅 NULL）。
 - **验收**：09-06 §10 第 9、10 条；`river_window` 与 `market_regime_analogs` 的每个窗口读数带 `pit_grade`；`range_aggregate` 作为 `cumulative` 类接入，不重写。
@@ -228,6 +237,9 @@ RiverObject
 
 #### G-14 上下文投影契约 + `projection_hash` 门禁
 
+> **2026-09-08 实施状态**：已落——PR #667 `feat/river-context-projection`（`river_projection.project` / `guided_reading` 改为消费方 / `register_checkpoint` 对 agent 产物无哈希拒收 / `replay --expect`）。干净树 8185P/0F。**待合入**。上文「09-06 §10 第 11、12 条」的条号以 09-06 spec 现文为准（第 11 条投影幂等 + gap 全带上，§11 第 11 条投影门禁）。
+
+
 - **已有**：`guided_reading` 的渲染（[实测] 写死截断：6 键 / 10 节点 / 字母序）、`ask_synthesis` 注入点、五段出门。
 - **缺**：`project()` 与 `ContextProjection`；框架规则作选择器、无规则时确定性默认序并标 `selected_by=default`；`omitted / limits / gaps` 强制块；按块省略不截断；台账拒收无 `projection_hash` 的 agent 产物。
 - **验收**：09-06 §10 第 11、12 条；`guided_reading` 改为投影的一个消费方，关掉带读仍逐字节不变。
@@ -235,6 +247,9 @@ RiverObject
 - **对外**：做完前不提；做完后可说「每条 agent 判断都能回放它当时看到的上下文」。
 
 #### G-15 情景树对象（多步推演）
+
+> **2026-09-08 实施状态**：v0 已落——PR #674 `feat/scenario-tree-v0`（叠在 #667 + #670 上：`scenario_trees.py` 编译门 / 互斥 + otherwise / `resolve` 只读 `slice(T+k, C=T+k)` / 三项回检 / 每日复盘钩子默认关）。**待合入**（先合 #667 / #670）。
+
 
 - **已有**：`observation_script` 对象与硬门、`compliance_gate` 词表、`checkpoints` 回检、`methodology_backtest` 规则编译器白名单。
 - **缺**：`ScenarioTree` 对象；条件编译门（只接注册标签谓词）；同父子条件互斥 + `otherwise` 强制校验；逐日解析器（只从 `slice(T+k, C=T+k)` 写 `realized_path`，所需标签 `gap` → `unresolvable`）；三项回检（覆盖 / 沿路剧本触发 / 规则样本产出）；`analog_ref` 只带 N 与后续事实。

@@ -110,6 +110,11 @@
 | **区间** | 河上 `[start, end]` 的切片序列 + 五类派生对象（streak / transition / cumulative / first_event / signature），与单点切片同级、同一套时钟；派生对象带 `member_refs` 可拆回到天与行，`pit_grade` 随段 | 均值向量、一个区间涨幅数、聚类结果（那些是它的消费方，不是它） |
 | **上下文投影** | 按生效框架从切片 / 区间选出进入模型上下文的有序块，带 `projection_hash`、`omitted`、强制的 gaps 与 limits；框架就是信噪比过滤器 | 截断、prompt 拼接、RAG 召回 |
 | **情景树** | 多步推演对象：节点是观察剧本，边是注册标签上的确定性条件，路径由河的切片逐日判定；与观察剧本同 scope 同硬门，`otherwise` 分枝强制存在 | 预测路径、概率树、多空剧本、「推演」（口语，产品语言一律翻译成情景树） |
+| **projection_hash** | 上下文投影的确定性哈希：`cp:` + sha256(有序 blocks 的 (ref, source_hash) + framework_version + projection_version + budget + source_ref)；`rendered_text` 不进哈希。agent 产物（agent 判断 / 观察剧本 / 情景树）入台账必带，`user_authored` 手写剧本可空并单列（工单 #34） | 哈希渲染文本、用 as_of+cutoff 当钥匙 |
+| **selected_by** | 投影块由谁选：`default`（确定性默认序：轨按 TRACKS，轨内 硬度降序 → recorded_at 升序 → ref）或 `framework:<version>:<rule_id>`；G-01 母本未成前恒 `default` | 无理由字段的截断 |
+| **durable 事件投影** | 运行底座 P0 的 `episode_projection.project_durable_events`：episode 事件 → workbench trace（默认剔正文只留哈希）。与**上下文投影**（河切片 → 读者上下文）同名不同物 | 把两种投影混称 |
+| **gap_policy** | 区间派生规则对缺天的处理，三值：`unverifiable`（缺一天就不说，默认）/ `break`（连续计数归零，只对 streak / transition 语义成立）/ `skip`（累计时跳过并在 coverage 里报，只对 cumulative / first_event 成立）；挂在派生规则上不是全局（工单 #35） | 补零、前向填充、跳过不报 |
+| **realized_path / otherwise / unresolvable** | 情景树三字段词：`realized_path` 只由 `slice(T+k, C=T+k)` 判定写入，不由人或模型填；`otherwise` 是每个父节点强制的兜底分枝（占比高 = 框架对这个环境没有语言）；`unresolvable` = 某步所需标签缺原料，树停在那里不猜不跳（工单 #37） | 人工填路径、无兜底分枝、缺数日跳过继续 |
 | **两类派生** | `deterministic`（代码从事实算出，可进条件与统计）与 `frozen_llm`（模型写一次的散文，带 `model_id / prompt_hash`，硬度封顶 L1，只进上下文） | 「AI 标签」「模型判的阶段」当事实用 |
 | **事件锚点回溯** | 河上的第三种问法：锚点事件日 → 锚点日上下文切片 + 前瞻区间（谁走出来）+ 回看区间（怎么来的），三段共一个 cutoff、`pit_grade` 取最差，只报事实与复现次数 | 手写 SQL 查案例、「历史上每次都……」 |
 | **index_stage（授课指数阶段）** | 授课框架按周均线 × 偏离度 × 量能定义的指数阶段标签族（左底向下 / 左底向上 / 缩量右底 / 共建主线 / 主流主升 / 高位震荡 / 回踩周均线），带来源状态；**尚未编码**，等母本 §6 | `market_stage`（那是供应商字段） |
