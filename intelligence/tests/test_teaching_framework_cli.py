@@ -364,6 +364,61 @@ def test_load_reference_and_compare_against_platform_stages(capsys, tmp_path, so
     assert report["counts"]["reference_stages"] == 10
 
 
+def test_load_reference_from_market_daily_accumulates_and_merges_by_platform_updated_at(capsys, tmp_path, source_db, params_file) -> None:
+    """09-08：参照不再靠复盘总览翻页，每日同步把内层八段落进主库 fact_market_daily.cycle_stage（PR #665），load-reference 从那里累积；
+    与 JSON 快照同源同表，同一天以平台 updated_at 较新者为准，两边都不会互相擦掉。"""
+    sidecar = tmp_path / "labels.duckdb"
+    # 主库没有这列 → 明说，不是空表；--json 与 --from-market-daily 二选一。
+    assert main(["load-reference", "--from-market-daily", "--labels-db", str(sidecar), "--db-path", str(source_db)]) == 2
+    assert "没有 cycle_stage 列" in capsys.readouterr().err
+    assert main(["load-reference", "--labels-db", str(sidecar), "--db-path", str(source_db)]) == 2
+    assert "二选一" in capsys.readouterr().err
+    con = duckdb.connect(str(source_db))
+    try:
+        for col, typ in (("cycle_stage", "VARCHAR"), ("cycle_stage_source", "VARCHAR"), ("cycle_stage_updated_at", "TIMESTAMP"), ("updated_at", "TIMESTAMP")):
+            con.execute(f"ALTER TABLE fact_market_daily ADD COLUMN {col} {typ}")
+        # 每日同步落了三天（cycle_stage_updated_at 是平台 updated_at 转成的 UTC 无时区，与旁路库 vendor_updated_at 同一口径）：
+        # 01-05 / 01-06 是「当时怎么说」，01-07 那天平台第二天改写过（updated_at 晚一天）。
+        con.execute("UPDATE fact_market_daily SET cycle_stage = '承接盘反复', cycle_stage_source = 'fupanhui:reviews/summary.internal_cycle', cycle_stage_updated_at = TIMESTAMP '2026-01-05 10:55:00', updated_at = TIMESTAMP '2026-01-05 11:00:00' WHERE trade_date = DATE '2026-01-05'")
+        con.execute("UPDATE fact_market_daily SET cycle_stage = '承接盘反复', cycle_stage_source = 'fupanhui:reviews/overview.cycle_stage', cycle_stage_updated_at = TIMESTAMP '2026-01-06 10:55:00', updated_at = TIMESTAMP '2026-01-06 11:00:00' WHERE trade_date = DATE '2026-01-06'")
+        con.execute("UPDATE fact_market_daily SET cycle_stage = '左底向下', cycle_stage_source = 'fupanhui:reviews/summary.internal_cycle', cycle_stage_updated_at = TIMESTAMP '2026-01-08 10:55:00', updated_at = TIMESTAMP '2026-01-08 11:00:00' WHERE trade_date = DATE '2026-01-07'")
+    finally:
+        con.close()
+    loaded = _run(capsys, "load-reference", "--from-market-daily", "--labels-db", str(sidecar), "--db-path", str(source_db), "--computed-at", "2026-01-08T12:00:00Z")
+    assert (loaded["rows"], loaded["inserted"], loaded["updated"], loaded["kept"], loaded["table_rows"]) == (3, 3, 0, 0, 3)
+    assert loaded["from"] == "fact_market_daily.cycle_stage" and {r["cycle_stage"]: r["days"] for r in loaded["by_cycle_stage"]} == {"承接盘反复": 2, "左底向下": 1}
+    side = duckdb.connect(str(sidecar), read_only=True)
+    try:
+        row = side.execute("SELECT external_cycle, ice_point_level, amount_vs_ma20_pct, up_count, top3_market_share_pct, formula_version, data_version, vendor_updated_at, amount_yi FROM history_reference_stages WHERE trade_date = DATE '2026-01-05'").fetchone()
+    finally:
+        side.close()
+    # 只搬平台自己给的字段；成交额单位未核 → NULL，不猜。
+    assert row[0] is not None and row[5] == "fact_market_daily.cycle_stage" and row[6] == "fupanhui:reviews/summary.internal_cycle"
+    assert str(row[7]) == "2026-01-05 10:55:00" and row[8] is None
+
+    # 一份更晚拉的 JSON 快照覆盖 01-05 / 01-06（平台后来把 01-06 改成了「主流主升」），没有 01-07 → 01-07 保留，不被擦掉。
+    payload = {"pulled_at": "2026-01-20T04:00:00Z", "items": [
+        _reference_item("2026-01-05", "承接盘反复", "顶部横盘阶段", 100.0), _reference_item("2026-01-06", "主流主升", "主升阶段", 120.0),
+    ]}
+    payload["items"][0]["updated_at"] = "2026-01-05T18:00:00+08:00"   # = 10:00 UTC，比每日同步那条（10:55 UTC）早 → 保留每日那条（kept）
+    payload["items"][1]["updated_at"] = "2026-01-19T18:55:13+08:00"   # 更晚 → 覆盖（updated）
+    ref_json = tmp_path / "reference.json"
+    ref_json.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    merged = _run(capsys, "load-reference", "--json", str(ref_json), "--labels-db", str(sidecar), "--db-path", str(source_db), "--computed-at", "2026-01-20T05:00:00Z")
+    assert (merged["rows"], merged["inserted"], merged["updated"], merged["kept"], merged["table_rows"]) == (2, 0, 1, 1, 3)
+    side = duckdb.connect(str(sidecar), read_only=True)
+    try:
+        stages = dict(side.execute("SELECT CAST(trade_date AS VARCHAR), cycle_stage FROM history_reference_stages ORDER BY trade_date").fetchall())
+        versions = dict(side.execute("SELECT CAST(trade_date AS VARCHAR), formula_version FROM history_reference_stages ORDER BY trade_date").fetchall())
+    finally:
+        side.close()
+    assert stages == {"2026-01-05": "承接盘反复", "2026-01-06": "主流主升", "2026-01-07": "左底向下"}
+    assert versions == {"2026-01-05": "fact_market_daily.cycle_stage", "2026-01-06": "review_overview_v1", "2026-01-07": "fact_market_daily.cycle_stage"}
+    # 再跑一次每日载入：三天都不比库里新 → 全部 kept，幂等。
+    again = _run(capsys, "load-reference", "--from-market-daily", "--labels-db", str(sidecar), "--db-path", str(source_db), "--computed-at", "2026-01-21T12:00:00Z")
+    assert (again["inserted"], again["updated"], again["kept"]) == (0, 0, 3)
+
+
 def test_build_sector_roles_writes_sector_labels_and_rule_readout(capsys, tmp_path, source_db, params_file) -> None:
     """第二刀 C 类: sector labels ride in the same table under entity_type='sector'; market rows and their hash are untouched."""
     sidecar = tmp_path / "labels.duckdb"

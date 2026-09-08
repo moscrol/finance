@@ -477,37 +477,30 @@ def _num(value: Any) -> float | None:
 
 
 def cmd_load_reference(args: argparse.Namespace) -> int:
-    """Load a pulled reviews/overview JSON (see scripts/fupanhui_review_overview_pull.py) into the sidecar."""
-    payload = json.loads(Path(args.json).expanduser().read_text(encoding="utf-8"))
-    items = payload.get("items") or []
-    if not items:
-        raise ValueError("参考标注 JSON 里没有 items")
-    pulled_at = payload.get("pulled_at")
+    """Load platform reference stages into the sidecar: from a pulled reviews/overview JSON, or from the main DB's daily
+    ``fact_market_daily.cycle_stage`` (the every-day accumulation that replaced history paging after the 09-07 incident).
+
+    Both paths upsert by ``(source, trade_date)`` with the same rule — a day already present is replaced only when the incoming
+    platform ``updated_at`` is later (the platform rewrites labels after the fact) — so the two can coexist.
+    """
+    if bool(args.json) == bool(getattr(args, "from_market_daily", False)):
+        raise ValueError("load-reference 要么 --json <复盘总览 JSON>，要么 --from-market-daily，二选一")
     loaded_at = _now(args.computed_at).replace(tzinfo=None)
+    if args.json:
+        payload = json.loads(Path(args.json).expanduser().read_text(encoding="utf-8"))
+        items = payload.get("items") or []
+        if not items:
+            raise ValueError("参考标注 JSON 里没有 items")
+        pulled_at = payload.get("pulled_at")
+        pulled_ts = datetime.fromisoformat(pulled_at.replace("Z", "+00:00")).astimezone(timezone.utc).replace(tzinfo=None) if pulled_at else None
+        rows = [_reference_row_from_overview(it, pulled_ts, loaded_at) for it in items]
+        origin: dict[str, Any] = {"from": "reviews/overview json", "pulled_at": pulled_at}
+    else:
+        rows = _reference_rows_from_market_daily(Path(args.db_path).expanduser(), loaded_at)
+        origin = {"from": "fact_market_daily.cycle_stage", "db_path": str(args.db_path)}
     side = _open_sidecar_for_write(Path(args.labels_db).expanduser())
     try:
-        side.execute("DELETE FROM history_reference_stages WHERE source = ?", [REFERENCE_SOURCE])
-        rows = []
-        for it in items:
-            liq, br, a5, sw, p5 = (it.get(k) or {} for k in ("liquidity", "breadth", "amount_top5", "sw_industry", "price_top5"))
-            vendor_updated = it.get("updated_at")
-            rows.append((
-                REFERENCE_SOURCE, it["trade_date"], it.get("cycle_stage"), it.get("external_cycle"), it.get("internal_cycle"),
-                it.get("is_ice_point"), it.get("ice_point_level"),
-                _num(liq.get("market_amount_yi")), _num(liq.get("market_amount_change_pct")), _num(liq.get("market_amount_ma20_yi")), _num(liq.get("market_amount_vs_ma20_pct")),
-                _num(br.get("up_rate_ma5_pct")), br.get("up_count"), br.get("limit_up_count_non_st"),
-                _num(sw.get("top3_market_share_pct")), _num(a5.get("market_share_pct")), _num(a5.get("rising_amount_share_pct")), _num(a5.get("rising_avg_change_pct")),
-                _num(p5.get("avg_change_pct")), _num(p5.get("market_share_pct")), _num(p5.get("amount_change_pct")),
-                it.get("formula_version"), it.get("data_version"),
-                datetime.fromisoformat(vendor_updated).astimezone(timezone.utc).replace(tzinfo=None) if vendor_updated else None,
-                json.dumps(it, ensure_ascii=False, sort_keys=True),
-                datetime.fromisoformat(pulled_at.replace("Z", "+00:00")).astimezone(timezone.utc).replace(tzinfo=None) if pulled_at else None,
-                loaded_at,
-            ))
-        side.executemany(
-            """INSERT INTO history_reference_stages VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            rows,
-        )
+        counts = _upsert_reference_rows(side, rows)
         summary = _rows(
             side,
             """SELECT cycle_stage, COUNT(*) AS days, MIN(trade_date) AS first_day, MAX(trade_date) AS last_day
@@ -518,10 +511,87 @@ def cmd_load_reference(args: argparse.Namespace) -> int:
     finally:
         side.close()
     print(json.dumps({
-        "source": REFERENCE_SOURCE, "rows": len(rows), "first_day": span[0], "last_day": span[1],
-        "by_cycle_stage": summary, "pulled_at": pulled_at, "note": "reference stages are vendor labels written after the fact (updated_at); comparison only, never a label input",
+        "source": REFERENCE_SOURCE, "rows": len(rows), **counts, "table_rows": span[2], "first_day": span[0], "last_day": span[1],
+        "by_cycle_stage": summary, **origin, "note": "reference stages are vendor labels written after the fact (updated_at); comparison only, never a label input",
     }, ensure_ascii=False, indent=2, default=str))
     return 0
+
+
+def _reference_row_from_overview(it: Mapping[str, Any], pulled_ts: datetime | None, loaded_at: datetime) -> tuple[Any, ...]:
+    liq, br, a5, sw, p5 = (it.get(k) or {} for k in ("liquidity", "breadth", "amount_top5", "sw_industry", "price_top5"))
+    vendor_updated = it.get("updated_at")
+    return (
+        REFERENCE_SOURCE, it["trade_date"], it.get("cycle_stage"), it.get("external_cycle"), it.get("internal_cycle"),
+        it.get("is_ice_point"), it.get("ice_point_level"),
+        _num(liq.get("market_amount_yi")), _num(liq.get("market_amount_change_pct")), _num(liq.get("market_amount_ma20_yi")), _num(liq.get("market_amount_vs_ma20_pct")),
+        _num(br.get("up_rate_ma5_pct")), br.get("up_count"), br.get("limit_up_count_non_st"),
+        _num(sw.get("top3_market_share_pct")), _num(a5.get("market_share_pct")), _num(a5.get("rising_amount_share_pct")), _num(a5.get("rising_avg_change_pct")),
+        _num(p5.get("avg_change_pct")), _num(p5.get("market_share_pct")), _num(p5.get("amount_change_pct")),
+        it.get("formula_version"), it.get("data_version"),
+        datetime.fromisoformat(vendor_updated).astimezone(timezone.utc).replace(tzinfo=None) if vendor_updated else None,
+        json.dumps(it, ensure_ascii=False, sort_keys=True),
+        pulled_ts,
+        loaded_at,
+    )
+
+
+# 每日同步落在主库的列（PR #665）→ 参照行。只搬平台自己给的字段：外层 market_stage、冰点档、20 日量能比、涨家数、申万前三占比；
+# 成交额不搬（主库单位与平台「亿」未核），其余列留 NULL，不猜。
+_MARKET_DAILY_REFERENCE_COLS = (
+    "trade_date", "cycle_stage", "market_stage", "ice_point", "volume_ratio", "advancers", "top3_industry_ratio",
+    "cycle_stage_source", "cycle_stage_updated_at", "updated_at",
+)
+
+
+def _reference_rows_from_market_daily(db_path: Path, loaded_at: datetime) -> list[tuple[Any, ...]]:
+    con = duckdb.connect(str(db_path), read_only=True)
+    try:
+        present = {r[0] for r in con.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'fact_market_daily'").fetchall()}
+        if "cycle_stage" not in present:
+            raise ValueError(f"主库 {db_path} 的 fact_market_daily 没有 cycle_stage 列——每日同步还没落过内层八段（PR #665），没有可载入的参照")
+        select = ", ".join(c if c in present else f"NULL AS {c}" for c in _MARKET_DAILY_REFERENCE_COLS)
+        rows = _rows(con, f"SELECT {select} FROM fact_market_daily WHERE cycle_stage IS NOT NULL ORDER BY trade_date")
+    finally:
+        con.close()
+    out: list[tuple[Any, ...]] = []
+    for r in rows:
+        vendor_updated = r.get("cycle_stage_updated_at")
+        out.append((
+            REFERENCE_SOURCE, str(r["trade_date"])[:10], r["cycle_stage"], r.get("market_stage"), None,
+            None, r.get("ice_point"),
+            None, None, None, _num(r.get("volume_ratio")),
+            None, r.get("advancers"), None,
+            _num(r.get("top3_industry_ratio")), None, None, None,
+            None, None, None,
+            "fact_market_daily.cycle_stage", r.get("cycle_stage_source"),
+            vendor_updated if isinstance(vendor_updated, datetime) else None,
+            json.dumps({k: (str(v) if isinstance(v, (datetime, date)) else v) for k, v in r.items()}, ensure_ascii=False, sort_keys=True),
+            r.get("updated_at") if isinstance(r.get("updated_at"), datetime) else None,
+            loaded_at,
+        ))
+    return out
+
+
+def _upsert_reference_rows(side: duckdb.DuckDBPyConnection, rows: list[tuple[Any, ...]]) -> dict[str, int]:
+    """Insert new days; replace an existing day only when the incoming platform ``updated_at`` is later (or the existing one is unknown)."""
+    existing = {
+        str(d)[:10]: ts
+        for d, ts in side.execute("SELECT trade_date, vendor_updated_at FROM history_reference_stages WHERE source = ?", [REFERENCE_SOURCE]).fetchall()
+    }
+    inserted = updated = kept = 0
+    for row in rows:
+        day = str(row[1])[:10]
+        incoming = row[23]
+        if day not in existing:
+            inserted += 1
+        elif existing[day] is None or (incoming is not None and incoming > existing[day]):
+            side.execute("DELETE FROM history_reference_stages WHERE source = ? AND trade_date = ?", [REFERENCE_SOURCE, day])
+            updated += 1
+        else:
+            kept += 1
+            continue
+        side.execute("INSERT INTO history_reference_stages VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", list(row))
+    return {"inserted": inserted, "updated": updated, "kept": kept}
 
 
 def _nearest_rank(values: list[float], q: float) -> float:
@@ -1398,8 +1468,9 @@ def parser() -> argparse.ArgumentParser:
     p = sub.add_parser("report")
     p.add_argument("--labels-db", default=None)
     p.set_defaults(func=cmd_report)
-    p = sub.add_parser("load-reference", help="载入复盘会 reviews/overview 快照（scripts/fupanhui_review_overview_pull.py 的输出）作参照标注")
-    p.add_argument("--json", required=True)
+    p = sub.add_parser("load-reference", help="载入平台参照标注：复盘会 reviews/overview 快照 JSON，或主库每日同步落下的 fact_market_daily.cycle_stage（PR #665）；同日以平台 updated_at 较新者为准")
+    p.add_argument("--json", default=None, help="reviews/overview 快照 JSON（scripts/fupanhui_review_overview_pull.py 的输出；该脚本已停用，仅平台许可后可用）")
+    p.add_argument("--from-market-daily", action="store_true", help="从 --db-path 主库的 fact_market_daily.cycle_stage 载入（每日同步累积的内层八段）")
     p.add_argument("--labels-db", default=None)
     p.add_argument("--db-path", default="db/market_feature_store.duckdb")
     p.add_argument("--computed-at", default=None)
