@@ -90,6 +90,25 @@
 | **来源状态** | 当前指数阶段之前的上一段关键状态，用于判断阶段性质和风险收益位置 | 前置状态、前序阶段 |
 | **指数区间涨跌幅** | 指数在一段关键区间内的累计涨跌幅，用于辅助判断上涨空间、回撤幅度和阶段位置 | 区间涨幅、大盘涨跌幅 |
 
+## 舆论生命周期（工单 #36 / G-06；派生规则 `opinion_stage.derive_stage`，`os-v0`）
+
+一条逻辑**传播**到哪一段，全部从研报事件（`fact_research_report_catalog`，按 `recorded_at <= C` 取）确定性派生；只说传播，不说涨跌。与题材生命周期（八阶段 / 七段）不混名。
+
+| 段 | 含义 | 进入条件 |
+|---|---|---|
+| **萌芽** | 刚被少数来源覆盖 | `1 <= count_90d < TH_RESONANCE_SOURCES` |
+| **扩散** | 覆盖在增加 / 维持 | `count_90d >= TH_RESONANCE_SOURCES`，未到拥挤、未退热（30 日斜率进读数，不作门） |
+| **拥挤** | 密度到自身历史高位且来源广 | `count_90d >= TH_CONSENSUS_SOURCES` 且近 90 日不同报告日 `>= TH_CONSENSUS_DAYS` 且 `>= 自身历史 p80`（历史 < 60 观测日不判，停在扩散） |
+| **退热** | 从拥挤峰回落 | 近 120 日曾拥挤，且 30 日斜率连续 >= 10 日 < 0；或曾拥挤而 `count_90d = 0` |
+| **证伪**（终态） | 逻辑被结构化证伪事件否定 | 存在 `kind=falsification` 事件（河里今天没有这种对象，读数恒 0；**不得从价格推断**） |
+| `unverifiable` | 负证据缺失 | `count_90d = 0` 且无事件。**不叫「无人问津」**（路线图 §5 第 3 题：v1 不保留，靠 unverifiable 表达） |
+
+- 三个阈值的真源是 `skills/opinion-cross/scripts/consensus_staging.py`（`TH_RESONANCE_SOURCES / TH_CONSENSUS_SOURCES / TH_CONSENSUS_DAYS`），本词表只读不复制。
+- **另一条轴，不互译**：`consensus_staging` 的阶梯（暗流 → 萌芽 → 第一轮 → 催化共振 → 一致认同）是「证据至少撑到哪一阶」的**下限**，只升不降；本词表可退。三维对照只用本词表，`opinion_cross` 技能继续用阶梯。阅读参考映射：暗流 → unverifiable / 萌芽，萌芽 → 萌芽，第一轮 / 催化共振 → 扩散，一致认同 → 拥挤。
+- **回填批次**：同一 `created_at` 日入库 >= 10 份研报的日子，读数 `inputs.backfill_batch_dates` 点名，其 ±30 日的斜率是采集节奏不是舆论，报告里单列。
+- **错位标记**（题材侧 × 舆论侧）：`aligned | opinion_leads | opinion_lags | unverifiable`，两侧映到三档粗序（early / mid / late）再比；题材侧在词表统一（G-04）前按模块双表映射（`theme_lifecycle` 八阶段、`theme_lifecycle_timeline` 七段），任一侧缺 → unverifiable。
+- 旁路库标签 `opinion_stage`（`theme` 实体，文本值），`LABEL_VERSION` v4。
+
 ## Flagged ambiguities
 
 - "研究报告" 在 `wiki/sources/` 和 `raw/` 中同时存在，前者是2026版，后者未标年份。需要确认哪个是源、哪个是衍生。

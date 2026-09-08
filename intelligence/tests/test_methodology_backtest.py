@@ -292,6 +292,14 @@ def _build_mini_db(path: Path) -> None:
             "INSERT INTO fact_mainline_sector_daily (trade_date, theme_code, theme_name, sector_ts_code, sector_name, sort_no) VALUES (?,?,?,?,?,?)",
             [DAYS[4], "TH1.FP", "主线", "S2.TI", "板块二", 1],
         )
+        # 舆论生命周期（#36）：板块一被两份研报 tag 命中，其中一份 created_at 落在 DAYS[4]（当天前看不见）。
+        con.executemany(
+            "INSERT INTO fact_research_report_catalog (report_id, title, report_date, report_type, sector_tags, concept_tags, created_at) VALUES (?,?,?,?,?,?,?)",
+            [
+                (1, "板块一研报 A", DAYS[0], "industry", '["板块一"]', "[]", f"{DAYS[0]}T18:00:00"),
+                (2, "板块一研报 B", DAYS[1], "industry", '["板块一"]', "[]", f"{DAYS[4]}T18:00:00"),
+            ],
+        )
         _plant_mini_stocks(con)
     finally:
         con.close()
@@ -318,12 +326,12 @@ def _label(con, entity_type, entity_id, label):
 
 def test_labels_inventory_and_data_gap(mini):
     rep = mini["report"]
-    assert len(rep.rows_by_label) == 15
+    assert len(rep.rows_by_label) == 16
     assert rep.data_gap_days == [str(DAYS[GAP])]
     assert rep.label_version == LABEL_VERSION
     con = duckdb.connect(str(mini["labels"]), read_only=True)
     try:
-        assert con.execute("SELECT COUNT(DISTINCT label) FROM history_labels").fetchone()[0] == 15
+        assert con.execute("SELECT COUNT(DISTINCT label) FROM history_labels").fetchone()[0] == 16
         assert con.execute("SELECT MAX(trade_date) FROM history_labels").fetchone()[0] == DAYS[-1]
     finally:
         con.close()
@@ -1290,3 +1298,19 @@ def test_cli_run_and_invalid_rule_exit_codes(synthetic, tmp_path):
     bad.write_text('{"rule_id": "bad_rule", "version": 1}', encoding="utf-8")
     assert cli.main(["run", str(bad), "--labels-db", str(synthetic["labels"]), "--no-write"]) == 2
     assert cli.main(["run", str(rule_path), "--labels-db", str(tmp_path / "nope.duckdb"), "--no-write"]) == 2
+
+
+def test_opinion_stage_label_is_pit_correct_and_only_for_tagged_sectors(mini):
+    """#36：板块一有研报命中 → 每个交易日一行；研报 B 的 created_at 在 DAYS[4]，DAYS[1..3] 只看得见 A（萌芽 count=1）；
+    板块二从未被 tag 命中 → 一行都没有（NULL 语义，不是 unverifiable）。"""
+    con = duckdb.connect(str(mini["labels"]), read_only=True)
+    try:
+        s1 = _label(con, "theme", "S1.TI", "opinion_stage")
+        s2 = _label(con, "theme", "S2.TI", "opinion_stage")
+    finally:
+        con.close()
+    assert s2 == {}
+    assert len(s1) == len(DAYS)
+    assert s1[0] == "萌芽"
+    assert s1[1] == "萌芽" and s1[3] == "萌芽"  # 研报 B 尚未入库
+    assert s1[4] == "萌芽"  # 两份仍 < TH_RESONANCE_SOURCES(3)

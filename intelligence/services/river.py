@@ -441,9 +441,8 @@ def coverage_metrics(hits: list[dict[str, Any]], as_of: str) -> dict[str, Any]:
         "cumulative_count": len(hits),
         "count_30d": sum(1 for r in hits if (as_of_d - r["report_date"]).days < 30),
         "count_90d": sum(1 for r in hits if (as_of_d - r["report_date"]).days < 90),
-        # 阶段词表待 G-06 拍板，且当前样本撑不住密度斜率——不猜。
-        "stage": "unverifiable",
-        "stage_reason": "舆论阶段词表未钦定（roadmap G-06 §5 第 3 题），且研报样本集中于回填批次",
+        # 阶段不再放在覆盖度量里：它是 ``opinion_stage.derive_stage`` 派生的独立 ``stage`` 对象（工单 #36 / G-06），
+        # 词表在 UBIQUITOUS_LANGUAGE.md「舆论生命周期」。覆盖度量只出可计算的量。
     }
 
 
@@ -457,11 +456,11 @@ def _opinion_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
        那次批量重写抹平），而 ``created_at`` 有 **104 个不同日期**且 468/469 行
        ``<= report_date``。所以本轨取 ``created_at`` 作 ``recorded_at``，
        它现在就能进严格 PIT，不用等工单 #27。
-    2. **只出可计算的覆盖度量，不出阶段词。** 舆论阶段词表是 roadmap G-06 的待拍板
-       项（§5 第 3 题），而且现有样本撑不住：实测研报高度集中在回填批次
-       （某板块 2026-01 有 14 份、之后每月 1 份），密度斜率算出来是采集节奏不是舆论。
-       所以 ``stage`` 一律 ``unverifiable`` 并写明原因——**算不出就说算不出**，
-       不拿一个看着像阶段的词去填。
+    2. **阶段是派生对象，不是覆盖度量的字段。** 舆论生命周期词表（工单 #36 / G-06）由
+       ``opinion_stage.derive_stage`` 从研报事件确定性算出，作 ``object_type="stage"`` 单独发出，
+       ``payload`` 带全部 inputs 与 reasons；回填批次（某板块 2026-01 一次入库 14 份）在
+       ``inputs.backfill_batch_dates`` 点名，斜率读数不可比——**读数与它的成立条件一起出**，
+       不拿一个看着像阶段的词去填，也不因为样本脏就整段不给。
 
     标签用精确匹配而不是 SQL ``LIKE``：``LIKE '%铜%'`` 会把「铜缆」「铜箔」算成
     「铜」的覆盖。表只有几百行，全取回来在 Python 里精确比对更便宜也更准。
@@ -489,6 +488,30 @@ def _opinion_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
             payload=metrics,
         )
     ]
+    # 舆论生命周期阶段（#36）：当日带读口径 C = as_of；记录时刻取所用研报里最晚的 created_at。
+    from intelligence.services import opinion_stage as _os
+
+    readout = _os.derive_stage(hits, as_of, knowledge_cutoff=as_of)
+    used_created = [r["created_at"] for r in hits if r.get("created_at") is not None and str(r["created_at"])[:10] <= as_of]
+    out.append(
+        RiverObject(
+            track="opinion",
+            entity_id=eid,
+            object_type="stage",
+            ref=f"opinion_stage:{ename}:{as_of}",
+            source_hash=readout.source_hash,
+            valid_from=as_of,
+            recorded_at=_ts(max(used_created)) if used_created else None,
+            payload={
+                "stage": readout.stage,
+                "coarse": readout.coarse,
+                "reasons": list(readout.reasons),
+                "inputs": readout.inputs,
+                "derivation_rule": readout.derivation_rule,
+                "label_version": _os.DERIVATION_RULE["version"],
+            },
+        )
+    )
     for r in hits[-3:]:  # 最近三份，作可回溯的证据锚点，不搬全文
         out.append(
             RiverObject(
