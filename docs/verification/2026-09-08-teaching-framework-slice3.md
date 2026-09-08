@@ -18,3 +18,15 @@ pytest intelligence/tests/test_teaching_framework_*.py 121 passed + 1 skip（新
 30 分钟探测：push2his.eastmoney.com / push2.eastmoney.com / web3.ifzq.gtimg.cn 解析到 198.18.0.x（fake-ip），TLS 握手成功后服务端空回复（curl 52）；
   push2delay 通但不给 kline；hq.sinajs.cn / quote.eastmoney.com 通 → 本机代理规则拦了 K 线主机，加 DIRECT 后再探深度
 ```
+
+## 全 A 个股日线 MACD 背离变体（/tmp/tf22_stock_divergence.py，53 s）
+
+```text
+快照 fact_stock_daily 5,568 只 × 414 日（3,725,274 行）；摆动低点 = 5 根 K 线最低、第 3 天确认；两低 ≤ 60 交易日；
+结果 = 确认日后 20 交易日超额（对当日全市场中位）> 0；基准 = 全部个股日 2,019,914 个，50.0%；readout(min_n=30)
+底·DIF·两低 27644 0.529 [0.523,0.535] 0.510/0.548 supported +0.54% ｜ 底·柱·两低 36198 0.528 supported +0.52%
+底·DIF·三低 3086 0.566 [0.548,0.583] 0.539/0.592 supported +1.25% ｜ 底·柱·三低 8791 0.555 supported +1.03%
+对照 两低不背离 74707 0.504 [0.500,0.508] +0.08% ｜ 任意摆动低点 262945 0.501 not_distinguishable
+顶·DIF·两高 22889 0.528 supported −0.60% ｜ 顶·柱·两高 29788 0.510 not_distinguishable −0.20% ｜ 对照 两高不背离 87595 0.510 −0.20%
+按阶段 底·DIF·两低：缩量右底 1931/0.58/+1.3 共建主线 5648/0.58/+1.4 左底向下 4979/0.52 左底向上 1708/0.52 主升 2273/0.51 2.0 1076/0.51 高位震荡 6877/0.51
+```
