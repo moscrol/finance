@@ -52,6 +52,7 @@ from intelligence.services.methodology_backtest.propose import (  # noqa: E402
     write_rule_file,
 )
 from intelligence.services.methodology_backtest.receipts import (  # noqa: E402
+    DECLARED_STAGES,
     REFUTED_VERDICT,
     build_receipt,
     build_scan_summary,
@@ -273,6 +274,7 @@ def cmd_run(args) -> int:
         environment=env,
         test_mode="single",
         appendix=appendix,
+        declared_stage=args.stage,
     )
     _print_readout(res)
     for note in res.readout.notes:
@@ -321,6 +323,7 @@ def cmd_scan(args) -> int:
             test_mode="scan",
             bh=bh,
             appendix=appendix,
+            declared_stage=args.stage,
         )
         if args.no_write:
             receipt_paths.append(None)
@@ -425,8 +428,14 @@ def cmd_queue(args) -> int:
             continue
         rule_id = str(doc.get("rule_id") or doc.get("id") or path.stem.split(".v")[0])
         steps = lifecycle.load_steps(receipts_dir, rule_id)
+        # 规则文件的 sha256 就是收据里的 rule.sha256：只认当前这份内容的收据，改过文件的旧收据是历史
         states.append(
-            lifecycle.derive_state({**doc, "rule_id": rule_id}, steps, human_approval=approvals.get(rule_id))
+            lifecycle.derive_state(
+                {**doc, "rule_id": rule_id},
+                steps,
+                human_approval=approvals.get(rule_id),
+                rule_sha256=_sha256(path),
+            )
         )
 
     if args.json:
@@ -533,6 +542,13 @@ def _add_run_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--receipts-dir", default=str(RECEIPTS_DIR), help="收据目录（默认 methodology/receipts）")
     p.add_argument("--refuted-dir", default=str(REFUTED_DIR), help="证伪库目录（默认 methodology/refuted，进 git）")
     p.add_argument("--no-write", action="store_true", help="只打印读数，不落收据、不落证伪库")
+    p.add_argument(
+        "--stage",
+        choices=list(DECLARED_STAGES),
+        default=None,
+        help="跑之前声明这份收据的角色：discovery / validation / holdout。不声明 = 探索或历史观察，"
+        "lifecycle 不拿它当晋升证据（refuted 照旧生效）",
+    )
     p.add_argument(
         "--calibration-user-dir",
         default=None,

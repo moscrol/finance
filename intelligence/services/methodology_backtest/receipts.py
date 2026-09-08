@@ -27,6 +27,9 @@ RECEIPT_SCHEMA = "methodology-backtest-receipt/v0"
 SCAN_SCHEMA = "methodology-backtest-scan/v0"
 REFUTED_SCHEMA = "methodology-backtest-refuted/v0"
 REFUTED_VERDICT = "refuted"
+# 预声明的检验角色（工单 #42 / 补强 spec OPT-04）。跑之前就说清这份收据是发现、验证还是 Holdout；
+# 没声明的收据是探索或历史观察，lifecycle 不拿它当晋升证据（证伪不需要声明，refuted 照旧生效）。
+DECLARED_STAGES: tuple[str, ...] = ("discovery", "validation", "holdout")
 
 _VERDICT_CN = {
     "insufficient_n": "样本不足",
@@ -61,9 +64,12 @@ def build_receipt(
     bh: dict[str, Any] | None = None,
     appendix: dict[str, Any] | None = None,
     now: datetime | None = None,
+    declared_stage: str | None = None,
 ) -> dict[str, Any]:
     if test_mode not in ("single", "scan"):
         raise ValueError(f"test_mode 必须是 single / scan，得到 {test_mode!r}")
+    if declared_stage is not None and declared_stage not in DECLARED_STAGES:
+        raise ValueError(f"declared_stage 必须是 {'/'.join(DECLARED_STAGES)} 或 None，得到 {declared_stage!r}")
     rule = result.rule
     rd = result.readout
     verdict = (bh or {}).get("verdict_bh", rd.verdict) if test_mode == "scan" else rd.verdict
@@ -72,6 +78,7 @@ def build_receipt(
         "generated_at": _now_iso(now),
         "test_mode": test_mode,
         "exploratory": test_mode == "scan",
+        "declared_stage": declared_stage,
         "multiple_testing_note": (
             f"scan 模式：{len((bh or {}).get('family', []))} 条规则同族，Benjamini–Hochberg q={(bh or {}).get('q')}"
             if test_mode == "scan"
@@ -168,6 +175,12 @@ def render_receipt_markdown(receipt: dict[str, Any]) -> str:
     )
     if receipt["test_mode"] == "scan" and receipt.get("verdict_single") != receipt["verdict"]:
         lines.append(f"> 单次检验结论为 `{receipt['verdict_single']}`，经 BH 校正降级为 `{receipt['verdict']}`。")
+    stage = receipt.get("declared_stage")
+    lines.append(
+        f"> 声明阶段 `{stage}`：计入该规则本轮次的晋升证据。"
+        if stage
+        else "> 未声明阶段：探索 / 历史观察，不作晋升证据（要计入请 `run --stage discovery|validation|holdout`）。"
+    )
     lines.append("")
     lines.append("## 读数")
     lines.append("")

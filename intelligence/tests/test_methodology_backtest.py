@@ -760,6 +760,28 @@ def test_refuted_entry_written_only_for_refuted_verdict(synthetic, tmp_path):
     assert len(load_refuted(root)) == 1
 
 
+def test_receipt_carries_declared_stage(synthetic):
+    """工单 #42：跑之前声明的阶段落在收据顶层；不声明为 null 并在 md 里说明不作晋升证据；乱写拒绝。"""
+    from intelligence.services.methodology_backtest.receipts import (
+        DECLARED_STAGES,
+        build_receipt,
+        render_receipt_markdown,
+    )
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    assert DECLARED_STAGES == ("discovery", "validation", "holdout")
+    declared = build_receipt(res, rule_path=None, rule_sha256="abc", environment=env, declared_stage="discovery")
+    assert declared["declared_stage"] == "discovery"
+    assert "声明阶段 `discovery`" in render_receipt_markdown(declared)
+    undeclared = build_receipt(res, rule_path=None, rule_sha256="abc", environment=env)
+    assert undeclared["declared_stage"] is None
+    assert "不作晋升证据" in render_receipt_markdown(undeclared)
+    with pytest.raises(ValueError):
+        build_receipt(res, rule_path=None, rule_sha256="abc", environment=env, declared_stage="主升")
+
+
 def test_cli_run_scan_write_refuted_and_report_refuted(synthetic, tmp_path, capsys):
     cli = _load_script(CLI, "mb_cli_for_pytest_refuted")
     st = synthetic["st"]
