@@ -1064,3 +1064,213 @@ CREATE TABLE IF NOT EXISTS ops_sync_run (
     rows_summary  TEXT,      -- json: 核心表行数
     steps_summary TEXT       -- json: [{name, ok, elapsed_s}]
 );
+
+-- ============================================================
+-- 同花顺金融数据服务（hithink-finance）并跑表 · 工单 #41 A
+-- 新源新表，不混入 fact_stock_daily。turnover 是元（dump 原值），不是亿。
+-- 十年 dump 只有今天在市的股票，历史横截面有幸存者偏差。切主是 E 单。
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS fact_stock_daily_hithink (
+    trade_date     DATE,
+    stock_ts_code  TEXT,
+    open           DOUBLE,
+    high           DOUBLE,
+    low            DOUBLE,
+    close          DOUBLE,
+    volume         DOUBLE,   -- 股
+    turnover       DOUBLE,   -- 元（dump.turnover 原值，不是亿）
+    adjusted       TEXT,     -- 固定 none（未复权）
+    source         TEXT,     -- hithink:daily-k / hithink:daily-k-10d
+    updated_at     TIMESTAMP,
+    PRIMARY KEY (trade_date, stock_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_stock_hithink_date
+    ON fact_stock_daily_hithink(trade_date);
+CREATE INDEX IF NOT EXISTS idx_fact_stock_hithink_stock
+    ON fact_stock_daily_hithink(stock_ts_code);
+
+CREATE TABLE IF NOT EXISTS fact_stock_adjustment_hithink (
+    stock_ts_code      TEXT,
+    ex_date            DATE,
+    dividend_per_share DOUBLE,
+    per_share_bonus    DOUBLE,
+    allotment_ratio    DOUBLE,
+    allotment_price    DOUBLE,
+    currency           TEXT,
+    source             TEXT,     -- hithink:adjustment-factors
+    updated_at         TIMESTAMP,
+    PRIMARY KEY (stock_ts_code, ex_date)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_stock_adjustment_hithink_date
+    ON fact_stock_adjustment_hithink(ex_date);
+
+-- ============================================================
+-- 同花顺官方板块 / 指数日 K · 工单 #41 B
+-- 新源新表，不改 fact_sector_daily。窗口 >1500 天上游静默空，请求不得超过。
+-- 成分只有当前，禁止回写 fact_sector_stock_daily。切主是 E 单。
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS dim_sector_hithink (
+    sector_ts_code            TEXT PRIMARY KEY,
+    sector_name               TEXT,
+    category                  TEXT,     -- cn_concept / industry / region / tszs / index
+    constituent_count         INTEGER,
+    constituents_captured_at  TIMESTAMP,
+    source                    TEXT,     -- hithink:ths-index-list
+    updated_at                TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS fact_sector_kline_daily (
+    trade_date     DATE,
+    sector_ts_code TEXT,
+    open           DOUBLE,
+    high           DOUBLE,
+    low            DOUBLE,
+    close          DOUBLE,
+    volume         DOUBLE,
+    turnover       DOUBLE,   -- 元
+    source         TEXT,     -- hithink:index-historical
+    updated_at     TIMESTAMP,
+    PRIMARY KEY (trade_date, sector_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_sector_kline_hithink_date
+    ON fact_sector_kline_daily(trade_date);
+CREATE INDEX IF NOT EXISTS idx_fact_sector_kline_hithink_sector
+    ON fact_sector_kline_daily(sector_ts_code);
+
+CREATE TABLE IF NOT EXISTS fact_sector_constituent_hithink (
+    captured_at    DATE,
+    sector_ts_code TEXT,
+    stock_ts_code  TEXT,
+    ticker         TEXT,
+    in_index       INTEGER,  -- 恒 1：当前成分行
+    source         TEXT,     -- hithink:ths-stock-list
+    updated_at     TIMESTAMP,
+    PRIMARY KEY (captured_at, sector_ts_code, stock_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_sector_constituent_hithink_sector
+    ON fact_sector_constituent_hithink(sector_ts_code);
+
+-- ============================================================
+-- 同花顺官方涨停 / 跌停 / 炸板池 · 工单 #41 C
+-- 新源新表，不改 fact_theme_limit_stock_daily / fact_limit_advance_daily。
+-- 涨停约六年（2020 起），跌停与炸板一年。个股名不落库。切主是 E 单。
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS fact_limit_pool_hithink (
+    trade_date             DATE,
+    pool                   TEXT,     -- limit_up / limit_down / limit_break
+    stock_ts_code          TEXT,
+    ticker                 TEXT,
+    is_st                  BOOLEAN,
+    is_new                 BOOLEAN,
+    last_price             DOUBLE,
+    pct_chg                DOUBLE,   -- price_change_ratio_pct，已乘 100
+    limit_up_time          TEXT,
+    limit_up_reason        TEXT,
+    continue_day_text      TEXT,
+    continue_day_cnt       INTEGER,
+    seal_money             DOUBLE,   -- 元
+    max_seal_money         DOUBLE,
+    first_limit_time       TEXT,
+    last_limit_time        TEXT,
+    turnover_ratio_pct     DOUBLE,
+    open_times             INTEGER,
+    turnover               DOUBLE,   -- 元（炸板池）
+    source                 TEXT,     -- hithink:limit-up-pool / limit-down-pool / limit-break-pool
+    updated_at             TIMESTAMP,
+    PRIMARY KEY (trade_date, pool, stock_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_limit_pool_hithink_date
+    ON fact_limit_pool_hithink(trade_date);
+CREATE INDEX IF NOT EXISTS idx_fact_limit_pool_hithink_pool
+    ON fact_limit_pool_hithink(pool, trade_date);
+
+-- ============================================================
+-- 同花顺官方龙虎榜 / 热榜 / 竞价 · 工单 #41 D
+-- 新源新表，不改 fact_dragon_tiger_daily / fact_dragon_seat_daily /
+-- fact_auction_stock_daily。个股名不落库。切主是 E 单。
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS fact_dragon_tiger_hithink (
+    trade_date            DATE,
+    stock_ts_code         TEXT,
+    ticker                TEXT,
+    pct_chg               DOUBLE,   -- change
+    buy_value             DOUBLE,
+    sell_value            DOUBLE,
+    net_value             DOUBLE,
+    net_rate              DOUBLE,
+    org_net_value         DOUBLE,
+    hot_money_net_value   DOUBLE,
+    hot_rank              INTEGER,
+    range_days            INTEGER,
+    limit_reason          TEXT,
+    source                TEXT,     -- hithink:dragon-tiger-list
+    updated_at            TIMESTAMP,
+    PRIMARY KEY (trade_date, stock_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_dragon_tiger_hithink_date
+    ON fact_dragon_tiger_hithink(trade_date);
+
+CREATE TABLE IF NOT EXISTS fact_dragon_hot_money_hithink (
+    trade_date                 DATE,
+    hot_money_name             TEXT,   -- 游资名，不是个股名
+    stock_ts_code              TEXT,
+    ticker                     TEXT,
+    group_buying               DOUBLE,
+    buy_value                  DOUBLE,
+    sell_value                 DOUBLE,
+    net_value                  DOUBLE,
+    net_rate                   DOUBLE,
+    org_net_value              DOUBLE,
+    hot_money_net_value        DOUBLE,
+    hot_money_item_net_value   DOUBLE,
+    hot_money_item_net_rate    DOUBLE,
+    hot_rank                   INTEGER,
+    range_days                 INTEGER,
+    source                     TEXT,   -- hithink:dragon-tiger-hot-money
+    updated_at                 TIMESTAMP,
+    PRIMARY KEY (trade_date, hot_money_name, stock_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_dragon_hot_money_hithink_date
+    ON fact_dragon_hot_money_hithink(trade_date);
+
+CREATE TABLE IF NOT EXISTS fact_hot_stock_rank_hithink (
+    trade_date     DATE,
+    stock_ts_code  TEXT,
+    ticker         TEXT,
+    rank           INTEGER,
+    source         TEXT,     -- hithink:hot-stock-list-history
+    updated_at     TIMESTAMP,
+    PRIMARY KEY (trade_date, stock_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_hot_stock_rank_hithink_date
+    ON fact_hot_stock_rank_hithink(trade_date);
+
+CREATE TABLE IF NOT EXISTS fact_auction_hithink (
+    trade_date                   DATE,
+    stock_ts_code                TEXT,
+    kind                         TEXT,     -- benchmark / snapshot
+    ticker                       TEXT,
+    auction_price                DOUBLE,
+    auction_pct                  DOUBLE,
+    auction_volume               DOUBLE,
+    auction_amount               DOUBLE,
+    auction_unmatched            DOUBLE,
+    auction_turnover_pct         DOUBLE,
+    auction_yesterday_ratio_pct  DOUBLE,
+    auction_volume_ratio         DOUBLE,
+    pre_close_price              DOUBLE,
+    open_price                   DOUBLE,
+    last_price                   DOUBLE,
+    float_market_cap             DOUBLE,
+    tags                         TEXT,     -- 风向标标签，逗号拼接
+    source                       TEXT,     -- hithink:auction-benchmark / auction-snapshot
+    updated_at                   TIMESTAMP,
+    PRIMARY KEY (trade_date, stock_ts_code, kind)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_auction_hithink_date
+    ON fact_auction_hithink(trade_date, kind);
+

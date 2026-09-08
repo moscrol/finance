@@ -1100,6 +1100,237 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "deviation_pct": _metric("deviation_pct", "乖离率"),
         },
     ),
+    # 同花顺官方并跑源（工单 #41 A）。未切主：问「今天收盘」仍走 stock_daily。
+    # turnover 是元不是亿；十年 dump 只有今天在市的票（幸存者偏差）。
+    "stock_daily_hithink": _DatasetDefinition(
+        table="fact_stock_daily_hithink",
+        label="同花顺个股日K（未复权并跑）",
+        population="full",
+        coverage=(
+            "同花顺官方全市场日 K dump，未复权 OHLCV。**并跑源，未切主**——"
+            "日常收盘/涨幅仍用 stock_daily。"
+            "**成交额 turnover 单位是元**，不是 stock_daily.amount 的亿。"
+            "只有**今天在市**的股票：2016 年约一半代码没有行，已退市的不在，"
+            "横截面回测有幸存者偏差。没有昨收/涨幅/换手率/股票名（dump 不带）。"
+        ),
+        incomplete_before=date(2016, 9, 8),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "adjusted": _dimension("adjusted", "复权标记"),
+        },
+        metrics={
+            "open": _metric("open", "开盘价"),
+            "high": _metric("high", "最高价"),
+            "low": _metric("low", "最低价"),
+            "close": _metric("close", "收盘价"),
+            "volume": _metric("volume", "成交量股", "sum"),
+            "turnover": _metric("turnover", "成交额元", "sum"),
+        },
+    ),
+    "stock_adjustment_hithink": _DatasetDefinition(
+        table="fact_stock_adjustment_hithink",
+        label="同花顺复权事件",
+        population="subset",
+        coverage=(
+            "分红 / 送股 / 配股事件，不是日频行情。一股多日才有行。"
+            "从 1991 年起；含已公告未除权的未来日。"
+        ),
+        time_field="ex_date",
+        allow_future_time_range=True,
+        cutoff_column="updated_at",
+        dimensions={
+            "ex_date": _dimension("ex_date", "除权日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+        },
+        metrics={
+            "dividend_per_share": _metric("dividend_per_share", "每股现金分红"),
+            "per_share_bonus": _metric("per_share_bonus", "每股送股"),
+            "allotment_ratio": _metric("allotment_ratio", "配股比例"),
+            "allotment_price": _metric("allotment_price", "配股价格"),
+        },
+    ),
+    "sector_kline_daily": _DatasetDefinition(
+        table="fact_sector_kline_daily",
+        label="同花顺板块/指数日K",
+        population="full",
+        coverage=(
+            "同花顺官方板块 / 指数日 K（``.TI`` / ``.SH`` / ``.SZ``），带开高低收。"
+            "**深度约三年**：请求窗口超过约 1500 天会静默返回空。**并跑源，未切主**——"
+            "板块涨幅/成交额日常仍用 sector_daily。"
+            "**成交额 turnover 单位是元**。成分股只有当前，见 sector_constituent_hithink，"
+            "不要拿来回算历史板块成交占比。"
+        ),
+        incomplete_before=date(2022, 8, 1),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "sector_code": _dimension("sector_ts_code", "板块代码"),
+        },
+        metrics={
+            "open": _metric("open", "开盘价"),
+            "high": _metric("high", "最高价"),
+            "low": _metric("low", "最低价"),
+            "close": _metric("close", "收盘价"),
+            "volume": _metric("volume", "成交量", "sum"),
+            "turnover": _metric("turnover", "成交额元", "sum"),
+        },
+    ),
+    "sector_constituent_hithink": _DatasetDefinition(
+        table="fact_sector_constituent_hithink",
+        label="同花顺板块当前成分快照",
+        population="subset",
+        coverage=(
+            "**只有当前成分**，带 captured_at，不是历史调入调出。"
+            "禁止当历史成分用，也不要拿去改 sector_stock_daily。"
+            "产品面不出个股名（表里没有 name）。"
+        ),
+        time_field="captured_at",
+        dimensions={
+            "captured_at": _dimension("captured_at", "快照日", "date"),
+            "sector_code": _dimension("sector_ts_code", "板块代码"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "ticker": _dimension("ticker", "纯代码"),
+        },
+        metrics={
+            "in_index": _metric("in_index", "是否当前成分", "max", "integer"),
+        },
+    ),
+    "limit_pool_hithink": _DatasetDefinition(
+        table="fact_limit_pool_hithink",
+        label="同花顺涨停/跌停/炸板池",
+        population="subset",
+        coverage=(
+            "三池一张表，``pool`` 列区分 limit_up / limit_down / limit_break。"
+            "涨停**有效数据从 2020-07-01 起**（2020-01～06 上游返空）；跌停与炸板只有**一年**。"
+            "**2023-07 ~ 2024-04 约 100 个交易日上游返 5003（池子缺 ticker）**，"
+            "这些日子表里没有行，**不等于当天零涨停**，做承接 / 促进率不要拿它当分母。"
+            "**并跑源，未切主**——全市涨停家数仍用 market_daily.limit_up；"
+            "连板用 limit_advance_daily。两边口径可能差 ST / 北交所，先看一致率再判。"
+            "六年池子里没有北交所（`.BJ`）。产品面不出个股名（表里没有 name）。"
+        ),
+        incomplete_before=date(2020, 7, 1),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "pool": _dimension("pool", "池"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "ticker": _dimension("ticker", "纯代码"),
+            "is_st": _dimension("is_st", "是否ST", "boolean"),
+            "is_new": _dimension("is_new", "是否次新", "boolean"),
+            "limit_up_reason": _dimension("limit_up_reason", "涨停原因"),
+        },
+        metrics={
+            "last_price": _metric("last_price", "最新价"),
+            "return_pct": _metric("pct_chg", "涨跌幅"),
+            "continue_day_cnt": _metric(
+                "continue_day_cnt", "连板数", "max", "integer"
+            ),
+            "seal_money": _metric("seal_money", "封单金额元", "sum"),
+            "max_seal_money": _metric("max_seal_money", "最大封单元", "max"),
+            "open_times": _metric("open_times", "开板次数", "max", "integer"),
+            "turnover": _metric("turnover", "成交额元", "sum"),
+        },
+    ),
+    "dragon_tiger_hithink": _DatasetDefinition(
+        table="fact_dragon_tiger_hithink",
+        label="同花顺龙虎榜个股",
+        population="subset",
+        coverage=(
+            "官方 ``dragon-tiger-list?board_type=all``，**只有一年**。"
+            "**并跑源，未切主**——净额仍用 dragon_tiger_daily.net_amount。"
+            "两边单位可能是元 vs 亿，先看一致率再判，不硬改。"
+            "产品面不出个股名。"
+        ),
+        incomplete_before=date(2025, 9, 8),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "ticker": _dimension("ticker", "纯代码"),
+            "limit_reason": _dimension("limit_reason", "上榜原因"),
+        },
+        metrics={
+            "return_pct": _metric("pct_chg", "涨跌幅"),
+            "buy_value": _metric("buy_value", "买入额", "sum"),
+            "sell_value": _metric("sell_value", "卖出额", "sum"),
+            "net_value": _metric("net_value", "净额", "sum"),
+            "org_net_value": _metric("org_net_value", "机构净额", "sum"),
+            "hot_money_net_value": _metric("hot_money_net_value", "游资净额", "sum"),
+        },
+    ),
+    "dragon_hot_money_hithink": _DatasetDefinition(
+        table="fact_dragon_hot_money_hithink",
+        label="同花顺龙虎榜游资组",
+        population="subset",
+        coverage=(
+            "官方 ``dragon-tiger-list?board_type=hot_money``，一年。"
+            "一行=一日×一游资×一股。**并跑**，组数对 fact_dragon_seat_daily 游资侧，不硬改。"
+            "存游资名，不存个股名。"
+        ),
+        incomplete_before=date(2025, 9, 8),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "hot_money_name": _dimension("hot_money_name", "游资名"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "ticker": _dimension("ticker", "纯代码"),
+        },
+        metrics={
+            "group_buying": _metric("group_buying", "游资组买入", "sum"),
+            "net_value": _metric("net_value", "净额", "sum"),
+            "hot_money_item_net_value": _metric(
+                "hot_money_item_net_value", "游资单项净额", "sum"
+            ),
+        },
+    ),
+    "hot_stock_rank_hithink": _DatasetDefinition(
+        table="fact_hot_stock_rank_hithink",
+        label="同花顺历史热股榜",
+        population="subset",
+        coverage=(
+            "官方 ``hot-stock-list-history``，一年、每日约 30 名。"
+            "注意力名次新视角，不是复盘会主源。产品面不出个股名。"
+        ),
+        incomplete_before=date(2025, 9, 8),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "ticker": _dimension("ticker", "纯代码"),
+        },
+        metrics={
+            "rank": _metric("rank", "热榜名次", "min", "integer"),
+        },
+    ),
+    "auction_hithink": _DatasetDefinition(
+        table="fact_auction_hithink",
+        label="同花顺竞价（风向标+终态）",
+        population="subset",
+        coverage=(
+            "``kind=benchmark`` 是短线风向标，**每天约 6 只**，2026-01 起，"
+            "替代不了复盘会全量竞价看板。"
+            "``kind=snapshot`` 是 ``auction/snapshot?stage=final`` 日更终态。"
+            "**并跑未切主**。产品面不出个股名。"
+        ),
+        incomplete_before=date(2026, 1, 1),
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "kind": _dimension("kind", "benchmark或snapshot"),
+            "ticker": _dimension("ticker", "纯代码"),
+            "tags": _dimension("tags", "风向标标签"),
+        },
+        metrics={
+            "auction_pct": _metric("auction_pct", "竞价涨跌幅"),
+            "auction_amount": _metric("auction_amount", "竞价成交额", "sum"),
+            "auction_volume": _metric("auction_volume", "竞价量手", "sum"),
+            "auction_unmatched": _metric("auction_unmatched", "未匹配量", "sum"),
+            "float_market_cap": _metric("float_market_cap", "流通市值", "max"),
+        },
+    ),
 }
 
 

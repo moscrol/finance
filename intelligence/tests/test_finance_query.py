@@ -1484,6 +1484,63 @@ def test_global_stock_rejects_future_ashare_day() -> None:
         )
 
 
+def test_hithink_datasets_registered() -> None:
+    """工单 #41 A：并跑表必须进语义层，否则入库了 agent 够不着。"""
+    from intelligence.services.finance_query import _DATASETS, _UNREGISTERED_TABLES
+
+    daily = _DATASETS["stock_daily_hithink"]
+    assert daily.table == "fact_stock_daily_hithink"
+    assert daily.population == "full"
+    assert daily.incomplete_before == date(2016, 9, 8)
+    assert "turnover" in daily.metrics
+    assert "元" in daily.coverage
+    assert "并跑" in daily.coverage
+    assert "幸存者" in daily.coverage
+
+    adj = _DATASETS["stock_adjustment_hithink"]
+    assert adj.table == "fact_stock_adjustment_hithink"
+    assert adj.allow_future_time_range is True
+    assert adj.cutoff_column == "updated_at"
+    assert "fact_stock_daily_hithink" not in _UNREGISTERED_TABLES
+    assert "fact_stock_adjustment_hithink" not in _UNREGISTERED_TABLES
+
+    kline = _DATASETS["sector_kline_daily"]
+    assert kline.table == "fact_sector_kline_daily"
+    assert "1500" in kline.coverage
+    assert "并跑" in kline.coverage
+    members = _DATASETS["sector_constituent_hithink"]
+    assert members.table == "fact_sector_constituent_hithink"
+    assert "当前" in members.coverage
+    assert "fact_sector_kline_daily" not in _UNREGISTERED_TABLES
+    assert "fact_sector_constituent_hithink" not in _UNREGISTERED_TABLES
+
+    pools = _DATASETS["limit_pool_hithink"]
+    assert pools.table == "fact_limit_pool_hithink"
+    assert pools.population == "subset"
+    # 上游 2020-01～06 返空，有效数据从 07-01 起；不能按「2020 年起」报齐
+    assert pools.incomplete_before == date(2020, 7, 1)
+    assert "2020-07-01" in pools.coverage
+    assert "5003" in pools.coverage  # 2023-07~2024-04 的空日不等于零涨停
+    assert "一年" in pools.coverage
+    assert "并跑" in pools.coverage
+    assert "name" not in pools.dimensions
+    assert "fact_limit_pool_hithink" not in _UNREGISTERED_TABLES
+
+    dragon = _DATASETS["dragon_tiger_hithink"]
+    assert dragon.table == "fact_dragon_tiger_hithink"
+    assert "一年" in dragon.coverage
+    assert "并跑" in dragon.coverage
+    money = _DATASETS["dragon_hot_money_hithink"]
+    assert money.table == "fact_dragon_hot_money_hithink"
+    rank = _DATASETS["hot_stock_rank_hithink"]
+    assert rank.table == "fact_hot_stock_rank_hithink"
+    auction = _DATASETS["auction_hithink"]
+    assert auction.table == "fact_auction_hithink"
+    assert "6" in auction.coverage
+    assert "fact_dragon_tiger_hithink" not in _UNREGISTERED_TABLES
+    assert "fact_auction_hithink" not in _UNREGISTERED_TABLES
+
+
 def test_stock_technical_registered_as_dataset() -> None:
     """UP 线/偏离度：203 万行日更资产，此前入库但语义层查不到。"""
     from intelligence.services.finance_query import _DATASETS
