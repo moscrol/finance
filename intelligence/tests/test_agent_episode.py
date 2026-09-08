@@ -262,9 +262,16 @@ def test_progress_sink_observes_append_only_events_before_and_during_model_work(
     class ProgressAwareModel(ScriptedModel):
         def complete(self, *, messages, tools, timeout):
             if not self.calls:
-                # 首轮请求前 durable 侧已有两条：task，以及模型可见即已落账（INV-R1）
-                # 要求的 prompt_assembled——system 与首轮 user 先落事件再进 messages。
-                assert [event.kind for event in observed] == ["task", "prompt_assembled"]
+                # 首轮请求前 durable 侧已有四条：configure（配置快照，唯一允许先于 task 的
+                # 事件）、task、模型可见即已落账（INV-R1）要求的 prompt_assembled——system 与
+                # 首轮 user 先落事件再进 messages——以及效果三明治（INV-R2）的 model_intent：
+                # 向 provider 开口之前，意图必须已经在日志里。
+                assert [event.kind for event in observed] == [
+                    "configure",
+                    "task",
+                    "prompt_assembled",
+                    "model_intent",
+                ]
             return super().complete(messages=messages, tools=tools, timeout=timeout)
 
     frame = _frame()
@@ -2233,11 +2240,24 @@ def test_tool_batch_completes_in_reverse_but_returns_original_transcript_order()
         event.payload["task_frame_hash"] == frame.task_frame_hash
         for event in outcome.events
     )
+    # 效果三明治（INV-R2）：一批里**每个**要派发的调用先落意图、再进线程池，所以两条
+    # tool_request 先于任何 tool_result；结算仍按模型给出的顺序回来（与上面 messages
+    # 的 call-1 / call-2 顺序一致），完成顺序（call-2 先）只体现在 runner 里。
     assert [
         event.kind
         for event in outcome.events
         if event.kind in {"tool_request", "tool_result", "tool_error"}
-    ] == ["tool_request", "tool_result", "tool_request", "tool_result"]
+    ] == ["tool_request", "tool_request", "tool_result", "tool_result"]
+    assert [
+        event.payload["call_id"]
+        for event in outcome.events
+        if event.kind in {"tool_request", "tool_result"}
+    ] == ["call-1", "call-2", "call-1", "call-2"]
+    assert all(
+        event.payload["replay"] == "safe"
+        for event in outcome.events
+        if event.kind == "tool_request"
+    )
 
 
 def test_evidence_injection_does_not_mutate_system_message() -> None:
@@ -3644,6 +3664,28 @@ def test_model_failure_after_tools_close_gets_exactly_one_compact_recovery() -> 
     assert [event.kind for event in outcome.events].count(
         "finalization_recovery_started"
     ) == 1
+    # 兜底合成那段独立 prompt 也「模型可见即已落账」（P0 已知边界 a，P2 补）：
+    # 一条 prompt_assembled{source=finalizer}，正文哈希与第三次请求真发出的逐字节对得上；
+    # 它不进 episode 消息历史——派生器跳过它，严格模式下前两次请求的对账仍成立。
+    finalizer_prompts = [
+        event
+        for event in outcome.events
+        if event.kind == "prompt_assembled" and event.payload.get("source") == "finalizer"
+    ]
+    assert len(finalizer_prompts) == 1
+    recovery_call = model.calls[2]["messages"]
+    assert finalizer_prompts[0].payload["system"] == recovery_call[0]["content"]
+    assert finalizer_prompts[0].payload["user"] == recovery_call[1]["content"]
+    started = next(
+        event for event in outcome.events if event.kind == "finalization_recovery_started"
+    )
+    assert started.sequence < finalizer_prompts[0].sequence
+    episode_prompts = [
+        event
+        for event in outcome.events
+        if event.kind == "prompt_assembled" and "source" not in event.payload
+    ]
+    assert len(episode_prompts) == 1, "episode 自己那条形状不变（不带 source 键）"
 
 
 def test_invalid_finish_after_normal_repair_recovers_only_once() -> None:

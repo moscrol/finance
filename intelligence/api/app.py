@@ -88,6 +88,10 @@ from intelligence.services.episode_progress import (
     project_episode_progress,
     public_progress_messages,
 )
+from intelligence.services.episode_store import (
+    JsonlEpisodeStore,
+    resolve_episode_store_root,
+)
 from intelligence.services.episode_tools import (
     build_episode_registry,
     latest_market_date,
@@ -340,6 +344,28 @@ def _memory_bound_registry_factory(
     return registry_factory
 
 
+_OPEN_EPISODES_LIST_CAP = 50
+
+
+def _open_episodes_registry() -> dict[str, object]:
+    """``/api/readiness`` 里的登记表：store 中仍未终局的 episode（运行底座 P2）。
+
+    只登记，不恢复——自动恢复要等 P4 竞态目录里「restore vs 在飞驱动」有测（母单 §12 第 3 题）。
+    列表截到 ``_OPEN_EPISODES_LIST_CAP`` 条，count 给全量。
+    """
+
+    store = JsonlEpisodeStore(resolve_episode_store_root())
+    try:
+        open_ids = store.list_open()
+    except Exception as exc:  # noqa: BLE001 - 探针路径：读不出 store 不该拖垮 readiness
+        return {"count": None, "episode_ids": [], "unavailable": type(exc).__name__}
+    return {
+        "count": len(open_ids),
+        "episode_ids": list(open_ids[:_OPEN_EPISODES_LIST_CAP]),
+        "truncated": len(open_ids) > _OPEN_EPISODES_LIST_CAP,
+    }
+
+
 def _build_continuous_turn_adapter(
     *,
     providers: tuple[LLMProvider, ...],
@@ -437,6 +463,9 @@ def _build_continuous_turn_adapter(
             event_sink=(
                 publish_episode_event if progress_publisher is not None else None
             ),
+            # 运行底座 P2：每步落盘（events.jsonl 追加 + state.json 覆写），进程重启后
+            # ``restore`` 能读回。store 对象只是根路径 + 锁，按次构造即可，目录首次 append 才建。
+            episode_store=JsonlEpisodeStore(resolve_episode_store_root()),
         )
     elif selection.name == "sdk_glm":
         if not providers:
@@ -2587,6 +2616,10 @@ def create_app(
                 "rag": worker_status,
             },
             "recovered_runs": len(recovered_runs),
+            # 运行底座 P2（§12 第 3 题：只登记、不自动恢复）：进程重启后 store 里仍
+            # 非 done 的 episode。列出来让人 / Workbench 决定是否 ``restore``；
+            # 读不出 store 时如实报 unavailable，不让它拖红 readiness。
+            "open_episodes": _open_episodes_registry(),
         }
         return JSONResponse(payload, status_code=200 if ready else 503)
 

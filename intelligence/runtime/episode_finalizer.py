@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import json
 
 from intelligence.services.agent_research import AgentEvidence
@@ -111,8 +112,14 @@ class EpisodeFinalizer:
         evidence: tuple[AgentEvidence, ...],
         gaps: tuple[str, ...],
         failure_reason: str,
+        on_prompt: Callable[[str, str], None] | None = None,
     ) -> ModelTurn:
-        """Return the provider turn unchanged after one no-tools recovery call."""
+        """Return the provider turn unchanged after one no-tools recovery call.
+
+        ``on_prompt(system, user)`` 在向模型开口之前收到这段独立 prompt 的正文——Episode 用它
+        落 ``prompt_assembled{source: finalizer}``（模型可见即已落账，运行底座 P0 已知边界 a）。
+        默认 None：不接线的调用方行为不变。
+        """
 
         payload = self._payload(
             task_frame=task_frame,
@@ -125,6 +132,7 @@ class EpisodeFinalizer:
             system_prompt=_RECOVERY_SYSTEM_PROMPT,
             payload=payload,
             context=context,
+            on_prompt=on_prompt,
         )
 
     def _complete(
@@ -133,10 +141,14 @@ class EpisodeFinalizer:
         system_prompt: str,
         payload: dict[str, object],
         context: ResearchRunContext,
+        on_prompt: Callable[[str, str], None] | None = None,
     ) -> ModelTurn:
         timeout = context.deadline.synthesis_timeout(self._llm_timeout)
         if timeout <= 0.0:
             raise TimeoutError("finalization deadline exhausted")
+        user_content = json.dumps(payload, ensure_ascii=False)
+        if on_prompt is not None:
+            on_prompt(system_prompt, user_content)
         return self._model.complete(
             messages=[
                 {
@@ -145,10 +157,7 @@ class EpisodeFinalizer:
                 },
                 {
                     "role": "user",
-                    "content": json.dumps(
-                        payload,
-                        ensure_ascii=False,
-                    ),
+                    "content": user_content,
                 },
             ],
             tools=[],
