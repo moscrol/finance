@@ -2,6 +2,7 @@
 
 > 日期：2026-09-07
 > 状态：**第一至五步已落**（板块侧市场级视角 + 新高家数进八段证据；C 类角色逐日标签；板块级赚钱效应五套并排集合（含确定性 k-means）；候选规则 `money_effect_outside_volume_top3_below_ma` 四态——在「5 日涨幅前 10」定义下 **supported**，其「在前三申万之外的比例」进八段证据后一致率 34.5% → 40.2%；第五步题材层再走一遍先量再建，采纳「承接·昨日涨停股今日均涨幅 5 日均值」一条，一致率 40.0% → 41.3%，见 §5；用户第十一段答「前三 = 申万一级本身」「升级 2.0 = 进一步放量指数进一步走强」后，2.0 有了进入证据 `E:upgrade_double_volume_new_high`，现版 `tf-v0.2+785bd123`，见 slice1 spec §9.20 / 骨架 §8.10）。
+> **一致率读法（2026-09-08 配对检验后追加，`docs/verification/2026-09-08-teaching-framework-mcnemar.md`）**：本文与收据里的一致率都是「各自已判定日」口径，且**全期数（46.6%）由训练期撑起**——训练 32.2% → 50.5%、验证 35.3% → 40.0%。对起点 `6c00d6c2` 做逐日配对：验证期 159 天只翻 22 天（15 对 7），McNemar p = 0.13，**分不出真涨与噪声**；训练期 45 对 3，p < 10⁻⁶。验证集在 09-07 一天里被 ≥ 29 个版本各读过一次，40.0% 不是留出估计。往上游引用只写验证期数并带这两句；第三份 holdout 等参照标注全量导出。
 > 上游：`2026-09-07-teaching-framework-slice1-index-stage-leader-succession-design.md`（§3.7 v0.2 计分模型、§3.5 参照标注、§9.18 第二刀由来）；母本骨架 `docs/learning/teaching-framework/00-concept-label-skeleton.md` §3（C 类）、§3.2（候选规则骨架）、§8（复盘会定义对照）。
 > 红线不变：只编码创始人已说出的判读；数字来自参照标注的共性区间（训练期取、验证期验）；代码不读母本目录；全部改动在领域层（`intelligence/services/teaching_framework/`、`scripts/`、`methodology/teaching/`），`intelligence/runtime/` 不动。
 

@@ -85,6 +85,25 @@ def binom_two_sided_p(k: int, n: int, p0: float) -> float:
     return min(1.0, total)
 
 
+def mcnemar_exact(b: int, c: int) -> dict[str, Any]:
+    """两个版本在同一批样本上的配对比较（McNemar 精确检验）。
+
+    只看翻转的样本：``b`` = A 错 B 对，``c`` = A 对 B 错；都对 / 都错的日子不携带信息，
+    所以方差比把两版当独立样本的非配对比较小得多。H0：翻转两个方向等概率，
+    p 值 = ``binom_two_sided_p(b, b + c, 0.5)``。``b + c = 0`` 时无翻转，p = 1。
+    """
+    if b < 0 or c < 0:
+        raise ValueError(f"b / c 必须非负，得到 b={b}, c={c}")
+    n = b + c
+    return {
+        "a_wrong_b_right": int(b),
+        "a_right_b_wrong": int(c),
+        "discordant": int(n),
+        "net_gain": int(b - c),
+        "p_value": binom_two_sided_p(b, n, 0.5) if n else 1.0,
+    }
+
+
 def benjamini_hochberg(pvals: Sequence[float], q: float = 0.05) -> tuple[list[bool], list[float]]:
     """BH 过程。返回 ``(rejected, adjusted_p)``，顺序与输入一致。"""
     m = len(pvals)
