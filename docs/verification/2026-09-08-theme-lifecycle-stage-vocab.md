@@ -36,7 +36,7 @@
 
 ## 门禁
 
-（合入前在干净树补跑，读数回填到本节）
+干净树 `~/fwp-wt-theme-stage` @ `666abf5c`（基线 `368b7a66`，含 #665）、`.venv-workbench`、`env -u MARKET_FEATURE_STORE_DB`：ruff 0；pytest **8199P / 0F / 77S / 1xfail**（445s）；`check_test_receipt --expect-revision HEAD` 可采信。
 
 ## 已知边界
 
