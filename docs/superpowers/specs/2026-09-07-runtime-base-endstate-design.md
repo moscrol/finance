@@ -178,6 +178,16 @@
 3. `docs/runtime/defensive-patterns.md`：从 `docs/prediction-ledger.md` 的 R-* 与本仓 handoff「踩过的坑」里提炼「坑 → 规则」（不抄 dsh 那六条；同名坑写本仓实例）；含 G10 抛 / 返回总规则：**`runtime/` 内部用异常，跨 `services` 契约边界只返回结构化结果；hooks / sink / 投影一律不抛。**
 4. `test_runtime_catalog_fresh` 进 pre-commit（第 12 道）。
 
+> **落地回写（2026-09-08，分支 `feat/runtime-base-p4-races-oracle`，工单 #31）**：四条全落。第 1 条的 `step()` 落为**生成器单步驱动**——
+> `run()` 的整段控制流原样搬进 `_drive()`，在五个效果边界 `yield StepPoint`（`model_pending` 意图已 durable 结算未发 / `model_settled` /
+> `before_tool_dispatch` / `tools_settled` / `before_finish`），`run()` 只是把它排空；`manual_drive()` 回 `EpisodeDrive`（`step` / `run_until` /
+> `run_to_end`，一次性）。局部变量原地保留，事件序 / 写序 / 消息序逐字节不变（全量套件严格派生为证）；否掉状态机重写与线程屏障。
+> 竞态目录 `conformance/races/`：`catalog.py` 8 行（原文八条）× 两序 × 两种合法历史，`test_race_*.py` 16 条两序夹具 + `test_catalog.py` 互锁；
+> 每序结束断 oracle 三明治与「无孤儿意图」。第 2 条 oracle 三处复用（INV-R2 格 / INV-R3 录制 / races）。第 3 条 14 条坑→规则带 `R-*` 出处，
+> `test_defensive_patterns_doc.py` 钉 G10 原句与编号存在。第 4 条 pre-commit hook `runtime-catalog-fresh`。顺带收 P3 遗留：`restore.pending_inbox`
+> （只列不认领）、`finish.store_failures` 收据（此前写了没人读）。变异：去掉结算后取消检查 → 竞态① A 红；去掉收据 → 竞态⑦两序红；restore 忘箱 → 红。
+> 未做：`wakeup` 仍只记账（手动驱动不是调度器）；参考 loop 不设步点；不做自动恢复。
+
 ---
 
 ## 7. 生产接线与切流
@@ -222,7 +232,7 @@ P0 / P1 零 live 判据，随下次切流带上；P1 的错误码拆分合入前
 | INV-R3 | `test_episode_restore.py`（每 phase × 每 crash 前缀） | P2 |
 | 版本 | `test_episode_store.py::test_unknown_required_kind_refused` | P2 |
 | INV-R5 | `test_episode_inbox.py`（单元）+ `conformance/test_inv_r5_inbox.py`（两序竞态 / 取消 / 收口 / 接缝有牙 / 非适用臂） | P3 ✅ 09-08 |
-| INV-R6 | `conformance/races/test_*.py`（≥ 8 条 × 2 序） | P4 |
+| INV-R6 | `conformance/races/test_race_*.py`（8 条 × 2 序 + `test_catalog.py` 互锁；oracle 三处复用） | P4 ✅ 09-08 |
 
 ---
 
