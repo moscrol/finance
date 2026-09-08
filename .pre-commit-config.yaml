@@ -86,6 +86,18 @@ repos:
         pass_filenames: false
         always_run: true
         verbose: true
+      # 第 12 道（运行底座 P4 / 工单 #31 第 4 条）：docs/runtime/{events,tools,harness-seams}.md
+      # 是从 DURABLE_EVENT_KINDS / _TOOL_CONTRACTS / ResearchHarness 签名生成的目录；改了源码
+      # 不重生成，读目录的人（和 test_runtime_catalog）看到的就是上一版。pytest 侧早有保鲜钉，
+      # 这里把它前移到提交时——门禁 100% 到达，提醒不是。与 tool-reachability 同理用 venv
+      # 绝对路径：脚本 import 生产模块。只在改到源头或目录本身时跑（files 正则），实测 <1s。
+      - id: runtime-catalog-fresh
+        name: "运行时目录保鲜：events / tools / harness-seams 与源码一致"
+        language: system
+        entry: /Users/a77/finance-workspace-private/.venv-workbench/bin/python scripts/gen_runtime_catalog.py --check
+        pass_filenames: false
+        files: '^(docs/runtime/(events|tools|harness-seams)\.md|scripts/gen_runtime_catalog\.py|intelligence/.*\.py)$'
+        verbose: true
       - id: block-forbidden-files
         name: "红线：禁止提交 密钥/大二进制/缓存/虚拟环境/依赖"
         language: fail
