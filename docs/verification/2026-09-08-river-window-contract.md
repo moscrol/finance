@@ -43,7 +43,7 @@
 | `cb2146fa`（第一轮） | 0 | 22F / 8155P——21 条 `tests/test_river_range.py`（夹具表没有 `updated_at` 列，`range_aggregate` 新 SQL 选它即炸）+ 1 条 `test_ask_watchdog…`（并发跑门禁时的墙钟 flake，单跑绿） | — |
 | `aa4472df`（列存在性探测 + `market_stage` 绑定归一后） | 0 | **8178P / 0F / 76S / 1xfail**（939s，与另两条门禁并跑） | `--expect-revision HEAD` 可采信 |
 
-对照 main 基线 8183P（#620 树）：本单 +15 新测试 −20 …差额来自基线树里 main 后续合入的测试（#665）不在本分支——两树基线不同，不作横向减法；红集为空是判据。
+红集为空是判据；通过数不与其它树横向减法（各分支基线不同）。
 
 ## 未做 / 边界
 
