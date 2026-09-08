@@ -26,6 +26,10 @@ SOURCE_PASSTHROUGH = (
     "sh_index_close",
     "limit_up",
     "advancers",
+    # 创始人 09-08：校准的靶子看赚钱 / 亏钱效应和资金——「成交占比前三、加权涨幅」两个供应商原值随行写出，
+    # 供 stage_separation 读数用；此前只在派生旗标里用到，没有单独落列。
+    "top3_industry_ratio",
+    "strength_avg_pct",
 )
 SOURCE_PREFIX = "src."
 
@@ -576,6 +580,9 @@ SECTOR_FIELDS = (
     # 区间涨幅高标的门槛：当日 20 / 60 日涨幅榜第 top 名的涨幅（第八段「涨幅多少算多，是基于历史行情去对比的」）。
     ("range_leader_entry_gain_20d_pct", "range_leader_entry_gain_20d_pct"),
     ("range_leader_entry_gain_60d_pct", "range_leader_entry_gain_60d_pct"),
+    # 板块涨幅（创始人 09-08 校准靶子的一项）：当日全部板块涨幅的中位数与上涨比例。只写出。
+    ("sector_pct_chg_median", "sector_pct_chg_median"),
+    ("sector_up_ratio_pct", "sector_up_ratio_pct"),
     # 资金面（第十五段）市场级视角，全部只写出：龙虎榜净买入（亿 / 占全市场成交‰ / 买盘卖盘比，各带 5 日均）、
     # 涨停封单（中位万元 / 封单占流通市值中位 / 厚封单占比）、昨日涨停股竞价（涨幅中位 / 为正比例 / 竞价成交额）。
     # 先量（骨架 §8.15）：只有龙虎榜的两条 5 日均在训练 / 验证两期都把底部与顶部分开，进带区的实验读数见同节。
@@ -635,7 +642,9 @@ def _sector_scalars(row: Mapping[str, Any] | None) -> list[tuple[str, float | No
                 reason = "briefing_no_market_input"
             out.append((label, None, reason))
         else:
-            out.append((label, round(value, SCALAR_DECIMALS), None))
+            rounded = round(value, SCALAR_DECIMALS)
+            # -0.0 → 0.0：并行 MEDIAN 对同样的输入可能给出任一符号的零，写库前归一，免得两次重建哈希不同。
+            out.append((label, 0.0 if rounded == 0 else rounded, None))
     return out
 
 

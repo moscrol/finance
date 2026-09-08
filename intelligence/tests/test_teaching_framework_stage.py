@@ -5,8 +5,10 @@ import json
 from intelligence.services.teaching_framework.flags import compute_flags
 from intelligence.services.teaching_framework.index_stage import (
     REQUIRED_MARKET_FIELDS,
+    SEPARATION_METRICS,
     build_index_stage,
     label_readouts,
+    stage_separation,
     supplier_contingency,
     to_label_rows,
 )
@@ -474,3 +476,40 @@ def test_perturbing_a_future_day_leaves_earlier_flags_and_stages_untouched():
 def test_null_inputs_do_not_infer_flags():
     got = compute_flags([{"trade_date": "2026-01-01", "sh_index_close": None, "sh_week_ma": 1, "sh_deviation_pct": None}], calendar=["2026-01-01"])[0]
     assert got["above_week_ma"] is None and got["deviation_band"] is None and got["amount_vs_ma20_pct"] is None
+
+
+def _sep_record(day: str, stage: str, **flags):
+    return {"trade_date": day, "stage_coarse": stage, "flags": {f"tf.{k}" if not k.startswith("src_") else "src." + k[4:]: v for k, v in flags.items()}}
+
+
+def test_stage_separation_is_the_calibration_target_not_platform_agreement():
+    """创始人 09-08：校准的靶子是赚钱 / 亏钱效应和资金的区分力。η² 按阶段分组；训练 / 验证两半分开报；平台阶段只在同一组天上作参考。"""
+    days = [f"2026-01-{d:02d}" for d in range(1, 31)]
+    # 前 15 天我们判「左底向下」、后 15 天判「主流主升」；承接与上涨比例在两段之间分得很开，涨停家数完全分不开。
+    records = []
+    for i, d in enumerate(days):
+        ours = "左底向下" if i < 15 else "主流主升"
+        records.append(_sep_record(d, ours, limit_premium_ma5_pct=1.0 + (i % 3) * 0.1 if i < 15 else 2.5 + (i % 3) * 0.1,
+                                   stock_up_ratio_ma5_pct=38.0 + (i % 4) if i < 15 else 56.0 + (i % 4),
+                                   src_limit_up=60 + (i % 5), money_losing_day=1.0 if i % 3 == 0 and i < 15 else 0.0))
+    # 平台把同一段历史切成前 10 / 后 20：它的分界比我们的偏早 5 天，所以承接在它的两组里混得更多。
+    reference = {d: {"cycle_stage": "左底向下" if i < 10 else "主流主升"} for i, d in enumerate(days)}
+    out = stage_separation(records, reference, train_until="2026-01-15")
+    assert out["train_until"] == "2026-01-15" and out["summary"]["resolved_days"] == 30
+    prem = out["metrics"]["承接 5 日均 %"]
+    assert prem["family"] == "赚钱效应" and prem["days"] == 30
+    assert prem["eta2"]["all"] > 0.9 and prem["level_by_stage"]["左底向下"]["median"] == 1.1 and prem["level_by_stage"]["主流主升"]["median"] == 2.6
+    # 训练期（前 15 天）只有一个阶段 → η² 算不出（None），验证期同理；「all」才有——两半都单段的读数不能拿来吹。
+    assert prem["eta2"]["train"] is None and prem["eta2"]["validate"] is None
+    assert out["metrics"]["涨停家数"]["eta2"]["all"] < 0.05  # 分不开就是分不开
+    assert out["metrics"]["亏钱效应日"]["level_by_stage"]["主流主升"]["median"] == 0.0
+    # 同一组天上：我们的分界让承接分得更开（平台的分界偏了 5 天）；涨停家数两边都分不开 → tie。
+    vs = out["summary"]["vs_platform_same_days"]
+    assert vs["days"] == 30 and vs["metrics_compared"] == 4 and vs["ours_separates_better"] >= 2 and vs["platform_separates_better"] == 0
+    assert prem["eta2_same_days"]["all"] > prem["eta2_platform_same_days"]["all"]
+    # 没在标签里的指标：days 0、η² None，不报错。
+    assert out["metrics"]["平均股价"]["days"] == 0 and out["metrics"]["平均股价"]["eta2"]["all"] is None
+    assert len(out["metrics"]) == len(SEPARATION_METRICS)
+    # 未决日（ambiguous）不进分组。
+    out2 = stage_separation(records + [_sep_record("2026-02-01", "ambiguous", limit_premium_ma5_pct=9.0)], None)
+    assert out2["summary"]["resolved_days"] == 30 and "vs_platform_same_days" not in out2["summary"]

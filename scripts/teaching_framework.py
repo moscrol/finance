@@ -263,6 +263,14 @@ rle AS (
            (SELECT g FROM rl20 WHERE rl20.trade_date = cal.trade_date AND rn = __RANGE_TOP__) AS range_leader_entry_gain_20d_pct,
            (SELECT g FROM rl60 WHERE rl60.trade_date = cal.trade_date AND rn = __RANGE_TOP__) AS range_leader_entry_gain_60d_pct
     FROM cal
+),
+-- 板块涨幅（创始人 09-08：校准靶子里的「板块涨幅」；骨架 §1.5 那条「板块涨幅中位数要不要建」由此落地）：
+-- 当日全部有行板块涨幅的中位数与上涨比例。MEDIAN 与顺序无关，不会像并行 AVG 那样翻末位。
+sp AS (
+    SELECT trade_date, MEDIAN(pct_chg) AS sector_pct_chg_median,
+           100.0 * SUM(CASE WHEN pct_chg > 0 THEN 1 ELSE 0 END) / COUNT(*) AS sector_up_ratio_pct
+    FROM fact_sector_daily WHERE pct_chg IS NOT NULL AND pct_chg > -100
+    GROUP BY trade_date
 )
 SELECT cal.trade_date, nh.new_high_1y_count, dr.dual_red_theme_count, dr.dual_red_l1_distinct, lh.limit_themes_ge3, lh.limit_top1_share_pct,
        CASE WHEN me.known > 0 THEN 100.0 * me.outside / me.known END AS rps5_outside_top3_pct,
@@ -271,9 +279,10 @@ SELECT cal.trade_date, nh.new_high_1y_count, dr.dual_red_theme_count, dr.dual_re
        CASE WHEN prem_w.n5 = 5 AND prem_w.i_lag4 = prem_w.i - 4 THEN prem_w.ma5 END AS limit_premium_ma5_pct,
        CASE WHEN prem_w.n5 = 5 AND prem_w.i_lag4 = prem_w.i - 4 THEN prem_w.neg5 END AS limit_premium_neg_5d,
        CASE WHEN prem_w.n5 = 5 AND prem_w.i_lag4 = prem_w.i - 4 THEN prem_w.flips5 END AS limit_premium_flips_5d,
-       rle.range_leader_entry_gain_20d_pct, rle.range_leader_entry_gain_60d_pct
+       rle.range_leader_entry_gain_20d_pct, rle.range_leader_entry_gain_60d_pct,
+       sp.sector_pct_chg_median, sp.sector_up_ratio_pct
 FROM cal LEFT JOIN nh USING (trade_date) LEFT JOIN dr USING (trade_date) LEFT JOIN lh USING (trade_date) LEFT JOIN me USING (trade_date)
-     LEFT JOIN lj USING (trade_date) LEFT JOIN prem_w USING (trade_date) LEFT JOIN rle USING (trade_date)
+     LEFT JOIN lj USING (trade_date) LEFT JOIN prem_w USING (trade_date) LEFT JOIN rle USING (trade_date) LEFT JOIN sp USING (trade_date)
 ORDER BY cal.trade_date
 """
 

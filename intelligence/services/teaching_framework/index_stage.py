@@ -494,6 +494,135 @@ def reference_comparison(
     }
 
 
+# 校准的靶子（创始人 09-08：「校准的靶子不是看平台一致率，是看赚钱效应和亏钱效应，还有资金，比如说占比前三，板块涨幅，
+# 个股区间涨幅，加权涨幅，平均股价等等」）。三组市场级日读数，全部已在标签里；每个都问同一个问题：这套阶段把它分得开吗。
+SEPARATION_METRICS: tuple[tuple[str, str, str], ...] = (
+    ("赚钱效应", "承接 5 日均 %", "tf.limit_premium_ma5_pct"),
+    ("赚钱效应", "5 日上涨比例 %", "tf.stock_up_ratio_ma5_pct"),
+    ("赚钱效应", "涨幅中位数 %", "tf.stock_pct_chg_median"),
+    ("赚钱效应", "涨停家数", "src.limit_up"),
+    ("赚钱效应", "一年新高家数", "tf.new_high_1y_count"),
+    ("赚钱效应", "双红题材数", "tf.dual_red_theme_count"),
+    ("赚钱效应", "赚钱效应在前三之外 %", "tf.rps5_outside_top3_pct"),
+    ("亏钱效应", "亏钱效应日", "tf.money_losing_day"),
+    ("亏钱效应", "5 日内负承接天数", "tf.limit_premium_neg_5d"),
+    ("资金", "成交占比前三 %", "src.top3_industry_ratio"),
+    ("资金", "成交额前 100 占比", "tf.top100_amount_share"),
+    ("资金", "板块涨幅中位数 %", "tf.sector_pct_chg_median"),
+    ("资金", "板块上涨比例 %", "tf.sector_up_ratio_pct"),
+    ("资金", "个股区间涨幅门槛 20 日 %", "tf.range_leader_entry_gain_20d_pct"),
+    ("资金", "加权涨幅 %", "src.strength_avg_pct"),
+    ("资金", "平均股价", "tf.stock_price_mean"),
+)
+
+
+def _eta_squared(groups: Mapping[str, list[float]]) -> float | None:
+    """Between-stage share of total variance (one-way ANOVA η²): 0 = the stages tell you nothing about the metric, 1 = everything."""
+    values = [v for vs in groups.values() for v in vs]
+    if len(values) < 20 or len([g for g, vs in groups.items() if vs]) < 2:
+        return None
+    mean = sum(values) / len(values)
+    total = sum((v - mean) ** 2 for v in values)
+    if total <= 0:
+        return None
+    between = sum(len(vs) * ((sum(vs) / len(vs)) - mean) ** 2 for vs in groups.values() if vs)
+    return round(between / total, 4)
+
+
+def _median(values: list[float]) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    mid = len(ordered) // 2
+    return round(ordered[mid] if len(ordered) % 2 else (ordered[mid - 1] + ordered[mid]) / 2, 4)
+
+
+def stage_separation(
+    usable: list[Mapping[str, Any]],
+    reference: Mapping[str, Mapping[str, Any]] | None = None,
+    train_until: str | None = None,
+) -> dict[str, Any]:
+    """The calibration target: how well the resolved stages separate the money-making / money-losing / capital readouts.
+
+    For every metric: the per-stage level (median) under our stages, and η² for all days, the calibration days
+    (``<= train_until``) and the days after (the honest number — a rule change must lift both halves, not one).
+    When platform reference stages are present the same η² is computed under **their** stages on the same days, as a
+    reference only: the platform is not the target any more, but it is the one other labelling of the same history.
+    Days are the resolved ones (a stage in ``STAGES``); a metric missing on a day just drops that day for that metric.
+    """
+    resolved = [r for r in usable if str(r.get("stage_coarse")) in STAGES]
+    ref_days = {d: str(row.get("cycle_stage")) for d, row in (reference or {}).items()}
+
+    def split(rows: list[Mapping[str, Any]]) -> dict[str, list[Mapping[str, Any]]]:
+        if not train_until:
+            return {"all": rows}
+        return {
+            "all": rows,
+            "train": [r for r in rows if str(r.get("trade_date"))[:10] <= train_until],
+            "validate": [r for r in rows if str(r.get("trade_date"))[:10] > train_until],
+        }
+
+    def grouped(rows: list[Mapping[str, Any]], label: str, by_reference: bool) -> dict[str, list[float]]:
+        out: dict[str, list[float]] = {}
+        for r in rows:
+            value = (r.get("flags") or {}).get(label)
+            if isinstance(value, bool):
+                value = 1.0 if value else 0.0  # 亏钱效应日这类旗标：按占比进分组
+            if not isinstance(value, (int, float)):
+                continue
+            if by_reference:
+                stage = ref_days.get(str(r.get("trade_date"))[:10])
+                if stage is None:
+                    continue
+                stage = REFERENCE_STAGE_ALIASES.get(stage, stage)
+            else:
+                stage = str(r.get("stage_coarse"))
+            out.setdefault(stage, []).append(float(value))
+        return out
+
+    on_reference_days = [r for r in resolved if str(r.get("trade_date"))[:10] in ref_days] if reference else []
+    metrics: dict[str, Any] = {}
+    ours_better = platform_better = compared = 0
+    for family, name, label in SEPARATION_METRICS:
+        parts = split(resolved)
+        eta_ours = {part: _eta_squared(grouped(rows, label, False)) for part, rows in parts.items()}
+        levels = {stage: {"n": len(vs), "median": _median(vs)} for stage, vs in sorted(grouped(resolved, label, False).items())}
+        entry: dict[str, Any] = {"family": family, "label": label, "days": sum(v["n"] for v in levels.values()), "eta2": eta_ours, "level_by_stage": levels}
+        if reference:
+            same_days = split(on_reference_days)
+            entry["eta2_same_days"] = {part: _eta_squared(grouped(rows, label, False)) for part, rows in same_days.items()}
+            entry["eta2_platform_same_days"] = {part: _eta_squared(grouped(rows, label, True)) for part, rows in same_days.items()}
+            a, b = entry["eta2_same_days"].get("all"), entry["eta2_platform_same_days"].get("all")
+            if a is not None and b is not None:
+                compared += 1
+                if a > b * 1.15:
+                    ours_better += 1
+                elif b > a * 1.15:
+                    platform_better += 1
+        metrics[name] = entry
+    etas_all = [m["eta2"].get("all") for m in metrics.values() if m["eta2"].get("all") is not None]
+    summary: dict[str, Any] = {
+        "resolved_days": len(resolved),
+        "metrics": len(metrics),
+        "mean_eta2_all": round(sum(etas_all) / len(etas_all), 4) if etas_all else None,
+    }
+    if train_until:
+        for part in ("train", "validate"):
+            vals = [m["eta2"].get(part) for m in metrics.values() if m["eta2"].get(part) is not None]
+            summary[f"mean_eta2_{part}"] = round(sum(vals) / len(vals), 4) if vals else None
+    if reference:
+        summary["vs_platform_same_days"] = {
+            "days": len(on_reference_days), "metrics_compared": compared, "ours_separates_better": ours_better,
+            "platform_separates_better": platform_better, "tie": compared - ours_better - platform_better,
+        }
+    return {
+        "target": "赚钱效应 / 亏钱效应 / 资金 的阶段区分力（η²）；平台一致率只作参考（创始人 09-08）",
+        "train_until": train_until,
+        "summary": summary,
+        "metrics": metrics,
+    }
+
+
 def _flag_by_stage(usable: list[Mapping[str, Any]], label: str) -> dict[str, dict[str, int]]:
     grouped: dict[str, Counter[str]] = {}
     for r in usable:
@@ -630,6 +759,8 @@ def label_readouts(
             })
         },
         "views_by_event": views_by_event(usable),
+        # 校准的靶子（创始人 09-08）：阶段对赚钱 / 亏钱效应与资金读数的区分力；平台一致率降为下面那块参考。
+        "stage_separation": stage_separation(usable, reference, ((p.get("stage_bands_derived_from") or {}).get("train_until"))),
         "reference_comparison": (
             reference_comparison(usable, reference, ((p.get("stage_bands_derived_from") or {}).get("train_until")))
             if reference else None
