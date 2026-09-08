@@ -90,19 +90,22 @@ class PeerHitLineTests(unittest.TestCase):
     """KC-11 三态：够 N / 不够 N / 零裁决。召回次数和 confidence 不得当胜率。"""
 
     def test_enough_n_renders_hits_over_adjudicated(self) -> None:
-        line = peer_hit_line(CategoryStat(category="生命周期推演", n=5, hits=2, miss=3))
-        self.assertEqual(line, "同类判断历史 2/5 命中（分母=已裁决数）")
-        self.assertGreaterEqual(5, PEER_HIT_MIN_N)
+        n = PEER_HIT_MIN_N
+        line = peer_hit_line(CategoryStat(category="生命周期推演", n=n, hits=4, miss=n - 4))
+        self.assertEqual(line, f"同类判断历史 4/{n} 命中（分母=已裁决数）")
 
     def test_below_n_is_hidden(self) -> None:
         self.assertIsNone(peer_hit_line(CategoryStat(category="拐点", n=1, hits=1)))
+        # 2026-09-04 前 min_n=2：两条裁决就出胜率行。现在 n < 10 一律不出，见 checkpoints.DEFAULT_CALIBRATION_MIN_N。
+        self.assertIsNone(peer_hit_line(CategoryStat(category="拐点", n=PEER_HIT_MIN_N - 1, hits=PEER_HIT_MIN_N - 1)))
 
     def test_zero_verdicts_is_hidden(self) -> None:
         self.assertIsNone(peer_hit_line(None))
         self.assertIsNone(peer_hit_line(CategoryStat(category="未分类", n=0)))
 
     def test_recall_count_and_confidence_are_not_win_rate(self) -> None:
-        line = peer_hit_line(CategoryStat(category="生命周期推演", n=3, hits=1, miss=2))
+        n = PEER_HIT_MIN_N + 2
+        line = peer_hit_line(CategoryStat(category="生命周期推演", n=n, hits=1, miss=n - 1))
         assert line is not None
         self.assertNotIn("99", line)
         self.assertNotIn("80%", line)
@@ -159,19 +162,18 @@ class MemoryBlockForQueryTests(unittest.TestCase):
                     "confidence": "80%",
                 },
             ])
+            # 类别刚好够 min_n 条终态判定（跟着 PEER_HIT_MIN_N 走，不写死 2026-09-04 前的 2）
+            n, hits = PEER_HIT_MIN_N, PEER_HIT_MIN_N - 3
             _write_jsonl(root / "checkpoints.jsonl", [
-                {"id": "c1", "claim": "液冷验证落地", "category": "生命周期推演", "due": "2026-06-01"},
-                {"id": "c2", "claim": "液冷放量", "category": "生命周期推演", "due": "2026-06-02"},
-                {"id": "c3", "claim": "液冷价格战", "category": "生命周期推演", "due": "2026-06-03"},
+                {"id": f"c{i}", "claim": f"液冷验证 {i}", "category": "生命周期推演", "due": "2026-06-01"}
+                for i in range(n)
             ])
             _write_jsonl(root / "verdicts.jsonl", [
-                {"id": "c1", "verdict": "hit"},
-                {"id": "c2", "verdict": "hit"},
-                {"id": "c3", "verdict": "miss"},
+                {"id": f"c{i}", "verdict": "hit" if i < hits else "miss"} for i in range(n)
             ])
             block = memory_block_for_query("液冷渗透率怎么看", users_root=root)
             self.assertIn("客户验证", block)
-            self.assertIn("同类判断历史 2/3 命中（分母=已裁决数）", block)
+            self.assertIn(f"同类判断历史 {hits}/{n} 命中（分母=已裁决数）", block)
             self.assertNotIn("99", block)
             self.assertNotIn("80%", block)
 
@@ -207,13 +209,13 @@ class MemoryBlockForQueryTests(unittest.TestCase):
             _write_jsonl(root / "corrections.jsonl", [
                 {"correction": "液冷别只看产能", "themes": ["液冷"], "principle": "先看验证", "ts": "2026-07-02T00:00:00Z"},
             ])
+            n = PEER_HIT_MIN_N
             _write_jsonl(root / "checkpoints.jsonl", [
-                {"id": "c1", "claim": "液冷验证", "category": "生命周期推演", "due": "2026-06-01"},
-                {"id": "c2", "claim": "液冷放量", "category": "生命周期推演", "due": "2026-06-02"},
+                {"id": f"c{i}", "claim": f"液冷验证 {i}", "category": "生命周期推演", "due": "2026-06-01"}
+                for i in range(n)
             ])
             _write_jsonl(root / "verdicts.jsonl", [
-                {"id": "c1", "verdict": "hit"},
-                {"id": "c2", "verdict": "miss"},
+                {"id": f"c{i}", "verdict": "hit" if i % 2 == 0 else "miss"} for i in range(n)
             ])
             block = memory_block_for_query("液冷怎么看", users_root=root)
             self.assertIn("[M]", block)

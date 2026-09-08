@@ -48,6 +48,7 @@ from intelligence.services import kb_rag
 from intelligence.services import llm_refine
 from intelligence.services import market_moneyflow
 from intelligence.services import perspective_lab
+from intelligence.services import research_contract
 from intelligence.services import run_store as rs
 from intelligence.services.provider_latency import repair_seconds_cap_for
 from intelligence.runtime.agent_runtime_factory import (
@@ -186,6 +187,40 @@ def _positive_float_env(name: str, default: float) -> float:
 def _continuous_runtime_mode() -> str:
     mode = os.environ.get("ASK_CONTINUOUS_RUNTIME", "off").strip().lower()
     return mode if mode in _CONTINUOUS_RUNTIME_MODES else "off"
+
+
+_RESEARCH_TIER_ENV = "WORKBENCH_RESEARCH_TIER"
+
+
+def _research_tier_from_env() -> str:
+    """Episode 起步档位（quick / standard / deep / max），部署侧可覆盖。
+
+    此前 ``ContinuousTurnAdapter`` 没传 ``tier``，生产每一轮都从 standard 起步（90s /
+    6 步 / 8 次），只能靠模型自愿交 PLAN 才升 deep——GLM 交 PLAN 0/113，deep 事实关闭。
+    2026-09-06 用户决策「先找能力 max、再按超限加约束」，起步档位改成部署可选。
+    未设或非法值回落 standard：这是服务启动路径，一个拼错的 env 不该让服务起不来，
+    也不该静默把每轮放大到 600s。
+    """
+
+    raw = os.environ.get(_RESEARCH_TIER_ENV, "").strip().lower()
+    return raw if raw in research_contract.RESEARCH_TIERS else "standard"
+
+
+def _deployment_execution_policy():
+    """「deep-research」profile 的执行策略 + 按起步档位放大的 turn 级 LLM 调用保险丝。
+
+    保险丝 ``max_llm_calls`` 缺省 40，controller / judge / agent / 分支 / 合成共用一本账。
+    max 档下子研究分支的模型调用也记在这本账上，40 会在判官之前烧穿（09-07 实测），
+    而判官是最不该被拒的那个调用。只在保险丝比档位值小时抬，不往下压。
+    """
+
+    from dataclasses import replace
+
+    policy = profile_named("deep-research").execution_policy()
+    fuse = research_contract.llm_call_fuse_for_tier(_research_tier_from_env())
+    if fuse > policy.max_llm_calls:
+        policy = replace(policy, max_llm_calls=fuse)
+    return policy
 
 
 def _runtime_market_reference_date() -> str | None:
@@ -486,6 +521,7 @@ def _build_continuous_turn_adapter(
         semantic_verifier=semantic_verifier,
         runtime_name=selection.name,
         mode=_continuous_runtime_mode(),
+        tier=_research_tier_from_env(),
         registry_factory=registry_factory,
         task_id_factory=lambda: task_id,
         timeout=timeout,
@@ -1481,7 +1517,7 @@ def _run_conversation_turn(
             # reserve its measured frozen-replay envelope explicitly.  The
             # continuous adapter below keeps its separate 120s contract.
             # Budget numbers stay on grounded_deep; this envelope only holds it.
-            research_policy=profile_named("deep-research").execution_policy(),
+            research_policy=_deployment_execution_policy(),
             continuous_turn_adapter=_build_continuous_turn_adapter(
                 providers=llm_providers,
                 run_id=run_id,

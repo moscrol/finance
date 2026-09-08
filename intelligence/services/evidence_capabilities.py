@@ -6,6 +6,7 @@ evidence products a contract must obtain without adding another route table.
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import asdict, dataclass
 
@@ -537,6 +538,19 @@ def resolve_evidence_plan(
     )
 
 
+# 全工具授权的部署开关。默认关：按 ``_RUNTIME_CAPABILITY_FLOOR`` 逐策略给工具子集。
+# 设为 ``all`` 时，需要检索的题一律拿到注册表全部工具——那张策略表存在的理由是
+# 「一轮 4-6 次调用就 budget_exhausted，广授权会挤掉盘面查询」（见表头注释），它是
+# 预算约束的派生物；2026-09-06 用户决策「先找能力 max、再按超限加约束」，预算一放开，
+# 这层裁剪就没有独立理由了。不需要检索的题（方法论 / 用户前提）仍是空授权：那条是
+# 防金融数据泄漏进知识题的正确性规则，不是预算规则，不随本开关放开。
+TOOL_AUTHORIZATION_ENV = "WORKBENCH_TOOL_AUTHORIZATION"
+
+
+def all_tools_authorized() -> bool:
+    return os.environ.get(TOOL_AUTHORIZATION_ENV, "").strip().lower() == "all"
+
+
 def runtime_capabilities_for_frame(frame: TaskFrame) -> tuple[str, ...]:
     """Project task semantics into the continuous runtime's tool namespace."""
 
@@ -548,6 +562,14 @@ def runtime_capabilities_for_frame(frame: TaskFrame) -> tuple[str, ...]:
     frame_requires_retrieval = task_frame_requires_retrieval(frame)
     if not frame_requires_retrieval and not plan.requirements:
         return ()
+    if all_tools_authorized():
+        # 延迟 import：research_tool_registry 在运行期 import 本模块所在的一族
+        # （agent_research → …），模块级反向 import 会成环。
+        from intelligence.services.research_tool_registry import (
+            DEFAULT_RESEARCH_CAPABILITIES,
+        )
+
+        return tuple(DEFAULT_RESEARCH_CAPABILITIES)
     floor = _RUNTIME_CAPABILITY_FLOOR.get(frame.evidence_policy)
     if floor is None:
         floor = ("kb_search", "web_search") if frame_requires_retrieval else ()

@@ -1041,8 +1041,10 @@ def test_menu_keeps_tool_when_window_fits_or_no_floor_declared() -> None:
     assert undeclared.hidden == ()
 
 
-def test_production_registry_declares_two_kinds_of_floor() -> None:
-    """两类地板用途不同：RAG 两条是「这活本来就要那么久」，三条网络工具是零授予护栏。
+def test_production_registry_declares_three_kinds_of_floor() -> None:
+    """三类地板用途不同：RAG 两条是「这活本来就要那么久」（实测尾巴）；三条网络工具是零授予护栏
+    （不是 p95 保证）；``sub_research`` 是设计常数——一支分支的时间上限（spec 2026-09-03 §4：
+    ``min_window_seconds = MAX_SECONDS_PER_BRANCH``），两边相等由 ``test_sub_research_tool`` 钉。
 
     结构化本地工具仍不登记——它们 p95 < 0.3s，任何授予都够。
     """
@@ -1055,6 +1057,7 @@ def test_production_registry_declares_two_kinds_of_floor() -> None:
         "web_search": 5.0,
         "news_search": 5.0,
         "web_fetch": 5.0,
+        "sub_research": 60.0,
     }
     runners = {
         name: (lambda query, _context: _evidence_result("x", query))

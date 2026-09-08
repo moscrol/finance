@@ -125,6 +125,10 @@ evolution/records/
 evolution/validation/
 evolution/suggestions/
 
+# 方法论回测：只跟踪规则 JSON（methodology/rules/），收据可由主库 + 规则重建，不入库；
+# 旁路库 db/history_labels.duckdb 已被上面 db/ 与 *.duckdb 覆盖
+methodology/receipts/
+
 # 本地手动备份，从不入库
 *.bak
 *.bak-*

@@ -1,5 +1,13 @@
 # 在途交接 · main
 
+更新：2026-09-08 02:10 CST（0908b 切流）。8792 `af370f529681 → 0060da5c1a08`（只带 #656：判官窗与单次帽跟合同档位走，max 档 75s/150s，`R-20260908-01`）。三项验证：readiness 13/13、health 三读 match、探针 `run_20260908_020235_111517` completed / rev 自证 / judge passed / `fact_stock_daily`×4 / degrade 0；**判官收据 `timeout_configured=75.0`——台账首读命中**。门禁 @`0060da5c` 8162P/0F、ruff 0、webapp 四件套绿、`check_test_receipt` exit 0（在快照树里跑）。回滚锚 `cutover-20260908b-judge-window-rollback-8792.txt`（回 `af370f529681`）。生产变化只有判官帽/窗放宽（50→75 / 50→150）。同晚立稿未上线：写作成本 × 三处预算协调改（#657，实施中）。细节 `docs/verification/2026-09-08-cutover-0908b.md`。
+
+更新：2026-09-08 00:40 CST（0908a 切流）。8792 `b594a5e7f8ae → af370f529681`（#642/#644/#647/#651 + 两张台账 + 他人的 #645/#646/#648/#650/#652）。三项验证：readiness 13/13、health 三读 match、探针 `run_20260908_003653_195370` completed / rev 自证 / `fact_stock_daily`×4 / degrade 0 / 数据日 09-07。门禁 @`2c5e81ba` 8158P/0F、`check_test_receipt` exit 0、webapp 四件套绿。回滚锚 `cutover-20260908a-core-stock-wo32-rollback-8792.txt`（回 `b594a5e7f8ae`）。备份 `~/backups/gitea-20260908-post651.tar.gz`。坑：bootout 后立刻 bootstrap 报 error 5，等注销落地再起。细节 `docs/verification/2026-09-08-cutover-0908a.md`。
+
+更新：2026-09-08 00:30 CST（工单 #32 合入）。`fact_stock_daily` 五天坏数据（06-22/06-23 半数无价、07-20/08-06 整天次日复制、**08-13 北交所 335 行是次日盘中价**——后者是新 QA 规则量出来的）沪深部分已修并验收（fupanhui 核心 50 只四天 50/50、总额比 0.9998~1.0）；三层拦截入库（快照 `f297` 日期闸拒写 / QA「相邻日复制」+「写入时刻越过下一交易日开盘」全历史扫描 / 日门禁复制检查）；runbook 坑⑤原文声称的 QA 检查从未实现，已改写。特征层 06-22~09-07 重算；周期阶段模型产物在修好的数据上重训替换（CV 43.7→41.6%，三天标签不变）。批次门禁 main tip `2c5e81ba150a` **8158P / 76S / 1xfail**、ruff 0、webapp 四件套绿、`check_test_receipt` exit 0（收据 `20260907T162407Z-2c5e81ba.json`）。**北交所七天**（#32 五天 + 上一单卡住的 09-03/09-04）等 push2his 解封，轮询 `/tmp/wo32_bj_after_unblock.py` 通了自动补，随后上一单 `local_chain_finish → mainline → core_leader` 链自动续跑；`~/fwp-wt-stock-daily-fix` / `~/fwp-wt-backfill-qa-gate` / `~/fwp-wt-core-stock` 三棵树被这些轮询引用，**先别拆**。**8792 仍未切，待裁决**。细节 `docs/handoffs/inflight/fix-stock-daily-misdated-snapshot.md`。
+
+更新：2026-09-07 22:50 CST（核心个股批次验收）。#642 → #644 → #647 堆叠链独立复算后合入；质检推翻 #647 两条结论并随枝修补（07-20 / 08-06 个股日线是次日复制而非「快照偏小」→ 立单 #32；置换检验噪声底量纲错，「噪声内」改「按前瞻收益显著有害」）。批次门禁 main tip `f5805c72db66` 干净树 **8143P / 76S / 1xfail**、ruff 0、webapp 四件套绿、`check_test_receipt` exit 0（收据 `~/.finance-runtime/test-receipts/20260907T144519Z-f5805c72.json`）。**8792 未切，待裁决**：main 领先 8792（`b594a5e7f8ae`）多张与本批无关的合并。裁决全文在 #647 评论；细节 `docs/handoffs/inflight/feat-core-stock-local.md`「质检修补」节。
+
 更新：2026-09-03 16:40 CST（0903e 切流）。08-13→09-03 时间线归档 `docs/handoffs/2026-09-03-main-inflight-archive-0813-0903.md`，本文只留接手要的。
 
 ## 这个分支做什么
@@ -16,7 +24,7 @@
 
 ## 当前状态
 
-8792=`f4c03b9ae610`（0903e：web_search 修复、判官拒句账、墙钟用例容差、门禁/PR 脚本）。回滚锚 `~/.finance-runtime/cutover-20260903e-rollback-8792.txt`（回滚目标 `c88c81da5120`），启动器未动（备份仍 `.bak-20260903-admission`）。`gitea/main` == 8792。足迹分支 `wip/mainline-move-footprints-20260903` 待认领。
+8792=`af370f529681`（0908a 切，= main tip，见顶部更新行；上一版 `b594a5e7f8ae`）。此前：8792=`b594a5e7f8ae`（main `e1d22b89` 比它多 #632 spec / #635 lean / #636 折叠——两刀 env 缺省关、零行为差异，未切；0907i：#628 预算注入加派发节奏（分支跟、父臂不跟，见收据 §12），main tip 同时带 #627 授课框架；回滚锚 `cutover-20260907i-pacing-rollback-8792.txt`（回 `d4cb6484`）；此前 0907h：#623 L3 互动易答复 + 「无法解析公司」指令，启动器 `FINANCE_L3_COMPANY_CMD` 加 `irm_szse`，备份 `.bak-20260907-pre-irm`，回滚锚 `cutover-20260907h-l3irm-rollback-8792.txt`（回 `1010970acc85`）；#622 frontier 向量；此前 0907g：#619 分支秒按墙钟记一次 + 父臂预留尾段 + 分支契约 `branch_findings` + 分支级 trace；此前 0907f：#617 LLM 保险丝；#616 修复轮表达槽；#615 分支预算；#612 方向硬门；#610 `sub_research`；#608 max 档、出口 cockpit `:57244`）。回滚锚 `~/.finance-runtime/cutover-20260907g-branchtrace-rollback-8792.txt`（回 `d65ed0155eb9`）；启动器未动，备份 `.bak-20260907-pre-max`。收据 `docs/verification/2026-09-07-branch-level-trace.md`（切后探针 `probe-cutover-0907g/run_20260907_123827_249342`：judge repaired、`judge_unavailable_count=0`、`content_degraded_count=0`、分支 3/3 `model_finish`、父账本秒分支前后 525.3 → 525.3）。**登录钥匙串 09-06 被重置**（`login_renamed_1.keychain-db`），GLM / 中转 key 未恢复。
 
 ## 已验证
 

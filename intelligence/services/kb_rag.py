@@ -982,7 +982,31 @@ def retrieve(
             )
             # 每次都是新进程，必然重新加载模型与索引。
             tel.model_loaded = True
+    # ⚠ 子句顺序是承重的，别按「宽的放前面」重排：``WorkerRequestAbandoned``
+    # 继承 ``TimeoutError`` → ``OSError``，一旦排在 ``(RuntimeError, OSError,
+    # json.JSONDecodeError)`` 之后就永远匹配不到（2026-09-03 实测：两个超时处置
+    # 器都是死代码，超时被判成 `persistent_worker_unavailable` → 回退 CLI 用
+    # `timeout − 已耗` 的残窗重载 4.3G 模型 → 必然二次超时；生产 kb_search 66%
+    # 以 tool_timeout 收场、常驻 worker `queries_served=1` 里那 1 次就是被放弃的
+    # 那次）。超时不是「worker 不可用」：进程还在，回退 CLI 是最贵的那条路。
+    except rag_worker.WorkerRequestAbandoned:
+        # 热 worker 第一次超窗：请求放弃、进程保留，下一次查询不用等模型重载。
+        res.warning = f"wiki-rag 常驻 worker 超时(>{timeout}s)，请求已放弃、worker 保留"
+        tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+        tel.status = "timeout"
+        tel.warning = res.warning
+        return res
+    except TimeoutError:
+        # 冷 worker 或连续第二次超时：``_on_query_timeout`` 已杀进程。此处同样
+        # 不回退 CLI——残窗里重载模型必然再超时，白烧剩余预算。
+        res.warning = f"wiki-rag 常驻 worker 超时(>{timeout}s)，进程已终止"
+        tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+        tel.status = "timeout"
+        tel.warning = res.warning
+        return res
     except (RuntimeError, OSError, json.JSONDecodeError) as exc:
+        # 真正的「worker 不可用」：进程没了/协议错乱/响应不可解析。这些回退 CLI
+        # 是对的——没有热进程可保，CLI 是唯一还能出结果的路。
         fallback_warnings.append(
             f"wiki-rag 常驻 worker 不可用（{type(exc).__name__}），已回退 CLI"
         )
@@ -1003,19 +1027,6 @@ def retrieve(
             tel.status = "timeout"
             tel.warning = res.warning
             return res
-    except rag_worker.WorkerRequestAbandoned:
-        # 热 worker 第一次超窗：请求放弃、进程保留，下一次查询不用等模型重载。
-        res.warning = f"wiki-rag 常驻 worker 超时(>{timeout}s)，请求已放弃、worker 保留"
-        tel.latency_ms = int((time.monotonic() - _t0) * 1000)
-        tel.status = "timeout"
-        tel.warning = res.warning
-        return res
-    except TimeoutError:
-        res.warning = f"wiki-rag 常驻 worker 超时(>{timeout}s)，进程已终止"
-        tel.latency_ms = int((time.monotonic() - _t0) * 1000)
-        tel.status = "timeout"
-        tel.warning = res.warning
-        return res
     except subprocess.TimeoutExpired:
         res.warning = f"wiki-rag 超时(>{timeout}s)，已跳过"
         tel.latency_ms = int((time.monotonic() - _t0) * 1000)
@@ -1265,8 +1276,15 @@ def retrieve(
             # 光说「丢了几条、契约要求 fresh」只解释了机制，没告诉人怎么办。
             # 内容仓每天 ingest，工作区脏是常态，这条会高频出现——它必须自带动作，
             # 否则用户看到的就是「又没有证据」，而实际上证据就在那里、差一次提交。
+            #
+            # 但这句动作**不能去断言某个后台机制正在工作**。原文写的是「提交后
+            # post-commit 会自动重建索引，届时这些证据即可进入」——2026-09-03 查出
+            # 那个钩子从 08-22 起五次没跑完、09-01 起被残留锁卡死，这句话当时是假话，
+            # 照做的人会一直等一个不会发生的重建。改成先给**当场能做、能自己验证**
+            # 的手动动作，自动那条只作补充。
             remedy = (
-                "在知识库仓提交改动后 post-commit 会自动重建索引，届时这些证据即可进入"
+                "在知识库仓跑 scripts/rag_index.py update 重建索引"
+                "（提交后 post-commit 也会尝试自动重建，但以手动跑通为准）"
                 if states == "stale"
                 else "先在知识库仓跑 rag update 重建索引"
             )

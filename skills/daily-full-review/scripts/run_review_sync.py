@@ -11,6 +11,14 @@
 - 每模块结果（状态/耗时/路径）追加到 state/runlog.md，沉淀顺/坑经验。
 
 只调用已验证的 `python3 -m market_feature_store.cli <sync-*>`，不手搓 SQL。
+
+分档（2026-09-04，market_feature_store/consumption_registry.yaml 是单一事实源）：
+- full  ：原 17 步，每天全量打复盘会（≈900 请求/日）。
+- cheap ：identity/value 分层——宇宙 1 请求既是探针又是官方涨幅来源；成分只对
+          expected 变动的板块打复盘会，其余用最近 fupanhui 名单 × 当日东财真值本地拼接；
+          板块日行情本地派生；公开资产里竞价停、席位走 akshare、研报增量翻页（≈30~45 请求/日）。
+- auto  ：周五 full（兜「一进一出数量不变」的成分换血盲区），其余交易日 cheap。
+两档的步骤名与 registry `plans` 段逐项一致，tests/test_consumption_registry.py 强制。
 """
 from __future__ import annotations
 
@@ -21,7 +29,7 @@ import subprocess
 import sys
 import time
 import urllib.request
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -190,12 +198,15 @@ def run_step(label: str, argv: list[str], timeout: int) -> dict:
     return {"label": label, "status": status, "code": code, "elapsed": elapsed}
 
 
-def run_release_steps(trade_date: str, timeout: int) -> tuple[list[dict], bool]:
-    """质量门全部通过后才允许导出；任一 gate 失败即停止下游产物。"""
+def run_release_steps(trade_date: str, timeout: int, plan: str = "full") -> tuple[list[dict], bool]:
+    """质量门全部通过后才允许导出；任一 gate 失败即停止下游产物。
+
+    plan 传给两道门：local 计划不产 fupanhui 独有的表/字段，门禁按 registry 的 tables_for_plan 裁剪期望，
+    否则「设计上不抓」会被判成「断档」。full/cheap 传下去不改变既有行为。"""
     results: list[dict] = []
     same_day = run_step(
         "same-day-gate",
-        [PY, "scripts/check_daily_review_data.py", trade_date, "--phase", "data"],
+        [PY, "scripts/check_daily_review_data.py", trade_date, "--phase", "data", "--plan", plan],
         timeout,
     )
     results.append(same_day)
@@ -205,7 +216,7 @@ def run_release_steps(trade_date: str, timeout: int) -> tuple[list[dict], bool]:
     quality_json = SKILL_DIR / "state" / f"quality-{trade_date}.json"
     cross_day = run_step(
         "cross-day-gate",
-        CLI + ["check-daily", "--trade-date", trade_date, "--json", str(quality_json)],
+        CLI + ["check-daily", "--trade-date", trade_date, "--json", str(quality_json), "--plan", plan],
         timeout,
     )
     results.append(cross_day)
@@ -310,8 +321,83 @@ def sync_stock_daily(trade_date: str, timeout: int) -> dict:
             "elapsed": res["elapsed"] + fb["elapsed"], "note": "used fill-stock-daily-fallback"}
 
 
-def build_plan(trade_date: str, timeout: int, heavy_timeout: int):
+def stitch_sector_members(trade_date: str, timeout: int) -> dict:
+    """cheap 计划：identity 未动的板块本地拼接（0 复盘会请求）。
+
+    拼接器自己会把 expected 变动 / 基线缺失 / 缺口超界的板块留成 pending，
+    紧随其后的 sector-stocks-delta 只打这些。这里只负责把结果读回 runlog。
+    """
+    res = run_step(
+        "stitch-sector-stocks",
+        CLI + ["stitch-sector-stocks", "--trade-date", trade_date],
+        timeout,
+    )
+    audit = _sector_audit(trade_date)
+    stitched = _count_by_source("fact_sector_stock_daily", trade_date, "local:stitch")
+    return {**res, "note": f"stitched_rows={stitched} {audit.brief()}"}
+
+
+def _count_by_source(table: str, trade_date: str, source: str) -> int:
+    con = connect(read_only=True)
+    try:
+        return con.execute(
+            f"SELECT COUNT(*) FROM {table} WHERE trade_date = ? AND source = ?",
+            [trade_date, source],
+        ).fetchone()[0]
+    finally:
+        con.close()
+
+
+PLANS = ("full", "cheap", "local", "auto")
+
+
+def resolve_plan(plan: str, trade_date: str) -> str:
+    """auto → 周五 full（周全量兜换血盲区），其余 cheap。"""
+    if plan not in PLANS:
+        raise ValueError(f"unknown plan {plan!r}; expected one of {PLANS}")
+    if plan != "auto":
+        return plan
+    return "full" if date.fromisoformat(trade_date).isoweekday() == 5 else "cheap"
+
+
+def build_local_plan(trade_date: str, timeout: int, heavy_timeout: int):
+    """local：不发任何 fupanhui 请求（2026-09-07 账号风控后的日更链路）。
+
+    名单冻结：carry-forward-universe 把最近一份 published 宇宙按当日重发（provider=local:carry），
+    stitch 用最后一份 fupanhui 成分 × 当日东财真值；加工层 limit-stats-local / market-overview-local
+    按 skills/duckdb-backfill 双轨实测的公开规则算。顺序依赖：stock-daily 先于 stitch（拼接要当日真值），
+    stitch 先于 sector-daily-local（成分求和），sector-daily-local 先于 limit-stats-local（题材涨停借名单），
+    index/sw 先于 market-overview-local（周均线、前三行业）。"""
     return [
+        ("db-lock", lambda: run_step("db-lock", [PY, "scripts/check_db_lock.py"], 120)),
+        ("stock-daily", lambda: sync_stock_daily(trade_date, heavy_timeout)),
+        ("index-daily", lambda: run_step("index-daily", CLI + ["sync-index-daily", "--trade-date", trade_date], timeout)),
+        ("sw-l1-daily", lambda: run_step("sw-l1-daily", CLI + ["sync-sw-l1-daily", "--trade-date", trade_date, "--days", "20"], heavy_timeout)),
+        ("carry-forward-universe", lambda: run_step("carry-forward-universe", CLI + ["carry-forward-universe", "--trade-date", trade_date], timeout)),
+        ("stitch-sector-stocks", lambda: run_step(
+            "stitch-sector-stocks",
+            CLI + ["stitch-sector-stocks", "--trade-date", trade_date, "--max-baseline-age-days", "180"],
+            heavy_timeout,
+        )),
+        ("sector-daily-local", lambda: run_step("sector-daily-local", CLI + ["sync-sector-daily-local", "--trade-date", trade_date], timeout)),
+        ("limit-stats-local", lambda: run_step("limit-stats-local", CLI + ["compute-limit-stats-local", "--trade-date", trade_date], timeout)),
+        ("market-overview-local", lambda: run_step("market-overview-local", CLI + ["compute-market-overview-local", "--trade-date", trade_date], timeout)),
+        ("market-editorial-local", lambda: run_step("market-editorial-local", CLI + ["compute-market-editorial-local", "--trade-date", trade_date], timeout)),
+        ("market-stage-local", lambda: run_step("market-stage-local", CLI + ["compute-market-stage-local", "--trade-date", trade_date], timeout)),
+        ("stock-high-local", lambda: run_step("stock-high-local", CLI + ["compute-stock-high-local", "--trade-date", trade_date], timeout)),
+        ("mainline-local", lambda: run_step("mainline-local", CLI + ["compute-mainline-local", "--trade-date", trade_date], timeout)),
+        ("core-stock-local", lambda: run_step("core-stock-local", CLI + ["compute-core-stock-local", "--trade-date", trade_date], timeout)),
+        ("core-leader-local", lambda: run_step("core-leader-local", CLI + ["compute-core-leader-local", "--trade-date", trade_date], timeout)),
+        ("features", lambda: run_step("features", [PY, "-m", "scripts.compute_features", "--trade-date", trade_date], heavy_timeout)),
+    ]
+
+
+def build_plan(trade_date: str, timeout: int, heavy_timeout: int, plan: str = "full"):
+    if plan == "local":
+        return build_local_plan(trade_date, timeout, heavy_timeout)
+    if plan not in ("full", "cheap"):
+        raise ValueError(f"build_plan 只接受 full/cheap/local（auto 先经 resolve_plan），得到 {plan!r}")
+    head = [
         ("db-lock", lambda: run_step("db-lock", [PY, "scripts/check_db_lock.py"], 120)),
         ("sectors", lambda: run_step("sectors", CLI + ["sync-sectors", "--trade-date", trade_date], timeout)),
         ("market-overview", lambda: run_step("market-overview", CLI + ["sync-market-overview", "--trade-date", trade_date, "--days", "60"], timeout)),
@@ -319,28 +405,51 @@ def build_plan(trade_date: str, timeout: int, heavy_timeout: int):
         # 申万一走 hist 时 20 日窗口实测常超 300s（08-17/08-19/08-20 连炸）。
         ("sw-l1-daily", lambda: run_step("sw-l1-daily", CLI + ["sync-sw-l1-daily", "--trade-date", trade_date, "--days", "20"], heavy_timeout)),
         ("market-deviation", lambda: run_step("market-deviation", CLI + ["sync-market-deviation", "--trade-date", trade_date], timeout)),
-        ("sector-daily", lambda: run_step("sector-daily", CLI + ["sync-sector-daily", "--trade-date", trade_date, "--days", "25"], timeout)),
-        ("sector-stocks", lambda: sync_sector_stocks(trade_date, heavy_timeout)),
-        ("limit-heat", lambda: sync_limit_heat(trade_date, heavy_timeout)),
-        ("stock-high", lambda: run_step("stock-high", CLI + ["sync-stock-high", "--trade-date", trade_date, "--page-size", "200"], heavy_timeout)),
+    ]
+    tail = [
         ("limit-advance", lambda: run_step("limit-advance", CLI + ["sync-limit-advance", "--trade-date", trade_date, "--min-boards", "2"], timeout)),
-        ("stock-daily", lambda: sync_stock_daily(trade_date, heavy_timeout)),
         ("mainline-daily", lambda: run_step("mainline-daily", CLI + ["sync-mainline-daily", "--trade-date", trade_date], timeout)),
         ("mainline-sector-daily", lambda: run_step("mainline-sector-daily", CLI + ["sync-mainline-sector-daily", "--trade-date", trade_date], timeout)),
         ("theme-flow-daily", lambda: run_step("theme-flow-daily", CLI + ["sync-theme-flow-daily", "--trade-date", trade_date], timeout)),
         ("public-assets", lambda: run_step(
             "public-assets",
-            CLI + ["sync-fupanhui-public-assets", "--trade-date", trade_date],
+            CLI + ["sync-fupanhui-public-assets", "--trade-date", trade_date, "--plan", plan],
             heavy_timeout,
         )),
         ("features", lambda: run_step("features", [PY, "-m", "scripts.compute_features", "--trade-date", trade_date], heavy_timeout)),
     ]
+    if plan == "full":
+        middle = [
+            ("sector-daily", lambda: run_step("sector-daily", CLI + ["sync-sector-daily", "--trade-date", trade_date, "--days", "25"], timeout)),
+            ("sector-stocks", lambda: sync_sector_stocks(trade_date, heavy_timeout)),
+            ("limit-heat", lambda: sync_limit_heat(trade_date, heavy_timeout)),
+            ("stock-high", lambda: run_step("stock-high", CLI + ["sync-stock-high", "--trade-date", trade_date, "--page-size", "200"], heavy_timeout)),
+        ]
+        # full 里 limit-advance 排在 stock-daily 之前是历史顺序，保持不动。
+        return head + middle + tail[:1] + [("stock-daily", lambda: sync_stock_daily(trade_date, heavy_timeout))] + tail[1:]
+    # cheap：拼接行的 price/pct/amount、high_status、limit_times 分别 join 自
+    # stock-daily / stock-high / limit-heat，所以这三步必须先于 stitch；
+    # 板块日行情由成分求和派生，所以排在成分之后。
+    middle = [
+        ("stock-daily", lambda: sync_stock_daily(trade_date, heavy_timeout)),
+        ("stock-high", lambda: run_step("stock-high", CLI + ["sync-stock-high", "--trade-date", trade_date, "--page-size", "200"], heavy_timeout)),
+        ("limit-heat", lambda: sync_limit_heat(trade_date, heavy_timeout)),
+        ("stitch-sector-stocks", lambda: stitch_sector_members(trade_date, heavy_timeout)),
+        ("sector-stocks-delta", lambda: {**sync_sector_stocks(trade_date, heavy_timeout), "label": "sector-stocks-delta"}),
+        ("sector-daily-local", lambda: run_step("sector-daily-local", CLI + ["sync-sector-daily-local", "--trade-date", trade_date], timeout)),
+    ]
+    return head + middle + tail
 
 
-def write_runlog(trade_date: str, results: list[dict], gate_ok: bool | None) -> None:
+def plan_step_names(trade_date: str = "2026-01-05") -> dict[str, list[str]]:
+    """各计划的步骤名（供 registry 一致性测试；日期只影响 lambda 捕获，不影响名单）。"""
+    return {plan: [name for name, _ in build_plan(trade_date, 1, 1, plan)] for plan in ("full", "cheap", "local")}
+
+
+def write_runlog(trade_date: str, results: list[dict], gate_ok: bool | None, plan: str = "full") -> None:
     RUNLOG.parent.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
-    lines = [f"\n## {trade_date} | run {ts}", ""]
+    lines = [f"\n## {trade_date} | run {ts} | plan={plan}", ""]
     lines.append("| 模块 | 状态 | 耗时s | 备注 |")
     lines.append("|---|---|---:|---|")
     for r in results:
@@ -368,7 +477,16 @@ def main() -> int:
                     help="整轮末尾对 fail/timeout 模块的补偿重试轮数, 默认1 (0=关闭)")
     ap.add_argument("--skip-preflight", action="store_true",
                     help="跳过开跑前环境自检")
+    ap.add_argument(
+        "--plan",
+        choices=PLANS,
+        default=os.environ.get("REVIEW_SYNC_PLAN", "full"),
+        help="分档：full=全量打复盘会；cheap=identity/value 分层省配额；auto=周五 full 其余 cheap。"
+             "默认取环境变量 REVIEW_SYNC_PLAN，未设则 full（launchd 包装脚本不改也能切档）",
+    )
     args = ap.parse_args()
+    plan = resolve_plan(args.plan, args.date)
+    print(f"== plan={plan} (requested={args.plan}) date={args.date} ==", flush=True)
 
     if not args.skip_preflight:
         problems = preflight()
@@ -387,21 +505,21 @@ def main() -> int:
         else:
             print("== preflight 通过: 叙事源（晨汇/卖方观点）时效正常 ==", flush=True)
 
-    plan = build_plan(args.date, args.timeout, args.heavy_timeout)
-    names = [n for n, _ in plan]
+    steps = build_plan(args.date, args.timeout, args.heavy_timeout, plan)
+    names = [n for n, _ in steps]
     if args.only:
         if args.only not in names:
             print(f"unknown --only: {args.only}; allowed: {', '.join(names)}")
             return 2
-        plan = [(n, f) for n, f in plan if n == args.only]
+        steps = [(n, f) for n, f in steps if n == args.only]
     elif args.from_step:
         if args.from_step not in names:
             print(f"unknown --from-step: {args.from_step}; allowed: {', '.join(names)}")
             return 2
-        plan = plan[names.index(args.from_step):]
+        steps = steps[names.index(args.from_step):]
 
     results: list[dict] = []
-    for _name, fn in plan:
+    for _name, fn in steps:
         results.append(fn())
 
     # 收尾补偿：CDP 500 等瞬态故障到末尾往往已自愈，统一重跑 fail/timeout 模块
@@ -409,10 +527,10 @@ def main() -> int:
         bad_idx = [i for i, r in enumerate(results) if r["status"] in {"fail", "timeout"}]
         if not bad_idx:
             break
-        bad_names = [plan[i][0] for i in bad_idx]
+        bad_names = [steps[i][0] for i in bad_idx]
         print(f"\n== 收尾重试 第{round_no}轮: {', '.join(bad_names)} ==", flush=True)
         for i in bad_idx:
-            res = plan[i][1]()
+            res = steps[i][1]()
             res["note"] = (str(res.get("note") or "") + f" [retry r{round_no}]").strip()
             results[i] = res
 
@@ -420,12 +538,12 @@ def main() -> int:
     # 不能只沉在 runlog 里等人翻。告警自身失败不影响同步结果。
     bad = [f"{r['label']}({r['status']})" for r in results if r["status"] in {"fail", "timeout", "partial"}]
     if bad:
-        _notify(f"⚠️ 全量复盘 {args.date} 同步段模块未全绿：{', '.join(bad)}；详见 state/runlog.md")
+        _notify(f"⚠️ 全量复盘 {args.date} 同步段模块未全绿（plan={plan}）：{', '.join(bad)}；详见 state/runlog.md")
 
-    release_results, gate_ok = run_release_steps(args.date, args.timeout)
+    release_results, gate_ok = run_release_steps(args.date, args.timeout, plan)
     results.extend(release_results)
 
-    write_runlog(args.date, results, gate_ok)
+    write_runlog(args.date, results, gate_ok, plan=plan)
     if not gate_ok:
         print("\n== 质量门/导出失败：停止生成报告与 agent ==", flush=True)
         return 1
