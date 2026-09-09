@@ -88,7 +88,7 @@
 | 项 | 状态 | 负责标签 | 提交 | 原件 | 下一命令 |
 |---|---|---|---|---|---|
 | 任务 0 | **完成**（本文件即回执+计划+冻结台账） | 集成执行者 | 见 git log 本目录 | 本文件 | — |
-| I1 | 进行中 | 00 | — | run_20260909_205227_971715、evidence-20260909/cb00-feel-0[12] | 建 I1 工作树后红→绿 |
+| I1 | **工程完成+真实重审完成**（22:15）：分支 `feat/i1-availability-attribution`@01de7e94（已推 gitea）；红→绿 6 新测试（旧代码全红）、23 全绿、ruff 绿；reclassify 重审 3 个真实原件（派生件在 `~/.finance-runtime/capability-integration/i1/`，旧件未动）——20:53 件「干净 6」实为 recovered 2（feel-01/02，中途 502 恢复出终稿）+ 漏判隔离 3（calc-01/material-01/material-02）+ 已标 1（calc-02）；16:04 废件 calc-01 同形漏标；判官不可用逐轮明示 | 00 | 01de7e94 | `~/.finance-runtime/capability-integration/i1/reclassify-*.json` | 批次收尾后由 00 用新码 --resume（不搬假干净题，按原条件重跑）；进 00 对照的候选清单 |
 | I2 | 未开工 | 06/01/02 | — | blocked/05.md B05-1/3/4 | I1 后 |
 | I3 | 未开工 | 06/09/04/10 | — | — | 依赖 I2 |
 | I4 | 未开工 | 08/06/09 | — | blocked/07.md #1、blocked/08.md B2/B3/B4 | 修 writer 根因 |

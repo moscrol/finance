@@ -12,3 +12,4 @@
 - W2 · 00 baseline live 批次进行中（PID 30453 → 8813，user=cb00-baseline，21:39 起）。I1 改分类实现不影响运行中进程（模块已加载），但**不得改 00 原树工作区文件**；I1 在独立 worktree 上做，产出以提交交回。批次结束前不启动新的占模型池批次（spec §2.2-4 串行纪律）。
 - W3 · 生产 8792=ac013255 落后 gitea/main 12 提交（缺 #697/#699 等）。J 系工作流若需在生产语义上验收，候选 sidecar 用集成分支起独立实例，不动生产；切流按 spec §1 只做可审核准备。
 - W4 · kb 主检出脏且落后（他人 ingest 在途），已绕行 `kb-wt-cap03-runtime`；不修 kb 主树。
+- W5 · **当前 cb00-baseline 批次链上带着 3 题假干净**（calc-01/material-01/material-02：终态改名 invalid_repair_finish 类漏判，被历次 --resume 当 completed 搬运；I1 重审已实锤，派生件 `~/.finance-runtime/capability-integration/i1/reclassify-20260909T125222Z-*.json`）。处置：不打断在跑批次；批次停下后，下一次 --resume 必须用 I1 代码（`feat/i1-availability-attribution`@01de7e94）跑——新判据不搬假干净题、按原条件重跑；最终基线件出来后再 reclassify 一次归档四类分布。00 的「干净 N/30」口径在切换新码前不可采信为能力读数。
