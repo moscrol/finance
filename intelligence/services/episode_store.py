@@ -397,6 +397,13 @@ class JsonlEpisodeStore:
             state = self._read_state(directory / self.STATE_NAME)
         return events, state
 
+    def load_state(self, episode_id: str) -> EpisodeState | None:
+        """只读 ``state.json``、不读事件流：递话的 CLI 判「收口了没」用它，events.jsonl 可能几百 KB。
+        没有 state.json（episode 刚起、第一次 phase 转移前）回 None。"""
+
+        with self._lock:
+            return self._read_state(self.episode_dir(episode_id) / self.STATE_NAME)
+
     def list_open(self) -> tuple[str, ...]:
         if not self.root.is_dir():
             return ()
