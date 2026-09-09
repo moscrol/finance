@@ -1,0 +1,331 @@
+{
+ "benchmark": "capability-benchmark-00",
+ "schema_version": 1,
+ "created": "2026-09-09",
+ "author": "00-evaluator（只读调查 + 出题；未参与 runtime 实现）",
+ "goal_brief": "docs/superpowers/plans/2026-09-09-capability-upgrade/00-capability-benchmark-goal-brief.md",
+ "scoring_rules": "docs/verification/2026-09-09-capability-benchmark-00-scoring-rules.md",
+ "sealed_manifest": "intelligence/eval/fixtures/capability-benchmark-2026-09-09.sealed-manifest.json",
+ "default_as_of": "2026-09-07",
+ "visible_per_category": 2,
+ "hidden_per_category": 1,
+ "categories": {
+  "feel": "盘感翻译",
+  "material": "材料理解",
+  "calc": "财务计算",
+  "compare": "跨公司比较",
+  "chain": "产业传导",
+  "analog": "历史类比",
+  "scenario": "情景更新",
+  "counter": "反例推翻",
+  "continue": "跨日续研",
+  "method": "方法验证"
+ },
+ "data_prerequisites": {
+  "duckdb_market_tables_max_trade_date": "2026-09-07",
+  "duckdb_hithink_tables_max_trade_date": "2026-09-08",
+  "known_holes": [
+   "fact_sector_daily 缺 2026-09-03、2026-09-04 两个交易日",
+   "fact_mainline_sector_daily 2026-09-07 农林牧渔各板块指标为 NULL",
+   "fact_event_daily 2026-09-09 之后无 importance>=4 事件"
+  ],
+  "financials_source": "东财 F10 主要财务指标，取数日 2026-09-09（单季数一律由累计数相减还原）",
+  "knowledge_wiki": "~/knowledge-base-private/wiki（最新 source 2026-09-01）",
+  "double_red_definition": "板块日涨幅>0 且 边际量(diff_ratio)>10 且 成交额>500 亿（market_feature_store.signals.is_double_red）"
+ },
+ "protocol": [
+  "题面原文投放，不改写、不加提示；conversation_context 里的 user 轮真实投放由系统作答，assistant 轮只是评审参考稿，不注入模型。",
+  "唯一入口是 Workbench 对话门 POST /api/conversations/{id}/messages；run 目录无 continuous-episode.json 的题记 engine_missing。",
+  "所有题以 as_of 为事实基准日；答案引用晚于 as_of 的信息记时间泄漏。",
+  "判分要点密封在仓外，见 sealed_manifest；建设者不得读取。"
+ ],
+ "cases": [
+  {
+   "id": "cb00-feel-01",
+   "category": "feel",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "今天是 2026-09-07 收盘。我的盘感是：『指数没怎么动，但 AI 硬件在抱团，创新高的票越来越少』。请把这句盘感翻译成 3 个可以用库内数据核验的研究问题（每个问题写清用哪个指标、来自哪张表、什么阈值算成立），然后逐个用 2026-09-07 及之前的数据核一遍，给出成立 / 不成立 / 数据不足，并说明明天最该盯哪一个数。",
+   "deliverable": "3 个问题 ×（指标+表+阈值）+ 3 个带数字的判定 + 1 个明日盯盘指标",
+   "required_data": [
+    "fact_market_daily 2026-09-07：sh_index_pct_chg、industry_1/industry_1_ratio、top3_industry_ratio、stock_high_count_20d",
+    "fact_market_daily 2026-09-02 / 09-04 的 stock_high_count_20d 作对照",
+    "fact_theme_limit_heat_daily 2026-09-07：CPO概念 / PCB概念 涨停数与占比"
+   ],
+   "conversation_context": []
+  },
+  {
+   "id": "cb00-feel-02",
+   "category": "feel",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "最近两周（2026-08-25 到 2026-09-07）我总觉得『涨停很多但赚钱效应差』。这是盘感还是事实？请先定义 2–3 个能核验『赚钱效应』的指标（写清表和字段），再用这两周的库内数据逐日检验，指出哪几天最符合这个描述、哪几天相反，最后告诉我以后每天只看两个数的话该看哪两个。",
+   "deliverable": "指标定义 + 逐日表（含涨停家数与赚钱效应指标）+ 最符合/相反的日期 + 两个日常指标",
+   "required_data": [
+    "fact_market_daily 2026-08-25..09-07：limit_up、advancers、strength_marginal_pct、strength_status、sh_index_pct_chg、total_amount"
+   ],
+   "conversation_context": []
+  },
+  {
+   "id": "cb00-material-01",
+   "category": "material",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "下面是一段 2026-05-02 卖方业绩会纪要的整理（公司未具名，做液冷管路）。请：(1) 提取全部可量化事实（对象、数字、单位、时点）列成表；(2) 只用材料内的数字，估算 Google 3000 个机柜对应的大管径软管价值区间，并检查材料内部的口径是否自相一致（不一致就指出在哪、差多少）；(3) 列出材料没有回答、但判断这家公司投资价值前必须补齐的 3 个问题。不要引入材料以外的数字。\n\n材料：\n- 大管径液冷软管突破：3 寸/4 寸（单价 2000-3000 元/米、单柜价值 2-3 万元），满足 UL V0 阻燃填补国内空白；Google 单机柜用量 20 米，CoolMaster/英维克需求旺盛。\n- 一体化集成总成获头部客户认可：已获安费诺（2026 小批量 2 万套用于 Meta 项目）、浪潮认可并进 Meta/谷歌供应链；独家膨胀接头针对 H 客户超节点（单柜 68-72 个），2026 年 5-6 月大批量交付、当年规划出货 2 万台（远期 10 万台）。\n- 2026 下半年项目集中放量：H 客户/英维克/CoolMaster/AVC/安费诺/浪潮陆续交付，Meta 经越南分公司交付，Google 验证后有望率先对接 3000 个机柜（对应 6-8 万米大管径）。",
+   "deliverable": "事实表 + 价值区间计算（写出算式）+ 口径一致性判断 + 3 个未回答问题",
+   "required_data": [
+    "仅材料本身（不需要外部数据）"
+   ],
+   "conversation_context": []
+  },
+  {
+   "id": "cb00-material-02",
+   "category": "material",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "下面是翰宇药业（300199）2026-08-13 公告的节选。请：(1) 提取交易要素：对手方、合作产品与适应症、区域、合作形式、各项付款条款（金额与触发条件）；(2) 区分哪些是已确定的硬事实、哪些取决于未来条件；(3) 指出这份公告不能用来推断的事（至少 2 条），并说明『合计最高 1.45 亿元』为什么不能直接当成本协议新增的收入。\n\n节选：『公司与浙江三生蔓迪药业有限公司签署了《司美格鲁肽注射液——成人2型糖尿病患者的血糖控制合作协议》及《委托生产和供应协议》。双方就司美格鲁肽注射液（血糖控制适应症）在中国区域（中国大陆、香港、澳门，不含台湾）的开发、注册、生产及商业化达成合作。公司授予三生蔓迪在区域内独占的、不可转让的、可分许可的许可，由三生蔓迪或其关联方担任合作产品在中国区域的药品上市许可持有人（MAH），并独家负责商业化。财务条款：3.1 签约首付款：人民币1,200万元；3.2.1 合作产品血糖适应症上市申请获得NMPA批准：人民币1,800万元；3.2.2 首次商业批供货经三生蔓迪验收合格：人民币750万元；3.2.3 销售里程碑：血糖控制适应症与《减重适应症合作协议》项下产品的年度净销售额合并计算，作为确认是否触发《减重适应症合作协议》约定的销售里程碑付款义务的依据，合计最高1.45亿元；3.2.4 销售提成：以每个自然年度净销售额5亿为线，以毛利为基础向公司支付一定比例销售提成。本次合作不构成关联交易。』",
+   "deliverable": "交易要素表 + 硬事实/条件事实分类 + 不可推断清单 + 对 1.45 亿的口径说明",
+   "required_data": [
+    "仅材料本身；若调用披露检索需以 as_of 之前的原公告为准"
+   ],
+   "conversation_context": []
+  },
+  {
+   "id": "cb00-calc-01",
+   "category": "calc",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "厦门钨业（600549）已披露数据：2026 年中报累计营收 350.14 亿元、归母净利 22.01 亿元；2026 一季报 157.43 亿 / 11.07 亿；2025 中报 192.71 亿 / 9.69 亿；2025 一季报 84.19 亿 / 3.83 亿；2025 全年营收 462.65 亿元。请：(1) 还原 2026Q2 与 2025Q2 的单季营收和归母净利；(2) 算 2026Q2 单季营收、归母净利同比增速；(3) 算 2026Q1、Q2 单季归母净利率并给出环比变化（百分点）；(4) 若 2026 下半年营收相对 2025 下半年分别增长 30% / 60% / 90%，2026 全年营收各是多少。每一步写出算式。",
+   "deliverable": "单季还原表 + 同比 + 净利率环比 + 三档全年营收敏感性表（全部带算式）",
+   "required_data": [
+    "题面给定数字（无需外部取数）"
+   ],
+   "conversation_context": []
+  },
+  {
+   "id": "cb00-calc-02",
+   "category": "calc",
+   "tier": "deep",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "请用你能取到的财报数据，还原中际旭创（300308）2026 年第二季度的单季营收和归母净利润，算出单季同比增速，再算 2026 上半年的归母净利率。写清每个数来自哪份报告、是累计口径还是单季口径；取不到的数直接说明缺口，不要估。",
+   "deliverable": "取数来源 + 单季还原 + 同比 + 半年净利率（带口径声明）",
+   "required_data": [
+    "财报数据（东财 F10 / financial_data 工具）：2026 中报、2026 一季报、2025 中报、2025 一季报累计营收与归母净利"
+   ],
+   "conversation_context": []
+  },
+  {
+   "id": "cb00-compare-01",
+   "category": "compare",
+   "tier": "deep",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "比较中际旭创（300308）与新易盛（300502）：用 2026Q1、2026Q2 两个单季的营收同比、归母净利同比，2026 上半年毛利率，以及 2026-09-07 收盘价相对 10 个和 20 个交易日前的涨跌幅，做一张同维度比较表并给出排序；最后说明在什么条件下这个排序会反转。财报数据自己取，取不到的格写缺口。",
+   "deliverable": "同维度比较表（两家 × 7 个维度）+ 排序 + 反转条件",
+   "required_data": [
+    "财报数据：两家 2026 一季报/中报、2025 一季报/中报累计数",
+    "fact_stock_daily：300308.SZ、300502.SZ 2026-09-07 及 10/20 个交易日前收盘价"
+   ],
+   "conversation_context": []
+  },
+  {
+   "id": "cb00-compare-02",
+   "category": "compare",
+   "tier": "deep",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "英维克（002837）、申菱环境（301018）、高澜股份（300499）三家液冷公司：列 2026 上半年营收同比、归母净利同比、毛利率、净利率，再加 2026-09-07 收盘价相对 20 个交易日前的涨幅，判断哪家『股价涨幅与业绩兑现的错位』最大，并说明这种错位在什么条件下是合理的、什么条件下是风险。",
+   "deliverable": "三家 × 5 维比较表 + 错位判断 + 合理/风险条件",
+   "required_data": [
+    "财报数据：三家 2026 中报累计数与同比、毛利率、净利率",
+    "fact_stock_daily：002837.SZ、301018.SZ、300499.SZ 2026-09-07 与 20 个交易日前收盘价"
+   ],
+   "conversation_context": []
+  },
+  {
+   "id": "cb00-chain-01",
+   "category": "chain",
+   "tier": "deep",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "英伟达 GB300 / 超节点机柜的液冷渗透率提升，会传导到 A 股哪些环节？请按『环节 → 代表公司 → 兑现路径（订单 / 收入 / 利润哪一层先看到）→ 验证信号』列出来，指出哪个环节里公司之间差异最大，并用 2026 年中报数据说明这条链目前兑现到了哪一层。",
+   "deliverable": "环节表（≥4 个环节）+ 差异最大的环节 + 中报兑现层判断",
+   "required_data": [
+    "知识库 concepts/液冷 及相关实体页（CDU / 软管快接头 / 冷板 / manifold）",
+    "财报数据：英维克、申菱环境、高澜股份 2026 中报营收与归母同比"
+   ],
+   "conversation_context": []
+  },
+  {
+   "id": "cb00-chain-02",
+   "category": "chain",
+   "tier": "deep",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "从中际旭创、新易盛 2026 年中报的高增长出发，光模块景气会向上游哪些环节传导（光芯片、无源器件、PCB/CCL、高速连接）？请用 2026-09-07 的板块严格双红（涨幅>0、边际量>10、成交额>500 亿）和涨停热度数据验证市场是否已经在交易这条链，分别列出被验证和未被验证的环节，并说明验证不了的原因。",
+   "deliverable": "传导环节清单 + 09-07 双红/涨停热度逐环节对照 + 被验证/未验证分列",
+   "required_data": [
+    "fact_sector_daily 2026-09-07：PCB / 元器件 / CPO概念 / 光通信 / 铜缆高速连接 的 pct_chg、diff_ratio、amount",
+    "fact_theme_limit_heat_daily 2026-09-07：CPO概念、PCB概念 涨停数",
+    "fact_core_stock_daily 2026-09-07 前排个股（中际旭创、新易盛、天孚通信、东山精密）"
+   ],
+   "conversation_context": []
+  },
+  {
+   "id": "cb00-analog-01",
+   "category": "analog",
+   "tier": "deep",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "以 2026-09-07 收盘为准：市场处于『下跌阶段第 3 天』，之前 2 天底部横盘，再往前是 5 天下跌和 19 天底部横盘。请在库内 2025-09 以来的市场阶段序列里找出所有『横盘 → 下跌』的转折先例，逐条列转折日、之前横盘持续天数、之后 5 / 10 / 20 个交易日上证指数涨跌幅；然后说明样本量够不够下结论、阶段标签口径有没有变化，以及这次和先例最大的不同是什么。",
+   "deliverable": "先例表（转折日 / 横盘天数 / 5·10·20 日涨跌）+ 样本量判断 + 口径漂移说明 + 本次差异",
+   "required_data": [
+    "fact_market_daily 2025-09-01..2026-09-07：market_stage、stage_day、sh_index_close"
+   ],
+   "conversation_context": []
+  },
+  {
+   "id": "cb00-analog-02",
+   "category": "analog",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "2026 年以来（截至 2026-09-07）每一段『下跌阶段』各持续了多少个交易日？请给出全部样本、起止日和中位数。本轮从 09-03 起到 09-07 已是第 3 天，按历史分布，走到第 3 天之后通常还剩几天？哪一段是反例？",
+   "deliverable": "全部下跌阶段样本表 + 中位数 + 第 3 天后剩余天数分布 + 反例",
+   "required_data": [
+    "fact_market_daily 2026-01-01..2026-09-07：market_stage、stage_day"
+   ],
+   "conversation_context": []
+  },
+  {
+   "id": "cb00-scenario-01",
+   "category": "scenario",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "基于 2026-09-07 收盘数据（下跌阶段第 3 天、成交约 1.95 万亿、涨停 93 家、跌停 2 家、20 日新高 373 家、强势股边际量 +98.82%），给出对下一个交易日的情景树：先列变量表（每个变量写当前值和数据来源），再给至少三种情景，每种写触发阈值、对应研判和之后要监控的信号。不要写数值概率，用高 / 中 / 低并说明依据。",
+   "deliverable": "变量表（≥5 个变量带当前值）+ ≥3 个情景（阈值 / 研判 / 监控信号）+ 无数值概率",
+   "required_data": [
+    "fact_market_daily 2026-09-07 与前 5 个交易日"
+   ],
+   "conversation_context": []
+  },
+  {
+   "id": "cb00-scenario-02",
+   "category": "scenario",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "09-04 收盘时的研判是：『下跌阶段第 2 天，成交放大 15% 但强势股边际量转负（-19.12%），需要看 09-07 是否缩量续跌』。现在 09-07 数据出来了：成交 1.945 万亿（-4.16%）、涨停 93 家（09-04 为 38 家）、强势股边际量 +98.82%、20 日新高 373 家（09-04 为 527 家）、上证 +0.07%。请更新研判：哪些情景被数据排除、哪些被加强、出现了什么新的矛盾，以及 09-08 最需要验证的一件事是什么。",
+   "deliverable": "被排除 / 被加强的情景 + 新矛盾 + 09-08 验证项（各带数据依据）",
+   "required_data": [
+    "题面给定数字 + fact_market_daily 2026-09-04 / 09-07 复核"
+   ],
+   "conversation_context": []
+  },
+  {
+   "id": "cb00-counter-01",
+   "category": "counter",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "有个说法：『单日涨停家数上了 80 家，就说明市场进入强势 / 上涨阶段』。请用 2026-08-01 到 2026-09-07 的库内数据找反例（列日期、涨停家数、当日阶段标签、强势股边际量、上证涨跌），说明这个说法哪里不对，并提出一条更站得住的判断规则（写清指标和阈值）。",
+   "deliverable": "反例表（≥3 天）+ 说法失效原因 + 一条带阈值的新规则",
+   "required_data": [
+    "fact_market_daily 2026-08-01..09-07：limit_up、market_stage、strength_marginal_pct、sh_index_pct_chg"
+   ],
+   "conversation_context": []
+  },
+  {
+   "id": "cb00-counter-02",
+   "category": "counter",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "『成交额放大就是好事』——请用 2026-08-25 到 2026-09-07 的库内数据找反例：哪些天成交放大但上证下跌或上涨家数不到一半？哪些天成交缩小但涨停家数反而多？逐日列出成交额、环比、上证涨跌、上涨家数、涨停家数，然后说明成交额应该和哪些指标一起看才能判断好坏。",
+   "deliverable": "逐日表（10 个交易日）+ 两类反例点名 + 组合判断规则",
+   "required_data": [
+    "fact_market_daily 2026-08-25..09-07：total_amount、amount_vs_yesterday_pct、sh_index_pct_chg、advancers、limit_up"
+   ],
+   "conversation_context": []
+  },
+  {
+   "id": "cb00-continue-01",
+   "category": "continue",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "接着 09-02 那次复盘，用 2026-09-07 收盘数据更新：哪些变了（给前后两个数）、哪些没变、新出现了什么，最后给下一步要看的两个点。只写增量，不要重复上次已经说过的内容。",
+   "deliverable": "变化项（前后数）+ 未变项 + 新出现项 + 两个下一步；不重复前轮正文",
+   "required_data": [
+    "fact_market_daily 2026-09-02 / 09-07",
+    "fact_theme_limit_heat_daily 2026-09-02 / 09-07",
+    "fact_sector_daily 2026-09-02 / 09-07 严格双红数"
+   ],
+   "conversation_context": [
+    {
+     "role": "user",
+     "content": "2026-09-02 收盘复盘一下：市场处于什么阶段？主线是什么？涨停热度前几名是谁？"
+    },
+    {
+     "role": "assistant",
+     "content": "（评审参考稿，不注入模型）09-02 为底部横盘阶段第 26 天；成交 1.79 万亿、较前日缩量 11.91%（缩量观望）；涨停 52 家、跌停 8 家、上涨 1541 家；20 日新高 768 家；上证 3941.39（-0.97%）。涨停热度前列：新能源车 15、储能 15、一带一路 12、机器人概念 11、芯片 11；严格双红板块仅 2 个（军民融合、国防军工）。"
+    }
+   ]
+  },
+  {
+   "id": "cb00-continue-02",
+   "category": "continue",
+   "tier": "deep",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "上次我们看了这三家的中报。今天只补一件事：2026-09-07 收盘价各是多少、相对 20 个交易日前各涨了多少？这个涨幅排序和中报业绩（归母净利同比）的排序一致吗？只回答增量，不要重复中报数字。",
+   "deliverable": "三家收盘价 + 20 日涨幅 + 涨幅排序 vs 业绩排序一致性判断；不重复前轮",
+   "required_data": [
+    "fact_stock_daily：002837.SZ、301018.SZ、300499.SZ 2026-09-07 与 20 个交易日前收盘价"
+   ],
+   "conversation_context": [
+    {
+     "role": "user",
+     "content": "英维克、申菱环境、高澜股份 2026 年中报：营收同比、归母净利同比、毛利率、净利率各是多少？"
+    },
+    {
+     "role": "assistant",
+     "content": "（评审参考稿，不注入模型）东财 F10：英维克 营收 +17.24% / 归母 -14.32% / 毛利率 24.93% / 净利率 6.52%；申菱环境 +4.39% / -64.07% / 19.65% / 3.15%；高澜股份 +18.16% / +12.22% / 26.12% / 5.68%。"
+    }
+   ]
+  },
+  {
+   "id": "cb00-method-01",
+   "category": "method",
+   "tier": "deep",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "『板块严格双红（日涨幅>0、边际量>10、成交额>500 亿）后，次日该板块继续上涨』——这条经验在 2026 年 8 月成立吗？请用库内 fact_sector_daily 逐板块逐日验证：给出样本数、次日上涨的命中率、命中率最差的那一天，以及最差的几个反例（板块、日期、次日跌幅）。如果某些日期缺数据也请说明。",
+   "deliverable": "样本数 + 命中率 + 最差日 + 反例清单 + 数据缺口声明",
+   "required_data": [
+    "fact_sector_daily 2026-08-03..09-01：pct_chg、diff_ratio、amount（次日行）"
+   ],
+   "conversation_context": []
+  },
+  {
+   "id": "cb00-method-02",
+   "category": "method",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "timeout": 900,
+   "question": "『底部横盘阶段持续超过 15 个交易日后转入下跌阶段，之后 5 个交易日上证指数反而上涨』——这条经验在库内有几个样本？分别怎么走？这个样本量能不能下结论？如果不能，还需要什么数据或多长时间才能验证。",
+   "deliverable": "样本清单（转折日 / 横盘天数 / 5 日涨跌）+ 能否下结论 + 验证所需条件",
+   "required_data": [
+    "fact_market_daily 2025-09-01..2026-09-07：market_stage、stage_day、sh_index_close"
+   ],
+   "conversation_context": []
+  }
+ ]
+}
