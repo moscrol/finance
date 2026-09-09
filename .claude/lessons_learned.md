@@ -437,3 +437,22 @@
   做法：bash 脚本一律 `eval "$(grep '^export ' "$LAUNCHER")"`，随后 `[ -n "$FINANCE_WS" ] && [ -n "$OPENAI_API_KEY" ]` 不满足直接退出；
   起服后除 health 三读，还要读 `/api/llm/config.ready` 与 `/api/readiness`。
   **可迁移原则：「进程活着 + 代码是我的树」证明不了「环境是我要的环境」；凭证与数据根这类靠 env 注入的前提，要在起服前断言、起服后从服务端读回来对账。**
+
+- **[2026-09-09] 批跑遇到不可用依赖时「打标继续」：网关冷却 gave_up 后照跑，25/30 题成了配额读数。**
+  场景：00 号单基线首跑。5 道深题 ≈15 分钟烧掉 ≈1.27M input tokens 触发 `model_cooldown`（reset≈17064s，
+  远超 runner 2h 等待上限），`wait_out_cooldown` 正确 gave_up，但主循环把「打 quota_tainted 标」当处置照跑余题：
+  每题 3–17s 的 `repair_model_unavailable` 降级稿落盘，垃圾回答还写进评测用户的会话台账。设计初衷是
+  「中断不丢已跑部分」，实际把污染当进度。修复（`7180460d`）：探不通即中止（余题记 skipped_cooldown，rc=4），
+  编排层等 `reset_seconds+60` 后 `--resume`（只搬干净完成题，臂标签不合拒绝）；题中烧穿（probe ok 但
+  stop_reason=repair_model_unavailable）打标待重跑；下游 `review-pack` 拒收含污染读数的 artifact 兜底。
+  **可迁移原则：「打标继续」只对下游有强制过滤时才是门禁，否则就是把垃圾写成进度。批跑器对不可用依赖的正确形状是
+  「停批 + 可续跑（resume 只搬干净件）+ 下游拒收污染件」三件一起，缺一个都会让配额/故障读数混进能力读数。**
+
+- **[2026-09-09] 判官二进制钉带版本号下载件二次发作：grok 自动更新清掉 1.0.5，判官 FileNotFoundError，生产在岗进程一起坏。**
+  场景：launcher 2026-09-02 为保 read-only 沙箱钉死 `LLM_JUDGE_GROK_BIN=~/.grok/downloads/grok-1.0.5-…`；
+  09-09 11:18 自动更新拉 1.0.24 时把 1.0.5 清了。sidecar 首跑 5 道真跑题全 `judge_status=unavailable`
+  （`semantic_verifier.exc_class=FileNotFoundError`）——语义判官离线 = 无语义修复轮，这 5 题也不是生产形状读数。
+  生产 8792 的在岗进程 env 同指该路径，09-07 后没有新 run 暴露，坏着没人知道。另一个小坑：health 的
+  `runtime.source_dirty` 等 provenance 是 create_app 时冻结的快照，起服前树必须干净，起服后清树读数不变。
+  做法：评测前先抽一条**最近生产 episode** 看 `semantic_verifier.exc_class`（判官链活性），别只看 health/llm ready；
+  钉版本必须钉「不会被自动清理的拷贝」（cp 到自管目录），或接受 symlink 跟随 + 记录版本差异。
