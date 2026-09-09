@@ -158,7 +158,8 @@ class ResearchProjectState:
         lines = [
             "## 研究项目状态（跨轮先验，非市场事实）" + origin,
             f"- 对象：{self.subject or '未识别'}；已研究 {len(done)} 轮，累计 {self.materials_read} 条引用；"
-            f"上轮数据截止 {last.as_of or '未记录'}（{last.asked_at[:10]}）。",
+            # self.as_of 已回溯到最近有数据截止的轮；直答轮的 None 不再把截止日抹掉。
+            f"上轮数据截止 {self.as_of or '未记录'}（{last.asked_at[:10]}）。",
         ]
         if last.concluded:
             lines.append(f"- 上轮结论标题：{_truncate(last.answer_headline, HEADLINE_CHARS)}")
@@ -358,6 +359,27 @@ def _rounds(
     return rounds
 
 
+def _project_subject(rounds: list[ResearchRound]) -> str:
+    """项目对象：按出现次数取众数，平手取更近出现的。
+
+    不能取「最近一轮非空」：直答车道会把整句问句抽成 ``primary_subject``
+    （真实验收实测：「光模块目前最硬的一条公司级证据」），最近值被污染后，
+    ``prior_for_turn`` 的换题守卫会把下一轮真问「光模块」误判成换题、先验块不注入。
+    众数口径下偶发的长句抽取（1 次）压不过稳定对象（N 次）。
+    """
+    counts: dict[str, int] = {}
+    last_seen: dict[str, int] = {}
+    for index, r in enumerate(rounds):
+        text = r.subject.strip()
+        if not text:
+            continue
+        counts[text] = counts.get(text, 0) + 1
+        last_seen[text] = index
+    if not counts:
+        return ""
+    return max(counts, key=lambda s: (counts[s], last_seen[s]))
+
+
 def _trigger_status(record: dict[str, Any], verdict: dict[str, Any] | None, today: str) -> str:
     v = str((verdict or {}).get("verdict") or "").strip()
     if v in checkpoints_svc.TERMINAL_VERDICTS or v == "unverifiable":
@@ -451,7 +473,7 @@ def load_project(
     messages = conversation_store.load_messages(conversation_id)
     rounds = _rounds(messages, run_store, exclude_run_id=exclude_run_id)
     done = [r for r in rounds if r.status == "completed"]
-    subject = next((r.subject for r in reversed(rounds) if r.subject), "")
+    subject = _project_subject(rounds)
     question_type = next((r.question_type for r in reversed(rounds) if r.question_type), "")
     today_text = today or date_cls.today().isoformat()
     us = userspace.user_space(conversation.user_id)
@@ -490,7 +512,9 @@ def load_project(
         title=conversation.title,
         subject=subject,
         question_type=question_type,
-        as_of=latest.as_of if latest else None,
+        # 「上轮数据截止」取最近一个真有数据截止的轮：直答/知识轮没有 source_date，
+        # 不能让它把整个项目的截止日抹成 None（真实六轮验收照出，2026-09-09）。
+        as_of=next((r.as_of for r in reversed(done) if r.as_of), None),
         updated_at=conversation.updated_at,
         rounds=tuple(rounds),
         # 当前判断只取最近一轮**形成了结论**的标题；降级模板不是判断。
