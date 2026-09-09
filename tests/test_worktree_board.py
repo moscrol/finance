@@ -184,18 +184,19 @@ def test_ledger_picks_the_home_with_the_freshest_switch(
     assert board.resolve_ledger_path(repo) == stale
 
 
-def test_ledger_keeps_override_order_when_no_switch_rows(
+def test_ledger_prefers_the_single_home_when_no_switch_rows(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """都没有该 port 的 switch 行（或旧格式没写 unix）时，退回覆盖序第一份。"""
+    """都没有该 port 的 switch 行（或旧格式没写 unix）时，唯一家 ``~/.finance-runtime`` 优先——
+    它是写入侧唯一的目标（工单 #44）；旧家 ``<repo>/state`` 只在它有更新的 8792 切换时才赢。"""
 
     repo = tmp_path / "repo"
     home = tmp_path / "home"
-    first = _write_ledger(
+    legacy = _write_ledger(
         repo / "state" / "deploy-ledger.jsonl",
         [{"action": "startup", "rev": "aaaaaaaaaaaa", "port": 8792}],
     )
-    _write_ledger(
+    single_home = _write_ledger(
         home / ".finance-runtime" / "deploy-ledger.jsonl",
         [{"action": "switch", "rev": "cccccccccccc", "port": 8796, "unix": 1788900000.0}],
     )
@@ -204,7 +205,20 @@ def test_ledger_keeps_override_order_when_no_switch_rows(
     monkeypatch.setattr(board, "_git", _no_common_dir)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
 
-    assert board.resolve_ledger_path(repo) == first
+    assert board.resolve_ledger_path(repo) == single_home
+    # FINANCE_WS 指向的 state/ 只是旧家之一：没有更新的 8792 切换就不抢
+    monkeypatch.setenv("FINANCE_WS", str(repo))
+    assert board.resolve_ledger_path(repo) == single_home
+    # 旧家有更新的 8792 切换时仍按时刻取它（#675 的读法不退）
+    _write_ledger(
+        legacy,
+        [{"action": "switch", "rev": "eeeeeeeeeeee", "port": 8792, "unix": 1788900001.0}],
+    )
+    assert board.resolve_ledger_path(repo) == legacy
+    # 什么都没有时也回唯一家（写入侧会建它）
+    legacy.unlink()
+    single_home.unlink()
+    assert board.resolve_ledger_path(repo) == single_home
 
 
 def test_last_switch_prefers_port_8792(tmp_path: Path) -> None:

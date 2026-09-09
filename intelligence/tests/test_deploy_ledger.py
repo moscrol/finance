@@ -320,3 +320,47 @@ def test_ledger_parent_is_created(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     deploy_ledger.record_event(action="startup", rev="abcdabcdabcd")
     assert ledger.is_file()
     assert stat.S_ISREG(ledger.stat().st_mode)
+
+
+def test_resolve_ignores_finance_ws_and_repo_root_without_explicit_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """工单 #44：``$FINANCE_WS/state`` 与 ``<repo_root>/state`` 两级让账本长出两个家；现在只认唯一家，
+    显式 ``--ledger`` / ``FINANCE_DEPLOY_LEDGER`` 仍然优先。"""
+
+    home = tmp_path / "home"
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    monkeypatch.delenv("FINANCE_DEPLOY_LEDGER", raising=False)
+    monkeypatch.setenv("FINANCE_WS", str(tmp_path / "ws"))
+    expected = home / ".finance-runtime" / "deploy-ledger.jsonl"
+
+    assert deploy_ledger.default_ledger_path() == expected
+    assert deploy_ledger.resolve_ledger_path(tmp_path / "repo") == expected
+    assert deploy_ledger.resolve_ledger_path(None) == expected
+    assert deploy_ledger.resolve_ledger_path(None, ledger_path=tmp_path / "x.jsonl") == tmp_path / "x.jsonl"
+    monkeypatch.setenv("FINANCE_DEPLOY_LEDGER", str(tmp_path / "env.jsonl"))
+    assert deploy_ledger.resolve_ledger_path(tmp_path / "repo") == tmp_path / "env.jsonl"
+    # 旧家只作为候选列出来，不再是任何写入者的目标
+    assert deploy_ledger.legacy_ledger_candidates(tmp_path / "repo") == [
+        tmp_path / "ws" / "state" / "deploy-ledger.jsonl",
+        tmp_path / "repo" / "state" / "deploy-ledger.jsonl",
+    ]
+    assert deploy_ledger.legacy_ledger_candidates(None, finance_ws="") == []
+
+
+def test_record_lands_in_the_single_home_even_with_finance_ws_and_repo_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = tmp_path / "home"
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    monkeypatch.delenv("FINANCE_DEPLOY_LEDGER", raising=False)
+    monkeypatch.setenv("FINANCE_WS", str(tmp_path / "ws"))
+
+    path = deploy_ledger.record_event(
+        action="switch", rev="0060da5c1a08", port=8792, repo_root=tmp_path / "repo"
+    )
+
+    assert path == home / ".finance-runtime" / "deploy-ledger.jsonl"
+    assert _row(path)["rev"] == "0060da5c1a08"
+    assert not (tmp_path / "ws" / "state").exists()
+    assert not (tmp_path / "repo" / "state").exists()
