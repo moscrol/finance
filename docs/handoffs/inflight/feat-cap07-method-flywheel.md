@@ -14,20 +14,19 @@ checkpoint、夜间回检自动结算并分类、`memory_lookup` / `[M]` / 日�
 - 只做「双红」关键词匹配，匹不上存候选草稿 / 否了通用编译。
 
 ## 当前状态
-- 未提交（等续跑验收后一并 pathspec 提交）：`intelligence/services/method_validation/{flywheel.py(新),study.py,store.py,__init__.py}`、
-  `checkpoints.py`、`checkpoint_resolvers.py`、`user_memory.py`、`episode_tools.py`、`workflows/daily_agent.py`、
-  `api/daily_reports.py`、`scripts/method_validation.py`、`intelligence/tests/test_method_flywheel.py`(新)、
-  `docs/learning/ledger-map.md`、`docs/workflows/method-validation-loop.md`、progress/blocked/verification 三份文档。
-- 相关回归 242 passed、ruff 全仓通过、layer_audit ERROR 0；全仓 pytest 在跑（`~/.finance-runtime/cap07-acceptance/pytest-full.log`）。
-- 验收实例 8807 在跑（`~/.finance-runtime/cap07-acceptance/`，用户目录 `~/.finance-runtime/cap07-users`）；14:57 第一发
-  被网关 `model_cooldown`（sol / terra 双 429，约 16:01 解除）打掉，16:08 已排一次性提醒续跑两题。
-- 能力图 `~/agent-memory/10_knowledge/finance-agent-capability-graph.md` 行已改指本分支符号（graph_audit 待跑）。
+- 实现提交 `3a2a2254`，前向合并 gitea/main（#687）→ `5db4e330`，merge-tree 无冲突。用户 15:10 拍板「可以合并的话就合并」。
+- 等价 CI（合并树）：python 3 片 8373P/0F（归档测试收集错为主干既有，blocked #6）、frontend 全过、e2e 15 passed、
+  data-quality 54 passed；registry-check 三项红为主干既有（blocked #7）。详见 verification 文档表。
+- 验收实例 8807 在跑（`~/.finance-runtime/cap07-acceptance/`，用户目录 `~/.finance-runtime/cap07-users`）；真实对话验收
+  被网关挡住两次：14:57 sol/terra 双 429 cooldown；16:05 sol 仍 cooldown、terra 502 `no auth available`。模型不参与的
+  接缝（真实 `memory_lookup` runner、`[M]` 块）已实测出「方法验证读数」。
+- 能力图行已改指本分支符号，`graph_audit` OK（74 条断言）。
 
 ## 下一步
-1. 16:08 续跑 `drive.py` 两题；核 `continuous-episode.json` 里 memory_lookup 调用与「方法验证读数」证据；结果写进
-   verification 与 progress。
-2. 全仓 pytest 收据 → pathspec 提交 → 用户确认后开 PR（不合 main、不切生产）。
-3. 09-10 收盘且 daily-full 落库后跑一次 `method_validation.py daily`（命令在 workflow 文档）；09-17 前后再跑或等 03:50 夜间回检。
+1. 网关恢复后跑 `drive.py` 两题（命令在 verification 文档），核 `continuous-episode.json` 的 memory_lookup 调用与证据，
+   结果补进 verification / progress（小文档修补可直接 main）。
+2. 09-10 收盘且 daily-full 落库后跑一次 `method_validation.py daily`（命令在 workflow 文档）；09-17 前后再跑或等 03:50 夜间回检。
+3. 生产生效沿原任务授权：生产用户目录 `register` + `history` 一次，`daily` 接进夜跑；本分支未装任何日程。
 
 ## 踩过的坑
 - 同指纹重算摘要 `generated_at` 变化撞「不可覆盖」发布 → 派生缓存改 `replace_json`。

@@ -58,13 +58,29 @@ ERROR 0。全仓 pytest 读数见 progress/07.md 执行记录。
   授权含 `memory_lookup`。**模型两轮全部 HTTP 429**（`model_turn.error="LLM 调用 HTTP 429"`，provider_attempts=2），
   终局恢复也 429，答案为模板性弃权。随即用 Keychain key 直探网关：`gpt-5.6-sol` / `gpt-5.6-terra` 均
   `model_cooldown`，`reset_seconds≈3803`（约 16:01 解除）。生产 8792 同网关同状态。**这一轮不算验收**。
-- 已排 16:08 一次性提醒续跑两题（相似不相同）：
+- 16:05 复探：`gpt-5.6-sol` 仍 `model_cooldown`，`gpt-5.6-terra` 转为 502 `upstream_error: no auth available`
+  （网关上游凭证问题）。两条链都不可用时任何 run 都只能弃权，本轮不再空跑。
+- 待网关恢复后续跑两题（相似不相同）：
   1. 「连续三日双红的板块，后五天历史上表现怎么样？我们验证过的方法怎么说」
   2. 「双红持续了四天以上的板块，现在还值得追吗？上次那个方法的结论还成立吗」
   判据：`continuous-episode.json` 里 `memory_lookup` 被调用且证据含「方法验证读数」；回答区分历史演练与真实前向、
   说明为何降低权重 / 不据此排序；第二题能引用同一读数解释「结论仍是历史演练结论」。
+  命令：`cd ~/.finance-runtime/cap07-acceptance && .venv-workbench/bin/python drive.py --base http://127.0.0.1:8807
+  --user linxiaoqi5111 --out run2 --question "…" --question "…"`（8807 实例不在时先跑 `start-cap07-workbench.sh`）。
+- 模型不参与的接缝已实测：`probe_tool.py memory_lookup`（真实 runner）与 `user_memory.memory_block_for_query`（`[M]` 块）
+  对验收用户都返回「方法验证读数」；见上节。
 
 （续跑结果追加在此。）
+
+## 合并前等价 CI（合并树 5db4e330 = 本分支 + gitea/main@db2052db）
+
+| 叶子 | 结果 |
+|---|---|
+| python | `ruff check .` 通过；`layer_audit` ERROR 0；pytest 3 片并行 **8373 passed / 77 skipped / 1 xfailed / 0 failed**（`--ignore=scripts/archive/test_kb_freshness_fix.py`，该归档测试在干净 main 树收集即 ImportError，blocked #6） |
+| frontend | install / lint / typecheck / test 71 passed / build 通过 |
+| e2e | `pnpm test:e2e` 15 passed（chromium 1179 经 npmmirror 装上） |
+| data-quality-check | 54 passed |
+| registry-check | `check-parseability`、`generate-views --check` 通过；`check` / `backfill-tables --check` / `audit_ledger_spec_crosswalk` 三项红在干净 main 树同样红（blocked #7），本 PR 未触碰相关文件 |
 
 ## 未验证 / 已知边界
 
