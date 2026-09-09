@@ -31,6 +31,14 @@ _SELECTION_MODES = (
     "system_candidate",
 )
 _DRAFT_STATUSES = ("candidate", "weakened", "unsupported", "needs_data")
+# 历史计算原件：只有这四种 history_query 算子的结果能作为事实证据 / 历史比较资格。
+_EVIDENCE_OPERATIONS = frozenset(
+    {"inspect_history", "compute_history", "find_analogues", "compare_cases"}
+)
+# 研究产物：本轮成功保存（save_history_research）或经 scope 校验读取（read_history_case）
+# 的 case 草稿。FINAL_JSON 可以引用它们，但它们不算计算、不算比较。
+_PRODUCT_OPERATIONS = frozenset({"save_history_research", "read_history_case"})
+_DEFINITION_ID_EXAMPLE = "amount_ratio@history-features-v1"
 _QUALIFICATIONS = {
     "research_only": True,
     "promotion_eligible": False,
@@ -229,9 +237,13 @@ def prepare_research_draft(
     for item in case.hypotheses:
         unsupported = set(item.feature_definitions) - allowed_definitions
         if unsupported:
+            # 正确示例放在前 160 字符内：真实模型两次把公式文本当定义 ID 填进去，
+            # 报错被截断后看不到该怎么改。白名单本身不放宽。
             raise ValueError(
-                "unsupported_definition: put unavailable definitions in "
-                "unresolved_definitions: " + ", ".join(sorted(unsupported))
+                "unsupported_definition: feature_definitions only takes definition IDs "
+                f"returned by history_query, e.g. {_DEFINITION_ID_EXAMPLE}; never formula "
+                "text. Put anything else in unresolved_definitions: "
+                + ", ".join(sorted(unsupported))
             )
         evidence_refs.update(item.support_refs)
         evidence_refs.update(item.counterevidence_refs)
@@ -302,7 +314,6 @@ def research_draft_schema() -> dict[str, object]:
                 key: strings
                 for key in (
                     "source_case_refs",
-                    "feature_definitions",
                     "alternatives",
                     "support_refs",
                     "counterevidence_refs",
@@ -310,6 +321,14 @@ def research_draft_schema() -> dict[str, object]:
                     "exposed_sample_refs",
                     "unresolved_definitions",
                 )
+            },
+            "feature_definitions": {
+                **strings,
+                "description": (
+                    "只填 history_query 返回的定义ID，例如 "
+                    f"{_DEFINITION_ID_EXAMPLE}；不填公式文本。库内没有的定义写进 "
+                    "unresolved_definitions。"
+                ),
             },
             "version": {"type": "integer", "minimum": 1},
             "parent_version": parent,
@@ -500,7 +519,7 @@ _HISTORY_POLICY = """历史研究领域策略（仅本研究用途生效）：
 - L2、晚间卖方、晨汇在未同步的目标范围保持 pending_sync；缺失不等于零或无催化，成交额不能替代主买净额。可用盘面继续研究，依赖缺轨的假设保持未知。
 - 当前没有正式认证：所有研究产物 research_only=true、promotion_eligible=false、decision_eligible=false。可以交付单案例解释和历史描述性关联，不能声称规律已通过认证、已可决策使用或已完成独立多样本确认。
 - 证据足以回答、现有数据无法区分、缺关键数据或运行时预算/取消要求停止时，交付已完成事实与未决问题。领域只选择研究行动，不增加预算或另起执行循环。
-- FINAL_JSON 可以附 history_research：{purpose,result_refs,claim_level,research_only:true,promotion_eligible:false,decision_eligible:false}。claim_level 只取 single_case / historical_comparison / insufficient_evidence，result_refs 必须引用实际返回的 query_id 或 result_ref；完整条件比较必须有 compare_cases 原件。正文仍按既有 bindings 绑定 E 序号。
+- FINAL_JSON 可以附 history_research：{purpose,result_refs,claim_level,research_only:true,promotion_eligible:false,decision_eligible:false}。claim_level 只取 single_case / historical_comparison / insufficient_evidence，result_refs 必须引用实际返回的 query_id 或 result_ref；本轮保存或读取的 case 原件可以一并引用，但它是研究草稿，不算历史计算：single_case 仍需至少一份 history_query 原件，完整条件比较必须有 compare_cases 原件。正文仍按既有 bindings 绑定 E 序号。
 """
 
 
@@ -580,13 +599,20 @@ def assess_history_finish(
     decoded = parse_finish_json(content) if isinstance(content, str) else content
     if not isinstance(decoded, Mapping):
         return None  # The existing finish validator diagnoses malformed JSON.
-    successful = [
+    executed = [
         result
         for result in context.history_results
         if result.get("execution_status", result.get("status"))
-        in {"ok", "completed", "success"}
-        and result.get("operation")
-        in {"inspect_history", "compute_history", "find_analogues", "compare_cases"}
+        in {"ok", "completed", "success", "research_only"}
+    ]
+    # 两类引用分开：evidence 是四种 history_query 算子的计算原件，只有它们算历史
+    # 计算 / 比较；product 是本轮成功保存或经 scope 校验读取的 case 草稿——合法的
+    # 研究产物引用，但不能冒充事实证据。2026-09-09 真实 UI / M2 / M4 三轮都因为把
+    # 刚保存的 case 写进 result_refs 而被判 integrity，整篇有依据的回答退成缺口模板。
+    successful = [
+        result
+        for result in executed
+        if result.get("operation") in _EVIDENCE_OPERATIONS
         and result.get("purpose") in _PURPOSES
     ]
     refs = {
@@ -594,6 +620,13 @@ def assess_history_finish(
         for result in successful
         for key in ("query_id", "result_ref")
         if isinstance(ref := result.get(key), str) and ref
+    }
+    product_refs = {
+        ref
+        for result in executed
+        if result.get("operation") in _PRODUCT_OPERATIONS
+        and isinstance(ref := result.get("result_ref"), str)
+        and ref
     }
     comparison_missing = (
         intent.purpose == "historical_comparison"
@@ -653,24 +686,26 @@ def assess_history_finish(
         raise HistoryFinishRejection(
             "history_bad_refs", str(exc), RejectionKind.FORMAT
         ) from exc
-    if set(claimed_refs) - set(refs):
+    if set(claimed_refs) - set(refs) - product_refs:
         raise HistoryFinishRejection(
             "history_unknown_result",
             "history result reference has not been executed in the authorized context",
             RejectionKind.INTEGRITY,
         )
-    if level != "insufficient_evidence" and not claimed_refs:
-        raise HistoryFinishRejection(
-            "history_missing_result",
-            "historical claims need an executed result reference",
-            RejectionKind.SUBSTANCE,
-        )
+    # 资格判定只看 evidence 引用：case 是研究草稿，引用合法但不算计算、不算比较。
+    evidence_claimed = [ref for ref in claimed_refs if ref in refs]
     if level == "historical_comparison" and not any(
-        refs[ref].get("operation") == "compare_cases" for ref in claimed_refs
+        refs[ref].get("operation") == "compare_cases" for ref in evidence_claimed
     ):
         raise HistoryFinishRejection(
             "history_missing_comparison",
-            "historical_comparison requires a compare_cases result; analogue lists are discovery",
+            "historical_comparison requires a compare_cases result; analogue lists and saved cases are discovery",
+            RejectionKind.SUBSTANCE,
+        )
+    if level != "insufficient_evidence" and not evidence_claimed:
+        raise HistoryFinishRejection(
+            "history_missing_result",
+            "historical claims need an executed history_query result reference; a saved case is a draft, not evidence",
             RejectionKind.SUBSTANCE,
         )
     return HistoryFinishAssessment(

@@ -549,6 +549,20 @@ def history_tool_specs(
         assert_read_scope(payload)
         session.remember(ref, payload)
         if "/history-case-" in ref:
+            # 经 scope 校验读到的 case 是本轮合法的研究产物引用：落一条独立的
+            # read_history_case 元数据，finish 校验据此放行 result_refs 里的 case；
+            # 它不是四种计算算子，不会被算成历史计算或比较。
+            draft = payload.get("draft") if isinstance(payload.get("draft"), dict) else {}
+            context.history_results.append(
+                {
+                    "operation": "read_history_case",
+                    "execution_status": "success",
+                    "status": "research_only",
+                    "case_id": draft.get("case_id"),
+                    "revision": draft.get("revision"),
+                    "result_ref": ref,
+                }
+            )
             return ToolRunResult(
                 evidence=(),
                 observation=_draft_page(payload, ref, offset, limit),
