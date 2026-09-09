@@ -12,7 +12,14 @@
    才允许从种子重置（防止误删真实用户台账）。
 3. 判分要点密封在仓外，仓内只放 sha256；``seal-verify`` 验封失败即停。
 
-子命令：``validate`` / ``overlap`` / ``seal`` / ``seal-verify`` / ``run`` / ``review-pack`` / ``aggregate``。
+子命令：``validate`` / ``overlap`` / ``seal`` / ``seal-verify`` / ``run`` / ``review-pack`` /
+``aggregate`` / ``reclassify``。
+
+可用性四类判据（整包集成 spec §I1，resume 与评审包共用同一判据）：以原始事件链
+（上游模型调用失败证据）与最终有效回答（episode ``outcome.draft``）共同分类——
+恢复出可评回答的保留失败记录照常评审；最终仍无有效回答且链上有上游失败的隔离，
+允许按原条件续跑，且不因 ``stop_reason`` 改名而漏掉；模型可用但答错/拒答的照常判败，
+不许重跑洗分；判官不可用或降级按判卷合同明示，``exc_class=None`` 不是干净证明。
 """
 
 from __future__ import annotations
@@ -550,6 +557,12 @@ class TurnRecord:
     research_tier: str | None = None
     degrades: list[str] = field(default_factory=list)
     run_dir: str | None = None
+    # 可用性信号（spec I1）：从 episode 原始事件链与 outcome 提取；
+    # final_draft_chars=None 表示没读到 episode（老记录/engine_missing）。
+    upstream_failures: list[str] = field(default_factory=list)
+    final_draft_chars: int | None = None
+    episode_status: str | None = None
+    judge_exc_class: str | None = None
 
 
 @dataclass
@@ -578,6 +591,45 @@ def _sum_optional(values: Iterable[int | None]) -> int | None:
     return total if seen else None
 
 
+def _episode_availability_signals(episode: Mapping[str, Any]) -> dict[str, Any]:
+    """从 episode 原件提取可用性判据（spec I1）：上游失败证据 + 最终有效回答。
+
+    证据看事件链本身（model_error / repair_model_retry / model_turn 带 error），
+    不依赖最终 stop_reason 的名字——名字会改（实测 invalid_repair_finish 漏判）。
+    最终有效回答以 ``outcome.draft`` 为准：会话消息里可能是降级模板，不作数。
+    """
+
+    failures: list[str] = []
+    for event in episode.get("events") or []:
+        if not isinstance(event, Mapping):
+            continue
+        payload = event.get("payload") or {}
+        if not isinstance(payload, Mapping):
+            payload = {}
+        kind = event.get("kind")
+        if kind == "model_error":
+            failures.append(
+                f"model_error={payload.get('error') or payload.get('reason') or ''}"[:160]
+            )
+        elif kind == "repair_model_retry":
+            failures.append(f"repair_model_retry={payload.get('reason') or ''}"[:160])
+        elif kind == "model_turn" and payload.get("error"):
+            failures.append(f"model_turn_error={payload.get('error')}"[:160])
+    outcome = episode.get("outcome") or {}
+    draft = outcome.get("draft")
+    semantic = episode.get("semantic_verifier") or {}
+    if not isinstance(semantic, Mapping):
+        semantic = {}
+    return {
+        "upstream_failures": failures,
+        "final_draft_chars": len(draft) if isinstance(draft, str) else 0,
+        "episode_status": outcome.get("status"),
+        "stop_reason": outcome.get("stop_reason"),
+        "judge_status": semantic.get("judge_status"),
+        "judge_exc_class": semantic.get("exc_class"),
+    }
+
+
 def read_episode(run_dir: Path, record: TurnRecord) -> None:
     episode_path = run_dir / "continuous-episode.json"
     record.run_dir = str(run_dir)
@@ -585,6 +637,11 @@ def read_episode(run_dir: Path, record: TurnRecord) -> None:
         record.engine = "engine_missing"
         return
     episode = json.loads(episode_path.read_text(encoding="utf-8"))
+    signals = _episode_availability_signals(episode)
+    record.upstream_failures = signals["upstream_failures"]
+    record.final_draft_chars = signals["final_draft_chars"]
+    record.episode_status = signals["episode_status"]
+    record.judge_exc_class = signals["judge_exc_class"]
     record.engine = (
         "A" if episode.get("execution_kind") == "continuous_episode" else "unknown"
     )
@@ -889,29 +946,128 @@ def wait_out_cooldown(
 _MODEL_UNAVAILABLE_STOPS = frozenset(
     {"repair_model_unavailable", "finalization_recovery_failed"}
 )
+ACCEPTED_AVAILABILITY = frozenset({"clean", "recovered", "product_failure"})
 
 
-def _mid_episode_unavailable(result: CaseResult) -> str | None:
-    """开跑前探测 ok、episode 半途模型不可用的形状（配额在题中耗尽）。
+def _turn_failure_evidence(turn: Mapping[str, Any]) -> list[str]:
+    """上游失败证据，按可读性排序：已知 stop 名 → degrade → 事件链原始证据。"""
 
-    2026-09-09 实测：冷却期跑出的题全是 stop_reason=repair_model_unavailable /
-    finalization_recovery_failed 的 33–350 字降级稿——这类读数量的是配额不是能力。
+    evidence: list[str] = []
+    stop = turn.get("stop_reason")
+    if stop in _MODEL_UNAVAILABLE_STOPS:
+        evidence.append(f"stop_reason={stop}")
+    for degrade in turn.get("degrades") or []:
+        if "model_unavailable" in str(degrade):
+            evidence.append(f"degrade={degrade}")
+    evidence.extend(str(item) for item in turn.get("upstream_failures") or [])
+    return evidence
+
+
+def classify_turn_availability(
+    turn: Mapping[str, Any],
+) -> tuple[str | None, list[str]]:
+    """单轮四类分类（spec I1）：事件链失败证据 + 最终有效回答共同判。
+
+    2026-09-09 实测漏判：修复收尾连续 502 后终态被改名 invalid_repair_finish，
+    名字白名单放行了它——所以有效回答只认 episode ``outcome.draft``，失败证据
+    直接看事件链，二者共同决定，名字只作辅助证据。返回 (class, evidence)；
+    class=None 表示既无 episode 终稿信号也无失败证据，调用方退回已存标记。
     """
 
-    for turn in result.turns:
-        if turn.stop_reason in _MODEL_UNAVAILABLE_STOPS:
-            return f"stop_reason={turn.stop_reason}"
-        for degrade in turn.degrades:
-            if "model_unavailable" in str(degrade):
-                return f"degrade={degrade}"
-    return None
+    evidence = _turn_failure_evidence(turn)
+    draft_chars = turn.get("final_draft_chars")
+    if draft_chars is not None:
+        if int(draft_chars) > 0:
+            return ("recovered" if evidence else "clean"), evidence
+        return ("unavailable_final" if evidence else "product_failure"), evidence
+    if evidence:
+        # 无 episode 可读但名字/降级证据明确：按服务不可用隔离（允许按原条件续跑）。
+        return "unavailable_final", evidence
+    return None, evidence
+
+
+def classify_case_availability(case: Mapping[str, Any]) -> dict[str, Any]:
+    """题级分类：任一轮被服务打断即隔离整题（多轮协议的后续轮建立在残缺前文上）；
+    可评题按 product_failure > recovered > clean 取最需要说明的标签。"""
+
+    turn_classes: list[str | None] = []
+    evidence: list[str] = []
+    for turn in case.get("turns") or []:
+        cls, turn_evidence = classify_turn_availability(turn)
+        turn_classes.append(cls)
+        evidence.extend(turn_evidence)
+    if turn_classes and all(cls is not None for cls in turn_classes):
+        for pick in ("unavailable_final", "product_failure", "recovered", "clean"):
+            if pick in turn_classes:
+                return {
+                    "availability_class": pick,
+                    "turn_classes": turn_classes,
+                    "evidence": evidence[:8],
+                }
+    return {
+        "availability_class": None,
+        "turn_classes": turn_classes,
+        "evidence": evidence[:8],
+    }
+
+
+def _augment_case_from_run_dirs(case: Mapping[str, Any]) -> dict[str, Any]:
+    """缺可用性字段的旧记录：回 run 目录现读 episode 原件（权威状态面）补齐。
+
+    读不到（目录被移走/engine_missing）时保留原字段，classify 退回已存标记。
+    """
+
+    turns: list[dict[str, Any]] = []
+    for turn in case.get("turns") or []:
+        record = dict(turn)
+        run_dir = record.get("run_dir")
+        if record.get("final_draft_chars") is None and run_dir:
+            episode_path = Path(str(run_dir)) / "continuous-episode.json"
+            if episode_path.is_file():
+                signals = _episode_availability_signals(
+                    json.loads(episode_path.read_text(encoding="utf-8"))
+                )
+                record["upstream_failures"] = signals["upstream_failures"]
+                record["final_draft_chars"] = signals["final_draft_chars"]
+                record["episode_status"] = signals["episode_status"]
+                record["judge_exc_class"] = signals["judge_exc_class"]
+                if record.get("stop_reason") is None:
+                    record["stop_reason"] = signals["stop_reason"]
+                if record.get("judge_status") is None:
+                    record["judge_status"] = signals["judge_status"]
+        turns.append(record)
+    augmented = dict(case)
+    augmented["turns"] = turns
+    return augmented
+
+
+def case_service_isolated(case: Mapping[str, Any]) -> tuple[bool, str | None]:
+    """resume 与评审包共用的唯一隔离判据（spec I1）。
+
+    True=服务隔离：终态仍因上游失败、无有效最终回答，允许按原条件续跑；
+    False=能力读数（含 product_failure：模型可用但答错/拒答，照常判败，
+    不许重跑洗分）。分类不出（旧件无 episode 可读）时退回已存 quota_tainted。
+    """
+
+    verdict = classify_case_availability(_augment_case_from_run_dirs(case))
+    cls = verdict.get("availability_class")
+    if cls is not None:
+        if cls == "unavailable_final":
+            evidence = verdict.get("evidence") or []
+            return True, (evidence[0] if evidence else cls)
+        return False, None
+    if case.get("quota_tainted"):
+        return True, str(case.get("taint_reason") or "quota_tainted")
+    return False, None
 
 
 def _load_resume_cases(
     resume_from: Path | None, *, arm_label: str, base: str, user: str
 ) -> dict[str, dict[str, Any]]:
-    """续跑装载：干净完成的题原样搬（标 resumed_from_artifact），其余（skipped_cooldown /
-    quota_tainted / engine_missing / error）留给本轮重跑。臂标签、入口、用户必须一致，防混臂。"""
+    """续跑装载：可评完成的题原样搬（标 resumed_from_artifact），其余（skipped_cooldown /
+    服务隔离 / engine_missing / error）留给本轮重跑。臂标签、入口、用户必须一致，防混臂。
+    隔离判据与评审包共用 case_service_isolated：有 run 目录就现读 episode 重判，
+    旧件里被改名漏标的服务失败题在续跑时会被重新跑，而不是被原样搬走。"""
 
     if resume_from is None:
         return {}
@@ -930,12 +1086,14 @@ def _load_resume_cases(
             )
     carried: dict[str, dict[str, Any]] = {}
     for case in prior.get("cases") or []:
-        if case.get("execution_status") == "completed" and not case.get(
-            "quota_tainted"
-        ):
-            record = dict(case)
-            record["resumed_from_artifact"] = str(resume_from)
-            carried[str(case["case_id"])] = record
+        if case.get("execution_status") != "completed":
+            continue
+        isolated, _reason = case_service_isolated(case)
+        if isolated:
+            continue
+        record = dict(case)
+        record["resumed_from_artifact"] = str(resume_from)
+        carried[str(case["case_id"])] = record
     return carried
 
 
@@ -1060,12 +1218,16 @@ def run_benchmark(
         )
         record = asdict(result)
         record["gateway_probe"] = probe_history
-        taint = _mid_episode_unavailable(result)
-        if taint:
-            # 开跑探测 ok、题中配额耗尽：打标不计能力分；下一题的开跑探测会把批停住，
-            # 续跑时本题重跑（_load_resume_cases 不搬 tainted 题）。
+        verdict = classify_case_availability(record)
+        record["availability_class"] = verdict["availability_class"]
+        if verdict["evidence"]:
+            record["availability_evidence"] = verdict["evidence"]
+        if verdict["availability_class"] == "unavailable_final":
+            # 终态仍上游失败、无有效回答：隔离不计能力分；下一题的开跑探测会把批停住，
+            # 续跑时本题重跑（_load_resume_cases 不搬隔离题）。恢复出可评回答的题
+            # （recovered）保留失败与耗时记录、照常评审，不被一次 502 永久污损。
             record["quota_tainted"] = True
-            record["taint_reason"] = taint
+            record["taint_reason"] = verdict["evidence"][0]
         artifact["cases"].append(record)
         artifact["summary"] = summarize_artifact(artifact["cases"])
         output.write_text(
@@ -1083,6 +1245,7 @@ def summarize_artifact(cases: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     served: dict[str, int] = {}
     structural: dict[str, int] = {}
     semantic: dict[str, int] = {}
+    availability: dict[str, int] = {}
     elapsed: list[float] = []
     tokens_in = tokens_out = 0
     invalid = 0
@@ -1092,6 +1255,16 @@ def summarize_artifact(cases: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         statuses[status] = statuses.get(status, 0) + 1
         if case.get("quota_tainted"):
             tainted += 1
+        # 可用性分母：所有尝试都计入（spec I1），完成题按四类，其余按执行状态
+        cls = case.get("availability_class")
+        if not cls:
+            if case.get("quota_tainted"):
+                cls = "unavailable_final"
+            elif status == "completed":
+                cls = "unclassified"
+            else:
+                cls = status
+        availability[str(cls)] = availability.get(str(cls), 0) + 1
         if isinstance(case.get("total_elapsed_s"), (int, float)):
             elapsed.append(float(case["total_elapsed_s"]))
         tokens_in += int(case.get("total_input_tokens") or 0)
@@ -1111,12 +1284,89 @@ def summarize_artifact(cases: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         "served_models": served,
         "structural_status": structural,
         "semantic_status": semantic,
+        "availability_class": availability,
+        "attempts": len(cases),
         "median_case_elapsed_s": median,
         "total_elapsed_s": round(sum(elapsed), 1),
         "total_input_tokens": tokens_in,
         "total_output_tokens": tokens_out,
         "invalid_actions": invalid,
         "quota_tainted": tainted,
+    }
+
+
+def build_reclassification_report(artifact_path: Path) -> dict[str, Any]:
+    """重审已有 artifact：以共同判据（事件链+最终有效回答）派生新分类报告。
+
+    只读输入、旧件保留；所有尝试计入可用性/耗时/费用分母。判官不可用或降级
+    逐轮明示（judge_status / exc_class / 实际 served_models），exc_class=None
+    不当作干净证明，一并列出留给判卷合同处理。
+    """
+
+    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    rows: list[dict[str, Any]] = []
+    tally: dict[str, int] = {}
+    changed: list[str] = []
+    judge_flags: list[dict[str, Any]] = []
+    for case in artifact.get("cases") or []:
+        status = str(case.get("execution_status"))
+        stored_isolated = bool(case.get("quota_tainted"))
+        evidence: list[str] = []
+        if status != "completed":
+            cls: str | None = status
+            isolated_now = False
+        else:
+            augmented = _augment_case_from_run_dirs(case)
+            verdict = classify_case_availability(augmented)
+            cls = verdict.get("availability_class")
+            evidence = verdict.get("evidence") or []
+            if cls is None:
+                cls = "unavailable_final" if stored_isolated else "unclassified_no_episode"
+                isolated_now = stored_isolated
+            else:
+                isolated_now = cls == "unavailable_final"
+            for turn in augmented.get("turns") or []:
+                judge_status = turn.get("judge_status")
+                exc_class = turn.get("judge_exc_class")
+                if judge_status == "unavailable" or exc_class:
+                    judge_flags.append(
+                        {
+                            "case_id": case.get("case_id"),
+                            "turn_index": turn.get("turn_index"),
+                            "judge_status": judge_status,
+                            "exc_class": exc_class,
+                            "served_models": turn.get("served_models"),
+                            "degrades": turn.get("degrades"),
+                        }
+                    )
+        tally[str(cls)] = tally.get(str(cls), 0) + 1
+        if status == "completed" and isolated_now != stored_isolated:
+            changed.append(str(case.get("case_id")))
+        rows.append(
+            {
+                "case_id": case.get("case_id"),
+                "execution_status": status,
+                "stored_quota_tainted": stored_isolated,
+                "stored_taint_reason": case.get("taint_reason"),
+                "availability_class": cls,
+                "service_isolated": isolated_now,
+                "evidence": evidence[:8],
+                "elapsed_s": case.get("total_elapsed_s"),
+                "input_tokens": case.get("total_input_tokens"),
+                "output_tokens": case.get("total_output_tokens"),
+            }
+        )
+    return {
+        "benchmark": BENCHMARK_ID,
+        "generated_at": utc_stamp(),
+        "source_artifact": str(artifact_path),
+        "source_arm_label": artifact.get("arm_label"),
+        "attempts": len(rows),
+        "availability_class": tally,
+        "classification_changed_case_ids": changed,
+        "judge_flags": judge_flags,
+        "cases": rows,
+        "note": "所有尝试均计入可用性/耗时/费用分母；本报告为派生件，原 artifact 未改动。",
     }
 
 
@@ -1153,13 +1403,13 @@ def build_review_pack(
     by_case: dict[str, dict[str, Mapping[str, Any]]] = {}
     for artifact in artifacts:
         for case in artifact.get("cases") or []:
-            if case.get("quota_tainted") or case.get("execution_status") == (
-                "skipped_cooldown"
-            ):
-                # 评审包只收能力读数：被冷却跳过/污染的题必须先 --resume 跑干净
+            # 评审包只收能力读数：与 resume 共用同一隔离判据（spec I1），
+            # 被冷却跳过/服务隔离的题必须先 --resume 跑干净
+            isolated, reason = case_service_isolated(case)
+            if isolated or case.get("execution_status") == "skipped_cooldown":
                 raise CapabilityBenchmarkError(
                     f"artifact {artifact.get('arm_label')} case {case.get('case_id')} "
-                    f"不是能力读数（{case.get('taint_reason') or 'skipped_cooldown'}），"
+                    f"不是能力读数（{reason or 'skipped_cooldown'}），"
                     "先续跑补齐再建评审包"
                 )
             by_case.setdefault(str(case["case_id"]), {})[str(artifact["arm_label"])] = (
@@ -1382,6 +1632,10 @@ def aggregate(
                 "total_output_tokens"
             ),
             "served_models": (artifact.get("summary") or {}).get("served_models"),
+            "availability_class": (artifact.get("summary") or {}).get(
+                "availability_class"
+            ),
+            "quota_tainted": (artifact.get("summary") or {}).get("quota_tainted"),
             "source_revision": (artifact.get("preflight") or {}).get("source_revision"),
             "market_data_date": artifact.get("market_data_date"),
         }
@@ -1594,6 +1848,35 @@ def cmd_review_pack(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_reclassify(args: argparse.Namespace) -> int:
+    source = Path(args.artifact).expanduser()
+    output = Path(args.output).expanduser()
+    if output.exists():
+        raise CapabilityBenchmarkError(f"refusing to overwrite {output}")
+    before = sha256_file(source)
+    report = build_reclassification_report(source)
+    report["source_artifact_sha256"] = before
+    if sha256_file(source) != before:
+        raise CapabilityBenchmarkError("source artifact changed while reclassifying")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(
+        json.dumps(report, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
+    )
+    print(
+        json.dumps(
+            {
+                "written": str(output),
+                "attempts": report["attempts"],
+                "availability_class": report["availability_class"],
+                "changed": report["classification_changed_case_ids"],
+                "judge_flagged_turns": len(report["judge_flags"]),
+            },
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
 def cmd_aggregate(args: argparse.Namespace) -> int:
     artifacts = _load_artifacts(args.artifact)
     summary = aggregate(Path(args.review_dir), artifacts=artifacts)
@@ -1677,6 +1960,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     p.add_argument("--artifact", action="append", required=True)
     p.add_argument("--output", required=True)
     p.set_defaults(func=cmd_aggregate)
+
+    p = sub.add_parser(
+        "reclassify",
+        help="以事件链+最终有效回答重审已有 artifact 的可用性分类；派生新报告，不改旧件",
+    )
+    p.add_argument("--artifact", required=True)
+    p.add_argument("--output", required=True)
+    p.set_defaults(func=cmd_reclassify)
 
     args = parser.parse_args(list(argv) if argv is not None else None)
     return int(args.func(args))

@@ -475,3 +475,292 @@ def test_sealed_manifest_verifies_against_local_sealed_dir_when_present() -> Non
         pytest.skip("sealed dir lives outside the repo on the examiner's machine")
     report = cb.verify_sealed_dir(sealed, cb.load_sealed_manifest())
     assert report["ok"], report["mismatches"]
+
+
+# ------------------------------------------------------------- 可用性四类判据（spec I1）
+
+
+def _write_episode(
+    run_dir: Path,
+    *,
+    draft: str,
+    failures: int = 0,
+    stop_reason: str = "model_finish",
+    status: str = "completed",
+    judge_status: str | None = "ok",
+    exc_class: str | None = None,
+) -> None:
+    """按真实 continuous-episode.json 的决定性字段构造最小原件。
+
+    形状对照 2026-09-09 实测：漏判反例 run_20260909_205227_971715（修复收尾连续
+    502、draft=0、终态改名 invalid_repair_finish）与判官不可用的 feel 样本
+    （draft 900+、judge_status=unavailable）。
+    """
+
+    events: list[dict] = [
+        {"kind": "model_turn", "payload": {"served_model": "m", "content": "…"}}
+    ]
+    for _ in range(failures):
+        events.append(
+            {"kind": "repair_model_retry", "payload": {"reason": "LLM 调用 HTTP 502"}}
+        )
+        events.append({"kind": "model_turn", "payload": {"error": "LLM 调用 HTTP 502"}})
+    episode = {
+        "execution_kind": "continuous_episode",
+        "events": events,
+        "outcome": {
+            "status": status,
+            "stop_reason": stop_reason,
+            "draft": draft,
+            "usage": {"input_tokens": 10, "output_tokens": 5},
+            "gaps": [],
+        },
+        "structural_verifier": {"verified_status": "ok"},
+        "semantic_verifier": {
+            "status": "ok",
+            "judge_status": judge_status,
+            "exc_class": exc_class,
+        },
+        "contract": {},
+    }
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "continuous-episode.json").write_text(
+        json.dumps(episode, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def _old_style_case(case_id: str, run_dir: Path, *, answer: str = "降级模板稿") -> dict:
+    """旧 artifact 里的题记录：没有可用性字段，只有 run_dir 可回读。"""
+
+    return {
+        "case_id": case_id,
+        "category": case_id.split("-")[1],
+        "tier": "deep",
+        "as_of": "2026-09-07",
+        "execution_status": "completed",
+        "final_answer": answer,
+        "total_elapsed_s": 60.0,
+        "total_input_tokens": 100,
+        "total_output_tokens": 20,
+        "turns": [
+            {
+                "turn_index": 0,
+                "question": "q",
+                "status": "completed",
+                "engine": "A",
+                "stop_reason": None,
+                "degrades": [],
+                "run_dir": str(run_dir),
+            }
+        ],
+    }
+
+
+def test_renamed_terminal_failure_is_isolated_even_without_stored_flag(
+    tmp_path: Path,
+) -> None:
+    """红→绿主反例：终态改名 invalid_repair_finish、无有效终稿的题，
+    旧代码按名字白名单放行（quota_tainted 缺失），新判据必须隔离。"""
+
+    run_dir = tmp_path / "runs" / "run_miss"
+    _write_episode(
+        run_dir,
+        draft="",
+        failures=2,
+        stop_reason="invalid_repair_finish",
+        status="partial",
+        judge_status="unavailable",
+        exc_class=None,
+    )
+    case = _old_style_case("cb00-calc-01", run_dir)
+    isolated, reason = cb.case_service_isolated(case)
+    assert isolated is True
+    assert reason is not None and "repair_model_retry=LLM 调用 HTTP 502" in reason
+    verdict = cb.classify_case_availability(cb._augment_case_from_run_dirs(case))
+    assert verdict["availability_class"] == "unavailable_final"
+
+
+def test_recovered_case_is_reviewable_and_keeps_failure_records(
+    tmp_path: Path,
+) -> None:
+    """上游失败后恢复、产出可评回答：接受，失败证据保留，不被一次 502 污损整题。"""
+
+    run_dir = tmp_path / "runs" / "run_recovered"
+    _write_episode(run_dir, draft="有效终稿" * 100, failures=1)
+    case = _old_style_case("cb00-feel-01", run_dir, answer="有效终稿")
+    isolated, reason = cb.case_service_isolated(case)
+    assert isolated is False and reason is None
+    augmented = cb._augment_case_from_run_dirs(case)
+    verdict = cb.classify_case_availability(augmented)
+    assert verdict["availability_class"] == "recovered"
+    assert any("502" in item for item in verdict["evidence"])
+
+
+def test_product_failure_without_service_excuse_is_accepted_as_failure(
+    tmp_path: Path,
+) -> None:
+    """模型可用但空稿/拒答：不是服务隔离，照常进评审判败，不许重跑洗分。"""
+
+    run_dir = tmp_path / "runs" / "run_refusal"
+    _write_episode(run_dir, draft="", failures=0)
+    case = _old_style_case("cb00-counter-01", run_dir, answer="")
+    isolated, _reason = cb.case_service_isolated(case)
+    assert isolated is False
+    verdict = cb.classify_case_availability(cb._augment_case_from_run_dirs(case))
+    assert verdict["availability_class"] == "product_failure"
+
+
+def test_resume_shares_the_isolation_criterion_and_reruns_renamed_miss(
+    tmp_path: Path,
+) -> None:
+    """resume 与评审包共用判据：旧件里被改名漏标的服务失败题续跑时重跑，
+    恢复题与产品失败题原样搬走（不给重跑洗分的机会）。"""
+
+    miss_dir = tmp_path / "runs" / "run_miss"
+    _write_episode(
+        miss_dir,
+        draft="",
+        failures=2,
+        stop_reason="invalid_repair_finish",
+        status="partial",
+    )
+    recovered_dir = tmp_path / "runs" / "run_recovered"
+    _write_episode(recovered_dir, draft="有效终稿" * 50, failures=1)
+    refusal_dir = tmp_path / "runs" / "run_refusal"
+    _write_episode(refusal_dir, draft="")
+    prior = {
+        "benchmark": cb.BENCHMARK_ID,
+        "arm_label": "baseline-test",
+        "base": "http://127.0.0.1:8813",
+        "user": "cb00-baseline",
+        "cases": [
+            _old_style_case("cb00-calc-01", miss_dir),
+            _old_style_case("cb00-feel-01", recovered_dir, answer="有效终稿"),
+            _old_style_case("cb00-counter-01", refusal_dir, answer=""),
+        ],
+    }
+    resume = tmp_path / "prior.json"
+    resume.write_text(json.dumps(prior, ensure_ascii=False), encoding="utf-8")
+    carried = cb._load_resume_cases(
+        resume,
+        arm_label="baseline-test",
+        base="http://127.0.0.1:8813",
+        user="cb00-baseline",
+    )
+    assert set(carried) == {"cb00-feel-01", "cb00-counter-01"}
+
+    with pytest.raises(cb.CapabilityBenchmarkError, match="不是能力读数"):
+        cb.build_review_pack(
+            [prior, dict(prior, arm_label="candidate")],
+            visible_cases=cb.load_visible_set()["cases"],
+            hidden_cases=None,
+            output_dir=tmp_path / "review",
+            seed="s",
+        )
+
+
+def test_run_benchmark_isolates_renamed_failure_at_run_time(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """live 路径：episode 信号在场时按四类判，改名的终态失败当场隔离，
+    恢复题不再被打成污染。"""
+
+    monkeypatch.setattr(cb, "preflight", _fake_preflight)
+
+    def _run(
+        base: str, user: str, case: dict, *, users_dir: Path, poll_seconds: float
+    ) -> cb.CaseResult:
+        result = cb.CaseResult(
+            case_id=str(case["id"]), category="feel", tier="deep", as_of="2026-09-07"
+        )
+        turn = cb.TurnRecord(0, str(case["question"]), status="completed", engine="A")
+        if case["id"].endswith("01"):
+            turn.stop_reason = "invalid_repair_finish"
+            turn.upstream_failures = ["model_turn_error=LLM 调用 HTTP 502"]
+            turn.final_draft_chars = 0
+        else:
+            turn.stop_reason = "model_finish"
+            turn.upstream_failures = ["repair_model_retry=LLM 调用 HTTP 502"]
+            turn.final_draft_chars = 812
+        result.turns.append(turn)
+        result.execution_status = "completed"
+        return result
+
+    monkeypatch.setattr(cb, "run_case", _run)
+    artifact = cb.run_benchmark(
+        base="http://127.0.0.1:8813",
+        user="cb00-baseline",
+        users_dir=tmp_path / "capability-benchmark-00" / "users",
+        cases=_mini_cases(2),
+        output=tmp_path / "a.json",
+        arm_label="baseline-test",
+    )
+    first, second = artifact["cases"]
+    assert first["availability_class"] == "unavailable_final"
+    assert first["quota_tainted"] is True
+    assert first["taint_reason"] == "model_turn_error=LLM 调用 HTTP 502"
+    assert second["availability_class"] == "recovered"
+    assert "quota_tainted" not in second
+    assert artifact["summary"]["availability_class"] == {
+        "unavailable_final": 1,
+        "recovered": 1,
+    }
+    assert artifact["summary"]["attempts"] == 2
+    assert cb._run_rc(artifact) == 4
+
+
+def test_reclassify_rederives_report_and_keeps_original(tmp_path: Path) -> None:
+    """重审旧基线原件：派生新分类报告，旧件逐字节保留；所有尝试计入分母；
+    判官不可用逐轮明示（exc_class=None 也要列出）。"""
+
+    miss_dir = tmp_path / "runs" / "run_miss"
+    _write_episode(
+        miss_dir,
+        draft="",
+        failures=2,
+        stop_reason="invalid_repair_finish",
+        status="partial",
+        judge_status="unavailable",
+        exc_class=None,
+    )
+    clean_dir = tmp_path / "runs" / "run_clean"
+    _write_episode(clean_dir, draft="干净答案" * 80)
+    artifact = {
+        "benchmark": cb.BENCHMARK_ID,
+        "arm_label": "baseline-test",
+        "base": "http://127.0.0.1:8813",
+        "user": "cb00-baseline",
+        "cases": [
+            _old_style_case("cb00-calc-01", miss_dir),
+            _old_style_case("cb00-feel-02", clean_dir, answer="干净答案"),
+            {
+                "case_id": "cb00-chain-01",
+                "category": "chain",
+                "execution_status": "skipped_cooldown",
+            },
+        ],
+    }
+    source = tmp_path / "artifact.json"
+    source.write_text(json.dumps(artifact, ensure_ascii=False), encoding="utf-8")
+    before = source.read_bytes()
+    output = tmp_path / "reclassified.json"
+    rc = cb.main(
+        ["reclassify", "--artifact", str(source), "--output", str(output)]
+    )
+    assert rc == 0
+    assert source.read_bytes() == before
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["attempts"] == 3
+    assert report["availability_class"] == {
+        "unavailable_final": 1,
+        "clean": 1,
+        "skipped_cooldown": 1,
+    }
+    assert report["classification_changed_case_ids"] == ["cb00-calc-01"]
+    flags = report["judge_flags"]
+    assert any(
+        flag["case_id"] == "cb00-calc-01" and flag["exc_class"] is None
+        for flag in flags
+    )
+    with pytest.raises(cb.CapabilityBenchmarkError, match="refusing to overwrite"):
+        cb.main(["reclassify", "--artifact", str(source), "--output", str(output)])
