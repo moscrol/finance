@@ -56,6 +56,7 @@ const apiMocks = vi.hoisted(() => ({
   getBootstrap: vi.fn(),
   getConversationMessages: vi.fn(),
   getFollowups: vi.fn(),
+  getResearchProject: vi.fn(),
   getLLMConfig: vi.fn(),
   getPerspectives: vi.fn(),
   getRun: vi.fn(),
@@ -496,8 +497,13 @@ describe("Workbench components", () => {
     await user.click(screen.getByText("运行详情"));
     expect(screen.getByText(/本轮存在限制/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "查看最强反证" }));
+    // 09 连续研究：点击除原文外还带延续坐标（来源 run + 卡片原文），服务端据此继承研究状态。
     expect(onFollowup).toHaveBeenCalledWith(
       "请列出哪些证据最容易证伪，并给出核验来源？",
+      expect.objectContaining({
+        run_id: "run_demo",
+        full_prompt: "请列出哪些证据最容易证伪，并给出核验来源？",
+      }),
     );
   });
 
