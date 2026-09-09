@@ -17,15 +17,20 @@
 """
 from __future__ import annotations
 
+import datetime
+import importlib
+import importlib.util
 import inspect
 import hashlib
 import json
 import os
 import re
+import sys
 import time
 import urllib.parse
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 
 from intelligence.services import (
     closed_loop_retrieval,
@@ -83,7 +88,7 @@ _TOOL_DESCRIPTIONS = {
     "graph_lookup": (
         "- graph_lookup：查询本地知识图谱——概念命中与公司暴露分层"
         "（core/peripheral，附证据层级），发现新实体/新题材后先用它定位映射，"
-        "args: {\"query\": 题材或公司名}"
+        "args: {\"query\": 题材或公司名, \"mode\": 可选 package|view|trace|compare|scope}"
     ),
     "evidence_lookup": (
         "- evidence_lookup：查询证据索引——公司/题材已登记的公告、研报证据"
@@ -1123,6 +1128,91 @@ def classify_web_source(url: str, title: str | None, text: str | None) -> WebSou
     return WebSourceClass(publisher_kind=publisher, document_type=document)
 
 
+# 03 研究地图：本地知识图谱·研究地图 的只读读取（消费已发布结果或现算不落盘）。
+# "本地知识图谱" 标签用于区分旧 graph_lookup（concept_graph/entity_exposures）与
+# 研究地图（按题材六块整理、带兑现状态与缺口）。判官口径三条规则随之携带。
+_RESEARCH_MAP_SOURCE = "本地知识图谱·研究地图"
+_RM_MODES = frozenset(
+    {"package", "view", "trace", "compare", "scope", "legacy"}
+)
+_RM_LOADED: dict[str, object] | None = None
+
+
+def _load_research_map(wiki_root: str | Path | None) -> dict[str, object] | None:
+    """Load the KB research_map module tree read-only, or return None.
+
+    The KB is a separate repository (knowledge-base-private); ``wiki_root`` points
+    at its ``wiki/`` directory.  Modules are imported from ``<KB>/skills/lib`` via
+    direct file paths so the KB's own ``rag/__init__`` heavy imports (numpy etc.)
+    are never pulled in here.  Never writes relations / access_log — access_log is
+    only appended by the KB CLI wrapper, which this path does not invoke.
+    """
+
+    global _RM_LOADED
+    if _RM_LOADED is not None:
+        return _RM_LOADED
+    if not wiki_root:
+        return None
+    wiki_root = Path(wiki_root).expanduser()
+    kb_root = wiki_root.parent
+    if not (kb_root / "skills" / "lib").is_dir():
+        return None
+    lib_dir = str(kb_root / "skills" / "lib")
+    if lib_dir not in sys.path:
+        sys.path.insert(0, lib_dir)
+    try:
+        from research_map import compare, package, trace, views  # noqa: E402
+        from research_map.loader import Snapshot  # noqa: E402
+    except Exception:
+        return None
+    try:
+        scope_spec = importlib.util.spec_from_file_location(  # noqa: E402
+            "rag_research_scope",
+            str(kb_root / "skills" / "lib" / "rag" / "research_scope.py"),
+        )
+        if scope_spec is None or scope_spec.loader is None:
+            return None
+        scope_mod = importlib.util.module_from_spec(scope_spec)
+        sys.modules["rag_research_scope"] = scope_mod
+        scope_spec.loader.exec_module(scope_mod)
+    except Exception:
+        scope_mod = None
+    _RM_LOADED = {
+        "package": package,
+        "trace": trace,
+        "compare": compare,
+        "views": views,
+        "Snapshot": Snapshot,
+        "scope": scope_mod,
+    }
+    return _RM_LOADED
+
+
+def _research_map_page_locator(page: object) -> str:
+    if isinstance(page, dict):
+        path = page.get("path") or page.get("page_id") or ""
+        return str(path)
+    return ""
+
+
+def _research_map_evidence(
+    tool: str,
+    title: str,
+    detail: str,
+    *,
+    page: object | None = None,
+    source_date: str | None = None,
+) -> AgentEvidence:
+    return AgentEvidence(
+        tool=tool,
+        title=str(title)[:240],
+        detail=str(detail)[:240],
+        source=_RESEARCH_MAP_SOURCE,
+        internal_locator=_research_map_page_locator(page),
+        source_date=str(source_date) if source_date else None,
+    )
+
+
 def build_graph_tools(knowledge) -> dict[str, ToolRunner]:
     """基于 KnowledgeAdapter 构建图谱/证据索引工具（P1-B agent 覆盖面扩展）。
 
@@ -1130,57 +1220,34 @@ def build_graph_tools(knowledge) -> dict[str, ToolRunner]:
     发现新实体后无法定位公司映射、无法核对已登记证据。两个工具都是纯本地
     JSON 查询（快、零外呼），与固定管线 G/R provider 消费同一数据源。
     ``knowledge`` 为 KnowledgeAdapter（鸭子类型：get_concept_matches /
-    get_exposure_matches / get_evidence）。"""
+    get_exposure_matches / get_evidence）。
+
+    2026-09-09 起 ``graph_lookup`` 支持 mode 路由：``legacy``（默认，原行为）保持
+    逐字节不变；``package/view/trace/compare/scope`` 走知识库研究地图的只读 Python
+    API（``build_theme_package`` 现算不落盘、``views.serve(auto_refresh=False)``
+    不写库、trace/compare/scope 全只读），因此不触发 CLI ``package`` 追加
+    ``access_log.jsonl`` 的写副作用。研究地图来源另标 ``本地知识图谱·研究地图``，
+    判官口径：关联≠兑现（``realization=unknown``），unknown≠0（compare 的
+    unknown 格 value=null），陈旧要声明（``recent.stale`` 或 ``view.status``）。"""
 
     def _graph_lookup(
         query: str,
         context: AgentToolContext | None = None,
+        *,
+        mode: str | None = None,
     ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
-        if context is not None:
-            context.check_cancelled()
-        concepts = knowledge.get_concept_matches(query, limit=5)
-        exposures = knowledge.get_exposure_matches(query, limit=8)
-        if context is not None:
-            context.check_cancelled()
-        evidence: list[AgentEvidence] = []
-        for item in (concepts.get("items") or [])[:5]:
-            evidence.append(
-                AgentEvidence(
-                    tool="graph_lookup",
-                    title=f"概念 {item.get('concept')}",
-                    detail=f"匹配分 {item.get('score')}",
-                    source="本地知识图谱",
-                    internal_locator="wiki/relations/concept_graph.json",
-                )
-            )
-        for row in (exposures.get("items") or [])[:8]:
-            company = str(row.get("company") or "").strip()
-            if not company:
-                continue
-            evidence.append(
-                AgentEvidence(
-                    tool="graph_lookup",
-                    title=company,
-                    detail=(
-                        f"{row.get('concept')}｜{row.get('strength') or '?'}"
-                        f"/{row.get('evidence_layer') or '?'}"
-                    ),
-                    source="本地知识图谱",
-                    internal_locator="wiki/relations/entity_exposures.json",
-                )
-            )
-        observation = (
-            "；".join(f"{item.title}（{item.detail}）" for item in evidence)
-            or "图谱无命中（概念与公司暴露均为空）"
+        mode = str(mode or "legacy").strip().lower()
+        if mode not in _RM_MODES:
+            mode = "legacy"
+        wiki_root = (
+            Path(knowledge.resolved_wiki_root).expanduser()
+            if hasattr(knowledge, "resolved_wiki_root")
+            else None
         )
-        trace = ProviderTrace(
-            provider="agent:graph_lookup",
-            capability="agent_loop",
-            status="success" if evidence else "empty",
-            detail=query[:120],
-            result_count=len(evidence),
-        )
-        return evidence, observation, trace
+        rm = _load_research_map(wiki_root)
+        if mode != "legacy" and rm is not None:
+            return _research_map_lookup(query, context, mode, rm, wiki_root)
+        return _legacy_graph_lookup(query, context, knowledge)
 
     def _evidence_lookup(
         query: str,
@@ -1224,6 +1291,562 @@ def build_graph_tools(knowledge) -> dict[str, ToolRunner]:
         "graph_lookup": _graph_lookup,
         "evidence_lookup": _evidence_lookup,
     }
+
+
+def _legacy_graph_lookup(
+    query: str,
+    context: AgentToolContext | None,
+    knowledge: object,
+) -> tuple[list[AgentEvidence], str, ProviderTrace]:
+    if context is not None:
+        context.check_cancelled()
+    concepts = knowledge.get_concept_matches(query, limit=5)
+    exposures = knowledge.get_exposure_matches(query, limit=8)
+    if context is not None:
+        context.check_cancelled()
+    evidence: list[AgentEvidence] = []
+    for item in (concepts.get("items") or [])[:5]:
+        evidence.append(
+            AgentEvidence(
+                tool="graph_lookup",
+                title=f"概念 {item.get('concept')}",
+                detail=f"匹配分 {item.get('score')}",
+                source="本地知识图谱",
+                internal_locator="wiki/relations/concept_graph.json",
+            )
+        )
+    for row in (exposures.get("items") or [])[:8]:
+        company = str(row.get("company") or "").strip()
+        if not company:
+            continue
+        evidence.append(
+            AgentEvidence(
+                tool="graph_lookup",
+                title=company,
+                detail=(
+                    f"{row.get('concept')}｜{row.get('strength') or '?'}"
+                    f"/{row.get('evidence_layer') or '?'}"
+                ),
+                source="本地知识图谱",
+                internal_locator="wiki/relations/entity_exposures.json",
+            )
+        )
+    observation = (
+        "；".join(f"{item.title}（{item.detail}）" for item in evidence)
+        or "图谱无命中（概念与公司暴露均为空）"
+    )
+    trace = ProviderTrace(
+        provider="agent:graph_lookup",
+        capability="agent_loop",
+        status="success" if evidence else "empty",
+        detail=query[:120],
+        result_count=len(evidence),
+    )
+    return evidence, observation, trace
+
+
+def _research_map_lookup(
+    query: str,
+    context: AgentToolContext | None,
+    mode: str,
+    rm: dict[str, object],
+    wiki_root: Path,
+) -> tuple[list[AgentEvidence], str, ProviderTrace]:
+    if context is not None:
+        context.check_cancelled()
+    snapshot = rm["Snapshot"](str(wiki_root))
+    package = rm["package"]
+    views = rm["views"]
+    trace = rm["trace"]
+    compare = rm["compare"]
+    scope = rm.get("scope")
+
+    evidence: list[AgentEvidence] = []
+    as_of = _research_map_as_of(context)
+    if mode == "package":
+        pkg = package.build_theme_package(snapshot, query, as_of=as_of)
+        evidence = _research_map_package_evidence(pkg)
+        observation, status = _research_map_package_observation(pkg)
+    elif mode == "view":
+        # serve(auto_refresh=False) 不写 research_map.db；uncached 落到现算 package。
+        served = views.serve(snapshot, query, as_of=as_of, auto_refresh=False)
+        if served.get("view") is not None:
+            pkg = served["view"]
+            evidence = _research_map_package_evidence(pkg)
+            observation, status = _research_map_package_observation(pkg)
+        else:
+            pkg = package.build_theme_package(snapshot, query, as_of=as_of)
+            evidence = _research_map_package_evidence(pkg)
+            observation, status = _research_map_package_observation(pkg)
+        observation = f"[研究地图·{served.get('status', 'uncached')}] " + observation
+    elif mode == "trace":
+        # 公司名/代码 → trace_up（到共同需求分组）；题材/概念 → trace_down。
+        up = trace.trace_up(snapshot, query)
+        if up.get("resolved"):
+            evidence = _research_map_trace_up_evidence(up)
+            observation, status = _research_map_trace_up_observation(up)
+        else:
+            down = trace.trace_down(snapshot, query, max_depth=2)
+            if down.get("unresolved") and not down.get("start_nodes"):
+                observation, status = _research_map_trace_down_observation(down)
+                evidence: list[AgentEvidence] = []
+            else:
+                evidence = _research_map_trace_down_evidence(down)
+                observation, status = _research_map_trace_down_observation(down)
+    elif mode == "compare":
+        theme, companies = _research_map_compare_args(query)
+        cmp_result = compare.compare_companies(
+            snapshot, theme, companies, as_of=as_of
+        )
+        evidence = _research_map_compare_evidence(cmp_result)
+        observation, status = _research_map_compare_observation(cmp_result)
+    elif mode == "scope":
+        if scope is None:
+            evidence, observation, status = [], "研究地图 scope 模块不可用", "empty"
+        else:
+            # choose_scope 需要确认是 entity_deep / relation_path / theme_synthesis，
+            # 并按该 mode 喂对应 research_map_output（relation_path 要 trace 输出，
+            # theme_synthesis 要 package 输出），plan 的 subqueries/pages 才有值。
+            # 候选概念/实体名从 Snapshot 提供，否则锚点子串命中全空。
+            question = str(query).strip()
+            concept_names = _rm_concept_names(snapshot)
+            company_names = _rm_company_names(snapshot)
+            decision = scope.scope_and_plan(
+                question,
+                entities=company_names,
+                concepts=concept_names,
+            )
+            sel_mode = _rm_field(decision, "decision")
+            if isinstance(sel_mode, dict):
+                sel_mode = sel_mode.get("mode")
+            theme_or_anchor = _research_map_compare_args(question)[0]
+            if sel_mode == "relation_path":
+                up = trace.trace_up(snapshot, theme_or_anchor)
+                if up.get("resolved"):
+                    rm_out = up
+                else:
+                    rm_out = trace.trace_down(snapshot, theme_or_anchor, max_depth=2)
+                decision = scope.scope_and_plan(
+                    question,
+                    entities=company_names,
+                    concepts=concept_names,
+                    research_map_output=rm_out,
+                )
+            else:
+                pkg = package.build_theme_package(
+                    snapshot, theme_or_anchor, as_of=as_of
+                )
+                decision = scope.scope_and_plan(
+                    question,
+                    entities=company_names,
+                    concepts=concept_names,
+                    research_map_output=pkg or None,
+                )
+            evidence = _research_map_scope_evidence(decision)
+            observation, status = _research_map_scope_observation(decision)
+    else:  # pragma: no cover - caller guards mode
+        raise ValueError(f"unsupported research_map mode {mode!r}")
+    if context is not None:
+        context.check_cancelled()
+    trace_obj = ProviderTrace(
+        provider="agent:graph_lookup",
+        capability="agent_loop",
+        status=status,
+        detail=f"{mode}::{query[:100]}",
+        result_count=len(evidence),
+    )
+    return evidence, observation, trace_obj
+
+
+def _research_map_as_of(context: AgentToolContext | None) -> str | None:
+    """Date to mark '距今天数' — the run's own cutoff, not wall-clock.
+
+    ``AgentToolContext.information_cutoff.as_of_date`` is the run timeline's
+    answer date; falling back to wall-clock only when the context is absent.
+    """
+
+    if context is not None:
+        cutoff = getattr(context, "information_cutoff", None)
+        cutoff_as_of = getattr(cutoff, "as_of_date", None)
+        if cutoff_as_of is not None:
+            return str(cutoff_as_of)[:10]
+    try:
+        as_of = datetime.date.today().isoformat()
+        return as_of
+    except Exception:
+        return None
+
+
+def _research_map_page_path(page: object) -> tuple[str, str]:
+    """Return (locator, page_id) for a research_map page dict."""
+    if isinstance(page, dict):
+        lk = page.get("path") or page.get("page_id") or ""
+        pk = page.get("page_id") or ""
+        return str(lk), str(pk or "")
+    return "", ""
+
+
+def _research_map_package_evidence(pkg: dict[str, object]) -> list[AgentEvidence]:
+    out: list[AgentEvidence] = []
+    for company in list(pkg.get("companies") or [])[:8]:
+        if not isinstance(company, dict):
+            continue
+        name = str(company.get("name") or "").strip()
+        if not name:
+            continue
+        realization = str(company.get("realization") or "unknown")
+        strength = str(company.get("strength") or "")
+        layer = str(company.get("evidence_layer") or "")
+        detail_parts = []
+        if strength:
+            detail_parts.append(f"强度 {strength}")
+        if layer:
+            detail_parts.append(f"证据层 {layer}")
+        detail_parts.append(f"兑现状态 {realization}")
+        if company.get("latest_evidence_date"):
+            detail_parts.append(f"最新证据 {company['latest_evidence_date']}")
+        out.append(
+            _research_map_evidence(
+                "graph_lookup",
+                name,
+                "；".join(detail_parts),
+                page=company.get("page"),
+                source_date=str(company.get("latest_evidence_date") or "")
+                or None,
+            )
+        )
+    for limit in list(pkg.get("conditions", {}).get("limits") or [])[:4]:
+        if not isinstance(limit, dict):
+            continue
+        text = str(limit.get("text") or "")
+        if not text:
+            continue
+        kind = str(limit.get("kind") or "限制")
+        target = str(limit.get("target") or "")
+        prefix = "限制/反证" if kind == "invalidation" else "支持"
+        title = f"{prefix}·{target}" if target else prefix
+        out.append(
+            _research_map_evidence(
+                "graph_lookup",
+                title,
+                text,
+                page=limit.get("page"),
+                source_date=str(limit.get("source_date") or "") or None,
+            )
+        )
+    for gap in list(pkg.get("gaps") or [])[:4]:
+        if not isinstance(gap, dict):
+            continue
+        subject = str(gap.get("subject") or "")
+        detail = str(gap.get("detail") or "")
+        out.append(
+            _research_map_evidence(
+                "graph_lookup",
+                f"缺口·{subject}",
+                detail,
+                page=gap.get("page"),
+            )
+        )
+    return out
+
+
+def _research_map_package_observation(pkg: dict[str, object]) -> tuple[str, str]:
+    scope = pkg.get("scope") or {}
+    company_count = int(pkg.get("company_count") or 0)
+    stale = bool(pkg.get("recent", {}).get("stale"))
+    missing = bool(scope.get("missing"))
+    status = "success" if company_count else "empty"
+    parts = []
+    if missing:
+        parts.append("题材未命中（scope.missing=true），无已登记产业环节清单")
+    else:
+        parts.append(f"题材「{pkg.get('theme') or scope.get('canonical') or ''}」，{company_count} 家公司")
+    recent = pkg.get("recent") or {}
+    if recent.get("latest_evidence_date"):
+        stale_mark = "已陈旧" if stale else "未陈旧"
+        parts.append(
+            f"最新证据 {recent['latest_evidence_date']}（距今 {recent.get('age_days')} 天，"
+            f"{stale_mark}）"
+        )
+    gaps = len(pkg.get("gaps") or [])
+    if gaps:
+        parts.append(f"{gaps} 条缺口")
+    return "；".join(parts), status
+
+
+def _rm_render_trace_path(path: object) -> str:
+    """`{via_concept, hops:[{from,to,type}]}` → `起点→…→via_concept` 链文本。"""
+    if not isinstance(path, dict):
+        return str(path or "")
+    hops = path.get("hops") or []
+    nodes: list[str] = []
+    for hop in hops:
+        if not isinstance(hop, dict):
+            continue
+        for key in ("from", "to"):
+            node = str(hop.get(key) or "").strip()
+            if node and (not nodes or nodes[-1] != node):
+                nodes.append(node)
+    via = str(path.get("via_concept") or "").strip()
+    if via and (not nodes or nodes[-1] != via):
+        nodes.append(via)
+    return "→".join(nodes)
+
+
+def _research_map_trace_down_evidence(down: dict[str, object]) -> list[AgentEvidence]:
+    out: list[AgentEvidence] = []
+    for comp in list(down.get("companies") or [])[:10]:
+        if not isinstance(comp, dict):
+            continue
+        name = str(comp.get("name") or "").strip()
+        if not name:
+            continue
+        paths = comp.get("paths") or []
+        chain = "；".join(
+            filter(None, (_rm_render_trace_path(p) for p in paths[:3]))
+        ) or str(down.get("start") or "")
+        realization = str(comp.get("realization") or "unknown")
+        detail = f"{chain or '未归链'}｜兑现 {realization}"
+        if comp.get("path_count"):
+            detail += f"｜{comp['path_count']} 条路径"
+        if comp.get("latest_evidence_date"):
+            detail += f"｜最新证据 {comp['latest_evidence_date']}"
+        out.append(
+            _research_map_evidence(
+                "graph_lookup",
+                name,
+                detail,
+                page=comp.get("page"),
+                source_date=str(comp.get("latest_evidence_date") or "") or None,
+            )
+        )
+    return out
+
+
+def _research_map_trace_down_observation(down: dict[str, object]) -> tuple[str, str]:
+    start = str(down.get("start") or "")
+    reached = len(down.get("reached_concepts") or [])
+    companies = int(down.get("company_count") or 0)
+    unresolved = down.get("unresolved") or []
+    parts = [f"向下追踪「{start}」：到达概念 {reached}，纳入公司 {companies}"]
+    if unresolved:
+        parts.append(f"未解析起点 {unresolved}")
+    return "；".join(parts), ("success" if companies else "empty")
+
+
+def _research_map_trace_up_evidence(up: dict[str, object]) -> list[AgentEvidence]:
+    out: list[AgentEvidence] = []
+    company = str(up.get("company") or "")
+    for concept in list(up.get("concepts") or [])[:8]:
+        if not isinstance(concept, dict):
+            continue
+        name = str(concept.get("concept") or "").strip()
+        if not name:
+            continue
+        detail = f"暴露 {concept.get('strength') or '?'}｜证据层 {concept.get('evidence_layer') or '?'}"
+        role = str(concept.get("role") or "").strip()
+        if role:
+            detail += f"｜角色 {role}"
+        realization = str(concept.get("realization") or "")
+        if realization and realization != "unknown":
+            detail += f"｜兑现 {realization}"
+        out.append(
+            _research_map_evidence(
+                "graph_lookup",
+                f"{company} → {name}",
+                detail,
+                page=concept.get("page"),
+            )
+        )
+    # 共同需求驱动分组按共享公司数倒序给前几条；broad 只标关键词。
+    drivers = sorted(
+        (d for d in list(up.get("shared_drivers") or []) if isinstance(d, dict)),
+        key=lambda d: int(d.get("shared_company_count") or 0),
+        reverse=True,
+    )
+    for driver in drivers[:6]:
+        if driver.get("broad"):
+            continue
+        name = str(driver.get("driver") or "").strip()
+        if not name:
+            continue
+        count = int(driver.get("shared_company_count") or 0)
+        kind = str(driver.get("kind") or "").strip()
+        detail = f"共同需求驱动｜{count} 家共享"
+        if kind:
+            detail += f"｜{kind}"
+        via = driver.get("via") or {}
+        if isinstance(via, dict):
+            shared = [k for k, v in via.items() if isinstance(v, str)][:3]
+            if shared:
+                detail += f"｜同口公司如 {'、'.join(shared)}"
+        out.append(
+            _research_map_evidence(
+                "graph_lookup",
+                f"{company} → {name}",
+                detail,
+                page=driver.get("page"),
+            )
+        )
+    return out
+
+
+def _research_map_trace_up_observation(up: dict[str, object]) -> tuple[str, str]:
+    company = str(up.get("company") or "")
+    concepts = len(up.get("concepts") or [])
+    drivers = len(up.get("shared_drivers") or [])
+    broad = int(up.get("broad_driver_count") or 0)
+    unresolved = up.get("unresolved") or []
+    parts = [f"向上追踪「{company}」：暴露概念 {concepts}，共同需求驱动 {drivers}"]
+    if broad:
+        parts.append(f"{broad} 个泛化上位只计数")
+    if unresolved:
+        parts.append(f"未解析公司 {unresolved}")
+    return "；".join(parts), ("success" if concepts or drivers else "empty")
+
+
+def _research_map_compare_args(query: str) -> tuple[str, list[str]]:
+    """Parse `theme=液冷 companies=英维克,高澜股份` (or bare theme, or theme|companies).
+
+    Accepts both ``|`` and whitespace between ``key=value`` clauses, since the
+    model may emit either.  Falls back to treating a non-clause token as the theme,
+    and any remainder (comma-separated) as companies.
+    """
+    theme, companies = "", []
+    tokens = [p for p in re.split(r"[\s|]+", str(query or "")) if p]
+    for p in tokens:
+        if p.startswith("theme="):
+            theme = p[len("theme="):].strip()
+        elif p.startswith("companies="):
+            companies = [c.strip() for c in p[len("companies="):].split(",") if c.strip()]
+        elif not theme:
+            theme = p
+        else:
+            companies = [c.strip() for c in p.split(",") if c.strip()]
+    if not companies and "|" in query:
+        companies = [c.strip() for c in query.split("|")[0].split(",") if c.strip()]
+    return theme or "液冷", companies or []
+
+
+def _research_map_compare_evidence(cmp_result: dict[str, object]) -> list[AgentEvidence]:
+    out: list[AgentEvidence] = []
+    for row in list(cmp_result.get("companies") or [])[:6]:
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get("name") or "").strip()
+        if not name:
+            continue
+        cells = row.get("cells") or {}
+        known = [(k, v) for k, v in cells.items() if isinstance(v, dict) and v.get("status") == "known"]
+        computable = [(k, v) for k, v in cells.items() if isinstance(v, dict) and v.get("status") == "computable"]
+        unknown = [(k, v) for k, v in cells.items() if isinstance(v, dict) and v.get("status") == "unknown"]
+        detail_parts = []
+        for key, v in known[:5]:
+            val = v.get("value")
+            unit = v.get("unit")
+            period = v.get("period")
+            detail_parts.append(f"{key}={val}{('' if unit is None else unit)}{(' @'+period if period else '')}")
+        for key, _v in computable[:3]:
+            detail_parts.append(f"{key}=可算（仅公式与输入）")
+        if unknown:
+            detail_parts.append(f"未知 {len(unknown)} 项（原页未写，非零）")
+        out.append(
+            _research_map_evidence(
+                "graph_lookup",
+                name,
+                "；".join(detail_parts) or "无同口径可比维度",
+                page=row.get("page"),
+            )
+        )
+    return out
+
+
+def _research_map_compare_observation(cmp_result: dict[str, object]) -> tuple[str, str]:
+    status_counts = cmp_result.get("status_counts") or {}
+    rows = len(cmp_result.get("companies") or [])
+    unresolved = cmp_result.get("unresolved") or []
+    parts = [f"同口径对比 {rows} 家公司（{status_counts}）"]
+    if unresolved:
+        parts.append(f"未解析公司 {unresolved}")
+    return "；".join(parts), ("success" if rows else "empty")
+
+
+def _research_map_scope_evidence(decision: object) -> list[AgentEvidence]:
+    out: list[AgentEvidence] = []
+    # scope_and_plan 返回 {"decision": {...}, "plan": {...}} 字典；旧测试/调用方可能是 dataclass。
+    plan = _rm_field(decision, "plan") or _rm_field(decision, "plan_retrieval")
+    scope = _rm_field(decision, "decision") or _rm_field(decision, "scope")
+    subqueries, read_first = [], []
+    if isinstance(plan, dict):
+        subqueries = plan.get("subqueries") or []
+        read_first = plan.get("read_first") or []
+    if isinstance(plan, object) and hasattr(plan, "subqueries"):
+        subqueries = list(plan.subqueries or [])
+        read_first = list(getattr(plan, "read_first", None) or [])
+    if scope:
+        if isinstance(scope, dict):
+            scope_str = "；".join(
+                f"{k}={v}" for k, v in scope.items() if k != "signals"
+            )
+        else:
+            scope_str = str(scope)
+        out.append(
+            _research_map_evidence(
+                "graph_lookup", "读取范围", str(scope_str)[:200], page=None,
+            )
+        )
+    for sq in list(subqueries)[:5]:
+        out.append(_research_map_evidence("graph_lookup", "子查询", str(sq), page=None))
+    for rf in list(read_first)[:5]:
+        if isinstance(rf, dict):
+            out.append(
+                _research_map_evidence(
+                    "graph_lookup",
+                    f"先读 {rf.get('page_id', '')}",
+                    str(rf.get("why", "")),
+                    page=rf,
+                )
+            )
+        else:
+            out.append(_research_map_evidence("graph_lookup", "先读", str(rf), page=None))
+    return out
+
+
+def _research_map_scope_observation(decision: object) -> tuple[str, str]:
+    scope = _rm_field(decision, "decision") or _rm_field(decision, "scope")
+    plan = _rm_field(decision, "plan") or _rm_field(decision, "plan_retrieval")
+    scope_str = str(scope or "")
+    plan_str = str(plan or "")
+    status = "success"
+    if not scope_str and not plan_str:
+        return "scope 无读取范围", "empty"
+    obs = f"读取范围 {scope_str}" if scope_str else "无读取范围"
+    if plan_str:
+        obs += f"；检索计划 {plan_str[:200]}"
+    return obs, status
+
+
+def _rm_field(obj: object, name: str) -> object:
+    """Read a field from either a dict or a dataclass-like object."""
+    if isinstance(obj, dict):
+        return obj.get(name)
+    return getattr(obj, name, None)
+
+
+def _rm_concept_names(snapshot: object) -> tuple[str, ...]:
+    """Candidate concept names for choose_scope's substring anchor matching."""
+    concepts = getattr(snapshot, "concepts", None)
+    if isinstance(concepts, dict):
+        return tuple(k for k in concepts if isinstance(k, str))
+    return ()
+
+
+def _rm_company_names(snapshot: object) -> tuple[str, ...]:
+    """Candidate entity/company names for choose_scope's substring anchoring."""
+    entities = getattr(snapshot, "entities", None)
+    if isinstance(entities, dict):
+        return tuple(k for k in entities if isinstance(k, str))
+    return ()
 
 
 # 「使用要求 / 使用边界」这类行是**限定语**：它约束怎么读上面那些数，
@@ -1446,12 +2069,26 @@ def _run_tool(
     runner: ToolRunner,
     query: str,
     context: AgentToolContext,
+    *,
+    mode: str | None = None,
 ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
     if context.deadline.expired:
         raise TimeoutError("agent tool deadline expired")
+    if mode is None or not _tool_accepts_mode(runner):
+        if _tool_accepts_context(runner):
+            return runner(query, context)
+        return runner(query)
     if _tool_accepts_context(runner):
-        return runner(query, context)
-    return runner(query)
+        return runner(query, context, mode=mode)
+    return runner(query, mode=mode)
+
+
+def _tool_accepts_mode(runner: ToolRunner) -> bool:
+    try:
+        signature = inspect.signature(runner)
+    except (TypeError, ValueError):
+        return False
+    return "mode" in signature.parameters
 
 
 def _research_state_block(
@@ -1810,11 +2447,17 @@ def run_agent_loop(
         if stance not in {"support", "contradict", "context"}:
             stance = "context"
         started = time.monotonic()
+        mode = (
+            str(args.get("mode") or "").strip().lower() or None
+            if tool in _TOOL_NAMES
+            else None
+        )
         try:
             evidence, observation, trace = _run_tool(
                 tools[tool],
                 tool_query,
                 tool_context,
+                mode=mode,
             )
             evidence = [
                 item
