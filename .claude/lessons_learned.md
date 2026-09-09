@@ -456,3 +456,15 @@
   `runtime.source_dirty` 等 provenance 是 create_app 时冻结的快照，起服前树必须干净，起服后清树读数不变。
   做法：评测前先抽一条**最近生产 episode** 看 `semantic_verifier.exc_class`（判官链活性），别只看 health/llm ready；
   钉版本必须钉「不会被自动清理的拷贝」（cp 到自管目录），或接受 symlink 跟随 + 记录版本差异。
+
+- **[2026-09-09] 收尾闸门拿 `judge_status=unavailable` 一刀切拦，差点把合规降级题误拦在基线外。**
+  场景：00 号单基线。我给自动收尾 watcher 写质量闸门时把「`judge_status==unavailable`」当拦因。当晚实测它混两种形状：
+  (a) 合规降级 `stop_reason=invalid_repair_finish`——episode **正常走完**修复轮但仍有未闭合 gap，按证据边界降级收尾，
+  `semantic_verifier.exc_class=None`（判官活着），是干净的能力读数（量的是降级路径）；(b) 判官真坏
+  `exc_class=FileNotFoundError`（B5）。拿 (a)+(b) 的并集当拦因会把 (a) 类合规题全部误判成不可用，
+  上游间歇 503 的夜里这类题占多数，闸门会永久卡住收尾。与 (a) 相邻的 `stop_reason=repair_model_unavailable`
+  （修复轮**中途**被上游掐死）才是配额污染，由 `_MODEL_UNAVAILABLE_STOPS` 正确打 tainted 重跑。
+  做法：拦「判官坏」要看 `semantic_verifier.exc_class`（非 None 或 episode 文件缺失），不看 `judge_status` 标签；
+  区分「走完流程的降级收尾」（合规读数）和「中途掐死」（污染读数）看 `stop_reason`，不看耗时长短。
+  **可迁移原则：给自动门禁写拦因时，先把这个状态码在当晚真实数据里的所有成因列全，按成因分别定拦/放；
+  拿表面状态码当拦因，等于假设它只有一种成因。**
