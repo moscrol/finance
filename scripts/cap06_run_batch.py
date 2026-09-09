@@ -40,6 +40,18 @@ def load_cases() -> dict[str, dict]:
 # http 状态码与 reset 秒数，不进日志。
 _GATEWAY_PROBE = r"""
 set -a; . <(grep '^export ' "$HOME/.local/bin/start-finance-workbench"); set +a
+# 与 cap06_sidecar.sh 同一网关覆盖口：旁车被切到别的网关时，预检必须探同一个，
+# 否则探的是 A 网关、跑的是 B 网关（2026-09-09 夜间教训：8080 死、57244 恢复后
+# 预检还在等 8080）。
+if [[ -n "${CAP06_LLM_BASE_URL:-}" ]]; then
+  export FORESIGHT_BUILTIN_LLM_BASE_URL="$CAP06_LLM_BASE_URL"
+  if [[ -n "${CAP06_LLM_API_KEY:-}" ]]; then
+    export FORESIGHT_BUILTIN_LLM_API_KEY="$CAP06_LLM_API_KEY"
+  elif [[ "$CAP06_LLM_BASE_URL" == *57244* ]]; then
+    ck="$(python3 -c "import json; print((json.load(open('$HOME/.antigravity_cockpit/codex_local_access_sidecar/config.json')).get('api-keys') or [''])[0])" 2>/dev/null || true)"
+    [[ -n "$ck" ]] && export FORESIGHT_BUILTIN_LLM_API_KEY="$ck"
+  fi
+fi
 model="${FORESIGHT_BUILTIN_LLM_MODEL:-gpt-5.6-sol}"
 body="$(mktemp)"
 code=$(curl -s -o "$body" -w '%{http_code}' -m 90 \
@@ -165,6 +177,11 @@ def main() -> int:
         default=3,
         help="对仍缺干净收据的题最多再过几轮（含首轮）；同题同因污染两次即停批",
     )
+    parser.add_argument(
+        "--reverse",
+        action="store_true",
+        help="逆序跑题（两臂并行时错开同题竞争窗口）",
+    )
     args = parser.parse_args()
 
     if args.port in RESERVED_PORTS:
@@ -175,6 +192,10 @@ def main() -> int:
         if args.cases
         else list(cases)
     )
+    if args.reverse:
+        # 交替发车：另一臂正序跑时本臂逆序，两臂撞同一题的窗口错开（串行批 × 共享网关配额下
+        # 先后出发的两臂会在中段相遇，同时探网关同时等冷却，配额翻倍消耗）。
+        selected.reverse()
     unknown = [item for item in selected if item not in cases]
     if unknown:
         raise SystemExit(f"未知 case: {unknown}")

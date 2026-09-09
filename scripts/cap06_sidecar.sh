@@ -44,6 +44,20 @@ case "$cmd" in
     . <(grep '^export ' "$LAUNCHER")
     set +a
     [[ -n "${FORESIGHT_BUILTIN_LLM_API_KEY:-}${OPENAI_API_KEY:-}" ]] || die "启动器 export 里取不到模型 key"
+    # 网关覆盖口（只影响本旁车，不碰启动器/生产）：8080 上游整面 503 而 57244 额度恢复时，
+    # 用 CAP06_LLM_BASE_URL 把验收臂切过去。必须在 source 启动器之后应用（source 会覆盖先设的值）。
+    if [[ -n "${CAP06_LLM_BASE_URL:-}" ]]; then
+      export FORESIGHT_BUILTIN_LLM_BASE_URL="$CAP06_LLM_BASE_URL"
+      export LLM_BASE_URL="$CAP06_LLM_BASE_URL"
+      # 网关一换，启动器那把 mirasim key 就失效（cockpit 只认自己 config 里的 api-keys[0]）。
+      if [[ -n "${CAP06_LLM_API_KEY:-}" ]]; then
+        export FORESIGHT_BUILTIN_LLM_API_KEY="$CAP06_LLM_API_KEY"
+        export OPENAI_API_KEY="$CAP06_LLM_API_KEY"
+      elif [[ "$CAP06_LLM_BASE_URL" == *57244* ]]; then
+        ck="$(python3 -c "import json; print((json.load(open('$HOME/.antigravity_cockpit/codex_local_access_sidecar/config.json')).get('api-keys') or [''])[0])" 2>/dev/null || true)"
+        [[ -n "$ck" ]] && { export FORESIGHT_BUILTIN_LLM_API_KEY="$ck"; export OPENAI_API_KEY="$ck"; }
+      fi
+    fi
     export WORKBENCH_REPO_ROOT="$repo"
     export PYTHONPATH="$repo"
     export FORESIGHT_USERS_DIR="$users"
