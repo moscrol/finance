@@ -113,7 +113,7 @@ UI 连续会话为 `conv_f03500280f0e42669acb94002c4de76d`。旧版在 `run_2026
 | `b24c43f3` chore(history) | 历史三工具补 `episode_progress._TOOL_LABELS`；`docs/runtime/tools.md`、`harness-seams.md` 再生成（分支新增工具/协议后未生成，`test_runtime_catalog` 与 `test_tool_labels_cover_exactly_the_registered_tools` 原本红，不在 1101P 收据的 target 里） | — |
 | `f818e6cd` fix(registry) | 全仓 CI 在 b24c43f3 上 7 红全在此：`_DEFAULT_TOOL_METADATA` 把历史三工具声明为共享 `finance_query`（批准 spec），但 `default_registry` 装配一律 `capability=name`，切换板缺三行，两条测试与一个审计脚本把工具名当 capability 传。修：装配读元数据声明（既有工具 name==capability 行为不变；探针确认无 history_intent 时不外泄历史工具）、T-7 登记 `SHARED_CAPABILITY_TOOLS`、切换板补三行、`switch_box_default_v1.json` / `tools.md` 再生成、三处改传 `DEFAULT_RESEARCH_CAPABILITIES`。 | 相关 229 项绿 |
 
-全仓等价 CI：`b24c43f3` ruff 通过、pytest 8612P / 7F（全是上表第四行）；`f818e6cd` ruff 通过、pytest 8616P / 3F（`test_rag_worker::…first_timeout…`、`test_workbench_conversation_integration` 两条），三条均为时序敏感用例，机器负载 39–43（15 个用户、十余个 uvicorn）时抖动，单跑可过，只回退注册表改动对照也过——**不是回归，但也不能写成全绿**；负载低时再跑一遍取干净收据。收据：`test-receipts/20260909T054237Z-b24c43f3.json`、`20260909T071225Z-f818e6cd.json`（均 dirty=false）。前端 `pnpm lint/typecheck/test/build` 本轮未跑（分支未触 webapp）。
+全仓等价 CI：`b24c43f3` ruff 通过、pytest 8612P / 7F（全是上表第四行）；`f818e6cd` ruff 通过、pytest 8616P / 3F（`test_rag_worker::…first_timeout…`、`test_workbench_conversation_integration` 两条），三条均为时序敏感用例，机器负载 39–43（15 个用户、十余个 uvicorn）时抖动，单跑可过，只回退注册表改动对照也过。**16:37 负载降到 ~5 后在最终 revision `dea3c6fa` 重跑：ruff 绿、pytest 8619P / 0F（5 分 31 秒），收据 `test-receipts/20260909T083629Z-dea3c6fa.json`（dirty=false）——确认那 3 条是负载抖动，不是回归。** 早期收据：`20260909T054237Z-b24c43f3.json`、`20260909T071225Z-f818e6cd.json`（均 dirty=false）。前端 `pnpm lint/typecheck/test/build` 本轮未跑（分支未触 webapp，diff 为空）。
 
 ### 真实复验（8809，冻结库，代码 `b24c43f3`，并发 1）
 
@@ -137,6 +137,6 @@ UI 连续会话为 `conv_f03500280f0e42669acb94002c4de76d`。旧版在 `run_2026
 评分员发现的两个**审计缺口**（不是本轮修复目标）：① M3 trace 里 seq73–84 有一轮 backfill 修复，正文更完整但未被采用，且该轮事件不在 `episode.events`（止于 seq72）；② runtime 对 429 无退避。
 
 ### 现在的位置与下一步
-- M6 与 UI 追问等网关冷却后（≥16:05）串行重发（`/tmp/hd_rerun.py --skill-mode hybrid M6`，隔几分钟再 `UI`），评分、复算同上；只有它们也过了才勾计划 Task 6 第一项。
-- 负载低时在最终 revision 上重跑全仓 CI 取干净收据；前端叶子未跑。
+- 网关时间线：15:32 sol 回 `usage_limit_reached`（约 16:04 重置）；16:30 复探时两个模型都变成 `model_cooldown`、reset ≈ 21:04（共享网关在窗口期又被其他消费方打满）。terra 的「502 no auth」在用户重启 Cockpit 后消失（变成正常 429），凭据已恢复。M6 与 UI 追问等 21:04 后串行重发（`/tmp/hd_rerun.py --skill-mode hybrid M6`，隔 ≥3 分钟再 `UI`），评分、复算同上；只有它们也过了才勾计划 Task 6 第一项。M6/UI 必须仍用 sol（与 M1–M5 同一测量条件），不换模型。
+- ~~负载低时在最终 revision 上重跑全仓 CI 取干净收据~~：已完成（8619P/0F @ dea3c6fa）。前端叶子未跑（分支未触 webapp）。
 - 合 main、切生产、改生产启动脚本三件都要用户确认。A 修复（`7751ab81`）建议单独 cherry-pick 进 main。
