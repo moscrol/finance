@@ -17,12 +17,12 @@
 直接测试文件 241 passed；V11 新测试 22 条；adapter/verifier/invariant 191；pre-commit 11 道过；`check_unread_fields` 无新增。全量安静跑 8330 passed / 0 failed（15.6 min；此前高负载跑 3 条超时看门狗测试红、单跑绿）。391 份真实存证：基线 vs 分支首个损失点 A/B 零差异，`extension_outputs` 出现 0 次。
 
 ## 未验证 / 已知边界
-- **真实 Workbench 对照零草稿**：两臂 sidecar（8821 基线 / 8822 分支）五题全 HTTP 429，LLM 网关 `localhost:57244` 无监听；四类同题「升级前后」未展示，`v11_outcome` 只见 `skipped`。
+- **真实 Workbench 对照零草稿**：两臂 sidecar（8821 基线 / 8822 分支）第一轮五题全 HTTP 429 且网关 `57244` 掉线；第二轮网关回来但最小 chat 请求 `502 no auth available`（上游模型账号无授权，要在 Cockpit Tools 重登）。四类同题「升级前后」未展示，`v11_outcome` 只见 `skipped`。
 - V11 lifted 用户不可见（V8 后公开稿无存疑标）；§8 A/B 与台账 `R-20260822-05` 未做。
 - 缺陷一自然频率不可从存证读出（被拒修复轮不落事件）。
 
 ## 下一步
-1. 网关回来后按 progress/01.md「续跑命令」串行两臂五题（先 `lsof -iTCP:57244`，再单发一题看 `draft_chars>0`），逐题读公开稿填「真实验收」。
+1. 上游授权恢复后按 progress/01.md「续跑命令」串行两臂五题（先对 `LLM_BASE_URL/chat/completions` 发最小请求看 200，再单发一题看 `draft_chars>0`），逐题读公开稿填「真实验收」；PR 已开，合并等用户确认。
 2. 合并前以 `feat/judge-token-usage`（同改 `_run_judge`）为准重跑本单测试。
 3. 用户确认后合 main；TOOLKIT 登记 `judge_loss_point_replay.py` / `launch_workbench_sidecar.sh`（harness-reference 树脏未动）。
 
