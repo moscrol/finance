@@ -14,9 +14,14 @@
 | 服务与鉴权 | 同花顺官方 `https://fuyao.aicubes.cn`，`X-api-key` 头；key 只从钥匙串 `security find-generic-password -s hithink-finance -a a77-api-key -w` 或环境变量 `HITHINK_FINANCE_API_KEY` 读，**不进代码 / 仓库 / 日志 / 收据 / 对话** | #41 §0 |
 | 限流 | ≤ 5 QPS（0.2–0.3 s 间隔）+ 退避，**不并发** | #41 §0 |
 | 端点 | `a-share-index/prices/historical`（板块 / 指数 OHLC + volume + turnover，含当日） | #41 §0 |
-| 同步器 | `sync_hithink_sector_kline.py`（待建，#41 §B 第 1 步） | #41 §B |
-| 目标表 | `fact_sector_kline_daily`，主键 `(trade_date, sector_ts_code)` | #41 §2 |
-| 历史深度 | **约 3 年**（上证回到 2022-08） | #41 §0 |
+| 同步器 | `sync_hithink_sector_kline.py` — **已建**，在分支 `data-source/hithink-ingest`（树 `~/fwp-wt-hithink-ingest`，领先 main 3 个提交，未合）；CLI `market_feature_store.cli sync-hithink-sector-kline --full\|--incremental [--resume] [--end-date]` | 实测 2026-09-09 |
+| 目标表 | `fact_sector_kline_daily`，主键 `(trade_date, sector_ts_code)` — **已建且已填** | #41 §2 |
+| 历史深度 | **约 3 年**（实测库内 2022-08-02 起） | #41 §0 + 实测 |
+
+**⚠️ 本节 2026-09-09 修正**：初稿按 #41 原文写成「同步器待建」，实测有误——**§B 那批回补早已跑过**：
+`fact_sector_kline_daily` 现有 **814,305 行 / 854 个码 / 2022-08-02 ~ 2026-09-08**，
+#41 列的 6 个指数码**全部已回补，各 996 行**。所以本 delta 的性质从「补一份计划」降为
+**「补一个常量 + 补跑 3 个码」**，工作量比初稿估计小一个量级。
 
 `000001.SH` 这类宽基码已经走 `fact_sector_kline_daily`，**宽基指数与 `.TI` 板块同表是 #41 已作的决定**，本文沿用，不因为「指数不是板块」另开一张表。
 
@@ -32,7 +37,7 @@
 
 ## 2. Delta A · 指数码清单补三个
 
-#41 §B 第 1 步现列 6 个：`000001.SH`、`399001.SZ`、`399006.SZ`、`000300.SH`、`000905.SH`、`000852.SH`。补：
+落点是 `market_feature_store/sync/sync_hithink_sector_kline.py:27` 的 `INDEX_CODES` 元组（分支 `data-source/hithink-ingest`），现列 6 个：`000001.SH`、`399001.SZ`、`399006.SZ`、`000300.SH`、`000905.SH`、`000852.SH`——**这 6 个库里各 996 行，已回补**。补：
 
 | 码 | 名 | 补的理由 |
 |---|---|---|
@@ -41,6 +46,16 @@
 | `899050.BJ` | 北证50 | 北交所独立行情，`fact_stock_daily` 已有 `.BJ` 个股（如 `920305.BJ` 云创退进过连板梯队），指数层却是空的 |
 
 `thscode` 必带后缀，`.BJ` 在 #41 §0 的后缀白名单内。三个码合计增加 3 次 ≤1500 天窗口请求，按 5 QPS 计约 1 秒，**对 #41 的 3 分钟预算无影响**。
+
+**执行方式**（因已有同步器且已回补过，不重跑全量）：
+
+```bash
+# 1. 在 ~/fwp-wt-hithink-ingest 给 INDEX_CODES 加三行
+# 2. 用 --resume 只补新码：已有该 end-date 行的 851 个码会被跳过
+market_feature_store.cli sync-hithink-sector-kline --full --resume --end-date 2026-09-08
+```
+
+回滚：`delete from fact_sector_kline_daily where sector_ts_code in ('000688.SH','000016.SH','899050.BJ')` —— 纯增量，不触碰任何已有行。
 
 **历史深度分工（选型取舍）**：同花顺只有约 3 年，`000688.SH` 只能回到约 2022-08，而科创50 的发布日是 2020-07；`899050.BJ` 发布日 2022-11，正好在窗口内不受影响。
 
