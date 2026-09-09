@@ -145,8 +145,20 @@ def judge_turn(expected: dict, frame: dict | None, *, decision: dict | None = No
     return ok, reasons
 
 
-def material_usage(answer: str, material_text: str) -> dict:
-    """信息读数：答案里出现了材料的多少个表头 / 日期 / 数字（不进 pass/fail）。"""
+def material_usage(answer: str, material_text: str, *, question_text: str = "") -> dict:
+    """信息读数：答案里出现了材料的多少个表头 / 日期 / 数字（不进 pass/fail）。
+
+    先剔除对问题原文的回显再计数：降级模板会整段引用问题（「关于“…”，现有证据
+    不足…」），而问题里就带着粘贴的材料——不剔除会把模板回显误读成「答案用上了
+    材料」（2026-09-09 候选臂 Q06/Q08 实测踩到）。
+    """
+    cleaned = str(answer or "")
+    if question_text:
+        flat_q = re.sub(r"\s+", " ", question_text).strip()
+        flat_a = re.sub(r"\s+", " ", cleaned)
+        cleaned = flat_a.replace(flat_q, " ")
+    cleaned = re.sub(r"关于“[^”]*”", " ", cleaned)
+    answer = cleaned
     dates = set(re.findall(r"20\d{2}[-/.年]\d{1,2}[-/.月]\d{1,2}日?", material_text))
     numbers = set(re.findall(r"\d+(?:\.\d+)?\s*(?:亿|%|吨|元)", material_text))
     first_line = material_text.strip().splitlines()[0] if material_text.strip() else ""
@@ -365,7 +377,11 @@ def score_mode(args) -> int:
                      "timeframe": frame.get("timeframe"), "clarification_question": frame.get("clarification_question"),
                      "materials": [m.get("material_id") for m in frame.get("materials") or []]}
             if turn.get("material"):
-                entry["material_usage"] = material_usage(run.get("answer", ""), materials[turn["material"]])
+                entry["material_usage"] = material_usage(
+                    run.get("answer", ""),
+                    materials[turn["material"]],
+                    question_text=run.get("text", ""),
+                )
             if run.get("run_status") not in {"completed"}:
                 entry["reasons"] = entry["reasons"] + [f"run_status={run.get('run_status')}"]
             case_out.append(entry)
