@@ -1459,6 +1459,7 @@ def build_episode_registry(
                 bounded_value,
                 covered_range=covered_range,
                 row_count=len(result.evidence),
+                applied_limit=result.audit.applied_limit,
             )
             # 代偿必须让模型看见：查询成功但写法被改过，不说它下一轮还会照原样写。
             if normalization_notes:

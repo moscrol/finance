@@ -211,6 +211,22 @@ def record_finance_query_rejected(
     )
 
 
+# rows>0 时的日历宽容带：请求窗常写到日历日（如 06-30 周日），而覆盖只到最后一个
+# 交易日（06-28）。差在一个长周末/小长假内的不算缺口——本层没有交易日历，只能给
+# 启发式；宁可漏报（真缺一两天不记）也不误报（每次月末查询都记一条，恢复出的 run
+# 又报又被恢复，无限自注册。2026-09-09 真实验收实测踩中）。row_count=0 不享受宽容。
+CALENDAR_TOLERANCE_DAYS = 4
+
+
+def _days_between(earlier: str, later: str) -> int | None:
+    try:
+        from datetime import date as _date
+
+        return (_date.fromisoformat(later[:10]) - _date.fromisoformat(earlier[:10])).days
+    except ValueError:
+        return None
+
+
 def uncovered_side(
     requested: tuple[str | None, str | None] | None,
     covered_range: str | None,
@@ -220,7 +236,8 @@ def uncovered_side(
     """请求窗相对实际覆盖的未覆盖侧：all / front / back / both；完全覆盖或无窗口返回 None。
 
     与 ``finance_query._uncovered_window_notice`` 同一判据，但只算方向、不组句——
-    那边的产出是给模型看的散文，这边的产出是给聚合器看的枚举。
+    那边的产出是给模型看的散文，这边的产出是给聚合器看的枚举。有数据时，
+    边界差在 ``CALENDAR_TOLERANCE_DAYS`` 个日历日以内视为交易日历边界而非缺口。
     """
 
     if requested is None:
@@ -234,8 +251,14 @@ def uncovered_side(
         cov_start, cov_end = covered_range.split("..", 1)
     else:
         cov_start = cov_end = covered_range
-    front = bool(req_start and cov_start > req_start)
-    back = bool(req_end and cov_end < req_end)
+    front = False
+    if req_start and cov_start > req_start:
+        gap = _days_between(req_start, cov_start)
+        front = gap is None or gap > CALENDAR_TOLERANCE_DAYS
+    back = False
+    if req_end and cov_end < req_end:
+        gap = _days_between(cov_end, req_end)
+        back = gap is None or gap > CALENDAR_TOLERANCE_DAYS
     if front and back:
         return "both"
     if front:
@@ -250,11 +273,19 @@ def record_window_uncovered(
     *,
     covered_range: str | None,
     row_count: int,
+    applied_limit: int | None = None,
     lane: str = "episode",
 ) -> None:
-    """查询合法但请求窗未被库覆盖时记一条数据饥饿。完全覆盖时不记；任何异常吞掉。"""
+    """查询合法但请求窗未被库覆盖时记一条数据饥饿。完全覆盖时不记；任何异常吞掉。
+
+    ``applied_limit``：结果行数打满 limit 说明是模型**有意取 N 条**（top-N / 点查
+    limit=1），覆盖窄是预期而非缺口，不记。2026-09-09 真实验收实测：limit=1 取
+    「当月最低收盘日」拿到 1 行，请求窗写整月，不加此判会记一条 front 误报。
+    """
 
     try:
+        if applied_limit is not None and row_count > 0 and row_count >= int(applied_limit):
+            return
         time_range = getattr(spec, "time_range", None)
         if time_range is None:
             return

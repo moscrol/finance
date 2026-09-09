@@ -117,9 +117,53 @@ def test_uncovered_side_matches_requested_vs_covered() -> None:
     assert uncovered_side(("2024-06-01", "2024-06-30"), None, row_count=0) == "all"
     assert uncovered_side(("2024-06-01", "2024-06-30"), "2024-06-10..2024-06-30", row_count=5) == "front"
     assert uncovered_side(("2024-06-01", "2024-06-30"), "2024-06-01..2024-06-20", row_count=5) == "back"
-    assert uncovered_side(("2024-06-01", "2024-06-30"), "2024-06-05..2024-06-20", row_count=5) == "both"
+    assert uncovered_side(("2024-06-01", "2024-06-30"), "2024-06-10..2024-06-20", row_count=5) == "both"
     assert uncovered_side(("2024-06-01", "2024-06-30"), "2024-06-01..2024-06-30", row_count=19) is None
     assert uncovered_side(None, None, row_count=0) is None
+
+
+def test_uncovered_side_tolerates_calendar_edges_when_rows_exist() -> None:
+    """月末写到 06-30（周日）而数据到 06-28（最后交易日）：有数据时 ≤4 天边界差不算缺口。
+
+    2026-09-09 真实验收实测：不宽容会让恢复出的 run 每次月末查询都再报一条缺口，
+    把自己注册成消费者又被恢复，形成无限回路。row_count=0 不享受宽容。
+    """
+
+    # 尾差 2 天（周末）：不报。
+    assert uncovered_side(("2024-06-01", "2024-06-30"), "2024-06-03..2024-06-28", row_count=19) is None
+    # 首差 2 天（06-01 周六）：不报。
+    assert uncovered_side(("2024-06-01", "2024-06-28"), "2024-06-03..2024-06-28", row_count=19) is None
+    # 尾差超过宽容带（真缺一周）：照报。
+    assert uncovered_side(("2024-06-01", "2024-06-30"), "2024-06-03..2024-06-21", row_count=14) == "back"
+    # 无行时同样的边界差仍是 all。
+    assert uncovered_side(("2024-06-29", "2024-06-30"), None, row_count=0) == "all"
+
+
+def test_record_window_uncovered_skips_intentional_top_n(tmp_path: Path) -> None:
+    """limit=1 点查（取最小值）覆盖必然单日：打满 limit 的结果不记事件；未满且真缺照记。"""
+
+    from intelligence.services.finance_query import FinanceQuerySpec
+
+    def spec_with(limit: int) -> FinanceQuerySpec:
+        return FinanceQuerySpec.from_arguments(
+            {
+                "dataset": "market_daily",
+                "metrics": ["index_close"],
+                "dimensions": ["trade_date"],
+                "filters": [],
+                "time_range": {"start": "2024-06-01", "end": "2024-06-30"},
+                "limit": limit,
+            }
+        )
+
+    sink = JsonlHungerSink(tmp_path / HUNGER_FILENAME, run_id="run_a")
+    with hunger_context(sink, run_id="run_a"):
+        record_window_uncovered(spec_with(1), covered_range="2024-06-27", row_count=1, applied_limit=1)
+        record_window_uncovered(spec_with(25), covered_range="2024-06-03..2024-06-14", row_count=10, applied_limit=25)
+    events = [json.loads(line) for line in (tmp_path / HUNGER_FILENAME).read_text(encoding="utf-8").splitlines()]
+    assert len(events) == 1
+    assert events[0]["uncovered"] == "back"
+    assert events[0]["row_count"] == 10
 
 
 def test_record_window_uncovered_writes_event_only_when_uncovered(tmp_path: Path) -> None:
@@ -340,6 +384,41 @@ def test_record_completions_and_resume_are_idempotent(tmp_path: Path) -> None:
     assert len(calls) == before
     events = [r["event"] for r in dr.load_receipts(users, "u1")]
     assert events == ["completed", "resumed", "resumed"]
+
+
+def test_failed_resume_does_not_consume_the_retry_and_is_retried(tmp_path: Path) -> None:
+    """恢复的新 run failed：落 resume_attempt 供审计，但不算 resumed——重放会再试。"""
+
+    users = tmp_path / "users"
+    db = _staging_db(tmp_path)
+    _insert_market_rows(db, ["2024-06-03", "2024-06-04", "2024-06-05", "2024-06-06"])
+    _write_run(users, "u1", "run_1", "q", [_gap("market_daily", "2024-06-01", "2024-06-30", ["sh_index_close"])])
+    completions = dr.check_requests(dr.build_requests(dr.collect_gap_events(users), now=NOW), db_path=db, today=TODAY)
+
+    run_status = {"value": "failed"}
+
+    def fake_http(url: str, *, method: str = "GET", payload: dict | None = None, timeout: float = 30):
+        if url.endswith("/messages"):
+            return {"run_id": "run_new"}
+        if "/api/runs/" in url:
+            return {"status": run_status["value"]}
+        return {"conversation_id": "conv_x"}
+
+    actions, _ = dr.plan_resume(completions, users_dir=users)
+    first = dr.execute_resume(actions, users_dir=users, workbench_url="http://wb", http=fake_http, sleep=lambda _s: None)
+    assert [r["status"] for r in first] == ["failed"]
+    assert [r["event"] for r in dr.load_receipts(users, "u1")] == ["resume_attempt"]
+
+    # 网关恢复后重放：failed 那次不消耗资格，动作再次给出并成功。
+    actions_again, skipped = dr.plan_resume(completions, users_dir=users)
+    assert len(actions_again) == 1 and skipped == []
+    run_status["value"] = "completed"
+    second = dr.execute_resume(actions_again, users_dir=users, workbench_url="http://wb", http=fake_http, sleep=lambda _s: None)
+    assert [r["status"] for r in second] == ["completed"]
+    events = [r["event"] for r in dr.load_receipts(users, "u1")]
+    assert events == ["resume_attempt", "resumed"]
+    # 成功之后重放：0 动作。
+    assert dr.plan_resume(completions, users_dir=users)[0] == []
 
 
 def test_resume_dry_run_writes_no_receipt_and_calls_nothing(tmp_path: Path) -> None:

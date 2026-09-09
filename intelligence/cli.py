@@ -1303,6 +1303,11 @@ def add_data_requests_parser(subparsers: argparse._SubParsersAction) -> None:
         help="build 只列请求；check 加覆盖检查；fill 在隔离库上调现有 writer；resume 重问已满足的消费者；status = check + 回执摘要",
     )
     parser.add_argument("--runs-dir", default=None, help="users 根目录或 run_* 目录；缺省 FORESIGHT_USERS_DIR")
+    parser.add_argument(
+        "--users-dir",
+        default=None,
+        help="回执（data_request_receipts.jsonl）所在 users 根；缺省跟随 --runs-dir——回执必须与消费者同域，否则重放键对不上（2026-09-09 实测把回执写进了另一棵 users 树）",
+    )
     parser.add_argument("--since", default="30d", help="只看该时间之后的事件（7d / 24h / ISO / all）")
     parser.add_argument("--db", default=None, help="要检查 / 补齐的 DuckDB；缺省 MARKET_FEATURE_STORE_DB / 数据根 db/")
     parser.add_argument("--request-id", action="append", default=[], help="只处理这些请求（可重复）")
@@ -1344,21 +1349,25 @@ def cmd_data_requests(args: argparse.Namespace) -> int:
         ]
         if not args.dry_run:
             completions = dr.check_requests(requests, db_path=db_path)
+    # 回执域与消费者域必须一致：--users-dir > --runs-dir > env。
+    receipts_root = (
+        Path(args.users_dir).expanduser()
+        if args.users_dir
+        else (runs_root if args.runs_dir else userspace.users_dir())
+    )
     if args.action == "resume":
-        users_dir = userspace.users_dir()
-        extra["completed_receipts"] = dr.record_completions(completions, users_dir=users_dir)
-        actions, skipped = dr.plan_resume(completions, users_dir=users_dir)
+        extra["completed_receipts"] = dr.record_completions(completions, users_dir=receipts_root)
+        actions, skipped = dr.plan_resume(completions, users_dir=receipts_root)
         extra["resume_skipped"] = skipped
         extra["resume_results"] = dr.execute_resume(
             actions,
-            users_dir=users_dir,
+            users_dir=receipts_root,
             workbench_url=args.workbench_url,
             dry_run=args.dry_run,
         )
     if args.action == "status":
-        users_dir = userspace.users_dir()
         users = sorted({str(c.get("user")) for r in requests for c in r.consumers if c.get("user")})
-        extra["receipts"] = {user: dr.load_receipts(users_dir, user) for user in users}
+        extra["receipts"] = {user: dr.load_receipts(receipts_root, user) for user in users}
     artifact = dr.wrap_artifact(requests, completions, runs_root=runs_root, since=args.since, db_path=db_path)
     artifact.update(extra)
     if args.out:

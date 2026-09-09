@@ -986,7 +986,11 @@ def execute_resume(
             result.update({"conversation_id": conversation_id, "new_run_id": new_run_id, "status": status})
         except Exception as exc:  # noqa: BLE001 - 单个消费者失败不阻断其余
             result.update({"status": "error", "error": f"{type(exc).__name__}: {str(exc)[:200]}"})
-        record = {"event": "resumed", **{k: v for k, v in result.items() if k != "question"}}
+        # 只有新 run 真正 completed 才算「已恢复」；failed/timeout/error 落 resume_attempt
+        # 供审计，但不消耗恢复资格——否则一次网关抖动就永久挡住这次恢复（真实验收
+        # 2026-09-09 实测：QA 重问 failed 却被记成 resumed，重放被幂等键跳过）。
+        event = "resumed" if result.get("status") == "completed" else "resume_attempt"
+        record = {"event": event, **{k: v for k, v in result.items() if k != "question"}}
         append_receipt(users_dir, action.user, record)
         results.append(result)
     return results
