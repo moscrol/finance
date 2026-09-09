@@ -1292,6 +1292,87 @@ def cmd_kb_queue_receive(args: argparse.Namespace) -> int:
     return 0
 
 
+def add_data_requests_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "data-requests",
+        help="问题驱动补数：聚合回答里的 window_uncovered 缺口 → 请求 → 覆盖检查 → 隔离补齐 → 恢复原研究",
+    )
+    parser.add_argument(
+        "action",
+        choices=["build", "check", "fill", "resume", "status"],
+        help="build 只列请求；check 加覆盖检查；fill 在隔离库上调现有 writer；resume 重问已满足的消费者；status = check + 回执摘要",
+    )
+    parser.add_argument("--runs-dir", default=None, help="users 根目录或 run_* 目录；缺省 FORESIGHT_USERS_DIR")
+    parser.add_argument("--since", default="30d", help="只看该时间之后的事件（7d / 24h / ISO / all）")
+    parser.add_argument("--db", default=None, help="要检查 / 补齐的 DuckDB；缺省 MARKET_FEATURE_STORE_DB / 数据根 db/")
+    parser.add_argument("--request-id", action="append", default=[], help="只处理这些请求（可重复）")
+    parser.add_argument("--workbench-url", default=None, help="resume 用：Workbench API 根地址，例如 http://127.0.0.1:8792")
+    parser.add_argument("--dry-run", action="store_true", help="fill / resume 只打印计划")
+    parser.add_argument("--no-historical-workaround", action="store_true", help="fill sw_l1 历史窗时不关实时步（复现日期覆写）")
+    parser.add_argument("--out", default=None, help="把产物 JSON 写到该路径（同名 .md 一起写）")
+    parser.set_defaults(func=cmd_data_requests)
+
+
+def cmd_data_requests(args: argparse.Namespace) -> int:
+    from intelligence import userspace
+    from intelligence.paths import default_market_db_path
+    from intelligence.services import data_requests as dr
+
+    runs_root = Path(args.runs_dir).expanduser() if args.runs_dir else userspace.users_dir()
+    db_path = Path(args.db).expanduser() if args.db else default_market_db_path()
+    since = dr.parse_since(args.since)
+    events = dr.collect_gap_events(runs_root, since=since)
+    requests = dr.build_requests(events)
+    if args.request_id:
+        wanted = set(args.request_id)
+        requests = [r for r in requests if r.request_id in wanted]
+    completions: list[dr.Completion] = []
+    extra: dict[str, object] = {}
+    repo_root = Path(__file__).resolve().parents[1]
+    if args.action in {"check", "fill", "resume", "status"}:
+        completions = dr.check_requests(requests, db_path=db_path)
+    if args.action == "fill":
+        extra["fills"] = [
+            dr.fill_request(
+                r,
+                db_path=db_path,
+                dry_run=args.dry_run,
+                historical_workaround=not args.no_historical_workaround,
+                repo_root=repo_root,
+            )
+            for r in requests
+        ]
+        if not args.dry_run:
+            completions = dr.check_requests(requests, db_path=db_path)
+    if args.action == "resume":
+        users_dir = userspace.users_dir()
+        extra["completed_receipts"] = dr.record_completions(completions, users_dir=users_dir)
+        actions, skipped = dr.plan_resume(completions, users_dir=users_dir)
+        extra["resume_skipped"] = skipped
+        extra["resume_results"] = dr.execute_resume(
+            actions,
+            users_dir=users_dir,
+            workbench_url=args.workbench_url,
+            dry_run=args.dry_run,
+        )
+    if args.action == "status":
+        users_dir = userspace.users_dir()
+        users = sorted({str(c.get("user")) for r in requests for c in r.consumers if c.get("user")})
+        extra["receipts"] = {user: dr.load_receipts(users_dir, user) for user in users}
+    artifact = dr.wrap_artifact(requests, completions, runs_root=runs_root, since=args.since, db_path=db_path)
+    artifact.update(extra)
+    if args.out:
+        out_path = Path(args.out).expanduser()
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
+        out_path.with_suffix(".md").write_text(dr.render_markdown(artifact), encoding="utf-8")
+        print(out_path)
+        print(out_path.with_suffix(".md"))
+    else:
+        print(json.dumps(artifact, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+
 def add_kb_queue_status_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "kb-queue-status",
@@ -3951,6 +4032,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_theme_parser(subparsers)
     add_kb_queue_status_parser(subparsers)
     add_kb_queue_receive_parser(subparsers)
+    add_data_requests_parser(subparsers)
     add_l3_ingest_parser(subparsers)
     add_serve_parser(subparsers)
     add_feishu_bot_parser(subparsers)

@@ -20,12 +20,33 @@ HUNGER_FILENAME = "tool_hunger.jsonl"
 EVENT_UNKNOWN_TOOL = "unknown_tool"
 EVENT_FINANCE_QUERY_REJECTED = "finance_query_rejected"
 EVENT_CAPABILITY_DENIED = "capability_denied"
+# 数据饥饿：查询合法、表也对，但请求的时间窗（部分）落在库的覆盖区间之外。
+# 这是「回答里的数据缺口」唯一的机器可读痕迹，供 services/data_requests 聚合成补数请求。
+EVENT_WINDOW_UNCOVERED = "window_uncovered"
 _EVENT_TYPES = frozenset(
     {
         EVENT_UNKNOWN_TOOL,
         EVENT_FINANCE_QUERY_REJECTED,
         EVENT_CAPABILITY_DENIED,
+        EVENT_WINDOW_UNCOVERED,
     }
+)
+_OPTIONAL_EVENT_KEYS = (
+    "arg_keys",
+    "dataset",
+    "metrics",
+    "dimensions",
+    "filters",
+    "failure_code",
+    "capability",
+    "reason",
+    # window_uncovered 专用：请求窗、实际覆盖、行数、未覆盖侧、物理表。
+    "table",
+    "requested_start",
+    "requested_end",
+    "covered_range",
+    "row_count",
+    "uncovered",
 )
 
 _SINK: ContextVar[HungerSink | None] = ContextVar("tool_hunger_sink", default=None)
@@ -116,16 +137,7 @@ def record_hunger(**fields: Any) -> None:
             "lane": str(fields.get("lane") or ""),
             "requested_name": str(fields.get("requested_name") or ""),
         }
-        for key in (
-            "arg_keys",
-            "dataset",
-            "metrics",
-            "dimensions",
-            "filters",
-            "failure_code",
-            "capability",
-            "reason",
-        ):
+        for key in _OPTIONAL_EVENT_KEYS:
             if key in fields and fields[key] not in (None, ""):
                 event[key] = fields[key]
         sink = _SINK.get()
@@ -199,6 +211,96 @@ def record_finance_query_rejected(
     )
 
 
+def uncovered_side(
+    requested: tuple[str | None, str | None] | None,
+    covered_range: str | None,
+    *,
+    row_count: int,
+) -> str | None:
+    """请求窗相对实际覆盖的未覆盖侧：all / front / back / both；完全覆盖或无窗口返回 None。
+
+    与 ``finance_query._uncovered_window_notice`` 同一判据，但只算方向、不组句——
+    那边的产出是给模型看的散文，这边的产出是给聚合器看的枚举。
+    """
+
+    if requested is None:
+        return None
+    req_start, req_end = requested
+    if not req_start and not req_end:
+        return None
+    if row_count <= 0 or not covered_range:
+        return "all"
+    if ".." in covered_range:
+        cov_start, cov_end = covered_range.split("..", 1)
+    else:
+        cov_start = cov_end = covered_range
+    front = bool(req_start and cov_start > req_start)
+    back = bool(req_end and cov_end < req_end)
+    if front and back:
+        return "both"
+    if front:
+        return "front"
+    if back:
+        return "back"
+    return None
+
+
+def record_window_uncovered(
+    spec: Any,
+    *,
+    covered_range: str | None,
+    row_count: int,
+    lane: str = "episode",
+) -> None:
+    """查询合法但请求窗未被库覆盖时记一条数据饥饿。完全覆盖时不记；任何异常吞掉。"""
+
+    try:
+        time_range = getattr(spec, "time_range", None)
+        if time_range is None:
+            return
+        start = getattr(time_range, "start", None)
+        end = getattr(time_range, "end", None)
+        requested = (
+            start.isoformat() if start is not None else None,
+            end.isoformat() if end is not None else None,
+        )
+        side = uncovered_side(requested, covered_range, row_count=row_count)
+        if side is None:
+            return
+        dataset = str(getattr(spec, "dataset", "") or "")
+        table = ""
+        try:
+            from intelligence.services import finance_query
+
+            definition = finance_query._DATASETS.get(dataset)  # noqa: SLF001 - 只读注册表
+            table = str(getattr(definition, "table", "") or "")
+        except Exception:
+            table = ""
+        filters = []
+        for item in getattr(spec, "filters", ()) or ():
+            field = str(getattr(item, "field", "") or "")
+            op = str(getattr(item, "op", "") or "")
+            if field:
+                filters.append({"field": field, "op": op})
+        record_hunger(
+            event_type=EVENT_WINDOW_UNCOVERED,
+            requested_name=dataset,
+            dataset=dataset,
+            table=table,
+            metrics=list(getattr(spec, "metrics", ()) or ()),
+            dimensions=list(getattr(spec, "dimensions", ()) or ()),
+            filters=filters,
+            requested_start=requested[0],
+            requested_end=requested[1],
+            covered_range=covered_range,
+            row_count=int(row_count),
+            uncovered=side,
+            lane=lane,
+        )
+    except Exception:
+        return
+
+
 def classify_unauthorized(registry: Any, name: str) -> tuple[str, str | None, str]:
     """Return (event_type, capability, reason) without changing wire errors."""
 
@@ -222,6 +324,7 @@ __all__ = [
     "EVENT_CAPABILITY_DENIED",
     "EVENT_FINANCE_QUERY_REJECTED",
     "EVENT_UNKNOWN_TOOL",
+    "EVENT_WINDOW_UNCOVERED",
     "HUNGER_FILENAME",
     "HungerSink",
     "JsonlHungerSink",
@@ -233,4 +336,6 @@ __all__ = [
     "record_finance_query_rejected",
     "record_hunger",
     "record_unknown_tool",
+    "record_window_uncovered",
+    "uncovered_side",
 ]

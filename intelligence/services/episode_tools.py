@@ -1441,14 +1441,25 @@ def build_episode_registry(
             # 数据行在 ``evidence[]`` 里逐条另有副本（实测被砍片段 92% 有副本），
             # 这三条没有——所以先给限定语，砍到的只会是有副本的那部分。
             notices: list[str] = []
+            covered_range = finance_query.covered_date_range(
+                tuple(item.source_date for item in result.evidence)
+            )
             notice = finance_query.truncation_notice(
                 result.audit,
-                covered_range=finance_query.covered_date_range(
-                    tuple(item.source_date for item in result.evidence)
-                ),
+                covered_range=covered_range,
             )
             if notice:
                 notices.append(notice)
+            # 数据饥饿遥测：请求窗（部分）落在库覆盖之外时留一条机器可读痕迹。
+            # 此前这件事只活在上面那句 gaps 散文里，补数无从起、补完无处回。
+            # 观测型：不改 observation 一个字节，写失败也不进工具路径。
+            from intelligence.services.tool_hunger import record_window_uncovered
+
+            record_window_uncovered(
+                bounded_value,
+                covered_range=covered_range,
+                row_count=len(result.evidence),
+            )
             # 代偿必须让模型看见：查询成功但写法被改过，不说它下一轮还会照原样写。
             if normalization_notes:
                 notices.extend(normalization_notes)

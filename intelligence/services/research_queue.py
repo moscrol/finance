@@ -235,6 +235,14 @@ def write_research_queue_outputs(
         kb_file.parent.mkdir(parents=True, exist_ok=True)
         kb_file.write_text(json.dumps(kb_queue, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         written["kb_ingest"] = kb_file
+    # 问题驱动补数请求（services/data_requests 聚合自各 run 的 window_uncovered 事件）：
+    # 与 kb-ingest-queue 同一写入者、同一目录，供 07/09 消费「补数完成」信号，不另立台账。
+    data_requests = payload.get("data_requests")
+    if isinstance(data_requests, dict):
+        dr_name = f"{date}-data-requests.json" if date else "data-requests.json"
+        dr_file = json_file.with_name(dr_name)
+        dr_file.write_text(json.dumps(data_requests, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
+        written["data_requests"] = dr_file
     return written
 
 
