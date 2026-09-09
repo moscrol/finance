@@ -237,6 +237,39 @@ def test_wait_out_cooldown_gives_up_past_max_wait(
     assert history[-1]["gave_up"] is True and len(history) == 1
 
 
+def test_wait_out_cooldown_falls_through_to_backup_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """sol 独死 terra 活（2026-09-09 18:57 实测）：任一链上模型可用批就该放行。"""
+
+    def _by_model(model: str | None = None) -> dict:
+        if model == "gpt-5.6-sol":
+            return {"status": "http_502", "reset_seconds": None, "served_model": None}
+        return {"status": "ok", "reset_seconds": None, "served_model": model}
+
+    monkeypatch.setattr(cb, "gateway_probe_from_env", _by_model)
+    history = cb.wait_out_cooldown(
+        model="gpt-5.6-sol,gpt-5.6-terra", max_wait_s=600, sleep=lambda _s: None
+    )
+    assert [h["status"] for h in history] == ["http_502", "ok"]
+    assert history[-1]["probe_model"] == "gpt-5.6-terra"
+    # 全失败且无 reset 信息：立即返回交上层，不盲睡
+    monkeypatch.setattr(
+        cb,
+        "gateway_probe_from_env",
+        lambda model=None: {
+            "status": "http_502",
+            "reset_seconds": None,
+            "served_model": None,
+        },
+    )
+    naps: list[float] = []
+    history = cb.wait_out_cooldown(
+        model="gpt-5.6-sol,gpt-5.6-terra", max_wait_s=600, sleep=naps.append
+    )
+    assert naps == [] and len(history) == 2
+
+
 def test_gateway_probe_from_env_refuses_to_guess(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

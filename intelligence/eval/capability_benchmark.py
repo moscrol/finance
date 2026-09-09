@@ -848,23 +848,40 @@ def gateway_probe_from_env(model: str | None = None) -> dict[str, Any] | None:
 def wait_out_cooldown(
     *, model: str | None, max_wait_s: float, sleep: Any = time.sleep
 ) -> list[dict[str, Any]]:
-    """探到 cooldown 就按 reset_seconds 睡，直到 ok 或超过 max_wait_s；每次探测都留痕。"""
+    """探到 cooldown 就按 reset_seconds 睡，直到 ok 或超过 max_wait_s；每次探测都留痕。
 
+    model 支持逗号分隔的多个模型（如 "gpt-5.6-sol,gpt-5.6-terra"），语义与运行时
+    provider 链一致：**任一模型能出字批就能跑**（sol 失败 runtime 会自动兜底 terra，
+    2026-09-09 18:32 实测）。只探主模型会在「sol 独死 terra 活」时假阻塞。
+    """
+
+    models: list[str | None] = [
+        m.strip() for m in str(model or "").split(",") if m.strip()
+    ] or [None]
     history: list[dict[str, Any]] = []
     waited = 0.0
     while True:
-        probe = gateway_probe_from_env(model)
-        if probe is None:
-            history.append({"status": "skipped_no_env"})
+        probes: list[dict[str, Any]] = []
+        for candidate in models:
+            probe = gateway_probe_from_env(candidate)
+            if probe is None:
+                history.append({"status": "skipped_no_env"})
+                return history
+            probe["probe_model"] = candidate
+            probes.append(probe)
+            history.append(probe)
+            if probe["status"] == "ok":
+                return history
+        cooldowns = [p for p in probes if p["status"] == "cooldown"]
+        if not cooldowns:
+            # 全失败且没有任何 reset 信息（如上游 502）：立即交回上层（批中止 rc=4，
+            # 外层编排按固定间隔重探），不在这里盲睡。
             return history
-        history.append(probe)
-        if probe["status"] != "cooldown":
-            return history
-        nap = float(probe["reset_seconds"] or 600) + 30.0
+        nap = min(float(p["reset_seconds"] or 600) for p in cooldowns) + 30.0
         if waited + nap > max_wait_s:
-            probe["gave_up"] = True
+            cooldowns[-1]["gave_up"] = True
             return history
-        probe["slept_s"] = nap
+        cooldowns[-1]["slept_s"] = nap
         sleep(nap)
         waited += nap
 
