@@ -97,3 +97,46 @@ UI 连续会话为 `conv_f03500280f0e42669acb94002c4de76d`。旧版在 `run_2026
 给接手 agent 的启动 prompt：
 
 > 在 `/Users/a77/fwp-wt-historical-discovery` 接续 `codex/feat-historical-discovery`。先读 AGENTS、session_facts、本交接、批准的历史发现spec与执行计划。成果到5c980d已保存，但真实端到端尚未验收通过。先用现成M3/M6 durable记录修应用回退孤儿tool消息，再修合法case引用误判integrity；不得放宽证据资格。复跑相关测试、以低并发重跑同六道冻结题和原UI会话，独立复算/评分后再判S1/S2是否完成。生产8792、主库和其他agent工作树保持原状；L2/晚间卖方/晨汇只占位；不直接合main。不要把completed后台状态、保存v2或1101P当成回答质量已通过。
+
+---
+
+## 2026-09-09 下午 · 接手进展（代码 `b24c43f3` → `f818e6cd`）
+
+接手 agent 按上文「现在先修这两处」执行，另外发现并修了分支原有的门禁失败。生产 8792、主库、其他 agent 工作树未动；未合 main。
+
+### 已修（四笔提交，均 pathspec）
+
+| 提交 | 内容 | 红/绿 |
+|---|---|---|
+| `a963002f` fix(history) | **B**：`assess_history_finish` 引用分两类——evidence（四种 history_query 算子）与 product（本轮成功 save、或经 scope 校验 read 的 case）；`result_refs ⊆` 并集，未知引用照旧 integrity；`history_missing_result` / `history_missing_comparison` 只看 evidence。`read_history_result` 读 case 落 `read_history_case` 元数据（此前提前 return）。`unsupported_definition` 报错前 160 字给出 `amount_ratio@history-features-v1` 形状，draft/patch schema 同步说明；白名单不放宽。 | `tests/test_history_product_refs.py` 在 5c980d 上 8 红 3 绿，修后 12 绿 |
+| `7751ab81` fix(runtime) | **A**：新 durable kind `application_tool_call`（payload source/call_id/name/arguments）→ 派生 `assistant(content="", tool_calls=[…])`；`episode_messages.record_application_tool_call` 先落事件再进 messages，在 `tool_request` 之前调（声明 → 意图 → 效果），两条 loop 同一处调。不伪造 model_turn。恢复：声明落了意图没落 → `restore` 合成 tool_error{interrupted}；`fallback_already_attempted` 把声明算作已尝试。检查器 `undeclared_tool_call_ids`。事件车道、评测 L1 步表、`docs/runtime/events.md`、终态稿 §6.1(d)、空池 spec 同步。**这是 main 原有 runtime 缺陷**，本提交可独立 cherry-pick。 | `test_empty_pool_fallback` 两条 wire 断言在旧 runtime 上红（`['empty-pool-fallback-1']`）；M3/M6 真实 durable 原件复放：旧流可派生，检查器分别在 index 16 / 29 点出孤儿，插入声明后为空 |
+| `b24c43f3` chore(history) | 历史三工具补 `episode_progress._TOOL_LABELS`；`docs/runtime/tools.md`、`harness-seams.md` 再生成（分支新增工具/协议后未生成，`test_runtime_catalog` 与 `test_tool_labels_cover_exactly_the_registered_tools` 原本红，不在 1101P 收据的 target 里） | — |
+| `f818e6cd` fix(registry) | 全仓 CI 在 b24c43f3 上 7 红全在此：`_DEFAULT_TOOL_METADATA` 把历史三工具声明为共享 `finance_query`（批准 spec），但 `default_registry` 装配一律 `capability=name`，切换板缺三行，两条测试与一个审计脚本把工具名当 capability 传。修：装配读元数据声明（既有工具 name==capability 行为不变；探针确认无 history_intent 时不外泄历史工具）、T-7 登记 `SHARED_CAPABILITY_TOOLS`、切换板补三行、`switch_box_default_v1.json` / `tools.md` 再生成、三处改传 `DEFAULT_RESEARCH_CAPABILITIES`。 | 相关 229 项绿 |
+
+全仓等价 CI：`b24c43f3` ruff 通过、pytest 8612P / 7F（全是上表第四行）；`f818e6cd` ruff 通过、pytest 8616P / 3F（`test_rag_worker::…first_timeout…`、`test_workbench_conversation_integration` 两条），三条均为时序敏感用例，机器负载 39–43（15 个用户、十余个 uvicorn）时抖动，单跑可过，只回退注册表改动对照也过——**不是回归，但也不能写成全绿**；负载低时再跑一遍取干净收据。收据：`test-receipts/20260909T054237Z-b24c43f3.json`、`20260909T071225Z-f818e6cd.json`（均 dirty=false）。前端 `pnpm lint/typecheck/test/build` 本轮未跑（分支未触 webapp）。
+
+### 真实复验（8809，冻结库，代码 `b24c43f3`，并发 1）
+
+**先修了两处环境问题才拿到可评分的回答**（详见 `.claude/lessons_learned.md` 2026-09-09 段）：
+1. 启动脚本 `LLM_JUDGE_GROK_BIN=…/grok-1.0.5-…` 已不存在（grok CLI 11:18 自动升 1.0.24 删旧版），判官 `FileNotFoundError`，run 照常 completed 但公开回答全部降级成「复核服务不可用」（第一批 M1/M2 就是这样，不可评分）。改指 `~/.grok/bin/grok`。
+2. 1.0.24 的 `--sandbox read-only` 在本机套不上（`/var/run/docker.sock` 是符号链接），判官 `GrokCliExit`。加 `LLM_JUDGE_GROK_SANDBOX=off`（判官本身已 `--disallowed-tools`、`--max-turns 1`）。直接调 `complete_grok_cli` 一条 2+2，9.4 秒回合法 JSON 后才发题。
+**生产 8792 进程环境里仍是失效的 1.0.5 路径**（`ps eww` 实测）；生产最近一次 run 是 00:38（升级前，判官 passed），下一次生产 run 的判官会失败。需要用户改 `~/.local/bin/start-finance-workbench` 并重启 8792——本轮未动生产。
+
+| 场景 | 复跑 run | 运行结果 | 独立评分（C1–C5，各 20） | 与上一轮对比 |
+|---|---|---|---|---|
+| M1 农业 | `run_20260909_140558_100256` | model_finish；finish partial（模型自报 5 条缺口）；判官 repaired；发布 completed；2 份原件复算 0 错 | **90** PASS（C1=10：按名称命中「农业综合」作代理，未披露种植业 27.58% 更高；其余 20） | 上一轮未独评 |
+| M2 人形机器人 | `run_20260909_141143_465966` | model_finish；finish completed 一次通过；判官 repaired；5 query + 4 read + 1 save；5 份原件 240 项复算 0 错 | **100** PASS | 上一轮 `history_unknown_result` / invalid_model_finish → **B 修复生效** |
+| M3 两股票/反例 | `run_20260909_141613_811730` | model_finish；finish completed；判官 repaired；无 model_error；6 份原件 1466 项复算 0 错 | **80** PASS（恰在阈值；C3/C5=10：验证器删了一句反例口径成孤句、公开稿缺 evidence_boundary） | 上一轮 400 → 恢复 partial；本轮模型首批非空，空池回退未触发 |
+| M4 储能 | `run_20260909_142229_257953` | model_finish；finish completed；判官 passed；7 份原件 209 项复算 0 错 | **80** PASS（恰在阈值；C4/C5=10：修订条件未经自己检验结果披露、成员联接缺口未交代） | 上一轮 `history_unknown_result` → **B 修复生效** |
+| M5 2025 股票比较 | `run_20260909_142644_628756` | model_finish；finish completed；判官 repaired；**触发空池回退**：`application_tool_call` seq31 → 回退 `tool_request` seq32 → `tool_result` seq33，其后四轮模型调用全部成功、0 model_error、派生消息无孤儿；4 份原件 26 项复算 0 错 | **100** PASS | 上一轮 429×3 → 本轮 **A 修复现场证据** |
+| M6 2024 覆盖边界 | `run_20260909_143059_999994` | 约第 100 个事件起 429×3（重试间隔 0.6s 无退避）→ finalization_recovery_failed，公开回答降级；冷却 2 分钟后单发 `run_20260909_144012_045830` 首次调用即 429 | 未评分 | 上一轮同为 429；网关 `model_cooldown`，两个模型所有凭据冷却，reset 4939s（约 16:05） |
+| UI 追问（conv_f035…） | `run_20260909_143515_517406` | 15 秒内 429×2 → repair_model_unavailable | 未评分 | 待冷却后重发 |
+
+评分由独立 agent 只读完成（不读参考值/rubric 之外的提示），每题写出回答原句 + 原件字段/值 + 硬伤逐条核对；原件用 `scripts/audit_historical_research_artifacts.py` 独立复算。全部材料落 `R/rerun-20260909-b24c43f3/`（`rerun-index-batch3.json`、`grades/*.md`、`audits/*.json`、两份 CI 日志与收据、网关 429 探针）。三批索引：batch1（判官 FileNotFound）、batch2（判官 sandbox）、batch3（可评分）。
+
+评分员发现的两个**审计缺口**（不是本轮修复目标）：① M3 trace 里 seq73–84 有一轮 backfill 修复，正文更完整但未被采用，且该轮事件不在 `episode.events`（止于 seq72）；② runtime 对 429 无退避。
+
+### 现在的位置与下一步
+- M6 与 UI 追问等网关冷却后（≥16:05）串行重发（`/tmp/hd_rerun.py --skill-mode hybrid M6`，隔几分钟再 `UI`），评分、复算同上；只有它们也过了才勾计划 Task 6 第一项。
+- 负载低时在最终 revision 上重跑全仓 CI 取干净收据；前端叶子未跑。
+- 合 main、切生产、改生产启动脚本三件都要用户确认。A 修复（`7751ab81`）建议单独 cherry-pick 进 main。

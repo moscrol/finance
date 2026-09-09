@@ -3,23 +3,22 @@
 ## 这个分支做什么
 事后发现特征→假设→历史同类/失败/条件全集比较；接既有Workbench，不另造loop。
 
-## 当前状态
-用户要求先交接，所有agent已停。树 `/Users/a77/fwp-wt-historical-discovery`，分支 `codex/feat-historical-discovery`；代码固定 `5c980d79`，含7d49c9d8/b28d7331。本次只续存文档，没有两项待修问题的代码半成品。测试8809/8810已停，生产8792未动。
+## 当前状态（2026-09-09 下午）
+树 `/Users/a77/fwp-wt-historical-discovery`，分支 `codex/feat-historical-discovery`，基线 `gitea/main@f90af450`（main 至今没动）。两处待修已修并提交：B `a963002f`（finish 放行合法 case 引用，资格仍只看 history_query 原件）、A `7751ab81`（空池回退先落 `application_tool_call` 声明，不再有孤儿 tool 消息；main 原有缺陷，可独立 cherry-pick）；另修分支原有门禁 `b24c43f3` / `f818e6cd`（历史三工具共享 finance_query 的注册表/切换板/标签/目录对齐）。全仓 CI：ruff 绿；pytest `f818e6cd` 8616P/3F，3F 为负载 40 时的时序抖动（单跑可过、回退对照排除因果），负载低时重跑取干净收据。
 
-## 下一步
-先读 `docs/handoffs/2026-09-09-historical-discovery-implementation.md`，里面有run/原件/重启命令和可复制启动prompt。
-1. 修应用空池回退孤儿tool响应：M3第3/4轮400；应用发起调用缺assistant.tool_calls声明。应有durable应用事件并同源派生，保一次执行/重放/原E号；尚未实施。
-2. 修history finish只认query误拒合法case：UI已存v2，但引用case触发history_unknown_result，正文变缺口模板。允许受控产物引用但case不能冒充计算/比较；补定义ID提示。
-3. 降低并发复跑同六题+原UI追问，再独立复算/评回答；M5/M6本次429，不能当能力结论。
+## 真实复验（8809 冻结库，并发 1，独立 agent 按 C1–C5 评分）
+M1 90 / M2 100 / M3 80 / M4 80 / M5 100，全部 PASS 无硬伤；M2、M4 上一轮的 `history_unknown_result` 消失（B）；M5 真触发空池回退且后续四轮模型调用全成功（A）。M6 与 UI 追问撞上网关 `model_cooldown`（两个模型全部凭据冷却，reset 约 16:05），**尚未复验**。材料在 `R/rerun-20260909-b24c43f3/`（R 见下）。
+
+## 下一步（接手先做）
+1. 网关冷却后：`python3 /tmp/hd_rerun.py --skill-mode hybrid M6`，隔 ≥3 分钟再 `UI`（/tmp 已清则按实施交接末段重建：POST /api/conversations + /messages，skill_mode=hybrid，串行轮询）。审计 `scripts/audit_historical_research_artifacts.py <run目录>`，独立评分，写进 R 与实施交接；两题都过再勾计划 Task 6 第一项。
+2. 起 8809 必须覆写 `LLM_JUDGE_GROK_BIN=/Users/a77/.grok/bin/grok`、`LLM_JUDGE_GROK_SANDBOX=off`（启动脚本里的 1.0.5 路径已失效；生产 8792 同样带着失效路径，改脚本/重启生产要用户确认）。
+3. 合 main、切生产要用户确认；前端叶子未跑（分支未触 webapp，diff 为空）。
 
 ## 决策与被否方案
-受限typed算子，未用任意SQL/新runtime；原件只经RunStore。修订用patch保留旧记录，否决模型全文重写。领域发布上限，保普通deadline豁免；恢复仍12条帽，原E号不重排。详见日期快照。
+受限typed算子，未用任意SQL/新runtime；原件只经 RunStore。A 不伪造 model_turn、不只在发送边缘补消息；B 不删完整性门、不把草稿升级为事实。历史三工具保持共享 finance_query（spec 决定），装配读元数据声明而非改成三个新 capability。
 
 ## 未验证 / 已知边界
-端到端未通过。最新M1已成答但未独评；M2/M4与UI有history_unknown_result；M3恢复partial；M5/M6限流失败。`run_status=completed`只表示运行结束。S3仅纯候选桥，未正式评价/认证/S4记忆；strict PIT/独立性不冒充已建。L2/晚间卖方/晨汇pending_sync未排期。未合main、未跑全仓等价CI。
-
-## 已验证
-代码相关1101P，Ruff/提交门禁通过；收据 `20260908T191227Z-b28d7331.json`（target列全命令，随后固定5c980d）。UI确实保存同一case v2并保留旧反证，公开答案未成功。独立审计旧22原件2215检查0错/1198跳过，不能代替新轮验收。
+M6、UI 未过；runtime 对 429 无退避（0.6s 连打三次）；M3 一轮 backfill 修复事件不在 episode.events；S3 仅纯候选桥，S4 未建；L2/晚间卖方/晨汇 pending_sync。
 
 ## 踩过的坑
-解释器用主树 `.venv-workbench/bin/python`。外部收据根 `/Users/a77/.finance-runtime/historical-discovery-20260909`；先看 `handoff-run-index.json` 和 `verified-ui-revision-preservation.json`。`verified-*`文件名不代表通过。冻结库只读勿重造，勿动主树他人改动；case/raw模型/DB不进Git。生产切换/合main需用户确认。
+解释器用主树 `.venv-workbench/bin/python`。R=`/Users/a77/.finance-runtime/historical-discovery-20260909`。`run_status=completed` 不等于可评分：看 `semantic_verifier.exc_class` 与 `answer.md` 长度（160 字即降级）。发题留间隔，429 是限流不是能力结论。收据认 revision 时间戳文件。
