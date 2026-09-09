@@ -168,6 +168,7 @@
 > 清箱挂在 `_EpisodeLedger.add("finish")` 这个唯一出口（取消 → `cancelled`，其余 → `episode_finished`），`keep_inbox` 落为 `Inbox.keep_on_cancel`。
 > 认领点：每次模型请求前 `claim(next_step)`（主 loop 与修复轮）；模型停下且未收口时 `claim(next_turn)` + 此刻已到的 `next_step`，再给一轮。
 > 外部入口 `ContinuousAgentEpisode.steer` / `GLMAgentRuntime.steer`（回执 `InboxReceipt`，不抛）。第 4 条端点按 §12 第 4 题推荐未做。
+> **CLI（第 4 条括注「底座与 CLI 先做」里的 CLI）2026-09-09 落地**（分支 `feat/runtime-base-p3-steer-cli`，PR #687）：`Inbox.send` 是进程内调用、runtime 按次构造，另一个进程没有门，所以 CLI 不做端点客户端而走 durable 目录——递话方原子写 `<episode_dir>/inbox-spool/<ns>-<spool_id>.json`，`Inbox` 在既有认领点（`pending` / `claim` / `discard_all`）先吞槽再走原逻辑，三事实仍只由 loop 落账（INV-R5 不变，`inbox_inserted` 多带 `spool_id` 对回执）。`python3 -m intelligence.cli steer <episode_id> "<文本>" [--target] [--wait N] [--list]`；两个 fail closed：store 根与 Workbench 不同（events.jsonl 不在）拒投、state.json 终局拒投。细节在工单 #30 落地记录二。端点仍等 Alpha。
 > 两处与原文的差别：`wakeup` 只记账（同步 loop 没有可唤醒的空闲态，等 P4 `step()`）；收口阶段不认领 `next_turn`（episode 正按预算关门）。
 > 验收落点：`conformance/test_inv_r5_inbox.py`（两序竞态、取消丢弃、收口丢弃、接缝有牙、子研究经箱、非适用臂不在场）+ `test_episode_inbox.py`（单元）。
 
@@ -240,6 +241,8 @@ P0 / P1 零 live 判据，随下次切流带上；P1 的错误码拆分合入前
 ## 12. 待拍板
 
 未拍板前按推荐执行。
+
+> **2026-09-09 拍定记录**：两日质检（09-07 13:00 → 09-09 13:00）第 7 条指出「§12 五题至今未拍板，P0–P3 全按推荐执行并合入，需要用户拍一次，否则这条线永远是按推荐」。用户回复原话：「合并，然后你按照最优路径继续推进」。据此五题按各自的推荐项拍定——1 JSONL；2 要一次 live 探针（P1 已做，读数在工单 #28 头部）；3 只登记；4 底座 + CLI 先做、端点等 Alpha（CLI 同日以投递槽落地，见 §6.4 落地回写）；5 母单 + 五子单。**拍定依据是这句委托而非逐题回答**，用户当时拿到的信息是那份质检报告（A–D 四组 12 条）；日后要翻某一题，从这里起，不必再问「当初为什么按推荐」。
 
 1. **P2 存储后端**：推荐 JSONL（`~/.finance-runtime/episodes/`，零依赖，与 deploy-ledger 同族）。备选 SQLite（pi 生产用；本仓要多一套运维面）。
 2. **`tool_not_dispatched` 拆码是否需要 live 探针**：推荐要，一次（它改了模型可见 error 码）。备选：只跑脚本化夹具。
