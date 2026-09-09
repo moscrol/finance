@@ -869,6 +869,59 @@ def wait_out_cooldown(
         waited += nap
 
 
+_MODEL_UNAVAILABLE_STOPS = frozenset(
+    {"repair_model_unavailable", "finalization_recovery_failed"}
+)
+
+
+def _mid_episode_unavailable(result: CaseResult) -> str | None:
+    """开跑前探测 ok、episode 半途模型不可用的形状（配额在题中耗尽）。
+
+    2026-09-09 实测：冷却期跑出的题全是 stop_reason=repair_model_unavailable /
+    finalization_recovery_failed 的 33–350 字降级稿——这类读数量的是配额不是能力。
+    """
+
+    for turn in result.turns:
+        if turn.stop_reason in _MODEL_UNAVAILABLE_STOPS:
+            return f"stop_reason={turn.stop_reason}"
+        for degrade in turn.degrades:
+            if "model_unavailable" in str(degrade):
+                return f"degrade={degrade}"
+    return None
+
+
+def _load_resume_cases(
+    resume_from: Path | None, *, arm_label: str, base: str, user: str
+) -> dict[str, dict[str, Any]]:
+    """续跑装载：干净完成的题原样搬（标 resumed_from_artifact），其余（skipped_cooldown /
+    quota_tainted / engine_missing / error）留给本轮重跑。臂标签、入口、用户必须一致，防混臂。"""
+
+    if resume_from is None:
+        return {}
+    prior = json.loads(resume_from.read_text(encoding="utf-8"))
+    expected = {
+        "benchmark": BENCHMARK_ID,
+        "arm_label": arm_label,
+        "base": base,
+        "user": user,
+    }
+    for key, want in expected.items():
+        got = prior.get(key)
+        if got != want:
+            raise CapabilityBenchmarkError(
+                f"resume mismatch on {key}: artifact={got!r} run={want!r}"
+            )
+    carried: dict[str, dict[str, Any]] = {}
+    for case in prior.get("cases") or []:
+        if case.get("execution_status") == "completed" and not case.get(
+            "quota_tainted"
+        ):
+            record = dict(case)
+            record["resumed_from_artifact"] = str(resume_from)
+            carried[str(case["case_id"])] = record
+    return carried
+
+
 def market_data_date(finance_root: Path | None) -> str | None:
     if finance_root is None:
         return None
@@ -906,9 +959,16 @@ def run_benchmark(
     force: bool = False,
     gateway_probe_model: str | None = None,
     max_cooldown_wait_s: float = 7200.0,
+    resume_from: Path | None = None,
 ) -> dict[str, Any]:
     if output.exists():
         raise CapabilityBenchmarkError(f"refusing to overwrite {output}")
+    if resume_from is not None and seed_tgz is not None:
+        raise CapabilityBenchmarkError(
+            "--resume 不与 --seed-tgz 同用：种子重置只属于首跑，"
+            "续跑重置会清掉前段已跑题写下的台账与 run 目录"
+        )
+    carried = _load_resume_cases(resume_from, arm_label=arm_label, base=base, user=user)
     pre = preflight(base, users_dir=users_dir)
     if not pre["ok"] and not force:
         raise CapabilityBenchmarkError(f"preflight failed: {pre['problems']}")
@@ -931,29 +991,66 @@ def run_benchmark(
         "summary": {},
     }
     artifact["gateway_probe_model"] = gateway_probe_model
+    if resume_from is not None:
+        artifact["resumed_from"] = str(resume_from)
     output.parent.mkdir(parents=True, exist_ok=True)
-    for case in selected:
+    for position, case in enumerate(selected):
+        prior = carried.get(str(case["id"]))
+        if prior is not None:
+            artifact["cases"].append(prior)
+            artifact["summary"] = summarize_artifact(artifact["cases"])
+            output.write_text(
+                json.dumps(artifact, ensure_ascii=False, indent=1), encoding="utf-8"
+            )
+            continue
         probe_history: list[dict[str, Any]] = []
         if gateway_probe_model:
             probe_history = wait_out_cooldown(
                 model=gateway_probe_model, max_wait_s=max_cooldown_wait_s
             )
+        if probe_history and probe_history[-1].get("status") not in {
+            "ok",
+            "skipped_no_env",
+        }:
+            # 网关没恢复就不跑：跑出来的读数量的是配额不是能力，降级稿还会写进
+            # 评测用户的会话台账。本题与后面未跑的题记 skipped_cooldown 后整批中止，
+            # 交给外层等网关恢复再 --resume 续跑（2026-09-09 实测教训：give_up 后照跑，
+            # 25/30 题成了配额读数）。
+            artifact["aborted_on_cooldown"] = probe_history[-1]
+            for rest in selected[position:]:
+                rest_prior = carried.get(str(rest["id"]))
+                if rest_prior is not None:
+                    artifact["cases"].append(rest_prior)
+                    continue
+                artifact["cases"].append(
+                    {
+                        "case_id": str(rest["id"]),
+                        "category": str(rest["category"]),
+                        "execution_status": "skipped_cooldown",
+                        "gateway_probe": probe_history,
+                    }
+                )
+            break
         result = run_case(
             base, user, case, users_dir=users_dir, poll_seconds=poll_seconds
         )
         record = asdict(result)
         record["gateway_probe"] = probe_history
-        if probe_history and probe_history[-1].get("status") not in {
-            "ok",
-            "skipped_no_env",
-        }:
-            # 网关没恢复就跑出来的读数量的是配额不是能力：保留原状态，另打一个标。
+        taint = _mid_episode_unavailable(result)
+        if taint:
+            # 开跑探测 ok、题中配额耗尽：打标不计能力分；下一题的开跑探测会把批停住，
+            # 续跑时本题重跑（_load_resume_cases 不搬 tainted 题）。
             record["quota_tainted"] = True
+            record["taint_reason"] = taint
         artifact["cases"].append(record)
         artifact["summary"] = summarize_artifact(artifact["cases"])
         output.write_text(
             json.dumps(artifact, ensure_ascii=False, indent=1), encoding="utf-8"
         )
+    artifact["summary"] = summarize_artifact(artifact["cases"])
+    output.write_text(
+        json.dumps(artifact, ensure_ascii=False, indent=1), encoding="utf-8"
+    )
     return artifact
 
 
@@ -965,9 +1062,12 @@ def summarize_artifact(cases: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     elapsed: list[float] = []
     tokens_in = tokens_out = 0
     invalid = 0
+    tainted = 0
     for case in cases:
         status = str(case.get("execution_status"))
         statuses[status] = statuses.get(status, 0) + 1
+        if case.get("quota_tainted"):
+            tainted += 1
         if isinstance(case.get("total_elapsed_s"), (int, float)):
             elapsed.append(float(case["total_elapsed_s"]))
         tokens_in += int(case.get("total_input_tokens") or 0)
@@ -992,6 +1092,7 @@ def summarize_artifact(cases: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         "total_input_tokens": tokens_in,
         "total_output_tokens": tokens_out,
         "invalid_actions": invalid,
+        "quota_tainted": tainted,
     }
 
 
@@ -1028,6 +1129,15 @@ def build_review_pack(
     by_case: dict[str, dict[str, Mapping[str, Any]]] = {}
     for artifact in artifacts:
         for case in artifact.get("cases") or []:
+            if case.get("quota_tainted") or case.get("execution_status") == (
+                "skipped_cooldown"
+            ):
+                # 评审包只收能力读数：被冷却跳过/污染的题必须先 --resume 跑干净
+                raise CapabilityBenchmarkError(
+                    f"artifact {artifact.get('arm_label')} case {case.get('case_id')} "
+                    f"不是能力读数（{case.get('taint_reason') or 'skipped_cooldown'}），"
+                    "先续跑补齐再建评审包"
+                )
             by_case.setdefault(str(case["case_id"]), {})[str(artifact["arm_label"])] = (
                 case
             )
@@ -1412,9 +1522,23 @@ def cmd_run(args: argparse.Namespace) -> int:
         force=args.force,
         gateway_probe_model=args.gateway_probe_model,
         max_cooldown_wait_s=args.max_cooldown_wait_s,
+        resume_from=Path(args.resume).expanduser() if args.resume else None,
     )
     print(json.dumps(artifact["summary"], ensure_ascii=False, indent=1))
-    statuses = artifact["summary"].get("execution_status") or {}
+    return _run_rc(artifact)
+
+
+def _run_rc(artifact: Mapping[str, Any]) -> int:
+    """0=全部干净完成；4=被冷却中止或有污染读数（等网关后 --resume）；2=有真实失败读数。"""
+
+    summary = artifact.get("summary") or {}
+    statuses = summary.get("execution_status") or {}
+    if (
+        artifact.get("aborted_on_cooldown") is not None
+        or statuses.get("skipped_cooldown")
+        or summary.get("quota_tainted")
+    ):
+        return 4
     return 0 if set(statuses) <= {"completed"} else 2
 
 
@@ -1508,6 +1632,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="每题开跑前向网关要 1 个字；429 model_cooldown 按 reset_seconds 睡过去再跑",
     )
     p.add_argument("--max-cooldown-wait-s", type=float, default=7200.0)
+    p.add_argument(
+        "--resume",
+        help="上次被冷却中止的 artifact：干净完成的题原样搬，其余重跑；不与 --seed-tgz 同用",
+    )
     p.set_defaults(func=cmd_run)
 
     p = sub.add_parser("review-pack", help="生成匿名配对评审包")

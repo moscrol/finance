@@ -251,6 +251,191 @@ def test_gateway_probe_from_env_refuses_to_guess(
     assert cb.gateway_probe_from_env("m") is None
 
 
+def _fake_preflight(base: str, *, users_dir: Path) -> dict:
+    return {"ok": True, "problems": []}
+
+
+def _mini_cases(n: int = 3) -> list[dict]:
+    return [
+        {
+            "id": f"cb00-feel-{i:02d}",
+            "category": "feel",
+            "tier": "deep",
+            "as_of": "2026-09-07",
+            "question": f"q{i}",
+        }
+        for i in range(1, n + 1)
+    ]
+
+
+def test_run_benchmark_aborts_instead_of_running_through_cooldown(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """2026-09-09 实测教训：wait_out_cooldown gave_up 后照跑，25/30 题成了配额读数。"""
+
+    monkeypatch.setattr(cb, "preflight", _fake_preflight)
+    monkeypatch.setattr(
+        cb,
+        "gateway_probe_from_env",
+        lambda model=None: {
+            "status": "cooldown",
+            "reset_seconds": 99999,
+            "served_model": None,
+        },
+    )
+
+    def _no_run(*args: object, **kwargs: object) -> None:
+        raise AssertionError("case must not run while the gateway is cooling")
+
+    monkeypatch.setattr(cb, "run_case", _no_run)
+    out = tmp_path / "a.json"
+    artifact = cb.run_benchmark(
+        base="http://127.0.0.1:8813",
+        user="cb00-baseline",
+        users_dir=tmp_path / "capability-benchmark-00" / "users",
+        cases=_mini_cases(),
+        output=out,
+        arm_label="baseline-test",
+        gateway_probe_model="m",
+        max_cooldown_wait_s=60.0,
+    )
+    assert artifact["summary"]["execution_status"] == {"skipped_cooldown": 3}
+    assert artifact["aborted_on_cooldown"]["status"] == "cooldown"
+    assert cb._run_rc(artifact) == 4
+    on_disk = json.loads(out.read_text(encoding="utf-8"))
+    assert on_disk["cases"][0]["execution_status"] == "skipped_cooldown"
+
+
+def test_run_benchmark_tags_mid_episode_model_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cb, "preflight", _fake_preflight)
+    monkeypatch.setattr(
+        cb,
+        "gateway_probe_from_env",
+        lambda model=None: {"status": "ok", "reset_seconds": None, "served_model": "m"},
+    )
+
+    def _degraded(
+        base: str, user: str, case: dict, *, users_dir: Path, poll_seconds: float
+    ) -> cb.CaseResult:
+        result = cb.CaseResult(
+            case_id=str(case["id"]), category="feel", tier="deep", as_of="2026-09-07"
+        )
+        turn = cb.TurnRecord(0, str(case["question"]), status="completed", engine="A")
+        turn.stop_reason = "repair_model_unavailable"
+        result.turns.append(turn)
+        result.execution_status = "completed"
+        return result
+
+    monkeypatch.setattr(cb, "run_case", _degraded)
+    artifact = cb.run_benchmark(
+        base="http://127.0.0.1:8813",
+        user="cb00-baseline",
+        users_dir=tmp_path / "capability-benchmark-00" / "users",
+        cases=_mini_cases(1),
+        output=tmp_path / "a.json",
+        arm_label="baseline-test",
+        gateway_probe_model="m",
+    )
+    case = artifact["cases"][0]
+    assert case["quota_tainted"] is True
+    assert case["taint_reason"] == "stop_reason=repair_model_unavailable"
+    assert artifact["summary"]["quota_tainted"] == 1
+    assert cb._run_rc(artifact) == 4
+    # 污染读数不得进评审包
+    with pytest.raises(cb.CapabilityBenchmarkError):
+        cb.build_review_pack(
+            [artifact, dict(artifact, arm_label="candidate")],
+            visible_cases=cb.load_visible_set()["cases"],
+            hidden_cases=None,
+            output_dir=tmp_path / "review",
+            seed="s",
+        )
+
+
+def test_run_benchmark_resume_carries_clean_and_reruns_the_rest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cb, "preflight", _fake_preflight)
+    cases = _mini_cases(3)
+    prior = {
+        "benchmark": cb.BENCHMARK_ID,
+        "arm_label": "baseline-test",
+        "base": "http://127.0.0.1:8813",
+        "user": "cb00-baseline",
+        "cases": [
+            {
+                "case_id": cases[0]["id"],
+                "category": "feel",
+                "execution_status": "completed",
+                "final_answer": "clean",
+            },
+            {
+                "case_id": cases[1]["id"],
+                "category": "feel",
+                "execution_status": "completed",
+                "quota_tainted": True,
+            },
+            {
+                "case_id": cases[2]["id"],
+                "category": "feel",
+                "execution_status": "skipped_cooldown",
+            },
+        ],
+    }
+    resume = tmp_path / "prior.json"
+    resume.write_text(json.dumps(prior), encoding="utf-8")
+    ran: list[str] = []
+
+    def _run(
+        base: str, user: str, case: dict, *, users_dir: Path, poll_seconds: float
+    ) -> cb.CaseResult:
+        ran.append(str(case["id"]))
+        result = cb.CaseResult(
+            case_id=str(case["id"]), category="feel", tier="deep", as_of="2026-09-07"
+        )
+        result.turns.append(cb.TurnRecord(0, "q", status="completed", engine="A"))
+        result.execution_status = "completed"
+        return result
+
+    monkeypatch.setattr(cb, "run_case", _run)
+    artifact = cb.run_benchmark(
+        base="http://127.0.0.1:8813",
+        user="cb00-baseline",
+        users_dir=tmp_path / "capability-benchmark-00" / "users",
+        cases=cases,
+        output=tmp_path / "b.json",
+        arm_label="baseline-test",
+        resume_from=resume,
+    )
+    assert ran == [cases[1]["id"], cases[2]["id"]]
+    assert artifact["cases"][0]["resumed_from_artifact"] == str(resume)
+    assert artifact["resumed_from"] == str(resume)
+    assert cb._run_rc(artifact) == 0
+    with pytest.raises(cb.CapabilityBenchmarkError, match="arm_label"):
+        cb.run_benchmark(
+            base="http://127.0.0.1:8813",
+            user="cb00-baseline",
+            users_dir=tmp_path / "capability-benchmark-00" / "users",
+            cases=cases,
+            output=tmp_path / "c.json",
+            arm_label="other-arm",
+            resume_from=resume,
+        )
+    with pytest.raises(cb.CapabilityBenchmarkError, match="seed"):
+        cb.run_benchmark(
+            base="http://127.0.0.1:8813",
+            user="cb00-baseline",
+            users_dir=tmp_path / "capability-benchmark-00" / "users",
+            cases=cases,
+            output=tmp_path / "d.json",
+            arm_label="baseline-test",
+            resume_from=resume,
+            seed_tgz=tmp_path / "seed.tgz",
+        )
+
+
 def test_sealed_manifest_verifies_against_local_sealed_dir_when_present() -> None:
     sealed = Path.home() / "capability-benchmark-00-sealed-20260909"
     if not sealed.is_dir():
