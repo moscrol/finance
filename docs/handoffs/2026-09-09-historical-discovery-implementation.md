@@ -137,6 +137,8 @@ UI 连续会话为 `conv_f03500280f0e42669acb94002c4de76d`。旧版在 `run_2026
 评分员发现的两个**审计缺口**（不是本轮修复目标）：① M3 trace 里 seq73–84 有一轮 backfill 修复，正文更完整但未被采用，且该轮事件不在 `episode.events`（止于 seq72）；② runtime 对 429 无退避。
 
 ### 现在的位置与下一步
-- 网关时间线：15:32 sol 回 `usage_limit_reached`（约 16:04 重置）；16:30 复探时两个模型都变成 `model_cooldown`、reset ≈ 21:04（共享网关在窗口期又被其他消费方打满）。terra 的「502 no auth」在用户重启 Cockpit 后消失（变成正常 429），凭据已恢复。M6 与 UI 追问等 21:04 后串行重发（`/tmp/hd_rerun.py --skill-mode hybrid M6`，隔 ≥3 分钟再 `UI`），评分、复算同上；只有它们也过了才勾计划 Task 6 第一项。M6/UI 必须仍用 sol（与 M1–M5 同一测量条件），不换模型。
+- 网关时间线：15:32 sol 回 `usage_limit_reached`（约 16:04 重置）；16:30 复探时两个模型都变成 `model_cooldown`、reset ≈ 21:04。terra 的「502 no auth」在用户重启 Cockpit 后消失（变成正常 429），凭据已恢复。**18:12 用户把写手切到本机 Mirasim 网关（127.0.0.1:8080，经 Docker 端口转发；启动脚本两条 base URL 已改，模型 ID 不变）**，不再等 Cockpit 配额。
+- **18:12–18:49 的 Mirasim 通道实测**：`/v1/models` 列出 sol/terra 正常；小探针成功率约 25%（15 秒间隔 20 连测：5×200 / 其余 502「Upstream unavailable」与 503「Service unavailable」），且 sol / terra / 裸 gpt-5.6 **同步翻**——是网关级共享写手容量被打满，不是某条 lane 坏。根因：`lsof -iTCP:8080 -sTCP:ESTABLISHED` 点名另一个 agent 的 cap02 live 验收批（pid 65407，`scripts/cap02_deep_read_acceptance.py live`，模型 gpt-5.6）正在消耗写手；全机共约 12 个 uvicorn 指向 8080。M6 在此期间两次重发均被 5xx 杀死（`run_20260909_182507_099737` 60 秒 invalid_repair_finish；`run_20260909_183323_112442` 15 秒 repair_model_unavailable——runtime 重试写死 2 次 ×≤4 秒，扛不住分钟级抖动）。这两次同样是基建噪声，不是能力结论。
+- 处置：不与对方批竞争（会污染双方收据），挂监视器等 pid 65407 退出后自动续跑——稳定门（连续 3 次 200）→ 发 M6 → 隔 ≥3 分钟发 UI → 审计/评分/落盘同前。8809 保持热备（rev `c6426064`，判官两行已带，写手继承 8080）。M6/UI 仍用 sol；**注意测量条件差异：M1–M5 走 Cockpit（57244），M6/UI 将走 Mirasim（8080），同模型 ID 不同网关——用户指示的切换，评分时如实记录**。
 - ~~负载低时在最终 revision 上重跑全仓 CI 取干净收据~~：已完成（8619P/0F @ dea3c6fa）。前端叶子未跑（分支未触 webapp）。
 - 合 main、切生产、改生产启动脚本三件都要用户确认。A 修复（`7751ab81`）建议单独 cherry-pick 进 main。
