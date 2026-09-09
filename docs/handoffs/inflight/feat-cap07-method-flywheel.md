@@ -14,7 +14,9 @@ checkpoint、夜间回检自动结算并分类、`memory_lookup` / `[M]` / 日�
 - 只做「双红」关键词匹配，匹不上存候选草稿 / 否了通用编译。
 
 ## 当前状态
-- 实现提交 `3a2a2254`，前向合并 gitea/main（#687）→ `5db4e330`，merge-tree 无冲突。用户 15:10 拍板「可以合并的话就合并」。
+- 实现提交 `3a2a2254`，前向合并 gitea/main（#687）→ `5db4e330`，再前向合并 #688 → `88bf0125`，两次 merge-tree 均无冲突。
+  用户 15:10 拍板「可以合并的话就合并」；**PR #692 已开**（Gitea），合并树 `88bf0125` 上 ruff / layer_audit 通过、
+  全仓 pytest 三片重跑中（`~/.finance-runtime/cap07-acceptance/pytest2-shard{1,2,3}.log`），绿即合。
 - 等价 CI（合并树）：python 3 片 8373P/0F（归档测试收集错为主干既有，blocked #6）、frontend 全过、e2e 15 passed、
   data-quality 54 passed；registry-check 三项红为主干既有（blocked #7）。详见 verification 文档表。
 - 验收实例 8807 在跑（`~/.finance-runtime/cap07-acceptance/`，用户目录 `~/.finance-runtime/cap07-users`）；真实对话验收
