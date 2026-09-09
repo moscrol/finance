@@ -34,6 +34,7 @@ import {
   getRunArtifactText,
   getRunContext,
   getRunReport,
+  getResearchProject,
   getSkills,
   getTrace,
   getWorkbenchOverview,
@@ -67,12 +68,14 @@ import type {
   ChatMessage,
   Conversation,
   DailyReportProjection,
+  FollowupContinuation,
   LiveMessageState,
   LLMConfig,
   LLMProviderId,
   PerspectiveDescription,
   PerspectiveMode,
   ProductSkillDescription,
+  ResearchProject,
   Run,
   RunBundle,
   SkillMode,
@@ -100,6 +103,10 @@ export default function App() {
   const [skills, setSkills] = useState<ProductSkillDescription[]>([]);
   const [perspectives, setPerspectives] = useState<PerspectiveDescription[]>([]);
   const [runBundles, setRunBundles] = useState<Record<string, RunBundle>>({});
+  // 09 连续研究：当前会话的研究项目状态（服务端只读投影），随消息加载一并刷新。
+  const [researchProject, setResearchProject] = useState<ResearchProject | null>(
+    null,
+  );
   const [liveMessages, setLiveMessages] = useState<
     Record<string, LiveMessageState>
   >({});
@@ -192,13 +199,21 @@ export default function App() {
             .filter((runId): runId is string => Boolean(runId)),
         ),
       ];
-      const bundles = await Promise.all(
-        runIds.map((runId) =>
-          fetchRunBundle(runId)
-            .then((bundle) => [runId, bundle] as const)
-            .catch(() => null),
+      const [bundles, project] = await Promise.all([
+        Promise.all(
+          runIds.map((runId) =>
+            fetchRunBundle(runId)
+              .then((bundle) => [runId, bundle] as const)
+              .catch(() => null),
+          ),
         ),
-      );
+        // 项目视图加载失败不拖死消息加载：只在项目页显示空态。
+        // 同步抛错（如接口缺失）也要落进 catch，所以先进 Promise 链再调用。
+        Promise.resolve()
+          .then(() => getResearchProject(conversationId, user))
+          .then((value) => value ?? null)
+          .catch(() => null),
+      ]);
       if (
         activeConversationRef.current === conversationId &&
         conversationGeneration.current === generation
@@ -211,6 +226,7 @@ export default function App() {
             ),
           ),
         );
+        setResearchProject(project);
       }
       return nextMessages;
     },
@@ -419,6 +435,7 @@ export default function App() {
       }
       setMessages([]);
       setRunBundles({});
+      setResearchProject(null);
       setLiveMessages({});
       if (options.closeDrawer !== false) {
         setConversationDrawerOpen(false);
@@ -612,6 +629,8 @@ export default function App() {
         mode: PerspectiveMode;
         perspectiveIds: string[];
       },
+      // 09 连续研究：由「猜你想问」卡片点出时带延续坐标；普通提问不带。
+      continuation?: FollowupContinuation,
     ) => {
       if (submitting) return;
       setSubmitting(true);
@@ -635,6 +654,7 @@ export default function App() {
           perspective_mode: effectivePerspectiveMode,
           selected_perspective_ids: effectivePerspectiveIds,
           user,
+          ...(continuation ? { continuation } : {}),
         });
         const now = new Date().toISOString();
         const userMessage: ChatMessage = {
@@ -782,6 +802,7 @@ export default function App() {
           setActiveConversationId(null);
           setMessages([]);
           setRunBundles({});
+          setResearchProject(null);
         }
       }
     } catch (caught) {
@@ -1001,7 +1022,9 @@ export default function App() {
               runBundles={runBundles}
               onRegenerate={regenerate}
               onOpenArtifact={(artifactId) => void openArtifact(artifactId)}
-              onFollowup={(question) => void submitResearch(question)}
+              onFollowup={(question, continuation) =>
+                void submitResearch(question, undefined, continuation)
+              }
               onStarter={setDraft}
             />
             <div className="chat-composer-dock">
@@ -1102,6 +1125,10 @@ export default function App() {
         artifact={artifact}
         open={inspectorOpen}
         onClose={() => setInspectorOpen(false)}
+        project={researchProject}
+        onFollowup={(question, continuation) =>
+          void submitResearch(question, undefined, continuation)
+        }
       />
       <ModelSettings
         open={modelSettingsOpen}

@@ -12,6 +12,7 @@ import type {
   LearningFeedback,
   PerspectiveDescription,
   ProductSkillDescription,
+  ResearchProject,
   Run,
   RunContext,
   StructuredReport,
@@ -222,6 +223,18 @@ export function createConversationMessage(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(message),
     },
+  );
+}
+
+export function getResearchProject(
+  conversationId: string,
+  user?: string,
+): Promise<ResearchProject> {
+  return request<ResearchProject>(
+    withUser(
+      `/api/conversations/${encodeURIComponent(conversationId)}/research-project`,
+      user,
+    ),
   );
 }
 

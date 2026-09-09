@@ -85,6 +85,9 @@ class Message:
     followups: list[dict[str, object]] = field(default_factory=list)
     turn_intent: dict[str, object] | None = None
     research_plan: dict[str, object] | None = None
+    # 09 连续研究：用户消息若由「猜你想问」卡片点出，记它延续自哪个 run 的哪张卡
+    # （run_id / source / kind / inherits）。只在 user 角色消息上出现；旧记录无此键。
+    continuation: dict[str, object] | None = None
 
 
 class ConversationStore:
@@ -168,6 +171,7 @@ class ConversationStore:
         followups: list[dict[str, object]] | None = None,
         turn_intent: dict[str, object] | None = None,
         research_plan: dict[str, object] | None = None,
+        continuation: dict[str, object] | None = None,
     ) -> Message:
         conversation = self.load_conversation(conversation_id)
         message = Message(
@@ -193,6 +197,9 @@ class ConversationStore:
             ),
             research_plan=(
                 _redact_mapping(research_plan) if research_plan is not None else None
+            ),
+            continuation=(
+                _redact_mapping(continuation) if continuation is not None else None
             ),
         )
         self._append_message_record(message)

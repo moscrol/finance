@@ -25,6 +25,7 @@ from intelligence.api.structured_reports import (
 )
 from intelligence.services import answer_model, followups as followups_svc
 from intelligence.services import context_growth
+from intelligence.services import research_project
 from intelligence.services import evidence_registry
 from intelligence.services import task_fulfillment
 from intelligence.services import run_store as rs
@@ -1829,10 +1830,15 @@ class TurnOrchestrator:
         )
         try:
             conversation = self.conversation_store.load_conversation(conversation_id)
+            conversation_messages = self.conversation_store.load_messages(conversation_id)
             context = build_conversation_context(
                 conversation,
-                self.conversation_store.load_messages(conversation_id),
+                conversation_messages,
                 current_run_id=run_id,
+            )
+            # 09 连续研究：本轮若由「猜你想问」卡片点出，用户消息上带延续坐标。
+            turn_continuation = research_project.continuation_for_run(
+                conversation_messages, run_id
             )
             self.conversation_store.update_summary_text(
                 conversation_id, context.summary
@@ -2031,6 +2037,41 @@ class TurnOrchestrator:
                     capabilities=runtime_capabilities_for_frame(task_frame),
                 )
             canned = deterministic_lane_answer(query, decision)
+            # 09 连续研究：研究车道开工前把「研究项目状态」先验块并进会话上下文。
+            # 没有先验（首轮 / 换题）时逐字节不变；投影失败只记 degrade，不拖死主答案。
+            project_prior_block = ""
+            project_prior_status: str | None = None
+            if decision.lane == "research" and canned is None:
+                try:
+                    project_prior_block, project_prior_status = (
+                        research_project.prior_for_turn(
+                            self.conversation_store,
+                            self.run_store,
+                            conversation_id=conversation_id,
+                            current_run_id=run_id,
+                            subject=str(task_frame.subject or ""),
+                            continuation=turn_continuation,
+                        )
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    prior_warning = f"research_project_prior_failed:{type(exc).__name__}"
+                    warnings.append(prior_warning)
+                    self.run_store.add_degrade(run_id, prior_warning)
+            if project_prior_block:
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "continuous:research_project_prior",
+                    "research_project_prior",
+                    {
+                        "chars": len(project_prior_block),
+                        "prior_status": project_prior_status,
+                        "continuation_kind": str(
+                            (turn_continuation or {}).get("kind") or ""
+                        ),
+                    },
+                )
             if canned is None and self.continuous_turn_adapter is not None:
                 continuous_control = project_turn_decision(
                     decision,
@@ -2039,7 +2080,11 @@ class TurnOrchestrator:
                     # R-20260827-09 送达层：阶段表以 research_plan 为单一来源
                     # 递进 episode（trace 里那份与模型看到的不再可能漂移）。
                     retrieval_stages=research_plan.retrieval_stages,
-                    conversation_context=context.to_prompt_block(),
+                    conversation_context=(
+                        f"{context.to_prompt_block()}\n\n{project_prior_block}"
+                        if project_prior_block
+                        else context.to_prompt_block()
+                    ),
                     # 视角约束在这里进入 continuous 引擎。此前只有 legacy 合成
                     # 路径注入（ask_synthesis._active_perspective_prompt），
                     # 生产 continuous 主路径上视角只在 API 层验证与存储，模型
@@ -2079,6 +2124,8 @@ class TurnOrchestrator:
                         perspective_mode=perspective_mode,
                         selected_perspective_ids=selected_perspective_ids,
                         stance_pack=stance_pack,
+                        continuation=turn_continuation,
+                        prior_status=project_prior_status,
                     )
             if (
                 decision.lane in {"chat", "meta", "clarify"}
@@ -3967,6 +4014,8 @@ class TurnOrchestrator:
         perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL,
         selected_perspective_ids: Sequence[str] = (),
         stance_pack: object | None = None,
+        continuation: dict[str, object] | None = None,
+        prior_status: str | None = None,
     ) -> TurnResult:
         """Persist one Episode-owned terminal result without legacy synthesis."""
 
@@ -4246,6 +4295,11 @@ class TurnOrchestrator:
         # 缺口镜像（knevo 接力第一片）：契约里未满足的必需输出确定性变成
         # 「猜你想问」。缺口不该是句号——R15 对照的失分形状是追问负担全在
         # 用户。零模型调用，文案与公开降级声明同一口径。
+        # 09 连续研究：卡片点出的轮次继承坐标——上一张卡的原文用于去重（不再
+        # 生成同义改写），继承的站立日用于 same_bind 芯片；裁决改排序只改先后。
+        inherited = dict((continuation or {}).get("inherits") or {})
+        continuation_kind = str((continuation or {}).get("kind") or "")
+        parent_prompt = str((continuation or {}).get("full_prompt") or "") or None
         try:
             followup_state = followups_svc.project_continuous_state(
                 subject=str(task_frame.subject or ""),
@@ -4253,15 +4307,21 @@ class TurnOrchestrator:
                 open_gaps=result.open_gaps,
                 status=result.status,
                 subject_kind=str(task_frame.subject_kind or ""),
-                same_bind=stance_pack is not None,
+                parent_followup_prompt=parent_prompt,
+                same_bind=stance_pack is not None or continuation_kind == "continue",
                 standing_date=str(
-                    getattr(stance_pack, "standing_date", "") or ""
+                    getattr(stance_pack, "standing_date", "")
+                    or inherited.get("standing_date")
+                    or ""
                 ),
                 question_type=str(task_frame.question_type or ""),
             )
             gap_followups = followups_svc.active_composer().compose(
                 followup_state,
                 polish=False,
+            )
+            gap_followups.followups = followups_svc.order_by_prior(
+                list(gap_followups.followups), prior_status
             )
         except Exception as exc:  # noqa: BLE001
             warning = f"followup_compose_failed:{type(exc).__name__}"
