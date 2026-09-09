@@ -949,9 +949,16 @@ def market_data_date(finance_root: Path | None) -> str | None:
         import duckdb  # 延迟导入：跑批机之外不强依赖
     except ImportError:
         return None
-    con = duckdb.connect(str(db_path), read_only=True)
+    try:
+        con = duckdb.connect(str(db_path), read_only=True)
+    except Exception:
+        # 数据截止只是旁路取证：库被写入方锁住（19:21 实测 sync-stock-daily 回填的
+        # 写锁）时不该炸整个批，记 None 并靠 artifact 其余字段兜底。
+        return None
     try:
         row = con.execute("select max(trade_date) from fact_market_daily").fetchone()
+    except Exception:
+        return None
     finally:
         con.close()
     return str(row[0]) if row and row[0] is not None else None
