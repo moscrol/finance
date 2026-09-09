@@ -39,13 +39,29 @@ HTTP 429  {"error":{"code":"rate_limited","message":"{\"error\":{\"code\":\"mode
 
 两处都不是代码问题（基线树是干净的 gitea/main），已记 `blocked/10.md` 交运行底座。
 
-## 4. 配对验收（待填）
+## 4. 配对验收
 
 驱动：`/tmp/ticket10/paired_batch.sh 8815 8816 /tmp/ticket10/paired`（每题先探网关、冷却则睡到 `reset_seconds+60`；基线→候选交替；Q6 为 Q2 同会话追问；`skill_mode=hybrid` 与 UI 默认一致）。
 
+### 4.1 第一轮（16:05–16:20，部分作废）：判官换成 1.0.24 后仍不可用（GrokCliExit）
+
+第一轮跑完 Q1 两臂 + Q2 基线臂后网关再次冷却（17081 s）。三个 run 的 `semantic_verifier.judge_status=unavailable`，Q1 两臂 `exc_class=GrokCliExit`——grok 1.0.24 的 `--sandbox read-only` 在本机拒绝启动（见 `blocked/10.md`），公开答案全部被压成「复核服务不可用」模板。**两臂判官同等不可用，draft 层仍是公平对照**：
+
+| 题 | 臂 | run_id | outcome | draft 字数 | 证据 | ranking 收据（矩阵/改判/竞争解释/下一步/缺件） |
+|---|---|---|---|---|---|---|
+| Q1 | base（5eb24515 干净树） | run_20260909_160518_485584 | partial | 812 | 103 | 无收据（基线代码）；用候选树解析器离线量：无矩阵表、无改判条件表 |
+| Q1 | cand（本分支） | run_20260909_161136_249649 | completed（repair_model_finish，1 轮修复） | **1473** | 135 | **matrix=4 行、flip=3 行、竞争解释=2、下一步=3、缺件=0** |
+| Q2 | base | run_20260909_161836_149044 | partial（10 个 429 事件，draft 0 字） | 0 | 65 | 429 污染，作废待重跑 |
+
+Q1 这一对是本单第一份真实差分：同题、同模型、同判官条件下，候选臂模型按契约写出了完整的公司矩阵、改判条件表、竞争解释与下一步，且通过一轮修复达到 completed；基线臂只有 812 字散文。结果 JSON 存档 `/tmp/ticket10/paired-r1/`。
+
+### 4.2 第二轮（正式，判官 sandbox=off 修复后）
+
+两臂 16:47 前后带 `LLM_JUDGE_GROK_SANDBOX=off` 重启（8815 pid=45120、8816 pid=45121，cwd 与树核对一致），完整批跑 q1..q5 重新排队；网关冷却至约 21:04，脚本睡到重置后自动开跑。结果落 `/tmp/ticket10/paired/{base,cand}/`，汇总脚本 `/tmp/ticket10/summarize.py`（附录）。
+
 | 题 | 臂 | run_id | 状态 / 耗时 | 矩阵行 | 改判行 | 竞争解释 | 下一步 | 缺件 | 判官 |
 |---|---|---|---|---|---|---|---|---|---|
-| （待填） | | | | | | | | | |
+| （批跑完成后填） | | | | | | | | | |
 
 ## 5. 单测与门禁（待补全量读数）
 
