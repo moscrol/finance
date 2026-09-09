@@ -1036,9 +1036,13 @@ try:
     if plan["dataset"] == "market_daily":
         parts = set(plan["parts"])
         if "sh_index" in parts:
+            from datetime import timedelta
             from market_feature_store.sync.sync_akshare_index_daily import sync_akshare_index_daily
-            stats = sync_akshare_index_daily(start_date=plan["start"], end_date=plan["end"])
-            out["steps"].append({"part": "sh_index", "stats": {k: str(v) for k, v in (stats or {}).items()}})
+            # 往前多取一周：writer 只在取回的记录内算 pct_chg，窗口首日要有前收才不为空。
+            padded_start = (date.fromisoformat(plan["start"]) - timedelta(days=7)).isoformat()
+            stats = sync_akshare_index_daily(start_date=padded_start, end_date=plan["end"])
+            out["steps"].append({"part": "sh_index", "padded_start": padded_start,
+                                 "stats": {k: str(v) for k, v in (stats or {}).items()}})
         if "aggregates" in parts or "industry" in parts:
             from market_feature_store.sync.compute_local_stats import compute_market_overview_local
             con = db.connect()

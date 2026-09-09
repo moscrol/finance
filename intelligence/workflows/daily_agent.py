@@ -17,7 +17,7 @@ from intelligence.services.logic_market_match import (
 )
 from intelligence.services import catalyst_attribution
 from intelligence.services import kb_rag
-from intelligence.services import kb_ingest_queue, kb_queue_receipt
+from intelligence.services import data_requests, kb_ingest_queue, kb_queue_receipt
 from intelligence.services import logic_lifecycle
 from intelligence.services import logic_effectiveness
 from intelligence.services import market_validation
@@ -691,6 +691,7 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         },
         "research_queue": task_queue,
         "kb_ingest_queue": kb_queue,
+        "data_requests": _data_requests_block(),
         "catalyst_attribution": {
             "enabled": True,
             "window_days": options.catalyst_window_days,
@@ -710,6 +711,7 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
             "agent-daily 是只读入口：读取 daily workflow、知识库和 logic-match 产物，不自动回补。",
             "回补类事项只进入数据缺口队列，等待用户统一处理，不自动补来源/概念/IMA。",
             "kb_ingest_queue 是跨仓待办任务包：只给知识库 repo 接收、校验和归档，不自动写入 wiki。",
+            "data_requests 是问题驱动补数请求：由各 run 的 window_uncovered 事件重建并做覆盖检查，补数写入仍由 daily-full 维护者执行。",
         ],
     }
     report["input_artifacts"] = _input_artifacts(
@@ -738,6 +740,32 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         manifest_payload=report_manifest_payload(report),
     )
     return report
+
+
+def _data_requests_block(since: str = "30d") -> dict[str, Any]:
+    """问题驱动补数请求：从各 run 的 window_uncovered 事件重建并做覆盖检查（只读）；失败不阻断日报。
+
+    与 kb_ingest_queue 一样只是「缺口清单」：请求本身可随时重建，不是第二份台账；
+    写入者仍是 write_research_queue_outputs（兄弟件 ``{date}-data-requests.json``）。
+    """
+    from intelligence.paths import default_market_db_path
+    from intelligence.userspace import users_dir
+
+    try:
+        runs_root = users_dir()
+        db_path = default_market_db_path()
+        events = data_requests.collect_gap_events(runs_root, since=data_requests.parse_since(since))
+        requests = data_requests.build_requests(events)
+        completions = data_requests.check_requests(requests, db_path=db_path) if requests else []
+        return data_requests.wrap_artifact(requests, completions, runs_root=runs_root, since=since, db_path=db_path)
+    except Exception as exc:  # noqa: BLE001 - 日报不因补数请求聚合失败而中断
+        return {
+            "schema_version": data_requests.SCHEMA_VERSION,
+            "requests": [],
+            "completions": [],
+            "summary": {"requests": 0, "consumers": 0, "auto_routes": 0, "manual_routes": 0, "by_status": {}},
+            "error": f"{type(exc).__name__}: {str(exc)[:200]}",
+        }
 
 
 def _section_rows(rows: list[dict[str, Any]], limit: int = 10) -> list[str]:
