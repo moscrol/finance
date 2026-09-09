@@ -372,9 +372,15 @@ def run_derived_calculation(
             stderr_tail=run.stderr_tail,
         )
     if run.exit_code != 0:
+        detail = _script_error_detail(run.stderr_tail) or f"exit code {run.exit_code}"
+        if "KeyError: 0" in detail or "KeyError: 1" in detail:
+            detail += (
+                "；series() / to_single_quarter() 返回 dict 列表，取数是 x['as_of'] / x['value']，"
+                "不是 x[0] / x[1]，dict(seq) 也不适用"
+            )
         return CalculationError(
             ERROR_SCRIPT_ERROR,
-            _script_error_detail(run.stderr_tail) or f"exit code {run.exit_code}",
+            detail,
             enforcement=run.enforcement,
             stderr_tail=run.stderr_tail,
         )

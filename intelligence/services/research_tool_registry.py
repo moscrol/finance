@@ -1586,6 +1586,11 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "也不要把上一轮的脚本整段重抄。"
         "表格行这样组织：rows 里每行是一个 dict，键用列名（如 {'报告期': '2025Q1', '营收（亿元）': 514.43}），"
         "不要把列名行塞进 rows，也不要 None 填 0——缺就 None。"
+        "series() / to_single_quarter() 返回的是 **dict 的列表**（不是 tuple）："
+        "每个元素 {'as_of': '2026-06-30', 'value': 922.78, ...}，取数用 x['as_of'] / x['value'] 或 x.get(...)，"
+        "不要 x[0] / x[1]（dict 按下标 0 取会 KeyError: 0）；"
+        "dict(seq) / {x[0]: x[1] for x in seq} 都不适用于它——按 as_of 建映射："
+        "{x['as_of']: x['value'] for x in to_single_quarter(series(sub, 'revenue_cum_yi'))}。"
         "零分母、缺季度、单位不认识时助手函数返回 None 并写 note，None 就写「缺」，不要填 0 或外推。"
     ),
 }
