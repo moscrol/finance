@@ -429,3 +429,11 @@
   未提交工作丢失时，从 transcript 按序重放同起点的确定性编辑可以保真重建，
   重建后用「测试读数逐数对齐 + 变异击杀数对齐」当等价证明。**
 
+
+- **[2026-09-09] 旁路 sidecar 用 `#!/bin/bash` 脚本 `. <(grep '^export ' launcher)` 取凭证，macOS /bin/bash 3.2 下静默只装进 2 个变量，服务照常起、health 照常 healthy。**
+  场景：00 号单基线 sidecar（8813）。health 三读全绿，但 readiness `market_snapshot=false`（没拿到 FINANCE_WS）、
+  `/api/llm/config ready=false`（没拿到 key）；第一道探针题 9 s 返回「模型服务不可用」。同一句在工具 shell（zsh）里好用，
+  所以起服前的手工核验全过。`live_probe.py:133`、`v6_deadline_budget_ab.py:471` 内嵌同一写法，走 bash 3.2 时同样暴露。
+  做法：bash 脚本一律 `eval "$(grep '^export ' "$LAUNCHER")"`，随后 `[ -n "$FINANCE_WS" ] && [ -n "$OPENAI_API_KEY" ]` 不满足直接退出；
+  起服后除 health 三读，还要读 `/api/llm/config.ready` 与 `/api/readiness`。
+  **可迁移原则：「进程活着 + 代码是我的树」证明不了「环境是我要的环境」；凭证与数据根这类靠 env 注入的前提，要在起服前断言、起服后从服务端读回来对账。**
