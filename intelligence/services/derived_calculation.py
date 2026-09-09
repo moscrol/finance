@@ -64,9 +64,11 @@ DERIVED_CALCULATION_TOOL = "derived_calculation"
 DERIVED_CALCULATION_TIER = "derived_calculation"
 _PROVIDER = "sandbox:derived_calculation"
 _EVIDENCE_DETAIL_CHARS = 600
-# 模型视图一次工具观察 900 字符（tool_result_budget.MAX_OBSERVATION_CHARS）；结果正文给 620，
-# 其余留给固定句（输入 / as_of / 产物 / 计算编号）。
-_OBSERVATION_RESULT_BUDGET = 620
+# 模型视图一次工具观察 900 字符（tool_result_budget.MAX_OBSERVATION_CHARS）；结果正文给 470，
+# 其余留给固定句（计算编号 / 产物 / 输入 / as_of）。计算编号与产物名放在**结果之前**：
+# 预算从头数，放在末尾的会被截掉，模型就引不出编号、也不知道有文件可下载。
+_OBSERVATION_RESULT_BUDGET = 470
+# 证据 detail 的模型视图只有 240 字符（MAX_EVIDENCE_DETAIL_CHARS），同样把编号放前面。
 _DERIVED_DETAIL_RESULT_BUDGET = 320
 
 ERROR_NO_BOUND_EVIDENCE = "no_bound_evidence"
@@ -452,9 +454,8 @@ def derived_evidence(calc: DerivedCalculation) -> AgentEvidence:
         tool=DERIVED_CALCULATION_TOOL,
         title=f"派生计算：{calc.purpose}"[:48],
         detail=(
-            f"{calc.purpose}｜结果 {result_text}｜"
-            f"输入 {'、'.join(calc.input_refs)}，as_of={as_of_text}（取输入最旧）｜"
-            f"计算编号 {calc.calc_id}"
+            f"{calc.purpose}｜计算编号 {calc.calc_id}｜结果 {result_text}｜"
+            f"输入 {'、'.join(calc.input_refs)}，as_of={as_of_text}（取输入最旧）"
         ),
         source=f"sandbox:{calc.calc_id}",
         source_date=calc.as_of,
@@ -468,20 +469,22 @@ def derived_evidence(calc: DerivedCalculation) -> AgentEvidence:
 def success_observation(calc: DerivedCalculation) -> str:
     result_text = artifacts.compact_text(calc.view, budget=_OBSERVATION_RESULT_BUDGET)
     params_text = (
-        f"参数 {json.dumps(dict(calc.params), ensure_ascii=False, default=str)[:120]}；"
+        f"参数 {json.dumps(dict(calc.params), ensure_ascii=False, default=str)[:100]}；"
         if calc.params
         else ""
     )
     reuse_text = f"沿用计算 {calc.base_calc_id} 的输入；" if calc.base_calc_id else ""
+    files = "、".join(name for name in calc.artifact_names if not name.endswith(".json"))
     return (
-        f"已完成派生计算「{calc.purpose}」：{result_text}；"
+        f"已完成派生计算「{calc.purpose}」，计算编号 {calc.calc_id}（表格 / 图表随本次回答落盘为可下载产物 "
+        f"{files}，正文引用表格数字时写明「计算编号 {calc.calc_id}」）："
+        f"{result_text}；"
         f"{params_text}{reuse_text}"
         f"输入 {len(calc.input_evidence_hashes)} 条证据（{'、'.join(calc.input_refs)}），"
         f"as_of={calc.as_of or '未定日期'}（取输入最旧，不是今天）；"
-        f"沙箱 enforcement={calc.enforcement}，{calc.duration_ms} ms，calc_id={calc.calc_id}。"
-        f"完整表格 / 图表 / 记录会作为本次回答的产物落盘（{'、'.join(calc.artifact_names)}），"
-        f"正文里引用表格数字并写明「计算编号 {calc.calc_id}」，用户改假设时用 inputs_from_calc 沿用输入重算。"
-        "派生数的档次不高于输入里最低的一档；与某个来源的数不一致时，先看两边输入是否同一批证据。"
+        f"enforcement={calc.enforcement}，{calc.duration_ms} ms。"
+        f"改假设用 inputs_from_calc={calc.calc_id} 沿用输入重算；"
+        "派生数档次不高于输入最低档，与来源不一致先看输入是否同一批。"
     )
 
 

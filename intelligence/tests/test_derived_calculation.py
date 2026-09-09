@@ -545,7 +545,10 @@ def test_cross_source_reconciliation_end_to_end_keeps_the_hash_chain() -> None:
     results = [event for event in outcome.events if event.kind == "tool_result"]
     derived_results = [event for event in results if event.payload.get("tool") == "derived_calculation"]
     assert len(derived_results) == 1
-    assert "calc_id=" in str(derived_results[0].payload.get("model_content", ""))
+    # 模型看到的正文里带计算编号（工单 04 起写作「计算编号 <id>」，放在结果之前不被预算截掉）。
+    assert f"计算编号 {item.source.removeprefix('sandbox:')}" in str(
+        derived_results[0].payload.get("model_content", "")
+    )
 
 
 # ── 工单 04：结果协议 v1 / 参数 / 沿用输入 / 产物数据通路 ─────────────────
@@ -580,7 +583,11 @@ def test_structured_result_puts_every_table_number_into_observations_and_telemet
     observation = dc.success_observation(calc)
     assert "E1: 净利润(亿)=1741.44" in observation
     assert f"calc-{calc.calc_id}-t1.csv" in observation and "inputs_from_calc" in observation
-    assert len(observation) <= 1100
+    # 模型视图上限 900 字符（tool_result_budget）：编号与产物名在前，整段不越界。
+    assert len(observation) <= 900, len(observation)
+    assert observation.index(f"计算编号 {calc.calc_id}") < observation.index("E1: 净利润")
+    detail = dc.derived_evidence(calc).detail
+    assert detail.index(f"计算编号 {calc.calc_id}") < 240
 
     result = dc.to_tool_result(calc)
     record = result.telemetry["derived_calculation"]
