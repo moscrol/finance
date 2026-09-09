@@ -50,12 +50,27 @@
 **执行方式**（因已有同步器且已回补过，不重跑全量）：
 
 ```bash
-# 1. 在 ~/fwp-wt-hithink-ingest 给 INDEX_CODES 加三行
-# 2. 用 --resume 只补新码：已有该 end-date 行的 851 个码会被跳过
-market_feature_store.cli sync-hithink-sector-kline --full --resume --end-date 2026-09-08
+# 树：~/fwp-wt-broad-index @ data-source/broad-index-delta（从 hithink-ingest 开出，已建）
+# 1. sync_hithink_sector_kline.py:27 的 INDEX_CODES 加三行
+# 2. --skip-constituents 是必需的，理由见下
+market_feature_store.cli sync-hithink-sector-kline \
+    --full --resume --skip-constituents --end-date 2026-09-08
 ```
 
-回滚：`delete from fact_sector_kline_daily where sector_ts_code in ('000688.SH','000016.SH','899050.BJ')` —— 纯增量，不触碰任何已有行。
+⚠️ **`--skip-constituents` 不可省**（2026-09-09 读源码实测）：`--resume` 只过滤 K 线的 `codes`，
+成分股那段的 `member_codes` 是从**未过滤的** `catalog_rows` 重算的（`sync_hithink_sector_kline.py:586-590`），
+省掉这个旗标会多打 **848 次**成分接口，并给 `fact_sector_constituent_hithink` 写一整批
+`captured_at=end_day` 的新行、连带 UPDATE `dim_sector_hithink` —— 全在本 delta 范围之外。
+
+`--resume` 的跳过判据是 `MAX(trade_date) >= end_day AND COUNT(*) >= 100`
+（`_codes_already_fresh`）。实测按 `2026-09-08` 算，854 个码里 **849 个**被跳过，剩 5 个会被重拉：
+`886112.TI`(28 行) / `886111.TI`(50) / `886110.TI`(51) / `883443.TI`(66) 是**行数不足 100**、
+`883401.TI` 是 `max=2026-09-03` 落后。前四个是新板块，行数天然到不了 100，
+**每次 `--resume` 都会被重拉，这是判据的固有行为，不是异常**。
+故实际请求数 ≈ 4 次目录 + (3 新码 + 5 重拉 + 当日上游新增的 `.TI`) 次 K 线，**不是 3 次**。
+
+回滚：`delete from fact_sector_kline_daily where sector_ts_code in ('000688.SH','000016.SH','899050.BJ')`。
+注意这只回滚三个新码；上述 5 个重拉码走的是 `INSERT OR REPLACE`，同源同值覆盖，回滚脚本不涉及。
 
 **历史深度分工（选型取舍）**：同花顺只有约 3 年，`000688.SH` 只能回到约 2022-08，而科创50 的发布日是 2020-07；`899050.BJ` 发布日 2022-11，正好在窗口内不受影响。
 
