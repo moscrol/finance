@@ -51,6 +51,10 @@ case "$cmd" in
     export FORESIGHT_EPISODE_STORE="$episodes"
     export WORKBENCH_PERSIST_LLM_CONTEXT=1
     if [[ -x "$HOME/.grok/bin/grok" ]]; then export LLM_JUDGE_GROK_BIN="$HOME/.grok/bin/grok"; fi
+    # grok 1.0.24 的 read-only 沙箱在 Docker 运行时解析 /var/run/docker.sock（符号链接）失败，
+    # 整个 CLI 拒绝启动（GrokCliExit 1）→ 判官全灭、公开答案被扣成 160 字模板。判官本就在
+    # 临时目录跑、工具全禁（--disallowed-tools/--disable-web-search），关沙箱只损失纵深不开新口。
+    export LLM_JUDGE_GROK_SANDBOX="${LLM_JUDGE_GROK_SANDBOX:-off}"
     print -- "cap06 sidecar[$label]: repo=$repo port=$port users=$users episodes=$episodes"
     print -- "  rev=$(git -C "$repo" rev-parse --short HEAD) judge_bin=${LLM_JUDGE_GROK_BIN:-unset} rag_worker=${RAG_WORKER_ENABLED:-unset} tier=${WORKBENCH_RESEARCH_TIER:-unset}"
     # 06 号单两个开关随调用方环境透传（启动器不设它们）：候选臂用 stall_finalize=3 采读数。
