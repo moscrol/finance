@@ -10,11 +10,11 @@
 
 | 检查 | 结果 |
 |---|---|
-| `test_cap02_deep_read.py`（42）+ kb_rag / web_fetch / agent_research / closed_loop / episode_tools 定向 | 全绿 |
+| `test_cap02_deep_read.py`（43）+ kb_rag / web_fetch / agent_research / closed_loop / episode_tools 定向 | 全绿 |
 | 全量 `intelligence/tests`（改动中段） | 7481P / 15S / 1x；最终版重跑见 `~/.finance-runtime/cap02/full-tests-final.log` |
 | ruff | 过 |
 | 离线三段量尺（hybrid=生产检索模式，20 题） | 关键短语进模型可见 **14/20 → 19/20**，无退步；可见字数中位 3675 → 6457 |
-| live 第三段（Workbench 真实对话） | **未得读数**：模型网关 cockpit 57244 当时不在运行（blocked B-4），链路已冒烟打通 |
+| live 两臂对照（Cockpit sol，dr-01/10/19，21:07–21:33） | 第二段（进模型可见）基线→本单 **1/3→3/3**（翻正 dr-10、dr-19）；第三段（答案用上）2/3→2/3，但未中的 dr-19 恰是最大翻正：基线降级模板 → 本单带证据编号的完整研判。逐题表见 progress/02.md「live 两臂对照」 |
 
 ## 关键决策（选了什么 / 否了什么 / 为什么）
 
@@ -32,6 +32,6 @@
 
 ## 下一步
 
-1. 用户起 Cockpit Tools 后：`~/.finance-runtime/cap02/launch-8802.sh baseline` → `scripts/cap02_deep_read_acceptance.py live --port 8802 --users-root ~/.finance-runtime/cap02/users --user-prefix cap02-base --out ~/.finance-runtime/cap02/live/baseline`；换 `treatment` 重启再跑；`report` 出逐题表，回填 progress/02.md「live」节。
-2. 用户拍板后开 PR 到 main（合并前 `merge-tree` 对 `feat/sandbox-derived-calculation` 核 `episode_tools.py` / `agent_research.py` 相邻改动）。
-3. 生产生效需切流 + 重启 worker；本单不做。
+1. **live 验收已收**（2026-09-09 晚，Cockpit sol 主窗 21:04 重置后两臂 6 run 烧穿，见 progress/02.md「live 两臂对照」与 blocked B-6）。剩 baseline dr-19 重跑可选——round-1 已是决定性降级模板，不为它等 4.5h 主窗。
+2. 用户拍板后开 PR 到 main（合并前 `merge-tree` 对 `feat/sandbox-derived-calculation` 核 `episode_tools.py` / `agent_research.py` 相邻改动；04 的 PR #682 改了 `research_tool_registry.py`，本单未碰）。
+3. 生产生效需切流 + 重启 worker；本单不做。判官生产修复（`LLM_JUDGE_GROK_BIN` 指符号链接 + `LLM_JUDGE_GROK_SANDBOX=off`，blocked B-4 末段）需用户改 `~/.local/bin/start-finance-workbench` 并 kickstart——不读本单也建议尽快，8792 现在每个研究 run 的判官都在 GrokCliExit。
