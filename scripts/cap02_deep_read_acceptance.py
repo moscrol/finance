@@ -329,6 +329,79 @@ def _looks_like_clarification(users_root: Path, user: str, run_id: str, answer: 
     return any(marker in head for marker in _CLARIFY_MARKERS)
 
 
+def _gateway_key() -> str:
+    """生产同款：网关 key 存 macOS Keychain，不落盘、不打印。取不到返回空串（探针退化为免 key 探活）。"""
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["security", "find-generic-password", "-s", "finance-workbench-cockpit", "-a", "a77", "-w"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return out.stdout.strip() if out.returncode == 0 else ""
+
+
+def _gateway_up(gateway: str, model: str = "") -> tuple[bool, str]:
+    """模型网关可用性：有 key 且给了 model 就发一条 5 token 的最小补全，要看到 ``choices``；
+    429 model_cooldown / 5xx / 连接失败都算不可用并带回原因。没有 key 时退化为 /models 探活。
+
+    2026-09-09 实测教训：进程活着（/models 返回 401）不等于模型可用——sol 在 cooldown、
+    terra「no auth available」，20 题批量 10 秒一题全是降级模板；量出来的是配额不是能力。
+    """
+
+    key = _gateway_key()
+    try:
+        if key and model:
+            payload = json.dumps(
+                {"model": model, "messages": [{"role": "user", "content": "回复一个字：好"}], "max_tokens": 5}
+            ).encode()
+            request = urllib.request.Request(
+                gateway.rstrip("/") + "/chat/completions",
+                data=payload,
+                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(request, timeout=60) as response:
+                body = json.loads(response.read() or b"{}")
+            if body.get("choices"):
+                return True, "ok"
+            return False, f"no choices: {json.dumps(body, ensure_ascii=False)[:160]}"
+        request = urllib.request.Request(gateway.rstrip("/") + "/models", method="GET")
+        with urllib.request.urlopen(request, timeout=8) as response:
+            return 200 <= response.status < 500, f"models http {response.status}"
+    except urllib.error.HTTPError as exc:
+        detail = ""
+        try:
+            detail = exc.read().decode("utf-8", "replace")[:200]
+        except Exception:  # noqa: BLE001
+            pass
+        if not (key and model) and exc.code < 500:
+            return True, f"models http {exc.code}"
+        return False, f"http {exc.code} {detail}"
+    except Exception as exc:  # noqa: BLE001
+        return False, f"{type(exc).__name__}: {exc}"[:160]
+
+
+def _model_errors(episode_path: Path) -> list[str]:
+    try:
+        data = json.loads(episode_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    events = data.get("events") if isinstance(data, dict) else data
+    errors: list[str] = []
+    for event in events or []:
+        if event.get("kind") in {"model_turn", "model_error"}:
+            error = str((event.get("payload") or {}).get("error") or "")
+            if error:
+                errors.append(error[:160])
+    return errors
+
+
 def cmd_live(args: argparse.Namespace) -> int:
     base = f"http://127.0.0.1:{args.port}"
     users_root = Path(args.users_root).expanduser()
@@ -346,6 +419,21 @@ def cmd_live(args: argparse.Namespace) -> int:
         user = f"{args.user_prefix}-{case_id}"
         record: dict[str, object] = {"case_id": case_id, "question": question, "user": user}
         started = time.monotonic()
+        # 配额纪律：每题前用最小补全探模型可用（不是进程活着）；不可用就等，等不到就停批——
+        # 半批量出来的是配额不是能力。
+        waited = 0.0
+        up, reason = (True, "skipped") if not args.gateway else _gateway_up(args.gateway, args.probe_model)
+        while args.gateway and not up and waited < float(args.gateway_wait):
+            print(f"gateway not usable ({reason}); waiting {int(waited)}s/{int(args.gateway_wait)}s", flush=True)
+            time.sleep(60)
+            waited += 60
+            up, reason = _gateway_up(args.gateway, args.probe_model)
+        if args.gateway and not up:
+            record["error"] = f"gateway not usable: {reason}"
+            results.append(record)
+            print(json.dumps(record, ensure_ascii=False), flush=True)
+            break
+        record["gateway_probe"] = reason
         try:
             conversation = _call(base, "/api/conversations", {"user": user, "title": question[:24]})
             conversation_id = conversation["conversation_id"]  # type: ignore[index]
@@ -390,6 +478,17 @@ def cmd_live(args: argparse.Namespace) -> int:
                 record["phrase_in_model_view"] = _phrase_hit(phrases, tool_text)
                 record["model_turns"] = turns
                 record["tool_calls"] = tools
+                errors = _model_errors(run_dir / "continuous-episode.json")
+                if errors:
+                    record["model_errors"] = errors[:5]
+                    if any(("429" in e or "cooldown" in e.lower() or "URLError" in e or "HTTP 5" in e) for e in errors):
+                        # 网关冷却 / 掉线 / 上游 5xx（运行时把 429 cooldown 包成「HTTP 502」）：
+                        # 后面的题量的是配额不是能力，停批并如实记。
+                        record["batch_aborted"] = "gateway error in model turns"
+                        results.append(record)
+                        print(json.dumps(record, ensure_ascii=False)[:400], flush=True)
+                        (out_dir / "live-results.json").write_text(json.dumps(results, ensure_ascii=False, indent=1), encoding="utf-8")
+                        break
                 report_path = run_dir / "report.json"
                 if report_path.is_file():
                     try:
@@ -482,6 +581,9 @@ def main(argv: list[str] | None = None) -> int:
     live.add_argument("--timeout", type=float, default=900.0)
     live.add_argument("--poll-seconds", type=float, default=10.0, dest="poll_seconds")
     live.add_argument("--only")
+    live.add_argument("--gateway", default=os.environ.get("FORESIGHT_BUILTIN_LLM_BASE_URL", "http://127.0.0.1:57244/v1"))
+    live.add_argument("--probe-model", default=os.environ.get("FORESIGHT_BUILTIN_LLM_MODEL", "gpt-5.6-sol"), dest="probe_model")
+    live.add_argument("--gateway-wait", type=float, default=3600.0, dest="gateway_wait")
     live.add_argument("--out", required=True)
     live.set_defaults(func=cmd_live)
 
