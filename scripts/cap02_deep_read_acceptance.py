@@ -330,9 +330,27 @@ def _looks_like_clarification(users_root: Path, user: str, run_id: str, answer: 
 
 
 def _gateway_key() -> str:
-    """生产同款：网关 key 存 macOS Keychain，不落盘、不打印。取不到返回空串（探针退化为免 key 探活）。"""
+    """网关 key 的解析顺序与生产启动脚本对齐：env（Mirasim 8080 / 任意）→ mirasim sidecar 的
+    client-keys.env 文件 → cockpit 的 macOS Keychain 条目。不落盘、不打印。取不到返回空串
+    （探针退化为免 key 探活）。"""
     import subprocess
 
+    for name in ("FORESIGHT_BUILTIN_LLM_API_KEY", "OPENAI_API_KEY"):
+        value = str(os.environ.get(name) or "").strip()
+        if value:
+            return value
+    keys_env = Path(
+        os.environ.get("MIRASIM_CLIENT_KEYS_ENV")
+        or Path.home() / "Library" / "Application Support" / "mirasim-sidecar" / "client-keys.env"
+    )
+    try:
+        for line in keys_env.read_text(encoding="utf-8").splitlines():
+            if line.startswith("MIRASIM_CODEX_API_KEY="):
+                value = line.split("=", 1)[1].strip()
+                if value:
+                    return value
+    except OSError:
+        pass
     try:
         out = subprocess.run(
             ["security", "find-generic-password", "-s", "finance-workbench-cockpit", "-a", "a77", "-w"],
@@ -357,8 +375,17 @@ def _gateway_up(gateway: str, model: str = "") -> tuple[bool, str]:
     key = _gateway_key()
     try:
         if key and model:
+            # 探针必须带真实负载量级的 prompt：Mirasim relay 实测「几 token 探针 200、
+            # 数万 token 研究请求 502/503」，小探针放行的是一个跑不动 run 的窗口。
+            filler = "这是探针填充句，用来把请求撑到真实研究提示词的量级。" * 700
             payload = json.dumps(
-                {"model": model, "messages": [{"role": "user", "content": "回复一个字：好"}], "max_tokens": 5}
+                {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": filler},
+                        {"role": "user", "content": "回复一个字：好"},
+                    ],
+                }
             ).encode()
             request = urllib.request.Request(
                 gateway.rstrip("/") + "/chat/completions",
@@ -366,7 +393,7 @@ def _gateway_up(gateway: str, model: str = "") -> tuple[bool, str]:
                 headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
                 method="POST",
             )
-            with urllib.request.urlopen(request, timeout=60) as response:
+            with urllib.request.urlopen(request, timeout=90) as response:
                 body = json.loads(response.read() or b"{}")
             if body.get("choices"):
                 return True, "ok"
@@ -387,19 +414,26 @@ def _gateway_up(gateway: str, model: str = "") -> tuple[bool, str]:
         return False, f"{type(exc).__name__}: {exc}"[:160]
 
 
-def _model_errors(episode_path: Path) -> list[str]:
+def _model_errors(episode_path: Path) -> tuple[list[str], int]:
+    """返回 ``(模型错误列表, 成功模型轮数)``。成功 = content 或 tool_calls 非空。"""
     try:
         data = json.loads(episode_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return []
+        return [], 0
     events = data.get("events") if isinstance(data, dict) else data
     errors: list[str] = []
+    ok_turns = 0
     for event in events or []:
-        if event.get("kind") in {"model_turn", "model_error"}:
-            error = str((event.get("payload") or {}).get("error") or "")
+        kind = event.get("kind")
+        payload = event.get("payload") or {}
+        if kind == "model_turn":
+            if str(payload.get("content") or "").strip() or payload.get("tool_calls"):
+                ok_turns += 1
+        if kind in {"model_turn", "model_error"}:
+            error = str(payload.get("error") or "")
             if error:
                 errors.append(error[:160])
-    return errors
+    return errors, ok_turns
 
 
 def cmd_live(args: argparse.Namespace) -> int:
@@ -478,12 +512,18 @@ def cmd_live(args: argparse.Namespace) -> int:
                 record["phrase_in_model_view"] = _phrase_hit(phrases, tool_text)
                 record["model_turns"] = turns
                 record["tool_calls"] = tools
-                errors = _model_errors(run_dir / "continuous-episode.json")
+                errors, ok_turns = _model_errors(run_dir / "continuous-episode.json")
                 if errors:
                     record["model_errors"] = errors[:5]
-                    if any(("429" in e or "cooldown" in e.lower() or "URLError" in e or "HTTP 5" in e) for e in errors):
-                        # 网关冷却 / 掉线 / 上游 5xx（运行时把 429 cooldown 包成「HTTP 502」）：
-                        # 后面的题量的是配额不是能力，停批并如实记。
+                    record["ok_model_turns"] = ok_turns
+                    gateway_shape = any(
+                        ("429" in e or "cooldown" in e.lower() or "URLError" in e or "HTTP 5" in e)
+                        for e in errors
+                    )
+                    if gateway_shape and ok_turns == 0:
+                        # 整个 run 一轮模型都没成功且错误是网关型：冷却 / 掉线 / 整池 5xx。
+                        # 间歇 502（Mirasim relay 波动）会被 runtime 自身重试吸收、run 里
+                        # 仍有成功轮——那种不停批，如实带 model_errors 继续。
                         record["batch_aborted"] = "gateway error in model turns"
                         results.append(record)
                         print(json.dumps(record, ensure_ascii=False)[:400], flush=True)
