@@ -14,13 +14,12 @@
 已提交 `b7bf0d94`，树干净。未合 main、未切 8792。基线 `gitea/main=5eb24515`。
 
 ## 已验证
-直接测试文件 241 passed；V11 新测试 22 条；adapter/verifier/invariant 191；pre-commit 11 道过；`check_unread_fields` 无新增。全量 8327 passed / 3 failed（27 min 高负载跑，3 条超时看门狗测试安静单跑绿）。391 份真实存证：基线 vs 分支首个损失点 A/B 零差异，`extension_outputs` 出现 0 次。
+直接测试文件 241 passed；V11 新测试 22 条；adapter/verifier/invariant 191；pre-commit 11 道过；`check_unread_fields` 无新增。全量安静跑 8330 passed / 0 failed（15.6 min；此前高负载跑 3 条超时看门狗测试红、单跑绿）。391 份真实存证：基线 vs 分支首个损失点 A/B 零差异，`extension_outputs` 出现 0 次。
 
 ## 未验证 / 已知边界
 - **真实 Workbench 对照零草稿**：两臂 sidecar（8821 基线 / 8822 分支）五题全 HTTP 429，LLM 网关 `localhost:57244` 无监听；四类同题「升级前后」未展示，`v11_outcome` 只见 `skipped`。
 - V11 lifted 用户不可见（V8 后公开稿无存疑标）；§8 A/B 与台账 `R-20260822-05` 未做。
 - 缺陷一自然频率不可从存证读出（被拒修复轮不落事件）。
-- 安静全量第三跑 `/tmp/judge01/full-pytest-3.log` 交接时进行中。
 
 ## 下一步
 1. 网关回来后按 progress/01.md「续跑命令」串行两臂五题（先 `lsof -iTCP:57244`，再单发一题看 `draft_chars>0`），逐题读公开稿填「真实验收」。
