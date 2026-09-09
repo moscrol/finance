@@ -196,6 +196,11 @@ skip_method_flywheel() {
 
 run_method_flywheel() {
   local method_rc=0
+  if [ ! -f "$WORKSPACE/scripts/method_validation.py" ]; then
+    # cap07/I5 尚未合入主检出：如实留痕，不报警不装第二条脚本源。
+    skip_method_flywheel "scripts/method_validation.py 不在 WORKSPACE（cap07/I5 未合入主检出，合入后自动生效）"
+    return 0
+  fi
   echo "[$(date '+%F %T')] === method daily 开始 date=$D study=$METHOD_STUDY_DIR labels_db=$METHOD_LABELS_DB db=$MARKET_FEATURE_STORE_DB user=$FORESIGHT_USER ===" \
     >> "$LOG_DIR/method-validation-daily.log"
   "$OPS_PYTHON" "$WORKSPACE/scripts/method_validation.py" daily \

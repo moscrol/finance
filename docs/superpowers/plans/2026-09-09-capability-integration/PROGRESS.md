@@ -92,6 +92,6 @@
 | I2 | 未开工 | 06/01/02 | — | blocked/05.md B05-1/3/4 | I1 后 |
 | I3 | 未开工 | 06/09/04/10 | — | — | 依赖 I2 |
 | I4 | 未开工 | 08/06/09 | — | blocked/07.md #1、blocked/08.md B2/B3/B4 | 修 writer 根因 |
-| I5 | 未开工（可并行） | 07 | — | progress/07.md blocked #3 | 查夜跑 exit=2 → 装日程 |
+| I5 | **工程完成+生产接线验证**（22:36）@a2cec9ff：恢复点①（capture 落盘后中断→重跑补齐唯一 checkpoint，不改捕获时间）+ 恢复点②（data_insufficient 非终态，重建后沿同一观察重试）红→绿（旧实现 2 failed→15 passed）；`nightly_full_review.sh` 接 `run/skip_method_flywheel`（仅最终硬门通过后跑，失败夜写原因+下次机会），规范源+部署副本一致（旧件备份 .bak-pre-i5-20260909）；生产三元组手动 verify rc=0×2（rebuild 旁路库 09-07→09-09、capture skipped 起点未到、幂等）。夜跑 exit=2 根因=fact_theme_flow_daily 缺 09-09（其余表全到位）→ 归夜跑运维。注意：主检出（launchd 的 WORKSPACE）没有 method_validation.py，实际生效在本单合 main 后 | 07 | a2cec9ff | logs/method-validation-daily.log、docs/verification/…§I5 | 合 main 后夜跑自动生效；09-17 前后首个结算或 03:50 recheck；I4 补数后验②生产形状 |
 | J1/J2/J3 | 未开工 | 集成执行者 | — | — | I2/I3/I4 就绪后 |
 | 00 对照 | 未开工（baseline live 6/30 进行中，勿动） | 00 | — | ~/.finance-runtime/capability-benchmark-00/ | 候选冻结后 |
