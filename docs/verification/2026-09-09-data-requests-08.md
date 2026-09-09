@@ -41,6 +41,24 @@
 → `resume`（原会话重问）→ `resume` 重放（应 0 动作）→ `status`。产物 `~/.finance-runtime/data-requests-08/acceptance/`；
 跑完后把补前 / 补后答案差量填进本节，四项状态表随之更新。
 
+### 3.1 QA 基线已到手（16:05 网关短暂恢复的窗口）[实测]
+
+16:05:02 探针回 200，后台驱动开跑；QA 提交后驱动进程被系统低内存杀掉，但 **run 本身在 Workbench 内完成**
+（`run_20260909_160509_937232` completed，基线记录已从 run 目录回填 `acceptance/baseline/QA.json`）：
+
+- **模型真实行为**：调了一次 `finance_query`（`market_daily`，`time_range 2024-05-31..2024-06-30`，metrics `index_close/index_return_pct`），
+  库内无行；修复轮又试了两个变窗（06-01..06-30、05-31..06-28），同样无行。
+- **接缝在真实路径出声**：该 run 的 `tool_hunger.jsonl` 恰好 3 条 `window_uncovered`（dataset/物理表/请求窗/row_count=0/uncovered=all 齐全）——
+  第 2 节排练库走的是纯函数路径，这里是生产同款装配 + 真实模型 + 真实对话入口的第一次实证。
+- **补前答案（差量的「前」）**：「现有证据不足，暂不能可靠回答……证据数据截至 2026-09-09；缺口补齐后可复验。」`outcome.status=partial`。
+- **事件 → 请求 → 检查 [实测 16:31]**：3 条事件合并成 **1 个请求 `dr-542907a52f`**（窗口取并集 2024-05-31..2024-06-30，消费者 1 个，
+  priority 5.0，auto 路线）；`check` = open「窗口内无行」；语义字段 `index_close/index_return_pct` 正确映射到物理列
+  `sh_index_close/sh_index_pct_chg`（覆盖率 0.0）；依赖 `stock_daily=satisfied / sw_l1_daily=open`。
+  产物 `acceptance/requests-check-before.json`。
+
+16:31 网关再次 429（`reset_in≈16418s`，约 21:04 恢复）。QB/QC/QD 基线与 fill/resume/replay 由 21:12 的一次性定时任务续跑
+（runbook 已改幂等：有 `baseline/<Q>.json` 就跳过，不重复烧额度）。
+
 ## 4. 四项状态
 
 | 项 | 状态 |
