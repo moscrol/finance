@@ -1,6 +1,6 @@
 # 2026-09-09 部署账本单一写入家工单
 
-> 状态：🟡 代码已落、门禁绿、PR 待确认（2026-09-09，分支 `fix/deploy-ledger-single-home`，基线 `gitea/main@5eb24515`，提交 `0aea8a19`）。落地记录见文末。
+> 状态：🟡 代码已落、门禁绿、**PR #688** 待确认（2026-09-09，分支 `fix/deploy-ledger-single-home`，基线 `gitea/main@5eb24515`，提交 `0aea8a19` + 文档 `0accea02`；干净树全量 8308P / 0F，收据 `20260909T064405Z-0aea8a19.json`）。落地记录见文末；交接 `docs/handoffs/inflight/fix-deploy-ledger-single-home.md`。
 > 来源：`docs/handoffs/inflight-archive-2026-09-08/fix-board-ledger-freshest-switch.md`「下一步」第 2 条（PR #675 合入时留的「另立单」，此前一直没立）+ 2026-09-09 两日质检 B 组第 8 条。机制复用 `scripts/worktree_board.py::resolve_ledger_path`（读取侧「存在的候选里取该 port 末次 switch 最新」的候选枚举与 `_last_switch_unix`）。INDEX 编号 #44。
 
 部署账本 `deploy-ledger.jsonl` 有两个家 **[实测 2026-09-09]**：主检出树 `/Users/a77/finance-workspace-private/state/`（281 行）与 `~/.finance-runtime/`（24 行）。写入侧 `intelligence/runtime/deploy_ledger.py:35 resolve_ledger_path` 的覆盖序是：显式 `--ledger` > `FINANCE_DEPLOY_LEDGER` > `$FINANCE_WS/state/` > `<repo_root>/state/`（`create_app` 传入的代码根）> `~/.finance-runtime/`；`record_*` 在 `deploy_ledger.py:148` 用同一函数取路径。读取侧 `scripts/worktree_board.py:232` 抄同一序（SessionStart 在宿主 python3 下跑，不能 import 包），#675 后改成「存在的候选里取 8792 末次 switch 最新的那份」；审计侧 `scripts/audit_deploy_ledger.py:85` 直接 import 写入侧的解析。三处各自解析路径，只靠 docstring「改覆盖序时一起改」对齐，没有测试锁。
