@@ -502,12 +502,23 @@ def _json_safe(value):
 
 
 def table(name, columns, rows, *, unit=None, note=None):
-    """一张表：``columns`` 列名、``rows`` 行（每行与列同长）。行里的 None 就是「缺」，别填 0。"""
+    """一张表：``columns`` 列名、``rows`` 行（每行与列同长）。行里的 None 就是「缺」，别填 0。
 
+    行可以是列表 / 元组，也可以是**键为列名的 dict**（推荐：``{'报告期': '2025Q1', '营收': 514.43}``，
+    列序按 columns 对齐）。别把列名行塞进 rows。
+    """
+
+    column_list = [str(column) for column in columns]
+    out_rows = []
+    for row in rows:
+        if isinstance(row, dict):
+            out_rows.append([_json_safe(row.get(column)) for column in column_list])
+        else:
+            out_rows.append([_json_safe(cell) for cell in row])
     return {
         "name": str(name),
-        "columns": [str(column) for column in columns],
-        "rows": [[_json_safe(cell) for cell in row] for row in rows],
+        "columns": column_list,
+        "rows": out_rows,
         "unit": None if unit is None else str(unit),
         "note": None if note is None else str(note),
     }

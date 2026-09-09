@@ -111,6 +111,10 @@ def numbers_in(value: object, out: list[float]) -> None:
         return
     if isinstance(value, (int, float)):
         out.append(float(value))
+    elif isinstance(value, str):
+        # 模型有时把序列 repr / 文字化数字放进 summary（"value: 514.43"），
+        # 计分池要能捡到，否则「算对了但组织差」被误读成「没算」。
+        out.extend(numbers_in_text(value))
     elif isinstance(value, dict):
         for item in value.values():
             numbers_in(item, out)
