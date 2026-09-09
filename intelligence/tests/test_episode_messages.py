@@ -13,6 +13,8 @@ import pytest
 
 from intelligence.services.agent_runtime import EpisodeEvent, ModelToolCall, ModelTurn
 from intelligence.services.episode_messages import (
+    APPLICATION_TOOL_CALL_KIND,
+    APPLICATION_TOOL_CALL_SOURCES,
     MODEL_INPUT_SOURCES,
     MODEL_VISIBLE_TEXT_FIELDS,
     STRICT_DERIVATION_ENV,
@@ -21,10 +23,12 @@ from intelligence.services.episode_messages import (
     EpisodeMessage,
     append_model_input,
     assistant_message,
+    assistant_message_from_application_call,
     assistant_message_from_payload,
     check_derivation,
     derive_messages,
     describe_mismatch,
+    record_application_tool_call,
     record_prompt_assembled,
     record_tool_budget_state,
     rewrite_last_tool_content,
@@ -32,6 +36,7 @@ from intelligence.services.episode_messages import (
     system_message,
     to_provider,
     tool_message,
+    undeclared_tool_call_ids,
     user_message,
 )
 from intelligence.services.episode_event_lanes import DURABLE_EVENT_KINDS, lane_for
@@ -107,6 +112,141 @@ def test_errored_model_turn_produces_no_assistant_message() -> None:
     ledger.add("repair_model_retry", {"attempt": 1})
 
     assert derive_messages(ledger.events) == []
+
+
+def _fallback_call() -> ModelToolCall:
+    return ModelToolCall(
+        "empty-pool-fallback-1",
+        "finance_query",
+        {"dataset": "sector_daily", "order_by": [{"field": "amount", "direction": "desc"}]},
+    )
+
+
+def _real_fallback_shape(ledger: _Ledger, *, declared: bool) -> None:
+    """2026-09-09 M3 ``run_20260909_031431_477111`` seq 1–35 的事件形状（只保留派生相关的 kind）：
+    模型点了一枪 → 结算 → 应用空池回退直接 ``tool_request`` + ``tool_result``，中间没有任何
+    model_turn。``declared=True`` 时在回退派发前多一条 ``application_tool_call``。"""
+
+    record_prompt_assembled(ledger, system="宪法", user='{"question": "两只股票 2024 年怎么走"}')
+    ledger.add("model_turn", _tool_turn().to_dict())
+    ledger.add("tool_request", {**_tool_turn().tool_calls[0].to_dict(), "replay": "safe"})
+    ledger.add(
+        "tool_result",
+        {"tool": "market_data", "call_id": "call-1", "model_content": '{"rows": []}'},
+    )
+    if declared:
+        ledger.add(
+            "application_tool_call",
+            {"source": "empty_pool_fallback", **_fallback_call().to_dict()},
+        )
+    ledger.add(
+        "tool_request",
+        {**_fallback_call().to_dict(), "replay": "safe", "fallback_query": True},
+    )
+    ledger.add(
+        "tool_result",
+        {"tool": "finance_query", "call_id": "empty-pool-fallback-1", "model_content": '{"rows": [1]}'},
+    )
+
+
+def test_real_fallback_stream_derives_an_orphan_tool_message_without_the_declaration() -> None:
+    """失败形状先钉住：派生器能忠实重建那条孤儿 tool 消息（两侧一样错，check_derivation 看不出），
+    ``undeclared_tool_call_ids`` 把它点出来——这就是 provider 回 400 的那条消息。"""
+
+    ledger = _Ledger()
+    _real_fallback_shape(ledger, declared=False)
+
+    derived = derive_messages(ledger.events)
+
+    assert [m.role for m in derived] == ["system", "user", "assistant", "tool", "tool"]
+    assert undeclared_tool_call_ids(derived) == ("empty-pool-fallback-1",)
+
+
+def test_application_tool_call_declares_the_fallback_so_no_tool_message_is_orphaned() -> None:
+    ledger = _Ledger()
+    _real_fallback_shape(ledger, declared=True)
+
+    derived = derive_messages(ledger.events)
+
+    assert [m.role for m in derived] == ["system", "user", "assistant", "tool", "assistant", "tool"]
+    assert undeclared_tool_call_ids(derived) == ()
+    declaration = to_provider(derived)[4]
+    assert declaration == {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+            {
+                "id": "empty-pool-fallback-1",
+                "type": "function",
+                "function": {
+                    "name": "finance_query",
+                    "arguments": json.dumps(
+                        {"dataset": "sector_daily", "order_by": [{"field": "amount", "direction": "desc"}]},
+                        ensure_ascii=False,
+                    ),
+                },
+            }
+        ],
+    }
+    assert derived[4].source == APPLICATION_TOOL_CALL_KIND
+    # 老流（没有这条声明的历史产物）照旧能派生，不抛——兼容是 fold 规则的一部分。
+    legacy = _Ledger()
+    _real_fallback_shape(legacy, declared=False)
+    assert len(derive_messages(legacy.events)) == 5
+
+
+def test_record_application_tool_call_lands_event_before_message_and_matches_derivation() -> None:
+    """live 侧入口：先落 durable 事件，再进 messages；两侧经 to_provider 逐字节同形。"""
+
+    ledger = _Ledger()
+    messages: list[EpisodeMessage] = []
+    record_prompt_assembled(ledger, system="宪法", user="q")
+    messages.extend([system_message("宪法"), user_message("q")])
+
+    declared = record_application_tool_call(
+        messages, ledger, call=_fallback_call(), source="empty_pool_fallback"
+    )
+    ledger.add(
+        "tool_result",
+        {"tool": "finance_query", "call_id": "empty-pool-fallback-1", "model_content": "{}"},
+    )
+    messages.append(tool_message("empty-pool-fallback-1", "{}"))
+
+    assert declared is messages[2] and declared.role == "assistant" and declared.content == ""
+    assert [event.kind for event in ledger.events] == [
+        "prompt_assembled",
+        "application_tool_call",
+        "tool_result",
+    ]
+    assert ledger.events[1].to_dict()["payload"] == {
+        "source": "empty_pool_fallback",
+        **_fallback_call().to_dict(),
+    }
+    assert to_provider(derive_messages(ledger.events)) == to_provider(messages)
+    assert check_derivation(ledger.events, messages)
+    assert undeclared_tool_call_ids(messages) == ()
+    # 派生侧与 live 侧的构造函数同形（INV-R1 的前提，同 model_turn 那条）。
+    from_payload = assistant_message_from_application_call(ledger.events[1].to_dict()["payload"])
+    assert to_provider([from_payload]) == to_provider([declared])
+
+
+def test_application_tool_call_source_is_registered_and_kind_is_durable() -> None:
+    assert lane_for(APPLICATION_TOOL_CALL_KIND) == "durable"
+    assert APPLICATION_TOOL_CALL_SOURCES == {"empty_pool_fallback"}
+    with pytest.raises(ValueError):
+        record_application_tool_call(
+            [], _Ledger(), call=_fallback_call(), source="not_registered"  # type: ignore[arg-type]
+        )
+    with pytest.raises(DerivationUnavailable):
+        assistant_message_from_application_call({"call_id": "x", "name": "y", "arguments": "not-an-object"})
+
+
+def test_undeclared_tool_call_ids_accepts_model_declarations_and_orders_orphans() -> None:
+    turn = assistant_message(_tool_turn())
+    ok = [turn, tool_message("call-1", "{}")]
+    assert undeclared_tool_call_ids(ok) == ()
+    orphans = [tool_message("ghost-2", "{}"), turn, tool_message("call-1", "{}"), tool_message("ghost-1", "{}")]
+    assert undeclared_tool_call_ids(orphans) == ("ghost-2", "ghost-1")
 
 
 def test_tool_events_fold_to_tool_messages_and_budget_state_overwrites_the_last() -> None:

@@ -270,6 +270,84 @@ def test_deadline_passed_closes_dangling_tool_intents_and_derivation_still_holds
     assert [m.tool_call_id for m in derived][-2:] == [e.payload["call_id"] for e in requests]
 
 
+def _crashed_fallback_episode(*, after_kind: str):
+    """跑一遍真实空池回退脚本（模型点 sector_daily → 空 → 应用补一枪成交额榜），把日志截在
+    ``after_kind`` 那条事件之后当崩溃现场。两个切点都在声明之后：意图前 / 意图后结算前。"""
+
+    from intelligence.services.empty_pool_fallback import FALLBACK_CALL_ID
+    from intelligence.tests.test_empty_pool_fallback import (
+        _ScriptedModel,
+        _empty_sector_turn,
+        _empty_then_amount_runner,
+        _finance_registry,
+        _finish_turn,
+        _theme_context,
+        _theme_frame,
+    )
+
+    store = RecordingStore()
+    frame = _theme_frame()
+    context = _theme_context(frame)
+    outcome = ContinuousAgentEpisode(
+        _ScriptedModel([_empty_sector_turn(), _finish_turn(hashes=("amount-1",))]),
+        store=store,
+    ).run(task_frame=frame, context=context, registry=_finance_registry(_empty_then_amount_runner([])))
+    assert outcome.status == "completed"
+    episode_id = context.contract.task_id
+    events, _ = store.load(episode_id)
+    cut = next(
+        e.sequence
+        for e in events
+        if e.kind == after_kind and e.payload.get("call_id") == FALLBACK_CALL_ID
+    )
+    state = max((s for s in store.states if s.last_sequence <= cut), key=lambda s: s.last_sequence)
+    crash_store = MemoryEpisodeStore()
+    crash_store.append(episode_id, events[:cut])
+    crash_store.put_state(episode_id, state)
+    return episode_id, crash_store, FALLBACK_CALL_ID
+
+
+def test_application_declaration_without_dispatch_is_settled_so_no_tool_call_dangles() -> None:
+    """声明落了、意图没落就崩：恢复不重发（声明不是意图），合成 tool_error{interrupted} 配平，
+    派生出的消息里既没有孤儿 tool 消息、也没有悬空的 assistant.tool_calls。"""
+
+    from intelligence.services.episode_messages import undeclared_tool_call_ids
+
+    episode_id, crash_store, fallback_id = _crashed_fallback_episode(after_kind="application_tool_call")
+
+    result = restore_episode(episode_id, crash_store, now=SOON)
+
+    assert result.disposition == "resumable" and result.plan is not None
+    assert result.plan.action == "model_turn"
+    assert [e.kind for e in result.synthesized] == ["tool_error"]
+    settled = result.synthesized[0]
+    assert settled.payload["call_id"] == fallback_id
+    assert settled.payload["error"] == "interrupted"
+    assert json.loads(settled.payload["model_content"])["error"] == "interrupted"
+    derived = derive_messages(result.events)
+    assert undeclared_tool_call_ids(derived) == ()
+    declared = {c.call_id for m in derived if m.role == "assistant" for c in m.tool_calls}
+    answered = {m.tool_call_id for m in derived if m.role == "tool"}
+    assert declared == answered  # 每个声明都有结算，每个结算都有声明。
+    # 恰好一次：这条声明本身就算「已尝试」，恢复后的下一批不会再补第二枪。
+    from intelligence.services.empty_pool_fallback import fallback_already_attempted
+
+    assert fallback_already_attempted(result.events)
+
+
+def test_application_declaration_with_dangling_intent_replays_the_same_call() -> None:
+    """声明与意图都落了、结算没落：走既有的 replay=safe 路径重跑同一 call_id，不再声明第二次。"""
+
+    episode_id, crash_store, fallback_id = _crashed_fallback_episode(after_kind="tool_request")
+
+    result = restore_episode(episode_id, crash_store, now=SOON)
+
+    assert result.disposition == "resumable" and result.plan is not None
+    assert result.plan.action == "replay_tools" and result.plan.call_ids == (fallback_id,)
+    assert result.synthesized == ()
+    assert sum(1 for e in result.events if e.kind == "application_tool_call") == 1
+
+
 def test_replay_never_tool_is_settled_as_interrupted_not_replayed() -> None:
     def runner(query: str, _context: AgentToolContext):
         return (

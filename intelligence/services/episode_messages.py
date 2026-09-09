@@ -31,6 +31,10 @@ fold 规则（一个 kind 一行；改这里必改终态稿 §6.1）：
 ``prompt_assembled``  → ``[system(content), user(content)]``
 ``model_input``       → ``user(content)``
 ``model_turn``        → ``assistant(content, tool_calls)``，**仅当** ``error`` 为空
+``application_tool_call`` → ``assistant("", tool_calls=[该调用])``：应用（非模型）替模型
+                      补发的一次工具调用声明（空池回退）。没有它，随后的 ``tool`` 消息就是
+                      孤儿——OpenAI 兼容接口对没有 ``assistant.tool_calls`` 声明的 tool 消息
+                      回 400（2026-09-09 M3 / M6 真实 run 第 3/4 轮）。
 ``tool_result``       → ``tool(call_id, model_content)``
 ``tool_error``        → ``tool(call_id, model_content)``
 ``tool_budget_state`` → 覆写最后一条 ``tool`` 消息的 content 为 ``model_content``
@@ -55,6 +59,9 @@ from typing import Literal, Protocol
 from intelligence.services.agent_runtime import EpisodeEvent, ModelToolCall, ModelTurn
 
 __all__ = [
+    "APPLICATION_TOOL_CALL_KIND",
+    "APPLICATION_TOOL_CALL_SOURCES",
+    "ApplicationToolCallSource",
     "DerivationMismatch",
     "DerivationUnavailable",
     "EpisodeMessage",
@@ -77,10 +84,12 @@ __all__ = [
     "TOOL_BUDGET_STATE_KIND",
     "append_model_input",
     "assistant_message",
+    "assistant_message_from_application_call",
     "assistant_message_from_payload",
     "check_derivation",
     "derive_messages",
     "describe_mismatch",
+    "record_application_tool_call",
     "record_prompt_assembled",
     "record_tool_budget_state",
     "rewrite_last_tool_content",
@@ -89,10 +98,14 @@ __all__ = [
     "system_message",
     "to_provider",
     "tool_message",
+    "undeclared_tool_call_ids",
     "user_message",
 ]
 
 MODEL_INPUT_KIND = "model_input"
+# 应用替模型补发的工具调用声明（终态稿 §6.1 补充，2026-09-09）。它承载的是模型下一次
+# 请求会看到的 ``assistant.tool_calls``，所以和 model_input 一样归 durable、先落账再进 messages。
+APPLICATION_TOOL_CALL_KIND = "application_tool_call"
 PROMPT_ASSEMBLED_KIND = "prompt_assembled"
 TOOL_BUDGET_STATE_KIND = "tool_budget_state"
 HISTORY_COMPACTED_KIND = "history_compacted"
@@ -132,6 +145,11 @@ MODEL_INPUT_SOURCES: frozenset[str] = frozenset(
         "repair_goal",
     }
 )
+
+# 应用发起工具调用的来源。今天只有空池回退一处；新增应用侧补枪先登记再发射，
+# ``record_application_tool_call`` 对不在表里的 source 抛错，理由同 ``MODEL_INPUT_SOURCES``。
+ApplicationToolCallSource = Literal["empty_pool_fallback"]
+APPLICATION_TOOL_CALL_SOURCES: frozenset[str] = frozenset({"empty_pool_fallback"})
 
 # 投影层默认剔除的模型可见正文字段：``(kind, field)``。私有 durable 流带正文，
 # 对外 artifact 只留 sha256 与字符数（``episode_projection.project_durable_events``）。
@@ -259,6 +277,47 @@ def assistant_message_from_payload(payload: Mapping[str, object]) -> EpisodeMess
     )
 
 
+def _application_call_message(call: ModelToolCall) -> EpisodeMessage:
+    # content 固定为空串：与模型只点工具不说话的 model_turn 同形（``ModelTurn.content`` 为空）。
+    return EpisodeMessage(
+        role="assistant",
+        content="",
+        tool_calls=(call,),
+        source=APPLICATION_TOOL_CALL_KIND,
+    )
+
+
+def assistant_message_from_application_call(payload: Mapping[str, object]) -> EpisodeMessage:
+    """派生侧：从 ``application_tool_call`` 事件 payload（``ModelToolCall.to_dict()`` + source）
+    拼出声明该调用的 assistant 消息。与 ``record_application_tool_call`` 进 messages 的那条经
+    ``to_provider`` 后必须逐字节同形。"""
+
+    arguments = payload.get("arguments")
+    if not isinstance(arguments, Mapping):
+        raise DerivationUnavailable("application_tool_call.arguments 不是对象")
+    call = ModelToolCall(
+        str(payload.get("call_id") or ""), str(payload.get("name") or ""), arguments
+    )
+    return _application_call_message(call)
+
+
+def undeclared_tool_call_ids(messages: Sequence[EpisodeMessage]) -> tuple[str, ...]:
+    """每条 ``tool`` 消息的 ``tool_call_id`` 必须被前面某条 assistant 的 ``tool_calls`` 声明过；
+    返回没有声明的那些 id（按出现顺序）。空元组才是合法的 provider 请求。
+
+    这是 2026-09-09 M3 / M6 两次 HTTP 400 的失败形状：``derive_messages`` 能派生出它，
+    ``check_derivation`` 却看不出——两侧一样错就对得上账。"""
+
+    declared: set[str] = set()
+    orphans: list[str] = []
+    for message in messages:
+        if message.role == "assistant":
+            declared.update(call.call_id for call in message.tool_calls)
+        elif message.role == "tool" and message.tool_call_id not in declared:
+            orphans.append(message.tool_call_id)
+    return tuple(orphans)
+
+
 def rewrite_last_tool_content(
     messages: MutableSequence[EpisodeMessage], content: str
 ) -> EpisodeMessage:
@@ -381,6 +440,29 @@ def append_model_input(
     return message
 
 
+def record_application_tool_call(
+    messages: MutableSequence[EpisodeMessage],
+    ledger: MessageLedger,
+    *,
+    call: ModelToolCall,
+    source: ApplicationToolCallSource,
+) -> EpisodeMessage:
+    """应用（非模型）发起工具调用的唯一入口：先落 durable 事件，再把声明它的 assistant
+    消息进 messages。要在派发 / ``tool_request`` **之前**调——声明先于意图，意图先于效果。
+
+    为什么不伪造一条 ``model_turn``：那会让「模型说过什么」的账掺进底座自己的决定，
+    重放消费者与评测都会把它算成一次模型调用。为什么不只在发送边缘补消息：那样 durable
+    流与 live messages 分叉，``check_derivation`` 在下一次请求前就会红。
+    """
+
+    if source not in APPLICATION_TOOL_CALL_SOURCES:
+        raise ValueError(f"未登记的 application_tool_call 来源: {source!r}")
+    ledger.add("application_tool_call", {"source": source, **call.to_dict()})
+    message = _application_call_message(call)
+    messages.append(message)
+    return message
+
+
 def record_tool_budget_state(
     ledger: MessageLedger,
     *,
@@ -466,6 +548,8 @@ def derive_messages(events: Iterable[EpisodeEvent]) -> list[EpisodeMessage]:
             if str(payload.get("error") or ""):
                 continue
             messages.append(assistant_message_from_payload(payload))
+        elif kind == APPLICATION_TOOL_CALL_KIND:
+            messages.append(assistant_message_from_application_call(_payload_dict(event)))
         elif kind in {"tool_result", "tool_error"}:
             payload = _payload_dict(event)
             messages.append(

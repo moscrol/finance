@@ -82,6 +82,10 @@ DURABLE_EVENT_KINDS: frozenset[str] = frozenset(
         "tool_menu",
         "model_turn",
         "model_error",
+        # 应用替模型补发工具调用的声明（空池回退；终态稿 §6.1 补充 2026-09-09）：它承载
+        # 模型下一次请求会看到的 assistant.tool_calls，没有它随后的 tool 消息是孤儿（400）。
+        # 归 durable 是必然：重放消费者重建模型历史缺不了这条声明。
+        "application_tool_call",
         "tool_request",
         "tool_result",
         "tool_error",

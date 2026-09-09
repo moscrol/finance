@@ -501,6 +501,24 @@ def restore_episode(
             detail = "research deadline passed before the tool settled"
         _settle_tool_interrupted(synth, harness=domain, intent=intent, detail=detail)
 
+    # ── 应用声明了调用、意图没落（application_tool_call 后、tool_request 前崩溃）────
+    # 声明已进模型历史（派生成 assistant.tool_calls）；没有结算它的 tool 消息，下一次请求
+    # 就是悬空 tool_calls，同样非法。不重发：声明不是意图，重发要走正常的空池回退判定，而
+    # ``fallback_already_attempted`` 把这条声明算作已尝试。合成 tool_error{interrupted} 配平，
+    # 派生器从它重建 tool 消息（INV-R1 在合成后的日志上仍成立）。
+    dispatched_ids = {
+        str(e.payload.get("call_id") or "") for e in events if e.kind == "tool_request"
+    }
+    for declaration in [e for e in events if e.kind == "application_tool_call"]:
+        if str(declaration.payload.get("call_id") or "") in dispatched_ids:
+            continue
+        _settle_tool_interrupted(
+            synth,
+            harness=domain,
+            intent=declaration,
+            detail="application tool call was declared but never dispatched",
+        )
+
     # ── 兜底合成在飞 ───────────────────────────────────────────────────────
     recovery_dangling = False
     if _RECOVERY_RESERVED_ID in state.reserved_ids:
