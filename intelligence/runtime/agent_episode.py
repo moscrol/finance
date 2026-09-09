@@ -77,7 +77,12 @@ from intelligence.services.research_plan import (
 )
 from intelligence.services.cancel_signal import CancelSignal
 from intelligence.services.episode_event_lanes import LiveEventSink
-from intelligence.services.episode_inbox import Inbox, InboxReceipt, InboxTarget
+from intelligence.services.episode_inbox import (
+    Inbox,
+    InboxReceipt,
+    InboxTarget,
+    spool_dir_for,
+)
 from intelligence.services.episode_messages import (
     PROMPT_SOURCE_FINALIZER,
     EpisodeMessage,
@@ -1057,7 +1062,12 @@ class ContinuousAgentEpisode:
         ledger.active_context = context
         # INV-R5：收件箱在账本之后、任何模型请求之前建好——从此外部输入只有这一扇门。
         # 收不收由 harness 判（§5 第 2 条接触点）；子研究回灌也走它（§6.4 第 3 条）。
-        inbox = Inbox(ledger, admit=self._harness.admit_inbox_message)
+        # 落盘的 store 顺带给箱子一个跨进程投递槽（CLI steer，工单 #30 第 5 条）；内存 store 没有。
+        inbox = Inbox(
+            ledger,
+            admit=self._harness.admit_inbox_message,
+            spool=spool_dir_for(self._store, ledger.episode_id),
+        )
         ledger.inbox = inbox
         self._active_inbox = inbox
         # 研究进展账要在绑 sub_research 之前建：分支结果在批执行器线程里回来时直接记进它。

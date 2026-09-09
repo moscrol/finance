@@ -3924,6 +3924,111 @@ def cmd_digest(args: argparse.Namespace) -> int:
     return 0
 
 
+def add_steer_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "steer",
+        help="给正在跑的 episode 递一句话（运行底座 P3 收件箱，INV-R5）。跨进程走 durable 目录的投递槽："
+        "写进 <episode_dir>/inbox-spool/，loop 在下一次模型请求前认领；--wait 轮询 events.jsonl 拿回执。",
+    )
+    parser.add_argument(
+        "episode_id",
+        nargs="?",
+        help="episode id（= 契约 task_id，形如 run_…:msg_…）；--list 列出 store 里未收口的",
+    )
+    parser.add_argument("text", nargs="?", help="要递的话（user 角色）")
+    parser.add_argument(
+        "--target",
+        choices=("next_step", "next_turn"),
+        default="next_step",
+        help="next_step=下一次模型请求前送达（默认）；next_turn=模型停下时送达并让它再跑一轮",
+    )
+    parser.add_argument("--source", default="cli", help="进 inbox_inserted.source 的来源标记（默认 cli）")
+    parser.add_argument(
+        "--wait",
+        type=float,
+        default=0.0,
+        metavar="SECONDS",
+        help="投递后最多等 N 秒回执（inserted / claimed / discarded），默认不等",
+    )
+    parser.add_argument(
+        "--store-root",
+        default=None,
+        help="覆盖 episode store 根（默认 FORESIGHT_EPISODE_STORE > $FINANCE_WS/state/episodes > "
+        "~/.finance-runtime/episodes；必须与 Workbench 进程一致，否则是另一个家）",
+    )
+    parser.add_argument("--list", action="store_true", dest="list_open", help="只列出 store 里未收口的 episode，不递话")
+    parser.set_defaults(func=cmd_steer)
+
+
+def cmd_steer(args: argparse.Namespace) -> int:
+    from intelligence.services.episode_steer import (
+        EpisodeFinished,
+        EpisodeNotFound,
+        SteerError,
+        deliver_steer,
+        list_open_episodes,
+        wait_receipt,
+    )
+    from intelligence.services.episode_store import resolve_episode_store_root
+
+    root = Path(args.store_root).expanduser() if args.store_root else resolve_episode_store_root()
+    if args.list_open:
+        print(
+            json.dumps(
+                {"store_root": str(root), "open_episodes": list(list_open_episodes(root))},
+                ensure_ascii=False,
+            )
+        )
+        return 0
+    if not args.episode_id or not str(args.text or "").strip():
+        print(
+            json.dumps(
+                {"ok": False, "error": "usage", "detail": "需要 <episode_id> <text>，或 --list"},
+                ensure_ascii=False,
+            ),
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        delivery = deliver_steer(
+            store_root=root,
+            episode_id=args.episode_id,
+            content=args.text,
+            target=args.target,
+            source=args.source,
+        )
+    except EpisodeNotFound as exc:
+        print(json.dumps({"ok": False, "error": exc.code, "detail": str(exc)}, ensure_ascii=False), file=sys.stderr)
+        return 2
+    except EpisodeFinished as exc:
+        print(json.dumps({"ok": False, "error": exc.code, "detail": str(exc)}, ensure_ascii=False), file=sys.stderr)
+        return 1
+    result: dict[str, object] = {
+        "ok": True,
+        **delivery.to_dict(),
+        "delivery": "queued_in_spool",
+        "receipt": None,
+    }
+    if args.wait > 0:
+        try:
+            receipt = wait_receipt(
+                store_root=root,
+                episode_id=args.episode_id,
+                spool_id=delivery.spool_id,
+                timeout_s=args.wait,
+            )
+        except SteerError as exc:
+            result["receipt_error"] = str(exc)
+        else:
+            result["receipt"] = receipt.to_dict() if receipt is not None else None
+            if receipt is None:
+                result["receipt_note"] = "等待期内未见 inbox_inserted：loop 还没到认领点，或 episode 刚收口"
+            elif not receipt.settled:
+                result["receipt_note"] = "已入箱、尚未认领"
+    print(json.dumps(result, ensure_ascii=False))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Financial intelligence product CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -3969,6 +4074,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_self_use_parser(subparsers)
     add_tool_hunger_parser(subparsers)
     add_news_alias_parser(subparsers)
+    add_steer_parser(subparsers)
     return parser
 
 
