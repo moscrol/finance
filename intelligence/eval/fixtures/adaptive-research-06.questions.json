@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "workorder": "06-adaptive-research",
+  "frozen_at": "2026-09-09",
+  "note": "06 号单任务 0 冻结集：8 道复杂题 + 4 道简单事实题。题面逐字取自既有冻结集（frozen-thirty-2026-08-16 / four-arm all38 / 2026-09-07 sub_research live 收据），不新造题。key_outcomes 在跑任何一臂之前写死；检查器是 scripts/cap06_read_runs.py 的确定性规则（答案关键词 + 事件流事实），不是 LLM 判卷。",
+  "acceptance": {
+    "complex": "8 题合计 key_outcomes 命中数：候选臂 ≥ 基线臂 + 2（brief §完成条件）。",
+    "simple": "4 题全部：无 sub_research 调用（无价值的多 Agent 调度 = 0）、tool_requests ≤ 6、终态 completed。",
+    "adaptive_proof": "候选臂事件流里至少 1 题出现「runtime_progress 建议 switch_query/switch_tool 之后，下一轮模型换了查询或工具」的可读证据；或「stalled 后收口」。"
+  },
+  "cases": [
+    {
+      "id": "C1-B4-fermentation-trace",
+      "group": "complex",
+      "source": "frozen-thirty:B4-fermentation-trace",
+      "question": "电网设备是怎么发酵到 2026-07-23 双红的，把链路回溯一下",
+      "key_outcomes": [
+        {"id": "timeline", "statement": "给出 07-23 之前至少两个不同日期节点的发酵链路", "check": {"type": "regex_distinct_count", "pattern": "0?7-(?:0[1-9]|1[0-9]|2[0-3])", "min": 2}},
+        {"id": "catalyst_evidence", "statement": "消息面催化有绑定证据（新闻/网页/知识库）", "check": {"type": "bound_tool_any", "tools": ["news_search", "web_search", "web_fetch", "kb_search", "evidence_search", "l3_lookup"]}},
+        {"id": "market_evidence", "statement": "盘面事实有绑定证据（本地行情/板块数据）", "check": {"type": "bound_tool_any", "tools": ["market_data", "finance_query", "mainline_context"]}},
+        {"id": "counterpoint", "statement": "写出反方或失效条件", "check": {"type": "answer_any", "keywords": ["反方", "反证", "失效", "证伪", "风险"]}}
+      ]
+    },
+    {
+      "id": "C2-B8-valuation-band",
+      "group": "complex",
+      "source": "frozen-thirty:B8-valuation-band",
+      "question": "2026-07-23 立新能源现在贵不贵，隐含了什么预期",
+      "key_outcomes": [
+        {"id": "valuation_number", "statement": "给出带数值的估值指标（PE/PB/市值）", "check": {"type": "regex_any", "pattern": "(?:PE|PB|市盈率|市净率|市值)[^。\\n]{0,40}?\\d"}},
+        {"id": "financial_evidence", "statement": "财务数据有绑定证据", "check": {"type": "bound_tool_any", "tools": ["financial_data", "finance_query", "l3_lookup"]}},
+        {"id": "implied_expectation", "statement": "说明隐含预期（增长/定价假设）", "check": {"type": "answer_any", "keywords": ["隐含", "预期", "定价", "增长"]}},
+        {"id": "boundary", "statement": "写明口径边界或数据缺口", "check": {"type": "answer_any", "keywords": ["口径", "缺", "边界", "不含", "未披露"]}}
+      ]
+    },
+    {
+      "id": "C3-C9-citation-integrity",
+      "group": "complex",
+      "source": "frozen-thirty:C9-citation-integrity",
+      "question": "2026-07-23 电网设备为什么涨，给出证据来源",
+      "key_outcomes": [
+        {"id": "external_cause_evidence", "statement": "消息面原因有绑定证据（新闻/公告/网页）", "check": {"type": "bound_tool_any", "tools": ["news_search", "l3_lookup", "web_search", "web_fetch", "kb_search", "evidence_search"]}},
+        {"id": "market_evidence", "statement": "盘面事实有绑定证据", "check": {"type": "bound_tool_any", "tools": ["market_data", "finance_query", "mainline_context"]}},
+        {"id": "verified_vs_candidate", "statement": "区分已核验事实与待验证线索/外部观点", "check": {"type": "answer_any", "keywords": ["待验证", "外部观点", "未核验", "线索", "尚未确认"]}},
+        {"id": "sources_named", "statement": "点明至少两处来源", "check": {"type": "answer_count_any", "keywords": ["来源", "据", "公告", "新闻", "报道", "证据"], "min": 2}}
+      ]
+    },
+    {
+      "id": "C4-open-event-fed",
+      "group": "complex",
+      "source": "frozen-thirty:open-event-fed",
+      "question": "如果美联储下次降息，A股哪些方向可能受益，哪些证据会证伪？",
+      "key_outcomes": [
+        {"id": "two_directions", "statement": "点名至少两个受益方向", "check": {"type": "answer_count_any", "keywords": ["黄金", "贵金属", "有色", "券商", "成长", "科技", "港股", "创新药", "地产", "新能源", "消费", "半导体", "北向", "人民币", "小盘", "红利"], "min": 2}},
+        {"id": "transmission", "statement": "写出传导路径", "check": {"type": "answer_any", "keywords": ["传导", "路径", "汇率", "流动性", "美元", "利差"]}},
+        {"id": "falsification", "statement": "写出证伪/失效条件", "check": {"type": "answer_any", "keywords": ["证伪", "失效", "反证", "不成立"]}},
+        {"id": "two_tool_families", "statement": "证据来自至少两个工具族（本地行情 + 知识/网页）", "check": {"type": "bound_tool_families_min", "families": {"market": ["market_data", "finance_query", "mainline_context", "financial_data"], "knowledge": ["kb_search", "evidence_search", "graph_lookup", "evidence_lookup", "web_search", "web_fetch", "news_search", "l3_lookup"]}, "min": 2}}
+      ]
+    },
+    {
+      "id": "C5-theme-comparison",
+      "group": "complex",
+      "source": "frozen-thirty:theme-comparison",
+      "question": "低空经济和商业航天，未来一个月哪个更可能成为A股主线，为什么",
+      "key_outcomes": [
+        {"id": "both_subjects", "statement": "两个题材各被实质讨论（各出现至少 2 次）", "check": {"type": "answer_each_min", "keywords": ["低空", "商业航天"], "min": 2}},
+        {"id": "same_dimensions", "statement": "用相同维度比较（催化/政策/订单/资金/涨停/龙头 至少三种）", "check": {"type": "answer_count_any", "keywords": ["催化", "政策", "订单", "资金", "涨停", "龙头", "成交"], "min": 3}},
+        {"id": "conclusion_with_invalidation", "statement": "给出明确倾向并附失效条件", "check": {"type": "answer_all_groups", "groups": [["更可能", "倾向", "更大", "占优"], ["失效", "反证", "证伪", "改判"]]}},
+        {"id": "per_subject_retrieval", "statement": "两个题材各有独立检索（sub_research 或各自有含题材名的查询）", "check": {"type": "queries_each_min", "keywords": ["低空", "商业航天"], "min": 1, "or_tool": "sub_research"}}
+      ]
+    },
+    {
+      "id": "C6-adv-packaging-compare",
+      "group": "complex",
+      "source": "docs/verification/2026-09-07-max-shape-readings-and-sub-research-live.md §3",
+      "question": "长电科技和通富微电在先进封装（CoWoS/HBM）上的进展对比：各自的客户、产能和最近一期财报里的证据",
+      "key_outcomes": [
+        {"id": "both_companies", "statement": "两家公司各被实质讨论（各出现至少 2 次）", "check": {"type": "answer_each_min", "keywords": ["长电", "通富"], "min": 2}},
+        {"id": "customer_capacity", "statement": "客户与产能两个维度都有内容", "check": {"type": "answer_all_groups", "groups": [["客户"], ["产能", "扩产", "量产"]]}},
+        {"id": "financial_evidence", "statement": "财报/公告证据有绑定", "check": {"type": "bound_tool_any", "tools": ["financial_data", "l3_lookup", "finance_query"]}},
+        {"id": "gap_named", "statement": "点明口径限制或未披露项", "check": {"type": "answer_any", "keywords": ["未披露", "缺", "口径", "无法", "不可得"]}}
+      ]
+    },
+    {
+      "id": "C7-B5-cross-table-intersection",
+      "group": "complex",
+      "source": "frozen-thirty:B5-cross-table-intersection",
+      "question": "2026-07-23 涨停热度前四的题材里，哪些同时也是双红板块",
+      "key_outcomes": [
+        {"id": "two_datasets", "statement": "涨停热度与板块双红两类数据都有绑定证据", "check": {"type": "bound_dataset_min", "min": 2}},
+        {"id": "intersection_stated", "statement": "明确写出交集结论（有哪些 / 没有）", "check": {"type": "answer_any", "keywords": ["同时", "交集", "也是双红", "均为双红", "没有同时", "无一"]}},
+        {"id": "top4_listed", "statement": "列出涨停热度前四题材", "check": {"type": "answer_any", "keywords": ["前四", "四个", "前 4", "前4", "TOP4", "Top4"]}},
+        {"id": "definition", "statement": "说明双红口径", "check": {"type": "answer_any", "keywords": ["边际量", "涨幅为正", "双红指", "双红：", "双红定义", "口径"]}}
+      ]
+    },
+    {
+      "id": "C8-D5-theme-unseen",
+      "group": "complex",
+      "source": "all38:D5-theme-unseen",
+      "question": "2026-06-11 可控核聚变",
+      "key_outcomes": [
+        {"id": "chain_segments", "statement": "点名至少两个产业链环节", "check": {"type": "answer_count_any", "keywords": ["磁体", "超导", "第一壁", "偏滤器", "真空", "电源", "钨", "高温超导", "装置", "BEST", "EAST", "ITER", "托卡马克", "包层"], "min": 2}},
+        {"id": "company_exposure", "statement": "公司暴露有图谱/知识库证据", "check": {"type": "bound_tool_any", "tools": ["graph_lookup", "kb_search", "evidence_search", "evidence_lookup"]}},
+        {"id": "market_fact", "statement": "当日题材热度/盘面有绑定证据", "check": {"type": "bound_tool_any", "tools": ["market_data", "finance_query", "mainline_context"]}},
+        {"id": "risk_or_timeline", "statement": "写出商业化时间表/风险/反方", "check": {"type": "answer_any", "keywords": ["商业化", "时间表", "风险", "反方", "证伪", "远期"]}}
+      ]
+    },
+    {
+      "id": "S1-A4-dual-red",
+      "group": "simple",
+      "source": "all38:A4-dual-red",
+      "question": "2026-07-23 哪些板块是双红",
+      "key_outcomes": [
+        {"id": "direct_list", "statement": "直接给出板块列表并标数据日期", "check": {"type": "answer_all_groups", "groups": [["双红"], ["07-23", "7月23"]]}}
+      ]
+    },
+    {
+      "id": "S2-A5-limit-heat",
+      "group": "simple",
+      "source": "all38:A5-limit-heat",
+      "question": "2026-07-23 涨停集中在哪些题材",
+      "key_outcomes": [
+        {"id": "direct_list", "statement": "直接给出题材列表并标数据日期", "check": {"type": "answer_all_groups", "groups": [["涨停"], ["07-23", "7月23"]]}}
+      ]
+    },
+    {
+      "id": "S3-D3-strict-definition",
+      "group": "simple",
+      "source": "all38:D3-strict-definition-spelled-out",
+      "question": "2026-07-22 哪些板块同时满足涨幅为正、边际量超过10%、成交额高于500亿",
+      "key_outcomes": [
+        {"id": "direct_list", "statement": "直接给出满足三条件的板块或明确写无", "check": {"type": "answer_any", "keywords": ["满足", "符合", "没有板块", "无板块", "无一"]}}
+      ]
+    },
+    {
+      "id": "S4-A6-limit-advance-ladder",
+      "group": "simple",
+      "source": "all38:A6-limit-advance-ladder",
+      "question": "2026-07-23 连板梯队什么情况，有没有断层",
+      "key_outcomes": [
+        {"id": "direct_answer", "statement": "给出梯队结构并明确是否断层", "check": {"type": "answer_all_groups", "groups": [["连板", "梯队"], ["断层", "空档", "断档"]]}}
+      ]
+    }
+  ]
+}
