@@ -2,7 +2,7 @@
 
 `docs/handoffs/inflight/` 是**在途**交接：SessionStart 只注入当前分支那一份，接手者读的是活文档。09-08 盘点时目录里有 101 份，其中 93 份的分支已合入且不在 gitea 上——按 `skills/handoff/SKILL.md`「做完、合并、归档的事从 inflight 里删掉，只留在快照」，本目录把它们**原文逐字**搬过来（`git mv`，历史可 `git log --follow`）。
 
-留在 inflight 的：`main.md`（生产基线活文档）、6 份分支仍在 gitea 上的、以及 `fix-ceiling-required-block-degrade.md`（本地分支对 gitea/main `git cherry` 仍有 1 个补丁未合，不能按「做完」处理）。
+留在 inflight 的：`main.md`（生产基线活文档）、6 份分支仍在 gitea 上的、以及 `fix-ceiling-required-block-degrade.md`（本地分支对 gitea/main `git cherry` 仍有 1 个补丁未合，不能按「做完」处理）。**2026-09-09 追加**：那 6 份里的 5 份（运行底座 P0–P3 + 部署账本读取侧）与本归档单自己的交接已于 09-08 晚 20:59–21:12 合入，一并搬入（见文末「2026-09-09 追加」）；inflight 现余 8 份。
 
 外部文档里「见 `inflight/<分支>.md`」的引用自本文起指本目录同名文件。判「已合」的证据分三类，逐份列在下表：
 
@@ -10,7 +10,7 @@
 - **B 文首自述已合**：squash/rebase 合入没有合并提交，但交接文首自己写了「已合 #N / 已切」。
 - **C 本地分支 git cherry +0**：本地还留着同名分支，对 gitea/main 逐补丁比对全部已在（squash/rebase 合入的形状）；两份本地远端都没分支的按项目笔记判。
 
-共 93 份，368 KB。
+共 93 份，368 KB；2026-09-09 追加 6 份 / 20 KB，合计 99 份。
 
 | 文件 | 证据类 | 证据 | 字节 |
 |---|---|---|---|
@@ -107,3 +107,16 @@
 | [`test-llm-transport-conformance.md`](./test-llm-transport-conformance.md) | A 合入提交 | 5be00c4f · 2026-08-29 · #513 | 1684 |
 | [`test-market-snapshot-conformance.md`](./test-market-snapshot-conformance.md) | A 合入提交 | b90a7f6c · 2026-08-29 · #512 | 1666 |
 | [`test-runtime-conformance-suite.md`](./test-runtime-conformance-suite.md) | A 合入提交 | e7a9a0bd · 2026-08-29 · #504 | 2859 |
+
+## 2026-09-09 追加（6 份）
+
+09-08 收口时这 6 份的分支还在 gitea 上、PR 未合；当晚 20:59–21:12 依序合入后没人收，09-09 两日质检抓到。证据全是 A 类（合并提交）；本地分支与 worktree 已随之清掉（六棵树都干净、`git cherry gitea/main` 全 0）。
+
+| 文件 | 证据类 | 证据 | 字节 |
+|---|---|---|---|
+| [`spec-runtime-base-endstate.md`](./spec-runtime-base-endstate.md) | A 合入提交 | 0ff5d7a4 · 2026-09-08 · #620 | 3027 |
+| [`feat-runtime-base-p1-messages-cancel.md`](./feat-runtime-base-p1-messages-cancel.md) | A 合入提交 | c458e177 · 2026-09-08 · #624 | 2466 |
+| [`feat-runtime-base-p2-durable-store.md`](./feat-runtime-base-p2-durable-store.md) | A 合入提交 | 5985d878 · 2026-09-08 · #638 | 6178 |
+| [`feat-runtime-base-p3-inbox.md`](./feat-runtime-base-p3-inbox.md) | A 合入提交 | 9f2718a2 · 2026-09-08 · #677 | 2939 |
+| [`fix-board-ledger-freshest-switch.md`](./fix-board-ledger-freshest-switch.md) | A 合入提交 | 06b21e14 · 2026-09-08 · #675 | 2724 |
+| [`docs-inflight-archive-merged-branches.md`](./docs-inflight-archive-merged-branches.md) | A 合入提交 | f90af450 · 2026-09-08 · #676 | 2613 |
