@@ -490,3 +490,36 @@ def test_compose_attaches_inherits_coordinates() -> None:
     # 三分法至少两类，且不是三个同义改写。
     assert len({card.kind for card in cards}) >= 2
     assert len({card.full_prompt for card in cards}) == len(cards)
+
+
+def test_subject_and_asof_survive_a_direct_answer_round(users_root: Path) -> None:
+    """真实六轮验收照出的两个口径缺陷（2026-09-09）：
+
+    直答/知识车道的轮会把整句问句抽成 primary_subject、且没有 source_date。
+    subject 若取「最近非空」会被长句污染 → 换题守卫把下一轮真对象误判成换题；
+    as_of 若取「最新完成轮」会被直答轮抹成 None。
+    """
+    run_store, conv_store = _stores("alice")
+    cid = conv_store.create_conversation("光模块研究").conversation_id
+    _round(run_store, conv_store, cid, "光模块怎么看", "**判断一。**", subject="光模块")
+    _round(run_store, conv_store, cid, "再看一轮", "**判断二。**", subject="光模块", source_date="2026-09-08")
+    # 直答轮：路由器把整句问句当 subject，且无 source_date。
+    polluted = "光模块目前最硬的一条公司级证据"
+    run = run_store.create_run("最硬证据是什么", "ask", session_id=cid)
+    conv_store.append_message(cid, "user", "最硬证据是什么", run_id=run.run_id)
+    msg = conv_store.append_message(cid, "assistant", "", status="pending", run_id=run.run_id)
+    conv_store.revise_message(
+        cid, msg.message_id, content="**证据分级如下。**", status="completed",
+        turn_intent={"primary_subject": polluted, "question_type": "concept_definition"},
+    )
+    run_store.finish_run(run.run_id, "completed")
+    current = _round(run_store, conv_store, cid, "第四问", "", subject="光模块", finish=False)
+
+    state = rp.load_project(conv_store, run_store, cid, exclude_run_id=current)
+    assert state.subject == "光模块"          # 众数压过一次性长句
+    assert state.as_of == "2026-09-08"        # 回溯到最近有数据截止的轮
+    block, _ = rp.prior_for_turn(
+        conv_store, run_store, conversation_id=cid, current_run_id=current, subject="光模块"
+    )
+    assert "研究项目状态" in block            # 换题守卫不再被污染 subject 误伤
+    assert "上轮数据截止 2026-09-08" in block
