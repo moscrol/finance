@@ -222,9 +222,15 @@
 - **S7 夜跑 sync（2026-08-16）**：18:30 不再直接跑仓内
   `nightly_full_review.sh sync`。入口是
   `~/.local/bin/nightly-full-review-s7.sh`，写锁只落 staging，成功才
-  `os.replace` 进生产库。子进程仍用 private 工作树上的
-  `run_review_sync.py`（那棵树有未提交的主线 static 回退）。**不要**为了
-  S7 去切 8792——S7 不在 `intelligence/`。详见
+  `os.replace` 进生产库。子进程的 `run_review_sync.py` **自 09-09 起按
+  `FINANCE_CODE_ROOT` 取**（两个 plist 已设 = `/Users/a77/finance-workspace-runtime`
+  软链，切流自动跟随；缺省仍回落主树）——08-16 让它跑脏主树的理由（未提交的
+  主线 static 回退）早已合入，而主树后来是别的 agent 的脏检出。注意 s7.sh 自己
+  **不设**这个变量，绕过 plist 手跑时要自己带上，否则回落脏主树。安装件
+  `~/.local/bin/nightly-review-sync-staged.py` **没有仓内 .py 源**，改它必须留
+  `.bak-*` 备份并写回执（本次 `.bak-pre-coderoot-20260909`、plist
+  `.bak-pre-local-20260909`，见 `docs/verification/2026-09-09-cutover-0909.md`）。
+  **不要**为了 S7 去切 8792——S7 不在 `intelligence/`。详见
   `docs/handoffs/2026-08-16-s7-nightly-staging.md`。
 
 - **Token 编码 U+2028/U+2029**：macOS 环境变量可能尾部带 Unicode 行分隔符，导致 hmac 校验失败返回 401。
