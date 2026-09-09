@@ -211,6 +211,8 @@ def retrieve_closed_loop(
     attempt_budget = _AttemptBudget(deadline=time.monotonic() + budget)
     query_terms = _relevance_terms(query, anchor, ())
     query_only = expansion_policy == "query_only" and anchor is None
+    # 02：跨口径同一查询串不重跑——重查得到的是同一份结果，只烧预算不增证据。
+    executed_queries: set[str] = set()
     narrow_hits = _run_aperture(
         "narrow",
         (query,) if query_only else _narrow_queries(query, anchor),
@@ -218,6 +220,7 @@ def retrieve_closed_loop(
         result,
         attempt_budget,
         information_cutoff,
+        executed=executed_queries,
     )
     relevant_narrow_hits = tuple(
         hit for hit in narrow_hits if _hit_overlaps_terms(hit, query_terms)
@@ -234,6 +237,7 @@ def retrieve_closed_loop(
         result,
         attempt_budget,
         information_cutoff,
+        executed=executed_queries,
     )
     counter_hits = _run_aperture(
         "counter",
@@ -246,6 +250,7 @@ def retrieve_closed_loop(
         result,
         attempt_budget,
         information_cutoff,
+        executed=executed_queries,
     )
     _bucket_hits(
         (
@@ -281,10 +286,18 @@ def _run_aperture(
     result: ClosedLoopRetrievalResult,
     budget: _AttemptBudget,
     information_cutoff: InformationCutoff | None,
+    *,
+    executed: set[str] | None = None,
 ) -> list[WikiHit]:
-    for candidate in list(dict.fromkeys(q.strip() for q in queries if q.strip()))[
-        :MAX_EMPTY_ATTEMPTS
-    ]:
+    candidates = list(dict.fromkeys(q.strip() for q in queries if q.strip()))
+    if executed is not None:
+        duplicates = [candidate for candidate in candidates if candidate in executed]
+        for candidate in duplicates:
+            result.diagnostics.append(
+                f"{aperture} skipped duplicate query already executed: {candidate[:80]}"
+            )
+        candidates = [candidate for candidate in candidates if candidate not in executed]
+    for candidate in candidates[:MAX_EMPTY_ATTEMPTS]:
         if not budget.can_start():
             result.attempts.append(
                 RetrievalAttempt(
@@ -304,6 +317,8 @@ def _run_aperture(
             break
         started = time.monotonic()
         response = retrieve(candidate)
+        if executed is not None:
+            executed.add(candidate)
         budget.observe(
             time.monotonic() - started,
             # 顺带加载了模型/索引的那次不算样本，否则一次性预热成本会被当成

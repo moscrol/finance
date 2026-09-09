@@ -935,7 +935,10 @@ def build_episode_registry(
             worker_enabled=(False if fixture_policy is not None else None),
         )
 
-    default_tools = agent_research.build_default_tools(retrieve_kb)
+    # 02：把本题问句交给 web_fetch 做定向选段（工具参数面只有 url，问句只能从这里进）。
+    default_tools = agent_research.build_default_tools(
+        retrieve_kb, focus_query=subject_query
+    )
     if fixture_policy is not None and not fixture_policy.external_search_enabled:
         default_tools.pop("web_search", None)
         default_tools.pop("web_fetch", None)

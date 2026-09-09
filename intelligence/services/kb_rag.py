@@ -18,6 +18,7 @@ W source is skipped silently — 存在才接 —— without touching the S/G/R 
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -25,6 +26,7 @@ import subprocess
 import sys
 import time
 from collections import OrderedDict
+from collections.abc import Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -33,7 +35,13 @@ from threading import Lock
 from intelligence.services import rag_worker
 from intelligence.services.kb_index_hygiene import fetch_k, sanitize_hits
 from intelligence.services.kb_slot_rerank import allocate_topk_slots
-from intelligence.services.kb_window_reexcerpt import reexcerpt_hits
+from intelligence.services.kb_window_reexcerpt import (
+    STRUCTURAL_SECTIONS,
+    reexcerpt_hits,
+    resolve_wiki_page,
+    split_sections,
+)
+from intelligence.services.tool_result_budget import MAX_EVIDENCE_DETAIL_CHARS
 
 # rag_index.py lives at <KB repo root>/scripts/rag_index.py; the KB repo root is
 # the parent of the wiki root (KnowledgeAdapter.resolved_wiki_root.parent).
@@ -47,6 +55,36 @@ DEFAULT_EXCERPT_CHARS = 200
 DEFAULT_LLM_EVIDENCE_CHARS = 1200
 DEFAULT_LLM_EVIDENCE_TOTAL_CHARS = 4800
 EVIDENCE_BUDGET_EXHAUSTED = "（本条仅保留引用定位）"
+
+# ---------------------------------------------------------------------------
+# 深读（能力升级任务包 02）：找到页以后继续读到能解题。
+#
+# 为什么放在这一层而不是新工具：Engine A 的工具参数面由注册表钉死（kb_search 只收
+# ``query``），知识库侧 ``rag/agent.py::get_page`` 没接进金融侧，常驻 worker 协议只跑
+# ``query``。V9a（``kb_window_reexcerpt``）已经在这一层按 ``file_path`` 直接读源页做
+# 重摘录，所以「读整节、表头随切片、列章节目录」就地做：不加工具、不改知识库侧、
+# 不碰注册表。
+#
+# 为什么按 ``MAX_EVIDENCE_DETAIL_CHARS`` 切段：模型看到的是 ``tool_result_budget``
+# 投影后的副本，每条证据 ``detail`` 超过它就被截，且对模型声明「被截掉的原文没有工具
+# 可以取回」。命中块加相邻块 1200 字送达，模型只见前 240 字——这就是「找到了却没读到
+# 答案」的第一损失点。段落级证据把整节装进模型真能看见的形状里：不是加大上下文，
+# 是把已经取回却看不见的字变成看得见，并且每段可独立引用（E 号）。
+# ---------------------------------------------------------------------------
+DEEP_READ_ITEM_CHARS = MAX_EVIDENCE_DETAIL_CHARS
+DEEP_READ_PER_HIT_CHARS = 1200
+DEEP_READ_TOTAL_CHARS = 3000
+DEEP_READ_TOTAL_ENV = "KB_DEEP_READ_TOTAL_CHARS"
+# 只深读排前的几页：bm25 的第 4–6 名常是词面撞上的无关页（实测「沃格光电 2024 盈利」
+# 拉出湖北能源 / 冀中能源），给它们读整节只会稀释上下文。
+DEEP_READ_MAX_PAGES = 3
+DEEP_READ_MAX_OUTLINE = 8
+# ``KB_STALE_RECOVERY=0`` 关闭过期命中重读原页（对照实验用；缺省开）。
+STALE_RECOVERY_ENV = "KB_STALE_RECOVERY"
+# 过期命中当轮重读原页后的新鲜度状态：索引是旧版（排序可能偏），正文取自当前页面并
+# 核对过问句词——它既不是 fresh（索引没变）也不是 stale（正文不是旧的）。
+FRESHNESS_RECOVERED = "recovered"
+_ACCEPTED_FRESHNESS = frozenset({"fresh", FRESHNESS_RECOVERED})
 
 # 退出码本身不可操作。检索器把真正的原因写在 stderr，丢掉它等于让每次排查都从
 # 零开始——实测有一批「退出码 1」事后完全无法归因，因为原因没被保留。
@@ -257,6 +295,21 @@ class WikiHit:
     via_neighbor: bool = False
     source_date: str = ""
     reexcerpted: bool = False
+    # 深读（02）：命中所在整节按 ``DEEP_READ_ITEM_CHARS`` 切成的段；表格切片各自带表头。
+    # ``deep_read_blocks`` 是 (节面包屑, 段落) 对——命中节之外还可能多读一节「问句词更多」的
+    # 所缺章节；``deep_read_paragraphs`` 是纯文本视图，与 blocks 同序。
+    deep_read_section: str = ""
+    deep_read_sections: tuple[str, ...] = ()
+    deep_read_blocks: tuple[tuple[str, str], ...] = ()
+    deep_read_paragraphs: tuple[str, ...] = ()
+    deep_read_truncated: bool = False
+    deep_read_omitted_chars: int = 0
+    # 同页其余章节的面包屑（不含结构小节），给模型「缺什么再读哪节」用。
+    page_outline: tuple[str, ...] = ()
+    # 深读那一节正文里出现的最晚日期（ISO），空 = 节内没有日期。
+    section_latest_date: str = ""
+    # 过期命中当轮重读原页恢复（见 ``recover_stale_hits``）。
+    recovered_from_source: bool = False
 
 
 # 检索方式 → 人类可读的“用了什么召回”说明（教学 / 可观测用）。
@@ -358,6 +411,15 @@ class RetrievalTelemetry:
     pointer_dropped: int | None = None
     # V9b：结构邻页代表块排后数。None = 未跑槽位重排（历史 run 报不可判，不报 0）。
     structural_neighbor_demoted: int | None = None
+    # 深读（02）。None = 本条遥测未跑深读（历史 run 报不可判，不报 0）。
+    deep_read_pages: int | None = None
+    deep_read_paragraphs: int | None = None
+    deep_read_chars: int | None = None
+    # 过期命中当轮重读原页：恢复数 / 重读后找不到原段落而丢弃数。
+    stale_recovered: int | None = None
+    stale_unrecoverable: int | None = None
+    # 问句的材料口径：current / history / concept / method / general。
+    material_scope: str = ""
 
     def summary_line(self) -> str:
         """一行可观测摘要，供回答 / 日志展示。"""
@@ -394,6 +456,17 @@ class RetrievalTelemetry:
             parts.append(
                 f"LLM证据预算={self.llm_evidence_chars}字/条，总{self.llm_evidence_total_chars}字"
             )
+        if self.deep_read_pages is not None:
+            parts.append(
+                f"深读={self.deep_read_pages}页/{self.deep_read_paragraphs or 0}段"
+                f"/{self.deep_read_chars or 0}字"
+            )
+        if self.stale_recovered:
+            parts.append(f"过期命中重读恢复={self.stale_recovered}")
+        if self.stale_unrecoverable:
+            parts.append(f"过期命中未恢复丢弃={self.stale_unrecoverable}")
+        if self.material_scope:
+            parts.append(f"材料口径={self.material_scope}")
         parts.append(f"状态={self.status}")
         return " | ".join(parts)
 
@@ -473,7 +546,7 @@ def _cache_get(
             _RESULT_CACHE.pop(key, None)
             return None
         if require_fresh and any(
-            hit.index_freshness != "fresh" for hit in result.hits
+            hit.index_freshness not in _ACCEPTED_FRESHNESS for hit in result.hits
         ):
             _RESULT_CACHE.pop(key, None)
             return None
@@ -721,6 +794,581 @@ def _hit_evidence_limit(item: dict, base_chars: int) -> int:
     }:
         limit = min(max(limit, int(base_chars * 1.25)), 2000)
     return limit
+
+
+# ---------------------------------------------------------------------------
+# 深读实现（02）。全部纯函数 + 本地文件读取，不调模型、不外呼；页不可读 / 节定位
+# 失败一律 fail-open（沿 V5 / V9a），命中本身不受影响。
+# ---------------------------------------------------------------------------
+_FRONTMATTER_STRIP_RE = re.compile(r"\A---\s*\n.*?\n---\s*\n", re.DOTALL)
+_DEEP_DATE_RE = re.compile(r"(?<!\d)(20\d{2})[-/.年]\s?(\d{1,2})[-/.月]\s?(\d{1,2})")
+_DEEP_TABLE_ROW_RE = re.compile(r"^\s*\|.*\|\s*$")
+_DEEP_TABLE_SEP_RE = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(?:\|\s*:?-{2,}:?\s*)*\|?\s*$")
+_DEEP_TABLE_CELL_WS_RE = re.compile(r"\s*\|\s*")
+_DEEP_SENTENCE_RE = re.compile(r"[^。；！？!?;]+[。；！？!?;]?")
+_DEEP_LOCATOR_RE = re.compile(r"(?:命中块|相邻块)\s+\S+::\d+:\s*")
+# 字母 / 数字 token：800G、1.6T、HBM、DDR5、2024、Q1、98.5%、688776 都要能当定位词。
+_DEEP_ALNUM_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9.\-+%/]*")
+_DEEP_CJK_RE = re.compile(r"[一-鿿]{2,}")
+_DEEP_YEAR_RE = re.compile(r"(\d)年")
+# 问句里的功能词：不当检索/定位词用，也不算命中；同时是汉字串的切分点——
+# 「光模块的单价大概是多少」要切成「光模块」「单价」，而不是滑出「块的」「是多」这种碎片。
+_DEEP_STOP_TERMS = frozenset(
+    {
+        "公司", "哪些", "哪几", "哪家", "哪个", "怎么", "怎么样", "怎样", "如何", "什么", "是什么",
+        "为什么", "最新", "目前", "现在", "情况", "一下", "是否", "可以", "能否", "能不能",
+        "会不会", "还有", "有没有", "有没", "没有", "以及", "关于", "请问", "帮我", "看看",
+        "分析", "解释", "介绍", "深挖", "一家", "几家", "几个", "受益", "影响", "多少", "多大",
+        "方面", "这个", "那个", "我们", "他们", "它们", "还是", "大概", "大约", "最近", "谁是",
+        "主要", "核心", "相关", "重要", "属于", "包括", "分别", "各自", "到底", "究竟",
+    }
+)
+_DEEP_PARTICLES = frozenset("的了吗呢啊吧呀嘛之与及或把被对这那哪和有在是让给向从到")
+_DEEP_SPLIT_RE = re.compile(
+    "|".join(
+        re.escape(term)
+        for term in sorted(_DEEP_STOP_TERMS | _DEEP_PARTICLES, key=len, reverse=True)
+    )
+)
+_SCOPE_RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("history", re.compile(r"历史|回顾|回看|复盘|当年|曾经|过去|以前|回溯|(?:19|20)\d{2}\s*年(?!报)")),
+    ("current", re.compile(r"最新|目前|现在|当前|近期|最近|今日|今天|本周|这周|本月|今年|现状|进展")),
+    ("method", re.compile(r"方法|框架|口径|怎么看|如何判断|怎么判断|指标体系|逻辑链|方法论|怎么算|如何计算")),
+    ("concept", re.compile(r"是什么|什么是|定义|原理|机制|概念|区别|区分|指的是")),
+)
+
+
+@dataclass
+class DeepReadStats:
+    pages: int = 0
+    paragraphs: int = 0
+    chars: int = 0
+    skipped_pages: int = 0  # 页不可读 / 无节 / 定位失败（fail-open，命中照常送达）
+
+
+@dataclass
+class StaleRecoveryStats:
+    recovered: int = 0
+    unrecoverable: int = 0
+
+
+def deep_read_total_chars() -> int:
+    """整次检索的深读总字数预算；``KB_DEEP_READ_TOTAL_CHARS=0`` 关闭深读。"""
+    raw = str(os.environ.get(DEEP_READ_TOTAL_ENV) or "").strip()
+    if not raw:
+        return DEEP_READ_TOTAL_CHARS
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return DEEP_READ_TOTAL_CHARS
+
+
+def stale_recovery_enabled() -> bool:
+    raw = str(os.environ.get(STALE_RECOVERY_ENV) or "").strip().lower()
+    return raw not in {"0", "off", "false", "no"}
+
+
+def material_scope_for_query(query: str) -> str:
+    """问句的材料口径：``current`` / ``history`` / ``concept`` / ``method`` / ``general``。
+
+    只做标签，不改召回：概念与方法题老资料照常可用；当前事实题要看节内最新日期。
+    时间限定词（history / current）优先于题型词。
+    """
+
+    text = str(query or "")
+    for name, pattern in _SCOPE_RULES:
+        if pattern.search(text):
+            return name
+    return "general"
+
+
+def deep_read_query_terms(query: str) -> tuple[str, ...]:
+    """从问句抽定位/命中词：字母数字 token、按功能词切开后的汉字短串（≤4 字整取）及其二元组。
+
+    长词排前（定位时整词命中比二元组更有判断力）。零依赖、确定性，与知识库侧
+    ``_query_terms`` 同型（汉字 bigram + 保留代码），不引入分词器。先切功能词再取二元组，
+    是为了不产生跨词碎片：「光模块的单价」→「光模块」「单价」，而不是「块的」。
+    """
+
+    terms: dict[str, None] = {}
+    text = _DEEP_YEAR_RE.sub(r"\1 ", str(query or ""))
+    for token in _DEEP_ALNUM_RE.findall(text):
+        if len(token) >= 2 and not token.isdigit() or len(token) >= 4:
+            terms.setdefault(token.lower(), None)
+    cleaned = _DEEP_SPLIT_RE.sub(" ", text)
+    for run in _DEEP_CJK_RE.findall(cleaned):
+        if run in _DEEP_STOP_TERMS:
+            continue
+        if len(run) <= 4:
+            terms.setdefault(run, None)
+        if len(run) >= 3:
+            for index in range(len(run) - 1):
+                bigram = run[index : index + 2]
+                if bigram not in _DEEP_STOP_TERMS:
+                    terms.setdefault(bigram, None)
+    return tuple(sorted(terms, key=lambda term: (-len(term), term)))
+
+
+def _strip_frontmatter_text(raw: str) -> str:
+    match = _FRONTMATTER_STRIP_RE.match(raw)
+    return raw[match.end() :] if match else raw
+
+
+def _is_structural_crumb(crumb: str) -> bool:
+    return any(part.strip() in STRUCTURAL_SECTIONS for part in str(crumb or "").split(">"))
+
+
+def _crumb_tail(crumb: str) -> str:
+    parts = [part.strip() for part in str(crumb or "").split(">") if part.strip()]
+    return parts[-1] if parts else ""
+
+
+def _squash(text: str) -> str:
+    return re.sub(r"\s+", "", str(text or ""))
+
+
+def _bare_window_text(hit: object) -> str:
+    text = str(
+        getattr(hit, "llm_evidence", "")
+        or getattr(hit, "display_excerpt", "")
+        or getattr(hit, "excerpt", "")
+        or ""
+    )
+    return _DEEP_LOCATOR_RE.sub("", text).strip()
+
+
+def section_latest_date(text: str) -> str:
+    """节内出现的最晚日期（ISO）；没有合法日期返回空串。"""
+
+    latest = ""
+    for year, month, day in _DEEP_DATE_RE.findall(str(text or "")):
+        try:
+            month_i, day_i = int(month), int(day)
+        except ValueError:
+            continue
+        if not (1 <= month_i <= 12 and 1 <= day_i <= 31):
+            continue
+        iso = f"{year}-{month_i:02d}-{day_i:02d}"
+        if iso > latest:
+            latest = iso
+    return latest
+
+
+def _term_score(text: str, terms: Sequence[str]) -> int:
+    hay = str(text or "").casefold()
+    return sum(len(term) for term in terms if term and term.casefold() in hay)
+
+
+def locate_section(
+    sections: Sequence[tuple[str, str]],
+    *,
+    crumb: str,
+    window_text: str,
+    terms: Sequence[str],
+) -> int | None:
+    """命中落在哪一节：面包屑全等 → 末级同名 → 窗口文本前缀落点 → 问句词最多的节。
+
+    末级同名是为「别名与股票代码混用」留的：索引里的面包屑可能是
+    ``688776_国光电气 > 反证与风险``，当前页改成 ``国光电气 > 反证与风险``，末级仍能对上。
+    """
+
+    if not sections:
+        return None
+    crumb = str(crumb or "").strip()
+    if crumb:
+        for index, (candidate, _text) in enumerate(sections):
+            if candidate.strip() == crumb:
+                return index
+        tail = _crumb_tail(crumb)
+        if tail:
+            for index, (candidate, _text) in enumerate(sections):
+                if _crumb_tail(candidate) == tail:
+                    return index
+    probe = _squash(_DEEP_LOCATOR_RE.sub("", str(window_text or "")))[:24]
+    if len(probe) >= 8:
+        for index, (_candidate, text) in enumerate(sections):
+            if probe in _squash(text):
+                return index
+    if terms:
+        best: int | None = None
+        best_score = 0
+        for index, (candidate, text) in enumerate(sections):
+            if _is_structural_crumb(candidate):
+                continue
+            score = _term_score(f"{candidate}\n{text}", terms)
+            if score > best_score:
+                best, best_score = index, score
+        return best
+    return None
+
+
+def _section_blocks(text: str) -> list[tuple[str, list[str]]]:
+    """按空行切段；连续表格行归为一个 ``table`` 块，其余为 ``para`` 块。"""
+
+    blocks: list[tuple[str, list[str]]] = []
+    current: list[str] = []
+    current_kind = ""
+
+    def flush() -> None:
+        nonlocal current, current_kind
+        if current:
+            blocks.append((current_kind, current))
+        current, current_kind = [], ""
+
+    for raw_line in str(text or "").splitlines():
+        line = raw_line.rstrip()
+        if not line.strip():
+            flush()
+            continue
+        kind = "table" if _DEEP_TABLE_ROW_RE.match(line) else "para"
+        if current and kind != current_kind:
+            flush()
+        current.append(line)
+        current_kind = kind
+    flush()
+    return blocks
+
+
+def _table_slices(lines: Sequence[str], item_chars: int) -> list[str]:
+    """表格按行分片，**每片都带表头（含分隔行）**，单位/列名不会留在相邻片里。"""
+
+    rows = [_DEEP_TABLE_CELL_WS_RE.sub("|", line.strip()) for line in lines if line.strip()]
+    if not rows:
+        return []
+    header = rows[0]
+    separator = rows[1] if len(rows) > 1 and _DEEP_TABLE_SEP_RE.match(rows[1]) else ""
+    body = rows[2:] if separator else rows[1:]
+    head = f"{header}\n{separator}" if separator else header
+    if len(head) > item_chars:
+        head = head[: max(1, item_chars - 1)] + "…"
+    if not body:
+        return [head]
+    room = max(8, item_chars - len(head) - 1)
+    slices: list[str] = []
+    current: list[str] = []
+    size = len(head)
+    for row in body:
+        row_text = row if len(row) <= room else row[: max(1, room - 1)] + "…"
+        if current and size + 1 + len(row_text) > item_chars:
+            slices.append("\n".join([head, *current]))
+            current, size = [], len(head)
+        current.append(row_text)
+        size += 1 + len(row_text)
+    if current:
+        slices.append("\n".join([head, *current]))
+    return slices
+
+
+def _para_slices(lines: Sequence[str], item_chars: int) -> list[str]:
+    """段落按句切、按行保留换行，凑满 ``item_chars``；超长单句硬切。"""
+
+    units: list[tuple[str, str]] = []  # (joiner, piece)
+    for line in lines:
+        compact = re.sub(r"[ \t]+", " ", line.strip())
+        if not compact:
+            continue
+        first = True
+        for sentence in _DEEP_SENTENCE_RE.findall(compact):
+            piece = sentence.strip()
+            if not piece:
+                continue
+            joiner = "\n" if first else ""
+            first = False
+            while len(piece) > item_chars:
+                units.append((joiner, piece[:item_chars]))
+                piece = piece[item_chars:]
+                joiner = ""
+            if piece:
+                units.append((joiner, piece))
+    slices: list[str] = []
+    current = ""
+    for joiner, piece in units:
+        candidate = f"{current}{joiner if current else ''}{piece}"
+        if current and len(candidate) > item_chars:
+            slices.append(current)
+            current = piece
+        else:
+            current = candidate
+    if current:
+        slices.append(current)
+    return slices
+
+
+def section_slices(text: str, item_chars: int = DEEP_READ_ITEM_CHARS) -> list[str]:
+    """把一节正文切成 ≤ ``item_chars`` 的段：表格片带表头，段落按句凑满。"""
+
+    item_chars = max(int(item_chars), 16)
+    slices: list[str] = []
+    pending: list[str] = []  # 相邻的段落块合成一个流再切：一行标题 + 两行列表不该各占一条证据
+
+    def flush_paragraphs() -> None:
+        nonlocal pending
+        if pending:
+            slices.extend(_para_slices(pending, item_chars))
+            pending = []
+
+    for kind, lines in _section_blocks(text):
+        if kind == "table":
+            flush_paragraphs()
+            slices.extend(_table_slices(lines, item_chars))
+        else:
+            pending.extend(lines)
+    flush_paragraphs()
+    return [item for item in slices if item.strip()]
+
+
+def _select_slices(
+    slices: Sequence[str],
+    terms: Sequence[str],
+    budget: int,
+) -> tuple[list[str], int]:
+    """预算内选段：全放得下就按原序全给；放不下先要命中问句词的段，再按原序补齐。
+
+    返回 ``(按文档顺序的选段, 被省略的字数)``。省略数必须如实带出——「节没读完」
+    与「节就这么多」对模型是两件事。
+    """
+
+    total = sum(len(item) for item in slices)
+    if budget <= 0 or not slices:
+        return [], total
+    if total <= budget:
+        return list(slices), 0
+    chosen: set[int] = set()
+    used = 0
+    ranked = sorted(
+        ((_term_score(item, terms), index) for index, item in enumerate(slices)),
+        key=lambda pair: (-pair[0], pair[1]),
+    )
+    for score, index in ranked:
+        if score <= 0:
+            break
+        if used + len(slices[index]) > budget:
+            continue
+        chosen.add(index)
+        used += len(slices[index])
+    for index, item in enumerate(slices):
+        if index in chosen:
+            continue
+        if used + len(item) > budget:
+            break
+        chosen.add(index)
+        used += len(item)
+    selected = [slices[index] for index in sorted(chosen)]
+    return selected, total - used
+
+
+def _read_page_sections(wiki_root: Path, file_path: str) -> list[tuple[str, str]] | None:
+    page = resolve_wiki_page(wiki_root, str(file_path or ""))
+    if page is None:
+        return None
+    try:
+        raw = page.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+    sections = split_sections(_strip_frontmatter_text(raw))
+    return sections or None
+
+
+def _hit_terms(hit: object, base_terms: Sequence[str]) -> tuple[str, ...]:
+    own = tuple(str(term) for term in (getattr(hit, "evidence_query_terms", ()) or ()) if str(term))
+    return tuple(dict.fromkeys((*own, *base_terms)))
+
+
+def deep_read_hits(
+    hits: Sequence[WikiHit],
+    *,
+    wiki_root: str | Path | None,
+    query: str,
+    per_hit_chars: int = DEEP_READ_PER_HIT_CHARS,
+    total_chars: int | None = None,
+    item_chars: int = DEEP_READ_ITEM_CHARS,
+    max_pages: int = DEEP_READ_MAX_PAGES,
+) -> DeepReadStats:
+    """对最终送达的前 ``max_pages`` 条命中按序深读：读命中所在整节（必要时再读同页问句词
+    更多的那一节）、切段、列同页其余章节、记节内最晚日期。
+
+    预算两层：每页 ``per_hit_chars``、整次 ``total_chars``（默认读 env，0 关闭）。
+    按命中顺序分配，但每页都能拿到至少一段（只要还有预算）——跨实体比较题不能让
+    第一页把预算吃光（合同任务 2）。
+    """
+
+    stats = DeepReadStats()
+    if wiki_root is None or not hits:
+        return stats
+    total = deep_read_total_chars() if total_chars is None else max(0, int(total_chars))
+    if total <= 0:
+        return stats
+    root = Path(wiki_root)
+    base_terms = deep_read_query_terms(query)
+    remaining = total
+    targets = list(hits)[: max(1, int(max_pages))]
+    # 先按页数均分一个保底，再让排前的页拿剩余——第一页读得多，但不会独占。
+    floor = max(item_chars, total // max(len(targets), 1))
+    for position, hit in enumerate(targets):
+        if remaining <= 0:
+            break
+        sections = _read_page_sections(root, str(getattr(hit, "file_path", "") or ""))
+        if sections is None:
+            stats.skipped_pages += 1
+            continue
+        terms = _hit_terms(hit, base_terms)
+        index = locate_section(
+            sections,
+            crumb=str(getattr(hit, "section", "") or ""),
+            window_text=_bare_window_text(hit),
+            terms=terms,
+        )
+        hit.page_outline = tuple(
+            crumb
+            for offset, (crumb, _text) in enumerate(sections)
+            if offset != index and not _is_structural_crumb(crumb)
+        )[:DEEP_READ_MAX_OUTLINE]
+        if index is None:
+            stats.skipped_pages += 1
+            continue
+        later_pages = len(targets) - position - 1
+        # 给后面每一页留一个保底段的位置；最后一页可用完剩余。
+        budget = min(per_hit_chars, max(floor, remaining - later_pages * item_chars))
+        budget = min(budget, remaining)
+        # 读命中节；若同页另有一节问句词明显更多（「所缺章节」），剩余预算再读它。
+        # 命中块只证明「这一页相关」，答案常在同页别的节——沃格光电的亏损数字在
+        # 「高信度研究线索」，命中却落在「后续跟踪」表。
+        crumb, text = sections[index]
+        hit_score = _term_score(f"{crumb}\n{text}", terms)
+        plan: list[int] = [index]
+        best_other: int | None = None
+        best_score = hit_score
+        for offset, (other_crumb, other_text) in enumerate(sections):
+            if offset == index or _is_structural_crumb(other_crumb):
+                continue
+            score = _term_score(f"{other_crumb}\n{other_text}", terms)
+            if score > best_score:
+                best_other, best_score = offset, score
+        if best_other is not None:
+            plan.append(best_other)
+        blocks: list[tuple[str, str]] = []
+        omitted_total = 0
+        used = 0
+        for step, offset in enumerate(plan):
+            section_crumb, section_text = sections[offset]
+            slices = section_slices(section_text, item_chars)
+            if not slices:
+                continue
+            share = budget - used
+            if step == 0 and len(plan) > 1:
+                # 命中节与所缺章节分预算：所缺章节问句词更多，至少留给它一半。
+                share = min(share, max(item_chars, budget // 2))
+            selected, omitted = _select_slices(slices, terms, share)
+            omitted_total += omitted
+            if not selected:
+                continue
+            used += sum(len(item) for item in selected)
+            blocks.extend((section_crumb, item) for item in selected)
+        if not blocks:
+            stats.skipped_pages += 1
+            continue
+        remaining -= used
+        hit.deep_read_section = crumb
+        hit.deep_read_sections = tuple(dict.fromkeys(section for section, _item in blocks))
+        hit.deep_read_blocks = tuple(blocks)
+        hit.deep_read_paragraphs = tuple(item for _section, item in blocks)
+        hit.deep_read_truncated = omitted_total > 0
+        hit.deep_read_omitted_chars = omitted_total
+        hit.section_latest_date = section_latest_date(
+            "\n".join(sections[offset][1] for offset in plan)
+        )
+        stats.pages += 1
+        stats.paragraphs += len(blocks)
+        stats.chars += used
+    return stats
+
+
+def _centered_window(text: str, terms: Sequence[str], max_chars: int) -> str:
+    body = _compact_text(text)
+    if max_chars <= 0 or len(body) <= max_chars:
+        return body[: max(max_chars, 0)] if max_chars > 0 else ""
+    lower = body.casefold()
+    found = [
+        (lower.find(term.casefold()), term)
+        for term in terms
+        if term and lower.find(term.casefold()) >= 0
+    ]
+    if found:
+        radius = max(max_chars // 2, 1)
+        center, _term = max(
+            found,
+            key=lambda candidate: sum(
+                len(term) for position, term in found if abs(position - candidate[0]) <= radius
+            ),
+        )
+        start = max(0, center - max_chars // 2)
+    else:
+        start = 0
+    end = min(len(body), start + max_chars)
+    start = max(0, end - max_chars)
+    out = body[start:end].strip()
+    if start > 0:
+        out = "…" + out
+    if end < len(body):
+        out = out + "…"
+    return out
+
+
+def recover_stale_hits(
+    hits: Sequence[WikiHit],
+    *,
+    wiki_root: str | Path | None,
+    query: str,
+    excerpt_chars: int = DEFAULT_EXCERPT_CHARS,
+) -> StaleRecoveryStats:
+    """过期 / 未知新鲜度的命中当轮重读原页：原节还在且含问句词 → 用当前正文替换并标
+    ``recovered``；找不到原节或原节已不含问句词 → 保持原状（随后按合同丢弃）。
+
+    这条把「索引比页面旧」从一票否决改成可核对的恢复：页面就在本地磁盘上，与其让
+    模型等一次不知何时的 ``rag update``，不如现在读一遍并核对。不把所有 stale 直接当
+    当前事实——只有核对通过的才放行，且新鲜度写成 ``recovered`` 不冒充 fresh。
+    """
+
+    stats = StaleRecoveryStats()
+    if wiki_root is None:
+        return stats
+    root = Path(wiki_root)
+    base_terms = deep_read_query_terms(query)
+    for hit in hits:
+        if hit.index_freshness not in {"stale", "unknown"}:
+            continue
+        sections = _read_page_sections(root, hit.file_path)
+        if sections is None:
+            stats.unrecoverable += 1
+            continue
+        terms = _hit_terms(hit, base_terms)
+        index = locate_section(
+            sections,
+            crumb=hit.section,
+            window_text=_bare_window_text(hit),
+            terms=terms,
+        )
+        if index is None:
+            stats.unrecoverable += 1
+            continue
+        crumb, text = sections[index]
+        if terms and _term_score(text, terms) <= 0:
+            stats.unrecoverable += 1
+            continue
+        limit = max(int(hit.evidence_char_budget or 0), len(hit.llm_evidence), DEFAULT_LLM_EVIDENCE_CHARS)
+        window = _centered_window(text, terms, limit)
+        if not window:
+            stats.unrecoverable += 1
+            continue
+        hit.llm_evidence = window
+        hit.excerpt = _compact_text(window, int(excerpt_chars))
+        hit.display_excerpt = hit.excerpt
+        hit.section = crumb
+        hit.content_hash = hashlib.sha1(window.encode("utf-8")).hexdigest()  # noqa: S324 — 内容标识，非安全用途；与索引 40 位形状一致
+        hit.index_freshness = FRESHNESS_RECOVERED
+        hit.recovered_from_source = True
+        stats.recovered += 1
+    return stats
 
 
 def retrieve(
@@ -1267,9 +1915,24 @@ def retrieve(
         )
     if rejected_hits:
         warnings.append(f"wiki-rag 丢弃 {rejected_hits} 条缺少 chunk/hash/快照绑定或快照不一致的命中")
-    non_fresh_hits = [hit for hit in hits if hit.index_freshness != "fresh"]
+    if require_fresh and stale_recovery_enabled():
+        # 02：丢弃之前先当轮重读原页——页就在本地，核对得过的换成当前正文放行（recovered）。
+        recovery = recover_stale_hits(
+            hits,
+            wiki_root=wiki_root,
+            query=budget_query or query,
+            excerpt_chars=int(excerpt_chars),
+        )
+        tel.stale_recovered = recovery.recovered
+        tel.stale_unrecoverable = recovery.unrecoverable
+        if recovery.recovered:
+            warnings.append(
+                f"wiki-rag {recovery.recovered} 条过期命中已当轮重读原页恢复"
+                f"（新鲜度={FRESHNESS_RECOVERED}：索引是旧版，正文取自当前页面并核对过问句词）"
+            )
+    non_fresh_hits = [hit for hit in hits if hit.index_freshness not in _ACCEPTED_FRESHNESS]
     if require_fresh:
-        # formal 契约：过期/未知命中一律丢弃，绝不进入 res.hits / LLM 证据。
+        # formal 契约：过期/未知且重读原页也救不回的命中一律丢弃，绝不进入 res.hits / LLM 证据。
         if non_fresh_hits:
             tel.degraded = True
             states = ",".join(sorted({hit.index_freshness for hit in non_fresh_hits}))
@@ -1289,10 +1952,11 @@ def retrieve(
                 else "先在知识库仓跑 rag update 重建索引"
             )
             warnings.append(
-                f"wiki-rag 丢弃 {len(non_fresh_hits)} 条非 fresh 命中（新鲜度={states}）；"
-                f"formal 证据要求 fresh，过期/未知命中不进入证据｜可恢复：{remedy}"
+                f"wiki-rag 丢弃 {len(non_fresh_hits)} 条非 fresh 命中（新鲜度={states}）："
+                "已尝试当轮重读原页，但页不可读、原节已不在或原节已不含问句词，"
+                f"不能当作当前事实使用；formal 证据要求 fresh｜可恢复：{remedy}"
             )
-        hits = [hit for hit in hits if hit.index_freshness == "fresh"]
+        hits = [hit for hit in hits if hit.index_freshness in _ACCEPTED_FRESHNESS]
     else:
         # 显式探索(降级)模式：保留 stale/unknown，但标记 degraded 并告警。
         if non_fresh_hits:
@@ -1307,6 +1971,18 @@ def retrieve(
     res.warning = "；".join(dict.fromkeys(warning for warning in warnings if warning))
     res.hits = hits
     apply_total_llm_budget(res.hits, int(llm_evidence_total_chars))
+    # 02：只对最终送达的 k 条深读（不对过采样的 4k 条读页），读的是命中所在整节。
+    tel.material_scope = material_scope_for_query(budget_query or query)
+    deep = deep_read_hits(res.hits, wiki_root=wiki_root, query=budget_query or query)
+    tel.deep_read_pages = deep.pages
+    tel.deep_read_paragraphs = deep.paragraphs
+    tel.deep_read_chars = deep.chars
+    if deep.skipped_pages:
+        # 「没深读」与「深读了但页读不到 / 定位不到节」要分开可见：前者是预算为 0，后者是页的事。
+        res.warning = "；".join(
+            filter(None, [res.warning, f"深读跳过 {deep.skipped_pages} 页（页不可读或未定位到命中节）"])
+        )
+        tel.warning = res.warning
     res.ok = bool(hits)
     tel.hit_count = len(hits)
     tel.neighbor_hits = sum(1 for h in hits if h.via_neighbor)
