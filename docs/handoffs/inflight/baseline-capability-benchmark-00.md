@@ -12,7 +12,7 @@
 - 选：费用只记 token。否：折算金额——仓内无 cost 埋点，网关按配额计费。
 
 ## 当前状态
-`193c848e`（2 提交，基线 `gitea/main@5eb24515`），树干净。**基线全跑阻塞在模型网关 cockpit-cliproxy（127.0.0.1:57244）无进程**（15:15 起，生产 8792 同受影响）。后台编排脚本 `~/.finance-runtime/capability-benchmark-00/run-baseline-when-gateway-up.sh` 每分钟探网关，最多等 6 h，恢复后自动跑 30 题，产物落 `intelligence/eval/runs/<ts>-cb00-baseline-<rev>.json`，日志 `…/logs/baseline-orchestrator.log`。sidecar 8813 从本树起（`start-sidecar.sh`），health 三读 = 本树 / 干净 / 指纹一致。
+`193c848e`（2 提交，基线 `gitea/main@5eb24515`），树干净。**基线全跑阻塞在模型网关 cockpit-cliproxy（127.0.0.1:57244）无进程**（15:15 起，生产 8792 同受影响）。原本挂着的后台编排（等网关→自动跑 30 题）与 sidecar 8813 **已被系统低内存一起杀掉**（blocked/00.md B3），现在没有任何东西在等网关。接手者顺序：确认 `lsof -nP -iTCP:57244 -sTCP:LISTEN` 有监听 → `~/.finance-runtime/capability-benchmark-00/start-sidecar.sh`（内存紧可加 `CB00_RAG_WORKER=0`，但要在读数里注明偏离生产形状）→ health 三读 + `/api/llm/config ready=true` → `run-baseline-when-gateway-up.sh`（产物 `intelligence/eval/runs/<ts>-cb00-baseline-<rev>.json`，日志 `…/logs/baseline-orchestrator.log`）。
 
 ## 已验证
 - `validate` / `overlap`（零重叠 6 套题集）/ `seal-verify` 全 rc=0；`test_capability_benchmark.py` 10 passed；ruff 0；pre-commit 11 道过。
