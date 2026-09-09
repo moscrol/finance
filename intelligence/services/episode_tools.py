@@ -1639,6 +1639,26 @@ def build_episode_registry(
                         freshness="historical",
                     )
                 )
+            # 方法验证立场（能力升级 07）：该用户实验目录下固定方法的历史演练 / 真实前向读数，
+            # 由 flywheel 按收据派生。自带「不出胜率、不构成买卖建议」的边界句，模型只能拿它
+            # 解释为何采用 / 降低 / 排除某方法，不能当市场事实引用。
+            for record in getattr(recall, "methods", ()) or ():
+                detail = str(record.get("detail") or "").strip()
+                if not detail:
+                    continue
+                evidence.append(
+                    agent_research.AgentEvidence(
+                        tool="memory_lookup",
+                        title="方法验证读数",
+                        detail=detail,
+                        source="本用户方法验证收据（历史演练 / 真实前向分列；研究读数，非市场事实、非买卖建议）",
+                        internal_locator=str(record.get("locator") or ""),
+                        source_date=record.get("date"),
+                        evidence_tier=_USER_MEMORY_EVIDENCE_TIER,
+                        freshness="historical",
+                        independent_key=str(record.get("method_id") or ""),
+                    )
+                )
             observation = (
                 "；".join(f"{item.title}：{item.detail}" for item in evidence)
                 or "用户记忆无相关命中（该题材/标的此前没有留下判断或纠偏）"

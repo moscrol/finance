@@ -204,15 +204,18 @@ def build_memory_block(
     peer_lines: list[str | None] | None = None,
     *,
     as_of: str | None = None,
+    method_records: list[dict[str, Any]] | None = None,
 ) -> str:
-    """渲染 [M] 块；判断与纠偏都为空时返回空串（不追加块）。"""
+    """渲染 [M] 块；判断、纠偏与方法读数都为空时返回空串（不追加块）。"""
     j_lines = _judgment_lines(judgment_records, peer_lines, as_of=as_of)
     c_lines = _correction_lines(correction_records)
-    if not j_lines and not c_lines:
+    m_lines = _method_lines(method_records or [])
+    if not j_lines and not c_lines and not m_lines:
         return ""
-    lines = ["## 用户记忆检索块 [M]（你自己的核心判断/纠偏原则/回检胜率，非市场事实）"]
+    lines = ["## 用户记忆检索块 [M]（你自己的核心判断/纠偏原则/回检胜率/方法验证读数，非市场事实）"]
     lines += j_lines
     lines += c_lines
+    lines += m_lines
     if calibration_text:
         lines.append("- 回检校准（该信多少）：")
         lines += [f"  {ln}" for ln in calibration_text.splitlines() if ln.strip()]
@@ -263,7 +266,13 @@ class MemoryRecall:
     implementation instead of forking the relevance logic.
     """
 
-    __slots__ = ("judgments", "corrections", "judgments_path", "corrections_path")
+    __slots__ = (
+        "judgments",
+        "corrections",
+        "judgments_path",
+        "corrections_path",
+        "methods",
+    )
 
     def __init__(
         self,
@@ -272,18 +281,44 @@ class MemoryRecall:
         corrections: list[dict[str, Any]],
         judgments_path: Path,
         corrections_path: Path,
+        methods: list[dict[str, Any]] | None = None,
     ) -> None:
         self.judgments = judgments
         self.corrections = corrections
         self.judgments_path = judgments_path
         self.corrections_path = corrections_path
+        # 方法验证立场（能力升级 07）：该用户自己实验目录下的固定方法读数——历史演练 / 真实前向
+        # 分开标注，只在问题命中方法关键词时召回；别的用户的收据不会进来。
+        self.methods = list(methods or [])
 
     def __bool__(self) -> bool:
-        return bool(self.judgments or self.corrections)
+        return bool(self.judgments or self.corrections or self.methods)
 
     @property
     def total(self) -> int:
-        return len(self.judgments) + len(self.corrections)
+        return len(self.judgments) + len(self.corrections) + len(self.methods)
+
+
+def _method_records(
+    query: str,
+    user: str | None,
+    users_root: str | Path | None,
+) -> list[dict[str, Any]]:
+    """方法验证立场召回；任何失败只降级为空，不让记忆召回本身失败。"""
+    try:
+        from intelligence.services.method_validation import flywheel
+
+        return flywheel.recall_for_query(query, user=user, users_root=users_root)
+    except Exception:
+        return []
+
+
+def _method_lines(records: list[dict[str, Any]]) -> list[str]:
+    lines: list[str] = []
+    for record in records:
+        lines.append(f"- 方法验证读数（{record.get('title') or record.get('method_id')}）：")
+        lines += [f"  {ln}" for ln in (record.get("lines") or []) if str(ln).strip()]
+    return lines
 
 
 def relevant_memory_records(
@@ -319,6 +354,7 @@ def relevant_memory_records(
         ),
         judgments_path=j_path,
         corrections_path=c_path,
+        methods=_method_records(query, user, users_root),
     )
 
 
@@ -356,4 +392,6 @@ def memory_block_for_query(
         except Exception:
             calibration_text = ""
             peer_lines = []
-    return build_memory_block(j_hit, c_hit, calibration_text, peer_lines)
+    return build_memory_block(
+        j_hit, c_hit, calibration_text, peer_lines, method_records=recall.methods
+    )
