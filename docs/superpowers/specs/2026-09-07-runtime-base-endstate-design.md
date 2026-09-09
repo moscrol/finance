@@ -168,7 +168,7 @@
 > 清箱挂在 `_EpisodeLedger.add("finish")` 这个唯一出口（取消 → `cancelled`，其余 → `episode_finished`），`keep_inbox` 落为 `Inbox.keep_on_cancel`。
 > 认领点：每次模型请求前 `claim(next_step)`（主 loop 与修复轮）；模型停下且未收口时 `claim(next_turn)` + 此刻已到的 `next_step`，再给一轮。
 > 外部入口 `ContinuousAgentEpisode.steer` / `GLMAgentRuntime.steer`（回执 `InboxReceipt`，不抛）。第 4 条端点按 §12 第 4 题推荐未做。
-> **CLI（第 4 条括注「底座与 CLI 先做」里的 CLI）2026-09-09 落地**（分支 `feat/runtime-base-p3-steer-cli`）：`Inbox.send` 是进程内调用、runtime 按次构造，另一个进程没有门，所以 CLI 不做端点客户端而走 durable 目录——递话方原子写 `<episode_dir>/inbox-spool/<ns>-<spool_id>.json`，`Inbox` 在既有认领点（`pending` / `claim` / `discard_all`）先吞槽再走原逻辑，三事实仍只由 loop 落账（INV-R5 不变，`inbox_inserted` 多带 `spool_id` 对回执）。`python3 -m intelligence.cli steer <episode_id> "<文本>" [--target] [--wait N] [--list]`；两个 fail closed：store 根与 Workbench 不同（events.jsonl 不在）拒投、state.json 终局拒投。细节在工单 #30 落地记录二。端点仍等 Alpha。
+> **CLI（第 4 条括注「底座与 CLI 先做」里的 CLI）2026-09-09 落地**（分支 `feat/runtime-base-p3-steer-cli`，PR #687）：`Inbox.send` 是进程内调用、runtime 按次构造，另一个进程没有门，所以 CLI 不做端点客户端而走 durable 目录——递话方原子写 `<episode_dir>/inbox-spool/<ns>-<spool_id>.json`，`Inbox` 在既有认领点（`pending` / `claim` / `discard_all`）先吞槽再走原逻辑，三事实仍只由 loop 落账（INV-R5 不变，`inbox_inserted` 多带 `spool_id` 对回执）。`python3 -m intelligence.cli steer <episode_id> "<文本>" [--target] [--wait N] [--list]`；两个 fail closed：store 根与 Workbench 不同（events.jsonl 不在）拒投、state.json 终局拒投。细节在工单 #30 落地记录二。端点仍等 Alpha。
 > 两处与原文的差别：`wakeup` 只记账（同步 loop 没有可唤醒的空闲态，等 P4 `step()`）；收口阶段不认领 `next_turn`（episode 正按预算关门）。
 > 验收落点：`conformance/test_inv_r5_inbox.py`（两序竞态、取消丢弃、收口丢弃、接缝有牙、子研究经箱、非适用臂不在场）+ `test_episode_inbox.py`（单元）。
 
