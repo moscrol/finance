@@ -44,6 +44,11 @@ from intelligence.runtime.episode_tool_batch import (
     timeout_detail_for_model,
     tool_definitions_for_menu,
 )
+from intelligence.runtime.research_progress import (
+    ResearchProgressTracker,
+    ToolCallDigest,
+    progress_enabled,
+)
 from intelligence.runtime.tier_promotion import apply_mode_promotion
 from intelligence.services.episode_history_compaction import (
     compact_history,
@@ -603,6 +608,9 @@ class _EpisodeToolAccumulator:
     traces: list[ProviderTrace] = field(default_factory=list)
     gaps: list[str] = field(default_factory=list)
     seen_observation_prose: set[str] = field(default_factory=set)
+    # 研究进展账（06 号单）：按批记「这轮有没有新证据 / 同一查询重复了几次 / 哪个工具连续空手」，
+    # 底座事实，run() 叠进 runtime_budget 递给模型；停滞到底时收口。
+    progress: ResearchProgressTracker = field(default_factory=ResearchProgressTracker)
 
     def __post_init__(self) -> None:
         if self.harness is None:
@@ -632,6 +640,15 @@ class _EpisodeToolAccumulator:
 
             if result.status == "rejected":
                 invalid_actions += 1
+                # 去重闸拒掉的调用就是「同一查询又来了一遍」：进展账记成 duplicate，
+                # 而不是笼统的 rejected——模型下一轮要看到的是「换查询」这个事实。
+                self.progress.record_call(
+                    ToolCallDigest(
+                        call.name,
+                        call.arguments,
+                        "duplicate" if result.error == "duplicate_query" else "rejected",
+                    )
+                )
                 if result.error == "unknown_or_unauthorized_tool":
                     self.traces.append(
                         ProviderTrace(
@@ -672,6 +689,9 @@ class _EpisodeToolAccumulator:
                 self._append_tool_error(
                     call, public_error, public_detail, timing=timing
                 )
+                self.progress.record_call(
+                    ToolCallDigest(call.name, call.arguments, str(result.status))
+                )
                 continue
 
             observation = result.observation
@@ -683,12 +703,29 @@ class _EpisodeToolAccumulator:
             self._extend_unique_gaps(observation.gaps)
             if observation.evidence:
                 self.successful_tools.add(call.name)
+            new_evidence = 0
             for item in observation.evidence:
                 if item.content_hash in self.evidence_hashes:
                     continue
                 self.evidence_hashes.add(item.content_hash)
                 self.evidence.append(item)
                 self.evidence_ledger.append(item)
+                new_evidence += 1
+            self.progress.record_call(
+                ToolCallDigest(
+                    call.name,
+                    observation.query or call.arguments,
+                    (
+                        "new"
+                        if new_evidence
+                        else "duplicate"
+                        if observation.evidence
+                        else "empty"
+                    ),
+                    new_evidence=new_evidence,
+                    total_evidence=len(observation.evidence),
+                )
+            )
             assert self.harness is not None
             projection = self.harness.project_tool_result(
                 observation,
@@ -747,6 +784,9 @@ class _EpisodeToolAccumulator:
 
     def consume_sub_research(self, result: SubResearchResult) -> None:
         self.traces.extend(result.traces)
+        self.progress.record_branches(
+            result.branches, refused_reason=result.refused_reason
+        )
         for branch in result.branches:
             # 分支里跑的工具此前**一条事件都不发**：只有 branch_started /
             # branch_completed 这对括号，中间发生了什么在事件流里是黑的。
@@ -1020,12 +1060,15 @@ class ContinuousAgentEpisode:
         inbox = Inbox(ledger, admit=self._harness.admit_inbox_message)
         ledger.inbox = inbox
         self._active_inbox = inbox
+        # 研究进展账要在绑 sub_research 之前建：分支结果在批执行器线程里回来时直接记进它。
+        progress = ResearchProgressTracker()
         registry = self._with_sub_research_tool(
             task_frame=task_frame,
             context_ref=context_ref,
             registry=registry,
             evidence_ledger=evidence_ledger,
             ledger=ledger,
+            progress=progress,
         )
         episode_scope = EpisodeScope(
             episode_id=context.contract.task_id,
@@ -1073,6 +1116,7 @@ class ContinuousAgentEpisode:
             ledger=ledger,
             evidence_ledger=evidence_ledger,
             harness=self._harness,
+            progress=progress,
         )
         _seed_opening_prefetch(accumulator, messages, registry)
         continuation_state: _EpisodeContinuationState | None = None
@@ -1165,7 +1209,9 @@ class ContinuousAgentEpisode:
 
             # INV-R5：每次模型请求前认领 next_step（pi steering）。先于历史折叠——
             # 认领的是 user 消息，折叠只碰 tool 消息，两者互不改写；先于对账是必然。
-            self._claim_inbox(messages=messages, ledger=ledger, target="next_step")
+            if self._claim_inbox(messages=messages, ledger=ledger, target="next_step"):
+                # 外部递了话（用户改方向 / 分支回灌）：新方向的第一批不算原地踏步。
+                accumulator.progress.note_external_input()
             # 历史折叠先于对账：它改的是模型即将看到的 tool 消息正文，并以
             # ``history_compacted`` 事件承载替换后的正文，所以对账必须在它之后。
             self._compact_history_for_model(
@@ -1605,6 +1651,12 @@ class ContinuousAgentEpisode:
                         executed_count=fb_batch.executed_count,
                         batch_elapsed=fb_elapsed,
                     )
+                progress_view = self._research_progress_view(
+                    accumulator=accumulator,
+                    tool_session=tool_session,
+                    registry=registry,
+                    context=context,
+                )
                 injected = self._append_tool_budget_state(
                     messages=messages,
                     ledger=ledger,
@@ -1626,6 +1678,7 @@ class ContinuousAgentEpisode:
                         ),
                     ),
                     per_batch_cap=batch_call_cap(context.policy),
+                    progress=progress_view,
                 )
                 if injected:
                     ledger.time_budget_injected = True
@@ -1652,6 +1705,20 @@ class ContinuousAgentEpisode:
                         messages=messages,
                         ledger=ledger,
                         reason="snapshot_surface_satisfied",
+                    )
+                # 停滞收口（06 号单）：连续 N 批零新证据且已有证据在手，研究阶段关门。
+                # 关门前模型已连续两轮看到 stalled 建议与「再一批就收口」的预告；
+                # 已有证据一条不丢，收口只是不再让它原地重复调用。
+                if (
+                    not finalization_started
+                    and progress_view is not None
+                    and accumulator.progress.should_finalize()
+                ):
+                    finalization_started = True
+                    self._begin_finalization(
+                        messages=messages,
+                        ledger=ledger,
+                        reason="research_stalled",
                     )
                 # 这一批的结算全部落下、无在飞外部效果：程序计数器回到规划 / 收口。
                 ledger.put_state(
@@ -2606,6 +2673,7 @@ class ContinuousAgentEpisode:
         registry: ResearchToolRegistry,
         evidence_ledger: EvidenceLedger,
         ledger: _EpisodeLedger,
+        progress: ResearchProgressTracker | None = None,
     ) -> ResearchToolRegistry:
         """有协调器的 episode 把 ``sub_research`` 绑成模型可点的工具并进注册表。
 
@@ -2623,6 +2691,11 @@ class ContinuousAgentEpisode:
             # 与 PLAN 路径同一组 durable 事件（branch_started / completed / failed），
             # 事件流的消费者不必区分分支是模型点的还是 PLAN 批的。
             self._record_branch_events(ledger, goals=goals, result=result)
+            if progress is not None:
+                # 分支状态进研究进展账（工具路径的证据本身经 tool_result 进 consume）。
+                progress.record_branches(
+                    result.branches, refused_reason=result.refused_reason
+                )
 
         spec = bind_sub_research_tool(
             coordinator=coordinator,
@@ -2756,6 +2829,38 @@ class ContinuousAgentEpisode:
         )
 
     @staticmethod
+    def _research_progress_view(
+        *,
+        accumulator: _EpisodeToolAccumulator,
+        tool_session: EpisodeToolBatchSession,
+        registry: ResearchToolRegistry,
+        context: ResearchRunContext,
+    ) -> dict[str, object] | None:
+        """批后收账并算给模型看的研究进展块；开关关时返回 None（逐字节同前）。
+
+        ``tools_short_of_window``：菜单裁剪关着（生产 ``WORKBENCH_TOOL_MENU_HIDE=off``）时，
+        申报窗大于下一轮工具窗的工具仍然可见——点了必超时白烧一轮。这里把「可用但装不下」
+        这个事实递给模型，而不是替它藏菜单。
+        """
+
+        if not progress_enabled():
+            return None
+        accumulator.progress.close_batch()
+        menu = tool_session.menu(registry=registry, context=context)
+        visible = set(menu.visible)
+        short_of_window = [
+            spec.name
+            for spec in registry.authorized_specs(context.contract.allowed_capabilities)
+            if spec.name in visible
+            and spec.min_window_seconds is not None
+            and float(spec.min_window_seconds) > float(menu.would_grant)
+        ]
+        return accumulator.progress.model_view(
+            available_tools=menu.visible,
+            tools_short_of_window=short_of_window,
+        )
+
+    @staticmethod
     def _append_tool_budget_state(
         *,
         messages: list[EpisodeMessage],
@@ -2764,6 +2869,7 @@ class ContinuousAgentEpisode:
         remaining_seconds: float | None = None,
         total_seconds: float | None = None,
         per_batch_cap: int | None = None,
+        progress: Mapping[str, object] | None = None,
     ) -> bool:
         if not messages or messages[-1].role != "tool":
             return False
@@ -2820,6 +2926,10 @@ class ContinuousAgentEpisode:
                 "收敛到最有把握的方向，宁可少查也要留出写结论的时间。"
             )
             injected = True
+        if progress:
+            # 研究进展账（06 号单）叠在同一个预算块里：不新增事件种类、不改派生规则，
+            # 模型在同一处读「还剩多少」和「刚才那批有没有新东西」。
+            budget["research_progress"] = dict(progress)
         payload["runtime_budget"] = budget
         model_content = json.dumps(payload, ensure_ascii=False)
         # 这是对最后一条 tool 消息的**覆写**，不是追加：durable 侧记整段新 content，
