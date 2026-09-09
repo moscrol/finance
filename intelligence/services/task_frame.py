@@ -14,7 +14,20 @@ from dataclasses import asdict, dataclass, replace
 from typing import TYPE_CHECKING, Callable
 
 from intelligence.services.trading_calendar import question_non_trading_note
-from intelligence.services.user_task import UserTask
+from intelligence.services.user_task import (
+    Hypothesis,
+    MaterialRef,
+    MethodCandidate,
+    UserTask,
+    extract_method_candidates,
+    extract_user_premises,
+    material_from_text,
+    materials_in_conversation,
+    references_material,
+    resolve_nicknames,
+    split_user_message,
+    translate_market_feel,
+)
 
 if TYPE_CHECKING:
     from intelligence.services.query_understanding import QueryEnvelope
@@ -100,11 +113,26 @@ class TaskFrame:
     clarification_question: str | None
     evidence_policy: str
     confidence: float
+    # 输入理解层（2026-09-09，05 单）。全部带默认值、放在尾部：约 50 个测试文件按位置
+    # 构造 TaskFrame，旧的 13 个位置参数原样可用。为空时 to_dict / hash 都不带这些键，
+    # 无材料、无假设的题从 episode 输入到 task_frame_hash 逐字节与改动前相同。
+    user_premises: tuple[str, ...] = ()
+    materials: tuple[MaterialRef, ...] = ()
+    referenced_material_ids: tuple[str, ...] = ()
+    competing_explanations: tuple[Hypothesis, ...] = ()
+    method_candidates: tuple[MethodCandidate, ...] = ()
+
+    def _payload(self) -> dict[str, object]:
+        payload = asdict(self)
+        for key in _INPUT_UNDERSTANDING_FIELDS:
+            if not payload.get(key):
+                payload.pop(key, None)
+        return payload
 
     @property
     def task_frame_hash(self) -> str:
         encoded = json.dumps(
-            asdict(self),
+            self._payload(),
             ensure_ascii=False,
             sort_keys=True,
             separators=(",", ":"),
@@ -112,11 +140,23 @@ class TaskFrame:
         return hashlib.sha256(encoded).hexdigest()
 
     def to_dict(self) -> dict[str, object]:
-        payload = asdict(self)
+        payload = self._payload()
         payload["required_outputs"] = list(self.required_outputs)
         payload["assumptions"] = list(self.assumptions)
         payload["ambiguities"] = list(self.ambiguities)
         payload["question_type"] = self.question_type
+        if self.user_premises:
+            payload["user_premises"] = list(self.user_premises)
+        if self.materials:
+            payload["materials"] = [item.to_dict() for item in self.materials]
+        if self.referenced_material_ids:
+            payload["referenced_material_ids"] = list(self.referenced_material_ids)
+        if self.competing_explanations:
+            payload["competing_explanations"] = [
+                item.to_dict() for item in self.competing_explanations
+            ]
+        if self.method_candidates:
+            payload["method_candidates"] = [item.to_dict() for item in self.method_candidates]
         payload["task_frame_hash"] = self.task_frame_hash
         return payload
 
@@ -160,6 +200,14 @@ class TaskFrame:
                 for item in (subject, timeframe, clarification)
             ):
                 return None
+            user_premises = value.get("user_premises", ())
+            referenced = value.get("referenced_material_ids", ())
+            if any(
+                not isinstance(items, (list, tuple))
+                or any(not isinstance(item, str) for item in items)
+                for items in (user_premises, referenced)
+            ):
+                return None
             return cls(
                 raw_question=str(value["raw_question"]),
                 user_goal=str(value["user_goal"]),
@@ -174,9 +222,38 @@ class TaskFrame:
                 clarification_question=clarification,
                 evidence_policy=evidence_policy,
                 confidence=max(0.0, min(1.0, float(value["confidence"]))),
+                user_premises=tuple(user_premises),
+                materials=_parse_items(value.get("materials"), MaterialRef.from_dict),
+                referenced_material_ids=tuple(referenced),
+                competing_explanations=_parse_items(
+                    value.get("competing_explanations"), Hypothesis.from_dict
+                ),
+                method_candidates=_parse_items(
+                    value.get("method_candidates"), MethodCandidate.from_dict
+                ),
             )
         except (KeyError, TypeError, ValueError):
             return None
+
+
+_INPUT_UNDERSTANDING_FIELDS = (
+    "user_premises",
+    "materials",
+    "referenced_material_ids",
+    "competing_explanations",
+    "method_candidates",
+)
+
+
+def _parse_items(value: object, parse: Callable[[object], object | None]) -> tuple:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    parsed = []
+    for item in value:
+        restored = parse(item)
+        if restored is not None:
+            parsed.append(restored)
+    return tuple(parsed)
 
 
 def build_task_frame(
@@ -185,12 +262,25 @@ def build_task_frame(
     *,
     inherited_subject: str | None = None,
     llm_complete: LLMComplete | None = None,
+    conversation_context: str | None = None,
 ) -> TaskFrame:
-    """Compile rules first, then optionally merge one constrained LLM draft."""
+    """Compile rules first, then optionally merge one constrained LLM draft.
+
+    ``conversation_context`` is the prompt block of earlier messages when the
+    caller has it (``None`` = unknown, legacy callers).  It is only used to bind
+    「这篇 / 这份材料」to a material pasted earlier, or — when the block is known
+    and holds no material — to ask for the material deterministically instead of
+    hoping the alignment model writes the ambiguity.  Unknown context never asks.
+    """
 
     question = str(raw_question or "").strip()
+    # 材料与问题分开：路由、目标、日历、产出物都只看问题部分；raw_question 仍是
+    # 完整原文（模型需要读材料本身）。没有材料时 core == question，一切照旧。
+    parts = split_user_message(question)
+    materials = parts.materials
+    core = parts.question or question
     question_type = str(envelope.question_type or "general_finance_qa")
-    market_scope, market_is_default = _market_scope(question)
+    market_scope, market_is_default = _market_scope(core)
     timeframe, timeframe_assumption = _timeframe(envelope.timeframe)
     subject = _safe_subject(
         envelope.subject,
@@ -199,64 +289,136 @@ def build_task_frame(
         in {"ticker", "entity", "candidate", "alias"},
     )
     subject_kind = str(envelope.subject_kind or "unknown")
+    hypotheses = translate_market_feel(core)
     unbound_rebound_reference = bool(
         subject is None
         and not inherited_subject
-        and _UNBOUND_REBOUND_REFERENCE_RE.search(question)
+        and _UNBOUND_REBOUND_REFERENCE_RE.search(core)
+    )
+    # 「这条线 / 这个板块」+ 盘感，却没有任何主体：问的是哪条线会改变工具和结论，
+    # 这是合同里唯一值得花掉那一次澄清的歧义。
+    unbound_line_reference = bool(
+        subject is None
+        and not inherited_subject
+        and not unbound_rebound_reference
+        and hypotheses
+        and _UNBOUND_LINE_REFERENCE_RE.search(core)
     )
     assumptions: list[str] = []
+    nickname_pairs = resolve_nicknames(core)
+    if nickname_pairs:
+        canonicals = tuple(canonical for _alias, canonical in nickname_pairs)
+        if subject is None:
+            joined = "、".join(canonicals)
+            subject = _safe_subject(joined, question) or subject
+            if subject is not None:
+                subject_kind = "company"
+        assumptions.append(
+            "代称按市场常用简称理解："
+            + "、".join(f"{alias}={canonical}" for alias, canonical in nickname_pairs)
+            + "；如有误请指出"
+        )
     if (
         market_is_default
-        and _is_financial_task(question_type, question)
+        and _is_financial_task(question_type, core)
         and not unbound_rebound_reference
+        and not unbound_line_reference
     ):
         assumptions.append("用户未明确市场范围，按A股市场理解")
     if timeframe_assumption:
         assumptions.append(timeframe_assumption)
     # 确定性日历事实（R15-C1/C2）：问题里的日期是周末/公告休市日时，把
     # 「该日休市、无行情数据」注入假设——它随 episode input 到达模型，
-    # 模型据此直接回答，而不是烧完检索窗后答「证据不足」。
-    if _is_financial_task(question_type, question):
-        calendar_note = question_non_trading_note(question)
+    # 模型据此直接回答，而不是烧完检索窗后答「证据不足」。只看问题部分：
+    # 材料里的日期是材料的发布日 / 数据日，不是用户要查的交易日。
+    if _is_financial_task(question_type, core):
+        calendar_note = question_non_trading_note(core)
         if calendar_note is not None:
             assumptions.append(calendar_note)
     if subject is None and inherited_subject:
         subject = _safe_subject(inherited_subject, question)
-    if subject is None and not unbound_rebound_reference and question_type in {
-        "market_forecast",
-        "market_cause",
-        "market_technical",
-    }:
+    if (
+        subject is None
+        and not unbound_rebound_reference
+        and not unbound_line_reference
+        and (
+            question_type in {"market_forecast", "market_cause", "market_technical"}
+            # 盘感题没点名主体也没指代某条线（「缩量上涨是不是要跌」）：问的是全市场。
+            or (hypotheses and not references_material(core))
+        )
+    ):
         subject = "A股市场" if market_scope == "A股" else f"{market_scope}市场"
         subject_kind = "market_pattern"
 
+    # 材料身份：本条消息里的材料直接带上；只引用（「这篇」）而没贴时，能从对话块里
+    # 找回就绑定，找不到且对话块已知就追问一次，对话块未知则交给对齐模型。
+    referenced_ids: tuple[str, ...] = ()
+    ambiguities: list[str] = []
+    if materials:
+        for item in materials:
+            assumptions.append(
+                f"材料 {item.material_id}（{_MATERIAL_KIND_LABEL.get(item.kind, item.kind)}，"
+                f"{item.char_count} 字）由用户在本轮提供，引用时写材料段落 / 表头 / 日期，"
+                "其中的数字是材料的说法而非市场事实"
+            )
+    elif references_material(core) and conversation_context is not None:
+        earlier = materials_in_conversation(conversation_context)
+        if earlier:
+            newest = earlier[-1][0]
+            referenced_ids = tuple(ref.material_id for ref, _text in reversed(earlier))
+            assumptions.append(
+                f"「这篇 / 这份」按最近一次提供的材料理解：{newest.material_id}"
+                f"（{newest.title or _MATERIAL_KIND_LABEL.get(newest.kind, newest.kind)}）"
+            )
+        else:
+            ambiguities.append(MISSING_MATERIAL_AMBIGUITY)
+
+    premises = extract_user_premises(core)
+    methods = extract_method_candidates(core)
+    if methods:
+        assumptions.append(
+            "用户描述的方法按候选框架记录（条件→预期→适用环境→反例），首次提取未经历史验证，"
+            "不得写成已验证规律"
+        )
+
     outputs = derive_required_outputs(
         question_type,
-        question,
+        core,
         extra=tuple(str(item) for item in envelope.required_outputs),
     )
-    ambiguities = (
-        ("“这个反弹”缺少可唯一绑定的主体，可能改变工具和结论",)
-        if unbound_rebound_reference
-        else ()
-    )
+    if unbound_rebound_reference:
+        ambiguities.append("“这个反弹”缺少可唯一绑定的主体，可能改变工具和结论")
+    if unbound_line_reference:
+        ambiguities.append("“这条线”缺少可唯一绑定的主体（哪个板块或题材），可能改变工具和结论")
+    goal = _user_goal(question_type, core, envelope.decision_goal)
+    if hypotheses and goal in _GENERIC_GOALS | {str(envelope.decision_goal or "").strip()}:
+        goal = (
+            "区分竞争解释（"
+            + "／".join(item.label for item in hypotheses)
+            + "），给出能区分它们的观测变量与当前读数，再下判断"
+        )
     frame = TaskFrame(
         raw_question=question,
-        user_goal=_user_goal(question_type, question, envelope.decision_goal),
+        user_goal=goal,
         question_type=question_type,
         subject=subject,
         subject_kind=subject_kind,
         market_scope=market_scope,
         timeframe=timeframe,
         required_outputs=outputs,
-        assumptions=tuple(assumptions),
-        ambiguities=ambiguities,
-        clarification_question=_clarification_for(ambiguities),
+        assumptions=_merge_strings(tuple(assumptions)),
+        ambiguities=tuple(ambiguities),
+        clarification_question=_clarification_for(tuple(ambiguities)),
         evidence_policy=_POLICY_BY_QUESTION_TYPE.get(
             question_type,
             _POLICY_BY_QUESTION_TYPE["general_finance_qa"],
         ),
         confidence=max(0.0, min(1.0, float(envelope.confidence))),
+        user_premises=premises,
+        materials=materials,
+        referenced_material_ids=referenced_ids,
+        competing_explanations=hypotheses,
+        method_candidates=methods,
     )
     if llm_complete is None:
         return frame
@@ -290,12 +452,26 @@ def align_task_frame(frame: TaskFrame, content: str | None) -> TaskFrame:
     valid_ambiguities = _string_tuple(ambiguities)
     merged_ambiguities = _merge_strings(frame.ambiguities, valid_ambiguities)
     clarification = _clarification_for(merged_ambiguities)
+    # 输入理解三项也允许模型补充（键缺省即忽略；控制器提示词是否要求它们见
+    # blocked/05 B05-2）。规则抽出的在前，模型只能追加，不能改写。
+    premises = _merge_strings(frame.user_premises, _string_tuple(value.get("user_premises")))
+    hypotheses = list(frame.competing_explanations)
+    for item in _parse_items(value.get("competing_explanations"), Hypothesis.from_dict):
+        if all(item.label != existing.label for existing in hypotheses):
+            hypotheses.append(item)
+    methods = list(frame.method_candidates)
+    for item in _parse_items(value.get("method_candidates"), MethodCandidate.from_dict):
+        if item not in methods:
+            methods.append(item)
     return replace(
         frame,
         user_goal=(goal.strip() if isinstance(goal, str) and goal.strip() else frame.user_goal),
         assumptions=_merge_strings(frame.assumptions, valid_assumptions),
         ambiguities=merged_ambiguities,
         clarification_question=clarification,
+        user_premises=premises,
+        competing_explanations=tuple(hypotheses),
+        method_candidates=tuple(methods),
     )
 
 
@@ -369,19 +545,29 @@ def resolve_task_frame_clarification(
     if is_missing_material_clarification(frame):
         # 追问的是「材料在哪」，回答是贴进来的材料本身：它不是主体名，不能走下面的
         # 主体/市场归一（一段研报正文会被 _safe_subject 判掉、再默认成「A股市场 /
-        # market_pattern」，把提纯题改写成盘面题）。主体、类型一律保留，材料由对话
-        # 上下文带进研究轮。
-        assumption = (
-            f"用户在唯一一次澄清中补充了材料原文（约 {len(cleaned)} 字）"
-            if cleaned
-            else "澄清预算已用尽，用户未提供材料，按无材料继续"
+        # market_pattern」，把提纯题改写成盘面题）。主体、类型一律保留；材料本体由
+        # 对话上下文带进研究轮，这里给它身份（内容哈希 id、表头、日期），后续「这篇」
+        # 能绑到同一份。
+        pasted = split_user_message(str(answer or ""))
+        materials = pasted.materials or (
+            (material_from_text(str(answer or "")),) if cleaned else ()
         )
+        materials = tuple(item for item in materials if item is not None)
+        if cleaned and materials:
+            ids = "、".join(item.material_id for item in materials)
+            assumption = f"用户在唯一一次澄清中补充了材料原文（约 {len(cleaned)} 字，材料 {ids}）"
+        elif cleaned:
+            assumption = f"用户在唯一一次澄清中补充了材料原文（约 {len(cleaned)} 字）"
+        else:
+            assumption = "澄清预算已用尽，用户未提供材料，按无材料继续"
         return replace(
             frame,
             assumptions=_merge_strings(frame.assumptions, (assumption,)),
             ambiguities=(),
             clarification_question=None,
+            materials=_merge_materials(frame.materials, materials),
         )
+    line_reference = any("这条线" in item for item in frame.ambiguities)
     if any(term in cleaned for term in ("美股", "美国股市", "纳指", "标普")):
         market_scope = "美股"
         subject = "美国股市"
@@ -393,15 +579,23 @@ def resolve_task_frame_clarification(
         subject = "A股市场"
     else:
         candidate = re.sub(
-            r"^(?:这个|那个|这次|那次)?(?:反弹|修复)?(?:指的是|指的|指|是)?",
+            r"^(?:这个|那个|这次|那次|这条线|这条|这个板块|这个题材)?(?:反弹|修复)?"
+            r"(?:指的是|指的|指|是|就是)?",
             "",
             str(answer or "").strip(),
         )
+        candidate = re.sub(r"(?:板块|题材|方向|这条线)$", "", candidate.strip("，,。 "))
         subject = _safe_subject(candidate, frame.raw_question)
         market_scope = frame.market_scope
         if subject is None:
             subject = "A股市场"
             market_scope = "A股"
+    # 「这条线」问的是板块 / 题材，回答一个题材名就按 theme 继续；市场名仍是 market_pattern。
+    subject_kind = (
+        "theme"
+        if line_reference and subject not in {"A股市场", "美国股市", "港股市场"}
+        else "market_pattern"
+    )
     assumption = (
         f"用户在唯一一次澄清中确认主体为{subject}"
         if cleaned
@@ -410,12 +604,92 @@ def resolve_task_frame_clarification(
     return replace(
         frame,
         subject=subject,
-        subject_kind="market_pattern",
+        subject_kind=subject_kind,
         market_scope=market_scope,
         assumptions=_merge_strings(frame.assumptions, (assumption,)),
         ambiguities=(),
         clarification_question=None,
     )
+
+
+def _merge_materials(
+    *groups: tuple[MaterialRef, ...],
+) -> tuple[MaterialRef, ...]:
+    merged: list[MaterialRef] = []
+    seen: set[str] = set()
+    for group in groups:
+        for item in group:
+            if item.material_id in seen:
+                continue
+            seen.add(item.material_id)
+            merged.append(item)
+    return tuple(merged)
+
+
+_MATERIAL_KIND_LABEL = {
+    "pasted_text": "粘贴文本",
+    "table": "表格",
+    "url": "链接",
+    "quoted": "引文",
+}
+_GENERIC_GOALS = frozenset({"形成与用户原问题一致的直接回答", "形成条件化判断"})
+_UNBOUND_LINE_REFERENCE_RE = re.compile(
+    r"(?:这条线|这个板块|这个题材|这个方向|这条|这波|这一波)(?![一-鿿]{2,6}(?:板块|题材))"
+)
+MISSING_MATERIAL_AMBIGUITY = (
+    "题面引用的材料（原文 / 文件 / 链接）在本轮与此前对话中都未提供，需用户粘贴内容或给出来源链接"
+)
+
+
+def render_task_understanding(frame: TaskFrame) -> str:
+    """One short, human-editable rendering of what the system understood.
+
+    Meant for the「understanding」stage of the UI (09 integrates it) and for
+    acceptance transcripts.  Lists only what the frame actually holds; nothing
+    is inferred here.
+    """
+
+    lines = [
+        f"研究对象：{frame.subject or '未指定'}（{frame.subject_kind}，{frame.market_scope}）",
+        f"时间范围：{frame.timeframe or '未指定'}",
+        f"要判断：{frame.user_goal}",
+    ]
+    if frame.user_premises:
+        lines.append("你的假设 / 观察：" + "；".join(frame.user_premises))
+    if frame.competing_explanations:
+        lines.append(
+            "竞争解释："
+            + "；".join(
+                f"{index}. {item.label}（看：{'、'.join(item.observables[:3])}）"
+                for index, item in enumerate(frame.competing_explanations, start=1)
+            )
+        )
+    if frame.materials:
+        lines.append(
+            "材料："
+            + "；".join(
+                f"{item.material_id} {item.title or _MATERIAL_KIND_LABEL.get(item.kind, item.kind)}"
+                + (f"（表头：{'/'.join(item.headers[:4])}）" if item.headers else "")
+                + (f"（日期：{'、'.join(item.dates[:3])}）" if item.dates else "")
+                for item in frame.materials
+            )
+        )
+    if frame.referenced_material_ids:
+        lines.append("引用材料：" + "、".join(frame.referenced_material_ids))
+    if frame.method_candidates:
+        lines.append(
+            "方法候选（未验证）："
+            + "；".join(
+                f"条件「{item.condition}」→ 预期「{item.expectation}」（适用：{item.applicability}）"
+                for item in frame.method_candidates
+            )
+        )
+    lines.append("需要的产出：" + "、".join(frame.required_outputs))
+    if frame.assumptions:
+        lines.append("默认假设：" + "；".join(frame.assumptions))
+    if frame.clarification_question:
+        lines.append("待澄清：" + frame.clarification_question)
+    return "\n".join(lines)
 
 
 def _alignment_messages(frame: TaskFrame) -> list[dict[str, str]]:
@@ -425,8 +699,12 @@ def _alignment_messages(frame: TaskFrame) -> list[dict[str, str]]:
             "content": (
                 "你只补全任务语义，不回答问题。规则已锁定主体、市场、日期、"
                 "任务类型、required_outputs 和证据政策；不得修改这些字段。"
-                "严格输出 JSON，键只能是 user_goal,assumptions,ambiguities。"
+                "严格输出 JSON，键只能是 user_goal,assumptions,ambiguities,"
+                "user_premises,competing_explanations,method_candidates。"
                 "只有会改变主体、工具或结论的歧义才写入 ambiguities。"
+                "user_premises 只写用户自己声明的假设或观察；competing_explanations "
+                "每项含 label,claim,observables；method_candidates 每项含 "
+                "condition,expectation,applicability,counterexamples，状态一律未验证。"
             ),
         },
         {
@@ -681,6 +959,13 @@ def task_frame_requires_retrieval(frame: TaskFrame) -> bool:
         # 就说它是最强时效信号），timeframe 是 understand_query 抽好的结构化
         # 字段，raw_question 兜底抽取失败的场景。月份粒度（2026年7月）不算。
         if has_explicit_date(frame.timeframe or "") or has_explicit_date(
+            frame.raw_question
+        ):
+            return True
+        # 第四道地板（2026-09-09，05 单）：题目带着用户材料或引用一份材料
+        # （「这篇里提到的产能数字有官方来源吗」）。核对材料里的说法离不开检索；
+        # 关键词表里没有「产能」「官方来源」这种词，靠材料身份这个结构化信号。
+        if frame.materials or frame.referenced_material_ids or references_material(
             frame.raw_question
         ):
             return True

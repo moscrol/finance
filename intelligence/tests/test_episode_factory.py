@@ -743,3 +743,121 @@ def test_build_episode_context_carries_retrieval_stages_only_when_present() -> N
 
     assert default.retrieval_stages == ()
     assert active.retrieval_stages == ("definition", "chain_stages")
+
+
+# --- 输入理解层进入 episode 输入（2026-09-09，05 单） -----------------------------------
+
+import json as _json  # noqa: E402
+
+from intelligence.services.episode_factory import (  # noqa: E402
+    assemble_input_understanding_context,
+    method_validation_note,
+)
+from intelligence.services.query_understanding import understand_query  # noqa: E402
+from intelligence.services.task_frame import build_task_frame  # noqa: E402
+from intelligence.services.user_task import MethodCandidate, material_id_for  # noqa: E402
+
+_REPORT_TEXT = (
+    "【卖方摘要｜2026-08-28】固态电池：硫化物路线进入中试放量期\n\n"
+    "一、核心观点\n公司 A 硫化物电解质中试线 2026 年 8 月投产，规划产能 200 吨/年。\n\n"
+    "二、关键数据\n2026 年上半年新签订单 12 亿元，同比增长 40%；毛利率 31.5%。"
+)
+_REPORT_QUESTION = "这篇研报的核心逻辑站得住吗？帮我分开哪些是硬事实、哪些只是推测"
+_HISTORY = (
+    "## 较早消息（原文，超预算时从最早处截断）\n（无较早消息）\n\n## 最近消息原文\n"
+    f"user: {_REPORT_TEXT}\n\n{_REPORT_QUESTION}\nassistant: 硬事实有三条……"
+)
+
+
+def _frame(question: str, **kwargs):
+    return build_task_frame(question, understand_query(question), **kwargs)
+
+
+def test_plain_question_leaves_conversation_context_byte_stable() -> None:
+    frame = _frame("明天你怎么看")
+    original = "## 最近消息原文\nuser: 今天怎么样\nassistant: 略"
+
+    context = build_episode_context(frame, task_id="plain", conversation_context=original)
+
+    assert context.conversation_context == original
+    assert assemble_input_understanding_context(frame, "") == ""
+
+
+def test_pasted_material_gets_an_identity_table_before_the_history() -> None:
+    frame = _frame(f"{_REPORT_TEXT}\n\n{_REPORT_QUESTION}")
+
+    context = build_episode_context(frame, task_id="material", conversation_context="## 最近消息原文\n（无历史消息）")
+    text = context.conversation_context
+
+    assert text.startswith("## 用户提供的材料（身份表）")
+    assert material_id_for(_REPORT_TEXT) in text
+    assert "本轮" in text and "2026-08-28" in text and "粘贴文本" in text
+    assert "「这篇 / 这份 / 这张表」= 本轮提供的材料" in text
+    assert "不得凭标题编造" in text
+    assert text.endswith("## 最近消息原文\n（无历史消息）")
+
+
+def test_reference_to_earlier_material_is_resolved_from_history() -> None:
+    frame = _frame("这篇里提到的产能数字有官方来源吗")
+    assert frame.materials == ()
+
+    text = assemble_input_understanding_context(frame, _HISTORY)
+
+    assert material_id_for(_REPORT_TEXT) in text
+    assert "此前对话" in text
+    assert f"「这篇 / 这份 / 这张表」= {material_id_for(_REPORT_TEXT)}" in text
+
+
+def test_short_follow_up_keeps_the_material_table_without_asserting_referent() -> None:
+    text = assemble_input_understanding_context(_frame("那它的风险点呢"), _HISTORY)
+
+    assert material_id_for(_REPORT_TEXT) in text
+    assert "「这篇 / 这份 / 这张表」=" not in text
+
+    unrelated = _frame("低空经济和商业航天，未来一个月哪个更可能成为A股主线，为什么")
+    assert material_id_for(_REPORT_TEXT) not in assemble_input_understanding_context(unrelated, _HISTORY)
+
+
+def test_premises_hypotheses_and_method_candidates_reach_the_model_with_rules() -> None:
+    frame = _frame("我的经验是龙头连板断了以后板块一般还有一次回流，这次固态电池也会这样吗")
+
+    text = build_episode_context(frame, task_id="method", conversation_context="").conversation_context
+
+    assert "## 用户已有假设（待检验）" in text
+    assert "- 龙头连板断了以后板块一般还有一次回流" in text
+    assert "## 竞争解释与区分变量" in text
+    assert "H1 分歧后回流" in text and "观测变量" in text
+    assert "## 用户方法候选（未验证）" in text
+    assert "条件「龙头连板断了」" in text
+    assert "candidate_unverified" in text
+    assert "方法验证接口：" in text
+    # 仓内已登记的四条规则（双红延续等）与「龙头断板→回流」不重合：如实报未登记，
+    # 不把它写成已有规则，也不宣称验证过。
+    assert "未登记为可回测规则" in text
+    assert "状态：candidate_unverified" in text
+
+
+def test_method_validation_note_reports_registry_state(tmp_path) -> None:
+    candidate = MethodCandidate("龙头连板断了", "板块一般还有一次回流", "未说明")
+
+    assert "未找到已登记规则目录" in method_validation_note(candidate, root=tmp_path)
+
+    rules = tmp_path / "rules"
+    rules.mkdir()
+    (rules / "other.v1.json").write_text(
+        _json.dumps({"rule_id": "other", "version": 1, "title": "毫不相关的题目"}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    assert "未登记为可回测规则" in method_validation_note(candidate, root=tmp_path)
+
+    (rules / "reflow.v1.json").write_text(
+        _json.dumps(
+            {"rule_id": "reflow", "version": 1, "title": "龙头连板断了之后板块还有一次回流", "sharing": "private", "owner": "u"},
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    note = method_validation_note(candidate, root=tmp_path)
+    assert "reflow@v1" in note
+    assert "生命周期状态 candidate" in note
+    assert "仍按未验证候选使用" in note
