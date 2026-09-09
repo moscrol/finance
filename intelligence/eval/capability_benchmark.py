@@ -454,7 +454,13 @@ def reset_user_from_seed(users_dir: Path, user: str, seed_tgz: Path) -> str:
         shutil.rmtree(target)
     users_dir.mkdir(parents=True, exist_ok=True)
     with tarfile.open(seed_tgz, "r:gz") as tar:
-        members = tar.getmembers()
+        members = [
+            member
+            for member in tar.getmembers()
+            # macOS bsdtar 会夹带 AppleDouble（._x）与 .DS_Store，不是种子内容
+            if not member.name.rsplit("/", 1)[-1].startswith("._")
+            and member.name.rsplit("/", 1)[-1] != ".DS_Store"
+        ]
         top = {member.name.split("/", 1)[0] for member in members}
         if len(top) != 1:
             raise CapabilityBenchmarkError(
