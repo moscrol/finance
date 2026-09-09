@@ -364,6 +364,70 @@ class KnowledgeResolver:
         return ResolveOutcome(verdict, checkpoints.SCORE_MAP[verdict], "knowledge", reason, observed)
 
 
+class MethodValidationResolver:
+    """方法观察到期回检：不比阈值，交给原协议（冻结成员 + 旁路库五日结果）。
+
+    ``metric`` 只带三条路径（study_dir / observation / labels_db）。到期且旁路库水位到位
+    → 走 ``method_validation.flywheel.resolve_observation``：写 recheck 收据、刷新立场摘要，
+    分类映射成 verdict（支持→hit、方法错误→miss；数据不足 / 环境变化 / 未到期→unverifiable，
+    不进分母）。旁路库没更新、水位回退、版本不符一律降级并写清要补什么，绝不拿旧水位结算。
+    ``resolve_fn`` 供测试注入。
+    """
+
+    def __init__(self, *, resolve_fn: Any | None = None) -> None:
+        self.resolve_fn = resolve_fn
+
+    def resolve(self, checkpoint: dict[str, Any]) -> ResolveOutcome:
+        metric = checkpoint.get("metric") or {}
+        paths = {key: str(metric.get(key) or "").strip() for key in ("study_dir", "observation", "labels_db")}
+        missing = [key for key, value in paths.items() if not value]
+        if missing:
+            return _spec_gap("method_validation", "method_validation 规格缺路径", missing="metric." + "/".join(missing))
+        fn = self.resolve_fn
+        if fn is None:
+            from intelligence.services.method_validation import flywheel
+
+            fn = flywheel.resolve_observation
+        try:
+            result = fn(paths["study_dir"], paths["observation"], paths["labels_db"])
+        except Exception as exc:  # 水位未到 / 版本不符 / 文件损坏 → 降级
+            return _unverifiable(
+                "method_validation",
+                f"原协议回检未完成（{type(exc).__name__}）：{str(exc)[:160]}",
+                {"observation": paths["observation"]},
+                attempted=[{"source": f"labels_db:{paths['labels_db']}", "status": f"{type(exc).__name__}: {exc}"[:200]}],
+                gap="旁路库水位 / 版本不满足原协议，或观察记录不可读",
+                fallback="无替代源：只认原协议旁路库与冻结成员，不拿旧水位或别的库结算",
+                todo=[
+                    "主库落当日复盘后运行 `scripts/method_validation.py daily --study-dir <study> --labels-db <labels>`（重建 labels/outcomes 并回检）",
+                ],
+            )
+        classification = str(result.get("classification") or "")
+        observed = {
+            "classification": classification,
+            "flags": list(result.get("flags") or []),
+            "diffs": result.get("diffs"),
+            "means": result.get("means"),
+            "stage_path": result.get("stage_path"),
+            "record": result.get("record_path"),
+        }
+        if classification == "supported":
+            return ResolveOutcome("hit", 1.0, "method_validation", "连续组五日均值高于当日双红组与总体（原协议回检）", observed)
+        if classification == "method_error":
+            return ResolveOutcome("miss", 0.0, "method_validation", "连续组五日均值未同时高于当日双红组与总体：假设未成立（原协议回检）", observed)
+        label = str(result.get("classification_cn") or classification or "未知")
+        return _unverifiable(
+            "method_validation",
+            f"原协议回检结论：{label}（不计入分母）",
+            observed,
+            attempted=[{"source": "method_validation:recheck", "status": classification or "unknown"}],
+            gap=label,
+            impact="不计入命中率分母；环境变化 / 数据不足 / 未到期的日子不检验假设",
+            fallback="无替代源：只认原协议旁路库与冻结成员",
+            todo=list(result.get("todo") or []),
+        )
+
+
 def resolve_checkpoint(
     checkpoint: dict[str, Any],
     *,
@@ -371,6 +435,7 @@ def resolve_checkpoint(
     wiki_root: str | None = None,
     market_returns_fn: ReturnsFn | None = None,
     knowledge_adapter: Any | None = None,
+    method_resolve_fn: Any | None = None,
 ) -> ResolveOutcome:
     """按 metric.type 路由到对应 resolver；无机检规格 → 人工（unverifiable）。"""
     metric = checkpoint.get("metric") or {}
@@ -381,6 +446,8 @@ def resolve_checkpoint(
         return KnowledgeResolver(wiki_root=wiki_root, adapter=knowledge_adapter).resolve(checkpoint)
     if mtype == "market_daily":
         return MarketDailyResolver(db_path=db_path).resolve(checkpoint)
+    if mtype == "method_validation":
+        return MethodValidationResolver(resolve_fn=method_resolve_fn).resolve(checkpoint)
     return _unverifiable(
         "manual",
         "无机检规格（manual）：用 `checkpoint score --id <id> --verdict hit|miss|partial` 人工打分",

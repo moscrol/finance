@@ -10,7 +10,7 @@
 - **B 文首自述已合**：squash/rebase 合入没有合并提交，但交接文首自己写了「已合 #N / 已切」。
 - **C 本地分支 git cherry +0**：本地还留着同名分支，对 gitea/main 逐补丁比对全部已在（squash/rebase 合入的形状）；两份本地远端都没分支的按项目笔记判。
 
-共 93 份，368 KB；2026-09-09 追加 6 份 / 20 KB，合计 99 份。
+共 93 份，368 KB；2026-09-09 追加 9 份 / 29 KB + 追加二 1 份 / 3 KB，合计 103 份。
 
 | 文件 | 证据类 | 证据 | 字节 |
 |---|---|---|---|
@@ -108,7 +108,7 @@
 | [`test-market-snapshot-conformance.md`](./test-market-snapshot-conformance.md) | A 合入提交 | b90a7f6c · 2026-08-29 · #512 | 1666 |
 | [`test-runtime-conformance-suite.md`](./test-runtime-conformance-suite.md) | A 合入提交 | e7a9a0bd · 2026-08-29 · #504 | 2859 |
 
-## 2026-09-09 追加（6 份）
+## 2026-09-09 追加（9 份：6 份 09-08 晚合入的 + 收尾单 #686 + CLI steer #687 + 部署账本 #688 自己的）
 
 09-08 收口时这 6 份的分支还在 gitea 上、PR 未合；当晚 20:59–21:12 依序合入后没人收，09-09 两日质检抓到。证据全是 A 类（合并提交）；本地分支与 worktree 已随之清掉（六棵树都干净、`git cherry gitea/main` 全 0）。
 
@@ -120,3 +120,15 @@
 | [`feat-runtime-base-p3-inbox.md`](./feat-runtime-base-p3-inbox.md) | A 合入提交 | 9f2718a2 · 2026-09-08 · #677 | 2939 |
 | [`fix-board-ledger-freshest-switch.md`](./fix-board-ledger-freshest-switch.md) | A 合入提交 | 06b21e14 · 2026-09-08 · #675 | 2724 |
 | [`docs-inflight-archive-merged-branches.md`](./docs-inflight-archive-merged-branches.md) | A 合入提交 | f90af450 · 2026-09-08 · #676 | 2613 |
+| [`docs-closeout-0909.md`](./docs-closeout-0909.md) | A 合入提交 | 5eb24515 · 2026-09-09 · #686 | 2713 |
+| [`feat-runtime-base-p3-steer-cli.md`](./feat-runtime-base-p3-steer-cli.md) | A 合入提交 | db2052db · 2026-09-09 · #687 | 2932 |
+| [`fix-deploy-ledger-single-home.md`](./fix-deploy-ledger-single-home.md) | A 合入提交 | dba3aa55 · 2026-09-09 · #688 | 2961 |
+
+## 2026-09-09 追加二（1 份：能力包 09 连续研究）
+
+当日合入当日收：#689 由同一 session 合并后按「合入即归档」收口，原文逐字搬入。
+
+| 文件 | 证据类 | 证据 | 字节 |
+|---|---|---|---|
+| [`feat-continuous-research-09.md`](./feat-continuous-research-09.md) | A 合入提交 | 83e4185f · 2026-09-09 · #689 | 3059 |
+| [`feat-input-understanding-05.md`](./feat-input-understanding-05.md) | A 合入提交 | ac013255 · 2026-09-09 · #696 | 3252 |

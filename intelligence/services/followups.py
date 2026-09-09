@@ -27,6 +27,34 @@ TYPE_LABELS = {
     "continue": "同一条件再对",
 }
 
+# 09 连续研究：卡片的「研究动作种类」。type × angle 是选角内部口径，kind 是给
+# 用户与下一轮继承用的三分法（任务书：补关键缺口 / 比较替代解释 / 检验条件），
+# 外加 same_bind 芯片的 continue。kind 由 angle/type 确定性推出，不另起第二套选角。
+FOLLOWUP_KINDS = ("gap_fill", "alternative_explanation", "condition_test", "continue")
+KIND_LABELS = {
+    "gap_fill": "补关键缺口",
+    "alternative_explanation": "比较替代解释",
+    "condition_test": "检验条件",
+    "continue": "同一条件再对",
+}
+_ANGLE_KIND = {"A": "gap_fill", "B": "alternative_explanation", "C": "condition_test", "D": "condition_test"}
+_TYPE_KIND = {
+    "gap": "gap_fill",
+    "evidence": "gap_fill",
+    "alternative": "alternative_explanation",
+    "migration": "alternative_explanation",
+    "counter": "condition_test",
+    "recheck": "condition_test",
+    "continue": "continue",
+}
+# 裁决改先验：相关可证伪点落空/半对 → 先检验条件；到期待判/暂无法判定 → 先补缺口。
+_PRIOR_KIND_PRIORITY = {
+    "miss": ("condition_test", "gap_fill", "alternative_explanation", "continue"),
+    "partial": ("condition_test", "gap_fill", "alternative_explanation", "continue"),
+    "pending": ("gap_fill", "condition_test", "alternative_explanation", "continue"),
+    "unverifiable": ("gap_fill", "condition_test", "alternative_explanation", "continue"),
+}
+
 FETCH_ENV_FLAG = "FINANCE_FOLLOWUPS"
 _METHODOLOGY_TERMS = (
     "错因",
@@ -51,6 +79,11 @@ class Followup:
     label: str = ""
     full_prompt: str = ""
     angle: str = ""
+    # 09 连续研究：三分法种类与「点击后继承什么」。inherits 只放对象/站立日/题型，
+    # 不放正文——继承的是研究状态坐标，不是一段聊天。
+    kind: str = ""
+    kind_label: str = ""
+    inherits: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.type_label:
@@ -60,6 +93,55 @@ class Followup:
         if not self.question:
             self.question = self.full_prompt
         self.label = _compact_label(self.label or self.full_prompt)
+        if not self.kind:
+            self.kind = followup_kind(angle=self.angle, type_=self.type)
+        if not self.kind_label:
+            self.kind_label = KIND_LABELS.get(self.kind, self.kind)
+
+
+def followup_kind(*, angle: str, type_: str) -> str:
+    """由选角 angle / type 确定性推出三分法种类；未知组合落 gap_fill（保守：补缺口）。"""
+    t = str(type_ or "").strip()
+    if t == "continue":
+        return "continue"
+    a = str(angle or "").strip().upper()
+    if a in _ANGLE_KIND:
+        return _ANGLE_KIND[a]
+    return _TYPE_KIND.get(t, "gap_fill")
+
+
+def attach_inherits(items: list["Followup"], state: "FollowupState") -> list["Followup"]:
+    """把本轮研究坐标写进每张卡的 inherits（只写非空项），返回同一列表。"""
+    coords = {
+        "subject": str(state.subject or "").strip(),
+        "standing_date": str(state.standing_date or "").strip(),
+        "question_type": str(state.question_type or "").strip(),
+    }
+    payload = {key: value for key, value in coords.items() if value}
+    for item in items:
+        merged = dict(payload)
+        merged.update({k: v for k, v in (item.inherits or {}).items() if v})
+        item.inherits = merged
+    return items
+
+
+def prior_kind_rank(prior_status: str | None) -> dict[str, int] | None:
+    """最近相关裁决 → kind 优先级表；无对应裁决返回 None（调用方保持原序）。"""
+    order = _PRIOR_KIND_PRIORITY.get(str(prior_status or "").strip())
+    if not order:
+        return None
+    return {kind: index for index, kind in enumerate(order)}
+
+
+def order_by_prior(items: list["Followup"], prior_status: str | None) -> list["Followup"]:
+    """按最近相关裁决重排卡片：稳定排序，只改先后，不改张数与文案。
+
+    ``prior_status`` ∈ {miss, partial, pending, unverifiable}；其他值/None 原序返回。
+    """
+    rank = prior_kind_rank(prior_status)
+    if rank is None or not items:
+        return items
+    return sorted(items, key=lambda item: rank.get(item.kind, len(rank)))
 
 
 @dataclass
@@ -652,7 +734,7 @@ def compose_followups(
         chip = build_same_bind_followup(state)
         if chip is not None and not _is_echo(state, chip.full_prompt):
             items = [chip, *[item for item in items if item.type != "continue"]]
-        result.followups = items[:4]
+        result.followups = attach_inherits(items[:4], state)
     except Exception as exc:  # noqa: BLE001
         result.warnings.append(f"followup_compose_failed:{exc}")
         return result

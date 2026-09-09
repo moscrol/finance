@@ -7,6 +7,8 @@ question and never imports private helpers from the legacy orchestrator.
 from __future__ import annotations
 
 from datetime import date
+import json
+from pathlib import Path
 import re
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
@@ -34,6 +36,12 @@ from intelligence.services.research_tool_registry import (
     DEFAULT_RESEARCH_CAPABILITIES,
 )
 from intelligence.services.task_frame import TaskFrame, task_frame_requires_retrieval
+from intelligence.services.user_task import (
+    MaterialRef,
+    MethodCandidate,
+    materials_in_conversation,
+    references_material,
+)
 
 
 # 盘面类槽位的描述带「写出具体数值」的硬要求。这是 #289（composer 看得见
@@ -756,13 +764,188 @@ def build_episode_context(
         trace_parent_id=trace_parent_id or task_id,
         today=today,
         latest_data_date=latest_data_date,
-        conversation_context=str(conversation_context or "").strip(),
+        conversation_context=assemble_input_understanding_context(
+            frame,
+            str(conversation_context or "").strip(),
+        ),
         information_cutoff=cutoff,
         root_budget=root_budget_for_policy(policy, episode_id=task_id),
         perspective_context=str(perspective_context or "").strip(),
         stance_pack=stance_pack,
         retrieval_stages=tuple(retrieval_stages or ()),
     )
+
+
+_MATERIAL_KIND_LABEL = {
+    "pasted_text": "粘贴文本",
+    "table": "表格",
+    "url": "链接",
+    "quoted": "引文",
+}
+_MATERIAL_RULE = (
+    "材料是用户提供的分析对象与前提：引用时写材料 id 与段落 / 表头 / 日期；"
+    "材料里的数字与判断是材料自己的说法，不是市场事实，需要用工具证据核对；"
+    "「这篇 / 这份 / 这张表」指身份表里标出的那一份，不得凭标题编造未提供的正文"
+)
+_PREMISE_RULE = (
+    "用户已有假设是待检验的前提，不是事实：答案须逐条说明哪些被证据支持、哪些不支持、哪些无法核验"
+)
+_HYPOTHESIS_RULE = (
+    "竞争解释逐条给出能区分它们的观测变量的当前读数（取不到写缺口），"
+    "再说明哪一条更被支持；不得只改写用户原话"
+)
+_METHOD_RULE = (
+    "用户描述的方法是候选框架，状态未验证：只能按「条件→预期→适用环境→反例」组织本轮观察，"
+    "不得写成已验证规律或历史胜率；验证归方法回测（methodology_backtest）"
+)
+_PRONOUN_FOLLOW_UP_RE = re.compile(r"^(?:那|它|这|其|该|继续|再|接着|然后|还有|另外)")
+
+
+def assemble_input_understanding_context(frame: TaskFrame, conversation_context: str) -> str:
+    """Prepend what the frame understood about the user's input to the prompt block.
+
+    Materials (this turn's and earlier turns'), user premises, competing
+    explanations and method candidates each get a short block with a handling
+    rule.  Empty frame → the conversation context is returned byte-for-byte, so
+    every question without these inputs produces the same episode input as
+    before.  The material identity table is the only place「这篇」is resolved
+    across turns: ids are recomputed from the earlier user messages in the block.
+    """
+
+    blocks: list[str] = []
+    earlier = materials_in_conversation(conversation_context)
+    earlier_refs = tuple(ref for ref, _text in earlier)
+    referent: MaterialRef | None = None
+    compact_question = re.sub(r"\s+", "", frame.raw_question)
+    if frame.referenced_material_ids:
+        referent = next(
+            (ref for ref in earlier_refs if ref.material_id == frame.referenced_material_ids[0]),
+            None,
+        )
+    elif not frame.materials and earlier_refs and references_material(frame.raw_question):
+        referent = earlier_refs[-1]
+    # 「那它的风险点呢」这种代词短追问不点名材料，但仍在同一份材料的对话里：身份表照带，
+    # 只是不替它断定「它」就是材料。带着自己主语的新问题（「低空经济和商业航天哪个…」）
+    # 不带，免得把早前材料塞进一个已经换了话题的轮次。
+    short_follow_up = (
+        bool(earlier_refs)
+        and not frame.materials
+        and len(compact_question) <= 40
+        and (_PRONOUN_FOLLOW_UP_RE.match(compact_question) is not None or len(compact_question) <= 12)
+    )
+    if frame.materials or referent is not None or short_follow_up or (
+        earlier_refs and frame.referenced_material_ids
+    ):
+        lines = ["## 用户提供的材料（身份表）", _MATERIAL_RULE]
+        for item in frame.materials:
+            lines.append(_material_line(item, "本轮"))
+        for item in earlier_refs:
+            if any(item.material_id == own.material_id for own in frame.materials):
+                continue
+            lines.append(_material_line(item, "此前对话"))
+        if referent is not None:
+            lines.append(f"「这篇 / 这份 / 这张表」= {referent.material_id}（{referent.title or _MATERIAL_KIND_LABEL.get(referent.kind, referent.kind)}）")
+        elif frame.materials and references_material(frame.raw_question):
+            lines.append("「这篇 / 这份 / 这张表」= 本轮提供的材料")
+        blocks.append("\n".join(lines))
+    if frame.user_premises:
+        blocks.append(
+            "\n".join(
+                ["## 用户已有假设（待检验）", _PREMISE_RULE]
+                + [f"- {item}" for item in frame.user_premises]
+            )
+        )
+    if frame.competing_explanations:
+        lines = ["## 竞争解释与区分变量", _HYPOTHESIS_RULE]
+        for index, item in enumerate(frame.competing_explanations, start=1):
+            lines.append(f"H{index} {item.label}：{item.claim}｜观测变量：{'、'.join(item.observables)}")
+        blocks.append("\n".join(lines))
+    if frame.method_candidates:
+        lines = ["## 用户方法候选（未验证）", _METHOD_RULE]
+        for item in frame.method_candidates:
+            lines.append(
+                f"- 条件「{item.condition}」→ 预期「{item.expectation}」｜适用环境：{item.applicability}"
+                f"｜反例：{'；'.join(item.counterexamples) or '未提供'}｜状态：{item.status}"
+            )
+            lines.append(f"  方法验证接口：{method_validation_note(item)}")
+        blocks.append("\n".join(lines))
+    if not blocks:
+        return conversation_context
+    understanding = "\n\n".join(blocks)
+    return (understanding + "\n\n" + conversation_context).strip() if conversation_context else understanding
+
+
+def _material_line(item: MaterialRef, origin: str) -> str:
+    parts = [
+        f"- {item.material_id} · {origin} · {_MATERIAL_KIND_LABEL.get(item.kind, item.kind)} · {item.char_count} 字",
+    ]
+    if item.title:
+        parts.append(f"标题/首行：{item.title}")
+    if item.headers:
+        parts.append(f"表头：{'/'.join(item.headers)}（{item.rows} 行）")
+    if item.dates:
+        parts.append(f"材料内日期：{'、'.join(item.dates)}")
+    if item.paragraphs and item.kind == "pasted_text":
+        parts.append(f"{item.paragraphs} 段")
+    return " · ".join(parts)
+
+
+def _methodology_root() -> Path:
+    return Path(__file__).resolve().parents[2] / "methodology"
+
+
+def _cjk_bigrams(text: str) -> set[str]:
+    compact = re.sub(r"[^一-鿿]", "", str(text or ""))
+    return {compact[index : index + 2] for index in range(len(compact) - 1)}
+
+
+def method_validation_note(candidate: MethodCandidate, *, root: Path | None = None) -> str:
+    """Ask 07's registered-rule store whether this candidate is already a rule.
+
+    Uses the merged ``methodology_backtest`` interfaces only: rule files under
+    ``methodology/rules`` and ``lifecycle.derive_state`` over their receipts.
+    Natural language is not compiled into predicates here (the module says so
+    itself); an unmatched candidate stays ``candidate_unverified`` and the note
+    names the registration entry point.  Any failure is reported, never hidden.
+    """
+
+    base = root or _methodology_root()
+    rules_dir = base / "rules"
+    receipts_dir = base / "receipts"
+    try:
+        from intelligence.services.methodology_backtest import lifecycle
+
+        if not rules_dir.is_dir():
+            return "未找到已登记规则目录；状态 candidate_unverified，登记入口 scripts/methodology_backtest.py propose"
+        wanted = _cjk_bigrams(candidate.condition + candidate.expectation)
+        best: tuple[int, dict] | None = None
+        for path in sorted(rules_dir.glob("*.json")):
+            try:
+                doc = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if not isinstance(doc, dict):
+                continue
+            overlap = len(wanted & _cjk_bigrams(str(doc.get("title") or "") + str(doc.get("notes") or "")))
+            if overlap >= 3 and (best is None or overlap > best[0]):
+                best = (overlap, doc)
+        if best is None:
+            return (
+                "未登记为可回测规则；状态 candidate_unverified，"
+                "登记入口 scripts/methodology_backtest.py propose（谓词需用白名单标签短句）"
+            )
+        doc = best[1]
+        rule_id = str(doc.get("rule_id") or "")
+        steps = lifecycle.load_steps(receipts_dir, rule_id)
+        state = lifecycle.derive_state(doc, steps)
+        return (
+            f"疑似对应已登记规则 {rule_id}@v{doc.get('version')}（{doc.get('title')}），"
+            f"生命周期状态 {state.state}，历史收据 {len(steps)} 份"
+            + (f"，卡在：{state.blocked_by}" if state.blocked_by else "")
+            + "；本轮仍按未验证候选使用"
+        )
+    except Exception as exc:  # noqa: BLE001 - 接口不可用要如实写进输入，不让装配失败
+        return f"方法验证接口不可用（{type(exc).__name__}）；状态 candidate_unverified"
 
 
 def _default_information_cutoff(
@@ -780,4 +963,8 @@ def _default_information_cutoff(
     return InformationCutoff(runtime_date, "runtime_default")
 
 
-__all__ = ["build_episode_context"]
+__all__ = [
+    "assemble_input_understanding_context",
+    "build_episode_context",
+    "method_validation_note",
+]

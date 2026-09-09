@@ -13,7 +13,8 @@ daily-full 里请求量最大的一步；而 5 日 Jaccard 0.999 说明名单几
   ``source='local:stitch'``。
 
 三条硬约束（都来自门禁 / 深模块的既有契约，不是本模块自设）：
-1. 值只接受东财快照源。``fill-stock-daily-fallback`` 的行来自成分表本身，拿它拼接是循环。
+1. 值只接受独立外部供应商源（东财/mootdx/腾讯/iFinD，见 ``VALUE_SOURCE_PREFIXES``）。
+   ``fill-stock-daily-fallback`` 的行来自成分表本身，拿它拼接是循环。
 2. 东财无当日值的成员（停牌/退市）**剔除**，不留 NULL——``check_daily_review_data`` 不容
    price/pct_chg/amount 为空；``fast_daily_sync.py`` 被禁正是因为拷旧行留空值。
 3. 交付数不得超过声明数，缺口不得超过 ``sector_universe`` 的既有上界；超了就不拼，
@@ -39,8 +40,11 @@ from ..sector_universe import (
 
 STITCH_SOURCE = "local:stitch"
 PROVIDER_SOURCE = "fupanhui"
-# 只接受这些前缀的个股日线作为 value 源；fallback 源来自成分表自身（循环）。
-VALUE_SOURCE_PREFIXES = ("eastmoney", "mootdx", "tencent")
+# 只接受这些前缀的个股日线作为 value 源；判据是「独立外部供应商」——
+# fallback 源（fupanhui:sector_stock_daily:*）来自成分表自身，拿它拼接是循环。
+# ifind 于 2026-09-09 加入：工单 #32 北交所七天回补走 iFinD MCP（东财 push2his 被封），
+# 真值已与东财逐值对照（920000/920001/920002 @09-03 一致到第 4 位）。
+VALUE_SOURCE_PREFIXES = ("eastmoney", "mootdx", "tencent", "ifind")
 # 基线最多回看多少个日历日；再旧说明该板块长期抓不到，交回复盘会。
 DEFAULT_MAX_BASELINE_AGE_DAYS = 10
 # N 日涨幅复算需要的历史窗口（日历日；20 个交易日约 28~30 个日历日）。
@@ -417,6 +421,11 @@ def stitch_sector_members(
                 _skip(code, "surplus")
                 continue
             if expected - len(rows) > _shortfall_bound(expected):
+                _skip(code, "shortfall")
+                continue
+            if not rows:
+                # 极小板块全员无值：缺口在容差内但交付为空——空集不能当 success 写
+                # （record_member_result 的 executemany 会拒空），按 shortfall 留给复盘会。
                 _skip(code, "shortfall")
                 continue
             dropped_total += len(dropped)

@@ -62,23 +62,36 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+import json
+import logging
+import os
+from pathlib import Path
 import threading
+import time
 from typing import Literal
 
 from intelligence.services.episode_messages import (
     EpisodeMessage,
     MessageLedger,
     sha256_text,
+    user_message,
 )
 
 __all__ = [
     "INBOX_DISCARD_REASONS",
+    "INBOX_SPOOL_DIRNAME",
     "INBOX_TARGETS",
     "Inbox",
     "InboxDiscardReason",
     "InboxReceipt",
     "InboxTarget",
+    "SpoolRecord",
+    "read_spool_record",
+    "spool_dir_for",
+    "write_spool_record",
 ]
+
+logger = logging.getLogger(__name__)
 
 InboxTarget = Literal["next_turn", "next_step"]
 INBOX_TARGETS: frozenset[str] = frozenset({"next_turn", "next_step"})
@@ -90,6 +103,116 @@ INBOX_DISCARD_REASONS: frozenset[str] = frozenset(
 
 # 送达后事件流里没有正文的事件也要能定位到消息：``message_id`` 在一个 episode 内唯一。
 _MESSAGE_ID_PREFIX = "inbox-"
+
+# ── 跨进程投递槽（CLI steer 的门，工单 #30 范围第 5 条）────────────────────────
+# ``Inbox.send`` 是进程内调用；Workbench 里 runtime 按次构造、``steer`` 端点按终态稿 §12 第 4 题
+# 等 Alpha，另一个进程（``python3 -m intelligence.cli steer``）没有门可递话。投递槽把「递」拆成
+# 两半：递话方把一条消息写成 ``<episode_dir>/inbox-spool/<ns>-<spool_id>.json``（写临时名再
+# rename，读者永远只见整份）；驱动 loop 的进程在既有认领点（``pending`` / ``claim`` /
+# ``discard_all``）先把槽里的文件逐个 ``send`` 进箱、事实落账后删文件。三事实仍只由 loop 写进
+# events.jsonl，INV-R5 一字不改——槽只是运输，不是账。运输单位是文件而不是追加行：不用管撕裂行
+# 与偏移量，「吞了没吞」就是「文件在不在」。删在 ``send`` 之后：崩在中间最多重吞一次
+# （``spool_id`` 进 ``inbox_inserted`` payload，重复可对出来），反过来会无痕丢话。
+INBOX_SPOOL_DIRNAME = "inbox-spool"
+INBOX_SPOOL_SUFFIX = ".json"
+_SPOOL_TMP_SUFFIX = ".tmp"
+_SPOOL_INVALID_SUFFIX = ".invalid"
+
+
+@dataclass(frozen=True)
+class SpoolRecord:
+    """槽里一条消息的形状——递话方与吞话方共用，字段与 ``inbox_inserted`` payload 对齐。"""
+
+    spool_id: str
+    content: str
+    target: str = "next_step"
+    source: str = "cli"
+    wakeup: bool = False
+    created_at: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "spool_id": self.spool_id,
+            "content": self.content,
+            "target": self.target,
+            "source": self.source,
+            "wakeup": self.wakeup,
+            "created_at": self.created_at,
+        }
+
+
+def spool_dir_for(store: object | None, episode_id: str) -> Path | None:
+    """``<episode_dir>/inbox-spool/``。只有落盘的 store（有 ``episode_dir``）才有槽；内存 store /
+    无 store 回 None——那种 episode 只有进程内的门。"""
+
+    if store is None:
+        return None
+    episode_dir = getattr(store, "episode_dir", None)
+    if not callable(episode_dir):
+        return None
+    return Path(episode_dir(str(episode_id))) / INBOX_SPOOL_DIRNAME
+
+
+def write_spool_record(spool: Path, record: SpoolRecord) -> Path:
+    """原子投递：写 ``.tmp`` → fsync → ``os.replace`` 成 ``<ns>-<spool_id>.json``。
+    文件名按纳秒时间戳排序 = 认领顺序。"""
+
+    if not record.spool_id or not record.content.strip():
+        raise ValueError("投递槽记录必须有 spool_id 与非空 content")
+    if record.target not in INBOX_TARGETS:
+        raise ValueError(f"未知收件箱队列: {record.target!r}（只有 next_turn / next_step）")
+    spool = Path(spool)
+    spool.mkdir(parents=True, exist_ok=True)
+    final = spool / f"{time.time_ns():020d}-{record.spool_id}{INBOX_SPOOL_SUFFIX}"
+    tmp = final.with_name(final.name + _SPOOL_TMP_SUFFIX)
+    with open(tmp, "w", encoding="utf-8") as handle:
+        handle.write(json.dumps(record.to_dict(), ensure_ascii=False))
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(tmp, final)
+    return final
+
+
+def read_spool_record(path: Path) -> SpoolRecord | None:
+    """读一条槽记录；形状不对回 None（调用方隔离文件，不猜正文）。"""
+
+    try:
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(raw, dict):
+        return None
+    content = raw.get("content")
+    spool_id = raw.get("spool_id")
+    target = raw.get("target", "next_step")
+    if not isinstance(content, str) or not content.strip():
+        return None
+    if not isinstance(spool_id, str) or not spool_id:
+        return None
+    if not isinstance(target, str) or target not in INBOX_TARGETS:
+        return None
+    source = raw.get("source", "cli")
+    created_at = raw.get("created_at", "")
+    return SpoolRecord(
+        spool_id=spool_id,
+        content=content,
+        target=target,
+        source=source if isinstance(source, str) and source else "cli",
+        wakeup=bool(raw.get("wakeup", False)),
+        created_at=created_at if isinstance(created_at, str) else "",
+    )
+
+
+def _quarantine(path: Path) -> None:
+    """坏文件改名 ``.invalid`` 留给人看，不落账：没有可信正文就不能说「话到过」。"""
+
+    target = path.with_name(path.name + _SPOOL_INVALID_SUFFIX)
+    try:
+        os.replace(path, target)
+    except OSError as exc:
+        logger.warning("收件箱投递槽坏文件隔离失败 %s: %s", path, exc)
+        return
+    logger.warning("收件箱投递槽坏文件已隔离: %s", target)
 
 
 @dataclass(frozen=True)
@@ -125,6 +248,7 @@ class Inbox:
         ledger: MessageLedger,
         *,
         admit: Callable[[EpisodeMessage], bool] | None = None,
+        spool: Path | None = None,
     ) -> None:
         self._ledger = ledger
         self._admit = admit
@@ -136,6 +260,11 @@ class Inbox:
         # ``inbox_discarded{reason=cancelled}``。置 True 的调用方要自己负责这些消息的后事
         # （本单不做恢复认领）。
         self.keep_on_cancel = False
+        # 跨进程投递槽（见模块顶部注释）。None = 这个 episode 只有进程内的门。
+        self._spool = Path(spool) if spool is not None else None
+        # 吞槽发生在认领点（驱动线程），但 ``pending`` 也可能被别的线程读；锁住
+        # 「列目录 → 逐个 send → 删」整段，两个吞话方不会看见同一个文件。
+        self._spool_lock = threading.Lock()
 
     # ── 观测 ─────────────────────────────────────────────────────────────
 
@@ -145,10 +274,63 @@ class Inbox:
             return self._closed
 
     def pending(self, target: InboxTarget | None = None) -> int:
+        # loop 在模型停下时用它判「还有话没」——槽里的话也算，否则 CLI 的 next_turn 会被
+        # 一次「没话了」的判定漏过去。
+        self.ingest_spool()
         with self._lock:
             if target is None:
                 return sum(len(queue) for queue in self._queues.values())
             return len(self._queues[self._check_target(target)])
+
+    # ── 投递槽 ───────────────────────────────────────────────────────────
+
+    def ingest_spool(self) -> int:
+        """把投递槽里的消息文件逐个 ``send`` 进箱，事实落账后删文件；回吞了几条。
+
+        箱子关着（收口 / 取消后）不吞：文件留在槽里，``reopen`` 后下一次认领再吞——收口后到的话
+        与进程内 ``send`` 一样不落账（``inbox_closed``），递话方按 ``state.json`` 的终局自己判。
+        形状不对的文件改名 ``.invalid`` 隔离、不落账。
+        """
+
+        spool = self._spool
+        if spool is None:
+            return 0
+        with self._spool_lock:
+            if self.closed:
+                return 0
+            try:
+                paths = sorted(
+                    path
+                    for path in spool.iterdir()
+                    if path.is_file() and path.suffix == INBOX_SPOOL_SUFFIX
+                )
+            except FileNotFoundError:
+                return 0
+            except OSError as exc:
+                logger.warning("收件箱投递槽读不出 %s: %s", spool, exc)
+                return 0
+            ingested = 0
+            for path in paths:
+                record = read_spool_record(path)
+                if record is None:
+                    _quarantine(path)
+                    continue
+                receipt = self.send(
+                    user_message(record.content, source=record.source),
+                    target=record.target,  # 已由 read_spool_record 校验在 INBOX_TARGETS 内
+                    wakeup=record.wakeup,
+                    spool_id=record.spool_id,
+                )
+                if receipt.reason == "inbox_closed":
+                    # 没落账就不能删：话还没到过账本。留在槽里等 reopen。
+                    break
+                # 至少 inserted 已落（拒收还有 discarded），运输单位可以销毁。
+                try:
+                    path.unlink()
+                except FileNotFoundError:
+                    pass
+                ingested += 1
+            return ingested
 
     # ── 写入 ─────────────────────────────────────────────────────────────
 
@@ -158,8 +340,11 @@ class Inbox:
         *,
         target: InboxTarget = "next_step",
         wakeup: bool = False,
+        spool_id: str = "",
     ) -> InboxReceipt:
-        """入箱。返回回执；拒收 / 已收口都不抛——递话方不该能把研究主路径打断。"""
+        """入箱。返回回执；拒收 / 已收口都不抛——递话方不该能把研究主路径打断。
+        ``spool_id`` 只在话来自投递槽时非空，进 ``inbox_inserted`` payload 让递话方对回执；
+        进程内 ``send`` 的 payload 形状不变。"""
 
         if message.role != "user":
             # 只有 user 角色能从外部进对话：system 是宪法、assistant 是模型、tool 要配对。
@@ -181,6 +366,7 @@ class Inbox:
                 "content": message.content,
                 "content_sha256": sha256_text(message.content),
                 "chars": len(message.content),
+                **({"spool_id": str(spool_id)} if spool_id else {}),
             },
         )
         admitted, detail = self._admitted(message)
@@ -220,6 +406,7 @@ class Inbox:
         ``messages``——两步之间没有别的模型可见改动，派生才能逐字节相等。"""
 
         target_key = self._check_target(target)
+        self.ingest_spool()
         with self._lock:
             entries = list(self._queues[target_key])
             self._queues[target_key].clear()
@@ -242,6 +429,9 @@ class Inbox:
 
         if reason not in INBOX_DISCARD_REASONS:
             raise ValueError(f"未知丢弃原因: {reason!r}")
+        # 关箱前最后吞一次槽：收口前到的话与进程内 send 同命——inserted 落了、随即 discarded，
+        # 事件流说得清「到了但没送到」，而不是让文件在槽里烂成无迹可查。
+        self.ingest_spool()
         with self._lock:
             keep = reason == "cancelled" and self.keep_on_cancel
             if keep:
