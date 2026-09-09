@@ -11,8 +11,8 @@
 - 选：臂标签 = sidecar `runtime.source_revision`；产物落 `~/.finance-runtime/capability-benchmark-00/runs/`（仓内 runs/ 会把被测树弄脏，续跑 preflight 拒）。否：拿工作树 HEAD 现算 + 落仓内（首跑两个坑都踩了）。
 - 选：费用只记 token。否：折算金额（仓内无 cost 埋点）。
 
-## 当前状态（2026-09-09 17:2x）
-`7180460d`（基线 `gitea/main@5eb24515`），树干净，已推 gitea。**基线第二次尝试自动进行中**：sidecar 8813 在 `7180460d` 上健康（判官 env 已修，见下），编排循环 `run-baseline-when-gateway-up.sh` nohup 运行，正睡网关冷却（429 reset=13711s，约 21:06 醒），醒后全跑 30 题（每题前探网关；题中烧穿打标中止；rc=4 自动续跑，≤12 轮）。看进展：`tail ~/.finance-runtime/capability-benchmark-00/logs/baseline-orchestrator.log`；rc=0/2 时终件路径在 `last-baseline-artifact.txt`。
+## 当前状态（2026-09-09 18:2x）
+`372d047c`（基线 `gitea/main@5eb24515`），树干净，已推 gitea。**模型出口已切 Mirasim 8080**（用户改 launcher；blocked B6）：sidecar 8813 重起于 `372d047c`（base=8080、判官 env 在、health 三读干净），编排循环 nohup 运行，`arm=baseline-372d047c0b0f`。当前 relay 上游对 gpt-5.6 家族暂时 503（本机 sub2api/签名 sidecar 都活着，是远端），编排每 300s 自动探，**上游恢复即自动全跑 30 题**（每题前探网关；题中烧穿打标中止；rc=4 自动续跑 ≤12 轮）。看进展：`tail ~/.finance-runtime/capability-benchmark-00/logs/baseline-orchestrator.log`；rc=0/2 时终件路径在 `last-baseline-artifact.txt`。Cockpit 57244 的 21:05 冷却与本单**不再相关**。
 
 **两个新根因（都已处置，详见 blocked/00.md B4/B5）**：
 1. B4：配额窗 ≈1.27M tokens 烧穿即 ≈4.7h 冷却；runner 原「gave_up 照跑打标」改为「不跑即中止 + resume」（`7180460d`，16 单测）。首跑废件归档 `~/.finance-runtime/capability-benchmark-00/runs/*.quota-tainted.json`。
