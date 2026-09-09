@@ -53,7 +53,15 @@
 
 按 `divergence-distill` §2 分池，控制面优先。
 
-1. **[控制面 → harness/runtime]** 声明的能力表 ≠ 本轮生效的能力集。我们同构面更宽：`skills/`（全集）/ `.claude/skills/`（视图子集）/ `research_tool_registry._DEFAULT_TOOL_METADATA` 三套表，外加 `contract.allowed_capabilities` 逐工具门控（AGENTS.md 已明写「定义了 ≠ 这次开着」）。**纪律已有，缺运行时可观测**：一次回答能否报出「本轮实际生效的工具 / 规则集」。开工前先核 in-flight `feat/capability-switchboard` 是否已覆盖（它已有 `--all-arms` 离线扫描与 `predicate.reading-baseline` 开关），**不另建第二份**。
+1. **[控制面 → harness/runtime]** 声明的能力表 ≠ 本轮生效的能力集。我们同构面更宽：`skills/`（全集）/ `.claude/skills/`（视图子集）/ `research_tool_registry._DEFAULT_TOOL_METADATA` 三套表，外加 `contract.allowed_capabilities` 逐工具门控（AGENTS.md 已明写「定义了 ≠ 这次开着」）。**纪律已有，缺运行时可观测**：一次回答能否报出「本轮实际生效的工具 / 规则集」。
+
+**已核（2026-09-09）**，原「开工前先核 `feat/capability-switchboard` 是否已覆盖」结论如下 [实测]：
+
+- 该分支**已并入 `gitea/main`**，但**设计上刻意不覆盖运行时**——`intelligence/services/capability_switchboard.py` docstring 写死「不执行拧动……**生产路径永远不读本模块**」。它是离线实验台，不是运行时读数。
+- **运行时数据其实已经在落**：`intelligence/runtime/agent_episode.py:2877` 把 `allowed_capabilities` 写进 episode 日志，每个 `tool_request` 事件带工具名。本仓 2026-09-09 核 `derived_calculation` 是否真被授权，正是从这里读出来的。
+- **缺的只是投影**：`intelligence/services/session_projection.py` 对 `allowed_capabilities` 零引用。
+
+→ **这是投影缺口，不是仪表缺口**，成本比原估低一个量级。动手前先收敛读取点：`intelligence/services/episode_scope.py` 自述「`contract.allowed_capabilities` 在 runtime/ 与 services/ 的十几处各读各的」——不收敛就可能投影出一份与门控实际所用不同的清单。**不另建第二份。**
 2. **[判读方法 → reading_baseline]** 给规则加一维 **`regime_scope`（适用环境）**。现有 `ReadingRule` 只有 `id / title / rule / source` 四个字段 [实测]，**没有失效条件字段，也没有环境字段**；FY-A10 自限阀（已内置、测试钉死排第一）只要求「与本轮证据冲突时以证据为准」，拦的是**单轮证据冲突**，拦不住 M3a 那种形态——规则在本轮证据下自洽、在**另一个 regime 里方向整体反转**。这是自限阀的一个真洞。
 3. **[判别式 → divergence-distill §2]** 现有两个判别式（可证伪测试分方法 / 倾向，双用户测试分 baseline / 视角）不够，补第三个：**跨 regime 测试** —— 换一个市场环境这条规则的**方向**会不会反转？会 → 进 baseline 必须带 `regime_scope`，不能默认全局开。
 4. **[回归用例，不是散文 → question_router / retrieval_planner]** M3b 六个反例应写成参数化用例。第 ⑥ 条（季报 / 非日频口径当实时）我们有同形状的坑：记忆里「snapshot backfill silently clones dates」与 AGENTS.md「覆盖率审计只能抓行数，抓不到行在值全 NULL」。
