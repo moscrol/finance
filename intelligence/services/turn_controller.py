@@ -1063,6 +1063,9 @@ def decide_turn(
             if inherit_subject and previous_intent is not None
             else None
         ),
+        # B05-1：对话块已知才传；空串是「调用方没给」（旧语义 = 未知，不追问）。
+        # 真实入口的空历史块带「（无历史消息）」字样，非空，走「已知为空」车道。
+        conversation_context=context if context else None,
     )
     envelope = project_task_frame(task_frame, resolution.envelope)
     resolution = replace(resolution, envelope=envelope)
