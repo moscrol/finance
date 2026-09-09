@@ -360,24 +360,33 @@ def _rounds(
 
 
 def _project_subject(rounds: list[ResearchRound]) -> str:
-    """项目对象：按出现次数取众数，平手取更近出现的。
+    """项目对象：子串归并后取众数，平手取更早出现的（首问定调）。
 
-    不能取「最近一轮非空」：直答车道会把整句问句抽成 ``primary_subject``
-    （真实验收实测：「光模块目前最硬的一条公司级证据」），最近值被污染后，
-    ``prior_for_turn`` 的换题守卫会把下一轮真问「光模块」误判成换题、先验块不注入。
-    众数口径下偶发的长句抽取（1 次）压不过稳定对象（N 次）。
+    两层防污染（都是真实六轮验收实测出的形状，2026-09-09）：
+    1. 直答车道会把整句问句抽成 ``primary_subject``（「光模块目前最硬的一条公司级证据」），
+       「最近非空」口径会被它污染 → 换题守卫把下一轮真问「光模块」误判成换题。
+    2. 该污染值还会被意图继承复制到后续直答轮（3:3 平手），单纯众数+取近仍会选中它。
+       真对象通常是长句的**子串**（路由器抽的是「对象+谓词」整句），所以把含有更短
+       subject 的长句票数归并给那个子串，再取众数；平手取更早出现的。
     """
     counts: dict[str, int] = {}
-    last_seen: dict[str, int] = {}
+    first_seen: dict[str, int] = {}
     for index, r in enumerate(rounds):
         text = r.subject.strip()
         if not text:
             continue
         counts[text] = counts.get(text, 0) + 1
-        last_seen[text] = index
+        first_seen.setdefault(text, index)
     if not counts:
         return ""
-    return max(counts, key=lambda s: (counts[s], last_seen[s]))
+    merged: dict[str, int] = dict(counts)
+    for long_text in counts:
+        hosts = [c for c in counts if c != long_text and c in long_text]
+        if hosts:
+            # 归并给其中最短的宿主（最像“裸对象”的那个）。
+            host = min(hosts, key=len)
+            merged[host] = merged.get(host, 0) + merged.pop(long_text, 0)
+    return max(merged, key=lambda s: (merged[s], -first_seen[s]))
 
 
 def _trigger_status(record: dict[str, Any], verdict: dict[str, Any] | None, today: str) -> str:
