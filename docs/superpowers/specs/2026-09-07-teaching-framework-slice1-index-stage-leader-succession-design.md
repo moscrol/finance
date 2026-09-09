@@ -1,7 +1,7 @@
 # 设计：授课框架第一刀——`index_stage` 标签族 + 最高标接力链
 
 > 日期：2026-09-07
-> 状态：**设计稿，待用户审**。审过后拆工单（INDEX 编号待分配；#26 已被 RAG 回预算闸预留）。不动代码。
+> 状态：**已落地、仍在逐段追加**（2026-09-09 回写；原「设计稿，待用户审。不动代码」已过期）。第一刀 + slice 1.5 以 PR #627（09-07 16:21）合入；第二刀与第十一至十七段沿 `feat/teaching-framework-slice2` 以 #631 / #633 / #639 / #643 / #645 / #648 / #650 / #652 / #653（09-08 17:22）九张合入，共十张。逐段实施与读数记录在 §9.18–§9.28（每条带 `framework_version`），姊妹稿 `2026-09-07-teaching-framework-slice2-sector-side-design.md`。没有走 INDEX 编号——用户逐段口述、agent 逐 PR 落地，未拆工单。§9 里未拍板项仍按推荐执行。
 > 上游：`docs/learning/teaching-framework/00-concept-label-skeleton.md`（母本骨架；本 spec 只编码其中已由创始人口述钉住的部分）；`2026-09-06-personal-research-calibration-endstate-design.md` §4.2 两类派生 / §4.4 区间 / §4.6 事件锚点回溯 / §7 门禁；`2026-09-05-time-river-gap-roadmap.md` G-01 (3)、G-02c；`2026-09-04-methodology-backtest-structured-history-design.md`（标签层与四态统计门，本 spec 复用不重造）。
 > 红线（沿 08-19 §5）：本 spec 与后续代码**只编码创始人已说出的判读**，转录见骨架 §1.4 / §4；agent 不补判读、不定权重。所有数字阈值是 B 类候选值，进收据不进结论。
 > 「[实测]」= 2026-09-06/07 在仓内 `rg` / 读 `schema.sql` / 只读查真库核到的。
