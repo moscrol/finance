@@ -506,3 +506,124 @@ def test_daily_orchestrates_capture_checkpoint_recheck_and_verdict(tmp_path, mon
     assert "真实前向" in text and "历史演练" in text
     assert cli.main(["match", "--query", "连续双红的板块后面五天怎么样", "--users-root", str(tmp_path / "nobody")]) == 0
     assert "没有可读的立场摘要" in capsys.readouterr().out
+
+
+# --------------------------------------------------------------------------- #
+# 中断恢复两点实测（整包集成 spec §I5）
+# --------------------------------------------------------------------------- #
+def test_interrupted_capture_completes_unique_checkpoint_on_rerun(tmp_path, monkeypatch, capsys):
+    """恢复点①：capture 已落盘、checkpoint 尚未登记时中断，重跑沿原观察补齐唯一登记，
+    不重做 capture、不修改捕获时间。"""
+
+    source, labels = tmp_path / "source.duckdb", tmp_path / "labels.duckdb"
+    ledger = tmp_path / "ledger" / "checkpoints.jsonl"
+    _extend_source(source, DATES[:3])
+    build_labels(source, labels, now=CAPTURED_AT)
+    build_outcomes(source, labels, now=CAPTURED_AT)
+    monkeypatch.setattr(cli, "current_time", lambda: REGISTERED_AT)
+    assert cli.main(["register", "--history-start", str(DATES[0]), "--history-end", str(DATES[1]),
+                     "--forward-start", str(DATES[2]), "--root", str(tmp_path / "research")]) == 0
+    study = json.loads(capsys.readouterr().out)["study_dir"]
+
+    # 模拟中断：capture 落盘成功、进程死在 checkpoint 登记之前（--no-checkpoint 复现其留下的状态）。
+    monkeypatch.setattr(cli, "current_time", lambda: CAPTURED_AT)
+    assert cli.main(["capture", "--study-dir", study, "--labels-db", str(labels), "--no-checkpoint"]) == 0
+    first = json.loads(capsys.readouterr().out)
+    assert first["status"] == "captured" and first["checkpoint"] is None
+    observation = Path(first["observation"])
+    original_bytes = observation.read_bytes()
+    assert not ledger.exists()
+
+    # 重跑：不重做 capture，沿原观察补齐唯一登记。
+    assert cli.main(["capture", "--study-dir", study, "--labels-db", str(labels),
+                     "--checkpoints-path", str(ledger)]) == 0
+    second = json.loads(capsys.readouterr().out)
+    assert second["status"] == "already_captured"
+    assert second["observation"] == str(observation)
+    assert second["checkpoint"]
+    assert observation.read_bytes() == original_bytes
+    rows, _ = checkpoints.load_checkpoints(ledger)
+    assert [r["id"] for r in rows] == [second["checkpoint"]]
+    assert rows[0]["metric"]["observation"] == str(observation.resolve())
+    assert rows[0]["ts"] == read_record(observation)["payload"]["captured_at"]
+
+    # 三跑：登记仍唯一，不重复。
+    assert cli.main(["capture", "--study-dir", study, "--labels-db", str(labels),
+                     "--checkpoints-path", str(ledger)]) == 0
+    third = json.loads(capsys.readouterr().out)
+    assert third["checkpoint"] == second["checkpoint"]
+    assert len(checkpoints.load_checkpoints(ledger)[0]) == 1
+
+
+def test_daily_retries_data_insufficient_after_rebuild(tmp_path, monkeypatch, capsys):
+    """恢复点②研究侧（集成 spec I5）：可恢复的数据不足不是终态。
+
+    全链自然构造：D+1..D+5 只有行情行、没有板块行 → 回检判 data_insufficient
+    （unverifiable 非终态）；旁路库水位未动的日子不重复刷不足收据；板块行回填后，
+    下一个交易日的 daily 重建旁路库并沿同一观察重试 → supported/hit；
+    先前不足记录与 unverifiable verdict 都保留在案。"""
+
+    source, labels = tmp_path / "source.duckdb", tmp_path / "labels.duckdb"
+    ledger = tmp_path / "ledger" / "checkpoints.jsonl"
+    _extend_source(source, DATES[:3])
+    build_labels(source, labels, now=CAPTURED_AT)
+    build_outcomes(source, labels, now=CAPTURED_AT)
+    monkeypatch.setattr(cli, "current_time", lambda: REGISTERED_AT)
+    assert cli.main(["register", "--history-start", str(DATES[0]), "--history-end", str(DATES[1]),
+                     "--forward-start", str(DATES[2]), "--root", str(tmp_path / "research")]) == 0
+    study = Path(json.loads(capsys.readouterr().out)["study_dir"])
+    common = ["--study-dir", str(study), "--labels-db", str(labels), "--db-path", str(source),
+              "--checkpoints-path", str(ledger)]
+
+    monkeypatch.setattr(cli, "current_time", lambda: CAPTURED_AT)
+    first = _daily(common, capsys)
+    observation = Path({s["step"]: s for s in first["steps"]}["capture"]["observation"])
+
+    # D+1..D+5 只有行情行、没有板块行：回检自然判数据不足（no_sector_labels）。
+    with duckdb.connect(str(source)) as con:
+        for day in DATES[3:8]:
+            con.execute(
+                "INSERT INTO fact_market_daily (trade_date, market_stage, total_amount) VALUES (?, '主升阶段', 10000)",
+                [day],
+            )
+    monkeypatch.setattr(cli, "current_time", lambda: LATER)
+    second = _daily(common, capsys)
+    steps = {s["step"]: s for s in second["steps"]}
+    assert steps["rebuild"]["status"] == "done"
+    insufficient_run = [item for item in steps["recheck"]["results"] if item.get("observation") == str(observation)]
+    assert insufficient_run and insufficient_run[0]["classification"] == "data_insufficient"
+
+    # 水位未动：不足记录按已结算处理，不重复刷噪声。
+    quiet = _daily(common, capsys)
+    quiet_recheck = {s["step"]: s for s in quiet["steps"]}["recheck"]
+    assert str(observation) not in {item.get("observation") for item in quiet_recheck["results"]}
+
+    # 板块行回填 + 下一个交易日到来：重建触发，沿同一观察重试并结算。
+    extra_day = DATES[-1] + timedelta(days=1)
+    with duckdb.connect(str(source)) as con:
+        for day in DATES[3:8]:
+            for code, pct in (("A.TI", 1.0), ("B.TI", 0.2), ("C.TI", -1.0)):
+                con.execute(
+                    "INSERT INTO fact_sector_daily_generation "
+                    "(trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name, pct_chg, amount, diff_ratio) "
+                    "VALUES (?, 'legacy', ?, ?, ?, 800, -5)",
+                    [day, code, code, pct],
+                )
+    _extend_source(source, [extra_day])
+    monkeypatch.setattr(
+        cli, "current_time",
+        lambda: datetime(extra_day.year, extra_day.month, extra_day.day, 9, tzinfo=timezone.utc),
+    )
+    third = _daily(common, capsys)
+    steps = {s["step"]: s for s in third["steps"]}
+    assert steps["rebuild"]["status"] == "done"
+    retried = [item for item in steps["recheck"]["results"] if item.get("observation") == str(observation)]
+    assert retried and retried[0]["classification"] == "supported"
+    insufficient_records = [
+        path for path in cli.list_records(study, "recheck")
+        if (read_record(path)["payload"].get("flywheel") or {}).get("classification") == "data_insufficient"
+    ]
+    assert insufficient_records, "先前不足记录必须保留在案"
+    verdicts, _ = checkpoints.load_verdicts(ledger.with_name("verdicts.jsonl"))
+    ours = [v for v in verdicts if v["id"] == {s["step"]: s for s in first["steps"]}["capture"]["checkpoint"]]
+    assert [v["verdict"] for v in ours][:1] == ["unverifiable"] and ours[-1]["verdict"] == "hit"
