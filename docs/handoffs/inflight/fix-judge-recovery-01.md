@@ -11,20 +11,20 @@
 - lifted 只记账；否绑进台账（V11 §10.1）与模型改写（V8 决定）。
 
 ## 当前状态
-已提交 `b7bf0d94`，树干净。未合 main、未切 8792。基线 `gitea/main=5eb24515`。
+已提交 `c83cd0bf`（含第四轮验收记录），树干净。未合 main、未切 8792。基线 `gitea/main=5eb24515`。PR #693 正文已 PATCH 为实测结果。基线 worktree `/Users/a77/fwp-wt-judge01-base` 已移除，sidecar 已停。
 
 ## 已验证
 直接测试文件 241 passed；V11 新测试 22 条；adapter/verifier/invariant 191；pre-commit 11 道过；`check_unread_fields` 无新增。全量安静跑 8330 passed / 0 failed（15.6 min；此前高负载跑 3 条超时看门狗测试红、单跑绿）。391 份真实存证：基线 vs 分支首个损失点 A/B 零差异，`extension_outputs` 出现 0 次。
 
 ## 未验证 / 已知边界
-- **真实 Workbench 对照零草稿**：第一轮 429 + 网关掉线；第二轮 `502 no auth available`；第三轮（16:30）授权已恢复但 terra/sol 双双 `model_cooldown`，重置 2026-09-09 21:05，fable 不在该 key 范围。会话内已排 21:16 一次性唤醒续跑；会话若死，按 progress/01.md「续跑命令」手动跑（先探 chat 有 `choices`）。四类同题「升级前后」未展示，`v11_outcome` 只见 `skipped`。
+- **真实 Workbench 对照已跑完（第四轮，sub2api 8080）**：5 题 × 2 臂全草稿。判官可达时三刀按预期（Q1 两臂同形、Q5 分支拒「必涨停」前提给条件性研判）；Q3 证据量差（基线 171 vs 分支 13）归因 OpenAI-family 上游池间歇 503（51 账号全 503 failover），非判官误挡；Q4 分支单发 HTTP 400 待归因。「冻结样本整体挡回减半」本轮无法判定（4/5 题至少一臂判官不可用），需上游池稳定后重跑。
 - V11 lifted 用户不可见（V8 后公开稿无存疑标）；§8 A/B 与台账 `R-20260822-05` 未做。
 - 缺陷一自然频率不可从存证读出（被拒修复轮不落事件）。
 
 ## 下一步
-1. 21:05 冷却重置后串行两臂五题（先最小 chat 探到 `choices`，再金丝雀一题看 `draft_chars>0`，候选臂先跑）；逐题读公开稿填「真实验收」并 PATCH PR #693 正文；合并等用户确认。基线 worktree `/Users/a77/fwp-wt-judge01-base` 已备好。
-2. 合并前以 `feat/judge-token-usage`（同改 `_run_judge`）为准重跑本单测试。
-3. 用户确认后合 main；TOOLKIT 登记 `judge_loss_point_replay.py` / `launch_workbench_sidecar.sh`（harness-reference 树脏未动）。
+1. 合并前以 `feat/judge-token-usage`（同改 `_run_judge`）为准重跑本单测试。
+2. 用户确认后合 main；TOOLKIT 登记 `judge_loss_point_replay.py` / `launch_workbench_sidecar.sh`（harness-reference 树脏未动）。
+3. （可选，不阻塞合并）上游池稳定后重跑一轮真实验收，给「挡回减半」一个判定。
 
 ## 踩过的坑
 - `_judge()` 夹具第二次调用自动放行；issue 里「第N句」会被并回拒句集。
