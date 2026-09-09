@@ -5,7 +5,7 @@
 
 来源：`research_tool_registry.default_registry`（用哑 runner 装配）+ `_TOOL_CONTRACTS`。`query_scope=episode` 的工具参数表为空，截止日在 context 上而不在参数里。说明书只写实测过的失败模式，空即合法。
 
-14 个工具
+17 个工具
 
 | 工具 | 能力 | 成本 | 新鲜度 | 查询范围 | 最小窗(s) | 参数键 | produces | 描述 |
 |---|---|---|---|---|---|---|---|---|
@@ -14,12 +14,15 @@
 | `finance_query` | finance_query | external | current | query | — | `query` | data_date, market_change, risk_signals, supporting_evidence | 按语义数据集、指标、维度、筛选和时间范围查询本地结构化金融数据 |
 | `financial_data` | financial_data | external | current | episode | — | `report_period` | financial_assessment, metric_evidence, supporting_evidence | 结构化逐季财务指标 |
 | `graph_lookup` | graph_lookup | local | stable | query | — | `query` | chain_mapping, company_mapping, relation_map | 知识图谱实体与关系 |
+| `history_query` | history_query | external | historical | query | — | `query` | — | 可复算历史行情与完整样本比较 |
 | `kb_search` | kb_search | local | stable | query | 20.0 | `query` | direct_answer, direct_definition, direct_explanation, supporting_evidence | 本地知识库检索 |
 | `l3_lookup` | l3_lookup | external | current | query | — | `query` | fact_value, supporting_evidence | 官方公告与互动证据 |
 | `mainline_context` | mainline_context | external | current | episode | — | — | mainline_structure, supporting_evidence | 同日主线与板块结构 |
 | `market_data` | market_data | external | current | episode | — | — | current_baseline, data_date, market_summary, prime_quote, supporting_evidence | 结构化行情与市场时序 |
 | `memory_lookup` | memory_lookup | local | stable | query | — | `query` | prime_memory | 用户自己过去的判断与纠偏原则（历史先验，不是市场事实） |
 | `news_search` | news_search | external | current | query | — | `query` | event_facts, impact_transmission, prime_news, supporting_evidence | 财经新闻检索 |
+| `read_history_result` | read_history_result | external | historical | query | — | `query` | — | 读取本会话历史研究原件 |
+| `save_history_research` | save_history_research | external | historical | query | — | `query` | — | 保存版本化研究假设与反例 |
 | `sub_research` | sub_research | external | current | query | 60.0 | `goals` | supporting_evidence | 把 1–3 个可独立取证的子问题并行交给子研究分支，各支带自己的工具预算跑到终态后一次返回证据 |
 | `web_fetch` | web_fetch | external | current | query | — | `url` | event_facts, supporting_evidence | 按 URL 取网页正文全文（取页，不是检索；URL 先由 web_search / news_search 给出） |
 | `web_search` | web_search | external | current | query | — | `query` | event_facts, impact_transmission, supporting_evidence | 全网网页检索 |
@@ -46,6 +49,10 @@
 
 返回的是图谱里已登记的映射关系，不是经过确认的公司级事实。概念项的「匹配分」只是文本匹配强度，不代表业务关联强度，不要当作重要性排序。公司项后面的 strength/evidence_layer 是这条映射的可信度分级：peripheral 或研报推断来源的产业链归类只能作为线索，要断言某公司确有该业务，需要 l3_lookup 的公告或 kb_search 的一手事实确认。图谱无命中说明尚未登记该映射，不等于不存在关联。
 
+### `history_query`
+
+只读已授权历史窗口；精确实体代码不跨源拼接。rows为完整分母，preview为截断摘要；相似Top-K只用于发现，不代表条件命中全集。触发时点匹配不使用后续结果。缺字段/未成熟不算失败；同波和重叠窗口不视为独立样本。结果仅research_only，不证明因果或可交易规律；成交额不是主动资金流。未知定义返回unsupported_definition。
+
 ### `kb_search`
 
 命中的是本地知识库页面正文，而这些页面按来源分层：「边际变化」是公告/订单/中标这类一手公司事实，「高信度研究线索」是券商研报的待复核判断，「观察列表」更弱。检索结果不带这层标记，引用前先看命中片段落在哪一节：券商来源的结论只能作为待验证线索，需要 l3_lookup 的公告确认后才能当硬事实。返回文本明确说「检索未能执行完成」时那是工具故障，不是知识库为空，此时既不能写成证据缺口也不能下否定结论，应改写检索词重试或换工具；只有在确实「无命中」时，才说明知识库没有回填过，且仍不等于该事实不存在。
@@ -69,6 +76,14 @@
 ### `news_search`
 
 新闻是二手材料，同一条消息被多家转载不构成交叉验证。涉及公司经营事实时需要 l3_lookup 的公告确认；只有新闻来源时写成「待验证线索」，不要升级为既定事实。
+
+### `read_history_result`
+
+仅读取当前用户同一会话已登记的不可覆盖原件；引用不是任意文件路径。摘要分页不改变全集统计。
+
+### `save_history_research`
+
+保存候选研究草稿与版本引用，不写市场事实或升级规律；修订保留失败案例，正式认证交现有评价器。
 
 ### `sub_research`
 

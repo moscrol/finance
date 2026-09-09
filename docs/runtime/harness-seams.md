@@ -5,7 +5,7 @@
 
 loop 只在这些方法上调领域 harness（`research_harness.ResearchHarness`）。签名与首段 docstring 直接取自 Protocol 源码，顺序即源码顺序。改接缝先改 Protocol，本表随之再生成；接缝的取舍见 `docs/superpowers/specs/2026-09-02-research-harness-loop-decouple-design.md` §4。
 
-17 个方法
+19 个方法
 
 ## `assemble_prompt`
 
@@ -102,6 +102,22 @@ def classify_repair_need(self, outcome: 'AgentOutcome', structural: 'VerifiedEpi
 ```
 
 主轮终局过完结构 / 语义验证之后：这次失败该修什么、属于哪一类。
+
+## `assess_publication`
+
+```python
+def assess_publication(self, *, context: 'ResearchRunContext') -> 'PublicationAssessment'
+```
+
+Final domain requirements after repairs and semantic verification.
+
+## `recovery_evidence_priority`
+
+```python
+def recovery_evidence_priority(self, *, context: 'ResearchRunContext', evidence: 'tuple[AgentEvidence, ...]') -> 'tuple[str, ...]'
+```
+
+Existing evidence hashes to retain first in a bounded recovery view.
 
 ## `warrant_repair`
 

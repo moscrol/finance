@@ -121,6 +121,10 @@ _TOOL_LABELS: dict[str, str] = {
     "market_data": "盘面快照",
     "financial_data": "财务数据",
     "mainline_context": "主线结构",
+    # 历史发现研究三件（2026-09-09）：没有标签的工具进度会静默退回通用句。
+    "history_query": "历史行情重建与样本比较",
+    "read_history_result": "历史研究原件",
+    "save_history_research": "研究假设草稿",
 }
 
 # 三个 kind 的工具名落在不同键上：``tool_request`` 来自 ``call.to_dict()``
