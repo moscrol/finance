@@ -455,6 +455,10 @@ def test_financial_data_takes_several_subjects_and_attaches_structured_observati
     assert structured[("000858.SZ", "net_profit_cum_yi")] == 190.5
     assert all(obs.as_of == "2026-06-30" for item in observation.evidence for obs in item.observations)
     assert "「不存在的公司」未能解析为 A 股标的" in observation.observation
+    # 模型视图看不到 observations 字段，观察文本开头要说清有哪些指标可算、覆盖哪段报告期。
+    assert "结构化观察值：贵州茅台（600519.SH） 报告期 2026-06-30～2026-06-30" in observation.observation
+    assert "revenue_cum_yi" in observation.observation and "to_single_quarter" in observation.observation
+    assert observation.observation.index("结构化观察值") < observation.observation.index("| 2026中报")
     assert "subjects=3; resolved=2" in observation.trace.detail
     # 观察值不进内容哈希：同一行有没有观察值，证据身份不变。
     from intelligence.services.agent_research import evidence_content_hash

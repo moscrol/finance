@@ -109,6 +109,22 @@ def parse_financial_data_request(raw: str) -> tuple[str, tuple[str, ...]]:
     return text, ()
 
 
+def structured_observation_hint(bundle: market_financials.FinancialsBundle) -> str:
+    """一句话告诉模型这份快照里有哪些机器可读指标、覆盖哪段报告期，供 derived_calculation 读。"""
+
+    mapping = bundle.observations_by_line()
+    if not mapping:
+        return ""
+    metrics = sorted({obs.metric for found in mapping.values() for obs in found})
+    dates = sorted({obs.as_of for found in mapping.values() for obs in found})
+    subject = market_financials.observation_subject(bundle.ts_code)
+    label = f"{bundle.name}（{subject}）" if bundle.name else subject
+    return (
+        f"结构化观察值：{label} 报告期 {dates[0]}～{dates[-1]}，指标 {', '.join(metrics)}"
+        "（累计口径；用 derived_calculation 的 series(subject, metric) 读，单季用 to_single_quarter）"
+    )
+
+
 def attach_financial_observations(
     evidence: list[agent_research.AgentEvidence],
     bundle: market_financials.FinancialsBundle,
@@ -1224,6 +1240,12 @@ def build_episode_registry(
                     detail_chars=1000,
                 )
                 evidence.extend(attach_financial_observations(items, bundle))
+                hint = structured_observation_hint(bundle)
+                if hint:
+                    # 模型视图里看不到 observations 字段（public_agent_evidence 不投它），
+                    # 所以在观察文本开头说一句「有哪些结构化指标可算」——这是 derived_calculation
+                    # 脚本的入口线索，放前面不被 900 字符预算截掉。
+                    notes.append(hint)
                 if text:
                     observations.append(text)
         tool_context.check_cancelled()
