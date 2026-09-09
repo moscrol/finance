@@ -28,7 +28,18 @@
 
 ## 3. 真实对话入口（隔离实例 :8808）
 
-（待网关冷却结束后回填：四问补前基线 → 请求 → 补齐 → 恢复 → 差量 → 重放。）
+实例：本树起的 uvicorn（`lsof` 验过 cwd = `~/fwp-wt-demand-driven-data`），环境从生产 :8792 进程复制（8 个关键变量 sha 一致），
+`MARKET_FEATURE_STORE_DB=staging.duckdb`、`FORESIGHT_USERS_DIR=…/users`（隔离），用户 `cap08`。
+
+**14:51 第一轮四问 [实测]**：全部 `continuous_runtime_failed / stop_reason=model_unavailable`，`model_turn.error="LLM 调用 HTTP 429"`，`provider_attempts=4`，
+4 秒内结束，模型没走到 `finance_query`，所以没有 `window_uncovered` 事件——这一轮不能当基线。
+直接探网关：`gpt-5.6-sol/terra` 429 `model_cooldown reset≈4180s`；15:22 网关重启后变 `usage_limit_reached` / `no auth available`（全部 4 个模型）。
+生产用户的模型配置同为 `built_in`（同网关），本机无其他现有凭据。**真实验收待外部额度恢复**（blocked/08.md B1）。
+
+无人值守 runbook `~/.finance-runtime/data-requests-08/run_acceptance.sh all` 已挂后台（`gateway-wait.log` 每 2 分钟探一次，回 200 即跑）：
+基线四问（QA/QB → G1 复用同一请求；QC → G3；QD → G2）→ `build` / `check`（应 open）→ `fill` 两轮 → `check`（应 satisfied + `data_version`）
+→ `resume`（原会话重问）→ `resume` 重放（应 0 动作）→ `status`。产物 `~/.finance-runtime/data-requests-08/acceptance/`；
+跑完后把补前 / 补后答案差量填进本节，四项状态表随之更新。
 
 ## 4. 四项状态
 
