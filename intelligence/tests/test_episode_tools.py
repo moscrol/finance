@@ -348,12 +348,20 @@ def test_valuation_registry_exposes_structured_financial_anchor(
         capabilities=("market_data",),
         timeout=30.0,
     )
+    # 工单 04 起 runner 走 ``_financials_bundle_for_llm``（块 + 行同出一次取数）；替身回一个
+    # 只有块、没有行的 bundle，证据投影与 as_of 语义与此前逐字节一致。
     monkeypatch.setattr(
         episode_tools.ask_blocks,
-        "_financials_block_for_llm",
-        lambda *_args, **_kwargs: (
-            "## 逐季财报数据块 [D7]\n"
-            "- 2026-06-30：营收4.20亿元，归母净利0.52亿元，毛利率38.5%"
+        "_financials_bundle_for_llm",
+        lambda *_args, **_kwargs: episode_tools.market_financials.FinancialsBundle(
+            ts_code="688323.SH",
+            name="瑞华泰",
+            rows=(),
+            result=None,
+            block=(
+                "## 逐季财报数据块 [D7]\n"
+                "- 2026-06-30：营收4.20亿元，归母净利0.52亿元，毛利率38.5%"
+            ),
         ),
     )
     registry = build_episode_registry(
@@ -378,6 +386,91 @@ def test_valuation_registry_exposes_structured_financial_anchor(
     assert observation.trace.status == "success"
 
 
+def test_financial_data_takes_several_subjects_and_attaches_structured_observations(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """工单 04：subjects 一次取几家，每家一个 D7 块；数据行挂带口径 / 单位的观察值；未解析的那家写进观察文本。"""
+
+    mf = episode_tools.market_financials
+    rows_by_subject = {
+        "贵州茅台": (
+            "600519.SH",
+            "贵州茅台",
+            [mf.QuarterFinancials("2026中报", "2026-06-30", 922.78, 1.3, 445.17, -1.95, 89.56, 50.75, ocf_yi=706.91)],
+        ),
+        "000858": (
+            "000858.SZ",
+            "五粮液",
+            [mf.QuarterFinancials("2026中报", "2026-06-30", 500.12, -3.0, 190.5, -5.1, 77.1, 38.2)],
+        ),
+    }
+    seen: list[str] = []
+
+    def fake_bundle(query, *_args, **_kwargs):
+        seen.append(str(query))
+        hit = rows_by_subject.get(str(query))
+        if hit is None:
+            return None
+        ts_code, name, rows = hit
+        return mf.FinancialsBundle(
+            ts_code=ts_code,
+            name=name,
+            rows=tuple(rows),
+            result=None,
+            block=mf.build_financials_block(name, ts_code, rows),
+        )
+
+    monkeypatch.setattr(episode_tools.ask_blocks, "_financials_bundle_for_llm", fake_bundle)
+    frame = _valuation_frame()
+    context = build_episode_context(
+        frame,
+        task_id="financial-data-subjects",
+        capabilities=("financial_data",),
+        timeout=30.0,
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+
+    observation = registry.execute(
+        "financial_data",
+        {"subjects": ["贵州茅台", "000858", "不存在的公司"]},
+        context=context,
+        step_id="financial-data-subjects:1",
+    )
+
+    assert seen == ["贵州茅台", "000858", "不存在的公司"]
+    structured = {
+        (obs.subject, obs.metric): obs.value
+        for item in observation.evidence
+        for obs in item.observations
+    }
+    assert structured[("600519.SH", "revenue_cum_yi")] == 922.78
+    assert structured[("600519.SH", "ocf_cum_yi")] == 706.91
+    assert structured[("000858.SZ", "net_profit_cum_yi")] == 190.5
+    assert all(obs.as_of == "2026-06-30" for item in observation.evidence for obs in item.observations)
+    assert "「不存在的公司」未能解析为 A 股标的" in observation.observation
+    assert "subjects=3; resolved=2" in observation.trace.detail
+    # 观察值不进内容哈希：同一行有没有观察值，证据身份不变。
+    from intelligence.services.agent_research import evidence_content_hash
+
+    assert all(item.content_hash == evidence_content_hash(item) for item in observation.evidence)
+
+
+def test_parse_financial_data_request_reads_both_runner_input_shapes() -> None:
+    assert episode_tools.parse_financial_data_request("2024年报") == ("2024年报", ())
+    assert episode_tools.parse_financial_data_request("") == ("", ())
+    assert episode_tools.parse_financial_data_request(
+        '{"report_period": "2025三季报", "subjects": ["贵州茅台", " 000858 "]}'
+    ) == ("2025三季报", ("贵州茅台", "000858"))
+    assert episode_tools.parse_financial_data_request("{not json") == ("{not json", ())
+
+
 def test_valuation_tools_reuse_shared_entity_anchor_for_subject_resolution(
     tmp_path: Path,
     monkeypatch,
@@ -397,7 +490,13 @@ def test_valuation_tools_reuse_shared_entity_anchor_for_subject_resolution(
 
     def fake_financials(query, *_args, **_kwargs):
         captured["financials"] = str(query)
-        return "逐季财务数据：2026Q1 营收4亿元，归母净利0.5亿元。"
+        return episode_tools.market_financials.FinancialsBundle(
+            ts_code="688323.SH",
+            name="瑞华泰",
+            rows=(),
+            result=None,
+            block="逐季财务数据：2026Q1 营收4亿元，归母净利0.5亿元。",
+        )
 
     monkeypatch.setattr(
         episode_tools.ask_blocks,
@@ -406,7 +505,7 @@ def test_valuation_tools_reuse_shared_entity_anchor_for_subject_resolution(
     )
     monkeypatch.setattr(
         episode_tools.ask_blocks,
-        "_financials_block_for_llm",
+        "_financials_bundle_for_llm",
         fake_financials,
     )
     frame = _valuation_frame()

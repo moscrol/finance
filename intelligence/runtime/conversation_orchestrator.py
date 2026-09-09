@@ -28,6 +28,9 @@ from intelligence.services import context_growth
 from intelligence.services import evidence_registry
 from intelligence.services import task_fulfillment
 from intelligence.services import run_store as rs
+from intelligence.services.derived_calculation_artifacts import (
+    publish_calculation_artifacts,
+)
 from intelligence.services.outlook_delivery_gate import (
     apply_market_watch_delivery_gate,
     apply_outlook_delivery_gate,
@@ -1708,6 +1711,27 @@ class TurnOrchestrator:
         self.cancellation_reason = cancellation_reason or (lambda: None)
         self.event_id_prefix = event_id_prefix
         self.continuous_turn_adapter = continuous_turn_adapter
+
+    def _publish_calculation_artifacts(
+        self,
+        run_id: str,
+        private_artifact: object,
+        warnings: list[str],
+    ) -> list[str]:
+        """派生计算产物落盘（工单 04）。渲染失败只记降级、不拖垮回答：表没落下来是缺口，答案不是。"""
+
+        if not isinstance(private_artifact, dict):
+            return []
+        try:
+            return publish_calculation_artifacts(self.run_store, run_id, private_artifact)
+        except Exception as exc:  # noqa: BLE001 - 产物渲染是收口观测，不能顶替主路径
+            warning = f"calculation_artifacts_failed:{type(exc).__name__}"
+            warnings.append(warning)
+            try:
+                self.run_store.add_degrade(run_id, warning)
+            except Exception:  # noqa: BLE001
+                pass
+            return []
 
     def _stamp_gate_receipt(
         self,
@@ -4087,6 +4111,8 @@ class TurnOrchestrator:
                 previewable=False,
                 downloadable=False,
             )
+            # 答案没成，算出来的表还是要保住（工单 04 任务 5：错误可定位、其他完成项不丢）。
+            self._publish_calculation_artifacts(run_id, safe_private_artifact, warnings)
             self.run_store.add_artifact(
                 run_id,
                 "answer.md",
@@ -4316,6 +4342,9 @@ class TurnOrchestrator:
             previewable=False,
             downloadable=False,
         )
+        # 工单 04：派生计算的表 / 图 / 记录从同一份私有产物渲染成可下载 run 产物
+        # （calc-<id>.csv / .html / .json）。复用 run / artifact 身份，不另开文件服务。
+        self._publish_calculation_artifacts(run_id, safe_private_artifact, warnings)
         self._stamp_gate_receipt(
             report,
             private_artifact=result.private_artifact,

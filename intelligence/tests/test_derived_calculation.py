@@ -240,7 +240,17 @@ def test_registry_contract_states_all_three_clauses() -> None:
     assert "最旧的 as_of" in spec.contract
     assert "no_bound_evidence" in spec.contract
     assert "不能联网" in spec.contract
-    assert set(spec.parameters["properties"]) == {"script", "purpose", "use_duckdb", "timeout_seconds"}
+    # 工单 04 加了 params（假设）与 inputs_from_calc（沿用上一轮输入）；script 只在沿用时可省。
+    assert set(spec.parameters["properties"]) == {
+        "script",
+        "purpose",
+        "use_duckdb",
+        "timeout_seconds",
+        "params",
+        "inputs_from_calc",
+    }
+    assert list(spec.parameters["required"]) == ["purpose"]
+    assert "emit_result" in spec.contract and "inputs_from_calc" in spec.contract
 
 
 # ── 契约③：参数含义与拒绝条件 ───────────────────────────────────────
@@ -536,3 +546,196 @@ def test_cross_source_reconciliation_end_to_end_keeps_the_hash_chain() -> None:
     derived_results = [event for event in results if event.payload.get("tool") == "derived_calculation"]
     assert len(derived_results) == 1
     assert "calc_id=" in str(derived_results[0].payload.get("model_content", ""))
+
+
+# ── 工单 04：结果协议 v1 / 参数 / 沿用输入 / 产物数据通路 ─────────────────
+
+STRUCTURED_SCRIPT = (
+    "annual = observations(tool='financial_data')[0]['value']\n"
+    "web = observations(tool='web_fetch')[0]['value']\n"
+    "rows = [[r['ref'], r['value']] for r in observations()]\n"
+    "t = table('净利润两源核对', ['来源', '净利润(亿)'], rows, unit='亿元')\n"
+    "emit_result(summary={'diff': round(annual - web, 2), 'tolerance_pct': PARAMS.get('tolerance_pct')},\n"
+    "            tables=[t], formulas=['diff = 年报 − 网页'], notes=['两源口径均为归母净利润'])\n"
+)
+
+
+def test_structured_result_puts_every_table_number_into_observations_and_telemetry() -> None:
+    calc = _run(STRUCTURED_SCRIPT, params={"tolerance_pct": 0.1})
+    assert isinstance(calc, dc.DerivedCalculation), calc
+
+    assert calc.result["schema"] == "derived_calculation.result/v1"
+    assert calc.params == {"tolerance_pct": 0.1}
+    assert calc.artifact_names == (
+        f"calc-{calc.calc_id}.json",
+        f"calc-{calc.calc_id}.html",
+        f"calc-{calc.calc_id}-t1.csv",
+    )
+    item = dc.derived_evidence(calc)
+    metrics = {obs.metric: obs.value for obs in item.observations}
+    assert metrics["diff"] == 1.44
+    assert metrics["净利润两源核对.净利润(亿)[E1]"] == 1741.44
+    assert metrics["净利润两源核对.净利润(亿)[E2]"] == 1740.0
+    assert f"计算编号 {calc.calc_id}" in item.detail
+    observation = dc.success_observation(calc)
+    assert "E1: 净利润(亿)=1741.44" in observation
+    assert f"calc-{calc.calc_id}-t1.csv" in observation and "inputs_from_calc" in observation
+    assert len(observation) <= 1100
+
+    result = dc.to_tool_result(calc)
+    record = result.telemetry["derived_calculation"]
+    assert record["calc_id"] == calc.calc_id
+    assert record["artifacts"] == list(calc.artifact_names)
+    assert record["params"] == {"tolerance_pct": 0.1}
+    assert [entry["ref"] for entry in record["inputs"]] == ["E1", "E2"]
+    assert all("detail" not in entry and entry["observations"] for entry in record["inputs"])
+
+
+def test_params_change_the_calc_id_but_not_the_input_chain() -> None:
+    base = _run(STRUCTURED_SCRIPT)
+    tuned = _run(STRUCTURED_SCRIPT, params={"tolerance_pct": 0.5})
+    assert isinstance(base, dc.DerivedCalculation) and isinstance(tuned, dc.DerivedCalculation)
+
+    assert base.calc_id != tuned.calc_id
+    assert base.input_evidence_hashes == tuned.input_evidence_hashes
+    assert dc.compute_calc_id("s", ("h",)) != dc.compute_calc_id("s", ("h",), params_json='{"a": 1}')
+    assert dc.canonical_params({"b": 1, "a": 2}) == '{"a": 2, "b": 1}'
+    assert dc.canonical_params({}) == "" and dc.canonical_params(None) == ""
+
+
+def test_reusing_a_prior_calculation_keeps_its_inputs_script_and_hash_chain(tmp_path) -> None:
+    prior = _run(STRUCTURED_SCRIPT, params={"tolerance_pct": 0.1})
+    assert isinstance(prior, dc.DerivedCalculation)
+    record = prior.to_dict()
+    run_dir = tmp_path / "run_20260909_abc"
+    run_dir.mkdir()
+    (run_dir / f"calc-{prior.calc_id}.json").write_text(json.dumps(record, ensure_ascii=False), encoding="utf-8")
+
+    assert dc.load_calculation_record(prior.calc_id, runs_root=tmp_path)["calc_id"] == prior.calc_id
+    assert dc.load_calculation_record("0" * 16, runs_root=tmp_path) is None
+    assert dc.load_calculation_record("not-an-id", runs_root=tmp_path) is None
+
+    # 新一轮：账本为空，只靠沿用；不传 script，只改一个参数。
+    spec = dc.bind_derived_calculation_tool(
+        evidence_ledger=EvidenceLedger(),
+        calc_loader=lambda calc_id: dc.load_calculation_record(calc_id, runs_root=tmp_path),
+    )
+    context = AgentToolContext(deadline=ResearchDeadline.from_timeout(30.0))
+    args, _display = parse_derived_calculation_arguments(
+        {"purpose": "改容差重算", "inputs_from_calc": prior.calc_id, "params": {"tolerance_pct": 1.0}}
+    )
+    result = spec.runner(args, context)
+    assert result.trace.status == "success", result.observation
+    (item,) = result.evidence
+    annual, web = _inputs()
+    assert set(item.derived_from) == {annual.content_hash, web.content_hash}
+    assert item.source_date == "2025-04-03"
+    record = result.telemetry["derived_calculation"]
+    assert record["base_calc_id"] == prior.calc_id
+    assert record["params"] == {"tolerance_pct": 1.0}
+    assert record["input_refs"] == ["P1", "P2"]
+    assert record["script"] == STRUCTURED_SCRIPT
+    assert record["calc_id"] != prior.calc_id
+    assert f"沿用计算 {prior.calc_id}" in result.observation
+
+    missing = spec.runner(
+        parse_derived_calculation_arguments({"purpose": "p", "inputs_from_calc": "f" * 16})[0],
+        context,
+    )
+    assert missing.evidence == ()
+    assert dc.ERROR_BASE_CALC_NOT_FOUND in missing.trace.detail
+    assert "计算编号" in missing.observation
+
+
+def test_argument_parser_accepts_params_and_reuse_and_rejects_bad_shapes() -> None:
+    payload, display = parse_derived_calculation_arguments(
+        {"purpose": "重算", "inputs_from_calc": "0123456789abcdef", "params": {"g": 5}}
+    )
+    assert json.loads(payload) == {
+        "script": "",
+        "purpose": "重算",
+        "use_duckdb": False,
+        "timeout_seconds": 20,
+        "params": {"g": 5},
+        "inputs_from_calc": "0123456789abcdef",
+    }
+    assert display == "重算"
+    assert "params" not in json.loads(parse_derived_calculation_arguments({"script": "x", "purpose": "p"})[0])
+
+    for bad in (
+        {"purpose": "p"},  # 没 script 也没沿用
+        {"script": "", "purpose": "p", "inputs_from_calc": "0123456789abcdef"},  # 传了空脚本
+        {"script": "x", "purpose": "p", "inputs_from_calc": "nope"},
+        {"script": "x", "purpose": "p", "params": [1, 2]},
+        {"script": "x", "purpose": "p", "params": {"k": object()}},
+    ):
+        with pytest.raises(InvalidResearchToolArguments):
+            parse_derived_calculation_arguments(bad)
+
+
+def test_end_to_end_structured_calculation_reaches_the_run_artifacts() -> None:
+    """数据通路全程：脚本 emit_result → 派生证据 → tool_result 事件 telemetry → durable 投影 →
+    ``publish_calculation_artifacts`` 落成 run 产物。中间任何一环丢字段，这条就红。"""
+
+    from intelligence.services import derived_calculation_artifacts as art
+    from intelligence.services.episode_projection import project_durable_events
+
+    frame = _frame()
+    context = _context(frame, task_id="derived-calc-artifacts-e2e")
+    model = _ArgScriptedModel(
+        [
+            (
+                (
+                    ("financial_data", {"query": "600519 2024 年报 净利润"}),
+                    ("web_fetch", {"query": "茅台 2024 净利润 网页"}),
+                ),
+                "",
+            ),
+            (
+                (
+                    (
+                        "derived_calculation",
+                        {
+                            "script": STRUCTURED_SCRIPT,
+                            "purpose": "核对 2024 年报净利润两个来源是否一致",
+                            "params": {"tolerance_pct": 0.1},
+                        },
+                    ),
+                ),
+                "",
+            ),
+            ((), _finish("E1", "E2", "E3")),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(task_frame=frame, context=context, registry=_fixture_registry())
+    assert outcome.status == "completed", (outcome.stop_reason, outcome.gaps)
+
+    projection = project_durable_events(outcome.events)
+    private_artifact = {"events": list(projection.events)}
+    records = art.calc_records_from_private_artifact(private_artifact)
+    assert len(records) == 1
+    (record,) = records
+    assert record["params"] == {"tolerance_pct": 0.1}
+    assert record["result"]["tables"][0]["name"] == "净利润两源核对"
+    # 完整记录只在审计底稿（telemetry），模型可见正文里没有它——脚本正文与输入快照不进上下文。
+    tool_events = [event for event in outcome.events if event.kind == "tool_result" and event.payload.get("tool") == "derived_calculation"]
+    model_content = str(tool_events[0].payload.get("model_content"))
+    assert "telemetry" not in model_content and "input_evidence_hashes" not in model_content
+    assert STRUCTURED_SCRIPT.splitlines()[0] not in model_content
+    assert tool_events[0].payload["telemetry"]["derived_calculation"]["calc_id"] == record["calc_id"]
+
+    class FakeStore:
+        def __init__(self) -> None:
+            self.files: dict[str, str] = {}
+
+        def add_artifact(self, run_id, filename, content, *, renderer, title, **_kwargs):
+            self.files[filename] = content
+            return filename
+
+    store = FakeStore()
+    written = art.publish_calculation_artifacts(store, "run-e2e", private_artifact)
+    calc_id = record["calc_id"]
+    assert written == [f"calc-{calc_id}.json", f"calc-{calc_id}.html", f"calc-{calc_id}-t1.csv"]
+    assert "E1,1741.44" in store.files[f"calc-{calc_id}-t1.csv"]
+    assert json.loads(store.files[f"calc-{calc_id}.json"])["calc_id"] == calc_id

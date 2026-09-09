@@ -8,6 +8,7 @@ used by the Workbench, then exposes them through ``ResearchToolRegistry``.
 from __future__ import annotations
 
 import copy
+import json
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from pathlib import Path
@@ -82,6 +83,66 @@ def _market_technical_focus(question: str) -> str:
 # 抄第二份必然分叉，且分叉时没有门禁会发红。
 _NON_EVIDENCE_PREFIXES = agent_research.QUALIFIER_LINE_PREFIXES
 _OFFICIAL_L3_RUNNER = object()
+
+
+def parse_financial_data_request(raw: str) -> tuple[str, tuple[str, ...]]:
+    """反解 ``parse_financial_data_arguments`` 给 runner 的输入：``(report_period, subjects)``。
+
+    两种形状：裸文本（只有 report_period，P0b 以来的语义）或带 ``subjects`` 的 JSON 对象
+    （工单 04）。不是 JSON 对象的一律按裸报告期读——旧调用方一个字不改。
+    """
+
+    text = str(raw or "").strip()
+    if text.startswith("{"):
+        try:
+            decoded = json.loads(text)
+        except json.JSONDecodeError:
+            decoded = None
+        if isinstance(decoded, dict):
+            period = str(decoded.get("report_period") or "").strip()
+            subjects = tuple(
+                str(item).strip()
+                for item in (decoded.get("subjects") or ())
+                if str(item).strip()
+            )
+            return period, subjects
+    return text, ()
+
+
+def attach_financial_observations(
+    evidence: list[agent_research.AgentEvidence],
+    bundle: market_financials.FinancialsBundle,
+) -> list[agent_research.AgentEvidence]:
+    """给 D7 数据行证据挂结构化观察值：按行文本查表，不解析单元格。
+
+    键是 ``market_financials.observations_by_line`` 渲染的行（与 ``block_lines_to_evidence``
+    剥掉 ``- `` 后的 detail 逐字节相同）。``observations`` 不进内容哈希，证据身份不变。
+    """
+
+    mapping = bundle.observations_by_line()
+    if not mapping:
+        return list(evidence)
+    out: list[agent_research.AgentEvidence] = []
+    for item in evidence:
+        found = mapping.get(item.detail)
+        if not found:
+            out.append(item)
+            continue
+        out.append(
+            replace(
+                item,
+                observations=tuple(
+                    agent_research.StructuredObservation(
+                        subject=obs.subject,
+                        as_of=obs.as_of,
+                        metric=obs.metric,
+                        value=obs.value,
+                    )
+                    for obs in found
+                ),
+            )
+        )
+    return out
 
 
 def _finance_payload_kwargs(
@@ -1068,10 +1129,10 @@ def build_episode_registry(
         timeout = tool_context.deadline.stage_timeout(8.0)
         if timeout <= 0.001:
             raise TimeoutError("financial-data deadline expired")
+        requested_period, subjects = parse_financial_data_request(_query)
         # 窗口来源按优先级：模型显式传的 report_period → 问句/主体里的年份与期别
         # → 默认 6 期。模型传了却解析不出目标时**说出来**，不静默回落
         # （ch4「参数传递的保真性」）。
-        requested_period = str(_query or "").strip()
         as_of = (
             tool_context.information_cutoff.as_of_date
             if tool_context.information_cutoff is not None
@@ -1094,9 +1155,9 @@ def build_episode_registry(
             if target_end is not None
             else market_financials.DEFAULT_PERIODS
         )
-        window_note = ""
+        notes: list[str] = []
         if requested_period and period_source != "report_period":
-            window_note = (
+            notes.append(
                 f"report_period「{requested_period}」未能解析为报告期"
                 "（写法：年份+期别，如 2024年报 / 2025三季报），"
                 + (
@@ -1105,6 +1166,12 @@ def build_episode_registry(
                     else f"已按默认最近 {periods} 期取数"
                 )
             )
+        # 放宽窗口时证据行数跟着放宽，否则目标期那一行取到了却被 limit 截掉。
+        row_limit = 12 + max(0, periods - market_financials.DEFAULT_PERIODS)
+        source_label = "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报"
+        evidence: list[agent_research.AgentEvidence] = []
+        observations: list[str] = []
+        resolved_subjects: list[str] = []
         if (
             fixture_policy is not None
             and not fixture_policy.external_financials_enabled
@@ -1115,33 +1182,64 @@ def build_episode_registry(
                 [],
                 fetch_disabled=True,
             )
-        else:
-            block = ask_blocks._financials_block_for_llm(
-                subject_query,
-                market_db_path,
-                timeout=timeout,
-                periods=periods,
+            items, text = agent_research.block_lines_to_evidence(
+                "financial_data", block, source_label, limit=row_limit, detail_chars=1000
             )
+            evidence.extend(items)
+            if text:
+                observations.append(text)
+        else:
+            # 工单 04：几家公司一次取（多公司同口径比较）。不传 subjects 就是题干主体那一家。
+            # 每家一个 D7 块、各自挂结构化观察值；未解析到标的的那家写进观察值，不静默丢。
+            for subject in subjects or [None]:
+                tool_context.check_cancelled()
+                per_subject_timeout = tool_context.deadline.stage_timeout(8.0)
+                if per_subject_timeout <= 0.001:
+                    notes.append(
+                        f"「{subject}」未取：本批工具窗已用完" if subject else "本批工具窗已用完"
+                    )
+                    break
+                bundle = ask_blocks._financials_bundle_for_llm(
+                    subject or subject_query,
+                    market_db_path,
+                    timeout=per_subject_timeout,
+                    periods=periods,
+                )
+                if bundle is None:
+                    notes.append(
+                        f"「{subject}」未能解析为 A 股标的（需股票名称或 6 位代码），本次未取"
+                        if subject
+                        else "题干主体未能解析为 A 股标的（需股票名称或 6 位代码）"
+                    )
+                    continue
+                if bundle.ts_code:
+                    resolved_subjects.append(
+                        market_financials.observation_subject(bundle.ts_code)
+                    )
+                items, text = agent_research.block_lines_to_evidence(
+                    "financial_data",
+                    bundle.block,
+                    source_label,
+                    limit=row_limit,
+                    detail_chars=1000,
+                )
+                evidence.extend(attach_financial_observations(items, bundle))
+                if text:
+                    observations.append(text)
         tool_context.check_cancelled()
-        # 放宽窗口时证据行数跟着放宽，否则目标期那一行取到了却被 limit 截掉。
-        evidence, observation = agent_research.block_lines_to_evidence(
-            "financial_data",
-            block,
-            "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报",
-            limit=12 + max(0, periods - market_financials.DEFAULT_PERIODS),
-            detail_chars=1000,
-        )
         evidence = [
             item
             for item in evidence
             if not item.detail.startswith(_NON_EVIDENCE_PREFIXES)
         ]
-        observation = observation or "逐季财务指标无可用结果"
-        if window_note:
-            observation = f"{window_note}；{observation}"
+        observation = "；".join(observations) or "逐季财务指标无可用结果"
+        if notes:
+            observation = "；".join((*notes, observation))
         detail = f"quarterly_financials_snapshot; periods={periods}; window={period_source}"
         if target_end is not None:
             detail += f"; target_report_end={target_end.isoformat()}"
+        if subjects:
+            detail += f"; subjects={len(subjects)}; resolved={len(resolved_subjects)}"
         return (
             evidence,
             observation,

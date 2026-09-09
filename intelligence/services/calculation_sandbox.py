@@ -52,9 +52,14 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from intelligence.services import sandbox_fincalc
+
 # 进 calc_id 的 prelude 版本号：prelude 的行为变了（新拦一个模块、换 emit 格式）就升号，
 # 否则同脚本同输入会得到「看起来同 id、实际不同环境」的两份产物。
-PRELUDE_VERSION = "1"
+# v2（工单 04）：给脚本 ``PARAMS`` / ``fincalc`` 财务助手 / ``emit_result`` 结构化结果出口；
+# ``sandbox_fincalc.py`` 的改动也走这个号（它随 prelude 一起拷进沙箱，是同一个执行环境）。
+PRELUDE_VERSION = "2"
+FINCALC_MODULE = "fincalc"
 
 RESULT_SENTINEL = "__DERIVED_CALCULATION_RESULT__"
 SEATBELT_BINARY = "/usr/bin/sandbox-exec"
@@ -229,6 +234,34 @@ def emit(result):
     _REAL_STDOUT.flush()
 
 
+# ---- v2：财务助手 + 参数 + 结构化结果出口（工单 04） ----
+# fincalc.py 由宿主原样拷进工作目录；``-P`` 不把脚本目录放进 sys.path，这里手工加。
+# 只读工作目录内的文件，守卫与 Seatbelt 都放行。
+_sys.path.insert(0, _WORKDIR)
+import fincalc as _fincalc  # noqa: E402
+from fincalc import *  # noqa: E402,F401,F403
+
+PARAMS = _fincalc.params()
+
+
+def emit_result(summary=None, tables=(), charts=(), params=None, formulas=(), notes=(), **extra):
+    """结构化结果出口（协议 v1）：摘要标量 / 表 / 图 / 参数 / 公式 / 说明一次 emit。
+
+    ``params`` 不传就记本次调用的 PARAMS——改假设重算时读收据的人能看到当时用的是哪组参数。
+    """
+    emit(
+        _fincalc.build_result(
+            summary=summary,
+            tables=tables,
+            charts=charts,
+            params=PARAMS if params is None else params,
+            formulas=formulas,
+            notes=notes,
+            **extra,
+        )
+    )
+
+
 del _fh
 # ---- model script follows ----
 '''
@@ -395,6 +428,12 @@ def _seatbelt_startup_failure(exit_code: int | None, stderr: str) -> bool:
 # --------------------------------------------------------------------------- run
 
 
+def fincalc_source() -> str:
+    """拷进沙箱的财务助手源码：就是仓内 ``sandbox_fincalc.py`` 这一个文件，没有第二份。"""
+
+    return Path(sandbox_fincalc.__file__).read_text(encoding="utf-8")
+
+
 def run_script(
     script: str,
     *,
@@ -404,11 +443,13 @@ def run_script(
     python: str | None = None,
     guard: bool = True,
     seatbelt: bool | None = None,
+    params: Mapping[str, object] | None = None,
 ) -> SandboxRun:
     """跑一段脚本，回 ``SandboxRun``。永不抛脚本侧的错——全部落在读数里。
 
     ``guard=False`` / ``seatbelt=False`` 只给测试用：前者证明进程层守卫真在拦，
     后者证明系统层真在拦（把 Python 守卫关掉、只留 Seatbelt，外呼仍失败）。
+    ``params`` 是模型传的假设 / 参数字典，脚本里以 ``PARAMS`` 读到（v2）。
     """
 
     timeout = max(1.0, min(float(timeout), MAX_TIMEOUT_SECONDS))
@@ -432,11 +473,14 @@ def run_script(
                     "db_path": os.fspath(db_path) if db_path else None,
                     "guard": bool(guard),
                     "blocked_modules": list(FORBIDDEN_IMPORT_MODULES),
+                    "params": dict(params or {}),
                 },
                 ensure_ascii=False,
+                default=str,
             ),
             encoding="utf-8",
         )
+        Path(workdir, f"{FINCALC_MODULE}.py").write_text(fincalc_source(), encoding="utf-8")
         script_path = Path(workdir, "script.py")
         script_path.write_text(PRELUDE_SOURCE + script.rstrip() + "\n", encoding="utf-8")
 

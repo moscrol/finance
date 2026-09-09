@@ -25,6 +25,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import date
 from typing import Any, Callable, Literal
@@ -779,6 +780,131 @@ def _fmt(value: float | None, unit: str = "") -> str:
     return f"{value}{unit}"
 
 
+# ---------------------------------------------------------------------------
+# 结构化观察值（工单 04 · 计算与产物）
+#
+# 「凡是能在格式化之前拿到结构化数的取数方，都该把数原样挂上来，别让下游回头解析
+# detail 文本」（``agent_research.StructuredObservation`` 的约定）。D7 块此前只投文本行，
+# 沙箱脚本要算单季就得自己拆 markdown 单元格——列序一变脚本就错。这里把每一行的数按
+# **带单位、带口径**的指标名挂出来：``revenue_cum_yi`` 说的就是「营业总收入、累计、亿元」，
+# 亿 / 万混用、累计 / 单季混用两类错在命名层就被挡住。
+#
+# 不 import ``agent_research``（它经 ask_blocks 一族反向依赖本模块会成环），本地一个同形
+# 数据类，由 ``episode_tools`` 转成 ``StructuredObservation``。
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class FinancialObservation:
+    """一格机器可读的财务数：(标的, 报告期截止日, 指标) → 数。字段与 StructuredObservation 同形。"""
+
+    subject: str
+    as_of: str
+    metric: str
+    value: float
+
+
+# 主表（营收 / 利润 / 利润率）列 → 指标名。顺序即表列顺序。
+MAIN_ROW_METRICS: tuple[tuple[str, str], ...] = (
+    ("revenue_yi", "revenue_cum_yi"),
+    ("revenue_yoy", "revenue_yoy_pct"),
+    ("netprofit_yi", "net_profit_cum_yi"),
+    ("netprofit_yoy", "net_profit_yoy_pct"),
+    ("gross_margin", "gross_margin_pct"),
+    ("net_margin", "net_margin_pct"),
+)
+# 含金量表（现金流 / 合同负债 / 存货 / 股东户数）列 → 指标名。
+QUALITY_ROW_METRICS: tuple[tuple[str, str], ...] = (
+    ("ocf_yi", "ocf_cum_yi"),
+    ("contract_liability_yi", "contract_liability_yi"),
+    ("inventory_yi", "inventory_yi"),
+    ("holder_num", "holder_num"),
+    ("holder_change_pct", "holder_change_pct"),
+)
+# 指标名 → 人读口径说明（写进工具契约与计算产物，模型与读收据的人看同一份）。
+METRIC_GLOSSARY: dict[str, str] = {
+    "revenue_cum_yi": "营业总收入，报告期累计，亿元",
+    "revenue_yoy_pct": "营业总收入累计同比，%",
+    "net_profit_cum_yi": "归母净利润，报告期累计，亿元",
+    "net_profit_yoy_pct": "归母净利润累计同比，%",
+    "gross_margin_pct": "销售毛利率，%",
+    "net_margin_pct": "销售净利率，%",
+    "ocf_cum_yi": "经营活动现金流量净额，报告期累计，亿元",
+    "contract_liability_yi": "合同负债，期末余额，亿元",
+    "inventory_yi": "存货，期末余额，亿元",
+    "holder_num": "股东户数，户",
+    "holder_change_pct": "股东户数环比，%",
+}
+
+
+def observation_subject(ts_code: str) -> str:
+    """观察值的 subject：归一到 ``600519.SH`` 形；归一不了就原样。"""
+
+    return _secucode(ts_code) or str(ts_code or "").strip()
+
+
+def row_observations(
+    ts_code: str,
+    row: QuarterFinancials,
+    *,
+    table: Literal["main", "quality"],
+) -> tuple[FinancialObservation, ...]:
+    """一行 → 该表所有非空数的观察值。``as_of`` 是报告期截止日：数属于那一期，不属于披露日。"""
+
+    if not row.report_date:
+        return ()
+    subject = observation_subject(ts_code)
+    columns = MAIN_ROW_METRICS if table == "main" else QUALITY_ROW_METRICS
+    out: list[FinancialObservation] = []
+    for attr, metric in columns:
+        value = getattr(row, attr)
+        if value is None or isinstance(value, bool):
+            continue
+        if not isinstance(value, (int, float)) or value != value:
+            continue
+        out.append(FinancialObservation(subject, row.report_date, metric, float(value)))
+    return tuple(out)
+
+
+def main_row_line(row: QuarterFinancials) -> str:
+    """主表数据行（不带列表前缀 ``- ``），与 ``block_lines_to_evidence`` 剥掉前缀后的 detail 逐字节相同。"""
+
+    return (
+        f"| {_period_cell(row)} | {row.notice_date or '缺'} | "
+        f"{_fmt(row.revenue_yi)} | {_fmt(row.revenue_yoy)} | "
+        f"{_fmt(row.netprofit_yi)} | {_fmt(row.netprofit_yoy)} | "
+        f"{_fmt(row.gross_margin)} | {_fmt(row.net_margin)} |"
+    )
+
+
+def quality_row_line(row: QuarterFinancials) -> str:
+    """含金量表数据行（不带列表前缀 ``- ``）。"""
+
+    holder = "缺" if row.holder_num is None else str(row.holder_num)
+    return (
+        f"| {_period_cell(row)} | {row.notice_date or '缺'} | "
+        f"{_fmt(row.ocf_yi)} | {_fmt(row.contract_liability_yi)} | "
+        f"{_fmt(row.inventory_yi)} | {holder} | {_fmt(row.holder_change_pct)} |"
+    )
+
+
+def observations_by_line(
+    ts_code: str, rows: Sequence[QuarterFinancials]
+) -> dict[str, tuple[FinancialObservation, ...]]:
+    """渲染行文本 → 该行观察值。键与 ``build_financials_block`` 输出的数据行（去掉 ``- ``）逐字节一致，
+    ``episode_tools`` 用证据 detail 直接查表，不解析任何单元格。"""
+
+    mapping: dict[str, tuple[FinancialObservation, ...]] = {}
+    for row in rows:
+        main = row_observations(ts_code, row, table="main")
+        if main:
+            mapping[main_row_line(row)] = main
+        quality = row_observations(ts_code, row, table="quality")
+        if quality:
+            mapping[quality_row_line(row)] = quality
+    return mapping
+
+
 def _period_cell(row: QuarterFinancials) -> str:
     """报告期单元格带截止日 ISO。
 
@@ -859,24 +985,14 @@ def build_financials_block(
     )
     lines.append("- |---|---|---|---|---|---|---|---|")
     for r in rows:
-        lines.append(
-            f"- | {_period_cell(r)} | {r.notice_date or '缺'} | "
-            f"{_fmt(r.revenue_yi)} | {_fmt(r.revenue_yoy)} | "
-            f"{_fmt(r.netprofit_yi)} | {_fmt(r.netprofit_yoy)} | "
-            f"{_fmt(r.gross_margin)} | {_fmt(r.net_margin)} |"
-        )
+        lines.append(f"- {main_row_line(r)}")
     lines.append(
         "- | 报告期（截止日） | 披露日 | 经营现金流(亿) | 合同负债(亿) | 存货(亿) | 股东户数 | "
         "户数环比% |"
     )
     lines.append("- |---|---|---|---|---|---|---|")
     for r in rows:
-        holder = "缺" if r.holder_num is None else str(r.holder_num)
-        lines.append(
-            f"- | {_period_cell(r)} | {r.notice_date or '缺'} | "
-            f"{_fmt(r.ocf_yi)} | {_fmt(r.contract_liability_yi)} | "
-            f"{_fmt(r.inventory_yi)} | {holder} | {_fmt(r.holder_change_pct)} |"
-        )
+        lines.append(f"- {quality_row_line(r)}")
     watch = profit_quality_watch(rows)
     if watch:
         lines.append(watch)
@@ -891,6 +1007,72 @@ def build_financials_block(
         "缺失季度按缺口处理，禁止外推补齐或编造未披露数字。"
     )
     return "\n".join(lines)
+
+
+@dataclass(frozen=True)
+class FinancialsBundle:
+    """一次取数的全部产出：渲染块 + 原始行 + 取数结果。
+
+    块给模型读、行给结构化观察值与计算用——两者出自同一次取数，不会各取一次而对不上。
+    ``rows`` 为空时块里是显式缺口文案（或取数被开关关闭的说明）。
+    """
+
+    ts_code: str
+    name: str
+    rows: tuple[QuarterFinancials, ...]
+    result: FinancialsFetchResult | None
+    block: str
+
+    def observations_by_line(self) -> dict[str, tuple[FinancialObservation, ...]]:
+        return observations_by_line(self.ts_code, self.rows)
+
+
+def fetch_financials_bundle(
+    ts_code: str,
+    name: str = "",
+    periods: int = DEFAULT_PERIODS,
+    timeout: float = 8.0,
+    *,
+    chain: Callable[..., FinancialsFetchResult] | None = None,
+    enrich: bool | None = None,
+) -> FinancialsBundle:
+    """三级链取数 + 含金量补列 + 渲染，一次拿到块与行。
+
+    ``financials_block_for_target`` 的默认路径就是它（块逐字节相同）；``enrich`` 缺省时
+    只在走真实链（没注入 ``chain``）才补列——注入替身链的测试语义不变。
+    """
+
+    if not fetch_enabled():
+        return FinancialsBundle(
+            ts_code=ts_code,
+            name=name,
+            rows=(),
+            result=None,
+            block=build_financials_block(name or ts_code, ts_code, [], fetch_disabled=True),
+        )
+    result = (chain or fetch_quarterly_financials_chain)(ts_code, name, periods, timeout)
+    rows = list(result.rows)
+    if enrich if enrich is not None else chain is None:
+        rows = enrich_quality_fields(
+            ts_code, rows, timeout=timeout, fetch_missing=True, periods=periods
+        )
+    source = result.provider or PRIMARY_PROVIDER
+    if result.status == "degraded" and result.provider:
+        source = f"{result.provider}（{PRIMARY_PROVIDER} 不可用，已降级）"
+    block = build_financials_block(
+        name or ts_code,
+        ts_code,
+        rows,
+        data_source=source,
+        fetch_result=result,
+    )
+    return FinancialsBundle(
+        ts_code=ts_code,
+        name=name,
+        rows=tuple(rows),
+        result=result,
+        block=block,
+    )
 
 
 def financials_block_for_target(
@@ -911,24 +1093,14 @@ def financials_block_for_target(
         return build_financials_block(name or ts_code, ts_code, [], fetch_disabled=True)
     use_default_chain = chain is None and fetcher is None and fallback_fetcher is None
     if chain is not None or use_default_chain:
-        result = (chain or fetch_quarterly_financials_chain)(
-            ts_code, name, periods, timeout
-        )
-        rows = list(result.rows)
-        if use_default_chain:
-            rows = enrich_quality_fields(
-                ts_code, rows, timeout=timeout, fetch_missing=True, periods=periods
-            )
-        source = result.provider or PRIMARY_PROVIDER
-        if result.status == "degraded" and result.provider:
-            source = f"{result.provider}（{PRIMARY_PROVIDER} 不可用，已降级）"
-        return build_financials_block(
-            name or ts_code,
+        return fetch_financials_bundle(
             ts_code,
-            rows,
-            data_source=source,
-            fetch_result=result,
-        )
+            name,
+            periods=periods,
+            timeout=timeout,
+            chain=chain,
+            enrich=use_default_chain,
+        ).block
     fetch = fetcher or fetch_quarterly_financials
     rows = (
         fetch(ts_code, name, periods, timeout)

@@ -260,7 +260,10 @@ def test_p0b_default_registry_exposes_report_period_to_the_model() -> None:
     registry = default_registry({"financial_data": lambda *a, **k: None})
     spec = registry.resolve("financial_data")
     assert spec.query_scope == "episode"
-    assert set(spec.parameters["properties"]) == {"report_period"}
+    # P0b 只加了 report_period；工单 04 又加了可选 subjects（多公司一次取）。两者都可选，
+    # 空参仍是裸快照——这里钉「report_period 在、没有必填项」，不钉参数集恰好等于一个。
+    assert "report_period" in spec.parameters["properties"]
+    assert set(spec.parameters["properties"]) == {"report_period", "subjects"}
     assert "required" not in spec.parameters
     definition = registry.tool_definitions(("financial_data",))[0]["function"]
     assert definition["parameters"] == FINANCIAL_DATA_PARAMETERS

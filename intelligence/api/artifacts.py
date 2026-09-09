@@ -17,11 +17,14 @@ VIEWER_BY_SUFFIX = {
     ".md": "native_markdown",
     ".json": "native_json",
     ".html": "legacy_html",
+    # 工单 04：派生计算的数据表。UI 暂无表格阅读器，按下载件投影；09 接原生表格视图时只改这一行。
+    ".csv": "download",
 }
 FORMAT_BY_SUFFIX = {
     ".md": "markdown",
     ".json": "json",
     ".html": "html",
+    ".csv": "csv",
 }
 
 
@@ -215,6 +218,8 @@ class RunArtifactProvider:
                     "markdown": "native_markdown",
                     "json": "native_json",
                     "html": "legacy_html",
+                    # ``table``（CSV 数据表，工单 04）：下载件；UI 有表格阅读器后再换。
+                    "table": "download",
                 }.get(renderer, VIEWER_BY_SUFFIX.get(path.suffix.lower(), "download"))
                 question = re.sub(r"\s+", " ", run.question).strip()
                 source_label = (

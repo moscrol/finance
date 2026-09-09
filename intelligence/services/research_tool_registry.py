@@ -10,6 +10,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from functools import partial
 import json
+import re
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal
 import urllib.parse
@@ -144,7 +145,7 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
     ),
     "financial_data": (
         "financial_data",
-        "结构化逐季财务指标",
+        "结构化逐季财务指标（每行带机器可读观察值；可一次取多家公司）",
         "current",
         frozenset({"financial_assessment", "metric_evidence", "supporting_evidence"}),
     ),
@@ -232,6 +233,7 @@ EMPTY_TOOL_PARAMETERS: dict[str, object] = {
 # 可选指定：不传取最近 6 期；传「2024年报」则放宽到覆盖该期。2026-09-02 茅台题两臂
 # 都拿不到 2024 年报，正是因为它固定 6 期而 2024-12-31 是第 7 行——模型无从告诉工具
 # 自己要哪一期。
+FINANCIAL_DATA_MAX_SUBJECTS = 4
 FINANCIAL_DATA_PARAMETERS: dict[str, object] = {
     "type": "object",
     "properties": {
@@ -243,7 +245,20 @@ FINANCIAL_DATA_PARAMETERS: dict[str, object] = {
                 '例："2024年报"、"2025三季报"、"2025Q1"、"2024"（按年报）。'
                 "不传时取最近 6 期。一轮只取一次快照，要看某一期就在这次调用里传。"
             ),
-        }
+        },
+        # 工单 04：多公司同口径比较要一次拿到几家的逐季表。仍是一轮一份快照，所以几家
+        # 一起传，不是一家一次调用（第二次调用会被 episode_snapshot_already_collected 拒）。
+        "subjects": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": FINANCIAL_DATA_MAX_SUBJECTS,
+            "items": {"type": "string", "minLength": 1},
+            "description": (
+                f"可选。要取的公司列表（股票名称或 6 位代码，最多 {FINANCIAL_DATA_MAX_SUBJECTS} 家），"
+                '例：["贵州茅台", "000858", "泸州老窖"]。不传时取本轮题干主体那一家。'
+                "多公司比较必须在同一次调用里把几家都传进来——一轮只取一次快照。"
+            ),
+        },
     },
     "additionalProperties": False,
 }
@@ -427,6 +442,8 @@ def parse_sub_research_arguments(
 # 不在这里拒——模型改一次脚本就能过，不该按「参数错」计一次 invalid_action。
 DERIVED_CALCULATION_MAX_TIMEOUT = 60
 DERIVED_CALCULATION_DEFAULT_TIMEOUT = 20
+DERIVED_CALCULATION_MAX_PARAMS_CHARS = 4000
+_CALC_ID_RE = re.compile(r"^[0-9a-f]{16}$")
 DERIVED_CALCULATION_PARAMETERS: dict[str, object] = {
     "type": "object",
     "properties": {
@@ -436,10 +453,17 @@ DERIVED_CALCULATION_PARAMETERS: dict[str, object] = {
             "description": (
                 "要在沙箱里运行的 Python 脚本正文。可用变量 EVIDENCE（本回合已有证据的列表，"
                 "每条含 ref（E 号）/ hash / tool / title / detail / source / as_of / tier / "
-                "observations[{metric, value, as_of, subject}]）；用 emit({...}) 输出唯一结果字典"
-                "（数值、判定、说明都放进去），不 emit 视为没有结果。可 import 标准库与 "
-                "numpy / pandas；不能联网、不能起进程、不能写工作目录以外的文件。"
+                "observations[{subject, as_of, metric, value}]）与 PARAMS（本次传的参数字典）。"
+                "财务助手 fincalc 已内置：series(subject, metric) 取某公司某指标按报告期升序的序列；"
+                "to_single_quarter(累计序列) 累计→单季（缺上一期就 None 并写 note）；yoy / qoq / "
+                "ratio_series / safe_div / pct / pct_change / to_yi(值, 单位) / growth_path / "
+                "scenario_table / sensitivity_grid / table / chart。"
+                "结果用 emit_result(summary={标量}, tables=[table(...)], charts=[chart(...)], "
+                "formulas=[...], notes=[...]) 输出（表格会成为可下载 CSV / HTML 产物）；"
+                "简单结果也可 emit({...})。不 emit 视为没有结果。可 import 标准库与 numpy / pandas；"
+                "不能联网、不能起进程、不能写工作目录以外的文件。"
                 "需要查本地行情库时先传 use_duckdb=true，再用 duckdb_connect() 拿只读连接。"
+                "传了 inputs_from_calc 可不传 script（沿用那次计算的脚本）。"
             ),
         },
         "purpose": {
@@ -461,34 +485,77 @@ DERIVED_CALCULATION_PARAMETERS: dict[str, object] = {
             "maximum": DERIVED_CALCULATION_MAX_TIMEOUT,
             "description": f"脚本墙钟上限秒数，默认 {DERIVED_CALCULATION_DEFAULT_TIMEOUT}，最多 {DERIVED_CALCULATION_MAX_TIMEOUT}。",
         },
+        # 工单 04：假设 / 参数与沿用输入。
+        "params": {
+            "type": "object",
+            "description": (
+                "可选。本次计算的假设 / 参数（如 {\"growth_pct\": 5, \"margin_pct\": [48, 50, 52]}），"
+                "脚本里以 PARAMS 读；会写进产物并进计算编号——用户改一个假设，就改这里重算。"
+            ),
+        },
+        "inputs_from_calc": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{16}$",
+            "description": (
+                "可选。沿用上一轮某次计算的输入快照（16 位计算编号，回答正文与产物文件名 calc-<id> 里有），"
+                "不重新取数、哈希链不断；配 params 即「只改假设重算」。沿用的输入在脚本里编号 P1..Pn。"
+                "不传 script 时沿用那次的脚本。"
+            ),
+        },
     },
-    "required": ["script", "purpose"],
+    "required": ["purpose"],
     "additionalProperties": False,
 }
+
+
+def _validate_params_argument(value: object) -> dict[str, object]:
+    if not isinstance(value, Mapping):
+        raise InvalidResearchToolArguments("params argument must be a JSON object")
+    try:
+        encoded = json.dumps(dict(value), ensure_ascii=False, sort_keys=True)
+    except (TypeError, ValueError) as exc:
+        raise InvalidResearchToolArguments("params argument must be JSON-serialisable") from exc
+    if len(encoded) > DERIVED_CALCULATION_MAX_PARAMS_CHARS:
+        raise InvalidResearchToolArguments(
+            f"params argument must serialise to at most {DERIVED_CALCULATION_MAX_PARAMS_CHARS} characters"
+        )
+    return {str(key): item for key, item in value.items()}
 
 
 def parse_derived_calculation_arguments(
     arguments: Mapping[str, object],
 ) -> tuple[str, str]:
-    """四个键各按类型读，多余键 / 空脚本 / 空目的直接拒，不猜不补。
+    """六个键各按类型读，多余键 / 空脚本 / 空目的直接拒，不猜不补。
 
     runner 输入是规整后参数的 JSON 串（工具 runner 的第一个位置参数是字符串），
     display 用 purpose 给事件与模型看——脚本正文不进 display。
+    ``script`` 只在传了 ``inputs_from_calc`` 时可省（沿用那次计算的脚本）；传了就不能是空串。
     """
 
-    allowed = {"script", "purpose", "use_duckdb", "timeout_seconds"}
+    allowed = {"script", "purpose", "use_duckdb", "timeout_seconds", "params", "inputs_from_calc"}
     unknown = set(arguments) - allowed
     if unknown:
         raise InvalidResearchToolArguments(
-            "derived_calculation accepts only the script / purpose / use_duckdb / timeout_seconds "
-            "arguments; unexpected: " + ", ".join(sorted(str(item) for item in unknown))
+            "derived_calculation accepts only the script / purpose / use_duckdb / timeout_seconds / "
+            "params / inputs_from_calc arguments; unexpected: "
+            + ", ".join(sorted(str(item) for item in unknown))
         )
+    base_calc = arguments.get("inputs_from_calc")
+    if base_calc is not None:
+        if not isinstance(base_calc, str) or not _CALC_ID_RE.match(base_calc.strip()):
+            raise InvalidResearchToolArguments(
+                "inputs_from_calc must be a 16-hex calculation id (calc_id) from a previous turn",
+                code="invalid_query",
+            )
+        base_calc = base_calc.strip()
     script = arguments.get("script")
-    if not isinstance(script, str) or not script.strip():
-        raise InvalidResearchToolArguments(
-            "script argument must be a non-empty Python source string",
-            code="invalid_query",
-        )
+    if "script" in arguments or base_calc is None:
+        if not isinstance(script, str) or not script.strip():
+            raise InvalidResearchToolArguments(
+                "script argument must be a non-empty Python source string"
+                + ("" if base_calc is None else " (omit it entirely to reuse the base calculation's script)"),
+                code="invalid_query",
+            )
     purpose = arguments.get("purpose")
     if not isinstance(purpose, str) or not purpose.strip():
         raise InvalidResearchToolArguments(
@@ -505,35 +572,76 @@ def parse_derived_calculation_arguments(
         raise InvalidResearchToolArguments(
             f"timeout_seconds argument must be between 1 and {DERIVED_CALCULATION_MAX_TIMEOUT}"
         )
+    params = (
+        _validate_params_argument(arguments.get("params")) if "params" in arguments else {}
+    )
     cleaned_purpose = purpose.strip()[:200]
-    payload = {
-        "script": script,
+    payload: dict[str, object] = {
+        "script": script if isinstance(script, str) else "",
         "purpose": cleaned_purpose,
         "use_duckdb": use_duckdb,
         "timeout_seconds": timeout,
     }
+    if params:
+        payload["params"] = params
+    if base_calc is not None:
+        payload["inputs_from_calc"] = base_calc
     return json.dumps(payload, ensure_ascii=False), cleaned_purpose
 
 
 def parse_financial_data_arguments(
     arguments: Mapping[str, object],
 ) -> tuple[str, str]:
-    """快照工具 + 一个可选 ``report_period``。空参合法，等同旧的无参快照。"""
+    """快照工具 + 可选 ``report_period`` + 可选 ``subjects``。空参合法，等同旧的无参快照。
+
+    runner 输入的两种形状（``episode_tools.parse_financial_data_request`` 反解）：
+    只有 ``report_period`` 时仍是那段裸文本（P0b 语义不变）；带 ``subjects`` 时是
+    ``{"report_period": ..., "subjects": [...]}`` 的 JSON 串。
+    """
 
     if not arguments:
         return "", "snapshot"
-    if set(arguments) != {"report_period"}:
+    allowed = {"report_period", "subjects"}
+    if not set(arguments) <= allowed:
         raise InvalidResearchToolArguments(
-            "financial_data snapshot accepts only an optional report_period argument"
+            "financial_data snapshot accepts only the optional report_period / subjects arguments"
         )
-    value = arguments.get("report_period")
-    if not isinstance(value, str) or not value.strip():
+    cleaned = ""
+    if "report_period" in arguments:
+        value = arguments.get("report_period")
+        if not isinstance(value, str) or not value.strip():
+            raise InvalidResearchToolArguments(
+                "report_period must be a non-empty string when given",
+                code="invalid_query",
+            )
+        cleaned = value.strip()
+    if "subjects" not in arguments:
+        return cleaned, cleaned
+    raw_subjects = arguments.get("subjects")
+    if not isinstance(raw_subjects, list) or not raw_subjects:
         raise InvalidResearchToolArguments(
-            "report_period must be a non-empty string when given",
+            "subjects must be a non-empty list of stock names or 6-digit codes",
             code="invalid_query",
         )
-    cleaned = value.strip()
-    return cleaned, cleaned
+    subjects: list[str] = []
+    for item in raw_subjects:
+        if not isinstance(item, str) or not item.strip():
+            raise InvalidResearchToolArguments(
+                "each subject must be a non-empty string (stock name or 6-digit code)",
+                code="invalid_query",
+            )
+        text = item.strip()
+        if text not in subjects:
+            subjects.append(text)
+    if len(subjects) > FINANCIAL_DATA_MAX_SUBJECTS:
+        raise InvalidResearchToolArguments(
+            f"subjects accepts at most {FINANCIAL_DATA_MAX_SUBJECTS} companies per snapshot"
+        )
+    payload = json.dumps(
+        {"report_period": cleaned, "subjects": subjects}, ensure_ascii=False
+    )
+    display = "subjects=" + "、".join(subjects) + (f"; period={cleaned}" if cleaned else "")
+    return payload, display
 
 
 def unwrap_double_encoded_query(
@@ -1322,6 +1430,14 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "要在 report_period 里写明该期，否则那一行不在返回里，不等于没有该期数据。"
         "每行的日期是该期披露日（缺披露日时为报告期截止日），引用时按此写 as-of，"
         "不要用取数日。"
+        # 工单 04：结构化观察值 + 多公司。这两句也是 runner 行为，模型从正文读不出来。
+        "每一数据行同时带 observations（subject=股票代码如 600519.SH，as_of=报告期截止日，"
+        "metric 带单位与口径：revenue_cum_yi / net_profit_cum_yi / gross_margin_pct / "
+        "net_margin_pct / ocf_cum_yi / contract_liability_yi / inventory_yi 等，_cum_ 表示累计、"
+        "_yi 表示亿元、_pct 表示百分数），要算单季 / 同比 / 比率就用 derived_calculation 读这些"
+        "观察值，不要手抄表格里的数。"
+        "多公司比较把几家一起写进 subjects（最多 4 家）一次取；一轮只取一次快照，"
+        "第二次调用会被拒，缺了哪家就补不了。"
     ),
     # memory_lookup 的 description 已声明「不是市场事实、不能当作证据引用」，这里只补
     # 它无法自述的那半条：空命中的含义。runner 的空分支返回「用户记忆无相关命中」，
@@ -1452,6 +1568,19 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "本回合还没有任何证据时会拒绝（no_bound_evidence）：先取证再计算。"
         "参数 script 是 Python 正文（用 EVIDENCE 读证据、emit 出结果，不能联网 / 起进程 / 越界写文件），"
         "purpose 一句话说明算什么，use_duckdb 只在要查本地行情库时开，timeout_seconds 默认 20 最多 60。"
+        # 工单 04：结构化结果 / 参数 / 产物 / 沿用输入。这些是 runner 与收口层的行为，模型从
+        # 观察值正文里读不出来。
+        "财务数用 financial_data 每行 observations 里的结构化值算（metric 名带口径与单位，如 "
+        "revenue_cum_yi 是累计亿元），不要解析表格文本；累计口径转单季必须用 to_single_quarter，"
+        "不要把中报 / 三季报的累计数当单季数。"
+        "结果用 emit_result(summary, tables, charts, params, formulas, notes) 组织：表格里的每个数都会"
+        "进这条派生证据的 observations，正文引用它们时逐字照抄（不四舍五入成别的数）；"
+        "表格 / 图表 / 完整记录会作为本次回答的产物落盘为 calc-<计算编号>.csv / .html / .json，"
+        "正文里告诉用户可下载，并写明「计算编号 <calc_id>」。"
+        "params 里放假设（用户改一个假设时只改 params 再算一次）；inputs_from_calc 填上一轮的计算编号"
+        "就沿用那次的输入快照与脚本（不重新取数、不断哈希链，输入在脚本里编号 P1..Pn），"
+        "找不到该编号回 base_calc_not_found，不是数值。"
+        "零分母、缺季度、单位不认识时助手函数返回 None 并写 note，None 就写「缺」，不要填 0 或外推。"
     ),
 }
 
