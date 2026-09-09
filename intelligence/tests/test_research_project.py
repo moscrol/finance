@@ -515,8 +515,19 @@ def test_subject_and_asof_survive_a_direct_answer_round(users_root: Path) -> Non
     run_store.finish_run(run.run_id, "completed")
     current = _round(run_store, conv_store, cid, "第四问", "", subject="光模块", finish=False)
 
+    # 意图继承会把污染值复制到后续直答轮（真实验收 3:3 平手形状）：再补两轮同长句。
+    for question in ("继续", "再继续"):
+        run2 = run_store.create_run(question, "ask", session_id=cid)
+        conv_store.append_message(cid, "user", question, run_id=run2.run_id)
+        msg2 = conv_store.append_message(cid, "assistant", "", status="pending", run_id=run2.run_id)
+        conv_store.revise_message(
+            cid, msg2.message_id, content="**继续直答。**", status="completed",
+            turn_intent={"primary_subject": polluted, "question_type": "concept_definition"},
+        )
+        run_store.finish_run(run2.run_id, "completed")
+
     state = rp.load_project(conv_store, run_store, cid, exclude_run_id=current)
-    assert state.subject == "光模块"          # 众数压过一次性长句
+    assert state.subject == "光模块"          # 子串归并：长句票数归给「光模块」，3:3 也不翻车
     assert state.as_of == "2026-09-08"        # 回溯到最近有数据截止的轮
     block, _ = rp.prior_for_turn(
         conv_store, run_store, conversation_id=cid, current_run_id=current, subject="光模块"
