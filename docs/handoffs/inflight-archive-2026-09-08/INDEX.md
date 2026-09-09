@@ -10,7 +10,7 @@
 - **B 文首自述已合**：squash/rebase 合入没有合并提交，但交接文首自己写了「已合 #N / 已切」。
 - **C 本地分支 git cherry +0**：本地还留着同名分支，对 gitea/main 逐补丁比对全部已在（squash/rebase 合入的形状）；两份本地远端都没分支的按项目笔记判。
 
-共 93 份，368 KB；2026-09-09 追加 9 份 / 29 KB，合计 102 份。
+共 93 份，368 KB；2026-09-09 追加 9 份 / 29 KB + 追加二 1 份 / 3 KB，合计 103 份。
 
 | 文件 | 证据类 | 证据 | 字节 |
 |---|---|---|---|
@@ -123,3 +123,11 @@
 | [`docs-closeout-0909.md`](./docs-closeout-0909.md) | A 合入提交 | 5eb24515 · 2026-09-09 · #686 | 2713 |
 | [`feat-runtime-base-p3-steer-cli.md`](./feat-runtime-base-p3-steer-cli.md) | A 合入提交 | db2052db · 2026-09-09 · #687 | 2932 |
 | [`fix-deploy-ledger-single-home.md`](./fix-deploy-ledger-single-home.md) | A 合入提交 | dba3aa55 · 2026-09-09 · #688 | 2961 |
+
+## 2026-09-09 追加二（1 份：能力包 09 连续研究）
+
+当日合入当日收：#689 由同一 session 合并后按「合入即归档」收口，原文逐字搬入。
+
+| 文件 | 证据类 | 证据 | 字节 |
+|---|---|---|---|
+| [`feat-continuous-research-09.md`](./feat-continuous-research-09.md) | A 合入提交 | 83e4185f · 2026-09-09 · #689 | 3059 |
