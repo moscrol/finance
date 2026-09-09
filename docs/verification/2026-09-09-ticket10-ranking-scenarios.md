@@ -55,9 +55,13 @@ HTTP 429  {"error":{"code":"rate_limited","message":"{\"error\":{\"code\":\"mode
 
 Q1 这一对是本单第一份真实差分：同题、同模型、同判官条件下，候选臂模型按契约写出了完整的公司矩阵、改判条件表、竞争解释与下一步，且通过一轮修复达到 completed；基线臂只有 812 字散文。结果 JSON 存档 `/tmp/ticket10/paired-r1/`。
 
-### 4.2 第二轮（正式，判官 sandbox=off 修复后）
+### 4.2 第二轮（正式，判官 sandbox=off 修复后；网关切本机 sub2api）
 
-两臂 16:47 前后带 `LLM_JUDGE_GROK_SANDBOX=off` 重启（8815 pid=45120、8816 pid=45121，cwd 与树核对一致），完整批跑 q1..q5 重新排队；网关冷却至约 21:04，脚本睡到重置后自动开跑。结果落 `/tmp/ticket10/paired/{base,cand}/`，汇总脚本 `/tmp/ticket10/summarize.py`（附录）。
+- 16:47 两臂带 `LLM_JUDGE_GROK_SANDBOX=off` 重启。
+- 18:15 起写手网关按用户指示切 **本机 sub2api（127.0.0.1:8080，Mirasim 多账号池，gpt-5.6-sol / terra 兜底，launcher 同一把 key）**，不再等 Cockpit 57244 的模型冷却；两臂 sidecar 与批跑探针的 `FORESIGHT_BUILTIN_LLM_BASE_URL` / `LLM_BASE_URL` 都指向 8080。
+- 18:13–18:4x sub2api 的全部上游账号对 sol/terra 回 503（`upstream_failover_switching` 打满 10 次切换）——上游整体故障期。18:17 探针短暂通过后 q1 基线臂在抖动中跑出 16 个 `model_unavailable` 事件的污染 run（`run_20260909_181722_735631`，draft 0 字），**已作废**。据此给批跑加两道防线并重启（18:22）：① 探针连续两次通过（间隔 20 s）才放行；② 每题跑完读该 run `continuous-episode.json` 的 `model_error` 事件数，>0 判污染、等网关恢复后同会话重跑（≤5 次），最终仍污染则标 `tainted` 如实保留。**429/503 污染的 run 一律不作为验收证据。**
+
+结果落 `/tmp/ticket10/paired/{base,cand}/`，汇总脚本 `/tmp/ticket10/summarize.py`（附录）。
 
 | 题 | 臂 | run_id | 状态 / 耗时 | 矩阵行 | 改判行 | 竞争解释 | 下一步 | 缺件 | 判官 |
 |---|---|---|---|---|---|---|---|---|---|
@@ -67,6 +71,7 @@ Q1 这一对是本单第一份真实差分：同题、同模型、同判官条�
 
 - 新增 `intelligence/tests/test_ranking_contract.py`：意图门（六题正样本、九条负样本、两对象强词面、自足问法、再排序追问）、契约文本（固定表头、纪律句、legacy/episode 记号隔离）、解析（矩阵/改判/竞争解释/下一步/代码/证据号/缺数计数）、缺件核对与 `missing_outputs` 合并、`is_contract_rewrite_only` 认 ranking id、机械再排序四例（成本条件改排序、反向不触发、未覆盖不变、公司级订单 ↑↑ 上两位）、行序打乱 + 文案改动推导不变、无优先级拒算、收据形状、checkpoints 登记去重 + 渲染 + 终态裁决过滤、episode 规则注入 / 非排序题不变、`expression_slot_binding` FORMAT 回灌、修复说明（跟踪-only 文本逐字节不变）、跨轮上一轮矩阵选取、机械基线注入、`rerank_consistent` 三态。
 - 门禁：ruff 全仓通过；`check_unread_fields` 无新增；`layer_audit` ERROR 0；`check_path_literals` 无新增。
+- 全量 pytest（提交态 `1ba0bd8b`，机器空闲）：**8343 passed / 77 skipped / 1 xfailed**（6 分 15 秒），收据 `20260909T103809Z-1ba0bd8b.json`，`check_test_receipt.py` ✅ 可采信。
 
 ## 6. 四项报告（待填）
 
