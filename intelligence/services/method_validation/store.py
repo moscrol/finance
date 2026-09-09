@@ -140,6 +140,77 @@ def write_record(study_dir, kind, payload) -> Path:
     return target
 
 
+def list_studies(root) -> list:
+    """Study directories under a root, oldest protocol id first; missing root → []."""
+    parent = Path(root).expanduser()
+    if not parent.is_dir():
+        return []
+    out = []
+    for child in sorted(parent.iterdir()):
+        if _ID.fullmatch(child.name) and not child.is_symlink() and child.is_dir():
+            if (child / "protocol.json").is_file():
+                out.append(child)
+    return out
+
+
+def list_records(study_dir, kind) -> list:
+    """Record files of one kind, ordered by partition day then content id."""
+    if kind not in KINDS:
+        raise ValueError("invalid record kind")
+    parent = Path(study_dir) / kind
+    if not parent.is_dir():
+        return []
+    out = []
+    for day in sorted(parent.iterdir()):
+        if day.is_symlink() or not day.is_dir():
+            continue
+        try:
+            iso_date(day.name)
+        except ValueError:
+            continue
+        for path in sorted(day.glob("*.json")):
+            if _ID.fullmatch(path.stem) and not path.is_symlink():
+                out.append(path)
+    return out
+
+
+def publish_json(path, value) -> Path:
+    """Atomically publish a derived JSON view; identical content is idempotent.
+
+    Derived views (standing digests, candidate drafts) share the record
+    discipline: never overwritten in place, always canonical bytes.
+    """
+    target = Path(path)
+    if target.is_symlink():
+        raise ValueError("symlink targets are not supported")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    _publish(target, value)
+    return target
+
+
+def replace_json(path, value) -> Path:
+    """Atomically (re)publish a derived cache view that may legitimately change.
+
+    Standing digests carry ``generated_at``; re-deriving the same inputs must
+    not fail on a stale timestamp, so this replaces instead of refusing. Only
+    for caches keyed by an input fingerprint — records still use ``_publish``.
+    """
+    target = Path(path)
+    if target.is_symlink():
+        raise ValueError("symlink targets are not supported")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    data = canonical_bytes(value)
+    with tempfile.NamedTemporaryFile(
+        dir=target.parent, prefix=".pending-", delete=False
+    ) as stream:
+        temporary = Path(stream.name)
+        stream.write(data)
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, target)
+    return target
+
+
 def read_record(path) -> dict:
     path = Path(path)
     if path.suffix != ".json" or path.parent.parent.name not in KINDS:

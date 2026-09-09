@@ -460,6 +460,42 @@ def _enrich_decision_with_market_validation(
     market_validation.build_market_validation_for_decision(decision, current_by_theme, history_by_theme)
 
 
+def _method_flywheel_section(options: DailyAgentOptions) -> dict[str, Any]:
+    """方法飞轮段（能力升级 07）：只读该用户的方法验证立场摘要与 checkpoint 台账。
+
+    没有实验、摘要缺失、读取失败都如实写进段里，不让日报因此失败。
+    """
+    from intelligence.services.method_validation import flywheel
+
+    try:
+        space = user_space(options.user)
+        cpath = (
+            Path(options.checkpoints_path).expanduser()
+            if options.checkpoints_path
+            else space.checkpoints_path
+        )
+        vpath = space.verdicts_path if not options.checkpoints_path else None
+        return flywheel.daily_brief(
+            user=options.user,
+            today=options.date,
+            checkpoints_path=cpath,
+            verdicts_path=vpath,
+        )
+    except Exception as exc:  # 日报不能因为方法段失败
+        return {
+            "available": False,
+            "today": options.date,
+            "reason": f"方法飞轮段不可用：{type(exc).__name__}: {exc}",
+            "studies": [],
+        }
+
+
+def _method_flywheel_rows(brief: dict[str, Any] | None) -> list[str]:
+    from intelligence.services.method_validation import flywheel
+
+    return flywheel.render_brief_lines(brief or {})
+
+
 def _enrich_decision_with_semantic_rag(
     decision: dict[str, list[dict[str, Any]]],
     options: DailyAgentOptions,
@@ -653,6 +689,7 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         wiki_root=paths.knowledge_wiki,
     )
     catalyst_attribution.enrich_kb_ingest_queue(catalyst_index, kb_queue)
+    method_flywheel = _method_flywheel_section(options)
     knowledge_snapshot_after = build_content_delta(
         paths.knowledge_wiki,
         captured_at=snapshot_captured_at,
@@ -691,6 +728,7 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         },
         "research_queue": task_queue,
         "kb_ingest_queue": kb_queue,
+        "method_flywheel": method_flywheel,
         "catalyst_attribution": {
             "enabled": True,
             "window_days": options.catalyst_window_days,
@@ -947,6 +985,7 @@ def render_daily_agent(report: dict[str, Any]) -> str:
     else:
         lines.append("- 无")
     lines.extend(["", "## 今日研究任务队列", "", *_research_queue_rows(report.get("research_queue") or {})])
+    lines.extend(["", "## 方法信号与待验对象", "", *_method_flywheel_rows(report.get("method_flywheel"))])
     lines.extend(["", "## 知识库回补任务包", "", *_kb_ingest_queue_rows(report.get("kb_ingest_queue") or {})])
     lines.extend(["", "## 逻辑证据卡", "", *_evidence_card_rows(decision)])
     lines.extend(["", "## 逐声明证据血缘", ""])

@@ -168,6 +168,35 @@ def read_features(labels_db, protocol, *, start, end) -> dict:
     }
 
 
+def read_market_stages(labels_db, protocol, *, start, end) -> dict:
+    """Read the market stage per trading day in ``[start, end]`` (read-only).
+
+    Used after an observation matures to tell whether the outcome window stayed
+    inside the protocol's applicable stages; it never selects members.
+    """
+    validate_protocol(protocol)
+    start, end = iso_date(start), iso_date(end)
+    if start > end:
+        raise ValueError("start must not follow end")
+    con = open_labels_db(labels_db, read_only=True)
+    try:
+        rows = con.execute(
+            """SELECT trade_date, value_text, label_version FROM history_labels
+               WHERE entity_type = 'market' AND entity_id = 'market'
+                 AND label = 'market_stage' AND trade_date BETWEEN ? AND ?
+               ORDER BY trade_date""",
+            [start, end],
+        ).fetchall()
+    finally:
+        con.close()
+    stages = {}
+    for day, text, version in rows:
+        if version != protocol["label_version"]:
+            raise ValueError("market stage row label version mismatch")
+        stages[str(day)] = text
+    return stages
+
+
 def _validate_features(protocol, features) -> None:
     validate_protocol(protocol)
     if set(features) != {"protocol_id", "start", "end", "calendar", "rows", "metadata"}:
