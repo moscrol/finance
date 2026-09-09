@@ -107,7 +107,8 @@ def test_production_episode_registry_ships_no_bare_tool(tmp_path: Path) -> None:
     context = build_episode_context(
         frame,
         task_id="contract-gate-production",
-        capabilities=tuple(reg._DEFAULT_TOOL_METADATA),
+        # capability 全集，不是工具名全集（历史三工具共享 finance_query）。
+        capabilities=tuple(reg.DEFAULT_RESEARCH_CAPABILITIES),
         timeout=30.0,
         today="2026-09-02",
     )

@@ -1417,7 +1417,11 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
     specs = tuple(
         ToolSpec(
             name=name,
-            capability=name,
+            # capability 读元数据声明而不是抄工具名：历史三工具（history_query /
+            # read_history_result / save_history_research）按批准 spec 共享 finance_query
+            # 授权，生产装配（history_tool_specs）也是 finance_query；此前这里写 name，
+            # 元数据说 finance_query、装配说 history_query，T-7 门禁两边对不上。
+            capability=capability,
             description=description,
             contract=_TOOL_CONTRACTS.get(name, ""),
             cost="local" if freshness == "stable" else "external",

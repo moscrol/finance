@@ -14,15 +14,15 @@
 | `finance_query` | finance_query | external | current | query | — | `query` | data_date, market_change, risk_signals, supporting_evidence | 按语义数据集、指标、维度、筛选和时间范围查询本地结构化金融数据 |
 | `financial_data` | financial_data | external | current | episode | — | `report_period` | financial_assessment, metric_evidence, supporting_evidence | 结构化逐季财务指标 |
 | `graph_lookup` | graph_lookup | local | stable | query | — | `query` | chain_mapping, company_mapping, relation_map | 知识图谱实体与关系 |
-| `history_query` | history_query | external | historical | query | — | `query` | — | 可复算历史行情与完整样本比较 |
+| `history_query` | finance_query | external | historical | query | — | `query` | — | 可复算历史行情与完整样本比较 |
 | `kb_search` | kb_search | local | stable | query | 20.0 | `query` | direct_answer, direct_definition, direct_explanation, supporting_evidence | 本地知识库检索 |
 | `l3_lookup` | l3_lookup | external | current | query | — | `query` | fact_value, supporting_evidence | 官方公告与互动证据 |
 | `mainline_context` | mainline_context | external | current | episode | — | — | mainline_structure, supporting_evidence | 同日主线与板块结构 |
 | `market_data` | market_data | external | current | episode | — | — | current_baseline, data_date, market_summary, prime_quote, supporting_evidence | 结构化行情与市场时序 |
 | `memory_lookup` | memory_lookup | local | stable | query | — | `query` | prime_memory | 用户自己过去的判断与纠偏原则（历史先验，不是市场事实） |
 | `news_search` | news_search | external | current | query | — | `query` | event_facts, impact_transmission, prime_news, supporting_evidence | 财经新闻检索 |
-| `read_history_result` | read_history_result | external | historical | query | — | `query` | — | 读取本会话历史研究原件 |
-| `save_history_research` | save_history_research | external | historical | query | — | `query` | — | 保存版本化研究假设与反例 |
+| `read_history_result` | finance_query | external | historical | query | — | `query` | — | 读取本会话历史研究原件 |
+| `save_history_research` | finance_query | external | historical | query | — | `query` | — | 保存版本化研究假设与反例 |
 | `sub_research` | sub_research | external | current | query | 60.0 | `goals` | supporting_evidence | 把 1–3 个可独立取证的子问题并行交给子研究分支，各支带自己的工具预算跑到终态后一次返回证据 |
 | `web_fetch` | web_fetch | external | current | query | — | `url` | event_facts, supporting_evidence | 按 URL 取网页正文全文（取页，不是检索；URL 先由 web_search / news_search 给出） |
 | `web_search` | web_search | external | current | query | — | `query` | event_facts, impact_transmission, supporting_evidence | 全网网页检索 |
