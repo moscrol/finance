@@ -204,6 +204,53 @@ def test_reset_user_from_seed_only_inside_guarded_dir(tmp_path: Path) -> None:
         cb.reset_user_from_seed(tmp_path / "plain-users", "cb00-baseline", tgz)
 
 
+def test_wait_out_cooldown_sleeps_reset_then_proceeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    answers = iter(
+        [
+            {"status": "cooldown", "reset_seconds": 120, "served_model": None},
+            {"status": "ok", "reset_seconds": None, "served_model": "m"},
+        ]
+    )
+    monkeypatch.setattr(cb, "gateway_probe_from_env", lambda model=None: next(answers))
+    naps: list[float] = []
+    history = cb.wait_out_cooldown(model="m", max_wait_s=7200, sleep=naps.append)
+    assert naps == [150.0]
+    assert [h["status"] for h in history] == ["cooldown", "ok"]
+    assert history[0]["slept_s"] == 150.0
+
+
+def test_wait_out_cooldown_gives_up_past_max_wait(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        cb,
+        "gateway_probe_from_env",
+        lambda model=None: {
+            "status": "cooldown",
+            "reset_seconds": 5000,
+            "served_model": None,
+        },
+    )
+    history = cb.wait_out_cooldown(model="m", max_wait_s=600, sleep=lambda _s: None)
+    assert history[-1]["gave_up"] is True and len(history) == 1
+
+
+def test_gateway_probe_from_env_refuses_to_guess(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for name in (
+        "FORESIGHT_BUILTIN_LLM_BASE_URL",
+        "LLM_BASE_URL",
+        "FORESIGHT_BUILTIN_LLM_API_KEY",
+        "LLM_API_KEY",
+        "OPENAI_API_KEY",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    assert cb.gateway_probe_from_env("m") is None
+
+
 def test_sealed_manifest_verifies_against_local_sealed_dir_when_present() -> None:
     sealed = Path.home() / "capability-benchmark-00-sealed-20260909"
     if not sealed.is_dir():

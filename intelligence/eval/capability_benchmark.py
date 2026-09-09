@@ -762,6 +762,113 @@ def run_case(
     return result
 
 
+def gateway_probe(
+    *, base_url: str, api_key: str, model: str, timeout: float = 60.0
+) -> dict[str, Any]:
+    """跑每一题前先向共享模型网关要 1 个字。
+
+    429 model_cooldown 时返回 reset_seconds，由调用方睡过去再跑；否则这一题量出来的是配额不是能力
+    （记忆：Live batch must precheck the model gateway cooldown）。probe 本身只花几个 token。
+    """
+
+    body = json.dumps(
+        {
+            "model": model,
+            "messages": [{"role": "user", "content": "回复一个字：好"}],
+            "max_tokens": 8,
+        }
+    ).encode("utf-8")
+    req = urllib.request.Request(
+        f"{base_url.rstrip('/')}/chat/completions",
+        data=body,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    started = time.monotonic()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            payload = json.loads(resp.read().decode("utf-8") or "{}")
+        served = payload.get("model")
+        return {
+            "status": "ok",
+            "served_model": served,
+            "reset_seconds": None,
+            "elapsed_s": round(time.monotonic() - started, 1),
+        }
+    except urllib.error.HTTPError as exc:
+        text = exc.read().decode("utf-8", errors="replace")
+        reset: int | None = None
+        match = re.search(r"reset_seconds\D*(\d+)", text)
+        if match:
+            reset = int(match.group(1))
+        status = (
+            "cooldown" if exc.code == 429 and reset is not None else f"http_{exc.code}"
+        )
+        return {
+            "status": status,
+            "served_model": None,
+            "reset_seconds": reset,
+            "detail": text[:200],
+            "elapsed_s": round(time.monotonic() - started, 1),
+        }
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        return {
+            "status": "unreachable",
+            "served_model": None,
+            "reset_seconds": None,
+            "detail": str(exc)[:200],
+            "elapsed_s": round(time.monotonic() - started, 1),
+        }
+
+
+def gateway_probe_from_env(model: str | None = None) -> dict[str, Any] | None:
+    """按运行时同一套 env 取网关地址、凭证与主模型；缺任一项返回 None（不猜）。"""
+
+    base_url = os.environ.get("FORESIGHT_BUILTIN_LLM_BASE_URL") or os.environ.get(
+        "LLM_BASE_URL"
+    )
+    api_key = (
+        os.environ.get("FORESIGHT_BUILTIN_LLM_API_KEY")
+        or os.environ.get("LLM_API_KEY")
+        or os.environ.get("OPENAI_API_KEY")
+    )
+    target = (
+        model
+        or os.environ.get("FORESIGHT_BUILTIN_LLM_MODEL")
+        or os.environ.get("LLM_MODEL")
+    )
+    if not base_url or not api_key or not target:
+        return None
+    return gateway_probe(base_url=base_url, api_key=api_key, model=target)
+
+
+def wait_out_cooldown(
+    *, model: str | None, max_wait_s: float, sleep: Any = time.sleep
+) -> list[dict[str, Any]]:
+    """探到 cooldown 就按 reset_seconds 睡，直到 ok 或超过 max_wait_s；每次探测都留痕。"""
+
+    history: list[dict[str, Any]] = []
+    waited = 0.0
+    while True:
+        probe = gateway_probe_from_env(model)
+        if probe is None:
+            history.append({"status": "skipped_no_env"})
+            return history
+        history.append(probe)
+        if probe["status"] != "cooldown":
+            return history
+        nap = float(probe["reset_seconds"] or 600) + 30.0
+        if waited + nap > max_wait_s:
+            probe["gave_up"] = True
+            return history
+        probe["slept_s"] = nap
+        sleep(nap)
+        waited += nap
+
+
 def market_data_date(finance_root: Path | None) -> str | None:
     if finance_root is None:
         return None
@@ -797,6 +904,8 @@ def run_benchmark(
     finance_root: Path | None = None,
     case_filter: Sequence[str] | None = None,
     force: bool = False,
+    gateway_probe_model: str | None = None,
+    max_cooldown_wait_s: float = 7200.0,
 ) -> dict[str, Any]:
     if output.exists():
         raise CapabilityBenchmarkError(f"refusing to overwrite {output}")
@@ -821,12 +930,26 @@ def run_benchmark(
         "cases": [],
         "summary": {},
     }
+    artifact["gateway_probe_model"] = gateway_probe_model
     output.parent.mkdir(parents=True, exist_ok=True)
     for case in selected:
+        probe_history: list[dict[str, Any]] = []
+        if gateway_probe_model:
+            probe_history = wait_out_cooldown(
+                model=gateway_probe_model, max_wait_s=max_cooldown_wait_s
+            )
         result = run_case(
             base, user, case, users_dir=users_dir, poll_seconds=poll_seconds
         )
-        artifact["cases"].append(asdict(result))
+        record = asdict(result)
+        record["gateway_probe"] = probe_history
+        if probe_history and probe_history[-1].get("status") not in {
+            "ok",
+            "skipped_no_env",
+        }:
+            # 网关没恢复就跑出来的读数量的是配额不是能力：保留原状态，另打一个标。
+            record["quota_tainted"] = True
+        artifact["cases"].append(record)
         artifact["summary"] = summarize_artifact(artifact["cases"])
         output.write_text(
             json.dumps(artifact, ensure_ascii=False, indent=1), encoding="utf-8"
@@ -1287,6 +1410,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         else None,
         case_filter=args.case or None,
         force=args.force,
+        gateway_probe_model=args.gateway_probe_model,
+        max_cooldown_wait_s=args.max_cooldown_wait_s,
     )
     print(json.dumps(artifact["summary"], ensure_ascii=False, indent=1))
     statuses = artifact["summary"].get("execution_status") or {}
@@ -1378,6 +1503,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     p.add_argument(
         "--force", action="store_true", help="前置检查未过也强跑（记录在 artifact）"
     )
+    p.add_argument(
+        "--gateway-probe-model",
+        help="每题开跑前向网关要 1 个字；429 model_cooldown 按 reset_seconds 睡过去再跑",
+    )
+    p.add_argument("--max-cooldown-wait-s", type=float, default=7200.0)
     p.set_defaults(func=cmd_run)
 
     p = sub.add_parser("review-pack", help="生成匿名配对评审包")
