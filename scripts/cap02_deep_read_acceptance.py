@@ -330,11 +330,25 @@ def _looks_like_clarification(users_root: Path, user: str, run_id: str, answer: 
 
 
 def _gateway_key() -> str:
-    """网关 key 的解析顺序与生产启动脚本对齐：env（Mirasim 8080 / 任意）→ mirasim sidecar 的
+    """网关 key 的解析顺序与生产启动脚本对齐：``CAP02_GATEWAY_KEYCHAIN``（显式指定 Keychain
+    条目，打 Cockpit 时用，避免拿 Mirasim 的 key 去撞 401）→ env → mirasim sidecar 的
     client-keys.env 文件 → cockpit 的 macOS Keychain 条目。不落盘、不打印。取不到返回空串
     （探针退化为免 key 探活）。"""
     import subprocess
 
+    forced = str(os.environ.get("CAP02_GATEWAY_KEYCHAIN") or "").strip()
+    if forced:
+        try:
+            out = subprocess.run(
+                ["security", "find-generic-password", "-s", forced, "-a", "a77", "-w"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+            return out.stdout.strip() if out.returncode == 0 else ""
+        except (OSError, subprocess.TimeoutExpired):
+            return ""
     for name in ("FORESIGHT_BUILTIN_LLM_API_KEY", "OPENAI_API_KEY"):
         value = str(os.environ.get(name) or "").strip()
         if value:
