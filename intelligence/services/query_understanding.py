@@ -115,6 +115,10 @@ _DATED_MARKET_TOPIC_RE = re.compile(
     # 「这一波农业…请事后复盘」没有日期，不会被吞。
     r"|复盘"
 )
+# 信封层只为「8.18的复盘数据你怎么解读」这类说法补 dated_market_review：日期 + 复盘。
+# 不收「解读」：「2026-07-23 的市场情绪怎么解读」在冻结三十题里按通用研究验收
+# （direct_answer / evidence_boundary），改它的题型会让 dry-run 契约出缺口。
+_DATED_REVIEW_INTERPRET_RE = re.compile(r"复盘")
 # 「这一波农业是怎么走出来的」：波次指代 + 题材名，事后归因 / 回放题的主语。
 _WAVE_SUBJECT_RE = re.compile(
     r"这(?:一)?波([一-鿿]{2,6}?)(?:行情|板块|题材|股)?(?:是怎么|怎么|为什么|为何|的|，|,)"
@@ -1634,10 +1638,12 @@ def understand_query(
         review_date is not None
         and anchor is None
         and not any(term in text.lower() for term in _EXTERNAL_MARKET_TERMS)
-        and (
-            _DATED_MARKET_REVIEW_RE.search(text) is not None
-            or _DATED_MARKET_TOPIC_RE.search(text) is not None
-        )
+        # 只接「日期 + 复盘 / 解读」这种三件套正则认不出的说法。三件套本来就能认的
+        # 经典句式（「复盘7月16日的A股市场」）信封继续给 general_finance_qa、由
+        # turn_controller 的确定性路由送进日报工作流——那是既有锁
+        # （test_watchlist_digest_pack 负例表）钉住的观测行为，不在本单范围内改。
+        and _DATED_MARKET_REVIEW_RE.search(text) is None
+        and _DATED_REVIEW_INTERPRET_RE.search(text) is not None
         # 与 turn_controller 的确定性路由同一条守卫：「2026-02-17 涨停家数多少」要的是
         # 一个数（quick_fact），不是一份复盘；名单 / 明细题也留给原路由决定。
         and not _single_metric_or_listing(text)
