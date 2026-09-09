@@ -289,7 +289,13 @@ LEGACY_OBJECT_TYPE = "unknown_legacy"
 # ``foresight_judgment`` 是用户 accept 后入账的用户判断，其余无 source 的手工登记同样多为用户判断——
 # 但「多为」不是「是」，所以剩下的一律进 ``unknown_legacy`` 单独一格。
 # 把它们折进 ``judgment``，等于用一个默认值把三种来源合成一种，胜率面板就再也分不开了。
-_AGENT_SOURCES = ("framework_interpretation", "logic_lifecycle", "track_next_watch")
+_AGENT_SOURCES = (
+    "framework_interpretation",
+    "logic_lifecycle",
+    "track_next_watch",
+    # 排序题改判条件（10 号单，ranking_contract.ingest_flip_conditions）也是 agent 侧产出。
+    "ranking_flip_condition",
+)
 _USER_SOURCES = ("foresight_judgment",)
 
 

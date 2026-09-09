@@ -5200,17 +5200,34 @@ class TurnOrchestrator:
         theme: str | None,
         session_id: str,
     ) -> None:
-        """跟踪题下期关注写入 checkpoint。测试/default 用户不写；失败不挡回答。"""
+        """跟踪题下期关注 / 排序题改判条件写入 checkpoint。测试/default 用户不写；失败不挡回答。"""
         if os.environ.get("PYTEST_CURRENT_TEST"):
             return
         user_id = self.run_store.user_id
         if not user_id or user_id in {"golden-test", "tester", "default"}:
             return
+        checkpoints_path = userspace.user_space(user_id).checkpoints_path
         try:
             from intelligence.services.track_contract import ingest_next_watch
 
             ingest_next_watch(
-                userspace.user_space(user_id).checkpoints_path,
+                checkpoints_path,
+                answer,
+                query=query,
+                question_type=question_type,
+                as_of=as_of,
+                theme=theme,
+                session_id=session_id,
+            )
+        except Exception:
+            pass
+        # 排序题的改判条件（10 号单）：同一本 checkpoints，source=ranking_flip_condition，
+        # 07 回检与 foresight 发问据此对照；非排序题内部空操作。
+        try:
+            from intelligence.services.ranking_contract import ingest_flip_conditions
+
+            ingest_flip_conditions(
+                checkpoints_path,
                 answer,
                 query=query,
                 question_type=question_type,
