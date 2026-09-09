@@ -1,7 +1,7 @@
 # 工单 #30 · 运行底座 P3：收件箱
 
 > 母单：#27 `2026-09-07-runtime-base-endstate-design.md` §6.4。前置：P2（#29）合入；§12 第 4 题（Workbench `steer` 端点本轮做不做）拍板——未拍板按推荐：底座 + CLI 先做，端点等 Alpha 反馈。
-> 分支：`feat/runtime-base-p3-inbox`（叠 #638；已合并删除，树已清）。状态：✅ 已合入 `gitea/main`（PR #677 → `9f2718a2`，2026-09-08 21:11，合入顺序 #620 → #624 → #638 → #677；09-09 回写，落地记录见下）。范围第 5 条 CLI 于 2026-09-09 落地（分支 `feat/runtime-base-p3-steer-cli`，PR #687 待确认），见落地记录二。
+> 分支：`feat/runtime-base-p3-inbox`（叠 #638；已合并删除，树已清）。状态：✅ 已合入 `gitea/main`（PR #677 → `9f2718a2`，2026-09-08 21:11，合入顺序 #620 → #624 → #638 → #677；09-09 回写，落地记录见下）。范围第 5 条 CLI 于 2026-09-09 落地（分支 `feat/runtime-base-p3-steer-cli`，PR #687 已合 → `gitea/main@db2052db`），见落地记录二。
 > 判据：INV-R5 成立；`derive_messages` 仍逐字节相等（收件箱消息是 durable 事件，天然进派生）。
 
 ## 落地记录（2026-09-08 落地，2026-09-09 回写）
@@ -16,7 +16,7 @@
 
 ## 落地记录二（2026-09-09，范围第 5 条 CLI）
 
-分支 `feat/runtime-base-p3-steer-cli`（基线 `gitea/main@5eb24515`，代码提交 `1ca1ca40`、文档 `b3335b04`），PR #687 待确认；干净树全量 8311P / 0F / 77 skip / 1 xfail（收据 `20260909T060819Z-1ca1ca40.json`）。交接 `docs/handoffs/inflight/feat-runtime-base-p3-steer-cli.md`。
+分支 `feat/runtime-base-p3-steer-cli`（基线 `gitea/main@5eb24515`，代码提交 `1ca1ca40`、文档 `b3335b04`），PR #687 已合（09-09 → `gitea/main@db2052db`）；干净树全量 8311P / 0F / 77 skip / 1 xfail（收据 `20260909T060819Z-1ca1ca40.json`）。交接归档 `docs/handoffs/inflight-archive-2026-09-08/feat-runtime-base-p3-steer-cli.md`。
 
 **为什么不是「CLI 调端点」**：`Inbox.send` 是进程内调用，Workbench 里 runtime 按次构造、端点按 §12 第 4 题等 Alpha，CLI 若只是端点的客户端就没有可调的东西。改走 durable 目录：递话方把消息原子写成 `<episode_dir>/inbox-spool/<ns>-<spool_id>.json`（tmp → fsync → `os.replace`），驱动 loop 的进程在既有三个认领点（`pending()` / `claim()` / `discard_all()`）先吞槽再走原逻辑——槽里的文件逐个 `send` 进箱，事实落账后删文件。三事实仍只由 loop 写进 events.jsonl，INV-R5 一字不改；`inbox_inserted` 多带 `spool_id` 供对回执，进程内 `send` 的 payload 形状不变。运输单位是文件不是追加行：没有撕裂行与偏移量，「吞了没吞」=「文件在不在」；删在 `send` 之后，崩在中间最多重吞一次（同 `spool_id` 可对出），反过来会无痕丢话。
 
