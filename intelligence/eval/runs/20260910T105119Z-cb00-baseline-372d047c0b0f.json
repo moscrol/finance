@@ -1,0 +1,2430 @@
+{
+ "benchmark": "capability-benchmark-00",
+ "schema_version": 1,
+ "arm_label": "baseline-372d047c0b0f",
+ "generated_at": "20260910T105119Z",
+ "entry": "POST /api/conversations -> POST /api/conversations/{id}/messages (skill_mode=auto)",
+ "base": "http://127.0.0.1:8813",
+ "user": "cb00-baseline",
+ "users_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users",
+ "seed_sha256": null,
+ "preflight": {
+  "ok": true,
+  "problems": [],
+  "source_revision": "cdb169855abbad01d0d51e47b646cce2f2f3e448",
+  "source_dirty": false,
+  "code_matches_repo": true,
+  "code_root": "/Users/a77/fwp-wt-capability-benchmark-00",
+  "finance_root": "/Users/a77/finance-workspace-private",
+  "knowledge_wiki": null,
+  "users_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users",
+  "llm_config": {
+   "mode": "built_in",
+   "display_name": "Foresight 默认模型",
+   "ready": true,
+   "session_only": false,
+   "built_in_ready": true,
+   "provider": "zhipu",
+   "model": "gpt-5.6-sol",
+   "credential_persisted": false,
+   "saved_credential_available": false
+  }
+ },
+ "market_data_date": "2026-09-09",
+ "case_count": 30,
+ "cases": [
+  {
+   "case_id": "cb00-feel-01",
+   "category": "feel",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_ec9576834efc419a918535ec8a2f18ae",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "今天是 2026-09-07 收盘。我的盘感是：『指数没怎么动，但 AI 硬件在抱团，创新高的票越来越少』。请把这句盘感翻译成 3 个可以用库内数据核验的研究问题（每个问题写清用哪个指标、来自哪张表、什么阈值算成立），然后逐个用 2026-09-07 及之前的数据核一遍，给出成立 / 不成立 / 数据不足，并说明明天最该盯哪一个数。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260909_194950_129834",
+     "answer": "把盘感拆成以下三个可核验问题：\n1. **“指数没怎么动”**：用 `market_daily.index_return_pct`，阈值为指数涨跌幅绝对值低于人工智能板块涨跌幅绝对值；现有证据未提供指数数据，**数据不足**。\n2. **“AI硬件在抱团”**：用 `sector_stock_daily` 的硬件映射成员成交额及涨跌幅，阈值为硬件组成交额占人工智能板块成交额的比重较前日上升，且硬件组上涨扩散强于非硬件组。9月7日人工智能板块上涨但边际量下降；成交额靠前个股涨跌分化，不能据此确认资金是否向“硬件”集中，**数据不足**。产业链上，待核验的硬件环节应包括服务器/算力、芯片与封测、存储及光通信；现有名单虽含相关候选，但没有库内角色映射，不能作硬分类。[E1][E2]\n3. **“创新高的票越来越少”**：用 `stock_high_daily` 按日统计新高股票家数，阈值为当日新高家数低于前一交易日，且连续比较仍走低；未提供新高表或前日对照，**数据不足**。\n**明天最该盯人工智能板块的边际成交量变化。**若量能由9月7日的收缩转为扩张，且硬件组相对成交占比同步提高，才为“抱团”补上交易确认；若量能继续收缩，即使个别大成交额股票走强，也更可能只是局部轮动。主要反证是：当日成交额靠前成员并非同涨，已有明显涨跌分化，不能仅凭少数强势股断言硬件抱团。[E1][E2]",
+     "elapsed_s": 82.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-terra": 1
+     },
+     "input_tokens": 7466,
+     "output_tokens": 1244,
+     "llm_calls": 4,
+     "tool_calls": 0,
+     "invalid_actions": 0,
+     "tools_called": [],
+     "structural_status": "partial",
+     "semantic_status": "completed",
+     "judge_status": "repaired",
+     "stop_reason": "model_finish",
+     "gaps": 5,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260909_194950_129834"
+    }
+   ],
+   "final_answer": "把盘感拆成以下三个可核验问题：\n1. **“指数没怎么动”**：用 `market_daily.index_return_pct`，阈值为指数涨跌幅绝对值低于人工智能板块涨跌幅绝对值；现有证据未提供指数数据，**数据不足**。\n2. **“AI硬件在抱团”**：用 `sector_stock_daily` 的硬件映射成员成交额及涨跌幅，阈值为硬件组成交额占人工智能板块成交额的比重较前日上升，且硬件组上涨扩散强于非硬件组。9月7日人工智能板块上涨但边际量下降；成交额靠前个股涨跌分化，不能据此确认资金是否向“硬件”集中，**数据不足**。产业链上，待核验的硬件环节应包括服务器/算力、芯片与封测、存储及光通信；现有名单虽含相关候选，但没有库内角色映射，不能作硬分类。[E1][E2]\n3. **“创新高的票越来越少”**：用 `stock_high_daily` 按日统计新高股票家数，阈值为当日新高家数低于前一交易日，且连续比较仍走低；未提供新高表或前日对照，**数据不足**。\n**明天最该盯人工智能板块的边际成交量变化。**若量能由9月7日的收缩转为扩张，且硬件组相对成交占比同步提高，才为“抱团”补上交易确认；若量能继续收缩，即使个别大成交额股票走强，也更可能只是局部轮动。主要反证是：当日成交额靠前成员并非同涨，已有明显涨跌分化，不能仅凭少数强势股断言硬件抱团。[E1][E2]",
+   "execution_status": "completed",
+   "total_elapsed_s": 84.4,
+   "total_input_tokens": 7466,
+   "total_output_tokens": 1244,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 1.9,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-feel-02",
+   "category": "feel",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_3c52e7e275484c35970c2cb3126104f0",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "最近两周（2026-08-25 到 2026-09-07）我总觉得『涨停很多但赚钱效应差』。这是盘感还是事实？请先定义 2–3 个能核验『赚钱效应』的指标（写清表和字段），再用这两周的库内数据逐日检验，指出哪几天最符合这个描述、哪几天相反，最后告诉我以后每天只看两个数的话该看哪两个。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260909_195131_415333",
+     "answer": "**结论：这更像局部盘感，不是两周整体事实。** 库内数据没有出现“涨停越多、整体赚钱效应越差”的稳定关系。最接近该描述的是 **8月31日**（88家涨停同时有11家跌停，分化明显）和较弱意义上的 **8月28日**；但两日强势股表现并不差，因此只能称“分化”，不能称普遍亏钱。真正赚钱效应较差的是 **9月2日至4日**，但同期涨停数也已降至52、44、39家，不符合“涨停很多”的前提。相反日期以 **8月27日、9月7日** 最典型。\n核验指标（均取 `market_daily`）：\n- 市场广度：`advancers`（上涨家数），衡量多数股票是否受益；\n- 强势股收益：`strength_return_pct`（强势股加权涨幅），衡量热点内部是否真能赚钱；\n- 尾部风险：`limit_down`（跌停家数）。`limit_up`（涨停家数）只用于检验“涨停很多”这一前提。\n逐日结果（涨停/上涨家数/强势股涨幅/跌停；判定）：\n- 8/25：65/4234/8.25%/2，明显相反\n- 8/26：52/2946/6.81%/0，中性偏好\n- 8/27：77/3394/9.53%/3，明显相反\n- 8/28：82/3013/7.53%/1，局部分化、较接近\n- 8/31：88/3181/9.39%/11，**最接近，但非全面差**\n- 9/1：83/3387/8.16%/0，相反\n- 9/2：52/1541/6.72%/8，赚钱效应差但涨停不多\n- 9/3：44/1840/6.79%/17，同上且尾部最弱\n- 9/4：39/2441/6.32%/9，同上\n- 9/7：93/3167/9.92%/2，**最明显相反**\n重点观察两者相对近期是否同步走弱，不设脱离市场环境的固定阈值。\n证据边界：覆盖2026-08-25至09-07的全部10个交易日，仅使用库内市场日频汇总；缺少全市场股票总数、涨跌中位数、涨停封板率及次日溢价，故无法直接衡量上涨比例和追板者实际收益。",
+     "elapsed_s": 151.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 2
+     },
+     "input_tokens": 28280,
+     "output_tokens": 3144,
+     "llm_calls": 4,
+     "tool_calls": 1,
+     "invalid_actions": 0,
+     "tools_called": [
+      "finance_query"
+     ],
+     "structural_status": "completed",
+     "semantic_status": "completed",
+     "judge_status": "repaired",
+     "stop_reason": "model_finish",
+     "gaps": 2,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260909_195131_415333"
+    }
+   ],
+   "final_answer": "**结论：这更像局部盘感，不是两周整体事实。** 库内数据没有出现“涨停越多、整体赚钱效应越差”的稳定关系。最接近该描述的是 **8月31日**（88家涨停同时有11家跌停，分化明显）和较弱意义上的 **8月28日**；但两日强势股表现并不差，因此只能称“分化”，不能称普遍亏钱。真正赚钱效应较差的是 **9月2日至4日**，但同期涨停数也已降至52、44、39家，不符合“涨停很多”的前提。相反日期以 **8月27日、9月7日** 最典型。\n核验指标（均取 `market_daily`）：\n- 市场广度：`advancers`（上涨家数），衡量多数股票是否受益；\n- 强势股收益：`strength_return_pct`（强势股加权涨幅），衡量热点内部是否真能赚钱；\n- 尾部风险：`limit_down`（跌停家数）。`limit_up`（涨停家数）只用于检验“涨停很多”这一前提。\n逐日结果（涨停/上涨家数/强势股涨幅/跌停；判定）：\n- 8/25：65/4234/8.25%/2，明显相反\n- 8/26：52/2946/6.81%/0，中性偏好\n- 8/27：77/3394/9.53%/3，明显相反\n- 8/28：82/3013/7.53%/1，局部分化、较接近\n- 8/31：88/3181/9.39%/11，**最接近，但非全面差**\n- 9/1：83/3387/8.16%/0，相反\n- 9/2：52/1541/6.72%/8，赚钱效应差但涨停不多\n- 9/3：44/1840/6.79%/17，同上且尾部最弱\n- 9/4：39/2441/6.32%/9，同上\n- 9/7：93/3167/9.92%/2，**最明显相反**\n重点观察两者相对近期是否同步走弱，不设脱离市场环境的固定阈值。\n证据边界：覆盖2026-08-25至09-07的全部10个交易日，仅使用库内市场日频汇总；缺少全市场股票总数、涨跌中位数、涨停封板率及次日溢价，故无法直接衡量上涨比例和追板者实际收益。",
+   "execution_status": "completed",
+   "total_elapsed_s": 153.7,
+   "total_input_tokens": 28280,
+   "total_output_tokens": 3144,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 3.2,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-material-01",
+   "category": "material",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_676759757dd64b9fb6806b0697a335e6",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "下面是一段 2026-05-02 卖方业绩会纪要的整理（公司未具名，做液冷管路）。请：(1) 提取全部可量化事实（对象、数字、单位、时点）列成表；(2) 只用材料内的数字，估算 Google 3000 个机柜对应的大管径软管价值区间，并检查材料内部的口径是否自相一致（不一致就指出在哪、差多少）；(3) 列出材料没有回答、但判断这家公司投资价值前必须补齐的 3 个问题。不要引入材料以外的数字。\n\n材料：\n- 大管径液冷软管突破：3 寸/4 寸（单价 2000-3000 元/米、单柜价值 2-3 万元），满足 UL V0 阻燃填补国内空白；Google 单机柜用量 20 米，CoolMaster/英维克需求旺盛。\n- 一体化集成总成获头部客户认可：已获安费诺（2026 小批量 2 万套用于 Meta 项目）、浪潮认可并进 Meta/谷歌供应链；独家膨胀接头针对 H 客户超节点（单柜 68-72 个），2026 年 5-6 月大批量交付、当年规划出货 2 万台（远期 10 万台）。\n- 2026 下半年项目集中放量：H 客户/英维克/CoolMaster/AVC/安费诺/浪潮陆续交付，Meta 经越南分公司交付，Google 验证后有望率先对接 3000 个机柜（对应 6-8 万米大管径）。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260909_201459_837767",
+     "answer": "2026-05-02 为周六，A股休市，该日无行情数据。\n关于“下面是一段 2026-05-02 卖方业绩会纪要的整理（公司未具名，做液冷管路）。请：(1) 提取全部可量化事实（对象、数字、单位、时点）列成表；(2) 只用材料内的数字，估算 Google 3000 个机柜对应的大管径软管价值区间，并检查材料内部的口径是否自相一致（不一致就指出在哪、差多少）；(3) 列出材料没有回答、但判断这家公司投资价值前必须补齐的 3 个问题。不要引入材料以外的数字。\n材料：\n- 大管径液冷软管突破：3 寸/4 寸（单价 2000-3000 元/米、单柜价值 2-3 万元），满足 UL V0 阻燃填补国内空白；Google 单机柜用量 20 米，CoolMaster/英维克需求旺盛。\n- 一体化集成总成获头部客户认可：已获安费诺（2026 小批量 2 万套用于 Meta 项目）、浪潮认可并进 Meta/谷歌供应链；独家膨胀接头针对 H 客户超节点（单柜 68-72 个），2026 年 5-6 月大批量交付、当年规划出货 2 万台（远期 10 万台）。\n- 2026 下半年项目集中放量：H 客户/英维克/CoolMaster/AVC/安费诺/浪潮陆续交付，Meta 经越南分公司交付，Google 验证后有望率先对接 3000 个机柜（对应 6-8 万米大管径）。”，本轮核验未完成，已取得的观察不能当作完整结论。\n这次还核验不了：直接回答用户问题并说明判断强度。\n这次还核验不了：列出与结论直接相关的支持证据。\n这次还核验不了：说明证据覆盖范围、数据日期与缺口。\n这次还核验不了：说明主体之间的关系与传导。\n本轮已取得 11 条证据，但未完成核验绑定，暂不能引用；可直接重试。证据数据截至 2026-07-30；缺口补齐后可复验。",
+     "elapsed_s": 49.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 1
+     },
+     "input_tokens": 19045,
+     "output_tokens": 383,
+     "llm_calls": 9,
+     "tool_calls": 4,
+     "invalid_actions": 0,
+     "tools_called": [
+      "web_search",
+      "web_search",
+      "l3_lookup",
+      "l3_lookup"
+     ],
+     "structural_status": "partial",
+     "semantic_status": "partial",
+     "judge_status": "unavailable",
+     "stop_reason": "invalid_repair_finish",
+     "gaps": 1,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [
+      "证据或语义核验未完全通过，已按证据边界降级。"
+     ],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260909_201459_837767"
+    }
+   ],
+   "final_answer": "2026-05-02 为周六，A股休市，该日无行情数据。\n关于“下面是一段 2026-05-02 卖方业绩会纪要的整理（公司未具名，做液冷管路）。请：(1) 提取全部可量化事实（对象、数字、单位、时点）列成表；(2) 只用材料内的数字，估算 Google 3000 个机柜对应的大管径软管价值区间，并检查材料内部的口径是否自相一致（不一致就指出在哪、差多少）；(3) 列出材料没有回答、但判断这家公司投资价值前必须补齐的 3 个问题。不要引入材料以外的数字。\n材料：\n- 大管径液冷软管突破：3 寸/4 寸（单价 2000-3000 元/米、单柜价值 2-3 万元），满足 UL V0 阻燃填补国内空白；Google 单机柜用量 20 米，CoolMaster/英维克需求旺盛。\n- 一体化集成总成获头部客户认可：已获安费诺（2026 小批量 2 万套用于 Meta 项目）、浪潮认可并进 Meta/谷歌供应链；独家膨胀接头针对 H 客户超节点（单柜 68-72 个），2026 年 5-6 月大批量交付、当年规划出货 2 万台（远期 10 万台）。\n- 2026 下半年项目集中放量：H 客户/英维克/CoolMaster/AVC/安费诺/浪潮陆续交付，Meta 经越南分公司交付，Google 验证后有望率先对接 3000 个机柜（对应 6-8 万米大管径）。”，本轮核验未完成，已取得的观察不能当作完整结论。\n这次还核验不了：直接回答用户问题并说明判断强度。\n这次还核验不了：列出与结论直接相关的支持证据。\n这次还核验不了：说明证据覆盖范围、数据日期与缺口。\n这次还核验不了：说明主体之间的关系与传导。\n本轮已取得 11 条证据，但未完成核验绑定，暂不能引用；可直接重试。证据数据截至 2026-07-30；缺口补齐后可复验。",
+   "execution_status": "completed",
+   "total_elapsed_s": 51.3,
+   "total_input_tokens": 19045,
+   "total_output_tokens": 383,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 3.5,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-material-02",
+   "category": "material",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_db2dd5c7ff604251a7773ab829218d49",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "下面是翰宇药业（300199）2026-08-13 公告的节选。请：(1) 提取交易要素：对手方、合作产品与适应症、区域、合作形式、各项付款条款（金额与触发条件）；(2) 区分哪些是已确定的硬事实、哪些取决于未来条件；(3) 指出这份公告不能用来推断的事（至少 2 条），并说明『合计最高 1.45 亿元』为什么不能直接当成本协议新增的收入。\n\n节选：『公司与浙江三生蔓迪药业有限公司签署了《司美格鲁肽注射液——成人2型糖尿病患者的血糖控制合作协议》及《委托生产和供应协议》。双方就司美格鲁肽注射液（血糖控制适应症）在中国区域（中国大陆、香港、澳门，不含台湾）的开发、注册、生产及商业化达成合作。公司授予三生蔓迪在区域内独占的、不可转让的、可分许可的许可，由三生蔓迪或其关联方担任合作产品在中国区域的药品上市许可持有人（MAH），并独家负责商业化。财务条款：3.1 签约首付款：人民币1,200万元；3.2.1 合作产品血糖适应症上市申请获得NMPA批准：人民币1,800万元；3.2.2 首次商业批供货经三生蔓迪验收合格：人民币750万元；3.2.3 销售里程碑：血糖控制适应症与《减重适应症合作协议》项下产品的年度净销售额合并计算，作为确认是否触发《减重适应症合作协议》约定的销售里程碑付款义务的依据，合计最高1.45亿元；3.2.4 销售提成：以每个自然年度净销售额5亿为线，以毛利为基础向公司支付一定比例销售提成。本次合作不构成关联交易。』",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260909_203632_736913",
+     "answer": "关于“下面是翰宇药业（300199）2026-08-13 公告的节选。请：(1) 提取交易要素：对手方、合作产品与适应症、区域、合作形式、各项付款条款（金额与触发条件）；(2) 区分哪些是已确定的硬事实、哪些取决于未来条件；(3) 指出这份公告不能用来推断的事（至少 2 条），并说明『合计最高 1.45 亿元』为什么不能直接当成本协议新增的收入。\n节选：『公司与浙江三生蔓迪药业有限公司签署了《司美格鲁肽注射液——成人2型糖尿病患者的血糖控制合作协议》及《委托生产和供应协议》。双方就司美格鲁肽注射液（血糖控制适应症）在中国区域（中国大陆、香港、澳门，不含台湾）的开发、注册、生产及商业化达成合作。公司授予三生蔓迪在区域内独占的、不可转让的、可分许可的许可，由三生蔓迪或其关联方担任合作产品在中国区域的药品上市许可持有人（MAH），并独家负责商业化。财务条款：3.1 签约首付款：人民币1,200万元；3.2.1 合作产品血糖适应症上市申请获得NMPA批准：人民币1,800万元；3.2.2 首次商业批供货经三生蔓迪验收合格：人民币750万元；3.2.3 销售里程碑：血糖控制适应症与《减重适应症合作协议》项下产品的年度净销售额合并计算，作为确认是否触发《减重适应症合作协议》约定的销售里程碑付款义务的依据，合计最高1.45亿元；3.2.4 销售提成：以每个自然年度净销售额5亿为线，以毛利为基础向公司支付一定比例销售提成。本次合作不构成关联交易。』”，本轮核验未完成，已取得的观察不能当作完整结论。\n这次还核验不了：直接回答用户问题并说明判断强度。\n这次还核验不了：列出与结论直接相关的支持证据。\n这次还核验不了：说明证据覆盖范围、数据日期与缺口。\n这次还核验不了：说明主体之间的关系与传导。\n本轮已取得 1 条证据，但未完成核验绑定，暂不能引用；可直接重试。",
+     "elapsed_s": 26.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 1
+     },
+     "input_tokens": 19083,
+     "output_tokens": 84,
+     "llm_calls": 9,
+     "tool_calls": 1,
+     "invalid_actions": 0,
+     "tools_called": [
+      "l3_lookup"
+     ],
+     "structural_status": "partial",
+     "semantic_status": "partial",
+     "judge_status": "unavailable",
+     "stop_reason": "invalid_repair_finish",
+     "gaps": 1,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [
+      "证据或语义核验未完全通过，已按证据边界降级。"
+     ],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260909_203632_736913"
+    }
+   ],
+   "final_answer": "关于“下面是翰宇药业（300199）2026-08-13 公告的节选。请：(1) 提取交易要素：对手方、合作产品与适应症、区域、合作形式、各项付款条款（金额与触发条件）；(2) 区分哪些是已确定的硬事实、哪些取决于未来条件；(3) 指出这份公告不能用来推断的事（至少 2 条），并说明『合计最高 1.45 亿元』为什么不能直接当成本协议新增的收入。\n节选：『公司与浙江三生蔓迪药业有限公司签署了《司美格鲁肽注射液——成人2型糖尿病患者的血糖控制合作协议》及《委托生产和供应协议》。双方就司美格鲁肽注射液（血糖控制适应症）在中国区域（中国大陆、香港、澳门，不含台湾）的开发、注册、生产及商业化达成合作。公司授予三生蔓迪在区域内独占的、不可转让的、可分许可的许可，由三生蔓迪或其关联方担任合作产品在中国区域的药品上市许可持有人（MAH），并独家负责商业化。财务条款：3.1 签约首付款：人民币1,200万元；3.2.1 合作产品血糖适应症上市申请获得NMPA批准：人民币1,800万元；3.2.2 首次商业批供货经三生蔓迪验收合格：人民币750万元；3.2.3 销售里程碑：血糖控制适应症与《减重适应症合作协议》项下产品的年度净销售额合并计算，作为确认是否触发《减重适应症合作协议》约定的销售里程碑付款义务的依据，合计最高1.45亿元；3.2.4 销售提成：以每个自然年度净销售额5亿为线，以毛利为基础向公司支付一定比例销售提成。本次合作不构成关联交易。』”，本轮核验未完成，已取得的观察不能当作完整结论。\n这次还核验不了：直接回答用户问题并说明判断强度。\n这次还核验不了：列出与结论直接相关的支持证据。\n这次还核验不了：说明证据覆盖范围、数据日期与缺口。\n这次还核验不了：说明主体之间的关系与传导。\n本轮已取得 1 条证据，但未完成核验绑定，暂不能引用；可直接重试。",
+   "execution_status": "completed",
+   "total_elapsed_s": 27.2,
+   "total_input_tokens": 19083,
+   "total_output_tokens": 84,
+   "gateway_probe": [
+    {
+     "status": "http_502",
+     "served_model": null,
+     "reset_seconds": null,
+     "detail": "{\"error\":{\"message\":\"Upstream service temporarily unavailable\",\"type\":\"upstream_error\"}}",
+     "elapsed_s": 3.4,
+     "probe_model": "gpt-5.6-sol"
+    },
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-terra",
+     "reset_seconds": null,
+     "elapsed_s": 3.1,
+     "probe_model": "gpt-5.6-terra"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-calc-01",
+   "category": "calc",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_848cb7553f2d43ad84e49cf8be51007c",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "厦门钨业（600549）已披露数据：2026 年中报累计营收 350.14 亿元、归母净利 22.01 亿元；2026 一季报 157.43 亿 / 11.07 亿；2025 中报 192.71 亿 / 9.69 亿；2025 一季报 84.19 亿 / 3.83 亿；2025 全年营收 462.65 亿元。请：(1) 还原 2026Q2 与 2025Q2 的单季营收和归母净利；(2) 算 2026Q2 单季营收、归母净利同比增速；(3) 算 2026Q1、Q2 单季归母净利率并给出环比变化（百分点）；(4) 若 2026 下半年营收相对 2025 下半年分别增长 30% / 60% / 90%，2026 全年营收各是多少。每一步写出算式。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260909_205227_971715",
+     "answer": "关于“厦门钨业（600549）已披露数据：2026 年中报累计营收 350.14 亿元、归母净利 22.01 亿元；2026 一季报 157.43 亿 / 11.07 亿；2025 中报 192.71 亿 / 9.69 亿；2025 一季报 84.19 亿 / 3.83 亿；2025 全年营收 462.65 亿元。请：(1) 还原 2026Q2 与 2025Q2 的单季营收和归母净利；(2) 算 2026Q2 单季营收、归母净利同比增速；(3) 算 2026Q1、Q2 单季归母净利率并给出环比变化（百分点）；(4) 若 2026 下半年营收相对 2025 下半年分别增长 30% / 60% / 90%，2026 全年营收各是多少。每一步写出算式。”，本轮核验未完成，已取得的观察不能当作完整结论。\n这次还核验不了：公司财务表现的直接判断。\n这次还核验不了：支撑财务判断的指标证据。\n这次还核验不了：提供主要反证或竞争性解释。\n本轮已取得 14 条证据，但未完成核验绑定，暂不能引用；可直接重试。证据数据截至 2026-09-09；缺口补齐后可复验。",
+     "elapsed_s": 40.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 1
+     },
+     "input_tokens": 18521,
+     "output_tokens": 202,
+     "llm_calls": 9,
+     "tool_calls": 3,
+     "invalid_actions": 0,
+     "tools_called": [
+      "financial_data",
+      "l3_lookup",
+      "l3_lookup"
+     ],
+     "structural_status": "partial",
+     "semantic_status": "partial",
+     "judge_status": "unavailable",
+     "stop_reason": "invalid_repair_finish",
+     "gaps": 1,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [
+      "证据或语义核验未完全通过，已按证据边界降级。"
+     ],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260909_205227_971715"
+    }
+   ],
+   "final_answer": "关于“厦门钨业（600549）已披露数据：2026 年中报累计营收 350.14 亿元、归母净利 22.01 亿元；2026 一季报 157.43 亿 / 11.07 亿；2025 中报 192.71 亿 / 9.69 亿；2025 一季报 84.19 亿 / 3.83 亿；2025 全年营收 462.65 亿元。请：(1) 还原 2026Q2 与 2025Q2 的单季营收和归母净利；(2) 算 2026Q2 单季营收、归母净利同比增速；(3) 算 2026Q1、Q2 单季归母净利率并给出环比变化（百分点）；(4) 若 2026 下半年营收相对 2025 下半年分别增长 30% / 60% / 90%，2026 全年营收各是多少。每一步写出算式。”，本轮核验未完成，已取得的观察不能当作完整结论。\n这次还核验不了：公司财务表现的直接判断。\n这次还核验不了：支撑财务判断的指标证据。\n这次还核验不了：提供主要反证或竞争性解释。\n本轮已取得 14 条证据，但未完成核验绑定，暂不能引用；可直接重试。证据数据截至 2026-09-09；缺口补齐后可复验。",
+   "execution_status": "completed",
+   "total_elapsed_s": 42.3,
+   "total_input_tokens": 18521,
+   "total_output_tokens": 202,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 5.0,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-calc-02",
+   "category": "calc",
+   "tier": "deep",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_80755e78a4624d33a824bb4824bc7c23",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "请用你能取到的财报数据，还原中际旭创（300308）2026 年第二季度的单季营收和归母净利润，算出单季同比增速，再算 2026 上半年的归母净利率。写清每个数来自哪份报告、是累计口径还是单季口径；取不到的数直接说明缺口，不要估。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260909_212640_429955",
+     "answer": "**还原结果（单位：亿元；以下单季数均由累计口径相减得出，因原始数据按两位小数展示，计算值为相应精度下的还原值）：**\n- 2026年二季度营收＝2026年中报上半年累计417.78－2026年一季报累计194.96＝**222.82**。2025年二季度营收＝2025年中报累计147.89－2025年一季报累计66.74＝**81.15**；据此，2026年二季度营收同比约**174.58%**。\n- 2026年二季度归母净利润＝2026年中报累计136.51－2026年一季报累计57.35＝**79.16**。2025年二季度归母净利润＝2025年中报累计39.95－2025年一季报累计15.83＝**24.12**；据此，2026年二季度归母净利润同比约**228.19%**。\n- 2026年上半年归母净利率＝中报累计归母净利润136.51÷累计营收417.78＝**32.67%**。\n口径与报告来源：2026年中报（报告期截至6月30日、披露日8月22日）和2026年一季报（截至3月31日、披露日4月17日）均为累计口径；同比基数分别来自2025年中报（披露日8月27日）及2025年一季报（披露日4月21日），同为累计口径。**直接判断：二季度营收和归母净利均显著高于上年同期，且净利同比增速快于营收；上半年归母净利率高于数据表列示的一季度销售净利率。**\n反向检查：单季项目并非报告直接披露的独立口径，而是累计数相减；且可取得的是结构化财报数据，未取得公司原始公告正文用于逐项复核，故不应把上述两位小数的差额解读为超过源数据展示精度的精确值。",
+     "elapsed_s": 89.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-terra": 2,
+      "gpt-5.6-sol": 1
+     },
+     "input_tokens": 49293,
+     "output_tokens": 1568,
+     "llm_calls": 7,
+     "tool_calls": 5,
+     "invalid_actions": 0,
+     "tools_called": [
+      "financial_data",
+      "l3_lookup",
+      "l3_lookup",
+      "l3_lookup",
+      "l3_lookup"
+     ],
+     "structural_status": "completed",
+     "semantic_status": "completed",
+     "judge_status": "passed",
+     "stop_reason": "model_finish",
+     "gaps": 1,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260909_212640_429955"
+    }
+   ],
+   "final_answer": "**还原结果（单位：亿元；以下单季数均由累计口径相减得出，因原始数据按两位小数展示，计算值为相应精度下的还原值）：**\n- 2026年二季度营收＝2026年中报上半年累计417.78－2026年一季报累计194.96＝**222.82**。2025年二季度营收＝2025年中报累计147.89－2025年一季报累计66.74＝**81.15**；据此，2026年二季度营收同比约**174.58%**。\n- 2026年二季度归母净利润＝2026年中报累计136.51－2026年一季报累计57.35＝**79.16**。2025年二季度归母净利润＝2025年中报累计39.95－2025年一季报累计15.83＝**24.12**；据此，2026年二季度归母净利润同比约**228.19%**。\n- 2026年上半年归母净利率＝中报累计归母净利润136.51÷累计营收417.78＝**32.67%**。\n口径与报告来源：2026年中报（报告期截至6月30日、披露日8月22日）和2026年一季报（截至3月31日、披露日4月17日）均为累计口径；同比基数分别来自2025年中报（披露日8月27日）及2025年一季报（披露日4月21日），同为累计口径。**直接判断：二季度营收和归母净利均显著高于上年同期，且净利同比增速快于营收；上半年归母净利率高于数据表列示的一季度销售净利率。**\n反向检查：单季项目并非报告直接披露的独立口径，而是累计数相减；且可取得的是结构化财报数据，未取得公司原始公告正文用于逐项复核，故不应把上述两位小数的差额解读为超过源数据展示精度的精确值。",
+   "execution_status": "completed",
+   "total_elapsed_s": 90.6,
+   "total_input_tokens": 49293,
+   "total_output_tokens": 1568,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 3.2,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-compare-01",
+   "category": "compare",
+   "tier": "deep",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_8b05f6e951ce4175b797623a89182c5a",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "比较中际旭创（300308）与新易盛（300502）：用 2026Q1、2026Q2 两个单季的营收同比、归母净利同比，2026 上半年毛利率，以及 2026-09-07 收盘价相对 10 个和 20 个交易日前的涨跌幅，做一张同维度比较表并给出排序；最后说明在什么条件下这个排序会反转。财报数据自己取，取不到的格写缺口。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260909_212814_131917",
+     "answer": "**基准判断：现有证据不足以完成两家公司总排序。**仅中际旭创财务数据可核验；新易盛全部财务指标及两家公司股价窗口均缺失，不能把“未取到”当作落后。\n| 公司 | 2026Q1营收同比 | 2026Q1归母净利同比 | 2026Q2单季营收同比 | 2026Q2单季归母净利同比 | 2026H1毛利率 | 收盘价较10个交易日前 | 较20个交易日前 |\n|---|---:|---:|---:|---:|---:|---:|---:|\n| 中际旭创 | 192.12% | 262.28% | 174.58%（推算） | 228.19%（推算） | 46.25% | 缺口 | 缺口 |\n| 新易盛 | 缺口 | 缺口 | 缺口 | 缺口 | 缺口 | 缺口 | 缺口 |\n中际旭创Q2按累计报表还原：营收为（2026H1－2026Q1）对比（2025H1－2025Q1），归母净利同理；因此是推算值，不是财报直接披露的单季同比。其Q1至Q2仍保持很高增长，但营收、净利同比均有所放缓。\n**排序：**中际旭创自身五项已取得的财务指标从高到低为：Q1归母净利同比＞Q2归母净利同比＞Q1营收同比＞Q2营收同比＞H1毛利率。两家公司横向排序及股价动量排序均暂缺，不能形成合规胜负结论。\n反之，中际旭创维持多数基本面指标领先且价格动量不弱于新易盛，排序才可维持。若基本面与交易面方向相反，应分别排序，不宜强行合并。",
+     "elapsed_s": 141.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 2
+     },
+     "input_tokens": 46403,
+     "output_tokens": 1734,
+     "llm_calls": 6,
+     "tool_calls": 1,
+     "invalid_actions": 0,
+     "tools_called": [
+      "sub_research"
+     ],
+     "structural_status": "partial",
+     "semantic_status": "completed",
+     "judge_status": "repaired",
+     "stop_reason": "repair_model_finish",
+     "gaps": 6,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260909_212814_131917"
+    }
+   ],
+   "final_answer": "**基准判断：现有证据不足以完成两家公司总排序。**仅中际旭创财务数据可核验；新易盛全部财务指标及两家公司股价窗口均缺失，不能把“未取到”当作落后。\n| 公司 | 2026Q1营收同比 | 2026Q1归母净利同比 | 2026Q2单季营收同比 | 2026Q2单季归母净利同比 | 2026H1毛利率 | 收盘价较10个交易日前 | 较20个交易日前 |\n|---|---:|---:|---:|---:|---:|---:|---:|\n| 中际旭创 | 192.12% | 262.28% | 174.58%（推算） | 228.19%（推算） | 46.25% | 缺口 | 缺口 |\n| 新易盛 | 缺口 | 缺口 | 缺口 | 缺口 | 缺口 | 缺口 | 缺口 |\n中际旭创Q2按累计报表还原：营收为（2026H1－2026Q1）对比（2025H1－2025Q1），归母净利同理；因此是推算值，不是财报直接披露的单季同比。其Q1至Q2仍保持很高增长，但营收、净利同比均有所放缓。\n**排序：**中际旭创自身五项已取得的财务指标从高到低为：Q1归母净利同比＞Q2归母净利同比＞Q1营收同比＞Q2营收同比＞H1毛利率。两家公司横向排序及股价动量排序均暂缺，不能形成合规胜负结论。\n反之，中际旭创维持多数基本面指标领先且价格动量不弱于新易盛，排序才可维持。若基本面与交易面方向相反，应分别排序，不宜强行合并。",
+   "execution_status": "completed",
+   "total_elapsed_s": 141.8,
+   "total_input_tokens": 46403,
+   "total_output_tokens": 1734,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 3.2,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-compare-02",
+   "category": "compare",
+   "tier": "deep",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_f3f7819eca4e44009853a4da4bc0422f",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "英维克（002837）、申菱环境（301018）、高澜股份（300499）三家液冷公司：列 2026 上半年营收同比、归母净利同比、毛利率、净利率，再加 2026-09-07 收盘价相对 20 个交易日前的涨幅，判断哪家『股价涨幅与业绩兑现的错位』最大，并说明这种错位在什么条件下是合理的、什么条件下是风险。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260909_213039_155973",
+     "answer": "口径：中报为截至2026-06-30的累计数据；净利率采用披露/数据源的销售净利率口径。股价区间以2026-08-10至2026-09-07两个收盘价计算，覆盖20个交易日间隔。\n|公司|营收同比|归母净利同比|毛利率|净利率|20交易日涨幅|\n|---|---:|---:|---:|---:|---:|\n|英维克|17.24%|-14.32%|24.93%|6.52%|16.71%|\n|申菱环境|4.39%|-64.07%|19.65%|3.15%|19.12%|\n|高澜股份|18.16%|12.22%|26.12%|5.68%|26.67%|\n**基准判断：错位最大的是申菱环境。**其股价区间仍上涨，但中报仅小幅增收、归母利润明显下滑，且毛利率与净利率均处于三者较低水平；按“已披露业绩增速—同期股价涨幅”的简单比较，它的背离最显著。英维克也是“增收不增利”，但收入增速更高、利润降幅远小于申菱；高澜的股价涨幅最高，但中报营收与利润均正增长，因此更像估值对后续增长的前置定价，而非已披露业绩与价格的最大反差。\n这种错位**可以合理**，前提是后续可核验的液冷订单、交付验收和收入确认能在下半年兑现，且利润率不再继续走弱。申菱当日的媒体转述称其存在新增液冷有效订单及部分发出商品年内结转预期，但尚缺公司公告或原始纪要交叉确认，现阶段只能视为待验证线索。\n这种错位转为**风险**的条件是：订单/发出商品不能按预期验收，收入增速继续低位，毛利率和净利率不能修复，或回款与经营现金流未随交付改善。反向看，高澜虽称在手订单较充足、交付平稳，但其泵驱两相冷板液冷系统仍是小批量交付和市场验证、尚未批量部署；这说明“液冷预期”不能直接等同于已兑现利润。\n结论的关键不确定性在于：三家公司均未取得可直接横向拆分的2026年中报液冷收入、订单、验收和回款数据。因此，“错位最大”是基于公司整体中报与股价的条件化判断，不是对液冷业务单独估值的结论。",
+     "elapsed_s": 331.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-terra": 3,
+      "gpt-5.6-sol": 2
+     },
+     "input_tokens": 435140,
+     "output_tokens": 8262,
+     "llm_calls": 31,
+     "tool_calls": 38,
+     "invalid_actions": 0,
+     "tools_called": [
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "web_search",
+      "web_search",
+      "web_search",
+      "web_search",
+      "financial_data",
+      "web_fetch",
+      "l3_lookup",
+      "l3_lookup",
+      "l3_lookup",
+      "web_search",
+      "web_search",
+      "web_search"
+     ],
+     "structural_status": "completed",
+     "semantic_status": "completed",
+     "judge_status": "repaired",
+     "stop_reason": "model_finish",
+     "gaps": 3,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260909_213039_155973"
+    }
+   ],
+   "final_answer": "口径：中报为截至2026-06-30的累计数据；净利率采用披露/数据源的销售净利率口径。股价区间以2026-08-10至2026-09-07两个收盘价计算，覆盖20个交易日间隔。\n|公司|营收同比|归母净利同比|毛利率|净利率|20交易日涨幅|\n|---|---:|---:|---:|---:|---:|\n|英维克|17.24%|-14.32%|24.93%|6.52%|16.71%|\n|申菱环境|4.39%|-64.07%|19.65%|3.15%|19.12%|\n|高澜股份|18.16%|12.22%|26.12%|5.68%|26.67%|\n**基准判断：错位最大的是申菱环境。**其股价区间仍上涨，但中报仅小幅增收、归母利润明显下滑，且毛利率与净利率均处于三者较低水平；按“已披露业绩增速—同期股价涨幅”的简单比较，它的背离最显著。英维克也是“增收不增利”，但收入增速更高、利润降幅远小于申菱；高澜的股价涨幅最高，但中报营收与利润均正增长，因此更像估值对后续增长的前置定价，而非已披露业绩与价格的最大反差。\n这种错位**可以合理**，前提是后续可核验的液冷订单、交付验收和收入确认能在下半年兑现，且利润率不再继续走弱。申菱当日的媒体转述称其存在新增液冷有效订单及部分发出商品年内结转预期，但尚缺公司公告或原始纪要交叉确认，现阶段只能视为待验证线索。\n这种错位转为**风险**的条件是：订单/发出商品不能按预期验收，收入增速继续低位，毛利率和净利率不能修复，或回款与经营现金流未随交付改善。反向看，高澜虽称在手订单较充足、交付平稳，但其泵驱两相冷板液冷系统仍是小批量交付和市场验证、尚未批量部署；这说明“液冷预期”不能直接等同于已兑现利润。\n结论的关键不确定性在于：三家公司均未取得可直接横向拆分的2026年中报液冷收入、订单、验收和回款数据。因此，“错位最大”是基于公司整体中报与股价的条件化判断，不是对液冷业务单独估值的结论。",
+   "execution_status": "completed",
+   "total_elapsed_s": 332.2,
+   "total_input_tokens": 435140,
+   "total_output_tokens": 8262,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 3.3,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-chain-01",
+   "category": "chain",
+   "tier": "deep",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_0192e617b4ef4967a19e473b2f8c923d",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "英伟达 GB300 / 超节点机柜的液冷渗透率提升，会传导到 A 股哪些环节？请按『环节 → 代表公司 → 兑现路径（订单 / 收入 / 利润哪一层先看到）→ 验证信号』列出来，指出哪个环节里公司之间差异最大，并用 2026 年中报数据说明这条链目前兑现到了哪一层。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260910_185120_013179",
+     "answer": "我还缺少一点信息：\n1. 你指的是哪家公司、题材或上一条研究逻辑？",
+     "elapsed_s": 3.0,
+     "engine": "engine_missing",
+     "served_models": {},
+     "input_tokens": null,
+     "output_tokens": null,
+     "llm_calls": null,
+     "tool_calls": null,
+     "invalid_actions": null,
+     "tools_called": [],
+     "structural_status": null,
+     "semantic_status": null,
+     "judge_status": null,
+     "stop_reason": null,
+     "gaps": null,
+     "allowed_capabilities": [],
+     "research_tier": null,
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260910_185120_013179"
+    }
+   ],
+   "final_answer": "我还缺少一点信息：\n1. 你指的是哪家公司、题材或上一条研究逻辑？",
+   "execution_status": "engine_missing",
+   "total_elapsed_s": 13.6,
+   "total_input_tokens": null,
+   "total_output_tokens": null,
+   "gateway_probe": [
+    {
+     "status": "skipped_no_env"
+    }
+   ]
+  },
+  {
+   "case_id": "cb00-chain-02",
+   "category": "chain",
+   "tier": "deep",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_0d10a4d6a4fd44319b2d10cf8c4d35de",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "从中际旭创、新易盛 2026 年中报的高增长出发，光模块景气会向上游哪些环节传导（光芯片、无源器件、PCB/CCL、高速连接）？请用 2026-09-07 的板块严格双红（涨幅>0、边际量>10、成交额>500 亿）和涨停热度数据验证市场是否已经在交易这条链，分别列出被验证和未被验证的环节，并说明验证不了的原因。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260910_185133_583494",
+     "answer": "我还缺少一点信息：\n1. 你指的是哪家公司、题材或上一条研究逻辑？",
+     "elapsed_s": 3.0,
+     "engine": "engine_missing",
+     "served_models": {},
+     "input_tokens": null,
+     "output_tokens": null,
+     "llm_calls": null,
+     "tool_calls": null,
+     "invalid_actions": null,
+     "tools_called": [],
+     "structural_status": null,
+     "semantic_status": null,
+     "judge_status": null,
+     "stop_reason": null,
+     "gaps": null,
+     "allowed_capabilities": [],
+     "research_tier": null,
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260910_185133_583494"
+    }
+   ],
+   "final_answer": "我还缺少一点信息：\n1. 你指的是哪家公司、题材或上一条研究逻辑？",
+   "execution_status": "engine_missing",
+   "total_elapsed_s": 13.6,
+   "total_input_tokens": null,
+   "total_output_tokens": null,
+   "gateway_probe": [
+    {
+     "status": "skipped_no_env"
+    }
+   ]
+  },
+  {
+   "case_id": "cb00-analog-01",
+   "category": "analog",
+   "tier": "deep",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_3d09500636bd4b49b59de3ca321ddb69",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "以 2026-09-07 收盘为准：市场处于『下跌阶段第 3 天』，之前 2 天底部横盘，再往前是 5 天下跌和 19 天底部横盘。请在库内 2025-09 以来的市场阶段序列里找出所有『横盘 → 下跌』的转折先例，逐条列转折日、之前横盘持续天数、之后 5 / 10 / 20 个交易日上证指数涨跌幅；然后说明样本量够不够下结论、阶段标签口径有没有变化，以及这次和先例最大的不同是什么。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260909_213654_718583",
+     "answer": "结论：现有库内证据不足以完成“2025-09以来所有横盘→下跌转折先例”的逐条枚举，也不能计算各转折后5/10/20个交易日的上证涨跌幅，因此不能据此形成统计性方向结论。\n已见的日频记录仅覆盖两个下跌片段：2025-11-18至21日的下跌阶段第1至4天（第4日单日-2.4462%），随后11月24日标签转为“反弹”；以及2026-02-02、2026-03-16各有一条“下跌第1天”记录。上述记录均未提供其前一“横盘”阶段、横盘持续天数，亦未提供转折日后的完整5/10/20日收盘序列，不能认定为合格的“横盘→下跌”先例。\n比较口径应为：转折日定义为阶段标签由“横盘”首次切换为“下跌”的交易日；此前连续横盘交易日数；转折日起（或按统一约定的下一交易日起）5、10、20个交易日上证收盘累计涨跌幅；并核查阶段标签算法、阈值和复核规则在全样本期是否一致。现有片段显示标签至少包含“下跌”“反弹”，但没有“横盘”记录或标签方法说明，无法验证标签口径是否变更。\n本次结构（下跌第3天、此前2天横盘、再前5天下跌和19天横盘）仅为用户给定前提；因无合格历史候选，不能判断与先例的相似点、最大不同或样本量是否足以支持外推。应将结论严格限于：待补齐完整阶段序列与后续收益数据后再做条件化比较。",
+     "elapsed_s": 99.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 1,
+      "gpt-5.6-terra": 2
+     },
+     "input_tokens": 41844,
+     "output_tokens": 2477,
+     "llm_calls": 9,
+     "tool_calls": 8,
+     "invalid_actions": 0,
+     "tools_called": [
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query"
+     ],
+     "structural_status": "partial",
+     "semantic_status": "completed",
+     "judge_status": "passed",
+     "stop_reason": "finalization_recovered",
+     "gaps": 11,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260909_213654_718583"
+    }
+   ],
+   "final_answer": "结论：现有库内证据不足以完成“2025-09以来所有横盘→下跌转折先例”的逐条枚举，也不能计算各转折后5/10/20个交易日的上证涨跌幅，因此不能据此形成统计性方向结论。\n已见的日频记录仅覆盖两个下跌片段：2025-11-18至21日的下跌阶段第1至4天（第4日单日-2.4462%），随后11月24日标签转为“反弹”；以及2026-02-02、2026-03-16各有一条“下跌第1天”记录。上述记录均未提供其前一“横盘”阶段、横盘持续天数，亦未提供转折日后的完整5/10/20日收盘序列，不能认定为合格的“横盘→下跌”先例。\n比较口径应为：转折日定义为阶段标签由“横盘”首次切换为“下跌”的交易日；此前连续横盘交易日数；转折日起（或按统一约定的下一交易日起）5、10、20个交易日上证收盘累计涨跌幅；并核查阶段标签算法、阈值和复核规则在全样本期是否一致。现有片段显示标签至少包含“下跌”“反弹”，但没有“横盘”记录或标签方法说明，无法验证标签口径是否变更。\n本次结构（下跌第3天、此前2天横盘、再前5天下跌和19天横盘）仅为用户给定前提；因无合格历史候选，不能判断与先例的相似点、最大不同或样本量是否足以支持外推。应将结论严格限于：待补齐完整阶段序列与后续收益数据后再做条件化比较。",
+   "execution_status": "completed",
+   "total_elapsed_s": 99.7,
+   "total_input_tokens": 41844,
+   "total_output_tokens": 2477,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 4.7,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-analog-02",
+   "category": "analog",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_634149b5d383454d99773f0cfc5134bd",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "2026 年以来（截至 2026-09-07）每一段『下跌阶段』各持续了多少个交易日？请给出全部样本、起止日和中位数。本轮从 09-03 起到 09-07 已是第 3 天，按历史分布，走到第 3 天之后通常还剩几天？哪一段是反例？",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260909_213927_472845",
+     "answer": "按数据提供方的“市场阶段”标签，而非按指数连续下跌日计，当前可直接确认两段：\n- **2026-08-25 至 08-31：7个交易日**。该段在第3天（08-25）之后还经历了4个交易日。\n- **2026-09-03 至 09-07：截至该日为第3个交易日，尚未结束**，不能把它当作完整历史样本纳入中位数。\n因此，基于目前唯一已走完且可见“走到第3天后”的样本，**基准判断是：第3天后尚余4个交易日**；但样本量只有1，不能称为稳定的“历史分布”或可靠概率。反例尚无法识别：需要取得全年所有已完成下跌阶段后，才能比较哪些阶段在第3天后持续时间显著不同。\n证据边界：本次结构化市场日频数据虽请求覆盖2026年初至09-07，但返回预览实际仅覆盖08-04至09-07，故无法给出“2026年以来全部样本”、完整样本中位数和反例。数据截至09-07；其中09-03、09-04、09-07被标为下跌阶段第1、2、3天。阶段第N天是数据源的阶段标签，不等同于连续N个收跌交易日。",
+     "elapsed_s": 76.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-terra": 2
+     },
+     "input_tokens": 30010,
+     "output_tokens": 831,
+     "llm_calls": 8,
+     "tool_calls": 1,
+     "invalid_actions": 0,
+     "tools_called": [
+      "finance_query"
+     ],
+     "structural_status": "partial",
+     "semantic_status": "completed",
+     "judge_status": "repaired",
+     "stop_reason": "repair_model_finish",
+     "gaps": 5,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260909_213927_472845"
+    }
+   ],
+   "final_answer": "按数据提供方的“市场阶段”标签，而非按指数连续下跌日计，当前可直接确认两段：\n- **2026-08-25 至 08-31：7个交易日**。该段在第3天（08-25）之后还经历了4个交易日。\n- **2026-09-03 至 09-07：截至该日为第3个交易日，尚未结束**，不能把它当作完整历史样本纳入中位数。\n因此，基于目前唯一已走完且可见“走到第3天后”的样本，**基准判断是：第3天后尚余4个交易日**；但样本量只有1，不能称为稳定的“历史分布”或可靠概率。反例尚无法识别：需要取得全年所有已完成下跌阶段后，才能比较哪些阶段在第3天后持续时间显著不同。\n证据边界：本次结构化市场日频数据虽请求覆盖2026年初至09-07，但返回预览实际仅覆盖08-04至09-07，故无法给出“2026年以来全部样本”、完整样本中位数和反例。数据截至09-07；其中09-03、09-04、09-07被标为下跌阶段第1、2、3天。阶段第N天是数据源的阶段标签，不等同于连续N个收跌交易日。",
+   "execution_status": "completed",
+   "total_elapsed_s": 78.6,
+   "total_input_tokens": 30010,
+   "total_output_tokens": 831,
+   "gateway_probe": [
+    {
+     "status": "http_502",
+     "served_model": null,
+     "reset_seconds": null,
+     "detail": "{\"error\":{\"message\":\"Upstream service temporarily unavailable\",\"type\":\"upstream_error\"}}",
+     "elapsed_s": 0.5,
+     "probe_model": "gpt-5.6-sol"
+    },
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-terra",
+     "reset_seconds": null,
+     "elapsed_s": 2.4,
+     "probe_model": "gpt-5.6-terra"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-scenario-01",
+   "category": "scenario",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_ed33546d7d8749e29cffe8b5d0126709",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "基于 2026-09-07 收盘数据（下跌阶段第 3 天、成交约 1.95 万亿、涨停 93 家、跌停 2 家、20 日新高 373 家、强势股边际量 +98.82%），给出对下一个交易日的情景树：先列变量表（每个变量写当前值和数据来源），再给至少三种情景，每种写触发阈值、对应研判和之后要监控的信号。不要写数值概率，用高 / 中 / 低并说明依据。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260909_214049_480771",
+     "answer": "基于已核验的2026-09-07 A股盘面，次日判断宜以“量能能否回补、涨停与跌停结构是否维持、上涨家数是否扩散”为条件，而非作单向预测。\n变量表：\n|变量|当前值|来源|\n|---|---:|---|\n|市场阶段|下跌阶段第3天|E1、E25|\n|全市场成交额|19,451.91亿元，环比-4.16%|E1、E26|\n|量比|92.66%|E1、E26|\n|上涨/涨停/跌停|3,167家/93家/2家|E1、E27|\n|强势股成交占比/加权涨幅|19.96%/9.92%|E1|\n|前三成交行业及占比|电子、通信、机械设备；43.8%|E1|\n|上证收盘/涨跌幅|3,932.699点/+0.0657%|E1|\n|20日新高373家、强势股边际量+98.82%|未在已提供证据中取得可核验记录|缺口|\n情景树：\n1. 修复扩散（可能性：中）。触发：成交额不低于19,451.91亿元，涨停维持93家以上、跌停不高于2家，上涨家数保持在3,167家以上。研判：下跌阶段中的承接仍在，强势表现由局部向广度扩散；但这只是盘面修复，不等同于趋势反转。后续监控量能是否由环比-4.16%转为回升，以及前三成交行业集中度是否下降。\n2. 缩量分化（可能性：高）。触发：成交额继续低于19,451.91亿元，且上涨家数回落；涨停仍相对较多而跌停未明显增加。研判：93家涨停与仅2家跌停显示风险偏好尚未失效，但成交额已环比收缩，可能演化为少数强势股承接、其余个股走弱的分化。监控强势股成交占比是否高于19.96%、上涨家数与涨停家数是否背离。\n3. 情绪转弱（可能性：中低）。触发：成交继续收缩，同时涨停低于93家、跌停高于2家、上涨家数低于3,167家。研判：广度、封板与风险端同步恶化，符合下跌阶段第3天延续压力的条件；若方向锚与高度锚同时恶化且最后一龙冲高回落，才可确认更广泛的板块逆转。监控方向锚、高度锚和高标回落是否同步出现。\n同一盘面现象存在两种并立解释：上涨3,167家、涨停93家且跌停仅2家，可被解释为修复承接；也可与成交额环比-4.16%共同解释为缩量下的强势集中。现有证据没有次日数据，也没有方向锚、高度锚的实际表现，不能裁决两者。上述高/中/低仅为条件满足前的相对排序：缩量已由当日数据确认，故“缩量分化”为高；广度与封板结构尚好，故修复并未被排除；全面转弱须多项指标同步恶化，故为中低。\n证据边界：行情数据仅覆盖2026-09-07（E24），未取得2026-09-08实际盘面或同期新闻证据；因此不对驱动原因作已核验因果归因，也不使用未核验的20日新高及强势股边际量数据。",
+     "elapsed_s": 147.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 1,
+      "gpt-5.6-terra": 1
+     },
+     "input_tokens": 21943,
+     "output_tokens": 2330,
+     "llm_calls": 7,
+     "tool_calls": 5,
+     "invalid_actions": 0,
+     "tools_called": [
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "market_data",
+      "mainline_context"
+     ],
+     "structural_status": "partial",
+     "semantic_status": "completed",
+     "judge_status": "repaired",
+     "stop_reason": "finalization_recovered",
+     "gaps": 6,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260909_214049_480771"
+    }
+   ],
+   "final_answer": "基于已核验的2026-09-07 A股盘面，次日判断宜以“量能能否回补、涨停与跌停结构是否维持、上涨家数是否扩散”为条件，而非作单向预测。\n变量表：\n|变量|当前值|来源|\n|---|---:|---|\n|市场阶段|下跌阶段第3天|E1、E25|\n|全市场成交额|19,451.91亿元，环比-4.16%|E1、E26|\n|量比|92.66%|E1、E26|\n|上涨/涨停/跌停|3,167家/93家/2家|E1、E27|\n|强势股成交占比/加权涨幅|19.96%/9.92%|E1|\n|前三成交行业及占比|电子、通信、机械设备；43.8%|E1|\n|上证收盘/涨跌幅|3,932.699点/+0.0657%|E1|\n|20日新高373家、强势股边际量+98.82%|未在已提供证据中取得可核验记录|缺口|\n情景树：\n1. 修复扩散（可能性：中）。触发：成交额不低于19,451.91亿元，涨停维持93家以上、跌停不高于2家，上涨家数保持在3,167家以上。研判：下跌阶段中的承接仍在，强势表现由局部向广度扩散；但这只是盘面修复，不等同于趋势反转。后续监控量能是否由环比-4.16%转为回升，以及前三成交行业集中度是否下降。\n2. 缩量分化（可能性：高）。触发：成交额继续低于19,451.91亿元，且上涨家数回落；涨停仍相对较多而跌停未明显增加。研判：93家涨停与仅2家跌停显示风险偏好尚未失效，但成交额已环比收缩，可能演化为少数强势股承接、其余个股走弱的分化。监控强势股成交占比是否高于19.96%、上涨家数与涨停家数是否背离。\n3. 情绪转弱（可能性：中低）。触发：成交继续收缩，同时涨停低于93家、跌停高于2家、上涨家数低于3,167家。研判：广度、封板与风险端同步恶化，符合下跌阶段第3天延续压力的条件；若方向锚与高度锚同时恶化且最后一龙冲高回落，才可确认更广泛的板块逆转。监控方向锚、高度锚和高标回落是否同步出现。\n同一盘面现象存在两种并立解释：上涨3,167家、涨停93家且跌停仅2家，可被解释为修复承接；也可与成交额环比-4.16%共同解释为缩量下的强势集中。现有证据没有次日数据，也没有方向锚、高度锚的实际表现，不能裁决两者。上述高/中/低仅为条件满足前的相对排序：缩量已由当日数据确认，故“缩量分化”为高；广度与封板结构尚好，故修复并未被排除；全面转弱须多项指标同步恶化，故为中低。\n证据边界：行情数据仅覆盖2026-09-07（E24），未取得2026-09-08实际盘面或同期新闻证据；因此不对驱动原因作已核验因果归因，也不使用未核验的20日新高及强势股边际量数据。",
+   "execution_status": "completed",
+   "total_elapsed_s": 148.0,
+   "total_input_tokens": 21943,
+   "total_output_tokens": 2330,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 3.4,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-scenario-02",
+   "category": "scenario",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_bd2cbf87d3164689bd7ff9eff7c350af",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "09-04 收盘时的研判是：『下跌阶段第 2 天，成交放大 15% 但强势股边际量转负（-19.12%），需要看 09-07 是否缩量续跌』。现在 09-07 数据出来了：成交 1.945 万亿（-4.16%）、涨停 93 家（09-04 为 38 家）、强势股边际量 +98.82%、20 日新高 373 家（09-04 为 527 家）、上证 +0.07%。请更新研判：哪些情景被数据排除、哪些被加强、出现了什么新的矛盾，以及 09-08 最需要验证的一件事是什么。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260909_214322_371387",
+     "answer": "公开报道也仅能从方向上印证09-07属于缩量反弹、科技股走强，而不能核验上述精确数字。[E17][E18][E11]\n被加强的情景：①“缩量但情绪先行修复”；②资金向强势方向集中，而非全面撤退。尚未被确认的是“下跌阶段结束并转为普涨上升”：20日新高由527降至373，与涨停数和强势股边际量激增相反。\n新的矛盾：短周期热度明显回升，但中期趋势广度继续收缩；同时指数仅微涨、成交缩量，表明赚钱效应改善快于指数与趋势扩散。这既可能是风险偏好重新启动，也可能只是少数科技方向驱动的集中式反抽。09-07消息显示存储芯片、CPO和光通信走强，可作为“结构集中”候选解释，但不能据此认定因果。[E11]\n条件化情景树：\n1. 若强势股边际量重新转负、涨停明显回落且指数下跌：支持09-07仅为一日情绪反抽，原下跌路径恢复。\n09-08最需要验证的一件事：中期广度能否跟上短线热度，核心观察20日新高是否止跌回升，并以强势股边际量是否保持正值交叉确认。\n证据边界：现有结构化行情只覆盖09-09，不能倒推核验09-04及09-07；历史日应使用日期参数化接口。[E1][E45][E9] 因此上述精确比较依赖用户提供数据，本回答只能给出条件化研判，不能视为已完成的历史行情审计。",
+     "elapsed_s": 304.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 5
+     },
+     "input_tokens": 66881,
+     "output_tokens": 3533,
+     "llm_calls": 7,
+     "tool_calls": 14,
+     "invalid_actions": 1,
+     "tools_called": [
+      "market_data",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "memory_lookup",
+      "news_search",
+      "web_fetch",
+      "web_fetch",
+      "web_fetch",
+      "mainline_context",
+      "news_search",
+      "finance_query",
+      "finance_query"
+     ],
+     "structural_status": "partial",
+     "semantic_status": "completed",
+     "judge_status": "repaired",
+     "stop_reason": "finalization_recovered",
+     "gaps": 6,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260909_214322_371387"
+    }
+   ],
+   "final_answer": "公开报道也仅能从方向上印证09-07属于缩量反弹、科技股走强，而不能核验上述精确数字。[E17][E18][E11]\n被加强的情景：①“缩量但情绪先行修复”；②资金向强势方向集中，而非全面撤退。尚未被确认的是“下跌阶段结束并转为普涨上升”：20日新高由527降至373，与涨停数和强势股边际量激增相反。\n新的矛盾：短周期热度明显回升，但中期趋势广度继续收缩；同时指数仅微涨、成交缩量，表明赚钱效应改善快于指数与趋势扩散。这既可能是风险偏好重新启动，也可能只是少数科技方向驱动的集中式反抽。09-07消息显示存储芯片、CPO和光通信走强，可作为“结构集中”候选解释，但不能据此认定因果。[E11]\n条件化情景树：\n1. 若强势股边际量重新转负、涨停明显回落且指数下跌：支持09-07仅为一日情绪反抽，原下跌路径恢复。\n09-08最需要验证的一件事：中期广度能否跟上短线热度，核心观察20日新高是否止跌回升，并以强势股边际量是否保持正值交叉确认。\n证据边界：现有结构化行情只覆盖09-09，不能倒推核验09-04及09-07；历史日应使用日期参数化接口。[E1][E45][E9] 因此上述精确比较依赖用户提供数据，本回答只能给出条件化研判，不能视为已完成的历史行情审计。",
+   "execution_status": "completed",
+   "total_elapsed_s": 304.7,
+   "total_input_tokens": 66881,
+   "total_output_tokens": 3533,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 4.9,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-counter-01",
+   "category": "counter",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_a1c2cc86781547279116c178699eca4a",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "有个说法：『单日涨停家数上了 80 家，就说明市场进入强势 / 上涨阶段』。请用 2026-08-01 到 2026-09-07 的库内数据找反例（列日期、涨停家数、当日阶段标签、强势股边际量、上证涨跌），说明这个说法哪里不对，并提出一条更站得住的判断规则（写清指标和阈值）。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260909_214832_171744",
+     "answer": "**结论：单日涨停家数超过80家，不能单独证明市场已进入强势或上涨阶段。**按题设，2026-08-01为休市日；本段区间行情从8月4日的交易日数据起。\n反例（“阶段第N天”仅为数据源阶段标签，不表示连续上涨天数）：\n|日期|涨停家数|当日阶段标签|强势股指标*|上证涨跌|\n|---|---:|---|---:|---:|\n|2026-08-28|82|下跌阶段，第6天|8.83%|-0.111%|\n|2026-08-31|88|下跌阶段，第7天|11.79%|0.8633%|\n|2026-09-01|83|底部横盘阶段，第25天|6.56%|-0.1608%|\n|2026-09-07|93|下跌阶段，第3天|19.96%|0.0657%|\n*库内同日字段实际为“强势股成交占比”，并非“强势股边际量”。\n问题在于：涨停家数是单日横截面广度，既可能出现在下跌过程中的局部修复，也可能只是横盘期的短线活跃；它不能确认趋势方向、增量资金或持续性。8月28日及9月7日均在下跌阶段而涨停超过80家，9月1日则指数收跌且仍处底部横盘，已直接否定“超过80家=进入上涨阶段”的充分条件。\n**更站得住的规则：把“涨停超过80家”降为候选信号，只有同时满足：市场阶段已非下跌阶段、上证当日为正、强势股成交占比较前期改善且量能由正常转向增量，才升级判断为强势/上涨确认。**任一项缺失时，只能称为短线活跃或修复，不能定性为趋势上涨。数值阈值方面，现有样本没有提供“强势股边际量”及跨期验证，无法负责任地新增经检验的固定阈值；应以同口径历史样本回测后再校准。\n证据边界：反例仅覆盖2026-08-04至2026-09-07的库内交易日；最新可用市场快照为2026-09-09，仍标注为下跌阶段。未取得用户所称“强势股边际量”的同日字段，故以最接近的强势股成交占比替代，不能把两者等同。",
+     "elapsed_s": 82.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-terra": 2
+     },
+     "input_tokens": 33274,
+     "output_tokens": 1749,
+     "llm_calls": 6,
+     "tool_calls": 3,
+     "invalid_actions": 0,
+     "tools_called": [
+      "finance_query",
+      "market_data",
+      "mainline_context"
+     ],
+     "structural_status": "partial",
+     "semantic_status": "completed",
+     "judge_status": "repaired",
+     "stop_reason": "model_finish",
+     "gaps": 5,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260909_214832_171744"
+    }
+   ],
+   "final_answer": "**结论：单日涨停家数超过80家，不能单独证明市场已进入强势或上涨阶段。**按题设，2026-08-01为休市日；本段区间行情从8月4日的交易日数据起。\n反例（“阶段第N天”仅为数据源阶段标签，不表示连续上涨天数）：\n|日期|涨停家数|当日阶段标签|强势股指标*|上证涨跌|\n|---|---:|---|---:|---:|\n|2026-08-28|82|下跌阶段，第6天|8.83%|-0.111%|\n|2026-08-31|88|下跌阶段，第7天|11.79%|0.8633%|\n|2026-09-01|83|底部横盘阶段，第25天|6.56%|-0.1608%|\n|2026-09-07|93|下跌阶段，第3天|19.96%|0.0657%|\n*库内同日字段实际为“强势股成交占比”，并非“强势股边际量”。\n问题在于：涨停家数是单日横截面广度，既可能出现在下跌过程中的局部修复，也可能只是横盘期的短线活跃；它不能确认趋势方向、增量资金或持续性。8月28日及9月7日均在下跌阶段而涨停超过80家，9月1日则指数收跌且仍处底部横盘，已直接否定“超过80家=进入上涨阶段”的充分条件。\n**更站得住的规则：把“涨停超过80家”降为候选信号，只有同时满足：市场阶段已非下跌阶段、上证当日为正、强势股成交占比较前期改善且量能由正常转向增量，才升级判断为强势/上涨确认。**任一项缺失时，只能称为短线活跃或修复，不能定性为趋势上涨。数值阈值方面，现有样本没有提供“强势股边际量”及跨期验证，无法负责任地新增经检验的固定阈值；应以同口径历史样本回测后再校准。\n证据边界：反例仅覆盖2026-08-04至2026-09-07的库内交易日；最新可用市场快照为2026-09-09，仍标注为下跌阶段。未取得用户所称“强势股边际量”的同日字段，故以最接近的强势股成交占比替代，不能把两者等同。",
+   "execution_status": "completed",
+   "total_elapsed_s": 84.5,
+   "total_input_tokens": 33274,
+   "total_output_tokens": 1749,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 5.1,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-counter-02",
+   "category": "counter",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_d18ddb567ed84f2396fe2be2180d01a7",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "『成交额放大就是好事』——请用 2026-08-25 到 2026-09-07 的库内数据找反例：哪些天成交放大但上证下跌或上涨家数不到一半？哪些天成交缩小但涨停家数反而多？逐日列出成交额、环比、上证涨跌、上涨家数、涨停家数，然后说明成交额应该和哪些指标一起看才能判断好坏。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260909_221857_851734",
+     "answer": "**结论：成交额放大只是交易活跃度上升，不天然等于“好”。**本窗口的直接反例是 9月4日：成交额环比放大，但上证下跌，且上涨家数偏少，说明增量成交可以来自兑现、分歧或下跌中的换手，而非一致性做多。\n逐日口径：成交额单位为亿元；环比、上证涨跌为%。\n|日期|成交额|环比|上证涨跌|上涨家数|涨停家数|\n|---|---:|---:|---:|---:|---:|\n|8/25|18,316.26|-8.75|+0.1916|4,234|65|\n|8/26|18,083.81|-1.27|+0.5934|2,946|52|\n|8/27|21,256.25|+17.54|+1.1258|3,394|77|\n|8/28|21,014.72|-1.14|-0.1110|3,013|82|\n|8/31|21,305.63|+1.38|+0.8633|3,181|88|\n|9/1|20,328.97|-4.58|-0.1608|3,387|83|\n|9/2|17,908.79|-11.91|-0.9674|1,541|52|\n|9/3|17,577.35|-1.85|+0.0178|1,840|44|\n|9/4|20,297.02|+15.47|-0.3037|2,441|39|\n|9/7|19,451.91|-4.16|+0.0657|3,167|93|\n**成交放大但表现不佳：**9/4是明确反例。至于“上涨家数不到一半”，库内本次返回了上涨家数但未提供同期全市场可交易股票总数，无法严格计算该比例；不把它当作已证实结论。\n**成交缩小、涨停反增：**8/25（65，高于8/24的47）、8/28（82，高于8/27的77）、9/7（93，高于9/4的39）。这说明缩量也可能伴随情绪修复或资金向强势股集中，并不必然转弱。\n更可操作的组合判读是：\n- 成交额放大要同时看**指数方向**：放量上涨与放量下跌含义相反；\n- 看**市场宽度**：上涨家数及其占全市场比例，防止少数权重或少数题材撑指数；\n- 看**情绪强度**：涨停家数，并结合跌停、连板晋级和炸板情况判断是扩散还是退潮；\n- 看**结构**：增量成交是流向主线并带来强度扩散，还是高位股分歧、兑现造成的被动放量。\n**基准判断：**只有“放量 + 指数走强 + 宽度改善 + 涨停/晋级结构不恶化”同时出现，成交放大才更接近正向确认；其中任一项明显背离，尤其是放量下跌，应优先按分歧或风险释放处理，而不是按利好解读。",
+     "elapsed_s": 102.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 2,
+      "gpt-5.6-terra": 1
+     },
+     "input_tokens": 60019,
+     "output_tokens": 2213,
+     "llm_calls": 4,
+     "tool_calls": 2,
+     "invalid_actions": 0,
+     "tools_called": [
+      "finance_query",
+      "finance_query"
+     ],
+     "structural_status": "completed",
+     "semantic_status": "completed",
+     "judge_status": "repaired",
+     "stop_reason": "model_finish",
+     "gaps": 2,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260909_221857_851734"
+    }
+   ],
+   "final_answer": "**结论：成交额放大只是交易活跃度上升，不天然等于“好”。**本窗口的直接反例是 9月4日：成交额环比放大，但上证下跌，且上涨家数偏少，说明增量成交可以来自兑现、分歧或下跌中的换手，而非一致性做多。\n逐日口径：成交额单位为亿元；环比、上证涨跌为%。\n|日期|成交额|环比|上证涨跌|上涨家数|涨停家数|\n|---|---:|---:|---:|---:|---:|\n|8/25|18,316.26|-8.75|+0.1916|4,234|65|\n|8/26|18,083.81|-1.27|+0.5934|2,946|52|\n|8/27|21,256.25|+17.54|+1.1258|3,394|77|\n|8/28|21,014.72|-1.14|-0.1110|3,013|82|\n|8/31|21,305.63|+1.38|+0.8633|3,181|88|\n|9/1|20,328.97|-4.58|-0.1608|3,387|83|\n|9/2|17,908.79|-11.91|-0.9674|1,541|52|\n|9/3|17,577.35|-1.85|+0.0178|1,840|44|\n|9/4|20,297.02|+15.47|-0.3037|2,441|39|\n|9/7|19,451.91|-4.16|+0.0657|3,167|93|\n**成交放大但表现不佳：**9/4是明确反例。至于“上涨家数不到一半”，库内本次返回了上涨家数但未提供同期全市场可交易股票总数，无法严格计算该比例；不把它当作已证实结论。\n**成交缩小、涨停反增：**8/25（65，高于8/24的47）、8/28（82，高于8/27的77）、9/7（93，高于9/4的39）。这说明缩量也可能伴随情绪修复或资金向强势股集中，并不必然转弱。\n更可操作的组合判读是：\n- 成交额放大要同时看**指数方向**：放量上涨与放量下跌含义相反；\n- 看**市场宽度**：上涨家数及其占全市场比例，防止少数权重或少数题材撑指数；\n- 看**情绪强度**：涨停家数，并结合跌停、连板晋级和炸板情况判断是扩散还是退潮；\n- 看**结构**：增量成交是流向主线并带来强度扩散，还是高位股分歧、兑现造成的被动放量。\n**基准判断：**只有“放量 + 指数走强 + 宽度改善 + 涨停/晋级结构不恶化”同时出现，成交放大才更接近正向确认；其中任一项明显背离，尤其是放量下跌，应优先按分歧或风险释放处理，而不是按利好解读。",
+   "execution_status": "completed",
+   "total_elapsed_s": 102.5,
+   "total_input_tokens": 60019,
+   "total_output_tokens": 2213,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 3.9,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-continue-01",
+   "category": "continue",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_90f37c4d9d714d2ab81c03753dc876b1",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "2026-09-02 收盘复盘一下：市场处于什么阶段？主线是什么？涨停热度前几名是谁？",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260909_222042_431625",
+     "answer": "**阶段判断：A股处于“底部横盘、缩量观望”阶段。**当日上证指数收跌，成交额较前日回落，说明风险偏好尚未形成全面扩张；但涨停家数仍多于跌停、强势股整体仍偏强，盘面更像存量资金在局部题材中轮动，而非指数与情绪共振上攻。数据中的“阶段第26天”是数据方的阶段标签，并不表示连续上涨天数。［E2-E6］\n**主线判断：有色金属是结构上最突出的主线候选，AI应用、消费零售、医药及农林牧渔构成并行轮动方向。**依据是主线题材覆盖的核心板块数量中，有色金属最多；行业成交领先则集中于电子、机械设备和通信，意味着科技硬件链仍有交易承载，但不能仅凭成交领先确认其为当日最强题材。［E7-E8］\n**涨停热度前几名：当前未取得题材涨停热度排行榜或涨停个股明细，无法可靠列出前几名。**已知全市场当日有涨停股，但这不足以推导各题材的热度排序。［E4］\n后续跟踪的条件是：若成交额恢复扩张、指数止跌，同时有色金属或AI应用的涨停扩散与持续性增强，主线判断可升级；若缩量延续且强势股边际表现继续走弱，则应维持“轮动而非主升”的基准判断。该判断存在题材级涨停明细缺失的不确定性。\n证据边界：本次行情总览覆盖至2026-09-02收盘，包含阶段、量能、指数、涨跌停、强势股及主线题材概览；未取得同日主线结构明细及题材涨停热度排行，因此相关排序不作补全。",
+     "elapsed_s": 57.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 1,
+      "gpt-5.6-terra": 1
+     },
+     "input_tokens": 26504,
+     "output_tokens": 1010,
+     "llm_calls": 5,
+     "tool_calls": 1,
+     "invalid_actions": 0,
+     "tools_called": [
+      "market_data"
+     ],
+     "structural_status": "partial",
+     "semantic_status": "partial",
+     "judge_status": "passed",
+     "stop_reason": "repair_model_finish",
+     "gaps": 4,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260909_222042_431625"
+    },
+    {
+     "turn_index": 1,
+     "question": "接着 09-02 那次复盘，用 2026-09-07 收盘数据更新：哪些变了（给前后两个数）、哪些没变、新出现了什么，最后给下一步要看的两个点。只写增量，不要重复上次已经说过的内容。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260909_222139_726186",
+     "answer": "关于“接着 09-02 那次复盘，用 2026-09-07 收盘数据更新：哪些变了（给前后两个数）、哪些没变、新出现了什么，最后给下一步要看的两个点。只写增量，不要重复上次已经说过的内容。”，现有证据不足，暂不能可靠回答。仍需核验：列出可对照的历史相似阶段、列出比较维度与各自的观察口径、说明类比对象的相似点。本轮已取得 6 条证据，但未完成核验绑定，暂不能引用；可直接重试。证据数据截至 2026-09-07；缺口补齐后可复验。",
+     "elapsed_s": 77.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 1,
+      "gpt-5.6-terra": 2
+     },
+     "input_tokens": 56199,
+     "output_tokens": 1938,
+     "llm_calls": 7,
+     "tool_calls": 4,
+     "invalid_actions": 1,
+     "tools_called": [
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query"
+     ],
+     "structural_status": "partial",
+     "semantic_status": "partial",
+     "judge_status": "unavailable",
+     "stop_reason": "invalid_model_finish",
+     "gaps": 4,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [
+      "证据或语义核验未完全通过，已按证据边界降级。"
+     ],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260909_222139_726186"
+    }
+   ],
+   "final_answer": "关于“接着 09-02 那次复盘，用 2026-09-07 收盘数据更新：哪些变了（给前后两个数）、哪些没变、新出现了什么，最后给下一步要看的两个点。只写增量，不要重复上次已经说过的内容。”，现有证据不足，暂不能可靠回答。仍需核验：列出可对照的历史相似阶段、列出比较维度与各自的观察口径、说明类比对象的相似点。本轮已取得 6 条证据，但未完成核验绑定，暂不能引用；可直接重试。证据数据截至 2026-09-07；缺口补齐后可复验。",
+   "execution_status": "completed",
+   "total_elapsed_s": 135.9,
+   "total_input_tokens": 82703,
+   "total_output_tokens": 2948,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 2.1,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-continue-02",
+   "category": "continue",
+   "tier": "deep",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_441c54218dfe447a910f241f87a4714e",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "英维克、申菱环境、高澜股份 2026 年中报：营收同比、归母净利同比、毛利率、净利率各是多少？",
+     "status": "failed",
+     "error": null,
+     "run_id": "run_20260909_222304_811987",
+     "answer": "关于“英维克、申菱环境、高澜股份 2026 年中报：营收同比、归母净利同比、毛利率、净利率各是多少？”，现有证据不足，暂不能可靠回答。仍需核验：公司财务表现的直接判断、支撑财务判断的指标证据、提供主要反证或竞争性解释。",
+     "elapsed_s": 46.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 1
+     },
+     "input_tokens": 18114,
+     "output_tokens": 172,
+     "llm_calls": 5,
+     "tool_calls": 1,
+     "invalid_actions": 0,
+     "tools_called": [
+      "sub_research"
+     ],
+     "structural_status": "failed",
+     "semantic_status": "failed",
+     "judge_status": "unavailable",
+     "stop_reason": "repair_deadline_exhausted",
+     "gaps": 1,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [
+      "证据或语义核验未完全通过，已按证据边界降级。"
+     ],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260909_222304_811987"
+    },
+    {
+     "turn_index": 1,
+     "question": "上次我们看了这三家的中报。今天只补一件事：2026-09-07 收盘价各是多少、相对 20 个交易日前各涨了多少？这个涨幅排序和中报业绩（归母净利同比）的排序一致吗？只回答增量，不要重复中报数字。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260909_222353_092466",
+     "answer": "**增量结果（2026-09-07收盘）**：高澜股份35.91元、近20个交易日+26.67%；申菱环境106.52元、+19.12%；英维克64.47元、+16.71%。\n按近20日涨幅排序为：**高澜股份＞申菱环境＞英维克**。按此前中报归母净利同比的方向与相对强弱排序为：**高澜股份＞英维克＞申菱环境**（不重复中报数值）。因此，**排序不一致**：高澜股份均居首，但申菱环境与英维克的位置互换。\n比较口径是9月7日收盘价及截至该日的20日涨跌幅；这只能说明该窗口内市场定价与中报同比排序并非一一对应，**不能据此归因于业绩或外推后续走势**。同日盘面处于下跌阶段标签、但AI算力相关板块有修复/启动结构，尚无同窗口新闻证据将三股相对涨幅差异归因到具体事件。\n历史类比方面：预置材料仅提供数字货币、数字水印等题材的形态窗口，且明确类比的是盘面结构而非个股；三只个股没有可用的个股历史对标窗口。因此不存在可用于验证本次三股排序的个股类比，相似点、差异及类比结论均应保留为缺口。",
+     "elapsed_s": 206.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-terra": 2,
+      "gpt-5.6-sol": 3
+     },
+     "input_tokens": 155463,
+     "output_tokens": 3375,
+     "llm_calls": 9,
+     "tool_calls": 19,
+     "invalid_actions": 0,
+     "tools_called": [
+      "finance_query",
+      "finance_query",
+      "financial_data",
+      "market_data",
+      "mainline_context",
+      "finance_query",
+      "l3_lookup",
+      "l3_lookup",
+      "l3_lookup",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "web_search",
+      "web_search",
+      "web_search",
+      "kb_search",
+      "web_search",
+      "web_search",
+      "web_fetch"
+     ],
+     "structural_status": "partial",
+     "semantic_status": "completed",
+     "judge_status": "passed",
+     "stop_reason": "model_finish",
+     "gaps": 7,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260909_222353_092466"
+    }
+   ],
+   "final_answer": "**增量结果（2026-09-07收盘）**：高澜股份35.91元、近20个交易日+26.67%；申菱环境106.52元、+19.12%；英维克64.47元、+16.71%。\n按近20日涨幅排序为：**高澜股份＞申菱环境＞英维克**。按此前中报归母净利同比的方向与相对强弱排序为：**高澜股份＞英维克＞申菱环境**（不重复中报数值）。因此，**排序不一致**：高澜股份均居首，但申菱环境与英维克的位置互换。\n比较口径是9月7日收盘价及截至该日的20日涨跌幅；这只能说明该窗口内市场定价与中报同比排序并非一一对应，**不能据此归因于业绩或外推后续走势**。同日盘面处于下跌阶段标签、但AI算力相关板块有修复/启动结构，尚无同窗口新闻证据将三股相对涨幅差异归因到具体事件。\n历史类比方面：预置材料仅提供数字货币、数字水印等题材的形态窗口，且明确类比的是盘面结构而非个股；三只个股没有可用的个股历史对标窗口。因此不存在可用于验证本次三股排序的个股类比，相似点、差异及类比结论均应保留为缺口。",
+   "execution_status": "completed",
+   "total_elapsed_s": 256.5,
+   "total_input_tokens": 173577,
+   "total_output_tokens": 3547,
+   "gateway_probe": [
+    {
+     "status": "http_502",
+     "served_model": null,
+     "reset_seconds": null,
+     "detail": "{\"error\":{\"message\":\"Upstream service temporarily unavailable\",\"type\":\"upstream_error\"}}",
+     "elapsed_s": 2.6,
+     "probe_model": "gpt-5.6-sol"
+    },
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-terra",
+     "reset_seconds": null,
+     "elapsed_s": 3.9,
+     "probe_model": "gpt-5.6-terra"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-method-01",
+   "category": "method",
+   "tier": "deep",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_a47992ec3f804c4b8f225cb99303011c",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "『板块严格双红（日涨幅>0、边际量>10、成交额>500 亿）后，次日该板块继续上涨』——这条经验在 2026 年 8 月成立吗？请用库内 fact_sector_daily 逐板块逐日验证：给出样本数、次日上涨的命中率、命中率最差的那一天，以及最差的几个反例（板块、日期、次日跌幅）。如果某些日期缺数据也请说明。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260910_185147_175881",
+     "answer": "**直接判断：无法据现有证据确认“严格双红后次日继续上涨”在 2026 年 8 月成立。**这不是“经验已失效”的结论，而是**8 月逐板块、逐日样本未取得，因而不能计算或核验该经验**。现有数据只确认了 9 月 2、3、4、7、9 日严格双红板块数分别为 2、6、41、12、20；这些 9 月快照不能替代 8 月样本，也不能推出 8 月命中率。[E2][E3][E4][E5][E6]\n因此，用户要求的样本数、次日上涨命中率、命中率最差日期、最差反例及 8 月缺数据日期，均应保留为缺口，而不能用印象或 9 月数据填补。若后续补齐数据，判定口径应为：当日同时满足日涨幅>0、边际量>10、成交额>500 亿的板块计入样本；下一交易日板块涨幅>0计为命中。",
+     "elapsed_s": 131.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 3
+     },
+     "input_tokens": 69828,
+     "output_tokens": 4882,
+     "llm_calls": 3,
+     "tool_calls": 8,
+     "invalid_actions": 13,
+     "tools_called": [
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query"
+     ],
+     "structural_status": "partial",
+     "semantic_status": "completed",
+     "judge_status": "passed",
+     "stop_reason": "repair_model_stop",
+     "gaps": 4,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260910_185147_175881"
+    }
+   ],
+   "final_answer": "**直接判断：无法据现有证据确认“严格双红后次日继续上涨”在 2026 年 8 月成立。**这不是“经验已失效”的结论，而是**8 月逐板块、逐日样本未取得，因而不能计算或核验该经验**。现有数据只确认了 9 月 2、3、4、7、9 日严格双红板块数分别为 2、6、41、12、20；这些 9 月快照不能替代 8 月样本，也不能推出 8 月命中率。[E2][E3][E4][E5][E6]\n因此，用户要求的样本数、次日上涨命中率、命中率最差日期、最差反例及 8 月缺数据日期，均应保留为缺口，而不能用印象或 9 月数据填补。若后续补齐数据，判定口径应为：当日同时满足日涨幅>0、边际量>10、成交额>500 亿的板块计入样本；下一交易日板块涨幅>0计为命中。",
+   "execution_status": "completed",
+   "total_elapsed_s": 132.8,
+   "total_input_tokens": 69828,
+   "total_output_tokens": 4882,
+   "gateway_probe": [
+    {
+     "status": "skipped_no_env"
+    }
+   ]
+  },
+  {
+   "case_id": "cb00-method-02",
+   "category": "method",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_c7ff1420bafd4f9f8ac12d4daf95230d",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "『底部横盘阶段持续超过 15 个交易日后转入下跌阶段，之后 5 个交易日上证指数反而上涨』——这条经验在库内有几个样本？分别怎么走？这个样本量能不能下结论？如果不能，还需要什么数据或多长时间才能验证。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260910_010346_366681",
+     "answer": "**结论：目前不能把它确认成“库内有几个样本”的精确统计结论。**\n- **明确样本：2026-09-02 → 2026-09-03。**9月2日仍标为底部横盘阶段第26天，上证跌0.9674%；9月3日转为下跌阶段第1天，上证涨0.0178%。随后已观察到的交易日为9月4日-0.3037%、9月7日+0.0657%、9月9日+0.278%；第5个交易日9月8日的记录未取得，因此不能完整确认“转跌后5日”路径或累计收益。这个样本支持“转入下跌后短线并非每日下跌”，但尚不能支持稳定反转规律。\n- **疑似样本：2026-08-24 → 2026-08-25。**8月24日为底部横盘第19天，跌0.59%；8月25日为下跌阶段第3天，却上涨0.1916%，之后8月26日、27日分别上涨0.5934%、1.1258%，8月28日跌0.111%，8月31日涨0.8633%。但“下跌阶段第3天”意味着转段日早于8月25日，和相邻记录无法严密衔接，不能把它当作无争议样本。\n**证据边界。**结构化记录实际可连续复核的窗口主要从2026-08-05到2026-09-09；更早历史的完整覆盖、缺失交易日、阶段标签空值和重复记录尚未核验。另有同日指标冲突，说明正式计数前必须先统一数据口径。当前数据截至2026-09-09。\n**条件化情景树：**\n当前：低；依据是目前仅1个明确样本且第5日不完整。\n- 若清洗后发现疑似样本主要由阶段标签错位、缺日或重复记录造成，则该经验不成立为可重复模式。当前：中；依据是8月25日阶段第3天与前序底部横盘记录存在衔接异常。\n当前：中；9月3日转跌首日上涨、随后仍有涨跌交替，已有盘面迹象但证据尚不完整。\n互斥因果假说是：一是下跌阶段内部的技术性反弹；二是阶段识别滞后或标签错位。现有证据不足，两假说并立。操作含义：在没有完整5日路径、连续历史和对照样本前，不应把该现象作为单独择时信号；",
+     "elapsed_s": 353.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 4
+     },
+     "input_tokens": 493289,
+     "output_tokens": 10895,
+     "llm_calls": 14,
+     "tool_calls": 31,
+     "invalid_actions": 0,
+     "tools_called": [
+      "finance_query",
+      "finance_query",
+      "market_data",
+      "memory_lookup",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query"
+     ],
+     "structural_status": "partial",
+     "semantic_status": "completed",
+     "judge_status": "repaired",
+     "stop_reason": "model_finish",
+     "gaps": 7,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260910_010346_366681"
+    }
+   ],
+   "final_answer": "**结论：目前不能把它确认成“库内有几个样本”的精确统计结论。**\n- **明确样本：2026-09-02 → 2026-09-03。**9月2日仍标为底部横盘阶段第26天，上证跌0.9674%；9月3日转为下跌阶段第1天，上证涨0.0178%。随后已观察到的交易日为9月4日-0.3037%、9月7日+0.0657%、9月9日+0.278%；第5个交易日9月8日的记录未取得，因此不能完整确认“转跌后5日”路径或累计收益。这个样本支持“转入下跌后短线并非每日下跌”，但尚不能支持稳定反转规律。\n- **疑似样本：2026-08-24 → 2026-08-25。**8月24日为底部横盘第19天，跌0.59%；8月25日为下跌阶段第3天，却上涨0.1916%，之后8月26日、27日分别上涨0.5934%、1.1258%，8月28日跌0.111%，8月31日涨0.8633%。但“下跌阶段第3天”意味着转段日早于8月25日，和相邻记录无法严密衔接，不能把它当作无争议样本。\n**证据边界。**结构化记录实际可连续复核的窗口主要从2026-08-05到2026-09-09；更早历史的完整覆盖、缺失交易日、阶段标签空值和重复记录尚未核验。另有同日指标冲突，说明正式计数前必须先统一数据口径。当前数据截至2026-09-09。\n**条件化情景树：**\n当前：低；依据是目前仅1个明确样本且第5日不完整。\n- 若清洗后发现疑似样本主要由阶段标签错位、缺日或重复记录造成，则该经验不成立为可重复模式。当前：中；依据是8月25日阶段第3天与前序底部横盘记录存在衔接异常。\n当前：中；9月3日转跌首日上涨、随后仍有涨跌交替，已有盘面迹象但证据尚不完整。\n互斥因果假说是：一是下跌阶段内部的技术性反弹；二是阶段识别滞后或标签错位。现有证据不足，两假说并立。操作含义：在没有完整5日路径、连续历史和对照样本前，不应把该现象作为单独择时信号；",
+   "execution_status": "completed",
+   "total_elapsed_s": 355.7,
+   "total_input_tokens": 493289,
+   "total_output_tokens": 10895,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 2.5,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-feel-h1",
+   "category": "feel",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_aec03f50fd4443deb19de1580a5b6b36",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "我感觉 9 月初这几天市场在『缩量筑底』。请把这个感觉拆成 3 个可证伪的判断（每个写清指标、表、阈值），用 2026-09-01 到 2026-09-07 的库内数据逐条检验，然后告诉我『筑底』这两个字目前有没有数据支持。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260910_010949_436791",
+     "answer": "**结论：目前只能支持“阶段性缩量、短线止跌迹象”，不足以把“筑底”作为已确认判断。**更严谨的表述是：9月初出现了一个局部低点附近的缩量整理尝试，但底部尚未被后续数据确认。\n我预先将“缩量筑底”拆成三个可证伪判断：\n1. **成交额收缩且具有持续性。**指标：`market_daily` 的 `volume_ratio` 和成交额相对20日均值；结果：9月2日、3日量比分别为81.46、81.38，成交额环比分别为-11.91%、-1.85%；但9月1日量比90.68，9月4日量比95.38且成交额环比+15.47%，9月7日量比92.66。因此仅2/5天满足严格缩量条件，**判断不通过，最多算局部缩量**。〔E1、E2、E3、E4、E5〕\n2. **指数止跌并形成短线稳定区间。**指标：`market_daily` 的上证收盘价；9月3日至7日收盘为3942.088、3930.116、3932.699，末3日区间约0.30%，9月7日也未创窗口新低，**该局部止跌判断通过**。但全窗口从3979.888降至3932.699，且9月2日上证跌0.9674%、9月4日跌0.3037%，所以这更像下跌后的短线横住，不等于中期底部确认。〔E1、E2、E3、E4、E5〕\n3. **卖压扩散减弱、市场广度改善。**指标：`market_daily` 的上涨家数与跌停家数；9月3日至7日上涨家数为1840、2441、3167，连续增加；不过这只是广度修复的初步证据，库内缺少炸板率、个股跌幅分布等更细的卖压指标。〔E3、E4、E5〕\n综合评分为：缩量持续性未通过，短线价格稳定通过，广度修复通过。因此，**“缩量”有数据支持，“筑底”目前只有局部、弱支持，不能升级为已确认的底部。**这一结论还受到阶段标签的反向约束：9月1—2日曾标为“底部横盘阶段”，但9月3—7日转为“下跌阶段”；最新可用的9月9日数据仍标为下跌阶段，量能为正常量能，而非持续缩量。〔E1、E2、E3、E4、E5、E78、E79〕\n证据边界：该窗口实际只有5个交易日；题材涨停热度只有9月1日可用，9月2—7日缺失；主线板块表属于主线子集，不能代表全市场板块；窗口结束后的连续交易日尚不足以验证9月7日修复是否延续。最新行情可用至9月9日，但9月9日数据只能作为事后约束，不能倒填9月初的盘面。〔E38、E79、E116、E140〕\n后续证伪与升级条件：\n- 若上涨家数重新下降、跌停家数明显回升，广度修复判断失效；\n- 若成交额连续回到20日均值附近或其上方，同时指数不能创新高，说明“缩量筑底”更可能是下跌中继；\n- 只有在成交额继续低于近期均值、指数不再破低，并出现至少数日的上涨家数改善和跌停收缩，才可把“局部止跌”升级为“筑底候选”。",
+     "elapsed_s": 308.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 2
+     },
+     "input_tokens": 312200,
+     "output_tokens": 8562,
+     "llm_calls": 12,
+     "tool_calls": 19,
+     "invalid_actions": 0,
+     "tools_called": [
+      "finance_query",
+      "mainline_context",
+      "market_data"
+     ],
+     "structural_status": "completed",
+     "semantic_status": "completed",
+     "judge_status": "repaired",
+     "stop_reason": "model_finish",
+     "gaps": 5,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260910_010949_436791"
+    }
+   ],
+   "final_answer": "**结论：目前只能支持“阶段性缩量、短线止跌迹象”，不足以把“筑底”作为已确认判断。**更严谨的表述是：9月初出现了一个局部低点附近的缩量整理尝试，但底部尚未被后续数据确认。\n我预先将“缩量筑底”拆成三个可证伪判断：\n1. **成交额收缩且具有持续性。**指标：`market_daily` 的 `volume_ratio` 和成交额相对20日均值；结果：9月2日、3日量比分别为81.46、81.38，成交额环比分别为-11.91%、-1.85%；但9月1日量比90.68，9月4日量比95.38且成交额环比+15.47%，9月7日量比92.66。因此仅2/5天满足严格缩量条件，**判断不通过，最多算局部缩量**。〔E1、E2、E3、E4、E5〕\n2. **指数止跌并形成短线稳定区间。**指标：`market_daily` 的上证收盘价；9月3日至7日收盘为3942.088、3930.116、3932.699，末3日区间约0.30%，9月7日也未创窗口新低，**该局部止跌判断通过**。但全窗口从3979.888降至3932.699，且9月2日上证跌0.9674%、9月4日跌0.3037%，所以这更像下跌后的短线横住，不等于中期底部确认。〔E1、E2、E3、E4、E5〕\n3. **卖压扩散减弱、市场广度改善。**指标：`market_daily` 的上涨家数与跌停家数；9月3日至7日上涨家数为1840、2441、3167，连续增加；不过这只是广度修复的初步证据，库内缺少炸板率、个股跌幅分布等更细的卖压指标。〔E3、E4、E5〕\n综合评分为：缩量持续性未通过，短线价格稳定通过，广度修复通过。因此，**“缩量”有数据支持，“筑底”目前只有局部、弱支持，不能升级为已确认的底部。**这一结论还受到阶段标签的反向约束：9月1—2日曾标为“底部横盘阶段”，但9月3—7日转为“下跌阶段”；最新可用的9月9日数据仍标为下跌阶段，量能为正常量能，而非持续缩量。〔E1、E2、E3、E4、E5、E78、E79〕\n证据边界：该窗口实际只有5个交易日；题材涨停热度只有9月1日可用，9月2—7日缺失；主线板块表属于主线子集，不能代表全市场板块；窗口结束后的连续交易日尚不足以验证9月7日修复是否延续。最新行情可用至9月9日，但9月9日数据只能作为事后约束，不能倒填9月初的盘面。〔E38、E79、E116、E140〕\n后续证伪与升级条件：\n- 若上涨家数重新下降、跌停家数明显回升，广度修复判断失效；\n- 若成交额连续回到20日均值附近或其上方，同时指数不能创新高，说明“缩量筑底”更可能是下跌中继；\n- 只有在成交额继续低于近期均值、指数不再破低，并出现至少数日的上涨家数改善和跌停收缩，才可把“局部止跌”升级为“筑底候选”。",
+   "execution_status": "completed",
+   "total_elapsed_s": 310.3,
+   "total_input_tokens": 312200,
+   "total_output_tokens": 8562,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 7.4,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-material-h1",
+   "category": "material",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_d865da4808b74d99afbf2c6b2e39d200",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "下面是一段别人写的 2026-09-02 复盘摘要。请：(1) 把它拆成结构化字段（日期、阶段、成交额、环比、涨停、跌停、上涨家数、20 日新高、上证涨跌）；(2) 逐字段与库内 2026-09-02 的数据核对，指出所有不一致之处；(3) 说明哪些字段库内核不了。\n\n摘要：『9 月 2 日市场仍处于底部横盘阶段（第 26 天），成交 1.79 万亿较前日缩量约 12%，属缩量观望；涨停 62 家、跌停 8 家，上涨 1541 家；20 日新高 768 家；上证收 3941 点，跌 0.97%；两市主线不明，资金在新能源车与储能里打涨停。』",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260910_011510_982357",
+     "answer": "## 核对结论（A股，2026-09-02）\n| 字段 | 摘要 | 库内数据 | 判断 |\n|---|---:|---:|---|\n| 日期 | 2026-09-02 | 2026-09-02 | 一致 |\n| 阶段 | 底部横盘阶段，第26天 | 底部横盘阶段，第26天 | 一致 |\n| 成交额 | 1.79万亿元 | 17,908.79亿元，即1.790879万亿元 | 按两位小数万亿元计，一致；摘要为四舍五入值 |\n| 环比 | 缩量约12% | -11.91% | 基本一致，四舍五入为约-12% |\n| 涨停 | 62家 | 52家 | **不一致，摘要多报10家** |\n| 跌停 | 8家 | 8家 | 一致 |\n| 上涨家数 | 1541家 | 1541家 | 一致 |\n| 20日新高 | 768家 | 库内可确认存在“20d”新高口径，但当前返回结果没有新高个股数量统计 | **无法核验** |\n| 上证收盘 | 3941点 | 3941.386点 | 按整数点位四舍五入，一致 |\n| 上证涨跌 | -0.97% | -0.9674% | 按两位小数四舍五入，一致 |\n因此，摘要中明确可判定的数字错误是**涨停家数：62家应为52家**。成交额、环比和上证数据只是显示精度不同，不构成实质矛盾。\n“资金在新能源车与储能里打涨停”部分，库内确实显示两者分别有15家涨停，且在当日涨停热度中排名第1和第2；这支持“涨停主要集中于两者”的盘面描述。但“资金在其中”是资金归因，当前证据只有涨停热度，不能据此严格证明资金流向。另一个表述“两市主线不明”与库内主线标注不完全一致：当日库内列出农林牧渔、AI应用、有色金属、消费零售等主线题材；不过这是库内主线模型口径，并不等于市场共识或后续持续性已经确认。\n## 证据边界\n库内市场日频总览直接覆盖2026-09-02的阶段、成交额、环比、涨跌停、上涨家数及上证数据。新高表返回了20d这一周期记录，但没有提供可用于核验“768家”的计数指标，因此该字段只能列为缺口，不能把“有20d记录”误写成“768家正确或错误”。主线与涨停热度证据也均为当日结构化盘面口径，能够支持板块涨停集中度，不能单独证明资金流向、因果关系或主线未来持续时间。",
+     "elapsed_s": 166.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 4
+     },
+     "input_tokens": 104088,
+     "output_tokens": 3214,
+     "llm_calls": 4,
+     "tool_calls": 10,
+     "invalid_actions": 2,
+     "tools_called": [
+      "finance_query",
+      "mainline_context",
+      "market_data",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query"
+     ],
+     "structural_status": "completed",
+     "semantic_status": "completed",
+     "judge_status": "passed",
+     "stop_reason": "model_finish",
+     "gaps": 7,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260910_011510_982357"
+    }
+   ],
+   "final_answer": "## 核对结论（A股，2026-09-02）\n| 字段 | 摘要 | 库内数据 | 判断 |\n|---|---:|---:|---|\n| 日期 | 2026-09-02 | 2026-09-02 | 一致 |\n| 阶段 | 底部横盘阶段，第26天 | 底部横盘阶段，第26天 | 一致 |\n| 成交额 | 1.79万亿元 | 17,908.79亿元，即1.790879万亿元 | 按两位小数万亿元计，一致；摘要为四舍五入值 |\n| 环比 | 缩量约12% | -11.91% | 基本一致，四舍五入为约-12% |\n| 涨停 | 62家 | 52家 | **不一致，摘要多报10家** |\n| 跌停 | 8家 | 8家 | 一致 |\n| 上涨家数 | 1541家 | 1541家 | 一致 |\n| 20日新高 | 768家 | 库内可确认存在“20d”新高口径，但当前返回结果没有新高个股数量统计 | **无法核验** |\n| 上证收盘 | 3941点 | 3941.386点 | 按整数点位四舍五入，一致 |\n| 上证涨跌 | -0.97% | -0.9674% | 按两位小数四舍五入，一致 |\n因此，摘要中明确可判定的数字错误是**涨停家数：62家应为52家**。成交额、环比和上证数据只是显示精度不同，不构成实质矛盾。\n“资金在新能源车与储能里打涨停”部分，库内确实显示两者分别有15家涨停，且在当日涨停热度中排名第1和第2；这支持“涨停主要集中于两者”的盘面描述。但“资金在其中”是资金归因，当前证据只有涨停热度，不能据此严格证明资金流向。另一个表述“两市主线不明”与库内主线标注不完全一致：当日库内列出农林牧渔、AI应用、有色金属、消费零售等主线题材；不过这是库内主线模型口径，并不等于市场共识或后续持续性已经确认。\n## 证据边界\n库内市场日频总览直接覆盖2026-09-02的阶段、成交额、环比、涨跌停、上涨家数及上证数据。新高表返回了20d这一周期记录，但没有提供可用于核验“768家”的计数指标，因此该字段只能列为缺口，不能把“有20d记录”误写成“768家正确或错误”。主线与涨停热度证据也均为当日结构化盘面口径，能够支持板块涨停集中度，不能单独证明资金流向、因果关系或主线未来持续时间。",
+   "execution_status": "completed",
+   "total_elapsed_s": 165.6,
+   "total_input_tokens": 104088,
+   "total_output_tokens": 3214,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 11.2,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-calc-h1",
+   "category": "calc",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_c2156b6a38994d5b80a13363bec09aaa",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "寒武纪（688256）2026 年中报累计营收 59.96 亿元、归母净利 23.11 亿元；2026 一季报 28.85 亿 / 10.13 亿。请：(1) 还原 2026Q2 单季营收和归母净利；(2) 算 2026 上半年归母净利率；(3) 做敏感性表：若 2026 下半年营收分别为上半年的 1.2 / 1.5 / 1.8 倍，且净利率维持上半年水平，2026 全年营收与归母净利各是多少。每格写算式。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260910_011808_969100",
+     "answer": "**结论：2026Q2 单季营收与归母净利均较Q1继续增长，上半年归母净利率为38.54%；但全年预测仅是“净利率不变”的机械情景，不代表业绩指引。**\n- **(1) 2026Q2单季还原**\n- 营收 = 2026H1累计营收 − 2026Q1营收 = 59.96 − 28.85 = **31.11亿元**。\n- 归母净利 = 2026H1累计归母净利 − 2026Q1归母净利 = 23.11 − 10.13 = **12.98亿元**。\n- 因此，Q2环比Q1：营收增加 = 31.11 − 28.85 = **2.26亿元**；归母净利增加 = 12.98 − 10.13 = **2.85亿元**。\n- **(2) 2026H1归母净利率**\n- 归母净利率 = 23.11 ÷ 59.96 × 100% = **38.54%**。\n- 由还原值计算，Q2单季净利率 = 12.98 ÷ 31.11 × 100% ≈ **41.72%**，高于H1累计水平，说明Q1较低的利润率拖低了上半年累计值。\n- **(3) 敏感性表（单位：亿元）**\n| 2026H2营收假设 | H2营收 | 全年营收 | H2归母净利 | 全年归母净利 |\n|---|---:|---:|---:|---:|\n| H1×1.2 | 59.96×1.2=**71.95** | 59.96+71.95=**131.91** | 71.95×38.54%=**27.73** | 23.11+27.73=**50.84** |\n| H1×1.5 | 59.96×1.5=**89.94** | 59.96+89.94=**149.90** | 89.94×38.54%=**34.66** | 23.11+34.66=**57.77** |\n| H1×1.8 | 59.96×1.8=**107.93** | 59.96+107.93=**167.89** | 107.93×38.54%=**41.60** | 23.11+41.60=**64.71** |\n**反向检查与限制：**上述情景把H2净利率固定为H1的38.54%，但Q2单季按累计数倒算约为41.72%，因此该假设相对Q2实际倒算水平并不激进；另一方面，当前证据只有累计财务指标，无法确认利润率能否由产品结构、费用率或一次性项目支撑，全年结果应视为敏感性测算而非确定预测。未检索到可注入的公司官方公告补充证据，故不对利润率持续性的经营原因作进一步归因。",
+     "elapsed_s": 140.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 2
+     },
+     "input_tokens": 39350,
+     "output_tokens": 1942,
+     "llm_calls": 2,
+     "tool_calls": 2,
+     "invalid_actions": 1,
+     "tools_called": [
+      "financial_data",
+      "l3_lookup",
+      "financial_data"
+     ],
+     "structural_status": "completed",
+     "semantic_status": "completed",
+     "judge_status": "passed",
+     "stop_reason": "model_finish",
+     "gaps": 2,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260910_011808_969100"
+    }
+   ],
+   "final_answer": "**结论：2026Q2 单季营收与归母净利均较Q1继续增长，上半年归母净利率为38.54%；但全年预测仅是“净利率不变”的机械情景，不代表业绩指引。**\n- **(1) 2026Q2单季还原**\n- 营收 = 2026H1累计营收 − 2026Q1营收 = 59.96 − 28.85 = **31.11亿元**。\n- 归母净利 = 2026H1累计归母净利 − 2026Q1归母净利 = 23.11 − 10.13 = **12.98亿元**。\n- 因此，Q2环比Q1：营收增加 = 31.11 − 28.85 = **2.26亿元**；归母净利增加 = 12.98 − 10.13 = **2.85亿元**。\n- **(2) 2026H1归母净利率**\n- 归母净利率 = 23.11 ÷ 59.96 × 100% = **38.54%**。\n- 由还原值计算，Q2单季净利率 = 12.98 ÷ 31.11 × 100% ≈ **41.72%**，高于H1累计水平，说明Q1较低的利润率拖低了上半年累计值。\n- **(3) 敏感性表（单位：亿元）**\n| 2026H2营收假设 | H2营收 | 全年营收 | H2归母净利 | 全年归母净利 |\n|---|---:|---:|---:|---:|\n| H1×1.2 | 59.96×1.2=**71.95** | 59.96+71.95=**131.91** | 71.95×38.54%=**27.73** | 23.11+27.73=**50.84** |\n| H1×1.5 | 59.96×1.5=**89.94** | 59.96+89.94=**149.90** | 89.94×38.54%=**34.66** | 23.11+34.66=**57.77** |\n| H1×1.8 | 59.96×1.8=**107.93** | 59.96+107.93=**167.89** | 107.93×38.54%=**41.60** | 23.11+41.60=**64.71** |\n**反向检查与限制：**上述情景把H2净利率固定为H1的38.54%，但Q2单季按累计数倒算约为41.72%，因此该假设相对Q2实际倒算水平并不激进；另一方面，当前证据只有累计财务指标，无法确认利润率能否由产品结构、费用率或一次性项目支撑，全年结果应视为敏感性测算而非确定预测。未检索到可注入的公司官方公告补充证据，故不对利润率持续性的经营原因作进一步归因。",
+   "execution_status": "completed",
+   "total_elapsed_s": 141.7,
+   "total_input_tokens": 39350,
+   "total_output_tokens": 1942,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 12.4,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-compare-h1",
+   "category": "compare",
+   "tier": "deep",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_546ab7c283b04261857d93214b9ae003",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "天孚通信（300394）、中际旭创（300308）、新易盛（300502）三家：用你取到的财报数据算 2026Q2 单季归母净利、单季归母净利率，以及 Q2 相对 Q1 的归母净利环比增速，做同维度表并排序；然后说明净利率最高的那家为什么单季营收增速反而最慢，这对排序意味着什么。取不到的格写缺口。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260910_012032_571387",
+     "answer": "口径：中报数据是2026年上半年累计数，Q2均按“上半年累计−Q1”还原；净利率=Q2归母净利/Q2营收，环比增速=(Q2归母净利/Q1归母净利−1)。金额单位：亿元。中际旭创和新易盛的核心数据主要来自公开财报转载，未取得可直接解析的官方半年报全文，结论按已取数据计算。\n|公司|Q1营收|Q1归母净利|Q2营收（还原）|Q2归母净利（还原）|Q2单季净利率|归母净利Q2环比|Q2营收环比|\n|---|---:|---:|---:|---:|---:|---:|---:|\n|天孚通信|13.30|4.92|14.98|7.12|47.53%|44.72%|12.63%|\n|中际旭创|194.96|57.35|222.82|79.16|35.53%|38.01%|14.29%|\n|新易盛|83.38|27.80|125.72|47.49|37.77%|70.83%|50.76%|\n排序分别为：\n- **Q2单季归母净利：中际旭创 > 新易盛 > 天孚通信**。\n- **Q2单季归母净利率：天孚通信 > 新易盛 > 中际旭创**。\n- **Q2相对Q1归母净利环比：新易盛 > 天孚通信 > 中际旭创**。\n天孚通信的“高净利率、慢收入增速”并不矛盾：它更像高毛利率的光器件平台，收入体量较小但利润率高；公开解读显示，其2026年上半年销售毛利率为60.87%、销售净利率为42.59%，而无源光器件收入约15.30亿元、有源光器件收入约12.60亿元。公开报道还将Q2收入放缓与有源业务表现偏弱、业务结构变化联系起来；这属于二手材料提供的解释线索，尚未有可直接解析的公司公告正文完成验证。〔E5、E6、E27、E82〕\n因此，这组比较不能用单一“利润额”排序替代基本面判断：**中际旭创赢在Q2绝对利润规模，天孚通信赢在单季利润率，新易盛赢在Q2收入和利润的边际加速。**若评价盈利质量或单位收入变现能力，天孚通信应排第一；若评价规模贡献，排第一的是中际旭创；若评价当前增长斜率，排第一的是新易盛。天孚通信的高净利率只有在后续收入增速恢复、且有源业务拖累没有继续扩大时，才能同时转化为更强的利润规模优势；否则它更接近“高利润率、低增速”型，而不是三家中最强的增长型。\n计算依据：天孚通信中报营收28.28、归母净利12.04，Q1为13.30和4.92；中际旭创中报营收417.78、归母净利136.51，Q1营收约194.96、归母净利57.35；新易盛中报营收209.10、归母净利75.29，Q1营收83.38、归母净利27.80。〔E5、E6、E40、E46、E73、E80〕",
+     "elapsed_s": 472.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 5
+     },
+     "input_tokens": 471387,
+     "output_tokens": 10380,
+     "llm_calls": 17,
+     "tool_calls": 34,
+     "invalid_actions": 0,
+     "tools_called": [
+      "sub_research",
+      "financial_data",
+      "l3_lookup",
+      "web_search",
+      "web_search",
+      "web_search",
+      "web_fetch",
+      "web_fetch",
+      "web_search",
+      "finance_query"
+     ],
+     "structural_status": "partial",
+     "semantic_status": "completed",
+     "judge_status": "repaired",
+     "stop_reason": "invalid_repair_finish",
+     "gaps": 19,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260910_012032_571387"
+    }
+   ],
+   "final_answer": "口径：中报数据是2026年上半年累计数，Q2均按“上半年累计−Q1”还原；净利率=Q2归母净利/Q2营收，环比增速=(Q2归母净利/Q1归母净利−1)。金额单位：亿元。中际旭创和新易盛的核心数据主要来自公开财报转载，未取得可直接解析的官方半年报全文，结论按已取数据计算。\n|公司|Q1营收|Q1归母净利|Q2营收（还原）|Q2归母净利（还原）|Q2单季净利率|归母净利Q2环比|Q2营收环比|\n|---|---:|---:|---:|---:|---:|---:|---:|\n|天孚通信|13.30|4.92|14.98|7.12|47.53%|44.72%|12.63%|\n|中际旭创|194.96|57.35|222.82|79.16|35.53%|38.01%|14.29%|\n|新易盛|83.38|27.80|125.72|47.49|37.77%|70.83%|50.76%|\n排序分别为：\n- **Q2单季归母净利：中际旭创 > 新易盛 > 天孚通信**。\n- **Q2单季归母净利率：天孚通信 > 新易盛 > 中际旭创**。\n- **Q2相对Q1归母净利环比：新易盛 > 天孚通信 > 中际旭创**。\n天孚通信的“高净利率、慢收入增速”并不矛盾：它更像高毛利率的光器件平台，收入体量较小但利润率高；公开解读显示，其2026年上半年销售毛利率为60.87%、销售净利率为42.59%，而无源光器件收入约15.30亿元、有源光器件收入约12.60亿元。公开报道还将Q2收入放缓与有源业务表现偏弱、业务结构变化联系起来；这属于二手材料提供的解释线索，尚未有可直接解析的公司公告正文完成验证。〔E5、E6、E27、E82〕\n因此，这组比较不能用单一“利润额”排序替代基本面判断：**中际旭创赢在Q2绝对利润规模，天孚通信赢在单季利润率，新易盛赢在Q2收入和利润的边际加速。**若评价盈利质量或单位收入变现能力，天孚通信应排第一；若评价规模贡献，排第一的是中际旭创；若评价当前增长斜率，排第一的是新易盛。天孚通信的高净利率只有在后续收入增速恢复、且有源业务拖累没有继续扩大时，才能同时转化为更强的利润规模优势；否则它更接近“高利润率、低增速”型，而不是三家中最强的增长型。\n计算依据：天孚通信中报营收28.28、归母净利12.04，Q1为13.30和4.92；中际旭创中报营收417.78、归母净利136.51，Q1营收约194.96、归母净利57.35；新易盛中报营收209.10、归母净利75.29，Q1营收83.38、归母净利27.80。〔E5、E6、E40、E46、E73、E80〕",
+   "execution_status": "completed",
+   "total_elapsed_s": 473.4,
+   "total_input_tokens": 471387,
+   "total_output_tokens": 10380,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 1.9,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-chain-h1",
+   "category": "chain",
+   "tier": "deep",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_cf2394d0bd7e4dc89b7e0e0dcc8ff548",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "2026-09-07 库内主线表把『农林牧渔』排在第一（9 个板块入选）。请解释这条传导链可能是什么（上游价格、政策、还是资金轮动），用库内数据验证每一环，明确哪一环有数据支撑、哪一环库内没有数据或数据为空，最后说明在补齐哪一项数据之前不该把它当成主线。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260910_012827_786314",
+     "answer": "**直接判断：截至2026-09-07，“农林牧渔”更像是“题材排名领先、盘面已有扩散，但尚未完成产业催化—资金确认”的候选主线，而不是已被充分验证的主线。**主线表将其排第1、覆盖9个板块，这证明的是库内分类与当日题材强度排序，不等于产业逻辑已经兑现。[E3] 当日板块上涨3.25%、成交额412.7亿元，但边际量为-3.7%，说明上涨没有得到新增成交额同步确认。[E1][E14]\n**传导链与验证状态：**\n- **上游价格/供给冲击 → 农产品预期改善：部分只有外部新闻线索，库内未核验。**9月7日新闻将厄尔尼诺、粮价上涨、地缘扰动列为农业行情解释；农业农村部相关价格页面也被检索到，但本轮没有把粮价、生猪、饲料等价格序列纳入库内结构化验证，因此不能写成已确认的上游价格驱动。[E21][E37][E38][E82][E83]\n- **政策 → 粮食安全、种业/生物育种预期：有长期叙事证据，但缺少问句日附近的一手政策增量。**知识库把种业放在粮食安全上游，并将转基因玉米商业化、库存出清和集中度提升列为产业叙事；但来源为较早的知识库材料，不能证明9月7日出现了新的政策催化。[E29][E30]本轮事件日历查询只更新到9月1日，无法覆盖9月7日。[E49]\n- **资金轮动 → 多子行业同时上涨：盘面表现有支撑，但资金流数据缺口明显。**成员股表现具有扩散特征：种业、粮食、养殖及水产品等方向均有上涨，神农种业、金健米业、万向德农、新赛股份等当日涨幅接近或达到涨停区间；但牧原股份、正邦科技等也分别接近持平，说明并非全板块同步强化。[E2]板块内部分成分股的1日/5日资金流字段为空，龙虎榜查询也无结果，因此目前只能确认价格与成交扩散，不能确认主力净流入或机构接力。[E54][E55][E57][E64][E74][E76]\n- **持续性 → 尚未确认。**9月1日至7日板块涨跌交替，9月1日、4日、7日上涨，中间两日下跌；9月7日仅进入近3日涨幅榜第9，且多周期共振字段仍为未知。[E49][E50][E51][E52][E80]这更符合事件驱动或轮动初段，而不是已经证明的连续主升。\n**关系图：**上游天气/粮价/生猪及饲料价格变化 → 粮食安全、种业和养殖盈利预期 → 种植、粮食、养殖、饲料、水产品等子板块扩散 → 资金从市场其他方向轮动进入 → 涨停、成交额和持续性进一步确认。库内能确认的是“农林牧渔—种业/粮食安全”的概念关系，以及9月7日多子方向的价格扩散；图谱中的公司关系属于候选映射，不能替代公司公告确认。[E29][E32][E40][E41][E42][E46][E47]\n**主要反证与竞争解释：**\n- 题材排名第1与涨停热度并不一致：农林牧渔当日涨停10只、占全市场93只的10.75%，热度排名仅第26；因此“主线表第一”可能是人工主线框架中的相对排名，不是全市场涨停或资金集中度第一。[E53]\n- 当日市场处于下跌阶段，成交额环比下降4.16%，成交前三行业是电子、通信、机械设备，农林牧渔并未进入前三；这支持“防御性/事件性轮动”而非全市场资金总攻的解释。[E13]\n- 板块成分股虽然多数上涨，但查询结果显示新高状态为“非新高”；同时主线板块表中的周期状态、强度、净流入、涨停数等字段均为空，无法完成趋势强度与资金集中度验证。[E4][E5][E6][E7][E8][E9][E10][E11][E12]\n**条件化结论：**当前可称“候选主线/强势题材”，判断强度中等偏低；不能直接称为已确认主线。升级条件是：补齐并确认农产品价格与政策增量，同时板块资金流转正、涨停热度排名显著上升、近3日/近5日持续性不再只靠单日脉冲。若后续价格回落、资金流仍为空或为负、热度排名继续落后，或只剩少数种业个股上涨，则应降级为短线轮动。**在补齐“问句日前后农产品价格序列/政策事件增量”和“板块及成分股资金流、涨停扩散与多周期持续性”之前，不应把它当成已验证的市场主线。**",
+     "elapsed_s": 219.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 5
+     },
+     "input_tokens": 146657,
+     "output_tokens": 4445,
+     "llm_calls": 5,
+     "tool_calls": 19,
+     "invalid_actions": 5,
+     "tools_called": [
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "kb_search",
+      "news_search",
+      "evidence_search",
+      "finance_query",
+      "web_search",
+      "l3_lookup",
+      "graph_lookup",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "news_search"
+     ],
+     "structural_status": "completed",
+     "semantic_status": "completed",
+     "judge_status": "passed",
+     "stop_reason": "model_finish",
+     "gaps": 6,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260910_012827_786314"
+    }
+   ],
+   "final_answer": "**直接判断：截至2026-09-07，“农林牧渔”更像是“题材排名领先、盘面已有扩散，但尚未完成产业催化—资金确认”的候选主线，而不是已被充分验证的主线。**主线表将其排第1、覆盖9个板块，这证明的是库内分类与当日题材强度排序，不等于产业逻辑已经兑现。[E3] 当日板块上涨3.25%、成交额412.7亿元，但边际量为-3.7%，说明上涨没有得到新增成交额同步确认。[E1][E14]\n**传导链与验证状态：**\n- **上游价格/供给冲击 → 农产品预期改善：部分只有外部新闻线索，库内未核验。**9月7日新闻将厄尔尼诺、粮价上涨、地缘扰动列为农业行情解释；农业农村部相关价格页面也被检索到，但本轮没有把粮价、生猪、饲料等价格序列纳入库内结构化验证，因此不能写成已确认的上游价格驱动。[E21][E37][E38][E82][E83]\n- **政策 → 粮食安全、种业/生物育种预期：有长期叙事证据，但缺少问句日附近的一手政策增量。**知识库把种业放在粮食安全上游，并将转基因玉米商业化、库存出清和集中度提升列为产业叙事；但来源为较早的知识库材料，不能证明9月7日出现了新的政策催化。[E29][E30]本轮事件日历查询只更新到9月1日，无法覆盖9月7日。[E49]\n- **资金轮动 → 多子行业同时上涨：盘面表现有支撑，但资金流数据缺口明显。**成员股表现具有扩散特征：种业、粮食、养殖及水产品等方向均有上涨，神农种业、金健米业、万向德农、新赛股份等当日涨幅接近或达到涨停区间；但牧原股份、正邦科技等也分别接近持平，说明并非全板块同步强化。[E2]板块内部分成分股的1日/5日资金流字段为空，龙虎榜查询也无结果，因此目前只能确认价格与成交扩散，不能确认主力净流入或机构接力。[E54][E55][E57][E64][E74][E76]\n- **持续性 → 尚未确认。**9月1日至7日板块涨跌交替，9月1日、4日、7日上涨，中间两日下跌；9月7日仅进入近3日涨幅榜第9，且多周期共振字段仍为未知。[E49][E50][E51][E52][E80]这更符合事件驱动或轮动初段，而不是已经证明的连续主升。\n**关系图：**上游天气/粮价/生猪及饲料价格变化 → 粮食安全、种业和养殖盈利预期 → 种植、粮食、养殖、饲料、水产品等子板块扩散 → 资金从市场其他方向轮动进入 → 涨停、成交额和持续性进一步确认。库内能确认的是“农林牧渔—种业/粮食安全”的概念关系，以及9月7日多子方向的价格扩散；图谱中的公司关系属于候选映射，不能替代公司公告确认。[E29][E32][E40][E41][E42][E46][E47]\n**主要反证与竞争解释：**\n- 题材排名第1与涨停热度并不一致：农林牧渔当日涨停10只、占全市场93只的10.75%，热度排名仅第26；因此“主线表第一”可能是人工主线框架中的相对排名，不是全市场涨停或资金集中度第一。[E53]\n- 当日市场处于下跌阶段，成交额环比下降4.16%，成交前三行业是电子、通信、机械设备，农林牧渔并未进入前三；这支持“防御性/事件性轮动”而非全市场资金总攻的解释。[E13]\n- 板块成分股虽然多数上涨，但查询结果显示新高状态为“非新高”；同时主线板块表中的周期状态、强度、净流入、涨停数等字段均为空，无法完成趋势强度与资金集中度验证。[E4][E5][E6][E7][E8][E9][E10][E11][E12]\n**条件化结论：**当前可称“候选主线/强势题材”，判断强度中等偏低；不能直接称为已确认主线。升级条件是：补齐并确认农产品价格与政策增量，同时板块资金流转正、涨停热度排名显著上升、近3日/近5日持续性不再只靠单日脉冲。若后续价格回落、资金流仍为空或为负、热度排名继续落后，或只剩少数种业个股上涨，则应降级为短线轮动。**在补齐“问句日前后农产品价格序列/政策事件增量”和“板块及成分股资金流、涨停扩散与多周期持续性”之前，不应把它当成已验证的市场主线。**",
+   "execution_status": "completed",
+   "total_elapsed_s": 220.1,
+   "total_input_tokens": 146657,
+   "total_output_tokens": 4445,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 1.8,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-analog-h1",
+   "category": "analog",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_e2f8a364f361425bbe4c5afc2f6f8b8e",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "2026-08-25 是『19 天底部横盘后转下跌』的转折日，2026-09-03 是『2 天底部横盘后转下跌』的转折日。请用库内数据对比这两个转折日当天的成交额及环比、涨停家数、上涨家数、20 日新高家数、强势股边际量和上证涨跌，说明两次转折在结构上最大的区别，以及 08-25 之后 5 个交易日的走势对本轮有没有参考价值。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260910_013212_580364",
+     "answer": "**结论先行：本轮不能完成两个转折日的严格对比。**不可变信息截止日为2026-08-25，因此库内证据只覆盖08-25，无法取得09-03及08-25之后5个交易日；这属于时点边界，不代表09-03没有数据或走势不可比。\n可比维度及口径应统一为：市场成交额（亿元）、成交额较前一交易日环比、涨停家数、上涨家数、20日新高个股家数、强势股边际变化、上证指数涨跌幅。08-25的已核验数据为：成交额18316.26亿元、环比-8.75%，涨停65家、上涨4234家，上证涨跌+0.1916%；市场标签为下跌阶段、缩量观望。强势股口径显示平均涨幅8.25%、边际变化-15.11%。这些数字分别来自市场日频总览与强势股状态口径。[E1][E82][E83][E84][E85]\n08-25自身呈现出一个值得注意的**“指数与广度偏强、量能和强势股边际转弱”**结构：上证微涨、上涨家数较多、涨停数回升，但成交额较前日下降，强势股边际变化为负。[E98][E99][E83][E85]板块内部也并不一致：医药多个核心板块上涨但边际量多数为负；有色金属核心板块整体下跌且边际量进一步收缩；消费零售则上涨并明显放量。[E95][E96][E97]因此，若只观察08-25，较合理的判断是“表面宽度尚可，但增量资金和强势方向的持续性已有分化”，而不是单纯定义为全面退潮。\n但“08-25与09-03最大的结构区别”目前**不能由库内证据确认**：09-03的成交额、环比、涨停、上涨家数、20日新高、强势股边际量和上证涨跌均缺失。20日新高方面，08-25确有20日新高记录，但当前返回受明细行数限制，无法得到总家数；09-03同样缺失。[E24][E74]所以不能把08-25的“长底部横盘后转弱”与09-03的“短横盘后转弱”作数字化结构归因。\n同理，08-25之后5个交易日的实际走势不在本轮截止范围内，不能判断其对09-03是否有参考价值。**在证据边界内，参考价值只能暂定为方法论上的低到中等：**形态持续时间可以作为背景变量，但只有当两日的量能、市场广度、涨停生态、20日新高和强势股边际量同向可比时，前5日走势才具备有效类比意义；否则只能作为历史案例，不能作为本轮走势预测依据。",
+     "elapsed_s": 362.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 2
+     },
+     "input_tokens": 279305,
+     "output_tokens": 8946,
+     "llm_calls": 16,
+     "tool_calls": 18,
+     "invalid_actions": 0,
+     "tools_called": [],
+     "structural_status": "partial",
+     "semantic_status": "completed",
+     "judge_status": "repaired",
+     "stop_reason": "model_finish",
+     "gaps": 8,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260910_013212_580364"
+    }
+   ],
+   "final_answer": "**结论先行：本轮不能完成两个转折日的严格对比。**不可变信息截止日为2026-08-25，因此库内证据只覆盖08-25，无法取得09-03及08-25之后5个交易日；这属于时点边界，不代表09-03没有数据或走势不可比。\n可比维度及口径应统一为：市场成交额（亿元）、成交额较前一交易日环比、涨停家数、上涨家数、20日新高个股家数、强势股边际变化、上证指数涨跌幅。08-25的已核验数据为：成交额18316.26亿元、环比-8.75%，涨停65家、上涨4234家，上证涨跌+0.1916%；市场标签为下跌阶段、缩量观望。强势股口径显示平均涨幅8.25%、边际变化-15.11%。这些数字分别来自市场日频总览与强势股状态口径。[E1][E82][E83][E84][E85]\n08-25自身呈现出一个值得注意的**“指数与广度偏强、量能和强势股边际转弱”**结构：上证微涨、上涨家数较多、涨停数回升，但成交额较前日下降，强势股边际变化为负。[E98][E99][E83][E85]板块内部也并不一致：医药多个核心板块上涨但边际量多数为负；有色金属核心板块整体下跌且边际量进一步收缩；消费零售则上涨并明显放量。[E95][E96][E97]因此，若只观察08-25，较合理的判断是“表面宽度尚可，但增量资金和强势方向的持续性已有分化”，而不是单纯定义为全面退潮。\n但“08-25与09-03最大的结构区别”目前**不能由库内证据确认**：09-03的成交额、环比、涨停、上涨家数、20日新高、强势股边际量和上证涨跌均缺失。20日新高方面，08-25确有20日新高记录，但当前返回受明细行数限制，无法得到总家数；09-03同样缺失。[E24][E74]所以不能把08-25的“长底部横盘后转弱”与09-03的“短横盘后转弱”作数字化结构归因。\n同理，08-25之后5个交易日的实际走势不在本轮截止范围内，不能判断其对09-03是否有参考价值。**在证据边界内，参考价值只能暂定为方法论上的低到中等：**形态持续时间可以作为背景变量，但只有当两日的量能、市场广度、涨停生态、20日新高和强势股边际量同向可比时，前5日走势才具备有效类比意义；否则只能作为历史案例，不能作为本轮走势预测依据。",
+   "execution_status": "completed",
+   "total_elapsed_s": 365.0,
+   "total_input_tokens": 279305,
+   "total_output_tokens": 8946,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 4.7,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-scenario-h1",
+   "category": "scenario",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_e969fd6eb5974507b0af1e46f6b12b15",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "以 2026-09-07 收盘为基准（下跌阶段第 3 天、成交 1.945 万亿、涨停 93）：如果 09-08 成交跌破 1.8 万亿且涨停不到 60 家，对『下跌阶段』的研判意味着什么、要看哪些确认信号？如果反过来成交超过 2.2 万亿且涨停超过 120 家呢？请分别给出研判、确认信号和证伪条件，并用 8 月以来出现过类似数值的日子作参照。不要写数值概率。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260910_013840_403080",
+     "answer": "截至09-07，市场为“下跌阶段第3天”，成交1.945万亿元、涨停93家；但上涨3167家、跌停仅2家，且新能源车、机器人、芯片等涨停分布较广，说明修复已经出现，尚不能仅凭阶段标签认定跌势延续。[E14][E68][E69][E70]\n**分支一：09-08成交不足1.8万亿元且涨停少于60家。基准判断：下跌阶段延续、修复失败，判断强度中。** 数值参照是09-02的1.791万亿元/52家及09-03的1.758万亿元/44家；前者指数跌0.97%、上涨1541家，后者指数近乎持平、上涨1840家，说明同样缩量降温既可能是风险扩散，也可能是抛压衰减，不能单点定性。[E50][E51]\n- 未来1—2日确认：量能及涨停继续处于低位；上涨家数继续收缩、跌停扩张、指数下移；方向题材与连板高度同时转弱。[E40][E50][E51]\n- 证伪：随后1—2日成交收复09-07水平、涨停重回93家附近，同时跌停不扩张、科技主线继续扩散。[E14][E68][E72]\n- 互斥解释：①资金风险偏好系统性下降；②强修复后的良性换手。触发当日证据不足，两假说并立；前者看宽度和跌停恶化，后者看缩量但指数抗跌、核心题材不退潮。操作上先降进攻性，等待次日裁决。\n**分支二：成交超过2.2万亿元且涨停超过120家。基准判断：具备结束下跌阶段的必要条件，但尚非充分条件，判断强度中。** 08-04曾出现2.213万亿元、138家涨停、上涨3642家、零跌停，属于广谱修复参照；但当时是底部横盘第5天，而假设发生在下跌阶段第4天，阶段位置明显不同。[E52]\n- 当日及未来1—2日确认：指数同步上涨、上涨面扩张且跌停受控；次日量能不骤降、涨停维持高位；主线不是单题材脉冲，方向锚与高度锚均保持强势。[E40][E52]\n- 证伪：放量但指数不涨、上涨面不足或跌停增加；次日成交跌回09-07以下、涨停回落至93家以下且核心题材退潮。[E14]\n- 互斥解释：①增量资金推动广谱反转；②高位分歧放量或集中抱团。若宽度、指数、题材扩散同步改善，支持前者；若只有成交和少数题材放大，支持后者。操作上等次日延续，不把单日爆量直接等同反转。\n比较口径统一采用全市场成交额、涨跌停、上涨家数、指数表现、题材扩散及连板高度。正式历史阶段类比算子不可用，以上仅是08月以来直接日频数值参照；数据截点为09-07，不包含09-08实际结果，也不形成统计规律。[E1][E2][E45]",
+     "elapsed_s": 213.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 3
+     },
+     "input_tokens": 88800,
+     "output_tokens": 4525,
+     "llm_calls": 3,
+     "tool_calls": 8,
+     "invalid_actions": 0,
+     "tools_called": [
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "mainline_context",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query"
+     ],
+     "structural_status": "completed",
+     "semantic_status": "completed",
+     "judge_status": "passed",
+     "stop_reason": "model_finish",
+     "gaps": 3,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260910_013840_403080"
+    }
+   ],
+   "final_answer": "截至09-07，市场为“下跌阶段第3天”，成交1.945万亿元、涨停93家；但上涨3167家、跌停仅2家，且新能源车、机器人、芯片等涨停分布较广，说明修复已经出现，尚不能仅凭阶段标签认定跌势延续。[E14][E68][E69][E70]\n**分支一：09-08成交不足1.8万亿元且涨停少于60家。基准判断：下跌阶段延续、修复失败，判断强度中。** 数值参照是09-02的1.791万亿元/52家及09-03的1.758万亿元/44家；前者指数跌0.97%、上涨1541家，后者指数近乎持平、上涨1840家，说明同样缩量降温既可能是风险扩散，也可能是抛压衰减，不能单点定性。[E50][E51]\n- 未来1—2日确认：量能及涨停继续处于低位；上涨家数继续收缩、跌停扩张、指数下移；方向题材与连板高度同时转弱。[E40][E50][E51]\n- 证伪：随后1—2日成交收复09-07水平、涨停重回93家附近，同时跌停不扩张、科技主线继续扩散。[E14][E68][E72]\n- 互斥解释：①资金风险偏好系统性下降；②强修复后的良性换手。触发当日证据不足，两假说并立；前者看宽度和跌停恶化，后者看缩量但指数抗跌、核心题材不退潮。操作上先降进攻性，等待次日裁决。\n**分支二：成交超过2.2万亿元且涨停超过120家。基准判断：具备结束下跌阶段的必要条件，但尚非充分条件，判断强度中。** 08-04曾出现2.213万亿元、138家涨停、上涨3642家、零跌停，属于广谱修复参照；但当时是底部横盘第5天，而假设发生在下跌阶段第4天，阶段位置明显不同。[E52]\n- 当日及未来1—2日确认：指数同步上涨、上涨面扩张且跌停受控；次日量能不骤降、涨停维持高位；主线不是单题材脉冲，方向锚与高度锚均保持强势。[E40][E52]\n- 证伪：放量但指数不涨、上涨面不足或跌停增加；次日成交跌回09-07以下、涨停回落至93家以下且核心题材退潮。[E14]\n- 互斥解释：①增量资金推动广谱反转；②高位分歧放量或集中抱团。若宽度、指数、题材扩散同步改善，支持前者；若只有成交和少数题材放大，支持后者。操作上等次日延续，不把单日爆量直接等同反转。\n比较口径统一采用全市场成交额、涨跌停、上涨家数、指数表现、题材扩散及连板高度。正式历史阶段类比算子不可用，以上仅是08月以来直接日频数值参照；数据截点为09-07，不包含09-08实际结果，也不形成统计规律。[E1][E2][E45]",
+   "execution_status": "completed",
+   "total_elapsed_s": 214.1,
+   "total_input_tokens": 88800,
+   "total_output_tokens": 4525,
+   "gateway_probe": [
+    {
+     "status": "ok",
+     "served_model": "gpt-5.6-sol",
+     "reset_seconds": null,
+     "elapsed_s": 22.9,
+     "probe_model": "gpt-5.6-sol"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-counter-h1",
+   "category": "counter",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_90f9c26a602544f5a5b7aac5a802d850",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "有人说『20 日新高家数越多，市场越强』。但 2026-09-02 新高 768 家，当天却是缩量分歧日（成交 -11.91%、上涨仅 1541 家）。请解释这个矛盾，并在 2026 年 8 月的数据里再找至少两个『新高多但上涨家数少或指数跌』的反例，最后给出新高家数应该和什么一起看。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260910_125509_716593",
+     "answer": "**结论：20日新高家数不是“当日市场强弱”的充分条件，而是中期趋势扩散指标。**它回答的是“有多少股票仍处于近20个交易日的相对强势区间”，而上涨家数、成交额和指数回答的是“今天是否普涨、是否有增量资金、权重是否承接”。时间尺度和覆盖面不同，所以完全可以出现“新高很多，但当天普跌或缩量”。\n2026-09-02正是这种背离：按题目给出的口径，20日新高768家；但市场上涨1541家，成交额环比下降11.91%，上证跌0.9674%，成交额17908.79亿元，市场被标注为“缩量观望”。因此更合理的解释是：前期形成的强势股仍在创新高，但当日资金没有继续扩散，其他股票下跌或观望；新高还可能集中在银行、公用事业、军工等少数方向，不能等同于全市场普涨。\n8月可见的两个反例候选：\n- **8月19日**：20日新高记录仍在，市场却只有449家上涨，上证跌2.4029%，跌停144家；这是“结构性强势股未消失、全市场显著走弱”的典型背离。\n- **8月24日**：20日新高记录仍在，市场上涨1460家，上证跌0.59%；同样说明少数新高股不能代表整体广度。\n但需强调：当前结构化结果能确认这些日期存在20日新高记录，未提供按日去重后的完整新高总家数；因此不能把8月这两天严谨地写成“新高家数达到某个精确高位”。\n实务上应联合看：\n- **广度**：上涨/下跌家数、涨停与跌停；\n- **量能**：成交额及其相对20日均量，放量上涨比缩量新高更可靠；\n- **指数与权重**：上证、沪深300或中证1000是否同步；\n- **新高结构**：20日新高中有多少行业、是否由单一板块或大市值股贡献；\n- **持续性**：新高家数是否连续扩张，且次日回撤不明显。\n条件化判断是：只有“新高家数上升+上涨家数扩散+成交额放大+指数同步走强+行业分布变宽”同时出现，才能升级为“市场整体偏强”；若新高上升但上涨家数下降、成交额缩量或指数下跌，应定义为**结构性强势/抱团，而不是全面强势**。反证条件是随后新高家数回落、上涨家数继续收缩或跌停扩张。",
+     "elapsed_s": 417.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 4
+     },
+     "input_tokens": 533335,
+     "output_tokens": 14300,
+     "llm_calls": 15,
+     "tool_calls": 26,
+     "invalid_actions": 2,
+     "tools_called": [
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query"
+     ],
+     "structural_status": "partial",
+     "semantic_status": "completed",
+     "judge_status": "repaired",
+     "stop_reason": "model_finish",
+     "gaps": 5,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260910_125509_716593"
+    }
+   ],
+   "final_answer": "**结论：20日新高家数不是“当日市场强弱”的充分条件，而是中期趋势扩散指标。**它回答的是“有多少股票仍处于近20个交易日的相对强势区间”，而上涨家数、成交额和指数回答的是“今天是否普涨、是否有增量资金、权重是否承接”。时间尺度和覆盖面不同，所以完全可以出现“新高很多，但当天普跌或缩量”。\n2026-09-02正是这种背离：按题目给出的口径，20日新高768家；但市场上涨1541家，成交额环比下降11.91%，上证跌0.9674%，成交额17908.79亿元，市场被标注为“缩量观望”。因此更合理的解释是：前期形成的强势股仍在创新高，但当日资金没有继续扩散，其他股票下跌或观望；新高还可能集中在银行、公用事业、军工等少数方向，不能等同于全市场普涨。\n8月可见的两个反例候选：\n- **8月19日**：20日新高记录仍在，市场却只有449家上涨，上证跌2.4029%，跌停144家；这是“结构性强势股未消失、全市场显著走弱”的典型背离。\n- **8月24日**：20日新高记录仍在，市场上涨1460家，上证跌0.59%；同样说明少数新高股不能代表整体广度。\n但需强调：当前结构化结果能确认这些日期存在20日新高记录，未提供按日去重后的完整新高总家数；因此不能把8月这两天严谨地写成“新高家数达到某个精确高位”。\n实务上应联合看：\n- **广度**：上涨/下跌家数、涨停与跌停；\n- **量能**：成交额及其相对20日均量，放量上涨比缩量新高更可靠；\n- **指数与权重**：上证、沪深300或中证1000是否同步；\n- **新高结构**：20日新高中有多少行业、是否由单一板块或大市值股贡献；\n- **持续性**：新高家数是否连续扩张，且次日回撤不明显。\n条件化判断是：只有“新高家数上升+上涨家数扩散+成交额放大+指数同步走强+行业分布变宽”同时出现，才能升级为“市场整体偏强”；若新高上升但上涨家数下降、成交额缩量或指数下跌，应定义为**结构性强势/抱团，而不是全面强势**。反证条件是随后新高家数回落、上涨家数继续收缩或跌停扩张。",
+   "execution_status": "completed",
+   "total_elapsed_s": 419.0,
+   "total_input_tokens": 533335,
+   "total_output_tokens": 14300,
+   "gateway_probe": [
+    {
+     "status": "skipped_no_env"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-continue-h1",
+   "category": "continue",
+   "tier": "deep",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_ca57d47c587d41cbb01e652273abb14e",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "中际旭创 2026 年第二季度单季归母净利润是多少？用中报累计数减一季报算。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260910_130208_749207",
+     "answer": "**中际旭创2026年第二季度单季归母净利润约为79.16亿元。**\n计算口径为：2026年中报归母净利润累计数136.51亿元－2026年一季报归母净利润57.35亿元＝**79.16亿元**。中报报告期截至2026年6月30日、披露日为2026年8月22日；一季报报告期截至2026年3月31日、披露日为2026年4月17日。\n需要注意：79.16亿元是根据累计口径倒算出的单季数，并非财务数据源单独列示的“二季度单季”项目；若后续公司对前期数据进行追溯调整，倒算结果也会相应变化。当前检索到的中报与一季报数据之间没有发现相互矛盾的数字。",
+     "elapsed_s": 41.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 2
+     },
+     "input_tokens": 38318,
+     "output_tokens": 700,
+     "llm_calls": 2,
+     "tool_calls": 1,
+     "invalid_actions": 0,
+     "tools_called": [
+      "financial_data"
+     ],
+     "structural_status": "completed",
+     "semantic_status": "completed",
+     "judge_status": "passed",
+     "stop_reason": "model_finish",
+     "gaps": 1,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260910_130208_749207"
+    },
+    {
+     "turn_index": 1,
+     "question": "那新易盛呢？按同样的算法算它 2026Q2 单季归母净利，再比一下两家 Q2 相对 Q1 的环比增速谁更快。只回答增量。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260910_130250_984195",
+     "answer": "**增量结论：新易盛2026Q2单季归母净利润约47.49亿元，较Q1约增长70.8%；中际旭创Q2单季约79.16亿元，较Q1约增长38.1%。因此，Q2相对Q1的环比增速是新易盛更快，领先约32.8个百分点；但单季利润绝对额仍是中际旭创更高。**\n计算：新易盛＝75.29－27.80＝47.49亿元，环比＝47.49/27.80－1；中际旭创＝136.51－57.35＝79.16亿元，环比＝79.16/57.35－1。\n主要限制：新易盛75.29亿元中报累计归母净利的精确值来自公开财务页面转述，本轮未取得可解析的公司公告正文；若后续公告复核或追溯调整改变累计数，两项环比增速需同步重算。",
+     "elapsed_s": 198.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 4
+     },
+     "input_tokens": 415852,
+     "output_tokens": 6701,
+     "llm_calls": 4,
+     "tool_calls": 7,
+     "invalid_actions": 0,
+     "tools_called": [
+      "sub_research",
+      "l3_lookup",
+      "web_search",
+      "web_search",
+      "web_search",
+      "web_fetch",
+      "web_search"
+     ],
+     "structural_status": "completed",
+     "semantic_status": "completed",
+     "judge_status": "passed",
+     "stop_reason": "model_finish",
+     "gaps": 3,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260910_130250_984195"
+    }
+   ],
+   "final_answer": "**增量结论：新易盛2026Q2单季归母净利润约47.49亿元，较Q1约增长70.8%；中际旭创Q2单季约79.16亿元，较Q1约增长38.1%。因此，Q2相对Q1的环比增速是新易盛更快，领先约32.8个百分点；但单季利润绝对额仍是中际旭创更高。**\n计算：新易盛＝75.29－27.80＝47.49亿元，环比＝47.49/27.80－1；中际旭创＝136.51－57.35＝79.16亿元，环比＝79.16/57.35－1。\n主要限制：新易盛75.29亿元中报累计归母净利的精确值来自公开财务页面转述，本轮未取得可解析的公司公告正文；若后续公告复核或追溯调整改变累计数，两项环比增速需同步重算。",
+   "execution_status": "completed",
+   "total_elapsed_s": 242.1,
+   "total_input_tokens": 454170,
+   "total_output_tokens": 7401,
+   "gateway_probe": [
+    {
+     "status": "skipped_no_env"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  },
+  {
+   "case_id": "cb00-method-h1",
+   "category": "method",
+   "tier": "standard",
+   "as_of": "2026-09-07",
+   "conversation_id": "conv_fdfa2a2c77494430a44dd1c687cabb0a",
+   "turns": [
+    {
+     "turn_index": 0,
+     "question": "『强势股边际量转负（<0）的次日，上证指数下跌』——用 2026-08-24 到 2026-09-07 的库内数据逐日验证这条经验：列出每个边际量为负的日子、次日上证涨跌、命中与否，算命中率，然后说这条经验该保留、修改还是丢弃。",
+     "status": "completed",
+     "error": null,
+     "run_id": "run_20260910_130610_859946",
+     "answer": "**直接判断：修改，不保留为“次日必跌”规则。**按库内可操作口径，将“强势股边际量转负”代理为当日板块日频数据中存在 `marginal_volume_pct<0`；2026-08-24至09-07每个交易日均出现负值，分别为：08-24 -38.20（E42）、08-25 -38.39（E43）、08-26 -35.86（E44）、08-27 -29.69（E45）、08-28 -46.95（E46）、08-31 -33.42（E47）、09-01 -41.86（E48）、09-02 -43.63（E49）、09-03 -37.3066（E50）、09-04 -28.6181（E51）、09-07 -44.4573（E52）。\n次日上证表现：08-24→08-25 +0.1916%，未命中；08-25→08-26 +0.5934%，未命中；08-26→08-27 +1.1258%，未命中；08-27→08-28 -0.1110%，命中；08-28→08-31 +0.8633%，未命中；08-31→09-01 -0.1608%，命中；09-01→09-02 -0.9674%，命中；09-02→09-03 +0.0178%，未命中；09-03→09-04 -0.3037%，命中；09-04→09-07 +0.0657%，未命中（E7-E16）。已完成的10个样本命中4个，命中率40%。09-07的次日09-08行情未取到，不能把它计入分母。\n**情景路径：**\n- **基准/中可能：信号仅提示分歧，不直接看空。**未来1—3个交易日若上证仍能收复或守住前收、成交额不继续明显收缩，则该指标继续表现为弱预测信号；依据是本样本仅4/10命中，且多次负量后指数上涨（E7-E16）。\n- **偏空/中可能：负量与指数走弱共振时才升级。**若未来1—3日同时出现上证收跌、成交额继续低于近期中枢、主线双红数量继续偏低，则可把信号升级为短线风险提示；量能与双红背景见E1-E6。\n- **修复/中可能：负量后指数横盘或上涨。**若未来1—3日上证不跌且主线重新出现量价共振，应判定边际量负值更多是结构轮动而非全市场风险扩散。\n互斥解释是：一是负边际量代表强势方向资金整体退潮，次日风险扩散；二是资金只是从部分强势方向轮换至其他主线，指数可由新方向承接。现有证据只有板块边际量、指数涨跌和部分市场结构，无法裁决两假说，二者并立。操作含义：把该指标降级为“需共振确认的预警”，不要单独作为做空或减仓触发器。\n**继续成立条件：**未来1—3个交易日负边际量扩大，并与上证收跌、成交额收缩、主线双红减少至少两项同步出现。**失效或降级条件：**负边际量出现后上证上涨/横盘，或主线和成交额出现修复；尤其连续出现“负量后上涨”时，应停止把它解释为次日看跌信号。\n**证据边界：**本检验覆盖08-24至09-07，次日结果覆盖至09-07；09-07→09-08缺少库内上证数据。更重要的是，严格“强势股”个股集合未被直接观测，本次使用的是板块日频边际量代理，因此结论只能说明该代理指标在此窗口的表现，不能外推为强势股个股策略的完整回测。",
+     "elapsed_s": 151.0,
+     "engine": "A",
+     "served_models": {
+      "gpt-5.6-sol": 4
+     },
+     "input_tokens": 111587,
+     "output_tokens": 4853,
+     "llm_calls": 4,
+     "tool_calls": 16,
+     "invalid_actions": 0,
+     "tools_called": [
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query",
+      "finance_query"
+     ],
+     "structural_status": "completed",
+     "semantic_status": "completed",
+     "judge_status": "passed",
+     "stop_reason": "model_finish",
+     "gaps": 5,
+     "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research"
+     ],
+     "research_tier": "max",
+     "degrades": [],
+     "run_dir": "/Users/a77/.finance-runtime/capability-benchmark-00/users/cb00-baseline/runs/run_20260910_130610_859946"
+    }
+   ],
+   "final_answer": "**直接判断：修改，不保留为“次日必跌”规则。**按库内可操作口径，将“强势股边际量转负”代理为当日板块日频数据中存在 `marginal_volume_pct<0`；2026-08-24至09-07每个交易日均出现负值，分别为：08-24 -38.20（E42）、08-25 -38.39（E43）、08-26 -35.86（E44）、08-27 -29.69（E45）、08-28 -46.95（E46）、08-31 -33.42（E47）、09-01 -41.86（E48）、09-02 -43.63（E49）、09-03 -37.3066（E50）、09-04 -28.6181（E51）、09-07 -44.4573（E52）。\n次日上证表现：08-24→08-25 +0.1916%，未命中；08-25→08-26 +0.5934%，未命中；08-26→08-27 +1.1258%，未命中；08-27→08-28 -0.1110%，命中；08-28→08-31 +0.8633%，未命中；08-31→09-01 -0.1608%，命中；09-01→09-02 -0.9674%，命中；09-02→09-03 +0.0178%，未命中；09-03→09-04 -0.3037%，命中；09-04→09-07 +0.0657%，未命中（E7-E16）。已完成的10个样本命中4个，命中率40%。09-07的次日09-08行情未取到，不能把它计入分母。\n**情景路径：**\n- **基准/中可能：信号仅提示分歧，不直接看空。**未来1—3个交易日若上证仍能收复或守住前收、成交额不继续明显收缩，则该指标继续表现为弱预测信号；依据是本样本仅4/10命中，且多次负量后指数上涨（E7-E16）。\n- **偏空/中可能：负量与指数走弱共振时才升级。**若未来1—3日同时出现上证收跌、成交额继续低于近期中枢、主线双红数量继续偏低，则可把信号升级为短线风险提示；量能与双红背景见E1-E6。\n- **修复/中可能：负量后指数横盘或上涨。**若未来1—3日上证不跌且主线重新出现量价共振，应判定边际量负值更多是结构轮动而非全市场风险扩散。\n互斥解释是：一是负边际量代表强势方向资金整体退潮，次日风险扩散；二是资金只是从部分强势方向轮换至其他主线，指数可由新方向承接。现有证据只有板块边际量、指数涨跌和部分市场结构，无法裁决两假说，二者并立。操作含义：把该指标降级为“需共振确认的预警”，不要单独作为做空或减仓触发器。\n**继续成立条件：**未来1—3个交易日负边际量扩大，并与上证收跌、成交额收缩、主线双红减少至少两项同步出现。**失效或降级条件：**负边际量出现后上证上涨/横盘，或主线和成交额出现修复；尤其连续出现“负量后上涨”时，应停止把它解释为次日看跌信号。\n**证据边界：**本检验覆盖08-24至09-07，次日结果覆盖至09-07；09-07→09-08缺少库内上证数据。更重要的是，严格“强势股”个股集合未被直接观测，本次使用的是板块日频边际量代理，因此结论只能说明该代理指标在此窗口的表现，不能外推为强势股个股策略的完整回测。",
+   "execution_status": "completed",
+   "total_elapsed_s": 153.7,
+   "total_input_tokens": 111587,
+   "total_output_tokens": 4853,
+   "gateway_probe": [
+    {
+     "status": "skipped_no_env"
+    }
+   ],
+   "resumed_from_artifact": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+  }
+ ],
+ "summary": {
+  "execution_status": {
+   "completed": 28,
+   "engine_missing": 2
+  },
+  "served_models": {
+   "gpt-5.6-terra": 19,
+   "gpt-5.6-sol": 69
+  },
+  "structural_status": {
+   "partial": 18,
+   "completed": 12,
+   "None": 2,
+   "failed": 1
+  },
+  "semantic_status": {
+   "completed": 25,
+   "partial": 5,
+   "None": 2,
+   "failed": 1
+  },
+  "median_case_elapsed_s": 148.0,
+  "total_elapsed_s": 5354.6,
+  "total_input_tokens": 4237478,
+  "total_output_tokens": 120594,
+  "invalid_actions": 25,
+  "quota_tainted": 0
+ },
+ "gateway_probe_model": "gpt-5.6-sol,gpt-5.6-terra",
+ "resumed_from": "/Users/a77/.finance-runtime/capability-benchmark-00/runs/20260910T092900Z-cb00-baseline-372d047c0b0f.json"
+}
