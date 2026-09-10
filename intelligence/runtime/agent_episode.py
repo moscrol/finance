@@ -90,6 +90,7 @@ from intelligence.services.episode_messages import (
     append_model_input,
     assistant_message,
     check_derivation,
+    record_application_tool_call,
     record_prompt_assembled,
     record_tool_budget_state,
     rewrite_last_tool_content,
@@ -2448,6 +2449,16 @@ class ContinuousAgentEpisode:
         )
         if fallback is None:
             return None
+        # 这一枪是应用替模型点的，模型没有说过——但下一次请求里它的 tool 消息必须有
+        # assistant.tool_calls 声明，否则 OpenAI 兼容接口回 400（2026-09-09 M3 / M6 真实
+        # run 第 3/4 轮就是这样失败的）。声明是模型可见内容：先落 durable 事件再进
+        # messages（INV-R1），且在派发意图（tool_request）之前（声明 → 意图 → 效果）。
+        record_application_tool_call(
+            accumulator.messages,
+            accumulator.ledger,
+            call=fallback.call,
+            source="empty_pool_fallback",
+        )
         started = monotonic()
         extras = {fallback.call.call_id: fallback.request_extras}
         fallback_batch = tool_session.execute(
@@ -3071,6 +3082,12 @@ class ContinuousAgentEpisode:
         )
         recovery_started = monotonic()
         try:
+            recovery_options = {}
+            priority_hook = getattr(self._harness, "recovery_evidence_priority", None)
+            if callable(priority_hook):
+                priority = priority_hook(context=context, evidence=tuple(accumulator.evidence))
+                if isinstance(priority, tuple) and priority:
+                    recovery_options["evidence_priority"] = priority
             turn = self._finalizer.recover(
                 task_frame=task_frame,
                 context=context,
@@ -3082,6 +3099,7 @@ class ContinuousAgentEpisode:
                 on_prompt=lambda system, user: record_prompt_assembled(
                     ledger, system=system, user=user, source=PROMPT_SOURCE_FINALIZER
                 ),
+                **recovery_options,
             )
         except Exception as exc:
             budget_remaining = _consume_root_seconds(

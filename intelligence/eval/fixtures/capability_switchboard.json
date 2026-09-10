@@ -62,6 +62,48 @@
       "notes": "读 fact_mainline_*，不算容量前三（那是 predicate.capacity-top3）。未发现第二道门。"
     },
     {
+      "id": "history_query",
+      "kind": "capability",
+      "status": "active",
+      "seam": "intelligence/services/research_tool_registry.py::_DEFAULT_TOOL_METADATA",
+      "close_via": [
+        "allowed_capabilities:remove"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "offered_schemas",
+      "notes": "历史发现研究三件之一，共享 finance_query capability（关 finance_query 即关它）；只在 frame.history_intent 存在时由 history_tool_specs 装配，普通单日查询不会出现。第 0 步扫过 FINANCE_* env 门，未发现第二道门。"
+    },
+    {
+      "id": "read_history_result",
+      "kind": "capability",
+      "status": "active",
+      "seam": "intelligence/services/research_tool_registry.py::_DEFAULT_TOOL_METADATA",
+      "close_via": [
+        "allowed_capabilities:remove"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "offered_schemas",
+      "notes": "共享 finance_query capability；仅在 history_intent 且 HistorySession 存在时装配，只读同用户同会话 RunStore 原件。无 env 门。"
+    },
+    {
+      "id": "save_history_research",
+      "kind": "capability",
+      "status": "active",
+      "seam": "intelligence/services/research_tool_registry.py::_DEFAULT_TOOL_METADATA",
+      "close_via": [
+        "allowed_capabilities:remove"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "offered_schemas",
+      "notes": "共享 finance_query capability；仅在 history_intent 且 HistorySession 存在时装配，只写本 run 目录内 research_only 草稿，不写市场事实。无 env 门。"
+    },
+    {
       "id": "finance_query",
       "kind": "capability",
       "status": "active",

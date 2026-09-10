@@ -51,7 +51,11 @@ from intelligence.services.research_tool_registry import (
 )
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.repair_coordinator import RepairFailureShape, RepairWarrant
-from intelligence.services.research_harness import FinanceResearchHarness
+from intelligence.services.research_harness import (
+    FinanceResearchHarness,
+    PublicationAssessment,
+    ResearchHarness,
+)
 from intelligence.runtime.repair_budget import BACKFILL_BUDGET_FRACTION
 from intelligence.runtime.turn_control_core import TurnControlResult
 
@@ -157,6 +161,7 @@ def _scripted_episode_result(
     gap_output_ids: tuple[str, ...] = (),
     runtime_name: str = "continuous_glm",
     progress_sink=None,
+    harness: ResearchHarness | None = None,
 ):
     frame = _frame(required_outputs=required_outputs)
     capabilities = tuple(dict.fromkeys(item.tool for item in evidence)) or (
@@ -215,6 +220,7 @@ def _scripted_episode_result(
         registry_factory=lambda *_args, **_kwargs: "registry",
         semantic_verifier=Semantic(),
         progress_sink=progress_sink,
+        harness=harness,
     ).handle(frame=frame, control=control)
 
 
@@ -4082,6 +4088,45 @@ def test_semantically_verified_partial_is_first_class_not_degraded() -> None:
     assert result.status == "partial"
     assert "持续性仍需补量能验证" in result.answer
     assert result.warnings == ()
+
+
+@pytest.mark.parametrize(
+    "semantic_status,expected_status",
+    [("completed", "partial"), ("partial", "partial"), ("failed", "degraded")],
+)
+def test_publication_ceiling_is_generic_preserves_safe_prose_and_never_upgrades(
+    semantic_status, expected_status
+):
+    notice = "一项必需的外部核验尚未完成。"
+
+    class PendingHarness(FinanceResearchHarness):
+        def assess_publication(self, *, context):
+            return PublicationAssessment(
+                max_status="partial",
+                required_public_notices=(notice, notice, "content_hash=PRIVATE_ID"),
+            )
+
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场观察",
+        detail="可核验的当前行情。",
+        source="本地行情",
+        content_hash="PRIVATE_ID",
+    )
+    result = _scripted_episode_result(
+        semantic_status=semantic_status,
+        public_answer="可核验的当前行情。",
+        evidence=(evidence,),
+        bindings=(OutputEvidenceBinding("direct_assessment", ("PRIVATE_ID",)),),
+        judge_status="passed",
+        harness=PendingHarness(),
+    )
+    assert result.status == expected_status
+    assert result.answer.startswith("可核验的当前行情。")
+    assert result.answer.count(notice) == 1
+    assert "PRIVATE_ID" not in result.answer
+    assert result.open_gaps == (notice,)
+    assert result.private_artifact["publication_assessment"]["max_status"] == "partial"
 
 
 def test_structural_partial_artifact_exports_missing_output_reasons() -> None:
