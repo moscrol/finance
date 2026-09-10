@@ -55,6 +55,14 @@ from intelligence.services.teaching_framework.receipts import (  # noqa: E402
     make_receipt,
     write_receipt,
 )
+from intelligence.services.teaching_framework.source_views import (  # noqa: E402
+    AUCTION_ZT_VIEW,
+    DRAGON_VIEW,
+    HIGH_VIEW,
+    SECTOR_PX_VIEW,
+    STOCK_VIEW,
+    attach_teaching_sources,
+)
 from intelligence.services.teaching_framework.sector_roles import (  # noqa: E402
     MONEY_EFFECT_DEFINITIONS,
     SECTOR_LABELS,
@@ -66,6 +74,8 @@ from intelligence.services.methodology_backtest.stats import readout as stats_re
 SOURCE_TABLES = (
     "fact_market_daily", "fact_mainline_sector_daily", "fact_theme_limit_stock_daily", "fact_stock_daily",
     "fact_sector_daily", "fact_theme_limit_heat_daily", "fact_stock_high_daily",
+    "fact_stock_daily_hithink", "fact_sector_kline_daily", "fact_dragon_tiger_hithink",
+    "fact_auction_hithink",
 )
 BIRTH_COHORT_FEATURES = ("tf.stage_coarse", "tf.deviation_band", "volume_state")
 
@@ -101,7 +111,19 @@ def _load_limit_rows(source: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
 
 
 def _source_counts(source: duckdb.DuckDBPyConnection) -> dict[str, int]:
-    return {table: int(source.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]) for table in SOURCE_TABLES}
+    from intelligence.services.teaching_framework.source_views import table_exists
+
+    out: dict[str, int] = {}
+    for table in SOURCE_TABLES:
+        if table_exists(source, table):
+            out[table] = int(source.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+    return out
+
+
+def _open_source(path: Path) -> tuple[duckdb.DuckDBPyConnection, dict[str, str]]:
+    """只读连主库。TEMP VIEW 可以建在只读连接上，不会写回文件。"""
+    source = duckdb.connect(str(path), read_only=True)
+    return source, attach_teaching_sources(source)
 
 
 # 「整体的水位」（创始人 2026-09-07）：全市场个股的涨幅中位数、平均股价、个股相对自身
@@ -113,7 +135,7 @@ WITH cal AS (
 ),
 s AS (
     SELECT d.trade_date, d.stock_ts_code, d.close, d.pct_chg, c.idx
-    FROM fact_stock_daily d JOIN cal c USING (trade_date)
+    FROM tf_src_stock_daily d JOIN cal c USING (trade_date)
     WHERE d.close IS NOT NULL
 ),
 w AS (
@@ -146,7 +168,7 @@ def _load_breadth(source: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
 
 
 # 板块侧的市场级日聚合（第二刀，创始人第六段「一体两面」）：
-#   new_high_1y_count      1 年及以上周期新高的个股数（fact_stock_high_daily.primary_high_period ∈ 1y/2y/3y/history）
+#   new_high_1y_count      1 年及以上周期新高的个股数（有十年 K 则从 close/high 自算；否则 fact_stock_high_daily.primary_high_period ∈ 1y/2y/3y/history）
 #   dual_red_theme_count   严格双红题材数，口径与回测层 dual_red_strict 完全一致（pct>0 ∧ diff>10 ∧ amount>500）
 #   limit_themes_ge3       当日涨停家数 ≥ 3 的题材数（fact_theme_limit_heat_daily final）
 #   limit_top1_share_pct   第一题材占全市场涨停的份额
@@ -155,7 +177,7 @@ SECTOR_SQL = f"""
 WITH cal AS (SELECT trade_date FROM fact_market_daily),
 nh AS (
     SELECT trade_date, COUNT(*) AS new_high_1y_count
-    FROM fact_stock_high_daily WHERE primary_high_period IN ('1y', '2y', '3y', 'history')
+    FROM {HIGH_VIEW}
     GROUP BY trade_date
 ),
 dr AS (
@@ -228,7 +250,7 @@ prem AS (
     -- 6-decimal rounding boundary (0.6590625) flipped between two otherwise identical rebuilds.
     SELECT c.trade_date, c.i, SUM(CAST(s.pct_chg AS DECIMAL(18, 6))) / COUNT(*) AS limit_premium_pct
     FROM lim JOIN idx c ON c.i = lim.i + 1
-    JOIN fact_stock_daily s ON s.trade_date = c.trade_date AND s.stock_ts_code = lim.stock_ts_code
+    JOIN {STOCK_VIEW} s ON s.trade_date = c.trade_date AND s.stock_ts_code = lim.stock_ts_code
     WHERE s.pct_chg IS NOT NULL
     GROUP BY c.trade_date, c.i
 ),
@@ -244,7 +266,7 @@ prem_w AS (
 -- 即进入「区间涨幅高标」组要多少。与 build-range-leaders 同一口径（个股第 N 个前行必须正好在 N 个交易日前）。
 rl_px AS (
     SELECT s.trade_date, s.stock_ts_code, s.close, c.i
-    FROM fact_stock_daily s JOIN idx c USING (trade_date) WHERE s.close IS NOT NULL AND s.close > 0
+    FROM {STOCK_VIEW} s JOIN idx c USING (trade_date) WHERE s.close IS NOT NULL AND s.close > 0
 ),
 rl_lag AS (
     SELECT *, LAG(close, 20) OVER w AS b20, LAG(i, 20) OVER w AS i20, LAG(close, 60) OVER w AS b60, LAG(i, 60) OVER w AS i60
@@ -269,7 +291,7 @@ rle AS (
 sp AS (
     SELECT trade_date, MEDIAN(pct_chg) AS sector_pct_chg_median,
            100.0 * SUM(CASE WHEN pct_chg > 0 THEN 1 ELSE 0 END) / COUNT(*) AS sector_up_ratio_pct
-    FROM fact_sector_daily WHERE pct_chg IS NOT NULL AND pct_chg > -100
+    FROM {SECTOR_PX_VIEW} WHERE pct_chg IS NOT NULL AND pct_chg > -100
     GROUP BY trade_date
 )
 SELECT cal.trade_date, nh.new_high_1y_count, dr.dual_red_theme_count, dr.dual_red_l1_distinct, lh.limit_themes_ge3, lh.limit_top1_share_pct,
@@ -291,7 +313,7 @@ ORDER BY cal.trade_date
 # 先接库里历史够长的三样，全部聚到市场级一天一个数：龙虎榜（机构 / 游资净买入，2025-01 起全覆盖）、涨停封单（封板的钱
 # 有多厚）、昨日涨停股竞价（开盘那一刻的承接，2026-01 起）。SUM 一律 DECIMAL 精确求和（并行哈希聚合顺序不定，见 slice2 spec §6）。
 # 5 日均值要求连续 5 个日历交易日都有值，与承接 5 日均值同一口径。
-CAPITAL_SQL = """
+CAPITAL_SQL = f"""
 WITH cal AS (SELECT trade_date, total_amount FROM fact_market_daily),
 idx AS (SELECT trade_date, ROW_NUMBER() OVER (ORDER BY trade_date) AS i FROM fact_market_daily),
 dt AS (
@@ -299,7 +321,7 @@ dt AS (
            CAST(SUM(CAST(net_amount AS DECIMAL(18, 6))) AS DOUBLE) AS dragon_net_amount,
            CAST(SUM(CAST(CASE WHEN net_amount > 0 THEN net_amount ELSE 0 END AS DECIMAL(18, 6))) AS DOUBLE) AS buy_sum,
            CAST(SUM(CAST(CASE WHEN net_amount < 0 THEN -net_amount ELSE 0 END AS DECIMAL(18, 6))) AS DOUBLE) AS sell_sum
-    FROM fact_dragon_tiger_daily WHERE net_amount IS NOT NULL GROUP BY trade_date
+    FROM {DRAGON_VIEW} WHERE net_amount IS NOT NULL GROUP BY trade_date
 ),
 dt_day AS (
     SELECT c.trade_date, c.i, dt.dragon_count, dt.dragon_net_amount,
@@ -327,7 +349,7 @@ au AS (
     SELECT trade_date, MEDIAN(auction_pct) AS auction_zt_pct_median,
            CAST(SUM(CASE WHEN auction_pct > 0 THEN 1 ELSE 0 END) AS DOUBLE) * 100.0 / NULLIF(COUNT(auction_pct), 0) AS auction_zt_positive_share_pct,
            CAST(SUM(CAST(auction_amount AS DECIMAL(18, 6))) AS DOUBLE) AS auction_zt_amount
-    FROM fact_auction_stock_daily WHERE panel_key = 'zt' GROUP BY trade_date
+    FROM {AUCTION_ZT_VIEW} GROUP BY trade_date
 )
 SELECT cal.trade_date, dt_w.dragon_count, dt_w.dragon_net_amount, dt_w.dragon_net_amount_ratio_pm, dt_w.dragon_buy_sell_ratio,
        CASE WHEN dt_w.n5_ratio = 5 AND dt_w.i_lag4 = dt_w.i - 4 THEN dt_w.ratio_ma5 END AS dragon_net_amount_ratio_pm_ma5,
@@ -760,12 +782,20 @@ def cmd_build_sector_roles(args: argparse.Namespace) -> int:
     build_time = _now(args.computed_at)
     source_path = Path(args.db_path).expanduser()
     labels_path = Path(args.labels_db).expanduser()
-    source = duckdb.connect(str(source_path), read_only=True)
+    source, teaching_sources = _open_source(source_path)
     try:
         market, dates = _load_market(source)
         sectors = _rows(source, "SELECT trade_date, sector_ts_code, sector_name, sw_l1, pct_chg, amount, diff_ratio FROM fact_sector_daily ORDER BY trade_date, sector_ts_code")
+        closes = {
+            (row["trade_date"], row["sector_ts_code"]): row["close"]
+            for row in _rows(source, f"SELECT trade_date, sector_ts_code, close FROM {SECTOR_PX_VIEW} WHERE close IS NOT NULL")
+        }
+        for row in sectors:
+            close = closes.get((row["trade_date"], row["sector_ts_code"]))
+            if close is not None:
+                row["close"] = close
         heat = _rows(source, "SELECT trade_date, sector_ts_code, limit_up_count, fd_amount FROM fact_theme_limit_heat_daily WHERE data_stage = 'final' ORDER BY trade_date, sector_ts_code")
-        highs = _rows(source, "SELECT trade_date, sw_l1 FROM fact_stock_high_daily WHERE primary_high_period IN ('1y', '2y', '3y', 'history') ORDER BY trade_date")
+        highs = _rows(source, f"SELECT trade_date, sw_l1 FROM {HIGH_VIEW} ORDER BY trade_date")
         vendor = _rows(source, "SELECT trade_date, sector_ts_code FROM fact_mainline_sector_daily ORDER BY trade_date, sector_ts_code")
         source_counts = _source_counts(source)
     finally:
@@ -835,6 +865,7 @@ def cmd_build_sector_roles(args: argparse.Namespace) -> int:
                 "by_definition": rule_readouts,
             },
             "views_by_reference_stage": views_by_reference_stage,
+            "teaching_sources": teaching_sources,
         }
         receipt = make_receipt(
             build_kind="sector_roles", framework_version=fw, label_version=LABEL_VERSION,
@@ -857,12 +888,12 @@ def cmd_build_labels(args: argparse.Namespace) -> int:
     build_time = _now(args.computed_at)
     source_path = Path(args.db_path).expanduser()
     labels_path = Path(args.labels_db).expanduser()
-    source = duckdb.connect(str(source_path), read_only=True)
+    source, teaching_sources = _open_source(source_path)
     try:
         market, dates = _load_market(source)
         vendor = _rows(source, "SELECT trade_date, sector_ts_code, amount FROM fact_mainline_sector_daily ORDER BY trade_date, sector_ts_code")
         stocks = _load_limit_rows(source)
-        amounts = _rows(source, "SELECT trade_date, stock_ts_code, amount FROM fact_stock_daily ORDER BY trade_date, stock_ts_code")
+        amounts = _rows(source, f"SELECT trade_date, stock_ts_code, amount FROM {STOCK_VIEW} ORDER BY trade_date, stock_ts_code")
         breadth = _load_breadth(source)
         sector_breadth = _load_sector_breadth(source, params)
         rps5_names = _load_rps5_names(source) if getattr(args, "kb_wiki", None) else {}
@@ -885,6 +916,7 @@ def cmd_build_labels(args: argparse.Namespace) -> int:
             gap_rows.append((day, f"tf.{label}", None, fw, "gap", reason))
     readouts = label_readouts(records, params, reference=_read_reference(labels_path) or None)
     readouts["narrative_source"] = narrative_note
+    readouts["teaching_sources"] = teaching_sources
     side = _open_sidecar_for_write(labels_path)
     try:
         side.execute("DELETE FROM history_teaching_labels WHERE entity_type = 'market'")
@@ -964,7 +996,7 @@ def cmd_build_succession(args: argparse.Namespace) -> int:
     build_time = _now(args.computed_at)
     source_path = Path(args.db_path).expanduser()
     labels_path = Path(args.labels_db).expanduser()
-    source = duckdb.connect(str(source_path), read_only=True)
+    source, teaching_sources = _open_source(source_path)
     try:
         market, dates = _load_market(source)
         stocks = _load_limit_rows(source)
@@ -1001,6 +1033,7 @@ def cmd_build_succession(args: argparse.Namespace) -> int:
         "sample": receipt_summary(nodes, baseline_rows),
         "diagnostics": succession_diagnostics(result, baseline_rows),
         "birth_environment": _birth_cohorts(nodes, source_path=source_path, labels_path=labels_path, fw=fw),
+        "teaching_sources": teaching_sources,
     }
     side = _open_sidecar_for_write(labels_path)
     try:
@@ -1073,7 +1106,7 @@ def _range_leader_sql(windows: list[int], context: int) -> str:
 WITH idx AS (SELECT trade_date, ROW_NUMBER() OVER (ORDER BY trade_date) AS i FROM fact_market_daily),
 px AS (
     SELECT s.trade_date, s.stock_ts_code, rtrim(replace(s.stock_name, chr(0), '')) AS stock_name, s.close, c.i
-    FROM fact_stock_daily s JOIN idx c USING (trade_date)
+    FROM {STOCK_VIEW} s JOIN idx c USING (trade_date)
     WHERE s.close IS NOT NULL AND s.close > 0
 ),
 lagged AS (
@@ -1124,7 +1157,7 @@ def cmd_build_range_leaders(args: argparse.Namespace) -> int:
     windows = [int(n) for n in params["range_leader_windows"]]
     top = int(params["range_leader_top"])
     context = int(params["range_leader_context"])
-    source = duckdb.connect(str(source_path), read_only=True)
+    source, teaching_sources = _open_source(source_path)
     try:
         _, dates = _load_market(source)
         ranked = _rows(source, _range_leader_sql(windows, context))
@@ -1141,6 +1174,7 @@ def cmd_build_range_leaders(args: argparse.Namespace) -> int:
             "limit_leader": "limit_times >= 3 on the day (same bar as the 连板 chain's top(d))",
         },
         "handoffs": handoff_readouts(result, reference or None),
+        "teaching_sources": teaching_sources,
     }
     side = _open_sidecar_for_write(labels_path)
     try:
@@ -1212,7 +1246,7 @@ WAVE_GAIN_SQL = f"""
 WITH {L1_STATIC_SQL},
 px AS (
     SELECT trade_date, stock_ts_code, rtrim(replace(stock_name, chr(0), '')) AS stock_name, close
-    FROM fact_stock_daily WHERE close IS NOT NULL AND close > 0
+    FROM {STOCK_VIEW} WHERE close IS NOT NULL AND close > 0
 ),
 boards AS (
     SELECT stock_ts_code, MAX(limit_times) AS max_boards
@@ -1226,9 +1260,9 @@ ORDER BY gain_pct DESC, b.stock_ts_code
 
 # 覆灭窗内每只个股：区间收益、最大回撤（收盘对窗内滚动最高收盘）、是否创 N 日新高（窗内最高价 > 窗前 N 个
 # 交易日的最高价）、第一段（见顶后第一个左底向下段）收益。两端都要有收盘，缺一天的不算（fail closed）。
-COLLAPSE_STATS_SQL = """
+COLLAPSE_STATS_SQL = f"""
 WITH px AS (
-    SELECT trade_date, stock_ts_code, close, high FROM fact_stock_daily WHERE close IS NOT NULL AND close > 0
+    SELECT trade_date, stock_ts_code, close, high FROM {STOCK_VIEW} WHERE close IS NOT NULL AND close > 0
 ),
 base AS (SELECT stock_ts_code, close AS c0 FROM px WHERE trade_date = ?),
 last AS (SELECT stock_ts_code, close AS c1 FROM px WHERE trade_date = ?),
@@ -1249,10 +1283,10 @@ ORDER BY b.stock_ts_code
 
 # 亏钱日上的累计收益（第十四段）：只取旁路库标为 tf.money_losing_day = 1 的日子，逐日 pct_chg 复合；该股在每个亏钱日
 # 都要有行才算（停牌过的不算），用 LN 求和保证与顺序无关。同一条 SQL 也算「亏钱日之外的日子」（覆灭窗里其余的日子）。
-DAYS_RET_SQL = """
+DAYS_RET_SQL = f"""
 SELECT stock_ts_code, (EXP(SUM(LN(1 + pct_chg / 100.0))) - 1) * 100 AS ret_pct
-FROM fact_stock_daily
-WHERE trade_date IN ({placeholders}) AND pct_chg IS NOT NULL AND pct_chg > -100
+FROM {STOCK_VIEW}
+WHERE trade_date IN ({{placeholders}}) AND pct_chg IS NOT NULL AND pct_chg > -100
 GROUP BY 1 HAVING COUNT(*) = ?
 ORDER BY 1
 """
@@ -1298,9 +1332,9 @@ def cmd_build_dynasties(args: argparse.Namespace) -> int:
     losing_by_day = _read_money_losing_days(labels_path)
     if losing_by_day is None:
         raise RuntimeError("旁路库没有 tf.money_losing_day 标签——亏钱效应要可量（第十四段），先跑 build-labels")
-    source = duckdb.connect(str(source_path), read_only=True)
+    source, teaching_sources = _open_source(source_path)
     try:
-        calendar = [row["trade_date"] for row in _rows(source, "SELECT DISTINCT trade_date FROM fact_stock_daily ORDER BY 1")]
+        calendar = [row["trade_date"] for row in _rows(source, f"SELECT DISTINCT trade_date FROM {STOCK_VIEW} ORDER BY 1")]
         cal_index = {d: i for i, d in enumerate(calendar)}
         waves = segment_waves(((d, r.get("cycle_stage")) for d, r in reference.items()), calendar)
         index_close = {row["trade_date"]: row["sh_index_close"] for row in _rows(source, "SELECT trade_date, sh_index_close FROM fact_market_daily WHERE sh_index_close IS NOT NULL")}
@@ -1365,6 +1399,7 @@ def cmd_build_dynasties(args: argparse.Namespace) -> int:
             "handoff": "relation description only (创始人 09-07 第九、十三段): where the new members ranked in the old wave, whether any came from the old cohort, L1 overlap, form",
         },
         **result["readouts"],
+        "teaching_sources": teaching_sources,
     }
     side = _open_sidecar_for_write(labels_path)
     try:
