@@ -86,7 +86,7 @@ A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结
 - 数据块（D0/D6/D9…）：意图门控在块自己的 `applies()`。调用方若要关某一块，只传 `AskOptions.enabled_providers`（或 `evidence_registry.without_providers(...)`）。**不要**再给每个块一个 `include_*_block`。
 
 `force_moneyflow_block` 是「日报强制取 L2」，不是允许开关，仍留在 `AskOptions`。
-`include_scenario_guidance` / `include_track_guidance` 是表达契约，不是数据块。
+`include_scenario_guidance` / `include_track_guidance` / `include_ranking_guidance` 是表达契约，不是数据块（排序与情景契约见 `intelligence/services/ranking_contract.py`：多对象排序题的公司矩阵、改判条件表与机械再排序）。
 
 ## 失败形状（本页要挡住的）
 

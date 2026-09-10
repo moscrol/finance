@@ -30,6 +30,10 @@ from intelligence.services.degraded_fallback import (
     episode_rule as degraded_episode_rule,
 )
 from intelligence.services.longtail_baseline import episode_rule
+from intelligence.services.ranking_contract import (
+    RANKING_CONTRACT_OUTPUT_ID_SET,
+    episode_ranking_rule,
+)
 from intelligence.services.scenario_tree import episode_scenario_rule
 from intelligence.services.track_contract import (
     TRACK_CONTRACT_OUTPUT_ID_SET,
@@ -148,18 +152,22 @@ def _question_type_rules(
     # （单一真本源，与 legacy ask_synthesis 版同模块），此处只做条件注入——
     # 非跟踪题得到空串。从模块导入的文本不进 build_episode_instructions 的
     # 静态契约指纹（test_episode_protocol 只提取该函数体内的字符串常量）。
+    # 排序与情景契约（10 号单）同一条注入口：多对象排序题命中才有文本，其它题空串。
+    # 历史发现题（怎么走出来）不叠情景契约，避免和 history 自己的答法打架。
     track_rule = episode_track_rule(
         task_frame.raw_question,
         task_frame.question_type,
     )
-    # "怎么走出来" is retrospective, although the shared scenario detector
-    # matches "怎么走". Historical research owns its answer shape. Explicit
-    # additional outlook requests retain the factory's optional reasoning slots.
     if context.history_intent is None:
         track_rule += episode_scenario_rule(
             task_frame.raw_question,
             task_frame.question_type,
         )
+    track_rule += episode_ranking_rule(
+        task_frame.raw_question,
+        task_frame.question_type,
+        conversation_context=context.conversation_context,
+    )
     longtail_rule = episode_rule(task_frame)
     # ASK_DEGRADED_FALLBACK（默认 off）：降级回答章法，off 时空串。
     degraded_rule = degraded_episode_rule(task_frame)
@@ -851,6 +859,15 @@ def validate_episode_finish(
                     "expression_slot_binding",
                     f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
                     "把「复核期限：YYYY-MM-DD」「下期关注：…」这类内容写进 draft，"
+                    "bindings 里只保留契约列出的 output_id",
+                )
+            if binding.output_id in RANKING_CONTRACT_OUTPUT_ID_SET:
+                # 排序题表达槽（矩阵 / 改判条件 / 竞争解释 / 下一步）同理：系统自己在
+                # 修复目标里给的 id，按 FORMAT 回灌而不是当伪造输出硬拒。
+                raise _reject(
+                    "expression_slot_binding",
+                    f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
+                    "把公司矩阵表、改判条件表、「竞争解释」「下一步」段写进 draft，"
                     "bindings 里只保留契约列出的 output_id",
                 )
             raise _reject(
