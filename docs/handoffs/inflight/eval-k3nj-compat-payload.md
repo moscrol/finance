@@ -13,7 +13,7 @@ k3nj 臂：能力基线的「kimi-k3 × 无独立判官 × 检索语义闸关」
 
 ## 当前状态
 
-sidecar 8814 服 c423c8bd953f（dirty=False/matches=True）；编排首跑中（01:55 起 attempt 1），前两题已是真形状（model_finish / judge=repaired / kimi-k3×3 / 真工具调用）。预计 1.5–2h，烧穿由编排 rc=4 自动等+续。事故件（缺 shim 的两轮全降级跑）在 runs/attic-misconfig-20260911/，未入链。
+sidecar 8814 服 c423c8bd953f（dirty=False/matches=True）；编排首跑中（01:55 起 attempt 1），前两题已是真形状（model_finish / judge=repaired / kimi-k3×3 / 真工具调用）。预计 1.5–2h，烧穿由编排 rc=4 自动等+续。事故件在 runs/attic-misconfig-20260911/（未入链）。
 
 ## 已验证
 
@@ -34,5 +34,4 @@ sidecar 8814 服 c423c8bd953f（dirty=False/matches=True）；编排首跑中（
 
 ## 踩过的坑
 
-- bash 3.2 + UTF-8 locale：`$VAR` 紧跟多字节字符会把首字节吞进变量名，set -u 下报张冠李戴的 unbound variable。一律 `${VAR}`。00 臂 preflight-00.sh 有两处同款未修（NO-GO 分支才炸）。
-- `grep -c pat || echo 0` 会输出两个 0（无匹配时 grep 打印 0 且 rc=1）。
+- bash 3.2 + UTF-8 locale：`$VAR` 紧跟多字节字符会把首字节吞进变量名，set -u 下报张冠李戴的 unbound variable。一律 `${VAR}`。00 臂 preflight-00.sh 有两处同款未修。
