@@ -584,6 +584,11 @@ def runtime_capabilities_for_frame(frame: TaskFrame) -> tuple[str, ...]:
     # 反向不成立：没有 web_search 的策略（本地盘面 / 技术面）也不该取页。
     if "web_search" in capabilities and "web_fetch" not in capabilities:
         capabilities = (*capabilities, "web_fetch")
+    # 派生计算是取数的延伸，同样不单独进策略表：授权了 financial_data 的策略（公司财务 /
+    # 估值）才有可算的结构化数——跨源口径核对、差额、敏感性都长在那上面（spec §3.4）。
+    # 纯盘面 / 技术面 / 知识题不给：它每次占一个工具槽，而那些题没有可算的输入。
+    if "financial_data" in capabilities and "derived_calculation" not in capabilities:
+        capabilities = (*capabilities, "derived_calculation")
     return capabilities
 
 
