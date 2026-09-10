@@ -415,6 +415,17 @@ def cmd_sync_theme_flow_daily(args) -> int:
     return 0
 
 
+def cmd_sync_polymarket_macro_odds(args) -> int:
+    from .sync.sync_polymarket_macro_odds import sync as sync_polymarket_macro_odds
+
+    s = sync_polymarket_macro_odds(args.trade_date)
+    flag = "（部分快照，上游中断）" if s.get("truncated") else ""
+    print(f"Polymarket 宏观/地缘/加密概率: {s['rows']} 行{flag}")
+    for tag, count in sorted(s["tags_hit"].items(), key=lambda x: -x[1]):
+        print(f"  {tag}: {count}")
+    return 0
+
+
 def cmd_sync_fupanhui_public_assets(args) -> int:
     from .sync.sync_fupanhui_public_assets import align_bounds, sync as sync_public_assets, sync_range
 
@@ -1638,6 +1649,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_tf = sub.add_parser("sync-theme-flow-daily", help="同步复盘会题材资金面板到 fact_theme_flow_daily")
     p_tf.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
     p_tf.set_defaults(func=cmd_sync_theme_flow_daily)
+
+    p_pm = sub.add_parser("sync-polymarket-macro-odds", help="同步 Polymarket 宏观/地缘/加密类市场概率到 fact_polymarket_macro_odds_daily")
+    p_pm.add_argument("--trade-date", default=None, help="快照标注日 YYYY-MM-DD, 留空取今天（该接口本身只有当前快照，无历史参数）")
+    p_pm.set_defaults(func=cmd_sync_polymarket_macro_odds)
 
     p_pa = sub.add_parser(
         "sync-fupanhui-public-assets",
