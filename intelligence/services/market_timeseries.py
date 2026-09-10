@@ -361,3 +361,184 @@ def latest_double_red_snapshot_block_for_llm(
             con.close()
         except Exception:
             pass
+
+
+# --------------------------------------------------------------------------- #
+# D18 涨停封板时间数据块（W5 / G1a 接线）
+#
+# 为什么单开一块：`fact_theme_limit_stock_daily.first_limit_time /
+# last_limit_time` 有 14.9 万行非空且日更，但 2026-09-10 核实**消费方全是 skills
+# 与报表**，`intelligence/services/` 无一处引用——数据在库里，agent 面前没有。
+# 这就是 reading-rules-inventory §5 的 G1a：「有封板时间但无块输出」。
+#
+# 本块只交付**数据出口**，不激活规则。pending 规则 SPT-A06（秒板未换手则后排
+# 无价值）依赖的另一半是 `open_times`（炸板次数），该列 15.2 万行恒 NULL
+# （G1b 静默降级，查证需外呼 fupanhui 比对 payload 字段名）。按 §5 更正块的
+# 既定裁决：**G1b 未解决前 SPT-A06 整体留在 _PENDING_RULES**，故这里不调
+# `reading_baseline.block_rule_lines("D18")`——没有规则可挂，挂了就是把
+# 模型拿不到输入的判读注入进去。
+# --------------------------------------------------------------------------- #
+
+_SEAL_TERMS = ("封板", "秒板", "打板", "一字板", "首封", "炸板", "回封")
+_SEAL_PAIR_RE = re.compile(
+    r"涨停.{0,6}(?:时间|节奏|梯队|结构|先后|顺序|后排|换手)"
+    r"|(?:时间|节奏|梯队|先后|顺序).{0,6}涨停"
+)
+
+
+def parse_limit_seal_intent(query: str) -> bool:
+    """封板时序意图：词面特征强，确定性正则即可，不用 LLM 分类（同 D0 纪律）。"""
+    q = str(query or "")
+    if not q.strip():
+        return False
+    if any(term in q for term in _SEAL_TERMS):
+        return True
+    return bool(_SEAL_PAIR_RE.search(q))
+
+
+def _fmt_seal_time(raw: Any) -> str:
+    """原始 HHMMSS（如 ``100031`` / ``93000``）→ ``10:00:31``；非法值原样透出。"""
+    text = str(raw or "").strip()
+    if not text:
+        return "—"
+    if not text.isdigit() or len(text) > 6:
+        return text
+    padded = text.zfill(6)
+    return f"{padded[0:2]}:{padded[2:4]}:{padded[4:6]}"
+
+
+def limit_seal_time_block_for_llm(
+    market_db_path: str | Path | None,
+    *,
+    theme: str | None = None,
+    entity: str | None = None,
+    on_date: str | None = None,
+    limit: int = 12,
+) -> str:
+    """涨停封板时间块 [D18]；无封板时间读数时返回空串（不注入、不出空块）。"""
+    db_path = (
+        Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
+    )
+    if not db_path.exists():
+        return ""
+    try:
+        con = retrieval_cache.connect_readonly(db_path)
+    except Exception:
+        return ""
+    try:
+        exists = con.execute(
+            "select count(*) from information_schema.tables "
+            "where table_name='fact_theme_limit_stock_daily'"
+        ).fetchone()[0]
+        if not exists:
+            return ""
+        row = con.execute(
+            "select max(trade_date) from fact_theme_limit_stock_daily "
+            "where (? is null or trade_date <= cast(? as date))",
+            [on_date, on_date],
+        ).fetchone()
+        trade_date = str(row[0]) if row and row[0] is not None else ""
+        if not trade_date:
+            return ""
+        counts = con.execute(
+            """
+            select
+              count(distinct stock_ts_code) as total,
+              count(distinct case
+                when first_limit_time is not null and first_limit_time <> ''
+                then stock_ts_code end) as with_seal
+            from fact_theme_limit_stock_daily
+            where trade_date = cast(? as date)
+            """,
+            [trade_date],
+        ).fetchone()
+        total = int(counts[0] or 0)
+        with_seal = int(counts[1] or 0)
+        # 反向验收：当日没有封板时间读数就不注入。有涨停行但该列全空时同样不出块——
+        # 出一个空壳块等于让模型以为「查过了、没有」，那是静默降级的另一种形状。
+        #
+        # 这里与下面的 `if not rows` 是**两道独立守卫**（2026-09-11 变异实测：单删任一
+        # 道都不变红，双删才红）。保留两道是有意的分工：这一道短路掉主查询，且把
+        # 「当日整列无读数」与「收口后无命中」分开；`if not rows` 是最终兜底。
+        if with_seal == 0:
+            return ""
+
+        scope_note = ""
+        params: list[Any] = [trade_date]
+        keyword = (theme or entity or "").strip()
+        scope_filter = ""
+        if keyword:
+            like = f"%{keyword}%"
+            hit = con.execute(
+                """
+                select count(*)
+                from fact_theme_limit_stock_daily
+                where trade_date = cast(? as date)
+                  and first_limit_time is not null and first_limit_time <> ''
+                  and (sector_name ilike ? or stock_name ilike ?
+                       or coalesce(ths_concept_top, '') ilike ?)
+                """,
+                [trade_date, like, like, like],
+            ).fetchone()[0]
+            if hit:
+                scope_filter = (
+                    "and (sector_name ilike ? or stock_name ilike ? "
+                    "or coalesce(ths_concept_top, '') ilike ?)"
+                )
+                params += [like, like, like]
+                scope_note = f"；已按「{keyword}」收口"
+            else:
+                scope_note = f"；「{keyword}」当日无封板时间读数，以下为全市场"
+        params.append(max(1, min(int(limit), 50)))
+        rows = con.execute(
+            f"""
+            select
+              stock_ts_code,
+              min(stock_name) as stock_name,
+              min(first_limit_time) as first_seal,
+              max(last_limit_time) as last_seal,
+              max(limit_times) as limit_times,
+              string_agg(distinct sector_name, '/') as sectors
+            from fact_theme_limit_stock_daily
+            where trade_date = cast(? as date)
+              and first_limit_time is not null and first_limit_time <> ''
+              {scope_filter}
+            group by stock_ts_code
+            order by first_seal, limit_times desc, stock_ts_code
+            limit ?
+            """,
+            params,
+        ).fetchall()
+        if not rows:
+            return ""
+        lines = [
+            "## 涨停封板时间数据块 [D18]",
+            f"- 数据截至：{trade_date}；口径为 fact_theme_limit_stock_daily 的 "
+            "first_limit_time / last_limit_time（上游原始格式 HHMMSS），确定性直查、非模型推断。",
+            f"- 覆盖：当日涨停 {total} 只（按 stock_ts_code 去重），"
+            f"其中 {with_seal} 只有封板时间读数{scope_note}。",
+            "- 逐只封板时间（按首封升序）：",
+        ]
+        for code, name, first_seal, last_seal, limit_times, sectors in rows:
+            first_text = _fmt_seal_time(first_seal)
+            last_text = _fmt_seal_time(last_seal)
+            reseal = "，盘中开板后回封" if last_text != first_text and last_text != "—" else ""
+            lines.append(
+                f"  - {name}({code})：首封 {first_text}，末封 {last_text}，"
+                f"连板 {limit_times if limit_times is not None else '—'}，"
+                f"题材 {sectors or '—'}{reseal}"
+            )
+        lines.append(
+            "- 使用要求：本块只支持「开盘即封 / 盘中封板」这类**时点**识别；"
+            "**同表 open_times（炸板次数）上游恒 NULL**，本块无法判定换手是否充分，"
+            "不得据此推断换手质量。末封晚于首封说明盘中开过板，但开板次数不可知；"
+            "首封接近 09:25 通常是竞价一字板，仍不等于换手充分或不充分。"
+        )
+        return "\n".join(lines)
+    except Exception:
+        return ""
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
