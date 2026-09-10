@@ -68,6 +68,10 @@ from intelligence.services.research_tool_registry import (
 )
 from intelligence.services.run_store import redact, redact_value
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.ranking_contract import (
+    merge_ranking_missing_outputs,
+    ranking_receipt,
+)
 from intelligence.services.track_contract import (
     contract_receipt,
     merge_track_missing_outputs,
@@ -1119,6 +1123,14 @@ class ContinuousTurnAdapter:
                 question_type=context.contract.question_type,
                 as_of=context.today,
             ),
+            # 排序与情景契约收据（10 号单）：矩阵/改判条件/竞争解释解析结果 + 缺件。
+            "ranking_contract": ranking_receipt(
+                outcome.draft,
+                query=context.contract.question,
+                question_type=context.contract.question_type,
+                as_of=context.today,
+                conversation_context=context.conversation_context,
+            ),
             "metrics": _episode_metrics(
                 outcome,
                 attempts_before=attempts_before,
@@ -1450,12 +1462,18 @@ def _with_track_contract_gaps(
     structural: VerifiedEpisodeOutcome,
     context: ResearchRunContext,
 ) -> VerifiedEpisodeOutcome:
-    """Merge track-contract expression gaps into missing_outputs only.
+    """Merge track / ranking expression-contract gaps into missing_outputs only.
 
     Do not touch ``issues``: the #224 release gate matches issue prefixes.
     """
     merged = merge_track_missing_outputs(
         structural.missing_outputs,
+        structural.outcome.draft,
+        query=context.contract.question,
+        question_type=context.contract.question_type,
+    )
+    merged = merge_ranking_missing_outputs(
+        merged,
         structural.outcome.draft,
         query=context.contract.question,
         question_type=context.contract.question_type,
