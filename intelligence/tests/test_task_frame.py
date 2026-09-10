@@ -477,6 +477,8 @@ import json  # noqa: E402
 from dataclasses import replace  # noqa: E402
 
 from intelligence.services.task_frame import (  # noqa: E402
+    MATERIAL_OUT_OF_WINDOW_AMBIGUITY,
+    MATERIAL_OUT_OF_WINDOW_CLARIFICATION,
     MISSING_MATERIAL_AMBIGUITY,
     render_task_understanding,
     task_frame_requires_retrieval,
@@ -487,6 +489,7 @@ from intelligence.services.user_task import (  # noqa: E402
     MaterialRef,
     MethodCandidate,
     material_id_for,
+    rebind_material_from_text,
 )
 
 _REPORT = (
@@ -646,6 +649,50 @@ def test_material_reference_binds_to_earlier_material_in_context() -> None:
     assert frame.clarification_question is None
     assert any(material_id_for(_REPORT) in item for item in frame.assumptions)
     assert task_frame_requires_retrieval(frame)
+
+
+# --- I2 收口：长材料超出最近完整消息窗口后的身份恢复（2026-09-10） ---------------------
+
+# 「较早消息」区被截断后，材料正文与标题都已不在对话块里——这是 I2 要验收的缺口，
+# 不是「没有材料」。下面两例分别锁死「不编身份」与「如实追问」两条车道，措辞与
+# 缺材料车道（MISSING_MATERIAL_AMBIGUITY）不同，便于判卷与审计分流。
+
+_TRUNCATED_CONTEXT = (
+    "## 较早消息（原文，超预算时从最早处截断）\n"
+    "（前 54321 字符已省略，共 9 条较早消息）\n"
+    + "x" * 2400
+    + "\n\n## 最近消息原文\n"
+    + "\n".join(f"user: 追问{i}\nassistant: 答{i}" for i in range(6))
+)
+
+
+def test_material_reference_out_of_window_does_not_fabricate_identity() -> None:
+    frame = _frame_for("这篇里提到的产能数字有官方来源吗", conversation_context=_TRUNCATED_CONTEXT)
+
+    assert frame.referenced_material_ids == ()
+    assert not any("m-" in item for item in frame.assumptions)
+
+
+def test_material_reference_out_of_window_asks_deterministically_with_distinct_wording() -> None:
+    frame = _frame_for("这篇里提到的产能数字有官方来源吗", conversation_context=_TRUNCATED_CONTEXT)
+
+    assert MATERIAL_OUT_OF_WINDOW_AMBIGUITY in frame.ambiguities
+    assert MISSING_MATERIAL_AMBIGUITY not in frame.ambiguities
+    assert frame.clarification_question == MATERIAL_OUT_OF_WINDOW_CLARIFICATION
+    # 与「根本没贴过」车道分开：同一现象两种根因，审计要能区分。
+    assert frame.clarification_question != "这题要处理的材料（原文 / 文件 / 链接）我这边没有拿到——请把内容贴进来或给出来源链接，我再继续。"
+
+
+def test_reposted_material_rebinds_identity_when_context_is_truncated() -> None:
+    question = f"{_REPORT}\n\n这篇里提到的产能数字有官方来源吗"
+    frame = _frame_for(question, conversation_context=_TRUNCATED_CONTEXT)
+
+    assert frame.materials, "本轮重贴的正文应在本轮消息里解析出材料"
+    expected = material_id_for(_REPORT)
+    assert [item.material_id for item in frame.materials] == [expected]
+    ids, note = rebind_material_from_text(frame.raw_question, frame.materials)
+    assert ids == (expected,)
+    assert note is not None and expected in note
 
 
 def test_material_clarification_answer_attaches_material_identity() -> None:

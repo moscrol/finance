@@ -19,6 +19,7 @@ from intelligence.services.user_task import (
     MaterialRef,
     MethodCandidate,
     UserTask,
+    conversation_context_material_unrecoverable,
     extract_method_candidates,
     extract_user_premises,
     material_from_text,
@@ -370,6 +371,11 @@ def build_task_frame(
                 f"「这篇 / 这份」按最近一次提供的材料理解：{newest.material_id}"
                 f"（{newest.title or _MATERIAL_KIND_LABEL.get(newest.kind, newest.kind)}）"
             )
+        elif conversation_context_material_unrecoverable(conversation_context):
+            # I2 收口：对话块被截断 ≠ 没有材料——「这篇」超窗口丢了，不把它错当成
+            # 「用户引用了但根本没贴过」的缺材料车道。用更具体的缺口措辞提示重贴，
+            # 且这条歧义措辞与 MISSING_MATERIAL_AMBIGUITY 不同，可分别判卷。
+            ambiguities.append(MATERIAL_OUT_OF_WINDOW_AMBIGUITY)
         else:
             ambiguities.append(MISSING_MATERIAL_AMBIGUITY)
 
@@ -542,8 +548,8 @@ def resolve_task_frame_clarification(
     """
 
     cleaned = re.sub(r"\s+", "", str(answer or ""))
-    if is_missing_material_clarification(frame):
-        # 追问的是「材料在哪」，回答是贴进来的材料本身：它不是主体名，不能走下面的
+    if is_missing_material_clarification(frame) or is_material_out_of_window_clarification(frame):
+        # 追问的是「材料在哪 / 材料超出窗口」，回答是贴进来的材料本身：它不是主体名，不能走下面的
         # 主体/市场归一（一段研报正文会被 _safe_subject 判掉、再默认成「A股市场 /
         # market_pattern」，把提纯题改写成盘面题）。主体、类型一律保留；材料本体由
         # 对话上下文带进研究轮，这里给它身份（内容哈希 id、表头、日期），后续「这篇」
@@ -638,6 +644,10 @@ _UNBOUND_LINE_REFERENCE_RE = re.compile(
 )
 MISSING_MATERIAL_AMBIGUITY = (
     "题面引用的材料（原文 / 文件 / 链接）在本轮与此前对话中都未提供，需用户粘贴内容或给出来源链接"
+)
+MATERIAL_OUT_OF_WINDOW_AMBIGUITY = (
+    "题面引用的材料（原文 / 文件 / 链接）超出最近完整消息窗口，无法按内容哈希恢复身份；"
+    "请重贴原文或给出材料 id / 链接以便绑定"
 )
 
 
@@ -762,6 +772,10 @@ MISSING_MATERIAL_CLARIFICATION = (
     "这题要处理的材料（原文 / 文件 / 链接）我这边没有拿到——"
     "请把内容贴进来或给出来源链接，我再继续。"
 )
+MATERIAL_OUT_OF_WINDOW_CLARIFICATION = (
+    "你引用的「这篇」材料超出最近完整消息窗口，我这边无法再按内容哈希定位到具体一份；"
+    "请重贴原文或给出材料 id，我再继续。"
+)
 
 
 def _is_missing_material_ambiguity(item: str) -> bool:
@@ -784,6 +798,8 @@ def _clarification_for(ambiguities: tuple[str, ...]) -> str | None:
         None,
     )
     if blocking is None:
+        if any(item == MATERIAL_OUT_OF_WINDOW_AMBIGUITY for item in ambiguities):
+            return MATERIAL_OUT_OF_WINDOW_CLARIFICATION
         if any(_is_missing_material_ambiguity(item) for item in ambiguities):
             return MISSING_MATERIAL_CLARIFICATION
         return None
@@ -794,6 +810,10 @@ def _clarification_for(ambiguities: tuple[str, ...]) -> str | None:
 
 def is_missing_material_clarification(frame: object) -> bool:
     return getattr(frame, "clarification_question", None) == MISSING_MATERIAL_CLARIFICATION
+
+
+def is_material_out_of_window_clarification(frame: object) -> bool:
+    return getattr(frame, "clarification_question", None) == MATERIAL_OUT_OF_WINDOW_CLARIFICATION
 
 
 # 周历/周末大事：窗口词 × 日程词。单独「周末发酵了什么新闻」不算，
