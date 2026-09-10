@@ -800,6 +800,192 @@ def cmd_sync_stock_daily_snapshot(args) -> int:
     return 0
 
 
+def cmd_sync_hithink_stock_daily(args) -> int:
+    from .sync.sync_hithink_stock_daily import sync_hithink_stock_daily
+
+    mode = "full" if args.full else "incremental"
+    stats = sync_hithink_stock_daily(
+        mode=mode,
+        parquet=args.parquet,
+        adjustments_parquet=args.adjustments_parquet,
+        skip_adjustments=args.skip_adjustments,
+        compare_days=args.compare_days,
+    )
+    daily = stats["daily"]
+    print(
+        f"mode={stats['mode']} source={stats['source']} "
+        f"rows={daily['rows']} codes={daily['codes']} "
+        f"dates={daily['date_min']}~{daily['date_max']} "
+        f"ohlc_nulls={daily['ohlc_nulls']}"
+    )
+    adj = stats.get("adjustments")
+    if adj:
+        print(
+            f"adjustments source=hithink:adjustment-factors "
+            f"rows={adj['rows']} codes={adj['codes']} "
+            f"dates={adj['date_min']}~{adj['date_max']}"
+        )
+    if stats.get("sidecar"):
+        print("wrote sidecar (production db locked)")
+    compare = stats.get("compare")
+    if compare and compare.get("rate") is not None:
+        print(
+            f"close_match {compare['matched']}/{compare['compared']} "
+            f"rate={compare['rate']:.6f} "
+            f"old_only={compare['old_only']} new_only={compare['new_only']} "
+            f"days={compare['days']}"
+        )
+    print(f"fingerprint={stats['fingerprint']}")
+    return 0
+
+
+def cmd_sync_hithink_sector_kline(args) -> int:
+    from datetime import date as _date
+
+    from .sync.sync_hithink_sector_kline import sync_hithink_sector_kline
+
+    mode = "full" if args.full else "incremental"
+    end = _date.fromisoformat(args.end_date) if args.end_date else None
+    stats = sync_hithink_sector_kline(
+        mode=mode,
+        skip_constituents=args.skip_constituents,
+        resume=args.resume,
+        limit=args.limit,
+        end_date=end,
+        compare=args.compare,
+        mapping_path=args.mapping,
+    )
+    k = stats["kline"]
+    print(
+        f"mode={stats['mode']} window_days={stats['window_days']} "
+        f"dim={stats['dim_rows']} "
+        f"kline_rows={k['rows']} codes={k['codes']} "
+        f"dates={k['date_min']}~{k['date_max']} "
+        f"ohlc_nulls={k['ohlc_nulls']} empty_codes={stats['empty_codes']}"
+    )
+    print(f"constituent_rows={stats['constituent_rows']}")
+    old = stats["old_ti"]
+    print(
+        f"old_ti {old['covered']}/{old['old_ti']} "
+        f"through_as_of={old['through_as_of']}"
+    )
+    bc = stats["bc_battery"]
+    print(
+        f"886053.TI rows={bc['rows']} dates={bc['min']}~{bc['max']} "
+        f"starts_on_publish={bc['starts_on_publish']}"
+    )
+    pct = stats.get("pct_compare")
+    if pct and pct.get("rate") is not None:
+        print(
+            f"pct_match {pct['matched']}/{pct['compared']} "
+            f"rate={pct['rate']:.6f} "
+            f"median_rel_diff={pct['median_rel_diff']}"
+        )
+    fp_map = stats.get("fp_map")
+    if fp_map:
+        print(
+            f"fp_map matched={fp_map['matched']} gaps={fp_map['gaps']} "
+            f"ti_name_diff={fp_map['ti_name_diff']}"
+        )
+    if stats.get("sidecar"):
+        print("wrote sidecar (production db locked)")
+    print(f"fingerprint={stats['fingerprint']}")
+    return 0
+
+
+def cmd_sync_hithink_limit_pools(args) -> int:
+    from datetime import date as _date
+
+    from .sync.sync_hithink_limit_pools import sync_hithink_limit_pools
+
+    mode = "full" if args.full else "incremental"
+    start = _date.fromisoformat(args.start) if args.start else None
+    end = _date.fromisoformat(args.end_date) if args.end_date else None
+    stats = sync_hithink_limit_pools(
+        mode=mode,
+        start=start,
+        end_date=end,
+        resume=args.resume,
+        compare=args.compare,
+    )
+    print(
+        f"mode={stats['mode']} rows={stats['rows_written']} "
+        f"empty_days={stats['empty_days']} requests={stats['requests']}"
+    )
+    for pool, info in (stats.get("pools") or {}).items():
+        print(
+            f"{pool} rows={info['rows']} days={info['days']} "
+            f"dates={info['date_min']}~{info['date_max']}"
+        )
+    yearly = stats.get("yearly_up") or {}
+    if yearly:
+        parts = " ".join(f"{year}={count}" for year, count in sorted(yearly.items()))
+        print(f"yearly_up {parts}")
+    count = stats.get("count_compare")
+    if count and count.get("rate") is not None:
+        print(
+            f"limit_up_count {count['matched']}/{count['compared']} "
+            f"rate={count['rate']:.6f} "
+            f"median_abs_diff={count['median_abs_diff']} "
+            f"min_diff={count['min_diff']} max_diff={count['max_diff']}"
+        )
+    boards = stats.get("boards_compare")
+    if boards and boards.get("rate") is not None:
+        print(
+            f"boards {boards['matched']}/{boards['compared']} "
+            f"rate={boards['rate']:.6f} days={boards['days']}"
+        )
+    if stats.get("sidecar"):
+        print("wrote sidecar (production db locked)")
+    print(f"fingerprint={stats['fingerprint']}")
+    return 0
+
+
+def cmd_sync_hithink_dragon_auction(args) -> int:
+    from datetime import date as _date
+
+    from .sync.sync_hithink_dragon_auction import sync_hithink_dragon_auction
+
+    mode = "full" if args.full else "incremental"
+    end = _date.fromisoformat(args.end_date) if args.end_date else None
+    stats = sync_hithink_dragon_auction(
+        mode=mode,
+        end_date=end,
+        resume=args.resume,
+        compare=args.compare,
+        skip_auction_snapshot=args.skip_auction_snapshot,
+    )
+    written = stats.get("rows_written") or {}
+    print(
+        f"mode={stats['mode']} "
+        f"dragon={written.get('dragon')} hot_money={written.get('hot_money')} "
+        f"hot_rank={written.get('hot_rank')} "
+        f"benchmark={written.get('benchmark')} snapshot={written.get('snapshot')} "
+        f"empty_days={stats['empty_days']} requests={stats['requests']}"
+    )
+    for name, info in (stats.get("tables") or {}).items():
+        print(
+            f"{name} rows={info['rows']} days={info['days']} "
+            f"dates={info['date_min']}~{info['date_max']}"
+        )
+    net = stats.get("net_compare")
+    if net and net.get("rate") is not None:
+        print(
+            f"net {net['matched']}/{net['compared']} rate={net['rate']:.6f} "
+            f"unit={net['unit']}"
+        )
+    groups = stats.get("hot_money_compare")
+    if groups and groups.get("rate") is not None:
+        print(
+            f"hot_money_groups {groups['matched']}/{groups['compared']} "
+            f"rate={groups['rate']:.6f} median_abs_diff={groups['median_abs_diff']}"
+        )
+    if stats.get("sidecar"):
+        print("wrote sidecar (production db locked)")
+    print(f"fingerprint={stats['fingerprint']}")
+    return 0
+
+
 def _daily_preflight_or_exit() -> int | None:
     """开跑前拦下「这个环境注定跑不完」的情况，exit 2 并说清缺什么、会挂哪几步。
 
@@ -1613,6 +1799,85 @@ def build_parser() -> argparse.ArgumentParser:
                        help="快照实际日期(f297) ≠ --trade-date 时仍然写, source 标 -misdated。默认拒写——"
                             "补历史日请用 sync-stock-daily (mootdx), 07-20/08-06 两次事故都是这里写坏的")
     p_sks.set_defaults(func=cmd_sync_stock_daily_snapshot)
+
+    p_htk = sub.add_parser(
+        "sync-hithink-stock-daily",
+        help="同花顺官方 dump 写入 fact_stock_daily_hithink（并跑，不改旧表）",
+    )
+    mode = p_htk.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--full", action="store_true", help="十年 daily-k dump")
+    mode.add_argument("--incremental", action="store_true", help="近 10 日 daily-k-10d")
+    p_htk.add_argument("--parquet", default=None, help="本地日 K parquet；有则不签 URL")
+    p_htk.add_argument(
+        "--adjustments-parquet",
+        default=None,
+        help="本地复权事件 parquet；有则不签 URL",
+    )
+    p_htk.add_argument(
+        "--skip-adjustments",
+        action="store_true",
+        help="只写日 K，不拉复权事件",
+    )
+    p_htk.add_argument(
+        "--compare-days",
+        type=int,
+        default=0,
+        help="与 fact_stock_daily 最近 N 个交易日逐只 close 比；0=不比",
+    )
+    p_htk.set_defaults(func=cmd_sync_hithink_stock_daily)
+
+    p_htb = sub.add_parser(
+        "sync-hithink-sector-kline",
+        help="同花顺官方板块/指数日 K 写入 fact_sector_kline_daily（并跑，不改旧表）",
+    )
+    mode_b = p_htb.add_mutually_exclusive_group(required=True)
+    mode_b.add_argument("--full", action="store_true", help="约三年窗口（<1500 天）")
+    mode_b.add_argument("--incremental", action="store_true", help="近 5 天窗口")
+    p_htb.add_argument("--resume", action="store_true", help="跳过已有当日行的代码")
+    p_htb.add_argument("--skip-constituents", action="store_true", help="不拉当前成分")
+    p_htb.add_argument("--limit", type=int, default=None, help="最多拉多少个码（续跑/自测）")
+    p_htb.add_argument("--end-date", default=None, help="窗口末日 YYYY-MM-DD，默认今天")
+    p_htb.add_argument("--compare", action="store_true", help="与 fact_sector_daily.pct_chg 对数 + 写映射")
+    p_htb.add_argument(
+        "--mapping",
+        default=None,
+        help="``.FP`` 名字对照表输出路径（需同时 --compare）",
+    )
+    p_htb.set_defaults(func=cmd_sync_hithink_sector_kline)
+
+    p_htc = sub.add_parser(
+        "sync-hithink-limit-pools",
+        help="同花顺官方涨停/跌停/炸板池写入 fact_limit_pool_hithink（并跑，不改旧表）",
+    )
+    mode_c = p_htc.add_mutually_exclusive_group(required=True)
+    mode_c.add_argument("--full", action="store_true", help="涨停 2020 起，跌停/炸板近一年")
+    mode_c.add_argument("--incremental", action="store_true", help="近 3 个交易日三池")
+    p_htc.add_argument("--start", default=None, help="涨停起始日 YYYY-MM-DD，默认 2020-01-01")
+    p_htc.add_argument("--end-date", default=None, help="窗口末日 YYYY-MM-DD，默认今天")
+    p_htc.add_argument("--resume", action="store_true", help="跳过该池已有行的日期")
+    p_htc.add_argument(
+        "--compare",
+        action="store_true",
+        help="与 fact_market_daily.limit_up / fact_limit_advance_daily.boards 对数",
+    )
+    p_htc.set_defaults(func=cmd_sync_hithink_limit_pools)
+
+    p_htd = sub.add_parser(
+        "sync-hithink-dragon-auction",
+        help="同花顺龙虎榜/热榜/竞价写入并跑表（不改旧表）",
+    )
+    mode_d = p_htd.add_mutually_exclusive_group(required=True)
+    mode_d.add_argument("--full", action="store_true", help="龙虎/热榜一年，风向标 2026-01 起")
+    mode_d.add_argument("--incremental", action="store_true", help="近 3 个交易日 + 当日竞价终态")
+    p_htd.add_argument("--end-date", default=None, help="窗口末日 YYYY-MM-DD，默认今天")
+    p_htd.add_argument("--resume", action="store_true", help="跳过该表已有行的日期")
+    p_htd.add_argument("--compare", action="store_true", help="与旧龙虎榜净额 / 游资组数对数")
+    p_htd.add_argument(
+        "--skip-auction-snapshot",
+        action="store_true",
+        help="不拉竞价终态（全市场约 56 次）",
+    )
+    p_htd.set_defaults(func=cmd_sync_hithink_dragon_auction)
 
     p_du = sub.add_parser("daily-update", help="一键日更同步+补字段+质检")
     p_du.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
