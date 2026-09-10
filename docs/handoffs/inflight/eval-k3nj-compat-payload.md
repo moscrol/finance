@@ -1,0 +1,38 @@
+# eval/k3nj-compat-payload 在途交接
+
+## 这个分支做什么
+
+k3nj 臂：能力基线的「kimi-k3 × 无独立判官 × 检索语义闸关」对照臂，30 题全量首跑。车道运行时目录 `~/.finance-runtime/capability-benchmark-00-k3nj/`（sidecar 8814 + preflight + 编排脚本）；被测树是本 worktree（fwp-wt-k3nj-00）。背景与被否方案全量见 `docs/handoffs/2026-09-11-k3nj-arm.md`。
+
+## 决策与被否方案
+
+- 选了开新臂全量；否了给 00 臂（gpt-5.6）中途换/关判官——判官在被测环路里（semantic verifier 边审边修），混臂读数不可比。
+- 选了撤独立判官（unset LLM_JUDGE_*，回落主模型自审，receipt 记 correlated_judge=True）；否了「判官全关」——verifier 在 api/app.py 装配层硬接线，配置层无此开关。
+- 选了移植 LLM_COMPAT_PAYLOAD shim（c423c8bd，自 e480e6c7 快照逐字节，5 调用点，未设 env 零行为变化）；否了 LLM_API_KEY 改走 OPENAI key 路（推理模式变 thinking-default、辅助 builtin 调用仍留坏路、该路池容量未证）；否了改共享 00 树（8813 provenance 会炸）；否了直接用 e480 快照树（与 00 运行时代码差未知）。
+- 否了 LLM_THINKING=enabled：mirasim 路本来就收 thinking.disabled，enabled 反而让 kimi-k3 推理模式与 00 臂不对齐。
+
+## 当前状态
+
+sidecar 8814 服 c423c8bd953f（dirty=False/matches=True）；编排首跑中（01:55 起 attempt 1），前两题已是真形状（model_finish / judge=repaired / kimi-k3×3 / 真工具调用）。预计 1.5–2h，烧穿由编排 rc=4 自动等+续。事故件（缺 shim 的两轮全降级跑）在 runs/attic-misconfig-20260911/，未入链。
+
+## 已验证
+
+- 400 根因（双钥双门禁，均实测）：mirasim key 路拒 temperature 字段（0.0 也拒，只认摘除）；OPENAI key 路拒 thinking.disabled。探针用 OPENAI key 且不带这两个字段，两种 400 都探不出。
+- shim 冒烟（摘帽/他模型惰性/未设 env 零变化）+ llm_refine 相关 27 单测绿；preflight-k3nj 四查 GO。
+- provenance：372d047c→6bea3197 的 services/runtime/api 零改动；k3nj 树=6bea3197+shim。
+
+## 未验证 / 已知边界
+
+- kimi-k3 池深未知：一臂 ≈4.24M input tokens（00 臂口径），池若浅会中途停在冷却循环里。
+- 本臂 judge=自审，与 00 臂 grok 独立判官门槛不同：两臂通过率不可直接比，只能比形状/降级率。
+- chain-01/02 在 00 臂就是 engine_missing（同树同缺口），本臂大概率照旧，不算本臂回归。
+
+## 下一步
+
+- 跑完看终件（runs/ 最新件 + baseline-chain.txt）：rc=0 干净 / rc=2 真失败。收尾手法参考 00 臂 a9447137（终件+验收文进 docs/verification/ 提交本树）。
+- 00 臂 7 题 resume 与本臂无关，仍等 grok 充值 + 57244 周窗 09-16 00:38。
+
+## 踩过的坑
+
+- bash 3.2 + UTF-8 locale：`$VAR` 紧跟多字节字符（`$rev；`、`$x（`）会把首字节吞进变量名，set -u 下报张冠李戴的 unbound variable。一律 `${VAR}`。00 臂 preflight-00.sh 有两处同款未修（`$SIDE_BASE（`、`$matches（`，NO-GO 分支执行到才炸）。
+- `grep -c pat || echo 0` 会输出两个 0（无匹配时 grep 打印 0 且 rc=1）。
