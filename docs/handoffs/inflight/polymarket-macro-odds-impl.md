@@ -6,8 +6,7 @@ Polymarket 公开 API（gamma-api，只读 / 免费 / 无 key）→ 宏观·地�
 （独立信号 or 仅人工参考）未定。
 
 ## 当前状态
-5 个文件**全部未提交、未合并**（新增 sync + tests，改 schema.sql / cli.py / finance_query.py）。
-代码完成，门禁绿。
+已提交 `2eacbbe7`，11 道 pre-commit 全绿。**未合并 main**——合并须用户确认。
 
 ## 决策与被否方案
 - **过期市场入库前剔除**（`_is_expired`）：上游 `closed=false` 不可信，实测 328/1106 行截止日早
