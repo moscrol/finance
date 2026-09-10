@@ -175,6 +175,54 @@ def test_table_slices_carry_header_and_separator_into_every_slice() -> None:
     assert "项目11" in slices[-1]
 
 
+def test_table_crossing_truncation_boundary_delivers_header_and_units_to_model() -> None:
+    """I2 反向验收：表格行横跨模型可见 detail 上限（240 字）时，表头与单位必须随行。
+
+    原截断边界会把一行切成两半——上半在片尾、下半落在下一片头部；如果下一片不
+    补表头，模型只看到裸数字，无法判断「762」是元/吨还是亿元。本片内构造
+    「金额（亿元）」单位列 + 长行，断言每片都带表头与分隔行、且单位列随每片出现。
+    """
+    header = "| 项目 | 单价（元/吨） | 金额（亿元） |"
+    sep = "| --- | --- | --- |"
+    # 十二行×约 25 字：必跨 240 字边界切片；关键行「762 / 1570」落在靠后的片。
+    rows = [
+        "| 动力煤（01月） | 713 | 8.2 |",
+        "| 动力煤（02月） | 721 | 8.5 |",
+        "| 动力煤（03月） | 734 | 8.9 |",
+        "| 动力煤（04月） | 728 | 9.1 |",
+        "| 动力煤（05月） | 745 | 9.4 |",
+        "| 动力煤（06月） | 752 | 9.6 |",
+        "| 动力煤（07月） | 758 | 9.7 |",
+        "| 动力煤（08月） | 762 | 9.8 |",
+        "| 主焦煤（01月） | 1320 | 26.4 |",
+        "| 主焦煤（02月） | 1450 | 31.5 |",
+        "| 主焦煤（03月） | 1498 | 32.2 |",
+        "| 主焦煤（04月） | 1570 | 33.0 |",
+    ]
+    slices = kb_rag.section_slices("\n".join([header, sep, *rows]), MAX_EVIDENCE_DETAIL_CHARS)
+
+    assert len(slices) > 1, "跨 240 字边界必须切成多片"
+    for item in slices:
+        assert "单价（元/吨）" in item and "金额（亿元）" in item, "每片表头必须带单位列"
+        assert item.startswith("|项目|单价（元/吨）|金额（亿元）|\n|---|---|---|"), item
+    joined = "".join(slices)
+    assert "762" in joined and "1570" in joined
+
+
+def test_table_slice_truncated_overwide_row_is_flagged_not_silent() -> None:
+    """比预算还宽的一行按 room 截尾补「…」，这是如实降级：残行不可用于计算，
+    但省略号告诉模型「这里被砍了」，且其余行与表头完整送达。若未来改成按列
+    截断或换行重写，本测试要同步改——它锁的是「不静默丢列」这条判官可见口径。
+    """
+    header = "| 项目 | 单价（元/吨） | 金额（亿元） |"
+    sep = "| --- | --- | --- |"
+    overwide = "| " + "煤" * 300 + " | 762 | 12.5 |"
+    slices = kb_rag.section_slices("\n".join([header, sep, overwide]), 120)
+    assert len(slices) == 1
+    assert "…" in slices[0], "被截的行必须带省略标记，不能装成完整行"
+    assert "单价（元/吨）" in slices[0]
+
+
 # ---------------------------------------------------------------------------
 # 节定位
 # ---------------------------------------------------------------------------
