@@ -163,7 +163,7 @@ class TurnControlCore:
             previous_turn_id=previous_turn_id,
             llm_complete=llm_complete,
         )
-        frame = self._frame_for(decision, query, previous_frame)
+        frame = self._frame_for(decision, query, previous_frame, context=context)
         return project_turn_decision(
             decision,
             task_frame=frame,
@@ -203,6 +203,8 @@ class TurnControlCore:
         decision: TurnDecision,
         query: str,
         previous_frame: TaskFrame | None,
+        *,
+        context: str = "",
     ) -> TaskFrame:
         if decision.task_frame is not None:
             return decision.task_frame
@@ -214,15 +216,21 @@ class TurnControlCore:
                 decision.turn_intent,
                 query,
                 confidence=decision.confidence,
+                context=context,
             )
         if decision.question_type is not None:
-            return TurnControlCore._frame_from_decision(decision, query)
+            return TurnControlCore._frame_from_decision(decision, query, context=context)
         if previous_frame is not None:
             return previous_frame
-        return TurnControlCore._frame_from_decision(decision, query)
+        return TurnControlCore._frame_from_decision(decision, query, context=context)
 
     @staticmethod
-    def _frame_from_decision(decision: TurnDecision, query: str) -> TaskFrame:
+    def _frame_from_decision(
+        decision: TurnDecision,
+        query: str,
+        *,
+        context: str = "",
+    ) -> TaskFrame:
         """Project validated adapter metadata without interpreting the query twice."""
 
         from intelligence.services.query_understanding import QueryEnvelope
@@ -238,7 +246,10 @@ class TurnControlCore:
             matched_by="explicit" if decision.subject is not None else "generic",
             confidence=decision.confidence,
         )
-        return build_task_frame(query, envelope)
+        # B05-1：对话块已知才传（None 保持旧调用方语义——不做材料绑定也不追问）。
+        return build_task_frame(
+            query, envelope, conversation_context=context if context else None
+        )
 
     @staticmethod
     def _frame_from_intent(
@@ -246,6 +257,7 @@ class TurnControlCore:
         query: str,
         *,
         confidence: float,
+        context: str = "",
     ) -> TaskFrame:
         from intelligence.services.query_understanding import QueryEnvelope
 
@@ -263,7 +275,9 @@ class TurnControlCore:
             confidence=confidence,
             required_outputs=intent.required_outputs,
         )
-        frame = build_task_frame(query, envelope)
+        frame = build_task_frame(
+            query, envelope, conversation_context=context if context else None
+        )
         return rebase_task_frame(
             frame,
             question_type=intent.question_type,

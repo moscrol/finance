@@ -818,6 +818,28 @@ def test_short_follow_up_keeps_the_material_table_without_asserting_referent() -
     assert material_id_for(_REPORT_TEXT) not in assemble_input_understanding_context(unrelated, _HISTORY)
 
 
+_TRUNCATED_CONTEXT = (
+    "## 较早消息（原文，超预算时从最早处截断）\n"
+    "（前 54321 字符已省略，共 9 条较早消息）\n"
+    + "x" * 2400
+    + "\n\n## 最近消息原文\n"
+    + "\n".join(f"user: 追问{i}\nassistant: 答{i}" for i in range(6))
+)
+
+
+def test_reposted_material_identity_survives_truncated_conversation_window() -> None:
+    # I2 收口：对话块被截断时，本轮重贴的材料身份按内容哈希重建——与窗口外那一轮
+    # 的 material_id 相同，模型与判官拿到同一份绑定，而不是被当成新的一份或丢失。
+    frame = _frame(f"{_REPORT_TEXT}\n\n这篇里提到的产能数字有官方来源吗")
+
+    text = assemble_input_understanding_context(frame, _TRUNCATED_CONTEXT)
+
+    assert "## 用户提供的材料（身份表）" in text
+    assert material_id_for(_REPORT_TEXT) in text
+    assert "按本条消息重贴内容重建" in text
+    assert "对话块已截断" in text
+
+
 def test_premises_hypotheses_and_method_candidates_reach_the_model_with_rules() -> None:
     frame = _frame("我的经验是龙头连板断了以后板块一般还有一次回流，这次固态电池也会这样吗")
 
