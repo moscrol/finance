@@ -25,7 +25,7 @@
 ## 下一步
 1. ~~合并前以 `feat/judge-token-usage` 为准重跑本单测试。~~ **已完成（2026-09-10）**：叠加树全量 8379P/0F，三组定向 + 门禁全绿，可合。
 2. 用户确认后合 main；TOOLKIT 登记 `judge_loss_point_replay.py` / `launch_workbench_sidecar.sh`（harness-reference 树脏未动）。
-3. （可选，不阻塞合并）上游池稳定后重跑一轮真实验收，给「挡回减半」一个判定。**2026-09-10 探针：上游 503 池仍未恢复**（terra/sol 双双 upstream_error，/v1/models 正常）——与第四轮同形状，非本仓可修，续跑前置仍是「最小 chat 有 choices 再发题」。
+3. （可选，不阻塞合并）上游池稳定后重跑一轮真实验收，给「挡回减半」一个判定。**2026-09-10 11:52–11:57 双出口探测（按 /tmp/k3-wrap-common.md 踢醒）**：8080 sol/terra 持续 `upstream_error` 503（Plus-first 已写入 Sub2API，是新会话才生效的优先级，不改变上游 503 事实）；57244 间歇 `auth_unavailable` / `server_is_overloaded`——两出口都未达「连续 2×200」，不发题、不起 sidecar。已排 12:17 会话内一次性唤醒续探；会话若死，接手者按 progress/01.md「续跑命令」手动跑，前置不变：最小 chat 有 `choices` 才发题，两臂串行。
 
 ## 踩过的坑
 - `_judge()` 夹具第二次调用自动放行；issue 里「第N句」会被并回拒句集。
