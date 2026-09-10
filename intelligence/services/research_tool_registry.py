@@ -464,6 +464,8 @@ DERIVED_CALCULATION_PARAMETERS: dict[str, object] = {
                 "不能联网、不能起进程、不能写工作目录以外的文件。"
                 "需要查本地行情库时先传 use_duckdb=true，再用 duckdb_connect() 拿只读连接。"
                 "传了 inputs_from_calc 可不传 script（沿用那次计算的脚本）。"
+                "⚠ 改假设重算时：PARAMS 只进编号与产物，不会替你改数——脚本必须自己读 PARAMS 里的值参与计算，"
+                "否则沿用旧脚本会产出与上次相同的结果。"
             ),
         },
         "purpose": {
@@ -490,7 +492,8 @@ DERIVED_CALCULATION_PARAMETERS: dict[str, object] = {
             "type": "object",
             "description": (
                 "可选。本次计算的假设 / 参数（如 {\"growth_pct\": 5, \"margin_pct\": [48, 50, 52]}），"
-                "脚本里以 PARAMS 读；会写进产物并进计算编号——用户改一个假设，就改这里重算。"
+                "脚本里以 PARAMS 读（如 PARAMS.get(\"growth_pct\")）；会写进产物并进计算编号——"
+                "用户改一个假设，就改这里、并在脚本里读出它来参与计算（光设 params 不改脚本不会改变结果）。"
             ),
         },
         "inputs_from_calc": {
@@ -499,7 +502,8 @@ DERIVED_CALCULATION_PARAMETERS: dict[str, object] = {
             "description": (
                 "可选。沿用上一轮某次计算的输入快照（16 位计算编号，回答正文与产物文件名 calc-<id> 里有），"
                 "不重新取数、哈希链不断；配 params 即「只改假设重算」。沿用的输入在脚本里编号 P1..Pn。"
-                "不传 script 时沿用那次的脚本。"
+                "不传 script 时沿用那次的脚本——注意沿用脚本不会读你这次传的 params，"
+                "要应用新假设就重写脚本并在里面读 PARAMS。"
             ),
         },
     },
