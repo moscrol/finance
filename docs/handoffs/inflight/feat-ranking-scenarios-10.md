@@ -15,20 +15,20 @@
 
 ## 当前状态（四项）
 
-已实现 ✅（44 新单测绿；ruff 0；层门禁无新增）｜已进默认入口 ✅（双引擎注入，hybrid 真实 run 收据在 `continuous-episode.json`）｜真实验收 ⏳（第一轮 Q1 差分：候选 matrix=4/flip=3/缺件=0、1473 字 vs 基线 812 字无结构；六题配对批跑**在等网关**）｜生产生效 ❌（按合同不合 main）
+已实现 ✅（44 新单测绿；ruff 0；层门禁无新增）｜已进默认入口 ✅（双引擎注入，hybrid 真实 run `run_20260910_011137_336558` 四件全交付、缺件=0）｜真实验收 **部分**（3/6 题：Q1 完整对照——候选四件全交付 vs 基线散文全缺；Q2/Q6 基线 clean 读数；Q2 候选+Q3/Q4/Q5 双臂**卡死在上游故障**，见下）｜生产生效 ❌（按合同不合 main）
 
 ## 批跑状态（接手先看）
 
-- 批跑 pid 39647、双臂 8815/8816（pid 39218/39219）均存活，环境已核对（双链+判官修复）。
-- 20:07–20:12 探针：8080 单次 200 但 502/503 抖动态，episode（12+ 调用/题）必撞回——等连续 3 次探针通过的门槛是对的，继续等。57244 兜底链两把 key 恒 401（blocked/10.md 第 6 行），恢复只看 8080。
-- `/tmp/ticket10/paired/base/q1.json`（18:18 残留）是降级空壳，批跑重跑会覆写，不计入差分。
+- 批跑 pid 39647 存活、双臂 8815/8816 存活，卡在 `wait_for_gateway`（120s 节奏，自 09-10 05:45 起）。已完成 q1 双臂 + q2 基线（两轮），均 clean（model_errors=0）。**剩余：q2 候选臂、q3/q4/q5 双臂。**
+- **故障已定位（blocked/10.md 第 7 行）**：8080 写手出口 = sub2api → mirasim-sidecar（18788）→ relay.mirasim.ai；断点在 relay **拒绝签发 device session（mint 401）**，sidecar 回落不签名模式被 relay 拒 → 恒 502/503。重启 sidecar 无效（试过两次）。57244 Cockpit 同日起也坏（503→连接超时）。**恢复只能等 Mirasim relay 侧修复或重新 enrol 账号。**
+- 验证文档 §4.2 表格与 §6 四项报告已按已跑三题如实填好（部分验收）。
 
 ## 下一步
 
-1. 盯 `/tmp/ticket10/paired/paired.log`；网关恢复后批跑自动开跑。
-2. `python3 /tmp/ticket10/summarize.py /tmp/ticket10/paired --md` → 填验证文档 §4.2/§6 四项报告 → 按 `10-frozen-questions.md` 判卷点逐题打分，Q6 查 `rerank_consistent`。
+1. 盯 `/tmp/ticket10/paired/paired.log` + 双链探针；任一链恢复（8080 mint 401 消失，或 57244 回 200）批跑自动继续。
+2. 跑完后 `python3 /tmp/ticket10/summarize.py /tmp/ticket10/paired --md` 更新 §4.2 → 按 `10-frozen-questions.md` 判卷点补打 Q2 候选/Q3/Q4/Q5，Q6 查 `rerank_consistent`。
 3. 合 main 等用户确认；合后能力图谱去 `@branch`。
-4. `blocked/10.md`（判官两处 + 网关退避 + 57244 key）转运行底座负责人。
+4. `blocked/10.md`（判官两处 + 57244 key + **Mirasim relay mint 401**）转运行底座负责人。
 
 ## 未验证 / 已知边界
 
