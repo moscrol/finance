@@ -729,6 +729,48 @@ def synthesis_thinking_disabled() -> bool:
 # 只在 GLM 出口的启动器里设；sol@cockpit 那条不设，请求体逐字节同前。
 REASONING_EFFORT_ENV = "LLM_REASONING_EFFORT"
 
+# 2026-09-10 逐参数二分实测（8080 网关，kimi-k3）：system 消息、tools、
+# temperature=0.0 三者同现时约八成请求被上游拒答（HTTP 400/502，与内容、
+# thinking、tool_choice、中英文无关）；摘掉 temperature 字段或换 1.0 即恢复 200。
+# gpt-5.6-sol 对同组合无此问题。该 env 按「模型名前缀 → 动作」声明改写表，动作
+# 以 + 分隔，支持 thinking.omit / thinking.enabled / thinking.disabled /
+# tool_choice.omit / temperature.omit / temperature:<值>（如
+# "kimi-k3:temperature.omit"），只动被点名的字段，其余逐字节同前；
+# 生产出口 sol@cockpit 不设此值，行为不变。
+COMPAT_PAYLOAD_ENV = "LLM_COMPAT_PAYLOAD"
+
+
+def _apply_compat_payload(payload: dict, *, model: str) -> None:
+    """按 ``LLM_COMPAT_PAYLOAD`` 改写表改写/摘除 payload 的指定字段。"""
+
+    spec = str(os.environ.get(COMPAT_PAYLOAD_ENV) or "").strip()
+    if not spec:
+        return
+    model = (model or "").strip().lower()
+    for clause in spec.split(","):
+        clause = clause.strip()
+        if ":" not in clause:
+            continue
+        prefix, _, actions = clause.partition(":")
+        if not model.startswith(prefix.strip().lower()):
+            continue
+        for action in actions.split("+"):
+            action = action.strip().lower()
+            if action == "thinking.omit":
+                payload.pop("thinking", None)
+            elif action in ("thinking.enabled", "thinking.disabled"):
+                payload["thinking"] = {"type": action.split(".")[1]}
+            elif action == "tool_choice.omit":
+                payload.pop("tool_choice", None)
+            elif action == "temperature.omit":
+                payload.pop("temperature", None)
+            elif action.startswith("temperature:"):
+                try:
+                    payload["temperature"] = float(action.split(":", 1)[1])
+                except ValueError:
+                    continue
+        return
+
 
 def _apply_thinking_controls(payload: dict, *, disable_thinking: bool) -> None:
     """``thinking`` / ``reasoning_effort`` 两个键的唯一写入点。"""
@@ -804,6 +846,7 @@ def _post_chat(
     _apply_thinking_controls(
         payload, disable_thinking=os.environ.get("LLM_THINKING") == "disabled"
     )
+    _apply_compat_payload(payload, model=provider.model)
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -839,6 +882,7 @@ def _post_chat_synthesis(
         "max_tokens": max_tokens,
     }
     _apply_thinking_controls(payload, disable_thinking=synthesis_thinking_disabled())
+    _apply_compat_payload(payload, model=provider.model)
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -1009,6 +1053,7 @@ def _post_chat_message_stream(
         payload["tools"] = tools
         if tool_choice is not None:
             payload["tool_choice"] = tool_choice
+    _apply_compat_payload(payload, model=provider.model)
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -1120,6 +1165,7 @@ def _post_chat_message(
         payload["tools"] = tools
         if tool_choice is not None:
             payload["tool_choice"] = tool_choice
+    _apply_compat_payload(payload, model=provider.model)
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -1865,6 +1911,7 @@ def _post_chat_stream_raw(
         "max_tokens": max_tokens,
     }
     _apply_thinking_controls(payload, disable_thinking=synthesis_thinking_disabled())
+    _apply_compat_payload(payload, model=provider.model)
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
