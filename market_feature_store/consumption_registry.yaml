@@ -291,7 +291,16 @@ datasets:
     steps: {full: [theme-flow-daily], cheap: [theme-flow-daily]}
     identity: {what: 面板覆盖题材, cadence: 中速, evidence: "J=0.80 [用户实测]"}
     value: {what: 资金流, cadence: 极快}
-    refresh: {tier: C-daily, policy: "每天 1 请求。"}
+    refresh:
+      tier: C-daily
+      policy: >-
+        每天先打复盘会公开 API 1 次（编辑部人工现分组，覆盖题材最细，但
+        `/data/theme/panels` 自 2026-09-03 起持续 401）。失败或空结果时，若
+        trade_date 是上海时区今天，改用 AKShare `stock_fund_flow_concept`
+        （东方财富标准概念板块，约 390 个，与复盘会/Wind 均无关联；覆盖不了
+        复盘会编辑现造的短线题材，实测约 21% 题材名对得上）写同一张表，
+        `source=akshare:stock_fund_flow_concept`，不冒充复盘会面板。trade_date
+        非今天时 AKShare 这条路不生效（该接口无历史日期参数），如实返回零行。
 
   # ---- 公开资产（public-assets 一步之内的子任务，按 plan 分档）----
 

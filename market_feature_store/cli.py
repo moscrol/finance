@@ -411,7 +411,11 @@ def cmd_sync_theme_flow_daily(args) -> int:
             con.close()
         td = str(row[0]) if row and row[0] is not None else None
     s = sync_theme_flow_daily(td)
-    print(f"交易日: {td} | 题材资金面板: {s['panels']}")
+    print(f"交易日: {td} | 题材资金面板: {s['panels']} 条 | source={s.get('source')}")
+    if s.get("fupanhui_error"):
+        print(f"  复盘会失败根因: {s['fupanhui_error']}")
+    if s.get("akshare_error"):
+        print(f"  AKShare 兜底也失败: {s['akshare_error']}")
     return 0
 
 
