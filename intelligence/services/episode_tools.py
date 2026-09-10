@@ -1749,17 +1749,29 @@ def build_episode_registry(
             )
             tool_context.check_cancelled()
             evidence: list[agent_research.AgentEvidence] = []
-            peer_lines = user_memory.judgment_peer_hits(
+            # W3：与 [M] 块同一降权口径（计分率；阈值默认 None=关闭），低可靠类
+            # 沉底并附警告行——两条召回出口不允许各说各话。
+            judgments_ordered, reliability_warnings = user_memory.judgment_reliability(
                 list(recall.judgments),
                 user=memory_user,
                 users_root=memory_users_root,
+                threshold=user_memory.RELIABILITY_DOWNWEIGHT_THRESHOLD,
             )
-            for record, peer in zip(recall.judgments, peer_lines, strict=False):
+            peer_lines = user_memory.judgment_peer_hits(
+                judgments_ordered,
+                user=memory_user,
+                users_root=memory_users_root,
+            )
+            for record, peer, warn in zip(
+                judgments_ordered, peer_lines, reliability_warnings, strict=False
+            ):
                 memo = str(record.get("memo") or "").strip()
                 if not memo:
                     continue
                 if peer:
                     memo = f"{memo}\n{peer}"
+                if warn:
+                    memo = f"{memo}\n{warn}"
                 tags = [
                     str(tag).strip()
                     for key in ("themes", "stocks")
@@ -1773,7 +1785,8 @@ def build_episode_registry(
                         detail=memo,
                         # Self-labelling source: the model only ever sees this
                         # string, so it has to say what the record is on its own.
-                        source="用户自己的历史判断（先验，非市场事实）",
+                        # W2：台账归属名进 source（出处逐条自持）；locator 仍不外发。
+                        source="用户自己的历史判断（台账 judgments；先验，非市场事实）",
                         internal_locator=str(recall.judgments_path),
                         source_date=str(record.get("ts") or "")[:10] or None,
                         evidence_tier=_USER_MEMORY_EVIDENCE_TIER,
@@ -1792,7 +1805,7 @@ def build_episode_registry(
                         tool="memory_lookup",
                         title="用户纠偏原则",
                         detail=body,
-                        source="用户自己纠正过的方法论（先验，非市场事实）",
+                        source="用户自己纠正过的方法论（台账 corrections；先验，非市场事实）",
                         internal_locator=str(recall.corrections_path),
                         source_date=str(record.get("ts") or "")[:10] or None,
                         evidence_tier=_USER_MEMORY_EVIDENCE_TIER,
@@ -1811,7 +1824,7 @@ def build_episode_registry(
                         tool="memory_lookup",
                         title="方法验证读数",
                         detail=detail,
-                        source="本用户方法验证收据（历史演练 / 真实前向分列；研究读数，非市场事实、非买卖建议）",
+                        source="本用户方法验证收据（台账 method_validation；历史演练 / 真实前向分列；研究读数，非市场事实、非买卖建议）",
                         internal_locator=str(record.get("locator") or ""),
                         source_date=record.get("date"),
                         evidence_tier=_USER_MEMORY_EVIDENCE_TIER,
