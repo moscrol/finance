@@ -23,12 +23,14 @@ import json
 import os
 import re
 import time
+import urllib.parse
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 
 from intelligence.services import (
     closed_loop_retrieval,
     evidence_judge,
+    kb_rag,
     llm_refine,
     market_news,
     web_research,
@@ -175,6 +177,13 @@ class AgentEvidence:
     pointer_dropped: int | None = None
     # V9b 只读遥测。None = 未跑槽位重排（历史 run 缺字段，报不可判不报 0）。
     structural_neighbor_demoted: int | None = None
+    # 02 深读：True = 这条是命中页整节切出的段落级证据（不是一条新命中）。
+    # 只做控制面标记：送达遥测按它区分「命中数」与「深读段数」。
+    deep_read: bool = False
+    # 02 来源分类（web_fetch）：发布主体 / 文档类型，按 URL 主机与标题正文识别，
+    # 不由工具名决定。判官按内容用它，这里只如实带出。
+    publisher_kind: str = ""
+    document_type: str = ""
 
     def to_observation(self, evidence_id: str) -> EvidenceObservation:
         return EvidenceObservation(
@@ -380,8 +389,10 @@ def kb_delivery_telemetry(
     传感器和落盘共用这一处，避免两套量纲。
     """
 
+    primary = [item for item in evidence if not getattr(item, "deep_read", False)]
+    deep = [item for item in evidence if getattr(item, "deep_read", False)]
     pages: list[str] = []
-    for item in evidence:
+    for item in primary:
         page = str(getattr(item, "internal_locator", "") or "").strip()
         if not page:
             page = str(getattr(item, "title", "") or "").strip()
@@ -392,9 +403,15 @@ def kb_delivery_telemetry(
         "detail_chars": sum(
             len(str(getattr(item, "detail", "") or "")) for item in evidence
         ),
-        "hit_count": len(tuple(evidence)),
+        # 命中数只数命中；深读段是同一命中页的整节切片，另计，不冒充新命中。
+        "hit_count": len(primary),
         "source_pages": pages,
     }
+    if deep:
+        payload["deep_read_items"] = len(deep)
+        payload["deep_read_chars"] = sum(
+            len(str(getattr(item, "detail", "") or "")) for item in deep
+        )
     dropped = next(
         (
             getattr(item, "pointer_dropped", None)
@@ -458,10 +475,94 @@ def kb_search_hit_text(hit: object, *, detail_chars: int | None = None) -> str:
     return text
 
 
+def deep_read_evidence(
+    hits: Sequence[object],
+    *,
+    source: str = "本地知识库",
+) -> tuple[list[AgentEvidence], str]:
+    """把 ``kb_rag`` 深读到的整节段落变成段落级证据，并生成放在观察值最前面的限定语。
+
+    每段 ≤ ``kb_rag.DEEP_READ_ITEM_CHARS``（与 ``tool_result_budget`` 的 detail 上限同值），
+    所以模型看到的就是整段，不再是被截的前 240 字。已经在命中窗口可见部分里的段不重复送。
+    观察值只放索引与「其余章节」目录：内容在 evidence 里按 E 号引用。
+    """
+
+    items: list[AgentEvidence] = []
+    notes: list[str] = []
+    outlines: list[str] = []
+    for hit in hits:
+        title = str(getattr(hit, "title", "") or "").strip()
+        outline = tuple(getattr(hit, "page_outline", ()) or ())
+        if outline:
+            outlines.append(
+                f"{title}→" + "／".join(kb_rag._crumb_tail(crumb) or crumb for crumb in outline[:5])
+            )
+        blocks = tuple(getattr(hit, "deep_read_blocks", ()) or ())
+        if not blocks:
+            paragraphs = tuple(getattr(hit, "deep_read_paragraphs", ()) or ())
+            primary_section = str(getattr(hit, "deep_read_section", "") or "")
+            blocks = tuple((primary_section, paragraph) for paragraph in paragraphs)
+        if not blocks:
+            continue
+        visible = kb_rag._squash(kb_search_hit_text(hit, detail_chars=kb_rag.DEEP_READ_ITEM_CHARS))
+        kept = [
+            (kb_rag._crumb_tail(section) or "正文", paragraph)
+            for section, paragraph in blocks
+            if kb_rag._squash(paragraph) not in visible
+        ]
+        if not kept:
+            continue
+        hit_date = closed_loop_retrieval.wiki_hit_source_date(hit)
+        total = len(kept)
+        for index, (section, paragraph) in enumerate(kept, 1):
+            items.append(
+                AgentEvidence(
+                    tool="kb_search",
+                    title=f"{title}｜深读《{section}》{index}/{total}",
+                    detail=paragraph,
+                    source=source,
+                    internal_locator=str(getattr(hit, "file_path", "") or ""),
+                    source_date=hit_date.isoformat() if hit_date is not None else None,
+                    deep_read=True,
+                )
+            )
+        read_sections = tuple(getattr(hit, "deep_read_sections", ()) or ())
+        sections_read = "》《".join(
+            kb_rag._crumb_tail(section) or section
+            for section in (read_sections or tuple(dict.fromkeys(section for section, _paragraph in blocks)))
+        )
+        note = f"{title}《{sections_read}》{total}段"
+        latest = str(getattr(hit, "section_latest_date", "") or "")
+        if latest:
+            note += f"（节内最晚日期 {latest}）"
+        if bool(getattr(hit, "deep_read_truncated", False)):
+            omitted = int(getattr(hit, "deep_read_omitted_chars", 0) or 0)
+            note += f"（超预算未读完，还有约 {omitted} 字，可用更窄检索词再读该节）"
+        notes.append(note)
+    if not items and not outlines:
+        return [], ""
+    head = (
+        f"已深读 {len(notes)} 页共 {len(items)} 段整节原文（内容在证据 E 号里，不在本行）："
+        + "；".join(notes)
+        if notes
+        else "本轮命中页未能定位到可读整节"
+    )
+    if outlines:
+        head += "｜同页其余章节（要读就用 kb_search 检索「页名 章节名」）：" + "；".join(outlines[:2])
+    return items, head
+
+
 def build_default_tools(
     kb_retrieve: Callable[[str, float], object],
+    *,
+    focus_query: str | Callable[[], str] | None = None,
 ) -> dict[str, ToolRunner]:
-    """默认工具集：kb_search 由调用方注入（复用主链 kb_rag 配置），web/news 用现成 provider。"""
+    """默认工具集：kb_search 由调用方注入（复用主链 kb_rag 配置），web/news 用现成 provider。
+
+    ``focus_query``：本题的问句（或返回问句的函数）。web_fetch 只收一个 URL，没有它就
+    只能从页首切段；有了它才能按问题定向选段（答案在页尾的年报页、长新闻）。
+    不传时 web_fetch 行为与旧版逐字节相同。
+    """
 
     def _kb_search(
         query: str,
@@ -500,8 +601,11 @@ def build_default_tools(
         structural_neighbor_demoted = getattr(
             rag_telemetry, "structural_neighbor_demoted", None
         )
+        recovered_hits = 0
         for hit in hits:
             hit_date = closed_loop_retrieval.wiki_hit_source_date(hit)
+            recovered = bool(getattr(hit, "recovered_from_source", False))
+            recovered_hits += int(recovered)
             evidence.append(
                 AgentEvidence(
                     tool="kb_search",
@@ -510,11 +614,27 @@ def build_default_tools(
                     source="本地知识库",
                     internal_locator=hit.file_path,
                     source_date=hit_date.isoformat() if hit_date is not None else None,
+                    # 02：过期命中重读当前页恢复的，新鲜度如实写 recovered（索引旧、正文新），
+                    # 其余保持 unknown（kb_search 历来不把索引新鲜度写进证据，不在这里扩面）。
+                    freshness=kb_rag.FRESHNESS_RECOVERED if recovered else "unknown",
                     reexcerpted=getattr(hit, "reexcerpted", None),
                     pointer_dropped=pointer_dropped,
                     structural_neighbor_demoted=structural_neighbor_demoted,
                 )
             )
+        # 02：命中页整节的段落级证据，排在命中之后；观察值里只留索引与目录。
+        primary_evidence = list(evidence)
+        deep_evidence, deep_note = deep_read_evidence(hits)
+        if recovered_hits:
+            deep_note = "；".join(
+                part
+                for part in (
+                    f"{recovered_hits} 条命中的索引已过期，正文取自当前页面并核对过问句词（新鲜度=recovered）",
+                    deep_note,
+                )
+                if part
+            )
+        evidence.extend(deep_evidence)
         telemetry = rag_telemetry
         status = str(getattr(telemetry, "status", "unknown") or "unknown")
         # 检索**失败**不等于知识库**没有** —— 这两件事必须让模型区分得开。
@@ -535,9 +655,9 @@ def build_default_tools(
         # 全部内容」；族 A 官方 custom-tools「Return isError: true ... so Claude
         # can react to it」+「compose the message Claude reads」。
         failed = status in {"error", "timeout"}
-        if evidence:
+        if primary_evidence:
             observation = "；".join(
-                f"{item.title}：{item.detail[:80]}" for item in evidence
+                f"{item.title}：{item.detail[:80]}" for item in primary_evidence
             )
             if judged_out:
                 # 滤除必须可见：静默丢弃会让「送达 3 条」与「召回 3 条」无法区分。
@@ -572,6 +692,9 @@ def build_default_tools(
         degraded_note = _describe_retrieval_degradation(telemetry)
         if degraded_note:
             observation = "；".join(part for part in (observation, degraded_note) if part)
+        if deep_note:
+            # 限定语在前：预算截的是尾巴，深读索引与「其余章节」目录不能是先被截掉的那截。
+            observation = "；".join(part for part in (deep_note, observation) if part)
         # 送达遥测：kb_delivery_telemetry(evidence, observation)。registry 在
         # cutoff 改写后用同一函数落盘 tool_result.telemetry，按实际字符计、不写死 800。
         trace = ProviderTrace(
@@ -656,21 +779,38 @@ def build_default_tools(
             if page.page_date
             else f"页面无日期，记抓取日 {page.fetched_on}"
         )
+        # 02：来源按真实发布主体 / 文档类型分类，不因取页工具名一律「二手」。
+        source_class = classify_web_source(page.final_url or page.url, page.title, page.text)
+        focus_text = focus_query() if callable(focus_query) else focus_query
+        focus_terms = kb_rag.deep_read_query_terms(str(focus_text or "")) if focus_text else ()
+        if focus_terms:
+            chunks, total_slices, matched = page_focus_chunks(page.text, focus_terms)
+            selection_note = (
+                f"正文 {len(page.text)} 字，已按问题定向选段 {len(chunks)}/{total_slices}"
+                f"（含问句词的段 {matched}，每段 ≤{WEB_FETCH_FOCUS_ITEM_CHARS} 字整段可见）"
+            )
+        else:
+            chunks = page_text_chunks(page.text)
+            selection_note = f"正文 {len(page.text)} 字切 {len(chunks)} 段（页首起）"
         evidence = [
             AgentEvidence(
                 tool="web_fetch",
-                title=(page.title or page.final_url)[:48],
+                title=f"〔{source_class.label}〕{page.title or page.final_url}"[:72],
                 detail=chunk,
                 source=page.final_url,
                 source_date=as_of,
                 evidence_tier="public_web",
                 independent_key=page.final_url,
+                publisher_kind=source_class.publisher_kind,
+                document_type=source_class.document_type,
             )
-            for chunk in page_text_chunks(page.text)
+            for chunk in chunks
         ]
         observation = (
+            f"来源分类：发布主体={source_class.publisher_label}，文档类型={source_class.document_label}，"
+            f"{source_class.usage_note}；"
             f"已取页（{page.transport}）：{page.title or page.final_url}；"
-            f"as_of={as_of}（{as_of_note}）；正文 {len(page.text)} 字切 {len(evidence)} 段；"
+            f"as_of={as_of}（{as_of_note}）；{selection_note}；"
             f"{page.text[:200]}"
         )
         return evidence, observation, page.trace
@@ -768,6 +908,219 @@ def page_text_chunks(
     if current and len(chunks) < max_chunks:
         chunks.append("\n".join(current))
     return chunks
+
+
+# 02 定向选段：每段与模型可见 detail 上限同宽，段数上限换成「可见字数」口径——
+# 旧版 6×800 取回 4800 字，模型只见每段前 240 字（1440 字，且全在页首）；
+# 现在 12×240 = 2880 字全部可见，且优先选含问句词的段。
+WEB_FETCH_FOCUS_ITEM_CHARS = kb_rag.DEEP_READ_ITEM_CHARS
+WEB_FETCH_FOCUS_MAX_ITEMS = 12
+
+
+def page_focus_chunks(
+    text: str,
+    focus_terms: Sequence[str],
+    *,
+    item_chars: int = WEB_FETCH_FOCUS_ITEM_CHARS,
+    max_items: int = WEB_FETCH_FOCUS_MAX_ITEMS,
+) -> tuple[list[str], int, int]:
+    """按问句词定向选段：返回 ``(按原文顺序的选段, 全页段数, 选中段里含问句词的段数)``。
+
+    页首第一段永远保留（标题 / 日期 / 发布语境在那里），其余名额先给含问句词最多的段，
+    再按原文顺序补齐。无问句词时退化为页首顺序。
+    """
+
+    slices = kb_rag.section_slices(text, item_chars)
+    if not slices:
+        return [], 0, 0
+    limit = max(1, int(max_items))
+    terms = tuple(term for term in focus_terms if term)
+    if not terms:
+        return slices[:limit], len(slices), 0
+    scored = [
+        (kb_rag._term_score(item, terms), index) for index, item in enumerate(slices)
+    ]
+    chosen: set[int] = {0}
+    for score, index in sorted(scored, key=lambda pair: (-pair[0], pair[1])):
+        if len(chosen) >= limit or score <= 0:
+            break
+        chosen.add(index)
+    for index in range(len(slices)):
+        if len(chosen) >= limit:
+            break
+        chosen.add(index)
+    matched = sum(1 for score, index in scored if score > 0 and index in chosen)
+    return [slices[index] for index in sorted(chosen)], len(slices), matched
+
+
+# ---------------------------------------------------------------------------
+# 02 来源分类：发布主体按 URL 主机识别，文档类型按标题 / 正文开头识别。
+# 只做识别、不改 evidence_tier（分档规则归判官）。「官方原文」与「媒体转载同一份
+# 公告」在这里分成两条不同的标签，判官与模型据此走不同的事实使用规则。
+# ---------------------------------------------------------------------------
+_OFFICIAL_DISCLOSURE_HOSTS = (
+    "cninfo.com.cn",
+    "sse.com.cn",
+    "szse.cn",
+    "bse.cn",
+    "hkexnews.hk",
+    "hkex.com.hk",
+    "neeq.com.cn",
+)
+_EXCHANGE_INTERACTIVE_HOSTS = ("sseinfo.com", "irm.cninfo.com.cn")
+_ENCYCLOPEDIA_HOSTS = ("baike.baidu.com", "wikipedia.org", "wiki.mbalib.com")
+_MEDIA_HOSTS = (
+    "eastmoney.com",
+    "sina.com.cn",
+    "10jqka.com.cn",
+    "xueqiu.com",
+    "cls.cn",
+    "wallstreetcn.com",
+    "caixin.com",
+    "yicai.com",
+    "21jingji.com",
+    "stcn.com",
+    "cs.com.cn",
+    "cnstock.com",
+    "jrj.com.cn",
+    "hexun.com",
+    "163.com",
+    "qq.com",
+    "sohu.com",
+    "ifeng.com",
+    "thepaper.cn",
+    "36kr.com",
+    "zhitongcaijing.com",
+    "gelonghui.com",
+    "futunn.com",
+    "toutiao.com",
+    "baidu.com",
+    "xinhuanet.com",
+    "people.com.cn",
+    "cctv.com",
+    "chinanews.com",
+    "cnfin.com",
+    "nbd.com.cn",
+    "jiemian.com",
+    "cailianpress.com",
+)
+_PUBLISHER_LABELS = {
+    "official_disclosure": "官方披露平台",
+    "regulator": "监管/政府机构",
+    "exchange_interactive": "交易所互动平台",
+    "industry_org": "行业协会/机构",
+    "media": "财经媒体/门户",
+    "encyclopedia": "百科/参考",
+    "other": "其他网站",
+}
+_DOCUMENT_LABELS = {
+    "prospectus": "招股说明书",
+    "periodic_report": "定期报告",
+    "ir_record": "投资者关系记录",
+    "announcement": "公告",
+    "policy": "政策/监管文件",
+    "research": "研究报告",
+    "news": "新闻/资讯",
+    "reference": "参考条目",
+    "webpage": "网页正文",
+}
+_DOC_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("prospectus", re.compile(r"招股说明书|招股书|招股意向书")),
+    ("periodic_report", re.compile(r"年度报告|年报|半年度报告|半年报|中期报告|季度报告|一季报|三季报|中报")),
+    ("ir_record", re.compile(r"投资者关系活动记录|调研纪要|业绩说明会|路演纪要")),
+    ("announcement", re.compile(r"公告|自愿性披露|临时报告|提示性公告|澄清")),
+    ("research", re.compile(r"研报|研究报告|深度报告|行业报告|点评报告|策略报告|首次覆盖")),
+    ("policy", re.compile(r"通知|意见|办法|规划|条例|指导意见|实施方案|征求意见|规定")),
+)
+_OFFICIAL_PUBLISHERS = frozenset({"official_disclosure", "regulator", "exchange_interactive"})
+
+
+@dataclass(frozen=True)
+class WebSourceClass:
+    publisher_kind: str
+    document_type: str
+
+    @property
+    def publisher_label(self) -> str:
+        return _PUBLISHER_LABELS.get(self.publisher_kind, _PUBLISHER_LABELS["other"])
+
+    @property
+    def document_label(self) -> str:
+        return _DOCUMENT_LABELS.get(self.document_type, _DOCUMENT_LABELS["webpage"])
+
+    @property
+    def official(self) -> bool:
+        return self.publisher_kind in _OFFICIAL_PUBLISHERS
+
+    @property
+    def label(self) -> str:
+        return f"{self.publisher_label}·{self.document_label}"
+
+    @property
+    def usage_note(self) -> str:
+        if self.official:
+            return "官方原文（发布主体即信息源），日期与数字可按原文直接引用"
+        if self.publisher_kind == "media" and self.document_type in {
+            "announcement",
+            "periodic_report",
+            "policy",
+            "prospectus",
+            "ir_record",
+        }:
+            return "媒体转载的官方文件：事实以原发布主体的版本为准，转载不构成第二来源"
+        if self.publisher_kind == "media":
+            return "媒体页面：同一消息多家转载不构成交叉验证"
+        if self.publisher_kind == "encyclopedia":
+            return "参考条目：可作背景，不作公司级硬事实"
+        if self.publisher_kind == "industry_org":
+            return "行业机构页面：行业口径可引，公司级事实仍需公告确认"
+        return "发布主体未识别：按二手材料使用"
+
+
+def _host_matches(host: str, suffixes: Sequence[str]) -> bool:
+    return any(host == suffix or host.endswith("." + suffix) for suffix in suffixes)
+
+
+def classify_web_source(url: str, title: str | None, text: str | None) -> WebSourceClass:
+    """按 URL 主机 + 标题/正文开头识别发布主体与文档类型；认不出一律 other / webpage。"""
+
+    try:
+        host = (urllib.parse.urlparse(str(url or "")).hostname or "").lower()
+    except ValueError:
+        host = ""
+    if _host_matches(host, _EXCHANGE_INTERACTIVE_HOSTS):
+        publisher = "exchange_interactive"
+    elif _host_matches(host, _OFFICIAL_DISCLOSURE_HOSTS):
+        publisher = "official_disclosure"
+    elif host.endswith(".gov.cn") or host.endswith(".gov") or host == "gov.cn":
+        publisher = "regulator"
+    elif _host_matches(host, _ENCYCLOPEDIA_HOSTS):
+        publisher = "encyclopedia"
+    elif _host_matches(host, _MEDIA_HOSTS):
+        publisher = "media"
+    elif host.endswith(".org.cn") or host.endswith(".org"):
+        publisher = "industry_org"
+    else:
+        publisher = "other"
+
+    probe = f"{title or ''}\n{str(text or '')[:300]}"
+    document = ""
+    for name, pattern in _DOC_PATTERNS:
+        if name == "policy" and publisher != "regulator":
+            continue
+        if pattern.search(probe):
+            document = name
+            break
+    if publisher == "regulator" and document == "announcement":
+        document = "policy"
+    if not document:
+        if publisher == "encyclopedia":
+            document = "reference"
+        elif publisher == "media":
+            document = "news"
+        else:
+            document = "webpage"
+    return WebSourceClass(publisher_kind=publisher, document_type=document)
 
 
 def build_graph_tools(knowledge) -> dict[str, ToolRunner]:
