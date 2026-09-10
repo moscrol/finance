@@ -12,6 +12,7 @@
 
 ## 当前状态
 已提交 `c83cd0bf`（含第四轮验收记录），树干净。未合 main、未切 8792。基线 `gitea/main=5eb24515`。PR #693 正文已 PATCH 为实测结果。基线 worktree `/Users/a77/fwp-wt-judge01-base` 已移除，sidecar 已停。
+**token-usage 叠加兼容已验（2026-09-10）**：container merge-tree（无冲突，exit 0）物化后全量 **8379 passed / 0 failed**（5.6 min），定向三组 241+191+49 全过，pre-commit/ruff/字段契约全绿。详见 progress/01.md「任务 2」。
 
 ## 已验证
 直接测试文件 241 passed；V11 新测试 22 条；adapter/verifier/invariant 191；pre-commit 11 道过；`check_unread_fields` 无新增。全量安静跑 8330 passed / 0 failed（15.6 min；此前高负载跑 3 条超时看门狗测试红、单跑绿）。391 份真实存证：基线 vs 分支首个损失点 A/B 零差异，`extension_outputs` 出现 0 次。
@@ -22,9 +23,9 @@
 - 缺陷一自然频率不可从存证读出（被拒修复轮不落事件）。
 
 ## 下一步
-1. 合并前以 `feat/judge-token-usage`（同改 `_run_judge`）为准重跑本单测试。
+1. ~~合并前以 `feat/judge-token-usage` 为准重跑本单测试。~~ **已完成（2026-09-10）**：叠加树全量 8379P/0F，三组定向 + 门禁全绿，可合。
 2. 用户确认后合 main；TOOLKIT 登记 `judge_loss_point_replay.py` / `launch_workbench_sidecar.sh`（harness-reference 树脏未动）。
-3. （可选，不阻塞合并）上游池稳定后重跑一轮真实验收，给「挡回减半」一个判定。
+3. （可选，不阻塞合并）上游池稳定后重跑一轮真实验收，给「挡回减半」一个判定。**2026-09-10 探针：上游 503 池仍未恢复**（terra/sol 双双 upstream_error，/v1/models 正常）——与第四轮同形状，非本仓可修，续跑前置仍是「最小 chat 有 choices 再发题」。
 
 ## 踩过的坑
 - `_judge()` 夹具第二次调用自动放行；issue 里「第N句」会被并回拒句集。
