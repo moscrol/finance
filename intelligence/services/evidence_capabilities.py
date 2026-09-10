@@ -66,7 +66,7 @@ _MARKET_SUBJECT_MARKERS = (
     "市场", "大盘", "行情", "板块", "主线", "盘面", "a股", "指数",
 )
 # 盘面度量词：本身就蕴含「要看数据」，可以在没有时间词时独立成立
-#（「涨停家数多少」「茅台多少钱」都没有时间词，但都必须查行情）。
+# （「涨停家数多少」「茅台多少钱」都没有时间词，但都必须查行情）。
 _MARKET_STATE_MARKERS = (
     "市场结构", "成交", "涨停", "涨跌", "家数", "情绪", "换手", "北向",
     "多少钱", "股价", "价格", "收盘",
@@ -579,6 +579,8 @@ def runtime_capabilities_for_frame(frame: TaskFrame) -> tuple[str, ...]:
         if (runtime_name := _PLAN_CAPABILITY_TO_RUNTIME.get(item.capability))
     )
     capabilities = tuple(dict.fromkeys((*floor, *planned)))
+    if frame.history_intent is not None and "finance_query" not in capabilities:
+        capabilities = (*capabilities, "finance_query")
     # 取页是检索的延伸，不单独进策略表：授权了 web_search 就授权 web_fetch——
     # web_search 只回 160 字符 snippet，没有取页那条线索到不了可读证据（spec §3.6）。
     # 反向不成立：没有 web_search 的策略（本地盘面 / 技术面）也不该取页。

@@ -153,20 +153,20 @@ def _question_type_rules(
     # 非跟踪题得到空串。从模块导入的文本不进 build_episode_instructions 的
     # 静态契约指纹（test_episode_protocol 只提取该函数体内的字符串常量）。
     # 排序与情景契约（10 号单）同一条注入口：多对象排序题命中才有文本，其它题空串。
-    track_rule = (
-        episode_track_rule(
+    # 历史发现题（怎么走出来）不叠情景契约，避免和 history 自己的答法打架。
+    track_rule = episode_track_rule(
+        task_frame.raw_question,
+        task_frame.question_type,
+    )
+    if context.history_intent is None:
+        track_rule += episode_scenario_rule(
             task_frame.raw_question,
             task_frame.question_type,
         )
-        + episode_scenario_rule(
-            task_frame.raw_question,
-            task_frame.question_type,
-        )
-        + episode_ranking_rule(
-            task_frame.raw_question,
-            task_frame.question_type,
-            conversation_context=context.conversation_context,
-        )
+    track_rule += episode_ranking_rule(
+        task_frame.raw_question,
+        task_frame.question_type,
+        conversation_context=context.conversation_context,
     )
     longtail_rule = episode_rule(task_frame)
     # ASK_DEGRADED_FALLBACK（默认 off）：降级回答章法，off 时空串。

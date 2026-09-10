@@ -85,7 +85,7 @@ RuntimeMode = Literal["off", "canary", "on"]
 ContinuousTurnStatus = Literal["completed", "partial", "degraded", "failed"]
 # episode 前零 LLM 快路径名单 = runner 支持集本身，不另抄一份：往这里加
 # 题型而 runner 不认识时，得到的是「尚未接入」占位而不是快路径答案
-#（R-20260828-08 对账门禁；等式另由 test_route_composition_gate 钉住防回退）。
+# （R-20260828-08 对账门禁；等式另由 test_route_composition_gate 钉住防回退）。
 CONTINUOUS_FAST_PATH_TYPES = FAST_PATH_RUNNER_SUPPORTED_TYPES
 _SUCCESSFUL_REPAIR_STOP_REASONS = frozenset(
     {"model_finish", "repair_model_finish"}
@@ -1077,6 +1077,22 @@ class ContinuousTurnAdapter:
             status = "degraded"
         else:
             status = "failed"
+        publication = self._harness.assess_publication(context=context)
+        if status == "completed" and publication.max_status == "partial":
+            status = "partial"
+        if not answer and final_outcome.evidence:
+            answer = _episode_gap_answer(frame, structural)
+        answer = _with_calendar_disclosure(answer, frame)
+        public_notices = tuple(
+            dict.fromkeys(
+                safe
+                for notice in publication.required_public_notices
+                if (safe := _safe_public_text(notice, private_tokens=private_tokens))
+            )
+        )
+        for notice in public_notices:
+            if notice not in answer:
+                answer = "\n\n".join(part for part in (answer, notice) if part)
         _phase_note(
             phase_recorder,
             status,
@@ -1086,9 +1102,6 @@ class ContinuousTurnAdapter:
             outcome=outcome,
             repair_attempts=repair_attempts,
         )
-        if not answer and final_outcome.evidence:
-            answer = _episode_gap_answer(frame, structural)
-        answer = _with_calendar_disclosure(answer, frame)
         semantic_verifier_stale = semantic_verifier_stale or (
             semantic.verified.outcome.events != outcome.events
         )
@@ -1113,6 +1126,7 @@ class ContinuousTurnAdapter:
             "structural_verifier": structural.to_dict(),
             "satisfiability_precheck": _satisfiability_payload(satisfiability),
             "semantic_verifier": semantic.to_dict(),
+            "publication_assessment": asdict(publication),
             "semantic_verifier_stale": semantic_verifier_stale,
             "repair_attempts": repair_attempts,
             "repair_cycles": repair_cycles,
@@ -1171,9 +1185,13 @@ class ContinuousTurnAdapter:
                 outcome,
                 runtime_name=self._runtime_name,
             ),
-            open_gaps=_open_gap_labels(
-                context.contract,
-                fulfilled_output_ids=fulfilled_output_ids,
+            open_gaps=tuple(
+                dict.fromkeys(
+                    (*_open_gap_labels(
+                        context.contract,
+                        fulfilled_output_ids=fulfilled_output_ids,
+                    ), *public_notices)
+                )
             ),
         )
 
@@ -1699,14 +1717,18 @@ def _episode_context_provenance(
         "today": context.today,
         "latest_data_date": context.latest_data_date,
         "trace_parent_id": context.trace_parent_id,
+        "history_intent": (
+            context.history_intent.to_dict()
+            if context.history_intent is not None
+            else None
+        ),
+        "history_results": list(context.history_results),
     }
     pack = getattr(context, "stance_pack", None)
     if pack is None:
         return payload
     to_receipt = getattr(pack, "to_receipt", None)
-    payload["stance_pack"] = (
-        to_receipt() if callable(to_receipt) else {"present": True}
-    )
+    payload["stance_pack"] = to_receipt() if callable(to_receipt) else {"present": True}
     return payload
 
 
