@@ -25,9 +25,13 @@
 ## 下一步
 1. ~~合并前以 `feat/judge-token-usage` 为准重跑本单测试。~~ **已完成（2026-09-10）**：叠加树全量 8379P/0F，三组定向 + 门禁全绿，可合。
 2. 用户确认后合 main；TOOLKIT 登记 `judge_loss_point_replay.py` / `launch_workbench_sidecar.sh`（harness-reference 树脏未动）。
-3. （可选，不阻塞合并）上游池稳定后重跑一轮真实验收，给「挡回减半」一个判定。**2026-09-10 11:52–11:57 双出口探测（按 /tmp/k3-wrap-common.md 踢醒）**：8080 sol/terra 持续 `upstream_error` 503（Plus-first 已写入 Sub2API，是新会话才生效的优先级，不改变上游 503 事实）；57244 间歇 `auth_unavailable` / `server_is_overloaded`——两出口都未达「连续 2×200」，不发题、不起 sidecar。已排 12:17 会话内一次性唤醒续探；会话若死，接手者按 progress/01.md「续跑命令」手动跑，前置不变：最小 chat 有 `choices` 才发题，两臂串行。
+3. （可选，不阻塞合并）上游池稳定后重跑一轮真实验收，给「挡回减半」一个判定。**2026-09-10 第五轮已部分执行（cockpit 57244 出口）**：12:18 57244 连续 2×200、8080 仍 503 → 按 /tmp/k3-wrap-common.md §17 用 `WORKBENCH_LAUNCHER=…bak-20260909-pre-mirasim8080` 起 8821（基线 5eb24515）/8822（本分支）。踩了两个环境坑（见「踩过的坑」）：备份 launcher 钉的 grok-1.0.5 二进制已被自动更新清掉（FileNotFoundError），且 1.0.25 + `--sandbox read-only` 在 `/var/run/docker.sock` 符号链接上 fail-closed（GrokCliExit）——两项都用进程 env 覆盖修掉（`LLM_JUDGE_GROK_BIN=/Users/a77/.grok/bin/grok`、`LLM_JUDGE_GROK_SANDBOX=off`，必须在 source launcher **之后** export，nohup 直起 zsh -c）。修好后**分支臂金丝雀 Q1 拿到三刀全活的完整样本**：`structural=completed / judge=repaired / v11_triggered=True / v11_outcome=lifted / v11_lifted_count=2 / new_hit=6 / judge_unavailable=0`——判官标出 2 句问题（申菱环境无注册证据绑定、曙光数创北交所事实外部引入），V11 回检索补 6 条新证据后两句全部 lifted，公开稿交付。这是本分支三刀第一次在真实对话里端到端跑通。随后 Q2 分支臂 13:11 起连续 429（cockpit sol `model_cooldown`，`reset_seconds=8202` ≈ **15:29 重置**），基线臂 Q1/Q2 全被 429 打脏（2 条/0 条证据即回 gap 模板）。按 tag-and-continue 规则停批：13:05 后两臂 run 全部作废（存证仍在 runs 目录，不混入结论）；sidecar 已停。已排 15:33 唤醒续跑；基线树 `/Users/a77/fwp-wt-judge01-base`（5eb24515）保留备用。
 
 ## 踩过的坑
 - `_judge()` 夹具第二次调用自动放行；issue 里「第N句」会被并回拒句集。
 - 23 个 adapter 替身是严格签名，新 kwarg 按 `inspect.signature` 条件传。
 - 两臂并发发题→全 429→网关端口消失；先探网关、单发、串行。
+- **grok 下载目录会被自动更新清旧版本**：备份 launcher 钉死的 `~/.grok/downloads/grok-1.0.5-macos-aarch64` 已不存在（现存 1.0.24/1.0.25），进程 env 里必须改指 `~/.grok/bin/grok` 符号链接；判官不可用先查 `semantic_verifier.exc_class`，`FileNotFoundError` 就是这个形状。
+- **grok 1.0.25 + `--sandbox read-only` 在本机 fail-closed**：`/var/run/docker.sock` 是符号链接，sandbox 解析不了就直接拒跑（`GrokCliExit`），sidecar 需 `LLM_JUDGE_GROK_SANDBOX=off`（生产 launcher 也是这么配的）。
+- **env 覆盖必须在 source launcher 之后**：`zsh -c` 一次性包裹 + `nohup … &` 直起才行；先 export 再调脚本会被脚本内 source 重新盖掉（`ps eww` 验进程 env，别看自己的 shell）。
+- **从别的树调相对路径 `scripts/launch_workbench_sidecar.sh` 会找不到文件**（后台命令 cwd 会复位）；一律用绝对路径。基线树 5eb24515 没有该脚本（新文件），用本分支树的脚本起基线臂即可。
