@@ -4444,6 +4444,43 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             ask_planner.DataBlockProvider("D17", "隔夜美股映射", _d17_applies, _build_d17)
         )
 
+        d18_on_date: list[str] = []
+
+        def _d18_applies() -> bool:
+            if not evidence_registry.provider_enabled(options, "D18"):
+                return False
+            if not market_timeseries.parse_limit_seal_intent(options.query):
+                return False
+            # 「9 月 5 日哪些是秒板」问的是那一天。不解析就恒取全库最新交易日，
+            # 块里自报的「数据截至」会与问句日期不符——不是静默降级，但是答非所问。
+            # 与 D0 的 d0_on_date 同一套闭包写法（applies 先于 collect 跑，见
+            # ask_planner._plan_blocks 的过滤）。
+            requested = market_review_requested_date(options.query)
+            if requested is not None:
+                d18_on_date.append(str(requested))
+            return True
+
+        def _build_d18():
+            # W5 / G1a：只把封板时间送到 agent 面前，**不挂判读规则**。
+            # SPT-A06 的另一半（换手是否充分）卡在 open_times 恒 NULL（G1b），
+            # 未修前该规则整体留在 _PENDING_RULES。
+            block = market_timeseries.limit_seal_time_block_for_llm(
+                options.market_db_path,
+                theme=theme,
+                entity=anchored_name,
+                on_date=d18_on_date[0] if d18_on_date else None,
+            )
+            return block, Citation(
+                "D18",
+                "本地 DuckDB 涨停封板时间数据块",
+                "逐只首封/末封时点（first_limit_time / last_limit_time）；"
+                "open_times 上游恒 NULL，不支持换手是否充分的判定",
+            )
+
+        providers.append(
+            ask_planner.DataBlockProvider("D18", "涨停封板时间", _d18_applies, _build_d18)
+        )
+
         def _build_m():
             block = user_memory.memory_block_for_query(
                 options.query, theme, anchored_name, user=options.user,

@@ -464,6 +464,24 @@ CREATE TABLE IF NOT EXISTS fact_theme_flow_daily (
 );
 CREATE INDEX IF NOT EXISTS idx_fact_theme_flow_date ON fact_theme_flow_daily(trade_date);
 
+CREATE TABLE IF NOT EXISTS fact_polymarket_macro_odds_daily (
+    trade_date    DATE,
+    event_id      TEXT,
+    market_id     TEXT,
+    condition_id  TEXT,
+    tag           TEXT,
+    question      TEXT,
+    outcome       TEXT,
+    probability   DOUBLE,
+    volume        DOUBLE,
+    volume_24hr   DOUBLE,
+    end_date      DATE,
+    source        TEXT,
+    updated_at    TIMESTAMP,
+    PRIMARY KEY (trade_date, market_id, outcome)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_polymarket_macro_odds_date ON fact_polymarket_macro_odds_daily(trade_date);
+
 CREATE TABLE IF NOT EXISTS fact_mainline_sector_daily (
     trade_date              DATE,
     theme_code              TEXT,
