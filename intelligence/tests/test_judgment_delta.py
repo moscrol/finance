@@ -201,7 +201,7 @@ def test_guidance_carries_the_narrowed_rules() -> None:
         assert "待验证问题" in text
         assert "裁判变量" in text
         assert "未发现足以推翻主判断的反证" in text
-        # 收窄后的两条边界必须留在契约里，否则下一个人会把 R4 初版again 捡回来。
+        # 收窄后的两条边界必须留在契约里，否则下一个人会把 R4 初版又捡回来。
         assert "不是主线" in text
         assert "主矛盾可以不止一条" in text
         assert "补关键缺口" in text  # 复用既有下一步词表，不另造
@@ -257,3 +257,45 @@ def test_receipt_stays_quiet_on_non_material_questions() -> None:
 
     assert receipt["judgment_delta_intent"] is False
     assert receipt["missing_elements"] == []
+
+
+# ——————————————————————————————————————————— episode 接缝：契约真到得了模型
+def test_material_questions_get_the_contract_in_rules_only() -> None:
+    import dataclasses
+    import json
+
+    from intelligence.services.episode_protocol import (
+        build_episode_input,
+        build_episode_instructions,
+    )
+    from intelligence.tests.test_episode_protocol import _context, _frame, _registry
+
+    frame = dataclasses.replace(_frame(), raw_question=QUERY, question_type="theme_analysis")
+    rules = json.loads(build_episode_input(frame, _context(frame), _registry()))[
+        "question_type_rules"
+    ]
+
+    assert "判断增量表达契约" in rules
+    assert "待验证问题" in rules and "裁判变量" in rules
+    assert "判断增量表达契约" not in build_episode_instructions(
+        frame, _context(frame), _registry()
+    )
+    for legacy_marker in ("[D6]", "[W7]", "[L1-x]"):
+        assert legacy_marker not in rules
+
+
+def test_quick_fact_questions_keep_rules_unchanged() -> None:
+    import dataclasses
+    import json
+
+    from intelligence.services.episode_protocol import build_episode_input
+    from intelligence.tests.test_episode_protocol import _context, _frame, _registry
+
+    frame = dataclasses.replace(
+        _frame(), raw_question="英维克收盘价多少", question_type="quick_fact"
+    )
+    rules = json.loads(build_episode_input(frame, _context(frame), _registry()))[
+        "question_type_rules"
+    ]
+
+    assert "判断增量表达契约" not in rules

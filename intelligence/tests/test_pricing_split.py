@@ -156,3 +156,46 @@ def test_receipt_stays_quiet_on_non_pricing_questions() -> None:
     assert receipt["pricing_split_intent"] is False
     assert receipt["missing_elements"] == []
     assert receipt["violations"] == []
+
+
+# ——————————————————————————————————————————— episode 接缝：契约真到得了模型
+def test_pricing_questions_get_the_contract_in_rules_only() -> None:
+    import dataclasses
+    import json
+
+    from intelligence.services.episode_protocol import (
+        build_episode_input,
+        build_episode_instructions,
+    )
+    from intelligence.tests.test_episode_protocol import _context, _frame, _registry
+
+    frame = dataclasses.replace(
+        _frame(), raw_question="液冷还能追吗", question_type="theme_analysis"
+    )
+    rules = json.loads(build_episode_input(frame, _context(frame), _registry()))[
+        "question_type_rules"
+    ]
+
+    assert "产业证据 / 定价状态二分契约" in rules
+    assert NO_CONSENSUS_DECLARATION in rules
+    # 静态契约指纹只吃 build_episode_instructions 函数体里的字符串常量，模块文本不进去。
+    assert "产业证据 / 定价状态二分契约" not in build_episode_instructions(
+        frame, _context(frame), _registry()
+    )
+    # legacy 检索块记号不得漏进 episode 版（模型会对着不存在的块找证据）。
+    for legacy_marker in ("[D6]", "[W7]", "[L1-x]"):
+        assert legacy_marker not in rules
+
+
+def test_non_pricing_questions_keep_rules_unchanged() -> None:
+    import json
+
+    from intelligence.services.episode_protocol import build_episode_input
+    from intelligence.tests.test_episode_protocol import _context, _frame, _registry
+
+    frame = _frame()
+    rules = json.loads(build_episode_input(frame, _context(frame), _registry()))[
+        "question_type_rules"
+    ]
+
+    assert "产业证据 / 定价状态二分契约" not in rules
