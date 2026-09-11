@@ -222,6 +222,9 @@ B0 则是「利好面 / 风险面 + 操作建议」的合并式多空判定。
    prompt 总字数 = 27958                   # 契约占 2.8%
    ```
 
+   复量一次（`scripts/probe_contract_in_prompt.py`）得 30,766 字 / **2.54%**——
+   检索量每跑有浮动，占比落在 **2.5%–2.8%**，别把单次那个数当常量。
+
    契约**在 prompt 里**。但答案两段标题都没出现，`missing_pricing_split_elements`
    判 `('industrial_evidence_section','pricing_state_section')`，`violations` 为空。
    读正文会发现它**实质上分了两段**，只是用了自己的小标题。

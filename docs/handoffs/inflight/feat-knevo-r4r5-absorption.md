@@ -1,40 +1,35 @@
-# feat/knevo-r4r5-absorption · 2026-09-11 · Knevo q17 Q8/Q4/Q6 回灌（R4/R5 收窄 + R7 试用）
+# feat/knevo-r4r5-absorption
 
-树 `~/fwp-wt-knevo-r45`，基线 `gitea/main=dd1ad32b`。来源：用户转来的复核笔记
-`~/agent-memory/00_inbox/2026-09-11-knevo-new-corpus-absorption-review.md`，**指令是执行它**。
+## 这个分支做什么
+吸收 Knevo q16–q18：R4「按会不会改变判断筛材料」、R5「产业逻辑变强」与「已反映多少」
+分开答；R7（谁有权改关键变量）只试用，仅单测。
 
-## 落了什么
-
-| | 落点 | 一句话 |
+## 决策与被否方案
+| 选了 | 否了 | 为什么 |
 |---|---|---|
-| 候选一（R4 收窄） | `services/judgment_delta.py` + `evidence_window.select_agent_evidence` | 材料侧：同事件合并（出处写进证据链末尾）+ 反证保底置顶 `counter_floor=2`；表达侧：材料型判断题注入「保留判据/反证优先/待验证问题/裁判变量接下一步」契约 |
-| 候选二（R5 收窄） | `services/pricing_split.py` + `market_midterm.midterm_intent_for` | 产业证据变化 / 定价状态两问分答；**先接线**：`is_pricing_state_query` 成为 D6 门控第三个放宽口，「液冷还能追吗」这才拿得到拥挤度分位 |
-| 候选三（R7 试用） | `research_task_planner.detect_decision_surface` | 审批/招标/扩产类问句先问「谁有决定权→公开约束→可行动作→哪份材料能区分」；只接管 forecast/relation/comparison 没接走的问句 |
+| 受控材料包 + 三臂消融 | 真问句跑完整 episode | 召不回反证时两臂同输出，分不清「改动无效」还是「材料没反证」；选材与契约是两半活 |
+| 正门形态不改，留用户定 | 直接补 `missing_outputs` 修复回路 | 强制字面标题会改所有 stock_deep_dive 的输出形态，是产品选择不是接线缺口 |
 
-两条引擎同注入（`episode_protocol`、`ask_synthesis`，`AskOptions.include_judgment_delta_guidance`
-/ `include_pricing_split_guidance`），收据 `judgment_delta` / `pricing_split` 在
-`continuous_turn_adapter`。
+臂定义与实验全文：`docs/learning/knevo-distill/absorption-plan-2026-09-11.md`。
 
-## 刻意没做（别当缺口捡回来）
+## 当前状态
+4 提交（feat/test/docs/probe），基线 `c714eb60`，树干净，**未推送未开 PR**，合入等点头。
 
-1. **缺件不进 `missing_outputs`**：会触发修复轮、改预算行为。先用收据量效果，再决定要不要接
-   `track_contract.is_contract_rewrite_only` 那条表达槽路径。
-2. **没跑同题对照实验**：程序核对只能证明「有没有分开答」，证不了「解释是否变好」。臂与题面已写进
-   `docs/learning/knevo-distill/absorption-plan-2026-09-11.md#实验清单`。**开跑前先探活模型网关**
-   ——验收批次与生产共用配额，一次深 episode 能触发 75 分钟 cooldown。
-3. **收窄掉的初版定义**：R4 的「摘要引擎/单条主矛盾/按非主线丢弃」、R5 的「六项满足四项」投票阈值，
-   理由在 absorption-plan「R4/R5 的收窄」段，**不是漏做**。q16 的仓位/止损数字仍在 Q-002 排队。
+## 已验证
+- ruff clean；定向 111 passed；全量 **9244 passed / 0 failed / 77 skipped / 1 xfailed**；`layer_audit` ERROR 0、路径字面量无新增（23/37）、`graph_audit` exit 0（7 断言 PENDING）、11 道 pre-commit 全过。
+- 同题对照（`thinking:disabled` 同生产）：选材那半送达反证 **0/3→3/3**；契约那半表达缺件 **3→0**；定价二分缺件 **3→0（2/2）**，违例恒 0。
+- 正门：契约五个标记**都在** `prepared_synthesis_messages` 里，`question_type='stock_deep_dive'`，契约 782 字占 prompt 2.5%–2.8%。
 
-## 怎么验
-
-`pytest intelligence/tests/test_{judgment_delta,pricing_split,research_task_planner}.py`。
-
-关键是两条**反向对照**：`test_counter_floor_off_drops_the_counter_evidence`（关掉保底，弱源反证
-掉出窗口）与 `test_merging_alone_saves_the_counter_but_does_not_rank_it_first`（合并只腾位、
-不决定次序）。删掉任一条新子句这两条就红——没有它们，「反证留下了」可能只是运气。
-R1a 的六句负例在 `test_r1a_negative_examples_stay_closed` 钉着，防止放宽把 D6 变成常开。
+## 未验证 / 已知边界
+- **正门答案无两段字面标题**，`missing_pricing_split_elements` 判两段皆缺；正文其实分了两段，只是用自己的小标题。占比问题，不是门没开。
+- **台架 3/3、2/2 是上界**：台架 prompt 几百字、契约占比高一个量级，不能当正门遵从率用。
+- 本机盘面停在 2026-07-15，定价那半输入本就缺，正门答的是「取不到」；换数据新鲜的机器结论可能不同。
 
 ## 下一步
+1. 正门形态三选一（**需用户定**）：补 `missing_outputs` 修复回路 / 放宽判据认实质 / 契约前移。选完用 `scripts/probe_contract_in_prompt.py` 复量占比。
+2. 开 PR 到 gitea，等确认再合。question-bank 回灌等形态定了再改，现在改会锁死错的那个。
 
-跑实验清单 → 读收据（`material_digest.role_counts` / `violations`）→ 有效再考虑上修复硬门、
-把 R7 并进 event_forecast 支。question-bank 的「回灌落地仍欠」在实验出结论前不改：接线 ≠ 验证。
+## 踩过的坑
+- **`cli ask` 默认 `compose=False`**，契约注入点在 `ask.py:4129` 的 `if options.compose:` 内；生产入口（`api/app.py:1455`、`conversation_orchestrator.py:2859`、`chat`/`agent`）全 True。只有 `cli ask` 关着，首次 e2e 恰好测了它，结论反了。
+- `--llm-timeout` 默认 60 秒要在 brief/composer/judge 间分，合成抛 `LLMDeadlineExceeded` 降级模板；「超过共享截止时间」是**我们自己的** deadline，不是网关慢。
+- 台架漏传 `thinking:{"type":"disabled"}` → 推理 token 吃光 `max_tokens` → 加契约的臂 `content` 全 0，读数反向。另：反证检测词用通用词会假阳，须用证据独有的数字。
