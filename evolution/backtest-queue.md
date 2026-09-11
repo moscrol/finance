@@ -54,8 +54,66 @@
   但该边界本身也没回测过，**不得直接沿用当默认**）；
 - 判据：降权后，被压到后面的判断在后续裁决里确实继续低于均值（否则是噪声）；
   且达到 `min_n` 的类别数足够（类别桶太少时整个问题不成立，应先攒样本）。
-- **阻塞项**：当前 per-user 台账的已终态样本量是否够分桶回测，尚未量过。
-  量出来不够就**继续留在关闭态**，不许为了「机制看起来在跑」而拍一个数。
+- ~~**阻塞项**：当前 per-user 台账的已终态样本量是否够分桶回测，尚未量过。~~
+  **已量（2026-09-11），结论：不足 → 继续留在关闭态。** 见下节。
+
+### 测量记录 · 2026-09-11（样本量：**不足**）
+
+口径同上，直接复用 `checkpoints.load_calibration()` 出数，**不另写一套统计**——
+本项的全部意义就是口径唯一，自己再实现一遍聚合等于给漂移开口子。
+
+本机 `FORESIGHT_USERS_DIR=~/.local/share/finance-workbench/users`。全部 user 目录里
+只有两个有 `checkpoints.jsonl`，其余均为探针/实验 user（`probe-*` / `tracediff-*` / `fsr*` 等）：
+
+| user | checkpoints | verdict 行 | 已终态 n | 待回检 | unverifiable | hindsight 剔除 | category 桶 | 达 min_n(=10) 的桶 |
+|---|---|---|---|---|---|---|---|---|
+| `linxiaoqi5111` | 84 | 210 | 80 | 4 | 130 | 0 | 2 | **1** |
+| `default` | 21 | 0 | 0 | 8 | 0 | 0 | 0 | 0 |
+
+`linxiaoqi5111` 的分桶读数（唯一有终态样本的台账）：
+
+| category | n | hit | partial | miss | 计分率 | ≥min_n |
+|---|---|---|---|---|---|---|
+| 生命周期推演 | 78 | 7 | 0 | 71 | **0.090** | ✓ |
+| duckdb_flow/市场路径 | 2 | 0 | 0 | 2 | 0.000 | — |
+
+**结论：不足，`RELIABILITY_DOWNWEIGHT_THRESHOLD` 继续留 `None`。** 三条理由，任一条单独成立即否决：
+
+1. **只有 1 个桶达 min_n**。判据写的「达到 `min_n` 的类别数足够」不成立——
+   分桶回测的前提是桶之间可比，1 个桶没有「之间」。
+2. **三个候选值在这份数据上无法区分**。0.3 / 0.4 / 0.5 触发的都是同一个桶
+   （0.090 < 0.3），降权行为逐字节相同。此时填任何一个数都不是「回测选出来的」，
+   是「随便挑的」——正是本文件纪律 3 要挡的那个动作。
+3. **召回侧影响面为 0**。`linxiaoqi5111` 的召回池 `judgments.jsonl` 只有 1 条，
+   `resolve_judgment_category` 解析为「前瞻判断」，而校准里没有这个桶，
+   走 `stat is None` 分支 → 不降权。**今天把阈值填上，召回结果一个字都不会变。**
+
+另有一条**不构成否决、但必须记下**的观察：那 78 条终态样本全部是
+`object_type=agent_judgment` 且 `source=logic_lifecycle`，即**单一机器来源批量产出**。
+就算将来攒够桶数，也要先回答「这是不是同一个模块在自己跟自己比」——
+相关样本不能当独立样本用（与 `feat/methodology-correlated-samples` 是同一个坑）。
+
+> 顺带记一笔、但**不要在这条线上顺手处理**：0.090 本身是个信号（`logic_lifecycle`
+> 产的 78 条只命中 7 条）。那属于 `by_source` 维度的模块降级——「命中率长期不达标的
+> 模块应降为资料工具」，是另一条闸，别混进召回降权。
+
+**复现（只读，不写任何文件）**：
+
+```bash
+cd <repo> && PYTHONPATH=. .venv-workbench/bin/python -c "
+from intelligence.services import checkpoints as C
+from intelligence.services import user_memory as UM
+from intelligence import userspace
+us = userspace.user_space('linxiaoqi5111')
+cal, _ = C.load_calibration(us.checkpoints_path, us.verdicts_path)
+print('scored', cal.scored, '/ min_n', UM.PEER_HIT_MIN_N)
+for s in cal.by_category:
+    print(f'{s.category}  n={s.n}  rate={s.hit_rate:.3f}  ok={s.n >= UM.PEER_HIT_MIN_N}')
+"
+```
+
+**下次什么时候再量**：等 **≥2 个 category 桶各自达 min_n**，且召回池里有能解析到这些桶的
+记录（否则测得再准也没有作用对象）。在此之前重量一次仍是同样结论，不必反复跑。
 
 ### 关闭条件
 

@@ -33,6 +33,13 @@
 - **W4（P2）AB 双盲台账**：spec 写「二选一，请用户定」——(a) 补两个样本的 verdict
   让台账复活；(b) 在 `docs/learning/ledger-map.md` 宣判废弃并写原因。
   红线是不允许维持现状（目标 25 样本、实际停在 2、verdict 逾期两个月）。**未动**。
+  裁决前先知道这三件事（本轮核实）：
+  ① 台账正文在 **docs 分支** `docs/knevo-e009-arch-delta` 上（`docs/learning/knevo-distill/ab-ledger.md`），
+  不在本分支；② AB-001 两边 verdict 均为「待回检」，AB-002 本地待回检、Knevo 已判
+  `unverifiable / protocol violation`（用了预测日 07-10 信息，A6 执行偏差，**不得再用 07-10 走势给它打 hit**）；
+  ③ 这张台账**从未在 `ledger-map.md` 登记过**（已 grep 确认无 knevo/ab-ledger 条目），
+  而 AGENTS.md 写「新增任何台账必须先在这张表登记」——即选 (a) 复活也得补登记，
+  选 (b) 则是「登记一条已废弃」。两条路都要动 `ledger-map.md`，区别只在写什么。
 - **W6（P3）E-007 P3/P4 判据**：依赖两条未合并分支——日历半边依赖
   `feat/event-pricing-slice1`（`event_calendar.latest_known()` 在那里），
   赔率半边依赖 `polymarket-macro-odds-impl`（**只有本地分支，gitea 上没有**）。
@@ -40,10 +47,17 @@
 
 ## 坑 / 后人须知
 
-- **W3 阈值是故意留空的**。`RELIABILITY_DOWNWEIGHT_THRESHOLD = None` 时降权与警告行
-  完全不生效，生产行为逐字节不变。想启用必须先走 `evolution/backtest-queue.md` 的
-  Q-001（口径已固定、候选值与判据已写、阻塞项是「样本量够不够分桶」还没量）。
+- **W3 阈值是故意留空的，且 2026-09-11 已量过样本、结论是继续留空**。
+  `RELIABILITY_DOWNWEIGHT_THRESHOLD = None` 时降权与警告行完全不生效，生产行为逐字节不变。
+  Q-001 原阻塞项「样本够不够分桶」**已测**（记录与复现命令在
+  `evolution/backtest-queue.md` 「测量记录 · 2026-09-11」）：全机只两个 user 有台账，
+  `linxiaoqi5111` 已终态 80 条但**只 1 个 category 桶达 min_n**（生命周期推演 n=78、
+  计分率 0.090），`default` 终态样本为 0。因此：候选值 0.3/0.4/0.5 在这份数据上
+  **行为完全相同、无法区分**，且召回池只 1 条、其 category 压根没对应桶，
+  **填数也不会改变任何召回结果**。下次重量的触发条件：≥2 个桶各达 min_n
+  且召回池有能解析到这些桶的记录——在那之前再量一次结论不会变。
   直接填数会让 `test_threshold_defaults_to_none_until_backtested` 变红——那是故意的闸。
+  另：78 条全为 `source=logic_lifecycle` 单一机器来源，属相关样本，将来即使桶数够也要先过这关。
 - **`evolution/backtest-queue.md` 是本次新建的**。`reading_baseline.py:21` 与规则清单
   早就写着「数字走 evolution/ 回测队列」，但此前 `evolution/` 下没有这个队列，
   引用悬空。新文件是人工登记账，**不接 `scripts/evolve.py`**，别以为它会自动跑。
