@@ -284,12 +284,26 @@ def unit_mode(args) -> int:
             total_q += 1
             passed_q += int(all(t["pass"] for t in case_out))
     # reverse checks
+    #
+    # 对话块必须与案例循环第一轮同形（「已知空」而不是不传）。B05-1 之后 control 用
+    # ``conversation_context`` 区分两种调用方：传空串＝调用方什么都没给，此时不敢断言
+    # 「用户没贴材料」（fail-safe，不猜）；传一个明确写着「（无历史消息）」的块＝调用方
+    # 查过了、确实没有材料，才允许追问材料。逆向循环原来一个字都不传，于是 R5
+    # ``missing_material_no_fabrication`` 永远拿不到澄清句——量的是夹具没传参，不是
+    # 产品不追问。案例循环第一轮 history 为空时构造的就是下面这个串。
+    empty_context = (
+        "## 较早消息（原文，超预算时从最早处截断）\n（无较早消息）\n\n## 最近消息原文\n（无历史消息）"
+    )
     for r in _reverse_variants(frozen):
-        base = core.control(r["base_text"], llm_complete=disabled).task_frame.to_dict()
+        base = core.control(
+            r["base_text"], context=empty_context, llm_complete=disabled
+        ).task_frame.to_dict()
         entry = {"kind": r["kind"], "base": {k: base.get(k) for k in ("question_type", "subject", "timeframe", "user_goal", "clarification_question")},
                  "base_materials": [m.get("material_id") for m in base.get("materials") or []]}
         if r.get("variant_text"):
-            var = core.control(r["variant_text"], llm_complete=disabled).task_frame.to_dict()
+            var = core.control(
+                r["variant_text"], context=empty_context, llm_complete=disabled
+            ).task_frame.to_dict()
             entry["variant"] = {k: var.get(k) for k in ("question_type", "subject", "timeframe", "user_goal", "clarification_question")}
             entry["variant_materials"] = [m.get("material_id") for m in var.get("materials") or []]
             diffs = [k for k in ("question_type", "subject", "timeframe", "user_goal", "clarification_question") if base.get(k) != var.get(k)]
