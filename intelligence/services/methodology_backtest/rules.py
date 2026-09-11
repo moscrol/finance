@@ -67,6 +67,8 @@ LABEL_KINDS: dict[str, tuple[str, str]] = {
     "limit_heat_rank": ("theme", "num"),
     "limit_heat_rank_jump": ("theme", "bool"),
     "mainline_flag": ("theme", "bool"),
+    # 舆论生命周期段（#36 / G-06）：文本标签，词表见 opinion_stage.STAGES + "unverifiable"。
+    "opinion_stage": ("theme", "text"),
     "market_stage": ("market", "text"),
     "volume_surge": ("market", "bool"),
     "ma5_peak_confirmed": ("market", "bool"),

@@ -58,6 +58,76 @@ export interface Followup {
   full_prompt?: string;
   rationale?: string;
   source?: string;
+  type_label?: string;
+  angle?: string;
+  /** 09 连续研究：三分法种类 gap_fill | alternative_explanation | condition_test | continue。 */
+  kind?: string;
+  kind_label?: string;
+  /** 点击后要继承的研究坐标（对象 / 站立日 / 题型），不是正文。 */
+  inherits?: Record<string, string>;
+}
+
+/** 卡片点击时随消息一起 POST 的延续坐标；服务端核验 run 归属后落在用户消息上。 */
+export interface FollowupContinuation {
+  run_id: string;
+  kind?: string;
+  source?: string;
+  label?: string;
+  full_prompt?: string;
+  inherits?: Record<string, string>;
+}
+
+export interface ResearchProjectRound {
+  index: number;
+  run_id: string;
+  question: string;
+  asked_at: string;
+  status: string;
+  as_of: string | null;
+  question_type: string;
+  subject: string;
+  answer_headline: string;
+  citations: number;
+  artifacts: string[];
+  open_gaps: string[];
+  warnings: string[];
+  followups: Followup[];
+  continuation: FollowupContinuation | null;
+}
+
+export interface ResearchProjectTrigger {
+  kind: string;
+  id: string;
+  claim: string;
+  due: string;
+  status: "hit" | "miss" | "partial" | "unverifiable" | "due" | "pending" | string;
+  checked_at: string | null;
+  source: string;
+  themes: string[];
+  linked: "conversation" | "subject" | string;
+}
+
+/** `GET /api/conversations/{id}/research-project`：现有 run / 消息 / 判断轨的只读投影。 */
+export interface ResearchProject {
+  conversation_id: string;
+  user_id: string;
+  title: string;
+  subject: string;
+  question_type: string;
+  as_of: string | null;
+  updated_at: string;
+  rounds: ResearchProjectRound[];
+  completed_rounds: number;
+  current_judgment: string;
+  open_questions: string[];
+  materials_read: number;
+  artifacts: string[];
+  triggers: ResearchProjectTrigger[];
+  next_questions: Followup[];
+  prior_status: string | null;
+  prior_note: string;
+  origin_conversation_id: string | null;
+  warnings: string[];
 }
 
 export interface EvidenceItem {
@@ -569,6 +639,7 @@ export interface ChatMessage {
   citations: Array<Record<string, unknown>>;
   degrades: string[];
   followups?: Followup[];
+  continuation?: FollowupContinuation | null;
 }
 
 export type SkillMode = "manual" | "auto" | "hybrid";
@@ -600,6 +671,7 @@ export interface CreateMessageRequest {
   perspective_mode?: PerspectiveMode;
   selected_perspective_ids?: string[];
   user?: string;
+  continuation?: FollowupContinuation;
 }
 
 export interface CreateMessageResponse {

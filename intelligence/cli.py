@@ -471,12 +471,19 @@ def add_answer_score_parser(subparsers: argparse._SubParsersAction) -> None:
         "--rule-id",
         default=None,
         help="这张卡对应的方法论规则 rule_id（methodology/rules/<rule_id>.v<n>.json）。给了就过统计门："
-        "promoted / methodology / promoted_to_code 要求该规则最近一次回测收据为 supported，否则拒绝落卡（退出码 2）",
+        "promoted / methodology / promoted_to_code 要求该规则通过统一晋升认证"
+        "（同身份 discovery → validation → holdout 三段链，与 methodology_backtest.py queue 同口径），"
+        "否则拒绝落卡（退出码 2）",
     )
     parser.add_argument(
         "--receipts-dir",
         default=None,
         help="回测收据目录（默认 methodology/receipts），只在 --rule-id 时读取",
+    )
+    parser.add_argument(
+        "--rules-dir",
+        default=None,
+        help="规则目录（默认 methodology/rules），只在 --rule-id 时读取（锁定当前生效规则内容的身份）",
     )
     parser.set_defaults(func=cmd_answer_score)
 
@@ -922,7 +929,9 @@ def cmd_answer_score(args: argparse.Namespace) -> int:
         rule_id = str(getattr(args, "rule_id", None) or "").strip() or None
         rule_verdict: str | None = None
         rule_receipt: str | None = None
+        method_state: dict | None = None
         if rule_id:
+            from intelligence.services.methodology_backtest import lifecycle
             from intelligence.services.methodology_backtest.receipts import latest_receipt
 
             receipts_dir = (
@@ -930,10 +939,18 @@ def cmd_answer_score(args: argparse.Namespace) -> int:
                 if getattr(args, "receipts_dir", None)
                 else userspace.REPO_ROOT / "methodology" / "receipts"
             )
+            rules_dir = (
+                Path(args.rules_dir).expanduser()
+                if getattr(args, "rules_dir", None)
+                else userspace.REPO_ROOT / "methodology" / "rules"
+            )
             receipt = latest_receipt(receipts_dir, rule_id)
             if receipt is not None:
                 rule_verdict = str(receipt.get("verdict") or "") or None
                 rule_receipt = receipt.get("_path")
+            # 统一晋升认证（工单 #42 第二刀）：与 queue 同一推导，不再单看一份收据
+            state = lifecycle.state_for_rule(rules_dir, receipts_dir, rule_id)
+            method_state = state.to_dict() if state is not None else None
         us = userspace.user_space(args.user)
         card_path = Path(args.card_file).expanduser() if args.card_file else us.experience_cards_path
         try:
@@ -949,6 +966,7 @@ def cmd_answer_score(args: argparse.Namespace) -> int:
                 rule_id=rule_id,
                 rule_verdict=rule_verdict,
                 rule_receipt=rule_receipt,
+                method_state=method_state,
             )
         except experience_cards.PromotionGateError as exc:
             print(f"统计门拒绝：{exc.gate.reason}", file=sys.stderr)
@@ -1289,6 +1307,96 @@ def cmd_kb_queue_receive(args: argparse.Namespace) -> int:
     if result.status == "warn":
         print(f"WARN kb-queue-receive: {result.reason}", file=sys.stderr)
     # 归档失败不阻断复盘；skipped/warn 都当成功退出。
+    return 0
+
+
+def add_data_requests_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "data-requests",
+        help="问题驱动补数：聚合回答里的 window_uncovered 缺口 → 请求 → 覆盖检查 → 隔离补齐 → 恢复原研究",
+    )
+    parser.add_argument(
+        "action",
+        choices=["build", "check", "fill", "resume", "status"],
+        help="build 只列请求；check 加覆盖检查；fill 在隔离库上调现有 writer；resume 重问已满足的消费者；status = check + 回执摘要",
+    )
+    parser.add_argument("--runs-dir", default=None, help="users 根目录或 run_* 目录；缺省 FORESIGHT_USERS_DIR")
+    parser.add_argument(
+        "--users-dir",
+        default=None,
+        help="回执（data_request_receipts.jsonl）所在 users 根；缺省跟随 --runs-dir——回执必须与消费者同域，否则重放键对不上（2026-09-09 实测把回执写进了另一棵 users 树）",
+    )
+    parser.add_argument("--since", default="30d", help="只看该时间之后的事件（7d / 24h / ISO / all）")
+    parser.add_argument("--db", default=None, help="要检查 / 补齐的 DuckDB；缺省 MARKET_FEATURE_STORE_DB / 数据根 db/")
+    parser.add_argument("--request-id", action="append", default=[], help="只处理这些请求（可重复）")
+    parser.add_argument("--workbench-url", default=None, help="resume 用：Workbench API 根地址，例如 http://127.0.0.1:8792")
+    parser.add_argument("--dry-run", action="store_true", help="fill / resume 只打印计划")
+    parser.add_argument("--no-historical-workaround", action="store_true", help="fill sw_l1 历史窗时不关实时步（复现日期覆写）")
+    parser.add_argument("--out", default=None, help="把产物 JSON 写到该路径（同名 .md 一起写）")
+    parser.set_defaults(func=cmd_data_requests)
+
+
+def cmd_data_requests(args: argparse.Namespace) -> int:
+    from intelligence import userspace
+    from intelligence.paths import default_market_db_path
+    from intelligence.services import data_requests as dr
+
+    runs_root = Path(args.runs_dir).expanduser() if args.runs_dir else userspace.users_dir()
+    db_path = Path(args.db).expanduser() if args.db else default_market_db_path()
+    since = dr.parse_since(args.since)
+    events = dr.collect_gap_events(runs_root, since=since)
+    requests = dr.build_requests(events)
+    if args.request_id:
+        wanted = set(args.request_id)
+        requests = [r for r in requests if r.request_id in wanted]
+    completions: list[dr.Completion] = []
+    extra: dict[str, object] = {}
+    repo_root = Path(__file__).resolve().parents[1]
+    if args.action in {"check", "fill", "resume", "status"}:
+        completions = dr.check_requests(requests, db_path=db_path)
+    if args.action == "fill":
+        extra["fills"] = [
+            dr.fill_request(
+                r,
+                db_path=db_path,
+                dry_run=args.dry_run,
+                historical_workaround=not args.no_historical_workaround,
+                repo_root=repo_root,
+            )
+            for r in requests
+        ]
+        if not args.dry_run:
+            completions = dr.check_requests(requests, db_path=db_path)
+    # 回执域与消费者域必须一致：--users-dir > --runs-dir > env。
+    receipts_root = (
+        Path(args.users_dir).expanduser()
+        if args.users_dir
+        else (runs_root if args.runs_dir else userspace.users_dir())
+    )
+    if args.action == "resume":
+        extra["completed_receipts"] = dr.record_completions(completions, users_dir=receipts_root)
+        actions, skipped = dr.plan_resume(completions, users_dir=receipts_root)
+        extra["resume_skipped"] = skipped
+        extra["resume_results"] = dr.execute_resume(
+            actions,
+            users_dir=receipts_root,
+            workbench_url=args.workbench_url,
+            dry_run=args.dry_run,
+        )
+    if args.action == "status":
+        users = sorted({str(c.get("user")) for r in requests for c in r.consumers if c.get("user")})
+        extra["receipts"] = {user: dr.load_receipts(receipts_root, user) for user in users}
+    artifact = dr.wrap_artifact(requests, completions, runs_root=runs_root, since=args.since, db_path=db_path)
+    artifact.update(extra)
+    if args.out:
+        out_path = Path(args.out).expanduser()
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
+        out_path.with_suffix(".md").write_text(dr.render_markdown(artifact), encoding="utf-8")
+        print(out_path)
+        print(out_path.with_suffix(".md"))
+    else:
+        print(json.dumps(artifact, ensure_ascii=False, indent=2, default=str))
     return 0
 
 
@@ -1668,25 +1776,6 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
     server.serve(server.build_config(args))
     return 0
-
-
-def add_feishu_bot_parser(subparsers: argparse._SubParsersAction) -> None:
-    from intelligence.chat import feishu_bot
-
-    parser = subparsers.add_parser(
-        "feishu-bot",
-        help="飞书 IM 入口（已退役；调用 exit 2。问答用 ask / Workbench Episode）",
-        description="飞书 IM 入口（已退役）。不连 WebSocket；问答用 ask / Workbench Episode。",
-    )
-    feishu_bot.add_arguments(parser)
-    parser.set_defaults(func=cmd_feishu_bot)
-
-
-def cmd_feishu_bot(args: argparse.Namespace) -> int:
-    from intelligence.chat import feishu_bot
-
-    _ = args  # 旧旗标仍可解析，退役闸不读凭据、不连 WebSocket
-    return feishu_bot.run()
 
 
 def add_dream_collect_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -3160,6 +3249,10 @@ def cmd_observation_confirm(args: argparse.Namespace) -> int:
         knowledge_cutoff=draft.knowledge_cutoff if draft else None,
         user_id=us.user_id,
         status="confirmed",
+        # 从切片确认的剧本带着带读投影的哈希（工单 #34）；没有 --from-slice 的是用户手写，
+        # 没有投影可引用——登记时显式声明 user_authored，台账单列，而不是伪造一个哈希。
+        projection_hash=draft.projection_hash if draft else None,
+        model_id=draft.model_id if draft else None,
     )
     # late 判据用**交易日历**而不是自然日：周六补做周五的功课不该被判迟到。
     # 查不到日历（无库 / 老库）时 register 内部回落自然日——更早的截止线，安全方向。
@@ -3172,6 +3265,7 @@ def cmd_observation_confirm(args: argparse.Namespace) -> int:
             due=args.due,
             next_open=next_open,
             db_path=args.db_path,
+            user_authored=draft is None,
         )
     except observation_script.ObservationScriptRejected as exc:
         return _print_rejections(exc, args.json)
@@ -3924,6 +4018,111 @@ def cmd_digest(args: argparse.Namespace) -> int:
     return 0
 
 
+def add_steer_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "steer",
+        help="给正在跑的 episode 递一句话（运行底座 P3 收件箱，INV-R5）。跨进程走 durable 目录的投递槽："
+        "写进 <episode_dir>/inbox-spool/，loop 在下一次模型请求前认领；--wait 轮询 events.jsonl 拿回执。",
+    )
+    parser.add_argument(
+        "episode_id",
+        nargs="?",
+        help="episode id（= 契约 task_id，形如 run_…:msg_…）；--list 列出 store 里未收口的",
+    )
+    parser.add_argument("text", nargs="?", help="要递的话（user 角色）")
+    parser.add_argument(
+        "--target",
+        choices=("next_step", "next_turn"),
+        default="next_step",
+        help="next_step=下一次模型请求前送达（默认）；next_turn=模型停下时送达并让它再跑一轮",
+    )
+    parser.add_argument("--source", default="cli", help="进 inbox_inserted.source 的来源标记（默认 cli）")
+    parser.add_argument(
+        "--wait",
+        type=float,
+        default=0.0,
+        metavar="SECONDS",
+        help="投递后最多等 N 秒回执（inserted / claimed / discarded），默认不等",
+    )
+    parser.add_argument(
+        "--store-root",
+        default=None,
+        help="覆盖 episode store 根（默认 FORESIGHT_EPISODE_STORE > $FINANCE_WS/state/episodes > "
+        "~/.finance-runtime/episodes；必须与 Workbench 进程一致，否则是另一个家）",
+    )
+    parser.add_argument("--list", action="store_true", dest="list_open", help="只列出 store 里未收口的 episode，不递话")
+    parser.set_defaults(func=cmd_steer)
+
+
+def cmd_steer(args: argparse.Namespace) -> int:
+    from intelligence.services.episode_steer import (
+        EpisodeFinished,
+        EpisodeNotFound,
+        SteerError,
+        deliver_steer,
+        list_open_episodes,
+        wait_receipt,
+    )
+    from intelligence.services.episode_store import resolve_episode_store_root
+
+    root = Path(args.store_root).expanduser() if args.store_root else resolve_episode_store_root()
+    if args.list_open:
+        print(
+            json.dumps(
+                {"store_root": str(root), "open_episodes": list(list_open_episodes(root))},
+                ensure_ascii=False,
+            )
+        )
+        return 0
+    if not args.episode_id or not str(args.text or "").strip():
+        print(
+            json.dumps(
+                {"ok": False, "error": "usage", "detail": "需要 <episode_id> <text>，或 --list"},
+                ensure_ascii=False,
+            ),
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        delivery = deliver_steer(
+            store_root=root,
+            episode_id=args.episode_id,
+            content=args.text,
+            target=args.target,
+            source=args.source,
+        )
+    except EpisodeNotFound as exc:
+        print(json.dumps({"ok": False, "error": exc.code, "detail": str(exc)}, ensure_ascii=False), file=sys.stderr)
+        return 2
+    except EpisodeFinished as exc:
+        print(json.dumps({"ok": False, "error": exc.code, "detail": str(exc)}, ensure_ascii=False), file=sys.stderr)
+        return 1
+    result: dict[str, object] = {
+        "ok": True,
+        **delivery.to_dict(),
+        "delivery": "queued_in_spool",
+        "receipt": None,
+    }
+    if args.wait > 0:
+        try:
+            receipt = wait_receipt(
+                store_root=root,
+                episode_id=args.episode_id,
+                spool_id=delivery.spool_id,
+                timeout_s=args.wait,
+            )
+        except SteerError as exc:
+            result["receipt_error"] = str(exc)
+        else:
+            result["receipt"] = receipt.to_dict() if receipt is not None else None
+            if receipt is None:
+                result["receipt_note"] = "等待期内未见 inbox_inserted：loop 还没到认领点，或 episode 刚收口"
+            elif not receipt.settled:
+                result["receipt_note"] = "已入箱、尚未认领"
+    print(json.dumps(result, ensure_ascii=False))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Financial intelligence product CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -3951,9 +4150,9 @@ def build_parser() -> argparse.ArgumentParser:
     add_theme_parser(subparsers)
     add_kb_queue_status_parser(subparsers)
     add_kb_queue_receive_parser(subparsers)
+    add_data_requests_parser(subparsers)
     add_l3_ingest_parser(subparsers)
     add_serve_parser(subparsers)
-    add_feishu_bot_parser(subparsers)
     add_dream_collect_parser(subparsers)
     add_dream_mine_parser(subparsers)
     add_dream_evolve_suggest_parser(subparsers)
@@ -3969,6 +4168,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_self_use_parser(subparsers)
     add_tool_hunger_parser(subparsers)
     add_news_alias_parser(subparsers)
+    add_steer_parser(subparsers)
     return parser
 
 

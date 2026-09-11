@@ -1,0 +1,17 @@
+# 判官修复 01 · 冻结样本（2026-09-09 选定，选定后不增删）。列：run_id  user  首个损失点(存证口径)  题
+# 选法：真实用户 linxiaoqi5111 / default 自 08-19 起的失败题按损失层分层抽样 + 08-26 边界探针；判卷点 = scripts/judge_loss_point_replay.py
+run_20260819_130854_564464  linxiaoqi5111  L1_structural_block   用SPT视角看2026-08-18的盘面（prime_quote 未绑定）
+run_20260819_150619_853880  linxiaoqi5111  L1_structural_block   长电科技怎么看（三个必需输出未绑定）
+run_20260819_152635_937314  linxiaoqi5111  L1_structural_block   立新能源现在贵不贵（估值五格未绑定）
+run_20260820_032014_595378  linxiaoqi5111  L1_structural_block   液冷服务器题材产业链拆解（草稿为空）
+run_20260828_170910_375000  linxiaoqi5111  L2_judge_unavailable  长电科技怎么看（草稿 526 → 公开 44）
+run_20260828_171124_251680  linxiaoqi5111  L2_judge_unavailable  长电科技怎么看（结构 completed，判官不可用）
+run_20260823_234732_212711  linxiaoqi5111  L2_judge_unavailable  明天你怎么看（判官不可用但候选放行）
+run_20260821_015459_794701  linxiaoqi5111  L4_repair_loss        创新药发酵链路回溯（草稿 879 → 公开 253，counterpoint 缺口）
+run_20260821_171744_929436  linxiaoqi5111  L4_repair_loss        钙钛矿电池发酵路径（chain_mapping 缺口）
+run_20260821_114642_385979  default        L4_repair_loss        钙钛矿电池发酵（direct_assessment+counterpoint 缺口）
+run_20260820_232546_153949  linxiaoqi5111  L4_repair_loss        低空经济发酵（证据 2 条，chain_mapping 缺）
+run_20260820_132333_157461  linxiaoqi5111  L0_no_evidence        2026-07-23 连板梯队（零证据）
+run_20260826_163351_525146  boundary-b7-tomorrow-cert-20260826  boundary  明日确定性（边界探针 b7）
+run_20260826_163411_620031  boundary-b8-out-of-window-20260826  boundary  窗口外日期（边界探针 b8）
+run_20260826_162652_410019  boundary-b2-fake-sector-20260826    boundary  虚构板块（边界探针 b2）

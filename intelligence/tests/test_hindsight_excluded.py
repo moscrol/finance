@@ -80,6 +80,8 @@ class Hop3ScriptToCheckpoint(unittest.TestCase):
             recorded_at="2026-09-03T08:00:00+08:00",
             status="confirmed",
             hindsight=hindsight,
+            projection_hash="cp:fixture000000001",  # 工单 #34：从切片派生的剧本必带投影哈希
+            model_id="deterministic",
         )
 
     def test_flag_reaches_the_checkpoint_record(self) -> None:

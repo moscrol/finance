@@ -75,7 +75,7 @@
 | 出口 | 语义 | 可观测 |
 |---|---|---|
 | 跳过 | 九道之一不成立，或剩余槛 ≤ 0 | 无事件 |
-| 补发成功 | 一条 `tool_request`（`call_id=empty-pool-fallback-1`，`fallback_query=True`，`original_arguments`，`as_of`）+ `tool_result` | 事件 + 模型看到一条新工具消息 |
+| 补发成功 | 一条 `application_tool_call`（声明：`source=empty_pool_fallback` + 调用身份与参数，2026-09-09 补）→ 一条 `tool_request`（`call_id=empty-pool-fallback-1`，`fallback_query=True`，`original_arguments`，`as_of`）+ `tool_result` | 事件 + 模型看到一条 `assistant.tool_calls` 声明和紧跟的新工具消息。声明缺失时那条工具消息是孤儿，OpenAI 兼容接口回 400（M3 / M6 真实 run） |
 | 补发仍空 / 失败 | 同上，但 `tool_result` 为空 / `tool_error` | 「第二次仍空就停」——不会再有第三枪，因为下一批 `already_attempted` 为真 |
 
 **恰好一次**不靠变量，靠扫 durable 事件（`fallback_already_attempted` :56：`fallback_query` 标记或

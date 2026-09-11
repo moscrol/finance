@@ -29,6 +29,7 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
     is_transient_model_error,
 )
+from intelligence.services.episode_messages import EpisodeMessage, to_provider
 from intelligence.services.evidence_capabilities import EvidencePlan
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.mode_governor import ModeSignals
@@ -261,7 +262,16 @@ def test_progress_sink_observes_append_only_events_before_and_during_model_work(
     class ProgressAwareModel(ScriptedModel):
         def complete(self, *, messages, tools, timeout):
             if not self.calls:
-                assert [event.kind for event in observed] == ["task"]
+                # 首轮请求前 durable 侧已有四条：configure（配置快照，唯一允许先于 task 的
+                # 事件）、task、模型可见即已落账（INV-R1）要求的 prompt_assembled——system 与
+                # 首轮 user 先落事件再进 messages——以及效果三明治（INV-R2）的 model_intent：
+                # 向 provider 开口之前，意图必须已经在日志里。
+                assert [event.kind for event in observed] == [
+                    "configure",
+                    "task",
+                    "prompt_assembled",
+                    "model_intent",
+                ]
             return super().complete(messages=messages, tools=tools, timeout=timeout)
 
     frame = _frame()
@@ -2230,11 +2240,24 @@ def test_tool_batch_completes_in_reverse_but_returns_original_transcript_order()
         event.payload["task_frame_hash"] == frame.task_frame_hash
         for event in outcome.events
     )
+    # 效果三明治（INV-R2）：一批里**每个**要派发的调用先落意图、再进线程池，所以两条
+    # tool_request 先于任何 tool_result；结算仍按模型给出的顺序回来（与上面 messages
+    # 的 call-1 / call-2 顺序一致），完成顺序（call-2 先）只体现在 runner 里。
     assert [
         event.kind
         for event in outcome.events
         if event.kind in {"tool_request", "tool_result", "tool_error"}
-    ] == ["tool_request", "tool_result", "tool_request", "tool_result"]
+    ] == ["tool_request", "tool_request", "tool_result", "tool_result"]
+    assert [
+        event.payload["call_id"]
+        for event in outcome.events
+        if event.kind in {"tool_request", "tool_result"}
+    ] == ["call-1", "call-2", "call-1", "call-2"]
+    assert all(
+        event.payload["replay"] == "safe"
+        for event in outcome.events
+        if event.kind == "tool_request"
+    )
 
 
 def test_evidence_injection_does_not_mutate_system_message() -> None:
@@ -2687,7 +2710,7 @@ def test_accumulator_strips_raw_timeout_detail_before_the_model() -> None:
 
     sentinel = "TimeoutError: RAW_TIMEOUT_EXCEPTION_SENTINEL"
     frame = _frame()
-    messages: list[dict[str, object]] = []
+    messages: list[EpisodeMessage] = []
     accumulator = _EpisodeToolAccumulator(
         messages=messages,
         ledger=_EpisodeLedger(frame),
@@ -2706,8 +2729,9 @@ def test_accumulator_strips_raw_timeout_detail_before_the_model() -> None:
         normalized_queries=(),
     )
     accumulator.consume(batch, _context(frame))
-    payload = json.loads(str(messages[-1]["content"]))
-    blob = json.dumps({"messages": messages}, ensure_ascii=False)
+    wire = to_provider(messages)
+    payload = json.loads(str(wire[-1]["content"]))
+    blob = json.dumps({"messages": wire}, ensure_ascii=False)
     assert payload["error"] == "tool_timeout"
     assert payload["detail"] == ""
     assert sentinel not in blob
@@ -2726,7 +2750,7 @@ def test_accumulator_forwards_positive_grant_to_the_model() -> None:
 
     sentinel = "TimeoutError: RAW_TIMEOUT_EXCEPTION_SENTINEL"
     frame = _frame()
-    messages: list[dict[str, object]] = []
+    messages: list[EpisodeMessage] = []
     accumulator = _EpisodeToolAccumulator(
         messages=messages,
         ledger=_EpisodeLedger(frame),
@@ -2752,8 +2776,9 @@ def test_accumulator_forwards_positive_grant_to_the_model() -> None:
         normalized_queries=(),
     )
     accumulator.consume(batch, _context(frame))
-    payload = json.loads(str(messages[-1]["content"]))
-    blob = json.dumps({"messages": messages}, ensure_ascii=False)
+    wire = to_provider(messages)
+    payload = json.loads(str(wire[-1]["content"]))
+    blob = json.dumps({"messages": wire}, ensure_ascii=False)
     assert payload["error"] == "tool_timeout"
     assert payload["detail"] == "stage_timeout_granted=11.5"
     assert sentinel not in blob
@@ -2799,7 +2824,8 @@ def test_zero_grant_timeout_tells_model_it_was_not_dispatched() -> None:
         if message.get("role") == "tool"
     ]
     assert tool_messages, outcome.stop_reason
-    assert tool_messages[0]["error"] == "tool_timeout"
+    # 零授权未派发：码是 tool_not_dispatched，不是 tool_timeout（INV-R4，#28）。
+    assert tool_messages[0]["error"] == "tool_not_dispatched"
     assert tool_messages[0]["detail"] == stage_timeout_granted_detail(0.0)
     assert "stage_timeout_granted=0" in json.dumps(outcome.to_dict(), ensure_ascii=False)
 
@@ -3295,28 +3321,51 @@ def test_budget_injection_asks_for_parallel_batches_with_the_tier_cap() -> None:
     """派发节奏（收据 §10）：19 轮那遍连续 17 轮每轮只点 1 个工具，历史重发 96 万字。
     预算注入此前只说「不得超过」（上限），现在把每批帽和「一起点」写进同一条；数字 = min(帽, 剩余)。"""
 
-    messages: list[dict[str, object]] = [
-        {"role": "tool", "tool_call_id": "c1", "content": json.dumps({"ok": True, "tool": "market_data"})}
-    ]
+    class RecordingLedger:
+        """预算注入的 durable 载体（INV-R1）：模型看到的整段 content 落 tool_budget_state。"""
+
+        def __init__(self) -> None:
+            self.events: list[tuple[str, dict[str, object]]] = []
+
+        def add(self, kind: str, payload: dict[str, object]) -> None:
+            self.events.append((kind, dict(payload)))
+
+    from intelligence.services.episode_messages import tool_message
+
+    ledger = RecordingLedger()
+    # loop 里的消息是 EpisodeMessage（P1）：量具走同一类型，读属性不拿字典。
+    messages = [tool_message("c1", json.dumps({"ok": True, "tool": "market_data"}))]
     injected = ContinuousAgentEpisode._append_tool_budget_state(
-        messages=messages, remaining_slots=22, remaining_seconds=400.0, total_seconds=600.0, per_batch_cap=8,
+        messages=messages,
+        ledger=ledger,
+        remaining_slots=22,
+        remaining_seconds=400.0,
+        total_seconds=600.0,
+        per_batch_cap=8,
     )
     assert injected is True
-    budget = json.loads(messages[-1]["content"])["runtime_budget"]
+    budget = json.loads(messages[-1].content)["runtime_budget"]
     assert budget["per_batch_cap"] == 8
     assert "互不依赖的工具应在同一轮一起点出（本轮最多 8 个）" in budget["instruction"]
     assert "只有下一步取决于上一步结果时才逐轮点" in budget["instruction"]
     assert "不得超过 remaining_tool_calls" in budget["instruction"]  # 上限那句仍在
+    # durable 载体与模型可见正文同一份（模型可见即已落账）。
+    assert [kind for kind, _payload in ledger.events] == ["tool_budget_state"]
+    assert ledger.events[0][1]["model_content"] == messages[-1].content
 
     # 剩余 3 次、帽 8 → 本轮最多 3；帽 4（quick 标签的分支）→ 4。
     for slots, cap, expected in ((3, 8, 3), (22, 4, 4)):
-        msgs = [{"role": "tool", "tool_call_id": "c", "content": json.dumps({"ok": True})}]
-        ContinuousAgentEpisode._append_tool_budget_state(messages=msgs, remaining_slots=slots, per_batch_cap=cap)
-        assert json.loads(msgs[-1]["content"])["runtime_budget"]["per_batch_cap"] == expected
+        msgs = [tool_message("c", json.dumps({"ok": True}))]
+        ContinuousAgentEpisode._append_tool_budget_state(
+            messages=msgs, ledger=RecordingLedger(), remaining_slots=slots, per_batch_cap=cap
+        )
+        assert json.loads(msgs[-1].content)["runtime_budget"]["per_batch_cap"] == expected
     # 没传帽（旧调用方 / 参考 loop）→ 逐字节同前。
-    plain = [{"role": "tool", "tool_call_id": "c", "content": json.dumps({"ok": True})}]
-    ContinuousAgentEpisode._append_tool_budget_state(messages=plain, remaining_slots=22)
-    plain_budget = json.loads(plain[-1]["content"])["runtime_budget"]
+    plain = [tool_message("c", json.dumps({"ok": True}))]
+    ContinuousAgentEpisode._append_tool_budget_state(
+        messages=plain, ledger=RecordingLedger(), remaining_slots=22
+    )
+    plain_budget = json.loads(plain[-1].content)["runtime_budget"]
     assert "per_batch_cap" not in plain_budget and "一起点出" not in plain_budget["instruction"]
 
 
@@ -3615,6 +3664,28 @@ def test_model_failure_after_tools_close_gets_exactly_one_compact_recovery() -> 
     assert [event.kind for event in outcome.events].count(
         "finalization_recovery_started"
     ) == 1
+    # 兜底合成那段独立 prompt 也「模型可见即已落账」（P0 已知边界 a，P2 补）：
+    # 一条 prompt_assembled{source=finalizer}，正文哈希与第三次请求真发出的逐字节对得上；
+    # 它不进 episode 消息历史——派生器跳过它，严格模式下前两次请求的对账仍成立。
+    finalizer_prompts = [
+        event
+        for event in outcome.events
+        if event.kind == "prompt_assembled" and event.payload.get("source") == "finalizer"
+    ]
+    assert len(finalizer_prompts) == 1
+    recovery_call = model.calls[2]["messages"]
+    assert finalizer_prompts[0].payload["system"] == recovery_call[0]["content"]
+    assert finalizer_prompts[0].payload["user"] == recovery_call[1]["content"]
+    started = next(
+        event for event in outcome.events if event.kind == "finalization_recovery_started"
+    )
+    assert started.sequence < finalizer_prompts[0].sequence
+    episode_prompts = [
+        event
+        for event in outcome.events
+        if event.kind == "prompt_assembled" and "source" not in event.payload
+    ]
+    assert len(episode_prompts) == 1, "episode 自己那条形状不变（不带 source 键）"
 
 
 def test_invalid_finish_after_normal_repair_recovers_only_once() -> None:
@@ -4524,7 +4595,7 @@ def test_rejected_tool_message_carries_the_reason_to_the_model() -> None:
     from intelligence.services.agent_runtime import ModelToolCall
     from intelligence.services.evidence_ledger import EvidenceLedger
 
-    messages: list[dict[str, object]] = []
+    messages: list[EpisodeMessage] = []
     # 用真的构造函数，别拿 __new__ + setattr 拼桩：拼桩每加一个内部字段就断一次，
     # 而且断的时候看起来像被测代码坏了。
     accumulator = _EpisodeToolAccumulator(
@@ -4539,7 +4610,7 @@ def test_rejected_tool_message_carries_the_reason_to_the_model() -> None:
         "order_by must be an array",
     )
 
-    payload = json.loads(messages[-1]["content"])
+    payload = json.loads(to_provider(messages)[-1]["content"])
     assert payload["error"] == "invalid_arguments"
     assert payload["detail"] == "order_by must be an array"
 

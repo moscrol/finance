@@ -16,10 +16,12 @@
 已知的两处口径现实（实测 2026-09-05，不是设计意图）：
 
 - ``recorded_at`` 目前取自各事实表的 ``updated_at``。而 ``updated_at`` 是**刷新时间**
-  （`market_feature_store/schema.sql:10`），重发布会把它推到今天，所以它只是真实首次
-  入库时刻的**上界**——只会少算不会多算，因此 ``pit_grade`` 保守可信，但整条河的可
-  strict 段被系统性低估。工单 #27（`2026-09-05-river-recorded-at-workorder.md`）加
-  写一次不更新的 ``recorded_at`` 之后，本模块改读那一列，此处注释即可删。
+  （`market_feature_store/schema.sql:10`），重发布会把它推到今天，所以它只是这一行
+  **当前内容**至迟已知时刻的**上界**——只会少算不会多算，因此 ``pit_grade`` 保守可信，但
+  整条河的可 strict 段被系统性低估。**不要拿别的时刻来补这段低估**：名单快照台账的
+  ``captured_at`` 只能证明名单版本，证明不了这一行的内容（工单 #43 / 补强 spec OPT-01，
+  见 ``sector_recorded_at_sql``）。正路是 `2026-09-05-river-recorded-at-workorder.md` 给内容
+  加写一次不更新的 ``recorded_at``，之后本模块改读那一列，此处注释即可删。
 - **六条轨至少三套实体命名空间**：板块 / 题材 / 个股轨用 ``sector_ts_code`` +
   ``sector_name``；``fact_theme_flow_daily`` 用自己的 ``theme_name``；判断轨
   （``checkpoints.jsonl``）用自由文本 ``themes``。唯一的桥接表
@@ -51,10 +53,32 @@ PitGrade = Literal["strict", "trade_date_only"]
 # 排序键必须确定（金额降序 + 代码升序），否则「两次调用结果相同」这条验收会假绿。
 NODE_LIMIT = 10
 
+# 09-06 spec §4.2：有效期语义按 validity_kind 分三种，valid_to 才有确定含义。
+#   point —— 只对 valid_from 那一天成立（逐日标签、当日事件）
+#   state —— 从 valid_from 持续到被替代（阶段、叙事版本、判断）
+#   range —— 由区间派生（river_window_contract / river_derive），只由 window() 返回，不混进单点切片
+ValidityKind = Literal["point", "state", "range"]
+# 两类派生：deterministic（代码从事实算出，可进条件与统计）/ frozen_llm（模型写一次的散文，只进上下文）。
+Derivation = Literal["deterministic", "frozen_llm"]
+_STATE_OBJECT_TYPES = frozenset({"stage", "narrative_version", "checkpoint", "judgment", "observation_script", "verdict"})
+_FROZEN_LLM_OBJECT_TYPES = frozenset({"narrative_version"})
+
+
+def default_validity_kind(object_type: str) -> ValidityKind:
+    return "state" if object_type in _STATE_OBJECT_TYPES else "point"
+
+
+def default_derivation(object_type: str) -> Derivation:
+    return "frozen_llm" if object_type in _FROZEN_LLM_OBJECT_TYPES else "deterministic"
+
 
 @dataclass(frozen=True)
 class RiverObject:
-    """河上的一个对象。字段对齐 roadmap G-02 契约，v0 只落必需的那些。"""
+    """河上的一个对象。字段对齐 roadmap G-02 契约 + 09-06 spec §4.2 的 validity_kind / derivation。
+
+    两个新字段缺省按 ``object_type`` 映射（见 ``default_validity_kind / default_derivation``），
+    **不进 ``source_hash``**——它们是契约层的标注，不是主数据内容，加上不该改变任何现有对象的指纹。
+    """
 
     track: Track
     entity_id: str
@@ -64,6 +88,17 @@ class RiverObject:
     valid_from: str  # 世界里什么时候为真 = as-of 交易日
     recorded_at: str | None  # 系统什么时候知道；None = 不可判 → 整片降档
     payload: dict[str, Any] = field(default_factory=dict)
+    validity_kind: str | None = None  # None → 按 object_type 映射
+    derivation: str | None = None  # None → 按 object_type 映射
+    valid_to: str | None = None  # state：null = 现行；range：区间尾；point：= valid_from
+
+    def __post_init__(self) -> None:
+        if self.validity_kind is None:
+            object.__setattr__(self, "validity_kind", default_validity_kind(self.object_type))
+        if self.derivation is None:
+            object.__setattr__(self, "derivation", default_derivation(self.object_type))
+        if self.validity_kind == "point" and self.valid_to is None:
+            object.__setattr__(self, "valid_to", self.valid_from)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -73,7 +108,10 @@ class RiverObject:
             "ref": self.ref,
             "source_hash": self.source_hash,
             "valid_from": self.valid_from,
+            "valid_to": self.valid_to,
             "recorded_at": self.recorded_at,
+            "validity_kind": self.validity_kind,
+            "derivation": self.derivation,
             "payload": self.payload,
         }
 
@@ -187,53 +225,29 @@ def _ts(value: Any) -> str | None:
 
 
 # --------------------------------------------------------------------------- #
-# 板块系表的记录时刻：两个来源取较早
+# 板块系表的记录时刻：只认这一行自己的 `updated_at`
 # --------------------------------------------------------------------------- #
 # `updated_at` 是**刷新时间**（`schema.sql:10`），各 sync 一律
 # `ON CONFLICT DO UPDATE SET updated_at = excluded.updated_at`——重发布会把整段历史推到今天。
-# 关键性质：它只会**变晚、不会变早**。所以 `updated_at <= 交易日` 是「那时已存在」的
-# **充分**证据（可信），而 `updated_at > 交易日` **不是**「那时不存在」的证据（不可信）。
+# 关键性质：它只会**变晚、不会变早**。所以 `updated_at <= C` 是「这一行当前内容在 C 时已知」的
+# **充分**证据（可信），而 `updated_at > C` **不是**「那时不存在」的证据（不可信）——后者只能降档，不能猜。
 #
-# 快照台账 `ops_sector_universe_snapshot_daily.captured_at` 是那一版板块宇宙的真实抓取时刻，
-# 不随重发布移动，同样是存在性的合法证据。两个都在时取**较早**的那个。
-#
-# ⚠ 不要整轨换成 `captured_at`：实测资金轨 `fact_sector_stock_daily` 会从 47 天 strict
-# 掉到 20 天——台账 2026-07-27 才开始，之前的行都是 `snapshot_id='legacy'`，
-# 而它们的 `updated_at` 里有一批是诚实的。换源不是升级，取较早才是。
-#
-# 实测收益（2026-09-06 主库）：六轨联立可 strict 重放 **1 天 → 16 天**（2026-07-30~09-02）。
-# 存量 384 天仍是 legacy 无台账行，记录时刻确实丢了，不猜——它们继续按 trade_date_only 走。
-SECTOR_LEDGER_TABLE = "ops_sector_universe_snapshot_daily"
+# 曾经的做法（2026-09-06 ~ 09-08）：`LEAST(updated_at, 快照台账 captured_at)`，把六轨联立可 strict
+# 重放从 1 天抬到 16 天。**那 15 天建立在一个 writer 合同不保证的假设上**——「重发布不改内容」。
+# 快照台账 `ops_sector_universe_snapshot_daily.captured_at` 是**名单**那一版的抓取时刻；同一
+# generation 的行情被 sync 覆盖时 `sector_universe_snapshot_id` 不变、`captured_at` 也就不变。
+# 于是 T 日 1%、T+7 修订成 9% 的那一行，在 `C=T` 下会被标成 strict 并返回 9%：河替一个
+# 后来才知道的数背了书。工单 #43 / 补强 spec OPT-01 把这一支去掉——缩回去的每一天都是本来就
+# 证明不了的。要把覆盖面拿回来，正路是给内容加写一次不更新的 `recorded_at`
+# （`2026-09-05-river-recorded-at-workorder.md`），不是再找一个更早的别的时刻。
+def sector_recorded_at_sql(alias: str = "v") -> str:
+    """板块系表这一行内容的记录时刻表达式：就是它自己的 ``updated_at``。
 
-
-def sector_ledger_join(alias: str = "v") -> str:
-    """板块系表 → 快照台账的左连接。表不存在时调用方应跳过（见 ``_has_table``）。"""
-    return (
-        f" LEFT JOIN {SECTOR_LEDGER_TABLE} snap"
-        f" ON snap.snapshot_id = {alias}.sector_universe_snapshot_id "
-    )
-
-
-def sector_recorded_at_sql(alias: str = "v", *, with_ledger: bool = True) -> str:
-    """记录时刻表达式。``LEAST`` 在 DuckDB 里忽略 NULL（实测），故不必再包 COALESCE。
-
-    **审计脚本 `scripts/river_pit_audit.py` 按同一对函数取 SQL**，不各写一套——
+    **审计脚本 `scripts/river_pit_audit.py` 按同一个函数取 SQL**，不各写一套——
     两处口径必漂，而漂的时候审计会替河说谎（报的 strict 天数不是河真能给出的）。
+    名单快照台账的 ``captured_at`` 不在这里出现：它证明的是名单版本，不是行情内容（见上）。
     """
-    upd = f"CAST({alias}.updated_at AS TIMESTAMP)"
-    if not with_ledger:
-        return upd
-    # captured_at 带时区（Asia/Taipei = +08:00，与交易日同一时区），CAST 成朴素时间戳
-    # 取的就是当地墙上时间——正是要拿来和交易日比的那个量。
-    return f"LEAST({upd}, CAST(snap.captured_at AS TIMESTAMP))"
-
-
-def _has_table(con: Any, table: str) -> bool:
-    rows = con.execute(
-        "SELECT 1 FROM information_schema.tables WHERE table_schema='main' AND table_name=? LIMIT 1",
-        [table],
-    ).fetchall()
-    return bool(rows)
+    return f"CAST({alias}.updated_at AS TIMESTAMP)"
 
 
 def _rows(con: Any, sql: str, params: list[Any]) -> list[dict[str, Any]]:
@@ -283,16 +297,14 @@ def _market_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
             )
         )
 
-    ledger = _has_table(con, SECTOR_LEDGER_TABLE)
     quote = _rows(
         con,
         f"""
         SELECT v.trade_date, v.sector_ts_code, v.sector_name, v.sw_l1, v.pct_chg, v.amount,
                v.diff_ratio, v.strength, v.multi_period_resonance,
                v.sector_universe_snapshot_id,
-               {sector_recorded_at_sql("v", with_ledger=ledger)} AS recorded_at
+               {sector_recorded_at_sql("v")} AS recorded_at
         FROM fact_sector_daily v
-        {sector_ledger_join("v") if ledger else ""}
         WHERE CAST(v.trade_date AS DATE) = CAST(? AS DATE) AND v.sector_ts_code = ?
         """,
         [as_of, eid],
@@ -441,9 +453,8 @@ def coverage_metrics(hits: list[dict[str, Any]], as_of: str) -> dict[str, Any]:
         "cumulative_count": len(hits),
         "count_30d": sum(1 for r in hits if (as_of_d - r["report_date"]).days < 30),
         "count_90d": sum(1 for r in hits if (as_of_d - r["report_date"]).days < 90),
-        # 阶段词表待 G-06 拍板，且当前样本撑不住密度斜率——不猜。
-        "stage": "unverifiable",
-        "stage_reason": "舆论阶段词表未钦定（roadmap G-06 §5 第 3 题），且研报样本集中于回填批次",
+        # 阶段不再放在覆盖度量里：它是 ``opinion_stage.derive_stage`` 派生的独立 ``stage`` 对象（工单 #36 / G-06），
+        # 词表在 UBIQUITOUS_LANGUAGE.md「舆论生命周期」。覆盖度量只出可计算的量。
     }
 
 
@@ -457,11 +468,11 @@ def _opinion_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
        那次批量重写抹平），而 ``created_at`` 有 **104 个不同日期**且 468/469 行
        ``<= report_date``。所以本轨取 ``created_at`` 作 ``recorded_at``，
        它现在就能进严格 PIT，不用等工单 #27。
-    2. **只出可计算的覆盖度量，不出阶段词。** 舆论阶段词表是 roadmap G-06 的待拍板
-       项（§5 第 3 题），而且现有样本撑不住：实测研报高度集中在回填批次
-       （某板块 2026-01 有 14 份、之后每月 1 份），密度斜率算出来是采集节奏不是舆论。
-       所以 ``stage`` 一律 ``unverifiable`` 并写明原因——**算不出就说算不出**，
-       不拿一个看着像阶段的词去填。
+    2. **阶段是派生对象，不是覆盖度量的字段。** 舆论生命周期词表（工单 #36 / G-06）由
+       ``opinion_stage.derive_stage`` 从研报事件确定性算出，作 ``object_type="stage"`` 单独发出，
+       ``payload`` 带全部 inputs 与 reasons；回填批次（某板块 2026-01 一次入库 14 份）在
+       ``inputs.backfill_batch_dates`` 点名，斜率读数不可比——**读数与它的成立条件一起出**，
+       不拿一个看着像阶段的词去填，也不因为样本脏就整段不给。
 
     标签用精确匹配而不是 SQL ``LIKE``：``LIKE '%铜%'`` 会把「铜缆」「铜箔」算成
     「铜」的覆盖。表只有几百行，全取回来在 Python 里精确比对更便宜也更准。
@@ -489,6 +500,30 @@ def _opinion_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
             payload=metrics,
         )
     ]
+    # 舆论生命周期阶段（#36）：当日带读口径 C = as_of；记录时刻取所用研报里最晚的 created_at。
+    from intelligence.services import opinion_stage as _os
+
+    readout = _os.derive_stage(hits, as_of, knowledge_cutoff=as_of)
+    used_created = [r["created_at"] for r in hits if r.get("created_at") is not None and str(r["created_at"])[:10] <= as_of]
+    out.append(
+        RiverObject(
+            track="opinion",
+            entity_id=eid,
+            object_type="stage",
+            ref=f"opinion_stage:{ename}:{as_of}",
+            source_hash=readout.source_hash,
+            valid_from=as_of,
+            recorded_at=_ts(max(used_created)) if used_created else None,
+            payload={
+                "stage": readout.stage,
+                "coarse": readout.coarse,
+                "reasons": list(readout.reasons),
+                "inputs": readout.inputs,
+                "derivation_rule": readout.derivation_rule,
+                "label_version": _os.DERIVATION_RULE["version"],
+            },
+        )
+    )
     for r in hits[-3:]:  # 最近三份，作可回溯的证据锚点，不搬全文
         out.append(
             RiverObject(
@@ -582,10 +617,8 @@ def _capital_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
 
     两个来源故意分开成两个对象：它们的实体命名空间不同，合并会掩盖口径接缝。
     """
-    ledger = _has_table(con, SECTOR_LEDGER_TABLE)
     # 聚合对象的记录时刻取 ``MAX``：整份聚合要等最后一条成分股落地才算可知。
-    # 逐行先按「两来源取较早」解析、再对解析后的值取 MAX——反过来（先 MAX 再取较早）
-    # 会把某一行的早时刻安到整份聚合上，等于宣称聚合比它的成分先存在。
+    # 取 MIN 会把某一行的早时刻安到整份聚合上，等于宣称聚合比它的成分先存在。
     # 三个 SUM 先转 DECIMAL 再加：DuckDB 并行 SUM(DOUBLE) 的求和顺序不定，同一入参两次调用
     # amount_sum 会在最后一位上翻（实测 2026-01-12 算力租赁 2413.130000000001 vs 2413.1299999999997），
     # 连带 source_hash 变——破的是本模块「两次调用逐字段相同」的硬约束。
@@ -596,9 +629,8 @@ def _capital_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
                CAST(SUM(CAST(v.fund_flow_1d AS DECIMAL(24, 6))) AS DOUBLE) AS fund_flow_1d_sum,
                CAST(SUM(CAST(v.fund_flow_5d AS DECIMAL(24, 6))) AS DOUBLE) AS fund_flow_5d_sum,
                CAST(SUM(CAST(v.amount AS DECIMAL(24, 6))) AS DOUBLE) AS amount_sum,
-               MAX({sector_recorded_at_sql("v", with_ledger=ledger)}) AS recorded_at
+               MAX({sector_recorded_at_sql("v")}) AS recorded_at
         FROM fact_sector_stock_daily v
-        {sector_ledger_join("v") if ledger else ""}
         WHERE CAST(v.trade_date AS DATE) = CAST(? AS DATE) AND v.sector_ts_code = ?
         """,
         [as_of, eid],

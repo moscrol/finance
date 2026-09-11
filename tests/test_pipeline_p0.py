@@ -597,7 +597,69 @@ def test_cli_omits_retired_sector_feishu_commands():
         "sync-sector-daily-metrics",
         "sync-sector-resonance",
         "sync-market-daily",
+        # 2026-09-11 随飞书自建应用一起退：最后一个拿凭证的 sync 子命令。
+        "sync-limit-advance-feishu",
     }.isdisjoint(commands)
+
+
+def test_no_module_reads_feishu_credentials():
+    """仓内不得再有任何东西拿飞书凭证。
+
+    这是「删应用」能不能真删的门禁：只要还有一处读 `feishu_config.json` /
+    换 `tenant_access_token`，用户在开放平台上删掉应用就会把某条链路打断。
+    `intelligence/dream/collector.py` 的 `normalize_feishu_event` 不在此列：
+    它只解析已归档的 transcript 文件，不联网、不拿密钥。
+
+    用 `git grep`（只看已跟踪文件）——门禁守的是「能合进主干的东西」，
+    本地未入库的草稿文件不在射程内，这是有意的取舍。
+
+    2026-09-11 #729 收窄口径（用户裁定「那几个 skill 别删，它们是有用的」）：
+    禁令对**自动链路**（`market_feature_store/` `intelligence/` `scripts/` 等）保持绝对——
+    那才是「删掉应用会把某条链路打断」的射程。`skills/` 下是人/agent 显式触发、
+    且已在各自 SKILL.md 标注「写入步已停」的封存脚本，没有任何流水线调用它们，
+    删应用不会打断任何链路，故予以豁免；但豁免是**逐文件钉死的**，
+    新增的读取点仍会红——只保留不扩张。
+    """
+    import subprocess
+
+    needles = ("feishu_config.json", "tenant_access_token", "FEISHU_APP_SECRET", "feishu_utils")
+    # 反向白名单：这处提到文件名是为了「禁止提交它」，是防线不是读取点。
+    allowed = {"scripts/agent_review/contract.py"}
+    # 封存名单（#729）：飞书退役前就存在、随 skill 一并保留的读取点，逐个钉死。
+    parked_allowed = {
+        "skills/advancers-chart/scripts/feishu_chart.py",
+        "skills/advancers-chart/scripts/migrate_dates.py",
+        "skills/advancers-chart/scripts/sync.py",
+        "skills/high-volume-gainers/scripts/write.py",
+        "skills/limit-advance/scripts/check_coverage.py",
+        "skills/limit-advance/scripts/dedup_fields.py",
+        "skills/limit-advance/scripts/write.py",
+        "skills/market-overview/scripts/check_coverage.py",
+        "skills/market-overview/scripts/verify_and_patch.py",
+        "skills/top-gainers-feishu/scripts/query_ma.py",
+        "skills/top-gainers-feishu/scripts/write.py",
+        "skills/up-line/scripts/update.py",
+        "skills/watchlist-ma/scripts/query.py",
+    }
+    live_hits: list[str] = []
+    parked_hits: list[str] = []
+    for needle in needles:
+        out = subprocess.run(
+            ["git", "grep", "-l", "-F", needle, "--", "*.py", "*.sh"],
+            cwd=ROOT, capture_output=True, text=True,
+        ).stdout
+        for line in out.splitlines():
+            if not line or "tests/" in line or line in allowed:
+                continue
+            (parked_hits if line.startswith("skills/") else live_hits).append(f"{needle}: {line}")
+
+    assert not live_hits, "飞书凭证读取点已退役，自动链路不得重新引入：" + "; ".join(live_hits)
+
+    unexpected = sorted({h.split(": ", 1)[1] for h in parked_hits} - parked_allowed)
+    assert not unexpected, (
+        "skills/ 下新增了飞书凭证读取点——封存名单只保留不扩张，"
+        "新链路请走 DuckDB：" + "; ".join(unexpected)
+    )
 
 
 def test_daily_update_omits_retired_sector_feishu_module():
