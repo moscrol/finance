@@ -219,6 +219,28 @@ def test_recovery_uses_only_remaining_synthesis_time() -> None:
     assert 0.0 < model.calls[0]["timeout"] <= 0.05
 
 
+def test_priority_is_existing_evidence_only_and_preserves_original_ordinals():
+    from intelligence.runtime.episode_finalizer import _compact_evidence
+
+    evidence = tuple(
+        AgentEvidence(tool=tool, title=f"{tool}-{index}", detail=str(index), source="fixture", content_hash=f"{tool}-{index}")
+        for tool in ("source-a", "source-b", "source-c")
+        for index in range(8)
+    )
+    original = tuple(evidence)
+    chosen = _compact_evidence(evidence, evidence_priority=("fabricated", "source-a-7", "source-a-7", "source-a-6", "source-a-5"))
+    assert len(chosen) == 12
+    assert {row["tool"] for row in chosen} == {"source-a", "source-b", "source-c"}
+    assert [row["tool"] for row in chosen[:3]] == ["source-a", "source-b", "source-c"]
+    by_id = {row["evidence_id"]: row for row in chosen}
+    assert by_id["E8"]["detail"] == "7"
+    assert by_id["E7"]["detail"] == "6"
+    assert by_id["E6"]["detail"] == "5"
+    assert len(by_id) == 12
+    assert "fabricated" not in json.dumps(chosen)
+    assert evidence == original
+
+
 @pytest.mark.parametrize(
     "raw_reason, expected_reason",
     [

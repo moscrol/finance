@@ -44,7 +44,7 @@ if str(REPO_ROOT) not in sys.path:
 
 import duckdb  # noqa: E402
 
-from intelligence.services.methodology_backtest.labels import build_labels  # noqa: E402
+from intelligence.services.methodology_backtest.labels import LABEL_VERSION, build_labels  # noqa: E402
 from intelligence.services.methodology_backtest.outcomes import build_outcomes  # noqa: E402
 from intelligence.services.methodology_backtest.receipts import (  # noqa: E402
     REFUTED_SCHEMA,
@@ -331,6 +331,26 @@ def main() -> int:
             "标签层：15 个标签 + data_gap 日",
             len(rep1.rows_by_label) == 15 and rep1.data_gap_days == [planted["gap_day"]],
             f"labels={len(rep1.rows_by_label)} gap={rep1.data_gap_days} rows={rep1.row_count}",
+        )
+        check_con = duckdb.connect(str(labels_db), read_only=True)
+        try:
+            stage_values = {
+                row[0]
+                for row in check_con.execute(
+                    "SELECT DISTINCT value_text FROM history_labels "
+                    "WHERE entity_type='market' AND entity_id='market' AND label='market_stage'"
+                ).fetchall()
+                if row[0] is not None
+            }
+        finally:
+            check_con.close()
+        canonical_stages = {stage.removesuffix("阶段") for stage in STAGES}
+        record(
+            "G-05：market_stage 归一且版本为 v3",
+            rep1.label_version == LABEL_VERSION
+            and stage_values == canonical_stages
+            and all(not stage.endswith("阶段") for stage in stage_values),
+            f"values={sorted(stage_values)} version={rep1.label_version}",
         )
         cov = rep1.extras["source_row_counts"]["stock_coverage"]
         record(

@@ -295,6 +295,46 @@ def _action_item(value: Mapping[str, object], queue_key: str) -> ReportItem | No
     )
 
 
+def _method_flywheel_items(brief: Mapping[str, object]) -> tuple[ReportItem, ...]:
+    """方法飞轮段（能力升级 07）：每个实验一条——今日信号、待验对象、下一次选择。缺段返回空。"""
+    if not brief or not brief.get("available"):
+        return ()
+    items: list[ReportItem] = []
+    for study in _mappings(brief.get("studies")):
+        if study.get("error"):
+            continue
+        today = _mapping(study.get("today"))
+        pending = _mappings(study.get("pending"))
+        selection = _mapping(study.get("selection"))
+        history = _mapping(study.get("history"))
+        if not today.get("captured"):
+            today_text = "今日未登记观察（需收盘后旁路库水位到位）"
+        elif today.get("has_signal"):
+            today_text = f"今日信号：连续组 {_text(today.get('streak3'))} 个板块（阶段 {_text(today.get('stage'))}）"
+        else:
+            today_text = f"今日无信号（阶段 {_text(today.get('stage'))}）"
+        badges = [_text(selection.get("decision_cn")) or "候选"]
+        badges.append("真实前向" if study.get("first_real_cycle_completed") else "历史演练")
+        meta: list[tuple[str, str]] = [("待验对象", str(len(pending)))]
+        if history:
+            meta.append(("历史可配对日", _text(history.get("paired_dates"))))
+        details = tuple(
+            f"待验 {_text(item.get('trade_date'))}：连续组 {_text(item.get('streak3'))} 个，回检提醒 {_text(item.get('due'))}"
+            for item in pending[:4]
+        )
+        reasons = _strings(selection.get("reasons"), limit=2)
+        items.append(
+            ReportItem(
+                title=_text(study.get("method")) or _text(study.get("method_id")),
+                summary=today_text + ("；" + "；".join(reasons) if reasons else ""),
+                badges=tuple(badge for badge in badges if badge),
+                meta=tuple(meta),
+                details=details,
+            )
+        )
+    return tuple(items)
+
+
 def project_daily_agent(
     payload: dict[str, object], *, source_path: str
 ) -> dict[str, object]:
@@ -380,10 +420,12 @@ def project_daily_agent(
             else (),
         ),
     )
+    method_items = _method_flywheel_items(_mapping(payload.get("method_flywheel")))
     sections = (
         ReportSection("值得关注", candidate_items),
         ReportSection("今天要做什么", action_items),
         ReportSection("证据边界", evidence_items),
+        *((ReportSection("方法信号与待验对象", method_items),) if method_items else ()),
     )
     warnings = tuple(_strings(payload.get("notes"), limit=3))
     projection = DailyReportProjection(

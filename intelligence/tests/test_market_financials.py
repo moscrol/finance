@@ -4,17 +4,69 @@ import sys
 import unittest
 
 from intelligence.services.market_financials import (
+    METRIC_GLOSSARY,
+    FinancialsFetchResult,
     QuarterFinancials,
     _parse_sina_lrb_rows,
     _secucode,
     akshare_available,
     build_financials_block,
     enrich_quality_fields,
+    fetch_financials_bundle,
     fetch_quarterly_financials_chain,
     financials_block_for_target,
+    observations_by_line,
     parse_financials_intent,
     profit_quality_watch,
+    row_observations,
 )
+
+
+class StructuredObservationTests(unittest.TestCase):
+    """工单 04：每一数据行的数按带单位 / 口径的指标名挂出来，键与渲染行逐字节一致。"""
+
+    def _rows(self) -> list[QuarterFinancials]:
+        return [
+            QuarterFinancials(
+                "2026中报", "2026-06-30", 922.78, 1.3, 445.17, -1.95, 89.56, 50.75,
+                ocf_yi=706.91, contract_liability_yi=None, inventory_yi=None, holder_num=None,
+                notice_date="2026-08-15",
+            ),
+            QuarterFinancials("2026一季报", "2026-03-31", 547.03, 6.34, 272.43, 1.47, 89.76, 52.22),
+        ]
+
+    def test_row_observations_use_caliber_and_unit_in_metric_names(self) -> None:
+        main = {obs.metric: obs for obs in row_observations("600519", self._rows()[0], table="main")}
+        self.assertEqual(main["revenue_cum_yi"].value, 922.78)
+        self.assertEqual(main["net_profit_cum_yi"].value, 445.17)
+        self.assertEqual(main["gross_margin_pct"].value, 89.56)
+        self.assertEqual(main["revenue_cum_yi"].subject, "600519.SH")
+        # 数属于报告期，不属于披露日。
+        self.assertEqual(main["revenue_cum_yi"].as_of, "2026-06-30")
+        quality = {obs.metric: obs.value for obs in row_observations("600519", self._rows()[0], table="quality")}
+        self.assertEqual(quality, {"ocf_cum_yi": 706.91})
+        self.assertTrue(set(main) <= set(METRIC_GLOSSARY))
+
+    def test_line_keys_match_rendered_block_rows_byte_for_byte(self) -> None:
+        rows = self._rows()
+        block = build_financials_block("贵州茅台", "600519.SH", rows)
+        rendered = {line.strip().lstrip("-").strip() for line in block.splitlines()}
+        mapping = observations_by_line("600519.SH", rows)
+        self.assertTrue(set(mapping) <= rendered, set(mapping) - rendered)
+        # 两期 × 主表 + 一期含金量表（第二期含金量全缺 → 无观察值、无键）。
+        self.assertEqual(len(mapping), 3)
+
+    def test_bundle_block_is_identical_to_block_for_target(self) -> None:
+        def chain(ts_code, name, periods, timeout):
+            return FinancialsFetchResult(
+                rows=tuple(self._rows()), provider="东财 F10", status="ok", as_of="2026-09-09", attempted=("东财 F10",)
+            )
+
+        bundle = fetch_financials_bundle("600519.SH", "贵州茅台", chain=chain)
+        self.assertEqual(bundle.block, financials_block_for_target("600519.SH", "贵州茅台", chain=chain))
+        self.assertEqual(len(bundle.rows), 2)
+        self.assertEqual(bundle.result.provider, "东财 F10")
+        self.assertIn("revenue_cum_yi", {obs.metric for line in bundle.observations_by_line().values() for obs in line})
 
 
 class ParseFinancialsIntentTests(unittest.TestCase):

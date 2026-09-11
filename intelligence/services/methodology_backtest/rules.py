@@ -19,7 +19,7 @@
       "condition": {"all": [
         {"label": "dual_red_strict", "op": "==", "value": true, "lag": 0},
         {"label": "dual_red_streak", "op": ">=", "value": 3, "lag": 0},
-        {"entity": "market", "label": "market_stage", "op": "in", "value": ["主升阶段", "主升"], "lag": 0}
+        {"entity": "market", "label": "market_stage", "op": "in", "value": ["主升"], "lag": 0}
       ]},
       "outcome": {
         "target": "pct_chg",
@@ -68,6 +68,8 @@ LABEL_KINDS: dict[str, tuple[str, str]] = {
     "limit_heat_rank": ("theme", "num"),
     "limit_heat_rank_jump": ("theme", "bool"),
     "mainline_flag": ("theme", "bool"),
+    # 舆论生命周期段（#36 / G-06）：文本标签，词表见 opinion_stage.STAGES + "unverifiable"。
+    "opinion_stage": ("theme", "text"),
     "market_stage": ("market", "text"),
     "volume_surge": ("market", "bool"),
     "ma5_peak_confirmed": ("market", "bool"),

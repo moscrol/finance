@@ -48,6 +48,8 @@ from intelligence.services import kb_rag
 from intelligence.services import llm_refine
 from intelligence.services import market_moneyflow
 from intelligence.services import perspective_lab
+from intelligence.services import research_contract
+from intelligence.services import research_project
 from intelligence.services import run_store as rs
 from intelligence.services.provider_latency import repair_seconds_cap_for
 from intelligence.runtime.agent_runtime_factory import (
@@ -87,6 +89,10 @@ from intelligence.services.episode_progress import (
     project_episode_progress,
     public_progress_messages,
 )
+from intelligence.services.episode_store import (
+    JsonlEpisodeStore,
+    resolve_episode_store_root,
+)
 from intelligence.services.episode_tools import (
     build_episode_registry,
     latest_market_date,
@@ -106,7 +112,7 @@ from intelligence.services.llm_settings import SessionLLMSettings
 from intelligence.services.market_snapshot_contract import (
     validate_market_snapshot_root,
 )
-from intelligence.services.run_store import RunStore
+from intelligence.services.run_store import RunStore, redact_value
 from intelligence.services.runtime_provenance import build_runtime_provenance
 from intelligence.services import task_fulfillment
 from intelligence.services.task_frame import derive_required_outputs
@@ -188,6 +194,40 @@ def _continuous_runtime_mode() -> str:
     return mode if mode in _CONTINUOUS_RUNTIME_MODES else "off"
 
 
+_RESEARCH_TIER_ENV = "WORKBENCH_RESEARCH_TIER"
+
+
+def _research_tier_from_env() -> str:
+    """Episode 起步档位（quick / standard / deep / max），部署侧可覆盖。
+
+    此前 ``ContinuousTurnAdapter`` 没传 ``tier``，生产每一轮都从 standard 起步（90s /
+    6 步 / 8 次），只能靠模型自愿交 PLAN 才升 deep——GLM 交 PLAN 0/113，deep 事实关闭。
+    2026-09-06 用户决策「先找能力 max、再按超限加约束」，起步档位改成部署可选。
+    未设或非法值回落 standard：这是服务启动路径，一个拼错的 env 不该让服务起不来，
+    也不该静默把每轮放大到 600s。
+    """
+
+    raw = os.environ.get(_RESEARCH_TIER_ENV, "").strip().lower()
+    return raw if raw in research_contract.RESEARCH_TIERS else "standard"
+
+
+def _deployment_execution_policy():
+    """「deep-research」profile 的执行策略 + 按起步档位放大的 turn 级 LLM 调用保险丝。
+
+    保险丝 ``max_llm_calls`` 缺省 40，controller / judge / agent / 分支 / 合成共用一本账。
+    max 档下子研究分支的模型调用也记在这本账上，40 会在判官之前烧穿（09-07 实测），
+    而判官是最不该被拒的那个调用。只在保险丝比档位值小时抬，不往下压。
+    """
+
+    from dataclasses import replace
+
+    policy = profile_named("deep-research").execution_policy()
+    fuse = research_contract.llm_call_fuse_for_tier(_research_tier_from_env())
+    if fuse > policy.max_llm_calls:
+        policy = replace(policy, max_llm_calls=fuse)
+    return policy
+
+
 def _runtime_market_reference_date() -> str | None:
     paths = default_paths()
     snapshot_date: str | None = None
@@ -221,11 +261,22 @@ def _zero_inner_synthesis_reserve(
     return 0.0
 
 
+def _history_session_for_run(store, run_id, conversation_id):
+    # Resolve lazily: ordinary questions do not scan or instantiate history state.
+    def create():
+        from intelligence.services.historical_research.episode import HistorySession
+
+        return HistorySession(store, run_id, conversation_id)
+
+    return create
+
+
 def _memory_bound_registry_factory(
     memory_user: str | None,
     *,
     perspective_ids: tuple[str, ...] = (),
     perspective_mode: str = "neutral",
+    history_session=None,
 ) -> Callable[..., object]:
     """把 memory 身份绑进装配工厂，并断言身份真的穿透到了装配产物。
 
@@ -269,8 +320,14 @@ def _memory_bound_registry_factory(
     一起钉住。可达性审计的 ⓘ 注记说的也是这一档残留，本轮未改。
     """
 
+    def history_kwargs(frame):
+        if frame.history_intent is None or history_session is None:
+            return {}
+        session = history_session() if callable(history_session) else history_session
+        return {"history_session": session}
+
     if not memory_user:
-        if not perspective_ids:
+        if not perspective_ids and history_session is None:
             return build_episode_registry
 
         def perspective_only_factory(frame, context):
@@ -279,6 +336,7 @@ def _memory_bound_registry_factory(
                 context,
                 perspective_ids=perspective_ids,
                 perspective_mode=perspective_mode,
+                **history_kwargs(frame),
             )
 
         return perspective_only_factory
@@ -290,6 +348,7 @@ def _memory_bound_registry_factory(
             memory_user=memory_user,
             perspective_ids=perspective_ids,
             perspective_mode=perspective_mode,
+            **history_kwargs(frame),
         )
         if (
             "memory_lookup" in context.contract.allowed_capabilities
@@ -303,6 +362,28 @@ def _memory_bound_registry_factory(
         return registry
 
     return registry_factory
+
+
+_OPEN_EPISODES_LIST_CAP = 50
+
+
+def _open_episodes_registry() -> dict[str, object]:
+    """``/api/readiness`` 里的登记表：store 中仍未终局的 episode（运行底座 P2）。
+
+    只登记，不恢复——自动恢复要等 P4 竞态目录里「restore vs 在飞驱动」有测（母单 §12 第 3 题）。
+    列表截到 ``_OPEN_EPISODES_LIST_CAP`` 条，count 给全量。
+    """
+
+    store = JsonlEpisodeStore(resolve_episode_store_root())
+    try:
+        open_ids = store.list_open()
+    except Exception as exc:  # noqa: BLE001 - 探针路径：读不出 store 不该拖垮 readiness
+        return {"count": None, "episode_ids": [], "unavailable": type(exc).__name__}
+    return {
+        "count": len(open_ids),
+        "episode_ids": list(open_ids[:_OPEN_EPISODES_LIST_CAP]),
+        "truncated": len(open_ids) > _OPEN_EPISODES_LIST_CAP,
+    }
 
 
 def _build_continuous_turn_adapter(
@@ -402,6 +483,9 @@ def _build_continuous_turn_adapter(
             event_sink=(
                 publish_episode_event if progress_publisher is not None else None
             ),
+            # 运行底座 P2：每步落盘（events.jsonl 追加 + state.json 覆写），进程重启后
+            # ``restore`` 能读回。store 对象只是根路径 + 锁，按次构造即可，目录首次 append 才建。
+            episode_store=JsonlEpisodeStore(resolve_episode_store_root()),
         )
     elif selection.name == "sdk_glm":
         if not providers:
@@ -453,10 +537,7 @@ def _build_continuous_turn_adapter(
             ),
         )
     else:
-        if (
-            os.environ.get("AGENT_RUNTIME_BENCHMARK_ENABLE", "").strip()
-            != "1"
-        ):
+        if os.environ.get("AGENT_RUNTIME_BENCHMARK_ENABLE", "").strip() != "1":
             raise RuntimeError("Codex headless runtime is benchmark-only")
         from intelligence.runtime.codex_headless_runtime import (
             CodexHeadlessRuntime,
@@ -480,12 +561,22 @@ def _build_continuous_turn_adapter(
         memory_user,
         perspective_ids=perspective_ids,
         perspective_mode=perspective_mode,
+        **(
+            {
+                "history_session": _history_session_for_run(
+                    run_store, run_id, conversation_id
+                )
+            }
+            if run_store is not None and conversation_id
+            else {}
+        ),
     )
     return ContinuousTurnAdapter(
         runtime=runtime,
         semantic_verifier=semantic_verifier,
         runtime_name=selection.name,
         mode=_continuous_runtime_mode(),
+        tier=_research_tier_from_env(),
         registry_factory=registry_factory,
         task_id_factory=lambda: task_id,
         timeout=timeout,
@@ -604,6 +695,8 @@ _PUBLIC_TRACE_STAGE_BY_PRIVATE_NAME = {
     "task_fulfillment": "verification",
     "render_artifacts": "finalizing",
     "foresight_followups": "finalizing",
+    # 09 连续研究：研究项目先验块并入会话上下文，属「理解与计划」阶段。
+    "research_project_prior": "understanding",
 }
 _PUBLIC_TRACE_MESSAGE_BY_PRIVATE_NAME = {
     "turn_controller": "已完成问题理解与任务对齐。",
@@ -618,6 +711,7 @@ _PUBLIC_TRACE_MESSAGE_BY_PRIVATE_NAME = {
     "task_fulfillment": "已完成回答与任务契约的逐项核对。",
     "render_artifacts": "已生成本轮研究产物。",
     "foresight_followups": "已整理后续核验问题。",
+    "research_project_prior": "已载入研究项目先验：上轮结论、未解问题与可证伪点裁决。",
 }
 _PUBLIC_PROGRESS_MESSAGES = {
     "understanding": "已对齐本轮任务并进入研究。",
@@ -1400,6 +1494,28 @@ class UserRequest(BaseModel):
     user: str | None = None
 
 
+class ContinuationRequest(BaseModel):
+    """「猜你想问」卡片点击时随消息带上的延续坐标（09 连续研究）。
+
+    只承载坐标（来源 run / 卡片种类 / 继承的对象与站立日），不承载正文；
+    服务端核验 run 属于本用户本会话后落在用户消息上，编排器据此继承研究状态。
+    """
+
+    run_id: str = Field(min_length=1)
+    kind: str = ""
+    source: str = ""
+    label: str = ""
+    full_prompt: str = ""
+    inherits: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("kind")
+    @classmethod
+    def kind_must_be_known(cls, value: str) -> str:
+        if value and value not in followups_svc.FOLLOWUP_KINDS:
+            raise ValueError("unknown followup kind")
+        return value
+
+
 class CreateMessageRequest(BaseModel):
     content: str = Field(min_length=1)
     skill_mode: Literal["manual", "auto", "hybrid"]
@@ -1407,6 +1523,7 @@ class CreateMessageRequest(BaseModel):
     perspective_mode: Literal["neutral", "single", "compare"] = "neutral"
     selected_perspective_ids: list[str] = Field(default_factory=list)
     user: str | None = None
+    continuation: ContinuationRequest | None = None
 
     @field_validator("content")
     @classmethod
@@ -1414,6 +1531,20 @@ class CreateMessageRequest(BaseModel):
         if not value.strip():
             raise ValueError("content must not be blank")
         return value
+
+
+def _validated_continuation(
+    run_store: RunStore, conversation_id: str, req: ContinuationRequest
+) -> dict[str, object]:
+    """延续坐标只认本用户、本会话的 run；其它一律 422，不静默丢弃。"""
+    try:
+        origin = run_store.load_run(req.run_id)
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(422, "continuation run 不存在") from exc
+    if origin.session_id != conversation_id:
+        raise HTTPException(422, "continuation run 不属于本会话")
+    payload = req.model_dump()
+    return {key: value for key, value in payload.items() if value not in ("", {}, None)}
 
 
 class ConfigureLLMRequest(BaseModel):
@@ -1481,7 +1612,7 @@ def _run_conversation_turn(
             # reserve its measured frozen-replay envelope explicitly.  The
             # continuous adapter below keeps its separate 120s contract.
             # Budget numbers stay on grounded_deep; this envelope only holds it.
-            research_policy=profile_named("deep-research").execution_policy(),
+            research_policy=_deployment_execution_policy(),
             continuous_turn_adapter=_build_continuous_turn_adapter(
                 providers=llm_providers,
                 run_id=run_id,
@@ -2551,6 +2682,10 @@ def create_app(
                 "rag": worker_status,
             },
             "recovered_runs": len(recovered_runs),
+            # 运行底座 P2（§12 第 3 题：只登记、不自动恢复）：进程重启后 store 里仍
+            # 非 done 的 episode。列出来让人 / Workbench 决定是否 ``restore``；
+            # 读不出 store 时如实报 unavailable，不让它拖红 readiness。
+            "open_episodes": _open_episodes_registry(),
         }
         return JSONResponse(payload, status_code=200 if ready else 503)
 
@@ -2649,6 +2784,18 @@ def create_app(
             for item in conversation_store_for(user).load_messages(conversation_id)
         ]
 
+    @app.get("/api/conversations/{conversation_id}/research-project")
+    def get_research_project(
+        conversation_id: str, user: str | None = None
+    ) -> dict[str, object]:
+        """09 连续研究：会话级研究项目状态（现有 run / 消息 / 判断轨的只读投影）。"""
+        conversation_or_404(user, conversation_id)
+        state = research_project.load_project(
+            conversation_store_for(user), store_for(user), conversation_id
+        )
+        payload = redact_value(state.to_dict())
+        return payload if isinstance(payload, dict) else state.to_dict()
+
     @app.get("/api/llm/config")
     def get_llm_config(user: str | None = None) -> dict[str, object]:
         user_id = store_for(user).user_id
@@ -2723,6 +2870,11 @@ def create_app(
                 raise HTTPException(422, str(exc)) from exc
             parent_run_id = conversation.last_run_id
             run_store = store_for(req.user)
+            continuation_payload: dict[str, object] | None = None
+            if req.continuation is not None:
+                continuation_payload = _validated_continuation(
+                    run_store, conversation_id, req.continuation
+                )
             _precheck_admission(run_store.user_id)
             _reserve_run_quota(run_store.user_id)
             run = run_store.create_run(
@@ -2755,6 +2907,7 @@ def create_app(
                     selected_skill_ids=req.selected_skill_ids,
                     perspective_mode=req.perspective_mode,
                     selected_perspective_ids=list(selected_perspective_ids),
+                    continuation=continuation_payload,
                 )
                 assistant_message = store.append_message(
                     conversation_id,

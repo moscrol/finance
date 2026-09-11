@@ -988,3 +988,137 @@ def test_admit_backfill_repair_does_not_need_coverage_progress() -> None:
     assert admission.backfill is True
     assert admission.goal.missing_evidence_modes == ("market_data",)
     assert admission.grant.seconds_granted == 80.0 * BACKFILL_BUDGET_FRACTION
+
+
+def _ledger(
+    *,
+    evidence: dict[str, tuple[str, tuple[str, ...]]],
+    covered: tuple[str, ...],
+    gaps: tuple[str, ...],
+) -> EvidenceLedgerSnapshot:
+    """``evidence``: id → (来源家族, 指向的输出)。"""
+
+    return EvidenceLedgerSnapshot(
+        evidence_ids=tuple(evidence),
+        covered_outputs=covered,
+        open_gaps=gaps,
+        independent_source_families=tuple(
+            dict.fromkeys(family for family, _ in evidence.values())
+        ),
+        evidence_source_families=tuple(
+            (evidence_id, family) for evidence_id, (family, _) in evidence.items()
+        ),
+        evidence_targets=tuple(
+            (evidence_id, targets) for evidence_id, (_, targets) in evidence.items()
+        ),
+    )
+
+
+def test_progress_counts_content_not_source_family_four_arms() -> None:
+    """2026-09-09 判官修复 01 复现一（evidence-judge.md 实测一）四臂矩阵。
+
+    内容进展与来源独立性分开算：同源新公告补上财务锚是进展；新网站转载旧闻
+    不是进展但记一个独立来源；重抓同页两边都不算。
+    """
+
+    before = _ledger(
+        evidence={"old-page": ("official", ("context",))},
+        covered=("context",),
+        gaps=("financial_anchor",),
+    )
+
+    # 臂 1：同源新页补上财务锚——内容进展成立，独立性 0（旧实现在此记 0 并拒修）
+    same_source = progress_from_ledger(
+        before,
+        _ledger(
+            evidence={
+                "old-page": ("official", ("context",)),
+                "new-page": ("official", ("financial_anchor",)),
+            },
+            covered=("context", "financial_anchor"),
+            gaps=(),
+        ),
+    )
+    assert same_source.new_evidence_ids == ("new-page",)
+    delta = same_source.coverage_delta
+    assert (
+        delta.new_evidence,
+        delta.narrowed_gaps,
+        delta.newly_supported_outputs,
+        delta.new_source_families,
+    ) == (1, 1, 1, 0)
+    assert delta.progressed
+    assert warrant_repair(same_source, cycle=2, research_tier="deep").warranted
+
+    # 臂 2：重抓同一页（同 hash，台账幂等）——零进展
+    duplicate = progress_from_ledger(before, before)
+    assert duplicate.new_evidence_ids == ()
+    assert not duplicate.coverage_delta.progressed
+    assert duplicate.coverage_delta.new_source_families == 0
+
+    # 臂 3：新来源转载旧闻，只重复支持已覆盖输出——内容零进展，独立性 +1
+    repost = progress_from_ledger(
+        before,
+        _ledger(
+            evidence={
+                "old-page": ("official", ("context",)),
+                "repost": ("news", ("context",)),
+            },
+            covered=("context",),
+            gaps=("financial_anchor",),
+        ),
+    )
+    assert repost.new_evidence_ids == ()
+    assert repost.coverage_delta.new_source_families == 1
+    assert not repost.coverage_delta.progressed
+    assert not warrant_repair(repost, cycle=2, research_tier="deep").warranted
+
+    # 臂 4：新来源新页补上财务锚——内容进展 + 独立性 1
+    new_source = progress_from_ledger(
+        before,
+        _ledger(
+            evidence={
+                "old-page": ("official", ("context",)),
+                "new-page": ("exchange", ("financial_anchor",)),
+            },
+            covered=("context", "financial_anchor"),
+            gaps=(),
+        ),
+    )
+    assert (new_source.coverage_delta.new_evidence, new_source.coverage_delta.new_source_families) == (1, 1)
+    assert new_source.coverage_delta.progressed
+
+    payload = same_source.to_dict()
+    assert payload["new_evidence_ids"] == ["new-page"]
+    assert payload["coverage_delta"]["new_source_families"] == 0
+    goal = build_repair_goal(
+        episode_id="episode-progress",
+        missing_outputs=("counterpoint",),
+        previous_progress=new_source,
+        remaining_calls=1,
+        remaining_seconds=10.0,
+        cycle=2,
+    )
+    assert goal.to_dict()["evidence_progress"]["new_source_families"] == 1
+
+
+def test_progress_without_target_ledger_stays_fail_closed() -> None:
+    """不知道新证据指向哪里，就不能说它推进了什么：无 targets 账记 0。"""
+
+    before = EvidenceLedgerSnapshot(
+        evidence_ids=(),
+        covered_outputs=(),
+        open_gaps=("counterpoint",),
+        independent_source_families=(),
+    )
+    after = EvidenceLedgerSnapshot(
+        evidence_ids=("e1",),
+        covered_outputs=("counterpoint",),
+        open_gaps=(),
+        independent_source_families=("news",),
+        evidence_source_families=(("e1", "news"),),
+    )
+    progress = progress_from_ledger(before, after)
+    assert progress.effective_new_evidence == 0
+    assert progress.coverage_delta.new_source_families == 0
+    assert not progress.coverage_delta.progressed

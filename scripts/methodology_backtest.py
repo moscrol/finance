@@ -52,6 +52,7 @@ from intelligence.services.methodology_backtest.propose import (  # noqa: E402
     write_rule_file,
 )
 from intelligence.services.methodology_backtest.receipts import (  # noqa: E402
+    DECLARED_STAGES,
     REFUTED_VERDICT,
     build_receipt,
     build_scan_summary,
@@ -273,6 +274,7 @@ def cmd_run(args) -> int:
         environment=env,
         test_mode="single",
         appendix=appendix,
+        declared_stage=args.stage,
     )
     _print_readout(res)
     for note in res.readout.notes:
@@ -321,6 +323,7 @@ def cmd_scan(args) -> int:
             test_mode="scan",
             bh=bh,
             appendix=appendix,
+            declared_stage=args.stage,
         )
         if args.no_write:
             receipt_paths.append(None)
@@ -393,6 +396,52 @@ def cmd_propose(args) -> int:
     if provenance:
         print(f"  溯源：{provenance.get('kind')} {provenance.get('ref', '')} {provenance.get('text', '')[:60]}")
     print(f"  下一步：python scripts/methodology_backtest.py run {rel}")
+    return 0
+
+
+def cmd_queue(args) -> int:
+    """候选经验队列：每条规则现在在生命周期的哪一档、卡在什么上。
+
+    状态**从收据推导**，不读也不写任何 status 字段——同一个事实开第二个真源必漂。
+    """
+    import json as _json
+
+    from intelligence.services.methodology_backtest import lifecycle
+
+    rules_dir = Path(args.rules_dir).expanduser()
+    receipts_dir = Path(args.receipts_dir).expanduser()
+    approvals: dict[str, dict] = {}
+    if args.approvals:
+        apath = Path(args.approvals).expanduser()
+        if apath.exists():
+            loaded = _json.loads(apath.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                approvals = {str(k): v for k, v in loaded.items() if isinstance(v, dict)}
+
+    states: list[lifecycle.MethodState] = []
+    for path in sorted(rules_dir.glob("*.json")):
+        try:
+            doc = _json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(doc, dict):
+            continue
+        rule_id = str(doc.get("rule_id") or doc.get("id") or path.stem.split(".v")[0])
+        steps = lifecycle.load_steps(receipts_dir, rule_id)
+        # 规则文件的 sha256 就是收据里的 rule.sha256：只认当前这份内容的收据，改过文件的旧收据是历史
+        states.append(
+            lifecycle.derive_state(
+                {**doc, "rule_id": rule_id},
+                steps,
+                human_approval=approvals.get(rule_id),
+                rule_sha256=_sha256(path),
+            )
+        )
+
+    if args.json:
+        print(_json.dumps([s.to_dict() for s in states], ensure_ascii=False, indent=2))
+    else:
+        print(lifecycle.render_queue(states))
     return 0
 
 
@@ -494,6 +543,13 @@ def _add_run_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--refuted-dir", default=str(REFUTED_DIR), help="证伪库目录（默认 methodology/refuted，进 git）")
     p.add_argument("--no-write", action="store_true", help="只打印读数，不落收据、不落证伪库")
     p.add_argument(
+        "--stage",
+        choices=list(DECLARED_STAGES),
+        default=None,
+        help="跑之前声明这份收据的角色：discovery / validation / holdout。不声明 = 探索或历史观察，"
+        "lifecycle 不拿它当晋升证据（refuted 照旧生效）",
+    )
+    p.add_argument(
         "--calibration-user-dir",
         default=None,
         help="可选：含 checkpoints.jsonl / verdicts.jsonl 的用户目录，只读跑 min_n ∈ {2,10,20} 消融写进收据附录",
@@ -527,6 +583,22 @@ def build_parser() -> argparse.ArgumentParser:
     _add_run_args(s)
     s.set_defaults(func=cmd_scan)
 
+    q = sub.add_parser(
+        "queue",
+        help="候选经验队列：每条规则在生命周期哪一档（candidate → 发现 → 验证 → holdout → "
+        "个人方法 → 共享），卡在什么上。状态由收据推导，不存第二份 status",
+    )
+    q.add_argument("--rules-dir", default=str(RULES_DIR))
+    q.add_argument("--receipts-dir", default=str(RECEIPTS_DIR))
+    q.add_argument(
+        "--approvals",
+        default=None,
+        help="人工审阅记录 JSON（{rule_id: {state, approved_by, ...}}）。"
+        "升共享层只能靠它——agent 推导永远到不了 shared_*",
+    )
+    q.add_argument("--json", action="store_true")
+    q.set_defaults(func=cmd_queue)
+
     pp = sub.add_parser("propose", help="纠偏 → 候选规则：谓词短句解析 + 白名单校验 + 溯源，落 methodology/rules/")
     pp.add_argument("--rule-id", required=True, help="^[a-z][a-z0-9_]{2,63}$")
     pp.add_argument("--title", required=True)
@@ -535,7 +607,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--pred",
         action="append",
         required=True,
-        help="谓词短句，可重复：`dual_red_streak@1 >= 3`、`market:market_stage in 主升阶段,主升`、`first_board == true`",
+        help="谓词短句，可重复：`dual_red_streak@1 >= 3`、`market:market_stage in 主升,反弹`、`first_board == true`",
     )
     pp.add_argument("--success", required=True, help="成功判据：`fwd_return 5 > 0`")
     pp.add_argument("--horizons", default=None, help="逗号分隔，默认 3,5,7,10（自动并入 success 的窗口）")

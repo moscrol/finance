@@ -1042,11 +1042,19 @@ def test_menu_keeps_tool_when_window_fits_or_no_floor_declared() -> None:
 
 
 def test_production_registry_declares_rag_floors_and_nothing_else() -> None:
-    """领域申报表只登记实测有尾巴的两条 RAG 工具；其它工具 None（不裁）。"""
+    """领域申报表只登记：实测有尾巴的两条 RAG 工具 + 子研究的设计常数；其它工具 None（不裁）。
+
+    ``sub_research`` 那条不是延迟实测，是一支分支的时间上限（spec 2026-09-03 §4：
+    ``min_window_seconds = MAX_SECONDS_PER_BRANCH``），两边相等由 ``test_sub_research_tool`` 钉。
+    """
 
     from intelligence.services.research_tool_registry import MIN_WINDOW_SECONDS, default_registry
 
-    assert MIN_WINDOW_SECONDS == {"kb_search": 20.0, "evidence_search": 30.0}
+    assert MIN_WINDOW_SECONDS == {
+        "kb_search": 20.0,
+        "evidence_search": 30.0,
+        "sub_research": 60.0,
+    }
     runners = {
         name: (lambda query, _context: _evidence_result("x", query))
         for name in ("kb_search", "market_data", "financial_data", "web_search")
@@ -1824,7 +1832,8 @@ def test_expired_standard_batch_stamps_time_gate_clock_without_running_tools() -
     assert asked == 70.0
     assert runner_calls == 0
     assert result.executed_count == 0
-    assert [item.error for item in result.items] == ["tool_timeout"] * 4
+    # 零授权 = 没派发，不是超时（INV-R4）。
+    assert [item.error for item in result.items] == ["tool_not_dispatched"] * 4
     assert [item.detail for item in result.items] == [
         stage_timeout_granted_detail(0.0)
     ] * 4
@@ -1931,8 +1940,11 @@ def test_r13_frozen_starvation_shape_replays_two_distinct_gates() -> None:
         turn_elapsed_at_dispatch=60.0,
     )
 
-    assert [item.error for item in result.items] == errors
-    time_gate = [item for item in result.items if item.error == "tool_timeout"]
+    # 夹具是 09-01 前的老词表：零授权当时也写 tool_timeout。工单 #28（INV-R4）起
+    # 零授权未派发是 tool_not_dispatched——重放按新词表判，夹具原文不改（它是史料）。
+    expected = ["tool_not_dispatched" if error == "tool_timeout" else error for error in errors]
+    assert [item.error for item in result.items] == expected
+    time_gate = [item for item in result.items if item.error == "tool_not_dispatched"]
     slot_gate = [item for item in result.items if item.error == "tool_budget_exhausted"]
     assert len(time_gate) == 4
     assert len(slot_gate) == 1

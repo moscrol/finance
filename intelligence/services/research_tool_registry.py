@@ -10,6 +10,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from functools import partial
 import json
+import re
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal
 import urllib.parse
@@ -47,6 +48,24 @@ TOOL_ERROR = "tool/error"
 # 「这套授权工具在理论上能不能产出某个 required_output」。预检 fail-open——
 # 声明不全只会漏抓，不会误拦（详见 ``check_satisfiability``）。
 _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
+    "history_query": (
+        "finance_query",
+        "可复算历史行情与完整样本比较",
+        "historical",
+        frozenset(),
+    ),
+    "read_history_result": (
+        "finance_query",
+        "读取本会话历史研究原件",
+        "historical",
+        frozenset(),
+    ),
+    "save_history_research": (
+        "finance_query",
+        "保存版本化研究假设与反例",
+        "historical",
+        frozenset(),
+    ),
     "finance_query": (
         "finance_query",
         "按语义数据集、指标、维度、筛选和时间范围查询本地结构化金融数据",
@@ -72,7 +91,14 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
         "kb_search",
         "本地知识库检索",
         "stable",
-        frozenset({"supporting_evidence", "direct_definition", "direct_explanation", "direct_answer"}),
+        frozenset(
+            {
+                "supporting_evidence",
+                "direct_definition",
+                "direct_explanation",
+                "direct_answer",
+            }
+        ),
     ),
     "web_search": (
         "web_search",
@@ -144,7 +170,7 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
     ),
     "financial_data": (
         "financial_data",
-        "结构化逐季财务指标",
+        "结构化逐季财务指标（每行带机器可读观察值；可一次取多家公司）",
         "current",
         frozenset({"financial_assessment", "metric_evidence", "supporting_evidence"}),
     ),
@@ -153,6 +179,30 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
         "同日主线与板块结构",
         "current",
         frozenset({"mainline_structure", "supporting_evidence"}),
+    ),
+    # 子研究（spec 2026-09-03-subagent-tool-design：抄 dsh tool-subagent 的形状，账本用我们的）。
+    # 它不是新数据源：每支分支跑的是同一台 Episode 机器、同一份只读工具，证据 append 进
+    # 父账本、hash 由父账本铸——所以 produces 只声明「证据」这一项，分支拿到什么全看它
+    # 点了哪些工具。runner 由运行时按 episode 绑定（要协调器 + 父证据账本），装配层
+    # 没有 runner 就不挂（没源不挂）。
+    "sub_research": (
+        "sub_research",
+        "把 1–3 个可独立取证的子问题并行交给子研究分支，各支带自己的工具预算跑到终态后一次返回证据",
+        "current",
+        frozenset({"supporting_evidence"}),
+    ),
+    # 派生计算（spec capability-amplification §3.4，2026-09-08）：对本回合已绑定的证据跑一段
+    # Python（口径核对 / 差额 / 敏感性 / 统计检验），沙箱不外呼不写库，产物带
+    # input_evidence_hashes + 原样脚本 + 继承自输入的 as_of。它不修任何已量出的缺陷，
+    # 开的是「现有工具完全答不了」的一类题。runner 由运行时按 episode 绑（要证据账本），
+    # 装配层没有账本就不挂（与 sub_research 同规矩）。produces 不写自己的名字——
+    # 词表里 output_id ≠ 工具名（test_produces_only_contains_known_output_ids）；派生结果
+    # 以 supporting_evidence 身份进绑定，档次由 evidence_tier=derived_calculation 说明。
+    "derived_calculation": (
+        "derived_calculation",
+        "在只读沙箱里对本回合已取到的证据跑一段 Python 做计算或跨源口径核对，结果作为带输入哈希链的派生证据返回",
+        "current",
+        frozenset({"supporting_evidence"}),
     ),
 }
 DEFAULT_RESEARCH_CAPABILITIES = tuple(
@@ -208,6 +258,7 @@ EMPTY_TOOL_PARAMETERS: dict[str, object] = {
 # 可选指定：不传取最近 6 期；传「2024年报」则放宽到覆盖该期。2026-09-02 茅台题两臂
 # 都拿不到 2024 年报，正是因为它固定 6 期而 2024-12-31 是第 7 行——模型无从告诉工具
 # 自己要哪一期。
+FINANCIAL_DATA_MAX_SUBJECTS = 4
 FINANCIAL_DATA_PARAMETERS: dict[str, object] = {
     "type": "object",
     "properties": {
@@ -219,7 +270,20 @@ FINANCIAL_DATA_PARAMETERS: dict[str, object] = {
                 '例："2024年报"、"2025三季报"、"2025Q1"、"2024"（按年报）。'
                 "不传时取最近 6 期。一轮只取一次快照，要看某一期就在这次调用里传。"
             ),
-        }
+        },
+        # 工单 04：多公司同口径比较要一次拿到几家的逐季表。仍是一轮一份快照，所以几家
+        # 一起传，不是一家一次调用（第二次调用会被 episode_snapshot_already_collected 拒）。
+        "subjects": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": FINANCIAL_DATA_MAX_SUBJECTS,
+            "items": {"type": "string", "minLength": 1},
+            "description": (
+                f"可选。要取的公司列表（股票名称或 6 位代码，最多 {FINANCIAL_DATA_MAX_SUBJECTS} 家），"
+                '例：["贵州茅台", "000858", "泸州老窖"]。不传时取本轮题干主体那一家。'
+                "多公司比较必须在同一次调用里把几家都传进来——一轮只取一次快照。"
+            ),
+        },
     },
     "additionalProperties": False,
 }
@@ -269,6 +333,8 @@ ToolArgumentParser = Callable[
     [Mapping[str, object]],
     tuple[ToolInput, str],
 ]
+
+
 def parse_query_arguments(
     arguments: Mapping[str, object],
 ) -> tuple[str, str]:
@@ -332,25 +398,281 @@ def parse_url_arguments(
     return cleaned, cleaned
 
 
+SUB_RESEARCH_MAX_GOALS = 3
+# 一支分支成功一次的最小工具窗（秒）。不是延迟实测，是设计常数：与
+# ``runtime/sub_research.MAX_SECONDS_PER_BRANCH`` 同值（测试钉相等）——窗比它小，
+# 分支拿到的预算就装不下一次「查一两个工具 + 收口」，spec §4 的可达性判据就是这个数。
+SUB_RESEARCH_MIN_WINDOW_SECONDS = 60.0
+SUB_RESEARCH_PARAMETERS: dict[str, object] = {
+    "type": "object",
+    "properties": {
+        "goals": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": SUB_RESEARCH_MAX_GOALS,
+            "items": {"type": "string", "minLength": 1},
+            "description": (
+                "1–3 个彼此独立、各自可以直接去取证的子问题，每条一句话写清要查什么。"
+                '例：["长电科技 2025 年报 先进封装收入占比", "封测行业 2026 年产能利用率 卖方数据"]。'
+                "同一个问题不要拆成因果相连的两步（第二步依赖第一步结果的不要拆）；"
+                "重复或空的条目会被拒绝，不会静默截断。"
+            ),
+        }
+    },
+    "required": ["goals"],
+    "additionalProperties": False,
+}
+
+
+def parse_sub_research_arguments(
+    arguments: Mapping[str, object],
+) -> tuple[str, str]:
+    """``goals`` 读且只读这一个参数；空 / 超 3 / 重复 → 拒绝带原因，不静默截断（spec §3 第 3 条）。
+
+    runner 输入是 goals 的 JSON 数组串（工具 runner 的第一个位置参数是字符串），
+    display 用「；」连接给事件与模型看。
+    """
+
+    if set(arguments) != {"goals"}:
+        raise InvalidResearchToolArguments("sub_research accepts exactly one goals argument")
+    raw_goals = arguments.get("goals")
+    if not isinstance(raw_goals, list) or not raw_goals:
+        raise InvalidResearchToolArguments(
+            "goals argument must be a non-empty array of strings",
+            code="invalid_query",
+        )
+    goals: list[str] = []
+    for item in raw_goals:
+        if not isinstance(item, str) or not item.strip():
+            raise InvalidResearchToolArguments(
+                "each item in the goals argument must be a non-empty string",
+                code="invalid_query",
+            )
+        goal = item.strip()
+        if goal in goals:
+            raise InvalidResearchToolArguments(
+                f"goals argument repeats a goal: {goal}",
+                code="invalid_query",
+            )
+        goals.append(goal)
+    if len(goals) > SUB_RESEARCH_MAX_GOALS:
+        raise InvalidResearchToolArguments(
+            f"goals argument supports at most {SUB_RESEARCH_MAX_GOALS} unique goals",
+            code="invalid_query",
+        )
+    return json.dumps(goals, ensure_ascii=False), "；".join(goals)
+
+
+# 派生计算（spec capability-amplification §3.4）：模型写一段 Python，在沙箱里对**本回合
+# 已绑定的证据**做算术 / 口径核对 / 敏感性，产物带 input_evidence_hashes + script + as_of。
+# 参数面只有四个键；脚本正文的合法性（禁用模块等）在 runner 里判，回结构化错误，
+# 不在这里拒——模型改一次脚本就能过，不该按「参数错」计一次 invalid_action。
+DERIVED_CALCULATION_MAX_TIMEOUT = 60
+DERIVED_CALCULATION_DEFAULT_TIMEOUT = 20
+DERIVED_CALCULATION_MAX_PARAMS_CHARS = 4000
+_CALC_ID_RE = re.compile(r"^[0-9a-f]{16}$")
+DERIVED_CALCULATION_PARAMETERS: dict[str, object] = {
+    "type": "object",
+    "properties": {
+        "script": {
+            "type": "string",
+            "minLength": 1,
+            "description": (
+                "要在沙箱里运行的 Python 脚本正文。可用变量 EVIDENCE（本回合已有证据的列表，"
+                "每条含 ref（E 号）/ hash / tool / title / detail / source / as_of / tier / "
+                "observations[{subject, as_of, metric, value}]）与 PARAMS（本次传的参数字典）。"
+                "财务助手 fincalc 已内置：series(subject, metric) 取某公司某指标按报告期升序的序列；"
+                "to_single_quarter(累计序列) 累计→单季（缺上一期就 None 并写 note）；yoy / qoq / "
+                "ratio_series / safe_div / pct / pct_change / to_yi(值, 单位) / growth_path / "
+                "scenario_table / sensitivity_grid / table / chart。"
+                "结果用 emit_result(summary={标量}, tables=[table(...)], charts=[chart(...)], "
+                "formulas=[...], notes=[...]) 输出（表格会成为可下载 CSV / HTML 产物）；"
+                "简单结果也可 emit({...})。不 emit 视为没有结果。可 import 标准库与 numpy / pandas；"
+                "不能联网、不能起进程、不能写工作目录以外的文件。"
+                "需要查本地行情库时先传 use_duckdb=true，再用 duckdb_connect() 拿只读连接。"
+                "传了 inputs_from_calc 可不传 script（沿用那次计算的脚本）。"
+                "⚠ 改假设重算时：PARAMS 只进编号与产物，不会替你改数——脚本必须自己读 PARAMS 里的值参与计算，"
+                "否则沿用旧脚本会产出与上次相同的结果。"
+            ),
+        },
+        "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": (
+                "一句话说明这次计算要回答什么（例：「核对 2024 年报净利润两个来源是否一致」）。"
+                "会原样写进产物标题，供读收据的人对照脚本。"
+            ),
+        },
+        "use_duckdb": {
+            "type": "boolean",
+            "description": "是否挂载本地行情 DuckDB 的只读连接（默认 false；只在脚本要查库时开）。",
+        },
+        "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": DERIVED_CALCULATION_MAX_TIMEOUT,
+            "description": f"脚本墙钟上限秒数，默认 {DERIVED_CALCULATION_DEFAULT_TIMEOUT}，最多 {DERIVED_CALCULATION_MAX_TIMEOUT}。",
+        },
+        # 工单 04：假设 / 参数与沿用输入。
+        "params": {
+            "type": "object",
+            "description": (
+                "可选。本次计算的假设 / 参数（如 {\"growth_pct\": 5, \"margin_pct\": [48, 50, 52]}），"
+                "脚本里以 PARAMS 读（如 PARAMS.get(\"growth_pct\")）；会写进产物并进计算编号——"
+                "用户改一个假设，就改这里、并在脚本里读出它来参与计算（光设 params 不改脚本不会改变结果）。"
+            ),
+        },
+        "inputs_from_calc": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{16}$",
+            "description": (
+                "可选。沿用上一轮某次计算的输入快照（16 位计算编号，回答正文与产物文件名 calc-<id> 里有），"
+                "不重新取数、哈希链不断；配 params 即「只改假设重算」。沿用的输入在脚本里编号 P1..Pn。"
+                "不传 script 时沿用那次的脚本——注意沿用脚本不会读你这次传的 params，"
+                "要应用新假设就重写脚本并在里面读 PARAMS。"
+            ),
+        },
+    },
+    "required": ["purpose"],
+    "additionalProperties": False,
+}
+
+
+def _validate_params_argument(value: object) -> dict[str, object]:
+    if not isinstance(value, Mapping):
+        raise InvalidResearchToolArguments("params argument must be a JSON object")
+    try:
+        encoded = json.dumps(dict(value), ensure_ascii=False, sort_keys=True)
+    except (TypeError, ValueError) as exc:
+        raise InvalidResearchToolArguments("params argument must be JSON-serialisable") from exc
+    if len(encoded) > DERIVED_CALCULATION_MAX_PARAMS_CHARS:
+        raise InvalidResearchToolArguments(
+            f"params argument must serialise to at most {DERIVED_CALCULATION_MAX_PARAMS_CHARS} characters"
+        )
+    return {str(key): item for key, item in value.items()}
+
+
+def parse_derived_calculation_arguments(
+    arguments: Mapping[str, object],
+) -> tuple[str, str]:
+    """六个键各按类型读，多余键 / 空脚本 / 空目的直接拒，不猜不补。
+
+    runner 输入是规整后参数的 JSON 串（工具 runner 的第一个位置参数是字符串），
+    display 用 purpose 给事件与模型看——脚本正文不进 display。
+    ``script`` 只在传了 ``inputs_from_calc`` 时可省（沿用那次计算的脚本）；传了就不能是空串。
+    """
+
+    allowed = {"script", "purpose", "use_duckdb", "timeout_seconds", "params", "inputs_from_calc"}
+    unknown = set(arguments) - allowed
+    if unknown:
+        raise InvalidResearchToolArguments(
+            "derived_calculation accepts only the script / purpose / use_duckdb / timeout_seconds / "
+            "params / inputs_from_calc arguments; unexpected: "
+            + ", ".join(sorted(str(item) for item in unknown))
+        )
+    base_calc = arguments.get("inputs_from_calc")
+    if base_calc is not None:
+        if not isinstance(base_calc, str) or not _CALC_ID_RE.match(base_calc.strip()):
+            raise InvalidResearchToolArguments(
+                "inputs_from_calc must be a 16-hex calculation id (calc_id) from a previous turn",
+                code="invalid_query",
+            )
+        base_calc = base_calc.strip()
+    script = arguments.get("script")
+    if "script" in arguments or base_calc is None:
+        if not isinstance(script, str) or not script.strip():
+            raise InvalidResearchToolArguments(
+                "script argument must be a non-empty Python source string"
+                + ("" if base_calc is None else " (omit it entirely to reuse the base calculation's script)"),
+                code="invalid_query",
+            )
+    purpose = arguments.get("purpose")
+    if not isinstance(purpose, str) or not purpose.strip():
+        raise InvalidResearchToolArguments(
+            "purpose argument must be a non-empty string (one sentence: what the calculation answers)",
+            code="invalid_query",
+        )
+    use_duckdb = arguments.get("use_duckdb", False)
+    if not isinstance(use_duckdb, bool):
+        raise InvalidResearchToolArguments("use_duckdb argument must be a boolean")
+    timeout = arguments.get("timeout_seconds", DERIVED_CALCULATION_DEFAULT_TIMEOUT)
+    if isinstance(timeout, bool) or not isinstance(timeout, int):
+        raise InvalidResearchToolArguments("timeout_seconds argument must be an integer")
+    if not 1 <= timeout <= DERIVED_CALCULATION_MAX_TIMEOUT:
+        raise InvalidResearchToolArguments(
+            f"timeout_seconds argument must be between 1 and {DERIVED_CALCULATION_MAX_TIMEOUT}"
+        )
+    params = (
+        _validate_params_argument(arguments.get("params")) if "params" in arguments else {}
+    )
+    cleaned_purpose = purpose.strip()[:200]
+    payload: dict[str, object] = {
+        "script": script if isinstance(script, str) else "",
+        "purpose": cleaned_purpose,
+        "use_duckdb": use_duckdb,
+        "timeout_seconds": timeout,
+    }
+    if params:
+        payload["params"] = params
+    if base_calc is not None:
+        payload["inputs_from_calc"] = base_calc
+    return json.dumps(payload, ensure_ascii=False), cleaned_purpose
+
+
 def parse_financial_data_arguments(
     arguments: Mapping[str, object],
 ) -> tuple[str, str]:
-    """快照工具 + 一个可选 ``report_period``。空参合法，等同旧的无参快照。"""
+    """快照工具 + 可选 ``report_period`` + 可选 ``subjects``。空参合法，等同旧的无参快照。
+
+    runner 输入的两种形状（``episode_tools.parse_financial_data_request`` 反解）：
+    只有 ``report_period`` 时仍是那段裸文本（P0b 语义不变）；带 ``subjects`` 时是
+    ``{"report_period": ..., "subjects": [...]}`` 的 JSON 串。
+    """
 
     if not arguments:
         return "", "snapshot"
-    if set(arguments) != {"report_period"}:
+    allowed = {"report_period", "subjects"}
+    if not set(arguments) <= allowed:
         raise InvalidResearchToolArguments(
-            "financial_data snapshot accepts only an optional report_period argument"
+            "financial_data snapshot accepts only the optional report_period / subjects arguments"
         )
-    value = arguments.get("report_period")
-    if not isinstance(value, str) or not value.strip():
+    cleaned = ""
+    if "report_period" in arguments:
+        value = arguments.get("report_period")
+        if not isinstance(value, str) or not value.strip():
+            raise InvalidResearchToolArguments(
+                "report_period must be a non-empty string when given",
+                code="invalid_query",
+            )
+        cleaned = value.strip()
+    if "subjects" not in arguments:
+        return cleaned, cleaned
+    raw_subjects = arguments.get("subjects")
+    if not isinstance(raw_subjects, list) or not raw_subjects:
         raise InvalidResearchToolArguments(
-            "report_period must be a non-empty string when given",
+            "subjects must be a non-empty list of stock names or 6-digit codes",
             code="invalid_query",
         )
-    cleaned = value.strip()
-    return cleaned, cleaned
+    subjects: list[str] = []
+    for item in raw_subjects:
+        if not isinstance(item, str) or not item.strip():
+            raise InvalidResearchToolArguments(
+                "each subject must be a non-empty string (stock name or 6-digit code)",
+                code="invalid_query",
+            )
+        text = item.strip()
+        if text not in subjects:
+            subjects.append(text)
+    if len(subjects) > FINANCIAL_DATA_MAX_SUBJECTS:
+        raise InvalidResearchToolArguments(
+            f"subjects accepts at most {FINANCIAL_DATA_MAX_SUBJECTS} companies per snapshot"
+        )
+    payload = json.dumps(
+        {"report_period": cleaned, "subjects": subjects}, ensure_ascii=False
+    )
+    display = "subjects=" + "、".join(subjects) + (f"; period={cleaned}" if cleaned else "")
+    return payload, display
 
 
 def unwrap_double_encoded_query(
@@ -596,6 +918,11 @@ class ToolSpec:
     # 点一个必超时的工具烧掉 23s 再吃一个 tool_timeout，不如这轮就别让它看见。
     # None = 没有可靠读数，不裁。这是可见性，不是预算：不改任何授予算术。
     min_window_seconds: float | None = None
+    # 重放安全（运行底座终态稿 §2 钦定词 / §5 接触点 1）：崩溃后能否用同参数重跑。
+    # 这是**意图侧的声明**，不是效果侧的「幂等」——读工具默认 ``safe``；将来注册写工具
+    # （下单、落库、发消息）必须显式 ``never``，恢复时对它只合成 ``tool_error{interrupted}``、
+    # 绝不重跑。底座读它，不改任何执行行为。
+    replay: Literal["safe", "never"] = "safe"
 
     def __post_init__(self) -> None:
         if not isinstance(self.runner, ToolRunnerAdapter):
@@ -606,6 +933,8 @@ class ToolSpec:
         object.__setattr__(self, "parameters", frozen_parameters)
         if not isinstance(self.produces, frozenset):
             object.__setattr__(self, "produces", frozenset(self.produces))
+        if self.replay not in ("safe", "never"):
+            raise ValueError(f"tool replay declaration must be safe|never: {self.replay!r}")
 
 
 class ResearchToolRegistry:
@@ -614,15 +943,46 @@ class ResearchToolRegistry:
         specs: tuple[ToolSpec, ...],
         *,
         opening_prefetch: tuple[agent_research.AgentEvidence, ...] = (),
+        calc_loader: object | None = None,
     ) -> None:
         self._specs = {spec.name: spec for spec in specs}
         self.opening_prefetch = tuple(opening_prefetch)
+        # ``derived_calculation`` 的 runner 只有 episode 期绑得出（要那一轮的证据账本），
+        # 但「上一轮的计算记录在谁的 runs 目录里」是**装配期**才知道的身份问题
+        # ——运行器刻意不认识用户（agent_episode 的 EpisodeScope.user_id 恒为 ""）。
+        # 与 memory_lookup 同一条经验：授权与身份穿透必须成对出现，只做一半不报错。
+        # 这一格就是装配层把已解析的身份折成一个闭包带进 episode 的通道；
+        # None = 调用方没给身份，沿用 load_calculation_record 的默认解析。
+        self.calc_loader = calc_loader
 
     def resolve(self, name: str) -> ToolSpec:
         spec = self._specs.get(str(name).strip())
         if spec is None:
             raise UnknownResearchTool(str(name))
         return spec
+
+    def with_specs(self, *extra: ToolSpec) -> "ResearchToolRegistry":
+        """同一份注册表加几个 episode 期才绑得出 runner 的工具（如 ``sub_research``）。
+
+        原注册表不动；同名以新的为准。``opening_prefetch`` 原样带过去。
+        """
+
+        merged = {**self._specs, **{spec.name: spec for spec in extra}}
+        return ResearchToolRegistry(
+            tuple(merged.values()),
+            opening_prefetch=self.opening_prefetch,
+            calc_loader=self.calc_loader,
+        )
+
+    def without(self, *names: str) -> "ResearchToolRegistry":
+        """去掉几个工具的副本——子研究分支的注册表不含 ``sub_research``（深度 = 1）。"""
+
+        dropped = {str(name).strip() for name in names}
+        return ResearchToolRegistry(
+            tuple(spec for spec in self._specs.values() if spec.name not in dropped),
+            opening_prefetch=self.opening_prefetch,
+            calc_loader=self.calc_loader,
+        )
 
     def names(self) -> tuple[str, ...]:
         return tuple(self._specs)
@@ -1055,6 +1415,14 @@ class ResearchToolRegistry:
 # 失败模式，要么是复述 CLAUDE.md 里已有的红线。没有依据的宁可留空——工具提示词是
 # 模型判断「该不该用、结果怎么读」的依据，编一句进去比不写更糟。
 _TOOL_CONTRACTS: dict[str, str] = {
+    "history_query": (
+        "只读已授权历史窗口；精确实体代码不跨源拼接。rows为完整分母，preview为截断摘要；"
+        "相似Top-K只用于发现，不代表条件命中全集。触发时点匹配不使用后续结果。"
+        "缺字段/未成熟不算失败；同波和重叠窗口不视为独立样本。结果仅research_only，"
+        "不证明因果或可交易规律；成交额不是主动资金流。未知定义返回unsupported_definition。"
+    ),
+    "read_history_result": "仅读取当前用户同一会话已登记的不可覆盖原件；引用不是任意文件路径。摘要分页不改变全集统计。",
+    "save_history_research": "保存候选研究草稿与版本引用，不写市场事实或升级规律；修订保留失败案例，正式认证交现有评价器。",
     "market_data": (
         "返回的是最近一个已收盘交易日的快照，不是实时也不一定是今天："
         "当日盘中或次日开盘前查询会回退到上一交易日，此时应明写数据截至日期，"
@@ -1085,9 +1453,15 @@ _TOOL_CONTRACTS: dict[str, str] = {
     # 依据：runner ``agent_research._web_fetch`` 与 ``web_research.fetch_web_page`` 的
     # 分状态返回；「二手不升一手」复述 web_search 那条与 CLAUDE.md 的分层红线。
     "web_fetch": (
-        "取回的是网页正文原文，属二手公开材料（与 web_search 同档）：数字可以读、可以引，"
-        "但公司级硬事实仍以 l3_lookup 公告或 financial_data 一手数据为准，"
-        "只有网页来源时写成「待验证线索」并点明缺的一手材料。"
+        "档位按真实发布主体定，不按取页工具名定。判据就在返回里：观察值首行"
+        "「来源分类：发布主体=…，文档类型=…」后面跟着该档的使用提示，证据标题也带"
+        "〔发布主体·文档类型〕。官方披露平台（巨潮等）、监管/政府机构、交易所互动平台"
+        "三类是官方原文，发布主体即信息源，日期与数字可按原文直接引用，不要因为是 "
+        "web_fetch 取的就降成「待验证线索」。行业协会/机构页面居中：行业口径可引，"
+        "公司级事实仍需公告确认。财经媒体/门户、百科/参考、其他网站（发布主体未识别）"
+        "才按二手用：公司级硬事实以 l3_lookup 公告或 financial_data 一手数据为准，"
+        "只有这类来源时写成「待验证线索」并点明缺的一手材料。媒体转载的官方文件，"
+        "事实以原发布主体的版本为准，转载不构成第二来源；同一消息多家媒体转载也不是交叉验证。"
         "证据日期取页面自述的发布/更新日；页面没有日期时记为抓取日并在观察值里标明，"
         "引用时不要把抓取日说成数据日期。"
         "「取页失败」（HTTP 错误 / 超时 / 无法解析）是工具故障，不是页面没有该信息，"
@@ -1111,6 +1485,14 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "要在 report_period 里写明该期，否则那一行不在返回里，不等于没有该期数据。"
         "每行的日期是该期披露日（缺披露日时为报告期截止日），引用时按此写 as-of，"
         "不要用取数日。"
+        # 工单 04：结构化观察值 + 多公司。这两句也是 runner 行为，模型从正文读不出来。
+        "每一数据行同时带 observations（subject=股票代码如 600519.SH，as_of=报告期截止日，"
+        "metric 带单位与口径：revenue_cum_yi / net_profit_cum_yi / gross_margin_pct / "
+        "net_margin_pct / ocf_cum_yi / contract_liability_yi / inventory_yi 等，_cum_ 表示累计、"
+        "_yi 表示亿元、_pct 表示百分数），要算单季 / 同比 / 比率就用 derived_calculation 读这些"
+        "观察值，不要手抄表格里的数。"
+        "多公司比较把几家一起写进 subjects（最多 4 家）一次取；一轮只取一次快照，"
+        "第二次调用会被拒，缺了哪家就补不了。"
     ),
     # memory_lookup 的 description 已声明「不是市场事实、不能当作证据引用」，这里只补
     # 它无法自述的那半条：空命中的含义。runner 的空分支返回「用户记忆无相关命中」，
@@ -1174,6 +1556,13 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "返回文本明确说「检索未能执行完成」时那是工具故障，不是知识库为空，"
         "此时既不能写成证据缺口也不能下否定结论，应改写检索词重试或换工具；"
         "只有在确实「无命中」时，才说明知识库没有回填过，且仍不等于该事实不存在。"
+        # 02 深读落地后返回的形状变了：命中页整节按段送成独立证据，并在观察值里给出
+        # 「同页其余章节」目录。模型从证据正文读不出「还能再读哪一节、怎么读」，
+        # 所以这条动作必须写在契约里。
+        "返回里除命中片段外还带「深读《章节名》N/M」的整节段落（每段都是完整段落，"
+        "不是被截的片段），以及观察值里的「同页其余章节」目录。"
+        "某节没送到而你需要它时，就用 kb_search 检索「页名 章节名」把那节读出来，"
+        "不要重复同一个检索词——重查得到的是同一批命中。"
     ),
     # 两条依据都直接来自 ``agent_research.build_graph_tools._graph_lookup`` 的构造：
     # 概念项 detail 逐字是 f"匹配分 {score}"（文本匹配分，不是业务关联度）；
@@ -1210,6 +1599,61 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "返回为空或提示「题材级主线未知」，说明该交易日没有回填主线数据，"
         "不能据此说当天没有主线；数据比行情快照旧时会退回并说明，"
         "此时应写出数据截至日期，不要当作提问当天的主线。"
+    ),
+    # spec 2026-09-03-subagent-tool-design §3 三条契约逐条落：① 空结果语义；② 来源分档
+    # 与 as_of 继承自分支里真正调的那个工具、不因经过子研究而升档；③ 参数含义与拒绝条件。
+    # dsh 「Success contains only the child's final text」那条**不抄**：分支回的是带 hash
+    # 的证据条目，父臂结论只能绑到这些证据上，绑到分支总结文本进不了 admit_finish。
+    "sub_research": (
+        "返回的是各分支查到的证据条目本身（每条带来源、日期、档次），不是分支写的总结："
+        "结论要绑到这些证据上，分支的状态说明不能当依据引用。"
+        "证据的档次与日期继承自分支里实际调用的工具（公告仍是一手、网页仍是二手），"
+        "不因为经过子研究而升档。"
+        "某支 completed 但零证据，只说明该方向本轮没找到可绑定的证据，是缺口不是否定结论；"
+        "某支 failed 会带失败原因，表示该子问题没有被研究过，不是没有答案。"
+        "参数只有 goals：1–3 个彼此独立、能直接取证的子问题；空、重复或超过 3 个会被拒绝而不是截断。"
+        "每支分支有自己的调用与时间预算（≤ 60 秒），适合并行拆几个互不依赖的取证方向，"
+        "不适合把一个需要先后依赖的推理链拆开。"
+    ),
+    # §3.6 三条契约逐条落：① 空结果语义（没 emit / 脚本报错 / 超时 / 越界都是「计算没产出」，
+    #    不是任何数值，也不是否定证据）；② 来源分档与 as_of 来源（派生证据档次不高于输入里
+    #    最低的那档；as_of 取输入里最旧的一条，不是运行日）；③ 参数含义与拒绝条件（四个键；
+    #    禁用模块 / 外呼 / 越界写在 runner 里回结构化错误码）。依据：``derived_calculation.py``
+    #    的 runner 分状态返回与 ``calculation_sandbox`` 的两层隔离。
+    "derived_calculation": (
+        "返回的是对本回合已有证据做计算后的派生证据（带 input_evidence_hashes 与原样脚本）："
+        "它的档次不高于输入里最低的那一档，日期取输入里最旧的 as_of，不是今天。"
+        "结论要绑到这条派生证据上，并同时引用它的输入证据；沙箱算出的数与某个来源不一致时，"
+        "先看两边的输入是否同一批证据，不要二选一。"
+        "「没有 emit」「脚本报错」「超时」「触发沙箱限制」都表示计算没产出，不是任何数值，"
+        "也不能当否定证据；错误码会带原因，改脚本可重试。"
+        "本回合还没有任何证据时会拒绝（no_bound_evidence）：先取证再计算。"
+        "参数 script 是 Python 正文（用 EVIDENCE 读证据、emit 出结果，不能联网 / 起进程 / 越界写文件），"
+        "purpose 一句话说明算什么，use_duckdb 只在要查本地行情库时开，timeout_seconds 默认 20 最多 60。"
+        # 工单 04：结构化结果 / 参数 / 产物 / 沿用输入。这些是 runner 与收口层的行为，模型从
+        # 观察值正文里读不出来。
+        "财务数用 financial_data 每行 observations 里的结构化值算（metric 名带口径与单位，如 "
+        "revenue_cum_yi 是累计亿元），不要解析表格文本；累计口径转单季必须用 to_single_quarter，"
+        "不要把中报 / 三季报的累计数当单季数。"
+        "结果用 emit_result(summary, tables, charts, params, formulas, notes) 组织：表格里的每个数都会"
+        "进这条派生证据的 observations，正文引用它们时逐字照抄（不四舍五入成别的数）；"
+        "表格 / 图表 / 完整记录会作为本次回答的产物落盘为 calc-<计算编号>.csv / .html / .json，"
+        "正文里告诉用户可下载，并写明「计算编号 <calc_id>」。"
+        "params 里放假设（用户改一个假设时只改 params 再算一次）；inputs_from_calc 填上一轮的计算编号"
+        "就沿用那次的输入快照与脚本（不重新取数、不断哈希链，输入在脚本里编号 P1..Pn），"
+        "找不到该编号回 base_calc_not_found，不是数值。"
+        "**改一个假设重算上一轮时，inputs_from_calc 是首选**：同一话题的追问先找上一轮的计算编号"
+        "（在本工具上次结果的观察文本与产物名 calc-<编号>.* 里，16 位十六进制），"
+        "传 inputs_from_calc=<编号> + 只改 params；不要重新调 financial_data 取同一批数，"
+        "也不要把上一轮的脚本整段重抄。"
+        "表格行这样组织：rows 里每行是一个 dict，键用列名（如 {'报告期': '2025Q1', '营收（亿元）': 514.43}），"
+        "不要把列名行塞进 rows，也不要 None 填 0——缺就 None。"
+        "series() / to_single_quarter() 返回的是 **dict 的列表**（不是 tuple）："
+        "每个元素 {'as_of': '2026-06-30', 'value': 922.78, ...}，取数用 x['as_of'] / x['value'] 或 x.get(...)，"
+        "不要 x[0] / x[1]（dict 按下标 0 取会 KeyError: 0）；"
+        "dict(seq) / {x[0]: x[1] for x in seq} 都不适用于它——按 as_of 建映射："
+        "{x['as_of']: x['value'] for x in to_single_quarter(series(sub, 'revenue_cum_yi'))}。"
+        "零分母、缺季度、单位不认识时助手函数返回 None 并写 note，None 就写「缺」，不要填 0 或外推。"
     ),
 }
 
@@ -1254,6 +1698,8 @@ def require_tool_contracts(specs: Iterable[ToolSpec]) -> None:
 MIN_WINDOW_SECONDS: dict[str, float] = {
     "kb_search": 20.0,
     "evidence_search": 30.0,
+    # 设计常数而非实测：一支分支的时间上限（见 SUB_RESEARCH_MIN_WINDOW_SECONDS）。
+    "sub_research": SUB_RESEARCH_MIN_WINDOW_SECONDS,
 }
 
 
@@ -1261,7 +1707,11 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
     specs = tuple(
         ToolSpec(
             name=name,
-            capability=name,
+            # capability 读元数据声明而不是抄工具名：历史三工具（history_query /
+            # read_history_result / save_history_research）按批准 spec 共享 finance_query
+            # 授权，生产装配（history_tool_specs）也是 finance_query；此前这里写 name，
+            # 元数据说 finance_query、装配说 history_query，T-7 门禁两边对不上。
+            capability=capability,
             description=description,
             contract=_TOOL_CONTRACTS.get(name, ""),
             cost="local" if freshness == "stable" else "external",
@@ -1278,6 +1728,10 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
                 if name == "financial_data"
                 else URL_TOOL_PARAMETERS
                 if name == "web_fetch"
+                else SUB_RESEARCH_PARAMETERS
+                if name == "sub_research"
+                else DERIVED_CALCULATION_PARAMETERS
+                if name == "derived_calculation"
                 else EMPTY_TOOL_PARAMETERS
                 if name in {"market_data", "mainline_context"}
                 else query_parameters(name)
@@ -1287,6 +1741,10 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
                 if name == "financial_data"
                 else parse_url_arguments
                 if name == "web_fetch"
+                else parse_sub_research_arguments
+                if name == "sub_research"
+                else parse_derived_calculation_arguments
+                if name == "derived_calculation"
                 else parse_snapshot_arguments
                 if name in {"market_data", "mainline_context"}
                 else parse_query_arguments
@@ -1298,6 +1756,32 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
     )
     require_tool_contracts(specs)
     return ResearchToolRegistry(specs)
+
+
+def sub_research_tool_spec(
+    runner: agent_research.ToolRunner | ToolRunnerAdapter,
+) -> ToolSpec:
+    """把一个 episode 期绑好的 runner 装成 ``sub_research`` 的 ToolSpec。
+
+    走 ``default_registry`` 同一条装配路径，描述 / 契约 / 参数面 / 地板都取自同一张表，
+    不在运行时另抄一份——第二份必然漂。runner 由 ``runtime`` 层提供（要协调器与父证据
+    账本，``services`` 层拿不到）。
+    """
+
+    return default_registry({"sub_research": runner}).resolve("sub_research")
+
+
+def derived_calculation_tool_spec(
+    runner: agent_research.ToolRunner | ToolRunnerAdapter,
+) -> ToolSpec:
+    """把一个 episode 期绑好的沙箱 runner 装成 ``derived_calculation`` 的 ToolSpec。
+
+    与 ``sub_research_tool_spec`` 同一条路：描述 / 契约 / 参数面取自同一张表。runner 要
+    这一个 episode 的证据账本，由 ``services.derived_calculation.bind_derived_calculation_tool``
+    绑好、``ContinuousAgentEpisode`` 起步时并进注册表。
+    """
+
+    return default_registry({"derived_calculation": runner}).resolve("derived_calculation")
 
 
 # ---------------------------------------------------------------------------
