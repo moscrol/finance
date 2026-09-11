@@ -1,8 +1,9 @@
 # feat/knevo-delta-readside · 在途交接（2026-09-11）
 
 执行 spec `docs/superpowers/specs/2026-09-10-knevo-arch-delta-worklist.md`（评审修订版）。
-**spec 文档不在本分支**，在 `docs/knevo-e009-arch-delta`（7 笔提交、6 个文件、纯文档，
-已完整包含 `docs/knevo-m-probes-verification`）。两条都要合，文件不重叠、顺序无依赖。
+**spec 文档不在本分支**，在 `docs/knevo-e009-arch-delta`（**10 笔提交**、6 个文件、
+纯文档，已完整包含 `docs/knevo-m-probes-verification`）。两条都要合，文件不重叠、
+顺序无依赖。
 基点 `gitea/main @ 3ed44703`。
 
 ⚠ **本树同时有多个 agent 在动**（11:56 的 `f7c382a3` 是别人在我提交期间落的）。
@@ -10,6 +11,7 @@
 
 ## 提交（新→旧）
 
+- `5213263a` 把 local 降级与替代源登记进 consumption_registry（消费侧唯一事实源）
 - `eaa38d9f` D18 接第二个源（同花顺涨停池）+ 更正上一笔的错误归因
 - `5f04f85b` 质检整改：W2b prime 出口归属 + D18 接问句日期 + 两处失真注释
 - `f7c382a3` AB-003 本地侧冻结（W4 路径 a，非本轮产出）
@@ -42,6 +44,12 @@ W5 交付因此在生产上一直交白卷。**原因不是上游断供，是换
 > 可迁移：多写入方的表看到某列全 NULL，先 `group by trade_date, source` 再谈断供。
 > 一条查询就能省掉一次「要外呼比对 payload」的错误提案（我就先写错了一版）。
 
+**没加告警是有意的**：把 `first_limit_time` 加进 `check_daily_review_data` 的空值闸，
+风控期会每天响，必然被人关掉。真实损害在消费侧（写 spec 的人不知道输入降级了），
+所以登记进 `consumption_registry.yaml` 的 `limit_heat.pitfalls`。
+**切源前先跑 `scripts/source_switch_coverage_diff.py`**（仓里现成的，2026-09-08 为
+同类问题写的；本次读数 416 vs 394 天、裸切丢 0 天）——我这次是事后才想起来跑的。
+
 ## 等用户裁决
 
 1. **W4（AB 双盲台账）裁决进行中，已偏向 (a) 补样本**。`f7c382a3` 冻结了 AB-003
@@ -54,8 +62,8 @@ W5 交付因此在生产上一直交白卷。**原因不是上游断供，是换
    本分支 12 分钟前的交接都写着「合并须用户确认」；现交接自述「用户授权后合入」，
    但仓里无任何授权记录，质检方对此存疑。合的是特性分支不是 main、未推送，
    未触 main 红线。**请用户认账或回退。**
-3. **W2b 未回写 spec**。spec 的 W2 做法一节字面只圈了 `user_memory`，没圈 prime
-   出口——是评审漏圈范围，不是执行漏做。合 docs 分支时补一行 W2b。
+3. ~~W2b 未回写 spec~~ **已回写**（docs 分支 `657cc927` / `2c4924de` / `a519930a`）。
+   合并时注意该分支现为 10 笔提交。
 
 ## 坑 / 后人须知
 
