@@ -4237,7 +4237,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         def _d6_applies() -> bool:
             if not evidence_registry.provider_enabled(options, "D6"):
                 return False
-            # 视角模式下放宽词面门控（回退逻辑与理由见 midterm_intent_for）。
+            # 视角模式与方向排序题式下放宽词面门控（回退逻辑与理由见 midterm_intent_for）。
             intent = market_midterm.midterm_intent_for(
                 options.query, perspective_active=_perspective_active(options)
             )
@@ -4250,6 +4250,9 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             intent = d6_intents[0]
             block = market_midterm.midterm_trend_block_for_llm(
                 options.query, theme, options.market_db_path, intent.window,
+                # 排序题往往不点名题材（"最值得关注的三个方向"），题材名解析必为空；
+                # 没有这个兜底，门放开了照样是空块。
+                board_fallback=market_midterm.is_direction_ranking_query(options.query),
             )
             return block, Citation(
                 "D6",
