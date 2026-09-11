@@ -47,6 +47,7 @@ from intelligence.services import (
     experience_cards,
     external_market,
     forecast_preflight,
+    judgment_delta,
     kb_rag,
     knowledge_injection_policy,
     l3_evidence,  # noqa: F401  (测试经 ask.l3_evidence 打桩)
@@ -2905,6 +2906,11 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         if incomplete_outputs
         else "下一步验证：补充与问题直接相关的官方披露或数据，并检查是否改变当前判断。"
     )
+    # 判断增量说明（q17 Q8 回灌）：窗口把同事件的多篇转述并成一位，被省掉的出处在这里
+    # 说出来——合并不写出来就是丢了。没有合并也没有反证时返回空串，证据链逐字节不变。
+    material_note = judgment_delta.classify_material(owner_result.evidence).to_inline_note()
+    if material_note:
+        evidence_lines = [*evidence_lines, material_note]
     result.sections = {
         "结论": [summary_text],
         "证据链": evidence_lines,

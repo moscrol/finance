@@ -68,6 +68,8 @@ from intelligence.services.research_tool_registry import (
 )
 from intelligence.services.run_store import redact, redact_value
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.judgment_delta import judgment_delta_receipt
+from intelligence.services.pricing_split import pricing_split_receipt
 from intelligence.services.ranking_contract import (
     merge_ranking_missing_outputs,
     ranking_receipt,
@@ -1144,6 +1146,20 @@ class ContinuousTurnAdapter:
                 question_type=context.contract.question_type,
                 as_of=context.today,
                 conversation_context=context.conversation_context,
+            ),
+            # 判断增量 / 产业·定价二分收据（Knevo q17 Q8、Q4 回灌）：只读，不并进
+            # missing_outputs——先用同题对照实验量出效果，再决定要不要上修复硬门。
+            "judgment_delta": judgment_delta_receipt(
+                outcome.draft,
+                query=context.contract.question,
+                question_type=context.contract.question_type,
+                as_of=context.today,
+            ),
+            "pricing_split": pricing_split_receipt(
+                outcome.draft,
+                query=context.contract.question,
+                question_type=context.contract.question_type,
+                as_of=context.today,
             ),
             "metrics": _episode_metrics(
                 outcome,

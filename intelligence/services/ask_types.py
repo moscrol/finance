@@ -155,6 +155,12 @@ class AskOptions:
     # 排序与情景表达层（10 号单）：多对象排序/优先级题命中时注入「公司矩阵 + 财务传导 +
     # 竞争解释 + 改判条件表 + 下一步」表达契约；非排序问题不注入，行为不变。
     include_ranking_guidance: bool = True
+    # 判断增量表达层（Knevo q17 Q8 回灌 / R4 收窄版）：材料型判断题命中时注入
+    # 「保留判据 + 反证优先 + 待验证问题 + 裁判变量接下一步」表达契约；非材料题不注入。
+    include_judgment_delta_guidance: bool = True
+    # 产业证据/定价状态二分表达层（Knevo q17 Q4 回灌 / R5 收窄版）：「还能追吗 / 是不是
+    # 已经反映了」这类问句命中时注入两段分答契约；非定价状态问题不注入，行为不变。
+    include_pricing_split_guidance: bool = True
     # 数据块允许名单（evidence_registry）：None（默认）= 全部允许，意图门控仍生效；
     # 给定集合时只允许名单内的块。关某一块用 without_providers / providers_allowing_memory。
     enabled_providers: tuple[str, ...] | None = None

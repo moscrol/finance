@@ -21,6 +21,7 @@ stock 用 ``stock_ts_code``）：
 | theme | limit_heat_rank | rank | 涨停热度排名，档位写死见 ``HEAT_TIER`` |
 | theme | limit_heat_rank_jump | 1/0/NULL | 排名较前一交易日提升 >=5；前一日无名次则 NULL |
 | theme | mainline_flag | 1/0/NULL | 当日出现在 ``fact_mainline_sector_daily``；主线表无覆盖的日子为 NULL |
+| theme | opinion_stage | text/NULL | 舆论生命周期段（萌芽/扩散/拥挤/退热/证伪；``opinion_stage.derive_stage``，当日带读口径 C=当日）；该板块名从未被研报 tag 命中的日子为 NULL，命中过但近 90 日为 0 记 ``unverifiable`` |
 | market | market_stage | text | 投影 ``fact_market_daily.market_stage``，去掉末尾「阶段」别名；NULL 保留 |
 | market | volume_surge | 1/0/NULL | ``amount_vs_yesterday_pct > VOLUME_SURGE_PCT``（与 detect_turning_points 同阈值，真库上两口径 74 日完全一致） |
 | market | ma5_peak_confirmed | 1/0 | ``SignalDetector`` 的 MA5 顶确认日 |
@@ -89,8 +90,9 @@ from .store import (
 # 口径版本。热度档位、阈值、算法、标签目录任何一处变动都要升版本，旧收据凭它判「不可比」。
 # v1 → v2：新增 stock 三标签（limit_up / first_board / new_high_1y），sector / theme / market 口径未动。
 # v2 → v3：market_stage 去掉上游值末尾的「阶段」别名，NULL 仍为 NULL。
+# v3 → v4：新增 theme 标签 opinion_stage（工单 #36 / G-06 舆论生命周期，os-v0 派生规则）；其余口径未动。
 HEAT_TIER = {"dimension": "sector", "scope": "all", "data_stage": "final", "is_realtime": False}
-LABEL_VERSION = "v3-heat_sector_all_final_nonrt-stock_limit_high_union-market_stage_normalized"
+LABEL_VERSION = "v4-heat_sector_all_final_nonrt-stock_limit_high_union-market_stage_normalized-opinion_stage_os_v0"
 
 DATA_GAP_ZERO_RATIO = 0.9
 DUAL_RED_DIFF_RATIO_GT = 10.0
@@ -110,7 +112,7 @@ SECTOR_LABELS = (
     "multi_period_resonance",
     "amount_rank_top10",
 )
-THEME_LABELS = ("limit_heat_rank", "limit_heat_rank_jump", "mainline_flag")
+THEME_LABELS = ("limit_heat_rank", "limit_heat_rank_jump", "mainline_flag", "opinion_stage")
 MARKET_LABELS = ("market_stage", "volume_surge", "ma5_peak_confirmed", "ma5_valley_confirmed")
 STOCK_LABELS = ("limit_up", "first_board", "new_high_1y")
 ALL_LABELS = SECTOR_LABELS + THEME_LABELS + MARKET_LABELS + STOCK_LABELS
@@ -128,6 +130,7 @@ LABEL_SPEC: dict[str, Any] = {
     "ma5": f"turning_points.SignalDetector(MA5_MIN_SWING={MA5_MIN_SWING}) confirm-day, full fact_market_daily range",
     "market_stage": "normalize_market_stage(fact_market_daily.market_stage): strip one trailing '阶段'; NULL stays NULL",
     "mainline_flag": "fact_mainline_sector_daily (trade_date, sector_ts_code) exists; NULL on days without coverage",
+    "opinion_stage": "opinion_stage.derive_stage(hits by sector_name tag match, as_of=day, C=day) → 萌芽/扩散/拥挤/退热/证伪/unverifiable; NULL when the sector name never matched a report tag",
     "stock_universe": (
         f"{STOCK_UNIVERSE}: distinct (trade_date, stock_ts_code) in fact_theme_limit_stock_daily UNION "
         "fact_stock_high_daily; labels dense 1/0 inside, NULL only on days the source table has no rows"
@@ -145,7 +148,7 @@ def build_labels(
     *,
     now: datetime | None = None,
 ) -> BuildReport:
-    """从主库只读重建全部 15 个标签 + data_gap + 交易日历，写入旁路库。幂等：同输入同输出。"""
+    """从主库只读重建全部 16 个标签 + data_gap + 交易日历，写入旁路库。幂等：同输入同输出。"""
     computed_at = naive_utc(now or utc_now())
     con = open_labels_db(labels_db, read_only=False)
     try:
@@ -156,6 +159,7 @@ def build_labels(
             gap_days = _build_data_gaps(con, computed_at)
             _build_sector_labels(con, computed_at)
             _build_theme_labels(con, computed_at)
+            _build_opinion_stage_labels(con, computed_at)
             ma5_counts = _build_market_labels(con, computed_at)
             stock_coverage = _build_stock_labels(con, computed_at)
 
@@ -385,6 +389,72 @@ def _build_theme_labels(con: duckdb.DuckDBPyConnection, computed_at: datetime) -
         )
     con.execute("DROP TABLE IF EXISTS _heat_feat")
     con.execute("DROP TABLE IF EXISTS _heat")
+
+
+# --------------------------------------------------------------------------- #
+# theme：舆论生命周期（工单 #36 / G-06）
+# --------------------------------------------------------------------------- #
+def _build_opinion_stage_labels(con: duckdb.DuckDBPyConnection, computed_at: datetime) -> int:
+    """每个（板块, 交易日）一条 ``opinion_stage``，由 ``opinion_stage.derive_stage`` 从研报 tag 命中算出。
+
+    实体 = ``fact_sector_daily`` 出现过的 ``sector_ts_code``，按 ``sector_name`` 精确匹配研报 tag
+    （与 ``river.coverage_hits`` 同口径：不用 LIKE）。名字从未命中任何研报的板块**不落行**（NULL 语义：
+    连「负证据缺失」都谈不上）；命中过但当日近 90 日为 0 的落 ``unverifiable``。当日带读口径 C = 当日：
+    ``created_at`` 晚于当日的研报那天看不见。表缺失时整段跳过并返回 0——不伪造。
+    """
+    from intelligence.services import opinion_stage as _os
+    from intelligence.services.river import _report_tags
+
+    try:
+        reports = con.execute(
+            f"""
+            SELECT report_date, created_at, sector_tags, concept_tags
+            FROM {SOURCE_ALIAS}.fact_research_report_catalog
+            WHERE report_date IS NOT NULL
+            ORDER BY report_date
+            """
+        ).fetchall()
+    except duckdb.Error:
+        return 0
+    if not reports:
+        return 0
+    sectors = con.execute(
+        f"""
+        SELECT DISTINCT sector_ts_code, sector_name FROM {SOURCE_ALIAS}.fact_sector_daily
+        WHERE sector_ts_code IS NOT NULL AND sector_name IS NOT NULL
+        """
+    ).fetchall()
+    days = [str(r[0]) for r in con.execute("SELECT trade_date FROM history_calendar ORDER BY trade_date").fetchall()]
+    if not days:
+        return 0
+
+    tagged = [
+        ({*_report_tags(r[2]), *_report_tags(r[3])}, {"report_date": r[0], "created_at": r[1]})
+        for r in reports
+    ]
+    # 同一个 sector_ts_code 在历史上可能改过名（实测 990380.FP 两个名字）：按代码归并全部名字，
+    # 研报按「任一名字命中」计且去重——否则同一 (code, day) 会落两行撞主键。
+    names_by_code: dict[str, set[str]] = {}
+    for code, name in sectors:
+        names_by_code.setdefault(str(code), set()).add(str(name))
+    rows: list[tuple] = []
+    for code, names in sorted(names_by_code.items()):
+        hits = [row for tags, row in tagged if tags & names]
+        if not hits:
+            continue
+        for day in days:
+            readout = _os.derive_stage(hits, day, knowledge_cutoff=day)
+            rows.append(("theme", code, day, "opinion_stage", None, readout.stage, LABEL_VERSION, computed_at))
+    if rows:
+        con.executemany(
+            """
+            INSERT INTO history_labels
+                (entity_type, entity_id, trade_date, label, value_num, value_text, label_version, computed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+    return len(rows)
 
 
 # --------------------------------------------------------------------------- #
