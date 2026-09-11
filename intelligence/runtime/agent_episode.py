@@ -30,6 +30,7 @@ from intelligence.runtime.episode_finalizer import (
 )
 from intelligence.services.derived_calculation import bind_derived_calculation_tool
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
+from intelligence.services.material_evidence import materials_as_evidence
 from intelligence.services.episode_protocol import (
     SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
     finish_rejection_fields,
@@ -1164,6 +1165,12 @@ class ContinuousAgentEpisode:
         for required in context.contract.required_outputs:
             if required.required and required.grounding_mode == "evidence":
                 evidence_ledger.open_gap(required.output_id)
+        # 用户贴的材料是这一回合**开局就有**的证据，不是 episode 取回来的：在这里入账，
+        # 于是 ``initial_evidence_snapshot`` 里就带着它，事后对账能分清「材料给的」与
+        # 「本轮取的」。不入账时 ``derived_calculation`` 第一道门就以 no_bound_evidence
+        # 拒绝，「我给你数据你帮我算」在结构上做不到（见 material_evidence 模块头）。
+        for item in materials_as_evidence(task_frame, context.conversation_context):
+            evidence_ledger.append(item)
         context_ref = _ContextRef(context)
         # 配置快照先于 task（G6）：恢复只读它，不读活对象。快照在绑 sub_research 之前
         # 算——那一步需要 ledger 已存在；sub_research 的在场只记一个布尔位。

@@ -25,6 +25,7 @@ from intelligence.services.user_task import (
     material_from_text,
     materials_in_conversation,
     references_material,
+    requests_recompute,
     resolve_nicknames,
     split_user_message,
     translate_market_feel,
@@ -387,15 +388,24 @@ def build_task_frame(
                 f"{item.char_count} 字）由用户在本轮提供，引用时写材料段落 / 表头 / 日期，"
                 "其中的数字是材料的说法而非市场事实"
             )
-    elif references_material(core) and conversation_context is not None:
+    elif (
+        references_material(core) or requests_recompute(core)
+    ) and conversation_context is not None:
         earlier = materials_in_conversation(conversation_context)
         if earlier:
             newest = earlier[-1][0]
             referenced_ids = tuple(ref.material_id for ref, _text in reversed(earlier))
+            pointer = "「这篇 / 这份」" if references_material(core) else "「再算一遍 / 同一批数」"
             assumptions.append(
-                f"「这篇 / 这份」按最近一次提供的材料理解：{newest.material_id}"
+                f"{pointer}按最近一次提供的材料理解：{newest.material_id}"
                 f"（{newest.title or _MATERIAL_KIND_LABEL.get(newest.kind, newest.kind)}）"
             )
+        # 下面两条缺材料车道**只由 references_material 把守**：重算意图是严格放宽，
+        # 它只能多绑一份确实存在的材料，不能多问一句歧义。否则「这个数再算一遍」
+        # （数来自 DuckDB、从没有过材料）会被追问「你说的这篇是哪篇」——把一个能
+        # 直接答的回合变成一次反问，比原来的漏绑更糟。
+        elif not references_material(core):
+            pass
         elif conversation_context_material_unrecoverable(conversation_context):
             # I2 收口：对话块被截断 ≠ 没有材料——「这篇」超窗口丢了，不把它错当成
             # 「用户引用了但根本没贴过」的缺材料车道。用更具体的缺口措辞提示重贴，

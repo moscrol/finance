@@ -58,7 +58,10 @@ from intelligence.services import sandbox_fincalc
 # 否则同脚本同输入会得到「看起来同 id、实际不同环境」的两份产物。
 # v2（工单 04）：给脚本 ``PARAMS`` / ``fincalc`` 财务助手 / ``emit_result`` 结构化结果出口；
 # ``sandbox_fincalc.py`` 的改动也走这个号（它随 prelude 一起拷进沙箱，是同一个执行环境）。
-PRELUDE_VERSION = "2"
+# v3：``fincalc.table(name, rows)`` 两参形式（实测里模型反复写这个形状、连撞 18 次
+# TypeError）。同脚本同输入在 v2 下抛异常、在 v3 下出数，是**行为改动**，必须换号——
+# 不换号就会有两份 calc_id 相同、内容不同的记录，事后对账无从分辨。
+PRELUDE_VERSION = "3"
 FINCALC_MODULE = "fincalc"
 
 RESULT_SENTINEL = "__DERIVED_CALCULATION_RESULT__"

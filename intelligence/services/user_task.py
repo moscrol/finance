@@ -457,6 +457,11 @@ _MATERIAL_REFERENCE_RE = re.compile(
     r"刚(?:贴|发|给)的?|附件|该(?:材料|研报|文档|文章|表格|报告|纪要)|"
     r"这(?:个|篇|份)?(?:材料|研报|文档|文章|表格|报告|纪要|摘要|截图|链接))"
 )
+_RECOMPUTE_REQUEST_RE = re.compile(
+    r"(?:再算(?:一遍|一次|一下)?|重算|重新(?:算|计算)|再跑一遍|"
+    r"(?:同一|同样|这|那|原来那)(?:一)?(?:批|组|份)数(?:据)?|"
+    r"按(?:同样|相同)的?(?:口径|数)再)"
+)
 _LONG_SINGLE_LINE_MIN = 160
 _MATERIAL_MIN_CHARS = 40
 _QUESTION_MAX_CHARS = 120
@@ -497,6 +502,23 @@ def _cells(line: str) -> tuple[str, ...]:
 
 def _is_table_line(line: str) -> bool:
     return len(_cells(line)) >= 2 and ("\t" in line or "|" in line or re.search(r"\s{2,}", line.strip()) is not None)
+
+
+def material_table_rows(text: str) -> tuple[tuple[str, ...], ...]:
+    """表格材料的单元格网格：第 0 行是表头，其余是数据行。非表格返回空。
+
+    ``material_from_text`` 已经用同一对 ``_is_table_line`` / ``_cells`` 判过「这是不是
+    表格」并数出 ``headers`` / ``rows``，但它只留计数不留正文。要把材料里的数交给
+    计算沙箱就得要正文，所以这里把同一次切分的结果公开出来——**判据必须与
+    ``material_from_text`` 完全同源**，否则会出现「身份表说 12 行、证据里只有 9 行」
+    这种两套口径的漂移。
+    """
+
+    body = str(text or "").strip()
+    if not body:
+        return ()
+    grid = tuple(_cells(line) for line in body.splitlines() if _is_table_line(line))
+    return grid if len(grid) >= 2 else ()
 
 
 def _title_for(text: str, kind: str, headers: tuple[str, ...]) -> str:
@@ -660,6 +682,24 @@ def references_material(text: str) -> bool:
 
     compact = re.sub(r"\s+", "", str(text or ""))
     return bool(compact) and _MATERIAL_REFERENCE_RE.search(compact) is not None
+
+
+def requests_recompute(text: str) -> bool:
+    """「改个假设再算一遍 / 在同一批数上重算」——要在既有数上重算，没说「这张表」。
+
+    与 ``references_material`` 刻意分成两条：那一条问的是「题面在指代一份材料吗」，
+    这一条问的是「题面要在上一轮那批数上重算吗」。两个问题的答案经常不一致——
+    2026-09-11 实测的「把假设改一个再算一遍……在同一批数上重算」一个指代词都没有，
+    ``references_material`` 判 False，于是上一轮的表不入证据账本、``derived_calculation``
+    以 ``no_bound_evidence`` 拒绝，「改假设重算」在结构上做不到。
+
+    合成一条正则会污染 ``references_material`` 的语义：它还被主体推断与检索地板读
+    （``task_frame`` 的 ``hypotheses and not references_material`` 与第四道地板），
+    那两处要的是「指代」不是「重算」。
+    """
+
+    compact = re.sub(r"\s+", "", str(text or ""))
+    return bool(compact) and _RECOMPUTE_REQUEST_RE.search(compact) is not None
 
 
 _PROMPT_BLOCK_ROLE_RE = re.compile(r"^(user|assistant|system)[:：]\s?", re.MULTILINE)
@@ -1095,9 +1135,11 @@ __all__ = [
     "detect_reposted_material_gap",
     "material_from_text",
     "material_id_for",
+    "material_table_rows",
     "materials_in_conversation",
     "rebind_material_from_text",
     "references_material",
+    "requests_recompute",
     "resolve_nicknames",
     "split_user_message",
     "translate_market_feel",

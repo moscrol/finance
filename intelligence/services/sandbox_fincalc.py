@@ -501,13 +501,38 @@ def _json_safe(value):
     return str(value)
 
 
-def table(name, columns, rows, *, unit=None, note=None):
+def _columns_from_rows(rows):
+    """两参形式下的列名：dict 行取键的出现序并集；序列行退化成「第 N 列」。"""
+
+    columns = []
+    width = 0
+    for row in rows or ():
+        if isinstance(row, dict):
+            for key in row:
+                if key not in columns:
+                    columns.append(key)
+        else:
+            width = max(width, len(list(row)))
+    if columns:
+        return columns
+    return [f"第{index + 1}列" for index in range(width)]
+
+
+def table(name, columns, rows=None, *, unit=None, note=None):
     """一张表：``columns`` 列名、``rows`` 行（每行与列同长）。行里的 None 就是「缺」，别填 0。
 
     行可以是列表 / 元组，也可以是**键为列名的 dict**（推荐：``{'报告期': '2025Q1', '营收': 514.43}``，
     列序按 columns 对齐）。别把列名行塞进 rows。
+
+    ``table(name, rows)`` 两参也收：省掉 ``columns`` 时把第二个位置当行，列名按 dict 键
+    的出现序推出来。加这条是因为实测里模型反复写这个形状——2026-09-11 的一个回合里
+    ``table() missing 1 required positional argument: 'rows'`` 连撞 18 次，报错信息本身
+    完全准确，模型照旧写原样，整次计算一次都没落地。工具契约的可用性由**调用方实际写
+    出来的形状**定义，不由签名的整洁度定义；这是严格放宽，三参调用逐字节不变。
     """
 
+    if rows is None:
+        rows, columns = columns, _columns_from_rows(columns)
     column_list = [str(column) for column in columns]
     out_rows = []
     for row in rows:
