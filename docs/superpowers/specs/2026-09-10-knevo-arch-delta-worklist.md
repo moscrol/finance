@@ -71,13 +71,18 @@
 含归属+日期，既有日期与过期标记不回归；`memory_lookup` 每条证据 source/source_date 完整。
 扩展 test_user_memory + test_episode_tools；开关关闭时零注入不变。
 
-## W2b（P1）· 第三条出口：prime 前缀 —— 2026-09-11 交付后补登
+## W2b（P1）· 漏圈的出口：prime 与 foresight —— 2026-09-11 交付后补登
 
-**为什么补这一条**：上面「召回有**两条**真实出口」漏了一条，是**评审时漏圈范围，
-不是执行漏做**。第三条是 `intelligence/services/prime.py` 的 prime 前缀——它渲染
-同一批 judgments/corrections 台账，走的是 `judgments.render_for_prompt`（与
-`user_memory` 的渲染器不是同一个），且 `skills/dispatcher/scripts/route.py` 默认
-**每轮路由都附带**（`--no-prime` 才关），是三条出口里触达最频繁的一条。
+**为什么补这一条**：上面「召回有**两条**真实出口」数少了，是**评审时漏圈范围，
+不是执行漏做**。漏掉的是 `judgments.render_for_prompt` 这个**另一个渲染器**的两个
+生产调用方（解析器数，2026-09-11 `grep -rn "render_for_prompt(" intelligence/services/`）：
+
+- `prime.py:137` —— prime 前缀。`skills/dispatcher/scripts/route.py` 默认**每轮路由
+  都附带**（`--no-prime` 才关），是所有出口里触达最频繁的一条。
+- `foresight.py:561` —— 拼进「我近期的核心判断」段送进 foresight 发问提示词。
+
+所以判断类归属的真实出口是 **4 条**（[M] 块 / `memory_lookup` / prime / foresight），
+不是 2 条。修在渲染器层，后两条一次覆盖。
 
 **当时的实况**：prime 只有块级标签 `【核心判断｜在此基础上往前推】`，块内逐条连
 「核心判断」四个字都没有——**比 W2 改造前的 [M] 块还弱一档**，正是 W2「块内混进
@@ -97,8 +102,18 @@ prime   ：- 液冷：液冷二次侧出清见底（2026-08-30）
 时，这条测试同样红。变异实测：退回块级旧形制 → `test_judgments` 2 条 +
 `test_prime` 1 条红。
 
-**留给后人的一条**：本项证明「出口清单」本身会漂。往后动召回渲染，先用
-`grep -rn "render_for_prompt"` 数出口，别信 spec 里写死的条数。
+**仍然开着的：corrections 侧没有日期。** `corrections.render_for_prompt` 有 **5 个**
+生产调用方（`ask_synthesis.py:836` / `prime.py:129` / `foresight.py:548` /
+`ask.py:1059` / `framework_interpretation.py:277`），输出形如
+`- 原则：拿数说话；别再说「看情绪」；应为：看渗透率数据（液冷）`。它**自带语义标签**
+（「原则 / 别再说 / 应为」不会被误读成市场事实），所以归属那半不缺；缺的是**日期**——
+三个月前的原则和昨天的原则在提示词里长得一模一样。[M] 块那条出口有日期
+（`[M·你的纠偏原则 2026-06-01]`），这五条没有。**未修**，另立。
+
+**留给后人的一条**：本项证明「出口清单」本身会漂——而且**会漂两次**。本节初稿写
+「第三条出口是 prime」，仍然数少了（漏了 foresight）。往后动召回渲染，先用
+`grep -rn "render_for_prompt(" intelligence/services/` 数出口，别信任何写死的条数，
+**包括本节的**。
 
 ## W3（P2）· 召回降权闭环 —— 可靠性池
 
