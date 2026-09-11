@@ -34,17 +34,17 @@ def _proc_info(pid: str) -> str:
         return f"(无法读取 PID {pid} 信息: {exc})"
 
 
-def _default_feishu_alert(text: str) -> bool:
+def _default_alert(text: str) -> bool:
     scripts = str(ROOT / "scripts")
     if scripts not in sys.path:
         sys.path.insert(0, scripts)
-    from notify_feishu import send_alert
+    from notify_ops import send_alert
 
     return send_alert(text)
 
 
 def _alert_production_blocked(holder: str, *, alerter=None) -> None:
-    """生产库被占锁时飞书告一声；staging 自检不告（夜跑自己持 staging 锁是常态）。
+    """生产库被占锁时告一声；staging 自检不告（夜跑自己持 staging 锁是常态）。
 
     告警失败不得改变退出码——锁检测本身才是这道门的产品。
     """
@@ -52,7 +52,7 @@ def _alert_production_blocked(holder: str, *, alerter=None) -> None:
 
     if not is_canonical_production(DB_PATH):
         return
-    send = alerter or _default_feishu_alert
+    send = alerter or _default_alert
     send(f"⚠️ 生产库被占用：{holder} held exclusive DuckDB lock ({DB_PATH})")
 
 

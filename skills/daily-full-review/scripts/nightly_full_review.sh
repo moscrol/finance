@@ -87,7 +87,7 @@ echo "[$(date '+%F %T')] === 全量复盘开始 phase=$PHASE date=$D l2_code=$CO
 # 失败告警：Mac 系统通知（零配置必达本机）+ 飞书（可选，凭证/权限就绪才发）；告警自身失败不影响退出码
 notify() {
   osascript -e "display notification \"$1\" with title \"全量复盘告警\" sound name \"Basso\"" 2>/dev/null || true
-  "$OPS_PYTHON" "$WORKSPACE/scripts/notify_feishu.py" "$1" 2>/dev/null || true
+  "$OPS_PYTHON" "$WORKSPACE/scripts/notify_ops.py" "$1" 2>/dev/null || true
 }
 
 run_moneyflow() {

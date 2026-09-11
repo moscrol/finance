@@ -178,7 +178,7 @@ def _notify(msg: str) -> None:
     except Exception:  # noqa: BLE001
         pass
     try:
-        subprocess.run([PY, str(ROOT / "scripts" / "notify_feishu.py"), msg],
+        subprocess.run([PY, str(ROOT / "scripts" / "notify_ops.py"), msg],
                        timeout=30, capture_output=True)
     except Exception:  # noqa: BLE001
         pass
