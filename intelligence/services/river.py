@@ -110,6 +110,11 @@ class RiverSlice:
     # 终局 spec §4.1 只在「事后人工复核」那一档允许它，且明写「不得进入任何校准或
     # 方法有效性统计」。所以它是一等字段而不是注释：下游必须能机器判定。
     hindsight: bool = False
+    # 事实内容读自哪个版本源（OPT-01 第二刀）。None = 当前主库（历史默认）；
+    # {"kind": "frozen_snapshot", "as_of": S, ...} = 从 ≤C 最新冻结快照取回的当时版本；
+    # {"kind": "live", "reason": ...} = 请求了版本源但无 ≤C 快照，如实回落当前库。
+    # 它必须活过序列化：没有它，「当时看到的值」与「今天回头看的值」在收据里长得一样。
+    content_source: dict[str, Any] | None = None
 
     @property
     def gaps(self) -> list[Gap]:
@@ -162,6 +167,7 @@ class RiverSlice:
             # 而且两种都不会有人发现。
             "hindsight": self.hindsight,
             "alias_applied": self.alias_applied,
+            "content_source": self.content_source,
             "tracks": {
                 k: (v.to_dict() if isinstance(v, Gap) else [o.to_dict() for o in v])
                 for k, v in self.tracks.items()
@@ -823,11 +829,19 @@ def slice_river(
     db_path: str | Path | None = None,
     checkpoints_path: str | Path | None = None,
     teaching_labels_db: str | Path | None = None,
+    frozen_snapshot_root: str | Path | None = None,
 ) -> RiverSlice:
     """取 ``as_of`` 这一天、``entity`` 这个实体的六轨对齐切片。
 
     ``knowledge_cutoff`` 缺省 = ``as_of``（当日带读口径）。回放 / 校准要显式传，
     且必须 ``<= as_of``——**本层强制**，不是文档约定。
+
+    ``frozen_snapshot_root`` 给了冻结快照目录（生产在 ``~/fidelity-replay/pit-snapshots``）
+    时，事实内容改读 **≤ cutoff 最新那份封印快照**——数据后来被修订也能答「当时看到的是
+    哪个值」（OPT-01 第二刀；快照覆盖的 14 张骨干表用当时版本，其余表与实体别名用当前库，
+    见 ``river_frozen`` 模块 docstring）。无 ≤ cutoff 的快照则如实回落当前库；快照封印
+    校验失败**抛错不回退**。切片的 ``content_source`` 字段记录本次读了哪个源。不给则
+    行为与此前逐字节相同。
 
     ``teaching_labels_db`` 给了授课框架旁路库时，盘面轨多出 ``teaching_*`` 对象（当日阶段读数、
     王朝链截至当日的状态、区间涨幅高标组，见 ``teaching_framework.river_objects``）；不给则
@@ -868,7 +882,44 @@ def slice_river(
         checkpoints_path = user_space().checkpoints_path
     ck_path = Path(checkpoints_path)
 
-    con = duckdb.connect(str(db), read_only=True)
+    content_source: dict[str, Any] | None = None
+    if frozen_snapshot_root is not None:
+        from intelligence.services.river_frozen import best_snapshot_for, connect_frozen
+
+        snap_asof = best_snapshot_for(frozen_snapshot_root, cutoff)
+        if snap_asof is not None and snap_asof < as_of:
+            # 快照拍在 as_of 之前：它的 20 日回看窗里**不可能有** as_of 的行——用它跑
+            # 切片会把「快照没拍到」错报成「实体不存在」。此时主库才是正确的源：行的
+            # updated_at ≤ C 说明它从未被 C 后修订，本来就是当时版本，照常 strict；
+            # updated_at > C 说明被修订过且无存证，如实降档——不比快照模式差。
+            snap_asof = None
+            content_source = {
+                "kind": "live",
+                "reason": (
+                    f"[{as_of}, {cutoff}] 内无冻结快照（最近一份在 as_of 之前），"
+                    "as_of 当日内容无版本存证；主库行未被修订（updated_at ≤ C）时仍为当时版本"
+                ),
+            }
+        if snap_asof is None:
+            if content_source is None:
+                content_source = {
+                    "kind": "live",
+                    "reason": f"无 ≤ {cutoff} 的冻结快照，回落当前库（值可能含此后的修订）",
+                }
+            con = duckdb.connect(str(db), read_only=True)
+        else:
+            # 封印校验失败在这里抛 FrozenSnapshotError：版本源损坏不可静默回退，
+            # 回退会把「源坏了」伪装成「当时就是这个值」。
+            con = connect_frozen(frozen_snapshot_root, snap_asof, db_path=db)
+            content_source = {
+                "kind": "frozen_snapshot",
+                "as_of": snap_asof,
+                # S < C 时 (S, C] 之间的修订不可见——值只会偏旧不会偏未来，PIT 的安全方向。
+                "staleness_days_key": f"{snap_asof}..{cutoff}",
+                "config_tables": "live",
+            }
+    else:
+        con = duckdb.connect(str(db), read_only=True)
     try:
         ref = resolve_entity(con, as_of, entity)
         if ref is None:
@@ -882,6 +933,7 @@ def slice_river(
                 knowledge_cutoff=cutoff,
                 tracks={t: Gap(t, "entity_unresolved", reason) for t in TRACKS},
                 hindsight=hindsight,
+                content_source=content_source,
             )
         # 各轨用**当天真实的代码**去查（否则查不到行），出来的对象再把 entity_id
         # 换成跨供应商稳定的 canonical_id。ref 保留当天的代码不动——它指向的是
@@ -926,6 +978,7 @@ def slice_river(
         tracks=tracks,
         alias_applied=ref.alias_applied,
         hindsight=hindsight,
+        content_source=content_source,
     )
 
 
@@ -934,8 +987,15 @@ def render(sl: RiverSlice) -> str:
         f"as_of={sl.as_of}  entity={sl.entity_id} {sl.entity_name}  "
         f"cutoff={sl.knowledge_cutoff}  pit_grade={sl.pit_grade}"
         + ("  ⚠ hindsight=true（事后视角，不得进入校准与方法有效性统计）" if sl.hindsight else ""),
-        "",
     ]
+    if sl.content_source is not None:
+        src = sl.content_source
+        lines.append(
+            f"  content_source={src.get('kind')}"
+            + (f" @ {src['as_of']}" if src.get("as_of") else "")
+            + (f"（{src['reason']}）" if src.get("reason") else "")
+        )
+    lines.append("")
     for track in TRACKS:
         result = sl.tracks[track]
         if isinstance(result, Gap):
@@ -967,11 +1027,17 @@ def main() -> int:
         default=None,
         help="授课框架旁路库（scripts/teaching_framework.py 的 --labels-db）；给了盘面轨多出 teaching_* 对象，不给逐字节同前",
     )
+    ap.add_argument(
+        "--frozen-snapshot-root",
+        default=None,
+        help="冻结快照目录（生产 ~/fidelity-replay/pit-snapshots）；给了就从 ≤cutoff 最新封印快照"
+        "取回当时的事实版本（OPT-01 第二刀），数据修订后仍能答「当时看到的是哪个值」",
+    )
     args = ap.parse_args()
 
     sl = slice_river(
         args.as_of, args.entity, knowledge_cutoff=args.cutoff, allow_hindsight=args.allow_hindsight,
-        teaching_labels_db=args.teaching_labels_db,
+        teaching_labels_db=args.teaching_labels_db, frozen_snapshot_root=args.frozen_snapshot_root,
     )
     print(json.dumps(sl.to_dict(), ensure_ascii=False, indent=2) if args.json else render(sl))
     return 0
