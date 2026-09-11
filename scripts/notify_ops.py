@@ -57,22 +57,33 @@ def _desktop_notify(text: str) -> None:
         pass
 
 
-def send_alert(text: str) -> bool:
-    """记一条告警。落盘成功即算成功——弹窗是锦上添花，不作为成败依据。"""
+def send_alert(text: str, *, desktop: bool = True) -> bool:
+    """记一条告警。落盘成功即算成功——弹窗是锦上添花，不作为成败依据。
+
+    ``desktop=False`` 只落盘。给**自己已经弹过窗**的调用方用：两个夜跑 shell 里
+    `notify()` 的第一行就是内联 `osascript`（零依赖，必达本机），再让这里弹一次
+    就成了同一件事响两声，看的人会以为出了两个问题。
+    """
     text = (text or "").strip()
     if not text:
         return False
     ok = _append_log(text)
-    _desktop_notify(text)
+    if desktop:
+        _desktop_notify(text)
     return ok
 
 
 def main() -> int:
-    text = " ".join(sys.argv[1:]).strip() or sys.stdin.read().strip()
+    argv = list(sys.argv[1:])
+    desktop = True
+    if "--no-desktop" in argv:
+        argv = [a for a in argv if a != "--no-desktop"]
+        desktop = False
+    text = " ".join(argv).strip() or sys.stdin.read().strip()
     if not text:
-        print("用法: notify_ops.py <消息文本>", file=sys.stderr)
+        print("用法: notify_ops.py [--no-desktop] <消息文本>", file=sys.stderr)
         return 1
-    return 0 if send_alert(text) else 1
+    return 0 if send_alert(text, desktop=desktop) else 1
 
 
 if __name__ == "__main__":

@@ -71,8 +71,24 @@
 - `~/.local/bin/nightly_full_review.sh`：**本机版与仓内版有其它有意差异**（L2 源说明、`DATA_ROOT` vs `CODE_ROOT`），只就地改了飞书那两行，没覆盖。
 - 两份改前副本都在 `~/.finance-runtime/retired-feishu-20260911/`，`zsh -n` 语法自检通过。
 
-> ⚠️ 两个夜跑脚本里的告警行指向 `$WORKSPACE/scripts/notify_ops.py`，**本 PR 合进主干后才存在**。
-> 合并前若触发告警，那一行会静默 no-op（`|| true`）——与之前 HTTP 400 的效果一样，不是新增退化。
+### 告警三条腿的真实状态（合并后复核，订正上文）
+
+| 腿 | 依赖 | 状态 |
+|---|---|---|
+| 桌面弹窗 | 无（两个夜跑 shell 的 `notify()` 第一行就是内联 `osascript`） | ✅ **一直是通的**，从没断过 |
+| 落盘 `alerts.log` | `$DATA_ROOT/scripts/notify_ops.py` | ⏳ 等 `$DATA_ROOT`（主检出）更新到 main 才生效 |
+| 飞书 | 网络 + `im:chat` 权限 | ❌ 一直是死的，已删 |
+
+也就是说**"告警从来没送达"要收窄成"飞书那条腿从来没送达"**——弹窗用户其实一直看得见，
+少的是事后可查的凭据。这是本次退役补上的东西。
+
+两棵部署树都还停在旧提交（`finance-workspace-private` 落后 428 提交且工作树脏、
+`finance-workspace-runtime` 落后 83 提交），所以 `notify_ops.py` 在它们那里还不存在，
+落盘那条腿要等它们更新。**更新部署树属于部署动作，没有擅自做。**
+
+另：`notify_ops.py` 本身也会弹窗，而 shell 已经内联弹过一次 → 检出更新后会同一件事响两声。
+已加 `--no-desktop`（shell 调用处传它，只落盘），并补上该脚本的 7 条测试（前身 `notify_feishu.py` 一条测试都没有，
+这正是它每晚 400 却没人发现的原因）。
 
 ## 剩你一步（我不碰你的账号）
 
