@@ -282,9 +282,13 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 | limit-advance | 晋级、连板 |
 | top-gainers | 涨幅排行、涨幅前N |
 | high-volume-gainers | 放量上涨 |
+| advancers-chart | 涨家数走势 |
+| up-line | UP线、UP线更新 |
+| watchlist-ma | 自选股均线 |
 | ifind | iFinD数据查询 |
 | hithink-market-query | 同花顺市场查询 |
 | report-search | 研报搜索 |
+| sector-data | 边际量、板块数据、抓取板块 |
 | 公司画像页 | 公司画像PPT |
 | 行业概览 | 行业概览 |
 | theme-radar | 题材雷达、新词雷达、题材逻辑拆解 |
@@ -295,6 +299,7 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 | duckdb-backfill | 回填 duckdb、补 market_feature_store、增量补数据、fact 覆盖审计、同步 stock_high/sector_stock/limit_heat |
 | strategy-evolve | 策略进化、evolve、策略生成迭代、回测记录、前瞻收益验证（suggest 只建议、不自动改 params.json） |
 | strategy1-matrix | 策略一生成、生成策略1、策略一矩阵、策略1每日优先个股、strategy1 matrix、更新策略一。用于基于已完成的每日复盘数据、把某个交易日写入 `复盘、matrices、strategy1-priority-stock-matrix.html`、并沉淀 T1、T2、OBS、次日验证、尤其适用于避免长 SQL、长 shell 字符串、手工编辑巨大 HTML 单行导致出错 |
+| top-gainers-feishu | 强势股入库、涨幅入库、区间强势、涨幅筛选入库、查询强势股、强势股均线、强势股回踩 |
 | foresight-feedback | 记反馈、记一下、我关注、我对这个感兴趣、想深挖、这个不看了、跳过、不感兴趣、打个分、很重要、猜你想问、越用越懂、自动记反馈 |
 | 潜意识模式 | 开启潜意识模式、潜意识模式、进入潜意识、退出潜意识、收工、回读对话、巩固记忆、沉淀这轮、记进沉淀、潜意识开关 |
 | task-planner | 批量任务规划、开工前采访、批量回填前先问、开新题材前先问、运行前规划、采访前置、先问后做、task planner、batch plan、回填前先问 |
