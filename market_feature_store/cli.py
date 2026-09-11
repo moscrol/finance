@@ -698,19 +698,6 @@ def cmd_registry_check(_args) -> int:
     return 0
 
 
-def cmd_sync_limit_advance_feishu(_args) -> int:
-    from .sync.sync_feishu_limit_advance import sync_limit_advance
-
-    s = sync_limit_advance()
-    print(f"连板晋级表 {s['table_id']}: 记录 {s['records']} 行, 股票 {s['stocks']}")
-    print(f"展开写入 (stock×date 存在性): {s['rows_written']} 行")
-    if s["unresolved_cols"]:
-        print(f"无法对齐交易日的列 {len(s['unresolved_cols'])}: {s['unresolved_cols']}")
-    print(f"fact_limit_advance_presence: {s['table_total']} 行, {s['table_dates']} 交易日, "
-          f"{s['table_stocks']} 股 ({s['date_min']}~{s['date_max']})")
-    return 0
-
-
 def cmd_sync_limit_advance(args) -> int:
     from .sync.sync_fupanhui_limit_advance_daily import sync_fupanhui_limit_advance
 
@@ -1037,9 +1024,7 @@ def cmd_daily_update(args) -> int:
         return refused
     result = run_daily_update(
         trade_date=args.trade_date,
-        chart_table=args.chart_table,
         skip_long=args.skip_long,
-        with_chart=not args.no_chart,
         stock_source=args.stock_source,
     )
     if getattr(args, "direct", False):
@@ -1107,7 +1092,6 @@ def cmd_daily_full(args) -> int:
         return blocked
     result = run_daily_full_staged(
         trade_date=args.trade_date,
-        chart_table=args.chart_table,
         skip_long=args.skip_long,
         stock_source=args.stock_source,
     )
@@ -1131,7 +1115,6 @@ def cmd_daily_full_exec(args) -> int:
         return refused
     result = run_daily_full(
         trade_date=args.trade_date,
-        chart_table=args.chart_table,
         skip_long=args.skip_long,
         stock_source=args.stock_source,
     )
@@ -1640,7 +1623,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_lar.add_argument("--sleep", type=float, default=0.2, help="日期间隔秒数, 默认0.2")
     p_lar.set_defaults(func=cmd_sync_limit_advance_range)
 
-    sub.add_parser("sync-limit-advance-feishu", help="同步飞书连板晋级表到 fact_limit_advance_presence").set_defaults(func=cmd_sync_limit_advance_feishu)
 
     p_ml = sub.add_parser("sync-mainline-daily", help="同步复盘会主线题材+主线个股到 fact_mainline_theme_daily / fact_mainline_stock_daily")
     p_ml.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
@@ -1896,9 +1878,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_du = sub.add_parser("daily-update", help="一键日更同步+补字段+质检")
     p_du.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
-    p_du.add_argument("--chart-table", default=None, help="涨家数走势飞书表 table_id, 可选")
     p_du.add_argument("--skip-long", action="store_true", help="跳过板块成分股和全A日线等长任务")
-    p_du.add_argument("--no-chart", action="store_true", help="不生成/同步涨家数 MA5 图")
     p_du.add_argument("--stock-source", choices=["snapshot", "mootdx"], default="snapshot",
                       help="全A日线取数: snapshot=东财快照(默认,快); mootdx=通达信逐只(慢,可拉历史)")
     p_du.add_argument("--status-json", default=None, help="写出结构化执行状态，供上层编排判断 PASS/WARN/FAIL")
@@ -1918,7 +1898,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_df = sub.add_parser("daily-full", help="一键日更后生成完整每日复盘 (staging 写+原子换库, 生产库无写锁)")
     p_df.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
-    p_df.add_argument("--chart-table", default=None, help="涨家数走势飞书表 table_id, 可选")
     p_df.add_argument("--skip-long", action="store_true", help="跳过板块成分股和全A日线等长任务")
     p_df.add_argument("--stock-source", choices=["snapshot", "mootdx"], default="snapshot",
                       help="全A日线取数: snapshot=东财快照(默认,快); mootdx=通达信逐只(慢,可拉历史)")
@@ -1927,7 +1906,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_dfe = sub.add_parser("daily-full-exec",
                            help="(内部) daily-full 的 staging 子进程入口, 勿直接使用")
     p_dfe.add_argument("--trade-date", default=None)
-    p_dfe.add_argument("--chart-table", default=None)
     p_dfe.add_argument("--skip-long", action="store_true")
     p_dfe.add_argument("--stock-source", choices=["snapshot", "mootdx"], default="snapshot")
     p_dfe.add_argument("--status-json", default=None,

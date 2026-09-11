@@ -108,25 +108,6 @@ def _run_step(name, func, *args, **kwargs):
         }
 
 
-def _run_advancers_chart(trade_date: str, chart_table: str | None = None) -> dict:
-    output = PROJECT_DIR / "market_feature_store" / "exports" / f"{trade_date}-advancers-ma5.png"
-    script = PROJECT_DIR / "skills" / "advancers-chart" / "scripts" / "feishu_chart.py"
-    env = os.environ.copy()
-    if chart_table:
-        env["FEISHU_CHART_TABLE"] = chart_table
-    proc = subprocess.run(
-        [sys.executable, str(script), str(output)],
-        cwd=str(PROJECT_DIR),
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=180,
-    )
-    if proc.returncode != 0:
-        raise RuntimeError(proc.stderr or proc.stdout)
-    return {"output": str(output), "stdout": proc.stdout.strip()}
-
-
 def run_hithink_sector_kline_step() -> dict:
     """个股 dump 之后并跑板块 / 指数近 5 日。没 key 算 skip。日更不拉成分。"""
 
@@ -239,9 +220,7 @@ def validate_daily_data(trade_date: str | None = None) -> dict:
 
 def run_daily_update(
     trade_date: str | None = None,
-    chart_table: str | None = None,
     skip_long: bool = False,
-    with_chart: bool = True,
     stock_source: str = "snapshot",
 ) -> dict:
     """stock_source: 全A日线取数方式。
@@ -295,8 +274,6 @@ def run_daily_update(
     steps.append(_run_step("sync-theme-flow-daily", sync_theme_flow_daily, td))
     steps.append(_run_step("sync-mainline-sector-daily", sync_mainline_sector_daily, td))
     steps.append(_run_step("sync-fupanhui-public-assets", sync_public_assets, td))
-    if with_chart:
-        steps.append(_run_step("advancers-chart", _run_advancers_chart, td, chart_table))
     # fact 写完必须派生；漏这一步就是 08-20「有行情无 feature」半成品。
     steps.append(_run_step("compute-features", _run_compute_features, td))
     validation = validate_daily_data(td)
@@ -429,7 +406,6 @@ def _write_receipt(staging: Path, receipt: dict) -> None:
 
 def run_daily_full_staged(
     trade_date: str | None = None,
-    chart_table: str | None = None,
     skip_long: bool = False,
     stock_source: str = "snapshot",
     child_argv: list[str] | None = None,
@@ -506,8 +482,6 @@ def run_daily_full_staged(
         ]
         if trade_date:
             child_argv += ["--trade-date", trade_date]
-        if chart_table:
-            child_argv += ["--chart-table", chart_table]
         if skip_long:
             child_argv.append("--skip-long")
         child_argv += ["--stock-source", stock_source]
@@ -639,7 +613,6 @@ def run_daily_full_staged(
 
 def run_daily_full(
     trade_date: str | None = None,
-    chart_table: str | None = None,
     skip_long: bool = False,
     stock_source: str = "snapshot",
 ) -> dict:
@@ -648,9 +621,7 @@ def run_daily_full(
 
     update = run_daily_update(
         trade_date=trade_date,
-        chart_table=chart_table,
         skip_long=skip_long,
-        with_chart=False,
         stock_source=stock_source,
     )
     cross_day_gate = check_daily(trade_date=update["trade_date"]) if update["ok"] else {

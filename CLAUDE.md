@@ -51,7 +51,7 @@
 
 写入正门是 `python3 -m market_feature_store.cli daily-full`。`fact_sector_daily` 是 VIEW。编码任务走上一节代码地图 CLI，不要用问答正门冒充。
 
-技能桥只开一个、飞书 Bitable 写入退役、飞书 IM（`feishu-bot`）退役——这些是约束不是缺口。
+技能桥只开一个、飞书整体退役（Bitable 写入、IM 入口、自建应用与凭证，2026-09-11）——这些是约束不是缺口。
 
 ### Agent 可调工具：13 个（2026-09-05 解析器实数）
 
@@ -94,7 +94,7 @@ market_data    financial_data   mainline_context
 `intelligence/services/theme_modules.run_module`（theme-radar 六模式）。
 
 **其余 skill 未接入是设计决定，不是缺口**：绝大多数会拉实时数据（fupanhui / iFinD /
-AKShare）或写回（飞书 / DuckDB），接入会破坏 agent 的**只读 + 无外呼**红线。
+AKShare）或写回（DuckDB），接入会破坏 agent 的**只读 + 无外呼**红线。
 要扩注册表，必须先论证不破这条红线。
 
 ### 编排层：存在
@@ -140,7 +140,7 @@ git branch --show-current
 ```
 
 规则：
-- **大任务默认不开在 `main` 上做**：baseline 批次、PDF ingest 规则/脚本、Theme Radar 规则、数据源脚本、DuckDB/飞书写入逻辑、批量生成或跨仓库修改，都必须先从最新 `main` 新建任务分支。
+- **大任务默认不开在 `main` 上做**：baseline 批次、PDF ingest 规则/脚本、Theme Radar 规则、数据源脚本、DuckDB 写入逻辑、批量生成或跨仓库修改，都必须先从最新 `main` 新建任务分支。
 - 推荐流程：`git checkout main` → `git pull` → `git checkout -b <type>/<short-task>` → 工作 → commit → push 分支；合并回 `main` 必须等用户明确确认。
 - 小型文档/规则修补可以直接在 `main` 做，但提交前仍要检查风险文件。
 - 分支命名：`baseline/<批次或公司名>`、`pdf-ingest/<日期或材料名>`、`theme-radar/<题材或能力>`、`data-source/<来源名>`、`fix/<问题>`。
@@ -149,9 +149,9 @@ git branch --show-current
 ## 核心工作流
 
 1. **每日复盘（全量复盘，只对当天）** → 确保 CDP proxy 已启动（`node ~/.claude/skills/web-access/scripts/cdp-proxy.mjs`）→ `python3 -m market_feature_store.cli daily-full --trade-date <今天>` → 写入 DuckDB → `audit_coverage.py` 验证覆盖。**历史日 / 断档回补走 `skills/duckdb-backfill/SKILL.md`**：`daily-full`、东财快照、申万 realtime 都是「取最新」语义，写到历史日就是把今天盘中价写成那天收盘（2026-09-07 实测）；验收四件缺一不收。
-   > ⚠ 飞书 Bitable 写入已废弃，复盘数据统一走 `daily-full` → DuckDB 路径。
+   > ⚠ 飞书写入已于 2026-09-11 连同自建应用删除；复盘数据统一走 `daily-full` → DuckDB 路径。
    > ⚠ stock-daily 用默认东财快照（`--stock-source snapshot`），日常单日复盘**不要带 `--stock-source mootdx`**（mootdx 仅首次建库/多日历史回填，慢且当日值与快照一致）。详见 market-overview SKILL.md。
-2. **连板晋级** → `limit-advance/scripts/scrape.py [日期]` → 展示 + 写入飞书
+2. **连板晋级** → `limit-advance/scripts/scrape.py [日期]` 展示；入库走 `cli sync-fupanhui-limit-advance-daily`
 3. **涨幅排行** → `top-gainers` skill：iFinD个股涨幅 + AKShare板块涨幅并行
 4. **策略分析与回测** → `detect_turning_points.py`、`backtest_sector.py` 只读 canonical `fact_*` 表；板块数据回填旧入口 `backfill_sector_marginal.py` 仍单独停用，不能混用旧库
 5. **概念入库** → 加载知识库仓 `concept-ingest` skill（`<知识库>/skills/concept-ingest/SKILL.md`）。**IMA 题材 DeepDive**：Copilot 15章 → `deepdive.md` → `build_ima_concept_ingest_queue.py` → 人工 ingest-plan → writer；禁止搜标题当抽取，禁止有 md 直接 writer。研报/纪要：判断 is_concept → ingest-plan → `python3 <知识库>/scripts/ingest.py concept ...`
@@ -175,20 +175,20 @@ git branch --show-current
 | 表 | 说明 | 数据来源 |
 |----|------|---------|
 | fact_market_daily | 每日市场指标（阶段/成交/涨家/涨停/集中度/偏离度） | market_feature_store sync |
-| fact_sector_daily | 板块日行情（pct_chg/amount/diff_ratio/strength/多周期共振）—— **双红判断主表** | fupanhui + 飞书 |
+| fact_sector_daily | 板块日行情（pct_chg/amount/diff_ratio/strength/多周期共振）—— **双红判断主表** | fupanhui（`sync_fupanhui_sector_daily`） |
 | fact_sector_stock_daily | 板块×个股日行情（含 5/10/20 日涨跌幅、资金流） | fupanhui |
 | fact_stock_daily | 个股日行情 | fupanhui |
 | fact_stock_high_daily | 新高（1/2/3 年/历史，含涨停状态） | market_feature_store |
-| fact_theme_limit_heat_daily | 题材涨停热度（limit_up_count/market_share/rank）—— **涨停热度主表** | 飞书 |
+| fact_theme_limit_heat_daily | 题材涨停热度（limit_up_count/market_share/rank）—— **涨停热度主表** | fupanhui（`sync_fupanhui_limit_heat_daily`）+ 本地派生 |
 | fact_limit_advance_daily | 连板晋级（boards/promotion_rate） | limit-advance skill |
-| fact_sw_l1_daily | 申万一级日行情 | AKShare + 飞书 |
-| fact_mainline_*_daily | 主线结构（sector/stock/theme；sector 停在 06-30，stock/theme 到 07-03） | 飞书 |
+| fact_sw_l1_daily | 申万一级日行情 | AKShare（`sync_akshare_sw_l1_daily`） |
+| fact_mainline_*_daily | 主线结构（sector/stock/theme；sector 停在 06-30，stock/theme 到 07-03） | fupanhui（`sync_fupanhui_mainline_*`） |
 | dim_sector | 板块维度（224 个：ts_code/name/sw_l1） | 配置 |
 | feature_*_window | 历史物化窗口特征（无活跃消费者，可能过期） | 已归档脚本 |
 
 严格双红定义（见 strategy1-matrix）：`pct_chg>0 且 diff_ratio>10 且 amount>500`。
 
-> ⚠️ **Legacy 残骸（勿直接跑、勿删，待迁移）**：旧库 `db/market.duckdb`（早期飞书同步阶段）**已退役、文件已移除**；旧表名 `advancers / daily_market / sector_marginal / stocks` 在主库**既非表也非视图、不存在**。当前仍停用、待另行迁移的旧入口是 `scripts/backfill_sector_marginal.py`；新分析一律用 `fact_*` 表。`detect_turning_points.py` 与 `backtest_sector.py` 已迁移为 canonical 只读 CLI，`render_daily_review_template.py` 是现役日报渲染入口，`sync_to_local.py` 已改为无副作用退役 shim。
+> ⚠️ **Legacy 残骸（勿直接跑、勿删，待迁移）**：旧库 `db/market.duckdb`（早期飞书同步阶段，飞书已于 2026-09-11 整体退役）**已退役、文件已移除**；旧表名 `advancers / daily_market / sector_marginal / stocks` 在主库**既非表也非视图、不存在**。当前仍停用、待另行迁移的旧入口是 `scripts/backfill_sector_marginal.py`；新分析一律用 `fact_*` 表。`detect_turning_points.py` 与 `backtest_sector.py` 已迁移为 canonical 只读 CLI，`render_daily_review_template.py` 是现役日报渲染入口，`sync_to_local.py` 已改为无副作用退役 shim。
 
 > ⛔ **`scripts/fast_daily_sync.py` 已停用（2026-08-02）**，失败模式与上面那批不同：它连的是**当前**主库，但写 `fact_sector_daily` / `fact_sector_stock_daily`——这两个**在生产库里已经是 VIEW**（底层 `fact_*_generation` 表 + `sector_universe_snapshot_id`，读取只暴露 `published` 快照），INSERT 会抛 `Catalog Error: ... is not an table`。脚本已自带闸门，默认退出码 2。更要紧的是它的 sector-stocks 步骤是「拷昨日的行、改个日期」，只保留 sector→stock 归属，price/pct_chg/amount 全为 NULL——**行数和 `COUNT(*)` 覆盖率审计都正常，值却是空壳**（2026-06-22 致 daily-review §7/§12 全「暂无」）。这类静默降级只有**跨日期 diff** 能抓到，覆盖率检查永远发现不了。
 >
@@ -282,13 +282,9 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 | limit-advance | 晋级、连板 |
 | top-gainers | 涨幅排行、涨幅前N |
 | high-volume-gainers | 放量上涨 |
-| advancers-chart | 涨家数走势 |
-| up-line | UP线、UP线更新 |
-| watchlist-ma | 自选股均线 |
 | ifind | iFinD数据查询 |
 | hithink-market-query | 同花顺市场查询 |
 | report-search | 研报搜索 |
-| sector-data | 边际量、板块数据、抓取板块 |
 | 公司画像页 | 公司画像PPT |
 | 行业概览 | 行业概览 |
 | theme-radar | 题材雷达、新词雷达、题材逻辑拆解 |
@@ -299,7 +295,6 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 | duckdb-backfill | 回填 duckdb、补 market_feature_store、增量补数据、fact 覆盖审计、同步 stock_high/sector_stock/limit_heat |
 | strategy-evolve | 策略进化、evolve、策略生成迭代、回测记录、前瞻收益验证（suggest 只建议、不自动改 params.json） |
 | strategy1-matrix | 策略一生成、生成策略1、策略一矩阵、策略1每日优先个股、strategy1 matrix、更新策略一。用于基于已完成的每日复盘数据、把某个交易日写入 `复盘、matrices、strategy1-priority-stock-matrix.html`、并沉淀 T1、T2、OBS、次日验证、尤其适用于避免长 SQL、长 shell 字符串、手工编辑巨大 HTML 单行导致出错 |
-| top-gainers-feishu | 强势股入库、涨幅入库、区间强势、涨幅筛选入库、查询强势股、强势股均线、强势股回踩 |
 | foresight-feedback | 记反馈、记一下、我关注、我对这个感兴趣、想深挖、这个不看了、跳过、不感兴趣、打个分、很重要、猜你想问、越用越懂、自动记反馈 |
 | 潜意识模式 | 开启潜意识模式、潜意识模式、进入潜意识、退出潜意识、收工、回读对话、巩固记忆、沉淀这轮、记进沉淀、潜意识开关 |
 | task-planner | 批量任务规划、开工前采访、批量回填前先问、开新题材前先问、运行前规划、采访前置、先问后做、task planner、batch plan、回填前先问 |
@@ -326,8 +321,7 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 
 ## 关键约束
 
-- 复盘数据统一走 `daily-full` → DuckDB，**飞书 Bitable 写入已废弃**
-- 连板晋级写入**必须串行**（从旧到新），禁止并行写入飞书
+- 复盘数据统一走 `daily-full` → DuckDB，**飞书已整体退役（2026-09-11）**
 - fupanhui API 用浏览器内 XHR 调用（通过 CDP proxy），自动携带 session cookie
 - 周均线/偏离度通过 hover K线 tooltip 获取后，需用上证日收盘价交叉验证偏离符号
 - 所有联网操作必须通过 `web-access` skill
@@ -360,23 +354,20 @@ Lint 能力（`pdf_ingest_lint.py`）：除 relations 检查外，还检查 conc
 - **fupanhui.com**：市场数据、AI摘要、板块、连板梯队（内部 REST API）
 - **iFinD**：个股查询、行业、概念板块（Node.js call-node.js）
 - **AKShare**：板块历史涨幅（Python）
-- **飞书 Bitable**：`pcnyt9i9lfme.feishu.cn/base/RnRfbT9F1asuFFsQpAyccMmHn2b`
 
-## 飞书表
+## 飞书（2026-09-11 已退役，勿再接）
 
-| 用途 | 表 | ID |
-|------|-----|-----|
-| 每日市场指标 | Bitable 每日指标 | `tbljGvjtl1IC44hb` |
-| 板块趋势 | Bitable 板块趋势 | `tblshRMmRnQYrM4K` |
-| 连板晋级 | Bitable 连板晋级 | （limit-advance skill 管理） |
-| 板块每日涨跌幅+成交额 | Bitable sector_daily | `tblXqyf9Av1rGg0n` |
-| 板块每日边际量 | 电子表格 sector_marginal_sheet | sheet `e8a204`；spreadsheet token 取自 `~/.claude/shared/feishu_config.json`，不写进仓 |
-
-电子表格列序约定：新日期数据**写到最后一列**（最右侧空列），列排序由用户手动完成，**禁止自动插入/移位**。
+自建应用与仓内全部飞书代码已删除。8 张 Bitable 表最后一次写入停在 2026-05 ~ 06-18，
+退役前只读导出在 `~/.finance-runtime/feishu-export-20260911/`。
+每张表的本地去处见 `docs/data-sources/runtime-and-pitfalls.md` 的「飞书」一节。
+运维告警改走 `scripts/notify_ops.py`（`~/.finance-runtime/alerts.log` + 桌面通知，零凭证）。
 
 ## 凭证
 
-飞书凭证：`~/.claude/shared/feishu_config.json`
+本仓不需要任何外部账号凭证。fupanhui 走 CDP proxy 借用户 Chrome 的登录态，
+iFinD 走本地 Node MCP，其余全是本地 DuckDB。
+（原「飞书凭证：`~/.claude/shared/feishu_config.json`」已随退役作废；
+那把 `app_secret` 曾明文进过 git 历史，删应用同时作废了它。）
 
 ## 本地工具链
 
