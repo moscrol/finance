@@ -19,8 +19,13 @@
 - `test_methodology_backtest.py` 69 + lifecycle 38 + experience_cards 全绿（合计 127+15）；阳性对照在依赖口径下 supported、前视翻转在 240 日夹具下 refuted。
 - ruff 0。全量 pytest 后台跑（读数见 PR / 后续回写）。
 
+## 真库首批收据（09-11 晚，v4 旁路库 labels 1,626,470 行 / outcomes 2,149,980 行 @09-10）
+`scan --rules-dir methodology/rules --to 2026-03-31 --stage discovery` 四条种子规则（收据落本树 `methodology/receipts/`，运行产物不提交）：
+- `dual_red_streak3_continuation`：N=85、p=69.4% vs p0=62.7%、Wilson 下界 59.0%——旧口径 not_distinguishable；**依赖段揭穿：85 个事件只发生在 15 个交易日、80 簇、3 个完整块 → insufficient**。这是「同日共振/成串事件不冒充 N」在生产数据上的第一份收据。
+- 其余三条 not_distinguishable（diff_ratio 整体平、但「横盘/底部横盘」两个阶段桶各自 supported——阶段桶保留独立口径，晋升只看顶层）。
+- `queue` 四条各在正确档位、blocked_by 可操作；`answer-score --save-card --promotion methodology --rule-id diff_ratio_turn_up_5d` 被统一认证拒绝且理由与 queue 一致（#42 第二刀端到端）。
+
 ## 未验证 / 已知边界
-- 未跑真库三条种子规则重读（旁路库在主树；真库读数会更保守——事件日少的规则会从 not_distinguishable 掉 insufficient_n，这是预期）。
 - 尝试账（登记先于执行、多重检验分母、留出访问登记）未做——OPT-05 后半，需先登记台账地图，另开刀。
 - `_summarize_horizons` 描述表未接 purge（不进 verdict）。
 
