@@ -72,7 +72,7 @@ rc=$?
 if [ "$rc" -ne 0 ]; then
   echo "[$(date '+%F %T')] S7 staging sync 失败 rc=$rc"
   osascript -e "display notification \"S7 staging sync $D rc=$rc\" with title \"全量复盘告警\" sound name \"Basso\"" 2>/dev/null || true
-  "$OPS_PYTHON" "$DATA_ROOT/scripts/notify_ops.py" "⚠️ S7 staging sync $D 失败 rc=$rc；生产库未换名" 2>/dev/null || true
+  "$OPS_PYTHON" "$DATA_ROOT/scripts/notify_ops.py" --no-desktop "⚠️ S7 staging sync $D 失败 rc=$rc；生产库未换名" 2>/dev/null || true
   echo "[$(date '+%F %T')] === sync 段失败 date=$D rc=$rc ==="
   exit "$rc"
 fi
