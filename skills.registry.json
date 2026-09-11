@@ -7,7 +7,7 @@
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 33
+      "skills": 38
     },
     {
       "name": "knowledge-base-private",
@@ -70,6 +70,36 @@
     }
   ],
   "skills": {
+    "ws/advancers-chart": {
+      "name": "advancers-chart",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/advancers-chart/SKILL.md",
+      "description": "涨家数走势数据同步与图表生成。触发词：涨家数折线图、涨家数走势、涨跌趋势图、涨家数图表、看一下涨家数、同步涨家数、更新涨家数走势、sync涨家数、看看涨跌家数、涨跌比走势。",
+      "triggers": [
+        "涨家数折线图",
+        "涨家数走势",
+        "涨跌趋势图",
+        "涨家数图表",
+        "看一下涨家数",
+        "同步涨家数",
+        "更新涨家数走势",
+        "sync涨家数",
+        "看看涨跌家数",
+        "涨跌比走势"
+      ],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:fe97e29dea89f79dd3573b6ee182c9b971431f4f60afb8de3aaa617b415d1825",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/advancers-chart",
+          "type": "symlink",
+          "target": "../../skills/advancers-chart"
+        }
+      ]
+    },
     "ws/checkpoint-recheck-mac-setup": {
       "name": "checkpoint-recheck-mac-setup",
       "repo": "finance-workspace-private",
@@ -155,7 +185,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:9d033dbb596b9c51a342a3d341f2b3b1c8776ca814a9dd3f059e2a12925ac512",
+      "computedHash": "sha256:b8770e6cbc5fb9b085431e09b821caf65a37519c882f417ad41586e722efca91",
       "agentOnly": false,
       "views": []
     },
@@ -311,7 +341,7 @@
       ],
       "note": "纯涨幅排行（不看成交额）用 top-gainers。",
       "entrypoint": null,
-      "computedHash": "sha256:29df247dd2aa1de27096d42bcb54f6b2c05e79bedc259771efd22b6e228ed42f",
+      "computedHash": "sha256:b8bab41fdb9f6c1ac3a5f839a224d50d2234a2fe33cd25a3f3689bfd40a4d362",
       "agentOnly": false,
       "views": [
         {
@@ -407,7 +437,7 @@
       ],
       "note": "入库走 CLI sync-fupanhui-limit-advance-daily，本 skill 只抓取+展示。",
       "entrypoint": null,
-      "computedHash": "sha256:6ed9841aa4e72dd0b939425dd7497f09e37145d4756228785da73a06e7edfc3e",
+      "computedHash": "sha256:8e6b89edf3795d1cb86d790243016eb62fc8996666df65cdb55ed5e398c3a90f",
       "agentOnly": false,
       "views": [
         {
@@ -434,7 +464,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:7c2b94b9bae3a460aa709c6ca0f467ddc3669107539e000e6164647c029f175e",
+      "computedHash": "sha256:de1b6e3157e433c7b46128e5cb3990c2cf151d404ffc3f6ada57cf6d27b08600",
       "agentOnly": false,
       "views": [
         {
@@ -536,6 +566,19 @@
       "note": "",
       "entrypoint": null,
       "computedHash": "sha256:f7b704ca577d79d2b2443723fbe3757cd3e8db5246ecd02f079f8a66f3c47418",
+      "agentOnly": false,
+      "views": []
+    },
+    "ws/sector-data": {
+      "name": "sector-data",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/sector-data/SKILL.md",
+      "description": "抓取 fupanhui.com 227个板块数据，写入飞书多维表格和电子表格，验证后筛选成交额>500、涨幅>0、边际量>10%的板块，输出条件格式公式。触发：边际量、/sector-data、板块数据、抓取板块",
+      "triggers": [],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:350666ac92a860b2cf42144461f3e4c1bf1f002ad24b6ba5ea09b4a778d52527",
       "agentOnly": false,
       "views": []
     },
@@ -717,6 +760,60 @@
         }
       ]
     },
+    "ws/top-gainers-feishu": {
+      "name": "top-gainers-feishu",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/top-gainers-feishu/SKILL.md",
+      "description": "强势股飞书入库与已入库强势股的均线回踩查询。触发词：强势股入库、涨幅入库、区间强势、涨幅筛选入库、查询强势股、强势股均线、强势股回踩。注意：只看排行不入库用 top-gainers；自选股的均线筛选用 watchlist-ma。",
+      "triggers": [
+        "强势股入库",
+        "涨幅入库",
+        "区间强势",
+        "涨幅筛选入库",
+        "查询强势股",
+        "强势股均线",
+        "强势股回踩"
+      ],
+      "note": "只看排行不入库用 top-gainers；自选股的均线筛选用 watchlist-ma。",
+      "entrypoint": null,
+      "computedHash": "sha256:b5d9ea4732af7206be8747def702607b891b7030acf7d4123407cc4d400654f8",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/top-gainers-feishu",
+          "type": "symlink",
+          "target": "../../skills/top-gainers-feishu"
+        }
+      ]
+    },
+    "ws/up-line": {
+      "name": "up-line",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/up-line/SKILL.md",
+      "description": "UP线更新与个股UP/偏离度查询（布林带变体）。触发词：UP线更新、up线、UP线、查UP、个股UP、UP偏离度、偏离UP。",
+      "triggers": [
+        "UP线更新",
+        "up线",
+        "UP线",
+        "查UP",
+        "个股UP",
+        "UP偏离度",
+        "偏离UP"
+      ],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:9f7f9685194d3521489b61e50233a2241a79d874649df01ddc1c49d8c9fba3c1",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/up-line",
+          "type": "symlink",
+          "target": "../../skills/up-line"
+        }
+      ]
+    },
     "ws/watchlist-digest": {
       "name": "watchlist-digest",
       "repo": "finance-workspace-private",
@@ -740,6 +837,32 @@
           "path": ".claude/skills/watchlist-digest",
           "type": "symlink",
           "target": "../../skills/watchlist-digest"
+        }
+      ]
+    },
+    "ws/watchlist-ma": {
+      "name": "watchlist-ma",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/watchlist-ma/SKILL.md",
+      "description": "自选股均线回踩筛选（仅针对自选股清单）。触发词：自选股均线、自选股MA、自选股过滤、自选股回调、MA交叉、十日线二十日线。注意：强势股库的均线回踩用 top-gainers-feishu。",
+      "triggers": [
+        "自选股均线",
+        "自选股MA",
+        "自选股过滤",
+        "自选股回调",
+        "MA交叉",
+        "十日线二十日线"
+      ],
+      "note": "强势股库的均线回踩用 top-gainers-feishu。",
+      "entrypoint": null,
+      "computedHash": "sha256:ae0833fec368ede8d4750a869a064b33cdd26aaa15a7e481dee448a86023acf2",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/watchlist-ma",
+          "type": "symlink",
+          "target": "../../skills/watchlist-ma"
         }
       ]
     },
