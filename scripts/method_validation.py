@@ -164,13 +164,19 @@ def _capture_once(study_dir: Path, labels_db: Path, args) -> dict:
             record = _observation(study_dir, existing[0], protocol)
             if record["payload"]["features"]["end"] != day:
                 raise ValueError("观察分区与 D0 不一致")
-            return {"observation": str(existing[0]), "status": "already_captured", "trade_date": day,
-                    "members": len(record["payload"]["features"]["rows"]), "checkpoint": None}
-        features = read_features(labels_db, protocol, start=day, end=day)
-        captured_at = current_time()
-        validate_capture(protocol, features, now=captured_at)
-        captured_iso = captured_at.astimezone(timezone.utc).isoformat()
-        path = write_record(study_dir, "capture", {**_payload(protocol, features), "captured_at": captured_iso})
+            # 中断恢复点①（集成 spec I5）：capture 已落盘、checkpoint 尚未登记时中断，
+            # 重跑不重做 capture、不改捕获时间，落到下面同一段幂等登记补齐唯一 checkpoint。
+            status = "already_captured"
+            path = existing[0]
+            features = record["payload"]["features"]
+            captured_iso = record["payload"]["captured_at"]
+        else:
+            status = "captured"
+            features = read_features(labels_db, protocol, start=day, end=day)
+            captured_at = current_time()
+            validate_capture(protocol, features, now=captured_at)
+            captured_iso = captured_at.astimezone(timezone.utc).isoformat()
+            path = write_record(study_dir, "capture", {**_payload(protocol, features), "captured_at": captured_iso})
     checkpoint = None
     cpath, _vpath = _ledgers(args)
     if cpath is not None:
@@ -190,7 +196,7 @@ def _capture_once(study_dir: Path, labels_db: Path, args) -> dict:
     streak3 = sum(1 for row in features["rows"] if "streak3" in row["arms"])
     return {
         "observation": str(path),
-        "status": "captured",
+        "status": status,
         "trade_date": day,
         "members": len(features["rows"]),
         "streak3": streak3,
@@ -470,11 +476,19 @@ def cmd_daily(args) -> int:
             report["steps"].append({"step": "capture", "status": "refused", "reason": str(exc)})
 
     rechecks = []
-    settled = {
-        read_record(path)["payload"].get("observation_sha256")
-        for path in list_records(study_dir, "recheck")
-        if (read_record(path)["payload"].get("flywheel") or {}).get("classification") not in (None, "pending")
-    }
+    settled = set()
+    for path in list_records(study_dir, "recheck"):
+        payload = read_record(path)["payload"]
+        classification = (payload.get("flywheel") or {}).get("classification")
+        if classification in (None, "pending"):
+            continue
+        if classification == "data_insufficient" and rebuilt:
+            # 中断恢复点②（集成 spec I5）：可恢复的数据不足不能永久列为已结算。
+            # 本次重建把旁路库推到了新水位，补数可能已到——沿同一观察再次回检；
+            # 旧的不足记录与 unverifiable verdict 都保留在案（append-only），
+            # checkpoint 台账那侧 unverifiable 本就非终态、会重新排队。
+            continue
+        settled.add(payload.get("observation_sha256"))
     for observation in list_records(study_dir, "capture"):
         record = read_record(observation)
         if record["content_sha256"] in settled:

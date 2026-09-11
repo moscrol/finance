@@ -38,6 +38,11 @@ export KNOWLEDGE_WIKI="/Users/a77/knowledge-base-private/wiki"
 export SUBCONSCIOUS_VAULT="/Users/a77/agent-memory"
 export PATH="/opt/homebrew/bin:/opt/homebrew/opt/node/bin:/usr/local/bin:$PATH"
 
+# 方法飞轮日步（cap07 / 集成 spec I5）的生产三元组：study / 旁路库 / 主库 + 用户显式绑定。
+# study 目录是 register 按协议指纹生成的（生产用户目录下），不要手改目录名。
+METHOD_STUDY_DIR="${METHOD_STUDY_DIR:-$FORESIGHT_USERS_DIR/$FORESIGHT_USER/method_validation/475597e2e017a2eedd3886700cd41d394d3694eba3487e205b8ddc91723b5a2f}"
+METHOD_LABELS_DB="${METHOD_LABELS_DB:-$DATA_ROOT/db/history_labels.duckdb}"
+
 # 参数：phase (sync|finalize|all) + date。date 缺省今天。
 PHASE="all"
 D="$(date +%F)"
@@ -181,6 +186,44 @@ run_generation_and_finalize() {
   return 0
 }
 
+# 方法飞轮日步：只在最终硬门通过后跑（数据到位才动作）。
+# 它有自己的条件门（前向起点、15:00、旁路库水位），不满足就写原因与下一次既有执行机会；
+# 失败不改变 nightly 退出码（收据带失败原因，留给白天人查），深夜不打断后续段。
+skip_method_flywheel() {
+  # 数据未完成的夜：如实记录原因与下一次既有执行机会（spec I5），不硬跑 capture。
+  echo "[$(date '+%F %T')] method daily 跳过 date=$D 原因=$1 下一次机会=明日 20:40 finalize / 手动 nightly_full_review.sh finalize $D / 到期回检另有 03:50 checkpoint-recheck" \
+    >> "$LOG_DIR/method-validation-daily.log"
+}
+
+run_method_flywheel() {
+  local method_rc=0
+  # 脚本从 CODE_ROOT 取，不是 WORKSPACE。WORKSPACE=DATA_ROOT=主检出，那是**数据**仓——
+  # 它常年停在别人的任务分支/detached HEAD 上，不保证有任何一个新脚本。method_validation.py
+  # 是代码，只在被部署验证过的运行快照里（与本文件 moneyflow 那几条同一个根，也与日志里
+  # 报的 l2_code/l2_rev 是同一棵树）。此前写 WORKSPACE 的后果：合进 main 之后飞轮**仍然**
+  # 每夜跳过，而跳过原因写着「合入后自动生效」——一条读起来完全合理的假话。
+  if [ ! -f "$CODE_ROOT/scripts/method_validation.py" ]; then
+    skip_method_flywheel "scripts/method_validation.py 不在 CODE_ROOT=$CODE_ROOT（运行快照早于 cap07/I5，链切后自动生效）"
+    return 0
+  fi
+  echo "[$(date '+%F %T')] === method daily 开始 date=$D study=$METHOD_STUDY_DIR labels_db=$METHOD_LABELS_DB db=$MARKET_FEATURE_STORE_DB user=$FORESIGHT_USER ===" \
+    >> "$LOG_DIR/method-validation-daily.log"
+  "$OPS_PYTHON" "$CODE_ROOT/scripts/method_validation.py" daily \
+    --study-dir "$METHOD_STUDY_DIR" \
+    --labels-db "$METHOD_LABELS_DB" \
+    --db-path "$MARKET_FEATURE_STORE_DB" \
+    --user "$FORESIGHT_USER" \
+    >> "$LOG_DIR/method-validation-daily.log" 2>&1
+  method_rc=$?
+  if [ "$method_rc" -ne 0 ]; then
+    echo "[$(date '+%F %T')] 方法飞轮日步失败 rc=$method_rc；日志 $LOG_DIR/method-validation-daily.log"
+    notify "⚠️ 全量复盘 $D 方法飞轮日步失败 rc=$method_rc；日志 logs/method-validation-daily.log"
+  else
+    echo "[$(date '+%F %T')] 方法飞轮日步完成（日收据见 $LOG_DIR/method-validation-daily.log）"
+  fi
+  return $method_rc
+}
+
 case "$PHASE" in
   sync)
     # 仅同步段（定时 @18:30）。失败则告警退出；finalize 守卫会拦住残缺数据。
@@ -205,20 +248,29 @@ case "$PHASE" in
       echo "[$(date '+%F %T')] finalize 守卫未能执行：duckdb 写锁占用超重试窗（rc=3），完整性未知，中止生成段"
       notify "⚠️ 全量复盘 $D finalize 中止：质检闸门被 duckdb 写锁挡住没跑成（非缺数）；等写进程收工后重跑 finalize；日志 logs/daily-full-review.out.log"
       echo "[$(date '+%F %T')] === finalize 中止 date=$D sync 守卫 rc=$guard_rc ==="
+      skip_method_flywheel "finalize 守卫未能执行（duckdb 写锁 rc=3，完整性未知）"
       exit "$guard_rc"
     elif [ "$guard_rc" -ne 0 ]; then
       echo "[$(date '+%F %T')] finalize 守卫未通过：$D 同步段数据不完整（same-day-gate rc=$guard_rc），中止生成段"
       notify "⚠️ 全量复盘 $D finalize 中止：18:30 sync 段未成功（same-day-gate fail），未生成报告；需先补跑 sync；日志 logs/daily-full-review.out.log"
       echo "[$(date '+%F %T')] === finalize 中止 date=$D sync 守卫 rc=$guard_rc ==="
+      skip_method_flywheel "same-day-gate rc=$guard_rc 数据不完整"
       exit "$guard_rc"
     fi
     run_l2_branch
     if [ "$moneyflow_rc" -ne 0 ] || [ "$l2_rc" -ne 0 ]; then
       echo "[$(date '+%F %T')] === 全量复盘失败 date=$D 资金流 rc=$moneyflow_rc L2门 rc=$l2_rc ==="
+      skip_method_flywheel "资金流 rc=$moneyflow_rc / L2 门 rc=$l2_rc"
       exit 1
     fi
     run_generation_and_finalize
-    exit $?
+    gen_rc=$?
+    if [ "$gen_rc" -eq 0 ]; then
+      run_method_flywheel || true
+    else
+      skip_method_flywheel "生成段或最终硬门 rc=$gen_rc"
+    fi
+    exit "$gen_rc"
     ;;
 
   all)
@@ -237,6 +289,12 @@ case "$PHASE" in
       exit 1
     fi
     run_generation_and_finalize
-    exit $?
+    gen_rc=$?
+    if [ "$gen_rc" -eq 0 ]; then
+      run_method_flywheel || true
+    else
+      skip_method_flywheel "生成段或最终硬门 rc=$gen_rc"
+    fi
+    exit "$gen_rc"
     ;;
 esac
