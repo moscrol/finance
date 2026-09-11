@@ -367,9 +367,20 @@ def latest_double_red_snapshot_block_for_llm(
 # D18 涨停封板时间数据块（W5 / G1a 接线）
 #
 # 为什么单开一块：`fact_theme_limit_stock_daily.first_limit_time /
-# last_limit_time` 有 14.9 万行非空且日更，但 2026-09-10 核实**消费方全是 skills
-# 与报表**，`intelligence/services/` 无一处引用——数据在库里，agent 面前没有。
+# last_limit_time` 累计 14.9 万行非空，但此前 **ask 应答链**（ask / ask_synthesis /
+# evidence_*）无一处引用——消费方是 skills、报表，以及 `river.py` 与
+# `teaching_framework/{coverage,leader_succession}.py`（后两者在主干就有，别据此
+# 断言「services 无一处引用」）。数据在库里，agent 面前没有。
 # 这就是 reading-rules-inventory §5 的 G1a：「有封板时间但无块输出」。
+#
+# ⚠ 上游断供（2026-09-11 实测，跨日期 diff）：该列 2026-09-02 及以前逐日 100%
+# 非空，**2026-09-03 起连续 5 个交易日（09-03/04/07/09/10）全 NULL，行照常进**。
+# 这是 AGENTS.md 点名的「行在、值全 NULL」空壳——只数行数的覆盖率审计抓不到。
+# 后果：本块当前对最近交易日恒返回空串（被下面第一道守卫短路），W5 交付在生产上
+# 处于惰性状态；一旦上游补回即自动恢复，代码侧无需改动。open_times（G1b）是同一
+# 形状的旧案，`leader_succession.py` 的一字板判定已因此恒 "unknown"，现在
+# first_limit_time 也断了，那条判定的两个输入同时为空。
+# 追上游需外呼 fupanhui / 同花顺比对 payload 字段名，不在本块范围。
 #
 # 本块只交付**数据出口**，不激活规则。pending 规则 SPT-A06（秒板未换手则后排
 # 无价值）依赖的另一半是 `open_times`（炸板次数），该列 15.2 万行恒 NULL
@@ -456,10 +467,13 @@ def limit_seal_time_block_for_llm(
         with_seal = int(counts[1] or 0)
         # 反向验收：当日没有封板时间读数就不注入。有涨停行但该列全空时同样不出块——
         # 出一个空壳块等于让模型以为「查过了、没有」，那是静默降级的另一种形状。
+        # 上游自 2026-09-03 起断供（见文件头），最近交易日走的就是这一条。
         #
-        # 这里与下面的 `if not rows` 是**两道独立守卫**（2026-09-11 变异实测：单删任一
-        # 道都不变红，双删才红）。保留两道是有意的分工：这一道短路掉主查询，且把
-        # 「当日整列无读数」与「收口后无命中」分开；`if not rows` 是最终兜底。
+        # 与下面的 `if not rows` 的关系（2026-09-11 实测更正，勿再写成「分工」）：
+        # **本道过后 `if not rows` 不可达**。with_seal ≥ 1 时，带 keyword 命中则收口
+        # 集非空，不命中则回落全市场，两路都必有行——实测把 `if not rows` 改成抛异常
+        # 跑全套 D18 测试与直接探针，一次都没走到。它是纯防御性兜底（防日后有人移除
+        # 回落逻辑或给 limit 传 0），不是第二种语义。保留，但别指望它变红。
         if with_seal == 0:
             return ""
 

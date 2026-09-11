@@ -169,6 +169,49 @@ def test_scope_narrows_to_theme_and_falls_back_honestly(tmp_path) -> None:
     assert "秒板股" in fallback and "回封股" in fallback
 
 
+def test_assembly_forwards_requested_date_to_on_date() -> None:
+    """装配面对账：``ask.py`` 的 D18 闭包必须把问句日期传进 ``on_date``。
+
+    下面 ``test_on_date_respects_as_of`` 只证明**函数**认 as-of；函数认、装配面
+    不传，「9 月 5 日哪些是秒板」照样拿全库最新交易日的读数——参数在场 ≠ 被读
+    （`granted-budget-fields-must-be-read-at-the-enforcement-point` 同一形状）。
+    走 AST 不执行 ask.py：该模块导入重依赖，与 conformance_datablocks 的装配面
+    扫描同一取舍。
+    """
+    import ast
+    from pathlib import Path as _Path
+
+    import intelligence.services.ask as ask_mod
+
+    tree = ast.parse(_Path(ask_mod.__file__).read_text(encoding="utf-8"))
+    fns = {
+        node.name: node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name in ("_d18_applies", "_build_d18")
+    }
+    assert set(fns) == {"_d18_applies", "_build_d18"}, "D18 装配闭包改名或消失"
+
+    # 门控侧解析问句日期
+    applies_calls = {
+        node.func.id
+        for node in ast.walk(fns["_d18_applies"])
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    }
+    assert "market_review_requested_date" in applies_calls, (
+        "_d18_applies 未解析问句日期，D18 只会取全库最新交易日"
+    )
+
+    # 取数侧把它作为 on_date 关键字传下去
+    forwarded = [
+        node
+        for node in ast.walk(fns["_build_d18"])
+        if isinstance(node, ast.Call)
+        and getattr(node.func, "attr", None) == "limit_seal_time_block_for_llm"
+        and any(kw.arg == "on_date" for kw in node.keywords)
+    ]
+    assert forwarded, "_build_d18 调用 limit_seal_time_block_for_llm 时漏传 on_date"
+
+
 def test_on_date_respects_as_of(tmp_path) -> None:
     rows = _rows() + [
         ("2026-09-11", "990013.FP", "液冷", "300003.SZ", "次日股", 1, "涨停",
