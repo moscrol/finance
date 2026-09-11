@@ -28,6 +28,9 @@ def _script(**over) -> osc.ObservationScript:
         variables=["题材轨：题材所处阶段是否推进"],
         downgrade_or_abandon_conditions=["题材轨阶段标签回退或转为缺口"],
         recorded_at=IN_TIME,
+        # 夹具剧本视为从切片派生：带投影哈希（工单 #34 门禁；用户手写的另测 user_authored）。
+        projection_hash="cp:fixture000000001",
+        model_id="deterministic",
         status="confirmed",
     )
     base.update(over)
@@ -46,6 +49,7 @@ class ObjectTypeSplitTests(unittest.TestCase):
         _, os_ck = checkpoints.register_checkpoint(
             cpath, claim="观察剧本", due="2026-09-03", category="observation_script",
             object_type="observation_script",
+            projection_hash="cp:fixture000000001",  # 工单 #34：agent 产物无投影哈希台账拒收
         )
         checkpoints.record_verdict(vpath, id=user_ck["id"], verdict="hit")
         checkpoints.record_verdict(vpath, id=os_ck["id"], verdict="miss")
