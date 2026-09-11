@@ -68,6 +68,7 @@ from intelligence.services.episode_messages import (
     append_model_input,
     assistant_message,
     check_derivation,
+    record_application_tool_call,
     record_prompt_assembled,
     system_message,
     to_provider,
@@ -395,6 +396,11 @@ class HarnessReferenceLoop:
                         in_repair=False,
                     )
                     if fallback is not None:
+                        # 与 Episode 同一条规则：应用替模型点的调用先声明再派发，
+                        # 否则下一次请求里它的 tool 消息没有 assistant.tool_calls（400）。
+                        record_application_tool_call(
+                            messages, ledger, call=fallback.call, source="empty_pool_fallback"
+                        )
                         fallback_batch = state.session.execute(
                             (fallback.call,),
                             registry=registry,

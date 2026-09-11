@@ -5,6 +5,7 @@ import {
   History,
   ListTree,
   PanelRightClose,
+  Route,
   ShieldCheck,
   X,
 } from "lucide-react";
@@ -20,12 +21,15 @@ import {
 import type {
   ArtifactDescriptor,
   Bootstrap,
+  FollowupContinuation,
+  ResearchProject,
   RunBundle,
   TraceStep,
 } from "../types";
+import { ResearchProjectPanel } from "./ResearchProjectPanel";
 import { StructuredReportView } from "./StructuredReportView";
 
-type InspectorTab = "evidence" | "trace" | "memory" | "review";
+type InspectorTab = "evidence" | "trace" | "memory" | "review" | "project";
 
 interface ResearchInspectorProps {
   bootstrap: Bootstrap | null;
@@ -33,10 +37,14 @@ interface ResearchInspectorProps {
   artifact: ArtifactDescriptor | null;
   open: boolean;
   onClose: () => void;
+  /** 09 连续研究：会话级研究项目状态；缺省 null 时「项目」页只显示空态。 */
+  project?: ResearchProject | null;
+  onFollowup?: (question: string, continuation?: FollowupContinuation) => void;
 }
 
 const tabs: Array<{ id: InspectorTab; label: string; icon: typeof Database }> = [
   { id: "evidence", label: "证据", icon: Database },
+  { id: "project", label: "项目", icon: Route },
   { id: "trace", label: "运行", icon: ListTree },
   { id: "memory", label: "记忆", icon: BrainCircuit },
   { id: "review", label: "回检", icon: History },
@@ -83,6 +91,8 @@ export function ResearchInspector({
   artifact,
   open,
   onClose,
+  project = null,
+  onFollowup,
 }: ResearchInspectorProps) {
   const [tab, setTab] = useState<InspectorTab>("evidence");
   const context = bundle?.context;
@@ -177,6 +187,12 @@ export function ResearchInspector({
         )}
 
         <div className="inspector-body">
+          {tab === "project" && (
+            <section aria-labelledby="inspector-project-heading">
+              <h2 id="inspector-project-heading">研究项目</h2>
+              <ResearchProjectPanel project={project} onFollowup={onFollowup} />
+            </section>
+          )}
           {tab === "evidence" && (
             <section aria-labelledby="inspector-evidence-heading">
               <h2 id="inspector-evidence-heading">证据与边界</h2>

@@ -5,26 +5,34 @@
 
 来源：`research_tool_registry.default_registry`（用哑 runner 装配）+ `_TOOL_CONTRACTS`。`query_scope=episode` 的工具参数表为空，截止日在 context 上而不在参数里。说明书只写实测过的失败模式，空即合法。
 
-14 个工具
+18 个工具
 
 | 工具 | 能力 | 成本 | 新鲜度 | 查询范围 | 最小窗(s) | 参数键 | produces | 描述 |
 |---|---|---|---|---|---|---|---|---|
+| `derived_calculation` | derived_calculation | external | current | query | — | `inputs_from_calc`, `params`, `purpose`, `script`, `timeout_seconds`, `use_duckdb` | supporting_evidence | 在只读沙箱里对本回合已取到的证据跑一段 Python 做计算或跨源口径核对，结果作为带输入哈希链的派生证据返回 |
 | `evidence_lookup` | evidence_lookup | local | stable | query | — | `query` | supporting_evidence | 本地证据索引 |
 | `evidence_search` | evidence_search | external | current | query | 30.0 | `query` | counterpoint, supporting_evidence | 对本地知识证据执行窄口径、宽口径和反方闭环检索 |
 | `finance_query` | finance_query | external | current | query | — | `query` | data_date, market_change, risk_signals, supporting_evidence | 按语义数据集、指标、维度、筛选和时间范围查询本地结构化金融数据 |
-| `financial_data` | financial_data | external | current | episode | — | `report_period` | financial_assessment, metric_evidence, supporting_evidence | 结构化逐季财务指标 |
+| `financial_data` | financial_data | external | current | episode | — | `report_period`, `subjects` | financial_assessment, metric_evidence, supporting_evidence | 结构化逐季财务指标（每行带机器可读观察值；可一次取多家公司） |
 | `graph_lookup` | graph_lookup | local | stable | query | — | `query` | chain_mapping, company_mapping, relation_map | 知识图谱实体与关系 |
+| `history_query` | finance_query | external | historical | query | — | `query` | — | 可复算历史行情与完整样本比较 |
 | `kb_search` | kb_search | local | stable | query | 20.0 | `query` | direct_answer, direct_definition, direct_explanation, supporting_evidence | 本地知识库检索 |
 | `l3_lookup` | l3_lookup | external | current | query | — | `query` | fact_value, supporting_evidence | 官方公告与互动证据 |
 | `mainline_context` | mainline_context | external | current | episode | — | — | mainline_structure, supporting_evidence | 同日主线与板块结构 |
 | `market_data` | market_data | external | current | episode | — | — | current_baseline, data_date, market_summary, prime_quote, supporting_evidence | 结构化行情与市场时序 |
 | `memory_lookup` | memory_lookup | local | stable | query | — | `query` | prime_memory | 用户自己过去的判断与纠偏原则（历史先验，不是市场事实） |
 | `news_search` | news_search | external | current | query | — | `query` | event_facts, impact_transmission, prime_news, supporting_evidence | 财经新闻检索 |
+| `read_history_result` | finance_query | external | historical | query | — | `query` | — | 读取本会话历史研究原件 |
+| `save_history_research` | finance_query | external | historical | query | — | `query` | — | 保存版本化研究假设与反例 |
 | `sub_research` | sub_research | external | current | query | 60.0 | `goals` | supporting_evidence | 把 1–3 个可独立取证的子问题并行交给子研究分支，各支带自己的工具预算跑到终态后一次返回证据 |
 | `web_fetch` | web_fetch | external | current | query | — | `url` | event_facts, supporting_evidence | 按 URL 取网页正文全文（取页，不是检索；URL 先由 web_search / news_search 给出） |
 | `web_search` | web_search | external | current | query | — | `query` | event_facts, impact_transmission, supporting_evidence | 全网网页检索 |
 
 ## 说明书（`ToolSpec.contract`）
+
+### `derived_calculation`
+
+返回的是对本回合已有证据做计算后的派生证据（带 input_evidence_hashes 与原样脚本）：它的档次不高于输入里最低的那一档，日期取输入里最旧的 as_of，不是今天。结论要绑到这条派生证据上，并同时引用它的输入证据；沙箱算出的数与某个来源不一致时，先看两边的输入是否同一批证据，不要二选一。「没有 emit」「脚本报错」「超时」「触发沙箱限制」都表示计算没产出，不是任何数值，也不能当否定证据；错误码会带原因，改脚本可重试。本回合还没有任何证据时会拒绝（no_bound_evidence）：先取证再计算。参数 script 是 Python 正文（用 EVIDENCE 读证据、emit 出结果，不能联网 / 起进程 / 越界写文件），purpose 一句话说明算什么，use_duckdb 只在要查本地行情库时开，timeout_seconds 默认 20 最多 60。财务数用 financial_data 每行 observations 里的结构化值算（metric 名带口径与单位，如 revenue_cum_yi 是累计亿元），不要解析表格文本；累计口径转单季必须用 to_single_quarter，不要把中报 / 三季报的累计数当单季数。结果用 emit_result(summary, tables, charts, params, formulas, notes) 组织：表格里的每个数都会进这条派生证据的 observations，正文引用它们时逐字照抄（不四舍五入成别的数）；表格 / 图表 / 完整记录会作为本次回答的产物落盘为 calc-<计算编号>.csv / .html / .json，正文里告诉用户可下载，并写明「计算编号 <calc_id>」。params 里放假设（用户改一个假设时只改 params 再算一次）；inputs_from_calc 填上一轮的计算编号就沿用那次的输入快照与脚本（不重新取数、不断哈希链，输入在脚本里编号 P1..Pn），找不到该编号回 base_calc_not_found，不是数值。**改一个假设重算上一轮时，inputs_from_calc 是首选**：同一话题的追问先找上一轮的计算编号（在本工具上次结果的观察文本与产物名 calc-<编号>.* 里，16 位十六进制），传 inputs_from_calc=<编号> + 只改 params；不要重新调 financial_data 取同一批数，也不要把上一轮的脚本整段重抄。表格行这样组织：rows 里每行是一个 dict，键用列名（如 {'报告期': '2025Q1', '营收（亿元）': 514.43}），不要把列名行塞进 rows，也不要 None 填 0——缺就 None。series() / to_single_quarter() 返回的是 **dict 的列表**（不是 tuple）：每个元素 {'as_of': '2026-06-30', 'value': 922.78, ...}，取数用 x['as_of'] / x['value'] 或 x.get(...)，不要 x[0] / x[1]（dict 按下标 0 取会 KeyError: 0）；dict(seq) / {x[0]: x[1] for x in seq} 都不适用于它——按 as_of 建映射：{x['as_of']: x['value'] for x in to_single_quarter(series(sub, 'revenue_cum_yi'))}。零分母、缺季度、单位不认识时助手函数返回 None 并写 note，None 就写「缺」，不要填 0 或外推。
 
 ### `evidence_lookup`
 
@@ -40,11 +48,15 @@
 
 ### `financial_data`
 
-返回的是已披露报告期的季报数据，不是当前状态：引用时必须带报告期，不要把「三季报净利」说成「当前净利」。数值为累计口径（中报=上半年累计、三季报=前三季累计），本工具不做单季还原；要单季必须显式声明是自己推算的。返回为空只说明这两个源没取到，应写成证据缺口，不得据此推断公司没有该项财务表现。默认只取最近 6 期；问的是更早的某一期（如两年前的年报），要在 report_period 里写明该期，否则那一行不在返回里，不等于没有该期数据。每行的日期是该期披露日（缺披露日时为报告期截止日），引用时按此写 as-of，不要用取数日。
+返回的是已披露报告期的季报数据，不是当前状态：引用时必须带报告期，不要把「三季报净利」说成「当前净利」。数值为累计口径（中报=上半年累计、三季报=前三季累计），本工具不做单季还原；要单季必须显式声明是自己推算的。返回为空只说明这两个源没取到，应写成证据缺口，不得据此推断公司没有该项财务表现。默认只取最近 6 期；问的是更早的某一期（如两年前的年报），要在 report_period 里写明该期，否则那一行不在返回里，不等于没有该期数据。每行的日期是该期披露日（缺披露日时为报告期截止日），引用时按此写 as-of，不要用取数日。每一数据行同时带 observations（subject=股票代码如 600519.SH，as_of=报告期截止日，metric 带单位与口径：revenue_cum_yi / net_profit_cum_yi / gross_margin_pct / net_margin_pct / ocf_cum_yi / contract_liability_yi / inventory_yi 等，_cum_ 表示累计、_yi 表示亿元、_pct 表示百分数），要算单季 / 同比 / 比率就用 derived_calculation 读这些观察值，不要手抄表格里的数。多公司比较把几家一起写进 subjects（最多 4 家）一次取；一轮只取一次快照，第二次调用会被拒，缺了哪家就补不了。
 
 ### `graph_lookup`
 
 返回的是图谱里已登记的映射关系，不是经过确认的公司级事实。概念项的「匹配分」只是文本匹配强度，不代表业务关联强度，不要当作重要性排序。公司项后面的 strength/evidence_layer 是这条映射的可信度分级：peripheral 或研报推断来源的产业链归类只能作为线索，要断言某公司确有该业务，需要 l3_lookup 的公告或 kb_search 的一手事实确认。图谱无命中说明尚未登记该映射，不等于不存在关联。
+
+### `history_query`
+
+只读已授权历史窗口；精确实体代码不跨源拼接。rows为完整分母，preview为截断摘要；相似Top-K只用于发现，不代表条件命中全集。触发时点匹配不使用后续结果。缺字段/未成熟不算失败；同波和重叠窗口不视为独立样本。结果仅research_only，不证明因果或可交易规律；成交额不是主动资金流。未知定义返回unsupported_definition。
 
 ### `kb_search`
 
@@ -69,6 +81,14 @@
 ### `news_search`
 
 新闻是二手材料，同一条消息被多家转载不构成交叉验证。涉及公司经营事实时需要 l3_lookup 的公告确认；只有新闻来源时写成「待验证线索」，不要升级为既定事实。
+
+### `read_history_result`
+
+仅读取当前用户同一会话已登记的不可覆盖原件；引用不是任意文件路径。摘要分页不改变全集统计。
+
+### `save_history_research`
+
+保存候选研究草稿与版本引用，不写市场事实或升级规律；修订保留失败案例，正式认证交现有评价器。
 
 ### `sub_research`
 

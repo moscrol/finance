@@ -1,0 +1,63 @@
+{
+  "frozen_at": "2026-09-09",
+  "note": "05 输入理解冻结题集。source: real = 真实流量原句（linxiaoqi5111/default 库或 .finance-runtime 探针库）；adapted = 真实句改一处；authored = 历史流量无先例、按合同槽位自拟。expected 是判卷点（进入正确任务的最小条件），不是答案。",
+  "materials": {
+    "M1_report": "【卖方摘要｜2026-08-28】固态电池：硫化物路线进入中试放量期\n\n一、核心观点\n公司 A 硫化物电解质中试线 2026 年 8 月投产，规划产能 200 吨/年，预计 2027 年一季度满产。管理层在电话会中表示下游两家电池厂已完成 A 样验证。\n\n二、关键数据\n2026 年上半年新签订单 12 亿元，同比增长 40%；毛利率 31.5%（去年同期 27.2%）。\n\n三、我们的判断\n我们认为硫化物路线将在 2027 年替代氧化物成为主流，公司 A 是最大受益者，目标价上调 30%。",
+    "M2_table": "板块\t涨停家数\t成交额(亿)\t成交额环比\n固态电池\t14\t612\t+18%\n液冷\t9\t388\t-6%\n商业航天\t6\t241\t+3%\n创新药\t5\t530\t-12%\n算力租赁\t3\t177\t-21%"
+  },
+  "questions": [
+    {"id": "Q01", "slot": "模糊盘感·极短", "source": "real", "text": "明天你怎么看",
+     "expected": {"question_type": ["market_forecast"], "subject": "A股市场", "clarification": false}},
+    {"id": "Q02", "slot": "模糊盘感·退潮还是轮动", "source": "real", "text": "固态电池主线最近有没有走弱",
+     "expected": {"question_type": ["theme_analysis", "theme_track", "general_finance_qa"], "subject": "固态电池", "clarification": false, "competing_explanations": true}},
+    {"id": "Q03", "slot": "模糊盘感·无主体", "source": "authored", "text": "龙头不涨了，是不是这条线要退潮了",
+     "expected": {"clarification": true, "clarification_about": "subject", "competing_explanations": true}},
+    {"id": "Q04", "slot": "日期追问·首轮", "source": "real", "text": "8.18的复盘数据你怎么解读",
+     "expected": {"question_type": ["dated_market_review"], "timeframe": "2026-08-18", "clarification": false}},
+    {"id": "Q05", "slot": "两家公司代称", "source": "authored", "text": "宁王和迪王现在谁的估值更贵",
+     "expected": {"question_type": ["comparison", "valuation_estimate"], "subjects_all": ["宁德时代", "比亚迪"], "clarification": false}},
+    {"id": "Q06", "slot": "带原文·研报", "source": "authored", "material": "M1_report",
+     "text": "{M1_report}\n\n这篇研报的核心逻辑站得住吗？帮我分开哪些是硬事实、哪些只是推测",
+     "expected": {"question_type": ["kol_review", "fact_check", "news_impact", "stock_deep_dive", "theme_analysis"], "materials": 1, "material_kind": "pasted_text", "material_dates": ["2026-08-28"], "clarification": false, "not_question_type": ["market_watch", "dated_market_review"]}},
+    {"id": "Q07", "slot": "不给原文", "source": "real", "text": "2026-07-23 把这份卖方材料提纯一下，哪些是硬事实、哪些只能进图谱、哪些只能进观察列表",
+     "expected": {"clarification": true, "clarification_about": "material", "materials": 0, "no_fabrication": true}},
+    {"id": "Q08", "slot": "数据表", "source": "authored", "material": "M2_table",
+     "text": "{M2_table}\n\n从这张表看哪条线最强，量能跟得上吗",
+     "expected": {"materials": 1, "material_kind": "table", "material_headers": ["板块", "涨停家数", "成交额(亿)", "成交额环比"], "clarification": false, "not_question_type": ["dated_market_review"]}},
+    {"id": "Q09", "slot": "同词不同题型·复盘=事后归因", "source": "real", "text": "这一波农业是怎么走出来的？请事后复盘，找出值得进一步检验的特征",
+     "expected": {"not_question_type": ["dated_market_review", "market_watch"], "subject_contains": "农业", "clarification": false}},
+    {"id": "Q10", "slot": "同词不同题型·怎么看+我之前的判断", "source": "real", "text": "液冷题材现在怎么看？我之前的判断还成立吗",
+     "expected": {"question_type": ["theme_analysis", "theme_track"], "subject_contains": "液冷", "user_premises_reference": true, "clarification": false}},
+    {"id": "Q11", "slot": "方法描述+用户假设", "source": "authored", "text": "我的经验是龙头连板断了以后板块一般还有一次回流，这次固态电池也会这样吗",
+     "expected": {"subject": "固态电池", "user_premises": 1, "method_candidates": 1, "method_status": "candidate_unverified", "clarification": false}},
+    {"id": "Q12", "slot": "盘感·相对日期操作", "source": "real", "text": "基于周五的行情，周一该怎么操作",
+     "expected": {"question_type": ["market_forecast", "trade_advice", "general_finance_qa"], "subject": "A股市场", "clarification": false, "not_question_type": ["dated_market_review"]}}
+  ],
+  "chains": [
+    {"id": "C1", "slot": "日期追问→主体切换", "turns": [
+      {"ref": "Q04"},
+      {"text": "那8.19呢", "source": "authored", "expected": {"question_type": ["dated_market_review"], "timeframe": "2026-08-19"}},
+      {"text": "中际旭创你怎么解读", "source": "real", "expected": {"subject": "中际旭创", "question_type": ["stock_deep_dive", "news_impact", "financial_analysis"]}}
+    ]},
+    {"id": "C2", "slot": "材料身份·这篇", "turns": [
+      {"ref": "Q06"},
+      {"text": "这篇里提到的产能数字有官方来源吗", "source": "authored", "expected": {"same_material_as_turn": 1, "clarification": false}},
+      {"text": "那它的风险点呢", "source": "authored", "expected": {"same_material_as_turn": 1}}
+    ]},
+    {"id": "C3", "slot": "不给原文→澄清→补材料→沿原任务", "turns": [
+      {"ref": "Q07"},
+      {"text": "{M1_report}", "source": "authored", "expected": {"clarification": false, "materials": 1, "keeps_original_task": true}}
+    ]},
+    {"id": "C4", "slot": "无主体盘感→一次澄清→继续", "turns": [
+      {"ref": "Q03"},
+      {"text": "固态电池", "source": "authored", "expected": {"subject": "固态电池", "clarification": false, "competing_explanations": true}}
+    ]}
+  ],
+  "reverse_checks": [
+    {"id": "R1", "kind": "only_date_changes", "base": "Q04", "variant": "8.19的复盘数据你怎么解读", "expect_diff": ["timeframe"], "expect_same": ["question_type", "user_goal"]},
+    {"id": "R2", "kind": "only_object_changes", "base": "Q02", "variant": "液冷主线最近有没有走弱", "expect_diff": ["subject"], "expect_same": ["question_type", "competing_explanations_shape"]},
+    {"id": "R3", "kind": "only_material_changes", "base": "Q06", "variant_material": "M2_table", "expect_diff": ["materials.material_id", "materials.kind"]},
+    {"id": "R4", "kind": "paraphrase_same_goal", "base": "Q03", "variant": "龙头开始不涨了，这条线是不是要退潮", "expect_same": ["user_goal", "competing_explanations", "clarification"]},
+    {"id": "R5", "kind": "missing_material_no_fabrication", "base": "Q07", "check": "assumptions/materials 不含任何材料正文片段；clarification 指向材料"}
+  ]
+}

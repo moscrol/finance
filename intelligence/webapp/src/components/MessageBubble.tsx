@@ -1,6 +1,8 @@
 import { RefreshCw, Sparkles } from "lucide-react";
+import { continuationFor } from "../followups";
 import type {
   ChatMessage,
+  FollowupContinuation,
   LiveMessageState,
   ProductSkillDescription,
   RunBundle,
@@ -20,7 +22,7 @@ interface MessageBubbleProps {
   canRegenerate: boolean;
   onRegenerate: (message: ChatMessage) => void;
   onOpenArtifact: (artifactId: string) => void;
-  onFollowup: (question: string) => void;
+  onFollowup: (question: string, continuation?: FollowupContinuation) => void;
 }
 
 export function MessageBubble({
@@ -179,8 +181,20 @@ export function MessageBubble({
                 <button
                   key={`${followup.type}:${followup.full_prompt || followup.question}`}
                   type="button"
-                  onClick={() => onFollowup(followup.full_prompt || followup.question)}
+                  data-kind={followup.kind}
+                  title={followup.kind_label}
+                  onClick={() =>
+                    onFollowup(
+                      followup.full_prompt || followup.question,
+                      continuationFor(followup, message.run_id),
+                    )
+                  }
                 >
+                  {followup.kind_label && (
+                    <span aria-hidden="true" className="followup-kind">
+                      {followup.kind_label}
+                    </span>
+                  )}
                   {followup.label || followup.question}
                 </button>
               ))}

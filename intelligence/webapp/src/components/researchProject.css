@@ -1,0 +1,132 @@
+/* 09 连续研究：研究项目面板 + 追问卡片种类标签。局部深模块，不动全局 token。 */
+
+.followup-kind {
+  display: inline-block;
+  margin-right: 0.4em;
+  padding: 0 0.45em;
+  border-radius: 999px;
+  font-size: 0.72em;
+  line-height: 1.6;
+  color: var(--color-text-muted, #6b6b6b);
+  background: var(--color-surface-muted, rgba(0, 0, 0, 0.06));
+  vertical-align: middle;
+}
+
+.research-project {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.research-project-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.research-project-header strong {
+  font-size: 1.05rem;
+}
+
+.research-project-header small,
+.research-project-muted,
+.research-project-rounds small {
+  color: var(--color-text-muted, #6b6b6b);
+}
+
+.research-project-facts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.research-project-facts > div {
+  display: grid;
+  grid-template-columns: 5em minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.research-project-facts dt {
+  color: var(--color-text-muted, #6b6b6b);
+}
+
+.research-project-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.research-project h3 {
+  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
+}
+
+.research-project-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.research-project-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: baseline;
+  overflow-wrap: anywhere;
+}
+
+.research-project-status {
+  display: inline-block;
+  padding: 0 0.45em;
+  border-radius: 999px;
+  font-size: 0.75em;
+  line-height: 1.6;
+  background: var(--color-surface-muted, rgba(0, 0, 0, 0.06));
+}
+
+.research-project-status.status-miss,
+.research-project-status.status-partial {
+  background: var(--color-warning-soft, rgba(214, 92, 44, 0.14));
+}
+
+.research-project-status.status-hit {
+  background: var(--color-success-soft, rgba(52, 140, 86, 0.14));
+}
+
+.research-project-prior {
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  border-left: 3px solid var(--color-accent, #c9643a);
+  background: var(--color-surface-muted, rgba(0, 0, 0, 0.04));
+  overflow-wrap: anywhere;
+}
+
+.research-project-next {
+  margin-top: 0.2rem;
+}
+
+.research-project-rounds {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.research-project-rounds li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.5rem;
+}
+
+.research-project-rounds li small {
+  grid-column: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .research-project * {
+    transition: none;
+  }
+}
