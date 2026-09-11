@@ -1135,9 +1135,21 @@ def decide_turn(
             intent,
             task_frame=task_frame,
         )
+    # 题面自身已经给出可研究的落点（主体 / 实体锚 / 明确日期）时不反问：
+    # classify_reference 的正则只看词面不看有没有前文，「用中报数据说明**这条链**兑现到哪一层」
+    # 里的「这条链」回指的是同一句话刚建立的那条链，不是上一轮。无前文时按词面判 context_dependent
+    # 会把这类题整体挡在引擎 A 门外（落 clarify 车道，run 里连 continuous-episode.json 都没有），
+    # 于是深题读数量到的是「被门挡住」而不是研究能力。判据取「一个落点都没有」而非放宽正则：
+    # 真追问（「那它的毛利率呢？」「这条链呢？」「接着上次继续。」）三项全空，仍照常反问。
+    self_contained = bool(
+        task_frame.subject is not None
+        or resolution.anchor is not None
+        or resolution.envelope.timeframe
+    )
     if (
         resolution.context_dependent
         and previous_intent is None
+        and not self_contained
         and not (
             task_frame.history_intent is not None
             and (task_frame.subject is not None or explicit_comparison)

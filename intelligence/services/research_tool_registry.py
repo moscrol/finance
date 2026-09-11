@@ -943,9 +943,17 @@ class ResearchToolRegistry:
         specs: tuple[ToolSpec, ...],
         *,
         opening_prefetch: tuple[agent_research.AgentEvidence, ...] = (),
+        calc_loader: object | None = None,
     ) -> None:
         self._specs = {spec.name: spec for spec in specs}
         self.opening_prefetch = tuple(opening_prefetch)
+        # ``derived_calculation`` 的 runner 只有 episode 期绑得出（要那一轮的证据账本），
+        # 但「上一轮的计算记录在谁的 runs 目录里」是**装配期**才知道的身份问题
+        # ——运行器刻意不认识用户（agent_episode 的 EpisodeScope.user_id 恒为 ""）。
+        # 与 memory_lookup 同一条经验：授权与身份穿透必须成对出现，只做一半不报错。
+        # 这一格就是装配层把已解析的身份折成一个闭包带进 episode 的通道；
+        # None = 调用方没给身份，沿用 load_calculation_record 的默认解析。
+        self.calc_loader = calc_loader
 
     def resolve(self, name: str) -> ToolSpec:
         spec = self._specs.get(str(name).strip())
@@ -963,6 +971,7 @@ class ResearchToolRegistry:
         return ResearchToolRegistry(
             tuple(merged.values()),
             opening_prefetch=self.opening_prefetch,
+            calc_loader=self.calc_loader,
         )
 
     def without(self, *names: str) -> "ResearchToolRegistry":
@@ -972,6 +981,7 @@ class ResearchToolRegistry:
         return ResearchToolRegistry(
             tuple(spec for spec in self._specs.values() if spec.name not in dropped),
             opening_prefetch=self.opening_prefetch,
+            calc_loader=self.calc_loader,
         )
 
     def names(self) -> tuple[str, ...]:

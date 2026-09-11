@@ -2835,7 +2835,13 @@ class ContinuousAgentEpisode:
         """
 
         registry = registry.with_specs(
-            bind_derived_calculation_tool(evidence_ledger=evidence_ledger)
+            bind_derived_calculation_tool(
+                evidence_ledger=evidence_ledger,
+                # 身份由装配层折进注册表（``ResearchToolRegistry.calc_loader``）。
+                # 本层只转交、不解析——EpisodeScope.user_id 恒为 "" 这条边界不动。
+                # None = 装配方没给身份，走 load_calculation_record 的默认解析。
+                calc_loader=getattr(registry, "calc_loader", None),
+            )
         )
         coordinator = self._sub_research_coordinator
         if coordinator is None:

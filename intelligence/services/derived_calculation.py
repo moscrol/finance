@@ -555,10 +555,15 @@ def to_tool_result(outcome: DerivedCalculation | CalculationError) -> ToolRunRes
 def load_calculation_record(
     calc_id: str, *, runs_root: str | os.PathLike[str] | None = None
 ) -> dict[str, object] | None:
-    """按计算编号找上一轮落盘的 ``calc-<id>.json``（默认在当前用户的 runs 目录里找）。
+    """按计算编号找上一轮落盘的 ``calc-<id>.json``。
 
     产物是 run 收口时由 orchestrator 写的，所以只能找到**已完成**回合的计算；同一编号可能
     出现在多个 run（同脚本同输入同参数），内容相同，取任意一份。找不到回 None。
+
+    ``runs_root`` 缺省时退回 ``RunStore()`` 的环境解析（``FORESIGHT_USER``）。那只在
+    「生产恰好钉了单一身份」时碰巧落对人——身份靠环境巧合而不是靠接线。真实身份要走
+    ``calc_loader_for_runs_root``：装配层用该轮 run 的 ``RunStore.root`` 折一个闭包出来，
+    见 ``ResearchToolRegistry.calc_loader``。
     """
 
     if not artifacts.is_calc_id(calc_id):
@@ -580,6 +585,26 @@ def load_calculation_record(
         if isinstance(record, dict) and record.get("calc_id") == calc_id:
             return record
     return None
+
+
+def calc_loader_for_runs_root(
+    runs_root: str | os.PathLike[str] | None,
+) -> CalcLoader | None:
+    """把「这一轮属于谁」折成 ``derived_calculation`` 能直接用的记录加载器。
+
+    ``runs_root`` 为空回 None（= 调用方没有身份，沿用默认解析），这样装配层可以无条件
+    调用它而不必自己写 if。绑出来的闭包只认这一个 runs 目录：A 用户的 episode 永远
+    读不到 B 用户的计算记录，也不再依赖 ``FORESIGHT_USER`` 恰好等于当轮用户。
+    """
+
+    if not runs_root:
+        return None
+    root = Path(runs_root)
+
+    def loader(calc_id: str) -> dict[str, object] | None:
+        return load_calculation_record(calc_id, runs_root=root)
+
+    return loader
 
 
 # --------------------------------------------------------------------------- binding

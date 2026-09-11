@@ -16,7 +16,7 @@ import re
 import time
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
-from intelligence.paths import default_paths
+from intelligence.paths import default_market_db_path, default_paths
 from intelligence.services import (
     agent_research,
     ask_blocks,
@@ -693,6 +693,56 @@ def _roots(
     )
 
 
+def _market_db_path(
+    finance_root: str | Path | None,
+    finance: Path,
+    fixture_policy: SealedFixturePolicy | None,
+) -> Path:
+    """引擎 A 的盘面库路径。三档优先级，各自有不可让位的理由。
+
+    1. ``fixture_policy``：封存夹具必须压过一切，否则评测可以被环境变量逃逸。
+    2. 显式传进来的 ``finance_root``：调用方点名了哪棵树，就用那棵树的 ``db/``。
+    3. 都没有 → ``default_market_db_path()``，也就是 ``MARKET_FEATURE_STORE_DB``
+       → 数据根 ``db/``。
+
+    第 3 档是本次修的缺口：此前这里写死 ``finance / "db" / …``，**从不看**
+    ``MARKET_FEATURE_STORE_DB``，而 ``intelligence/paths.py`` 的
+    ``default_market_db_path()`` 自称「唯一来源，供 intelligence 各层共用」
+    ——于是同一进程里两层对「库在哪」的认知可以不一致。实际后果：把数据补进
+    非默认库根之后，恢复出来的 run 仍然读旧库、照样答「证据不足」，而覆盖率
+    审计和 exports 因为走数据根反而是对的，两者不一致正是这个 bug 的表征。
+    无 ``finance_root`` 且无该环境变量时，本函数与旧写法逐字节同值。
+    """
+
+    if fixture_policy is not None and fixture_policy.market_db_path is not None:
+        return Path(fixture_policy.market_db_path).expanduser()
+    if finance_root:
+        return finance / "db" / "market_feature_store.duckdb"
+    return default_market_db_path()
+
+
+def _calc_loader_for(memory_user: str | None):
+    """按装配期已解析的身份折出计算记录加载器；无身份回 None（沿用默认解析）。"""
+
+    uid = str(memory_user or "").strip()
+    if not uid:
+        return None
+    # 延迟 import：derived_calculation 会把沙箱执行面拖进模块级依赖图。
+    from intelligence import userspace  # noqa: PLC0415
+    from intelligence.services.derived_calculation import (  # noqa: PLC0415
+        calc_loader_for_runs_root,
+    )
+
+    try:
+        runs_root = userspace.user_space(uid).root / "runs"
+    except ValueError:
+        # 可达性审计用 ``__audit_probe__`` 这类非法 id 探装配（与下方 live_us 同一情形）：
+        # 身份解析不出来就不绑 loader，但工具照常装配出来——审计要数的是工具在不在，
+        # 不是这个探针有没有 runs 目录。
+        return None
+    return calc_loader_for_runs_root(runs_root)
+
+
 def _is_fermentation_prefetch(frame: TaskFrame) -> bool:
     from intelligence.services.query_understanding import (
         SIGNAL_FERMENTATION,
@@ -924,11 +974,7 @@ def build_episode_registry(
     """Build a read-only registry from the repository's current tool runners."""
 
     finance, wiki = _roots(finance_root, knowledge_wiki)
-    market_db_path = (
-        Path(fixture_policy.market_db_path).expanduser()
-        if fixture_policy is not None and fixture_policy.market_db_path is not None
-        else finance / "db" / "market_feature_store.duckdb"
-    )
+    market_db_path = _market_db_path(finance_root, finance, fixture_policy)
     freshness_floor = _structured_freshness_floor(context)
     structured_source_date = None
     if frame.question_type != "valuation_estimate":
@@ -1886,6 +1932,10 @@ def build_episode_registry(
             perspective_ids=tuple(perspective_ids),
             perspective_mode=perspective_mode,
         ),
+        # 与 memory_lookup 共用同一个身份输入：``derived_calculation`` 的
+        # ``inputs_from_calc``（改假设重算）要去「这一轮用户的 runs 目录」找上一次的
+        # 计算记录，而 episode 层刻意不认识用户。身份缺席时留 None = 沿用默认解析。
+        calc_loader=_calc_loader_for(memory_user),
     )
 
 
