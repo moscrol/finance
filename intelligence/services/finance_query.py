@@ -1408,6 +1408,10 @@ _UNREGISTERED_TABLES: dict[str, str] = {
     "fact_limit_advance_presence": (
         "overlap：仅姓名+序号；完整晋级在 dedicated_path 的 fact_limit_advance_daily"
     ),
+    "fact_polymarket_macro_odds_daily": (
+        "candidate：2026-09-10 新增，Polymarket 宏观/地缘/加密类市场概率快照，"
+        "市场定价非事实；agent 该怎么引用（当独立信号还是仅供人工参考）未定，先落库"
+    ),
 }
 
 # 注册了但**当前是空表**的，必须在这里声明是有意为之，否则审计判失败。
