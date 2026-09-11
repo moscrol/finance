@@ -21,12 +21,12 @@
 | `mainline_context` | mainline_context | external | current | episode | — | — | mainline_structure, supporting_evidence | 同日主线与板块结构 |
 | `market_data` | market_data | external | current | episode | — | — | current_baseline, data_date, market_summary, prime_quote, supporting_evidence | 结构化行情与市场时序 |
 | `memory_lookup` | memory_lookup | local | stable | query | — | `query` | prime_memory | 用户自己过去的判断与纠偏原则（历史先验，不是市场事实） |
-| `news_search` | news_search | external | current | query | — | `query` | event_facts, impact_transmission, prime_news, supporting_evidence | 财经新闻检索 |
+| `news_search` | news_search | external | current | query | 5.0 | `query` | event_facts, impact_transmission, prime_news, supporting_evidence | 财经新闻检索 |
 | `read_history_result` | finance_query | external | historical | query | — | `query` | — | 读取本会话历史研究原件 |
 | `save_history_research` | finance_query | external | historical | query | — | `query` | — | 保存版本化研究假设与反例 |
 | `sub_research` | sub_research | external | current | query | 60.0 | `goals` | supporting_evidence | 把 1–3 个可独立取证的子问题并行交给子研究分支，各支带自己的工具预算跑到终态后一次返回证据 |
-| `web_fetch` | web_fetch | external | current | query | — | `url` | event_facts, supporting_evidence | 按 URL 取网页正文全文（取页，不是检索；URL 先由 web_search / news_search 给出） |
-| `web_search` | web_search | external | current | query | — | `query` | event_facts, impact_transmission, supporting_evidence | 全网网页检索 |
+| `web_fetch` | web_fetch | external | current | query | 5.0 | `url` | event_facts, supporting_evidence | 按 URL 取网页正文全文（取页，不是检索；URL 先由 web_search / news_search 给出） |
+| `web_search` | web_search | external | current | query | 5.0 | `query` | event_facts, impact_transmission, supporting_evidence | 全网网页检索 |
 
 ## 说明书（`ToolSpec.contract`）
 
