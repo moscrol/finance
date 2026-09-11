@@ -220,7 +220,7 @@ def test_快照覆盖集内缺表_空表不冒充当前库(env: dict) -> None:
         assert n == 0
         kind = con.execute(
             "SELECT table_type FROM information_schema.tables"
-            " WHERE table_catalog = 'memory' AND table_name = 'fact_stock_daily'"
+            " WHERE table_catalog = 'frozen' AND table_name = 'fact_stock_daily'"
         ).fetchone()[0]
         assert kind == "BASE TABLE"
     finally:

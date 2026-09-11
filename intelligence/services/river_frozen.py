@@ -95,35 +95,41 @@ def connect_frozen(
     - 快照外的表与视图：``CREATE VIEW`` 指向主库当前值（舆论表靠自身 ``created_at``
       过滤即严格；config 表无历史版本，用现值是**声明过的**口径，见模块 docstring）。
 
-    返回的连接由调用方负责 ``close()``。主库以 READ_ONLY attach，写锁并存可读。
+    连接纪律（T-2 只读红线）：主库连接本身 ``read_only=True``；所有建表 / 灌数发生在
+    ``ATTACH ':memory:'`` 出来的附加内存库里，``USE frozen`` 让 provider 的裸表名解析到
+    它——对生产库自始至终没有写通道。返回的连接由调用方负责 ``close()``。
     """
     data = load_snapshot_data(root, snapshot_as_of)
     db = str(Path(db_path).expanduser())
-    con = duckdb.connect(":memory:")
+    con = duckdb.connect(db, read_only=True)
     try:
-        con.execute(f"ATTACH '{db}' AS live (READ_ONLY)")
+        live_catalog = str(con.execute("SELECT current_database()").fetchone()[0])
+        live = f'"{live_catalog}"'
+        con.execute("ATTACH ':memory:' AS frozen (READ_WRITE)")
+        con.execute("USE frozen")
         live_objects = {
             str(name): str(kind)
             for name, kind in con.execute(
                 "SELECT table_name, table_type FROM information_schema.tables "
-                "WHERE table_catalog = 'live' AND table_schema = 'main'"
+                "WHERE table_catalog = ? AND table_schema = 'main'",
+                [live_catalog],
             ).fetchall()
         }
         for table in sorted(live_objects):
             if table in SNAPSHOT_TABLES:
                 # 快照覆盖集内的表**只**用快照数据。这份快照没拍到（老快照缺新表）就是
                 # 空表——「当时版本不可得」如实表现为缺口，不能 VIEW 到当前库冒充当时。
-                con.execute(f'CREATE TABLE main."{table}" AS SELECT * FROM live.main."{table}" LIMIT 0')
+                con.execute(f'CREATE TABLE frozen.main."{table}" AS SELECT * FROM {live}.main."{table}" LIMIT 0')
                 _insert_rows(con, table, data.get(table) or [])
             else:
                 # 覆盖集外的表按设计走当前库：舆论表自带写一次不更新的 created_at（cutoff
                 # 过滤即严格）；config / 台账 / generation 底表无「被冲刷的当时值」问题。
-                con.execute(f'CREATE VIEW main."{table}" AS SELECT * FROM live.main."{table}"')
+                con.execute(f'CREATE VIEW frozen.main."{table}" AS SELECT * FROM {live}.main."{table}"')
         orphan = sorted(set(data) - set(live_objects))
         if orphan:
             # 快照里有、主库已删的表：没有结构可拷，provider 也不再查它——记事实不装载。
-            con.execute("CREATE TABLE IF NOT EXISTS _frozen_orphan_tables (table_name TEXT)")
-            con.executemany("INSERT INTO _frozen_orphan_tables VALUES (?)", [(t,) for t in orphan])
+            con.execute("CREATE TABLE IF NOT EXISTS frozen.main._frozen_orphan_tables (table_name TEXT)")
+            con.executemany("INSERT INTO frozen.main._frozen_orphan_tables VALUES (?)", [(t,) for t in orphan])
     except FrozenSnapshotError:
         con.close()
         raise
@@ -145,7 +151,7 @@ def _insert_rows(con: "duckdb.DuckDBPyConnection", table: str, rows: list[dict[s
         str(c)
         for (c,) in con.execute(
             "SELECT column_name FROM information_schema.columns "
-            "WHERE table_catalog = 'memory' AND table_schema = 'main' AND table_name = ? "
+            "WHERE table_catalog = 'frozen' AND table_schema = 'main' AND table_name = ? "
             "ORDER BY ordinal_position",
             [table],
         ).fetchall()
@@ -170,7 +176,7 @@ def _insert_rows(con: "duckdb.DuckDBPyConnection", table: str, rows: list[dict[s
         }
         common = [c for c in table_cols if c in loaded_cols]
         quoted = ", ".join(f'"{c}"' for c in common)
-        con.execute(f'INSERT INTO main."{table}" ({quoted}) SELECT {quoted} FROM _frozen_load')  # noqa: S608
+        con.execute(f'INSERT INTO frozen.main."{table}" ({quoted}) SELECT {quoted} FROM _frozen_load')  # noqa: S608
         con.execute("DROP VIEW _frozen_load")
     finally:
         tmp.unlink(missing_ok=True)
