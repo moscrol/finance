@@ -19,6 +19,7 @@ from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.route_table import owner_skills_from_route_table
 from intelligence.services.evidence_capabilities import EvidencePlan, EvidenceRequirement
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.historical_research.intent import HistoryIntent
 
 AnswerOwner: TypeAlias = Literal[
     "stock-deep-dive",
@@ -204,6 +205,7 @@ class TurnIntent:
     task_frame_hash: str = ""
     pending_task_frame: dict[str, object] | None = None
     clarification_rounds: int = 0
+    history_intent: HistoryIntent | None = None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -269,6 +271,10 @@ class TurnIntent:
                 not isinstance(item, str) for item in items
             ):
                 return None
+        try:
+            history_intent = HistoryIntent.from_dict(value.get("history_intent"))
+        except (ValueError, TypeError):
+            return None
         return cls(
             primary_subject=primary_subject,
             secondary_topics=tuple(secondary_topics),
@@ -286,6 +292,7 @@ class TurnIntent:
             task_frame_hash=task_frame_hash,
             pending_task_frame=pending_task_frame,
             clarification_rounds=clarification_rounds,
+            history_intent=history_intent,
         )
 
 
@@ -1049,6 +1056,10 @@ class ResearchRunContext:
     # R-20260827-09：此前阶段表止步于 trace，episode 拿不到。空元组 = 无
     # owner 阶段，构造逐字节兼容。永不作为证据。
     retrieval_stages: tuple[str, ...] = ()
+    # Domain research state. Full result rows live in RunStore artifacts, not prompts.
+    history_intent: HistoryIntent | None = None
+    history_results: list[dict[str, object]] = field(default_factory=list)
+    history_artifact_index: list[dict[str, object]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

@@ -30,6 +30,10 @@ from intelligence.services.degraded_fallback import (
     episode_rule as degraded_episode_rule,
 )
 from intelligence.services.longtail_baseline import episode_rule
+from intelligence.services.ranking_contract import (
+    RANKING_CONTRACT_OUTPUT_ID_SET,
+    episode_ranking_rule,
+)
 from intelligence.services.scenario_tree import episode_scenario_rule
 from intelligence.services.track_contract import (
     TRACK_CONTRACT_OUTPUT_ID_SET,
@@ -38,6 +42,9 @@ from intelligence.services.track_contract import (
 
 
 _FINISH_STATUSES = frozenset({"completed", "partial"})
+# 与 research_tool_registry._DEFAULT_TOOL_METADATA 里的工具名同一字面量；这里不 import
+# derived_calculation 模块（它反向依赖注册表，成环），只认名字。
+DERIVED_CALCULATION_TOOL = "derived_calculation"
 # A few OpenAI-compatible adapters append one unmatched quote after an
 # otherwise exact fenced payload. Accept only that observed one-character
 # suffix; arbitrary prose before/after the fence remains invalid.
@@ -145,12 +152,21 @@ def _question_type_rules(
     # （单一真本源，与 legacy ask_synthesis 版同模块），此处只做条件注入——
     # 非跟踪题得到空串。从模块导入的文本不进 build_episode_instructions 的
     # 静态契约指纹（test_episode_protocol 只提取该函数体内的字符串常量）。
+    # 排序与情景契约（10 号单）同一条注入口：多对象排序题命中才有文本，其它题空串。
+    # 历史发现题（怎么走出来）不叠情景契约，避免和 history 自己的答法打架。
     track_rule = episode_track_rule(
         task_frame.raw_question,
         task_frame.question_type,
-    ) + episode_scenario_rule(
+    )
+    if context.history_intent is None:
+        track_rule += episode_scenario_rule(
+            task_frame.raw_question,
+            task_frame.question_type,
+        )
+    track_rule += episode_ranking_rule(
         task_frame.raw_question,
         task_frame.question_type,
+        conversation_context=context.conversation_context,
     )
     longtail_rule = episode_rule(task_frame)
     # ASK_DEGRADED_FALLBACK（默认 off）：降级回答章法，off 时空串。
@@ -498,6 +514,9 @@ REJECTION_KINDS: dict[str, RejectionKind] = {
     # 地基破坏 → 硬拒
     "unknown_output": RejectionKind.INTEGRITY,
     "forged_hash": RejectionKind.INTEGRITY,
+    # 派生计算证据没有输入哈希链：算出来的数指不回它算的证据，与伪造哈希同一族——
+    # 证据体系的地基问题，不是写法问题（spec capability-amplification §3.4）。
+    "derived_without_inputs": RejectionKind.INTEGRITY,
     # 抄漏最后一位：结构滑档，不是伪造。见 `_is_unique_one_char_truncation`。
     "truncated_hash": RejectionKind.FORMAT,
     # 把跟踪题表达槽（track_ttl / track_next_watch / track_quad_or_baseline）当 output 绑：
@@ -842,6 +861,15 @@ def validate_episode_finish(
                     "把「复核期限：YYYY-MM-DD」「下期关注：…」这类内容写进 draft，"
                     "bindings 里只保留契约列出的 output_id",
                 )
+            if binding.output_id in RANKING_CONTRACT_OUTPUT_ID_SET:
+                # 排序题表达槽（矩阵 / 改判条件 / 竞争解释 / 下一步）同理：系统自己在
+                # 修复目标里给的 id，按 FORMAT 回灌而不是当伪造输出硬拒。
+                raise _reject(
+                    "expression_slot_binding",
+                    f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
+                    "把公司矩阵表、改判条件表、「竞争解释」「下一步」段写进 draft，"
+                    "bindings 里只保留契约列出的 output_id",
+                )
             raise _reject(
                 "unknown_output",
                 f"unknown required output: {binding.output_id}",
@@ -891,6 +919,21 @@ def validate_episode_finish(
                 "evidence_type_floor",
                 f"required output lacks evidence type {binding.output_id}: "
                 + ",".join(missing_floor),
+            )
+        # 派生计算产物没有输入哈希链就不是证据（spec capability-amplification §3.4 / §5 第 16 条）：
+        # 一段算出来的数如果说不清算的是哪几条证据，既不可复现也无法与 provider 数对账。
+        derived_without_inputs = tuple(
+            evidence_hash
+            for evidence_hash in binding.evidence_hashes
+            if evidence_by_hash[evidence_hash].tool == DERIVED_CALCULATION_TOOL
+            and not evidence_by_hash[evidence_hash].derived_from
+        )
+        if derived_without_inputs:
+            raise _reject(
+                "derived_without_inputs",
+                f"{binding.output_id} 绑定的派生计算证据没有 input_evidence_hashes: "
+                + ",".join(derived_without_inputs)
+                + "；派生数必须能指回它算的那几条证据",
             )
 
     binding_map = {item.output_id: item for item in bindings}
