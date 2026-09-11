@@ -13,7 +13,7 @@ k3nj 臂：能力基线的「kimi-k3 × 无独立判官 × 检索语义闸关」
 
 ## 当前状态
 
-sidecar 8814 服 c423c8bd953f（dirty=False/matches=True）；编排首跑中（01:55 起 attempt 1），前两题已是真形状（model_finish / judge=repaired / kimi-k3×3 / 真工具调用）。预计 1.5–2h，烧穿由编排 rc=4 自动等+续。事故件在 runs/attic-misconfig-20260911/（未入链）。
+已跑完（03:51 收工，rc=2）：28/30 completed 全为真形状（served_models=kimi-k3、真工具调用），judge 分布 repaired 19 / passed 5 / unavailable 7；chain-01/02 engine_missing=澄清闸过触发（见快照「更正」节，两臂同病）。tokens 4.93M in，零配额污染，一口气跑完。事故件在 runs/attic-misconfig-20260911/（未入链）。**用户验收（2026-09-11）：看过 10 题问答全文，判「关掉判官回答的也不错」——无独立判官臂的回答质量获用户认可。**
 
 ## 已验证
 
@@ -29,7 +29,7 @@ sidecar 8814 服 c423c8bd953f（dirty=False/matches=True）；编排首跑中（
 
 ## 下一步
 
-- 跑完看终件（runs/ 最新件 + baseline-chain.txt）：rc=0 干净 / rc=2 真失败。收尾手法参考 00 臂 a9447137（终件+验收文进 docs/verification/ 提交本树）。
+- 收口（参考 00 臂 a9447137）：终件 + 验收文提交进本树 docs/verification/；验收文须写「自审≠裸答」（repaired 19 里有自审修稿的功劳）与「两臂通过率不可直接比」。
 - 00 臂 7 题 resume 与本臂无关，仍等 grok 充值 + 57244 周窗 09-16 00:38。
 
 ## 踩过的坑
