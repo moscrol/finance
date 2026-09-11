@@ -13,7 +13,7 @@ k3nj 臂：能力基线的「kimi-k3 × 无独立判官 × 检索语义闸关」
 
 ## 当前状态
 
-已跑完（03:51 收工，rc=2）：28/30 completed 全为真形状（served_models=kimi-k3、真工具调用），judge 分布 repaired 19 / passed 5 / unavailable 7；chain-01/02 engine_missing=澄清闸过触发（见快照「更正」节，两臂同病）。tokens 4.93M in，零配额污染，一口气跑完。事故件在 runs/attic-misconfig-20260911/（未入链）。**用户验收（2026-09-11）：看过 10 题问答全文，判「关掉判官回答的也不错」——无独立判官臂的回答质量获用户认可。**
+已跑完（03:51 收工，rc=2）：28/30 completed 全真形状，judge 分布 repaired 19 / passed 5 / unavailable 7；chain-01/02 engine_missing=澄清闸过触发（见快照「更正」节，两臂同病）。tokens 4.93M in，零配额污染。事故件在 runs/attic-misconfig-20260911/（未入链）。**用户验收（09-11）：看过问答后判「关掉判官回答的也不错」——无独立判官臂质量获认可。**
 
 ## 已验证
 
@@ -23,9 +23,8 @@ k3nj 臂：能力基线的「kimi-k3 × 无独立判官 × 检索语义闸关」
 
 ## 未验证 / 已知边界
 
-- kimi-k3 池深未知：一臂 ≈4.24M input tokens（00 臂口径），池若浅会中途停在冷却循环里。
 - 本臂 judge=自审，与 00 臂 grok 独立判官门槛不同：通过率不可直接比，只能比形状/降级率。
-- chain-01/02 在 00 臂就是 engine_missing（同树同缺口），本臂大概率照旧，不算本臂回归。
+- 自审 unavailable 7 题（多集中在隐藏题）读数偏弱，验卷按合同标明，不与完整复核题混算。
 
 ## 下一步
 
