@@ -3539,6 +3539,13 @@ def test_static_knowledge_uses_local_retrieval_when_generation_is_unavailable(
     assert captured[0].question_type_override == QUESTION_CONCEPT_DEFINITION
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert assistant.citations[0]["source"] == "百科来源"
+    # 检索兜底成功 ≠ 这一轮健康：正文是没有综述的证据堆。降级痕迹必须两个槽都有，
+    # 否则读 degrades 的验收打分会把网关抖动记成能力（2026-09-11 线上实测形状）。
+    assert "自然语言生成暂时不可用，本轮正文未经综述" in assistant.degrades
+    assert (
+        "自然语言生成暂时不可用，本轮正文未经综述"
+        in run_store.load_run(run_id).degrades
+    )
     report = json.loads(
         (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
     )
@@ -3585,12 +3592,19 @@ def test_static_knowledge_fails_closed_when_generation_and_retrieval_fail(
     assert "未取得足够可靠的资料" in result.content
     assert "private diagnostic" not in result.content
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
-    assert assistant.degrades == ["一般知识检索暂时不可用"]
+    # 两层各记一笔：检索那笔先于生成那笔，因为兜底检索在生成降级判定之前。
+    assert assistant.degrades == [
+        "一般知识检索暂时不可用",
+        "自然语言生成暂时不可用，本轮正文未经综述",
+    ]
     report = json.loads(
         (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
     )
     assert report["task_type"] == "knowledge"
-    assert report["warnings"] == ["一般知识检索暂时不可用"]
+    assert report["warnings"] == [
+        "一般知识检索暂时不可用",
+        "自然语言生成暂时不可用，本轮正文未经综述",
+    ]
 
 
 def test_knowledge_follow_up_uses_bounded_conversation_context_without_retrieval(

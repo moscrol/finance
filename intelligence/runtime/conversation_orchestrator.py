@@ -2269,13 +2269,23 @@ class TurnOrchestrator:
                                 "elapsed_ms": self._elapsed_ms(fallback_started),
                             },
                         )
-                if (
-                    decision.question_type == QUESTION_METHODOLOGY
-                    and lane_answer.fallback_reason
-                ):
-                    warning = "方法论回答生成暂时不可用"
-                    lane_warnings.append(warning)
-                    self.run_store.add_degrade(run_id, warning)
+                # 生成层没跑起来，就一定要留降级痕迹——哪怕检索兜底成功。
+                # 此前只有方法论题型记这一条，于是「知识车道 + 生成 HTTP 400 +
+                # 检索拿到引用」会以 status=completed、degrades=[] 收尾，正文却是
+                # 「自然语言生成暂时不可用，先提供本轮取得的可核验资料摘要：」开头的
+                # 证据堆、没有对问题的综述（2026-09-11 实测 run_20260911_214031_453201：
+                # 消息 4 条引用、两个 degrades 槽全空）。后果不在用户那一侧——回合确实
+                # 还有价值——而在**验收打分**那一侧：读 degrades 的口径会把网关抖动
+                # 算成能力，成果完成度于是既不随真实能力涨、也不随网关坏而跌。
+                if lane_answer.fallback_reason:
+                    warning = (
+                        "方法论回答生成暂时不可用"
+                        if decision.question_type == QUESTION_METHODOLOGY
+                        else "自然语言生成暂时不可用，本轮正文未经综述"
+                    )
+                    if warning not in lane_warnings:
+                        lane_warnings.append(warning)
+                        self.run_store.add_degrade(run_id, warning)
                 self._trace(
                     run_id,
                     assistant_message_id,
