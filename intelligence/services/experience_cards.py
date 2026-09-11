@@ -8,11 +8,16 @@
 ``promoted_to_code``（原则已进编排/契约/质检门，``load_cards`` 跳过）。
 ``invalidated`` 是另一条出口：教训被证伪，同样不注入。
 
-统计门（2026-09-04，设计稿 methodology-backtest §3.4 P1）：卡若能映射到一条方法论规则
-（``rule_id``），晋升到常驻 / 固化态的前置条件是该规则**最近一次回测收据为 ``supported``**；
-标 ``invalidated`` 的前置条件是 ``refuted``。映射不到规则的卡走原流程——门只加在能被
-历史数据检验的那部分上，不拦住经验本身。一次纠偏只能给事件集加一行，改不了收据结论，
-所以也改不了一张卡的晋升资格；这就是「不能因为一次错误就否定一套方法」落在经验卡上的形状。
+统计门（2026-09-04 首版按「最近一份收据 supported」放行；2026-09-11 工单 #42 第二刀接
+统一晋升认证）：卡若能映射到一条方法论规则（``rule_id``），晋升到常驻 / 固化态的前置
+条件是该规则通过 ``lifecycle.derive_state`` 的完整认证——同身份、预声明阶段的
+discovery → validation → holdout 三段链（``in_method_library``）。单份 supported 收据
+不再放行：那正是 OPT-04 堵掉的「另一入口」——队列这边要求三段链，经验卡这边一份
+supported 就常驻，等于门修好了但墙上还有个洞。标 ``invalidated`` 的前置条件仍是最近
+收据 ``refuted``（证据的不对称性：推翻不用预注册，晋升要）。映射不到规则的卡走原流程——
+门只加在能被历史数据检验的那部分上，不拦住经验本身。一次纠偏只能给事件集加一行，
+改不了收据结论，所以也改不了一张卡的晋升资格；这就是「不能因为一次错误就否定一套
+方法」落在经验卡上的形状。
 """
 
 from __future__ import annotations
@@ -33,12 +38,8 @@ RESIDENT_PROMOTIONS = frozenset({"promoted", "methodology"})
 ARCHIVED_PROMOTIONS = frozenset({"promoted_to_code"})
 DEFAULT_RESIDENT_LIMIT = 5
 
-# 带 rule_id 的卡：这些晋升态要求规则最近收据的四态结论 == 对应值。candidate 不设门。
-GATED_PROMOTIONS: dict[str, str] = {
-    "promoted": "supported",
-    "methodology": "supported",
-    "promoted_to_code": "supported",
-}
+# 带 rule_id 的卡：这些晋升态要求规则通过统一晋升认证（lifecycle.in_method_library）。candidate 不设门。
+GATED_PROMOTIONS: frozenset[str] = frozenset({"promoted", "methodology", "promoted_to_code"})
 INVALIDATION_REQUIRES = "refuted"
 
 
@@ -49,6 +50,7 @@ class PromotionGate:
     rule_id: str | None
     verdict: str | None
     receipt: str | None
+    lifecycle_state: str | None = None
 
 
 class PromotionGateError(ValueError):
@@ -66,38 +68,55 @@ def gate_promotion(
     verdict: str | None,
     receipt: str | None = None,
     invalidated: bool = False,
+    method_state: dict[str, Any] | None = None,
 ) -> PromotionGate:
-    """纯函数：给定卡要去的状态与规则最近收据的结论，判能不能去。
+    """纯函数：给定卡要去的状态与规则的生命周期状态，判能不能去。
 
-    ``verdict`` 为 None 表示该规则还没有任何收据——没有证据不等于支持，晋升一律拒；
-    ``candidate`` 与无 ``rule_id`` 的卡永远放行。
+    ``method_state`` 是 ``lifecycle.derive_state(...).to_dict()``——读收据、锁身份都发生在
+    调用方（cli 用 ``lifecycle.state_for_rule``），门本身不做 IO，测试才喂得进反例。
+    晋升档只认 ``method_state["in_method_library"]``；``verdict``（最近一份收据的四态）
+    保留为溯源展示与证伪判据。``candidate`` 与无 ``rule_id`` 的卡永远放行。
     """
     rid = str(rule_id or "").strip() or None
     promo = str(promotion or "candidate").strip() or "candidate"
     if rid is None:
         return PromotionGate(True, "无 rule_id，走原流程（不经统计门）", None, verdict, receipt)
+    state = str(method_state.get("state") or "") or None if isinstance(method_state, dict) else None
     if invalidated:
         if verdict == INVALIDATION_REQUIRES:
-            return PromotionGate(True, f"规则 {rid} 最近收据为 {verdict}，允许标 invalidated", rid, verdict, receipt)
+            return PromotionGate(
+                True, f"规则 {rid} 最近收据为 {verdict}，允许标 invalidated", rid, verdict, receipt, state
+            )
         return PromotionGate(
             False,
             f"规则 {rid} 最近收据为 {verdict or '无收据'}，不是 {INVALIDATION_REQUIRES}：一次落空不构成证伪，不能标 invalidated",
             rid,
             verdict,
             receipt,
+            state,
         )
-    required = GATED_PROMOTIONS.get(promo)
-    if required is None:
-        return PromotionGate(True, f"{promo} 不设统计门", rid, verdict, receipt)
-    if verdict == required:
-        return PromotionGate(True, f"规则 {rid} 最近收据为 {verdict}，允许晋升为 {promo}", rid, verdict, receipt)
-    hint = "先跑 scripts/methodology_backtest.py run 出收据" if verdict is None else "只能以 candidate 落卡，等规则累积到 supported"
+    if promo not in GATED_PROMOTIONS:
+        return PromotionGate(True, f"{promo} 不设统计门", rid, verdict, receipt, state)
+    if isinstance(method_state, dict) and method_state.get("in_method_library") is True:
+        return PromotionGate(
+            True,
+            f"规则 {rid} 生命周期 {state}（同身份三段验证链已过），允许晋升为 {promo}",
+            rid,
+            verdict,
+            receipt,
+            state,
+        )
+    blocked = str(method_state.get("blocked_by") or "") if isinstance(method_state, dict) else ""
+    detail = f"生命周期 {state or '无认证状态'}" + (f"，卡在：{blocked}" if blocked else "")
     return PromotionGate(
         False,
-        f"规则 {rid} 最近收据为 {verdict or '无收据'}，不是 {required}：拒绝晋升为 {promo}；{hint}",
+        f"规则 {rid} 未过统一晋升认证（{detail}）：拒绝晋升为 {promo}；"
+        "单份 supported 收据不放行，须同身份 discovery → validation → holdout 三段链"
+        "（scripts/methodology_backtest.py queue 看差哪段）",
         rid,
         verdict,
         receipt,
+        state,
     )
 
 
@@ -229,14 +248,18 @@ def build_card_from_score(
     rule_id: str | None = None,
     rule_verdict: str | None = None,
     rule_receipt: str | None = None,
+    method_state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """从确定性评分结果生成一张机器可读经验卡片。
 
-    给了 ``rule_id`` 就过统计门：``promoted / methodology / promoted_to_code`` 要求
-    ``rule_verdict == "supported"``，否则抛 ``PromotionGateError``（不落卡）。卡上留
-    ``rule_id / rule_verdict / rule_receipt`` 三个溯源字段。
+    给了 ``rule_id`` 就过统计门：``promoted / methodology / promoted_to_code`` 要求该规则
+    通过统一晋升认证（``method_state["in_method_library"]``，即同身份三段验证链），否则抛
+    ``PromotionGateError``（不落卡）。卡上留 ``rule_id / rule_verdict / rule_receipt /
+    rule_lifecycle_state`` 溯源字段。
     """
-    gate = gate_promotion(promotion, rule_id=rule_id, verdict=rule_verdict, receipt=rule_receipt)
+    gate = gate_promotion(
+        promotion, rule_id=rule_id, verdict=rule_verdict, receipt=rule_receipt, method_state=method_state
+    )
     if not gate.allowed:
         raise PromotionGateError(gate)
     weak_dims = [
@@ -283,6 +306,8 @@ def build_card_from_score(
         card["rule_verdict"] = gate.verdict
         if gate.receipt:
             card["rule_receipt"] = gate.receipt
+        if gate.lifecycle_state:
+            card["rule_lifecycle_state"] = gate.lifecycle_state
     return card
 
 
