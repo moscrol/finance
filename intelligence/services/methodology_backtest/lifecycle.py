@@ -51,6 +51,7 @@ refuted 之后再来一份 supported 就复活。补法只有一个原则——*
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -395,6 +396,45 @@ def derive_state(
             needs_human=True,
         )
     return _state(target, evidence + (f"human:{human_approval.get('approved_by')}",), None)
+
+
+def state_for_rule(
+    rules_dir: str | Path,
+    receipts_dir: str | Path,
+    rule_id: str,
+    *,
+    human_approval: dict[str, Any] | None = None,
+) -> MethodState | None:
+    """按 ``rule_id`` 找当前生效的规则文件并推导状态；找不到规则文件返回 ``None``。
+
+    给经验卡门等**规则目录之外的晋升入口**用的统一读法：与 ``queue`` 同一口径——
+    身份用规则文件字节的 sha256 锁定（写收据的 run/scan 也是这个 hash），所以任何
+    入口看到的生命周期状态与 `methodology_backtest.py queue` 一致，不存在第二套判定。
+    「当前生效」= 同 ``rule_id`` 的文件里 ``version`` 最大那份（文件名序兜底）。
+    """
+    base = Path(rules_dir).expanduser()
+    if not base.is_dir():
+        return None
+    best: tuple[tuple[int, str], Path, dict[str, Any]] | None = None
+    for path in sorted(base.glob("*.json")):
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(doc, dict):
+            continue
+        rid = str(doc.get("rule_id") or doc.get("id") or path.stem.split(".v")[0])
+        if rid != rule_id:
+            continue
+        rank = (_int_or_none(doc.get("version")) or 0, path.name)
+        if best is None or rank > best[0]:
+            best = (rank, path, doc)
+    if best is None:
+        return None
+    _, path, doc = best
+    sha = hashlib.sha256(path.read_bytes()).hexdigest()
+    steps = load_steps(receipts_dir, rule_id)
+    return derive_state({**doc, "rule_id": rule_id}, steps, human_approval=human_approval, rule_sha256=sha)
 
 
 def render_queue(states: list[MethodState]) -> str:

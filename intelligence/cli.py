@@ -471,12 +471,19 @@ def add_answer_score_parser(subparsers: argparse._SubParsersAction) -> None:
         "--rule-id",
         default=None,
         help="这张卡对应的方法论规则 rule_id（methodology/rules/<rule_id>.v<n>.json）。给了就过统计门："
-        "promoted / methodology / promoted_to_code 要求该规则最近一次回测收据为 supported，否则拒绝落卡（退出码 2）",
+        "promoted / methodology / promoted_to_code 要求该规则通过统一晋升认证"
+        "（同身份 discovery → validation → holdout 三段链，与 methodology_backtest.py queue 同口径），"
+        "否则拒绝落卡（退出码 2）",
     )
     parser.add_argument(
         "--receipts-dir",
         default=None,
         help="回测收据目录（默认 methodology/receipts），只在 --rule-id 时读取",
+    )
+    parser.add_argument(
+        "--rules-dir",
+        default=None,
+        help="规则目录（默认 methodology/rules），只在 --rule-id 时读取（锁定当前生效规则内容的身份）",
     )
     parser.set_defaults(func=cmd_answer_score)
 
@@ -922,7 +929,9 @@ def cmd_answer_score(args: argparse.Namespace) -> int:
         rule_id = str(getattr(args, "rule_id", None) or "").strip() or None
         rule_verdict: str | None = None
         rule_receipt: str | None = None
+        method_state: dict | None = None
         if rule_id:
+            from intelligence.services.methodology_backtest import lifecycle
             from intelligence.services.methodology_backtest.receipts import latest_receipt
 
             receipts_dir = (
@@ -930,10 +939,18 @@ def cmd_answer_score(args: argparse.Namespace) -> int:
                 if getattr(args, "receipts_dir", None)
                 else userspace.REPO_ROOT / "methodology" / "receipts"
             )
+            rules_dir = (
+                Path(args.rules_dir).expanduser()
+                if getattr(args, "rules_dir", None)
+                else userspace.REPO_ROOT / "methodology" / "rules"
+            )
             receipt = latest_receipt(receipts_dir, rule_id)
             if receipt is not None:
                 rule_verdict = str(receipt.get("verdict") or "") or None
                 rule_receipt = receipt.get("_path")
+            # 统一晋升认证（工单 #42 第二刀）：与 queue 同一推导，不再单看一份收据
+            state = lifecycle.state_for_rule(rules_dir, receipts_dir, rule_id)
+            method_state = state.to_dict() if state is not None else None
         us = userspace.user_space(args.user)
         card_path = Path(args.card_file).expanduser() if args.card_file else us.experience_cards_path
         try:
@@ -949,6 +966,7 @@ def cmd_answer_score(args: argparse.Namespace) -> int:
                 rule_id=rule_id,
                 rule_verdict=rule_verdict,
                 rule_receipt=rule_receipt,
+                method_state=method_state,
             )
         except experience_cards.PromotionGateError as exc:
             print(f"统计门拒绝：{exc.gate.reason}", file=sys.stderr)

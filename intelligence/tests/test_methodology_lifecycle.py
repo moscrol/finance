@@ -476,5 +476,69 @@ class QueueRendering(unittest.TestCase):
         self.assertIn("propose", lifecycle.render_queue([]))
 
 
+class StateForRule(unittest.TestCase):
+    """经验卡门等规则目录之外的入口走 ``state_for_rule``：与 queue 同口径，文件字节 sha 锁身份。"""
+
+    @staticmethod
+    def _rule_file(rules: Path, name: str, doc: dict) -> str:
+        import hashlib
+
+        path = rules / name
+        path.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    @staticmethod
+    def _chain(receipts: Path, sha: str, *, version: int = 1) -> None:
+        for stage, (s, e), at in (
+            ("discovery", ("2026-01-01", "2026-03-31"), "2026-04-01T00:00:00"),
+            ("validation", ("2026-04-01", "2026-06-30"), "2026-07-01T00:00:00"),
+            ("holdout", ("2026-07-01", "2026-08-31"), "2026-09-01T00:00:00"),
+        ):
+            _write(receipts, "r1", start=s, end=e, verdict="supported", at=at, stage=stage, sha256=sha, version=version)
+
+    def test_full_chain_reaches_method_library(self) -> None:
+        with TemporaryDirectory() as tmp:
+            rules, receipts = Path(tmp) / "rules", Path(tmp) / "receipts"
+            rules.mkdir()
+            sha = self._rule_file(rules, "r1.v1.json", {"rule_id": "r1", "version": 1, "owner": "alice"})
+            self._chain(receipts, sha)
+            state = lifecycle.state_for_rule(rules, receipts, "r1")
+            assert state is not None
+            self.assertEqual(state.state, "personal_method")
+            self.assertTrue(state.in_method_library)
+
+    def test_edited_rule_file_orphans_old_receipts(self) -> None:
+        """规则文件内容一改，旧三段链只算历史——经验卡门看到的与 queue 一致地回到 candidate。"""
+        with TemporaryDirectory() as tmp:
+            rules, receipts = Path(tmp) / "rules", Path(tmp) / "receipts"
+            rules.mkdir()
+            sha = self._rule_file(rules, "r1.v1.json", {"rule_id": "r1", "version": 1, "owner": "alice"})
+            self._chain(receipts, sha)
+            self._rule_file(rules, "r1.v1.json", {"rule_id": "r1", "version": 1, "owner": "alice", "note": "改了"})
+            state = lifecycle.state_for_rule(rules, receipts, "r1")
+            assert state is not None
+            self.assertEqual(state.state, "candidate")
+            self.assertFalse(state.in_method_library)
+            self.assertGreater(state.history_receipts, 0)
+
+    def test_latest_version_file_wins(self) -> None:
+        with TemporaryDirectory() as tmp:
+            rules, receipts = Path(tmp) / "rules", Path(tmp) / "receipts"
+            rules.mkdir()
+            self._rule_file(rules, "r1.v1.json", {"rule_id": "r1", "version": 1, "owner": "alice"})
+            sha2 = self._rule_file(rules, "r1.v2.json", {"rule_id": "r1", "version": 2, "owner": "alice"})
+            self._chain(receipts, sha2, version=2)
+            state = lifecycle.state_for_rule(rules, receipts, "r1")
+            assert state is not None
+            self.assertEqual(state.state, "personal_method")
+
+    def test_missing_rule_returns_none(self) -> None:
+        with TemporaryDirectory() as tmp:
+            rules = Path(tmp) / "rules"
+            rules.mkdir()
+            self.assertIsNone(lifecycle.state_for_rule(rules, Path(tmp) / "receipts", "r1"))
+            self.assertIsNone(lifecycle.state_for_rule(Path(tmp) / "absent", Path(tmp) / "receipts", "r1"))
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

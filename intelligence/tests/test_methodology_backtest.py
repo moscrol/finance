@@ -1119,9 +1119,13 @@ def test_latest_receipt_picks_newest_across_versions(synthetic, tmp_path):
 
 
 def test_cli_answer_score_gate_refuses_promotion_without_supported_receipt(synthetic, tmp_path):
-    """经验卡统计门端到端：not_distinguishable 的规则不能把卡晋升为 methodology；candidate 仍可落卡。"""
+    """经验卡统计门端到端（工单 #42 第二刀）：单份收据不论结论都不能晋升 methodology——
+    须完整三段认证链；candidate 仍可落卡。"""
+    import hashlib as _hashlib
+    import json as _json
+
     from intelligence import cli as intel_cli
-    from intelligence.services.methodology_backtest.receipts import write_receipt
+    from intelligence.services.methodology_backtest.receipts import RECEIPT_SCHEMA, write_receipt
 
     st = synthetic["st"]
     env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
@@ -1130,21 +1134,47 @@ def test_cli_answer_score_gate_refuses_promotion_without_supported_receipt(synth
     write_receipt(root, neg, date_str="2026-09-04")
     pos = build_receipt(st.run(synthetic["labels"], st.POSITIVE_RULE), rule_path=None, rule_sha256=None, environment=env)
     write_receipt(root, pos, date_str="2026-09-04")
+    # certified_rule：规则文件 + 同身份三段链（discovery → validation → holdout 全 supported）
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    rule_path = rules_dir / "certified_rule.v1.json"
+    rule_path.write_text(_json.dumps({"rule_id": "certified_rule", "version": 1, "owner": "tester"}), encoding="utf-8")
+    sha = _hashlib.sha256(rule_path.read_bytes()).hexdigest()
+    chain_dir = root / "certified_rule@v1"
+    chain_dir.mkdir(parents=True)
+    for stage, (ws, we), at in (
+        ("discovery", ("2026-01-01", "2026-03-31"), "2026-04-01T00:00:00"),
+        ("validation", ("2026-04-01", "2026-06-30"), "2026-07-01T00:00:00"),
+        ("holdout", ("2026-07-01", "2026-08-31"), "2026-09-01T00:00:00"),
+    ):
+        (chain_dir / f"{stage}.json").write_text(
+            _json.dumps({
+                "schema_version": RECEIPT_SCHEMA, "generated_at": at,
+                "rule": {"rule_id": "certified_rule", "version": 1, "ref": "certified_rule@v1", "sha256": sha},
+                "window": {"start": ws, "end": we}, "verdict": "supported",
+                "declared_stage": stage, "stats": {"verdict": "supported"},
+                "conditions": {"label_version": "v3"},
+            }),
+            encoding="utf-8",
+        )
     cards = tmp_path / "cards.jsonl"
     common = [
         "answer-score", "--question", "双红后还涨吗", "--answer", "会涨。（非投资建议）",
         "--local-source", "market_feature_store", "--save-card", "--card-file", str(cards),
-        "--receipts-dir", str(root), "--json",
+        "--receipts-dir", str(root), "--rules-dir", str(rules_dir), "--json",
     ]
     assert intel_cli.main([*common, "--promotion", "methodology", "--rule-id", "selftest_negative"]) == 2
     assert not cards.exists()
     assert intel_cli.main([*common, "--promotion", "methodology", "--rule-id", "nope_rule"]) == 2
+    # 单份 supported、无三段链：拒——这是 OPT-04 后经验卡侧要堵的那个「另一入口」
+    assert intel_cli.main([*common, "--promotion", "methodology", "--rule-id", "selftest_positive"]) == 2
     assert intel_cli.main([*common, "--promotion", "candidate", "--rule-id", "selftest_negative"]) == 0
-    assert intel_cli.main([*common, "--promotion", "methodology", "--rule-id", "selftest_positive"]) == 0
-    rows = [__import__("json").loads(line) for line in cards.read_text(encoding="utf-8").splitlines()]
+    assert intel_cli.main([*common, "--promotion", "methodology", "--rule-id", "certified_rule"]) == 0
+    rows = [_json.loads(line) for line in cards.read_text(encoding="utf-8").splitlines()]
     assert [r["promotion"] for r in rows] == ["candidate", "methodology"]
     assert rows[0]["rule_verdict"] != "supported" and rows[1]["rule_verdict"] == "supported"
-    assert rows[1]["rule_receipt"].endswith("selftest_positive@v1/2026-09-04.json")
+    assert rows[1]["rule_lifecycle_state"] == "personal_method"
+    assert rows[1]["rule_receipt"].endswith("certified_rule@v1/holdout.json")
 
 
 # --------------------------------------------------------------------------- #

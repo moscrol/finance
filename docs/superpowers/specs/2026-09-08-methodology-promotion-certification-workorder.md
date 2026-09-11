@@ -38,6 +38,23 @@
 
 `cmd_queue` 把规则文件 sha256 传给 `derive_state`；队列行显示轮次号与历史收据数。
 
+### 2.4 第二刀（09-11，用户拍板）：经验卡门接统一认证
+
+用户 09-11 确认「方法认证不能以合入现有分支为结束：经验卡入口尚未接统一认证，否则队列
+要求严格，另一入口仍可能放行」。改动：
+
+- `lifecycle.state_for_rule(rules_dir, receipts_dir, rule_id)`：规则目录之外的晋升入口的统一
+  读法——找同 `rule_id` 里 `version` 最大的规则文件，用**文件字节 sha256** 锁身份（与
+  run/scan 写收据、queue 推导同一口径），`load_steps` + `derive_state`。找不到规则文件返回
+  `None`（没有身份就没有认证状态）。
+- `experience_cards.gate_promotion` 新增 `method_state` 参数：`promoted / methodology /
+  promoted_to_code` 一律要求 `method_state["in_method_library"] is True`；**单份 supported
+  收据不再放行**。拒绝理由带 `state` 与 `blocked_by`（可操作：差哪段查 queue）。
+  `verdict`（最近一份收据四态）降为溯源展示字段；`invalidated` 门保持「最近收据 refuted」
+  不变——证据的不对称性：推翻不用预注册，晋升要。
+- `intelligence/cli.py answer-score` 新增 `--rules-dir`（默认 `methodology/rules`）；落卡时调
+  `state_for_rule`，卡新增 `rule_lifecycle_state` 溯源字段。
+
 ## 3. 验收（逐条可打勾）
 
 - [x] 跨版本三成功（v1/v2/v3 各一 supported）→ 不是 `personal_method`（`SameIdentityOnly`，含规则文档无 `version` 的退化路径）
@@ -50,11 +67,12 @@
 - [x] 既有三条门（窗口递进 / 共享层人签 / refuted 掉档）全部保留通过；新夹具对旧 `lifecycle.py` 实测 17 红（stash 回旧文件跑过）
 - [x] `build_receipt(declared_stage=...)` 顶层含 `declared_stage`；不传为 `null` 且 md 注明不作晋升证据；乱写拒绝（`test_receipt_carries_declared_stage`）
 - [x] ruff 0；`test_methodology_lifecycle.py` + `test_methodology_backtest.py` 103 passed；`queue` 对真规则目录冒烟通过（本机 `methodology/receipts/` 无规则收据，无存量方法被降档）
+- [x] 第二刀：单份 supported 不再晋升常驻卡（gate 层 + CLI 端到端各一）；完整三段链放行且卡带 `rule_lifecycle_state`；改规则文件字节后经验卡门与 queue 一致回 candidate（`StateForRule`）；invalidated 门行为不变。三文件 127 passed、ruff 0
 - [ ] pre-commit 全过（提交时）
 
 ## 4. 非目标 / 红线
 
-- 不改经验卡统计门（`experience_cards.gate_promotion` / `cli.py` 读 `latest_receipt`）：把它接到 lifecycle 认证是产品行为变化（常驻卡将要求三段门），需用户拍板后另开一刀。
+- ~~不改经验卡统计门~~ → **第二刀已做**（用户 09-11 拍板，见 §2.4）：常驻卡与队列同一道认证门，单份 supported 只够 candidate。
 - 不做 OPT-05（相关样本、块重采样、尝试账）；`stats.py` / `runner.py` 不动。
 - 不引入 `experiment_id` / `validation_cycle_id` 持久化账本；轮次从收据推导。要落账时先登记台账地图。
 - 拟合产物身份（`fit_artifact_hash`）当前规则无学习型变换，不适用，留待有学习型特征时随 OPT-09 加。
