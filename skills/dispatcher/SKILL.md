@@ -94,7 +94,7 @@ python3 rx.py -- "cd '/Users/lbq/Desktop/c c/金融' && python3 skills/dispatche
 | daily-full-review | 全量复盘、今日全量复盘、跑全量复盘 | - | ✅ run_review_sync.py |
 | task-planner | 批量任务规划、开工前采访、批量回填前先问 | inversion | ✅ check_task_plan.py |
 | duckdb-backfill | 回补 duckdb、全量回补、补缺口 | tool-wrapper | ✅ audit_coverage.py |
-| market-overview | 帮我复盘、复盘、看一下今天的市场 | pipeline | - |
+| market-overview | 帮我复盘、复盘、看一下今天的市场 | pipeline | ✅ check_coverage.py |
 | theme-radar | (描述匹配：新词、新闻事件、题材) | pipeline | ✅ radar.py |
 | theme-fermentation-tracer | 发酵链路、发酵回溯、谁先启动 | pipeline | ✅ trace.py |
 | strategy-evolve | 进化、evolve、自动进化 | pipeline | - |
@@ -104,8 +104,13 @@ python3 rx.py -- "cd '/Users/lbq/Desktop/c c/金融' && python3 skills/dispatche
 | report-search | 搜研报、找研报、研报搜索 | tool-wrapper | ✅ |
 | hithink-market-query | 股票价格、ETF行情、涨跌幅 | tool-wrapper | ✅ cli.py |
 | top-gainers | 涨幅排行、涨幅前N、区间涨幅 | pipeline | ✅ query_sectors.py |
-| high-volume-gainers | 大成交排行、大成交涨幅、加权涨幅 | pipeline | - |
+| top-gainers-feishu | 强势股入库、涨幅入库、区间强势 | pipeline | ✅ query_ma.py（写入步已停） |
+| high-volume-gainers | 大成交排行、大成交涨幅、加权涨幅 | pipeline | ✅ write.py（写入步已停） |
+| advancers-chart | 涨家数折线图、涨家数走势、涨跌趋势图 | generator | ✅ sync.py（写入步已停） |
 | limit-advance | 晋级 | pipeline | ✅ scrape.py |
+| sector-data | 边际量、板块数据、抓取板块 | pipeline | - |
+| watchlist-ma | 自选股均线、自选股MA、自选股过滤 | tool-wrapper | ✅ query.py |
+| up-line | UP线更新、up线、查UP | tool-wrapper | ✅ update.py |
 | disclosure-archive | 补公告、补公司硬证据、查年报 | reviewer | ✅ archive.py |
 | foresight-feedback | (自动触发：用户表达兴趣/否定) | tool-wrapper | - |
 | 潜意识模式 | 开启潜意识模式、潜意识模式、进入潜意识 | - | - |
