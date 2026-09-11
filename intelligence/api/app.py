@@ -49,6 +49,7 @@ from intelligence.services import llm_refine
 from intelligence.services import market_moneyflow
 from intelligence.services import perspective_lab
 from intelligence.services import research_contract
+from intelligence.services import research_project
 from intelligence.services import run_store as rs
 from intelligence.services.provider_latency import repair_seconds_cap_for
 from intelligence.runtime.agent_runtime_factory import (
@@ -111,7 +112,7 @@ from intelligence.services.llm_settings import SessionLLMSettings
 from intelligence.services.market_snapshot_contract import (
     validate_market_snapshot_root,
 )
-from intelligence.services.run_store import RunStore
+from intelligence.services.run_store import RunStore, redact_value
 from intelligence.services.runtime_provenance import build_runtime_provenance
 from intelligence.services import task_fulfillment
 from intelligence.services.task_frame import derive_required_outputs
@@ -260,11 +261,22 @@ def _zero_inner_synthesis_reserve(
     return 0.0
 
 
+def _history_session_for_run(store, run_id, conversation_id):
+    # Resolve lazily: ordinary questions do not scan or instantiate history state.
+    def create():
+        from intelligence.services.historical_research.episode import HistorySession
+
+        return HistorySession(store, run_id, conversation_id)
+
+    return create
+
+
 def _memory_bound_registry_factory(
     memory_user: str | None,
     *,
     perspective_ids: tuple[str, ...] = (),
     perspective_mode: str = "neutral",
+    history_session=None,
 ) -> Callable[..., object]:
     """把 memory 身份绑进装配工厂，并断言身份真的穿透到了装配产物。
 
@@ -308,8 +320,14 @@ def _memory_bound_registry_factory(
     一起钉住。可达性审计的 ⓘ 注记说的也是这一档残留，本轮未改。
     """
 
+    def history_kwargs(frame):
+        if frame.history_intent is None or history_session is None:
+            return {}
+        session = history_session() if callable(history_session) else history_session
+        return {"history_session": session}
+
     if not memory_user:
-        if not perspective_ids:
+        if not perspective_ids and history_session is None:
             return build_episode_registry
 
         def perspective_only_factory(frame, context):
@@ -318,6 +336,7 @@ def _memory_bound_registry_factory(
                 context,
                 perspective_ids=perspective_ids,
                 perspective_mode=perspective_mode,
+                **history_kwargs(frame),
             )
 
         return perspective_only_factory
@@ -329,6 +348,7 @@ def _memory_bound_registry_factory(
             memory_user=memory_user,
             perspective_ids=perspective_ids,
             perspective_mode=perspective_mode,
+            **history_kwargs(frame),
         )
         if (
             "memory_lookup" in context.contract.allowed_capabilities
@@ -517,10 +537,7 @@ def _build_continuous_turn_adapter(
             ),
         )
     else:
-        if (
-            os.environ.get("AGENT_RUNTIME_BENCHMARK_ENABLE", "").strip()
-            != "1"
-        ):
+        if os.environ.get("AGENT_RUNTIME_BENCHMARK_ENABLE", "").strip() != "1":
             raise RuntimeError("Codex headless runtime is benchmark-only")
         from intelligence.runtime.codex_headless_runtime import (
             CodexHeadlessRuntime,
@@ -544,6 +561,15 @@ def _build_continuous_turn_adapter(
         memory_user,
         perspective_ids=perspective_ids,
         perspective_mode=perspective_mode,
+        **(
+            {
+                "history_session": _history_session_for_run(
+                    run_store, run_id, conversation_id
+                )
+            }
+            if run_store is not None and conversation_id
+            else {}
+        ),
     )
     return ContinuousTurnAdapter(
         runtime=runtime,
@@ -669,6 +695,8 @@ _PUBLIC_TRACE_STAGE_BY_PRIVATE_NAME = {
     "task_fulfillment": "verification",
     "render_artifacts": "finalizing",
     "foresight_followups": "finalizing",
+    # 09 连续研究：研究项目先验块并入会话上下文，属「理解与计划」阶段。
+    "research_project_prior": "understanding",
 }
 _PUBLIC_TRACE_MESSAGE_BY_PRIVATE_NAME = {
     "turn_controller": "已完成问题理解与任务对齐。",
@@ -683,6 +711,7 @@ _PUBLIC_TRACE_MESSAGE_BY_PRIVATE_NAME = {
     "task_fulfillment": "已完成回答与任务契约的逐项核对。",
     "render_artifacts": "已生成本轮研究产物。",
     "foresight_followups": "已整理后续核验问题。",
+    "research_project_prior": "已载入研究项目先验：上轮结论、未解问题与可证伪点裁决。",
 }
 _PUBLIC_PROGRESS_MESSAGES = {
     "understanding": "已对齐本轮任务并进入研究。",
@@ -1465,6 +1494,28 @@ class UserRequest(BaseModel):
     user: str | None = None
 
 
+class ContinuationRequest(BaseModel):
+    """「猜你想问」卡片点击时随消息带上的延续坐标（09 连续研究）。
+
+    只承载坐标（来源 run / 卡片种类 / 继承的对象与站立日），不承载正文；
+    服务端核验 run 属于本用户本会话后落在用户消息上，编排器据此继承研究状态。
+    """
+
+    run_id: str = Field(min_length=1)
+    kind: str = ""
+    source: str = ""
+    label: str = ""
+    full_prompt: str = ""
+    inherits: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("kind")
+    @classmethod
+    def kind_must_be_known(cls, value: str) -> str:
+        if value and value not in followups_svc.FOLLOWUP_KINDS:
+            raise ValueError("unknown followup kind")
+        return value
+
+
 class CreateMessageRequest(BaseModel):
     content: str = Field(min_length=1)
     skill_mode: Literal["manual", "auto", "hybrid"]
@@ -1472,6 +1523,7 @@ class CreateMessageRequest(BaseModel):
     perspective_mode: Literal["neutral", "single", "compare"] = "neutral"
     selected_perspective_ids: list[str] = Field(default_factory=list)
     user: str | None = None
+    continuation: ContinuationRequest | None = None
 
     @field_validator("content")
     @classmethod
@@ -1479,6 +1531,20 @@ class CreateMessageRequest(BaseModel):
         if not value.strip():
             raise ValueError("content must not be blank")
         return value
+
+
+def _validated_continuation(
+    run_store: RunStore, conversation_id: str, req: ContinuationRequest
+) -> dict[str, object]:
+    """延续坐标只认本用户、本会话的 run；其它一律 422，不静默丢弃。"""
+    try:
+        origin = run_store.load_run(req.run_id)
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(422, "continuation run 不存在") from exc
+    if origin.session_id != conversation_id:
+        raise HTTPException(422, "continuation run 不属于本会话")
+    payload = req.model_dump()
+    return {key: value for key, value in payload.items() if value not in ("", {}, None)}
 
 
 class ConfigureLLMRequest(BaseModel):
@@ -2718,6 +2784,18 @@ def create_app(
             for item in conversation_store_for(user).load_messages(conversation_id)
         ]
 
+    @app.get("/api/conversations/{conversation_id}/research-project")
+    def get_research_project(
+        conversation_id: str, user: str | None = None
+    ) -> dict[str, object]:
+        """09 连续研究：会话级研究项目状态（现有 run / 消息 / 判断轨的只读投影）。"""
+        conversation_or_404(user, conversation_id)
+        state = research_project.load_project(
+            conversation_store_for(user), store_for(user), conversation_id
+        )
+        payload = redact_value(state.to_dict())
+        return payload if isinstance(payload, dict) else state.to_dict()
+
     @app.get("/api/llm/config")
     def get_llm_config(user: str | None = None) -> dict[str, object]:
         user_id = store_for(user).user_id
@@ -2792,6 +2870,11 @@ def create_app(
                 raise HTTPException(422, str(exc)) from exc
             parent_run_id = conversation.last_run_id
             run_store = store_for(req.user)
+            continuation_payload: dict[str, object] | None = None
+            if req.continuation is not None:
+                continuation_payload = _validated_continuation(
+                    run_store, conversation_id, req.continuation
+                )
             _precheck_admission(run_store.user_id)
             _reserve_run_quota(run_store.user_id)
             run = run_store.create_run(
@@ -2824,6 +2907,7 @@ def create_app(
                     selected_skill_ids=req.selected_skill_ids,
                     perspective_mode=req.perspective_mode,
                     selected_perspective_ids=list(selected_perspective_ids),
+                    continuation=continuation_payload,
                 )
                 assistant_message = store.append_message(
                     conversation_id,

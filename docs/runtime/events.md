@@ -5,10 +5,11 @@
 
 车道：durable 进重放日志与对账权威；live 只走实时出口。阶段来自 `episode_phase`，L1 步来自 `normalize_harness_trace`（评测口径），投影剔正文的字段来自 `episode_messages.MODEL_VISIBLE_TEXT_FIELDS`（对外 artifact 只留 sha256 与字符数）。
 
-durable 34 种 · live 3 种
+durable 35 种 · live 3 种
 
 | kind | 车道 | 阶段 | L1 步 | 投影剔正文字段 | 发射文件 |
 |---|---|---|---|---|---|
+| `application_tool_call` | durable | — | tool | — | `intelligence/services/episode_messages.py` |
 | `branch_completed` | durable | research | observe | — | `intelligence/runtime/agent_episode.py` |
 | `branch_failed` | durable | research | observe | — | `intelligence/runtime/agent_episode.py` |
 | `branch_started` | durable | research | retrieve | — | `intelligence/runtime/agent_episode.py` |

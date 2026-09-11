@@ -21,6 +21,7 @@ from intelligence.services import (
     knowledge_injection_policy,
     llm_refine,
     perspective_lab,
+    ranking_contract,
     scenario_tree,
     track_contract,
 )
@@ -859,6 +860,13 @@ def _prepare_answer_spec_synthesis(
         )
         if track_guidance:
             contract_parts.append(track_guidance)
+    if options.include_ranking_guidance:
+        ranking_guidance = ranking_contract.ranking_guidance_for_query(
+            options.query,
+            question_plan.question_type,
+        )
+        if ranking_guidance:
+            contract_parts.append(ranking_guidance)
     messages = llm_refine.build_synthesis_messages(
         options.query,
         theme,

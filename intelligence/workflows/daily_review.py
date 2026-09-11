@@ -8,7 +8,7 @@ from intelligence import userspace
 from intelligence.paths import ProjectPaths, default_paths, vector_index_dir_for
 from intelligence.runner import run_command_step
 from intelligence.summary import WorkflowStep, WorkflowSummary, now_iso
-from scripts.notify_feishu import send_alert
+from scripts.notify_ops import send_alert
 
 
 @dataclass(frozen=True)

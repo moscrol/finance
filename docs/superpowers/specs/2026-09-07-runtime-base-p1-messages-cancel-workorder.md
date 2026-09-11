@@ -2,7 +2,7 @@
 
 > 母单：#27 `2026-09-07-runtime-base-endstate-design.md` §6.2。前置：P0（PR #620）。
 > 分支：`feat/runtime-base-p1-messages-cancel`（叠在 `spec/runtime-base-endstate` 上；#620 合入后 rebase 到 main）。
-> 状态：🟡 代码已落、门禁绿、PR 待确认（2026-09-07，用户「开单执行」；§12 未拍板按推荐执行）。A/B/C/D/E 步骤已在分支上完成；F 的 live 探针见分支交接。
+> 状态：✅ 已合入 `gitea/main`（PR #624 → `c458e177`，2026-09-08 21:09；合入顺序 #620 → #624 → #638 → #677 如期；分支与树已清；09-09 回写）。A–E 已落，F live 探针读数见下段。§12 未拍板、按推荐执行——仍待拍。**8792 未切流**（09-09 实测仍在 0060da5c；切流走工单 #38 规程，需用户在场）。原交接归档在 `docs/handoffs/inflight-archive-2026-09-08/feat-runtime-base-p1-messages-cancel.md`。
 >
 > **合入前置读数（09-07 16:00，为 #620 → #624 合并确认备）**：`gitea/main` 自分叉点 504cbbc9 前进到 0b834d77（#619 分支级 trace / #622 能力 frontier / #623 L3 / 三份切流回写，19 文件），与本枝只重叠 `agent_episode.py` 一处且是分支 telemetry payload（`branch_telemetry(branch)`），不碰 `messages`；`merge-tree` 两张 PR 头对 main 均 clean。在临时树 `fwp-wt-merge-sim-620-624` 把本枝头 3d964c91 合进 main 0b834d77（本地 819f5f2b），干净树全量：**ruff 0，8042 passed / 0 failed / 76 skipped**，对 P1 基线收据（c6807038，8021P）red set 相同、passed 只增（+21 = main 新增测试）。收据 `~/.finance-runtime/test-receipts/20260907T08…-819f5f2b.json`。#620 若以 merge commit 合入，#624 只需把 base 从 `spec/runtime-base-endstate` 改成 `main`（P1 三 commit 的父链已含 65572d9d），不必 rebase。
 >

@@ -406,6 +406,19 @@ def _resolve_market_data_context(
     ]
 
 
+def d6_as_of_for(query: str, options_date: str | None) -> str | None:
+    """D6 的截止日：上游已绑定的 ``options.date`` 优先，否则从问句解析。
+
+    两个来源都是现成的：``options.date`` 在 market_watch 类问句上已被
+    :func:`bind_market_watch_pack` 写成 ``pack.standing_date``；解析器就是 D0 锚日
+    用的 :func:`market_review_requested_date`。D6 之前两个都没接，于是
+    「2026-07-10 最值得关注的三个方向」拿到的是库尾两个月后的窗口（实测）。
+
+    返回 ``None`` = 不截断，走库尾，与接 as_of 之前逐字节一致。
+    """
+    return options_date or market_review_requested_date(query)
+
+
 def bind_market_watch_pack(
     options: AskOptions,
     *,
@@ -4237,7 +4250,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         def _d6_applies() -> bool:
             if not evidence_registry.provider_enabled(options, "D6"):
                 return False
-            # 视角模式下放宽词面门控（回退逻辑与理由见 midterm_intent_for）。
+            # 视角模式与方向排序题式下放宽词面门控（回退逻辑与理由见 midterm_intent_for）。
             intent = market_midterm.midterm_intent_for(
                 options.query, perspective_active=_perspective_active(options)
             )
@@ -4248,13 +4261,19 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
 
         def _build_d6():
             intent = d6_intents[0]
+            d6_as_of = d6_as_of_for(options.query, options.date)
             block = market_midterm.midterm_trend_block_for_llm(
                 options.query, theme, options.market_db_path, intent.window,
+                # 排序题往往不点名题材（"最值得关注的三个方向"），题材名解析必为空；
+                # 没有这个兜底，门放开了照样是空块。
+                board_fallback=market_midterm.is_direction_ranking_query(options.query),
+                as_of=d6_as_of,
             )
+            scope = f"截至 {d6_as_of}" if d6_as_of else "截至最新交易日"
             return block, Citation(
                 "D6",
                 "本地 DuckDB 多日/中期趋势数据块",
-                f"题材近 {intent.window} 日双红天数/成交额趋势/拥挤度分位（中期赔率视角）",
+                f"题材近 {intent.window} 日双红天数/成交额趋势/拥挤度分位（中期赔率视角，{scope}）",
             )
 
         providers.append(ask_planner.DataBlockProvider("D6", "多日中期趋势", _d6_applies, _build_d6))
@@ -4439,6 +4458,43 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
 
         providers.append(
             ask_planner.DataBlockProvider("D17", "隔夜美股映射", _d17_applies, _build_d17)
+        )
+
+        d18_on_date: list[str] = []
+
+        def _d18_applies() -> bool:
+            if not evidence_registry.provider_enabled(options, "D18"):
+                return False
+            if not market_timeseries.parse_limit_seal_intent(options.query):
+                return False
+            # 「9 月 5 日哪些是秒板」问的是那一天。不解析就恒取全库最新交易日，
+            # 块里自报的「数据截至」会与问句日期不符——不是静默降级，但是答非所问。
+            # 与 D0 的 d0_on_date 同一套闭包写法（applies 先于 collect 跑，见
+            # ask_planner._plan_blocks 的过滤）。
+            requested = market_review_requested_date(options.query)
+            if requested is not None:
+                d18_on_date.append(str(requested))
+            return True
+
+        def _build_d18():
+            # W5 / G1a：只把封板时间送到 agent 面前，**不挂判读规则**。
+            # SPT-A06 的另一半（换手是否充分）卡在 open_times 恒 NULL（G1b），
+            # 未修前该规则整体留在 _PENDING_RULES。
+            block = market_timeseries.limit_seal_time_block_for_llm(
+                options.market_db_path,
+                theme=theme,
+                entity=anchored_name,
+                on_date=d18_on_date[0] if d18_on_date else None,
+            )
+            return block, Citation(
+                "D18",
+                "本地 DuckDB 涨停封板时间数据块",
+                "逐只首封/末封时点（first_limit_time / last_limit_time）；"
+                "open_times 上游恒 NULL，不支持换手是否充分的判定",
+            )
+
+        providers.append(
+            ask_planner.DataBlockProvider("D18", "涨停封板时间", _d18_applies, _build_d18)
         )
 
         def _build_m():
@@ -4755,6 +4811,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     result.citations = citations
     _propose_foresight_judgments(options, result)
     _register_track_next_watch(options, result)
+    _register_ranking_flip_conditions(options, result)
     return result
 
 
@@ -4814,6 +4871,32 @@ def _register_track_next_watch(options: AskOptions, result: AskResult) -> None:
             )
     except Exception as exc:
         result.warnings.append(f"下期关注未入账：{exc}")
+
+
+def _register_ranking_flip_conditions(options: AskOptions, result: AskResult) -> None:
+    """排序题改判条件 → checkpoint（10 号单）。测试/default 用户不写台账。"""
+    if not options.include_ranking_guidance or not _should_propose_foresight_judgments(options):
+        return
+    try:
+        from intelligence.services.ranking_contract import ingest_flip_conditions
+
+        question_type = (
+            result.question_plan.question_type if result.question_plan is not None else None
+        )
+        written = ingest_flip_conditions(
+            userspace.user_space(options.user).checkpoints_path,
+            result.synthesis or "",
+            query=options.query,
+            question_type=question_type,
+            as_of=result.trade_date or options.date,
+            theme=result.matched_theme,
+        )
+        if written:
+            result.warnings.append(
+                f"改判条件已登记 {len(written)} 条 checkpoint，foresight 发问与回检据此对照"
+            )
+    except Exception as exc:
+        result.warnings.append(f"改判条件未入账：{exc}")
 
 
 def _deadline_partial_result(query: str) -> AskResult:

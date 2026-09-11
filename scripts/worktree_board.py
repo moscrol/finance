@@ -232,29 +232,29 @@ def _last_switch_unix(ledger: Path, port: int) -> float:
 def resolve_ledger_path(
     repo_root: Path, *, timeout: float = 2.0, port: int = 8792
 ) -> Path:
-    """覆盖序对齐 ``intelligence.runtime.deploy_ledger.resolve_ledger_path``。
+    """读取侧解析。唯一的默认家是 ``~/.finance-runtime/deploy-ledger.jsonl``，与
+    ``intelligence.runtime.deploy_ledger.default_ledger_path`` 同址——SessionStart 在宿主
+    python3 下跑、不 import 包，所以这里抄址不抄模块，改址两处一起改。
 
-    SessionStart 必须能在宿主 python3、不 import 包的情况下跑，所以这里抄序
-    不抄模块。Hook 环境通常没有 ``FINANCE_WS``，附属 worktree 也没有数据仓
-    里的 ledger；多探一步 git common-dir 的父目录（主检出树），改覆盖序时
-    与 ``deploy_ledger`` 一起改。
-
-    失败形状（2026-09-08 实测）：账本有两个家——主检出树 ``state/`` 那份
-    （dev server 从主树起时按 ``<repo_root>/state`` 落）与 ``~/.finance-runtime``
-    那份（生产快照没有 ``state/``，走最后一级回落）。两份都在时按固定顺序取
-    第一份，SessionStart 就把 8792 报成一天前的 rev，而生产早切了两次；
-    ``audit_deploy_ledger.py check`` 读的是另一份，所以说一切正常。
-    读取侧不再按顺序取「第一份存在的」，而是在**存在的**候选里取该 port 末次
-    switch 最新的那份；都没有 switch 行才回到顺序。写入侧的分家不在本函数治。
+    失败形状（2026-09-08 实测）：账本有两个家——主检出树 ``state/`` 那份（带 ``FINANCE_WS``
+    的生产启动与部署脚本写的）与 ``~/.finance-runtime`` 那份（链切规程显式 ``--ledger`` 写的）。
+    按固定顺序取第一份，SessionStart 就把 8792 报成一天前的 rev，而生产早切了两次。
+    2026-09-09 工单 #44 把写入侧收成一个家；读取侧过渡期仍看三个**旧家**（``$FINANCE_WS/state/``、
+    ``<repo_root>/state/``、git common-dir 父目录的 ``state/``）——切流前旧代码的生产进程还往那儿
+    写 startup。存在的候选里取该 port 末次 switch 最新的那份（#675 的读法，不退）；都没有
+    switch 行时唯一家优先。``audit_deploy_ledger.py migrate-homes --apply`` 把旧家并入后旧文件
+    改名 ``.migrated-*``，不再被本函数看见。
     """
 
     override = os.environ.get("FINANCE_DEPLOY_LEDGER", "").strip()
     if override:
         return Path(override).expanduser()
+    home = Path.home() / ".finance-runtime" / LEDGER_NAME
+    candidates: list[Path] = [home]
     finance_ws = os.environ.get("FINANCE_WS", "").strip()
     if finance_ws:
-        return Path(finance_ws).expanduser() / "state" / LEDGER_NAME
-    candidates: list[Path] = [repo_root / "state" / LEDGER_NAME]
+        candidates.append(Path(finance_ws).expanduser() / "state" / LEDGER_NAME)
+    candidates.append(repo_root / "state" / LEDGER_NAME)
     code, common = _git(
         ["rev-parse", "--path-format=absolute", "--git-common-dir"],
         cwd=str(repo_root),
@@ -262,11 +262,14 @@ def resolve_ledger_path(
     )
     if code == 0 and common:
         candidates.append(Path(common).resolve().parent / "state" / LEDGER_NAME)
-    candidates.append(Path.home() / ".finance-runtime" / LEDGER_NAME)
-    existing = [path for path in candidates if path.is_file()]
+    unique: list[Path] = []
+    for path in candidates:
+        if path not in unique:
+            unique.append(path)
+    existing = [path for path in unique if path.is_file()]
     if not existing:
-        return candidates[0]
-    # 稳定排序：时刻相同（含都没有 switch 行）时保持覆盖序，与旧行为一致。
+        return home
+    # 稳定排序：时刻相同（含都没有 switch 行）时唯一家在前、旧家按老顺序。
     return max(existing, key=lambda path: _last_switch_unix(path, port))
 
 

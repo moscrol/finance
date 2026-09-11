@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-09-07T11:41:38Z",
+  "generated_at": "2026-09-11T05:32:32Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -90,7 +90,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:9d24aff95e9a7cacd1dd1dcf67291962b1831a0358c96b6b90ab6d14f0e2a73b",
+      "computedHash": "sha256:fe97e29dea89f79dd3573b6ee182c9b971431f4f60afb8de3aaa617b415d1825",
       "agentOnly": false,
       "views": [
         {
@@ -185,7 +185,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:9d033dbb596b9c51a342a3d341f2b3b1c8776ca814a9dd3f059e2a12925ac512",
+      "computedHash": "sha256:b8770e6cbc5fb9b085431e09b821caf65a37519c882f417ad41586e722efca91",
       "agentOnly": false,
       "views": []
     },
@@ -224,7 +224,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:4fcd61470b464b62c3420b354b7daf1896d075529180a3bb4bc545e9cfe400d4",
+      "computedHash": "sha256:3f76fadf4d03713f25c9adefffcf1aa9bc243932eca8ed22d6e5f6553ab2d74d",
       "agentOnly": false,
       "views": [
         {
@@ -341,7 +341,7 @@
       ],
       "note": "纯涨幅排行（不看成交额）用 top-gainers。",
       "entrypoint": null,
-      "computedHash": "sha256:47a5ebb5c2fff7cbfb5340bd7fd3ed8fb7774ebd913bbdfbe6153f12a25e43b4",
+      "computedHash": "sha256:b8bab41fdb9f6c1ac3a5f839a224d50d2234a2fe33cd25a3f3689bfd40a4d362",
       "agentOnly": false,
       "views": [
         {
@@ -429,13 +429,15 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/limit-advance/SKILL.md",
-      "description": "连板晋级数据抓取与飞书入库。触发词：晋级。",
+      "description": "连板晋级梯队抓取与展示（fupanhui API）。触发词：晋级、连板晋级、晋级梯队。注意：入库走 CLI sync-fupanhui-limit-advance-daily，本 skill 只抓取+展示。",
       "triggers": [
-        "晋级"
+        "晋级",
+        "连板晋级",
+        "晋级梯队"
       ],
-      "note": "",
+      "note": "入库走 CLI sync-fupanhui-limit-advance-daily，本 skill 只抓取+展示。",
       "entrypoint": null,
-      "computedHash": "sha256:4b1445aadc7458c89e7ffb65bb151c770cb4a61fe17961c3b5ec3e48486b641b",
+      "computedHash": "sha256:8e6b89edf3795d1cb86d790243016eb62fc8996666df65cdb55ed5e398c3a90f",
       "agentOnly": false,
       "views": [
         {
@@ -462,7 +464,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:08f448c0179e6375c74dcd1ab312c56c8c01447211007dd000dd0b996f6d9683",
+      "computedHash": "sha256:de1b6e3157e433c7b46128e5cb3990c2cf151d404ffc3f6ada57cf6d27b08600",
       "agentOnly": false,
       "views": [
         {
@@ -576,7 +578,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:853d1b5875592223ef5ac817a164c0e2566020d9049e1a7487ee08fa2c8dac46",
+      "computedHash": "sha256:350666ac92a860b2cf42144461f3e4c1bf1f002ad24b6ba5ea09b4a778d52527",
       "agentOnly": false,
       "views": []
     },
@@ -775,7 +777,7 @@
       ],
       "note": "只看排行不入库用 top-gainers；自选股的均线筛选用 watchlist-ma。",
       "entrypoint": null,
-      "computedHash": "sha256:354a6a0fceb14ce994a75f45c20f41e0235bd8f06ffe2f6a32bc96fd12c78686",
+      "computedHash": "sha256:b5d9ea4732af7206be8747def702607b891b7030acf7d4123407cc4d400654f8",
       "agentOnly": false,
       "views": [
         {
@@ -802,7 +804,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:61e65246f8a16c6f838eae2b256f66415923ca961b76f47ae53573fe13a22bac",
+      "computedHash": "sha256:9f7f9685194d3521489b61e50233a2241a79d874649df01ddc1c49d8c9fba3c1",
       "agentOnly": false,
       "views": [
         {
@@ -854,7 +856,7 @@
       ],
       "note": "强势股库的均线回踩用 top-gainers-feishu。",
       "entrypoint": null,
-      "computedHash": "sha256:74c49198b5160d33f3962a752e6ae2833c3213153d34c6f76479ccdc62363657",
+      "computedHash": "sha256:ae0833fec368ede8d4750a869a064b33cdd26aaa15a7e481dee448a86023acf2",
       "agentOnly": false,
       "views": [
         {
@@ -953,7 +955,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:e6c998f02d6317cf805f78753195dfd9d42b16df730f55d52839b51ad935d014",
+      "computedHash": "sha256:f07d3ab4fd5e704490863edfc082f9eda19f2e3cdef476ec03467a9e2f94db7a",
       "agentOnly": false,
       "views": []
     },
@@ -1030,7 +1032,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:40a5ab6d81fb5ffb02bc2027b20730a02b99568ad221e467ecc968859a25c8f6",
+      "computedHash": "sha256:52a27ffb26a3b5a12f0493c12ae5117f5267a262b5d3b5b17d4835ac39437dcc",
       "agentOnly": false,
       "views": [
         {
@@ -1155,7 +1157,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:7ec611f9e4b68d93ee329f39a41497e36130b4acd80a8a15e8e38a41ccae5edd",
+      "computedHash": "sha256:571db1861e88a426a684da428d7e44b473d7e9ee0f8cf5e8a9ed99fed16bc981",
       "agentOnly": false,
       "views": []
     },
@@ -1181,7 +1183,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:d82694816e9f271cb8ac7b30430277fb99939a129732cea911803f89d68c1aff",
+      "computedHash": "sha256:068f1b7d218c3b79b2861c7a7bde5dde05e3ca52ee2541d07fd9a429dfe3105d",
       "agentOnly": false,
       "views": []
     },
@@ -1221,7 +1223,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:a5531894b41f3361a7d93f595dd1aed0351565829caf755ee547fa4d9eaf2bce",
+      "computedHash": "sha256:3f6589df209bfeb95c2e3a6cfb8f61778375a85b838e4beb5d805ea7bd44388c",
       "agentOnly": false,
       "views": []
     },
@@ -1234,7 +1236,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:7f5c7439169775e95887d5a23afc1bea4fa5c6708e22ac1004b21c8fed7d5ff6",
+      "computedHash": "sha256:e6769eab1c44a0d81dbf35602adf44d6b5dfb065f4e47623de1047ccf998a8c4",
       "agentOnly": false,
       "views": [
         {
@@ -1296,7 +1298,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:f501aca199500f2e33a25810ad77599abfe7e39d23182a69c571d0b0f4540dd1",
+      "computedHash": "sha256:d6f0f893b7ab02f8d0f3e492ee031533c2dd6121013d80745879aeb5be4de8ca",
       "agentOnly": false,
       "views": []
     },

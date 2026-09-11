@@ -1730,9 +1730,25 @@ def _financials_block_for_llm(
     """
     if not market_financials.fetch_enabled():
         return market_financials.build_financials_block("", "", [], fetch_disabled=True)
+    target = _resolve_financials_target(query, market_db_path)
+    if target is None:
+        return ""
+    target_code, target_name = target
+    return market_financials.financials_block_for_target(
+        target_code,
+        target_name,
+        periods=periods if periods is not None else market_financials.DEFAULT_PERIODS,
+        fetcher=fetcher,
+        timeout=timeout,
+    )
+
+
+def _resolve_financials_target(
+    query: str, market_db_path: str | Path | None
+) -> tuple[str, str] | None:
+    """问句 / 主体文本 → (ts_code, 名称)。先查本地 DuckDB（代码或名称），查不到再认裸 6 位代码。"""
+
     db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
-    target_code: str | None = None
-    target_name = ""
     if db_path.exists():
         db_result = retrieval_cache.try_connect_readonly(db_path)
         if db_result.available:
@@ -1740,21 +1756,45 @@ def _financials_block_for_llm(
             try:
                 stock = _resolve_stock_for_market_block(con, query)
                 if stock:
-                    target_code, target_name = stock
+                    return str(stock[0]), str(stock[1])
             except Exception:
                 pass
             finally:
                 con.close()
-    if target_code is None:
-        code_match = re.search(r"\b(\d{6})(?:\.(SH|SZ|BJ))?\b", str(query or ""), re.I)
-        if not code_match:
-            return ""
-        target_code = code_match.group(0)
-    return market_financials.financials_block_for_target(
+    code_match = re.search(r"\b(\d{6})(?:\.(SH|SZ|BJ))?\b", str(query or ""), re.I)
+    if not code_match:
+        return None
+    return code_match.group(0), ""
+
+
+def _financials_bundle_for_llm(
+    query: str,
+    market_db_path: str | Path | None,
+    timeout: float = 8.0,
+    periods: int | None = None,
+) -> market_financials.FinancialsBundle | None:
+    """``_financials_block_for_llm`` 的结构化版本：块 + 原始行 + 取数结果一起回。
+
+    ``financial_data`` 工具用它给证据行挂 ``StructuredObservation``（工单 04）。解析不到目标股
+    返回 None（与块版本返回空串同义）；取数被开关关闭时返回只有说明块、无行的 bundle。
+    """
+
+    if not market_financials.fetch_enabled():
+        return market_financials.FinancialsBundle(
+            ts_code="",
+            name="",
+            rows=(),
+            result=None,
+            block=market_financials.build_financials_block("", "", [], fetch_disabled=True),
+        )
+    target = _resolve_financials_target(query, market_db_path)
+    if target is None:
+        return None
+    target_code, target_name = target
+    return market_financials.fetch_financials_bundle(
         target_code,
         target_name,
         periods=periods if periods is not None else market_financials.DEFAULT_PERIODS,
-        fetcher=fetcher,
         timeout=timeout,
     )
 

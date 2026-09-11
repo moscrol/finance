@@ -612,3 +612,98 @@ def test_contract_and_outcome_task_hash_must_match() -> None:
 
     with pytest.raises(ValueError, match="task frame hash"):
         verify_episode_outcome(_contract(), outcome)
+
+
+def test_extension_binding_with_real_evidence_does_not_block_completed_core() -> None:
+    """2026-09-09 判官修复 01 复现二（evidence-judge.md 实测二）。
+
+    两个必需输出都 fulfilled、正文与证据完全一样，只多绑一个引用真实证据的
+    ``extra_analysis``。旧判据把整篇打成 partial 且拒绝部分放行，语义判官连核心
+    答案都没看到。现在扩展块被隔离进 ``extension_outputs``，核心照常 completed。
+    """
+
+    market = _evidence("market_data", "market-1")
+    core = (
+        OutputEvidenceBinding("direct_assessment", ("market-1",)),
+        OutputEvidenceBinding("evidence_boundary", ("market-1",)),
+    )
+    baseline = verify_episode_outcome(
+        _contract(), _outcome(evidence=(market,), bindings=core)
+    )
+    verified = verify_episode_outcome(
+        _contract(),
+        _outcome(
+            evidence=(market,),
+            bindings=(*core, OutputEvidenceBinding("extra_analysis", ("market-1",))),
+        ),
+    )
+
+    assert baseline.verified_status == "completed"
+    assert verified.verified_status == "completed"
+    assert verified.extension_outputs == ("extra_analysis",)
+    assert [item.code for item in verified.issue_items] == [
+        IssueCode.EXTRA_OUTPUT_BINDING
+    ]
+    assert [(item.output_id, item.status) for item in verified.completion.outputs] == [
+        (item.output_id, item.status) for item in baseline.completion.outputs
+    ]
+    assert verified.missing_outputs == ()
+    assert verified.to_dict()["extension_outputs"] == ["extra_analysis"]
+
+
+def test_extra_binding_citing_unverifiable_hash_still_blocks() -> None:
+    """契约外绑定引用了池里没有的哈希 = 编造引用，仍在判官之前 fail closed。"""
+
+    market = _evidence("market_data", "market-1")
+    dup_a = _evidence("news_search", "dup-1")
+    dup_b = _evidence("news_search", "dup-1")
+    core = (
+        OutputEvidenceBinding("direct_assessment", ("market-1",)),
+        OutputEvidenceBinding("evidence_boundary", ("market-1",)),
+    )
+    forged = verify_episode_outcome(
+        _contract(),
+        _outcome(
+            evidence=(market,),
+            bindings=(*core, OutputEvidenceBinding("extra_analysis", ("forged-hash",))),
+        ),
+    )
+    ambiguous = verify_episode_outcome(
+        _contract(),
+        _outcome(
+            evidence=(market, dup_a, dup_b),
+            bindings=(*core, OutputEvidenceBinding("extra_analysis", ("dup-1",))),
+        ),
+    )
+
+    for verified in (forged, ambiguous):
+        assert verified.verified_status == "partial"
+        assert verified.extension_outputs == ()
+        assert IssueCode.UNKNOWN_OUTPUT_BINDING in {
+            item.code for item in verified.issue_items
+        }
+        assert IssueCode.EXTRA_OUTPUT_BINDING not in {
+            item.code for item in verified.issue_items
+        }
+    assert "forged-hash" in " ".join(forged.issues)
+
+
+def test_extension_binding_cannot_rescue_a_missing_required_output() -> None:
+    market = _evidence("market_data", "market-1")
+    verified = verify_episode_outcome(
+        _contract(),
+        _outcome(
+            evidence=(market,),
+            bindings=(
+                OutputEvidenceBinding("direct_assessment", ("market-1",)),
+                OutputEvidenceBinding("extra_analysis", ("market-1",)),
+            ),
+        ),
+    )
+
+    assert verified.verified_status == "partial"
+    assert verified.missing_outputs == ("evidence_boundary",)
+    assert verified.extension_outputs == ("extra_analysis",)
+    assert IssueCode.MISSING_REQUIRED_OUTPUT in {
+        item.code for item in verified.issue_items
+    }
