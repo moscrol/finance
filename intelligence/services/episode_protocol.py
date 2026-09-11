@@ -20,6 +20,8 @@ from intelligence.services.episode_output_substance import (
     required_outputs_without_substance,
 )
 from intelligence.services import knowledge_injection_policy
+from intelligence.services.judgment_delta import episode_judgment_delta_rule
+from intelligence.services.pricing_split import episode_pricing_split_rule
 from intelligence.services.research_contract import (
     FORWARD_HYPOTHESIS_OUTPUT_IDS,
     ResearchRunContext,
@@ -167,6 +169,16 @@ def _question_type_rules(
         task_frame.raw_question,
         task_frame.question_type,
         conversation_context=context.conversation_context,
+    )
+    # 判断增量契约（q17 Q8 回灌）与产业/定价二分契约（q17 Q4 回灌）：同一条注入口，
+    # 材料型判断题 / 定价状态题命中才有文本，其它题空串。
+    track_rule += episode_judgment_delta_rule(
+        task_frame.raw_question,
+        task_frame.question_type,
+    )
+    track_rule += episode_pricing_split_rule(
+        task_frame.raw_question,
+        task_frame.question_type,
     )
     longtail_rule = episode_rule(task_frame)
     # ASK_DEGRADED_FALLBACK（默认 off）：降级回答章法，off 时空串。
