@@ -109,10 +109,12 @@ def narrative_freshness_warnings(trade_date: str) -> list[str]:
         return [f"叙事源时效检查失败: {e}"]
 
 
-def preflight() -> list[str]:
+def preflight(require_fupanhui: bool = True) -> list[str]:
     """开跑前环境自检：把环境问题在第一时间报清楚，不等跑到一半才发现。
 
-    检查项：CDP proxy 存活、fupanhui 登录态、shared 软链。返回问题列表。"""
+    检查项：CDP proxy 存活、fupanhui 登录态、shared 软链。返回问题列表。
+    ``require_fupanhui=False``（plan=local，零复盘会请求）时跳过 CDP / 登录态检查，
+    只留 shared 软链——否则 local 计划会被一个它根本不用的依赖卡死（0909 夜跑实测）。"""
     problems: list[str] = []
 
     shared = ROOT / "shared"
@@ -120,6 +122,8 @@ def preflight() -> list[str]:
         problems.append(
             "shared 软链缺失或失效: 修复 `ln -sfn ~/.claude/shared shared`"
         )
+    if not require_fupanhui:
+        return problems
 
     from market_feature_store.sources.fupanhui_source import CDP_PROXY
     try:
@@ -489,14 +493,16 @@ def main() -> int:
     print(f"== plan={plan} (requested={args.plan}) date={args.date} ==", flush=True)
 
     if not args.skip_preflight:
-        problems = preflight()
+        require_fupanhui = plan != "local"
+        problems = preflight(require_fupanhui=require_fupanhui)
         if problems:
             print("== preflight 发现环境问题 ==", flush=True)
             for p in problems:
                 print(f"  - {p}", flush=True)
             print("(修复后重跑, 或加 --skip-preflight 强制继续)", flush=True)
             return 3
-        print("== preflight 通过: CDP proxy / 登录态 / shared 软链 ==", flush=True)
+        scope = "CDP proxy / 登录态 / shared 软链" if require_fupanhui else "shared 软链（local 计划零复盘会请求，跳过 CDP/登录检查）"
+        print(f"== preflight 通过: {scope} ==", flush=True)
         warnings = narrative_freshness_warnings(args.date)
         if warnings:
             print("== preflight 告警: 叙事源时效（不阻断，但催化归因会缺档） ==", flush=True)
