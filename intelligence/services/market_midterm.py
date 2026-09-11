@@ -47,6 +47,7 @@ DEFAULT_WINDOW = 20
 MIN_WINDOW = 5
 MAX_WINDOW = 120
 CROWDING_LOOKBACK = 60  # 拥挤度分位的回看窗口（交易日）
+BOARD_FALLBACK_LIMIT = 6  # 方向排序题无题材名时，兜底取成交额头部几个板块
 
 # 中期/赔率/配置意图词。命中任一即视为「中期时间尺度」问题。
 _MIDTERM_TERMS = (
@@ -115,20 +116,51 @@ def parse_midterm_intent(query: str) -> MidtermIntent | None:
     return MidtermIntent(window=DEFAULT_WINDOW)
 
 
+# 「方向排序题式」：要我们在多个方向之间挑或排的问句。主体词 + 动作词同时命中
+# 才算，两个列表都刻意窄——只放「挑/排」这个动作，不放「哪些/怎么样」这类泛问
+# 句词，否则「今天哪些板块涨了」这种纯查询也会把 D6 拖起来（多一次 DuckDB 查询
+# 加一整块上下文）。
+_RANKING_SUBJECT_TERMS = ("方向", "题材", "板块", "赛道", "主线")
+_RANKING_ACTION_TERMS = ("排序", "排名", "值得关注", "优先级", "选谁", "怎么选")
+
+
+def is_direction_ranking_query(query: str) -> bool:
+    """问句是否在要求「在多个方向之间挑选/排序」。
+
+    实测失败形状（AB-002，2026-07-10）：这类问句一个中期词都不带，词面门控全部
+    拦下 → D6 不出块 → 拥挤度分位从未进入上下文，排序只能建立在当日绝对量上
+    （原答案写满"边际量 +23.64、成交 8508.1 亿"，全是绝对量），结果排序完全反转：
+    排第 1 的半导体链 T+1 -5.13%，被明确排除的农业/养殖 +2.40%。拥挤度分位是
+    「最新成交额在自身 trailing-60 日分布里的位置」——正是当日截面给不了的那个
+    相对化变换，所以「挑方向」这件事本身就要带它，与问的是多长时间尺度无关。
+    """
+    text = re.sub(r"\s+", "", str(query or ""))
+    if not text:
+        return False
+    return any(term in text for term in _RANKING_SUBJECT_TERMS) and any(
+        term in text for term in _RANKING_ACTION_TERMS
+    )
+
+
 def midterm_intent_for(
     query: str,
     *,
     perspective_active: bool = False,
 ) -> MidtermIntent | None:
-    """D6 门控入口：词面意图优先；视角模式下意图缺失回退默认窗口。
+    """D6 门控入口：词面意图优先；两类问法在意图缺失时回退默认窗口。
 
-    KOL 视角解读行情天然需要题材量价趋势底座，而视角类问法（"站在X视角看
-    AI应用/地产"）往往不带中期意图词。实测失败形状（2026-08-13）：D6 被词面门
-    拦下 → 视角对着空判断"该方向无盘面信号"，与库内双红数据直接矛盾。
-    ``perspective_active=False`` 时行为与 :func:`parse_midterm_intent` 逐字节一致。
+    - **视角模式**：KOL 视角解读行情天然需要题材量价趋势底座，而视角类问法
+      （"站在X视角看 AI应用/地产"）往往不带中期意图词。实测失败形状
+      （2026-08-13）：D6 被词面门拦下 → 视角对着空判断"该方向无盘面信号"，
+      与库内双红数据直接矛盾。
+    - **方向排序题式**：同样不带中期词，来历见 :func:`is_direction_ranking_query`。
+
+    :func:`parse_midterm_intent` 本身**不放宽**——它另有两个调用点
+    （``query_understanding`` 的时间尺度判定、``ask`` 的时序直查回退），
+    那两处问的是"用户是不是真的问了中期"，不是"要不要补拥挤度底座"。
     """
     intent = parse_midterm_intent(query)
-    if intent is None and perspective_active:
+    if intent is None and (perspective_active or is_direction_ranking_query(query)):
         return MidtermIntent(window=DEFAULT_WINDOW)
     return intent
 
@@ -344,11 +376,35 @@ def _fmt(value: Any, digits: int = 2, suffix: str = "") -> str:
         return str(value)
 
 
+def top_board_themes(con: Any, limit: int = BOARD_FALLBACK_LIMIT) -> list[str]:
+    """最新交易日成交额最大的 N 个板块（同名多行取最大额去重）。
+
+    候选池兜底，不做题材名解析。方向排序题式不点名题材，
+    :func:`resolve_query_themes` 必然解析为空 → D6 渲染成空块（实测 AB-002/
+    AB-003 原题块长度 0，门放开了也等于没开）。按成交额取头部，正是排序题真会
+    从里面挑的那一批，也正是最可能已经拥挤的那一批。
+    """
+    rows = con.execute(
+        f"""
+        select sector_name, max(amount) as amt
+        from fact_sector_daily
+        where trade_date = (select max(trade_date) from fact_sector_daily)
+          and amount is not null
+        group by sector_name
+        order by amt desc
+        limit {int(limit)}
+        """
+    ).fetchall()
+    return [str(row[0]) for row in rows if row[0]]
+
+
 def load_midterm_trend_artifact(
     query: str,
     anchored_theme: str | None,
     market_db_path: str | Path | None,
     window: int = DEFAULT_WINDOW,
+    *,
+    board_fallback: bool = False,
 ) -> MidtermTrendArtifact:
     db_path = (
         Path(market_db_path).expanduser()
@@ -380,6 +436,11 @@ def load_midterm_trend_artifact(
     con = db_result.connection
     try:
         themes = resolve_query_themes(con, query, anchored_theme)
+        if not themes and board_fallback:
+            # 已知限制：D6 全链路没有 as_of 管道（上面的 resolve_query_themes 也没传），
+            # 兜底取的是库尾最新交易日。触发条件只有前瞻性的方向排序题，与"今天"一致；
+            # 要问历史某日的方向排序，得先给 D6 接 as_of，那是另一件事。
+            themes = top_board_themes(con)
         trends: list[dict[str, Any]] = []
         missing: list[str] = []
         for theme in themes:
@@ -421,6 +482,8 @@ def midterm_trend_block_for_llm(
     anchored_theme: str | None,
     market_db_path: str | Path | None,
     window: int = DEFAULT_WINDOW,
+    *,
+    board_fallback: bool = False,
 ) -> str:
     """把多日趋势 + 拥挤度分位渲染成带 [D6] 引用编号的确定性数据块（空串=未取到）。"""
     artifact = load_midterm_trend_artifact(
@@ -428,6 +491,7 @@ def midterm_trend_block_for_llm(
         anchored_theme,
         market_db_path,
         window,
+        board_fallback=board_fallback,
     )
     if not artifact.available:
         return ""
