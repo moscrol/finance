@@ -860,6 +860,79 @@ def test_cli_propose_sharing_defaults_and_shared_owner_rule(synthetic, tmp_path)
     assert not (rules_dir / "bad_shared.v1.json").exists()
 
 
+def test_conjunction_labels_use_three_valued_logic(tmp_path):
+    """合取式标签：任一**已知**条件为假就判 0，不因为别的输入缺失而退成 NULL。
+
+    真库形状（v4→v5 的动因）：8 个 .TI 板块 2025-01-02→2026-02-27 全程缺 ``diff_ratio``，
+    其中多数 ``amount`` 本就低于阈值、确定不是双红，旧写法却一律记 NULL；每个交易日
+    留 8 个 unknown 成员，method_validation 按纪律把整个信号日判成数据不足。
+
+    这里逐格钉三值逻辑，并把「仍然必须是 NULL」的两类一并钉住——判 1 的条件没有放宽：
+    ``data_gap`` 日整日 NULL、turn_up 的结构前提（无相邻前一日 / 前一日 gap）NULL。
+    """
+    src, lab = tmp_path / "src.duckdb", tmp_path / "labels.duckdb"
+    days = _weekdays(4)
+    con = duckdb.connect(str(src))
+    try:
+        init_db(con)
+        for d in days:
+            con.execute(
+                "INSERT INTO fact_market_daily (trade_date, market_stage, total_amount, advancers) VALUES (?,?,?,?)",
+                [d, "主升阶段", 10000.0, 2000],
+            )
+        # (pct_chg, amount, diff_ratio)；None = 该字段缺失
+        cases = {
+            # 已知条件足以判假 → 0，哪怕另一个输入缺失
+            "A_amount_low_diff_null": [(1.0, 100.0, None)] * 4,       # amount<=500 → 确定不是双红
+            "B_pct_down_diff_null": [(-1.0, 900.0, None)] * 4,        # pct<=0 → 确定不是
+            "C_diff_low_pct_null": [(None, 900.0, 3.0)] * 4,          # diff<=10 → 确定不是
+            # 已知的都为真、仍有缺失 → 真不可判，NULL
+            "D_all_pass_but_diff_null": [(1.0, 900.0, None)] * 4,
+            # 全部已知：正常 1 / 0
+            "E_full_yes": [(1.0, 900.0, 20.0)] * 4,
+            "F_full_no": [(1.0, 900.0, 5.0)] * 4,
+        }
+        rows = []
+        for code, series in cases.items():
+            for d, (pct, amt, diff) in zip(days, series):
+                rows.append((d, "legacy", f"{code}.TI", code, pct, amt, diff, None))
+        con.executemany(
+            "INSERT INTO fact_sector_daily_generation (trade_date, sector_universe_snapshot_id,"
+            " sector_ts_code, sector_name, pct_chg, amount, diff_ratio, multi_period_resonance)"
+            " VALUES (?,?,?,?,?,?,?,?)",
+            rows,
+        )
+    finally:
+        con.close()
+    build_labels(src, lab)
+
+    con = duckdb.connect(str(lab), read_only=True)
+    try:
+        def val(code, label, day_idx=2):
+            row = con.execute(
+                "SELECT value_num FROM history_labels WHERE entity_id=? AND label=? AND trade_date=?",
+                [f"{code}.TI", label, days[day_idx]],
+            ).fetchone()
+            return None if row is None else row[0]
+
+        assert val("A_amount_low_diff_null", "dual_red_strict") == 0, "amount 已知低于阈值 → 确定不是双红"
+        assert val("B_pct_down_diff_null", "dual_red_strict") == 0, "pct 已知非正 → 确定不是双红"
+        assert val("C_diff_low_pct_null", "dual_red_strict") == 0, "diff 已知低于阈值 → 确定不是双红"
+        assert val("D_all_pass_but_diff_null", "dual_red_strict") is None, "已知的都为真但有缺失 → 真不可判"
+        assert val("E_full_yes", "dual_red_strict") == 1
+        assert val("F_full_no", "dual_red_strict") == 0
+        # streak 跟着 dual_red 走：确定为假的那几个不再是 NULL，而是 0
+        assert val("A_amount_low_diff_null", "dual_red_streak") == 0
+        assert val("D_all_pass_but_diff_null", "dual_red_streak") is None
+        # turn_up：当日 diff 已知非正 → 0（不必知道前一日）；前一日已知为正 → 0
+        assert val("C_diff_low_pct_null", "diff_ratio_turn_up") == 0
+        assert val("E_full_yes", "diff_ratio_turn_up") == 0, "前一日 diff 已知为正 → 确定不是由负转正"
+        # 结构前提缺失仍是 NULL：第 0 日没有前一交易日
+        assert val("E_full_yes", "diff_ratio_turn_up", day_idx=0) is None
+    finally:
+        con.close()
+
+
 def test_sector_label_semantics(mini):
     con = duckdb.connect(str(mini["labels"]), read_only=True)
     try:
@@ -1121,6 +1194,76 @@ def test_scan_applies_bh_and_marks_exploratory(synthetic):
         assert key in receipt["conditions"]
     md = render_receipt_markdown(receipt)
     assert "成立条件" in md and "Wilson" in md
+
+
+def test_same_day_three_stages_do_not_overwrite_each_other(synthetic, tmp_path):
+    """同一天跑完 discovery / validation / holdout 三段：三份收据共存且能凑齐晋升链。
+
+    历史回填时三段窗口都在过去，一次跑完是正常做法——但收据文件名原本只有日期粒度，
+    三段互相覆盖只剩最后一份，``lifecycle`` 永远凑不齐三级（09-12 走真实闭环时暴露）。
+    这条钉的是「同日不同段不算重跑」；同日**同段**重跑仍然覆盖（下半段断言）。
+    """
+    import datetime as _dt
+    import json as _json
+
+    from intelligence.services.methodology_backtest import lifecycle
+    from intelligence.services.methodology_backtest.receipts import write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    day = "2026-09-12"
+    windows = {
+        "discovery": ("2026-01-01", "2026-03-31"),
+        "validation": ("2026-04-01", "2026-06-30"),
+        "holdout": ("2026-07-01", "2026-08-31"),
+    }
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    for i, (stage, (ws, we)) in enumerate(windows.items()):
+        receipt = build_receipt(
+            res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage=stage,
+            now=_dt.datetime(2026, 9, 12, 10 + i, tzinfo=_dt.timezone.utc),
+        )
+        receipt["window"] = {"start": ws, "end": we}  # 三段各自的窗口（递进）
+        receipt["rule"]["version"] = 1
+        write_receipt(root, receipt, date_str=day)
+
+    folder = root / "selftest_positive@v1"
+    names = sorted(p.name for p in folder.glob("*.json"))
+    assert names == [f"{day}-discovery.json", f"{day}-holdout.json", f"{day}-validation.json"], names
+
+    steps = lifecycle.load_steps(root, "selftest_positive")
+    assert [s.declared_stage for s in steps] == ["discovery", "validation", "holdout"]
+    state = lifecycle.derive_state(
+        {"rule_id": "selftest_positive", "version": 1, "owner": "t"}, steps, rule_sha256="sha-x"
+    )
+    assert state.state == "personal_method" and state.in_method_library, state.blocked_by
+
+    # 同日同段重跑：覆盖那一份，不新增文件；取最新那次的结论（OPT-04「同窗重跑取最新」）
+    rerun = build_receipt(
+        res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage="holdout",
+        now=_dt.datetime(2026, 9, 12, 20, tzinfo=_dt.timezone.utc),
+    )
+    rerun["window"] = {"start": "2026-07-01", "end": "2026-08-31"}
+    rerun["rule"]["version"] = 1
+    rerun["verdict"] = "refuted"
+    write_receipt(root, rerun, date_str=day)
+    assert sorted(p.name for p in folder.glob("*.json")) == names
+    assert _json.loads((folder / f"{day}-holdout.json").read_text(encoding="utf-8"))["verdict"] == "refuted"
+    after = lifecycle.derive_state(
+        {"rule_id": "selftest_positive", "version": 1, "owner": "t"},
+        lifecycle.load_steps(root, "selftest_positive"), rule_sha256="sha-x",
+    )
+    # 被推翻的是 holdout 那一段自己 → 本轮次没走完三段门 = contradicted。
+    # invalidated 留给「三段全过之后，新窗口把它推翻」那种失效。
+    assert after.state == "contradicted", after.state
+    assert not after.in_method_library
+
+    # 没声明阶段的收据保持旧名（旧目录逐字节不受影响）
+    plain = build_receipt(res, rule_path=None, rule_sha256="sha-x", environment=env)
+    plain["rule"]["version"] = 1
+    json_path, _ = write_receipt(root, plain, date_str="2026-09-13")
+    assert json_path.name == "2026-09-13.json"
 
 
 def test_latest_receipt_picks_newest_across_versions(synthetic, tmp_path):

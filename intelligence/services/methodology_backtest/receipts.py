@@ -387,12 +387,27 @@ def latest_receipt(root: str | Path, rule_id: str) -> dict[str, Any] | None:
     return best
 
 
+def receipt_stem(receipt: dict[str, Any], date_str: str) -> str:
+    """收据文件名主干：声明了阶段的带上阶段，没声明的仍是纯日期。
+
+    为什么要分开（工单 #42 留下的缺口，09-12 走三段闭环时暴露）：``declared_stage``
+    让「同一天跑 discovery / validation / holdout 三段」成为**合法且常见**的场景——
+    历史回填时三段窗口都在过去，一次跑完是正常做法。但文件名只有日期粒度时，三段
+    互相覆盖只剩最后一份，``lifecycle._stage_ladder`` 永远凑不齐三级，链只能靠「跨三天
+    跑」建起来。同段同日重跑仍然覆盖（取最新那次，OPT-04「同窗重跑取最新」不变）。
+    没有 ``declared_stage`` 的收据保持旧名，旧目录逐字节不受影响。
+    """
+    stage = receipt.get("declared_stage")
+    return f"{date_str}-{stage}" if stage in DECLARED_STAGES else date_str
+
+
 def write_receipt(root: str | Path, receipt: dict[str, Any], *, date_str: str) -> tuple[Path, Path]:
-    """写 ``<root>/<rule_id>@v<version>/<date>.json`` 与同名 md。同日重跑覆盖。"""
+    """写 ``<root>/<rule_id>@v<version>/<date>[-<stage>].json`` 与同名 md。同日同段重跑覆盖。"""
     folder = receipt_dir(root, receipt["rule"]["ref"])
     folder.mkdir(parents=True, exist_ok=True)
-    json_path = folder / f"{date_str}.json"
-    md_path = folder / f"{date_str}.md"
+    stem = receipt_stem(receipt, date_str)
+    json_path = folder / f"{stem}.json"
+    md_path = folder / f"{stem}.md"
     json_path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     md_path.write_text(render_receipt_markdown(receipt), encoding="utf-8")
     return json_path, md_path
