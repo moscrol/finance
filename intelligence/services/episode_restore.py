@@ -105,6 +105,10 @@ class RestoreResult:
     synthesized: tuple[EpisodeEvent, ...]
     plan: ResumePlan | None
     outcome: AgentOutcome | None
+    # P3 遗留、P4 收：崩溃时箱里「入箱了、还没认领也没丢弃」的话（message_id）。恢复方
+    # 重新驱动时要把它们递回收件箱，否则用户递进去的话会随崩溃静默消失（INV-R5 三事实里
+    # 缺了第三件）。这里只**列出**，不认领——认领是 loop 的事，恢复读的是事实。
+    pending_inbox: tuple[str, ...] = ()
 
     @property
     def terminal(self) -> bool:
@@ -119,7 +123,23 @@ class RestoreResult:
             "synthesized": [event.to_dict() for event in self.synthesized],
             "plan": self.plan.to_dict() if self.plan is not None else None,
             "stop_reason": self.outcome.stop_reason if self.outcome is not None else None,
+            "pending_inbox": list(self.pending_inbox),
         }
+
+
+def pending_inbox_messages(events: Sequence[EpisodeEvent]) -> tuple[str, ...]:
+    """入箱了、既未认领也未丢弃的 message_id，按入箱序。"""
+
+    pending: dict[str, None] = {}
+    for event in events:
+        message_id = str(event.payload.get("message_id") or "")
+        if not message_id:
+            continue
+        if event.kind == "inbox_inserted":
+            pending.setdefault(message_id, None)
+        elif event.kind in {"inbox_claimed", "inbox_discarded"}:
+            pending.pop(message_id, None)
+    return tuple(pending)
 
 
 # ── 内部：点查 ───────────────────────────────────────────────────────────────
@@ -342,6 +362,7 @@ def restore_episode(
             synthesized=tuple(synth.synthesized) if synth is not None else (),
             plan=plan,
             outcome=outcome,
+            pending_inbox=pending_inbox_messages(loaded_events),
         )
 
     if state.terminal or any(e.kind == "finish" for e in events):
