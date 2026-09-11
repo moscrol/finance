@@ -126,7 +126,8 @@ def build_sector_roles(
     """Return ``{"sectors": [per (day, sector) dict], "days": [per-day summary dict]}``.
 
     ``sector_rows`` are ``fact_sector_daily`` (trade_date, sector_ts_code, sector_name, sw_l1,
-    pct_chg, amount, diff_ratio); ``heat_rows`` are ``fact_theme_limit_heat_daily`` final rows
+    pct_chg, amount, diff_ratio; optional ``close`` from kline overlay — when present, N-day
+    gain is close-to-close instead of compounding pct); ``heat_rows`` are ``fact_theme_limit_heat_daily`` final rows
     (trade_date, sector_ts_code, limit_up_count, fd_amount); ``market_rows`` carry
     ``industry_1..3``; ``high_rows`` are 1-year-plus new highs with ``sw_l1`` (宽度);
     ``vendor_rows`` list the supplier's mainline sectors per day (主流·供应商口径).
@@ -190,7 +191,22 @@ def build_sector_roles(
                 continue
             window_days = days[i - n + 1 : i + 1]
             compounded: dict[str, float] = {}
+            prev_day = days[i - n] if i >= n else None
             for code in today:
+                # N 日真点位 = close_t / close_{t-N}（与区间高标同一口径）。
+                # 日历里还没有 t-N 时退回 ∏(1+pct)，避免第一窗把 days[-1] 当起点。
+                start_row = by_day.get(prev_day, {}).get(code) if prev_day is not None else None
+                end_row = today.get(code)
+                start_close = _num(start_row.get("close")) if start_row else None
+                end_close = _num(end_row.get("close")) if end_row else None
+                if (
+                    start_close
+                    and end_close
+                    and start_close > 0
+                    and all(code in by_day.get(wd, {}) for wd in window_days)
+                ):
+                    compounded[code] = (end_close / start_close - 1.0) * 100.0
+                    continue
                 growth = 1.0
                 ok = True
                 for wd in window_days:

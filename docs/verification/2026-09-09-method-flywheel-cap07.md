@@ -45,9 +45,16 @@ ERROR 0。全仓 pytest 读数见 progress/07.md 执行记录。
 
 - **已进默认入口**：`memory_lookup` 工具是 Workbench 对话默认工具面的一员（验收实例 run 的授权列表含它，
   14 个工具）；`[M]` 块与日报段随既有入口生效，不需要开关。
-- **真实验收（Workbench 对话）**：见下节，按实际发生填写。
-- **生产生效**：**未做**（任务书：不切生产）。生产 8792 仍是旧 revision；生产用户目录下没有 `method_validation`
-  实验——上线后需在生产用户目录 `register` + `history` 一次（40s），并把 `daily` 接进夜跑（沿原任务授权）。
+- **真实验收（Workbench 对话）**：**通过（带边界）**——题 1 完整形状（episode 内调 `memory_lookup`、读数进
+  episode、判官通过），题 2 会话接力形状（引用同一读数、本轮未再调工具）。逐 run 记录见下节。
+- **生产生效**：**已激活**（2026-09-09 19:0x，沿原任务授权）。生产 8792 已由用户重新部署到含本 PR 的 main
+  （代码树 `finance-workspace-runtime`，判官同步修为 `~/.grok/bin/grok`）；随后本任务在生产用户目录
+  `~/.local/share/finance-workbench/users/linxiaoqi5111` 跑 `register`（协议 475597e2…、前向起点 2026-09-10，
+  赶在「起点须晚于登记日」时间门内）＋ `history`（9.4s）＋摘要刷新；history payload 与验收目录**深比较一致**
+  （仅 `evaluator_code_sha256` 因前向合并后模块文件变化不同，属预期，旧原件仍可 report）；生产用户目录下
+  `probe_tool.py memory_lookup` 0.03s 返回「方法验证读数」。仍待：09-10 收盘 daily-full 落库后跑一次
+  `method_validation.py daily`（首个真实前向观察登记），09-17 前后结算或等既有 03:50 夜间回检；`daily`
+  接夜跑日程本任务仍未安装。
 
 ## 真实对话验收记录
 
@@ -70,7 +77,51 @@ ERROR 0。全仓 pytest 读数见 progress/07.md 执行记录。
 - 模型不参与的接缝已实测：`probe_tool.py memory_lookup`（真实 runner）与 `user_memory.memory_block_for_query`（`[M]` 块）
   对验收用户都返回「方法验证读数」；见上节。
 
-（续跑结果追加在此。）
+### 续跑记录（18:15–19:27 · 写手切本机 Mirasim `127.0.0.1:8080`，sol 主 / terra 兜底）
+
+用户 18 时前后把写手网关切到本机 Mirasim 并按新形状重启了 8807。当晚该上游持续抖动：真打上游的请求
+1–3s 后 502 `upstream_error`，随后熔断器打开、数十秒内一切请求瞬时 503；实测可用窗口约 1–4.5 分钟、
+down 段 2–4 分钟。一个 tier=max episode 要 4–6 个模型轮（1–3 分钟），两题连跑必然跨窗，驱动策略
+因此改为：**探针抓 down→up 翻转立即进场、一窗一题、第二题 `--conversation` 续同一会话**。
+
+中途排掉两个真故障（都不是本任务代码的缺陷）：
+
+1. **判官二进制失踪**：8807 与生产进程的 `LLM_JUDGE_GROK_BIN` 都钉在
+   `~/.grok/downloads/grok-1.0.5-macos-aarch64`（带版本号下载件，已被自动更新清掉）→
+   `semantic_verifier.exc_class=FileNotFoundError` → 模型合成完的答案整体降级「本次未完成独立复核」
+   （run5 即此形状：模型轮全通、46 条证据、被判官挡）。修法＝稳定符号链接 `~/.grok/bin/grok`
+   （grok 1.0.24 headless 实测可用）；8807 已修（18:41 重启），生产由用户 19:0x 重新部署一并修复。
+   与 agent-memory「judge-binary-pinned-to-versioned-autoupdating-download」完全同形。
+2. **网关 key 轮换**：18:52 起探针 401；生产进程重启换 key 后 19:0x 又回到原 key。侧实例启动脚本
+   已改为**起动时从 8792 生产进程环境现抄 key**（不落盘、不打印），窗口循环每次探针前重抄。
+
+**两题结果（同一会话 `conv_a61815eac90c4c0596ed63e106ec6ba0`，engine=episode，tier=max）：**
+
+- **题 1 通过 = `run_20260909_190926_670853`（19:09，76.8s）**：模型轮零错误；工具调用
+  `memory_lookup`×2 ＋ `finance_query`；episode 原件含证据标题「方法验证读数」（历史演练 / 真实前向
+  分列全文）；判官通过。回答关键句：「该记录的**历史演练**仅有极少可配对样本，且相对两类基准均未
+  显示连续组更强；因此方法本身已**降级为观察提示，而非排序或买卖依据**。这是对既有方法记录的复述，
+  不是本轮独立历史回测结论。」——区分历史演练、说明降级、拒绝据此排序三点齐。
+- **题 2 = `run_20260909_191437_053778`（19:14，1m55s）**：判官通过的真实回答，关键句：「**上次方法
+  的降级结论仍成立**——它只能提示观察，不能作为已被历史统计验证的追买依据」，并如实声明「无法判断
+  持续四天是否比三天更具延续性」。**边界如实记**：该轮 turn-1/turn-3 各中一次 502（turn-2 成文）、
+  本轮未调用工具、读数正文未再次注入本 episode——「同一读数」经**会话上下文接力**（题 1 回答在上文）
+  被引用。语义判据满足；「本轮 episode 内再次调用 memory_lookup」这一更强形状未取得（19:26 补试一发
+  仍撞窗口模板，停止重试，不空烧共享额度）。
+- **失败面全数留档**（任务书要求不隐藏失败）：run2/run3/run4（模型轮撞 503/502 中断→模板弃权）、
+  run5（判官 FileNotFoundError 降级）、run6、run2q1、run2q3–q6、run2q7（窗口瞬闭→模板）、
+  run7/run8（planning 轮 502 后由终局恢复路径按预取证据成文——真实、判官通过、但未含方法读数，
+  也说明降级路径修好判官后能出真答案）。驱动日志在 `~/.finance-runtime/cap07-acceptance/`，episode
+  原件在 `~/.finance-runtime/cap07-users/linxiaoqi5111/runs/`。
+
+**判据对照**：`memory_lookup` 被调用且证据含「方法验证读数」✔（题 1 episode 原件）；回答区分历史演练
+与真实前向、说明为何降低权重 / 不据此排序 ✔（题 1 关键句；「真实前向」以「不是本轮独立回测结论 /
+未被历史统计验证」表述，未逐字出现该词）；题 2 引用同一读数解释结论仍成立 ✔（经会话上下文，边界
+已记）。**真实验收：通过（带上述边界）。**
+
+（工程注脚：drive.py 的 `method_reading_in_episode` 即时打点会误报 False——episode 原件晚于 run 状态
+翻 completed 落盘，与 report.json 同坑，判定一律事后读磁盘原件。19:26 起 8807 readiness 转 200，
+对应主库水位当晚已到 2026-09-09。）
 
 ## 合并前等价 CI（合并树 5db4e330 = 本分支 + gitea/main@db2052db）
 
@@ -90,4 +141,5 @@ ERROR 0。全仓 pytest 读数见 progress/07.md 执行记录。
   只会 unverifiable 并写清要跑 `daily`。
 - 选择梯子是确定性规则不是统计门；OPT-04/05 的相关样本、留出与多重检验仍在基础补强任务。
 - 问题命中只认「双红」关键词；别的固定方法要加自己的匹配词与协议。
-- 主库 09-08 复盘未落库（readiness `market_data_consistency=false`，生产同状态）。
+- 主库 09-08 复盘白天未落库（readiness `market_data_consistency=false`，生产同状态）；09-09 晚间
+  daily-full 落库后水位已到 2026-09-09，readiness 转 200。

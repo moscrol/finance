@@ -30,6 +30,20 @@
 
 编码任务「仓库里有没有现成实现」走 `python3 scripts/code_map.py query "<问题>"`，不是本页，也不是问答门。空图不得写成架构结论。
 
+### 历史发现研究
+
+入口仍是 Workbench 对话，例如「这一波农业怎么走出来的，找出值得检验的特征」→「以前有没有类似，失败案例也看看」→「把观察窗口改成……」。`TaskFrame.history_intent` 区分事后发现与历史比较，随 `TurnIntent` 跨轮传递；普通概念解释与明确取消历史研究不会继承该权限。用户明确限定日期时，历史计算、普通结构化查询与原件读取共用范围门。
+
+`historical_research` 是引擎 A 上的领域应用：有类型 `history_query` 负责精确代码的日轴、受支持的时间特征、类比及声明窗口全集比较；`read_history_result` 读取原件；`save_history_research` 保存候选、失败与修订。它们复用 `finance_query` capability，预算、工具循环与取消仍由 Episode 管理。完整分母与模型预览分离，原件只经 RunStore 写入；案例修订与普通取消/产物写入均有并发保护。
+
+修订优先提交 `previous_result_ref + patch`：模型只传变更项，服务端保留未提及假设及旧来源、失败、反证、已暴露样本，并自动递增版本。案例摘要按假设分页，完整原件不因摘要预算被改写。重复保存幂等；未知引用、过期父版本和跨会话读取仍被拒绝。
+
+`FinanceResearchHarness.assess_publication` 给出领域完成度上限和必须公开的缺口，通用 adapter 机械执行；语义润色不能把未完成的历史比较升级为完成。异常恢复仍走既有 EpisodeFinalizer，领域仅提供已有证据的优先序；恢复保持原引用编号与条数上限，并说明“投影省略不等于源数据缺失”。独立数值核对用 `scripts/audit_historical_research_artifacts.py` 读取研究原件，输出已核验、跳过和错误项；它不读取主库、不调用原计算引擎，也不颁发统计认证。
+
+当前结果均是探索研究：相似案例不等于独立验证，重叠窗口不当作独立样本；不支持的组合定义明确返回缺口。L2、晚间卖方与晨汇未同步目标范围为 `pending_sync`，没有安排同步。严格时点认证、样本独立性与正式方法晋升继续消费基础评价器合同；本工具不颁发认证。
+
+实现和分期验收见 [历史发现 spec](superpowers/specs/2026-09-09-historical-discovery-research-design.md) 与 [执行计划](superpowers/plans/2026-09-09-historical-discovery.md)。部署状态以运行服务 `/api/health` 的 revision 为准，仓内存在代码不等于线上已更新。
+
 ## 两条引擎（调度器后面）
 
 一个调度器（`conversation_orchestrator` / `TurnOrchestrator`）+ 两条引擎。两条都调 LLM，差别是**流程谁定**：
@@ -72,7 +86,7 @@ A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结
 - 数据块（D0/D6/D9…）：意图门控在块自己的 `applies()`。调用方若要关某一块，只传 `AskOptions.enabled_providers`（或 `evidence_registry.without_providers(...)`）。**不要**再给每个块一个 `include_*_block`。
 
 `force_moneyflow_block` 是「日报强制取 L2」，不是允许开关，仍留在 `AskOptions`。
-`include_scenario_guidance` / `include_track_guidance` 是表达契约，不是数据块。
+`include_scenario_guidance` / `include_track_guidance` / `include_ranking_guidance` 是表达契约，不是数据块（排序与情景契约见 `intelligence/services/ranking_contract.py`：多对象排序题的公司矩阵、改判条件表与机械再排序）。
 
 ## 失败形状（本页要挡住的）
 

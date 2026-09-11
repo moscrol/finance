@@ -26,6 +26,7 @@
 | 机构胜率 | `~/kb_work/winrate_cache/` + `~/kb_work/winrate/` | md | refresh_winrate | 仓外 | 同上 |
 | 每日运营总账 | `build_daily_ops_ledger.py` 输出 | JSON | 该脚本 | 生成物 | cockpit |
 | 工作台 Run | `intelligence/users/<id>/runs/<run_id>/run.json` + `trace.jsonl` | JSON/JSONL | `run_store.py` | 否（用户态） | Workbench UI（协议见 `docs/superpowers/plans/2026-07-08-run-protocol.md`） |
+| 历史研究查询 / 案例 / 假设原件 | `userspace.user_space(user).root/runs/<run_id>/history-{query,case,hypothesis}-<sha256>.json`（用户根由 `FORESIGHT_USERS_DIR` 解析；登记在同 run 的 `run.json`，不写冻结的 `intelligence/users/`） | 内容寻址 JSON，不可覆盖 | `RunStore.add_history_artifact`；案例修订在 `history_case_transaction` 内核对当前 head | 否（用户态） | Workbench 既有 JSON 产物查看器；Agent `read_history_result` 同用户同会话、截止及范围核验后读取 |
 | 工具饥饿 | `$FORESIGHT_USERS_DIR/<user>/runs/<run_id>/tool_hunger.jsonl` | JSONL | episode/inline 运行时（fail-open） | 否（用户态） | `python -m intelligence.eval.tool_hunger` → `intelligence/eval/measurements/tool-hunger-YYYY-MM-DD.{json,md}` |
 | 工作台会话 | `intelligence/users/<id>/conversations/<conversation_id>/conversation.json` + `messages.jsonl` | JSON/JSONL | `ConversationStore` | 否（用户态） | Chat-first Workbench UI |
 | Fidelity 前向验收 | `/Users/a77/fidelity-runtime/forward-acceptance/records/<date>/*.json` | JSON | `fidelity_forward_acceptance.py record` | 仓外 | `latest/<date>.json` + `summary` 子命令 |
@@ -36,6 +37,7 @@
 | IMA 缺口清单（该跑 DeepDive 的题材 / 该补逻辑卡的个股） | `market_feature_store/exports/<date>-ima-gap.json`（`schema_version` 字段） | JSON | 全量入口 `intelligence.cli daily` 的 `ima-gap-report` 步（只出清单，不自动问 IMA） | 是 | 同名 `.md` |
 | 方法论回测收据（规则在历史上的 N / 命中率 / 基准率 / Wilson / 四态，带成立条件；实体 sector / theme / stock） | `methodology/receipts/<rule_id>@v<version>/<date>.json`（`schema_version: methodology-backtest-receipt/v0`；scan 汇总 `methodology/receipts/scan/<date>.json`） | JSON | `scripts/methodology_backtest.py run/scan`（规则真本源 `methodology/rules/<rule_id>.v<version>.json` 进 git；旁路库 `db/history_labels.duckdb` 由 `build-labels`/`outcomes` 从主库只读重建） | 否（可重建） | 同名 `.md`（stock 规则的事件样例含个股代码，仅分析师侧核对，不进共享层渲染） |
 | 方法论回测证伪库（统计门下 `refuted` 的规则条目：rule_id / version / sharing / owner / N / p / p0 / Wilson / 按大盘阶段拆分 / refuted_at / 收据路径） | `methodology/refuted/<rule_id>@v<version>/<date>.json`（`schema_version: methodology-backtest-refuted/v0`） | JSON | `scripts/methodology_backtest.py run/scan`（结论为 refuted 时随收据落一条；scan 以 BH 校正后的结论为准，单次 refuted 被 BH 降级的不落） | 是（证伪是资产：收据目录可重建、条目要跨机器 / 跨旁路库重建留存） | `report --refuted` 按大盘阶段汇总（stdout markdown；「这个阶段这招不灵」） |
+| 补数请求完成 / 恢复回执（问题驱动补数：`completed` 一条 = 某请求在某 `data_version` 下覆盖检查通过；`resumed` 一条 = 某消费者 run 已按该版本沿 Workbench 重问；同键只落一次，重放幂等） | `$FORESIGHT_USERS_DIR/<user>/data_request_receipts.jsonl` | JSONL | `intelligence.cli data-requests resume`（`services/data_requests.record_completions` / `execute_resume`）；请求本身**不是台账**——由各 run 的 `tool_hunger.jsonl` 里 `window_uncovered` 事件随时重建，日产物 `market_feature_store/exports/<date>-data-requests.json` 与 kb-ingest-queue 同一写入者 | 否（用户态） | `data-requests status`（stdout JSON + 同名 .md） |
 
 ## 双盲夜跑（2026-09-03 用户拍板：退役）
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, replace
 from datetime import date
+import inspect
 import os
 import re
 import time
@@ -67,6 +68,10 @@ from intelligence.services.research_tool_registry import (
 )
 from intelligence.services.run_store import redact, redact_value
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.ranking_contract import (
+    merge_ranking_missing_outputs,
+    ranking_receipt,
+)
 from intelligence.services.track_contract import (
     contract_receipt,
     merge_track_missing_outputs,
@@ -80,7 +85,7 @@ RuntimeMode = Literal["off", "canary", "on"]
 ContinuousTurnStatus = Literal["completed", "partial", "degraded", "failed"]
 # episode 前零 LLM 快路径名单 = runner 支持集本身，不另抄一份：往这里加
 # 题型而 runner 不认识时，得到的是「尚未接入」占位而不是快路径答案
-#（R-20260828-08 对账门禁；等式另由 test_route_composition_gate 钉住防回退）。
+# （R-20260828-08 对账门禁；等式另由 test_route_composition_gate 钉住防回退）。
 CONTINUOUS_FAST_PATH_TYPES = FAST_PATH_RUNNER_SUPPORTED_TYPES
 _SUCCESSFUL_REPAIR_STOP_REASONS = frozenset(
     {"model_finish", "repair_model_finish"}
@@ -759,13 +764,19 @@ class ContinuousTurnAdapter:
                 return _cancelled_result()
             if root_deadline.expired:
                 raise TimeoutError("research deadline exhausted before semantic verification")
-            semantic_candidate = self._semantic_verifier.verify(
-                frame=frame,
-                structurally_verified=structural,
-                deadline=root_deadline,
+            # V11 回检索注入口：按本回合的注册表造，kb_search 未授权 / 替身注册表 → None，
+            # 判官侧记 no_retriever，行为与接线前逐字节一致。
+            guided_retriever = _build_guided_retriever(
+                registry,
+                context,
+                is_cancelled=self._is_cancelled,
             )
-            if not isinstance(semantic_candidate, SemanticEpisodeOutcome):
-                raise TypeError("semantic verifier must return SemanticEpisodeOutcome")
+            semantic_candidate = self._verify_semantics(
+                frame=frame,
+                structural=structural,
+                deadline=root_deadline,
+                retrieve_fn=guided_retriever,
+            )
             semantic = replace(
                 semantic_candidate,
                 verified=_with_track_contract_gaps(
@@ -861,15 +872,12 @@ class ContinuousTurnAdapter:
                 ):
                     semantic_verifier_stale = True
                     break
-                semantic_candidate = self._semantic_verifier.verify(
+                semantic_candidate = self._verify_semantics(
                     frame=frame,
-                    structurally_verified=structural,
+                    structural=structural,
                     deadline=root_deadline,
+                    retrieve_fn=guided_retriever,
                 )
-                if not isinstance(semantic_candidate, SemanticEpisodeOutcome):
-                    raise TypeError(
-                        "semantic verifier must return SemanticEpisodeOutcome"
-                    )
                 semantic = replace(
                     semantic_candidate,
                     verified=_with_track_contract_gaps(
@@ -1069,6 +1077,22 @@ class ContinuousTurnAdapter:
             status = "degraded"
         else:
             status = "failed"
+        publication = self._harness.assess_publication(context=context)
+        if status == "completed" and publication.max_status == "partial":
+            status = "partial"
+        if not answer and final_outcome.evidence:
+            answer = _episode_gap_answer(frame, structural)
+        answer = _with_calendar_disclosure(answer, frame)
+        public_notices = tuple(
+            dict.fromkeys(
+                safe
+                for notice in publication.required_public_notices
+                if (safe := _safe_public_text(notice, private_tokens=private_tokens))
+            )
+        )
+        for notice in public_notices:
+            if notice not in answer:
+                answer = "\n\n".join(part for part in (answer, notice) if part)
         _phase_note(
             phase_recorder,
             status,
@@ -1078,9 +1102,6 @@ class ContinuousTurnAdapter:
             outcome=outcome,
             repair_attempts=repair_attempts,
         )
-        if not answer and final_outcome.evidence:
-            answer = _episode_gap_answer(frame, structural)
-        answer = _with_calendar_disclosure(answer, frame)
         semantic_verifier_stale = semantic_verifier_stale or (
             semantic.verified.outcome.events != outcome.events
         )
@@ -1105,6 +1126,7 @@ class ContinuousTurnAdapter:
             "structural_verifier": structural.to_dict(),
             "satisfiability_precheck": _satisfiability_payload(satisfiability),
             "semantic_verifier": semantic.to_dict(),
+            "publication_assessment": asdict(publication),
             "semantic_verifier_stale": semantic_verifier_stale,
             "repair_attempts": repair_attempts,
             "repair_cycles": repair_cycles,
@@ -1114,6 +1136,14 @@ class ContinuousTurnAdapter:
                 query=context.contract.question,
                 question_type=context.contract.question_type,
                 as_of=context.today,
+            ),
+            # 排序与情景契约收据（10 号单）：矩阵/改判条件/竞争解释解析结果 + 缺件。
+            "ranking_contract": ranking_receipt(
+                outcome.draft,
+                query=context.contract.question,
+                question_type=context.contract.question_type,
+                as_of=context.today,
+                conversation_context=context.conversation_context,
             ),
             "metrics": _episode_metrics(
                 outcome,
@@ -1155,11 +1185,38 @@ class ContinuousTurnAdapter:
                 outcome,
                 runtime_name=self._runtime_name,
             ),
-            open_gaps=_open_gap_labels(
-                context.contract,
-                fulfilled_output_ids=fulfilled_output_ids,
+            open_gaps=tuple(
+                dict.fromkeys(
+                    (*_open_gap_labels(
+                        context.contract,
+                        fulfilled_output_ids=fulfilled_output_ids,
+                    ), *public_notices)
+                )
             ),
         )
+
+    def _verify_semantics(
+        self,
+        *,
+        frame: TaskFrame,
+        structural: VerifiedEpisodeOutcome,
+        deadline: ResearchDeadline,
+        retrieve_fn: Callable[[str, float], tuple[object, ...]] | None,
+    ) -> SemanticEpisodeOutcome:
+        """调语义判官；V11 的 ``retrieve_fn`` 只在对方声明接收时才传（替身兼容）。"""
+
+        verify = self._semantic_verifier.verify
+        kwargs: dict[str, object] = {
+            "frame": frame,
+            "structurally_verified": structural,
+            "deadline": deadline,
+        }
+        if retrieve_fn is not None and _accepts_keyword(verify, "retrieve_fn"):
+            kwargs["retrieve_fn"] = retrieve_fn
+        candidate = verify(**kwargs)
+        if not isinstance(candidate, SemanticEpisodeOutcome):
+            raise TypeError("semantic verifier must return SemanticEpisodeOutcome")
+        return candidate
 
     def _resume_for_gap(
         self,
@@ -1354,16 +1411,87 @@ def _issue_backfill_plan(
     )
 
 
+def _accepts_keyword(fn: object, name: str) -> bool:
+    """替身 verifier 有 23 个是严格签名 ``(*, frame, structurally_verified, deadline)``，
+    多传一个 kwarg 就炸；只在对方声明了该形参或收 ``**kwargs`` 时才传。"""
+
+    try:
+        parameters = inspect.signature(fn).parameters  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return False
+    if name in parameters:
+        return True
+    return any(
+        parameter.kind is inspect.Parameter.VAR_KEYWORD
+        for parameter in parameters.values()
+    )
+
+
+def _build_guided_retriever(
+    registry: object,
+    context: ResearchRunContext,
+    *,
+    is_cancelled: Callable[[], bool],
+) -> Callable[[str, float], tuple[object, ...]] | None:
+    """给语义判官造 V11 回检索的执行者：走本回合注册表的 ``kb_search``。
+
+    为什么走注册表而不是直接调 ``kb_rag.retrieve``：注册表那份闭包里有 fixture
+    policy / wiki 根 / 新鲜度门 / 语义闸（#424），自己再拼一份就是第二条检索链
+    （V11 §10.3「不复制一条检索」）。能力未授权（``allowed_capabilities`` 没有
+    kb_search 的 capability）或注册表是测试替身 → 返回 None，判官记 ``no_retriever``。
+
+    授予的秒数必须到达执行者（V11 §4.4）：给工具一条与根窗取交的**绝对**子
+    deadline（``bounded_stage``），不另起相对时钟、不改根 deadline。
+    """
+
+    names = getattr(registry, "names", None)
+    execute = getattr(registry, "execute", None)
+    resolve = getattr(registry, "resolve", None)
+    if not callable(names) or not callable(execute) or not callable(resolve):
+        return None
+    try:
+        if "kb_search" not in tuple(names()):
+            return None
+        spec = resolve("kb_search")
+        capability = str(getattr(spec, "capability", "") or "")
+        if capability not in context.contract.allowed_capabilities:
+            return None
+    except Exception:
+        return None
+
+    def retrieve(query: str, timeout: float) -> tuple[object, ...]:
+        bounded = replace(
+            context,
+            deadline=context.deadline.bounded_stage(max(0.0, float(timeout))),
+        )
+        observation = execute(
+            "kb_search",
+            {"query": str(query)},
+            context=bounded,
+            step_id=f"guided-retrieval:{uuid4().hex[:8]}",
+            is_cancelled=is_cancelled,
+        )
+        return tuple(getattr(observation, "evidence", ()) or ())
+
+    return retrieve
+
+
 def _with_track_contract_gaps(
     structural: VerifiedEpisodeOutcome,
     context: ResearchRunContext,
 ) -> VerifiedEpisodeOutcome:
-    """Merge track-contract expression gaps into missing_outputs only.
+    """Merge track / ranking expression-contract gaps into missing_outputs only.
 
     Do not touch ``issues``: the #224 release gate matches issue prefixes.
     """
     merged = merge_track_missing_outputs(
         structural.missing_outputs,
+        structural.outcome.draft,
+        query=context.contract.question,
+        question_type=context.contract.question_type,
+    )
+    merged = merge_ranking_missing_outputs(
+        merged,
         structural.outcome.draft,
         query=context.contract.question,
         question_type=context.contract.question_type,
@@ -1589,14 +1717,18 @@ def _episode_context_provenance(
         "today": context.today,
         "latest_data_date": context.latest_data_date,
         "trace_parent_id": context.trace_parent_id,
+        "history_intent": (
+            context.history_intent.to_dict()
+            if context.history_intent is not None
+            else None
+        ),
+        "history_results": list(context.history_results),
     }
     pack = getattr(context, "stance_pack", None)
     if pack is None:
         return payload
     to_receipt = getattr(pack, "to_receipt", None)
-    payload["stance_pack"] = (
-        to_receipt() if callable(to_receipt) else {"present": True}
-    )
+    payload["stance_pack"] = to_receipt() if callable(to_receipt) else {"present": True}
     return payload
 
 

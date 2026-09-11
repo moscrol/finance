@@ -6,6 +6,7 @@ question and never imports private helpers from the legacy orchestrator.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date
 import json
 from pathlib import Path
@@ -39,7 +40,9 @@ from intelligence.services.task_frame import TaskFrame, task_frame_requires_retr
 from intelligence.services.user_task import (
     MaterialRef,
     MethodCandidate,
+    conversation_context_material_unrecoverable,
     materials_in_conversation,
+    rebind_material_from_text,
     references_material,
 )
 
@@ -174,6 +177,7 @@ def _require_output_description(output_id: str) -> str:
         raise ValueError(
             f"missing _OUTPUT_DESCRIPTIONS[{output_id!r}]"
         ) from exc
+
 
 # 用户在问题里引用了自己过去的看法。这类问题要回答的不是「现在怎么样」，而是
 # 「跟我上次说的比，变了什么」——后者需要先取回那份先验。
@@ -745,6 +749,26 @@ def build_episode_context(
         evidence_plan=evidence_plan,
         task_frame_hash=frame.task_frame_hash,
     )
+    if frame.history_intent is not None and "finance_query" in capability_tuple:
+        # Capability authorizes execution; evidence_types admits the actual
+        # producer names. Keep historical provenance and narrow output contracts
+        # (for example memory/news/financial anchors) intact.
+        contract = replace(
+            contract,
+            required_outputs=tuple(
+                replace(
+                    output,
+                    evidence_types=tuple(
+                        dict.fromkeys(
+                            (*output.evidence_types, "history_query", "read_history_result")
+                        )
+                    ),
+                )
+                if "finance_query" in output.evidence_types
+                else output
+                for output in contract.required_outputs
+            ),
+        )
     contract = apply_static_chain_mapping_precheck(contract, knowledge=knowledge)
     cutoff = (
         information_cutoff
@@ -754,6 +778,11 @@ def build_episode_context(
             latest_data_date=latest_data_date,
         )
     )
+    if frame.history_intent is not None and frame.history_intent.strict_window and frame.history_intent.requested_end:
+        cutoff = InformationCutoff(
+            min(cutoff.as_of_date, date.fromisoformat(frame.history_intent.requested_end)),
+            "requested",
+        )
     return ResearchRunContext(
         contract=contract,
         deadline=ResearchDeadline.from_timeout(
@@ -773,6 +802,7 @@ def build_episode_context(
         perspective_context=str(perspective_context or "").strip(),
         stance_pack=stance_pack,
         retrieval_stages=tuple(retrieval_stages or ()),
+        history_intent=frame.history_intent,
     )
 
 
@@ -837,15 +867,32 @@ def assemble_input_understanding_context(frame: TaskFrame, conversation_context:
         earlier_refs and frame.referenced_material_ids
     ):
         lines = ["## 用户提供的材料（身份表）", _MATERIAL_RULE]
+        # I2 收口：对话块被截断时，本轮重贴的材料的「此前对话」身份无法从窗口里恢复；
+        # 但用户重贴的正文 hash 与窗口外那一轮的 hash 相同，内容等同。如实标注
+        # 「本轮重贴」与「对话块已被截断，此前同一份材料的记录不在窗口内」，让模型
+        # 与判官都知道这是按内容哈希重建的同一材料，而不是新贴的第二份。
+        context_truncated = conversation_context_material_unrecoverable(conversation_context)
+        rebound_note_emitted = False
         for item in frame.materials:
             lines.append(_material_line(item, "本轮"))
+            if context_truncated and references_material(frame.raw_question):
+                rebound_ids, _note = rebind_material_from_text(
+                    frame.raw_question,
+                    (item,),
+                )
+                if rebound_ids:
+                    lines.append(
+                        f"「这篇 / 这份 / 这张表」按本条消息重贴内容重建：{rebound_ids[-1]}"
+                        f"（对话块已截断，与此前同一内容的材料 id 相同）"
+                    )
+                    rebound_note_emitted = True
         for item in earlier_refs:
             if any(item.material_id == own.material_id for own in frame.materials):
                 continue
             lines.append(_material_line(item, "此前对话"))
         if referent is not None:
             lines.append(f"「这篇 / 这份 / 这张表」= {referent.material_id}（{referent.title or _MATERIAL_KIND_LABEL.get(referent.kind, referent.kind)}）")
-        elif frame.materials and references_material(frame.raw_question):
+        elif frame.materials and references_material(frame.raw_question) and not rebound_note_emitted:
             lines.append("「这篇 / 这份 / 这张表」= 本轮提供的材料")
         blocks.append("\n".join(lines))
     if frame.user_premises:

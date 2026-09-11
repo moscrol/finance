@@ -581,3 +581,48 @@ def test_stale_sidecar_schema_fails_closed(capsys, tmp_path, source_db, params_f
     code = main(["build-succession", "--db-path", str(source_db), "--labels-db", str(sidecar), "--params", str(params_file)])
     assert code == 2
     assert "schema 过期" in capsys.readouterr().err
+
+
+def test_build_labels_twice_same_hash_on_hithink_overlay(capsys, tmp_path, source_db, params_file) -> None:
+    con = duckdb.connect(str(source_db))
+    con.execute(
+        """CREATE TABLE fact_stock_daily_hithink (
+            trade_date DATE, stock_ts_code VARCHAR, close DOUBLE, high DOUBLE, low DOUBLE, open DOUBLE, turnover DOUBLE)"""
+    )
+    con.execute(
+        """INSERT INTO fact_stock_daily_hithink
+           SELECT trade_date, stock_ts_code, close, COALESCE(high, close), close, close, amount * 1e8
+           FROM fact_stock_daily WHERE close IS NOT NULL"""
+    )
+    con.execute("CREATE TABLE fact_dragon_tiger_hithink (trade_date DATE, stock_ts_code VARCHAR, net_value DOUBLE)")
+    con.execute(
+        "INSERT INTO fact_dragon_tiger_hithink SELECT trade_date, stock_ts_code, net_amount * 1e8 FROM fact_dragon_tiger_daily"
+    )
+    con.close()
+    first = _run(
+        capsys, "build-labels",
+        "--db-path", str(source_db), "--labels-db", str(tmp_path / "a.duckdb"),
+        "--params", str(params_file), "--computed-at", "2026-09-08T00:00:00Z",
+    )
+    second = _run(
+        capsys, "build-labels",
+        "--db-path", str(source_db), "--labels-db", str(tmp_path / "b.duckdb"),
+        "--params", str(params_file), "--computed-at", "2026-09-08T00:00:00Z",
+    )
+    roles_a = _run(
+        capsys, "build-sector-roles",
+        "--db-path", str(source_db), "--labels-db", str(tmp_path / "a.duckdb"),
+        "--params", str(params_file), "--computed-at", "2026-09-08T00:00:00Z",
+    )
+    roles_b = _run(
+        capsys, "build-sector-roles",
+        "--db-path", str(source_db), "--labels-db", str(tmp_path / "c.duckdb"),
+        "--params", str(params_file), "--computed-at", "2026-09-08T00:00:00Z",
+    )
+    assert first["readouts"]["teaching_sources"]["stock"] == "fact_stock_daily_hithink"
+    # 夹具里旧龙虎表也在 → 必须是「新源 + 按日回退旧表」，不是裸切
+    assert first["readouts"]["teaching_sources"]["dragon"] == "fact_dragon_tiger_hithink+legacy_fill"
+    assert first["canonical_hash"] == second["canonical_hash"]
+    assert len(first["canonical_hash"]) == 64
+    assert roles_a["readouts"]["teaching_sources"]["new_high"] == "fact_stock_daily_hithink"
+    assert roles_a["canonical_hash"] == roles_b["canonical_hash"]

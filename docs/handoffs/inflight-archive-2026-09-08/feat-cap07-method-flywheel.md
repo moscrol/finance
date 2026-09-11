@@ -1,36 +1,40 @@
-# feat/cap07-method-flywheel · 2026-09-09 · 方法飞轮接线（能力升级任务包 07）
+# feat/cap07-method-flywheel · 2026-09-09 晚 · 已完结：验收通过（带边界）＋ 生产已激活
 
-## 这个分支做什么
-把 `feat/method-validation-loop`（未合 main）的固定双红协议收据接到日常使用：立场按收据派生、有信号 D0 登记
-checkpoint、夜间回检自动结算并分类、`memory_lookup` / `[M]` / 日报段消费同一份摘要。任务书
-`docs/superpowers/plans/2026-09-09-capability-upgrade/07-method-flywheel-goal-brief.md`（在 codex 分支），进度
-`…/progress/07.md`，范围外 `…/blocked/07.md`，交付说明 `docs/verification/2026-09-09-method-flywheel-cap07.md`。
+## 最终状态（四项报告）
 
-## 决策与被否方案
-- 立场派生不存状态；摘要按输入指纹缓存 / 否了每次读 106MB 原件或加可变 status 字段。
-- 观察登记进既有 `checkpoints.jsonl`（新 `object_type=method_observation`）/ 否了另开台账；环境变化与数据不足
-  → unverifiable 不进分母 / 否了 partial 计分。
-- 回检六类 + 环境标记（D+1..D+5 阶段离开适用集合）；选择梯子确定性四档 / 否了在本刀引入统计门。
-- 只做「双红」关键词匹配，匹不上存候选草稿 / 否了通用编译。
+已实现 ✔ / 已进默认入口 ✔ / **真实验收 ✔（带边界）** / **生产生效 ✔（register+history 已做）**。
+PR #692 合入 `794cc3e5`；验收与生产激活全记录在
+`docs/verification/2026-09-09-method-flywheel-cap07.md`（判据对照、失败面 10 run 留档）与
+`…/2026-09-09-capability-upgrade/progress/07.md` 尾段。
 
-## 当前状态
-- 实现提交 `3a2a2254`，前向合并 gitea/main（#687）→ `5db4e330`，再前向合并 #688 → `88bf0125`，两次 merge-tree 均无冲突。
-  用户 15:10 拍板「可以合并的话就合并」；**PR #692 已开**（Gitea），合并树 `88bf0125` 上 ruff / layer_audit 通过、
-  全仓 pytest 三片重跑中（`~/.finance-runtime/cap07-acceptance/pytest2-shard{1,2,3}.log`），绿即合。
-- 等价 CI（合并树）：python 3 片 8373P/0F（归档测试收集错为主干既有，blocked #6）、frontend 全过、e2e 15 passed、
-  data-quality 54 passed；registry-check 三项红为主干既有（blocked #7）。详见 verification 文档表。
-- 验收实例 8807 在跑（`~/.finance-runtime/cap07-acceptance/`，用户目录 `~/.finance-runtime/cap07-users`）；真实对话验收
-  被网关挡住两次：14:57 sol/terra 双 429 cooldown；16:05 sol 仍 cooldown、terra 502 `no auth available`。模型不参与的
-  接缝（真实 `memory_lookup` runner、`[M]` 块）已实测出「方法验证读数」。
-- 能力图行已改指本分支符号，`graph_audit` OK（74 条断言）。
+- 题 1 通过：`run_20260909_190926_670853`（模型轮零错误，`memory_lookup`×2，episode 原件含「方法验证
+  读数」，判官通过，回答区分历史演练/说明降级/拒绝排序）。
+- 题 2 语义通过：`run_20260909_191437_053778`（「上次方法的降级结论仍成立——只能提示观察」；会话上下文
+  接力，本轮未再调工具、两次 502，边界已记）。
+- 生产激活：生产 8792 已是含本单的 main；生产用户目录 register（前向起点 09-10）＋ history（payload 与
+  验收深比较一致）＋摘要刷新；生产侧 `probe_tool.py memory_lookup` 0.03s 出读数。
 
-## 下一步
-1. 网关恢复后跑 `drive.py` 两题（命令在 verification 文档），核 `continuous-episode.json` 的 memory_lookup 调用与证据，
-   结果补进 verification / progress（小文档修补可直接 main）。
-2. 09-10 收盘且 daily-full 落库后跑一次 `method_validation.py daily`（命令在 workflow 文档）；09-17 前后再跑或等 03:50 夜间回检。
-3. 生产生效沿原任务授权：生产用户目录 `register` + `history` 一次，`daily` 接进夜跑；本分支未装任何日程。
+## 接手人要做的（按日期）
 
-## 踩过的坑
-- 同指纹重算摘要 `generated_at` 变化撞「不可覆盖」发布 → 派生缓存改 `replace_json`。
-- `market_feature_store.db.DB_PATH` 按代码根算，另一棵工作树上不存在：`daily` 要 `--db-path` 指主库。
-- readiness 503 时 urllib 直接抛错，驱动脚本要容忍；`market_data_consistency=false` 是主库 09-08 未落库（生产同状态）。
+1. **09-10 收盘、daily-full 落库后**：`cd <main 树> && .venv-workbench/bin/python scripts/method_validation.py daily
+   --study-dir /Users/a77/.local/share/finance-workbench/users/linxiaoqi5111/method_validation/475597e2…5a2f
+   --labels-db db/history_labels.duckdb --db-path db/market_feature_store.duckdb --user linxiaoqi5111`
+   → 首个真实前向观察登记（有信号且阶段适用才登记 checkpoint）。
+2. **09-17 前后**：再跑一次 `daily` 或等既有 03:50 夜间回检结算（旁路库未重建时 resolver 只 unverifiable
+   并写清要跑什么）。
+3. `daily` 接夜跑日程仍未安装（blocked #3，沿原任务授权，装前先看 checkpoint-recheck-mac-setup）。
+
+## 当晚环境事实（不是本单代码缺陷，但会再咬人）
+
+- **判官二进制**：`LLM_JUDGE_GROK_BIN` 钉带版本号下载件会被 grok 自动更新清掉 → 全部回答降级「未完成
+  独立复核」。永远用 `~/.grok/bin/grok` 符号链接（agent-memory 已有同形卡）。生产已随 19:0x 重新部署修复。
+- **Mirasim 写手网关（127.0.0.1:8080）**：闪断循环（首请求 502 → 熔断瞬时 503，窗口 1–4.5 分钟）；key
+  会随生产重启轮换——侧实例起动时从 8792 进程环境现抄 key（`~/.finance-runtime/cap07-acceptance/
+  start-cap07-workbench.sh` 已是此形状），不落盘不打印。
+- episode / report.json 晚于 run 状态落盘：验收判定读磁盘原件事后验尸，不信驱动脚本即时打点。
+
+## 现场清理
+
+8807 验收实例已停；`fwp-wt-cap07-method-flywheel` 工作树与本地分支已删（合并完的分支直接删）。验收
+产物保留：`~/.finance-runtime/cap07-acceptance/`（驱动日志）与 `~/.finance-runtime/cap07-users/`（episode
+原件）。生产判官/网关如再出「未完成独立复核」批量降级，先查 `semantic_verifier.exc_class`。
