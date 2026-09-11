@@ -179,6 +179,27 @@ def test_stitch_accepts_ifind_value_source(con):
     assert row == (11.0, 10.0, 3.0)
 
 
+def test_stitch_accepts_sina_value_source(con):
+    """新浪同为独立外部供应商（2026-09-11 补 09-08：mootdx 全服务器空返、东财 push2his
+    整站拒连、iFinD 无 token，只剩它能取到带成交额的历史日线）；循环源仍被拒。"""
+    _seed_day1(con)
+    _publish(con, D2, [("990001.FP", "MLCC", 3), ("990002.FP", "6G", 2), ("990003.FP", "\u673a\u5668\u4eba", 2)])
+    _eastmoney(con, D2, [("000001.SZ", 11.0, 10.0, 3.0), ("000002.SZ", 9.0, -10.0, 1.5)],
+               source="sina:stock_zh_a_daily")
+    _eastmoney(con, D2, [("600000.SH", 10.5, 5.0, 2.5), ("600001.SH", 10.0, 0.0, 2.0),
+                         ("300001.SZ", 12.0, 20.0, 4.0), ("300002.SZ", 8.0, -20.0, 1.0)])
+
+    summary = stitch.stitch_sector_members(D2, con=con, fetch_caps=False)
+
+    assert summary["stitched"] == 3 and summary["skipped"] == {}
+    assert summary["dropped_members"] == 1
+    row = con.execute(
+        "select price, pct_chg, amount from fact_sector_stock_daily where trade_date = ? and stock_ts_code = '000001.SZ'",
+        [D2],
+    ).fetchone()
+    assert row == (11.0, 10.0, 3.0)
+
+
 def test_stitch_skips_sector_when_no_member_has_value(con):
     """极小板块全员无值：缺口在容差内（2 ≤ 5）但交付为空——必须跳过而不是拿空集写 success。"""
     pub1 = _publish(con, D1, [("990020.FP", "迷你板块", 2)])
