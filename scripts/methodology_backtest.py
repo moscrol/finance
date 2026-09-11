@@ -41,7 +41,7 @@ if str(ROOT) not in sys.path:
 import duckdb  # noqa: E402
 
 from intelligence.services import checkpoints as ck  # noqa: E402
-from intelligence.services.methodology_backtest.labels import build_labels  # noqa: E402
+from intelligence.services.methodology_backtest.labels import LABEL_VERSION, build_labels  # noqa: E402
 from intelligence.services.methodology_backtest.outcomes import DEFAULT_HORIZONS, build_outcomes  # noqa: E402
 from intelligence.services.methodology_backtest.propose import (  # noqa: E402
     build_rule_doc,
@@ -435,6 +435,8 @@ def cmd_queue(args) -> int:
                 steps,
                 human_approval=approvals.get(rule_id),
                 rule_sha256=_sha256(path),
+                # 标签口径升版后，旧版本收据一律降历史观察——不等下一份新收据才切轮次
+                current_label_version=LABEL_VERSION,
             )
         )
 
@@ -498,11 +500,18 @@ def cmd_report(args) -> int:
             files = sorted(folder.glob("*.json"))
             if not files:
                 continue
-            latest = files[-1]
-            try:
-                doc = json.loads(latest.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
+            # 「最近」按收据自述的 generated_at 取，不按文件名字典序：同日三段的文件名
+            # 里 holdout < validation，字典序会永远选中 validation，即使稍后跑的 holdout
+            # 已经把它证伪了。
+            docs = []
+            for f in files:
+                try:
+                    docs.append((json.loads(f.read_text(encoding="utf-8")), f))
+                except (OSError, ValueError):
+                    continue
+            if not docs:
                 continue
+            doc, latest = max(docs, key=lambda pair: (str(pair[0].get("generated_at") or ""), pair[1].name))
             if folder.name == "scan":
                 print(f"- scan/{latest.name}: {doc.get('family_size')} 条，q={doc.get('q')}")
                 continue

@@ -16,6 +16,7 @@ scan 模式以 BH 校正后的结论为准：单次 refuted、BH 降级的不落
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -387,22 +388,51 @@ def latest_receipt(root: str | Path, rule_id: str) -> dict[str, Any] | None:
     return best
 
 
-def receipt_stem(receipt: dict[str, Any], date_str: str) -> str:
-    """收据文件名主干：声明了阶段的带上阶段，没声明的仍是纯日期。
+def _run_suffix(receipt: dict[str, Any]) -> str:
+    """``<HHMMSS>-<内容 hash 前 4 位>``：既**唯一**又**幂等**。
 
-    为什么要分开（工单 #42 留下的缺口，09-12 走三段闭环时暴露）：``declared_stage``
-    让「同一天跑 discovery / validation / holdout 三段」成为**合法且常见**的场景——
-    历史回填时三段窗口都在过去，一次跑完是正常做法。但文件名只有日期粒度时，三段
-    互相覆盖只剩最后一份，``lifecycle._stage_ladder`` 永远凑不齐三级，链只能靠「跨三天
-    跑」建起来。同段同日重跑仍然覆盖（取最新那次，OPT-04「同窗重跑取最新」不变）。
-    没有 ``declared_stage`` 的收据保持旧名，旧目录逐字节不受影响。
+    只用时刻不够——同一秒内跑完两次不同的检验（`run` 紧接 `scan`，合成库上很常见）会
+    撞名，又变回互相覆盖。加内容 hash 后：内容不同必不同名（两份都留档），同一份收据
+    原样重写落到同一个名字（幂等，不产生垃圾）。``generated_at`` 解析不了时只用 hash。
+    """
+    digest = hashlib.sha256(
+        json.dumps(receipt, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()[:4]
+    raw = str(receipt.get("generated_at") or "")
+    try:
+        stamp = datetime.fromisoformat(raw).astimezone(timezone.utc).strftime("%H%M%S")
+    except ValueError:
+        return digest
+    return f"{stamp}-{digest}"
+
+
+def receipt_stem(receipt: dict[str, Any], date_str: str) -> str:
+    """收据文件名主干 ``<date>[-<stage>]-<HHMMSS>``：**每次运行一份，永不互相覆盖**。
+
+    两个缺口一起堵（09-12 走三段闭环时暴露）：
+
+    1. ``declared_stage`` 让「同一天跑 discovery / validation / holdout 三段」成为合法且
+       常见的场景（历史回填时三段窗口都在过去），但原来文件名只有日期粒度，三段互相
+       覆盖只剩最后一份，``lifecycle._stage_ladder`` 永远凑不齐三级。
+    2. 更要命的是**同段重跑会物理删掉上一次的结果**。「取最新那次」是**读取层**的事
+       （``_stage_ladder`` 已经按 ``generated_at`` 取同窗最新一份），写入层照做就变成了
+       「删除失败记录」：留出窗判 refuted 之后当天换个窗口重跑判 supported，失败那份
+       被覆盖，``_stage_ladder`` 的「同阶段两个不同窗口 = 事后挑窗」检测**没有证据可查**，
+       于是直接晋升 personal_method。采用最新 ≠ 删除旧的。
+
+    所以文件名带上运行时刻：每次运行各留一份，由 ``load_steps`` + ``derive_state`` 决定
+    采用哪次、以及这些运行合起来说明了什么。``date_str`` 仍是落盘日期（目录内可排序）。
     """
     stage = receipt.get("declared_stage")
-    return f"{date_str}-{stage}" if stage in DECLARED_STAGES else date_str
+    head = f"{date_str}-{stage}" if stage in DECLARED_STAGES else date_str
+    return f"{head}-{_run_suffix(receipt)}"
 
 
 def write_receipt(root: str | Path, receipt: dict[str, Any], *, date_str: str) -> tuple[Path, Path]:
-    """写 ``<root>/<rule_id>@v<version>/<date>[-<stage>].json`` 与同名 md。同日同段重跑覆盖。"""
+    """写 ``<root>/<rule_id>@v<version>/<date>[-<stage>]-<HHMMSS>.json`` 与同名 md。
+
+    **不覆盖任何既有运行记录**（同一份收据原样重写才会落到同一个名字）。
+    """
     folder = receipt_dir(root, receipt["rule"]["ref"])
     folder.mkdir(parents=True, exist_ok=True)
     stem = receipt_stem(receipt, date_str)
@@ -459,11 +489,14 @@ def build_refuted_entry(receipt: dict[str, Any], *, receipt_path: str | None) ->
 
 
 def write_refuted(root: str | Path, receipt: dict[str, Any], *, date_str: str, receipt_path: str | None) -> Path:
-    """落 ``<root>/<rule_id>@v<version>/<date>.json``。同日重跑覆盖（与收据同规矩）。"""
+    """落 ``<root>/<rule_id>@v<version>/<date>-<HHMMSS>.json``。**每次证伪各留一条**。
+
+    与收据同规矩：证伪是资产，同日再跑一次不该把上一条证伪从库里抹掉。
+    """
     entry = build_refuted_entry(receipt, receipt_path=receipt_path)
     folder = Path(root).expanduser() / receipt["rule"]["ref"]
     folder.mkdir(parents=True, exist_ok=True)
-    path = folder / f"{date_str}.json"
+    path = folder / f"{date_str}-{_run_suffix(receipt)}.json"
     path.write_text(json.dumps(entry, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return path
 
@@ -613,10 +646,13 @@ def render_scan_markdown(summary: dict[str, Any]) -> str:
 
 
 def write_scan_summary(root: str | Path, summary: dict[str, Any], *, date_str: str) -> tuple[Path, Path]:
+    """落 ``<root>/scan/<date>-<HHMMSS>.{json,md}``。**每次扫描各留一份**——同一天跑
+    三段（discovery / validation / holdout）时前两段的汇总不该被最后一段覆盖。"""
     folder = Path(root).expanduser() / "scan"
     folder.mkdir(parents=True, exist_ok=True)
-    json_path = folder / f"{date_str}.json"
-    md_path = folder / f"{date_str}.md"
+    stem = f"{date_str}-{_run_suffix(summary)}"
+    json_path = folder / f"{stem}.json"
+    md_path = folder / f"{stem}.md"
     json_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     md_path.write_text(render_scan_markdown(summary), encoding="utf-8")
     return json_path, md_path

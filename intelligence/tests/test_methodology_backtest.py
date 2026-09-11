@@ -756,7 +756,7 @@ def test_refuted_entry_written_only_for_refuted_verdict(synthetic, tmp_path):
     root = tmp_path / "refuted"
     assert load_refuted(root) == [] and "证伪库为空" in render_refuted_markdown([])
     path = write_refuted(root, receipt, date_str="2026-09-04", receipt_path="methodology/receipts/x@v1/2026-09-04.json")
-    assert path == root / "selftest_positive@v1" / "2026-09-04.json"
+    assert path.parent == root / "selftest_positive@v1" and path.name.startswith("2026-09-04-")
     entry = __import__("json").loads(path.read_text(encoding="utf-8"))
     assert entry["schema_version"] == REFUTED_SCHEMA
     for key in ("rule_id", "rule_version", "sharing", "owner", "n", "p", "p0", "ci", "by_market_stage", "refuted_at", "receipt_path"):
@@ -833,8 +833,13 @@ def test_cli_run_scan_write_refuted_and_report_refuted(synthetic, tmp_path, caps
     # scan：阳性 refuted（BH 拒绝 H0）落库，阴性不落
     assert cli.main(["scan", str(pos), str(neg), "--labels-db", str(shifted), *common]) == 0
     assert not (refuted / "selftest_negative@v1").exists()
-    doc = __import__("json").loads(entries[0].read_text(encoding="utf-8"))
-    assert doc["test_mode"] == "scan" and doc["bh"]["rejected"] is True  # 同日重跑覆盖，最后一次是 scan
+    # 证伪是资产：scan 那条**另落一份**，不覆盖 run 那条（09-12 复核：同日重跑抹掉记录 = 丢证据）
+    after = sorted((refuted / "selftest_positive@v1").glob("*.json"))
+    assert len(after) == 2, [p.name for p in after]
+    docs = [__import__("json").loads(p.read_text(encoding="utf-8")) for p in after]
+    assert {d["test_mode"] for d in docs} == {"single", "scan"}
+    scan_doc = next(d for d in docs if d["test_mode"] == "scan")
+    assert scan_doc["bh"]["rejected"] is True
     capsys.readouterr()
     assert cli.main(["report", "--refuted", "--refuted-dir", str(refuted), "--labels-db", str(tmp_path / "nope.duckdb")]) == 0
     out = capsys.readouterr().out
@@ -1197,14 +1202,15 @@ def test_scan_applies_bh_and_marks_exploratory(synthetic):
 
 
 def test_same_day_three_stages_do_not_overwrite_each_other(synthetic, tmp_path):
-    """同一天跑完 discovery / validation / holdout 三段：三份收据共存且能凑齐晋升链。
+    """同一天跑完 discovery / validation / holdout 三段：三份收据共存且能凑齐晋升链；
+    同段重跑**各留一份**，由读取层决定采用哪次——写入层不删除失败记录。
 
-    历史回填时三段窗口都在过去，一次跑完是正常做法——但收据文件名原本只有日期粒度，
-    三段互相覆盖只剩最后一份，``lifecycle`` 永远凑不齐三级（09-12 走真实闭环时暴露）。
-    这条钉的是「同日不同段不算重跑」；同日**同段**重跑仍然覆盖（下半段断言）。
+    两个缺口一起钉（09-12 走真实闭环 + 复核时暴露）：
+    1. 收据文件名原本只有日期粒度，同日三段互相覆盖只剩最后一份，``lifecycle`` 凑不齐三级；
+    2. 更要命的是同段重跑**物理删掉**上一次结果——留出窗 refuted 之后当天换窗重跑 supported，
+       失败那份被覆盖，「同阶段两个不同窗口 = 事后挑窗」检测没有证据可查，直接晋升。
     """
     import datetime as _dt
-    import json as _json
 
     from intelligence.services.methodology_backtest import lifecycle
     from intelligence.services.methodology_backtest.receipts import write_receipt
@@ -1213,57 +1219,133 @@ def test_same_day_three_stages_do_not_overwrite_each_other(synthetic, tmp_path):
     env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
     root = tmp_path / "receipts"
     day = "2026-09-12"
-    windows = {
-        "discovery": ("2026-01-01", "2026-03-31"),
-        "validation": ("2026-04-01", "2026-06-30"),
-        "holdout": ("2026-07-01", "2026-08-31"),
-    }
     res = st.run(synthetic["labels"], st.POSITIVE_RULE)
-    for i, (stage, (ws, we)) in enumerate(windows.items()):
+
+    def put(stage, ws, we, hour, verdict=None):
+        receipt = build_receipt(
+            res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage=stage,
+            now=_dt.datetime(2026, 9, 12, hour, tzinfo=_dt.timezone.utc),
+        )
+        receipt["window"] = {"start": ws, "end": we}
+        receipt["rule"]["version"] = 1
+        if verdict is not None:
+            receipt["verdict"] = verdict
+        return write_receipt(root, receipt, date_str=day)[0]
+
+    def state():
+        return lifecycle.derive_state(
+            {"rule_id": "selftest_positive", "version": 1, "owner": "t"},
+            lifecycle.load_steps(root, "selftest_positive"), rule_sha256="sha-x",
+        )
+
+    put("discovery", "2026-01-01", "2026-03-31", 10)
+    put("validation", "2026-04-01", "2026-06-30", 11)
+    put("holdout", "2026-07-01", "2026-08-31", 12)
+
+    folder = root / "selftest_positive@v1"
+    names = sorted(p.name for p in folder.glob("*.json"))
+    assert len(names) == 3 and [n.split("-")[3] for n in names] == ["discovery", "holdout", "validation"], names
+    assert all(n.startswith(f"{day}-") for n in names), names
+    assert [s.declared_stage for s in lifecycle.load_steps(root, "selftest_positive")] == ["discovery", "validation", "holdout"]
+    assert state().state == "personal_method", state().blocked_by
+
+    # 留出窗重跑判证伪：12 点那份 supported 仍在档、确实让它一度过门，13 点把它推翻 →
+    # invalidated（「过门后被推翻」）。旧的覆盖模式会删掉 12 点那份，于是显示成
+    # contradicted——保留记录之后，终态才如实反映发生过什么。两者都不在方法库里。
+    put("holdout", "2026-07-01", "2026-08-31", 13, verdict="refuted")
+    assert state().state == "invalidated" and not state().in_method_library
+
+    # 同日换一个窗口重跑并判 supported：**失败记录仍在**，于是 refuted 切出的新轮次照常生效，
+    # 换窗那份落进第 2 轮次、只有 holdout 一段 → 不得晋升。
+    # （旧的覆盖模式下失败记录被删，这一份 supported 会直接补齐三段链 → personal_method。）
+    put("holdout", "2026-07-15", "2026-09-10", 14)
+    assert len(list(folder.glob("*.json"))) == 5, "每次运行各留一份，不覆盖"
+    after = state()
+    assert not after.in_method_library, f"换窗重跑不得晋升，得到 {after.state}"
+    assert after.validation_cycle == 2 and "新轮次重新走三段门" in (after.blocked_by or ""), after.blocked_by
+
+
+def test_same_window_rerun_keeps_both_runs_and_takes_the_latest(synthetic, tmp_path):
+    """同窗重跑是正当的（数据修订后重算）：两次都留档，读取层取**最新**那次的结论。
+
+    「采用最新」≠「删除旧的」——旧那份留着，`refuted → supported` 的改判才有痕迹可查。
+    """
+    import datetime as _dt
+
+    from intelligence.services.methodology_backtest import lifecycle
+    from intelligence.services.methodology_backtest.receipts import write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+
+    def put(stage, ws, we, hour, verdict=None):
+        receipt = build_receipt(
+            res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage=stage,
+            now=_dt.datetime(2026, 9, 12, hour, tzinfo=_dt.timezone.utc),
+        )
+        receipt["window"] = {"start": ws, "end": we}
+        receipt["rule"]["version"] = 1
+        if verdict is not None:
+            receipt["verdict"] = verdict
+        write_receipt(root, receipt, date_str="2026-09-12")
+
+    put("discovery", "2026-01-01", "2026-03-31", 10)
+    put("validation", "2026-04-01", "2026-06-30", 11)
+    put("holdout", "2026-07-01", "2026-08-31", 12, verdict="refuted")
+    put("holdout", "2026-07-01", "2026-08-31", 13)  # 同窗重跑，改判 supported
+
+    folder = root / "selftest_positive@v1"
+    assert len(list(folder.glob("*.json"))) == 4, "两次 holdout 都在档"
+    state = lifecycle.derive_state(
+        {"rule_id": "selftest_positive", "version": 1, "owner": "t"},
+        lifecycle.load_steps(root, "selftest_positive"), rule_sha256="sha-x",
+    )
+    # refuted 那一份仍然切了轮次：改判发生在新轮次里，只有 holdout 一段，到不了方法档
+    assert not state.in_method_library, f"同窗改判不得直接复活方法，得到 {state.state}"
+
+
+def test_stale_label_version_receipts_are_history_not_evidence(synthetic, tmp_path):
+    """标签口径升版后，旧版本收据一律降历史观察——不必等「下一份新版本收据」才切轮次。
+
+    没有这道绝对检查时，三份同为旧版本的成功收据彼此一致，`_cycles` 看不出任何变化，
+    于是在新代码下照样成链、照样 personal_method（09-12 实测）。重建旁路库不触发失效，
+    是同一个洞。
+    """
+    import datetime as _dt
+
+    from intelligence.services.methodology_backtest import lifecycle
+    from intelligence.services.methodology_backtest.receipts import write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    stale = "v4-old-taxonomy"
+    for i, (stage, ws, we) in enumerate((
+        ("discovery", "2026-01-01", "2026-03-31"),
+        ("validation", "2026-04-01", "2026-06-30"),
+        ("holdout", "2026-07-01", "2026-08-31"),
+    )):
         receipt = build_receipt(
             res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage=stage,
             now=_dt.datetime(2026, 9, 12, 10 + i, tzinfo=_dt.timezone.utc),
         )
-        receipt["window"] = {"start": ws, "end": we}  # 三段各自的窗口（递进）
+        receipt["window"] = {"start": ws, "end": we}
         receipt["rule"]["version"] = 1
-        write_receipt(root, receipt, date_str=day)
-
-    folder = root / "selftest_positive@v1"
-    names = sorted(p.name for p in folder.glob("*.json"))
-    assert names == [f"{day}-discovery.json", f"{day}-holdout.json", f"{day}-validation.json"], names
+        receipt["conditions"]["label_version"] = stale
+        write_receipt(root, receipt, date_str="2026-09-12")
 
     steps = lifecycle.load_steps(root, "selftest_positive")
-    assert [s.declared_stage for s in steps] == ["discovery", "validation", "holdout"]
-    state = lifecycle.derive_state(
-        {"rule_id": "selftest_positive", "version": 1, "owner": "t"}, steps, rule_sha256="sha-x"
-    )
-    assert state.state == "personal_method" and state.in_method_library, state.blocked_by
-
-    # 同日同段重跑：覆盖那一份，不新增文件；取最新那次的结论（OPT-04「同窗重跑取最新」）
-    rerun = build_receipt(
-        res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage="holdout",
-        now=_dt.datetime(2026, 9, 12, 20, tzinfo=_dt.timezone.utc),
-    )
-    rerun["window"] = {"start": "2026-07-01", "end": "2026-08-31"}
-    rerun["rule"]["version"] = 1
-    rerun["verdict"] = "refuted"
-    write_receipt(root, rerun, date_str=day)
-    assert sorted(p.name for p in folder.glob("*.json")) == names
-    assert _json.loads((folder / f"{day}-holdout.json").read_text(encoding="utf-8"))["verdict"] == "refuted"
-    after = lifecycle.derive_state(
-        {"rule_id": "selftest_positive", "version": 1, "owner": "t"},
-        lifecycle.load_steps(root, "selftest_positive"), rule_sha256="sha-x",
-    )
-    # 被推翻的是 holdout 那一段自己 → 本轮次没走完三段门 = contradicted。
-    # invalidated 留给「三段全过之后，新窗口把它推翻」那种失效。
-    assert after.state == "contradicted", after.state
-    assert not after.in_method_library
-
-    # 没声明阶段的收据保持旧名（旧目录逐字节不受影响）
-    plain = build_receipt(res, rule_path=None, rule_sha256="sha-x", environment=env)
-    plain["rule"]["version"] = 1
-    json_path, _ = write_receipt(root, plain, date_str="2026-09-13")
-    assert json_path.name == "2026-09-13.json"
+    rule = {"rule_id": "selftest_positive", "version": 1, "owner": "t"}
+    # 不传当前版本：旧行为，三份彼此一致 → 成链
+    assert lifecycle.derive_state(rule, steps, rule_sha256="sha-x").state == "personal_method"
+    # 传当前版本：全部降历史观察
+    now = lifecycle.derive_state(rule, steps, rule_sha256="sha-x", current_label_version="v5-current")
+    assert now.state == "candidate" and not now.in_method_library
+    assert now.history_receipts == 3
+    assert stale in (now.blocked_by or "") and "v5-current" in (now.blocked_by or "")
 
 
 def test_latest_receipt_picks_newest_across_versions(synthetic, tmp_path):
@@ -1287,7 +1369,7 @@ def test_latest_receipt_picks_newest_across_versions(synthetic, tmp_path):
 
     got = latest_receipt(root, "selftest_positive")
     assert got is not None and got["rule"]["ref"] == "selftest_positive@v2"
-    assert got["verdict"] == "supported" and got["_path"].endswith("selftest_positive@v2/2026-09-03.json")
+    assert got["verdict"] == "supported" and "selftest_positive@v2/2026-09-03-" in got["_path"]
     assert latest_receipt(root, "nope") is None
     assert latest_receipt(tmp_path / "missing", "selftest_positive") is None
 
@@ -1327,7 +1409,8 @@ def test_cli_answer_score_gate_refuses_promotion_without_supported_receipt(synth
                 "rule": {"rule_id": "certified_rule", "version": 1, "ref": "certified_rule@v1", "sha256": sha},
                 "window": {"start": ws, "end": we}, "verdict": "supported",
                 "declared_stage": stage, "stats": {"verdict": "supported"},
-                "conditions": {"label_version": "v3"},
+                # 必须是**当前生效**的口径：升版后旧收据会被 state_for_rule 降历史观察
+                "conditions": {"label_version": LABEL_VERSION},
             }),
             encoding="utf-8",
         )

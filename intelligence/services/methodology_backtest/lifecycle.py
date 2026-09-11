@@ -300,11 +300,18 @@ def derive_state(
     *,
     human_approval: dict[str, Any] | None = None,
     rule_sha256: str | None = None,
+    current_label_version: str | None = None,
 ) -> MethodState:
     """算出这条候选现在在哪一档。``human_approval`` 只能由人写入，agent 不得伪造。
 
     ``rule["version"]`` / ``rule_sha256`` 给了就只看那份身份的收据；其余收据是历史，
     计入 ``history_receipts`` 但不进链。
+
+    ``current_label_version`` 给了就再加一道**绝对**身份检查：标签口径升版之后，旧版本
+    收据一律降为历史观察。没有它时 ``_cycles`` 只能看出收据**彼此之间**的版本变化——
+    三份同为 v4 的成功收据在 v5 代码下仍然彼此一致，于是照样成链、照样 personal_method，
+    要等到有人跑出第一份 v5 收据才切轮次。「升级后旧收据自动成为历史观察」这句话，
+    在传入当前版本之前是不成立的（09-12 实测）。重建旁路库本身不触发失效，也是同一个洞。
     """
     rule_id = str(rule.get("rule_id") or rule.get("id") or "")
     sharing = str(rule.get("sharing") or "private")
@@ -321,9 +328,26 @@ def derive_state(
         s for s in steps
         if (rule_version is None or s.rule_version == rule_version)
         and (rule_sha256 is None or s.rule_sha256 == rule_sha256)
+        # 标签口径是身份的一部分：升版后旧收据不可比，降为历史观察（不是「等下一份新收据再说」）
+        and (current_label_version is None or s.label_version == current_label_version)
     ]
     certified = [s for s in scoped if s.has_final_verdict]
     if not certified:
+        stale = (
+            sorted({s.label_version or "(无)" for s in steps if s.label_version != current_label_version})
+            if current_label_version is not None
+            else []
+        )
+        if stale:
+            return MethodState(
+                rule_id, "candidate", sharing, owner, (),
+                blocked_by=(
+                    f"有 {len(steps)} 份收据，但标签口径已升到 {current_label_version}，"
+                    f"它们产自 {'、'.join(stale)}：口径不可比，全部降为历史观察。"
+                    "重建旁路库后按阶段重跑（`methodology_backtest.py run <rule> --stage discovery` 起）"
+                ),
+                history_receipts=len(steps),
+            )
         return MethodState(
             rule_id, "candidate", sharing, owner, (),
             blocked_by=(
@@ -404,6 +428,7 @@ def state_for_rule(
     rule_id: str,
     *,
     human_approval: dict[str, Any] | None = None,
+    current_label_version: str | None = None,
 ) -> MethodState | None:
     """按 ``rule_id`` 找当前生效的规则文件并推导状态；找不到规则文件返回 ``None``。
 
@@ -434,7 +459,14 @@ def state_for_rule(
     _, path, doc = best
     sha = hashlib.sha256(path.read_bytes()).hexdigest()
     steps = load_steps(receipts_dir, rule_id)
-    return derive_state({**doc, "rule_id": rule_id}, steps, human_approval=human_approval, rule_sha256=sha)
+    if current_label_version is None:
+        from .labels import LABEL_VERSION
+
+        current_label_version = LABEL_VERSION
+    return derive_state(
+        {**doc, "rule_id": rule_id}, steps, human_approval=human_approval,
+        rule_sha256=sha, current_label_version=current_label_version,
+    )
 
 
 def render_queue(states: list[MethodState]) -> str:

@@ -71,29 +71,81 @@ ELSE 1
     「可配对 2 天」逐字对上）；逐日未知成员数从 8–10 降到 0–4。
   - **仍 < `min_n=20`**：修复把本来就该有的样本还回来了，没有、也不该拆掉样本墙。
 
-## 3.1 一个留给用户的口径问题（本单不改）
+## 3.1 剩余「真不可判」成员怎么办（本单不改，只记录）
 
-剩余 13 个信号日各有 1–4 个真不可判成员（占宇宙 221 的 0.5%–1.8%），method_validation 按纪律
-把整天判成数据不足。spec OPT-05 的 `gap_policy` 允许规则声明 `skip`（排除该成员并在 coverage
-里报）而不是隐式 `break`（整天作废）。两种口径的读数差：**整天作废 5 天可配对 / 排除成员
-18 天可配对**（仍 < 20）。这是会改变方法学结论的口径选择，不是正确性问题，**留给用户定**，
-本单不动。
+修完之后仍有 13 个信号日各带 1–4 个真不可判成员（`amount` 与 `pct_chg` 已知为真、`diff_ratio`
+缺失，确实不知道是不是双红），占宇宙 221 的 0.5%–1.8%；`method_validation` 按纪律把整天判成
+数据不足，可配对 5 天。
+
+**更正一处引用**：先前写的「spec OPT-05 的 `gap_policy` 允许声明 `skip`（排除该成员）」不准确。
+`river_derive` 的 `gap_policy ∈ {unverifiable, break, skip}` 说的是**天**维度——`skip` 指
+「累计时跳过缺天并在 coverage 里报」，对连续量还明确拒绝；它不是「排除成员」的授权。
+成员维度的排除在现有契约里**没有**对应条款。
+
+**若将来要做成员排除，按敏感性对照做，不动主结论**：
+
+- 规则**预先固定**（进协议、不可事后调），三个臂使用**同一套**有效成员范围，否则比较总体被改了；
+- 覆盖率（排除了几个 / 占比 / 是哪些）随读数一起报；
+- 主结论仍用「整天作废」口径，排除口径只作并排的敏感性列；
+- **不能用「18 天接近 20 天」当切换理由**——缺失只占 1% 也可能集中在关键成员（这 8 个板块
+  里有长安汽车、小米汽车这类高成交额标的，恰恰是双红容易命中的那一类），排除它们可能
+  系统性改变结论方向，而不是随机地少几个样本。
 
 ## 4. 连带影响
 
 - **`LABEL_VERSION` v4 → v5**：按 #42 认证门，标签语义变化开启新验证轮次，旧收据保留为历史
   观察、不跨轮拼接。这是预期后果不是回归。
 - **共享旁路库 `db/history_labels.duckdb` 需重建**（有副作用、写共享库，**等用户点头**）。
-  重建后四条种子规则与双红方法的读数都会变——变的是「原先被 NULL 吞掉的样本回来了」。
+  **先看迁移方案** `2026-09-12-label-version-migration-plan.md`：核实后发现在跑的前向协议
+  `475597e2…` 绑定的是 **v3**，共享库已是 v4，`method_validation.study._meta` 的版本门现在
+  就会拒——**这是 #671 升 v4 时欠下的债，不是本单引入**，但 09-10 起的在途回检事实上已经断了，
+  且 `status` 看不出来（它读收据不查库）。方案：旧库留档、旧协议在 v3 备份库上跑完剩余
+  recheck 再显式 superseded、新协议在重建后另起且 `forward_start` = 重建日次日。
 - **`v5` 号与 PR #673 的关系**：#673（`feat/methodology-backtest-p1-lifecycle-stage`）被 #737 退回时
   预写方案是「rebase 升 v5」，但其分支上仍是 v4、尚无实现。本单先落 v5 并已在 #673 留言；
   #673 重做时改用 v6，或与本单合并重建一次。
 
-## 5. 同单一并修：收据同日三段互相覆盖
+## 5. 同单一并修：收据写入不再删除任何一次运行
 
-`write_receipt` 原本按 `<date>.json` 命名、「同日重跑覆盖」。#42 引入 `declared_stage` 后，
-「同一天跑完 discovery / validation / holdout」成了合法且常见的场景（历史回填时三段窗口都在
-过去），但三份收据同名互删，只剩最后一份，`lifecycle._stage_ladder` 永远凑不齐三级——三段链
-只能靠「跨三天跑」建起来。改成 `<date>[-<stage>].json`；同日**同段**重跑仍覆盖（取最新，
-OPT-04「同窗重跑取最新」不变）；无 `declared_stage` 的收据保持旧名，旧目录逐字节不受影响。
-回归 `test_same_day_three_stages_do_not_overwrite_each_other`。
+`write_receipt` 原本按 `<date>.json` 命名、「同日重跑覆盖」，两个缺口：
+
+1. #42 引入 `declared_stage` 后，「同一天跑完 discovery / validation / holdout」成了合法且
+   常见的场景（历史回填时三段窗口都在过去），但三份收据同名互删，`lifecycle._stage_ladder`
+   永远凑不齐三级——三段链只能靠「跨三天跑」建起来。
+2. **更要命的是同段重跑会物理删掉上一次结果**（09-12 复核指出，已复现）：留出窗判 refuted
+   之后当天换个窗口重跑判 supported，失败那份被覆盖，「同阶段两个不同窗口 = 事后挑窗」
+   检测**没有证据可查**，直接晋升 `personal_method`；同窗 `refuted → supported` 也能绕过
+   重新验证。**「采用最新结果」≠「删除旧结果」**——取最新是读取层的事（`_stage_ladder`
+   已按 `generated_at` 取同窗最新），写入层照做就成了抹掉失败记录。
+
+改法：文件名 `<date>[-<stage>]-<HHMMSS>-<内容 hash 前 4 位>`。加时刻是为了唯一，加内容
+hash 是因为**同一秒内可以跑完两次不同的检验**（`run` 紧接 `scan`，合成库上很常见），只用
+时刻仍会撞名；同一份收据原样重写落到同一个名字（幂等，不产生垃圾）。证伪库 `write_refuted`
+与扫描汇总 `write_scan_summary` 同规矩——证伪是资产，同日再跑一次不该把上一条从库里抹掉。
+
+回归三条：`test_same_day_three_stages_do_not_overwrite_each_other`（三段共存 → 成链；
+留出重跑证伪 → invalidated；换窗重跑落进新轮次 → 不晋升）、
+`test_same_window_rerun_keeps_both_runs_and_takes_the_latest`、
+以及证伪库「scan 不覆盖 run」的端到端断言。
+
+## 6. 同单一并修：认证要比对**当前生效**的标签口径
+
+`derive_state` 原本只比较收据**彼此之间**的 `(rule_version, rule_sha256, label_version)` 变化。
+于是「升级后旧收据自动成为历史观察」这句话并不成立：三份同为 v4 的成功收据在 v5 代码下
+彼此一致，照样成链、照样 `personal_method`，要等到有人跑出第一份 v5 收据才切轮次；**重建
+旁路库本身不触发失效**（09-12 复核指出，已复现）。
+
+加 `current_label_version` 参数（`queue` 传 `labels.LABEL_VERSION`，`state_for_rule` 默认取它），
+口径不符的收据一律降历史观察并在 `blocked_by` 里写明旧口径与当前口径。回归
+`test_stale_label_version_receipts_are_history_not_evidence`（不传 → 旧行为成链；传 → 全降历史观察）
+与 `StateForRule::test_default_current_label_version_blocks_stale_receipts`。
+
+## 7. 同单一并修：另两处消费端
+
+- **`river_derive._bind_dual_red_strict` 同步三值逻辑**：同名同版本的标签走两条路径（标签层
+  SQL 供规则编译器、River 绑定供情景树分枝与区间派生），口径不一致时两边给出不同真值且
+  没有任何地方会报错。新增 `test_label_binding_parity.py` 把同一组输入喂两条路径逐格比对
+  （7 格覆盖三值逻辑每一种结局），变异测试确认能抓到不一致。
+- **`report` 的「最近收据」按 `generated_at` 取**，不按文件名字典序：新文件名下同日的
+  `holdout` 字典序在 `validation` 之前，字典序会永远选中 validation，即使稍后跑的 holdout
+  已经把它证伪了。
