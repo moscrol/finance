@@ -53,7 +53,7 @@
 实况：判断/纠偏条目**已逐条带日期**（`（YYYY-MM-DD）` 后缀）且有 `valid_until` 过期降级
 （`downgrade_expired_text`）；真缺的是逐条**归属与出处**——这条是「你的判断」还是
 「你纠正过的原则」、出自哪本台账，目前只在块标题一次性声明。且召回有两条真实出口
-（⚠ **数错了，实为三条**——第三条 prime 前缀见下面 W2b，2026-09-11 补登）：
+（⚠ **数错了，判断类实为四条**——漏了 prime 与 foresight，见下面 W2b，2026-09-11 补登）：
 - 复盘链的 [M] 块经 `prior_parts` 拼进 **user 消息**（ask.py），不是 system prompt；
 - Workbench `memory_lookup` 工具直接逐条组装 AgentEvidence，**绕过 build_memory_block 渲染**。
 只改渲染、只验 system prompt，两条路都会漏。
@@ -153,6 +153,12 @@ b. 宣判废弃：在 `docs/learning/ledger-map.md` 标注废弃原因（采集�
 **这意味着什么**：reading_baseline 的 pending 规则 SPT-A06（秒板未换手则后排无价值）
 卡的缺口 G1a 是「有封板时间但无块输出」——2026-09-10 核实 `fact_theme_limit_stock_daily.
 first_limit_time / last_limit_time` 有 149,728 行非空。**数据在，缺的是数据块。**
+【2026-09-11 交付后更正】**这个立项前提是错的，别照抄这种论证。** 149,728 是**累计**
+非空数，而该列自 2026-09-03 起逐日全 NULL（行照常进）——不是上游断供，是风控后写入方
+换成 `local:limit-rule` 本地自算链路，它按设计只写 12/38 列，封板时点属盘中事实产不出。
+累计数在断供后仍然很大，所以它不能证明「数据在」。据此交付的 D18 块上线即惰性，
+事后补了第二个源（`fact_limit_pool_hithink` 的 `limit_up` 池，双源交叉验证 49 只逐只
+到分钟一致）按日回退才救活。**判某列是否日更，用 `group by trade_date, source`。**
 【2026-09-11 评审修正】但封板时间只覆盖规则的「秒板识别」半边；「未经充分换手」半边
 靠 `open_times`（G1b，152,264 行全 NULL，静默降级未修）。按 reading-rules-inventory §5
 更正块的既定裁决：**G1b 未解决前，SPT-A06 整体留在 _PENDING_RULES**。初稿「块落地即迁
