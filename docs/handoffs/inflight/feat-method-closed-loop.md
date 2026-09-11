@@ -16,7 +16,7 @@
 2. **收据同日三段互相覆盖**（`receipts.py`）：#42 引入 `declared_stage` 后「同一天跑完
    discovery / validation / holdout」是合法且常见的场景（历史回填时三段窗口都在过去），但
    文件名只有日期粒度，三份同名互删只剩最后一份，`lifecycle._stage_ladder` 永远凑不齐三级。
-   改 `<date>[-<stage>].json`；同日**同段**重跑仍覆盖；无 stage 的收据保持旧名。
+   （**第二轮复核后改法更进一步**：任何一次运行都不再被覆盖，见下文 P1-1。）
 
 ## 怎么找到的（可复现路径）
 `method_validation status` 报双红方法「77 个适用阶段日、18 个信号日、**可配对仅 2 天**」，
@@ -37,10 +37,9 @@
   副作用操作，等用户点头。
 
 ## 已验证
-- 全量等价 CI：ruff 全过 + **9408 passed / 0 failed / 77 skipped / 1 xfailed**（基线 gitea/main@6382c13b）。
-- 新回归两条：`test_conjunction_labels_use_three_valued_logic`（六格逐一钉三值逻辑 + 两类仍须 NULL）、
-  `test_same_day_three_stages_do_not_overwrite_each_other`（三份共存 → 链到 personal_method；同段重跑
-  覆盖取最新 → contradicted；无 stage 保持旧名）。
+- 全量等价 CI：ruff 全过 + **9413 passed / 0 failed / 77 skipped / 1 xfailed**（基线 gitea/main@6382c13b，含复核修复）。
+- 新回归：`test_conjunction_labels_use_three_valued_logic`（六格逐一钉三值逻辑 + 两类仍须 NULL），
+  收据相关的三条见下文复核段。
 - **变异测试**：把 SQL 改回 v4 写法 → 三值逻辑测试红（清 `__pycache__` + sleep 后复跑，非缓存假绿）；恢复后绿。
 - 临时库实测（共享库未动）：`dual_red_strict` NULL **2,534 → 568**（−77.6%）；`turn_up` 3,389 → 3,380
   （几乎不变，它的 NULL 主要来自结构前提，本就不该变）；双红方法干净信号日 **2 → 5**，逐日未知成员
@@ -59,9 +58,7 @@ holdout 2026-05-01→2026-09-10），`scan` 带 BH，四条**每段都未过门*
 - 共享旁路库未重建，所以线上读数仍是 v4 口径。
 - 闭环的**前瞻半边**（预登记 → 到期回检）已由 `method_validation` 在真实运行（协议 475597e2，
   前向自 2026-09-10），本单未改它；剩余 13 个信号日各有 1–4 个真不可判成员，按纪律整天作废。
-- **留给用户的口径问题**（工单 §3.1）：spec OPT-05 的 `gap_policy` 允许 `skip`（排除成员 + 报覆盖率）
-  而非隐式 `break`（整天作废）。两种口径：**5 天可配对 / 18 天可配对**（都 < 20）。会改变方法学结论，
-  不是正确性问题，本单不动。
+- 剩余「真不可判」成员的处置见下文复核段（`skip` 那处引用已更正）。
 
 ## 复核修复（09-12 第二轮）
 
