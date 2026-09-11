@@ -1,5 +1,10 @@
 # feat/method-closed-loop · 工单 #49（合取式标签三值逻辑 + 收据同日三段）
 
+## 状态：**等用户确认合入**（09-12 复核四条缺口已全部修完并复验）
+
+复核指出四条，逐条复现 → 修在源头 → 变异确认。见 §「复核修复」。共享库仍未重建、
+迁移方案已补但未执行。
+
 ## 这个分支做什么
 走 OPT-10「用一条现有方法跑完真实跨日闭环」时抓到的两个真缺陷，都修在源头：
 
@@ -58,8 +63,36 @@ holdout 2026-05-01→2026-09-10），`scan` 带 BH，四条**每段都未过门*
   而非隐式 `break`（整天作废）。两种口径：**5 天可配对 / 18 天可配对**（都 < 20）。会改变方法学结论，
   不是正确性问题，本单不动。
 
+## 复核修复（09-12 第二轮）
+
+| # | 缺口 | 修法 | 回归 |
+|---|---|---|---|
+| P1-1 | 写入层**删除**运行记录 → 留出窗 refuted 后同日换窗重跑 supported 直接晋升；同窗 refuted→supported 也绕过重验 | 文件名 `<date>[-<stage>]-<HHMMSS>-<hash4>`：时刻求唯一，内容 hash 解「同一秒内 run 紧接 scan」的撞名，同内容原样重写仍幂等。证伪库 / scan 汇总同规矩 | `test_same_day_three_stages…`、`test_same_window_rerun_keeps_both_runs…`、证伪库「scan 不覆盖 run」端到端 |
+| P1-2 | 「升级后旧收据自动成历史观察」未实现：`derive_state` 只比收据**彼此**的 `label_version`，三份 v4 在 v5 代码下照样成链；重建库不触发失效 | 加 `current_label_version` 绝对检查，`queue` / `state_for_rule` 传 `labels.LABEL_VERSION` | `test_stale_label_version_receipts…`、`StateForRule::test_default_current_label_version_blocks_stale_receipts` |
+| P2-3 | `river_derive` 双红绑定仍是旧 NULL 传播，与标签层同名同版本给出两种真值、无人报错 | 同步三值逻辑 | 新增 `test_label_binding_parity.py` 7 格逐格比对两条路径；变异（改回 NULL 传播）确认能抓到 |
+| P2-4 | `report` 按文件名字典序取「最近收据」，`holdout` < `validation` 导致永远选 validation | 改按 `generated_at` 取 | 手工验证：同日 validation(11h,supported) + holdout(12h,refuted) → 取到 holdout |
+
+复现脚本对修复后代码重跑：三条 P1 场景全部从 `personal_method` 变 `candidate`，且四份收据
+全部留档。全量 **9413 passed / 0 failed**（基线 gitea/main@6382c13b）。
+
+**工单 §3.1 更正一处引用**：`gap_policy` 的 `skip` 是**天**维度（累计时跳过缺天，对连续量
+还明确拒绝），不是成员维度的排除授权；成员排除在现有契约里没有条款。若将来要做，按
+敏感性对照做：规则预先固定、三臂同一套有效成员范围、覆盖率随读数报、主结论不动——
+且不能用「18 天接近 20 天」当理由（缺失集中在长安汽车 / 小米汽车这类高成交额标的，
+恰是双红容易命中的一类，排除可能系统性改变方向）。
+
+## 迁移欠账（本单只写方案，未执行）
+
+`docs/superpowers/specs/2026-09-12-label-version-migration-plan.md`。只读实测：在跑的前向
+协议 `475597e2…` 绑定 **v3**、共享库 **v4**、代码 **v5**，`method_validation.study._meta` 的
+版本门现在就会拒。**这是 #671 升 v4 时欠下的债，不是本单引入**，但 09-10 起的在途回检
+事实上已断，且 `status` 看不出来（读收据不查库）。方案：旧库留档 → 旧协议在 v3 备份库
+跑完剩余 recheck 后显式 superseded → 重建库到 v5 → 新协议 `forward_start` = 重建日次日 →
+四条种子规则按阶段重跑。另立单：`status` 应显式打印「协议口径 vs 当前库口径」。
+
 ## 下一步
-1. 用户确认合 PR；合后按需重建共享旁路库（`build-labels` → `outcomes` → 四规则重跑），
-   重建后所有 v4 收据按 #42 认证门变历史观察，需按阶段重跑。
-2. `gap_policy` 口径拍板。
-3. #673 重做时改 v6 或与本单合并重建一次。
+1. 用户确认合 PR。
+2. 共享库重建**按迁移方案分步走**，每步可停；①②③ 不依赖本单合入。
+3. 成员排除若要做，按敏感性对照另立单，主结论不动。
+4. #673 重做时改 v6 或与本单合并重建一次。
+5. 另立单：`method_validation status` 打印口径对照，避免下次升版再悄悄断掉在途实验。
