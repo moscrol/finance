@@ -40,10 +40,20 @@
   ③ 这张台账**从未在 `ledger-map.md` 登记过**（已 grep 确认无 knevo/ab-ledger 条目），
   而 AGENTS.md 写「新增任何台账必须先在这张表登记」——即选 (a) 复活也得补登记，
   选 (b) 则是「登记一条已废弃」。两条路都要动 `ledger-map.md`，区别只在写什么。
-- **W6（P3）E-007 P3/P4 判据**：依赖两条未合并分支——日历半边依赖
-  `feat/event-pricing-slice1`（`event_calendar.latest_known()` 在那里），
-  赔率半边依赖 `polymarket-macro-odds-impl`（**只有本地分支，gitea 上没有**）。
-  合并须用户确认，故**未动**。
+- **W6（P3）E-007 P3/P4 判据：已交付（2026-09-11）**。用户授权后合入两条依赖分支
+  （`polymarket-macro-odds-impl` → `feat/event-pricing-slice1`，均干净合入，合后全量
+  9081 passed），随后落判据。验收报告：`docs/verification/2026-09-11-e007-p3p4-criteria.md`。
+  - **日历半边**：4 条测试（`intelligence/tests/test_event_pricing.py`，搜 `e007`），用**真实发布
+    日程**（`nbs_2026`）而非手工小日历。顺带闭合 E-007 §5 第一条（发布日核对，两条都对上）。
+    最值钱的一层：7 月 CPI 定于 `2026-08-09`（**周日**）发，按 `reaction_day` 判「已知」，
+    站在 8/9 仍答 6 月期、8/10 才翻 7 月期——推月度节奏推不出「那天是周日」。
+  - **赔率半边**：3 条测试（`tests/test_sync_polymarket_macro_odds.py` 末尾）。
+    as-of 完整性有**真陷阱**：`--trade-date` 是标注日不是数据日，传 `2020-01-01` 照写，
+    拿到的是今天的价盖那天的戳（同 daily-full 「取最新」写历史日的坑）。
+  - **`truncated` 不落库仍是开着的洞，本次有意不补**：该表未接夜跑（补洞是接夜跑的
+    前置，不是现在的阻塞），W6 的动词是「验」，E-007 底线是「本仓不补宏观分析」。
+    改用 **documented gap 测试**钉住：它会在**洞被补上时变红**并报「请更新 W6 验收判据」
+    （已用给 schema 加 `truncated` 列的变异实测过）。**后人注意：那时请改判据，别删测试。**
 
 ## 坑 / 后人须知
 

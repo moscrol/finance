@@ -28,7 +28,7 @@ from intelligence.services.event_pricing.readouts import (
     write_receipt,
 )
 from intelligence.services.event_pricing.schedule import derive_lpr_by_rule, load_schedule_files
-from intelligence.services.event_pricing.store import table_hash
+from intelligence.services.event_pricing.store import EVENT_DDL, table_hash
 from intelligence.services.methodology_backtest.labels import build_labels
 from intelligence.services.methodology_backtest.outcomes import build_outcomes
 from intelligence.services.methodology_backtest.store import open_labels_db
@@ -354,6 +354,102 @@ def test_latest_known_shapes_and_no_numbers(built):
         assert latest_known(con, "nope", "2026-05-08")["status"] == "unknown_schedule"
     finally:
         con.close()
+
+
+# --------------------------------------------------------------------------- #
+# W6 · E-007 P3/P4 判据落位：日历验收归事件日历（latest_known 的 as-of 语义）
+#
+# spec  docs/superpowers/specs/2026-09-10-knevo-arch-delta-worklist.md W6
+# 判据  docs/learning/knevo-distill/E-007-macro-probes.md §4.2：
+#   「agent 必须能从日历**确定性地**回答『站在 T 日，市场已知的最新一期 X 是哪期、
+#     哪天发布』（P3 形状），并对未发布期次输出 not_yet_released + 预计发布日
+#     （P4 形状），而不是靠 LLM 推节奏。这比 Knevo 强一档：它靠推理，我们靠对象。」
+#
+# 与既有测试的分工（别重复钉）：
+#   · 真实日历文件里的发布日真值 → test_schedule_files_parse_and_count 已钉；
+#   · latest_known 的通用形状与禁数值 → test_latest_known_shapes_and_no_numbers（手工小日历）；
+#   · 本节只钉一件事：**喂进真实发布日程后，E-007 那两个提问时点该答什么**。
+#     必须用真日程——P3/P4 的全部意义就是「对着真日程也不许推错」。
+# --------------------------------------------------------------------------- #
+@pytest.fixture(scope="module")
+def e007_cal(tmp_path_factory):
+    """真实 2026 发布日程里的 cn_cpi → 最小日历库。
+
+    reaction_day 一律用产品的 ``map_reaction_day`` 算，**不在测试里另实现一遍**——
+    否则测的是测试自己的实现。交易日用工作日近似：E-007 牵涉的 6/10、7/8、7/9、
+    8/9、8/10、9/7、9/9 都不在法定假日内，近似不改变本节任何一条结论。
+    """
+    params = load_params()
+    entries, _meta = load_schedule_files(params)
+    tds, d = [], date(2026, 1, 1)
+    while d <= date(2026, 12, 31):
+        if d.weekday() < 5:
+            tds.append(d)
+        d += timedelta(days=1)
+    con = duckdb.connect(str(tmp_path_factory.mktemp("e007") / "cal.duckdb"))
+    for ddl in EVENT_DDL:
+        con.execute(ddl)
+    for e in entries:
+        if e.indicator != "cn_cpi":
+            continue
+        rd = map_reaction_day(e.event_date_obj, params.classes[e.event_class].reaction_rule, tds)
+        con.execute(
+            "INSERT INTO history_event_calendar (event_class, indicator, event_date, reaction_day,"
+            " scheduled, source_grade, period, ev_version, computed_at)"
+            " VALUES (?,?,?,?,?,?,?,?,now())",
+            [e.event_class, e.indicator, e.event_date_obj, rd, True,
+             cal_mod.SOURCE_GRADE_OFFICIAL, e.period, "test"],
+        )
+    yield con
+    con.close()
+
+
+def test_e007_p3_latest_known_answers_which_period_as_of_probe_date(e007_cal):
+    """P3：站在 2026-07-08 收盘问「最新一期 CPI 是哪期」。
+
+    E-007 里 Knevo 答「5 月 CPI，因为 6 月 CPI 约 7/9 发布、7/8 收盘未出」——形状对，
+    但那是**推**出来的。我们必须靠对象给出同一答案，并附下一期的确定发布日。
+    """
+    r = latest_known(e007_cal, "cn_cpi", "2026-07-08")
+    assert r["status"] == "released"
+    assert r["period"] == "2026-05" and r["release_date"] == "2026-06-10"
+    assert r["next_release_date"] == "2026-07-09" and r["next_period"] == "2026-06"
+
+
+def test_e007_p4_unreleased_period_reports_expected_release_date(e007_cal):
+    """P4：站在 2026-09-07，8 月 CPI 尚未发布、定于 9/9——未发布期次必须报出预计发布日。"""
+    r = latest_known(e007_cal, "cn_cpi", "2026-09-07")
+    assert r["next_release_date"] == "2026-09-09" and r["next_period"] == "2026-08"
+    # 站在 9/7 已知的最新期是 7 月（8/9 周日发、8/10 才可反应，见下一条）
+    assert r["status"] == "released" and r["period"] == "2026-07"
+
+
+def test_e007_release_date_is_not_the_day_the_market_can_know_it(e007_cal):
+    """发布日 ≠ 可反应日：7 月 CPI 定于 2026-08-09（**周日**）09:30 发布。
+
+    「已知」按 reaction_day 判定，所以站在 8/9 当天仍应答 6 月期，到 8/10（周一）
+    才翻成 7 月期。这一层正是 E-007 §4.2 里「我们靠对象」强过「靠推节奏」的地方——
+    按月度节奏推，推不出「那天是周日」。
+    """
+    assert date(2026, 8, 9).weekday() == 6  # 真是周日；日历若改动，这条先红
+    sunday = latest_known(e007_cal, "cn_cpi", "2026-08-09")
+    monday = latest_known(e007_cal, "cn_cpi", "2026-08-10")
+    assert sunday["period"] == "2026-06"
+    assert sunday["next_release_date"] == "2026-08-09"  # 今天发了，但今天还消化不了
+    assert monday["period"] == "2026-07" and monday["release_date"] == "2026-08-09"
+    assert monday["known_from"] == "2026-08-10"
+
+
+def test_e007_latest_known_never_returns_a_macro_number(e007_cal):
+    """E-007 §0 裁决是「纪律强、数据空」：Knevo 拿不到已发布三个月的 5 月 CPI 数值。
+
+    我们同样没有宏观数据层，区别在**结构上就不给**——latest_known 只答何时、不答多少。
+    这条把 `_FORBIDDEN_KEYS` 全集钉在真日程上：将来谁给它加个 value/forecast 字段，当场红。
+    """
+    for as_of in ("2026-07-08", "2026-08-09", "2026-09-07"):
+        out = latest_known(e007_cal, "cn_cpi", as_of)
+        assert not any(f in k.lower() for k in out for f in cal_mod._FORBIDDEN_KEYS)
+        assert all(not isinstance(v, (int, float)) or isinstance(v, bool) for v in out.values())
 
 
 # --------------------------------------------------------------------------- #

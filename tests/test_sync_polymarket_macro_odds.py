@@ -263,3 +263,121 @@ def test_transient_stall_is_retried_instead_of_losing_the_whole_day(monkeypatch)
     assert truncated is False  # 重试成功不算部分快照
     assert len(records) == 2
     assert calls["n"] == 2
+
+
+# --------------------------------------------------------------------------- #
+# W6 · E-007 赔率半边验收：快照时点（as-of 完整性）与落库完整性
+#
+# spec  docs/superpowers/specs/2026-09-10-knevo-arch-delta-worklist.md W6：
+#   「fact_polymarket_macro_odds_daily 另验两件事：快照时点（as-of 完整性）与
+#     落库完整性，含已知洞 truncated 只印 stdout 未落库。」
+#
+# 这半边**不能替日历半边作数**（spec 同段）：赔率表的市场截止日是「交易截止」，
+# 不是官方发布日，回答不了「最新一期 CPI 哪天发布」——那是 latest_known 的活。
+# --------------------------------------------------------------------------- #
+def test_trade_date_is_a_label_not_a_data_date(tmp_path, monkeypatch):
+    """as-of 完整性：上游只有「此刻」快照，``trade_date`` 纯粹是标注日。
+
+    传一个久远的日期也照写不误——**这不是回补历史的能力**。谁用 --trade-date 去
+    补过去某天的赔率，拿到的是今天的价、盖上那天的戳。与 CLAUDE.md 里 daily-full
+    「取最新」语义写到历史日是同一个坑（把今天盘中价写成那天收盘）。
+    """
+    db_path = tmp_path / "market_feature_store.duckdb"
+    monkeypatch.setattr(pm_sync, "connect", _connect_test_db(db_path))
+    monkeypatch.setattr(pm_sync, "init_db", _init_test_db(db_path))
+    monkeypatch.setattr(
+        pm_sync,
+        "fetch_relevant_markets",
+        lambda: (
+            [
+                {
+                    "event_id": "e1", "market_id": "m1", "condition_id": "0xm1",
+                    "tag": "Fed", "question": "Rate cut?", "outcome": "Yes",
+                    "probability": 0.7, "volume": 1.0, "volume_24hr": None,
+                    "end_date": date(2026, 12, 31),
+                },
+            ],
+            False,
+        ),
+    )
+
+    pm_sync.sync("2020-01-01")
+
+    rows = _rows(db_path)
+    # 行确实落在 2020-01-01 名下，但那一天 Polymarket 上根本没有这个市场。
+    assert rows[0][0] == date(2020, 1, 1)
+    # 表里没有任何字段能告诉下游「这份快照实际抓取于何时」——updated_at 是写入时刻，
+    # 不是行情时刻，两者在回补场景下会差好几年。
+    con = duckdb.connect(str(db_path))
+    try:
+        cols = {c[0] for c in con.execute("DESCRIBE fact_polymarket_macro_odds_daily").fetchall()}
+    finally:
+        con.close()
+    assert "trade_date" in cols and "updated_at" in cols
+    assert not any("snapshot" in c.lower() or "as_of" in c.lower() for c in cols)
+
+
+def test_truncated_leaves_no_trace_in_the_table_known_gap(tmp_path, monkeypatch):
+    """落库完整性 · **已知洞**：truncated 只在返回值/stdout，表里查不出来。
+
+    后果：下游查表看到 N 行，分不清「今天上游只给了一半」和「今天就这么多」。
+    与 CLAUDE.md 里 fast_daily_sync 同一个失败形状——行数正常、覆盖率审计正常、
+    值却是残的，只有跨日期 diff 抓得到。
+
+    本条**钉的是洞的现状，不是期望**。原作者已在
+    docs/handoffs/2026-09-10-polymarket-macro-odds.md 标注「接夜跑前必须先补」。
+    补上那天（表加列或落 ops 台账），这条会红——请改判据、更新 W6 验收，别删测试。
+    """
+    db_path = tmp_path / "market_feature_store.duckdb"
+    monkeypatch.setattr(pm_sync, "connect", _connect_test_db(db_path))
+    monkeypatch.setattr(pm_sync, "init_db", _init_test_db(db_path))
+    monkeypatch.setattr(
+        pm_sync,
+        "fetch_relevant_markets",
+        lambda: (
+            [
+                {
+                    "event_id": "e1", "market_id": "m1", "condition_id": "0xm1",
+                    "tag": "Fed", "question": "Rate cut?", "outcome": "Yes",
+                    "probability": 0.7, "volume": 1.0, "volume_24hr": None,
+                    "end_date": date(2026, 12, 31),
+                },
+            ],
+            True,  # 上游中断，这只是部分快照
+        ),
+    )
+
+    result = pm_sync.sync("2026-09-10")
+
+    # 信息在返回值里（CLI 据此印「部分快照」到 stdout）……
+    assert result["truncated"] is True and result["rows"] == 1
+    # ……但表里既没有标志列，也没有任何一行记下这件事。
+    con = duckdb.connect(str(db_path))
+    try:
+        cols = {c[0] for c in con.execute("DESCRIBE fact_polymarket_macro_odds_daily").fetchall()}
+        tables = {t[0] for t in con.execute("SHOW TABLES").fetchall()}
+    finally:
+        con.close()
+    assert not any(
+        k in c.lower() for c in cols for k in ("trunc", "partial", "complete", "degraded")
+    ), "truncated 落库了 → 洞已补，请更新 W6 验收判据（本测试按设计会在此刻变红）"
+    assert not any("polymarket" in t.lower() and t != "fact_polymarket_macro_odds_daily" for t in tables), \
+        "出现了 polymarket 的 ops 台账 → 洞已补，同上"
+
+
+def test_truncated_with_zero_rows_is_indistinguishable_from_never_run(tmp_path, monkeypatch):
+    """最糟形状：三次全挂 → 0 行 + truncated=True，sync 提前 return，库里一个字都没有。
+
+    于是「今天上游全挂」与「今天压根没跑同步」在库里长得一模一样。
+    原作者实测 5 次中过 1 次（handoff §「三次全挂仍会发生」）。
+    """
+    db_path = tmp_path / "market_feature_store.duckdb"
+    monkeypatch.setattr(pm_sync, "connect", _connect_test_db(db_path))
+    monkeypatch.setattr(pm_sync, "init_db", _init_test_db(db_path))
+    monkeypatch.setattr(pm_sync, "fetch_relevant_markets", lambda: ([], True))
+
+    result = pm_sync.sync("2026-09-10")
+
+    assert result == {"rows": 0, "tags_hit": {}, "truncated": True}
+    # 连库文件都没建起来——init_db 在 0 行分支之后才调用。
+    assert not db_path.exists(), "0 行分支若开始建库/落痕，说明洞已补，请更新 W6 验收判据"
