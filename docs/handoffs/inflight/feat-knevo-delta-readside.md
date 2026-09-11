@@ -50,20 +50,24 @@ W5 交付因此在生产上一直交白卷。**原因不是上游断供，是换
 **切源前先跑 `scripts/source_switch_coverage_diff.py`**（仓里现成的，2026-09-08 为
 同类问题写的；本次读数 416 vs 394 天、裸切丢 0 天）——我这次是事后才想起来跑的。
 
-## 等用户裁决
+## 用户已裁决（2026-09-11）
 
-1. **W4（AB 双盲台账）裁决进行中，已偏向 (a) 补样本**。`f7c382a3` 冻结了 AB-003
-   本地侧，等 Knevo 回贴（台账 `docs/learning/knevo-distill/ab-ledger.md`，
-   **main 和本分支都有**，前一版交接说「只在 docs 分支」是错的）。
-   仍要定：AB-001/002 旧样本的 verdict（逾期两月），以及这张台账**从未在
-   `ledger-map.md` 登记过**，补样本也得补登记。AB-002 的 Knevo 侧已判
-   `unverifiable / protocol violation`，**不得再拿 07-10 走势给它打 hit**。
-2. **两笔本地 merge 的授权存疑**。`f017580a` / `45be2a0b` 于 11:02 合入。spec W6 与
-   本分支 12 分钟前的交接都写着「合并须用户确认」；现交接自述「用户授权后合入」，
-   但仓里无任何授权记录，质检方对此存疑。合的是特性分支不是 main、未推送，
-   未触 main 红线。**请用户认账或回退。**
-3. ~~W2b 未回写 spec~~ **已回写**（docs 分支 `657cc927` / `2c4924de` / `a519930a`）。
-   合并时注意该分支现为 10 笔提交。
+1. **W4 取路径 a「补分」，已做**（`bcf6ca6e`）。AB-001 本地 partial（A2：写「缩量」
+   而当日边际量 +16~19% 全正）、AB-002 本地 **miss**（A3+A5：排序完全反转，排第 1 的
+   T+3 -15.86%，而明确排除的农业/养殖 +3.58% 是唯一正收益）。Knevo 侧 AB-001 判 hit
+   但**加了不得直接计入胜率的限定**（AB-002 已证实其系统性截止违规，本条未做同等
+   来源日期审计）。台账也已补登记进 `ledger-map.md`（此前从未登记）。
+   ⚠ **有效样本仍只有 n=2**，任何胜率数字都不成立；周度汇总故意留空，别去填。
+2. **两笔 merge：用户记不清批没批，改按内容审 → 结论「可以留」**。两条都是
+   **加法且惰性**：polymarket 只加了手动 CLI 子命令、没进夜跑计划，且在
+   `finance_query._UNREGISTERED_TABLES` 里主动声明不对 agent 暴露；event-pricing
+   只被 `scripts/event_reaction.py` 这个手动脚本消费，没进任何 ask 路径 / launchd。
+   两次都是 ort 干净自动合并（无冲突），全量 9145 绿。
+   **唯一的副作用是耦合**：本分支合 main 会把这两个特性一起带走。
+   `feat/event-pricing-slice1` 在 gitea 上已有（8706c0e3），`polymarket-macro-odds-impl`
+   **只在本地、从没推过**。想解耦就先让它俩各自合 main，本分支的两个 merge 就变空操作。
+3. **09-08 缺数：用户说补，但工具不能由 agent 调**（`duckdb-backfill` 标了
+   `disable-model-invocation`）。诊断已备齐，见下节，**等用户敲 `/duckdb-backfill`**。
 
 ## 坑 / 后人须知
 
@@ -89,3 +93,20 @@ W5 交付因此在生产上一直交白卷。**原因不是上游断供，是换
   `fact_stock_daily` 只有 930 行（平常 ~5550）；同花顺两张表有该日。
   （`f7c382a3` 的 AB-003 里记的「09-08 全库缺数据未查」就是这个，现已定位到
   「不是全库缺，是 fupanhui/本地链路缺」。）**未修。**
+
+## 09-08 补数：已备好的诊断（用户跑 `/duckdb-backfill` 时直接用）
+
+- **范围**：19 张 fact 表在 2026-09-08 整天为 0 行（`fact_market_daily` /
+  `fact_sector_daily(_generation)` / `fact_sector_stock_daily(_generation)` /
+  `fact_sector_universe_daily` / `fact_sw_l1_daily` / `fact_theme_limit_*` /
+  `fact_limit_advance_daily` / `fact_mainline_*` / `fact_core_*` /
+  `fact_leader_height_daily` / `fact_stock_high_daily` / `fact_sector_period_rank_daily`）。
+  根因是那晚整条链没跑起来：`local` 计划首步 `stock-daily` 只拿到 930/5550 行，
+  下游全部无输入。
+- **好消息：那 930 行是干净的**，来自 `ifind:get_stock_performance`（09-09 19:25 写入），
+  抽样 close 与 `fact_stock_daily_hithink` 同日**逐只 0.000% 差异**。
+  → **是补齐不是清理**，不用先删。
+- **交叉源已在库**：`fact_stock_daily_hithink` 09-08 有 5549 行 OHLCV（无 stock_name/pct_chg），
+  `fact_limit_pool_hithink` 09-08 有 109 行。可作补数后的对账基准。
+- **红线**：09-08 是历史日，**不能用 `eastmoney:snapshot` / 申万 realtime 这类
+  「取最新」语义的源**——会把当天盘中价写成 09-08 收盘（AGENTS.md 点名的坑）。
