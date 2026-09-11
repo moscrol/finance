@@ -13,11 +13,11 @@ k3nj 臂：能力基线的「kimi-k3 × 无独立判官 × 检索语义闸关」
 
 ## 当前状态
 
-已跑完（03:51 收工，rc=2）：28/30 completed 全真形状，judge 分布 repaired 19 / passed 5 / unavailable 7；chain-01/02 engine_missing=澄清闸过触发（见快照「更正」节，两臂同病）。tokens 4.93M in，零配额污染。事故件在 runs/attic-misconfig-20260911/（未入链）。**用户验收（09-11）：看过问答后判「关掉判官回答的也不错」——无独立判官臂质量获认可。**
+已跑完（03:51 收工）：28/30 completed 全真形状，judge 分布 repaired 19 / passed 5 / unavailable 7；chain-01/02 engine_missing=B7 澄清闸过触发（两臂同病）。tokens 4.93M in，零配额污染。事故件在 runs/attic-misconfig-20260911/（未入链）。**用户验收（09-11）：看过问答后判「关掉判官回答的也不错」——无独立判官臂质量获认可。**
 
 ## 已验证
 
-- 400 根因（双钥双门禁，均实测）：mirasim key 路拒 temperature 字段（只认摘除）；OPENAI key 路拒 thinking.disabled。探针用 OPENAI key 且不带这两字段，两种 400 都探不出。
+- 400 根因（双钥双门禁，实测）：mirasim 路拒 temperature 字段；OPENAI 路拒 thinking.disabled。探针探不出（钥匙和字段都不对）。
 - shim 冒烟（摘帽/他模型惰性/未设 env 零变化）+ llm_refine 相关 27 单测绿；preflight-k3nj 四查 GO。
 - provenance：372d047c→6bea3197 的 services/runtime/api 零改动；k3nj 树=6bea3197+shim。
 
@@ -30,7 +30,7 @@ k3nj 臂：能力基线的「kimi-k3 × 无独立判官 × 检索语义闸关」
 
 - **收口已完成**：终件入仓 intelligence/eval/runs/，验收文 docs/verification/2026-09-11-capability-benchmark-00-k3nj.md（含判官口径边界：已测=自审在环，连自审也撤是未测形态）。
 - 剩下：两臂人工评审 + aggregate（00 臂评审也没做，建议同尺度同期）。
-- 00 臂 7 题 resume 与本臂无关；grok 充值用户顺延至下周三，若独立判官终弃则 00 尾题价值降级为存档。
+- 00 臂 7 题 resume 与本臂无关；grok 充值顺延下周三，若独立判官终弃其尾题降级为存档。
 
 ## 踩过的坑
 
