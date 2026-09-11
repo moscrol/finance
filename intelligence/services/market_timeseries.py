@@ -373,20 +373,29 @@ def latest_double_red_snapshot_block_for_llm(
 # 断言「services 无一处引用」）。数据在库里，agent 面前没有。
 # 这就是 reading-rules-inventory §5 的 G1a：「有封板时间但无块输出」。
 #
-# ⚠ 上游断供（2026-09-11 实测，跨日期 diff）：该列 2026-09-02 及以前逐日 100%
-# 非空，**2026-09-03 起连续 5 个交易日（09-03/04/07/09/10）全 NULL，行照常进**。
-# 这是 AGENTS.md 点名的「行在、值全 NULL」空壳——只数行数的覆盖率审计抓不到。
-# 后果：本块当前对最近交易日恒返回空串（被下面第一道守卫短路），W5 交付在生产上
-# 处于惰性状态；一旦上游补回即自动恢复，代码侧无需改动。open_times（G1b）是同一
-# 形状的旧案，`leader_succession.py` 的一字板判定已因此恒 "unknown"，现在
-# first_limit_time 也断了，那条判定的两个输入同时为空。
-# 追上游需外呼 fupanhui / 同花顺比对 payload 字段名，不在本块范围。
+# ⚠ 为什么有第二个源（2026-09-11 查清，此前一版注释把原因写错了，勿沿用）
 #
-# 本块只交付**数据出口**，不激活规则。pending 规则 SPT-A06（秒板未换手则后排
-# 无价值）依赖的另一半是 `open_times`（炸板次数），该列 15.2 万行恒 NULL
-# （G1b 静默降级，查证需外呼 fupanhui 比对 payload 字段名）。按 §5 更正块的
-# 既定裁决：**G1b 未解决前 SPT-A06 整体留在 _PENDING_RULES**，故这里不调
-# `reading_baseline.block_rule_lines("D18")`——没有规则可挂，挂了就是把
+# 现象：`first_limit_time` 到 2026-09-02 逐日 100% 非空，09-03 起连续 5 个交易日
+# 全 NULL 而行照常进——「行在、值全 NULL」的空壳，只数行数抓不到。
+#
+# 但**这不是上游断供，是换了写入方**。`source` 列直接点名：09-02 及以前是
+# `fupanhui:watchlist/limit-distribution/stocks`，09-03 起是 `local:limit-rule`。
+# 后者是 `compute_local_stats.py` 的本地自算链路（fupanhui 账号风控后的生产链路，
+# 见 consumption_registry 的 `local` 计划），按设计只写 12 列——封板时点属
+# **盘中事实**，从日线 OHLCV 推不出来，它结构上就产不出。同批归零的有 22 列。
+# 所以：不需要外呼比对 payload 字段名，答案在仓里。风控期间 fupanhui 那半会一直空。
+#
+# 替代源：`fact_limit_pool_hithink`（同花顺官方涨停池，工单 #41）。按 pool 分区，
+# `limit_up` 池的 `limit_up_time` 100% 非空，历史回到 2020-07。2026-09-02（两源都
+# 有的日子）交叉验证：49 只交集**逐只到分钟全部一致**，hithink 是 fupanhui 的完整
+# 子集（fupanhui 多 3 只）。故本块 fupanhui 无读数时回落到它，并在块里自报换了源。
+# 注意分区语义：`limit_up` 与 `limit_break` 两池**互斥**，`open_times` 只描述
+# 「炸了没回封」的票，不等于「涨停票盘中开过几次板」。
+#
+# G1b 仍未解决，SPT-A06 仍留 _PENDING_RULES。SPT-A06（秒板未换手则后排无价值）
+# 要的是涨停票的换手充分与否：fupanhui 的 `open_times` 15.2 万行恒 NULL；hithink
+# 有 `turnover_ratio_pct` 列但**实测 0% 填充**（又一根空壳柱子，别再以为它能用）。
+# 故这里不调 `reading_baseline.block_rule_lines("D18")`——没有规则可挂，挂了就是把
 # 模型拿不到输入的判读注入进去。
 # --------------------------------------------------------------------------- #
 
@@ -426,7 +435,17 @@ def limit_seal_time_block_for_llm(
     on_date: str | None = None,
     limit: int = 12,
 ) -> str:
-    """涨停封板时间块 [D18]；无封板时间读数时返回空串（不注入、不出空块）。"""
+    """涨停封板时间块 [D18]；无封板时间读数时返回空串（不注入、不出空块）。
+
+    两个源，按「谁有当日读数」**择一，不混用**（混用会出现同一块里两套口径）：
+
+    1. ``fact_theme_limit_stock_daily``（fupanhui 链路）——带题材维度，优先；
+    2. ``fact_limit_pool_hithink`` 的 ``limit_up`` 池（同花顺官方）——fupanhui 风控
+       期间唯一还有封板时点的源，回落时块内自报换了源。
+
+    两源都有读数的历史日走 1，输出与加回落之前**逐字节相同**；回落只在 1 交不出
+    东西时发生，所以这是纯增量，不动既有行为。
+    """
     db_path = (
         Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     )
@@ -436,6 +455,31 @@ def limit_seal_time_block_for_llm(
         con = retrieval_cache.connect_readonly(db_path)
     except Exception:
         return ""
+    try:
+        block = _seal_block_fupanhui(
+            con, theme=theme, entity=entity, on_date=on_date, limit=limit
+        )
+        if block:
+            return block
+        return _seal_block_hithink(
+            con, theme=theme, entity=entity, on_date=on_date, limit=limit
+        )
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
+
+
+def _seal_block_fupanhui(
+    con: Any,
+    *,
+    theme: str | None,
+    entity: str | None,
+    on_date: str | None,
+    limit: int,
+) -> str:
+    """源 1（优先）：fupanhui 链路，带题材维度。风控期间对近日恒交白卷。"""
     try:
         exists = con.execute(
             "select count(*) from information_schema.tables "
@@ -512,7 +556,10 @@ def limit_seal_time_block_for_llm(
               min(first_limit_time) as first_seal,
               max(last_limit_time) as last_seal,
               max(limit_times) as limit_times,
-              string_agg(distinct sector_name, '/') as sectors
+              -- 不带 ORDER BY 的 string_agg 顺序不稳定：同一天同一只票两次跑会得到
+              -- 「温控/液冷」和「液冷/温控」两种 prompt（2026-09-11 实测）。模型输入
+              -- 不该有这种抖动，也让逐字节回归断言变得不可能。
+              string_agg(distinct sector_name, '/' order by sector_name) as sectors
             from fact_theme_limit_stock_daily
             where trade_date = cast(? as date)
               and first_limit_time is not null and first_limit_time <> ''
@@ -551,8 +598,156 @@ def limit_seal_time_block_for_llm(
         return "\n".join(lines)
     except Exception:
         return ""
-    finally:
-        try:
-            con.close()
-        except Exception:
-            pass
+
+
+def _seal_block_hithink(
+    con: Any,
+    *,
+    theme: str | None,
+    entity: str | None,
+    on_date: str | None,
+    limit: int,
+) -> str:
+    """源 2（回落）：同花顺官方涨停池 ``fact_limit_pool_hithink``。
+
+    只取 ``limit_up`` 池：它与 ``limit_break`` 池互斥，``limit_up_time`` 100% 非空。
+    题材维度该表没有，用 ``fact_sector_stock_daily``（本地自算链路仍在维护）补板块
+    归属，并把同花顺自己的 ``limit_up_reason``（涨停原因）原样透出——它比板块名更
+    贴近当日叙事，且是上游给的、非本地推断。
+    """
+    try:
+        exists = con.execute(
+            "select count(*) from information_schema.tables "
+            "where table_name='fact_limit_pool_hithink'"
+        ).fetchone()[0]
+        if not exists:
+            return ""
+        row = con.execute(
+            "select max(trade_date) from fact_limit_pool_hithink "
+            "where pool='limit_up' and limit_up_time is not null and limit_up_time <> '' "
+            "and (? is null or trade_date <= cast(? as date))",
+            [on_date, on_date],
+        ).fetchone()
+        trade_date = str(row[0]) if row and row[0] is not None else ""
+        if not trade_date:
+            return ""
+        total, with_seal = con.execute(
+            """
+            select count(distinct stock_ts_code),
+                   count(distinct case when limit_up_time is not null and limit_up_time <> ''
+                         then stock_ts_code end)
+            from fact_limit_pool_hithink
+            where trade_date = cast(? as date) and pool = 'limit_up'
+            """,
+            [trade_date],
+        ).fetchone()
+        if not with_seal:
+            return ""
+
+        scope_note = ""
+        scope_filter = ""
+        params: list[Any] = [trade_date]
+        keyword = (theme or entity or "").strip()
+        if keyword:
+            like = f"%{keyword}%"
+            probe = con.execute(
+                """
+                select count(*)
+                from fact_limit_pool_hithink h
+                left join fact_sector_stock_daily s
+                  on s.trade_date = h.trade_date and s.stock_ts_code = h.stock_ts_code
+                where h.trade_date = cast(? as date) and h.pool = 'limit_up'
+                  and h.limit_up_time is not null and h.limit_up_time <> ''
+                  and (coalesce(s.sector_name, '') ilike ?
+                       or coalesce(h.limit_up_reason, '') ilike ?
+                       or coalesce(s.stock_name, '') ilike ?)
+                """,
+                [trade_date, like, like, like],
+            ).fetchone()[0]
+            if probe:
+                scope_filter = (
+                    "and (coalesce(s.sector_name, '') ilike ? "
+                    "or coalesce(h.limit_up_reason, '') ilike ? "
+                    "or coalesce(s.stock_name, '') ilike ?)"
+                )
+                params += [like, like, like]
+                scope_note = f"；已按「{keyword}」收口"
+            else:
+                scope_note = f"；「{keyword}」当日无封板时点读数，以下为全市场"
+        params.append(max(1, min(int(limit), 50)))
+        rows = con.execute(
+            f"""
+            select h.stock_ts_code,
+                   min(s.stock_name) as stock_name,
+                   min(h.limit_up_time) as seal_time,
+                   max(h.continue_day_cnt) as limit_times,
+                   max(h.seal_money) as seal_money,
+                   min(h.limit_up_reason) as reason
+            from fact_limit_pool_hithink h
+            left join fact_sector_stock_daily s
+              on s.trade_date = h.trade_date and s.stock_ts_code = h.stock_ts_code
+            where h.trade_date = cast(? as date) and h.pool = 'limit_up'
+              and h.limit_up_time is not null and h.limit_up_time <> ''
+              {scope_filter}
+            group by h.stock_ts_code
+            order by seal_time, limit_times desc, h.stock_ts_code
+            limit ?
+            """,
+            params,
+        ).fetchall()
+        if not rows:
+            return ""
+        # 名字补齐：`fact_limit_pool_hithink` 只有 ticker，板块成分表当日可能整天缺
+        # （2026-09-08 实测：同花顺有该交易日，fupanhui/本地链路整天没有），退化成
+        # 一串数字代码会让模型认不出标的。名字不随日期变，故取近 30 日内最后一次
+        # 已知名（arg_max），不强求同日。
+        missing = [r[0] for r in rows if not r[1]]
+        name_map: dict[str, str] = {}
+        if missing:
+            placeholders = ",".join("?" for _ in missing)
+            name_map = dict(
+                con.execute(
+                    f"""
+                    select stock_ts_code, arg_max(stock_name, trade_date)
+                    from fact_stock_daily
+                    where stock_name is not null and stock_name <> ''
+                      and trade_date between cast(? as date) - 30 and cast(? as date)
+                      and stock_ts_code in ({placeholders})
+                    group by stock_ts_code
+                    """,
+                    [trade_date, trade_date, *missing],
+                ).fetchall()
+            )
+        lines = [
+            "## 涨停封板时间数据块 [D18]",
+            f"- 数据截至：{trade_date}；口径为**同花顺官方涨停池** "
+            "fact_limit_pool_hithink（limit_up 池）的 limit_up_time，确定性直查、非模型推断。",
+            "- ⚠ 换源说明：fupanhui 链路当日无封板时点读数（账号风控期间生产链路切成"
+            "本地自算，封板时点属盘中事实，本地从日线推不出），故本块回落到同花顺官方源。"
+            "两源在 2026-09-02 交叉验证 49 只交集逐只到分钟一致；此处只用其一，不混口径。",
+            f"- 覆盖：当日涨停 {int(total or 0)} 只，"
+            f"其中 {int(with_seal)} 只有封板时点读数{scope_note}。",
+            "- 逐只封板时点（按首封升序）：",
+        ]
+        for code, name, seal_time, limit_times, seal_money, reason in rows:
+            label = name or name_map.get(code) or str(code).split(".")[0]
+            money = (
+                f"，封单 {seal_money / 1e8:.2f} 亿"
+                if isinstance(seal_money, (int, float)) and seal_money
+                else ""
+            )
+            lines.append(
+                f"  - {label}({code})：首封 {seal_time}，"
+                f"连板 {limit_times if limit_times is not None else '—'}{money}，"
+                f"涨停原因 {reason or '—'}"
+            )
+        lines.append(
+            "- 使用要求：本块只支持「开盘即封 / 盘中封板」这类**时点**识别。"
+            "本源**没有末封时点**（limit_up 池与 limit_break 炸板池互斥，"
+            "该池内的票是收盘仍封住的），因此**不能判断盘中是否开过板**；"
+            "换手是否充分同样判不了（turnover_ratio_pct 实测 0% 填充）。"
+            "首封接近 09:25 通常是竞价一字板，仍不等于换手充分或不充分。"
+        )
+        return "\n".join(lines)
+    except Exception:
+        return ""

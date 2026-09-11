@@ -169,6 +169,136 @@ def test_scope_narrows_to_theme_and_falls_back_honestly(tmp_path) -> None:
     assert "秒板股" in fallback and "回封股" in fallback
 
 
+def _add_hithink(db_path, rows: list[tuple], *, members: list[tuple] = (), names: list[tuple] = ()):
+    """给同一个库补同花顺涨停池 + 名字/板块来源表（回落源的配套）。"""
+    con = duckdb.connect(str(db_path))
+    con.execute(
+        """
+        CREATE TABLE IF NOT EXISTS fact_limit_pool_hithink (
+            trade_date DATE, pool TEXT, stock_ts_code TEXT, ticker TEXT,
+            limit_up_time TEXT, limit_up_reason TEXT,
+            continue_day_cnt INTEGER, seal_money DOUBLE, open_times INTEGER
+        )
+        """
+    )
+    con.execute(
+        """
+        CREATE TABLE IF NOT EXISTS fact_sector_stock_daily (
+            trade_date DATE, sector_name TEXT, stock_ts_code TEXT, stock_name TEXT
+        )
+        """
+    )
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS fact_stock_daily "
+        "(trade_date DATE, stock_ts_code TEXT, stock_name TEXT)"
+    )
+    if rows:
+        con.executemany("INSERT INTO fact_limit_pool_hithink VALUES (?,?,?,?,?,?,?,?,?)", rows)
+    if members:
+        con.executemany("INSERT INTO fact_sector_stock_daily VALUES (?,?,?,?)", list(members))
+    if names:
+        con.executemany("INSERT INTO fact_stock_daily VALUES (?,?,?)", list(names))
+    con.close()
+    return db_path
+
+
+def _hithink_rows() -> list[tuple]:
+    return [
+        ("2026-09-07", "limit_up", "300001.SZ", "300001", "09:25", "人形机器人+减速器", 4, 8.4e7, None),
+        ("2026-09-07", "limit_up", "300002.SZ", "300002", "10:30", "玉米制种+现代农业", 1, 5.5e8, None),
+        # 炸板池与涨停池互斥，不该出现在本块里。
+        # 这行**故意**填了 limit_up_time——生产里炸板池该列恒空，若照抄生产写 None，
+        # 挡住它的其实是 `limit_up_time is not null`，pool 过滤不承重，断言就是假的
+        # （2026-09-11 变异实测：删掉 pool 过滤，照抄生产的夹具一片绿）。
+        ("2026-09-07", "limit_break", "300009.SZ", "300009", "11:05", "炸板不该进来", 1, 1.0e8, 3),
+    ]
+
+
+def test_falls_back_to_hithink_when_fupanhui_has_no_seal_readings(tmp_path) -> None:
+    """风控期间 fupanhui 那半交白卷时，回落到同花顺官方涨停池，并自报换了源。"""
+    rows = [
+        # 行照常进、封板时点整列为空——就是 2026-09-03 起的生产实况（source 换成本地自算）
+        ("2026-09-07", "990013.FP", "液冷", "300001.SZ", "无时间股", 1, "涨停",
+         None, None, None, "液冷概念"),
+    ]
+    db_path = _make_db(tmp_path, rows, name="fallback.duckdb")
+    _add_hithink(
+        db_path,
+        _hithink_rows(),
+        members=[("2026-09-07", "机器人", "300001.SZ", "秒板股")],
+        names=[("2026-09-07", "300002.SZ", "次封股")],
+    )
+
+    block = limit_seal_time_block_for_llm(db_path)
+    assert "[D18]" in block
+    assert "2026-09-07" in block
+    # 换源必须自报，否则模型会以为还是原来那条链路的口径
+    assert "换源说明" in block
+    assert "fact_limit_pool_hithink" in block
+    assert "秒板股(300001.SZ)：首封 09:25" in block
+    assert "连板 4" in block and "封单 0.84 亿" in block
+    assert "涨停原因 人形机器人+减速器" in block
+    # 板块成分表没有 300002 → 退到 fact_stock_daily 的近期已知名，不许退成裸代码
+    assert "次封股(300002.SZ)" in block
+    assert "300002(300002.SZ)" not in block
+    # 炸板池的票不属于本块
+    assert "300009" not in block
+    # 本源没有末封：逐只行里不得出现（免责句里说「没有末封时点」是另一回事）
+    stock_lines = [ln for ln in block.splitlines() if ln.startswith("  - ")]
+    assert stock_lines
+    assert not any("末封" in ln for ln in stock_lines)
+    assert "不能判断盘中是否开过板" in block
+
+
+def test_fupanhui_wins_when_both_sources_have_readings(tmp_path) -> None:
+    """两源都有读数的历史日必须走 fupanhui，且与没有回落源时逐字节相同。"""
+    only_fupanhui = _make_db(tmp_path, _rows(), name="solo.duckdb")
+    baseline = limit_seal_time_block_for_llm(only_fupanhui)
+
+    both = _make_db(tmp_path, _rows(), name="both.duckdb")
+    _add_hithink(
+        both,
+        [("2026-09-10", "limit_up", "300001.SZ", "300001", "09:25", "别用我", 9, 1.0e8, None)],
+    )
+    assert limit_seal_time_block_for_llm(both) == baseline
+    assert "别用我" not in baseline
+    assert "换源说明" not in baseline
+
+
+def test_hithink_scope_narrows_and_falls_back_honestly(tmp_path) -> None:
+    db_path = _make_db(tmp_path, [], name="scope-hithink.duckdb")
+    _add_hithink(
+        db_path,
+        _hithink_rows(),
+        members=[("2026-09-07", "机器人", "300001.SZ", "秒板股"),
+                 ("2026-09-07", "农业", "300002.SZ", "种业股")],
+    )
+
+    narrowed = limit_seal_time_block_for_llm(db_path, theme="机器人")
+    assert "已按「机器人」收口" in narrowed
+    assert "秒板股" in narrowed and "种业股" not in narrowed
+    # 收口不改覆盖率分母
+    assert "当日涨停 2 只" in narrowed
+
+    fallback = limit_seal_time_block_for_llm(db_path, theme="固态电池")
+    assert "「固态电池」当日无封板时点读数，以下为全市场" in fallback
+    assert "秒板股" in fallback and "种业股" in fallback
+
+
+def test_hithink_respects_as_of(tmp_path) -> None:
+    db_path = _make_db(tmp_path, [], name="asof-hithink.duckdb")
+    _add_hithink(
+        db_path,
+        _hithink_rows()
+        + [("2026-09-08", "limit_up", "300003.SZ", "300003", "09:31", "次日", 1, 1.0e8, None)],
+    )
+    latest = limit_seal_time_block_for_llm(db_path)
+    assert "2026-09-08" in latest and "300003" in latest
+
+    earlier = limit_seal_time_block_for_llm(db_path, on_date="2026-09-07")
+    assert "2026-09-07" in earlier and "300003" not in earlier
+
+
 def test_assembly_forwards_requested_date_to_on_date() -> None:
     """装配面对账：``ask.py`` 的 D18 闭包必须把问句日期传进 ``on_date``。
 
