@@ -21,37 +21,38 @@
 - 联网操作统一经 `web-access` skill。
 - 日常复盘用默认东财快照（`--stock-source snapshot`）；`--stock-source mootdx` 只用于首次建库或多日历史回填，慢且当日值与快照一致。
 
-## 飞书表
+## 飞书（2026-09-11 已整体退役）
 
-| 用途 | 表 | ID |
-|---|---|---|
-| 每日市场指标 | Bitable 每日指标 | `tbljGvjtl1IC44hb` |
-| 板块趋势 | Bitable 板块趋势 | `tblshRMmRnQYrM4K` |
-| 连板晋级 | Bitable 连板晋级 | limit-advance skill 管理；写入必须串行（从旧到新），不并行写 |
-| 板块每日涨跌幅 + 成交额 | Bitable sector_daily | `tblXqyf9Av1rGg0n` |
-| 板块每日边际量 | 电子表格 sector_marginal_sheet | sheet `e8a204`；spreadsheet token 取自 `~/.claude/shared/feishu_config.json`，不写进仓 |
+自建应用连同仓内所有飞书代码于 2026-09-11 删除。**这一节保留是为了回答「那些数据去哪了」，不是操作指南。**
 
-### 飞书的退役边界与凭证（2026-09-11 实测）
+退役理由（先量后删，不是凭印象）：8 张表最后一次写入全部停在 2026-05 ~ 06-18（大成交 05-08、
+强势股 05-20、连板晋级 06-03、板块趋势 05-19、板块涨幅成交额 06-03、涨家数走势 06-18、每日指标 06-18），
+距退役日已 3 个月无人写；唯一还在跑的 `notify_feishu` 每次都 HTTP 400（缺 `im:chat` 权限），
+即告警从未送达。凭证 `app_id/app_secret` 曾明文写进 `migrate_dates.py`，
+`26446460`（2026-07-02）只从工作树删、历史里仍在——删应用同时作废了那把钥匙。
 
-「飞书退役了」只对一半，写清楚免得下一个人拿它当死链路：
+退役前已把 8 张表只读导出到 `~/.finance-runtime/feishu-export-20260911/`（板块趋势 1875 行、
+每日指标 159、涨家数走势 160、自选股 13、强势股 62、连板晋级 214、大成交 60、板块涨幅成交额 228）。
+本地 DuckDB 是超集（例：`fact_market_daily` 404 行 > 飞书「每日指标」159 行），
+唯一没有本地副本的是**自选股那 13 只**——它只在飞书里由人手维护，需要时从导出文件取。
 
-| 链路 | 状态 | 证据 |
-|---|---|---|
-| IM 问答入口 `intelligence.cli feishu-bot` | 已退役（exit 2，不读凭证） | `709d0e6e` |
-| `sync-market-daily`（飞书「每日指标」表） | 已退役，已从日链拿掉 | `cc5d2e4e`；日志里最后一次「飞书拉取: 159 条」在 2026-08-20 |
-| `scripts/notify_feishu.py`（运维告警） | **仍在跑** | 夜跑链 `~/.local/bin/nightly-full-review-s7.sh:75`；`intelligence/workflows/daily_review.py` 与 `scripts/check_db_lock.py` 都 import；2026-09-10 还调过（拿到 token，卡在 `im:chat` 权限 400） |
-| `skills/advancers-chart/scripts/feishu_chart.py` | 代码活着，当前链路未调 | `sync_daily_full.py:298` 的 `with_chart` 步；近期 `-advancers-ma5.png` 都是本地 DuckDB 的 `daily-review` 生成的 |
-| CLI `sync-limit-advance-feishu` | 仍注册 | `market_feature_store/cli.py:1643` |
+原飞书能力的本地去处：
 
-**凭证：不要把 token 当密钥，也不要把密钥当已死。**
-`tblXxx` / spreadsheet token 是**文档标识符**，单独拿到访问不了；真正的钥匙是
-`~/.claude/shared/feishu_config.json` 里的 `app_id`/`app_secret`。这把钥匙曾以明文写在
-`skills/advancers-chart/scripts/migrate_dates.py`，`26446460`（2026-07-02）从工作树删除，
-**git 历史里仍在且至今未轮换**（2026-09-11 比对：当前配置与历史值逐字相同，
-换 tenant_access_token 返回 `code=0`，可枚举「复盘数据」 base 下 8 张表、含自选股）。
-删当前副本不解决问题；要么轮换并同步上表三处消费方，要么直接删自建应用并拆掉告警依赖。
+| 原飞书链路 | 现在用什么 |
+|---|---|
+| 每日指标 / 市场总览 | `daily-full` → `fact_market_daily`；skill `market-overview`（仅飞书写入部分删了） |
+| 板块趋势 / 板块涨幅成交额 / 边际量电子表格 | `sync_fupanhui_sector_daily` → `fact_sector_daily`；双红筛选直接查库 |
+| 连板晋级 | `sync-fupanhui-limit-advance-daily` → `fact_limit_advance_presence` |
+| 涨家数走势图 | `daily-review --chart-output`（本地 PNG，早就是它在出图） |
+| 强势股 / 大成交排行 | CLI `interval-gainers` / `weighted-gainers`（本地算，含 UP 偏离列） |
+| UP 线与偏离度 | `market_feature_store/query.py` 的 `ma26 + 0.764*std26`，与原 skill 同一公式 |
+| 运维告警 | `scripts/notify_ops.py`：`~/.finance-runtime/alerts.log` + 桌面通知 |
 
-Bitable base：`pcnyt9i9lfme.feishu.cn/base/RnRfbT9F1asuFFsQpAyccMmHn2b`。电子表格新日期写到最右侧空列，列排序由用户手动完成，不自动插入或移位。条件格式公式用 `$A1` 引用板块名，每 15 个板块一条 `=OR()` 规则，单条过长会静默失效（汇总见根目录 `条件格式公式.md`）。
+### fupanhui 板块抓取的坑（原 sector-data skill 的遗产，与飞书无关）
+
+- CDP eval 里用 `fetch()`（返回 Promise），不要用 `XMLHttpRequest`；长 JS 先落文件再 `curl -d "$(cat /tmp/x.js)"`，省得被 shell 转义咬。
+- `sectors/search` 的 `strength` **不是成交额**，amount 只能从 kline API 取。
+- 板块 universe 必须以当日 `sectors/search` 返回的 `ts_code` 为准。硬编码列表会漏：历史回填曾因列表里缺 `886063.TI`，让 `PEEK材料` 多个日期空档。
 
 ## 字段与口径
 

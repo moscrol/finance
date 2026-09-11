@@ -112,16 +112,13 @@ def narrative_freshness_warnings(trade_date: str) -> list[str]:
 def preflight(require_fupanhui: bool = True) -> list[str]:
     """开跑前环境自检：把环境问题在第一时间报清楚，不等跑到一半才发现。
 
-    检查项：CDP proxy 存活、fupanhui 登录态、shared 软链。返回问题列表。
+    检查项：CDP proxy 存活、fupanhui 登录态。返回问题列表。
     ``require_fupanhui=False``（plan=local，零复盘会请求）时跳过 CDP / 登录态检查，
-    只留 shared 软链——否则 local 计划会被一个它根本不用的依赖卡死（0909 夜跑实测）。"""
+    直接返回空——否则 local 计划会被一个它根本不用的依赖卡死（0909 夜跑实测）。
+    原来还探一下 ``shared/`` 里那个飞书工具模块在不在，以此判断软链活没活；
+    那条软链只为飞书那套脚本存在，2026-09-11 自建应用退役后一并去掉。"""
     problems: list[str] = []
 
-    shared = ROOT / "shared"
-    if not (shared / "feishu_utils.py").exists():
-        problems.append(
-            "shared 软链缺失或失效: 修复 `ln -sfn ~/.claude/shared shared`"
-        )
     if not require_fupanhui:
         return problems
 
@@ -168,7 +165,7 @@ def preflight(require_fupanhui: bool = True) -> list[str]:
 
 def _notify(msg: str) -> None:
     """告警双通道（与 nightly_full_review.sh 的 notify() 同款）：Mac 系统通知必达本机，
-    飞书可选；告警自身失败静默，不影响同步流程。"""
+    告警自身失败静默，不影响同步流程。"""
     try:
         subprocess.run(
             ["osascript", "-e",
@@ -501,7 +498,7 @@ def main() -> int:
                 print(f"  - {p}", flush=True)
             print("(修复后重跑, 或加 --skip-preflight 强制继续)", flush=True)
             return 3
-        scope = "CDP proxy / 登录态 / shared 软链" if require_fupanhui else "shared 软链（local 计划零复盘会请求，跳过 CDP/登录检查）"
+        scope = "CDP proxy / 登录态" if require_fupanhui else "无（local 计划零复盘会请求，跳过 CDP/登录检查）"
         print(f"== preflight 通过: {scope} ==", flush=True)
         warnings = narrative_freshness_warnings(args.date)
         if warnings:

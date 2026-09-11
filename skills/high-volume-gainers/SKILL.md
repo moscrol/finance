@@ -17,15 +17,13 @@ description: 大成交涨幅排行（成交额×涨幅量价综合加权排序�
 
 执行流程 7 步（解析日期 → 并行发起 iFind 涨幅前100 + AKShare 板块 → 加权涨幅公式取前20 → 分批并行查核心题材 → 筛除通用噪声留 2–3 核心题材 → ASCII 个股表 → markdown 板块表）见 `references/execution-flow.md`，逐步执行。
 
-## 写入飞书
+## 入库
 
-```bash
-echo '[JSON数组]' | python3 /Users/lbq/Desktop/c c/金融/skills/high-volume-gainers/scripts/write.py
-```
-
-JSON 每条：`{"date":"YY-MM-DD~YY-MM-DD","code":"688256.SH","name":"寒武纪","themes":"AI/芯片/国产操作系统","avg_vol":218.9,"gain":30.01,"weighted_gain":65.68}`
-
-脚本按日期+股票代码查重，已存在则跳过。写入后自动回读验证，检查所有关键字段是否完整，有空字段会输出 ⚠ 警告。
+排行是**读算不入库**的：加权涨幅由 iFind + AKShare 现场算、现场展示。
+原来还有一步把结果写进飞书「大成交」表，2026-09-11 随飞书自建应用一起退役
+（那张表最后一次写入是 2026-05-08，早已无人看）。需要落库的量价排行用本地
+`python3 -m market_feature_store.cli weighted-gainers --start D1 --end D2`，
+它直接算 DuckDB 日线，还带 UP 偏离列。
 
 ## 注意事项
 

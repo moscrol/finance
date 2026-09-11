@@ -1760,25 +1760,6 @@ def cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
-def add_feishu_bot_parser(subparsers: argparse._SubParsersAction) -> None:
-    from intelligence.chat import feishu_bot
-
-    parser = subparsers.add_parser(
-        "feishu-bot",
-        help="飞书 IM 入口（已退役；调用 exit 2。问答用 ask / Workbench Episode）",
-        description="飞书 IM 入口（已退役）。不连 WebSocket；问答用 ask / Workbench Episode。",
-    )
-    feishu_bot.add_arguments(parser)
-    parser.set_defaults(func=cmd_feishu_bot)
-
-
-def cmd_feishu_bot(args: argparse.Namespace) -> int:
-    from intelligence.chat import feishu_bot
-
-    _ = args  # 旧旗标仍可解析，退役闸不读凭据、不连 WebSocket
-    return feishu_bot.run()
-
-
 def add_dream_collect_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "dream-collect",
@@ -4149,7 +4130,6 @@ def build_parser() -> argparse.ArgumentParser:
     add_data_requests_parser(subparsers)
     add_l3_ingest_parser(subparsers)
     add_serve_parser(subparsers)
-    add_feishu_bot_parser(subparsers)
     add_dream_collect_parser(subparsers)
     add_dream_mine_parser(subparsers)
     add_dream_evolve_suggest_parser(subparsers)

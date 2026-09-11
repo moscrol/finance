@@ -84,7 +84,7 @@ REV=$(git -C "$CODE_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 WORKSPACE_REV=$(git -C "$WORKSPACE" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 echo "[$(date '+%F %T')] === 全量复盘开始 phase=$PHASE date=$D l2_code=$CODE_ROOT l2_rev=$REV workspace=$WORKSPACE workspace_rev=$WORKSPACE_REV db=$MARKET_FEATURE_STORE_DB moneyflow_out=$MONEYFLOW_OUTPUT_DIR ==="
 
-# 失败告警：Mac 系统通知（零配置必达本机）+ 飞书（可选，凭证/权限就绪才发）；告警自身失败不影响退出码
+# 失败告警：Mac 系统通知 + ~/.finance-runtime/alerts.log（notify_ops.py，零凭证）；告警自身失败不影响退出码
 notify() {
   osascript -e "display notification \"$1\" with title \"全量复盘告警\" sound name \"Basso\"" 2>/dev/null || true
   "$OPS_PYTHON" "$WORKSPACE/scripts/notify_ops.py" "$1" 2>/dev/null || true
