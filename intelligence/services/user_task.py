@@ -712,6 +712,84 @@ def materials_in_conversation(conversation_context: str | None) -> tuple[tuple[M
     return tuple(found)
 
 
+_TRUNCATION_MARKER_RE = re.compile(r"^（前 \d+ 字符已省略，共 \d+ 条较早消息）")
+
+
+def conversation_context_material_unrecoverable(conversation_context: str | None) -> bool:
+    """对话块已知、且被截断时返回 True：「这篇」无法按现有会话内容找回身份。
+
+    I2 接线层：长材料超出最近消息窗口后进入被截断的「较早消息」区，此时
+    ``materials_in_conversation`` 返回空不是「没有材料」，而是「有过但正文丢了」。
+    区分两者的唯一信号是截断标记（``ConversationContext.to_prompt_block`` 自带的
+    如实自述行）。保留该信号的原始行号，便于审计，不要把它当作无材料的同义词。
+    """
+
+    block = str(conversation_context or "")
+    for line in block.splitlines():
+        if _TRUNCATION_MARKER_RE.match(line.strip()):
+            return True
+    return False
+
+
+def rebind_material_from_text(
+    raw_question: str,
+    message_materials: tuple[MaterialRef, ...],
+    *,
+    identity_table: str | None = None,
+) -> tuple[tuple[str, ...], str | None]:
+    """从**本条消息自身粘贴的正文**里重建「这篇」的绑定，返回 (ids, 登记行)。
+
+    适用场景：对话块已截断（身份表本身不在），但用户在新一条消息里**重贴了**原文。
+    按内容哈希重算身份——与上一轮在完整对话里得到的 ``material_id`` 完全一致，
+    且不需要任何持久化存储。登记行携带「按重贴内容重建」的来源说明，供审计区分
+    「本轮新贴」与「跨轮同一份」。
+
+    ``identity_table`` 传入时优先使用其中已列出的 material_id（对话块未截断的
+    正常车道）；但内容哈希仍然按本条消息正文重算，不接受身份表里没有的伪装 id。
+    """
+
+    text = str(raw_question or "").strip()
+    if not text or not message_materials:
+        return (), None
+    if not references_material(text):
+        return (), None
+    parts = split_user_message(text)
+    ids: list[str] = []
+    for ref, body in zip(parts.materials, parts.material_texts):
+        # 按内容哈希重算身份，比 message_materials 里现成的 ref 更稳——后者
+        # 是调用方按同一正文构造的，但重算能抵抗「调用方未来把材料正文换了」的漂移。
+        rebound = material_from_text(body, kind=ref.kind)
+        if rebound is None:
+            continue
+        if rebound.material_id not in ids:
+            ids.append(rebound.material_id)
+    if not ids:
+        return (), None
+    source_note = "本条消息重贴内容重建"
+    if identity_table:
+        source_note = f"{source_note}（身份表：{identity_table}）"
+    return tuple(ids), f"「这篇 / 这份 / 这张表」按{source_note}绑定：{ids[-1]}"
+
+
+def detect_reposted_material_gap(raw_question: str, conversation_context: str | None) -> str | None:
+    """本轮题面引用了材料，正文既不在本轮消息里、对话块又已截断时返回缺口描述。
+
+    供澄清层在「无法重新绑定」与「根本没贴过」之间分流：前者提示用户重贴原文，
+    后者维持既有「缺材料」语义。返回 None 表示没有进入该缺口（可以走正常
+    绑定/澄清路径）。不改变澄清本身的措辞，只给调用方一个可判定的分支。
+    """
+
+    if conversation_context is None:
+        return None
+    if not conversation_context_material_unrecoverable(conversation_context):
+        return None
+    if not references_material(str(raw_question or "")):
+        return None
+    if split_user_message(str(raw_question or "")).materials:
+        return None
+    return "「这篇」所指材料超出最近完整消息窗口，且本轮未重贴原文，无法按内容哈希恢复身份"
+
+
 # --- 用户已有假设 ----------------------------------------------------------------
 _BELIEF_RE = re.compile(
     r"(?:我(?:个人)?(?:觉得|认为|判断|感觉|预计|估计|倾向于认为|的看法是|的理解是|的经验是|"
@@ -1013,9 +1091,12 @@ __all__ = [
     "UserTask",
     "extract_method_candidates",
     "extract_user_premises",
+    "conversation_context_material_unrecoverable",
+    "detect_reposted_material_gap",
     "material_from_text",
     "material_id_for",
     "materials_in_conversation",
+    "rebind_material_from_text",
     "references_material",
     "resolve_nicknames",
     "split_user_message",

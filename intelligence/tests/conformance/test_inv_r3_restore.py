@@ -28,6 +28,8 @@ from intelligence.tests.conformance.fixtures import (
     make_frame,
     make_registry,
 )
+from intelligence.tests.conformance.oracle import WriteOrderOracle
+from intelligence.tests.conformance.races._drive import EffectAwareModel, effect_registry
 
 INV = "INV-R3"
 
@@ -38,16 +40,23 @@ _SCENARIO = (
 
 
 def _crash_after_tool_intent(task_id: str) -> tuple[MemoryEpisodeStore, str]:
-    """跑一遍不间断，再把日志截到「工具意图已落、结算未落」那一刻。"""
+    """跑一遍不间断，再把日志截到「工具意图已落、结算未落」那一刻。
 
-    recording = MemoryEpisodeStore()
+    不间断那一遍用写序 oracle 当 store（P4 公共件，``conformance/oracle.py``）：崩溃现场是从
+    它的日志截出来的，所以先断言这份日志本身的写序是对的——三明治不成立的日志截出来的
+    「现场」不是任何真实崩溃能留下的现场。
+    """
+
+    recording = WriteOrderOracle()
     probe = ScenarioProbe()
     frame = make_frame()
     context = make_context(frame, task_id=task_id, timeout=120.0)
     outcome = GLMAgentRuntime(
-        client=ScriptedModelClient(list(_SCENARIO), probe), episode_store=recording
-    ).run(task_frame=frame, context=context, registry=make_registry(probe))
+        client=EffectAwareModel(ScriptedModelClient(list(_SCENARIO), probe), recording),
+        episode_store=recording,
+    ).run(task_frame=frame, context=context, registry=effect_registry(recording))
     assert outcome.status == "completed"
+    recording.assert_sandwich()
     events, _ = recording.load(task_id)
     intent = next(e for e in events if e.kind == "tool_request")
     # tools_pending 那份状态在意图之后立刻写；崩溃现场 = 意图为末条、状态为 tools_pending。

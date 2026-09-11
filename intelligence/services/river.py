@@ -16,10 +16,12 @@
 已知的两处口径现实（实测 2026-09-05，不是设计意图）：
 
 - ``recorded_at`` 目前取自各事实表的 ``updated_at``。而 ``updated_at`` 是**刷新时间**
-  （`market_feature_store/schema.sql:10`），重发布会把它推到今天，所以它只是真实首次
-  入库时刻的**上界**——只会少算不会多算，因此 ``pit_grade`` 保守可信，但整条河的可
-  strict 段被系统性低估。工单 #27（`2026-09-05-river-recorded-at-workorder.md`）加
-  写一次不更新的 ``recorded_at`` 之后，本模块改读那一列，此处注释即可删。
+  （`market_feature_store/schema.sql:10`），重发布会把它推到今天，所以它只是这一行
+  **当前内容**至迟已知时刻的**上界**——只会少算不会多算，因此 ``pit_grade`` 保守可信，但
+  整条河的可 strict 段被系统性低估。**不要拿别的时刻来补这段低估**：名单快照台账的
+  ``captured_at`` 只能证明名单版本，证明不了这一行的内容（工单 #43 / 补强 spec OPT-01，
+  见 ``sector_recorded_at_sql``）。正路是 `2026-09-05-river-recorded-at-workorder.md` 给内容
+  加写一次不更新的 ``recorded_at``，之后本模块改读那一列，此处注释即可删。
 - **六条轨至少三套实体命名空间**：板块 / 题材 / 个股轨用 ``sector_ts_code`` +
   ``sector_name``；``fact_theme_flow_daily`` 用自己的 ``theme_name``；判断轨
   （``checkpoints.jsonl``）用自由文本 ``themes``。唯一的桥接表
@@ -187,53 +189,29 @@ def _ts(value: Any) -> str | None:
 
 
 # --------------------------------------------------------------------------- #
-# 板块系表的记录时刻：两个来源取较早
+# 板块系表的记录时刻：只认这一行自己的 `updated_at`
 # --------------------------------------------------------------------------- #
 # `updated_at` 是**刷新时间**（`schema.sql:10`），各 sync 一律
 # `ON CONFLICT DO UPDATE SET updated_at = excluded.updated_at`——重发布会把整段历史推到今天。
-# 关键性质：它只会**变晚、不会变早**。所以 `updated_at <= 交易日` 是「那时已存在」的
-# **充分**证据（可信），而 `updated_at > 交易日` **不是**「那时不存在」的证据（不可信）。
+# 关键性质：它只会**变晚、不会变早**。所以 `updated_at <= C` 是「这一行当前内容在 C 时已知」的
+# **充分**证据（可信），而 `updated_at > C` **不是**「那时不存在」的证据（不可信）——后者只能降档，不能猜。
 #
-# 快照台账 `ops_sector_universe_snapshot_daily.captured_at` 是那一版板块宇宙的真实抓取时刻，
-# 不随重发布移动，同样是存在性的合法证据。两个都在时取**较早**的那个。
-#
-# ⚠ 不要整轨换成 `captured_at`：实测资金轨 `fact_sector_stock_daily` 会从 47 天 strict
-# 掉到 20 天——台账 2026-07-27 才开始，之前的行都是 `snapshot_id='legacy'`，
-# 而它们的 `updated_at` 里有一批是诚实的。换源不是升级，取较早才是。
-#
-# 实测收益（2026-09-06 主库）：六轨联立可 strict 重放 **1 天 → 16 天**（2026-07-30~09-02）。
-# 存量 384 天仍是 legacy 无台账行，记录时刻确实丢了，不猜——它们继续按 trade_date_only 走。
-SECTOR_LEDGER_TABLE = "ops_sector_universe_snapshot_daily"
+# 曾经的做法（2026-09-06 ~ 09-08）：`LEAST(updated_at, 快照台账 captured_at)`，把六轨联立可 strict
+# 重放从 1 天抬到 16 天。**那 15 天建立在一个 writer 合同不保证的假设上**——「重发布不改内容」。
+# 快照台账 `ops_sector_universe_snapshot_daily.captured_at` 是**名单**那一版的抓取时刻；同一
+# generation 的行情被 sync 覆盖时 `sector_universe_snapshot_id` 不变、`captured_at` 也就不变。
+# 于是 T 日 1%、T+7 修订成 9% 的那一行，在 `C=T` 下会被标成 strict 并返回 9%：河替一个
+# 后来才知道的数背了书。工单 #43 / 补强 spec OPT-01 把这一支去掉——缩回去的每一天都是本来就
+# 证明不了的。要把覆盖面拿回来，正路是给内容加写一次不更新的 `recorded_at`
+# （`2026-09-05-river-recorded-at-workorder.md`），不是再找一个更早的别的时刻。
+def sector_recorded_at_sql(alias: str = "v") -> str:
+    """板块系表这一行内容的记录时刻表达式：就是它自己的 ``updated_at``。
 
-
-def sector_ledger_join(alias: str = "v") -> str:
-    """板块系表 → 快照台账的左连接。表不存在时调用方应跳过（见 ``_has_table``）。"""
-    return (
-        f" LEFT JOIN {SECTOR_LEDGER_TABLE} snap"
-        f" ON snap.snapshot_id = {alias}.sector_universe_snapshot_id "
-    )
-
-
-def sector_recorded_at_sql(alias: str = "v", *, with_ledger: bool = True) -> str:
-    """记录时刻表达式。``LEAST`` 在 DuckDB 里忽略 NULL（实测），故不必再包 COALESCE。
-
-    **审计脚本 `scripts/river_pit_audit.py` 按同一对函数取 SQL**，不各写一套——
+    **审计脚本 `scripts/river_pit_audit.py` 按同一个函数取 SQL**，不各写一套——
     两处口径必漂，而漂的时候审计会替河说谎（报的 strict 天数不是河真能给出的）。
+    名单快照台账的 ``captured_at`` 不在这里出现：它证明的是名单版本，不是行情内容（见上）。
     """
-    upd = f"CAST({alias}.updated_at AS TIMESTAMP)"
-    if not with_ledger:
-        return upd
-    # captured_at 带时区（Asia/Taipei = +08:00，与交易日同一时区），CAST 成朴素时间戳
-    # 取的就是当地墙上时间——正是要拿来和交易日比的那个量。
-    return f"LEAST({upd}, CAST(snap.captured_at AS TIMESTAMP))"
-
-
-def _has_table(con: Any, table: str) -> bool:
-    rows = con.execute(
-        "SELECT 1 FROM information_schema.tables WHERE table_schema='main' AND table_name=? LIMIT 1",
-        [table],
-    ).fetchall()
-    return bool(rows)
+    return f"CAST({alias}.updated_at AS TIMESTAMP)"
 
 
 def _rows(con: Any, sql: str, params: list[Any]) -> list[dict[str, Any]]:
@@ -283,16 +261,14 @@ def _market_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
             )
         )
 
-    ledger = _has_table(con, SECTOR_LEDGER_TABLE)
     quote = _rows(
         con,
         f"""
         SELECT v.trade_date, v.sector_ts_code, v.sector_name, v.sw_l1, v.pct_chg, v.amount,
                v.diff_ratio, v.strength, v.multi_period_resonance,
                v.sector_universe_snapshot_id,
-               {sector_recorded_at_sql("v", with_ledger=ledger)} AS recorded_at
+               {sector_recorded_at_sql("v")} AS recorded_at
         FROM fact_sector_daily v
-        {sector_ledger_join("v") if ledger else ""}
         WHERE CAST(v.trade_date AS DATE) = CAST(? AS DATE) AND v.sector_ts_code = ?
         """,
         [as_of, eid],
@@ -582,10 +558,8 @@ def _capital_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
 
     两个来源故意分开成两个对象：它们的实体命名空间不同，合并会掩盖口径接缝。
     """
-    ledger = _has_table(con, SECTOR_LEDGER_TABLE)
     # 聚合对象的记录时刻取 ``MAX``：整份聚合要等最后一条成分股落地才算可知。
-    # 逐行先按「两来源取较早」解析、再对解析后的值取 MAX——反过来（先 MAX 再取较早）
-    # 会把某一行的早时刻安到整份聚合上，等于宣称聚合比它的成分先存在。
+    # 取 MIN 会把某一行的早时刻安到整份聚合上，等于宣称聚合比它的成分先存在。
     # 三个 SUM 先转 DECIMAL 再加：DuckDB 并行 SUM(DOUBLE) 的求和顺序不定，同一入参两次调用
     # amount_sum 会在最后一位上翻（实测 2026-01-12 算力租赁 2413.130000000001 vs 2413.1299999999997），
     # 连带 source_hash 变——破的是本模块「两次调用逐字段相同」的硬约束。
@@ -596,9 +570,8 @@ def _capital_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
                CAST(SUM(CAST(v.fund_flow_1d AS DECIMAL(24, 6))) AS DOUBLE) AS fund_flow_1d_sum,
                CAST(SUM(CAST(v.fund_flow_5d AS DECIMAL(24, 6))) AS DOUBLE) AS fund_flow_5d_sum,
                CAST(SUM(CAST(v.amount AS DECIMAL(24, 6))) AS DOUBLE) AS amount_sum,
-               MAX({sector_recorded_at_sql("v", with_ledger=ledger)}) AS recorded_at
+               MAX({sector_recorded_at_sql("v")}) AS recorded_at
         FROM fact_sector_stock_daily v
-        {sector_ledger_join("v") if ledger else ""}
         WHERE CAST(v.trade_date AS DATE) = CAST(? AS DATE) AND v.sector_ts_code = ?
         """,
         [as_of, eid],

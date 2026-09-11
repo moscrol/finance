@@ -8,6 +8,7 @@ used by the Workbench, then exposes them through ``ResearchToolRegistry``.
 from __future__ import annotations
 
 import copy
+import json
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from pathlib import Path
@@ -84,6 +85,82 @@ _NON_EVIDENCE_PREFIXES = agent_research.QUALIFIER_LINE_PREFIXES
 _OFFICIAL_L3_RUNNER = object()
 
 
+def parse_financial_data_request(raw: str) -> tuple[str, tuple[str, ...]]:
+    """反解 ``parse_financial_data_arguments`` 给 runner 的输入：``(report_period, subjects)``。
+
+    两种形状：裸文本（只有 report_period，P0b 以来的语义）或带 ``subjects`` 的 JSON 对象
+    （工单 04）。不是 JSON 对象的一律按裸报告期读——旧调用方一个字不改。
+    """
+
+    text = str(raw or "").strip()
+    if text.startswith("{"):
+        try:
+            decoded = json.loads(text)
+        except json.JSONDecodeError:
+            decoded = None
+        if isinstance(decoded, dict):
+            period = str(decoded.get("report_period") or "").strip()
+            subjects = tuple(
+                str(item).strip()
+                for item in (decoded.get("subjects") or ())
+                if str(item).strip()
+            )
+            return period, subjects
+    return text, ()
+
+
+def structured_observation_hint(bundle: market_financials.FinancialsBundle) -> str:
+    """一句话告诉模型这份快照里有哪些机器可读指标、覆盖哪段报告期，供 derived_calculation 读。"""
+
+    mapping = bundle.observations_by_line()
+    if not mapping:
+        return ""
+    metrics = sorted({obs.metric for found in mapping.values() for obs in found})
+    dates = sorted({obs.as_of for found in mapping.values() for obs in found})
+    subject = market_financials.observation_subject(bundle.ts_code)
+    label = f"{bundle.name}（{subject}）" if bundle.name else subject
+    return (
+        f"结构化观察值：{label} 报告期 {dates[0]}～{dates[-1]}，指标 {', '.join(metrics)}"
+        "（累计口径；用 derived_calculation 的 series(subject, metric) 读，单季用 to_single_quarter）"
+    )
+
+
+def attach_financial_observations(
+    evidence: list[agent_research.AgentEvidence],
+    bundle: market_financials.FinancialsBundle,
+) -> list[agent_research.AgentEvidence]:
+    """给 D7 数据行证据挂结构化观察值：按行文本查表，不解析单元格。
+
+    键是 ``market_financials.observations_by_line`` 渲染的行（与 ``block_lines_to_evidence``
+    剥掉 ``- `` 后的 detail 逐字节相同）。``observations`` 不进内容哈希，证据身份不变。
+    """
+
+    mapping = bundle.observations_by_line()
+    if not mapping:
+        return list(evidence)
+    out: list[agent_research.AgentEvidence] = []
+    for item in evidence:
+        found = mapping.get(item.detail)
+        if not found:
+            out.append(item)
+            continue
+        out.append(
+            replace(
+                item,
+                observations=tuple(
+                    agent_research.StructuredObservation(
+                        subject=obs.subject,
+                        as_of=obs.as_of,
+                        metric=obs.metric,
+                        value=obs.value,
+                    )
+                    for obs in found
+                ),
+            )
+        )
+    return out
+
+
 def _finance_payload_kwargs(
     spec: finance_query.FinanceQuerySpec,
     result: finance_query.FinanceQueryResult | None = None,
@@ -101,6 +178,8 @@ def _finance_payload_kwargs(
         "caliber": table or spec.dataset,
         "payload_field_names": names,
     }
+
+
 _DEFAULT_EVIDENCE_SEARCH_JUDGE = object()
 _AGENT_FINANCE_QUERY_MAX_ROWS = 25
 
@@ -371,6 +450,8 @@ def _task_authorizes_historical_window(
     """Only user-owned task semantics may relax the current-data floor."""
 
     if frame.question_type == "dated_market_review":
+        return True
+    if frame.history_intent is not None:
         return True
     timeframe_date = _iso_date(frame.timeframe)
     if timeframe_date is not None and (floor is None or timeframe_date < floor):
@@ -837,6 +918,8 @@ def build_episode_registry(
     perspective_mode: str = "neutral",
     user_space=None,
     sub_research_runner: agent_research.ToolRunner | None = None,
+    derived_calculation_runner: agent_research.ToolRunner | None = None,
+    history_session=None,
 ) -> ResearchToolRegistry:
     """Build a read-only registry from the repository's current tool runners."""
 
@@ -864,9 +947,7 @@ def build_episode_registry(
         )
         if market_window_end is None and market_reference_date:
             try:
-                market_window_end = date.fromisoformat(
-                    str(market_reference_date)[:10]
-                )
+                market_window_end = date.fromisoformat(str(market_reference_date)[:10])
             except ValueError:
                 market_window_end = None
         if market_window_end is None:
@@ -912,9 +993,7 @@ def build_episode_registry(
             excerpt_chars=240,
             budget_query=frame.raw_question,
             require_fresh=(
-                fixture_policy.require_fresh_kb
-                if fixture_policy is not None
-                else True
+                fixture_policy.require_fresh_kb if fixture_policy is not None else True
             ),
             cache_scope=context.contract.task_id,
             index_dir=(
@@ -928,14 +1007,15 @@ def build_episode_registry(
                 else None
             ),
             python_executable=(
-                fixture_policy.knowledge_python
-                if fixture_policy is not None
-                else None
+                fixture_policy.knowledge_python if fixture_policy is not None else None
             ),
             worker_enabled=(False if fixture_policy is not None else None),
         )
 
-    default_tools = agent_research.build_default_tools(retrieve_kb)
+    # 02：把本题问句交给 web_fetch 做定向选段（工具参数面只有 url，问句只能从这里进）。
+    default_tools = agent_research.build_default_tools(
+        retrieve_kb, focus_query=subject_query
+    )
     if fixture_policy is not None and not fixture_policy.external_search_enabled:
         default_tools.pop("web_search", None)
         default_tools.pop("web_fetch", None)
@@ -952,9 +1032,12 @@ def build_episode_registry(
         tool_context.check_cancelled()
         if tool_context.deadline.expired:
             raise TimeoutError("market-data deadline expired")
-        if frame.question_type != "valuation_estimate" and _structured_provider_is_stale(
-            structured_source_date,
-            floor=freshness_floor,
+        if (
+            frame.question_type != "valuation_estimate"
+            and _structured_provider_is_stale(
+                structured_source_date,
+                floor=freshness_floor,
+            )
         ):
             assert freshness_floor is not None
             return _stale_structured_result(
@@ -1067,10 +1150,10 @@ def build_episode_registry(
         timeout = tool_context.deadline.stage_timeout(8.0)
         if timeout <= 0.001:
             raise TimeoutError("financial-data deadline expired")
+        requested_period, subjects = parse_financial_data_request(_query)
         # 窗口来源按优先级：模型显式传的 report_period → 问句/主体里的年份与期别
         # → 默认 6 期。模型传了却解析不出目标时**说出来**，不静默回落
         # （ch4「参数传递的保真性」）。
-        requested_period = str(_query or "").strip()
         as_of = (
             tool_context.information_cutoff.as_of_date
             if tool_context.information_cutoff is not None
@@ -1093,9 +1176,9 @@ def build_episode_registry(
             if target_end is not None
             else market_financials.DEFAULT_PERIODS
         )
-        window_note = ""
+        notes: list[str] = []
         if requested_period and period_source != "report_period":
-            window_note = (
+            notes.append(
                 f"report_period「{requested_period}」未能解析为报告期"
                 "（写法：年份+期别，如 2024年报 / 2025三季报），"
                 + (
@@ -1104,6 +1187,12 @@ def build_episode_registry(
                     else f"已按默认最近 {periods} 期取数"
                 )
             )
+        # 放宽窗口时证据行数跟着放宽，否则目标期那一行取到了却被 limit 截掉。
+        row_limit = 12 + max(0, periods - market_financials.DEFAULT_PERIODS)
+        source_label = "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报"
+        evidence: list[agent_research.AgentEvidence] = []
+        observations: list[str] = []
+        resolved_subjects: list[str] = []
         if (
             fixture_policy is not None
             and not fixture_policy.external_financials_enabled
@@ -1114,33 +1203,70 @@ def build_episode_registry(
                 [],
                 fetch_disabled=True,
             )
-        else:
-            block = ask_blocks._financials_block_for_llm(
-                subject_query,
-                market_db_path,
-                timeout=timeout,
-                periods=periods,
+            items, text = agent_research.block_lines_to_evidence(
+                "financial_data", block, source_label, limit=row_limit, detail_chars=1000
             )
+            evidence.extend(items)
+            if text:
+                observations.append(text)
+        else:
+            # 工单 04：几家公司一次取（多公司同口径比较）。不传 subjects 就是题干主体那一家。
+            # 每家一个 D7 块、各自挂结构化观察值；未解析到标的的那家写进观察值，不静默丢。
+            for subject in subjects or [None]:
+                tool_context.check_cancelled()
+                per_subject_timeout = tool_context.deadline.stage_timeout(8.0)
+                if per_subject_timeout <= 0.001:
+                    notes.append(
+                        f"「{subject}」未取：本批工具窗已用完" if subject else "本批工具窗已用完"
+                    )
+                    break
+                bundle = ask_blocks._financials_bundle_for_llm(
+                    subject or subject_query,
+                    market_db_path,
+                    timeout=per_subject_timeout,
+                    periods=periods,
+                )
+                if bundle is None:
+                    notes.append(
+                        f"「{subject}」未能解析为 A 股标的（需股票名称或 6 位代码），本次未取"
+                        if subject
+                        else "题干主体未能解析为 A 股标的（需股票名称或 6 位代码）"
+                    )
+                    continue
+                if bundle.ts_code:
+                    resolved_subjects.append(
+                        market_financials.observation_subject(bundle.ts_code)
+                    )
+                items, text = agent_research.block_lines_to_evidence(
+                    "financial_data",
+                    bundle.block,
+                    source_label,
+                    limit=row_limit,
+                    detail_chars=1000,
+                )
+                evidence.extend(attach_financial_observations(items, bundle))
+                hint = structured_observation_hint(bundle)
+                if hint:
+                    # 模型视图里看不到 observations 字段（public_agent_evidence 不投它），
+                    # 所以在观察文本开头说一句「有哪些结构化指标可算」——这是 derived_calculation
+                    # 脚本的入口线索，放前面不被 900 字符预算截掉。
+                    notes.append(hint)
+                if text:
+                    observations.append(text)
         tool_context.check_cancelled()
-        # 放宽窗口时证据行数跟着放宽，否则目标期那一行取到了却被 limit 截掉。
-        evidence, observation = agent_research.block_lines_to_evidence(
-            "financial_data",
-            block,
-            "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报",
-            limit=12 + max(0, periods - market_financials.DEFAULT_PERIODS),
-            detail_chars=1000,
-        )
         evidence = [
             item
             for item in evidence
             if not item.detail.startswith(_NON_EVIDENCE_PREFIXES)
         ]
-        observation = observation or "逐季财务指标无可用结果"
-        if window_note:
-            observation = f"{window_note}；{observation}"
+        observation = "；".join(observations) or "逐季财务指标无可用结果"
+        if notes:
+            observation = "；".join((*notes, observation))
         detail = f"quarterly_financials_snapshot; periods={periods}; window={period_source}"
         if target_end is not None:
             detail += f"; target_report_end={target_end.isoformat()}"
+        if subjects:
+            detail += f"; subjects={len(subjects)}; resolved={len(resolved_subjects)}"
         return (
             evidence,
             observation,
@@ -1262,8 +1388,7 @@ def build_episode_registry(
         "l3_lookup" in context.contract.allowed_capabilities
         and callable(selected_l3_runner)
         and not (
-            fixture_policy is not None
-            and not fixture_policy.external_search_enabled
+            fixture_policy is not None and not fixture_policy.external_search_enabled
         )
     ):
         tools["l3_lookup"] = selected_l3_runner
@@ -1271,8 +1396,19 @@ def build_episode_registry(
         # 装配层拿不到协调器与父证据账本，所以 runner 只能由运行时按 episode 绑好
         # 传进来；没传就不挂（spec 09-03 §5：没源不挂，不做「装了再报 unknown_tool」）。
         tools["sub_research"] = sub_research_runner
+    if derived_calculation_runner is not None:
+        # 同一条规矩：派生计算要这一个 episode 的证据账本（capability-amplification §3.4），
+        # 生产由 ContinuousAgentEpisode 起步时经 with_specs 绑；这里只给「装配时已有账本」
+        # 的调用方（与可达性审计）留同一个座位，没传就不挂。
+        tools["derived_calculation"] = derived_calculation_runner
     base_registry = default_registry(tools)
     specs = list(base_registry.authorized_specs())
+    if frame.history_intent is not None:
+        from intelligence.services.historical_research.episode import history_tool_specs
+
+        specs.extend(
+            history_tool_specs(frame, context, market_db_path, history_session)
+        )
     if market_window_end is not None:
 
         def causal_tool_cutoff(
@@ -1324,6 +1460,15 @@ def build_episode_registry(
             # 归一化要在所有判定之前，否则新鲜度判定读 spec.time_range 会读到 None。
             # normalize_spec 是幂等的，run() 内部还会再调一次，代价极小。
             normalized, normalization_notes = finance_query.normalize_spec(value)
+            if frame.history_intent is not None and frame.history_intent.strict_window:
+                from intelligence.services.historical_research.intent import assert_history_window
+                intent = frame.history_intent
+                window = normalized.time_range
+                if window is None and intent.requested_start and intent.requested_end:
+                    window = finance_query.TimeRange(date.fromisoformat(intent.requested_start), date.fromisoformat(intent.requested_end))
+                    normalized = replace(normalized, time_range=window)
+                    normalization_notes = (*normalization_notes, "已按用户明确限定的历史窗口查询")
+                assert_history_window(intent, window.start if window else None, window.end if window else None)
             bounded_value = replace(
                 normalized,
                 limit=min(normalized.limit, _AGENT_FINANCE_QUERY_MAX_ROWS),
@@ -1336,10 +1481,13 @@ def build_episode_registry(
                 bounded_value,
                 context.authorized_trade_dates,
             )
-            if _requests_earlier_window(
-                bounded_value,
-                floor=freshness_floor,
-            ) and not historical_authorized:
+            if (
+                _requests_earlier_window(
+                    bounded_value,
+                    floor=freshness_floor,
+                )
+                and not historical_authorized
+            ):
                 assert freshness_floor is not None
                 return ToolRunResult(
                     evidence=(),
@@ -1441,14 +1589,26 @@ def build_episode_registry(
             # 数据行在 ``evidence[]`` 里逐条另有副本（实测被砍片段 92% 有副本），
             # 这三条没有——所以先给限定语，砍到的只会是有副本的那部分。
             notices: list[str] = []
+            covered_range = finance_query.covered_date_range(
+                tuple(item.source_date for item in result.evidence)
+            )
             notice = finance_query.truncation_notice(
                 result.audit,
-                covered_range=finance_query.covered_date_range(
-                    tuple(item.source_date for item in result.evidence)
-                ),
+                covered_range=covered_range,
             )
             if notice:
                 notices.append(notice)
+            # 数据饥饿遥测：请求窗（部分）落在库覆盖之外时留一条机器可读痕迹。
+            # 此前这件事只活在上面那句 gaps 散文里，补数无从起、补完无处回。
+            # 观测型：不改 observation 一个字节，写失败也不进工具路径。
+            from intelligence.services.tool_hunger import record_window_uncovered
+
+            record_window_uncovered(
+                bounded_value,
+                covered_range=covered_range,
+                row_count=len(result.evidence),
+                applied_limit=result.audit.applied_limit,
+            )
             # 代偿必须让模型看见：查询成功但写法被改过，不说它下一轮还会照原样写。
             if normalization_notes:
                 notices.extend(normalization_notes)
@@ -1487,7 +1647,7 @@ def build_episode_registry(
                 capability="finance_query",
                 description=(
                     "查询本地结构化金融数据。dataset 必须选自当前注册表"
-                    f"（{ '、'.join(finance_query._PUBLIC_DATASETS) }）；"
+                    f"（{'、'.join(finance_query._PUBLIC_DATASETS)}）；"
                     "周历/周末大事用 event_daily。"
                     "由你选择指标、维度、筛选、分组、排序和时间范围。"
                     "字段必须按 dataset 对应关系选择，不要混用不同 dataset 的字段。"
@@ -1589,17 +1749,29 @@ def build_episode_registry(
             )
             tool_context.check_cancelled()
             evidence: list[agent_research.AgentEvidence] = []
-            peer_lines = user_memory.judgment_peer_hits(
+            # W3：与 [M] 块同一降权口径（计分率；阈值默认 None=关闭），低可靠类
+            # 沉底并附警告行——两条召回出口不允许各说各话。
+            judgments_ordered, reliability_warnings = user_memory.judgment_reliability(
                 list(recall.judgments),
                 user=memory_user,
                 users_root=memory_users_root,
+                threshold=user_memory.RELIABILITY_DOWNWEIGHT_THRESHOLD,
             )
-            for record, peer in zip(recall.judgments, peer_lines, strict=False):
+            peer_lines = user_memory.judgment_peer_hits(
+                judgments_ordered,
+                user=memory_user,
+                users_root=memory_users_root,
+            )
+            for record, peer, warn in zip(
+                judgments_ordered, peer_lines, reliability_warnings, strict=False
+            ):
                 memo = str(record.get("memo") or "").strip()
                 if not memo:
                     continue
                 if peer:
                     memo = f"{memo}\n{peer}"
+                if warn:
+                    memo = f"{memo}\n{warn}"
                 tags = [
                     str(tag).strip()
                     for key in ("themes", "stocks")
@@ -1613,7 +1785,8 @@ def build_episode_registry(
                         detail=memo,
                         # Self-labelling source: the model only ever sees this
                         # string, so it has to say what the record is on its own.
-                        source="用户自己的历史判断（先验，非市场事实）",
+                        # W2：台账归属名进 source（出处逐条自持）；locator 仍不外发。
+                        source="用户自己的历史判断（台账 judgments；先验，非市场事实）",
                         internal_locator=str(recall.judgments_path),
                         source_date=str(record.get("ts") or "")[:10] or None,
                         evidence_tier=_USER_MEMORY_EVIDENCE_TIER,
@@ -1632,7 +1805,7 @@ def build_episode_registry(
                         tool="memory_lookup",
                         title="用户纠偏原则",
                         detail=body,
-                        source="用户自己纠正过的方法论（先验，非市场事实）",
+                        source="用户自己纠正过的方法论（台账 corrections；先验，非市场事实）",
                         internal_locator=str(recall.corrections_path),
                         source_date=str(record.get("ts") or "")[:10] or None,
                         evidence_tier=_USER_MEMORY_EVIDENCE_TIER,
@@ -1651,7 +1824,7 @@ def build_episode_registry(
                         tool="memory_lookup",
                         title="方法验证读数",
                         detail=detail,
-                        source="本用户方法验证收据（历史演练 / 真实前向分列；研究读数，非市场事实、非买卖建议）",
+                        source="本用户方法验证收据（台账 method_validation；历史演练 / 真实前向分列；研究读数，非市场事实、非买卖建议）",
                         internal_locator=str(record.get("locator") or ""),
                         source_date=record.get("date"),
                         evidence_tier=_USER_MEMORY_EVIDENCE_TIER,

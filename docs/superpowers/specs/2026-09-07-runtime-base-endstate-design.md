@@ -130,6 +130,8 @@
 
 **已知边界（09-07 落地时确认）**：(a) `EpisodeFinalizer.recover` 的兜底合成是一次独立的小模型调用，用自己拼的 prompt，不在 episode `messages` 里，INV-R1 不覆盖它——P2 若要覆盖，给它发 `prompt_assembled{source: finalizer}`；(b) `openai_agents_runtime`（sdk 臂）与 `headless_tool_gateway` 也发 `tool_result` / `tool_error`，但不带 `model_content`，`derive_messages` 对这些流抛 `DerivationUnavailable`——它们不是 R 系列的适用臂（§3 末段），投影层对缺字段的事件原样保留；(c) 派生规则里 `model_turn` 带 `error` 不产生 assistant 消息，参考 loop 修复轮原本在错误检查前 append，本轮改为检查后（错误后无请求，模型可见行为不变）。：Episode 消息类型 + 取消类型化 + 错误码拆分
 
+**补充（09-09，`codex/feat-historical-discovery` 分支落地）**：(d) 新 durable kind `application_tool_call`（payload `{source ∈ {empty_pool_fallback}, call_id, name, arguments}`），派生规则 → `assistant(content="", tool_calls=[该调用])`。它补的是 INV-R1 的一个洞：空池回退是**应用**替模型点的一枪，此前只落 `tool_request` + `tool_result`，派生出的 `tool` 消息没有任何 `assistant.tool_calls` 声明——两侧一样错所以对账过、provider 却回 400（2026-09-09 M3 / M6 真实 run 第 3/4 轮）。发射点 `episode_messages.record_application_tool_call`（先落事件再进 messages，且在 `tool_request` 之前：声明 → 意图 → 效果）；两条 loop 同一处调。不伪造 `model_turn`（那会把底座的决定记成模型说过的话），不只在发送边缘补消息（durable / live 会分叉）。恢复：声明落了、意图没落就崩，`restore` 合成 `tool_error{interrupted}` 配平，`fallback_already_attempted` 把声明算作已尝试，不会对同一 `call_id` 声明第二次。`undeclared_tool_call_ids(messages)` 是这条规则的检查器：合法请求返回空。老事件流（没有该声明）仍可派生，只是检查器会点出那条孤儿。
+
 1. `services/episode_messages.py` 加 `EpisodeMessage`（frozen dataclass：`role ∈ {system,user,assistant,tool}`、`content`、`tool_calls`、`tool_call_id`、`source`、`visible_to_model: bool = True`）与 `to_provider(messages, dialect="openai") -> list[dict]`；`_EpisodeContinuationState.messages` 换类型；`glm_agent_runtime.py` 的 provider 链在边界转线格式。`derive_messages` 改返回 `list[EpisodeMessage]`，INV-R1 比较两边 `to_provider()` 结果。
 2. `services/runtime_handle.py`：`CancelCause = Literal["user", "parent", "hook", "deadline", "disposed"]`；`request_cancel(cause: CancelCause, detail: str = "")`；`is_cancelled` 谓词换 `CancelSignal`（`.requested`、`.cause`、`.detail`），first cause wins；`agent_episode` 与 `episode_tool_batch` 读 `.cause` 写进 `finish.stop_reason_detail`。
 3. `episode_tool_batch.py`：`error=tool_timeout` 拆为 `tool_not_dispatched`（`stage_timeout_granted <= 0`，未进线程池）与 `tool_timeout`（真跑超时）。模型可见 detail 保留 `stage_timeout_granted=`；`scripts/offline_tool_duration_floor.py`、`audit_episode_tool_outcomes.py`、`eval/abstention.py` 同步读两码。**这是 P1 唯一一条模型可见文案改动，合入前走一次 live 探针（茅台参考题两臂）。**
@@ -179,6 +181,16 @@
 3. `docs/runtime/defensive-patterns.md`：从 `docs/prediction-ledger.md` 的 R-* 与本仓 handoff「踩过的坑」里提炼「坑 → 规则」（不抄 dsh 那六条；同名坑写本仓实例）；含 G10 抛 / 返回总规则：**`runtime/` 内部用异常，跨 `services` 契约边界只返回结构化结果；hooks / sink / 投影一律不抛。**
 4. `test_runtime_catalog_fresh` 进 pre-commit（第 12 道）。
 
+> **落地回写（2026-09-08，分支 `feat/runtime-base-p4-races-oracle`，工单 #31）**：四条全落。第 1 条的 `step()` 落为**生成器单步驱动**——
+> `run()` 的整段控制流原样搬进 `_drive()`，在五个效果边界 `yield StepPoint`（`model_pending` 意图已 durable 结算未发 / `model_settled` /
+> `before_tool_dispatch` / `tools_settled` / `before_finish`），`run()` 只是把它排空；`manual_drive()` 回 `EpisodeDrive`（`step` / `run_until` /
+> `run_to_end`，一次性）。局部变量原地保留，事件序 / 写序 / 消息序逐字节不变（全量套件严格派生为证）；否掉状态机重写与线程屏障。
+> 竞态目录 `conformance/races/`：`catalog.py` 8 行（原文八条）× 两序 × 两种合法历史，`test_race_*.py` 16 条两序夹具 + `test_catalog.py` 互锁；
+> 每序结束断 oracle 三明治与「无孤儿意图」。第 2 条 oracle 三处复用（INV-R2 格 / INV-R3 录制 / races）。第 3 条 14 条坑→规则带 `R-*` 出处，
+> `test_defensive_patterns_doc.py` 钉 G10 原句与编号存在。第 4 条 pre-commit hook `runtime-catalog-fresh`。顺带收 P3 遗留：`restore.pending_inbox`
+> （只列不认领）、`finish.store_failures` 收据（此前写了没人读）。变异：去掉结算后取消检查 → 竞态① A 红；去掉收据 → 竞态⑦两序红；restore 忘箱 → 红。
+> 未做：`wakeup` 仍只记账（手动驱动不是调度器）；参考 loop 不设步点；不做自动恢复。
+
 ---
 
 ## 7. 生产接线与切流
@@ -223,7 +235,7 @@ P0 / P1 零 live 判据，随下次切流带上；P1 的错误码拆分合入前
 | INV-R3 | `test_episode_restore.py`（每 phase × 每 crash 前缀） | P2 |
 | 版本 | `test_episode_store.py::test_unknown_required_kind_refused` | P2 |
 | INV-R5 | `test_episode_inbox.py`（单元）+ `conformance/test_inv_r5_inbox.py`（两序竞态 / 取消 / 收口 / 接缝有牙 / 非适用臂） | P3 ✅ 09-08 |
-| INV-R6 | `conformance/races/test_*.py`（≥ 8 条 × 2 序） | P4 |
+| INV-R6 | `conformance/races/test_race_*.py`（8 条 × 2 序 + `test_catalog.py` 互锁；oracle 三处复用） | P4 ✅ 09-08 |
 
 ---
 

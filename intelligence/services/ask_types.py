@@ -152,6 +152,9 @@ class AskOptions:
     # 跟踪表达层（q8 契约回灌）：theme_track 类问题命中时注入「delta-only + 观点四态对照 +
     # 结论 TTL + 下期关注清单」表达契约；非跟踪问题不注入，行为不变。
     include_track_guidance: bool = True
+    # 排序与情景表达层（10 号单）：多对象排序/优先级题命中时注入「公司矩阵 + 财务传导 +
+    # 竞争解释 + 改判条件表 + 下一步」表达契约；非排序问题不注入，行为不变。
+    include_ranking_guidance: bool = True
     # 数据块允许名单（evidence_registry）：None（默认）= 全部允许，意图门控仍生效；
     # 给定集合时只允许名单内的块。关某一块用 without_providers / providers_allowing_memory。
     enabled_providers: tuple[str, ...] | None = None

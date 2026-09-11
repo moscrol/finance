@@ -201,5 +201,12 @@ def render_for_prompt(records: list[dict[str, Any]]) -> str:
         parts.append(f"应为：{correction}")
         themes = [str(t).strip() for t in (rec.get("themes") or []) if str(t).strip()]
         tag = f"（{'、'.join(themes)}）" if themes else ""
-        lines.append(f"- {'；'.join(parts)}{tag}")
+        # W2b 续：逐条带日期。本渲染器有 5 个生产调用方（ask_synthesis / prime /
+        # foresight / ask / framework_interpretation），它们都只把这段文本塞进提示词
+        # 的一个小标题下面。正文自带语义标签（原则 / 别再说 / 应为），所以「这是谁说的」
+        # 不缺；缺的是**什么时候说的**——三个月前的原则和昨天的在提示词里长得一模一样。
+        # 分隔用空格不用「：」：正文本身以「原则：」开头，再加冒号会变成双冒号。
+        date = str(rec.get("ts") or "")[:10]
+        own = f"[你的纠偏 {date}]" if date else "[你的纠偏]"
+        lines.append(f"- {own} {'；'.join(parts)}{tag}")
     return "\n".join(lines)

@@ -16,6 +16,16 @@
 | `fixtures.py` | 脚本化模型三件（`ScriptedModelClient` / `ScriptedSdkRunner` / `ScriptedFakeCodex`，复用既有 doubles 的驱动面）+ frame/context/registry 夹具 + 通用断言辅助。 |
 | `baseline.py` | **棘轮 baseline**：存量红登记在案（带原因与日期），`ratchet()` 转 strict xfail。 |
 | `test_inv1..8_*.py` | 每个不变量一个文件，`@pytest.mark.parametrize` 逐后端跑。 |
+| `test_inv_r2..r5_*.py` | 运行底座 R 系列（母单 `2026-09-07-runtime-base-endstate-design.md` §3）：只对 continuous 臂要求成立，其余臂声明 `UNSUPPORTED_DECLARED` 并只验「确实不在场」。 |
+| `oracle.py` | **写序 oracle（P4 公共件）**：`WriteOrderOracle` 实现 `EpisodeStore` 四动作并记时间线；假 model / 假 tool 在开始工作时调 `effect_started()`；`assert_sandwich()` 断言每笔外部效果「意图 append（fsync）< 效果开始 < 结算 append」。三处复用：INV-R2 矩阵格、INV-R3 Tier A 崩溃现场的录制、`races/` 八条竞态。 |
+| `races/` | **竞态目录（INV-R6，P4）**：`catalog.py` 是声明表（8 条竞态 × 两序 × 两种合法历史），`test_race_*.py` 是证明；`_drive.py` 用 `ContinuousAgentEpisode.manual_drive()` 的五个步点把取消 / steer / close / restore 精确插进两个效果之间，零线程零 sleep。`test_catalog.py` 钉住表与夹具互锁。 |
+
+### 竞态目录怎么加一条
+
+1. `races/catalog.py` 加一行 `Race(...)`：两序各写清「什么时候到达」和「合法终态长什么样」，两序的合法历史必须不同——相同就不是竞态，是同一条路径。
+2. 新建 `races/test_race_<key>.py`，写 `test_order_a_*` 与 `test_order_b_*` 各至少一个；用 `_drive.build_rig()` 拿到 oracle store + 取消信号 + 单步驱动，用 `rig.run_until(<步点>)` 停到要插入的那一刻。
+3. 每一序结束都跑 `rig.oracle.assert_sandwich()` 与 `assert_no_orphan_intents()`；conftest 的严格派生（INV-R1）自动在验。
+4. 五个步点见 `agent_episode.STEP_PHASES`：`model_pending`（意图已 durable、结算未发）/ `model_settled` / `before_tool_dispatch` / `tools_settled` / `before_finish`。需要新的步点就在 `_drive()` 里的效果边界加一个 `yield`——只许加在「无在飞外部效果、局部变量稳定」的位置，且不许改变任何 `ledger.add` / `model.complete` / `_dispatch` 的相对顺序。
 
 跑法：
 

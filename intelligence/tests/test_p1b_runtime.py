@@ -1023,6 +1023,40 @@ class AgentGraphToolsTests(unittest.TestCase):
         self.assertTrue(any(item.tool == "graph_lookup" for item in result.evidence))
         self.assertTrue(result.sufficient)
 
+    def test_loop_forwards_mode_arg_to_graph_lookup_runner(self) -> None:
+        """模型 JSON args 里的 mode 必须透传到 runner（03 研究地图路由）。"""
+
+        seen: dict[str, str] = {}
+
+        def _mode_runner(query, context=None, *, mode=None):
+            seen["mode"] = str(mode or "legacy")
+            return [], f"mode={mode}", agent_research.ProviderTrace(
+                provider="agent:graph_lookup",
+                capability="agent_loop",
+                status="success",
+            )
+
+        responses = iter(
+            (
+                '{"tool": "graph_lookup", "args": {"query": "液冷", "mode": "package"}, '
+                '"reason": "查题材研究包"}',
+                '{"tool": "finish", "args": {"sufficient": true, "gaps": []}, '
+                '"reason": "研究包已给出结构"}',
+            )
+        )
+
+        def fake_complete(messages, **kwargs):
+            return next(responses), None, ""
+
+        result = agent_research.run_agent_loop(
+            "液冷还有哪些公司",
+            tools={"graph_lookup": _mode_runner},
+            complete_fn=fake_complete,
+        )
+
+        self.assertEqual(result.steps[0].tool, "graph_lookup")
+        self.assertEqual(seen.get("mode"), "package")
+
     def test_l3_and_market_tools_are_registered_names(self) -> None:
         """l3_lookup/market_data 进白名单与描述表：注册后动态 prompt 自动宣传。"""
         self.assertIn("l3_lookup", agent_research._TOOL_NAMES)
