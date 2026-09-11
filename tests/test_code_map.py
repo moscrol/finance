@@ -377,7 +377,9 @@ def test_query_daily_full_doors_probe():
     assert cmd_hits
     assert cmd_hits[0]["retired"] == []
     retired_lines = [r for h in hits for r in h["retired"]]
-    assert any("已废弃" in r or "停用" in r for r in retired_lines)
+    # 门旁必须有退役标记被捞出来。措辞跟着 CLAUDE.md 走：飞书那条 2026-09-11
+    # 从「已废弃」改口成「已退役/已删除」，故三个词都认（都在 code_map 的 RETIRED_RE 里）。
+    assert any(("已废弃" in r or "停用" in r or "退役" in r) for r in retired_lines)
     assert payload["completeness_claim"]["recall"] == "untested"
     assert payload["completeness_claim"]["doors"] in ("ok", "partial")
 

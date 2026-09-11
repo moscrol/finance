@@ -32,6 +32,7 @@ from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
     ToolSpec,
 )
+from intelligence.services.task_frame import TaskFrame
 from intelligence.services.tool_hunger import (
     HUNGER_FILENAME,
     JsonlHungerSink,
@@ -107,6 +108,101 @@ def _expected_unknown_dataset_observation() -> str:
         f"结构化查询参数无效：{str(error)[:160]}；重试提示："
         f"{validation_retry_hint(spec, error)}"
     )
+
+
+def _dated_review_frame() -> TaskFrame:
+    return TaskFrame(
+        raw_question="回看历史：2024年6月上证指数的月度涨跌幅是多少",
+        user_goal="复盘 2024 年 6 月市场",
+        question_type="dated_market_review",
+        subject="A股市场",
+        subject_kind="market_pattern",
+        market_scope="A股",
+        timeframe="2024-06",
+        required_outputs=("current_baseline",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="current_market_scenarios",
+        confidence=0.9,
+    )
+
+
+def _market_daily_query(start: str, end: str) -> dict[str, object]:
+    return {
+        "dataset": "market_daily",
+        "metrics": ["total_amount"],
+        "dimensions": ["trade_date"],
+        "filters": [],
+        "group_by": [],
+        "order_by": [],
+        "limit": 5,
+        "time_range": {"start": start, "end": end},
+    }
+
+
+def test_window_uncovered_records_data_hunger_and_keeps_observation(tmp_path: Path) -> None:
+    """合法查询、窗口无数据：留一条 window_uncovered，observation 逐字节不变；覆盖窗不记。"""
+
+    import duckdb
+
+    from market_feature_store.db import init_db
+
+    finance = tmp_path / "finance"
+    (finance / "db").mkdir(parents=True)
+    con = duckdb.connect(str(finance / "db" / "market_feature_store.duckdb"))
+    try:
+        init_db(con)
+        con.execute(
+            "INSERT INTO fact_market_daily (trade_date, total_amount, advancers) VALUES ('2026-07-20', 8000.0, 2500)"
+        )
+    finally:
+        con.close()
+    frame = _dated_review_frame()
+    context = build_episode_context(
+        frame,
+        task_id="hunger-window-uncovered",
+        capabilities=("market_data",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-07-24",
+        latest_data_date="2026-07-20",
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=finance,
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+    gap_query = _market_daily_query("2024-06-01", "2024-06-30")
+    with bind_run_hunger(tmp_path, run_id="run_gap"):
+        with_sink = registry.execute("finance_query", gap_query, context=context, step_id="gap:1")
+    without_sink = registry.execute("finance_query", gap_query, context=context, step_id="gap:2")
+    assert with_sink.observation == without_sink.observation
+    assert with_sink.trace.status == "empty"
+    events = _read_events(tmp_path / HUNGER_FILENAME)
+    assert [event["event_type"] for event in events] == ["window_uncovered"]
+    event = events[0]
+    assert event["dataset"] == "market_daily"
+    assert event["table"] == "fact_market_daily"
+    assert event["metrics"] == ["total_amount"]
+    assert event["requested_start"] == "2024-06-01"
+    assert event["requested_end"] == "2024-06-30"
+    assert event["row_count"] == 0
+    assert event["uncovered"] == "all"
+    assert event["run_id"] == "run_gap"
+
+    covered_dir = tmp_path / "covered"
+    with bind_run_hunger(covered_dir, run_id="run_ok"):
+        covered = registry.execute(
+            "finance_query",
+            _market_daily_query("2026-07-20", "2026-07-20"),
+            context=context,
+            step_id="gap:3",
+        )
+    assert covered.trace.status == "success"
+    assert not (covered_dir / HUNGER_FILENAME).exists()
 
 
 def test_unknown_tool_records_hunger_and_keeps_model_text(tmp_path: Path) -> None:

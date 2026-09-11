@@ -45,7 +45,10 @@ VERDICTS = ("hit", "partial", "miss", "unverifiable")
 TERMINAL_VERDICTS = ("hit", "partial", "miss")
 SCORE_MAP: dict[str, float | None] = {"hit": 1.0, "partial": 0.5, "miss": 0.0, "unverifiable": None}
 
-METRIC_TYPES = ("stock_return", "kb_evidence", "market_daily", "manual")
+# ``method_validation``：方法观察的到期回检不比阈值，走原协议（冻结成员 + 旁路库五日结果），
+# resolver 在 ``checkpoint_resolvers.MethodValidationResolver``；规格只带三条路径。
+METRIC_TYPES = ("stock_return", "kb_evidence", "market_daily", "manual", "method_validation")
+METHOD_VALIDATION_METRIC_KEYS = ("study_dir", "observation", "labels_db")
 NUMERIC_METRIC_TYPES = ("stock_return", "kb_evidence")
 VALID_OPS = (">=", ">", "<=", "<", "==")
 
@@ -53,8 +56,10 @@ VALID_OPS = (">=", ">", "<=", "<", "==")
 # 用户自己下的判断、agent 下的判断、系统生成经用户确认的观察剧本。
 # 三类混进同一个胜率分母，会让「用户决策」的读数被另外两类稀释——G-09 的胜率面板
 # 要按这个维度分列，所以字段必须在**登记时**就写下，事后从 category 反推是猜。
-# 判断轨四类对象（09-06 spec §2 / §3.3）：用户判断 / agent 判断 / 观察剧本 / 情景树（#37）。
-OBJECT_TYPES = ("judgment", "agent_judgment", "observation_script", "scenario_tree")
+# 判断轨五类对象：用户判断 / agent 判断 / 观察剧本（09-06 spec §2）、情景树（§3.3，#37）、
+# ``method_observation``（能力升级任务包 07：固定方法协议在 D0 收盘后冻结的前向观察，到期按
+# 原协议回检）。后两类各自单列是为了命中率**不进**用户判断 / agent 判断的分母（G-09 分列）。
+OBJECT_TYPES = ("judgment", "agent_judgment", "observation_script", "scenario_tree", "method_observation")
 DEFAULT_OBJECT_TYPE = "judgment"
 # ``projection_hash_missing`` 的唯一合法取值：用户在产品外手写、本来就没有上下文投影。
 USER_AUTHORED = "user_authored"
@@ -63,6 +68,7 @@ OBJECT_TYPE_CN = {
     "agent_judgment": "agent 判断",
     "observation_script": "观察剧本",
     "scenario_tree": "情景树",
+    "method_observation": "方法观察",
     "unknown_legacy": "存量未标类型",
 }
 
@@ -131,6 +137,14 @@ def normalize_metric(metric: dict[str, Any] | None) -> dict[str, Any] | None:
         return {"type": "manual"}
     if mtype == "market_daily":
         return _normalize_market_daily_metric(metric)
+    if mtype == "method_validation":
+        normalized: dict[str, Any] = {"type": mtype}
+        for key in METHOD_VALIDATION_METRIC_KEYS:
+            value = str(metric.get(key) or "").strip()
+            if not value:
+                raise ValueError(f"metric.type=method_validation 需要 {key}")
+            normalized[key] = value
+        return normalized
     out: dict[str, Any] = {"type": mtype}
     op = str(metric.get("op") or ">=").strip()
     if op not in VALID_OPS:
@@ -330,7 +344,13 @@ LEGACY_OBJECT_TYPE = "unknown_legacy"
 # ``foresight_judgment`` 是用户 accept 后入账的用户判断，其余无 source 的手工登记同样多为用户判断——
 # 但「多为」不是「是」，所以剩下的一律进 ``unknown_legacy`` 单独一格。
 # 把它们折进 ``judgment``，等于用一个默认值把三种来源合成一种，胜率面板就再也分不开了。
-_AGENT_SOURCES = ("framework_interpretation", "logic_lifecycle", "track_next_watch")
+_AGENT_SOURCES = (
+    "framework_interpretation",
+    "logic_lifecycle",
+    "track_next_watch",
+    # 排序题改判条件（10 号单，ranking_contract.ingest_flip_conditions）也是 agent 侧产出。
+    "ranking_flip_condition",
+)
 _USER_SOURCES = ("foresight_judgment",)
 
 

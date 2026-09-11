@@ -429,3 +429,40 @@
   未提交工作丢失时，从 transcript 按序重放同起点的确定性编辑可以保真重建，
   重建后用「测试读数逐数对齐 + 变异击杀数对齐」当等价证明。**
 
+
+- **[2026-09-09] 对着闪断网关做端到端验收：把驱动节奏对齐可用窗口，别拿固定重试撞。**
+  场景：写手网关（本机 Mirasim 127.0.0.1:8080）整晚闪断——真请求 1–3s 后 502，随后熔断器
+  打开、数十秒内一切请求瞬时 503；可用窗口 1–4.5 分钟、down 段 2–4 分钟。一个 tier=max
+  episode 要 4–6 个模型轮（1–3 分钟），两题连跑必然跨窗。
+  做法：① 探针盯 **down→up 翻转**，翻成 200 立即进场（起跑线最长），不在 down 段定时盲试；
+  ② **一窗一题**，第二题用 `--conversation <id>` 续同一会话，不在一个窗口里塞两题；
+  ③ key 会随上游重启轮换——**每次探针前从生产进程环境现抄**（`ps eww <pid>`），不落盘不打印；
+  ④ 判定一律**事后读磁盘 episode 原件**（episode/report.json 晚于 run 状态翻 completed 落盘，
+  驱动脚本即时打点恒 False，会把真通过读成失败）；
+  ⑤ 「复核服务不可用」批量降级先查 `semantic_verifier.exc_class`——这次是判官二进制钉在
+  带版本号下载件上被自动更新清掉，修一个符号链接（`~/.grok/bin/grok`）即回。
+  **可迁移原则：依赖方是「窗口化可用」而不是「稳定可用/稳定不可用」时，驱动器的第一公民是
+  窗口探测器（翻转触发 + 进场即跑），重试预算按窗口数而不是按次数计。**
+
+## 历史发现研究复验 / 运行底座（2026-09-09）
+
+- **[2026-09-09] 空池回退替模型补的一枪以 role=tool 进入下一次请求，前面没有 assistant.tool_calls 声明，OpenAI 兼容接口回 400（M3 第 3/4 轮、M6 第 5/6 轮）。**
+  根因：应用发起的工具调用只落了 tool_request + tool_result，没有承载「声明」的事件；`derive_messages` 忠实派生出同样的孤儿，INV-R1 两边一样错所以对账过。
+  做法：新 durable kind `application_tool_call` → `assistant(content="", tool_calls=[…])`，在 tool_request **之前**落账（声明 → 意图 → 效果）；不伪造 model_turn（会把底座的决定记成模型说过的话），不只在发送边缘补消息（durable / live 分叉）；恢复路径对「声明落了、意图没落」合成 tool_error{interrupted} 配平。
+  **可迁移原则：「派生 == 实际」这类奇偶校验抓不到两侧共享的形状错误；模型可见不变量之外还要有一条 provider 无关的线格式规则（每条 tool 消息的 id 必须被前面某条 assistant 声明），检查器 `undeclared_tool_call_ids`。**
+
+- **[2026-09-09] finish 校验白名单只收四种 query 算子，把模型合法引用的、本轮刚保存的 case 原件判成 integrity，整篇有依据的回答退成缺口模板（UI / M2 / M4 三题全因此失败）。**
+  根因：checker 与 producer 的合同没对齐——producer（save / read）落的元数据 operation 不在 checker 的集合里，read 的 case 分支更是提前 return 什么都不落。
+  做法：引用分两类（evidence 四算子 / product 本轮 save 或 scope 校验 read 的 case），合法性 ⊆ 并集，资格（missing_result / missing_comparison）只看 evidence；未知引用照旧 integrity。
+  **可迁移原则：拒收码是 integrity 还是 substance 决定上游动作；先问「引用是不是真的」再问「引用算不算证据」，两问合在一个白名单里就会把合法产物当伪造。**
+
+- **[2026-09-09] 判官二进制写死 `~/.grok/downloads/grok-1.0.5-…`，grok CLI 当天 11:18 自动升到 1.0.24 把旧版删了；run 照常 completed、finish 也过，公开回答却全部降级成 160 字「复核服务不可用」。修好路径后 1.0.24 的 `--sandbox read-only` 又因 `/var/run/docker.sock` 是符号链接拒绝启动。**
+  做法：`LLM_JUDGE_GROK_BIN` 指稳定符号链接 `~/.grok/bin/grok`；`LLM_JUDGE_GROK_SANDBOX=off`；发一批真实验收前先单独探一次判官（`complete_grok_cli` 一条 2+2，9 秒回合法 JSON）。生产 8792 进程环境里仍是失效路径，下一次生产 run 的判官就会失败——要用户改启动脚本并重启。
+  **可迁移原则：只看 run_status 和 finish 门看不到判官死了，`semantic_verifier.exc_class` 才是病因字段；带版本号的自动更新下载件不能当固定路径。**
+
+- **[2026-09-09] 六题串行连发，M5 结束 1 秒后发 M6，约第 100 个事件起连续三次 429，重试间隔 0.6 秒；直接探网关：`model_cooldown`，两个模型所有凭据同时冷却，reset 4939 秒。**
+  做法：批量真实验收按供应商配额排期，题与题之间留间隔；runtime 对 429 没有退避（0.6 秒连打三次即放弃进 finalization_recovery），这是底座待修项，本轮未动。
+  **可迁移原则：限流失败是能力结论的噪声不是能力结论；网关 429 body 里有 reset_seconds，先读它再决定等还是换时段。**
+
+- **[2026-09-09] 分支交接时的 1101P 收据只跑了 30 个目标文件；全仓一跑 7 红（T-7 capability/metadata 一致性、切换板漂移、`unknown runtime capability`）加 runtime 目录不新鲜、进度标签缺失，全是新增三工具后没跑全套留下的。**
+  做法：交接前必跑全仓等价 CI 并留干净树收据；目标收据只证明「改动没弄坏我测的」，证明不了「没弄坏门禁」。全仓收据要标机器负载：负载 40 时 `test_rag_worker` 与会话集成用例是时序抖动（单跑可过），别把它们写成回归。

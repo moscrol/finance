@@ -57,7 +57,6 @@ class StructuredDailyUpdateStatusTest(unittest.TestCase):
             status_path = Path(td) / "status.json"
             args = SimpleNamespace(
                 trade_date="2026-07-09",
-                chart_table=None,
                 skip_long=False,
                 no_chart=False,
                 stock_source="snapshot",
@@ -84,7 +83,6 @@ class StructuredDailyUpdateStatusTest(unittest.TestCase):
             status_path = Path(td) / "status.json"
             args = SimpleNamespace(
                 trade_date="2026-07-09",
-                chart_table=None,
                 skip_long=False,
                 no_chart=False,
                 stock_source="snapshot",

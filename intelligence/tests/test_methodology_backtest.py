@@ -292,6 +292,14 @@ def _build_mini_db(path: Path) -> None:
             "INSERT INTO fact_mainline_sector_daily (trade_date, theme_code, theme_name, sector_ts_code, sector_name, sort_no) VALUES (?,?,?,?,?,?)",
             [DAYS[4], "TH1.FP", "主线", "S2.TI", "板块二", 1],
         )
+        # 舆论生命周期（#36）：板块一被两份研报 tag 命中，其中一份 created_at 落在 DAYS[4]（当天前看不见）。
+        con.executemany(
+            "INSERT INTO fact_research_report_catalog (report_id, title, report_date, report_type, sector_tags, concept_tags, created_at) VALUES (?,?,?,?,?,?,?)",
+            [
+                (1, "板块一研报 A", DAYS[0], "industry", '["板块一"]', "[]", f"{DAYS[0]}T18:00:00"),
+                (2, "板块一研报 B", DAYS[1], "industry", '["板块一"]', "[]", f"{DAYS[4]}T18:00:00"),
+            ],
+        )
         _plant_mini_stocks(con)
     finally:
         con.close()
@@ -318,12 +326,12 @@ def _label(con, entity_type, entity_id, label):
 
 def test_labels_inventory_and_data_gap(mini):
     rep = mini["report"]
-    assert len(rep.rows_by_label) == 15
+    assert len(rep.rows_by_label) == 16
     assert rep.data_gap_days == [str(DAYS[GAP])]
     assert rep.label_version == LABEL_VERSION
     con = duckdb.connect(str(mini["labels"]), read_only=True)
     try:
-        assert con.execute("SELECT COUNT(DISTINCT label) FROM history_labels").fetchone()[0] == 15
+        assert con.execute("SELECT COUNT(DISTINCT label) FROM history_labels").fetchone()[0] == 16
         assert con.execute("SELECT MAX(trade_date) FROM history_labels").fetchone()[0] == DAYS[-1]
     finally:
         con.close()
@@ -760,6 +768,28 @@ def test_refuted_entry_written_only_for_refuted_verdict(synthetic, tmp_path):
     assert len(load_refuted(root)) == 1
 
 
+def test_receipt_carries_declared_stage(synthetic):
+    """工单 #42：跑之前声明的阶段落在收据顶层；不声明为 null 并在 md 里说明不作晋升证据；乱写拒绝。"""
+    from intelligence.services.methodology_backtest.receipts import (
+        DECLARED_STAGES,
+        build_receipt,
+        render_receipt_markdown,
+    )
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    assert DECLARED_STAGES == ("discovery", "validation", "holdout")
+    declared = build_receipt(res, rule_path=None, rule_sha256="abc", environment=env, declared_stage="discovery")
+    assert declared["declared_stage"] == "discovery"
+    assert "声明阶段 `discovery`" in render_receipt_markdown(declared)
+    undeclared = build_receipt(res, rule_path=None, rule_sha256="abc", environment=env)
+    assert undeclared["declared_stage"] is None
+    assert "不作晋升证据" in render_receipt_markdown(undeclared)
+    with pytest.raises(ValueError):
+        build_receipt(res, rule_path=None, rule_sha256="abc", environment=env, declared_stage="主升")
+
+
 def test_cli_run_scan_write_refuted_and_report_refuted(synthetic, tmp_path, capsys):
     cli = _load_script(CLI, "mb_cli_for_pytest_refuted")
     st = synthetic["st"]
@@ -1097,9 +1127,13 @@ def test_latest_receipt_picks_newest_across_versions(synthetic, tmp_path):
 
 
 def test_cli_answer_score_gate_refuses_promotion_without_supported_receipt(synthetic, tmp_path):
-    """经验卡统计门端到端：not_distinguishable 的规则不能把卡晋升为 methodology；candidate 仍可落卡。"""
+    """经验卡统计门端到端（工单 #42 第二刀）：单份收据不论结论都不能晋升 methodology——
+    须完整三段认证链；candidate 仍可落卡。"""
+    import hashlib as _hashlib
+    import json as _json
+
     from intelligence import cli as intel_cli
-    from intelligence.services.methodology_backtest.receipts import write_receipt
+    from intelligence.services.methodology_backtest.receipts import RECEIPT_SCHEMA, write_receipt
 
     st = synthetic["st"]
     env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
@@ -1108,21 +1142,47 @@ def test_cli_answer_score_gate_refuses_promotion_without_supported_receipt(synth
     write_receipt(root, neg, date_str="2026-09-04")
     pos = build_receipt(st.run(synthetic["labels"], st.POSITIVE_RULE), rule_path=None, rule_sha256=None, environment=env)
     write_receipt(root, pos, date_str="2026-09-04")
+    # certified_rule：规则文件 + 同身份三段链（discovery → validation → holdout 全 supported）
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    rule_path = rules_dir / "certified_rule.v1.json"
+    rule_path.write_text(_json.dumps({"rule_id": "certified_rule", "version": 1, "owner": "tester"}), encoding="utf-8")
+    sha = _hashlib.sha256(rule_path.read_bytes()).hexdigest()
+    chain_dir = root / "certified_rule@v1"
+    chain_dir.mkdir(parents=True)
+    for stage, (ws, we), at in (
+        ("discovery", ("2026-01-01", "2026-03-31"), "2026-04-01T00:00:00"),
+        ("validation", ("2026-04-01", "2026-06-30"), "2026-07-01T00:00:00"),
+        ("holdout", ("2026-07-01", "2026-08-31"), "2026-09-01T00:00:00"),
+    ):
+        (chain_dir / f"{stage}.json").write_text(
+            _json.dumps({
+                "schema_version": RECEIPT_SCHEMA, "generated_at": at,
+                "rule": {"rule_id": "certified_rule", "version": 1, "ref": "certified_rule@v1", "sha256": sha},
+                "window": {"start": ws, "end": we}, "verdict": "supported",
+                "declared_stage": stage, "stats": {"verdict": "supported"},
+                "conditions": {"label_version": "v3"},
+            }),
+            encoding="utf-8",
+        )
     cards = tmp_path / "cards.jsonl"
     common = [
         "answer-score", "--question", "双红后还涨吗", "--answer", "会涨。（非投资建议）",
         "--local-source", "market_feature_store", "--save-card", "--card-file", str(cards),
-        "--receipts-dir", str(root), "--json",
+        "--receipts-dir", str(root), "--rules-dir", str(rules_dir), "--json",
     ]
     assert intel_cli.main([*common, "--promotion", "methodology", "--rule-id", "selftest_negative"]) == 2
     assert not cards.exists()
     assert intel_cli.main([*common, "--promotion", "methodology", "--rule-id", "nope_rule"]) == 2
+    # 单份 supported、无三段链：拒——这是 OPT-04 后经验卡侧要堵的那个「另一入口」
+    assert intel_cli.main([*common, "--promotion", "methodology", "--rule-id", "selftest_positive"]) == 2
     assert intel_cli.main([*common, "--promotion", "candidate", "--rule-id", "selftest_negative"]) == 0
-    assert intel_cli.main([*common, "--promotion", "methodology", "--rule-id", "selftest_positive"]) == 0
-    rows = [__import__("json").loads(line) for line in cards.read_text(encoding="utf-8").splitlines()]
+    assert intel_cli.main([*common, "--promotion", "methodology", "--rule-id", "certified_rule"]) == 0
+    rows = [_json.loads(line) for line in cards.read_text(encoding="utf-8").splitlines()]
     assert [r["promotion"] for r in rows] == ["candidate", "methodology"]
     assert rows[0]["rule_verdict"] != "supported" and rows[1]["rule_verdict"] == "supported"
-    assert rows[1]["rule_receipt"].endswith("selftest_positive@v1/2026-09-04.json")
+    assert rows[1]["rule_lifecycle_state"] == "personal_method"
+    assert rows[1]["rule_receipt"].endswith("certified_rule@v1/holdout.json")
 
 
 # --------------------------------------------------------------------------- #
@@ -1290,3 +1350,19 @@ def test_cli_run_and_invalid_rule_exit_codes(synthetic, tmp_path):
     bad.write_text('{"rule_id": "bad_rule", "version": 1}', encoding="utf-8")
     assert cli.main(["run", str(bad), "--labels-db", str(synthetic["labels"]), "--no-write"]) == 2
     assert cli.main(["run", str(rule_path), "--labels-db", str(tmp_path / "nope.duckdb"), "--no-write"]) == 2
+
+
+def test_opinion_stage_label_is_pit_correct_and_only_for_tagged_sectors(mini):
+    """#36：板块一有研报命中 → 每个交易日一行；研报 B 的 created_at 在 DAYS[4]，DAYS[1..3] 只看得见 A（萌芽 count=1）；
+    板块二从未被 tag 命中 → 一行都没有（NULL 语义，不是 unverifiable）。"""
+    con = duckdb.connect(str(mini["labels"]), read_only=True)
+    try:
+        s1 = _label(con, "theme", "S1.TI", "opinion_stage")
+        s2 = _label(con, "theme", "S2.TI", "opinion_stage")
+    finally:
+        con.close()
+    assert s2 == {}
+    assert len(s1) == len(DAYS)
+    assert s1[0] == "萌芽"
+    assert s1[1] == "萌芽" and s1[3] == "萌芽"  # 研报 B 尚未入库
+    assert s1[4] == "萌芽"  # 两份仍 < TH_RESONANCE_SOURCES(3)

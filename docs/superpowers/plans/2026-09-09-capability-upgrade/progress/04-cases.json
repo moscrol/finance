@@ -1,0 +1,1046 @@
+{
+  "schema": "calc-cases/v1",
+  "fetched_at": "2026-09-09T14:55:46+08:00",
+  "source": "东财 F10 RPT_F10_FINANCE_MAINFINADATA（元→亿 四舍五入两位，与 Agent 链同口径）",
+  "tolerance": {
+    "abs_yi": 0.02,
+    "abs_pct": 0.05
+  },
+  "companies": {
+    "600519.SH": "贵州茅台",
+    "000858.SZ": "五粮液",
+    "000568.SZ": "泸州老窖"
+  },
+  "inputs": {
+    "600519.SH": {
+      "2026-06-30": {
+        "period": "2026Q2",
+        "notice_date": "2026-08-15",
+        "revenue_cum_yi": 922.78,
+        "revenue_yoy_pct": 1.3,
+        "net_profit_cum_yi": 445.17,
+        "net_profit_yoy_pct": -1.95,
+        "gross_margin_pct": 89.56,
+        "net_margin_pct": 50.75,
+        "ocf_cum_yi": 706.91
+      },
+      "2026-03-31": {
+        "period": "2026Q1",
+        "notice_date": "2026-04-25",
+        "revenue_cum_yi": 547.03,
+        "revenue_yoy_pct": 6.34,
+        "net_profit_cum_yi": 272.43,
+        "net_profit_yoy_pct": 1.47,
+        "gross_margin_pct": 89.76,
+        "net_margin_pct": 52.22,
+        "ocf_cum_yi": 269.1
+      },
+      "2025-12-31": {
+        "period": "2025Q4",
+        "notice_date": "2026-04-17",
+        "revenue_cum_yi": 1720.54,
+        "revenue_yoy_pct": -1.2,
+        "net_profit_cum_yi": 823.2,
+        "net_profit_yoy_pct": -4.53,
+        "gross_margin_pct": 91.18,
+        "net_margin_pct": 50.53,
+        "ocf_cum_yi": 615.22
+      },
+      "2025-09-30": {
+        "period": "2025Q3",
+        "notice_date": "2025-10-30",
+        "revenue_cum_yi": 1309.04,
+        "revenue_yoy_pct": 6.32,
+        "net_profit_cum_yi": 646.27,
+        "net_profit_yoy_pct": 6.25,
+        "gross_margin_pct": 91.29,
+        "net_margin_pct": 52.08,
+        "ocf_cum_yi": 381.97
+      },
+      "2025-06-30": {
+        "period": "2025Q2",
+        "notice_date": "2025-08-13",
+        "revenue_cum_yi": 910.94,
+        "revenue_yoy_pct": 9.16,
+        "net_profit_cum_yi": 454.03,
+        "net_profit_yoy_pct": 8.89,
+        "gross_margin_pct": 91.3,
+        "net_margin_pct": 52.56,
+        "ocf_cum_yi": 131.19
+      },
+      "2025-03-31": {
+        "period": "2025Q1",
+        "notice_date": "2025-04-30",
+        "revenue_cum_yi": 514.43,
+        "revenue_yoy_pct": 10.67,
+        "net_profit_cum_yi": 268.47,
+        "net_profit_yoy_pct": 11.56,
+        "gross_margin_pct": 91.97,
+        "net_margin_pct": 54.89,
+        "ocf_cum_yi": 88.09
+      },
+      "2024-12-31": {
+        "period": "2024Q4",
+        "notice_date": "2025-04-03",
+        "revenue_cum_yi": 1741.44,
+        "revenue_yoy_pct": 15.66,
+        "net_profit_cum_yi": 862.28,
+        "net_profit_yoy_pct": 15.38,
+        "gross_margin_pct": 91.93,
+        "net_margin_pct": 52.27,
+        "ocf_cum_yi": 924.64
+      },
+      "2024-09-30": {
+        "period": "2024Q3",
+        "notice_date": "2024-10-26",
+        "revenue_cum_yi": 1231.23,
+        "revenue_yoy_pct": 16.91,
+        "net_profit_cum_yi": 608.28,
+        "net_profit_yoy_pct": 15.04,
+        "gross_margin_pct": 91.53,
+        "net_margin_pct": 52.19,
+        "ocf_cum_yi": 444.21
+      },
+      "2024-06-30": {
+        "period": "2024Q2",
+        "notice_date": "2024-08-09",
+        "revenue_cum_yi": 834.51,
+        "revenue_yoy_pct": 17.56,
+        "net_profit_cum_yi": 416.96,
+        "net_profit_yoy_pct": 15.88,
+        "gross_margin_pct": 91.76,
+        "net_margin_pct": 52.7,
+        "ocf_cum_yi": 366.22
+      },
+      "2024-03-31": {
+        "period": "2024Q1",
+        "notice_date": "2024-04-27",
+        "revenue_cum_yi": 464.85,
+        "revenue_yoy_pct": 18.04,
+        "net_profit_cum_yi": 240.65,
+        "net_profit_yoy_pct": 15.73,
+        "gross_margin_pct": 92.61,
+        "net_margin_pct": 54.36,
+        "ocf_cum_yi": 91.87
+      }
+    },
+    "000858.SZ": {
+      "2026-06-30": {
+        "period": "2026Q2",
+        "notice_date": "2026-08-29",
+        "revenue_cum_yi": 284.17,
+        "revenue_yoy_pct": 20.87,
+        "net_profit_cum_yi": 87.53,
+        "net_profit_yoy_pct": 89.3,
+        "gross_margin_pct": 80.29,
+        "net_margin_pct": 31.66,
+        "ocf_cum_yi": -21.54
+      },
+      "2026-03-31": {
+        "period": "2026Q1",
+        "notice_date": "2026-04-30",
+        "revenue_cum_yi": 228.38,
+        "revenue_yoy_pct": 33.67,
+        "net_profit_cum_yi": 80.63,
+        "net_profit_yoy_pct": 82.57,
+        "gross_margin_pct": 81.43,
+        "net_margin_pct": 36.45,
+        "ocf_cum_yi": -25.35
+      },
+      "2025-12-31": {
+        "period": "2025Q4",
+        "notice_date": "2026-04-30",
+        "revenue_cum_yi": 405.29,
+        "revenue_yoy_pct": -54.55,
+        "net_profit_cum_yi": 89.54,
+        "net_profit_yoy_pct": -71.89,
+        "gross_margin_pct": 77.54,
+        "net_margin_pct": 22.99,
+        "ocf_cum_yi": 297.06
+      },
+      "2025-09-30": {
+        "period": "2025Q3",
+        "notice_date": "2025-10-31",
+        "revenue_cum_yi": 306.38,
+        "revenue_yoy_pct": -54.89,
+        "net_profit_cum_yi": 64.75,
+        "net_profit_yoy_pct": -74.03,
+        "gross_margin_pct": 75.72,
+        "net_margin_pct": 22.15,
+        "ocf_cum_yi": 282.47
+      },
+      "2025-06-30": {
+        "period": "2025Q2",
+        "notice_date": "2025-08-28",
+        "revenue_cum_yi": 235.1,
+        "revenue_yoy_pct": -53.58,
+        "net_profit_cum_yi": 46.24,
+        "net_profit_yoy_pct": -75.74,
+        "gross_margin_pct": 77.87,
+        "net_margin_pct": 20.76,
+        "ocf_cum_yi": 311.37
+      },
+      "2025-03-31": {
+        "period": "2025Q1",
+        "notice_date": "2025-04-26",
+        "revenue_cum_yi": 170.86,
+        "revenue_yoy_pct": -50.95,
+        "net_profit_cum_yi": 44.16,
+        "net_profit_yoy_pct": -68.56,
+        "gross_margin_pct": 79.07,
+        "net_margin_pct": 27.2,
+        "ocf_cum_yi": 158.49
+      },
+      "2024-12-31": {
+        "period": "2024Q4",
+        "notice_date": "2025-04-26",
+        "revenue_cum_yi": 891.75,
+        "revenue_yoy_pct": 7.09,
+        "net_profit_cum_yi": 318.53,
+        "net_profit_yoy_pct": 5.44,
+        "gross_margin_pct": 77.05,
+        "net_margin_pct": 37.22,
+        "ocf_cum_yi": 339.4
+      },
+      "2024-09-30": {
+        "period": "2024Q3",
+        "notice_date": "2024-10-31",
+        "revenue_cum_yi": 679.16,
+        "revenue_yoy_pct": 8.6,
+        "net_profit_cum_yi": 249.31,
+        "net_profit_yoy_pct": 9.19,
+        "gross_margin_pct": 77.06,
+        "net_margin_pct": 38.2,
+        "ocf_cum_yi": 297.94
+      },
+      "2024-06-30": {
+        "period": "2024Q2",
+        "notice_date": "2024-08-29",
+        "revenue_cum_yi": 506.48,
+        "revenue_yoy_pct": 11.3,
+        "net_profit_cum_yi": 190.57,
+        "net_profit_yoy_pct": 11.86,
+        "gross_margin_pct": 77.36,
+        "net_margin_pct": 39.15,
+        "ocf_cum_yi": 134.28
+      },
+      "2024-03-31": {
+        "period": "2024Q1",
+        "notice_date": "2024-04-29",
+        "revenue_cum_yi": 348.33,
+        "revenue_yoy_pct": 11.86,
+        "net_profit_cum_yi": 140.45,
+        "net_profit_yoy_pct": 11.98,
+        "gross_margin_pct": 78.43,
+        "net_margin_pct": 42.02,
+        "ocf_cum_yi": 5.16
+      }
+    },
+    "000568.SZ": {
+      "2026-06-30": {
+        "period": "2026Q2",
+        "notice_date": "2026-08-26",
+        "revenue_cum_yi": 104.72,
+        "revenue_yoy_pct": -36.35,
+        "net_profit_cum_yi": 43.39,
+        "net_profit_yoy_pct": -43.37,
+        "gross_margin_pct": 85.35,
+        "net_margin_pct": 41.8,
+        "ocf_cum_yi": 20.82
+      },
+      "2026-03-31": {
+        "period": "2026Q1",
+        "notice_date": "2026-04-29",
+        "revenue_cum_yi": 80.25,
+        "revenue_yoy_pct": -14.19,
+        "net_profit_cum_yi": 37.08,
+        "net_profit_yoy_pct": -19.25,
+        "gross_margin_pct": 85.82,
+        "net_margin_pct": 46.48,
+        "ocf_cum_yi": 45.43
+      },
+      "2025-12-31": {
+        "period": "2025Q4",
+        "notice_date": "2026-04-29",
+        "revenue_cum_yi": 257.31,
+        "revenue_yoy_pct": -17.52,
+        "net_profit_cum_yi": 108.31,
+        "net_profit_yoy_pct": -19.61,
+        "gross_margin_pct": 86.62,
+        "net_margin_pct": 42.21,
+        "ocf_cum_yi": 71.23
+      },
+      "2025-09-30": {
+        "period": "2025Q3",
+        "notice_date": "2025-10-31",
+        "revenue_cum_yi": 231.27,
+        "revenue_yoy_pct": -4.84,
+        "net_profit_cum_yi": 107.62,
+        "net_profit_yoy_pct": -7.17,
+        "gross_margin_pct": 87.11,
+        "net_margin_pct": 46.67,
+        "ocf_cum_yi": 98.23
+      },
+      "2025-06-30": {
+        "period": "2025Q2",
+        "notice_date": "2025-08-30",
+        "revenue_cum_yi": 164.54,
+        "revenue_yoy_pct": -2.67,
+        "net_profit_cum_yi": 76.63,
+        "net_profit_yoy_pct": -4.54,
+        "gross_margin_pct": 87.09,
+        "net_margin_pct": 46.7,
+        "ocf_cum_yi": 60.64
+      },
+      "2025-03-31": {
+        "period": "2025Q1",
+        "notice_date": "2025-04-28",
+        "revenue_cum_yi": 93.52,
+        "revenue_yoy_pct": 1.78,
+        "net_profit_cum_yi": 45.93,
+        "net_profit_yoy_pct": 0.41,
+        "gross_margin_pct": 86.51,
+        "net_margin_pct": 49.31,
+        "ocf_cum_yi": 33.08
+      },
+      "2024-12-31": {
+        "period": "2024Q4",
+        "notice_date": "2025-04-28",
+        "revenue_cum_yi": 311.96,
+        "revenue_yoy_pct": 3.19,
+        "net_profit_cum_yi": 134.73,
+        "net_profit_yoy_pct": 1.71,
+        "gross_margin_pct": 87.54,
+        "net_margin_pct": 43.27,
+        "ocf_cum_yi": 191.82
+      },
+      "2024-09-30": {
+        "period": "2024Q3",
+        "notice_date": "2024-10-31",
+        "revenue_cum_yi": 243.04,
+        "revenue_yoy_pct": 10.76,
+        "net_profit_cum_yi": 115.93,
+        "net_profit_yoy_pct": 9.72,
+        "gross_margin_pct": 88.43,
+        "net_margin_pct": 47.76,
+        "ocf_cum_yi": 124.65
+      },
+      "2024-06-30": {
+        "period": "2024Q2",
+        "notice_date": "2024-08-31",
+        "revenue_cum_yi": 169.05,
+        "revenue_yoy_pct": 15.84,
+        "net_profit_cum_yi": 80.28,
+        "net_profit_yoy_pct": 13.22,
+        "gross_margin_pct": 88.57,
+        "net_margin_pct": 47.6,
+        "ocf_cum_yi": 82.25
+      },
+      "2024-03-31": {
+        "period": "2024Q1",
+        "notice_date": "2024-04-27",
+        "revenue_cum_yi": 91.88,
+        "revenue_yoy_pct": 20.74,
+        "net_profit_cum_yi": 45.74,
+        "net_profit_yoy_pct": 23.2,
+        "gross_margin_pct": 88.37,
+        "net_margin_pct": 49.83,
+        "ocf_cum_yi": 43.59
+      }
+    }
+  },
+  "raw_inputs": {
+    "600519.SH": {
+      "2026-06-30": {
+        "TOTALOPERATEREVE": 92278072083.21,
+        "PARENTNETPROFIT": 44516880421.86,
+        "NETCASH_OPERATE_PK": 70690750119.06,
+        "TOTALOPERATEREVETZ": 1.300099475569,
+        "PARENTNETPROFITTZ": -1.951594855028,
+        "XSMLL": 89.5552128279,
+        "XSJLL": 50.7515717487
+      },
+      "2026-03-31": {
+        "TOTALOPERATEREVE": 54702912385.23,
+        "PARENTNETPROFIT": 27242512886.45,
+        "NETCASH_OPERATE_PK": 26909891269.13,
+        "TOTALOPERATEREVETZ": 6.336009277123,
+        "PARENTNETPROFITTZ": 1.471418294983,
+        "XSMLL": 89.7592176242,
+        "XSJLL": 52.2244889889
+      },
+      "2025-12-31": {
+        "TOTALOPERATEREVE": 172054171890.91,
+        "PARENTNETPROFIT": 82320067101.68,
+        "NETCASH_OPERATE_PK": 61522204989.35,
+        "TOTALOPERATEREVETZ": -1.200097176919,
+        "PARENTNETPROFITTZ": -4.532254817158,
+        "XSMLL": 91.1795516835,
+        "XSJLL": 50.5278865155
+      },
+      "2025-09-30": {
+        "TOTALOPERATEREVE": 130903889634.88,
+        "PARENTNETPROFIT": 64626746712.18,
+        "NETCASH_OPERATE_PK": 38196802155.27,
+        "TOTALOPERATEREVETZ": 6.320001880648,
+        "PARENTNETPROFITTZ": 6.245844952412,
+        "XSMLL": 91.2933832134,
+        "XSJLL": 52.0800885914
+      },
+      "2025-06-30": {
+        "TOTALOPERATEREVE": 91093762553.97,
+        "PARENTNETPROFIT": 45402962298.1,
+        "NETCASH_OPERATE_PK": 13119061031.33,
+        "TOTALOPERATEREVETZ": 9.158168061298,
+        "PARENTNETPROFITTZ": 8.891466577162,
+        "XSMLL": 91.2993094819,
+        "XSJLL": 52.5640684573
+      },
+      "2025-03-31": {
+        "TOTALOPERATEREVE": 51443450583.77,
+        "PARENTNETPROFIT": 26847474238.76,
+        "NETCASH_OPERATE_PK": 8809195646.38,
+        "TOTALOPERATEREVETZ": 10.66739891106,
+        "PARENTNETPROFITTZ": 11.561111702645,
+        "XSMLL": 91.9736093542,
+        "XSJLL": 54.8895459139
+      },
+      "2024-12-31": {
+        "TOTALOPERATEREVE": 174144069958.25,
+        "PARENTNETPROFIT": 86228146421.62,
+        "NETCASH_OPERATE_PK": 92463692168.43,
+        "TOTALOPERATEREVETZ": 15.663979743025,
+        "PARENTNETPROFITTZ": 15.379966101626,
+        "XSMLL": 91.9312166361,
+        "XSJLL": 52.2733593678
+      },
+      "2024-09-30": {
+        "TOTALOPERATEREVE": 123122542625.45,
+        "PARENTNETPROFIT": 60827552118.51,
+        "NETCASH_OPERATE_PK": 44421386217.45,
+        "TOTALOPERATEREVETZ": 16.907838324114,
+        "PARENTNETPROFITTZ": 15.037639785668,
+        "XSMLL": 91.5313752514,
+        "XSJLL": 52.1886744187
+      },
+      "2024-06-30": {
+        "TOTALOPERATEREVE": 83451164646.53,
+        "PARENTNETPROFIT": 41695610983.37,
+        "NETCASH_OPERATE_PK": 36621833812.63,
+        "TOTALOPERATEREVETZ": 17.558035083679,
+        "PARENTNETPROFITTZ": 15.884185544224,
+        "XSMLL": 91.7602847624,
+        "XSJLL": 52.6991323358
+      },
+      "2024-03-31": {
+        "TOTALOPERATEREVE": 46484738134.23,
+        "PARENTNETPROFIT": 24065262374.15,
+        "NETCASH_OPERATE_PK": 9187422415.09,
+        "TOTALOPERATEREVETZ": 18.043581273149,
+        "PARENTNETPROFITTZ": 15.726848081817,
+        "XSMLL": 92.6133169925,
+        "XSJLL": 54.3573266539
+      }
+    },
+    "000858.SZ": {
+      "2026-06-30": {
+        "TOTALOPERATEREVE": 28416674541.77,
+        "PARENTNETPROFIT": 8752942991.31,
+        "NETCASH_OPERATE_PK": -2153568792.32,
+        "TOTALOPERATEREVETZ": 20.870728739985,
+        "PARENTNETPROFITTZ": 89.29986131838,
+        "XSMLL": 80.2949204402,
+        "XSJLL": 31.6579366424
+      },
+      "2026-03-31": {
+        "TOTALOPERATEREVE": 22838024164.27,
+        "PARENTNETPROFIT": 8062764940.78,
+        "NETCASH_OPERATE_PK": -2535371232.04,
+        "TOTALOPERATEREVETZ": 33.666963608643,
+        "PARENTNETPROFITTZ": 82.567785670964,
+        "XSMLL": 81.4343854062,
+        "XSJLL": 36.4470249653
+      },
+      "2025-12-31": {
+        "TOTALOPERATEREVE": 40528509770.23,
+        "PARENTNETPROFIT": 8954257202.51,
+        "NETCASH_OPERATE_PK": 29706259919.13,
+        "TOTALOPERATEREVETZ": -54.551804064166,
+        "PARENTNETPROFITTZ": -71.888962730611,
+        "XSMLL": 77.5418415205,
+        "XSJLL": 22.9890347252
+      },
+      "2025-09-30": {
+        "TOTALOPERATEREVE": 30637727654.97,
+        "PARENTNETPROFIT": 6474551792.18,
+        "NETCASH_OPERATE_PK": 28247488416.94,
+        "TOTALOPERATEREVETZ": -54.888513645422,
+        "PARENTNETPROFITTZ": -74.029889444931,
+        "XSMLL": 75.7249950858,
+        "XSJLL": 22.1523382106
+      },
+      "2025-06-30": {
+        "TOTALOPERATEREVE": 23509972048.65,
+        "PARENTNETPROFIT": 4623850715.13,
+        "NETCASH_OPERATE_PK": 31136736628.58,
+        "TOTALOPERATEREVETZ": -53.581662234871,
+        "PARENTNETPROFITTZ": -75.736516359528,
+        "XSMLL": 77.8661751665,
+        "XSJLL": 20.7584428649
+      },
+      "2025-03-31": {
+        "TOTALOPERATEREVE": 17085765657.95,
+        "PARENTNETPROFIT": 4416313048.41,
+        "NETCASH_OPERATE_PK": 15848802262.24,
+        "TOTALOPERATEREVETZ": -50.94935437254,
+        "PARENTNETPROFITTZ": -68.556291511377,
+        "XSMLL": 79.070497312,
+        "XSJLL": 27.1963506251
+      },
+      "2024-12-31": {
+        "TOTALOPERATEREVE": 89175178322.7,
+        "PARENTNETPROFIT": 31853172533.98,
+        "NETCASH_OPERATE_PK": 33939755192.78,
+        "TOTALOPERATEREVETZ": 7.088944943596,
+        "PARENTNETPROFITTZ": 5.437124934978,
+        "XSMLL": 77.0547999246,
+        "XSJLL": 37.2227576201
+      },
+      "2024-09-30": {
+        "TOTALOPERATEREVE": 67915580112.25,
+        "PARENTNETPROFIT": 24930782556.55,
+        "NETCASH_OPERATE_PK": 29794118733.59,
+        "TOTALOPERATEREVETZ": 8.601700028209,
+        "PARENTNETPROFITTZ": 9.187841732215,
+        "XSMLL": 77.0591040425,
+        "XSJLL": 38.196111226
+      },
+      "2024-06-30": {
+        "TOTALOPERATEREVE": 50648026578.65,
+        "PARENTNETPROFIT": 19056829528.87,
+        "NETCASH_OPERATE_PK": 13427928655.63,
+        "TOTALOPERATEREVETZ": 11.298726059655,
+        "PARENTNETPROFITTZ": 11.857458869848,
+        "XSMLL": 77.3611347139,
+        "XSJLL": 39.1457119744
+      },
+      "2024-03-31": {
+        "TOTALOPERATEREVE": 34832906762.77,
+        "PARENTNETPROFIT": 14045140540.62,
+        "NETCASH_OPERATE_PK": 516195072.59,
+        "TOTALOPERATEREVETZ": 11.863131720674,
+        "PARENTNETPROFITTZ": 11.984085442382,
+        "XSMLL": 78.4264150719,
+        "XSJLL": 42.0162163613
+      }
+    },
+    "000568.SZ": {
+      "2026-06-30": {
+        "TOTALOPERATEREVE": 10472224575.78,
+        "PARENTNETPROFIT": 4339264086.33,
+        "NETCASH_OPERATE_PK": 2081610957.97,
+        "TOTALOPERATEREVETZ": -36.353503265995,
+        "PARENTNETPROFITTZ": -43.373139906762,
+        "XSMLL": 85.3454766591,
+        "XSJLL": 41.7958028106
+      },
+      "2026-03-31": {
+        "TOTALOPERATEREVE": 8025174114.21,
+        "PARENTNETPROFIT": 3708450417.95,
+        "NETCASH_OPERATE_PK": 4543022746.04,
+        "TOTALOPERATEREVETZ": -14.189134473968,
+        "PARENTNETPROFITTZ": -19.254786725466,
+        "XSMLL": 85.8177773598,
+        "XSJLL": 46.47954663
+      },
+      "2025-12-31": {
+        "TOTALOPERATEREVE": 25731010647.32,
+        "PARENTNETPROFIT": 10830713936.14,
+        "NETCASH_OPERATE_PK": 7123218677.88,
+        "TOTALOPERATEREVETZ": -17.518893696809,
+        "PARENTNETPROFITTZ": -19.611632094895,
+        "XSMLL": 86.6241181512,
+        "XSJLL": 42.205534905
+      },
+      "2025-09-30": {
+        "TOTALOPERATEREVE": 23127459902.13,
+        "PARENTNETPROFIT": 10762394649.32,
+        "NETCASH_OPERATE_PK": 9822590732.99,
+        "TOTALOPERATEREVETZ": -4.839190299963,
+        "PARENTNETPROFITTZ": -7.165044011997,
+        "XSMLL": 87.1134106355,
+        "XSJLL": 46.6747782231
+      },
+      "2025-06-30": {
+        "TOTALOPERATEREVE": 16453732904.65,
+        "PARENTNETPROFIT": 7662907812.98,
+        "NETCASH_OPERATE_PK": 6064470030.15,
+        "TOTALOPERATEREVETZ": -2.668768584996,
+        "PARENTNETPROFITTZ": -4.542243771642,
+        "XSMLL": 87.0903429748,
+        "XSJLL": 46.6985832586
+      },
+      "2025-03-31": {
+        "TOTALOPERATEREVE": 9352165445.5,
+        "PARENTNETPROFIT": 4592780509.9,
+        "NETCASH_OPERATE_PK": 3307744331.6,
+        "TOTALOPERATEREVETZ": 1.782280106777,
+        "PARENTNETPROFITTZ": 0.411687479426,
+        "XSMLL": 86.5095329811,
+        "XSJLL": 49.3127082576
+      },
+      "2024-12-31": {
+        "TOTALOPERATEREVE": 31196248208.33,
+        "PARENTNETPROFIT": 13472986476.01,
+        "NETCASH_OPERATE_PK": 19181768363.65,
+        "TOTALOPERATEREVETZ": 3.185053486894,
+        "PARENTNETPROFITTZ": 1.710592055738,
+        "XSMLL": 87.5365904324,
+        "XSJLL": 43.2673136871
+      },
+      "2024-09-30": {
+        "TOTALOPERATEREVE": 24303555187.3,
+        "PARENTNETPROFIT": 11593041150.05,
+        "NETCASH_OPERATE_PK": 12464714796.11,
+        "TOTALOPERATEREVETZ": 10.7590700666,
+        "PARENTNETPROFITTZ": 9.718979039537,
+        "XSMLL": 88.434536322,
+        "XSJLL": 47.7602398481
+      },
+      "2024-06-30": {
+        "TOTALOPERATEREVE": 16904885169.38,
+        "PARENTNETPROFIT": 8027538165.31,
+        "NETCASH_OPERATE_PK": 8225060212.57,
+        "TOTALOPERATEREVETZ": 15.842014617784,
+        "PARENTNETPROFITTZ": 13.216572237216,
+        "XSMLL": 88.5709102795,
+        "XSJLL": 47.5972415415
+      },
+      "2024-03-31": {
+        "TOTALOPERATEREVE": 9188402377.79,
+        "PARENTNETPROFIT": 4573950129.9,
+        "NETCASH_OPERATE_PK": 4359428564.46,
+        "TOTALOPERATEREVETZ": 20.738720872154,
+        "PARENTNETPROFITTZ": 23.200107110559,
+        "XSMLL": 88.3723743239,
+        "XSJLL": 49.8277169816
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "01_single_quarter",
+      "title": "累计转单季（贵州茅台）",
+      "prompt": "贵州茅台从 2025 年一季报到 2026 年中报，把营业总收入和归母净利润从累计值还原成单季值，列一张表给我，并说明每个单季是怎么算出来的。",
+      "must_have": [
+        {
+          "label": "2025Q1 单季营收",
+          "value": 514.43,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "2025Q2 单季营收",
+          "value": 396.51,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "2025Q3 单季营收",
+          "value": 398.1,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "2025Q4 单季营收",
+          "value": 411.5,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "2026Q1 单季营收",
+          "value": 547.03,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "2026Q2 单季营收",
+          "value": 375.75,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "2025Q1 单季归母净利",
+          "value": 268.47,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "2025Q2 单季归母净利",
+          "value": 185.56,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "2025Q3 单季归母净利",
+          "value": 192.24,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "2025Q4 单季归母净利",
+          "value": 176.93,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "2026Q1 单季归母净利",
+          "value": 272.43,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "2026Q2 单季归母净利",
+          "value": 172.74,
+          "tol": 0.02,
+          "unit": "亿元"
+        }
+      ],
+      "headline": [
+        {
+          "label": "2026Q2 单季营收",
+          "value": 375.75,
+          "tol": 0.02,
+          "unit": "亿元"
+        }
+      ],
+      "follow_up": {
+        "id": "06_revision_recompute",
+        "title": "数据修正后重算（2026 中报营收修订）",
+        "prompt": "假设 2026 年中报的营业总收入修订为 925.00 亿元（原 922.78 亿元），其余不变，只重算 2026Q2 的单季营收，并告诉我改了哪些格。",
+        "must_have": [
+          {
+            "label": "修订后 2026Q2 单季营收",
+            "value": 377.97,
+            "tol": 0.02,
+            "unit": "亿元"
+          }
+        ],
+        "unchanged": [
+          {
+            "label": "2026Q1 单季营收（不应变）",
+            "value": 547.03,
+            "tol": 0.02,
+            "unit": "亿元"
+          }
+        ]
+      }
+    },
+    {
+      "id": "02_ocf_vs_profit",
+      "title": "经营现金流与利润对照（贵州茅台）",
+      "prompt": "贵州茅台最近 6 个报告期，把经营活动现金流净额和归母净利润（都用累计口径）放在一起对照，算出每期「经营现金流 ÷ 归母净利润」的比值，指出哪几期低于 1。",
+      "must_have": [
+        {
+          "label": "2025Q1 现金流/净利润比",
+          "value": 0.33,
+          "tol": 0.011,
+          "unit": "倍"
+        },
+        {
+          "label": "2025Q2 现金流/净利润比",
+          "value": 0.29,
+          "tol": 0.011,
+          "unit": "倍"
+        },
+        {
+          "label": "2025Q3 现金流/净利润比",
+          "value": 0.59,
+          "tol": 0.011,
+          "unit": "倍"
+        },
+        {
+          "label": "2025Q4 现金流/净利润比",
+          "value": 0.75,
+          "tol": 0.011,
+          "unit": "倍"
+        },
+        {
+          "label": "2026Q1 现金流/净利润比",
+          "value": 0.99,
+          "tol": 0.011,
+          "unit": "倍"
+        },
+        {
+          "label": "2026Q2 现金流/净利润比",
+          "value": 1.59,
+          "tol": 0.011,
+          "unit": "倍"
+        }
+      ],
+      "headline": [
+        {
+          "label": "最新期比值",
+          "value": 1.59,
+          "tol": 0.011,
+          "unit": "倍"
+        }
+      ],
+      "below_one": [
+        "2025Q1",
+        "2025Q2",
+        "2025Q3",
+        "2025Q4",
+        "2026Q1"
+      ]
+    },
+    {
+      "id": "03_peer_compare",
+      "title": "多公司同口径比较（2026 中报）",
+      "prompt": "对比贵州茅台、五粮液、泸州老窖 2026 年中报：营业总收入、归母净利润、营收同比、归母净利同比、销售毛利率、销售净利率，同一口径放进一张表，并按营收同比从高到低排序。",
+      "must_have": [
+        {
+          "label": "贵州茅台 2026H1 营收",
+          "value": 922.78,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "五粮液 2026H1 营收",
+          "value": 284.17,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "泸州老窖 2026H1 营收",
+          "value": 104.72,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "贵州茅台 2026H1 归母净利",
+          "value": 445.17,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "五粮液 2026H1 归母净利",
+          "value": 87.53,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "泸州老窖 2026H1 归母净利",
+          "value": 43.39,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "贵州茅台 2026H1 毛利率",
+          "value": 89.56,
+          "tol": 0.05,
+          "unit": "%"
+        },
+        {
+          "label": "五粮液 2026H1 毛利率",
+          "value": 80.29,
+          "tol": 0.05,
+          "unit": "%"
+        },
+        {
+          "label": "泸州老窖 2026H1 毛利率",
+          "value": 85.35,
+          "tol": 0.05,
+          "unit": "%"
+        }
+      ],
+      "headline": [
+        {
+          "label": "贵州茅台 营收同比",
+          "value": 1.3,
+          "tol": 0.05,
+          "unit": "%"
+        },
+        {
+          "label": "五粮液 营收同比",
+          "value": 20.87,
+          "tol": 0.05,
+          "unit": "%"
+        },
+        {
+          "label": "泸州老窖 营收同比",
+          "value": -36.35,
+          "tol": 0.05,
+          "unit": "%"
+        }
+      ],
+      "ranking_by_revenue_yoy": [
+        "五粮液",
+        "贵州茅台",
+        "泸州老窖"
+      ]
+    },
+    {
+      "id": "04_revenue_scenarios",
+      "title": "收入情景（贵州茅台 2026 全年）",
+      "prompt": "以贵州茅台 2025 年报的营业总收入为基期，做 2026 年全年收入情景：悲观 -3%、中性 0%、乐观 +5%，给出三种情景下的收入（亿元）和较基期的变动额，列成表。",
+      "must_have": [
+        {
+          "label": "悲观情景收入",
+          "value": 1668.92,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "中性情景收入",
+          "value": 1720.54,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "乐观情景收入",
+          "value": 1806.57,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "基期 2025 年报营收",
+          "value": 1720.54,
+          "tol": 0.02,
+          "unit": "亿元"
+        }
+      ],
+      "headline": [
+        {
+          "label": "乐观情景收入",
+          "value": 1806.57,
+          "tol": 0.02,
+          "unit": "亿元"
+        }
+      ],
+      "follow_up": {
+        "id": "04b_scenario_change",
+        "title": "改假设重算（乐观改 +8%）",
+        "prompt": "把乐观情景改成 +8%，其余两个情景不变，重算这张情景表。",
+        "must_have": [
+          {
+            "label": "乐观 +8% 情景收入",
+            "value": 1858.18,
+            "tol": 0.02,
+            "unit": "亿元"
+          }
+        ],
+        "unchanged": [
+          {
+            "label": "悲观情景收入（不应变）",
+            "value": 1668.92,
+            "tol": 0.02,
+            "unit": "亿元"
+          }
+        ]
+      }
+    },
+    {
+      "id": "05_margin_sensitivity",
+      "title": "利润率敏感性（贵州茅台）",
+      "prompt": "以贵州茅台 2025 年报营业总收入为基数，做一张归母净利润敏感性表：营收增速取 -3%、0%、+3%，销售净利率取 48%、50%、52%，表格每一格是对应的归母净利润（亿元）。",
+      "must_have": [
+        {
+          "label": "敏感性 g-3_m48",
+          "value": 801.08,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "敏感性 g-3_m50",
+          "value": 834.46,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "敏感性 g-3_m52",
+          "value": 867.84,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "敏感性 g+0_m48",
+          "value": 825.86,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "敏感性 g+0_m50",
+          "value": 860.27,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "敏感性 g+0_m52",
+          "value": 894.68,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "敏感性 g+3_m48",
+          "value": 850.63,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "敏感性 g+3_m50",
+          "value": 886.08,
+          "tol": 0.02,
+          "unit": "亿元"
+        },
+        {
+          "label": "敏感性 g+3_m52",
+          "value": 921.52,
+          "tol": 0.02,
+          "unit": "亿元"
+        }
+      ],
+      "headline": [
+        {
+          "label": "增速 0% × 净利率 50%",
+          "value": 860.27,
+          "tol": 0.02,
+          "unit": "亿元"
+        }
+      ],
+      "follow_up": {
+        "id": "05b_add_margin_row",
+        "title": "改假设重算（净利率加一档 54%）",
+        "prompt": "净利率再加一档 54%，其余不变，重算敏感性表。",
+        "must_have": [
+          {
+            "label": "增速 -3% × 净利率 54%",
+            "value": 901.22,
+            "tol": 0.02,
+            "unit": "亿元"
+          },
+          {
+            "label": "增速 +0% × 净利率 54%",
+            "value": 929.09,
+            "tol": 0.02,
+            "unit": "亿元"
+          },
+          {
+            "label": "增速 +3% × 净利率 54%",
+            "value": 956.96,
+            "tol": 0.02,
+            "unit": "亿元"
+          }
+        ],
+        "unchanged": [
+          {
+            "label": "增速 0% × 净利率 50%（不应变）",
+            "value": 860.27,
+            "tol": 0.02,
+            "unit": "亿元"
+          }
+        ]
+      }
+    }
+  ]
+}
