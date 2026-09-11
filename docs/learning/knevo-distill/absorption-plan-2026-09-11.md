@@ -60,14 +60,19 @@
 ## 落地时新发现的遗留项
 
 > 2026-09-11 收口：R1a/R1b/R2 随 **PR #718** 合入 main，R3 随 **PR #719**，本清单随 **PR #722**。
-> L1/L3 已闭合，L2/L4 仍开。
+> L1/L3 已闭合；L2 定性错误已改口，拆出 L5；L4 两句结论实测均不成立，已重写。
+>
+> **复核来历**：用户两句质疑——「飞书不是已经退役了吗」「这个不是做过 pit 吗」——两句都对。
+> 我上一轮刚写完「说没有 X 之前得分三层问：真没有？有但没接线？接了线但送不到？」，
+> 转身就在 L4 写了「没有 as_of 管道」——同一个坑第二次。
 
 | # | 问题 | 证据 | 建议 |
 |---|---|---|---|
 | L1 | ~~坑点文档 `runtime-and-pitfalls.md` 从未提交~~ | `git log --all` 曾零记录，知识不传播 | ✅ **已解决**（PR #719）：入库前把第 32 行飞书 token 换成取值位置指针 |
-| L2 | 该 token 已存在于**已跟踪**文件 `skills/sector-data/references/execution-flow.md` | rg 三处命中（含 `~/.claude/shared/feishu_config.json`） | ⬜ 既有明文凭证暴露，**已进 git 历史**——删当前副本只是虚假安全感，真正处置是轮换，待用户决定 |
+| L2 | ~~该 token 已存在于**已跟踪**文件，属「明文凭证暴露」~~ | — | ⚠ **定性错了，2026-09-11 复核改口**：仓内那串是 spreadsheet token（**文档标识符**），单独拿到访问不了，得配 tenant_access_token。真的凭证泄露是另一件事，见 L5 |
+| L5 | **真凭证泄露：`migrate_dates.py` 的明文 app_id/app_secret，今天仍然有效** | `26446460`（2026-07-02）把它从工作树删了，**历史里还在**；09-11 拿当前 `feishu_config.json` 实测：与泄露值 **逐字相同**（sha256 前 12 位一致），换 token `code=0`，可列出「复盘数据」 base 下 8 张表（含**自选股**） | ⬜ 只有轮换/删应用算数。轮换前先看消费方：`scripts/notify_feishu.py`（夜跑链 `nightly-full-review-s7.sh:75`，**2026-09-10 还在调**）、`skills/advancers-chart/scripts/feishu_chart.py`（`daily-full --with-chart`）、CLI `sync-limit-advance-feishu`。「飞书退役」只退了 IM 问答入口（`709d0e6e`）与 `sync-market-daily`（`cc5d2e4e`），应用本身没退 |
 | L3 | ~~拥挤度回看窗口名不副实会影响读数~~ | 重复行的成因查清了：**同一板块名挂两套供应商代码**（`885756.TI` 与 `990325.FP`，值近乎相同），全库 3,206 组重复 | ✅ **量过，不改**。实测六个题材：20 行窗口 = 20 个不同交易日（近期几乎无重复），双红天数两种算法一致（2/2/2/3/2/1），拥挤度分位**完全相同**（1.7%/1.7%…）。初版「会改动既有答案里的数字」是没量就下的判断，错了。只有文档措辞需要准确，已写进坑点文档 |
-| L4 | D6 全链路没有 as_of 管道 | `load_midterm_trend_artifact` 调 `resolve_query_themes` 时不传 as_of；本次兜底同样取库尾最新交易日 | 触发条件只有前瞻性排序题，与「今天」一致；要问历史某日的方向排序，得先给 D6 接 as_of |
+| L4 | ~~D6 全链路没有 as_of 管道；触发条件只有前瞻性排序题，暂不影响~~ | **两句都错（2026-09-11 实测改口）**。（1）开关存在：`resolve_query_themes` 自带 `as_of` 形参（market_midterm.py:211），`market_review_requested_date` / `asof_prefetch.standing_iso_from_query` 两个解析器都能从问句拿到截止日，D0 已经这么用；D9/D12 已在用 `options.date`。（2）不只前瞻题：「2026-07-10 最值得关注的三个方向是哪三个」同样过 `is_direction_ranking_query`，实测回的是 **2026-08-13 ~ 2026-09-10** 窗口与库尾 top6 板块 | ⬜ 待做：把 as_of 穿过 `_fetch_theme_trend` / `top_board_themes` / `load_midterm_trend_artifact`，`ask._build_d6` 取 `options.date or market_review_requested_date(query)`。断言形状照搬 `test_analog_as_of_truncation`：块里不许出现晚于 as_of 的日期 + 截止日当时不存在的题材解析不到 |
 
 ## 验收口径
 

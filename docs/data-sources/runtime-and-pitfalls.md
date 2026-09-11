@@ -31,6 +31,26 @@
 | 板块每日涨跌幅 + 成交额 | Bitable sector_daily | `tblXqyf9Av1rGg0n` |
 | 板块每日边际量 | 电子表格 sector_marginal_sheet | sheet `e8a204`；spreadsheet token 取自 `~/.claude/shared/feishu_config.json`，不写进仓 |
 
+### 飞书的退役边界与凭证（2026-09-11 实测）
+
+「飞书退役了」只对一半，写清楚免得下一个人拿它当死链路：
+
+| 链路 | 状态 | 证据 |
+|---|---|---|
+| IM 问答入口 `intelligence.cli feishu-bot` | 已退役（exit 2，不读凭证） | `709d0e6e` |
+| `sync-market-daily`（飞书「每日指标」表） | 已退役，已从日链拿掉 | `cc5d2e4e`；日志里最后一次「飞书拉取: 159 条」在 2026-08-20 |
+| `scripts/notify_feishu.py`（运维告警） | **仍在跑** | 夜跑链 `~/.local/bin/nightly-full-review-s7.sh:75`；`intelligence/workflows/daily_review.py` 与 `scripts/check_db_lock.py` 都 import；2026-09-10 还调过（拿到 token，卡在 `im:chat` 权限 400） |
+| `skills/advancers-chart/scripts/feishu_chart.py` | 代码活着，当前链路未调 | `sync_daily_full.py:298` 的 `with_chart` 步；近期 `-advancers-ma5.png` 都是本地 DuckDB 的 `daily-review` 生成的 |
+| CLI `sync-limit-advance-feishu` | 仍注册 | `market_feature_store/cli.py:1643` |
+
+**凭证：不要把 token 当密钥，也不要把密钥当已死。**
+`tblXxx` / spreadsheet token 是**文档标识符**，单独拿到访问不了；真正的钥匙是
+`~/.claude/shared/feishu_config.json` 里的 `app_id`/`app_secret`。这把钥匙曾以明文写在
+`skills/advancers-chart/scripts/migrate_dates.py`，`26446460`（2026-07-02）从工作树删除，
+**git 历史里仍在且至今未轮换**（2026-09-11 比对：当前配置与历史值逐字相同，
+换 tenant_access_token 返回 `code=0`，可枚举「复盘数据」 base 下 8 张表、含自选股）。
+删当前副本不解决问题；要么轮换并同步上表三处消费方，要么直接删自建应用并拆掉告警依赖。
+
 Bitable base：`pcnyt9i9lfme.feishu.cn/base/RnRfbT9F1asuFFsQpAyccMmHn2b`。电子表格新日期写到最右侧空列，列排序由用户手动完成，不自动插入或移位。条件格式公式用 `$A1` 引用板块名，每 15 个板块一条 `=OR()` 规则，单条过长会静默失效（汇总见根目录 `条件格式公式.md`）。
 
 ## 字段与口径
