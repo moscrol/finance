@@ -406,6 +406,19 @@ def _resolve_market_data_context(
     ]
 
 
+def d6_as_of_for(query: str, options_date: str | None) -> str | None:
+    """D6 的截止日：上游已绑定的 ``options.date`` 优先，否则从问句解析。
+
+    两个来源都是现成的：``options.date`` 在 market_watch 类问句上已被
+    :func:`bind_market_watch_pack` 写成 ``pack.standing_date``；解析器就是 D0 锚日
+    用的 :func:`market_review_requested_date`。D6 之前两个都没接，于是
+    「2026-07-10 最值得关注的三个方向」拿到的是库尾两个月后的窗口（实测）。
+
+    返回 ``None`` = 不截断，走库尾，与接 as_of 之前逐字节一致。
+    """
+    return options_date or market_review_requested_date(query)
+
+
 def bind_market_watch_pack(
     options: AskOptions,
     *,
@@ -4248,16 +4261,19 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
 
         def _build_d6():
             intent = d6_intents[0]
+            d6_as_of = d6_as_of_for(options.query, options.date)
             block = market_midterm.midterm_trend_block_for_llm(
                 options.query, theme, options.market_db_path, intent.window,
                 # 排序题往往不点名题材（"最值得关注的三个方向"），题材名解析必为空；
                 # 没有这个兜底，门放开了照样是空块。
                 board_fallback=market_midterm.is_direction_ranking_query(options.query),
+                as_of=d6_as_of,
             )
+            scope = f"截至 {d6_as_of}" if d6_as_of else "截至最新交易日"
             return block, Citation(
                 "D6",
                 "本地 DuckDB 多日/中期趋势数据块",
-                f"题材近 {intent.window} 日双红天数/成交额趋势/拥挤度分位（中期赔率视角）",
+                f"题材近 {intent.window} 日双红天数/成交额趋势/拥挤度分位（中期赔率视角，{scope}）",
             )
 
         providers.append(ask_planner.DataBlockProvider("D6", "多日中期趋势", _d6_applies, _build_d6))
