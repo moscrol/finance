@@ -7,7 +7,7 @@
 - 前提 #667（投影）/ #670（区间）已由用户合入 main → 本分支已前向合并 `gitea/main@5907c9f6`（merge 提交 `326eeb58`，含 #671 舆论阶段 / #680 补强 spec / #681 晋升认证 / #734 Knevo）。
 - 唯一代码冲突 `checkpoints.py OBJECT_TYPES`：分支加 `scenario_tree`、main 加 `method_observation`（任务包 07）——取并集，五类对象，两类各自单列不进用户判断分母（G-09 分列）。
 - 台账地图已补 `scenario_trees.jsonl` 行（AGENTS「新增台账先登记」补欠账；无独立 CLI，入口 = `scenario_trees.register / resolve` + 默认关的 `daily_review_hook`）。
-- 对齐后定向 168 passed（scenario + checkpoint 全集）；全量门禁串行跑，读数回写 PR。
+- 对齐后定向 168 passed（scenario + checkpoint 全集）；独占全量 **9344P / 1F**——那 1 红 `test_real_conversation_round_trip…` 是已知 10s 墙钟超时型 flaky（P4 交接 #684 同测试同形状先例；本次隔离复跑 3/3 绿：单测试 / 最小组合 / 整文件 6P；含同一主干的 #597/#735/#736 三棵树全量 9337–9363 全绿），不在本分支改动面。
 
 ## 决策与被否方案（原有，仍成立）
 - 新模块 `scenario_trees.py`（复数）/ 否改旧 `scenario_tree.py`——那是问答路由的推演契约产物，同名不同物。
