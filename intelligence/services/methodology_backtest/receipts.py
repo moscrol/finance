@@ -116,11 +116,17 @@ def build_receipt(
             "n_ok": rd.n,
             "n_pending": result.n_pending,
             "n_missing": result.n_missing,
+            # OPT-05 purge：outcome 跨出窗末的事件不计入统计（跨窗标签泄漏），如实报数
+            "n_purged_cross_window": result.n_purged,
+            "purge_cut_date": result.purge_cut_date,
             "first_date": result.first_event_date,
             "last_date": result.last_event_date,
             "sample": result.events_sample,
         },
         "stats": rd.to_dict(),
+        # OPT-05 依赖感知读数：方法 / 块长 / 种子 / CI 全入账；顶层 verdict 已是
+        # 「独立假设 × 依赖感知」的保守合成，stats 里的 Wilson 读数降为描述性。
+        "dependence": result.dependence.to_dict() if result.dependence else None,
         "baseline_kind": rule.baseline_kind,
         "baseline_alt": result.baseline_alt.to_dict() if result.baseline_alt else None,
         # 第三列对照：按事件阶段分布加权的阶段基准率；同 baseline_alt 一样只对照、不定结论

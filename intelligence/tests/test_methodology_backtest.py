@@ -670,13 +670,21 @@ def test_compiler_stage_baseline_sql_parameterized_for_both_kinds():
 
 
 def test_synthetic_positive_control_supported_in_every_stage_with_own_baseline(synthetic, tmp_path):
-    """合成库阳性对照（120 日 / 12 板块）：五个阶段各自 p=1.0、各自 p0≈0.5；n ≥ min_n 的阶段 supported 且过规则内 BH，
-    n < min_n 的阶段一律 insufficient_n（不因 p=1.0 而升格）；前视夹具翻转后同样按 n 分成 refuted / insufficient_n；
+    """小合成库（120 日 / 12 板块，**独立于共享 fixture**——240 日下小桶消失）：五个阶段各自
+    p=1.0、各自 p0≈0.5；n ≥ min_n 的阶段 supported 且过规则内 BH，n < min_n 的阶段一律
+    insufficient_n（不因 p=1.0 而升格）；前视夹具翻转后阶段桶按 n 分成 refuted / insufficient_n。
+    顶层 verdict 在这个尺寸下是 insufficient_n：事件日太少（36 日 / 7 块），OPT-05 依赖门下
+    **连 refuted 也不出**——同日的负样本同样不独立。阶段桶保留独立口径（解释用，晋升只看顶层）。
     证伪库条目与 report 带阶段级 p0 / 结论。"""
     from intelligence.services.methodology_backtest.receipts import load_refuted, render_refuted_markdown, summarize_refuted_by_stage, write_refuted
 
     st = synthetic["st"]
-    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    small_src = tmp_path / "small-src.duckdb"
+    small_lab = tmp_path / "small-labels.duckdb"
+    st.build_sample_db(small_src, n_days=120, n_sectors=12)
+    build_labels(small_src, small_lab)
+    build_outcomes(small_src, small_lab)
+    res = st.run(small_lab, st.POSITIVE_RULE)
     stages = res.stage_breakdown
     assert len(stages) == 5 and all(b.p == 1.0 for b in stages)
     assert all(0.3 < b.p0 < 0.7 for b in stages), [(b.stage, b.p0) for b in stages]
@@ -689,12 +697,21 @@ def test_synthetic_positive_control_supported_in_every_stage_with_own_baseline(s
     sm = res.baseline_stage_matched
     assert sm is not None and sm.verdict_if_used == "supported" and sm.lift > 0.3
 
-    shifted = _shifted_labels_db(st, synthetic["src"], tmp_path / "labels-shift.duckdb")
+    shifted = _shifted_labels_db(st, small_src, tmp_path / "labels-shift.duckdb")
     bad = st.run(shifted, st.POSITIVE_RULE)
-    assert bad.readout.verdict == "refuted" and all(b.p == 0.0 for b in bad.stage_breakdown)
+    # 顶层：独立读数 refuted，但 7 块 < min_blocks → 依赖门把它压回 insufficient_n——
+    # 「块不足时不出结论」对 refuted 同样成立（同日负样本同样不独立）。
+    assert bad.dependence is not None and bad.dependence.verdict == "insufficient_blocks"
+    assert bad.readout.verdict == "insufficient_n"
+    assert all(b.p == 0.0 for b in bad.stage_breakdown)
     assert {b.verdict for b in bad.stage_breakdown if b.n >= 20} == {"refuted"}
     assert {b.verdict for b in bad.stage_breakdown if b.n < 20} <= {"insufficient_n"}
-    receipt = build_receipt(bad, rule_path=None, rule_sha256=None, environment=_ENV)
+    # 证伪库只收 verdict=refuted：小夹具的翻转被依赖门压回 insufficient_n，出不了真
+    # refuted——用共享 240 日夹具的前视翻转（块数够，两道读数一致 refuted）。
+    shifted_big = _shifted_labels_db(st, synthetic["src"], tmp_path / "labels-shift-big.duckdb")
+    bad_big = st.run(shifted_big, st.POSITIVE_RULE)
+    assert bad_big.readout.verdict == "refuted"
+    receipt = build_receipt(bad_big, rule_path=None, rule_sha256=None, environment=_ENV)
     root = tmp_path / "refuted"
     write_refuted(root, receipt, date_str="2026-09-05", receipt_path=None)
     loaded = load_refuted(root)
@@ -998,7 +1015,11 @@ def synthetic(tmp_path_factory):
     root = tmp_path_factory.mktemp("synthetic")
     src = root / "src.duckdb"
     lab = root / "labels.duckdb"
-    planted = st.build_sample_db(src, n_days=120, n_sectors=12)
+    # 240 天：事件日相位只有 4 种（event_days 的 sector_idx % 4），120 天只出 36 个
+    # 事件日 = 7 个完整日期块，OPT-05 依赖门下真阳性也会 insufficient_blocks——门要
+    # 拦的是「事件多、日期少」的复制形状，不是拦掉整个夹具，所以把日历放大到接近
+    # 真库量级（413 交易日），让阳性对照在依赖口径下也确实够块数。
+    planted = st.build_sample_db(src, n_days=240, n_sectors=12)
     build_labels(src, lab)
     build_outcomes(src, lab)
     return {"st": st, "src": src, "labels": lab, "planted": planted}
@@ -1009,7 +1030,9 @@ def test_positive_control_supported(synthetic):
     res = st.run(synthetic["labels"], st.POSITIVE_RULE)
     rd = res.readout
     assert rd.verdict == "supported" and rd.lo > rd.p0
-    assert rd.n + res.n_pending == synthetic["planted"]["n_events"]
+    assert res.dependence is not None and res.dependence.verdict == "supported", "依赖感知读数也须过门"
+    # purge 剔掉的是窗末 outcome 跨窗的事件：三者相加才是全部植入事件
+    assert rd.n + res.n_pending + res.n_purged == synthetic["planted"]["n_events"]
 
 
 def test_negative_control_not_supported(synthetic):
