@@ -52,7 +52,8 @@
 **这意味着什么**【2026-09-11 评审修正，范围收窄】：初稿写「块内逐条没有归属」偏大。
 实况：判断/纠偏条目**已逐条带日期**（`（YYYY-MM-DD）` 后缀）且有 `valid_until` 过期降级
 （`downgrade_expired_text`）；真缺的是逐条**归属与出处**——这条是「你的判断」还是
-「你纠正过的原则」、出自哪本台账，目前只在块标题一次性声明。且召回有两条真实出口：
+「你纠正过的原则」、出自哪本台账，目前只在块标题一次性声明。且召回有两条真实出口
+（⚠ **数错了，实为三条**——第三条 prime 前缀见下面 W2b，2026-09-11 补登）：
 - 复盘链的 [M] 块经 `prior_parts` 拼进 **user 消息**（ask.py），不是 system prompt；
 - Workbench `memory_lookup` 工具直接逐条组装 AgentEvidence，**绕过 build_memory_block 渲染**。
 只改渲染、只验 system prompt，两条路都会漏。
@@ -69,6 +70,35 @@
 **验法**：分别断言两条出口——[M] 块（复盘链 user 消息 + ask 链 provider 块）条目前缀
 含归属+日期，既有日期与过期标记不回归；`memory_lookup` 每条证据 source/source_date 完整。
 扩展 test_user_memory + test_episode_tools；开关关闭时零注入不变。
+
+## W2b（P1）· 第三条出口：prime 前缀 —— 2026-09-11 交付后补登
+
+**为什么补这一条**：上面「召回有**两条**真实出口」漏了一条，是**评审时漏圈范围，
+不是执行漏做**。第三条是 `intelligence/services/prime.py` 的 prime 前缀——它渲染
+同一批 judgments/corrections 台账，走的是 `judgments.render_for_prompt`（与
+`user_memory` 的渲染器不是同一个），且 `skills/dispatcher/scripts/route.py` 默认
+**每轮路由都附带**（`--no-prime` 才关），是三条出口里触达最频繁的一条。
+
+**当时的实况**：prime 只有块级标签 `【核心判断｜在此基础上往前推】`，块内逐条连
+「核心判断」四个字都没有——**比 W2 改造前的 [M] 块还弱一档**，正是 W2「块内混进
+一条过期判断时块级标签救不了单条」点名的失败形状。同一条台账两个出口实测：
+
+```
+prime   ：- 液冷：液冷二次侧出清见底（2026-08-30）
+[M] 块  ：- [M·你的判断 2026-08-30][液冷]：液冷二次侧出清见底
+```
+
+**已做**：`render_for_prompt` 补逐条归属前缀 `[你的判断 YYYY-MM-DD]`，日期从行尾
+后缀移入前缀（仍逐条）。**不带 `M·` 命名空间**——prime 不是 [M] 证据块，冒用已注册
+的块号等于伪造引用出处。
+
+**验法（已落）**：断言钉在 `build_prime` / `render_prefix`，**不钉渲染器**。W2 自己的
+教训就是「出口比渲染器多」（差点漏掉 `memory_lookup`）——只改渲染器而没接上 prime
+时，这条测试同样红。变异实测：退回块级旧形制 → `test_judgments` 2 条 +
+`test_prime` 1 条红。
+
+**留给后人的一条**：本项证明「出口清单」本身会漂。往后动召回渲染，先用
+`grep -rn "render_for_prompt"` 数出口，别信 spec 里写死的条数。
 
 ## W3（P2）· 召回降权闭环 —— 可靠性池
 
