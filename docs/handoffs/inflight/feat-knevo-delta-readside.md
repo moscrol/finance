@@ -45,13 +45,11 @@ W5 交付因此在生产上一直交白卷。**原因不是上游断供，是换
 ## 等用户裁决
 
 1. **W4（AB 双盲台账）裁决进行中，已偏向 (a) 补样本**。`f7c382a3` 冻结了 AB-003
-   本地侧（数据截止 09-10、预测 09-14，中间夹 09-11 一个交易日是**有意的污染
-   检测窗**），等 Knevo 回贴。台账正文 `docs/learning/knevo-distill/ab-ledger.md`
-   **在 main 和本分支上都有**（前一版交接写「只在 docs 分支」是错的）。
-   仍要定的：AB-001/002 两个旧样本的 verdict 怎么处置（逾期两月），以及这张台账
-   **从未在 `ledger-map.md` 登记过**——补样本也得补登记。
-   AB-002 的 Knevo 侧已判 `unverifiable / protocol violation`（用了预测日信息），
-   **不得再拿 07-10 走势给它打 hit**。
+   本地侧，等 Knevo 回贴（台账 `docs/learning/knevo-distill/ab-ledger.md`，
+   **main 和本分支都有**，前一版交接说「只在 docs 分支」是错的）。
+   仍要定：AB-001/002 旧样本的 verdict（逾期两月），以及这张台账**从未在
+   `ledger-map.md` 登记过**，补样本也得补登记。AB-002 的 Knevo 侧已判
+   `unverifiable / protocol violation`，**不得再拿 07-10 走势给它打 hit**。
 2. **两笔本地 merge 的授权存疑**。`f017580a` / `45be2a0b` 于 11:02 合入。spec W6 与
    本分支 12 分钟前的交接都写着「合并须用户确认」；现交接自述「用户授权后合入」，
    但仓里无任何授权记录，质检方对此存疑。合的是特性分支不是 main、未推送，
@@ -61,11 +59,9 @@ W5 交付因此在生产上一直交白卷。**原因不是上游断供，是换
 
 ## 坑 / 后人须知
 
-- **W3 阈值故意留空，且已量过、结论是继续留空**。`RELIABILITY_DOWNWEIGHT_THRESHOLD
-  = None` 时降权与警告行逐字节不生效。Q-001 测量记录与复现命令在
-  `evolution/backtest-queue.md`「测量记录 · 2026-09-11」：只 1 个 category 桶达 min_n，
-  召回池仅 1 条且其 category 无对应桶——**候选值 0.3/0.4/0.5 行为完全相同，填数
-  不改变任何召回结果**。重量的触发条件：≥2 个桶各达 min_n 且召回池能解析到这些桶。
+- **W3 阈值故意留空，已量过、结论是继续留空**。样本不足以区分候选值，填数不改变
+  任何召回结果。测量记录、复现命令、重量的触发条件全在
+  `evolution/backtest-queue.md`「测量记录 · 2026-09-11」——**动手前读那份，别凭直觉填**。
   直接填数会让 `test_threshold_defaults_to_none_until_backtested` 变红，那是故意的闸。
 - **D18 fupanhui 路径的 `if not rows` 是死代码**（守卫 A 之后不可达，已实测），
   留作防御，别指望它变红。
