@@ -25,8 +25,10 @@ W1–W3、W5、W6 均带红绿变异实测，逐条见各自提交信息与
 
 ## 门禁（本轮实测，别抄旧数）
 
-`ruff` 全绿；`pytest -q` **9145 passed / 77 skipped / 1 xfailed，exit 0**。
-基线用 `--collect-only` 量：`251a2cf6` 原树 9217、本轮 9223（+6 = 本轮新增六条）。
+`ruff` 全绿；`pytest -q` **9147 passed / 77 skipped / 1 xfailed，exit 0**。
+基线用 `--collect-only` 量：`251a2cf6` 原树 9217、本轮 9225（+8 = 本轮新增八条）。
+⚠ 量之前**先 `pwd`**：`git worktree remove` 之后 cwd 会被重置回主树，
+我就在主树上读到过 8028 这个看着完全合理的假数。
 ⚠ 前面几笔提交里的 7988 / 9081 / 9088 都对不上各自 revision 的 collected 数，
 是收据错挂。**要数就自己 `--collect-only`，别抄提交信息。**
 
@@ -82,6 +84,12 @@ W5 交付因此在生产上一直交白卷。**原因不是上游断供，是换
   别再当它可用（这是第三根被识破的空壳柱子，前两根是 `open_times` 与 `first_limit_time`）。
 - **`truncated` 不落库的洞有意不补**，用 documented gap 测试钉住：**洞被补上时它会变红
   并要求更新 W6 判据。到那天请改判据，别删测试。**
+- **同一份台账常有多套渲染，改渲染器改不到全部**。corrections 有 **7 个渲染点**，
+  其中 `red_team.py:76` 自己拼、不走 `corrections.render_for_prompt`。本轮
+  「出口比渲染器多」现形三次（W2 差点漏 memory_lookup、W2b 初稿漏 foresight、
+  corrections 漏 red_team）。动召回渲染前用
+  `grep -rn "render_for_prompt(" intelligence/services/` **再加一遍正文特征词**
+  （如 `grep -rn "别再说"`）——只数函数调用会漏掉自己拼的那种。
 - **测试夹具别照抄生产**：D18 的 `pool='limit_up'` 过滤第一版测不住——夹具照生产把
   炸板行的 `limit_up_time` 写成 NULL，挡住它的其实是隔壁的 not-null 条件，删掉 pool
   过滤一片绿。要给每个过滤条件造一行「只被它拒掉」的对抗数据，再删掉它看会不会红。
