@@ -147,20 +147,29 @@ def midterm_intent_for(
     *,
     perspective_active: bool = False,
 ) -> MidtermIntent | None:
-    """D6 门控入口：词面意图优先；两类问法在意图缺失时回退默认窗口。
+    """D6 门控入口：词面意图优先；三类问法在意图缺失时回退默认窗口。
 
     - **视角模式**：KOL 视角解读行情天然需要题材量价趋势底座，而视角类问法
       （"站在X视角看 AI应用/地产"）往往不带中期意图词。实测失败形状
       （2026-08-13）：D6 被词面门拦下 → 视角对着空判断"该方向无盘面信号"，
       与库内双红数据直接矛盾。
     - **方向排序题式**：同样不带中期词，来历见 :func:`is_direction_ranking_query`。
+    - **定价状态题式**（"液冷还能追吗""是不是已经反映了"）：同一个失败形状第三次——
+      问句不带中期词，拥挤度分位进不来，"已经反映多少"只能靠当日绝对涨幅回答，而
+      绝对涨幅恰恰答不了这一问。判据见 :func:`pricing_split.is_pricing_state_query`。
 
     :func:`parse_midterm_intent` 本身**不放宽**——它另有两个调用点
     （``query_understanding`` 的时间尺度判定、``ask`` 的时序直查回退），
     那两处问的是"用户是不是真的问了中期"，不是"要不要补拥挤度底座"。
     """
+    from intelligence.services.pricing_split import is_pricing_state_query
+
     intent = parse_midterm_intent(query)
-    if intent is None and (perspective_active or is_direction_ranking_query(query)):
+    if intent is None and (
+        perspective_active
+        or is_direction_ranking_query(query)
+        or is_pricing_state_query(query)
+    ):
         return MidtermIntent(window=DEFAULT_WINDOW)
     return intent
 
