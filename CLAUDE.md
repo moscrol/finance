@@ -370,7 +370,7 @@ Lint 能力（`pdf_ingest_lint.py`）：除 relations 检查外，还检查 conc
 | 板块趋势 | Bitable 板块趋势 | `tblshRMmRnQYrM4K` |
 | 连板晋级 | Bitable 连板晋级 | （limit-advance skill 管理） |
 | 板块每日涨跌幅+成交额 | Bitable sector_daily | `tblXqyf9Av1rGg0n` |
-| 板块每日边际量 | 电子表格 sector_marginal_sheet | token `AHqIwJyMKiglO2kokwYcHRjJnWd`, sheet `e8a204` |
+| 板块每日边际量 | 电子表格 sector_marginal_sheet | sheet `e8a204`；spreadsheet token 取自 `~/.claude/shared/feishu_config.json`，不写进仓 |
 
 电子表格列序约定：新日期数据**写到最后一列**（最右侧空列），列排序由用户手动完成，**禁止自动插入/移位**。
 

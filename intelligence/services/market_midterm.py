@@ -437,9 +437,16 @@ def load_midterm_trend_artifact(
     try:
         themes = resolve_query_themes(con, query, anchored_theme)
         if not themes and board_fallback:
-            # 已知限制：D6 全链路没有 as_of 管道（上面的 resolve_query_themes 也没传），
-            # 兜底取的是库尾最新交易日。触发条件只有前瞻性的方向排序题，与"今天"一致；
-            # 要问历史某日的方向排序，得先给 D6 接 as_of，那是另一件事。
+            # ⚠ 已知缺陷（2026-09-11 实测，非「限制」）：本函数取的永远是库尾。
+            # 开关不是没有——`resolve_query_themes` 自带 as_of 形参（D8/D11 截断那轮加的），
+            # `query_understanding.market_review_requested_date` 与
+            # `asof_prefetch.standing_iso_from_query` 都能从问句里解析出截止日（D0 已经这么用），
+            # 只是 D6 一个都没接。
+            # 初版注释写「触发条件只有前瞻性排序题，与今天一致」是错的：
+            # `is_direction_ranking_query` 纯词面，「2026-07-10 最值得关注的三个方向是哪三个」
+            # 同样命中，实测拿回 2026-08-13 ~ 2026-09-10 的窗口——问 7 月、答 9 月。
+            # 块头会打印这个日期区间，所以泄漏对模型可见、但没有任何门禁拦它，
+            # 也不会被标成 hindsight（那面旗子在 observation_script / checkpoints 层，靠调用方传）。
             themes = top_board_themes(con)
         trends: list[dict[str, Any]] = []
         missing: list[str] = []
