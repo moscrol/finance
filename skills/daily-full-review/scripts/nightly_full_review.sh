@@ -196,14 +196,18 @@ skip_method_flywheel() {
 
 run_method_flywheel() {
   local method_rc=0
-  if [ ! -f "$WORKSPACE/scripts/method_validation.py" ]; then
-    # cap07/I5 尚未合入主检出：如实留痕，不报警不装第二条脚本源。
-    skip_method_flywheel "scripts/method_validation.py 不在 WORKSPACE（cap07/I5 未合入主检出，合入后自动生效）"
+  # 脚本从 CODE_ROOT 取，不是 WORKSPACE。WORKSPACE=DATA_ROOT=主检出，那是**数据**仓——
+  # 它常年停在别人的任务分支/detached HEAD 上，不保证有任何一个新脚本。method_validation.py
+  # 是代码，只在被部署验证过的运行快照里（与本文件 moneyflow 那几条同一个根，也与日志里
+  # 报的 l2_code/l2_rev 是同一棵树）。此前写 WORKSPACE 的后果：合进 main 之后飞轮**仍然**
+  # 每夜跳过，而跳过原因写着「合入后自动生效」——一条读起来完全合理的假话。
+  if [ ! -f "$CODE_ROOT/scripts/method_validation.py" ]; then
+    skip_method_flywheel "scripts/method_validation.py 不在 CODE_ROOT=$CODE_ROOT（运行快照早于 cap07/I5，链切后自动生效）"
     return 0
   fi
   echo "[$(date '+%F %T')] === method daily 开始 date=$D study=$METHOD_STUDY_DIR labels_db=$METHOD_LABELS_DB db=$MARKET_FEATURE_STORE_DB user=$FORESIGHT_USER ===" \
     >> "$LOG_DIR/method-validation-daily.log"
-  "$OPS_PYTHON" "$WORKSPACE/scripts/method_validation.py" daily \
+  "$OPS_PYTHON" "$CODE_ROOT/scripts/method_validation.py" daily \
     --study-dir "$METHOD_STUDY_DIR" \
     --labels-db "$METHOD_LABELS_DB" \
     --db-path "$MARKET_FEATURE_STORE_DB" \

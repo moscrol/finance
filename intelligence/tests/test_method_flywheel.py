@@ -627,3 +627,32 @@ def test_daily_retries_data_insufficient_after_rebuild(tmp_path, monkeypatch, ca
     verdicts, _ = checkpoints.load_verdicts(ledger.with_name("verdicts.jsonl"))
     ours = [v for v in verdicts if v["id"] == {s["step"]: s for s in first["steps"]}["capture"]["checkpoint"]]
     assert [v["verdict"] for v in ours][:1] == ["unverifiable"] and ours[-1]["verdict"] == "hit"
+
+
+# --------------------------------------------------------------- 夜跑接线（shell 层）
+
+NIGHTLY_SH = REPO / "skills" / "daily-full-review" / "scripts" / "nightly_full_review.sh"
+
+
+def test_flywheel_resolves_its_script_from_the_code_root_not_the_data_root() -> None:
+    """飞轮的脚本路径必须跟 CODE_ROOT（运行快照），不能跟 WORKSPACE（=DATA_ROOT，数据仓）。
+
+    夜跑里 ``WORKSPACE="$DATA_ROOT"`` 指主检出，那棵树常年停在别人的任务分支或 detached
+    HEAD 上，不保证有任何一个新脚本；``method_validation.py`` 是代码，只在被部署验证过的
+    运行快照里。写错根的后果不是报错而是**每夜静默跳过**，且跳过原因写着「合入后自动生效」
+    ——一条读起来完全合理的假话，没有任何东西会红。
+    """
+
+    body = NIGHTLY_SH.read_text(encoding="utf-8")
+
+    assert '"$CODE_ROOT/scripts/method_validation.py"' in body
+    assert '"$WORKSPACE/scripts/method_validation.py"' not in body
+
+
+def test_flywheel_skip_reason_names_the_root_it_actually_looked_in() -> None:
+    """跳过原因要带上真正查过的那个目录，否则下一个人无从判断是哪一层没接上。"""
+
+    body = NIGHTLY_SH.read_text(encoding="utf-8")
+    guard = body.split("run_method_flywheel()", 1)[1]
+
+    assert "CODE_ROOT=$CODE_ROOT" in guard
