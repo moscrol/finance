@@ -39,107 +39,20 @@ from dual_blind_forecast import (  # noqa: E402
     verdict_path_for,
 )
 
-METRIC_ALIASES = {
-    "涨家数": "advancers",
-    "涨停家数": "limit_up",
-    "涨停数": "limit_up",
-    "涨停": "limit_up",
-    "跌停家数": "limit_down",
-    "跌停数": "limit_down",
-    "跌停": "limit_down",
-    "成交额": "total_amount",
-    "量比": "volume_ratio",
-    "历史新高数": "high_history",
-    "历史新高": "high_history",
-}
-_METRIC_RE = "|".join(sorted(METRIC_ALIASES, key=len, reverse=True))
-_NUM = r"([0-9]+(?:\.[0-9]+)?)"
-_UNIT = r"(万亿|亿)?"
-COND_RE = re.compile(rf"({_METRIC_RE})[^0-9<>≥≤=区间\-]{{0,6}}(>=|<=|≥|≤|>|<)\s*{_NUM}{_UNIT}")
-RANGE_RE = re.compile(rf"({_METRIC_RE})[^0-9<>≥≤=]{{0,6}}{_NUM}{_UNIT}\s*[-~—]\s*{_NUM}{_UNIT}")
-CLAUSE_SPLIT = re.compile(r"[；;。\n]")
-OR_SPLIT = re.compile(r"或(?:者)?")
-
-
-def _to_number(raw: str, unit: str | None) -> float:
-    value = float(raw)
-    if unit == "万亿":
-        value *= 10000.0
-    return value
-
-
-def extract_conditions(text: str) -> list[tuple[str, str, float, float | None]]:
-    """返回 (metric, op, lo, hi)；op 为比较符或 'range'。"""
-    out: list[tuple[str, str, float, float | None]] = []
-    for m in RANGE_RE.finditer(text):
-        metric = METRIC_ALIASES[m.group(1)]
-        lo = _to_number(m.group(2), m.group(3))
-        hi = _to_number(m.group(4), m.group(5))
-        out.append((metric, "range", lo, hi))
-    stripped = RANGE_RE.sub(" ", text)
-    for m in COND_RE.finditer(stripped):
-        metric = METRIC_ALIASES[m.group(1)]
-        op = {"≥": ">=", "≤": "<="}.get(m.group(2), m.group(2))
-        out.append((metric, op, _to_number(m.group(3), m.group(4)), None))
-    return out
-
-
-def eval_conditions(conds: list[tuple[str, str, float, float | None]], vals: dict[str, float | None]) -> bool | None:
-    """全部条件 AND；有条件的 metric 缺实际值返回 None（不可判）。空列表返回 None。"""
-    if not conds:
-        return None
-    for metric, op, lo, hi in conds:
-        actual = vals.get(metric)
-        if actual is None:
-            return None
-        if op == "range":
-            ok = lo <= actual <= (hi if hi is not None else lo)
-        elif op == ">=":
-            ok = actual >= lo
-        elif op == "<=":
-            ok = actual <= lo
-        elif op == ">":
-            ok = actual > lo
-        else:
-            ok = actual < lo
-        if not ok:
-            return False
-    return True
-
-
-def any_clause_true(text: str, vals: dict[str, float | None]) -> bool | None:
-    """按 ；/。切子句、子句内按 或 切分支；任一分支条件全真即 True。全不可判返回 None。"""
-    saw = False
-    for clause in CLAUSE_SPLIT.split(text or ""):
-        for branch in OR_SPLIT.split(clause):
-            result = eval_conditions(extract_conditions(branch), vals)
-            if result is True:
-                return True
-            if result is False:
-                saw = True
-    return False if saw else None
-
-
-def all_t1_conditions_true(text: str, vals: dict[str, float | None]) -> bool | None:
-    """取包含 T+1 的子句（无则取首个可抽条件子句），其条件全真才 True。"""
-    clauses = [c for c in CLAUSE_SPLIT.split(text or "") if extract_conditions(c)]
-    if not clauses:
-        return None
-    preferred = [c for c in clauses if "T+1" in c or "t1" in c]
-    clause = preferred[0] if preferred else clauses[0]
-    return eval_conditions(extract_conditions(clause), vals)
-
-
-def market_actuals(con: Any, date: str) -> dict[str, Any] | None:
-    row = con.execute(
-        "SELECT advancers, limit_up, limit_down, total_amount, volume_ratio, "
-        "stock_high_count_history, sh_index_pct_chg, market_stage FROM fact_market_daily WHERE trade_date = ?",
-        [date],
-    ).fetchone()
-    if not row:
-        return None
-    keys = ("advancers", "limit_up", "limit_down", "total_amount", "volume_ratio", "high_history", "sh_pct", "stage")
-    return dict(zip(keys, (float(v) if isinstance(v, (int, float)) else v for v in row)))
+# market 类机判的纯函数（条件抽取 / 求值 / 当日实际值）唯一实现在 intelligence/eval/replay_engine.py——
+# 历史重放引擎（INDEX #25）与本脚本同一把尺子；这里只 import 回来，不复制第二份。
+from intelligence.eval.replay_engine import (  # noqa: E402,F401
+    CLAUSE_SPLIT,
+    COND_RE,
+    METRIC_ALIASES,
+    OR_SPLIT,
+    RANGE_RE,
+    all_t1_conditions_true,
+    any_clause_true,
+    eval_conditions,
+    extract_conditions,
+    market_actuals,
+)
 
 
 def sector_rows(con: Any, date: str) -> dict[str, dict[str, float]]:
