@@ -60,7 +60,7 @@
 ## 落地时新发现的遗留项
 
 > 2026-09-11 收口：R1a/R1b/R2 随 **PR #718** 合入 main，R3 随 **PR #719**，本清单随 **PR #722**。
-> L1/L3 已闭合；L2 定性错误已改口，拆出 L5；L4 两句结论实测均不成立，已重写。
+> L1/L3 已闭合；L2 定性错误已改口，拆出 L5（09-11 已随飞书整体退役处置，只剩用户删应用一步）；L4 两句结论实测均不成立，已重写并修好。
 >
 > **复核来历**：用户两句质疑——「飞书不是已经退役了吗」「这个不是做过 pit 吗」——两句都对。
 > 我上一轮刚写完「说没有 X 之前得分三层问：真没有？有但没接线？接了线但送不到？」，
@@ -70,7 +70,7 @@
 |---|---|---|---|
 | L1 | ~~坑点文档 `runtime-and-pitfalls.md` 从未提交~~ | `git log --all` 曾零记录，知识不传播 | ✅ **已解决**（PR #719）：入库前把第 32 行飞书 token 换成取值位置指针 |
 | L2 | ~~该 token 已存在于**已跟踪**文件，属「明文凭证暴露」~~ | — | ⚠ **定性错了，2026-09-11 复核改口**：仓内那串是 spreadsheet token（**文档标识符**），单独拿到访问不了，得配 tenant_access_token。真的凭证泄露是另一件事，见 L5 |
-| L5 | **真凭证泄露：`migrate_dates.py` 的明文 app_id/app_secret，今天仍然有效** | `26446460`（2026-07-02）把它从工作树删了，**历史里还在**；09-11 拿当前 `feishu_config.json` 实测：与泄露值 **逐字相同**（sha256 前 12 位一致），换 token `code=0`，可列出「复盘数据」 base 下 8 张表（含**自选股**） | ⬜ 只有轮换/删应用算数。轮换前先看消费方：`scripts/notify_feishu.py`（夜跑链 `nightly-full-review-s7.sh:75`，**2026-09-10 还在调**）、`skills/advancers-chart/scripts/feishu_chart.py`（`daily-full --with-chart`）、CLI `sync-limit-advance-feishu`。「飞书退役」只退了 IM 问答入口（`709d0e6e`）与 `sync-market-daily`（`cc5d2e4e`），应用本身没退 |
+| L5 | **真凭证泄露：`migrate_dates.py` 的明文 app_id/app_secret，今天仍然有效** | `26446460`（2026-07-02）把它从工作树删了，**历史里还在**；09-11 拿当前 `feishu_config.json` 实测：与泄露值 **逐字相同**，换 token `code=0`，可列出 8 张表（含**自选股**） | ✅ **已处置（2026-09-11，分支 `chore/retire-feishu`）**：先量后删——8 张表最后写入停在 2026-05~06-18，3 个月无人写；`notify_feishu` 每次 HTTP 400（缺 `im:chat`），告警从未送达。已只读导出全部 8 张表到 `~/.finance-runtime/feishu-export-20260911/`，删掉仓内全部飞书代码（5 个 sync + IM bot + 图表 + 4 个纯飞书 skill），告警改走 `scripts/notify_ops.py`（落盘 + 桌面通知），新增门禁 `test_no_module_reads_feishu_credentials` 防回潮。**剩用户一步：到飞书开放平台把自建应用删掉**——那才是让历史里的明文 secret 真正作废的动作 |
 | L3 | ~~拥挤度回看窗口名不副实会影响读数~~ | 重复行的成因查清了：**同一板块名挂两套供应商代码**（`885756.TI` 与 `990325.FP`，值近乎相同），全库 3,206 组重复 | ✅ **量过，不改**。实测六个题材：20 行窗口 = 20 个不同交易日（近期几乎无重复），双红天数两种算法一致（2/2/2/3/2/1），拥挤度分位**完全相同**（1.7%/1.7%…）。初版「会改动既有答案里的数字」是没量就下的判断，错了。只有文档措辞需要准确，已写进坑点文档 |
 | L4 | ~~D6 全链路没有 as_of 管道；触发条件只有前瞻性排序题，暂不影响~~ | **两句都错（2026-09-11 实测改口）**。（1）开关存在：`resolve_query_themes` 自带 `as_of` 形参（market_midterm.py:211），`market_review_requested_date` / `asof_prefetch.standing_iso_from_query` 两个解析器都能从问句拿到截止日，D0 已经这么用；D9/D12 已在用 `options.date`。（2）不只前瞻题：「2026-07-10 最值得关注的三个方向是哪三个」同样过 `is_direction_ranking_query`，实测回的是 **2026-08-13 ~ 2026-09-10** 窗口与库尾 top6 板块 | ✅ **已修**（`fix/d6-as-of-truncation`）：as_of 穿过 `_fetch_theme_trend`（趋势窗/拥挤度分母/涨停热度三条一起截）/ `top_board_themes`（基准日改成 ≤as_of 的最后一个交易日）/ `load_midterm_trend_artifact`，`ask.d6_as_of_for` 取 `options.date or market_review_requested_date`。实测同一问句从「08-13~09-10，芯片拥挤度 1.7%」变成「06-29~07-10，90.0%」——提示词里 ≥80% 该降预期的规则原本被整个抹掉。11 条新测试全部过变异（含两条初版照不出来的），全量 9163 passed |
 
