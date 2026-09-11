@@ -994,6 +994,43 @@ def _rebase_frame_for_decision(
     )
 
 
+def _question_carries_its_own_foothold(
+    query: str,
+    resolution: QueryResolution,
+    task_frame: TaskFrame,
+) -> bool:
+    """题面自身是否已经给出一个可研究的落点（主体 / 实体锚 / 明确日期）。
+
+    为什么需要它：``classify_reference`` 的正则只看词面、不看有没有前文。
+    「……并用 2026 年中报数据说明**这条链**目前兑现到了哪一层」里的「这条链」回指的是
+    同一句话刚建立的那条链，可它照样被判成跨轮追问；无前文时这类题整体落 clarify 车道，
+    引擎 A 一次都不接手（run 里连 ``continuous-episode.json`` 都不会有）。深题读数于是
+    量到「被门挡住」而不是研究能力。
+
+    判据必须落在**题面文本**上，不能只看 ``task_frame.subject`` 有没有值：解析器会把
+    上一轮的主体注入进来（``test_legacy_context_dependent_clarification_resumes_same_forecast_frame``
+    的夹具就是这个形状——「这个反弹还能持续多久」拿到注入的主体「A股市场」）。那是真回指、
+    该反问，而主体字段非空。所以要求主体 / 实体锚的字面出现在问句里，日期走
+    ``latest_explicit_query_date``（它只读题面，不推断）。
+    """
+
+    text = str(query or "")
+    if not text:
+        return False
+    subject = str(task_frame.subject or "").strip()
+    if subject and subject in text:
+        return True
+    entity = str(getattr(resolution.anchor, "entity", "") or "").strip()
+    if entity and entity in text:
+        return True
+    # 延迟 import：market_news 会把取数面拖进 controller 的模块级依赖图。
+    from intelligence.services.market_news import (  # noqa: PLC0415
+        latest_explicit_query_date,
+    )
+
+    return latest_explicit_query_date(text) is not None
+
+
 def decide_turn(
     query: str,
     *,
@@ -1135,17 +1172,7 @@ def decide_turn(
             intent,
             task_frame=task_frame,
         )
-    # 题面自身已经给出可研究的落点（主体 / 实体锚 / 明确日期）时不反问：
-    # classify_reference 的正则只看词面不看有没有前文，「用中报数据说明**这条链**兑现到哪一层」
-    # 里的「这条链」回指的是同一句话刚建立的那条链，不是上一轮。无前文时按词面判 context_dependent
-    # 会把这类题整体挡在引擎 A 门外（落 clarify 车道，run 里连 continuous-episode.json 都没有），
-    # 于是深题读数量到的是「被门挡住」而不是研究能力。判据取「一个落点都没有」而非放宽正则：
-    # 真追问（「那它的毛利率呢？」「这条链呢？」「接着上次继续。」）三项全空，仍照常反问。
-    self_contained = bool(
-        task_frame.subject is not None
-        or resolution.anchor is not None
-        or resolution.envelope.timeframe
-    )
+    self_contained = _question_carries_its_own_foothold(query, resolution, task_frame)
     if (
         resolution.context_dependent
         and previous_intent is None

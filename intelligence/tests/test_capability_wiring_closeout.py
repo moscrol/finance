@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 from pathlib import Path
 
@@ -207,6 +208,41 @@ def test_question_carrying_an_explicit_date_is_not_bounced_back():
         "接着 09-02 那次复盘，用 2026-09-07 收盘数据更新："
         "哪些变了（给前后两个数）、哪些没变、新出现了什么，最后给下一步要看的两个点。"
     )
+
+
+def test_an_injected_subject_does_not_count_as_self_contained():
+    """主体字段非空 ≠ 题面自带——解析器会把上一轮的主体注入进来。
+
+    这是判据被收紧的原因：只看 ``task_frame.subject is not None`` 会把
+    「这个反弹还能持续多久」（真回指，主体「A股市场」来自注入）也放行。
+    所以要求落点的字面出现在问句里。
+    """
+
+    from intelligence.services.query_resolution import QueryResolution
+    from intelligence.services.query_understanding import understand_query
+
+    historical = replace(
+        understand_query("昨天的反弹能持续多久"),
+        subject="A股市场",
+        subject_kind="market_pattern",
+    )
+
+    class InjectingResolver:
+        def resolve(self, _query: str) -> QueryResolution:
+            return QueryResolution(
+                envelope=historical,
+                anchor=None,
+                reference_kind="continuation",
+                context_dependent=True,
+            )
+
+    decision = decide_turn(
+        "这个反弹还能持续多久",
+        previous_intent=None,
+        resolver=InjectingResolver(),  # type: ignore[arg-type]
+    )
+
+    assert decision.lane == "clarify"
 
 
 def test_a_bare_follow_up_with_no_foothold_still_asks():
