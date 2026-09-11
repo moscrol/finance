@@ -18,9 +18,11 @@ from intelligence.services import (
     evidence_registry,
     experience_cards,
     forecast_preflight,
+    judgment_delta,
     knowledge_injection_policy,
     llm_refine,
     perspective_lab,
+    pricing_split,
     ranking_contract,
     scenario_tree,
     track_contract,
@@ -867,6 +869,20 @@ def _prepare_answer_spec_synthesis(
         )
         if ranking_guidance:
             contract_parts.append(ranking_guidance)
+    if options.include_judgment_delta_guidance:
+        judgment_guidance = judgment_delta.judgment_delta_guidance_for_query(
+            options.query,
+            question_plan.question_type,
+        )
+        if judgment_guidance:
+            contract_parts.append(judgment_guidance)
+    if options.include_pricing_split_guidance:
+        pricing_guidance = pricing_split.pricing_split_guidance_for_query(
+            options.query,
+            question_plan.question_type,
+        )
+        if pricing_guidance:
+            contract_parts.append(pricing_guidance)
     messages = llm_refine.build_synthesis_messages(
         options.query,
         theme,
