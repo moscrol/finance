@@ -13,6 +13,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import tomllib
@@ -317,6 +318,10 @@ class HeadlessIsolationReceipt:
     live_root_read: str
     codex_version: str
     command_sha256: str
+    python_executable: str = ""
+    probe_returncode: int | None = None
+    probe_stdout: str = ""
+    probe_stderr: str = ""
 
     def __post_init__(self) -> None:
         if self.status not in {"proven", "unproven"}:
@@ -335,12 +340,15 @@ class HeadlessIsolationReceipt:
             raise ValueError("invalid isolation Codex version")
         if not re.fullmatch(r"[0-9a-f]{64}", self.command_sha256):
             raise ValueError("invalid isolation command hash")
-        if self.status == "proven" and {
-            self.public_tcp,
-            self.loopback,
-            self.unix_socket,
-            self.live_root_read,
-        } != {"denied"}:
+        if self.status == "proven" and (
+            {
+                self.public_tcp,
+                self.loopback,
+                self.unix_socket,
+                self.live_root_read,
+            } != {"denied"}
+            or self.probe_returncode not in (None, 0)
+        ):
             raise ValueError("proven isolation receipt must deny every probe")
 
     @classmethod
@@ -355,7 +363,7 @@ class HeadlessIsolationReceipt:
             command_sha256="0" * 64,
         )
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> dict[str, str | int | None]:
         return {
             "status": self.status,
             "public_tcp": self.public_tcp,
@@ -364,6 +372,10 @@ class HeadlessIsolationReceipt:
             "live_root_read": self.live_root_read,
             "codex_version": self.codex_version,
             "command_sha256": self.command_sha256,
+            "python_executable": self.python_executable,
+            "probe_returncode": self.probe_returncode,
+            "probe_stdout": self.probe_stdout,
+            "probe_stderr": self.probe_stderr,
         }
 
 
@@ -1180,6 +1192,11 @@ def probe_sealed_isolation(
     working_directory = Path(cwd).resolve()
     if not binary or not working_directory.is_dir():
         raise ValueError("invalid isolation probe inputs")
+    # The probe uses only the standard library. Resolve the host interpreter's
+    # venv symlink: its entry point can live in the denied repository even when
+    # the real binary lives in an allowed system directory. PATH must not select
+    # a different interpreter, and fixing startup must not widen sandbox access.
+    python_executable = str(Path(sys.executable).resolve())
     probe_home = Path(tempfile.mkdtemp(prefix="codex-isolation-probe-"))
     live_root = Path(__file__).resolve().parents[2] / "AGENTS.md"
     probe_script = """import json
@@ -1235,7 +1252,7 @@ print(json.dumps(results, sort_keys=True))
         "-C",
         str(working_directory),
         "--sandbox-state-disable-network",
-        str(shutil.which("python3") or "/opt/homebrew/bin/python3"),
+        python_executable,
         "-c",
         probe_script,
     )
@@ -1292,6 +1309,10 @@ print(json.dumps(results, sort_keys=True))
         live_root_read=values["live_root_read"],
         codex_version=version or "unknown",
         command_sha256=command_sha256,
+        python_executable=python_executable,
+        probe_returncode=completed.returncode,
+        probe_stdout=completed.stdout[:4096],
+        probe_stderr=completed.stderr[:4096],
     )
 
 
