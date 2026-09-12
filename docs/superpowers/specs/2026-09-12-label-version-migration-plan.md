@@ -146,13 +146,13 @@ db/history_labels.duckdb.bak-v3-20260911                      （#737 留的 v3 
 
 ### 4.1 切换后的逐项核对
 
-下表每行都是**能直接粘贴执行**的命令。先设好这几个变量（`$PY` 必须显式给出：
-仓库里的 `scripts/*.py` **没有执行位**，`./scripts/xxx.py` 会 permission denied）：
+下表每行都是**真跑验证过**的命令。先设好变量——注意 `MV="$PY 路径"` 再 `$MV` 这种写法
+**在 zsh 下 rc=127**（zsh 不对变量结果做词拆分），所以这里用函数，不用字符串别名：
 
 ```bash
-PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python
-MV="$PY $CODE_ROOT/scripts/method_validation.py"
-MB="$PY $CODE_ROOT/scripts/methodology_backtest.py"
+PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python   # 脚本没有执行位, 必须显式给解释器
+mv_()  { "$PY" "$CODE_ROOT/scripts/method_validation.py"   "$@"; }
+mb_()  { "$PY" "$CODE_ROOT/scripts/methodology_backtest.py" "$@"; }
 ROOT="$FORESIGHT_USERS_DIR/$U/method_validation"     # $U = 生产用户
 OLD="$ROOT/<v3 协议 id>";  NEW="$ROOT/<v5 协议 id>"
 LABELS_DB="$DATA_ROOT/db/history_labels.duckdb"
@@ -160,23 +160,29 @@ LABELS_DB="$DATA_ROOT/db/history_labels.duckdb"
 
 `--user` 有**两种互不相干的语义**，别混：
 
-- `register` / `activate` / `supersede` / `active`：`--user`（或 `--root`）**选的是协议根目录**，
-  决定读写哪个用户的协议与指针。切换类操作必须显式带，否则会落到 `users/default`。
+- `register` / `activate` / `supersede` / `active`：`--user`（或 `--root`）**既选协议根目录，
+  也是变更边界**——`supersede` 会拒绝封存该根之外的协议。切换类操作必须显式带。
 - `capture` / `daily` / `recheck`：`--user` 只是 **checkpoint 台账的归属**，
   **不选协议**——协议一律由必填的 `--study-dir` 指定。
-- `status` / `history` / `report`：**根本没有 `--user`**，只认 `--study-dir`
-  （`status` 还不读库，见 §5，所以库版本不能拿它查）。
+- `status` / `history` / `report`：**根本没有 `--user`**。`report` 认的是 **`--record`**
+  （不是 `--study-dir`）；`status` 只认 `--study-dir`，而且**不读库**（见 §5）。
 
-下表按这个事实给命令，别再写 `status --user`。
+**协议自身的三个关键值都在 `protocol.json` 的 `protocol` 子对象里，`status` 打不出来**
+（它打的是立场摘要，刚 `register` 完还没有摘要，只会报「没有立场摘要」）。所以核对
+`forward_start` / `label_version` 要直接读那个文件：
+
+```bash
+prot_() { "$PY" -c 'import json,sys; d=json.load(open(sys.argv[1]))["protocol"]; print(json.dumps({k:d.get(k) for k in sys.argv[2:]}, ensure_ascii=False))' "$1/protocol.json" "${@:2}"; }
+```
 
 | 查什么 | 最早时点 | 命令 | 期望 |
 |---|---|---|---|
-| 库版本确实是 v5 | ② 后 | `$MB report --labels-db "$LABELS_DB"` | `label_version` 为 v5 |
-| 新协议已登记 | ③ 后 | `$MV status --study-dir "$NEW"` | 出协议卡片，`forward_start` 符合预期 |
-| history 已在 v5 上重跑 | ④ 后 | `$MV status --study-dir "$NEW"` | 有 history 段读数，且口径为 v5 |
-| 指针指向新协议 | ⑤ 后 | `$MV active --user "$U"` | rc=0，`protocol_id` 为 v5 |
-| 旧协议退出枚举 | ⑥ 后 | `$MV active --user "$U" --print-dir` 之外用 `list_studies(root)` | 默认结果不含 v3（⑥ 之前**本就应该**还在） |
-| 旧协议拒绝新观察 | ⑥ 后 | `$MV capture --study-dir "$OLD" --labels-db "$LABELS_DB"` | 非零且提示**「协议已封存」**；**若报的是缺参数就不算数**——那说明没走到封存闸 |
+| 库版本确实是 v5 | ② 后 | `mb_ report --labels-db "$LABELS_DB"` | `label_version` 为 v5 |
+| 新协议口径与起点 | ③ 后 | `prot_ "$NEW" label_version forward_start history` | `label_version` 为 v5；`forward_start` = max(重建日,登记日) 的次个交易日 |
+| history 已在 v5 上重跑 | ④ 后 | `ls "$NEW/history"` 且 `prot_ "$NEW" label_version` | 有当日记录目录；口径为 v5 |
+| 指针指向新协议 | ⑤ 后 | `mv_ active --user "$U"` | rc=0，`protocol_id` 为 v5 |
+| 旧协议退出枚举 | ⑥ 后 | `list_studies(root)`（库函数，无 CLI） | 默认结果不含 v3（⑥ 之前**本就应该**还在） |
+| 旧协议拒绝新观察 | ⑥ 后 | `mv_ capture --study-dir "$OLD" --labels-db "$LABELS_DB"` | 非零且报**「协议已封存」**；**若报的是缺参数就不算数**——那说明没走到封存闸 |
 | 夜跑**实际**选中 | 次个交易日 | `grep 'study=' "$LOG_DIR/method-validation-daily.log" \| tail -1` | study 为 v5 且写出 capture |
 
 `active` 的退出码是三态：**0 有效 / 4 从未配置 / 3 配置过但失效**（含指针损坏、目标缺失、
@@ -219,10 +225,20 @@ $PY "$CODE_ROOT/scripts/method_validation.py" --help | grep -qE '[{,]active[,}]'
 
 ```bash
 git worktree add --detach ~/.finance-runtime/finance-workspace-<sha> <sha>   # 切新快照
-# 换 CODE_ROOT 符号链接指向新快照
-$PY "$CODE_ROOT/scripts/method_validation.py" --help | grep -qE '[{,]activate[,}]' \
-  && echo "链切已完成" || echo "链切未做"
+# 换 CODE_ROOT 符号链接指向新快照，然后：
+help_out="$("$PY" "$CODE_ROOT/scripts/method_validation.py" --help 2>&1)"; help_rc=$?
+if [ "$help_rc" -ne 0 ]; then
+  echo "查不出能力（--help rc=$help_rc）：$help_out"   # ← 这既不是「链切已完成」也不是「链切未做」
+elif printf '%s' "$help_out" | grep -qE '[{,]activate[,}]'; then
+  echo "链切已完成"
+else
+  echo "链切未做：夜跑会按「从未配置」用内置默认协议"
+fi
 ```
+
+**三分支不能压成两分支**：`--help | grep -q` 取的是 grep 的退出码，help 进程自己崩了
+也只算「没命中」，于是被写成「链切未做、会用默认」——而夜跑对这种情况的**实际行为
+是停掉方法日步并告警**，文档那么写就与运行行为相反了（这轮已修，见夜跑绑定段）。
 
 两点别踩：**脚本没有执行位**，必须显式给解释器（`./scripts/xxx.py` 会 permission denied）；
 探针看**顶层 `--help` 的子命令列表**。旧 CLI 上 `activate --help` 确实也会非零

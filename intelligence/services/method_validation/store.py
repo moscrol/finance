@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 import re
 import tempfile
 from pathlib import Path
@@ -263,14 +264,22 @@ def active_binding(root) -> dict:
     # 「set_active 内部读回通过、CLI 读回核对失败」这种只差前缀的假不一致。
     parent = Path(root).expanduser().resolve()
     pointer = parent / ACTIVE_POINTER
-    # **只有确实不存在才算 unset。** 用 lexists 而不是 is_file()：目录、悬空软链
-    # 都会让 is_file() 返回 False, 于是「指针坏了」被误判成「没配过」, 夜跑照样
-    # 静默回退旧协议（09-12 质检实测）。存在但不是普通文件 → corrupt。
-    if not os.path.lexists(pointer):
+    # **只有确实不存在才算 unset。** 这里必须用 lstat 而不是 is_file()/lexists()：
+    # 前者把目录与悬空软链也报成 False, 后者更进一步——它把**任何** lstat 失败
+    # （包括父目录没有遍历权限）统统压成 False。两者都会让「指针坏了 / 读不到」
+    # 伪装成「没配过」, 夜跑于是静默回退旧协议（09-12 质检连抓两轮）。
+    # 只有 FileNotFoundError 能证明「确实不存在」, 其余访问错误是**查不出来**, 另立一态。
+    try:
+        st = os.lstat(pointer)
+    except FileNotFoundError:
         return {"state": "unset", "study_dir": None, "detail": "未配置 active 指针"}
-    if not pointer.is_file():
+    except OSError as exc:
+        return {"state": "unreadable", "study_dir": None,
+                "detail": f"指针状态查不出（{exc.__class__.__name__}: {exc.strerror}）: {pointer}"}
+    if not stat.S_ISREG(st.st_mode):
+        kind = "目录" if stat.S_ISDIR(st.st_mode) else "软链或特殊文件"
         return {"state": "corrupt", "study_dir": None,
-                "detail": f"指针存在但不是普通文件（目录或悬空软链）: {pointer}"}
+                "detail": f"指针存在但不是普通文件（{kind}）: {pointer}"}
     try:
         doc = json.loads(pointer.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
@@ -287,7 +296,7 @@ def active_binding(root) -> dict:
     candidate = parent / name
     if not (candidate / "protocol.json").is_file():
         return {"state": "missing_target", "study_dir": None,
-                "detail": f"指针指向的协议目录不存在或缺 protocol.json: {candidate}"}
+                "detail": f"指针指向的协议目录不存在、缺 protocol.json 或读不到: {candidate}"}
     # 协议本身要能加载通过校验, 否则 --print-dir 说「有效」、普通模式说「损坏」,
     # 有效性由展示格式决定（质检实测 rc=0 vs rc=2）。判定只能有一处。
     try:

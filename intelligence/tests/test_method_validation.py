@@ -587,6 +587,60 @@ def test_structurally_valid_json_that_is_not_an_object_is_corrupt_not_unset(tmp_
         assert binding["study_dir"] is None
 
 
+def test_unreadable_pointer_is_not_reported_as_unset(tmp_path):
+    """「查不出来」不是「不存在」。
+
+    `lexists()` 把**任何** lstat 失败都压成 False——父目录没有遍历权限时, 有效指针会被
+    报成「从未配置」(rc=4), 夜跑据此静默回退旧协议（09-12 质检实测）。只有
+    FileNotFoundError 能证明确实不存在。
+    """
+    import os
+
+    from intelligence.services.method_validation import active_binding, set_active
+
+    study = register(tmp_path, protocol())
+    set_active(tmp_path, study)
+    assert active_binding(tmp_path)["state"] == "ok"
+
+    os.chmod(tmp_path, 0o000)
+    try:
+        binding = active_binding(tmp_path)
+    finally:
+        os.chmod(tmp_path, 0o700)
+    assert binding["state"] == "unreadable", f"读不到却报 {binding['state']}"
+    assert binding["study_dir"] is None
+    assert "Permission" in binding["detail"] or "denied" in binding["detail"]
+
+
+def test_supersede_refuses_to_reach_outside_the_declared_root(tmp_path):
+    """`--user`/`--root` 是**变更边界**, 不只是「读哪个根的 active」。
+
+    上一版只拿它选根, 标记却按 --study-dir 直接写: `supersede --user u1 --study-dir
+    <别人的协议>` 照样 rc=0 把别人的协议封了（质检实测）。
+    """
+    import subprocess
+    import sys
+
+    mine = tmp_path / "users" / "u1" / "method_validation"
+    theirs = tmp_path / "users" / "other" / "method_validation"
+    mine.mkdir(parents=True)
+    theirs.mkdir(parents=True)
+    register(mine, protocol())
+    victim = register(theirs, protocol())
+
+    cli = [sys.executable, str(REPO / "scripts" / "method_validation.py"), "supersede"]
+    done = subprocess.run([*cli, "--root", str(mine), "--study-dir", str(victim), "--reason", "越界"],
+                          capture_output=True, text=True)
+    assert done.returncode != 0, "跨根封存被放行"
+    assert "不属于该 root" in (done.stdout + done.stderr)
+    assert not (victim / "superseded.json").exists(), "拒绝了却仍写下了封存标记"
+
+    ok = subprocess.run([*cli, "--root", str(theirs), "--study-dir", str(victim), "--reason", "正常"],
+                        capture_output=True, text=True)
+    assert ok.returncode == 0, f"指对根却封不了: {ok.stderr[-200:]}"
+    assert (victim / "superseded.json").exists()
+
+
 def test_pointer_that_is_not_a_regular_file_is_corrupt_not_unset(tmp_path):
     """目录与悬空软链都会让 is_file() 返回 False——旧实现据此报「没配过」。"""
     from intelligence.services.method_validation import active_binding
@@ -682,27 +736,40 @@ def test_history_on_superseded_protocol_is_refused(tmp_path):
     assert not (study / "standing").exists(), "封存后仍刷新了 standing 摘要"
 
 
-def test_every_new_observation_entry_is_behind_the_supersede_gate():
-    """结构性闸: 凡是调用 ``write_record`` 的函数, 必须先过 ``_refuse_if_superseded``。
+def test_every_new_observation_entry_calls_the_supersede_gate():
+    """**漏调用报警**: 凡是调用 ``write_record`` 的函数, 必须也调用 ``_refuse_if_superseded``,
+    且闸的调用位置在第一处写入之前。
 
-    上一轮我是**逐个入口**去堵的, 于是漏了 history。逐个堵永远跟不上新增入口——
-    这条按「谁造新证据谁进闸」来钉, 下次再加写入口忘了加闸, 这里直接红。
+    保障范围要说准（质检指出）: 这是静态的「有没有调、谁在前」, **不是控制流证明**。
+    把闸放进一个永不执行的分支、或放在 ``return`` 之后又挪回前面几行, 它都看不出来。
+    真正钉住行为的是各写入口的行为回归（见 ``test_history_on_superseded_protocol_is_refused``
+    与 daily/capture 的同类用例）; 这条只负责在**新增写入口忘了加闸**时立刻报警——
+    上一轮漏掉 history 正是这个场景。
     """
     import ast
 
     src = (REPO / "scripts" / "method_validation.py").read_text(encoding="utf-8")
     tree = ast.parse(src)
 
-    def calls(node) -> set[str]:
-        return {
-            n.func.id for n in ast.walk(node)
-            if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
-        }
+    def first_lineno(node, name: str) -> int | None:
+        hits = [
+            n.lineno for n in ast.walk(node)
+            if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == name
+        ]
+        return min(hits) if hits else None
 
-    unguarded = [
-        fn.name for fn in ast.walk(tree)
-        if isinstance(fn, ast.FunctionDef)
-        and "write_record" in calls(fn)
-        and "_refuse_if_superseded" not in calls(fn)
-    ]
-    assert not unguarded, f"这些函数会写新观察却没过封存闸: {unguarded}"
+    missing, late = [], []
+    for fn in ast.walk(tree):
+        if not isinstance(fn, ast.FunctionDef):
+            continue
+        writes = first_lineno(fn, "write_record")
+        if writes is None:
+            continue
+        gate = first_lineno(fn, "_refuse_if_superseded")
+        if gate is None:
+            missing.append(fn.name)
+        elif gate > writes:
+            late.append(fn.name)
+
+    assert not missing, f"这些函数会写新观察却没调封存闸: {missing}"
+    assert not late, f"这些函数的封存闸写在第一处写入之后: {late}"

@@ -554,9 +554,22 @@ def cmd_activate(args) -> int:
 
 
 def cmd_supersede(args) -> int:
-    """封存一份协议：留档但退出活跃消费（`list_studies` 默认不再枚举它）。"""
+    """封存一份协议：留档但退出活跃消费（`list_studies` 默认不再枚举它）。
+
+    **`--user` / `--root` 是变更边界, 不只是「读哪个根的 active」。** 上一版只拿它选根,
+    封存标记却直接按 `--study-dir` 写下去——`supersede --user u1 --study-dir <别人的协议>`
+    照样 rc=0 把别人的协议封了（09-12 质检实测）。这与 `set_active` 的归属校验是同一条
+    规则：**声明了在谁的范围内操作, 就不能动范围之外的东西**。要封存别的根, 显式把
+    `--user`/`--root` 指过去。
+    """
     root = _root_of(args)
     study = Path(args.study_dir).expanduser()
+    resolved, parent = study.resolve(), Path(root).expanduser().resolve()
+    if resolved.parent != parent:
+        raise ValueError(
+            f"study_dir 不属于该 root, 拒绝跨根封存：study_dir={resolved} root={parent}。"
+            f"要封存这一份, 请把 --user/--root 指向它所在的根"
+        )
     marker = supersede(study, successor_id=args.successor, reason=args.reason or "")
     current = active_study(root)
     _print({"superseded_marker": str(marker), "study_dir": str(study.resolve()),
