@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -397,7 +398,8 @@ def latest_receipt(root: str | Path, rule_id: str) -> dict[str, Any] | None:
         for path in sorted(folder.glob("*.json")):
             try:
                 doc = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
+            except (OSError, ValueError) as exc:
+                _warn_corrupt(path, exc)
                 continue
             if not isinstance(doc, dict) or doc.get("schema_version") != RECEIPT_SCHEMA:
                 continue
@@ -459,49 +461,96 @@ def receipt_stem(receipt: dict[str, Any], date_str: str) -> str:
     return f"{head}-{_run_suffix(receipt)}"
 
 
+def _warn_corrupt(path: Path, exc: BaseException) -> None:
+    """读到坏收据要**出声**。
+
+    静默 `continue` 的后果在 09-12 质检里现形过：正式目录留下 0 字节 JSON，读取端
+    跳过它、派生状态若无其事地停在旧值，没有任何人知道有一份证据读不出来。
+    这里不修不删（可能是真证据），只保证它不会无声无息。
+    """
+    print(f"[receipts] 跳过读不出的收据 {path}: {type(exc).__name__}: {exc}",
+          file=sys.stderr, flush=True)
+
+
 class ReceiptCollision(RuntimeError):
     """目标文件已存在且内容不同。**绝不静默覆盖**——覆盖会抹掉一次真实运行的证据。"""
 
 
-def _write_exclusive(path: Path, text: str, payload: dict[str, Any]) -> bool:
-    """**原子**地创建并写入；文件已存在则比内容——相同 → 幂等（False），不同 → 抛错。
-
-    用 ``O_CREAT | O_EXCL`` 而不是「先 exists() 再 write」：后者是 check-then-act，两个
-    并发写手可以都通过检查、都去写，后者覆盖前者（09-12 复核用线程池实测复现）。
-    `O_EXCL` 把「不存在才创建」交给内核一次完成，谁输谁走比内容那条分支。
-
-    比内容用于幂等：同一份产物原样重写不该报错，也不该产生第二个文件。内容不同却撞名
-    说明时钟回退、摘要口径变了或有别的 bug——那时**报错比覆盖安全**，被覆盖的可能正是
-    一次失败记录，而所有「事后挑窗 / 改判痕迹」检测都靠它在场。
-    """
-    import os
-
-    data = text.encode("utf-8")
+def _compare_existing(path: Path, text: str, payload: dict[str, Any]) -> bool:
+    """目标已存在时比内容：相同 → 幂等（False），不同/读不出 → 抛 `ReceiptCollision`。"""
     try:
-        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
-    except FileExistsError:
+        raw = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ReceiptCollision(f"{path} 已存在且读不出来，拒绝覆盖：{exc}") from exc
+    if path.suffix == ".json":
         try:
-            existing = json.loads(path.read_text(encoding="utf-8")) if path.suffix == ".json" else None
-        except (OSError, ValueError) as exc:
-            raise ReceiptCollision(f"{path} 已存在且读不出来，拒绝覆盖：{exc}") from exc
-        if existing is not None and _content_digest(existing) == _content_digest(payload):
-            return False
-        if existing is None and path.read_text(encoding="utf-8") == text:
+            existing = json.loads(raw)
+        except ValueError as exc:
+            # 旧版本留下的损坏对象（如中断造成的 0 字节）：**不自动覆盖、不自动删除**。
+            # 它可能是真证据也可能是残留，分不清就不能替人处置；报清楚让人来定。
+            hint = "（0 字节，疑为旧版写入中断残留）" if not raw.strip() else ""
+            raise ReceiptCollision(
+                f"{path} 已存在但不是可读 JSON{hint}，拒绝覆盖：{exc}。"
+                f"请人工确认后移走或归档该文件，不要凭文件名推断其结论"
+            ) from exc
+        if _content_digest(existing) == _content_digest(payload):
             return False
         raise ReceiptCollision(
             f"{path} 已存在且内容不同，拒绝静默覆盖："
-            + (
-                f"既有摘要 {_content_digest(existing)[:12]}…，本次 {_content_digest(payload)[:12]}…"
-                if existing is not None
-                else "（非 JSON 产物，按字节比对不同）"
-            )
+            f"既有摘要 {_content_digest(existing)[:12]}…，本次 {_content_digest(payload)[:12]}…"
         )
+    if raw == text:
+        return False
+    raise ReceiptCollision(
+        f"{path} 已存在且内容不同，拒绝静默覆盖（非 JSON 产物，按字节比对不同）"
+    )
+
+
+def _write_exclusive(path: Path, text: str, payload: dict[str, Any]) -> bool:
+    """**先写满再发布**；目标已存在则比内容——相同 → 幂等（False），不同 → 抛错。
+
+    **原子占名 ≠ 完整发布**。旧实现用 ``O_CREAT | O_EXCL`` 直接开正式文件，名字立即
+    可见、内容随后才写：进程在这个窗口被杀（``os._exit`` 这类真实终止，不是可捕获异常，
+    ``except BaseException`` 的清理根本不会执行），正式目录就留下 0 字节 JSON——读取端
+    静默跳过它、派生状态停在旧值，而**原内容重试反而被当成撞名拒绝**，人工不介入就
+    恢复不了（09-12 质检实测）。
+
+    改成：同目录临时文件写满 → ``flush`` + ``fsync`` → ``os.link`` 无覆盖地发布正式名
+    → fsync 目录。正式名只在内容已落盘后才出现，中断最多留下一个 ``.pending-*``
+    临时文件（不带 ``.json`` 后缀，任何 ``glob("*.json")`` 都读不到它）。
+
+    不用 ``os.replace``：它会覆盖已有目标，恰好破掉「失败证据不可覆盖」这条合同——
+    被覆盖的可能正是一次失败记录，而「事后挑窗 / 改判痕迹」检测都靠它在场。
+    """
+    import os
+    import tempfile
+
+    data = text.encode("utf-8")
+    if path.exists():                      # 已发布则直接比内容，不白写临时文件
+        return _compare_existing(path, text, payload)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary: Path | None = None
     try:
-        with os.fdopen(fd, "wb") as fh:
-            fh.write(data)
-    except BaseException:
-        path.unlink(missing_ok=True)  # 半截文件不留，否则下次重试会拿它当「已存在」
-        raise
+        with tempfile.NamedTemporaryFile(
+            dir=path.parent, prefix=".pending-", delete=False
+        ) as stream:
+            temporary = Path(stream.name)
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temporary, 0o644)
+        try:
+            os.link(temporary, path)       # 目标存在即失败，永不覆盖
+        except FileExistsError:
+            return _compare_existing(path, text, payload)
+        descriptor = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(descriptor)           # 目录项落盘，崩溃后正式名不会丢
+        finally:
+            os.close(descriptor)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
     return True
 
 
@@ -612,7 +661,11 @@ def load_refuted(root: str | Path) -> list[dict[str, Any]]:
         if not isinstance(doc, dict) or doc.get("schema_version") != REFUTED_SCHEMA:
             continue
         out.append(dict(doc, _path=str(path)))
-    out.sort(key=lambda d: (str(d.get("refuted_at") or ""), d["_path"]), reverse=True)
+    # 与 load_steps / latest_receipt / report 同一口径：**解析成时刻**再比。
+    # `refuted_at` 抄自收据的 generated_at，同样可能混着 `12:00:00Z` 与
+    # `12:00:00.500000+00:00` 两种合法 ISO UTC——字符串序与时间序相反，
+    # `report --refuted` 会选中较早那份（09-12 质检实测）。
+    out.sort(key=lambda d: (_parse_ts(d.get("refuted_at")), d["_path"]), reverse=True)
     return out
 
 

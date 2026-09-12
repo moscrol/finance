@@ -1442,24 +1442,58 @@ def test_retry_repairs_a_half_written_pair(synthetic, tmp_path):
     )
     receipt["rule"]["version"] = 1
 
-    real_open = _os.open
+    # 注入点要跟着实现走：发布路径是「临时文件 → fsync → os.link 正式名」，所以让 md 的
+    # link 失败，模拟「json 已发布、md 没发布成」。（早先注入 os.open 是对着上一版
+    # O_CREAT|O_EXCL 写的，实现换成 link 之后那个注入点就打不中了。）
+    real_link = _os.link
 
-    def flaky(path, flags, mode=0o777, *args, **kwargs):
-        if str(path).endswith(".md"):
+    def flaky(src, dst, *args, **kwargs):
+        if str(dst).endswith(".md"):
             raise OSError(28, "No space left on device")
-        return real_open(path, flags, mode, *args, **kwargs)
+        return real_link(src, dst, *args, **kwargs)
 
     with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(_os, "open", flaky)
+        mp.setattr(_os, "link", flaky)
         with pytest.raises(OSError):
             write_receipt(root, receipt, date_str="2026-09-12")
 
     folder = root / "selftest_positive@v1"
     assert len(list(folder.glob("*.json"))) == 1 and not list(folder.glob("*.md")), "中间态：json 在、md 缺"
+    assert not list(folder.glob(".pending-*")), "失败的发布不留临时文件"
 
     json_path, md_path = write_receipt(root, receipt, date_str="2026-09-12")
     assert md_path.exists(), "重试必须补上缺失的 md"
     assert len(list(folder.glob("*.json"))) == 1, "json 幂等，不新增"
+
+
+def test_refuted_library_orders_by_parsed_timestamp(tmp_path) -> None:
+    """`report --refuted` 的读取路径同样不能按字符串排时间。
+
+    `refuted_at` 抄自收据的 `generated_at`，混着 `12:00:00Z` 与 `12:00:00.500000+00:00`
+    两种合法 ISO UTC 时，字符串序与时间序相反——实测会把较早那份当成最新（09-12 质检）。
+    四个读取口径（load_steps / latest_receipt / report / load_refuted）共用 `_parse_ts`。
+    """
+    import json as _json
+
+    from intelligence.services.methodology_backtest.receipts import REFUTED_SCHEMA, load_refuted
+
+    root = tmp_path / "refuted"
+    folder = root / "r1@v1"
+    folder.mkdir(parents=True)
+    for name, stamp, n in (
+        ("early", "2026-09-12T12:00:00Z", 10),
+        ("late", "2026-09-12T12:00:00.500000+00:00", 20),
+    ):
+        (folder / f"{name}.json").write_text(
+            _json.dumps({
+                "schema_version": REFUTED_SCHEMA, "rule_id": "r1", "rule_version": 1,
+                "rule_ref": "r1@v1", "sharing": "private", "owner": "u",
+                "refuted_at": stamp, "n": n,
+            }, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    loaded = load_refuted(root)
+    assert [d["n"] for d in loaded] == [20, 10], "倒序第一条应是时间上更晚的那份"
 
 
 def test_mixed_timestamp_forms_order_consistently(synthetic, tmp_path):
@@ -1875,3 +1909,66 @@ def test_opinion_stage_label_is_pit_correct_and_only_for_tagged_sectors(mini):
     assert s1[0] == "萌芽"
     assert s1[1] == "萌芽" and s1[3] == "萌芽"  # 研报 B 尚未入库
     assert s1[4] == "萌芽"  # 两份仍 < TH_RESONANCE_SOURCES(3)
+
+
+def test_interrupted_publish_leaves_no_unreadable_official_file(tmp_path):
+    """**原子占名 ≠ 完整发布**：进程在发布点被真实杀死，正式目录不许留下坏对象。
+
+    旧实现用 ``O_CREAT | O_EXCL`` 直接开正式文件：名字立刻可见、内容随后才写。用
+    ``os._exit`` 在这个窗口终止进程（不是可捕获异常，``except BaseException`` 的清理
+    根本不执行），正式目录就留下 0 字节 JSON——读取端静默跳过、派生状态停在旧值，而
+    **原内容重试反被当成撞名拒绝**（09-12 质检实测）。
+    """
+    import json as _json
+    import subprocess
+    import sys as _sys
+
+    from intelligence.services.methodology_backtest.receipts import (
+        RECEIPT_SCHEMA, ReceiptCollision, _write_exclusive,
+    )
+
+    target = tmp_path / "rule@v1" / "x.json"
+    target.parent.mkdir(parents=True)
+    payload = {"schema_version": RECEIPT_SCHEMA, "k": "v"}
+    text = _json.dumps(payload, ensure_ascii=False, sort_keys=True)
+
+    child = (
+        "import os, sys, pathlib\n"
+        f"sys.path.insert(0, {str(Path(__file__).resolve().parents[2])!r})\n"
+        "from intelligence.services.methodology_backtest import receipts as R\n"
+        "os.link = lambda a, b: os._exit(73)\n"   # 内容已写满、正式名未发布的那一刻
+        f"R._write_exclusive(pathlib.Path({str(target)!r}), {text!r}, {payload!r})\n"
+    )
+    assert subprocess.run([_sys.executable, "-c", child], capture_output=True).returncode == 73
+
+    assert not target.exists(), "中断在正式命名空间留下了对象"
+    assert list(target.parent.glob("*.json")) == [], "残留会被读取端当成收据"
+
+    # 中断后原内容重试必须成功，且再来一次是幂等而非拒绝
+    assert _write_exclusive(target, text, payload) is True
+    assert _write_exclusive(target, text, payload) is False
+    assert _json.loads(target.read_text(encoding="utf-8")) == payload
+
+    other = {"schema_version": RECEIPT_SCHEMA, "k": "DIFFERENT"}
+    with pytest.raises(ReceiptCollision):
+        _write_exclusive(target, _json.dumps(other, ensure_ascii=False, sort_keys=True), other)
+
+
+def test_legacy_corrupt_receipt_is_reported_not_silently_skipped(tmp_path, capsys):
+    """旧版残留的坏收据：不自动覆盖删除，但必须出声——静默跳过会让状态停在旧值。"""
+    from intelligence.services.methodology_backtest.lifecycle import load_steps
+    from intelligence.services.methodology_backtest.receipts import (
+        RECEIPT_SCHEMA, ReceiptCollision, _write_exclusive,
+    )
+
+    folder = tmp_path / "rule@v1"
+    folder.mkdir(parents=True)
+    broken = folder / "legacy.json"
+    broken.write_bytes(b"")                      # 旧实现中断留下的 0 字节
+
+    assert load_steps(tmp_path, "rule") == []
+    assert "legacy.json" in capsys.readouterr().err, "坏收据被静默跳过, 没有任何告警"
+
+    with pytest.raises(ReceiptCollision, match="0 字节|可读 JSON"):
+        _write_exclusive(broken, "{}", {"schema_version": RECEIPT_SCHEMA})
+    assert broken.exists() and broken.read_bytes() == b"", "真实证据不该被自动覆盖或删除"
