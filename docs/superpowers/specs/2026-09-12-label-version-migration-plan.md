@@ -239,9 +239,10 @@ verify_history || { echo "④ 未通过，停止迁移（不要执行 ⑤）" >&
 连续至少三日严格双红」三行读数，外加「三组共同可评估日期」那个数字——**少一行就说明
 报告没算全，不能放行**。
 
-> 这条不只是文档约定：`test_history_record_is_the_evidence_not_the_directory`
-> 真跑一遍上面的 `verify_history`（空目录版必须非零且 ⑤ 的哨兵不执行），并逐条断言
-> 那四样都在报告里。
+> 这条不只是文档约定：`test_history_acceptance_stops_the_migration_when_there_is_no_record`
+> 真跑一遍上面的 `verify_history`（空目录版必须非零且 ⑤ 的哨兵不执行）；
+> `test_history_acceptance_checks_the_record_not_the_directory` 逐条断言那四样都在报告里，
+> 且三组读数与共同日期数必须带着**具体数值**出现（夹具定值），光留组名不算。
 
 ### 4.2 暂停 / 恢复边界
 

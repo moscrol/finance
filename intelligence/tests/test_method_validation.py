@@ -866,6 +866,11 @@ def test_history_acceptance_checks_the_record_not_the_directory(tmp_path):
     assert study.name in body, "report 认不出这份记录属于哪个协议"
     assert "history" in body, "report 没标出记录类型"
     assert "2026-08-31" in body and "2026-09-07" in body, "report 没打出观察窗口"
-    assert "三组共同可评估日期" in body, "report 没给出共同可评估日期数"
-    for arm in ("同日板块总体", "当日严格双红", "连续至少三日严格双红"):
-        assert arm in body, f"report 少了一组对照读数: {arm}"
+    # 组名在不够, 读数也必须在——质检把「留名称、删数值」的变异跑出来仍然全绿。
+    # 期望值来自上面的固定夹具（make_db）：universe 2 / dual_red 4 / streak3 6, 共同日期 1 天；
+    # 夹具改动时这里要同步改。
+    assert "三组共同可评估日期：**1**" in body, "report 没给出共同可评估日期数（光有小节名不算）"
+    for arm, expected in (("同日板块总体", "2.0000%"), ("当日严格双红", "4.0000%"),
+                          ("连续至少三日严格双红", "6.0000%")):
+        row = f"| {arm} | {expected} |"
+        assert row in body, f"report 缺组或缺读数: 期望整行 {row!r}"
