@@ -52,6 +52,9 @@
    而 `auto` 非周五=`cheap` 要 fupanhui 登录（实测未登录）→ rc=3。
    扶正 `local` 要连 `test_review_sync_plist_source_carries_tiered_plan` 一起改。
 2. 9-11 补数：用户手动 `/daily-full-review`。
-3. 已发消息给 `feat/method-closed-loop` 那个 session：其
-   `nightly_full_review.sh` 第 55 行在 LOG_DIR 赋值（75 行）前用它，`set -u` 下
-   rc=1 → 静默回退旧 v3 协议，`active` 一次都没跑。对 tip `dd7b6f74` 仍复现。
+3. `feat/method-closed-loop` 的 LOG_DIR 顺序 bug 已由对方修在 `22c60030`
+   （我复验：45 赋值 → 46 mkdir → 61 引用，`zsh -n` 过）。**但留下新缝已转交**：
+   链切前 `$CODE_ROOT` 的 CLI 没有 `active`，argparse **exit=2** → 落 `*)` →
+   每夜 `skip_method_flywheel`，理由写「已配置但失效，请 activate」——假话且自相矛盾
+   （那份 CLI 也没有 `activate`）。`active --help` **不能**当能力探针（新旧都返 0，
+   `--help` 先于子命令校验）；可用的是顶层 usage 里 grep `[{,]active[,}]`。
