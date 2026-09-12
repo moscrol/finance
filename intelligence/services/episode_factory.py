@@ -965,7 +965,9 @@ def method_validation_note(candidate: MethodCandidate, *, root: Path | None = No
         if not rules_dir.is_dir():
             return "未找到已登记规则目录；状态 candidate_unverified，登记入口 scripts/methodology_backtest.py propose"
         wanted = _cjk_bigrams(candidate.condition + candidate.expectation)
-        best: tuple[int, dict] | None = None
+        # 记住匹配到的**文件路径**，不只是解析出来的 doc：认证与展示都要用这一份，
+        # 否则「按标题匹配到 v1、拿 v2 的状态去展示 v1」（09-12 复核实测）。
+        best: tuple[int, dict, Path] | None = None
         for path in sorted(rules_dir.glob("*.json")):
             try:
                 doc = json.loads(path.read_text(encoding="utf-8"))
@@ -975,16 +977,27 @@ def method_validation_note(candidate: MethodCandidate, *, root: Path | None = No
                 continue
             overlap = len(wanted & _cjk_bigrams(str(doc.get("title") or "") + str(doc.get("notes") or "")))
             if overlap >= 3 and (best is None or overlap > best[0]):
-                best = (overlap, doc)
+                best = (overlap, doc, path)
         if best is None:
             return (
                 "未登记为可回测规则；状态 candidate_unverified，"
                 "登记入口 scripts/methodology_backtest.py propose（谓词需用白名单标签短句）"
             )
-        doc = best[1]
+        doc, rule_path = best[1], best[2]
         rule_id = str(doc.get("rule_id") or "")
         steps = lifecycle.load_steps(receipts_dir, rule_id)
-        state = lifecycle.derive_state(doc, steps)
+        # 走 state_for_file：身份锁在**匹配到的那一份**规则文件的字节上，并拿当前生效的
+        # label_version 做绝对比对。
+        #   - 直接调 derive_state 会两样都不传 → 标签口径升版后旧收据照样成链，
+        #     同一组收据 queue / 经验卡门说 candidate、这里说 personal_method；
+        #   - 调 state_for_rule 会让它自己挑「version 最大那份」→ 展示的是匹配到的 v1，
+        #     状态却是 v2 的。两处都在 09-12 的两轮复核里实测到。
+        state = lifecycle.state_for_file(rule_path, receipts_dir)
+        if state is None:  # 规则文件读得到却解析不出身份：不猜，按未验证候选走
+            return (
+                f"疑似对应已登记规则 {rule_id}，但规则文件身份解析不出；"
+                "状态 candidate_unverified，本轮按未验证候选使用"
+            )
         return (
             f"疑似对应已登记规则 {rule_id}@v{doc.get('version')}（{doc.get('title')}），"
             f"生命周期状态 {state.state}，历史收据 {len(steps)} 份"

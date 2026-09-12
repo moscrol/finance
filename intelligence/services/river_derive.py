@@ -70,14 +70,29 @@ def _num(v: Any) -> float | None:
 
 
 def _bind_dual_red_strict(sl: RiverSlice) -> tuple[bool | None, list[str]]:
+    """与 ``labels.py`` 的 ``dual_red_strict`` **同一套三值逻辑**：任一已知条件为假即 False，
+    只有「已知的都为真、却有输入缺失」才是 None。
+
+    两边必须逐格一致：同名同版本的标签在标签层与河的绑定层给出两种判断，而派生对象照样
+    标 ``label_version``，情景树的分枝条件又用的是这条绑定——不一致会让「同一个标签」在
+    两条路径上得到不同的真值，且没有任何地方会报错（09-12 复核抓到：pct=1 / diff=NULL /
+    amount=100 时标签层判 0、这里判未知）。一致性由 ``test_river_derive_matches_labels_layer`` 钉住。
+    """
     o = _first(track_objects(sl, "market"), "label")
     if o is None:
         return None, []
     p = o.payload
     pct, diff, amt = _num(p.get("pct_chg")), _num(p.get("diff_ratio")), _num(p.get("amount"))
+    known_false = (
+        (pct is not None and pct <= 0)
+        or (diff is not None and diff <= DUAL_RED_DIFF_RATIO_GT)
+        or (amt is not None and amt <= DUAL_RED_AMOUNT_GT)
+    )
+    if known_false:
+        return False, [o.ref]
     if pct is None or diff is None or amt is None:
         return None, [o.ref]
-    return bool(pct > 0 and diff > DUAL_RED_DIFF_RATIO_GT and amt > DUAL_RED_AMOUNT_GT), [o.ref]
+    return True, [o.ref]
 
 
 def _bind_volume_surge(sl: RiverSlice) -> tuple[bool | None, list[str]]:

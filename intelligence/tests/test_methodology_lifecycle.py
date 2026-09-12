@@ -502,7 +502,7 @@ class StateForRule(unittest.TestCase):
             rules.mkdir()
             sha = self._rule_file(rules, "r1.v1.json", {"rule_id": "r1", "version": 1, "owner": "alice"})
             self._chain(receipts, sha)
-            state = lifecycle.state_for_rule(rules, receipts, "r1")
+            state = lifecycle.state_for_rule(rules, receipts, "r1", current_label_version="v3")
             assert state is not None
             self.assertEqual(state.state, "personal_method")
             self.assertTrue(state.in_method_library)
@@ -515,7 +515,7 @@ class StateForRule(unittest.TestCase):
             sha = self._rule_file(rules, "r1.v1.json", {"rule_id": "r1", "version": 1, "owner": "alice"})
             self._chain(receipts, sha)
             self._rule_file(rules, "r1.v1.json", {"rule_id": "r1", "version": 1, "owner": "alice", "note": "改了"})
-            state = lifecycle.state_for_rule(rules, receipts, "r1")
+            state = lifecycle.state_for_rule(rules, receipts, "r1", current_label_version="v3")
             assert state is not None
             self.assertEqual(state.state, "candidate")
             self.assertFalse(state.in_method_library)
@@ -528,9 +528,26 @@ class StateForRule(unittest.TestCase):
             self._rule_file(rules, "r1.v1.json", {"rule_id": "r1", "version": 1, "owner": "alice"})
             sha2 = self._rule_file(rules, "r1.v2.json", {"rule_id": "r1", "version": 2, "owner": "alice"})
             self._chain(receipts, sha2, version=2)
-            state = lifecycle.state_for_rule(rules, receipts, "r1")
+            state = lifecycle.state_for_rule(rules, receipts, "r1", current_label_version="v3")
             assert state is not None
             self.assertEqual(state.state, "personal_method")
+
+    def test_default_current_label_version_blocks_stale_receipts(self) -> None:
+        """不显式传版本时，``state_for_rule`` 用代码里的 ``LABEL_VERSION``——夹具那批
+        ``v3`` 收据因此降为历史观察。这是「升级后旧收据自动失效」真正生效的那一格。"""
+        from intelligence.services.methodology_backtest.labels import LABEL_VERSION
+
+        with TemporaryDirectory() as tmp:
+            rules, receipts = Path(tmp) / "rules", Path(tmp) / "receipts"
+            rules.mkdir()
+            sha = self._rule_file(rules, "r1.v1.json", {"rule_id": "r1", "version": 1, "owner": "alice"})
+            self._chain(receipts, sha)  # 夹具写的是 label_version="v3"
+            state = lifecycle.state_for_rule(rules, receipts, "r1")
+            assert state is not None
+            self.assertEqual(state.state, "candidate")
+            self.assertFalse(state.in_method_library)
+            self.assertEqual(state.history_receipts, 3)
+            self.assertIn(LABEL_VERSION, state.blocked_by or "")
 
     def test_missing_rule_returns_none(self) -> None:
         with TemporaryDirectory() as tmp:
