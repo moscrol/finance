@@ -259,14 +259,27 @@ def active_binding(root) -> dict:
     """
     # resolve 一次：macOS 上 /var 是 /private/var 的符号链接, 不归一化就会出现
     # 「set_active 内部读回通过、CLI 读回核对失败」这种只差前缀的假不一致。
+    # resolve 一次：macOS 上 /var 是 /private/var 的符号链接, 不归一化就会出现
+    # 「set_active 内部读回通过、CLI 读回核对失败」这种只差前缀的假不一致。
     parent = Path(root).expanduser().resolve()
     pointer = parent / ACTIVE_POINTER
-    if not pointer.is_file():
+    # **只有确实不存在才算 unset。** 用 lexists 而不是 is_file()：目录、悬空软链
+    # 都会让 is_file() 返回 False, 于是「指针坏了」被误判成「没配过」, 夜跑照样
+    # 静默回退旧协议（09-12 质检实测）。存在但不是普通文件 → corrupt。
+    if not os.path.lexists(pointer):
         return {"state": "unset", "study_dir": None, "detail": "未配置 active 指针"}
+    if not pointer.is_file():
+        return {"state": "corrupt", "study_dir": None,
+                "detail": f"指针存在但不是普通文件（目录或悬空软链）: {pointer}"}
     try:
         doc = json.loads(pointer.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         return {"state": "corrupt", "study_dir": None, "detail": f"指针读不出: {exc}"}
+    if not isinstance(doc, dict):
+        # `[]` / `null` / `"x"` 都是合法 JSON, 但 doc.get 会抛 AttributeError,
+        # 未捕获就成了进程 exit 1——恰好与「从未配置」的业务码撞车。
+        return {"state": "corrupt", "study_dir": None,
+                "detail": f"指针内容不是 JSON 对象: {type(doc).__name__}"}
     name = str(doc.get("study_dir") or "")
     if not _ID.fullmatch(name):
         return {"state": "corrupt", "study_dir": None,
@@ -275,6 +288,13 @@ def active_binding(root) -> dict:
     if not (candidate / "protocol.json").is_file():
         return {"state": "missing_target", "study_dir": None,
                 "detail": f"指针指向的协议目录不存在或缺 protocol.json: {candidate}"}
+    # 协议本身要能加载通过校验, 否则 --print-dir 说「有效」、普通模式说「损坏」,
+    # 有效性由展示格式决定（质检实测 rc=0 vs rc=2）。判定只能有一处。
+    try:
+        load_protocol(candidate)
+    except Exception as exc:  # noqa: BLE001 — 任何加载/校验失败都算坏协议
+        return {"state": "corrupt", "study_dir": None,
+                "detail": f"指针指向的协议加载失败: {type(exc).__name__}: {exc}"}
     if is_superseded(candidate):
         return {"state": "superseded", "study_dir": None,
                 "detail": f"指针指向的协议已封存: {candidate}"}

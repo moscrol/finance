@@ -716,43 +716,132 @@ def test_binding_resolution_runs_under_set_u_without_log_dir(tmp_path) -> None:
     )
 
 
-def test_binding_probes_capability_before_reading_exit_codes() -> None:
-    """守卫只查文件**存在**，不查它**有没有** active 子命令——两者在链切之前经常不一致。
+_CASE_SEQ = __import__("itertools").count()
 
-    运行快照的 ``scripts/`` 不随 `deploy_workbench_runtime.sh` 更新（它只 rsync
-    ``intelligence/``），所以「新 wrapper + 旧 CLI」是常态。旧 CLI 遇到 ``active`` 是
-    argparse ``invalid choice`` → **exit 2**，会落进 ``*)``，把「这份 CLI 没有 active」
-    误报成「指针已配置但失效」，还叫人去 ``activate``——那份 CLI 同样没有 activate
-    （09-12 跨会话质检实测）。fail-closed 不会写错协议，但诊断是反的且自相矛盾。
 
-    探针只能用**顶层** ``--help`` 的子命令列表：``active --help`` 两边都返回 0
-    （argparse 优先处理 ``--help``，根本不校验子命令合法性）。
+def _run_binding(tmp_path, cli_body: str, *, env_extra=None) -> dict:
+    """把夜跑**真正的**绑定解析段抽出来执行, 用一份假 CLI 注入场景。
+
+    以前这两条是对脚本正文做字符串断言, 结果是: 管道换个写法测试就红, 而真正的行为
+    (help 自己挂了会不会被当成「没有该命令」) 一条也没测到。这里改成跑真的 shell。
     """
+    import os
+    import subprocess
 
     body = NIGHTLY_SH.read_text(encoding="utf-8")
-    binding = body.split("METHOD_BINDING_ERROR=\"\"", 1)[1].split("[ -n \"${METHOD_STUDY_DIR:-}\"", 1)[0]
+    # 从 METHOD_STUDY_DEFAULT 起, 否则 `set -u` 下引用未定义变量直接退出
+    segment = body[body.index('METHOD_STUDY_DEFAULT="$FORESIGHT_USERS_DIR'):body.index('METHOD_LABELS_DB=')]
 
-    code = "\n".join(ln for ln in binding.splitlines() if not ln.lstrip().startswith("#"))
+    # 同一个 tmp_path 允许跑多次: 每次一个独立场景目录, 互不污染
+    tmp_path = tmp_path / f"case{next(_CASE_SEQ)}"
+    tmp_path.mkdir()
+    fake_root = tmp_path / "coderoot" / "scripts"
+    fake_root.mkdir(parents=True)
+    (fake_root / "method_validation.py").write_text(cli_body, encoding="utf-8")
 
-    assert "--help 2>&1 | grep -qE '[{,]active[,}]'" in code, "缺少顶层 --help 能力探针"
-    assert "active --help" not in code, "active --help 两边都返回 0，不能当能力探针"
-    # exit 2 不再被当成「已配置但失效」：3 单列，其余给中性措辞
-    assert "3) METHOD_BINDING_ERROR=" in code, "「已配置但失效」应只认退出码 3"
-    fallback = code.split("*) METHOD_BINDING_ERROR=", 1)[1].split("\n", 1)[0]
-    assert "已配置但失效" not in fallback, "兜底分支不能复用「已配置但失效」的措辞"
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    script = tmp_path / "probe.sh"
+    script.write_text(
+        "#!/bin/zsh\nset -uo pipefail\n"
+        f'CODE_ROOT={tmp_path / "coderoot"!s}\n'
+        f'LOG_DIR={log_dir!s}\n'
+        f'FORESIGHT_USERS_DIR={tmp_path / "users"!s}\n'
+        'FORESIGHT_USER="u1"\n'
+        'OPS_PYTHON="$1"\n'
+        + segment
+        + '\nprintf "DIR=%s\\nERR=%s\\n" "${METHOD_STUDY_DIR:-}" "$METHOD_BINDING_ERROR"\n',
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    env = {k: v for k, v in os.environ.items() if k != "METHOD_STUDY_DIR"}
+    env.update(env_extra or {})
+    out = subprocess.run([str(script), sys.executable], capture_output=True, text=True, env=env)
+    parsed = dict(ln.split("=", 1) for ln in out.stdout.splitlines() if "=" in ln)
+    parsed["log"] = (log_dir / "method-validation-daily.log").read_text(encoding="utf-8") \
+        if (log_dir / "method-validation-daily.log").exists() else ""
+    return parsed
 
 
-def test_missing_active_subcommand_falls_back_with_the_true_reason() -> None:
-    """探不到 active 时按「从未配置」走内置默认，且日志写真实原因。
+_OLD_CLI = """import sys
+if "--help" in sys.argv[1:2] or sys.argv[1:2] == ["--help"]:
+    print("usage: method_validation.py [-h] {register,capture,recheck,status} ...")
+    raise SystemExit(0)
+print("method_validation.py: error: argument command: invalid choice: 'active'", file=sys.stderr)
+raise SystemExit(2)
+"""
 
-    链切做完之前这样行为与改动前一致；写假原因（叫人去 activate）比不写更坏，因为那个
-    补救动作在那份 CLI 上做不到。
+
+def test_old_cli_falls_back_with_the_true_reason(tmp_path) -> None:
+    """链切未做时按「从未配置」走内置默认, 且日志写真话。
+
+    旧 CLI 上 ``active`` 是 argparse ``invalid choice`` → **exit 2**。按退出码解释就会
+    报成「指针已配置但失效, 请 activate」——那份 CLI 同样没有 activate, 补救动作不可执行。
+    （更正一条曾写进注释与测试的错误原理: 旧 CLI 的 ``active --help`` 并不返回 0,
+    它同样是 exit 2 invalid choice; 顶层 ``--help`` 探针是对的, 但不能拿那个理由背书。）
     """
+    r = _run_binding(tmp_path, _OLD_CLI)
+    assert r["DIR"].endswith("475597e2e017a2eedd3886700cd41d394d3694eba3487e205b8ddc91723b5a2f")
+    assert r["ERR"] == "", "这不是「已配置但失效」, 不该设错误态"
+    assert "没有 active 子命令" in r["log"] and "链切" in r["log"]
 
-    body = NIGHTLY_SH.read_text(encoding="utf-8")
-    branch = body.split("--help 2>&1 | grep -qE '[{,]active[,}]'", 1)[1].split("fi\n", 1)[0]
-    else_part = branch.split("else", 1)[1]
 
-    assert 'METHOD_STUDY_DIR="$METHOD_STUDY_DEFAULT"' in else_part, "探不到就该走内置默认"
-    assert "METHOD_BINDING_ERROR" not in else_part, "这不是「已配置但失效」，不该设错误态"
-    assert "没有 active 子命令" in else_part and "链切" in else_part, "原因要写真话"
+def test_help_failure_is_not_reported_as_missing_capability(tmp_path) -> None:
+    """能力**查不出来**不等于能力不存在。
+
+    旧写法 ``CLI --help | grep -q`` 取的是 grep 的退出码: help 进程自己崩了也只是
+    「没命中」, 于是有效指针在场时照样静默回退默认协议（质检故障注入复现）。
+    """
+    broken_help = 'import sys\nprint("boom", file=sys.stderr)\nraise SystemExit(70)\n'
+    r = _run_binding(tmp_path, broken_help)
+    assert r["ERR"] != "", "help 失败必须停下来, 不能冒充「没有 active 子命令」"
+    assert "无法查询 CLI 能力" in r["ERR"] and "70" in r["ERR"]
+    assert not r["DIR"].endswith("475597e2e017a2eedd3886700cd41d394d3694eba3487e205b8ddc91723b5a2f"), \
+        "查询失败却回退到了内置默认"
+    assert "boom" in r["log"], "失败原因要留在日志里"
+
+
+def test_crash_exit_code_is_not_read_as_never_configured(tmp_path) -> None:
+    """业务码与崩溃码不能混用。
+
+    Python 未捕获异常退 **1**。若用 1 表达「从未配置」, 一次崩溃就会被读成「没配过」
+    而静默回退旧协议——质检把 active.json 写成 ``[]`` 正是走这条路。
+    """
+    crashing = ('import sys\n'
+                'if sys.argv[1:2] == ["--help"]:\n'
+                '    print("usage: x [-h] {active,activate,daily} ...")\n'
+                '    raise SystemExit(0)\n'
+                'raise AttributeError("\'list\' object has no attribute \'get\'")\n')
+    r = _run_binding(tmp_path, crashing)
+    assert r["ERR"] != "", "崩溃(exit 1)被当成「从未配置」, 静默回退了旧协议"
+    assert not r["DIR"].endswith("475597e2e017a2eedd3886700cd41d394d3694eba3487e205b8ddc91723b5a2f")
+
+
+def test_only_the_dedicated_unset_code_falls_back(tmp_path) -> None:
+    """只有 ACTIVE_UNSET(4) 允许回退内置默认; 3 停、其余非 0 也停。"""
+    def cli(rc: int) -> str:
+        return ('import sys\n'
+                'if sys.argv[1:2] == ["--help"]:\n'
+                '    print("usage: x [-h] {active,activate,daily} ...")\n'
+                '    raise SystemExit(0)\n'
+                f'raise SystemExit({rc})\n')
+
+    assert _run_binding(tmp_path, cli(4))["DIR"].endswith("475597e2" + "e017a2eedd3886700cd41d394d3694eba3487e205b8ddc91723b5a2f")
+    assert _run_binding(tmp_path, cli(4))["ERR"] == ""
+    for rc in (1, 2, 3, 70):
+        r = _run_binding(tmp_path, cli(rc))
+        assert r["ERR"] != "", f"active 退出 {rc} 被放行了"
+
+
+def test_valid_binding_is_used_verbatim(tmp_path) -> None:
+    """指针有效时原样采用, 不碰默认值。"""
+    chosen = tmp_path / "elsewhere" / ("a" * 64)
+    chosen.mkdir(parents=True)
+    cli = ('import sys\n'
+           'if sys.argv[1:2] == ["--help"]:\n'
+           '    print("usage: x [-h] {active,activate,daily} ...")\n'
+           '    raise SystemExit(0)\n'
+           f'print({str(chosen)!r})\n'
+           'raise SystemExit(0)\n')
+    r = _run_binding(tmp_path, cli)
+    assert r["DIR"] == str(chosen) and r["ERR"] == ""

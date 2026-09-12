@@ -24,6 +24,7 @@ from intelligence.services.method_validation import (
     write_record,
 )
 
+REPO = Path(__file__).resolve().parents[2]
 RULE = (
     Path(__file__).resolve().parents[2]
     / "methodology/rules/dual_red_streak3_continuation.v1.json"
@@ -569,6 +570,53 @@ def test_active_binding_distinguishes_unset_from_broken(tmp_path):
 
     (tmp_path / "active.json").write_text("{ 不是 json", encoding="utf-8")
     assert active_binding(tmp_path)["state"] == "corrupt"
+
+
+def test_structurally_valid_json_that_is_not_an_object_is_corrupt_not_unset(tmp_path):
+    """`[]` / `null` / `"x"` 都能被 json.loads 解析, 但 doc.get 会抛 AttributeError。
+
+    未捕获就是进程 exit 1, 恰好与旧版「从未配置」的业务码相同, 夜跑于是静默回退旧协议
+    （09-12 质检实测）。这类内容必须归 corrupt, 不能归 unset, 更不能抛出去。
+    """
+    from intelligence.services.method_validation import active_binding
+
+    for payload in ("[]", "null", '"x"', "123"):
+        (tmp_path / "active.json").write_text(payload, encoding="utf-8")
+        binding = active_binding(tmp_path)
+        assert binding["state"] == "corrupt", f"{payload} 被判成 {binding['state']}"
+        assert binding["study_dir"] is None
+
+
+def test_pointer_that_is_not_a_regular_file_is_corrupt_not_unset(tmp_path):
+    """目录与悬空软链都会让 is_file() 返回 False——旧实现据此报「没配过」。"""
+    from intelligence.services.method_validation import active_binding
+
+    (tmp_path / "active.json").mkdir()
+    assert active_binding(tmp_path)["state"] == "corrupt", "指针是目录却报「没配过」"
+
+    (tmp_path / "active.json").rmdir()
+    (tmp_path / "active.json").symlink_to(tmp_path / "does-not-exist")
+    assert active_binding(tmp_path)["state"] == "corrupt", "悬空软链却报「没配过」"
+
+
+def test_broken_protocol_is_invalid_in_both_output_modes(tmp_path):
+    """有效性不能由展示格式决定: --print-dir 说有效、普通模式说损坏（质检实测 0 vs 2）。"""
+    import subprocess
+    import sys
+
+    from intelligence.services.method_validation import active_binding, set_active
+
+    study = register(tmp_path, protocol())
+    set_active(tmp_path, study)
+    (study / "protocol.json").write_text('{"protocol_id": "坏了"}', encoding="utf-8")
+
+    assert active_binding(tmp_path)["state"] == "corrupt"
+    cli = [sys.executable, str(REPO / "scripts" / "method_validation.py"), "active", "--root", str(tmp_path)]
+    printed = subprocess.run([*cli, "--print-dir"], capture_output=True, text=True)
+    plain = subprocess.run(cli, capture_output=True, text=True)
+    assert printed.returncode == plain.returncode != 0, \
+        f"两种输出模式判定不一致: --print-dir={printed.returncode} 普通={plain.returncode}"
+    assert printed.stdout.strip() == "", "判定为坏却仍打印了目录, 夜跑会照用"
 
 
 def test_set_active_rejects_study_outside_root(tmp_path):

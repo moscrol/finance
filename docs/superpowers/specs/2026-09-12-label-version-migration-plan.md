@@ -146,22 +146,49 @@ db/history_labels.duckdb.bak-v3-20260911                      （#737 留的 v3 
 
 ### 4.1 切换后的逐项核对
 
-每行标注**最早可查时点**：没到那一步查不出结果不算失败。命令里的 `$U` 是生产用户，
-`$LABELS_DB` 是新建的 v5 旁路库。
+下表每行都是**能直接粘贴执行**的命令。先设好这几个变量（`$PY` 必须显式给出：
+仓库里的 `scripts/*.py` **没有执行位**，`./scripts/xxx.py` 会 permission denied）：
 
-| 查什么 | 最早时点 | 怎么查 | 期望 |
+```bash
+PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python
+MV="$PY $CODE_ROOT/scripts/method_validation.py"
+MB="$PY $CODE_ROOT/scripts/methodology_backtest.py"
+ROOT="$FORESIGHT_USERS_DIR/$U/method_validation"     # $U = 生产用户
+OLD="$ROOT/<v3 协议 id>";  NEW="$ROOT/<v5 协议 id>"
+LABELS_DB="$DATA_ROOT/db/history_labels.duckdb"
+```
+
+`method_validation` 里**只有 `active` / `activate` / `supersede` 接受 `--user`/`--root`**；
+`status` / `capture` / `daily` 一律要 `--study-dir`（`status` 还不读库，见 §5）。
+下表按这个事实给命令，别再写 `status --user`。
+
+| 查什么 | 最早时点 | 命令 | 期望 |
 |---|---|---|---|
-| 库版本确实是 v5 | ② 后 | `scripts/methodology_backtest.py report --labels-db "$LABELS_DB"` | `label_version` 为 v5 |
-| 新协议已登记 | ③ 后 | `method_validation.py status --user "$U"` | 列出 v5 协议，`forward_start` 符合预期 |
-| 指针指向新协议 | ⑤ 后 | `method_validation.py active --user "$U"` | rc=0 且 `protocol_id` 为 v5 |
-| 旧协议退出枚举 | ⑥ 后 | `list_studies(root)` 默认结果 | 不含 v3 目录（⑥之前**本就应该**还在） |
-| 旧协议拒绝新观察 | ⑥ 后 | `method_validation.py capture --study-dir <v3 目录>` | 非零，报「协议已封存」 |
-| 夜跑**实际**选中 | 次个交易日 | `method-validation-daily.log` 的 `=== method daily 开始 … study=…` 行 | study 为 v5 且写出 capture |
+| 库版本确实是 v5 | ② 后 | `$MB report --labels-db "$LABELS_DB"` | `label_version` 为 v5 |
+| 新协议已登记 | ③ 后 | `$MV status --study-dir "$NEW"` | 出协议卡片，`forward_start` 符合预期 |
+| history 已在 v5 上重跑 | ④ 后 | `$MV status --study-dir "$NEW"` | 有 history 段读数，且口径为 v5 |
+| 指针指向新协议 | ⑤ 后 | `$MV active --user "$U"` | rc=0，`protocol_id` 为 v5 |
+| 旧协议退出枚举 | ⑥ 后 | `$MV active --user "$U" --print-dir` 之外用 `list_studies(root)` | 默认结果不含 v3（⑥ 之前**本就应该**还在） |
+| 旧协议拒绝新观察 | ⑥ 后 | `$MV capture --study-dir "$OLD" --labels-db "$LABELS_DB"` | 非零且提示**「协议已封存」**；**若报的是缺参数就不算数**——那说明没走到封存闸 |
+| 夜跑**实际**选中 | 次个交易日 | `grep 'study=' "$LOG_DIR/method-validation-daily.log" \| tail -1` | study 为 v5 且写出 capture |
+
+`active` 的退出码是三态：**0 有效 / 4 从未配置 / 3 配置过但失效**（含指针损坏、目标缺失、
+协议加载失败、指向已封存）。「从未配置」刻意不用 1——Python 未捕获异常正好退 1，
+两者混用就会把崩溃读成「没配过」而静默回退旧协议。
 
 **`active` 只证明「这个用户的指针」，不等于夜跑的最终选择。** 夜跑取值优先级是
-「显式 `METHOD_STUDY_DIR` > 指针 > 内置默认」，还叠加两个变量：`FORESIGHT_USER`
-决定读哪个用户的指针，`FINANCE_CODE_ROOT` 决定跑哪棵树的代码（运行快照可能早于本单）。
-切换前先确认启动环境里没有 `METHOD_STUDY_DIR`；最终确认只能看上表最后一行的日志。
+「显式 `METHOD_STUDY_DIR` > 指针 > 内置默认」，还叠加三个变量：`FORESIGHT_USER`
+决定读哪个用户的指针，`FINANCE_CODE_ROOT` 决定跑哪棵树的代码，而那棵树的 CLI
+**可能根本没有 `active` 子命令**（运行快照的 `scripts/` 不随 `deploy_workbench_runtime.sh`
+更新，它只 rsync `intelligence/`）——那种情况下夜跑按「从未配置」走内置默认并在日志写明。
+切换前先确认启动环境没有 `METHOD_STUDY_DIR`，并确认 `$CODE_ROOT` 的 CLI 认识 `active`：
+
+```bash
+$PY "$CODE_ROOT/scripts/method_validation.py" --help | grep -qE '[{,]active[,}]' \
+  && echo "链切已完成" || echo "链切未做：夜跑会用内置默认协议"
+```
+
+最终确认只能看上表最后一行的日志。
 
 ### 4.2 暂停 / 恢复边界
 
@@ -174,20 +201,28 @@ db/history_labels.duckdb.bak-v3-20260911                      （#737 留的 v3 
 - 指针「配置过但失效」（损坏 / 目标缺失 / 指向已封存）与「从未配置」不同：夜跑会
   **停掉方法日步并告警**，不会静默回退旧实验。要恢复就 `activate` 到有效协议。
 
-### 4.1 执行 ④ 之前：运行快照里得真的有 `activate`
+### 4.3 执行 ⑤ 之前：运行快照里得真的有 `activate`
 
 `activate` / `supersede` 是 `scripts/method_validation.py` 的子命令，而**运行快照的
 `scripts/` 不由 `deploy_workbench_runtime.sh` 更新**——它只把 `intelligence/` rsync 进
 已有快照；`install_eval_launchd.sh` 的安装清单也不含 `scripts/method_validation.py`
 （跨会话质检实测）。合入本单不等于生产路径拿得到这两个子命令。
 
-所以 ④ 之前要先链切：
+所以 ⑤ 之前要先链切：
 
 ```bash
 git worktree add --detach ~/.finance-runtime/finance-workspace-<sha> <sha>   # 切新快照
 # 换 CODE_ROOT 符号链接指向新快照
-"$CODE_ROOT/scripts/method_validation.py" activate --help                    # 从**那条路径**验子命令存在
+$PY "$CODE_ROOT/scripts/method_validation.py" --help | grep -qE '[{,]activate[,}]' \
+  && echo "链切已完成" || echo "链切未做"
 ```
+
+两点别踩：**脚本没有执行位**，必须显式给解释器（`./scripts/xxx.py` 会 permission denied）；
+探针看**顶层 `--help` 的子命令列表**。旧 CLI 上 `activate --help` 确实也会非零
+（argparse 先校验子命令，`invalid choice` → exit 2），拿它当探针能用；但**别按
+「argparse 优先处理 --help、两边都返 0」那套理由去理解**——那是错的，本文档与夜跑注释
+里一度写过这句，已更正（09-12 跨会话质检对真实旧快照实跑：`active --help` 与
+`activate --help` 均为 exit 2）。顶层 `--help` 的好处是它不依赖这条微妙规则。
 
 验的是 `$CODE_ROOT` 那条路径，不是当前工作树——夜跑用的是前者。
 

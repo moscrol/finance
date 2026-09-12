@@ -561,18 +561,35 @@ def cmd_supersede(args) -> int:
     return 0
 
 
+# active 的业务退出码。**刻意避开 1 和 2**：Python 未捕获异常退 1、argparse 用法
+# 错误退 2，若把「从未配置」定成 1，进程崩溃就会被夜跑读成「没配过」而静默回退旧协议
+# （09-12 质检用 `active.json` 写成 `[]` 复现：doc.get 抛 AttributeError → exit 1）。
+ACTIVE_OK = 0
+ACTIVE_BROKEN = 3        # 配置过但失效：损坏 / 目标缺失 / 协议坏 / 已封存
+ACTIVE_UNSET = 4         # 确实没配过——只有这一个码允许回退内置默认
+
+
 def cmd_active(args) -> int:
-    """打印当前活跃绑定。**退出码三态**，调用方据此决定回退还是停下：
+    """打印当前活跃绑定。**退出码**（见上方常量）：
 
     - 0：有效绑定；
-    - 1：从未配置过指针 → 允许兼容内置默认；
-    - 3：配置过但失效（损坏/目标不存在/已封存）→ **不许静默回退**, 必须停下来喊人。
+    - 4：从未配置过指针 → 允许兼容内置默认；
+    - 3：配置过但失效，或本命令自身出错 → **不许静默回退**, 必须停下来喊人。
+
+    两种输出模式（``--print-dir`` 与 JSON）共用同一份 ``active_binding`` 判定，
+    不允许出现「--print-dir 说有效、普通模式说损坏」这种由展示格式决定有效性的分歧。
     """
     root = _root_of(args)
-    binding = active_binding(root)
+    try:
+        binding = active_binding(root)
+    except Exception as exc:  # noqa: BLE001 — 查询失败必须保留原因, 不能冒充「没配过」
+        print(f"active 查询失败：{type(exc).__name__}: {exc}", file=sys.stderr)
+        if args.print_dir:
+            print("")
+        return ACTIVE_BROKEN
     state, current = binding["state"], binding["study_dir"]
-    rc = 0 if state == "ok" else (1 if state == "unset" else 3)
-    if rc == 3:
+    rc = ACTIVE_OK if state == "ok" else (ACTIVE_UNSET if state == "unset" else ACTIVE_BROKEN)
+    if rc == ACTIVE_BROKEN:
         print(f"active 指针失效（{state}）：{binding['detail']}", file=sys.stderr)
     if args.print_dir:
         print(str(current) if current else "")
