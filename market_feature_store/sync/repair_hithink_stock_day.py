@@ -12,9 +12,10 @@ build（构造 + 断言）与 apply（单事务写入），落库走
 - ``pre_close`` = dump 昨日 close；除息日改用
   ``round(DECIMAL 昨裸收 − dividend_per_share, 2)``（复权事件表，
   纯现金分红才允许；送转/配股非 0 拒跑）
-- ``pct_chg`` = ``round_half_up((close/pre_close − 1)*100, 2)``，DECIMAL 链路
-  （二进制浮点 round 会在 .xx5 边界错 0.01：688218/688450/300127/603300/600733
-  五行实测，DECIMAL 半进后 5,530/5,530 复现旧值）
+- ``pct_chg`` = ``round_half_up((close/pre_close − 1)*100, 2)``——除法中间结果
+  是 DOUBLE，转回 DECIMAL 后做半进舍入（非全链 DECIMAL；二进制浮点 round 会在
+  .xx5 边界错 0.01：688218/688450/300127/603300/600733 五行实测，转回 DECIMAL
+  半进后 5,530/5,530 复现旧值，QC 已独立复核）
 - ``amount``（亿）= ``round_half_up(turnover / 1e8, 4)``，列约定四位小数
 - ``volume``（手）= ``round_half_up(volume / 100, 0)``，列约定整数手
 - ``stock_name`` / ``turnover``（换手率）dump 不提供 → 从旧行保留，不清空；
@@ -45,7 +46,7 @@ import hashlib
 import json
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -56,6 +57,14 @@ import duckdb
 from .sync_hithink_stock_daily import TRADE_DATE_SQL
 
 SOURCE_REBUILD = "hithink:daily-k-10d"
+
+# 主表修复后必须重算的派生表（QC S2 补全：_build_stock 也从主表派生，
+# 只重算 technical 会漏 window——600176 的 10 日 avg_amount 实测
+# 93.1063→93.1062）。fact_market_daily 是复盘会口径、不以主表为源，不重算。
+DERIVED_TABLES_AFFECTED: tuple[tuple[str, str], ...] = (
+    ("feature_stock_technical_daily", "trade_date"),
+    ("feature_stock_window", "as_of_date"),
+)
 
 
 class RepairRefused(RuntimeError):
@@ -84,6 +93,10 @@ class RepairSpec:
     amount_drift_ok: dict[str, float]    # 换源可接受的 amount 漂移上限（亿）
     expected: dict[str, int]             # dump_rows / old_rows / common_rows / written_rows / final_rows
     parquet_sha256: str = ""             # 审查钉住的 dump 哈希；空串=不校验（仅测试夹具）
+    # QC S3：新增票此前在除息名单与逐字段 diff 断言之外（两者都只覆盖共同行），
+    # 合成现金事件下探针里昨收 64.35→54.35、涨幅 −1.45%→+16.69% 仍报成功。
+    # 因此钉三个前提：当日无事件（另断言）、dump 有昨日 bar、逐字段预期值。
+    new_code_expect: dict[str, dict[str, float]] = field(default_factory=dict)
 
     def validate(self) -> None:
         _check_codes(self.keep_codes, "keep_codes")
@@ -92,6 +105,17 @@ class RepairSpec:
         _check_codes(tuple(self.new_code_names), "new_code_names")
         _check_codes(self.exdiv_codes, "exdiv_codes")
         _check_codes(tuple(self.amount_drift_ok), "amount_drift_ok")
+        if set(self.new_code_expect) != set(self.new_code_names):
+            raise RepairRefused(
+                "new_code_expect 与 new_code_names 名单不一致: "
+                f"{sorted(self.new_code_expect)} vs {sorted(self.new_code_names)}"
+            )
+        required = {"open", "high", "low", "close", "pre_close", "pct_chg",
+                    "amount", "volume"}
+        for code, fields_ in self.new_code_expect.items():
+            missing = required - set(fields_)
+            if missing:
+                raise RepairRefused(f"new_code_expect[{code}] 缺字段: {sorted(missing)}")
 
 
 SPEC_20260911 = RepairSpec(
@@ -115,6 +139,16 @@ SPEC_20260911 = RepairSpec(
         "final_rows": 5553,     # 5552 − 5546 被替换 + 5547 写入
     },
     parquet_sha256="51f9ee9cba1ceb4a6ff50c4c4dce8267cb39f78add28d6a33699cbf90bf28d17",
+    # 302132.SZ 09-11 预期值（dump 行钉定，QC 独立复核一致）：
+    # 09-10 close=64.35 为昨收；pct 半进 −1.45；amount=598632440.33/1e8 round4；
+    # volume=9447135 股/100 round0。
+    new_code_expect={
+        "302132.SZ": {
+            "open": 64.01, "high": 64.66, "low": 62.82, "close": 63.42,
+            "pre_close": 64.35, "pct_chg": -1.45, "amount": 5.9863,
+            "volume": 94471.0,
+        }
+    },
 )
 
 
@@ -305,6 +339,37 @@ def build_plan(
     if exdiv_hit != sorted(spec.exdiv_codes):
         _fail("除息名单与 spec 不符", [(c,) for c in exdiv_hit])
 
+    # QC S3 前提一：新增票当日必须无除权事件。除息名单断言只覆盖共同行，
+    # 新增票若带事件会静默套用校准公式（探针实测昨收 64.35→54.35 仍报成功）。
+    new_with_events = [
+        r[0]
+        for r in con.execute(
+            "SELECT a.stock_ts_code FROM repair_adj a"
+            " JOIN wl_new n ON n.code = a.stock_ts_code ORDER BY 1"
+        ).fetchall()
+    ]
+    if new_with_events:
+        raise RepairRefused(
+            f"新增票当日存在除权事件, 与「漏收非新股」前提矛盾: {new_with_events}"
+        )
+    # QC S3 前提二：新增票 dump 必须有昨日 bar（pre_close 的唯一合法来源）。
+    new_no_prev = [
+        r[0]
+        for r in con.execute(
+            """
+            SELECT d.thscode FROM repair_lag d
+            JOIN wl_new n ON n.code = d.thscode
+            WHERE d.trade_date = ? AND d.prev_close_dump IS NULL
+            ORDER BY 1
+            """,
+            [td],
+        ).fetchall()
+    ]
+    if new_no_prev:
+        raise RepairRefused(
+            f"新增票 dump 无昨日 bar, pre_close 无法钉定: {new_no_prev}"
+        )
+
     # dump 窗口内无昨日 bar 的共同行 == 发行价口径白名单（IPO）。
     no_prev = sorted(
         r[0]
@@ -459,6 +524,34 @@ def build_plan(
     if written != exp["written_rows"]:
         raise RepairRefused(f"written_rows={written} ≠ 期望 {exp['written_rows']}")
 
+    # QC S3 前提三：新增票逐字段 == spec 钉定预期（共同行 diff 断言覆盖不到它）。
+    new_built = {
+        r[0]: r
+        for r in con.execute(
+            """
+            SELECT r.stock_ts_code, r.open, r.high, r.low, r.close, r.pre_close,
+                   r.pct_chg, r.amount, r.volume
+            FROM repair_rows r JOIN wl_new n ON n.code = r.stock_ts_code
+            ORDER BY 1
+            """
+        ).fetchall()
+    }
+    if set(new_built) != set(spec.new_code_names):
+        raise RepairRefused(
+            f"新增票构造结果名单 ≠ spec: {sorted(new_built)}"
+        )
+    new_field_bad = []
+    for code, r in new_built.items():
+        want = spec.new_code_expect[code]
+        got = dict(zip(("open", "high", "low", "close", "pre_close",
+                        "pct_chg", "amount", "volume"), r[1:]))
+        for fname, wval in want.items():
+            gval = got[fname]
+            if gval is None or abs(Decimal(str(gval)) - Decimal(str(wval))) > Decimal("1e-9"):
+                new_field_bad.append((code, fname, wval, gval))
+    if new_field_bad:
+        _fail("新增票字段 ≠ spec 钉定预期", new_field_bad)
+
     evidence.update(
         {
             "parquet_sha256": sha,
@@ -605,6 +698,121 @@ def verify_post(
     }
 
 
+# ---------------------------------------------------------------------------
+# 派生重算（QC S2：与主表修复同一次原子换库交付）
+# ---------------------------------------------------------------------------
+
+
+def _table_day_fingerprint(
+    con: duckdb.DuckDBPyConnection, table: str, date_col: str
+) -> dict[str, dict[str, Any]]:
+    """任意表按日 行数+全列顺序无关哈希——派生表「其他日期未动」的证据。"""
+
+    cols = [r[1] for r in con.execute(f"PRAGMA table_info('{table}')").fetchall()]
+    expr = " || '|' || ".join(f"coalesce(CAST({c} AS VARCHAR), '∅')" for c in cols)
+    rows = con.execute(
+        f"SELECT {date_col}, count(*), sum(hash({expr})) "
+        f"FROM {table} GROUP BY 1 ORDER BY 1"
+    ).fetchall()
+    return {str(r[0]): {"rows": r[1], "hash": str(r[2])} for r in rows}
+
+
+def _require_derived_tables(con: duckdb.DuckDBPyConnection) -> None:
+    missing = [
+        t
+        for t, _ in DERIVED_TABLES_AFFECTED
+        if not con.execute(
+            "SELECT count(*) FROM information_schema.tables WHERE table_name = ?",
+            [t],
+        ).fetchone()[0]
+    ]
+    if missing:
+        raise RepairRefused(f"派生表不存在（先 init_db）: {missing}")
+
+
+def run_derived_phase(
+    con: duckdb.DuckDBPyConnection,
+    spec: RepairSpec,
+    *,
+    before: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """主表修复后重算受影响派生表，并处置新增票的历史缺口。
+
+    受影响集合见 DERIVED_TABLES_AFFECTED（QC S2：只重算 technical 会漏
+    window——_build_stock 同样以主表为源，600176 的 10 日 avg_amount 实测
+    93.1063→93.1062）。fact_market_daily 是复盘会口径、不以主表为源，
+    不重算，口径差在报告里声明。
+
+    新增票历史缺口处置（QC S2 允许项，二选一里选「保留缺口」）：
+    technical 需 26 条窗口记录，302132 修后仅 11 行，天然 0 行；
+    window 会把缺口两侧拼成「连续」5/10 日特征（起点被拉回六月），
+    不能当作正常值补入——统一删除并声明「该股当日指标不可用」。
+    历史回填需单独授权并验证连续性，不得借本次「只改 09-11」扩大。
+    """
+
+    import sys
+
+    from ..db import PROJECT_DIR
+
+    if str(PROJECT_DIR) not in sys.path:
+        sys.path.insert(0, str(PROJECT_DIR))
+    from scripts.compute_features import compute_features
+
+    td = spec.trade_date.isoformat()
+    stats = compute_features(td, selected=("stock", "technical"), con=con)
+
+    codes = sorted(spec.new_code_names)
+    removed: dict[str, int] = {}
+    if codes:
+        marks = ",".join("?" for _ in codes)
+        for table, date_col in DERIVED_TABLES_AFFECTED:
+            removed[table] = len(
+                con.execute(
+                    f"DELETE FROM {table} WHERE {date_col} = ?"
+                    f" AND stock_ts_code IN ({marks}) RETURNING stock_ts_code",
+                    [td, *codes],
+                ).fetchall()
+            )
+
+    after = {
+        t: _table_day_fingerprint(con, t, dc) for t, dc in DERIVED_TABLES_AFFECTED
+    }
+    for table, _dc in DERIVED_TABLES_AFFECTED:
+        drift = sorted(
+            d for d in before[table] if d != td and before[table][d] != after[table].get(d)
+        )
+        gone = sorted(d for d in before[table] if d not in after[table])
+        if drift or gone:
+            raise RepairRefused(
+                f"派生表 {table} 其他日期被改动: drift={drift[:5]} gone={gone[:5]}"
+            )
+    if codes:
+        marks = ",".join("?" for _ in codes)
+        for table, date_col in DERIVED_TABLES_AFFECTED:
+            n = con.execute(
+                f"SELECT count(*) FROM {table} WHERE {date_col} = ?"
+                f" AND stock_ts_code IN ({marks})",
+                [td, *codes],
+            ).fetchone()[0]
+            if n:
+                raise RepairRefused(
+                    f"新增票在 {table} 当日仍有 {n} 行——置缺断言失败"
+                )
+
+    return {
+        "recomputed_tables": stats["tables"],
+        "new_code_rows_removed": removed,
+        "new_codes_unavailable": {
+            c: "历史窗口不足/不连续，当日窗口与技术指标置缺；"
+               "补齐历史需单独授权回填并验证连续性"
+            for c in codes
+        },
+        "fact_market_daily": "复盘会口径、不以 fact_stock_daily 为源，不重算；"
+                             "口径差（+1 跌家 / +5.99 亿）见 repair-plan.md",
+        "other_dates_unchanged": True,
+    }
+
+
 def run_repair(
     spec: RepairSpec,
     parquet_path: Path,
@@ -612,12 +820,18 @@ def run_repair(
     db_path: Path | str | None = None,
     status_json: Path | None = None,
     report_path: Path | None = None,
+    with_derived: bool = False,
 ) -> dict[str, Any]:
     """修复子进程入口：连目标库（staging 或显式克隆），build → apply → verify。
 
     目标解析顺序：显式 db_path > MARKET_FEATURE_STORE_DB > 包默认 DB_PATH。
     生产库直写由调用方（cli 子命令）的 write_path 闸门拦；函数层保持可在
     测试里直用。
+
+    with_derived=True（CLI 子进程的正式形态）：主表修复后接着重算受影响
+    派生表（DERIVED_TABLES_AFFECTED），与主表修复同一次原子换库交付——
+    换库后库内不会出现「主表已修、派生还是旧值」的中间态，也不需要
+    换库后再直写生产补派生。测试夹具缺派生表时保持 False。
     """
 
     from ..db import DB_PATH
@@ -625,13 +839,23 @@ def run_repair(
     target = Path(db_path or os.environ.get("MARKET_FEATURE_STORE_DB") or DB_PATH)
     started = datetime.now()
     con = duckdb.connect(str(target))
+    derived: dict[str, Any] | None = None
     try:
         before_fp = fingerprint(con)
         kept_before = _kept_row_images(con, spec)
+        derived_before = None
+        if with_derived:
+            _require_derived_tables(con)
+            derived_before = {
+                t: _table_day_fingerprint(con, t, dc)
+                for t, dc in DERIVED_TABLES_AFFECTED
+            }
         evidence = build_plan(con, spec, Path(parquet_path))
         applied = apply_plan(con, spec)
         after_fp = fingerprint(con)
         post = verify_post(con, spec, before_fp, after_fp, kept_before)
+        if with_derived:
+            derived = run_derived_phase(con, spec, before=derived_before or {})
     finally:
         con.close()
 
@@ -645,6 +869,7 @@ def run_repair(
         "evidence": evidence,
         "applied": applied,
         "post": post,
+        "derived": derived,
         "fingerprint_target_date": after_fp.get(spec.trade_date.isoformat()),
     }
     if report_path is not None:

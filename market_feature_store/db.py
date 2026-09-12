@@ -14,10 +14,13 @@ staging 换库 (2026-08-15, bookgap S7): 长事务同步全程持生产库写锁
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import shutil
 import subprocess
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
@@ -256,3 +259,64 @@ def remove_stale_staging(staging: Path) -> bool:
             leftover.unlink()
             removed = True
     return removed
+
+
+def backup_before_swap(db_path: Path, *, run_id: str) -> dict:
+    """换名前给 target 留一份可验明备份——换库成功后还能恢复旧状态。
+
+    与 staging 克隆的分工：staging 防「副本失败污染生产」，本备份防
+    「换库成功后回滚无门」（os.replace 不留旧库）。QC S4（2026-09-13）
+    把此项列为正式换库的执行前提：备份路径、验证指纹、无活跃写者检查、
+    恢复步骤，四样都要可验明。
+
+    顺序：写者探针（此刻无 rw 写者才拷，否则快照是撕裂的）→ clonefile
+    同卷快照 → sha256 指纹 → read_only 开库验证（备份必须真打得开）→
+    落 <backup>.receipt.json（含恢复步骤）。任何一步失败都抛异常，
+    由调用方 fail closed（不换名）。
+    """
+    probe_no_active_writer(db_path)
+    source_stat = db_path.stat()
+    ts = datetime.now().strftime("%Y%m%dT%H%M%S")
+    backup = db_path.with_name(f"{db_path.name}.bak-{ts}-{run_id}")
+    copy_info = clone_to_staging(db_path, backup)
+
+    digest = hashlib.sha256()
+    with backup.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(8 * 1024 * 1024), b""):
+            digest.update(chunk)
+    sha = digest.hexdigest()
+
+    con = duckdb.connect(str(backup), read_only=True)
+    try:
+        table_count = len(list_tables(con))
+    finally:
+        con.close()
+    if table_count == 0:
+        raise RuntimeError(f"备份可读性校验失败（0 张表）: {backup}")
+
+    receipt = {
+        "kind": "pre-swap-backup",
+        "run_id": run_id,
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "source_db": str(db_path),
+        "source_size_bytes": source_stat.st_size,
+        "source_mtime_ns": source_stat.st_mtime_ns,
+        "backup_path": str(backup),
+        "backup_sha256": sha,
+        "backup_bytes": backup.stat().st_size,
+        "copy_method": copy_info["method"],
+        "readability_check": f"read_only 打开成功, {table_count} 张表",
+        "restore_steps": [
+            "1. 确认无活跃写者/读者（probe_no_active_writer 或 lsof）",
+            f"2. 校验备份指纹: shasum -a 256 {backup.name} 应等于 receipt 的 backup_sha256",
+            f"3. 若 target 处有残留 WAL 先删除: {db_path.name}.wal",
+            f"4. cp -c {backup.name} {db_path.name}（同卷 clonefile；跨卷用 cp）",
+            "5. 只读打开 target 抽查行数，确认恢复完成后再让读写方上线",
+            "6. 验证通过后备份可人工删除（3.6G 量级，别长期留）",
+        ],
+    }
+    receipt_path = Path(str(backup) + ".receipt.json")
+    receipt_path.write_text(
+        json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    return receipt

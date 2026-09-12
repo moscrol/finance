@@ -410,12 +410,18 @@ def run_daily_full_staged(
     stock_source: str = "snapshot",
     child_argv: list[str] | None = None,
     kind: str = "daily-full",
+    pre_swap_backup: bool = False,
 ) -> dict:
     """daily-full 的 staging 编排: 同步全程不持有生产库写锁 (bookgap S7)。
 
     克隆生产库 → 子进程对 staging 副本跑原管道 (env 重定向, 见下) → 校验 →
-    第三方写者守卫 → 收据 → os.replace 原子换名。生产库文件只在换名一瞬变化,
+    第三方写者守卫 → [可选换名前备份] → 收据 → os.replace 原子换名。生产库文件只在换名一瞬变化,
     正持旧句柄的读者继续读旧 inode, 新连接读新库。
+
+    pre_swap_backup=True 时（修复类调用方，QC S4 执行前提）：守卫通过后、
+    换名前给 target 落一份带 sha256 指纹与恢复步骤收据的备份
+    （db.backup_before_swap），结果带 result["backup"]。日更默认不开——
+    每晚 3.6G 级备份会把磁盘打爆，且日更已有 ops_sync_run 链。
 
     为什么是子进程而不是进程内改 DB_PATH: 包内存在 import 期捕获路径的读点
     (cli 顶层常量、analysis.sector_data 的默认参), 进程内改全局会漏掉它们,
@@ -443,6 +449,7 @@ def run_daily_full_staged(
         "child_returncode": None,
         "run_id": None,
         "stale_staging_removed": False,
+        "backup": None,
     }
 
     result["stale_staging_removed"] = _db.remove_stale_staging(staging)
@@ -594,6 +601,19 @@ def run_daily_full_staged(
         _db.probe_no_active_writer(target)
     except _db.DatabaseLockedError as exc:
         return _abort(f"第三方写者守卫: {exc}; 拒绝换名")
+
+    if pre_swap_backup and source_exists:
+        # QC S4 执行前提：换名后旧状态只能从这份备份恢复。守卫刚验过
+        # 「克隆基线至今未被第三方动过」，备份拷的正是这个待换库状态。
+        try:
+            result["backup"] = _db.backup_before_swap(target, run_id=run_id)
+        except Exception as exc:
+            return _abort(f"换名前备份失败, 不换名: {exc}")
+        print(
+            f"[staging] 换名前备份: {result['backup']['backup_path']} "
+            f"(sha256={result['backup']['backup_sha256'][:16]}…)",
+            flush=True,
+        )
 
     swap_started = time.monotonic()
     try:

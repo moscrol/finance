@@ -13,7 +13,7 @@ daily-full 里请求量最大的一步；而 5 日 Jaccard 0.999 说明名单几
   ``source='local:stitch'``。
 
 三条硬约束（都来自门禁 / 深模块的既有契约，不是本模块自设）：
-1. 值只接受独立外部供应商源（东财/mootdx/腾讯/iFinD/新浪，见 ``VALUE_SOURCE_PREFIXES``）。
+1. 值只接受独立外部供应商源（东财/mootdx/腾讯/iFinD/新浪/同花顺，见 ``VALUE_SOURCE_PREFIXES``）。
    ``fill-stock-daily-fallback`` 的行来自成分表本身，拿它拼接是循环。
 2. 东财无当日值的成员（停牌/退市）**剔除**，不留 NULL——``check_daily_review_data`` 不容
    price/pct_chg/amount 为空；``fast_daily_sync.py`` 被禁正是因为拷旧行留空值。
@@ -49,7 +49,11 @@ PROVIDER_SOURCE = "fupanhui"
 # 新浪（akshare.stock_zh_a_daily）。白名单的本意是「值必须来自独立外部供应商，不能拿
 # 自家派生值回灌」，新浪与既有四家同类；语义上 pre_close 是裸价前收（与 mootdx 同基，
 # 非东财的除息调整基），qa_backfill_align 对这类差异按 WARN 处理。
-VALUE_SOURCE_PREFIXES = ("eastmoney", "mootdx", "tencent", "ifind", "sina")
+# hithink 于 2026-09-13 加入：09-11 主表由同花顺官方 daily-k-10d dump 重建
+# （repair-stock-daily-hithink，source=hithink:daily-k-10d）。同花顺是独立外部供应商；
+# 换源值经独立 QC 逐值核验（pct 5,530/5,530 复现旧值、18 条除息校准逐行相等、
+# 共同行 OHLC 一致、其他日期指纹全等）。不接它，修后重跑拼接会从 403 板块掉到 0。
+VALUE_SOURCE_PREFIXES = ("eastmoney", "mootdx", "tencent", "ifind", "sina", "hithink")
 # 基线最多回看多少个日历日；再旧说明该板块长期抓不到，交回复盘会。
 DEFAULT_MAX_BASELINE_AGE_DAYS = 10
 # N 日涨幅复算需要的历史窗口（日历日；20 个交易日约 28~30 个日历日）。

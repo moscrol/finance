@@ -1107,9 +1107,12 @@ def cmd_repair_stock_daily_hithink(args) -> int:
     """同花顺 dump 修复 canonical 个股日行情单日 (审查见仓外 db-repair/hithink-20260911)。
 
     父进程走 run_daily_full_staged 编排 (克隆→子进程→校验→第三方写者守卫→
-    收据→原子换名), 不跑 daily 管道预检 (修复只读本地 parquet, 不需要 CDP)。
+    换名前备份→收据→原子换名), 不跑 daily 管道预检 (修复只读本地 parquet, 不需要 CDP)。
+    子进程一次完成主表修复 + 受影响派生表重算 (QC S2: technical + window,
+    新增票历史缺口置缺并声明), 与主表修复同一次原子换库交付。
+    换名前备份是 QC S4 执行前提: 带 sha256 指纹与恢复步骤, 不换名不备份。
     --child 是 staging 子进程模式: 写 MARKET_FEATURE_STORE_DB (或 --db) 指向的
-    副本, 直写 canonical 生产库被 write_path 闸门拦死。
+    副本, 直写 canonical 生产库被 write_path 闸门拦死 (检出位置无关, QC G1)。
     """
     from .sync.repair_hithink_stock_day import (
         SPEC_20260911,
@@ -1148,15 +1151,23 @@ def cmd_repair_stock_daily_hithink(args) -> int:
                 db_path=target,
                 status_json=status_json,
                 report_path=Path(args.report_path) if args.report_path else None,
+                with_derived=True,
             )
         except RepairRefused as exc:
             print(f"修复断言不通过, 未写入: {exc}")
             return 2
+        derived_note = ""
+        if report.get("derived"):
+            derived_note = (
+                f", 派生重算 {report['derived']['recomputed_tables']}"
+                f", 新增票置缺 {sorted(report['derived']['new_codes_unavailable'])}"
+            )
         print(
             f"修复完成: {report['trade_date']} "
             f"写 {report['evidence']['counts']['written_rows']} 行 "
             f"(保留 {len(report['post']['kept_rows_identical'])}), "
             f"当日共 {report['post']['final_rows']} 行, 其他日期指纹不变"
+            f"{derived_note}"
         )
         return 0
 
@@ -1172,9 +1183,16 @@ def cmd_repair_stock_daily_hithink(args) -> int:
         trade_date=args.trade_date,
         child_argv=child_argv,
         kind="repair-stock-daily-hithink",
+        pre_swap_backup=True,
     )
     if result["swapped"]:
         print(f"修复状态: {'OK' if result['rc'] == 0 else 'CHECK'} | 已原子换库")
+        if result.get("backup"):
+            print(
+                f"换库前备份: {result['backup']['backup_path']} "
+                f"(sha256={result['backup']['backup_sha256'][:16]}…, "
+                "恢复步骤见同级 .receipt.json)"
+            )
     else:
         print(f"修复状态: BLOCKED | 生产库未动 | {result['reason']}")
     return result["rc"]

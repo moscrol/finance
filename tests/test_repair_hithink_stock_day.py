@@ -178,6 +178,13 @@ def world(tmp_path):
             "written_rows": 5,   # 5 共同 − 1 保留 + 1 新增
             "final_rows": 7,     # 6 − 4 被替换 + 5 写入
         },
+        new_code_expect={
+            "302132.SZ": {
+                "open": 64.01, "high": 64.66, "low": 62.82, "close": 63.42,
+                "pre_close": 64.35, "pct_chg": -1.45, "amount": 5.9863,
+                "volume": 94471.0,
+            }
+        },
     )
     return {"db": db_path, "parquet": pq, "spec": spec}
 
@@ -341,3 +348,184 @@ def test_parquet_sha_pin(world):
     object.__setattr__(spec, "parquet_sha256", "0" * 64)
     with pytest.raises(RepairRefused, match="哈希"):
         rep.run_repair(spec, world["parquet"], db_path=world["db"])
+
+
+# ---------------------------------------------------------------------------
+# QC S3：新增票三前提（无事件 / 有昨日 bar / 逐字段预期）
+# ---------------------------------------------------------------------------
+
+def test_new_code_synthetic_event_refused(world):
+    """QC 探针复现：给新增票塞一条纯现金事件，修复必须拒跑。
+
+    旧版会静默套用校准公式：昨收 64.35→54.35、涨幅 −1.45%→+16.69% 仍 ok=true。
+    """
+    con = duckdb.connect(str(world["db"]))
+    con.execute(
+        "INSERT INTO fact_stock_adjustment_hithink VALUES"
+        " ('302132.SZ','2026-09-11',10.0,0.0,0.0,0.0,'CNY','t','2026-09-13 00:00:00')"
+    )
+    con.close()
+    with pytest.raises(RepairRefused, match="新增票当日存在除权事件"):
+        rep.run_repair(world["spec"], world["parquet"], db_path=world["db"])
+    # 拒跑即未写入：新增票不在表里
+    con = duckdb.connect(str(world["db"]), read_only=True)
+    try:
+        assert con.execute(
+            "SELECT count(*) FROM fact_stock_daily"
+            " WHERE trade_date='2026-09-11' AND stock_ts_code='302132.SZ'"
+        ).fetchone()[0] == 0
+    finally:
+        con.close()
+
+
+def test_new_code_expect_mismatch_refused(world):
+    """spec 钉的预期昨收与构造结果不符 → 拒跑。"""
+    spec = world["spec"]
+    bad = dict(spec.new_code_expect["302132.SZ"])
+    bad["pre_close"] = 54.35
+    object.__setattr__(spec, "new_code_expect", {"302132.SZ": bad})
+    with pytest.raises(RepairRefused, match="新增票字段"):
+        rep.run_repair(spec, world["parquet"], db_path=world["db"])
+
+
+def test_new_code_missing_prev_bar_refused(world, tmp_path):
+    """新增票 dump 无昨日 bar → pre_close 无合法来源，拒跑。"""
+    con = duckdb.connect(":memory:")
+    try:
+        raw = con.execute(
+            f"SELECT * FROM read_parquet('{world['parquet']}')"
+        ).fetchall()
+    finally:
+        con.close()
+    prev_ms = _ms(PREV)
+    bars = [r for r in raw if not (r[0] == "302132.SZ" and r[4] == prev_ms)]
+    pq2 = tmp_path / "dump_noprev.parquet"
+    _write_parquet(pq2, bars)
+    with pytest.raises(RepairRefused, match="无昨日 bar"):
+        rep.run_repair(world["spec"], pq2, db_path=world["db"])
+
+
+def test_spec_validate_rejects_expect_roster_mismatch(world):
+    """new_code_expect 与 new_code_names 名单不一致 → validate 拒。"""
+    spec = world["spec"]
+    object.__setattr__(spec, "new_code_expect", {})
+    with pytest.raises(RepairRefused, match="new_code_expect"):
+        spec.validate()
+
+
+# ---------------------------------------------------------------------------
+# QC S2：派生重算（technical + window）与新增票置缺
+# ---------------------------------------------------------------------------
+
+FEATURE_WINDOW_DDL = """
+CREATE TABLE feature_stock_window (
+    as_of_date DATE, start_date DATE, end_date DATE,
+    stock_ts_code TEXT, stock_name TEXT,
+    interval_gain_pct DOUBLE, avg_amount DOUBLE, weighted_gain DOUBLE,
+    sector_count INTEGER, sector_names TEXT, sw_l1_names TEXT,
+    calculated_at TIMESTAMP,
+    PRIMARY KEY (as_of_date, start_date, end_date, stock_ts_code)
+)
+"""
+FEATURE_TECH_DDL = """
+CREATE TABLE feature_stock_technical_daily (
+    trade_date DATE, stock_ts_code TEXT, stock_name TEXT, close DOUBLE,
+    ma26 DOUBLE, std26 DOUBLE, up_value DOUBLE, deviation_pct DOUBLE,
+    calculated_at TIMESTAMP,
+    PRIMARY KEY (trade_date, stock_ts_code)
+)
+"""
+MARKET_DDL = "CREATE TABLE fact_market_daily (trade_date DATE, total_amount DOUBLE)"
+SECTOR_STOCK_DDL = """
+CREATE TABLE fact_sector_stock_daily (
+    trade_date DATE, stock_ts_code VARCHAR, sector_name VARCHAR, sw_l1 VARCHAR
+)
+"""
+
+
+def _bizdays(end: date, n: int) -> list[date]:
+    import datetime as dt
+
+    days: list[date] = []
+    cur = end
+    while len(days) < n:
+        if cur.weekday() < 5:
+            days.append(cur)
+        cur -= dt.timedelta(days=1)
+    return sorted(days)
+
+
+@pytest.fixture()
+def world_derived(world):
+    """world 之上补：000001 三十天连续历史（technical 需要 26 条窗口）、
+    302132 九天 dump 史（window 会产行、technical 不够 26 条）、
+    派生/市场/成分空表。"""
+    db_path = world["db"]
+    con = duckdb.connect(str(db_path))
+    con.execute(FEATURE_WINDOW_DDL)
+    con.execute(FEATURE_TECH_DDL)
+    con.execute(MARKET_DDL)
+    con.execute(SECTOR_STOCK_DDL)
+    con.execute("INSERT INTO fact_market_daily VALUES ('2026-09-11', 10000)")
+    hist = []
+    # 000001：24 个工作日历史（避开 world 已有的 09-10 哨兵行）+ 哨兵 + 修复行
+    # = 26 条窗口记录，technical 恰好达标。
+    for i, d in enumerate(_bizdays(date(2026, 9, 9), 24)):
+        c = 9.5 + i * 0.02
+        hist.append(
+            (str(d), "000001.SZ", "平安银行", c, c - 0.02, 0.2, 40.0, 1.0,
+             "eastmoney:snapshot", "2026-09-10 18:00:00", c - 0.05, c + 0.05,
+             c - 0.06, 4000.0)
+        )
+    # 302132：真实缺口形状——旧史止于 07-09，之后只有修复新增的 09-11。
+    # window 的 5 日窗会跨缺口拼出「连续」特征（QC S2 禁止当作正常值），
+    # technical 只有 9 条 < 26 天然不产行。
+    for d in _bizdays(date(2026, 7, 9), 8):
+        hist.append(
+            (str(d), "302132.SZ", "中航成飞", 60.0, 59.5, 0.8, 5.0, None,
+             "eastmoney:snapshot", "2026-07-09 18:00:00", 59.6, 60.3, 59.1,
+             90000.0)
+        )
+    con.executemany("INSERT INTO fact_stock_daily VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    hist)
+    con.close()
+    return world
+
+
+def test_derived_phase_recomputes_and_blanks_new_code(world_derived):
+    """with_derived=True：technical/window 重算；302132 两表当日置缺；
+    000001 两表当日有行；报告带置缺声明。"""
+    report = rep.run_repair(
+        world_derived["spec"], world_derived["parquet"],
+        db_path=world_derived["db"], with_derived=True,
+    )
+    derived = report["derived"]
+    assert derived is not None
+    assert set(derived["recomputed_tables"]) == {
+        "feature_stock_window", "feature_stock_technical_daily"
+    }
+    assert derived["new_code_rows_removed"]["feature_stock_window"] >= 1
+    assert derived["other_dates_unchanged"] is True
+    assert "302132.SZ" in derived["new_codes_unavailable"]
+
+    con = duckdb.connect(str(world_derived["db"]), read_only=True)
+    try:
+        for table, dcol in (("feature_stock_window", "as_of_date"),
+                            ("feature_stock_technical_daily", "trade_date")):
+            assert con.execute(
+                f"SELECT count(*) FROM {table} WHERE {dcol}='2026-09-11'"
+                " AND stock_ts_code='302132.SZ'"
+            ).fetchone()[0] == 0
+            assert con.execute(
+                f"SELECT count(*) FROM {table} WHERE {dcol}='2026-09-11'"
+                " AND stock_ts_code='000001.SZ'"
+            ).fetchone()[0] >= 1
+    finally:
+        con.close()
+
+
+def test_derived_phase_requires_tables(world):
+    """派生表缺失 → fail closed（不静默跳过派生重算）。"""
+    with pytest.raises(RepairRefused, match="派生表不存在"):
+        rep.run_repair(world["spec"], world["parquet"],
+                       db_path=world["db"], with_derived=True)

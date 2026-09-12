@@ -381,3 +381,66 @@ def test_third_party_writer_guard_blocks_swap(prod_db):
     assert rows == before_rows + 1
     assert "sync_marker" not in tables
     assert Path(result["staging"]).exists()  # 留作取证
+
+
+# ---------------------------------------------------------------------------
+# QC S4（2026-09-13）：换名前可验明备份（修复类调用方的执行前提）
+# ---------------------------------------------------------------------------
+
+
+def test_pre_swap_backup_created_with_fingerprint_and_receipt(prod_db):
+    pre_swap_sha = _sha256(prod_db)
+    result = sdf.run_daily_full_staged(
+        child_argv=_child(CHILD_OK), pre_swap_backup=True
+    )
+    assert result["swapped"] is True
+    backup = result["backup"]
+    assert backup is not None
+    backup_path = Path(backup["backup_path"])
+    assert backup_path.exists()
+    # 指纹与换库前状态一致（备份拷的是守卫验过的待换库状态）
+    assert backup["backup_sha256"] == _sha256(backup_path) == pre_swap_sha
+    assert backup["source_size_bytes"] == backup["backup_bytes"]
+    # 收据带恢复步骤，且备份只读打开能看到换库前内容（无 sync_marker）
+    receipt = json.loads(
+        Path(str(backup_path) + ".receipt.json").read_text(encoding="utf-8")
+    )
+    assert receipt["kind"] == "pre-swap-backup"
+    assert receipt["run_id"] == result["run_id"]
+    assert any("cp -c" in step for step in receipt["restore_steps"])
+    con = duckdb.connect(str(backup_path), read_only=True)
+    try:
+        assert con.execute(
+            "SELECT count(*) FROM fact_market_daily"
+        ).fetchone()[0] == 2
+        assert con.execute(
+            "SELECT count(*) FROM information_schema.tables"
+            " WHERE table_name='sync_marker'"
+        ).fetchone()[0] == 0
+    finally:
+        con.close()
+
+
+def test_pre_swap_backup_default_off(prod_db):
+    """日更默认不备份（每晚 3.6G 级文件会打爆磁盘）。"""
+    result = sdf.run_daily_full_staged(child_argv=_child(CHILD_OK))
+    assert result["swapped"] is True
+    assert result["backup"] is None
+    assert list(prod_db.parent.glob("*.bak-*")) == []
+
+
+def test_pre_swap_backup_failure_blocks_swap(prod_db, monkeypatch):
+    """备份失败 → fail closed 不换名，生产库字节不动。"""
+    pre = _sha256(prod_db)
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(db, "backup_before_swap", _boom)
+    result = sdf.run_daily_full_staged(
+        child_argv=_child(CHILD_OK), pre_swap_backup=True
+    )
+    assert result["swapped"] is False
+    assert result["rc"] == 2
+    assert "备份失败" in result["reason"]
+    assert _sha256(prod_db) == pre
