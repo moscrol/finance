@@ -31,6 +31,7 @@ from intelligence.services.market_timeseries import parse_single_metric_intent
 from intelligence.services.route_table import (
     ROUTE_TABLE,
     RouteRow,
+    fine_grained_route_length_ok,
     is_quick_fact_query,
     render_route_table_prompt,
     research_lane_for_dated_quick_fact,
@@ -569,7 +570,41 @@ def _deterministic_decision(
     return None
 
 
+# 细粒度词面路由只认短问句。ROUTE_TABLE 里这六条路由自带的 examples 全部 8–21 字
+# （去空白），它们的判据是「几个提示词同时出现」且**不要求彼此相邻**——去空白后对全文
+# 做无锚点子串匹配。短问句里三词共现说明的是同一个诉求；贴进来一大段材料时，三个词
+# 分散在互不相干的段落里也照样 AND 成立。
+#
+# 2026-09-12 实测（生产 2efdff46 与当时 main 均复现）：一道 821 字的纯材料推理题
+# （【行业材料】/客户 R 公告…/「需要经过哪些环节」）命中 disclosure_scan，置信度 0.98：
+#   行业@64（小节标题） + 公告@72（材料正文） + 哪些@437（第 1 题题干）
+# 后果不是「答得差」而是**根本没答**：router_skipped → 检索 2ms/0 引用 →
+# answer_synthesis 的 diagnostic.state="not_requested" → 正文被
+# disclosure_scan_pack.render() 覆写成 183 字节扫描存根，而 answer_status/status
+# 全报 complete、warnings 为空、llm.used=false。静默成功，仪表上看不出来。
+#
+# 用长度闸而不是「三词必须相邻」：同样的无锚点弱点这六条路由都有，不是 disclosure_scan
+# 一条的毛病，闸放在家族入口才一次盖住。同文件的 meta 路由早就是这个 idiom
+# （`len(cleaned) <= 64 and _META_PATTERN.search(...)`）。
+#
+# 失败方向是安全的：超长问句只是退回正常 lane 由模型自己判，仍然会被完整回答；
+# 而漏判的代价是上面那个静默存根。真有超长的扫描类请求被退回，损失是少一次模板化
+# 名单渲染，不是拿不到答案。
+#
+# 阈值 160：实测语料里真实的短意图问句最长 ~69 字（`test_quick_fact_routing.py`
+# 的「皇氏集团最近两周（…）的走势复盘」58 字一类），160 留了一倍以上余量，而贴材料
+# 的题面是几百到上千字，两者之间没有重叠区。常量与判定 helper 的 SSOT 在
+# `route_table.FINE_GRAINED_ROUTE_MAX_CHARS` / `fine_grained_route_length_ok`。
+#
+# 闸必须下在每个调用点：`is_disclosure_scan_query` 还被
+# `query_understanding.understand_query` 直接调用（产出 0.98 的 disclosure_scan
+# envelope）。第一版修复只闸了本函数，decide_turn 端到端仍经下方
+# `_deterministic_decision` 的 envelope 兜底（「明确金融研究对象或决策目标」）
+# 判成 disclosure_scan——所以回归锁钉在端到端层，见
+# `intelligence/tests/test_fine_grained_route_length_gate.py`。
 def _fine_grained_route_row(query: str) -> RouteRow | None:
+    if not fine_grained_route_length_ok(query):
+        return None
     route_id: str | None = None
     if is_disclosure_scan_query(query):
         route_id = "disclosure_scan"

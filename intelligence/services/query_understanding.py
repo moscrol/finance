@@ -16,6 +16,7 @@ from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.market_analogs import parse_analog_intent
 from intelligence.services.market_regime_analogs import parse_regime_intent
 from intelligence.services.market_midterm import parse_midterm_intent
+from intelligence.services.route_table import fine_grained_route_length_ok
 from intelligence.services.scenario_tree import parse_scenario_intent
 from intelligence.services.task_frame import TaskFrame, build_task_frame
 
@@ -1509,7 +1510,11 @@ def understand_query(
             0.98,
         )
 
-    if is_disclosure_scan_query(text):
+    # 与 turn_controller 的细粒度路由同一把闸（阈值 SSOT：
+    # route_table.FINE_GRAINED_ROUTE_MAX_CHARS）：此处漏闸时长材料题会经
+    # envelope.question_type 流进 decide_turn 的兜底分支，照样被判成
+    # disclosure_scan——2026-09-12 T2 事故的第一版修复就漏在这里。
+    if is_disclosure_scan_query(text) and fine_grained_route_length_ok(text):
         buckets = parse_disclosure_buckets(text)
         subject = "、".join(bucket.name for bucket in buckets) or None
         return envelope(
