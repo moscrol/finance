@@ -38,9 +38,69 @@ export KNOWLEDGE_WIKI="/Users/a77/knowledge-base-private/wiki"
 export SUBCONSCIOUS_VAULT="/Users/a77/agent-memory"
 export PATH="/opt/homebrew/bin:/opt/homebrew/opt/node/bin:/usr/local/bin:$PATH"
 
+# LOG_DIR 必须在这里就位：下面解析 active 指针时要往它里面写 stderr，而 `set -u` 下
+# 引用未赋值变量会让**整条命令**在 shell 层失败（rc=1、输出为空），恰好被 case 归进
+# 「1 = 从未配置」，于是静默回退旧协议——指针链一次都没跑过（09-12 跨会话质检实测：
+# `zsh:6: LOG_DIR: parameter not set`）。原来的赋值在第 75 行，晚了 20 行。
+LOG_DIR="$DATA_ROOT/logs"
+mkdir -p "$LOG_DIR"
+
 # 方法飞轮日步（cap07 / 集成 spec I5）的生产三元组：study / 旁路库 / 主库 + 用户显式绑定。
 # study 目录是 register 按协议指纹生成的（生产用户目录下），不要手改目录名。
-METHOD_STUDY_DIR="${METHOD_STUDY_DIR:-$FORESIGHT_USERS_DIR/$FORESIGHT_USER/method_validation/475597e2e017a2eedd3886700cd41d394d3694eba3487e205b8ddc91723b5a2f}"
+# 绑定优先级：显式环境变量 > active 指针（`method_validation.py activate` 写的）> 内置默认。
+# 为什么要有指针：**登记新协议不会切换消费者**。旧写法把协议 id 写死在这里，迁移照方案
+# 登记完成后夜跑仍选旧协议（09-12 质检）。指针缺失或指向已封存协议时 `active --print-dir`
+# 返回非零且输出为空，这里回退到内置默认，行为与改动前一致。
+METHOD_STUDY_DEFAULT="$FORESIGHT_USERS_DIR/$FORESIGHT_USER/method_validation/475597e2e017a2eedd3886700cd41d394d3694eba3487e205b8ddc91723b5a2f"
+METHOD_BINDING_ERROR=""
+if [ -z "${METHOD_STUDY_DIR:-}" ] && [ -f "$CODE_ROOT/scripts/method_validation.py" ]; then
+  # 先探**能力**再谈退出码。守卫 `[ -f … ]` 只证明文件在，不证明它有 active 子命令：
+  # 运行快照的 scripts/ 不随 deploy_workbench_runtime.sh 更新（它只 rsync intelligence/），
+  # 所以「新 wrapper + 旧 CLI」是链切完成前的常态。旧 CLI 遇到 active 是 argparse
+  # `invalid choice` → exit 2，若直接按退出码解释，就会把「这份 CLI 没有 active」误报成
+  # 「指针已配置但失效」，还叫人去 activate——那份 CLI 同样没有 activate（09-12 跨会话质检）。
+  #
+  # 探针要分三种情况，**不能只看 grep 命中与否**：help 跑通且有该命令 / help 跑通但没有 /
+  # help 自己就没跑成。第三种若也算「没有该命令」，一次临时故障就会让有效指针在场时
+  # 照样回退默认协议且不告警（质检故障注入复现）。故先取 help 的退出码，再判断能力。
+  METHOD_HELP_OUT="$("$OPS_PYTHON" "$CODE_ROOT/scripts/method_validation.py" --help 2>&1)"
+  METHOD_HELP_RC=$?
+  if [ "$METHOD_HELP_RC" -ne 0 ]; then
+    METHOD_BINDING_ERROR="无法查询 CLI 能力：--help 退出码 $METHOD_HELP_RC；拒绝回退到内置默认"
+    printf '[method-validation] --help 失败 rc=%s，原文：\n%s\n' \
+      "$METHOD_HELP_RC" "$METHOD_HELP_OUT" >>"$LOG_DIR/method-validation-daily.log"
+  elif printf '%s' "$METHOD_HELP_OUT" | grep -qE '[{,]active[,}]'; then
+    # active 的业务退出码（见 scripts/method_validation.py 的 ACTIVE_* 常量）：
+    #   0=有效绑定 / 4=从未配置 / 3=配置过但失效。
+    # **4 和 3 的正确处置相反**：没配过可以兼容内置默认；配过却坏了（指针损坏、目标缺失、
+    # 协议加载失败、指向已封存协议）绝不能静默换回旧实验。
+    # 「从未配置」刻意不用 1：Python 未捕获异常正好退 1，用 1 表达业务含义就会把
+    # 进程崩溃读成「没配过」而静默回退（质检用 active.json 写成 `[]` 复现）。
+    # 因此这里**只认 4**，其余非 0 一律停。
+    METHOD_STUDY_DIR="$("$OPS_PYTHON" "$CODE_ROOT/scripts/method_validation.py" active \
+      --user "$FORESIGHT_USER" --print-dir 2>>"$LOG_DIR/method-validation-daily.log")"
+    case "$?" in
+      0) : ;;
+      4) METHOD_STUDY_DIR="$METHOD_STUDY_DEFAULT" ;;
+      3) METHOD_BINDING_ERROR="active 指针已配置但失效（损坏/目标缺失/协议坏/已封存）；拒绝回退到内置默认" ;;
+      *) METHOD_BINDING_ERROR="active 查询异常退出（见 $LOG_DIR/method-validation-daily.log）；拒绝回退到内置默认" ;;
+    esac
+  else
+    # 按「从未配置」走内置默认——链切之前行为与改动前一致；但原因写真话，不复用
+    # 「已配置但失效」那句，也不给一个这份 CLI 做不到的补救动作。
+    METHOD_STUDY_DIR="$METHOD_STUDY_DEFAULT"
+    echo "[method-validation] CODE_ROOT 的 CLI 没有 active 子命令（链切未做，见迁移方案 §4.1）；" \
+      "本次按「从未配置」使用内置默认协议 $(basename "$METHOD_STUDY_DEFAULT")" \
+      >>"$LOG_DIR/method-validation-daily.log"
+  fi
+fi
+# 兜底只在**没有绑定错误**时生效。否则「拒绝回退到内置默认」就只是下游闸门的一句话,
+# 变量本身仍握着默认协议 id, 任何别的消费者或日后重构都会照着它跑（新回归实测）。
+if [ -n "$METHOD_BINDING_ERROR" ]; then
+  METHOD_STUDY_DIR=""
+else
+  [ -n "${METHOD_STUDY_DIR:-}" ] || METHOD_STUDY_DIR="$METHOD_STUDY_DEFAULT"
+fi
 METHOD_LABELS_DB="${METHOD_LABELS_DB:-$DATA_ROOT/db/history_labels.duckdb}"
 
 # 参数：phase (sync|finalize|all) + date。date 缺省今天。
@@ -53,7 +113,7 @@ for arg in "$@"; do
   esac
 done
 
-LOG_DIR="$DATA_ROOT/logs"
+# LOG_DIR 已在上面（绑定解析之前）赋值并建目录
 LOCK_PARENT="${FINANCE_LOCK_DIR:-$DATA_ROOT/state/locks}"
 LOCK_DIR="$LOCK_PARENT/daily-full-review.lock"
 mkdir -p "$LOG_DIR" "$LOCK_PARENT"
@@ -204,6 +264,13 @@ run_method_flywheel() {
   # 每夜跳过，而跳过原因写着「合入后自动生效」——一条读起来完全合理的假话。
   if [ ! -f "$CODE_ROOT/scripts/method_validation.py" ]; then
     skip_method_flywheel "scripts/method_validation.py 不在 CODE_ROOT=$CODE_ROOT（运行快照早于 cap07/I5，链切后自动生效）"
+    return 0
+  fi
+  if [ -n "$METHOD_BINDING_ERROR" ]; then
+    # 绑定失效不是「今晚数据没齐」那类可跳过的情况：继续跑就是拿错协议写新观察。
+    skip_method_flywheel "$METHOD_BINDING_ERROR；请 activate 到继任协议后重跑 finalize $D"
+    echo "[$(date '+%F %T')] 方法飞轮日步停止：$METHOD_BINDING_ERROR"
+    notify "⚠️ 全量复盘 $D 方法飞轮绑定失效：$METHOD_BINDING_ERROR"
     return 0
   fi
   echo "[$(date '+%F %T')] === method daily 开始 date=$D study=$METHOD_STUDY_DIR labels_db=$METHOD_LABELS_DB db=$MARKET_FEATURE_STORE_DB user=$FORESIGHT_USER ===" \

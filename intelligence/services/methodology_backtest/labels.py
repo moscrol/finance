@@ -13,9 +13,9 @@ stock 用 ``stock_ts_code``）：
 
 | 实体 | 标签 | 值 | 定义 |
 |---|---|---|---|
-| sector | dual_red_strict | 1/0/NULL | 严格双红；输入缺失或 data_gap 日为 NULL |
+| sector | dual_red_strict | 1/0/NULL | 严格双红；合取式三值逻辑——任一**已知**条件为假即 0，仅「已知的都为真但有输入缺失」与 data_gap 日为 NULL |
 | sector | dual_red_streak | n/NULL | 截至当日连续双红天数（当日不双红为 0；日历断档或 data_gap 后重新计数） |
-| sector | diff_ratio_turn_up | 1/0/NULL | 前一交易日 diff_ratio<=0 且当日 >0；前一日缺行/缺值/为 gap 日则 NULL |
+| sector | diff_ratio_turn_up | 1/0/NULL | 前一交易日 diff_ratio<=0 且当日 >0；无相邻前一日 / 前一日为 gap 日则 NULL（结构前提），前提成立后同样走合取式三值逻辑 |
 | sector | multi_period_resonance | 1/0/NULL | 直接投影布尔列 |
 | sector | amount_rank_top10 | 1/0/NULL | 当日成交额在 published 名单内排名 <=10（RANK，并列同名次） |
 | theme | limit_heat_rank | rank | 涨停热度排名，档位写死见 ``HEAT_TIER`` |
@@ -91,8 +91,17 @@ from .store import (
 # v1 → v2：新增 stock 三标签（limit_up / first_board / new_high_1y），sector / theme / market 口径未动。
 # v2 → v3：market_stage 去掉上游值末尾的「阶段」别名，NULL 仍为 NULL。
 # v3 → v4：新增 theme 标签 opinion_stage（工单 #36 / G-06 舆论生命周期，os-v0 派生规则）；其余口径未动。
+# v4 → v5：`dual_red_strict` / `diff_ratio_turn_up` 改用合取式三值逻辑——任一**已知**条件为假即判 0，
+#   只有「已知的都为真、却有输入缺失」才是 NULL。判 1 的条件一字未动，不是放宽口径，是把原先
+#   被 NULL 吞掉的「确定为假」还回来（旧写法任一输入缺失一律传播 NULL）。data_gap 日与
+#   turn_up 的结构前提（无相邻前一交易日 / 前一日为 gap）仍是 NULL，那是真不可判。
+#   实测触发面：8 个 .TI 板块 2025-01-02→2026-02-27 全程缺 diff_ratio，旧口径下每个交易日都留
+#   约 8 个 unknown 成员，方法验证按纪律把整个信号日判成数据不足（18 个信号日作废 16 个）。
 HEAT_TIER = {"dimension": "sector", "scope": "all", "data_stage": "final", "is_realtime": False}
-LABEL_VERSION = "v4-heat_sector_all_final_nonrt-stock_limit_high_union-market_stage_normalized-opinion_stage_os_v0"
+LABEL_VERSION = (
+    "v5-heat_sector_all_final_nonrt-stock_limit_high_union-market_stage_normalized"
+    "-opinion_stage_os_v0-conjunction_three_valued"
+)
 
 DATA_GAP_ZERO_RATIO = 0.9
 DUAL_RED_DIFF_RATIO_GT = 10.0
@@ -272,10 +281,19 @@ def _build_sector_labels(con: duckdb.DuckDBPyConnection, computed_at: datetime) 
         CREATE OR REPLACE TEMP TABLE _sec_feat AS
         WITH base AS (
             SELECT *,
+                -- 合取式的三值逻辑：**任一已知条件为假就确定为假**，不必知道其余
+                -- （`FALSE AND unknown = FALSE`）。原写法把「任一输入缺失」一律传播成 NULL，
+                -- 丢掉了这半边信息：8 个 .TI 板块 2025-01-02→2026-02-27 全程缺 diff_ratio，
+                -- 其中多数 amount ≤ 阈值本就确定不是双红，却被记成「不知道」，于是每个交易日
+                -- 都有约 8 个 unknown 成员，method_validation 按纪律把整个信号日判成数据不足
+                -- （18 个信号日作废 16 个）。这不是放宽口径：判 1 的条件一字未动，只把
+                -- 「确定为假」从 NULL 改回 0。data_gap 日仍整日 NULL——那是该日数据不可信的
+                -- 刻意设计，与单行缺字段是两回事。
                 CASE
-                    WHEN is_gap OR pct_chg IS NULL OR diff_ratio IS NULL OR amount IS NULL THEN NULL
-                    WHEN pct_chg > 0 AND diff_ratio > {DUAL_RED_DIFF_RATIO_GT} AND amount > {DUAL_RED_AMOUNT_GT} THEN 1
-                    ELSE 0
+                    WHEN is_gap THEN NULL
+                    WHEN pct_chg <= 0 OR diff_ratio <= {DUAL_RED_DIFF_RATIO_GT} OR amount <= {DUAL_RED_AMOUNT_GT} THEN 0
+                    WHEN pct_chg IS NULL OR diff_ratio IS NULL OR amount IS NULL THEN NULL
+                    ELSE 1
                 END AS dual_red,
                 LAG(idx) OVER w AS prev_idx,
                 LAG(diff_ratio) OVER w AS prev_diff,
@@ -304,10 +322,14 @@ def _build_sector_labels(con: duckdb.DuckDBPyConnection, computed_at: datetime) 
                  ELSE COUNT(*) FILTER (WHERE dual_red = 1) OVER (
                         PARTITION BY entity_id, seg ORDER BY idx ROWS UNBOUNDED PRECEDING)
             END AS streak,
-            CASE WHEN is_gap OR diff_ratio IS NULL THEN NULL
-                 WHEN prev_idx IS NULL OR idx - prev_idx <> 1 OR prev_diff IS NULL OR prev_is_gap THEN NULL
-                 WHEN prev_diff <= 0 AND diff_ratio > 0 THEN 1
-                 ELSE 0 END AS turn_up
+            -- 两层分开：**结构前提**（有没有可比的前一交易日）缺了是真不可判，一律 NULL；
+            -- 前提成立后才对合取式用三值逻辑（同 dual_red：任一已知条件为假即为假）。
+            -- 前一日 diff_ratio 已知为正时，当日值无论是什么都不构成「由负转正」。
+            CASE WHEN is_gap THEN NULL
+                 WHEN prev_idx IS NULL OR idx - prev_idx <> 1 OR prev_is_gap THEN NULL
+                 WHEN prev_diff > 0 OR diff_ratio <= 0 THEN 0
+                 WHEN prev_diff IS NULL OR diff_ratio IS NULL THEN NULL
+                 ELSE 1 END AS turn_up
         FROM grp
         """
     )

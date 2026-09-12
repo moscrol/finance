@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -656,3 +657,191 @@ def test_flywheel_skip_reason_names_the_root_it_actually_looked_in() -> None:
     guard = body.split("run_method_flywheel()", 1)[1]
 
     assert "CODE_ROOT=$CODE_ROOT" in guard
+
+
+def test_log_dir_is_ready_before_the_binding_is_resolved() -> None:
+    """``LOG_DIR`` 必须在解析 active 指针**之前**赋值——否则 `set -u` 让整条命令在 shell
+    层就失败，rc=1 被当成「从未配置」，静默跑回旧协议。
+
+    这不是风格问题：夜跑第 11 行是 ``set -uo pipefail``，而绑定解析把 stderr 重定向到
+    ``$LOG_DIR/…``。引用未赋值变量时 shell 在**重定向阶段**就放弃，`method_validation.py
+    active` 一次都不会执行（跨会话质检实测 `zsh: LOG_DIR: parameter not set`、rc=1、输出为空），
+    于是整条指针链在生产路径上等于不存在，而 case 里 1 与 3 的处置相反这件事也白设计了。
+    判据用顺序而不是「有没有这一行」：两处都有 LOG_DIR 时只有先后决定行为。
+    """
+
+    body = NIGHTLY_SH.read_text(encoding="utf-8")
+    assign = body.index('LOG_DIR="$DATA_ROOT/logs"')
+    use = body.index('2>>"$LOG_DIR/method-validation-daily.log"')
+    assert assign < use, "LOG_DIR 的赋值必须早于绑定解析里对它的引用"
+    # 目录也要建好：只赋值不 mkdir，重定向照样失败
+    mkdir_at = body.index('mkdir -p "$LOG_DIR"')
+    assert assign < mkdir_at < use, "mkdir -p $LOG_DIR 要在赋值之后、引用之前"
+
+
+def test_binding_resolution_runs_under_set_u_without_log_dir(tmp_path) -> None:
+    """真实启动条件（`set -u` + 未预设 LOG_DIR）下跑一遍绑定解析：``active`` 必须真的执行。
+
+    判据是**日志文件被创建**：修复前 shell 在重定向阶段就失败，日志目录是空的；修复后
+    命令执行了，stderr 日志一定在。只在设了 LOG_DIR 的交互 shell 里测会全绿，看不出问题。
+    """
+    import os
+    import subprocess
+
+    body = NIGHTLY_SH.read_text(encoding="utf-8")
+    head = body[: body.index("2>>\"$LOG_DIR/method-validation-daily.log\"")]
+    # 取到绑定解析那一段为止的脚本前缀，够复现启动顺序即可
+    data_root = tmp_path / "data"
+    users = tmp_path / "users" / "linxiaoqi5111" / "method_validation"
+    users.mkdir(parents=True)
+    script = tmp_path / "probe.sh"
+    script.write_text(
+        "#!/bin/zsh\nset -uo pipefail\n"
+        f'DATA_ROOT={data_root!s}\n'
+        f'CODE_ROOT={REPO!s}\n'
+        f'FORESIGHT_USERS_DIR={tmp_path / "users"!s}\n'
+        'FORESIGHT_USER="linxiaoqi5111"\n'
+        'OPS_PYTHON="$1"\n'
+        + ("LOG_DIR=\"$DATA_ROOT/logs\"\nmkdir -p \"$LOG_DIR\"\n" if 'LOG_DIR="$DATA_ROOT/logs"' in head else "")
+        + 'DIR="$("$OPS_PYTHON" "$CODE_ROOT/scripts/method_validation.py" active '
+        '--user "$FORESIGHT_USER" --print-dir 2>>"$LOG_DIR/method-validation-daily.log")"\n'
+        'echo "rc=$?"\n',
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    env = {k: v for k, v in os.environ.items() if k != "LOG_DIR"}
+    subprocess.run([str(script), sys.executable], capture_output=True, text=True, env=env)
+    assert (data_root / "logs" / "method-validation-daily.log").exists(), (
+        "active 命令没有真正执行——LOG_DIR 在引用时还没就位"
+    )
+
+
+_CASE_SEQ = __import__("itertools").count()
+
+
+def _run_binding(tmp_path, cli_body: str, *, env_extra=None) -> dict:
+    """把夜跑**真正的**绑定解析段抽出来执行, 用一份假 CLI 注入场景。
+
+    以前这两条是对脚本正文做字符串断言, 结果是: 管道换个写法测试就红, 而真正的行为
+    (help 自己挂了会不会被当成「没有该命令」) 一条也没测到。这里改成跑真的 shell。
+    """
+    import os
+    import subprocess
+
+    body = NIGHTLY_SH.read_text(encoding="utf-8")
+    # 从 METHOD_STUDY_DEFAULT 起, 否则 `set -u` 下引用未定义变量直接退出
+    segment = body[body.index('METHOD_STUDY_DEFAULT="$FORESIGHT_USERS_DIR'):body.index('METHOD_LABELS_DB=')]
+
+    # 同一个 tmp_path 允许跑多次: 每次一个独立场景目录, 互不污染
+    tmp_path = tmp_path / f"case{next(_CASE_SEQ)}"
+    tmp_path.mkdir()
+    fake_root = tmp_path / "coderoot" / "scripts"
+    fake_root.mkdir(parents=True)
+    (fake_root / "method_validation.py").write_text(cli_body, encoding="utf-8")
+
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    script = tmp_path / "probe.sh"
+    script.write_text(
+        "#!/bin/zsh\nset -uo pipefail\n"
+        f'CODE_ROOT={tmp_path / "coderoot"!s}\n'
+        f'LOG_DIR={log_dir!s}\n'
+        f'FORESIGHT_USERS_DIR={tmp_path / "users"!s}\n'
+        'FORESIGHT_USER="u1"\n'
+        'OPS_PYTHON="$1"\n'
+        + segment
+        + '\nprintf "DIR=%s\\nERR=%s\\n" "${METHOD_STUDY_DIR:-}" "$METHOD_BINDING_ERROR"\n',
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    env = {k: v for k, v in os.environ.items() if k != "METHOD_STUDY_DIR"}
+    env.update(env_extra or {})
+    out = subprocess.run([str(script), sys.executable], capture_output=True, text=True, env=env)
+    parsed = dict(ln.split("=", 1) for ln in out.stdout.splitlines() if "=" in ln)
+    parsed["log"] = (log_dir / "method-validation-daily.log").read_text(encoding="utf-8") \
+        if (log_dir / "method-validation-daily.log").exists() else ""
+    return parsed
+
+
+_OLD_CLI = """import sys
+if "--help" in sys.argv[1:2] or sys.argv[1:2] == ["--help"]:
+    print("usage: method_validation.py [-h] {register,capture,recheck,status} ...")
+    raise SystemExit(0)
+print("method_validation.py: error: argument command: invalid choice: 'active'", file=sys.stderr)
+raise SystemExit(2)
+"""
+
+
+def test_old_cli_falls_back_with_the_true_reason(tmp_path) -> None:
+    """链切未做时按「从未配置」走内置默认, 且日志写真话。
+
+    旧 CLI 上 ``active`` 是 argparse ``invalid choice`` → **exit 2**。按退出码解释就会
+    报成「指针已配置但失效, 请 activate」——那份 CLI 同样没有 activate, 补救动作不可执行。
+    （更正一条曾写进注释与测试的错误原理: 旧 CLI 的 ``active --help`` 并不返回 0,
+    它同样是 exit 2 invalid choice; 顶层 ``--help`` 探针是对的, 但不能拿那个理由背书。）
+    """
+    r = _run_binding(tmp_path, _OLD_CLI)
+    assert r["DIR"].endswith("475597e2e017a2eedd3886700cd41d394d3694eba3487e205b8ddc91723b5a2f")
+    assert r["ERR"] == "", "这不是「已配置但失效」, 不该设错误态"
+    assert "没有 active 子命令" in r["log"] and "链切" in r["log"]
+
+
+def test_help_failure_is_not_reported_as_missing_capability(tmp_path) -> None:
+    """能力**查不出来**不等于能力不存在。
+
+    旧写法 ``CLI --help | grep -q`` 取的是 grep 的退出码: help 进程自己崩了也只是
+    「没命中」, 于是有效指针在场时照样静默回退默认协议（质检故障注入复现）。
+    """
+    broken_help = 'import sys\nprint("boom", file=sys.stderr)\nraise SystemExit(70)\n'
+    r = _run_binding(tmp_path, broken_help)
+    assert r["ERR"] != "", "help 失败必须停下来, 不能冒充「没有 active 子命令」"
+    assert "无法查询 CLI 能力" in r["ERR"] and "70" in r["ERR"]
+    assert not r["DIR"].endswith("475597e2e017a2eedd3886700cd41d394d3694eba3487e205b8ddc91723b5a2f"), \
+        "查询失败却回退到了内置默认"
+    assert "boom" in r["log"], "失败原因要留在日志里"
+
+
+def test_crash_exit_code_is_not_read_as_never_configured(tmp_path) -> None:
+    """业务码与崩溃码不能混用。
+
+    Python 未捕获异常退 **1**。若用 1 表达「从未配置」, 一次崩溃就会被读成「没配过」
+    而静默回退旧协议——质检把 active.json 写成 ``[]`` 正是走这条路。
+    """
+    crashing = ('import sys\n'
+                'if sys.argv[1:2] == ["--help"]:\n'
+                '    print("usage: x [-h] {active,activate,daily} ...")\n'
+                '    raise SystemExit(0)\n'
+                'raise AttributeError("\'list\' object has no attribute \'get\'")\n')
+    r = _run_binding(tmp_path, crashing)
+    assert r["ERR"] != "", "崩溃(exit 1)被当成「从未配置」, 静默回退了旧协议"
+    assert not r["DIR"].endswith("475597e2e017a2eedd3886700cd41d394d3694eba3487e205b8ddc91723b5a2f")
+
+
+def test_only_the_dedicated_unset_code_falls_back(tmp_path) -> None:
+    """只有 ACTIVE_UNSET(4) 允许回退内置默认; 3 停、其余非 0 也停。"""
+    def cli(rc: int) -> str:
+        return ('import sys\n'
+                'if sys.argv[1:2] == ["--help"]:\n'
+                '    print("usage: x [-h] {active,activate,daily} ...")\n'
+                '    raise SystemExit(0)\n'
+                f'raise SystemExit({rc})\n')
+
+    assert _run_binding(tmp_path, cli(4))["DIR"].endswith("475597e2" + "e017a2eedd3886700cd41d394d3694eba3487e205b8ddc91723b5a2f")
+    assert _run_binding(tmp_path, cli(4))["ERR"] == ""
+    for rc in (1, 2, 3, 70):
+        r = _run_binding(tmp_path, cli(rc))
+        assert r["ERR"] != "", f"active 退出 {rc} 被放行了"
+
+
+def test_valid_binding_is_used_verbatim(tmp_path) -> None:
+    """指针有效时原样采用, 不碰默认值。"""
+    chosen = tmp_path / "elsewhere" / ("a" * 64)
+    chosen.mkdir(parents=True)
+    cli = ('import sys\n'
+           'if sys.argv[1:2] == ["--help"]:\n'
+           '    print("usage: x [-h] {active,activate,daily} ...")\n'
+           '    raise SystemExit(0)\n'
+           f'print({str(chosen)!r})\n'
+           'raise SystemExit(0)\n')
+    r = _run_binding(tmp_path, cli)
+    assert r["DIR"] == str(chosen) and r["ERR"] == ""
