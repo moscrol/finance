@@ -112,6 +112,9 @@ A 股量化复盘 + 研究工具集：fupanhui / iFinD / AKShare 数据经 `mark
 | divergence-distill | 蒸馏分叉、对照蒸馏、蒸 Fable、蒸 Knevo、trace diff 沉淀、diff 完沉淀 |
 | watchlist-digest | 自选简报、我的自选今天怎么样、按我的自选出简报、开盘简报（按自选）、我的清单今天该看什么、watchlist digest |
 | l2-moneyflow | 大单资金流、主买净额、总买净额、涨停股资金流、资金流榜单、量化单、量化买单、大单扫描、moneyflow |
+| 公司画像页 | 公司画像PPT |
+| 潜意识模式 | 开启潜意识模式、潜意识模式、进入潜意识、退出潜意识、收工、回读对话、巩固记忆、沉淀这轮、记进沉淀、潜意识开关 |
+| 行业概览 | 行业概览 |
 
 跨仓引用（规范源在知识库仓，本仓不放正文）：
 
