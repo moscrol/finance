@@ -36,7 +36,6 @@ import json
 import os
 import re
 import shutil
-import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -68,31 +67,20 @@ def resolve_repo_dir(name: str, *, repo_root: Path, repos_dir: Path, self_name: 
     return repo_root if name == self_name else repos_dir / name
 
 
-def _self_repo_name() -> str:
-    """本树在 KNOWN_REPOS 里叫什么——按 git 仓身份取，不按目录名取。
-
-    附属 worktree 的目录名是 ``fwp-wt-*`` 或门禁检出名，但它与主检出树共用同一个
-    ``.git``，common dir 的父目录名就是主检出树目录名，即真正的仓名。
-    不是 git 仓时退回目录名，与本函数引入前的行为一致。
-    """
-    try:
-        common = subprocess.run(
-            ["git", "-C", str(REPO_ROOT), "rev-parse",
-             "--path-format=absolute", "--git-common-dir"],
-            capture_output=True, text=True, check=True,
-        ).stdout.strip()
-    except (OSError, subprocess.SubprocessError):
-        return REPO_ROOT.name
-    return Path(common).parent.name if common else REPO_ROOT.name
-
-
-_SELF_REPO_NAME = _self_repo_name()
+# 本脚本 checked in 在 finance-workspace-private 里：__file__ 的仓根就是这个仓，
+# ws 那一项无条件绑 REPO_ROOT，其余仓仍按同级约定发现。不从目录名或 git
+# common-dir 推断「本树叫什么」——common dir 的父目录名会随 clone 改名而变，
+# 它不是仓的业务身份（2026-09-12 质检：改名独立 clone 里按 common-dir 推出新
+# 目录名，self_name 失配，ws 解析到同级的标准名别树，scan/backfill 读写别树
+# 且退出 0）。
+_SELF_REPO_NAME = "finance-workspace-private"
 
 
 def _repo_dir(name: str) -> Path:
     """模块级入口：所有「仓名 -> 仓根」都必须走这里，不要再写 ``REPOS_DIR / name``。
 
-    只按仓名在 ``REPOS_DIR`` 下找的话，在附属 worktree 里跑会解析到**主检出树**：
+    只按仓名在 ``REPOS_DIR`` 下找的话，只要当前树不叫标准名（附属 worktree 的
+    ``fwp-wt-*``、门禁检出名、改名独立 clone），本仓那一项就会解析到**另一棵树**：
     ``scan`` 会照另一棵树的内容重写注册表（2026-09-12 实测：在
     ``fwp-wt-instruction-gate-clearance`` 里重扫，本分支刚恢复的三个技能被删掉，
     61 → 58），而 ``backfill-tables`` 更会直接去改另一棵树的 ``AGENTS.md``。
