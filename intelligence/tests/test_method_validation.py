@@ -1,6 +1,7 @@
 """Public method-validation boundaries, with literal worked examples."""
 
 import json
+import shlex
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -775,14 +776,72 @@ def test_every_new_observation_entry_calls_the_supersede_gate():
     assert not late, f"这些函数的封存闸写在第一处写入之后: {late}"
 
 
-def test_history_record_is_the_evidence_not_the_directory(tmp_path):
-    """迁移核对表 ④ 的验收依据: **目录存在证明不了跑过**。
+MIGRATION_DOC = REPO / "docs" / "superpowers" / "specs" / "2026-09-12-label-version-migration-plan.md"
 
-    手工建个空日期目录, `ls "$NEW/history"` 照样 rc=0, `label_version` 也照样打印 v5
-    （那只是协议自己的声明）——质检据此判定旧写法会假通过。真证据是 history 返回的
-    record 路径, 且 `report --record` 能从中读出协议 id / 类型 / 窗口。
+
+def _acceptance_block() -> str:
+    """把迁移方案 ④ 的验收代码**原样**抽出来跑。
+
+    抽而不抄, 是因为上一版正是「文档写着别往下走、代码却不退出」——两边各说各话时,
+    抄一份到测试里只会让测试验一个文档里并不存在的写法。
     """
-    import shutil
+    text = MIGRATION_DOC.read_text(encoding="utf-8")
+    start = text.index("verify_history() {")
+    return text[start:text.index("```", start)]
+
+
+def _run_acceptance(tmp_path, study, labels_db):
+    """按迁移方案的用法跑 ④, 并在其后放一个 ⑤ 的哨兵。"""
+    import subprocess
+    import sys
+
+    block = _acceptance_block()
+    assert "verify_history ||" in block, "抽出来的不是完整的 ④（缺调用与失败出口）"
+    script = "\n".join([
+        "set -u",
+        f"PY={shlex.quote(sys.executable)}",
+        f'CLI={shlex.quote(str(REPO / "scripts" / "method_validation.py"))}',
+        f"NEW={shlex.quote(str(study))}",
+        f"LABELS_DB={shlex.quote(str(labels_db))}",
+        'mv_() { "$PY" "$CLI" "$@"; }',
+        "prot_() { \"$PY\" -c 'import json,sys; d=json.load(open(sys.argv[1]))[\"protocol\"];"
+        " print(json.dumps({k:d.get(k) for k in sys.argv[2:]}, ensure_ascii=False))'"
+        ' "$1/protocol.json" "${@:2}"; }',
+        block,
+        'echo "STEP5_SENTINEL_RAN"',   # ⑤ 的替身: 只有 ④ 放行才该出现
+    ])
+    return subprocess.run(["bash", "-c", script], capture_output=True, text=True,
+                          cwd=str(tmp_path))
+
+
+
+def test_history_acceptance_stops_the_migration_when_there_is_no_record(tmp_path):
+    """④ 的失败必须**真的**挡住 ⑤, 而不是打印一句就继续。
+
+    质检复现: 空 history 日期目录 + 不存在的 labels 库 —— history 非零、record 解析失败,
+    但旧写法里 `[ "$rc" -eq 0 ] || { echo …; }` 只打印不退出, 末尾 `prot_` 又成功,
+    于是整块 rc=0, ⑤ 照跑。这里直接跑文档里的那段代码, 断言它非零且哨兵没执行。
+    """
+    make_db(tmp_path)
+    root = tmp_path / "m"
+    root.mkdir()
+    study = register(root, protocol())
+    (study / "history" / "2026-09-12").mkdir(parents=True)   # 空目录: ls 会假通过
+
+    done = _run_acceptance(tmp_path, study, tmp_path / "does-not-exist.duckdb")
+
+    assert done.returncode != 0, f"④ 失败却返回 0, ⑤ 会被放行\n{done.stdout}\n{done.stderr}"
+    assert "STEP5_SENTINEL_RAN" not in done.stdout, "④ 没挡住, ⑤ 已经执行"
+    assert "④" in done.stderr, f"④ 失败得悄无声息: {done.stderr[-300:]}"
+    assert not list((study / "history" / "2026-09-12").glob("*.json")), "前提: 确实没有收据"
+
+
+def test_history_acceptance_checks_the_record_not_the_directory(tmp_path):
+    """④ 通过时, 必须是从 record 原件里读出四样东西, 不是看见目录就算。
+
+    `ls` 给不出其中任何一样: 协议 id / 类型 / 观察窗口 / 三组读数与共同可评估日期数。
+    最后一样单独钉住——质检让报告少输出对照读数时, 早先只查窗口的版本仍然通过。
+    """
     import subprocess
     import sys
 
@@ -790,24 +849,28 @@ def test_history_record_is_the_evidence_not_the_directory(tmp_path):
     root = tmp_path / "m"
     root.mkdir()
     study = register(root, protocol())
+
+    done = _run_acceptance(tmp_path, study, db)
+    assert done.returncode == 0, f"{done.stdout}\n{done.stderr}"
+    assert "STEP5_SENTINEL_RAN" in done.stdout, "④ 通过了却不让 ⑤ 执行"
+
+    records = sorted((study / "history").rglob("*.json"))
+    assert records, "④ 报成功却没留下 record 原件"
+
     cli = [sys.executable, str(REPO / "scripts" / "method_validation.py")]
-
-    # 反例: 空日期目录不该被当成「跑过」
-    (study / "history" / "2026-09-12").mkdir(parents=True)
-    assert list((study / "history").iterdir()), "前提: 目录确实存在"
-    assert not list((study / "history" / "2026-09-12").glob("*.json")), "前提: 里面没有收据"
-
-    # 正例: 真跑一次, 留下可验的原件
-    shutil.rmtree(study / "history")
-    done = subprocess.run([*cli, "history", "--study-dir", str(study), "--labels-db", str(db)],
-                          capture_output=True, text=True)
-    assert done.returncode == 0, done.stderr[-300:]
-    record = Path(json.loads(done.stdout)["record"])
-    assert record.is_file(), "history 报成功却没留下 record"
-
-    report = subprocess.run([*cli, "report", "--record", str(record)], capture_output=True, text=True)
+    report = subprocess.run([*cli, "report", "--record", str(records[0])],
+                            capture_output=True, text=True)
     assert report.returncode == 0, report.stderr[-300:]
     body = report.stdout
+
     assert study.name in body, "report 认不出这份记录属于哪个协议"
     assert "history" in body, "report 没标出记录类型"
     assert "2026-08-31" in body and "2026-09-07" in body, "report 没打出观察窗口"
+    # 组名在不够, 读数也必须在——质检把「留名称、删数值」的变异跑出来仍然全绿。
+    # 期望值来自上面的固定夹具（make_db）：universe 2 / dual_red 4 / streak3 6, 共同日期 1 天；
+    # 夹具改动时这里要同步改。
+    assert "三组共同可评估日期：**1**" in body, "report 没给出共同可评估日期数（光有小节名不算）"
+    for arm, expected in (("同日板块总体", "2.0000%"), ("当日严格双红", "4.0000%"),
+                          ("连续至少三日严格双红", "6.0000%")):
+        row = f"| {arm} | {expected} |"
+        assert row in body, f"report 缺组或缺读数: 期望整行 {row!r}"
