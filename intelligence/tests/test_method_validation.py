@@ -773,3 +773,41 @@ def test_every_new_observation_entry_calls_the_supersede_gate():
 
     assert not missing, f"这些函数会写新观察却没调封存闸: {missing}"
     assert not late, f"这些函数的封存闸写在第一处写入之后: {late}"
+
+
+def test_history_record_is_the_evidence_not_the_directory(tmp_path):
+    """迁移核对表 ④ 的验收依据: **目录存在证明不了跑过**。
+
+    手工建个空日期目录, `ls "$NEW/history"` 照样 rc=0, `label_version` 也照样打印 v5
+    （那只是协议自己的声明）——质检据此判定旧写法会假通过。真证据是 history 返回的
+    record 路径, 且 `report --record` 能从中读出协议 id / 类型 / 窗口。
+    """
+    import shutil
+    import subprocess
+    import sys
+
+    db = make_db(tmp_path)
+    root = tmp_path / "m"
+    root.mkdir()
+    study = register(root, protocol())
+    cli = [sys.executable, str(REPO / "scripts" / "method_validation.py")]
+
+    # 反例: 空日期目录不该被当成「跑过」
+    (study / "history" / "2026-09-12").mkdir(parents=True)
+    assert list((study / "history").iterdir()), "前提: 目录确实存在"
+    assert not list((study / "history" / "2026-09-12").glob("*.json")), "前提: 里面没有收据"
+
+    # 正例: 真跑一次, 留下可验的原件
+    shutil.rmtree(study / "history")
+    done = subprocess.run([*cli, "history", "--study-dir", str(study), "--labels-db", str(db)],
+                          capture_output=True, text=True)
+    assert done.returncode == 0, done.stderr[-300:]
+    record = Path(json.loads(done.stdout)["record"])
+    assert record.is_file(), "history 报成功却没留下 record"
+
+    report = subprocess.run([*cli, "report", "--record", str(record)], capture_output=True, text=True)
+    assert report.returncode == 0, report.stderr[-300:]
+    body = report.stdout
+    assert study.name in body, "report 认不出这份记录属于哪个协议"
+    assert "history" in body, "report 没标出记录类型"
+    assert "2026-08-31" in body and "2026-09-07" in body, "report 没打出观察窗口"

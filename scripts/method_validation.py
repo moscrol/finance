@@ -647,7 +647,7 @@ def build_parser() -> argparse.ArgumentParser:
     sup.add_argument("--user", default=None)
     sup.add_argument("--root", type=Path)
     sup.set_defaults(func=cmd_supersede)
-    cur = commands.add_parser("active", help="打印当前活跃绑定（无绑定返回 1）")
+    cur = commands.add_parser("active", help="打印当前活跃绑定（0 有效 / 4 从未配置 / 3 配置过但失效）")
     cur.add_argument("--print-dir", action="store_true", help="只打印目录，便于脚本取值")
     cur.add_argument("--user", default=None)
     cur.add_argument("--root", type=Path)

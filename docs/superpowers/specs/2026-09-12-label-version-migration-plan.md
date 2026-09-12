@@ -66,9 +66,13 @@ db/history_labels.duckdb.bak-v3-20260911                      （#737 留的 v3 
 2. 封存旧协议：
 
    ```bash
-   scripts/method_validation.py supersede --study-dir <v3 目录> \
+   "$PY" "$CODE_ROOT/scripts/method_validation.py" supersede --user "$U" \
+       --study-dir <v3 目录> \
        --successor <v5 协议 id> --reason "口径 v3 → v5；封存时待回检 = 0"
    ```
+
+   `--user` 不是摆设：它**同时是变更边界**，`supersede` 会拒绝封存该根之外的协议。
+   漏掉它就会落到 `users/default`，那里多半没有这份协议，命令直接非零。
 
    它写 `superseded.json` 并**带运行语义**：`list_studies()` 默认不再枚举该目录，
    因此 `flywheel` 指纹、standing 摘要不再把它当活跃对象；审计时用
@@ -100,8 +104,8 @@ db/history_labels.duckdb.bak-v3-20260911                      （#737 留的 v3 
 4. **把消费者的绑定切过来**：
 
    ```bash
-   scripts/method_validation.py activate --user "$U" --study-dir <v5 目录>
-   scripts/method_validation.py active   --user "$U"   # 核对：rc=0 且 protocol_id 为 v5
+   "$PY" "$CODE_ROOT/scripts/method_validation.py" activate --user "$U" --study-dir <v5 目录>
+   "$PY" "$CODE_ROOT/scripts/method_validation.py" active   --user "$U"   # 核对：rc=0 且 protocol_id 为 v5
    ```
 
    **`register` 只建目录，不改任何人的绑定。** 夜跑的 `METHOD_STUDY_DIR` 按
@@ -110,7 +114,8 @@ db/history_labels.duckdb.bak-v3-20260911                      （#737 留的 v3 
    指针会被它覆盖——切换前先确认启动环境里没有这个变量。
 
    顺序有意义：**先 `activate` 新的，再 `supersede` 旧的**。反过来会出现一段
-   无有效绑定的窗口（`active` 返回非零，夜跑回退到内置默认）。
+   无有效绑定的窗口——此时 `active` 返回 **3**（配置过但失效），夜跑**停掉方法日步并告警**，
+   不会回退内置默认（只有 rc=4「从未配置」才回退）。
 
 ### 3.4 规则收据（methodology_backtest）
 
@@ -179,7 +184,7 @@ prot_() { "$PY" -c 'import json,sys; d=json.load(open(sys.argv[1]))["protocol"];
 |---|---|---|---|
 | 库版本确实是 v5 | ② 后 | `mb_ report --labels-db "$LABELS_DB"` | `label_version` 为 v5 |
 | 新协议口径与起点 | ③ 后 | `prot_ "$NEW" label_version forward_start history` | `label_version` 为 v5；`forward_start` = max(重建日,登记日) 的次个交易日 |
-| history 已在 v5 上重跑 | ④ 后 | `ls "$NEW/history"` 且 `prot_ "$NEW" label_version` | 有当日记录目录；口径为 v5 |
+| history 已在 v5 上重跑 | ④ 后 | 见下方「④ 的验收」 | `report --record` 打得出协议 id、`类型：history`、窗口与三组读数 |
 | 指针指向新协议 | ⑤ 后 | `mv_ active --user "$U"` | rc=0，`protocol_id` 为 v5 |
 | 旧协议退出枚举 | ⑥ 后 | `list_studies(root)`（库函数，无 CLI） | 默认结果不含 v3（⑥ 之前**本就应该**还在） |
 | 旧协议拒绝新观察 | ⑥ 后 | `mv_ capture --study-dir "$OLD" --labels-db "$LABELS_DB"` | 非零且报**「协议已封存」**；**若报的是缺参数就不算数**——那说明没走到封存闸 |
@@ -194,14 +199,30 @@ prot_() { "$PY" -c 'import json,sys; d=json.load(open(sys.argv[1]))["protocol"];
 决定读哪个用户的指针，`FINANCE_CODE_ROOT` 决定跑哪棵树的代码，而那棵树的 CLI
 **可能根本没有 `active` 子命令**（运行快照的 `scripts/` 不随 `deploy_workbench_runtime.sh`
 更新，它只 rsync `intelligence/`）——那种情况下夜跑按「从未配置」走内置默认并在日志写明。
-切换前先确认启动环境没有 `METHOD_STUDY_DIR`，并确认 `$CODE_ROOT` 的 CLI 认识 `active`：
-
-```bash
-$PY "$CODE_ROOT/scripts/method_validation.py" --help | grep -qE '[{,]active[,}]' \
-  && echo "链切已完成" || echo "链切未做：夜跑会用内置默认协议"
-```
+切换前先确认启动环境没有 `METHOD_STUDY_DIR`，并确认 `$CODE_ROOT` 的 CLI 认识 `active`
+——**探针只有一份，在 §4.3**。这里不再复制一份：上一版在此写了个两分支的
+`--help | grep && … || …`，注入 help 返回 70 时它会打印「链切未做、会用默认」，
+而夜跑对这种情况的实际行为是**停掉方法日步并告警**，两份实现于是给出相反的结论。
 
 最终确认只能看上表最后一行的日志。
+
+#### ④ 的验收：目录存在证明不了跑过
+
+`ls "$NEW/history"` 会**假通过**——手工建个空日期目录，它照样 rc=0，
+`prot_ … label_version` 也照样打印 v5（那只是协议自己的声明）。两者合起来只证明
+「目录在、协议声称 v5」，不证明 history 真的算出了东西。要留住真证据：
+
+```bash
+out="$(mv_ history --study-dir "$NEW" --labels-db "$LABELS_DB")"; rc=$?
+[ "$rc" -eq 0 ] || { echo "history 失败 rc=$rc"; echo "$out"; }
+rec="$("$PY" -c 'import json,sys; print(json.load(sys.stdin)["record"])' <<<"$out")"
+mv_ report --record "$rec"        # ← 验原件：协议 id / 类型：history / 窗口 / 三组读数
+prot_ "$NEW" label_version        # ← 再核协议声明的口径
+```
+
+`report --record` 的输出里要同时对上四样：**协议 id 是 `$NEW`**、**`类型：history`**、
+**观察日期区间等于协议的 history 窗口**、**三组读数与共同可评估日期数**（`ls` 给不出
+其中任何一样）。若 record 路径取不到，说明 history 压根没产出，别往下走。
 
 ### 4.2 暂停 / 恢复边界
 
