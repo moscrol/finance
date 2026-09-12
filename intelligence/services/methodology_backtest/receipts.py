@@ -475,15 +475,29 @@ def _warn_corrupt(path: Path, exc: BaseException) -> None:
 def _fsync_dir(directory: Path) -> None:
     """把目录项刷到存储。发布正式名之后、以及任何「已存在即成功」的分支都要做——
     否则上一次在 `link` 与 `fsync` 之间中断的发布，重试时会被「文件已存在」短路掉，
-    目录同步永远补不上。"""
+    目录同步永远补不上。
+
+    **失败要往上抛，不能吞。** 上一版把 `os.open` 的 `OSError` 当平台差异 `return` 掉，
+    于是三条成功路径在目录打不开时全都虚报持久化成功（09-12 质检注入实测）——`fsync`
+    失败会报、比它更早一步的 `open` 失败却不会，恰恰是「只修了发现问题的那个失败点」。
+    真正需要容忍的只有「这个平台/文件系统不支持对目录 fsync」这一类，按 errno 白名单
+    放行（`EINVAL` / `ENOTSUP` / `EACCES`，后者出现在只读挂载与部分容器层），其余一律抛。
+    """
+    import errno
     import os
 
+    tolerated = {errno.EINVAL, getattr(errno, "ENOTSUP", errno.EOPNOTSUPP), errno.EACCES}
     try:
         fd = os.open(directory, os.O_RDONLY)
-    except OSError:
-        return
+    except OSError as exc:
+        if exc.errno in tolerated:
+            return
+        raise
     try:
         os.fsync(fd)
+    except OSError as exc:
+        if exc.errno not in tolerated:
+            raise
     finally:
         os.close(fd)
 
@@ -688,7 +702,21 @@ def load_refuted(root: str | Path) -> tuple[list[dict[str, Any]], list[str]]:
             _warn_corrupt(path, exc)
             unreadable.append(str(path))
             continue
-        if not isinstance(doc, dict) or doc.get("schema_version") != REFUTED_SCHEMA:
+        if not isinstance(doc, dict):
+            # **解析成功不等于结构合法**。`[]` 是合法 JSON，但它不是一条证伪条目——
+            # 上一版只在解析失败时报警，这里 `continue` 掉，于是 `report --refuted`
+            # 照常打印「目前没有任何规则被证伪」：同一个「损坏证据伪装成证据不存在」，
+            # 只是从解析失败换成了解析成功但结构不合法（09-12 质检实测）。
+            _warn_corrupt(path, TypeError(f"证伪条目应是 JSON 对象，得到 {type(doc).__name__}"))
+            unreadable.append(str(path))
+            continue
+        schema = doc.get("schema_version")
+        if schema != REFUTED_SCHEMA:
+            # 别的 schema 是**预期内**的邻居（同目录放过扫描汇总之类），静默跳过；
+            # 但完全没有 schema_version 的 dict 是坏条目，要报。
+            if schema is None:
+                _warn_corrupt(path, KeyError("缺 schema_version，不是可识别的证伪条目"))
+                unreadable.append(str(path))
             continue
         out.append(dict(doc, _path=str(path)))
     # 与 load_steps / latest_receipt / report 同一口径：**解析成时刻**再比。

@@ -1509,6 +1509,97 @@ def test_idempotent_retry_still_syncs_the_directory(synthetic, tmp_path) -> None
     assert synced, "同内容重试没有补做目录同步"
 
 
+def test_directory_sync_failure_is_not_swallowed(synthetic, tmp_path) -> None:
+    """目录打不开 / fsync 失败要往上抛，三条成功路径都不许虚报持久化成功。
+
+    上一版把 `os.open` 的 `OSError` 当平台差异 `return` 掉：`fsync` 失败会报、比它更早
+    一步的 `open` 失败却不会——只修了发现问题的那个失败点（09-12 质检注入实测）。
+    真正该容忍的只有「本平台不支持对目录 fsync」那一类 errno。
+    """
+    import datetime as _dt
+    import errno as _errno
+    import os as _os
+
+    from intelligence.services.methodology_backtest.receipts import write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+
+    def receipt():
+        r = build_receipt(
+            res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage="holdout",
+            now=_dt.datetime(2026, 9, 12, 12, tzinfo=_dt.timezone.utc),
+        )
+        r["rule"]["version"] = 1
+        return r
+
+    real_open = _os.open
+
+    def failing_dir_open(path, flags, *args, **kwargs):
+        if Path(path).is_dir():
+            raise OSError(_errno.EIO, "Input/output error")
+        return real_open(path, flags, *args, **kwargs)
+
+    # 首次发布
+    root = tmp_path / "first"
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(_os, "open", failing_dir_open)
+        with pytest.raises(OSError):
+            write_receipt(root, receipt(), date_str="2026-09-12")
+
+    # 幂等重试：先正常写一份，再注入
+    root2 = tmp_path / "retry"
+    write_receipt(root2, receipt(), date_str="2026-09-12")
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(_os, "open", failing_dir_open)
+        with pytest.raises(OSError):
+            write_receipt(root2, receipt(), date_str="2026-09-12")
+
+    # 平台不支持那一类仍要放行（不是错误，是能力差异）
+    def unsupported_dir_open(path, flags, *args, **kwargs):
+        if Path(path).is_dir():
+            raise OSError(_errno.EINVAL, "Invalid argument")
+        return real_open(path, flags, *args, **kwargs)
+
+    root3 = tmp_path / "unsupported"
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(_os, "open", unsupported_dir_open)
+        json_path, md_path = write_receipt(root3, receipt(), date_str="2026-09-12")
+    assert json_path.exists() and md_path.exists()
+
+
+def test_structurally_invalid_refuted_entries_are_reported(tmp_path) -> None:
+    """合法 JSON、非法结构同样要报——`[]` 解析得动，但它不是一条证伪条目。
+
+    只在解析失败时报警，`report --refuted` 遇到 `[]` 仍会打印「目前没有任何规则被证伪」：
+    同一个「损坏证据伪装成证据不存在」，换了个入口（09-12 质检实测）。
+    """
+    import io
+    from contextlib import redirect_stderr
+
+    from intelligence.services.methodology_backtest.receipts import load_refuted
+
+    root = tmp_path / "refuted"
+    folder = root / "r1@v1"
+    folder.mkdir(parents=True)
+    for name, body in (
+        ("array.json", "[]"),
+        ("string.json", '"x"'),
+        ("number.json", "123"),
+        ("no_schema.json", '{"rule_id": "r1"}'),
+    ):
+        (folder / name).write_text(body, encoding="utf-8")
+
+    err = io.StringIO()
+    with redirect_stderr(err):
+        entries, unreadable = load_refuted(root)
+    assert entries == []
+    assert len(unreadable) == 4, unreadable
+    for name in ("array.json", "string.json", "number.json", "no_schema.json"):
+        assert name in err.getvalue(), name
+
+
 def test_refuted_library_reports_unreadable_entries(tmp_path) -> None:
     """证伪库里读不出的条目必须被报出来，不能被「没有任何规则被证伪」掩盖。
 
