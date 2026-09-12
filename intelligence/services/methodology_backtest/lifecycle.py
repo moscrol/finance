@@ -58,7 +58,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from intelligence.services.methodology_backtest.receipts import DECLARED_STAGES, RECEIPT_SCHEMA
+from intelligence.services.methodology_backtest.receipts import (
+    DECLARED_STAGES,
+    RECEIPT_SCHEMA,
+    _warn_corrupt,
+)
 
 # 晋升链，顺序即等级。
 LADDER: tuple[str, ...] = (
@@ -191,7 +195,8 @@ def load_steps(root: str | Path, rule_id: str) -> list[Step]:
         for path in sorted(folder.glob("*.json")):
             try:
                 doc = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
+            except (OSError, ValueError) as exc:
+                _warn_corrupt(path, exc)   # 坏收据不能静默跳过：状态会停在旧值
                 continue
             if not isinstance(doc, dict) or doc.get("schema_version") != RECEIPT_SCHEMA:
                 continue
