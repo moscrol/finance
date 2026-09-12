@@ -31,6 +31,11 @@ REFUTED_VERDICT = "refuted"
 # 预声明的检验角色（工单 #42 / 补强 spec OPT-04）。跑之前就说清这份收据是发现、验证还是 Holdout；
 # 没声明的收据是探索或历史观察，lifecycle 不拿它当晋升证据（证伪不需要声明，refuted 照旧生效）。
 DECLARED_STAGES: tuple[str, ...] = ("discovery", "validation", "holdout")
+# 文件名里摘要取多少位。128 bit：即便每天写一万份、连写一万年也撞不上一次，而全长 64 位
+# 会让文件名到 77 字符。**唯一性不靠它兜底**——写入前还有一道内容比对闸（同名必比内容，
+# 不同即抛 ``ReceiptCollision``），所以这里是「够长到不用担心」而不是「赌它不撞」。
+# 4 位那版就是赌输的：实测两份结论相反的收据拿到同一个后缀，refuted 被静默抹掉。
+STEM_DIGEST_CHARS = 32
 
 _VERDICT_CN = {
     "insufficient_n": "样本不足",
@@ -48,11 +53,28 @@ def _num(x: float | None, digits: int = 2) -> str:
     return "—" if x is None else f"{x:.{digits}f}"
 
 
+def _parse_ts(raw: Any) -> datetime:
+    """ISO 时间戳 → 带时区的 datetime；解析不了按最早处理（不让它冒充最新）。"""
+    try:
+        ts = datetime.fromisoformat(str(raw))
+    except (TypeError, ValueError):
+        return datetime.min.replace(tzinfo=timezone.utc)
+    return (ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)).astimezone(timezone.utc)
+
+
 def _now_iso(now: datetime | None) -> str:
+    """收据的 ``generated_at``，**微秒精度**。
+
+    原来截到秒：同一秒内跑完两次检验（合成库上很常见）两份收据时间戳逐字相同，
+    读取端 ``load_steps`` 的排序键退化到文件名，而文件名后缀是内容 hash——于是
+    「哪次更晚」由 hash 随机决定。实测：先 supported、同秒稍后 not_distinguishable，
+    读取端选回 supported，生命周期停在 personal_method（09-12 复核）。
+    顺序是这条链的判据之一，不能丢精度、更不能让 hash 替它排序。
+    """
     ts = now or datetime.now(timezone.utc)
     if ts.tzinfo is None:
         ts = ts.replace(tzinfo=timezone.utc)
-    return ts.astimezone(timezone.utc).isoformat(timespec="seconds")
+    return ts.astimezone(timezone.utc).isoformat(timespec="microseconds")
 
 
 def build_receipt(
@@ -368,7 +390,7 @@ def latest_receipt(root: str | Path, rule_id: str) -> dict[str, Any] | None:
     if not base.is_dir():
         return None
     best: dict[str, Any] | None = None
-    best_key: tuple[str, str] | None = None
+    best_key: tuple[datetime, str] | None = None
     for folder in sorted(base.glob(f"{rule_id}@v*")):
         if not folder.is_dir():
             continue
@@ -381,26 +403,35 @@ def latest_receipt(root: str | Path, rule_id: str) -> dict[str, Any] | None:
                 continue
             if str(doc.get("rule", {}).get("rule_id")) != rule_id:
                 continue
-            key = (str(doc.get("generated_at") or ""), str(path))
+            # 与 lifecycle 同一口径：按**解析后的时刻**比，不用裸字符串（精度不同的
+            # 时间戳字典序不可靠），文件名只作同刻 tiebreak。
+            key = (_parse_ts(doc.get("generated_at")), str(path))
             if best_key is None or key > best_key:
                 best_key = key
                 best = dict(doc, _path=str(path))
     return best
 
 
-def _run_suffix(receipt: dict[str, Any]) -> str:
-    """``<HHMMSS>-<内容 hash 前 4 位>``：既**唯一**又**幂等**。
+def _content_digest(payload: dict[str, Any]) -> str:
+    """内容的完整 sha256。**不截短**：4 位 = 16 bit，几百份就撞得上——实测两份结论相反的
+    收据拿到同一个 `120000-c62b`，后写的把 refuted 抹掉，状态从 contradicted 变回
+    personal_method（09-12 复核）。截短的 hash 不构成「内容不同必不同名」。"""
+    return hashlib.sha256(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
 
-    只用时刻不够——同一秒内跑完两次不同的检验（`run` 紧接 `scan`，合成库上很常见）会
-    撞名，又变回互相覆盖。加内容 hash 后：内容不同必不同名（两份都留档），同一份收据
-    原样重写落到同一个名字（幂等，不产生垃圾）。``generated_at`` 解析不了时只用 hash。
+
+def _run_suffix(receipt: dict[str, Any]) -> str:
+    """``<HHMMSSffffff>-<完整 sha256>``：时刻定**先后**，摘要定**身份**。
+
+    两件事分开：微秒时刻让「哪次更晚」可比（读取端不必靠文件名排序）；完整摘要让
+    「是不是同一份」可判（同一份原样重写落同名 → 幂等；内容不同必不同名 → 都留档）。
+    ``generated_at`` 解析不了时只用摘要。
     """
-    digest = hashlib.sha256(
-        json.dumps(receipt, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")
-    ).hexdigest()[:4]
+    digest = _content_digest(receipt)[:STEM_DIGEST_CHARS]
     raw = str(receipt.get("generated_at") or "")
     try:
-        stamp = datetime.fromisoformat(raw).astimezone(timezone.utc).strftime("%H%M%S")
+        stamp = datetime.fromisoformat(raw).astimezone(timezone.utc).strftime("%H%M%S%f")
     except ValueError:
         return digest
     return f"{stamp}-{digest}"
@@ -428,16 +459,44 @@ def receipt_stem(receipt: dict[str, Any], date_str: str) -> str:
     return f"{head}-{_run_suffix(receipt)}"
 
 
-def write_receipt(root: str | Path, receipt: dict[str, Any], *, date_str: str) -> tuple[Path, Path]:
-    """写 ``<root>/<rule_id>@v<version>/<date>[-<stage>]-<HHMMSS>.json`` 与同名 md。
+class ReceiptCollision(RuntimeError):
+    """目标文件已存在且内容不同。**绝不静默覆盖**——覆盖会抹掉一次真实运行的证据。"""
 
-    **不覆盖任何既有运行记录**（同一份收据原样重写才会落到同一个名字）。
+
+def _guard_no_silent_overwrite(path: Path, payload: dict[str, Any]) -> bool:
+    """同名文件已存在时比内容：完全相同 → 幂等（返回 False，不必重写）；不同 → 抛错。
+
+    最后一道闸。文件名已经带微秒时刻 + 完整 sha256，正常路径撞不上；真撞上说明时钟
+    回退、摘要口径变了或有别的 bug——那种情况下**报错比覆盖安全**，因为被覆盖的可能
+    正是一次失败记录，而所有「事后挑窗 / 改判痕迹」检测都靠它在场。
+    """
+    if not path.exists():
+        return True
+    try:
+        existing = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ReceiptCollision(f"{path} 已存在且读不出来，拒绝覆盖：{exc}") from exc
+    if _content_digest(existing) == _content_digest(payload):
+        return False
+    raise ReceiptCollision(
+        f"{path} 已存在且内容不同，拒绝静默覆盖："
+        f"既有摘要 {_content_digest(existing)[:12]}…，本次 {_content_digest(payload)[:12]}…"
+    )
+
+
+def write_receipt(root: str | Path, receipt: dict[str, Any], *, date_str: str) -> tuple[Path, Path]:
+    """写 ``<root>/<rule_id>@v<version>/<date>[-<stage>]-<HHMMSSffffff>-<sha256>.json`` 与同名 md。
+
+    **不覆盖任何既有运行记录**：同一份收据原样重写落同名且内容相同（幂等，跳过重写）；
+    内容不同却撞名 → 抛 ``ReceiptCollision``，不静默覆盖。
     """
     folder = receipt_dir(root, receipt["rule"]["ref"])
     folder.mkdir(parents=True, exist_ok=True)
     stem = receipt_stem(receipt, date_str)
     json_path = folder / f"{stem}.json"
     md_path = folder / f"{stem}.md"
+    if not _guard_no_silent_overwrite(json_path, receipt):
+        return json_path, md_path
     json_path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     md_path.write_text(render_receipt_markdown(receipt), encoding="utf-8")
     return json_path, md_path
@@ -497,6 +556,8 @@ def write_refuted(root: str | Path, receipt: dict[str, Any], *, date_str: str, r
     folder = Path(root).expanduser() / receipt["rule"]["ref"]
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / f"{date_str}-{_run_suffix(receipt)}.json"
+    if not _guard_no_silent_overwrite(path, entry):
+        return path
     path.write_text(json.dumps(entry, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return path
 

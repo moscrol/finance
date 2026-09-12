@@ -118,14 +118,29 @@ ELSE 1
    重新验证。**「采用最新结果」≠「删除旧结果」**——取最新是读取层的事（`_stage_ladder`
    已按 `generated_at` 取同窗最新），写入层照做就成了抹掉失败记录。
 
-改法：文件名 `<date>[-<stage>]-<HHMMSS>-<内容 hash 前 4 位>`。加时刻是为了唯一，加内容
-hash 是因为**同一秒内可以跑完两次不同的检验**（`run` 紧接 `scan`，合成库上很常见），只用
-时刻仍会撞名；同一份收据原样重写落到同一个名字（幂等，不产生垃圾）。证伪库 `write_refuted`
-与扫描汇总 `write_scan_summary` 同规矩——证伪是资产，同日再跑一次不该把上一条从库里抹掉。
+改法（第三轮复核后的最终形态）：
 
-回归三条：`test_same_day_three_stages_do_not_overwrite_each_other`（三段共存 → 成链；
-留出重跑证伪 → invalidated；换窗重跑落进新轮次 → 不晋升）、
+- **时间戳精度提到微秒**（`_now_iso` 原本 `timespec="seconds"`）。秒级会把「同一秒内两次
+  运行」的先后彻底抹掉，读取端排序退化到文件名，而文件名后缀含内容 hash——于是「谁更晚」
+  由 hash 随机决定。实测：先 supported、同秒稍后 not_distinguishable，读取端选回 supported，
+  生命周期停在 personal_method。
+- **排序按解析后的时刻**（`lifecycle._chronological_key`、`latest_receipt`），文件名只作
+  同一时刻内的稳定 tiebreak。裸字符串比较也不行：秒级 `…T12:00:00+00:00` 与微秒级
+  `…T12:00:00.500000+00:00` 在 `+` 与 `.` 上的字典序先后是巧合不是语义。
+- **文件名 `<date>[-<stage>]-<HHMMSSffffff>-<sha256 前 32 位>`**：时刻定先后，摘要定身份。
+  4 位摘要那版**实测撞了**（两份结论相反的收据同得 `120000-c62b`，四次写入只剩三份，
+  状态从 contradicted 变回 personal_method）——16 bit 撑不起「内容不同必不同名」。
+- **写入前比内容，禁止静默覆盖**（`_guard_no_silent_overwrite`）：同名且内容相同 → 幂等
+  跳过；同名但内容不同 → 抛 `ReceiptCollision`。唯一性不靠摘要长度赌，这道闸才是兜底：
+  真撞上说明时钟回退或摘要口径变了，那时报错比覆盖安全——被覆盖的可能正是一次失败记录。
+
+证伪库 `write_refuted` 与扫描汇总 `write_scan_summary` 同规矩——证伪是资产，同日再跑一次
+不该把上一条从库里抹掉。
+
+回归六条：`test_same_day_three_stages_do_not_overwrite_each_other`、
 `test_same_window_rerun_keeps_both_runs_and_takes_the_latest`、
+`test_same_second_runs_keep_their_order`、`test_write_receipt_refuses_silent_overwrite`、
+`test_receipt_stem_never_collides_across_distinct_contents`（3000 份不同内容零碰撞）、
 以及证伪库「scan 不覆盖 run」的端到端断言。
 
 ## 6. 同单一并修：认证要比对**当前生效**的标签口径
@@ -136,9 +151,16 @@ hash 是因为**同一秒内可以跑完两次不同的检验**（`run` 紧接 `
 旁路库本身不触发失效**（09-12 复核指出，已复现）。
 
 加 `current_label_version` 参数（`queue` 传 `labels.LABEL_VERSION`，`state_for_rule` 默认取它），
-口径不符的收据一律降历史观察并在 `blocked_by` 里写明旧口径与当前口径。回归
-`test_stale_label_version_receipts_are_history_not_evidence`（不传 → 旧行为成链；传 → 全降历史观察）
-与 `StateForRule::test_default_current_label_version_blocks_stale_receipts`。
+口径不符的收据一律降历史观察并在 `blocked_by` 里写明旧口径与当前口径。
+
+**产品入口要一起接**（第三轮复核指出）：Workbench 的 `episode_factory.method_validation_note`
+原本直接调 `derive_state` 且两个身份参数都不传，于是同一组旧收据 `state_for_rule` 说
+candidate、Workbench 说 personal_method，两个入口自相矛盾。改为统一走 `state_for_rule`
+（它同时锁规则文件字节 sha256 与当前标签口径）。
+
+回归：`test_stale_label_version_receipts_are_history_not_evidence`（不传 → 旧行为成链；
+传 → 全降历史观察）、`StateForRule::test_default_current_label_version_blocks_stale_receipts`、
+`test_method_validation_note_honours_label_version_gate`（两个入口给同一答案）。
 
 ## 7. 同单一并修：另两处消费端
 

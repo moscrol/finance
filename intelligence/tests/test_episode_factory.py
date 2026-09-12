@@ -883,3 +883,55 @@ def test_method_validation_note_reports_registry_state(tmp_path) -> None:
     assert "reflow@v1" in note
     assert "生命周期状态 candidate" in note
     assert "仍按未验证候选使用" in note
+
+
+def test_method_validation_note_honours_label_version_gate(tmp_path) -> None:
+    """Workbench 这个入口必须与 queue / 经验卡门同口径：旧标签版本的收据不算证据。
+
+    它原本直接调 ``derive_state`` 且两个身份参数都不传，于是标签口径升版后旧收据在这里
+    照样成链——同一组收据 ``state_for_rule`` 说 candidate、Workbench 说 personal_method，
+    两个产品入口自相矛盾（09-12 复核实测）。
+    """
+    import hashlib
+
+    from intelligence.services.methodology_backtest import lifecycle
+    from intelligence.services.methodology_backtest.receipts import RECEIPT_SCHEMA
+
+    candidate = MethodCandidate("龙头连板断了", "板块一般还有一次回流", "未说明")
+    rules, receipts = tmp_path / "rules", tmp_path / "receipts"
+    rules.mkdir()
+    rule_path = rules / "reflow.v1.json"
+    rule_path.write_text(
+        _json.dumps(
+            {"rule_id": "reflow", "version": 1, "title": "龙头连板断了之后板块还有一次回流",
+             "sharing": "private", "owner": "u"},
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    sha = hashlib.sha256(rule_path.read_bytes()).hexdigest()
+    folder = receipts / "reflow@v1"
+    folder.mkdir(parents=True)
+    for i, (stage, ws, we) in enumerate((
+        ("discovery", "2026-01-01", "2026-03-31"),
+        ("validation", "2026-04-01", "2026-06-30"),
+        ("holdout", "2026-07-01", "2026-08-31"),
+    )):
+        (folder / f"2026-09-12-{stage}.json").write_text(
+            _json.dumps({
+                "schema_version": RECEIPT_SCHEMA,
+                "generated_at": f"2026-09-12T1{i}:00:00.000000+00:00",
+                "rule": {"rule_id": "reflow", "version": 1, "ref": "reflow@v1", "sha256": sha},
+                "window": {"start": ws, "end": we}, "verdict": "supported",
+                "declared_stage": stage, "stats": {"verdict": "supported"},
+                "conditions": {"label_version": "v4-old-taxonomy"},
+            }, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+    # 两个入口必须给同一个答案
+    guarded = lifecycle.state_for_rule(rules, receipts, "reflow")
+    assert guarded is not None and guarded.state == "candidate"
+    note = method_validation_note(candidate, root=tmp_path)
+    assert "生命周期状态 candidate" in note, note
+    assert "personal_method" not in note, note

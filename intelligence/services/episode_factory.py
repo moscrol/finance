@@ -984,7 +984,16 @@ def method_validation_note(candidate: MethodCandidate, *, root: Path | None = No
         doc = best[1]
         rule_id = str(doc.get("rule_id") or "")
         steps = lifecycle.load_steps(receipts_dir, rule_id)
-        state = lifecycle.derive_state(doc, steps)
+        # 走 state_for_rule 这个统一入口：它按规则**文件字节**锁 sha256、并拿当前生效的
+        # label_version 做绝对比对。直接调 derive_state 会两样都不传，于是标签口径升版后
+        # 旧收据在这里照样成链——同一组收据 queue / 经验卡门说 candidate、这里说
+        # personal_method，两个产品入口自相矛盾（09-12 复核实测）。
+        state = lifecycle.state_for_rule(rules_dir, receipts_dir, rule_id)
+        if state is None:  # 规则文件读得到却解析不出身份：不猜，按未验证候选走
+            return (
+                f"疑似对应已登记规则 {rule_id}，但规则文件身份解析不出；"
+                "状态 candidate_unverified，本轮按未验证候选使用"
+            )
         return (
             f"疑似对应已登记规则 {rule_id}@v{doc.get('version')}（{doc.get('title')}），"
             f"生命周期状态 {state.state}，历史收据 {len(steps)} 份"

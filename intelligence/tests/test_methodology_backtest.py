@@ -1265,6 +1265,111 @@ def test_same_day_three_stages_do_not_overwrite_each_other(synthetic, tmp_path):
     assert after.validation_cycle == 2 and "新轮次重新走三段门" in (after.blocked_by or ""), after.blocked_by
 
 
+def test_same_second_runs_keep_their_order(synthetic, tmp_path):
+    """同一秒内的两次运行：读取端必须取**时间上更晚**的那份，不能由文件名 hash 决定。
+
+    时间戳原本截到秒，同秒两份逐字相同，排序键退化到文件名，而文件名后缀含内容 hash——
+    实测能让稍后的 not_distinguishable 排在更早的 supported 之前，生命周期停在
+    personal_method（09-12 复核）。
+    """
+    import datetime as _dt
+
+    from intelligence.services.methodology_backtest import lifecycle
+    from intelligence.services.methodology_backtest.receipts import latest_receipt, write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+
+    def put(stage, ws, we, hour, micros=0, verdict=None):
+        receipt = build_receipt(
+            res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage=stage,
+            now=_dt.datetime(2026, 9, 12, hour, microsecond=micros, tzinfo=_dt.timezone.utc),
+        )
+        receipt["window"] = {"start": ws, "end": we}
+        receipt["rule"]["version"] = 1
+        if verdict is not None:
+            receipt["verdict"] = verdict
+        write_receipt(root, receipt, date_str="2026-09-12")
+        return receipt
+
+    put("discovery", "2026-01-01", "2026-03-31", 10)
+    put("validation", "2026-04-01", "2026-06-30", 11)
+    early = put("holdout", "2026-07-01", "2026-08-31", 12, micros=100_000)
+    late = put("holdout", "2026-07-01", "2026-08-31", 12, micros=900_000, verdict="not_distinguishable")
+
+    assert early["generated_at"] != late["generated_at"], "同秒两次运行的时间戳必须可区分"
+    assert latest_receipt(root, "selftest_positive")["verdict"] == "not_distinguishable"
+    steps = lifecycle.load_steps(root, "selftest_positive")
+    assert [s.verdict for s in steps][-1] == "not_distinguishable", "排序必须按时刻，不按文件名"
+    state = lifecycle.derive_state(
+        {"rule_id": "selftest_positive", "version": 1, "owner": "t"}, steps, rule_sha256="sha-x",
+    )
+    assert not state.in_method_library, f"最新一次未过门，不得晋升，得到 {state.state}"
+
+
+def test_write_receipt_refuses_silent_overwrite(synthetic, tmp_path):
+    """同名 + 内容不同 → 抛 ``ReceiptCollision``；同名 + 内容相同 → 幂等跳过。
+
+    文件名已带微秒时刻 + 128 bit 摘要，正常路径撞不上；这道闸是兜底——撞上说明时钟回退
+    或摘要口径变了，那时**报错比覆盖安全**，被覆盖的可能正是一次失败记录。
+    """
+    import datetime as _dt
+
+    from intelligence.services.methodology_backtest.receipts import (
+        ReceiptCollision,
+        _guard_no_silent_overwrite,
+        write_receipt,
+    )
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    receipt = build_receipt(
+        res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage="holdout",
+        now=_dt.datetime(2026, 9, 12, 12, tzinfo=_dt.timezone.utc),
+    )
+    receipt["rule"]["version"] = 1
+    json_path, _ = write_receipt(root, receipt, date_str="2026-09-12")
+    folder = root / "selftest_positive@v1"
+
+    # 同内容重写：幂等，不新增文件、不抛错
+    write_receipt(root, receipt, date_str="2026-09-12")
+    assert len(list(folder.glob("*.json"))) == 1
+
+    # 同名但内容不同：拒绝
+    mutated = dict(receipt, verdict="refuted")
+    with pytest.raises(ReceiptCollision) as exc:
+        _guard_no_silent_overwrite(json_path, mutated)
+    assert "拒绝静默覆盖" in str(exc.value)
+
+
+def test_receipt_stem_never_collides_across_distinct_contents(synthetic, tmp_path):
+    """几千份不同内容的收据，文件名后缀零碰撞——4 位 hash 那版实测撞得上。"""
+    import datetime as _dt
+
+    from intelligence.services.methodology_backtest.receipts import receipt_stem
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    seen: set[str] = set()
+    for nonce in range(1500):
+        for verdict in ("supported", "refuted"):
+            receipt = build_receipt(
+                res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage="holdout",
+                now=_dt.datetime(2026, 9, 12, 12, tzinfo=_dt.timezone.utc),
+            )
+            receipt["verdict"] = verdict
+            receipt["appendix"] = {"nonce": nonce}
+            stem = receipt_stem(receipt, "2026-09-12")
+            assert stem not in seen, f"后缀碰撞：{stem}"
+            seen.add(stem)
+    assert len(seen) == 3000
+
+
 def test_same_window_rerun_keeps_both_runs_and_takes_the_latest(synthetic, tmp_path):
     """同窗重跑是正当的（数据修订后重算）：两次都留档，读取层取**最新**那次的结论。
 

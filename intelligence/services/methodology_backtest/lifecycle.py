@@ -54,6 +54,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -214,7 +215,25 @@ def load_steps(root: str | Path, rule_id: str) -> list[Step]:
                     verdict_internal=str((doc.get("stats") or {}).get("verdict") or "") or None,
                 )
             )
-    return sorted(steps, key=lambda s: (s.generated_at, s.receipt_path))
+    return sorted(steps, key=_chronological_key)
+
+
+def _chronological_key(step: Step) -> tuple[datetime, str]:
+    """排序键：**解析后的时刻**优先，文件名只作同一时刻内的稳定 tiebreak。
+
+    不用裸字符串比较：新旧收据的 ``generated_at`` 精度不同（秒级 `…T12:00:00+00:00`
+    与微秒级 `…T12:00:00.500000+00:00`），字典序在 `+` 与 `.` 上的先后是巧合不是语义。
+    更要紧的是文件名后缀含内容 hash——时刻一旦相同，「谁更晚」就由 hash 随机决定，
+    实测能让稍后的 not_distinguishable 排到更早的 supported 前面（09-12 复核）。
+    """
+    raw = step.generated_at
+    try:
+        ts = datetime.fromisoformat(raw)
+    except ValueError:
+        ts = datetime.min.replace(tzinfo=timezone.utc)
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return (ts.astimezone(timezone.utc), step.receipt_path)
 
 
 def _identity_diff(prev: Step, cur: Step) -> str:
