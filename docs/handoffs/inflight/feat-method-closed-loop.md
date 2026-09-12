@@ -1,9 +1,9 @@
 # feat/method-closed-loop · 工单 #49（合取式标签三值逻辑 + 收据同日三段）
 
-## 状态：**等用户确认合入**（09-12 复核四条缺口已全部修完并复验）
+## 状态：**等用户确认合入**（复核两轮共八条缺口已全部修完并复验，全量 9417P/0F）
 
-复核指出四条，逐条复现 → 修在源头 → 变异确认。见 §「复核修复」。共享库仍未重建、
-迁移方案已补但未执行。
+第二轮四条 + 第三轮四条，逐条用复核留下的反例脚本复现 → 修在源头 → 复验。
+共享库仍未重建、迁移方案已按实测重写但未执行。
 
 ## 这个分支做什么
 走 OPT-10「用一条现有方法跑完真实跨日闭环」时抓到的两个真缺陷，都修在源头：
@@ -78,14 +78,36 @@ holdout 2026-05-01→2026-09-10），`scan` 带 BH，四条**每段都未过门*
 且不能用「18 天接近 20 天」当理由（缺失集中在长安汽车 / 小米汽车这类高成交额标的，
 恰是双红容易命中的一类，排除可能系统性改变方向）。
 
+## 复核修复（09-12 第三轮）
+
+第二轮的修法被证明还不够——四位 hash 会撞、秒级时间戳丢顺序：
+
+| # | 缺口 | 实测反例 | 修法 |
+|---|---|---|---|
+| 1 | 同秒重跑仍误晋升 | `generated_at` 截到秒 → 同秒两份逐字相同 → 排序退化到文件名 → 后缀是内容 hash → 谁更晚由 hash 随机决定。先 supported、同秒稍后 not_distinguishable，读取端选回 supported | 时间戳提到**微秒**；`lifecycle._chronological_key` 与 `latest_receipt` 改按**解析后的时刻**排序（裸字符串在秒级/微秒级混排时 `+` 与 `.` 的字典序是巧合），文件名只作同刻 tiebreak |
+| 2 | 迁移方案第二步执行不通 | 三道门各自独立拒绝：`validate_protocol` 对 v3 协议直接拒（与库无关）、`_check_sources` 要求库**绝对路径**与冻结值一致（换备份即拒）、备份水位停在 9/10 算不出 D+5。且清点后**待回检 = 0** | 方案重写：旧协议直接封存不跨版本结算，新协议在 v5 库另起。订正初版「在途回检已断」的夸大 |
+| 3 | 四位 hash 仍覆盖失败记录 | 两份结论相反的收据同得 `120000-c62b`，四写只剩三份，`contradicted` → `personal_method` | 摘要用 sha256 前 **32 位**（128 bit）；并加 `_guard_no_silent_overwrite`：同名比内容，相同则幂等跳过、不同则抛 `ReceiptCollision`。**唯一性不靠长度赌，闸才是兜底** |
+| 4 | Workbench 入口漏接版本门 | `method_validation_note` 直接调 `derive_state` 不传身份参数：同一组旧收据 `state_for_rule` 说 candidate、它说 personal_method | 统一走 `state_for_rule`（同时锁规则文件字节 sha256 与当前标签口径） |
+
+新增回归：`test_same_second_runs_keep_their_order`、`test_write_receipt_refuses_silent_overwrite`、
+`test_receipt_stem_never_collides_across_distinct_contents`（3000 份不同内容零碰撞）、
+`test_method_validation_note_honours_label_version_gate`（两入口同答案）。
+复核的 `reproduce.py` 对修复后代码重跑：碰撞段 2000 次找不到碰撞、同秒段取到时间上更晚的
+那份、产品入口两边都是 candidate。全量 **9417 passed / 0 failed**。
+
 ## 迁移欠账（本单只写方案，未执行）
 
-`docs/superpowers/specs/2026-09-12-label-version-migration-plan.md`。只读实测：在跑的前向
-协议 `475597e2…` 绑定 **v3**、共享库 **v4**、代码 **v5**，`method_validation.study._meta` 的
-版本门现在就会拒。**这是 #671 升 v4 时欠下的债，不是本单引入**，但 09-10 起的在途回检
-事实上已断，且 `status` 看不出来（读收据不查库）。方案：旧库留档 → 旧协议在 v3 备份库
-跑完剩余 recheck 后显式 superseded → 重建库到 v5 → 新协议 `forward_start` = 重建日次日 →
-四条种子规则按阶段重跑。另立单：`status` 应显式打印「协议口径 vs 当前库口径」。
+`docs/superpowers/specs/2026-09-12-label-version-migration-plan.md`（**第二版**）。协议 `475597e2…`
+绑定 **v3**、共享库 **v4**、代码 **v5**。**这是 #671 升 v4 时欠下的债，不是本单引入。**
+
+真实待办清点（初版漏了这步）：history 1 份、capture **1 份**、recheck 1 份且已判
+`stage_not_applicable`、**待回检 0**。所以真实状况是「新的 capture 跑不了」，不是
+「有对象卡在半路」——初版那句「在途回检已断」是夸大，已订正。
+
+方案：① 备份 v4 库只读留档 → ② 旧协议写 `superseded`（含「待回检 = 0」）→ ③ 重建到 v5
+→ ④ 新协议 `forward_start` = 重建日次日 → ⑤ 种子规则按阶段重跑。①② 不依赖本单合入。
+另立两单：`status` 打印口径对照；协议改记库的**身份**（label_version + 内容指纹）而非
+绝对路径，否则库一搬家就永久失配。
 
 ## 下一步
 1. 用户确认合 PR。
