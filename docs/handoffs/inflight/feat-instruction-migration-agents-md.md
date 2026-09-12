@@ -1,28 +1,24 @@
-# feat/instruction-migration-agents-md · 指令迁移（A 组）
+# feat/instruction-migration-agents-md · 冻结迁移的依赖指针
 
-**已提交未推送**，从 `gitea/main=6382c13b` 开，单提交。推送 / 开 PR 需用户点头。
+## 这个分支做什么
+指令正文迁到 AGENTS.md；CLAUDE.md 保留导入和 Claude Code 备注；技能源/软链视图归位，同步注册表与工具钩子的仓根绑定。
 
-## 做了什么
-指令正文 CLAUDE.md → AGENTS.md（CLAUDE.md 收为 `@AGENTS.md` + Claude Code 备注）；`build_registry.py` 的 DOC_TABLES 目标同步改到 AGENTS.md；l2-moneyflow 从 `.claude/skills/` 实目录归位为 `skills/` 源 + 软链视图；删 公司画像页 / 潜意识模式 / 行业概览 并同步 dispatcher 路由表；补入迁出参考 `docs/knowledge-backfill-rules.md`、`docs/workflows/strategy-hypothesis-experiments.md`；修 `.devin` / `.codex` 钩子的仓根绑定。
+## 决策与被否方案
+- 原候选 b2d40776e80eb3743626e3231d1f367385428244 保持冻结。本文件的订正只存在于清障集成分支，不 amend 原候选。
+- 不带基于旧底 b4a35fa2 的另一批技能正文改动，以免回退 main 已有红线。
+- 清障分别使用 fix/codex-isolation-interpreter@6d709cfd、docs/hybrid-ledger-dependency@7d193f1c；不重新领历史编号，不放松检查器，不扩大沙箱权限。
 
-## 刻意不带什么（别顺手加回来）
-工作区那批 skill 正文改动（description 归一化、gold-standard 引用、UBIQUITOUS 新术语、daily-full-review 重构）**不属于迁移**，基于落后 main 548 个提交的 `b4a35fa2`，带上会回退：红线「日历行最后写」、整节「local 计划」、「停抓期间只用 `--plan local`」、duckdb-backfill 在 09-07 被刻意移除的 `disable-model-invocation`。**判回归比目标分支，不比快照。**
+## 当前状态
+原候选门禁仍红，不可将后续结果追认给它。集成工作和后续状态由 [fix-instruction-gate-clearance.md](fix-instruction-gate-clearance.md) 承接。未推送、未开 PR、未合入。
 
-## 门禁状态：**不可合入**
+## 已验证
+历史候选正式全量两轮：9407P/2F、9408P/1F，均 exit 1、dirty=false。前端四项及 E2E 已跑绿。完整订正与收据索引：`~/.finance-runtime/gate-matrix-b2d40776-corrected.md`。
 
-| 叶子 | 状态 | 依据 |
-|---|---|---|
-| `registry-check` | **红** | 五步里前四步 exit 0，第五步 `audit_ledger_spec_crosswalk.py` **exit 2**（`registry-check.yml:49-51`，无 `continue-on-error`）：缺号 `R-20260831-02`，台账命中 0 行 |
-| `python` | **红** | 9405 passed / 77 skipped / 1 xfailed / **1 failed** |
-| `frontend` / `e2e` | 无结论 | 均未跑 |
+## 未验证 / 已知边界
+旧 13b0be98 的 9405P/1F 与候选相差三个文件，不能当候选读数。历史 watchdog 间歇失败缺完整断言，原因未定论。原候选 crosswalk 缺历史依赖、沙箱在 venv 优先 PATH 下失败，均不豁免。
 
-台账红是**存量**（`6382c13b` 上可复现），但仓规不给存量红豁免。**「不是我引入的」是责任归属，「能不能合」是放行判断，不可互换。** 补前端 + E2E 只消掉「无结论」，两红仍在。
+## 下一步
+读取集成交接及其仓外门禁矩阵，按新候选的完整结果判断；合并仍需用户确认。
 
-旁证：ruff 绿、`test_code_map.py` 41 passed、`test_agent_hook_roots.py` 3 passed。pytest 收据在 `~/.finance-runtime/test-receipts/*-<revision>.json`（按 revision 取，别读 `latest.json`，多树并发会覆盖）；该 revision 与本提交的差异须只有本文件。
-
-`backfill-tables --check` 删行会红、**改触发词不会红**（`build_registry.py:582` 只为新技能填充），那片绿只覆盖技能名集合。
-
-## 待办
-1. 清 `R-20260831-02`：补台账行，或按 `claim_ledger_id.py` 重新取号并改 spec。清完 `registry-check` 才转绿。
-2. `test_installed_codex_sandbox_denies_network_and_unix_socket`：**既非稳定红也非已修，污染源未定位**。单跑绿、`intelligence/tests/` 8281 条全绿、全量套件红；它起真子进程实测本机 Codex 二进制沙箱（二进制自 09-10 21:25 未变）。「顺序/状态依赖」只是假设。别预先收窄排查面：全量收四个顶层目录（`intelligence/` 8281 / `tests/` 1152 / `skills/` 48 / `scripts/` 3），差集 1203 条；「先跑 `tests/` 再跑沙箱」得绿，削弱但未排除 `tests/`。
-3. 前端四叶与 E2E。
+## 踩过的坑
+主 pytest 解释器相同不代表子解释器相同；PATH 改变足以触发旧沙箱失败。`--showlocals --tb=long -vv` 可在不改候选的情况下取失败子字段。零计数收据不作全量证据。
