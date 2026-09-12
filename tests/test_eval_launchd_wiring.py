@@ -146,6 +146,35 @@ def test_review_sync_plist_source_carries_tiered_plan() -> None:
     assert env.get("REVIEW_SYNC_PLAN") == "auto"
 
 
+def test_nightly_resolves_quality_gate_from_code_root_not_workspace() -> None:
+    """质检闸门必须从 CODE_ROOT 取，不能落在 `cd "$WORKSPACE"` 之后的裸相对路径。
+
+    WORKSPACE=DATA_ROOT=各 agent 共用的主检出树，停在任意 detached 提交上。
+    2026-09-12 实测：同一天、同一库、同一 REVIEW_SYNC_PLAN=local，主检出树那份
+    检查器 exit=2 INCOMPLETE（没有 --plan，写死的表清单要 fact_theme_flow_daily），
+    CODE_ROOT 那份 exit=0 COMPLETE。闸门读错树 = 数据齐了也判断档，
+    20:40 守卫中止，方法飞轮永远轮不到。
+    """
+    nightly = ROOT / "skills" / "daily-full-review" / "scripts" / "nightly_full_review.sh"
+    text = nightly.read_text(encoding="utf-8")
+    assert 'REVIEW_CHECKER="$CODE_ROOT/scripts/check_daily_review_data.py"' in text
+    # 裸相对路径调用一处都不许留（注释里提它可以，调用不行）。
+    call_lines = [
+        line
+        for line in text.splitlines()
+        if "check_daily_review_data.py" in line and not line.lstrip().startswith("#")
+    ]
+    assert call_lines, "没找到质检闸门调用，测试本身失效了"
+    for line in call_lines:
+        assert "$REVIEW_CHECKER" in line or "REVIEW_CHECKER=" in line, line
+    # 三个 phase 都得走同一份。
+    for phase in ("--phase l2", "--phase all", "--phase data"):
+        assert f'"$OPS_PYTHON" "$REVIEW_CHECKER" "$D" {phase}' in text, phase
+    # 缺了要停，不许回退到 WORKSPACE 那份顶替。
+    assert '[ ! -f "$REVIEW_CHECKER" ]' in text
+    assert '$WORKSPACE/scripts/check_daily_review_data.py' not in text
+
+
 def test_review_sync_plist_source_pins_dedicated_sync_code_root() -> None:
     """sync 子进程的代码根必须显式钉住，不能退到共用的数据仓。
 

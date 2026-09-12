@@ -27,6 +27,28 @@ fi
 CODE_ROOT="${FINANCE_CODE_ROOT:-/Users/a77/finance-workspace-runtime}"
 DATA_ROOT="${FINANCE_DATA_ROOT:-/Users/a77/finance-workspace-private}"
 WORKSPACE="$DATA_ROOT"
+
+# 质检闸门从 CODE_ROOT 取，不是 WORKSPACE（2026-09-12）。
+#
+# 三处调用原本写裸相对路径 `scripts/check_daily_review_data.py`，而下面会
+# `cd "$WORKSPACE"`——WORKSPACE=DATA_ROOT=各 agent 共用的主检出树，它停在任意
+# detached 提交上。实测那份检查器还没有 `--plan`，表清单写死在模块级，于是
+# plan=local 下必然少 theme_flow / limit_advance 两张它设计上就不抓的表。
+# 同一天、同一库、同一 REVIEW_SYNC_PLAN=local：
+#   主检出树那份  exit=2 RESULT: INCOMPLETE（卡 fact_theme_flow_daily）
+#   CODE_ROOT 那份 exit=0 RESULT: COMPLETE
+# 闸门读错树 = 数据齐了也被宣布不完整，20:40 守卫中止，方法飞轮永远轮不到。
+# 计划口径不用在这里传：CODE_ROOT 那份的 `--plan` 缺省读 REVIEW_SYNC_PLAN，
+# 两个 plist 都已带该变量。
+#
+# 缺了就停，不回退到 WORKSPACE 那份顶替：顶替会以「看起来合理的理由」判红，
+# 比缺闸门更难发现（这正是 09-10~09-11 两天没人察觉的形状）。
+REVIEW_CHECKER="$CODE_ROOT/scripts/check_daily_review_data.py"
+if [ ! -f "$REVIEW_CHECKER" ]; then
+  echo "[$(date '+%F %T')] 质检闸门不在 CODE_ROOT=$CODE_ROOT（运行快照过旧）；" \
+       "拒绝用主检出树那份顶替（它不认 --plan，会把 plan=local 判成断档），中止"
+  exit 2
+fi
 export FINANCE_CODE_ROOT="$CODE_ROOT"
 export FINANCE_DATA_ROOT="$DATA_ROOT"
 export FINANCE_WS="$DATA_ROOT"
@@ -127,7 +149,7 @@ run_l2_branch() {
       || echo "[$(date '+%F %T')] L2 失败状态回写未成功"
     notify "❌ 全量复盘 $D 资金流段失败 rc=$moneyflow_rc；日志 logs/daily-full-review.out.log"
   fi
-  "$OPS_PYTHON" scripts/check_daily_review_data.py "$D" --phase l2
+  "$OPS_PYTHON" "$REVIEW_CHECKER" "$D" --phase l2
   l2_rc=$?
   # rc=3：闸门被 duckdb 写锁挡住没跑成，结果未知——与「质量门未通过」是两回事
   if [ "$l2_rc" -eq 3 ]; then
@@ -170,7 +192,7 @@ run_generation_and_finalize() {
   fi
 
   # 最终硬门：数据/报告/L2 全部通过才允许宣布完成
-  "$OPS_PYTHON" scripts/check_daily_review_data.py "$D" --phase all
+  "$OPS_PYTHON" "$REVIEW_CHECKER" "$D" --phase all
   local all_rc=$?
   if [ "$all_rc" -eq 3 ]; then
     echo "[$(date '+%F %T')] === 最终硬门未能执行 date=$D（duckdb 写锁占用 rc=3，完整性未知）==="
@@ -241,7 +263,7 @@ case "$PHASE" in
 
   finalize)
     # 定时 @20:40。守卫：18:30 sync 必须已通过 same-day-gate，否则不生成报告。
-    "$OPS_PYTHON" scripts/check_daily_review_data.py "$D" --phase data
+    "$OPS_PYTHON" "$REVIEW_CHECKER" "$D" --phase data
     guard_rc=$?
     if [ "$guard_rc" -eq 3 ]; then
       # 闸门被写锁挡住没跑成 ≠ 数据不完整；如实播报，别引导人去补数
