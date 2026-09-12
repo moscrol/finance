@@ -449,8 +449,16 @@ def cmd_queue(args) -> int:
 
 
 def cmd_report_refuted(args) -> int:
-    entries = load_refuted(args.refuted_dir)
+    entries, unreadable = load_refuted(args.refuted_dir)
     print(render_refuted_markdown(entries), end="")
+    if unreadable:
+        # 读不出的证伪不能被「目前没有任何规则被证伪」掩盖：既打印到报告里，也用非零
+        # 退出码让脚本调用方知道这次读数不完整（09-12 第五轮质检）。
+        print(f"\n⚠ {len(unreadable)} 份证伪条目读不出来，本次汇总**不完整**：")
+        for path in unreadable:
+            print(f"  - {path}")
+        print("  请人工确认后移走或归档，不要凭文件名推断其结论。")
+        return 2
     return 0
 
 

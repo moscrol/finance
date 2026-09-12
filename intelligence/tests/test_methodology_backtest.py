@@ -714,7 +714,7 @@ def test_synthetic_positive_control_supported_in_every_stage_with_own_baseline(s
     receipt = build_receipt(bad_big, rule_path=None, rule_sha256=None, environment=_ENV)
     root = tmp_path / "refuted"
     write_refuted(root, receipt, date_str="2026-09-05", receipt_path=None)
-    loaded = load_refuted(root)
+    loaded, _unreadable = load_refuted(root)
     entry = loaded[0]
     assert entry["baseline_stage_matched"]["kind"] == "same_stage_days"
     rows = summarize_refuted_by_stage(loaded)
@@ -754,7 +754,7 @@ def test_refuted_entry_written_only_for_refuted_verdict(synthetic, tmp_path):
     assert res.readout.verdict == "refuted"
     receipt = build_receipt(res, rule_path="methodology/rules/x.v1.json", rule_sha256=None, environment=env)
     root = tmp_path / "refuted"
-    assert load_refuted(root) == [] and "证伪库为空" in render_refuted_markdown([])
+    assert load_refuted(root) == ([], []) and "证伪库为空" in render_refuted_markdown([])
     path = write_refuted(root, receipt, date_str="2026-09-04", receipt_path="methodology/receipts/x@v1/2026-09-04.json")
     assert path.parent == root / "selftest_positive@v1" and path.name.startswith("2026-09-04-")
     entry = __import__("json").loads(path.read_text(encoding="utf-8"))
@@ -766,7 +766,7 @@ def test_refuted_entry_written_only_for_refuted_verdict(synthetic, tmp_path):
     assert entry["by_market_stage"] and sum(b["n"] for b in entry["by_market_stage"]) == entry["n"]
     assert entry["refuted_at"] == receipt["generated_at"]
 
-    loaded = load_refuted(root)
+    loaded, _unreadable = load_refuted(root)
     assert len(loaded) == 1 and loaded[0]["_path"] == str(path)
     rows = summarize_refuted_by_stage(loaded)
     assert rows and all(r["rule_ref"] == "selftest_positive@v1" and r["p0"] == entry["p0"] for r in rows)
@@ -782,7 +782,7 @@ def test_refuted_entry_written_only_for_refuted_verdict(synthetic, tmp_path):
     # 坏文件 / 别的 schema 跳过
     (root / "selftest_positive@v1" / "broken.json").write_text("{", encoding="utf-8")
     (root / "selftest_positive@v1" / "other.json").write_text('{"schema_version": "x"}', encoding="utf-8")
-    assert len(load_refuted(root)) == 1
+    assert len(load_refuted(root)[0]) == 1
 
 
 def test_receipt_carries_declared_stage(synthetic):
@@ -1466,6 +1466,111 @@ def test_retry_repairs_a_half_written_pair(synthetic, tmp_path):
     assert len(list(folder.glob("*.json"))) == 1, "json 幂等，不新增"
 
 
+def test_idempotent_retry_still_syncs_the_directory(synthetic, tmp_path) -> None:
+    """首次发布时目录 fsync 失败 → 重试走「已存在」分支，仍必须补做目录同步。
+
+    否则上一次在 `link` 成功、`fsync` 目录失败之间中断的发布，目录项永远落不了盘，
+    而重试因为「文件已存在」直接判成功（09-12 第五轮质检；仓内 `_publish` 会补做）。
+    """
+    import datetime as _dt
+    import os as _os
+
+    from intelligence.services.methodology_backtest.receipts import write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    receipt = build_receipt(
+        res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage="holdout",
+        now=_dt.datetime(2026, 9, 12, 12, tzinfo=_dt.timezone.utc),
+    )
+    receipt["rule"]["version"] = 1
+
+    real_fsync = _os.fsync
+    synced: list[int] = []
+
+    def counting_fsync(fd):
+        synced.append(fd)
+        return real_fsync(fd)
+
+    # 首次发布：让目录 fsync 抛错（文件已 link 成功）
+    def failing_dir_fsync(fd):
+        raise OSError(5, "Input/output error")
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(_os, "fsync", lambda fd: None)  # 让首次发布顺利完成
+        write_receipt(root, receipt, date_str="2026-09-12")
+
+    # 重试（同内容）：必须再次尝试目录同步
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(_os, "fsync", counting_fsync)
+        write_receipt(root, receipt, date_str="2026-09-12")
+    assert synced, "同内容重试没有补做目录同步"
+
+
+def test_refuted_library_reports_unreadable_entries(tmp_path) -> None:
+    """证伪库里读不出的条目必须被报出来，不能被「没有任何规则被证伪」掩盖。
+
+    0 字节反证在场时，`report --refuted` 原本照常打印「目前没有任何规则……被证伪」——
+    「证据损坏」伪装成「证据不存在」，恰好是证伪库最不能出的错（09-12 第五轮质检）。
+    """
+    import io
+    import json as _json
+    from contextlib import redirect_stderr
+
+    from intelligence.services.methodology_backtest.receipts import REFUTED_SCHEMA, load_refuted
+
+    root = tmp_path / "refuted"
+    folder = root / "r1@v1"
+    folder.mkdir(parents=True)
+    (folder / "good.json").write_text(
+        _json.dumps({
+            "schema_version": REFUTED_SCHEMA, "rule_id": "r1", "rule_version": 1,
+            "rule_ref": "r1@v1", "sharing": "private", "owner": "u",
+            "refuted_at": "2026-09-12T12:00:00.000000+00:00", "n": 30,
+        }, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    (folder / "broken.json").write_text("", encoding="utf-8")      # 0 字节
+    (folder / "binary.json").write_bytes(b"\xff\xfe")             # 非 UTF-8
+
+    err = io.StringIO()
+    with redirect_stderr(err):
+        entries, unreadable = load_refuted(root)
+    assert [e["n"] for e in entries] == [30]
+    assert len(unreadable) == 2, unreadable
+    assert "broken.json" in err.getvalue() and "binary.json" in err.getvalue()
+
+
+def test_non_utf8_receipt_is_wrapped_with_its_path(synthetic, tmp_path) -> None:
+    """非 UTF-8 的坏文件要包成带路径的 ``ReceiptCollision``，不能漏 UnicodeDecodeError。
+
+    ``UnicodeDecodeError`` 不是 ``OSError`` 的子类，只捕 ``OSError`` 会让它裸奔出去，
+    调用方拿到的异常里没有文件路径，不知道是哪份收据坏了。
+    """
+    import datetime as _dt
+
+    from intelligence.services.methodology_backtest.receipts import ReceiptCollision, write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    receipt = build_receipt(
+        res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage="holdout",
+        now=_dt.datetime(2026, 9, 12, 12, tzinfo=_dt.timezone.utc),
+    )
+    receipt["rule"]["version"] = 1
+    json_path, _ = write_receipt(root, receipt, date_str="2026-09-12")
+    json_path.write_bytes(b"\xff\xfe\x00")
+
+    with pytest.raises(ReceiptCollision) as exc:
+        write_receipt(root, receipt, date_str="2026-09-12")
+    assert json_path.name in str(exc.value)
+    assert "UnicodeDecodeError" in str(exc.value)
+
+
 def test_refuted_library_orders_by_parsed_timestamp(tmp_path) -> None:
     """`report --refuted` 的读取路径同样不能按字符串排时间。
 
@@ -1492,7 +1597,7 @@ def test_refuted_library_orders_by_parsed_timestamp(tmp_path) -> None:
             }, ensure_ascii=False),
             encoding="utf-8",
         )
-    loaded = load_refuted(root)
+    loaded, _unreadable = load_refuted(root)
     assert [d["n"] for d in loaded] == [20, 10], "倒序第一条应是时间上更晚的那份"
 
 

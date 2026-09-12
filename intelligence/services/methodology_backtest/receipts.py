@@ -472,6 +472,22 @@ def _warn_corrupt(path: Path, exc: BaseException) -> None:
           file=sys.stderr, flush=True)
 
 
+def _fsync_dir(directory: Path) -> None:
+    """把目录项刷到存储。发布正式名之后、以及任何「已存在即成功」的分支都要做——
+    否则上一次在 `link` 与 `fsync` 之间中断的发布，重试时会被「文件已存在」短路掉，
+    目录同步永远补不上。"""
+    import os
+
+    try:
+        fd = os.open(directory, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
 class ReceiptCollision(RuntimeError):
     """目标文件已存在且内容不同。**绝不静默覆盖**——覆盖会抹掉一次真实运行的证据。"""
 
@@ -480,8 +496,10 @@ def _compare_existing(path: Path, text: str, payload: dict[str, Any]) -> bool:
     """目标已存在时比内容：相同 → 幂等（False），不同/读不出 → 抛 `ReceiptCollision`。"""
     try:
         raw = path.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise ReceiptCollision(f"{path} 已存在且读不出来，拒绝覆盖：{exc}") from exc
+    except (OSError, UnicodeDecodeError) as exc:
+        # UnicodeDecodeError 不是 OSError 的子类：只捕 OSError 会让它裸奔出去，
+        # 调用方拿到一个不带文件路径的 UnicodeDecodeError，不知道是哪份收据坏了。
+        raise ReceiptCollision(f"{path} 已存在且读不出来，拒绝覆盖：{type(exc).__name__}: {exc}") from exc
     if path.suffix == ".json":
         try:
             existing = json.loads(raw)
@@ -527,7 +545,12 @@ def _write_exclusive(path: Path, text: str, payload: dict[str, Any]) -> bool:
 
     data = text.encode("utf-8")
     if path.exists():                      # 已发布则直接比内容，不白写临时文件
-        return _compare_existing(path, text, payload)
+        idempotent = _compare_existing(path, text, payload)
+        # 幂等分支也要补目录同步：上一次发布可能在 link 成功、fsync 目录失败时中断，
+        # 那时目录项还没落盘，重试却因为「文件已存在」直接判成功，同步就永远补不上了
+        # （09-12 第五轮质检实测；仓内 `_publish` 在同一探针下会补做）。
+        _fsync_dir(path.parent)
+        return idempotent
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary: Path | None = None
     try:
@@ -542,12 +565,10 @@ def _write_exclusive(path: Path, text: str, payload: dict[str, Any]) -> bool:
         try:
             os.link(temporary, path)       # 目标存在即失败，永不覆盖
         except FileExistsError:
-            return _compare_existing(path, text, payload)
-        descriptor = os.open(path.parent, os.O_RDONLY)
-        try:
-            os.fsync(descriptor)           # 目录项落盘，崩溃后正式名不会丢
-        finally:
-            os.close(descriptor)
+            idempotent = _compare_existing(path, text, payload)
+            _fsync_dir(path.parent)        # 同上：竞态输家也要保证目录项已落盘
+            return idempotent
+        _fsync_dir(path.parent)            # 目录项落盘，崩溃后正式名不会丢
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
@@ -647,16 +668,25 @@ def write_refuted(root: str | Path, receipt: dict[str, Any], *, date_str: str, r
     return path
 
 
-def load_refuted(root: str | Path) -> list[dict[str, Any]]:
-    """读整个证伪库（schema 不对或坏文件跳过），按 refuted_at 倒序。"""
+def load_refuted(root: str | Path) -> tuple[list[dict[str, Any]], list[str]]:
+    """读整个证伪库，按 refuted_at 倒序。返回 ``(条目, 读不出的文件路径)``。
+
+    坏文件**不能只是跳过**：证伪库里一份 0 字节的反证被静默略过，`report --refuted`
+    就会照常打印「目前没有任何规则被证伪」——「证据损坏」伪装成「证据不存在」，
+    恰好是证伪库最不能出的错（09-12 第五轮质检实测）。`load_steps` 那侧已经这样修过，
+    这个入口当时漏了；两处现在都走 `_warn_corrupt` 并把坏文件名交回给调用方渲染。
+    """
     base = Path(root).expanduser()
     if not base.is_dir():
-        return []
+        return [], []
     out: list[dict[str, Any]] = []
+    unreadable: list[str] = []
     for path in sorted(base.glob("*@v*/*.json")):
         try:
             doc = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        except (OSError, ValueError, UnicodeDecodeError) as exc:
+            _warn_corrupt(path, exc)
+            unreadable.append(str(path))
             continue
         if not isinstance(doc, dict) or doc.get("schema_version") != REFUTED_SCHEMA:
             continue
@@ -666,7 +696,7 @@ def load_refuted(root: str | Path) -> list[dict[str, Any]]:
     # `12:00:00.500000+00:00` 两种合法 ISO UTC——字符串序与时间序相反，
     # `report --refuted` 会选中较早那份（09-12 质检实测）。
     out.sort(key=lambda d: (_parse_ts(d.get("refuted_at")), d["_path"]), reverse=True)
-    return out
+    return out, unreadable
 
 
 def summarize_refuted_by_stage(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
