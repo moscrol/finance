@@ -113,10 +113,7 @@ python3 rx.py -- "cd '/Users/lbq/Desktop/c c/金融' && python3 skills/dispatche
 | up-line | UP线更新、up线、查UP | tool-wrapper | ✅ update.py |
 | disclosure-archive | 补公告、补公司硬证据、查年报 | reviewer | ✅ archive.py |
 | foresight-feedback | (自动触发：用户表达兴趣/否定) | tool-wrapper | - |
-| 潜意识模式 | 开启潜意识模式、潜意识模式、进入潜意识 | - | - |
 | checkpoint-recheck-mac-setup | 夜间回检、checkpoint recheck | tool-wrapper | ✅ |
-| 公司画像页 | 公司画像、画像页、strip profile | generator | - |
-| 行业概览 | 行业概览、板块全景、行业全景 | generator | - |
 
 ## 特殊路由规则
 
