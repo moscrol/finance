@@ -73,19 +73,14 @@ if [ -f "$V/30_conventions/preferences.md" ]; then
 fi
 
 # ── 项目笔记：只注入开工必读段，跳过历史流水 ──────────────────────────
-repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
-[ -n "$repo_root" ] || repo_root="$(pwd)"
-# 仓名取 git common dir 的父目录名（主检出树目录名），不取 origin URL：
-# origin 已改指 github.com/moscrol/finance.git，按 URL 推出 "finance"，笔记 20_projects/finance.md
-# 不存在，于是项目笔记整段静默缺席（2026-09-08 实测），而输出看起来只是「短了点」。
-# common dir 在附属 worktree 里也指向主树的 .git，所以多棵树得到同一个仓名。
-common="$(git -C "$repo_root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
-repo=""
-[ -n "${common:-}" ] && repo="$(basename "$(dirname "$common")")"
-[ -n "$repo" ] && [ -f "$V/20_projects/$repo.md" ] || {
-  remote="$(git -C "$repo_root" remote get-url origin 2>/dev/null || true)"
-  if [ -n "${remote:-}" ]; then repo="$(basename "${remote%.git}")"; else repo="$(basename "$repo_root")"; fi
-}
+# 项目记忆身份固定为本钩子随附的仓：它 checked in 在 finance-workspace-private 里，
+# 注入与回写就该指向 20_projects/finance-workspace-private.md。不再从目录名、
+# git common-dir 或 origin URL 猜——那些是存放/网络位置，不是项目身份：
+# origin 指 github.com/moscrol/finance.git 时推出 "finance"，笔记整段静默缺席
+#（2026-09-08 实测）；common-dir 父目录名在改名独立 clone 里推出别的项目名，
+# 注入并提示回写到那份笔记（2026-09-13 质检实测：clone 改名 finhot、两份笔记
+# 都在时注入了 finhot 笔记，Claude/Codex 两个入口退出码都是 0）。
+repo="finance-workspace-private"
 note="$V/20_projects/$repo.md"
 
 # ── 尾部固定段：先生成到变量，用**实测长度**做预留，不写死 RESERVED ──────

@@ -110,6 +110,53 @@ def test_codex_hook_injects_repo_facts_regardless_of_cwd(tmp_path: Path) -> None
         )
 
 
+def test_memory_hook_binds_finance_project_in_renamed_clone(tmp_path: Path) -> None:
+    """记忆钩子的项目身份必须绑 checked-in 仓，不猜目录名 / common-dir / origin。
+
+    布局：独立 clone 改名 ``finhot``（origin 仍指 finance-workspace-private.git），
+    假 vault 的 ``20_projects/`` 下两份项目笔记都在。缺陷在场时 common-dir 父目录名
+    = finhot → 注入 finhot 笔记、尾部回写约定指向 ``20_projects/finhot.md``，两个入口
+    都 exit 0（2026-09-13 质检：基线选对、候选选错的新增回归；真机 vault 确有
+    finhot 项目笔记，这不是纯假想布局）。
+    """
+    clone = tmp_path / "finhot"
+    subprocess.run(["git", "init", "-q", str(clone)], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "remote", "add", "origin",
+         "https://example.invalid/a77/finance-workspace-private.git"],
+        cwd=clone, check=True, capture_output=True,
+    )
+    vault = clone / ".agent-memory" / "20_projects"
+    vault.mkdir(parents=True)
+    for name, marker in (("finance-workspace-private", "EXPECTED_WS_NOTE"),
+                         ("finhot", "WRONG_FINHOT_NOTE")):
+        (vault / f"{name}.md").write_text(
+            f"# {name}\n\n{marker}\n\n## 交接记录\nold history\n", encoding="utf-8"
+        )
+    # Codex wrapper 会 cd 进选中的根并跑该处的 .claude/hooks/load-memory.sh，
+    # 所以 clone 里放一份当前工作区钩子的逐字节拷贝——测的就是现在的代码。
+    claude_hook = clone / ".claude" / "hooks" / "load-memory.sh"
+    claude_hook.parent.mkdir(parents=True)
+    claude_hook.write_text(
+        (ROOT / ".claude" / "hooks" / "load-memory.sh").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    for entry, argv in (
+        ("claude", ["bash", str(claude_hook)]),
+        ("codex", ["bash", str(ROOT / ".codex" / "hooks" / "load-memory.sh")]),
+    ):
+        proc = subprocess.run(argv, cwd=clone, capture_output=True, text=True)
+        out = proc.stdout
+        assert proc.returncode == 0, f"{entry} 入口退出码 {proc.returncode}"
+        assert "EXPECTED_WS_NOTE" in out, f"{entry} 入口没注入金融项目笔记：{out[:200]}"
+        assert "WRONG_FINHOT_NOTE" not in out, f"{entry} 入口注入了改名目录的项目笔记"
+        assert "20_projects/finance-workspace-private.md" in out, (
+            f"{entry} 入口的回写约定没有指向金融项目笔记"
+        )
+        assert "20_projects/finhot.md" not in out, f"{entry} 入口的回写约定指向错误项目"
+
+
 def test_codex_hook_ignores_env_pointing_at_another_valid_tree(tmp_path: Path) -> None:
     """Codex 钩子的选根顺序必须与 ``.devin/config.json`` 一致：cwd 的仓根优先。
 

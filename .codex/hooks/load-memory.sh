@@ -33,8 +33,8 @@ pick_root() {
 
 ROOT="$(pick_root)" || exit 0
 
-# 必须在目标仓里执行：被委托脚本用 cwd 找 git（load-memory.sh:76 的
-# `git rev-parse --show-toplevel`、:102 的 `--abbrev-ref HEAD`）。
-# 只把路径拼对、却在别处（如 /tmp）跑它，会注入到「当前分支：?」且没有项目笔记。
+# 必须在目标仓里执行：被委托脚本用 cwd 找 git（尾部固定段的 `git status` 与
+# `git rev-parse --abbrev-ref HEAD`）。只把路径拼对、却在别处（如 /tmp）跑它，
+# 会注入到「当前分支：?」。
 ( cd "$ROOT" && bash .claude/hooks/load-memory.sh )
 exit 0
