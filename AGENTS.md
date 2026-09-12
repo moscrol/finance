@@ -21,6 +21,8 @@ A 股量化复盘 + 研究工具集：fupanhui / iFinD / AKShare 数据经 `mark
 - 写入复盘事实：`python3 -m market_feature_store.cli daily-full --trade-date <今天>`（staging 写 + 原子换库），**只对当天盘后**；夜跑编排走 `skills/daily-full-review`。**历史日 / 断档回补一律走 `skills/duckdb-backfill/SKILL.md`**——`daily-full`、东财快照、申万 realtime 都是「取最新」语义，把历史日期塞进去就是把今天盘中价写成那天收盘（2026-09-07 实测）；原子换库保的是写入完整性，不保日期语义正确。fupanhui 停抓期间（2026-09-07 起账号风控）只用 `run_review_sync.py --plan local`，full / cheap 会打复盘会，跑了必失败且续期惩罚。不手搓 inline SQL / heredoc 凑数，不用 `daily-update` / `daily-full-exec` 直写生产库。
 - 编码任务：先 `python3 scripts/code_map.py query "<问题>"`（stale 先 `build`；status fail-closed；夜间刷新装 `scripts/install_code_map_refresh.py`）。禁止把空图 `get_architecture_overview` 写成架构结论；禁止 `code-review-graph init|install`；禁止 DeepWiki `generate_wiki` / 对本仓 private index。MCP 已连接 ≠ 地图可用。
 
+**所有联网操作统一走 `web-access` skill**（搜索、抓取、需登录态的页面、动态渲染页、社交平台内容），不自起浏览器、不直连。规范源 `~/.claude/skills/web-access/SKILL.md`——它在仓外，非 Claude harness 直接读该路径，不要因为本仓搜不到就当它不存在。运行时细节（CDP proxy `localhost:3456`、Chrome remote debugging、IIFE 包裹）见 `docs/data-sources/runtime-and-pitfalls.md`。
+
 评接口深浅、找产品入口读 `docs/agent-product-door.md`（门 / 两条引擎 / 积木；工具注册表与 `AskOptions` 开关是积木不是门）。骨架形状读 `git -C ~/harness-reference show gitea/main:DESIGN-stack.md`（SSOT 在 gitea，别读脏工作树）；「为什么是闭环不是流水线」读 `.agent-memory/10_knowledge/agent-system-closed-loop-first-principles.md`。分流的目标态 `docs/superpowers/specs/2026-08-30-optimized-orchestration-contract-design.md` 尚未落地，现状以门页为准，门页要与改 runtime 的提交一起改。跑马策略、板块相对强度、后验收益这类仍在**假设验证阶段**的实验，执行规则见 `docs/workflows/strategy-hypothesis-experiments.md`（实验台账七要素、分步最小单元、多窗口后验、指数只作背景、实验产物默认不提交）。
 
 ## 数据契约（DuckDB）
