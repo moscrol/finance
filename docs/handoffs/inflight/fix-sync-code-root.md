@@ -1,61 +1,58 @@
-# fix/sync-code-root · 夜跑两个代码根钉死
+# fix/sync-code-root · 夜跑代码根与补跑入口
 
-## 状态：未推未合，等用户确认
+## 状态：未推未合。全量在冻结提交 `8d0a438c` 的干净树上跑，**结果未出**
 
-`5b57d109` sync 代码根 / `6439ea77` 质检闸门代码根 / `198b95f0` finalize 源缺的档位 +
-手动补跑入口 + 日更固定 local / 三份 handoff。
+## 完成口径（别放宽）
 
-## 完成口径（别写成「事故已修」）
+已修：`unknown plan 'local'` 的代码根原因、质检闸门读错树、补跑入口绕开 staging、
+手动入口不自带缺省。**真实同步、最终检查、方法日步仍未贯通验收**——9-11 未入库，
+日报与 L2 完成记录仍缺。
 
-已修掉 `unknown plan 'local'` 的代码根原因，并验证装机配置已加载；
-**真实同步、最终检查、方法日步尚未贯通验收**。
+装机配置只能说到「**已重载、字段与仓内源一致**」：两个 launchd 任务当前
+runs=0 / never exited，`launchctl list` 那个 0 是「无失败记录」，**不是「跑成功过」**。
 
-## 四处都是同一个形状：根解析缺省落到会漂的共用树
+## 五处同一形状：根解析缺省落到会漂的共用树
 
-主检出树 `finance-workspace-private` detached 在 `b4a35fa2`、**落后 gitea/main 548
-个提交**、带 64 个别人的未提交改动。它不能当任何运行时的代码根。
+主检出树 `finance-workspace-private` detached 在 `b4a35fa2`、落后 gitea/main 548 个
+提交、带 64 个别人的未提交改动（含 `scripts/moneyflow/` 的在途 WIP）。
 
-1. **sync**：`nightly-review-sync-staged.py:39` 的 `SYNC_ROOT` 缺省 `FINANCE_DATA_ROOT`
-   → 那份 `run_review_sync.py` 的 `PLANS` 没有 `local` → `ValueError` rc=2 →
-   **09-11（周五、交易日）整日没进库**。修：plist 显式
-   `FINANCE_SYNC_CODE_ROOT=/Users/a77/finance-workspace-sync`（新建 detached
-   worktree，跟随 `gitea/main`，只做这件事，不在上面开发）。
-2. **质检闸门**：三处 `scripts/check_daily_review_data.py` 是裸相对路径，落在
-   `cd "$WORKSPACE"` 之后 = 同一棵旧树；那份没有 `--plan`、表清单写死，
-   plan=local 下必然少 `theme_flow` / `limit_advance`。同日同库实测（2026-09-10）：
-   旧树 **exit=2 INCOMPLETE**（卡 `fact_theme_flow_daily`）/ CODE_ROOT 那份
-   **exit=0 COMPLETE**。修：`REVIEW_CHECKER="$CODE_ROOT/scripts/…"`，缺了就停、
-   不回退顶替。计划口径不用另传，`--plan` 缺省读 `REVIEW_SYNC_PLAN`，两个 plist 都有。
+| # | 处 | 状态 |
+|---|---|---|
+| 1 | sync 子进程 `SYNC_ROOT` 缺省 `FINANCE_DATA_ROOT` | 已修（plist 显式给值） |
+| 2 | 三处质检闸门裸相对路径 + `cd "$WORKSPACE"` | 已修（`$CODE_ROOT`，缺了 fail closed） |
+| 3 | `run_sync()` 裸相对路径（手动补跑入口） | 已修（`$SYNC_CODE_ROOT`） |
+| 4 | 两个手动入口不自带缺省，靠终端碰巧有变量 | 已修（脚本内缺省 + export） |
+| 5 | **生成段 `python -m intelligence.cli daily`** | **未修，另单** |
 
-仓内源与装机副本**两边都改了**（`install_eval_launchd.sh` 是 `cp 源 → dest`）。
-装机副本是外科式打补丁：它与仓内版有其它有意差异
-（`docs/handoffs/inflight/chore-retire-feishu.md:71`），**别跑安装脚本覆盖它**。
-两处原件备份为同目录 `*.bak-pre-*-20260912`。
+第 5 条：`-m` 把 cwd 放进 `sys.path[0]`（实测空串），`intelligence` 仍从主检出树加载
+（实测 `/Users/a77/finance-workspace-private/intelligence/__init__.py`）。
+**闸门与同步器修对根 ≠ 整个 finalize 修对根。** 调用点与 SKILL.md 各留了指针。
 
-背景、被否方案、三处走错又纠回来的地方（`plutil -lint` 不校验 XML 注释、
-`active --help` 不是能力探针、`deploy_workbench_runtime.sh` 不更新 `scripts/`）
-见 `docs/handoffs/2026-09-12-nightly-code-root-outage.md`。
+## 补跑必须走 S7 入口
 
-## 未验证
+`run_review_sync.py` 自己**不做** staging——写的就是 `MARKET_FEATURE_STORE_DB` 指向的
+库。克隆 staging / 过闸 / 原子换名全在 `nightly-review-sync-staged.py`。
+直跑同步器 + 指向生产 = 直写生产，中途失败留下改了一半的库。
+用 `nightly-full-review-s7.sh <date>` + `nightly_full_review.sh finalize <date>`。
 
-- `--phase all` 在 09-10 仍红，红在「日报 md 不存在 / L2 三步无完成记录」——那是
-  finalize 被守卫拦掉的后果，非独立阻塞，只能等一次完整跑通才能判。
-- **未跑全量 pytest**（另一 agent 在并发跑，16 GB 机器不开第二份）。合入前补。
+## 装机副本
+
+仓内源与装机副本两边都改了（`install_eval_launchd.sh` 是 `cp 源 → dest`）。
+装机的 `nightly_full_review.sh` 是**外科式打补丁不是覆盖**——它与仓内版另有差异，
+其中 moneyflow 根用 `$DATA_ROOT` 是因为 L2 的在途 WIP 在主检出树里，**别跑安装脚本
+覆盖它**。同族普查：其余 5 个装机脚本 + 6 份 plist 与仓内源全部一致。
 
 ## 未决
 
-1. **9-11 补数**：用户手动 `/daily-full-review`。照 SKILL.md 新写的一键入口跑
-   （在 `finance-workspace-sync` 里、带 `REVIEW_SYNC_PLAN=local`），不要在主检出树跑。
-2. **名单基线仍旧**：9-10 价格是新的，成分基线还来自 9-02；每天重算不会自动发现
-   新概念、新成员。需要一条名单更新链。
-3. **同花顺日更没接进 local 的 16 步**：代码已合、数据已首次灌入，但更新步骤挂在
-   另一条同步链上，相关表实读仍停在 9-08。
-4. 2、3 两条是数据面缺口，不在本分支改动面内，尚未立单。
+1. **9-11 补数**：用户手动 `/daily-full-review`，走 S7 入口。
+2. 名单基线停在 9-02；同花顺日更没接进 `local` 的 16 步（相关表停在 9-08）。
+   两条是数据面缺口，不在本分支改动面，未立单，**本轮也未复算**。
+3. 生成段代码根（上表第 5 条）另单。
 
-## 关联分支（feat/method-closed-loop，非本分支）
+## 关联分支 feat/method-closed-loop（非本分支）
 
-LOG_DIR 顺序 bug → 对方修在 `22c60030`（我复验：45 赋值 → 46 mkdir → 61 引用）。
-「旧 CLI + 新 wrapper」→ 修在 `607f53a6`：能力探针改用顶层 `--help` 的子命令列表
-grep `[{,]active[,}]`，exit 2 的二义拆开（3 单列「已配置但失效」，`*)` 改中性措辞）。
-我用真实新旧 CLI 复验过探针，旧=探不到走默认、新=探到走指针。
-**`active --help` 不能当探针**（argparse 优先处理 `--help`，不校验子命令，两边都返 0）。
+`22c60030` LOG_DIR 顺序、`607f53a6` 旧 CLI 探针。我复验的**只是**新旧 CLI 分流那条
+（旧=探不到走默认、新=探到走指针）与 exit 2 的二义拆分，**不是整体结案**。
+`active --help` 不能当探针（argparse 优先处理 `--help`，两边都返 0）。
+
+背景与被否方案见 `docs/handoffs/2026-09-12-nightly-code-root-outage.md`。
