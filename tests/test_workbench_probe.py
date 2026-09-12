@@ -8,7 +8,9 @@
 
 from __future__ import annotations
 
+import io
 import sys
+import urllib.error
 
 import pytest
 
@@ -35,27 +37,40 @@ def _our_message(content: str) -> dict:
 class _FakeServer:
     """按调用推进状态的假 workbench：run 状态依次给出，消息内容可随轮询变化。"""
 
-    def __init__(self, run_progression: list[dict], messages) -> None:
+    def __init__(
+        self, run_progression: list[dict], messages, submission_error=None
+    ) -> None:
         self._run_progression = list(run_progression)
-        self._messages = messages  # list 或 callable(server) -> list
+        self._messages = messages  # list / 异常实例 / callable(server) -> list
+        self._submission_error = submission_error  # 非空则任何 POST 都抛它
         self.run_polls = 0
         self.message_fetches = 0
 
     def __call__(self, base: str, path: str, payload: dict | None = None):
+        if payload is not None and self._submission_error is not None:
+            raise self._submission_error
         if path == "/api/conversations" and payload is not None:
             return {"conversation_id": "conv_test"}
         if payload is not None and path.endswith("/messages"):
             return dict(POST_RESPONSE)
         if path.startswith("/api/runs/"):
             self.run_polls += 1
-            if len(self._run_progression) > 1:
-                return self._run_progression.pop(0)
-            return self._run_progression[0]
+            item = (
+                self._run_progression.pop(0)
+                if len(self._run_progression) > 1
+                else self._run_progression[0]
+            )
+            if isinstance(item, BaseException):
+                raise item
+            return item
         if "/messages" in path:
             self.message_fetches += 1
-            if callable(self._messages):
-                return self._messages(self)
-            return self._messages
+            messages = (
+                self._messages(self) if callable(self._messages) else self._messages
+            )
+            if isinstance(messages, BaseException):
+                raise messages
+            return messages
         raise AssertionError(f"未预期的请求：{path!r}")
 
 
@@ -151,3 +166,59 @@ def test_completed_but_message_stays_empty_exits_3(monkeypatch, capsys):
     code, captured = _run_probe(monkeypatch, capsys, fake, "--timeout", "1")
     assert code == 3
     assert "run_abc123" in captured.err
+
+
+def test_message_id_not_list_position(monkeypatch, capsys):
+    """本轮消息不在列表末尾（同会话后续轮已插入）也必须按 message_id 取回本轮。
+
+    若实现退化成「忽略 ID、直接拿最后一条非空」，本用例即红。
+    """
+    fake = _FakeServer(
+        [{"status": "completed"}],
+        [
+            OLD_MESSAGE,
+            _our_message("第二轮：本轮自己的答案"),
+            {
+                "message_id": "msg_followup",
+                "role": "assistant",
+                "content": "第三轮：后续轮的答案",
+            },
+        ],
+    )
+    code, captured = _run_probe(monkeypatch, capsys, fake, "--timeout", "30")
+    assert code == 0
+    assert "第二轮：本轮自己的答案" in captured.out
+    assert "第三轮：后续轮的答案" not in captured.out
+
+
+def _http_error(code: int) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(
+        "http://probe", code, "boom", hdrs=None, fp=io.BytesIO(b"server said no")
+    )
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [_http_error(500), TimeoutError("timed out")],
+    ids=["http-500", "read-timeout"],
+)
+def test_message_fetch_failure_exits_2_without_traceback(monkeypatch, capsys, failure):
+    """run 已 completed，取消息时接口 500 / 底层读取超时：走 exit 2 合同，不带 traceback。"""
+    fake = _FakeServer([{"status": "completed"}], failure)
+    code, captured = _run_probe(monkeypatch, capsys, fake, "--timeout", "30")
+    assert code == 2
+    assert "Traceback" not in captured.err
+
+
+def test_run_poll_read_timeout_exits_2(monkeypatch, capsys):
+    fake = _FakeServer([TimeoutError("timed out")], [])
+    code, captured = _run_probe(monkeypatch, capsys, fake, "--timeout", "30")
+    assert code == 2
+    assert "Traceback" not in captured.err
+
+
+def test_submission_read_timeout_exits_2(monkeypatch, capsys):
+    fake = _FakeServer([], [], submission_error=TimeoutError("timed out"))
+    code, captured = _run_probe(monkeypatch, capsys, fake, "--timeout", "30")
+    assert code == 2
+    assert "Traceback" not in captured.err

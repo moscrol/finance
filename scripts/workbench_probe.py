@@ -24,7 +24,8 @@ revise 消息终稿，所以 run=completed 而消息内容还是空是**合法�
 退出码（调用方 agent 按它判读，不要只看 stdout 有没有字）：
     0  run=completed 且我们的 assistant 消息有非空内容（全文已打印到 stdout）
     1  超时，run 未到终态
-    2  提交失败（连不上 / HTTP 错误）或 run=failed/cancelled
+    2  请求失败（提交 / 轮询 / 取消息的 HTTP 错误或传输中断，无 traceback）
+       或 run=failed/cancelled
     3  run=completed 但直到超时我们的消息仍是空（退化形态，需人工查）
 
 用法：
@@ -70,6 +71,12 @@ def _call(base: str, path: str, payload: dict[str, object] | None = None) -> obj
 
 def _get_run(base: str, run_id: str, user: str) -> dict:
     return _call(base, f"/api/runs/{run_id}?user={user}")  # type: ignore[return-value]
+
+
+def _transport_summary(exc: OSError) -> str:
+    """URLError 的错误在 .reason 里，裸超时/断连没有；统一成一行可读摘要。"""
+    reason = getattr(exc, "reason", None)
+    return str(reason if reason is not None else exc)
 
 
 def _find_message(
@@ -142,8 +149,11 @@ def main() -> int:
         body = exc.read().decode("utf-8", "replace")[:500]
         print(f"提交失败：HTTP {exc.code} {body}", file=sys.stderr)
         return 2
-    except urllib.error.URLError as exc:
-        print(f"连不上 {base}（workbench 起了吗）：{exc.reason}", file=sys.stderr)
+    except OSError as exc:  # URLError（连不上/断连）与 socket 超时同属 OSError
+        print(
+            f"提交阶段传输失败：{_transport_summary(exc)}（base={base}，workbench 在吗）",
+            file=sys.stderr,
+        )
         return 2
 
     run_id = posted["run_id"]  # type: ignore[index]
@@ -171,8 +181,8 @@ def main() -> int:
                 continue
             print(f"查询 run 失败：HTTP {exc.code}", file=sys.stderr)
             return 2
-        except urllib.error.URLError as exc:
-            print(f"查询 run 时连接中断：{exc.reason}", file=sys.stderr)
+        except OSError as exc:
+            print(f"查询 run 传输失败：{_transport_summary(exc)}", file=sys.stderr)
             return 2
         status = str(run.get("status", "?"))
         if status != last_status:
@@ -187,9 +197,16 @@ def main() -> int:
             return 2
         if status == RUN_SUCCESS:
             completed_seen = True
-            message = _find_message(
-                base, conversation_id, args.user, assistant_message_id
-            )
+            try:
+                message = _find_message(
+                    base, conversation_id, args.user, assistant_message_id
+                )
+            except urllib.error.HTTPError as exc:
+                print(f"取消息失败：HTTP {exc.code}", file=sys.stderr)
+                return 2
+            except OSError as exc:
+                print(f"取消息传输失败：{_transport_summary(exc)}", file=sys.stderr)
+                return 2
             content = (message or {}).get("content") or ""
             if content.strip():
                 print("---- 公开答案 ----")
