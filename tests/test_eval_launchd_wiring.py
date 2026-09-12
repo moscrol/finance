@@ -39,6 +39,7 @@ BUILD_PLIST = (
 )
 CLT_PYTHON = "/usr/bin/python3"
 RUNTIME = "/Users/a77/finance-workspace-runtime"  # path-literal-ok: 本机 launchd 树指针契约
+SYNC_CODE_ROOT = "/Users/a77/finance-workspace-sync"  # path-literal-ok: 本机 sync 专用代码根契约
 VENV_PYTHON = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"  # path-literal-ok: 本机 workbench venv 契约
 LOCAL_BIN = "/Users/a77/.local/bin"  # path-literal-ok: 本机 wrapper 安装落点
 
@@ -143,6 +144,25 @@ def test_review_sync_plist_source_carries_tiered_plan() -> None:
         plist = plistlib.load(handle)
     env = plist["EnvironmentVariables"]
     assert env.get("REVIEW_SYNC_PLAN") == "auto"
+
+
+def test_review_sync_plist_source_pins_dedicated_sync_code_root() -> None:
+    """sync 子进程的代码根必须显式钉住，不能退到共用的数据仓。
+
+    nightly-review-sync-staged.py 的 SYNC_ROOT 缺省是 FINANCE_DATA_ROOT，而数据仓
+    就是各 agent 共用的主检出树，会停在任意 detached 提交上：
+    2026-09-12 实测它落后 main 548 个提交，`PLANS` 里没有 local，
+    夜跑 09-10~09-11 连着三次 `unknown plan 'local'` rc=2，09-11 整个交易日没进库。
+    缺省值在代码里，所以只有 plist 显式给值才挡得住；这条钉住它别再被删。
+
+    也不能指回 FINANCE_CODE_ROOT（运行快照）：那是部分 rsync，缺 L2 与题材资金源。
+    """
+    with SPLIT_REVIEW_PLISTS[0].open("rb") as handle:
+        plist = plistlib.load(handle)
+    env = plist["EnvironmentVariables"]
+    assert env.get("FINANCE_SYNC_CODE_ROOT") == SYNC_CODE_ROOT
+    assert env["FINANCE_SYNC_CODE_ROOT"] != env.get("FINANCE_DATA_ROOT")
+    assert env["FINANCE_SYNC_CODE_ROOT"] != env.get("FINANCE_CODE_ROOT")
 
 
 def test_checkpoint_installer_defaults_to_venv_and_runtime() -> None:
