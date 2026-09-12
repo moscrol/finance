@@ -1,15 +1,16 @@
 # fix/sync-code-root · 夜跑两个代码根钉死
 
-## 状态：三个提交，**未推未合**，等用户确认
+## 状态：未推未合，等用户确认
 
-`5b57d109` sync 代码根 / `6439ea77` 质检闸门代码根 / handoff。
+`5b57d109` sync 代码根 / `6439ea77` 质检闸门代码根 / `198b95f0` finalize 源缺的档位 +
+手动补跑入口 + 日更固定 local / 三份 handoff。
 
 ## 完成口径（别写成「事故已修」）
 
 已修掉 `unknown plan 'local'` 的代码根原因，并验证装机配置已加载；
 **真实同步、最终检查、方法日步尚未贯通验收**。
 
-## 两处都是同一个形状：根解析缺省落到共用主检出树
+## 四处都是同一个形状：根解析缺省落到会漂的共用树
 
 主检出树 `finance-workspace-private` detached 在 `b4a35fa2`、**落后 gitea/main 548
 个提交**、带 64 个别人的未提交改动。它不能当任何运行时的代码根。
@@ -43,13 +44,18 @@
 
 ## 未决
 
-1. `REVIEW_SYNC_PLAN` 仓内源=`auto`、装机=`local` 仍在漂；重装会冲回 `auto`，
-   而 `auto` 非周五=`cheap` 要 fupanhui 登录（实测未登录）→ rc=3。
-   扶正 `local` 要连 `test_review_sync_plist_source_carries_tiered_plan` 一起改。
-2. 9-11 补数：用户手动 `/daily-full-review`。
-3. `feat/method-closed-loop` 的 LOG_DIR 顺序 bug 已由对方修在 `22c60030`
-   （我复验：45 赋值 → 46 mkdir → 61 引用，`zsh -n` 过）。**但留下新缝已转交**：
-   链切前 `$CODE_ROOT` 的 CLI 没有 `active`，argparse **exit=2** → 落 `*)` →
-   每夜 `skip_method_flywheel`，理由写「已配置但失效，请 activate」——假话且自相矛盾
-   （那份 CLI 也没有 `activate`）。`active --help` **不能**当能力探针（新旧都返 0，
-   `--help` 先于子命令校验）；可用的是顶层 usage 里 grep `[{,]active[,}]`。
+1. **9-11 补数**：用户手动 `/daily-full-review`。照 SKILL.md 新写的一键入口跑
+   （在 `finance-workspace-sync` 里、带 `REVIEW_SYNC_PLAN=local`），不要在主检出树跑。
+2. **名单基线仍旧**：9-10 价格是新的，成分基线还来自 9-02；每天重算不会自动发现
+   新概念、新成员。需要一条名单更新链。
+3. **同花顺日更没接进 local 的 16 步**：代码已合、数据已首次灌入，但更新步骤挂在
+   另一条同步链上，相关表实读仍停在 9-08。
+4. 2、3 两条是数据面缺口，不在本分支改动面内，尚未立单。
+
+## 关联分支（feat/method-closed-loop，非本分支）
+
+LOG_DIR 顺序 bug → 对方修在 `22c60030`（我复验：45 赋值 → 46 mkdir → 61 引用）。
+「旧 CLI + 新 wrapper」→ 修在 `607f53a6`：能力探针改用顶层 `--help` 的子命令列表
+grep `[{,]active[,}]`，exit 2 的二义拆开（3 单列「已配置但失效」，`*)` 改中性措辞）。
+我用真实新旧 CLI 复验过探针，旧=探不到走默认、新=探到走指针。
+**`active --help` 不能当探针**（argparse 优先处理 `--help`，不校验子命令，两边都返 0）。
