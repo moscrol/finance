@@ -1,13 +1,13 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-09-11T05:32:32Z",
+  "generated_at": "2026-09-12T06:29:43Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 38
+      "skills": 35
     },
     {
       "name": "knowledge-base-private",
@@ -18,7 +18,7 @@
     {
       "name": "finance-research-site",
       "short": "site",
-      "present": true,
+      "present": false,
       "skills": 0
     }
   ],
@@ -185,7 +185,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:b8770e6cbc5fb9b085431e09b821caf65a37519c882f417ad41586e722efca91",
+      "computedHash": "sha256:af482990cb755e3e0ed566f6c7a35c2cd8d96e831bb875421e03504d2a171e6f",
       "agentOnly": false,
       "views": []
     },
@@ -405,7 +405,7 @@
       "name": "l2-moneyflow",
       "repo": "finance-workspace-private",
       "sourceType": "local",
-      "skillPath": ".claude/skills/l2-moneyflow/SKILL.md",
+      "skillPath": "skills/l2-moneyflow/SKILL.md",
       "description": "Level2 大单资金流分析（ClickHouse 逐笔成交 → 榜单/个股图 → DuckDB 特征表）。触发词：大单资金流、主买净额、总买净额、涨停股资金流、资金流榜单、量化单、量化买单、大单扫描、moneyflow。注意：问财口径的资金流向查询用 hithink-market-query；本 skill 是自有大单口径（委托编号判主动方向）的逐笔级分析。",
       "triggers": [
         "大单资金流",
@@ -421,8 +421,14 @@
       "note": "问财口径的资金流向查询用 hithink-market-query；本 skill 是自有大单口径（委托编号判主动方向）的逐笔级分析。",
       "entrypoint": null,
       "computedHash": "sha256:1f811a2e00a939c4f010265d1cdde4c25b64f41750847578b8c0098451e78bda",
-      "agentOnly": true,
-      "views": []
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/l2-moneyflow",
+          "type": "symlink",
+          "target": "../../skills/l2-moneyflow"
+        }
+      ]
     },
     "ws/limit-advance": {
       "name": "limit-advance",
@@ -863,86 +869,6 @@
           "path": ".claude/skills/watchlist-ma",
           "type": "symlink",
           "target": "../../skills/watchlist-ma"
-        }
-      ]
-    },
-    "ws/公司画像页": {
-      "name": "公司画像页",
-      "repo": "finance-workspace-private",
-      "sourceType": "local",
-      "skillPath": "skills/公司画像页/SKILL.md",
-      "description": "投行风格公司画像页（PPT/Slide）。触发词：公司画像、画像页、strip profile、pitch book页面、公司概况幻灯片。",
-      "triggers": [
-        "公司画像",
-        "画像页",
-        "strip profile",
-        "pitch book页面",
-        "公司概况幻灯片"
-      ],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:0ba354066209344d61bd9841534efc5df0a73a186e0fc1a78079dcbc5deb5ad5",
-      "agentOnly": false,
-      "views": [
-        {
-          "path": ".claude/skills/公司画像页",
-          "type": "symlink",
-          "target": "../../skills/公司画像页"
-        }
-      ]
-    },
-    "ws/潜意识模式": {
-      "name": "潜意识模式",
-      "repo": "finance-workspace-private",
-      "sourceType": "local",
-      "skillPath": "skills/潜意识模式/SKILL.md",
-      "description": "可开关的会话级记忆巩固模式——开启后由 foresight 主动发问、你多轮追问，退出时把整段对话「回读」成结构化信号，先给 diff 等你确认，确认后双层落盘（机器层 interactions.jsonl 喂亲和度 + 人类层 Obsidian 沉淀 vault 日志，你读/改/看演化）。触发词：开启潜意识模式、潜意识模式、进入潜意识、退出潜意识、收工、回读对话、巩固记忆、沉淀这轮、记进沉淀、潜意识开关。",
-      "triggers": [
-        "开启潜意识模式",
-        "潜意识模式",
-        "进入潜意识",
-        "退出潜意识",
-        "收工",
-        "回读对话",
-        "巩固记忆",
-        "沉淀这轮",
-        "记进沉淀",
-        "潜意识开关"
-      ],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:14e075eec32027b7b0ab6d1a7641ad2cb9cfc39784cbf47baceabb59749d3640",
-      "agentOnly": false,
-      "views": [
-        {
-          "path": ".claude/skills/潜意识模式",
-          "type": "symlink",
-          "target": "../../skills/潜意识模式"
-        }
-      ]
-    },
-    "ws/行业概览": {
-      "name": "行业概览",
-      "repo": "finance-workspace-private",
-      "sourceType": "local",
-      "skillPath": "skills/行业概览/SKILL.md",
-      "description": "行业/板块全景报告。触发词：行业概览、板块全景、行业全景、行业覆盖、sector overview。",
-      "triggers": [
-        "行业概览",
-        "板块全景",
-        "行业全景",
-        "行业覆盖",
-        "sector overview"
-      ],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:376cbbc99b11ecb52ed4eccc7944543197c6988989eb92b1f449b1938d6c8276",
-      "agentOnly": false,
-      "views": [
-        {
-          "path": ".claude/skills/行业概览",
-          "type": "symlink",
-          "target": "../../skills/行业概览"
         }
       ]
     },
