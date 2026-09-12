@@ -174,6 +174,23 @@ db/history_labels.duckdb.bak-v3-20260911                      （#737 留的 v3 
 - 指针「配置过但失效」（损坏 / 目标缺失 / 指向已封存）与「从未配置」不同：夜跑会
   **停掉方法日步并告警**，不会静默回退旧实验。要恢复就 `activate` 到有效协议。
 
+### 4.1 执行 ④ 之前：运行快照里得真的有 `activate`
+
+`activate` / `supersede` 是 `scripts/method_validation.py` 的子命令，而**运行快照的
+`scripts/` 不由 `deploy_workbench_runtime.sh` 更新**——它只把 `intelligence/` rsync 进
+已有快照；`install_eval_launchd.sh` 的安装清单也不含 `scripts/method_validation.py`
+（跨会话质检实测）。合入本单不等于生产路径拿得到这两个子命令。
+
+所以 ④ 之前要先链切：
+
+```bash
+git worktree add --detach ~/.finance-runtime/finance-workspace-<sha> <sha>   # 切新快照
+# 换 CODE_ROOT 符号链接指向新快照
+"$CODE_ROOT/scripts/method_validation.py" activate --help                    # 从**那条路径**验子命令存在
+```
+
+验的是 `$CODE_ROOT` 那条路径，不是当前工作树——夜跑用的是前者。
+
 ## 5. 要补的门（本方案未实现，另立单）
 
 1. **`status` 显式打印口径对照**：现在版本不匹配只在**执行**时抛 `ValueError`，

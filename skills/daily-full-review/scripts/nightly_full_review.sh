@@ -38,6 +38,13 @@ export KNOWLEDGE_WIKI="/Users/a77/knowledge-base-private/wiki"
 export SUBCONSCIOUS_VAULT="/Users/a77/agent-memory"
 export PATH="/opt/homebrew/bin:/opt/homebrew/opt/node/bin:/usr/local/bin:$PATH"
 
+# LOG_DIR 必须在这里就位：下面解析 active 指针时要往它里面写 stderr，而 `set -u` 下
+# 引用未赋值变量会让**整条命令**在 shell 层失败（rc=1、输出为空），恰好被 case 归进
+# 「1 = 从未配置」，于是静默回退旧协议——指针链一次都没跑过（09-12 跨会话质检实测：
+# `zsh:6: LOG_DIR: parameter not set`）。原来的赋值在第 75 行，晚了 20 行。
+LOG_DIR="$DATA_ROOT/logs"
+mkdir -p "$LOG_DIR"
+
 # 方法飞轮日步（cap07 / 集成 spec I5）的生产三元组：study / 旁路库 / 主库 + 用户显式绑定。
 # study 目录是 register 按协议指纹生成的（生产用户目录下），不要手改目录名。
 # 绑定优先级：显式环境变量 > active 指针（`method_validation.py activate` 写的）> 内置默认。
@@ -72,7 +79,7 @@ for arg in "$@"; do
   esac
 done
 
-LOG_DIR="$DATA_ROOT/logs"
+# LOG_DIR 已在上面（绑定解析之前）赋值并建目录
 LOCK_PARENT="${FINANCE_LOCK_DIR:-$DATA_ROOT/state/locks}"
 LOCK_DIR="$LOCK_PARENT/daily-full-review.lock"
 mkdir -p "$LOG_DIR" "$LOCK_PARENT"

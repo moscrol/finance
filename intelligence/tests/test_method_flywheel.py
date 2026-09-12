@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -656,3 +657,60 @@ def test_flywheel_skip_reason_names_the_root_it_actually_looked_in() -> None:
     guard = body.split("run_method_flywheel()", 1)[1]
 
     assert "CODE_ROOT=$CODE_ROOT" in guard
+
+
+def test_log_dir_is_ready_before_the_binding_is_resolved() -> None:
+    """``LOG_DIR`` 必须在解析 active 指针**之前**赋值——否则 `set -u` 让整条命令在 shell
+    层就失败，rc=1 被当成「从未配置」，静默跑回旧协议。
+
+    这不是风格问题：夜跑第 11 行是 ``set -uo pipefail``，而绑定解析把 stderr 重定向到
+    ``$LOG_DIR/…``。引用未赋值变量时 shell 在**重定向阶段**就放弃，`method_validation.py
+    active` 一次都不会执行（跨会话质检实测 `zsh: LOG_DIR: parameter not set`、rc=1、输出为空），
+    于是整条指针链在生产路径上等于不存在，而 case 里 1 与 3 的处置相反这件事也白设计了。
+    判据用顺序而不是「有没有这一行」：两处都有 LOG_DIR 时只有先后决定行为。
+    """
+
+    body = NIGHTLY_SH.read_text(encoding="utf-8")
+    assign = body.index('LOG_DIR="$DATA_ROOT/logs"')
+    use = body.index('2>>"$LOG_DIR/method-validation-daily.log"')
+    assert assign < use, "LOG_DIR 的赋值必须早于绑定解析里对它的引用"
+    # 目录也要建好：只赋值不 mkdir，重定向照样失败
+    mkdir_at = body.index('mkdir -p "$LOG_DIR"')
+    assert assign < mkdir_at < use, "mkdir -p $LOG_DIR 要在赋值之后、引用之前"
+
+
+def test_binding_resolution_runs_under_set_u_without_log_dir(tmp_path) -> None:
+    """真实启动条件（`set -u` + 未预设 LOG_DIR）下跑一遍绑定解析：``active`` 必须真的执行。
+
+    判据是**日志文件被创建**：修复前 shell 在重定向阶段就失败，日志目录是空的；修复后
+    命令执行了，stderr 日志一定在。只在设了 LOG_DIR 的交互 shell 里测会全绿，看不出问题。
+    """
+    import os
+    import subprocess
+
+    body = NIGHTLY_SH.read_text(encoding="utf-8")
+    head = body[: body.index("2>>\"$LOG_DIR/method-validation-daily.log\"")]
+    # 取到绑定解析那一段为止的脚本前缀，够复现启动顺序即可
+    data_root = tmp_path / "data"
+    users = tmp_path / "users" / "linxiaoqi5111" / "method_validation"
+    users.mkdir(parents=True)
+    script = tmp_path / "probe.sh"
+    script.write_text(
+        "#!/bin/zsh\nset -uo pipefail\n"
+        f'DATA_ROOT={data_root!s}\n'
+        f'CODE_ROOT={REPO!s}\n'
+        f'FORESIGHT_USERS_DIR={tmp_path / "users"!s}\n'
+        'FORESIGHT_USER="linxiaoqi5111"\n'
+        'OPS_PYTHON="$1"\n'
+        + ("LOG_DIR=\"$DATA_ROOT/logs\"\nmkdir -p \"$LOG_DIR\"\n" if 'LOG_DIR="$DATA_ROOT/logs"' in head else "")
+        + 'DIR="$("$OPS_PYTHON" "$CODE_ROOT/scripts/method_validation.py" active '
+        '--user "$FORESIGHT_USER" --print-dir 2>>"$LOG_DIR/method-validation-daily.log")"\n'
+        'echo "rc=$?"\n',
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    env = {k: v for k, v in os.environ.items() if k != "LOG_DIR"}
+    subprocess.run([str(script), sys.executable], capture_output=True, text=True, env=env)
+    assert (data_root / "logs" / "method-validation-daily.log").exists(), (
+        "active 命令没有真正执行——LOG_DIR 在引用时还没就位"
+    )
