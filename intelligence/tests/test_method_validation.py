@@ -1,5 +1,6 @@
 """Public method-validation boundaries, with literal worked examples."""
 
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -500,3 +501,104 @@ def test_archived_records_survive_version_upgrade_but_new_computation_refuses(
         compare(p, features, outcomes)
     with pytest.raises(ValueError):
         read_features(path, p, start=CALENDAR[0], end=CALENDAR[0])
+
+
+def test_supersede_actually_deactivates_not_just_annotates(tmp_path):
+    """封存必须有运行语义：只写标记而消费者照常枚举，等于没封存。"""
+    from intelligence.services.method_validation import (
+        is_superseded, list_studies, supersede,
+    )
+
+    older = build_protocol(
+        RULE, history_start="2026-08-24", history_end="2026-09-04",
+        forward_start="2026-09-07", now=datetime(2026, 9, 4, 8, tzinfo=timezone.utc),
+    )
+    d_old = register(tmp_path, older)
+    d_new = register(tmp_path, protocol())
+    assert len(list_studies(tmp_path)) == 2
+
+    supersede(d_old, successor_id=protocol()["protocol_id"], reason="标签版本迁移")
+    assert is_superseded(d_old)
+    active = list_studies(tmp_path)
+    assert active == [d_new], "封存后消费者仍在枚举旧协议"
+    # 审计口径要能看见全部，否则就成了删除
+    assert len(list_studies(tmp_path, include_superseded=True)) == 2
+
+
+def test_activate_switches_binding_and_refuses_superseded(tmp_path):
+    """登记 ≠ 切换：绑定要能被显式切换，且不能切到已封存协议。"""
+    from intelligence.services.method_validation import (
+        active_study, set_active, supersede,
+    )
+
+    older = build_protocol(
+        RULE, history_start="2026-08-24", history_end="2026-09-04",
+        forward_start="2026-09-07", now=datetime(2026, 9, 4, 8, tzinfo=timezone.utc),
+    )
+    d_old = register(tmp_path, older)
+    d_new = register(tmp_path, protocol())
+    assert active_study(tmp_path) is None, "未切换时不应凭空产生绑定"
+
+    set_active(tmp_path, d_old)
+    assert active_study(tmp_path) == d_old
+    set_active(tmp_path, d_new)
+    assert active_study(tmp_path) == d_new, "切换未生效"
+
+    supersede(d_new, reason="误操作")
+    assert active_study(tmp_path) is None, "指向已封存协议时必须失效, 由调用方回退"
+    with pytest.raises(ValueError, match="superseded"):
+        set_active(tmp_path, d_new)
+
+
+def test_active_binding_distinguishes_unset_from_broken(tmp_path):
+    """「从未配置」和「配置过但失效」处置相反：前者兼容默认, 后者必须停。"""
+    from intelligence.services.method_validation import (
+        active_binding, set_active, supersede,
+    )
+
+    assert active_binding(tmp_path)["state"] == "unset"
+
+    d_new = register(tmp_path, protocol())
+    set_active(tmp_path, d_new)
+    assert active_binding(tmp_path)["state"] == "ok"
+
+    supersede(d_new, reason="迁移")
+    binding = active_binding(tmp_path)
+    assert binding["state"] == "superseded", "封存后仍报可用, 夜跑会拿错协议写新观察"
+    assert binding["study_dir"] is None and binding["detail"]
+
+    (tmp_path / "active.json").write_text("{ 不是 json", encoding="utf-8")
+    assert active_binding(tmp_path)["state"] == "corrupt"
+
+
+def test_set_active_rejects_study_outside_root(tmp_path):
+    """指针只存目录名, 跨根写入会「返回成功但读不回」。"""
+    from intelligence.services.method_validation import active_study, set_active
+
+    home = tmp_path / "users" / "real" / "method_validation"
+    other = tmp_path / "users" / "default" / "method_validation"
+    home.mkdir(parents=True)
+    other.mkdir(parents=True)
+    study = register(home, protocol())
+
+    with pytest.raises(ValueError, match="does not belong to root"):
+        set_active(other, study)
+    assert active_study(other) is None
+    assert not (other / "active.json").exists(), "拒绝后不该留下半条指针"
+
+
+def test_supersede_is_idempotent_for_same_intent(tmp_path):
+    """同一封存意图重试必须幂等: superseded_at 每次都是 now, 否则撞不可覆盖发布。"""
+    from intelligence.services.method_validation import supersede
+
+    study = register(tmp_path, protocol())
+    first = supersede(study, successor_id=None, reason="口径 v3 → v5")
+    stamp = json.loads(first.read_text(encoding="utf-8"))["superseded_at"]
+
+    again = supersede(study, successor_id=None, reason="口径 v3 → v5")
+    assert again == first
+    assert json.loads(again.read_text(encoding="utf-8"))["superseded_at"] == stamp, \
+        "重试刷新了封存时刻, 首次封存的事实被改写"
+
+    with pytest.raises(ValueError, match="different successor/reason"):
+        supersede(study, successor_id=None, reason="换个理由")

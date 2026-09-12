@@ -1,12 +1,20 @@
 # feat/method-closed-loop · 工单 #49（合取式标签三值逻辑 + 收据同日三段）
 
-## 状态：**等用户确认合入**（复核三轮共十三条已全部修完并复验，全量 **9422P / 0F**）
+## 状态：**第五轮修复待复验**（前四轮十三条已收；09-12 独立质检又开三条）
 
 第二轮四条 + 第三轮四条 + 第四轮五条，逐条用复核留下的反例脚本复现 → 修在源头 → 复验。
 共享库仍未重建、迁移方案已按实测两次重写但未执行。
 
-**这个写入层我连改三轮才收敛**，教训记在 `~/.claude/…/memory/take-latest-is-not-delete-older.md`：
+**9422P / 0F 是 `29b07912` 那一刻的数，不是放行结论。** 独立质检
+（`docs/handoffs/2026-09-12-method-closed-loop-29b07912-review.md`）核实并采信这个数字，但用新探针
+又抽出三条：P1 写入发布（原子占名 ≠ 完整发布）、P2 迁移只登记不切换、P2 本文件自相矛盾。
+三条已在本分支补修（见「第五轮」），**等对新提交独立复验后再谈合入**。
+原以为要另记的条件性遗留（`report --refuted` 按时间戳字符串取最新）**已在 `8bc7252b` 一并修掉**，不另开单。
+
+**这个写入层我连改四轮才收敛**，教训记在 `~/.claude/…/memory/take-latest-is-not-delete-older.md`：
 「唯一性」「先后」「兜底」是三件独立的事，指望一个字段兼顾就会反复漏。
+第四轮还漏了更底层的一组：**原子占名、完整发布、不可覆盖、崩溃恢复是四个不同的承诺**；
+测试必须在承诺之间的交接点暂停或终止进程，否则永远测不到。
 
 ## 这个分支做什么
 走 OPT-10「用一条现有方法跑完真实跨日闭环」时抓到的两个真缺陷，都修在源头：
@@ -119,6 +127,46 @@ holdout 2026-05-01→2026-09-10），`scan` 带 BH，四条**每段都未过门*
 `test_mixed_timestamp_forms_order_consistently`、
 `test_method_validation_note_does_not_cross_rule_versions`。
 
+## 复核修复（09-12 第五轮 / 独立质检 29b07912 + ef9e61d2）
+
+> P1 与坏收据告警已提交于 `8bc7252b`、`ef9e61d2`；P2（下表 3–7 条）是本次提交的内容。
+
+质检认可 9422P/0F 的全量数字，但用新探针抽出三条。前两条的共同点：**我把「有这个动作」
+当成了「这个动作生效」**——占了名不等于发布完，写了标记不等于停用。
+
+| # | 缺口 | 实测反例 | 修法 |
+|---|---|---|---|
+| 1 | **P1 原子占名 ≠ 完整发布** | `O_CREAT\|O_EXCL` 先让正式文件名可见、内容随后才写。在 `os._exit(73)`（真实进程终止，`except BaseException` 的清理不执行）处中断 → 正式目录留下 **0 字节 JSON**；读取端静默跳过、派生状态停在旧值，**原内容重试反被当撞名拒绝**，人工不介入恢复不了 | 同目录 `.pending-*` 临时文件写满 → `flush`+`fsync` → `os.link` 无覆盖发布 → fsync 目录。中断只留临时文件（无 `.json` 后缀，`glob("*.json")` 读不到）。**不用 `os.replace`**：它会覆盖已有目标，破掉「失败证据不可覆盖」 |
+| 2 | 坏收据**静默跳过** | 读到不可解析的收据直接 `continue`，没有任何告警 | `_warn_corrupt()` 出声；`_write_exclusive` 撞上坏文件时报「疑为旧版写入中断残留」并拒绝，**不自动覆盖也不自动删除**（可能是真证据） |
+| 3 | **P2 登记 ≠ 切换** | 夜跑 `METHOD_STUDY_DIR` 写死旧协议 id；`register` 只建目录不改绑定 → 照方案登记完，夜跑仍选旧协议 | 新增 `active` 指针 + `activate` 子命令；夜跑按「显式环境变量 > 指针 > 内置默认」取值，指针缺失时行为与改动前一致 |
+| 4 | **P2 封存标记无运行语义** | `write_record(..., "superseded", ...)` 报 `invalid record kind`；手写标记后 `list_studies` 照常枚举、`fingerprint` 不变、standing 仍 `fresh=True` | `supersede()` 写 `superseded.json`，`list_studies()` 默认**不再枚举**已封存协议（审计传 `include_superseded=True`）；`activate` 拒绝切到已封存协议 |
+| 5 | **P2 交接自相矛盾** | 本文「下一步」写 ①②③ 不依赖合入，迁移方案写 ①② 不依赖、③④⑤ 依赖；③ 正是重建共享库 | 本文不再复述步骤编号，执行顺序以迁移方案 §4 为唯一来源；撤下「已全部收敛、等合入」的无条件裁决 |
+| 6 | **封存只停了枚举，没停执行** | 对已封存协议跑真实 `daily --study-dir <已封存>`：rc=0、新增 capture 1 份。`daily`/`capture` 直接吃 `--study-dir`，根本不过 `list_studies` | `_refuse_if_superseded()` 放在**产生副作用之前**；只读审计与 `recheck` 结算不进此闸（存量待验怎么结算是另一个决定） |
+| 7 | **夜跑把「没配过」和「配坏了」一起吞** | 封存活跃协议后，夜跑绑定段静默选回 `475597e2…`，rc=0、stderr 为空——等于悄悄换了实验 | `active` 退出码三态（0 有效 / 1 从未配置 / 3 配置过但失效）；夜跑只对 1 兼容默认，遇 3 **停掉方法日步并告警** |
+| 8 | **activate 可返回成功但读不回** | study 在 `users/linxiaoqi5111` 下，不带 `--user` 执行 activate：rc=0，指针却写进 `users/default`，生产用户 `active` rc=1 | `set_active` 发布前校验目录归属（`directory.parent == root`），跨根一律拒绝；`activate` 增加读回核对 |
+| 9 | **同意图重复封存报错** | `superseded_at=now` 每次都变，撞上不可覆盖发布 → 第二次 `ValueError` | 同一 successor/reason 幂等返回首次标记（封存时刻不刷新）；不同意图仍报错，不静默改写封存原因 |
+
+迁移方案同步改的：封存改为 `supersede` 命令并**移到 activate 之后**（先封存会留出一段无
+活跃协议的空窗）；补上 §3.3 要求却在执行表里漏掉的 **history 重跑**（它与种子规则重跑是
+两件事，互不替代）；§3.3 与 §4 的顺序对齐；§4.1 核对表每行标注**最早可查时点**（「旧协议
+退出枚举」要到封存后才成立）、库版本改用真正读库的 `methodology_backtest.py report
+--labels-db`（`method_validation status` 不读库，§5 自己也承认）、并写明 **`active` 只证明
+指针、不等于夜跑最终选择**（还叠加 `METHOD_STUDY_DIR` 覆盖、`FORESIGHT_USER` 身份、
+`FINANCE_CODE_ROOT` 代码根）；§4.2 删掉「删除指针不会让夜跑失败」这句过宽的话——它只保证
+shell 取到一个目录，旧协议在 v5 库上仍会被版本门拒。所有命令显式带 `--user`。
+
+新增回归七条：`test_interrupted_publish_leaves_no_unreadable_official_file`、
+`test_legacy_corrupt_receipt_is_reported_not_silently_skipped`、
+`test_supersede_actually_deactivates_not_just_annotates`、
+`test_activate_switches_binding_and_refuses_superseded`、
+`test_active_binding_distinguishes_unset_from_broken`、
+`test_set_active_rejects_study_outside_root`、
+`test_supersede_is_idempotent_for_same_intent`。
+
+**第 4 条条件性遗留已在 `8bc7252b` 一并修掉**：`load_refuted` 改用 `_parse_ts` 解析后
+排序（与 `load_steps` / `latest_receipt` / `report` 同一口径），并带回归。原以为要另立单，
+实际同一提交已覆盖——这里回写为已修，不再重复开单。
+
 ## 迁移欠账（本单只写方案，未执行）
 
 `docs/superpowers/specs/2026-09-12-label-version-migration-plan.md`（**第二版**）。协议 `475597e2…`
@@ -128,14 +176,23 @@ holdout 2026-05-01→2026-09-10），`scan` 带 BH，四条**每段都未过门*
 `stage_not_applicable`、**待回检 0**。所以真实状况是「新的 capture 跑不了」，不是
 「有对象卡在半路」——初版那句「在途回检已断」是夸大，已订正。
 
-方案：① 备份 v4 库只读留档 → ② 旧协议写 `superseded`（含「待回检 = 0」）→ ③ 重建到 v5
-→ ④ 新协议 `forward_start` = **max(重建日, 实际登记日) 的次个交易日**（固定成「重建日次日」会在③④之间停过周末时被 register 拒）→ ⑤ 种子规则按阶段重跑。①② 不依赖本单合入。
+方案要点（**步骤编号、顺序、依赖关系一律以迁移方案 §4 为准**，本文不给第二套）：
+备份 v4 只读留档、重建共享库到 v5、`register` 新协议、`activate` 切绑定、
+`supersede` 封存旧协议、种子规则按阶段重跑。两个容易踩的坑：
+
+- `forward_start` 取 **max(重建日, 实际登记日) 的次个交易日**；写死成「重建日次日」
+  会在重建与登记之间停过周末时被 `register` 拒。
+- **`register` 不切绑定**，`activate` 才切；不做这一步，夜跑仍跑旧协议。
+
+上一版本文就是自己另编了一套号，把「重建共享库」——最需要点头的那一步——误写成
+「不依赖合入」，接手者照做会在实现未合入时先改共享数据口径。
 另立两单：`status` 打印口径对照；协议改记库的**身份**（label_version + 内容指纹）而非
 绝对路径，否则库一搬家就永久失配。
 
 ## 下一步
-1. 用户确认合 PR。
-2. 共享库重建**按迁移方案分步走**，每步可停；①②③ 不依赖本单合入。
+1. 对第五轮新提交做独立复验（新增边界 + 原回归），再由用户确认合 PR。
+2. 共享库重建**按迁移方案 §4 分步走**，每步可停；**哪几步依赖合入以该节为准**。
+   除备份留档外均依赖合入，且修文档不等于获准写共享库，仍需用户逐步点头。
 3. 成员排除若要做，按敏感性对照另立单，主结论不动。
 4. #673 重做时改 v6 或与本单合并重建一次。
 5. 另立单：`method_validation status` 打印口径对照，避免下次升版再悄悄断掉在途实验。

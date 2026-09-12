@@ -63,8 +63,23 @@ db/history_labels.duckdb.bak-v3-20260911                      （#737 留的 v3 
 ### 3.2 旧协议（v3）：封存，不尝试跨版本结算
 
 1. **不跑任何 v3 的 `capture` / `recheck`**——三道门都会拒，而且没有待回检对象需要它跑。
-2. 在协议目录写一条 `superseded` 记录：封存日、原因（口径 v3 → v5）、继任协议 id、
-   以及「封存时待回检 = 0」这个事实。已有的 history / capture / recheck 收据原样保留。
+2. 封存旧协议：
+
+   ```bash
+   scripts/method_validation.py supersede --study-dir <v3 目录> \
+       --successor <v5 协议 id> --reason "口径 v3 → v5；封存时待回检 = 0"
+   ```
+
+   它写 `superseded.json` 并**带运行语义**：`list_studies()` 默认不再枚举该目录，
+   因此 `flywheel` 指纹、standing 摘要不再把它当活跃对象；审计时用
+   `list_studies(root, include_superseded=True)` 仍能看到全部。
+
+   旧版方案写的是「写一条 `superseded` 记录」，那是行不通的：`write_record` 只接
+   `history/capture/recheck`，传 `superseded` 直接 `invalid record kind`；即使手写一个
+   标记文件，09-12 质检实测 `list_studies` 照常枚举、`fingerprint` 不变、standing 仍
+   `fresh=True`——**那只是人工备忘，不是停用开关**。
+
+   已有的 history / capture / recheck 收据原样保留（封存 ≠ 删除）。
 3. 复算既有收据（若将来需要）走「临时起一个旧 revision 的运行时 + v3 备份库」，
    属一次性取证，不进日常流程。**本方案不安排它**。
 
@@ -74,13 +89,28 @@ db/history_labels.duckdb.bak-v3-20260911                      （#737 留的 v3 
 2. 用同一份方法定义 `register` 新协议，`label_version` = v5，
    **`forward_start` = max(重建日, 实际登记日) 的下一个交易日**。
 
-   不能把它固定成「重建日次日」：③④ 之间可以停（本方案自称每步可停），周五重建、
+   不能把它固定成「重建日次日」：②③ 之间可以停（本方案自称每步可停），周五重建、
    周一才登记的话，「重建日次日」已经是过去，`register` 会被
    「history must end by registration day; forward_start must be after registration day」
    拒掉（09-12 复核实测）。取两者较晚的那个再往后一个交易日，两条约束才同时成立：
    前瞻不含重建前的口径，起点也确实晚于登记日。
    登记时才计算这个日期，**不要在方案里写死具体某一天**。
 3. `history` 段在 v5 库上重跑，得到与旧协议可并排、**不可合并**的读数。
+   这是**本协议自己的历史演练**，与 §3.4 的规则收据重跑是两件事，互不替代。
+4. **把消费者的绑定切过来**：
+
+   ```bash
+   scripts/method_validation.py activate --user "$U" --study-dir <v5 目录>
+   scripts/method_validation.py active   --user "$U"   # 核对：rc=0 且 protocol_id 为 v5
+   ```
+
+   **`register` 只建目录，不改任何人的绑定。** 夜跑的 `METHOD_STUDY_DIR` 按
+   「显式环境变量 > `active` 指针 > 内置默认」取值；不执行这一步，登记完成后
+   夜跑仍会选旧协议（09-12 质检）。若生产环境显式设了 `METHOD_STUDY_DIR`，
+   指针会被它覆盖——切换前先确认启动环境里没有这个变量。
+
+   顺序有意义：**先 `activate` 新的，再 `supersede` 旧的**。反过来会出现一段
+   无有效绑定的窗口（`active` 返回非零，夜跑回退到内置默认）。
 
 ### 3.4 规则收据（methodology_backtest）
 
@@ -92,13 +122,57 @@ db/history_labels.duckdb.bak-v3-20260911                      （#737 留的 v3 
 
 ```
 ① 备份现有 v4 库为只读留档                          ← 无风险，可先做
-② 旧协议写 superseded 记录（含「待回检 = 0」）      ← 写用户态，一条记录
-③ 重建共享库到 v5                                   ← 写共享库，最需要点头
-④ 新协议 register（forward_start = max(重建日, 登记日) 的次个交易日）  ← 写用户态
-⑤ 四条种子规则按阶段重跑                            ← 写收据目录
+② 重建共享库到 v5                                   ← 写共享库，最需要点头
+③ 新协议 register（forward_start = max(重建日, 登记日) 的次个交易日）  ← 写用户态
+④ 新协议 history 段在 v5 库上重跑（§3.3 第 3 条）    ← 写用户态，**不是**⑦的替代
+⑤ activate 切绑定到新协议 → 核对                     ← 写指针，不做则夜跑仍跑旧协议
+⑥ supersede 封存旧协议（含「待回检 = 0」）           ← 写用户态，有停用语义
+⑦ 四条种子规则按阶段重跑                            ← 写收据目录（methodology_backtest）
 ```
 
-①② 不依赖 #49 是否合入；③④⑤ 依赖。
+① 不依赖 #49 是否合入；②③④⑤⑥⑦ 依赖。
+
+两处排序理由，别再倒回去：
+
+- 上一版把封存排在重建之前且标为「不依赖合入」。现在封存真的会停用旧协议，而新协议要等
+  共享库重建完才能 `register`——先封存就会留出一段无活跃协议的空窗。
+- ④（`method_validation history`）与⑦（`methodology_backtest run/scan`）是**两件事**：
+  前者是本协议自己的历史演练读数，后者是规则收据。上一版只列了⑦，§3.3 要求的 history
+  重跑就没有任何一步对应。
+
+**所有命令都显式带 `--user <生产用户>`（或 `--root`），不要依赖当前 shell 恰好继承了对的
+环境。** 指针只按目录名存放、按 root 拼回，跨根写入会被拒；但若操作时用错用户，写出来的
+就是另一个用户的绑定——这正是 09-12 质检复现的 `USER_SCOPE` 反例。
+
+### 4.1 切换后的逐项核对
+
+每行标注**最早可查时点**：没到那一步查不出结果不算失败。命令里的 `$U` 是生产用户，
+`$LABELS_DB` 是新建的 v5 旁路库。
+
+| 查什么 | 最早时点 | 怎么查 | 期望 |
+|---|---|---|---|
+| 库版本确实是 v5 | ② 后 | `scripts/methodology_backtest.py report --labels-db "$LABELS_DB"` | `label_version` 为 v5 |
+| 新协议已登记 | ③ 后 | `method_validation.py status --user "$U"` | 列出 v5 协议，`forward_start` 符合预期 |
+| 指针指向新协议 | ⑤ 后 | `method_validation.py active --user "$U"` | rc=0 且 `protocol_id` 为 v5 |
+| 旧协议退出枚举 | ⑥ 后 | `list_studies(root)` 默认结果 | 不含 v3 目录（⑥之前**本就应该**还在） |
+| 旧协议拒绝新观察 | ⑥ 后 | `method_validation.py capture --study-dir <v3 目录>` | 非零，报「协议已封存」 |
+| 夜跑**实际**选中 | 次个交易日 | `method-validation-daily.log` 的 `=== method daily 开始 … study=…` 行 | study 为 v5 且写出 capture |
+
+**`active` 只证明「这个用户的指针」，不等于夜跑的最终选择。** 夜跑取值优先级是
+「显式 `METHOD_STUDY_DIR` > 指针 > 内置默认」，还叠加两个变量：`FORESIGHT_USER`
+决定读哪个用户的指针，`FINANCE_CODE_ROOT` 决定跑哪棵树的代码（运行快照可能早于本单）。
+切换前先确认启动环境里没有 `METHOD_STUDY_DIR`；最终确认只能看上表最后一行的日志。
+
+### 4.2 暂停 / 恢复边界
+
+- 停在①②之后：指针未动，夜跑继续跑旧协议。旧协议在 v5 库上会被版本门拦住（抛错而非误算），
+  这是预期行为；要避免呆报错，就不要在②与⑤之间跨交易日停留。
+- 回退：`activate --study-dir <旧目录>` 即可切回（前提是还没 `supersede`；
+  已封存的协议会被 `activate` 拒绝，这是故意的——要真想回退得先显式撤销封存标记）。
+- **删除指针文件 = 回到「从未配置」**，夜跑按内置默认继续。注意这只保证 shell 取到一个目录，
+  不保证那个协议还能算：旧协议在 v5 库上仍会被版本门拒。**不要把它当成安全的回滚手段。**
+- 指针「配置过但失效」（损坏 / 目标缺失 / 指向已封存）与「从未配置」不同：夜跑会
+  **停掉方法日步并告警**，不会静默回退旧实验。要恢复就 `activate` 到有效协议。
 
 ## 5. 要补的门（本方案未实现，另立单）
 

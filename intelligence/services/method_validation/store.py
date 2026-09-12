@@ -11,6 +11,10 @@ from pathlib import Path
 from .protocol import canonical_bytes, clock_now, digest, iso_date, validate_protocol
 
 KINDS = frozenset({"history", "capture", "recheck"})
+# 封存标记与活跃指针都不是「记录」：前者是协议级状态，后者是可变绑定，
+# 都不走 write_record 的按日分区内容寻址路径。
+SUPERSEDED_MARKER = "superseded.json"
+ACTIVE_POINTER = "active.json"
 _ID = re.compile(r"[0-9a-f]{64}")
 
 
@@ -140,8 +144,52 @@ def write_record(study_dir, kind, payload) -> Path:
     return target
 
 
-def list_studies(root) -> list:
-    """Study directories under a root, oldest protocol id first; missing root → []."""
+def supersede(study_dir, *, successor_id=None, reason="", now=None) -> Path:
+    """把一份协议**真正**停用：写封存标记，并让所有消费者不再枚举它。
+
+    只写一条 `superseded` 记录是不够的——09-12 质检实测：手写标记后 `list_studies`
+    照常枚举、`flywheel.fingerprint` 不变、standing 摘要仍 `fresh=True`，它最多是人工
+    备忘，拦不住任何消费者。这里让标记带上运行语义（见 `list_studies`）。
+    """
+    directory = Path(study_dir).expanduser()
+    protocol = load_protocol(directory)          # 顺带校验这确实是一份 study
+    if successor_id is not None and not _ID.fullmatch(str(successor_id)):
+        raise ValueError("invalid successor protocol id")
+    marker = directory / SUPERSEDED_MARKER
+    record = {
+        "protocol_id": protocol["protocol_id"],
+        "successor_id": successor_id,
+        "reason": str(reason or ""),
+        "superseded_at": clock_now(now).isoformat(),
+    }
+    if marker.is_file():
+        # 同一封存意图重试要幂等：`superseded_at` 每次都是 now，直接 _publish 必然
+        # 撞上不可覆盖发布而 ValueError（09-12 质检实测）。封存时刻以**首次**为准，
+        # 重试不刷新；继任或理由不同则是另一件事, 必须报错而不是悄悄改写封存原因。
+        existing = _read(marker)
+        same = (existing.get("successor_id") == record["successor_id"]
+                and existing.get("reason") == record["reason"])
+        if not same:
+            raise ValueError(
+                "already superseded with a different successor/reason: "
+                f"existing successor={existing.get('successor_id')!r} "
+                f"reason={existing.get('reason')!r}"
+            )
+        return marker
+    _publish(marker, record)
+    return marker
+
+
+def is_superseded(study_dir) -> bool:
+    return (Path(study_dir).expanduser() / SUPERSEDED_MARKER).is_file()
+
+
+def list_studies(root, *, include_superseded: bool = False) -> list:
+    """Study directories under a root, oldest protocol id first; missing root → [].
+
+    默认**跳过已封存的协议**：这是封存标记的运行语义所在。要做历史盘点/审计时
+    显式传 `include_superseded=True`，让「看得到」和「还在消费」分开。
+    """
     parent = Path(root).expanduser()
     if not parent.is_dir():
         return []
@@ -149,8 +197,93 @@ def list_studies(root) -> list:
     for child in sorted(parent.iterdir()):
         if _ID.fullmatch(child.name) and not child.is_symlink() and child.is_dir():
             if (child / "protocol.json").is_file():
-                out.append(child)
+                if include_superseded or not is_superseded(child):
+                    out.append(child)
     return out
+
+
+def set_active(root, study_dir, *, now=None) -> Path:
+    """把夜跑等消费者的绑定切到某份协议。
+
+    指针是**可变绑定**而非证据，所以用 `os.replace` 原子改写（覆盖是正确行为）；
+    证据类写入仍走 `_publish` 的不可覆盖路径。
+    """
+    parent = Path(root).expanduser().resolve()
+    directory = Path(study_dir).expanduser().resolve()
+    # 指针只存目录名, 读回时按 root/名字 拼接。若不校验归属, 就能「写成功但读不回」：
+    # study 在 users/linxiaoqi5111 下、指针却落到 users/default, activate 返回 0 而
+    # 夜跑那个用户 active 返回 1（09-12 质检实测）。跨根输入一律拒绝, 不做半支持。
+    if directory.parent != parent:
+        raise ValueError(
+            f"study_dir does not belong to root: study_dir={directory} root={parent}"
+        )
+    protocol = load_protocol(directory)
+    if is_superseded(directory):
+        raise ValueError("refusing to activate a superseded protocol")
+    parent.mkdir(parents=True, exist_ok=True)
+    pointer = parent / ACTIVE_POINTER
+    data = canonical_bytes({
+        "protocol_id": protocol["protocol_id"],
+        "study_dir": directory.name,
+        "activated_at": clock_now(now).isoformat(),
+    })
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=parent, prefix=".pending-", delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, pointer)
+        temporary = None
+        descriptor = os.open(parent, os.O_RDONLY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+    # 读回核对: 「写入返回 0」不等于「消费者读得到」, 这正是上一版漏掉的那步。
+    if active_study(parent) != directory:
+        raise ValueError(f"active pointer readback mismatch: {pointer}")
+    return pointer
+
+
+def active_binding(root) -> dict:
+    """当前绑定的**三态**：从未配置 / 有效 / 配置过但失效。
+
+    上一版把「没配过」和「配过但坏了」都压成 None, 夜跑于是一律回退内置默认——
+    封存了活跃协议也只会静默换回旧实验, 没有任何告警（09-12 质检实测）。
+    这两种情况的正确处置相反：前者兼容默认, 后者必须停下来喊人。
+    """
+    # resolve 一次：macOS 上 /var 是 /private/var 的符号链接, 不归一化就会出现
+    # 「set_active 内部读回通过、CLI 读回核对失败」这种只差前缀的假不一致。
+    parent = Path(root).expanduser().resolve()
+    pointer = parent / ACTIVE_POINTER
+    if not pointer.is_file():
+        return {"state": "unset", "study_dir": None, "detail": "未配置 active 指针"}
+    try:
+        doc = json.loads(pointer.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return {"state": "corrupt", "study_dir": None, "detail": f"指针读不出: {exc}"}
+    name = str(doc.get("study_dir") or "")
+    if not _ID.fullmatch(name):
+        return {"state": "corrupt", "study_dir": None,
+                "detail": f"指针里的 study_dir 不是合法协议 id: {name!r}"}
+    candidate = parent / name
+    if not (candidate / "protocol.json").is_file():
+        return {"state": "missing_target", "study_dir": None,
+                "detail": f"指针指向的协议目录不存在或缺 protocol.json: {candidate}"}
+    if is_superseded(candidate):
+        return {"state": "superseded", "study_dir": None,
+                "detail": f"指针指向的协议已封存: {candidate}"}
+    return {"state": "ok", "study_dir": candidate, "detail": ""}
+
+
+def active_study(root) -> Path | None:
+    """当前绑定的协议目录；未登记、指向不存在或已封存 → None（由调用方决定回退）。"""
+    return active_binding(root)["study_dir"]
 
 
 def list_records(study_dir, kind) -> list:

@@ -32,6 +32,7 @@ if str(ROOT) not in sys.path:
 import duckdb  # noqa: E402
 
 from intelligence.services.method_validation import (  # noqa: E402
+    active_study,
     build_protocol,
     compare,
     list_records,
@@ -39,8 +40,12 @@ from intelligence.services.method_validation import (  # noqa: E402
     protocol_id_for,
     read_features,
     read_outcomes,
+    active_binding,
+    is_superseded,
     read_record,
     register,
+    set_active,
+    supersede,
     validate_capture,
     write_record,
 )
@@ -148,7 +153,23 @@ def cmd_history(args) -> int:
     return 0
 
 
+def _refuse_if_superseded(study_dir: Path) -> None:
+    """封存协议**不接受新观察**。
+
+    「退出枚举」只挡住了按 root 枚举的消费者；`daily` / `capture` 直接吃 --study-dir,
+    根本不过 `list_studies`——质检实测对已封存协议跑真实 daily 仍 rc=0 且新增 1 份
+    capture。停用必须落在产生副作用之前。只读审计（report/status）与既有待验对象的
+    结算（recheck）不在此闸内：怎么结算存量是另一个决定, 不该被一刀切破坏。
+    """
+    if is_superseded(study_dir):
+        raise ValueError(
+            f"协议已封存, 拒绝写入新观察：{study_dir}。"
+            f"先 `activate` 到继任协议再跑；只读审计与 recheck 结算不受影响"
+        )
+
+
 def _capture_once(study_dir: Path, labels_db: Path, args) -> dict:
+    _refuse_if_superseded(Path(study_dir))
     protocol = load_protocol(study_dir)
     with _capture_lock(study_dir):
         now = current_time()
@@ -424,6 +445,7 @@ def _labels_watermarks(labels_db: Path) -> dict:
 def cmd_daily(args) -> int:
     """一条命令把当天该做的都做了；每步都只在条件成立时动作，不成立就把原因写进输出。"""
     study_dir = Path(args.study_dir)
+    _refuse_if_superseded(study_dir)
     labels_db = Path(args.labels_db).expanduser()
     db_path = Path(args.db_path).expanduser()
     if not db_path.is_file():
@@ -507,6 +529,60 @@ def cmd_daily(args) -> int:
     return 0
 
 
+def _root_of(args) -> Path:
+    return Path(args.root).expanduser() if args.root else user_space(args.user).root / "method_validation"
+
+
+def cmd_activate(args) -> int:
+    """把消费者（夜跑等）的绑定切到指定协议。登记 ≠ 切换，切换要单独做。"""
+    root = _root_of(args)
+    study = Path(args.study_dir).expanduser()
+    pointer = set_active(root, study)
+    protocol = load_protocol(study)
+    binding = active_binding(root)          # 读回核对：写成功 ≠ 消费者读得到
+    if binding["state"] != "ok" or binding["study_dir"] != study.resolve():
+        raise ValueError(f"切换后读回不一致：{binding}")
+    _print({"active_pointer": str(pointer), "study_dir": str(study.resolve()),
+            "protocol_id": protocol["protocol_id"], "forward_start": protocol["forward_start"],
+            "readback_state": binding["state"]})
+    return 0
+
+
+def cmd_supersede(args) -> int:
+    """封存一份协议：留档但退出活跃消费（`list_studies` 默认不再枚举它）。"""
+    root = _root_of(args)
+    study = Path(args.study_dir).expanduser()
+    marker = supersede(study, successor_id=args.successor, reason=args.reason or "")
+    current = active_study(root)
+    _print({"superseded_marker": str(marker), "study_dir": str(study.resolve()),
+            "successor_id": args.successor,
+            "active_study_dir": str(current) if current else None,
+            "warning": None if current else "当前无活跃绑定，请先 activate 新协议再让夜跑运行"})
+    return 0
+
+
+def cmd_active(args) -> int:
+    """打印当前活跃绑定。**退出码三态**，调用方据此决定回退还是停下：
+
+    - 0：有效绑定；
+    - 1：从未配置过指针 → 允许兼容内置默认；
+    - 3：配置过但失效（损坏/目标不存在/已封存）→ **不许静默回退**, 必须停下来喊人。
+    """
+    root = _root_of(args)
+    binding = active_binding(root)
+    state, current = binding["state"], binding["study_dir"]
+    rc = 0 if state == "ok" else (1 if state == "unset" else 3)
+    if rc == 3:
+        print(f"active 指针失效（{state}）：{binding['detail']}", file=sys.stderr)
+    if args.print_dir:
+        print(str(current) if current else "")
+        return rc
+    _print({"root": str(root), "state": state, "detail": binding["detail"],
+            "study_dir": str(current) if current else None,
+            "protocol_id": load_protocol(current)["protocol_id"] if current else None})
+    return rc
+
+
 def _add_ledger_args(command: argparse.ArgumentParser) -> None:
     command.add_argument("--user", default=None, help="checkpoint 台账所属用户（默认 FORESIGHT_USER 或 default）")
     command.add_argument("--checkpoints-path", default=None, help="显式 checkpoints.jsonl 路径（verdicts.jsonl 同目录）")
@@ -524,6 +600,23 @@ def build_parser() -> argparse.ArgumentParser:
     reg.add_argument("--user", default=None)
     reg.add_argument("--root", type=Path, help="明确指定离线研究收据目录；默认走用户应用态")
     reg.set_defaults(func=cmd_register)
+    act = commands.add_parser("activate", help="把夜跑等消费者的绑定切到指定协议（登记不等于切换）")
+    act.add_argument("--study-dir", required=True, type=Path)
+    act.add_argument("--user", default=None)
+    act.add_argument("--root", type=Path)
+    act.set_defaults(func=cmd_activate)
+    sup = commands.add_parser("supersede", help="封存旧协议：留档但退出活跃消费")
+    sup.add_argument("--study-dir", required=True, type=Path)
+    sup.add_argument("--successor", default=None, help="继任协议 id")
+    sup.add_argument("--reason", default=None)
+    sup.add_argument("--user", default=None)
+    sup.add_argument("--root", type=Path)
+    sup.set_defaults(func=cmd_supersede)
+    cur = commands.add_parser("active", help="打印当前活跃绑定（无绑定返回 1）")
+    cur.add_argument("--print-dir", action="store_true", help="只打印目录，便于脚本取值")
+    cur.add_argument("--user", default=None)
+    cur.add_argument("--root", type=Path)
+    cur.set_defaults(func=cmd_active)
     for name, title, function in (
         ("history", "运行固定历史窗口三组对照", cmd_history),
         ("capture", "收盘后冻结今天的前瞻观察（有信号则登记待验对象）", cmd_capture),

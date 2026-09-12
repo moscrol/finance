@@ -40,7 +40,26 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/opt/node/bin:/usr/local/bin:$PATH"
 
 # 方法飞轮日步（cap07 / 集成 spec I5）的生产三元组：study / 旁路库 / 主库 + 用户显式绑定。
 # study 目录是 register 按协议指纹生成的（生产用户目录下），不要手改目录名。
-METHOD_STUDY_DIR="${METHOD_STUDY_DIR:-$FORESIGHT_USERS_DIR/$FORESIGHT_USER/method_validation/475597e2e017a2eedd3886700cd41d394d3694eba3487e205b8ddc91723b5a2f}"
+# 绑定优先级：显式环境变量 > active 指针（`method_validation.py activate` 写的）> 内置默认。
+# 为什么要有指针：**登记新协议不会切换消费者**。旧写法把协议 id 写死在这里，迁移照方案
+# 登记完成后夜跑仍选旧协议（09-12 质检）。指针缺失或指向已封存协议时 `active --print-dir`
+# 返回非零且输出为空，这里回退到内置默认，行为与改动前一致。
+METHOD_STUDY_DEFAULT="$FORESIGHT_USERS_DIR/$FORESIGHT_USER/method_validation/475597e2e017a2eedd3886700cd41d394d3694eba3487e205b8ddc91723b5a2f"
+METHOD_BINDING_ERROR=""
+if [ -z "${METHOD_STUDY_DIR:-}" ] && [ -f "$CODE_ROOT/scripts/method_validation.py" ]; then
+  # active 的退出码是三态：0=有效绑定 / 1=从未配置 / 3=配置过但失效。
+  # **1 和 3 的正确处置相反**：没配过可以兼容内置默认；配过却坏了（指针损坏、目标缺失、
+  # 指向已封存协议）绝不能静默换回旧实验——上一版把两者都当「取不到」吞掉，封存了活跃
+  # 协议也只会无声无息地跑回 475597e2…（09-12 质检实测）。
+  METHOD_STUDY_DIR="$("$OPS_PYTHON" "$CODE_ROOT/scripts/method_validation.py" active \
+    --user "$FORESIGHT_USER" --print-dir 2>>"$LOG_DIR/method-validation-daily.log")"
+  case "$?" in
+    0) : ;;
+    1) METHOD_STUDY_DIR="$METHOD_STUDY_DEFAULT" ;;
+    *) METHOD_BINDING_ERROR="active 指针已配置但失效（损坏/目标缺失/已封存）；拒绝回退到内置默认" ;;
+  esac
+fi
+[ -n "${METHOD_STUDY_DIR:-}" ] || METHOD_STUDY_DIR="$METHOD_STUDY_DEFAULT"
 METHOD_LABELS_DB="${METHOD_LABELS_DB:-$DATA_ROOT/db/history_labels.duckdb}"
 
 # 参数：phase (sync|finalize|all) + date。date 缺省今天。
@@ -204,6 +223,13 @@ run_method_flywheel() {
   # 每夜跳过，而跳过原因写着「合入后自动生效」——一条读起来完全合理的假话。
   if [ ! -f "$CODE_ROOT/scripts/method_validation.py" ]; then
     skip_method_flywheel "scripts/method_validation.py 不在 CODE_ROOT=$CODE_ROOT（运行快照早于 cap07/I5，链切后自动生效）"
+    return 0
+  fi
+  if [ -n "$METHOD_BINDING_ERROR" ]; then
+    # 绑定失效不是「今晚数据没齐」那类可跳过的情况：继续跑就是拿错协议写新观察。
+    skip_method_flywheel "$METHOD_BINDING_ERROR；请 activate 到继任协议后重跑 finalize $D"
+    echo "[$(date '+%F %T')] 方法飞轮日步停止：$METHOD_BINDING_ERROR"
+    notify "⚠️ 全量复盘 $D 方法飞轮绑定失效：$METHOD_BINDING_ERROR"
     return 0
   fi
   echo "[$(date '+%F %T')] === method daily 开始 date=$D study=$METHOD_STUDY_DIR labels_db=$METHOD_LABELS_DB db=$MARKET_FEATURE_STORE_DB user=$FORESIGHT_USER ===" \
