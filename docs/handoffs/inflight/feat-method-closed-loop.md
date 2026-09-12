@@ -1,9 +1,12 @@
 # feat/method-closed-loop · 工单 #49（合取式标签三值逻辑 + 收据同日三段）
 
-## 状态：**等用户确认合入**（复核两轮共八条缺口已全部修完并复验，全量 9417P/0F）
+## 状态：**等用户确认合入**（复核三轮共十三条已全部修完并复验，全量 **9422P / 0F**）
 
-第二轮四条 + 第三轮四条，逐条用复核留下的反例脚本复现 → 修在源头 → 复验。
-共享库仍未重建、迁移方案已按实测重写但未执行。
+第二轮四条 + 第三轮四条 + 第四轮五条，逐条用复核留下的反例脚本复现 → 修在源头 → 复验。
+共享库仍未重建、迁移方案已按实测两次重写但未执行。
+
+**这个写入层我连改三轮才收敛**，教训记在 `~/.claude/…/memory/take-latest-is-not-delete-older.md`：
+「唯一性」「先后」「兜底」是三件独立的事，指望一个字段兼顾就会反复漏。
 
 ## 这个分支做什么
 走 OPT-10「用一条现有方法跑完真实跨日闭环」时抓到的两个真缺陷，都修在源头：
@@ -94,6 +97,27 @@ holdout 2026-05-01→2026-09-10），`scan` 带 BH，四条**每段都未过门*
 `test_method_validation_note_honours_label_version_gate`（两入口同答案）。
 复核的 `reproduce.py` 对修复后代码重跑：碰撞段 2000 次找不到碰撞、同秒段取到时间上更晚的
 那份、产品入口两边都是 candidate。全量 **9417 passed / 0 failed**。
+
+## 复核修复（09-12 第四轮）
+
+第三轮的修法里，有三处是我自己改出来的新问题：
+
+| # | 缺口 | 实测反例 | 修法 |
+|---|---|---|---|
+| 1 | Workbench **串规则版本** | 按标题匹配到 v1，`state_for_rule` 却自己挑 version 最大的 v2 → 展示「v1，personal_method」，而 v1 其实是 candidate | 新增 `lifecycle.state_for_file(rule_path, ...)`，身份锁在**匹配到的那一份**文件字节上；note 记住匹配到的 `path` 而不只是 `doc`。**匹配、认证、展示必须是同一份规则** |
+| 2 | 写入失败后重试**假成功** | json 落盘、md 写失败 → 原样重试因为 json 在就 `return` 两个路径，md 永远补不回来（故障注入实测） | json 与 md **各自**判幂等 |
+| 3 | 防覆盖**不原子** | 「先 `exists()` 再 write」是 check-then-act，并发下两个写手都通过检查、后者覆盖前者（线程池实测）；`write_scan_summary` 完全没接闸 | 三个写入点统一走 `_write_exclusive`：`O_CREAT \| O_EXCL` 原子创建 + 同名比内容 |
+| 4 | 迁移方案**不能每步可停** | 固定 `forward_start` = 重建日次日，周五重建、周一登记会被「forward_start must be after registration day」拒 | 改为 `max(重建日, 实际登记日)` 的下一个交易日，并写明**登记时才算**、不在方案里写死日期 |
+| 5 | 工单**残留旧迁移指令** | 仍写「在途回检已断」「在 v3 备份库跑完剩余 recheck」，与新版方案相反 | 清掉，只留指向迁移方案的指针（步骤不在两处复述） |
+
+顺带对齐一处复核标为「条件边界」的：`report` 的最近收据也改用 `receipts._parse_ts`——
+`12:00:00Z` 与 `12:00:00.500000+00:00` 都是合法 ISO UTC，字符串序与时间序相反，三个读取
+口径（`load_steps` / `latest_receipt` / `report`）不能各用各的比法。
+
+新增回归五条：`test_concurrent_writes_cannot_overwrite_each_other`、
+`test_scan_summary_also_refuses_overwrite`、`test_retry_repairs_a_half_written_pair`、
+`test_mixed_timestamp_forms_order_consistently`、
+`test_method_validation_note_does_not_cross_rule_versions`。
 
 ## 迁移欠账（本单只写方案，未执行）
 
