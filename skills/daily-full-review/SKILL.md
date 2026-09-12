@@ -86,16 +86,25 @@ git branch --show-current
 **走 S7 包装脚本，它才有 staging + 换名闸**：
 
 ```bash
-/bin/zsh /Users/a77/.local/bin/nightly-full-review-s7.sh YYYY-MM-DD && \
-  /bin/zsh /Users/a77/.local/bin/nightly_full_review.sh finalize YYYY-MM-DD
+/bin/zsh /Users/a77/.local/bin/nightly-full-review-s7.sh YYYY-MM-DD; s7=$?
+/bin/zsh /Users/a77/.local/bin/nightly_full_review.sh finalize YYYY-MM-DD; fin=$?
+echo "sync rc=$s7  finalize rc=$fin"; [ "$s7" -eq 0 ] && [ "$fin" -eq 0 ]
 ```
 
-**`&&` 不能省**：两条独立命令时，同步失败（非零）后收尾照样执行，而收尾成功会让整个
-代码块返回 0——同步失败被收尾的成功掩盖。真实 finalize 有数据守卫，但「守卫放行」只说明
-库里已有合格数据，**不说明本次同步成功**。
+**两条都要跑，两个退出码都要留**（工单 #51）。这里有两个互相拉扯的要求，所以既不能用
+`&&` 也不能用裸分号：
+
+- **不能用 `&&`**：同步一失败，`finalize` 根本不启动，当天的 L2 跟着一起丢。而 L2 读的是
+  逐笔日包，**不依赖同步段产物**——2026-09-10 与 09-11 两天的 `feature_l2_*` 就是这么没的。
+  跑 `finalize` 是安全的：它自己先跑 L2，再由数据守卫决定要不要生成，守卫不过就只跳过生成段，
+  不会拿半拉数据出报告。
+- **不能用裸分号**：那样整段的退出码只剩 `finalize` 的，同步失败会被收尾的成功掩盖。
+  「守卫放行」只说明库里已有合格数据，**不说明本次同步成功**。
+
+所以分别接住 `$?`、最后一行显式合取——两段各自报账，任一非零整段即非零。
 
 两个脚本都自带 `FINANCE_SYNC_CODE_ROOT` / `REVIEW_SYNC_PLAN` 缺省，干净 shell 直接可跑；
-要覆盖就在命令前面加同名变量。`finalize` 覆盖 L2 + 生成段 + 方法飞轮。
+要覆盖就在命令前面加同名变量。`finalize` 覆盖 L2 + 生成段 + 方法飞轮；同步段只由 S7 负责。
 
 > ⚠ **同步段只有 S7 这一条路。** `nightly_full_review.sh` 的 `sync` / `all`（以及
 > 只传日期的缺省 `all`）已在加锁前拒绝并给出替代命令——它们直调

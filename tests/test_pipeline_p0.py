@@ -673,28 +673,20 @@ def test_daily_update_omits_retired_sector_feishu_module():
     assert "sync-market-daily" not in source
 
 
-def test_nightly_still_wires_l2_and_records_the_guard_before_l2_gap():
-    """L2 仍然接在 finalize 里；**但「同步失败也照跑 L2」这条不变量目前无人实现**。
+def test_nightly_attempts_l2_before_the_sync_guard():
+    """L2 排在同步守卫**之前**：同步失败不连坐 L2。（工单 #51 已做）
 
-    本测试的前身 ``test_nightly_script_attempts_l2_before_sync_failure_exit`` 断言
-    `all)` 分支里 ``run_l2_branch`` 排在「同步失败就退出」之前，理由是：L2（资金流）
-    不依赖同步段产物，一次 CDP 掉线不该连带丢掉当天的 L2。
+    L2（资金流 + 质量门）读逐笔日包，不依赖同步段产物，一次 CDP 掉线不该连带丢掉
+    当天的 L2。这条不变量的前身 ``test_nightly_script_attempts_l2_before_sync_failure_exit``
+    只钉在 `all)` 分支上，而生产链是 sync plist（走 S7）+ finalize plist 两个独立
+    job，`finalize)` 里一直是守卫在前、L2 在后——**生产路径从未满足过它**。代价已经
+    发生：`feature_l2_capital_flow_daily` / `feature_l2_quant_orders_daily` 的 max 都
+    停在 2026-09-09，9-10 与 9-11 两天的 L2 全丢。`all)` 因绕开 staging 被删除后，
+    那条断言连唯一的锚点也没了（见 ``test_nightly_closes_the_staging_bypassing_sync_phases``）。
 
-    2026-09-12 实测出三件事，合起来说明那条断言锚错了地方：
-
-    1. **它只在 `all)` 里成立**。定时链是 sync plist（走 S7）+ finalize plist，
-       而 `finalize)` 里守卫在前、``run_l2_branch`` 在后——`gitea/main` 上本来就是
-       这样，不是本次改动造成的。**生产路径从未满足过这条不变量。**
-    2. `all)` 同时直调同步器、绕开 staging 直写生产库，已被删除（见
-       ``test_nightly_closes_the_staging_bypassing_sync_phases``）。删它连带删掉了
-       那条断言唯一的锚点。
-    3. 代价已经发生：`feature_l2_capital_flow_daily` / `feature_l2_quant_orders_daily`
-       的 max 都停在 **2026-09-09**，9-10 与 9-11 两天的 L2 全丢——正是守卫先于 L2
-       中止的结果，和原 docstring 警告的一模一样。
-
-    所以这里**不再假装那条不变量成立**，只钉两件当前为真且承重的事：L2 仍被接线、
-    以及当前顺序确实是「守卫在前」。恢复不变量（把 L2 提到守卫之前）是工单 #51，
-    属生产行为变更，不在本单顺手改。
+    现在锚点落在 `finalize)` 这条**生产真路径**上。本测试是结构侧的快速哨兵，行为侧
+    由 ``test_nightly_finalize_attempts_l2_even_when_the_sync_guard_fails`` 真跑脚本
+    验证（假执行器记录 L2 到底有没有被调用）。两条都在，别只留一条。
     """
     script = (
         ROOT / "skills" / "daily-full-review" / "scripts" / "nightly_full_review.sh"
@@ -706,14 +698,20 @@ def test_nightly_still_wires_l2_and_records_the_guard_before_l2_gap():
     # 1. L2 还在被调用——别在收拾旁路时把它整个弄丢。
     assert "run_l2_branch" in body
 
-    # 2. 如实记录当前顺序：守卫在前、L2 在后。
-    #    这条为真 == 工单 #51 未做；#51 做完时本断言会红，那是**预期的提醒**，
-    #    到时连同上面的 docstring 一起改，别直接删。
+    # 2. 顺序：L2 在前、同步守卫在后。
     guard = body.index("$REVIEW_CHECKER")
     l2 = body.index("run_l2_branch")
-    assert guard < l2, "L2 已提到守卫之前？那是工单 #51 的目标，请同步更新本测试与 docstring"
+    assert l2 < guard, (
+        "同步守卫又排到 L2 之前了——同步一失败就会连坐掉当天的 L2（9-10/9-11 就是这么丢的）"
+    )
 
-    # 3. `all)` 分支必须保持消失（它绕开 staging）。
+    # 3. 生成段仍然严格守门：守卫非 0 就不许走到 run_generation_and_finalize。
+    #    L2 提前不等于放宽生成段，这两件事必须分开。
+    assert "run_generation_and_finalize" in body
+    gen = body.index("run_generation_and_finalize")
+    assert guard < gen, "生成段跑到同步守卫之前了"
+
+    # 4. `all)` 分支必须保持消失（它绕开 staging）。
     assert "\n  all)" not in script
 
 

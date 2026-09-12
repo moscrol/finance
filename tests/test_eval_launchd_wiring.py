@@ -60,6 +60,107 @@ def _zsh_source_ops(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     )
 
 
+NIGHTLY = ROOT / "skills" / "daily-full-review" / "scripts" / "nightly_full_review.sh"
+
+_FAKE_PYTHON = """#!/bin/sh
+printf 'python %s\\n' "$*" >> "$CALL_LOG"
+case "$*" in
+  *check_daily_review_data.py*"--phase data"*) exit "${FAKE_GUARD_RC:-0}" ;;
+  *check_daily_review_data.py*"--phase l2"*) exit "${FAKE_L2_GATE_RC:-0}" ;;
+esac
+exit 0
+"""
+
+_FAKE_MONEYFLOW = """#!/bin/sh
+printf 'moneyflow %s\\n' "$*" >> "$CALL_LOG"
+exit "${FAKE_MONEYFLOW_RC:-0}"
+"""
+
+_FAKE_NOOP = "#!/bin/sh\nexit 0\n"
+
+
+def _run_nightly_finalize(
+    tmp_path: Path,
+    *,
+    guard_rc: int = 0,
+    l2_gate_rc: int = 0,
+    moneyflow_rc: int = 0,
+    script_text: str | None = None,
+) -> tuple[subprocess.CompletedProcess[str], str, str]:
+    """真启动 `nightly_full_review.sh finalize`，外呼与写库全换成假执行器。
+
+    为什么必须真跑：原「不许嵌套调 S7」那条是文本断言，且为排除帮助文本过滤掉了以
+    ``/bin/zsh /Users`` 开头的行——**真实的嵌套调用恰好长这样**，把它塞回脚本里测试
+    照样绿（2026-09-12 变异测试实测）。文本断言挡不住它，只能真跑一遍看 S7 到底有
+    没有被执行。
+
+    返回 (完成的进程, 调用流水, zsh xtrace)。``script_text`` 用于变异测试。
+    """
+    code_root = tmp_path / "code"
+    data_root = tmp_path / "data"
+    stub_bin = tmp_path / "bin"
+    for path in (
+        code_root / "skills" / "daily-full-review" / "scripts",
+        code_root / "scripts" / "lib",
+        code_root / "scripts" / "moneyflow",
+        data_root / "state",
+        stub_bin,
+    ):
+        path.mkdir(parents=True, exist_ok=True)
+
+    script = code_root / "skills" / "daily-full-review" / "scripts" / "nightly_full_review.sh"
+    script.write_text(
+        NIGHTLY.read_text(encoding="utf-8") if script_text is None else script_text,
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+
+    # 用真的 ops_python.sh：解释器解析不该被假掉，否则测的是夹具不是脚本。
+    (code_root / "scripts" / "lib" / "ops_python.sh").write_text(
+        OPS_PYTHON_SH.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    # 质检闸门只需**存在**（脚本对它 fail closed）；真正的退出码由假 python 给。
+    (code_root / "scripts" / "check_daily_review_data.py").write_text("", encoding="utf-8")
+    # 刻意不建 scripts/method_validation.py：绑定解析整段跳过，本夹具不测那条链。
+
+    for target, body in (
+        (stub_bin / "fake-python", _FAKE_PYTHON),
+        (code_root / "scripts" / "moneyflow" / "run_l2_pipeline.sh", _FAKE_MONEYFLOW),
+        (stub_bin / "osascript", _FAKE_NOOP),  # 免得真弹本机通知
+    ):
+        target.write_text(body, encoding="utf-8")
+        target.chmod(0o755)
+
+    call_log = tmp_path / "calls.log"
+    call_log.write_text("", encoding="utf-8")
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "FINANCE_CODE_ROOT": str(code_root),
+            "FINANCE_DATA_ROOT": str(data_root),
+            "FINANCE_LOCK_DIR": str(tmp_path / "locks"),
+            "FINANCE_PYTHON": str(stub_bin / "fake-python"),
+            "FINANCE_OPS_HEALTH_LOG": str(tmp_path / "ops-health.log"),
+            "HOME": str(tmp_path / "home"),
+            "CALL_LOG": str(call_log),
+            "PATH": f"{stub_bin}{os.pathsep}{os.environ['PATH']}",
+            "FAKE_GUARD_RC": str(guard_rc),
+            "FAKE_L2_GATE_RC": str(l2_gate_rc),
+            "FAKE_MONEYFLOW_RC": str(moneyflow_rc),
+        }
+    )
+    proc = subprocess.run(
+        ["/bin/zsh", "-x", str(script), "finalize", "2026-09-11"],
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=str(tmp_path),
+        check=False,
+    )
+    return proc, call_log.read_text(encoding="utf-8"), proc.stderr
+
+
 def test_ops_python_helper_exists() -> None:
     assert OPS_PYTHON_SH.is_file()
 
@@ -243,13 +344,73 @@ def test_nightly_closes_the_staging_bypassing_sync_phases() -> None:
     lock_at = next(i for i, ln in enumerate(lines) if 'mkdir "$LOCK_DIR"' in ln)
     assert guard_at < lock_at, f"拒绝点 {guard_at} 晚于加锁 {lock_at}"
 
-    # 4. 不许在本脚本里调 S7（同一把锁，会自锁）。
-    live_s7 = [
-        ln for ln in lines
-        if "nightly-full-review-s7.sh" in ln and not ln.lstrip().startswith("#")
-        and "EOF" not in ln and not ln.lstrip().startswith("/bin/zsh /Users")
-    ]
-    assert not any("$(" in ln or ln.strip().startswith("exec") for ln in live_s7), live_s7
+    # 4. 「不许在本脚本里调 S7」改由行为测试承担，见
+    #    test_nightly_finalize_never_invokes_s7。原先这里是文本断言，且为排除帮助
+    #    文本过滤掉了以 "/bin/zsh /Users" 开头的行——真实嵌套调用恰好是那个形状，
+    #    塞回去测试照样绿（变异测试实测）。别把它改回文本断言。
+
+
+def test_nightly_finalize_attempts_l2_even_when_the_sync_guard_fails(tmp_path: Path) -> None:
+    """同步守卫失败时，L2 仍然被尝试；生成段仍然被挡住。（工单 #51）
+
+    L2 读的是逐笔日包，不依赖同步段产物。这条不变量原先只钉在 `all)` 分支的测试里，
+    而生产是 sync plist + finalize plist 两个独立 job，`finalize)` 里守卫在前、L2 在
+    后——**生产路径从未满足过它**，代价是 feature_l2_* 两表 9-10 / 9-11 两天没有行。
+    """
+    proc, calls, _ = _run_nightly_finalize(tmp_path, guard_rc=1)
+
+    # 夹具自证：真的走进了 finalize，不是在更早的地方就退了（否则下面全是空过）。
+    assert "moneyflow " in calls, f"L2 段根本没被调用，夹具没走到 finalize：\n{calls}\n{proc.stderr[-2000:]}"
+    assert "--phase l2" in calls, f"L2 质量门没跑：\n{calls}"
+
+    # 守卫失败 → 退出码是守卫的，生成段不许跑。
+    assert proc.returncode == 1, f"期望以守卫退出码 1 退出，实际 {proc.returncode}"
+    assert "intelligence.cli daily" not in calls, f"同步守卫没通过却跑了生成段：\n{calls}"
+
+    # L2 必须排在守卫之前——顺序反了就又回到「同步失败连坐 L2」。
+    assert calls.index("moneyflow ") < calls.index("--phase data"), (
+        f"L2 仍排在同步守卫之后：\n{calls}"
+    )
+
+
+def test_nightly_finalize_happy_path_still_runs_generation(tmp_path: Path) -> None:
+    """守卫绿时行为不变：L2 → 守卫 → 生成段 → 方法飞轮，退出 0。（工单 #51 验收 2）
+
+    把 L2 提到守卫之前，只解除「同步失败连坐 L2」，**不放宽生成段的门**。
+    """
+    proc, calls, _ = _run_nightly_finalize(tmp_path, guard_rc=0)
+
+    assert "moneyflow " in calls, f"L2 段没跑：\n{calls}"
+    assert "--phase data" in calls, f"同步守卫没跑：\n{calls}"
+    assert "intelligence.cli daily" in calls, f"守卫放行了却没跑生成段：\n{calls}"
+    assert proc.returncode == 0, f"顺利路径应退 0，实际 {proc.returncode}\n{proc.stderr[-2000:]}"
+
+
+def test_nightly_finalize_blocks_generation_when_l2_fails(tmp_path: Path) -> None:
+    """L2 失败仍然挡住生成段——提前跑 L2 不等于放宽它。（工单 #51「不要做」第 2 条）"""
+    proc, calls, _ = _run_nightly_finalize(tmp_path, guard_rc=0, moneyflow_rc=1)
+
+    assert "moneyflow " in calls, f"L2 段没跑：\n{calls}"
+    assert "intelligence.cli daily" not in calls, f"L2 失败却跑了生成段：\n{calls}"
+    assert proc.returncode == 1, f"L2 失败应退 1，实际 {proc.returncode}"
+
+
+def test_nightly_finalize_never_invokes_s7(tmp_path: Path) -> None:
+    """本脚本不许嵌套调 S7：两者抢同一把 daily-full-review.lock，会自己锁死自己。
+
+    行为测试而非文本断言——理由见 `_run_nightly_finalize` 的 docstring。
+    finalize 分支里那段印推荐命令的 heredoc 根本不会执行，所以 xtrace 里只要出现
+    S7，就一定是真的调用了它。
+    """
+    proc, calls, xtrace = _run_nightly_finalize(tmp_path, guard_rc=0)
+
+    # 先自证夹具真的跑到了 finalize，否则「没调 S7」是空过。
+    assert "moneyflow " in calls, f"夹具没走到 finalize：\n{calls}\n{proc.stderr[-2000:]}"
+
+    assert "nightly-full-review-s7" not in xtrace, (
+        "finalize 里执行了 S7（会抢自己持有的锁）：\n"
+        + "\n".join(ln for ln in xtrace.splitlines() if "nightly-full-review-s7" in ln)
+    )
 
 
 def test_review_sync_plist_source_pins_dedicated_sync_code_root() -> None:

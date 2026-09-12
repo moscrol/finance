@@ -1,13 +1,17 @@
 #!/bin/zsh
-# 全量复盘夜间定时入口。
-# 链路：preflight（run_review_sync 内置）→ 同步段 → 独立 L2 分支 → 生成段。
-# 周末直接跳过；非交易日由质检闸门拦截。preflight 失败（CDP proxy/登录态）会在日志里给出修复提示。
+# 全量复盘夜间定时入口（收尾段）。
+# 链路：独立 L2 分支 → 同步守卫 → 生成段 → 方法飞轮。
+# 同步段**不在本脚本里**：它要做 staging 克隆 / 过闸 / 原子换名，只有 S7 入口走得到。
+# 周末直接跳过；非交易日由质检闸门拦截。
 #
 # 定时拆分（L2 逐笔数据 ~20:30 才到，18:30 跑必空）：
-#   nightly_full_review.sh sync        → 仅同步段（@18:30，不依赖 L2）
-#   nightly_full_review.sh finalize    → L2 + 生成段（@20:40，含 sync 守卫）
-#   nightly_full_review.sh [date]      → 全量（手动补跑用，phase=all）
-# 参数可任意组合：sync 2026-07-22 / finalize / 2026-07-22 /（空）
+#   nightly-full-review-s7.sh <date>       → 仅同步段（@18:30，走 staging）
+#   nightly_full_review.sh finalize <date> → L2 + 生成段 + 方法飞轮（@20:40）
+# 两条分开跑、都要跑，别用 && 串：同步失败时 finalize 不启动，L2 会跟着一起丢，
+# 而 L2 不依赖同步段产物（工单 #51）。finalize 自己按守卫决定要不要生成。
+#
+# sync / all 两个 phase 已于 2026-09-12 关闭（绕开 staging 直写生产库），见下方拒绝块。
+# 本脚本只接受 finalize；日期缺省今天。
 set -uo pipefail
 
 _HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -155,10 +159,12 @@ if [ "$PHASE" != "finalize" ]; then
 [$(date '+%F %T')] 拒绝执行 phase=$PHASE：这条路径绕开 staging，直写生产库。
   同步段请走 S7 入口（它做克隆 / 过闸 / 原子换名）：
     /bin/zsh /Users/a77/.local/bin/nightly-full-review-s7.sh $D
-  同步成功后再跑收尾（用 && 串起来，别让同步失败还继续收尾）：
-    /bin/zsh /Users/a77/.local/bin/nightly-full-review-s7.sh $D && \\
-      /bin/zsh /Users/a77/.local/bin/nightly_full_review.sh finalize $D
-  finalize 覆盖 L2 + 生成段 + 方法飞轮，与原 phase=all 等价。
+  收尾另跑一条，**两条都要跑、别用 && 串**（工单 #51）：
+    /bin/zsh /Users/a77/.local/bin/nightly_full_review.sh finalize $D
+  用 && 串的话，同步一失败 finalize 就根本不启动，L2 跟着一起丢——而 L2 读的是
+  逐笔日包，不依赖同步段产物。finalize 自己先跑 L2、再按守卫决定要不要生成，
+  所以同步失败时照跑它是安全的：它只跳过生成段，不会拿半拉数据出报告。
+  finalize 覆盖 L2 + 生成段 + 方法飞轮；同步段只由 S7 负责，两段各自报退出码。
 EOF
   exit 2
 fi
@@ -350,25 +356,38 @@ run_method_flywheel() {
 # 只剩 finalize 一个分支：sync / all 在加锁前就被拒（见上），它们绕开 staging。
 case "$PHASE" in
   finalize)
-    # 定时 @20:40。守卫：18:30 sync 必须已通过 same-day-gate，否则不生成报告。
+    # 工单 #51：L2（资金流 + 质量门）不读同步段的产物，所以它排在同步守卫**之前**——
+    # 同步失败不该连坐它。这条不变量原先只钉在已删除的 all) 分支的测试里，生产路径
+    # （sync plist + finalize plist 两个独立 job）从未满足过，实际后果是
+    # feature_l2_* 两表在 9-10 / 9-11 整整两天没有行。
+    # run_l2_branch 自带各失败态的 notify，提前跑不会丢告警。
+    run_l2_branch
+    l2_branch_rc=0
+    if [ "$moneyflow_rc" -ne 0 ] || [ "$l2_rc" -ne 0 ]; then
+      l2_branch_rc=1
+      echo "[$(date '+%F %T')] L2 段失败 date=$D 资金流 rc=$moneyflow_rc L2门 rc=$l2_rc；继续查同步守卫（生成段另行守门）"
+    fi
+
+    # 定时 @20:40。守卫只管生成段：18:30 sync 必须已通过 same-day-gate，否则不生成报告。
     "$OPS_PYTHON" "$REVIEW_CHECKER" "$D" --phase data
     guard_rc=$?
     if [ "$guard_rc" -eq 3 ]; then
       # 闸门被写锁挡住没跑成 ≠ 数据不完整；如实播报，别引导人去补数
-      echo "[$(date '+%F %T')] finalize 守卫未能执行：duckdb 写锁占用超重试窗（rc=3），完整性未知，中止生成段"
+      echo "[$(date '+%F %T')] finalize 守卫未能执行：duckdb 写锁占用超重试窗（rc=3），完整性未知，中止生成段（L2 段已跑，rc=$l2_branch_rc）"
       notify "⚠️ 全量复盘 $D finalize 中止：质检闸门被 duckdb 写锁挡住没跑成（非缺数）；等写进程收工后重跑 finalize；日志 logs/daily-full-review.out.log"
-      echo "[$(date '+%F %T')] === finalize 中止 date=$D sync 守卫 rc=$guard_rc ==="
+      echo "[$(date '+%F %T')] === finalize 中止 date=$D sync 守卫 rc=$guard_rc L2段 rc=$l2_branch_rc ==="
       skip_method_flywheel "finalize 守卫未能执行（duckdb 写锁 rc=3，完整性未知）"
       exit "$guard_rc"
     elif [ "$guard_rc" -ne 0 ]; then
-      echo "[$(date '+%F %T')] finalize 守卫未通过：$D 同步段数据不完整（same-day-gate rc=$guard_rc），中止生成段"
-      notify "⚠️ 全量复盘 $D finalize 中止：18:30 sync 段未成功（same-day-gate fail），未生成报告；需先补跑 sync；日志 logs/daily-full-review.out.log"
-      echo "[$(date '+%F %T')] === finalize 中止 date=$D sync 守卫 rc=$guard_rc ==="
+      echo "[$(date '+%F %T')] finalize 守卫未通过：$D 同步段数据不完整（same-day-gate rc=$guard_rc），中止生成段（L2 段已跑，rc=$l2_branch_rc）"
+      notify "⚠️ 全量复盘 $D finalize 中止：18:30 sync 段未成功（same-day-gate fail），未生成报告；L2 段已独立跑过（rc=$l2_branch_rc）；需先补跑 sync；日志 logs/daily-full-review.out.log"
+      echo "[$(date '+%F %T')] === finalize 中止 date=$D sync 守卫 rc=$guard_rc L2段 rc=$l2_branch_rc ==="
       skip_method_flywheel "same-day-gate rc=$guard_rc 数据不完整"
       exit "$guard_rc"
     fi
-    run_l2_branch
-    if [ "$moneyflow_rc" -ne 0 ] || [ "$l2_rc" -ne 0 ]; then
+
+    # 守卫过了再结算 L2：L2 失败仍然挡住生成段（与原 all) 一致），退出码不吞它。
+    if [ "$l2_branch_rc" -ne 0 ]; then
       echo "[$(date '+%F %T')] === 全量复盘失败 date=$D 资金流 rc=$moneyflow_rc L2门 rc=$l2_rc ==="
       skip_method_flywheel "资金流 rc=$moneyflow_rc / L2 门 rc=$l2_rc"
       exit 1
