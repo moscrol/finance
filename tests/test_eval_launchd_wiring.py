@@ -192,6 +192,27 @@ def test_nightly_resolves_quality_gate_from_code_root_not_workspace() -> None:
     assert '$WORKSPACE/scripts/check_daily_review_data.py' not in text
 
 
+@pytest.mark.parametrize(
+    "script_name",
+    ["nightly_full_review.sh", "nightly_full_review_s7.sh"],
+)
+def test_manual_entries_carry_their_own_defaults(script_name: str) -> None:
+    """两个手动入口必须自带缺省，不能靠 plist。
+
+    plist 的 EnvironmentVariables 只作用于 launchd 启动的进程。人在终端手敲
+    `nightly_full_review.sh sync|all` 或 `nightly-full-review-s7.sh <date>` 一个都拿不到：
+    2026-09-12 干净 shell 实测，SYNC_CODE_ROOT 退到运行快照、REVIEW_SYNC_PLAN 未设 →
+    CLI 默认 full → 要 fupanhui 登录态 → rc=3 停在 preflight。
+    「两份 plist 同值」只保证它们启动的进程，不保证手动补跑。
+    """
+    script = ROOT / "skills" / "daily-full-review" / "scripts" / script_name
+    text = script.read_text(encoding="utf-8")
+    assert f'"${{FINANCE_SYNC_CODE_ROOT:-{SYNC_CODE_ROOT}}}"' in text, "缺 sync 代码根缺省"
+    assert '"${REVIEW_SYNC_PLAN:-local}"' in text, "缺档位缺省"
+    # 档位要 export，否则子进程（run_review_sync.py / 三道闸门）读不到。
+    assert "export REVIEW_SYNC_PLAN=" in text
+
+
 def test_manual_backfill_entry_does_not_bypass_the_pinned_sync_root() -> None:
     """`nightly_full_review.sh sync|all` 是手动补跑入口，不能绕开钉住的同步代码根。
 
@@ -202,7 +223,7 @@ def test_manual_backfill_entry_does_not_bypass_the_pinned_sync_root() -> None:
     """
     nightly = ROOT / "skills" / "daily-full-review" / "scripts" / "nightly_full_review.sh"
     text = nightly.read_text(encoding="utf-8")
-    assert 'SYNC_CODE_ROOT="${FINANCE_SYNC_CODE_ROOT:-$CODE_ROOT}"' in text
+    assert f'SYNC_CODE_ROOT="${{FINANCE_SYNC_CODE_ROOT:-{SYNC_CODE_ROOT}}}"' in text
     assert 'REVIEW_SYNC_SCRIPT="$SYNC_CODE_ROOT/skills/daily-full-review/scripts/run_review_sync.py"' in text
     assert '"$OPS_PYTHON" "$REVIEW_SYNC_SCRIPT" --date "$D"' in text
     assert '[ ! -f "$REVIEW_SYNC_SCRIPT" ]' in text

@@ -49,8 +49,17 @@ REVIEW_CHECKER="$CODE_ROOT/scripts/check_daily_review_data.py"
 # 但 `nightly_full_review.sh sync|all` 这个**手动补跑入口**绕开包装脚本直调本函数，
 # 于是又落回主检出树，照样 `ValueError: unknown plan 'local'`——修好定时入口
 # 不等于修好补跑入口，而补跑恰恰是缺数那天要用的那个。
-SYNC_CODE_ROOT="${FINANCE_SYNC_CODE_ROOT:-$CODE_ROOT}"
+#
+# 缺省值必须在脚本里给全，不能靠 plist。plist 的 EnvironmentVariables 只作用于
+# launchd 启动的进程；人在终端手敲 `nightly_full_review.sh sync|all` 一个都拿不到。
+# 干净 shell 实测（2026-09-12）：SYNC_CODE_ROOT 退到运行快照、REVIEW_SYNC_PLAN 未设
+# → CLI 默认 full → 要 fupanhui 登录态 → rc=3 停在 preflight。
+# 「两份 plist 同值」只保证它们启动的进程，不保证手动补跑。
+SYNC_CODE_ROOT="${FINANCE_SYNC_CODE_ROOT:-/Users/a77/finance-workspace-sync}"
 REVIEW_SYNC_SCRIPT="$SYNC_CODE_ROOT/skills/daily-full-review/scripts/run_review_sync.py"
+# 档位同理，且要 export：run_review_sync.py 与三道质检闸门的 plan 参数都读它。
+export REVIEW_SYNC_PLAN="${REVIEW_SYNC_PLAN:-local}"
+export FINANCE_SYNC_CODE_ROOT="$SYNC_CODE_ROOT"
 if [ ! -f "$REVIEW_CHECKER" ]; then
   echo "[$(date '+%F %T')] 质检闸门不在 CODE_ROOT=$CODE_ROOT（运行快照过旧）；" \
        "拒绝用主检出树那份顶替（它不认 --plan，会把 plan=local 判成断档），中止"
@@ -118,6 +127,13 @@ if [ "$dow" -gt 5 ]; then
   exit 0
 fi
 
+# 遗留未修（另单）：下面生成段的 `python -m intelligence.cli daily` 在这个 cwd 下跑，
+# `-m` 会把 cwd 放进 sys.path[0]（实测是空串），于是 intelligence 仍从 WORKSPACE 加载
+# ——也就是那棵共用的、会漂的主检出树（实测
+# /Users/a77/finance-workspace-private/intelligence/__init__.py）。
+# 质检闸门（REVIEW_CHECKER）与同步器（REVIEW_SYNC_SCRIPT）已各自钉住代码根，
+# **生成段还没有**：修对两处不等于整个 finalize 已修对根。
+# 不在本单顺手改：生成段要连 users 目录、episode 目录、模型网关一起验，改动面比闸门大。
 cd "$WORKSPACE" || exit 1
 REV=$(git -C "$CODE_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 WORKSPACE_REV=$(git -C "$WORKSPACE" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)

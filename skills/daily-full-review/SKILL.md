@@ -83,21 +83,34 @@ git branch --show-current
 
 ### 一键入口（推荐）
 
+**走 S7 包装脚本，它才有 staging + 换名闸**：
+
 ```bash
-cd /Users/a77/finance-workspace-sync   # 见下「从哪棵树跑」
-REVIEW_SYNC_PLAN=local \
-MARKET_FEATURE_STORE_DB=/Users/a77/finance-workspace-private/db/market_feature_store.duckdb \
-  /Users/a77/finance-workspace-private/.venv-workbench/bin/python \
-  skills/daily-full-review/scripts/run_review_sync.py --date YYYY-MM-DD
+/bin/zsh /Users/a77/.local/bin/nightly-full-review-s7.sh YYYY-MM-DD   # sync 段
+/bin/zsh /Users/a77/.local/bin/nightly_full_review.sh finalize YYYY-MM-DD
 ```
 
-**从哪棵树跑（2026-09-12 起）**：`finance-workspace-sync` 是夜跑专用的 detached
-worktree，跟随 `gitea/main`。**不要在 `finance-workspace-private` 里跑**——那是数据仓、
+两个脚本都自带 `FINANCE_SYNC_CODE_ROOT` / `REVIEW_SYNC_PLAN` 缺省，干净 shell 直接可跑；
+要覆盖就在命令前面加同名变量。
+
+> ⚠ **不要直接跑 `run_review_sync.py` 补数。** 它自己**不做** staging：写的就是
+> `MARKET_FEATURE_STORE_DB` 指向的那个库，指向生产就是直写生产，中途失败会留下
+> 改了一半的生产库。「克隆到 staging → 过闸 → 原子换名」全在
+> `nightly-review-sync-staged.py` 里，只有经 S7 入口才走得到。
+> `run_review_sync.py` 里那几处 `staging` 字样是注释，它假定外层已经把库换成 staging。
+
+**从哪棵树跑**：S7 入口会把同步子进程指到 `finance-workspace-sync`（夜跑专用 detached
+worktree，跟随 `gitea/main`）。**不要在 `finance-workspace-private` 里跑**——那是数据仓、
 各 agent 共用，长期停在任意旧提交上；2026-09-12 实测它落后 548 个提交、`PLANS` 里没有
 `local`，直接 `ValueError: unknown plan 'local'`。
 
-**档位**：日更固定 `local`（零复盘会请求，不需要 Chrome 登录态）。省略变量会默认
-`full`，那要 fupanhui 登录，登录失效时停在 preflight rc=3。
+**档位**：日更固定 `local`（零复盘会请求，不需要 Chrome 登录态）。`full` / `cheap` 都要
+fupanhui 登录，登录失效时停在 preflight rc=3。
+
+**已知遗留（另单）**：生成段 `python -m intelligence.cli daily` 在 `cd "$WORKSPACE"`
+之后跑，`sys.path[0]` 是空串即 cwd，所以 `intelligence` 仍从主检出树加载
+（实测 `/Users/a77/finance-workspace-private/intelligence/__init__.py`）。
+质检闸门与同步器已钉住代码根，**生成段还没有**。
 
 脚本按下面的"已验证模块顺序"逐个跑，逐模块超时 + 自动兜底 + 写 runlog。
 同步全绿后再跑生成段：
