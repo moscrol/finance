@@ -1,49 +1,57 @@
-# fix/sync-code-root · 夜跑 sync 代码根钉死
+# fix/sync-code-root · 夜跑两个代码根钉死
 
-## 状态：已提交 `5b57d109`，**未推未合**，等用户确认
+## 状态：三个提交，**未推未合**，等用户确认
 
-## 修了什么
+`5b57d109` sync 代码根 / `6439ea77` 质检闸门代码根 / handoff。
 
-夜跑 sync 从 2026-09-10 起连着三次 rc=2，**09-11（周五、交易日）整日没进库**，
-20:40 finalize 守卫 rc=2 中止，方法飞轮那段根本没执行到。
+## 完成口径（别写成「事故已修」）
 
-根因链（逐段实测）：`nightly-review-sync-staged.py:39` 的 `SYNC_ROOT` 缺省是
-`FINANCE_DATA_ROOT` → 也就是各 agent 共用的主检出树 `finance-workspace-private`
-→ 它 detached 在 `b4a35fa2`、**落后 gitea/main 548 个提交**、`PLANS` 里没有
-`local` → plist 设的 `REVIEW_SYNC_PLAN=local` 撞上
-`ValueError: unknown plan 'local'` → staging 不换名。
+已修掉 `unknown plan 'local'` 的代码根原因，并验证装机配置已加载；
+**真实同步、最终检查、方法日步尚未贯通验收**。
 
-改法：plist 显式给 `FINANCE_SYNC_CODE_ROOT=/Users/a77/finance-workspace-sync`
-（新建的 detached worktree，跟随 `gitea/main`，只做这一件事，不在上面开发）。
-**仓内源与装机副本两边都改了**——`install_eval_launchd.sh` 是 `cp 源 → dest`，
-只改装机副本下次重装会被静默冲回（09-04 已在 `REVIEW_SYNC_PLAN` 上踩过同一坑）。
-新测试断言该键存在、且既不等于 `FINANCE_DATA_ROOT` 也不等于 `FINANCE_CODE_ROOT`。
+## 两处都是同一个形状：根解析缺省落到共用主检出树
 
-## 已验证
+主检出树 `finance-workspace-private` detached 在 `b4a35fa2`、**落后 gitea/main 548
+个提交**、带 64 个别人的未提交改动。它不能当任何运行时的代码根。
 
-- 证伪对：旧 SYNC_ROOT 抛的正是生产那条 `ValueError`；新树 `resolve_plan('local')`
-  解出 16 步、`preflight(require_fupanhui=False)` 全绿。
-- 装机侧：`bootout` + `bootstrap` 后 `launchctl print` 显示新值，18:30 计划完好。
-- ruff 全过；`tests/test_eval_launchd_wiring.py` 15 passed；新测试做过变异
-  （删键转红、还原转绿）；`check_path_literals.py` exit 0；11 道 pre-commit 全过。
-- **未跑全量 pytest**：另一 agent 16:50 起在 `fwp-wt-verify-8bc7252b` 跑全量，
-  16 GB 机器不并发第二份。合入前补。
+1. **sync**：`nightly-review-sync-staged.py:39` 的 `SYNC_ROOT` 缺省 `FINANCE_DATA_ROOT`
+   → 那份 `run_review_sync.py` 的 `PLANS` 没有 `local` → `ValueError` rc=2 →
+   **09-11（周五、交易日）整日没进库**。修：plist 显式
+   `FINANCE_SYNC_CODE_ROOT=/Users/a77/finance-workspace-sync`（新建 detached
+   worktree，跟随 `gitea/main`，只做这件事，不在上面开发）。
+2. **质检闸门**：三处 `scripts/check_daily_review_data.py` 是裸相对路径，落在
+   `cd "$WORKSPACE"` 之后 = 同一棵旧树；那份没有 `--plan`、表清单写死，
+   plan=local 下必然少 `theme_flow` / `limit_advance`。同日同库实测（2026-09-10）：
+   旧树 **exit=2 INCOMPLETE**（卡 `fact_theme_flow_daily`）/ CODE_ROOT 那份
+   **exit=0 COMPLETE**。修：`REVIEW_CHECKER="$CODE_ROOT/scripts/…"`，缺了就停、
+   不回退顶替。计划口径不用另传，`--plan` 缺省读 `REVIEW_SYNC_PLAN`，两个 plist 都有。
 
-## 未决（留给用户，我没自作主张）
+仓内源与装机副本**两边都改了**（`install_eval_launchd.sh` 是 `cp 源 → dest`）。
+装机副本是外科式打补丁：它与仓内版有其它有意差异
+（`docs/handoffs/inflight/chore-retire-feishu.md:71`），**别跑安装脚本覆盖它**。
+两处原件备份为同目录 `*.bak-pre-*-20260912`。
 
-1. **`REVIEW_SYNC_PLAN` 仓内源=`auto`、装机副本=`local`，仍在漂。**
-   下次 `install_eval_launchd.sh` 会把它冲回 `auto`；`auto` 在非周五=`cheap`，
-   而 `cheap` 要 fupanhui 登录，**当前实测未登录**（`preflight(True)` 红）→ 会
-   rc=3 停在 preflight。要么把 `local` 扶正进源（改档决定），要么恢复 Chrome 登录。
-   现有测试 `test_review_sync_plist_source_carries_tiered_plan` 钉的是 `auto`，
-   改档要连它一起改。
-2. **9-11 数据补跑**：用户手动 `/daily-full-review`（有副作用技能）。
-   `local` 档的 16 步覆盖标签需要的七张表（缺的 `theme-flow-daily` /
-   `limit-advance` 标签口径不用）。
+## 订正两处我先前说错的
 
-## 别做
+- `deploy_workbench_runtime.sh` **不更新** `scripts/`（只 rsync `intelligence/` 进
+  **已有**快照），`install_eval_launchd.sh` 清单也不含 `method_validation.py`。
+  要让 `$CODE_ROOT` 拿到 `activate`/`supersede`，得**重切快照**：
+  `git worktree add --detach ~/.finance-runtime/finance-workspace-<sha> <sha>` + 换符号链接。
+- `preflight(require_fupanhui=False)` 是**跳过复盘会登录检查**（第一行就 `return []`），
+  不是「全绿」，它没验证 16 步的依赖可用。
 
-- 别把 `FINANCE_SYNC_CODE_ROOT` 指回数据仓或运行快照（理由在 plist 注释里）。
-- 别在 `/Users/a77/finance-workspace-sync` 上开发——它是夜跑代码根，
-  只用 detached checkout 跟随 `gitea/main`。
-- 别推进主检出树：64 个未提交改动、22 个与上游真冲突，是别人的 WIP。
+## 未验证
+
+- `--phase all` 在 09-10 仍红，红在「日报 md 不存在 / L2 三步无完成记录」——那是
+  finalize 被守卫拦掉的后果，非独立阻塞，只能等一次完整跑通才能判。
+- **未跑全量 pytest**（另一 agent 在并发跑，16 GB 机器不开第二份）。合入前补。
+
+## 未决
+
+1. `REVIEW_SYNC_PLAN` 仓内源=`auto`、装机=`local` 仍在漂；重装会冲回 `auto`，
+   而 `auto` 非周五=`cheap` 要 fupanhui 登录（实测未登录）→ rc=3。
+   扶正 `local` 要连 `test_review_sync_plist_source_carries_tiered_plan` 一起改。
+2. 9-11 补数：用户手动 `/daily-full-review`。
+3. 已发消息给 `feat/method-closed-loop` 那个 session：其
+   `nightly_full_review.sh` 第 55 行在 LOG_DIR 赋值（75 行）前用它，`set -u` 下
+   rc=1 → 静默回退旧 v3 协议，`active` 一次都没跑。对 tip `dd7b6f74` 仍复现。
