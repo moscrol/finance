@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import http.client
 import io
 import sys
 import urllib.error
@@ -38,11 +39,16 @@ class _FakeServer:
     """按调用推进状态的假 workbench：run 状态依次给出，消息内容可随轮询变化。"""
 
     def __init__(
-        self, run_progression: list[dict], messages, submission_error=None
+        self,
+        run_progression: list[dict],
+        messages,
+        submission_error=None,
+        post_message_error=None,
     ) -> None:
         self._run_progression = list(run_progression)
         self._messages = messages  # list / 异常实例 / callable(server) -> list
         self._submission_error = submission_error  # 非空则任何 POST 都抛它
+        self._post_message_error = post_message_error  # 非空则仅 POST 消息抛它
         self.run_polls = 0
         self.message_fetches = 0
 
@@ -52,6 +58,8 @@ class _FakeServer:
         if path == "/api/conversations" and payload is not None:
             return {"conversation_id": "conv_test"}
         if payload is not None and path.endswith("/messages"):
+            if self._post_message_error is not None:
+                raise self._post_message_error
             return dict(POST_RESPONSE)
         if path.startswith("/api/runs/"):
             self.run_polls += 1
@@ -221,4 +229,49 @@ def test_submission_read_timeout_exits_2(monkeypatch, capsys):
     fake = _FakeServer([], [], submission_error=TimeoutError("timed out"))
     code, captured = _run_probe(monkeypatch, capsys, fake, "--timeout", "30")
     assert code == 2
+    assert "Traceback" not in captured.err
+
+
+def _incomplete_read() -> http.client.IncompleteRead:
+    """正文传到一半断开。它属 http.client.HTTPException，不是 OSError 子类。"""
+    return http.client.IncompleteRead(b'{"partial":', 120)
+
+
+@pytest.mark.parametrize("stage", ["create", "submit", "poll", "fetch"])
+def test_incomplete_read_exits_2_without_traceback(monkeypatch, capsys, stage: str):
+    """四个阶段（建会话/提交/轮询/取消息）的 IncompleteRead 都走 exit 2 合同。"""
+    if stage == "create":
+        fake = _FakeServer([], [], submission_error=_incomplete_read())
+    elif stage == "submit":
+        fake = _FakeServer([], [], post_message_error=_incomplete_read())
+    elif stage == "poll":
+        fake = _FakeServer([_incomplete_read()], [])
+    else:
+        fake = _FakeServer([{"status": "completed"}], _incomplete_read())
+    code, captured = _run_probe(monkeypatch, capsys, fake, "--timeout", "30")
+    assert code == 2
+    assert "Traceback" not in captured.err
+
+
+def _http_error_with_boom_body() -> urllib.error.HTTPError:
+    """HTTP 错误本身能给出，但读它的正文会再次超时。"""
+
+    class _BoomBody:
+        def read(self, *args, **kwargs):
+            raise TimeoutError("timed out reading error body")
+
+        def close(self) -> None:
+            pass  # addinfourl 是 io 对象，GC 时 __del__ 会调 fp.close()，缺了打印噪音
+
+    return urllib.error.HTTPError(
+        "http://probe", 429, "slow down", hdrs=None, fp=_BoomBody()
+    )
+
+
+def test_http_error_body_read_failure_still_exits_2(monkeypatch, capsys):
+    """handler 里 exc.read() 再爆炸也不能逃出 except 块（QC 实测 exit 1 + traceback）。"""
+    fake = _FakeServer([], [], submission_error=_http_error_with_boom_body())
+    code, captured = _run_probe(monkeypatch, capsys, fake, "--timeout", "30")
+    assert code == 2
+    assert "HTTP 429" in captured.err
     assert "Traceback" not in captured.err

@@ -44,6 +44,7 @@ revise 消息终稿，所以 run=completed 而消息内容还是空是**合法�
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import sys
 import time
@@ -55,6 +56,11 @@ RUN_SUCCESS = "completed"
 RUN_FAILURE = ("failed", "cancelled")
 # run 记录在 POST 返回前就建好，之后还 404 只可能是可见性竞态；给几次机会再判死。
 RUN_MISSING_TOLERANCE = 3
+# 传输错误全家桶：连不上/断连/socket 超时属 OSError；半截或畸形响应
+# （IncompleteRead/BadStatusLine）属 http.client.HTTPException——两个家族互不
+# 继承，只接一家会漏（QC 2026-09-13 四阶段实测复现 traceback）。HTTPError 也
+# 属 OSError，各调用点必须先单列它（要区分 404 与状态码），再接本元组。
+_TRANSPORT_ERRORS = (OSError, http.client.HTTPException)
 
 
 def _call(base: str, path: str, payload: dict[str, object] | None = None) -> object:
@@ -73,8 +79,8 @@ def _get_run(base: str, run_id: str, user: str) -> dict:
     return _call(base, f"/api/runs/{run_id}?user={user}")  # type: ignore[return-value]
 
 
-def _transport_summary(exc: OSError) -> str:
-    """URLError 的错误在 .reason 里，裸超时/断连没有；统一成一行可读摘要。"""
+def _transport_summary(exc: BaseException) -> str:
+    """URLError 的错误在 .reason 里；超时/IncompleteRead 没有，用 str 兜底。"""
     reason = getattr(exc, "reason", None)
     return str(reason if reason is not None else exc)
 
@@ -146,10 +152,13 @@ def main() -> int:
             {"content": question, "skill_mode": args.skill_mode, "user": args.user},
         )
     except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", "replace")[:500]
+        try:
+            body = exc.read().decode("utf-8", "replace")[:500]
+        except Exception:  # 读错误正文本身也会超时/断流/半截；它只是诊断附件
+            body = "<错误正文读取失败>"
         print(f"提交失败：HTTP {exc.code} {body}", file=sys.stderr)
         return 2
-    except OSError as exc:  # URLError（连不上/断连）与 socket 超时同属 OSError
+    except _TRANSPORT_ERRORS as exc:
         print(
             f"提交阶段传输失败：{_transport_summary(exc)}（base={base}，workbench 在吗）",
             file=sys.stderr,
@@ -181,7 +190,7 @@ def main() -> int:
                 continue
             print(f"查询 run 失败：HTTP {exc.code}", file=sys.stderr)
             return 2
-        except OSError as exc:
+        except _TRANSPORT_ERRORS as exc:
             print(f"查询 run 传输失败：{_transport_summary(exc)}", file=sys.stderr)
             return 2
         status = str(run.get("status", "?"))
@@ -204,7 +213,7 @@ def main() -> int:
             except urllib.error.HTTPError as exc:
                 print(f"取消息失败：HTTP {exc.code}", file=sys.stderr)
                 return 2
-            except OSError as exc:
+            except _TRANSPORT_ERRORS as exc:
                 print(f"取消息传输失败：{_transport_summary(exc)}", file=sys.stderr)
                 return 2
             content = (message or {}).get("content") or ""
