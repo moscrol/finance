@@ -31,14 +31,9 @@
 （`docs/handoffs/inflight/chore-retire-feishu.md:71`），**别跑安装脚本覆盖它**。
 两处原件备份为同目录 `*.bak-pre-*-20260912`。
 
-## 订正两处我先前说错的
-
-- `deploy_workbench_runtime.sh` **不更新** `scripts/`（只 rsync `intelligence/` 进
-  **已有**快照），`install_eval_launchd.sh` 清单也不含 `method_validation.py`。
-  要让 `$CODE_ROOT` 拿到 `activate`/`supersede`，得**重切快照**：
-  `git worktree add --detach ~/.finance-runtime/finance-workspace-<sha> <sha>` + 换符号链接。
-- `preflight(require_fupanhui=False)` 是**跳过复盘会登录检查**（第一行就 `return []`），
-  不是「全绿」，它没验证 16 步的依赖可用。
+背景、被否方案、三处走错又纠回来的地方（`plutil -lint` 不校验 XML 注释、
+`active --help` 不是能力探针、`deploy_workbench_runtime.sh` 不更新 `scripts/`）
+见 `docs/handoffs/2026-09-12-nightly-code-root-outage.md`。
 
 ## 未验证
 
