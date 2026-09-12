@@ -72,7 +72,14 @@ db/history_labels.duckdb.bak-v3-20260911                      （#737 留的 v3 
 
 1. `build-labels` → `outcomes` 重建共享库到 v5（**这一步才是需要点头的写操作**）。
 2. 用同一份方法定义 `register` 新协议，`label_version` = v5，
-   `forward_start` = 重建日的**下一个交易日**（当天的观察会混进重建前后两种口径）。
+   **`forward_start` = max(重建日, 实际登记日) 的下一个交易日**。
+
+   不能把它固定成「重建日次日」：③④ 之间可以停（本方案自称每步可停），周五重建、
+   周一才登记的话，「重建日次日」已经是过去，`register` 会被
+   「history must end by registration day; forward_start must be after registration day」
+   拒掉（09-12 复核实测）。取两者较晚的那个再往后一个交易日，两条约束才同时成立：
+   前瞻不含重建前的口径，起点也确实晚于登记日。
+   登记时才计算这个日期，**不要在方案里写死具体某一天**。
 3. `history` 段在 v5 库上重跑，得到与旧协议可并排、**不可合并**的读数。
 
 ### 3.4 规则收据（methodology_backtest）
@@ -87,7 +94,7 @@ db/history_labels.duckdb.bak-v3-20260911                      （#737 留的 v3 
 ① 备份现有 v4 库为只读留档                          ← 无风险，可先做
 ② 旧协议写 superseded 记录（含「待回检 = 0」）      ← 写用户态，一条记录
 ③ 重建共享库到 v5                                   ← 写共享库，最需要点头
-④ 新协议 register（forward_start = 重建日次日）     ← 写用户态
+④ 新协议 register（forward_start = max(重建日, 登记日) 的次个交易日）  ← 写用户态
 ⑤ 四条种子规则按阶段重跑                            ← 写收据目录
 ```
 

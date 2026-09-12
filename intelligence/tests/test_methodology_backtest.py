@@ -1346,6 +1346,161 @@ def test_write_receipt_refuses_silent_overwrite(synthetic, tmp_path):
     assert "拒绝静默覆盖" in str(exc.value)
 
 
+def test_concurrent_writes_cannot_overwrite_each_other(synthetic, tmp_path):
+    """强制同名 + 并发：必须恰好一个成功、一个被 ``ReceiptCollision`` 拒，且只留一份。
+
+    「先 exists() 再 write」是 check-then-act，两个写手可以都通过检查、都去写，后者覆盖
+    前者（09-12 复核用线程池实测）。改用 ``O_CREAT | O_EXCL`` 把「不存在才创建」交给内核
+    一次完成。这里用 monkeypatch 强制同名来构造碰撞条件——不是在赌 128 bit 自然碰撞。
+    """
+    import datetime as _dt
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    from intelligence.services.methodology_backtest import receipts as receipts_mod
+    from intelligence.services.methodology_backtest.receipts import ReceiptCollision, write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+
+    def doc(verdict):
+        r = build_receipt(
+            res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage="holdout",
+            now=_dt.datetime(2026, 9, 12, 12, tzinfo=_dt.timezone.utc),
+        )
+        r["rule"]["version"] = 1
+        r["verdict"] = verdict
+        return r
+
+    ok, rejected = [], []
+    barrier = threading.Barrier(2)
+
+    def run(verdict):
+        barrier.wait()
+        try:
+            ok.append(write_receipt(root, doc(verdict), date_str="2026-09-12"))
+        except ReceiptCollision:
+            rejected.append(verdict)
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(receipts_mod, "_run_suffix", lambda _receipt: "forced-collision")
+        with ThreadPoolExecutor(2) as pool:
+            list(pool.map(run, ["refuted", "supported"]))
+
+    folder = root / "selftest_positive@v1"
+    assert len(ok) == 1 and len(rejected) == 1, (ok, rejected)
+    assert len(list(folder.glob("*.json"))) == 1
+
+
+def test_scan_summary_also_refuses_overwrite(synthetic, tmp_path):
+    """扫描汇总原本完全没接闸，强制同名即可覆盖旧汇总。"""
+    import datetime as _dt
+
+    from intelligence.services.methodology_backtest import receipts as receipts_mod
+    from intelligence.services.methodology_backtest.receipts import (
+        SCAN_SCHEMA,
+        ReceiptCollision,
+        write_scan_summary,
+    )
+
+    root = tmp_path / "receipts"
+    first = {
+        "schema_version": SCAN_SCHEMA,
+        "generated_at": _dt.datetime(2026, 9, 12, 12, tzinfo=_dt.timezone.utc).isoformat(),
+        "q": 0.05, "family_size": 2, "rules": [], "conditions": {},
+    }
+    second = dict(first, q=0.1)
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(receipts_mod, "_run_suffix", lambda _summary: "forced-collision")
+        write_scan_summary(root, first, date_str="2026-09-12")
+        with pytest.raises(ReceiptCollision):
+            write_scan_summary(root, second, date_str="2026-09-12")
+    kept = __import__("json").loads(next((root / "scan").glob("*.json")).read_text(encoding="utf-8"))
+    assert kept["q"] == 0.05, "先写的那份必须留着"
+
+
+def test_retry_repairs_a_half_written_pair(synthetic, tmp_path):
+    """json 落盘、md 写失败 → 原样重试必须把 md 补上，不能因为 json 在就整体当成功返回。
+
+    两个文件各自判幂等；早先的写法一看 json 在就 return 两个路径，缺失的 md 永远补不回来
+    （09-12 复核用文件写入故障注入实测）。
+    """
+    import datetime as _dt
+    import os as _os
+
+    from intelligence.services.methodology_backtest.receipts import write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+    receipt = build_receipt(
+        res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage="holdout",
+        now=_dt.datetime(2026, 9, 12, 12, tzinfo=_dt.timezone.utc),
+    )
+    receipt["rule"]["version"] = 1
+
+    real_open = _os.open
+
+    def flaky(path, flags, mode=0o777, *args, **kwargs):
+        if str(path).endswith(".md"):
+            raise OSError(28, "No space left on device")
+        return real_open(path, flags, mode, *args, **kwargs)
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(_os, "open", flaky)
+        with pytest.raises(OSError):
+            write_receipt(root, receipt, date_str="2026-09-12")
+
+    folder = root / "selftest_positive@v1"
+    assert len(list(folder.glob("*.json"))) == 1 and not list(folder.glob("*.md")), "中间态：json 在、md 缺"
+
+    json_path, md_path = write_receipt(root, receipt, date_str="2026-09-12")
+    assert md_path.exists(), "重试必须补上缺失的 md"
+    assert len(list(folder.glob("*.json"))) == 1, "json 幂等，不新增"
+
+
+def test_mixed_timestamp_forms_order_consistently(synthetic, tmp_path):
+    """``12:00:00Z`` 与 ``12:00:00.500000+00:00`` 都是合法 ISO UTC，字符串序与时间序相反。
+
+    三个读取口径（``load_steps`` / ``latest_receipt`` / ``report``）必须给同一个答案。
+    """
+    import datetime as _dt
+
+    from intelligence.services.methodology_backtest import lifecycle
+    from intelligence.services.methodology_backtest.receipts import latest_receipt, write_receipt
+
+    st = synthetic["st"]
+    env = {"tree": "t", "branch": "b", "revision": "r", "dirty": False, "interpreter": "py", "python_version": "3", "duckdb_version": "d"}
+    root = tmp_path / "receipts"
+    res = st.run(synthetic["labels"], st.POSITIVE_RULE)
+
+    def put(stage, ws, we, hour, stamp=None, verdict=None):
+        r = build_receipt(
+            res, rule_path=None, rule_sha256="sha-x", environment=env, declared_stage=stage,
+            now=_dt.datetime(2026, 9, 12, hour, tzinfo=_dt.timezone.utc),
+        )
+        r["rule"]["version"] = 1
+        r["window"] = {"start": ws, "end": we}
+        if stamp:
+            r["generated_at"] = stamp
+        if verdict:
+            r["verdict"] = verdict
+        write_receipt(root, r, date_str="2026-09-12")
+
+    put("discovery", "2026-01-01", "2026-03-31", 10)
+    put("validation", "2026-04-01", "2026-06-30", 11)
+    put("holdout", "2026-07-01", "2026-08-31", 12, stamp="2026-09-12T12:00:00Z")
+    put("holdout", "2026-07-01", "2026-08-31", 12,
+        stamp="2026-09-12T12:00:00.500000+00:00", verdict="not_distinguishable")
+
+    assert latest_receipt(root, "selftest_positive")["verdict"] == "not_distinguishable"
+    steps = lifecycle.load_steps(root, "selftest_positive")
+    assert steps[-1].verdict == "not_distinguishable", "字符串序会把 Z 那份排到后面"
+
+
 def test_receipt_stem_never_collides_across_distinct_contents(synthetic, tmp_path):
     """几千份不同内容的收据，文件名后缀零碰撞——4 位 hash 那版实测撞得上。"""
     import datetime as _dt

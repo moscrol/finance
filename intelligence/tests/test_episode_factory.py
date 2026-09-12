@@ -935,3 +935,61 @@ def test_method_validation_note_honours_label_version_gate(tmp_path) -> None:
     note = method_validation_note(candidate, root=tmp_path)
     assert "生命周期状态 candidate" in note, note
     assert "personal_method" not in note, note
+
+
+def test_method_validation_note_does_not_cross_rule_versions(tmp_path) -> None:
+    """按标题匹配到 v1，就必须报 **v1** 的状态——不能拿 v2 的链去背书 v1。
+
+    ``state_for_rule`` 会自己挑「version 最大那份」，于是「展示 v1、状态取自 v2」这种串版本
+    就发生了（09-12 复核实测：v1 是 candidate，页面写「v1，personal_method」）。匹配、认证、
+    展示必须是同一份规则文件，所以这里走 ``state_for_file``。
+    """
+    import hashlib
+
+    from intelligence.services.methodology_backtest import lifecycle
+    from intelligence.services.methodology_backtest.labels import LABEL_VERSION
+    from intelligence.services.methodology_backtest.receipts import RECEIPT_SCHEMA
+
+    candidate = MethodCandidate("龙头连板断了", "板块一般还有一次回流", "未说明")
+    rules, receipts_dir = tmp_path / "rules", tmp_path / "receipts"
+    rules.mkdir()
+    # v1 标题能匹配上、但没有任何收据；v2 标题匹配不上、却有完整三段链
+    v1 = rules / "reflow.v1.json"
+    v1.write_text(
+        _json.dumps({"rule_id": "reflow", "version": 1, "title": "龙头连板断了之后板块还有一次回流",
+                     "sharing": "private", "owner": "u"}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    v2 = rules / "reflow.v2.json"
+    v2.write_text(
+        _json.dumps({"rule_id": "reflow", "version": 2, "title": "完全不同的题目",
+                     "sharing": "private", "owner": "u"}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    sha2 = hashlib.sha256(v2.read_bytes()).hexdigest()
+    folder = receipts_dir / "reflow@v2"
+    folder.mkdir(parents=True)
+    for i, (stage, ws, we) in enumerate((
+        ("discovery", "2026-01-01", "2026-03-31"),
+        ("validation", "2026-04-01", "2026-06-30"),
+        ("holdout", "2026-07-01", "2026-08-31"),
+    )):
+        (folder / f"2026-09-12-{stage}.json").write_text(
+            _json.dumps({
+                "schema_version": RECEIPT_SCHEMA,
+                "generated_at": f"2026-09-12T1{i}:00:00.000000+00:00",
+                "rule": {"rule_id": "reflow", "version": 2, "ref": "reflow@v2", "sha256": sha2},
+                "window": {"start": ws, "end": we}, "verdict": "supported",
+                "declared_stage": stage, "stats": {"verdict": "supported"},
+                "conditions": {"label_version": LABEL_VERSION},
+            }, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+    assert lifecycle.state_for_file(v2, receipts_dir).state == "personal_method", "v2 确实过了门"
+    assert lifecycle.state_for_file(v1, receipts_dir).state == "candidate", "v1 没有任何收据"
+
+    note = method_validation_note(candidate, root=tmp_path)
+    assert "reflow@v1" in note, note
+    assert "生命周期状态 candidate" in note, note
+    assert "personal_method" not in note, "展示 v1 却报 v2 的状态 = 串版本"

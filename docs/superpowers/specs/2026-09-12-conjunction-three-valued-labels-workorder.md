@@ -96,11 +96,11 @@ ELSE 1
 - **`LABEL_VERSION` v4 → v5**：按 #42 认证门，标签语义变化开启新验证轮次，旧收据保留为历史
   观察、不跨轮拼接。这是预期后果不是回归。
 - **共享旁路库 `db/history_labels.duckdb` 需重建**（有副作用、写共享库，**等用户点头**）。
-  **先看迁移方案** `2026-09-12-label-version-migration-plan.md`：核实后发现在跑的前向协议
-  `475597e2…` 绑定的是 **v3**，共享库已是 v4，`method_validation.study._meta` 的版本门现在
-  就会拒——**这是 #671 升 v4 时欠下的债，不是本单引入**，但 09-10 起的在途回检事实上已经断了，
-  且 `status` 看不出来（它读收据不查库）。方案：旧库留档、旧协议在 v3 备份库上跑完剩余
-  recheck 再显式 superseded、新协议在重建后另起且 `forward_start` = 重建日次日。
+  **以迁移方案 `2026-09-12-label-version-migration-plan.md` 为准**（那份是第二版，按实测重写；
+  本节只给指针，不复述步骤——初版的步骤已被证明不可执行，留在两处会让接手者照旧走）。
+  一句话现状：在跑的前向协议 `475597e2…` 绑定 **v3**、共享库 **v4**、代码 **v5**，
+  **待回检对象为 0**（唯一那次观察已结算为 `stage_not_applicable`），所以旧协议直接封存、
+  不尝试跨版本结算。**这是 #671 升 v4 时欠下的债，不是本单引入。**
 - **`v5` 号与 PR #673 的关系**：#673（`feat/methodology-backtest-p1-lifecycle-stage`）被 #737 退回时
   预写方案是「rebase 升 v5」，但其分支上仍是 v4、尚无实现。本单先落 v5 并已在 #673 留言；
   #673 重做时改用 v6，或与本单合并重建一次。
@@ -130,17 +130,28 @@ ELSE 1
 - **文件名 `<date>[-<stage>]-<HHMMSSffffff>-<sha256 前 32 位>`**：时刻定先后，摘要定身份。
   4 位摘要那版**实测撞了**（两份结论相反的收据同得 `120000-c62b`，四次写入只剩三份，
   状态从 contradicted 变回 personal_method）——16 bit 撑不起「内容不同必不同名」。
-- **写入前比内容，禁止静默覆盖**（`_guard_no_silent_overwrite`）：同名且内容相同 → 幂等
-  跳过；同名但内容不同 → 抛 `ReceiptCollision`。唯一性不靠摘要长度赌，这道闸才是兜底：
-  真撞上说明时钟回退或摘要口径变了，那时报错比覆盖安全——被覆盖的可能正是一次失败记录。
+- **原子创建 + 同名比内容，禁止静默覆盖**（`_write_exclusive`）：用 `O_CREAT | O_EXCL` 让
+  「不存在才创建」由内核一次完成，同名且内容相同 → 幂等跳过，内容不同 → 抛
+  `ReceiptCollision`。唯一性不靠摘要长度赌，这道闸才是兜底。
+  第四轮复核补齐三处：① 原本是「先 `exists()` 再 write」的 check-then-act，并发下两个
+  写手可以都通过检查、后者覆盖前者（线程池实测）；② `write_scan_summary` 完全没接闸；
+  ③ json 与 md **各自**判幂等——只有 json 落盘、md 写失败时，原样重试必须补上 md，
+  不能因为 json 在就整体当成功返回（文件写入故障注入实测）。
 
 证伪库 `write_refuted` 与扫描汇总 `write_scan_summary` 同规矩——证伪是资产，同日再跑一次
 不该把上一条从库里抹掉。
 
-回归六条：`test_same_day_three_stages_do_not_overwrite_each_other`、
+另有一处一并对齐：`report` 的「最近收据」也改用 `receipts._parse_ts`。`12:00:00Z` 与
+`12:00:00.500000+00:00` 都是合法 ISO UTC，字符串序与时间序相反，三个读取口径
+（`load_steps` / `latest_receipt` / `report`）不能各用各的比法。
+
+回归十条：`test_same_day_three_stages_do_not_overwrite_each_other`、
 `test_same_window_rerun_keeps_both_runs_and_takes_the_latest`、
 `test_same_second_runs_keep_their_order`、`test_write_receipt_refuses_silent_overwrite`、
 `test_receipt_stem_never_collides_across_distinct_contents`（3000 份不同内容零碰撞）、
+`test_concurrent_writes_cannot_overwrite_each_other`、`test_scan_summary_also_refuses_overwrite`、
+`test_retry_repairs_a_half_written_pair`、`test_mixed_timestamp_forms_order_consistently`、
+`test_method_validation_note_does_not_cross_rule_versions`，
 以及证伪库「scan 不覆盖 run」的端到端断言。
 
 ## 6. 同单一并修：认证要比对**当前生效**的标签口径
@@ -153,10 +164,12 @@ ELSE 1
 加 `current_label_version` 参数（`queue` 传 `labels.LABEL_VERSION`，`state_for_rule` 默认取它），
 口径不符的收据一律降历史观察并在 `blocked_by` 里写明旧口径与当前口径。
 
-**产品入口要一起接**（第三轮复核指出）：Workbench 的 `episode_factory.method_validation_note`
-原本直接调 `derive_state` 且两个身份参数都不传，于是同一组旧收据 `state_for_rule` 说
-candidate、Workbench 说 personal_method，两个入口自相矛盾。改为统一走 `state_for_rule`
-（它同时锁规则文件字节 sha256 与当前标签口径）。
+**产品入口要一起接**：Workbench 的 `episode_factory.method_validation_note` 原本直接调
+`derive_state` 且两个身份参数都不传，于是同一组旧收据 `state_for_rule` 说 candidate、
+Workbench 说 personal_method（第三轮复核）。但改走 `state_for_rule` 还不够——它会自己挑
+「version 最大那份」，于是「按标题匹配到 v1、却拿 v2 的状态去展示 v1」（第四轮复核实测）。
+最终改为新增 `lifecycle.state_for_file(rule_path, ...)`：身份锁在**匹配到的那一份**规则文件
+的字节上。**匹配、认证、展示必须是同一份规则。**
 
 回归：`test_stale_label_version_receipts_are_history_not_evidence`（不传 → 旧行为成链；
 传 → 全降历史观察）、`StateForRule::test_default_current_label_version_blocks_stale_receipts`、

@@ -52,6 +52,7 @@ from intelligence.services.methodology_backtest.propose import (  # noqa: E402
     write_rule_file,
 )
 from intelligence.services.methodology_backtest.receipts import (  # noqa: E402
+    _parse_ts,
     DECLARED_STAGES,
     REFUTED_VERDICT,
     build_receipt,
@@ -500,9 +501,12 @@ def cmd_report(args) -> int:
             files = sorted(folder.glob("*.json"))
             if not files:
                 continue
-            # 「最近」按收据自述的 generated_at 取，不按文件名字典序：同日三段的文件名
-            # 里 holdout < validation，字典序会永远选中 validation，即使稍后跑的 holdout
-            # 已经把它证伪了。
+            # 「最近」按收据自述的 generated_at 取，且要**解析成时刻**再比：
+            #   - 不能按文件名字典序——同日三段里 holdout < validation，会永远选中 validation，
+            #     即使稍后跑的 holdout 已经把它证伪；
+            #   - 也不能按裸字符串——`12:00:00Z` 与 `12:00:00.500000+00:00` 都是合法 ISO UTC，
+            #     字符串序与时间序相反，report 会与 latest_receipt / load_steps 给出不同答案。
+            # 三处共用 receipts._parse_ts，口径只有一套。
             docs = []
             for f in files:
                 try:
@@ -511,7 +515,7 @@ def cmd_report(args) -> int:
                     continue
             if not docs:
                 continue
-            doc, latest = max(docs, key=lambda pair: (str(pair[0].get("generated_at") or ""), pair[1].name))
+            doc, latest = max(docs, key=lambda pair: (_parse_ts(pair[0].get("generated_at")), pair[1].name))
             if folder.name == "scan":
                 print(f"- scan/{latest.name}: {doc.get('family_size')} 条，q={doc.get('q')}")
                 continue

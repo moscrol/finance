@@ -463,13 +463,50 @@ class ReceiptCollision(RuntimeError):
     """目标文件已存在且内容不同。**绝不静默覆盖**——覆盖会抹掉一次真实运行的证据。"""
 
 
-def _guard_no_silent_overwrite(path: Path, payload: dict[str, Any]) -> bool:
-    """同名文件已存在时比内容：完全相同 → 幂等（返回 False，不必重写）；不同 → 抛错。
+def _write_exclusive(path: Path, text: str, payload: dict[str, Any]) -> bool:
+    """**原子**地创建并写入；文件已存在则比内容——相同 → 幂等（False），不同 → 抛错。
 
-    最后一道闸。文件名已经带微秒时刻 + 完整 sha256，正常路径撞不上；真撞上说明时钟
-    回退、摘要口径变了或有别的 bug——那种情况下**报错比覆盖安全**，因为被覆盖的可能
-    正是一次失败记录，而所有「事后挑窗 / 改判痕迹」检测都靠它在场。
+    用 ``O_CREAT | O_EXCL`` 而不是「先 exists() 再 write」：后者是 check-then-act，两个
+    并发写手可以都通过检查、都去写，后者覆盖前者（09-12 复核用线程池实测复现）。
+    `O_EXCL` 把「不存在才创建」交给内核一次完成，谁输谁走比内容那条分支。
+
+    比内容用于幂等：同一份产物原样重写不该报错，也不该产生第二个文件。内容不同却撞名
+    说明时钟回退、摘要口径变了或有别的 bug——那时**报错比覆盖安全**，被覆盖的可能正是
+    一次失败记录，而所有「事后挑窗 / 改判痕迹」检测都靠它在场。
     """
+    import os
+
+    data = text.encode("utf-8")
+    try:
+        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+    except FileExistsError:
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8")) if path.suffix == ".json" else None
+        except (OSError, ValueError) as exc:
+            raise ReceiptCollision(f"{path} 已存在且读不出来，拒绝覆盖：{exc}") from exc
+        if existing is not None and _content_digest(existing) == _content_digest(payload):
+            return False
+        if existing is None and path.read_text(encoding="utf-8") == text:
+            return False
+        raise ReceiptCollision(
+            f"{path} 已存在且内容不同，拒绝静默覆盖："
+            + (
+                f"既有摘要 {_content_digest(existing)[:12]}…，本次 {_content_digest(payload)[:12]}…"
+                if existing is not None
+                else "（非 JSON 产物，按字节比对不同）"
+            )
+        )
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+    except BaseException:
+        path.unlink(missing_ok=True)  # 半截文件不留，否则下次重试会拿它当「已存在」
+        raise
+    return True
+
+
+def _guard_no_silent_overwrite(path: Path, payload: dict[str, Any]) -> bool:
+    """保留给调用方做「同名是否冲突」的只读判定；真正的写入走 ``_write_exclusive``。"""
     if not path.exists():
         return True
     try:
@@ -487,18 +524,19 @@ def _guard_no_silent_overwrite(path: Path, payload: dict[str, Any]) -> bool:
 def write_receipt(root: str | Path, receipt: dict[str, Any], *, date_str: str) -> tuple[Path, Path]:
     """写 ``<root>/<rule_id>@v<version>/<date>[-<stage>]-<HHMMSSffffff>-<sha256>.json`` 与同名 md。
 
-    **不覆盖任何既有运行记录**：同一份收据原样重写落同名且内容相同（幂等，跳过重写）；
-    内容不同却撞名 → 抛 ``ReceiptCollision``，不静默覆盖。
+    **不覆盖任何既有运行记录**：同一份收据原样重写落同名且内容相同（幂等）；内容不同却
+    撞名 → 抛 ``ReceiptCollision``。两个文件**各自**判幂等——只有 json 落盘、md 写失败时，
+    原样重试必须把 md 补上，不能因为 json 在就整体当成功返回（09-12 复核故障注入实测）。
     """
     folder = receipt_dir(root, receipt["rule"]["ref"])
     folder.mkdir(parents=True, exist_ok=True)
     stem = receipt_stem(receipt, date_str)
     json_path = folder / f"{stem}.json"
     md_path = folder / f"{stem}.md"
-    if not _guard_no_silent_overwrite(json_path, receipt):
-        return json_path, md_path
-    json_path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    md_path.write_text(render_receipt_markdown(receipt), encoding="utf-8")
+    json_text = json.dumps(receipt, ensure_ascii=False, indent=2) + "\n"
+    md_text = render_receipt_markdown(receipt)
+    _write_exclusive(json_path, json_text, receipt)
+    _write_exclusive(md_path, md_text, receipt)
     return json_path, md_path
 
 
@@ -556,9 +594,7 @@ def write_refuted(root: str | Path, receipt: dict[str, Any], *, date_str: str, r
     folder = Path(root).expanduser() / receipt["rule"]["ref"]
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / f"{date_str}-{_run_suffix(receipt)}.json"
-    if not _guard_no_silent_overwrite(path, entry):
-        return path
-    path.write_text(json.dumps(entry, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    _write_exclusive(path, json.dumps(entry, ensure_ascii=False, indent=2) + "\n", entry)
     return path
 
 
@@ -714,6 +750,7 @@ def write_scan_summary(root: str | Path, summary: dict[str, Any], *, date_str: s
     stem = f"{date_str}-{_run_suffix(summary)}"
     json_path = folder / f"{stem}.json"
     md_path = folder / f"{stem}.md"
-    json_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    md_path.write_text(render_scan_markdown(summary), encoding="utf-8")
+    # 与收据同一道闸：原子创建 + 同名比内容。原本这里完全没接，强制同名即可覆盖旧汇总。
+    _write_exclusive(json_path, json.dumps(summary, ensure_ascii=False, indent=2) + "\n", summary)
+    _write_exclusive(md_path, render_scan_markdown(summary), summary)
     return json_path, md_path

@@ -441,6 +441,40 @@ def derive_state(
     return _state(target, evidence + (f"human:{human_approval.get('approved_by')}",), None)
 
 
+def state_for_file(
+    rule_path: str | Path,
+    receipts_dir: str | Path,
+    *,
+    human_approval: dict[str, Any] | None = None,
+    current_label_version: str | None = None,
+) -> MethodState | None:
+    """给**指定的那一份规则文件**推导状态（身份 = 该文件字节的 sha256）。
+
+    调用方已经选定了某个版本时用这个，别再走 ``state_for_rule``——后者会自己去挑
+    「version 最大那份」，于是「按标题匹配到 v1、却拿 v2 的状态去展示 v1」这种串版本
+    就发生了（09-12 复核在 Workbench 入口实测）。匹配、认证、展示必须是同一份规则。
+    """
+    path = Path(rule_path).expanduser()
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(doc, dict):
+        return None
+    rule_id = str(doc.get("rule_id") or doc.get("id") or path.stem.split(".v")[0])
+    if current_label_version is None:
+        from .labels import LABEL_VERSION
+
+        current_label_version = LABEL_VERSION
+    return derive_state(
+        {**doc, "rule_id": rule_id},
+        load_steps(receipts_dir, rule_id),
+        human_approval=human_approval,
+        rule_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+        current_label_version=current_label_version,
+    )
+
+
 def state_for_rule(
     rules_dir: str | Path,
     receipts_dir: str | Path,
