@@ -142,6 +142,7 @@ def cmd_register(args) -> int:
 
 
 def cmd_history(args) -> int:
+    _refuse_if_superseded(Path(args.study_dir))
     protocol = load_protocol(args.study_dir)
     features = read_features(args.labels_db, protocol, **protocol["history"])
     outcomes = read_outcomes(args.labels_db, protocol, features, now=current_time())
@@ -156,10 +157,14 @@ def cmd_history(args) -> int:
 def _refuse_if_superseded(study_dir: Path) -> None:
     """封存协议**不接受新观察**。
 
-    「退出枚举」只挡住了按 root 枚举的消费者；`daily` / `capture` 直接吃 --study-dir,
-    根本不过 `list_studies`——质检实测对已封存协议跑真实 daily 仍 rc=0 且新增 1 份
-    capture。停用必须落在产生副作用之前。只读审计（report/status）与既有待验对象的
-    结算（recheck）不在此闸内：怎么结算存量是另一个决定, 不该被一刀切破坏。
+    「退出枚举」只挡住了按 root 枚举的消费者；`daily` / `capture` / `history` 直接吃
+    --study-dir, 根本不过 `list_studies`——质检实测对已封存协议跑真实 daily 仍 rc=0
+    且新增 1 份 capture；`history` 同样 rc=0、写入记录**并刷新 standing**（自查补上）。
+    停用必须落在产生副作用之前。
+
+    闸内：所有产生**新观察**的入口（凡是调用 `write_record` 的函数）。
+    闸外：只读审计（report / status）与既有待验对象的结算（recheck）——怎么结算存量是
+    另一个决定, 不该被一刀切破坏；`status --refresh` 只从既有收据派生摘要, 不造新证据。
     """
     if is_superseded(study_dir):
         raise ValueError(

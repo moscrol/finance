@@ -650,3 +650,59 @@ def test_supersede_is_idempotent_for_same_intent(tmp_path):
 
     with pytest.raises(ValueError, match="different successor/reason"):
         supersede(study, successor_id=None, reason="换个理由")
+
+
+def test_history_on_superseded_protocol_is_refused(tmp_path):
+    """`history` 也直接吃 --study-dir, 不过 list_studies——自查实测它 rc=0、写入记录
+    **并刷新 standing**, 而我上一轮只堵了 daily / capture。
+
+    这里用**真的旁路库**跑真实入口: 库缺失会先报参数错误, 那样的非零证明不了任何事
+    （「返回非零 ≠ 走到了封存闸」）。
+    """
+    import subprocess
+    import sys
+
+    from intelligence.services.method_validation import supersede
+
+    db = make_db(tmp_path)
+    root = tmp_path / "m"
+    root.mkdir()
+    study = register(root, protocol())
+    supersede(study, reason="已封存")
+
+    done = subprocess.run(
+        [sys.executable, str(REPO / "scripts" / "method_validation.py"), "history",
+         "--study-dir", str(study), "--labels-db", str(db)],
+        capture_output=True, text=True,
+    )
+    assert done.returncode != 0, "已封存协议仍接受 history"
+    assert "已封存" in (done.stdout + done.stderr), \
+        f"非零但不是封存闸拦的, 证明不了: {(done.stdout + done.stderr)[-200:]}"
+    assert not (study / "history").exists(), "封存后仍写出了 history 记录"
+    assert not (study / "standing").exists(), "封存后仍刷新了 standing 摘要"
+
+
+def test_every_new_observation_entry_is_behind_the_supersede_gate():
+    """结构性闸: 凡是调用 ``write_record`` 的函数, 必须先过 ``_refuse_if_superseded``。
+
+    上一轮我是**逐个入口**去堵的, 于是漏了 history。逐个堵永远跟不上新增入口——
+    这条按「谁造新证据谁进闸」来钉, 下次再加写入口忘了加闸, 这里直接红。
+    """
+    import ast
+
+    src = (REPO / "scripts" / "method_validation.py").read_text(encoding="utf-8")
+    tree = ast.parse(src)
+
+    def calls(node) -> set[str]:
+        return {
+            n.func.id for n in ast.walk(node)
+            if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+        }
+
+    unguarded = [
+        fn.name for fn in ast.walk(tree)
+        if isinstance(fn, ast.FunctionDef)
+        and "write_record" in calls(fn)
+        and "_refuse_if_superseded" not in calls(fn)
+    ]
+    assert not unguarded, f"这些函数会写新观察却没过封存闸: {unguarded}"
