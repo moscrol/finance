@@ -84,8 +84,20 @@ git branch --show-current
 ### 一键入口（推荐）
 
 ```bash
-python3 skills/daily-full-review/scripts/run_review_sync.py --date YYYY-MM-DD
+cd /Users/a77/finance-workspace-sync   # 见下「从哪棵树跑」
+REVIEW_SYNC_PLAN=local \
+MARKET_FEATURE_STORE_DB=/Users/a77/finance-workspace-private/db/market_feature_store.duckdb \
+  /Users/a77/finance-workspace-private/.venv-workbench/bin/python \
+  skills/daily-full-review/scripts/run_review_sync.py --date YYYY-MM-DD
 ```
+
+**从哪棵树跑（2026-09-12 起）**：`finance-workspace-sync` 是夜跑专用的 detached
+worktree，跟随 `gitea/main`。**不要在 `finance-workspace-private` 里跑**——那是数据仓、
+各 agent 共用，长期停在任意旧提交上；2026-09-12 实测它落后 548 个提交、`PLANS` 里没有
+`local`，直接 `ValueError: unknown plan 'local'`。
+
+**档位**：日更固定 `local`（零复盘会请求，不需要 Chrome 登录态）。省略变量会默认
+`full`，那要 fupanhui 登录，登录失效时停在 preflight rc=3。
 
 脚本按下面的"已验证模块顺序"逐个跑，逐模块超时 + 自动兜底 + 写 runlog。
 同步全绿后再跑生成段：

@@ -44,9 +44,21 @@ WORKSPACE="$DATA_ROOT"
 # 缺了就停，不回退到 WORKSPACE 那份顶替：顶替会以「看起来合理的理由」判红，
 # 比缺闸门更难发现（这正是 09-10~09-11 两天没人察觉的形状）。
 REVIEW_CHECKER="$CODE_ROOT/scripts/check_daily_review_data.py"
+# 同步编排器同理（2026-09-12）：`run_sync()` 原本也写裸相对路径。
+# launchd 的 18:30 走 S7 包装脚本，那条路已被 FINANCE_SYNC_CODE_ROOT 钉住；
+# 但 `nightly_full_review.sh sync|all` 这个**手动补跑入口**绕开包装脚本直调本函数，
+# 于是又落回主检出树，照样 `ValueError: unknown plan 'local'`——修好定时入口
+# 不等于修好补跑入口，而补跑恰恰是缺数那天要用的那个。
+SYNC_CODE_ROOT="${FINANCE_SYNC_CODE_ROOT:-$CODE_ROOT}"
+REVIEW_SYNC_SCRIPT="$SYNC_CODE_ROOT/skills/daily-full-review/scripts/run_review_sync.py"
 if [ ! -f "$REVIEW_CHECKER" ]; then
   echo "[$(date '+%F %T')] 质检闸门不在 CODE_ROOT=$CODE_ROOT（运行快照过旧）；" \
        "拒绝用主检出树那份顶替（它不认 --plan，会把 plan=local 判成断档），中止"
+  exit 2
+fi
+if [ ! -f "$REVIEW_SYNC_SCRIPT" ]; then
+  echo "[$(date '+%F %T')] 同步编排器不在 SYNC_CODE_ROOT=$SYNC_CODE_ROOT；" \
+       "拒绝退回主检出树那份（它的 PLANS 可能没有 local），中止"
   exit 2
 fi
 export FINANCE_CODE_ROOT="$CODE_ROOT"
@@ -123,7 +135,7 @@ run_moneyflow() {
 }
 
 run_sync() {
-  "$OPS_PYTHON" skills/daily-full-review/scripts/run_review_sync.py --date "$D"
+  "$OPS_PYTHON" "$REVIEW_SYNC_SCRIPT" --date "$D"
 }
 
 # L2 是独立 DAG 分支：同步段即使失败也会尝试，避免 SW-L1/复盘会故障截断资金流。

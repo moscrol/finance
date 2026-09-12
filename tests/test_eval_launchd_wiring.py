@@ -134,16 +134,33 @@ def test_split_review_plists_are_repo_sourced(plist_path: Path) -> None:
     assert "ops-health.log" in health
 
 
-def test_review_sync_plist_source_carries_tiered_plan() -> None:
-    """切档决定必须落在仓内源，不能只活在 ~/Library 的装机副本里。
+@pytest.mark.parametrize("plist_path", SPLIT_REVIEW_PLISTS)
+def test_both_review_plist_sources_carry_the_same_plan(plist_path: Path) -> None:
+    """切档决定必须落在仓内源，且 sync 与 finalize **两份都要有**。
 
     2026-09-04 切档时只改了装机副本；install_eval_launchd.sh 是 cp 源 → bootstrap，
-    下一次安装就会把 REVIEW_SYNC_PLAN 静默冲回 full。这里钉住源里有这个键、且是
-    当前生产决定的档位；改档要连这条一起改。"""
-    with SPLIT_REVIEW_PLISTS[0].open("rb") as handle:
+    下一次安装就会把 REVIEW_SYNC_PLAN 静默冲回缺省。原来这条只查 sync 那份，
+    2026-09-12 实测 finalize 仓内源**从来没有这个键**（装机副本被手工加过 local）：
+    三道质检闸门的 `--plan` 缺省读这个变量，缺了就按 full 期望裁判，plan=local 下
+    不抓的 fact_theme_flow_daily 被判断档 → 守卫中止 → 方法飞轮轮不到。
+    一份有一份没有，比两份都没有更难发现。
+
+    档位为什么是 local：零复盘会请求，16 步用 *-local 替身覆盖标签需要的七张表。
+    auto 的隐患是非周五 = cheap，而 cheap 仍要 fupanhui 登录态。改档两份一起改。
+    """
+    with plist_path.open("rb") as handle:
         plist = plistlib.load(handle)
     env = plist["EnvironmentVariables"]
-    assert env.get("REVIEW_SYNC_PLAN") == "auto"
+    assert env.get("REVIEW_SYNC_PLAN") == "local", plist_path.name
+
+
+def test_review_plist_sources_agree_on_plan() -> None:
+    """两份源的档位必须一致：sync 抓什么、finalize 就按什么裁判。"""
+    plans = set()
+    for plist_path in SPLIT_REVIEW_PLISTS:
+        with plist_path.open("rb") as handle:
+            plans.add(plistlib.load(handle)["EnvironmentVariables"].get("REVIEW_SYNC_PLAN"))
+    assert len(plans) == 1, f"sync 与 finalize 档位不一致: {plans}"
 
 
 def test_nightly_resolves_quality_gate_from_code_root_not_workspace() -> None:
@@ -173,6 +190,30 @@ def test_nightly_resolves_quality_gate_from_code_root_not_workspace() -> None:
     # 缺了要停，不许回退到 WORKSPACE 那份顶替。
     assert '[ ! -f "$REVIEW_CHECKER" ]' in text
     assert '$WORKSPACE/scripts/check_daily_review_data.py' not in text
+
+
+def test_manual_backfill_entry_does_not_bypass_the_pinned_sync_root() -> None:
+    """`nightly_full_review.sh sync|all` 是手动补跑入口，不能绕开钉住的同步代码根。
+
+    18:30 那条 launchd 链走 S7 包装脚本，已被 FINANCE_SYNC_CODE_ROOT 钉住；但补跑
+    入口直调 run_sync()，那里原本是裸相对路径，落在 `cd "$WORKSPACE"` 之后 =
+    主检出树，照样撞 `unknown plan 'local'`。**修好定时入口不等于修好补跑入口**，
+    而缺数那天要用的恰恰是补跑入口。
+    """
+    nightly = ROOT / "skills" / "daily-full-review" / "scripts" / "nightly_full_review.sh"
+    text = nightly.read_text(encoding="utf-8")
+    assert 'SYNC_CODE_ROOT="${FINANCE_SYNC_CODE_ROOT:-$CODE_ROOT}"' in text
+    assert 'REVIEW_SYNC_SCRIPT="$SYNC_CODE_ROOT/skills/daily-full-review/scripts/run_review_sync.py"' in text
+    assert '"$OPS_PYTHON" "$REVIEW_SYNC_SCRIPT" --date "$D"' in text
+    assert '[ ! -f "$REVIEW_SYNC_SCRIPT" ]' in text
+    # 裸相对路径调用一处都不许留。
+    call_lines = [
+        line
+        for line in text.splitlines()
+        if "run_review_sync.py" in line and not line.lstrip().startswith("#")
+    ]
+    for line in call_lines:
+        assert "$REVIEW_SYNC_SCRIPT" in line or "REVIEW_SYNC_SCRIPT=" in line, line
 
 
 def test_review_sync_plist_source_pins_dedicated_sync_code_root() -> None:
