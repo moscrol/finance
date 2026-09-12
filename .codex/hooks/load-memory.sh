@@ -9,10 +9,19 @@ set -uo pipefail
 # 候选仓根逐个验证，而不是「第一个非空就算数」：
 # 环境变量非空但指向错目录（例如父目录）会让 `[ -n "$ROOT" ]` 短路掉后面的回退，
 # 结果是找不到脚本、静默 exit 0、注入为空。只有「该目录下真有被委托脚本」才算命中。
+#
+# 顺序是「cwd 的 git 仓根优先、环境变量其次」，与 .devin/config.json 的
+# _why_portable_hooks 同一套。sentinel 只问「该目录下有没有被委托脚本」，
+# **另一棵有效项目树完全满足它**——所以它只挡得住「变量指向不存在的目录」，
+# 挡不住「变量指向另一棵有效树」，后者只能靠顺序。把变量排在前面时，继承来的
+# CODEX_PROJECT_DIR 会赢过当前树，注入别人的分支/改动/收据，且 exit 0 静默失真
+# （2026-09-12 实测：在 A 树启动、变量指 B 树，注入的是 B 的分支）。
+# cwd 不在任何项目树里时（Codex 可从任意目录启动）git 那步取不到值，自然落到
+# 环境变量——两种情形都由 tests/test_agent_hook_roots.py 钉住。
 pick_root() {
   local cand
-  for cand in "${CODEX_PROJECT_DIR:-}" "${CLAUDE_PROJECT_DIR:-}" \
-              "$(git rev-parse --show-toplevel 2>/dev/null)" \
+  for cand in "$(git rev-parse --show-toplevel 2>/dev/null)" \
+              "${CODEX_PROJECT_DIR:-}" "${CLAUDE_PROJECT_DIR:-}" \
               "$(cd "$(dirname "$0")/../.." 2>/dev/null && pwd)"; do
     [ -n "$cand" ] || continue
     [ -f "$cand/.claude/hooks/load-memory.sh" ] || continue

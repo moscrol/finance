@@ -44,6 +44,24 @@ def _make_decoy(tmp_path: Path, sentinel: str) -> Path:
     return decoy
 
 
+def _make_valid_sibling_tree(tmp_path: Path) -> Path:
+    """造第二棵**有效**项目树：真 git 仓 + 满足 sentinel 的被委托脚本。
+
+    与 ``_make_decoy`` 的差别正是本文件要锁的那一半：诱饵树靠「脚本不在」被判空
+    回退，任何选根顺序都挡得住它；另一棵有效树 sentinel 完全满足，只有选根**顺序**
+    能挡。被委托脚本打印一行形状与真货相同的「当前分支：」，于是选错根时产出的是
+    一份看起来完全正常、只是属于另一棵树的注入——生产里那种静默失真的样子。
+    """
+    other = tmp_path / "other-valid-tree"
+    (other / ".claude" / "hooks").mkdir(parents=True)
+    (other / ".claude" / "hooks" / "load-memory.sh").write_text(
+        "#!/usr/bin/env bash\necho '当前分支：other-valid-tree-branch'\n",
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "init", "-q"], cwd=other, capture_output=True, check=False)
+    return other
+
+
 def test_devin_hooks_bind_chosen_root_before_delegating() -> None:
     for event, script in (
         ("SessionStart", "scripts/session_facts.sh"),
@@ -90,3 +108,28 @@ def test_codex_hook_injects_repo_facts_regardless_of_cwd(tmp_path: Path) -> None
         assert "当前分支：?" not in out, (
             f"cwd={cwd} env={env_root!r} 分支解析失败——脚本没有在目标仓里执行"
         )
+
+
+def test_codex_hook_ignores_env_pointing_at_another_valid_tree(tmp_path: Path) -> None:
+    """Codex 钩子的选根顺序必须与 ``.devin/config.json`` 一致：cwd 的仓根优先。
+
+    上一条只覆盖「变量为空」与「cwd 不在仓里」两种情形，两种下环境变量赢都是对的，
+    所以它对本缺陷沉默：断言只问「有分支且不是 ?」，注入的是**哪棵树**的分支不问。
+    """
+    other = _make_valid_sibling_tree(tmp_path)
+    hook = ROOT / ".codex" / "hooks" / "load-memory.sh"
+    out = subprocess.run(
+        ["bash", str(hook)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "CODEX_PROJECT_DIR": str(other)},
+    ).stdout
+
+    assert "other-valid-tree-branch" not in out, (
+        "CODEX_PROJECT_DIR 指向另一棵有效树时压过了 cwd 的仓根，"
+        f"注入的是那棵树的事实：{out[:200]}"
+    )
+    assert "## 回写约定" in out, (
+        f"没有落到本树的被委托脚本（只有它会输出尾部固定段）：{out[:200]}"
+    )

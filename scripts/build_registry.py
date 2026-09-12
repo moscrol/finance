@@ -36,6 +36,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -57,6 +58,49 @@ KNOWN_REPOS: list[tuple[str, str]] = [
     ("knowledge-base-private", "kb"),
     ("finance-research-site", "site"),
 ]
+
+
+def resolve_repo_dir(name: str, *, repo_root: Path, repos_dir: Path, self_name: str) -> Path:
+    """把仓名解析成仓根；**本树那个名字永远解析成 repo_root**。
+
+    纯函数，参数全从外面传，便于直接对「附属 worktree」那种布局做断言。
+    """
+    return repo_root if name == self_name else repos_dir / name
+
+
+def _self_repo_name() -> str:
+    """本树在 KNOWN_REPOS 里叫什么——按 git 仓身份取，不按目录名取。
+
+    附属 worktree 的目录名是 ``fwp-wt-*`` 或门禁检出名，但它与主检出树共用同一个
+    ``.git``，common dir 的父目录名就是主检出树目录名，即真正的仓名。
+    不是 git 仓时退回目录名，与本函数引入前的行为一致。
+    """
+    try:
+        common = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "rev-parse",
+             "--path-format=absolute", "--git-common-dir"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return REPO_ROOT.name
+    return Path(common).parent.name if common else REPO_ROOT.name
+
+
+_SELF_REPO_NAME = _self_repo_name()
+
+
+def _repo_dir(name: str) -> Path:
+    """模块级入口：所有「仓名 -> 仓根」都必须走这里，不要再写 ``REPOS_DIR / name``。
+
+    只按仓名在 ``REPOS_DIR`` 下找的话，在附属 worktree 里跑会解析到**主检出树**：
+    ``scan`` 会照另一棵树的内容重写注册表（2026-09-12 实测：在
+    ``fwp-wt-instruction-gate-clearance`` 里重扫，本分支刚恢复的三个技能被删掉，
+    61 → 58），而 ``backfill-tables`` 更会直接去改另一棵树的 ``AGENTS.md``。
+    两者都退出 0，diff 看起来像一次正常刷新。
+    """
+    return resolve_repo_dir(
+        name, repo_root=REPO_ROOT, repos_dir=REPOS_DIR, self_name=_SELF_REPO_NAME
+    )
 
 # agent 视图目录（固定顺序，保证确定性）。
 AGENT_SKILL_DIRS = [".claude/skills", ".agents/skills", ".devin/skills", ".windsurf/skills"]
@@ -154,7 +198,7 @@ def _present_repos() -> list[tuple[str, str, Path]]:
     """返回当前文件系统上在场的 (dir名, 短代号, 绝对路径) 列表。"""
     out: list[tuple[str, str, Path]] = []
     for name, short in KNOWN_REPOS:
-        root = REPOS_DIR / name
+        root = _repo_dir(name)
         if root.is_dir():
             out.append((name, short, root))
     return out
@@ -259,7 +303,7 @@ def _cross_repo_duplicates(by_repo: dict[str, dict[str, dict]]) -> list[dict]:
 
 def _merge_lockfile(by_repo: dict[str, dict[str, dict]]) -> None:
     """并入 knowledge-base/skills-lock.json 中的 github 源 skill。"""
-    kb_root = REPOS_DIR / "knowledge-base-private"
+    kb_root = _repo_dir("knowledge-base-private")
     lock = kb_root / "skills-lock.json"
     if not lock.is_file():
         return
@@ -306,7 +350,7 @@ def build_payload() -> dict:
             all_skills[key] = entry
 
     repos_meta = [
-        {"name": name, "short": short, "present": (REPOS_DIR / name).is_dir(),
+        {"name": name, "short": short, "present": _repo_dir(name).is_dir(),
          "skills": sum(1 for k in all_skills if k.startswith(f"{short}/"))}
         for name, short in KNOWN_REPOS
     ]
@@ -345,12 +389,34 @@ def _strip_volatile(payload: dict) -> dict:
 
 
 def _present_shorts() -> set[str]:
-    return {short for name, short in KNOWN_REPOS if (REPOS_DIR / name).is_dir()}
+    return {short for name, short in KNOWN_REPOS if _repo_dir(name).is_dir()}
 
 
-def cmd_scan() -> int:
+def _repos_losing_all_skills(existing: dict, rebuilt: dict) -> list[str]:
+    """已提交注册表里有条目、这次却一个都没扫到的仓（短代号）。"""
+    had = {k.split("/", 1)[0] for k in existing.get("skills", {})}
+    got = {k.split("/", 1)[0] for k in rebuilt.get("skills", {})}
+    return sorted(had - got)
+
+
+def cmd_scan(allow_missing_repos: bool = False) -> int:
     payload = build_payload()
     existing = _load_existing()
+    # 写入侧不能比校验侧松：``check`` 在缺仓时只比在场仓的子集（见 cmd_check），
+    # 而 ``scan`` 是「按当前文件系统全量重写」——仓不在场时它不报错，只是把那个仓
+    # 的条目整段删掉，照样写出产物、照样退出 0。在只 checkout 单仓的门禁树里跑一次
+    # 就能抹掉另外两仓的全部 skill，而 diff 看起来像一次正常的注册表刷新。
+    # 认不出来就 fail closed；确实要收缩范围时显式加 --allow-missing-repos。
+    if existing is not None and not allow_missing_repos:
+        lost = _repos_losing_all_skills(existing, payload)
+        if lost:
+            print(
+                f"[scan] 拒绝写入：仓 {', '.join(lost)} 在已提交注册表里有条目，"
+                f"但本次扫描一个都没扫到（仓不在场？）。在 {REPO_ROOT} 下重扫会把它们"
+                "整段删掉。确认要收缩范围请加 --allow-missing-repos。",
+                file=sys.stderr,
+            )
+            return 2
     if existing is not None and _strip_volatile(existing) == _strip_volatile(payload):
         # 内容未变：保留原 generated_at，产物字节不变（幂等）。
         payload["generated_at"] = existing.get("generated_at", "")
@@ -601,7 +667,7 @@ def cmd_backfill(check: bool) -> int:
     payload = build_payload()
     changed = False
     for repo_name, short, rel, section in DOC_TABLES:
-        path = REPOS_DIR / repo_name / rel
+        path = _repo_dir(repo_name) / rel
         if not path.exists():
             print(f"[backfill] 跳过（仓不在场）：{repo_name}/{rel}")
             continue
@@ -701,7 +767,9 @@ def cmd_generate_views(check: bool) -> int:
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="工具/skill 注册表生成器（scan / backfill-tables / --check）")
     sub = parser.add_subparsers(dest="cmd")
-    sub.add_parser("scan", help="扫描三仓生成/刷新 skills.registry.json")
+    p_scan = sub.add_parser("scan", help="扫描三仓生成/刷新 skills.registry.json")
+    p_scan.add_argument("--allow-missing-repos", action="store_true",
+                        help="允许写出「某仓条目整段消失」的注册表（仓不在场时默认拒绝写入）")
     p_check = sub.add_parser("check", help="比对注册表与源，有漂移则非 0 退出")
     p_check.set_defaults(cmd="check")
     sub.add_parser("check-parseability",
@@ -724,7 +792,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.check or args.cmd == "check":
         return cmd_check()
     if args.cmd == "scan" or args.cmd is None:
-        return cmd_scan()
+        # 不带子命令时（`args.cmd is None`）解析器上没有这个属性，getattr 兜底。
+        return cmd_scan(allow_missing_repos=getattr(args, "allow_missing_repos", False))
     parser.print_help()
     return 2
 
