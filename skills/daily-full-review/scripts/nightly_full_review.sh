@@ -54,17 +54,36 @@ mkdir -p "$LOG_DIR"
 METHOD_STUDY_DEFAULT="$FORESIGHT_USERS_DIR/$FORESIGHT_USER/method_validation/475597e2e017a2eedd3886700cd41d394d3694eba3487e205b8ddc91723b5a2f"
 METHOD_BINDING_ERROR=""
 if [ -z "${METHOD_STUDY_DIR:-}" ] && [ -f "$CODE_ROOT/scripts/method_validation.py" ]; then
-  # active 的退出码是三态：0=有效绑定 / 1=从未配置 / 3=配置过但失效。
-  # **1 和 3 的正确处置相反**：没配过可以兼容内置默认；配过却坏了（指针损坏、目标缺失、
-  # 指向已封存协议）绝不能静默换回旧实验——上一版把两者都当「取不到」吞掉，封存了活跃
-  # 协议也只会无声无息地跑回 475597e2…（09-12 质检实测）。
-  METHOD_STUDY_DIR="$("$OPS_PYTHON" "$CODE_ROOT/scripts/method_validation.py" active \
-    --user "$FORESIGHT_USER" --print-dir 2>>"$LOG_DIR/method-validation-daily.log")"
-  case "$?" in
-    0) : ;;
-    1) METHOD_STUDY_DIR="$METHOD_STUDY_DEFAULT" ;;
-    *) METHOD_BINDING_ERROR="active 指针已配置但失效（损坏/目标缺失/已封存）；拒绝回退到内置默认" ;;
-  esac
+  # 先探**能力**再谈退出码。守卫 `[ -f … ]` 只证明文件在，不证明它有 active 子命令：
+  # 运行快照的 scripts/ 不随 deploy_workbench_runtime.sh 更新（它只 rsync intelligence/），
+  # 所以「新 wrapper + 旧 CLI」是链切完成前的常态。旧 CLI 遇到 active 是 argparse
+  # `invalid choice` → **exit 2**，会落进下面的 `*)`，把「这份 CLI 没有 active」误报成
+  # 「指针已配置但失效」，还叫人去 activate——那份 CLI 同样没有 activate（09-12 跨会话质检）。
+  # 探针只能用顶层 --help 的子命令列表：`active --help` 两边都返回 0（argparse 优先处理
+  # --help，根本不校验子命令合法性），拿它当探针会得出反的结论。
+  if "$OPS_PYTHON" "$CODE_ROOT/scripts/method_validation.py" --help 2>&1 | grep -qE '[{,]active[,}]'; then
+    # active 的退出码是三态：0=有效绑定 / 1=从未配置 / 3=配置过但失效。
+    # **1 和 3 的正确处置相反**：没配过可以兼容内置默认；配过却坏了（指针损坏、目标缺失、
+    # 指向已封存协议）绝不能静默换回旧实验——上一版把两者都当「取不到」吞掉，封存了活跃
+    # 协议也只会无声无息地跑回 475597e2…（09-12 质检实测）。
+    # 这里不用 `*)` 兜底：exit 2 在本脚本的约定里是「输入/数据/完整性问题」，新 CLI 也可能
+    # 合法地返回它，与「配置过却失效」不是一回事，各自给各自的话。
+    METHOD_STUDY_DIR="$("$OPS_PYTHON" "$CODE_ROOT/scripts/method_validation.py" active \
+      --user "$FORESIGHT_USER" --print-dir 2>>"$LOG_DIR/method-validation-daily.log")"
+    case "$?" in
+      0) : ;;
+      1) METHOD_STUDY_DIR="$METHOD_STUDY_DEFAULT" ;;
+      3) METHOD_BINDING_ERROR="active 指针已配置但失效（损坏/目标缺失/已封存）；拒绝回退到内置默认" ;;
+      *) METHOD_BINDING_ERROR="active 查询异常退出（见 $LOG_DIR/method-validation-daily.log）；拒绝回退到内置默认" ;;
+    esac
+  else
+    # 按「从未配置」走内置默认——链切之前行为与改动前一致；但原因写真话，不复用
+    # 「已配置但失效」那句，也不给一个这份 CLI 做不到的补救动作。
+    METHOD_STUDY_DIR="$METHOD_STUDY_DEFAULT"
+    echo "[method-validation] CODE_ROOT 的 CLI 没有 active 子命令（链切未做，见迁移方案 §4.1）；" \
+      "本次按「从未配置」使用内置默认协议 $(basename "$METHOD_STUDY_DEFAULT")" \
+      >>"$LOG_DIR/method-validation-daily.log"
+  fi
 fi
 [ -n "${METHOD_STUDY_DIR:-}" ] || METHOD_STUDY_DIR="$METHOD_STUDY_DEFAULT"
 METHOD_LABELS_DB="${METHOD_LABELS_DB:-$DATA_ROOT/db/history_labels.duckdb}"

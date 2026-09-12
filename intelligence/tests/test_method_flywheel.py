@@ -714,3 +714,45 @@ def test_binding_resolution_runs_under_set_u_without_log_dir(tmp_path) -> None:
     assert (data_root / "logs" / "method-validation-daily.log").exists(), (
         "active 命令没有真正执行——LOG_DIR 在引用时还没就位"
     )
+
+
+def test_binding_probes_capability_before_reading_exit_codes() -> None:
+    """守卫只查文件**存在**，不查它**有没有** active 子命令——两者在链切之前经常不一致。
+
+    运行快照的 ``scripts/`` 不随 `deploy_workbench_runtime.sh` 更新（它只 rsync
+    ``intelligence/``），所以「新 wrapper + 旧 CLI」是常态。旧 CLI 遇到 ``active`` 是
+    argparse ``invalid choice`` → **exit 2**，会落进 ``*)``，把「这份 CLI 没有 active」
+    误报成「指针已配置但失效」，还叫人去 ``activate``——那份 CLI 同样没有 activate
+    （09-12 跨会话质检实测）。fail-closed 不会写错协议，但诊断是反的且自相矛盾。
+
+    探针只能用**顶层** ``--help`` 的子命令列表：``active --help`` 两边都返回 0
+    （argparse 优先处理 ``--help``，根本不校验子命令合法性）。
+    """
+
+    body = NIGHTLY_SH.read_text(encoding="utf-8")
+    binding = body.split("METHOD_BINDING_ERROR=\"\"", 1)[1].split("[ -n \"${METHOD_STUDY_DIR:-}\"", 1)[0]
+
+    code = "\n".join(ln for ln in binding.splitlines() if not ln.lstrip().startswith("#"))
+
+    assert "--help 2>&1 | grep -qE '[{,]active[,}]'" in code, "缺少顶层 --help 能力探针"
+    assert "active --help" not in code, "active --help 两边都返回 0，不能当能力探针"
+    # exit 2 不再被当成「已配置但失效」：3 单列，其余给中性措辞
+    assert "3) METHOD_BINDING_ERROR=" in code, "「已配置但失效」应只认退出码 3"
+    fallback = code.split("*) METHOD_BINDING_ERROR=", 1)[1].split("\n", 1)[0]
+    assert "已配置但失效" not in fallback, "兜底分支不能复用「已配置但失效」的措辞"
+
+
+def test_missing_active_subcommand_falls_back_with_the_true_reason() -> None:
+    """探不到 active 时按「从未配置」走内置默认，且日志写真实原因。
+
+    链切做完之前这样行为与改动前一致；写假原因（叫人去 activate）比不写更坏，因为那个
+    补救动作在那份 CLI 上做不到。
+    """
+
+    body = NIGHTLY_SH.read_text(encoding="utf-8")
+    branch = body.split("--help 2>&1 | grep -qE '[{,]active[,}]'", 1)[1].split("fi\n", 1)[0]
+    else_part = branch.split("else", 1)[1]
+
+    assert 'METHOD_STUDY_DIR="$METHOD_STUDY_DEFAULT"' in else_part, "探不到就该走内置默认"
+    assert "METHOD_BINDING_ERROR" not in else_part, "这不是「已配置但失效」，不该设错误态"
+    assert "没有 active 子命令" in else_part and "链切" in else_part, "原因要写真话"
