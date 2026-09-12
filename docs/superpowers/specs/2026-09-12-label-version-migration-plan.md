@@ -158,8 +158,15 @@ OLD="$ROOT/<v3 协议 id>";  NEW="$ROOT/<v5 协议 id>"
 LABELS_DB="$DATA_ROOT/db/history_labels.duckdb"
 ```
 
-`method_validation` 里**只有 `active` / `activate` / `supersede` 接受 `--user`/`--root`**；
-`status` / `capture` / `daily` 一律要 `--study-dir`（`status` 还不读库，见 §5）。
+`--user` 有**两种互不相干的语义**，别混：
+
+- `register` / `activate` / `supersede` / `active`：`--user`（或 `--root`）**选的是协议根目录**，
+  决定读写哪个用户的协议与指针。切换类操作必须显式带，否则会落到 `users/default`。
+- `capture` / `daily` / `recheck`：`--user` 只是 **checkpoint 台账的归属**，
+  **不选协议**——协议一律由必填的 `--study-dir` 指定。
+- `status` / `history` / `report`：**根本没有 `--user`**，只认 `--study-dir`
+  （`status` 还不读库，见 §5，所以库版本不能拿它查）。
+
 下表按这个事实给命令，别再写 `status --user`。
 
 | 查什么 | 最早时点 | 命令 | 期望 |
