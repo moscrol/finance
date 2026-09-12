@@ -13,7 +13,7 @@
 ## 当前状态
 - 判官切换：生产已生效，回滚锚 `~/.local/bin/start-finance-workbench.bak-20260912-pre-nogrok`；小样验收见 `1b9944dd` 交接。
 - 路由修复已提交：`d0d59220`、`7ea9d958`。**生产快照仍 2efdff46，缺陷在生产还在。**
-- 探针重写为 ID 配对：`c964df2e` + QC P2 修补 `fd40b55b`（传输异常全走 exit 2 无 traceback；回归 12 例含 ID 位置锁）。退出码合同见 docstring；旧「数基线」废弃。
+- 探针重写为 ID 配对：`c964df2e` 起，QC 两轮 P2 修补至 `1b68dcd3`（IncompleteRead/错误正文读取爆炸类传输失败全走 exit 2 无 traceback；回归 17 例含 ID 位置锁）；旧「数基线」废弃。
 - 事故与修复全记录（含第二调用点追记）：`docs/learning/knevo-distill/recheck/2026-09-12-t23-nogrok/README.md`。
 
 ## 已验证
