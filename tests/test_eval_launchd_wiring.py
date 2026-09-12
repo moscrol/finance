@@ -207,34 +207,49 @@ def test_manual_entries_carry_their_own_defaults(script_name: str) -> None:
     """
     script = ROOT / "skills" / "daily-full-review" / "scripts" / script_name
     text = script.read_text(encoding="utf-8")
-    assert f'"${{FINANCE_SYNC_CODE_ROOT:-{SYNC_CODE_ROOT}}}"' in text, "缺 sync 代码根缺省"
     assert '"${REVIEW_SYNC_PLAN:-local}"' in text, "缺档位缺省"
-    # 档位要 export，否则子进程（run_review_sync.py / 三道闸门）读不到。
+    # 档位要 export，否则子进程（同步器 / 三道闸门）读不到。
     assert "export REVIEW_SYNC_PLAN=" in text
+    if script_name == "nightly_full_review_s7.sh":
+        # 只有 S7 这条路还起同步子进程，所以只有它需要同步代码根。
+        assert f'"${{FINANCE_SYNC_CODE_ROOT:-{SYNC_CODE_ROOT}}}"' in text
 
 
-def test_manual_backfill_entry_does_not_bypass_the_pinned_sync_root() -> None:
-    """`nightly_full_review.sh sync|all` 是手动补跑入口，不能绕开钉住的同步代码根。
+def test_nightly_closes_the_staging_bypassing_sync_phases() -> None:
+    """`nightly_full_review.sh` 不许再有一条直调同步器的路。
 
-    18:30 那条 launchd 链走 S7 包装脚本，已被 FINANCE_SYNC_CODE_ROOT 钉住；但补跑
-    入口直调 run_sync()，那里原本是裸相对路径，落在 `cd "$WORKSPACE"` 之后 =
-    主检出树，照样撞 `unknown plan 'local'`。**修好定时入口不等于修好补跑入口**，
-    而缺数那天要用的恰恰是补跑入口。
+    同步器自己**不做** staging：写的就是 MARKET_FEATURE_STORE_DB 指向的库，也就是
+    生产库。克隆 / 过闸 / 原子换名全在 nightly-review-sync-staged.py 里，只有 S7 入口
+    走得到。上一版只把 SKILL.md 的推荐改走 S7，代码路径没关——**改了推荐不等于关了
+    旁路**，而缺省 PHASE 就是 all，`nightly_full_review.sh <日期>` 一句就落回旁路。
+
+    拒绝必须在加锁之前：本脚本持 daily-full-review.lock，S7 抢同一把锁，
+    所以也不能在本脚本里套 S7（会变成自己抢自己的锁）。
     """
     nightly = ROOT / "skills" / "daily-full-review" / "scripts" / "nightly_full_review.sh"
     text = nightly.read_text(encoding="utf-8")
-    assert f'SYNC_CODE_ROOT="${{FINANCE_SYNC_CODE_ROOT:-{SYNC_CODE_ROOT}}}"' in text
-    assert 'REVIEW_SYNC_SCRIPT="$SYNC_CODE_ROOT/skills/daily-full-review/scripts/run_review_sync.py"' in text
-    assert '"$OPS_PYTHON" "$REVIEW_SYNC_SCRIPT" --date "$D"' in text
-    assert '[ ! -f "$REVIEW_SYNC_SCRIPT" ]' in text
-    # 裸相对路径调用一处都不许留。
-    call_lines = [
-        line
-        for line in text.splitlines()
-        if "run_review_sync.py" in line and not line.lstrip().startswith("#")
+    lines = text.splitlines()
+
+    # 1. 非注释行里一处 run_review_sync.py 调用都不许有。
+    live = [ln for ln in lines if "run_review_sync.py" in ln and not ln.lstrip().startswith("#")]
+    assert not live, f"仍有直调同步器的活代码：{live}"
+    assert "run_sync()" not in text.replace("# run_sync()", "")
+
+    # 2. 非 finalize 一律拒绝。
+    assert 'if [ "$PHASE" != "finalize" ]; then' in text
+
+    # 3. 拒绝点必须早于加锁，否则会留下锁目录。
+    guard_at = next(i for i, ln in enumerate(lines) if 'if [ "$PHASE" != "finalize" ]' in ln)
+    lock_at = next(i for i, ln in enumerate(lines) if 'mkdir "$LOCK_DIR"' in ln)
+    assert guard_at < lock_at, f"拒绝点 {guard_at} 晚于加锁 {lock_at}"
+
+    # 4. 不许在本脚本里调 S7（同一把锁，会自锁）。
+    live_s7 = [
+        ln for ln in lines
+        if "nightly-full-review-s7.sh" in ln and not ln.lstrip().startswith("#")
+        and "EOF" not in ln and not ln.lstrip().startswith("/bin/zsh /Users")
     ]
-    for line in call_lines:
-        assert "$REVIEW_SYNC_SCRIPT" in line or "REVIEW_SYNC_SCRIPT=" in line, line
+    assert not any("$(" in ln or ln.strip().startswith("exec") for ln in live_s7), live_s7
 
 
 def test_review_sync_plist_source_pins_dedicated_sync_code_root() -> None:

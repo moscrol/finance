@@ -44,30 +44,12 @@ WORKSPACE="$DATA_ROOT"
 # 缺了就停，不回退到 WORKSPACE 那份顶替：顶替会以「看起来合理的理由」判红，
 # 比缺闸门更难发现（这正是 09-10~09-11 两天没人察觉的形状）。
 REVIEW_CHECKER="$CODE_ROOT/scripts/check_daily_review_data.py"
-# 同步编排器同理（2026-09-12）：`run_sync()` 原本也写裸相对路径。
-# launchd 的 18:30 走 S7 包装脚本，那条路已被 FINANCE_SYNC_CODE_ROOT 钉住；
-# 但 `nightly_full_review.sh sync|all` 这个**手动补跑入口**绕开包装脚本直调本函数，
-# 于是又落回主检出树，照样 `ValueError: unknown plan 'local'`——修好定时入口
-# 不等于修好补跑入口，而补跑恰恰是缺数那天要用的那个。
-#
-# 缺省值必须在脚本里给全，不能靠 plist。plist 的 EnvironmentVariables 只作用于
-# launchd 启动的进程；人在终端手敲 `nightly_full_review.sh sync|all` 一个都拿不到。
-# 干净 shell 实测（2026-09-12）：SYNC_CODE_ROOT 退到运行快照、REVIEW_SYNC_PLAN 未设
-# → CLI 默认 full → 要 fupanhui 登录态 → rc=3 停在 preflight。
-# 「两份 plist 同值」只保证它们启动的进程，不保证手动补跑。
-SYNC_CODE_ROOT="${FINANCE_SYNC_CODE_ROOT:-/Users/a77/finance-workspace-sync}"
-REVIEW_SYNC_SCRIPT="$SYNC_CODE_ROOT/skills/daily-full-review/scripts/run_review_sync.py"
-# 档位同理，且要 export：run_review_sync.py 与三道质检闸门的 plan 参数都读它。
+# 档位缺省在脚本里给全，不靠 plist（plist 的 EnvironmentVariables 只作用于 launchd
+# 启动的进程，人在终端手敲拿不到）。要 export：三道质检闸门的 plan 参数都读它。
 export REVIEW_SYNC_PLAN="${REVIEW_SYNC_PLAN:-local}"
-export FINANCE_SYNC_CODE_ROOT="$SYNC_CODE_ROOT"
 if [ ! -f "$REVIEW_CHECKER" ]; then
   echo "[$(date '+%F %T')] 质检闸门不在 CODE_ROOT=$CODE_ROOT（运行快照过旧）；" \
        "拒绝用主检出树那份顶替（它不认 --plan，会把 plan=local 判成断档），中止"
-  exit 2
-fi
-if [ ! -f "$REVIEW_SYNC_SCRIPT" ]; then
-  echo "[$(date '+%F %T')] 同步编排器不在 SYNC_CODE_ROOT=$SYNC_CODE_ROOT；" \
-       "拒绝退回主检出树那份（它的 PLANS 可能没有 local），中止"
   exit 2
 fi
 export FINANCE_CODE_ROOT="$CODE_ROOT"
@@ -95,6 +77,31 @@ for arg in "$@"; do
     *) D="$arg" ;;
   esac
 done
+
+# sync / all 已关闭（2026-09-12）。这两个 phase 直调 run_review_sync.py，而同步器
+# 自己**不做** staging——写的就是 MARKET_FEATURE_STORE_DB 指向的那个库，也就是生产库。
+# 「克隆 staging → 过闸 → 原子换名」全在 nightly-review-sync-staged.py 里，只有走 S7
+# 入口才走得到；实测中途失败会留下改了一半的生产库。
+# 上一版只把文档推荐改走 S7，代码路径没关——**改了推荐不等于关了旁路**，
+# 而缺省 PHASE 就是 all，`nightly_full_review.sh <日期>` 一句就落回旁路。
+#
+# 这里拒绝，不在本脚本里套 S7：本脚本下面会持 daily-full-review.lock，
+# 而 S7 脚本抢同一把锁，套进来就是自己抢自己的锁（它会看到父进程活着直接 exit 75）。
+#
+# 放在加锁与任何写入之前，所以拒绝不留锁、不进 ops-health（这是用法错误不是运维故障）。
+# launchd 两个 job 都不受影响：sync 走 nightly-full-review-s7.sh，finalize 走本脚本。
+if [ "$PHASE" != "finalize" ]; then
+  cat >&2 <<EOF
+[$(date '+%F %T')] 拒绝执行 phase=$PHASE：这条路径绕开 staging，直写生产库。
+  同步段请走 S7 入口（它做克隆 / 过闸 / 原子换名）：
+    /bin/zsh /Users/a77/.local/bin/nightly-full-review-s7.sh $D
+  同步成功后再跑收尾（用 && 串起来，别让同步失败还继续收尾）：
+    /bin/zsh /Users/a77/.local/bin/nightly-full-review-s7.sh $D && \\
+      /bin/zsh /Users/a77/.local/bin/nightly_full_review.sh finalize $D
+  finalize 覆盖 L2 + 生成段 + 方法飞轮，与原 phase=all 等价。
+EOF
+  exit 2
+fi
 
 LOG_DIR="$DATA_ROOT/logs"
 LOCK_PARENT="${FINANCE_LOCK_DIR:-$DATA_ROOT/state/locks}"
@@ -131,7 +138,7 @@ fi
 # `-m` 会把 cwd 放进 sys.path[0]（实测是空串），于是 intelligence 仍从 WORKSPACE 加载
 # ——也就是那棵共用的、会漂的主检出树（实测
 # /Users/a77/finance-workspace-private/intelligence/__init__.py）。
-# 质检闸门（REVIEW_CHECKER）与同步器（REVIEW_SYNC_SCRIPT）已各自钉住代码根，
+# 质检闸门（REVIEW_CHECKER）已钉住代码根、同步段已只走 S7，
 # **生成段还没有**：修对两处不等于整个 finalize 已修对根。
 # 不在本单顺手改：生成段要连 users 目录、episode 目录、模型网关一起验，改动面比闸门大。
 cd "$WORKSPACE" || exit 1
@@ -150,9 +157,8 @@ run_moneyflow() {
   L2_LOCK_HELD=1 "$CODE_ROOT/scripts/moneyflow/run_l2_pipeline.sh" "$D"
 }
 
-run_sync() {
-  "$OPS_PYTHON" "$REVIEW_SYNC_SCRIPT" --date "$D"
-}
+# run_sync() 已删除（2026-09-12）：它直调 run_review_sync.py，绕开 S7 的 staging。
+# 同步段只有一条路——nightly-full-review-s7.sh。留着函数就还有人会去调它。
 
 # L2 是独立 DAG 分支：同步段即使失败也会尝试，避免 SW-L1/复盘会故障截断资金流。
 # 返回 moneyflow_rc / l2_rc 两个全局变量。
@@ -274,21 +280,8 @@ run_method_flywheel() {
   return $method_rc
 }
 
+# 只剩 finalize 一个分支：sync / all 在加锁前就被拒（见上），它们绕开 staging。
 case "$PHASE" in
-  sync)
-    # 仅同步段（定时 @18:30）。失败则告警退出；finalize 守卫会拦住残缺数据。
-    run_sync
-    rc=$?
-    if [ "$rc" -ne 0 ]; then
-      echo "[$(date '+%F %T')] 同步段失败 rc=$rc（常见原因：CDP proxy 未启动 / fupanhui 未登录 / 非交易日）"
-      notify "⚠️ 全量复盘 $D 同步段失败 rc=$rc（常见：CDP proxy 未启动 / fupanhui 未登录 / 非交易日）；20:40 finalize 将被守卫拦下；日志 logs/daily-full-review.out.log"
-      echo "[$(date '+%F %T')] === sync 段失败 date=$D rc=$rc ==="
-      exit "$rc"
-    fi
-    echo "[$(date '+%F %T')] === sync 段完成 date=$D（等待 20:40 finalize 跑 L2+生成段）==="
-    exit 0
-    ;;
-
   finalize)
     # 定时 @20:40。守卫：18:30 sync 必须已通过 same-day-gate，否则不生成报告。
     "$OPS_PYTHON" "$REVIEW_CHECKER" "$D" --phase data
@@ -311,31 +304,6 @@ case "$PHASE" in
     if [ "$moneyflow_rc" -ne 0 ] || [ "$l2_rc" -ne 0 ]; then
       echo "[$(date '+%F %T')] === 全量复盘失败 date=$D 资金流 rc=$moneyflow_rc L2门 rc=$l2_rc ==="
       skip_method_flywheel "资金流 rc=$moneyflow_rc / L2 门 rc=$l2_rc"
-      exit 1
-    fi
-    run_generation_and_finalize
-    gen_rc=$?
-    if [ "$gen_rc" -eq 0 ]; then
-      run_method_flywheel || true
-    else
-      skip_method_flywheel "生成段或最终硬门 rc=$gen_rc"
-    fi
-    exit "$gen_rc"
-    ;;
-
-  all)
-    # 全量（手动补跑）。保留原行为：sync → L2（独立分支，sync 失败也跑）→ 生成段。
-    run_sync
-    rc=$?
-    run_l2_branch
-    if [ "$rc" -ne 0 ]; then
-      echo "[$(date '+%F %T')] 同步段失败 rc=$rc（常见原因：CDP proxy 未启动 / fupanhui 未登录 / 非交易日），停止后续生成段"
-      notify "⚠️ 全量复盘 $D 同步段失败 rc=$rc（常见：CDP proxy 未启动 / fupanhui 未登录 / 非交易日），后续生成段未跑；日志 logs/daily-full-review.out.log"
-      echo "[$(date '+%F %T')] === 全量复盘失败 date=$D 同步段 rc=$rc ==="
-      exit "$rc"
-    fi
-    if [ "$moneyflow_rc" -ne 0 ] || [ "$l2_rc" -ne 0 ]; then
-      echo "[$(date '+%F %T')] === 全量复盘失败 date=$D 资金流 rc=$moneyflow_rc L2门 rc=$l2_rc ==="
       exit 1
     fi
     run_generation_and_finalize

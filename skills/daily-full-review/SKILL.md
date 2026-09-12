@@ -86,14 +86,20 @@ git branch --show-current
 **走 S7 包装脚本，它才有 staging + 换名闸**：
 
 ```bash
-/bin/zsh /Users/a77/.local/bin/nightly-full-review-s7.sh YYYY-MM-DD   # sync 段
-/bin/zsh /Users/a77/.local/bin/nightly_full_review.sh finalize YYYY-MM-DD
+/bin/zsh /Users/a77/.local/bin/nightly-full-review-s7.sh YYYY-MM-DD && \
+  /bin/zsh /Users/a77/.local/bin/nightly_full_review.sh finalize YYYY-MM-DD
 ```
 
-两个脚本都自带 `FINANCE_SYNC_CODE_ROOT` / `REVIEW_SYNC_PLAN` 缺省，干净 shell 直接可跑；
-要覆盖就在命令前面加同名变量。
+**`&&` 不能省**：两条独立命令时，同步失败（非零）后收尾照样执行，而收尾成功会让整个
+代码块返回 0——同步失败被收尾的成功掩盖。真实 finalize 有数据守卫，但「守卫放行」只说明
+库里已有合格数据，**不说明本次同步成功**。
 
-> ⚠ **不要直接跑 `run_review_sync.py` 补数。** 它自己**不做** staging：写的就是
+两个脚本都自带 `FINANCE_SYNC_CODE_ROOT` / `REVIEW_SYNC_PLAN` 缺省，干净 shell 直接可跑；
+要覆盖就在命令前面加同名变量。`finalize` 覆盖 L2 + 生成段 + 方法飞轮。
+
+> ⚠ **同步段只有 S7 这一条路。** `nightly_full_review.sh` 的 `sync` / `all`（以及
+> 只传日期的缺省 `all`）已在加锁前拒绝并给出替代命令——它们直调
+> `run_review_sync.py`，而同步器自己**不做** staging：写的就是
 > `MARKET_FEATURE_STORE_DB` 指向的那个库，指向生产就是直写生产，中途失败会留下
 > 改了一半的生产库。「克隆到 staging → 过闸 → 原子换名」全在
 > `nightly-review-sync-staged.py` 里，只有经 S7 入口才走得到。
