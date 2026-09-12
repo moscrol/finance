@@ -409,6 +409,7 @@ def run_daily_full_staged(
     skip_long: bool = False,
     stock_source: str = "snapshot",
     child_argv: list[str] | None = None,
+    kind: str = "daily-full",
 ) -> dict:
     """daily-full 的 staging 编排: 同步全程不持有生产库写锁 (bookgap S7)。
 
@@ -556,7 +557,7 @@ def run_daily_full_staged(
     finished_at = datetime.now()
     _write_receipt(staging, {
         "run_id": run_id,
-        "kind": "daily-full",
+        "kind": kind,
         "plan": "staging-swap",
         "trade_date": status.get("trade_date") or trade_date,
         "started_at": started_at,

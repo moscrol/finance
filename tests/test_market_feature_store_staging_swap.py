@@ -184,6 +184,20 @@ def test_receipt_row_present_after_swap(prod_db):
     assert method == result["copy"]["method"]
 
 
+def test_receipt_kind_reflects_custom_child(prod_db):
+    """修复类调用方传 kind → 收据不落 \"daily-full\" 冒充日更管道。"""
+    result = sdf.run_daily_full_staged(
+        child_argv=_child(CHILD_OK), kind="repair-stock-daily-hithink"
+    )
+    assert result["swapped"] is True
+    con = duckdb.connect(str(prod_db), read_only=True)
+    try:
+        kind = con.execute("SELECT kind FROM ops_sync_run").fetchone()[0]
+    finally:
+        con.close()
+    assert kind == "repair-stock-daily-hithink"
+
+
 def test_failed_step_still_lands_like_today(prod_db):
     """现状口径: 失败步不回滚已提交写入——子进程 rc=1 仍换库, 出口 rc=1。
 

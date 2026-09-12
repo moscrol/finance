@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -1102,6 +1103,94 @@ def cmd_daily_full(args) -> int:
     return result["rc"]
 
 
+def cmd_repair_stock_daily_hithink(args) -> int:
+    """同花顺 dump 修复 canonical 个股日行情单日 (审查见仓外 db-repair/hithink-20260911)。
+
+    父进程走 run_daily_full_staged 编排 (克隆→子进程→校验→第三方写者守卫→
+    收据→原子换名), 不跑 daily 管道预检 (修复只读本地 parquet, 不需要 CDP)。
+    --child 是 staging 子进程模式: 写 MARKET_FEATURE_STORE_DB (或 --db) 指向的
+    副本, 直写 canonical 生产库被 write_path 闸门拦死。
+    """
+    from .sync.repair_hithink_stock_day import (
+        SPEC_20260911,
+        RepairRefused,
+        run_repair,
+    )
+    from .sync.sync_daily_full import run_daily_full_staged
+
+    specs = {s.trade_date.isoformat(): s for s in (SPEC_20260911,)}
+    spec = specs.get(args.trade_date)
+    if spec is None:
+        print(f"没有 {args.trade_date} 的 RepairSpec——每个修复日一份名单断言, 拒跑")
+        return 2
+    parquet = Path(args.parquet)
+    if not parquet.exists():
+        print(f"parquet 不存在: {parquet}")
+        return 2
+
+    if args.child:
+        # 目标解析与 run_repair 同一顺序: --db > MARKET_FEATURE_STORE_DB > 包默认。
+        # 状态文件缺省落在 "<目标库>.status.json"——正是编排层读的那个路径。
+        env_db = os.environ.get("MARKET_FEATURE_STORE_DB")
+        target = Path(args.db or env_db) if (args.db or env_db) else None
+        refused = _refuse_production_write_direct(target)
+        if refused is not None:
+            return refused
+        status_json = (
+            Path(args.status_json)
+            if args.status_json
+            else (Path(str(target) + ".status.json") if target else None)
+        )
+        try:
+            report = run_repair(
+                spec,
+                parquet,
+                db_path=target,
+                status_json=status_json,
+                report_path=Path(args.report_path) if args.report_path else None,
+            )
+        except RepairRefused as exc:
+            print(f"修复断言不通过, 未写入: {exc}")
+            return 2
+        print(
+            f"修复完成: {report['trade_date']} "
+            f"写 {report['evidence']['counts']['written_rows']} 行 "
+            f"(保留 {len(report['post']['kept_rows_identical'])}), "
+            f"当日共 {report['post']['final_rows']} 行, 其他日期指纹不变"
+        )
+        return 0
+
+    child_argv = [
+        sys.executable, "-m", "market_feature_store.cli",
+        "repair-stock-daily-hithink", "--child",
+        "--trade-date", args.trade_date,
+        "--parquet", str(parquet),
+    ]
+    if args.report_path:
+        child_argv += ["--report-path", args.report_path]
+    result = run_daily_full_staged(
+        trade_date=args.trade_date,
+        child_argv=child_argv,
+        kind="repair-stock-daily-hithink",
+    )
+    if result["swapped"]:
+        print(f"修复状态: {'OK' if result['rc'] == 0 else 'CHECK'} | 已原子换库")
+    else:
+        print(f"修复状态: BLOCKED | 生产库未动 | {result['reason']}")
+    return result["rc"]
+
+
+def _refuse_production_write_direct(target) -> int | None:
+    """修复子进程没有 --direct 逃生舱: 目标是 canonical 生产库就拒。"""
+    from .write_path import production_write_blocked
+
+    reason = production_write_blocked(False, target)
+    if reason is None:
+        return None
+    print(reason)
+    return 2
+
+
 def cmd_daily_full_exec(args) -> int:
     """(内部) daily-full 的子进程管道入口, 由 run_daily_full_staged 拉起。
 
@@ -1916,6 +2005,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="允许对 canonical 生产库跑 exec（默认拒绝）。父进程指向 staging 时不需要",
     )
     p_dfe.set_defaults(func=cmd_daily_full_exec)
+
+    p_rsd = sub.add_parser(
+        "repair-stock-daily-hithink",
+        help="(修复) 用同花顺 dump 重建 canonical 个股日行情单日 (staging 写+原子换库)",
+    )
+    p_rsd.add_argument("--trade-date", required=True, help="修复日 YYYY-MM-DD, 须有对应 RepairSpec")
+    p_rsd.add_argument("--parquet", required=True, help="同花顺 daily-k dump parquet 路径")
+    p_rsd.add_argument("--report-path", default=None,
+                       help="修复报告 JSON 落盘路径 (写前写后逐字段 diff + 指纹证据)")
+    p_rsd.add_argument("--child", action="store_true",
+                       help="(内部) staging 子进程模式, 勿直接使用")
+    p_rsd.add_argument("--status-json", default=None, help="(内部) 子进程结构化结果落盘")
+    p_rsd.add_argument("--db", default=None,
+                       help="(内部/干跑) 子进程显式目标库; 缺省读 MARKET_FEATURE_STORE_DB")
+    p_rsd.set_defaults(func=cmd_repair_stock_daily_hithink)
 
     sub.add_parser("check", help="数据体检 (行数/交易日/空值/覆盖度)").set_defaults(func=cmd_check)
 
