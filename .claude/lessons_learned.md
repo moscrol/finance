@@ -253,6 +253,21 @@
   做法：判断快照新旧只能靠 `scripts/deploy_workbench_runtime.sh` 里那次**现算**（它 `cd` 到快照再算，并先断言
   "加载树必须在快照内"），或直接比对两棵树的文件 hash。**长驻进程的自述字段一律视为启动时快照，不是当前状态。**
 
+- **[2026-09-12] 821 字材料题被判成 disclosure_scan 并返回 183 字节存根——`answer_status=complete`、`warnings=[]`、`llm.used=false`，静默成功；修了两道闸才算修完。**
+  根因（两层）：①细粒度词面路由的判据是「几个提示词同时出现」的去空白全文无锚点子串匹配，自带 examples
+  全部 8–21 字，却套在任意长度输入上——「行业」@64（小节标题）+「公告」@72（材料正文）+「哪些」@437
+  （第 1 题题干）在互不相干的段落 AND 成立，0.98 置信度命中。②同一个匹配器 `is_disclosure_scan_query`
+  有两个调用点（`turn_controller._fine_grained_route_row` 与 `query_understanding.understand_query`），
+  第一版修复只闸了前者，`decide_turn` 端到端仍经 envelope 兼底分支判成 disclosure_scan——**验证钉在
+  被改的那一层，没钉端到端**。更深的形态教训：`answer_synthesis` 的 `status="validated"` 与
+  `diagnostic.state="not_requested"` 同时为真——「校验通过」被用来描述一件根本没发生的事，只看 status
+  的仪表永远绿。评测语料 24 道冻结题全是短问句、一题没命中，靠语料扫不出这类缺陷。
+  做法：词面路由一律加长度闸（阈值 SSOT `route_table.FINE_GRAINED_ROUTE_MAX_CHARS=160`，去空白后），
+  闸下在**每个**调用点；失败方向设计成安全的（超长退回正常 lane 由模型判）。**改完匹配器先 grep 它的全部
+  调用点，验证钉 `decide_turn` 端到端**；事故题逐字节钉进
+  `intelligence/tests/test_fine_grained_route_length_gate.py`（SHA 断言防「回归测试悄悄测了别的题」）。
+  事故全记录 `docs/learning/knevo-distill/recheck/2026-09-12-t23-nogrok/README.md`。
+
 - **[2026-08-11] `check_inflight_stale.sh` 报「交接过期」，证据是 3 个 moneyflow 脏文件——而本分支 8 个提交一次都没碰过它们。**
   根因：判据是「代码路径前缀 + mtime 比文档新」，即**拿文件系统事实推断版本控制事实**。未提交改动在 git 里
   **没有分支归属**，它只属于这棵树；本仓主检出树常年多 agent 共用，这类误报是必然而非偶然。
