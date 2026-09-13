@@ -1,25 +1,30 @@
-# hithink-rewrite-0911：同花顺重建 09-11 日线（二轮阻断已修，待三轮复审）
+# hithink-rewrite-0911：同花顺重建 09-11 日线（三轮阻断已修，待四轮复审）
 
 ## 待复审，仍未换库（先读这节）
 
-9d73f01a 修完 QC 复审二轮两项 P1，干净树全量收据 9,490 passed（对应本 SHA，可采信）。
-生产库仍未动。下一步：QC 三轮复审 → 用户授权 → 正式换库（命令见 repair-plan.md；
-一次原子交付主表修复+派生重算+排他锁内备份）。
+350b076d 修完 QC 三轮两项 P1（继承自旧编排）+ 一项 P2，干净树全量收据
+9,496 passed（对应本 SHA，可采信）。生产库仍未动。下一步：QC 四轮复审 →
+用户授权 → 正式换库（命令见 repair-plan.md；一次原子交付主表+派生+锁内备份）。
 禁令：勿凭隔离克隆成功绕过复审；勿扩大回填日期；302132 历史回填需单独授权。
 
-## 二轮两项 P1 修复落点（9d73f01a）
+## 三轮修复落点（350b076d）
 
-1. 备份→换名竞态：`db.hold_swap_lock` 对 target inode 持 flock LOCK_EX|NB，与
-   duckdb 写者锁同命名空间（本机实测双向互斥），覆盖「最终复查→备份→换名」
-   全临界区；锁内攻击 rw 打开必失败；拿不到锁 rc=2 不换名。日更不进锁。
-2. status 遗留污染：开工即删旧 status.json + run_id 绑定（父 env→子 status→父
-   校验），错轮/遗留/伪造一律 rc=2；两个真子进程（daily-full-exec/修复）都写 run_id。
+1. 克隆-基线竞态：基线 stat 与克隆在同一 SH 换库锁窗口内建立，形态基线从
+   克隆体自身读（基线=副本版本）；窗口内第三方写入实测失败。
+2. 两轮共用 staging：`db.hold_run_mutex` 运行互斥锁（.run.lock 独立文件，
+   读写无感，进程死亡 OS 释放），任何清理之前取得、覆盖全生命周期；
+   并发轮立即 rc=2。
+3. P2 损坏 status：'{' / '[1]' 统一 rc=2 明确拒绝，不抛异常。
 
-## 一轮五项落点（8ac5a788，QC 已过 G1/S1/S2/S3）
+## 关键设计变更：换库锁 EX→SH
 
-G1 闸门候选集（git common-dir）探针 rc=2；S1 白名单接 hithink 拼接 403/403；
-S2 派生（technical+window）入 staging 原子交付、302132 置缺；S3 spec 三前提；
-S4 备份函数（二轮已包进排他锁）。
+三向实测（本机 flock 与 duckdb 锁同命名空间）：SH 排写不排读。基线窗口要
+罩住克隆内部只读探针（EX 会打死它）；末端窗口用 SH 同样排写且保判据 1。
+
+## 一/二轮落点（QC 已过）
+
+G1 闸门候选集；S1 白名单 hithink（拼接 403/403）；S2 派生入 staging 原子交付、
+302132 置缺；S3 spec 三前提；S4 备份+锁内换名；status 开工即删+run_id 绑定。
 
 ## 关键口径（QC 修正后）
 
@@ -31,25 +36,24 @@ S4 备份函数（二轮已包进排他锁）。
 ## 证据指针
 
 - 方案与落点表：`~/.finance-runtime/db-repair/hithink-20260911/repair-plan.md`
-- 反向证据：`verify-after-fixes/`（verify-round2.json 二轮 + 一轮 static/端到端）
-- QC 报告：`~/.finance-runtime/reviews/hithink-8ac5a788-qc/review.md`
-- 决策留痕：docs/handoffs/2026-09-13-hithink-five-blockers-fix.md（含二轮）
+- 反向证据：`verify-after-fixes/`（round1 static + round2/round3 + 端到端）
+- 决策留痕：docs/handoffs/2026-09-13-hithink-five-blockers-fix.md（含三轮）
 
 ## 已验证
 
-- 定向 46 条（含二轮新增 5）；全量 9,490 passed 干净树收据；ruff 全仓过。
-- 端到端克隆重验：cli_rc=0、fact 5,553、302132 两派生表 0 行、备份指纹一致。
+- 定向 52 条；全量 9,496 passed 干净树收据；ruff 全仓过。
+- 端到端克隆重验：cli_rc=0、fact 5,553、302132 两派生表 0 行、备份在场。
 
 ## 未验证 / 已知边界
 
-- 未换库；QC 三轮复审未做；并跑表补齐（拍板项 3）未做。
+- 未换库；QC 四轮复审未做；并跑表补齐（拍板项 3）未做。
 - flock 只约束 duckdb 写者；裸文件写者（cp/dd）不在威胁模型。
 - G1 跨克隆形态靠 env 钉，真机未实测。
 
 ## 踩过的坑
 
-- 「备份后再查一次」不是 TOCTOU 闭环；闭合窗口要排他锁，且 flock 与 duckdb
-  锁同命名空间是先验实验证实后才敢用的（别假设，先实测）。
-- 测锁占用夹具用 LOCK_SH（不挡我方只读探针），LOCK_EX 先挡死自己开工闸。
-- 契约升级时测试里所有手写 status 的注入子进程要同步升级（inline JSON 会漏）。
+- 「备份后再查一次」不是 TOCTOU 闭环；基线也不能在克隆后认领——校验与
+  使用之间，产物所有权与版本都要受保护（QC 可迁移点）。
+- flock 用 SH 还是 EX 先实测三向语义再选，别默认 EX。
+- 锁文件常驻不删：删锁文件本身有竞态。
 - 全量收据必须对应 clean tree commit；「补一行」承诺先验派生窗口历史。
