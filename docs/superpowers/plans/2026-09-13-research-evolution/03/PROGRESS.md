@@ -136,13 +136,16 @@ exposures/<operation_id>.json                          exposure-receipt/v1（own
 
 ### 收据
 
+最终 SHA **`976d4cf0`**（`976d4cf045faeda212704647b7d9a75d55dbe514`）。下表两条收据均在**提交后的干净树**上重跑取得，`dirty=false`、`revision` 即最终 SHA。
+
 | 命令 | 结果 | 收据 |
 |---|---|---|
-| `pytest -q -p no:cacheprovider` 本轨 5 个测试文件 | **96 passed**（91 基线 + 5 新），0 failed / 0 skipped，exit 0 | `~/.finance-runtime/test-receipts/20260913T075023Z-f2a12fa3.json` |
-| `pytest -q -p no:cacheprovider test_methodology_dependence.py test_method_validation.py test_replay_engine.py test_dual_blind_forecast.py` | **117 passed**，0 failed / 0 skipped，exit 0 | `~/.finance-runtime/test-receipts/20260913T075045Z-f2a12fa3.json` |
+| `pytest -q -p no:cacheprovider` 本轨 5 个测试文件 | **96 passed**（91 基线 + 5 新），0 failed / 0 error / 0 skipped，exit 0 | `~/.finance-runtime/test-receipts/20260913T075303Z-976d4cf0.json` |
+| `pytest -q -p no:cacheprovider test_methodology_dependence.py test_method_validation.py test_replay_engine.py test_dual_blind_forecast.py` | **117 passed**，0 failed / 0 error / 0 skipped，exit 0 | `~/.finance-runtime/test-receipts/20260913T075335Z-976d4cf0.json` |
 | `ruff check`（`service.py` + `test_research_validation_service.py`） | All checks passed | — |
-| 评审独立探针 `probe_03.py`（只读、临时根） | 三场景均转正：`incremental_pending.day2_evaluate={"status":"pending"}`；`later_capture` accepted=0 / rejected `pit_receipt_after_forecast_cutoff` / pit_grade=null；`pre_end_cumulative` 两臂 `mean_brier=None, sealed=true` | 对话内执行 |
+| pre-commit 11 道 | 全部 Passed（红线项无文件 → Skipped） | 提交 `976d4cf0` 的 hook 输出 |
+| 评审独立探针 `probe_03.py`（只读、临时根） | 三场景均转正：`incremental_pending.day2_evaluate={"status":"pending"}`；`later_capture` accepted=0 / rejected `pit_receipt_after_forecast_cutoff` / pit_grade=null；`pre_end_cumulative` 两臂 `mean_brier=None, sealed=true, n_settled=2` | 对话内执行 |
 
-上表收据文件名里的 `f2a12fa3` 是**跑测试时的 HEAD**（改动尚未提交），非最终 SHA；最终 SHA 见本节提交。收据目录多树共用，按时间戳取本 revision 的文件，未读 `latest.json`。
+解释器 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`（3.12.13，依赖指纹 `3328bed61f3e21ea`）。收据目录多树共用，按时间戳取本 revision 的文件，未读 `latest.json`。
 
 未做：全仓 / 前端 / registry 未重跑（本次只改 03 白名单内 2 个文件）。真实前向样本仍 pending，与本次返修无关。
