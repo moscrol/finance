@@ -160,3 +160,11 @@ M1 合取先看 unknown、M2 去掉知识截止过滤、M3 dedup_key 去掉 owne
 改动文件：`intelligence/services/judgment_maintenance/{contracts,assess,conditions,actions}.py`、`intelligence/tests/test_judgment_maintenance_{assess,actions}.py`、本文件。均在 spec 01 §6 白名单内；未动夹具（`expected.json` 仍冻结于 9735103c）、未动公共源模块、未 push、未合并。
 
 **完成状态不变**：engineering_complete 是（本轮把三条被既有绿色用例漏掉的反例补成回归）；product_verified 仍归 06；全仓等价 CI 由集成人在合并前重跑（本轮只跑了模块测试，上表 9626 例的全仓收据绑定的是 dbaa3968，不覆盖本次代码改动）。
+
+## 2026-09-13 QC 第二轮（扩大边界复审）
+
+QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结论：原 13 项固定反例转绿，扩大边界确证 8 项，本轨 1 项。
+
+- **J2[P1] 同 ref 哈希复活**：同 ref 哈希更新 h1→h2，h2 过期后 h1 复活、待复核项消失。`_state_at` 的 `retired_refs` 原只认跨 ref 显式 `supersedes_ref`；修复加同 ref 隐式替代（同生效起点 valid_from/known_day + 更晚记录 + 不同哈希 → 旧记录永久退场进 ended）。既有控制测试 `test_unsuperseded_sibling...`（valid_from 不同 = 另一版有效期安排）语义不变。
+- 修复提交 **`d1a514ee`**；新增 2 条回归测试先红后绿；模块 99 passed；ruff 干净；QC 探针 `spec_010204_probes.py` J2 组复跑转绿。
+- **06 联测请用 `d1a514ee`**。口径纠偏：上轮「13 项已修复」实为「原 13 项固定反例转绿」。
