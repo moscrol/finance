@@ -778,3 +778,45 @@ def test_ambiguity_resolved_keeps_open_item_and_audit_gap():
     assert open_items[0].change_type == "content_changed"
     assert "ambiguous_version_order" not in [g.reason for g in open_items[0].gaps]  # 已消解
     assert "ambiguous_version_order" in [g.reason for g in result.gaps]  # 审计轨迹保留
+
+
+def test_binding_validation_created_day_uses_market_day():
+    """J11：绑定解析端的「基线截止不能晚于绑定时刻」也按市场日判——
+    同一时刻的 Z/+08 写法结论一致；偏移量伪装（+14:00 写出 09-12 前缀实际是上海 09-11）必须拒绝。"""
+    versions = [_version("ann:old", "h1", "2026-09-12T00:00:00+08:00")]
+    for stamp in ("2026-09-11T16:30:00Z", "2026-09-12T00:30:00+08:00"):
+        binding = _binding({"ann:old": "h1"}, created_at=stamp, baseline_cutoff="2026-09-12")
+        assert _run([binding], versions).counts["objects_bound"] == 1
+    for stamp in ("2026-09-11T18:30:00+08:00", "2026-09-12T00:30:00+14:00"):
+        with pytest.raises(jm.MaintenanceContractError) as excinfo:
+            _run([_binding({"ann:old": "h1"}, created_at=stamp, baseline_cutoff="2026-09-12")], versions)
+        assert excinfo.value.code == "baseline_cutoff_after_created_at"
+
+
+def test_resolution_chain_stays_acyclic_and_preserves_history():
+    """J12：歧义出现又消解（A→B→A）时，复现节点必须有独立身份——
+    替代链保持线性无环，三个历史节点都留在报告里，B 回指初态 A 而不是未来节点。"""
+    binding = _binding({"ann:old": "h1"}, created_at="2026-09-10T12:00:00+08:00", baseline_cutoff="2026-09-10")
+    versions = [
+        _version("ann:old", "h1", "2026-09-10T09:00:00+08:00"),
+        _version("ann:old", "h2", "2026-09-10T20:00:00+08:00"),
+        _version("ann:old", "h0", "2026-09-11", expired_at="2026-09-12T10:00:00+08:00"),
+    ]
+    result = _run([binding], versions, as_of="2026-09-12", cutoff="2026-09-12")
+    assert result.counts["items_open"] == 1
+    assert "ambiguous_version_order" in [g.reason for g in result.gaps]
+    assert len(result.items) == 3
+    assert len({i.id for i in result.items}) == 3
+    by_id = {i.id: i for i in result.items}
+    for item in result.items:  # 沿 supersedes 指针不得成环
+        seen: list[str] = []
+        pointer = item.id
+        while pointer in by_id:
+            assert pointer not in seen
+            seen.append(pointer)
+            pointer = by_id[pointer].supersedes_item_id
+    open_item = _live(result)[0]
+    middle = by_id[open_item.supersedes_item_id]
+    assert middle.status == "superseded" and "ambiguous_version_order" in [g.reason for g in middle.gaps]
+    first = by_id[middle.supersedes_item_id]
+    assert first.status == "superseded" and first.first_known_day == "2026-09-10" and first.supersedes_item_id is None

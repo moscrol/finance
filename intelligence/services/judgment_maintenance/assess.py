@@ -12,7 +12,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Any
 
@@ -414,6 +414,7 @@ def _dependency_items(
     unresolved_override = ("dependency_missing", "time_metadata_missing", "unknown", "restore_evidence") if ref_time_gaps else None
     items: list[MaintenanceItem] = []
     previous_id: str | None = None
+    seen_base_ids: set[str] = set()
     for index, (day, state) in enumerate(timeline):
         is_last = index == len(timeline) - 1
         if state.kind == "unchanged" and not state.ambiguous:
@@ -427,6 +428,13 @@ def _dependency_items(
         else:
             override = unresolved_override if state.kind == "unresolved" else None
         item = build(day, state, status="open" if is_last else "superseded", supersedes=previous_id, override=override)
+        # J12：同一内容状态在一条链上复现（歧义出现又消解的 A→B→A）时，「内容相同」不等于
+        # 「历史上同一次出现」——复现节点拿独立 id（dedup_key 不动，跨报告归并语义不变），
+        # 否则 supersedes 链成环、末端去重还会把 open 项错换成初态。
+        base_id = item.id
+        if base_id in seen_base_ids:
+            item = replace(item, id=_item_id(f"{item.dedup_key}#recur:{day}"))
+        seen_base_ids.add(base_id)
         items.append(item)
         previous_id = item.id
     final_day, final_state = timeline[-1]
@@ -635,11 +643,7 @@ def assess(
 
     unique_items: dict[str, MaintenanceItem] = {}
     for it in sorted(items, key=_item_sort_key):
-        prev = unique_items.get(it.id)
-        # J10：同一内容状态在非相邻时间点复现时（如歧义出现又消解）id 相同——去重必须留下
-        # 仍 open 的那个，而不是最早进入的那个，否则「变迁已发生待复核」被压成 superseded。
-        if prev is None or (prev.status != "open" and it.status == "open"):
-            unique_items[it.id] = it
+        unique_items.setdefault(it.id, it)  # id 由构造保证链内唯一（J10/J12），此处仅作安全去重
     final_items = tuple(unique_items.values())
     gap_pool: dict[tuple[Any, ...], Gap] = {}
     for g in report_gaps + [g for it in final_items for g in it.gaps]:

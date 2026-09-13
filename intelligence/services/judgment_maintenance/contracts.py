@@ -497,7 +497,9 @@ def parse_binding(data: Any, *, owner_user_id: str, where: str) -> DependencyBin
         raise MaintenanceContractError("hash_for_undeclared_ref", f"{where}.baseline_source_hashes", f"这些 ref 不在 baseline_evidence_refs：{undeclared}")
     baseline_cutoff = validate_date(d.get("baseline_cutoff"), f"{where}.baseline_cutoff")
     created_at = validate_stamp(d.get("created_at"), f"{where}.created_at")
-    if baseline_cutoff > created_at[:10]:
+    # J11：解析端与使用端同一日历日口径——带偏移时刻先折算东八区再取日，
+    # 否则同一时刻的 Z/+08 写法一个被拒一个放行，+14:00 伪装也能骗过前缀比较。
+    if baseline_cutoff > (market_day_of(created_at) or created_at[:10]):
         raise MaintenanceContractError("baseline_cutoff_after_created_at", f"{where}.baseline_cutoff", "基线截止不能晚于绑定时刻")
     conditions_raw = d.get("conditions") or []
     if not isinstance(conditions_raw, list):
