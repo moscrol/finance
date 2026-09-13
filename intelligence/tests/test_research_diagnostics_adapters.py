@@ -214,6 +214,30 @@ class LegacyAdapters(unittest.TestCase):
             self.assertEqual(tree_ck.classification, "context")  # 树由系统逐日解析
             self.assertIn("system_recheck_missing", {n.reason for n in report.non_attributable})
 
+    def test_missing_recorded_at_with_known_as_of_is_trade_date_only_not_unverifiable(self) -> None:
+        """09-06 终局 spec §4.1：历史对象缺 recorded_at 标 trade_date_only，与 strict 分开统计，不是「不可验证」。"""
+        from intelligence.services.research_diagnostics.adapters import checkpoint_to_record, script_to_record, tree_to_record
+
+        legacy_script = {"id": "os-legacy", "as_of": "2026-09-02", "status": "confirmed", "late": None, "due": "2026-09-03", "projection_hash": HASH}
+        rec, gaps = script_to_record(legacy_script, owner_user_id=OWNER)
+        self.assertEqual(rec.recorded_at.granularity, "unknown")
+        self.assertEqual(rec.pit_grade, "trade_date_only")
+        self.assertEqual(rec.declared_deadline, "2026-09-03T09:30:00+08:00")
+        self.assertFalse(gaps)
+        tree = tree_to_record({"id": "st-legacy", "record": "tree", "as_of": "2026-09-01", "knowledge_cutoff": "2026-09-01"}, owner_user_id=OWNER)
+        self.assertEqual(tree.pit_grade, "trade_date_only")
+        # 既无登记时刻也无市场日：才是 unverifiable
+        bare = checkpoint_to_record({"id": "ck-bare", "claim": "x", "due": "2026-09-05"}, owner_user_id=OWNER)
+        self.assertEqual(bare.pit_grade, "unverifiable")
+        report = diagnose(
+            owner_user_id=OWNER, start="2026-09-01", end="2026-09-10", knowledge_cutoff="2026-09-12",
+            records=[rec], policy=policy(), generated_at="2026-09-13T00:00:00+00:00",
+        )
+        late = next(f for f in report.findings if f.kind == "late_registration")
+        self.assertEqual(late.classification, "unknown")
+        self.assertEqual([g.reason for g in late.gaps], ["recorded_at_unknown"])
+        self.assertEqual(late.pit_grade, "trade_date_only")
+
     def test_adapter_rejects_wrong_owner_downstream(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             paths = build_ledgers(Path(tmp))

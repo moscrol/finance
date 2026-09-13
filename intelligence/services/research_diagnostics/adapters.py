@@ -72,8 +72,14 @@ class LegacyInputs:
         }
 
 
-def _pit(tp: TimePoint) -> str:
-    return {"datetime": "strict", "date": "trade_date_only"}.get(tp.granularity, "unverifiable")
+def _pit(recorded: TimePoint, event_time: TimePoint | None = None) -> str:
+    """记录的 PIT 档位：带时区时刻 → strict；只到日 → trade_date_only；无登记时刻但市场日已知 → trade_date_only
+    （09-06 终局 spec §4.1：历史对象缺 ``recorded_at`` 整片标 trade_date_only，与 strict 分开统计）；两者都没有 → unverifiable。"""
+    if recorded.granularity == "datetime":
+        return "strict"
+    if recorded.granularity == "date" or (event_time is not None and event_time.granularity != "unknown"):
+        return "trade_date_only"
+    return "unverifiable"
 
 
 def _row_hash(row: dict[str, Any]) -> str:
@@ -214,6 +220,7 @@ def script_to_record(
         recomputed = instant_lt(deadline, recorded.value)
         if recomputed is not None and recomputed != late_flag:
             gaps.append(Gap("late_flag_disagrees", f"{NS_SCRIPTS}#{sid}", retryable=False, detail=f"台账 late={late_flag}，重算={recomputed}"))
+    event_time = classify_time(as_of)
     rec = ProcessRecord(
         record_id=f"os:{sid}",
         owner_user_id=owner_user_id,
@@ -225,7 +232,7 @@ def script_to_record(
             evidence=[f"status={row.get('status')}", "user_authored" if user_authored else "system_drafted"],
         ),
         recorded_at=recorded,
-        event_time=classify_time(as_of),
+        event_time=event_time,
         knowledge_cutoff=str(row.get("knowledge_cutoff") or "") or None,
         declared_deadline=deadline,
         deadline_rule_ref=DEADLINE_RULE_REF if deadline else None,
@@ -235,7 +242,7 @@ def script_to_record(
         hindsight=bool(row.get("hindsight")),
         review_responsibility="system",
         version_chain_complete=None,
-        pit_grade=_pit(recorded),
+        pit_grade=_pit(recorded, event_time),
         source_refs=(f"{NS_SCRIPTS}#{sid}", f"late={late_flag}", f"ledger_due={row.get('due')}"),
     )
     return rec, gaps
@@ -244,6 +251,7 @@ def script_to_record(
 def tree_to_record(row: dict[str, Any], *, owner_user_id: str) -> ProcessRecord:
     tid = str(row.get("id"))
     recorded = classify_time(str(row.get("recorded_at") or ""))
+    event_time = classify_time(str(row.get("as_of") or ""))
     return ProcessRecord(
         record_id=f"st:{tid}",
         owner_user_id=owner_user_id,
@@ -251,12 +259,12 @@ def tree_to_record(row: dict[str, Any], *, owner_user_id: str) -> ProcessRecord:
         object_kind="scenario_tree",
         actor=ActorInfo(author="agent", evidence=[f"model_id={row.get('model_id')}", f"projection_hash={row.get('projection_hash')}"]),
         recorded_at=recorded,
-        event_time=classify_time(str(row.get("as_of") or "")),
+        event_time=event_time,
         knowledge_cutoff=str(row.get("knowledge_cutoff") or "") or None,
         declared_deadline=None,
         review_responsibility="system",
         version_chain_complete=None,
-        pit_grade=_pit(recorded),
+        pit_grade=_pit(recorded, event_time),
         source_refs=(f"{NS_TREES}#{tid}",),
     )
 
