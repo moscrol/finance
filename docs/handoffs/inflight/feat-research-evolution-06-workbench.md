@@ -1,38 +1,34 @@
-# feat/research-evolution-06-workbench · 2026-09-14 · 研究进化 06：第三轮 T1–T5 返修完，等复审
+# feat/research-evolution-06-workbench · 2026-09-14 · 研究进化 06：第四轮 U1–U4 返修完，等复审
 
 ## 这个分支做什么
 
-01–05 接进既有 Workbench 会话，06 只组装不改域算法，单 writer `EvolutionStore`。第三轮 QC 的 T1–T5（退修清单：`docs/verification/re06-0c275716/REVIEW.md`）已全部返修完，等复审放行。
+01–05 接进既有 Workbench 会话，06 只组装不改域算法，单 writer `EvolutionStore`。第四轮 QC 的 U1–U4（退修清单：`docs/verification/re06-957e83f4/REVIEW.md`）已全部返修完，等复审放行。第三轮 T1–T5 背景见 `docs/handoffs/2026-09-14-re06-round3-t1-t5.md`。
 
 ## 决策与被否方案
 
-- T1：`create_message` 在启动执行器**前**调 `facade.bind_pending_rejudge_run` 登记可信 request→run 关联；否了「UI 加延时赌先后」「删 Q3 关联闸」。会话归属用「产生当前 request_event_id 的 rejudge 动作记录」回查（rejudgment 不存会话）；零/多候选不猜，等客户端显式 link_run。
-- T1 配套：link_run 加终态折回全局幂等——派生键 `:terminal` 已录 → 版本闸**之前**重放（折回已推进 revision，迟到调用期望版本必过期；重放零迁移）。
-- T2：run_links 带 `request_event_id` 代际；`find_run_link` 给代际就 fail closed（旧行无代际=不命中），否了通配豁免（造门禁看不见的旁路）。
-- T3：服务端水合 `pending_task_continuation`（owner/会话/full_prompt 逐字匹配动作台账），否了改 App.tsx / 放开消息合同 run_id 非空——客户端自证不可信，台账才是核验源。
-- T4：无 id 读总结按 `generated_at` 取最新；单份直取（兼容缺时间戳遗留行）；多链/并列/缺时间戳 → 400 要显式 id。否了 supersedes 链头——生产 `summarize()` 不写 supersedes。
-- T5：`try_transaction` 外层 try/finally + fd/flock 双取得标志，os.open 抛错不再泄漏进程锁。
+- U1/U2（接受侧绑定）：`bind_pending_rejudge_run` 不再看「唯一待复核」，改按**请求身份**登记——continuation 维护项坐标（核验当前代+本会话动作记录）/ full_prompt 逐字 / label 的 ≥4 字符前缀复述；零命中、多命中都不登记，普通聊天零 run_links 零迁移。关键张力：U3 setup 的裸「继续核查」必须绑（= label 前缀），U1 的「先不处理…市盈率」必须不绑——唯一判别面是内容串对 rejudge 动作记录持久化的 label/full_prompt。
+- U2（补偿登记）：`_compensate_terminal_link`——显式 link_run 时 run 的用户消息确在本会话（非 RunStore 旁路）即补登当前代关联并折回。**不做墙钟时间窗**：消息/run 是真实时钟、requested_at 是注入时钟，跨域比较在验收环境恒假。
+- U3：终态重放加会话匹配（重放不免授权，仍站版本闸前——QC 否决退回闸后）；run 会话闸前置到视图计算前（别会话无绑定会先 503 掩盖越界，探针只收 400/404/409）。
+- U4：auto-pick 判断仅当 `attempts<=1` 且无 `last_failure`（无先前代际，时间窗不可能撞车）；多代际必须显式 `new_judgment_ref`。否了改 judgments writer 加归属字段（越 06 边界，留作登记依赖）。
 
 ## 当前状态
 
-- 代码 HEAD = `957e83f4`（已提交，工作树干净）。等第三轮复审；未合并、未部署。
-- 前端本轮零改动（T3 由服务端解决）。
-- 非显然决策的完整背景：`docs/handoffs/2026-09-14-re06-round3-t1-t5.md`。
+- 代码 HEAD = `ecd90a3c`（已提交，工作树干净）。等第四轮复审；未合并、未部署。
+- 前端本轮零改动。非显然决策完整背景：`docs/handoffs/2026-09-14-re06-round4-u1-u4.md`。
 
 ## 已验证
 
-- 第三轮探针 5/5 绿；仓内新 T1–T5 回归 7 例（rework 测试尾部）；研究进化套件+上轮探针 110 绿；消息热路径切片 354 绿；e2e 16 绿 2 跳过；ruff 定向干净。
-- 全仓 10034 passed / 0 failed：收据 `~/.finance-runtime/test-receipts/20260913T181836Z-0c275716.json`（dirty_paths 恰为本次四代码文件，内容同提交）。
+- 第四轮探针 4/4 连续两次绿；QC 原 110 条命令 + 新仓内 5 条 = 115 绿；全仓 10043 passed / 0 failed（收据 `~/.finance-runtime/test-receipts/20260913T201520Z-b481804c.json`）；e2e 全套 31 绿 2 跳过（端口 19791/19794）；ruff 干净。
 
 ## 未验证 / 已知边界
 
-- 前端 lint/vitest/build 本轮未重跑（无前端改动）；最终组合门禁归复审跑。
-- T1「同会话两条待复核」歧义分支无测试——夹具世界只产一条维护项；该分支保守回退（不绑，等显式 link_run）。
-- e2e 绑定真链路只覆盖 desktop（2 个跳过是非 desktop 项目）。
+- 「继续核查」遇两条待复核：label 相同 → 多命中不登记（落补偿路径），形状安全未专测。
+- 内联折回后换基键+过期版本的重试得 409（语义正确；`:terminal` 派生键只有观察器路径写）。
+- 前端四件套沿用候选结论（本轮无 diff）；最终组合门禁归复审跑。
 
 ## 下一步
 
-复审者重跑第三轮探针 + 组合门禁；放行后按原顺序合并（规格分支先进 main），用户确认前不合。
+复审者重跑新四针 + 原 110 命令 + 组合门禁；放行后按原顺序合并（规格分支先进 main），用户确认前不合。
 
 ## 踩过的坑
 
