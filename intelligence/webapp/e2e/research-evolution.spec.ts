@@ -12,7 +12,12 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 async function gotoChat(page: Page, testInfo: TestInfo) {
   await page.goto("/");
   if (testInfo.project.name === "mobile") {
-    await page.getByRole("button", { name: "打开会话列表" }).click();
+    // 视口 ≥1180 或侧边栏已内联展开时，开关按钮根本不出现——等得到就点，等不到就直接用侧边栏。
+    const toggle = page.getByRole("button", { name: "打开会话列表" });
+    await toggle
+      .waitFor({ state: "visible", timeout: 5000 })
+      .then(() => toggle.click())
+      .catch(() => undefined);
   }
   await page.getByRole("button", { name: "问答", exact: true }).click();
   // 开一个干净会话：否则会自动落到上一条测试留下的会话上，面板状态随执行顺序变。
@@ -71,6 +76,37 @@ test.describe("研究进化面板", () => {
     );
     expect(missing.status()).toBe(404);
     expect((await missing.json()).detail.code).toBe("not_found");
+  });
+
+  test("R1 回归针：空 run_id 的 continuation 必须 422，不能默默进消息口", async ({ request }) => {
+    // 旧病：「继续核查」把空字符串 run_id 硬塞进 continuation，服务端 422，用户看到提问失败。
+    // 返修后前端只在有真实起源 run 时才带 continuation；这条针把门口的行为钉死。
+    const created = await request.post("/api/conversations", {
+      data: { title: "R1 针", user: "default" },
+    });
+    const conversationId = (await created.json()).conversation_id as string;
+    const bad = await request.post(`/api/conversations/${conversationId}/messages`, {
+      data: {
+        content: "继续核查",
+        skill_mode: "auto",
+        user: "default",
+        continuation: { run_id: "", kind: "condition_test", source: "research-evolution" },
+      },
+    });
+    expect(bad.status()).toBe(422);
+  });
+
+  test("R8 回归针：未知动作返回 400，actor 必须等于登录用户", async ({ request }) => {
+    const created = await request.post("/api/conversations", {
+      data: { title: "R8 针", user: "default" },
+    });
+    const conversationId = (await created.json()).conversation_id as string;
+    const bad = await request.post(
+      `/api/conversations/${conversationId}/research-evolution/actions`,
+      { data: { action: "nuke_everything", idempotency_key: "k-1", user: "default" } },
+    );
+    expect(bad.status()).toBe(400);
+    expect((await bad.json()).detail.code).toBe("invalid_request");
   });
 
 });

@@ -23,7 +23,9 @@ import type {
   ArtifactDescriptor,
   Bootstrap,
   FollowupContinuation,
+  ResearchEvolutionActionResult,
   ResearchEvolutionView,
+  EvidenceCatalogView,
   ResearchProject,
   RunBundle,
   TraceStep,
@@ -52,6 +54,12 @@ interface ResearchInspectorProps {
   /** 研究进化：01/02/04 的会话级投影；缺省 null 时「维护」页只显示空态。 */
   evolution?: ResearchEvolutionView | null;
   onEvolutionAction?: (body: Record<string, unknown>) => void;
+  /** 「从现在开始跟踪」建绑定。 */
+  onEvolutionBind?: (body: Record<string, unknown>) => void;
+  /** 受控证据目录：建绑定表单选版本时调。 */
+  onFetchEvolutionCatalog?: (entity: string, asOf: string) => Promise<EvidenceCatalogView>;
+  /** 面板需要读回包的动作（练习作答 / 收据原件）。 */
+  runEvolutionAction?: (body: Record<string, unknown>) => Promise<ResearchEvolutionActionResult>;
   evolutionBusy?: boolean;
 }
 
@@ -109,6 +117,9 @@ export function ResearchInspector({
   onFollowup,
   evolution = null,
   onEvolutionAction,
+  onEvolutionBind,
+  onFetchEvolutionCatalog,
+  runEvolutionAction,
   evolutionBusy = false,
 }: ResearchInspectorProps) {
   const [tab, setTab] = useState<InspectorTab>("evidence");
@@ -210,6 +221,9 @@ export function ResearchInspector({
               <ResearchEvolutionPanel
                 view={evolution ?? null}
                 onAction={onEvolutionAction}
+                onBind={onEvolutionBind}
+                onFetchCatalog={onFetchEvolutionCatalog}
+                runAction={runEvolutionAction}
                 busy={evolutionBusy}
               />
             </section>

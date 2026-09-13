@@ -184,4 +184,138 @@ describe("ResearchEvolutionPanel", () => {
       expect(text).not.toContain(banned);
     }
   });
+
+  it("R9：当前来源读不动时如实说「判不了」，不显示成「没有需要复核的变化」", () => {
+    const view = makeView();
+    view.maintenance = { ...view.maintenance!, items: [] };
+    view.module_status = {
+      ...view.module_status,
+      maintenance: { status: "unknown", reason: "current_source_unreadable", synthetic: false },
+    };
+    render(<ResearchEvolutionPanel view={view} />);
+    expect(screen.getByText(/判不了有没有变化/)).toBeInTheDocument();
+    expect(screen.queryByText(/当前没有需要复核的变化/)).not.toBeInTheDocument();
+  });
+
+  it("R4：未绑定记录可以「从现在开始跟踪」，从受控目录勾选证据后提交绑定", async () => {
+    const view = makeView({
+      maintenance: null,
+      inputs: {
+        as_of: "2026-09-14",
+        knowledge_cutoff: "2026-09-14",
+        budget_minutes: null,
+        bindings: 0,
+        trackable_objects: [
+          {
+            object_ref: {
+              kind: "judgment",
+              id: "j1",
+              namespace: "judgments",
+              version_or_hash: "content_sha256:abc",
+              ref: "judgments.jsonl:j1",
+              scope: {},
+            },
+            kind: "judgment",
+            title: "三代制冷剂配额",
+            recorded_at: "2026-09-01T10:00:00+08:00",
+            bound: false,
+            binding_id: null,
+            gaps: [],
+            candidate_refs: [],
+          },
+        ],
+      },
+    });
+    const onBind = vi.fn();
+    const onFetchCatalog = vi.fn().mockResolvedValue({
+      entity: "制冷剂",
+      as_of: "2026-09-14",
+      knowledge_cutoff: "2026-09-14",
+      available: true,
+      reason: null,
+      pit_grade: "strict",
+      versions: [
+        { ref: "fact_sector_daily:制冷剂@2026-09-14#h1", recorded_at: "2026-09-14T09:00:00+08:00" },
+        { ref: "sector_index:制冷剂@2026-09-14#h2", recorded_at: null },
+      ],
+      labels: [],
+      gaps: [],
+    });
+    render(
+      <ResearchEvolutionPanel view={view} onBind={onBind} onFetchCatalog={onFetchCatalog} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "从现在开始跟踪" }));
+    fireEvent.change(screen.getByPlaceholderText("例：制冷剂"), { target: { value: "制冷剂" } });
+    fireEvent.click(screen.getByRole("button", { name: "拉取可用证据" }));
+    const submit = await screen.findByRole("button", { name: "开始跟踪" });
+    expect(onFetchCatalog).toHaveBeenCalledWith("制冷剂", "2026-09-14");
+    fireEvent.click(submit);
+    expect(onBind).toHaveBeenCalledWith({
+      object_ref: "judgments.jsonl:j1",
+      entity: "制冷剂",
+      as_of: "2026-09-14",
+      evidence_refs: [
+        "fact_sector_daily:制冷剂@2026-09-14#h1",
+        "sector_index:制冷剂@2026-09-14#h2",
+      ],
+    });
+  });
+
+  it("R5：练习先作答再评分，收据可以查看原件", async () => {
+    const view = makeView({
+      diagnostics: {
+        id: "dg-1",
+        policy_id: "pol-1",
+        findings: [],
+        exercise: {
+          id: "hx-1",
+          prompt: "到站立日应完成哪个动作？",
+          visible_evidence_refs: ["case:001:checkpoint"],
+          exercise_status: "ready",
+          limitation: "只练一件事",
+        },
+      },
+      module_status: {
+        ...makeView().module_status,
+        diagnostics: { status: "ok", reason: null, synthetic: false },
+      },
+      receipt_refs: {
+        validation: [
+          { kind: "method_validation_receipt", study_id: "study-1", receipt_id: "rcpt-1", empirical_status: "frozen" },
+        ],
+        product_value: [],
+      },
+    });
+    const runAction = vi.fn().mockResolvedValue({
+      replayed: false,
+      status: "correct",
+      receipt: { receipt_id: "rcpt-1", rows: [] },
+    });
+    render(<ResearchEvolutionPanel view={view} runAction={runAction} />);
+    // 练习：提交作答走 submit_exercise，幂等键随尝试次数变化
+    fireEvent.change(screen.getByPlaceholderText(/写下你会怎么做/), {
+      target: { value: "我会先核对原依据" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "提交作答" }));
+    await screen.findByLabelText("评分反馈");
+    expect(runAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "submit_exercise",
+        exercise_id: "hx-1",
+        idempotency_key: "submit_exercise:hx-1:1",
+        rationale: "我会先核对原依据",
+      }),
+    );
+    // 收据：查看原件走 read_receipt
+    fireEvent.click(screen.getByText(/原件收据（1）/));
+    fireEvent.click(screen.getByRole("button", { name: "查看原件" }));
+    expect(runAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "read_receipt",
+        receipt_kind: "method_validation_receipt",
+        receipt_id: "rcpt-1",
+        study_id: "study-1",
+      }),
+    );
+  });
 });

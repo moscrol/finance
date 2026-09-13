@@ -1,7 +1,11 @@
 import { useState } from "react";
 
 import type {
+  EvidenceCatalogView,
+  EvolutionReceiptRef,
+  EvolutionTrackable,
   MaintenanceItem,
+  ResearchEvolutionActionResult,
   ResearchEvolutionView,
   ResearchPriorityRow,
 } from "../types";
@@ -11,6 +15,12 @@ interface ResearchEvolutionPanelProps {
   view: ResearchEvolutionView | null;
   /** 落一个管理动作 / 任务选择；由 App 调 `postResearchEvolutionAction` 后刷新投影。 */
   onAction?: (body: Record<string, unknown>) => void;
+  /** 「从现在开始跟踪」建绑定。 */
+  onBind?: (body: Record<string, unknown>) => void;
+  /** 受控证据目录：建绑定表单选版本时调。 */
+  onFetchCatalog?: (entity: string, asOf: string) => Promise<EvidenceCatalogView>;
+  /** 需要读回包的动作（练习作答 / 收据原件）：返回服务端结果给面板展示。 */
+  runAction?: (body: Record<string, unknown>) => Promise<ResearchEvolutionActionResult>;
   /** 「继续核查」：把服务端给的 continuation 交给现有 POST 消息入口。 */
   onContinue?: (prompt: string, continuation: Record<string, unknown>) => void;
   busy?: boolean;
@@ -78,6 +88,9 @@ function label(map: Record<string, string>, key: string | null | undefined): str
 export function ResearchEvolutionPanel({
   view,
   onAction,
+  onBind,
+  onFetchCatalog,
+  runAction,
   onContinue,
   busy = false,
 }: ResearchEvolutionPanelProps) {
@@ -121,7 +134,13 @@ export function ResearchEvolutionPanel({
         </p>
       ) : items.length === 0 ? (
         <p className="research-evolution-empty">
-          已跟踪 {view.inputs.bindings} 条依赖，当前没有需要复核的变化。
+          {view.module_status.maintenance.status === "ok"
+            ? `已跟踪 ${view.inputs.bindings} 条依赖，当前没有需要复核的变化。`
+            : `${label(STATUS_TEXT, view.module_status.maintenance.status)}${
+                view.module_status.maintenance.reason === "current_source_unreadable"
+                  ? "：当前版本读不出来，判不了有没有变化——这不是「没有变化」。"
+                  : "。"
+              }`}
         </p>
       ) : (
         <ul className="research-evolution-list" aria-label="待复核">
@@ -223,7 +242,25 @@ export function ResearchEvolutionPanel({
             {unbound.slice(0, 5).map((item) => (
               <li key={item.object_ref.ref} className="re-item re-unbound">
                 <p className="re-object">{item.title || item.object_ref.ref}</p>
-                <p className="re-muted">原记录没有完整依据，尚不能比较变化</p>
+                <p className="re-muted">
+                  {item.bound
+                    ? ""
+                    : item.gaps.length > 0
+                      ? `原记录没有完整依据，尚不能比较变化（${item.gaps
+                          .map((gap) => gap.reason)
+                          .join("、")}）。`
+                      : "原记录没有完整依据，尚不能比较变化。"}
+                  从现在开始跟踪：补选这条判断依赖的证据后，以后它变了这里会提醒你。
+                </p>
+                {onBind && onFetchCatalog && (
+                  <BindForm
+                    trackable={item}
+                    defaultAsOf={view.inputs.as_of}
+                    busy={busy}
+                    onFetchCatalog={onFetchCatalog}
+                    onBind={onBind}
+                  />
+                )}
               </li>
             ))}
           </ul>
@@ -294,12 +331,282 @@ export function ResearchEvolutionPanel({
           {diagnostics.findings.every((finding) => finding.classification !== "issue") && (
             <p className="research-evolution-empty">暂无法诊断：现有记录不足以举证任何流程问题。</p>
           )}
+          {diagnostics.exercise && runAction && (
+            <ExerciseCard exercise={diagnostics.exercise} busy={busy} runAction={runAction} />
+          )}
         </>
       )}
 
-      <ReceiptRefs view={view} />
+      <ReceiptRefs view={view} runAction={runAction} busy={busy} />
       {onContinue && <span hidden aria-hidden="true" />}
     </section>
+  );
+}
+
+/** 「从现在开始跟踪」的绑定表单：选实体与站立日 → 拉受控证据目录 → 勾选版本 → 提交。 */
+function BindForm({
+  trackable,
+  defaultAsOf,
+  busy,
+  onFetchCatalog,
+  onBind,
+}: {
+  trackable: EvolutionTrackable;
+  defaultAsOf: string;
+  busy: boolean;
+  onFetchCatalog: (entity: string, asOf: string) => Promise<EvidenceCatalogView>;
+  onBind: (body: Record<string, unknown>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [entity, setEntity] = useState("");
+  const [asOf, setAsOf] = useState(defaultAsOf);
+  const [catalog, setCatalog] = useState<EvidenceCatalogView | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = () => {
+    if (!entity.trim()) return;
+    setLoading(true);
+    setError(null);
+    onFetchCatalog(entity.trim(), asOf)
+      .then((cat) => {
+        setCatalog(cat);
+        setSelected(
+          new Set(
+            cat.versions
+              .map((version) => String(version.ref ?? ""))
+              .filter((ref) => ref !== ""),
+          ),
+        );
+      })
+      .catch((caught: unknown) =>
+        setError(caught instanceof Error ? caught.message : "证据目录拉取失败"),
+      )
+      .finally(() => setLoading(false));
+  };
+
+  const toggle = (ref: string) => {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(ref)) next.delete(ref);
+      else next.add(ref);
+      return next;
+    });
+  };
+
+  if (!open) {
+    return (
+      <div className="re-actions">
+        <button type="button" disabled={busy} onClick={() => setOpen(true)}>
+          从现在开始跟踪
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="re-bind-form">
+      <label>
+        证据实体
+        <input
+          type="text"
+          value={entity}
+          placeholder="例：制冷剂"
+          onChange={(event) => setEntity(event.target.value)}
+        />
+      </label>
+      <label>
+        站立日
+        <input type="date" value={asOf} onChange={(event) => setAsOf(event.target.value)} />
+      </label>
+      <button type="button" disabled={loading || !entity.trim()} onClick={load}>
+        {loading ? "正在拉取…" : "拉取可用证据"}
+      </button>
+      {error && <p className="re-gap">{error}</p>}
+      {catalog && !catalog.available && (
+        <p className="re-gap">
+          这个实体的证据读不到（{catalog.reason ?? "未知原因"}），现在不能建绑定。
+        </p>
+      )}
+      {catalog?.available && (
+        <fieldset>
+          <legend>这条判断依赖哪些证据（pit {catalog.pit_grade}）</legend>
+          {catalog.versions.map((version) => {
+            const ref = String(version.ref ?? "");
+            if (!ref) return null;
+            return (
+              <label key={ref} className="re-bind-ref">
+                <input
+                  type="checkbox"
+                  checked={selected.has(ref)}
+                  onChange={() => toggle(ref)}
+                />
+                {ref}
+                {version.recorded_at ? ` · 记录于 ${String(version.recorded_at)}` : ""}
+              </label>
+            );
+          })}
+          {catalog.versions.length === 0 && (
+            <p className="re-muted">目录里没有可用版本，换个站立日试试。</p>
+          )}
+        </fieldset>
+      )}
+      <div className="re-actions">
+        <button
+          type="button"
+          disabled={busy || !catalog?.available || selected.size === 0}
+          onClick={() =>
+            onBind({
+              object_ref: trackable.object_ref.ref,
+              entity: entity.trim(),
+              as_of: asOf,
+              evidence_refs: [...selected],
+            })
+          }
+        >
+          开始跟踪
+        </button>
+        <button type="button" className="re-link" onClick={() => setOpen(false)}>
+          收起
+        </button>
+      </div>
+      <p className="re-muted">
+        绑定从这一刻生效：服务端会解析所选证据的真实版本作为基线，不会声称知道判断当天的样子。
+      </p>
+    </div>
+  );
+}
+
+/** 03 练习卡：先作答（提交即登记曝光，再评分）；也可以直接「揭示答案」。练习结果不进方法统计。 */
+function ExerciseCard({
+  exercise,
+  busy,
+  runAction,
+}: {
+  exercise: Record<string, unknown>;
+  busy: boolean;
+  runAction: (body: Record<string, unknown>) => Promise<ResearchEvolutionActionResult>;
+}) {
+  const exerciseId = String(exercise.id ?? "");
+  const [rationale, setRationale] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  const [feedback, setFeedback] = useState<Record<string, unknown> | null>(null);
+  const [answer, setAnswer] = useState<Record<string, unknown> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [working, setWorking] = useState(false);
+
+  const call = (body: Record<string, unknown>, apply: (result: Record<string, unknown>) => void) => {
+    setWorking(true);
+    setError(null);
+    runAction(body)
+      .then((result) => apply(result as unknown as Record<string, unknown>))
+      .catch((caught: unknown) =>
+        setError(caught instanceof Error ? caught.message : "练习动作没有成功"),
+      )
+      .finally(() => setWorking(false));
+  };
+
+  const submit = () => {
+    const next = attempt + 1;
+    call(
+      {
+        action: "submit_exercise",
+        idempotency_key: `submit_exercise:${exerciseId}:${next}`,
+        exercise_id: exerciseId,
+        selected_choices: [],
+        cited_refs: [],
+        rationale,
+      },
+      (result) => {
+        setAttempt(next);
+        setFeedback(result);
+      },
+    );
+  };
+
+  const reveal = () =>
+    call(
+      {
+        action: "reveal_exercise",
+        idempotency_key: `reveal_exercise:${exerciseId}`,
+        exercise_id: exerciseId,
+      },
+      (result) => setAnswer(result),
+    );
+
+  return (
+    <div className="re-item re-exercise">
+      <div className="re-item-head">
+        <strong>练一练</strong>
+        {exercise.exercise_status ? (
+          <span className="re-badge">{String(exercise.exercise_status)}</span>
+        ) : null}
+      </div>
+      <p className="re-object">{String(exercise.prompt ?? "")}</p>
+      {Array.isArray(exercise.visible_evidence_refs) &&
+        exercise.visible_evidence_refs.length > 0 && (
+          <p className="re-muted">
+            可见材料：{exercise.visible_evidence_refs.map(String).join("、")}
+          </p>
+        )}
+      {typeof exercise.limitation === "string" && exercise.limitation !== "" && (
+        <p className="re-gap">{exercise.limitation}</p>
+      )}
+      {!answer && (
+        <>
+          <label className="re-exercise-answer">
+            你的判断
+            <textarea
+              value={rationale}
+              rows={3}
+              placeholder="写下你会怎么做、为什么；提交后会登记「你已被曝光」再评分。"
+              onChange={(event) => setRationale(event.target.value)}
+            />
+          </label>
+          <div className="re-actions">
+            <button type="button" disabled={busy || working} onClick={submit}>
+              提交作答
+            </button>
+            <button type="button" disabled={busy || working} onClick={reveal}>
+              揭示答案
+            </button>
+          </div>
+        </>
+      )}
+      {error && <p className="re-gap">{error}</p>}
+      {feedback && (
+        <dl className="re-detail" aria-label="评分反馈">
+          {Object.entries(feedback)
+            .filter(
+              ([key, value]) =>
+                !["schema_version", "exposure_id"].includes(key) &&
+                (typeof value === "string" || typeof value === "number" || typeof value === "boolean"),
+            )
+            .map(([key, value]) => (
+              <div key={key}>
+                <dt>{key}</dt>
+                <dd>{String(value)}</dd>
+              </div>
+            ))}
+          <div>
+            <dt>方法统计</dt>
+            <dd>练习结果不进任何方法有效性统计</dd>
+          </div>
+        </dl>
+      )}
+      {answer && (
+        <dl className="re-detail" aria-label="答案">
+          {Object.entries(answer)
+            .filter(([, value]) => typeof value === "string" || typeof value === "number")
+            .map(([key, value]) => (
+              <div key={key}>
+                <dt>{key}</dt>
+                <dd>{String(value)}</dd>
+              </div>
+            ))}
+        </dl>
+      )}
+    </div>
   );
 }
 
@@ -361,28 +668,97 @@ function ModuleStatusBar({ view }: { view: ResearchEvolutionView }) {
   );
 }
 
-function ReceiptRefs({ view }: { view: ResearchEvolutionView }) {
+function ReceiptRefs({
+  view,
+  runAction,
+  busy,
+}: {
+  view: ResearchEvolutionView;
+  runAction?: (body: Record<string, unknown>) => Promise<ResearchEvolutionActionResult>;
+  busy: boolean;
+}) {
   const validation = view.receipt_refs.validation ?? [];
   const productValue = view.receipt_refs.product_value ?? [];
+  const [opened, setOpened] = useState<Record<string, Record<string, unknown>>>({});
+  const [error, setError] = useState<string | null>(null);
   if (validation.length === 0 && productValue.length === 0) return null;
+
+  const openReceipt = (key: string, body: Record<string, unknown>) => {
+    if (!runAction) return;
+    setError(null);
+    runAction(body)
+      .then((result) => {
+        const receipt = (result.receipt ?? result) as Record<string, unknown>;
+        setOpened((current) => ({ ...current, [key]: receipt }));
+      })
+      .catch((caught: unknown) =>
+        setError(caught instanceof Error ? caught.message : "收据读取失败"),
+      );
+  };
+
+  const receiptBody = (ref: EvolutionReceiptRef): Record<string, unknown> => ({
+    action: "read_receipt",
+    receipt_kind: ref.kind,
+    receipt_id: ref.receipt_id,
+    study_id: ref.study_id,
+    idempotency_key: `read_receipt:${ref.kind}:${ref.receipt_id ?? ref.summary_id ?? ref.study_id}`,
+  });
+
   return (
     <details className="re-more">
       <summary>原件收据（{validation.length + productValue.length}）</summary>
+      {error && <p className="re-gap">{error}</p>}
       <ul className="research-evolution-list">
-        {validation.map((ref) => (
-          <li key={`v-${ref.receipt_id}`} className="re-item">
-            <p className="re-object">方法验证 · {ref.study_id}</p>
-            <p className="re-muted">状态 {ref.empirical_status}</p>
-          </li>
-        ))}
-        {productValue.map((ref) => (
-          <li key={`p-${ref.receipt_id ?? ref.summary_id}`} className="re-item">
-            <p className="re-object">使用测量 · {ref.kind}</p>
-            <p className="re-muted">
-              {ref.status ?? `${ref.engineering_status} / ${ref.field_status} / ${ref.commercial_status}`}
-            </p>
-          </li>
-        ))}
+        {validation.map((ref) => {
+          const key = `v-${ref.receipt_id}`;
+          return (
+            <li key={key} className="re-item">
+              <p className="re-object">方法验证 · {ref.study_id}</p>
+              <p className="re-muted">状态 {ref.empirical_status}</p>
+              {runAction && (
+                <div className="re-actions">
+                  <button
+                    type="button"
+                    className="re-link"
+                    disabled={busy}
+                    onClick={() => openReceipt(key, receiptBody(ref))}
+                  >
+                    查看原件
+                  </button>
+                </div>
+              )}
+              {opened[key] && (
+                <pre className="re-receipt">{JSON.stringify(opened[key], null, 2)}</pre>
+              )}
+            </li>
+          );
+        })}
+        {productValue.map((ref) => {
+          const key = `p-${ref.receipt_id ?? ref.summary_id}`;
+          return (
+            <li key={key} className="re-item">
+              <p className="re-object">使用测量 · {ref.kind}</p>
+              <p className="re-muted">
+                {ref.status ?? `${ref.engineering_status} / ${ref.field_status} / ${ref.commercial_status}`}
+              </p>
+              {runAction && ref.receipt_id && (
+                <div className="re-actions">
+                  <button
+                    type="button"
+                    className="re-link"
+                    disabled={busy}
+                    onClick={() => openReceipt(key, receiptBody(ref))}
+                  >
+                    查看原件
+                  </button>
+                </div>
+              )}
+              {opened[key] && (
+                <pre className="re-receipt">{JSON.stringify(opened[key], null, 2)}</pre>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </details>
   );

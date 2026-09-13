@@ -13,7 +13,9 @@ import type {
   PerspectiveDescription,
   ProductSkillDescription,
   ResearchEvolutionActionResult,
+  ResearchEvolutionBindingResult,
   ResearchEvolutionView,
+  EvidenceCatalogView,
   ResearchProject,
   Run,
   RunContext,
@@ -345,6 +347,41 @@ export function postResearchEvolutionAction(
   return request<ResearchEvolutionActionResult>(
     withUser(
       `/api/conversations/${encodeURIComponent(conversationId)}/research-evolution/actions`,
+      user,
+    ),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, user }),
+    },
+  );
+}
+
+/** 受控证据目录：建绑定前让用户选「这条判断依赖哪些证据的哪一版」。 */
+export function getResearchEvolutionCatalog(
+  conversationId: string,
+  entity: string,
+  asOf: string,
+  user?: string,
+): Promise<EvidenceCatalogView> {
+  const params = new URLSearchParams({ entity, as_of: asOf });
+  return request<EvidenceCatalogView>(
+    withUser(
+      `/api/conversations/${encodeURIComponent(conversationId)}/research-evolution/evidence-catalog?${params}`,
+      user,
+    ),
+  );
+}
+
+/** 「从现在开始跟踪」：服务端解析真实 hash/版本；幂等重试返回 `created=false` 的已落盘记录。 */
+export function postResearchEvolutionBinding(
+  conversationId: string,
+  body: Record<string, unknown>,
+  user?: string,
+): Promise<ResearchEvolutionBindingResult> {
+  return request<ResearchEvolutionBindingResult>(
+    withUser(
+      `/api/conversations/${encodeURIComponent(conversationId)}/research-evolution/bindings`,
       user,
     ),
     {

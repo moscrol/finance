@@ -24,7 +24,7 @@
 | **I14 后台暂停与端到端耗时** | 05 的 `measure_pair` 已实现「隐藏标签页只暂停应用内活跃时间」的口径并有自己的测试；06 侧要在浏览器里造可见性事件才算验到，本轮 e2e 没做 | 前端补 `visibilitychange` 上报 + e2e 断言端到端耗时不因离开页面变短 |
 | **I15 真实前向实验走完一轮** | 没有冻结任何真实协议；`study_io` 的 freeze/register 路径只有 dry-run 与拒收侧测试 | 接结果源后按 03 §9 冻结首个合格日；R 号走 `scripts/claim_ledger_id.py` |
 | **绑定条件的 UI 选择器** | 01 只能编译四个标签（`dual_red_strict / volume_surge / market_stage / limit_heat_rank`），其它标签会被拒；本轮 UI 只展示条件结果，不让用户在界面里编条件 | 要做就把标签白名单从 `adapters.SLICE_EVALUABLE_LABELS` 读出来渲染，别在前端再写一份 |
-| **`GET evidence-catalog` 的 UI** | 端点与测试都有，前端还没有「选引用建立跟踪」的表单；面板当前只显示「原记录没有完整依据」 | 接一个选择器，refs 只能从目录里勾 |
+| ~~**`GET evidence-catalog` 的 UI**~~（返修已做） | — | 面板「从现在开始跟踪」表单：选实体/站立日 → 拉受控目录 → 勾版本 → 建绑定（R4） |
 
 ## 4. 已知环境事实（不是缺陷）
 

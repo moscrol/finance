@@ -139,7 +139,40 @@ I13 / I14 / I15 未验（缺真人参与者、浏览器可见性事件、已授�
 收据文件按 revision 取 `~/.finance-runtime/test-receipts/<stamp>-<rev8>.json`，**不读 `latest.json`**（多树并发覆盖）。
 排除 `test_codex_sandbox.py` 的理由：本机已知随机红（记忆 `codex-sandbox-test-fails-on-this-machine`），与本轨无关。
 
-## 提交
+## 返修（2026-09-13，QC 结论「建议返修后再合」后）
+
+按 `REWORK.md` 完成 13 条发现（S1–S3 / R1–R10）的修复，并新增 17 条合同测试
+（`intelligence/tests/test_research_evolution_rework.py`）钉住新行为：
+
+| 轴 | 修复要点 |
+|---|---|
+| S1 | 动作口读校验与追加收进 `EvolutionStore.transaction()` 一个事务；并发同键异载荷 → 一方 409 |
+| S2 | `pilot_io import-events` 整批先对台账验冲突再写：同 id 异内容 → exit 2 零写入 |
+| S3 | `study_io evaluate` dry-run 只读预览（不碰 evaluate_study），`--apply` 才写 |
+| R1 | 「继续核查」拿到 run_id 后回写 `link_run` 关联；消息未被接受则 `cancel_rejudge` 退回 open；前端不再造空 run_id continuation |
+| R2 | 练习提交与揭示同走曝光边界：先 03 登记曝光再评分，身份不可解析 → 拒绝且不登记 |
+| R3 | 新增 `ObservingRunStore` 包装 Workbench RunStore：run 生命周期自动落 05 事件，失败只 stderr 不阻塞被测 run |
+| R4 | 面板未绑定记录给出「从现在开始跟踪」表单（受控目录勾版本 → POST bindings） |
+| R5 | 练习卡（作答/揭示/评分反馈）与收据原件查看器进面板 |
+| R6 | `select_task` 回包含 continuation；前端经同一 continue helper 发真消息 |
+| R7 | `link_run` 四道闸：run 属于本会话 / 不许折回原判断 / 判断 run 会话一致 / 事件时刻不早于请求 |
+| R8 | 绑定创建自然键幂等：同键同载荷回 201 `created=false`；同键异载荷 409；事件重试同理 |
+| R9 | 当前来源读不动的绑定不进评估；模块报 `unknown(current_source_unreadable)` + gap，维护段空态文案按状态区分；`RiverEvidenceSource` 历史切片带 `allow_hindsight` |
+| R10 | 幂等键与会话绑定：跨会话重放 → 409 `idempotency_payload_mismatch` |
+
+探针复核（QC 探针指向候选树重跑，预期全红=旧病不再复现）：
+`root_probes.py` 5/5 fail（各以新合同报错）、`spec_api_repro.py` fail（read_receipt 已是真动作）、
+`standards_probe.py` barrier 死锁（验证已进事务，旧竞态面消失，仅 1 条动作记录落盘）、
+`standards_cli_probe.py` dry-run 零写入 / 冲突批零写入。
+
+| 证据 | 结果 |
+|---|---|
+| `pytest intelligence/tests/test_research_evolution_*.py` | **80 passed**（63 既有 + 17 新） |
+| `pnpm lint` / `typecheck` / `build` | 全过 |
+| `pnpm test`（vitest） | **87 passed**（面板新增 3：R4 表单 / R5 练习+收据 / R9 空态） |
+| `pnpm exec playwright test e2e/research-evolution.spec.ts`（三 project） | **15 passed**（新增 R1/R8 两条回归针；顺带修了存量 mobile 用例的开关等待） |
+
+## 提交（原始批次）
 
 | SHA | 内容 |
 |---|---|
@@ -151,6 +184,6 @@ I13 / I14 / I15 未验（缺真人参与者、浏览器可见性事件、已授�
 
 ## 下一步
 
-1. 合并顺序：规格分支 `docs/river-next-specs` 先进 main，再把本组合分支并入（六分支已在本树合过，零冲突）。**等用户确认**。
+1. 返修批次提交 → 等用户确认后合并；合并顺序不变（规格分支先进 main）。
 2. 部署仍按现役流程，`/api/health` 的 revision 才算线上状态——仓内有代码不等于 8792 已更新。
-3. BLOCKED §2 的五条跨轨缺口交对应 owner；§3 的未做项要等真人授权或补前端事件。
+3. BLOCKED §2 的五条跨轨缺口交对应 owner；§3 剩余未做项要等真人授权或补前端事件。

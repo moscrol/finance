@@ -799,7 +799,8 @@ export interface EvidenceVersionRef {
 /** 01 的维护项。`epistemic_state=requires_review` 是「需复核」，不是「已证伪」。 */
 export interface MaintenanceItem {
   id: string;
-  item_version: string;
+  /** 真实载荷里是递增整数；旧面板当字符串用过，两种都接受。 */
+  item_version: number | string;
   object_ref: EvolutionObjectRef;
   before: EvidenceVersionRef[];
   current: EvidenceVersionRef[];
@@ -939,4 +940,31 @@ export interface ResearchEvolutionActionResult {
   resulting_management_revision?: number | null;
   continuation?: Record<string, unknown>;
   click_payload?: Record<string, unknown>;
+  link?: Record<string, unknown>;
+  receipt?: Record<string, unknown>;
+  kind?: string;
+}
+
+/** `GET …/research-evolution/evidence-catalog`：可绑定证据的受控目录。 */
+export interface EvidenceCatalogView {
+  entity: string;
+  as_of: string;
+  knowledge_cutoff: string;
+  available: boolean;
+  reason: string | null;
+  pit_grade: string;
+  versions: Array<Record<string, unknown>>;
+  labels: string[];
+  gaps: EvolutionGap[];
+}
+
+/** `POST …/research-evolution/bindings` 的结果；`created=false` 是幂等重试命中了已落盘记录。 */
+export interface ResearchEvolutionBindingResult {
+  schema_version: string;
+  created: boolean;
+  binding_id: string;
+  binding: Record<string, unknown>;
+  baseline_cutoff: string | null;
+  created_at: string | null;
+  pit_grade: string;
 }
