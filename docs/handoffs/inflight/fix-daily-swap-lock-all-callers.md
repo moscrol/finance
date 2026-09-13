@@ -1,20 +1,19 @@
-# daily-swap 换库契约：已合并 main（1fef3d27），待生产换库单独授权
+# daily-swap 换库契约：已合并 main（1fef3d27）+ 生产修复换库完成并验收
 
 ## 这个分支做什么
 
-公共 staging 编排的换库契约加固（叠在 hithink 重建 601db6dd 上）。**已合并 main；生产库未动。**
+公共 staging 编排的换库契约加固（叠在 hithink 重建 601db6dd 上）。**已合并 main；2026-09-11 生产修复已换库并验收。**
 
 ## 当前状态
 
-**已合并**：用户授权后 fast-forward 至 gitea/main = `1fef3d27`（组合版、四叶全绿+门禁 22/22 的那个提交本体，零新内容；两条分支保留）。候选树与门禁/证据随合并进入 main。
-剩最后一步：**生产换库**（`repair-stock-daily-hithink --trade-date 2026-09-11` 正式跑生产，细节见 `~/.finance-runtime/db-repair/hithink-20260911/repair-plan.md`）——需用户单独授权；换后核对 ops_sync_run derived 段与 backup receipt。
-302132 历史回填、并跑表补齐：单独授权，不在本次范围。
+**全部落地**：gitea/main = `1fef3d27`（fast-forward，零新内容）；生产修复于 2026-09-14 02:19 从干净候选检出（1fef3d27）经正式父进程入口完成——staging 全锁链、clonefile 克隆、子进程写 staging、换前备份、原子换名（run_id=`1ef953440995`，exit 0）。
+**生产验收**（只读核对，对照=换前备份）：5,553 行（hithink 5,547 + eastmoney 6）；302132 钉值全中（63.42/64.35/−1.45/5.9863 亿/94,471 手）；600176 amount=113.6006；非目标日期三表 + fact_market_daily 全表 EXCEPT ALL 双向全 0；302132 两派生表 0 行（置缺声明在报告）；technical 5,529 / window 22,115；拼接 403/403（值源行 5,550）；ops 收据与备份 receipt run_id 同轮绑定、备份 sha256=换前指纹 c44a0f50。
+证据：`~/.finance-runtime/db-repair/hithink-20260911/prod-repair-report-20260914.json`；备份 `db/market_feature_store.duckdb.bak-20260914T021947-1ef953440995`（+ .receipt.json，恢复步骤在内；确认无恙后可删，3.6G 量级）。
+剩：302132 历史回填、并跑表补齐——单独授权，未启动。
 
-## 已验证（组合版 e9a824bf，干净树收据；main tip 1fef3d27 相对它仅落账/证据 3 文件，代码同一）
+## 已验证（组合版 e9a824bf；main tip 1fef3d27 相对它仅落账/证据 3 文件，代码同一）
 
-- 全量 9,617p / 0f（`20260913T171047Z-e9a824bf.json`，dirty=false）；ruff 全过；前端五步、E2E 15、registry 规范四命令+crosswalk 全绿。
-- 门禁 v3：精确 revision+干净树、parquet 冻结副本、异常结构化 FAIL、git rc 检查、报告三级降级、ops 全字段+时间窗、备份 run_id 绑定、EXCEPT ALL；**22/22 PASS，exit 0**（绑定 e9a824bf）。负面证据：审查复现脚本两案例（collision/损坏索引）均 rc=1 结构化 FAIL（仓外 `reconcile/round13-repro/`）。
-- 数据面：5,553 行、钉值全中、非目标日期零差异、拼接 403、302132 置缺、备份指纹链相等、生产库未动。
+- 全量 9,617p / 0f（`20260913T171047Z-e9a824bf.json`，dirty=false）；ruff、前端五步、E2E 15、registry 规范四命令+crosswalk 全绿；门禁 22/22 PASS 绑 e9a824bf。细节见 main 上 `docs/handoffs/2026-09-13-daily-swap-candidate-gate.md`。
 
 ## 未验证 / 已知边界
 
@@ -24,9 +23,9 @@
 
 ## 下一步（各需单独授权）
 
-1. ~~合并~~（已完成，gitea/main=1fef3d27）。
-2. 生产换库：授权后跑 `repair-stock-daily-hithink --trade-date 2026-09-11`；换后核 ops_sync_run derived 段。
-3. 302132 历史回填、并跑表补齐：单独授权，不在本次范围。
+1. ~~合并~~（完成，gitea/main=1fef3d27）。~~生产换库~~（完成并验收，run_id=1ef953440995）。
+2. 302132 历史回填：先审计缺口/定日期与数据源，副本验证后再落生产。
+3. 并跑表补齐：按端点分别限定日期，结束日 ≤ 2026-09-11；快照不能冒充历史回填。
 
 ## 踩过的坑
 
