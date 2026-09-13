@@ -155,18 +155,29 @@ _ASSISTED_MODEL_COMPONENTS = frozenset({"writer_model", "review_model"})
 
 
 def _assisted_task_uncovered_components(task: Mapping[str, Any], receipt: Mapping[str, Any], applicable: set[str]) -> list[str]:
-    """无 run 辅助任务仍缺费用事实的固有模型组件（按协议适用集过滤）。
+    """辅助任务仍缺费用事实的固有模型组件（按协议适用集过滤）。
 
-    有 run（attempts 非空）的任务由逐 attempt 缺口与类别级先看覆盖；没有 run 时，
-    一笔费用只证明它自己那个组件——工具费不为缺失的 writer/review 作证，writer 亦然。
+    一笔费用只证明它自己那个组件：无论有没有 run，工具费都不为缺失的 writer/review
+    作证，writer 亦然（评审 PV9 无 run 分支、PV10 有 run 分支——不能靠其它任务的
+    类别覆盖代签）。费用与任务的关联认 task_id / run_id / attempt_id 三种挂法。
+    全部尝试失败的任务不按固有组件拦：流水线没走完（review 未发生），缺账由
+    逐 attempt 派生缺口（retry 组件）表达。
     """
-    if task.get("attempts"):
+    attempts = task.get("attempts") or ()
+    if attempts and all(a.get("failed") for a in attempts):
         return []
     task_id = str(task.get("task_id") or "")
+    run_ids = {str(a.get("run_id")) for a in attempts if a.get("run_id")}
+    attempt_ids = {str(a.get("attempt_id")) for a in attempts if a.get("attempt_id")}
     covered = {
         str(item.get("component"))
         for item in (receipt.get("cost_items") or ())
-        if item.get("selected") and str(item.get("task_id") or "") == task_id
+        if item.get("selected")
+        and (
+            str(item.get("task_id") or "") == task_id
+            or str(item.get("run_id") or "") in run_ids
+            or str(item.get("attempt_id") or "") in attempt_ids
+        )
     }
     return sorted(applicable & _ASSISTED_MODEL_COMPONENTS - covered)
 
@@ -709,7 +720,7 @@ def _compute_block(
         # 只有分配的空壳收据盖不住缺口。「没有收据」与「收据在但没测」分开列——补的动作不同：
         # 前者补测量流程，后者该张收据对应的任务根本没有可入账的观察。
         task_coverage: dict[str, str] = {}
-        task_cost_blocked: dict[str, str] = {}
+        task_cost_blocked: dict[str, tuple[str, list[str]]] = {}
         for receipt in receipts:
             for condition_key, task in (receipt.get("tasks") or {}).items():
                 task_id = task.get("task_id")
@@ -718,13 +729,20 @@ def _compute_block(
                 tid = str(task_id)
                 if _receipt_task_is_measured(task):
                     task_coverage[tid] = "measured"
-                    # PV8/PV9：人工计时只覆盖时间，不覆盖辅助服务费用。辅助任务没有 run 时，
-                    # 协议适用的固有模型组件（writer/review）必须逐个有挂到该任务的费用事实——
-                    # 一笔工具费或只有 writer 的账都不能替缺失的组件作证。原流程任务按设计
-                    # 不用模型，计时即覆盖（PV4 合法通路保留）；补齐费用事实即解除阻断。
+                    # PV8/PV9/PV10：人工计时只覆盖时间，不覆盖辅助服务费用；「有 run」也只证明
+                    # run 存在，不证明每个固有组件都有账。协议适用的固有模型组件（writer/review）
+                    # 必须逐个有挂到该任务（task_id / run_id / attempt_id）的费用事实——一笔工具费
+                    # 或只有 writer 的账都不能替缺失的组件作证，其它任务的类别覆盖也不能代签。
+                    # 原流程任务按设计不用模型，计时即覆盖（PV4 合法通路保留）；补齐即解除阻断。
                     condition = str(task.get("condition") or condition_key or "")
-                    if condition == C.CONDITION_ASSISTED and _assisted_task_uncovered_components(task, receipt, applicable_components):
-                        task_cost_blocked.setdefault(tid, "assisted_task_without_usage_or_cost_evidence")
+                    if condition == C.CONDITION_ASSISTED:
+                        uncovered = _assisted_task_uncovered_components(task, receipt, applicable_components)
+                        if uncovered:
+                            # 有 run 缺组件账 = 补齐费用录入；无 run 无费用事实 = 先补测量/用量证据。
+                            reason = "assisted_task_model_cost_unbilled" if task.get("attempts") else "assisted_task_without_usage_or_cost_evidence"
+                            task_cost_blocked.setdefault(tid, (reason, uncovered))
+                        else:
+                            task_cost_blocked.pop(tid, None)
                     else:
                         task_cost_blocked.pop(tid, None)
                 else:
@@ -738,7 +756,7 @@ def _compute_block(
             elif coverage == "shell":
                 reason = "measurement_receipt_without_task_evidence"
             else:
-                reason = task_cost_blocked[task_id]
+                reason = task_cost_blocked[task_id][0]
             unknown_components.append(
                 {
                     "component": "unmeasured_task",
@@ -749,6 +767,8 @@ def _compute_block(
                     "unit": None,
                     "reason": reason,
                     "receipt_id": None,
+                    # 缺哪些组件写进条目——补账动作直接可读（仅阻断类原因有）。
+                    "uncovered_components": task_cost_blocked[task_id][1] if task_id in task_cost_blocked else None,
                 }
             )
         observed_components = {

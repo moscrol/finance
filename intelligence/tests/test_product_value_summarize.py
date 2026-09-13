@@ -352,10 +352,14 @@ def test_cost_unknown_blocks_gross_margin() -> None:
     # 旧期望只数收据自己列出的 1 项，等于默认「没观察到的类别 = 没花钱」。
     unknown = {u["id"]: u["reason"] for u in _metric(summary, "cost_full_status")["unknown"]}
     assert unknown["c-fr-2"] == "usage_without_rate"
+    # PV10：t-fr-a 有一次成功 attempt（evidence ok）但只挂了 writer 的账——review 缺账在任务级
+    # 另列（与试点级 cost_category:review_model 并存：一个是「该任务缺」，一个是「整份试点没人挂」）。
+    # 组件级核验引入前此场景只数类别级缺口（10），那时的「有任意费用即覆盖」正是 PV10 修的 bug。
+    assert unknown["unmeasured_task:t-fr-a"] == "assisted_task_model_cost_unbilled"
     assert {k for k, v in unknown.items() if v == "cost_category_unobserved"} == {
         f"cost_category:{c}" for c in ("acquisition_allocation", "data_license", "manual_import", "manual_maintenance", "manual_rescue", "other_model", "retry", "review_model", "tool")
     }
-    assert detail["unknown_component_count"] == 10
+    assert detail["unknown_component_count"] == 11
 
 
 def test_exposures_and_chat_volume_do_not_enter_metrics() -> None:
@@ -839,5 +843,42 @@ def test_task_scoped_fee_does_not_cover_missing_model_components():
     assert _measured([_fee("tool", 0.01)])["detail"]["full_cost_status"] == "unknown"
     assert _measured([_fee("tool", 0.01), _fee("writer_model", 0.36)])["detail"]["full_cost_status"] == "unknown"
     full = _measured([_fee("tool", 0.01), _fee("writer_model", 0.36), _fee("review_model", 0.10)])
+    assert full["detail"]["full_cost_status"] == "known"
+    assert full["detail"]["known_cost_by_currency"] == {"CNY": 0.93}
+
+
+def test_run_scoped_fee_does_not_cover_missing_model_components():
+    """PV10：组件级核验贯穿有 run 分支——解析成功的真实 run 摆着，仅 tool 或 writer+tool
+    的账仍不能替缺失的模型费作证；writer+review+tool 三件套才是合法 known 0.93。"""
+    proto = _six_pair_protocol()
+    proto.pop("protocol_hash")
+    proto["criteria"]["cost"] = {"not_applicable_components": sorted(C.COST_COMPONENTS - {"writer_model", "review_model", "tool"})}
+    proto = freeze_protocol(proto)
+    complete, evidence1 = _clone_complete_pair(1, "p10", proto["protocol_hash"], provenance="imported")
+    second, evidence2 = _clone_complete_pair(2, "p11", proto["protocol_hash"], provenance="imported")
+    reader = InMemoryEvidenceReader.from_json({"runs": evidence1["runs"] + evidence2["runs"]})
+    r1 = measure_pair(complete, proto, reader)
+    fees = [e for e in second if e["event_type"] == "cost_recorded" and e["payload"]["cost_item"]["coverage_scope"] == "run"]
+    template = next(e for e in fees if e["payload"]["cost_item"]["component"] == "writer_model")
+    base = [e for e in second if e["event_type"] != "cost_recorded"]
+    tool = copy.deepcopy(template)
+    tool["event_id"] = "qc-r6-run-tool-fee"
+    tool["payload"]["cost_item"].update(cost_id="qc-r6-tool", component="tool", amount=0.01, quantity=1, unit="calls", evidence_ref="invoice:tool")
+    writer = next(e for e in fees if e["payload"]["cost_item"]["component"] == "writer_model")
+    review = next(e for e in fees if e["payload"]["cost_item"]["component"] == "review_model")
+
+    def _measured(extra):
+        events = base + list(extra)
+        r2 = measure_pair(events, proto, reader)
+        assert r2["invalid_reasons"] == [] and r2["event_accounting"]["rejected"] == []
+        assert r2["tasks"]["assisted"]["attempts"][0]["evidence_status"] == "ok"
+        assignments = [e for e in complete + events if e["event_type"] == "assignment_created"]
+        summary = summarize([r1, r2], assignments, proto, cohort_events=complete + events, due_rechecks=[])
+        return next(m for m in summary["metrics"] if m["metric_id"] == "cost_full_status")
+
+    assert _measured([])["detail"]["full_cost_status"] == "unknown"
+    assert _measured([tool])["detail"]["full_cost_status"] == "unknown"
+    assert _measured([writer, tool])["detail"]["full_cost_status"] == "unknown"
+    full = _measured([writer, review, tool])
     assert full["detail"]["full_cost_status"] == "known"
     assert full["detail"]["known_cost_by_currency"] == {"CNY": 0.93}
