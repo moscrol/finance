@@ -1,0 +1,164 @@
+/* 研究进化面板：与 researchProject.css 同一套变量，不引入新配色体系。 */
+
+.research-evolution {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.research-evolution h3 {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.research-evolution-empty {
+  margin: 0;
+  color: var(--text-muted, #6b7280);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.research-evolution-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.re-item {
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.re-item.re-requires_review {
+  border-left: 3px solid var(--warning, #d97706);
+}
+
+.re-item.re-unknown {
+  border-left: 3px solid var(--text-muted, #9ca3af);
+}
+
+.re-item.re-observed {
+  border-left: 3px solid var(--accent, #2563eb);
+}
+
+.re-item.re-unbound {
+  border-style: dashed;
+}
+
+.re-item-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.re-badge {
+  font-size: 0.72rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  background: var(--surface-raised, #f3f4f6);
+}
+
+.re-object {
+  margin: 0;
+  font-size: 0.82rem;
+  word-break: break-all;
+}
+
+.re-muted {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted, #6b7280);
+}
+
+.re-gap {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--warning-text, #92400e);
+}
+
+.re-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.2rem;
+}
+
+.re-actions button {
+  font-size: 0.78rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  background: var(--surface, #fff);
+  cursor: pointer;
+}
+
+.re-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.re-actions button.re-link {
+  border: none;
+  background: none;
+  text-decoration: underline;
+  padding-left: 0;
+}
+
+.re-detail {
+  margin: 0.3rem 0 0;
+  font-size: 0.76rem;
+}
+
+.re-detail div {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.re-detail dt {
+  color: var(--text-muted, #6b7280);
+  min-width: 4.5rem;
+}
+
+.re-detail dd {
+  margin: 0;
+  word-break: break-all;
+}
+
+.re-status {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+}
+
+.re-status-error {
+  color: var(--danger-text, #b91c1c);
+}
+
+.re-status-unknown,
+.re-status-pending,
+.re-status-unavailable,
+.re-status-wiring_in_progress {
+  color: var(--text-muted, #6b7280);
+}
+
+.re-more {
+  font-size: 0.8rem;
+}
+
+.re-more summary {
+  cursor: pointer;
+  color: var(--text-muted, #6b7280);
+}

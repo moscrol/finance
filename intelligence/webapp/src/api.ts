@@ -12,6 +12,8 @@ import type {
   LearningFeedback,
   PerspectiveDescription,
   ProductSkillDescription,
+  ResearchEvolutionActionResult,
+  ResearchEvolutionView,
   ResearchProject,
   Run,
   RunContext,
@@ -321,4 +323,34 @@ export function artifactContentUrl(artifactId: string, user?: string): string {
 
 export function runEventsUrl(runId: string, user?: string): string {
   return withUser(`/api/runs/${encodeURIComponent(runId)}/events`, user);
+}
+
+export function getResearchEvolution(
+  conversationId: string,
+  user?: string,
+): Promise<ResearchEvolutionView> {
+  return request<ResearchEvolutionView>(
+    withUser(
+      `/api/conversations/${encodeURIComponent(conversationId)}/research-evolution`,
+      user,
+    ),
+  );
+}
+
+export function postResearchEvolutionAction(
+  conversationId: string,
+  body: Record<string, unknown>,
+  user?: string,
+): Promise<ResearchEvolutionActionResult> {
+  return request<ResearchEvolutionActionResult>(
+    withUser(
+      `/api/conversations/${encodeURIComponent(conversationId)}/research-evolution/actions`,
+      user,
+    ),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, user }),
+    },
+  );
 }

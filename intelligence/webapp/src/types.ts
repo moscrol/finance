@@ -767,3 +767,176 @@ export type Surface =
   | { kind: "run"; runId: string }
   | { kind: "library" }
   | { kind: "artifact"; artifactId: string };
+
+/** ---- 研究进化（01–05 的 Workbench 投影）：`GET /api/conversations/{id}/research-evolution` ---- */
+
+export interface EvolutionObjectRef {
+  kind: string;
+  id: string | null;
+  namespace: string;
+  version_or_hash: string;
+  ref: string;
+  scope: Record<string, string>;
+}
+
+export interface EvolutionGap {
+  reason: string;
+  ref: string | null;
+  checked_at: string;
+  retryable: boolean;
+  detail: string;
+  /** 封套层 gap 才有：它属于哪一段。 */
+  module?: string;
+}
+
+export interface EvidenceVersionRef {
+  ref: string;
+  source_hash: string | null;
+  recorded_at: string | null;
+  derivation: string;
+}
+
+/** 01 的维护项。`epistemic_state=requires_review` 是「需复核」，不是「已证伪」。 */
+export interface MaintenanceItem {
+  id: string;
+  item_version: string;
+  object_ref: EvolutionObjectRef;
+  before: EvidenceVersionRef[];
+  current: EvidenceVersionRef[];
+  change_type: string;
+  reason_code: string;
+  epistemic_state: "observed" | "requires_review" | "unknown" | string;
+  condition_result: string | null;
+  condition_role: string | null;
+  as_of: string;
+  knowledge_cutoff: string;
+  pit_grade: string;
+  gaps: EvolutionGap[];
+  action: string;
+  status: string;
+  management_revision: number;
+  management: Record<string, unknown>;
+}
+
+export interface MaintenanceReport {
+  id: string;
+  as_of: string;
+  knowledge_cutoff: string;
+  pit_grade: string;
+  hindsight: boolean;
+  gaps: EvolutionGap[];
+  items: MaintenanceItem[];
+  counts: Record<string, number>;
+}
+
+/** 02 的视图行：中文键由 `research_priority.render_view` 生成，前端不再翻译一遍。 */
+export interface ResearchPriorityRow {
+  task_id: string;
+  标题: string;
+  动作类型: string;
+  组?: string;
+  原因?: string;
+  耗时: string;
+  可执行状态: string;
+  为什么在前?: string[];
+  还缺什么?: string[];
+  click_payload: Record<string, unknown>;
+}
+
+export interface ResearchPriorityView {
+  report_id: string;
+  policy_version: string;
+  summary: Record<string, string | number>;
+  selected: ResearchPriorityRow[];
+  deferred: ResearchPriorityRow[];
+  blocked: ResearchPriorityRow[];
+  critical_not_selected_ids: string[];
+  gaps: EvolutionGap[];
+  limitations: string[];
+  synthetic: boolean;
+  hindsight: boolean;
+}
+
+export interface DiagnosticFinding {
+  id: string;
+  kind: string;
+  classification: "issue" | "context" | "unknown" | string;
+  actor_group: string;
+  observed: string;
+  expected: string;
+  limitation: string;
+}
+
+export interface DiagnosticsReport {
+  id: string;
+  policy_id: string;
+  findings: DiagnosticFinding[];
+  exercise: Record<string, unknown> | null;
+}
+
+export interface EvolutionModuleStatus {
+  status: "ok" | "unknown" | "pending" | "error" | "unavailable" | "wiring_in_progress" | string;
+  reason: string | null;
+  synthetic: boolean;
+  detail?: Record<string, unknown>;
+}
+
+export interface EvolutionTrackable {
+  object_ref: EvolutionObjectRef;
+  kind: string;
+  title: string;
+  recorded_at: string | null;
+  bound: boolean;
+  binding_id: string | null;
+  gaps: EvolutionGap[];
+  candidate_refs: string[];
+}
+
+export interface EvolutionReceiptRef {
+  kind: string;
+  study_id?: string;
+  receipt_id?: string;
+  summary_id?: string;
+  empirical_status?: string;
+  status?: string;
+  engineering_status?: string;
+  field_status?: string;
+  commercial_status?: string;
+}
+
+export interface ResearchEvolutionView {
+  schema_version: string;
+  owner_user_id: string;
+  conversation_id: string;
+  view_version: string;
+  view_digest: string;
+  generated_at: string;
+  maintenance: MaintenanceReport | null;
+  priority: ResearchPriorityView | null;
+  diagnostics: DiagnosticsReport | null;
+  receipt_refs: {
+    validation: EvolutionReceiptRef[];
+    product_value: EvolutionReceiptRef[];
+  };
+  module_status: Record<string, EvolutionModuleStatus>;
+  gaps: EvolutionGap[];
+  inputs: {
+    as_of: string;
+    knowledge_cutoff: string;
+    budget_minutes: number | null;
+    bindings: number;
+    trackable_objects: EvolutionTrackable[];
+  };
+}
+
+/** `POST …/research-evolution/actions` 的结果；`continuation` 只在「继续核查」时出现。 */
+export interface ResearchEvolutionActionResult {
+  replayed: boolean;
+  status?: string;
+  reason_code?: string;
+  item_id?: string;
+  resulting_status?: string | null;
+  resulting_management_revision?: number | null;
+  continuation?: Record<string, unknown>;
+  click_payload?: Record<string, unknown>;
+}

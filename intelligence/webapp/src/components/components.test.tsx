@@ -57,6 +57,8 @@ const apiMocks = vi.hoisted(() => ({
   getConversationMessages: vi.fn(),
   getFollowups: vi.fn(),
   getResearchProject: vi.fn(),
+  getResearchEvolution: vi.fn(),
+  postResearchEvolutionAction: vi.fn(),
   getLLMConfig: vi.fn(),
   getPerspectives: vi.fn(),
   getRun: vi.fn(),
@@ -1862,6 +1864,10 @@ describe("Workbench navigation reliability", () => {
     apiMocks.getFollowups.mockResolvedValue([]);
     apiMocks.getLLMConfig.mockResolvedValue(llmConfig);
     apiMocks.getRunContext.mockResolvedValue(bundle.context);
+    // 新增 api 导出必须在这张表里给默认值：vi.mock 工厂会把没列到的导出变成 undefined，
+    // App 里那次调用就抛 TypeError，一批不相关的测试跟着红。
+    apiMocks.getResearchEvolution.mockResolvedValue(null);
+    apiMocks.postResearchEvolutionAction.mockResolvedValue({ replayed: false });
     apiMocks.getRunReport.mockResolvedValue(null);
     apiMocks.getTrace.mockResolvedValue([]);
     apiMocks.getRunArtifactText.mockResolvedValue(null);

@@ -34,7 +34,9 @@ import {
   getRunArtifactText,
   getRunContext,
   getRunReport,
+  getResearchEvolution,
   getResearchProject,
+  postResearchEvolutionAction,
   getSkills,
   getTrace,
   getWorkbenchOverview,
@@ -75,6 +77,7 @@ import type {
   PerspectiveDescription,
   PerspectiveMode,
   ProductSkillDescription,
+  ResearchEvolutionView,
   ResearchProject,
   Run,
   RunBundle,
@@ -107,6 +110,10 @@ export default function App() {
   const [researchProject, setResearchProject] = useState<ResearchProject | null>(
     null,
   );
+  // 研究进化：01/02/04 的会话级投影。与研究项目同批刷新；加载失败只让「维护」页显示空态。
+  const [researchEvolution, setResearchEvolution] =
+    useState<ResearchEvolutionView | null>(null);
+  const [evolutionBusy, setEvolutionBusy] = useState(false);
   const [liveMessages, setLiveMessages] = useState<
     Record<string, LiveMessageState>
   >({});
@@ -199,7 +206,7 @@ export default function App() {
             .filter((runId): runId is string => Boolean(runId)),
         ),
       ];
-      const [bundles, project] = await Promise.all([
+      const [bundles, project, evolution] = await Promise.all([
         Promise.all(
           runIds.map((runId) =>
             fetchRunBundle(runId)
@@ -211,6 +218,10 @@ export default function App() {
         // 同步抛错（如接口缺失）也要落进 catch，所以先进 Promise 链再调用。
         Promise.resolve()
           .then(() => getResearchProject(conversationId, user))
+          .then((value) => value ?? null)
+          .catch(() => null),
+        Promise.resolve()
+          .then(() => getResearchEvolution(conversationId, user))
           .then((value) => value ?? null)
           .catch(() => null),
       ]);
@@ -227,6 +238,7 @@ export default function App() {
           ),
         );
         setResearchProject(project);
+        setResearchEvolution(evolution);
       }
       return nextMessages;
     },
@@ -436,6 +448,7 @@ export default function App() {
       setMessages([]);
       setRunBundles({});
       setResearchProject(null);
+      setResearchEvolution(null);
       setLiveMessages({});
       if (options.closeDrawer !== false) {
         setConversationDrawerOpen(false);
@@ -737,6 +750,55 @@ export default function App() {
       submitting,
       user,
     ],
+  );
+
+  /**
+   * 研究进化的动作口：管理动作 / 任务选择 / 「继续核查」。
+   *
+   * 三件事刻意做在这里：
+   * 1. 动作后**重新拉一遍投影**——项版本与管理修订都在服务端变了，拿旧投影再点会 409；
+   * 2. 「继续核查」用服务端返回的 continuation 走既有 POST 消息入口，不另造一条问答链路；
+   * 3. 失败不静默：错误进 `error`，投影保持原样，不伪装成已完成。
+   */
+  const submitEvolutionAction = useCallback(
+    async (body: Record<string, unknown>) => {
+      const conversationId = activeConversationRef.current;
+      if (!conversationId || evolutionBusy) return;
+      const wantsContinue = body.__continue === true;
+      const payload = { ...body };
+      delete payload.__continue;
+      setEvolutionBusy(true);
+      try {
+        const result = await postResearchEvolutionAction(
+          conversationId,
+          payload,
+          user,
+        );
+        if (wantsContinue && result.continuation) {
+          const continuation = result.continuation as Record<string, unknown>;
+          const prompt = String(continuation.full_prompt ?? "继续核查这条判断");
+          await submitResearch(prompt, undefined, {
+            run_id: String(continuation.run_id ?? ""),
+            kind: String(continuation.kind ?? "condition_test"),
+            source: String(continuation.source ?? "research-evolution"),
+            label: String(continuation.label ?? "继续核查"),
+          } as FollowupContinuation);
+        }
+        const refreshed = await getResearchEvolution(conversationId, user).catch(
+          () => null,
+        );
+        if (activeConversationRef.current === conversationId) {
+          setResearchEvolution(refreshed);
+        }
+      } catch (caught) {
+        setError(
+          caught instanceof Error ? caught.message : "维护动作没有成功，请刷新后重试",
+        );
+      } finally {
+        setEvolutionBusy(false);
+      }
+    },
+    [evolutionBusy, submitResearch, user],
   );
 
   const regenerate = (assistant: ChatMessage) => {
@@ -1129,6 +1191,9 @@ export default function App() {
         onFollowup={(question, continuation) =>
           void submitResearch(question, undefined, continuation)
         }
+        evolution={researchEvolution}
+        onEvolutionAction={(body) => void submitEvolutionAction(body)}
+        evolutionBusy={evolutionBusy}
       />
       <ModelSettings
         open={modelSettingsOpen}
