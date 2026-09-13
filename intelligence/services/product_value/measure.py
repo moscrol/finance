@@ -64,6 +64,7 @@ _BLOCKING_LIMITATION_PREFIXES: tuple[str, ...] = (
     "cost_coverage_unknown",
     "completion_evidence_missing",
     "usage_missing",
+    "attempt_run_conflict",
 )
 
 
@@ -216,6 +217,7 @@ def _measure_task(
     pauses_allowed: frozenset[str],
     invalid: list[dict[str, str]],
     limitations: set[str],
+    attempt_conflicts: list[dict[str, str]],
 ) -> dict[str, Any]:
     task_id = str(assignment["task_id"])
     payload = assignment["payload"]
@@ -265,11 +267,20 @@ def _measure_task(
             continue
         run_payload = event["payload"]
         attempt_id = str(run_payload.get("attempt_id"))
+        run_id = str(run_payload.get("run_id"))
+        existing = attempts.get(attempt_id)
+        if existing is not None and existing["run_id"] != run_id:
+            # 合并前先验身份：同一 attempt 绑到两个不同 run，合并会静默丢掉一次执行
+            # （round-8 补遗 P1）。显式留错并阻断完整成本；不合并冲突事件的时间/状态，
+            # 记录保留第一条。
+            attempt_conflicts.append({"attempt_id": attempt_id, "kept_run_id": existing["run_id"], "conflicting_run_id": run_id})
+            limitations.add(f"attempt_run_conflict:{attempt_id}")
+            continue
         record = attempts.setdefault(
             attempt_id,
             {
                 "attempt_id": attempt_id,
-                "run_id": str(run_payload.get("run_id")),
+                "run_id": run_id,
                 "started_at": None,
                 "finished_at": None,
                 "reported_status": None,
@@ -554,11 +565,14 @@ def _aggregate_costs(
             limitations.add(f"usage_missing:{member.get('cost_id')}")
 
     # 派生缺口：有尝试没账、有人工救援没工时费。预算与未观察到的调用都不作零费用依据。
-    costed_runs = {str(m.get("run_id")) for m in selected if m.get("run_id")}
-    costed_attempts = {str(m.get("attempt_id")) for m in selected if m.get("attempt_id")}
+    # 核销与汇总层共用联合身份（C.cost_item_covers_attempt）：attempt_id 与 run_id 分属
+    # 两次执行的错配费用不为任何执行作证——收据自身必须携带缺口并降级（round-8 补遗 P1）。
     for task in tasks.values():
         for attempt in task.get("attempts") or ():
-            if attempt["run_id"] in costed_runs or attempt["attempt_id"] in costed_attempts:
+            if any(
+                C.cost_item_covers_attempt(m, attempt_id=str(attempt.get("attempt_id") or ""), run_id=str(attempt.get("run_id") or ""))
+                for m in selected
+            ):
                 continue
             unknown.append(
                 {
@@ -627,6 +641,7 @@ def measure_pair(
     invalid: list[dict[str, str]] = []
     limitations: set[str] = set()
     exclusions: list[dict[str, Any]] = []
+    attempt_conflicts: list[dict[str, str]] = []
 
     owners = sorted({str(e["owner_user_id"]) for e in accepted})
     if len(owners) > 1:
@@ -735,6 +750,7 @@ def measure_pair(
                 pauses_allowed=pauses_allowed,
                 invalid=invalid,
                 limitations=limitations,
+                attempt_conflicts=attempt_conflicts,
             )
             measured["quality"] = _quality_for_task(
                 task_id,
@@ -761,6 +777,24 @@ def measure_pair(
         elif event.get("case_pair_id") == pair:
             cost_events.append(event)
     costs = _aggregate_costs(cost_events, tasks, limitations=limitations)
+    seen_conflict_attempts: set[str] = set()
+    for conflict in attempt_conflicts:
+        if conflict["attempt_id"] in seen_conflict_attempts:
+            continue
+        seen_conflict_attempts.add(conflict["attempt_id"])
+        # 冲突执行的消耗不可知——收据自身携带缺口（显式 reason），并经 cost_unknown 前缀降级。
+        costs["unknown_cost_components"].append(
+            {
+                "component": "writer_model",  # 执行确实发生，其模型消耗不可知，按固有组件列
+                "cost_id": None,
+                "run_id": conflict["conflicting_run_id"],
+                "attempt_id": conflict["attempt_id"],
+                "quantity": None,
+                "unit": None,
+                "reason": "attempt_run_conflict",
+            }
+        )
+        limitations.add(f"cost_unknown:attempt:{conflict['attempt_id']}")
 
     # ---- 配对级读数 ----
     original = tasks.get(C.CONDITION_ORIGINAL)

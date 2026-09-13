@@ -395,3 +395,95 @@ def test_missing_consent_record_blocks_blind_review_quality() -> None:
     assert receipt["quality"]["assisted_not_lower"] is None
     assert receipt["quality"]["severe_error_count_assisted"] is None
     assert receipt["status"] == C.RECEIPT_INCOMPLETE
+
+
+def test_attempt_run_conflict_is_flagged_and_blocks_full_cost():
+    """round-8 补遗 P1：同一 attempt_id 绑定到两个不同 run——合并前必须验身份冲突，
+    显式留错并降级收据、阻断完整成本，不能静默保留第一条让第二次执行消失。"""
+    import copy as _copy
+    from datetime import datetime as _dt, timedelta as _td
+
+    from intelligence.services.product_value.summarize import summarize
+    from intelligence.tests.test_product_value_summarize import _r7_setup
+
+    proto, complete, evidence1, _, evidence2, writer, review, base = _r7_setup()
+    attempt1 = next(e for e in base if e["event_type"] == "run_started")["payload"]["attempt_id"]
+    run2 = "qc-r8-run-2"
+    extra_events = []
+    for event in base:
+        if event["event_type"] in {"run_started", "run_finished"}:
+            extra = _copy.deepcopy(event)
+            extra["event_id"] += "-second"
+            extra["run_ids"] = [run2]
+            extra["payload"].update(run_id=run2, attempt_id=attempt1)  # 第二次生命周期误复用 attempt1
+            for key in ("event_at", "recorded_at"):
+                extra[key] = (_dt.fromisoformat(extra[key]) + _td(minutes=8)).isoformat()
+            extra_events.append(extra)
+    evidence_extra = _copy.deepcopy(evidence2["runs"][0])
+    evidence_extra.update(run_id=run2, artifacts={})
+    for key in ("created_at", "finished_at"):
+        evidence_extra[key] = (_dt.fromisoformat(evidence_extra[key]) + _td(minutes=8)).isoformat()
+    reader = InMemoryEvidenceReader.from_json({"runs": evidence1["runs"] + evidence2["runs"] + [evidence_extra]})
+    events = base + extra_events + [writer, review]  # 只给 run1 完整费用
+    r2 = measure_pair(events, proto, reader)
+    assert r2["invalid_reasons"] == [] and r2["event_accounting"]["rejected"] == []
+    assert r2["status"] == "incomplete"  # 不是 valid——冲突必须降级
+    assert any(lim.startswith("attempt_run_conflict:") for lim in r2["limitations"])
+    conflict = [u for u in r2["unknown_cost_components"] if u["reason"] == "attempt_run_conflict"]
+    assert conflict and conflict[0]["attempt_id"] == attempt1
+    summary = summarize(
+        [measure_pair(complete, proto, reader), r2],
+        [e for e in complete + events if e["event_type"] == "assignment_created"],
+        proto, cohort_events=complete + events, due_rechecks=[],
+    )
+    cost = next(m for m in summary["metrics"] if m["metric_id"] == "cost_full_status")
+    assert cost["detail"]["full_cost_status"] == "unknown"
+
+
+def test_receipt_gap_clearance_uses_joint_identity():
+    """round-8 补遗 P1：收据层派生缺口与汇总层共用联合身份——错配费用（attempt_id 指
+    第二次执行、run_id 是第一次的 run）不得消掉执行缺账；收据自身携带缺口并降级。"""
+    import copy as _copy
+    from datetime import datetime as _dt, timedelta as _td
+
+    from intelligence.tests.test_product_value_summarize import _r7_fee, _r7_setup
+
+    proto, complete, evidence1, _, evidence2, writer, review, base = _r7_setup()
+    run2, attempt2 = "qc-r8-run-2", "qc-r8-attempt-2"
+    extra_events = []
+    for event in base:
+        if event["event_type"] in {"run_started", "run_finished"}:
+            extra = _copy.deepcopy(event)
+            extra["event_id"] += "-second"
+            extra["run_ids"] = [run2]
+            extra["payload"].update(run_id=run2, attempt_id=attempt2)
+            for key in ("event_at", "recorded_at"):
+                extra[key] = (_dt.fromisoformat(extra[key]) + _td(minutes=8)).isoformat()
+            extra_events.append(extra)
+    evidence_extra = _copy.deepcopy(evidence2["runs"][0])
+    evidence_extra.update(run_id=run2, artifacts={})
+    for key in ("created_at", "finished_at"):
+        evidence_extra[key] = (_dt.fromisoformat(evidence_extra[key]) + _td(minutes=8)).isoformat()
+    two_runs = evidence2["runs"] + [evidence_extra]
+    two_base = base + extra_events + [writer, review]
+    run1 = writer["payload"]["cost_item"]["run_id"]
+    reader = InMemoryEvidenceReader.from_json({"runs": evidence1["runs"] + two_runs})
+
+    mismatched = [
+        _r7_fee(writer, "tool", 0.01, run_id=run1, attempt_id=attempt2, suffix="-mm-tool"),
+        _r7_fee(writer, "writer_model", 0.36, run_id=run1, attempt_id=attempt2, suffix="-mm-writer"),
+        _r7_fee(writer, "review_model", 0.10, run_id=run1, attempt_id=attempt2, suffix="-mm-review"),
+    ]
+    r2 = measure_pair(two_base + mismatched, proto, reader)
+    assert r2["status"] == "incomplete"  # 收据自身降级
+    gaps = [u for u in r2["unknown_cost_components"] if u["reason"] == "no_usage_evidence_for_attempt" and u["attempt_id"] == attempt2]
+    assert gaps, "错配费用不得消掉第二次执行的缺账"
+    # 合法对照：联合一致的同一组费用 → 收据 valid、无执行缺账
+    consistent = [
+        _r7_fee(writer, "tool", 0.01, run_id=run2, attempt_id=attempt2, suffix="-ok-tool"),
+        _r7_fee(writer, "writer_model", 0.36, run_id=run2, attempt_id=attempt2, suffix="-ok-writer"),
+        _r7_fee(writer, "review_model", 0.10, run_id=run2, attempt_id=attempt2, suffix="-ok-review"),
+    ]
+    r2_ok = measure_pair(two_base + consistent, proto, reader)
+    assert r2_ok["status"] == "valid"
+    assert [u for u in r2_ok["unknown_cost_components"] if u["reason"] == "no_usage_evidence_for_attempt"] == []

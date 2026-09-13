@@ -154,22 +154,6 @@ def _receipt_task_is_measured(task: Mapping[str, Any]) -> bool:
 _ASSISTED_MODEL_COMPONENTS = frozenset({"writer_model", "review_model"})
 
 
-def _cost_item_covers_attempt(item: Mapping[str, Any], *, attempt_id: str, run_id: str) -> bool:
-    """费用条目是否为该执行实例作证——attempt_id / run_id 联合身份校验（round-8 附加条件）。
-
-    条目带了 attempt 身份就必须联合一致：attempt_id 命中但 run_id 属于另一次执行 =
-    错误组合，不为任何执行作证（否则一笔账能同时在两次执行里充当证据）。
-    只带 run_id 的条目是该 run 的共享账；只带 attempt_id 的条目按 attempt 归属。
-    """
-    item_aid = str(item.get("attempt_id") or "")
-    item_rid = str(item.get("run_id") or "")
-    if item_aid:
-        return bool(attempt_id) and item_aid == attempt_id and (not item_rid or not run_id or item_rid == run_id)
-    if item_rid:
-        return bool(run_id) and item_rid == run_id
-    return False
-
-
 def _assisted_task_uncovered_components(task: Mapping[str, Any], receipt: Mapping[str, Any], applicable: set[str]) -> list[str]:
     """辅助任务仍缺费用事实的固有模型组件（按协议适用集过滤）。
 
@@ -178,6 +162,7 @@ def _assisted_task_uncovered_components(task: Mapping[str, Any], receipt: Mappin
     模型没调用；review 未发生则不要求——PV12）；无 run 时退到任务级费用事实（PV9）。
     关联认 attempt_id / run_id（有执行实例时）或 task_id（无 run 时）三种挂法；
     有执行实例时只挂 task_id 的账无法归属到具体执行，不作数（fail closed）。
+    联合身份规则与测量层共用 `contracts.cost_item_covers_attempt`（round-8 补遗）。
     """
     items = [i for i in (receipt.get("cost_items") or ()) if i.get("selected")]
     attempts = task.get("attempts") or ()
@@ -193,7 +178,7 @@ def _assisted_task_uncovered_components(task: Mapping[str, Any], receipt: Mappin
         covered = {
             str(i.get("component"))
             for i in items
-            if _cost_item_covers_attempt(i, attempt_id=str(attempt.get("attempt_id") or ""), run_id=str(attempt.get("run_id") or ""))
+            if C.cost_item_covers_attempt(i, attempt_id=str(attempt.get("attempt_id") or ""), run_id=str(attempt.get("run_id") or ""))
         }
         uncovered |= required - covered
     return sorted(uncovered)
