@@ -251,7 +251,14 @@ describe("ResearchEvolutionPanel", () => {
     expect(onFetchCatalog).toHaveBeenCalledWith("制冷剂", "2026-09-14");
     fireEvent.click(submit);
     expect(onBind).toHaveBeenCalledWith({
-      object_ref: "judgments.jsonl:j1",
+      object_ref: {
+        kind: "judgment",
+        id: "j1",
+        namespace: "judgments",
+        version_or_hash: "content_sha256:abc",
+        ref: "judgments.jsonl:j1",
+        scope: {},
+      },
       entity: "制冷剂",
       as_of: "2026-09-14",
       evidence_refs: [
@@ -317,5 +324,105 @@ describe("ResearchEvolutionPanel", () => {
         study_id: "study-1",
       }),
     );
+  });
+});
+
+// --------------------------------------------------------------------------- //
+// 第二轮（复审 ba10747d Q1/Q4/Q8）：UI 必须发送/渲染真实嵌套结构
+// --------------------------------------------------------------------------- //
+describe("ResearchEvolutionPanel · 第二轮复审合同", () => {
+  it("Q8：pilot_summary 查看原件带 summary_id 作为内容 id（API 按内容寻址）", async () => {
+    const view = makeView({
+      receipt_refs: { validation: [], product_value: [{ kind: "pilot_summary", summary_id: "summary-real-id" }] },
+    });
+    const runAction = vi.fn().mockResolvedValue({ receipt: { summary_id: "summary-real-id" } });
+    render(<ResearchEvolutionPanel view={view} runAction={runAction} />);
+    fireEvent.click(screen.getByText(/原件收据（1）/));
+    fireEvent.click(screen.getByRole("button", { name: "查看原件" }));
+    expect(runAction).toHaveBeenCalledWith(
+      expect.objectContaining({ receipt_kind: "pilot_summary", receipt_id: "summary-real-id", summary_id: "summary-real-id" }),
+    );
+    expect(await screen.findByText(/summary-real-id/)).toBeInTheDocument();
+  });
+
+  it("Q4：揭示答案必须渲染嵌套 answer_key 的正确选项与正确引用", async () => {
+    const view = makeView({
+      diagnostics: {
+        id: "d",
+        policy_id: "p",
+        findings: [],
+        exercise: {
+          id: "hx",
+          prompt: "选择动作 A/B，并引用证据",
+          visible_evidence_refs: ["visible-evidence"],
+          exercise_status: "ready",
+          limitation: "synthetic",
+        },
+      },
+    });
+    const runAction = vi.fn().mockResolvedValue({
+      exercise_id: "hx",
+      exposure_id: "expo",
+      answer_key_ref: "answer-key-ref",
+      answer_key: {
+        ref: "answer-key-ref",
+        expected_choices: ["CORRECT_ACTION_SENTINEL"],
+        expected_refs: ["CORRECT_EVIDENCE_SENTINEL"],
+        explanation_ref: "EXPLANATION_SENTINEL",
+      },
+      limitation: "synthetic",
+    });
+    render(<ResearchEvolutionPanel view={view} runAction={runAction} />);
+    fireEvent.click(screen.getByRole("button", { name: "揭示答案" }));
+    const answer = await screen.findByLabelText("答案");
+    expect(answer).toHaveTextContent("CORRECT_ACTION_SENTINEL");
+    expect(answer).toHaveTextContent("CORRECT_EVIDENCE_SENTINEL");
+    expect(answer).toHaveTextContent("EXPLANATION_SENTINEL");
+  });
+
+  it("Q4：提交作答必须渲染嵌套 checks 与 missing_evidence_refs，并把勾选/选择发出去", async () => {
+    const view = makeView({
+      diagnostics: {
+        id: "d",
+        policy_id: "p",
+        findings: [],
+        exercise: {
+          id: "hx",
+          prompt: "选择动作 A/B，并引用证据",
+          visible_evidence_refs: ["visible-evidence"],
+          exercise_status: "ready",
+          limitation: "synthetic",
+        },
+      },
+    });
+    const runAction = vi.fn().mockResolvedValue({
+      exercise_id: "hx",
+      exposure_id: "expo",
+      counts_toward_method_statistics: false,
+      feedback: {
+        exercise_id: "hx",
+        status: "checked",
+        checks: [{ name: "choices_match", passed: false, expected: ["CORRECT_ACTION_SENTINEL"], got: ["c1"] }],
+        missing_evidence_refs: ["CORRECT_EVIDENCE_SENTINEL"],
+        explanation_ref: "explanation-ref",
+      },
+    });
+    render(<ResearchEvolutionPanel view={view} runAction={runAction} />);
+    // 结构化作答：选项 id + 勾选依据材料。
+    fireEvent.change(screen.getByPlaceholderText("例如 c1, c2"), { target: { value: "c1" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: /visible-evidence/ }));
+    fireEvent.click(screen.getByRole("button", { name: "提交作答" }));
+    await screen.findByLabelText("评分反馈");
+    expect(runAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "submit_exercise",
+        selected_choices: ["c1"],
+        cited_refs: ["visible-evidence"],
+      }),
+    );
+    const feedback = screen.getByLabelText("评分反馈");
+    expect(feedback).toHaveTextContent("CORRECT_ACTION_SENTINEL");
+    expect(feedback).toHaveTextContent("CORRECT_EVIDENCE_SENTINEL");
+    expect(feedback).toHaveTextContent("choices_match");
   });
 });

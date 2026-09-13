@@ -457,7 +457,7 @@ function BindForm({
           disabled={busy || !catalog?.available || selected.size === 0}
           onClick={() =>
             onBind({
-              object_ref: trackable.object_ref.ref,
+              object_ref: trackable.object_ref,
               entity: entity.trim(),
               as_of: asOf,
               evidence_refs: [...selected],
@@ -488,7 +488,12 @@ function ExerciseCard({
   runAction: (body: Record<string, unknown>) => Promise<ResearchEvolutionActionResult>;
 }) {
   const exerciseId = String(exercise.id ?? "");
+  const visibleRefs = Array.isArray(exercise.visible_evidence_refs)
+    ? exercise.visible_evidence_refs.map(String)
+    : [];
   const [rationale, setRationale] = useState("");
+  const [choicesText, setChoicesText] = useState("");
+  const [citedRefs, setCitedRefs] = useState<Set<string>>(new Set());
   const [attempt, setAttempt] = useState(0);
   const [feedback, setFeedback] = useState<Record<string, unknown> | null>(null);
   const [answer, setAnswer] = useState<Record<string, unknown> | null>(null);
@@ -506,6 +511,21 @@ function ExerciseCard({
       .finally(() => setWorking(false));
   };
 
+  const toggleRef = (ref: string) => {
+    setCitedRefs((current) => {
+      const next = new Set(current);
+      if (next.has(ref)) next.delete(ref);
+      else next.add(ref);
+      return next;
+    });
+  };
+
+  const parseChoices = () =>
+    choicesText
+      .split(/[\s,，、;]+/)
+      .map((token) => token.trim())
+      .filter(Boolean);
+
   const submit = () => {
     const next = attempt + 1;
     call(
@@ -513,13 +533,13 @@ function ExerciseCard({
         action: "submit_exercise",
         idempotency_key: `submit_exercise:${exerciseId}:${next}`,
         exercise_id: exerciseId,
-        selected_choices: [],
-        cited_refs: [],
+        selected_choices: parseChoices(),
+        cited_refs: [...citedRefs],
         rationale,
       },
       (result) => {
         setAttempt(next);
-        setFeedback(result);
+        setFeedback((result.feedback as Record<string, unknown> | undefined) ?? result);
       },
     );
   };
@@ -534,6 +554,14 @@ function ExerciseCard({
       (result) => setAnswer(result),
     );
 
+  const feedbackChecks = Array.isArray(feedback?.checks)
+    ? (feedback.checks as Array<Record<string, unknown>>)
+    : [];
+  const missingRefs = Array.isArray(feedback?.missing_evidence_refs)
+    ? (feedback.missing_evidence_refs as unknown[]).map(String)
+    : [];
+  const answerKey = (answer?.answer_key as Record<string, unknown> | undefined) ?? null;
+
   return (
     <div className="re-item re-exercise">
       <div className="re-item-head">
@@ -543,17 +571,34 @@ function ExerciseCard({
         ) : null}
       </div>
       <p className="re-object">{String(exercise.prompt ?? "")}</p>
-      {Array.isArray(exercise.visible_evidence_refs) &&
-        exercise.visible_evidence_refs.length > 0 && (
-          <p className="re-muted">
-            可见材料：{exercise.visible_evidence_refs.map(String).join("、")}
-          </p>
-        )}
       {typeof exercise.limitation === "string" && exercise.limitation !== "" && (
         <p className="re-gap">{exercise.limitation}</p>
       )}
       {!answer && (
         <>
+          <label className="re-exercise-answer">
+            你的选择（选项 id，多个用逗号隔开；本题投影未提供选项目录，按题干给出的 id 填）
+            <input
+              value={choicesText}
+              placeholder="例如 c1, c2"
+              onChange={(event) => setChoicesText(event.target.value)}
+            />
+          </label>
+          {visibleRefs.length > 0 && (
+            <fieldset>
+              <legend>你依据了哪些材料（cited_refs）</legend>
+              {visibleRefs.map((ref) => (
+                <label key={ref} className="re-bind-ref">
+                  <input
+                    type="checkbox"
+                    checked={citedRefs.has(ref)}
+                    onChange={() => toggleRef(ref)}
+                  />
+                  {ref}
+                </label>
+              ))}
+            </fieldset>
+          )}
           <label className="re-exercise-answer">
             你的判断
             <textarea
@@ -575,36 +620,48 @@ function ExerciseCard({
       )}
       {error && <p className="re-gap">{error}</p>}
       {feedback && (
-        <dl className="re-detail" aria-label="评分反馈">
-          {Object.entries(feedback)
-            .filter(
-              ([key, value]) =>
-                !["schema_version", "exposure_id"].includes(key) &&
-                (typeof value === "string" || typeof value === "number" || typeof value === "boolean"),
-            )
-            .map(([key, value]) => (
-              <div key={key}>
-                <dt>{key}</dt>
-                <dd>{String(value)}</dd>
-              </div>
-            ))}
-          <div>
-            <dt>方法统计</dt>
-            <dd>练习结果不进任何方法有效性统计</dd>
-          </div>
-        </dl>
+        <div className="re-detail" aria-label="评分反馈">
+          <p>
+            评分：<strong>{String(feedback.status ?? "")}</strong>
+            <span className="re-muted">（练习结果不进任何方法有效性统计）</span>
+          </p>
+          {feedbackChecks.length > 0 && (
+            <ul>
+              {feedbackChecks.map((check) => (
+                <li key={String(check.name)}>
+                  {check.passed ? "✓" : "✗"} {String(check.name)}：期望 {JSON.stringify(check.expected ?? [])}，你的{" "}
+                  {JSON.stringify(check.got ?? [])}
+                </li>
+              ))}
+            </ul>
+          )}
+          {missingRefs.length > 0 && (
+            <p className="re-gap">没引用到的关键材料：{missingRefs.join("、")}</p>
+          )}
+          {typeof feedback.explanation_ref === "string" && feedback.explanation_ref !== "" && (
+            <p className="re-muted">解析：{feedback.explanation_ref}</p>
+          )}
+        </div>
       )}
       {answer && (
-        <dl className="re-detail" aria-label="答案">
-          {Object.entries(answer)
-            .filter(([, value]) => typeof value === "string" || typeof value === "number")
-            .map(([key, value]) => (
-              <div key={key}>
-                <dt>{key}</dt>
-                <dd>{String(value)}</dd>
-              </div>
-            ))}
-        </dl>
+        <div className="re-detail" aria-label="答案">
+          {answerKey ? (
+            <>
+              <p>
+                正确选项：{JSON.stringify(answerKey.expected_choices ?? [])}
+              </p>
+              <p>
+                正确引用：{JSON.stringify(answerKey.expected_refs ?? [])}
+              </p>
+              <p className="re-muted">
+                解析：{String(answerKey.explanation_ref ?? "")}（规则 {String(answerKey.rule_id ?? "")}@{String(answerKey.rule_version ?? "")}）
+              </p>
+            </>
+          ) : null}
+          {typeof answer.limitation === "string" && answer.limitation !== "" && (
+            <p className="re-gap">{answer.limitation}</p>
+          )}
+        </div>
       )}
     </div>
   );
@@ -699,7 +756,8 @@ function ReceiptRefs({
   const receiptBody = (ref: EvolutionReceiptRef): Record<string, unknown> => ({
     action: "read_receipt",
     receipt_kind: ref.kind,
-    receipt_id: ref.receipt_id,
+    receipt_id: ref.receipt_id ?? ref.summary_id,
+    summary_id: ref.summary_id,
     study_id: ref.study_id,
     idempotency_key: `read_receipt:${ref.kind}:${ref.receipt_id ?? ref.summary_id ?? ref.study_id}`,
   });
@@ -741,7 +799,7 @@ function ReceiptRefs({
               <p className="re-muted">
                 {ref.status ?? `${ref.engineering_status} / ${ref.field_status} / ${ref.commercial_status}`}
               </p>
-              {runAction && ref.receipt_id && (
+              {runAction && (ref.receipt_id || ref.summary_id) && (
                 <div className="re-actions">
                   <button
                     type="button"
