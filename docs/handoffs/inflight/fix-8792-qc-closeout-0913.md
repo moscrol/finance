@@ -31,13 +31,34 @@ moneyflow.py）已同步 E3/S2 同等改动——那是 L2 实际运营链（绑
 - quick_fact 与五条词面共现路由分开入场：它按窄意图判，入场券看材料不看长度。
 
 ## 下一步（按序）
-1. **合 main 待用户确认**（本仓纪律）；等价 CI 收据见下。
-2. E2 设计任务：拆分吞题 + material-only 契约投影 + 检索抑制 + 逐题交付（Q8 备忘录）。
-3. E2 修复后 T2/T3 重跑（全新会话）→ 正式 PK（未见新题、冻结双方原答）。
-4. 部署：合并后走新快照 + symlink + deploy_workbench_runtime.sh（沿用昨晚流程）。
+1. ~~合 main~~ **已合**：`e40f22b8`（合并树 CI 9549 passed / 0 failed）。
+2. ~~部署~~ **已部署**：8792 服务已切换到 snapshot_path=`~/.finance-runtime/finance-workspace-e40f22b83717`，
+   部署账本记录 switch、健康检查通过（source_revision=e40f22b83717、code_matches_repo=True、
+   953 模块）；切换机制为 symlink `/Users/a77/finance-workspace-runtime`
+   （readlink 证据：切换前 →finance-workspace-2ee664fae9c4，切换后 →finance-workspace-e40f22b83717），
+   回滚锚 2ee664fa 保留。**部署账本 source_dirty=true**：原因是快照树里未跟踪的
+   `.venv-workbench` 软链（部署脚本 `$REPO/.venv-workbench/bin/python` 需要它；服务本身用
+   启动器里主树 venv 的绝对路径，不读它）。该软链未进入加载指纹，部署后已移除，
+   快照当前 git-clean；账本记录的是部署时刻状态，不 retroactive 改写。
+   **RAG 口径差异（非线上告警）**：部署脚本侧 check_rag_readiness.py 报「知识库路径不存在
+   ~/.finance-runtime/knowledge-base-private」（探针时间 2026-09-13T10:35Z 复现）——该路径
+   假设陈旧，真实知识库在 ~/knowledge-base-private（启动器 KB_RAG_PYTHON 所指），服务
+   health 的 knowledge_wiki/relations/vector_index/rag_runtime 四布尔均 true。两探针口径
+   未对齐，记为非阻断待核对项（探针路径修正另立小任务）。
+3. ~~E3 旧窗口~~ **已关闭**：`fix/l2-pct-chg-backfill-0913`（`734e6613`）新增
+   `--repair-pct-chg`，生产 52/52 天已回填：0 不符 0 反号，唯一 NULL=688797@06-24
+   （两表各 1 行，日线本身无涨幅，已登记）；备份在 ~/.finance-runtime/db-repair/l2-pct-chg-20260913/。
+   **该分支待用户确认后合 main**。
+4. E2 设计任务：拆分吞题 + material-only 契约投影 + 检索抑制 + 逐题交付（Q8 备忘录）。
+5. E2 修复后 T2/T3 重跑（全新会话）→ 正式 PK（未见新题、冻结双方原答）。
+6. 运营覆盖层收口：主检出树闲鱼副本与仓内版已同内容（E3/S2/repair 之外无差异需核），
+   迁移到仓内版运行是独立任务。
 
 ## 不要做
 - 不要把 fix 树文件提交进主检出树；主树他人的暂存（如某 SKILL.md 删除）不要碰。
+  本 session 两次误暂存主树文件均已 git reset 退回，且 e40f22b8 提交内容不含这些文件；
+  但**主检出树仍是多 agent 共享脏树（HEAD=b4a35fa2 detached、大量在途改动），不能拿它
+  当 clean verification tree，后续 CI/部署结论一律以专用 worktree 为准**。
 - 不要收窄写手链为单链 K3（08-16 重试风暴）。
 - 不要在 E2 修复前宣布「材料题就绪」。
 
@@ -47,10 +68,17 @@ moneyflow.py）已同步 E3/S2 同等改动——那是 L2 实际运营链（绑
 pytest（主树跑出「全绿」假象）、read 相对路径。读数收据 rev 以 conftest 头部
 「树: … @ <rev>」行为准，收据文件名里的 rev 未必可靠。
 
-## 等价 CI 收据
-- 全量：`~/.finance-runtime/test-receipts/20260913T082354Z-f59ab082.json`——
-  **9542 passed / 0 failed / 77 skipped**，exit 0，ruff 全绿。收据 dirty 标记
-  仅为守卫测试适配（随后已提交为 `44feee2d`），内容等价于 HEAD。
+## 等价 CI 收据（全部可机审）
+- 收口分支：`~/.finance-runtime/test-receipts/20260913T082354Z-f59ab082.json`——
+  9542 passed / 0 failed / 77 skipped（rev f59ab082，dirty=守卫测试适配随后已提交
+  `44feee2d`）；QC 复核自跑：`20260913T085357Z-2188a711.json`（dirty=false，同数）。
+- 合并树：`~/.finance-runtime/test-receipts/20260913T094228Z-e40f22b8.json`——
+  **9549 passed / 0 failed / 77 skipped**，rev e40f22b83717…，dirty=false，exit 0；
+  ruff 同一调用内先跑，输出 All checks passed（exit 0）。
+- 回填分支：`~/.finance-runtime/test-receipts/20260913T101411Z-ecc404da.json`——
+  **9550 passed / 0 failed / 77 skipped**，rev ecc404da9d65…（=734e6613+docs 提交），
+  dirty=false，exit 0。
+- 三份收据同一解释器（.venv-workbench/bin/python 3.12.13）、同一依赖指纹 3328bed61f3e21ea。
 - 主检出树同刻全量的 4 个失败是混合树自有工件（.claude/worktrees 残留引用 ×2、
   conversation_orchestrator、config 模块名撞车的预存在隔离缺陷），与本分支无关。
 - 提交线：`a38822df`(S1+N1) → `97eedb2a`(E3) → `480b3af7`(S2) → `f2831fd2`(QC 报告)
