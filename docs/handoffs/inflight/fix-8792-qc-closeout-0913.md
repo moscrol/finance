@@ -48,5 +48,10 @@ pytest（主树跑出「全绿」假象）、read 相对路径。读数收据 re
 「树: … @ <rev>」行为准，收据文件名里的 rev 未必可靠。
 
 ## 等价 CI 收据
-- 目标测试：路由回归锁 30 passed + moneyflow 36 passed + mark_calendar 等（各提交信息有）
-- 全量：见下方「全量 CI」节（完工时填）
+- 全量：`~/.finance-runtime/test-receipts/20260913T082354Z-f59ab082.json`——
+  **9542 passed / 0 failed / 77 skipped**，exit 0，ruff 全绿。收据 dirty 标记
+  仅为守卫测试适配（随后已提交为 `44feee2d`），内容等价于 HEAD。
+- 主检出树同刻全量的 4 个失败是混合树自有工件（.claude/worktrees 残留引用 ×2、
+  conversation_orchestrator、config 模块名撞车的预存在隔离缺陷），与本分支无关。
+- 提交线：`a38822df`(S1+N1) → `97eedb2a`(E3) → `480b3af7`(S2) → `f2831fd2`(QC 报告)
+  → `58dda6f5`(文档更正) → `f59ab082`(交接) → `44feee2d`(守卫测试适配)。
