@@ -1,0 +1,719 @@
+{
+  "started_at": "2026-09-14T02:41:16.342316",
+  "checks": [
+    {
+      "name": "code_tree",
+      "ok": true,
+      "actual": "1fef3d276d0e251158803fc09d5a81e60d79241b"
+    },
+    {
+      "name": "backup_hash",
+      "ok": true,
+      "actual": "c44a0f50f201de7ad4a48e872e3728cfc585d97798db4a4d11de4eb54275f9ca"
+    },
+    {
+      "name": "parquet_hash",
+      "ok": true,
+      "actual": "51f9ee9cba1ceb4a6ff50c4c4dce8267cb39f78add28d6a33699cbf90bf28d17"
+    },
+    {
+      "name": "backup_identity",
+      "ok": true,
+      "actual": {
+        "kind": "pre-swap-backup",
+        "run_id": "1ef953440995",
+        "created_at": "2026-09-14T02:19:49",
+        "source_db": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+        "source_size_bytes": 3612880896,
+        "source_mtime_ns": 1789298238317795166,
+        "backup_path": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb.bak-20260914T021947-1ef953440995",
+        "backup_sha256": "c44a0f50f201de7ad4a48e872e3728cfc585d97798db4a4d11de4eb54275f9ca",
+        "backup_bytes": 3612880896,
+        "copy_method": "clonefile",
+        "readability_check": "read_only 打开成功, 66 张表",
+        "restore_steps": [
+          "1. 确认无活跃写者/读者（probe_no_active_writer 或 lsof）",
+          "2. 校验备份指纹: shasum -a 256 market_feature_store.duckdb.bak-20260914T021947-1ef953440995 应等于 receipt 的 backup_sha256",
+          "3. 若 target 处有残留 WAL 先删除: market_feature_store.duckdb.wal",
+          "4. cp -c market_feature_store.duckdb.bak-20260914T021947-1ef953440995 market_feature_store.duckdb（同卷 clonefile；跨卷用 cp）",
+          "5. 只读打开 target 抽查行数，确认恢复完成后再让读写方上线",
+          "6. 验证通过后备份可人工删除（3.6G 量级，别长期留）"
+        ]
+      }
+    },
+    {
+      "name": "child_report_scope",
+      "ok": true,
+      "actual": {
+        "ok": true,
+        "trade_date": "2026-09-11",
+        "kind": "repair-stock-daily-hithink",
+        "target_db": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb.staging"
+      }
+    },
+    {
+      "name": "unchanged:fact_stock_daily",
+      "ok": true,
+      "actual": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "unchanged:feature_stock_technical_daily",
+      "ok": true,
+      "actual": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "unchanged:feature_stock_window",
+      "ok": true,
+      "actual": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "unchanged:fact_market_daily",
+      "ok": true,
+      "actual": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "sources",
+      "ok": true,
+      "actual": {
+        "eastmoney:snapshot": 6,
+        "hithink:daily-k-10d": 5547
+      }
+    },
+    {
+      "name": "302132_values",
+      "ok": true,
+      "actual": [
+        [
+          64.01,
+          64.66,
+          62.82,
+          63.42,
+          64.35,
+          -1.45,
+          5.9863,
+          94471.0,
+          null,
+          "中航成飞"
+        ]
+      ]
+    },
+    {
+      "name": "published_matches_child_fingerprint",
+      "ok": true,
+      "actual": [
+        5553,
+        51688494789703887710568
+      ]
+    },
+    {
+      "name": "retained_full_rows",
+      "ok": true,
+      "actual": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "old_common_other_values",
+      "ok": true,
+      "actual": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "only_whitelisted_amount_drift",
+      "ok": true,
+      "actual": [
+        [
+          "600176.SH",
+          113.6007,
+          113.6006
+        ]
+      ]
+    },
+    {
+      "name": "derived:feature_stock_technical_daily",
+      "ok": true,
+      "actual": [
+        5529,
+        0
+      ]
+    },
+    {
+      "name": "derived:feature_stock_window",
+      "ok": true,
+      "actual": [
+        22115,
+        0
+      ]
+    },
+    {
+      "name": "600176_window_drift",
+      "ok": true,
+      "actual": [
+        [
+          "2026-08-28",
+          93.1063,
+          93.1062
+        ]
+      ]
+    },
+    {
+      "name": "302132_unavailable_disclosed",
+      "ok": true,
+      "actual": {
+        "recomputed_tables": {
+          "feature_stock_window": 22117,
+          "feature_stock_technical_daily": 5529
+        },
+        "new_code_rows_removed": {
+          "feature_stock_technical_daily": 0,
+          "feature_stock_window": 2
+        },
+        "new_codes_unavailable": {
+          "302132.SZ": "历史窗口不足/不连续，当日窗口与技术指标置缺；补齐历史需单独授权回填并验证连续性"
+        },
+        "fact_market_daily": "复盘会口径、不以 fact_stock_daily 为源，不重算；口径差（+1 跌家 / +5.99 亿）见 repair-plan.md",
+        "other_dates_unchanged": true
+      }
+    },
+    {
+      "name": "stitch",
+      "ok": true,
+      "actual": {
+        "trade_date": "2026-09-11",
+        "snapshot_id": "07ce886613675ff42cb44a08674eb95996c3909bd710acb2a5487812f5a87861",
+        "identity": "2026-09-11 vs 2026-09-10: unchanged=403 changed=0 new=0 gone=0",
+        "candidates": 403,
+        "stitched": 403,
+        "skipped": {},
+        "skipped_codes": {},
+        "failed": [],
+        "dropped_members": 59,
+        "baseline_dates": {
+          "2026-09-02": 403
+        },
+        "pending_for_provider": 0,
+        "caps_fetched": 0,
+        "audit": null,
+        "audit_complete": null,
+        "dry_run": true
+      }
+    },
+    {
+      "name": "ops_identity",
+      "ok": true,
+      "actual": {
+        "run_id": "1ef953440995",
+        "kind": "repair-stock-daily-hithink",
+        "plan": "staging-swap",
+        "trade_date": "2026-09-11",
+        "started_at": "2026-09-14 02:19:35.313767",
+        "finished_at": "2026-09-14 02:19:47.324967",
+        "duration_s": 12.0,
+        "ok": true,
+        "pid": 40150,
+        "child_pid": 40152,
+        "copy_method": "clonefile",
+        "copy_seconds": 0.004,
+        "source_bytes": 3612880896,
+        "rows_summary": {
+          "fact_market_daily": 420,
+          "fact_sector_daily": 108701,
+          "fact_sw_l1_daily": 4817,
+          "fact_sector_stock_daily": 4256447,
+          "fact_stock_high_daily": 255368,
+          "fact_theme_limit_heat_daily": 48190,
+          "fact_theme_limit_stock_daily": 153389,
+          "fact_limit_advance_daily": 4979,
+          "fact_stock_daily": 3754989
+        },
+        "steps_summary": [
+          {
+            "name": "repair-stock-daily-hithink",
+            "ok": true,
+            "elapsed_s": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "ops_time_binding",
+      "ok": true,
+      "actual": {
+        "started": "2026-09-14 02:19:35.313767",
+        "finished": "2026-09-14 02:19:47.324967",
+        "backup_created": "2026-09-14T02:19:49",
+        "precision_note": "child.started_at is truncated to seconds; compare parent start at the same precision"
+      }
+    },
+    {
+      "name": "previous_ops_unchanged",
+      "ok": true,
+      "actual": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "input_stats_unchanged",
+      "ok": true,
+      "actual": {
+        "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb": [
+          16777234,
+          140555030,
+          3612880896,
+          1789323587584092374
+        ],
+        "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb.bak-20260914T021947-1ef953440995": [
+          16777234,
+          140555049,
+          3612880896,
+          1789298238317795166
+        ],
+        "/Users/a77/.finance-runtime/db-repair/hithink-20260911/prod-repair-report-20260914.json": [
+          16777234,
+          140555046,
+          2396,
+          1789323587207059416
+        ],
+        "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb.bak-20260914T021947-1ef953440995.receipt.json": [
+          16777234,
+          140555051,
+          1222,
+          1789323589290201458
+        ],
+        "/Users/a77/.finance-runtime/db-repair/hithink-20260911/daily-k-10d.parquet": [
+          16777234,
+          133442174,
+          1077771,
+          1789231689792439208
+        ]
+      }
+    }
+  ],
+  "observations": {
+    "inputs_stat": {
+      "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb": [
+        16777234,
+        140555030,
+        3612880896,
+        1789323587584092374
+      ],
+      "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb.bak-20260914T021947-1ef953440995": [
+        16777234,
+        140555049,
+        3612880896,
+        1789298238317795166
+      ],
+      "/Users/a77/.finance-runtime/db-repair/hithink-20260911/prod-repair-report-20260914.json": [
+        16777234,
+        140555046,
+        2396,
+        1789323587207059416
+      ],
+      "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb.bak-20260914T021947-1ef953440995.receipt.json": [
+        16777234,
+        140555051,
+        1222,
+        1789323589290201458
+      ],
+      "/Users/a77/.finance-runtime/db-repair/hithink-20260911/daily-k-10d.parquet": [
+        16777234,
+        133442174,
+        1077771,
+        1789231689792439208
+      ]
+    },
+    "script_sha256": "16cf6c8401313a4fcec3bc59c289bd80ade15d539f78b25de62f6e59c4f9b91b",
+    "input_hashes": {
+      "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb": "76a32fac9c8bcd542982e5f7ffd654ffcf0e8646f515487aeba3b74c3ceff168",
+      "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb.bak-20260914T021947-1ef953440995": "c44a0f50f201de7ad4a48e872e3728cfc585d97798db4a4d11de4eb54275f9ca",
+      "/Users/a77/.finance-runtime/db-repair/hithink-20260911/prod-repair-report-20260914.json": "f6e38c466d113bcb0b6339e62777b2a2c0c8d022b2c05a5a9cad93c5d65bbce3",
+      "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb.bak-20260914T021947-1ef953440995.receipt.json": "4133281a0aa6acde7e5d893b16d2e4f009ee5cf8c32a3501fd2c3276f1ab0e65",
+      "/Users/a77/.finance-runtime/db-repair/hithink-20260911/daily-k-10d.parquet": "51f9ee9cba1ceb4a6ff50c4c4dce8267cb39f78add28d6a33699cbf90bf28d17"
+    },
+    "freshness:fact_stock_daily": [
+      [
+        3754989,
+        "2023-09-01",
+        "2026-09-11"
+      ]
+    ],
+    "freshness:feature_stock_technical_daily": [
+      [
+        2202967,
+        "2025-01-07",
+        "2026-09-11"
+      ]
+    ],
+    "freshness:feature_stock_window": [
+      [
+        8013592,
+        "2025-01-09",
+        "2026-09-11"
+      ]
+    ],
+    "freshness:fact_market_daily": [
+      [
+        420,
+        "2024-12-20",
+        "2026-09-11"
+      ]
+    ],
+    "302132_history:fact_stock_daily": [
+      [
+        "2026-06-15",
+        "2026-07-09",
+        10
+      ]
+    ],
+    "302132_recent:fact_stock_daily": [
+      [
+        "2026-07-01",
+        58.5
+      ],
+      [
+        "2026-07-07",
+        56.69
+      ],
+      [
+        "2026-07-09",
+        55.81
+      ],
+      [
+        "2026-09-11",
+        63.42
+      ]
+    ],
+    "302132_history:fact_stock_daily_hithink": [
+      [
+        "2016-09-08",
+        "2026-09-08",
+        2417
+      ]
+    ],
+    "302132_recent:fact_stock_daily_hithink": [
+      [
+        "2026-07-01",
+        58.5
+      ],
+      [
+        "2026-07-02",
+        56.85
+      ],
+      [
+        "2026-07-03",
+        58.71
+      ],
+      [
+        "2026-07-06",
+        57.11
+      ],
+      [
+        "2026-07-07",
+        56.69
+      ],
+      [
+        "2026-07-08",
+        55.53
+      ],
+      [
+        "2026-07-09",
+        55.81
+      ],
+      [
+        "2026-07-10",
+        57.1
+      ],
+      [
+        "2026-07-13",
+        54.16
+      ],
+      [
+        "2026-07-14",
+        52.52
+      ],
+      [
+        "2026-07-15",
+        53.23
+      ],
+      [
+        "2026-07-16",
+        53.37
+      ],
+      [
+        "2026-07-17",
+        52.91
+      ],
+      [
+        "2026-07-20",
+        55.23
+      ],
+      [
+        "2026-07-21",
+        55.1
+      ],
+      [
+        "2026-07-22",
+        56.34
+      ],
+      [
+        "2026-07-23",
+        57.69
+      ],
+      [
+        "2026-07-24",
+        55.69
+      ],
+      [
+        "2026-07-27",
+        56.91
+      ],
+      [
+        "2026-07-28",
+        56.94
+      ],
+      [
+        "2026-07-29",
+        58.43
+      ],
+      [
+        "2026-07-30",
+        58.74
+      ],
+      [
+        "2026-07-31",
+        58.52
+      ],
+      [
+        "2026-08-03",
+        57.9
+      ],
+      [
+        "2026-08-04",
+        57.99
+      ],
+      [
+        "2026-08-05",
+        57.97
+      ],
+      [
+        "2026-08-06",
+        57.85
+      ],
+      [
+        "2026-08-07",
+        56.96
+      ],
+      [
+        "2026-08-10",
+        59.78
+      ],
+      [
+        "2026-08-11",
+        58.16
+      ],
+      [
+        "2026-08-12",
+        57.89
+      ],
+      [
+        "2026-08-13",
+        57.48
+      ],
+      [
+        "2026-08-14",
+        58.0
+      ],
+      [
+        "2026-08-17",
+        59.4
+      ],
+      [
+        "2026-08-18",
+        60.06
+      ],
+      [
+        "2026-08-19",
+        57.02
+      ],
+      [
+        "2026-08-20",
+        57.09
+      ],
+      [
+        "2026-08-21",
+        56.84
+      ],
+      [
+        "2026-08-24",
+        56.7
+      ],
+      [
+        "2026-08-25",
+        56.08
+      ],
+      [
+        "2026-08-26",
+        57.67
+      ],
+      [
+        "2026-08-27",
+        59.71
+      ],
+      [
+        "2026-08-28",
+        60.0
+      ],
+      [
+        "2026-08-31",
+        59.7
+      ],
+      [
+        "2026-09-01",
+        60.76
+      ],
+      [
+        "2026-09-02",
+        63.4
+      ],
+      [
+        "2026-09-03",
+        63.75
+      ],
+      [
+        "2026-09-04",
+        63.3
+      ],
+      [
+        "2026-09-07",
+        61.33
+      ],
+      [
+        "2026-09-08",
+        62.21
+      ]
+    ],
+    "parallel_freshness:fact_stock_daily_hithink": [
+      [
+        "hithink:daily-k",
+        "2016-09-08",
+        "2026-08-25",
+        "2026-09-08 22:08:16.976137",
+        10216054
+      ],
+      [
+        "hithink:daily-k-10d",
+        "2026-08-26",
+        "2026-09-08",
+        "2026-09-08 22:08:20.206521",
+        55474
+      ]
+    ],
+    "parallel_freshness:fact_sector_kline_daily": [
+      [
+        "hithink:index-historical",
+        "2022-08-02",
+        "2026-09-08",
+        "2026-09-09 12:45:10.693600",
+        816297
+      ]
+    ],
+    "parallel_freshness:fact_limit_pool_hithink": [
+      [
+        "limit_break",
+        "2025-09-08",
+        "2026-09-08",
+        "2026-09-08 23:43:08.552240",
+        6201
+      ],
+      [
+        "limit_down",
+        "2025-09-08",
+        "2026-09-07",
+        "2026-09-08 23:43:08.552240",
+        3424
+      ],
+      [
+        "limit_up",
+        "2020-07-01",
+        "2026-09-08",
+        "2026-09-08 23:43:08.552240",
+        87763
+      ]
+    ],
+    "parallel_freshness:fact_dragon_tiger_hithink": [
+      [
+        "hithink:dragon-tiger-list",
+        "2025-09-08",
+        "2026-09-08",
+        "2026-09-08 23:56:22.281026",
+        17614
+      ]
+    ],
+    "parallel_freshness:fact_dragon_hot_money_hithink": [
+      [
+        "hithink:dragon-tiger-hot-money",
+        "2025-09-08",
+        "2026-09-08",
+        "2026-09-08 23:56:22.312983",
+        15699
+      ]
+    ],
+    "parallel_freshness:fact_hot_stock_rank_hithink": [
+      [
+        "hithink:hot-stock-list-history",
+        "2025-09-08",
+        "2026-09-08",
+        "2026-09-08 23:56:23.246005",
+        7260
+      ]
+    ],
+    "parallel_freshness:fact_auction_hithink": [
+      [
+        "benchmark",
+        "2026-01-05",
+        "2026-09-08",
+        "2026-09-08 23:56:24.102600",
+        985
+      ],
+      [
+        "snapshot",
+        "2026-09-08",
+        "2026-09-08",
+        "2026-09-08 23:55:30.113037",
+        5569
+      ]
+    ],
+    "adjustment_freshness": [
+      [
+        "2026-09-16",
+        "2026-09-08 22:08:19.819525",
+        "2026-09-08 22:08:19.819525",
+        57136
+      ]
+    ],
+    "unchanged_table_counts": [
+      [
+        66,
+        66
+      ]
+    ]
+  },
+  "finished_at": "2026-09-14T02:44:23.602731",
+  "verdict": "PASS"
+}
