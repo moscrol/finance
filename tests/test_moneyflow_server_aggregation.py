@@ -279,6 +279,34 @@ def test_buyer_order_cache_round_trips_aggregated_rows(tmp_path, monkeypatch):
     assert len(client.calls) == 1
 
 
+def test_mark_calendar_ledgers_verdict(tmp_path, monkeypatch):
+    """2026-09-13 QC S2：日历判定（含 unknown）写 ops_pipeline_run_daily 的
+    calendar 步，不再只在 stderr 吼一声；message 记判定来源与理由。"""
+    import market_feature_store.db as mfs_db
+
+    monkeypatch.setattr(mfs_db, "DB_PATH", tmp_path / "t.duckdb")
+    monkeypatch.setattr(mfs_db, "DB_DIR", tmp_path)
+    writer = _load_module(
+        monkeypatch, "moneyflow_writer_calendar", "write_to_duckdb.py"
+    )
+
+    writer.mark_calendar("2026-09-11", "unknown", "probe_failed_rc=1", "boom")
+
+    import duckdb
+
+    con = duckdb.connect(str(tmp_path / "t.duckdb"), read_only=True)
+    try:
+        row = con.execute(
+            "SELECT step, status, message FROM ops_pipeline_run_daily "
+            "WHERE trade_date='2026-09-11' AND pipeline='l2-moneyflow'"
+        ).fetchone()
+    finally:
+        con.close()
+    assert row is not None
+    assert row[0] == "calendar" and row[1] == "unknown"
+    assert "probe_failed_rc=1" in row[2] and "boom" in row[2]
+
+
 def test_failed_scan_stats_cannot_pass_completion_gate(monkeypatch):
     writer = _load_module(monkeypatch, "moneyflow_writer_stats", "write_to_duckdb.py")
     stats = {
