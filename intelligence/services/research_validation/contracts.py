@@ -40,6 +40,7 @@ from intelligence.services.methodology_backtest.stats import (
     DEFAULT_BLOCK_SEED,
     DEFAULT_MIN_BLOCKS,
 )
+from intelligence.services.river_projection import HASH_PREFIX as RIVER_PROJECTION_HASH_PREFIX
 
 # --------------------------------------------------------------------------- #
 # 常量
@@ -94,6 +95,8 @@ GAP_CODES = (
 )
 
 _ID_RE = re.compile(r"^[0-9a-f]{64}$")
+# 河的上下文投影哈希形状（river_projection.HASH_PREFIX + sha256[:16]）；常量从源头 import，不手抄。
+_RIVER_PROJECTION_HASH_RE = re.compile(r"^" + re.escape(RIVER_PROJECTION_HASH_PREFIX) + r"[0-9a-f]{16}$")
 _ARM_ID_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
 _OWNER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 _TOKEN_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,127}$")
@@ -200,6 +203,23 @@ def validate_content_id(value: Any, *, field_name: str = "id") -> str:
     if not isinstance(value, str) or not _ID_RE.match(value):
         raise ContractError(f"{field_name} 必须是 64 位十六进制 SHA-256：{value!r}")
     return value
+
+
+def validate_projection_hash(value: Any) -> str:
+    """预测绑定的投影哈希。两种合法形状：
+
+    - 河的上下文投影 ``river_projection.ContextProjection.projection_hash``（``cp:`` + 16 位十六进制，
+      §4.5：每条 agent 产物记 projection_hash，回溯时能重建「那天实际看到的那一小片」）；
+    - 规则臂的字段投影 ``digest(projection)``（64 位 SHA-256，eval runner 产出）。
+    其余一律拒收——散文、文件名、截断串都不是投影身份。
+    """
+    if isinstance(value, str) and _ID_RE.match(value):
+        return value
+    if isinstance(value, str) and _RIVER_PROJECTION_HASH_RE.match(value):
+        return value
+    raise ContractError(
+        f"projection_hash 必须是 64 位 SHA-256 或河投影哈希（{RIVER_PROJECTION_HASH_PREFIX}+16 位十六进制）：{value!r}"
+    )
 
 
 def validate_token(value: Any, *, field_name: str) -> str:
@@ -1137,4 +1157,5 @@ __all__ = [
     "validate_outcome_identity",
     "validate_outcome_spec",
     "validate_owner",
+    "validate_projection_hash",
 ]

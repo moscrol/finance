@@ -52,6 +52,7 @@ from .contracts import (
     utc_iso,
     validate_content_id,
     validate_owner,
+    validate_projection_hash,
     validate_token,
 )
 from .repository import Repository
@@ -284,7 +285,10 @@ def _build_forecast(
 
     projection_hash = item.get("projection_hash")
     if projection_hash is not None:
-        validate_content_id(projection_hash, field_name="projection_hash")
+        try:
+            validate_projection_hash(projection_hash)
+        except ContractError as exc:
+            raise ContractError(str(exc.args[0]), "invalid_projection_hash") from exc
     input_refs = item.get("input_refs") or {}
     if not isinstance(input_refs, Mapping) or any(
         not isinstance(k, str) or not isinstance(v, str) for k, v in input_refs.items()

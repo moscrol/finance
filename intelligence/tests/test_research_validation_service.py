@@ -408,6 +408,37 @@ def test_historical_llm_probabilities_never_enter_a_forward_study(tmp_path):
     assert result.rejected[0].reason == "mode_origin_mismatch"
 
 
+def test_projection_hash_accepts_river_context_projection_and_field_projection_only(tmp_path):
+    """§4.5：人工 / LLM 臂记河的 ContextProjection 哈希（cp:+16 hex）；规则臂记字段投影 sha256；其余拒收。"""
+    from intelligence.services.river_projection import HASH_PREFIX
+
+    repo, protocol = frozen(tmp_path)
+    sid = protocol["study_id"]
+    river_hash = HASH_PREFIX + "0123456789abcdef"
+    ok = register_forecasts(
+        owner=OWNER,
+        repository=repo,
+        now=D0_EVENING,
+        study_id=sid,
+        forecasts=[
+            forecast_input("S1", D0, "base", 0.6, origin="human_manual", projection_hash=river_hash, input_refs={"present_tracks": "market,sector"}),
+            forecast_input("S2", D0, "base", 0.6, projection_hash="a" * 64),
+        ],
+    )
+    assert [f["projection_hash"] for f in ok.accepted] == [river_hash, "a" * 64] and not ok.rejected
+    bad = register_forecasts(
+        owner=OWNER,
+        repository=repo,
+        now=D0_EVENING,
+        study_id=sid,
+        forecasts=[
+            forecast_input("S3", D0, "base", 0.6, projection_hash="cp:tooshort"),
+            forecast_input("S4", D0, "base", 0.6, projection_hash="看了一眼盘面"),
+        ],
+    )
+    assert [r.reason for r in bad.rejected] == ["invalid_projection_hash", "invalid_projection_hash"]
+
+
 def test_read_receipt_returns_none_when_nothing_evaluated(tmp_path):
     repo, protocol = frozen(tmp_path)
     assert read_receipt(owner=OWNER, repository=repo, now=D0_EVENING, study_id=protocol["study_id"]) is None

@@ -148,3 +148,34 @@ def test_calibration_buckets_sparse_reports_insufficient_only_and_never_rounds()
 def test_daily_delta_dict_roundtrip():
     d = DailyDelta("2026-03-02", 2, 0.1, 0.05, 0.05, True)
     assert d.to_dict()["win"] is True and d.to_dict()["n_pairs"] == 2
+
+
+def _retired_calibration_metrics():
+    """从退役脚本 scripts/dual_blind_forecast.py 里只抽出 ``_calibration_metrics`` 这一个函数的源码编译执行。
+
+    不 ``import scripts``（模块级会解析台账目录等副作用），也不启动脚本；只是拿它的数学口径来对拍。
+    脚本若被删除则跳过对拍——主断言（手算 0.025、五桶边界）在上面的测试里，不依赖它。
+    """
+    import ast
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "scripts" / "dual_blind_forecast.py"
+    if not path.is_file():
+        pytest.skip("退役脚本不在树上，无法对拍")
+    module = ast.parse(path.read_text(encoding="utf-8"))
+    fn = next(n for n in module.body if isinstance(n, ast.FunctionDef) and n.name == "_calibration_metrics")
+    namespace: dict = {"Any": object}
+    exec(compile(ast.Module(body=[fn], type_ignores=[]), str(path), "exec"), namespace)
+    return namespace["_calibration_metrics"]
+
+
+def test_brier_and_five_bucket_error_agree_with_retired_dual_blind_formula():
+    retired = _retired_calibration_metrics()
+    samples = [(0.9, 1), (0.8, 1), (0.2, 0), (0.1, 0), (0.55, 1), (0.45, 0), (0.62, 0), (0.33, 1), (1.0, 1), (0.0, 0)]
+    theirs = retired(samples)
+    ours_brier = math.fsum(brier(p, y) for p, y in samples) / len(samples)
+    assert round(ours_brier, 4) == theirs["brier"], "Brier 口径必须与既有实现一致（他们舍入 4 位，我们不舍入）"
+    buckets = calibration_buckets(samples, min_n=1)
+    ours_ece = math.fsum(b["count"] / len(samples) * abs(b["mean_p"] - b["observed_rate"]) for b in buckets if b["count"])
+    assert round(ours_ece, 4) == theirs["ece_5bin"], "五桶边界与桶内均值口径必须一致"
+    assert theirs["decision_eligible"] is False
