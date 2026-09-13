@@ -165,3 +165,11 @@ QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结�
 - 状态：第七轮 PV11/PV12/PV13 逐项通过；QC 确认 05 模块 118 passed、第七轮安全断言 8 passed、ruff 干净、dirty=0（全量收据视为已提供历史收据，未独立重跑）。附条件：attempt_id/run_id 联合身份校验仍有相邻 P1，修前 dd5d54aa 之前的实现可复现。
 - 修复（`dd5d54aa`，1 条公开入口回归测试先红后绿）：逐 attempt 覆盖的 OR 匹配改为联合身份——条目带 attempt_id 就必须与 run_id 一致（错配组合：attempt_id 指第二次执行、run_id 是第一次的 run，三笔费用修前洗成 known 1.39 → 修后 unknown 且 uncovered_components=[review_model, writer_model]）；只带 run_id 的条目是该 run 共享账。合法对照：同一组费用联合一致（run2×attempt2）→ known CNY 1.39。
 - 验证：模块 119 passed；第一至七轮安全断言复跑全绿（05extra exit=0、round3 exit=0、round4/5/6/7 = 4/5/6/8 passed）；全量 9659 passed / 77 skipped / 2 xfailed（干净树 @dd5d54aa，`-rf` 无 FAILED 行）；ruff 干净。
+
+## Round-8 补遗（2026-09-14，QC：合并身份冲突 + 收据层联合身份）
+- 状态：round-8 附加条件修复（dd5d54aa）原错配反例已修好，但扩大边界确证两个相邻 P1（均在父提交存在，非本次修复引入的回归），05 暂不签最终放行。
+- 修复（`95a4efea`，2 条公开入口回归测试先红后绿）：
+  1. **合并前不验身份**（measure.py 尝试合并循环）：`attempts.setdefault` 保留第一条 run_id，同 attempt 后续事件绑到不同 run 时静默丢弃——第二次执行连同缺账消失（QC 实测：run 冲突对 + 只给 run1 完整费用 → 修前收据 valid、known 0.93）。修复：合并前校验 run 身份冲突，显式留错（limitations `attempt_run_conflict:` 阻断前缀 + unknown_cost_components 显式条目 reason=attempt_run_conflict），收据降级 incomplete、完整成本阻断；不合并冲突事件的时间/状态。
+  2. **收据层 OR 核销**（measure.py 派生缺口）：`run_id ∈ costed_runs or attempt_id ∈ costed_attempts`——错配费用在汇总层已拦（dd5d54aa）但收据自身仍 valid、缺口为空；06 独立保存展示收据，读收据的消费者看不到缺账。修复：联合身份谓词上移 `contracts.cost_item_covers_attempt`（公共合同），测量层核销与汇总层覆盖共用——错配费用不为任何执行作证，缺口留在收据并降级 incomplete（spec：覆盖不明为 incomplete，缺账保留未知）。
+- 验证：模块 121 passed（119+2）；第一至七轮安全断言与归档探针复跑全绿（05extra exit=0、standards_01/02/04/04_boundary OK、original_probe_05 内容 OK、round4/5/6/7 = 4/5/6/8 passed）；全量 9660 passed / 1 已知 10s 墙钟 flaky（隔离 3/3 绿）/ 77 skipped @95a4efea；ruff 干净。
+- 复跑教训：probe_05_extra 的 argv 是树路径不是 SHA——传错参数会报 ModuleNotFoundError 假「回归」，先读探针契约再下结论。
