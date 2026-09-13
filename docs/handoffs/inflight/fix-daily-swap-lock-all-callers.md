@@ -49,12 +49,14 @@ assert not (True and True and 0 == 0)
   变红——实测两条均红，修复后 31 passed。
 - 定向三文件（staging_swap + repair_hithink + write_path_guard）：601db6dd 50 →
   本刀 54（+4），无回归。
-- 全量：9,498 passed / 2 failed / 77 skipped。两条红都不在 `market_feature_store`：
-  - `test_installed_codex_sandbox_denies_network_and_unix_socket`——**在 601db6dd
-    干净对照树上同样红**（本机已知抖动，见记忆卡），与本刀无关；
-  - `test_real_conversation_round_trip_...`——全量跑时另有一棵树在并发跑全量
-    （pid 43353），第三轮停在 pending；单跑本树绿，且该文件对
-    `market_feature_store`/换库代码零引用。
+- 全量（ed0dce4c，**串行**，等另一棵树的全量跑完再起）：
+  **9,499 passed / 1 failed / 77 skipped / 1 xfailed**，358s。
+  唯一的红 `test_installed_codex_sandbox_denies_network_and_unix_socket`——
+  **在 601db6dd 干净对照树上同样红**（本机已知抖动，见记忆卡），与本刀无关。
+- 并发那一跑（先做的，另一棵树 pid 43353 同时在跑全量）是 9,498/2：多的那条
+  `test_real_conversation_round_trip_...` 第三轮停在 pending，串行重跑即绿，
+  单跑本树也绿，且该文件对 `market_feature_store`/换库代码零引用——负载抖动，
+  不是本刀。两次读数一并留着，是因为「并发跑全量会多红一条」本身值得下一个人知道。
 - ruff：`market_feature_store` + 改动测试文件全过。
 
 ## 未验证 / 已知边界
