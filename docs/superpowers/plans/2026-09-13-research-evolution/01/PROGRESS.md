@@ -182,3 +182,11 @@ QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结�
 - 修复 `cfd88c04`：`contracts.market_day_of` 统一按东八区折算日历日（known_day 与 expired_at 取日三处）；歧义判定改为「同生效起点 + 不同哈希 +（任一方说不出精确时刻或同刻）」；ambiguous 进 `_State.signature()`；unchanged+ambiguous 仍建 open 项（reason=ambiguous_version_order、epistemic=unknown 计入 unverifiable）。
 - 验证：3 条新回归测试先红后绿；模块 104 passed；全量 9644 passed / 77 skipped（干净树 @cfd88c04）；ruff 干净；QC 第四轮探针 01 组三项全绿（J6 actual==normalized；J7 actual 留歧义、fill_early open=1 / fill_late open=0；J5-补充 actual 与 other_hash 均留歧义），安全断言 test_adjacent.py 4 passed；第一/二/三轮归档探针 01 组复跑不回归。
 - 06 联测请用 `cfd88c04`。
+
+## 第五轮（2026-09-13，QC round-5 复审：J8/J9/J10）
+- 状态：原四轮修复复核有效，但扩大边界确证 3 项新问题（本轨 J8[P1]、J9[P2]、J10[P1]；05 另有 PV9[P1]），整包暂不签收。
+- 修复（`8127283d`，3+1 条新测试先红后绿）：
+  - J8[P1]（J6 相邻遗漏）：条件观测的知识截止过滤用 `market_day_of` 替代 day_of 截字符串——同一观测时刻 Z/+08 写法结论一致。
+  - J9[P2]（J6 相邻遗漏）：绑定 `created_day` 用 `market_day_of`——上海 09-12 00:30 创建的绑定不再因 UTC 写法提前一天成立。
+  - J10[P1]（第四轮修复引出的新回归）：ambiguous 进项身份（dedup_key/item_version，仅歧义时加键）；最终去重同 id 冲突优先留 open 项——歧义消解（A→B→A）情形也不再吞 open。
+- 验证：模块 108 passed；QC 第五轮安全断言 test_round5.py 5 passed；全量 9648 passed / 77 skipped / 2 xfailed（干净树 @8127283d，`-rf` 无 FAILED 行）；ruff 干净；第一至四轮归档探针 01 组复跑不回归（与 QC 归档归一身份字段后逐字节一致）。
