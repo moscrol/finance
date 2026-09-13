@@ -10,7 +10,7 @@
   turn_controller 与 answer_orchestrator 三调用点共用，192 字取值题两入口一致。
   回归锁：802 变体端到端、192 字两入口、材料+取值意图被闸（30 passed + 1 xfail）。
 - `97eedb2a` E3：当日涨幅%统一日线口径。`duck_pct_chg_map` + L2QueryService 读出侧覆盖
-  （旧缓存命中也纠正）；缺日线写 NULL 不冒充；write_to_duckdb 空值安全 + 
+  （旧缓存命中也纠正）；缺日线写 NULL 不冒充；write_to_duckdb 空值安全 +
   `pct_chg_canonical_missing` 进台账 message。**已重算闲鱼窗口 12 天（08-27→09-11）：
   1961+536 行 0 不符 0 反号 0 空值**。更早 52 天（clickhouse/wind 时代）仍旧口径不可信。
 - `480b3af7` S2：`mark_calendar` 每跑必写 `ops_pipeline_run_daily` 的 `step=calendar` 行
