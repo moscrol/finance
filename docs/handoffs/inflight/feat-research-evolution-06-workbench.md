@@ -11,7 +11,7 @@
 - R1 恢复：消息入口拒收 → `cancel_rejudge` 退回 open；否了挂假进行态。
 - 绑定幂等：`binding_id` 是自然键（owner+对象+refs+entity+as_of，不含条件）；同键异载荷 409，绝不第二行。
 - S1 测试：线程直调 `apply_action` 断言一胜一 409；否了 QC barrier 探针——验证进事务后它必死锁，是探针失效不是 bug。
-- 错误码只增不改：新增 `run_binding_mismatch` / `invalid_transition`。
+- 错误码只增不改（新增 `run_binding_mismatch` / `invalid_transition`）。
 
 ## 当前状态
 
@@ -25,14 +25,14 @@
 - 全仓 pytest：**10014 passed / 0 failed**，收据 `~/.finance-runtime/test-receipts/20260913T131404Z-297c47c3.json`（dirty=false，之后仅 docs 提交）；ruff clean。
 - 06 套件 80 passed（含 17 返修合同测试 `test_research_evolution_rework.py`）。
 - 前端 lint/typecheck/build 过；vitest 87 passed；e2e 研究进化 spec 三 project 15 passed、desktop 全量 10 passed。
-- QC 四探针指向本树重跑全部「以新合同失败」= 旧病不再复现（细节见 REWORK.md 状态行）。
+- QC 四探针指向本树重跑全部「以新合同失败」= 旧病不再复现（见 REWORK.md）。
 
 ## 未验证 / 已知边界
 
 - 练习反馈 UI 按 dict 原样渲染，没压过真实题包（04 生产题包没人签）。
 - R3 观察器只接 Workbench RunStore，别的 run 链不在覆盖内。
 - e2e 隔离服务无市场库，绑定→变化→复核整链只由 python 测试覆盖。
-- 原批次未做项照旧：I13 真人试点 / I14 后台暂停 / I15 真实前向实验（BLOCKED §3）。
+- 原批次未做项照旧（BLOCKED §3）。
 
 ## 下一步
 
