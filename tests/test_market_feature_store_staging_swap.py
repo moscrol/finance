@@ -10,6 +10,7 @@
 """
 from __future__ import annotations
 
+import errno
 import hashlib
 import inspect
 import json
@@ -1323,3 +1324,77 @@ def test_bootstrap_publish_survives_staging_cleanup_failure(tmp_path, monkeypatc
     assert db.remove_stale_staging(staging) is True
     assert not staging.exists() and target.exists()
     assert _rows_of(target, "SELECT total_amount FROM fact_market_daily") == [(12345.0,)]
+
+
+# ---------------------------------------------------------------- QC 复审七轮
+#
+# 七轮 P2：existing/absent 分类曾在探针成功之后另做一次 exists()——探针已
+# 打开过旧库、随后目标被删，第二次 exists 得 False，本轮被静默降为首次建库
+# （独立探针实测：旧库 2026-08-14/10000 被删后 rc=0 发布成功，库里只剩
+# 2026-08-15/12345）。修复：分类钉死在首次观察（探针之前那次 exists），
+# 已见旧库的轮次后来缺失只能拒绝。另把独立探针的 link syscall 失败三码
+# 迁回常规套件（六轮 never_falls_back 只注入了 WAL 前置拒绝）。
+# ---------------------------------------------------------------------------
+
+
+def test_target_deleted_after_opening_probe_is_not_bootstrapped(prod_db, monkeypatch):
+    """七轮 P2：探针已见旧库、随后目标被删 → rc=2 拒绝, 不得降为首次建库。
+
+    这是初始观察与分支选择之间的分类遗漏，不是已接受的末端
+    identity-check→replace 窗口。修复后由 hold_swap_lock 开锁失败给出
+    rc=2，子进程从未启动。
+    """
+    real_probe = db.probe_no_active_writer
+    fired: list = []
+
+    def probe_then_delete(path):
+        real_probe(path)
+        if Path(path) == prod_db and not fired:
+            fired.append("after-opening-probe")
+            os.unlink(path)  # 真删除: 钉死分类之后, 这只能走向拒绝
+
+    monkeypatch.setattr(db, "probe_no_active_writer", probe_then_delete)
+    result = sdf.run_daily_full_staged(  # 不得抛异常
+        trade_date="2026-08-15", child_argv=_child(CHILD_OK)
+    )
+    assert fired == ["after-opening-probe"], "注入未触达开工探针, 窗口没对上"
+    assert result["rc"] == 2
+    assert result["swapped"] is False
+    assert result["copy"] is None  # 没进克隆, 子进程从未启动, 更没有发布
+    assert result["child_returncode"] is None
+    assert "已不存在" in result["reason"], result["reason"]
+    assert not prod_db.exists()  # 没有把库「重建」出来掩盖删除
+
+
+@pytest.mark.parametrize("code", [errno.EPERM, errno.ENOSPC, errno.EOPNOTSUPP])
+def test_bootstrap_link_io_failure_refused_without_replace_fallback(
+    tmp_path, monkeypatch, code
+):
+    """七轮迁移：link syscall 本身失败（权限/磁盘满/不支持硬链接）→ 结构化拒绝。
+
+    拒绝后不得回退 os.replace（回退等于把刚拒绝掉的覆盖又做一遍），
+    target 不创建、staging 留证。
+    """
+    target = tmp_path / "fresh.duckdb"
+    monkeypatch.setattr(db, "DB_PATH", target)
+    monkeypatch.setattr(db, "DB_DIR", target.parent)
+    staging = db.staging_path(target)
+    fired: list = []
+    replaced: list = []
+    real_link = os.link
+
+    def fail_link(src, dst, *args, **kwargs):
+        if Path(src) == staging and Path(dst) == target:
+            fired.append(code)
+            raise OSError(code, "injected link failure")
+        return real_link(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(db.os, "link", fail_link)
+    monkeypatch.setattr(db.os, "replace", lambda *a, **k: replaced.append(a))
+    result = sdf.run_daily_full_staged(child_argv=_child(CHILD_BOOTSTRAP))
+
+    assert fired == [code], "注入未触达发布 link, 窗口没对上"
+    assert replaced == [], "link 失败之后退回了 os.replace"
+    assert result["rc"] == 2 and result["swapped"] is False
+    assert "injected link failure" in result["reason"]
+    assert not target.exists() and staging.exists()  # 目标不创建, staging 留证

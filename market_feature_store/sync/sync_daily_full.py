@@ -458,8 +458,10 @@ def _run_daily_full_staged_locked(
     """daily-full 的 staging 编排: 同步全程不持有生产库写锁 (bookgap S7)。
 
     克隆生产库 → 子进程对 staging 副本跑原管道 (env 重定向, 见下) → 校验 →
-    第三方写者守卫 → [可选换名前备份] → 收据 → os.replace 原子换名。生产库文件只在换名一瞬变化,
-    正持旧句柄的读者继续读旧 inode, 新连接读新库。
+    第三方写者守卫 → [可选换名前备份] → 收据 → 原子发布（既有库在换库锁内
+    os.replace 换名；首次建库 os.link no-clobber，六轮 P1）。生产库文件只在
+    发布一瞬变化, 正持旧句柄的读者继续读旧 inode, 新连接读新库。
+    existing/absent 分类钉死在本轮首次观察（七轮 P2，见下文开工闸注释）。
 
     pre_swap_backup=True 时（修复类调用方，QC S4 执行前提）：守卫通过后、
     换名前给 target 落一份带 sha256 指纹与恢复步骤收据的备份
@@ -510,14 +512,33 @@ def _run_daily_full_staged_locked(
         result["stale_status_removed"] = True
 
     # 开工闸: 有活跃写者时开跑, 克隆是撕裂快照、换名会覆盖对方工作。
+    # QC 七轮 P2：existing/absent 的分类钉死在**本轮首次观察**（就是这次
+    # exists()），之后不再就分类重新观察。此前分类在探针成功之后再做一次
+    # exists()：探针已经打开过旧库、随后目标被第三方删除，第二次 exists 得
+    # False，本轮被静默重新归类为首次建库——子进程建出缺历史的新库并发布
+    # 成功（七轮独立探针实测：旧库 2026-08-14/10000 被删后 rc=0，库里只剩
+    # 2026-08-15/12345）。钉死之后，「已见旧库、随后消失」只剩拒绝：消失在
+    # 探针窗口内由探针抛 SwapTargetReplacedError；消失在探针之后由
+    # hold_swap_lock 开锁失败拒绝——都是 rc=2，不再降格为 bootstrap。反向
+    # （钉为 absent 后第三方新建）由发布前守卫与 os.link EEXIST 原子拒绝
+    # （六轮 P1），所以首次观察一次 exists 就够，不需要身份钉死。
+    # 声明边界：钉死只对「本轮首次观察之后」的消失负责；观察之前就被删的，
+    # 本轮无从知道它存在过。
+    source_exists = target.exists()
     try:
         _db.probe_no_active_writer(target)
+    except _db.SwapTargetReplacedError as exc:
+        # 探针窗口内目标消失（探针的 exists→connect 之间被删）：与「有活跃
+        # 写者」分开给措辞，reason 才能指认是哪一处拒绝。它是
+        # DatabaseLockedError 子类，必须排在前面。
+        result["reason"] = f"{exc}; 拒绝开工"
+        print(f"[staging] {result['reason']}", flush=True)
+        return result
     except _db.DatabaseLockedError as exc:
         result["reason"] = f"生产库有活跃写者, 拒绝开工: {exc}"
         print(f"[staging] {result['reason']}", flush=True)
         return result
 
-    source_exists = target.exists()
     if source_exists:
         # QC 复审三轮 P1：基线与克隆必须落在同一受保护窗口——克隆之后才认领
         # 来源最新 stat，会把「副本不含的新写入」记成副本基线（QC 复现：克隆

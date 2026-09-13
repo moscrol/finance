@@ -208,6 +208,11 @@ def list_tables(con: duckdb.DuckDBPyConnection) -> list[str]:
 #   duckdb.connect(target) 能建库并提交，而 run mutex 拦不住他、也没有 inode
 #   可锁。那条路径不靠锁，靠 publish_new_into_place 的 os.link EEXIST 把
 #   absent→present 做成原子拒绝（QC 六轮 P1）。
+#   existing/absent 的分类钉死在每轮的**首次观察**（QC 七轮 P2）：已见旧库的
+#   轮次后来缺失只能拒绝（探针窗口内消失 → SwapTargetReplacedError；探针之后
+#   消失 → hold_swap_lock 开锁失败），不得重新降为首次建库。反向（钉为 absent
+#   之后第三方新建）由发布前守卫与 link EEXIST 兜底。声明只覆盖本轮首次观察
+#   **之后**的消失——观察之前就被删的，本轮无从知道它存在过。
 #
 # 【受支持的发布链】= 走上面这套协调的写者。对他们「最终复查→[备份]→原子换名」
 #   全程在 SH 锁内，排他是**保证**。
@@ -487,10 +492,12 @@ def publish_new_into_place(staging: Path, target: Path) -> dict:
 
 
 def remove_stale_staging(staging: Path) -> bool:
-    """清掉上一轮崩溃残留的 staging (含 WAL); 有清理动作返回 True。
+    """清掉上一轮残留的 staging 名字 (含 WAL); 有清理动作返回 True。
 
-    staging 语义上是一次性中间产物: 收据从未写入、生产库未动,
-    残留文件只占磁盘, 开新一轮前直接丢弃。
+    残留有两种，都只剩磁盘占用，开新一轮前直接丢弃:
+    - 半途而废的轮次: 未发布、生产库未动, staging 是一次性中间产物;
+    - 已发布但删名失败 (publish_new_into_place 返回 staging_name_removed=False):
+      staging 与 target 是同一 inode 的两个名字, 删掉 staging 这个名字不伤数据。
     """
     removed = False
     for leftover in (staging, wal_path(staging)):
