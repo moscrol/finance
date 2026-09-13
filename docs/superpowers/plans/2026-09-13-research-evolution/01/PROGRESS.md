@@ -85,9 +85,18 @@ M1 合取先看 unknown、M2 去掉知识截止过滤、M3 dedup_key 去掉 owne
 
 收据文件在 `~/.finance-runtime/test-receipts/<stamp>-<rev8>.json`（conftest 自动写；`latest.json` 会被并行工作树覆盖，**按 revision 取时间戳文件**，且核对 `tree` 字段是本工作树）。
 
-## 最终收据
+## 最终收据（干净树，dirty=false）
 
-（提交文档后由最后一次干净树运行填写：命令、SHA、exit code、passed/failed/skipped、收据路径。）
+| 命令 | revision | exit | passed / failed / skipped | 收据 |
+|---|---|---|---|---|
+| `pytest -q -p no:cacheprovider intelligence/tests/test_judgment_maintenance_{contracts,assess,actions,adapters}.py intelligence/tests/test_{checkpoints,judgments,scenario_trees,judgment_delta,research_project}.py` | `dbaa3968e1802ede4f3002d7bdb5ae1df2822a62` | 0 | **205 / 0 / 0**（新 86 + 旧读取器回归 119） | `~/.finance-runtime/test-receipts/20260913T065345Z-dbaa3968.json`（`tree` = 本工作树，`dirty` = false） |
+| `ruff check .`（全仓） | 同上 | 0 | All checks passed | `/tmp/jm-full-ruff.log`（临时） |
+| `pytest -q -p no:cacheprovider`（全仓等价 CI，合并前置；9 分 29 秒） | 同上 | 0 | **9626 / 0 / 77**（另 2 xfailed） | `~/.finance-runtime/test-receipts/20260913T070317Z-dbaa3968.json`（`tree` = 本工作树，`dirty` = false，`failed_ids` = []） |
+
+全仓跑的是 dbaa3968 的代码；运行期间工作树里唯一未提交的改动是本文件（docs），不影响被测代码。前端 / e2e / registry-check 叶子本轨未动，合并前由集成人按 AGENTS.md 一并跑。
+
+输入摘要：夹具 `complete / missing_source / legacy / actions` 的 `input.json` 由测试直接读取，`expected.json` 冻结于提交 9735103c；本轮之后未再改判定规则。
+本表所在提交只改文档，代码 SHA 仍是 9735103c（文档提交 dbaa3968 之上再叠一次「补收据」提交）。
 
 ## 公共依赖（交 06，详见 `BLOCKED.md`）
 
