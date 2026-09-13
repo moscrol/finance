@@ -109,3 +109,86 @@
 1. 01 定稿后用其最终 revision 重跑 `assess()` 替换 `from_01_inflight_assess_report_synthetic.json`（见 BLOCKED §1）。
 2. 06 接线：`GET …/research-evolution` 里 `priority` 段放 `render_view(prioritize(...))`；点击带 `click_payload`。
 3. 05 按 `task_id + policy_version` 关联事件；策略变更升 `policy_version`。
+
+## 6. 2026-09-13 返修（评审 P1）
+
+评审件：`/Users/a77/.finance-runtime/reviews/research-evolution-20260913/review.md`（需求符合性轴 P1，优先级 P1）。
+返修基线 `a7c9dec1`，**最终 SHA `96aebada`**。
+
+**缺陷**：同一 `binding:b1/c1` 条件的两次 true 观测（as_of 09-12 与 09-14），在 09-13 评估时
+先被合并成一项、as_of 取最大，整项落进 `blocked(future_record)`；当天本应排第 1 组的关键条件
+随之消失，`critical_not_selected_ids` 也为空（它只统计 `ranked` 内的第 1 组，blocked 不在其中）。
+评审实得 `input_count=2, candidate_count=1, merged_count=1, selected_count=0, blocked_count=1`。
+
+**根因与修法**（评审点名三处，逐处修）：
+
+| 位置 | 根因 | 修法 |
+|---|---|---|
+| `contracts.py:identity_key` | 有 evidence 时合并键不含观测窗口 | 新增 `observation_window(task)` =（`as_of`, `knowledge_cutoff`），两条分支的键都带上它 |
+| `ranker.py:prioritize` | 合并先于可知性校验 | 抽出 `_is_future_record` 供合并前分区与 `_block_entry` 共用；未来记录与当前记录各自合并 |
+| `ranker.py:_merge_members` | 合并后 `as_of/knowledge_cutoff` 取最大 | 删除该路径（正是它把当天可知的记录抬成未来记录）；成员同窗口由合并键保证，沿用 head 值并加不变量断言 |
+| `adapters.py` | 01 条件转 evidence ref 时丢了观测窗口 | 窗口写进 `ref.scope`；**不**写 `version_or_hash`（那一格是 binding 版本，塞日期会让版本字段说谎）|
+
+**合并身份现在包含**：`owner_user_id`、`effect_kind`、`availability`、**观测窗口（as_of + knowledge_cutoff）**、
+证据版本集合（无证据时再加归一问句、entity_refs、due_at、绑定对象集合）、hindsight 标记。
+`as_of` 原先单独在「无证据」分支里，现由 `observation_window` 统一承担。
+与 01 的 dedup_key 含「条件/观测窗口」同口径；spec §5.3「仅文本相似但对象或时间窗不同，不合并」。
+**同一天同证据服务多个判断对象仍合成一个任务**（P06 口径不变，六条来源仍并成一项）。
+
+**可知性校验现在的位置**：`validate_task` 之后、`_merge` 之前按 `_is_future_record` 分区。
+合并键已含窗口，两侧本就不可能同键，这一步是显式的顺序保证——将来若有人放宽合并键，
+未来记录仍不会把当天的关键条件一起吞进 blocked。代价是它无法被独立证伪（构造不出
+「同键但一未来一当前」的输入），这一点写在这里，不冒充成有测试覆盖的防线。
+
+**新增回归**（均调用真实 `prioritize` / `adapt_candidates`，未 mock 被测主体）：
+
+| 测试 | 修前（a7c9dec1）红在哪 |
+|---|---|
+| `test_future_observation_window_does_not_swallow_today_critical_condition` | `assert report["totals"]["candidate_count"] == 2` → `assert 1 == 2` |
+| `test_same_evidence_different_observation_window_is_not_merged` | `assert split[...]["candidate_count"] == 2 and merged_count == 0` → `assert (1 == 2)` |
+| `test_condition_task_keeps_its_observation_window_across_two_01_reports` | `today_section == "selected"` → 实得 `'blocked'` |
+
+**两处既有断言编码了缺陷行为，一并更新**（不是为了让测试变绿而放宽）：
+
+1. `test_p09_future_records_do_not_enter_scoring` 末尾原断言「同一证据在两个市场日重复观测 →
+   合并成一项，知识状态取最新的那次」。该口径正是 P1 的根因，改为两个候选各自保留 `as_of`。
+2. `expected_combined_synthetic.json` 冻结的是 `task_id`，而 `task_id` = `rt_` + sha256(identity_key)
+   的内容寻址结果，合并口径一变必然整批漂。该夹具 `_note` 写明「任何合同或规则变更都应让本文件
+   变红后再有意更新」，这次就是那种情形。重生成前先逐项断言 id 无关内容不变：`totals` 相同、
+   `selected` 的 `(rank, group, 来源集)` 相同、`deferred` 原因序列相同、`blocked` 原因多重集相同、
+   `critical_not_selected_ids` 条数相同；唯一差异是 blocked 行的排序随 id 改变（该列表按 task_id 排序）。
+   **输入夹具一字未动。** 同时给该测试补了一条 id 无关的落位断言（blocked 每行的 reason ↔ 来源 id），
+   下次 id 漂移时语义回归不会跟着一起被放过。
+
+**验证**：
+
+```
+cd /Users/a77/fwp-wt-research-priority-0913
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q -p no:cacheprovider \
+  intelligence/tests/test_research_priority_ranker.py \
+  intelligence/tests/test_research_priority_adapters.py \
+  intelligence/tests/test_research_priority_contracts.py
+```
+
+`62 passed, 0 failed, 0 skipped, exit 0`（基线 59 + 新增 3）。
+收据 `/Users/a77/.finance-runtime/test-receipts/20260913T080414Z-96aebada.json`，`dirty=false`，
+revision `96aebada8f5a4db866c177d5f6b0ba9c25f3b16c`。收据目录多树共用，按 revision 取时间戳文件，不读 `latest.json`。
+`ruff check` 改动的 3 个服务文件 + 3 个测试文件全绿；提交时 11 道 pre-commit 门禁全过（层级审计 ERROR 0、路径字面量无新增、字段契约无新增）。
+
+**评审探针修后实得**（`probe_01_02_04.py 02`，输入未改）：
+
+| 字段 | 修前 | 修后 |
+|---|---|---|
+| `candidate_count` | 1 | 2 |
+| `merged_count` | 1 | 0 |
+| `selected_count` | 0 | 1（`critical_today`，group=1，as_of 09-12）|
+| `blocked` | `future_record`，`source_task_ids=[critical_today, critical_tomorrow]` | `future_record`，`source_task_ids=[critical_tomorrow]` |
+| `critical_not_selected_ids` | `[]`（因为关键条件消失了）| `[]`（因为关键条件已入选）|
+
+**跨轨接缝**：`cross_module_probe.py` 三场景（complete / missing_source / legacy）全 PASS，含
+「complete 里 condition_result=true 且 role∈{abandon,downgrade} 的 01 项仍进 selected」这条断言。
+保存的 01 输出快照 `from_01_inflight_assess_report_synthetic.json` 与真实 01 树输出仍逐字节一致（除 generated_at）。
+注意该探针里的 `module_tips` 是写死的字面量（仍写 02=a7c9dec1），不是从 git 读的，实际跑的是当前工作树。
+01 正在被另一执行者返修；其 `assess()` 输出一旦变化，上面那份快照需按 BLOCKED §1 重取。
+
+**未做**：全仓 / 前端 / registry / E2E 未跑（归 06 在最终候选上执行）；`user_pinned` 仍未实现（spec 允许）。
