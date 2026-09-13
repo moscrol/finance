@@ -34,3 +34,31 @@
 1. 06 接线时先用 `adapters.load_legacy_inputs` 拿存量输入，看 `LegacyInputs.gaps`，再逐项补上表中的收据。
 2. 每补一类收据，用 `intelligence/tests/test_research_diagnostics_rules.py` 里对应的反向证伪测试形状
    （删掉该收据 → 对应 issue 必须退回 unknown）在真实数据上复核一次。
+
+## 2026-09-13 返修新增：01 产物缺来源标记（给 06 的接线要求）
+
+评审 S3 的根因之一在 01 侧，04 只能失败关闭，关不掉的那半必须由 06 补上。
+
+**事实（已实测）**：真实 01 输出 `judgment_maintenance.assess(...).to_dict()` 的报告级与项级
+**都没有** `provenance` 键。04 的 04 夹具 `maintenance_report_01.json` 有（值 `synthetic`），
+所以夹具路径与真实路径在这个字段上行为不同——只跑夹具看不出这个洞。
+
+**04 当前行为**：`parse_maintenance_reports` 读报告级 `provenance`（项可覆盖）；缺声明时
+失败关闭成 `synthetic` 并置 `provenance_declared=False`，`diagnose` 出一条
+`maintenance_provenance_undeclared` gap。后果是接真实 01 输出时，诊断报告一律标 `synthetic`。
+
+**要求 06 做的事**：
+
+1. 适配 01 输出时**显式带上来源标记**，不要靠 04 的默认值。缺来源就是缺来源，
+   不能在 06 侧把它补成 `observed` 来让报告看起来是真实效果。
+2. 若要让诊断报告合法地标 `observed`，需要 01 在报告级（或项级）真实声明 `provenance=observed`，
+   且 records / verdicts / process_receipts / exercise_cases 也都明确 observed。
+   这是「真实用户效果」的断言，属总合同 §5 第 8 条管辖，不是展示文字问题。
+3. 字段要进总合同：`provenance` 目前不在 01 的 `judgment-maintenance/v1` schema 里。
+   按总合同 §5 收尾段，**先改合同与受影响夹具，再改提供方 / 消费者**，避免各轨私改造成二次不兼容。
+
+**顺带提请注意的非对称（本轮未改，超出返修范围）**：`ProcessRecord` / `VerdictRecord` /
+`ProcessReceipt` 的 `provenance` 在 `from_dict` 里缺省是 `observed`（`contracts.py`），
+与维护报告这次改成的失败关闭方向相反。评审只点了维护报告这一条，故本轮未动其余三类，
+以免把没人要求的行为变更夹带进返修。若 06 接入真实台账时同样拿不到来源字段，
+这三类会静默标成 `observed`——建议连同上面第 3 条一起在合同层定夺。
