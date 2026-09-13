@@ -137,11 +137,17 @@ class RiverEvidenceSource:
 
         # 判断轨读的是**该 owner** 的 checkpoint 台账；不显式给就会读部署默认用户的。
         checkpoints_path = userspace.user_space(owner_user_id).checkpoints_path
+        # 06 的核心动作就是「以今天的 cutoff 重读绑定日的旧 as_of」——这在河的口径里是
+        # 事后复核档（cutoff > as_of），必须显式 allow_hindsight，否则在读库前就被拒。
+        # 这一档的切片 hindsight=True 且 pit_grade 永不为 strict；下面把 hindsight 如实
+        # 映射成 unverifiable，绝不抬成 strict 冒充当时已知。
+        hindsight_read = str(knowledge_cutoff)[:10] > str(as_of)[:10]
         try:
             sl = river.slice_river(
                 as_of,
                 entity,
                 knowledge_cutoff=knowledge_cutoff,
+                allow_hindsight=hindsight_read,
                 db_path=self.db_path,
                 checkpoints_path=checkpoints_path,
                 frozen_snapshot_root=self.frozen_snapshot_root,

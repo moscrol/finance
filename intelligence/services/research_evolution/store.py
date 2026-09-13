@@ -6,6 +6,7 @@
 dependency_bindings.jsonl      judgment-maintenance-binding/v1 + 06 封套（append-only）
 maintenance_actions.jsonl      judgment-maintenance-event/v1 + 06 封套（append-only；含 idempotency_key）
 product_value_events.jsonl     product-value-event/v1（append-only；同 event_id 同内容不重复追加）
+run_links.jsonl                维护请求 ↔ 新 run 的关联登记（append-only；item_id+run_id 幂等）
 protocols/<protocol_hash>.json 冻结协议（不可变）
 receipts/<receipt_id>.json     measurement-receipt/v1（不可变）
 summaries/<summary_id>.json    pilot-summary/v1（不可变；新版本带 supersedes）
@@ -48,6 +49,7 @@ BINDINGS_FILE = "dependency_bindings.jsonl"
 ACTIONS_FILE = "maintenance_actions.jsonl"
 PRODUCT_VALUE_EVENTS_FILE = "product_value_events.jsonl"
 PROCESS_RECEIPTS_FILE = "process_receipts.jsonl"
+RUN_LINKS_FILE = "run_links.jsonl"
 PROTOCOLS_DIR = "protocols"
 RECEIPTS_DIR = "receipts"
 SUMMARIES_DIR = "summaries"
@@ -118,6 +120,10 @@ class EvolutionStore:
     @property
     def process_receipts_path(self) -> Path:
         return self.root / PROCESS_RECEIPTS_FILE
+
+    @property
+    def run_links_path(self) -> Path:
+        return self.root / RUN_LINKS_FILE
 
     def _dir(self, name: str) -> Path:
         return self.root / name
@@ -256,6 +262,47 @@ class EvolutionStore:
                 return row
         return None
 
+    def find_binding(self, binding_id: str) -> dict[str, Any] | None:
+        """按 binding_id 定位已提交的绑定记录（幂等重试要先找到它，复用首个服务端时间）。"""
+        for row in self.list_bindings():
+            if str(row.get("binding_id") or "") == str(binding_id):
+                return row
+        return None
+
+    def find_product_value_event(self, event_id: str) -> dict[str, Any] | None:
+        for row in self.list_product_value_events():
+            if str(row.get("event_id") or "") == str(event_id):
+                return row
+        return None
+
+    # ---- 维护请求 ↔ run 关联登记 ------------------------------------------- #
+    def append_run_link(self, link: Mapping[str, Any]) -> tuple[dict[str, Any], bool]:
+        """登记「本次维护请求发起了这个 run」。同 (item_id, run_id) 同内容幂等；异内容冲突。
+
+        这是 link_run 在 run 终态时核验「持久化关联」的锚点之一（另一个是用户消息上的
+        continuation.inherits.maintenance_item_id）：接受消息 ≠ 研究完成，但关联从接受那一刻就落盘。
+        """
+        if link.get("owner_user_id") != self.owner_user_id:
+            raise ApiError("owner_forbidden", "关联登记归属与台账 owner 不一致")
+        row = {**dict(link), "content_digest": digest(dict(link))}
+        return self.append_once(self.run_links_path, row, key="link_id", key_value=str(link["link_id"]))
+
+    def list_run_links(self, *, item_id: str | None = None) -> list[dict[str, Any]]:
+        rows = [r for r in _read_jsonl(self.run_links_path) if r.get("owner_user_id") == self.owner_user_id]
+        if item_id is not None:
+            rows = [r for r in rows if str(r.get("item_id") or "") == str(item_id)]
+        return rows
+
+    def find_run_link(self, *, item_id: str, run_id: str) -> dict[str, Any] | None:
+        for row in self.list_run_links(item_id=item_id):
+            if str(row.get("run_id") or "") == str(run_id):
+                return row
+        return None
+
+    def latest_run_link(self, *, item_id: str) -> dict[str, Any] | None:
+        rows = self.list_run_links(item_id=item_id)
+        return rows[-1] if rows else None
+
     def append_product_value_event(self, event: Mapping[str, Any], *, content_hash: str) -> tuple[dict[str, Any], bool]:
         """同 event_id 同内容 → 不重复追加；同 id 异内容 → 冲突（05 ``prepare_events`` 的口径）。"""
         if event.get("owner_user_id") != self.owner_user_id:
@@ -335,6 +382,7 @@ __all__ = [
     "PROCESS_RECEIPTS_FILE",
     "LOCK_FILE",
     "PRODUCT_VALUE_EVENTS_FILE",
+    "RUN_LINKS_FILE",
     "PROTOCOLS_DIR",
     "RECEIPTS_DIR",
     "REGISTRATIONS_DIR",

@@ -2421,7 +2421,15 @@ def create_app(
     app.state.llm_settings = llm_settings
 
     def store_for(user: str | None) -> RunStore:
-        return RunStore(user_id=user)
+        # 06（spec §5「服务端观察 run 生命周期」）：ObservingRunStore 是 RunStore 子类，
+        # 在 create / 终态两个漏斗点经 06 单 writer 多写一条 05 测量事件；
+        # 读路径与写路径的其余行为与 RunStore 完全一致。事件写失败不阻断 run。
+        return research_evolution_svc.ObservingRunStore(
+            user_id=user,
+            evolution_root=Path(userspace.user_space(user).root) / "research_evolution",
+            clock=research_evolution_clock if callable(research_evolution_clock) else None,
+            code_sha=str(runtime_provenance.get("source_revision") or ""),
+        )
 
     def conversation_store_for(user: str | None) -> ConversationStore:
         return ConversationStore(user_id=store_for(user).user_id)

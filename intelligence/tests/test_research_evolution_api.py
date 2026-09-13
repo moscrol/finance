@@ -535,6 +535,8 @@ def test_i08_completed_run_without_a_new_judgment_cannot_close_the_item(world: W
     assert forged.json()["detail"]["code"] == "ref_unresolvable"
 
     # 真的写了新判断（原写入者写的）之后才能关联。
+    # 时间戳必须晚于复核请求（R7 生成时序闸）：显式给请求之后的时刻，不用真实墙钟——
+    # 测试时钟停在 2026-09-14，墙钟比它早，混用会被正确拒绝。
     from intelligence.services import judgments as judgments_svc
 
     _, new_judgment = judgments_svc.record_judgment(
@@ -542,6 +544,7 @@ def test_i08_completed_run_without_a_new_judgment_cannot_close_the_item(world: W
         memo="配额落地后价格中枢下修",
         themes=["制冷剂"],
         session_id=world.conversation_id,
+        ts="2026-09-14T16:30:00+08:00",
     )
     linked = world.act(idempotency_key="k-link-ok", new_judgment_ref=f"judgments.jsonl:{new_judgment['id']}", **args)
     assert linked.status_code == 200, linked.text

@@ -36,6 +36,10 @@ RECEIPT_REF_SCHEMA = "research-evolution-receipt-ref/v1"
 PILOT_REGISTRATION_SCHEMA = "research-evolution-pilot-registration/v1"
 CONTINUATION_SCHEMA = "research-evolution-continuation/v1"
 
+# 自用测量事件的协议版本：明确不是试点协议，别的东西也不该拿它当试点读数。
+# （facade 与 run_observer 共用；05 summarize 按 pilot_id 分区，自用事件混不进真人试点。）
+SELF_USE_PROTOCOL_VERSION = "workbench-self-use/v1"
+
 # --------------------------------------------------------------------------- #
 # 模块状态（封套 module_status.<module>.status）
 # --------------------------------------------------------------------------- #
@@ -64,8 +68,20 @@ ACTION_SELECT_TASK = "select_task"
 # 04 练习：揭示前先经 03 record_exposure 原子登记；提交答案走确定性评卷
 ACTION_REVEAL_EXERCISE = "reveal_exercise"
 ACTION_SUBMIT_EXERCISE = "submit_exercise"
+# 取消一次已发起的复核：消息入口拒绝 / 用户反悔时把维护项从 rejudgment_requested 退回 open，
+# 不留「请求挂着、永远没有 run」的假进行态（01 系统事件 rejudgment_cancelled）。
+ACTION_CANCEL_REJUDGE = "cancel_rejudge"
+# 读收据原件：03 方法验证收据经 03 read_receipt（内部先登记曝光）；05 测量收据 / 试点总结经 06 store 验权读。
+ACTION_READ_RECEIPT = "read_receipt"
 MAINTENANCE_ACTIONS = (ACTION_CLAIM, ACTION_SNOOZE, ACTION_REJUDGE, ACTION_REVIEWED_NO_CHANGE)
-ACTIONS = MAINTENANCE_ACTIONS + (ACTION_LINK_RUN, ACTION_SELECT_TASK, ACTION_REVEAL_EXERCISE, ACTION_SUBMIT_EXERCISE)
+ACTIONS = MAINTENANCE_ACTIONS + (
+    ACTION_LINK_RUN,
+    ACTION_SELECT_TASK,
+    ACTION_REVEAL_EXERCISE,
+    ACTION_SUBMIT_EXERCISE,
+    ACTION_CANCEL_REJUDGE,
+    ACTION_READ_RECEIPT,
+)
 
 # --------------------------------------------------------------------------- #
 # 稳定业务错误码（API 直接透传；只能追加不能改名）
@@ -85,6 +101,8 @@ ERR_EVENT_REJECTED = "event_rejected"  # 05 validate_event 拒绝或类型不允
 ERR_EXPOSURE_CONFLICT = "exposure_conflict"  # 03 同 operation_id 异意图
 ERR_RUN_NOT_TERMINAL = "run_not_terminal"  # link_run：run 尚未结束，不能折成 linked / failed
 ERR_DEPENDENCY_MISSING = "dependency_missing"  # 动作依赖的对象（维护项 / 任务 / 练习）不在当前视图中
+ERR_RUN_BINDING_MISMATCH = "run_binding_mismatch"  # link_run：run 或新判断不属于本会话的这次复核
+ERR_INVALID_TRANSITION = "invalid_transition"  # 用原判断引用冒充新判断：版本血统不前进，等于没有重判
 
 _HTTP_BY_CODE = {
     ERR_INVALID_REQUEST: 400,

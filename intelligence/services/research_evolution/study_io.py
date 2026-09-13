@@ -142,6 +142,26 @@ def cmd_settle(args: argparse.Namespace, ctx: OwnerContext, now: datetime, outco
 def cmd_evaluate(args: argparse.Namespace, ctx: OwnerContext, now: datetime) -> int:
     from intelligence.services.research_validation import evaluate_study
 
+    if not args.apply:
+        # S3：dry-run 不落任何盘——``evaluate_study`` 会写曝光与收据，只能在 --apply 后调。
+        # 预览分支只读：study 存在性、预测数、已有收据状态。
+        repo = _repository(ctx)
+        study_ids = repo.list_studies()
+        if args.study_id not in study_ids:
+            _emit({"dry_run": True, "ok": False, "error": "study 不存在", "study_id": args.study_id, "known_studies": list(study_ids)})
+            return 2
+        receipts = repo.list_receipts(args.study_id)
+        _emit(
+            {
+                "dry_run": True,
+                "would": "evaluate_study",
+                "study_id": args.study_id,
+                "forecasts": len(repo.list_forecasts(args.study_id)),
+                "existing_receipts": [{"id": r.get("id"), "empirical_status": r.get("empirical_status")} for r in receipts],
+                "now": now.isoformat(),
+            }
+        )
+        return 0
     receipt = evaluate_study(owner=ctx.owner_user_id, repository=_repository(ctx), now=now, study_id=args.study_id)
     _emit(
         {

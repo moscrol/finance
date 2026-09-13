@@ -28,6 +28,7 @@ from intelligence.services.research_evolution.contracts import (
     ModuleStatus,
 )
 from intelligence.services.research_evolution.facade import Resources, ResearchEvolutionService
+from intelligence.services.research_evolution.run_observer import ObservingRunStore
 from intelligence.services.research_evolution.store import EvolutionStore
 
 __all__ = [
@@ -40,6 +41,7 @@ __all__ = [
     "EvidenceSource",
     "EvolutionStore",
     "ModuleStatus",
+    "ObservingRunStore",
     "OwnerContext",
     "ResearchEvolutionService",
     "Resources",

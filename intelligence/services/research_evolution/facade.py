@@ -32,7 +32,9 @@ from typing import Any, Callable, Mapping, Sequence
 from intelligence.services.research_evolution import adapters as re_adapters
 from intelligence.services.research_evolution.access import OwnerContext
 from intelligence.services.research_evolution.contracts import (
+    ACTION_CANCEL_REJUDGE,
     ACTION_LINK_RUN,
+    ACTION_READ_RECEIPT,
     ACTION_REJUDGE,
     ACTION_REVEAL_EXERCISE,
     ACTION_REVIEWED_NO_CHANGE,
@@ -46,11 +48,13 @@ from intelligence.services.research_evolution.contracts import (
     ERR_BINDING_REJECTED,
     ERR_DEPENDENCY_MISSING,
     ERR_EXPOSURE_CONFLICT,
+    ERR_IDEMPOTENCY_MISMATCH,
     ERR_INVALID_REQUEST,
     ERR_MODULE_UNAVAILABLE,
     ERR_NOT_FOUND,
     ERR_REF_UNRESOLVABLE,
-    ERR_RUN_NOT_TERMINAL,
+    ERR_RUN_BINDING_MISMATCH,
+    ERR_INVALID_TRANSITION,
     ERR_VERSION_CONFLICT,
     MAINTENANCE_ACTIONS,
     STATUS_ERROR,
@@ -58,6 +62,7 @@ from intelligence.services.research_evolution.contracts import (
     STATUS_PENDING,
     STATUS_UNAVAILABLE,
     STATUS_UNKNOWN,
+    SELF_USE_PROTOCOL_VERSION,
     ApiError,
     ModuleStatus,
     digest,
@@ -78,8 +83,6 @@ from intelligence.services.research_evolution.store import (
 DIAGNOSTICS_WINDOW_DAYS = 90
 POLICY_FILE = "diagnostics_policy.json"
 EXERCISE_PACK_FILE = "exercise_pack.json"
-# 自用测量事件的协议版本：明确不是试点协议，别的东西也不该拿它当试点读数。
-SELF_USE_PROTOCOL_VERSION = "workbench-self-use/v1"
 
 
 def _shanghai() -> Any:
@@ -157,29 +160,36 @@ class ResearchEvolutionService:
         observations: list[dict[str, Any]] = []
         seen_versions: set[str] = set()
         entities_for_conditions: set[str] = set()
+        unreadable = 0
 
         for record in scoped:
             binding = dict(record["binding"])
-            bindings.append(binding)
             source = dict(record.get("source") or {})
+            entity = str(source.get("entity") or "")
+            slice_as_of = str(source.get("as_of") or "")
+            if not entity or not slice_as_of:
+                gaps.append(gap("binding_source_unknown", ref=str(binding.get("binding_id")), checked_at=knowledge_cutoff, retryable=False, module="maintenance", detail="绑定记录没有记下取数实体与交易日，无法按同一引用重读当前版本"))
+                unreadable += 1
+                continue
+            # 今天的 cutoff 下，同一 as_of 切片里同一引用的当前版本。
+            catalog = self.res.evidence_source.catalog(owner_user_id=ctx.owner_user_id, entity=entity, as_of=slice_as_of, knowledge_cutoff=knowledge_cutoff)
+            if not catalog.available:
+                gaps.append(gap(f"evidence_source_{catalog.reason or 'unavailable'}", ref=str(binding.get("binding_id")), checked_at=knowledge_cutoff, retryable=True, module="maintenance", detail=f"实体 {entity} 在 {slice_as_of} 的当前版本读不到，本条依赖只能保持未知"))
+                unreadable += 1
+                continue
+            # 只有通过当前重读的绑定才喂给 01：基线版本与绑定一起进 assess。
+            # 读不到当前版本的绑定**不喂**——只喂基线会让 01 判出「没有变化」，
+            # 把「现在读不到」伪装成「现在没问题」（spec §4.4：错误不能被空数组掩盖）。
+            bindings.append(binding)
+            if binding.get("conditions"):
+                entities_for_conditions.add(entity)
             # 1) 绑定时解析到的真实版本（baseline）。
             for version in source.get("evidence_versions") or []:
                 key = digest(version)
                 if key not in seen_versions:
                     seen_versions.add(key)
                     versions.append(dict(version))
-            entity = str(source.get("entity") or "")
-            slice_as_of = str(source.get("as_of") or "")
-            if binding.get("conditions"):
-                entities_for_conditions.add(entity)
-            if not entity or not slice_as_of:
-                gaps.append(gap("binding_source_unknown", ref=str(binding.get("binding_id")), checked_at=knowledge_cutoff, retryable=False, module="maintenance", detail="绑定记录没有记下取数实体与交易日，无法按同一引用重读当前版本"))
-                continue
-            # 2) 今天的 cutoff 下，同一 as_of 切片里同一引用的当前版本。
-            catalog = self.res.evidence_source.catalog(owner_user_id=ctx.owner_user_id, entity=entity, as_of=slice_as_of, knowledge_cutoff=knowledge_cutoff)
-            if not catalog.available:
-                gaps.append(gap(f"evidence_source_{catalog.reason or 'unavailable'}", ref=str(binding.get("binding_id")), checked_at=knowledge_cutoff, retryable=True, module="maintenance", detail=f"实体 {entity} 在 {slice_as_of} 的当前版本读不到，本条依赖只能保持未知"))
-                continue
+            # 2) 当前版本。
             bound = set(binding.get("baseline_evidence_refs") or [])
             for version in catalog.versions:
                 if version["ref"] not in bound:
@@ -216,6 +226,15 @@ class ResearchEvolutionService:
                 ModuleStatus(STATUS_ERROR, reason=exc.code, detail={"where": exc.where}),
                 gaps + [gap("maintenance_contract_error", ref=exc.where, checked_at=knowledge_cutoff, retryable=False, module="maintenance", detail=str(exc))],
             )
+        if unreadable:
+            # 有绑定读不到当前版本：报告只覆盖可读的那部分，模块状态如实降级成 unknown。
+            if not bindings:
+                return (
+                    None,
+                    ModuleStatus(STATUS_UNKNOWN, reason="current_source_unreadable", detail={"excluded": unreadable}),
+                    gaps,
+                )
+            return folded.to_dict(), ModuleStatus(STATUS_UNKNOWN, reason="current_source_unreadable", detail={"excluded": unreadable}), gaps
         return folded.to_dict(), ModuleStatus(STATUS_OK), gaps
 
     # ---- 排序段 ------------------------------------------------------------ #
@@ -441,14 +460,19 @@ class ResearchEvolutionService:
         as_of: str | None = None,
         knowledge_cutoff: str | None = None,
         budget_minutes: float | None = None,
+        store: EvolutionStore | None = None,
     ) -> dict[str, Any]:
-        """读取无业务写副作用：不改原判断、不登记完成、不触发模型调用。"""
+        """读取无业务写副作用：不改原判断、不登记完成、不触发模型调用。
+
+        ``store`` 由已持有事务的调用方（动作路径）传入：锁内重读必须用同一把锁里的
+        同一个 store 实例，新实例会去抢同一把进程锁 → 死锁。
+        """
         self._conversation(ctx, conversation_id)
         now = self._now()
         day = now.astimezone(_shanghai()).date().isoformat()
         as_of = as_of or day
         knowledge_cutoff = knowledge_cutoff or as_of
-        store = self._store(ctx)
+        store = store or self._store(ctx)
 
         statuses: dict[str, ModuleStatus] = {}
         gaps: list[dict[str, Any]] = []
@@ -586,6 +610,44 @@ class ResearchEvolutionService:
 
         conditions = body.get("conditions") or []
         binding_id = stable_id("bind", {"owner": ctx.owner_user_id, "object": target.object_ref.get("ref"), "refs": sorted(v["ref"] for v in chosen), "entity": entity, "as_of": slice_as_of})
+        # 幂等重试（R8）：先按 binding_id 定位已提交记录。命中且**客户端业务载荷**一致 →
+        # 直接返回原记录（服务端时间与解析到的基线都是首次提交时的，不随重试的时钟推进漂）；
+        # 业务载荷不一致 → 冲突，不静默复用。
+        business_payload = {
+            "object_ref": {**dict(target.object_ref), "scope": {**dict(target.object_ref.get("scope") or {}), "conversation_id": conversation_id}},
+            "entity": entity,
+            "as_of": slice_as_of,
+            "evidence_refs": sorted(str(v["ref"]) for v in chosen),
+            "conditions": list(conditions),
+            "binding_origin": str(body.get("binding_origin") or "user_confirmed"),
+        }
+        existing = store.find_binding(binding_id)
+        if existing is not None:
+            existing_binding = dict(existing.get("binding") or {})
+            existing_source = dict(existing.get("source") or {})
+            existing_business = {
+                "object_ref": existing_binding.get("object_ref"),
+                "entity": str(existing_source.get("entity") or ""),
+                "as_of": str(existing_source.get("as_of") or ""),
+                "evidence_refs": sorted(str(r) for r in (existing_binding.get("baseline_evidence_refs") or [])),
+                "conditions": list(existing_binding.get("conditions") or []),
+                "binding_origin": str(existing_binding.get("binding_origin") or "user_confirmed"),
+            }
+            if digest(existing_business) != digest(business_payload):
+                raise ApiError(
+                    ERR_IDEMPOTENCY_MISMATCH,
+                    "同一绑定 id 已绑定不同业务载荷，不得复用",
+                    detail={"binding_id": binding_id},
+                )
+            return {
+                "schema_version": BINDING_RECORD_SCHEMA,
+                "created": False,
+                "binding_id": existing["binding_id"],
+                "binding": existing_binding,
+                "baseline_cutoff": existing_binding.get("baseline_cutoff"),
+                "created_at": existing.get("created_at"),
+                "pit_grade": existing_source.get("pit_grade"),
+            }
         payload = {
             "schema_version": "judgment-maintenance-binding/v1",
             "binding_id": binding_id,
@@ -630,7 +692,7 @@ class ResearchEvolutionService:
         if not idempotency_key:
             raise ApiError(ERR_INVALID_REQUEST, "缺少 idempotency_key", detail={"where": "idempotency_key"})
 
-        if action in MAINTENANCE_ACTIONS or action == ACTION_LINK_RUN:
+        if action in MAINTENANCE_ACTIONS or action in (ACTION_LINK_RUN, ACTION_CANCEL_REJUDGE):
             return self._maintenance_action(ctx=ctx, conversation_id=conversation_id, action=action, idempotency_key=idempotency_key, body=body)
         if action == ACTION_SELECT_TASK:
             return self._select_task(ctx=ctx, conversation_id=conversation_id, idempotency_key=idempotency_key, body=body)
@@ -638,10 +700,12 @@ class ResearchEvolutionService:
             return self._reveal_exercise(ctx=ctx, conversation_id=conversation_id, idempotency_key=idempotency_key, body=body)
         if action == ACTION_SUBMIT_EXERCISE:
             return self._submit_exercise(ctx=ctx, conversation_id=conversation_id, idempotency_key=idempotency_key, body=body)
+        if action == ACTION_READ_RECEIPT:
+            return self._read_receipt(ctx=ctx, conversation_id=conversation_id, idempotency_key=idempotency_key, body=body)
         raise ApiError(ERR_INVALID_REQUEST, "未知动作", detail={"action": action})
 
-    def _current_items(self, ctx: OwnerContext, conversation_id: str, *, as_of: str | None, knowledge_cutoff: str | None) -> dict[str, Any]:
-        view = self.view(ctx=ctx, conversation_id=conversation_id, as_of=as_of, knowledge_cutoff=knowledge_cutoff)
+    def _current_items(self, ctx: OwnerContext, conversation_id: str, *, as_of: str | None, knowledge_cutoff: str | None, store: EvolutionStore | None = None) -> dict[str, Any]:
+        view = self.view(ctx=ctx, conversation_id=conversation_id, as_of=as_of, knowledge_cutoff=knowledge_cutoff, store=store)
         maintenance = view.get("maintenance")
         if not isinstance(maintenance, dict):
             raise ApiError(ERR_MODULE_UNAVAILABLE, "维护报告当前不可用，动作无法落到具体维护项", detail={"module_status": view.get("module_status", {}).get("maintenance")})
@@ -650,12 +714,13 @@ class ResearchEvolutionService:
     def _maintenance_action(
         self, *, ctx: OwnerContext, conversation_id: str, action: str, idempotency_key: str, body: Mapping[str, Any]
     ) -> dict[str, Any]:
+        """维护动作：读 - 判 - 追加全部在同一把锁内完成（store.py 的事务纪律，QC S1）。
+
+        锁外做版本校验、进锁只查幂等键，会让两个同版本请求都拿到 accepted、台账写两行、
+        重建只应用一行。这里把当前项重读、版本校验、01 验证、追加全放进一个事务。
+        """
         from intelligence.services.judgment_maintenance import validate_action
-        from intelligence.services.judgment_maintenance.contracts import (
-            EVENT_ID_PREFIX,
-            ManagementEvent,
-            short_hash,
-        )
+        from intelligence.services.judgment_maintenance.contracts import ManagementEvent
 
         now = self._now()
         store = self._store(ctx)
@@ -663,83 +728,89 @@ class ResearchEvolutionService:
         if not item_id:
             raise ApiError(ERR_INVALID_REQUEST, "缺少 item_id", detail={"where": "item_id"})
 
-        payload_digest = digest({k: v for k, v in body.items() if k != "idempotency_key"})
-        existing = store.find_action(idempotency_key)
-        if existing is not None:
-            if existing.get("payload_digest") != payload_digest:
-                from intelligence.services.research_evolution.contracts import ERR_IDEMPOTENCY_MISMATCH
+        # 会话作用域绑进幂等摘要（R10）：同键同载荷换了个会话路径不是重放，是串单。
+        payload_digest = digest({"conversation_id": conversation_id, **{k: v for k, v in body.items() if k != "idempotency_key"}})
 
-                raise ApiError(ERR_IDEMPOTENCY_MISMATCH, "同一幂等键已绑定不同载荷", detail={"idempotency_key": idempotency_key})
-            return {"replayed": True, **dict(existing.get("result") or {})}
-
-        maintenance = self._current_items(ctx, conversation_id, as_of=body.get("as_of"), knowledge_cutoff=body.get("knowledge_cutoff"))
-        item = next((i for i in maintenance.get("items", []) if str(i.get("id")) == item_id), None)
-        if item is None:
-            raise ApiError(ERR_DEPENDENCY_MISSING, "该维护项不在当前报告中，请刷新后重试", detail={"item_id": item_id})
-
-        expected_item_version = str(body.get("expected_item_version") or "")
-        expected_revision = body.get("expected_management_revision")
-        # ``expected_revision or -1`` 会把合法的修订号 **0** 当成缺省——每条维护项的第一个动作
-        # 都会被判成版本冲突，而错误信息里前后两个数还一模一样，看起来像并发。只能显式比 None。
-        current_revision = int(item.get("management_revision") or 0)
-        if expected_item_version != str(item.get("item_version")) or (
-            expected_revision is None or int(expected_revision) != current_revision
-        ):
-            raise ApiError(
-                ERR_VERSION_CONFLICT,
-                "页面版本已过期，变化已更新",
-                detail={"item_id": item_id, "current_item_version": item.get("item_version"), "current_management_revision": item.get("management_revision")},
-            )
-
-        if action == ACTION_LINK_RUN:
-            event, link_detail = self._link_run_event(ctx=ctx, item=item, body=body, now=now)
-            result_core = {"status": "accepted", "reason_code": event.kind, "item_id": item_id, "link": link_detail}
-        else:
-            command = {
-                "schema_version": "judgment-maintenance-command/v1",
-                "command_id": idempotency_key,
-                "item_id": item_id,
-                "owner_user_id": ctx.owner_user_id,
-                "expected_item_version": expected_item_version,
-                "expected_management_revision": int(expected_revision or 0),
-                "action": action,
-                "acted_at": utc_iso(now),
-            }
-            if action == ACTION_SNOOZE:
-                until = body.get("snooze_until")
-                if not until:
-                    raise ApiError(ERR_INVALID_REQUEST, "snooze 必须给 snooze_until", detail={"where": "snooze_until"})
-                command["snooze_until"] = utc_iso(ensure_aware(until, where="snooze_until"))
-            if action == ACTION_REVIEWED_NO_CHANGE:
-                command["reviewed_source_versions"] = _reviewed_versions(item)
-            result = validate_action(item=item, command=command, owner_user_id=ctx.owner_user_id, now=utc_iso(now))
-            if result.status == "rejected":
-                raise ApiError(ERR_ACTION_REJECTED, result.detail or "动作被拒绝", detail={"reason_code": result.reason_code, "item_id": item_id})
-            if result.status == "conflict":
-                raise ApiError(ERR_VERSION_CONFLICT, result.detail or "版本冲突", detail={"reason_code": result.reason_code, "item_id": item_id})
-            if result.event is None:
-                raise ApiError(ERR_ACTION_REJECTED, "动作没有产生可落盘事件", detail={"reason_code": result.reason_code})
-            event = result.event
-            result_core = {
-                "status": result.status,
-                "reason_code": result.reason_code,
-                "item_id": item_id,
-                "resulting_status": result.resulting_status,
-                "resulting_management_revision": result.resulting_management_revision,
-            }
-
-        if action == ACTION_REJUDGE:
-            result_core["continuation"] = _continuation_for(item, conversation_id)
-
-        assert isinstance(event, ManagementEvent)
         with store.transaction() as txn:
-            again = txn.find_action(idempotency_key)
-            if again is not None:
-                if again.get("payload_digest") != payload_digest:
-                    from intelligence.services.research_evolution.contracts import ERR_IDEMPOTENCY_MISMATCH
+            existing = txn.find_action(idempotency_key)
+            if existing is not None:
+                if existing.get("payload_digest") != payload_digest or str(existing.get("conversation_id") or "") != conversation_id:
+                    raise ApiError(ERR_IDEMPOTENCY_MISMATCH, "同一幂等键已绑定不同载荷或不同会话", detail={"idempotency_key": idempotency_key})
+                return {"replayed": True, **dict(existing.get("result") or {})}
 
-                    raise ApiError(ERR_IDEMPOTENCY_MISMATCH, "同一幂等键已绑定不同载荷", detail={"idempotency_key": idempotency_key})
-                return {"replayed": True, **dict(again.get("result") or {})}
+            # 锁内重读当前项：validate 时的版本必须是提交时的版本。
+            maintenance = self._current_items(ctx, conversation_id, as_of=body.get("as_of"), knowledge_cutoff=body.get("knowledge_cutoff"), store=txn)
+            item = next((i for i in maintenance.get("items", []) if str(i.get("id")) == item_id), None)
+            if item is None:
+                raise ApiError(ERR_DEPENDENCY_MISSING, "该维护项不在当前报告中，请刷新后重试", detail={"item_id": item_id})
+
+            expected_item_version = str(body.get("expected_item_version") or "")
+            expected_revision = body.get("expected_management_revision")
+            # ``expected_revision or -1`` 会把合法的修订号 **0** 当成缺省——每条维护项的第一个动作
+            # 都会被判成版本冲突，而错误信息里前后两个数还一模一样，看起来像并发。只能显式比 None。
+            current_revision = int(item.get("management_revision") or 0)
+            if expected_item_version != str(item.get("item_version")) or (
+                expected_revision is None or int(expected_revision) != current_revision
+            ):
+                raise ApiError(
+                    ERR_VERSION_CONFLICT,
+                    "页面版本已过期，变化已更新",
+                    detail={"item_id": item_id, "current_item_version": item.get("item_version"), "current_management_revision": item.get("management_revision")},
+                )
+
+            if action == ACTION_LINK_RUN:
+                event, link_detail = self._link_run_event(ctx=ctx, conversation_id=conversation_id, item=item, body=body, now=now, store=txn)
+                if event is None:
+                    # run 未终态：只登记「本次维护请求发起了这个 run」的持久化关联（接受 ≠ 完成）。
+                    return {"replayed": False, "status": "registered", "reason_code": "run_registered", "item_id": item_id, "link": link_detail}
+                result_core = {"status": "accepted", "reason_code": event.kind, "item_id": item_id, "link": link_detail}
+            elif action == ACTION_CANCEL_REJUDGE:
+                event = self._cancel_rejudge_event(ctx=ctx, item=item, body=body, now=now)
+                result_core = {
+                    "status": "accepted",
+                    "reason_code": event.kind,
+                    "item_id": item_id,
+                    "resulting_status": "open",
+                    "resulting_management_revision": current_revision + 1,
+                }
+            else:
+                command = {
+                    "schema_version": "judgment-maintenance-command/v1",
+                    "command_id": idempotency_key,
+                    "item_id": item_id,
+                    "owner_user_id": ctx.owner_user_id,
+                    "expected_item_version": expected_item_version,
+                    "expected_management_revision": int(expected_revision or 0),
+                    "action": action,
+                    "acted_at": utc_iso(now),
+                }
+                if action == ACTION_SNOOZE:
+                    until = body.get("snooze_until")
+                    if not until:
+                        raise ApiError(ERR_INVALID_REQUEST, "snooze 必须给 snooze_until", detail={"where": "snooze_until"})
+                    command["snooze_until"] = utc_iso(ensure_aware(until, where="snooze_until"))
+                if action == ACTION_REVIEWED_NO_CHANGE:
+                    command["reviewed_source_versions"] = _reviewed_versions(item)
+                result = validate_action(item=item, command=command, owner_user_id=ctx.owner_user_id, now=utc_iso(now))
+                if result.status == "rejected":
+                    raise ApiError(ERR_ACTION_REJECTED, result.detail or "动作被拒绝", detail={"reason_code": result.reason_code, "item_id": item_id})
+                if result.status == "conflict":
+                    raise ApiError(ERR_VERSION_CONFLICT, result.detail or "版本冲突", detail={"reason_code": result.reason_code, "item_id": item_id})
+                if result.event is None:
+                    raise ApiError(ERR_ACTION_REJECTED, "动作没有产生可落盘事件", detail={"reason_code": result.reason_code})
+                event = result.event
+                result_core = {
+                    "status": result.status,
+                    "reason_code": result.reason_code,
+                    "item_id": item_id,
+                    "resulting_status": result.resulting_status,
+                    "resulting_management_revision": result.resulting_management_revision,
+                }
+
+            if action == ACTION_REJUDGE:
+                result_core["continuation"] = self._continuation_for(ctx, item, conversation_id)
+
+            assert isinstance(event, ManagementEvent)
             txn.append_action(
                 event.to_dict(),
                 idempotency_key=idempotency_key,
@@ -749,20 +820,40 @@ class ResearchEvolutionService:
                 conversation_id=conversation_id,
                 result=result_core,
             )
-            _ = EVENT_ID_PREFIX, short_hash  # 事件 id 由 01 生成，这里只记录
         return {"replayed": False, **result_core}
 
-    def _link_run_event(self, *, ctx: OwnerContext, item: Mapping[str, Any], body: Mapping[str, Any], now: datetime) -> tuple[Any, dict[str, Any]]:
-        """把「继续核查」产生的真实 run 终态折回维护项。失败 / 取消 → 退回 open，不伪装完成。"""
+    def _link_run_event(self, *, ctx: OwnerContext, conversation_id: str, item: Mapping[str, Any], body: Mapping[str, Any], now: datetime, store: EvolutionStore) -> tuple[Any, dict[str, Any]]:
+        """把「继续核查」产生的真实 run 终态折回维护项。失败 / 取消 → 退回 open，不伪装完成。
+
+        R7 四道闸，一道都不能少：
+        1. run 必须属于**本会话**——别会话的 run 不能冒充本次复核的成果；
+        2. 持久化关联：run_links 登记 / 用户消息 continuation 携带 maintenance_item_id /
+           同会话最低关联（关联强度如实写进事件 payload.association）；
+        3. 新判断：存在于判断台账、**不是被维护的原判断本身**（新版本身份）、来自本会话、
+           生成时刻不早于本次复核请求（生成时序）；缺省时服务端解析「本会话内请求之后最新一条」；
+        4. 追加前用 01 ``apply_event`` 预检迁移——01 会拒绝的迁移不能落台账，
+           否则 HTTP 说 accepted、折叠时却是 rejected。
+        """
+        from intelligence.services.judgment_maintenance.actions import apply_event
         from intelligence.services.judgment_maintenance.contracts import (
             EVENT_ID_PREFIX,
             ManagementEvent,
+            parse_event,
+            parse_item,
             short_hash,
         )
 
         run_id = str(body.get("run_id") or "").strip()
         if not run_id:
-            raise ApiError(ERR_INVALID_REQUEST, "缺少 run_id", detail={"where": "run_id"})
+            # 用户点「挂接核查结果」不带 run_id：用本项最近登记的那个 run。
+            link = store.latest_run_link(item_id=str(item["id"]))
+            if link is None:
+                raise ApiError(
+                    ERR_DEPENDENCY_MISSING,
+                    "还没有登记的核查 run：请先点「继续核查」发起一轮新研究",
+                    detail={"item_id": item["id"]},
+                )
+            run_id = str(link["run_id"])
         run_store = self.res.run_store_for(ctx.owner_user_id)
         try:
             run = run_store.load_run(run_id)
@@ -770,29 +861,86 @@ class ResearchEvolutionService:
             raise ApiError(ERR_NOT_FOUND, "run 不存在") from None
         if str(getattr(run, "user", "")) != ctx.owner_user_id:
             raise ApiError(ERR_NOT_FOUND, "run 不存在")
+        if str(getattr(run, "session_id", "") or "") != conversation_id:
+            raise ApiError(
+                ERR_RUN_BINDING_MISMATCH,
+                "该 run 不属于本会话，不能折回本维护项",
+                detail={"run_id": run_id},
+            )
         status = str(getattr(run, "status", ""))
+        requested_at = str(((item.get("management") or {}).get("rejudgment") or {}).get("requested_at") or "")
+
         if status not in {"completed", "failed", "cancelled"}:
-            raise ApiError(ERR_RUN_NOT_TERMINAL, "run 尚未结束，不能折回维护项", detail={"run_id": run_id, "status": status})
+            # 未终态：登记「本次维护请求发起了这个 run」的关联（接受 ≠ 完成，不迁状态）。
+            link_id = stable_id("rlink", {"item": item["id"], "run": run_id})
+            _, created = store.append_run_link(
+                {
+                    "link_id": link_id,
+                    "owner_user_id": ctx.owner_user_id,
+                    "item_id": str(item["id"]),
+                    "run_id": run_id,
+                    "conversation_id": conversation_id,
+                    "registered_at": utc_iso(now),
+                }
+            )
+            return None, {"run_id": run_id, "run_status": status, "registered": True, "link_created": created}
+
+        # 终态：查关联强度。同会话是最低关联（session），登记与 continuation 是加强证据。
+        association = "session"
+        if store.find_run_link(item_id=str(item["id"]), run_id=run_id) is not None:
+            association = "registered"
+        else:
+            continuation = self._run_continuation(ctx, conversation_id, run_id)
+            inherits = (continuation or {}).get("inherits") or {}
+            if str(inherits.get("maintenance_item_id") or "") == str(item["id"]):
+                association = "continuation"
 
         if status == "completed":
             judgment_ref = str(body.get("new_judgment_ref") or "").strip()
+            ledgers = re_adapters.load_legacy_ledgers(ctx.user_root)
+            judgments = [r for r in ledgers.judgments if r.get("id")]
             if not judgment_ref:
+                candidates = [
+                    r
+                    for r in judgments
+                    if str(r.get("session_id") or "") == conversation_id and (not requested_at or _ts_ge(r.get("ts"), requested_at))
+                ]
+                if not candidates:
+                    raise ApiError(
+                        ERR_DEPENDENCY_MISSING,
+                        "关闭维护项需要原写入者在本会话写下的新判断；管理动作不能冒充它",
+                        detail={"run_id": run_id, "hint": "先在本会话记录新判断，再关联"},
+                    )
+                judgment_ref = f"judgments.jsonl:{candidates[-1]['id']}"
+            by_ref = {f"judgments.jsonl:{r['id']}": r for r in judgments}
+            judgment = by_ref.get(judgment_ref)
+            if judgment is None:
+                raise ApiError(ERR_REF_UNRESOLVABLE, "新判断引用在判断台账里找不到", detail={"ref": judgment_ref})
+            if judgment_ref == str((item.get("object_ref") or {}).get("ref") or ""):
+                raise ApiError(
+                    ERR_INVALID_TRANSITION,
+                    "新判断不能是被维护的原判断本身——那只是把旧结论指回来，没有重判",
+                    detail={"ref": judgment_ref},
+                )
+            if str(judgment.get("session_id") or "") != conversation_id:
+                raise ApiError(
+                    ERR_RUN_BINDING_MISMATCH,
+                    "新判断不来自本会话，不能冒充本次复核的成果",
+                    detail={"ref": judgment_ref},
+                )
+            if requested_at and not _ts_ge(judgment.get("ts"), requested_at):
                 raise ApiError(
                     ERR_DEPENDENCY_MISSING,
-                    "关闭维护项需要原写入者写下的新判断；管理动作不能冒充它",
-                    detail={"run_id": run_id, "hint": "先用判断台账写入者记录新判断，再关联"},
+                    "新判断早于本次复核请求，不是这次重判的成果",
+                    detail={"ref": judgment_ref, "requested_at": requested_at},
                 )
-            ledgers = re_adapters.load_legacy_ledgers(ctx.user_root)
-            known = {f"judgments.jsonl:{r.get('id')}" for r in ledgers.judgments if r.get("id")}
-            if judgment_ref not in known:
-                raise ApiError(ERR_REF_UNRESOLVABLE, "新判断引用在判断台账里找不到", detail={"ref": judgment_ref})
             kind = "rejudgment_linked"
-            payload = {"new_judgment_ref": judgment_ref, "owner_user_id": ctx.owner_user_id, "run_id": run_id}
-            detail = {"run_status": status, "new_judgment_ref": judgment_ref}
+            payload = {"new_judgment_ref": judgment_ref, "owner_user_id": ctx.owner_user_id, "run_id": run_id, "association": association}
+            detail = {"run_status": status, "new_judgment_ref": judgment_ref, "association": association}
         else:
             kind = "rejudgment_failed"
-            payload = {"run_id": run_id, "run_status": status, "error": getattr(run, "error", None)}
-            detail = {"run_status": status}
+            payload = {"run_id": run_id, "run_status": status, "error": getattr(run, "error", None), "association": association}
+            detail = {"run_status": status, "association": association}
 
         event = ManagementEvent(
             event_id=EVENT_ID_PREFIX + short_hash({"item_id": item["id"], "kind": kind, "run_id": run_id, "owner": ctx.owner_user_id}),
@@ -805,7 +953,84 @@ class ResearchEvolutionService:
             payload_digest=None,
             payload=payload,
         )
+        _, outcome = apply_event(parse_item(dict(item), owner_user_id=ctx.owner_user_id, where="item"), parse_event(event.to_dict(), owner_user_id=ctx.owner_user_id), utc_iso(now))
+        if outcome.outcome == "rejected":
+            raise ApiError(ERR_ACTION_REJECTED, outcome.detail or "迁移被拒绝", detail={"reason_code": outcome.reason_code, "item_id": item["id"]})
+        if outcome.outcome == "conflict":
+            raise ApiError(ERR_VERSION_CONFLICT, outcome.detail or "版本冲突", detail={"reason_code": outcome.reason_code, "item_id": item["id"]})
         return event, detail
+
+    def _cancel_rejudge_event(self, *, ctx: OwnerContext, item: Mapping[str, Any], body: Mapping[str, Any], now: datetime) -> Any:
+        """取消一次已发起的复核：01 系统事件 ``rejudgment_cancelled`` → open。
+
+        「继续核查」的消息被消息入口拒绝后，前端用本动作把维护项退回 open——
+        不留「已请求、永远没有 run」的假进行态（R1 要求的请求拒绝后可恢复状态）。
+        """
+        from intelligence.services.judgment_maintenance.actions import apply_event
+        from intelligence.services.judgment_maintenance.contracts import (
+            EVENT_ID_PREFIX,
+            ManagementEvent,
+            parse_event,
+            parse_item,
+            short_hash,
+        )
+
+        if str(item.get("status")) != "rejudgment_requested":
+            raise ApiError(
+                ERR_ACTION_REJECTED,
+                "只有等待重判的维护项才能取消复核",
+                detail={"item_id": item.get("id"), "status": item.get("status")},
+            )
+        event = ManagementEvent(
+            event_id=EVENT_ID_PREFIX
+            + short_hash({"item_id": item["id"], "kind": "rejudgment_cancelled", "owner": ctx.owner_user_id, "revision": item.get("management_revision")}),
+            item_id=str(item["id"]),
+            owner_user_id=ctx.owner_user_id,
+            kind="rejudgment_cancelled",
+            at=utc_iso(now),
+            expected_management_revision=int(item.get("management_revision") or 0),
+            command_id=None,
+            payload_digest=None,
+            payload={"reason": str(body.get("reason") or "复核请求未被消息入口接受，退回待处理"), "owner_user_id": ctx.owner_user_id},
+        )
+        _, outcome = apply_event(parse_item(dict(item), owner_user_id=ctx.owner_user_id, where="item"), parse_event(event.to_dict(), owner_user_id=ctx.owner_user_id), utc_iso(now))
+        if outcome.outcome in {"rejected", "conflict"}:
+            raise ApiError(ERR_ACTION_REJECTED, outcome.detail or "迁移被拒绝", detail={"reason_code": outcome.reason_code, "item_id": item["id"]})
+        return event
+
+    def _run_continuation(self, ctx: OwnerContext, conversation_id: str, run_id: str) -> dict[str, Any] | None:
+        """该 run 的用户消息上落的 continuation（关联证据之一）。读不到就是 None，不猜。"""
+        try:
+            from intelligence.services import research_project
+
+            store = self.res.conversation_store_for(ctx.owner_user_id)
+            messages = store.load_messages(conversation_id)
+            return research_project.continuation_for_run(messages, run_id)
+        except (FileNotFoundError, ValueError, OSError):
+            return None
+
+    def _origin_run_id(self, ctx: OwnerContext, conversation_id: str) -> str | None:
+        """既有消息合同要求 continuation 带**真实存在**的来源 run：取本会话最近一轮已完成的 run。
+
+        会话还没有完成轮次时返回 None——前端这时不带 continuation 发普通消息，
+        新 run 与维护请求的关联改由 link_run 的 run_links 登记持久化。
+        不填一个任意 run_id 绕过 ``_validated_continuation`` 的校验（R1）。
+        """
+        try:
+            from intelligence.services import research_project
+
+            state = research_project.load_project(
+                self.res.conversation_store_for(ctx.owner_user_id),
+                self.res.run_store_for(ctx.owner_user_id),
+                conversation_id,
+            )
+        except (FileNotFoundError, ValueError, OSError):
+            return None
+        rounds = state.completed_rounds
+        return str(rounds[-1].run_id) if rounds else None
+
+    def _continuation_for(self, ctx: OwnerContext, item: Mapping[str, Any], conversation_id: str) -> dict[str, Any]:
+        return _continuation_payload(item, conversation_id, self._origin_run_id(ctx, conversation_id))
 
     def _select_task(self, *, ctx: OwnerContext, conversation_id: str, idempotency_key: str, body: Mapping[str, Any]) -> dict[str, Any]:
         """02 任务选择：只记录选择与点击载荷，不改任何判定（02 明写「不因点击改判定」）。"""
@@ -837,21 +1062,34 @@ class ResearchEvolutionService:
             source_channel="server",
         )
         recorded = self._store_event(store, event, required=False)
-        return {"replayed": not recorded, "task_id": task_id, "click_payload": found.get("click_payload"), "event_recorded": recorded}
+        # R6：选择任务要「带 task_id、source_refs、conversation_id 和原 scope 进入既有对话」——
+        # 把 click_payload 折成既有消息入口的 continuation（full_prompt 是 02 渲染的原任务问题，
+        # 不是前端拿标题重猜的），有已完成轮次时带真实 origin run_id，没有则省略（前端发普通消息）。
+        click = dict(found.get("click_payload") or {})
+        question = str(found.get("标题") or "").strip() or f"研究任务 {task_id}"
+        scope = dict(click.get("scope") or {})
+        continuation: dict[str, Any] = {
+            "schema_version": CONTINUATION_SCHEMA,
+            "conversation_id": conversation_id,
+            "kind": "continue",
+            "source": "research-evolution",
+            "label": "研究这项任务",
+            "task_id": task_id,
+            "click_payload": click,
+            "full_prompt": question,
+            "inherits": {
+                "task_id": task_id,
+                **{f"scope_{k}": str(v) for k, v in scope.items()},
+            },
+        }
+        origin_run_id = self._origin_run_id(ctx, conversation_id)
+        if origin_run_id:
+            continuation["run_id"] = origin_run_id
+        return {"replayed": not recorded, "task_id": task_id, "click_payload": click, "continuation": continuation, "event_recorded": recorded}
 
     # ---- 练习与曝光 --------------------------------------------------------- #
-    def _reveal_exercise(self, *, ctx: OwnerContext, conversation_id: str, idempotency_key: str, body: Mapping[str, Any]) -> dict[str, Any]:
-        """揭示后续事实前，先经 03 的 ``record_exposure`` 按底层结果身份原子登记曝光。
-
-        改名 / 换 study 都绕不开：``record_exposure`` 记的是 ``outcome_identity``，不是题目名。
-        """
-        from intelligence.services.research_validation import ConflictError, Repository, record_exposure
-
-        now = self._now()
-        store = self._store(ctx)
-        exercise_id = str(body.get("exercise_id") or "").strip()
-        if not exercise_id:
-            raise ApiError(ERR_INVALID_REQUEST, "缺少 exercise_id", detail={"where": "exercise_id"})
+    def _exercise_and_case(self, ctx: OwnerContext, conversation_id: str, store: EvolutionStore, exercise_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
+        """定位当前诊断报告里的练习与题包里的 case；不在报告中 / 题包缺题 → 400。"""
         view = self.view(ctx=ctx, conversation_id=conversation_id)
         diagnostics = view.get("diagnostics")
         if not isinstance(diagnostics, dict):
@@ -859,11 +1097,29 @@ class ResearchEvolutionService:
         exercise = diagnostics.get("exercise")
         if not isinstance(exercise, dict) or str(exercise.get("id")) != exercise_id:
             raise ApiError(ERR_DEPENDENCY_MISSING, "该练习不在当前诊断报告中", detail={"exercise_id": exercise_id})
-
         pack_raw = store.read_immutable(REGISTRATIONS_DIR, "exercise_pack")
         case = _case_for(pack_raw, str(exercise.get("case_ref") or ""))
         if case is None:
             raise ApiError(ERR_DEPENDENCY_MISSING, "题包里找不到该题的结果身份，无法登记曝光", detail={"exercise_id": exercise_id})
+        return dict(exercise), case
+
+    def _expose_exercise(
+        self,
+        ctx: OwnerContext,
+        *,
+        exercise_id: str,
+        case: Mapping[str, Any],
+        now: datetime,
+        operation_id: str,
+        actor: str,
+        reason: str,
+    ) -> tuple[dict[str, Any], Any]:
+        """03 ``record_exposure`` 原子登记曝光；结果身份不可解析 → fail closed（不揭示、不评卷）。
+
+        所有会返回答案的出口（揭示 / 提交作答后的评分反馈）都必须先过这一道（R2）。
+        """
+        from intelligence.services.research_validation import ConflictError, Repository, record_exposure
+
         identity = case.get("outcome_identity")
         structured = parse_outcome_identity(identity)
         if structured is None:
@@ -876,9 +1132,7 @@ class ResearchEvolutionService:
                     "expected": "<entity_type>:<entity_id>:<as_of>:<outcome_due>:<horizon>",
                 },
             )
-
         repo = Repository(ctx.validation_root, owner_user_id=ctx.owner_user_id)
-        operation_id = stable_id("expo", {"owner": ctx.owner_user_id, "exercise": exercise_id, "identity": identity})
         try:
             exposure = record_exposure(
                 owner=ctx.owner_user_id,
@@ -892,11 +1146,33 @@ class ResearchEvolutionService:
                 case_manifest_hash=None,
                 outcome_identities=[structured],
                 stage="practice_reveal",
-                actor="research_evolution.reveal_exercise",
-                reason=f"用户揭示练习 {exercise_id} 的后续事实",
+                actor=actor,
+                reason=reason,
             )
         except ConflictError as exc:
             raise ApiError(ERR_EXPOSURE_CONFLICT, str(exc), detail={"operation_id": operation_id}) from None
+        return exposure, identity
+
+    def _reveal_exercise(self, *, ctx: OwnerContext, conversation_id: str, idempotency_key: str, body: Mapping[str, Any]) -> dict[str, Any]:
+        """揭示后续事实前，先经 03 的 ``record_exposure`` 按底层结果身份原子登记曝光。
+
+        改名 / 换 study 都绕不开：``record_exposure`` 记的是 ``outcome_identity``，不是题目名。
+        """
+        now = self._now()
+        store = self._store(ctx)
+        exercise_id = str(body.get("exercise_id") or "").strip()
+        if not exercise_id:
+            raise ApiError(ERR_INVALID_REQUEST, "缺少 exercise_id", detail={"where": "exercise_id"})
+        exercise, case = self._exercise_and_case(ctx, conversation_id, store, exercise_id)
+        exposure, identity = self._expose_exercise(
+            ctx,
+            exercise_id=exercise_id,
+            case=case,
+            now=now,
+            operation_id=stable_id("expo", {"owner": ctx.owner_user_id, "exercise": exercise_id, "identity": case.get("outcome_identity")}),
+            actor="research_evolution.reveal_exercise",
+            reason=f"用户揭示练习 {exercise_id} 的后续事实",
+        )
 
         receipt = {
             "receipt_id": stable_id("rcpt", {"kind": "exercise_seen", "exercise": exercise_id, "owner": ctx.owner_user_id}),
@@ -919,7 +1195,12 @@ class ResearchEvolutionService:
         }
 
     def _submit_exercise(self, *, ctx: OwnerContext, conversation_id: str, idempotency_key: str, body: Mapping[str, Any]) -> dict[str, Any]:
-        """确定性评卷（04 ``evaluate_exercise_response``）。练习结果不进任何方法有效性统计。"""
+        """确定性评卷（04 ``evaluate_exercise_response``）。练习结果不进任何方法有效性统计。
+
+        评分反馈里带正确选项与正确引用——所以提交作答与揭示走**同一条曝光边界**：
+        先经 03 登记曝光再评卷（R2）。``operation_id`` 与揭示不同（不同门径、不同意图），
+        避免同键异意图被 03 判成冲突。
+        """
         from intelligence.services.research_diagnostics import (
             AnswerKey,
             DiagnosticsInputError,
@@ -931,17 +1212,18 @@ class ResearchEvolutionService:
         now = self._now()
         store = self._store(ctx)
         exercise_id = str(body.get("exercise_id") or "").strip()
-        view = self.view(ctx=ctx, conversation_id=conversation_id)
-        diagnostics = view.get("diagnostics")
-        if not isinstance(diagnostics, dict):
-            raise ApiError(ERR_MODULE_UNAVAILABLE, "诊断当前不可用", detail={"module_status": view.get("module_status", {}).get("diagnostics")})
-        exercise_raw = diagnostics.get("exercise")
-        if not isinstance(exercise_raw, dict) or str(exercise_raw.get("id")) != exercise_id:
-            raise ApiError(ERR_DEPENDENCY_MISSING, "该练习不在当前诊断报告中", detail={"exercise_id": exercise_id})
-        pack_raw = store.read_immutable(REGISTRATIONS_DIR, "exercise_pack")
-        case = _case_for(pack_raw, str(exercise_raw.get("case_ref") or ""))
-        if case is None:
-            raise ApiError(ERR_DEPENDENCY_MISSING, "题包里找不到该题", detail={"exercise_id": exercise_id})
+        if not exercise_id:
+            raise ApiError(ERR_INVALID_REQUEST, "缺少 exercise_id", detail={"where": "exercise_id"})
+        exercise_raw, case = self._exercise_and_case(ctx, conversation_id, store, exercise_id)
+        exposure, _identity = self._expose_exercise(
+            ctx,
+            exercise_id=exercise_id,
+            case=case,
+            now=now,
+            operation_id=stable_id("expo", {"owner": ctx.owner_user_id, "exercise": exercise_id, "identity": case.get("outcome_identity"), "gate": "submit"}),
+            actor="research_evolution.submit_exercise",
+            reason=f"用户提交练习 {exercise_id} 的作答并查看评分反馈",
+        )
         try:
             feedback = evaluate_exercise_response(
                 exercise=HistoricalExercise(**{k: v for k, v in exercise_raw.items() if k in HistoricalExercise.__dataclass_fields__}),
@@ -974,7 +1256,59 @@ class ResearchEvolutionService:
         self._store_event(store, event, required=False)
         payload = feedback.to_dict() if hasattr(feedback, "to_dict") else {"status": feedback.status}
         payload["counts_toward_method_statistics"] = False
+        payload["exposure_id"] = exposure.get("id")
         return payload
+
+    # ---- 收据原件（R5） ------------------------------------------------------ #
+    def _read_receipt(self, *, ctx: OwnerContext, conversation_id: str, idempotency_key: str, body: Mapping[str, Any]) -> dict[str, Any]:
+        """读收据原件。03 方法验证收据走 03 ``read_receipt``（内部先登记曝光，不另开旁路）；
+        05 测量收据 / 试点总结走 06 store 的验权读取（owner 隔离在路径层）。
+        """
+        self._conversation(ctx, conversation_id)
+        now = self._now()
+        store = self._store(ctx)
+        kind = str(body.get("receipt_kind") or "").strip()
+        receipt_id = str(body.get("receipt_id") or "").strip()
+        if kind == "method_validation_receipt":
+            from intelligence.services.research_validation import ContractError, Repository, read_receipt
+
+            study_id = str(body.get("study_id") or "").strip()
+            if not study_id:
+                raise ApiError(ERR_INVALID_REQUEST, "缺少 study_id", detail={"where": "study_id"})
+            repo = Repository(ctx.validation_root, owner_user_id=ctx.owner_user_id)
+            try:
+                receipt = read_receipt(
+                    owner=ctx.owner_user_id,
+                    repository=repo,
+                    now=now,
+                    study_id=study_id,
+                    receipt_id=receipt_id or None,
+                    actor="research_evolution.read_receipt",
+                )
+            except ContractError as exc:
+                raise ApiError(ERR_NOT_FOUND, str(exc)) from None
+            if receipt is None:
+                raise ApiError(ERR_DEPENDENCY_MISSING, "该实验还没有收据", detail={"study_id": study_id})
+            return {"kind": kind, "study_id": study_id, "receipt": receipt}
+        if kind == "measurement_receipt":
+            if not receipt_id:
+                raise ApiError(ERR_INVALID_REQUEST, "缺少 receipt_id", detail={"where": "receipt_id"})
+            receipt = store.read_immutable(RECEIPTS_DIR, receipt_id)
+            if receipt is None:
+                raise ApiError(ERR_NOT_FOUND, "收据不存在", detail={"receipt_id": receipt_id})
+            return {"kind": kind, "receipt": receipt}
+        if kind == "pilot_summary":
+            if not receipt_id:
+                raise ApiError(ERR_INVALID_REQUEST, "缺少 receipt_id", detail={"where": "receipt_id"})
+            summary = store.read_immutable(SUMMARIES_DIR, receipt_id)
+            if summary is None:
+                raise ApiError(ERR_NOT_FOUND, "总结不存在", detail={"receipt_id": receipt_id})
+            return {"kind": kind, "receipt": summary}
+        raise ApiError(
+            ERR_INVALID_REQUEST,
+            "未知收据类型",
+            detail={"receipt_kind": kind, "allowed": ["method_validation_receipt", "measurement_receipt", "pilot_summary"]},
+        )
 
     # ---- 05 事件 ------------------------------------------------------------ #
     def ingest_events(self, *, ctx: OwnerContext, conversation_id: str, body: Mapping[str, Any]) -> dict[str, Any]:
@@ -1011,7 +1345,7 @@ class ResearchEvolutionService:
                 now=now,
                 payload=dict(raw.get("payload") or {}),
                 source_channel=SOURCE_FRONTEND,
-                event_at=raw.get("event_at"),
+                event_at=raw.get("event_at") or self._retry_event_at(store, raw.get("event_id")),
                 event_id=raw.get("event_id"),
                 pilot_id=raw.get("pilot_id"),
                 participant_id=raw.get("participant_id"),
@@ -1026,6 +1360,22 @@ class ResearchEvolutionService:
             created = self._store_event(store, result.normalized or event, content_hash=result.content_hash, required=True)
             (accepted if created else duplicates).append(str(event["event_id"]))
         return {"accepted": accepted, "duplicates": duplicates, "rejected": rejected, "recorded_at": utc_iso(now)}
+
+    def _retry_event_at(self, store: EvolutionStore, event_id: Any) -> str | None:
+        """R8：客户端没给 event_at 的重试，复用首个服务端时间再比业务载荷。
+
+        05 的内容摘要只剔 ``recorded_at`` 不剔 ``event_at``——重试时服务端时钟已推进，
+        新盖的时间会让同一条事件变成「同 id 异内容」的 409。先定位已提交的那条，
+        把它的 event_at 拿过来重建事件：业务载荷一致 → 同摘要 → 如实返回 duplicates；
+        不一致 → 冲突照旧。
+        """
+        eid = str(event_id or "").strip()
+        if not eid:
+            return None
+        existing = store.find_product_value_event(eid)
+        if existing is None:
+            return None
+        return str(existing.get("event_at") or "") or None
 
     def _product_value_event(
         self,
@@ -1141,6 +1491,16 @@ class ResearchEvolutionService:
 # --------------------------------------------------------------------------- #
 # 小工具
 # --------------------------------------------------------------------------- #
+def _ts_ge(value: Any, floor: str) -> bool:
+    """比较两个带时区的 ISO 时刻：``value >= floor``。解析失败一律 False（不放行）。"""
+    try:
+        moment = ensure_aware(str(value or ""), where="ts")
+        bound = ensure_aware(str(floor or ""), where="requested_at")
+    except ApiError:
+        return False
+    return moment >= bound
+
+
 def _reviewed_versions(item: Mapping[str, Any]) -> list[dict[str, str]]:
     """「核对后判断未变」必须针对**当前**版本集合。
 
@@ -1156,8 +1516,13 @@ def _reviewed_versions(item: Mapping[str, Any]) -> list[dict[str, str]]:
     return out
 
 
-def _continuation_for(item: Mapping[str, Any], conversation_id: str) -> dict[str, Any]:
-    """「继续核查」的 continuation 载荷：带原对象、维护项与来源版本，由前端交给现有 POST 消息入口。"""
+def _continuation_payload(item: Mapping[str, Any], conversation_id: str, origin_run_id: str | None) -> dict[str, Any]:
+    """「继续核查」的 continuation 载荷：带原对象、维护项与来源版本，由前端交给现有 POST 消息入口。
+
+    ``run_id`` 只在有真实已完成轮次时出现（既有消息合同要求来源 run 真实存在）；
+    ``inherits`` 是结构化关联字段的扁平版（消息合同是 dict[str, str]），
+    服务端 link_run 靠它核验「这个 run 是这次维护请求发起的」。
+    """
     object_ref = dict(item.get("object_ref") or {})
     versions = [f"{v.get('ref')}@{v.get('source_hash')}" for v in (item.get("current") or item.get("before") or ())]
     if not versions:
@@ -1169,7 +1534,7 @@ def _continuation_for(item: Mapping[str, Any], conversation_id: str) -> dict[str
                 versions.append(f"{ref}@{reading.get('observed')!r}")
         if not versions and item.get("condition_ref"):
             versions.append(str(item["condition_ref"]))
-    return {
+    payload: dict[str, Any] = {
         "schema_version": CONTINUATION_SCHEMA,
         "conversation_id": conversation_id,
         "kind": "condition_test",
@@ -1180,7 +1545,16 @@ def _continuation_for(item: Mapping[str, Any], conversation_id: str) -> dict[str
         "object_ref": object_ref,
         "source_versions": versions,
         "full_prompt": _rejudge_prompt(item),
+        "inherits": {
+            "maintenance_item_id": str(item.get("id") or ""),
+            "item_version": str(item.get("item_version") or ""),
+            "object_ref": str(object_ref.get("ref") or ""),
+            "source_versions": ";".join(versions),
+        },
     }
+    if origin_run_id:
+        payload["run_id"] = origin_run_id
+    return payload
 
 
 def _rejudge_prompt(item: Mapping[str, Any]) -> str:

@@ -165,6 +165,21 @@ def cmd_import_events(args: argparse.Namespace, ctx: OwnerContext, now: datetime
     store = _store(ctx)
     created = 0
     with store.transaction() as txn:
+        # S2：先在锁内把**整批**与现有台账对账——同 event_id 异内容的任何一条都让整批失败、
+        # 零写入（「锁不是回滚机制」：逐条追加到一半才发现冲突，前半批已经生效了）。
+        existing_by_id: dict[str, str] = {}
+        for row in txn.list_product_value_events():
+            existing_by_id[str(row.get("event_id") or "")] = str(row.get("content_digest") or "")
+        ledger_conflicts: list[dict[str, Any]] = []
+        for event in prepared.accepted:
+            event_id = str(event["event_id"])
+            content_hash = prepared.content_hashes.get(event_id) or digest(event)
+            stored_digest = existing_by_id.get(event_id)
+            if stored_digest is not None and stored_digest != content_hash:
+                ledger_conflicts.append({"event_id": event_id, "code": "idempotency_payload_mismatch", "message": "与台账中同 id 事件内容不同"})
+        if ledger_conflicts:
+            _emit({"ok": False, "reason": "整批与现有台账冲突，未写入任何事件", "conflicts": ledger_conflicts[:20], "accepted_would_be": len(prepared.accepted)})
+            return 2
         for event in prepared.accepted:
             _, is_new = txn.append_product_value_event(event, content_hash=prepared.content_hashes.get(str(event["event_id"])) or digest(event))
             created += 1 if is_new else 0
