@@ -829,9 +829,113 @@ def test_atomic_swap_refuses_on_identity_mismatch(tmp_path):
 
 
 def test_hold_swap_lock_yields_locked_inode_identity(tmp_path):
-    """锁 fd 的身份要能被调用方拿到, 才能跟检查/换名对齐到同一个目标。"""
+    """锁 fd 的身份要能被调用方拿到, 才能跟检查/换名对齐到同一个目标。
+
+    .stat() 读的是被锁 inode 自身 (fstat): 路径 stat 拿到的可能已经是别人换
+    上来的文件, 基线版本必须从锁定的那个 inode 读 (QC 复审五轮)。
+    """
     target = tmp_path / "prod.duckdb"
     _make_db(target)
-    with db.hold_swap_lock(target) as identity:
-        assert identity == db.file_identity(target)
-        db.assert_same_target(target, identity, stage="自测")
+    with db.hold_swap_lock(target) as lock:
+        assert lock.identity == db.file_identity(target)
+        db.assert_same_target(target, lock.identity, stage="自测")
+        assert lock.stat().st_ino == lock.ino
+        assert lock.stat().st_size == target.stat().st_size
+
+
+# ---------------------------------------------------------------- QC 复审五轮
+#
+# 五轮三项：P1 身份检查与 os.replace 非原子（收窄声明 + 钉住边界）、
+# P2 target 被删时 FileNotFoundError 逃逸编排、基线阶段没用上锁 yield 的身份。
+
+
+def test_identity_check_and_replace_are_not_atomic(tmp_path, monkeypatch):
+    """⚠️ 本测试断言的是一条**已声明的边界**, 不是期望行为。
+
+    身份检查与 os.replace 是两条相邻语句, 不是一个原子操作。不拿锁的第三方
+    （mv/cp）在「检查之后、换名之前」把冒名文件换到目标路径上, 仍会被覆盖。
+    POSIX 没有「比对 inode 再换名」的原子原语（renamex_np(RENAME_SWAP) 只保
+    证交换本身原子, RENAME_EXCL 只判存在与否）, 详见 db.py 顶部威胁模型。
+
+    对照: 替换发生在检查**之前**时是能拒绝的, 见
+    test_atomic_swap_refuses_on_identity_mismatch。expect_identity 的价值到此
+    为止——把一类静默覆盖变成明确拒绝, 不是原子发布。
+
+    **若哪天真把这个窗口闭合了, 本测试必须改, 并同步改 db.py 顶部威胁模型、
+    atomic_swap_into_place 的 docstring 与交接里的措辞。**
+    """
+    target = tmp_path / "t.duckdb"
+    staging = tmp_path / "t.duckdb.staging"
+    impostor = tmp_path / "impostor"
+    target.write_bytes(b"baseline")
+    staging.write_bytes(b"new")
+    impostor.write_bytes(b"impostor")
+    identity = db.file_identity(target)
+
+    real_replace = os.replace
+
+    def race(src, dst):
+        # 攻击点严格在最终身份检查之后: 此刻 assert_same_target 已经放行。
+        real_replace(impostor, target)
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", race)
+    db.atomic_swap_into_place(staging, target, expect_identity=identity)
+    monkeypatch.undo()
+
+    # 边界成立: 冒名者被覆盖了。这正是当前实现做不到、也没有声称做到的部分。
+    assert target.read_bytes() == b"new"
+    assert not impostor.exists()
+
+
+def test_target_deleted_before_lock_returns_rc2_not_traceback(prod_db, monkeypatch):
+    """QC 五轮 P2：锁外守卫通过后 target 被删 → 结构化 rc=2, 不能抛裸异常。
+
+    复现窗口: 最终守卫已过 → 第三方 unlink → hold_swap_lock 的 os.open 抛
+    FileNotFoundError。编排只捕 DatabaseLockedError 家族, 裸 FileNotFoundError
+    会直接逃出 run_daily_full_staged, 违反 fail-closed 合同。
+    """
+    real_probe = db.probe_no_active_writer
+    calls = {"n": 0}
+
+    def probe_then_delete(path):
+        real_probe(path)
+        calls["n"] += 1
+        if calls["n"] == 2:  # 第 2 次 = 锁外最终守卫, 正好在拿锁之前
+            os.unlink(path)
+
+    monkeypatch.setattr(db, "probe_no_active_writer", probe_then_delete)
+    result = sdf.run_daily_full_staged(  # 不得抛异常
+        trade_date="2026-08-15", child_argv=_child(CHILD_OK)
+    )
+    assert calls["n"] >= 2, "守卫未被触达, 窗口没对上"
+    assert result["rc"] == 2
+    assert result["swapped"] is False
+    assert "不存在" in result["reason"]
+    assert not prod_db.exists()  # 我们没有把库「重建」出来掩盖删除
+
+
+def test_clone_window_replacement_detected_at_baseline(prod_db, tmp_path, monkeypatch):
+    """QC 五轮第三项：基线身份必须来自锁, 并在克隆之后复查。
+
+    「锁住 A → 克隆 A → 路径被换成 B → 从路径 stat 得到 B」会让 staging 是 A
+    的副本、基线却记成 B, 两边都不自知。复查点在克隆之后。
+    """
+    impostor_src = tmp_path / "impostor.duckdb"
+    _make_db(impostor_src, dates=("2026-08-20",))
+    impostor_sha = _sha256(impostor_src)
+    real_clone = db.clone_to_staging
+
+    def clone_then_replace(src, dst):
+        copy = real_clone(src, dst)
+        os.replace(impostor_src, src)  # 克隆窗口内整文件替换（flock 拦不住 rename）
+        return copy
+
+    monkeypatch.setattr(db, "clone_to_staging", clone_then_replace)
+    result = sdf.run_daily_full_staged(
+        trade_date="2026-08-15", child_argv=_child(CHILD_OK)
+    )
+    assert result["rc"] == 2
+    assert result["swapped"] is False
+    assert "克隆后基线" in result["reason"]
+    assert _sha256(prod_db) == impostor_sha  # 冒名者字节原样, 没被我们覆盖

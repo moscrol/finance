@@ -525,18 +525,23 @@ def _run_daily_full_staged_locked(
         # 窗口内任何写者的 rw 打开必失败；窗口外（子进程阶段）的写入仍由
         # 末端 stat 守卫兜底。形态基线改从克隆体自身读取——基线=副本版本。
         try:
-            with _db.hold_swap_lock(target):
+            with _db.hold_swap_lock(target) as lock:
                 result["copy"] = _db.clone_to_staging(target, staging)
-                source_stat = target.stat()
+                # QC 复审五轮：基线身份必须**来自这把锁**，并在克隆之后复查一次。
+                # 否则「锁住 A → 克隆 A → 路径被换成 B → 从路径 stat 得到 B」会
+                # 把 A 的副本配上 B 的基线，两边都不自知。
+                _db.assert_same_target(target, lock.identity, stage="克隆后基线")
+                # 版本基线读被锁 inode 自身 (fstat)，不再走路径——路径 stat 拿到的
+                # 可能已经是别人换上来的文件。
+                source_stat = lock.stat()
+                source_identity = lock.identity
                 source_shape = _db_shape(staging)
         except _db.DatabaseLockedError as exc:
+            # SwapTargetReplacedError 是其子类：开锁时目标已没了/克隆后身份漂了
+            # 都走这条，统一成 rc=2 拒绝，不让异常逃逸。
             result["reason"] = f"基线窗口拿锁失败: {exc}; 拒绝开工"
             print(f"[staging] {result['reason']}", flush=True)
             return result
-        # 版本基线 (mtime/size) 之外再记身份基线 (dev/ino)：末端换名覆盖的
-        # 必须是「我克隆的那一个 inode」。只比版本挡不住整文件替换——cp/mv
-        # 会把 mtime 一并带过去，造一个版本一模一样的新 inode 是可行的。
-        source_identity = (source_stat.st_dev, source_stat.st_ino)
         if source_shape is None:
             result["reason"] = f"克隆体打不开, 拒绝开工: {staging}"
             return result
@@ -694,19 +699,19 @@ def _run_daily_full_staged_locked(
         # hold_swap_lock 是 SH：排写不排读，日更的锁窗口只有「stat + rename」量级
         # （毫秒），不会重新把只读读者挡在门外（S7 判据 1）；修复类多一次备份。
         try:
-            with _db.hold_swap_lock(target) as locked_identity:
+            with _db.hold_swap_lock(target) as lock:
                 # 锁内权威复查。身份先于版本：版本一致但 inode 已换，说明被整文件
                 # 替换过，此时 mtime/size 相等毫无意义（cp/mv 会带走 mtime）。
                 _db.assert_same_target(
                     target, source_identity, stage="换库临界区（对克隆基线）"
                 )
-                if locked_identity != source_identity:
+                if lock.identity != source_identity:
                     # 锁的 inode 与基线 inode 不同 = 我们锁住的不是要换的那个。
                     return _abort(
-                        f"目标身份守卫: 换库锁锁定 {locked_identity} 与克隆基线 "
+                        f"目标身份守卫: 换库锁锁定 {lock.identity} 与克隆基线 "
                         f"{source_identity} 不是同一个 inode; 拒绝换名"
                     )
-                now_stat = target.stat()
+                now_stat = lock.stat()  # 读被锁 inode 自身，不走路径
                 if (
                     now_stat.st_mtime_ns != source_stat.st_mtime_ns
                     or now_stat.st_size != source_stat.st_size

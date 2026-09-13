@@ -23,7 +23,7 @@ import time
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
+from typing import Callable, NamedTuple
 
 import duckdb
 
@@ -48,13 +48,16 @@ class DatabaseLockedError(RuntimeError):
 
 
 class SwapTargetReplacedError(DatabaseLockedError):
-    """换库目标的**路径身份**（st_dev + st_ino）与协调时锁定的那个不一致。
+    """换库目标的**路径身份**（st_dev + st_ino）与协调时锁定的那个不一致，
+    或目标已整个消失。
 
     QC 复审四轮（2026-09-13）：flock 锁的是 inode，而检查与 os.replace 走的
-    是路径。若有人在「打开并锁住 target」与「按路径检查/换名」之间把另一个
-    文件换到该路径上，我们锁住的是旧 inode，被覆盖的却是新路径对象——锁形
-    同虚设。因此全链三处（拿锁瞬间、临界区复查、os.replace 前最后一刻）都
-    要确认是同一个身份，对不上一律 fail closed。
+    是路径。有人把另一个文件换到该路径上时，我们锁住的是旧 inode，要覆盖的
+    却是新路径对象。四处（拿锁/开锁失败、拿锁瞬间、克隆后基线、换名前最后
+    一刻）各查一次身份，查到就 fail closed。
+
+    **能做到什么、做不到什么见本文件顶部「换库威胁模型」**：对非协同方
+    （不拿锁的 mv/cp）这是检测不是保证，检查与换名之间的窗口关不掉。
 
     继承 DatabaseLockedError 是刻意的：既有调用方的 `except
     DatabaseLockedError` 会把它变成明确的 rc=2 拒绝，而不是让异常逃逸出编排
@@ -170,6 +173,30 @@ def list_tables(con: duckdb.DuckDBPyConnection) -> list[str]:
 # ---------------------------------------------------------------------------
 # staging 写 + 原子换名 (bookgap S7)
 # ---------------------------------------------------------------------------
+#
+# 换库威胁模型（单一口径；别在别处再写第二份，下面各 docstring 只引不抄）：
+#
+# 【协同方】= 走 hold_run_mutex / hold_swap_lock / duckdb 文件锁的写者。
+#   对他们「最终复查→[备份]→原子换名」全程在 SH 锁内，排他是**保证**。
+#   本仓所有写者都是协同方。
+#
+# 【非协同方】= 不拿任何锁、直接动生产路径的 mv / cp / dd（人手操作或外部
+#   工具）。对他们我们只能**检测，不能保证**，原因是 POSIX 没有「比对 inode
+#   再换名」的原子原语：
+#     - os.replace 不带条件；macOS renamex_np(RENAME_SWAP) 只保证交换本身
+#       原子，照样会跟冒名者交换；RENAME_EXCL 只判「存在与否」，判不了
+#       「是不是我锁的那个 inode」；Linux renameat2 同理。
+#     - 所以 assert_same_target 与 os.replace 之间必然留一道窗口（两条相邻
+#       语句 + 一次 syscall）。整文件替换发生在检查**之前** → 拒绝；发生在
+#       检查之后、换名之前 → 仍会覆盖冒名者。
+#     - 裸字节直写（cp/dd 写进同一个 inode）连身份都不变，身份校验更看不见。
+#   后一种由 test_identity_check_and_replace_are_not_atomic 钉住：它是**已声明
+#   的边界**，不是未知漏洞。要真闭合只能把所有发布方收编进同一把协调锁，
+#   再加一次 stat 是没用的。
+#
+# 因此措辞纪律：身份校验可以说「把非协同方的整文件替换从静默覆盖变成可检测
+# 的拒绝」，**不能**说「已覆盖 / 已闭合 / 不再靠假设排除」。
+# ---------------------------------------------------------------------------
 
 STAGING_SUFFIX = ".staging"
 
@@ -246,11 +273,34 @@ def file_identity(db_path: Path) -> tuple[int, int]:
     return (st.st_dev, st.st_ino)
 
 
+class SwapLock(NamedTuple):
+    """hold_swap_lock 的把手: 被锁 inode 的身份 + 它的 fd。
+
+    给出 fd 是为了让调用方能 stat **被锁的那个 inode 本身**而不是再走一次
+    路径——路径 stat 拿到的可能已经是别人换上来的文件 (QC 复审五轮)。
+    fd 的生命周期归 hold_swap_lock, 调用方不要 close。
+    """
+
+    dev: int
+    ino: int
+    fd: int
+
+    @property
+    def identity(self) -> tuple[int, int]:
+        return (self.dev, self.ino)
+
+    def stat(self) -> os.stat_result:
+        """被锁 inode 自身的 stat (fstat), 不经路径, 没有「stat 完被换路径」的窗口。"""
+        return os.fstat(self.fd)
+
+
 def assert_same_target(db_path: Path, expected: tuple[int, int], *, stage: str) -> None:
     """确认 db_path 此刻仍解析到 expected 那个 inode, 否则 SwapTargetReplacedError。
 
-    stage 只进异常消息, 用来指认是哪一处守卫发现的身份漂移 (拿锁瞬间 /
-    临界区复查 / 换名前最后一刻), 便于事后定位替换发生的窗口。
+    stage 只进异常消息, 用来指认是哪一处守卫发现的身份漂移 (开锁 / 拿锁瞬间 /
+    克隆后基线 / 换名前最后一刻), 便于事后定位替换发生的窗口。
+
+    注意这是**检测**: 返回之后到调用方真正动手之间仍有窗口, 见文件顶部威胁模型。
     """
     try:
         actual = file_identity(db_path)
@@ -278,6 +328,10 @@ def atomic_swap_into_place(
     - expect_identity 给定时, os.replace 前最后一刻复查 target 的
       (st_dev, st_ino)——调用方锁的 inode 与此刻被覆盖的必须是同一个
       (QC 复审四轮: 锁 inode 而按路径换名, 中间被换路径就覆盖了别人)。
+      **这一查与 os.replace 不是一个原子操作**: 检查之后、换名之前被换上
+      来的冒名者仍会被覆盖, 见文件顶部威胁模型与
+      test_identity_check_and_replace_are_not_atomic。它把「替换发生在检查
+      之前」这一类从静默覆盖变成明确拒绝, 仅此而已。
 
     POSIX rename 语义: 已打开旧文件的读者继续读旧 inode (安全),
     新连接读新文件; 旧文件空间在最后一个句柄释放后归还。
@@ -401,18 +455,26 @@ def hold_swap_lock(db_path: Path):
       「os.replace」之间仍是裸窗口（四轮复现：窗口内提交 17000 → rc=0
       swapped=true → 新库不含 17000，写入被静默覆盖）。
 
-    yield 出被锁 inode 的身份 (st_dev, st_ino)：flock 锁 inode、检查与
-    换名走路径，两者之间隔着一次「路径可能被换掉」的风险，调用方要拿它
-    在临界区里和 os.replace 前各复查一次（见 assert_same_target）。拿锁
+    yield 一个 SwapLock（被锁 inode 的 dev/ino + fd）：flock 锁 inode、检查
+    与换名走路径，中间隔着一次「路径可能被换掉」的风险。调用方拿 .identity
+    去复查路径、拿 .stat() 读被锁 inode 自身的版本（别再走路径 stat）。拿锁
     瞬间本函数先自查一次：open 与 flock 之间被换路径的，当场拒绝。
 
-    拿不到锁立刻 DatabaseLockedError，不在临界区门口等长事务。
-    裸文件写者（cp/dd 直写字节）不在威胁模型：本仓写者全走 duckdb；但
-    **整文件替换**（mv/cp 换 inode）已被身份校验覆盖，不再靠假设排除。
+    拿不到锁立刻 DatabaseLockedError，不在临界区门口等长事务。开锁时目标已
+    不存在 → SwapTargetReplacedError（不是裸 FileNotFoundError）：编排的
+    fail-closed 合同要求拒绝带出口码，不能靠 traceback（QC 复审五轮 P2）。
+
+    **身份校验能做到什么、做不到什么见本文件顶部「换库威胁模型」**：对协同方
+    是保证，对不拿锁的 mv/cp 只是检测。
     """
     import fcntl
 
-    fd = os.open(db_path, os.O_RDONLY)
+    try:
+        fd = os.open(db_path, os.O_RDONLY)
+    except FileNotFoundError as exc:
+        raise SwapTargetReplacedError(
+            f"换库锁开锁失败: 目标 {db_path} 已不存在（疑似被第三方移走或删除）"
+        ) from exc
     try:
         try:
             fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
@@ -421,9 +483,9 @@ def hold_swap_lock(db_path: Path):
                 f"{db_path} 换库锁被占用（疑似第三方写者）: {exc}"
             ) from exc
         locked = os.fstat(fd)
-        identity = (locked.st_dev, locked.st_ino)
-        assert_same_target(db_path, identity, stage="换库锁拿锁瞬间")
-        yield identity
+        lock = SwapLock(locked.st_dev, locked.st_ino, fd)
+        assert_same_target(db_path, lock.identity, stage="换库锁拿锁瞬间")
+        yield lock
     finally:
         fcntl.flock(fd, fcntl.LOCK_UN)
         os.close(fd)
