@@ -212,6 +212,23 @@ def wal_path(db_path: Path) -> Path:
     return Path(str(db_path) + ".wal")
 
 
+def _copy_or_reject_vanished(src: Path, dst: Path, *, stage: str) -> None:
+    """shutil.copy2, 但「来源在拷贝期间消失」转成 SwapTargetReplacedError。
+
+    只在复查确认 src 确已不在时转换。权限、损坏、磁盘满等必须保持原异常——
+    一层宽 except 把所有故障混成「目标被替换」, 会让运维照着错误的方向查
+    (QC 六轮 P2 的明确要求)。
+    """
+    try:
+        shutil.copy2(src, dst)
+    except FileNotFoundError as exc:
+        if src.exists():
+            raise
+        raise SwapTargetReplacedError(
+            f"{stage}: 克隆来源 {src} 在克隆期间消失 (疑似被第三方移走或删除)"
+        ) from exc
+
+
 def clone_to_staging(source: Path, staging: Path) -> dict:
     """把 source 库克隆成 staging 副本, 返回 {method, seconds, bytes}。
 
@@ -221,6 +238,11 @@ def clone_to_staging(source: Path, staging: Path) -> dict:
 
     source 若带 WAL (上一个写者崩溃留下), 一并按 staging 命名克隆——
     duckdb 打开 staging 时自动重放, 不丢已提交事务。
+
+    **bytes 在副本上量, 不回头 stat 来源路径**(QC 六轮 P2): 克隆体与来源逐字节
+    相同, 从副本取等价; 而克隆完成后再走一次来源路径 stat, 纯粹为了填收据里的
+    字节数, 却多开一道「此刻来源被删」的窗口——六轮独立探针正是在这一行抓到裸
+    FileNotFoundError 逃出编排 (调用点只捕 DatabaseLockedError 家族)。
     """
     started = time.monotonic()
     method = "clonefile"
@@ -232,14 +254,14 @@ def clone_to_staging(source: Path, staging: Path) -> dict:
         )
     except (subprocess.CalledProcessError, FileNotFoundError, OSError):
         method = "copy"
-        shutil.copy2(source, staging)
+        _copy_or_reject_vanished(source, staging, stage="克隆中")
     source_wal = wal_path(source)
     if source_wal.exists():
-        shutil.copy2(source_wal, wal_path(staging))
+        _copy_or_reject_vanished(source_wal, wal_path(staging), stage="克隆中 (WAL)")
     return {
         "method": method,
         "seconds": round(time.monotonic() - started, 3),
-        "bytes": source.stat().st_size,
+        "bytes": staging.stat().st_size,
     }
 
 
@@ -249,6 +271,12 @@ def probe_no_active_writer(db_path: Path) -> None:
     机制: duckdb 单写者独占——存在 rw 连接时 read_only 打开立即
     IOException(锁冲突)。探针本身只做 read_only 开/关, 不取写锁,
     不会反过来饿死生产读者。文件不存在视为无写者。
+
+    exists() 与 connect() 之间有一道窗口(QC 六轮 P2): 这期间文件被删, duckdb
+    抛的是「database does not exist」这类**非锁冲突** IOException(本机 duckdb
+    1.5.4 实测), 原样抛出会以裸异常逃出编排。只在**复查确认路径确已消失**时转成
+    SwapTargetReplacedError(带出口码的拒绝); 文件还在就照原样抛——权限、损坏、
+    存储故障必须保持可分辨。
     """
     if not db_path.exists():
         return
@@ -258,6 +286,10 @@ def probe_no_active_writer(db_path: Path) -> None:
         if is_lock_conflict(exc):
             raise DatabaseLockedError(
                 f"{db_path} 存在活跃写者 (read_only 探针拿不到锁): {exc}"
+            ) from exc
+        if not db_path.exists():
+            raise SwapTargetReplacedError(
+                f"写者探针: 目标 {db_path} 在探测期间消失 (疑似被第三方移走或删除)"
             ) from exc
         raise
     con.close()
@@ -388,7 +420,14 @@ def backup_before_swap(
     """
     if not writer_lock_held:
         probe_no_active_writer(db_path)
-    source_stat = db_path.stat()
+    try:
+        source_stat = db_path.stat()
+    except FileNotFoundError as exc:
+        # 同族窗口(QC 六轮 P2): 调用方的 except Exception 本来就会 fail closed,
+        # 但 reason 只剩一句 Errno 2。给它一个能指认窗口的结构化拒绝。
+        raise SwapTargetReplacedError(
+            f"换名前备份: 目标 {db_path} 已不存在 (疑似被第三方移走或删除)"
+        ) from exc
     ts = datetime.now().strftime("%Y%m%dT%H%M%S")
     backup = db_path.with_name(f"{db_path.name}.bak-{ts}-{run_id}")
     copy_info = clone_to_staging(db_path, backup)

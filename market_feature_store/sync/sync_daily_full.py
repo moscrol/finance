@@ -537,9 +537,11 @@ def _run_daily_full_staged_locked(
                 source_identity = lock.identity
                 source_shape = _db_shape(staging)
         except _db.DatabaseLockedError as exc:
-            # SwapTargetReplacedError 是其子类：开锁时目标已没了/克隆后身份漂了
-            # 都走这条，统一成 rc=2 拒绝，不让异常逃逸。
-            result["reason"] = f"基线窗口拿锁失败: {exc}; 拒绝开工"
+            # SwapTargetReplacedError 是其子类：开锁时目标已没了、克隆期间目标被
+            # 删、克隆后身份漂了，都走这条，统一成 rc=2 拒绝，不让异常逃逸。
+            # （措辞从「拿锁失败」放宽到「失败」：六轮起这条出口不再只有拿锁一种
+            #   来源，具体是哪一处由 exc 自带的 stage 指认。）
+            result["reason"] = f"基线窗口失败: {exc}; 拒绝开工"
             print(f"[staging] {result['reason']}", flush=True)
             return result
         if source_shape is None:
@@ -670,9 +672,14 @@ def _run_daily_full_staged_locked(
     # 换名都会覆盖对方工作——fail closed, staging 留作取证。
     # 这里只是早失败 + 给出具体措辞; 权威判定在下面的换库锁内重做一次。
     if source_exists:
-        if not target.exists():
-            return _abort("生产库文件在同步期间被移除, 不换名")
-        now_stat = target.stat()
+        # QC 六轮 P2：一次 stat 兼做「还在不在」与「动没动过」。此前是
+        # exists() + 裸 stat() 两段，两段之间目标被删就是裸 FileNotFoundError
+        # 逃出编排（六轮独立探针在此行复现）；合成一次调用后窗口不存在，
+        # 「已消失」也变成带出口码的拒绝。
+        try:
+            now_stat = target.stat()
+        except FileNotFoundError:
+            return _abort("锁外预检: 生产库文件在同步期间被移除, 不换名")
         if (
             now_stat.st_mtime_ns != source_stat.st_mtime_ns
             or now_stat.st_size != source_stat.st_size

@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import os
 import subprocess
@@ -653,9 +654,15 @@ def test_non_object_status_refused(prod_db):
 
 
 def test_swap_lock_contention_aborts_before_any_write(prod_db, monkeypatch):
-    """换库锁拿不到（任一窗口）→ rc=2，不动生产库。"""
+    """换库锁拿不到（任一窗口）→ rc=2，不动生产库。
+
+    桩消息照抄真 hold_swap_lock 的措辞（含「换库锁被占用」）：六轮前这里只写
+    "simulated contention"，下面 `"锁" in reason` 靠编排的前缀「基线窗口拿锁
+    失败」才成立——断言实际测的是前缀，不是锁竞争本身。六轮把该前缀放宽成
+    「基线窗口失败」（这条出口不再只有拿锁一种来源）后暴露了这个耦合。
+    """
     def _busy(_path):
-        raise db.DatabaseLockedError("simulated contention")
+        raise db.DatabaseLockedError("simulated contention: 换库锁被占用")
 
     monkeypatch.setattr(db, "hold_swap_lock", _busy)
     before = _sha256(prod_db)
@@ -939,3 +946,141 @@ def test_clone_window_replacement_detected_at_baseline(prod_db, tmp_path, monkey
     assert result["swapped"] is False
     assert "克隆后基线" in result["reason"]
     assert _sha256(prod_db) == impostor_sha  # 冒名者字节原样, 没被我们覆盖
+
+
+# ---------------------------------------------------------------- QC 复审六轮
+#
+# 六轮 P2：目标删除的结构化拒绝要覆盖整条链, 不只 hold_swap_lock 的 os.open。
+# 五轮只归一了「拿锁瞬间」那一点; 独立审查在克隆边界与锁外预检又抓到两处真
+# FileNotFoundError 逃逸（不是 mock 签名不兼容）。下面四条按窗口分别钉住:
+# 克隆中 / 克隆后 / 锁外预检 / 写者探针的 exists→open, 每条都要 rc=2、
+# swapped=False、目标不被我们重建、staging 留证、reason 能指认是哪一处。
+
+
+def _cp_boundary_delete(monkeypatch, target: Path, *, when: str) -> list:
+    """在 clone_to_staging 的 `cp -c` 边界注入一次 target 真删除。
+
+    when='before' → cp 之前删（克隆**中**窗口: cp 失败 → 回退 shutil.copy2 也失败）
+    when='after'  → cp 之后删（克隆**后**窗口: 副本已完整, 来源没了）
+
+    注入的是真 unlink + 真 syscall, 不伪造异常; 返回的 list 非空才说明窗口被
+    触达（探针没打中就当绿, 是这类测试最常见的假阳性）。
+    """
+    real_run = subprocess.run
+    fired: list = []
+
+    def run_with_delete(argv, *args, **kwargs):
+        is_clone = (
+            isinstance(argv, list)
+            and argv[:2] == ["cp", "-c"]
+            and argv[2] == str(target)
+        )
+        if is_clone and when == "before" and not fired:
+            fired.append(when)
+            os.unlink(target)
+        out = real_run(argv, *args, **kwargs)
+        if is_clone and when == "after" and not fired:
+            fired.append(when)
+            os.unlink(target)
+        return out
+
+    monkeypatch.setattr(db.subprocess, "run", run_with_delete)
+    return fired
+
+
+@pytest.mark.parametrize(
+    "when, expected_stage", [("before", "克隆中"), ("after", "克隆后基线")]
+)
+def test_target_deleted_in_clone_window_returns_rc2(
+    prod_db, monkeypatch, when, expected_stage
+):
+    """六轮 P2-1：克隆中/克隆后目标消失 → rc=2, 不是裸 FileNotFoundError。
+
+    修复前两条都红: 'before' 走 shutil.copy2 抛 FileNotFoundError；'after' 走
+    clone_to_staging 末尾那次 `source.stat()`（收据字节数）抛。两者都在
+    `with hold_swap_lock` 之内, 而调用点只捕 DatabaseLockedError 家族, 异常
+    直接逃出 run_daily_full_staged, 违反 fail-closed 合同。
+    """
+    fired = _cp_boundary_delete(monkeypatch, prod_db, when=when)
+    result = sdf.run_daily_full_staged(  # 不得抛异常
+        trade_date="2026-08-15", child_argv=_child(CHILD_OK)
+    )
+    assert fired == [when], "注入未触达克隆边界, 窗口没对上"
+    assert result["rc"] == 2
+    assert result["swapped"] is False
+    assert expected_stage in result["reason"], result["reason"]
+    assert not prod_db.exists()  # 没有把库「重建」出来掩盖删除
+
+
+def test_target_deleted_at_outside_lock_precheck_returns_rc2(prod_db, monkeypatch):
+    """六轮 P2-2：锁外预检的 exists()+stat() 之间目标被删 → rc=2。
+
+    注入点必须**严格落在两次调用之间**: Path.exists() 内部自己会调一次
+    Path.stat()，在那一层删文件的话 exists() 把 OSError 吞成 False, 老代码
+    照样走「被移除」分支返回 rc=2——测试会假绿。所以按调用方栈帧筛选, 只在
+    编排函数**直接**发起的那次 stat 上注入。`assert fired` 保证函数改名或窗口
+    移位时测试当场变红, 而不是静默不触发。
+
+    修复后这段是单次 stat + except FileNotFoundError, 窗口本身不存在了;
+    本测试继续钉住出口语义（也钉住「别退回 check-then-act 写法」）。
+    """
+    real_stat = Path.stat
+    fired: list = []
+
+    def stat_with_delete(self, *args, **kwargs):
+        caller = inspect.currentframe().f_back.f_code.co_name
+        if self == prod_db and caller == "_run_daily_full_staged_locked" and not fired:
+            fired.append(caller)
+            os.unlink(self)  # 真删除, 随后的真 stat 自然抛 FileNotFoundError
+        return real_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", stat_with_delete)
+    result = sdf.run_daily_full_staged(  # 不得抛异常
+        trade_date="2026-08-15", child_argv=_child(CHILD_OK)
+    )
+    monkeypatch.undo()
+    assert fired == ["_run_daily_full_staged_locked"], "注入未触达锁外预检"
+    assert result["rc"] == 2
+    assert result["swapped"] is False
+    assert "锁外预检" in result["reason"], result["reason"]
+    assert not prod_db.exists()
+    assert Path(result["staging"]).exists()  # staging 留作取证
+
+
+def test_probe_no_active_writer_rejects_vanished_target(tmp_path, monkeypatch):
+    """六轮 P2-3：写者探针 exists()→connect() 之间目标被删 → 结构化拒绝。
+
+    修复前 duckdb 抛的是「database does not exist」这类**非锁冲突**
+    IOException（本机 1.5.4 实测）, 落在 `raise` 分支原样抛出, 以裸异常逃出
+    编排的 DatabaseLockedError 家族。
+    """
+    target = tmp_path / "t.duckdb"
+    _make_db(target)
+    real_connect = duckdb.connect
+    fired: list = []
+
+    def connect_with_delete(path, *args, **kwargs):
+        if Path(path) == target and not fired:
+            fired.append("exists->open")
+            os.unlink(target)
+        return real_connect(path, *args, **kwargs)
+
+    monkeypatch.setattr(db.duckdb, "connect", connect_with_delete)
+    with pytest.raises(db.SwapTargetReplacedError):
+        db.probe_no_active_writer(target)
+    assert fired == ["exists->open"]
+
+
+def test_probe_no_active_writer_does_not_mask_other_io_errors(tmp_path):
+    """六轮 P2 的收窄面: 只有「路径确已消失」才转换, 其余 IO 故障保持可分辨。
+
+    损坏库 read_only 打开抛的同样是非锁冲突 duckdb.IOException（实测与「文件
+    不存在」同一异常类）。若用一层宽 except 判定, 损坏/权限/存储故障都会被
+    报成「目标被第三方替换」, 把运维引到错误方向。
+    """
+    corrupt = tmp_path / "corrupt.duckdb"
+    corrupt.write_bytes(b"not a duckdb file" * 64)
+    with pytest.raises(duckdb.IOException) as excinfo:
+        db.probe_no_active_writer(corrupt)
+    assert not isinstance(excinfo.value, db.DatabaseLockedError)
+    assert corrupt.exists()
