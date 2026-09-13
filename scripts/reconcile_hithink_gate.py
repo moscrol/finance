@@ -18,6 +18,14 @@
   的 run_id 必须等于该 ops 行；
 - 非目标日期用 EXCEPT ALL（含重复行 multiplicity）。
 
+十三轮追加（异常路径契约）：
+
+- git 调用检查退出码：rc!=0（如索引损坏、stdout 为空）记结构化 FAIL 并终止，
+  不会被误读成「工作树干净」（十三轮 P1-1）；
+- 报告落盘与主路径故障脱钩：先序列化，按「run 目录 → OUT_BASE → 独立仓外
+  临时目录」降级写入，全失败尽力输出 stderr，绝不回退候选树 cwd（十三轮 P1-2）。
+  故障回归见 tests/test_reconcile_hithink_gate.py。
+
 用法（候选树内）::
 
     .venv-workbench/bin/python scripts/reconcile_hithink_gate.py \
@@ -58,8 +66,20 @@ def stat_id(path: Path) -> tuple:
     return (st.st_ino, st.st_mtime_ns, st.st_size)
 
 
+class GitCommandError(RuntimeError):
+    """git 调用失败。绝不能把「rc!=0 且 stdout 为空」读成「工作树干净」。"""
+
+    def __init__(self, args: tuple, rc: int, stderr: str) -> None:
+        super().__init__(f"git {' '.join(args)} rc={rc}")
+        self.detail = {"command": ["git", *args], "rc": rc,
+                       "stderr_tail": (stderr or "")[-300:]}
+
+
 def git(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", *args], cwd=TREE, capture_output=True, text=True)
+    proc = subprocess.run(["git", *args], cwd=TREE, capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise GitCommandError(args, proc.returncode, proc.stderr)
+    return proc
 
 
 # ---------------------------------------------------------------------------
@@ -87,15 +107,38 @@ def finalize(cli_rc: int) -> None:
         "checks": checks,
         "failed": [c["name"] for c in checks if not c["ok"]],
     }
+    # 先序列化；写入按「run 目录 → OUT_BASE → 独立仓外临时目录」降级，
+    # 全失败则尽力输出到 stderr。绝不回退候选树 cwd；退出码保持 fail-closed。
+    payload = json.dumps(report, ensure_ascii=False, indent=2, default=str) + "\n"
+    targets: list[Path] = []
     if RUN is not None:
-        out = RUN / "gate-report.json"
-    else:
-        # run 目录都没建起来：兜底 FAIL 文件，仍然留结构化证据
-        base = OUT_BASE if OUT_BASE is not None else Path.cwd()
-        out = base / f"gate-FAIL-{datetime.now():%Y%m%dT%H%M%S}-{os.getpid()}.json"
-    out.write_text(json.dumps(report, ensure_ascii=False, indent=2, default=str) + "\n",
-                   encoding="utf-8")
-    print(json.dumps(report, ensure_ascii=False, indent=2, default=str))
+        targets.append(RUN / "gate-report.json")
+    if OUT_BASE is not None:
+        targets.append(OUT_BASE / f"gate-FAIL-{datetime.now():%Y%m%dT%H%M%S}-{os.getpid()}.json")
+    try:
+        targets.append(Path(tempfile.mkdtemp(prefix="hithink-gate-report-"))
+                       / "gate-report.json")
+    except OSError:
+        pass
+    written: Path | None = None
+    for out in targets:
+        try:
+            out.write_text(payload, encoding="utf-8")
+            written = out
+            break
+        except OSError:
+            continue
+    if written is None:
+        try:
+            sys.stderr.write(payload)  # 尽力输出，仍可能失败；退出码不受影响
+        except Exception:
+            pass
+    try:
+        print(payload, end="")
+        if written is not None:
+            print(f"REPORT_WRITTEN_TO={written}")
+    except Exception:
+        pass
     sys.exit(0 if verdict == "PASS" else 1)
 
 
@@ -117,20 +160,24 @@ def run_gate() -> None:
     OUT_BASE = Path(args.output_base)
     OUT_BASE.mkdir(parents=True, exist_ok=True)
 
-    # ── 0. 代码版本绑定（先于一切副作用；FAIL 报告也落在仓外 OUT_BASE，
-    #       绝不写进候选树自身——否则失败件会污染下一轮的 tree_clean）──
-    head = git("rev-parse", "HEAD").stdout.strip()
+    # ── 0. 代码版本绑定。git 调用失败（如索引损坏：rc=128 且 stdout 为空）
+    #       不能被读成「干净树」——rc!=0 即结构化 FAIL 终止。
+    #       FAIL 报告只落在仓外 OUT_BASE/独立临时目录，不污染候选树。──
+    try:
+        head = git("rev-parse", "HEAD").stdout.strip()
+        porcelain = git("status", "--porcelain").stdout.strip()
+        common = git("rev-parse", "--git-common-dir").stdout.strip()
+    except GitCommandError as exc:
+        check("git_invocation", False, exc.detail)
+        finalize(1)
     check("tree_revision_exact", head == args.expect_revision,
           {"head": head, "expected": args.expect_revision})
-    porcelain = git("status", "--porcelain").stdout.strip()
     check("tree_clean", porcelain == "", porcelain or "(clean)")
     if head != args.expect_revision or porcelain:
         finalize(1)  # 版本不符：没有必要继续，证据已结构化
 
     RUN = Path(tempfile.mkdtemp(prefix="run-", dir=str(OUT_BASE)))
     run_start_local = datetime.now()
-
-    common = git("rev-parse", "--git-common-dir").stdout.strip()
     main_tree = Path(common).resolve().parent
     source_db = Path(args.source_db) if args.source_db else \
         main_tree / "db" / "market_feature_store.duckdb"
