@@ -135,6 +135,22 @@ def _is_synthetic_event(event: Mapping[str, Any]) -> bool:
     return str(event.get("provenance", {}).get("kind")) == C.PROVENANCE_SYNTHETIC
 
 
+def _receipt_task_is_measured(task: Mapping[str, Any]) -> bool:
+    """收据里的任务条目是否含实际测量事实（PV4）：终态、尝试、耗时至少观测到一样。
+
+    只有分配、什么都没观测到的任务（terminal_state=open、attempts=[]、timing 缺证据）
+    不能凭「收据里有它」就算费用已覆盖（spec §3/§4：未观察到调用不作零费用依据）。
+    原流程「明确无模型费用」是观测到了、没有模型项，由收据自己的 cost_items /
+    unknown_cost_components 表达，不走这里。
+    """
+    if str(task.get("terminal_state") or "") not in ("", C.TERMINAL_OPEN):
+        return True
+    if task.get("attempts"):
+        return True
+    timing = task.get("timing") or {}
+    return bool(timing) and timing.get("reason") is None
+
+
 def _is_synthetic_receipt(receipt: Mapping[str, Any]) -> bool:
     return bool((receipt.get("provenance") or {}).get("synthetic"))
 
@@ -419,6 +435,8 @@ def _compute_block(
     observation_weeks = int(prc.get("observation_weeks", 1))
     reuse_rows: dict[str, dict[str, Any]] = {}
     declared_window_end: dict[str, datetime] = {}
+    completed_window_end: dict[str, datetime] = {}
+    later_window_open: set[str] = set()
     window_unknown: list[str] = []
     reminder_counts = {"system": 0, "manual": 0, "unknown": 0}
     for event in events:
@@ -440,7 +458,11 @@ def _compute_block(
         if participant not in declared_window_end or window_end > declared_window_end[participant]:
             declared_window_end[participant] = window_end
         if window_end > as_of:
+            # PV5：后续观察窗还没结束，另列缺测——不影响该人已在完整窗里取得的队列资格。
+            later_window_open.add(participant)
             continue
+        if participant not in completed_window_end or window_end > completed_window_end[participant]:
+            completed_window_end[participant] = window_end
         first_start = started_at.get(str(payload.get("first_task_id"))) or parse_ts(payload.get("activation_at"))
         new_start = started_at.get(str(payload.get("new_task_id"))) or parse_ts(payload.get("new_task_started_at"))
         reasons: list[str] = []
@@ -468,21 +490,25 @@ def _compute_block(
     activation_unknown: list[str] = sorted(set(window_unknown))
     for participant in sorted(set(activation) | set(reuse_rows)):
         activated_at = activation.get(participant)
-        window_end = declared_window_end.get(participant)
-        if window_end is None and activated_at is not None:
+        # PV5：分母资格看「有没有任一完整观察窗」（窗末 ≤ as_of），不看最晚窗末——
+        # 下一轮窗口未结束不能把已完成首轮观察的人移出分母
+        # （spec §4 分母为「激活后进入完整观察周者」；§3 失败 / 放弃 / 退出不能为了改善读数删除）。
+        window_end = completed_window_end.get(participant)
+        if window_end is None and participant not in declared_window_end and activated_at is not None:
             window_end = _observation_window_end(activated_at, observation_weeks)
-        if activated_at is None or window_end is None:
+        if activated_at is None or (window_end is None and participant not in declared_window_end):
             if participant not in activation_unknown:
                 activation_unknown.append(participant)
-        elif window_end > as_of:
-            window_incomplete.append(participant)
-        else:
+        elif window_end is not None and window_end <= as_of:
             reuse_denominator.append(participant)
+        else:
+            window_incomplete.append(participant)
     reuse_numerator = [p for p in reuse_denominator if reuse_rows.get(p, {}).get("proactive")]
     # 分母里没有复用观察记录的人：留在分母（比率不能被抬高），同时逐条列为缺测。
     observation_missing = [p for p in reuse_denominator if p not in reuse_rows]
     reuse_unknown = (
         [{"id": p, "reason": "observation_window_incomplete"} for p in sorted(set(window_incomplete))]
+        + [{"id": p, "reason": "later_observation_window_incomplete"} for p in sorted(later_window_open & set(reuse_denominator))]
         + [{"id": p, "reason": "activation_unknown"} for p in sorted(set(activation_unknown))]
         + [{"id": p, "reason": "reuse_observation_missing"} for p in observation_missing]
     )
@@ -656,14 +682,23 @@ def _compute_block(
     #   2) 合同要求覆盖、但整份试点一条账都没有的费用类别。
     not_applicable = sorted({str(x) for x in (crit["cost"].get("not_applicable_components") or ())})
     if receipts or pilot_cost_events or tasks:
-        measured_task_ids = {
-            str(task.get("task_id"))
-            for receipt in receipts
-            for task in (receipt.get("tasks") or {}).values()
-            if task.get("task_id")
-        }
+        # PV4：任务条目出现在收据里 ≠ 费用已覆盖。逐任务核验测量事实（终态 / 尝试 / 耗时至少观测到一样）；
+        # 只有分配的空壳收据盖不住缺口。「没有收据」与「收据在但没测」分开列——补的动作不同：
+        # 前者补测量流程，后者该张收据对应的任务根本没有可入账的观察。
+        task_coverage: dict[str, str] = {}
+        for receipt in receipts:
+            for task in (receipt.get("tasks") or {}).values():
+                task_id = task.get("task_id")
+                if not task_id:
+                    continue
+                tid = str(task_id)
+                if _receipt_task_is_measured(task):
+                    task_coverage[tid] = "measured"
+                else:
+                    task_coverage.setdefault(tid, "shell")
         for task_id in sorted(tasks):
-            if task_id in measured_task_ids:
+            coverage = task_coverage.get(task_id)
+            if coverage == "measured":
                 continue
             unknown_components.append(
                 {
@@ -673,7 +708,7 @@ def _compute_block(
                     "attempt_id": None,
                     "quantity": None,
                     "unit": None,
-                    "reason": "no_measurement_receipt_for_assigned_task",
+                    "reason": "no_measurement_receipt_for_assigned_task" if coverage is None else "measurement_receipt_without_task_evidence",
                     "receipt_id": None,
                 }
             )

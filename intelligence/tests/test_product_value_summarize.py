@@ -26,6 +26,7 @@ from intelligence.tests.product_value_fixtures import (
     build_protocol,
     build_scenario,
     ev,
+    scenario_cohort_signals,
     scenario_complete_pair,
     ts,
 )
@@ -450,6 +451,88 @@ def test_consented_pairs_still_reach_a_verdict() -> None:
     summary = summarize(receipts, assignments, proto, cohort_events=cohort, due_rechecks=[])
     assert _criteria(summary)["completion_quality"]["verdict"] == C.VERDICT_PASS
     assert _criteria(summary)["time_saving"]["verdict"] == C.VERDICT_PASS
+
+
+# ------------------------------------- 返修 PV4：空壳收据不能顶替任务级测量 -----
+
+
+def test_shell_receipt_without_task_evidence_keeps_cost_unknown() -> None:
+    """评审 PV4：只有分配、没有耗时 / 尝试 / 费用的测量收据是空壳——
+    任务条目出现在收据里 ≠ 费用已覆盖，完整成本仍 unknown（spec §3/§4：没观察到 ≠ 0 元）。
+    原流程「明确无模型费用」由收据自己的 cost_items / unknown 表达，不靠收据存在性顶替。
+    """
+    proto = _six_pair_protocol()
+    proto.pop("protocol_hash")
+    proto["criteria"]["cost"] = {"not_applicable_components": sorted(C.COST_COMPONENTS - {"writer_model", "review_model"})}
+    proto = freeze_protocol(proto)
+    complete, evidence = _clone_complete_pair(1, "p10", proto["protocol_hash"], provenance=IMPORTED)
+    second, _ = _clone_complete_pair(2, "p11", proto["protocol_hash"], provenance=IMPORTED)
+    stub_events = [e for e in second if e["event_type"] in ("consent_changed", "assignment_created")]
+    reader = InMemoryEvidenceReader.from_json(evidence)
+    receipt_ok = measure_pair(complete, proto, reader)
+    receipt_shell = measure_pair(stub_events, proto, reader)
+    assert receipt_shell["status"] == "incomplete"  # 空壳：只有分配，没有任何测量事实
+    assignments = [e for e in complete + stub_events if e["event_type"] == "assignment_created"]
+    cohort = complete + stub_events
+    without_shell = summarize([receipt_ok], assignments, proto, cohort_events=cohort, due_rechecks=[])
+    with_shell = summarize([receipt_ok, receipt_shell], assignments, proto, cohort_events=cohort, due_rechecks=[])
+    base = _metric(without_shell, "cost_full_status")
+    shelled = _metric(with_shell, "cost_full_status")
+    # 空壳收据没有带来任何新的费用事实：判读不得从 unknown 变 known，缺口不得消失。
+    assert base["detail"]["full_cost_status"] == "unknown"
+    assert shelled["detail"]["full_cost_status"] == "unknown"
+    assert shelled["detail"]["known_cost_by_currency"] == base["detail"]["known_cost_by_currency"]
+    gaps = {u["id"] for u in shelled["unknown"] if u["reason"] == "measurement_receipt_without_task_evidence"}
+    assert gaps == {"unmeasured_task:t-x2-a", "unmeasured_task:t-x2-o"}
+
+
+# ------------------------------------- 返修 PV5：后续未结束窗口不收缩复用分母 -----
+
+
+def test_later_unfinished_window_does_not_shrink_reuse_denominator() -> None:
+    """评审 PV5：已完成首轮完整观察周的人，不因下一轮观察窗未结束而退出分母
+    （spec §4 分母为「激活后进入完整观察周者」；§3 失败 / 放弃 / 退出不能为了改善读数删除）。
+    后续窗口的缺测另列可见，不顶替已取得的队列资格。
+    """
+    proto = build_protocol()
+    cohort_src, _, _ = scenario_cohort_signals(proto["protocol_hash"], provenance=IMPORTED)
+    reuse_true = next(e for e in cohort_src if e["event_type"] == "reuse_observed" and e["participant_id"] == "p04")
+    reuse_false = next(e for e in cohort_src if e["event_type"] == "reuse_observed" and e["participant_id"] == "p05")
+    consent = next(e for e in cohort_src if e["event_type"] == "consent_changed")
+    cohort: list[dict] = []
+    for index in range(1, 7):
+        row = copy.deepcopy(reuse_true if index <= 2 else reuse_false)
+        row["event_id"] = f"reuse-{index}-first-window"
+        row["participant_id"] = f"q{index}"
+        row["payload"]["first_task_id"] = f"q{index}-a"
+        row["payload"]["new_task_id"] = f"q{index}-b"
+        row["payload"]["new_task_started_at"] = ts("09-23", "10:00:00")
+        cohort.append(row)
+        granted = copy.deepcopy(consent)
+        granted["participant_id"] = f"q{index}"
+        granted["event_id"] = f"consent-{index}"
+        cohort.append(granted)
+    before = summarize([], [], proto, cohort_events=cohort, due_rechecks=[], as_of="2026-10-11")
+    next_windows = []
+    for index in (4, 5, 6):
+        row = copy.deepcopy(next(e for e in cohort if e["event_id"] == f"reuse-{index}-first-window"))
+        row["event_id"] = f"reuse-{index}-second-window"
+        row["event_at"] = row["recorded_at"] = ts("10-10", "12:00:00")
+        row["payload"]["new_task_id"] = f"q{index}-c"
+        row["payload"]["new_task_started_at"] = ts("10-09", "10:00:00")
+        row["payload"]["observation_window"] = {"start": ts("10-05", "00:00:00"), "end": ts("10-18", "23:59:59")}
+        next_windows.append(row)
+    after = summarize([], [], proto, cohort_events=cohort + next_windows, due_rechecks=[], as_of="2026-10-11")
+    base = _metric(before, "proactive_reuse_rate")
+    metric = _metric(after, "proactive_reuse_rate")
+    assert base["denominator_ids"] == [f"q{i}" for i in range(1, 7)] and base["value"] == 0.3333
+    # 追加未结束窗口后：分母、比率、判据全部不变（修前 2/6 fail 会被洗成 2/3 pass）。
+    assert metric["denominator_ids"] == base["denominator_ids"]
+    assert metric["value"] == base["value"]
+    assert _criteria(after)["proactive_reuse"]["verdict"] == _criteria(before)["proactive_reuse"]["verdict"] == C.VERDICT_FAIL
+    # 后续窗口的缺测另列：可见，但不剥夺已取得的队列资格。
+    later = {u["id"] for u in metric["unknown"] if u["reason"] == "later_observation_window_incomplete"}
+    assert later == {"q4", "q5", "q6"}
 
 
 # ------------------------------------- 返修 PV2：完整成本要对照任务与费用类别 -----
