@@ -149,6 +149,15 @@ def _receipt_task_is_measured(task: Mapping[str, Any]) -> bool:
     return bool(timing) and timing.get("reason") is None
 
 
+def _assisted_task_has_cost_facts(task: Mapping[str, Any], receipt: Mapping[str, Any]) -> bool:
+    """辅助任务的费用事实：有 run（attempts 非空），或有直接挂到该任务的已入账费用条目。
+    人工计时不在其列——它证明「花了多少时间」，证明不了模型调用有没有发生（评审 PV8）。"""
+    if task.get("attempts"):
+        return True
+    task_id = str(task.get("task_id") or "")
+    return any(item.get("selected") and str(item.get("task_id") or "") == task_id for item in (receipt.get("cost_items") or ()))
+
+
 def _is_synthetic_receipt(receipt: Mapping[str, Any]) -> bool:
     return bool((receipt.get("provenance") or {}).get("synthetic"))
 
@@ -686,20 +695,35 @@ def _compute_block(
         # 只有分配的空壳收据盖不住缺口。「没有收据」与「收据在但没测」分开列——补的动作不同：
         # 前者补测量流程，后者该张收据对应的任务根本没有可入账的观察。
         task_coverage: dict[str, str] = {}
+        task_cost_blocked: dict[str, str] = {}
         for receipt in receipts:
-            for task in (receipt.get("tasks") or {}).values():
+            for condition_key, task in (receipt.get("tasks") or {}).items():
                 task_id = task.get("task_id")
                 if not task_id:
                     continue
                 tid = str(task_id)
                 if _receipt_task_is_measured(task):
                     task_coverage[tid] = "measured"
+                    # PV8：人工计时只覆盖时间，不覆盖辅助服务费用。辅助任务没有 run / 用量 / 费用事实时，
+                    # 模型调用有没有发生、发生了多少都无从谈起——不能因任务被计时就把 writer_model /
+                    # review_model 当成零。原流程任务按设计不用模型，计时即覆盖（PV4 合法通路保留）。
+                    condition = str(task.get("condition") or condition_key or "")
+                    if condition == C.CONDITION_ASSISTED and not _assisted_task_has_cost_facts(task, receipt):
+                        task_cost_blocked.setdefault(tid, "assisted_task_without_usage_or_cost_evidence")
+                    else:
+                        task_cost_blocked.pop(tid, None)
                 else:
                     task_coverage.setdefault(tid, "shell")
         for task_id in sorted(tasks):
             coverage = task_coverage.get(task_id)
-            if coverage == "measured":
+            if coverage == "measured" and task_id not in task_cost_blocked:
                 continue
+            if coverage is None:
+                reason = "no_measurement_receipt_for_assigned_task"
+            elif coverage == "shell":
+                reason = "measurement_receipt_without_task_evidence"
+            else:
+                reason = task_cost_blocked[task_id]
             unknown_components.append(
                 {
                     "component": "unmeasured_task",
@@ -708,7 +732,7 @@ def _compute_block(
                     "attempt_id": None,
                     "quantity": None,
                     "unit": None,
-                    "reason": "no_measurement_receipt_for_assigned_task" if coverage is None else "measurement_receipt_without_task_evidence",
+                    "reason": reason,
                     "receipt_id": None,
                 }
             )

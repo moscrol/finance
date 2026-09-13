@@ -749,3 +749,42 @@ def test_reuse_window_not_yet_complete_stays_out_of_denominator() -> None:
     metric = _metric(summary, "proactive_reuse_rate")
     assert metric["denominator_ids"] == [] and metric["value"] is None
     assert {"id": "p20", "reason": "observation_window_incomplete"} in metric["unknown"]
+
+
+def test_timed_assisted_task_without_usage_facts_does_not_cover_model_cost():
+    """PV8：人工计时只覆盖「花了多少时间」，不覆盖辅助服务费用——辅助任务没有
+    run / 用量 / 费用事实时，不能核销 writer_model / review_model 这类模型成本。"""
+    proto = _six_pair_protocol()
+    proto.pop("protocol_hash")
+    proto["criteria"]["cost"] = {"not_applicable_components": sorted(C.COST_COMPONENTS - {"writer_model", "review_model"})}
+    proto = freeze_protocol(proto)
+    complete, evidence = _clone_complete_pair(1, "p10", proto["protocol_hash"], provenance="imported")
+    second, _ = _clone_complete_pair(2, "p11", proto["protocol_hash"], provenance="imported")
+    reader = InMemoryEvidenceReader.from_json(evidence)
+    r1 = measure_pair(complete, proto, reader)
+    # 原流程保留真实人工计时/交付物事实；辅助流程只有同意 + 分配 + 开始/放弃时间戳，无 run 与用量
+    original = [e for e in second if e["event_type"] == "consent_changed" or e.get("assistance_condition") == "original"]
+    assisted = [e for e in second if e.get("assistance_condition") == "assisted" and e["event_type"] in ("assignment_created", "task_started")]
+    for e in second:
+        if e.get("assistance_condition") == "assisted" and e["event_type"] == "task_completed":
+            abandoned = copy.deepcopy(e)
+            abandoned.update(event_type="task_abandoned", event_id=e["event_id"] + "-abandoned", object_refs=[], run_ids=[])
+            abandoned["payload"].update(completion_evidence_refs=[], terminal_reason="abandoned; run and billing records unavailable")
+            assisted.append(abandoned)
+    events = original + assisted
+    r2 = measure_pair(events, proto, reader)
+    # 合法通路负控：人工计时本身仍被测量，不因为没有费用事实被抹掉
+    assert r2["tasks"]["assisted"]["attempts"] == []
+    assert r2["tasks"]["assisted"]["timing"]["end_to_end_minutes"] == 20
+    assert r2["cost_items"] == []
+    assignments = [e for e in complete + events if e["event_type"] == "assignment_created"]
+
+    def _cost(receipts):
+        summary = summarize(receipts, assignments, proto, cohort_events=complete + events, due_rechecks=[])
+        return next(m for m in summary["metrics"] if m["metric_id"] == "cost_full_status")
+
+    before = _cost([r1])
+    assert before["detail"]["full_cost_status"] == "unknown"
+    after = _cost([r1, r2])
+    assert after["detail"]["known_cost_by_currency"] == {"CNY": 0.46}
+    assert after["detail"]["full_cost_status"] == "unknown"
