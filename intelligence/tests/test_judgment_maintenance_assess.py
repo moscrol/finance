@@ -469,3 +469,95 @@ def test_unchanged_dependency_is_only_coverage_unless_policy_emits_it():
     emitted = _run([_binding({REF_A: "h1"})], versions, policy={"schema_version": jm.POLICY_SCHEMA_VERSION, "emit_unchanged": True})
     assert [(it.change_type, it.reason_code, it.action) for it in emitted.items] == [("unchanged", "no_change", "none")]
     assert emitted.counts["items_open"] == 0
+
+
+# --------------------------------------------------------------------------- #
+# 评审返修 J1：显式替代链的末端失效后，被替代的祖先不得复活成有效依据
+# --------------------------------------------------------------------------- #
+def test_expired_successor_does_not_revive_explicitly_superseded_ancestor():
+    """ann:new 于 09-10 明确 supersedes ann:old，09-12 自身过期；旧版没有单独写 expired_at。
+
+    规格 01 §4「源失效 / 缺引用 / 时间不明：unknown+gap」「恢复新版本关联旧项；更正链断裂为 gap」：
+    链末端失效 = 这条依赖现在没有有效依据，必须留一条 open 的待办，而不是退回旧版本装作没事。
+    """
+    versions = [
+        _version(REF_A, "h1", "2026-09-01T18:00:00+08:00"),
+        _version("fact_market_daily:2026-09-01-v2", "h2", "2026-09-10T18:00:00+08:00", supersedes_ref=REF_A, expired_at="2026-09-12T08:00:00+08:00"),
+    ]
+    report = _run([_binding({REF_A: "h1"})], versions)
+    live = _live(report)
+    assert len(live) == 1, [(it.change_type, it.status) for it in report.items]
+    item = live[0]
+    assert (item.change_type, item.reason_code, item.epistemic_state) == ("source_expired", "validity_ended", "unknown")
+    assert item.action == "restore_evidence" and item.status == "open"
+    # 复活的证据就是「当前依据仍是旧版」；被显式替代的祖先永不再成为 current。
+    assert [v.ref for v in item.current] != [REF_A]
+    assert report.counts["items_open"] >= 1
+    assert report.counts["objects_unverifiable"] == 1
+    assert any(g.reason == "validity_ended" for g in report.gaps)
+
+
+def test_superseded_ancestor_stays_dead_even_when_successor_validity_ends():
+    """同一条链用 valid_to 结束（而不是 expired_at）也一样：祖先已被显式替代，不能当回退目标。"""
+    versions = [
+        _version(REF_A, "h1", "2026-09-01T18:00:00+08:00"),
+        _version("fact_market_daily:2026-09-01-v2", "h2", "2026-09-10T18:00:00+08:00", supersedes_ref=REF_A, valid_to="2026-09-11"),
+    ]
+    report = _run([_binding({REF_A: "h1"})], versions)
+    live = _live(report)
+    assert [it.change_type for it in live] == ["source_expired"]
+    assert [v.ref for v in live[0].current] != [REF_A]
+
+
+def test_unsuperseded_sibling_still_serves_when_one_version_expires():
+    """反向证伪：没有被谁显式替代的版本在另一版本过期后照常回到台前，不能被一起判失效。
+
+    退场的资格来自「被显式更正」，不是「同一条链上有东西过期了」——两者混为一谈会把这条测试也判红。
+    """
+    versions = [
+        _version(REF_A, "h1", "2026-09-01T18:00:00+08:00"),
+        _version(REF_A, "h2", "2026-09-10T18:00:00+08:00", valid_from="2026-09-10", expired_at="2026-09-12T08:00:00+08:00"),
+    ]
+    report = _run([_binding({REF_A: "h1"})], versions)
+    assert _live(report) == []  # 末态回到 unchanged：没有待办
+    assert not any(it.change_type == "source_expired" for it in report.items)
+    assert not any(g.reason == "validity_ended" for g in report.gaps)
+    assert report.counts["objects_unverifiable"] == 0
+
+
+# --------------------------------------------------------------------------- #
+# 评审返修 S2：只有日期的 recorded_at 不得升为 strict（规格 01 §4 日期粒度降级）
+# --------------------------------------------------------------------------- #
+def test_date_only_recorded_at_is_never_strict():
+    versions = [
+        _version(REF_A, "h1", "2026-09-01"),
+        _version(REF_A, "h2", "2026-09-11"),
+    ]
+    report = _run([_binding({REF_A: "h1"})], versions)
+    item = _live(report)[0]
+    assert item.change_type == "content_changed"
+    assert item.pit_grade == "trade_date_only"
+    assert report.pit_grade == "trade_date_only"
+
+
+def test_naive_recorded_at_without_offset_is_never_strict():
+    """没有时区的时分秒不是可靠时刻：不能凭「字段非空」升 strict。"""
+    versions = [
+        _version(REF_A, "h1", "2026-09-01T18:00:00"),
+        _version(REF_A, "h2", "2026-09-11T18:00:00"),
+    ]
+    report = _run([_binding({REF_A: "h1"})], versions)
+    item = _live(report)[0]
+    assert item.pit_grade == "trade_date_only"
+    assert report.pit_grade == "trade_date_only"
+
+
+def test_complete_fixture_truncated_to_dates_loses_strict_everywhere():
+    payload = _load("complete")
+    for group in ("evidence_versions", "condition_observations"):
+        for row in payload[group]:
+            if row.get("recorded_at"):
+                row["recorded_at"] = row["recorded_at"][:10]
+    report = _assess(payload)
+    assert report.pit_grade != "strict"
+    assert "strict" not in {it.pit_grade for it in report.items}

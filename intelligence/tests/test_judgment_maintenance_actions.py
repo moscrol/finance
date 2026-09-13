@@ -363,3 +363,86 @@ def test_reduce_rejects_foreign_events_and_keeps_report_pure():
     reduced = jm.reduce_actions(report=report, events=[], now=NOW)
     assert reduced.items == report.items and reduced.id == report.id and report.management_log == {}
     assert reduced.management_log["events_seen"] == 0
+
+
+# --------------------------------------------------------------------------- #
+# 评审返修 S1：暂缓时钟按绝对时刻比较，不按 ISO 字符串（spec 01 §5「到期同 id 恢复」）
+# --------------------------------------------------------------------------- #
+def test_snooze_until_in_the_future_accepted_when_written_in_another_zone():
+    """now=09:30+08:00 即 01:30Z；暂缓到 02:00Z 还有半小时，按字符串比却是 "2026-09-13T02:00:00Z" < "2026-09-13T09:30:00+08:00"。"""
+    report = _report()
+    item = _select(report, {"dependency_ref": REF_A})
+    result = jm.validate_action(
+        item=item,
+        command=_cmd(item, "c-tz-future", "snooze", acted_at="2026-09-13T09:30:00+08:00", snooze_until="2026-09-13T02:00:00Z"),
+        owner_user_id=OWNER,
+        now="2026-09-13T09:30:00+08:00",
+    )
+    assert (result.status, result.reason_code) == ("accepted", "ok"), result.detail
+    assert result.resulting_status == "snoozed"
+
+
+def test_expired_snooze_wakes_even_when_now_is_written_in_utc():
+    """暂缓到 09:00+08:00 即 01:00Z；now=03:00Z 已过期两小时，字符串比却把它读成「还没到」。"""
+    report = _report()
+    item = _select(report, {"dependency_ref": REF_A})
+    accepted = jm.validate_action(
+        item=item,
+        command=_cmd(item, "c-tz-wake", "snooze", acted_at="2026-09-13T08:00:00+08:00", snooze_until="2026-09-13T09:00:00+08:00"),
+        owner_user_id=OWNER,
+        now="2026-09-13T08:00:00+08:00",
+    )
+    assert accepted.status == "accepted"
+    events = [accepted.event.to_dict()]
+    still = jm.reduce_actions(report=report, events=events, now="2026-09-13T00:30:00Z")  # 08:30+08:00，还差半小时
+    assert still.item(item.id).status == "snoozed"
+    woke = jm.reduce_actions(report=report, events=events, now="2026-09-13T03:00:00Z")  # 11:00+08:00，已过期
+    assert woke.item(item.id).status == "open" and woke.item(item.id).management.snooze_until is None
+
+
+def test_equivalent_instants_in_different_zones_give_the_same_verdict():
+    report = _report()
+    item = _select(report, {"dependency_ref": REF_A})
+    events = [
+        jm.validate_action(
+            item=item,
+            command=_cmd(item, "c-tz-same", "snooze", acted_at="2026-09-13T08:00:00+08:00", snooze_until="2026-09-13T09:00:00+08:00"),
+            owner_user_id=OWNER,
+            now="2026-09-13T08:00:00+08:00",
+        ).event.to_dict()
+    ]
+    as_local = jm.reduce_actions(report=report, events=events, now="2026-09-13T11:00:00+08:00")
+    as_utc = jm.reduce_actions(report=report, events=events, now="2026-09-13T03:00:00Z")
+    assert as_local.item(item.id).status == as_utc.item(item.id).status == "open"
+    assert as_local.counts["items_open"] == as_utc.counts["items_open"]
+
+
+def test_same_snooze_command_replays_after_its_deadline_passed():
+    """幂等先于时钟：同 command_id 同载荷重试必须 replayed，不能因为那个 snooze_until 已到期变 rejected。"""
+    report = _report()
+    item = _select(report, {"dependency_ref": REF_A})
+    command = _cmd(item, "c-replay-after-expiry", "snooze", acted_at="2026-09-13T09:00:00+08:00", snooze_until="2026-09-13T10:00:00+08:00")
+    first = jm.validate_action(item=item, command=command, owner_user_id=OWNER, now="2026-09-13T09:00:00+08:00")
+    assert first.status == "accepted"
+    applied = jm.reduce_actions(report=report, events=[first.event.to_dict()], now="2026-09-13T09:30:00+08:00")
+    current = applied.item(item.id)
+    assert current.status == "snoozed"
+    retry = jm.validate_action(item=current, command=command, owner_user_id=OWNER, now="2026-09-13T11:00:00+08:00")
+    assert (retry.status, retry.reason_code) == ("replayed", "duplicate_command"), retry.detail
+    assert retry.resulting_management_revision == first.resulting_management_revision
+    # 到期后重放看到的是「已被时间唤醒」的真实状态，不是当初那个 snoozed
+    assert retry.resulting_status == "open"
+
+
+def test_snooze_until_without_a_usable_instant_is_rejected_not_guessed():
+    """只有日期 / 没有时区的 snooze_until 说不出绝对时刻：拒绝，而不是替用户补一个时分秒或时区。"""
+    report = _report()
+    item = _select(report, {"dependency_ref": REF_A})
+    for until in ("2026-09-20", "2026-09-13T10:00:00"):
+        res = jm.validate_action(
+            item=item,
+            command=_cmd(item, f"c-vague-{until}", "snooze", acted_at="2026-09-13T09:00:00+08:00", snooze_until=until),
+            owner_user_id=OWNER,
+            now="2026-09-13T09:00:00+08:00",
+        )
+        assert (res.status, res.reason_code) == ("rejected", "invalid_snooze_until"), (until, res.detail)

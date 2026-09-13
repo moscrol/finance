@@ -242,6 +242,37 @@ def day_of(stamp: str | None) -> str | None:
     return stamp[:10] if stamp else None
 
 
+def instant_of(stamp: str | None) -> datetime | None:
+    """ISO 时刻 → 可比较的绝对时刻；说不出绝对时刻的返回 ``None``。
+
+    时钟比较必须落在同一条时间轴上：``2026-09-13T10:00:00+08:00`` 其实早于 ``2026-09-13T03:00:00Z``，
+    按字符串比大小恰好得到相反结论（前者字典序更大）。纯日期与不带偏移的 naive 时刻各自可以指向
+    24 小时里的任何一刻，这里不替调用方假设时区——假设错了就会提前唤醒或永不唤醒——返回 ``None``，
+    由调用点按各自语义 fail closed。
+    """
+    if not stamp:
+        return None
+    raw = stamp.strip()
+    if len(raw) == 10:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else None
+
+
+def stamp_grade(stamp: str | None) -> str:
+    """记录时刻的实际精度 → pit 档位（spec 01 §4「日期粒度降级，不截时分秒冒充严格回放」）。
+
+    只有带时区的完整时刻能支撑 strict 回放；纯日期与 naive 时刻都只证明「哪一天知道的」，
+    落 ``trade_date_only``。「字段非空」不是精度，不能据此升档。
+    """
+    if not stamp:
+        return "unverifiable"
+    return "strict" if instant_of(stamp) is not None else "trade_date_only"
+
+
 def validate_ref(value: Any, *, owner_user_id: str, where: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise MaintenanceContractError("invalid_ref", where, "引用缺失")
@@ -1264,6 +1295,7 @@ __all__ = [
     "ObjectRef",
     "canonical_json",
     "day_of",
+    "instant_of",
     "parse_binding",
     "parse_command",
     "parse_condition",
@@ -1278,6 +1310,7 @@ __all__ = [
     "parse_report",
     "sha256_hex",
     "short_hash",
+    "stamp_grade",
     "validate_date",
     "validate_owner",
     "validate_ref",

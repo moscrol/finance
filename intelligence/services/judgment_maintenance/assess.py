@@ -37,6 +37,7 @@ from intelligence.services.judgment_maintenance.contracts import (
     parse_policy,
     sha256_hex,
     short_hash,
+    stamp_grade,
     validate_date,
     validate_owner,
     validate_stamp,
@@ -74,7 +75,7 @@ def _as_list(value: Any, where: str) -> list[Any]:
 class _Placed:
     version: EvidenceVersion
     known_day: str  # 系统何时知道（recorded_at 的日期）；没有就退到 valid_from
-    knowledge_grade: str  # strict：有 recorded_at；trade_date_only：只按交易日放置
+    knowledge_grade: str  # strict：recorded_at 是带时区的完整时刻；trade_date_only：只知道哪一天
 
 
 def _place(versions: list[EvidenceVersion], *, checked_at: str) -> tuple[dict[str, list[_Placed]], list[Gap]]:
@@ -82,7 +83,8 @@ def _place(versions: list[EvidenceVersion], *, checked_at: str) -> tuple[dict[st
     gaps: list[Gap] = []
     for v in versions:
         if v.recorded_at:
-            placed = _Placed(v, day_of(v.recorded_at) or "", "strict")
+            # 档位按 recorded_at 的实际精度算：纯日期 / 无时区的时刻只到 trade_date_only（spec 01 §4）。
+            placed = _Placed(v, day_of(v.recorded_at) or "", stamp_grade(v.recorded_at))
         elif v.valid_from:
             placed = _Placed(v, v.valid_from, "trade_date_only")
         else:
@@ -148,6 +150,14 @@ def _state_at(root_ref: str, baseline_hash: str | None, chain_refs: list[str], b
     placed = [p for r in chain_refs for p in by_ref.get(r, []) if p.known_day <= day]
     if not placed:
         return _State("unresolved", None)
+    # 显式更正一旦在 as_of 生效，被替代的那个 ref 就永久退场：后继自己再失效也不能把它复活成有效依据，
+    # 否则「来源已被撤回」会表现成「没有需要维护的问题」（spec 01 §4：更正链断裂为 gap，不默认回退祖先）。
+    # 只认已经生效的更正——后继若在 as_of 之后才成立，当天仍该看旧版本。
+    retired_refs = {
+        p.version.supersedes_ref
+        for p in placed
+        if p.version.supersedes_ref and (p.version.valid_from or p.known_day) <= as_of
+    }
     live: list[_Placed] = []
     ended: list[_Placed] = []
     for p in placed:
@@ -160,6 +170,9 @@ def _state_at(root_ref: str, baseline_hash: str | None, chain_refs: list[str], b
             continue  # as_of 那天还不成立
         if v.valid_to and v.valid_to < as_of:
             ended.append(p)
+            continue
+        if v.ref in retired_refs:
+            ended.append(p)  # 已被显式更正：留在 ended 里只为让「整条链都没了」时还能指出最后一版是什么
             continue
         live.append(p)
     if not live:

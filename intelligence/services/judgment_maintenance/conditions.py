@@ -20,6 +20,7 @@ from intelligence.services.judgment_maintenance.contracts import (
     Gap,
     MaintenanceContractError,
     day_of,
+    stamp_grade,
     weakest_pit,
 )
 
@@ -173,7 +174,9 @@ def evaluate_condition(
                     condition_ref=cond.condition_id,
                 )
             )
-        grades.append("strict" if obs.recorded_at else "trade_date_only")
+        # 与证据版本同一把尺子：观测的 recorded_at 也按实际精度定档，纯日期不冒充严格回放。
+        # 完全没有 recorded_at 时仍按交易日放置（as_of 本身可信），维持既有的 trade_date_only。
+        grades.append(stamp_grade(obs.recorded_at) if obs.recorded_at else "trade_date_only")
         readings.append(
             PredicateReading(
                 **base,

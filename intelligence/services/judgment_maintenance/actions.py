@@ -21,6 +21,7 @@ from intelligence.services.judgment_maintenance.contracts import (
     MaintenanceItem,
     MaintenanceReport,
     ManagementEvent,
+    instant_of,
     parse_command,
     parse_event,
     parse_item,
@@ -59,10 +60,30 @@ class Outcome:
         return {"event_id": self.event_id, "item_id": self.item_id, "outcome": self.outcome, "reason_code": self.reason_code, "detail": self.detail}
 
 
+def _deadline_reached(deadline: str | None, reference: str) -> bool:
+    """``deadline`` 是否已被 ``reference`` 这一刻越过——按绝对时刻比，不按 ISO 字符串比。
+
+    ``10:00+08:00`` 的字典序大于 ``03:00Z``，实际却早 5 小时；两种写法必须给同一个答案。
+    任一侧说不出绝对时刻（纯日期、无偏移的 naive 时刻）就返回 False：证不出「已到期」时不解除，
+    未知不能变成「已经解除」（总合同 §5 第 5 条）。
+    """
+    end, ref = instant_of(deadline), instant_of(reference)
+    if end is None or ref is None:
+        return False
+    return end <= ref
+
+
+def _is_future(stamp: str | None, reference: str) -> bool:
+    """``stamp`` 是否确实晚于 ``reference``；说不出绝对时刻的一律 False（不替用户猜时分秒或时区）。"""
+    later, ref = instant_of(stamp), instant_of(reference)
+    if later is None or ref is None:
+        return False
+    return later > ref
+
+
 def wake_if_expired(item: MaintenanceItem, now: str) -> MaintenanceItem:
     """snooze 到期 → 同 id 恢复为 open；这是时间推导出的状态，不算管理动作，不动 revision。"""
-    until = item.management.snooze_until
-    if item.status == "snoozed" and until is not None and until <= now:
+    if item.status == "snoozed" and _deadline_reached(item.management.snooze_until, now):
         return replace(item, status="open", management=replace(item.management, snooze_until=None))
     return item
 
@@ -124,8 +145,8 @@ def apply_event(item: MaintenanceItem, event: ManagementEvent, now: str) -> tupl
         # 只比动作时刻：事件是过去某一刻被接受的，重放台账时「现在」早已越过 snooze_until 也不能改判它；
         # 到期恢复由 wake_if_expired 按当前时刻推导。「现在就已过期」的拦截在 validate_action。
         until = event.payload.get("snooze_until")
-        if not isinstance(until, str) or not until or until <= event.at:
-            return keep("rejected", "invalid_snooze_until", "snooze_until 必须晚于动作时刻")
+        if not isinstance(until, str) or not until or _deadline_reached(until, event.at) or instant_of(until) is None:
+            return keep("rejected", "invalid_snooze_until", "snooze_until 必须是晚于动作时刻的明确时刻（带时区）")
         management = replace(management, snooze_until=until)
     elif event.kind == "claimed":
         management = replace(management, claimed_at=event.at)
@@ -201,9 +222,24 @@ def validate_action(*, item: Any, command: Any, owner_user_id: str, now: str) ->
         return ActionResult("rejected", code, None, cmd.command_id, None, None, None, detail="维护项不可用于本用户" if code == "forbidden" else str(exc))
     if cmd.item_id != target.id:
         return ActionResult("rejected", "forbidden", None, cmd.command_id, None, None, None, detail="命令指向的维护项与给定项不一致")
-    if cmd.action == "snooze" and (cmd.snooze_until is None or cmd.snooze_until <= now_stamp):
-        return ActionResult("rejected", "invalid_snooze_until", target.id, cmd.command_id, None, None, None, detail="snooze_until 必须晚于当前时刻")
     event = event_from_command(cmd)
+    # 幂等先于时钟：同 command_id 同载荷的重试必须返回原结果（spec 01 §5「重复同载荷同结果」）。
+    # 先查 snooze_until 会让同一条已成功的命令在到期后重试变成 rejected——结果随时间改变，幂等键就废了。
+    replaying = any(
+        c.get("command_id") == cmd.command_id and c.get("payload_digest") == event.payload_digest
+        for c in target.management.applied_commands
+    )
+    if not replaying and cmd.action == "snooze" and (cmd.snooze_until is None or not _is_future(cmd.snooze_until, now_stamp)):
+        return ActionResult(
+            "rejected",
+            "invalid_snooze_until",
+            target.id,
+            cmd.command_id,
+            None,
+            None,
+            None,
+            detail="snooze_until 必须是晚于当前时刻的明确时刻（带时区；纯日期或无偏移的时刻说不出到期时点）",
+        )
     new_item, outcome = apply_event(target, event, now_stamp)
     status = _OUTCOME_TO_STATUS[outcome.outcome]
     if outcome.outcome == "replayed":
