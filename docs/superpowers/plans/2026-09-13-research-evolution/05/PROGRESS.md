@@ -134,3 +134,10 @@ QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结�
 - 修复 `2f0d3410`：PV6 核销费用缺口只认任务级成本事实（attempts 或有锚点的耗时），终态证明任务状态不证明费用，原流程「无 run 但有人工计时」通路保留；PV7 无已完成声明窗时按激活时刻推导，推导窗成熟即取得资格，与是否存在未来声明窗无关，后续窗仍只增缺测标签。
 - 验证：新增 2 条回归测试先红后绿（PV6 前端/服务端两种放弃输入；PV7 追加未来窗前后分母/比率/判据不变）；模块 112 passed；全量 9652 passed / 77 skipped / 2 xfailed（最终 SHA 干净树 @2f0d3410，回应 QC 对上轮脏树收据的意见）；ruff 干净；QC 第三轮探针 05 组复跑——PV6 两源 full_cost 仍 unknown、known 仍 CNY 0.46、缺口 2；PV7 分母保持 q1..q6、rate 0.5、verdict unknown；安全断言 test_new_boundaries.py 由 5 failed 转 5 passed；第二轮 probe_05_extra.py 复跑不回归。
 - 06 联测请用 `2f0d3410`。
+
+## 2026-09-13 QC 第四轮（PV8）
+
+- 独立复核（`~/.finance-runtime/reviews/research-evolution-round4-qc-20260913/`）：本轨占 1 项：PV8[P1]（PV6 相邻遗漏——辅助任务只有开始/放弃时间戳、无 run/用量/费用事实时，计时证据仍核销其模型成本，完整成本 unknown→known）。
+- 修复 `197133f2`：人工计时覆盖与辅助服务费用覆盖分开——核销辅助任务成本只认费用事实（attempts 非空，或 cost_items 里 selected 且 task_id 匹配的条目），否则列 `assisted_task_without_usage_or_cost_evidence`；原流程任务按设计不用模型，计时即覆盖（PV4 合法通路保留）；同任务被后续收据补上费用事实时解除阻断。
+- 验证：新增回归测试先红后绿（计时仍被测量 end_to_end=20、attempts=[]、cost_items 空，负控同测）；模块 113 passed；全量 9653 passed / 77 skipped / 2 xfailed（干净树 @197133f2；首跑 1 failed 为已知负载抖动项 tests/test_pipeline_p0.py::test_mainline_empty_theme_list_is_failed_without_writing，重跑与单跑均过）；ruff 干净；QC 第四轮探针 05 组 before/after 均 unknown、known 仍 CNY 0.46，安全断言 4 passed；第一/二/三轮归档探针 05 组复跑不回归（PV7 分母 q1..q6、rate 0.5、verdict unknown 保持）。
+- 06 联测请用 `197133f2`。
