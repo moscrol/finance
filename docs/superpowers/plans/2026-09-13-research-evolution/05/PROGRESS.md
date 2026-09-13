@@ -118,3 +118,12 @@
 - **没有**把队列级 `reuse_observed` / `recheck_*` 也挂上同意门。评审 PV1 针对的是配对测量与效果判据；队列级事件的同意门会把 PV3 的分母重新打散（缺同意记录的人被删掉），与 PV3 的验收钉冲突。要做得由 06 在写入端保证队列同意齐全，届时另开一条。
 - **没有**把「有收据但没有任何费用条目的任务」判成缺口：原流程任务本来就没有模型费用，它的成本是人工工时（走 `timing`，不在 `COST_COMPONENTS` 里），一刀切会造假缺口。
 - 三态不变：`engineering_complete`；`product_verified` 仍需 06；`field_evidence` 仍 pending。
+
+## 2026-09-13 QC 第二轮（扩大边界复审）
+
+QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结论：原 13 项固定反例转绿，扩大边界确证 8 项，本轨 2 项 P1。决策展开见 `docs/handoffs/2026-09-13-product-value-05-qc-round2.md`。
+
+- **PV4[P1] 空壳收据核销缺口**：`measured_task_ids` 只查 task_id 存在性。修复：`_receipt_task_is_measured` 逐任务核验（终态 / 尝试 / 耗时至少观测一样），「无收据」与「收据在但没测」（`measurement_receipt_without_task_evidence`）分列。
+- **PV5[P1] 后续窗口收缩分母**：分母取每人最晚 window.end，后续未结束窗把已完成观察周者移出分母（2/6 fail → 2/3 pass，本轮新回归）。修复：资格 = 任一完整窗（`completed_window_end`），后续窗另列 `later_observation_window_incomplete`。
+- 修复提交 **`24bce5e8`**；新增 2 条回归测试先红后绿；本轨 110 passed；全仓 9650 passed / 77 skipped / 2 xfailed；ruff 干净；QC 探针 `probe_05_extra.py` 复跑双绿。
+- **06 联测请用 `24bce5e8`**。口径纠偏：上轮「13 项已修复」实为「原 13 项固定反例转绿」；「41 条测试先红后绿」不准确（至少 `test_consented_pairs_still_reach_a_verdict` 修前修后都绿）。
