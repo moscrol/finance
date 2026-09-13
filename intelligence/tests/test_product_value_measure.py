@@ -372,3 +372,26 @@ def test_owner_is_taken_from_events_and_hash_a_matches_reader() -> None:
     receipt = measure_pair(events, PROTOCOL, reader)
     assert receipt["owner_user_id"] == OWNER
     assert reader.resolve_run(OWNER, "r-cp-1")["artifacts"] == {"art-cp-1": HASH_A}
+
+
+# ------------------------------------------------- 返修 PV1：缺同意不得当作已同意 -----
+
+
+def test_missing_consent_record_blocks_blind_review_quality() -> None:
+    """评审 PV1：没有任何同意记录时，盲审既不能进质量读数，也不能让配对可比。
+
+    原实现只在「有 scopes 但不含 blind_review」时排除评审，未知同意范围被当成已同意，
+    于是缺同意的配对照样算出 assisted_not_lower，汇总层据此判 pass。
+    """
+    events, reader = _scenario("complete_pair")
+    receipt = measure_pair(_without(events, "e-cp-consent"), PROTOCOL, reader)
+    assert "consent_unknown:p01" in receipt["limitations"]
+    for condition in (C.CONDITION_ORIGINAL, C.CONDITION_ASSISTED):
+        assert receipt["tasks"][condition]["quality"] == {
+            "status": "unknown",
+            "reason": "blind_review_consent_unknown",
+        }
+    assert {"id": "e-cp-a-review", "reason": "blind_review_consent_unknown", "rule_version": "1"} in receipt["exclusions"]
+    assert receipt["quality"]["assisted_not_lower"] is None
+    assert receipt["quality"]["severe_error_count_assisted"] is None
+    assert receipt["status"] == C.RECEIPT_INCOMPLETE

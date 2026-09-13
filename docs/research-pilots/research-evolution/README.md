@@ -21,7 +21,7 @@
 |---|---|---|
 | 1 | 取得授权后招募 3–10 人；登记同意与常用工具；完成第一类配对任务；首次配置时间另计 | `consent_changed`、`assignment_created`、原流程 `time_interval(manual_*)`、辅助流程 S 事件 |
 | 2 | 完成第二类配对任务；独立盲审两周产物；收齐改错 / 帮助 / 等待 / 失败全链 | `quality_reviewed`、`manual_assistance`、`run_finished(status=failed)` 也要留 |
-| 3 | 提供到期回检入口，观察无人工催促的主动复用；系统提醒与人工提醒分别标记 | `reuse_observed`（reminder_refs.kind = system / manual / unknown）、`recheck_viewed / recheck_completed` |
+| 3 | 提供到期回检入口，观察无人工催促的主动复用；系统提醒与人工提醒分别标记。`reuse_observed` 要覆盖**整个已激活队列**（没复用的人也发，否则他们会被列为缺测、判据一直 unknown） | `reuse_observed`（reminder_refs.kind = system / manual / unknown）、`recheck_viewed / recheck_completed` |
 | 4 | 回检与访谈；核对费用与遗漏；按冻结判据出总结；付款 / 续费只登记已授权且实际发生的 | `cost_recorded`、`payment_recorded(manual_import)`、`PilotSummary` |
 
 ## 数据怎么流

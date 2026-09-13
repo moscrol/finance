@@ -11,8 +11,9 @@ synthetic 输入永远进不了真人分母。它们单独汇成 ``synthetic_che
 ``counts_toward_field=false``，用来验收工程逻辑（同一套判据代码跑一遍），不用来
 宣布效果。
 
-判据 ``unknown`` 分两种：``sample``（样本不足，继续收集）与 ``gap``（漏审、缺同意、
-缺到期清单，属于数据缺口，需要补记录而不是等时间）。``field_status`` 靠这个区分
+判据 ``unknown`` 分三种：``sample``（样本不足，继续收集）、``gap``（漏审、缺到期清单、
+缺复用观察，属于数据缺口，需要补记录而不是等时间）与 ``consent``（缺同意，要补授权，
+补不到就永远不能进效果判据）。后两者同属缺口家族，``field_status`` 靠它区分
 ``collecting`` 与 ``inconclusive``。
 """
 
@@ -42,7 +43,11 @@ from intelligence.services.product_value.protocol import (
 
 UNKNOWN_SAMPLE = "sample"
 UNKNOWN_GAP = "gap"
+UNKNOWN_CONSENT = "consent"
 UNKNOWN_UNSTARTED = "unstarted"
+
+# 缺口家族：不是「再等等就有样本」，而是缺记录 / 缺授权，要补数据才能判。
+_GAP_KINDS: frozenset[str] = frozenset({UNKNOWN_GAP, UNKNOWN_CONSENT})
 
 # 这些判据的真实读数决定 field_status；成本与续费另有归属。
 _EFFECT_CRITERIA: tuple[str, ...] = ("completion_quality", "time_saving", "proactive_reuse", "recheck")
@@ -113,6 +118,17 @@ def _resolve_as_of(value: Any, proto: Mapping[str, Any]) -> datetime:
     if isinstance(value, str) and len(value.strip()) == 10 or value is None:
         parsed = parsed + timedelta(days=1) - timedelta(seconds=1)
     return parsed
+
+
+def _observation_window_end(activated_at: datetime, weeks: int) -> datetime:
+    """激活周之后第 ``weeks`` 个自然周的结束时刻（ISO 周一起算）。
+
+    spec §4 的主动复用是「另一周本人启动核心任务」，所以观察单位是自然周而不是 N 天：
+    激活当周不算，要等后面 ``weeks`` 个整周走完，这个人才算「进入完整观察周」。
+    参与者自带 ``observation_window.end`` 时以声明为准，这里只补没有声明的人。
+    """
+    monday = (activated_at - timedelta(days=activated_at.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    return monday + timedelta(days=7 * (max(weeks, 1) + 1)) - timedelta(seconds=1)
 
 
 def _is_synthetic_event(event: Mapping[str, Any]) -> bool:
@@ -237,6 +253,15 @@ def _compute_block(
     tasks = _task_universe(receipts, assignments, cases)
     usable = [r for r in receipts if r.get("status") != C.RECEIPT_INVALID]
     invalid_receipts = sorted(str(r.get("receipt_id")) for r in receipts if r.get("status") == C.RECEIPT_INVALID)
+    # 缺同意的配对：measure 已标 incomplete，但只排除 invalid 不够——没有授权的样本
+    # 不能支撑效果判据（spec §3「缺同意时判据为 unknown」）。
+    consent_gap_pairs = sorted(
+        {
+            str(r.get("case_pair_id"))
+            for r in usable
+            if any(str(lim).startswith("consent_unknown:") for lim in (r.get("limitations") or ()))
+        }
+    )
 
     # ---- 完成率：分母是全部已分配任务，含失败 / 放弃 / 未测 ----
     rates: dict[str, float | None] = {}
@@ -276,7 +301,14 @@ def _compute_block(
     )
     pairs_reviewed = [r for r in usable if (r.get("quality") or {}).get("assisted_not_lower") is not None]
     not_lower = [str(r["case_pair_id"]) for r in pairs_reviewed if r["quality"]["assisted_not_lower"]]
-    pairs_unreviewed = [{"id": str(r["case_pair_id"]), "reason": "review_missing"} for r in usable if (r.get("quality") or {}).get("assisted_not_lower") is None]
+    pairs_unreviewed = [
+        {
+            "id": str(r["case_pair_id"]),
+            "reason": "consent_unknown" if str(r["case_pair_id"]) in consent_gap_pairs else "review_missing",
+        }
+        for r in usable
+        if (r.get("quality") or {}).get("assisted_not_lower") is None
+    ]
     unblinded = [str(r["case_pair_id"]) for r in pairs_reviewed if "unblinded_review" in (r.get("limitations") or ())]
     metrics.append(
         _metric(
@@ -293,6 +325,8 @@ def _compute_block(
     original_tasks = [t for t, row in tasks.items() if row["condition"] == C.CONDITION_ORIGINAL]
     if not assisted_tasks or not original_tasks:
         results.append(_criterion("completion_quality", C.VERDICT_UNKNOWN, "no_assigned_tasks", metric_ids=["assisted_completion_rate", "severe_error_count_assisted", "pair_quality_not_lower_count"], unknown_kind=UNKNOWN_SAMPLE))
+    elif consent_gap_pairs:
+        results.append(_criterion("completion_quality", C.VERDICT_UNKNOWN, "consent_unknown", metric_ids=["severe_error_count_assisted", "pair_quality_not_lower_count"], unknown_kind=UNKNOWN_CONSENT))
     elif unreviewed_assisted or pairs_unreviewed:
         results.append(_criterion("completion_quality", C.VERDICT_UNKNOWN, "review_missing", metric_ids=["severe_error_count_assisted", "pair_quality_not_lower_count"], unknown_kind=UNKNOWN_GAP))
     else:
@@ -336,6 +370,7 @@ def _compute_block(
             numerator_ids=[str(r["case_pair_id"]) for r in ts_receipts],
             denominator_ids=[str(r["case_pair_id"]) for r in ts_receipts] + zero_pairs,
             exclusions=[{"id": pid, "reason": "original_time_zero", "rule_version": rule_versions.get("original_time_zero", "")} for pid in zero_pairs],
+            unknown=[{"id": pid, "reason": "consent_unknown"} for pid in consent_gap_pairs],
             coverage={
                 "participants": len(participants),
                 "complete_pairs": len(ts_receipts),
@@ -347,6 +382,8 @@ def _compute_block(
     )
     tsc = crit["time_saving"]
     missing: list[str] = []
+    if consent_gap_pairs:
+        missing.append("consent_unknown")
     if len(participants) < int(tsc.get("min_participants", 3)):
         missing.append("participants_below_min")
     if len(ts_receipts) < int(tsc.get("min_complete_pairs", 6)):
@@ -355,23 +392,34 @@ def _compute_block(
         missing.append("category_missing")
     threshold = {"min_participants": tsc.get("min_participants"), "min_complete_pairs": tsc.get("min_complete_pairs"), "median_saving_min": tsc.get("median_saving_min")}
     if missing:
-        results.append(_criterion("time_saving", C.VERDICT_UNKNOWN, ";".join(missing), metric_ids=["time_saving_median"], threshold=threshold, unknown_kind=UNKNOWN_SAMPLE))
+        kind = UNKNOWN_CONSENT if "consent_unknown" in missing else UNKNOWN_SAMPLE
+        results.append(_criterion("time_saving", C.VERDICT_UNKNOWN, ";".join(missing), metric_ids=["time_saving_median"], threshold=threshold, unknown_kind=kind))
     else:
         verdict = C.VERDICT_PASS if (med or 0.0) >= float(tsc.get("median_saving_min", 0.2)) else C.VERDICT_FAIL
         results.append(_criterion("time_saving", verdict, "median_vs_threshold", metric_ids=["time_saving_median"], threshold=threshold))
 
     # ---- 主动复用 ----
+    # 分母是「激活后进入完整观察周」的人（spec §4），不是「有复用事件」的人：只从
+    # reuse_observed 建行再当分母，没复用的人整体消失，比率必然偏高（评审 PV3）。
     started_at: dict[str, datetime] = {}
+    activation: dict[str, datetime] = {}
     for event in events:
-        if event.get("event_type") == "task_started" and event.get("source_channel") == C.SOURCE_SERVER and event.get("task_id"):
-            stamp = event_time(event)
+        if event.get("event_type") != "task_started" or event.get("source_channel") != C.SOURCE_SERVER:
+            continue
+        stamp = event_time(event)
+        if event.get("task_id"):
             key = str(event["task_id"])
             if key not in started_at or stamp < started_at[key]:
                 started_at[key] = stamp
+        actor = str(event.get("participant_id") or "")
+        if actor and (actor not in activation or stamp < activation[actor]):
+            activation[actor] = stamp
     prc = crit["proactive_reuse"]
     quiet = timedelta(hours=float(prc.get("manual_reminder_quiet_hours", 72)))
+    observation_weeks = int(prc.get("observation_weeks", 1))
     reuse_rows: dict[str, dict[str, Any]] = {}
-    window_incomplete: list[str] = []
+    declared_window_end: dict[str, datetime] = {}
+    window_unknown: list[str] = []
     reminder_counts = {"system": 0, "manual": 0, "unknown": 0}
     for event in events:
         if event.get("event_type") != "reuse_observed" or event.get("source_channel") != C.SOURCE_SERVER:
@@ -380,10 +428,18 @@ def _compute_block(
         if not participant:
             continue
         payload = event["payload"]
+        # 复用记录自带的激活时刻同样是激活证据（没有单独 task_started 时用它）。
+        declared_activation = parse_ts(payload.get("activation_at"))
+        if declared_activation is not None and (participant not in activation or declared_activation < activation[participant]):
+            activation[participant] = declared_activation
         window = payload.get("observation_window") or {}
         window_end = parse_ts(window.get("end"))
-        if window_end is None or window_end > as_of:
-            window_incomplete.append(participant)
+        if window_end is None:
+            window_unknown.append(participant)
+            continue
+        if participant not in declared_window_end or window_end > declared_window_end[participant]:
+            declared_window_end[participant] = window_end
+        if window_end > as_of:
             continue
         first_start = started_at.get(str(payload.get("first_task_id"))) or parse_ts(payload.get("activation_at"))
         new_start = started_at.get(str(payload.get("new_task_id"))) or parse_ts(payload.get("new_task_started_at"))
@@ -407,8 +463,29 @@ def _compute_block(
             row["proactive"] = True
         else:
             row["reasons"] = sorted(set(row["reasons"]) | set(reasons))
-    reuse_denominator = sorted(reuse_rows)
-    reuse_numerator = [p for p in reuse_denominator if reuse_rows[p]["proactive"]]
+    reuse_denominator: list[str] = []
+    window_incomplete: list[str] = []
+    activation_unknown: list[str] = sorted(set(window_unknown))
+    for participant in sorted(set(activation) | set(reuse_rows)):
+        activated_at = activation.get(participant)
+        window_end = declared_window_end.get(participant)
+        if window_end is None and activated_at is not None:
+            window_end = _observation_window_end(activated_at, observation_weeks)
+        if activated_at is None or window_end is None:
+            if participant not in activation_unknown:
+                activation_unknown.append(participant)
+        elif window_end > as_of:
+            window_incomplete.append(participant)
+        else:
+            reuse_denominator.append(participant)
+    reuse_numerator = [p for p in reuse_denominator if reuse_rows.get(p, {}).get("proactive")]
+    # 分母里没有复用观察记录的人：留在分母（比率不能被抬高），同时逐条列为缺测。
+    observation_missing = [p for p in reuse_denominator if p not in reuse_rows]
+    reuse_unknown = (
+        [{"id": p, "reason": "observation_window_incomplete"} for p in sorted(set(window_incomplete))]
+        + [{"id": p, "reason": "activation_unknown"} for p in sorted(set(activation_unknown))]
+        + [{"id": p, "reason": "reuse_observation_missing"} for p in observation_missing]
+    )
     metrics.append(
         _metric(
             "proactive_reuse_rate",
@@ -416,16 +493,23 @@ def _compute_block(
             "ratio",
             numerator_ids=reuse_numerator,
             denominator_ids=reuse_denominator,
-            unknown=[{"id": p, "reason": "observation_window_incomplete"} for p in sorted(set(window_incomplete))],
+            unknown=reuse_unknown,
             detail={
                 "system_reminder_count": reminder_counts.get("system", 0),
                 "manual_reminder_count": reminder_counts.get("manual", 0),
                 "unknown_reminder_count": reminder_counts.get("unknown", 0),
-                "not_proactive_reasons": {p: reuse_rows[p]["reasons"] for p in reuse_denominator if not reuse_rows[p]["proactive"]},
+                "observation_weeks": observation_weeks,
+                "not_proactive_reasons": {
+                    p: (reuse_rows[p]["reasons"] if p in reuse_rows else ["reuse_observation_missing"])
+                    for p in reuse_denominator
+                    if not reuse_rows.get(p, {}).get("proactive")
+                },
             },
         )
     )
-    if len(reuse_denominator) < int(prc.get("min_participants", 3)):
+    if observation_missing:
+        results.append(_criterion("proactive_reuse", C.VERDICT_UNKNOWN, "reuse_observation_missing", metric_ids=["proactive_reuse_rate"], threshold={"min_participants": prc.get("min_participants"), "min_rate": prc.get("min_rate")}, unknown_kind=UNKNOWN_GAP))
+    elif len(reuse_denominator) < int(prc.get("min_participants", 3)):
         results.append(_criterion("proactive_reuse", C.VERDICT_UNKNOWN, "participants_below_min", metric_ids=["proactive_reuse_rate"], threshold={"min_participants": prc.get("min_participants"), "min_rate": prc.get("min_rate")}, unknown_kind=UNKNOWN_SAMPLE))
     else:
         rate = _ratio(len(reuse_numerator), len(reuse_denominator)) or 0.0
@@ -566,6 +650,54 @@ def _compute_block(
             estimated[str(item.get("currency"))] = estimated.get(str(item.get("currency")), Decimal("0")) + Decimal(str(item.get("amount")))
         else:
             unknown_components.append({"component": item.get("component"), "cost_id": item.get("cost_id"), "run_id": None, "attempt_id": None, "quantity": item.get("quantity"), "unit": item.get("unit"), "reason": "amount_unknown", "receipt_id": None})
+    # 完整性不能只看收据主动列出的 unknown：那只覆盖「已经在算的那几笔」。缺口有两种，
+    # 都是「没观察到 ≠ 花了 0 元」（spec §3、§4，评审 PV2）——
+    #   1) 已分配却没有任何测量收据的任务，它的费用无从谈起；
+    #   2) 合同要求覆盖、但整份试点一条账都没有的费用类别。
+    not_applicable = sorted({str(x) for x in (crit["cost"].get("not_applicable_components") or ())})
+    if receipts or pilot_cost_events or tasks:
+        measured_task_ids = {
+            str(task.get("task_id"))
+            for receipt in receipts
+            for task in (receipt.get("tasks") or {}).values()
+            if task.get("task_id")
+        }
+        for task_id in sorted(tasks):
+            if task_id in measured_task_ids:
+                continue
+            unknown_components.append(
+                {
+                    "component": "unmeasured_task",
+                    "cost_id": f"unmeasured_task:{task_id}",
+                    "run_id": None,
+                    "attempt_id": None,
+                    "quantity": None,
+                    "unit": None,
+                    "reason": "no_measurement_receipt_for_assigned_task",
+                    "receipt_id": None,
+                }
+            )
+        observed_components = {
+            str(item.get("component"))
+            for receipt in receipts
+            for item in (receipt.get("cost_items") or ())
+            if item.get("selected")
+        }
+        observed_components |= {str(e["payload"]["cost_item"].get("component")) for e in pilot_cost_events}
+        accounted = observed_components | {str(c.get("component")) for c in unknown_components} | set(not_applicable)
+        for component in sorted(C.COST_COMPONENTS - accounted):
+            unknown_components.append(
+                {
+                    "component": component,
+                    "cost_id": f"cost_category:{component}",
+                    "run_id": None,
+                    "attempt_id": None,
+                    "quantity": None,
+                    "unit": None,
+                    "reason": "cost_category_unobserved",
+                    "receipt_id": None,
+                }
+            )
     if not receipts and not pilot_cost_events:
         full_cost_status = "unknown"
         full_cost_reason = "no_cost_evidence"
@@ -603,6 +735,7 @@ def _compute_block(
                 "known_cost_by_currency": {k: float(v) for k, v in sorted(known.items())},
                 "estimated_cost_by_currency": {k: float(v) for k, v in sorted(estimated.items())},
                 "unknown_component_count": len(unknown_components),
+                "not_applicable_components": not_applicable,
                 "manual_rescue_minutes": float(manual_minutes),
                 "full_cost_status": full_cost_status,
                 "full_cost_reason": full_cost_reason,
@@ -728,7 +861,7 @@ def summarize(
         limitations.add("real_participants_absent")
     elif any(r["verdict"] in {C.VERDICT_PASS, C.VERDICT_FAIL, C.VERDICT_OBSERVED_ONLY} for r in effect):
         field_status = C.FIELD_OBSERVED
-    elif any(r.get("unknown_kind") == UNKNOWN_GAP for r in effect):
+    elif any(r.get("unknown_kind") in _GAP_KINDS for r in effect):
         field_status = C.FIELD_INCONCLUSIVE
     else:
         field_status = C.FIELD_COLLECTING
@@ -777,4 +910,4 @@ def summarize(
     return summary
 
 
-__all__ = ["UNKNOWN_GAP", "UNKNOWN_SAMPLE", "UNKNOWN_UNSTARTED", "summarize"]
+__all__ = ["UNKNOWN_CONSENT", "UNKNOWN_GAP", "UNKNOWN_SAMPLE", "UNKNOWN_UNSTARTED", "summarize"]

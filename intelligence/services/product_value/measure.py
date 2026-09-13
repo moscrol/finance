@@ -431,16 +431,21 @@ def _quality_for_task(
     rule_versions: Mapping[str, str],
 ) -> dict[str, Any]:
     reviews: list[Mapping[str, Any]] = []
+    consent_unknown = False
     for event in task_events:
         if event["event_type"] != "quality_reviewed" or event.get("source_channel") != C.SOURCE_MANUAL:
             continue
         if participant is not None:
             scopes = _scopes_at(consent, participant, event_time(event))
-            if scopes is not None and "blind_review" not in scopes:
+            # 没有同意记录 ≠ 已同意盲审。缺记录与明确未授权同样不能进质量读数，
+            # 否则「缺同意」只留一条 limitation，判据照常算出 pass（评审 PV1）。
+            if scopes is None or "blind_review" not in scopes:
+                reason = "blind_review_consent_unknown" if scopes is None else "blind_review_consent_missing"
+                consent_unknown = consent_unknown or scopes is None
                 exclusions.append(
                     {
                         "id": str(event["event_id"]),
-                        "reason": "blind_review_consent_missing",
+                        "reason": reason,
                         "rule_version": rule_versions.get("consent_scope", ""),
                     }
                 )
@@ -448,7 +453,10 @@ def _quality_for_task(
         reviews.append(event)
     if not reviews:
         limitations.add(f"quality_unknown:{task_id}")
-        return {"status": "unknown", "reason": "no_independent_review"}
+        return {
+            "status": "unknown",
+            "reason": "blind_review_consent_unknown" if consent_unknown else "no_independent_review",
+        }
     adjudicated = [r for r in reviews if r["payload"].get("adjudication_ref")]
     pool = adjudicated or reviews
     chosen = sorted(pool, key=lambda e: (event_time(e), str(e["event_id"])))[-1]

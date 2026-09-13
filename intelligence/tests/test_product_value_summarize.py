@@ -11,7 +11,13 @@ from intelligence.services.product_value import contracts as C
 from intelligence.services.product_value.evidence import InMemoryEvidenceReader
 from intelligence.services.product_value.measure import measure_pair
 from intelligence.services.product_value.protocol import freeze_protocol
-from intelligence.services.product_value.summarize import UNKNOWN_GAP, UNKNOWN_SAMPLE, UNKNOWN_UNSTARTED, summarize
+from intelligence.services.product_value.summarize import (
+    UNKNOWN_CONSENT,
+    UNKNOWN_GAP,
+    UNKNOWN_SAMPLE,
+    UNKNOWN_UNSTARTED,
+    summarize,
+)
 from intelligence.tests.product_value_fixtures import (
     PROVENANCE_SYNTHETIC,
     SOURCE_FRONTEND,
@@ -138,7 +144,13 @@ def test_synthetic_inputs_never_become_field_or_revenue() -> None:
     assert check["counts_toward_field"] is False and check["synthetic"] is True
     # 同一套判据在仿真数据上确实算出了东西——工程被验证，效果没被宣布。
     assert _metric(summary, "time_saving_median", synthetic=True)["value"] == 0.4
-    assert _criteria(summary, synthetic=True)["proactive_reuse"]["verdict"] == C.VERDICT_FAIL
+    # 复用分母是激活队列：做过配对任务的 p01–p03 也在里面，他们没有复用观察记录，
+    # 于是比率不完整 → unknown(gap)。旧期望 fail 建立在「分母只有 p04–p06」之上，
+    # 那个分母本身漏掉了没复用的人（评审 PV3）。
+    syn_reuse = _metric(summary, "proactive_reuse_rate", synthetic=True)
+    assert syn_reuse["denominator_ids"] == ["p01", "p02", "p03", "p04", "p05", "p06"]
+    assert syn_reuse["numerator_ids"] == ["p04"] and syn_reuse["value"] == 0.1667
+    assert _criteria(summary, synthetic=True)["proactive_reuse"]["verdict"] == C.VERDICT_UNKNOWN
     assert _metric(summary, "cost_full_status", synthetic=True)["detail"]["revenue_by_currency"] == {"CNY": 199.0}
     assert _criteria(summary)["recheck"]["reason"] == "no_real_inputs"
 
@@ -335,7 +347,14 @@ def test_cost_unknown_blocks_gross_margin() -> None:
     assert detail["full_cost_status"] == "unknown"
     assert detail["gross_margin"] is None and detail["gross_margin_reason"] == "cost_unknown"
     assert detail["known_cost_by_currency"] == {"CNY": 50.12}  # 0.12 + 托管 50，未知项另列不归零
-    assert detail["unknown_component_count"] == 1
+    # 有用量没费率的 c-fr-2，外加整份试点一条账都没有的 9 个费用类别（评审 PV2）。
+    # 旧期望只数收据自己列出的 1 项，等于默认「没观察到的类别 = 没花钱」。
+    unknown = {u["id"]: u["reason"] for u in _metric(summary, "cost_full_status")["unknown"]}
+    assert unknown["c-fr-2"] == "usage_without_rate"
+    assert {k for k, v in unknown.items() if v == "cost_category_unobserved"} == {
+        f"cost_category:{c}" for c in ("acquisition_allocation", "data_license", "manual_import", "manual_maintenance", "manual_rescue", "other_model", "retry", "review_model", "tool")
+    }
+    assert detail["unknown_component_count"] == 10
 
 
 def test_exposures_and_chat_volume_do_not_enter_metrics() -> None:
@@ -385,3 +404,163 @@ def test_server_channel_recheck_completed_by_participant_counts_only_once() -> N
     assert _metric(summary, "recheck_completion_rate")["numerator_ids"] == ["j-02"]
     assert summary["event_accounting"]["duplicates"] == ["e-cs-recheck-done-02"]
     assert SOURCE_SERVER == "server"
+
+
+# ------------------------------------------- 返修 PV1：缺同意必须挡住效果判据 -----
+
+
+def _six_pairs_without_consent():
+    """六对三人，删掉全部 consent_changed；其余完成 / 计时 / 盲审事件照旧。"""
+    proto = _six_pair_protocol()
+    events: list[dict] = []
+    evidence = {"runs": []}
+    for i in range(1, 7):
+        pair_events, pair_evidence = _clone_complete_pair(i, f"p1{(i - 1) % 3}", proto["protocol_hash"], provenance=IMPORTED)
+        events.extend(e for e in pair_events if e["event_type"] != "consent_changed")
+        evidence["runs"].extend(pair_evidence["runs"])
+    reader = InMemoryEvidenceReader.from_json(evidence)
+    receipts = [measure_pair([e for e in events if e.get("case_pair_id") == f"pair-x{i}"] + [e for e in events if not e.get("case_pair_id")], proto, reader) for i in range(1, 7)]
+    assignments, cohort = _split(events)
+    return proto, receipts, assignments, cohort
+
+
+def test_missing_consent_makes_quality_and_time_saving_unknown() -> None:
+    """评审 PV1：缺同意的收据只标 incomplete 是不够的，判据必须 unknown。
+
+    原实现 summarize 只排除 invalid 收据，六对三人全部缺同意时照样判 pass。
+    """
+    proto, receipts, assignments, cohort = _six_pairs_without_consent()
+    assert [r["status"] for r in receipts] == [C.RECEIPT_INCOMPLETE] * 6
+    summary = summarize(receipts, assignments, proto, cohort_events=cohort, due_rechecks=[])
+    cq, tsv = _criteria(summary)["completion_quality"], _criteria(summary)["time_saving"]
+    assert cq["verdict"] == C.VERDICT_UNKNOWN and cq["unknown_kind"] == UNKNOWN_CONSENT
+    assert "consent_unknown" in cq["reason"]
+    assert tsv["verdict"] == C.VERDICT_UNKNOWN and tsv["unknown_kind"] == UNKNOWN_CONSENT
+    assert "consent_unknown" in tsv["reason"]
+    # 受影响配对逐条列出，不静默丢弃。
+    flagged = {u["id"] for u in _metric(summary, "time_saving_median")["unknown"] if u["reason"] == "consent_unknown"}
+    assert flagged == {f"pair-x{i}" for i in range(1, 7)}
+    assert {u["id"] for u in _metric(summary, "pair_quality_not_lower_count")["unknown"]} == {f"pair-x{i}" for i in range(1, 7)}
+    assert summary["field_status"] == C.FIELD_INCONCLUSIVE
+
+
+def test_consented_pairs_still_reach_a_verdict() -> None:
+    """反向钉：同意齐全时判据照常 pass，缺同意的门不能误伤正常样本。"""
+    proto, receipts, assignments, cohort = _six_pairs(provenance=IMPORTED)
+    summary = summarize(receipts, assignments, proto, cohort_events=cohort, due_rechecks=[])
+    assert _criteria(summary)["completion_quality"]["verdict"] == C.VERDICT_PASS
+    assert _criteria(summary)["time_saving"]["verdict"] == C.VERDICT_PASS
+
+
+# ------------------------------------- 返修 PV2：完整成本要对照任务与费用类别 -----
+
+
+def test_assigned_task_without_cost_evidence_blocks_full_cost() -> None:
+    """评审 PV2：已分配但没有测量 / 没有账目的任务，不能当成零费用。"""
+    summary, receipts, events = _pipeline(["complete_pair"], provenance=IMPORTED, due=[])
+    assignments, cohort = _split(events)
+    extra = copy.deepcopy(assignments)
+    for event in extra:
+        event["event_id"] += "-unmeasured"
+        event["task_id"] += "-unmeasured"
+        event["payload"]["task_id"] = event["task_id"]
+        event["case_pair_id"] = "pair-02"
+        event["payload"]["case_pair_id"] = "pair-02"
+        event["case_id"] = "case-jr-01" if event["assistance_condition"] == "original" else "case-jr-02"
+        event["payload"]["case_id"] = event["case_id"]
+    with_unmeasured = summarize(receipts, assignments + extra, PROTOCOL, cohort_events=cohort, due_rechecks=[])
+    detail = _metric(with_unmeasured, "cost_full_status")["detail"]
+    assert detail["full_cost_status"] == "unknown"
+    assert detail["full_cost_reason"] == "unknown_components_present"
+    assert detail["gross_margin"] is None and detail["gross_margin_reason"] == "cost_unknown"
+    gaps = {u["id"] for u in _metric(with_unmeasured, "cost_full_status")["unknown"] if u["reason"] == "no_measurement_receipt_for_assigned_task"}
+    assert gaps == {"unmeasured_task:t-cp-a-unmeasured", "unmeasured_task:t-cp-o-unmeasured"}
+
+
+def test_unobserved_cost_categories_are_unknown_not_zero() -> None:
+    """评审 PV2：只有写手 / 自审两类费用不构成「完整成本已知」。
+
+    spec §3 要求覆盖托管、数据授权、获客分摊等类别；未观察到调用不作零费用依据。
+    """
+    summary, _, _ = _pipeline(["complete_pair"], provenance=IMPORTED, due=[])
+    metric = _metric(summary, "cost_full_status")
+    assert metric["detail"]["full_cost_status"] == "unknown"
+    missing = {u["id"] for u in metric["unknown"] if u["reason"] == "cost_category_unobserved"}
+    assert {"cost_category:hosting", "cost_category:data_license", "cost_category:acquisition_allocation"} <= missing
+    # 已经有账的类别不重复报缺。
+    assert "cost_category:writer_model" not in missing and "cost_category:review_model" not in missing
+
+
+def test_declared_not_applicable_cost_categories_stop_being_gaps() -> None:
+    """事前在冻结协议里声明「本试点无此类费用」的类别不再报缺；未声明的照报。"""
+    proto = build_protocol()
+    proto.pop("protocol_hash")
+    proto["criteria"]["cost"] = {
+        "not_applicable_components": ["other_model", "tool", "retry", "manual_import", "manual_rescue", "manual_maintenance", "data_license", "hosting", "acquisition_allocation"]
+    }
+    proto = freeze_protocol(proto)
+    events, evidence, _ = build_scenario("complete_pair", proto["protocol_hash"], provenance=IMPORTED)
+    reader = InMemoryEvidenceReader.from_json(evidence)
+    receipts = [measure_pair(events, proto, reader)]
+    assignments, cohort = _split(events)
+    summary = summarize(receipts, assignments, proto, cohort_events=cohort, due_rechecks=[])
+    metric = _metric(summary, "cost_full_status")
+    assert [u for u in metric["unknown"] if u["reason"] == "cost_category_unobserved"] == []
+    assert metric["detail"]["full_cost_status"] == "known"
+    assert metric["detail"]["not_applicable_components"] == [
+        "acquisition_allocation", "data_license", "hosting", "manual_import", "manual_maintenance", "manual_rescue", "other_model", "retry", "tool"
+    ]
+
+
+# --------------------------------- 返修 PV3：复用分母是激活队列，不是复用事件 -----
+
+
+def test_reuse_denominator_counts_activated_participants_without_reuse() -> None:
+    """评审 PV3：六人激活、观察周已完整、仅一人复用，分母必须是六个人。
+
+    原实现从 reuse_observed 建行再直接当分母，没复用的人根本不出现，报出 100%。
+    """
+    cohort_events = build_scenario("cohort_signals", P_HASH, provenance=IMPORTED)[0]
+    cohort = [e for e in cohort_events if e["event_type"] in ("reuse_observed", "task_started") and e.get("participant_id") == "p04"]
+    for i in range(4, 10):
+        cohort.append(
+            ev(
+                "task_started",
+                event_id=f"probe-start-{i}",
+                at=ts("09-15", "10:00:00"),
+                channel=SOURCE_SERVER,
+                participant=f"p{i:02d}",
+                task=f"probe-first-{i}",
+                provenance=IMPORTED,
+                payload={"task_id": f"probe-first-{i}", "policy_version": "v1", "view_id": "view-task", "client_at": ts("09-15", "10:00:00"), "initiator": "participant"},
+            )
+        )
+    summary = summarize([], [], PROTOCOL, cohort_events=cohort, due_rechecks=[], as_of="2026-10-11")
+    metric = _metric(summary, "proactive_reuse_rate")
+    assert metric["denominator_ids"] == [f"p{i:02d}" for i in range(4, 10)]
+    assert metric["numerator_ids"] == ["p04"]
+    assert metric["value"] == 0.1667
+    # 没有复用观察记录的人不被静默删除：留在分母里，同时逐条列为缺测。
+    assert {u["id"] for u in metric["unknown"] if u["reason"] == "reuse_observation_missing"} == {f"p{i:02d}" for i in range(5, 10)}
+    reuse = _criteria(summary)["proactive_reuse"]
+    assert reuse["verdict"] == C.VERDICT_UNKNOWN and reuse["unknown_kind"] == UNKNOWN_GAP
+
+
+def test_reuse_window_not_yet_complete_stays_out_of_denominator() -> None:
+    """观察周还没走完的人不进分母，也不当成没复用，而是列 unknown。"""
+    cohort = [
+        ev(
+            "task_started",
+            event_id="fresh-start",
+            at=ts("10-09", "10:00:00"),
+            channel=SOURCE_SERVER,
+            participant="p20",
+            task="fresh-task",
+            provenance=IMPORTED,
+            payload={"task_id": "fresh-task", "policy_version": "v1", "view_id": "view-task", "client_at": ts("10-09", "10:00:00"), "initiator": "participant"},
+        )
+    ]
+    summary = summarize([], [], PROTOCOL, cohort_events=cohort, due_rechecks=[], as_of="2026-10-11")
+    metric = _metric(summary, "proactive_reuse_rate")
+    assert metric["denominator_ids"] == [] and metric["value"] is None
+    assert {"id": "p20", "reason": "observation_window_incomplete"} in metric["unknown"]

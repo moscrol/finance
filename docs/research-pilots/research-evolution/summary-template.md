@@ -14,12 +14,22 @@
 
 | 判据 | 结论 | 原因 | 未知类型 | 分母 |
 |---|---|---|---|---|
-| completion_quality | pass / fail / unknown | … | sample / gap | 全部已分配任务 |
+| completion_quality | pass / fail / unknown | … | sample / gap / consent | 全部已分配任务 |
 | time_saving | … | … | … | ≥3 人 · ≥6 完整配对 · 两类任务 |
 | proactive_reuse | … | … | … | 激活后进入完整观察周者 ≥3 |
 | recheck | observed_only / unknown | 只展示比率 | | 到期且可访问的判断 |
 | cost | observed_only / unknown | 已知 / 估算 / 未知并列 | | 全部任务 / 重试 / 帮助 |
 | renewal | observed_only / unknown | | unstarted | 真实首付后进入续费窗口者 |
+
+未知类型 `consent` 单列：缺同意不是「再等等就有样本」，补不到授权就永远不能进效果判据，
+所以缺同意的配对留在分母里、逐条列进读数的 `unknown`，判据直接 `unknown`。
+
+主动复用的分母是**激活队列**——凡是有可信开始记录、观察周又已走完的人都在分母里，
+没有复用记录的人不会消失，只会同时出现在分母和 `unknown(reuse_observation_missing)`，
+并让该判据保持 `unknown`。只统计「有复用事件的人」会把比率抬到 100%。
+
+成本的 `full_cost_status` 只有在**全部已分配任务都有测量收据**、且合同要求的费用类别
+要么有账、要么在冻结协议里事前声明不适用时，才可能是 `known`。未观察到调用不作零费用依据。
 
 建议（`recommendation`）：`continue_validation` 只表示省时 / 质量 / 主动复用三项达标，建议继续验证；`pause_recruitment` 表示质量红，暂停扩招；`keep_observing` 表示缺测继续观察。
 
