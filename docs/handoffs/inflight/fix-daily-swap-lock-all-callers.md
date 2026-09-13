@@ -1,43 +1,42 @@
-# daily-swap 换库契约：四~六轮修补，待独立复审
+# daily-swap 换库契约：七轮修补完成，待八轮独立复审
 
-## 状态（先读这节）
+## 这个分支做什么
 
-基于 `data-source/hithink-rewrite-0911` @ 601db6dd 叠五刀：`ed0dce4c`（四轮 P1）、
-`7c89ca81`（五轮三项）、`941373b8`（六轮 P2）、`650c3d37`（六轮 P1）、本次口径修订。
-**生产库未动、未合并。** 修的是公共 staging 编排的换库契约，不是 hithink 数据本身。
+公共 staging 编排的换库契约加固（基于 hithink 重建 601db6dd 叠七刀）。**生产库未动、未合并。**
 
-**下一步**：独立复审 → 用户确认合并与生产换库（门禁已全绿，见收据）。
-禁令沿用上游：勿凭隔离克隆成功绕过复审；勿扩大回填日期；勿直接跑生产命令。
+## 决策与被否方案
 
-## 背景与理由（不在本页，别在这里找）
+- 七轮 P2：existing/absent 分类**钉死在本轮首次观察**（探针前那次 exists）；否了「发布前再加 stat」（审查明确不要）、否了「探针返回值下传」（审查探针按钉死形态验收）。已见旧库后消失只剩 rc=2：探针窗口内→SwapTargetReplacedError（单独措辞）；之后→hold_swap_lock 开锁失败。
+- 删掉「三文件零漂移→门禁可外推」断言：main 侧改 48 路径，文本可组合≠行为正确；收据只对快照成立。
+- 一般 clone IO 裸抛（cp/copy2 EPERM/ENOSPC 逃出编排）：审查裁定另开小提交，**不夹带**；是错误出口旧债不是数据覆盖。
 
-- 完整理由、实测表、被否方案、反向证伪明细：`docs/handoffs/2026-09-13-daily-swap-round6-fixes.md`
-- 六轮独立审查报告：`docs/handoffs/2026-09-13-daily-swap-round6-qc.md`
-- **换库威胁模型是单一口径，在 `market_feature_store/db.py` 顶部注释块**。下结论前
-  先读它；任何「已修复」都只在它写明的条件下成立，别在别处再写第二份。
+## 当前状态
 
-## 当前边界（说「已闭合」之前先读）
+`2d16a7f7` 已提交（代码+测试+round6 报告修订+round7 快照+lessons）。**等八轮独立复审。**
+七轮审查报告：`docs/qc-daily-swap-dfb6ce87` 分支 @ e8ad314b（`docs/handoffs/2026-09-13-daily-swap-round7-qc.md`，探针同分支 `scripts/review_daily_swap_round7.py`）。
+六轮审查报告：`docs/qc-daily-swap-7c89ca81` 分支 @ e15379f5（`docs/handoffs/2026-09-13-daily-swap-round6-qc.md`）——**不在本分支树上，别按裸路径找**。
+本刀背景/收据/被否方案展开：`docs/handoffs/2026-09-13-daily-swap-round7-fixes.md`；威胁模型单一口径在 `market_feature_store/db.py` 顶部。
 
-- **既有库**：`assert_same_target` 与 `os.replace` 之间的窗口**不闭合**（POSIX 无按
-  inode 条件换名的原语）。只能说「把静默覆盖变成可检测的拒绝」。由
-  `test_identity_check_and_replace_are_not_atomic` 钉住——它是可重复的反例，**不是
-  措辞门禁**：把注释改回「已闭合」它照样绿，措辞是否越界仍由评审判断。
-- **首次建库**：absent→present 已由 `os.link` 的 EEXIST 原子拒绝（六轮 P1）。**不能
-  顺势扩大成「换库整条链已原子」**，也不含未测的断电持久性。
-- **裸字节直写**（cp/dd 写进同一 inode）：身份不变，校验看不见，仍不在威胁模型内。
-- **不要写「本仓所有写者都是协同方」**：`scripts/db_delta_pull.py::restore_baseline`
-  保留着不取任何协调锁的 `os.replace` 恢复路径（只证明代码在，不声称在生产运行）。
-- 锁窗内不重跑 `probe_no_active_writer`：持 SH 即证明无 duckdb 写者，重跑会被自己拦下。
+## 已验证（2d16a7f7，干净树，.venv-workbench/bin/python）
 
-## 收据（候选 a42cbc5c，干净树，`.venv-workbench/bin/python`）
+- 反向证伪：新回归测试对 dfb6ce87 旧代码真红（rc=0 而非 2）。
+- 审查方原始探针 9/9 转绿（含原红项）；定向三文件 75 passed（71+4）。
+- 全量 9,521 passed / 0 failed / 77 skipped / 1 xfailed，437s，exit 0（9,517+4 对账一致）；ruff check . 全过。
 
-- **全量 9,517 passed / 0 failed / 77 skipped / 1 xfailed，445s，exit 0**；`ruff check .`
-  全过。对账 9,502P+1F（7c89ca81）+ 新增 14 条 = 9,517。五轮起一直红的
-  `test_installed_codex_sandbox_*` 本轮绿——本机已知抖动，**绿不等于永久修好**。
-- 定向三文件 57 → 62 → **71**。反向证伪：P2 四条真红、P1 两条不引用新符号的真红
-  （`rc=0` 而非 2）。
-- **未做数据端到端对账**（本刀不动数据）。跑全量前先看有没有别的树在跑。
-- 合并预检：落后 main 35 / 领先 17，三个源文件 main 侧零漂移；唯一冲突是
-  `.claude/lessons_learned.md` 双方都追加在末尾，保留两段即可。
+## 未验证 / 已知边界
 
-四条可迁移教训已落 `.claude/lessons_learned.md`「换库与并发窗口」段。
+- 既有库 assert_same_target→os.replace 末端窗口仍**不闭合**（POSIX 无按 inode 条件换名原语），只能说「静默覆盖→可检测拒绝」；裸字节直写（cp/dd 同 inode）仍看不见。
+- 分类钉死只覆盖本轮首次观察**之后**的消失；观察前就被删的无从知晓。
+- 整合候选（merge 进 631786ab 之后）门禁**未跑**，不得用本收据外推；hithink 数据端到端对账未做。
+- 一般 clone IO 裸抛未修（另开提交）。
+
+## 下一步
+
+1. 八轮独立复审本刀（重点：钉死形态是否如建议、探针转绿、无回归）。
+2. 用户裁定整体合并范围（本分支含整个 hithink 重建：15 文件 3723 插入）。
+3. 组装干净整合候选、重跑适用门禁；合并与生产换库**分别授权**。
+
+## 踩过的坑
+
+- 在 QC 审查树里直接跑它的探针脚本会 import 到 QC 树旧代码（该树 conftest 把自己 prepend 进 sys.path），探针假红。复跑：拷进施工树再跑。
+- 全量前看有没有别的树在跑。
