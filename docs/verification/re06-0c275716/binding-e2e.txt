@@ -1,0 +1,18 @@
+(node:63979) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[2m[workbench] [22mINFO:     Started server process [64025]
+[2m[workbench] [22mINFO:     Waiting for application startup.
+[2m[workbench] [22mINFO:     Application startup complete.
+[2m[workbench] [22mINFO:     Uvicorn running on http://127.0.0.1:18791 (Press CTRL+C to quit)
+[2m[research-evolution-binding] [22mINFO:     Started server process [64167]
+[2m[research-evolution-binding] [22mINFO:     Waiting for application startup.
+[2m[research-evolution-binding] [22mINFO:     Application startup complete.
+[2m[research-evolution-binding] [22mINFO:     Uvicorn running on http://127.0.0.1:18794 (Press CTRL+C to quit)
+
+Running 1 test using 1 worker
+
+(node:64268) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+  ✓  1 [desktop] › e2e/research-evolution-binding.spec.ts:30:3 › 研究进化 · 绑定真链路（带真实市场库的隔离服务） › 表单建绑定 → 服务端落账 → 投影刷新为已绑定 (1.2s)
+
+  1 passed (5.5s)

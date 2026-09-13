@@ -1,0 +1,216 @@
+FAST_TERMINAL 400 {'detail': {'code': 'run_binding_mismatch', 'message': '无法证明该 run 由本次维护请求发起（缺少运行中的关联登记），不能折回本维护项', 'detail': {'run_id': 'run_20260914_010530_473054', 'item_id': 'jmi-77b7bcc5197a2e30'}}} rejudgment_requested
+FLATE_OLD_RUN {'applied_commands': [{'command_id': 'k-rejudge', 'payload_digest': 'c73c1f0ddd89675bbbd64adb7a67782895706566a8cc3be66c0b70c793a6c13b', 'event_id': 'jme-0b0e39d074d36a1a', 'management_revision': 1}, {'command_id': 'second-request', 'payload_digest': '1151a6305b3a397945730bba16420467ac0c2867db89fa7148a9e8050ce3cb8e', 'event_id': 'jme-17e95c54b13393f9', 'management_revision': 3}], 'snooze_until': None, 'claimed_at': None, 'closed_at': None, 'closure': None, 'rejudgment': {'request_event_id': 'jme-17e95c54b13393f9', 'requested_at': '2026-09-14T08:00:01+00:00', 'attempts': 2, 'last_failure': {'event_id': 'jme-3515b2dfbd81fa7e', 'at': '2026-09-14T08:00:00+00:00', 'kind': 'rejudgment_cancelled', 'reason': '复核请求未被消息入口接受，退回待处理'}}} open {'applied_commands': [{'command_id': 'k-rejudge', 'payload_digest': 'c73c1f0ddd89675bbbd64adb7a67782895706566a8cc3be66c0b70c793a6c13b', 'event_id': 'jme-0b0e39d074d36a1a', 'management_revision': 1}, {'command_id': 'second-request', 'payload_digest': '1151a6305b3a397945730bba16420467ac0c2867db89fa7148a9e8050ce3cb8e', 'event_id': 'jme-17e95c54b13393f9', 'management_revision': 3}], 'snooze_until': None, 'claimed_at': None, 'closed_at': None, 'closure': None, 'rejudgment': {'request_event_id': 'jme-17e95c54b13393f9', 'requested_at': '2026-09-14T08:00:01+00:00', 'attempts': 2, 'last_failure': {'event_id': 'jme-0ca291863387c9dd', 'at': '2026-09-14T08:00:01+00:00', 'kind': 'rejudgment_failed', 'reason': ''}}}
+FFIRST_TURN_SOURCES {'task_id': 'rt_d86b7603214bb214', 'source_refs': [{'kind': 'maintenance_item', 'id': 'jmi-0756293bee29a9d2', 'namespace': 'judgment-maintenance/v1', 'version_or_hash': '12aa05e6524dd87f', 'scope': {'report_id': 'jmr-e1caf343dd544277', 'conversation_id': 'conv_8a4bcc791ea94c01a01ea9820d8382f1'}}], 'conversation_id': 'conv_8a4bcc791ea94c01a01ea9820d8382f1', 'scope': {'conversation_id': 'conv_8a4bcc791ea94c01a01ea9820d8382f1', 'entity_refs': []}, 'object_refs': [{'kind': 'judgment', 'id': '63b43ba0c676', 'namespace': 'judgments', 'version_or_hash': 'content_sha256:9ad3f6f575f9a8fb8d18e3dec13b3ee968ca5880d786117305cafe8ee2ec5083', 'scope': {'conversation_id': 'conv_8a4bcc791ea94c01a01ea9820d8382f1', 'session_id': 'conv_8a4bcc791ea94c01a01ea9820d8382f1'}, 'ref': 'judgments.jsonl:63b43ba0c676'}]} saved None
+FLATEST_SUMMARY {'kind': 'pilot_summary', 'receipt': {'generated_at': '2026-09-14T01:00:00Z', 'summary_id': 'sum-ffff', 'supersedes': None}}
+FF读数收据: /Users/a77/.finance-runtime/test-receipts/20260913T170531Z-0c275716.json
+
+=================================== FAILURES ===================================
+________ test_fast_failed_run_can_be_reconciled_after_message_response _________
+
+world = <intelligence.tests.test_research_evolution_rework.World object at 0x10d0d3b00>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d0d38c0>
+
+    def test_fast_failed_run_can_be_reconciled_after_message_response(world, monkeypatch):
+        """The real UI posts link_run only after POST messages returns, without a turn gate."""
+        from intelligence.api import app as app_module
+    
+        def fail_turn(**kwargs):
+            kwargs["run_store"].finish_run(kwargs["run_id"], "failed", error="model unavailable")
+    
+        monkeypatch.setattr(app_module, "_run_conversation_turn", fail_turn)
+        item = world.seed_rejudged_item()
+        posted = world.client.post(
+            f"/api/conversations/{world.conversation_id}/messages",
+            json={"user": fx.OWNER, "content": "继续核查", "skill_mode": "hybrid"},
+        )
+        assert posted.status_code == 202, posted.text
+        run_id = posted.json()["run_id"]
+        world.wait_terminal(run_id)
+        # Model/service can finish before the browser's second request arrives.
+        response = world.act(
+            idempotency_key=f"link_run:{item['id']}:{run_id}",
+            run_id=run_id,
+            **world.link_args(item["id"]),
+        )
+        print("FAST_TERMINAL", response.status_code, response.json(), world.current_item(item["id"])["status"])
+>       assert response.status_code == 200, "A real accepted run must have a durable association even when it finishes before the second HTTP request"
+E       AssertionError: A real accepted run must have a durable association even when it finishes before the second HTTP request
+E       assert 400 == 200
+E        +  where 400 = <Response [400 Bad Request]>.status_code
+
+docs/verification/re06-0c275716/test_review_round3.py:47: AssertionError
+_________ test_old_registered_run_must_not_fold_a_new_rejudge_request __________
+
+world = <intelligence.tests.test_research_evolution_rework.World object at 0x10d3f9b20>
+
+    def test_old_registered_run_must_not_fold_a_new_rejudge_request(world):
+        item = world.seed_rejudged_item()
+        observer = ObservingRunStore(
+            user_id=fx.OWNER,
+            evolution_root=world.user_root / "research_evolution",
+            maintenance_folder=lambda run_id: world.service.fold_run_terminal(
+                ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_id
+            ),
+        )
+        old_run = observer.create_run(question="first maintenance attempt", task_type="research", session_id=world.conversation_id)
+        world.act(idempotency_key="register-old-attempt", run_id=old_run.run_id, **world.link_args(item["id"])).raise_for_status()
+        cancel_args = world.link_args(item["id"])
+        cancel_args["action"] = "cancel_rejudge"
+        world.act(idempotency_key="cancel-first-request", **cancel_args).raise_for_status()
+        world.clock.advance(seconds=1)
+        world.rejudge(world.current_item(item["id"]), key="second-request")
+        before = world.current_item(item["id"])
+        # A response-lost request / old worker can still terminate after the recovery action.
+        observer.finish_run(old_run.run_id, "failed", error="late failure of first attempt")
+        after = world.current_item(item["id"])
+        print("LATE_OLD_RUN", before["management"], after["status"], after["management"])
+>       assert after["status"] == "rejudgment_requested", "A run registered for request A must not reset pending request B"
+E       AssertionError: A run registered for request A must not reset pending request B
+E       assert 'open' == 'rejudgment_requested'
+E         
+E         - rejudgment_requested
+E         + open
+
+docs/verification/re06-0c275716/test_review_round3.py:71: AssertionError
+_____________ test_select_task_first_turn_keeps_structured_sources _____________
+
+world = <intelligence.tests.test_research_evolution_rework.World object at 0x10d50c110>
+
+    def test_select_task_first_turn_keeps_structured_sources(world):
+        world.track_judgment().raise_for_status()
+        task_id = world.view()["priority"]["selected"][0]["task_id"]
+        selected = world.act(action="select_task", idempotency_key="select-first", task_id=task_id)
+        selected.raise_for_status()
+        continuation = selected.json()["continuation"]
+        assert continuation["click_payload"]["source_refs"]
+        # Match App.tsx: only attach continuation when it contains an origin run_id.
+        body = {"user": fx.OWNER, "content": continuation["full_prompt"], "skill_mode": "hybrid"}
+        if continuation.get("run_id"):
+            body["continuation"] = continuation
+        posted = world.client.post(f"/api/conversations/{world.conversation_id}/messages", json=body)
+        assert posted.status_code == 202, posted.text
+        world.wait_terminal(posted.json()["run_id"])
+        message = next(
+            m for m in ConversationStore(user_id=fx.OWNER).load_messages(world.conversation_id)
+            if m.run_id == posted.json()["run_id"] and m.role == "user"
+        )
+        print("FIRST_TURN_SOURCES", continuation["click_payload"], "saved", message.continuation)
+>       assert message.continuation and message.continuation.get("click_payload") == continuation["click_payload"]
+E       AssertionError: assert (None)
+E        +  where None = Message(message_id='msg_356e2c6cc1134270bc824ec2d923da85', conversation_id='conv_8a4bcc791ea94c01a01ea9820d8382f1', ro...invoked_skill_ids=[], citations=[], degrades=[], followups=[], turn_intent=None, research_plan=None, continuation=None).continuation
+
+docs/verification/re06-0c275716/test_review_round3.py:94: AssertionError
+________ test_summary_without_id_reads_latest_version_not_lexical_hash _________
+
+world = <intelligence.tests.test_research_evolution_rework.World object at 0x10d60e660>
+
+    def test_summary_without_id_reads_latest_version_not_lexical_hash(world):
+        store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+        store.publish_immutable(SUMMARIES_DIR, "sum-ffff", {
+            "summary_id": "sum-ffff", "generated_at": "2026-09-14T01:00:00Z", "supersedes": None,
+        })
+        store.publish_immutable(SUMMARIES_DIR, "sum-0000", {
+            "summary_id": "sum-0000", "generated_at": "2026-09-14T02:00:00Z", "supersedes": "sum-ffff",
+        })
+        response = world.act(action="read_receipt", idempotency_key="read-latest", kind="pilot_summary")
+        response.raise_for_status()
+        print("LATEST_SUMMARY", response.json())
+>       assert response.json()["receipt"]["summary_id"] == "sum-0000"
+E       AssertionError: assert 'sum-ffff' == 'sum-0000'
+E         
+E         - sum-0000
+E         + sum-ffff
+
+docs/verification/re06-0c275716/test_review_round3.py:108: AssertionError
+_______________ test_failed_lockfile_open_releases_process_lock ________________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-1607/test_failed_lockfile_open_rele0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d6916a0>
+
+    def test_failed_lockfile_open_releases_process_lock(tmp_path, monkeypatch):
+        """An OS error during telemetry must not permanently poison the owner lock."""
+        import os
+    
+        from intelligence.services.research_evolution.store import LOCK_FILE, StoreLockTimeout
+    
+        store = EvolutionStore(tmp_path / "evolution", "default")
+        real_open = os.open
+    
+        def fail_lock_open(path, *args, **kwargs):
+            if str(path).endswith(LOCK_FILE):
+                raise PermissionError("injected transient lockfile open failure")
+            return real_open(path, *args, **kwargs)
+    
+        with monkeypatch.context() as patch:
+            patch.setattr(os, "open", fail_lock_open)
+            with pytest.raises(PermissionError):
+                with store.try_transaction(timeout=0.02):
+                    pass
+        try:
+>           with store.try_transaction(timeout=0.02):
+
+docs/verification/re06-0c275716/test_review_round3.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:137: in __enter__
+    return next(self.gen)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <intelligence.services.research_evolution.store.EvolutionStore object at 0x10d691370>
+timeout = 0.02
+
+    @contextmanager
+    def try_transaction(self, timeout: float = 0.25) -> Iterator["EvolutionStore"]:
+        """有界等待的事务：拿不到锁（进程锁或文件锁）就抛 ``StoreLockTimeout``，不无限等。
+    
+        给观察器 / 测量类写入方用：测量绝不能把被测对象（真实 run 生命周期）堵在锁上（QC Q9）。
+        """
+        import time as _time
+    
+        self.root.mkdir(parents=True, exist_ok=True)
+        lock_path = self.root / LOCK_FILE
+        lock = _process_lock(lock_path)
+        if not lock.acquire(timeout=timeout):
+>           raise StoreLockTimeout(f"进程内锁等待超过 {timeout}s：{lock_path}")
+E           intelligence.services.research_evolution.store.StoreLockTimeout: 进程内锁等待超过 0.02s：/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-1607/test_failed_lockfile_open_rele0/evolution/.research_evolution.lock
+
+intelligence/services/research_evolution/store.py:164: StoreLockTimeout
+
+During handling of the above exception, another exception occurred:
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-1607/test_failed_lockfile_open_rele0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d6916a0>
+
+    def test_failed_lockfile_open_releases_process_lock(tmp_path, monkeypatch):
+        """An OS error during telemetry must not permanently poison the owner lock."""
+        import os
+    
+        from intelligence.services.research_evolution.store import LOCK_FILE, StoreLockTimeout
+    
+        store = EvolutionStore(tmp_path / "evolution", "default")
+        real_open = os.open
+    
+        def fail_lock_open(path, *args, **kwargs):
+            if str(path).endswith(LOCK_FILE):
+                raise PermissionError("injected transient lockfile open failure")
+            return real_open(path, *args, **kwargs)
+    
+        with monkeypatch.context() as patch:
+            patch.setattr(os, "open", fail_lock_open)
+            with pytest.raises(PermissionError):
+                with store.try_transaction(timeout=0.02):
+                    pass
+        try:
+            with store.try_transaction(timeout=0.02):
+                pass
+        except StoreLockTimeout:
+>           pytest.fail("os.open failed after acquiring the process lock; that lock was never released")
+E           Failed: os.open failed after acquiring the process lock; that lock was never released
+
+docs/verification/re06-0c275716/test_review_round3.py:134: Failed
+=========================== short test summary info ============================
+FAILED docs/verification/re06-0c275716/test_review_round3.py::test_fast_failed_run_can_be_reconciled_after_message_response
+FAILED docs/verification/re06-0c275716/test_review_round3.py::test_old_registered_run_must_not_fold_a_new_rejudge_request
+FAILED docs/verification/re06-0c275716/test_review_round3.py::test_select_task_first_turn_keeps_structured_sources
+FAILED docs/verification/re06-0c275716/test_review_round3.py::test_summary_without_id_reads_latest_version_not_lexical_hash
+FAILED docs/verification/re06-0c275716/test_review_round3.py::test_failed_lockfile_open_releases_process_lock
+5 failed in 2.29s
