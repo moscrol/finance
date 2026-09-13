@@ -44,8 +44,9 @@
         },
         "answer": {
           "file": "q1-answer.txt",
-          "sha256": "d6f6676a8b9342bcd18c6b7cb16bc43ed5498b1f0559551a3fbdf08334c0c872",
-          "bytes": 27374
+          "sha256": "246bae340ebb329376de7e88a9c3bb58c77522ad892e36d181c0159e5d60457b",
+          "bytes": 27373,
+          "export_transform": "Trailing blank separator lines omitted; original source bytes preserved separately."
         }
       }
     },
@@ -83,8 +84,9 @@
         },
         "answer": {
           "file": "q2-answer.txt",
-          "sha256": "0cab3100202bde0f203c1bc2caa5af402c2954680876e4ca5f7efd2b42daedf5",
-          "bytes": 26987
+          "sha256": "e9ba33c41b6a366e4032613a03b9823b917d1fd2c30c032885931b8b25deb999",
+          "bytes": 26986,
+          "export_transform": "Trailing blank separator lines omitted; original source bytes preserved separately."
         }
       }
     },
