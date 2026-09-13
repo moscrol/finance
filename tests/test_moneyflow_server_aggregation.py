@@ -400,6 +400,146 @@ def test_repair_pct_chg_backfills_daily_caliber_and_nulls_missing(tmp_path, monk
     assert rows == [("000001", 1.5), ("000002", None)]
     assert qrows == [("000001", 1.5), ("000002", None)]
     assert ledger is not None and ledger[0] == "complete"
-    assert "updated=1" in ledger[1] and "null=1" in ledger[1]
+    # 新分母格式（二轮 QC 返修）：行数与代码数拆开
+    assert "matched_rows=1" in ledger[1] and "null_rows=1" in ledger[1]
+    assert "target_rows=2" in ledger[1] and "distinct_codes=2" in ledger[1]
     assert "000002" in ledger[1]
     assert "capital" in msg
+
+
+def test_repair_pct_chg_refuses_nonexistent_db(tmp_path, monkeypatch):
+    """二轮 QC P2-1：库路径指向不存在位置时必须报错，不得新建空库报 complete。"""
+    import market_feature_store.db as mfs_db
+
+    ghost = tmp_path / "nope.duckdb"
+    monkeypatch.setattr(mfs_db, "DB_PATH", ghost)
+    monkeypatch.setattr(mfs_db, "DB_DIR", tmp_path)
+    writer = _load_module(
+        monkeypatch, "moneyflow_writer_repair_ghost", "write_to_duckdb.py"
+    )
+
+    with pytest.raises(FileNotFoundError, match="目标库不存在"):
+        writer.repair_pct_chg("2026-07-15")
+    assert not ghost.exists(), "repair 不得新建空库"
+
+
+def test_repair_pct_chg_noop_on_zero_target(tmp_path, monkeypatch):
+    """二轮 QC P2-1b：库存在但当日两表无目标行——标 noop 不标 complete。"""
+    import market_feature_store.db as mfs_db
+
+    monkeypatch.setattr(mfs_db, "DB_PATH", tmp_path / "t.duckdb")
+    monkeypatch.setattr(mfs_db, "DB_DIR", tmp_path)
+    writer = _load_module(
+        monkeypatch, "moneyflow_writer_repair_noop", "write_to_duckdb.py"
+    )
+
+    import duckdb
+
+    con = duckdb.connect(str(tmp_path / "t.duckdb"))
+    writer.init_db(con)
+    con.close()
+
+    assert writer.repair_pct_chg("2026-07-15") == "noop"
+
+    con = duckdb.connect(str(tmp_path / "t.duckdb"), read_only=True)
+    try:
+        row = con.execute(
+            "SELECT status FROM ops_pipeline_run_daily "
+            "WHERE trade_date='2026-07-15' AND pipeline='l2-moneyflow' "
+            "AND step='repair_pct_chg'"
+        ).fetchone()
+    finally:
+        con.close()
+    assert row is not None and row[0] == "noop"
+
+
+def test_repair_pct_chg_counts_rows_across_scan_types(tmp_path, monkeypatch):
+    """二轮 QC P2-2：同一代码同时上两个榜单占两行——matched_rows 记行数（2），
+    distinct_codes 记代码数（1），不再混淆。"""
+    import market_feature_store.db as mfs_db
+
+    monkeypatch.setattr(mfs_db, "DB_PATH", tmp_path / "t.duckdb")
+    monkeypatch.setattr(mfs_db, "DB_DIR", tmp_path)
+    writer = _load_module(
+        monkeypatch, "moneyflow_writer_repair_rows", "write_to_duckdb.py"
+    )
+
+    import duckdb
+
+    con = duckdb.connect(str(tmp_path / "t.duckdb"))
+    writer.init_db(con)
+    con.execute(
+        "INSERT INTO fact_stock_daily (trade_date, stock_ts_code, stock_name, "
+        "close, pre_close, pct_chg, amount, turnover, source, updated_at) VALUES "
+        "('2026-07-15','000001.SZ','平安银行',10.0,9.85,1.5,1e8,2.0,'test',CURRENT_TIMESTAMP)"
+    )
+    for scan in ("limitup", "top100"):
+        con.execute(
+            "INSERT INTO feature_l2_capital_flow_daily VALUES "
+            f"('2026-07-15','{scan}','000001','000001.SZ','平安银行',"
+            "100.0,120.0,500.0,0.02,9.99,100.0,1,NULL,'test',CURRENT_TIMESTAMP)"
+        )
+    con.close()
+
+    writer.repair_pct_chg("2026-07-15")
+
+    con = duckdb.connect(str(tmp_path / "t.duckdb"), read_only=True)
+    try:
+        msg = con.execute(
+            "SELECT message FROM ops_pipeline_run_daily "
+            "WHERE trade_date='2026-07-15' AND step='repair_pct_chg'"
+        ).fetchone()[0]
+        vals = con.execute(
+            "SELECT DISTINCT pct_change FROM feature_l2_capital_flow_daily "
+            "WHERE trade_date='2026-07-15'"
+        ).fetchall()
+    finally:
+        con.close()
+    assert "target_rows=2" in msg
+    assert "distinct_codes=1" in msg
+    assert "matched_rows=2" in msg and "null_rows=0" in msg
+    assert vals == [(1.5,)]
+
+
+def test_repair_pct_chg_missing_detail_not_truncated(tmp_path, monkeypatch):
+    """二轮 QC P2-3：21 个缺日线代码全部置 NULL，台账带明细文件指针，
+    文件里有全部 21 个代码（不截断）。"""
+    import market_feature_store.db as mfs_db
+
+    monkeypatch.setattr(mfs_db, "DB_PATH", tmp_path / "t.duckdb")
+    monkeypatch.setattr(mfs_db, "DB_DIR", tmp_path)
+    monkeypatch.setenv("L2_REPAIR_DETAIL_DIR", str(tmp_path / "detail"))
+    writer = _load_module(
+        monkeypatch, "moneyflow_writer_repair_trunc", "write_to_duckdb.py"
+    )
+
+    import duckdb
+
+    con = duckdb.connect(str(tmp_path / "t.duckdb"))
+    writer.init_db(con)
+    codes = [f"600{i:03d}" for i in range(21)]
+    for code in codes:
+        con.execute(
+            "INSERT INTO feature_l2_capital_flow_daily VALUES "
+            f"('2026-07-15','top100','{code}','{code}.XSHG','测试股',"
+            "100.0,120.0,500.0,0.02,9.99,100.0,1,NULL,'test',CURRENT_TIMESTAMP)"
+        )
+    con.close()
+
+    msg = writer.repair_pct_chg("2026-07-15")
+
+    con = duckdb.connect(str(tmp_path / "t.duckdb"), read_only=True)
+    try:
+        nulls = con.execute(
+            "SELECT COUNT(*) FROM feature_l2_capital_flow_daily "
+            "WHERE trade_date='2026-07-15' AND pct_change IS NULL"
+        ).fetchone()[0]
+    finally:
+        con.close()
+    assert nulls == 21
+    assert "(+1 more, full=" in msg
+    detail_file = tmp_path / "detail" / "2026-07-15.txt"
+    assert detail_file.is_file()
+    saved = detail_file.read_text(encoding="utf-8").split()
+    assert saved == codes, "明细文件必须含全部 21 个代码"
+    assert codes[-1] not in msg.split("full=")[0], "第 21 个代码不应出现在台账内联段"
