@@ -76,3 +76,35 @@ cd7f6fa9 的数据对账成立但 QC 裁定五项阻断（G1/S1/S2/S3/S4）未�
 - G1 的跨克隆形态（独立 clone 代码写主仓真库）靠 env 钉覆盖，单测验证了
   解析逻辑，真机跨克隆未实测——主仓场景（worktree 家族）已实测。
 - n=1 的端到端克隆运行，不快慢结论；只断言结构性事实。
+
+---
+
+## 复审二轮（2026-09-13 晚，9d73f01a）：竞态与遗留状态
+
+QC 在 8ac5a788 上复审：G1/S1/S2/S3 通过；S4 不通过 + 新增一项 P1。
+
+6. **备份→换名竞态**（backup-race.json）：备份完成到 os.replace 之间第三方
+   写者提交一行，换名静默覆盖之，备份只对应写入前状态。QC 明言「备份后再
+   检查一次」仍非严格 TOCTOU 闭环——要闭合窗口必须排他协调锁。
+   **关键先验实验**：duckdb 单写者锁在 macOS 上与 flock 同命名空间（双向
+   实测：我方 LOCK_EX 下 duckdb rw/ro 打开均「Could not set lock」；duckdb
+   rw 持锁时我方 LOCK_EX|NB 得 EWOULDBLOCK）。因此 `hold_swap_lock` 直接对
+   target inode 持 LOCK_EX|NB 即与全部 duckdb 写者互斥，且不产生 WAL（优于
+   自己开 rw 连接当锁——那会让 atomic_swap 的 target 无 WAL 断言自爆）。
+   被否方案：备份后再 stat 复查（两次检查之间仍有窗）；自己持 duckdb rw
+   连接当锁（WAL 副作用 + 读探针全灭）。选中的形态：锁内「stat 复查 →
+   备份 → 换名」，拿不到锁 rc=2。日更不带备份、不进锁（每晚锁几秒会撞
+   读者；且其窗口本来只有守卫→换名的微秒级，QC 未异议）。
+7. **status 遗留污染**（stale-status-min.json）：父进程固定读
+   `<staging>.status.json`，旧文件不清理、无本轮身份校验；子进程 rc=1 不写
+   status 时父进程读旧成功 JSON 照样换库。修法双保险：开工即删 +
+   run_id 绑定（父 env MARKET_FEATURE_STORE_RUN_ID → 子写 status → 父校验）。
+   注意现状语义保留：rc=1 但 status 是本轮真产物（有 run_id）仍按
+   「失败步不回滚」换库——QC 未异议，行为不变。
+   测试教训：测试里所有手写 status 的注入子进程都要跟着契约升级
+   （两处 inline JSON 漏写 run_id 导致回归红）；验证锁占用的夹具要用
+   LOCK_SH（不挡我方只读探针与克隆，只让 EX 失败），LOCK_EX 会先把自己
+   的开工闸挡死。
+
+反向证据 `verify-after-fixes/verify-round2.json`；全量 9,490 passed
+干净树收据对应 9d73f01a。
