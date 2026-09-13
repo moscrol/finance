@@ -1,9 +1,9 @@
 {
   "kind": "repair-stock-daily-hithink",
   "trade_date": "2026-09-11",
-  "target_db": "/Users/a77/.finance-runtime/reconcile-gate/run-t4j_zbc0/clone.duckdb.staging",
-  "started_at": "2026-09-13T23:09:00",
-  "finished_at": "2026-09-13T23:09:05",
+  "target_db": "/Users/a77/.finance-runtime/reconcile-gate/run-87sfiewb/clone.duckdb.staging",
+  "started_at": "2026-09-13T23:58:22",
+  "finished_at": "2026-09-13T23:58:27",
   "ok": true,
   "evidence": {
     "field_diffs": {

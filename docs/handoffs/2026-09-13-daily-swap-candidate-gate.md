@@ -97,6 +97,30 @@ v3 严格收据（已提交进候选，证据包自包含）：
 FAIL 且 exit 1，FAIL 报告归档在仓外 `reconcile/fail-closed-demo/`——fail-closed
 语义经实测不是只写在文档里。
 
+## 十三轮审查后的修补：异常路径契约补齐
+
+十三轮裁定：数据对账通过、原 PASS 收据有证据支持不撤销，但「异常时可靠拒
+绝并留报告」有两处未兑现（审查以真实子进程复现，非模拟）：
+
+- **P1-1**：`git status` 失败（rc=128、stdout 为空，如索引损坏）被误读成
+  「干净树」，有脏文件仍 22/22 误放行。修法：`git()` 统一检查退出码，rc!=0
+  即记 `git_invocation` 结构化 FAIL（含命令/退出码/有界 stderr）并终止。
+- **P1-2**：`--output-base` 指向普通文件时，报告兜底写回同一失败路径，只剩
+  traceback。修法：报告先序列化，按「run 目录 → OUT_BASE → 独立仓外临时目
+  录」降级写入，全失败尽力输出 stderr，绝不回退候选树 cwd。
+
+修补提交 `b98441c5`（含 `tests/test_reconcile_hithink_gate.py` 四条故障回归）。
+验证：
+
+- 审查方复现脚本原样重跑：collision 案例 rc=1 + 结构化 JSON 无 traceback；
+  损坏索引案例在树有脏文件、git rc=128 下门禁 rc=1 结构化 FAIL（不再误放行）；
+- 绑定 `b98441c5` 重放：**22/22 PASS，verdict=PASS，exit 0**（`docs/handoffs/evidence/`
+  下两份 JSON 已刷新为此次收据；`affe282d` 版收据留在 git 历史）；
+- Python 叶子按新代码态重绑：ruff 全过；全量 **9,612 passed / 0 failed /
+  77 skipped / 2 xfailed，exit 0**，干净收据 `20260913T160704Z-b98441c5.json`
+  （dirty=false；+4 即新故障回归用例）。前端/E2E/registry 叶子不受 scripts/+
+  tests/ 改动影响，未重跑。
+
 ## 结论与待授权
 
 候选门禁四叶全绿 + 隔离库对账全项通过。**仍未做**：合并 main、切运行时、
