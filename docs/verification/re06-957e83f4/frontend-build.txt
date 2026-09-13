@@ -1,0 +1,17 @@
+
+> market-intelligence-workbench@0.1.0 build /private/tmp/re06-qc-957e83f4/intelligence/webapp
+> pnpm typecheck && vite build
+
+
+> market-intelligence-workbench@0.1.0 typecheck /private/tmp/re06-qc-957e83f4/intelligence/webapp
+> tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false
+
+vite v6.3.5 building for production...
+transforming...
+✓ 1613 modules transformed.
+rendering chunks...
+computing gzip size...
+../api/static/index.html                   0.47 kB │ gzip:   0.30 kB
+../api/static/assets/index-n8kCH1Be.css   76.22 kB │ gzip:  14.95 kB
+../api/static/assets/index-CsTQzh3-.js   403.59 kB │ gzip: 123.35 kB
+✓ built in 2.64s

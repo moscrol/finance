@@ -1,0 +1,4 @@
+
+> market-intelligence-workbench@0.1.0 lint /private/tmp/re06-qc-957e83f4/intelligence/webapp
+> eslint .
+

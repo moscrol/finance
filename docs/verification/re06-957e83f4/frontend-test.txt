@@ -1,0 +1,24 @@
+
+> market-intelligence-workbench@0.1.0 test /private/tmp/re06-qc-957e83f4/intelligence/webapp
+> vitest run
+
+
+ RUN  v3.2.4 /private/tmp/re06-qc-957e83f4/intelligence/webapp
+
+ ✓ src/streamEventRegistry.test.ts (2 tests) 8ms
+ ✓ src/components/ResearchProjectPanel.test.tsx (5 tests) 251ms
+ ✓ src/components/ResearchEvolutionPanel.test.tsx (14 tests) 500ms
+ ✓ src/components/DailyReportView.test.tsx (4 tests) 322ms
+ ✓ src/components/components.test.tsx (65 tests) 5031ms
+   ✓ Workbench navigation reliability > opens on today and navigates across the five product surfaces  378ms
+   ✓ Workbench navigation reliability > submits an explicit KOL perspective without mixing other profiles  430ms
+   ✓ Workbench navigation reliability > recovers a persisted terminal run after the stream disconnects  388ms
+   ✓ Workbench navigation reliability > keeps cancel pending until polling confirms the cancelled state  437ms
+   ✓ Workbench navigation reliability > configures session-only BYOK without exposing the key  343ms
+   ✓ Workbench navigation reliability > persists BYOK only after opt-in and can explicitly forget it  364ms
+
+ Test Files  5 passed (5)
+      Tests  90 passed (90)
+   Start at  03:02:06
+   Duration  8.60s (transform 1.25s, setup 2.38s, collect 2.81s, tests 6.11s, environment 5.11s, prepare 1.01s)
+

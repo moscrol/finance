@@ -1,0 +1,131 @@
+PLAIN_MESSAGE_LINKS [{'content_digest': '52448bf49c516a724456f7faa4d0a493edc9770633d3cf191b5b999792a557b9', 'conversation_id': 'conv_db9378ca6d9640c789ff7b0fb36b1aa3', 'item_id': 'jmi-04754b16597baa3b', 'link_id': 'rlink-ac2610030276c84c', 'owner_user_id': 'default', 'registered_at': '2026-09-14T08:00:00+00:00', 'request_event_id': 'jme-473cdda0a6b9fe06', 'run_id': 'run_20260914_030630_461050'}] BEFORE rejudgment_requested AFTER open 2
+FMULTI_PENDING_FAST_TERMINAL 400 {'detail': {'code': 'run_binding_mismatch', 'message': '无法证明该 run 由本次维护请求发起（缺少运行中的关联登记），不能折回本维护项', 'detail': {'run_id': 'run_20260914_030631_677536', 'item_id': 'jmi-9854126dfaa8a3b0'}}}
+FCROSS_SESSION_TERMINAL_REPLAY 200 {'replayed': True, 'item_id': 'jmi-f5fc569c6c695950', 'link': {'association': 'registered', 'run_status': 'failed'}, 'reason_code': 'rejudgment_failed', 'status': 'accepted'}
+FLATE_JUDGMENT 4a02e727b16d BEFORE rejudgment_requested AFTER closed {'applied_commands': [{'command_id': 'k-rejudge', 'payload_digest': '3689732bfbebbe5007c5a782884eaecc598f437adb88f165bb54981a8cf904b9', 'event_id': 'jme-d10fa73b5c40879c', 'management_revision': 1}, {'command_id': 'request-B', 'payload_digest': 'c63167bbfcb2f8499c357fd3f452bc91ca0f1052222aaa39092ebe6440e91257', 'event_id': 'jme-fea539938320fb6d', 'management_revision': 3}], 'snooze_until': None, 'claimed_at': None, 'closed_at': '2026-09-14T08:00:02+00:00', 'closure': {'kind': 'rejudged', 'linked_judgment_ref': 'judgments.jsonl:4a02e727b16d', 'event_id': 'jme-f514f18636af4706', 'at': '2026-09-14T08:00:02+00:00'}, 'rejudgment': {'request_event_id': 'jme-fea539938320fb6d', 'requested_at': '2026-09-14T08:00:01+00:00', 'attempts': 2, 'last_failure': {'event_id': 'jme-1b2135f5368b22ec', 'at': '2026-09-14T08:00:00+00:00', 'kind': 'rejudgment_cancelled', 'reason': '复核请求未被消息入口接受，退回待处理'}}}
+F读数收据: /Users/a77/.finance-runtime/test-receipts/20260913T190634Z-b481804c.json
+
+=================================== FAILURES ===================================
+____________ test_plain_message_does_not_claim_pending_maintenance _____________
+
+world = <intelligence.tests.test_research_evolution_rework.World object at 0x109623d10>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109623b60>
+
+    def test_plain_message_does_not_claim_pending_maintenance(world, monkeypatch):
+        item = world.seed_rejudged_item()
+        monkeypatch.setattr(app_module, "_run_conversation_turn", fail_turn)
+        run_id = post_message(world, "先不处理制冷剂复核。请解释市盈率是什么。")
+        world.wait_terminal(run_id)
+        links = EvolutionStore(world.user_root / "research_evolution", fx.OWNER).list_run_links(item_id=item["id"])
+        after = world.current_item(item["id"])
+        print("PLAIN_MESSAGE_LINKS", links, "BEFORE", item["status"], "AFTER", after["status"], after["management_revision"])
+>       assert not links, "A pending item in the same conversation is not evidence that an unrelated message starts its rejudge run"
+E       AssertionError: A pending item in the same conversation is not evidence that an unrelated message starts its rejudge run
+E       assert not [{'content_digest': '52448bf49c516a724456f7faa4d0a493edc9770633d3cf191b5b999792a557b9', 'conversation_id': 'conv_db9378ca6d9640c789ff7b0fb36b1aa3', 'item_id': 'jmi-04754b16597baa3b', 'link_id': 'rlink-ac2610030276c84c', ...}]
+
+docs/verification/re06-957e83f4/test_review_round4.py:44: AssertionError
+_______ test_two_pending_items_fast_terminal_can_reconcile_selected_item _______
+
+world = <intelligence.tests.test_research_evolution_rework.World object at 0x1098fd9d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1098fc440>
+
+    def test_two_pending_items_fast_terminal_can_reconcile_selected_item(world, monkeypatch):
+        world.track_judgment(conditions=CONDITION_DOWNGRADE).raise_for_status()
+        items = [i for i in world.view()["maintenance"]["items"] if i["status"] == "open"]
+        assert len(items) >= 2, "real 01 fixture must generate two distinct maintenance items"
+        world.rejudge(items[0], key="request-first-item")
+        second = world.rejudge(world.current_item(items[1]["id"]), key="request-second-item")
+        before = world.current_item(items[1]["id"])
+        continuation = second["continuation"]
+        monkeypatch.setattr(app_module, "_run_conversation_turn", fail_turn)
+        run_id = post_message(world, continuation["full_prompt"], continuation)
+        world.wait_terminal(run_id)
+        response = world.act(
+            action="link_run", idempotency_key=f"link_run:{before['id']}:{run_id}",
+            item_id=before["id"], run_id=run_id,
+            expected_item_version=before["item_version"],
+            expected_management_revision=before["management_revision"],
+        )
+        print("MULTI_PENDING_FAST_TERMINAL", response.status_code, response.json())
+>       assert response.status_code == 200, "An explicit selected item must remain recoverable when two requests are pending"
+E       AssertionError: An explicit selected item must remain recoverable when two requests are pending
+E       assert 400 == 200
+E        +  where 400 = <Response [400 Bad Request]>.status_code
+
+docs/verification/re06-957e83f4/test_review_round4.py:66: AssertionError
+____________ test_terminal_global_replay_still_checks_conversation _____________
+
+world = <intelligence.tests.test_research_evolution_rework.World object at 0x109a84380>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109a84950>
+
+    def test_terminal_global_replay_still_checks_conversation(world, monkeypatch):
+        item = world.seed_rejudged_item()
+        monkeypatch.setattr(app_module, "_run_conversation_turn", fail_turn)
+        run_id = post_message(world, "继续核查")
+        world.wait_terminal(run_id)
+        world.wait_item_status(item["id"], "open")
+        other = world.client.post("/api/conversations", json={"user": fx.OWNER}).json()["conversation_id"]
+        response = world.client.post(
+            f"/api/conversations/{other}/research-evolution/actions",
+            json={"user": fx.OWNER, "action": "link_run", "idempotency_key": "cross-session-terminal-replay",
+                  "item_id": item["id"], "run_id": run_id,
+                  "expected_item_version": item["item_version"],
+                  "expected_management_revision": item["management_revision"]},
+        )
+        print("CROSS_SESSION_TERMINAL_REPLAY", response.status_code, response.json())
+>       assert response.status_code in {400, 404, 409}, "Terminal replay is not an exemption from the original conversation scope"
+E       AssertionError: Terminal replay is not an exemption from the original conversation scope
+E       assert 200 in {400, 404, 409}
+E        +  where 200 = <Response [200 OK]>.status_code
+
+docs/verification/re06-957e83f4/test_review_round4.py:85: AssertionError
+______________ test_old_attempt_judgment_cannot_close_new_attempt ______________
+
+world = <intelligence.tests.test_research_evolution_rework.World object at 0x109a9a240>
+
+    def test_old_attempt_judgment_cannot_close_new_attempt(world):
+        from intelligence.services import judgments as judgments_svc
+        from intelligence.services.research_evolution.access import OwnerContext
+        from intelligence.services.research_evolution.run_observer import ObservingRunStore
+    
+        item = world.seed_rejudged_item()
+        observer = ObservingRunStore(
+            user_id=fx.OWNER, evolution_root=world.user_root / "research_evolution",
+            maintenance_folder=lambda run_id: world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_id),
+        )
+        old = observer.create_run(question="first attempt", task_type="research", session_id=world.conversation_id)
+        world.act(idempotency_key="register-A", run_id=old.run_id, **world.link_args(item["id"])).raise_for_status()
+        cancel = world.link_args(item["id"])
+        cancel["action"] = "cancel_rejudge"
+        world.act(idempotency_key="cancel-A", **cancel).raise_for_status()
+        world.clock.advance(seconds=1)
+        world.rejudge(world.current_item(item["id"]), key="request-B")
+        new = observer.create_run(question="second attempt", task_type="research", session_id=world.conversation_id)
+        world.act(idempotency_key="register-B", run_id=new.run_id, **world.link_args(item["id"])).raise_for_status()
+        before = world.current_item(item["id"])
+        world.clock.advance(seconds=1)
+        # A is allowed to finish after cancellation of the maintenance request.
+        # Its writer produces a late judgment; B produces no judgment of its own.
+        _, judgment = judgments_svc.record_judgment(
+            world.user_root / "judgments.jsonl", themes=[fx.ENTITY],
+            memo="第一轮请求 A 的迟到判断，不是 B 的成果",
+            session_id=world.conversation_id, ts=world.clock().isoformat(),
+        )
+        observer.finish_run(old.run_id, "completed")
+        assert world.current_item(item["id"])["management_revision"] == before["management_revision"]
+        observer.finish_run(new.run_id, "completed")
+        after = world.current_item(item["id"])
+        print("LATE_JUDGMENT", judgment["id"], "BEFORE", before["status"], "AFTER", after["status"], after["management"])
+>       assert after["status"] == "rejudgment_requested", "Request B cannot close using a late result produced by cancelled request A"
+E       AssertionError: Request B cannot close using a late result produced by cancelled request A
+E       assert 'closed' == 'rejudgment_requested'
+E         
+E         - rejudgment_requested
+E         + closed
+
+docs/verification/re06-957e83f4/test_review_round4.py:121: AssertionError
+=========================== short test summary info ============================
+FAILED docs/verification/re06-957e83f4/test_review_round4.py::test_plain_message_does_not_claim_pending_maintenance
+FAILED docs/verification/re06-957e83f4/test_review_round4.py::test_two_pending_items_fast_terminal_can_reconcile_selected_item
+FAILED docs/verification/re06-957e83f4/test_review_round4.py::test_terminal_global_replay_still_checks_conversation
+FAILED docs/verification/re06-957e83f4/test_review_round4.py::test_old_attempt_judgment_cannot_close_new_attempt
+4 failed in 11.76s
