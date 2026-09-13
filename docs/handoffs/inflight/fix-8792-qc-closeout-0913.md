@@ -12,7 +12,7 @@
 - `97eedb2a` E3：当日涨幅%统一日线口径。`duck_pct_chg_map` + L2QueryService 读出侧覆盖
   （旧缓存命中也纠正）；缺日线写 NULL 不冒充；write_to_duckdb 空值安全 +
   `pct_chg_canonical_missing` 进台账 message。**已重算闲鱼窗口 12 天（08-27→09-11）：
-  1961+536 行 0 不符 0 反号 0 空值**。更早 52 天（clickhouse/wind 时代）仍旧口径不可信。
+  1961+536 行 0 不符 0 反号 0 空值**。更早 52 天（ClickHouse 时代）仍旧口径，但闲鱼分享有历史目录（202606/202607 + 202608 自 08-03），可按同一管线重算（月份目录加历史回退，小改动）；待用户拍板。
 - `480b3af7` S2：`mark_calendar` 每跑必写 `ops_pipeline_run_daily` 的 `step=calendar` 行
   （trading/closed/unknown），实测 09-11 写入正常。
 - `f2831fd2` QC 报告 cherry-pick；`58dda6f5` RESULTS/README 按 QC 更正（E1/E2/E4/L2）。
