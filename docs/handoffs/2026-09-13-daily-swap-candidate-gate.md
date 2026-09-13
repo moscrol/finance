@@ -7,9 +7,12 @@
 
 ## 合并完整性（十一轮 P2 修正后口径）
 
-- **merge payload**（merge commit 044d1661 携带）：16 文件 / 3,941+ / 51-。
-- **候选 tip 相对 main**（e40f22b8..b99f1de3，含本文档自身）：**17 文件 / 3,993+ / 51-**。
-- 分支携带的 16 个代码/文档文件与分支 tip 逐字节相等；第 17 个是本文档。
+- **merge payload**（merge commit 044d1661 携带，稳定锚）：16 文件 / 3,941+ / 51-。
+- **候选 tip 层**（payload 之上）：全部是落账/证据提交——两份交接文档、门禁脚本
+  `scripts/reconcile_hithink_gate.py`、证据包 `docs/handoffs/evidence/*.json`，无额外
+  代码改动；tip 相对 main 的文件数随落账增长，**审计以
+  `git diff --stat e40f22b8..<tip>` 实况为准**（十二轮时曾写作 17/3,993，随后还会变）。
+- 分支携带的 16 个代码/文档文件与分支 tip 逐字节相等（合并完整性核验过）。
 - 唯一冲突解决差异：lessons_learned.md 保留双方（+20 行）。
 
 ## 四片叶子（各自独立出结果，无跳过）
@@ -64,8 +67,35 @@ fail-closed（旧报告/旧备份污染、rc 不作硬门禁、备份按 mtime �
 - **任一检查失败 → exit 1**（fail-closed）。
 
 严格复跑收据：`reconcile/run-20260913T141836Z/gate-report.json`——
-**20/20 检查 PASS，verdict=PASS，exit 0**；生产库前后 sha256/stat 仍不变。
+**21/21 检查 PASS（我当时写成 20/20，数错，十二轮已指正），verdict=PASS，exit 0**；生产库前后 sha256/stat 仍不变。
 v1 脚本与十轮报告（`reconcile_hithink.py` / `recon-report.json`）保留为历史证据。
+
+## 十二轮审查后的修补：门禁 v3 纳入候选提交
+
+十二轮裁定：数据对账有条件通过，但门禁实现不通过——P0 是**证据与代码脱钩**
+（v2 脚本与收据都在仓外目录，合并候选不会把门禁带进仓库）；另有四处 P1
+（只查祖先关系未锁精确 revision / parquet 未真冻结存在 TOCTOU 窗口 /
+异常路径不写部分报告 / run 目录名秒级不保证并发唯一）与 ops 收据绑定可加
+强。修补（全部落在候选提交 `affe282d` 的 `scripts/reconcile_hithink_gate.py`）：
+
+- **脚本入仓**：门禁随候选提交走，可复现可审查；
+- **精确版本绑定**：`--expect-revision` 要求 HEAD 精确相等 + `git status --porcelain`
+  为空，收据记录 tree_revision / tree_clean / 脚本自哈希（sha256 `8f908f60…`）；
+- **parquet 真冻结**：先复制进本轮 run 目录，对副本算 hash，CLI 只读副本；
+- **顶层异常保护**：任何异常都写结构化 FAIL 报告（run 目录创建失败写仓外兑底
+  FAIL 文件）；FAIL 报告只落在仓外 OUT_BASE，不污染候选树的 tree_clean；
+- **mkdtemp** 原子唯一 run 目录；
+- **ops 收据全绑定**：kind/ok/plan/trade_date/started_at/finished_at 时间窗全校验，
+  备份 receipt run_id 必须等于该 ops 行。
+
+v3 严格收据（已提交进候选，证据包自包含）：
+`docs/handoffs/evidence/20260913-hithink-gate-report.json`（+ 子进程报告
+`20260913-hithink-repair-report.json`）——**22/22 检查 PASS，verdict=PASS，exit 0**，
+绑定 revision `affe282d`（即门禁脚本提交；本收据提交紧随其后，属「先跑后提
+交收据」的既定次序）。原始 run 目录 `~/.finance-runtime/reconcile-gate/run-t4j_zbc0`。
+负面证据：开发中两次错误调用（短 sha / 树被 FAIL 文件污染）均被门禁正确判
+FAIL 且 exit 1，FAIL 报告归档在仓外 `reconcile/fail-closed-demo/`——fail-closed
+语义经实测不是只写在文档里。
 
 ## 结论与待授权
 
