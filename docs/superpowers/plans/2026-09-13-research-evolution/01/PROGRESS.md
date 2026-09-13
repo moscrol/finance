@@ -168,3 +168,10 @@ QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结�
 - **J2[P1] 同 ref 哈希复活**：同 ref 哈希更新 h1→h2，h2 过期后 h1 复活、待复核项消失。`_state_at` 的 `retired_refs` 原只认跨 ref 显式 `supersedes_ref`；修复加同 ref 隐式替代（同生效起点 valid_from/known_day + 更晚记录 + 不同哈希 → 旧记录永久退场进 ended）。既有控制测试 `test_unsuperseded_sibling...`（valid_from 不同 = 另一版有效期安排）语义不变。
 - 修复提交 **`d1a514ee`**；新增 2 条回归测试先红后绿；模块 99 passed；ruff 干净；QC 探针 `spec_010204_probes.py` J2 组复跑转绿。
 - **06 联测请用 `d1a514ee`**。口径纠偏：上轮「13 项已修复」实为「原 13 项固定反例转绿」。
+
+## 2026-09-13 QC 第三轮（J4/J5）
+
+- 独立复核（`~/.finance-runtime/reviews/research-evolution-round3-qc-20260913/`）：原 8 项固定反例通过，扩大边界确证 5 项新问题，本轨占 2 项：J4[P1]（recorded_at 按 ISO 字符串比大小，03:00Z 被当成比 10:00+08 更旧，h2 过期后 h1 复活）、J5[P2]（本轮新回归：同 ref 同 valid_from 完全相同 recorded_at 不同哈希时，哈希序被当成「更晚」先退休其一，ambiguous_version_order 消失）。
+- 修复 `dbf4d357`：`_sort_key` 的 recorded 分量经 `instant_of` 折算 UTC ISO（可解析时），说不出绝对时刻的留原文兜底；隐式替代退休条件改为「双方时刻均可解析且严格更晚」，同刻/不可比不退休、歧义保留。
+- 验证：新增 2 条回归测试先红后绿；模块 101 passed；全量 9641 passed / 77 skipped（干净树 @dbf4d357）；ruff 干净；QC 第三轮探针 01 组复跑——J4 mixed==normalized 逐字段一致且 source_expired/open/unknown，J5 ambiguous_version_order 在列；第一/二轮归档探针 01 组复跑不回归。
+- 06 联测请用 `dbf4d357`。
