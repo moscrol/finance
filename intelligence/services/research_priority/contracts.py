@@ -15,6 +15,7 @@ import json
 import re
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
 from typing import Any
 
 SCHEMA_TASK = "research-task/v1"
@@ -221,6 +222,21 @@ def parse_market_date(value: Any, *, field: str) -> date | None:
 
 def iso_utc(instant: datetime) -> str:
     return instant.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+# A 股市场日按 Asia/Shanghai 日历（仓内既有约定：market_snapshot_sync / duckdb_market_snapshot 等）。
+MARKET_TZ = ZoneInfo("Asia/Shanghai")
+
+
+def market_date_of(instant: datetime) -> date:
+    """评估时刻在市场时区的日历日。市场日 as_of 是否未来按它判断（S5）：市场日 09-14 在北京时间
+    09-14 00:00 就开始，拿 UTC 日历日比会把已开场的当天资料多挡 8 小时。"""
+    return instant.astimezone(MARKET_TZ).date()
+
+
+def market_day_start(day: date) -> datetime:
+    """市场日开始的真实时刻（市场时区当日零点）。"""
+    return datetime(day.year, day.month, day.day, tzinfo=MARKET_TZ)
 
 
 # ---------------------------------------------------------------------------
@@ -491,20 +507,37 @@ def observation_window(task: dict[str, Any]) -> tuple[str, str]:
     return (str(task.get("as_of") or ""), str(task.get("knowledge_cutoff") or ""))
 
 
+def execution_window(task: dict[str, Any]) -> tuple[str, str]:
+    """执行窗口 =（到期 due_at, 发布 available_at），统一折算成 UTC 时刻串参与合并键。
+
+    同证据但到期 / 发布时间不同是两个不同的核查机会（评审 P2）：先合并再判可执行性，
+    未到期项会随今日项提前入选、今日已发布项会陪未来项一起等。缺值用空串参与键，
+    缺失与已知不互相顶替（与 observation_window 同口径）。
+    """
+
+    def _norm(value: Any, field: str) -> str:
+        instant = parse_instant(value, field=field)
+        return iso_utc(instant) if instant is not None else ""
+
+    return (_norm(task.get("due_at"), "due_at"), _norm(task.get("available_at"), "available_at"))
+
+
 def identity_key(task: dict[str, Any]) -> tuple[Any, ...]:
-    """合并键（spec §5.3）：同 owner、同效果、**同观测窗口**、同一组证据版本 →
-    同一个「核查该证据」任务；没有证据引用的任务再按（问题文字 + 实体范围 + due + 绑定对象）判重，
+    """合并键（spec §5.3）：同 owner、同效果、**同观测窗口**、**同执行窗口**、同一组证据版本 →
+    同一个「核查该证据」任务；没有证据引用的任务再按（问题文字 + 实体范围 + 绑定对象）判重，
     所以「相同问题文字、不同实体或时间窗」不会被误合并（P07）。
 
     观测窗口进键是 spec §5.3「仅文本相似但对象或时间窗不同，不合并」的直接落实，也堵住
     「未来观测记录与当天关键条件先合并、再被整体判成 future_record」这条路：两个窗口的键
-    不同，未来那条永远不可能把当天那条一起带走。
+    不同，未来那条永远不可能把当天那条一起带走。执行窗口同理：due_at / available_at 不同的
+    同证据任务各自保留自己的到期机会与等待状态，不在合并时取 min/max 互相拖入拖出（P2）。
     hindsight 回放与当前观测不合并；只在 hindsight 时追加标记，普通任务的键（与 id）保持不变。"""
     owner = task["owner_user_id"]
     window = observation_window(task)
+    execution = execution_window(task)
     evidence = tuple(sorted({ref_identity(r) for r in task["effect_evidence_refs"]}))
     if evidence:
-        base: tuple[Any, ...] = ("evidence", owner, task["effect_kind"], task["availability"], window, evidence)
+        base: tuple[Any, ...] = ("evidence", owner, task["effect_kind"], task["availability"], window, execution, evidence)
     else:
         base = (
             "question",
@@ -512,9 +545,9 @@ def identity_key(task: dict[str, Any]) -> tuple[Any, ...]:
             task["effect_kind"],
             task["availability"],
             window,
+            execution,
             normalize_text(task["question"]),
             tuple(task["scope"]["entity_refs"]),
-            str(task.get("due_at") or ""),
             tuple(sorted({ref_identity(r) for r in task["object_refs"]})),
         )
     return base + (("hindsight",) if task.get("hindsight") else ())

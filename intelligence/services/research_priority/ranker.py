@@ -236,21 +236,34 @@ def _merge_members(key: tuple[Any, ...], members: list[dict[str, Any]]) -> dict[
 
 
 def _is_future_record(task: dict[str, Any], eval_at: datetime) -> bool:
-    """记录的观测窗口是否晚于评估时刻（P09 / P13）。合并前后共用同一判据。"""
+    """记录的观测窗口是否晚于评估时刻（P09 / P13）。合并前后共用同一判据。
+
+    knowledge_cutoff 是真实时刻，直接与 evaluation_at 比；as_of 是市场日，按市场时区的
+    日历日比（S5）——市场日 09-14 在北京时间 09-14 00:00 就开始，拿 UTC 日历日比会把
+    已开场当天的已知资料多挡 8 小时（总合同：市场日 / 知识截止 / 事件时间分开）。
+    """
     cutoff = c.parse_instant(task["knowledge_cutoff"], field="knowledge_cutoff")
     as_of = c.parse_market_date(task["as_of"], field="as_of")
-    return (cutoff is not None and cutoff > eval_at) or (as_of is not None and as_of > eval_at.date())
+    return (cutoff is not None and cutoff > eval_at) or (as_of is not None and as_of > c.market_date_of(eval_at))
 
 
 def _block_entry(task: dict[str, Any], eval_at: datetime) -> dict[str, Any] | None:
     """返回 blocked 条目或 None（可排序）。时间状态只按 evaluation_at 判定（P13）。"""
     if _is_future_record(task, eval_at):
-        later = max([v for v in (task["knowledge_cutoff"], task["as_of"]) if v], key=lambda v: c.parse_instant(v, field="x"))
+        # 解除时刻按各自口径折算成真实时刻：cutoff 本身是时刻；as_of 是市场日，取市场时区当日零点。
+        release: list[datetime] = []
+        cutoff = c.parse_instant(task["knowledge_cutoff"], field="knowledge_cutoff")
+        as_of = c.parse_market_date(task["as_of"], field="as_of")
+        if cutoff is not None:
+            release.append(cutoff)
+        if as_of is not None:
+            release.append(c.market_day_start(as_of))
+        later = max(release)
         return _blocked(
             task,
             c.BLOCK_FUTURE_RECORD,
-            f"记录的 knowledge_cutoff / as_of 晚于评估时刻 {c.iso_utc(eval_at)}：资料尚不可知，不进入评分；到该时刻后重算",
-            later,
+            f"记录的 knowledge_cutoff / as_of 晚于评估时刻 {c.iso_utc(eval_at)}：资料尚不可知，不进入评分；到 {c.iso_utc(later)} 后重算",
+            c.iso_utc(later),
         )
     availability = task["availability"]
     available_at = c.parse_instant(task["available_at"], field="available_at")

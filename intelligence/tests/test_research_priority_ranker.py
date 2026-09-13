@@ -382,6 +382,114 @@ def test_p07_same_text_different_entity_or_window_are_not_merged():
 
 
 # ---------------------------------------------------------------------------
+# 评审返修 S5：市场日是否未来，按市场时区（Asia/Shanghai）日历日判断，不按 UTC 日
+# ---------------------------------------------------------------------------
+def test_market_day_future_check_uses_market_timezone_not_utc():
+    """as_of=09-14 的资料 06:00+08 已知：北京时间 09-14 07:00（=UTC 09-13 23:00）评估时
+    市场日已经开始，不能因 UTC 日历日还是 09-13 就判 future_record（总合同：市场日 as_of、
+    知识截止、事件时间分开；02 §4 窗口只管可知性，不充当时钟）。"""
+    task = _task(
+        "already_known_monday",
+        effect=c.EFFECT_REVIEW_CHANGED,
+        objects=(_ref("judgment", "tz_jd"),),
+        evidence=(_ref("evidence", "tz_source", namespace="announcement", version="h-new"),),
+        as_of="2026-09-14",
+        cutoff="2026-09-14T06:00:00+08:00",
+        effort=_effort(1),
+    )
+    # 市场日 09-14 已开场且资料已知的三个等价时刻（23:00Z = 07:00+08）：全部应可选。
+    for when in ("2026-09-13T23:00:00Z", "2026-09-14T07:00:00+08:00", "2026-09-14T00:00:00Z"):
+        report = rp.prioritize([copy.deepcopy(task)], None, None, when)
+        section, _row = _by_source(report, "already_known_monday")
+        assert section == "selected", (when, report["blocked"])
+    # 市场日已开场（09-14 05:00+08）但资料尚未登记（cutoff 06:00+08）：仍按真实时刻挡。
+    not_yet_known = rp.prioritize([copy.deepcopy(task)], None, None, "2026-09-13T21:00:00Z")
+    section, row = _by_source(not_yet_known, "already_known_monday")
+    assert section == "blocked" and row["reason"] == c.BLOCK_FUTURE_RECORD
+    # 市场日还没开始（09-13 23:59+08）：as_of 仍是未来记录。
+    before_open = rp.prioritize([copy.deepcopy(task)], None, None, "2026-09-13T15:59:00Z")
+    section, row = _by_source(before_open, "already_known_monday")
+    assert section == "blocked" and row["reason"] == c.BLOCK_FUTURE_RECORD
+
+
+# ---------------------------------------------------------------------------
+# 评审返修 P2：同证据不同执行窗口（due_at / available_at）是两个机会，合并前必须隔离
+# ---------------------------------------------------------------------------
+def test_same_evidence_distinct_due_windows_are_not_merged():
+    """同证据 / 同 as_of / 同 cutoff、不同 due_at：明日项不得随今日项提前入选，
+    到期时刻也不能被合并改写成今天（spec §5.1 可执行性先行；§4 到期各自比较）。"""
+    shared = (_ref("evidence", "condition-input", namespace="announcements", version="h1"),)
+    today = _task(
+        "due_today",
+        effect=c.EFFECT_VERIFY_DUE,
+        objects=(_ref("checkpoint", "today"),),
+        evidence=shared,
+        condition="unknown",
+        due_at="2026-09-13T01:00:00Z",
+        effort=_effort(1),
+    )
+    tomorrow = _task(
+        "due_tomorrow",
+        effect=c.EFFECT_VERIFY_DUE,
+        objects=(_ref("checkpoint", "tomorrow"),),
+        evidence=shared,
+        condition="unknown",
+        due_at="2026-09-14T01:00:00Z",
+        effort=_effort(1),
+    )
+    report = rp.prioritize([today, tomorrow], None, None, EVAL_AT)
+    assert report["totals"]["candidate_count"] == 2 and report["totals"]["merged_count"] == 0
+    section_today, row_today = _by_source(report, "due_today")
+    section_tomorrow, row_tomorrow = _by_source(report, "due_tomorrow")
+    assert section_today == "selected"
+    assert row_today["task"]["due_at"] == "2026-09-13T01:00:00Z"
+    assert section_tomorrow == "blocked" and row_tomorrow["reason"] == c.BLOCK_NOT_YET_DUE
+    assert row_tomorrow["task"]["due_at"] == "2026-09-14T01:00:00Z"
+
+
+def test_same_evidence_distinct_release_windows_do_not_block_current():
+    """负控同根：waiting_release 的 available_at 不同也不合并——今日已发布的来源
+    不得陪明日的来源一起等（合并取 max available_at 会把可查项拖进 blocked）。"""
+    shared = (_ref("evidence", "condition-input", namespace="announcements", version="h1"),)
+    released = _task(
+        "rel_today",
+        effect=c.EFFECT_REVIEW_CHANGED,
+        objects=(_ref("judgment", "j_rel"),),
+        evidence=shared,
+        availability=c.AVAIL_WAITING_RELEASE,
+        available_at="2026-09-13T01:00:00Z",
+        effort=_effort(1),
+    )
+    waiting = _task(
+        "rel_tomorrow",
+        effect=c.EFFECT_REVIEW_CHANGED,
+        objects=(_ref("judgment", "j_rel"),),
+        evidence=shared,
+        availability=c.AVAIL_WAITING_RELEASE,
+        available_at="2026-09-14T01:00:00Z",
+        effort=_effort(1),
+    )
+    report = rp.prioritize([released, waiting], None, None, EVAL_AT)
+    assert report["totals"]["candidate_count"] == 2 and report["totals"]["merged_count"] == 0
+    section_released, _row_released = _by_source(report, "rel_today")
+    section_waiting, row_waiting = _by_source(report, "rel_tomorrow")
+    assert section_released == "selected"
+    assert section_waiting == "blocked" and row_waiting["reason"] == c.AVAIL_WAITING_RELEASE
+    # 同一执行窗口内的同证据仍合成一个任务（合并本意：同窗口重复读取只核查一次）。
+    twin = _task(
+        "rel_today_twin",
+        effect=c.EFFECT_REVIEW_CHANGED,
+        objects=(_ref("judgment", "j_rel_twin"),),
+        evidence=shared,
+        availability=c.AVAIL_WAITING_RELEASE,
+        available_at="2026-09-13T01:00:00Z",
+        effort=_effort(1),
+    )
+    same = rp.prioritize([released, twin], None, None, EVAL_AT)
+    assert same["totals"]["candidate_count"] == 1 and same["totals"]["merged_count"] == 1
+
+
+# ---------------------------------------------------------------------------
 # P08 · 前三项不能隐去第 4 个关键放弃条件
 # ---------------------------------------------------------------------------
 

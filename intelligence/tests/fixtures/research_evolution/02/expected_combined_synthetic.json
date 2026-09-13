@@ -1,8 +1,8 @@
 {
   "synthetic": true,
-  "_note": "四源合并场景的冻结输出（selected 顺序 / 分组 / 合并来源 / 摘要）。任何合同或规则变更都应让本文件变红后再有意更新。",
-  "input_digest": "d63e6799ed13da98a8b9d02ddbef0964e04dcacdd1f1910b56c456906bb06183",
-  "report_id": "rp_1eda4276de1642a7",
+  "_note": "四源合并场景的冻结输出（selected 顺序 / 分组 / 合并来源 / 摘要）。任何合同或规则变更都应让本文件变红后再有意更新。2026-09-13 因评审 P2 合并键加执行窗口（due_at/available_at）重生成：仅 id/digest 与随 id 排序的落位变化，合并口径由测试内与 id 无关的语义层闭锁。",
+  "input_digest": "78ba25944ef6fff25da1d705c0fce740b8768d1b9ac65c1b41375f6e04b2ba17",
+  "report_id": "rp_45df5754a50e9bbf",
   "totals": {
     "candidate_count": 17,
     "input_count": 19,
@@ -17,7 +17,7 @@
     [
       1,
       1,
-      "rt_bd740df942e73666",
+      "rt_a948ffa17fddd964",
       [
         "mi_001_abandon_true"
       ]
@@ -25,7 +25,7 @@
     [
       2,
       2,
-      "rt_4e7b44c1fa9b8ee5",
+      "rt_4a007c822cd4eb6b",
       [
         "mi_002_hash_only",
         "mi_003_same_evidence",
@@ -35,7 +35,7 @@
     [
       3,
       3,
-      "rt_6a74844224ed6b8a",
+      "rt_4f223ccfad18cb51",
       [
         "conv_1#checkpoint:cp_unv_0910"
       ]
@@ -44,64 +44,64 @@
   "deferred": [
     [
       "user_snoozed",
-      "rt_c55b92285a785408"
+      "rt_2a3bc433ed2c52d7"
     ],
     [
       "max_items_reached",
-      "rt_8e6bfd544a9df473"
+      "rt_21ec800315e06d07"
     ],
     [
       "max_items_reached",
-      "rt_f8c7c016965632e7"
+      "rt_a2387ce71df233c7"
     ],
     [
       "max_items_reached",
-      "rt_e9b6f5f36a463183"
+      "rt_49ef601148ba7e6a"
     ],
     [
       "max_items_reached",
-      "rt_49e2b3ef327a2094"
+      "rt_14ad2bf9de35a0a3"
     ],
     [
       "max_items_reached",
-      "rt_4e68fb470a1b5add"
+      "rt_5306cbdbee8955b1"
     ],
     [
       "max_items_reached",
-      "rt_6591933110e789ef"
+      "rt_716cf7ef89c794c1"
     ],
     [
       "max_items_reached",
-      "rt_7b381ebfd1e9df50"
+      "rt_a13dd40ab5d16816"
     ],
     [
       "max_items_reached",
-      "rt_9155ef17280a4d88"
+      "rt_e372e8fff6b9ca85"
     ],
     [
       "max_items_reached",
-      "rt_ae2b54506fdb27bf"
+      "rt_f260671e37809c8f"
     ]
   ],
   "blocked": [
     [
-      "missing_data",
-      "rt_17790a47dcaa53fe"
-    ],
-    [
-      "missing_data",
-      "rt_2c23d07b7271067f"
-    ],
-    [
       "not_yet_due",
-      "rt_5c1083918b18a16f"
+      "rt_025c655e27855431"
+    ],
+    [
+      "missing_data",
+      "rt_45e43a8fad18b3af"
     ],
     [
       "waiting_release",
-      "rt_c7a1ebde14fb3ca6"
+      "rt_71b84f7edeac44e9"
+    ],
+    [
+      "missing_data",
+      "rt_72392b976ab30bfb"
     ]
   ],
   "critical_not_selected_ids": [
-    "rt_c55b92285a785408"
+    "rt_2a3bc433ed2c52d7"
   ]
 }
