@@ -31,6 +31,7 @@ from intelligence.services.judgment_maintenance.contracts import (
     MaintenanceReport,
     canonical_json,
     day_of,
+    instant_of,
     parse_binding,
     parse_evidence_version,
     parse_observation,
@@ -143,7 +144,11 @@ class _State:
 
 def _sort_key(p: _Placed) -> tuple[str, str, str]:
     # 先看 as_of 那天谁在生效（valid_from 最晚），再看谁更晚被记录（后知更正压前），最后哈希序兜底确定性。
-    return (p.version.valid_from or p.known_day, p.version.recorded_at or "", p.version.source_hash or "")
+    # recorded_at 按真实时刻排（J4）：同一时刻的不同时区写法是同一时刻，ISO 文本顺序会给出相反结论；
+    # 说不出绝对时刻的（纯日期 / naive / 缺失）留原文兜底——只用于输出确定性，不充当先后证据。
+    instant = instant_of(p.version.recorded_at)
+    recorded = instant.astimezone(timezone.utc).isoformat() if instant is not None else (p.version.recorded_at or "")
+    return (p.version.valid_from or p.known_day, recorded, p.version.source_hash or "")
 
 
 def _state_at(root_ref: str, baseline_hash: str | None, chain_refs: list[str], by_ref: dict[str, list[_Placed]], *, as_of: str, day: str) -> _State:
@@ -176,7 +181,14 @@ def _state_at(root_ref: str, baseline_hash: str | None, chain_refs: list[str], b
             for q in group:
                 if q is p or q.version.source_hash == p.version.source_hash:
                     continue
-                if (q.version.valid_from or q.known_day) == p_from and _sort_key(q) > _sort_key(p):
+                if (q.version.valid_from or q.known_day) != p_from:
+                    continue
+                # J4/J5：退休只认「已证明的严格更晚记录」——按真实时刻比（instant_of，同一时刻换时区写法
+                # 结论不变）；时刻相同或说不出绝对时刻（纯日期 / naive / 缺失）都不算更晚，两个版本都留下，
+                # 歧义由 ambiguous_version_order 提示。哈希序只用于输出确定性，不是先后证据。
+                q_instant = instant_of(q.version.recorded_at)
+                p_instant = instant_of(p.version.recorded_at)
+                if q_instant is not None and p_instant is not None and q_instant > p_instant:
                     retired_same_ref.add(id(p))
                     break
     live: list[_Placed] = []

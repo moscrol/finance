@@ -567,6 +567,60 @@ def test_same_ref_correction_chain_restores_only_via_rerecord():
 
 
 # --------------------------------------------------------------------------- #
+# 评审返修 J4/J5：记录先后按真实时刻比；同刻不同哈希保留歧义，哈希序不冒充先后
+# --------------------------------------------------------------------------- #
+def _j4_view(versions):
+    report = _run(
+        [_binding({REF_A: "h1"}, created_at="2026-09-10T12:00:00+08:00", baseline_cutoff="2026-09-10")],
+        versions,
+    )
+    return {
+        "counts": report.counts,
+        "pit_grade": report.pit_grade,
+        "gaps": sorted(g.reason for g in report.gaps),
+        "live": [
+            (it.change_type, it.status, it.epistemic_state, [v.source_hash for v in it.current], sorted(g.reason for g in it.gaps))
+            for it in _live(report)
+        ],
+    }
+
+
+def test_same_ref_correction_orders_by_recorded_instant_not_string():
+    """J4：h2 登记 03:00Z = 北京时间 11:00，比 h1 的 10:00+08 更晚。
+
+    ISO 文本顺序会把 h2 当成较旧记录（"03" < "10"），h2 过期后 h1 复活、待办消失。
+    同一时刻换一种合法写法不得改变业务结论：两种写法的评估视图必须逐字段一致，
+    且结论都是「更正版过期、旧哈希不复活」（source_expired / open / unknown）。
+    """
+    mixed = [
+        _version(REF_A, "h1", "2026-09-10T10:00:00+08:00"),
+        _version(REF_A, "h2", "2026-09-10T03:00:00Z", expired_at="2026-09-11T18:00:00+08:00"),
+    ]
+    normalized = [
+        _version(REF_A, "h1", "2026-09-10T10:00:00+08:00"),
+        _version(REF_A, "h2", "2026-09-10T11:00:00+08:00", expired_at="2026-09-11T18:00:00+08:00"),
+    ]
+    assert _j4_view(mixed) == _j4_view(normalized)
+    view = _j4_view(mixed)
+    assert view["live"] == [("source_expired", "open", "unknown", ["h2"], ["validity_ended"])]
+    assert view["counts"]["items_open"] == 1
+
+
+def test_same_instant_distinct_hash_keeps_ambiguous_version_order():
+    """J5：同 ref、同 valid_from、完全相同 recorded_at、不同哈希——分不出先后。
+
+    哈希排序只保证输出确定，不能证明版本先后：两个版本都不得被对方退休，
+    ambiguous_version_order 歧义提示必须保留（修前行为，J2 修复不得把它吃掉）。
+    """
+    versions = [
+        _version(REF_A, "h1", "2026-09-10T10:00:00+08:00"),
+        _version(REF_A, "h2", "2026-09-10T10:00:00+08:00"),
+    ]
+    report = _run([_binding({REF_A: "h1"}, created_at="2026-09-10T12:00:00+08:00", baseline_cutoff="2026-09-10")], versions)
+    assert any(g.reason == "ambiguous_version_order" for g in report.gaps)
+
+
+# --------------------------------------------------------------------------- #
 # 评审返修 S2：只有日期的 recorded_at 不得升为 strict（规格 01 §4 日期粒度降级）
 # --------------------------------------------------------------------------- #
 def test_date_only_recorded_at_is_never_strict():
