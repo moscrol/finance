@@ -29,7 +29,10 @@ LEDGER_PARTS: tuple[tuple[str, str, str], ...] = (
     ("judgments", "judgments_path", "核心判断（含 pending 提案）"),
     ("checkpoints", "checkpoints_path", "可证伪点：陈述 + 到期日 + 机检规格"),
     ("verdicts", "verdicts_path", "回检打分"),
-    ("observation_scripts", "observation_scripts_path", "观察剧本：变量与升级/放弃条件"),
+    # 这个文件自 2026-09-14（工单 #53）起是分型台账：剧本 + 提取尝试 + 提取事件。
+    # 导出照旧带走**全部**行（原始导出不筛类型），但计数是「台账行数」不是「剧本数」——
+    # 描述必须说清，否则那个数字读起来像剧本数，而它已经不是了。
+    ("observation_scripts", "observation_scripts_path", "观察剧本台账行（草稿 / 提取尝试 / 提取事件三类）"),
     ("corrections", "corrections_path", "你对 agent 的纠偏"),
     ("experience_cards", "experience_cards_path", "从低分回答与纠偏压缩出的经验卡"),
     ("answer_scores", "answer_scores_path", "你给回答打的分"),

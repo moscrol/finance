@@ -26,21 +26,32 @@
                                  → ``skipped``（用户跳过——**有效行为，不计失败**，spec §3.1）
 ``confirmed`` 但晚登记 → ``late``；到期仍停在 ``drafted`` → ``expired``。
 
+## 提取前置（工单 #53）：同一个台账文件，三类记录
+
+入口先收用户自己的观察剧本、再披露系统骨架。为此本台账用 ``record_kind`` 分型存
+**剧本 / 提取尝试 / 提取事件**三类（缺该字段 = 存量剧本），写入者仍然只有本模块一个。
+判定侧（关联键、顺序门、字段差异）在 ``observation_extraction.py``——那边全是纯函数，
+不写盘。为什么不另开台账、也不写 ``interactions.jsonl``：见「台账分型」那节的注释。
+
 本模块只用标准库：可离线跑、可独立单测，与 ``checkpoints.py`` 同规格。
 """
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
+import uuid
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import date as date_cls, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable, Iterator, Mapping
 
 from intelligence.services import checkpoints as checkpoints_svc
 from intelligence.services import compliance_gate
+from intelligence.services import observation_extraction as extraction
 
 # 剧本作用域：只到指数 / 板块 / 题材。个股不在其列——这是产品定位红线，不是配置项。
 SCOPES = ("index", "sector", "theme")
@@ -52,6 +63,47 @@ STATUSES = ("drafted", "confirmed", "skipped", "late", "expired")
 OBJECT_TYPE = "observation_script"
 CHECKPOINT_CATEGORY = "observation_script"
 CHECKPOINT_SOURCE = "observation_script"
+
+# --------------------------------------------------------------------------- #
+# 台账分型（工单 #53 §2.4）：一个文件，三类记录
+#
+# 为什么不另建文件：``interactions.jsonl`` 是「新用户 / 老用户」默认开关的判据台账，
+# 往里写任何一行都会把新用户翻成老用户，带读默认值随之改变——记录过程反而改变了
+# 被观测的行为。checkpoint 台账同理：过程事件混进去，回检队列与胜率分母就脏了。
+# 所以尝试与事件寄存在剧本台账里，用 ``record_kind`` 区分，消费方各取所需。
+# --------------------------------------------------------------------------- #
+RECORD_SCRIPT = "script"
+RECORD_ATTEMPT = "attempt"
+RECORD_EVENT = "event"
+RECORD_KINDS = (RECORD_SCRIPT, RECORD_ATTEMPT, RECORD_EVENT)
+# 认不出来的类型（将来的新分型）既不算剧本也不算事件，但仍留在原始导出里。
+RECORD_UNKNOWN = "unknown"
+
+# 作者来源。**不复用 ``user_authored``**——后者表示「产品外手填、没有上下文投影」，
+# 是投影门禁的豁免声明，与「这条是不是用户在提取入口写的」是两件事。
+AUTHOR_USER = "user"
+AUTHOR_SYSTEM = "system"
+
+# 五个业务事件（工单 §2.4 那张表）。尝试记录不是第六个事件。
+EVENT_DRAFT_SUBMITTED = "draft_submitted"
+EVENT_DRAFT_SKIPPED = "draft_skipped"
+EVENT_SCRIPT_CONFIRMED = "script_confirmed"
+EVENT_ABANDONED = "abandoned"
+EVENT_READ_COMPLETED = "read_completed"
+EVENTS = (
+    EVENT_DRAFT_SUBMITTED,
+    EVENT_DRAFT_SKIPPED,
+    EVENT_SCRIPT_CONFIRMED,
+    EVENT_ABANDONED,
+    EVENT_READ_COMPLETED,
+)
+
+# 入口名。``manual_confirm`` 是完整手填确认——它没有对应的提取尝试，
+# ``attempt_id`` 必须是 null，不能伪造一个「曾进入提取流程」的假象。
+ENTRYPOINT_MANUAL_CONFIRM = "manual_confirm"
+
+ATTEMPT_PENDING = "pending"
+ATTEMPT_CLOSED = "closed"
 
 # A 股开盘 09:30（+08:00）。登记截止时刻 = as_of 的下一个自然日 09:30。
 # 用自然日而非交易日是**故意从严**：遇周末 / 节假日时真实开盘更晚，按自然日算只会
@@ -525,8 +577,8 @@ def repoint_due(
         "repointed_from": {"id": record["id"], "due": due, "checkpoint_id": record["checkpoint_id"]},
     }
     p = Path(path).expanduser()
-    with p.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(new_record, ensure_ascii=False) + "\n")
+    with _ledger_lock(p):
+        _append_line(p, new_record)
     return new_record
 
 
@@ -541,6 +593,11 @@ def register(
     session_id: str | None = None,
     db_path: str | Path | None = None,
     user_authored: bool = False,
+    author_origin: str | None = None,
+    canonical_entity_id: str | None = None,
+    attempt_id: str | None = None,
+    entrypoint: str | None = None,
+    source_draft_id: str | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     """登记剧本，返回 ``(path, record)``。硬门不过直接抛 ``ObservationScriptRejected``。
 
@@ -550,6 +607,12 @@ def register(
     ``user_authored``：剧本是用户在产品外手写的、没有对应的上下文投影。只有这样声明了，
     ``projection_hash`` 才允许为空（台账单列）；否则 agent 派生的剧本缺哈希是硬故障，
     ``register_checkpoint`` 会拒收（工单 #34）。
+
+    ``entrypoint`` 给了（= 由受控入口调用）且最终状态是 ``confirmed`` / ``late`` 时，
+    记录里带一份 ``script_confirmed`` 的动作元数据，事件由 ``projected_events`` 投影读出，
+    **不再追加第二条成功事件行**（工单 #53 §2.4）。``late`` 仍算确认动作——它只是不进校准，
+    不是「没确认」。``author_origin`` / ``attempt_id`` / ``source_draft_id`` 是来源声明，
+    由受控入口写入；用户不能注入。
     """
     stamped = ObservationScript(
         **{
@@ -614,15 +677,52 @@ def register(
     )
     if stamped.projection_hash is None and user_authored:
         record["projection_hash_missing"] = checkpoints_svc.USER_AUTHORED
+    if author_origin:
+        record["author_origin"] = str(author_origin)
+    if canonical_entity_id:
+        record["canonical_entity_id"] = str(canonical_entity_id)
+    if attempt_id:
+        record["extraction_attempt_id"] = str(attempt_id)
+    if source_draft_id:
+        record["source_draft_id"] = str(source_draft_id)
+    if entrypoint:
+        record["record_kind"] = RECORD_SCRIPT
+        record["entrypoint"] = str(entrypoint)
+        if status in {"confirmed", "late"}:
+            action_key = _action_key(EVENT_SCRIPT_CONFIRMED, attempt_id, record_id)
+            meta: dict[str, Any] = {
+                "event": EVENT_SCRIPT_CONFIRMED,
+                "event_id": _event_id(action_key),
+                "action_key": action_key,
+                "occurred_at": str(stamped.recorded_at),
+                "entrypoint": str(entrypoint),
+                "attempt_id": attempt_id,
+                "script_status": status,
+                "checkpoint_id": checkpoint_id,
+            }
+            if source_draft_id:
+                meta["source_draft_id"] = str(source_draft_id)
+            record["action_event"] = meta
     p = Path(path).expanduser()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    with p.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+    with _ledger_lock(p):
+        _append_line(p, record)
     return p, record
 
 
-def load(path: str | Path) -> list[dict[str, Any]]:
-    """读取全部剧本记录（保留顺序）。文件不存在返回空列表。"""
+def record_kind_of(rec: Mapping[str, Any] | None) -> str:
+    """记录分型。**缺字段 = 剧本**（存量行没有这个字段），认不出的值归 ``unknown``。
+
+    认不出就 fail closed：一条来自未来分型的记录既不进剧本分母、也不进事件查询，
+    但它仍留在原始导出里——「看不懂」不等于「可以丢」。
+    """
+    kind = str((rec or {}).get("record_kind") or "").strip()
+    if not kind:
+        return RECORD_SCRIPT
+    return kind if kind in RECORD_KINDS else RECORD_UNKNOWN
+
+
+def load_raw(path: str | Path) -> list[dict[str, Any]]:
+    """读取台账全部记录（含尝试与事件，保留顺序）。原始导出用这个。"""
     p = Path(path).expanduser()
     if not p.exists():
         return []
@@ -638,6 +738,25 @@ def load(path: str | Path) -> list[dict[str, Any]]:
         if isinstance(rec, dict) and rec.get("id"):
             out.append(rec)
     return out
+
+
+def load(path: str | Path) -> list[dict[str, Any]]:
+    """读取**剧本**记录（保留顺序）。文件不存在返回空列表。
+
+    过程事件与提取尝试不在其中：它们一旦混进来，``status_counts`` 的分母、
+    ``expire_stale`` 的扫描面与回检队列都会跟着涨，而那三处量的都是「剧本」。
+    """
+    return [rec for rec in load_raw(path) if record_kind_of(rec) == RECORD_SCRIPT]
+
+
+def load_attempts(path: str | Path) -> list[dict[str, Any]]:
+    """读取提取尝试记录（append-only：同一 ``attempt_id`` 的最后一行是它的现状）。"""
+    return [rec for rec in load_raw(path) if record_kind_of(rec) == RECORD_ATTEMPT]
+
+
+def load_events(path: str | Path) -> list[dict[str, Any]]:
+    """读取五业务事件：独立事件行 + 从成功剧本行投影出来的成功事件。"""
+    return projected_events(load_raw(path))
 
 
 def expire_stale(records: list[dict[str, Any]], *, today: str | None = None) -> list[dict[str, Any]]:
@@ -662,3 +781,463 @@ def status_counts(records: list[dict[str, Any]]) -> dict[str, int]:
         if st in counts:
             counts[st] += 1
     return counts
+
+
+# --------------------------------------------------------------------------- #
+# 提取前置：用户草稿 / 提取尝试 / 五业务事件（工单 #53 §2.1 / §2.4）
+#
+# 写入仍然只有本模块一个入口。并发认领（同键最多一个未结束尝试）、追加与去重
+# 全在同一把锁里完成——让 CLI「先查再写」就是 check-then-act：两个进程同时看到
+# 「还没有未结束尝试」，最后会各开一个。本仓已经在配额那里踩过同一个形状。
+# --------------------------------------------------------------------------- #
+@contextmanager
+def _ledger_lock(path: Path) -> Iterator[None]:
+    """台账互斥锁。锁在旁边的 ``.<name>.lock`` 上，不锁台账本身——
+
+    锁文件与数据文件分开，读者永远不需要拿锁，也不会因为写者持锁而读到半截。
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_name(f".{path.name}.lock")
+    with lock_path.open("a+b") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+
+def _append_line(path: Path, record: dict[str, Any]) -> None:
+    """整行落盘 + flush + fsync。**半行不算成功**——断电留下半行 JSON，
+    读者的 ``json.JSONDecodeError`` 分支会静默跳过它，于是「写过」和「没写过」
+    在台账上长得一模一样。"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+        fh.flush()
+        os.fsync(fh.fileno())
+
+
+def _now_iso() -> str:
+    return datetime.now(CN_TZ).isoformat(timespec="seconds")
+
+
+def _key_of(rec: Mapping[str, Any]) -> tuple[str, str, str, str]:
+    """从一条记录还原它的关联键。
+
+    ``scope`` **推导**而不是读字段：剧本行里的 ``scope`` 是用户填的正文字段，可能和
+    身份推出来的不一致；读它会让同一个阅读目标的草稿与带读对不上。推导只有一处
+    （``extraction.scope_for``），所以两侧不可能漂。
+    """
+    eid = str(rec.get("canonical_entity_id") or "")
+    return (
+        str(rec.get("user_id") or ""),
+        str(rec.get("as_of") or ""),
+        extraction.scope_for(eid),
+        eid,
+    )
+
+
+def _action_key(event: str, attempt_id: str | None, discriminator: str = "") -> str:
+    """同一动作的去重键。``attempt_id`` 为空时用 ``manual_confirm``——
+    完整手填确认没有尝试，但它仍然需要一个稳定的去重标识。"""
+    return "|".join([event, str(attempt_id or ENTRYPOINT_MANUAL_CONFIRM), discriminator])
+
+
+def _event_id(action_key: str) -> str:
+    return "oe-" + hashlib.sha1(action_key.encode("utf-8")).hexdigest()[:12]
+
+
+def projected_events(raw: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """五业务事件的统一读取面：独立事件行 + 剧本行里的动作元数据投影。
+
+    为什么成功事件不另写一行：保存剧本与追加事件是两次写，中间崩溃就会留下
+    「剧本在、事件不在」的断裂，而那种断裂事后无法与「根本没提交」区分。
+    把成功事件的元数据放进剧本行本身，一次写落地，读的时候投影出来——
+    事件的存在与剧本的存在从此是同一个事实。
+    """
+    out: list[dict[str, Any]] = []
+    for rec in raw:
+        kind = record_kind_of(rec)
+        if kind == RECORD_EVENT:
+            out.append(dict(rec))
+            continue
+        if kind != RECORD_SCRIPT:
+            continue
+        meta = rec.get("action_event")
+        if not isinstance(meta, Mapping) or str(meta.get("event")) not in EVENTS:
+            continue
+        projected = {
+            "record_kind": RECORD_EVENT,
+            "event": str(meta.get("event")),
+            "event_id": meta.get("event_id"),
+            "user_id": rec.get("user_id"),
+            "as_of": rec.get("as_of"),
+            "canonical_entity_id": rec.get("canonical_entity_id"),
+            "occurred_at": meta.get("occurred_at"),
+            "entrypoint": meta.get("entrypoint"),
+            "attempt_id": meta.get("attempt_id"),
+            "action_key": meta.get("action_key"),
+            "draft_id": rec.get("draft_id"),
+            "script_id": rec.get("id"),
+            "projected_from": rec.get("id"),
+        }
+        for extra_key in ("script_status", "checkpoint_id", "source_draft_id"):
+            if extra_key in meta:
+                projected[extra_key] = meta[extra_key]
+        out.append(projected)
+    return out
+
+
+def user_drafts(
+    raw: Iterable[Mapping[str, Any]], *, key: extraction.ExtractionKey
+) -> list[dict[str, Any]]:
+    """该关联键下**用户自己提交**的全部草稿版本，按提交先后。
+
+    判据是 ``author_origin == "user"``，不是 ``status == "drafted"``：系统骨架同样
+    是 drafted，拿状态当判据就会把产品自己生成的东西当成用户作答。
+    """
+    target = key.as_tuple()
+    return [
+        dict(rec)
+        for rec in raw
+        if record_kind_of(rec) == RECORD_SCRIPT
+        and str(rec.get("author_origin") or "") == AUTHOR_USER
+        and _key_of(rec) == target
+    ]
+
+
+def latest_user_draft(
+    raw: Iterable[Mapping[str, Any]], *, key: extraction.ExtractionKey
+) -> dict[str, Any] | None:
+    """同键最后一次成功提交的那一版。失败提交从未落盘，所以不会顶掉已有有效版。"""
+    drafts = user_drafts(raw, key=key)
+    return drafts[-1] if drafts else None
+
+
+def keys_with_user_draft(raw: Iterable[Mapping[str, Any]]) -> set[tuple[str, str, str]]:
+    """有用户草稿的全部阅读目标——列表 / JSON 的遮蔽判据。"""
+    return {
+        _key_of(rec)
+        for rec in raw
+        if record_kind_of(rec) == RECORD_SCRIPT
+        and str(rec.get("author_origin") or "") == AUTHOR_USER
+    }
+
+
+def attempt_states(raw: Iterable[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
+    """``attempt_id -> 现状``。append-only 台账里同一 ID 的最后一行即现状。"""
+    out: dict[str, dict[str, Any]] = {}
+    for rec in raw:
+        if record_kind_of(rec) != RECORD_ATTEMPT:
+            continue
+        aid = str(rec.get("attempt_id") or "")
+        if aid:
+            out[aid] = {**out.get(aid, {}), **dict(rec)}
+    return out
+
+
+def pending_attempt(
+    raw: Iterable[Mapping[str, Any]], *, key: extraction.ExtractionKey
+) -> dict[str, Any] | None:
+    """同键那个尚未结束的尝试（最多一个）。"""
+    target = key.as_tuple()
+    for state in attempt_states(raw).values():
+        if _key_of(state) == target and str(state.get("status")) == ATTEMPT_PENDING:
+            return state
+    return None
+
+
+def open_attempt(
+    path: str | Path,
+    *,
+    key: extraction.ExtractionKey,
+    entrypoint: str,
+    attempt_id: str | None = None,
+    opened_at: str | None = None,
+) -> tuple[dict[str, Any], bool]:
+    """认领 / 创建提取尝试，返回 ``(尝试记录, 是否新建)``。
+
+    显式传 ``attempt_id`` 是**续接**：ID 必须属于同一用户与同一阅读目标，否则抛
+    ``ValueError``——跨用户续接会让一个人的动作记到另一个人名下。已结束的尝试不能
+    复活：显式 close 之后要重新开始就得开新尝试，否则「用户明确离开」这个事实会被
+    后来的动作抹掉。
+    """
+    p = Path(path).expanduser()
+    with _ledger_lock(p):
+        raw = load_raw(p)
+        states = attempt_states(raw)
+        if attempt_id:
+            state = states.get(str(attempt_id))
+            if state is None:
+                raise ValueError(f"没有这个提取尝试：{attempt_id}")
+            if _key_of(state) != key.as_tuple():
+                raise ValueError(
+                    f"提取尝试 {attempt_id} 不属于该用户 / 阅读目标"
+                    f"（它是 {_key_of(state)}，你给的是 {key.as_tuple()}）"
+                )
+            if str(state.get("status")) != ATTEMPT_PENDING:
+                raise ValueError(f"提取尝试 {attempt_id} 已结束，不能复活；要重新读取请开新尝试")
+            return state, False
+        existing = pending_attempt(raw, key=key)
+        if existing is not None:
+            return existing, False
+        new_id = "oa-" + uuid.uuid4().hex[:12]
+        record = {
+            "record_kind": RECORD_ATTEMPT,
+            "id": f"{new_id}#open",
+            "attempt_id": new_id,
+            "status": ATTEMPT_PENDING,
+            "entrypoint": str(entrypoint),
+            "opened_at": opened_at or _now_iso(),
+            **key.to_dict(),
+        }
+        _append_line(p, record)
+        return record, True
+
+
+def close_attempt(
+    path: str | Path,
+    *,
+    attempt_id: str,
+    user_id: str,
+    reason: str,
+    entrypoint: str,
+    occurred_at: str | None = None,
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """结束一个提取尝试，返回 ``(关闭记录, abandoned 事件 | None)``。
+
+    只有**从未提交 / 跳过 / 成功读取**的尝试才记 ``abandoned``；否则只关尝试、
+    保留已发生的事件。read 提示后什么都没做就走开**不算 abandoned**——关掉终端
+    没有任何可证明的结束信号，推断一个超时出来等于凭空造事实。
+    """
+    p = Path(path).expanduser()
+    with _ledger_lock(p):
+        raw = load_raw(p)
+        state = attempt_states(raw).get(str(attempt_id))
+        if state is None:
+            raise ValueError(f"没有这个提取尝试：{attempt_id}")
+        if str(state.get("user_id") or "") != str(user_id):
+            raise ValueError(f"提取尝试 {attempt_id} 不属于用户 {user_id}")
+        key = extraction.make_key(
+            str(state.get("user_id") or ""),
+            str(state.get("as_of") or ""),
+            str(state.get("canonical_entity_id") or ""),
+        )
+        if str(state.get("status")) == ATTEMPT_CLOSED:
+            return state, None
+        acted = any(
+            str(ev.get("attempt_id") or "") == str(attempt_id)
+            and str(ev.get("event"))
+            in {EVENT_DRAFT_SUBMITTED, EVENT_DRAFT_SKIPPED, EVENT_READ_COMPLETED}
+            for ev in projected_events(raw)
+        )
+        when = occurred_at or _now_iso()
+        closed = {
+            "record_kind": RECORD_ATTEMPT,
+            "id": f"{attempt_id}#close",
+            "attempt_id": str(attempt_id),
+            "status": ATTEMPT_CLOSED,
+            "entrypoint": str(entrypoint),
+            "opened_at": state.get("opened_at"),
+            "closed_at": when,
+            "close_reason": str(reason),
+            "abandoned": not acted,
+            **key.to_dict(),
+        }
+        _append_line(p, closed)
+        event = None
+        if not acted:
+            event = _record_event_locked(
+                p,
+                raw=[*raw, closed],
+                event=EVENT_ABANDONED,
+                key=key,
+                entrypoint=entrypoint,
+                attempt_id=str(attempt_id),
+                occurred_at=when,
+            )[0]
+        return closed, event
+
+
+def _record_event_locked(
+    path: Path,
+    *,
+    raw: list[dict[str, Any]],
+    event: str,
+    key: extraction.ExtractionKey,
+    entrypoint: str,
+    attempt_id: str | None,
+    discriminator: str = "",
+    extra: Mapping[str, Any] | None = None,
+    occurred_at: str | None = None,
+) -> tuple[dict[str, Any], bool]:
+    """已持锁时追加一条独立事件行；同动作重试直接返回原事件。"""
+    if event not in EVENTS:
+        raise ValueError(f"未知业务事件：{event!r}（只有 {EVENTS}）")
+    action_key = _action_key(event, attempt_id, discriminator)
+    for existing in projected_events(raw):
+        if str(existing.get("action_key") or "") == action_key:
+            return dict(existing), False
+    record = {
+        "record_kind": RECORD_EVENT,
+        "id": _event_id(action_key),
+        "event_id": _event_id(action_key),
+        "event": event,
+        "occurred_at": occurred_at or _now_iso(),
+        "entrypoint": str(entrypoint),
+        "attempt_id": attempt_id,
+        "action_key": action_key,
+        **key.to_dict(),
+        **dict(extra or {}),
+    }
+    _append_line(path, record)
+    return record, True
+
+
+def record_event(
+    path: str | Path,
+    *,
+    event: str,
+    key: extraction.ExtractionKey,
+    entrypoint: str,
+    attempt_id: str | None,
+    discriminator: str = "",
+    extra: Mapping[str, Any] | None = None,
+    occurred_at: str | None = None,
+) -> tuple[dict[str, Any], bool]:
+    """追加一条独立业务事件，返回 ``(事件, 是否新建)``。
+
+    ``draft_submitted`` / ``script_confirmed`` **不走这里**——它们随成功剧本行
+    一起落盘（见 ``projected_events``）。
+    """
+    p = Path(path).expanduser()
+    with _ledger_lock(p):
+        return _record_event_locked(
+            p,
+            raw=load_raw(p),
+            event=event,
+            key=key,
+            entrypoint=entrypoint,
+            attempt_id=attempt_id,
+            discriminator=discriminator,
+            extra=extra,
+            occurred_at=occurred_at,
+        )
+
+
+def find_event(
+    raw: Iterable[Mapping[str, Any]], *, event: str, attempt_id: str
+) -> dict[str, Any] | None:
+    """某个尝试下某类事件的第一条（成功收据的重放依据）。"""
+    for ev in projected_events(raw):
+        if str(ev.get("event")) == event and str(ev.get("attempt_id") or "") == str(attempt_id):
+            return dict(ev)
+    return None
+
+
+def _draft_content_hash(script: ObservationScript, key: extraction.ExtractionKey) -> str:
+    payload = json.dumps(
+        {
+            "key": key.as_tuple(),
+            "scope": script.scope,
+            "entity_ids": list(extraction.normalize_values(script.entity_ids)),
+            **{
+                f: list(extraction.normalize_values(getattr(script, f)))
+                for f in extraction.DIFF_FIELDS
+            },
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+    return hashlib.sha1(payload.encode("utf-8")).hexdigest()
+
+
+def submit_draft(
+    path: str | Path,
+    script: ObservationScript,
+    *,
+    key: extraction.ExtractionKey,
+    attempt_id: str,
+    entrypoint: str,
+    submitted_at: str | None = None,
+) -> tuple[dict[str, Any], bool]:
+    """提交一版**用户自己写的**观察剧本草稿，返回 ``(记录, 是否新版)``。
+
+    先过同一道结构 + 合规硬门再落盘：被拒的提交什么都不写，已有的有效版本不受影响。
+    保存草稿**不生成系统骨架、不登记 checkpoint**——草稿只是用户的答卷。
+
+    同一个尝试里重跑同一条命令是重试（内容哈希相同 → 同一个动作键 → 返回原记录）；
+    内容改了、或换了新尝试再提交，都是**新版本**：旧版保留，``latest_user_draft``
+    取最后一版。作者来源与尝试 ID 由本函数写入，不接受调用方注入。
+    """
+    stamped = ObservationScript(
+        **{
+            **script.to_dict(),
+            "entity_ids": script.entity_ids,
+            "variables": script.variables,
+            "upgrade_conditions": script.upgrade_conditions,
+            "downgrade_or_abandon_conditions": script.downgrade_or_abandon_conditions,
+            "evidence_refs": script.evidence_refs,
+            "machine_conditions": script.machine_conditions,
+            "user_id": key.user_id,
+            "as_of": key.as_of,
+            "status": "drafted",
+            "recorded_at": submitted_at or script.recorded_at or _now_iso(),
+        }
+    )
+    ensure_valid(stamped)
+
+    content_hash = _draft_content_hash(stamped, key)
+    action_key = _action_key(EVENT_DRAFT_SUBMITTED, attempt_id, content_hash)
+    p = Path(path).expanduser()
+    with _ledger_lock(p):
+        raw = load_raw(p)
+        for existing in raw:
+            if (
+                record_kind_of(existing) == RECORD_SCRIPT
+                and str((existing.get("action_event") or {}).get("action_key") or "") == action_key
+            ):
+                return dict(existing), False
+        seq = len(user_drafts(raw, key=key)) + 1
+        when = str(stamped.recorded_at)
+        draft_id = f"od-{key.as_of}-{seq:03d}-{content_hash[:8]}"
+        record = stamped.to_dict()
+        record.update(
+            {
+                "record_kind": RECORD_SCRIPT,
+                "id": draft_id,
+                "draft_id": draft_id,
+                "draft_version": seq,
+                "author_origin": AUTHOR_USER,
+                "canonical_entity_id": key.canonical_entity_id,
+                "extraction_attempt_id": attempt_id,
+                "entrypoint": str(entrypoint),
+                "submitted_at": when,
+                "status": "drafted",
+                "late": False,
+                "due": resolve_due_safe(key.as_of),
+                "checkpoint_id": None,
+                "object_type": OBJECT_TYPE,
+                "action_event": {
+                    "event": EVENT_DRAFT_SUBMITTED,
+                    "event_id": _event_id(action_key),
+                    "action_key": action_key,
+                    "occurred_at": when,
+                    "entrypoint": str(entrypoint),
+                    "attempt_id": attempt_id,
+                },
+            }
+        )
+        _append_line(p, record)
+        return record, True
+
+
+def resolve_due_safe(as_of: str) -> str:
+    """草稿的到期日只用跳周末规则：草稿不进回检队列，没必要为它开库查日历。
+
+    确认时 ``register`` 会重新按交易日历定 due——那一刻才真的要进队列。
+    """
+    try:
+        return default_due(as_of)
+    except ValueError:  # pragma: no cover - as_of 已过 validate，这里是兜底
+        return as_of
