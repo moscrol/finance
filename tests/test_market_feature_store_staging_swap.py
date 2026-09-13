@@ -870,6 +870,9 @@ def test_identity_check_and_replace_are_not_atomic(tmp_path, monkeypatch):
 
     **若哪天真把这个窗口闭合了, 本测试必须改, 并同步改 db.py 顶部威胁模型、
     atomic_swap_into_place 的 docstring 与交接里的措辞。**
+
+    但别把它当措辞门禁（QC 六轮点名）: 它只断言运行时行为, 把注释改回「已闭合」
+    它照样绿。它给后续审查留的是一个**可重复的反例**, 措辞是否越界仍由评审判断。
     """
     target = tmp_path / "t.duckdb"
     staging = tmp_path / "t.duckdb.staging"

@@ -9,8 +9,10 @@ schema.sql 与本模块同目录, 可重复执行 (全部 CREATE ... IF NOT EXIS
 
 staging 换库 (2026-08-15, bookgap S7): 长事务同步全程持生产库写锁会把
 生产端 read_only 短连接饿死 (实测锁窗 ≥14min, 批 #2 A 组全灭)。处方是
-同步写 staging 副本、收笔后 os.replace 原子换名——本模块提供路径推导、
-克隆与换名三个工具, 编排在 sync.sync_daily_full.run_daily_full_staged。
+同步写 staging 副本、收笔后原子发布——本模块提供路径推导、克隆与两条发布
+路径 (既有库 os.replace、首次建库 os.link no-clobber), 编排在
+sync.sync_daily_full.run_daily_full_staged。两条发布路径的保证各不相同,
+见下面「换库威胁模型」, 别把其中一条的结论套到另一条上。
 """
 from __future__ import annotations
 
@@ -192,9 +194,29 @@ def list_tables(con: duckdb.DuckDBPyConnection) -> list[str]:
 #
 # 换库威胁模型（单一口径；别在别处再写第二份，下面各 docstring 只引不抄）：
 #
-# 【协同方】= 走 hold_run_mutex / hold_swap_lock / duckdb 文件锁的写者。
-#   对他们「最终复查→[备份]→原子换名」全程在 SH 锁内，排他是**保证**。
-#   本仓所有写者都是协同方。
+# 【三把锁各排各的，不能用斜杠连起来写成「任选其一都充分」】
+#   1. hold_run_mutex —— <db>.run.lock 上的 **EX**。排的是**同协议的另一轮
+#      staging 编排**（防它把我们尚未发布的 staging 当残留清掉）。普通 DuckDB
+#      写者根本不看这个文件，它排不掉他们。
+#   2. hold_swap_lock —— **target inode** 上的 **SH**。排的是 DuckDB 写者
+#      （他们要 EX），同时放行只读读者。**SH 不排斥另一个只持 SH 的发布方**，
+#      发布方之间的互斥由第 1 条负责。前提是 target 已经存在——锁的是 inode，
+#      没有 inode 就没有这把锁。
+#   3. duckdb 自己的文件锁 —— 单写者 EX。它是第 2 条能生效的原因，也是普通
+#      写者彼此互斥的机制。
+#   首次建库（target 缺席）同时落在 1 的排他面之外与 2 的保护之外：一个普通
+#   duckdb.connect(target) 能建库并提交，而 run mutex 拦不住他、也没有 inode
+#   可锁。那条路径不靠锁，靠 publish_new_into_place 的 os.link EEXIST 把
+#   absent→present 做成原子拒绝（QC 六轮 P1）。
+#
+# 【受支持的发布链】= 走上面这套协调的写者。对他们「最终复查→[备份]→原子换名」
+#   全程在 SH 锁内，排他是**保证**。
+#   **不要写成「本仓所有写者都是协同方」**——那是一句证不出来的仓库全集断言：
+#   scripts/db_delta_pull.py 的 restore_baseline 就保留着一条不取上述任何锁的
+#   os.replace 恢复路径（2026-09-13 读码确认；skills/market-overview/SKILL.md
+#   把它标为「将来再起第二台机器可复用」，所以只证明代码在，不声称它正在生产
+#   运行）。准确说法是「当前受支持的 daily-full 发布链；外部/备用恢复入口须
+#   停用或另行协调」。
 #
 # 【非协同方】= 不拿任何锁、直接动生产路径的 mv / cp / dd（人手操作或外部
 #   工具）。对他们我们只能**检测，不能保证**，原因是 POSIX 没有「比对 inode
@@ -209,9 +231,14 @@ def list_tables(con: duckdb.DuckDBPyConnection) -> list[str]:
 #   后一种由 test_identity_check_and_replace_are_not_atomic 钉住：它是**已声明
 #   的边界**，不是未知漏洞。要真闭合只能把所有发布方收编进同一把协调锁，
 #   再加一次 stat 是没用的。
+#   注意这道窗口关不掉，与首次建库能关掉并不矛盾：「目标必须仍然缺席」正是
+#   RENAME_EXCL / link 判得了的那一类，「目标必须仍是我锁的那个 inode」不是。
 #
-# 因此措辞纪律：身份校验可以说「把非协同方的整文件替换从静默覆盖变成可检测
-# 的拒绝」，**不能**说「已覆盖 / 已闭合 / 不再靠假设排除」。
+# 因此措辞纪律：
+#   - 既有库：身份校验只能说「把非协同方的整文件替换从静默覆盖变成可检测的
+#     拒绝」，**不能**说「已覆盖 / 已闭合 / 不再靠假设排除」。
+#   - 首次建库：可以说 absent→present 已由 os.link 原子拒绝，**不能**顺势扩大
+#     成「换库整条链已原子」，也不能把未测的断电持久性混进「原子发布」的保证。
 # ---------------------------------------------------------------------------
 
 STAGING_SUFFIX = ".staging"
