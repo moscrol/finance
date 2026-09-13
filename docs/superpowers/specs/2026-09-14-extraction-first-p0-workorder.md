@@ -1,9 +1,13 @@
 # 工单 #53 · 2026-09-14 提取前置 P0（入口先取用户自己的观察剧本）
 
-> **状态（2026-09-14）：工程实现完成，待评审 / 合并。** 分支 `feat/extraction-first-p0`，
-> 基线 `gitea/main@d7e5380551ba92758935d268fdd0e6fbfdd51ce8`。
-> 收据 `docs/verification/2026-09-14-extraction-first-p0.md`；交接
-> `docs/handoffs/inflight/feat-extraction-first-p0.md`。
+> **状态（2026-09-14）：工程实现完成 + 一轮质检返修，待评审 / 合并。**
+> 分支 `feat/extraction-first-p0`，基线 `gitea/main@d7e5380551ba92758935d268fdd0e6fbfdd51ce8`。
+> 提交 `95f3c5e7`（实现）→ `b42dc9bf`（收据）→ `08ca525f`（质检返修 12 项）→ 文档。
+> 2026-09-14 质检在 `b42dc9bf` 上实测出 14 项（4 规范轴 + 10 需求轴），**逐条复核成立、
+> 无误报**，已全部处理：12 项行为缺陷在 `08ca525f`，N1（收据不可绑定）与 N4（交接过期超
+> 预算）在文档笔。收据 `docs/verification/2026-09-14-extraction-first-p0.md`（§0 说明
+> 第一版读数为何作废）；交接 `docs/handoffs/inflight/feat-extraction-first-p0.md` +
+> 背景全文 `docs/handoffs/2026-09-14-extraction-first-p0-review-fixes.md`。
 > **真人实验未开跑**——§7 三项阈值由用户填写后才允许开跑，工程完成不替代真人效果。
 
 > **可独立分发；仅交付 P0 工程能力，实验开跑另受 §7 约束。** 本单包含背景、目标、边界、证据、步骤、验收、交付条件。
