@@ -40,7 +40,15 @@ def prioritize(
 
     tasks_raw, owner = _unpack(candidates, owner_user_id)
     validated = [c.validate_task(t, owner_user_id=owner, index=i) for i, t in enumerate(tasks_raw)]
-    unique, merged_count = _merge(validated)
+    # 可知性先行（spec §5.1）：逐候选先判「记录晚于 evaluation_at」，未来记录与当前记录分开合并。
+    # 合并键已含观测窗口，两侧本就不可能同键；这里再把顺序显式写死，防止后来放宽键时
+    # 又出现「未来记录把当天的关键条件一起吞进 blocked」。
+    knowable = [t for t in validated if not _is_future_record(t, eval_at)]
+    future = [t for t in validated if _is_future_record(t, eval_at)]
+    unique_knowable, merged_knowable = _merge(knowable)
+    unique_future, merged_future = _merge(future)
+    unique = unique_knowable + unique_future
+    merged_count = merged_knowable + merged_future
     unique.sort(key=lambda t: t["id"])
 
     input_digest = c.sha256_hex(
@@ -207,13 +215,9 @@ def _merge_members(key: tuple[Any, ...], members: list[dict[str, Any]]) -> dict[
     )
     merged["synthetic"] = any(m.get("synthetic") for m in members)
     merged["hindsight"] = any(m["hindsight"] for m in members)  # 键已隔离，成员同值；显式写出以防漂
-    # 同一证据在不同市场日被重复观测：知识状态取最新，可知性检查也按最新算。
-    as_ofs = [m["as_of"] for m in members if m["as_of"]]
-    merged["as_of"] = max(as_ofs) if as_ofs else None
-    cutoffs = [m["knowledge_cutoff"] for m in members if m["knowledge_cutoff"]]
-    merged["knowledge_cutoff"] = (
-        max(cutoffs, key=lambda v: c.parse_instant(v, field="knowledge_cutoff")) if cutoffs else None
-    )
+    # as_of / knowledge_cutoff 已进合并键（c.observation_window），成员必然同窗口，沿用 head 的值即可。
+    # 不再对不同市场日取最大：那条路径会把当天可知的记录抬成未来记录，整组一起判 future_record。
+    assert {c.observation_window(m) for m in members} == {c.observation_window(head)}
     # 合成任务的问句 / 结束条件要覆盖全部受影响对象与维护项，不能只剩首条来源那句；
     # 纯重复读取（同一来源出现多次）不算合成，不改写文字。
     distinct_sources = len(merged["merged_source_refs"])
@@ -231,11 +235,16 @@ def _merge_members(key: tuple[Any, ...], members: list[dict[str, Any]]) -> dict[
 # ---------------------------------------------------------------------------
 
 
-def _block_entry(task: dict[str, Any], eval_at: datetime) -> dict[str, Any] | None:
-    """返回 blocked 条目或 None（可排序）。时间状态只按 evaluation_at 判定（P13）。"""
+def _is_future_record(task: dict[str, Any], eval_at: datetime) -> bool:
+    """记录的观测窗口是否晚于评估时刻（P09 / P13）。合并前后共用同一判据。"""
     cutoff = c.parse_instant(task["knowledge_cutoff"], field="knowledge_cutoff")
     as_of = c.parse_market_date(task["as_of"], field="as_of")
-    if (cutoff is not None and cutoff > eval_at) or (as_of is not None and as_of > eval_at.date()):
+    return (cutoff is not None and cutoff > eval_at) or (as_of is not None and as_of > eval_at.date())
+
+
+def _block_entry(task: dict[str, Any], eval_at: datetime) -> dict[str, Any] | None:
+    """返回 blocked 条目或 None（可排序）。时间状态只按 evaluation_at 判定（P13）。"""
+    if _is_future_record(task, eval_at):
         later = max([v for v in (task["knowledge_cutoff"], task["as_of"]) if v], key=lambda v: c.parse_instant(v, field="x"))
         return _blocked(
             task,

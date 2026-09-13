@@ -1,8 +1,8 @@
 {
   "synthetic": true,
   "_note": "四源合并场景的冻结输出（selected 顺序 / 分组 / 合并来源 / 摘要）。任何合同或规则变更都应让本文件变红后再有意更新。",
-  "input_digest": "840162647a9117e26c8288de9bd6c771bdeaf0c4556ccc1aadaa7ec6dad9e52e",
-  "report_id": "rp_e99b2c8ef4720fdf",
+  "input_digest": "d63e6799ed13da98a8b9d02ddbef0964e04dcacdd1f1910b56c456906bb06183",
+  "report_id": "rp_1eda4276de1642a7",
   "totals": {
     "candidate_count": 17,
     "input_count": 19,
@@ -17,7 +17,7 @@
     [
       1,
       1,
-      "rt_df2108c29b6592cc",
+      "rt_bd740df942e73666",
       [
         "mi_001_abandon_true"
       ]
@@ -25,7 +25,7 @@
     [
       2,
       2,
-      "rt_bce0c2f2133c3524",
+      "rt_4e7b44c1fa9b8ee5",
       [
         "mi_002_hash_only",
         "mi_003_same_evidence",
@@ -35,7 +35,7 @@
     [
       3,
       3,
-      "rt_34b928dada350ca6",
+      "rt_6a74844224ed6b8a",
       [
         "conv_1#checkpoint:cp_unv_0910"
       ]
@@ -44,64 +44,64 @@
   "deferred": [
     [
       "user_snoozed",
-      "rt_c77910681ae9d4c3"
+      "rt_c55b92285a785408"
     ],
     [
       "max_items_reached",
-      "rt_2c20da07b57bd4cf"
+      "rt_8e6bfd544a9df473"
     ],
     [
       "max_items_reached",
-      "rt_c93ebc433ce50001"
+      "rt_f8c7c016965632e7"
     ],
     [
       "max_items_reached",
-      "rt_06a5b72c6308b476"
+      "rt_e9b6f5f36a463183"
     ],
     [
       "max_items_reached",
-      "rt_0a04f173919fba99"
+      "rt_49e2b3ef327a2094"
     ],
     [
       "max_items_reached",
-      "rt_94e4d0e5892afd2c"
+      "rt_4e68fb470a1b5add"
     ],
     [
       "max_items_reached",
-      "rt_a70514ced20aec2b"
+      "rt_6591933110e789ef"
     ],
     [
       "max_items_reached",
-      "rt_d348e57314851b27"
+      "rt_7b381ebfd1e9df50"
     ],
     [
       "max_items_reached",
-      "rt_e2e2bcba964ad0a8"
+      "rt_9155ef17280a4d88"
     ],
     [
       "max_items_reached",
-      "rt_e9bdfa43f31f4c10"
+      "rt_ae2b54506fdb27bf"
     ]
   ],
   "blocked": [
     [
+      "missing_data",
+      "rt_17790a47dcaa53fe"
+    ],
+    [
+      "missing_data",
+      "rt_2c23d07b7271067f"
+    ],
+    [
       "not_yet_due",
-      "rt_27fa3d42c07812cf"
-    ],
-    [
-      "missing_data",
-      "rt_7003f59d25bbaeb8"
-    ],
-    [
-      "missing_data",
-      "rt_93a9f0f23cc6894b"
+      "rt_5c1083918b18a16f"
     ],
     [
       "waiting_release",
-      "rt_f95d16e1ab1fde73"
+      "rt_c7a1ebde14fb3ca6"
     ]
   ],
   "critical_not_selected_ids": [
-    "rt_c77910681ae9d4c3"
+    "rt_c55b92285a785408"
   ]
 }

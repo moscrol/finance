@@ -386,6 +386,63 @@ def test_p07_same_text_different_entity_or_window_are_not_merged():
 # ---------------------------------------------------------------------------
 
 
+def _abandon_window(ident: str, *, as_of: str, cutoff: str) -> dict[str, Any]:
+    """同一 binding:b1/c1 条件在不同观测窗口的两次 true 观测（评审 P1 的最小输入）。"""
+    return _task(
+        ident,
+        effect=c.EFFECT_ABANDON,
+        objects=(_ref("judgment", "j1"),),
+        evidence=(_ref("condition", "c1", namespace="binding:b1"),),
+        condition=True,
+        effort=_effort(1),
+        as_of=as_of,
+        cutoff=cutoff,
+    )
+
+
+def test_future_observation_window_does_not_swallow_today_critical_condition():
+    """评审 P1：未来观测窗口的同条件记录不得与当天关键条件合并后一起 blocked。"""
+    today = _abandon_window("critical_today", as_of="2026-09-12", cutoff="2026-09-12T15:00:00+08:00")
+    tomorrow = _abandon_window("critical_tomorrow", as_of="2026-09-14", cutoff="2026-09-14T15:00:00+08:00")
+    report = rp.prioritize([today, tomorrow], None, None, EVAL_AT)
+
+    # 两个观测窗口各自成候选，未来那条不吞掉当天那条。
+    assert report["totals"]["candidate_count"] == 2
+    assert report["totals"]["merged_count"] == 0
+    assert report["totals"]["selected_count"] == 1 and report["totals"]["blocked_count"] == 1
+
+    section, row = _by_source(report, "critical_today")
+    assert section == "selected" and row["group"] == c.GROUP_ABANDON
+    assert row["task"]["as_of"] == "2026-09-12"
+    assert row["task"]["knowledge_cutoff"] == "2026-09-12T15:00:00+08:00"
+
+    blocked_section, blocked_row = _by_source(report, "critical_tomorrow")
+    assert blocked_section == "blocked" and blocked_row["reason"] == c.BLOCK_FUTURE_RECORD
+    # 未来记录只带自己的来源，不把当天那条一起拖进 blocked。
+    assert blocked_row["task"]["source_task_ids"] == ["critical_tomorrow"]
+    assert [r["id"] for r in blocked_row["task"]["merged_source_refs"]] == ["critical_tomorrow"]
+    assert any(g["reason"] == "future_record_excluded" and g["task_ids"] == [blocked_row["task"]["id"]] for g in report["gaps"])
+
+
+def test_same_evidence_different_observation_window_is_not_merged():
+    """spec §5.3「仅文本相似但对象或时间窗不同，不合并」：同证据不同市场日 → 两个候选。"""
+    d1 = _same_evidence_review("d1", "j1")
+    d2 = dict(copy.deepcopy(d1), id="d2", as_of="2026-09-11", source=_ref("test_source", "d2", namespace="queue_a", version="s1"))
+    split = rp.prioritize([d1, d2], {"max_per_object": 2}, None, EVAL_AT)
+    assert split["totals"]["candidate_count"] == 2 and split["totals"]["merged_count"] == 0
+    assert {row["task"]["as_of"] for row in split["selected"]} == {"2026-09-11", "2026-09-12"}
+
+    # 同一窗口内的同证据仍合成一个任务（P06 口径不变）。
+    d3 = dict(copy.deepcopy(d1), id="d3", source=_ref("test_source", "d3", namespace="queue_b", version="s1"))
+    same = rp.prioritize([d1, d3], None, None, EVAL_AT)
+    assert same["totals"]["candidate_count"] == 1 and same["totals"]["merged_count"] == 1
+
+    # 观测窗口的另一半：市场日相同、资料截止不同，同样不合并。
+    d4 = dict(copy.deepcopy(d1), id="d4", knowledge_cutoff="2026-09-12T09:30:00+08:00", source=_ref("test_source", "d4", namespace="queue_c", version="s1"))
+    by_cutoff = rp.prioritize([d1, d4], {"max_per_object": 2}, None, EVAL_AT)
+    assert by_cutoff["totals"]["candidate_count"] == 2 and by_cutoff["totals"]["merged_count"] == 0
+
+
 def test_p08_fourth_critical_beyond_max_items_is_named():
     tasks = [_abandon(f"ab_{i}", f"j_{i}") for i in range(4)]
     report = rp.prioritize(tasks, None, None, EVAL_AT)

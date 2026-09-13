@@ -85,9 +85,17 @@ def test_p09_future_records_do_not_enter_scoring():
     assert [row["reason"] for row in report["blocked"]] == [c.BLOCK_FUTURE_RECORD, c.BLOCK_FUTURE_RECORD]
     assert report["gaps"][0]["reason"] == "effort_unknown"
     assert any(g["reason"] == "future_record_excluded" and len(g["task_ids"]) == 2 for g in report["gaps"])
-    # 同一证据在两个市场日重复观测 → 合并成一项，知识状态取最新的那次。
-    twice = rp.prioritize([_valid_task(id="d1", as_of="2026-09-11"), _valid_task(id="d2", as_of="2026-09-12")], None, None, EVAL_AT)
-    assert twice["totals"]["candidate_count"] == 1 and twice["selected"][0]["task"]["as_of"] == "2026-09-12"
+    # 同一证据在两个市场日各观测一次 = 两个观测窗口 → 两个候选，各自保留自己的 as_of。
+    # 本行原先断言「合并成一项、知识状态取最新」，那条口径正是评审 P1 的根因：一旦两条被并成
+    # 一项、as_of 取最大，落在未来的那次观测就会把当天可知的那次一起判成 future_record。
+    twice = rp.prioritize(
+        [_valid_task(id="d1", as_of="2026-09-11"), _valid_task(id="d2", as_of="2026-09-12")],
+        {"max_per_object": 2},
+        None,
+        EVAL_AT,
+    )
+    assert twice["totals"]["candidate_count"] == 2 and twice["totals"]["merged_count"] == 0
+    assert sorted(row["task"]["as_of"] for row in twice["selected"]) == ["2026-09-11", "2026-09-12"]
 
 
 @pytest.mark.parametrize(

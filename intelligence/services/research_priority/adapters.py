@@ -340,6 +340,8 @@ def _adapt_maintenance_item_impl(item: Any, ctx: _Ctx, defaults: dict[str, Any])
     evidence_refs = list(current or before)
     condition_ref = item.get("condition_ref")
     binding_id = item.get("binding_id")
+    item_as_of = item.get("as_of") or defaults.get("as_of")
+    item_cutoff = item.get("knowledge_cutoff") or defaults.get("knowledge_cutoff")
     if condition_ref:
         evidence_refs.append(
             {
@@ -347,7 +349,10 @@ def _adapt_maintenance_item_impl(item: Any, ctx: _Ctx, defaults: dict[str, Any])
                 "id": str(condition_ref),
                 "namespace": f"binding:{binding_id}" if binding_id else "binding",
                 "version_or_hash": None if item.get("binding_version") is None else str(item["binding_version"]),
-                "scope": None,
+                # 观测窗口进 scope（不进 version_or_hash：那一格是 binding 版本，不能塞日期）。
+                # 合并身份由任务级 as_of / knowledge_cutoff 承担，与 01 的 dedup_key「条件/观测窗口」同口径；
+                # 这里保留窗口是为了让 06 / 04 能看出该条件取自哪一次观测。
+                "scope": {"as_of": item_as_of, "knowledge_cutoff": item_cutoff},
             }
         )
     label = c.object_label(object_refs[0]) if object_refs else f"维护项 {item_id}"
@@ -355,8 +360,8 @@ def _adapt_maintenance_item_impl(item: Any, ctx: _Ctx, defaults: dict[str, Any])
     common = dict(
         source=source,
         object_refs=object_refs,
-        as_of=item.get("as_of") or defaults.get("as_of"),
-        knowledge_cutoff=item.get("knowledge_cutoff") or defaults.get("knowledge_cutoff"),
+        as_of=item_as_of,
+        knowledge_cutoff=item_cutoff,
         pit_grade=item.get("pit_grade") or defaults.get("pit_grade") or "unverifiable",
         conversation_id=conversation_id,
         entity_refs=[],

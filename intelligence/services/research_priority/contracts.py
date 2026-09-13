@@ -482,24 +482,38 @@ def validate_task(task: Any, *, owner_user_id: str, index: int = 0) -> dict[str,
     }
 
 
+def observation_window(task: dict[str, Any]) -> tuple[str, str]:
+    """观测窗口 =（市场日 as_of, 资料截止 knowledge_cutoff）。
+
+    01 的 dedup_key 含「条件/观测窗口」，02 保持同一口径：同一条证据在不同市场日或不同
+    资料截止下的观测是两次观测，不是同一件待办。缺值用空串参与键，缺失与已知不互相顶替。
+    """
+    return (str(task.get("as_of") or ""), str(task.get("knowledge_cutoff") or ""))
+
+
 def identity_key(task: dict[str, Any]) -> tuple[Any, ...]:
-    """合并键（spec §5.3）：同 owner、同效果、同一组证据版本 → 同一个「核查该证据」任务；
-    没有证据引用的任务按（问题文字 + 实体范围 + as_of + due + 绑定对象）判重，
+    """合并键（spec §5.3）：同 owner、同效果、**同观测窗口**、同一组证据版本 →
+    同一个「核查该证据」任务；没有证据引用的任务再按（问题文字 + 实体范围 + due + 绑定对象）判重，
     所以「相同问题文字、不同实体或时间窗」不会被误合并（P07）。
+
+    观测窗口进键是 spec §5.3「仅文本相似但对象或时间窗不同，不合并」的直接落实，也堵住
+    「未来观测记录与当天关键条件先合并、再被整体判成 future_record」这条路：两个窗口的键
+    不同，未来那条永远不可能把当天那条一起带走。
     hindsight 回放与当前观测不合并；只在 hindsight 时追加标记，普通任务的键（与 id）保持不变。"""
     owner = task["owner_user_id"]
+    window = observation_window(task)
     evidence = tuple(sorted({ref_identity(r) for r in task["effect_evidence_refs"]}))
     if evidence:
-        base: tuple[Any, ...] = ("evidence", owner, task["effect_kind"], task["availability"], evidence)
+        base: tuple[Any, ...] = ("evidence", owner, task["effect_kind"], task["availability"], window, evidence)
     else:
         base = (
             "question",
             owner,
             task["effect_kind"],
             task["availability"],
+            window,
             normalize_text(task["question"]),
             tuple(task["scope"]["entity_refs"]),
-            task["as_of"],
             str(task.get("due_at") or ""),
             tuple(sorted({ref_identity(r) for r in task["object_refs"]})),
         )
