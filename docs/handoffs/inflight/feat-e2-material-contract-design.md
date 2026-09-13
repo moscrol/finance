@@ -4,7 +4,16 @@
 QC E2（P1，正式 PK 前置）的设计任务。设计/实现严格拆开：本分支只产设计稿 +
 失败样本固化，**不动 split_user_message 一行**。
 
-## 状态：v3 已按 QC 复审（commit 1f91343a）六条意见返修
+## 状态：v4 已按 QC 复审（commit e985ab7e）三条意见定点补齐
+1. D1 顶层三分区：先拆指令区/材料区/题组区——T2 开场禁令、T3 续轮声明进指令区
+  （不是材料不是题），约束检测只读指令区；材料里的「假设」字样天然不触发。
+2. D4 冻结点原子三元组：授权×取证计划×输出槽一致生成（QC 复现过只删授权留
+  mandatory 会构造报错）；非工具先验（预取消息/prime 前缀/会话摘要）同受范围约束。
+3. D6 条件化纯度：校验以 data_scope 为条件（full 不校验，与 A8 不冲突）；前提域
+  事实须带材料锚点（material_id+片段），basis=user_premise 只是类别不替事实背书。
+已确认关闭（QC 原话）：哈希全匹配；边界槽 user_premise 后零外部证据合同可完成。
+
+## v3 要点（仍有效）
 1. 授权收口移到**合同冻结点**：过滤作用于 `_authorized_capabilities`（:244-261，会
    无条件重加 finance_query/evidence_search，:216/:256）与 mandatory 回补（:639-644）
    之后；开场预取（episode_tools.py:660）对 material_only 短路；预取/补检/子研究/恢复
