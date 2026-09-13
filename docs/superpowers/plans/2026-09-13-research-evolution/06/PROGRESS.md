@@ -167,10 +167,13 @@ I13 / I14 / I15 未验（缺真人参与者、浏览器可见性事件、已授�
 
 | 证据 | 结果 |
 |---|---|
+| `ruff check .` | All checks passed |
+| `pytest -q --ignore=test_codex_sandbox.py`（全仓等价 CI，最终 SHA `297c47c3`、干净树） | **10014 passed / 0 failed / 77 skipped / 2 xfailed**，530 s；收据 `~/.finance-runtime/test-receipts/20260913T131404Z-297c47c3.json`（`dirty=false`、`failed_ids=[]`） |
 | `pytest intelligence/tests/test_research_evolution_*.py` | **80 passed**（63 既有 + 17 新） |
 | `pnpm lint` / `typecheck` / `build` | 全过 |
 | `pnpm test`（vitest） | **87 passed**（面板新增 3：R4 表单 / R5 练习+收据 / R9 空态） |
 | `pnpm exec playwright test e2e/research-evolution.spec.ts`（三 project） | **15 passed**（新增 R1/R8 两条回归针；顺带修了存量 mobile 用例的开关等待） |
+| `pnpm exec playwright test --project=desktop`（全量） | **10 passed**（workbench.spec 的聊天/深潜/停止用例均过，submitResearch 改动无回归） |
 
 ## 提交（原始批次）
 
