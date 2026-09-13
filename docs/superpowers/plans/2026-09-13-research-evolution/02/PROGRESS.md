@@ -201,3 +201,8 @@ QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结�
 - **P2[P2] identity_key 缺执行窗口**：同证据不同 due_at/available_at 的任务先合并再判可执行性，互相拖入/拖出。修复：`identity_key` 两分支加 `execution_window`（折算 UTC 入键）。冻结 golden `expected_combined_synthetic.json` 经语义层闭锁后重生成（仅 id/digest 漂移）。
 - 修复提交 **`a869028e`**；新增 3 条回归测试先红后绿；模块 65 passed；ruff 干净；QC 探针 S5/P2 组复跑转绿。注：时区探针会把 `.json` 产物写回 QC 目录，已刷成修后结果，复核以探针退出码为准。
 - **06 联测请用 `a869028e`**。口径纠偏：上轮「13 项已修复」实为「原 13 项固定反例转绿」。
+
+## 2026-09-13 QC 第三轮
+
+- 独立复核（`~/.finance-runtime/reviews/research-evolution-round3-qc-20260913/`）：本轨无新增实现发现；S5/P2 归档探针复跑保持修复预期（三时刻 selected；不同 due/available 窗维持两任务）。不代表已通过四轨集成验收。
+- 06 联测仍用 `a869028e`（本轨最新 `556efa2a` 仅含文档）。
