@@ -413,6 +413,10 @@ def evidence_status_at(
     且断言失效的那条记录在使用时刻**已经存在**（``recorded_at``）。只满足前者是事后补记的追溯失效
     （later_correction）；``recorded_at`` 缺失则证明不了当时可知，落 unknown_time。少了后一半，
     9 月 7 日补记的「9 月 3 日起失效」会反过来追责 9 月 4 日的引用。
+
+    显式替代（``supersedes_ref``）同构：替代关系要在使用时刻**已生效**（``valid_from``，缺省退回记录日）
+    且**已知**（``recorded_at``）才追责；已公告但未生效的替代不追责（D3）。同一条 ref 上时间缺口与
+    后知更正并存时，缺口优先（D4）：后来的更正证明不了先前的失效当时是否已知，只能 unknown_time。
     """
     entries = _evidence_entries(items, ref)
     if not entries:
@@ -457,14 +461,23 @@ def evidence_status_at(
             elif expires_after_use:
                 later = True
         if v.supersedes_ref == ref and (used_hash is None or v.source_hash != used_hash):
-            kb = known_by(v.recorded_at, used_at)
-            if kb is True:
-                invalid = True
-                refs.add(f"{v.ref}@supersedes:{v.recorded_at}")
-            elif kb is False:
-                later = True
-            else:
+            # D3：追责要「使用时刻替代已生效」且「使用时刻替代已知」同时成立（与 expiry 分支双条件同构）。
+            # 生效看 valid_from；缺 valid_from 退回「记录日即生效日」（与 01 缺省放置口径一致），由 recorded 一并判。
+            # 已公告但未生效的替代不追责——当时引用的旧版仍在生效（规格 §4「当时已知失效版本」）。
+            effective = known_by(v.valid_from, used_at) if v.valid_from else True
+            if effective is False:
+                pass  # 尚未生效的既定安排：既不 invalid 也不是后知更正
+            elif effective is None:
                 time_unknown = True
+            else:
+                kb = known_by(v.recorded_at, used_at)
+                if kb is True:
+                    invalid = True
+                    refs.add(f"{v.ref}@supersedes:{v.recorded_at}")
+                elif kb is False:
+                    later = True
+                else:
+                    time_unknown = True
     if used_hash is not None and used_is_current and not invalid:
         return "valid", item_ids, tuple(sorted(refs))
     if invalid and (used_hash is None or hash_seen or any(v.supersedes_ref == ref for _, v, _ in entries)):
@@ -472,10 +485,12 @@ def evidence_status_at(
             # 知道 ref 失效过，但不知道用户用的是哪一版：可能用的正是更正后的版本。
             return "unknown_version", item_ids, tuple(sorted(refs))
         return "invalid", item_ids, tuple(sorted(refs))
-    if later:
-        return "later_correction", item_ids, tuple(sorted(refs))
+    # D4：时间缺口压过后知更正——后来的更正证明不了先前那条失效在使用时刻是否已知；
+    # 补上缺失时间后 issue 与 context 都可能，与现状一致的结局不唯一时就只能 unknown（规格 §4 / §5）。
     if time_unknown:
         return "unknown_time", item_ids, tuple(sorted(refs))
+    if later:
+        return "later_correction", item_ids, tuple(sorted(refs))
     if used_hash is not None and not hash_seen:
         return "unknown_version", item_ids, tuple(sorted(refs))
     if only_content_change and any(item.reason_code == "hash_changed" for item, _, _ in entries):

@@ -1,12 +1,15 @@
-"""研究进化 04 · 2026-09-13 评审返修的反例回归（D1 / D2 / S3）。
+"""研究进化 04 · 2026-09-13 评审返修的反例回归（D1 / D2 / S3 / D3 / D4 / S4）。
 
-三条缺陷都是「现有绿色用例没覆盖的边界」，所以每条既钉正例，也配一条负控：
-负控证明修复不是把检查整个关掉（失效仍能判 issue、真回检仍算已评估、全 observed 仍标 observed）。
+每条缺陷都配负控：证明修复不是把检查整个关掉（失效仍能判 issue、真回检仍算已评估、
+全 observed 仍标 observed、已生效替代仍追责、补全时间后判定能走向两端）。
 
 - **D1**：追溯失效（先发生、后补记）不得反过来追责当时无从知晓的引用。规格 §4「后知更正不追责」、
   §5「按行为当时 cutoff 判断可知性」。
 - **D2**：无责任系统故障进 ``excluded`` 并列原因，不进 ``evaluated`` 分母。规格 §5。
 - **S3**：任一参与判定的合成来源必须传到报告 ``provenance``；来源未声明时失败关闭。总合同 §5 第 8 条。
+- **D3**：已登记但尚未生效（valid_from 晚于使用时刻）的替代依据不追责当时的引用。
+- **D4**：后知更正不能掩盖另一条失效事实的记录时间缺口——缺时间就只能 unknown，不进已评估分母。
+- **S4**：报告级 synthetic 不能被项级 observed 升级；父子来源各自独立校验，冲突留 gap 可见。
 """
 
 from __future__ import annotations
@@ -113,15 +116,55 @@ class D1BackdatedInvalidation(unittest.TestCase):
         self.assertEqual(finding.classification, "unknown")
         self.assertIn("time_metadata_missing", [g.reason for g in finding.gaps])
 
-    def test_d1_definite_later_correction_outranks_missing_record_time(self) -> None:
-        # 同一 ref 上既有「记录时间缺失的失效」又有「明确晚于使用时刻的更正」时，
-        # 取有正面证据的那条：later_correction（context），而不是退回 unknown。
-        # 缺证只说明判不了，明确的后知更正已经把话说死了。
+    def test_d4_later_correction_does_not_mask_unknown_earlier_expiry(self) -> None:
+        # 评审 D4：同 ref 上「记录时间缺失的失效」+「晚于使用时刻的更正」只能 unknown。
+        # 后来的更正证明不了先前那条失效在使用时刻是否已知——把缺失的 recorded_at 补成
+        # 09-01 得 issue、补成 09-07 得 context，两种结局都与当前输入一致，故只能 unknown
+        # （规格 §4「缺原版本 / 时间 / 使用证据为 unknown」、§5「未知不算成功」）。
         mr = load_fixture("maintenance_report_01.json")
         _mi004_before(mr).update(recorded_at=None, expired_at="2026-09-02T18:00:00+08:00", valid_to=None)
         finding = one_stale(run_scenario(maintenance_reports=[mr]), "eu-004")
+        self.assertEqual(finding.classification, "unknown")
+        self.assertIn("time_metadata_missing", [g.reason for g in finding.gaps])
+
+    def test_d4_filling_missing_record_time_decides_both_ways(self) -> None:
+        # D4 的双向负控：补上缺失的记录时间后，判定必须能分别走到 issue 与 context，
+        # 证明上面的 unknown 不是「检查被关掉」，而是「输入确实不足」。
+        early = load_fixture("maintenance_report_01.json")
+        _mi004_before(early).update(recorded_at="2026-09-01T18:00:00+08:00", expired_at="2026-09-02T18:00:00+08:00", valid_to=None)
+        self.assertEqual(one_stale(run_scenario(maintenance_reports=[early]), "eu-004").classification, "issue")
+        late = load_fixture("maintenance_report_01.json")
+        _mi004_before(late).update(recorded_at="2026-09-07T18:00:00+08:00", expired_at="2026-09-02T18:00:00+08:00", valid_to=None)
+        self.assertEqual(one_stale(run_scenario(maintenance_reports=[late]), "eu-004").classification, "context")
+
+
+class D3FutureReplacement(unittest.TestCase):
+    """已公告但尚未生效的替代依据，不得用于追责生效前的引用（评审 D3）。"""
+
+    @staticmethod
+    def _future_replacement(valid_from: str) -> dict:
+        # mi-004：旧版 ann:004@n1 本身无失效标记；替代版 09-03 登记、valid_from 指定生效日。
+        mr = load_fixture("maintenance_report_01.json")
+        item = next(i for i in mr["items"] if i["id"] == "mi-004")
+        item["before"][0].update(expired_at=None, valid_to=None)
+        item["current"][0].update(ref="ann:004-future", valid_from=valid_from, recorded_at="2026-09-03T18:00:00+08:00")
+        return mr
+
+    def test_d3_announced_future_replacement_does_not_invalidate_earlier_use(self) -> None:
+        # 替代 09-06 才生效，eu-004 在 09-04 引用旧版：当时旧版仍在生效，不是「当时已知失效」。
+        # （规格 §4「实际投影 / 引用用了当时已知失效版本」；01 §4 先按生效再选版本。）
+        mr = self._future_replacement("2026-09-06")
+        finding = one_stale(run_scenario(maintenance_reports=[mr]), "eu-004")
+        self.assertNotEqual(finding.classification, "issue")
         self.assertEqual(finding.classification, "context")
-        self.assertIn("后知", finding.observed)
+        self.assertIn("当时有效", finding.observed)
+
+    def test_d3_negative_control_effective_before_use_is_still_issue(self) -> None:
+        # 负控：替代 09-03 已生效且已登记，09-04 仍引用旧版 → 照判 issue。
+        # 这条翻红说明 D3 的修法把替代追责整个关掉了。
+        mr = self._future_replacement("2026-09-03")
+        finding = one_stale(run_scenario(maintenance_reports=[mr]), "eu-004")
+        self.assertEqual(finding.classification, "issue")
 
     def test_d1_negative_control_expiry_recorded_before_use_is_still_issue(self) -> None:
         # 负控：ann:001@h1 的失效 2026-08-20 就已记录、09-05 生效，eu-001 在 09-06 仍引用 → 照判 issue。
@@ -269,6 +312,57 @@ class S3MaintenanceProvenance(unittest.TestCase):
             maintenance_reports=[mr],
         )
         self.assertEqual(report.provenance, "synthetic")
+
+
+class S4ProvenancePrecedence(unittest.TestCase):
+    """报告级来源是天花板：项级声明只能持平或再降档，不能把合成父报告升级成 observed（评审 S4）。"""
+
+    @staticmethod
+    def _observed_scenario() -> dict:
+        sc = load_fixture("scenario_full.json")
+        for group in ("records", "verdicts", "process_receipts"):
+            for row in sc[group]:
+                row["provenance"] = "observed"
+        return sc
+
+    def _run_with_provenance(self, report_prov, item_prov):
+        sc = self._observed_scenario()
+        mr = load_fixture("maintenance_report_01.json")
+        mr["provenance"] = report_prov
+        for item in mr["items"]:
+            if item_prov is None:
+                item.pop("provenance", None)
+            else:
+                item["provenance"] = item_prov
+        return run_scenario(
+            records=sc["records"],
+            verdicts=sc["verdicts"],
+            process_receipts=sc["process_receipts"],
+            maintenance_reports=[mr],
+            exercise_cases=[],
+        )
+
+    def test_s4_item_observed_cannot_upgrade_synthetic_report(self) -> None:
+        report = self._run_with_provenance("synthetic", "observed")
+        self.assertEqual(report.provenance, "synthetic")
+        # 冲突必须可见：子项试图升级父报告这件事本身要留痕，不是静默压掉。
+        self.assertIn("maintenance_provenance_conflict", [g.reason for g in report.gaps])
+
+    def test_s4_report_observed_item_synthetic_stays_synthetic(self) -> None:
+        report = self._run_with_provenance("observed", "synthetic")
+        self.assertEqual(report.provenance, "synthetic")
+
+    def test_s4_unknown_report_provenance_is_rejected_not_masked(self) -> None:
+        # 报告级来源是未知枚举时，项级 observed 不能把它遮过去：父子来源各自独立校验。
+        from intelligence.services.research_diagnostics.contracts import DiagnosticsInputError
+
+        with self.assertRaises(DiagnosticsInputError):
+            self._run_with_provenance("unrecognized", "observed")
+
+    def test_s4_negative_control_observed_parent_with_silent_items_stays_observed(self) -> None:
+        # 负控：父报告 observed、项未声明（继承父级）仍是 observed。这条翻红说明修法把继承弄丢了。
+        report = self._run_with_provenance("observed", None)
+        self.assertEqual(report.provenance, "observed")
 
 
 if __name__ == "__main__":

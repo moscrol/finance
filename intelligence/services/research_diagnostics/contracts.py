@@ -656,6 +656,9 @@ def parse_maintenance_reports(
         report_id = check_ref_text(report.get("id"), f"{where}.id")
         report_pit = str(report.get("pit_grade") or "unverifiable")
         report_prov = _opt_str(report.get("provenance"))
+        if report_prov is not None:
+            # 父级来源独立校验：未知枚举不能被项级声明遮掉（S4）。
+            report_prov = _enum(report_prov, PROVENANCES, f"{where}.provenance")
         for j, item in enumerate(report.get("items") or []):
             w = f"{where}.items[{j}]"
             if not isinstance(item, Mapping):
@@ -664,7 +667,13 @@ def parse_maintenance_reports(
             if item_schema is not None and str(item_schema) != MAINTENANCE_SCHEMA_VERSION:
                 raise UnsupportedSchema(f"{w} schema_version={item_schema!r}")
             require_owner(owner_user_id, item.get("owner_user_id", report.get("owner_user_id")), where=w)
-            declared = _opt_str(item.get("provenance")) or report_prov
+            item_prov = _opt_str(item.get("provenance"))
+            if item_prov is not None:
+                item_prov = _enum(item_prov, PROVENANCES, f"{w}.provenance")
+            declared = item_prov or report_prov
+            # 报告级来源是天花板：项级只能持平或再降档。父报告是合成（或未声明、失败关闭为合成）
+            # 而项级自称 observed 是冲突声明——保留父级合成标记，冲突由 diagnose 出 gap 可见（S4）。
+            effective_prov = "observed" if report_prov == "observed" and declared == "observed" else "synthetic"
             out.append(
                 MaintenanceItemView(
                     item_id=check_ref_text(item.get("id"), f"{w}.id"),
@@ -677,11 +686,26 @@ def parse_maintenance_reports(
                     pit_grade=_enum(item.get("pit_grade") or report_pit, PIT_GRADES, f"{w}.pit_grade"),
                     before=tuple(EvidenceVersionView.from_dict(v) for v in (item.get("before") or [])),
                     current=tuple(EvidenceVersionView.from_dict(v) for v in (item.get("current") or [])),
-                    provenance=_enum(declared or "synthetic", PROVENANCES, f"{w}.provenance"),
+                    provenance=effective_prov,
                     provenance_declared=declared is not None,
                 )
             )
     return tuple(out)
+
+
+def maintenance_provenance_conflicts(reports: Iterable[Mapping[str, Any]]) -> list[str]:
+    """报告级来源不是 observed、项级却自称 observed 的冲突清单（S4），返回报告 id 供 diagnose 出 gap。"""
+    out: list[str] = []
+    for i, report in enumerate(reports or ()):
+        if not isinstance(report, Mapping):
+            continue
+        if _opt_str(report.get("provenance")) == "observed":
+            continue
+        for item in report.get("items") or []:
+            if isinstance(item, Mapping) and _opt_str(item.get("provenance")) == "observed":
+                out.append(str(report.get("id") or f"maintenance_reports[{i}]"))
+                break
+    return sorted(set(out))
 
 
 # --------------------------------------------------------------------------- #

@@ -27,6 +27,7 @@ from intelligence.services.research_diagnostics.contracts import (
     UncertaintyFlag,
     VerdictRecord,
     content_hash,
+    maintenance_provenance_conflicts,
     parse_exercise_pack,
     parse_maintenance_reports,
     require_owner,
@@ -187,6 +188,17 @@ def diagnose(
                 "maintenance_provenance_undeclared",
                 None,
                 detail=f"维护报告 {undeclared} 没声明 provenance，按 synthetic 处理；接入真实 01 产物需显式带来源标记",
+            )
+        )
+    kept_report_ids = {i.report_id for i in kept_items}
+    conflicts = [r for r in maintenance_provenance_conflicts(maintenance_reports) if r in kept_report_ids]
+    if conflicts:
+        # S4：项级自称 observed 而报告级不是 observed——已按报告级压回 synthetic，这里让冲突可见。
+        gaps.append(
+            Gap(
+                "maintenance_provenance_conflict",
+                None,
+                detail=f"维护报告 {conflicts} 的报告级来源不是 observed，项级却声明 observed：按报告级 synthetic 处理，项级声明未采信",
             )
         )
 
