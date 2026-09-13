@@ -158,6 +158,27 @@ def _state_at(root_ref: str, baseline_hash: str | None, chain_refs: list[str], b
         for p in placed
         if p.version.supersedes_ref and (p.version.valid_from or p.known_day) <= as_of
     }
+    # 同 ref 的更正也是替代（J2）：同一生效起点（valid_from，缺省退回 known_day）、更晚被记录、哈希不同，
+    # 就是来源把同一版内容改了——被更正的旧记录永久退场，更正版自己再失效也不能把它复活成有效依据。
+    # 同 ref 合同禁止 supersedes_ref 自指，所以这层隐式替代与上面的显式替代同效。
+    # 生效起点不同的新版本不在此列：那是另一版有效期安排，旧版从未被替代，过期后照常回台（见既有同级测试）。
+    retired_same_ref: set[int] = set()
+    by_ref_group: dict[str, list[_Placed]] = {}
+    for p in placed:
+        by_ref_group.setdefault(p.version.ref, []).append(p)
+    for group in by_ref_group.values():
+        if len(group) < 2:
+            continue
+        for p in group:
+            p_from = p.version.valid_from or p.known_day
+            if p_from > as_of:
+                continue  # p 在 as_of 本就不成立，谈不上被谁替代
+            for q in group:
+                if q is p or q.version.source_hash == p.version.source_hash:
+                    continue
+                if (q.version.valid_from or q.known_day) == p_from and _sort_key(q) > _sort_key(p):
+                    retired_same_ref.add(id(p))
+                    break
     live: list[_Placed] = []
     ended: list[_Placed] = []
     for p in placed:
@@ -171,8 +192,8 @@ def _state_at(root_ref: str, baseline_hash: str | None, chain_refs: list[str], b
         if v.valid_to and v.valid_to < as_of:
             ended.append(p)
             continue
-        if v.ref in retired_refs:
-            ended.append(p)  # 已被显式更正：留在 ended 里只为让「整条链都没了」时还能指出最后一版是什么
+        if v.ref in retired_refs or id(p) in retired_same_ref:
+            ended.append(p)  # 已被更正（显式或同 ref 隐式）：留在 ended 里只为让「整条链都没了」时还能指出最后一版是什么
             continue
         live.append(p)
     if not live:

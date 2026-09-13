@@ -526,6 +526,47 @@ def test_unsuperseded_sibling_still_serves_when_one_version_expires():
 
 
 # --------------------------------------------------------------------------- #
+# 评审返修 J2：同 ref 更正（同生效起点 / 更晚记录 / 新哈希）也是替代——更正版过期后旧哈希不得复活
+# --------------------------------------------------------------------------- #
+def test_same_ref_correction_expiry_does_not_revive_replaced_hash():
+    """h2 与 h1 同 ref、同 valid_from，更晚记录、哈希不同：这是对同一版的更正，不是另一版有效期安排。
+
+    规格 01 §4「哈希变 / 显式更正：保留前后引用、requires_review；源失效 / 缺引用 / 时间不明：unknown+gap」：
+    最新已知版本过期 = 这条依赖现在没有有效依据，必须留 open 待办；退回被更正的旧哈希等于装作没事。
+    同 ref 合同禁止 supersedes_ref 自指（J3），所以隐式替代与显式替代同效：被替代者永久退场。
+    """
+    versions = [
+        _version(REF_A, "h1", "2026-09-01T18:00:00+08:00"),
+        _version(REF_A, "h2", "2026-09-10T18:00:00+08:00", expired_at="2026-09-11T18:00:00+08:00"),
+    ]
+    binding = _binding({REF_A: "h1"})
+    before_expiry = _run([binding], versions, as_of="2026-09-10", cutoff="2026-09-10")
+    assert [(it.change_type, it.status) for it in _live(before_expiry)] == [("content_changed", "open")]
+    report = _run([binding], versions)
+    live = _live(report)
+    assert len(live) == 1, [(it.change_type, it.status) for it in report.items]
+    item = live[0]
+    assert (item.change_type, item.reason_code, item.epistemic_state) == ("source_expired", "validity_ended", "unknown")
+    assert item.action == "restore_evidence" and item.status == "open"
+    assert [v.source_hash for v in item.current] == ["h2"]  # 指出最后已知版本，而不是复活 h1
+    assert report.counts["items_open"] >= 1 and report.counts["objects_unverifiable"] == 1
+    assert any(g.reason == "validity_ended" for g in report.gaps)
+
+
+def test_same_ref_correction_chain_restores_only_via_rerecord():
+    """更正链的合法回台方式是把旧哈希重新记录一次（新的 known_day），不是靠前一条记录复活。"""
+    versions = [
+        _version(REF_A, "h1", "2026-09-01T18:00:00+08:00"),
+        _version(REF_A, "h2", "2026-09-10T18:00:00+08:00", expired_at="2026-09-11T18:00:00+08:00"),
+        _version(REF_A, "h1", "2026-09-12T09:00:00+08:00"),
+    ]
+    report = _run([_binding({REF_A: "h1"})], versions)
+    assert _live(report) == []  # 末态 unchanged：h1 以新记录回到台前，没有待办
+    assert not any(it.change_type == "source_expired" and it.status == "open" for it in report.items)
+    assert report.counts["objects_unverifiable"] == 0
+
+
+# --------------------------------------------------------------------------- #
 # 评审返修 S2：只有日期的 recorded_at 不得升为 strict（规格 01 §4 日期粒度降级）
 # --------------------------------------------------------------------------- #
 def test_date_only_recorded_at_is_never_strict():
