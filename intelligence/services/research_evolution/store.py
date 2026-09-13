@@ -282,8 +282,11 @@ class EvolutionStore:
         target = self._immutable_path(dirname, content_id)
         for _ in self._locked():
             target.parent.mkdir(parents=True, exist_ok=True)
+            # **不往正文里塞 owner**：这些件是内容寻址的（协议哈希、收据 id 都由正文算出），
+            # 多一个字段就把它自己的哈希打坏——05 的 `validate_protocol` 会当场报
+            # 「protocol_hash 与内容不符（冻结后被改过？）」。归属靠路径隔离：
+            # 每个 owner 的根是 `user_space(owner).root/research_evolution/`，文件不共享。
             payload = dict(value)
-            payload.setdefault("owner_user_id", self.owner_user_id)
             text = json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
             if target.exists():
                 try:
