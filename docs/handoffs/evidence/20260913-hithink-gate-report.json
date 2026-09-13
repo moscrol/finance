@@ -1,12 +1,12 @@
 {
   "gate": "reconcile_hithink_gate.py v3",
   "verdict": "PASS",
-  "run_dir": "/Users/a77/.finance-runtime/reconcile-gate/run-87sfiewb",
+  "run_dir": "/Users/a77/.finance-runtime/reconcile-gate/run-y4b5lqme",
   "trade_date": "2026-09-11",
   "inputs": {
     "trade_date": "2026-09-11",
     "tree": "/Users/a77/.finance-runtime/gate-checkouts/daily-swap-candidate-20260913/finance-workspace-private",
-    "tree_revision": "b98441c5fcd55c808e4b21305ce0bcec0bbd2666",
+    "tree_revision": "e9a824bf29753394ad271f5e1dca7bd726de24e2",
     "tree_clean": true,
     "gate_script": "/Users/a77/.finance-runtime/gate-checkouts/daily-swap-candidate-20260913/finance-workspace-private/scripts/reconcile_hithink_gate.py",
     "gate_script_sha256": "9b280eb85557bbe8c633a94451f85fa97eaf6a151b084e4c044d2b7903e76fa5",
@@ -20,19 +20,19 @@
         3612880896
       ]
     },
-    "parquet_frozen": "/Users/a77/.finance-runtime/reconcile-gate/run-87sfiewb/input-frozen.parquet",
+    "parquet_frozen": "/Users/a77/.finance-runtime/reconcile-gate/run-y4b5lqme/input-frozen.parquet",
     "parquet_sha256": "51f9ee9cba1ceb4a6ff50c4c4dce8267cb39f78add28d6a33699cbf90bf28d17",
     "parquet_origin": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/daily-k-10d.parquet",
     "cli_rc": 0,
-    "cli_stdout_tail": "staging, 生产库无锁)\n修复完成: 2026-09-11 写 5547 行 (保留 6), 当日共 5553 行, 其他日期指纹不变, 派生重算 {'feature_stock_window': 22117, 'feature_stock_technical_daily': 5529}, 新增票置缺 ['302132.SZ']\n[staging] 校验通过: 表 66>=66, fact_market_daily 覆盖到 2026-09-11\n[staging] 换名前备份: /Users/a77/.finance-runtime/reconcile-gate/run-87sfiewb/clone.duckdb.bak-20260913T235828-7c5a0ad8c75a (sha256=c44a0f50f201de7a…)\n[staging] 原子换名完成 (1.513s), 收据 run_id=7c5a0ad8c75a\n修复状态: OK | 已原子换库\n换库前备份: /Users/a77/.finance-runtime/reconcile-gate/run-87sfiewb/clone.duckdb.bak-20260913T235828-7c5a0ad8c75a (sha256=c44a0f50f201de7a…, 恢复步骤见同级 .receipt.json)\n"
+    "cli_stdout_tail": " staging, 生产库无锁)\n修复完成: 2026-09-11 写 5547 行 (保留 6), 当日共 5553 行, 其他日期指纹不变, 派生重算 {'feature_stock_window': 22117, 'feature_stock_technical_daily': 5529}, 新增票置缺 ['302132.SZ']\n[staging] 校验通过: 表 66>=66, fact_market_daily 覆盖到 2026-09-11\n[staging] 换名前备份: /Users/a77/.finance-runtime/reconcile-gate/run-y4b5lqme/clone.duckdb.bak-20260914T011118-a5ea7c247f6d (sha256=c44a0f50f201de7a…)\n[staging] 原子换名完成 (1.51s), 收据 run_id=a5ea7c247f6d\n修复状态: OK | 已原子换库\n换库前备份: /Users/a77/.finance-runtime/reconcile-gate/run-y4b5lqme/clone.duckdb.bak-20260914T011118-a5ea7c247f6d (sha256=c44a0f50f201de7a…, 恢复步骤见同级 .receipt.json)\n"
   },
   "checks": [
     {
       "name": "tree_revision_exact",
       "ok": true,
       "detail": {
-        "head": "b98441c5fcd55c808e4b21305ce0bcec0bbd2666",
-        "expected": "b98441c5fcd55c808e4b21305ce0bcec0bbd2666"
+        "head": "e9a824bf29753394ad271f5e1dca7bd726de24e2",
+        "expected": "e9a824bf29753394ad271f5e1dca7bd726de24e2"
       }
     },
     {
@@ -191,23 +191,23 @@
       "name": "ops_receipt_bound",
       "ok": true,
       "detail": {
-        "run_id": "7c5a0ad8c75a",
+        "run_id": "a5ea7c247f6d",
         "kind": "repair-stock-daily-hithink",
         "ok": true,
         "plan": "staging-swap",
         "trade_date": "2026-09-11",
-        "started_at": "2026-09-13 23:58:22.471446",
-        "finished_at": "2026-09-13 23:58:27.857248"
+        "started_at": "2026-09-14 01:11:10.890912",
+        "finished_at": "2026-09-14 01:11:18.557916"
       }
     },
     {
       "name": "backup_binding",
       "ok": true,
       "detail": {
-        "receipt_run_id": "7c5a0ad8c75a",
-        "ops_run_id": "7c5a0ad8c75a",
-        "source_db": "/Users/a77/.finance-runtime/reconcile-gate/run-87sfiewb/clone.duckdb",
-        "created_at": "2026-09-13T23:58:29"
+        "receipt_run_id": "a5ea7c247f6d",
+        "ops_run_id": "a5ea7c247f6d",
+        "source_db": "/Users/a77/.finance-runtime/reconcile-gate/run-y4b5lqme/clone.duckdb",
+        "created_at": "2026-09-14T01:11:20"
       }
     },
     {

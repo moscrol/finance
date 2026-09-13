@@ -24,7 +24,7 @@
 | python | `ruff check .` 全过；全量 **9,608 passed / 0 failed / 77 skipped / 2 xfailed，515s，exit 0**，收据 `20260913T131316Z-044d1661.json` |
 | frontend | `pnpm install --frozen-lockfile` / `lint` / `typecheck` / `test` / `build` 全 exit 0 |
 | e2e | `pnpm test:e2e`（WORKBENCH_PYTHON=venv）：**15 passed**，exit 0 |
-| registry-check | `build_registry.py` 四条 --check + `audit_ledger_spec_crosswalk.py` 全绿 |
+| registry-check | `build_registry.py` 四条 --check + `audit_ledger_spec_crosswalk.py` 全绿（调用形式存疑，见十四轮；规范命令在组合版重跑全绿） |
 
 诚实边界：已知抖动的 `test_installed_codex_sandbox_denies_network_and_unix_socket`
 本轮全量恰好绿；根因仍未查清，**绿不等于修好**，不据此豁免它将来的红。
@@ -120,6 +120,26 @@ FAIL 且 exit 1，FAIL 报告归档在仓外 `reconcile/fail-closed-demo/`——
   77 skipped / 2 xfailed，exit 0**，干净收据 `20260913T160704Z-b98441c5.json`
   （dirty=false；+4 即新故障回归用例）。前端/E2E/registry 叶子不受 scripts/+
   tests/ 改动影响，未重跑。
+
+## 十四轮：纳入最新主干的组合版本门禁（合并前最后一道）
+
+十四轮裁定：两处 P1 关闭、修复审查通过；但主干已到 `d7e53805`（L2 pct_chg
+回填修复，只碰 `scripts/moneyflow/` + 其测试 + 文档，**零文件触及换库链路**），
+候选基座还是 e40f22b8——merge-tree 预演无冲突只证明文本能合，不证明组合能跑。
+已执行：候选合入 d7e53805（merge commit **`e9a824bf`**，无冲突，5 文件），对组合
+后的干净版本跑齐四叶 + 门禁重放：
+
+| 叶子 | 组合版（e9a824bf）结果 |
+|---|---|
+| python | ruff 全过；全量 **9,617 passed / 0 failed / 77 skipped / 2 xfailed，exit 0**，干净收据 `20260913T171047Z-e9a824bf.json`（dirty=false；+5 来自主干 L2 新测试） |
+| frontend | install(frozen) / lint / typecheck / test / build 全 exit 0 |
+| e2e | **15 passed**（47.8s） |
+| registry-check | CI 规范四命令（check-parseability / check / backfill-tables --check / generate-views --check）+ crosswalk 全 0，「注册表与源一致」 |
+| 门禁重放 | **22/22 PASS，exit 0**，绑定 e9a824bf、tree_clean、脚本自哈希不变（`9b280eb8…`，合并未动门禁脚本）；证据包 JSON 已刷新为本次收据 |
+
+调用形式教训（本轮实测）：`build_registry.py` 的 `--check` 是**顶层旗标**，
+`scan --check` 是 argparse 错误（rc=2，不构成任何校验）；CI 规范形式是
+`check` / `check-parseability` 子命令。引用 registry 叶子结论时以规范命令为准。
 
 ## 结论与待授权
 
