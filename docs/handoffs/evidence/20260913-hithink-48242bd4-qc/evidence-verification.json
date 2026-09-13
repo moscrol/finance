@@ -1,0 +1,12 @@
+{
+  "committed_report_equals_original": true,
+  "committed_child_equals_original": true,
+  "gate_hash_matches": true,
+  "parquet_hash_matches": true,
+  "before_hash_matches": true,
+  "check_count": 22,
+  "payload_count": 16,
+  "payload_mismatch_vs_ce67fe6a": [
+    ".claude/lessons_learned.md"
+  ]
+}

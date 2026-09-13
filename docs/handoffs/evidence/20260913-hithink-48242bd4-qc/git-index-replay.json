@@ -1,0 +1,244 @@
+{
+  "gate": "reconcile_hithink_gate.py v3",
+  "verdict": "PASS",
+  "run_dir": "/Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/git-index-replay/run-xw7c2nwp",
+  "trade_date": "2026-09-11",
+  "inputs": {
+    "trade_date": "2026-09-11",
+    "tree": "/Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/tree",
+    "tree_revision": "48242bd4185ae8239bd1947f714c4e403d2d3ee9",
+    "tree_clean": true,
+    "gate_script": "/Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/tree/scripts/reconcile_hithink_gate.py",
+    "gate_script_sha256": "8f908f60a6120782d4134c935719bf3363123c28741fc7d1ef25b51914cba240",
+    "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "source_db": "/Users/a77/.finance-runtime/reconcile-gate/run-t4j_zbc0/before.duckdb",
+    "production_before": {
+      "sha256": "c44a0f50f201de7ad4a48e872e3728cfc585d97798db4a4d11de4eb54275f9ca",
+      "stat": [
+        139357278,
+        1789298238317795166,
+        3612880896
+      ]
+    },
+    "parquet_frozen": "/Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/git-index-replay/run-xw7c2nwp/input-frozen.parquet",
+    "parquet_sha256": "51f9ee9cba1ceb4a6ff50c4c4dce8267cb39f78add28d6a33699cbf90bf28d17",
+    "parquet_origin": "/Users/a77/.finance-runtime/reconcile-gate/run-t4j_zbc0/input-frozen.parquet",
+    "cli_rc": 0,
+    "cli_stdout_tail": ", 其他日期指纹不变, 派生重算 {'feature_stock_window': 22117, 'feature_stock_technical_daily': 5529}, 新增票置缺 ['302132.SZ']\n[staging] 校验通过: 表 66>=66, fact_market_daily 覆盖到 2026-09-11\n[staging] 换名前备份: /Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/git-index-replay/run-xw7c2nwp/clone.duckdb.bak-20260913T233832-7d78a77cf715 (sha256=c44a0f50f201de7a…)\n[staging] 原子换名完成 (1.589s), 收据 run_id=7d78a77cf715\n修复状态: OK | 已原子换库\n换库前备份: /Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/git-index-replay/run-xw7c2nwp/clone.duckdb.bak-20260913T233832-7d78a77cf715 (sha256=c44a0f50f201de7a…, 恢复步骤见同级 .receipt.json)\n"
+  },
+  "checks": [
+    {
+      "name": "tree_revision_exact",
+      "ok": true,
+      "detail": {
+        "head": "48242bd4185ae8239bd1947f714c4e403d2d3ee9",
+        "expected": "48242bd4185ae8239bd1947f714c4e403d2d3ee9"
+      }
+    },
+    {
+      "name": "tree_clean",
+      "ok": true,
+      "detail": "(clean)"
+    },
+    {
+      "name": "clones_match_production",
+      "ok": true,
+      "detail": "before/clone 两份克隆 sha256 均等于参照库换前指纹"
+    },
+    {
+      "name": "cli_rc",
+      "ok": true,
+      "detail": 0
+    },
+    {
+      "name": "child_trade_date",
+      "ok": true,
+      "detail": "2026-09-11"
+    },
+    {
+      "name": "child_parquet_bound",
+      "ok": true,
+      "detail": "子进程报告内 parquet 指纹 == 本轮冻结副本指纹"
+    },
+    {
+      "name": "child_counts",
+      "ok": true,
+      "detail": {
+        "dump_rows": 5550,
+        "old_rows": 5552,
+        "common_rows": 5549,
+        "written_rows": 5547
+      }
+    },
+    {
+      "name": "child_field_diffs",
+      "ok": true,
+      "detail": {
+        "ohlc": 0,
+        "pre_close": 0,
+        "pct_chg": 0,
+        "preserved": 0,
+        "volume": 0,
+        "amount": {
+          "600176.SH": {
+            "old": 113.6007,
+            "new": 113.6006
+          }
+        }
+      }
+    },
+    {
+      "name": "child_derived",
+      "ok": true,
+      "detail": {
+        "removed": {
+          "feature_stock_technical_daily": 0,
+          "feature_stock_window": 2
+        },
+        "unavailable": [
+          "302132.SZ"
+        ]
+      }
+    },
+    {
+      "name": "main_source_breakdown",
+      "ok": true,
+      "detail": {
+        "eastmoney:snapshot": 6,
+        "hithink:daily-k-10d": 5547
+      }
+    },
+    {
+      "name": "302132_pinned_values",
+      "ok": true,
+      "detail": [
+        63.42,
+        64.35,
+        -1.45,
+        5.9863,
+        94471.0
+      ]
+    },
+    {
+      "name": "600176_amount",
+      "ok": true,
+      "detail": 113.6006
+    },
+    {
+      "name": "302132_derived_absent",
+      "ok": true,
+      "detail": {
+        "feature_stock_technical_daily": 0,
+        "feature_stock_window": 0
+      }
+    },
+    {
+      "name": "derived_day_counts",
+      "ok": true,
+      "detail": {
+        "technical": 5529,
+        "window": 22115
+      }
+    },
+    {
+      "name": "600176_window_drift",
+      "ok": true,
+      "detail": [
+        [
+          [
+            "2026-08-28",
+            93.1063
+          ],
+          [
+            "2026-08-28",
+            93.1062
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "non_target_except_all",
+      "ok": true,
+      "detail": {
+        "fact_stock_daily": [
+          0,
+          0
+        ],
+        "feature_stock_technical_daily": [
+          0,
+          0
+        ],
+        "feature_stock_window": [
+          0,
+          0
+        ],
+        "fact_market_daily(all_dates)": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "name": "stitch_403",
+      "ok": true,
+      "detail": {
+        "after": 403,
+        "candidates": 403,
+        "before": 403
+      }
+    },
+    {
+      "name": "ops_receipt_bound",
+      "ok": true,
+      "detail": {
+        "run_id": "7d78a77cf715",
+        "kind": "repair-stock-daily-hithink",
+        "ok": true,
+        "plan": "staging-swap",
+        "trade_date": "2026-09-11",
+        "started_at": "2026-09-13 23:38:25.714389",
+        "finished_at": "2026-09-13 23:38:32.454460"
+      }
+    },
+    {
+      "name": "backup_binding",
+      "ok": true,
+      "detail": {
+        "receipt_run_id": "7d78a77cf715",
+        "ops_run_id": "7d78a77cf715",
+        "source_db": "/Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/git-index-replay/run-xw7c2nwp/clone.duckdb",
+        "created_at": "2026-09-13T23:38:34"
+      }
+    },
+    {
+      "name": "backup_sha256_chain",
+      "ok": true,
+      "detail": {
+        "receipt": "c44a0f50f201de7ad4a48e872e3728cfc585d97798db4a4d11de4eb54275f9ca",
+        "file": "c44a0f50f201de7ad4a48e872e3728cfc585d97798db4a4d11de4eb54275f9ca",
+        "before": "c44a0f50f201de7ad4a48e872e3728cfc585d97798db4a4d11de4eb54275f9ca"
+      }
+    },
+    {
+      "name": "backup_restore_steps",
+      "ok": true,
+      "detail": {
+        "steps": 6,
+        "readability": "read_only 打开成功, 66 张表"
+      }
+    },
+    {
+      "name": "production_untouched",
+      "ok": true,
+      "detail": {
+        "sha256": "c44a0f50f201de7ad4a48e872e3728cfc585d97798db4a4d11de4eb54275f9ca",
+        "stat": [
+          139357278,
+          1789298238317795166,
+          3612880896
+        ]
+      }
+    }
+  ],
+  "failed": []
+}

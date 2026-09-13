@@ -1,0 +1,72 @@
+{
+  "output_base_collision": {
+    "exit": 1,
+    "stdout": "",
+    "stderr_tail": "77/.finance-runtime/reviews/hithink-48242bd4-qc/tree/scripts/reconcile_hithink_gate.py\", line 118, in run_gate\n    OUT_BASE.mkdir(parents=True, exist_ok=True)\n  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 1311, in mkdir\n    os.mkdir(self, mode)\nFileExistsError: [Errno 17] File exists: '/Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/probes/not-a-directory'\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/tree/scripts/reconcile_hithink_gate.py\", line 365, in <module>\n    main()\n  File \"/Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/tree/scripts/reconcile_hithink_gate.py\", line 360, in main\n    finalize(1)\n  File \"/Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/tree/scripts/reconcile_hithink_gate.py\", line 96, in finalize\n    out.write_text(json.dumps(report, ensure_ascii=False, indent=2, default=str) + \"\\n\",\n  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 1047, in write_text\n    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py\", line 1013, in open\n    return io.open(self, mode, buffering, encoding, errors, newline)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nNotADirectoryError: [Errno 20] Not a directory: '/Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/probes/not-a-directory/gate-FAIL-20260913T233609-64260.json'\n",
+    "structured_report_written": false
+  },
+  "short_revision": {
+    "exit": 1,
+    "report": {
+      "gate": "reconcile_hithink_gate.py v3",
+      "verdict": "FAIL",
+      "run_dir": null,
+      "trade_date": null,
+      "inputs": {},
+      "checks": [
+        {
+          "name": "tree_revision_exact",
+          "ok": false,
+          "detail": {
+            "head": "48242bd4185ae8239bd1947f714c4e403d2d3ee9",
+            "expected": "48242bd4"
+          }
+        },
+        {
+          "name": "tree_clean",
+          "ok": true,
+          "detail": "(clean)"
+        }
+      ],
+      "failed": [
+        "tree_revision_exact"
+      ]
+    }
+  },
+  "git_status_error": {
+    "actual_status": "?? review-only-dirty-marker.txt\n",
+    "injected_git_rc": 128,
+    "exit": 1,
+    "report_path": "/Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/probes/git-status-error/run-i4shzwbz/gate-report.json",
+    "report": {
+      "gate": "reconcile_hithink_gate.py v3",
+      "verdict": "FAIL",
+      "run_dir": "/Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/probes/git-status-error/run-i4shzwbz",
+      "trade_date": null,
+      "inputs": {},
+      "checks": [
+        {
+          "name": "tree_revision_exact",
+          "ok": true,
+          "detail": {
+            "head": "48242bd4185ae8239bd1947f714c4e403d2d3ee9",
+            "expected": "48242bd4185ae8239bd1947f714c4e403d2d3ee9"
+          }
+        },
+        {
+          "name": "tree_clean",
+          "ok": true,
+          "detail": "(clean)"
+        },
+        {
+          "name": "unhandled_exception",
+          "ok": false,
+          "detail": "FileNotFoundError(2, 'No such file or directory')"
+        }
+      ],
+      "failed": [
+        "unhandled_exception"
+      ]
+    }
+  }
+}

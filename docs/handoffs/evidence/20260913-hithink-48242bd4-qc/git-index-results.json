@@ -1,0 +1,11 @@
+{
+  "actual_status": "?? review-only-dirty-marker.txt\n",
+  "git_status_rc": 128,
+  "git_status_stdout": "",
+  "git_status_stderr": "fatal: /Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/probes/corrupt-index: index file smaller than expected\n",
+  "gate_exit": 0,
+  "gate_verdict": "PASS",
+  "checks": 22,
+  "gate_tree_clean": true,
+  "run_dir": "/Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/git-index-replay/run-xw7c2nwp"
+}
