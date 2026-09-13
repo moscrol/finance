@@ -157,29 +157,32 @@ _ASSISTED_MODEL_COMPONENTS = frozenset({"writer_model", "review_model"})
 def _assisted_task_uncovered_components(task: Mapping[str, Any], receipt: Mapping[str, Any], applicable: set[str]) -> list[str]:
     """辅助任务仍缺费用事实的固有模型组件（按协议适用集过滤）。
 
-    一笔费用只证明它自己那个组件：无论有没有 run，工具费都不为缺失的 writer/review
-    作证，writer 亦然（评审 PV9 无 run 分支、PV10 有 run 分支——不能靠其它任务的
-    类别覆盖代签）。费用与任务的关联认 task_id / run_id / attempt_id 三种挂法。
-    全部尝试失败的任务不按固有组件拦：流水线没走完（review 未发生），缺账由
-    逐 attempt 派生缺口（retry 组件）表达。
+    覆盖保留「任务 × 执行实例 × 组件」：一笔费用只证明它自己那个组件、那一次执行——
+    第一次执行的完整模型账不为第二次作证（PV11）；失败执行仍要 writer 账（失败不代表
+    模型没调用；review 未发生则不要求——PV12）；无 run 时退到任务级费用事实（PV9）。
+    关联认 attempt_id / run_id（有执行实例时）或 task_id（无 run 时）三种挂法；
+    有执行实例时只挂 task_id 的账无法归属到具体执行，不作数（fail closed）。
     """
+    items = [i for i in (receipt.get("cost_items") or ()) if i.get("selected")]
     attempts = task.get("attempts") or ()
-    if attempts and all(a.get("failed") for a in attempts):
-        return []
-    task_id = str(task.get("task_id") or "")
-    run_ids = {str(a.get("run_id")) for a in attempts if a.get("run_id")}
-    attempt_ids = {str(a.get("attempt_id")) for a in attempts if a.get("attempt_id")}
-    covered = {
-        str(item.get("component"))
-        for item in (receipt.get("cost_items") or ())
-        if item.get("selected")
-        and (
-            str(item.get("task_id") or "") == task_id
-            or str(item.get("run_id") or "") in run_ids
-            or str(item.get("attempt_id") or "") in attempt_ids
-        )
-    }
-    return sorted(applicable & _ASSISTED_MODEL_COMPONENTS - covered)
+    if not attempts:
+        task_id = str(task.get("task_id") or "")
+        covered = {str(i.get("component")) for i in items if str(i.get("task_id") or "") == task_id}
+        return sorted(applicable & _ASSISTED_MODEL_COMPONENTS - covered)
+    uncovered: set[str] = set()
+    for attempt in attempts:
+        required = applicable & (_ASSISTED_MODEL_COMPONENTS if not attempt.get("failed") else frozenset({"writer_model"}))
+        if not required:
+            continue
+        aid = str(attempt.get("attempt_id") or "")
+        rid = str(attempt.get("run_id") or "")
+        covered = {
+            str(i.get("component"))
+            for i in items
+            if (aid and str(i.get("attempt_id") or "") == aid) or (rid and str(i.get("run_id") or "") == rid)
+        }
+        uncovered |= required - covered
+    return sorted(uncovered)
 
 
 def _is_synthetic_receipt(receipt: Mapping[str, Any]) -> bool:
@@ -824,7 +827,15 @@ def _compute_block(
             None,
             "status",
             denominator_ids=[str(r.get("receipt_id")) for r in receipts],
-            unknown=[{"id": str(c.get("cost_id") or c.get("attempt_id") or c.get("component")), "reason": str(c.get("reason"))} for c in unknown_components],
+            unknown=[
+                {
+                    "id": str(c.get("cost_id") or c.get("attempt_id") or c.get("component")),
+                    "reason": str(c.get("reason")),
+                    # PV13：缺哪个组件必须穿过公开投影层——06 从公开结果直接知道补哪笔账。
+                    **({"uncovered_components": list(c["uncovered_components"])} if c.get("uncovered_components") else {}),
+                }
+                for c in unknown_components
+            ],
             detail={
                 "known_cost_by_currency": {k: float(v) for k, v in sorted(known.items())},
                 "estimated_cost_by_currency": {k: float(v) for k, v in sorted(estimated.items())},

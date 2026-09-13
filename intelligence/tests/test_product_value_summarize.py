@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 import json
 import random
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from intelligence.services.product_value import contracts as C
 from intelligence.services.product_value.evidence import InMemoryEvidenceReader
@@ -882,3 +882,134 @@ def test_run_scoped_fee_does_not_cover_missing_model_components():
     full = _measured([writer, review, tool])
     assert full["detail"]["full_cost_status"] == "known"
     assert full["detail"]["known_cost_by_currency"] == {"CNY": 0.93}
+
+
+def _r7_fee(template, component, amount, *, run_id=None, attempt_id=None, suffix=""):
+    """round-7 探针同款费用事件构造：克隆 run 级费用模板，按需改挂 run/attempt。"""
+    event = copy.deepcopy(template)
+    event["event_id"] = "qc-r7-" + component + suffix
+    item = event["payload"]["cost_item"]
+    item.update(cost_id=event["event_id"], component=component, amount=amount, quantity=1, evidence_ref="invoice:" + event["event_id"])
+    if component == "tool":
+        item["unit"] = "calls"
+    if run_id:
+        item["run_id"] = run_id
+        event["run_ids"] = [run_id]
+    if attempt_id:
+        item["attempt_id"] = attempt_id
+    return event
+
+
+def _r7_setup():
+    """round-7 公共夹具：applicable={writer,review,tool} 的协议 + 两个完整配对。"""
+    proto = _six_pair_protocol()
+    proto.pop("protocol_hash")
+    proto["criteria"]["cost"] = {"not_applicable_components": sorted(C.COST_COMPONENTS - {"writer_model", "review_model", "tool"})}
+    proto = freeze_protocol(proto)
+    complete, evidence1 = _clone_complete_pair(1, "p10", proto["protocol_hash"], provenance="imported")
+    second, evidence2 = _clone_complete_pair(2, "p11", proto["protocol_hash"], provenance="imported")
+    fees = [e for e in second if e["event_type"] == "cost_recorded" and e["payload"]["cost_item"]["coverage_scope"] == "run"]
+    writer = next(e for e in fees if e["payload"]["cost_item"]["component"] == "writer_model")
+    review = next(e for e in fees if e["payload"]["cost_item"]["component"] == "review_model")
+    base = [e for e in second if e["event_type"] != "cost_recorded"]
+    return proto, complete, evidence1, second, evidence2, writer, review, base
+
+
+def _r7_measure(proto, complete, evidence1, events, runs):
+    reader = InMemoryEvidenceReader.from_json({"runs": evidence1["runs"] + runs})
+    r1 = measure_pair(complete, proto, reader)
+    r2 = measure_pair(events, proto, reader)
+    assert r2["invalid_reasons"] == [] and r2["event_accounting"]["rejected"] == []
+    summary = summarize([r1, r2], [e for e in complete + events if e["event_type"] == "assignment_created"], proto, cohort_events=complete + events, due_rechecks=[])
+    assert summary["input_errors"] == []
+    return r2, next(m for m in summary["metrics"] if m["metric_id"] == "cost_full_status")
+
+
+def test_one_attempt_bills_cannot_cover_another_attempt_models():
+    """PV11：费用覆盖保留「任务 × 执行实例 × 组件」——第一次执行的完整模型账不为第二次作证。"""
+    proto, complete, evidence1, _, evidence2, writer, review, base = _r7_setup()
+    run2, attempt2 = "qc-r7-run-2", "qc-r7-attempt-2"
+    extra_events = []
+    for event in base:
+        if event["event_type"] in {"run_started", "run_finished"}:
+            extra = copy.deepcopy(event)
+            extra["event_id"] += "-second"
+            extra["run_ids"] = [run2]
+            extra["payload"].update(run_id=run2, attempt_id=attempt2)
+            for key in ("event_at", "recorded_at"):
+                extra[key] = (datetime.fromisoformat(extra[key]) + timedelta(minutes=8)).isoformat()
+            extra_events.append(extra)
+    evidence_extra = copy.deepcopy(evidence2["runs"][0])
+    evidence_extra.update(run_id=run2, artifacts={})
+    for key in ("created_at", "finished_at"):
+        evidence_extra[key] = (datetime.fromisoformat(evidence_extra[key]) + timedelta(minutes=8)).isoformat()
+    two_runs = evidence2["runs"] + [evidence_extra]
+    two_base = base + extra_events + [writer, review]
+
+    r2, m = _r7_measure(proto, complete, evidence1, two_base, two_runs)
+    assert len(r2["tasks"]["assisted"]["attempts"]) == 2
+    assert all(a["evidence_status"] == "ok" for a in r2["tasks"]["assisted"]["attempts"])
+    assert m["detail"]["full_cost_status"] == "unknown"  # 第二次执行无账
+    _, m = _r7_measure(proto, complete, evidence1, two_base + [_r7_fee(writer, "tool", 0.01, run_id=run2, attempt_id=attempt2)], two_runs)
+    assert m["detail"]["full_cost_status"] == "unknown"  # 第二次只有工具费
+    _, m = _r7_measure(proto, complete, evidence1, two_base + [
+        _r7_fee(writer, "tool", 0.01, run_id=run2, attempt_id=attempt2),
+        _r7_fee(writer, "writer_model", 0.36, run_id=run2, attempt_id=attempt2, suffix="-second"),
+    ], two_runs)
+    assert m["detail"]["full_cost_status"] == "unknown"  # 第二次缺 review
+    _, m = _r7_measure(proto, complete, evidence1, two_base + [
+        _r7_fee(writer, "tool", 0.01, run_id=run2, attempt_id=attempt2),
+        _r7_fee(writer, "writer_model", 0.36, run_id=run2, attempt_id=attempt2, suffix="-second"),
+        _r7_fee(writer, "review_model", 0.10, run_id=run2, attempt_id=attempt2, suffix="-second"),
+    ], two_runs)
+    assert m["detail"]["full_cost_status"] == "known"  # 合法对照：两次执行都齐
+    assert m["detail"]["known_cost_by_currency"] == {"CNY": 1.39}
+
+
+def test_failed_attempt_tool_fee_cannot_erase_model_gap():
+    """PV12：失败不代表模型没调用——失败执行实例仍要 writer 账；工具费不能冲掉缺口；
+    writer+工具费（review 未发生不要求）是合法 known 对照。"""
+    proto, complete, evidence1, _, evidence2, writer, _, base = _r7_setup()
+    failed_base = copy.deepcopy(base)
+    for event in failed_base:
+        if event["event_type"] == "run_finished":
+            event["payload"].update(status="failed", error_ref="err:writer-timeout")
+        if event["event_type"] == "task_completed" and event["assistance_condition"] == "assisted":
+            event["event_type"] = "task_failed"
+            event["payload"].update(completion_evidence_refs=[], terminal_reason="writer_timeout")
+            event["object_refs"] = []
+    failed_base = [e for e in failed_base if not (e["event_type"] == "quality_reviewed" and e["assistance_condition"] == "assisted")]
+    failed_runs = copy.deepcopy(evidence2["runs"])
+    failed_runs[0].update(status="failed", error="writer timeout", artifacts={})
+    # retry 适用，且另一个任务已有 retry 账——试点级类别存在不能掩盖失败任务自己的缺口
+    old_hash = proto["protocol_hash"]
+    proto.pop("protocol_hash")
+    proto["criteria"]["cost"]["not_applicable_components"].remove("retry")
+    proto = freeze_protocol(proto)
+    complete = json.loads(json.dumps(complete).replace(old_hash, proto["protocol_hash"]))
+    failed_base = json.loads(json.dumps(failed_base).replace(old_hash, proto["protocol_hash"]))
+    retry = copy.deepcopy(next(e for e in complete if e["event_type"] == "cost_recorded"))
+    retry["event_id"] = "qc-r7-other-task-retry"
+    retry["payload"]["cost_item"].update(cost_id="qc-r7-other-task-retry", component="retry", amount=0.02)
+    complete.append(retry)
+
+    r2, m = _r7_measure(proto, complete, evidence1, failed_base, failed_runs)
+    assert all(a["failed"] for a in r2["tasks"]["assisted"]["attempts"])
+    assert "retry" not in m["detail"]["not_applicable_components"]
+    assert m["detail"]["full_cost_status"] == "unknown"  # 无账
+    _, m = _r7_measure(proto, complete, evidence1, failed_base + [_r7_fee(writer, "tool", 0.01)], failed_runs)
+    assert m["detail"]["full_cost_status"] == "unknown"  # 工具费不能冲掉失败执行的模型缺口
+    _, m = _r7_measure(proto, complete, evidence1, failed_base + [_r7_fee(writer, "tool", 0.01), writer], failed_runs)
+    assert m["detail"]["full_cost_status"] == "known"  # 合法对照：writer+工具费
+
+
+def test_uncovered_components_reach_public_summary():
+    """PV13：缺哪个组件必须穿过公开投影层——06 从公开结果直接知道补哪笔账。"""
+    proto, complete, evidence1, _, evidence2, writer, _, base = _r7_setup()
+    _, m = _r7_measure(proto, complete, evidence1, base + [writer, _r7_fee(writer, "tool", 0.01)], evidence2["runs"])
+    assert m["detail"]["full_cost_status"] == "unknown"
+    serialized = json.dumps(m, ensure_ascii=False)
+    assert "uncovered_components" in serialized and "review_model" in serialized
+    entry = next(u for u in m["unknown"] if u["id"].startswith("unmeasured_task:"))
+    assert entry["reason"] == "assisted_task_model_cost_unbilled"
+    assert entry["uncovered_components"] == ["review_model"]
