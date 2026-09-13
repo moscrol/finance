@@ -712,3 +712,69 @@ def test_ambiguous_unchanged_not_swallowed_by_unchanged_early_return():
     assert live[0].change_type == "unchanged"
     assert live[0].status == "open"
     assert "ambiguous_version_order" in [g.reason for g in live[0].gaps]
+
+
+def test_binding_created_day_uses_market_day_not_string_prefix():
+    """J9：绑定创建日按市场时区取日——上海 09-12 00:30 创建的绑定，回放 09-11 不得提前成立。"""
+    versions = [_version("ann:old", "h1", "2026-09-10T10:00:00+08:00"), _version("ann:old", "h2", "2026-09-11T10:00:00+08:00")]
+    for stamp in ("2026-09-11T16:30:00Z", "2026-09-12T00:30:00+08:00"):
+        binding = _binding({"ann:old": "h1"}, created_at=stamp, baseline_cutoff="2026-09-10")
+        result = _run([binding], versions, as_of="2026-09-11", cutoff="2026-09-11")
+        assert result.counts["objects_bound"] == 0, stamp
+    # 合法对照：上海 09-11 23:30 创建，当日回放照常成立
+    binding = _binding({"ann:old": "h1"}, created_at="2026-09-11T15:30:00Z", baseline_cutoff="2026-09-10")
+    assert _run([binding], versions, as_of="2026-09-11", cutoff="2026-09-11").counts["objects_bound"] == 1
+
+
+def test_condition_observation_uses_market_day_for_cutoff():
+    """J8：条件观测的知识日同样先折算市场时区——同一时刻的 Z 写法不得越过知识截止提前触发。"""
+    binding = _binding({"ann:old": "h1"}, created_at="2026-09-10T12:00:00+08:00", baseline_cutoff="2026-09-10", conditions=[_condition()])
+    versions = [_version("ann:old", "h1", "2026-09-10T10:00:00+08:00")]
+
+    def condition_result(recorded: str):
+        obs = _obs("market_stage", "反弹", as_of="2026-09-11", recorded=recorded)
+        result = _run([binding], versions, [obs], as_of="2026-09-11", cutoff="2026-09-11")
+        return next(i for i in result.items if i.condition_result is not None).condition_result
+
+    assert condition_result("2026-09-11T15:30:00Z") == "true"  # 上海 23:30 当日已知（合法对照）
+    assert condition_result("2026-09-12T00:30:00+08:00") == "unknown"  # 上海次日，越截止
+    assert condition_result("2026-09-11T16:30:00Z") == "unknown"  # 同一时刻的 Z 写法，同样越截止
+
+
+def test_ambiguity_transition_survives_item_dedup():
+    """J10：歧义进入时间轴后项身份必须区分——同 id 去重不得把 open 项丢成 superseded。"""
+    binding = _binding({"ann:old": "h1"}, created_at="2026-09-10T12:00:00+08:00", baseline_cutoff="2026-09-10")
+    versions = [
+        _version("ann:old", "h1", "2026-09-10T09:00:00+08:00"),
+        _version("ann:old", "h2", "2026-09-10T20:00:00", valid_from="2026-09-02"),  # naive，与 h0 不可比
+        _version("ann:old", "h0", "2026-09-11T00:30:00+08:00", valid_from="2026-09-02"),
+    ]
+    before = _run([binding], versions, as_of="2026-09-10", cutoff="2026-09-10")
+    assert before.counts["items_open"] == 1
+    after = _run([binding], versions, as_of="2026-09-12", cutoff="2026-09-12")
+    assert after.counts["items_open"] == 1
+    assert "ambiguous_version_order" in [g.reason for g in after.gaps]
+    open_items = _live(after)
+    assert len(open_items) == 1
+    assert "ambiguous_version_order" in [g.reason for g in open_items[0].gaps]
+    superseded = [i for i in after.items if i.status == "superseded"]
+    assert superseded, "旧项应保留为 superseded"
+    assert open_items[0].id != superseded[0].id
+    assert open_items[0].supersedes_item_id == superseded[0].id
+
+
+def test_ambiguity_resolved_keeps_open_item_and_audit_gap():
+    """J10 延伸：歧义出现后又消解（纯日期竞争者过期）时，末态与首态同 id——
+    去重必须留下仍 open 的项（变迁仍待复核），歧义提示留在审计轨迹里。"""
+    binding = _binding({"ann:old": "h1"}, created_at="2026-09-10T12:00:00+08:00", baseline_cutoff="2026-09-10")
+    versions = [
+        _version("ann:old", "h1", "2026-09-10T09:00:00+08:00"),
+        _version("ann:old", "h2", "2026-09-10T20:00:00+08:00"),
+        _version("ann:old", "h0", "2026-09-11", expired_at="2026-09-12T10:00:00+08:00"),  # 纯日期，不可比
+    ]
+    result = _run([binding], versions, as_of="2026-09-12", cutoff="2026-09-12")
+    assert result.counts["items_open"] == 1
+    open_items = _live(result)
+    assert open_items[0].change_type == "content_changed"
+    assert "ambiguous_version_order" not in [g.reason for g in open_items[0].gaps]  # 已消解
+    assert "ambiguous_version_order" in [g.reason for g in result.gaps]  # 审计轨迹保留

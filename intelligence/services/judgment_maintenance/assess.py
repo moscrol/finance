@@ -263,27 +263,31 @@ def _dedup_key(
     after_hash: str | None,
     change_type: str,
     reason_code: str,
+    ambiguous: bool = False,
     condition_ref: str | None = None,
     expression_digest: str | None = None,
     window: str | None = None,
 ) -> str:
-    return canonical_json(
-        {
-            "owner_user_id": owner,
-            "object": list(binding.object_ref.identity()),
-            "binding_id": binding.binding_id,
-            "binding_version": binding.binding_version,
-            "dependency_ref": dependency_ref,
-            "before_hash": before_hash,
-            "after_ref": after_ref,
-            "after_hash": after_hash,
-            "change_type": change_type,
-            "reason_code": reason_code,
-            "condition_ref": condition_ref,
-            "expression_digest": expression_digest,
-            "window": window,
-        }
-    )
+    payload = {
+        "owner_user_id": owner,
+        "object": list(binding.object_ref.identity()),
+        "binding_id": binding.binding_id,
+        "binding_version": binding.binding_version,
+        "dependency_ref": dependency_ref,
+        "before_hash": before_hash,
+        "after_ref": after_ref,
+        "after_hash": after_hash,
+        "change_type": change_type,
+        "reason_code": reason_code,
+        "condition_ref": condition_ref,
+        "expression_digest": expression_digest,
+        "window": window,
+    }
+    # 歧义进项身份（J10）：同一变迁「顺序可证」与「顺序有歧义」是两个不同状态，同 id 会被
+    # 末端去重留下旧项弃掉新项。只在有歧义时加键——无歧义项的 dedup_key 保持字节不变。
+    if ambiguous:
+        payload["ambiguous"] = True
+    return canonical_json(payload)
 
 
 def _dependency_items(
@@ -348,17 +352,19 @@ def _dependency_items(
             after_hash=after_hash,
             change_type=change_type,
             reason_code=reason_code,
+            ambiguous=state.ambiguous,
         )
-        item_version = short_hash(
-            {
-                "before": [before.to_dict()],
-                "current": [v.to_dict() for v in current],
-                "binding_id": binding.binding_id,
-                "binding_version": binding.binding_version,
-                "change_type": change_type,
-                "reason_code": reason_code,
-            }
-        )
+        version_payload = {
+            "before": [before.to_dict()],
+            "current": [v.to_dict() for v in current],
+            "binding_id": binding.binding_id,
+            "binding_version": binding.binding_version,
+            "change_type": change_type,
+            "reason_code": reason_code,
+        }
+        if state.ambiguous:
+            version_payload["ambiguous"] = True
+        item_version = short_hash(version_payload)
         return MaintenanceItem(
             id=_item_id(key),
             item_version=item_version,
@@ -629,7 +635,11 @@ def assess(
 
     unique_items: dict[str, MaintenanceItem] = {}
     for it in sorted(items, key=_item_sort_key):
-        unique_items.setdefault(it.id, it)
+        prev = unique_items.get(it.id)
+        # J10：同一内容状态在非相邻时间点复现时（如歧义出现又消解）id 相同——去重必须留下
+        # 仍 open 的那个，而不是最早进入的那个，否则「变迁已发生待复核」被压成 superseded。
+        if prev is None or (prev.status != "open" and it.status == "open"):
+            unique_items[it.id] = it
     final_items = tuple(unique_items.values())
     gap_pool: dict[tuple[Any, ...], Gap] = {}
     for g in report_gaps + [g for it in final_items for g in it.gaps]:

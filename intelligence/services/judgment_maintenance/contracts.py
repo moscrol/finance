@@ -426,7 +426,8 @@ class DependencyBinding:
 
     @property
     def created_day(self) -> str:
-        return self.created_at[:10]
+        # 市场日历日：先折算东八区再取日（评审 J9）——同一时刻的 UTC 写法不得让绑定提前一天成立。
+        return market_day_of(self.created_at) or self.created_at[:10]
 
     def to_dict(self) -> dict[str, Any]:
         return {
