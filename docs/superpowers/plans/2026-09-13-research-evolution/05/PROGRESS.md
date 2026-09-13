@@ -160,3 +160,8 @@ QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结�
   - PV12[P1]：移除全失败早退——失败执行实例仍要 writer 账（失败不代表模型没调用；review 未发生不要求）；失败 run 挂工具费不再洗白；合法对照 writer+工具费 known。
   - PV13[P2]：uncovered_components 穿过公开投影层（unknown 条目条件携带），公开输出加断言。
 - 验证：模块 118 passed；QC 第七轮安全断言 test_round7.py 8 passed（修前 4 failed / 4 passed）；全量 9658 passed / 77 skipped / 2 xfailed（干净树 @72f562f2，`-rf` 无 FAILED 行）；ruff 干净；第一至六轮归档探针 05 组复跑不回归。
+
+## Round-8 附加条件（2026-09-14，QC：联合身份校验）
+- 状态：第七轮 PV11/PV12/PV13 逐项通过；QC 确认 05 模块 118 passed、第七轮安全断言 8 passed、ruff 干净、dirty=0（全量收据视为已提供历史收据，未独立重跑）。附条件：attempt_id/run_id 联合身份校验仍有相邻 P1，修前 dd5d54aa 之前的实现可复现。
+- 修复（`dd5d54aa`，1 条公开入口回归测试先红后绿）：逐 attempt 覆盖的 OR 匹配改为联合身份——条目带 attempt_id 就必须与 run_id 一致（错配组合：attempt_id 指第二次执行、run_id 是第一次的 run，三笔费用修前洗成 known 1.39 → 修后 unknown 且 uncovered_components=[review_model, writer_model]）；只带 run_id 的条目是该 run 共享账。合法对照：同一组费用联合一致（run2×attempt2）→ known CNY 1.39。
+- 验证：模块 119 passed；第一至七轮安全断言复跑全绿（05extra exit=0、round3 exit=0、round4/5/6/7 = 4/5/6/8 passed）；全量 9659 passed / 77 skipped / 2 xfailed（干净树 @dd5d54aa，`-rf` 无 FAILED 行）；ruff 干净。
