@@ -138,6 +138,45 @@ class D1BackdatedInvalidation(unittest.TestCase):
         self.assertEqual(one_stale(run_scenario(maintenance_reports=[late]), "eu-004").classification, "context")
 
 
+class D5ReinstatedCurrentCannotMaskTimeGap(unittest.TestCase):
+    """评审 D5：used_is_current → valid 的提前返回不得盖过 before 侧的时间缺口。
+
+    旧版失效事实缺登记时间；同 ref 同哈希的 current 在使用之后才重新生效 / 登记，
+    证明不了 09-04 使用时刻那条失效是否已知——未生效 / 后知的 current 不能绕过时间裁决。
+    """
+
+    @staticmethod
+    def _reinstate(mr: dict) -> dict:
+        item = next(i for i in mr["items"] if i["id"] == "mi-004")
+        _mi004_before(mr).update(recorded_at=None, expired_at="2026-09-02T18:00:00+08:00", valid_to=None)
+        item["current"][0].update(
+            ref="ann:004",
+            source_hash="n1",
+            supersedes_ref=None,
+            valid_from="2026-09-06",
+            recorded_at="2026-09-06T18:00:00+08:00",
+            expired_at=None,
+            valid_to=None,
+        )
+        return mr
+
+    def test_d5_later_current_hash_does_not_discharge_unknown_time(self) -> None:
+        mr = self._reinstate(load_fixture("maintenance_report_01.json"))
+        finding = one_stale(run_scenario(maintenance_reports=[mr]), "eu-004")
+        self.assertEqual(finding.classification, "unknown")
+        self.assertIn("time_metadata_missing", [g.reason for g in finding.gaps])
+
+    def test_d5_filling_missing_record_time_still_decides_both_ways(self) -> None:
+        # 同一 current 下把缺失的登记时间分别补早 / 补晚：issue 与 context 都要能走到，
+        # 证明上面的 unknown 是输入不足，不是检查被关掉。
+        early = self._reinstate(load_fixture("maintenance_report_01.json"))
+        _mi004_before(early)["recorded_at"] = "2026-09-01T18:00:00+08:00"
+        self.assertEqual(one_stale(run_scenario(maintenance_reports=[early]), "eu-004").classification, "issue")
+        late = self._reinstate(load_fixture("maintenance_report_01.json"))
+        _mi004_before(late)["recorded_at"] = "2026-09-07T18:00:00+08:00"
+        self.assertEqual(one_stale(run_scenario(maintenance_reports=[late]), "eu-004").classification, "context")
+
+
 class D3FutureReplacement(unittest.TestCase):
     """已公告但尚未生效的替代依据，不得用于追责生效前的引用（评审 D3）。"""
 

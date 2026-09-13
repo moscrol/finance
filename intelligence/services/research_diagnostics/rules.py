@@ -478,7 +478,9 @@ def evidence_status_at(
                     later = True
                 else:
                     time_unknown = True
-    if used_hash is not None and used_is_current and not invalid:
+    # D5：「用的那一版现在仍有效」不能盖过时间缺口——before 侧失效事实缺登记时间时，
+    # 后来才重新生效 / 登记的 current 证明不了使用时刻那条失效是否已知，必须交给下面的时间裁决。
+    if used_hash is not None and used_is_current and not invalid and not time_unknown:
         return "valid", item_ids, tuple(sorted(refs))
     if invalid and (used_hash is None or hash_seen or any(v.supersedes_ref == ref for _, v, _ in entries)):
         if used_hash is None and any(v.ref == ref and v.source_hash for _, v, _ in entries):
