@@ -1,0 +1,1012 @@
+{
+  "kind": "302132-prep-independent-readonly-review",
+  "review_revision": "742c3ff5cabbefb1fc5a78f9aaec1ac1d6ff1215",
+  "script_sha256": "03502976281724f80cc497f90d9b6767da9a8ba8f082981123075a065db72a21",
+  "duckdb_version": "1.5.4",
+  "inputs_before": {
+    "production": {
+      "path": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+      "sha256": "76a32fac9c8bcd542982e5f7ffd654ffcf0e8646f515487aeba3b74c3ceff168",
+      "stat": [
+        140555030,
+        1789323587584092374,
+        3612880896
+      ]
+    },
+    "clone": {
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-prep-302132/prep-clone.duckdb",
+      "sha256": "d372d8f6c087dbc3478d183da5c75cdaae8272c90a7422cb2ab4f4d9fe745747",
+      "stat": [
+        140969230,
+        1789327157683489624,
+        3784847360
+      ]
+    },
+    "parquet": {
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/daily-k-10d.parquet",
+      "sha256": "51f9ee9cba1ceb4a6ff50c4c4dce8267cb39f78add28d6a33699cbf90bf28d17",
+      "stat": [
+        133442174,
+        1789231689792439208,
+        1077771
+      ]
+    },
+    "prep_script": {
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-prep-302132/prep_verify.py",
+      "sha256": "2a8a05ff48b40f4f86911ef145e91335a65a21378d10266c017c2ce2bbc5fed3",
+      "stat": [
+        140926593,
+        1789327093231804791,
+        16460
+      ]
+    },
+    "prep_report": {
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-prep-302132/prep-evidence.json",
+      "sha256": "7e7fa8ba6adb7da36e269f8fcd2ceee2caf144fca264bf950ab930b492584071",
+      "stat": [
+        140961335,
+        1789327159473876541,
+        5600
+      ]
+    }
+  },
+  "inputs_after": {
+    "production": {
+      "path": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+      "sha256": "76a32fac9c8bcd542982e5f7ffd654ffcf0e8646f515487aeba3b74c3ceff168",
+      "stat": [
+        140555030,
+        1789323587584092374,
+        3612880896
+      ]
+    },
+    "clone": {
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-prep-302132/prep-clone.duckdb",
+      "sha256": "d372d8f6c087dbc3478d183da5c75cdaae8272c90a7422cb2ab4f4d9fe745747",
+      "stat": [
+        140969230,
+        1789327157683489624,
+        3784847360
+      ]
+    },
+    "parquet": {
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/daily-k-10d.parquet",
+      "sha256": "51f9ee9cba1ceb4a6ff50c4c4dce8267cb39f78add28d6a33699cbf90bf28d17",
+      "stat": [
+        133442174,
+        1789231689792439208,
+        1077771
+      ]
+    },
+    "prep_script": {
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-prep-302132/prep_verify.py",
+      "sha256": "2a8a05ff48b40f4f86911ef145e91335a65a21378d10266c017c2ce2bbc5fed3",
+      "stat": [
+        140926593,
+        1789327093231804791,
+        16460
+      ]
+    },
+    "prep_report": {
+      "path": "/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-prep-302132/prep-evidence.json",
+      "sha256": "7e7fa8ba6adb7da36e269f8fcd2ceee2caf144fca264bf950ab930b492584071",
+      "stat": [
+        140961335,
+        1789327159473876541,
+        5600
+      ]
+    }
+  },
+  "checks": [
+    {
+      "name": "production_bound_to_prep_receipt",
+      "ok": true,
+      "detail": {
+        "path": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+        "sha256": "76a32fac9c8bcd542982e5f7ffd654ffcf0e8646f515487aeba3b74c3ceff168",
+        "stat": [
+          140555030,
+          1789323587584092374,
+          3612880896
+        ]
+      }
+    },
+    {
+      "name": "canonical_calendar_exact_64_dates",
+      "ok": true,
+      "detail": {
+        "market_days": 64,
+        "reference_stock_days": 64,
+        "target_days": 64,
+        "missing": [],
+        "unexpected": []
+      }
+    },
+    {
+      "name": "53_exact_missing_dates",
+      "ok": true,
+      "detail": [
+        "2026-06-17",
+        "2026-06-24",
+        "2026-06-29",
+        "2026-06-30",
+        "2026-07-02",
+        "2026-07-03",
+        "2026-07-06",
+        "2026-07-08",
+        "2026-07-10",
+        "2026-07-13",
+        "2026-07-14",
+        "2026-07-15",
+        "2026-07-16",
+        "2026-07-17",
+        "2026-07-20",
+        "2026-07-21",
+        "2026-07-22",
+        "2026-07-23",
+        "2026-07-24",
+        "2026-07-27",
+        "2026-07-28",
+        "2026-07-29",
+        "2026-07-30",
+        "2026-07-31",
+        "2026-08-03",
+        "2026-08-04",
+        "2026-08-05",
+        "2026-08-06",
+        "2026-08-07",
+        "2026-08-10",
+        "2026-08-11",
+        "2026-08-12",
+        "2026-08-13",
+        "2026-08-14",
+        "2026-08-17",
+        "2026-08-18",
+        "2026-08-19",
+        "2026-08-20",
+        "2026-08-21",
+        "2026-08-24",
+        "2026-08-25",
+        "2026-08-26",
+        "2026-08-27",
+        "2026-08-28",
+        "2026-08-31",
+        "2026-09-01",
+        "2026-09-02",
+        "2026-09-03",
+        "2026-09-04",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-09",
+        "2026-09-10"
+      ]
+    },
+    {
+      "name": "retained_10_rows_including_0911_identical",
+      "ok": true,
+      "detail": {
+        "retained_rows": 10
+      }
+    },
+    {
+      "name": "other_stock_facts_identical_all_columns",
+      "ok": true,
+      "detail": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "market_fact_unchanged",
+      "ok": true,
+      "detail": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "one_2026_cash_event_outside_changed_dates",
+      "ok": true,
+      "detail": [
+        [
+          "302132.SZ",
+          "2026-06-16",
+          0.386,
+          0.0,
+          0.0,
+          0.0,
+          "CNY",
+          "hithink:adjustment-factors",
+          "2026-09-08 22:08:19.819525"
+        ]
+      ]
+    },
+    {
+      "name": "nine_old_closes_equal_parallel",
+      "ok": true,
+      "detail": {
+        "overlap": 9,
+        "equal": 9
+      }
+    },
+    {
+      "name": "seven_overlap_bars_all_ohlcv_turnover_adjusted_equal",
+      "ok": true,
+      "detail": [
+        [
+          "2026-08-31",
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        [
+          "2026-09-01",
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        [
+          "2026-09-02",
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        [
+          "2026-09-03",
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        [
+          "2026-09-04",
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        [
+          "2026-09-07",
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        [
+          "2026-09-08",
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      ]
+    },
+    {
+      "name": "sources_unadjusted",
+      "ok": true,
+      "detail": [
+        [
+          "none"
+        ]
+      ]
+    },
+    {
+      "name": "all_54_changed_rows_match_full_field_mapping",
+      "ok": true,
+      "detail": [
+        [
+          "2026-06-17",
+          true
+        ],
+        [
+          "2026-06-23",
+          true
+        ],
+        [
+          "2026-06-24",
+          true
+        ],
+        [
+          "2026-06-29",
+          true
+        ],
+        [
+          "2026-06-30",
+          true
+        ],
+        [
+          "2026-07-02",
+          true
+        ],
+        [
+          "2026-07-03",
+          true
+        ],
+        [
+          "2026-07-06",
+          true
+        ],
+        [
+          "2026-07-08",
+          true
+        ],
+        [
+          "2026-07-10",
+          true
+        ],
+        [
+          "2026-07-13",
+          true
+        ],
+        [
+          "2026-07-14",
+          true
+        ],
+        [
+          "2026-07-15",
+          true
+        ],
+        [
+          "2026-07-16",
+          true
+        ],
+        [
+          "2026-07-17",
+          true
+        ],
+        [
+          "2026-07-20",
+          true
+        ],
+        [
+          "2026-07-21",
+          true
+        ],
+        [
+          "2026-07-22",
+          true
+        ],
+        [
+          "2026-07-23",
+          true
+        ],
+        [
+          "2026-07-24",
+          true
+        ],
+        [
+          "2026-07-27",
+          true
+        ],
+        [
+          "2026-07-28",
+          true
+        ],
+        [
+          "2026-07-29",
+          true
+        ],
+        [
+          "2026-07-30",
+          true
+        ],
+        [
+          "2026-07-31",
+          true
+        ],
+        [
+          "2026-08-03",
+          true
+        ],
+        [
+          "2026-08-04",
+          true
+        ],
+        [
+          "2026-08-05",
+          true
+        ],
+        [
+          "2026-08-06",
+          true
+        ],
+        [
+          "2026-08-07",
+          true
+        ],
+        [
+          "2026-08-10",
+          true
+        ],
+        [
+          "2026-08-11",
+          true
+        ],
+        [
+          "2026-08-12",
+          true
+        ],
+        [
+          "2026-08-13",
+          true
+        ],
+        [
+          "2026-08-14",
+          true
+        ],
+        [
+          "2026-08-17",
+          true
+        ],
+        [
+          "2026-08-18",
+          true
+        ],
+        [
+          "2026-08-19",
+          true
+        ],
+        [
+          "2026-08-20",
+          true
+        ],
+        [
+          "2026-08-21",
+          true
+        ],
+        [
+          "2026-08-24",
+          true
+        ],
+        [
+          "2026-08-25",
+          true
+        ],
+        [
+          "2026-08-26",
+          true
+        ],
+        [
+          "2026-08-27",
+          true
+        ],
+        [
+          "2026-08-28",
+          true
+        ],
+        [
+          "2026-08-31",
+          true
+        ],
+        [
+          "2026-09-01",
+          true
+        ],
+        [
+          "2026-09-02",
+          true
+        ],
+        [
+          "2026-09-03",
+          true
+        ],
+        [
+          "2026-09-04",
+          true
+        ],
+        [
+          "2026-09-07",
+          true
+        ],
+        [
+          "2026-09-08",
+          true
+        ],
+        [
+          "2026-09-09",
+          true
+        ],
+        [
+          "2026-09-10",
+          true
+        ]
+      ]
+    },
+    {
+      "name": "independent_0911_technical_formula",
+      "ok": true,
+      "detail": {
+        "actual": [
+          [
+            63.42,
+            59.8542,
+            2.6845,
+            61.9052,
+            2.45
+          ]
+        ],
+        "expected": [
+          63.42,
+          59.8542,
+          2.6845,
+          61.9052,
+          2.45
+        ]
+      }
+    },
+    {
+      "name": "independent_0911_all_four_window_formulas",
+      "ok": false,
+      "detail": {
+        "actual": [
+          [
+            "2026-06-18",
+            "2026-09-11",
+            6.89,
+            5.0148
+          ],
+          [
+            "2026-08-14",
+            "2026-09-11",
+            9.34,
+            6.198
+          ],
+          [
+            "2026-08-28",
+            "2026-09-11",
+            5.7,
+            7.9351
+          ],
+          [
+            "2026-09-04",
+            "2026-09-11",
+            0.19,
+            6.9264
+          ]
+        ],
+        "expected": [
+          [
+            "2026-06-18",
+            "2026-09-11",
+            6.89,
+            5.0148
+          ],
+          [
+            "2026-08-14",
+            "2026-09-11",
+            9.34,
+            6.1979
+          ],
+          [
+            "2026-08-28",
+            "2026-09-11",
+            5.7,
+            7.9351
+          ],
+          [
+            "2026-09-04",
+            "2026-09-11",
+            0.19,
+            6.9264
+          ]
+        ]
+      }
+    },
+    {
+      "name": "all_inputs_unchanged_hash_and_stat",
+      "ok": true,
+      "detail": {
+        "equal": true
+      }
+    }
+  ],
+  "observations": {
+    "freshness": {
+      "fact_stock_daily": "2026-09-11",
+      "feature_stock_technical_daily": "2026-09-11",
+      "feature_stock_window": "2026-09-11",
+      "fact_market_daily": "2026-09-11",
+      "fact_stock_daily_hithink": "2026-09-08"
+    },
+    "original_target_rows": [
+      [
+        "2026-06-15",
+        "302132.SZ",
+        "中航成飞",
+        61.35,
+        63.813189099230286,
+        -3.86,
+        8.92,
+        null,
+        "fupanhui:sector_stock_daily:fallback",
+        "2026-06-16 01:21:41.749830",
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "2026-06-16",
+        "302132.SZ",
+        "中航成飞",
+        60.9,
+        60.96096096096096,
+        -0.1,
+        4.39,
+        null,
+        "fupanhui:sector_stock_daily:fallback",
+        "2026-06-17 00:48:00.638827",
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "2026-06-18",
+        "302132.SZ",
+        "中航成飞",
+        59.33,
+        60.2,
+        -1.4452,
+        4.1855,
+        null,
+        "daily_adj_local",
+        "2026-06-21 21:01:34.975618",
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "2026-06-22",
+        "302132.SZ",
+        "中航成飞",
+        60.25,
+        59.33,
+        1.55,
+        4.97,
+        null,
+        "sector_stock_daily_backfill",
+        "2026-06-23 01:41:50.231284",
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "2026-06-23",
+        "302132.SZ",
+        "中航成飞",
+        null,
+        null,
+        null,
+        null,
+        null,
+        "fupanhui:sector_stock_daily:fallback",
+        "2026-06-24 01:05:30.810671",
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "2026-06-25",
+        "302132.SZ",
+        "中航成飞",
+        57.9,
+        57.952156941247125,
+        -0.09,
+        4.06,
+        null,
+        "fupanhui:sector_stock_daily:fallback",
+        "2026-06-25 20:56:18.758516",
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "2026-06-26",
+        "302132.SZ",
+        "中航成飞",
+        57.08,
+        57.90221140190708,
+        -1.42,
+        4.4,
+        null,
+        "fupanhui:sector_stock_daily:fallback",
+        "2026-06-27 21:17:46.239181",
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "2026-07-01",
+        "302132.SZ",
+        "中航成飞",
+        58.5,
+        58.3192104476124,
+        0.31,
+        5.65,
+        null,
+        "fupanhui:sector_stock_daily:fallback",
+        "2026-07-01 19:14:17.670022",
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "2026-07-07",
+        "302132.SZ",
+        "中航成飞",
+        56.69,
+        57.11263348780979,
+        -0.74,
+        3.29,
+        null,
+        "fupanhui:sector_stock_daily:fallback",
+        "2026-07-07 22:36:44.364493",
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "2026-07-09",
+        "302132.SZ",
+        "中航成飞",
+        55.81,
+        55.53233830845772,
+        0.5,
+        3.52,
+        null,
+        "fupanhui:sector_stock_daily:fallback",
+        "2026-07-09 22:29:04.862691",
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        "2026-09-11",
+        "302132.SZ",
+        "中航成飞",
+        63.42,
+        64.35,
+        -1.45,
+        5.9863,
+        null,
+        "hithink:daily-k-10d",
+        "2026-09-14 02:19:40.148280",
+        64.01,
+        64.66,
+        62.82,
+        94471.0
+      ]
+    ],
+    "feature_stock_technical_daily_other_stock_diff_including_timestamp": [
+      32778,
+      32489
+    ],
+    "feature_stock_technical_daily_other_stock_diff_values": [
+      6015,
+      5726
+    ],
+    "feature_stock_window_other_stock_diff_including_timestamp": [
+      129674,
+      129721
+    ],
+    "feature_stock_window_other_stock_diff_values": [
+      22680,
+      22727
+    ],
+    "parallel_source_history": [
+      [
+        "2016-09-08",
+        "2026-09-08",
+        2417,
+        [
+          "none"
+        ]
+      ]
+    ],
+    "adjustments_2026": [
+      [
+        "302132.SZ",
+        "2026-06-16",
+        0.386,
+        0.0,
+        0.0,
+        0.0,
+        "CNY",
+        "hithink:adjustment-factors",
+        "2026-09-08 22:08:19.819525"
+      ]
+    ],
+    "target_derived_actual_counts_vs_64day_plan": {
+      "technical_actual": 351,
+      "window_actual": 21,
+      "technical_expected_after_full_execution": 39,
+      "window_expected_after_full_execution": 161,
+      "note": "Preparation samples six dates only, not the full scoped execution."
+    },
+    "0911_others_value_vs_timestamp_diff": {
+      "feature_stock_technical_daily": {
+        "values": [
+          0,
+          0
+        ],
+        "all_columns": [
+          5529,
+          5529
+        ]
+      },
+      "feature_stock_window": {
+        "values": [
+          0,
+          0
+        ],
+        "all_columns": [
+          22115,
+          22115
+        ]
+      }
+    },
+    "window_rows_with_source_counts": [
+      [
+        "2026-06-25",
+        "2026-06-15",
+        "2026-06-25",
+        8
+      ],
+      [
+        "2026-06-26",
+        "2026-06-16",
+        "2026-06-26",
+        8
+      ],
+      [
+        "2026-07-01",
+        "2026-06-18",
+        "2026-07-01",
+        9
+      ],
+      [
+        "2026-07-07",
+        "2026-06-22",
+        "2026-07-07",
+        12
+      ],
+      [
+        "2026-07-10",
+        "2026-06-26",
+        "2026-07-10",
+        11
+      ],
+      [
+        "2026-07-10",
+        "2026-07-03",
+        "2026-07-10",
+        6
+      ],
+      [
+        "2026-08-07",
+        "2026-07-10",
+        "2026-08-07",
+        21
+      ],
+      [
+        "2026-08-07",
+        "2026-07-24",
+        "2026-08-07",
+        11
+      ],
+      [
+        "2026-08-07",
+        "2026-07-31",
+        "2026-08-07",
+        6
+      ],
+      [
+        "2026-09-08",
+        "2026-06-15",
+        "2026-09-08",
+        61
+      ],
+      [
+        "2026-09-08",
+        "2026-08-11",
+        "2026-09-08",
+        21
+      ],
+      [
+        "2026-09-08",
+        "2026-08-25",
+        "2026-09-08",
+        11
+      ],
+      [
+        "2026-09-08",
+        "2026-09-01",
+        "2026-09-08",
+        6
+      ],
+      [
+        "2026-09-10",
+        "2026-06-17",
+        "2026-09-10",
+        61
+      ],
+      [
+        "2026-09-10",
+        "2026-08-13",
+        "2026-09-10",
+        21
+      ],
+      [
+        "2026-09-10",
+        "2026-08-27",
+        "2026-09-10",
+        11
+      ],
+      [
+        "2026-09-10",
+        "2026-09-03",
+        "2026-09-10",
+        6
+      ],
+      [
+        "2026-09-11",
+        "2026-06-18",
+        "2026-09-11",
+        61
+      ],
+      [
+        "2026-09-11",
+        "2026-08-14",
+        "2026-09-11",
+        21
+      ],
+      [
+        "2026-09-11",
+        "2026-08-28",
+        "2026-09-11",
+        11
+      ],
+      [
+        "2026-09-11",
+        "2026-09-04",
+        "2026-09-11",
+        6
+      ]
+    ]
+  },
+  "verdict": "FAIL",
+  "scope": "Data/source/formula checks only; NOT full scoped execution or production authorization."
+}
