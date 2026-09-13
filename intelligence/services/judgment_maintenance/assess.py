@@ -30,8 +30,8 @@ from intelligence.services.judgment_maintenance.contracts import (
     MaintenancePolicy,
     MaintenanceReport,
     canonical_json,
-    day_of,
     instant_of,
+    market_day_of,
     parse_binding,
     parse_evidence_version,
     parse_observation,
@@ -85,7 +85,8 @@ def _place(versions: list[EvidenceVersion], *, checked_at: str) -> tuple[dict[st
     for v in versions:
         if v.recorded_at:
             # 档位按 recorded_at 的实际精度算：纯日期 / 无时区的时刻只到 trade_date_only（spec 01 §4）。
-            placed = _Placed(v, day_of(v.recorded_at) or "", stamp_grade(v.recorded_at))
+            # known_day 是市场日历日：先折算东八区再取日，同一时刻换时区写法落同一天（评审 J6）。
+            placed = _Placed(v, market_day_of(v.recorded_at) or "", stamp_grade(v.recorded_at))
         elif v.valid_from:
             placed = _Placed(v, v.valid_from, "trade_date_only")
         else:
@@ -137,9 +138,10 @@ class _State:
     ambiguous: bool = False
 
     def signature(self) -> tuple[Any, ...]:
+        # ambiguous 进签名：歧义出现/消解本身就是时间轴上的转折，不能被相邻同签名状态吞掉。
         if self.current is None:
-            return (self.kind, None, None)
-        return (self.kind, self.current.version.ref, self.current.version.source_hash)
+            return (self.kind, None, None, self.ambiguous)
+        return (self.kind, self.current.version.ref, self.current.version.source_hash, self.ambiguous)
 
 
 def _sort_key(p: _Placed) -> tuple[str, str, str]:
@@ -195,7 +197,7 @@ def _state_at(root_ref: str, baseline_hash: str | None, chain_refs: list[str], b
     ended: list[_Placed] = []
     for p in placed:
         v = p.version
-        if v.expired_at and (day_of(v.expired_at) or "") <= day:
+        if v.expired_at and (market_day_of(v.expired_at) or "") <= day:
             ended.append(p)
             continue
         effective_from = v.valid_from or p.known_day
@@ -213,8 +215,17 @@ def _state_at(root_ref: str, baseline_hash: str | None, chain_refs: list[str], b
             return _State("expired", max(ended, key=_sort_key))
         return _State("unresolved", None)
     current = max(live, key=_sort_key)
+    # J5/J7：「current 是最新版」必须能对每个同生效起点的竞争者证明。证明不了就是歧义：
+    # 同一时刻的不同哈希写法（J5），或任一方说不出精确时刻（J7：纯日期 / naive / 缺失——
+    # 不可比时间不得静晕参与 current 选择，必须留 ambiguous_version_order）。
+    # 生效起点不同的版本按有效期排序，不靠记录时刻定先后，不在此列。
+    current_from = current.version.valid_from or current.known_day
+    current_instant = instant_of(current.version.recorded_at)
     ambiguous = any(
-        p is not current and _sort_key(p)[:2] == _sort_key(current)[:2] and p.version.source_hash != current.version.source_hash
+        p is not current
+        and p.version.source_hash != current.version.source_hash
+        and (p.version.valid_from or p.known_day) == current_from
+        and (instant_of(p.version.recorded_at) is None or current_instant is None or instant_of(p.version.recorded_at) == current_instant)
         for p in live
     )
     if current.version.ref == root_ref:
@@ -385,7 +396,7 @@ def _dependency_items(
         for p in by_ref.get(r, []):
             if start < p.known_day <= cutoff:
                 days.add(p.known_day)
-            expired_day = day_of(p.version.expired_at)
+            expired_day = market_day_of(p.version.expired_at)
             if expired_day and start < expired_day <= cutoff:
                 days.add(expired_day)
     timeline: list[tuple[str, _State]] = []
@@ -399,11 +410,16 @@ def _dependency_items(
     previous_id: str | None = None
     for index, (day, state) in enumerate(timeline):
         is_last = index == len(timeline) - 1
-        if state.kind == "unchanged":
+        if state.kind == "unchanged" and not state.ambiguous:
             if is_last and policy.emit_unchanged:
                 items.append(build(day, state, status="open", supersedes=previous_id))
             continue
-        override = unresolved_override if state.kind == "unresolved" else None
+        if state.kind == "unchanged":
+            # J5-补充：顺序有歧义时「没观察到变化」本身不可证实——不能像普通 unchanged 一样静默略过，
+            # 必须建项把 ambiguous_version_order 摆到台面上（epistemic unknown → 计入 unverifiable）。
+            override = ("unchanged", "ambiguous_version_order", "unknown", "review_evidence")
+        else:
+            override = unresolved_override if state.kind == "unresolved" else None
         item = build(day, state, status="open" if is_last else "superseded", supersedes=previous_id, override=override)
         items.append(item)
         previous_id = item.id

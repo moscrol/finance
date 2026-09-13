@@ -656,3 +656,59 @@ def test_complete_fixture_truncated_to_dates_loses_strict_everywhere():
     report = _assess(payload)
     assert report.pit_grade != "strict"
     assert "strict" not in {it.pit_grade for it in report.items}
+
+
+def _dep_view(result: jm.MaintenanceReport) -> dict:
+    return {
+        "counts": result.counts,
+        "pit_grade": result.pit_grade,
+        "gaps": [g.reason for g in result.gaps],
+        "live": [
+            {"change": i.change_type, "status": i.status, "hash": [v.source_hash for v in i.current], "gaps": [g.reason for g in i.gaps]}
+            for i in _live(result)
+        ],
+    }
+
+
+def test_same_instant_cross_midnight_representation_same_view():
+    """J6：known_day 必须先折算市场时区再取日历日——同一时刻的 Z 写法与 +08:00 写法逐字段一致。"""
+    binding = _binding({"ann:old": "h1"}, created_at="2026-09-10T12:00:00+08:00", baseline_cutoff="2026-09-10")
+    mixed = [_version("ann:old", "h1", "2026-09-10T10:00:00+08:00"), _version("ann:old", "h2", "2026-09-11T16:30:00Z")]
+    normalized = [_version("ann:old", "h1", "2026-09-10T10:00:00+08:00"), _version("ann:old", "h2", "2026-09-12T00:30:00+08:00")]
+    mixed_view = _dep_view(_run([binding], mixed, as_of="2026-09-11", cutoff="2026-09-11"))
+    normalized_view = _dep_view(_run([binding], normalized, as_of="2026-09-11", cutoff="2026-09-11"))
+    assert mixed_view == normalized_view
+
+
+def test_incomparable_recorded_precision_keeps_ambiguous_version_order():
+    """J7：naive 与带偏移的记录时刻不可比——不得静默定序，必须留 ambiguous_version_order。"""
+    binding = _binding({"ann:old": "h1"}, created_at="2026-09-10T12:00:00+08:00", baseline_cutoff="2026-09-10")
+    mixed = [_version("ann:old", "h1", "2026-09-10T10:00:00"), _version("ann:old", "h2", "2026-09-10T10:00:00+08:00")]
+    actual = _run([binding], mixed, as_of="2026-09-12", cutoff="2026-09-12")
+    assert "ambiguous_version_order" in [g.reason for g in actual.gaps]
+    # 双向补齐负控：同一墙面时刻补上偏移后先后可证，歧义消失、结论各归其位
+    early = [_version("ann:old", "h1", "2026-09-10T10:00:00+09:00"), _version("ann:old", "h2", "2026-09-10T10:00:00+08:00")]
+    fill_early = _run([binding], early, as_of="2026-09-12", cutoff="2026-09-12")
+    assert fill_early.counts["items_open"] == 1
+    assert "ambiguous_version_order" not in [g.reason for g in fill_early.gaps]
+    late = [_version("ann:old", "h1", "2026-09-10T10:00:00+07:00"), _version("ann:old", "h2", "2026-09-10T10:00:00+08:00")]
+    fill_late = _run([binding], late, as_of="2026-09-12", cutoff="2026-09-12")
+    assert fill_late.counts["items_open"] == 0
+    assert "ambiguous_version_order" not in [g.reason for g in fill_late.gaps]
+
+
+def test_ambiguous_unchanged_not_swallowed_by_unchanged_early_return():
+    """J5-补充：歧义 + 绑定恰好等于排序胜出者——unchanged 早退不得吞掉歧义提示。"""
+    versions = [_version("ann:old", "h1", "2026-09-10T10:00:00+08:00"), _version("ann:old", "h0", "2026-09-10T10:00:00+08:00")]
+    result = _run(
+        [_binding({"ann:old": "h1"}, created_at="2026-09-10T12:00:00+08:00", baseline_cutoff="2026-09-10")],
+        versions,
+        as_of="2026-09-12",
+        cutoff="2026-09-12",
+    )
+    assert "ambiguous_version_order" in [g.reason for g in result.gaps]
+    live = _live(result)
+    assert len(live) == 1
+    assert live[0].change_type == "unchanged"
+    assert live[0].status == "open"
+    assert "ambiguous_version_order" in [g.reason for g in live[0].gaps]

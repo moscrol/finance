@@ -19,7 +19,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import date as date_cls, datetime
+from datetime import date as date_cls, datetime, timedelta, timezone
 from typing import Any, Mapping
 
 from intelligence import userspace
@@ -260,6 +260,20 @@ def instant_of(stamp: str | None) -> datetime | None:
     except ValueError:
         return None
     return parsed if parsed.tzinfo is not None else None
+
+
+# 市场日历日按东八区算（与同批 02 轨的 MARKET_TZ 同义，本模块不 import 02）：
+# 同一时刻换时区写法必须落同一天，否则同一版本会在两种写法下被放到不同的知识日（评审 J6）。
+MARKET_DAY_TZ = timezone(timedelta(hours=8))
+
+
+def market_day_of(stamp: str | None) -> str | None:
+    """记录时刻的市场日历日：带明确偏移的完整时刻先折算东八区再取日历日；
+    纯日期 / naive / 缺失说不出绝对时刻，退字符串的日期部分（与 day_of 相同）。"""
+    instant = instant_of(stamp)
+    if instant is not None:
+        return instant.astimezone(MARKET_DAY_TZ).date().isoformat()
+    return day_of(stamp)
 
 
 def stamp_grade(stamp: str | None) -> str:
@@ -1296,6 +1310,7 @@ __all__ = [
     "canonical_json",
     "day_of",
     "instant_of",
+    "market_day_of",
     "parse_binding",
     "parse_command",
     "parse_condition",
