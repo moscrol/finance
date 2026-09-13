@@ -66,10 +66,16 @@
   它自己 prepend 进 sys.path，复跑时注意）。
 - **定向三文件 75 passed**（71 + 新增 4，数目对账严丝合缝）。
 - `ruff check .` 全仓通过。
-- **全量（干净工作区 + 本刀，`-p no:randomly`）：9,521 passed / 0 failed /
-  77 skipped / 1 xfailed，437.23s，exit 0。** 对账：9,517（a42cbc5c）+
-  新增 4 条 = 9,521，严丝合缝。注意这份收据仍只对**本快照**成立——合并
-  候选须按七轮裁定重新跑门禁，不得外推。
+- 全量口径（**八轮复审更正**）：本刀提交前跑的一轮是 9,521 passed / 0 failed /
+  77 skipped / 1 xfailed（437s，exit 0），但收据 JSON 绑定的是
+  `dfb6ce87 + 未提交修补` 的脏树（dirty=true，dirty_paths 即本刀三文件），
+  不是干净提交收据——本节原先写「干净工作区」不准确。八轮在干净 c20abf7d
+  重跑：**9,518 passed / 1 failed / 79 skipped / 1 xfailed**（收据
+  `20260913T104506Z-c20abf7d.json`）；唯一红
+  `test_installed_codex_sandbox_denies_network_and_unix_socket` 在父提交
+  2d16a7f7 全量同红（非本刀引入），本树单独复跑绿——与四~六轮记录的已知
+  抖动一致，保留为 baseline exception，不伪装全绿。无论哪份收据都只
+  对**被测快照**成立——合并候选须按七轮裁定重新跑门禁，不得外推。
 
 ## 明确没做的事
 
