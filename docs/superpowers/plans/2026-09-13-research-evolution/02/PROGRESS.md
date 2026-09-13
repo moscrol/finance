@@ -192,3 +192,12 @@ revision `96aebada8f5a4db866c177d5f6b0ba9c25f3b16c`。收据目录多树共用�
 01 正在被另一执行者返修；其 `assess()` 输出一旦变化，上面那份快照需按 BLOCKED §1 重取。
 
 **未做**：全仓 / 前端 / registry / E2E 未跑（归 06 在最终候选上执行）；`user_pinned` 仍未实现（spec 允许）。
+
+## 2026-09-13 QC 第二轮（扩大边界复审）
+
+QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结论：原 13 项固定反例转绿，扩大边界确证 8 项，本轨 2 项。
+
+- **S5[P2] 市场日误判未来**：`_is_future_record` 原用 UTC 日历日判市场日 as_of，清晨 07:00+08 误挡当天已知资料。修复：`contracts.py` 加 `MARKET_TZ = Asia/Shanghai` 与 `market_date_of` / `market_day_start`，as_of 按市场时区日历日判（cutoff 仍按真实时刻）；future_record 解除提示改真实时刻。
+- **P2[P2] identity_key 缺执行窗口**：同证据不同 due_at/available_at 的任务先合并再判可执行性，互相拖入/拖出。修复：`identity_key` 两分支加 `execution_window`（折算 UTC 入键）。冻结 golden `expected_combined_synthetic.json` 经语义层闭锁后重生成（仅 id/digest 漂移）。
+- 修复提交 **`a869028e`**；新增 3 条回归测试先红后绿；模块 65 passed；ruff 干净；QC 探针 S5/P2 组复跑转绿。注：时区探针会把 `.json` 产物写回 QC 目录，已刷成修后结果，复核以探针退出码为准。
+- **06 联测请用 `a869028e`**。口径纠偏：上轮「13 项已修复」实为「原 13 项固定反例转绿」。
