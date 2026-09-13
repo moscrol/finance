@@ -614,6 +614,10 @@ class MaintenanceItemView:
     pit_grade: str
     before: tuple[EvidenceVersionView, ...]
     current: tuple[EvidenceVersionView, ...]
+    # 来源必须跟着输入走：合成维护证据不能混进真实用户效果统计（总合同 §5 第 8 条）。
+    # ``provenance_declared=False`` 表示 01 报告没写来源、这里按失败关闭默认成 synthetic，不是认证结果。
+    provenance: str = "synthetic"
+    provenance_declared: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -627,13 +631,21 @@ class MaintenanceItemView:
             "pit_grade": self.pit_grade,
             "before": [v.to_dict() for v in self.before],
             "current": [v.to_dict() for v in self.current],
+            "provenance": self.provenance,
+            "provenance_declared": self.provenance_declared,
         }
 
 
 def parse_maintenance_reports(
     reports: Iterable[Mapping[str, Any]], *, owner_user_id: str
 ) -> tuple[MaintenanceItemView, ...]:
-    """把 01 的 ``judgment-maintenance/v1`` 报告拆成项视图；版本不对、owner 不对都拒绝。"""
+    """把 01 的 ``judgment-maintenance/v1`` 报告拆成项视图；版本不对、owner 不对都拒绝。
+
+    来源（``provenance``）跟着项一起传出去：报告级声明，项可自带覆盖。**没有声明时失败关闭成
+    ``synthetic``**——``PROVENANCES`` 只有 ``observed/synthetic`` 两个值，没有「未知」档，而 ``observed``
+    是一句「这是真实用户效果」的断言，必须被证明而不是被默认。01 现有产物还不带这个字段，所以缺声明
+    会标 ``provenance_declared=False``，由 ``diagnose`` 出一条 gap 让降级可见（接线见 06）。
+    """
     out: list[MaintenanceItemView] = []
     for i, report in enumerate(reports or ()):
         where = f"maintenance_reports[{i}]"
@@ -643,6 +655,7 @@ def parse_maintenance_reports(
         require_owner(owner_user_id, report.get("owner_user_id"), where=where)
         report_id = check_ref_text(report.get("id"), f"{where}.id")
         report_pit = str(report.get("pit_grade") or "unverifiable")
+        report_prov = _opt_str(report.get("provenance"))
         for j, item in enumerate(report.get("items") or []):
             w = f"{where}.items[{j}]"
             if not isinstance(item, Mapping):
@@ -651,6 +664,7 @@ def parse_maintenance_reports(
             if item_schema is not None and str(item_schema) != MAINTENANCE_SCHEMA_VERSION:
                 raise UnsupportedSchema(f"{w} schema_version={item_schema!r}")
             require_owner(owner_user_id, item.get("owner_user_id", report.get("owner_user_id")), where=w)
+            declared = _opt_str(item.get("provenance")) or report_prov
             out.append(
                 MaintenanceItemView(
                     item_id=check_ref_text(item.get("id"), f"{w}.id"),
@@ -663,6 +677,8 @@ def parse_maintenance_reports(
                     pit_grade=_enum(item.get("pit_grade") or report_pit, PIT_GRADES, f"{w}.pit_grade"),
                     before=tuple(EvidenceVersionView.from_dict(v) for v in (item.get("before") or [])),
                     current=tuple(EvidenceVersionView.from_dict(v) for v in (item.get("current") or [])),
+                    provenance=_enum(declared or "synthetic", PROVENANCES, f"{w}.provenance"),
+                    provenance_declared=declared is not None,
                 )
             )
     return tuple(out)

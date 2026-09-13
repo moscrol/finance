@@ -7,8 +7,10 @@
    规则 → 这类对象不在本检查的分母里（excluded ``not_applicable`` / ``not_ex_ante``）。
 2. **缺证不是反证**：缺截止、只有日期、链不完整、无覆盖声明 → unknown 并写 gap。UNKNOWN 不会变成 0、
    失败或已解除。
-3. **问题存在与责任归属分开**：系统 / 数据限制列 ``non_attributable``，对象本身按 context 计（不应归错）；
-   执行者不明归 ``unknown_origin``。
+3. **问题存在与责任归属分开**：系统 / 数据限制列 ``non_attributable``；执行者不明归 ``unknown_origin``。
+   其中**无责任系统故障**（系统失败窗口、回检责任在系统）连机会都不属于用户，按规格 §5 落 ``excluded``
+   并列出原因，不进 ``eligible/evaluated``——否则会把故障算成已评估覆盖，夸大诊断分母。用户**确实做了**
+   回检、只是结果 unverifiable 的，机会已被履行，仍按 context 计入已评估。
 
 每个检查函数只读 ``CheckContext``，不做 IO，不调模型。
 """
@@ -406,6 +408,11 @@ def evidence_status_at(
     返回 ``(status, item_ids, refs)``，status ∈
     ``invalid / valid / later_correction / changed_only / unknown_version / unknown_time / no_info``。
     只用**记录时间 ≤ 使用时刻**的失效 / 更正事实；晚于使用时刻的更正是 later_correction（后知，不追责）。
+
+    判 ``invalid`` 要同时满足两件事，缺一不可：失效在使用时刻**已经生效**（``expired_at`` / ``valid_to``），
+    且断言失效的那条记录在使用时刻**已经存在**（``recorded_at``）。只满足前者是事后补记的追溯失效
+    （later_correction）；``recorded_at`` 缺失则证明不了当时可知，落 unknown_time。少了后一半，
+    9 月 7 日补记的「9 月 3 日起失效」会反过来追责 9 月 4 日的引用。
     """
     entries = _evidence_entries(items, ref)
     if not entries:
@@ -425,19 +432,30 @@ def evidence_status_at(
                 hash_seen = True
             if side == "current" and not v.expired_at and (v.valid_to is None or (use_day and use_day <= v.valid_to)):
                 used_is_current = True
+            ended_refs: set[str] = set()
+            expires_after_use = False
             if v.expired_at:
-                kb = known_by(v.expired_at, used_at)
-                if kb is True:
+                effective = known_by(v.expired_at, used_at)
+                if effective is True:
+                    ended_refs.add(f"{v.ref}@expired:{v.expired_at}")
+                elif effective is False:
+                    expires_after_use = True
+                else:
+                    time_unknown = True
+            if v.valid_to and use_day and v.valid_to < use_day:
+                ended_refs.add(f"{v.ref}@valid_to:{v.valid_to}")
+            if ended_refs:
+                # 已经生效还不够：断言失效的那条记录必须在使用时刻之前就存在，否则是后知补记。
+                recorded = known_by(v.recorded_at, used_at)
+                if recorded is True:
                     invalid = True
-                    refs.add(f"{v.ref}@expired:{v.expired_at}")
-                elif kb is False:
+                    refs.update(ended_refs)
+                elif recorded is False:
                     later = True
                 else:
                     time_unknown = True
-            if v.valid_to and use_day:
-                if v.valid_to < use_day:
-                    invalid = True
-                    refs.add(f"{v.ref}@valid_to:{v.valid_to}")
+            elif expires_after_use:
+                later = True
         if v.supersedes_ref == ref and (used_hash is None or v.source_hash != used_hash):
             kb = known_by(v.recorded_at, used_at)
             if kb is True:
@@ -703,8 +721,7 @@ def check_overdue_unreviewed(ctx: CheckContext) -> list[Opportunity]:
             out.append(opp)
             continue
         if failures:
-            opp.classification = "context"
-            opp.observed += "；窗口与系统失败重叠"
+            # 无责任系统故障：用户根本没拿到这次机会，排除出可评估分母（规格 §5），但责任归属清单仍留名。
             opp.evidence_refs = tuple(sorted({*opp.evidence_refs, *(r.receipt_id for r in failures)}))
             opp.non_attributable = NonAttributable(
                 kind=opp.kind,
@@ -712,7 +729,7 @@ def check_overdue_unreviewed(ctx: CheckContext) -> list[Opportunity]:
                 reason="system_failure_window",
                 refs=tuple(sorted(r.receipt_id for r in failures)),
             )
-            out.append(opp)
+            out.append(_exclude(opp, "system_failure_window", opp.observed + "；窗口与系统失败重叠"))
             continue
         covered, cov_refs = _coverage_ok(ctx, due, window_end)
         if not covered:
@@ -720,12 +737,11 @@ def check_overdue_unreviewed(ctx: CheckContext) -> list[Opportunity]:
             continue
         opp.evidence_refs = tuple(sorted({*opp.evidence_refs, *cov_refs}))
         if rec.review_responsibility == "system":
-            opp.classification = "context"
-            opp.observed += "；机检对象无回检记录，责任在系统"
+            # 回检责任本就不在用户身上：不是用户的机会，同样排除而不是计成已评估的 context。
             opp.non_attributable = NonAttributable(
                 kind=opp.kind, object_identity=identity, reason="system_recheck_missing", refs=cov_refs
             )
-            out.append(opp)
+            out.append(_exclude(opp, "system_recheck_missing", opp.observed + "；机检对象无回检记录，责任在系统"))
             continue
         if rec.review_responsibility != "user":
             out.append(_unknown(opp, "responsibility_unknown", "回检责任人不明", identity))

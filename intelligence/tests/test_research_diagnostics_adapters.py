@@ -210,8 +210,14 @@ class LegacyAdapters(unittest.TestCase):
             self.assertEqual(f[("overdue_unreviewed", ids["ck_user"])].classification, "issue")  # 人工判定、无回检
             legacy = f[("overdue_unreviewed", "ck-legacy-1")]
             self.assertEqual((legacy.classification, legacy.actor_group), ("issue", "unknown_origin"))
-            tree_ck = f[("overdue_unreviewed", ids["tree_ck"])]
-            self.assertEqual(tree_ck.classification, "context")  # 树由系统逐日解析
+            # 树由系统逐日解析：回检责任不在用户，按规格 §5 排除出可评估分母，不再计成 context。
+            # 旧断言把它当 context，等于把无责任系统故障算进 evaluated（评审 D2）。
+            self.assertNotIn(("overdue_unreviewed", ids["tree_ck"]), f)
+            tree_excluded = next(
+                e for e in report.exclusions
+                if e.kind == "overdue_unreviewed" and e.object_identity.endswith("|" + ids["tree_ck"])
+            )
+            self.assertEqual(tree_excluded.reason, "system_recheck_missing")
             self.assertIn("system_recheck_missing", {n.reason for n in report.non_attributable})
 
     def test_missing_recorded_at_with_known_as_of_is_trade_date_only_not_unverifiable(self) -> None:
