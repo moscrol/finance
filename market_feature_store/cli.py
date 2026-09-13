@@ -1244,6 +1244,7 @@ def cmd_daily_full_exec(args) -> int:
     _write_status_json(args.status_json, {
         "trade_date": str(result["trade_date"]),
         "ok": bool(result["ok"]),
+        "run_id": os.environ.get("MARKET_FEATURE_STORE_RUN_ID"),
         "validation_ok": bool(result["update"]["validation"]["ok"]),
         "cross_day_ok": bool(cross_day["ok"]),
         "sector_gate_ok": bool(result["sector_gate"]["ok"]),

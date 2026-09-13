@@ -20,6 +20,7 @@ import os
 import shutil
 import subprocess
 import time
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
@@ -261,7 +262,9 @@ def remove_stale_staging(staging: Path) -> bool:
     return removed
 
 
-def backup_before_swap(db_path: Path, *, run_id: str) -> dict:
+def backup_before_swap(
+    db_path: Path, *, run_id: str, writer_lock_held: bool = False
+) -> dict:
     """换名前给 target 留一份可验明备份——换库成功后还能恢复旧状态。
 
     与 staging 克隆的分工：staging 防「副本失败污染生产」，本备份防
@@ -273,8 +276,13 @@ def backup_before_swap(db_path: Path, *, run_id: str) -> dict:
     同卷快照 → sha256 指纹 → read_only 开库验证（备份必须真打得开）→
     落 <backup>.receipt.json（含恢复步骤）。任何一步失败都抛异常，
     由调用方 fail closed（不换名）。
+
+    writer_lock_held=True：调用方已持 hold_swap_lock（覆盖「最终检查→
+    备份→换名」全临界区，QC 复审二轮 P1），跳过函数内探针——此时探针
+    连自己都会被锁拦下。
     """
-    probe_no_active_writer(db_path)
+    if not writer_lock_held:
+        probe_no_active_writer(db_path)
     source_stat = db_path.stat()
     ts = datetime.now().strftime("%Y%m%dT%H%M%S")
     backup = db_path.with_name(f"{db_path.name}.bak-{ts}-{run_id}")
@@ -320,3 +328,38 @@ def backup_before_swap(db_path: Path, *, run_id: str) -> dict:
         json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
     return receipt
+
+
+@contextmanager
+def hold_swap_lock(db_path: Path):
+    """换库临界区的排他协调锁：与 duckdb 写者锁同属 flock 命名空间。
+
+    QC 复审二轮 P1（2026-09-13）：备份完成到 os.replace 之间没有再次
+    确认生产库未变化，第三方写者能在窗口内提交、随后被换名静默覆盖
+    （复现证据 backup-race.json）。两次检查之间留窗不是闭环；闭合窗口
+    需要「最终检查→备份→换名」全程排他。
+
+    duckdb 的单写者独占用 flock 实现（本机 2026-09-13 实测双向互斥：
+    我方持 LOCK_EX 时 duckdb rw/read_only 打开均「Could not set lock」；
+    duckdb rw 持锁时我方 LOCK_EX|LOCK_NB 得 EWOULDBLOCK）。因此直接对
+    同一 inode 持 LOCK_EX 即与全部 duckdb 写者互斥，且不产生 WAL
+    （不像自己开一个 rw 连接）。LOCK_NB：拿不到立刻 DatabaseLockedError，
+    不在临界区门口等长事务。
+
+    代价自知：持锁期间 read_only 探针也进不来（锁冲突）。备份路径的
+    临界区只有 clonefile+sha256 几秒；日更不带备份、不进本锁。
+    """
+    import fcntl
+
+    fd = os.open(db_path, os.O_RDONLY)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            raise DatabaseLockedError(
+                f"{db_path} 排他协调锁被占用（疑似第三方写者）: {exc}"
+            ) from exc
+        yield
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)

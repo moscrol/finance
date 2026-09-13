@@ -437,8 +437,10 @@ def run_daily_full_staged(
     """
     started_at = datetime.now()
     started_mono = time.monotonic()
+    run_id = uuid.uuid4().hex[:12]
     target = _db.DB_PATH
     staging = _db.staging_path(target)
+    status_json = Path(str(staging) + ".status.json")
     result: dict = {
         "target": str(target),
         "staging": str(staging),
@@ -447,14 +449,21 @@ def run_daily_full_staged(
         "reason": None,
         "copy": None,
         "child_returncode": None,
-        "run_id": None,
+        "run_id": run_id,
         "stale_staging_removed": False,
+        "stale_status_removed": False,
         "backup": None,
     }
 
     result["stale_staging_removed"] = _db.remove_stale_staging(staging)
     if result["stale_staging_removed"]:
         print(f"[staging] 清理上一轮残留 staging: {staging}", flush=True)
+    if status_json.exists():
+        # QC 复审二轮 P1（2026-09-13）：旧 status 不被清理，子进程失败且不写
+        # status 时父进程会读到上一轮的成功 JSON 照样换库（复现证据
+        # stale-status-min.json）。开工即删 + 后文 run_id 绑定双保险。
+        status_json.unlink()
+        result["stale_status_removed"] = True
 
     # 开工闸: 有活跃写者时开跑, 克隆是撕裂快照、换名会覆盖对方工作。
     try:
@@ -482,7 +491,6 @@ def run_daily_full_staged(
             flush=True,
         )
 
-    status_json = Path(str(staging) + ".status.json")
     if child_argv is None:
         child_argv = [
             sys.executable, "-m", "market_feature_store.cli",
@@ -496,6 +504,8 @@ def run_daily_full_staged(
 
     child_env = os.environ.copy()
     child_env["MARKET_FEATURE_STORE_DB"] = str(staging)
+    # 本轮身份：子进程把 run_id 写进 status，父进程据此拒收上一轮遗留
+    child_env["MARKET_FEATURE_STORE_RUN_ID"] = run_id
     proc = subprocess.Popen(child_argv, env=child_env, cwd=str(PROJECT_DIR))
     print(
         f"[staging] 子进程同步 pid={proc.pid} (写锁只落在 staging, 生产库无锁)",
@@ -525,6 +535,10 @@ def run_daily_full_staged(
     if not status:
         return _abort(
             f"子进程未写出 status.json (rc={child_rc}), 视为未跑完管道, 不换名"
+        )
+    if status.get("run_id") != run_id:
+        return _abort(
+            "status.json 缺本轮 run_id 或不匹配（疑似上一轮遗留/非本轮产物），不换名"
         )
     if child_rc not in (0, 1):
         return _abort(f"子进程异常退出 (rc={child_rc}), 不换名")
@@ -559,8 +573,6 @@ def run_daily_full_staged(
         flush=True,
     )
 
-    run_id = uuid.uuid4().hex[:12]
-    result["run_id"] = run_id
     finished_at = datetime.now()
     _write_receipt(staging, {
         "run_id": run_id,
@@ -602,24 +614,44 @@ def run_daily_full_staged(
     except _db.DatabaseLockedError as exc:
         return _abort(f"第三方写者守卫: {exc}; 拒绝换名")
 
-    if pre_swap_backup and source_exists:
-        # QC S4 执行前提：换名后旧状态只能从这份备份恢复。守卫刚验过
-        # 「克隆基线至今未被第三方动过」，备份拷的正是这个待换库状态。
-        try:
-            result["backup"] = _db.backup_before_swap(target, run_id=run_id)
-        except Exception as exc:
-            return _abort(f"换名前备份失败, 不换名: {exc}")
-        print(
-            f"[staging] 换名前备份: {result['backup']['backup_path']} "
-            f"(sha256={result['backup']['backup_sha256'][:16]}…)",
-            flush=True,
-        )
-
     swap_started = time.monotonic()
-    try:
-        _db.atomic_swap_into_place(staging, target)
-    except (RuntimeError, FileNotFoundError, OSError) as exc:
-        return _abort(f"换名失败: {exc}")
+    if pre_swap_backup and source_exists:
+        # QC S4 执行前提 + 复审二轮 P1：备份→换名必须落在同一把排他协调锁内，
+        # 否则第三方写者能在窗口提交并被换名静默覆盖（复现证据 backup-race.json）。
+        # hold_swap_lock 与 duckdb 写者锁同属 flock 命名空间（本机实测双向互斥），
+        # 覆盖「最终复查→备份→换名」整个临界区。日更不带备份、不进锁。
+        try:
+            with _db.hold_swap_lock(target):
+                now_stat = target.stat()
+                if (
+                    now_stat.st_mtime_ns != source_stat.st_mtime_ns
+                    or now_stat.st_size != source_stat.st_size
+                ):
+                    return _abort(
+                        "拿锁前窗口内生产库被修改，拒绝换名；staging 保留待人工裁决"
+                    )
+                try:
+                    result["backup"] = _db.backup_before_swap(
+                        target, run_id=run_id, writer_lock_held=True
+                    )
+                except Exception as exc:
+                    return _abort(f"换名前备份失败, 不换名: {exc}")
+                print(
+                    f"[staging] 换名前备份: {result['backup']['backup_path']} "
+                    f"(sha256={result['backup']['backup_sha256'][:16]}…)",
+                    flush=True,
+                )
+                try:
+                    _db.atomic_swap_into_place(staging, target)
+                except (RuntimeError, FileNotFoundError, OSError) as exc:
+                    return _abort(f"换名失败: {exc}")
+        except _db.DatabaseLockedError as exc:
+            return _abort(f"排他协调锁: {exc}; 拒绝换名")
+    else:
+        try:
+            _db.atomic_swap_into_place(staging, target)
+        except (RuntimeError, FileNotFoundError, OSError) as exc:
+            return _abort(f"换名失败: {exc}")
     result["swap_seconds"] = round(time.monotonic() - swap_started, 3)
     result["swapped"] = True
     result["rc"] = child_rc

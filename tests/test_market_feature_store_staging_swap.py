@@ -55,7 +55,8 @@ CHILD_PRELUDE = (
 )
 CHILD_WRITE_STATUS = (
     "pathlib.Path(path + '.status.json').write_text("
-    "json.dumps({'trade_date': '2026-08-15', 'ok': True, 'steps': []}))\n"
+    "json.dumps({'trade_date': '2026-08-15', 'ok': True, 'steps': [], "
+    "'run_id': os.environ.get('MARKET_FEATURE_STORE_RUN_ID')}))\n"
 )
 
 CHILD_OK = CHILD_PRELUDE + "con.close()\n" + CHILD_WRITE_STATUS + "sys.exit(0)\n"
@@ -209,7 +210,8 @@ def test_failed_step_still_lands_like_today(prod_db):
         (
             "import json, pathlib\n"
             "p = pathlib.Path(path + '.status.json')\n"
-            "p.write_text(json.dumps({'trade_date': '2026-08-15', 'ok': False, 'steps': []}))\n"
+            "p.write_text(json.dumps({'trade_date': '2026-08-15', 'ok': False, 'steps': [], "
+            "'run_id': os.environ.get('MARKET_FEATURE_STORE_RUN_ID')}))\n"
             "sys.exit(1)\n"
         ),
     )
@@ -248,7 +250,8 @@ def test_fresh_database_bootstrap(tmp_path, monkeypatch):
         "con.execute('CREATE TABLE fact_market_daily (trade_date DATE, total_amount DOUBLE)')\n"
         "con.close()\n"
         "pathlib.Path(path + '.status.json').write_text("
-        "json.dumps({'trade_date': '2026-08-15', 'ok': True, 'steps': []}))\n"
+        "json.dumps({'trade_date': '2026-08-15', 'ok': True, 'steps': [], "
+        "'run_id': os.environ.get('MARKET_FEATURE_STORE_RUN_ID')}))\n"
         "sys.exit(0)\n"
     )
     result = sdf.run_daily_full_staged(child_argv=_child(code))
@@ -444,3 +447,127 @@ def test_pre_swap_backup_failure_blocks_swap(prod_db, monkeypatch):
     assert result["rc"] == 2
     assert "备份失败" in result["reason"]
     assert _sha256(prod_db) == pre
+
+
+# ---------------------------------------------------------------- QC 复审二轮 P1
+
+
+def test_stale_status_from_previous_round_does_not_swap(prod_db):
+    """QC stale-status-min 复现的反向版本：预置上一轮成功 status，
+    本轮子进程 rc=1 且不写 status —— 父进程不得误读旧 JSON 换库。"""
+    staging = db.staging_path(prod_db)
+    before = _sha256(prod_db)
+    Path(str(staging) + ".status.json").write_text(
+        json.dumps({"trade_date": "2026-08-15", "ok": True, "steps": []})
+    )
+    result = sdf.run_daily_full_staged(
+        trade_date="2026-08-15",
+        child_argv=_child(CHILD_PRELUDE + "con.close()\nsys.exit(1)\n"),
+    )
+    assert result["rc"] == 2
+    assert result["swapped"] is False
+    assert result["stale_status_removed"] is True  # 开工即删旧 status
+    assert _sha256(prod_db) == before
+    con = duckdb.connect(str(prod_db), read_only=True)
+    try:
+        assert "sync_marker" not in {
+            r[0] for r in con.execute("SHOW TABLES").fetchall()
+        }
+    finally:
+        con.close()
+
+
+def test_status_run_id_mismatch_refused(prod_db):
+    """子进程写了 status 但 run_id 对不上本轮（错轮/伪造）→ 不换库。"""
+    before = _sha256(prod_db)
+    code = (
+        CHILD_PRELUDE
+        + "pathlib.Path(path + '.status.json').write_text("
+          "json.dumps({'trade_date': '2026-08-15', 'ok': True, 'steps': [], "
+          "'run_id': 'bogus-run-id'}))\n"
+        + "con.close()\n"
+    )
+    result = sdf.run_daily_full_staged(
+        trade_date="2026-08-15", child_argv=_child(code)
+    )
+    assert result["rc"] == 2
+    assert result["swapped"] is False
+    assert "run_id" in result["reason"]
+    assert _sha256(prod_db) == before
+
+
+def test_hold_swap_lock_excludes_duckdb_writers_and_readers(tmp_path):
+    """协调锁与 duckdb 锁同属 flock 命名空间：持锁期间 rw/ro 连接都进不来。"""
+    target = tmp_path / "prod.duckdb"
+    _make_db(target)
+    with db.hold_swap_lock(target):
+        with pytest.raises(duckdb.IOException):
+            duckdb.connect(str(target))
+        with pytest.raises(duckdb.IOException):
+            duckdb.connect(str(target), read_only=True)
+    con = duckdb.connect(str(target))  # 锁释放后写者立即可进
+    con.close()
+
+
+def test_coordination_lock_backstop_when_probe_evaded(prod_db):
+    """写者探针被绕过时（理论窗口），协调锁是兜底：拿不到锁就不换名。
+
+    用 LOCK_SH 占锁（不挡只读探针与克隆，但让 EX 请求失败），模拟一个
+    恰好躲过所有探针的占用者。"""
+    import fcntl
+
+    fd = os.open(prod_db, os.O_RDONLY)
+    fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+    before = _sha256(prod_db)
+    try:
+        result = sdf.run_daily_full_staged(
+            trade_date="2026-08-15",
+            child_argv=_child(CHILD_OK),
+            pre_swap_backup=True,
+        )
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+    assert result["rc"] == 2
+    assert result["swapped"] is False
+    assert "协调锁" in result["reason"]
+    assert _sha256(prod_db) == before
+
+
+def test_third_party_write_during_backup_window_cannot_land(prod_db, monkeypatch):
+    """QC backup-race 复现的反向版本：备份→换名全程持锁，第三方写不进。
+
+    攻击脚本在备份刚完成的瞬间 rw 打开生产库试图提交一行；锁内该打开
+    必失败（flock 互斥，本机实测）。换库完成后新库不含攻击行——不再存在
+    「写进去了却被静默覆盖」。"""
+    attack_outcome: dict = {}
+    real_backup = db.backup_before_swap
+
+    def backup_then_attack(target, *, run_id, writer_lock_held=False):
+        receipt = real_backup(target, run_id=run_id, writer_lock_held=writer_lock_held)
+        try:
+            con = duckdb.connect(str(target))
+            con.execute("CREATE TABLE third_party (note TEXT)")
+            con.execute("INSERT INTO third_party VALUES ('raced')")
+            con.close()
+            attack_outcome["landed"] = True
+        except duckdb.IOException as exc:
+            attack_outcome["landed"] = False
+            attack_outcome["error"] = str(exc)
+        return receipt
+
+    monkeypatch.setattr(db, "backup_before_swap", backup_then_attack)
+    result = sdf.run_daily_full_staged(
+        trade_date="2026-08-15",
+        child_argv=_child(CHILD_OK),
+        pre_swap_backup=True,
+    )
+    assert result["swapped"] is True, result["reason"]
+    assert attack_outcome["landed"] is False  # 锁内攻击必然失败
+    con = duckdb.connect(str(prod_db), read_only=True)
+    try:
+        assert "third_party" not in {
+            r[0] for r in con.execute("SHOW TABLES").fetchall()
+        }
+    finally:
+        con.close()

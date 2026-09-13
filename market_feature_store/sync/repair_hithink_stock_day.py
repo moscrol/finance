@@ -883,6 +883,7 @@ def run_repair(
                 {
                     "trade_date": spec.trade_date.isoformat(),
                     "ok": True,
+                    "run_id": os.environ.get("MARKET_FEATURE_STORE_RUN_ID"),
                     "steps": [
                         {
                             "name": "repair-stock-daily-hithink",
