@@ -38,7 +38,7 @@
 | 基线工作树 | `.claude/worktrees/xfp0-baseline-d7e5380`（**专为取基线新建的独立树**，detached 于冻结 SHA，跑测期间零改动） |
 | 分支 | `feat/extraction-first-p0` |
 | 冻结基线 revision | `d7e5380551ba92758935d268fdd0e6fbfdd51ce8`（= 开工时 `gitea/main`，与工单一致） |
-| 被测最终 revision | `<FINAL_SHA>` |
+| 被测最终 revision | `7a86ce4e` |
 | 解释器 | `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`（AGENTS.md 指定） |
 | 平台 | macOS darwin 25.4.0 / `pytest -q -p no:randomly` |
 | 原始输出 | `/tmp/xfp0/`：`baseline2-pytest.txt`、`final2-pytest.txt`、`mutations.txt`、`fe-*.txt`、`registry.txt`、`receipt-*.txt` |
@@ -46,7 +46,7 @@
 ### 1.1 干净基线读数
 
 ```
-<BASELINE_PYTEST>
+9554 passed, 77 skipped, 2 xfailed, 17 warnings in 347.24s (0:05:47)   exit 0
 ```
 
 取法（与第一版的关键差别）：**另建一棵 detached 于 `d7e5380` 的工作树**，
@@ -54,7 +54,16 @@
 两次都空。收据校验：
 
 ```
-<BASELINE_VALIDATOR>
+$ cd .claude/worktrees/xfp0-baseline-d7e5380
+$ .venv-workbench/bin/python scripts/check_test_receipt.py \
+      ~/.finance-runtime/test-receipts/20260913T215802Z-d7e53805.json \
+      --expect-revision d7e5380551ba92758935d268fdd0e6fbfdd51ce8
+  ✓ revision 一致   ✓ 解释器一致   ✓ python 版本一致   ✓ 依赖指纹一致
+  ✓ 收据来自干净树   ✓ 依赖门禁未被绕过   ✓ 收据 revision == d7e5380551ba
+✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。        VALIDATOR_EXIT=0
+
+# 注：校验器按**自身所在仓**解析「当前 revision」，所以必须在被校验的那棵树里跑；
+# 从候选树去校验基线收据会得到 exit=1（比的是候选树的 HEAD），那是处境不符不是收据坏。
 ```
 
 ## 2 改了什么
@@ -171,9 +180,9 @@ harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONT
 |---|---|---|
 | python-lint | `ruff check .` | ✅ |
 | python | `pytest -q -p no:randomly` | 见 §6.1 |
-| frontend-lint / typecheck / test / build | `pnpm --dir intelligence/webapp …` | <FRONTEND> |
-| e2e | `PATH=.venv-workbench/bin:$PATH pnpm test:e2e` | <E2E> |
-| registry-check | `market_feature_store.cli registry-check` | <REGISTRY> |
+| frontend-lint / typecheck / test / build | `pnpm --dir intelligence/webapp …` | ✅ 四条均 exit 0 |
+| e2e | `PATH=.venv-workbench/bin:$PATH pnpm test:e2e` | ✅ **15 passed (48.3s)** |
+| registry-check | `market_feature_store.cli registry-check` | ✅ exit 0，「registry 校验通过（档位/表名/计划步骤归属）」 |
 
 > 新树跑前端叶子前要先 `pnpm --dir intelligence/webapp install --frozen-lockfile`：
 > 不装 `node_modules` 时 `eslint: command not found` 的退出码与「真红」一模一样，
@@ -183,18 +192,41 @@ harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONT
 ### 6.1 全量 pytest 读数
 
 ```
-<FINAL_PYTEST>
+9657 passed, 77 skipped, 2 xfailed, 17 warnings in 356.62s (0:05:56)   exit 0
 ```
 
 收据校验（把「收据树 == 被测树」从规程文字变成 exit code）：
 
 ```
-<FINAL_VALIDATOR>
+$ .venv-workbench/bin/python scripts/check_test_receipt.py \
+      ~/.finance-runtime/test-receipts/20260913T220714Z-7a86ce4e.json \
+      --expect-revision 7a86ce4e2bbb5b31a9e41d92bf527123bf1ed0bf
+  读数     passed=9657 failed=0 error=0 skipped=77
+  ✓ revision 一致   ✓ 解释器一致   ✓ python 版本一致   ✓ 依赖指纹一致
+  ✓ 收据来自干净树   ✓ 依赖门禁未被绕过   ✓ 收据 revision == 7a86ce4e2bbb
+✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。        VALIDATOR_EXIT=0
 ```
 
 差量对账：
 
-<DELTA_TABLE>
+| | 基线 `d7e5380` | 最终 `7a86ce4e` | 差量 |
+|---|---|---|---|
+| passed | 9554 | 9657 | **+103** |
+| failed | 0 | 0 | **0** |
+| skipped | 77 | 77 | 0 |
+| xfailed | 2 | 2 | 0 |
+
+**+103 逐条点得出名字**，不是「总数不增所以没回归」这种含糊口径：
+
+| 来源 | 条数 |
+|---|---|
+| `test_observation_extraction_first.py`（A1–A14） | 77 |
+| `test_extraction_first_review_fixes.py`（质检返修回归） | 25 |
+| `test_guided_reading_daily_seam.py`（2 元组视图不是死代码） | 1 |
+| 合计 | **103** |
+
+> 耗时 347s → 357s：两次都在安静机器上、同一解释器、同一依赖指纹下取得，
+> 这 10s 属于噪声量级，**不作为耗时结论**。
 
 ## 7 未验证 / 明确不在本次范围
 
@@ -213,10 +245,10 @@ harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONT
 
 ## 8 最终提交与复跑
 
-- 分支 `feat/extraction-first-p0`；被测 revision **`<FINAL_SHA>`**
+- 分支 `feat/extraction-first-p0`；被测 revision **`7a86ce4e`**
 - 交接 `docs/handoffs/inflight/feat-extraction-first-p0.md`（状态）+
   `docs/handoffs/2026-09-14-extraction-first-p0-review-fixes.md`（背景全文）
-- 复跑：`git worktree add <新树> <FINAL_SHA>` → §6 那八条命令 → 变异按 §4 手改复现
+- 复跑：`git worktree add <新树> `7a86ce4e`` → §6 那八条命令 → 变异按 §4 手改复现
   （每次改前清 `__pycache__`）。**跑全量期间不要碰那棵树**——本页 §0 就是这么栽的。
 - **未推、未合 main。** `gitea/main` 已从 `d7e5380` 前移到 `1fef3d27`；合并前按
   「比较基准是目标分支不是快照」重新 diff，并对工单 INDEX 这个热文件跑
