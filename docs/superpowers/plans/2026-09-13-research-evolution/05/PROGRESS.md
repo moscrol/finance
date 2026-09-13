@@ -152,3 +152,11 @@ QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结�
 - 状态：第五轮修复复核有效，扩大边界确证 1 项（PV10[P1]，PV9 相邻遗漏；01 另有 J11/J12），整包暂不签收。
 - 修复（`cf7e05a5`，1 条新测试先红后绿）：组件级核验贯穿有 run 分支——_assisted_task_uncovered_components 不再对 attempts 早退，费用关联认 task_id / run_id / attempt_id；阻断条目带 uncovered_components；有 run 阻断理由单列 assisted_task_model_cost_unbilled。全失败辅助任务不按固有组件拦（review 未发生，缺账由 retry 派生缺口表达）——failed_retry pin 10→11 并注明语义来源。
 - 验证：模块 115 passed；QC 第六轮安全断言 6 passed（no_fees/tool_only/writer_tool unknown、三件套 known 0.93、receipt 零拒绝）；全量 9655 passed / 77 skipped / 2 xfailed（干净树 @cf7e05a5，`-rf` 无 FAILED 行）；ruff 干净；第一至五轮归档探针 05 组复跑不回归（probe_05_extra 输出与 QC 第六轮归档归一后逐字节一致）。
+
+## 第七轮（2026-09-14，QC round-7 复审：PV11/PV12/PV13）
+- 状态：第六轮修复复核有效（01 无新增阻断，02/04 保持候选），05 扩大边界确证 2 项 P1 + 1 项 P2，整包暂不签收。
+- 修复（`72f562f2`，3 条新测试先红后绿）：
+  - PV11[P1]：费用覆盖改「任务 × 执行实例 × 组件」——逐 attempt 核验，第一次执行的完整模型账不再为第二次作证（第二次仅工具费 0.01 修前 known 0.93 → 修后 unknown）；合法对照两次都齐 known CNY 1.39。
+  - PV12[P1]：移除全失败早退——失败执行实例仍要 writer 账（失败不代表模型没调用；review 未发生不要求）；失败 run 挂工具费不再洗白；合法对照 writer+工具费 known。
+  - PV13[P2]：uncovered_components 穿过公开投影层（unknown 条目条件携带），公开输出加断言。
+- 验证：模块 118 passed；QC 第七轮安全断言 test_round7.py 8 passed（修前 4 failed / 4 passed）；全量 9658 passed / 77 skipped / 2 xfailed（干净树 @72f562f2，`-rf` 无 FAILED 行）；ruff 干净；第一至六轮归档探针 05 组复跑不回归。
