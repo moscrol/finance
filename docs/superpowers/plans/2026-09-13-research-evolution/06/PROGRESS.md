@@ -1,8 +1,15 @@
 # 06 · Workbench 集成与验收 · 进度（换会话先读这里）
 
 > 总合同 `docs/superpowers/specs/2026-09-13-research-evolution/README.md`，本轨 spec 同目录 `06-workbench-integration.md`
-> （规格提交 `194241dd`，规格交接 `28804505`，分支 `docs/river-next-specs`，本组合分支已合入）。
-> 跨轨缺陷写同目录 `BLOCKED.md`。
+> （规格提交 `194241dd`，交接 `28804505`，分支 `docs/river-next-specs`，已合入本组合分支）。
+> 跨轨缺口与未做项写同目录 `BLOCKED.md`。
+
+## 状态一句话
+
+**engineering_complete：是。** 四个端点接真实 01–05，前端「维护」页可用，单 writer 与两个受控入口有测试。
+**product_verified：部分**——I01–I12 / I16 在真实 API + 真实模块 + 临时用户态上走通并有反向证伪；
+I13 / I14 / I15 未验（缺真人参与者、浏览器可见性事件、已授权结果源，逐条见 BLOCKED §3）。
+**field_evidence：无。** 没有冻结任何真实前向协议，没有任何真人试点数据；03 一律 pending，05 `commercial_status=unstarted`。
 
 ## 任务 0 · 开工登记（2026-09-13）
 
@@ -10,50 +17,134 @@
 |---|---|
 | 工作树 / 分支 | `/Users/a77/fwp-wt-research-evolution-06` · `feat/research-evolution-06-workbench` |
 | 代码基线 | `gitea/main` = `631786ab362f4c2118f65b6a1373ccddb7b0271d`（比总合同所记 `5fb13a8c` 新 3 个合并；重新 fetch 后核对） |
-| 组合基底 | `5f931258032c259062edcb3357b0df4d821517c3` = 基线 + 依次 `--no-ff` 合入规格分支与 01–05（六次 `merge-tree` 预演与实合均零冲突，149 文件 / 27450 行新增） |
+| 组合基底 | `5f931258` = 基线 + 依次 `--no-ff` 合入规格分支与 01–05（六次 `merge-tree` 预演与实合**零冲突**，149 文件 / 27450 行新增） |
 | 各模块分支与 SHA | 规格 `docs/river-next-specs@28804505`；01 `feat/judgment-maintenance-01@e8db50db`（代码 `9735103c`）；02 `feat/research-priority@a7c9dec1`（代码 `add35fc8`）；03 `feat/research-validation-03@f2a12fa3`（代码 `49197160`）；04 `feat/research-diagnostics-04@b5cee17a`（代码 `4d457d7a`）；05 `feat/research-evolution-05-product-value@46ea6cdd` |
-| 解释器 | 主树 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`（3.12.13；新树无 venv，按 AGENTS.md 用主树绝对路径；前端 e2e 需 `PATH=.venv-workbench/bin:$PATH`） |
-| 实际用户态根 | `FORESIGHT_USERS_DIR=/Users/a77/.local/share/finance-workbench/users`（真实用户 `a77` 与若干 probe 用户；本轨代码**只**经 `userspace.user_space(user).root` 解析，测试与 E2E 一律临时目录） |
-| 生产服务 8792 | PID 59347，cwd `~/.finance-runtime/finance-workspace-2ee664fae9c4`，`source_revision=2ee664fa`（部署家，非任何工作树）；本轨不接管、不重启；隔离 E2E 用空闲端口（实测 8793 / 8797 / 8798 空闲，8794–8796、8799 被占） |
-| 代码地图 | 主树 `ready n=22076 @b4a35fa`；本轮按精确文件与符号定位（Explore 扫描 + 直接读源），未以地图无结果断言缺失 |
-| 主工作区 | 30 个他人未提交代码改动（river / moneyflow / mfs 等），本轨不接管；09-06 统一 spec 的未提交段只读参考 |
+| 解释器 | 主树 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`（3.12.13）；前端 e2e 需 `PATH=.venv-workbench/bin:$PATH` |
+| 实际用户态根 | `FORESIGHT_USERS_DIR=/Users/a77/.local/share/finance-workbench/users`（真实用户 `a77` 与若干 probe 用户）。本轨代码**只**经 `userspace.user_space(user).root` 解析；测试与 E2E 一律临时目录，未读写任何真实用户记录 |
+| 生产服务 8792 | PID 59347，cwd `~/.finance-runtime/finance-workspace-2ee664fae9c4`，`source_revision=2ee664fa`（部署家，非任何工作树）。**本轨不接管、不重启**；隔离 E2E 用 8797 |
+| 代码地图 | 主树 `ready n=22076 @b4a35fa`；本轮按精确文件与符号定位，未以地图无结果断言缺失 |
 
-### 计划修改路径（独占白名单）
+### 计划修改路径（= 实际）
 
-- 新增：`intelligence/api/research_evolution.py`；`intelligence/services/research_evolution/{__init__,access,adapters,store,facade,pilot_io,study_io}.py`
-- 薄改：`intelligence/api/app.py`（注入 router 与资源）；必要时 `intelligence/services/research_project.py`、`intelligence/userspace.py`
-- 前端：`intelligence/webapp/src/components/ResearchEvolution*.tsx` 及其测试；薄改 `App.tsx` / `api.ts` / `types.ts` / `ResearchProjectPanel.tsx`；`intelligence/webapp/e2e/research-evolution.spec.ts`
-- 测试与夹具：`intelligence/tests/test_research_evolution_*.py`；`intelligence/tests/fixtures/research_evolution/06/`
-- 公共文档（本批唯一修改者）：`docs/learning/ledger-map.md`、`docs/agent-product-door.md`、`UBIQUITOUS_LANGUAGE.md`；能力图谱按现行规范回写
-- 不改：01–05 目录内实现、`market_feature_store/schema.sql`、交易日历、LLM 模型 / 预算、全局路由 / 注册表
-
-### 现有实现映射（任务 0 核对）
-
-| 基线符号 | 状态 | 06 用法 |
-|---|---|---|
-| 01 `assess / validate_action / reduce_actions / wake_if_expired / parse_binding / parse_command / adapters.*` | 组合基底可 import，签名已用 `inspect` 核对 | facade 组装报告；store 落 `ManagementEvent`；bindings 端点用 `parse_binding` 校验 |
-| 02 `adapt_candidates / prioritize / render_view` | 同上 | `priority` 段；`evaluation_at` 服务端可信 UTC |
-| 03 `Repository / freeze_study / register_forecasts / settle_outcomes / evaluate_study / read_receipt / record_exposure` | 同上 | `study_io` 与收据入口；根 = `user_space(user).root / "research_validation"` |
-| 04 `diagnose / evaluate_exercise_response / adapters.load_legacy_inputs / parse_exercise_pack` | 同上 | `diagnostics` 段；练习揭示前先经 03 `record_exposure` |
-| 05 `validate_event / prepare_events / measure_pair / summarize / RunStoreEvidenceReader / freeze_protocol` | 同上；`EVENT_TYPES` 19 类带 sources 白名单 | events 端点只放 `frontend` 允许类型；`pilot_io` 走同一 writer |
-| 主树 `app.py::create_app`、`conversation_or_404`、`research_project.load_project`、`userspace.user_space`、`RunStore`、`ConversationStore` | 见下节接线矩阵（Explore 扫描 + 直接读源后填） | 注入而非重写 |
+新增 `intelligence/services/research_evolution/{__init__,contracts,access,store,adapters,facade,pilot_io,study_io}.py`、
+`intelligence/api/research_evolution.py`、`intelligence/webapp/src/components/ResearchEvolutionPanel.{tsx,test.tsx}`、
+`researchEvolution.css`、`intelligence/webapp/e2e/research-evolution.spec.ts`、
+`intelligence/tests/test_research_evolution_{api,falsification,store,io}.py`、`intelligence/tests/research_evolution_fixtures.py`、
+`intelligence/tests/fixtures/research_evolution/06/`。
+薄改 `intelligence/api/app.py`、前端 `App.tsx` / `api.ts` / `types.ts` / `ResearchInspector.tsx` / `components.test.tsx`。
+公共文档 `docs/learning/ledger-map.md`、`docs/agent-product-door.md`、`UBIQUITOUS_LANGUAGE.md` + 能力图谱。
+**未改** 01–05 目录内实现、`market_feature_store/schema.sql`、交易日历、LLM 模型 / 预算、全局路由 / 注册表、任何旧台账。
 
 ## 步骤状态
 
 | 步 | 内容 | 状态 | 证据 |
 |---|---|---|---|
-| 0 | 基线 / 组合基底 / 所有权 / 用户根 / 8792 归属 / 各模块 SHA 与签名 | 完成 | 本文上表 |
-| 1 | 只读资源适配、访问校验、store（单 writer + 原子 revision）、GET 投影（module_status） | 进行中 | — |
-| 2 | 接 01 真模块：绑定 → 变化 → 复核 → 继续核查 run | 未开始 | — |
-| 3 | 接 02 / 04 真模块；05 事件 / 原流程登记 / 收据；03 收据与 study_io | 未开始 | — |
-| 4 | 前端三个内容区 + 组件测试 + E2E | 未开始 | — |
-| 5 | 全链 I01–I16 与三项反向证伪；重启重建 | 未开始 | — |
-| 6 | 等价 CI / registry / E2E 收据；产品门 / 台账地图 / 术语表 / 能力图谱 | 未开始 | — |
+| 0 | 基线 / 组合基底 / 所有权 / 用户根 / 8792 归属 / 各模块 SHA 与签名 | 完成 | 上表；六分支 `merge-tree` 零冲突 |
+| 1 | 只读适配、访问校验、单 writer、GET 投影 | 完成 | `916f7e6f` |
+| 2 | 接 01 真模块：绑定 → 变化 → 复核 → 继续核查 → 关联 run 终态 | 完成 | I01–I04、I08 |
+| 3 | 接 02 / 04 真模块；05 事件；03 收据与曝光登记 | 完成 | I03、I05、I07–I09、I16 |
+| 4 | 前端三个内容区 + 组件测试 + E2E | 完成 | `6137dcd9` / `0b03f84e` |
+| 5 | 全链 I01–I12 / I16 与三项反向证伪；重启重建 | 完成 | I10、`test_research_evolution_falsification.py` |
+| 6 | 受控入口 `pilot_io` / `study_io`；台账地图 / 产品门 / 术语表 / 能力图谱 | 完成 | `e0dec906`；本文「收据」节 |
 
 ## 接线矩阵
 
-（步骤 1 起逐项填：模块 → 入口 → 真实 / 夹具 → 场景编号 → 收据）
+| 模块 | 入口 | 真实/夹具 | 场景 | 结论 |
+|---|---|---|---|---|
+| 01 判断维护 | `assess` + `reduce_actions` + `validate_action` + `parse_binding` + `adapters.*` | **真函数**；证据目录为固定输入 | I01–I04、I08 | 哈希变 → `requires_review`；条件三值；动作幂等与 409 |
+| 02 研究排序 | `adapt_candidates` → `prioritize` → `render_view` | **真函数**；`evaluation_at` 服务端可信 UTC | I03 | 01 真实项进第一组；点击带 `click_payload` |
+| 03 方法验证 | `Repository` + `record_exposure`（+ `study_io` 调 freeze/register/settle/evaluate） | **真函数**；无真实协议 | I07、I16、I15(未验) | 未冻结 → `unknown(no_study_frozen)`；揭示前原子登记曝光 |
+| 04 流程诊断 | `diagnose` + `evaluate_exercise_response` + `adapters.load_legacy_inputs` | **真函数**；策略/题包为合成登记件 | I09、I16 | 无策略 → `unknown(policy_not_registered)`；合成标 `synthetic` |
+| 05 使用测量 | `validate_event` + `prepare_events` + `measure_pair` + `summarize` + `RunStoreEvidenceReader` | **真函数**；事件为合成 | I08、I11、I13(机制) | 前端只能报白名单类型；服务端盖章；失败 run 入分母 |
+| 既有入口 | `research_project.load_project`、`POST …/messages`、`RunStore`、`ConversationStore` | **真实** | I12 | 逐字节不变；`research-project` 端点回归通过 |
+
+## 合同版本与关键设计决定
+
+- 封套 `research-evolution-view/v1`：`maintenance` / `priority` / `diagnostics` 各保持自己的 schema，不压成总分；
+  `module_status` 五段（`ok` / `unknown` / `pending` / `error` / `unavailable`），`gaps` 带 `module`。
+- **`view_digest` 只摘要内容**：剔掉 `generated_at` / `evaluation_at` / `report_id` / `input_digest`
+  （后三个由服务端时钟派生）。不剔就是同样内容每秒一个新摘要，spec §4.4「GET 的报告摘要稳定」落空。
+- **错误外壳沿用本仓既有的 `{"detail": ...}`**，内层放稳定业务码 `{code, message, detail}`；
+  响应统一经 `scrub_paths` 擦绝对路径（本仓已有 `"/Users/" not in response.text` 的断言家族）。
+- **归属**：`?user=` 不是认证。`cf_access` 模式下中间件已改写 `user`，直接采信；`off` 模式只认
+  服务配置用户 + `RESEARCH_EVOLUTION_ALLOWED_USERS` 白名单，越界一律 `owner_forbidden`；
+  他人对象与不存在对象返回**同一个** `not_found`，不泄漏存在性。
+- **两次取数**：绑定时按当天 cutoff 解析到的真实版本存进绑定记录（baseline），view 时按今天的 cutoff
+  重读**同一个 ref**（同一 `as_of` 的切片）。绝不声称知道原判断当天的版本。
+- **管理动作不冒充事实**：`reviewed_no_change` 只关闭维护项；`link_run` 要求 run 已终态，
+  且 completed 时必须指到**原写入者写下的**新判断行，否则拒绝关闭。
+- **不可变件不加字段**：`publish_immutable` 不往正文塞 `owner_user_id`——那会打坏内容寻址件自己的哈希。
+  归属靠路径隔离（每个 owner 一个根）。
+- 自用测量事件的 `protocol_version = workbench-self-use/v1`、`pilot_id = workbench:<conversation_id>`：
+  05 的 `summarize` 按 `pilot_id` 分区，自用事件永远混不进真人试点读数。
+
+## 过程中修掉的四个真 bug
+
+| # | 症状 | 根因 | 钉住它的测试 |
+|---|---|---|---|
+| 1 | 每条维护项的**第一个**动作都返回 409，且错误里前后两个版本号一模一样，看起来像并发 | `int(expected_revision or -1)`：合法的修订号 **0** 是假值，被当成缺省 | `test_i04_same_key_replays_once_and_stale_page_gets_409` |
+| 2 | 绑定基线取到了**晚于绑定时刻**的版本，于是「跟踪后被改」这条线永远不成立 | 证据目录按 ref 去重时取插入顺序最后一条 → 基线随取数顺序漂 | `test_i01_binding_keeps_original_timestamp_and_never_backfills_strict` |
+| 3 | 同样内容每秒得到一个新 `view_digest` | 摘要覆盖了 `evaluation_at` 及其派生 id | `test_i10_view_digest_is_stable_but_tracks_content` |
+| 4 | 冻结协议存盘后再读，05 报「protocol_hash 与内容不符（冻结后被改过？）」 | `publish_immutable` 往内容寻址件正文里 setdefault 了 `owner_user_id` | `test_pilot_rebuild_is_reproducible_and_never_upgrades_synthetic_to_real` |
+
+## §7 验收场景对照
+
+| 编号 | 状态 | 测试 |
+|---|---|---|
+| I01 | 通过 | `test_i01_binding_keeps_original_timestamp_and_never_backfills_strict`、`_evidence_refs_must_come_from_the_controlled_catalog`、`_catalog_hides_versions_recorded_after_the_cutoff` |
+| I02 | 通过 | `test_i02_hash_change_is_needs_review_not_refuted_and_close_leaves_judgment_untouched` |
+| I03 | 通过 | `test_i03_triggered_condition_ranks_first_and_rejudge_carries_scope_into_a_real_turn`、`_task_selection_records_the_click_without_changing_any_verdict` |
+| I04 | 通过 | `test_i04_same_key_replays_once_and_stale_page_gets_409`、`_snooze_expires_back_to_open_without_losing_the_item` |
+| I05 | 通过 | `test_i05_missing_inputs_stay_unknown_and_never_collapse_to_zero` |
+| I06 | 通过 | `test_i06_unauthenticated_mode_refuses_arbitrary_user_switch`、`_other_users_conversation_is_not_found_not_forbidden`、`_path_traversal_is_rejected_without_leaking_paths`（5 条路径参数化）、`_allowlist_lets_an_explicitly_permitted_user_through` |
+| I07 | 通过 | `test_i07_no_probability_promise_on_the_default_panel` + 前端 `不出现概率承诺或「方法已验证」徽章` |
+| I08 | 通过 | `test_i08_frontend_events_are_stamped_by_the_server_and_deduped`、`_frontend_cannot_self_report_success_quality_or_money`、`_failed_run_cannot_be_laundered_into_a_closed_item`、`_completed_run_without_a_new_judgment_cannot_close_the_item` |
+| I09 | 通过 | `test_i09_diagnostics_needs_a_registered_policy_and_marks_synthetic`、`_answer_key_is_not_in_the_default_projection` |
+| I10 | 通过 | `test_i10_bindings_and_actions_survive_a_restart`、`_one_broken_module_does_not_blank_the_others`、`_view_digest_is_stable_but_tracks_content` |
+| I11 | 通过 | `test_i11_core_flow_works_with_no_measurement_events_at_all` |
+| I12 | 通过 | `test_i12_existing_research_project_endpoint_is_unchanged`、`_the_whole_flow_leaves_every_legacy_ledger_byte_identical` |
+| I13 | **部分**（机制通过，无真人数据） | `test_research_evolution_io.py` 六条（幂等、整批拒收、渠道盖章、rebuild 同内容 id、synthetic 不升级） |
+| I14 | **未验** | 见 BLOCKED §3 |
+| I15 | **部分**（拒收侧通过，未走完一轮） | `test_study_io_refuses_input_packs_that_try_to_backfill_the_clock`、`_settle_without_an_authorised_outcome_source_fails_closed` |
+| I16 | 通过 | `test_i16_reveal_records_exposure_before_returning_the_answer` + 反向证伪 `test_reveal_is_refused_when_the_outcome_identity_cannot_be_parsed` |
+
+### 反向证伪（spec §7 要求至少三项）
+
+| 植入的偷懒实现 | 必须变红的场景 | 测试 |
+|---|---|---|
+| 不调 01，返回固定空报告 | I03 | `test_faking_the_maintenance_report_breaks_i03` |
+| 去掉归属校验，请求里的 `user` 直接当 owner | I06 | `test_dropping_the_owner_scope_check_breaks_i06` |
+| 把失败 run 当成没发生（只认 completed） | I08 | `test_filtering_out_failed_runs_breaks_i08` |
+| （本轨自加）盘面读数换一个值 | 条件判定必须跟着变 | `test_condition_wiring_is_live_not_a_constant` |
 
 ## 收据
 
-按 revision 取 `~/.finance-runtime/test-receipts/<stamp>-<rev8>.json`，不读 `latest.json`（多树并发覆盖）。
+| 命令（工作树 `/Users/a77/fwp-wt-research-evolution-06`） | revision | exit | 结果 |
+|---|---|---|---|
+| `pytest -q intelligence/tests/test_research_evolution_*.py` | `e0dec906` | 0 | **63 passed** |
+| `ruff check intelligence/` | `e0dec906` | 0 | All checks passed |
+| `scripts/layer_audit.py` / `check_path_literals.py` / `check_unread_fields.py` | `e0dec906` | 0 | 三道全过（ERROR 0 == 基线；无新增家目录字面量；无新增未读字段） |
+| `pnpm lint` / `pnpm typecheck` / `pnpm build` | `0b03f84e` | 0 | 全过 |
+| `pnpm test`（vitest） | `0b03f84e` | 0 | **84 passed**（新增 8） |
+| `pnpm test:e2e --project=desktop` | `0b03f84e` | 0 | **8 passed**（新增 3，既有 5 未受影响） |
+| `pytest -q --ignore=test_codex_sandbox.py`（全仓等价 CI） | 见下节 | — | — |
+| pre-commit 11 道 | 四次提交均通过 | 0 | — |
+
+收据文件按 revision 取 `~/.finance-runtime/test-receipts/<stamp>-<rev8>.json`，**不读 `latest.json`**（多树并发覆盖）。
+排除 `test_codex_sandbox.py` 的理由：本机已知随机红（记忆 `codex-sandbox-test-fails-on-this-machine`），与本轨无关。
+
+## 提交
+
+| SHA | 内容 |
+|---|---|
+| `5f931258` | 组合基底（规格 + 01–05 六次 `--no-ff` 合并） |
+| `916f7e6f` | services/api 接线 + 51 例测试 |
+| `6137dcd9` | 前端「维护」页 + 台账地图 / 产品门 / 术语表登记 |
+| `0b03f84e` | 重建 `intelligence/api/static` |
+| `e0dec906` | 受控入口 `pilot_io` / `study_io` + 12 例测试 |
+
+## 下一步
+
+1. 合并顺序：规格分支 `docs/river-next-specs` 先进 main，再把本组合分支并入（六分支已在本树合过，零冲突）。**等用户确认**。
+2. 部署仍按现役流程，`/api/health` 的 revision 才算线上状态——仓内有代码不等于 8792 已更新。
+3. BLOCKED §2 的五条跨轨缺口交对应 owner；§3 的未做项要等真人授权或补前端事件。
