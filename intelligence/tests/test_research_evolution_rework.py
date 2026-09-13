@@ -24,7 +24,7 @@ from intelligence.services.research_evolution.adapters import RiverEvidenceSourc
 from intelligence.services.research_evolution.contracts import ApiError
 from intelligence.services.research_evolution.store import RECEIPTS_DIR, SUMMARIES_DIR, EvolutionStore
 from intelligence.services.run_store import RunStore
-from intelligence.tests.test_research_evolution_api import World as BaseWorld
+from intelligence.tests.test_research_evolution_api import CONDITION_DOWNGRADE, World as BaseWorld
 
 SH = ZoneInfo("Asia/Shanghai")
 
@@ -890,7 +890,8 @@ def test_t1_run_terminal_before_second_request_still_reconciles(world: World, mo
     """T1：run 在浏览器第二个请求（link_run）之前到终态——消息接受侧已登记可信关联，收尾不卡死。
 
     真实 UI 次序是「先 POST messages 拿 run_id，再 POST link_run」，模型可以在此之前就失败。
-    修复：create_message 在启动执行器前把 run 登记到本会话唯一待复核项（带 request_event_id 代际）。
+    修复：create_message 在启动执行器前，按**请求身份**（full_prompt 逐字 / label 复述，U1/U2）
+    把 run 登记到命中的待复核项（带 request_event_id 代际）；「继续核查」是 label 的复述简写。
     """
     def fail_turn(**kwargs: object) -> None:
         kwargs["run_store"].finish_run(kwargs["run_id"], "failed", error="model unavailable")  # type: ignore[attr-defined]
@@ -1046,3 +1047,180 @@ def test_t5_failed_lockfile_open_releases_process_lock(tmp_path: Path, monkeypat
             pass
     except StoreLockTimeout:
         pytest.fail("os.open 失败发生在取得进程锁之后；那把锁没被释放")
+
+
+# --------------------------------------------------------------------------- #
+# 第四轮 QC（re06-957e83f4）U1–U4：请求身份贯穿消息接受、成果选择与终态重放。
+# 探针本体在 docs/verification/re06-957e83f4/test_review_round4.py；这里是仓内回归。
+# --------------------------------------------------------------------------- #
+def test_u1_plain_message_does_not_claim_pending_maintenance(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """U1：内容不携带请求身份的普通消息不许被认领——零 run_links、零迁移。"""
+
+    def fail_turn(**kwargs: object) -> None:
+        kwargs["run_store"].finish_run(kwargs["run_id"], "failed", error="model unavailable")  # type: ignore[attr-defined]
+
+    monkeypatch.setattr(app_module, "_run_conversation_turn", fail_turn)
+    item = world.seed_rejudged_item()
+    posted = world.client.post(
+        f"/api/conversations/{world.conversation_id}/messages",
+        json={"user": fx.OWNER, "content": "先不处理制冷剂复核。请解释市盈率是什么。", "skill_mode": "hybrid"},
+    )
+    assert posted.status_code == 202, posted.text
+    world.wait_terminal(posted.json()["run_id"])
+    store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+    assert store.list_run_links(item_id=item["id"]) == [], "普通消息不许产生关联行"
+    time.sleep(0.3)  # 任何异步折回若发生，下一行会抓到
+    after = world.current_item(item["id"])
+    assert after["status"] == "rejudgment_requested"
+    assert after["management_revision"] == item["management_revision"]
+
+
+def test_u2_two_pending_items_full_prompt_binds_exact_item(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """U2：多条待复核时，full_prompt 逐字命中只绑定被点名的那一条；另一条不动。"""
+
+    def fail_turn(**kwargs: object) -> None:
+        kwargs["run_store"].finish_run(kwargs["run_id"], "failed", error="model unavailable")  # type: ignore[attr-defined]
+
+    monkeypatch.setattr(app_module, "_run_conversation_turn", fail_turn)
+    world.track_judgment(conditions=CONDITION_DOWNGRADE).raise_for_status()
+    open_items = [i for i in world.view()["maintenance"]["items"] if i["status"] == "open"]
+    assert len(open_items) == 2, f"夹具应给两条 open 项：{[(i['change_type'], i['status']) for i in world.view()['maintenance']['items']]}"
+    first = world.rejudge(open_items[0], key="k-u2-first")
+    second = world.rejudge(open_items[1], key="k-u2-second")
+    prompt = str(second["continuation"]["full_prompt"])
+    assert prompt and prompt != str(first["continuation"]["full_prompt"]), "两条请求的 full_prompt 必须可区分"
+
+    posted = world.client.post(
+        f"/api/conversations/{world.conversation_id}/messages",
+        json={"user": fx.OWNER, "content": prompt, "skill_mode": "hybrid"},
+    )
+    assert posted.status_code == 202, posted.text
+    run_id = posted.json()["run_id"]
+    world.wait_terminal(run_id)
+
+    # 接受侧按 full_prompt 精确绑定到第二项（带第二项当前代际）。
+    store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+    links = [r for r in store.list_run_links() if str(r.get("run_id")) == run_id]
+    assert len(links) == 1 and links[0]["item_id"] == second["item_id"], links
+
+    # 观察器终态收尾折回第二项；迟到的显式 link_run 重放；第一项不动。
+    world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_id)
+    assert world.current_item(second["item_id"])["status"] == "open"
+    response = world.act(idempotency_key=f"link_run:{second['item_id']}:{run_id}", run_id=run_id, **world.link_args(second["item_id"]))
+    assert response.status_code == 200, response.text
+    assert response.json()["replayed"] is True
+    assert world.current_item(first["item_id"])["status"] == "rejudgment_requested"
+    assert world.current_item(second["item_id"])["status"] == "open"
+
+
+def test_u3_cross_conversation_terminal_replay_is_rejected(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """U3：终态重放不免授权——同主别的会话拿同一 (item, run) 来查，必须被拒且不迁移。"""
+
+    def fail_turn(**kwargs: object) -> None:
+        kwargs["run_store"].finish_run(kwargs["run_id"], "failed", error="model unavailable")  # type: ignore[attr-defined]
+
+    monkeypatch.setattr(app_module, "_run_conversation_turn", fail_turn)
+    item = world.seed_rejudged_item()
+    posted = world.client.post(
+        f"/api/conversations/{world.conversation_id}/messages",
+        json={"user": fx.OWNER, "content": "继续核查", "skill_mode": "hybrid"},
+    )
+    assert posted.status_code == 202, posted.text
+    run_id = posted.json()["run_id"]
+    world.wait_terminal(run_id)
+    folded = world.wait_item_status(item["id"], "open")
+
+    other = world.client.post("/api/conversations", json={"user": fx.OWNER, "title": "同主别的会话"}).json()
+    response = world.client.post(
+        f"/api/conversations/{other['conversation_id']}/research-evolution/actions",
+        json={
+            "user": fx.OWNER,
+            "action": "link_run",
+            "idempotency_key": "k-u3-cross",
+            "item_id": item["id"],
+            "run_id": run_id,
+            "expected_item_version": item["item_version"],
+            "expected_management_revision": item["management_revision"],
+        },
+    )
+    assert response.status_code in {400, 404, 409}, f"跨会话终态重放必须拒：{response.status_code} {response.text}"
+    after = world.current_item(item["id"])
+    assert after["status"] == "open"
+    assert after["management_revision"] == folded["management_revision"]
+
+
+def test_u4_late_judgment_of_old_attempt_does_not_close_new_request(world: World) -> None:
+    """U4：多代际下「同会话+时间较新」不能证明判断属于本轮——不得自动关闭，保持待复核。"""
+    from intelligence.services import judgments as judgments_svc
+    from intelligence.services.research_evolution.run_observer import ObservingRunStore
+
+    observer = ObservingRunStore(
+        user_id=fx.OWNER,
+        evolution_root=world.user_root / "research_evolution",
+        maintenance_folder=lambda run_id: world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_id),
+    )
+    first = world.seed_rejudged_item()
+    run_a = observer.create_run(question="第一次尝试", task_type="research", session_id=world.conversation_id)
+    world.act(idempotency_key="k-u4-reg-a", run_id=run_a.run_id, **world.link_args(first["id"])).raise_for_status()
+    cancel_args = world.link_args(first["id"])
+    cancel_args["action"] = "cancel_rejudge"
+    world.act(idempotency_key="k-u4-cancel", **cancel_args).raise_for_status()
+    world.clock.advance(seconds=1)
+    world.rejudge(world.current_item(first["id"]), key="k-u4-second")
+    run_b = observer.create_run(question="第二次尝试", task_type="research", session_id=world.conversation_id)
+    world.act(idempotency_key="k-u4-reg-b", run_id=run_b.run_id, **world.link_args(first["id"])).raise_for_status()
+    world.clock.advance(seconds=1)
+    judgments_svc.record_judgment(
+        world.user_root / "judgments.jsonl",
+        memo="第一次尝试迟到的成果判断",
+        themes=["制冷剂"],
+        session_id=world.conversation_id,
+        ts=world.clock().isoformat(),
+    )
+
+    observer.finish_run(run_a.run_id, rs.STATUS_COMPLETED)
+    assert world.current_item(first["id"])["status"] == "rejudgment_requested", "旧请求的迟到终态不许折回新请求（T2）"
+
+    before = world.current_item(first["id"])
+    observer.finish_run(run_b.run_id, rs.STATUS_COMPLETED)
+    time.sleep(0.3)  # 若误折回，下一行会抓到
+    after = world.current_item(first["id"])
+    assert after["status"] == "rejudgment_requested", "无法证明属于本轮的判断不许自动关闭本轮"
+    assert after["management_revision"] == before["management_revision"]
+
+
+def test_u2_edited_launch_text_recovers_via_explicit_link_run(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """U2 补偿方向：用户改写了启动文案（不命中 full_prompt/label）→ 接受侧不登记；
+
+    客户端显式 link_run 时，run 的用户消息真实存在于本会话即补登当前代关联并折回——
+    「真实可补偿的可信登记」让终态先到也能收尾，而不是恢复路径只有文案承诺。
+    """
+
+    def fail_turn(**kwargs: object) -> None:
+        kwargs["run_store"].finish_run(kwargs["run_id"], "failed", error="model unavailable")  # type: ignore[attr-defined]
+
+    monkeypatch.setattr(app_module, "_run_conversation_turn", fail_turn)
+    item = world.seed_rejudged_item()
+    posted = world.client.post(
+        f"/api/conversations/{world.conversation_id}/messages",
+        json={"user": fx.OWNER, "content": "动手吧，按上面说的方向再查一遍", "skill_mode": "hybrid"},
+    )
+    assert posted.status_code == 202, posted.text
+    run_id = posted.json()["run_id"]
+    world.wait_terminal(run_id)
+
+    # 文案被改写 → 接受侧无法证明身份 → 不登记；项保持待复核。
+    store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+    assert store.list_run_links(item_id=item["id"]) == []
+    held = world.current_item(item["id"])
+    assert held["status"] == "rejudgment_requested"
+
+    # 显式 link_run 补偿登记：run 确由本会话消息入口产生 → 补登当前代并折回。
+    response = world.act(idempotency_key=f"link_run:{item['id']}:{run_id}", run_id=run_id, **world.link_args(item["id"]))
+    assert response.status_code == 200, f"改写文案的合法复核不许卡死：{response.text}"
+    closed = world.wait_item_status(item["id"], "open")
+    assert closed["management_revision"] == held["management_revision"] + 1
+    assert closed["management"]["rejudgment"]["last_failure"]["kind"] == "rejudgment_failed"
+    links = [r for r in store.list_run_links(item_id=item["id"]) if str(r.get("run_id")) == run_id]
+    assert len(links) == 1
+    assert links[0]["request_event_id"] == closed["management"]["rejudgment"]["request_event_id"]

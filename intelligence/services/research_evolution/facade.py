@@ -762,8 +762,17 @@ class ResearchEvolutionService:
                 link_run_id = str(body.get("run_id") or "").strip()
                 if link_run_id:
                     folded = txn.find_action(f"link_run:{item_id}:{link_run_id}:terminal")
-                    if folded is not None:
+                    if folded is not None and str(folded.get("conversation_id") or "") == conversation_id:
                         return {"replayed": True, **dict(folded.get("result") or {})}
+                    # 会话不符：不重放——终态重放免重复执行，不免授权（QC U3）。
+                    # 会话范围前置核验（QC U3）：别会话可能连绑定都没有，维护视图会先 503，
+                    # 掩盖真正的越界形状——run 不属于本会话的，在计算视图/版本闸之前就拒。
+                    try:
+                        pre_run = self.res.run_store_for(ctx.owner_user_id).load_run(link_run_id)
+                    except (FileNotFoundError, ValueError, OSError):
+                        pre_run = None
+                    if pre_run is not None and str(getattr(pre_run, "session_id", "") or "") != conversation_id:
+                        raise ApiError(ERR_RUN_BINDING_MISMATCH, "该 run 不属于本会话", detail={"run_id": link_run_id, "item_id": item_id})
 
             # 锁内重读当前项：validate 时的版本必须是提交时的版本。
             maintenance = self._current_items(ctx, conversation_id, as_of=body.get("as_of"), knowledge_cutoff=body.get("knowledge_cutoff"), store=txn)
@@ -952,11 +961,19 @@ class ResearchEvolutionService:
                         "current_request_event_id": request_event_id,
                     },
                 )
-            raise ApiError(
-                ERR_RUN_BINDING_MISMATCH,
-                "无法证明该 run 由本次维护请求发起（缺少运行中的关联登记），不能折回本维护项",
-                detail={"run_id": run_id, "item_id": item["id"]},
+            # 终态先到的补偿登记（QC T1/U2）：执行器可能在浏览器的第二个请求之前把 run 跑完，
+            # 接受侧又因身份不符没有自动登记（U1：普通聊天不被认领）。此刻客户端**显式点名**
+            # (item, run) 且过了版本闸——可信基座是 run 的用户消息真实存在于本会话（经消息入口
+            # 接受，不是 RunStore 旁路造的），不是「同会话唯一候选」的服务端猜测。
+            link = self._compensate_terminal_link(
+                ctx=ctx, conversation_id=conversation_id, item=item, run=run, request_event_id=request_event_id, now=now, store=store
             )
+            if link is None:
+                raise ApiError(
+                    ERR_RUN_BINDING_MISMATCH,
+                    "无法证明该 run 由本次维护请求发起（缺少运行中的关联登记），不能折回本维护项",
+                    detail={"run_id": run_id, "item_id": item["id"]},
+                )
         association = "registered"
         continuation = self._run_continuation(ctx, conversation_id, run_id)
         inherits = (continuation or {}).get("inherits") or {}
@@ -968,6 +985,16 @@ class ResearchEvolutionService:
             ledgers = re_adapters.load_legacy_ledgers(ctx.user_root)
             judgments = [r for r in ledgers.judgments if r.get("id")]
             if not judgment_ref:
+                # 成果归属（QC U4）：legacy 判断台账只有 session/ts，没有 run/request 归属。
+                # 只有「本项从未有过先前请求代际」（attempts<=1 且无 last_failure）时，
+                # 同会话+时间窗才不可能撞上别代的迟到成果，允许自动认领；否则无法证明
+                # 属于本轮——保持待复核，要求调用方显式传 new_judgment_ref 确认成果。
+                if int(rejudgment.get("attempts") or 0) > 1 or rejudgment.get("last_failure"):
+                    raise ApiError(
+                        ERR_DEPENDENCY_MISSING,
+                        "这条维护项经历过多次复核请求或取消，同会话最新判断无法证明属于本轮；请显式确认新判断",
+                        detail={"run_id": run_id, "hint": "link_run 带 new_judgment_ref 显式指定本轮成果"},
+                    )
                 candidates = [
                     r
                     for r in judgments
@@ -1027,6 +1054,54 @@ class ResearchEvolutionService:
         if outcome.outcome == "conflict":
             raise ApiError(ERR_VERSION_CONFLICT, outcome.detail or "版本冲突", detail={"reason_code": outcome.reason_code, "item_id": item["id"]})
         return event, detail
+
+    def _compensate_terminal_link(
+        self,
+        *,
+        ctx: OwnerContext,
+        conversation_id: str,
+        item: Mapping[str, Any],
+        run: Any,
+        request_event_id: str,
+        now: datetime,
+        store: EvolutionStore,
+    ) -> dict[str, Any] | None:
+        """终态先到的补偿登记（QC T1/U2）：客户端显式 link_run 点名 (item, run) 时才发生。
+
+        可信基座（缺一不可）：
+        1. 项仍在``rejudgment_requested``（当前代还开着）；
+        2. run 的用户消息真实存在于本会话——run 经消息入口接受，不是 RunStore 旁路造的；
+        3. 请求代际取项上**当前**的 request_event_id——补偿登记永远是当前代的。
+
+        不做墙钟时间窗校验：消息/run 的时间戳是真实时钟，``requested_at`` 来自可注入的
+        领域时钟，两个时钟域在验收环境刻意分裂，跨域比较不是有效证据。completed 方向的
+        实质闸门是判断归属（同会话 + 不早于请求 + 多代际下要显式指定，见 _link_run_event）。
+        """
+        if not request_event_id or str(item.get("status")) != "rejudgment_requested":
+            return None
+        try:
+            messages = self.res.conversation_store_for(ctx.owner_user_id).load_messages(conversation_id)
+        except (FileNotFoundError, ValueError, OSError):
+            return None
+        message = next(
+            (m for m in messages if str(getattr(m, "role", "") or "") == "user" and str(getattr(m, "run_id", "") or "") == str(run.run_id)),
+            None,
+        )
+        if message is None:
+            return None
+        link_id = stable_id("rlink", {"item": item["id"], "run": run.run_id, "request": request_event_id})
+        row, _ = store.append_run_link(
+            {
+                "link_id": link_id,
+                "owner_user_id": ctx.owner_user_id,
+                "item_id": str(item["id"]),
+                "run_id": str(run.run_id),
+                "conversation_id": conversation_id,
+                "request_event_id": request_event_id,
+                "registered_at": utc_iso(now),
+            }
+        )
+        return row
 
     # ---- run 终态自动收尾（Q2） -------------------------------------------- #
     def fold_run_terminal(self, *, ctx: OwnerContext, run_id: str) -> dict[str, Any] | None:
@@ -1133,19 +1208,34 @@ class ResearchEvolutionService:
         )
         return {"replayed": True, **result_core}
 
-    # ---- 消息接受侧的水合与绑定（QC T1/T3） -------------------------------- #
-    def bind_pending_rejudge_run(self, *, ctx: OwnerContext, conversation_id: str, run_id: str) -> dict[str, Any] | None:
-        """在**启动执行器之前**把刚接受的 run 登记到本会话唯一待复核的维护项（QC T1）。
+    # ---- 消息接受侧的水合与绑定（QC T1/T3/U1/U2） --------------------------- #
+    def bind_pending_rejudge_run(
+        self,
+        *,
+        ctx: OwnerContext,
+        conversation_id: str,
+        run_id: str,
+        content: str,
+        continuation: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
+        """在**启动执行器之前**把刚接受的 run 登记到它真正启动的那一轮复核请求（QC T1/U1/U2）。
 
         UI 的次序是「先 POST messages 拿 run_id，再 POST actions(link_run)」，而服务端在
-        消息响应之前已提交执行器：run 在第二个请求之前到终态时，没有这行登记，Q3 关联闸
-        只能拒收——合法复核永远收不了尾。登记与 link_run 的登记同构（同 stable_id、同
-        request_event_id 代际），客户端随后的显式 link_run 命中「已登记」分支直接复用。
+        消息响应之前已提交执行器：run 在第二个请求之前到终态时，没有这行登记，终态闸
+        只能拒收——合法复核收不了尾（T1）。但关联的因果证明必须来自**请求身份**，不是
+        「本会话只有一条待复核」的数量推断：普通聊天不许被认领（U1）。
 
-        只在**无歧义**时登记：本会话恰有一条处于当前代的复核请求。``rejudgment`` 不存会话，
-        用「产生了当前 request_event_id 的那条 rejudge 动作记录」回查会话归属——别会话的
-        待复核不能把本会话的 run 认领走。零条 → 普通消息；多条 → 服务端不猜，等客户端
-        显式 link_run。任何失败由调用方吞掉：消息入口不为研究进化的降级买单。
+        两条可信身份，精确命中其一才登记：
+        1. 消息 continuation 携带 ``maintenance_item_id``（第二轮起前端会透传）——
+           坐标不受信，必须核验该项确实处于本会话发起的当前代复核；
+        2. 消息内容命中当前代请求的**启动话语**：``full_prompt`` 逐字一致（真实客户端
+           首轮形状），或与动作 ``label`` 逐字一致/为 label 的 ≥4 字符前缀（用户照按钮
+           文案的复述简写）。full_prompt 与 label 都是 rejudge 动作记录里持久化过的
+           服务端生成文本，命中即请求身份（U2：多条待复核按此精确分流）。
+
+        零命中 / 多命中 → 不登记：普通消息不产生 run_links、不迁移维护状态；
+        终态先到的恢复交给 link_run 的补偿登记（``_link_run_event`` 终态分支）。
+        任何失败由调用方吞掉：消息入口不为研究进化的降级买单。
         """
         store = self._store(ctx)
         with store.try_transaction(timeout=0.5) as txn:
@@ -1158,7 +1248,9 @@ class ResearchEvolutionService:
             if not rejudge_records:
                 return None
             maintenance = self._current_items(ctx, conversation_id, as_of=None, knowledge_cutoff=None, store=txn)
-            candidates: list[tuple[Mapping[str, Any], str]] = []
+            # 本会话当前代待复核项：rejudgment 不存会话，用「产生了当前 request_event_id
+            # 的那条 rejudge 动作记录」回查归属——别会话的待复核不能认领本会话的 run。
+            pending: dict[str, tuple[Mapping[str, Any], str]] = {}
             for item in maintenance.get("items", []):
                 if str(item.get("status")) != "rejudgment_requested":
                     continue
@@ -1171,10 +1263,33 @@ class ResearchEvolutionService:
                     for row in rejudge_records
                 )
                 if requested_here:
-                    candidates.append((item, request_event_id))
-            if len(candidates) != 1:
+                    pending[str(item["id"])] = (item, request_event_id)
+            if not pending:
                 return None
-            item, request_event_id = candidates[0]
+
+            claimed_item_id = str(
+                (continuation or {}).get("maintenance_item_id")
+                or ((continuation or {}).get("inherits") or {}).get("maintenance_item_id")
+                or ""
+            )
+            if claimed_item_id:
+                # 身份来源 1：continuation 里的维护项坐标。坐标本身不受信——
+                # 必须在本会话当前代待复核集合里才算数。
+                target = pending.get(claimed_item_id)
+                if target is None:
+                    return None
+                item, request_event_id = target
+            else:
+                # 身份来源 2：启动话语匹配（full_prompt / label 取自当前代 rejudge 动作记录的持久化结果）。
+                matched = []
+                for item_id, pair in pending.items():
+                    prompt, label = self._request_launch_texts(rejudge_records, item_id, pair[1])
+                    if _is_launch_utterance(content, prompt=prompt, label=label):
+                        matched.append(pair)
+                if len(matched) != 1:
+                    return None
+                item, request_event_id = matched[0]
+
             link_id = stable_id("rlink", {"item": item["id"], "run": run_id, "request": request_event_id})
             row, created = txn.append_run_link(
                 {
@@ -1189,6 +1304,18 @@ class ResearchEvolutionService:
                 }
             )
             return {"item_id": str(item["id"]), "run_id": run_id, "request_event_id": request_event_id, "link_created": created}
+
+    @staticmethod
+    def _request_launch_texts(rejudge_records: Sequence[Mapping[str, Any]], item_id: str, request_event_id: str) -> tuple[str, str]:
+        """当前代 rejudge 动作记录里持久化的 (full_prompt, label)；取不到返回空串（永不命中）。"""
+        for row in reversed(rejudge_records):
+            if str(row.get("item_id") or "") != item_id:
+                continue
+            if str((row.get("event") or {}).get("event_id") or "") != request_event_id:
+                continue
+            continuation = (row.get("result") or {}).get("continuation") or {}
+            return str(continuation.get("full_prompt") or ""), str(continuation.get("label") or "")
+        return "", ""
 
     def pending_task_continuation(self, *, ctx: OwnerContext, conversation_id: str, content: str) -> dict[str, Any] | None:
         """首轮任务启动上下文的服务端水合（QC T3）。
@@ -1800,6 +1927,23 @@ def _ts_ge(value: Any, floor: str) -> bool:
     except ApiError:
         return False
     return moment >= bound
+
+
+def _is_launch_utterance(content: str, *, prompt: str, label: str) -> bool:
+    """消息内容是否携带这条复核请求的启动身份（QC U1/U2）。
+
+    - ``full_prompt`` 逐字一致：真实客户端首轮形状（App 把 full_prompt 作为消息正文发出）；
+    - ``label`` 逐字一致：客户端在 full_prompt 缺失时的降级正文就是按钮文案；
+    - ``label`` 的 ≥4 字符前缀：用户照按钮文案复述的简写（如「继续核查」之于
+      「继续核查这条判断」）。短于 4 字符的前缀太容易被日常用语撞上，不算启动话语。
+
+    普通聊天（内容与两者都无关）返回 False——不产生关联、不迁移维护状态。
+    """
+    if prompt and content == prompt:
+        return True
+    if label and (content == label or (len(content) >= 4 and label.startswith(content))):
+        return True
+    return False
 
 
 def _latest_summary(summaries: Sequence[Mapping[str, Any]]) -> dict[str, Any] | None:
