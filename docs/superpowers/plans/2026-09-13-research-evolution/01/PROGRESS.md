@@ -175,3 +175,10 @@ QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结�
 - 修复 `dbf4d357`：`_sort_key` 的 recorded 分量经 `instant_of` 折算 UTC ISO（可解析时），说不出绝对时刻的留原文兜底；隐式替代退休条件改为「双方时刻均可解析且严格更晚」，同刻/不可比不退休、歧义保留。
 - 验证：新增 2 条回归测试先红后绿；模块 101 passed；全量 9641 passed / 77 skipped（干净树 @dbf4d357）；ruff 干净；QC 第三轮探针 01 组复跑——J4 mixed==normalized 逐字段一致且 source_expired/open/unknown，J5 ambiguous_version_order 在列；第一/二轮归档探针 01 组复跑不回归。
 - 06 联测请用 `dbf4d357`。
+
+## 2026-09-13 QC 第四轮（J6/J7/J5-补充）
+
+- 独立复核（`~/.finance-runtime/reviews/research-evolution-round4-qc-20260913/`）：原 8+5 项固定反例通过，扩大边界确证 4 项新问题，本轨占 3 项：J6（known_day 取字符串日期部分，Z 写法与 +08:00 写法的同一时刻落不同知识日）、J7（naive 与带偏移时刻不可比却被静默定序、不留 gap）、J5-补充（绑定恰好等于排序胜出者时，歧义被 unchanged 早退吞掉）。
+- 修复 `cfd88c04`：`contracts.market_day_of` 统一按东八区折算日历日（known_day 与 expired_at 取日三处）；歧义判定改为「同生效起点 + 不同哈希 +（任一方说不出精确时刻或同刻）」；ambiguous 进 `_State.signature()`；unchanged+ambiguous 仍建 open 项（reason=ambiguous_version_order、epistemic=unknown 计入 unverifiable）。
+- 验证：3 条新回归测试先红后绿；模块 104 passed；全量 9644 passed / 77 skipped（干净树 @cfd88c04）；ruff 干净；QC 第四轮探针 01 组三项全绿（J6 actual==normalized；J7 actual 留歧义、fill_early open=1 / fill_late open=0；J5-补充 actual 与 other_hash 均留歧义），安全断言 test_adjacent.py 4 passed；第一/二/三轮归档探针 01 组复跑不回归。
+- 06 联测请用 `cfd88c04`。
