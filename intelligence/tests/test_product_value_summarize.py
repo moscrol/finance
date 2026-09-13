@@ -1013,3 +1013,46 @@ def test_uncovered_components_reach_public_summary():
     entry = next(u for u in m["unknown"] if u["id"].startswith("unmeasured_task:"))
     assert entry["reason"] == "assisted_task_model_cost_unbilled"
     assert entry["uncovered_components"] == ["review_model"]
+
+
+def test_mismatched_run_attempt_identity_cannot_cover():
+    """PV14（round-8 附加条件）：attempt_id / run_id 联合身份——错配组合（attempt_id 指第二次
+    执行、run_id 却是第一次的 run）不为任何一次执行作证；联合一致的同一组费用是合法对照。"""
+    proto, complete, evidence1, _, evidence2, writer, review, base = _r7_setup()
+    run2, attempt2 = "qc-r8-run-2", "qc-r8-attempt-2"
+    extra_events = []
+    for event in base:
+        if event["event_type"] in {"run_started", "run_finished"}:
+            extra = copy.deepcopy(event)
+            extra["event_id"] += "-second"
+            extra["run_ids"] = [run2]
+            extra["payload"].update(run_id=run2, attempt_id=attempt2)
+            for key in ("event_at", "recorded_at"):
+                extra[key] = (datetime.fromisoformat(extra[key]) + timedelta(minutes=8)).isoformat()
+            extra_events.append(extra)
+    evidence_extra = copy.deepcopy(evidence2["runs"][0])
+    evidence_extra.update(run_id=run2, artifacts={})
+    for key in ("created_at", "finished_at"):
+        evidence_extra[key] = (datetime.fromisoformat(evidence_extra[key]) + timedelta(minutes=8)).isoformat()
+    two_runs = evidence2["runs"] + [evidence_extra]
+    two_base = base + extra_events + [writer, review]
+    run1 = writer["payload"]["cost_item"]["run_id"]
+
+    mismatched = [
+        _r7_fee(writer, "tool", 0.01, run_id=run1, attempt_id=attempt2, suffix="-mm-tool"),
+        _r7_fee(writer, "writer_model", 0.36, run_id=run1, attempt_id=attempt2, suffix="-mm-writer"),
+        _r7_fee(writer, "review_model", 0.10, run_id=run1, attempt_id=attempt2, suffix="-mm-review"),
+    ]
+    r2, m = _r7_measure(proto, complete, evidence1, two_base + mismatched, two_runs)
+    assert m["detail"]["full_cost_status"] == "unknown"  # 错配组合不为第二次执行作证
+    entry = next(u for u in m["unknown"] if u["id"].startswith("unmeasured_task:"))
+    assert entry["uncovered_components"] == ["review_model", "writer_model"]
+    # 合法对照：同一组费用用联合一致的身份（run2 × attempt2）→ known
+    consistent = [
+        _r7_fee(writer, "tool", 0.01, run_id=run2, attempt_id=attempt2, suffix="-ok-tool"),
+        _r7_fee(writer, "writer_model", 0.36, run_id=run2, attempt_id=attempt2, suffix="-ok-writer"),
+        _r7_fee(writer, "review_model", 0.10, run_id=run2, attempt_id=attempt2, suffix="-ok-review"),
+    ]
+    _, m = _r7_measure(proto, complete, evidence1, two_base + consistent, two_runs)
+    assert m["detail"]["full_cost_status"] == "known"
+    assert m["detail"]["known_cost_by_currency"] == {"CNY": 1.39}
