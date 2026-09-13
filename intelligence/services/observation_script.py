@@ -440,6 +440,33 @@ def _make_id(script: ObservationScript, recorded_at: str) -> str:
     return f"os-{script.as_of}-{hashlib.sha1(payload.encode('utf-8')).hexdigest()[:6]}"
 
 
+def _confirm_action_key(
+    script: ObservationScript, *, attempt_id: str | None, entrypoint: str | None
+) -> str:
+    """确认动作的稳定身份：由**内容 + 尝试 + 入口**算出，**不含录入时刻**。
+
+    动作身份一旦掺进时间戳，重试就会换键，而重试恰恰是唯一需要去重的场景。
+    """
+    payload = json.dumps(
+        {
+            "user_id": script.user_id,
+            "as_of": script.as_of,
+            "scope": script.scope,
+            "entity_ids": list(extraction.normalize_values(script.entity_ids)),
+            **{
+                f: list(extraction.normalize_values(getattr(script, f)))
+                for f in extraction.DIFF_FIELDS
+            },
+            "entrypoint": str(entrypoint or ""),
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+    return _action_key(
+        EVENT_SCRIPT_CONFIRMED, attempt_id, hashlib.sha1(payload.encode("utf-8")).hexdigest()
+    )
+
+
 def to_claim(script: ObservationScript) -> str:
     """剧本 → 可证伪陈述（checkpoint 的 ``claim``）。
 
@@ -576,6 +603,10 @@ def repoint_due(
         "checkpoint_id": str(ck["id"]),
         "repointed_from": {"id": record["id"], "due": due, "checkpoint_id": record["checkpoint_id"]},
     }
+    # 改点是**修一个日期**，不是第二次确认。整行复制会把原确认的动作元数据一起复制，
+    # 于是同一个 event_id / action_key 被投影两次，读起来像用户确认过两次
+    # （质检 S7 实测），而且第二条还指着旧的 checkpoint_id。
+    new_record.pop("action_event", None)
     p = Path(path).expanduser()
     with _ledger_lock(p):
         _append_line(p, new_record)
@@ -638,73 +669,91 @@ def register(
             status = "late"
 
     record_id = _make_id(stamped, str(stamped.recorded_at))
-    checkpoint_id: str | None = None
     # 能查日历就用真交易日，查不到才回落跳周末规则——节假日周末规则挡不住。
     due_norm = due or resolve_due(stamped.as_of, db_path=db_path)
-
-    if status == "confirmed":
-        cpath = Path(checkpoints_path).expanduser() if checkpoints_path else None
-        if cpath is None:
-            raise ValueError("确认剧本必须给 checkpoints_path：确认即入回检队列，不留空转")
-        _, ck = checkpoints_svc.register_checkpoint(
-            cpath,
-            claim=to_claim(stamped),
-            due=due_norm,
-            category=CHECKPOINT_CATEGORY,
-            source=CHECKPOINT_SOURCE,
-            themes=list(stamped.entity_ids),
-            metric=build_metric(stamped, due=due_norm),
-            framework_version=stamped.framework_version,
-            object_type=OBJECT_TYPE,
-            hindsight=stamped.hindsight,
-            session_id=session_id,
-            projection_hash=stamped.projection_hash,
-            model_id=stamped.model_id,
-            user_authored=user_authored,
-        )
-        checkpoint_id = str(ck["id"])
-
-    record = stamped.to_dict()
-    record.update(
-        {
-            "id": record_id,
-            "status": status,
-            "late": late,
-            "due": due_norm,
-            "checkpoint_id": checkpoint_id,
-            "object_type": OBJECT_TYPE,
-        }
+    # 受控入口的确认动作要有**稳定身份**：键由内容 + 尝试算出，不含录入时刻。
+    # 之前用 record_id 当判别位，而 record_id 派生自 recorded_at（秒级）——
+    # 跨秒重试就换了一把键，于是「去重」在最需要它的场景（重试）恰好失效
+    # （质检 S6 实测：两条同一确认，还多登记了一个可证伪点）。
+    action_key = (
+        _confirm_action_key(stamped, attempt_id=attempt_id, entrypoint=entrypoint)
+        if entrypoint and status in {"confirmed", "late"}
+        else None
     )
-    if stamped.projection_hash is None and user_authored:
-        record["projection_hash_missing"] = checkpoints_svc.USER_AUTHORED
-    if author_origin:
-        record["author_origin"] = str(author_origin)
-    if canonical_entity_id:
-        record["canonical_entity_id"] = str(canonical_entity_id)
-    if attempt_id:
-        record["extraction_attempt_id"] = str(attempt_id)
-    if source_draft_id:
-        record["source_draft_id"] = str(source_draft_id)
-    if entrypoint:
-        record["record_kind"] = RECORD_SCRIPT
-        record["entrypoint"] = str(entrypoint)
-        if status in {"confirmed", "late"}:
-            action_key = _action_key(EVENT_SCRIPT_CONFIRMED, attempt_id, record_id)
-            meta: dict[str, Any] = {
-                "event": EVENT_SCRIPT_CONFIRMED,
-                "event_id": _event_id(action_key),
-                "action_key": action_key,
-                "occurred_at": str(stamped.recorded_at),
-                "entrypoint": str(entrypoint),
-                "attempt_id": attempt_id,
-                "script_status": status,
-                "checkpoint_id": checkpoint_id,
-            }
-            if source_draft_id:
-                meta["source_draft_id"] = str(source_draft_id)
-            record["action_event"] = meta
+
     p = Path(path).expanduser()
     with _ledger_lock(p):
+        # 认领与去重必须在**产生 checkpoint 之前**：先登记再发现重复，
+        # 回检队列里已经多了一条，删不掉也不该删（台账 append-only）。
+        if action_key is not None:
+            for existing in load_raw(p):
+                if (
+                    record_kind_of(existing) == RECORD_SCRIPT
+                    and str((existing.get("action_event") or {}).get("action_key") or "") == action_key
+                ):
+                    return p, dict(existing)
+
+        checkpoint_id: str | None = None
+        if status == "confirmed":
+            cpath = Path(checkpoints_path).expanduser() if checkpoints_path else None
+            if cpath is None:
+                raise ValueError("确认剧本必须给 checkpoints_path：确认即入回检队列，不留空转")
+            _, ck = checkpoints_svc.register_checkpoint(
+                cpath,
+                claim=to_claim(stamped),
+                due=due_norm,
+                category=CHECKPOINT_CATEGORY,
+                source=CHECKPOINT_SOURCE,
+                themes=list(stamped.entity_ids),
+                metric=build_metric(stamped, due=due_norm),
+                framework_version=stamped.framework_version,
+                object_type=OBJECT_TYPE,
+                hindsight=stamped.hindsight,
+                session_id=session_id,
+                projection_hash=stamped.projection_hash,
+                model_id=stamped.model_id,
+                user_authored=user_authored,
+            )
+            checkpoint_id = str(ck["id"])
+
+        record = stamped.to_dict()
+        record.update(
+            {
+                "id": record_id,
+                "status": status,
+                "late": late,
+                "due": due_norm,
+                "checkpoint_id": checkpoint_id,
+                "object_type": OBJECT_TYPE,
+            }
+        )
+        if stamped.projection_hash is None and user_authored:
+            record["projection_hash_missing"] = checkpoints_svc.USER_AUTHORED
+        if author_origin:
+            record["author_origin"] = str(author_origin)
+        if canonical_entity_id:
+            record["canonical_entity_id"] = str(canonical_entity_id)
+        if attempt_id:
+            record["extraction_attempt_id"] = str(attempt_id)
+        if source_draft_id:
+            record["source_draft_id"] = str(source_draft_id)
+        if entrypoint:
+            record["record_kind"] = RECORD_SCRIPT
+            record["entrypoint"] = str(entrypoint)
+            if action_key is not None:
+                meta: dict[str, Any] = {
+                    "event": EVENT_SCRIPT_CONFIRMED,
+                    "event_id": _event_id(action_key),
+                    "action_key": action_key,
+                    "occurred_at": str(stamped.recorded_at),
+                    "entrypoint": str(entrypoint),
+                    "attempt_id": attempt_id,
+                    "script_status": status,
+                    "checkpoint_id": checkpoint_id,
+                }
+                if source_draft_id:
+                    meta["source_draft_id"] = str(source_draft_id)
+                record["action_event"] = meta
         _append_line(p, record)
     return p, record
 
@@ -807,11 +856,31 @@ def _ledger_lock(path: Path) -> Iterator[None]:
 
 
 def _append_line(path: Path, record: dict[str, Any]) -> None:
-    """整行落盘 + flush + fsync。**半行不算成功**——断电留下半行 JSON，
-    读者的 ``json.JSONDecodeError`` 分支会静默跳过它，于是「写过」和「没写过」
-    在台账上长得一模一样。"""
+    """整行落盘 + flush + fsync，并先隔离上一次留下的半行。
+
+    **半行不算成功**——断电留下半行 JSON，读者的 ``json.JSONDecodeError`` 分支会静默
+    跳过它，于是「写过」和「没写过」在台账上长得一模一样。
+
+    但只做到这一步还不够：残片**没有结尾换行**，下一次 append 会直接粘在它后面，
+    于是连这次成功写入的记录一起变成不可解析的一行——一个断电吃掉两条记录，
+    而第二条是 CLI 刚刚回报「已记下」的那条（质检 N2 实测）。``flock`` 只防同时写、
+    ``fsync`` 只保证已写字节落盘，两者都不修残片。
+
+    修法是**补一个换行把残片封口**，不是截断它：残片是「这里发生过一次未完成写入」
+    的证据，抹掉它等于把事故现场清理干净。封口后残片仍是不可解析的一行（照旧被
+    ``load_raw`` 跳过、被原始导出带走），新记录则是独立完整的一行。
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
+    # 末字节检查走二进制：文本模式只能 seek 到 tell() 给过的位置，
+    # 拿 tell()-1 去 seek 在多字节内容上是未定义行为。
+    needs_newline = False
+    if path.exists() and path.stat().st_size:
+        with path.open("rb") as probe:
+            probe.seek(-1, os.SEEK_END)
+            needs_newline = probe.read(1) != b"\n"
     with path.open("a", encoding="utf-8") as fh:
+        if needs_newline:
+            fh.write("\n")
         fh.write(json.dumps(record, ensure_ascii=False) + "\n")
         fh.flush()
         os.fsync(fh.fileno())
@@ -854,11 +923,22 @@ def projected_events(raw: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
     「剧本在、事件不在」的断裂，而那种断裂事后无法与「根本没提交」区分。
     把成功事件的元数据放进剧本行本身，一次写落地，读的时候投影出来——
     事件的存在与剧本的存在从此是同一个事实。
+
+    **按 ``action_key`` 去重，首次出现胜出**（质检 S6 / S7）。台账是 append-only 的，
+    同一个动作可能在多行里留下痕迹：改点会复制整行剧本、重试会再追加一次。
+    「一次动作 = 一个事件」这条不变量必须在读取面上成立，不能只指望每个写入者都守规矩——
+    写入侧的认领是第一道，这里是第二道，两道都要有。
     """
     out: list[dict[str, Any]] = []
+    seen: set[str] = set()
     for rec in raw:
         kind = record_kind_of(rec)
         if kind == RECORD_EVENT:
+            akey = str(rec.get("action_key") or "")
+            if akey and akey in seen:
+                continue
+            if akey:
+                seen.add(akey)
             out.append(dict(rec))
             continue
         if kind != RECORD_SCRIPT:
@@ -884,6 +964,11 @@ def projected_events(raw: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
         for extra_key in ("script_status", "checkpoint_id", "source_draft_id"):
             if extra_key in meta:
                 projected[extra_key] = meta[extra_key]
+        akey = str(meta.get("action_key") or "")
+        if akey and akey in seen:
+            continue
+        if akey:
+            seen.add(akey)
         out.append(projected)
     return out
 
@@ -891,10 +976,16 @@ def projected_events(raw: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
 def user_drafts(
     raw: Iterable[Mapping[str, Any]], *, key: extraction.ExtractionKey
 ) -> list[dict[str, Any]]:
-    """该关联键下**用户自己提交**的全部草稿版本，按提交先后。
+    """该关联键下**用户自己提交的草稿**的全部版本，按提交先后。
 
-    判据是 ``author_origin == "user"``，不是 ``status == "drafted"``：系统骨架同样
-    是 drafted，拿状态当判据就会把产品自己生成的东西当成用户作答。
+    两道判据缺一不可：
+
+    - ``author_origin == "user"``——不是 ``status == "drafted"``：系统骨架同样是 drafted，
+      拿状态当判据就会把产品自己生成的东西当成用户作答；
+    - ``action_event.event == draft_submitted``——**「用户作者」不等于「草稿提交动作」**。
+      ``confirm --from-draft`` 写出的 confirmed 行作者也是 user，只看第一道判据它就会被
+      选成「最新草稿」，而那一行根本没有 ``draft_id``：下游读收据里的来源关联随之丢失，
+      再提交一版还会跳号（质检 S5 实测 version 从 2 跳到 3）。确认是确认，不是新草稿版。
     """
     target = key.as_tuple()
     return [
@@ -902,8 +993,21 @@ def user_drafts(
         for rec in raw
         if record_kind_of(rec) == RECORD_SCRIPT
         and str(rec.get("author_origin") or "") == AUTHOR_USER
+        and str((rec.get("action_event") or {}).get("event") or "") == EVENT_DRAFT_SUBMITTED
         and _key_of(rec) == target
     ]
+
+
+def draft_for_attempt(
+    raw: Iterable[Mapping[str, Any]], *, key: extraction.ExtractionKey, attempt_id: str
+) -> dict[str, Any] | None:
+    """该尝试里提交的那一版草稿（同一尝试内多版取最后一版）。
+
+    存在的理由是工单 §2.4.4「后续确认可关联**已完成尝试的具体草稿版本**」：
+    一律取 latest 就没法回到「我当时确认的是哪一版」。
+    """
+    rows = [d for d in user_drafts(raw, key=key) if str(d.get("extraction_attempt_id") or "") == str(attempt_id)]
+    return rows[-1] if rows else None
 
 
 def latest_user_draft(
@@ -1024,7 +1128,21 @@ def close_attempt(
             str(state.get("canonical_entity_id") or ""),
         )
         if str(state.get("status")) == ATTEMPT_CLOSED:
-            return state, None
+            # 已关闭 → 重试是**补齐**，不是空转。关闭行与 abandoned 事件是两次追加，
+            # 第二次失败会留下「closed/abandoned=true，但事件查询恒空」的永久断裂
+            # （质检 N3 实测）。关闭行自己记了 ``abandoned``，所以这里能判出该补哪一条；
+            # ``_record_event_locked`` 按 action_key 去重，补齐是幂等的。
+            if not state.get("abandoned"):
+                return state, None
+            return state, _record_event_locked(
+                p,
+                raw=raw,
+                event=EVENT_ABANDONED,
+                key=key,
+                entrypoint=entrypoint,
+                attempt_id=str(attempt_id),
+                occurred_at=str(state.get("closed_at") or "") or occurred_at or _now_iso(),
+            )[0]
         acted = any(
             str(ev.get("attempt_id") or "") == str(attempt_id)
             and str(ev.get("event"))
@@ -1057,6 +1175,30 @@ def close_attempt(
                 occurred_at=when,
             )[0]
         return closed, event
+
+
+def ensure_attempt_writable(
+    raw: Iterable[Mapping[str, Any]], *, attempt_id: str, key: extraction.ExtractionKey
+) -> dict[str, Any]:
+    """持锁时复验尝试仍可写：存在、属于这个用户与阅读目标、且还没结束。
+
+    为什么不能只在 CLI 入口查一次：``open_attempt`` 返回之后、真正落盘之前，
+    另一条命令可以把这个尝试 close 掉。CLI 先查过**不等于**落盘时仍然有效——
+    这就是 check-then-act，两个进程各自「查过了」，结果是关闭之后还能提交
+    （质检 S9 实测：台账里同时有 closed、abandoned、draft_submitted 三条）。
+    判定必须和追加在同一把锁里完成。
+    """
+    state = attempt_states(raw).get(str(attempt_id))
+    if state is None:
+        raise ValueError(f"没有这个提取尝试：{attempt_id}")
+    if _key_of(state) != key.as_tuple():
+        raise ValueError(
+            f"提取尝试 {attempt_id} 不属于该用户 / 阅读目标"
+            f"（它是 {_key_of(state)}，你给的是 {key.as_tuple()}）"
+        )
+    if str(state.get("status")) != ATTEMPT_PENDING:
+        raise ValueError(f"提取尝试 {attempt_id} 已结束，不能再往里写")
+    return state
 
 
 def _record_event_locked(
@@ -1109,12 +1251,20 @@ def record_event(
 
     ``draft_submitted`` / ``script_confirmed`` **不走这里**——它们随成功剧本行
     一起落盘（见 ``projected_events``）。
+
+    带 ``attempt_id`` 的提取内动作在同一把锁里复验尝试仍可写（见
+    ``ensure_attempt_writable``）：已关闭的尝试不能再往里记跳过或完成。
+    ``abandoned`` 由 ``close_attempt`` 内部走 ``_record_event_locked``，不经这道复验——
+    它正是在关闭那一刻写的。
     """
     p = Path(path).expanduser()
     with _ledger_lock(p):
+        raw = load_raw(p)
+        if attempt_id:
+            ensure_attempt_writable(raw, attempt_id=str(attempt_id), key=key)
         return _record_event_locked(
             p,
-            raw=load_raw(p),
+            raw=raw,
             event=event,
             key=key,
             entrypoint=entrypoint,
@@ -1198,6 +1348,9 @@ def submit_draft(
                 and str((existing.get("action_event") or {}).get("action_key") or "") == action_key
             ):
                 return dict(existing), False
+        # 复验放在**去重之后、追加之前**：同一条命令重跑该拿回原记录（幂等），
+        # 但尝试一旦被 close 掉就不能再往里塞新版本（质检 S9）。
+        ensure_attempt_writable(raw, attempt_id=str(attempt_id), key=key)
         seq = len(user_drafts(raw, key=key)) + 1
         when = str(stamped.recorded_at)
         draft_id = f"od-{key.as_of}-{seq:03d}-{content_hash[:8]}"

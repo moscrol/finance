@@ -68,6 +68,11 @@ DRAFT_REQUIRED_PROMPT = (
 # 「有这么一条但你还没作答所以不给看」比「装作没有」诚实。
 REDACTED = "（尚无提取资格，系统骨架正文未回显）"
 
+# 「从未成为用户的决定」的状态。遮蔽资格看的是这个，不是单看 ``drafted``——
+# ``expire_stale`` 是展示层换算，到期日一过就把 drafted 改写成 expired，
+# 只认 drafted 的遮蔽会在那一刻自动解除（质检 S8 实测正文照样漏出去）。
+NEVER_DISCLOSED_STATUSES = frozenset({"drafted", "expired"})
+
 
 class IdentityUnresolved(ValueError):
     """实体身份解析不出来。不猜、不模糊匹配——猜错会静默串轨，比读不出来更糟。"""
@@ -342,7 +347,7 @@ def redact_system_skeletons(
         eid = str(row.get("canonical_entity_id") or "")
         if (
             str(row.get("author_origin") or "") == "system"
-            and str(row.get("status") or "") == "drafted"
+            and str(row.get("status") or "") in NEVER_DISCLOSED_STATUSES
             and (str(row.get("user_id") or ""), str(row.get("as_of") or ""), scope_for(eid), eid)
             not in keys_with_draft
         ):

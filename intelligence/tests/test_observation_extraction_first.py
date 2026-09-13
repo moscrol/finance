@@ -683,11 +683,29 @@ class A10RetryConcurrencyFailure(Base):
         self.assertEqual(len(osc.user_drafts(osc.load_raw(self.ledger()), key=key)), 1)
 
     def test_repeated_skip_in_one_attempt_records_one_event(self) -> None:
-        self.read(extra=["--skip-draft"])
-        aid = osc.load_events(self.ledger())[0]["attempt_id"]
-        osc.record_event(self.ledger(), event=osc.EVENT_DRAFT_SKIPPED,
-                         key=ox.make_key("u1", AS_OF, CANON), entrypoint="read", attempt_id=aid)
+        """同一个**仍在进行**的尝试里重复记跳过 → 只有一条。
+
+        2026-09-14 质检 S9 之后，已关闭的尝试不能再往里写，所以这条用例改在
+        尝试还 pending 的时候重复触发——那才是「重试」真正会发生的时刻。
+        """
+        key = ox.make_key("u1", AS_OF, CANON)
+        attempt, _ = osc.open_attempt(self.ledger(), key=key, entrypoint="read")
+        aid = str(attempt["attempt_id"])
+        for _ in range(3):
+            osc.record_event(self.ledger(), event=osc.EVENT_DRAFT_SKIPPED, key=key,
+                             entrypoint="read", attempt_id=aid)
         self.assertEqual(len(self.kinds(osc.EVENT_DRAFT_SKIPPED)), 1)
+
+    def test_writes_to_a_closed_attempt_are_refused(self) -> None:
+        """质检 S9：CLI 先查过 ≠ 落盘时仍有效。判定与追加必须在同一把锁里。"""
+        key = ox.make_key("u1", AS_OF, CANON)
+        attempt, _ = osc.open_attempt(self.ledger(), key=key, entrypoint="read")
+        aid = str(attempt["attempt_id"])
+        osc.close_attempt(self.ledger(), attempt_id=aid, user_id="u1",
+                          reason="user_closed", entrypoint="close")
+        with self.assertRaises(ValueError):
+            osc.record_event(self.ledger(), event=osc.EVENT_DRAFT_SKIPPED, key=key,
+                             entrypoint="read", attempt_id=aid)
 
     def test_at_most_one_pending_attempt_per_key(self) -> None:
         key = ox.make_key("u1", AS_OF, CANON)
@@ -736,11 +754,24 @@ class A10RetryConcurrencyFailure(Base):
         self.assertEqual(len(self.pending()), 1, "结果未知时尝试保持 pending")
 
     def test_completed_attempt_replays_the_receipt_not_the_body(self) -> None:
+        """§2.4.4：同 ID 重试**返回原成功收据**——不重放正文、不重复记完成事件。
+
+        2026-09-14 质检 S3：本用例此前断言的是 `exit=2`（撞上 open_attempt 的
+        「已结束不能复活」），与它自己的名字恰好相反，等于替一条到不了的分支背书。
+        现在断言真行为。
+        """
         self.draft()
         self.read()
-        aid = osc.load_events(self.ledger())[0]["attempt_id"]
-        code, out = self.read(extra=["--attempt-id", aid])
-        self.assertEqual(code, 2, "已结束的尝试不能续接")
+        (receipt,) = self.kinds(osc.EVENT_READ_COMPLETED)
+        aid = receipt["attempt_id"]
+
+        with mock.patch.object(gr, "build", wraps=gr.build) as built:
+            code, out = self.read(extra=["--attempt-id", aid, "--json"])
+        self.assertEqual(code, 0, out)
+        self.assertEqual(built.call_count, 0, "重试不重新构建骨架")
+        self.assertEqual(json.loads(out)["event_id"], receipt["event_id"])
+        self.assertNotIn("facts", out, "返回的是收据，不是正文")
+
         code, out = _run(["observation", "list", "--user", "u1", "--events", "--json",
                           "--attempt-id", aid])
         self.assertEqual(json.loads(out)["counts"][osc.EVENT_READ_COMPLETED], 1)

@@ -3401,21 +3401,33 @@ def cmd_observation_read(args: argparse.Namespace) -> int:
         print(f"带读未开启（{enabled_reason}）。要看今天的带读：加 --on")
         return 0
 
+    raw = osc.load_raw(path)
+    # 收据查询排在 open_attempt **之前**：成功的 read 会关闭尝试，所以「同 ID 重试」
+    # 撞上的第一件事是 open_attempt 的「已结束不能复活」，退 2 之后收据分支根本不可达
+    # （质检 S3）。先验归属再看收据，别人的收据不能凭 ID 读走。
+    if args.attempt_id:
+        state = osc.attempt_states(raw).get(str(args.attempt_id))
+        if state is None:
+            print(f"没有这个提取尝试：{args.attempt_id}")
+            return 2
+        if osc._key_of(state) != key.as_tuple():
+            print(f"提取尝试 {args.attempt_id} 不属于该用户 / 阅读目标")
+            return 2
+        done = osc.find_event(raw, event=osc.EVENT_READ_COMPLETED, attempt_id=str(args.attempt_id))
+        if done:
+            # 返回原成功收据：不重放正文、不重新构建骨架、不重复记完成事件——
+            # 「又给你看了一遍」和「当时确实交付过」是两件事，混起来会让完成率虚高。
+            print(_json.dumps(done, ensure_ascii=False, indent=2) if args.json
+                  else f"提取尝试 {args.attempt_id} 已完成过一次带读"
+                       f"（收据 {done['event_id']}｜{done.get('occurred_at')}）。要重新读取请开新尝试。")
+            return 0
+
     try:
         attempt, _ = osc.open_attempt(path, key=key, entrypoint="read", attempt_id=args.attempt_id)
     except ValueError as exc:
         print(str(exc))
         return 2
     aid = str(attempt["attempt_id"])
-
-    raw = osc.load_raw(path)
-    done = osc.find_event(raw, event=osc.EVENT_READ_COMPLETED, attempt_id=aid)
-    if done:
-        # 已完成的尝试：返回原成功收据。不重放正文、不重复记完成事件——
-        # 「又给你看了一遍」和「当时确实交付过」是两件事，混起来会让完成率虚高。
-        print(_json.dumps(done, ensure_ascii=False, indent=2) if args.json
-              else f"提取尝试 {aid} 已完成过一次带读（收据 {done['event_id']}｜{done.get('occurred_at')}）。要重新读取请开新尝试。")
-        return 0
 
     gate = guided_reading.gated(
         us,
@@ -3456,6 +3468,18 @@ def cmd_observation_read(args: argparse.Namespace) -> int:
     except Exception as exc:  # pragma: no cover - stdout 坏了本来就无处输出
         print(f"带读正文输出失败：{type(exc).__name__}: {exc}", file=_sys.stderr)
         return 1
+
+    if gate.guided.draft is None:
+        # 六轨全缺：交付的是**缺口说明**，不是完整带读。§2.4 那张表写得很直白——
+        # 「无系统骨架」不得记 read_completed。也不关尝试：这一天数据还没到，
+        # 用户回头再读同一目标应当接着这次尝试，而不是被记成「已经读完了」。
+        print(
+            f"⚠ {args.as_of} 的「{args.entity}」六轨全缺，只交付了缺口说明，"
+            f"不记为完整带读；提取尝试 {aid} 保持 pending。",
+            file=_sys.stderr,
+        )
+        return 0
+
     try:
         osc.record_event(
             path,
@@ -3508,9 +3532,25 @@ def cmd_observation_confirm(args: argparse.Namespace) -> int:
             print(str(exc))
             return 2
         key = ox.make_key(us.user_id, args.as_of, canonical)
-        mine = observation_script.latest_user_draft(
-            observation_script.load_raw(us.observation_scripts_path), key=key
-        )
+        raw = observation_script.load_raw(us.observation_scripts_path)
+        wanted = getattr(args, "attempt_id", None)
+        if wanted:
+            # 显式给了尝试就**按它取版本**，并先验归属：§2.4.1 要求拒绝其他用户 / 目标的 ID，
+            # §2.4.4 要求能关联「已完成尝试的具体草稿版本」。之前这条路径完全没读这个参数，
+            # 传错目标照样 exit=0，然后悄悄改用 latest（质检 S4）。
+            state = observation_script.attempt_states(raw).get(str(wanted))
+            if state is None:
+                print(f"没有这个提取尝试：{wanted}")
+                return 2
+            if observation_script._key_of(state) != key.as_tuple():
+                print(f"提取尝试 {wanted} 不属于该用户 / 阅读目标")
+                return 2
+            mine = observation_script.draft_for_attempt(raw, key=key, attempt_id=str(wanted))
+            if mine is None:
+                print(f"提取尝试 {wanted} 里没有提交过草稿")
+                return 1
+        else:
+            mine = observation_script.latest_user_draft(raw, key=key)
         if mine is None:
             print(f"{args.as_of} 的「{args.from_draft}」你还没提交过草稿：先 observation draft")
             return 1
@@ -3573,8 +3613,12 @@ def cmd_observation_confirm(args: argparse.Namespace) -> int:
         variables=args.variables or (list(draft.variables) if draft else []),
         downgrade_or_abandon_conditions=args.abandons
         or (list(draft.downgrade_or_abandon_conditions) if draft else []),
-        upgrade_conditions=args.upgrades,
-        machine_conditions=args.conditions,
+        # 升级条件与机检条件同样**从来源继承**，命令行只在给了值时覆盖。
+        # 之前这两个字段只认命令行：`--from-draft` 时用户自己写的机检规则会被静默清空，
+        # 于是及时确认的剧本到期从「盘面自动判定」掉成「人工判定」，而台账上看不出
+        # 发生过这件事（质检 S1）。
+        upgrade_conditions=args.upgrades or (list(draft.upgrade_conditions) if draft else []),
+        machine_conditions=args.conditions or (list(draft.machine_conditions) if draft else []),
         evidence_refs=list(draft.evidence_refs) if draft else [],
         knowledge_cutoff=draft.knowledge_cutoff if draft else None,
         user_id=us.user_id,
@@ -3751,12 +3795,20 @@ def cmd_observation_list(args: argparse.Namespace) -> int:
         return True
 
     if args.events:
-        events = [e for e in observation_script.projected_events(raw) if _match(e)]
-        if args.attempt_id:
-            events = [e for e in events if str(e.get("attempt_id") or "") == args.attempt_id]
+        def _attempt_match(rec: dict) -> bool:
+            """事件与 pending 共用同一个筛选谓词。
+
+            两边各写各的，就会出现「按 attempt 查询却把别的 pending 一起带出来」
+            （质检 S10 实测）——查询面的过滤条件不一致，读的人会以为那个尝试有两条挂着。
+            """
+            if not _match(rec):
+                return False
+            return not args.attempt_id or str(rec.get("attempt_id") or "") == args.attempt_id
+
+        events = [e for e in observation_script.projected_events(raw) if _attempt_match(e)]
         pending = [
             s for s in observation_script.attempt_states(raw).values()
-            if str(s.get("status")) == observation_script.ATTEMPT_PENDING and _match(s)
+            if str(s.get("status")) == observation_script.ATTEMPT_PENDING and _attempt_match(s)
         ]
         # 逐事件分列，**不合并成一个跳过率**：五个事件的分母各不相同，
         # 合成单一比率就再也说不清「谁没进来」与「进来了没作答」。
