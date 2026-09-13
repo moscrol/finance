@@ -11,14 +11,14 @@
 
 ## 当前状态
 
-分支代码 tip `ce67fe6a`（本文件提交即分支 tip）。十三轮裁定：数据对账通过，门禁「异常可靠拒绝」两处 P1（git 失败误读干净树；报告兜底依赖失败路径）→ 已修（`b98441c5`，含四条故障回归）。候选 `integration/daily-swap-hithink-candidate-0913` @ **efb274b8**（merge 044d1661 = main@e40f22b8 + ce67fe6a；tip 层全是落账/证据/门禁脚本）。等用户**分别**授权合并与生产换库。
-证据：候选树 `docs/handoffs/2026-09-13-daily-swap-candidate-gate.md` + `docs/handoffs/evidence/20260913-hithink-{gate,repair}-report.json`（收据绑定 b98441c5、tree_clean、脚本自哈希、parquet 冻结哈希）。
-合并完整性复验：16 payload 文件仅 lessons_learned.md 与分支 tip 不同。
+分支代码 tip `ce67fe6a`（本文件提交即分支 tip）。十三/十四轮：异常路径两处 P1 修复经审查关闭；主干已到 d7e53805 → 候选已纳入（merge `e9a824bf`，无冲突，主干增量零文件触及换库链路），**组合版四叶全绿 + 门禁重放 22/22 PASS**。候选 `integration/daily-swap-hithink-candidate-0913` @ **1fef3d27**。等用户**分别**授权合并与生产换库。
+证据：候选树 `docs/handoffs/2026-09-13-daily-swap-candidate-gate.md` + `docs/handoffs/evidence/20260913-hithink-{gate,repair}-report.json`（收据绑定 e9a824bf、干净树、脚本/parquet 哈希）。
+合并完整性：16 payload 仅 lessons_learned.md 与分支 tip 不同。
 
-## 已验证（候选代码态 b98441c5，干净树收据）
+## 已验证（组合版 e9a824bf，干净树收据）
 
-- 全量 9,612p / 0f（`20260913T160704Z-b98441c5.json`，dirty=false）；ruff 全过；前端/E2E/registry 绿（绑 044d1661，本轮 scripts+tests 改动不影响）。
-- 门禁 v3：精确 revision+干净树、parquet 冻结副本、异常结构化 FAIL、git rc 检查、报告三级降级、ops 全字段+时间窗、备份 run_id 绑定、EXCEPT ALL；**22/22 PASS，exit 0**。负面证据：审查复现脚本重跑两案例（collision/损坏索引）均 rc=1 结构化 FAIL（仓外 `reconcile/round13-repro/`）。
+- 全量 9,617p / 0f（`20260913T171047Z-e9a824bf.json`，dirty=false）；ruff 全过；前端五步、E2E 15、registry 规范四命令+crosswalk 全绿。
+- 门禁 v3：精确 revision+干净树、parquet 冻结副本、异常结构化 FAIL、git rc 检查、报告三级降级、ops 全字段+时间窗、备份 run_id 绑定、EXCEPT ALL；**22/22 PASS，exit 0**（绑定 e9a824bf）。负面证据：审查复现脚本两案例（collision/损坏索引）均 rc=1 结构化 FAIL（仓外 `reconcile/round13-repro/`）。
 - 数据面：5,553 行、钉值全中、非目标日期零差异、拼接 403、302132 置缺、备份指纹链相等、生产库未动。
 
 ## 未验证 / 已知边界
@@ -35,5 +35,5 @@
 
 ## 踩过的坑
 
-- QC 树里跑探针脚本会 import 到旧代码假红；收据绑定 revision+dirty 位；共享收据目录认领先核 tree/branch；退出码别隔着管道测。
+- QC 树里跑探针脚本会 import 到旧代码假红；收据绑定 revision+dirty 位；共享收据目录认领先核 tree/branch；退出码别隔着管道测；registry 的 --check 是顶层旗标（scan --check 是 argparse 错，不算校验）。
 - 对账脚本是 fail-closed 门禁不是报告生成器；证据随提交走；先冻结再 hash 再执行；git 空 stdout ≠ 干净树。
