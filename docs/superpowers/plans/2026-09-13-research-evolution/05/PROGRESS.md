@@ -139,5 +139,11 @@ QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结�
 
 - 独立复核（`~/.finance-runtime/reviews/research-evolution-round4-qc-20260913/`）：本轨占 1 项：PV8[P1]（PV6 相邻遗漏——辅助任务只有开始/放弃时间戳、无 run/用量/费用事实时，计时证据仍核销其模型成本，完整成本 unknown→known）。
 - 修复 `197133f2`：人工计时覆盖与辅助服务费用覆盖分开——核销辅助任务成本只认费用事实（attempts 非空，或 cost_items 里 selected 且 task_id 匹配的条目），否则列 `assisted_task_without_usage_or_cost_evidence`；原流程任务按设计不用模型，计时即覆盖（PV4 合法通路保留）；同任务被后续收据补上费用事实时解除阻断。
-- 验证：新增回归测试先红后绿（计时仍被测量 end_to_end=20、attempts=[]、cost_items 空，负控同测）；模块 113 passed；全量 9653 passed / 77 skipped / 2 xfailed（干净树 @197133f2；首跑 1 failed 为已知负载抖动项 tests/test_pipeline_p0.py::test_mainline_empty_theme_list_is_failed_without_writing，重跑与单跑均过）；ruff 干净；QC 第四轮探针 05 组 before/after 均 unknown、known 仍 CNY 0.46，安全断言 4 passed；第一/二/三轮归档探针 05 组复跑不回归（PV7 分母 q1..q6、rate 0.5、verdict unknown 保持）。
+- 验证：新增回归测试先红后绿（计时仍被测量 end_to_end=20、attempts=[]、cost_items 空，负控同测）；模块 113 passed；全量 9653 passed / 77 skipped / 2 xfailed（干净树 @197133f2）；ruff 干净；QC 第四轮探针 05 组 before/after 均 unknown、known 仍 CNY 0.46，安全断言 4 passed；第一/二/三轮归档探针 05 组复跑不回归（PV7 分母 q1..q6、rate 0.5、verdict unknown 保持）。
+  - **归因更正（第五轮 QC 指出）**：首跑唯一失败项经收据 `20260913T125455Z-197133f2.json` 的 failed_ids 核对是 `intelligence/tests/test_workbench_conversation_integration.py::test_real_conversation_round_trip_persists_skills_sse_and_three_turns`（10s 墙钟超时型已知 flaky，隔离 3/3 绿），不是本条原写的 test_pipeline_p0——当时 grep 输出匹配了名字里带 failed 的用例。「全量重跑通过」成立；「原失败项单跑通过」当时未验证，本轮已补上隔离 3/3 绿的证据。教训：列失败用 `-rf` 或读收据 failed_ids。
 - 06 联测请用 `197133f2`。
+
+## 第五轮（2026-09-13，QC round-5 复审：PV9）
+- 状态：原四轮修复复核有效，但扩大边界确证 1 项新问题（PV9[P1]；01 另有 J8/J9/J10），整包暂不签收；同时更正第四轮失败归因（见第四轮条目内批注）。
+- 修复（`340d3b26`，1 条新测试先红后绿）：PV9[P1]（PV8 相邻遗漏）——辅助任务无 run 时的费用核销改为按协议适用集 ∩ 固有模型组件 {writer_model, review_model} 逐个核验，一笔工具费或只有 writer 的账不再替缺失的模型费作证；合法对照（writer/review/tool 三件套）known CNY 0.93。
+- 验证：模块 114 passed；QC 第五轮安全断言 test_round5.py 5 passed；全量 9654 passed / 77 skipped / 2 xfailed（干净树 @340d3b26，`-rf` 无 FAILED 行）；ruff 干净；第一至四轮归档探针 05 组复跑不回归（PV7 分母 q1..q6、rate 0.5、verdict unknown 保持）。
