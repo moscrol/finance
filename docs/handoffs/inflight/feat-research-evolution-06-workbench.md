@@ -41,6 +41,6 @@
 
 ## 踩过的坑
 
-- 探针硬编码 QC 树路径：`standards_*.py` 要 sed 换 `REPO`；`spec_api_repro.py` 有 `--repo-root`；`root_probes.py` 跟 cwd 走。
+- 探针指向：「standards_*.py」sed 换硬编码 REPO；「spec_api_repro.py」用 `--repo-root`；「root_probes.py」跟 cwd 走。
 - 本树无 `.venv-workbench`，e2e 必须带 `WORKBENCH_PYTHON=/Users/a77/finance-workspace-private/.venv-workbench/bin/python`。
-- 存量 mobile e2e 用例基线上就红（视口 1024 时开关按钮不出现却死等）——本次顺带修了，别当回归查。
+- 存量 mobile e2e 基线上就红（1024 视口开关按钮不出现却死等），本次顺带修好，别当回归查。
