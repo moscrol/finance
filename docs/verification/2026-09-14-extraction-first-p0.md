@@ -22,7 +22,7 @@
 | 工作树 | `/Users/a77/finance-workspace-private/.claude/worktrees/feat-extraction-first-p0`（`git worktree add`，干净新树） |
 | 分支 | `feat/extraction-first-p0` |
 | 基线 revision | `d7e5380551ba92758935d268fdd0e6fbfdd51ce8`（= 开工时 `gitea/main`，与工单冻结号一致，`git fetch gitea` 后核过） |
-| 最终 revision | 见本文件末尾「最终提交」一节（提交后回填） |
+| 最终 revision | `95f3c5e7`（代码 + 测试 + 文档一并提交；本页回填 SHA 的那一笔是它之后的一个 doc-only 提交——收据自指的经典问题：回填 SHA 必然改变 SHA，被测的是 `95f3c5e7` 的树） |
 | 解释器 | `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`（AGENTS.md 指定；宿主 `python3` 缺依赖，用错会得到一个看起来完全合理的偏高失败数） |
 | 平台 | macOS darwin 25.4.0 / pytest `-q -p no:randomly` |
 | 原始输出 | `/tmp/xfp0/`：`baseline-pytest.txt`、`final-pytest.txt`、`mutations.txt`、`fe-{lint,tc,test,build,e2e}.txt`、`registry.txt` |
@@ -185,7 +185,13 @@ harness `/tmp/xfp0/mutate.py`：每次运行前清 `__pycache__` 且 `PYTHONDONT
 ## 8 最终提交
 
 - 分支：`feat/extraction-first-p0`
-- 最终 revision：`<FINAL_SHA>`
+- 被测 revision：**`95f3c5e7`**（`feat(observation): 工单 #53 提取前置 P0……`，12 files changed,
+  3061 insertions, 51 deletions；11 道 pre-commit 全过）
 - 交接：`docs/handoffs/inflight/feat-extraction-first-p0.md`
-- 复跑本页：`git checkout <FINAL_SHA>` → 新树 → §6 那八条命令（前端先 `pnpm install`）→
-  变异用 `/tmp/xfp0/mutate.py` 的五个锚点（表中 old→new 字符串可直接手改复现）。
+- 复跑本页：`git checkout 95f3c5e7` → `git worktree add` 新树 → §6 那八条命令
+  （前端先 `pnpm --dir intelligence/webapp install --frozen-lockfile`；e2e 要把
+  `.venv-workbench/bin` 放进 `PATH`）→ 变异按 §4 表里的五组 old→new 字符串手改复现，
+  每次改前清 `__pycache__`。
+- **未推、未合 main。** 合并需用户明确确认；合并前若 `gitea/main` 已前移，按「送审的
+  比较基准是目标分支，不是快照」重新 diff，并对工单 INDEX 这个热文件跑一遍
+  `git merge-tree` 列新造冲突。
