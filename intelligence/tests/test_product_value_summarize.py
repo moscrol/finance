@@ -535,6 +535,108 @@ def test_later_unfinished_window_does_not_shrink_reuse_denominator() -> None:
     assert later == {"q4", "q5", "q6"}
 
 
+# ------------------------------------- 返修 PV6：放弃终态也不能顶替费用覆盖 -----
+
+
+def test_abandoned_terminal_without_cost_evidence_keeps_cost_unknown() -> None:
+    """评审 PV6：终态（含放弃）证明任务状态，不证明费用已被测量。
+
+    只有分配 + 同意 + 放弃的收据（无 run / 耗时 / 费用证据）仍是空壳：并入后完整成本
+    必须保持 unknown，缺口逐条在列。前端放弃意图与服务端放弃终态两种输入都验。
+    原流程「无 run 但有人工计时」的合法通路不受影响（耗时本身就是测量事实）。
+    """
+    proto = _six_pair_protocol()
+    proto.pop("protocol_hash")
+    proto["criteria"]["cost"] = {"not_applicable_components": sorted(C.COST_COMPONENTS - {"writer_model", "review_model"})}
+    proto = freeze_protocol(proto)
+    complete, evidence = _clone_complete_pair(1, "p10", proto["protocol_hash"], provenance=IMPORTED)
+    second, _ = _clone_complete_pair(2, "p11", proto["protocol_hash"], provenance=IMPORTED)
+    stubs = [e for e in second if e["event_type"] in ("consent_changed", "assignment_created")]
+    reader = InMemoryEvidenceReader.from_json(evidence)
+    receipt_ok = measure_pair(complete, proto, reader)
+    assignments = [e for e in complete + stubs if e["event_type"] == "assignment_created"]
+    for source in (SOURCE_FRONTEND, SOURCE_SERVER):
+        terminals = []
+        for e in second:
+            if e["event_type"] == "task_completed":
+                t = copy.deepcopy(e)
+                t.update(event_type="task_abandoned", event_id=e["event_id"] + "-abandoned", source_channel=source, object_refs=[], run_ids=[])
+                t["payload"].update(completion_evidence_refs=[], terminal_reason="user stopped; cost not measured")
+                terminals.append(t)
+        events = stubs + terminals
+        receipt_shell = measure_pair(events, proto, reader)
+        assert receipt_shell["status"] == "incomplete" and receipt_shell["cost_items"] == []
+        with_shell = summarize([receipt_ok, receipt_shell], assignments, proto, cohort_events=complete + events, due_rechecks=[])
+        detail = _metric(with_shell, "cost_full_status")["detail"]
+        assert detail["full_cost_status"] == "unknown", source
+        assert detail["known_cost_by_currency"] == {"CNY": 0.46}, source
+        gaps = {u["id"] for u in _metric(with_shell, "cost_full_status")["unknown"] if u["reason"] == "measurement_receipt_without_task_evidence"}
+        assert gaps == {"unmeasured_task:t-x2-a", "unmeasured_task:t-x2-o"}, source
+
+
+# ------------------------------------- 返修 PV7：激活推导的成熟资格不被未来窗撤销 -----
+
+
+def test_future_window_preserves_task_started_mature_denominator() -> None:
+    """评审 PV7：队列资格由可信激活时刻 + 冻结协议观察周确立，独立于复用观测是否存在。
+
+    六人 09-15 均有服务端 task_started，截至 10-11 完整观察周已过；q1-q3 有首轮主动复用，
+    q4-q6 缺复用观测。仅给 q4-q6 追加未结束的后续窗：分母必须保持 6 人、判据保持 unknown
+    （缺测不消失），后续窗只增缺测标签。现有 p20 控制是刚激活未满周，不能据其排除本例。
+    """
+    proto = build_protocol()
+    cohort_src, _, _ = scenario_cohort_signals(proto["protocol_hash"], provenance=IMPORTED)
+    reuse_true = next(e for e in cohort_src if e["event_type"] == "reuse_observed" and e["participant_id"] == "p04")
+    consent = next(e for e in cohort_src if e["event_type"] == "consent_changed")
+    cohort: list[dict] = []
+    for index in range(1, 7):
+        who = f"q{index}"
+        cohort.append(
+            ev(
+                "task_started",
+                event_id=f"start-{who}",
+                at=ts("09-15", "10:00:00"),
+                channel=SOURCE_SERVER,
+                participant=who,
+                task=f"{who}-a",
+                provenance=IMPORTED,
+                payload={"task_id": f"{who}-a", "policy_version": "v1", "view_id": "view-task", "client_at": ts("09-15", "10:00:00"), "initiator": "participant"},
+            )
+        )
+        granted = copy.deepcopy(consent)
+        granted.update(participant_id=who, event_id=f"consent-{who}")
+        cohort.append(granted)
+        if index <= 3:
+            row = copy.deepcopy(reuse_true)
+            row.update(participant_id=who, event_id=f"reuse-{who}")
+            row["payload"].update(first_task_id=f"{who}-a", new_task_id=f"{who}-b", new_task_started_at=ts("09-23", "10:00:00"))
+            cohort.append(row)
+    before = summarize([], [], proto, cohort_events=cohort, due_rechecks=[], as_of="2026-10-11")
+    future = []
+    for index in (4, 5, 6):
+        who = f"q{index}"
+        row = copy.deepcopy(reuse_true)
+        row.update(participant_id=who, event_id=f"reuse-{who}-next", event_at=ts("10-10", "12:00:00"), recorded_at=ts("10-10", "12:00:00"))
+        row["payload"].update(
+            first_task_id=f"{who}-a",
+            new_task_id=f"{who}-c",
+            new_task_started_at=ts("10-09", "10:00:00"),
+            observation_window={"start": ts("10-05", "00:00:00"), "end": ts("10-18", "23:59:59")},
+        )
+        future.append(row)
+    after = summarize([], [], proto, cohort_events=cohort + future, due_rechecks=[], as_of="2026-10-11")
+    base = _metric(before, "proactive_reuse_rate")
+    metric = _metric(after, "proactive_reuse_rate")
+    assert base["denominator_ids"] == [f"q{i}" for i in range(1, 7)] and base["value"] == 0.5
+    # 追加未结束窗口后：分母、比率、判据全部不变（修前 3/6 unknown 会被洗成 3/3 pass）。
+    assert metric["denominator_ids"] == base["denominator_ids"]
+    assert metric["value"] == base["value"]
+    assert _criteria(after)["proactive_reuse"]["verdict"] == _criteria(before)["proactive_reuse"]["verdict"] == C.VERDICT_UNKNOWN
+    # 缺首轮复用观测仍在列，后续窗的缺测另列——两者都不剥夺已成熟资格。
+    assert {u["id"] for u in metric["unknown"] if u["reason"] == "reuse_observation_missing"} == {"q4", "q5", "q6"}
+    assert {u["id"] for u in metric["unknown"] if u["reason"] == "later_observation_window_incomplete"} == {"q4", "q5", "q6"}
+
+
 # ------------------------------------- 返修 PV2：完整成本要对照任务与费用类别 -----
 
 

@@ -136,15 +136,13 @@ def _is_synthetic_event(event: Mapping[str, Any]) -> bool:
 
 
 def _receipt_task_is_measured(task: Mapping[str, Any]) -> bool:
-    """收据里的任务条目是否含实际测量事实（PV4）：终态、尝试、耗时至少观测到一样。
+    """收据里的任务条目是否含实际费用测量事实（PV4/PV6）：尝试或耗时至少观测到一样。
 
-    只有分配、什么都没观测到的任务（terminal_state=open、attempts=[]、timing 缺证据）
-    不能凭「收据里有它」就算费用已覆盖（spec §3/§4：未观察到调用不作零费用依据）。
-    原流程「明确无模型费用」是观测到了、没有模型项，由收据自己的 cost_items /
-    unknown_cost_components 表达，不走这里。
+    只有分配、什么都没观测到的任务（attempts=[]、timing 缺证据）不能凭「收据里有它」就算
+    费用已覆盖；终态（含放弃）证明的是任务状态，不证明费用已被测量（spec §3/§4：未观察到
+    调用不作零费用依据）。原流程「无 run 但有人工计时」的合法通路不受影响：耗时本身就是
+    测量事实；「明确无模型费用」由收据自己的 cost_items / unknown_cost_components 表达。
     """
-    if str(task.get("terminal_state") or "") not in ("", C.TERMINAL_OPEN):
-        return True
     if task.get("attempts"):
         return True
     timing = task.get("timing") or {}
@@ -490,12 +488,14 @@ def _compute_block(
     activation_unknown: list[str] = sorted(set(window_unknown))
     for participant in sorted(set(activation) | set(reuse_rows)):
         activated_at = activation.get(participant)
-        # PV5：分母资格看「有没有任一完整观察窗」（窗末 ≤ as_of），不看最晚窗末——
-        # 下一轮窗口未结束不能把已完成首轮观察的人移出分母
-        # （spec §4 分母为「激活后进入完整观察周者」；§3 失败 / 放弃 / 退出不能为了改善读数删除）。
+        # PV5/PV7：分母资格 = 任一完整观察窗（窗末 ≤ as_of）或「可信激活时刻 + 冻结协议观察周」
+        # 推导出的成熟窗——独立于复用观测是否存在（spec §4 分母为「激活后进入完整观察周者」）。
+        # 后续未结束窗只增缺测标签，不撤销已成熟资格（§3 失败 / 放弃 / 退出不能为了改善读数删除）。
         window_end = completed_window_end.get(participant)
-        if window_end is None and participant not in declared_window_end and activated_at is not None:
-            window_end = _observation_window_end(activated_at, observation_weeks)
+        if window_end is None and activated_at is not None:
+            derived = _observation_window_end(activated_at, observation_weeks)
+            if participant not in declared_window_end or derived <= as_of:
+                window_end = derived
         if activated_at is None or (window_end is None and participant not in declared_window_end):
             if participant not in activation_unknown:
                 activation_unknown.append(participant)
