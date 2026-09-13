@@ -1,0 +1,387 @@
+"""summarize：分母纪律、判据阻断、synthetic 隔离、三态分离（spec §5 验收 1、4、6、7）。"""
+
+from __future__ import annotations
+
+import copy
+import json
+import random
+from datetime import datetime, timezone
+
+from intelligence.services.product_value import contracts as C
+from intelligence.services.product_value.evidence import InMemoryEvidenceReader
+from intelligence.services.product_value.measure import measure_pair
+from intelligence.services.product_value.protocol import freeze_protocol
+from intelligence.services.product_value.summarize import UNKNOWN_GAP, UNKNOWN_SAMPLE, UNKNOWN_UNSTARTED, summarize
+from intelligence.tests.product_value_fixtures import (
+    PROVENANCE_SYNTHETIC,
+    SOURCE_FRONTEND,
+    SOURCE_MANUAL,
+    SOURCE_SERVER,
+    build_protocol,
+    build_scenario,
+    ev,
+    scenario_complete_pair,
+    ts,
+)
+
+PROTOCOL = build_protocol()
+P_HASH = PROTOCOL["protocol_hash"]
+IMPORTED = "imported"
+
+
+def _split(events: list[dict]) -> tuple[list[dict], list[dict]]:
+    assignments = [e for e in events if e["event_type"] == "assignment_created"]
+    cohort = [e for e in events if e["event_type"] != "assignment_created"]
+    return assignments, cohort
+
+
+def _pipeline(names: list[str], *, provenance: str, protocol: dict = PROTOCOL, extra_events: list[dict] | None = None, due=None, as_of=None):
+    """按场景造事件 → 逐配对 measure → summarize；返回 (summary, receipts, all_events)。"""
+    events: list[dict] = []
+    evidence = {"runs": []}
+    due_from_fixture = None
+    for name in names:
+        scenario_events, scenario_evidence, scenario_due = build_scenario(name, protocol["protocol_hash"], provenance=provenance)
+        events.extend(scenario_events)
+        evidence["runs"].extend(scenario_evidence["runs"])
+        if scenario_due is not None:
+            due_from_fixture = scenario_due
+    if extra_events:
+        events.extend(extra_events)
+    reader = InMemoryEvidenceReader.from_json(evidence)
+    pairs = sorted({e["case_pair_id"] for e in events if e.get("case_pair_id")})
+    cohort_only = [e for e in events if not e.get("case_pair_id")]
+    receipts = [measure_pair([e for e in events if e.get("case_pair_id") == pair] + cohort_only, protocol, reader, case_pair_id=pair) for pair in pairs]
+    assignments, cohort = _split(events)
+    summary = summarize(receipts, assignments, protocol, cohort_events=cohort, due_rechecks=due if due is not None else due_from_fixture, as_of=as_of)
+    return summary, receipts, events
+
+
+def _criteria(summary: dict, *, synthetic: bool = False) -> dict[str, dict]:
+    block = summary["synthetic_check"] if synthetic else summary
+    return {c["criterion_id"]: c for c in block["criteria_results"]}
+
+
+def _metric(summary: dict, metric_id: str, *, synthetic: bool = False) -> dict:
+    block = summary["synthetic_check"] if synthetic else summary
+    return next(m for m in block["metrics"] if m["metric_id"] == metric_id)
+
+
+# ------------------------------------------------------------- 六对配对协议 -----
+
+
+def _six_pair_protocol() -> dict:
+    proto = build_protocol()
+    proto.pop("protocol_hash")
+    for i in range(1, 7):
+        category = "fact_check" if i % 2 else "judgment_recheck"
+        proto["cases"].append({"case_id": f"case-x{i}a", "case_version": "1", "category": category, "title": f"x{i}a"})
+        proto["cases"].append({"case_id": f"case-x{i}b", "case_version": "1", "category": category, "title": f"x{i}b"})
+        proto["case_pairs"].append({"case_pair_id": f"pair-x{i}", "category": category, "case_ids": [f"case-x{i}a", f"case-x{i}b"]})
+    return freeze_protocol(proto)
+
+
+def _clone_complete_pair(i: int, participant: str, new_hash: str, *, provenance: str) -> tuple[list[dict], dict]:
+    events, evidence = scenario_complete_pair(P_HASH, provenance=provenance)
+    text = json.dumps({"events": events, "evidence": evidence}, ensure_ascii=False)
+    for old, new in (("pair-01", f"pair-x{i}"), ("case-fc-01", f"case-x{i}a"), ("case-fc-02", f"case-x{i}b"), ('"p01"', f'"{participant}"'), ("-cp-", f"-x{i}-"), (P_HASH, new_hash)):
+        text = text.replace(old, new)
+    data = json.loads(text)
+    return data["events"], data["evidence"]
+
+
+def _six_pairs(*, provenance: str, mutate=None):
+    proto = _six_pair_protocol()
+    events: list[dict] = []
+    evidence = {"runs": []}
+    for i in range(1, 7):
+        pair_events, pair_evidence = _clone_complete_pair(i, f"p1{(i - 1) % 3}", proto["protocol_hash"], provenance=provenance)
+        if mutate:
+            mutate(i, pair_events)
+        events.extend(pair_events)
+        evidence["runs"].extend(pair_evidence["runs"])
+    reader = InMemoryEvidenceReader.from_json(evidence)
+    receipts = [measure_pair([e for e in events if e.get("case_pair_id") == f"pair-x{i}"] + [e for e in events if not e.get("case_pair_id")], proto, reader) for i in range(1, 7)]
+    assignments, cohort = _split(events)
+    return proto, receipts, assignments, cohort
+
+
+# ------------------------------------------------------------------ 确定性 -----
+
+
+def test_summary_is_deterministic_and_order_invariant() -> None:
+    summary, receipts, events = _pipeline(["complete_pair", "failed_retry", "cost_gaps", "cohort_signals"], provenance=PROVENANCE_SYNTHETIC)
+    assignments, cohort = _split(events)
+    shuffled_receipts = list(reversed(receipts))
+    noisy_cohort = copy.deepcopy(cohort) + copy.deepcopy(cohort[:5])
+    random.Random(11).shuffle(noisy_cohort)
+    again = summarize(shuffled_receipts, list(reversed(assignments)), PROTOCOL, cohort_events=noisy_cohort, due_rechecks=build_scenario("cohort_signals", P_HASH)[2], now=datetime(2027, 1, 1, tzinfo=timezone.utc))
+    assert again["summary_id"] == summary["summary_id"]
+    assert again["generated_at"] != summary["generated_at"]
+    assert again["metrics"] == summary["metrics"]
+    assert again["synthetic_check"]["metrics"] == summary["synthetic_check"]["metrics"]
+    assert again["event_accounting"]["duplicates"] == sorted(e["event_id"] for e in cohort[:5])
+
+
+# ------------------------------------------------------------ synthetic 隔离 -----
+
+
+def test_synthetic_inputs_never_become_field_or_revenue() -> None:
+    summary, _, _ = _pipeline(["complete_pair", "failed_retry", "cost_gaps", "cohort_signals"], provenance=PROVENANCE_SYNTHETIC)
+    assert summary["engineering_status"] == C.ENGINEERING_COMPLETE
+    assert summary["field_status"] == C.FIELD_PENDING
+    assert summary["commercial_status"] == C.COMMERCIAL_UNSTARTED
+    assert summary["provenance"]["synthetic"] is True
+    assert all(m["value"] is None for m in summary["metrics"])
+    assert "real_participants_absent" in summary["limitations"]
+    check = summary["synthetic_check"]
+    assert check["counts_toward_field"] is False and check["synthetic"] is True
+    # 同一套判据在仿真数据上确实算出了东西——工程被验证，效果没被宣布。
+    assert _metric(summary, "time_saving_median", synthetic=True)["value"] == 0.4
+    assert _criteria(summary, synthetic=True)["proactive_reuse"]["verdict"] == C.VERDICT_FAIL
+    assert _metric(summary, "cost_full_status", synthetic=True)["detail"]["revenue_by_currency"] == {"CNY": 199.0}
+    assert _criteria(summary)["recheck"]["reason"] == "no_real_inputs"
+
+
+def test_mixed_real_and_synthetic_receipts_are_partitioned() -> None:
+    real_events, real_evidence, _ = build_scenario("complete_pair", P_HASH, provenance=IMPORTED)
+    syn_events, syn_evidence, _ = build_scenario("failed_retry", P_HASH)
+    reader = InMemoryEvidenceReader.from_json({"runs": real_evidence["runs"] + syn_evidence["runs"]})
+    receipts = [measure_pair(real_events, PROTOCOL, reader), measure_pair(syn_events, PROTOCOL, reader)]
+    assignments, cohort = _split(real_events + syn_events)
+    summary = summarize(receipts, assignments, PROTOCOL, cohort_events=cohort, due_rechecks=[])
+    provenance = summary["provenance"]
+    assert provenance["real_receipts"] == 1 and provenance["synthetic_receipts"] == 1
+    assert provenance["real_events"] == len(real_events) and provenance["synthetic_events"] == len(syn_events)
+    assert provenance["synthetic"] is True
+    assert _metric(summary, "assisted_completion_rate")["denominator_ids"] == ["t-cp-a"]
+    assert _metric(summary, "assisted_completion_rate", synthetic=True)["denominator_ids"] == ["t-fr-a"]
+    assert summary["field_status"] != C.FIELD_PENDING
+
+
+# ---------------------------------------------------------------- 真人分母 -----
+
+
+def test_imported_inputs_reach_field_and_commercial_status() -> None:
+    summary, _, _ = _pipeline(["complete_pair", "cohort_signals"], provenance=IMPORTED)
+    assert summary["field_status"] == C.FIELD_OBSERVED  # 回检有真实读数
+    assert summary["commercial_status"] == C.COMMERCIAL_OBSERVED  # p04 有凭据核验的实付
+    assert _metric(summary, "recheck_completion_rate")["value"] == 0.5
+    assert summary["synthetic_check"] is None
+
+
+def test_time_saving_unknown_until_sample_met_then_pass() -> None:
+    summary, _, _ = _pipeline(["complete_pair", "failed_retry", "cost_gaps"], provenance=IMPORTED, due=[])
+    ts_result = _criteria(summary)["time_saving"]
+    assert ts_result["verdict"] == C.VERDICT_UNKNOWN and ts_result["unknown_kind"] == UNKNOWN_SAMPLE
+    assert "complete_pairs_below_min" in ts_result["reason"]
+    assert summary["field_status"] == C.FIELD_INCONCLUSIVE  # pair-03 漏审是数据缺口，不是样本不足
+
+    proto, receipts, assignments, cohort = _six_pairs(provenance=IMPORTED)
+    summary6 = summarize(receipts, assignments, proto, cohort_events=cohort, due_rechecks=[])
+    metric = _metric(summary6, "time_saving_median")
+    assert metric["value"] == 0.5556
+    assert metric["coverage"] == {"participants": 3, "complete_pairs": 6, "categories": ["fact_check", "judgment_recheck"], "excluded_zero_original_share": 0.0}
+    assert _criteria(summary6)["time_saving"]["verdict"] == C.VERDICT_PASS
+    assert _criteria(summary6)["completion_quality"]["verdict"] == C.VERDICT_PASS
+    assert summary6["recommendation"] == "keep_observing"  # 主动复用没样本，不能建议继续验证
+    assert summary6["field_status"] == C.FIELD_OBSERVED
+
+
+def test_time_saving_fails_when_assistant_is_slower() -> None:
+    def slow_assisted(i: int, events: list[dict]) -> None:
+        for event in events:
+            if event["event_id"] == f"e-x{i}-a-done":
+                event["event_at"] = ts("09-15", "16:00:00")
+            if event["event_id"] == f"e-x{i}-a-int3":
+                event["payload"]["end"] = ts("09-15", "16:00:00")
+
+    proto, receipts, assignments, cohort = _six_pairs(provenance=IMPORTED, mutate=slow_assisted)
+    summary = summarize(receipts, assignments, proto, cohort_events=cohort, due_rechecks=[])
+    assert _metric(summary, "time_saving_median")["value"] < 0
+    assert _criteria(summary)["time_saving"]["verdict"] == C.VERDICT_FAIL
+
+
+def test_fast_but_lower_quality_blocks_and_pauses_recruitment() -> None:
+    def degrade_quality(i: int, events: list[dict]) -> None:
+        if i == 2:
+            review = next(e for e in events if e["event_id"] == "e-x2-a-review")
+            review["payload"]["dimensions"] = {"fact_sourcing": 1, "calculation": 1, "assumption_gaps": 1, "task_completion": 1}
+
+    proto, receipts, assignments, cohort = _six_pairs(provenance=IMPORTED, mutate=degrade_quality)
+    summary = summarize(receipts, assignments, proto, cohort_events=cohort, due_rechecks=[])
+    assert _criteria(summary)["time_saving"]["verdict"] == C.VERDICT_PASS
+    cq = _criteria(summary)["completion_quality"]
+    assert cq["verdict"] == C.VERDICT_FAIL and "assisted_quality_lower_in_some_pairs" in cq["reason"]
+    assert summary["recommendation"] == "pause_recruitment"
+
+
+def test_severe_error_blocks_pass() -> None:
+    def severe(i: int, events: list[dict]) -> None:
+        if i == 1:
+            next(e for e in events if e["event_id"] == "e-x1-a-review")["payload"]["severe_error_count"] = 1
+
+    proto, receipts, assignments, cohort = _six_pairs(provenance=IMPORTED, mutate=severe)
+    summary = summarize(receipts, assignments, proto, cohort_events=cohort, due_rechecks=[])
+    assert _metric(summary, "severe_error_count_assisted")["value"] == 1
+    assert "severe_errors_present" in _criteria(summary)["completion_quality"]["reason"]
+    assert _criteria(summary)["completion_quality"]["verdict"] == C.VERDICT_FAIL
+
+
+def test_missing_blind_review_makes_criterion_unknown_gap() -> None:
+    def drop_review(i: int, events: list[dict]) -> None:
+        if i == 3:
+            events[:] = [e for e in events if e["event_id"] != "e-x3-a-review"]
+
+    proto, receipts, assignments, cohort = _six_pairs(provenance=IMPORTED, mutate=drop_review)
+    summary = summarize(receipts, assignments, proto, cohort_events=cohort, due_rechecks=[])
+    cq = _criteria(summary)["completion_quality"]
+    assert cq["verdict"] == C.VERDICT_UNKNOWN and cq["unknown_kind"] == UNKNOWN_GAP
+    assert {"id": "t-x3-a", "reason": "no_independent_review"} in _metric(summary, "severe_error_count_assisted")["unknown"]
+
+
+def test_dropping_failed_receipts_cannot_improve_completion_rate() -> None:
+    """只保留成功样本：分母来自全部分配，没有收据的任务照样在分母里。"""
+
+    def fail_pair_four(i: int, events: list[dict]) -> None:
+        if i == 4:
+            done = next(e for e in events if e["event_id"] == "e-x4-a-done")
+            done["event_type"] = "task_failed"
+            done["payload"]["terminal_reason"] = "wrong_answer"
+            done["object_refs"] = []
+
+    proto, receipts, assignments, cohort = _six_pairs(provenance=IMPORTED, mutate=fail_pair_four)
+    survivors = [r for r in receipts if r["case_pair_id"] != "pair-x4"]
+    summary = summarize(survivors, assignments, proto, cohort_events=cohort, due_rechecks=[])
+    rate = _metric(summary, "assisted_completion_rate")
+    assert rate["value"] == 0.8333
+    assert "t-x4-a" in rate["denominator_ids"] and "t-x4-a" not in rate["numerator_ids"]
+    assert {"id": "t-x4-a", "reason": "unmeasured"} in rate["unknown"]
+    assert _metric(summary, "timeout_or_incomplete_rate")["value"] == 0.1667
+    # 不删收据时同样不能通过：失败任务的分母与完成率一起被看见。
+    full = summarize(receipts, assignments, proto, cohort_events=cohort, due_rechecks=[])
+    assert _metric(full, "assisted_completion_rate")["value"] == 0.8333
+    assert "assisted_completion_below_original" in _criteria(full)["completion_quality"]["reason"]
+    assert _criteria(full)["completion_quality"]["verdict"] == C.VERDICT_FAIL
+
+
+# ------------------------------------------------------ 主动复用 / 回检 / 续费 -----
+
+
+def test_manual_reminder_and_unknown_source_are_not_proactive() -> None:
+    summary, _, _ = _pipeline(["cohort_signals"], provenance=IMPORTED)
+    metric = _metric(summary, "proactive_reuse_rate")
+    assert metric["value"] == 0.3333
+    assert metric["numerator_ids"] == ["p04"] and metric["denominator_ids"] == ["p04", "p05", "p06"]
+    assert metric["detail"]["system_reminder_count"] == 1
+    assert metric["detail"]["not_proactive_reasons"] == {"p05": ["manual_reminder_within_quiet_hours"], "p06": ["reminder_source_unknown"]}
+    assert _criteria(summary)["proactive_reuse"]["verdict"] == C.VERDICT_FAIL
+
+
+def test_auto_recheck_and_view_only_are_not_completion() -> None:
+    summary, _, _ = _pipeline(["cohort_signals"], provenance=IMPORTED)
+    metric = _metric(summary, "recheck_completion_rate")
+    assert metric["value"] == 0.5
+    assert metric["numerator_ids"] == ["j-02"] and metric["denominator_ids"] == ["j-01", "j-02"]
+    assert metric["detail"]["viewed_only"] == ["j-01"]
+    assert metric["detail"]["auto_recheck_not_counted"] == ["j-01"]
+    assert metric["detail"]["not_yet_due"] == ["j-03"] and metric["detail"]["inaccessible"] == ["j-04"]
+    assert _criteria(summary)["recheck"]["verdict"] == C.VERDICT_OBSERVED_ONLY
+
+
+def test_due_list_unavailable_is_a_gap_not_zero() -> None:
+    summary, _, _ = _pipeline(["cohort_signals"], provenance=IMPORTED, due=None)
+    events = build_scenario("cohort_signals", P_HASH, provenance=IMPORTED)[0]
+    assignments, cohort = _split(events)
+    summary = summarize([], assignments, PROTOCOL, cohort_events=cohort, due_rechecks=None)
+    assert _metric(summary, "recheck_completion_rate")["value"] is None
+    recheck = _criteria(summary)["recheck"]
+    assert recheck["verdict"] == C.VERDICT_UNKNOWN and recheck["unknown_kind"] == UNKNOWN_GAP
+    assert "due_list_unavailable" in summary["limitations"]
+
+
+def test_renewal_needs_verified_second_payment_and_refunds_reverse() -> None:
+    events = build_scenario("cohort_signals", P_HASH, provenance=IMPORTED)[0]
+    assignments, cohort = _split(events)
+    early = summarize([], assignments, PROTOCOL, cohort_events=cohort, due_rechecks=[], as_of="2026-10-11")
+    renewal = _criteria(early)["renewal"]
+    assert renewal["verdict"] == C.VERDICT_UNKNOWN and renewal["reason"] == "renewal_window_not_reached"
+    assert _metric(early, "renewal_rate")["detail"]["first_payers"] == ["p04"]  # p05 已退款，不是首付者
+    assert _metric(early, "renewal_rate")["detail"]["refund_count"] == 1
+
+    late = summarize([], assignments, PROTOCOL, cohort_events=cohort, due_rechecks=[], as_of="2026-11-30")
+    assert _metric(late, "renewal_rate")["value"] == 0.0
+    assert _metric(late, "renewal_rate")["denominator_ids"] == ["p04"]
+
+    second = ev("payment_recorded", event_id="e-cs-pay-04-2", at=ts("10-15", "09:00:00"), channel=SOURCE_MANUAL, participant="p04", provenance=IMPORTED, payload={"payment_ref": "pay-04-2", "amount": 199, "currency": "CNY", "service_period": {"start": "2026-10-15", "end": "2026-11-14"}, "status": "paid", "verified_by": "bank-statement-2026-10"})
+    renewed = summarize([], assignments, PROTOCOL, cohort_events=cohort + [second], due_rechecks=[], as_of="2026-11-30")
+    assert _metric(renewed, "renewal_rate")["value"] == 1.0
+    assert _criteria(renewed)["renewal"]["verdict"] == C.VERDICT_OBSERVED_ONLY
+
+
+def test_no_first_payment_means_unstarted_and_null() -> None:
+    summary, _, _ = _pipeline(["complete_pair"], provenance=IMPORTED, due=[])
+    assert summary["commercial_status"] == C.COMMERCIAL_UNSTARTED
+    assert _metric(summary, "renewal_rate")["value"] is None
+    assert _criteria(summary)["renewal"]["unknown_kind"] == UNKNOWN_UNSTARTED
+
+
+# ------------------------------------------------------------ 成本与其它纪律 -----
+
+
+def test_cost_unknown_blocks_gross_margin() -> None:
+    summary, _, _ = _pipeline(["failed_retry", "cohort_signals"], provenance=IMPORTED)
+    detail = _metric(summary, "cost_full_status")["detail"]
+    assert detail["full_cost_status"] == "unknown"
+    assert detail["gross_margin"] is None and detail["gross_margin_reason"] == "cost_unknown"
+    assert detail["known_cost_by_currency"] == {"CNY": 50.12}  # 0.12 + 托管 50，未知项另列不归零
+    assert detail["unknown_component_count"] == 1
+
+
+def test_exposures_and_chat_volume_do_not_enter_metrics() -> None:
+    exposures = [
+        ev("task_exposed", event_id=f"e-cp-expose-{n}", at=ts("09-15", f"13:{n:02d}:00"), channel=SOURCE_FRONTEND, participant="p01", task="t-cp-a", case="case-fc-02", case_version="1", pair="pair-01", condition="assisted", provenance=IMPORTED, payload={"task_id": "t-cp-a", "policy_version": "policy-v1", "view_id": "view-list", "client_at": ts("09-15", f"13:{n:02d}:00")})
+        for n in range(50)
+    ]
+    plain, _, _ = _pipeline(["complete_pair"], provenance=IMPORTED, due=[])
+    noisy, noisy_receipts, _ = _pipeline(["complete_pair"], provenance=IMPORTED, due=[], extra_events=exposures)
+    # 曝光事件被接收、入账（可审计），但不进入任何指标：只有引用收据 id 的字段会变。
+    assert all(f"e-cp-expose-{n}" in noisy_receipts[0]["input_event_ids"] for n in range(50))
+
+    def _semantic(metrics: list[dict]) -> list[tuple]:
+        return [(m["metric_id"], m["value"], m["numerator_ids"], m["unknown"], m["coverage"], {k: v for k, v in m["detail"].items() if k != "invalid_receipts_included"}) for m in metrics]
+
+    assert _semantic(noisy["metrics"]) == _semantic(plain["metrics"])
+    assert noisy["criteria_results"] == plain["criteria_results"]
+    assert not any("exposure" in m["metric_id"] or "chat" in m["metric_id"] or "visit" in m["metric_id"] for m in noisy["metrics"])
+
+
+def test_empty_cohort_gives_null_values_and_collecting_status() -> None:
+    summary, _, _ = _pipeline(["empty_cohort"], provenance=IMPORTED, due=[])
+    assert all(m["value"] is None for m in summary["metrics"])
+    assert summary["field_status"] == C.FIELD_COLLECTING
+    assert summary["commercial_status"] == C.COMMERCIAL_UNSTARTED
+    assert summary["engineering_status"] == C.ENGINEERING_COMPLETE
+    assert all(c["verdict"] == C.VERDICT_UNKNOWN for c in summary["criteria_results"])
+
+
+def test_receipt_from_other_protocol_is_input_error() -> None:
+    summary, receipts, events = _pipeline(["complete_pair"], provenance=IMPORTED, due=[])
+    foreign = copy.deepcopy(receipts[0])
+    foreign["protocol_hash"] = "0" * 64
+    assignments, cohort = _split(events)
+    bad = summarize(receipts + [foreign], assignments, PROTOCOL, cohort_events=cohort, due_rechecks=[])
+    assert bad["engineering_status"] == C.ENGINEERING_INPUT_ERROR
+    assert bad["input_errors"][0]["code"] == "receipt_protocol_hash_mismatch"
+    assert "receipt_errors" in bad["limitations"]
+
+
+def test_server_channel_recheck_completed_by_participant_counts_only_once() -> None:
+    events = build_scenario("cohort_signals", P_HASH, provenance=IMPORTED)[0]
+    duplicate = copy.deepcopy(next(e for e in events if e["event_id"] == "e-cs-recheck-done-02"))
+    duplicate["recorded_at"] = ts("09-22", "10:05:00")
+    assignments, cohort = _split(events)
+    summary = summarize([], assignments, PROTOCOL, cohort_events=cohort + [duplicate], due_rechecks=build_scenario("cohort_signals", P_HASH)[2])
+    assert _metric(summary, "recheck_completion_rate")["numerator_ids"] == ["j-02"]
+    assert summary["event_accounting"]["duplicates"] == ["e-cs-recheck-done-02"]
+    assert SOURCE_SERVER == "server"
