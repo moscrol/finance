@@ -6,8 +6,8 @@
 
 ## 状态一句话
 
-**engineering_complete**（2026-09-13，代码提交 `fea6ef98`）：模块真实计算，合同 / 负例 / 边界测试通过，可由 06 调用。
-未 product_verified（无 UI / API，归 06）；未 field_evidence（无真人数据）。
+**engineering_complete**（2026-09-13，代码提交 `4d457d7a` = `fea6ef98` 主体 + pit_grade 对齐修补）：模块真实计算，
+合同 / 负例 / 边界测试通过，可由 06 调用。未 product_verified（无 UI / API，归 06）；未 field_evidence（无真人数据）。
 
 ## 任务 0 · 基线登记（2026-09-13）
 
@@ -62,29 +62,40 @@
 - 夹具 `intelligence/tests/fixtures/research_evolution/04/`（全部 `provenance=synthetic`，sha256 前 16 位）：
   `policy.json` ff729aa4c639c38e · `maintenance_report_01.json` 2da6db9f031b4bdd · `exercise_pack.json` effd5310709f6a4a · `scenario_full.json` 88d67d8a30ab8979。
 
-## 收据（绑定代码提交 `fea6ef98ebc53a0329def2f414e68a787ea743bf`）
+## 收据（绑定代码提交 `4d457d7a3cc6304c2ce714da795d37e527d19523`）
 
-原始输出：`/Users/a77/.finance-runtime/test-receipts/rd04-fea6ef98/`（`EXIT_CODES.txt` 汇总）；
-pytest 插件收据 `/Users/a77/.finance-runtime/test-receipts/20260913T064327Z-fea6ef98.json`。
-解释器 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`，在实现工作树根执行。
+原始输出：`/Users/a77/.finance-runtime/test-receipts/rd04-4d457d7a/`（`EXIT_CODES.txt` 汇总；上一版 `rd04-fea6ef98/` 保留）；
+pytest 插件收据 `/Users/a77/.finance-runtime/test-receipts/20260913T065249Z-4d457d7a.json`——**按 revision 取时间戳文件，不读 `latest.json`**
+（六棵树并发跑 pytest 会互相覆盖它）。解释器 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`，在实现工作树根执行。
 
 | 命令 | 结果 | exit |
 |---|---|---|
-| `pytest intelligence/tests --collect-only -q -k research_diagnostics` | 50 selected / 8410 collected | 0 |
-| `pytest intelligence/tests -q -k research_diagnostics` | 50 passed | 0 |
+| `pytest intelligence/tests --collect-only -q -k research_diagnostics` | 51 selected / 8411 collected | 0 |
+| `pytest intelligence/tests -q -k research_diagnostics` | 51 passed | 0 |
 | `pytest intelligence/tests/test_checkpoints.py intelligence/tests/test_judgments.py intelligence/tests/test_scenario_trees.py -q` | 78 passed | 0 |
 | `ruff check intelligence/services/research_diagnostics intelligence/tests/test_research_diagnostics_*.py` | All checks passed | 0 |
 | 额外回归 `pytest intelligence/tests/test_observation_script.py intelligence/tests/test_research_project.py -q` | 60 passed | 0 |
-| pre-commit 11 道（层级审计 / 路径字面量 / 未读字段 / 工具可达性 / 目录保鲜 …） | 提交 `fea6ef98` 时全部通过 | 0 |
+| pre-commit 11 道（层级审计 / 路径字面量 / 未读字段 / 工具可达性 / 目录保鲜 …） | 提交 `fea6ef98`、`4d457d7a` 时全部通过 | 0 |
 
 输入摘要：复合场景 15 records / 4 verdicts / 13 receipts / 4 maintenance items / 6 cases；报告 id `rd-…` 对乱序、三倍重复输入稳定。
 未知项：全仓 `pytest -q` 未在本树跑（本轨只新增文件，旧读取器与相邻模块回归已跑）；合并前按 AGENTS.md 跑等价 CI。
 
 ## diff 白名单
 
-`git diff --stat 31ddec51..fea6ef98` 只含：`intelligence/services/research_diagnostics/**`、
+`git diff --name-only 31ddec51..4d457d7a`（代码提交）只含：`intelligence/services/research_diagnostics/**`、
 `intelligence/tests/test_research_diagnostics_*.py`、`intelligence/tests/fixtures/research_evolution/04/**`。
-本目录 `PROGRESS.md` / `BLOCKED.md` 与交接文档另一提交。未改 API / UI / userspace / ledger-map / 注册表 / 原台账。
+本目录 `PROGRESS.md` / `BLOCKED.md` 与交接文档另行提交。未改 API / UI / userspace / ledger-map / 注册表 / 原台账。
+
+## 2026-09-13 · 对用户核对意见的补核
+
+用户逐条核过总合同事实层后补发三条意见与几条门禁提醒，对 04 的影响与处置：
+
+| 意见 | 对 04 的核对 | 处置 |
+|---|---|---|
+| 执行者读到的 spec 缺 09-06 之后的设计段（主树未提交，gitea/main 无） | 只读主树 `docs/superpowers/specs/2026-09-06-personal-research-calibration-endstate-design.md`（未提交 +222 行）中与 04 相关的行：L124 晚于次日开盘登记标 late、不进校准（与适配器截止规则一致）；L186 缺 `recorded_at` 的历史对象标 `trade_date_only`、`hindsight` 不进任何统计（前者与 04 原实现**不一致**，后者一致）；L188 日频粒度、不补假盘中时刻（与 `known_by` 退到按日比一致） | 修补 `4d457d7a`：剧本 / 树缺登记时刻但 as_of 已知 → `trade_date_only`，只有两者都缺才 `unverifiable`；补测试。其余无冲突。设计文本本身仍待改它的会话提交 |
+| README §3「不荐股」只约束对外渲染，维护 / 排序 / 诊断对象不过滤个股 | `grep scope` 全包：`ObjectRef.scope` 只存储与序列化，无任何按 scope / 个股的过滤；04 无对外渲染，未碰观察剧本硬门与 `compliance_gate` | 无需改动；已符合 |
+| spec 目录先合进 main（待用户确认） | `git merge-tree --write-tree gitea/docs/river-next-specs feat/research-diagnostics-04` exit 0（无冲突）；七份 spec 的 blob 与规格分支逐个相同 | 两种顺序对 04 都干净；若先合规格分支，本分支的 `31ddec51` 会自然去重 |
+| 门禁提醒：layer_audit / 路径字面量棘轮 / 收据别读 latest.json / 分支命名 | 层级审计与路径字面量门禁在两次提交均通过；收据按 revision 取时间戳文件；分支名 `feat/research-diagnostics-04` 带编号，未取工单号 | 无需改动 |
 
 ## 下一步
 
