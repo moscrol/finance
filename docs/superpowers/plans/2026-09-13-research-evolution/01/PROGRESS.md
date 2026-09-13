@@ -190,3 +190,10 @@ QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结�
   - J9[P2]（J6 相邻遗漏）：绑定 `created_day` 用 `market_day_of`——上海 09-12 00:30 创建的绑定不再因 UTC 写法提前一天成立。
   - J10[P1]（第四轮修复引出的新回归）：ambiguous 进项身份（dedup_key/item_version，仅歧义时加键）；最终去重同 id 冲突优先留 open 项——歧义消解（A→B→A）情形也不再吞 open。
 - 验证：模块 108 passed；QC 第五轮安全断言 test_round5.py 5 passed；全量 9648 passed / 77 skipped / 2 xfailed（干净树 @8127283d，`-rf` 无 FAILED 行）；ruff 干净；第一至四轮归档探针 01 组复跑不回归（与 QC 归档归一身份字段后逐字节一致）。
+
+## 第六轮（2026-09-13，QC round-6 复审：J11/J12）
+- 状态：第五轮修复复核有效，扩大边界确证 2 项（J11[P2] 解析端相邻遗漏；J12[P2] 本轮新回归；05 另有 PV10[P1]），整包暂不签收。
+- 修复（`a3cf9d4b`，2 条新测试先红后绿）：
+  - J11：parse_binding 的基线截止校验改用 market_day_of（Z/+08 同一时刻同结论；+14:00 伪装拒绝）。
+  - J12：链内复现节点拿独立 id（dedup_key 不动），supersedes 链恢复线性无环、三历史节点全留；末端去重还原 setdefault。附带语义（交 06）：旧 snooze/close 不自动作用于复现节点（实测落 rejected，open 保持 1）。
+- 验证：模块 110 passed；QC 第六轮安全断言 test_round6.py 6 passed；全量 9650 passed / 77 skipped / 2 xfailed（干净树 @a3cf9d4b，`-rf` 无 FAILED 行）；ruff 干净；第一至五轮归档探针 01 组复跑不回归（standards_01 输出与 QC 第六轮归档归一后逐字节一致）。
