@@ -31,10 +31,17 @@ moneyflow.py）已同步 E3/S2 同等改动——那是 L2 实际运营链（绑
 - quick_fact 与五条词面共现路由分开入场：它按窄意图判，入场券看材料不看长度。
 
 ## 下一步（按序）
-1. **合 main 待用户确认**（本仓纪律）；等价 CI 收据见下。
-2. E2 设计任务：拆分吞题 + material-only 契约投影 + 检索抑制 + 逐题交付（Q8 备忘录）。
-3. E2 修复后 T2/T3 重跑（全新会话）→ 正式 PK（未见新题、冻结双方原答）。
-4. 部署：合并后走新快照 + symlink + deploy_workbench_runtime.sh（沿用昨晚流程）。
+1. ~~合 main~~ **已合**：`e40f22b8`（合并树 CI 9549 passed / 0 failed）。
+2. ~~部署~~ **已部署**：快照 `~/.finance-runtime/finance-workspace-e40f22b83717`，
+   服务 source_revision=e40f22b83717、code_matches_repo=True；回滚锚 2ee664fa 保留。
+3. ~~E3 旧窗口~~ **已关闭**：`fix/l2-pct-chg-backfill-0913`（`734e6613`）新增
+   `--repair-pct-chg`，生产 52/52 天已回填：0 不符 0 反号，唯一 NULL=688797@06-24
+   （两表各 1 行，日线本身无涨幅，已登记）；备份在 ~/.finance-runtime/db-repair/l2-pct-chg-20260913/。
+   **该分支待用户确认后合 main**。
+4. E2 设计任务：拆分吞题 + material-only 契约投影 + 检索抑制 + 逐题交付（Q8 备忘录）。
+5. E2 修复后 T2/T3 重跑（全新会话）→ 正式 PK（未见新题、冻结双方原答）。
+6. 运营覆盖层收口：主检出树闲鱼副本与仓内版已同内容（E3/S2/repair 之外无差异需核），
+   迁移到仓内版运行是独立任务。
 
 ## 不要做
 - 不要把 fix 树文件提交进主检出树；主树他人的暂存（如某 SKILL.md 删除）不要碰。
