@@ -94,6 +94,56 @@ def test_same_day_symbol_capital_flow_uses_shared_cache(tmp_path, monkeypatch):
     assert reloaded.cache_stats()["queries"] == 0
 
 
+def test_canonical_pct_chg_overrides_intraday_on_read_side(tmp_path, monkeypatch):
+    """2026-09-13 QC E3：当日涨幅%以日线口径（收盘/前收）为准，读出侧统一覆盖。
+
+    - 传了覆盖表：返回值用日线口径，不是逐笔的末笔/首笔；
+    - 覆盖表缺该代码：None，不拿日内口径冒充日线；
+    - 磁盘缓存里的旧口径条目命中时同样被纠正（覆盖在读出侧，无需清缓存）；
+    - 不传覆盖表：兼容旧行为。
+    """
+    module = _load_module(
+        monkeypatch, "server_aggregation_canonical_pct", "server_aggregation.py"
+    )
+    cache_path = tmp_path / "l2-cache.json"
+    rows = [(12, 10.0, 11.0, 1_500_000.0, 2_000_000.0)]  # 日内末笔/首笔 = +10%
+
+    legacy = module.L2QueryService(
+        "2026-07-15",
+        50.0,
+        lambda: FakeClient(list(rows)),
+        cache=module.SharedQueryCache(cache_path),
+        retries=1,
+    )
+    _, seeded = legacy.capital_flow(FakeClient(list(rows)), "600000")
+    assert seeded.change_pct == pytest.approx(10.0)
+
+    service = module.L2QueryService(
+        "2026-07-15",
+        50.0,
+        lambda: FakeClient(list(rows)),
+        cache=module.SharedQueryCache(cache_path),
+        retries=1,
+        pct_chg_by_code={"600000": 3.5},
+    )
+    _, covered = service.capital_flow(FakeClient(list(rows)), "600000")
+    assert covered.change_pct == pytest.approx(3.5)
+    assert covered.active_net_wan == 150.0  # 净额不受覆盖影响
+
+    _, missing = service.capital_flow(FakeClient(list(rows)), "000001")
+    assert missing.change_pct is None
+
+    plain = module.L2QueryService(
+        "2026-07-15",
+        50.0,
+        lambda: FakeClient(list(rows)),
+        cache=module.SharedQueryCache(tmp_path / "other.json"),
+        retries=1,
+    )
+    _, raw = plain.capital_flow(FakeClient(list(rows)), "600000")
+    assert raw.change_pct == pytest.approx(10.0)
+
+
 def test_default_shared_cache_uses_moneyflow_output_dir(tmp_path, monkeypatch):
     monkeypatch.setenv("MONEYFLOW_OUTPUT_DIR", str(tmp_path))
     module = _load_module(
