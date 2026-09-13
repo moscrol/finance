@@ -38,6 +38,16 @@
 | 09-13 | 离线 CLI + Markdown | `intelligence/eval/product_value/{cli,render,__main__}.py` | `test_product_value_cli.py`（8 条，含夹具漂移守卫） | 0 |
 | 09-13 | 夹具（synthetic）与 README | `intelligence/tests/product_value_fixtures.py` → `intelligence/tests/fixtures/research_evolution/05/` | `validate` accepted 69；`summarize` → pair-01 valid / pair-02 incomplete / pair-03 incomplete；engineering_complete / pending / unstarted | 0 |
 | 09-13 | 四周试点材料 | `docs/research-pilots/research-evolution/`（协议模板、任务卡、评分表、邀请、同意、时间费用、访谈、团队证据包、总结模板） | 协议模板可被 `freeze` 冻结（测试覆盖） | 0 |
+| 09-13 | 协调方补发件对齐 | 邀请 / README / 访谈提纲：「不荐股」只约束对外输出，试点与维护对象 scope 不过滤个股；CLI 测试改用 `__file__` 定位仓根 | `test_product_value_cli.py` 8 passed；ruff 0 | 0 |
+
+### 协调方补发件（2026-09-13）逐条对 05
+
+| 条 | 对 05 的影响 | 处置 |
+|---|---|---|
+| 1. 主树未提交的 09-06 / 09-05 设计段 | 主树 09-06 spec 相对 gitea/main 多 222 行，其中与 05 相关只有一句「周活、留存和付费转化是经营指标，不能替代学习效果」，与本轨三态分离一致；05 不消费 pit_grade / 投影契约 | 无需改码；等改动方提交到 main 后无追加依赖 |
+| 2. 「不荐股」措辞 | 邀请模板原写「工具只做大盘、板块、题材研判」，比补发件口径更窄 | 已改三处措辞（见上表） |
+| 3. spec 目录先合 main | 本分支树里没有 spec 目录（只读了 `docs/river-next-specs`） | 等用户确认合入；合入后本分支无需变更 |
+| 工程提醒 | layer_audit / 路径字面量 / 收据按 revision 取时间戳文件 三条已满足；Brier 属 03；分支名映射：05 = `feat/research-evolution-05-product-value` | 无需变更 |
 
 ### 收据
 

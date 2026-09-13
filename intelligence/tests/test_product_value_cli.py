@@ -118,7 +118,9 @@ def test_cli_rejects_tampered_protocol(tmp_path: Path, capsys) -> None:
 def test_cli_freeze_template_then_reject_edits(tmp_path: Path, capsys) -> None:
     import yaml
 
-    template = Path("docs/research-pilots/research-evolution/protocol.yaml")
+    # 以测试文件定位仓根，不依赖 pytest 的 cwd（从子目录起跑也成立）。
+    template = Path(__file__).resolve().parents[2] / "docs" / "research-pilots" / "research-evolution" / "protocol.yaml"
+    assert template.is_file(), template
     frozen_path = tmp_path / "frozen.yaml"
     assert main(["freeze", "--protocol", str(template), "--out", str(frozen_path)]) == 0
     printed = json.loads(capsys.readouterr().out)
