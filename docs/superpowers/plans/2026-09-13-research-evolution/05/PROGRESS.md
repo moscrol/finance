@@ -173,3 +173,11 @@ QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结�
   2. **收据层 OR 核销**（measure.py 派生缺口）：`run_id ∈ costed_runs or attempt_id ∈ costed_attempts`——错配费用在汇总层已拦（dd5d54aa）但收据自身仍 valid、缺口为空；06 独立保存展示收据，读收据的消费者看不到缺账。修复：联合身份谓词上移 `contracts.cost_item_covers_attempt`（公共合同），测量层核销与汇总层覆盖共用——错配费用不为任何执行作证，缺口留在收据并降级 incomplete（spec：覆盖不明为 incomplete，缺账保留未知）。
 - 验证：模块 121 passed（119+2）；第一至七轮安全断言与归档探针复跑全绿（05extra exit=0、standards_01/02/04/04_boundary OK、original_probe_05 内容 OK、round4/5/6/7 = 4/5/6/8 passed）；全量 9660 passed / 1 已知 10s 墙钟 flaky（隔离 3/3 绿）/ 77 skipped @95a4efea；ruff 干净。
 - 复跑教训：probe_05_extra 的 argv 是树路径不是 SHA——传错参数会报 ModuleNotFoundError 假「回归」，先读探针契约再下结论。
+
+## Round-9（2026-09-14，QC：有效候选 + 收据层逐组件）
+- 状态：round-8 补遗两项修复通过；扩大边界再确证两个相邻 P1（父提交存在，非回归）。共同根因（QC）：共享一个身份谓词 ≠ 共享完整校验——有效候选、身份、必需组件、公开输出四处必须一致。
+- 修复（`cee71963`，2 条公开入口回归测试先红后绿）：
+  1. **被去重排除的费用仍能核销收据缺口**：派生缺口循环遍历的 selected 列表含全部审计条目（含 selected=False）——错配粗账 + 身份正确但被挤出的细账 → 修前收据 valid 缺口清空。修复：selected=False 不作证（内建进共享规则），人工救援费检查同步过滤。
+  2. **收据用「任意一笔」代替逐组件完整性**：any(联合身份命中) 让一笔工具费核销整个执行。修复：「按协议 × 执行实例 × 组件」上移 `contracts.attempt_uncovered_components`（必需 = 协议适用集 ∩ 固有模型组件；成功 writer+review、失败 writer），测量/汇总共用；收据逐组件写缺项并降级。合法通路保留（失败不强要 review、人工计时不动）。
+- 既有 pin 透明调整 4 处（语义修正结果，注释写明）：cost_gaps retry→writer_model；no_cost_evidence 缺口 1→2 条；failed_run_without_report 新增 review 缺口；gross_margin 类别级 review_model 被收据级 a-fr-2 精确命名顶替（计数巧合仍 11）。
+- 验证：模块 123 passed（121+2）；第一至八轮归档全绿（05extra exit=0、五探针 OK、round4–7 = 4/5/6/8 passed）；**全量 9663 passed / 77 skipped，exit=0**（干净树 @cee71963，本轮无 flaky）；ruff 干净。
