@@ -42,8 +42,10 @@ from intelligence.api.structured_reports import (
     new_structured_report,
     upsert_report_module,
 )
+from intelligence.api import research_evolution as research_evolution_api
 from intelligence.api.stream_events import PUBLIC_EVENT_TYPES
 from intelligence.services import followups as followups_svc
+from intelligence.services import research_evolution as research_evolution_svc
 from intelligence.services import kb_rag
 from intelligence.services import llm_refine
 from intelligence.services import market_moneyflow
@@ -2292,6 +2294,8 @@ def create_app(
     auth_gate: AuthGate | None = None,
     run_quota: RunQuota | None = None,
     run_supervisor: RunSupervisor | None = None,
+    research_evolution_evidence: object | None = None,
+    research_evolution_clock: object | None = None,
 ) -> FastAPI:
     root = (repo_root or REPO_ROOT).resolve()
     effective_default_user_id = userspace.resolve_user_id(None)
@@ -2795,6 +2799,33 @@ def create_app(
         )
         payload = redact_value(state.to_dict())
         return payload if isinstance(payload, dict) else state.to_dict()
+
+    # --- 研究进化（01–05）接线：独立 router，注入既有 store 与资源 ---------------- #
+    # 市场库路径显式解析：``river`` 的缺省是 cwd 相对路径，在 uvicorn 的工作目录下会指向别的树。
+    _market_db = os.environ.get("MARKET_FEATURE_STORE_DB") or str(
+        app.state.finance_root / "db" / "market_feature_store.duckdb"
+    )
+    # 市场取数与时钟可注入：验收要在固定市场输入上跑真实 01–05（spec §7），
+    # 但注入的只是**资源**，判定仍由各 owner 的真函数给出。
+    _evolution_kwargs: dict[str, object] = {}
+    if research_evolution_clock is not None:
+        _evolution_kwargs["clock"] = research_evolution_clock
+    _evolution_resources = research_evolution_svc.Resources(
+        evidence_source=research_evolution_evidence or research_evolution_svc.RiverEvidenceSource(db_path=_market_db),
+        conversation_store_for=conversation_store_for,
+        run_store_for=store_for,
+        finance_root=app.state.finance_root,
+        code_sha=str(runtime_provenance.get("source_revision") or ""),
+        **_evolution_kwargs,  # type: ignore[arg-type]
+    )
+    _evolution_service = research_evolution_svc.ResearchEvolutionService(_evolution_resources)
+    app.include_router(
+        research_evolution_api.build_router(
+            service_for=lambda: _evolution_service,
+            # 有效 owner 每次请求重算：``WORKBENCH_AUTH_MODE`` / 允许名单可在进程外改。
+            access_policy=lambda: research_evolution_svc.AccessPolicy.from_env(auth_mode=gate.mode),
+        )
+    )
 
     @app.get("/api/llm/config")
     def get_llm_config(user: str | None = None) -> dict[str, object]:
