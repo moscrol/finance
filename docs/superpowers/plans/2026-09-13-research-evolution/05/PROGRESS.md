@@ -147,3 +147,8 @@ QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结�
 - 状态：原四轮修复复核有效，但扩大边界确证 1 项新问题（PV9[P1]；01 另有 J8/J9/J10），整包暂不签收；同时更正第四轮失败归因（见第四轮条目内批注）。
 - 修复（`340d3b26`，1 条新测试先红后绿）：PV9[P1]（PV8 相邻遗漏）——辅助任务无 run 时的费用核销改为按协议适用集 ∩ 固有模型组件 {writer_model, review_model} 逐个核验，一笔工具费或只有 writer 的账不再替缺失的模型费作证；合法对照（writer/review/tool 三件套）known CNY 0.93。
 - 验证：模块 114 passed；QC 第五轮安全断言 test_round5.py 5 passed；全量 9654 passed / 77 skipped / 2 xfailed（干净树 @340d3b26，`-rf` 无 FAILED 行）；ruff 干净；第一至四轮归档探针 05 组复跑不回归（PV7 分母 q1..q6、rate 0.5、verdict unknown 保持）。
+
+## 第六轮（2026-09-13，QC round-6 复审：PV10）
+- 状态：第五轮修复复核有效，扩大边界确证 1 项（PV10[P1]，PV9 相邻遗漏；01 另有 J11/J12），整包暂不签收。
+- 修复（`cf7e05a5`，1 条新测试先红后绿）：组件级核验贯穿有 run 分支——_assisted_task_uncovered_components 不再对 attempts 早退，费用关联认 task_id / run_id / attempt_id；阻断条目带 uncovered_components；有 run 阻断理由单列 assisted_task_model_cost_unbilled。全失败辅助任务不按固有组件拦（review 未发生，缺账由 retry 派生缺口表达）——failed_retry pin 10→11 并注明语义来源。
+- 验证：模块 115 passed；QC 第六轮安全断言 6 passed（no_fees/tool_only/writer_tool unknown、三件套 known 0.93、receipt 零拒绝）；全量 9655 passed / 77 skipped / 2 xfailed（干净树 @cf7e05a5，`-rf` 无 FAILED 行）；ruff 干净；第一至五轮归档探针 05 组复跑不回归（probe_05_extra 输出与 QC 第六轮归档归一后逐字节一致）。
