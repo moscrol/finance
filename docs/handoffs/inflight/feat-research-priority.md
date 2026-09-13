@@ -11,15 +11,16 @@
 - 纯重复读取不改写问句，多来源合成才加「同时影响 N 条来源」；否了一律改写——P10 重复读取的摘要会变。
 - 队列「降级/观察」桶只 skip 不生成任务；否了当探索项——队列本意是减少投入。
 - 日期按 UTC 日历日比较，裸 datetime 整份拒绝；否了默认当 UTC——差 8 小时且事后看不出。
+- hindsight 任务只标记不 blocked，且不与同证据当前任务合并；否了直接 blocked——历史重放要能排序，只是不能当当前优先级。
 展开见 `docs/handoffs/2026-09-13-research-priority-02.md`。
 
 ## 当前状态
 
-已提交 46922d3f（代码 / 56 测试 / 6 夹具 / 证伪收据）、fb41459b（PROGRESS / BLOCKED / 最终收据）。树干净。未 push gitea、未开 PR、未合 main（等用户确认）。
+已提交 46922d3f / fb41459b / 6c33325b / add35fc8（最新：09-06 终局对齐）。树干净。未 push、未开 PR、未合 main（等用户确认）。
 
 ## 已验证
 
-主树 venv：`pytest -k research_priority` 56 passed；ruff 0；现役相关 7 套 98 passed；layer_audit / unread_fields / path_literals exit 0；11 道 pre-commit 全过。M1（未知耗时当 0）/ M2（hash 变化当放弃）各红 2，恢复后绿、cmp 字节一致（`plans/…/02/receipts/`）。01 在途 `assess()` 真产物零改动流过（P12）。
+主树 venv：`pytest -k research_priority` 59 passed；ruff 0；现役相关 7 套 98 passed；layer_audit / unread_fields / path_literals exit 0；pre-commit 全过。M1 / M2 变异各红 2，恢复后绿、字节一致（`plans/…/02/receipts/`）。01 在途 `assess()` 真产物零改动流过（P12）。
 
 ## 未验证 / 已知边界
 
@@ -30,7 +31,7 @@
 
 ## 下一步
 
-1. 用户确认后 push gitea、开 PR；合并顺序由 06 按 01→02 依赖排。
+1. 用户确认后 push、开 PR；合并顺序由 06 按 01→02 依赖排。
 2. 01 定稿 → 重跑 P12；06 接 `adapt_candidates` + `prioritize` + `render_view`，点击带 `click_payload`。
 3. 05 按 task_id + policy_version 关联事件。
 
@@ -39,4 +40,4 @@
 - 现役 `build_research_queue` 把「降级/观察」算进 action 桶，summary.total 含它；写期望前先跑真函数。
 - 同组按 due 早→晚：09-10 到期的 unverifiable 排在 09-11 前，不是 bug。
 - 变异测试加 `-B -p no:cacheprovider` 并先删 `__pycache__`，防读旧 .pyc。
-- 白名单不含 `scripts/`：收据 runner 与跨树 PYTHONPATH 探针只留在收据 / BLOCKED，未成工具；模式见 `~/agent-memory/10_knowledge/seam-test-inflight-sibling-module.md`。
+- 白名单不含 `scripts/`：收据 runner 与跨树探针未成工具，只留收据 / BLOCKED；模式见 `~/agent-memory/10_knowledge/seam-test-inflight-sibling-module.md`。

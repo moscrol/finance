@@ -14,7 +14,8 @@
 | 实际用户态根 | 本轨**不触用户态**：包内不读文件/库/网络/时钟，owner 与输入对象由调用方注入。生产根由 06 用 `userspace.user_space(user).root` 解析并核实 `FORESIGHT_USERS_DIR`；本轨测试全部内存夹具，未写任何用户目录 |
 | 代码地图 | 主树 `ready n=22076 @b4a35fa`（SessionStart 注入）；本轨按精确符号定位，未以地图结果断言能力缺失 |
 | 计划修改路径（独占白名单） | `intelligence/services/research_priority/**`、`intelligence/tests/test_research_priority_*.py`、`intelligence/tests/fixtures/research_evolution/02/**`、本目录 |
-| 最终提交 | `46922d3f`（代码/测试/夹具/证伪收据）；本文件与 BLOCKED.md 随后一提交 |
+| 最终提交 | `add35fc8`（09-06 终局对齐：hindsight / frozen_llm / 限制前置；夹具去家目录路径）← `46922d3f`（首版代码/测试/夹具/证伪收据）；文档提交 `fb41459b`、`6c33325b` |
+| 分支映射（给 06） | 02 ↔ `feat/research-priority`（不带编号，本批不取工单号）；01 `feat/judgment-maintenance-01`、05 `feat/research-evolution-05-product-value`、规格 `docs/river-next-specs`；本分支基于规格分支，已携带 `194241dd`/`28804505` |
 
 ## 1. 任务 0：现役符号核对与映射
 
@@ -54,8 +55,8 @@
   - `adapters.py`：`adapt_candidates(source_records, context)`，四种 `kind`（`maintenance_report|maintenance_item|research_project|research_queue|data_request`），返回 `research-priority-candidates/v1 {owner_user_id, tasks[], skipped[{source,reason,detail}], synthetic}`。
   - `ranker.py`：`prioritize(candidates, policy, budget, evaluation_at, *, owner_user_id=None)` → `research-priority/v1`。
   - `render.py`：`render_view`（`research-priority-view/v1`，中文标签 + 全部 reasons + `click_payload{task_id,source_refs,conversation_id,scope,object_refs}`）、`render_markdown`。
-- 测试 56 条：`test_research_priority_{contracts,ranker,adapters}.py`；夹具 6 份（全部 `synthetic: true`）。
-- 收据：`receipts/mutation-01-*`、`receipts/mutation-02-*`（红）、`receipts/green-after-restore.txt`、`receipts/final-46922d3f.txt`（绑定最终 SHA）。
+- 测试 59 条：`test_research_priority_{contracts,ranker,adapters}.py`；夹具 6 份（全部 `synthetic: true`，无家目录字面量）。
+- 收据：`receipts/mutation-01-*`、`receipts/mutation-02-*`（红）、`receipts/green-after-restore.txt`、`receipts/final-46922d3f.txt`、`receipts/final-add35fc8.txt`（绑定最终 SHA）。pytest 读数按 revision 取 `~/.finance-runtime/test-receipts/<时间戳>-<rev>.json`，不读 `latest.json`（六树并发会互相覆盖）。
 
 ### 验收场景对照
 
@@ -81,7 +82,11 @@
 
 **调用**：`adapt_candidates(records, {"owner_user_id", "conversation_id"?, "as_of"?, "knowledge_cutoff"?, "effort_estimates": {"<source.kind>:<source.id>": effort}, "request_bindings": {request_id: [object_ref]}, "synthetic"?})` → `prioritize(candidates, policy, budget, evaluation_at)`。`evaluation_at` 必须是带时区的时刻（`Z`/偏移），06 取可信 UTC 注入；历史重放显式给历史时刻。`policy` 缺省 `{policy_version: research-priority-policy/v1, max_items: 3, max_per_object: 1}`；`budget` `{minutes: number|null}`。`generated_at` 报告里为 `null`，由 06 渲染/落盘时填，不进 id/摘要。
 
-**在 spec §4 之上的附加字段**（均为增量，不改既有字段语义）：任务 `human_review_required`（散文完成条件 / 机器判不了）、`availability_reason`（解除条件文字）、`management_status`（01 状态透传）、`merged_source_refs`（合并前全部来源）、`source_task_ids`、`synthetic`；报告 `totals.{input_count,merged_count,deferred_count,blocked_count}`、`synthetic`；`deferred[].detail/group`、`blocked[].release_condition/available_at`。候选包多一个 `skipped[]` 供对账（`prioritize` 只吃 `tasks`，06 展示 skipped 需自取）。
+**在 spec §4 之上的附加字段**（均为增量，不改既有字段语义）：任务 `human_review_required`（散文完成条件 / 机器判不了）、`availability_reason`（解除条件文字）、`management_status`（01 状态透传）、`merged_source_refs`（合并前全部来源）、`source_task_ids`、`synthetic`、`hindsight`（01 报告 / 调用方 context 透传；09-06 终局 §4.1「只供人工复核，不进校准」，与同证据的当前任务不合并、id 不同）；报告 `totals.{input_count,merged_count,deferred_count,blocked_count}`、`synthetic`、`hindsight`（任一任务为 hindsight 即整份报告标出并加 limitation，06 不得当作当前优先级渲染，03/05 不得计入统计）；`deferred[].detail/group`、`blocked[].release_condition/available_at`。候选包多一个 `skipped[]` 供对账（`prioritize` 只吃 `tasks`，06 展示 skipped 需自取）。
+
+**与主树未提交的 09-06 终局设计段的对齐**（该设计段不在 gitea/main，按只读参考核对）：`pit_grade` 枚举与 main 代码一致（strict / trade_date_only / unverifiable），合并取最弱、区间同理；`knowledge_cutoff` 按交易日粒度比较，02 只解析不补时分；证据引用 `namespace=frozen_llm` 时理由带「可读不可重算」标记，分组不因散文改变（§4.2）；`render_markdown` 把限制与缺口放在入选前（§4.5 规矩 2）。**命名分歧留给 06**：09-06 §4.3 的 gap 形状是 `{track, reason, source_checked_at, retryable}`，02 沿用 01 的 `{reason, ref, checked_at, retryable}`；投影层若要统一，改字段名映射，不改两边语义。
+
+**不荐股的边界**：只约束对外渲染。02 的 `scope.entity_refs` 与 `object_refs` 不过滤个股，01 维护的个股判断照常排序；理由与 limitations 由规则生成、不含方向性买卖措辞（测试 `test_reasons_are_generated_from_facts_and_never_promise_returns` 断言）。观察剧本硬门本批不动，下沉到渲染层留给下一批。
 
 **任务 id**：`rt_` + sha256(合并键)，合并键 = 有证据引用时（owner, effect_kind, availability, 证据版本集合），否则（owner, effect_kind, availability, 归一问句, entity_refs, as_of, due_at, 绑定对象集合）。同一证据新增受影响判断不改 id；调用方自定 id 只保留在 `source_task_ids`。05 按 `task_id + policy_version` 关联曝光/选择/完成。
 
@@ -100,6 +105,7 @@
 
 ## 5. 下一步
 
+0. 规格目录目前只在 `docs/river-next-specs`（已推 gitea）；本分支带着它，04 分支重新提交了同内容，01/03/05 树里没有。先把纯文档分支合进 main 再各轨从 main 拉最干净——这一步等用户确认；同内容新增文件在最终合并时也能自动合。
 1. 01 定稿后用其最终 revision 重跑 `assess()` 替换 `from_01_inflight_assess_report_synthetic.json`（见 BLOCKED §1）。
 2. 06 接线：`GET …/research-evolution` 里 `priority` 段放 `render_view(prioritize(...))`；点击带 `click_payload`。
 3. 05 按 `task_id + policy_version` 关联事件；策略变更升 `policy_version`。
