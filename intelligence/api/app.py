@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import sys
 import threading
 import time
 from collections import Counter
@@ -2925,6 +2926,18 @@ def create_app(
                 continuation_payload = _validated_continuation(
                     run_store, conversation_id, req.continuation
                 )
+            else:
+                # QC T3：首轮 select_task 没有起源 run，前端按消息合同（run_id 非空）发不出
+                # continuation——服务端用动作台账里记录的任务选择把结构化来源水合回来。
+                # 水合是增强：失败只留痕，消息入口不为研究进化的降级买单。
+                try:
+                    continuation_payload = _evolution_service.pending_task_continuation(
+                        ctx=research_evolution_svc.OwnerContext.for_owner(run_store.user_id),
+                        conversation_id=conversation_id,
+                        content=req.content,
+                    )
+                except Exception as exc:  # noqa: BLE001 - 水合失败退回普通消息，不阻塞聊天
+                    print(f"[research-evolution] 首轮任务上下文水合失败（{conversation_id}）：{exc}", file=sys.stderr)
             _precheck_admission(run_store.user_id)
             _reserve_run_quota(run_store.user_id)
             run = run_store.create_run(
@@ -2975,6 +2988,17 @@ def create_app(
             except Exception:
                 _compensate_failed_submission()
                 raise
+            # QC T1：启动执行器**之前**建立可信的 request→run 关联——run 在浏览器第二个
+            # 请求（link_run）之前到终态时，终态收尾认的正是这行运行前登记。
+            # 失败只留痕：客户端显式 link_run 仍是主路径。
+            try:
+                _evolution_service.bind_pending_rejudge_run(
+                    ctx=research_evolution_svc.OwnerContext.for_owner(run_store.user_id),
+                    conversation_id=conversation_id,
+                    run_id=run.run_id,
+                )
+            except Exception as exc:  # noqa: BLE001 - 登记失败不阻塞消息，link_run 仍可补偿
+                print(f"[research-evolution] 消息接受侧关联登记失败（{run.run_id}）：{exc}", file=sys.stderr)
             try:
                 supervisor.submit_conversation(
                     run_store,

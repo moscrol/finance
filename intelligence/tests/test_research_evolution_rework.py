@@ -880,3 +880,169 @@ def test_q9_observer_never_blocks_run_on_evolution_lock(world: World, capsys: py
         holder.join(timeout=5)
     assert blocker_elapsed[0] < 0.3 + 1.0, f"run 被测量锁堵了 {blocker_elapsed[0]:.2f}s（阈值内应立刻返回）"
     assert "跳过" in capsys.readouterr().err, "锁被占必须 stderr 留痕（事件丢失可见），不是静默"
+
+
+# --------------------------------------------------------------------------- #
+# 第三轮 QC（re06-0c275716）T1–T5：探针的正确合同固化。
+# 探针本体在 docs/verification/re06-0c275716/test_review_round3.py；这里是仓内回归。
+# --------------------------------------------------------------------------- #
+def test_t1_run_terminal_before_second_request_still_reconciles(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """T1：run 在浏览器第二个请求（link_run）之前到终态——消息接受侧已登记可信关联，收尾不卡死。
+
+    真实 UI 次序是「先 POST messages 拿 run_id，再 POST link_run」，模型可以在此之前就失败。
+    修复：create_message 在启动执行器前把 run 登记到本会话唯一待复核项（带 request_event_id 代际）。
+    """
+    def fail_turn(**kwargs: object) -> None:
+        kwargs["run_store"].finish_run(kwargs["run_id"], "failed", error="model unavailable")  # type: ignore[attr-defined]
+
+    monkeypatch.setattr(app_module, "_run_conversation_turn", fail_turn)
+    item = world.seed_rejudged_item()
+    posted = world.client.post(
+        f"/api/conversations/{world.conversation_id}/messages",
+        json={"user": fx.OWNER, "content": "继续核查", "skill_mode": "hybrid"},
+    )
+    assert posted.status_code == 202, posted.text
+    run_id = posted.json()["run_id"]
+    world.wait_terminal(run_id)
+
+    # 关联在消息接受侧已落盘（不等客户端 link_run），且带本轮请求的代际身份。
+    store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+    links = [r for r in store.list_run_links(item_id=item["id"]) if str(r.get("run_id")) == run_id]
+    assert len(links) == 1, f"接受侧必须登记恰好一条关联：{links}"
+    assert links[0]["request_event_id"] == item["management"]["rejudgment"]["request_event_id"]
+    assert links[0]["conversation_id"] == world.conversation_id
+
+    # 迟到的客户端 link_run：观察器已折回 → 重放折回结果；观察器还没落地 → 内联折回。都必须 200。
+    response = world.act(idempotency_key=f"link_run:{item['id']}:{run_id}", run_id=run_id, **world.link_args(item["id"]))
+    assert response.status_code == 200, f"合法复核不许因「登记前终态」被拒：{response.text}"
+    closed = world.wait_item_status(item["id"], "open")
+    assert closed["management_revision"] == item["management_revision"] + 1, "失败折回恰好一次（观察器与客户端不双写）"
+    assert closed["management"]["rejudgment"]["last_failure"]["kind"] == "rejudgment_failed"
+
+
+def test_t1_accept_time_binding_scoped_to_requesting_conversation(world: World) -> None:
+    """T1 边界：待复核是别会话发起的 → 本会话的消息不被认领，不产生关联行。"""
+    item = world.seed_rejudged_item()
+    other = world.client.post("/api/conversations", json={"user": fx.OWNER}).json()
+    posted = world.client.post(
+        f"/api/conversations/{other['conversation_id']}/messages",
+        json={"user": fx.OWNER, "content": "别会话的普通消息", "skill_mode": "hybrid"},
+    )
+    assert posted.status_code == 202, posted.text
+    world.wait_terminal(posted.json()["run_id"])
+    store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+    assert store.list_run_links(item_id=item["id"]) == [], "别会话的 run 不许被绑到本项"
+    time.sleep(0.3)  # 观察器若误折回，下一行会抓到
+    assert world.current_item(item["id"])["status"] == "rejudgment_requested"
+
+
+def test_t2_late_terminal_of_old_request_does_not_fold_new_request(world: World) -> None:
+    """T2：请求 A 的 run 迟到终态，只留旧请求审计，不迁移重新发起的请求 B 的状态。"""
+    from intelligence.services.research_evolution.run_observer import ObservingRunStore
+
+    item = world.seed_rejudged_item()
+    observer = ObservingRunStore(
+        user_id=fx.OWNER,
+        evolution_root=world.user_root / "research_evolution",
+        maintenance_folder=lambda run_id: world.service.fold_run_terminal(ctx=OwnerContext.for_owner(fx.OWNER), run_id=run_id),
+    )
+    old_run = observer.create_run(question="第一轮复核", task_type="research", session_id=world.conversation_id)
+    world.act(idempotency_key="k-t2-reg", run_id=old_run.run_id, **world.link_args(item["id"])).raise_for_status()
+    cancel_args = world.link_args(item["id"])
+    cancel_args["action"] = "cancel_rejudge"
+    world.act(idempotency_key="k-t2-cancel", **cancel_args).raise_for_status()
+    world.clock.advance(seconds=1)
+    world.rejudge(world.current_item(item["id"]), key="k-t2-second")
+    before = world.current_item(item["id"])
+
+    observer.finish_run(old_run.run_id, "failed", error="第一轮的迟到失败")
+    after = world.current_item(item["id"])
+    assert after["status"] == "rejudgment_requested", "旧请求的 run 不许折回新请求"
+    assert after["management_revision"] == before["management_revision"]
+    last_failure = after["management"]["rejudgment"].get("last_failure") or {}
+    assert last_failure.get("kind") == "rejudgment_cancelled", "last_failure 仍属旧请求审计，不被迟到失败覆写"
+
+
+def test_t3_first_turn_select_task_sources_reach_message(world: World) -> None:
+    """T3：首轮 select_task（无起源 run）发纯文本消息，服务端把台账里的 continuation 水合落盘。"""
+    world.track_judgment().raise_for_status()
+    task_id = world.view()["priority"]["selected"][0]["task_id"]
+    selected = world.act(action="select_task", idempotency_key="k-t3-select", task_id=task_id)
+    assert selected.status_code == 200, selected.text
+    continuation = selected.json()["continuation"]
+    assert "run_id" not in continuation, "首轮没有已完成轮次，不伪造起源 run"
+    assert continuation["click_payload"]["source_refs"]
+
+    # 与 App 的真实分支一致：没有 run_id 的 continuation 不上消息体，只发 full_prompt。
+    posted = world.client.post(
+        f"/api/conversations/{world.conversation_id}/messages",
+        json={"user": fx.OWNER, "content": continuation["full_prompt"], "skill_mode": "hybrid"},
+    )
+    assert posted.status_code == 202, posted.text
+    world.wait_terminal(posted.json()["run_id"])
+    message = next(
+        m for m in ConversationStore(user_id=fx.OWNER).load_messages(world.conversation_id)
+        if m.run_id == posted.json()["run_id"] and m.role == "user"
+    )
+    assert message.continuation, "首轮任务启动上下文必须随消息持久化"
+    assert message.continuation.get("click_payload") == continuation["click_payload"]
+
+    # 反向合同：内容对不上任何已记录选择的full_prompt → 普通消息，不硬塞上下文。
+    plain = world.client.post(
+        f"/api/conversations/{world.conversation_id}/messages",
+        json={"user": fx.OWNER, "content": "随手问一句别的", "skill_mode": "hybrid"},
+    )
+    assert plain.status_code == 202, plain.text
+    world.wait_terminal(plain.json()["run_id"])
+    plain_message = next(
+        m for m in ConversationStore(user_id=fx.OWNER).load_messages(world.conversation_id)
+        if m.run_id == plain.json()["run_id"] and m.role == "user"
+    )
+    assert plain_message.continuation is None
+
+
+def test_t4_summary_without_id_follows_generated_at_not_lexical_hash(world: World) -> None:
+    """T4：无 id 读总结取 generated_at 最新一份；内容哈希的字典序不是版本顺序。"""
+    store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+    store.publish_immutable(SUMMARIES_DIR, "sum-ffff", {"summary_id": "sum-ffff", "generated_at": "2026-09-14T01:00:00Z", "supersedes": None})
+    store.publish_immutable(SUMMARIES_DIR, "sum-0000", {"summary_id": "sum-0000", "generated_at": "2026-09-14T02:00:00Z", "supersedes": "sum-ffff"})
+    response = world.act(action="read_receipt", idempotency_key="k-t4-latest", kind="pilot_summary")
+    assert response.status_code == 200, response.text
+    assert response.json()["receipt"]["summary_id"] == "sum-0000", "字典序最大 ≠ 最新；按 generated_at 取"
+
+
+def test_t4_multiple_summary_chains_require_explicit_id(world: World) -> None:
+    """T4 边界：多条版本链（不同 protocol_hash）在册 → 不猜，要求显式 summary_id。"""
+    store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+    store.publish_immutable(SUMMARIES_DIR, "sum-a", {"summary_id": "sum-a", "generated_at": "2026-09-14T01:00:00Z", "protocol_hash": "ph-a"})
+    store.publish_immutable(SUMMARIES_DIR, "sum-b", {"summary_id": "sum-b", "generated_at": "2026-09-14T02:00:00Z", "protocol_hash": "ph-b"})
+    ambiguous = world.act(action="read_receipt", idempotency_key="k-t4-ambig", kind="pilot_summary")
+    assert ambiguous.status_code == 400, ambiguous.text
+    by_id = world.act(action="read_receipt", idempotency_key="k-t4-by-id", kind="pilot_summary", summary_id="sum-a")
+    assert by_id.status_code == 200 and by_id.json()["receipt"]["summary_id"] == "sum-a", by_id.text
+
+
+def test_t5_failed_lockfile_open_releases_process_lock(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """T5：锁文件 os.open 抛错时，已取得的进程锁必须释放——否则这个 owner 的有界事务永久超时。"""
+    import os
+
+    from intelligence.services.research_evolution.store import LOCK_FILE, StoreLockTimeout
+
+    store = EvolutionStore(tmp_path / "evolution", "default")
+    real_open = os.open
+
+    def fail_lock_open(path: object, *args: object, **kwargs: object) -> int:
+        if str(path).endswith(LOCK_FILE):
+            raise PermissionError("injected transient lockfile open failure")
+        return real_open(path, *args, **kwargs)  # type: ignore[arg-type]
+
+    with monkeypatch.context() as patch:
+        patch.setattr(os, "open", fail_lock_open)
+        with pytest.raises(PermissionError):
+            with store.try_transaction(timeout=0.02):
+                pass
+    try:
+        with store.try_transaction(timeout=0.02):
+            pass
+    except StoreLockTimeout:
+        pytest.fail("os.open 失败发生在取得进程锁之后；那把锁没被释放")

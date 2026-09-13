@@ -154,6 +154,11 @@ class EvolutionStore:
         """有界等待的事务：拿不到锁（进程锁或文件锁）就抛 ``StoreLockTimeout``，不无限等。
 
         给观察器 / 测量类写入方用：测量绝不能把被测对象（真实 run 生命周期）堵在锁上（QC Q9）。
+
+        进程锁取得之后的每一步都在外层 try/finally 里，``fd`` 与 flock 各带自己的取得标志：
+        锁文件 ``os.open`` 抛错（权限变化 / fd 耗尽 / O_NOFOLLOW 撞到符号链接）时，
+        已取得的进程锁照样释放。否则这个 owner 的进程锁永久泄漏——后续有界测量全部
+        ``StoreLockTimeout``、普通 ``transaction()`` 一直等，修好文件条件也救不回，只能重启进程（QC T5）。
         """
         import time as _time
 
@@ -162,26 +167,34 @@ class EvolutionStore:
         lock = _process_lock(lock_path)
         if not lock.acquire(timeout=timeout):
             raise StoreLockTimeout(f"进程内锁等待超过 {timeout}s：{lock_path}")
-        fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        fd: int | None = None
+        flocked = False
         try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
             deadline = _time.monotonic() + timeout
             while True:
                 try:
                     fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    flocked = True
                     break
                 except BlockingIOError:
                     if _time.monotonic() >= deadline:
                         raise StoreLockTimeout(f"文件锁等待超过 {timeout}s：{lock_path}") from None
                     _time.sleep(0.01)
             self._in_txn = True
-            try:
-                yield self
-            finally:
-                self._in_txn = False
-                fcntl.flock(fd, fcntl.LOCK_UN)
+            yield self
         finally:
-            os.close(fd)
-            lock.release()
+            self._in_txn = False
+            try:
+                # 没拿到 flock 就不要解它——解一把没拿到的锁会踩到别的持有者。
+                if flocked and fd is not None:
+                    fcntl.flock(fd, fcntl.LOCK_UN)
+            finally:
+                try:
+                    if fd is not None:
+                        os.close(fd)
+                finally:
+                    lock.release()
 
     def _locked(self) -> Iterator[None]:
         if self._in_txn:
@@ -361,14 +374,24 @@ class EvolutionStore:
             rows = [r for r in rows if str(r.get("item_id") or "") == str(item_id)]
         return rows
 
-    def find_run_link(self, *, item_id: str, run_id: str) -> dict[str, Any] | None:
+    def find_run_link(self, *, item_id: str, run_id: str, request_event_id: str | None = None) -> dict[str, Any] | None:
+        """定位关联行。给了 ``request_event_id`` 就**必须**同代才算命中。
+
+        fail closed：旧台账里没有 ``request_event_id`` 的行视为不同代、不命中，不做通配豁免。
+        豁免会造出一条门禁看不见的旁路——而代价只是那些旧行不再自动折回，用户重新发起即可。
+        """
         for row in self.list_run_links(item_id=item_id):
-            if str(row.get("run_id") or "") == str(run_id):
-                return row
+            if str(row.get("run_id") or "") != str(run_id):
+                continue
+            if request_event_id is not None and str(row.get("request_event_id") or "") != str(request_event_id):
+                continue
+            return row
         return None
 
-    def latest_run_link(self, *, item_id: str) -> dict[str, Any] | None:
+    def latest_run_link(self, *, item_id: str, request_event_id: str | None = None) -> dict[str, Any] | None:
         rows = self.list_run_links(item_id=item_id)
+        if request_event_id is not None:
+            rows = [r for r in rows if str(r.get("request_event_id") or "") == str(request_event_id)]
         return rows[-1] if rows else None
 
     def append_product_value_event(self, event: Mapping[str, Any], *, content_hash: str) -> tuple[dict[str, Any], bool]:

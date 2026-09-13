@@ -753,6 +753,18 @@ class ResearchEvolutionService:
                         return upgraded
                 return {"replayed": True, **stored_result}
 
+            if action == ACTION_LINK_RUN:
+                # 终态折回的全局幂等（QC T1）：观察器路径用派生键 ``link_run:{item}:{run}:terminal``
+                # 落折回记录；客户端恢复路径的基键在这里可能才首次出现（响应丢失后的迟到重试）。
+                # 折回结果已录 → 直接重放，不再迁移。必须站在版本闸之前：折回本身已推进
+                # management_revision，迟到调用的期望版本几乎必然过期，但「这个 run 的折回结果
+                # 是什么」是唯一确定的答案——重放它不产生新迁移，也不要求客户端先刷新。
+                link_run_id = str(body.get("run_id") or "").strip()
+                if link_run_id:
+                    folded = txn.find_action(f"link_run:{item_id}:{link_run_id}:terminal")
+                    if folded is not None:
+                        return {"replayed": True, **dict(folded.get("result") or {})}
+
             # 锁内重读当前项：validate 时的版本必须是提交时的版本。
             maintenance = self._current_items(ctx, conversation_id, as_of=body.get("as_of"), knowledge_cutoff=body.get("knowledge_cutoff"), store=txn)
             item = next((i for i in maintenance.get("items", []) if str(i.get("id")) == item_id), None)
@@ -869,10 +881,15 @@ class ResearchEvolutionService:
             short_hash,
         )
 
+        rejudgment = (item.get("management") or {}).get("rejudgment") or {}
+        requested_at = str(rejudgment.get("requested_at") or "")
+        request_event_id = str(rejudgment.get("request_event_id") or "")
+
         run_id = str(body.get("run_id") or "").strip()
         if not run_id:
-            # 用户点「挂接核查结果」不带 run_id：用本项最近登记的那个 run。
-            link = store.latest_run_link(item_id=str(item["id"]))
+            # 用户点「挂接核查结果」不带 run_id：用**本轮请求**最近登记的那个 run。
+            # 不限代会翻出上一轮已取消请求的 run（QC T2）。
+            link = store.latest_run_link(item_id=str(item["id"]), request_event_id=request_event_id)
             if link is None:
                 raise ApiError(
                     ERR_DEPENDENCY_MISSING,
@@ -894,16 +911,15 @@ class ResearchEvolutionService:
                 detail={"run_id": run_id},
             )
         status = str(getattr(run, "status", ""))
-        requested_at = str(((item.get("management") or {}).get("rejudgment") or {}).get("requested_at") or "")
 
         if status not in {"completed", "failed", "cancelled"}:
             # 未终态：登记「本次维护请求发起了这个 run」的关联（接受 ≠ 完成，不迁状态）。
-            # 同 (item, run) 已有登记行 → 直接复用（registered_at 是首次登记的服务端时刻，
+            # 同 (item, run, request) 已有登记行 → 直接复用（registered_at 是首次登记的服务端时刻，
             # 不随重试的时钟推进漂——重试的幂等由动作层记录保证，见 _maintenance_action）。
-            existing_link = store.find_run_link(item_id=str(item["id"]), run_id=run_id)
+            existing_link = store.find_run_link(item_id=str(item["id"]), run_id=run_id, request_event_id=request_event_id)
             if existing_link is not None:
                 return None, {"run_id": run_id, "run_status": status, "registered": True, "link_created": False, "registered_at": existing_link.get("registered_at")}
-            link_id = stable_id("rlink", {"item": item["id"], "run": run_id})
+            link_id = stable_id("rlink", {"item": item["id"], "run": run_id, "request": request_event_id})
             _, created = store.append_run_link(
                 {
                     "link_id": link_id,
@@ -911,15 +927,31 @@ class ResearchEvolutionService:
                     "item_id": str(item["id"]),
                     "run_id": run_id,
                     "conversation_id": conversation_id,
+                    # 请求代际身份（QC T2）：证明的是「属于当前这一轮复核请求」，不只是「曾关联过这个项」。
+                    # 少了它，请求 A 的 run 迟到失败会把已经重新发起的请求 B 折回 open。
+                    "request_event_id": request_event_id,
                     "registered_at": utc_iso(now),
                 }
             )
             return None, {"run_id": run_id, "run_status": status, "registered": True, "link_created": created, "registered_at": utc_iso(now)}
 
-        # 终态折回：必须有**运行中登记的**关联行。「同会话」永远不够——同会话的旧 run
-        # （无关的、失败的）没有登记行，不能折回当前维护项（QC Q3）。
-        link = store.find_run_link(item_id=str(item["id"]), run_id=run_id)
+        # 终态折回：必须有**本轮请求**运行中登记的关联行。「同会话」永远不够——同会话的旧 run
+        # （无关的、失败的）没有登记行，不能折回当前维护项（QC Q3）；登记行属于**上一轮**
+        # 已取消的请求也不够——旧请求的迟到结果只留旧请求的审计，不迁移新请求的状态（QC T2）。
+        link = store.find_run_link(item_id=str(item["id"]), run_id=run_id, request_event_id=request_event_id)
         if link is None:
+            stale = store.find_run_link(item_id=str(item["id"]), run_id=run_id)
+            if stale is not None:
+                raise ApiError(
+                    ERR_RUN_BINDING_MISMATCH,
+                    "该 run 属于这条维护项上一轮已结束的复核请求，不能折回当前这一轮",
+                    detail={
+                        "run_id": run_id,
+                        "item_id": item["id"],
+                        "link_request_event_id": str(stale.get("request_event_id") or ""),
+                        "current_request_event_id": request_event_id,
+                    },
+                )
             raise ApiError(
                 ERR_RUN_BINDING_MISMATCH,
                 "无法证明该 run 由本次维护请求发起（缺少运行中的关联登记），不能折回本维护项",
@@ -1003,6 +1035,9 @@ class ResearchEvolutionService:
         由 ``ObservingRunStore`` 在终态 claim 成功后经注入回调调用（app.py 接线）。
         幂等键 ``link_run:{item}:{run}:terminal`` 与客户端恢复路径共用——观察器与客户端
         双触发只落一条。失败由调用方（观察器）吞成 stderr：收尾可恢复，不阻塞被测 run。
+
+        只折回**本轮请求**登记的 run：请求 A 的 run 迟到终态时，项上挂的可能已经是
+        重新发起的请求 B，折回它等于让旧请求的结果迁移新请求的状态（QC T2）。
         """
         store = self._store(ctx)
         links = [row for row in store.list_run_links() if str(row.get("run_id") or "") == run_id]
@@ -1021,6 +1056,10 @@ class ResearchEvolutionService:
             item = next((i for i in maintenance.get("items", []) if str(i.get("id")) == item_id), None)
             if item is None or str(item.get("status")) != "rejudgment_requested":
                 return None  # 已被客户端路径收尾 / 取消 / 不存在
+            current_request = str(((item.get("management") or {}).get("rejudgment") or {}).get("request_event_id") or "")
+            if str(link.get("request_event_id") or "") != current_request:
+                # 迟到的旧请求结果：只留在 run_links / run 自己的台账里当审计，不迁移当前这一轮的状态。
+                return None
             event, link_detail = self._link_run_event(
                 ctx=ctx, conversation_id=conversation_id, item=item, body={"run_id": run_id}, now=now, store=txn
             )
@@ -1076,6 +1115,9 @@ class ResearchEvolutionService:
         item = next((i for i in maintenance.get("items", []) if str(i.get("id")) == item_id), None)
         if item is None or str(item.get("status")) != "rejudgment_requested":
             return None
+        current_request = str(((item.get("management") or {}).get("rejudgment") or {}).get("request_event_id") or "")
+        if store.find_run_link(item_id=item_id, run_id=run_id, request_event_id=current_request) is None:
+            return None  # 注册于上一轮请求：退化成纯注册重放，不折回当前这一轮（QC T2）
         event, link_detail = self._link_run_event(ctx=ctx, conversation_id=conversation_id, item=item, body=body, now=now, store=store)
         if event is None:
             return None
@@ -1090,6 +1132,89 @@ class ResearchEvolutionService:
             result=result_core,
         )
         return {"replayed": True, **result_core}
+
+    # ---- 消息接受侧的水合与绑定（QC T1/T3） -------------------------------- #
+    def bind_pending_rejudge_run(self, *, ctx: OwnerContext, conversation_id: str, run_id: str) -> dict[str, Any] | None:
+        """在**启动执行器之前**把刚接受的 run 登记到本会话唯一待复核的维护项（QC T1）。
+
+        UI 的次序是「先 POST messages 拿 run_id，再 POST actions(link_run)」，而服务端在
+        消息响应之前已提交执行器：run 在第二个请求之前到终态时，没有这行登记，Q3 关联闸
+        只能拒收——合法复核永远收不了尾。登记与 link_run 的登记同构（同 stable_id、同
+        request_event_id 代际），客户端随后的显式 link_run 命中「已登记」分支直接复用。
+
+        只在**无歧义**时登记：本会话恰有一条处于当前代的复核请求。``rejudgment`` 不存会话，
+        用「产生了当前 request_event_id 的那条 rejudge 动作记录」回查会话归属——别会话的
+        待复核不能把本会话的 run 认领走。零条 → 普通消息；多条 → 服务端不猜，等客户端
+        显式 link_run。任何失败由调用方吞掉：消息入口不为研究进化的降级买单。
+        """
+        store = self._store(ctx)
+        with store.try_transaction(timeout=0.5) as txn:
+            # 廉价预筛：本会话从没发起过复核 → 不计算维护视图（绝大多数消息走这里）。
+            rejudge_records = [
+                row
+                for row in txn.list_action_records()
+                if str(row.get("action") or "") == ACTION_REJUDGE and str(row.get("conversation_id") or "") == conversation_id
+            ]
+            if not rejudge_records:
+                return None
+            maintenance = self._current_items(ctx, conversation_id, as_of=None, knowledge_cutoff=None, store=txn)
+            candidates: list[tuple[Mapping[str, Any], str]] = []
+            for item in maintenance.get("items", []):
+                if str(item.get("status")) != "rejudgment_requested":
+                    continue
+                request_event_id = str(((item.get("management") or {}).get("rejudgment") or {}).get("request_event_id") or "")
+                if not request_event_id:
+                    continue
+                requested_here = any(
+                    str(row.get("item_id") or "") == str(item.get("id"))
+                    and str((row.get("event") or {}).get("event_id") or "") == request_event_id
+                    for row in rejudge_records
+                )
+                if requested_here:
+                    candidates.append((item, request_event_id))
+            if len(candidates) != 1:
+                return None
+            item, request_event_id = candidates[0]
+            link_id = stable_id("rlink", {"item": item["id"], "run": run_id, "request": request_event_id})
+            row, created = txn.append_run_link(
+                {
+                    "link_id": link_id,
+                    "owner_user_id": ctx.owner_user_id,
+                    "item_id": str(item["id"]),
+                    "run_id": run_id,
+                    "conversation_id": conversation_id,
+                    # 与 link_run 登记同构的请求代际身份（QC T2）：观察器终态收尾只折回同代。
+                    "request_event_id": request_event_id,
+                    "registered_at": utc_iso(self._now()),
+                }
+            )
+            return {"item_id": str(item["id"]), "run_id": run_id, "request_event_id": request_event_id, "link_created": created}
+
+    def pending_task_continuation(self, *, ctx: OwnerContext, conversation_id: str, content: str) -> dict[str, Any] | None:
+        """首轮任务启动上下文的服务端水合（QC T3）。
+
+        ``select_task`` 已把 continuation（task_id / source_refs / scope）记进动作台账，但首轮
+        没有已完成 run——消息合同要求 continuation.run_id 非空，前端只能发纯文本，结构化
+        来源就断在边界上。消息内容与某次任务选择的 ``full_prompt`` 逐字一致时，把台账里那份
+        continuation 还给消息入口，随用户消息持久化；不一致 → None，普通消息不硬塞。
+        核验范围：台账按 owner 隔离、记录带 conversation_id、full_prompt 逐字匹配钉住
+        task——owner / 会话 / 任务三重边界都由服务端台账证明，不靠客户端自证。
+        """
+        store = self._store(ctx)
+        with store.try_transaction(timeout=0.5) as txn:
+            records = [
+                row
+                for row in txn.list_action_records()
+                if str(row.get("action") or "") == ACTION_SELECT_TASK and str(row.get("conversation_id") or "") == conversation_id
+            ]
+            for row in reversed(records):
+                continuation = (row.get("result") or {}).get("continuation")
+                if not isinstance(continuation, Mapping):
+                    continue
+                if str(continuation.get("full_prompt") or "") != content:
+                    continue
+                return dict(continuation)
+        return None
 
     def _cancel_rejudge_event(self, *, ctx: OwnerContext, item: Mapping[str, Any], body: Mapping[str, Any], now: datetime) -> Any:
         """取消一次已发起的复核：01 系统事件 ``rejudgment_cancelled`` → open。
@@ -1464,12 +1589,19 @@ class ResearchEvolutionService:
             return {"kind": kind, "receipt": receipt}
         if kind == "pilot_summary":
             # 试点总结按内容 id 寻址；视图只给 summary_id，前端可以把它当 receipt_id 传，
-            # 也可以传 summary_id——两者都收。都没给时读台账里最新一份（一个 owner 同时只有一个在跑试点）。
+            # 也可以传 summary_id——两者都收。都没给时读台账里最新一份。
             summary_id = receipt_id or str(body.get("summary_id") or "").strip()
             summary = store.read_immutable(SUMMARIES_DIR, summary_id) if summary_id else None
             if summary is None and not summary_id:
-                summaries = store.list_immutable(SUMMARIES_DIR)
-                summary = dict(summaries[-1]) if summaries else None
+                on_file = store.list_immutable(SUMMARIES_DIR)
+                summary = _latest_summary(on_file)
+                if summary is None and on_file:
+                    # 有总结但定不出唯一最新：让调用方点名，不猜一条当原件。
+                    raise ApiError(
+                        ERR_INVALID_REQUEST,
+                        "台账里有多条版本链或同刻总结，定不出唯一最新一份：请传 summary_id",
+                        detail={"where": "summary_id", "candidates": [str(s.get("summary_id") or "") for s in on_file]},
+                    )
             if summary is None:
                 raise ApiError(ERR_NOT_FOUND, "总结不存在", detail={"receipt_id": summary_id})
             return {"kind": kind, "receipt": summary}
@@ -1668,6 +1800,34 @@ def _ts_ge(value: Any, floor: str) -> bool:
     except ApiError:
         return False
     return moment >= bound
+
+
+def _latest_summary(summaries: Sequence[Mapping[str, Any]]) -> dict[str, Any] | None:
+    """无 id 时的「最新一份总结」：按 ``generated_at`` 取，歧义就要求显式 id。
+
+    ``summary_id`` 是内容寻址哈希（``summarize`` 用 ``content_id`` 生成），**字典序与时间无关**——
+    拿 ``sorted(glob())[-1]`` 当最新，会把过期结论当最新原件发出去（QC T4）。
+    排序信号只用 ``generated_at``：它是 ``summarize()`` 恒定产出的字段，且在 ``content_id``
+    的 drop_keys 里——读它不碰冻结体、也不改动内容 id。
+
+    判定矩阵（宁可要显式 id，不猜一条当原件）：
+    - 台账只有一份 → 它就是最新，无需任何排序信号（兼容缺 ``generated_at`` 的遗留行）；
+    - 多份且全带 ``generated_at``、同属一条 ``protocol_hash`` 版本链、最新时刻唯一 → 取最新；
+    - 多份但有多条版本链 / 最新时刻并列 / 有缺时间戳的行 → None，调用方要求显式 ``summary_id``。
+    """
+    if not summaries:
+        return None
+    if len(summaries) == 1:
+        return dict(summaries[0])
+    dated = [dict(s) for s in summaries if str(s.get("generated_at") or "").strip()]
+    if len(dated) != len(summaries):
+        return None  # 有缺时间戳的行：多份之间定不出时序，不猜
+    protocols = {str(s.get("protocol_hash") or "") for s in dated}
+    if len(protocols) > 1:
+        return None  # 多条版本链：没有唯一的「最新」
+    newest = max(str(s.get("generated_at")) for s in dated)
+    head = [s for s in dated if str(s.get("generated_at")) == newest]
+    return head[0] if len(head) == 1 else None
 
 
 def _reviewed_versions(item: Mapping[str, Any]) -> list[dict[str, str]]:
