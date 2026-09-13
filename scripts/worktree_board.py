@@ -26,6 +26,23 @@ from pathlib import Path
 from typing import Any
 
 LEDGER_NAME = "deploy-ledger.jsonl"
+
+# 「底旧」到多少才值得在 SessionStart 里喊一声。
+#
+# 失败形状（2026-09-13 实测）：主检出树落后 gitea/main 628 提交，而 ``--this``
+# 只报 ``cherry+0``（= 我的补丁都进 main 了）。两件事是正交的：cherry 回答
+# 「我有没有东西丢在外面」，behind 回答「我读到的代码是不是旧的」。只报前者，
+# 一个照章办事的 agent 会把 ``cherry+0`` 读成「一切正常」，然后在旧代码上跑
+# graph_audit —— 已合进 main 的能力被报成「在途 / 未进工作树」，据此写出
+# 「我们没有 X」的错误负面断言，正是断言纪律要防的那件事。同族前科：夜跑的
+# 代码根停在落后 548 提交的共用树，吃掉一个交易日（工单 #51）。
+#
+# 阈值不取 0：共享仓（harness-reference）那边取 0 是因为那是只读参照仓，不动
+# 就不该落后；工作仓按构造天天落后（main 近期约 17 笔合入/天），取 0 会每次
+# 会话都喊，喊到 agent 学会忽略它，比不喊更坏。50 ≈ 三天漂移。
+# 数字本身无论多少都打印，⚠ 只在过阈值时加。
+STALE_BASE_WARN = 50
+
 CODE_DIRTY_PREFIXES = (
     "intelligence/",
     "evolution/",
@@ -161,6 +178,29 @@ def unique_subjects(head: str, base: str, *, cwd: str, timeout: float, limit: in
     return tuple(plus_lines[:limit])
 
 
+def _count(args: list[str], *, cwd: str, timeout: float) -> int:
+    """``rev-list --count`` 的安全读法：非数字一律当 0。
+
+    直接 ``int(out or 0)`` 会在 git 把话写到 stdout 时抛 ValueError。本脚本
+    喂的是 SessionStart，抛出去就是 hook 静默不输出——等于没装（见模块头）。
+    """
+
+    code, out = _git(args, cwd=cwd, timeout=timeout)
+    if code != 0 or not out.isdigit():
+        return 0
+    return int(out)
+
+
+def behind_count(head: str, base: str, *, cwd: str, timeout: float) -> int:
+    """base 上有多少提交是 head 没有的 —— 「我读到的代码有多旧」。
+
+    与 ``cherry_counts`` 正交：cherry 回答「我的补丁丢在外面没有」，两者都要
+    报。只报 cherry 的后果见 ``STALE_BASE_WARN`` 的注释。
+    """
+
+    return _count(["rev-list", "--count", f"{head}..{base}"], cwd=cwd, timeout=timeout)
+
+
 def classify_worktree(
     spec: dict[str, str],
     *,
@@ -173,8 +213,8 @@ def classify_worktree(
     if not path or not head:
         return None
     plus, minus, in_main = cherry_counts(head, base, cwd=path, timeout=timeout)
-    _, ahead_s = _git(["rev-list", "--count", f"{base}..{head}"], cwd=path, timeout=timeout)
-    _, behind_s = _git(["rev-list", "--count", f"{head}..{base}"], cwd=path, timeout=timeout)
+    ahead = _count(["rev-list", "--count", f"{base}..{head}"], cwd=path, timeout=timeout)
+    behind = behind_count(head, base, cwd=path, timeout=timeout)
     _, status = _git(["status", "--porcelain"], cwd=path, timeout=timeout)
     paths = _status_paths(status)
     subjects: tuple[str, ...] = ()
@@ -186,8 +226,8 @@ def classify_worktree(
         branch=spec.get("branch") or "?",
         cherry_plus=plus,
         cherry_minus=minus,
-        ahead=int(ahead_s or 0),
-        behind=int(behind_s or 0),
+        ahead=ahead,
+        behind=behind,
         in_main=in_main,
         dirty=bool(paths),
         code_dirty=is_code_dirty(paths),
@@ -383,12 +423,22 @@ def this_tree_lines(
     if code != 0 or not head:
         return []
     plus, minus, in_main = cherry_counts(head, base, cwd=cwd, timeout=timeout)
+    behind = behind_count(head, base, cwd=cwd, timeout=timeout)
     if in_main:
         merge = f"合入: 本枝补丁已在 {base}={base_sha[:12]}（cherry+0）"
     else:
         merge = (
             f"合入: 本枝 cherry+{plus} / cherry-{minus} vs {base}={base_sha[:12]}"
         )
+    # 追加在同一行而不是新起一行：SessionStart 有 2000 字符预算，实测已在截断
+    # 后省略三十余条，多一行就是挤掉另一条事实。落后量始终打印，⚠ 只在过阈值时加。
+    if behind > 0:
+        merge += f"；底落后 {behind} 提交"
+        if behind >= STALE_BASE_WARN:
+            merge += (
+                f"（≥{STALE_BASE_WARN}）⚠ 本树跑出的门禁 / 能力图谱读数量的是旧代码，"
+                "别据此下「我们没有 X」——先 fetch 或另开新树"
+            )
     lines = [merge]
     switch = last_switch_for_port(resolve_ledger_path(repo_root, timeout=timeout))
     if switch:
