@@ -85,6 +85,9 @@ def _format_message(message, stats):
             f"entries={shared.get('entries', 0)} "
             f"path={shared.get('path', '')}"
         )
+    missing_pct = (stats or {}).get("pct_chg_canonical_missing")
+    if missing_pct is not None:
+        parts.append(f"pct_chg_canonical_missing={missing_pct}")
     if (stats or {}).get("nonempty_count") is not None:
         parts.append(
             f"nonempty={(stats or {}).get('nonempty_count')} "
@@ -173,6 +176,30 @@ def _mark_complete(con, date, step, row_count, stats):
     _mark_status(con, date, step, "complete", row_count, stats, None)
 
 
+def mark_calendar(date, verdict, source, reason):
+    """交易日判定落台账（2026-09-13 QC S2）。
+
+    step='calendar'、status=verdict（trading/closed/unknown），message 记判定来源
+    与理由。每跑必写：unknown 不再只在 stderr 吼一声就无迹可查；trading/closed
+    也记，于是「无 calendar 行」唯一地意味着「本副本还没带这版修复」，语义不含糊。
+    刻意不做 is_trading_day 守卫——本行记录的就是日历判定本身，守卫它等于循环论证。
+    """
+    con = connect()
+    try:
+        init_db(con)
+        _mark_status(
+            con,
+            date,
+            "calendar",
+            verdict,
+            None,
+            None,
+            f"calendar verdict source={source}: {reason}",
+        )
+    finally:
+        con.close()
+
+
 def mark_failed(date, message, steps=STEPS, only_running=True):
     """把步骤标记为 failed（默认只覆盖仍处于 running 的步骤）。"""
     con = connect()
@@ -216,12 +243,16 @@ def write_capital_flow(date, scan_type, res, big_thr, prev_limitup_date=None, st
         if not res.empty
         else res
     )
+    missing_pct = int(res["当日涨幅%"].isna().sum()) if not res.empty else 0
+    stats = {**(stats or {}), "pct_chg_canonical_missing": missing_pct}
     now = datetime.now()
     rows = [(date, scan_type, r["code"], to_ts_code(r["code"]), r["name"],
              float(r["主买净额(万)"]), float(r["总买净额(万)"]),
              float(r["流通市值(亿)"]),
              None if pd.isna(r["综合得分"]) else float(r["综合得分"]),
-             float(r["当日涨幅%"]), float(big_thr), i + 1,
+             # 当日涨幅%：日线口径（收盘/前收）；行情缺口日为 NULL，不充日内口径
+             None if pd.isna(r["当日涨幅%"]) else float(r["当日涨幅%"]),
+             float(big_thr), i + 1,
              prev_limitup_date, SOURCE, now)
             for i, r in df.iterrows()]
     zero_problem = _zero_result_problem(scan_type, len(rows), stats)
@@ -268,11 +299,14 @@ def write_quant_orders(date, res, big_thr, quant_thr, stats=None):
         if not res.empty
         else res
     )
+    missing_pct = int(res["当日涨幅%"].isna().sum()) if not res.empty else 0
+    stats = {**(stats or {}), "pct_chg_canonical_missing": missing_pct}
     now = datetime.now()
     rows = [(date, r["code"], to_ts_code(r["code"]), r["name"],
              float(r["量化单总额(万)"]), float(r["占大单买入%"]),
              int(r["簇数"]), int(r["笔数"]), str(r["最大簇"]),
-             float(r["当日涨幅%"]), float(quant_thr), float(big_thr),
+             None if pd.isna(r["当日涨幅%"]) else float(r["当日涨幅%"]),
+             float(quant_thr), float(big_thr),
              i + 1, SOURCE, now)
             for i, r in df.iterrows()]
     con = connect()
@@ -301,6 +335,13 @@ def write_quant_orders(date, res, big_thr, quant_thr, stats=None):
 
 
 def main():
+    if len(sys.argv) >= 5 and sys.argv[1] == "--calendar":
+        reason = " ".join(sys.argv[5:]) if len(sys.argv) > 5 else ""
+        mark_calendar(sys.argv[2], sys.argv[3], sys.argv[4], reason)
+        print(
+            f"DuckDB: l2-moneyflow {sys.argv[2]} 日历判定 {sys.argv[3]} 已落台账"
+        )
+        return
     if len(sys.argv) == 3 and sys.argv[1] == "--begin":
         begin_l2_run(sys.argv[2])
         print(f"DuckDB: l2-moneyflow {sys.argv[2]} 标记为 running")
@@ -313,6 +354,7 @@ def main():
     if len(sys.argv) < 4:
         print(
             "用法: python3 write_to_duckdb.py --begin <日期> | --fail <日期> [原因] | "
+            "--calendar <日期> <trading|closed|unknown> <判定来源> [理由] | "
             "<csv路径> <limitup|top100|quant> <日期>"
         )
         return

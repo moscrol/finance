@@ -94,6 +94,56 @@ def test_same_day_symbol_capital_flow_uses_shared_cache(tmp_path, monkeypatch):
     assert reloaded.cache_stats()["queries"] == 0
 
 
+def test_canonical_pct_chg_overrides_intraday_on_read_side(tmp_path, monkeypatch):
+    """2026-09-13 QC E3：当日涨幅%以日线口径（收盘/前收）为准，读出侧统一覆盖。
+
+    - 传了覆盖表：返回值用日线口径，不是逐笔的末笔/首笔；
+    - 覆盖表缺该代码：None，不拿日内口径冒充日线；
+    - 磁盘缓存里的旧口径条目命中时同样被纠正（覆盖在读出侧，无需清缓存）；
+    - 不传覆盖表：兼容旧行为。
+    """
+    module = _load_module(
+        monkeypatch, "server_aggregation_canonical_pct", "server_aggregation.py"
+    )
+    cache_path = tmp_path / "l2-cache.json"
+    rows = [(12, 10.0, 11.0, 1_500_000.0, 2_000_000.0)]  # 日内末笔/首笔 = +10%
+
+    legacy = module.L2QueryService(
+        "2026-07-15",
+        50.0,
+        lambda: FakeClient(list(rows)),
+        cache=module.SharedQueryCache(cache_path),
+        retries=1,
+    )
+    _, seeded = legacy.capital_flow(FakeClient(list(rows)), "600000")
+    assert seeded.change_pct == pytest.approx(10.0)
+
+    service = module.L2QueryService(
+        "2026-07-15",
+        50.0,
+        lambda: FakeClient(list(rows)),
+        cache=module.SharedQueryCache(cache_path),
+        retries=1,
+        pct_chg_by_code={"600000": 3.5},
+    )
+    _, covered = service.capital_flow(FakeClient(list(rows)), "600000")
+    assert covered.change_pct == pytest.approx(3.5)
+    assert covered.active_net_wan == 150.0  # 净额不受覆盖影响
+
+    _, missing = service.capital_flow(FakeClient(list(rows)), "000001")
+    assert missing.change_pct is None
+
+    plain = module.L2QueryService(
+        "2026-07-15",
+        50.0,
+        lambda: FakeClient(list(rows)),
+        cache=module.SharedQueryCache(tmp_path / "other.json"),
+        retries=1,
+    )
+    _, raw = plain.capital_flow(FakeClient(list(rows)), "600000")
+    assert raw.change_pct == pytest.approx(10.0)
+
+
 def test_default_shared_cache_uses_moneyflow_output_dir(tmp_path, monkeypatch):
     monkeypatch.setenv("MONEYFLOW_OUTPUT_DIR", str(tmp_path))
     module = _load_module(
@@ -227,6 +277,34 @@ def test_buyer_order_cache_round_trips_aggregated_rows(tmp_path, monkeypatch):
     assert first == second
     assert first[0] == ("2026-07-15T10:00:00", 2_500_000.0)
     assert len(client.calls) == 1
+
+
+def test_mark_calendar_ledgers_verdict(tmp_path, monkeypatch):
+    """2026-09-13 QC S2：日历判定（含 unknown）写 ops_pipeline_run_daily 的
+    calendar 步，不再只在 stderr 吼一声；message 记判定来源与理由。"""
+    import market_feature_store.db as mfs_db
+
+    monkeypatch.setattr(mfs_db, "DB_PATH", tmp_path / "t.duckdb")
+    monkeypatch.setattr(mfs_db, "DB_DIR", tmp_path)
+    writer = _load_module(
+        monkeypatch, "moneyflow_writer_calendar", "write_to_duckdb.py"
+    )
+
+    writer.mark_calendar("2026-09-11", "unknown", "probe_failed_rc=1", "boom")
+
+    import duckdb
+
+    con = duckdb.connect(str(tmp_path / "t.duckdb"), read_only=True)
+    try:
+        row = con.execute(
+            "SELECT step, status, message FROM ops_pipeline_run_daily "
+            "WHERE trade_date='2026-09-11' AND pipeline='l2-moneyflow'"
+        ).fetchone()
+    finally:
+        con.close()
+    assert row is not None
+    assert row[0] == "calendar" and row[1] == "unknown"
+    assert "probe_failed_rc=1" in row[2] and "boom" in row[2]
 
 
 def test_failed_scan_stats_cannot_pass_completion_gate(monkeypatch):

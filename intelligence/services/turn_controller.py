@@ -33,6 +33,7 @@ from intelligence.services.route_table import (
     RouteRow,
     fine_grained_route_length_ok,
     is_quick_fact_query,
+    quick_fact_route_ok,
     render_route_table_prompt,
     research_lane_for_dated_quick_fact,
     route_by_id,
@@ -607,24 +608,32 @@ def _deterministic_decision(
 # `intelligence/tests/test_fine_grained_route_length_gate.py`。
 def _fine_grained_route_row(query: str) -> RouteRow | None:
     if not fine_grained_route_length_ok(query):
-        return None
-    route_id: str | None = None
-    if is_disclosure_scan_query(query):
-        route_id = "disclosure_scan"
-    elif _TRADE_ADVICE_ROUTE_PATTERN.search(query):
-        route_id = "trade_advice"
-    elif _KOL_REVIEW_ROUTE_PATTERN.search(query):
-        route_id = "kol_review"
-    elif (
-        parse_analog_intent(query)
-        or parse_regime_intent(query)
-        or _COMPARISON_ANALOG_ROUTE_PATTERN.search(query)
-    ):
-        route_id = "comparison_analog"
-    elif _THEME_TRACK_ROUTE_PATTERN.search(query):
-        route_id = "theme_track"
-    elif is_quick_fact_query(query):
-        route_id = "quick_fact"
+        # 超长：五条词面共现路由一律退回（无锚点共现在长文里必然凑巧命中）；
+        # 只有 quick_fact 有独立入场券（route_table.quick_fact_route_ok）——它按
+        # 窄意图判（要一个确定的值），长但无材料正文的纯取值问句照常归位，且
+        # 必须与 answer_orchestrator 的判定同一策略（2026-09-13 QC N1：闸只下在
+        # 本函数时，192 字取值题在 decide_turn 与 plan_answer_question 两入口分叉）。
+        if not quick_fact_route_ok(query):
+            return None
+        route_id: str | None = "quick_fact"
+    else:
+        route_id = None
+        if is_disclosure_scan_query(query):
+            route_id = "disclosure_scan"
+        elif _TRADE_ADVICE_ROUTE_PATTERN.search(query):
+            route_id = "trade_advice"
+        elif _KOL_REVIEW_ROUTE_PATTERN.search(query):
+            route_id = "kol_review"
+        elif (
+            parse_analog_intent(query)
+            or parse_regime_intent(query)
+            or _COMPARISON_ANALOG_ROUTE_PATTERN.search(query)
+        ):
+            route_id = "comparison_analog"
+        elif _THEME_TRACK_ROUTE_PATTERN.search(query):
+            route_id = "theme_track"
+        elif is_quick_fact_query(query):
+            route_id = "quick_fact"
     row = route_by_id(route_id) if route_id is not None else None
     row = research_lane_for_dated_quick_fact(row, query)
     if (

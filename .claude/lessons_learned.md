@@ -485,3 +485,4 @@
 - **[2026-09-13] 多 worktree 仓 + harness 每条 bash 重置回默认 cwd：合并后核对 diff 读到「789 文件 −116k 行」的灭失假象，全量 pytest 又在主检出树（别人的脏树）白跑两次才把 4 个「失败」辨成别树产物。**
   做法：跨树操作逐条 `cd <树> &&` 或 `git -C <树>`，跑测试收据前先打印 `pwd && git rev-parse --short HEAD` 自证在哪棵树；合并完整性核对（`git diff <base>..HEAD --stat`）与跑测必须在同一条命令里完成定位。
   **可迁移原则：任何「按 cwd 解析」的工具在 agent harness 里都没有隐含上下文——每个调用都是新 shell；读数先证树，再读数。**
+  同日升级（下午 QC 收口 session，踩中 12+ 次）：**git add/commit 同样中招且后果更重**——在主检出树跑 `git add -- <相对路径>` 把别人 untracked 的运营文件暂存进了主树索引（靠 `git reset -q -- <文件>` 退回，commit 被 pre-commit 拦下才没带走）；`git log`/`git status` 无 cd 读到的是别树历史。教训：cd 前缀不是「跑测试才需要」，是**每条命令**都需要，包括 git 与 read 相对路径。另：共享收据目录会被同时在跑的其他 agent 污染（同名时间戳收据指向别树 rev），认领收据先核 `tree`/`branch` 字段。

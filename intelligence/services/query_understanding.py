@@ -1594,10 +1594,12 @@ def understand_query(
         )
 
     # 与 turn_controller 的细粒度路由同一把闸（阈值 SSOT：
-    # route_table.FINE_GRAINED_ROUTE_MAX_CHARS）：此处漏闸时长材料题会经
-    # envelope.question_type 流进 decide_turn 的兜底分支，照样被判成
-    # disclosure_scan——2026-09-12 T2 事故的第一版修复就漏在这里。
-    if is_disclosure_scan_query(text) and fine_grained_route_length_ok(text):
+    # route_table.FINE_GRAINED_ROUTE_MAX_CHARS），但**闸必须量完整原文 raw_text**：
+    # 此处的 text 已被 split_user_message 换成材料拆分后的短尾问，量尾问等于没闸——
+    # 2026-09-13 QC S1 实测：802 字材料 + 短尾问「公告涉及的甲乙丙…哪些有正式订单？」
+    # 尾问三提示词凑齐且长度过关，仍被劫进 disclosure_scan。匹配器读尾问（材料路由
+    # 语义），入场闸读全文（材料段的词面共现是巧合），两者作用域不能混。
+    if is_disclosure_scan_query(text) and fine_grained_route_length_ok(raw_text):
         buckets = parse_disclosure_buckets(text)
         subject = "、".join(bucket.name for bucket in buckets) or None
         return envelope(
