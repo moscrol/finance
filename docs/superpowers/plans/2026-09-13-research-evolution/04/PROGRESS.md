@@ -212,3 +212,10 @@ QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结�
 - **D4[P2] 后知更正压过记录时间缺口**：later 压过 time_unknown，本应 unknown 却变 context 进已评估分母。修复：final 优先级改为 time_unknown 压过 later；上轮锁错期待的 `test_d1_definite_later_correction_outranks_missing_record_time` 已改正为 unknown + 双向负控。
 - 修复提交 **`1679d154`**；新增/改正共 7 条测试先红后绿；模块 72 passed；ruff 干净；QC 探针 S4/D3/D4 组复跑转绿（边界探针第 5 组 unrecognized 现按设计抛 DiagnosticsInputError）。
 - **06 联测请用 `1679d154`**。口径纠偏：上轮「13 项已修复」实为「原 13 项固定反例转绿」。
+
+## 2026-09-13 QC 第三轮（D5）
+
+- 独立复核（`~/.finance-runtime/reviews/research-evolution-round3-qc-20260913/`）：原 8 项固定反例通过，扩大边界确证 5 项新问题，本轨占 1 项：D5[P2]（`used_is_current → valid` 提前返回发生在 time_unknown 判断之前，缺登记时间的失效事实被使用后才生效/登记的 current 洗成 context）。
+- 修复 `8db4bbd9`：提前返回加 `not time_unknown` 守卫——「用的那一版现在仍有效」不能证明使用时刻失效是否已知；合法当前版本对照保留（fill_late 仍 context）。
+- 验证：新增 2 条回归测试（主例 unknown + 双向补全 issue/context 负控）先红后绿；模块 74 passed；全量 9614 passed / 77 skipped（干净树 @8db4bbd9）；ruff 干净；QC 第三轮探针 04 组复跑 actual=unknown / fill_early=issue / fill_late=context / baseline=unknown；归档探针 D3/D4/S4 组复跑不回归。
+- 06 联测请用 `8db4bbd9`。旧版曾推 gitea（远端停在 `b5cee17a`），第二/三轮修复均未 push。
