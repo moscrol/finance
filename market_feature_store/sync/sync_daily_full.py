@@ -533,6 +533,10 @@ def _run_daily_full_staged_locked(
             result["reason"] = f"基线窗口拿锁失败: {exc}; 拒绝开工"
             print(f"[staging] {result['reason']}", flush=True)
             return result
+        # 版本基线 (mtime/size) 之外再记身份基线 (dev/ino)：末端换名覆盖的
+        # 必须是「我克隆的那一个 inode」。只比版本挡不住整文件替换——cp/mv
+        # 会把 mtime 一并带过去，造一个版本一模一样的新 inode 是可行的。
+        source_identity = (source_stat.st_dev, source_stat.st_ino)
         if source_shape is None:
             result["reason"] = f"克隆体打不开, 拒绝开工: {staging}"
             return result
@@ -545,6 +549,7 @@ def _run_daily_full_staged_locked(
     else:
         source_stat = None
         source_shape = None
+        source_identity = None
 
     if child_argv is None:
         child_argv = [
@@ -656,8 +661,9 @@ def _run_daily_full_staged_locked(
         "steps_summary": status.get("steps") or [],
     })
 
-    # 第三方写者守卫: 克隆基线之后生产文件动过、或此刻有写者持锁,
+    # 第三方写者守卫（锁外预检）: 克隆基线之后生产文件动过、或此刻有写者持锁,
     # 换名都会覆盖对方工作——fail closed, staging 留作取证。
+    # 这里只是早失败 + 给出具体措辞; 权威判定在下面的换库锁内重做一次。
     if source_exists:
         if not target.exists():
             return _abort("生产库文件在同步期间被移除, 不换名")
@@ -679,13 +685,27 @@ def _run_daily_full_staged_locked(
         return _abort(f"第三方写者守卫: {exc}; 拒绝换名")
 
     swap_started = time.monotonic()
-    if pre_swap_backup and source_exists:
-        # QC S4 执行前提 + 复审二轮 P1：备份→换名必须落在同一把换库锁内，
-        # 否则第三方写者能在窗口提交并被换名静默覆盖（复现证据 backup-race.json）。
-        # hold_swap_lock（SH，排写不排读）覆盖「最终复查→备份→换名」整个临界区。
-        # 日更不带备份、不进锁。
+    if source_exists:
+        # QC 复审四轮 P1：「最终复查→[备份]→原子换名」整段必须在同一把换库锁
+        # 内，**与 pre_swap_backup 无关**。此前只有备份分支进锁，日更默认走的是
+        # 「守卫 → 无锁 os.replace」，守卫与使用之间是裸窗口（TOCTOU）；四轮复现
+        # 在此窗口内让第三方 rw 提交 17000，编排照样 rc=0/swapped=true，而新库不
+        # 含 17000——写入已提交却被静默覆盖。
+        # hold_swap_lock 是 SH：排写不排读，日更的锁窗口只有「stat + rename」量级
+        # （毫秒），不会重新把只读读者挡在门外（S7 判据 1）；修复类多一次备份。
         try:
-            with _db.hold_swap_lock(target):
+            with _db.hold_swap_lock(target) as locked_identity:
+                # 锁内权威复查。身份先于版本：版本一致但 inode 已换，说明被整文件
+                # 替换过，此时 mtime/size 相等毫无意义（cp/mv 会带走 mtime）。
+                _db.assert_same_target(
+                    target, source_identity, stage="换库临界区（对克隆基线）"
+                )
+                if locked_identity != source_identity:
+                    # 锁的 inode 与基线 inode 不同 = 我们锁住的不是要换的那个。
+                    return _abort(
+                        f"目标身份守卫: 换库锁锁定 {locked_identity} 与克隆基线 "
+                        f"{source_identity} 不是同一个 inode; 拒绝换名"
+                    )
                 now_stat = target.stat()
                 if (
                     now_stat.st_mtime_ns != source_stat.st_mtime_ns
@@ -694,24 +714,36 @@ def _run_daily_full_staged_locked(
                     return _abort(
                         "拿锁前窗口内生产库被修改，拒绝换名；staging 保留待人工裁决"
                     )
-                try:
-                    result["backup"] = _db.backup_before_swap(
-                        target, run_id=run_id, writer_lock_held=True
+                if pre_swap_backup:
+                    # QC S4 执行前提：修复类调用方换库前留一份可验明备份。
+                    # 日更不带（每晚 3.6G 级备份会把磁盘打爆），但锁一样要进。
+                    try:
+                        result["backup"] = _db.backup_before_swap(
+                            target, run_id=run_id, writer_lock_held=True
+                        )
+                    except Exception as exc:
+                        return _abort(f"换名前备份失败, 不换名: {exc}")
+                    print(
+                        f"[staging] 换名前备份: {result['backup']['backup_path']} "
+                        f"(sha256={result['backup']['backup_sha256'][:16]}…)",
+                        flush=True,
                     )
-                except Exception as exc:
-                    return _abort(f"换名前备份失败, 不换名: {exc}")
-                print(
-                    f"[staging] 换名前备份: {result['backup']['backup_path']} "
-                    f"(sha256={result['backup']['backup_sha256'][:16]}…)",
-                    flush=True,
-                )
                 try:
-                    _db.atomic_swap_into_place(staging, target)
+                    _db.atomic_swap_into_place(
+                        staging, target, expect_identity=source_identity
+                    )
+                except _db.SwapTargetReplacedError as exc:
+                    return _abort(f"目标身份守卫: {exc}")
                 except (RuntimeError, FileNotFoundError, OSError) as exc:
                     return _abort(f"换名失败: {exc}")
+        except _db.SwapTargetReplacedError as exc:
+            return _abort(f"目标身份守卫: {exc}; 拒绝换名")
         except _db.DatabaseLockedError as exc:
             return _abort(f"排他协调锁: {exc}; 拒绝换名")
     else:
+        # 首次建库：目标不存在 = 没有 inode 可锁，只能靠上面的「同步期间被第三方
+        # 创建」守卫。残留窗口（守卫通过后才被创建）已知未闭合，但此路径下生产库
+        # 本就不存在、无既有数据可丢，且同一 target 的并发轮次已被 run 互斥锁排开。
         try:
             _db.atomic_swap_into_place(staging, target)
         except (RuntimeError, FileNotFoundError, OSError) as exc:

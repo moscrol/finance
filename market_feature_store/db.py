@@ -47,6 +47,21 @@ class DatabaseLockedError(RuntimeError):
     """
 
 
+class SwapTargetReplacedError(DatabaseLockedError):
+    """换库目标的**路径身份**（st_dev + st_ino）与协调时锁定的那个不一致。
+
+    QC 复审四轮（2026-09-13）：flock 锁的是 inode，而检查与 os.replace 走的
+    是路径。若有人在「打开并锁住 target」与「按路径检查/换名」之间把另一个
+    文件换到该路径上，我们锁住的是旧 inode，被覆盖的却是新路径对象——锁形
+    同虚设。因此全链三处（拿锁瞬间、临界区复查、os.replace 前最后一刻）都
+    要确认是同一个身份，对不上一律 fail closed。
+
+    继承 DatabaseLockedError 是刻意的：既有调用方的 `except
+    DatabaseLockedError` 会把它变成明确的 rc=2 拒绝，而不是让异常逃逸出编排
+    （QC 复审三轮 P2 已定的口径：拒绝要有出口码，不能靠 traceback）。
+    """
+
+
 def is_lock_conflict(exc: BaseException) -> bool:
     """该异常是否为 duckdb 文件锁冲突（可等待重试），而非其他 IO 故障。"""
     return isinstance(exc, duckdb.IOException) and any(
@@ -221,14 +236,48 @@ def probe_no_active_writer(db_path: Path) -> None:
     con.close()
 
 
-def atomic_swap_into_place(staging: Path, target: Path) -> None:
+def file_identity(db_path: Path) -> tuple[int, int]:
+    """文件的路径身份 (st_dev, st_ino)——跨换名唯一标识一个 inode。
+
+    size/mtime 只是「版本」，识别不了身份：cp -c / shutil.copy2 会把 mtime
+    一并带过去，换个 inode 而版本完全一致的文件是可以造出来的。
+    """
+    st = os.stat(db_path)
+    return (st.st_dev, st.st_ino)
+
+
+def assert_same_target(db_path: Path, expected: tuple[int, int], *, stage: str) -> None:
+    """确认 db_path 此刻仍解析到 expected 那个 inode, 否则 SwapTargetReplacedError。
+
+    stage 只进异常消息, 用来指认是哪一处守卫发现的身份漂移 (拿锁瞬间 /
+    临界区复查 / 换名前最后一刻), 便于事后定位替换发生的窗口。
+    """
+    try:
+        actual = file_identity(db_path)
+    except FileNotFoundError as exc:
+        raise SwapTargetReplacedError(
+            f"{stage}: 换库目标 {db_path} 已不存在 (协调时身份 {expected})"
+        ) from exc
+    if actual != expected:
+        raise SwapTargetReplacedError(
+            f"{stage}: 换库目标 {db_path} 的路径身份已变 "
+            f"(dev,ino {expected} -> {actual}), 疑似被第三方整文件替换; 拒绝继续"
+        )
+
+
+def atomic_swap_into_place(
+    staging: Path, target: Path, *, expect_identity: tuple[int, int] | None = None
+) -> None:
     """os.replace 把 staging 原子换名为 target。
 
     前置断言 (fail closed):
     - staging 存在且无残留 WAL——写者收笔后 duckdb close 会 checkpoint,
       仍有 WAL 说明 staging 没有干净关闭, 换过去会让生产端做恢复重放;
     - target 无 WAL——生产路径出现 WAL 说明有第三方写者在写/刚崩溃,
-      此时换名会覆盖它的工作, 必须人工裁决。
+      此时换名会覆盖它的工作, 必须人工裁决;
+    - expect_identity 给定时, os.replace 前最后一刻复查 target 的
+      (st_dev, st_ino)——调用方锁的 inode 与此刻被覆盖的必须是同一个
+      (QC 复审四轮: 锁 inode 而按路径换名, 中间被换路径就覆盖了别人)。
 
     POSIX rename 语义: 已打开旧文件的读者继续读旧 inode (安全),
     新连接读新文件; 旧文件空间在最后一个句柄释放后归还。
@@ -245,6 +294,8 @@ def atomic_swap_into_place(staging: Path, target: Path) -> None:
         raise RuntimeError(
             f"生产路径存在 WAL ({wal_path(target)}), 疑似第三方写者, 拒绝换名"
         )
+    if expect_identity is not None:
+        assert_same_target(target, expect_identity, stage="换名前最后一刻")
     os.replace(staging, target)
 
 
@@ -344,11 +395,20 @@ def hold_swap_lock(db_path: Path):
       窗口内建立，否则克隆之后才认领来源最新 stat，会把「副本不含的新
       写入」记成副本基线（QC 复现：克隆 10000→窗口内提交 17000→换入
       10000）。SH 罩住克隆时，克隆内部的 read_only 探针照常工作。
-    - 换库临界区（QC 复审二轮 P1）：「最终复查→备份→原子换名」全程
-      排写，第三方写者进不来；读者持旧 inode 不受影响。
+    - 换库临界区（QC 复审二轮 P1 + 四轮 P1）：「最终复查→[备份]→原子
+      换名」全程排写，第三方写者进不来；读者持旧 inode 不受影响。**与
+      是否备份无关**——日更不备份也必须在锁内换名，否则「守卫通过」到
+      「os.replace」之间仍是裸窗口（四轮复现：窗口内提交 17000 → rc=0
+      swapped=true → 新库不含 17000，写入被静默覆盖）。
+
+    yield 出被锁 inode 的身份 (st_dev, st_ino)：flock 锁 inode、检查与
+    换名走路径，两者之间隔着一次「路径可能被换掉」的风险，调用方要拿它
+    在临界区里和 os.replace 前各复查一次（见 assert_same_target）。拿锁
+    瞬间本函数先自查一次：open 与 flock 之间被换路径的，当场拒绝。
 
     拿不到锁立刻 DatabaseLockedError，不在临界区门口等长事务。
-    裸文件写者（cp/dd）不在威胁模型：本仓写者全走 duckdb。
+    裸文件写者（cp/dd 直写字节）不在威胁模型：本仓写者全走 duckdb；但
+    **整文件替换**（mv/cp 换 inode）已被身份校验覆盖，不再靠假设排除。
     """
     import fcntl
 
@@ -360,7 +420,10 @@ def hold_swap_lock(db_path: Path):
             raise DatabaseLockedError(
                 f"{db_path} 换库锁被占用（疑似第三方写者）: {exc}"
             ) from exc
-        yield
+        locked = os.fstat(fd)
+        identity = (locked.st_dev, locked.st_ino)
+        assert_same_target(db_path, identity, stage="换库锁拿锁瞬间")
+        yield identity
     finally:
         fcntl.flock(fd, fcntl.LOCK_UN)
         os.close(fd)

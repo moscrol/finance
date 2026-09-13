@@ -707,3 +707,131 @@ def test_third_party_write_during_backup_window_cannot_land(prod_db, monkeypatch
         }
     finally:
         con.close()
+
+
+# ---------------------------------------------------------------- QC 复审四轮 P1
+#
+# 四轮复现：临界区只有 pre_swap_backup=True 才进换库锁，日更默认
+# （pre_swap_backup=False）走的是「最终守卫 → 无锁 os.replace」。守卫与使用之间
+# 是裸窗口，第三方 rw 在窗口内提交 17000，编排照样 rc=0/swapped=true，新库却不含
+# 17000——写入已提交、被换名静默覆盖。下面两测把窗口两端各钉一次：
+#   - 不带备份的写者竞态（本节第一测）→ 锁必须与备份解耦；
+#   - 目标路径被整文件替换（后三测）→ flock 锁 inode、检查与换名走路径，
+#     两者必须确认是同一个身份。
+
+
+def test_third_party_write_before_swap_without_backup_cannot_land(prod_db, monkeypatch):
+    """日更口径（pre_swap_backup=False）：最终守卫之后、换名之前的窗口也排写。
+
+    注入点就是 QC 指定的那一刻——守卫已过、os.replace 未发。验收判据取 QC 的
+    反向表述：不得出现「rc=0 + swapped=true + 写入静默丢失」。
+    """
+    attack: dict = {}
+    real_swap = db.atomic_swap_into_place
+
+    # **kwargs 透传而不是写死 expect_identity: 这一测要能在「修复前」的代码上
+    # 因为**行为**变红（写入落地后被静默覆盖），而不是因为签名对不上变红。
+    def attack_then_swap(staging, target, **kwargs):
+        try:
+            con = duckdb.connect(str(target))
+            con.execute("INSERT INTO fact_market_daily VALUES ('2026-08-14', 17000)")
+            con.close()
+            attack["landed"] = True
+        except duckdb.IOException as exc:
+            attack["landed"] = False
+            attack["error"] = str(exc)
+        return real_swap(staging, target, **kwargs)
+
+    monkeypatch.setattr(db, "atomic_swap_into_place", attack_then_swap)
+    result = sdf.run_daily_full_staged(
+        trade_date="2026-08-15", child_argv=_child(CHILD_OK)
+    )
+    assert result["backup"] is None  # 确实跑在日更那条路径上
+
+    con = duckdb.connect(str(prod_db), read_only=True)
+    try:
+        survived = con.execute(
+            "SELECT COUNT(*) FROM fact_market_daily WHERE total_amount=17000"
+        ).fetchone()[0]
+    finally:
+        con.close()
+
+    # 判据（与机制无关）：已提交的第三方写入不得被静默吞掉。
+    assert not (attack["landed"] and result["swapped"] and survived == 0), (
+        "日更换库窗口丢写: 第三方已提交 17000，编排仍 "
+        f"rc={result['rc']} swapped={result['swapped']}，新库不含该行"
+    )
+    # 本设计的实现口径：锁内第三方 rw 根本打不开，压根落不了笔。
+    assert attack["landed"] is False, attack.get("error")
+    assert result["swapped"] is True, result["reason"]
+    assert survived == 0
+
+
+def test_swap_refused_when_target_replaced_by_another_inode(prod_db, tmp_path, monkeypatch):
+    """路径身份变异：换名前最后一刻 target 被换成另一个 inode → 拒绝换名。
+
+    mtime/size 挡不住这一类——cp -c / copy2 会把 mtime 一并带过去，造一个版本
+    读数完全一致的新 inode 是可行的。这里直接把冒名文件 os.replace 到生产路径
+    上（我方持的 SH 锁锁的是旧 inode，拦不住 rename），验证末端身份守卫接住。
+    """
+    impostor_src = tmp_path / "impostor.duckdb"
+    _make_db(impostor_src, dates=("2026-08-20",))
+    impostor_sha = _sha256(impostor_src)
+    real_swap = db.atomic_swap_into_place
+
+    def replace_then_swap(staging, target, **kwargs):  # **kwargs: 同上, 为红得对
+        os.replace(impostor_src, target)  # 同路径, 换了 inode
+        return real_swap(staging, target, **kwargs)
+
+    monkeypatch.setattr(db, "atomic_swap_into_place", replace_then_swap)
+    result = sdf.run_daily_full_staged(
+        trade_date="2026-08-15", child_argv=_child(CHILD_OK)
+    )
+    assert result["swapped"] is False
+    assert result["rc"] == 2
+    assert "身份" in result["reason"]
+    # 冒名者的字节原样还在——我们没覆盖一个不是自己基线的文件
+    assert _sha256(prod_db) == impostor_sha
+    assert Path(result["staging"]).exists()  # staging 留作取证
+
+
+def test_atomic_swap_refuses_on_identity_mismatch(tmp_path):
+    """db 层单测：expect_identity 对不上 → SwapTargetReplacedError, 不覆盖。"""
+    target = tmp_path / "t.duckdb"
+    staging = tmp_path / "t.duckdb.staging"
+    target.write_bytes(b"baseline")
+    staging.write_bytes(b"new")
+    baseline_identity = db.file_identity(target)
+
+    impostor = tmp_path / "impostor"
+    impostor.write_bytes(b"impostor")
+    os.replace(impostor, target)
+    assert db.file_identity(target) != baseline_identity
+
+    with pytest.raises(db.SwapTargetReplacedError, match="路径身份已变"):
+        db.atomic_swap_into_place(staging, target, expect_identity=baseline_identity)
+    assert target.read_bytes() == b"impostor"  # 未被覆盖
+    assert staging.exists()
+
+    # 目标整个消失同样拒绝（os.replace 本会闷声新建一个）
+    vanished_identity = db.file_identity(target)
+    target.unlink()
+    with pytest.raises(db.SwapTargetReplacedError, match="已不存在"):
+        db.atomic_swap_into_place(staging, target, expect_identity=vanished_identity)
+    assert not target.exists()
+
+    # 身份对得上时照常换名
+    target.write_bytes(b"impostor")
+    db.atomic_swap_into_place(
+        staging, target, expect_identity=db.file_identity(target)
+    )
+    assert target.read_bytes() == b"new"
+
+
+def test_hold_swap_lock_yields_locked_inode_identity(tmp_path):
+    """锁 fd 的身份要能被调用方拿到, 才能跟检查/换名对齐到同一个目标。"""
+    target = tmp_path / "prod.duckdb"
+    _make_db(target)
+    with db.hold_swap_lock(target) as identity:
+        assert identity == db.file_identity(target)
+        db.assert_same_target(target, identity, stage="自测")
