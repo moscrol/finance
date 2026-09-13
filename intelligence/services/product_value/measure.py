@@ -40,6 +40,7 @@ from intelligence.services.product_value.hashing import content_id, hash_ids
 from intelligence.services.product_value.protocol import (
     allowed_pause_reasons,
     case_index,
+    criteria,
     exclusion_rule_versions,
     pair_index,
     protocol_hash,
@@ -499,6 +500,7 @@ def _aggregate_costs(
     tasks: Mapping[str, Mapping[str, Any]],
     *,
     limitations: set[str],
+    applicable_components: set[str],
 ) -> dict[str, Any]:
     items: list[dict[str, Any]] = []
     for event in cost_events:
@@ -565,29 +567,35 @@ def _aggregate_costs(
             limitations.add(f"usage_missing:{member.get('cost_id')}")
 
     # 派生缺口：有尝试没账、有人工救援没工时费。预算与未观察到的调用都不作零费用依据。
-    # 核销与汇总层共用联合身份（C.cost_item_covers_attempt）：attempt_id 与 run_id 分属
-    # 两次执行的错配费用不为任何执行作证——收据自身必须携带缺口并降级（round-8 补遗 P1）。
+    # 与汇总层共用「按协议 × 执行实例 × 组件」规则（C.attempt_uncovered_components）：
+    # 先统一有效候选集（selected=False 的去重排除项不作证），再做联合身份匹配——
+    # 错配费用不为任何执行作证，一笔工具费不能核销整个执行；失败执行只要 writer 账
+    # （review 未发生不强要）。收据自身携带缺项并降级（round-8 补遗 / round-9 P1）。
     for task in tasks.values():
         for attempt in task.get("attempts") or ():
-            if any(
-                C.cost_item_covers_attempt(m, attempt_id=str(attempt.get("attempt_id") or ""), run_id=str(attempt.get("run_id") or ""))
-                for m in selected
-            ):
-                continue
-            unknown.append(
-                {
-                    "component": "retry" if attempt["failed"] else "writer_model",
-                    "cost_id": None,
-                    "run_id": attempt["run_id"],
-                    "attempt_id": attempt["attempt_id"],
-                    "quantity": None,
-                    "unit": None,
-                    "reason": "no_usage_evidence_for_attempt",
-                }
+            missing = C.attempt_uncovered_components(
+                selected,
+                attempt_id=str(attempt.get("attempt_id") or ""),
+                run_id=str(attempt.get("run_id") or ""),
+                applicable=applicable_components,
+                failed=bool(attempt.get("failed")),
             )
-            limitations.add(f"cost_unknown:attempt:{attempt['attempt_id']}")
+            for component in missing:
+                unknown.append(
+                    {
+                        "component": component,
+                        "cost_id": None,
+                        "run_id": attempt["run_id"],
+                        "attempt_id": attempt["attempt_id"],
+                        "quantity": None,
+                        "unit": None,
+                        "reason": "no_usage_evidence_for_attempt",
+                    }
+                )
+            if missing:
+                limitations.add(f"cost_unknown:attempt:{attempt['attempt_id']}")
     rescue_minutes = sum(float(task["timing"].get("manual_rescue_minutes") or 0.0) for task in tasks.values())
-    if rescue_minutes > 0 and not any(m.get("component") == "manual_rescue" for m in selected):
+    if rescue_minutes > 0 and not any(m.get("component") == "manual_rescue" and m.get("selected") for m in selected):
         unknown.append(
             {
                 "component": "manual_rescue",
@@ -776,7 +784,8 @@ def measure_pair(
             cost_events.append(event)
         elif event.get("case_pair_id") == pair:
             cost_events.append(event)
-    costs = _aggregate_costs(cost_events, tasks, limitations=limitations)
+    cost_applicable = set(C.COST_COMPONENTS) - {str(x) for x in (criteria(proto)["cost"].get("not_applicable_components") or ())}
+    costs = _aggregate_costs(cost_events, tasks, limitations=limitations, applicable_components=cost_applicable)
     seen_conflict_attempts: set[str] = set()
     for conflict in attempt_conflicts:
         if conflict["attempt_id"] in seen_conflict_attempts:

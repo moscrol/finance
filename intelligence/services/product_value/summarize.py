@@ -151,8 +151,6 @@ def _receipt_task_is_measured(task: Mapping[str, Any]) -> bool:
 
 # 辅助流水线固有的模型调用：writer + review。tool / retry / 人工类组件按用量发生，
 # 没发生不是缺口证据；但模型费用缺账不能靠其它类别的费用蒙混（评审 PV9）。
-_ASSISTED_MODEL_COMPONENTS = frozenset({"writer_model", "review_model"})
-
 
 def _assisted_task_uncovered_components(task: Mapping[str, Any], receipt: Mapping[str, Any], applicable: set[str]) -> list[str]:
     """辅助任务仍缺费用事实的固有模型组件（按协议适用集过滤）。
@@ -162,25 +160,25 @@ def _assisted_task_uncovered_components(task: Mapping[str, Any], receipt: Mappin
     模型没调用；review 未发生则不要求——PV12）；无 run 时退到任务级费用事实（PV9）。
     关联认 attempt_id / run_id（有执行实例时）或 task_id（无 run 时）三种挂法；
     有执行实例时只挂 task_id 的账无法归属到具体执行，不作数（fail closed）。
-    联合身份规则与测量层共用 `contracts.cost_item_covers_attempt`（round-8 补遗）。
+    联合身份与逐组件规则与测量层共用 `contracts.attempt_uncovered_components`（round-8 补遗 / round-9）。
     """
     items = [i for i in (receipt.get("cost_items") or ()) if i.get("selected")]
     attempts = task.get("attempts") or ()
     if not attempts:
         task_id = str(task.get("task_id") or "")
         covered = {str(i.get("component")) for i in items if str(i.get("task_id") or "") == task_id}
-        return sorted(applicable & _ASSISTED_MODEL_COMPONENTS - covered)
+        return sorted(applicable & C.ATTEMPT_MODEL_COMPONENTS - covered)
     uncovered: set[str] = set()
     for attempt in attempts:
-        required = applicable & (_ASSISTED_MODEL_COMPONENTS if not attempt.get("failed") else frozenset({"writer_model"}))
-        if not required:
-            continue
-        covered = {
-            str(i.get("component"))
-            for i in items
-            if C.cost_item_covers_attempt(i, attempt_id=str(attempt.get("attempt_id") or ""), run_id=str(attempt.get("run_id") or ""))
-        }
-        uncovered |= required - covered
+        uncovered |= set(
+            C.attempt_uncovered_components(
+                items,
+                attempt_id=str(attempt.get("attempt_id") or ""),
+                run_id=str(attempt.get("run_id") or ""),
+                applicable=applicable,
+                failed=bool(attempt.get("failed")),
+            )
+        )
     return sorted(uncovered)
 
 

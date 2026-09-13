@@ -353,12 +353,14 @@ def test_cost_unknown_blocks_gross_margin() -> None:
     unknown = {u["id"]: u["reason"] for u in _metric(summary, "cost_full_status")["unknown"]}
     assert unknown["c-fr-2"] == "usage_without_rate"
     # PV10：t-fr-a 有一次成功 attempt（evidence ok）但只挂了 writer 的账——review 缺账在任务级
-    # 另列（与试点级 cost_category:review_model 并存：一个是「该任务缺」，一个是「整份试点没人挂」）。
-    # 组件级核验引入前此场景只数类别级缺口（10），那时的「有任意费用即覆盖」正是 PV10 修的 bug。
+    # 另列。round-9 起收据层也逐组件携带同一缺口（a-fr-2），类别级 cost_category:review_model
+    # 被精确命名顶替（不再是「整份试点没人挂」，而是「这次执行缺」）。
     assert unknown["unmeasured_task:t-fr-a"] == "assisted_task_model_cost_unbilled"
+    assert unknown["a-fr-2"] == "no_usage_evidence_for_attempt"
     assert {k for k, v in unknown.items() if v == "cost_category_unobserved"} == {
-        f"cost_category:{c}" for c in ("acquisition_allocation", "data_license", "manual_import", "manual_maintenance", "manual_rescue", "other_model", "retry", "review_model", "tool")
+        f"cost_category:{c}" for c in ("acquisition_allocation", "data_license", "manual_import", "manual_maintenance", "manual_rescue", "other_model", "retry", "tool")
     }
+    # 计数仍是 11：8 个类别级 + c-fr-2 + a-fr-2（收据级 review 缺口）+ unmeasured_task（任务级阻断）
     assert detail["unknown_component_count"] == 11
 
 
