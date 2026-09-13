@@ -1,0 +1,10 @@
+# 恢复后绿：与 M1/M2 同一命令
+tree: /Users/a77/fwp-wt-research-priority-0913 @ HEAD 28804505 (package files uncommitted at run time)
+ranker.py  sha256: d8552055ff47a932
+adapters.py sha256: 1cf7dc928d96c003
+command: /Users/a77/finance-workspace-private/.venv-workbench/bin/python -B -m pytest -q -p no:cacheprovider intelligence/tests -k research_priority
+run_at_utc: 2026-09-13T06:37:21Z
+---
+exit_code: 0
+55 passed, 8360 deselected in 8.98s
+--- failed tests ---

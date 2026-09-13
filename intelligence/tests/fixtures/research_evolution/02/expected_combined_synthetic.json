@@ -1,0 +1,107 @@
+{
+  "synthetic": true,
+  "_note": "四源合并场景的冻结输出（selected 顺序 / 分组 / 合并来源 / 摘要）。任何合同或规则变更都应让本文件变红后再有意更新。",
+  "input_digest": "840162647a9117e26c8288de9bd6c771bdeaf0c4556ccc1aadaa7ec6dad9e52e",
+  "report_id": "rp_e99b2c8ef4720fdf",
+  "totals": {
+    "candidate_count": 17,
+    "input_count": 19,
+    "merged_count": 2,
+    "selected_count": 3,
+    "deferred_count": 10,
+    "blocked_count": 4,
+    "known_seconds": 0,
+    "unknown_effort_count": 17
+  },
+  "selected": [
+    [
+      1,
+      1,
+      "rt_df2108c29b6592cc",
+      [
+        "mi_001_abandon_true"
+      ]
+    ],
+    [
+      2,
+      2,
+      "rt_bce0c2f2133c3524",
+      [
+        "mi_002_hash_only",
+        "mi_003_same_evidence",
+        "mi_004_same_evidence_again"
+      ]
+    ],
+    [
+      3,
+      3,
+      "rt_34b928dada350ca6",
+      [
+        "conv_1#checkpoint:cp_unv_0910"
+      ]
+    ]
+  ],
+  "deferred": [
+    [
+      "user_snoozed",
+      "rt_c77910681ae9d4c3"
+    ],
+    [
+      "max_items_reached",
+      "rt_2c20da07b57bd4cf"
+    ],
+    [
+      "max_items_reached",
+      "rt_c93ebc433ce50001"
+    ],
+    [
+      "max_items_reached",
+      "rt_06a5b72c6308b476"
+    ],
+    [
+      "max_items_reached",
+      "rt_0a04f173919fba99"
+    ],
+    [
+      "max_items_reached",
+      "rt_94e4d0e5892afd2c"
+    ],
+    [
+      "max_items_reached",
+      "rt_a70514ced20aec2b"
+    ],
+    [
+      "max_items_reached",
+      "rt_d348e57314851b27"
+    ],
+    [
+      "max_items_reached",
+      "rt_e2e2bcba964ad0a8"
+    ],
+    [
+      "max_items_reached",
+      "rt_e9bdfa43f31f4c10"
+    ]
+  ],
+  "blocked": [
+    [
+      "not_yet_due",
+      "rt_27fa3d42c07812cf"
+    ],
+    [
+      "missing_data",
+      "rt_7003f59d25bbaeb8"
+    ],
+    [
+      "missing_data",
+      "rt_93a9f0f23cc6894b"
+    ],
+    [
+      "waiting_release",
+      "rt_f95d16e1ab1fde73"
+    ]
+  ],
+  "critical_not_selected_ids": [
+    "rt_c77910681ae9d4c3"
+  ]
+}
