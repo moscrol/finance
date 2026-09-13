@@ -127,3 +127,10 @@ QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结�
 - **PV5[P1] 后续窗口收缩分母**：分母取每人最晚 window.end，后续未结束窗把已完成观察周者移出分母（2/6 fail → 2/3 pass，本轮新回归）。修复：资格 = 任一完整窗（`completed_window_end`），后续窗另列 `later_observation_window_incomplete`。
 - 修复提交 **`24bce5e8`**；新增 2 条回归测试先红后绿；本轨 110 passed；全仓 9650 passed / 77 skipped / 2 xfailed；ruff 干净；QC 探针 `probe_05_extra.py` 复跑双绿。
 - **06 联测请用 `24bce5e8`**。口径纠偏：上轮「13 项已修复」实为「原 13 项固定反例转绿」；「41 条测试先红后绿」不准确（至少 `test_consented_pairs_still_reach_a_verdict` 修前修后都绿）。
+
+## 2026-09-13 QC 第三轮（PV6/PV7）
+
+- 独立复核（`~/.finance-runtime/reviews/research-evolution-round3-qc-20260913/`）：原 8 项固定反例通过，扩大边界确证 5 项新问题，本轨占 2 项 P1：PV6（PV4 相邻遗漏——`terminal_state != open` 直接当作已测量，放弃终态空壳把完整成本 unknown→known、缺口 2→0）、PV7（PV5 相邻遗漏——分母资格推导被 `participant not in declared_window_end` 阻断，追加未来窗把激活成熟者移出分母，3/6 unknown→3/3 pass）。
+- 修复 `2f0d3410`：PV6 核销费用缺口只认任务级成本事实（attempts 或有锚点的耗时），终态证明任务状态不证明费用，原流程「无 run 但有人工计时」通路保留；PV7 无已完成声明窗时按激活时刻推导，推导窗成熟即取得资格，与是否存在未来声明窗无关，后续窗仍只增缺测标签。
+- 验证：新增 2 条回归测试先红后绿（PV6 前端/服务端两种放弃输入；PV7 追加未来窗前后分母/比率/判据不变）；模块 112 passed；全量 9652 passed / 77 skipped / 2 xfailed（最终 SHA 干净树 @2f0d3410，回应 QC 对上轮脏树收据的意见）；ruff 干净；QC 第三轮探针 05 组复跑——PV6 两源 full_cost 仍 unknown、known 仍 CNY 0.46、缺口 2；PV7 分母保持 q1..q6、rate 0.5、verdict unknown；安全断言 test_new_boundaries.py 由 5 failed 转 5 passed；第二轮 probe_05_extra.py 复跑不回归。
+- 06 联测请用 `2f0d3410`。
