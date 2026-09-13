@@ -1,0 +1,55 @@
+{
+  "target": "4308db47a91a5eb9cdf2d9eddf9c74f9473df58f",
+  "kind": "static_document_and_set_algebra_only",
+  "originals_ok": 21,
+  "copies_ok": 14,
+  "transform_ok": 14,
+  "errors": [],
+  "acceptance_ids": [
+    "A1",
+    "A2",
+    "A3",
+    "A4",
+    "A5",
+    "A6",
+    "A7",
+    "A8",
+    "A9",
+    "A10",
+    "A11",
+    "A12",
+    "A13",
+    "A14",
+    "A15",
+    "A16"
+  ],
+  "parent_diff_paths": [
+    "docs/handoffs/inflight/feat-e2-material-contract-design.md",
+    "docs/learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md"
+  ],
+  "evidence_changed_from_v6": false,
+  "version_backrefs": [
+    {
+      "line": 29,
+      "text": "同 v6（split_user_message:547 → kol_review:1534 → TaskFrame:89 → _grounding_mode:497 →"
+    },
+    {
+      "line": 77,
+      "text": "  local_only / material_only。触发短语同 v6（仅指令区）。**B 轴本阶段仅消息级**"
+    },
+    {
+      "line": 100,
+      "text": "同 v6：声明绑材料（basis=user_premise），只证明范围声明自身；事实句只能绑材料"
+    }
+  ],
+  "set_algebra_not_runtime": {
+    "allow_sets_nested": true,
+    "v7_isolated_fragment_meet": [
+      "local_read"
+    ],
+    "confirmed_or_inherited_state": [],
+    "full_state_meet": [],
+    "isolated_fragment_result_exceeds_base": true
+  },
+  "no_production_parser_or_live_run": true
+}
