@@ -1,0 +1,38 @@
+{
+  "candidate_revision": "efb274b84e619234d93371cc09fb8166c66fc24e",
+  "fix_revision": "b98441c5fcd55c808e4b21305ce0bcec0bbd2666",
+  "main_fetched": "d7e5380551ba92758935d268fdd0e6fbfdd51ce8",
+  "merge_base": "e40f22b837178322169f47e565282450b4381a3a",
+  "main_only_commits": "6",
+  "merge_tree_exit": 0,
+  "prospective_merge_tree": "0c89012edeb91f7ccb2f01cd7ce9129953a40658",
+  "main_code_delta": [
+    "docs/handoffs/inflight/fix-8792-qc-closeout-0913.md",
+    "docs/handoffs/inflight/fix-l2-pct-chg-backfill-0913.md",
+    "docs/learning/knevo-distill/recheck/2026-09-12-t23-nogrok/RESULTS-2026-09-13.md",
+    "scripts/moneyflow/write_to_duckdb.py",
+    "tests/test_moneyflow_server_aggregation.py"
+  ],
+  "verified_submitted_evidence": {
+    "submitted_gate_equals_original": true,
+    "submitted_child_equals_original": true,
+    "script_hash_bound": true,
+    "frozen_parquet_hash_bound": true,
+    "before_hash_bound": true
+  },
+  "independent_replay": {
+    "path": "/Users/a77/.finance-runtime/reviews/hithink-efb274b8-qc/replay/run-mewhne9o/gate-report.json",
+    "checks": 22,
+    "verdict": "PASS",
+    "exit": 0,
+    "source": "archived before; not production"
+  },
+  "targeted_pytest": {
+    "passed": 81,
+    "exit": 0,
+    "receipt": "20260913T165041Z-efb274b8.json"
+  },
+  "ruff_full_exit": 0,
+  "prior_full_receipt": "/Users/a77/.finance-runtime/test-receipts/20260913T160704Z-b98441c5.json",
+  "decision": "Both P1 closed; latest-main integration gate still required before merge"
+}

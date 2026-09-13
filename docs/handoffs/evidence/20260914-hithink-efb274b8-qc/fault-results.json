@@ -1,0 +1,16 @@
+{
+  "revision": "efb274b84e619234d93371cc09fb8166c66fc24e",
+  "output_collision": {
+    "rc": 1,
+    "stdout": "{\n  \"gate\": \"reconcile_hithink_gate.py v3\",\n  \"verdict\": \"FAIL\",\n  \"run_dir\": null,\n  \"trade_date\": null,\n  \"inputs\": {},\n  \"checks\": [\n    {\n      \"name\": \"unhandled_exception\",\n      \"ok\": false,\n      \"detail\": \"FileExistsError(17, 'File exists')\"\n    }\n  ],\n  \"failed\": [\n    \"unhandled_exception\"\n  ]\n}\nREPORT_WRITTEN_TO=/tmp/hithink-gate-report-8g80rs38/gate-report.json\n",
+    "stderr": ""
+  },
+  "git_status_error": {
+    "actual_status": "?? review-dirty-rdzlrek1.txt\n",
+    "git_rc": 128,
+    "git_stdout": "",
+    "git_stderr": "fatal: /Users/a77/.finance-runtime/reviews/hithink-efb274b8-qc/faults/gate-qc-lpp32lbj/corrupt-index: index file smaller than expected\n",
+    "gate_rc": 1,
+    "gate_stdout": "{\n  \"gate\": \"reconcile_hithink_gate.py v3\",\n  \"verdict\": \"FAIL\",\n  \"run_dir\": null,\n  \"trade_date\": null,\n  \"inputs\": {},\n  \"checks\": [\n    {\n      \"name\": \"git_invocation\",\n      \"ok\": false,\n      \"detail\": {\n        \"command\": [\n          \"git\",\n          \"status\",\n          \"--porcelain\"\n        ],\n        \"rc\": 128,\n        \"stderr_tail\": \"fatal: /Users/a77/.finance-runtime/reviews/hithink-efb274b8-qc/faults/gate-qc-lpp32lbj/corrupt-index: index file smaller than expected\\n\"\n      }\n    }\n  ],\n  \"failed\": [\n    \"git_invocation\"\n  ]\n}\nREPORT_WRITTEN_TO=/Users/a77/.finance-runtime/reviews/hithink-efb274b8-qc/faults/gate-qc-lpp32lbj/run/gate-FAIL-20260914T005011-50022.json\n"
+  }
+}
