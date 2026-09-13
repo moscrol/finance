@@ -102,8 +102,10 @@ def prioritize(
             "unknown_effort_count": sum(1 for t in unique if t["effort"]["seconds"] is None),
         },
         "gaps": report_gaps,
-        "limitations": _limitations(bud),
+        "limitations": _limitations(bud, hindsight=any(t["hindsight"] for t in unique)),
         "synthetic": any(t.get("synthetic") for t in unique),
+        # 09-06 终局 §4.1 / §4.5：hindsight 是强制可见的限制，只供人工复核，不进校准与方法统计。
+        "hindsight": any(t["hindsight"] for t in unique),
     }
 
 
@@ -204,6 +206,7 @@ def _merge_members(key: tuple[Any, ...], members: list[dict[str, Any]]) -> dict[
         "snoozed" if statuses and all(s == "snoozed" for s in statuses) else (sorted(set(statuses))[0] if statuses else None)
     )
     merged["synthetic"] = any(m.get("synthetic") for m in members)
+    merged["hindsight"] = any(m["hindsight"] for m in members)  # 键已隔离，成员同值；显式写出以防漂
     # 同一证据在不同市场日被重复观测：知识状态取最新，可知性检查也按最新算。
     as_ofs = [m["as_of"] for m in members if m["as_of"]]
     merged["as_of"] = max(as_ofs) if as_ofs else None
@@ -361,6 +364,14 @@ def _deferred(task: dict[str, Any], reason: str, detail: str) -> dict[str, Any]:
     return {"task": task, "reason": reason, "detail": detail, "group": _group_of(task)}
 
 
+def _evidence_label(ref: dict[str, Any]) -> str:
+    """证据引用的可读标签；frozen_llm 散文按 09-06 终局 §4.2 带标记（可读不可重算，不进任何度量）。"""
+    text = c.object_label(ref) + (f"@{ref['version_or_hash'][:12]}" if ref.get("version_or_hash") else "")
+    if ref.get("namespace") == "frozen_llm":
+        text += "［frozen_llm 散文：可读不可重算］"
+    return text
+
+
 def _reasons(task: dict[str, Any], remaining: float | None, bud: c.Budget) -> list[str]:
     """解释只由输入事实与规则生成：为什么排这里、依赖哪条判断、缺什么、做什么、何时停。"""
     group = _group_of(task)
@@ -371,8 +382,10 @@ def _reasons(task: dict[str, Any], remaining: float | None, bud: c.Budget) -> li
     else:
         lines.append("未绑定任何已登记判断（legacy_unbound），本项不维护原判断")
     if task["effect_evidence_refs"]:
-        refs = sorted({c.object_label(r) + (f"@{r['version_or_hash'][:12]}" if r.get("version_or_hash") else "") for r in task["effect_evidence_refs"]})
+        refs = sorted({_evidence_label(r) for r in task["effect_evidence_refs"]})
         lines.append(f"触发/核查证据：{'、'.join(refs)}")
+    if task["hindsight"]:
+        lines.append("来源为 hindsight 回放（历史 as_of 配更晚 cutoff）：只供人工复核，不进校准或方法统计")
     if task["condition_result"] is True:
         lines.append("条件判定：true（已观测触发；按条件角色区分升级/降级/放弃/复核，不一律放弃）")
     elif task["condition_result"] == c.CONDITION_UNKNOWN:
@@ -413,18 +426,23 @@ def _report_gaps(unique: list[dict[str, Any]], blocked: list[dict[str, Any]]) ->
     unbound = [t["id"] for t in unique if t["legacy_unbound"]]
     if unbound:
         gaps.append({"reason": "legacy_unbound", "task_ids": unbound, "retryable": False})
+    hindsight = [t["id"] for t in unique if t["hindsight"]]
+    if hindsight:
+        gaps.append({"reason": "hindsight_source", "task_ids": hindsight, "retryable": False})
     return gaps
 
 
-def _limitations(bud: c.Budget) -> list[str]:
+def _limitations(bud: c.Budget, *, hindsight: bool = False) -> list[str]:
     lines = [
-        "输出是确定性规则下的研究优先级，不是预期收益、信息价值或任何概率。",
+        "输出是确定性规则下的研究优先级，不是预期收益、信息价值或任何概率；不构成任何个股买卖建议。",
         "组号是优先序不是评分；同组顺序只由到期、受影响对象数、已知耗时与 id 决定。",
         "耗时未知的任务不按 0 计；未给预算时不推算完成时间。",
         "时间状态只按注入的 evaluation_at 判定，市场 as_of 与资料 knowledge_cutoff 另管数据可知性。",
     ]
     if bud.seconds is not None:
         lines.append("预算选择为按优先序的贪心扫描，不声称是最优分配。")
+    if hindsight:
+        lines.append("含 hindsight 回放来源：整份报告只供人工复核，不得作为当前优先级、不进校准或方法有效性统计。")
     return lines
 
 

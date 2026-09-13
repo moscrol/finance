@@ -1,8 +1,8 @@
 {
   "synthetic": true,
   "_note": "四源合并场景的冻结输出（selected 顺序 / 分组 / 合并来源 / 摘要）。任何合同或规则变更都应让本文件变红后再有意更新。",
-  "input_digest": "6c8cb1738868c85fbf62e82fe065a7389127527ae7f610f364f70dee5196da0f",
-  "report_id": "rp_072142c57e1c4345",
+  "input_digest": "840162647a9117e26c8288de9bd6c771bdeaf0c4556ccc1aadaa7ec6dad9e52e",
+  "report_id": "rp_e99b2c8ef4720fdf",
   "totals": {
     "candidate_count": 17,
     "input_count": 19,

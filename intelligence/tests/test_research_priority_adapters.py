@@ -169,6 +169,23 @@ def test_maintenance_report_of_another_owner_is_rejected():
     assert excinfo.value.code == "unknown_schema"
 
 
+def test_hindsight_flag_of_01_report_propagates_to_every_task():
+    fixture = _load("maintenance_report_synthetic.json")
+    assert fixture["hindsight"] is False
+    live = rp.adapt_candidates([{"kind": rp.SOURCE_MAINTENANCE_REPORT, "payload": fixture}], CONTEXT)
+    assert {t["hindsight"] for t in live["tasks"]} == {False}
+    replay_fixture = copy.deepcopy(fixture)
+    replay_fixture["hindsight"] = True
+    replay = rp.adapt_candidates([{"kind": rp.SOURCE_MAINTENANCE_REPORT, "payload": replay_fixture}], CONTEXT)
+    assert replay["tasks"] and {t["hindsight"] for t in replay["tasks"]} == {True}
+    report = rp.prioritize(replay, None, None, "2026-09-12T10:00:00Z")  # 历史重放：显式给历史评估时刻
+    assert report["hindsight"] is True
+    assert any(text.startswith("含 hindsight 回放来源") for text in report["limitations"])
+    # 回放任务与同证据的当前任务 id 不同，不会互相顶替。
+    live_ids = {t["id"] for t in live["tasks"]}
+    assert live_ids.isdisjoint({t["id"] for t in replay["tasks"]})
+
+
 def test_effort_estimates_from_context_attach_by_source():
     context = {**CONTEXT, "effort_estimates": {"maintenance_item:mi_001_abandon_true": {"seconds": 600, "kind": "user_estimate", "source_ref": "user:2026-09-13"}}}
     candidates = rp.adapt_candidates([_maintenance_record()], context)

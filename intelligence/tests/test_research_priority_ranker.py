@@ -459,8 +459,10 @@ def test_p10_reordered_and_reread_inputs_give_identical_report():
 def test_reasons_are_generated_from_facts_and_never_promise_returns():
     report = rp.prioritize([_abandon("ab", "j_ab", effort=_effort(2)), _task("ex", effort=_effort(1))], None, {"minutes": 5}, EVAL_AT)
     joined = "\n".join(reason for row in report["selected"] for reason in row["reasons"])
-    for forbidden in ("概率", "预期收益", "胜率", "%"):
-        assert forbidden not in joined
+    # 不编数、也不荐股：理由与限制里不得出现收益/概率承诺或任何方向性买卖措辞（不荐股只约束渲染输出，scope 不过滤个股）。
+    for forbidden in ("概率", "预期收益", "胜率", "%", "买入", "卖出", "加仓", "减仓", "建议持有", "目标价"):
+        assert forbidden not in joined, forbidden
+    assert any("不构成任何个股买卖建议" in text for text in report["limitations"])
     first = report["selected"][0]["reasons"]
     assert first[0].startswith("第 1 组")
     assert any(text.startswith("依赖判断：judgment:j_ab") for text in first)
@@ -483,6 +485,53 @@ def test_render_keeps_every_reason_and_click_payload():
     markdown = rp.render_markdown(report)
     assert "## 入选" in markdown and "## 等待区" in markdown and "需开通研报库权限" in markdown
     assert "synthetic" not in markdown  # 没有夹具标记就不能冒出「synthetic」
+    # 09-06 终局 §4.5：限制与缺口排在事实块之前。
+    assert markdown.index("## 限制与缺口") < markdown.index("## 入选")
+    assert "hindsight" not in markdown  # 没有 hindsight 来源就不提它
+
+
+def test_hindsight_source_is_flagged_isolated_and_never_hidden():
+    live = _task(
+        "live",
+        effect=c.EFFECT_REVIEW_CHANGED,
+        objects=(_ref("judgment", "j_h"),),
+        evidence=(_ref("evidence", "e_h", namespace="announcement", version="h1"),),
+    )
+    replay = dict(copy.deepcopy(live), id="replay", hindsight=True, source=_ref("test_source", "replay", namespace="tests", version="s1"))
+    # 同对象两项都要入选才都有 reasons，放宽 max_per_object。
+    report = rp.prioritize([live, replay], {"max_per_object": 2}, None, EVAL_AT)
+    # 同证据但一条是 hindsight 回放：不合并，两条都可见；普通任务的 id 不受 hindsight 字段影响。
+    assert report["totals"]["candidate_count"] == 2 and len(report["selected"]) == 2
+    assert report["hindsight"] is True
+    live_only = rp.prioritize([copy.deepcopy(live)], None, None, EVAL_AT)
+    assert live_only["hindsight"] is False
+    live_id = live_only["selected"][0]["task"]["id"]
+    ids = {row["task"]["id"]: row for row in report["selected"] + report["deferred"]}
+    assert live_id in ids and ids[live_id]["task"]["hindsight"] is False
+    replay_row = next(row for tid, row in ids.items() if tid != live_id)
+    assert replay_row["task"]["hindsight"] is True
+    assert any("hindsight" in text for text in (replay_row.get("reasons") or [replay_row.get("detail", "")]))
+    assert any(text.startswith("含 hindsight 回放来源") for text in report["limitations"])
+    assert any(g["reason"] == "hindsight_source" and g["task_ids"] == [replay_row["task"]["id"]] for g in report["gaps"])
+    view = rp.render_view(report)
+    assert view["hindsight"] is True
+    assert "hindsight 回放来源" in rp.render_markdown(report)
+    with pytest.raises(c.ContractError) as excinfo:
+        rp.prioritize([dict(live, hindsight="yes")], None, None, EVAL_AT)
+    assert excinfo.value.code == "invalid_task"
+
+
+def test_frozen_llm_evidence_is_labelled_in_reasons():
+    prose = _task(
+        "prose",
+        effect=c.EFFECT_REVIEW_CHANGED,
+        objects=(_ref("judgment", "j_p"),),
+        evidence=(_ref("evidence", "narrative:refrigerant:v3", namespace="frozen_llm", version="h_n3"),),
+    )
+    report = rp.prioritize([prose], None, None, EVAL_AT)
+    assert any("frozen_llm 散文：可读不可重算" in text for text in report["selected"][0]["reasons"])
+    # 分组不因散文而改变：仍是第 2 组的复核任务，不进第 1 组。
+    assert report["selected"][0]["group"] == c.GROUP_REVIEW_CHANGED
 
 
 def test_policy_and_budget_validation():

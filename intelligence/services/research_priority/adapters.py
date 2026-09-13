@@ -69,6 +69,7 @@ class _Ctx:
     knowledge_cutoff: str | None
     effort_estimates: dict[str, Any]
     request_bindings: dict[str, list[dict[str, Any]]]
+    hindsight: bool = False
     tasks: list[dict[str, Any]] = field(default_factory=list)
     skipped: list[dict[str, Any]] = field(default_factory=list)
 
@@ -98,6 +99,7 @@ def adapt_candidates(source_records: Any, context: Any) -> dict[str, Any]:
         knowledge_cutoff=context.get("knowledge_cutoff"),
         effort_estimates=dict(context.get("effort_estimates") or {}),
         request_bindings=dict(context.get("request_bindings") or {}),
+        hindsight=bool(context.get("hindsight", False)),
     )
     if source_records is None:
         source_records = []
@@ -157,6 +159,7 @@ def _task(
     due_at: Any = None,
     available_at: Any = None,
     management_status: str | None = None,
+    hindsight: bool = False,
 ) -> None:
     ctx.tasks.append(
         {
@@ -186,6 +189,7 @@ def _task(
             "legacy_unbound": not object_refs,
             "management_status": management_status,
             "synthetic": ctx.synthetic,
+            "hindsight": bool(hindsight or ctx.hindsight),
         }
     )
 
@@ -256,13 +260,16 @@ def _adapt_maintenance_report(record: dict[str, Any], payload: Any, ctx: _Ctx) -
         "as_of": payload.get("as_of"),
         "knowledge_cutoff": payload.get("knowledge_cutoff"),
         "pit_grade": payload.get("pit_grade"),
+        "hindsight": bool(payload.get("hindsight", False)),
     }
     for item in items:
         _adapt_maintenance_item_impl(item, ctx, defaults)
 
 
 def _adapt_maintenance_item(record: dict[str, Any], payload: Any, ctx: _Ctx) -> None:
-    _adapt_maintenance_item_impl(payload, ctx, {"report_id": record.get("id")})
+    _adapt_maintenance_item_impl(
+        payload, ctx, {"report_id": record.get("id"), "hindsight": bool(record.get("hindsight", False))}
+    )
 
 
 def _adapt_maintenance_item_impl(item: Any, ctx: _Ctx, defaults: dict[str, Any]) -> None:
@@ -355,6 +362,7 @@ def _adapt_maintenance_item_impl(item: Any, ctx: _Ctx, defaults: dict[str, Any])
         entity_refs=[],
         maintenance_item_ids=[item_id],
         management_status=status,
+        hindsight=bool(defaults.get("hindsight", False)),
     )
 
     if change_type == "condition_evaluated":

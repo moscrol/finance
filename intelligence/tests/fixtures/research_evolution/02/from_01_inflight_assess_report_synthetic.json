@@ -2,7 +2,7 @@
   "synthetic": true,
   "_note": "由 01 在途模块（未提交）的真实 assess() 在其合成夹具 complete/input.json 上产出的报告，原样保存供 02 P12 联测；输入是合成的，所以整体仍标 synthetic。01 engineering_complete 后须用其最终 revision 重跑并替换本文件。",
   "_provenance": {
-    "producer": "intelligence.services.judgment_maintenance.assess (worktree /Users/a77/fwp-wt-judgment-maintenance-01, branch feat/judgment-maintenance-01 @ 5fb13a8c + uncommitted)",
+    "producer": "intelligence.services.judgment_maintenance.assess（01 轨 worktree fwp-wt-judgment-maintenance-01，分支 feat/judgment-maintenance-01 @ 5fb13a8c + 未提交）",
     "producer_file_sha256_16": {
       "__init__.py": "fec2474876ae91f3",
       "actions.py": "5a7515fed68faf75",
@@ -13,7 +13,7 @@
     },
     "input_fixture": "intelligence/tests/fixtures/research_evolution/01/complete/input.json (01 树内，未提交)",
     "produced_at_utc": "2026-09-13T06:40:00Z",
-    "command": "PYTHONPATH=<01 树> python -B -c 'assess(**input, generated_at=...)' → report.to_dict()",
+    "command": "PYTHONPATH=<01 树根> python -B -c 'assess(**input, generated_at=...)' → report.to_dict()",
     "producer_file_sha256_16_at_run": {
       "__init__.py": "fec2474876ae",
       "actions.py": "abb1219738e9",

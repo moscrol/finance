@@ -73,6 +73,7 @@ def render_view(report: dict[str, Any]) -> dict[str, Any]:
         "gaps": list(report["gaps"]),
         "limitations": list(report["limitations"]),
         "synthetic": bool(report.get("synthetic")),
+        "hindsight": bool(report.get("hindsight")),
     }
 
 
@@ -86,8 +87,17 @@ def render_markdown(report: dict[str, Any]) -> str:
     ]
     if view["synthetic"]:
         lines.append("- ⚠ 输入含 synthetic 夹具，仅作工程验收")
+    if view["hindsight"]:
+        lines.append("- ⚠ 含 hindsight 回放来源：只供人工复核，不是当前优先级")
     if view["critical_not_selected_ids"]:
         lines.append(f"- ⚠ 未入选的关键（第 1 组）任务：{', '.join(view['critical_not_selected_ids'])}")
+    # 09-06 终局 §4.5 规矩 2：缺口与限制排在事实块之前——它们是判读的边界条件，不是脚注。
+    lines.append("")
+    lines.append("## 限制与缺口")
+    for text in view["limitations"]:
+        lines.append(f"- {text}")
+    for gap in view["gaps"]:
+        lines.append(f"- 缺口 {gap['reason']}：{len(gap.get('task_ids') or [])} 项")
     lines.append("")
     lines.append("## 入选")
     if not view["selected"]:
@@ -108,10 +118,6 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.append("（无）")
     for row in view["blocked"]:
         lines.append(f"- {row['标题']}  ·  {row['原因']}  ·  解除条件：{row['解除条件']}")
-    lines.append("")
-    lines.append("## 限制")
-    for text in view["limitations"]:
-        lines.append(f"- {text}")
     return "\n".join(lines) + "\n"
 
 
@@ -137,6 +143,7 @@ def _task_view(task: dict[str, Any]) -> dict[str, Any]:
         "市场日": task.get("as_of"),
         "资料截止": task.get("knowledge_cutoff"),
         "pit_grade": task["pit_grade"],
+        "hindsight": task["hindsight"],
         "来源": [c.object_label(r) for r in task["merged_source_refs"]],
         "维护项": list(task["maintenance_item_ids"]),
         "click_payload": {
