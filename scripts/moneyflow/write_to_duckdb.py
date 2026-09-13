@@ -200,6 +200,71 @@ def mark_calendar(date, verdict, source, reason):
         con.close()
 
 
+def repair_pct_chg(date):
+    """把当日 L2 两表的 pct_change 回填为日线口径（2026-09-13 QC E3 旧窗口收口）。
+
+    旧窗口（ClickHouse/wind 时代）行的 pct_change 是「末笔/首笔」日内口径，与日线
+    pct_chg 系统性背离。逐笔数据本身无缺陷、资金流各列不动——只回填这一列：
+    从 fact_stock_daily 按 6 位代码直填；缺日线的行写 NULL 并计数（不拿日内口径
+    冒充），台账 step='repair_pct_chg' 记更新/置空数与缺日线代码。幂等：值已正确
+    的行被重写成同样的值。刻意不用 duck_pct_chg_map——它按 config.DUCKDB_PATH 另开
+    连接，回填必须与写入同一库（测试才能指向 tmp 库）。
+    """
+    tables = ("feature_l2_capital_flow_daily", "feature_l2_quant_orders_daily")
+    con = connect()
+    try:
+        init_db(con)
+        con.execute("BEGIN TRANSACTION")
+        pct_map = {
+            r[0]: float(r[1])
+            for r in con.execute(
+                "SELECT substr(stock_ts_code, 1, 6), pct_chg FROM fact_stock_daily "
+                "WHERE trade_date = ? AND pct_chg IS NOT NULL",
+                [date],
+            ).fetchall()
+        }
+        parts = []
+        missing_codes = set()
+        for table in tables:
+            codes = [
+                r[0]
+                for r in con.execute(
+                    f"SELECT DISTINCT stock_code FROM {table} WHERE trade_date = ?",
+                    [date],
+                ).fetchall()
+            ]
+            updated = 0
+            n_null = 0
+            for code in codes:
+                pct = pct_map.get(code)
+                con.execute(
+                    f"UPDATE {table} SET pct_change = ? "
+                    "WHERE trade_date = ? AND stock_code = ?",
+                    [pct, date, code],
+                )
+                if pct is None:
+                    n_null += 1
+                    missing_codes.add(code)
+                else:
+                    updated += 1
+            parts.append(f"{table.split('_')[2]} updated={updated} null={n_null}")
+        msg = "repair_pct_chg: " + "; ".join(parts)
+        if missing_codes:
+            msg += f"; missing_daily={'/'.join(sorted(missing_codes)[:20])}"
+        _mark_status(con, date, "repair_pct_chg", "complete", None, None, msg)
+        con.execute("COMMIT")
+        print(f"DuckDB: {msg}")
+        return msg
+    except Exception:
+        try:
+            con.execute("ROLLBACK")
+        except Exception:
+            pass
+        raise
+    finally:
+        con.close()
+
+
 def mark_failed(date, message, steps=STEPS, only_running=True):
     """把步骤标记为 failed（默认只覆盖仍处于 running 的步骤）。"""
     con = connect()
@@ -351,10 +416,14 @@ def main():
         mark_failed(sys.argv[2], message)
         print(f"DuckDB: l2-moneyflow {sys.argv[2]} 未完成步骤标记为 failed")
         return
+    if len(sys.argv) == 3 and sys.argv[1] == "--repair-pct-chg":
+        repair_pct_chg(sys.argv[2])
+        return
     if len(sys.argv) < 4:
         print(
             "用法: python3 write_to_duckdb.py --begin <日期> | --fail <日期> [原因] | "
             "--calendar <日期> <trading|closed|unknown> <判定来源> [理由] | "
+            "--repair-pct-chg <日期> | "
             "<csv路径> <limitup|top100|quant> <日期>"
         )
         return

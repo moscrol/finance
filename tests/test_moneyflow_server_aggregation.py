@@ -339,3 +339,67 @@ def test_l2_status_message_includes_shared_cache_stats(monkeypatch):
 
     assert "shared_cache hits=4 misses=5 queries=5 writes=6 entries=7" in message
     assert "nonempty=3 empty=2" in message
+
+
+def test_repair_pct_chg_backfills_daily_caliber_and_nulls_missing(tmp_path, monkeypatch):
+    """2026-09-13 QC E3 旧窗口收口：pct_change 从 fact_stock_daily 直填日线口径，
+    缺日线的行置 NULL 不冒充，台账 step='repair_pct_chg' 记更新/置空数。"""
+    import market_feature_store.db as mfs_db
+
+    monkeypatch.setattr(mfs_db, "DB_PATH", tmp_path / "t.duckdb")
+    monkeypatch.setattr(mfs_db, "DB_DIR", tmp_path)
+    writer = _load_module(
+        monkeypatch, "moneyflow_writer_repair_pct", "write_to_duckdb.py"
+    )
+
+    import duckdb
+
+    con = duckdb.connect(str(tmp_path / "t.duckdb"))
+    writer.init_db(con)
+    con.execute(
+        "INSERT INTO fact_stock_daily (trade_date, stock_ts_code, stock_name, "
+        "close, pre_close, pct_chg, amount, turnover, source, updated_at) VALUES "
+        "('2026-07-15','000001.SZ','平安银行',10.0,9.85,1.5,1e8,2.0,'test',CURRENT_TIMESTAMP)"
+    )
+    con.execute(
+        "INSERT INTO feature_l2_capital_flow_daily VALUES "
+        "('2026-07-15','top100','000001','000001.SZ','平安银行',"
+        "100.0,120.0,500.0,0.02,9.99,100.0,1,NULL,'test',CURRENT_TIMESTAMP),"
+        "('2026-07-15','top100','000002','000002.SZ','万科A',"
+        "200.0,210.0,800.0,0.03,-8.88,50.0,2,NULL,'test',CURRENT_TIMESTAMP)"
+    )
+    con.execute(
+        "INSERT INTO feature_l2_quant_orders_daily VALUES "
+        "('2026-07-15','000001','000001.SZ','平安银行',"
+        "300.0,25.0,3,40,'850万x20笔',9.99,200.0,100.0,1,'test',CURRENT_TIMESTAMP),"
+        "('2026-07-15','000002','000002.SZ','万科A',"
+        "150.0,15.0,2,30,'500万x15笔',-8.88,200.0,50.0,2,'test',CURRENT_TIMESTAMP)"
+    )
+    con.close()
+
+    msg = writer.repair_pct_chg("2026-07-15")
+
+    con = duckdb.connect(str(tmp_path / "t.duckdb"), read_only=True)
+    try:
+        rows = con.execute(
+            "SELECT stock_code, pct_change FROM feature_l2_capital_flow_daily "
+            "WHERE trade_date='2026-07-15' ORDER BY stock_code"
+        ).fetchall()
+        qrows = con.execute(
+            "SELECT stock_code, pct_change FROM feature_l2_quant_orders_daily "
+            "WHERE trade_date='2026-07-15' ORDER BY stock_code"
+        ).fetchall()
+        ledger = con.execute(
+            "SELECT status, message FROM ops_pipeline_run_daily "
+            "WHERE trade_date='2026-07-15' AND pipeline='l2-moneyflow' "
+            "AND step='repair_pct_chg'"
+        ).fetchone()
+    finally:
+        con.close()
+
+    assert rows == [("000001", 1.5), ("000002", None)]
+    assert qrows == [("000001", 1.5), ("000002", None)]
+    assert ledger is not None and ledger[0] == "complete"
+    assert "updated=1" in ledger[1] and "null=1" in ledger[1]
+    assert "000002" in ledger[1]
+    assert "capital" in msg
