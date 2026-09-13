@@ -127,8 +127,14 @@ I13 / I14 / I15 未验（缺真人参与者、浏览器可见性事件、已授�
 | `pnpm lint` / `pnpm typecheck` / `pnpm build` | `0b03f84e` | 0 | 全过 |
 | `pnpm test`（vitest） | `0b03f84e` | 0 | **84 passed**（新增 8） |
 | `pnpm test:e2e --project=desktop` | `0b03f84e` | 0 | **8 passed**（新增 3，既有 5 未受影响） |
-| `pytest -q --ignore=test_codex_sandbox.py`（全仓等价 CI） | 见下节 | — | — |
-| pre-commit 11 道 | 四次提交均通过 | 0 | — |
+| `scripts/build_registry.py check` | `e0dec906` | 0 | 注册表与源一致 |
+| **`pytest -q --ignore=test_codex_sandbox.py`（全仓等价 CI）** | **`d460b3aa`（最终 SHA，干净树）** | **0** | **9997 passed / 0 failed / 77 skipped / 2 xfailed**，381 s |
+| `graph_audit.py --repos-root /Users/a77` | 同上 | 0 | 60 行 / 106 条断言无漂移；本批 8 条为 PENDING（在途分支，预期） |
+| pre-commit 11 道 | 五次提交均通过 | 0 | — |
+
+全仓收据：`~/.finance-runtime/test-receipts/20260913T090200Z-d460b3aa.json`
+（`tree` = 本工作树、`dirty` = false、`failed_ids` = []）。第一次全仓跑绑的是 `0b03f84e`，
+之后又叠了两次提交，所以按最终 SHA 重跑了一遍——收据要能指回它度量的那个 revision。
 
 收据文件按 revision 取 `~/.finance-runtime/test-receipts/<stamp>-<rev8>.json`，**不读 `latest.json`**（多树并发覆盖）。
 排除 `test_codex_sandbox.py` 的理由：本机已知随机红（记忆 `codex-sandbox-test-fails-on-this-machine`），与本轨无关。
