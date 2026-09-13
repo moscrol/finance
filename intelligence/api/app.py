@@ -16,7 +16,7 @@ from dataclasses import asdict
 from importlib import import_module
 from pathlib import Path
 from threading import Event, Lock
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -1501,12 +1501,15 @@ class ContinuationRequest(BaseModel):
 
     只承载坐标（来源 run / 卡片种类 / 继承的对象与站立日），不承载正文；
     服务端核验 run 属于本用户本会话后落在用户消息上，编排器据此继承研究状态。
+    ``click_payload`` 是结构化载荷（02 任务卡的 source_refs / scope、研究进化的维护项对象与版本），
+    由前端原样透传并持久化在用户消息上（QC Q7——丢了它，任务卡与研究进化续跑的结构化来源就断在边界上）。
     """
 
     run_id: str = Field(min_length=1)
     kind: str = ""
     source: str = ""
     label: str = ""
+    click_payload: dict[str, Any] = Field(default_factory=dict)
     full_prompt: str = ""
     inherits: dict[str, str] = Field(default_factory=dict)
 
@@ -2420,15 +2423,23 @@ def create_app(
     app.state.conversation_locks_guard = conversation_locks_guard
     app.state.llm_settings = llm_settings
 
+    def _fold_research_evolution(user_id: str, run_id: str) -> None:
+        """run 终态后的研究进化收尾（QC Q2）：由 ObservingRunStore 在 claim 成功后回调。
+        闭包在调用时才解析 _evolution_service——store_for 先于服务构建，回调只在 run 终态时触发。"""
+        ctx = research_evolution_svc.OwnerContext.for_owner(user_id)
+        _evolution_service.fold_run_terminal(ctx=ctx, run_id=run_id)
+
     def store_for(user: str | None) -> RunStore:
         # 06（spec §5「服务端观察 run 生命周期」）：ObservingRunStore 是 RunStore 子类，
         # 在 create / 终态两个漏斗点经 06 单 writer 多写一条 05 测量事件；
         # 读路径与写路径的其余行为与 RunStore 完全一致。事件写失败不阻断 run。
+        # 终态后多走一步：若该 run 是维护复核发起的（运行中登记过关联），把结果折回维护项（QC Q2）。
         return research_evolution_svc.ObservingRunStore(
             user_id=user,
             evolution_root=Path(userspace.user_space(user).root) / "research_evolution",
             clock=research_evolution_clock if callable(research_evolution_clock) else None,
             code_sha=str(runtime_provenance.get("source_revision") or ""),
+            maintenance_folder=lambda run_id, _user=user: _fold_research_evolution(_user or "default", run_id),
         )
 
     def conversation_store_for(user: str | None) -> ConversationStore:

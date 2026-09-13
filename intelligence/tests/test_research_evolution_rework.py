@@ -22,7 +22,7 @@ from intelligence.services.research_evolution import ResearchEvolutionService, R
 from intelligence.services.research_evolution.access import OwnerContext
 from intelligence.services.research_evolution.adapters import RiverEvidenceSource
 from intelligence.services.research_evolution.contracts import ApiError
-from intelligence.services.research_evolution.store import RECEIPTS_DIR, EvolutionStore
+from intelligence.services.research_evolution.store import RECEIPTS_DIR, SUMMARIES_DIR, EvolutionStore
 from intelligence.services.run_store import RunStore
 from intelligence.tests.test_research_evolution_api import World as BaseWorld
 
@@ -30,10 +30,15 @@ SH = ZoneInfo("Asia/Shanghai")
 
 
 class World(BaseWorld):
-    """在既有 World 上加两件事：把 turn 执行器换成直接完成的假实现；等 run 终态 / 事件落盘的轮询。"""
+    """在既有 World 上加三件事：把 turn 执行器换成直接完成的假实现；等 run 终态 / 事件落盘的轮询；
+    turn 闸门——测试可以 hold 住 turn 线程，在 run 到终态之前先登记维护关联（Q3 合同的前提时序）。"""
 
     def __init__(self, users: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        self.turn_gate = threading.Event()
+        self.turn_gate.set()
+
         def fake_turn(**kwargs: object) -> None:
+            self.turn_gate.wait(15)
             store = kwargs["run_store"]
             run_id = kwargs["run_id"]
             assert isinstance(store, RunStore) and isinstance(run_id, str)
@@ -66,6 +71,20 @@ class World(BaseWorld):
 
     def current_item(self, item_id: str) -> dict:
         return next(i for i in self.view()["maintenance"]["items"] if i["id"] == item_id)
+
+    def wait_item_status(self, item_id: str, status: str, timeout: float = 10.0) -> dict:
+        """观察器终态收尾与 run 状态可见之间有毫秒级窗口（claim 先落 run 状态、后折回）——轮询消费它。"""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            try:
+                item = self.current_item(item_id)
+            except StopIteration:
+                time.sleep(0.05)
+                continue
+            if item["status"] == status:
+                return item
+            time.sleep(0.05)
+        raise AssertionError(f"维护项 {item_id} 未在超时内到 {status}：{self.current_item(item_id)['status']}")
 
     def link_args(self, item_id: str) -> dict:
         """link_run / cancel_rejudge 也要过版本闸（与 i08 同合同）：带上当前项的期望版本。"""
@@ -234,20 +253,24 @@ def test_r1_rejudge_message_acceptance_and_terminal_link(world: World) -> None:
     rejudge = world.rejudge(item)
     continuation = rejudge["continuation"]
     assert "run_id" not in continuation, "没有已完成轮次时不伪造 run_id（从现在开始跟踪）"
+    # 2) Q3 合同时序：run 未终态时先登记关联（hold 住 turn 制造这个窗口）。
+    world.turn_gate.clear()
     posted = world.client.post(
         f"/api/conversations/{world.conversation_id}/messages",
         json={"user": fx.OWNER, "content": continuation["full_prompt"], "skill_mode": "hybrid"},
     )
     assert posted.status_code == 202, posted.text
     run_id = posted.json()["run_id"]
+    registered = world.act(idempotency_key="k-r1-reg", run_id=run_id, **world.link_args(item["id"]))
+    assert registered.status_code == 200 and registered.json()["status"] == "registered", registered.text
+
+    # 3) 放行到终态：没有新判断 → 观察器自动收尾失败（诚实拒绝）→ 项停在 rejudgment_requested，可恢复。
+    world.turn_gate.set()
     assert world.wait_terminal(run_id)["status"] == "completed"
+    time.sleep(0.5)  # 给观察器收尾一个落窗（它若错误闭合，下一步断言会抓到）
+    assert world.current_item(item["id"])["status"] == "rejudgment_requested", "缺新判断时自动收尾不许硬关"
 
-    # 2) 已终态但没有新判断 → 不能闭合，明确报缺新判断。
-    linked = world.act(idempotency_key="k-r1-link", run_id=run_id, **world.link_args(item["id"]))
-    assert linked.status_code == 400, linked.text
-    assert linked.json()["detail"]["code"] == "dependency_missing"
-
-    # 3) 原写入者补新判断（请求之后）→ 再关联 → closed。
+    # 4) 原写入者补新判断（请求之后）→ 客户端恢复路径再 link_run → closed。
     from intelligence.services import judgments as judgments_svc
 
     _, new_judgment = judgments_svc.record_judgment(
@@ -265,6 +288,7 @@ def test_r1_rejudge_message_acceptance_and_terminal_link(world: World) -> None:
     )
     assert closed.status_code == 200, closed.text
     assert closed.json()["reason_code"] == "rejudgment_linked"
+    assert world.current_item(item["id"])["status"] == "closed"
 
 
 def test_r1_continuation_carries_run_id_once_a_completed_round_exists(world: World) -> None:
@@ -386,7 +410,10 @@ def test_r7_link_run_rejects_laundering_attempts(world: World) -> None:
     foreign = world.act(idempotency_key="k-r7-foreign", run_id=foreign_run.run_id, **args)
     assert foreign.status_code == 400 and foreign.json()["detail"]["code"] == "run_binding_mismatch"
 
+    # 合法前提：本会话的 run 在**运行中**登记关联，再走完终态。之后的攻击都打在这个已登记 run 上。
     own_run = run_store.create_run(question="随便", task_type="research", session_id=world.conversation_id)
+    registered = world.act(idempotency_key="k-r7-reg", run_id=own_run.run_id, **args)
+    assert registered.status_code == 200 and registered.json()["status"] == "registered", registered.text
     run_store.finish_run(own_run.run_id, "completed")
 
     original_ref = str(item["object_ref"]["ref"])
@@ -416,6 +443,39 @@ def test_r7_link_run_rejects_laundering_attempts(world: World) -> None:
     assert stale_link.status_code == 400 and stale_link.json()["detail"]["code"] == "dependency_missing", "请求之前的判断不算这次复核的成果"
 
     assert world.current_item(item["id"])["status"] == "rejudgment_requested", "全部攻击失败 → 条目状态不变"
+
+
+def test_q3_unregistered_same_session_run_cannot_fold(world: World) -> None:
+    """QC Q3 探针移植：同会话的无关 run / 旧失败 run 没登记过关联 → 一律 400，项保持 rejudgment_requested。"""
+    item = world.seed_rejudged_item()
+    args = world.link_args(item["id"])
+    run_store = RunStore(user_id=fx.OWNER)
+
+    unrelated = run_store.create_run(question="同会话无关 run", task_type="research", session_id=world.conversation_id)
+    run_store.finish_run(unrelated.run_id, "completed")
+    from intelligence.services import judgments as judgments_svc
+
+    _, new_judgment = judgments_svc.record_judgment(
+        world.user_root / "judgments.jsonl",
+        memo="攻击者判断",
+        themes=[fx.ENTITY],
+        session_id=world.conversation_id,
+        ts="2026-09-14T17:00:00+08:00",
+    )
+    attack = world.act(
+        idempotency_key="k-q3-attack",
+        run_id=unrelated.run_id,
+        new_judgment_ref=f"judgments.jsonl:{new_judgment['id']}",
+        **args,
+    )
+    assert attack.status_code == 400 and attack.json()["detail"]["code"] == "run_binding_mismatch"
+    assert world.current_item(item["id"])["status"] == "rejudgment_requested"
+
+    old_failed = run_store.create_run(question="同会话旧失败 run", task_type="research", session_id=world.conversation_id)
+    run_store.finish_run(old_failed.run_id, "failed")
+    attack2 = world.act(idempotency_key="k-q3-attack2", run_id=old_failed.run_id, **args)
+    assert attack2.status_code == 400 and attack2.json()["detail"]["code"] == "run_binding_mismatch"
+    assert world.current_item(item["id"])["status"] == "rejudgment_requested", "失败 run 不许把项弹回 open"
 
 
 def test_r7_link_run_registers_association_before_terminal(world: World) -> None:
@@ -620,3 +680,203 @@ def test_r5_read_receipt_action(world: World) -> None:
 
     bad_kind = world.act(action="read_receipt", idempotency_key="k-rr-4", receipt_kind="weird")
     assert bad_kind.status_code == 400 and bad_kind.json()["detail"]["code"] == "invalid_request"
+
+
+# --------------------------------------------------------------------------- #
+# 第二轮（复审 ba10747d，Q1–Q9）：把复审探针钉住的缺陷转成仓内正确合同
+# --------------------------------------------------------------------------- #
+def test_q1_binding_form_ref_string_accepted(world: World) -> None:
+    """表单 / 探针只给 object_ref 字符串 → 服务端按受控清单解析全字段，不再 422。"""
+    response = world.bind(object_ref=world.judgment_object_ref()["ref"])
+    assert response.status_code == 201, response.text
+    binding = response.json()["binding"]
+    assert isinstance(binding["object_ref"], dict) and binding["object_ref"]["kind"] == "judgment"
+
+
+def test_q2_terminal_auto_close_without_second_link(world: World) -> None:
+    """放行条件 #2：注册 → 终态 → 观察器自动收尾闭合，不再需要第二次 link_run。"""
+    world.track_judgment().raise_for_status()
+    item = world.open_item()
+    rejudge = world.rejudge(item)
+    world.turn_gate.clear()
+    posted = world.client.post(
+        f"/api/conversations/{world.conversation_id}/messages",
+        json={"user": fx.OWNER, "content": rejudge["continuation"]["full_prompt"], "skill_mode": "hybrid"},
+    )
+    assert posted.status_code == 202, posted.text
+    run_id = posted.json()["run_id"]
+    reg_args = world.link_args(item["id"])
+    registered = world.act(idempotency_key="k-q2-reg", run_id=run_id, **reg_args)
+    assert registered.status_code == 200 and registered.json()["status"] == "registered", registered.text
+
+    from intelligence.services import judgments as judgments_svc
+
+    _, new_judgment = judgments_svc.record_judgment(
+        world.user_root / "judgments.jsonl",
+        memo="复核后的新判断",
+        themes=[fx.ENTITY],
+        session_id=world.conversation_id,
+        ts="2026-09-14T17:00:00+08:00",
+    )
+    world.turn_gate.set()
+    assert world.wait_terminal(run_id)["status"] == "completed"
+    # 终态 claim 与观察器收尾在同一线程，但 run 状态先可见——轮询等折回落地。
+    world.wait_item_status(item["id"], "closed")
+    # 终态动作恰好一条（观察器与客户端路径共用幂等键，双触发不双写）。
+    rows = [json.loads(line) for line in (world.user_root / "research_evolution" / "maintenance_actions.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    linked = [r for r in rows if isinstance(r.get("event"), dict) and r["event"]["kind"] == "rejudgment_linked"]
+    assert len(linked) == 1, f"rejudgment_linked 应恰好一条：{len(linked)}"
+
+    # 客户端同键重试（响应丢失场景，载荷逐字节相同）：返回折回结果的重放，不再假装是新注册。
+    retry = world.act(idempotency_key="k-q2-reg", run_id=run_id, **reg_args)
+    assert retry.status_code == 200, retry.text
+    assert retry.json()["replayed"] is True and retry.json()["reason_code"] == "rejudgment_linked"
+
+
+def test_q5_running_link_retry_replays_not_conflicts(world: World) -> None:
+    """Q5：运行中登记的同键重试 = 重放首个注册结果（registered_at 不漂）；同键异 run = 409。"""
+    item = world.seed_rejudged_item()
+    run_store = RunStore(user_id=fx.OWNER)
+    run_a = run_store.create_run(question="a", task_type="research", session_id=world.conversation_id)
+    key = "k-q5-same"
+    first = world.act(idempotency_key=key, run_id=run_a.run_id, **world.link_args(item["id"]))
+    assert first.status_code == 200 and first.json()["status"] == "registered", first.text
+    world.clock.advance(hours=1)
+    retry = world.act(idempotency_key=key, run_id=run_a.run_id, **world.link_args(item["id"]))
+    assert retry.status_code == 200, retry.text
+    body = retry.json()
+    assert body["replayed"] is True and body["status"] == "registered"
+    assert body["link"]["registered_at"] == first.json()["link"]["registered_at"], "重试重放首次登记时刻，不随重试时钟漂"
+
+    run_b = run_store.create_run(question="b", task_type="research", session_id=world.conversation_id)
+    conflict = world.act(idempotency_key=key, run_id=run_b.run_id, **world.link_args(item["id"]))
+    assert conflict.status_code == 409 and conflict.json()["detail"]["code"] == "idempotency_payload_mismatch"
+
+    # 同 (item, run) 不同键：复用已登记行，不重复追加。
+    again = world.act(idempotency_key="k-q5-other-key", run_id=run_a.run_id, **world.link_args(item["id"]))
+    assert again.status_code == 200 and again.json()["link"]["link_created"] is False, again.text
+    store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+    assert len(store.list_run_links()) == 1
+
+
+def test_q6_select_task_replay_and_conflict(world: World) -> None:
+    """Q6：同键同任务 → 重放（含原 continuation）；同键异任务 → 409；事件恰好一条。"""
+    world.track_judgment().raise_for_status()
+    view = world.view()
+    task_id = view["priority"]["selected"][0]["task_id"]
+    first = world.act(action="select_task", idempotency_key="k-q6", task_id=task_id, client_at="2026-09-14T09:00:00+08:00")
+    assert first.status_code == 200, first.text
+    world.clock.advance(hours=1)
+    retry = world.act(action="select_task", idempotency_key="k-q6", task_id=task_id, client_at="2026-09-14T10:00:00+08:00")
+    assert retry.status_code == 200, retry.text
+    assert retry.json()["replayed"] is True
+    assert retry.json()["continuation"] == first.json()["continuation"], "重放首次选择时的 continuation，不随重试漂"
+
+    other_task = view["priority"]["selected"][1]["task_id"] if len(view["priority"]["selected"]) > 1 else f"{task_id}-other"
+    conflict = world.act(action="select_task", idempotency_key="k-q6", task_id=other_task)
+    assert conflict.status_code == 409 and conflict.json()["detail"]["code"] == "idempotency_payload_mismatch"
+
+    ledger = world.user_root / "research_evolution" / "product_value_events.jsonl"
+    rows = [json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert len([r for r in rows if r["event_type"] == "task_selected"]) == 1, "两次同键调用只能落一条 task_selected"
+
+
+def test_q7_select_task_refs_survive_message_boundary(world: World) -> None:
+    """Q7：select_task 的 source/object/version refs 装在 continuation.click_payload 里，随消息落盘。"""
+    world.track_judgment().raise_for_status()
+    # 先完成一轮真实对话，select_task 的 continuation 才带可校验的 run_id（消息合同要求）。
+    posted0 = world.client.post(f"/api/conversations/{world.conversation_id}/messages", json={"user": fx.OWNER, "content": "先研究一轮", "skill_mode": "hybrid"})
+    assert posted0.status_code == 202, posted0.text
+    assert world.wait_terminal(posted0.json()["run_id"])["status"] == "completed"
+
+    task_id = world.view()["priority"]["selected"][0]["task_id"]
+    selected = world.act(action="select_task", idempotency_key="k-q7", task_id=task_id)
+    assert selected.status_code == 200, selected.text
+    continuation = selected.json()["continuation"]
+    payload = continuation.get("click_payload") or {}
+    refs = payload.get("source_refs") or []
+    assert refs, "任务卡的 click_payload 必须带 source_refs"
+
+    posted = world.client.post(
+        f"/api/conversations/{world.conversation_id}/messages",
+        json={"user": fx.OWNER, "content": str(continuation.get("full_prompt") or "研究这个"), "skill_mode": "hybrid", "continuation": continuation},
+    )
+    assert posted.status_code == 202, posted.text
+    from intelligence.services import research_project
+
+    messages = ConversationStore(user_id=fx.OWNER).load_messages(world.conversation_id)
+    saved = research_project.continuation_for_run(messages, posted.json()["run_id"])
+    assert saved is not None, "用户消息上必须落 continuation"
+    assert (saved.get("click_payload") or {}).get("source_refs"), f"click_payload.source_refs 必须穿过消息边界：{saved}"
+
+
+def test_q8_read_receipt_all_three_kinds(world: World, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Q8：三类收据原件都能经动作层读出；pilot_summary 无 id 时读最新一份。"""
+    from intelligence.services.research_evolution import study_io
+    from intelligence.tests.test_research_evolution_io import _run
+
+    # 1) method_validation_receipt：按 study_id 读。
+    protocol = json.loads((fx.FIXTURE_DIR.parent / "03" / "forward_protocol_synthetic.json").read_text(encoding="utf-8"))
+    protocol.pop("_comment", None)
+    protocol["calendar"] = [f"2026-09-{day:02d}" for day in (1, 2, 3, 4, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 21, 22, 23, 24, 25)]
+    protocol["forward_start"] = "2026-09-15"
+    protocol["evaluation_end"] = "2026-09-18"
+    protocol_path = tmp_path / "forward.json"
+    protocol_path.write_text(json.dumps(protocol, ensure_ascii=False), encoding="utf-8")
+    code, frozen = _run(study_io, ["--owner", fx.OWNER, "--apply", "freeze", "--protocol", str(protocol_path)], capsys)
+    assert code == 0, frozen
+    study_id = frozen["study_id"]
+    code, _ = _run(study_io, ["--owner", fx.OWNER, "--apply", "evaluate", "--study-id", study_id], capsys)
+    assert code == 0
+    method = world.act(action="read_receipt", idempotency_key="k-q8-method", kind="method_validation_receipt", study_id=study_id)
+    assert method.status_code == 200 and method.json()["receipt"]["study_id"] == study_id, method.text
+
+    # 2) measurement_receipt：按 receipt_id 读。
+    receipt = fx.coverage_receipt()
+    world.record_receipt(receipt)
+    measurement = world.act(action="read_receipt", idempotency_key="k-q8-measure", kind="measurement_receipt", receipt_id=receipt["receipt_id"])
+    assert measurement.status_code == 200 and measurement.json()["receipt"]["receipt_id"] == receipt["receipt_id"], measurement.text
+
+    # 3) pilot_summary：receipt_id / study_id 都不给 → 最新一份。先经单 writer 播种一份总结。
+    store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+    with store.transaction() as txn:
+        txn.publish_immutable(SUMMARIES_DIR, "sum-q8", {"summary_id": "sum-q8", "protocol_hash": "ph-q8", "engineering_status": "ok", "field_status": "ok", "commercial_status": "unknown"})
+    summary = world.act(action="read_receipt", idempotency_key="k-q8-summary", kind="pilot_summary")
+    assert summary.status_code == 200, summary.text
+    assert summary.json()["receipt"].get("protocol_hash") == "ph-q8", summary.text
+    # summary_id 寻址也收（前端视图只给 summary_id）。
+    by_id = world.act(action="read_receipt", idempotency_key="k-q8-summary-2", kind="pilot_summary", summary_id="sum-q8")
+    assert by_id.status_code == 200 and by_id.json()["receipt"]["summary_id"] == "sum-q8", by_id.text
+
+
+def test_q9_observer_never_blocks_run_on_evolution_lock(world: World, capsys: pytest.CaptureFixture[str]) -> None:
+    """Q9：测量锁被占满时 create_run 不得被堵——有界等待超时后跳过测量，stderr 留痕。"""
+    from intelligence.services.research_evolution.run_observer import ObservingRunStore
+
+    store = EvolutionStore(world.user_root / "research_evolution", fx.OWNER)
+    observer = ObservingRunStore(user_id=fx.OWNER, evolution_root=world.user_root / "research_evolution")
+    entered = threading.Event()
+    release = threading.Event()
+    blocker_elapsed: list[float] = []
+
+    def hold() -> None:
+        with store.transaction():
+            entered.set()
+            release.wait(5)
+
+    holder = threading.Thread(target=hold)
+    holder.start()
+    assert entered.wait(5), "持锁线程没起来"
+
+    def timed_create() -> None:
+        start = time.perf_counter()
+        observer.create_run(question="x", task_type="research", session_id=world.conversation_id)
+        blocker_elapsed.append(time.perf_counter() - start)
+
+    try:
+        timed_create()
+    finally:
+        release.set()
+        holder.join(timeout=5)
+    assert blocker_elapsed[0] < 0.3 + 1.0, f"run 被测量锁堵了 {blocker_elapsed[0]:.2f}s（阈值内应立刻返回）"
+    assert "跳过" in capsys.readouterr().err, "锁被占必须 stderr 留痕（事件丢失可见），不是静默"

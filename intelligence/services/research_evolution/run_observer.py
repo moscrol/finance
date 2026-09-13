@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from intelligence.services.research_evolution.contracts import SELF_USE_PROTOCOL_VERSION, stable_id, utc_iso
-from intelligence.services.research_evolution.store import EvolutionStore
+from intelligence.services.research_evolution.store import EvolutionStore, StoreLockTimeout
 from intelligence.services.run_store import Run, RunStore
 
 __all__ = ["SELF_USE_PROTOCOL_VERSION", "ObservingRunStore"]
@@ -47,11 +47,15 @@ class ObservingRunStore(RunStore):
         evolution_root: Path | str,
         clock: Callable[[], datetime] | None = None,
         code_sha: str = "",
+        maintenance_folder: Callable[[str], None] | None = None,
     ) -> None:
         super().__init__(user_id=user_id, root=root)
         self._evolution_store = EvolutionStore(evolution_root, self.user_id)
         self._clock = clock or (lambda: datetime.now().astimezone())
         self._code_sha = code_sha or "unknown"
+        # run 终态后的维护项收尾回调（QC Q2）：由 app 接线注入（facade.fold_run_terminal 的闭包），
+        # 拿 run_id 查登记关联并折回。回调失败同样只 stderr，不阻断被测 run。
+        self._maintenance_folder = maintenance_folder
 
     # ---- 生命周期钩子 ------------------------------------------------------ #
     def create_run(self, *args: Any, **kwargs: Any) -> Run:
@@ -64,6 +68,7 @@ class ObservingRunStore(RunStore):
         if claimed:
             self._record_lifecycle("run_finished", run, status=status)
             self._record_cost(run)
+            self._fold_maintenance(run)
         return run, claimed
 
     def claim_failed_run(self, run_id: str, *, error: str, degrade: str) -> tuple[Run, bool]:
@@ -71,7 +76,17 @@ class ObservingRunStore(RunStore):
         if claimed:
             self._record_lifecycle("run_finished", run, status="failed")
             self._record_cost(run)
+            self._fold_maintenance(run)
         return run, claimed
+
+    def _fold_maintenance(self, run: Run) -> None:
+        """终态收尾（QC Q2）：失败只留 stderr；回调内部用有界事务，不把终态 claim 堵在测量锁上。"""
+        if self._maintenance_folder is None:
+            return
+        try:
+            self._maintenance_folder(run.run_id)
+        except Exception as exc:  # noqa: BLE001 - 收尾失败可恢复（客户端 link_run / 重试），不阻断 run
+            print(f"[research-evolution] run 终态收尾失败（{run.run_id}）：{exc}", file=sys.stderr)
 
     # ---- 事件构造与落盘 ----------------------------------------------------- #
     def _record_lifecycle(self, event_type: str, run: Run, *, status: str) -> None:
@@ -152,7 +167,10 @@ class ObservingRunStore(RunStore):
             result = validate_event(event)
             if not result.ok:
                 raise ValueError(f"05 校验未过：{[i.code for i in result.issues]}")
-            with self._evolution_store.transaction() as txn:
+            # 有界事务（QC Q9）：拿不到测量锁就跳过本次事件——测量写入绝不把被测 run 堵在锁上。
+            with self._evolution_store.try_transaction(timeout=0.2) as txn:
                 txn.append_product_value_event(result.normalized or event, content_hash=result.content_hash or "")
+        except StoreLockTimeout as exc:
+            print(f"[research-evolution] 测量锁被占，跳过本次事件落盘（{event_type} {run.run_id}）：{exc}", file=sys.stderr)
         except Exception as exc:  # noqa: BLE001 - 测量写失败不阻断被测对象
             print(f"[research-evolution] run 生命周期事件落盘失败（{event_type} {run.run_id}）：{exc}", file=sys.stderr)

@@ -485,9 +485,19 @@ def test_i08_failed_run_cannot_be_laundered_into_a_closed_item(world: World) -> 
 
     store = RunStore(user_id=fx.OWNER)
     run = store.create_run(question="重判", task_type="research", session_id=world.conversation_id)
+    # Q3 合同：运行中先登记「本次维护请求发起了这个 run」。
+    current = next(i for i in world.view()["maintenance"]["items"] if i["id"] == item["id"])
+    registered = world.act(
+        action="link_run",
+        idempotency_key="k-link-fail-reg",
+        item_id=item["id"],
+        run_id=run.run_id,
+        expected_item_version=current["item_version"],
+        expected_management_revision=current["management_revision"],
+    )
+    assert registered.status_code == 200 and registered.json()["status"] == "registered", registered.text
     store.finish_run(run.run_id, status="failed", error="上游超时")
 
-    current = next(i for i in world.view()["maintenance"]["items"] if i["id"] == item["id"])
     response = world.act(
         action="link_run",
         idempotency_key="k-link-fail",
@@ -517,7 +527,6 @@ def test_i08_completed_run_without_a_new_judgment_cannot_close_the_item(world: W
 
     store = RunStore(user_id=fx.OWNER)
     run = store.create_run(question="重判", task_type="research", session_id=world.conversation_id)
-    store.finish_run(run.run_id, status="completed")
     current = next(i for i in world.view()["maintenance"]["items"] if i["id"] == item["id"])
     args = {
         "action": "link_run",
@@ -526,6 +535,9 @@ def test_i08_completed_run_without_a_new_judgment_cannot_close_the_item(world: W
         "expected_item_version": current["item_version"],
         "expected_management_revision": current["management_revision"],
     }
+    registered = world.act(idempotency_key="k-link-nojudgment-reg", **args)
+    assert registered.status_code == 200 and registered.json()["status"] == "registered", registered.text
+    store.finish_run(run.run_id, status="completed")
     missing = world.act(idempotency_key="k-link-nojudgment", **args)
     assert missing.status_code == 400
     assert missing.json()["detail"]["code"] == "dependency_missing"

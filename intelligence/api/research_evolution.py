@@ -30,7 +30,9 @@ PREFIX = "/api/conversations/{conversation_id}/research-evolution"
 
 
 class BindingRequest(BaseModel):
-    object_ref: dict[str, Any]
+    """object_ref 收完整 dict 或裸 ref 字符串（服务端按受控清单解析全字段，两边都不信任自报）。"""
+
+    object_ref: dict[str, Any] | str
     entity: str = Field(min_length=1)
     as_of: str = Field(min_length=1)
     evidence_refs: list[str] = Field(min_length=1)
@@ -56,9 +58,11 @@ class ActionRequest(BaseModel):
     client_at: str | None = None
     as_of: str | None = None
     knowledge_cutoff: str | None = None
-    # read_receipt：收据类型 + 定位（03 收据要 study_id；05 收据 / 总结要 receipt_id）
+    # read_receipt：收据类型 + 定位（03 收据要 study_id；05 收据 / 总结要 receipt_id 或 summary_id）
     receipt_kind: str | None = None
+    kind: str | None = None  # receipt_kind 的别名（调用方简写）；两者都给时 receipt_kind 优先
     receipt_id: str | None = None
+    summary_id: str | None = None
     study_id: str | None = None
     # cancel_rejudge：取消原因（可选，默认「复核请求未被消息入口接受」）
     reason: str | None = None

@@ -566,6 +566,9 @@ class ResearchEvolutionService:
         self._conversation(ctx, conversation_id)
         now = self._now()
         object_ref = body.get("object_ref")
+        if isinstance(object_ref, str) and object_ref.strip():
+            # 表单 / 探针可以只给 ref 字符串：服务端按受控清单解析出完整对象（kind/id/namespace 以清单为准）。
+            object_ref = {"ref": object_ref.strip()}
         if not isinstance(object_ref, Mapping):
             raise ApiError(ERR_INVALID_REQUEST, "缺少 object_ref", detail={"where": "object_ref"})
         entity = str(body.get("entity") or "").strip()
@@ -648,6 +651,9 @@ class ResearchEvolutionService:
                 "created_at": existing.get("created_at"),
                 "pit_grade": existing_source.get("pit_grade"),
             }
+        # created_at 与 baseline_cutoff 必须同一时区口径：上海日 vs UTC 刻在每天 00:00–08:00
+        # 会差一天，01 的 baseline_cutoff <= created_at[:10] 校验会误拒真实绑定。
+        shanghai_now = now.astimezone(_shanghai())
         payload = {
             "schema_version": "judgment-maintenance-binding/v1",
             "binding_id": binding_id,
@@ -657,7 +663,7 @@ class ResearchEvolutionService:
             "baseline_evidence_refs": [v["ref"] for v in chosen],
             "baseline_source_hashes": {v["ref"]: v.get("source_hash") for v in chosen},
             "baseline_cutoff": baseline_cutoff,
-            "created_at": utc_iso(now),
+            "created_at": shanghai_now.isoformat(timespec="seconds"),
             "binding_origin": str(body.get("binding_origin") or "user_confirmed"),
             "conditions": list(conditions),
         }
@@ -736,7 +742,16 @@ class ResearchEvolutionService:
             if existing is not None:
                 if existing.get("payload_digest") != payload_digest or str(existing.get("conversation_id") or "") != conversation_id:
                     raise ApiError(ERR_IDEMPOTENCY_MISMATCH, "同一幂等键已绑定不同载荷或不同会话", detail={"idempotency_key": idempotency_key})
-                return {"replayed": True, **dict(existing.get("result") or {})}
+                stored_result = dict(existing.get("result") or {})
+                if action == ACTION_LINK_RUN and stored_result.get("status") == "registered":
+                    # 注册后的同键重试：run 已到终态且项还在等收尾 → 升级执行折回（QC Q5），
+                    # 折回用派生键 ``{key}:terminal`` 自行去重——网络重试 / 观察器 / 手动恢复撞车只落一条。
+                    upgraded = self._upgrade_registered_link(
+                        ctx=ctx, conversation_id=conversation_id, body=body, idempotency_key=idempotency_key, now=now, store=txn, stored=stored_result
+                    )
+                    if upgraded is not None:
+                        return upgraded
+                return {"replayed": True, **stored_result}
 
             # 锁内重读当前项：validate 时的版本必须是提交时的版本。
             maintenance = self._current_items(ctx, conversation_id, as_of=body.get("as_of"), knowledge_cutoff=body.get("knowledge_cutoff"), store=txn)
@@ -761,8 +776,19 @@ class ResearchEvolutionService:
             if action == ACTION_LINK_RUN:
                 event, link_detail = self._link_run_event(ctx=ctx, conversation_id=conversation_id, item=item, body=body, now=now, store=txn)
                 if event is None:
-                    # run 未终态：只登记「本次维护请求发起了这个 run」的持久化关联（接受 ≠ 完成）。
-                    return {"replayed": False, "status": "registered", "reason_code": "run_registered", "item_id": item_id, "link": link_detail}
+                    # run 未终态：登记关联 + **写动作幂等记录**（QC Q5）。否则运行中重试会因
+                    # registered_at 漂移被误判成载荷冲突，同键异 run 也不会被拒。
+                    registration_result = {"status": "registered", "reason_code": "run_registered", "item_id": item_id, "link": link_detail}
+                    txn.append_action_record(
+                        idempotency_key=idempotency_key,
+                        action=action,
+                        payload_digest=payload_digest,
+                        recorded_at=utc_iso(now),
+                        conversation_id=conversation_id,
+                        item_id=item_id,
+                        result=registration_result,
+                    )
+                    return {"replayed": False, **registration_result}
                 result_core = {"status": "accepted", "reason_code": event.kind, "item_id": item_id, "link": link_detail}
             elif action == ACTION_CANCEL_REJUDGE:
                 event = self._cancel_rejudge_event(ctx=ctx, item=item, body=body, now=now)
@@ -872,6 +898,11 @@ class ResearchEvolutionService:
 
         if status not in {"completed", "failed", "cancelled"}:
             # 未终态：登记「本次维护请求发起了这个 run」的关联（接受 ≠ 完成，不迁状态）。
+            # 同 (item, run) 已有登记行 → 直接复用（registered_at 是首次登记的服务端时刻，
+            # 不随重试的时钟推进漂——重试的幂等由动作层记录保证，见 _maintenance_action）。
+            existing_link = store.find_run_link(item_id=str(item["id"]), run_id=run_id)
+            if existing_link is not None:
+                return None, {"run_id": run_id, "run_status": status, "registered": True, "link_created": False, "registered_at": existing_link.get("registered_at")}
             link_id = stable_id("rlink", {"item": item["id"], "run": run_id})
             _, created = store.append_run_link(
                 {
@@ -883,17 +914,22 @@ class ResearchEvolutionService:
                     "registered_at": utc_iso(now),
                 }
             )
-            return None, {"run_id": run_id, "run_status": status, "registered": True, "link_created": created}
+            return None, {"run_id": run_id, "run_status": status, "registered": True, "link_created": created, "registered_at": utc_iso(now)}
 
-        # 终态：查关联强度。同会话是最低关联（session），登记与 continuation 是加强证据。
-        association = "session"
-        if store.find_run_link(item_id=str(item["id"]), run_id=run_id) is not None:
-            association = "registered"
-        else:
-            continuation = self._run_continuation(ctx, conversation_id, run_id)
-            inherits = (continuation or {}).get("inherits") or {}
-            if str(inherits.get("maintenance_item_id") or "") == str(item["id"]):
-                association = "continuation"
+        # 终态折回：必须有**运行中登记的**关联行。「同会话」永远不够——同会话的旧 run
+        # （无关的、失败的）没有登记行，不能折回当前维护项（QC Q3）。
+        link = store.find_run_link(item_id=str(item["id"]), run_id=run_id)
+        if link is None:
+            raise ApiError(
+                ERR_RUN_BINDING_MISMATCH,
+                "无法证明该 run 由本次维护请求发起（缺少运行中的关联登记），不能折回本维护项",
+                detail={"run_id": run_id, "item_id": item["id"]},
+            )
+        association = "registered"
+        continuation = self._run_continuation(ctx, conversation_id, run_id)
+        inherits = (continuation or {}).get("inherits") or {}
+        if str(inherits.get("maintenance_item_id") or "") == str(item["id"]):
+            association = "continuation"
 
         if status == "completed":
             judgment_ref = str(body.get("new_judgment_ref") or "").strip()
@@ -959,6 +995,101 @@ class ResearchEvolutionService:
         if outcome.outcome == "conflict":
             raise ApiError(ERR_VERSION_CONFLICT, outcome.detail or "版本冲突", detail={"reason_code": outcome.reason_code, "item_id": item["id"]})
         return event, detail
+
+    # ---- run 终态自动收尾（Q2） -------------------------------------------- #
+    def fold_run_terminal(self, *, ctx: OwnerContext, run_id: str) -> dict[str, Any] | None:
+        """run 到终态时把结果折回维护项：有**运行中登记的**关联且项仍在 rejudgment_requested → 落折回事件。
+
+        由 ``ObservingRunStore`` 在终态 claim 成功后经注入回调调用（app.py 接线）。
+        幂等键 ``link_run:{item}:{run}:terminal`` 与客户端恢复路径共用——观察器与客户端
+        双触发只落一条。失败由调用方（观察器）吞成 stderr：收尾可恢复，不阻塞被测 run。
+        """
+        store = self._store(ctx)
+        links = [row for row in store.list_run_links() if str(row.get("run_id") or "") == run_id]
+        if not links:
+            return None  # 不是研究进化发起的 run
+        link = links[-1]
+        conversation_id = str(link.get("conversation_id") or "")
+        item_id = str(link.get("item_id") or "")
+        idem = f"link_run:{item_id}:{run_id}:terminal"
+        now = self._now()
+        with store.try_transaction(timeout=0.5) as txn:
+            existing = txn.find_action(idem)
+            if existing is not None:
+                return {"replayed": True, **dict(existing.get("result") or {})}
+            maintenance = self._current_items(ctx, conversation_id, as_of=None, knowledge_cutoff=None, store=txn)
+            item = next((i for i in maintenance.get("items", []) if str(i.get("id")) == item_id), None)
+            if item is None or str(item.get("status")) != "rejudgment_requested":
+                return None  # 已被客户端路径收尾 / 取消 / 不存在
+            event, link_detail = self._link_run_event(
+                ctx=ctx, conversation_id=conversation_id, item=item, body={"run_id": run_id}, now=now, store=txn
+            )
+            if event is None:
+                return None  # claim_terminal 之后 run 必终态；防守性返回
+            result_core = {"status": "accepted", "reason_code": event.kind, "item_id": item_id, "link": link_detail}
+            txn.append_action(
+                event.to_dict(),
+                idempotency_key=idem,
+                action=ACTION_LINK_RUN,
+                payload_digest=digest({"conversation_id": conversation_id, "run_id": run_id, "fold": "observer_terminal"}),
+                recorded_at=utc_iso(now),
+                conversation_id=conversation_id,
+                result=result_core,
+            )
+            return {"replayed": False, **result_core}
+
+    def _upgrade_registered_link(
+        self,
+        *,
+        ctx: OwnerContext,
+        conversation_id: str,
+        body: Mapping[str, Any],
+        idempotency_key: str,
+        now: datetime,
+        store: EvolutionStore,
+        stored: Mapping[str, Any],
+    ) -> dict[str, Any] | None:
+        """注册记录的同键重试遇终态：完成折回并返回折回结果（QC Q5 探针合同：replayed + rejudgment_linked + closed）。
+
+        仍在跑 / 已被其它路径收尾 → 返回 None（退化为纯注册重放）。
+        折回缺新判断等拒绝照常抛——调用方拿到的是诚实的 409/400，不假装成功。
+        """
+        link = dict(stored.get("link") or {})
+        run_id = str(link.get("run_id") or body.get("run_id") or "").strip()
+        item_id = str(stored.get("item_id") or body.get("item_id") or "").strip()
+        if not run_id or not item_id:
+            return None
+        terminal_key = f"{idempotency_key}:terminal"
+        terminal_existing = store.find_action(terminal_key)
+        if terminal_existing is not None:
+            return {"replayed": True, **dict(terminal_existing.get("result") or {})}
+        # 观察器路径的规范键：前端约定 link_run:{item}:{run} → 观察器折回键是它的 ``:terminal`` 派生。
+        canonical_key = f"link_run:{item_id}:{run_id}:terminal"
+        if canonical_key != terminal_key:
+            canonical_existing = store.find_action(canonical_key)
+            if canonical_existing is not None:
+                return {"replayed": True, **dict(canonical_existing.get("result") or {})}
+        run = self.res.run_store_for(ctx.owner_user_id).load_run(run_id)
+        if run is None or str(getattr(run, "status", "") or "") not in {"completed", "failed", "cancelled"}:
+            return None
+        maintenance = self._current_items(ctx, conversation_id, as_of=None, knowledge_cutoff=None, store=store)
+        item = next((i for i in maintenance.get("items", []) if str(i.get("id")) == item_id), None)
+        if item is None or str(item.get("status")) != "rejudgment_requested":
+            return None
+        event, link_detail = self._link_run_event(ctx=ctx, conversation_id=conversation_id, item=item, body=body, now=now, store=store)
+        if event is None:
+            return None
+        result_core = {"status": "accepted", "reason_code": event.kind, "item_id": item_id, "link": link_detail}
+        store.append_action(
+            event.to_dict(),
+            idempotency_key=terminal_key,
+            action=ACTION_LINK_RUN,
+            payload_digest=digest({"fold_of": idempotency_key, "run_id": run_id}),
+            recorded_at=utc_iso(now),
+            conversation_id=conversation_id,
+            result=result_core,
+        )
+        return {"replayed": True, **result_core}
 
     def _cancel_rejudge_event(self, *, ctx: OwnerContext, item: Mapping[str, Any], body: Mapping[str, Any], now: datetime) -> Any:
         """取消一次已发起的复核：01 系统事件 ``rejudgment_cancelled`` → open。
@@ -1033,59 +1164,86 @@ class ResearchEvolutionService:
         return _continuation_payload(item, conversation_id, self._origin_run_id(ctx, conversation_id))
 
     def _select_task(self, *, ctx: OwnerContext, conversation_id: str, idempotency_key: str, body: Mapping[str, Any]) -> dict[str, Any]:
-        """02 任务选择：只记录选择与点击载荷，不改任何判定（02 明写「不因点击改判定」）。"""
+        """02 任务选择：只记录选择与点击载荷，不改任何判定（02 明写「不因点击改判定」）。
+
+        幂等（QC Q6）：同键同任务 → 重放首次结果（含当时的 continuation，不随重试漂）；
+        同键异任务/异会话 → 409。digest 基不含 client_at——网络重试与手动重试都不该被
+        客户端时间差判成冲突；「两次选择两个任务」本来就该用两把钥匙。
+        """
         now = self._now()
         store = self._store(ctx)
         task_id = str(body.get("task_id") or "").strip()
         if not task_id:
             raise ApiError(ERR_INVALID_REQUEST, "缺少 task_id", detail={"where": "task_id"})
-        view = self.view(ctx=ctx, conversation_id=conversation_id)
-        priority = view.get("priority")
-        if not isinstance(priority, dict):
-            raise ApiError(ERR_MODULE_UNAVAILABLE, "研究排序当前不可用", detail={"module_status": view.get("module_status", {}).get("priority")})
-        found = _find_task(priority, task_id)
-        if found is None:
-            raise ApiError(ERR_DEPENDENCY_MISSING, "该任务不在当前排序结果中，请刷新后重试", detail={"task_id": task_id})
-        event = self._product_value_event(
-            ctx,
-            event_type="task_selected",
-            conversation_id=conversation_id,
-            now=now,
-            payload={
+        payload_digest = digest({"conversation_id": conversation_id, "action": "select_task", "task_id": task_id})
+        with store.transaction() as txn:
+            existing = txn.find_action(idempotency_key)
+            if existing is not None:
+                if existing.get("payload_digest") != payload_digest or str(existing.get("conversation_id") or "") != conversation_id:
+                    raise ApiError(ERR_IDEMPOTENCY_MISMATCH, "同一幂等键已绑定不同载荷或不同会话", detail={"idempotency_key": idempotency_key})
+                return {"replayed": True, **dict(existing.get("result") or {})}
+
+            view = self.view(ctx=ctx, conversation_id=conversation_id, store=txn)
+            priority = view.get("priority")
+            if not isinstance(priority, dict):
+                raise ApiError(ERR_MODULE_UNAVAILABLE, "研究排序当前不可用", detail={"module_status": view.get("module_status", {}).get("priority")})
+            found = _find_task(priority, task_id)
+            if found is None:
+                raise ApiError(ERR_DEPENDENCY_MISSING, "该任务不在当前排序结果中，请刷新后重试", detail={"task_id": task_id})
+            event = self._product_value_event(
+                ctx,
+                event_type="task_selected",
+                conversation_id=conversation_id,
+                now=now,
+                payload={
+                    "task_id": task_id,
+                    "policy_version": priority.get("policy_version") or "research-priority-policy/v1",
+                    "view_id": view["view_digest"],
+                    "client_at": body.get("client_at"),
+                    "initiator": "user",
+                    "assistance_source": "workbench",
+                },
+                source_channel="server",
+            )
+            # 已在事务内：直接追加（_store_event 会再开一把锁——非重入，自死锁）。
+            try:
+                _, recorded = txn.append_product_value_event(event, content_hash=digest(dict(event)))
+            except ApiError:
+                recorded = False
+            # R6：选择任务要「带 task_id、source_refs、conversation_id 和原 scope 进入既有对话」——
+            # 把 click_payload 折成既有消息入口的 continuation（full_prompt 是 02 渲染的原任务问题，
+            # 不是前端拿标题重猜的），有已完成轮次时带真实 origin run_id，没有则省略（前端发普通消息）。
+            click = dict(found.get("click_payload") or {})
+            question = str(found.get("标题") or "").strip() or f"研究任务 {task_id}"
+            scope = dict(click.get("scope") or {})
+            continuation: dict[str, Any] = {
+                "schema_version": CONTINUATION_SCHEMA,
+                "conversation_id": conversation_id,
+                "kind": "continue",
+                "source": "research-evolution",
+                "label": "研究这项任务",
                 "task_id": task_id,
-                "policy_version": priority.get("policy_version") or "research-priority-policy/v1",
-                "view_id": view["view_digest"],
-                "client_at": body.get("client_at"),
-                "initiator": "user",
-                "assistance_source": "workbench",
-            },
-            source_channel="server",
-        )
-        recorded = self._store_event(store, event, required=False)
-        # R6：选择任务要「带 task_id、source_refs、conversation_id 和原 scope 进入既有对话」——
-        # 把 click_payload 折成既有消息入口的 continuation（full_prompt 是 02 渲染的原任务问题，
-        # 不是前端拿标题重猜的），有已完成轮次时带真实 origin run_id，没有则省略（前端发普通消息）。
-        click = dict(found.get("click_payload") or {})
-        question = str(found.get("标题") or "").strip() or f"研究任务 {task_id}"
-        scope = dict(click.get("scope") or {})
-        continuation: dict[str, Any] = {
-            "schema_version": CONTINUATION_SCHEMA,
-            "conversation_id": conversation_id,
-            "kind": "continue",
-            "source": "research-evolution",
-            "label": "研究这项任务",
-            "task_id": task_id,
-            "click_payload": click,
-            "full_prompt": question,
-            "inherits": {
-                "task_id": task_id,
-                **{f"scope_{k}": str(v) for k, v in scope.items()},
-            },
-        }
-        origin_run_id = self._origin_run_id(ctx, conversation_id)
-        if origin_run_id:
-            continuation["run_id"] = origin_run_id
-        return {"replayed": not recorded, "task_id": task_id, "click_payload": click, "continuation": continuation, "event_recorded": recorded}
+                "click_payload": click,
+                "full_prompt": question,
+                "inherits": {
+                    "task_id": task_id,
+                    **{f"scope_{k}": str(v) for k, v in scope.items()},
+                },
+            }
+            origin_run_id = self._origin_run_id(ctx, conversation_id)
+            if origin_run_id:
+                continuation["run_id"] = origin_run_id
+            result = {"task_id": task_id, "click_payload": click, "continuation": continuation, "event_recorded": recorded}
+            txn.append_action_record(
+                idempotency_key=idempotency_key,
+                action="select_task",
+                payload_digest=payload_digest,
+                recorded_at=utc_iso(now),
+                conversation_id=conversation_id,
+                item_id=None,
+                result=result,
+            )
+            return {"replayed": False, **result}
 
     # ---- 练习与曝光 --------------------------------------------------------- #
     def _exercise_and_case(self, ctx: OwnerContext, conversation_id: str, store: EvolutionStore, exercise_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -1254,10 +1412,13 @@ class ResearchEvolutionService:
             source_channel="server",
         )
         self._store_event(store, event, required=False)
-        payload = feedback.to_dict() if hasattr(feedback, "to_dict") else {"status": feedback.status}
-        payload["counts_toward_method_statistics"] = False
-        payload["exposure_id"] = exposure.get("id")
-        return payload
+        feedback_payload = feedback.to_dict() if hasattr(feedback, "to_dict") else {"status": feedback.status}
+        return {
+            "exercise_id": exercise_id,
+            "exposure_id": exposure.get("id"),
+            "counts_toward_method_statistics": False,
+            "feedback": feedback_payload,
+        }
 
     # ---- 收据原件（R5） ------------------------------------------------------ #
     def _read_receipt(self, *, ctx: OwnerContext, conversation_id: str, idempotency_key: str, body: Mapping[str, Any]) -> dict[str, Any]:
@@ -1267,7 +1428,7 @@ class ResearchEvolutionService:
         self._conversation(ctx, conversation_id)
         now = self._now()
         store = self._store(ctx)
-        kind = str(body.get("receipt_kind") or "").strip()
+        kind = str(body.get("receipt_kind") or body.get("kind") or "").strip()
         receipt_id = str(body.get("receipt_id") or "").strip()
         if kind == "method_validation_receipt":
             from intelligence.services.research_validation import ContractError, Repository, read_receipt
@@ -1295,14 +1456,22 @@ class ResearchEvolutionService:
                 raise ApiError(ERR_INVALID_REQUEST, "缺少 receipt_id", detail={"where": "receipt_id"})
             receipt = store.read_immutable(RECEIPTS_DIR, receipt_id)
             if receipt is None:
+                # 04 流程收据（coverage / evidence_use…）落在 process_receipts.jsonl，按 id 兜底。
+                row = next((r for r in store.list_process_receipts() if str(r.get("receipt_id") or "") == receipt_id), None)
+                receipt = dict(row.get("receipt") or row) if row else None
+            if receipt is None:
                 raise ApiError(ERR_NOT_FOUND, "收据不存在", detail={"receipt_id": receipt_id})
             return {"kind": kind, "receipt": receipt}
         if kind == "pilot_summary":
-            if not receipt_id:
-                raise ApiError(ERR_INVALID_REQUEST, "缺少 receipt_id", detail={"where": "receipt_id"})
-            summary = store.read_immutable(SUMMARIES_DIR, receipt_id)
+            # 试点总结按内容 id 寻址；视图只给 summary_id，前端可以把它当 receipt_id 传，
+            # 也可以传 summary_id——两者都收。都没给时读台账里最新一份（一个 owner 同时只有一个在跑试点）。
+            summary_id = receipt_id or str(body.get("summary_id") or "").strip()
+            summary = store.read_immutable(SUMMARIES_DIR, summary_id) if summary_id else None
+            if summary is None and not summary_id:
+                summaries = store.list_immutable(SUMMARIES_DIR)
+                summary = dict(summaries[-1]) if summaries else None
             if summary is None:
-                raise ApiError(ERR_NOT_FOUND, "总结不存在", detail={"receipt_id": receipt_id})
+                raise ApiError(ERR_NOT_FOUND, "总结不存在", detail={"receipt_id": summary_id})
             return {"kind": kind, "receipt": summary}
         raise ApiError(
             ERR_INVALID_REQUEST,

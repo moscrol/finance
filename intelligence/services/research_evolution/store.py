@@ -60,6 +60,10 @@ _LOCKS: dict[str, Lock] = {}
 _LOCKS_GUARD = Lock()
 
 
+class StoreLockTimeout(RuntimeError):
+    """``try_transaction`` 在有界等待内拿不到锁。观察器类写入方拿它当「跳过本次测量」的信号。"""
+
+
 def _process_lock(path: Path) -> Lock:
     key = str(path)
     with _LOCKS_GUARD:
@@ -144,6 +148,40 @@ class EvolutionStore:
                 self._in_txn = False
                 fcntl.flock(fd, fcntl.LOCK_UN)
                 os.close(fd)
+
+    @contextmanager
+    def try_transaction(self, timeout: float = 0.25) -> Iterator["EvolutionStore"]:
+        """有界等待的事务：拿不到锁（进程锁或文件锁）就抛 ``StoreLockTimeout``，不无限等。
+
+        给观察器 / 测量类写入方用：测量绝不能把被测对象（真实 run 生命周期）堵在锁上（QC Q9）。
+        """
+        import time as _time
+
+        self.root.mkdir(parents=True, exist_ok=True)
+        lock_path = self.root / LOCK_FILE
+        lock = _process_lock(lock_path)
+        if not lock.acquire(timeout=timeout):
+            raise StoreLockTimeout(f"进程内锁等待超过 {timeout}s：{lock_path}")
+        fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        try:
+            deadline = _time.monotonic() + timeout
+            while True:
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except BlockingIOError:
+                    if _time.monotonic() >= deadline:
+                        raise StoreLockTimeout(f"文件锁等待超过 {timeout}s：{lock_path}") from None
+                    _time.sleep(0.01)
+            self._in_txn = True
+            try:
+                yield self
+            finally:
+                self._in_txn = False
+                fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
+            lock.release()
 
     def _locked(self) -> Iterator[None]:
         if self._in_txn:
@@ -253,6 +291,36 @@ class EvolutionStore:
             "content_digest": digest(content),
             "result": dict(result),
             **content,
+        }
+        return self.append_once(self.actions_path, row, key="idempotency_key", key_value=idempotency_key)
+
+    def append_action_record(
+        self,
+        *,
+        idempotency_key: str,
+        action: str,
+        payload_digest: str,
+        recorded_at: str,
+        conversation_id: str | None,
+        item_id: str | None,
+        result: Mapping[str, Any],
+    ) -> tuple[dict[str, Any], bool]:
+        """无 01 事件的幂等记录（link_run 运行中登记、select_task 选择）：动作已被接受，但没有状态迁移。
+
+        ``list_events`` 只取 ``event`` 是 dict 的行，这里 ``event=None`` 不进 01 折叠，安全。
+        """
+        row = {
+            "schema_version": "research-evolution-action-record/v1",
+            "owner_user_id": self.owner_user_id,
+            "idempotency_key": idempotency_key,
+            "item_id": item_id,
+            "conversation_id": conversation_id,
+            "recorded_at": recorded_at,
+            "event": None,
+            "action": action,
+            "payload_digest": payload_digest,
+            "content_digest": digest({"event": None, "action": action, "payload_digest": payload_digest}),
+            "result": dict(result),
         }
         return self.append_once(self.actions_path, row, key="idempotency_key", key_value=idempotency_key)
 
