@@ -190,3 +190,47 @@ I13 / I14 / I15 未验（缺真人参与者、浏览器可见性事件、已授�
 1. 返修批次提交 → 等用户确认后合并；合并顺序不变（规格分支先进 main）。
 2. 部署仍按现役流程，`/api/health` 的 revision 才算线上状态——仓内有代码不等于 8792 已更新。
 3. BLOCKED §2 的五条跨轨缺口交对应 owner；§3 剩余未做项要等真人授权或补前端事件。
+
+## 第二轮返修（2026-09-14，复审 ba10747d「返修，不放行合并」后）
+
+复审新查 9 条（Q1–Q9）全部修复；方案明细在 REWORK.md「第二轮返修」表。
+
+| 编号 | 修法落点 |
+|---|---|
+| Q1 表单 422 | 后端 `object_ref` 收字符串按受控清单解析；前端 BindForm 改发完整 dict；双保险 |
+| Q2 终态无收尾 | `ObservingRunStore` 终态 claim 后回调 `facade.fold_run_terminal`（app.py 接线注入）；幂等键 `link_run:{item}:{run}:terminal` 与客户端恢复路径共用；缺新判断时诚实拒绝、项停在 rejudgment_requested 可恢复 |
+| Q3 同会话假关闭 | 折回必须有**运行中登记的** run_links 行；同会话只剩注册闸；无关/失败旧 run 一律 400 `run_binding_mismatch` |
+| Q4 练习 UI | `selected_choices` 输入 + `cited_refs` 勾选真发出；反馈渲染嵌套 `checks[].expected/got` 与 `missing_evidence_refs`；揭示渲染 `answer_key` 正确选项/引用/解析 |
+| Q5 running 重试 409 | 登记分支写无事件幂等记录（`append_action_record`，`event=None` 不进 01 折叠）：同键重试重放首个注册结果、同键异 run 409、终态同键重试升级折回（派生键去重） |
+| Q6 select_task 无幂等 | 收进事务：同键重放原 continuation（digest 基不含 client_at）、同键异任务 409、`task_selected` 恰好一条 |
+| Q7 来源引用丢失 | `ContinuationRequest.click_payload` 字段：02 任务卡 source_refs/object_refs 随用户消息落盘 |
+| Q8 summary 400 | 前端 `receipt_id ?? summary_id`；后端收 `kind`/`summary_id` 别名，pilot_summary 无 id 读最新一份，measurement 兜底 process_receipts；顺带修了 `created_at` 时区口径（上海日 vs UTC 刻，每天 00:00–08:00 真实绑定必被 01 误拒） |
+| Q9 等锁阻塞 run | `EvolutionStore.try_transaction(timeout)`（进程锁 acquire(timeout) + flock LOCK_NB 重试）；观察器事件写入与终态收尾全走有界事务，超时只 stderr「跳过」 |
+
+### 复审探针复核（对着候选树重跑）
+
+| 探针 | 结果 |
+|---|---|
+| `test_review_contracts.py`（复审 9 败 1 诊断） | **10/10 全绿**（诊断条在裸观察器下成立=「未接线不收尾」；接线路径由仓内 `test_q2` 钉住） |
+| `probe_cas.py` | 同版本并发 200+409 恰一条；同键异载荷 409 |
+| `ResearchEvolutionReview.test.tsx`（拷入临时跑） | **3/3 全绿** |
+
+### 第二轮验证收据
+
+| 项 | 结果 |
+|---|---|
+| 06 全部 pytest 文件（api/rework/io/store/falsification + 01 四个） | **174 passed** |
+| 全仓 `pytest -q --ignore=test_codex_sandbox.py` | **10022 passed / 0 failed**（收据 `20260913T163415Z-089526ab.json`，revision=代码 HEAD、dirty=false） |
+| `pnpm lint` / `typecheck` / `build` | 全过 |
+| vitest | **90 passed**（含复审三条 UI 探针移植 + Q1 载荷断言更新） |
+| e2e `research-evolution.spec.ts`（三 project） | **15 passed** |
+| e2e 新 `research-evolution-binding.spec.ts`（desktop） | **1 passed**：真浏览器表单 → 真 bindings API → 刷新投影 bindings 0→1（放行条件 #1） |
+| e2e `workbench.spec.ts`（desktop） | **5 passed**（双 webServer 配置无回归） |
+
+### 第二轮提交
+
+| SHA | 内容 |
+|---|---|
+| `347bf8b2` | 后端 Q1–Q9 + 25 例合同测试（返修文件现有 25 例） |
+| `e8b1bd85` | 前端 Q1/Q4/Q8 + e2e 双服务与新 spec |
+| `089526ab` | 重建 static（全量收据绑定此 SHA） |

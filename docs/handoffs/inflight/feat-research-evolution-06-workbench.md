@@ -1,46 +1,28 @@
-# feat/research-evolution-06-workbench · 2026-09-13 · 研究进化 06：返修完成，等用户确认合并
+# feat/research-evolution-06-workbench · 2026-09-14 · 研究进化 06：两轮返修完成，等用户确认合并
 
 ## 这个分支做什么
 
-01–05 接进既有 Workbench 会话（GET 投影 + actions/bindings/events + 前端「维护」页），06 只组装不改域算法，单 writer `EvolutionStore`。**QC 驳回的 13 条（S1–S3/R1–R10）已全部返修完**。
+01–05 接进既有 Workbench 会话（GET 投影 + actions/bindings/events + 前端「维护」页），06 只组装不改域算法，单 writer `EvolutionStore`。**两轮 QC 的 22 条（S1–S3/R1–R10 + Q1–Q9）全部返修完**。
 
-## 决策与被否方案
+## 第二轮关键决策（Q1–Q9）
 
-- R9 读不动：该绑定整条不进评估 + 模块 unknown + gap；否了「只喂基线给 assess」（会算出语义错误的 unchanged）。
-- R7 关联闸：run 属本会话 / 禁折回原判断 / 判断 run 会话一致 / 事件时刻不早于请求；否了信任前端自报 run_id。
-- R1 恢复：消息入口拒收 → `cancel_rejudge` 退回 open；否了挂假进行态。
-- 绑定幂等：`binding_id` 是自然键（owner+对象+refs+entity+as_of，不含条件）；同键异载荷 409，绝不第二行。
-- S1 测试：线程直调 `apply_action` 断言一胜一 409；否了 QC barrier 探针——验证进事务后它必死锁，是探针失效不是 bug。
-- 错误码只增不改（新增 `run_binding_mismatch` / `invalid_transition`）。
+- Q2 终态收尾：观察器 claim 终态后回调 `facade.fold_run_terminal`（app.py 注入），幂等键 `link_run:{item}:{run}:terminal` 与客户端恢复路径共用；缺新判断诚实拒绝、项可恢复。
+- Q3 折回硬闸：必须有**运行中登记的** run_links 行；「同会话」只是注册闸。残留风险：运行中的旧 run 可先注册再折回，彻底关死要 run 来源签名（不存在）。
+- Q5 无事件幂等记录：`store.append_action_record`（`event=None`，不进 01 折叠）覆盖「动作被接受但无状态迁移」；终态同键重试升级折回（派生键 `:terminal` 去重）。
+- Q9：`store.try_transaction(timeout)` 有界等待；观察器一切写入走它，超时 stderr「跳过」。
+- 顺手修：`create_binding` 的 created_at/baseline_cutoff 时区口径（上海日 vs UTC 刻，00:00–08:00 必误拒）；`ContinuationRequest.click_payload` 穿过消息边界。
 
 ## 当前状态
 
-- 全部已提交，树净：HEAD `15b36aeb`（docs）；代码 SHA `297c47c3`。
-- 返修计划与探针复核：`docs/superpowers/plans/2026-09-13-research-evolution/06/REWORK.md`；证据表在 `PROGRESS.md` 返修节。
-- 新台账 `run_links.jsonl`（重判请求↔run 关联）已登记 `docs/learning/ledger-map.md`。
-- **未合并未部署**，等用户确认；合并顺序：规格分支 `docs/river-next-specs` 先进 main。
+- 复审探针对候选树全绿：`test_review_contracts.py` 10/10、`probe_cas.py` 正确、`ResearchEvolutionReview.test.tsx` 3/3。
+- 全仓 `pytest -q --ignore=test_codex_sandbox.py`：**10022 passed / 0 failed**，收据 `~/.finance-runtime/test-receipts/20260913T163415Z-089526ab.json`（revision=代码 HEAD `089526ab`，dirty=false；之后的 docs 提交不改代码）。
+- 前端：vitest 90、lint/typecheck/build 全过；e2e research-evolution 15 + 新绑定真链路 1（desktop）+ workbench 5 全过。
+- **代码 SHA = `089526ab`**；文档提交在其后。等用户确认合并（顺序：规格分支先进 main）。部署未做。
 
-## 已验证
+## 抓手
 
-- 全仓 pytest：**10014 passed / 0 failed**，收据 `~/.finance-runtime/test-receipts/20260913T131404Z-297c47c3.json`（dirty=false，之后仅 docs 提交）；ruff clean。
-- 06 套件 80 passed（含 17 返修合同测试 `test_research_evolution_rework.py`）。
-- 前端 lint/typecheck/build 过；vitest 87 passed；e2e 研究进化 spec 三 project 15 passed、desktop 全量 10 passed。
-- QC 四探针指向本树重跑全部「以新合同失败」= 旧病不再复现（见 REWORK.md）。
-
-## 未验证 / 已知边界
-
-- 练习反馈 UI 按 dict 原样渲染，没压过真实题包（04 生产题包没人签）。
-- R3 观察器只接 Workbench RunStore，别的 run 链不在覆盖内。
-- e2e 隔离服务无市场库，绑定→变化→复核整链只由 python 测试覆盖。
-- 原批次未做项照旧（BLOCKED §3）。
-
-## 下一步
-
-1. 用户确认 → 合并（规格分支先行），部署后只认 `/api/health` 的 revision。
-2. QC 复审：重跑四探针（预期全红=修复成立）+ 看 `test_research_evolution_rework.py`。
-
-## 踩过的坑
-
-- 探针指向：「standards_*.py」sed 换硬编码 REPO；「spec_api_repro.py」用 `--repo-root`；「root_probes.py」跟 cwd 走。
-- 本树无 `.venv-workbench`，e2e 必须带 `WORKBENCH_PYTHON=/Users/a77/finance-workspace-private/.venv-workbench/bin/python`。
-- 存量 mobile e2e 基线上就红（1024 视口开关按钮不出现却死等），本次顺带修好，别当回归查。
+- 06 入口：`intelligence/services/research_evolution/`（facade/store/run_observer）+ `intelligence/api/research_evolution.py` + 前端 `ResearchEvolutionPanel.tsx`。
+- 合同测试：`intelligence/tests/test_research_evolution_rework.py`（25 例：返修 17 + Q1–Q9 移植 8）。
+- 绑定 e2e：`intelligence/webapp/e2e/research-evolution-binding.spec.ts` + `prepare_re06_fixture.py`（playwright 第二台 webServer，8794，自带真实市场库）。
+- 复审记录：`/Users/a77/.finance-runtime/reviews/research-evolution-06-ba10747d/`。
+- e2e 在这棵树必须 `WORKBENCH_PYTHON=/Users/a77/finance-workspace-private/.venv-workbench/bin/python`。
