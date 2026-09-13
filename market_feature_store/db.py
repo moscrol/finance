@@ -332,32 +332,63 @@ def backup_before_swap(
 
 @contextmanager
 def hold_swap_lock(db_path: Path):
-    """换库临界区的排他协调锁：与 duckdb 写者锁同属 flock 命名空间。
+    """换库锁：对 target inode 持 LOCK_SH|LOCK_NB——排写不排读。
 
-    QC 复审二轮 P1（2026-09-13）：备份完成到 os.replace 之间没有再次
-    确认生产库未变化，第三方写者能在窗口内提交、随后被换名静默覆盖
-    （复现证据 backup-race.json）。两次检查之间留窗不是闭环；闭合窗口
-    需要「最终检查→备份→换名」全程排他。
+    duckdb 的单写者独占用 flock 实现（本机 2026-09-13 三向实测：我方 SH
+    下 duckdb rw 打开失败、read_only 照常；duckdb rw 持锁时我方 SH 得
+    EWOULDBLOCK；read_only 读者不挡我方 SH）。SH 已足以排他全部 duckdb
+    写者（他们要 EX），同时不挡只读探针与读者（S7 判据 1）。
 
-    duckdb 的单写者独占用 flock 实现（本机 2026-09-13 实测双向互斥：
-    我方持 LOCK_EX 时 duckdb rw/read_only 打开均「Could not set lock」；
-    duckdb rw 持锁时我方 LOCK_EX|LOCK_NB 得 EWOULDBLOCK）。因此直接对
-    同一 inode 持 LOCK_EX 即与全部 duckdb 写者互斥，且不产生 WAL
-    （不像自己开一个 rw 连接）。LOCK_NB：拿不到立刻 DatabaseLockedError，
-    不在临界区门口等长事务。
+    两个窗口都用它：
+    - 基线窗口（QC 复审三轮 P1）：克隆与来源版本基线必须在同一受保护
+      窗口内建立，否则克隆之后才认领来源最新 stat，会把「副本不含的新
+      写入」记成副本基线（QC 复现：克隆 10000→窗口内提交 17000→换入
+      10000）。SH 罩住克隆时，克隆内部的 read_only 探针照常工作。
+    - 换库临界区（QC 复审二轮 P1）：「最终复查→备份→原子换名」全程
+      排写，第三方写者进不来；读者持旧 inode 不受影响。
 
-    代价自知：持锁期间 read_only 探针也进不来（锁冲突）。备份路径的
-    临界区只有 clonefile+sha256 几秒；日更不带备份、不进本锁。
+    拿不到锁立刻 DatabaseLockedError，不在临界区门口等长事务。
+    裸文件写者（cp/dd）不在威胁模型：本仓写者全走 duckdb。
     """
     import fcntl
 
     fd = os.open(db_path, os.O_RDONLY)
     try:
         try:
+            fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        except OSError as exc:
+            raise DatabaseLockedError(
+                f"{db_path} 换库锁被占用（疑似第三方写者）: {exc}"
+            ) from exc
+        yield
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+
+
+@contextmanager
+def hold_run_mutex(db_path: Path):
+    """同一 target 的 staging 编排运行互斥锁，覆盖一轮的完整生命周期。
+
+    QC 复审三轮 P1：两轮父进程共用同一 staging 路径时，B 会把 A 尚未发布
+    的 staging 当旧残留删掉重建，A 恢复后发布的「同名 staging」已是 B 的
+    失败半成品（连 A 写进 staging 的收据一起没了）。状态属于本轮 ≠ 最终
+    发布的文件仍属于本轮——必须在任何清理之前取得互斥，覆盖到换名/放弃。
+
+    锁在独立文件 <db>.run.lock 上：不碰 duckdb 的锁命名空间，读者与写者
+    完全无感；进程死亡（含 SIGKILL）由 OS 释放，下一轮正常接管并清理
+    残留。锁文件常驻不删（删锁文件本身有竞态）。
+    """
+    import fcntl
+
+    lock_path = Path(str(db_path) + ".run.lock")
+    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o644)
+    try:
+        try:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as exc:
             raise DatabaseLockedError(
-                f"{db_path} 排他协调锁被占用（疑似第三方写者）: {exc}"
+                f"另一轮 staging 编排持有 {lock_path.name} 运行互斥锁: {exc}"
             ) from exc
         yield
     finally:

@@ -496,41 +496,177 @@ def test_status_run_id_mismatch_refused(prod_db):
     assert _sha256(prod_db) == before
 
 
-def test_hold_swap_lock_excludes_duckdb_writers_and_readers(tmp_path):
-    """协调锁与 duckdb 锁同属 flock 命名空间：持锁期间 rw/ro 连接都进不来。"""
+def test_hold_swap_lock_excludes_writers_allows_readers(tmp_path):
+    """换库锁是 SH：排写不排读（S7 判据 1 不因换库锁破坏）。"""
     target = tmp_path / "prod.duckdb"
     _make_db(target)
     with db.hold_swap_lock(target):
         with pytest.raises(duckdb.IOException):
-            duckdb.connect(str(target))
-        with pytest.raises(duckdb.IOException):
-            duckdb.connect(str(target), read_only=True)
+            duckdb.connect(str(target))  # rw 写者进不来
+        ro = duckdb.connect(str(target), read_only=True)  # 读者照常
+        ro.close()
     con = duckdb.connect(str(target))  # 锁释放后写者立即可进
     con.close()
 
 
-def test_coordination_lock_backstop_when_probe_evaded(prod_db):
-    """写者探针被绕过时（理论窗口），协调锁是兜底：拿不到锁就不换名。
+def test_hold_swap_lock_senses_active_writer(tmp_path):
+    """duckdb rw 写者在场时换库锁获取失败（获取时刻即能感知写者）。"""
+    target = tmp_path / "prod.duckdb"
+    _make_db(target)
+    writer = duckdb.connect(str(target))
+    try:
+        with pytest.raises(db.DatabaseLockedError):
+            with db.hold_swap_lock(target):
+                pass
+    finally:
+        writer.close()
 
-    用 LOCK_SH 占锁（不挡只读探针与克隆，但让 EX 请求失败），模拟一个
-    恰好躲过所有探针的占用者。"""
+
+def test_clone_window_write_cannot_land(prod_db, monkeypatch):
+    """QC 复审三轮 P1-1 复现的反向：克隆与基线在同一锁窗口内，窗口写不进。
+
+    QC 原复现：克隆(10000) → 第三方提交(17000) → 基线误记 17000 → 换入
+    10000，写入被静默撤销。修复后窗口内第三方 rw 打开必失败；窗口外
+    （子进程阶段）的写入仍由末端 stat 守卫兜底
+    （test_third_party_writer_guard_blocks_swap）。"""
+    attack: dict = {}
+    real_clone = db.clone_to_staging
+
+    def clone_then_attack(src, dst):
+        copy = real_clone(src, dst)
+        try:
+            con = duckdb.connect(str(src))
+            con.execute("INSERT INTO fact_market_daily VALUES ('2026-08-14', 17000)")
+            con.close()
+            attack["landed"] = True
+        except duckdb.IOException as exc:
+            attack["landed"] = False
+            attack["error"] = str(exc)
+        return copy
+
+    monkeypatch.setattr(db, "clone_to_staging", clone_then_attack)
+    result = sdf.run_daily_full_staged(
+        trade_date="2026-08-15",
+        child_argv=_child(CHILD_OK),
+        pre_swap_backup=True,
+    )
+    assert result["swapped"] is True, result["reason"]
+    assert attack["landed"] is False  # 基线窗口内攻击必失败
+    con = duckdb.connect(str(prod_db), read_only=True)
+    try:
+        assert con.execute(
+            "SELECT COUNT(*) FROM fact_market_daily WHERE total_amount=17000"
+        ).fetchone()[0] == 0
+    finally:
+        con.close()
+
+
+def test_run_mutex_refuses_second_round_before_any_cleanup(prod_db):
+    """外部占住运行互斥锁 → 新一轮在任何清理之前被拒，现场原样保留。"""
     import fcntl
 
-    fd = os.open(prod_db, os.O_RDONLY)
-    fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+    lock_path = Path(str(prod_db) + ".run.lock")
+    leftover = Path(str(db.staging_path(prod_db)) + ".status.json")
+    leftover.write_text("{}")  # 模拟上一轮在现场的遗留；若清理会发生它会被删
+    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o644)
+    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     before = _sha256(prod_db)
     try:
         result = sdf.run_daily_full_staged(
-            trade_date="2026-08-15",
-            child_argv=_child(CHILD_OK),
-            pre_swap_backup=True,
+            trade_date="2026-08-15", child_argv=_child(CHILD_OK)
         )
     finally:
         fcntl.flock(fd, fcntl.LOCK_UN)
         os.close(fd)
+        lock_path.unlink(missing_ok=True)
     assert result["rc"] == 2
     assert result["swapped"] is False
-    assert "协调锁" in result["reason"]
+    assert "互斥" in result["reason"]
+    assert leftover.exists()  # 任何清理都未发生
+    assert _sha256(prod_db) == before
+
+
+def test_concurrent_rounds_serialize(prod_db):
+    """QC 复审三轮 P1-2 复现的反向：A 跑长事务期间 B 开工 → B 立即 rc=2，
+    A 正常发布自己的 staging（最终库是 A 的成功产物，不是 B 的半成品）。"""
+    outcome: dict = {}
+
+    def run_a():
+        outcome["a"] = sdf.run_daily_full_staged(
+            trade_date="2026-08-15", child_argv=_child(CHILD_SLOW)
+        )
+
+    t = threading.Thread(target=run_a)
+    t.start()
+    time.sleep(1.0)  # A 已过克隆，子进程正在写 staging
+    b = sdf.run_daily_full_staged(
+        trade_date="2026-08-15", child_argv=_child(CHILD_OK)
+    )
+    t.join(timeout=60)
+    a = outcome["a"]
+    assert b["rc"] == 2 and b["swapped"] is False and "互斥" in b["reason"]
+    assert a["swapped"] is True, a["reason"]
+    con = duckdb.connect(str(prod_db), read_only=True)
+    try:
+        assert con.execute(
+            "SELECT COUNT(*) FROM fact_market_daily WHERE trade_date='2026-08-15'"
+        ).fetchone()[0] == 1  # A 的行在
+        assert "sync_marker" in {
+            r[0] for r in con.execute("SHOW TABLES").fetchall()
+        }
+    finally:
+        con.close()
+
+
+def test_malformed_status_json_refused(prod_db):
+    """status 内容为 '{'：解析失败 → 明确 rc=2 拒绝，不抛异常不换库。"""
+    before = _sha256(prod_db)
+    code = (
+        CHILD_PRELUDE
+        + "con.close()\n"
+        + "pathlib.Path(path + '.status.json').write_text('{')\n"
+    )
+    result = sdf.run_daily_full_staged(
+        trade_date="2026-08-15", child_argv=_child(code)
+    )
+    assert result["rc"] == 2
+    assert result["swapped"] is False
+    assert "解析失败" in result["reason"]
+    assert _sha256(prod_db) == before
+
+
+def test_non_object_status_refused(prod_db):
+    """status 内容为 '[1]'：不是对象 → 明确 rc=2 拒绝，不抛 AttributeError。"""
+    before = _sha256(prod_db)
+    code = (
+        CHILD_PRELUDE
+        + "con.close()\n"
+        + "pathlib.Path(path + '.status.json').write_text('[1]')\n"
+    )
+    result = sdf.run_daily_full_staged(
+        trade_date="2026-08-15", child_argv=_child(code)
+    )
+    assert result["rc"] == 2
+    assert result["swapped"] is False
+    assert "不是 JSON 对象" in result["reason"]
+    assert _sha256(prod_db) == before
+
+
+def test_swap_lock_contention_aborts_before_any_write(prod_db, monkeypatch):
+    """换库锁拿不到（任一窗口）→ rc=2，不动生产库。"""
+    def _busy(_path):
+        raise db.DatabaseLockedError("simulated contention")
+
+    monkeypatch.setattr(db, "hold_swap_lock", _busy)
+    before = _sha256(prod_db)
+    result = sdf.run_daily_full_staged(
+        trade_date="2026-08-15",
+        child_argv=_child(CHILD_OK),
+        pre_swap_backup=True,
+    )
+    assert result["rc"] == 2
+    assert result["swapped"] is False
+    assert "锁" in result["reason"]
     assert _sha256(prod_db) == before
 
 

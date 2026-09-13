@@ -412,6 +412,49 @@ def run_daily_full_staged(
     kind: str = "daily-full",
     pre_swap_backup: bool = False,
 ) -> dict:
+    """staging 编排的公共入口：先取运行互斥锁，再进编排本体。
+
+    QC 复审三轮 P1：两轮父进程共用同一 staging 路径时，B 会把 A 尚未发布
+    的 staging 当旧残留清掉重建，A 恢复后发布的是 B 的失败半成品（连 A 写
+    进 staging 的收据一起没了）。因此互斥锁在任何清理之前取得、覆盖本轮
+    全生命周期（db.hold_run_mutex，锁在独立文件上，读写双方无感）。
+    拿不到锁立即 rc=2，不做任何清理、不动 staging、不动生产库。
+    """
+    target = _db.DB_PATH
+    try:
+        with _db.hold_run_mutex(target):
+            return _run_daily_full_staged_locked(
+                trade_date,
+                skip_long=skip_long,
+                stock_source=stock_source,
+                child_argv=child_argv,
+                kind=kind,
+                pre_swap_backup=pre_swap_backup,
+            )
+    except _db.DatabaseLockedError as exc:
+        reason = f"{exc}；本轮不做任何清理与换名"
+        print(f"[staging] {reason}", flush=True)
+        return {
+            "target": str(target),
+            "staging": str(_db.staging_path(target)),
+            "swapped": False,
+            "rc": 2,
+            "reason": reason,
+            "copy": None,
+            "child_returncode": None,
+            "run_id": None,
+            "backup": None,
+        }
+
+
+def _run_daily_full_staged_locked(
+    trade_date: str | None = None,
+    skip_long: bool = False,
+    stock_source: str = "snapshot",
+    child_argv: list[str] | None = None,
+    kind: str = "daily-full",
+    pre_swap_backup: bool = False,
+) -> dict:
     """daily-full 的 staging 编排: 同步全程不持有生产库写锁 (bookgap S7)。
 
     克隆生产库 → 子进程对 staging 副本跑原管道 (env 重定向, 见下) → 校验 →
@@ -474,22 +517,34 @@ def run_daily_full_staged(
         return result
 
     source_exists = target.exists()
-    source_stat = target.stat() if source_exists else None
-    source_shape = _db_shape(target) if source_exists else None
-    if source_exists and source_shape is None:
-        result["reason"] = f"生产库打不开, 拒绝开工: {target}"
-        return result
-
     if source_exists:
-        result["copy"] = _db.clone_to_staging(target, staging)
-        # 克隆完成后的基线 stat: 此后生产文件再有任何变化 = 第三方写者。
-        source_stat = target.stat()
+        # QC 复审三轮 P1：基线与克隆必须落在同一受保护窗口——克隆之后才认领
+        # 来源最新 stat，会把「副本不含的新写入」记成副本基线（QC 复现：克隆
+        # 10000 → 窗口内第三方提交 17000 → 末端守卫拿错基线 → 换入 10000）。
+        # hold_swap_lock 是 SH 锁：排写不排读，克隆内部的只读探针照常工作，
+        # 窗口内任何写者的 rw 打开必失败；窗口外（子进程阶段）的写入仍由
+        # 末端 stat 守卫兜底。形态基线改从克隆体自身读取——基线=副本版本。
+        try:
+            with _db.hold_swap_lock(target):
+                result["copy"] = _db.clone_to_staging(target, staging)
+                source_stat = target.stat()
+                source_shape = _db_shape(staging)
+        except _db.DatabaseLockedError as exc:
+            result["reason"] = f"基线窗口拿锁失败: {exc}; 拒绝开工"
+            print(f"[staging] {result['reason']}", flush=True)
+            return result
+        if source_shape is None:
+            result["reason"] = f"克隆体打不开, 拒绝开工: {staging}"
+            return result
         copy = result["copy"]
         print(
             f"[staging] 克隆生产库 -> {staging.name} "
             f"({copy['method']}, {copy['seconds']}s, {copy['bytes']} bytes)",
             flush=True,
         )
+    else:
+        source_stat = None
+        source_shape = None
 
     if child_argv is None:
         child_argv = [
@@ -515,18 +570,27 @@ def run_daily_full_staged(
     result["child_returncode"] = child_rc
     result["child_pid"] = proc.pid
 
-    status: dict = {}
-    if status_json.exists():
-        try:
-            status = json.loads(status_json.read_text(encoding="utf-8"))
-        finally:
-            status_json.unlink()
-    result["status"] = status
-
     def _abort(reason: str) -> dict:
         result["reason"] = reason
         print(f"[staging] {reason}", flush=True)
         return result
+
+    status: dict = {}
+    if status_json.exists():
+        # QC 复审三轮 P2：损坏/非标量 status 不得抛异常逃逸，统一走明确拒绝。
+        try:
+            raw_status = json.loads(status_json.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            status_json.unlink(missing_ok=True)
+            result["status"] = {}
+            return _abort(f"status.json 解析失败 ({exc}), 不换名")
+        status_json.unlink(missing_ok=True)
+        if not isinstance(raw_status, dict):
+            return _abort(
+                f"status.json 不是 JSON 对象 ({type(raw_status).__name__}), 不换名"
+            )
+        status = raw_status
+    result["status"] = status
 
     if child_rc < 0:
         return _abort(
@@ -616,10 +680,10 @@ def run_daily_full_staged(
 
     swap_started = time.monotonic()
     if pre_swap_backup and source_exists:
-        # QC S4 执行前提 + 复审二轮 P1：备份→换名必须落在同一把排他协调锁内，
+        # QC S4 执行前提 + 复审二轮 P1：备份→换名必须落在同一把换库锁内，
         # 否则第三方写者能在窗口提交并被换名静默覆盖（复现证据 backup-race.json）。
-        # hold_swap_lock 与 duckdb 写者锁同属 flock 命名空间（本机实测双向互斥），
-        # 覆盖「最终复查→备份→换名」整个临界区。日更不带备份、不进锁。
+        # hold_swap_lock（SH，排写不排读）覆盖「最终复查→备份→换名」整个临界区。
+        # 日更不带备份、不进锁。
         try:
             with _db.hold_swap_lock(target):
                 now_stat = target.stat()
