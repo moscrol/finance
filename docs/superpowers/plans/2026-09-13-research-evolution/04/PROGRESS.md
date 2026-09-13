@@ -202,3 +202,13 @@ cd /Users/a77/fwp-wt-research-diagnostics-04
 ### 最终 SHA
 
 代码与测试：`5df2e7ad`。本节文档提交见其后一条。
+
+## 2026-09-13 QC 第二轮（扩大边界复审）
+
+QC（`~/.finance-runtime/reviews/research-evolution-repair-qc-20260913/`）结论：原 13 项固定反例转绿，扩大边界确证 8 项，本轨 3 项。
+
+- **S4[P1] 合成洗白**：项级 provenance 覆盖报告级，synthetic 报告 + observed 项输出 observed。修复：报告级 provenance 为天花板（项级只能持平/降档，冲突压回 synthetic），父子来源独立校验（未知枚举拒绝），新增 `maintenance_provenance_conflicts` 辅助函数；report.py 出 `maintenance_provenance_conflict` gap。
+- **D3[P1] 未生效替代追责过去**：`evidence_status_at` 的 supersedes 分支只看 recorded_at。修复：加 valid_from 生效条件（缺省退回记录日）。
+- **D4[P2] 后知更正压过记录时间缺口**：later 压过 time_unknown，本应 unknown 却变 context 进已评估分母。修复：final 优先级改为 time_unknown 压过 later；上轮锁错期待的 `test_d1_definite_later_correction_outranks_missing_record_time` 已改正为 unknown + 双向负控。
+- 修复提交 **`1679d154`**；新增/改正共 7 条测试先红后绿；模块 72 passed；ruff 干净；QC 探针 S4/D3/D4 组复跑转绿（边界探针第 5 组 unrecognized 现按设计抛 DiagnosticsInputError）。
+- **06 联测请用 `1679d154`**。口径纠偏：上轮「13 项已修复」实为「原 13 项固定反例转绿」。
