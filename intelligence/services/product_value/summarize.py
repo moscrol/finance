@@ -149,13 +149,26 @@ def _receipt_task_is_measured(task: Mapping[str, Any]) -> bool:
     return bool(timing) and timing.get("reason") is None
 
 
-def _assisted_task_has_cost_facts(task: Mapping[str, Any], receipt: Mapping[str, Any]) -> bool:
-    """辅助任务的费用事实：有 run（attempts 非空），或有直接挂到该任务的已入账费用条目。
-    人工计时不在其列——它证明「花了多少时间」，证明不了模型调用有没有发生（评审 PV8）。"""
+# 辅助流水线固有的模型调用：writer + review。tool / retry / 人工类组件按用量发生，
+# 没发生不是缺口证据；但模型费用缺账不能靠其它类别的费用蒙混（评审 PV9）。
+_ASSISTED_MODEL_COMPONENTS = frozenset({"writer_model", "review_model"})
+
+
+def _assisted_task_uncovered_components(task: Mapping[str, Any], receipt: Mapping[str, Any], applicable: set[str]) -> list[str]:
+    """无 run 辅助任务仍缺费用事实的固有模型组件（按协议适用集过滤）。
+
+    有 run（attempts 非空）的任务由逐 attempt 缺口与类别级先看覆盖；没有 run 时，
+    一笔费用只证明它自己那个组件——工具费不为缺失的 writer/review 作证，writer 亦然。
+    """
     if task.get("attempts"):
-        return True
+        return []
     task_id = str(task.get("task_id") or "")
-    return any(item.get("selected") and str(item.get("task_id") or "") == task_id for item in (receipt.get("cost_items") or ()))
+    covered = {
+        str(item.get("component"))
+        for item in (receipt.get("cost_items") or ())
+        if item.get("selected") and str(item.get("task_id") or "") == task_id
+    }
+    return sorted(applicable & _ASSISTED_MODEL_COMPONENTS - covered)
 
 
 def _is_synthetic_receipt(receipt: Mapping[str, Any]) -> bool:
@@ -690,6 +703,7 @@ def _compute_block(
     #   1) 已分配却没有任何测量收据的任务，它的费用无从谈起；
     #   2) 合同要求覆盖、但整份试点一条账都没有的费用类别。
     not_applicable = sorted({str(x) for x in (crit["cost"].get("not_applicable_components") or ())})
+    applicable_components = set(C.COST_COMPONENTS) - set(not_applicable)
     if receipts or pilot_cost_events or tasks:
         # PV4：任务条目出现在收据里 ≠ 费用已覆盖。逐任务核验测量事实（终态 / 尝试 / 耗时至少观测到一样）；
         # 只有分配的空壳收据盖不住缺口。「没有收据」与「收据在但没测」分开列——补的动作不同：
@@ -704,11 +718,12 @@ def _compute_block(
                 tid = str(task_id)
                 if _receipt_task_is_measured(task):
                     task_coverage[tid] = "measured"
-                    # PV8：人工计时只覆盖时间，不覆盖辅助服务费用。辅助任务没有 run / 用量 / 费用事实时，
-                    # 模型调用有没有发生、发生了多少都无从谈起——不能因任务被计时就把 writer_model /
-                    # review_model 当成零。原流程任务按设计不用模型，计时即覆盖（PV4 合法通路保留）。
+                    # PV8/PV9：人工计时只覆盖时间，不覆盖辅助服务费用。辅助任务没有 run 时，
+                    # 协议适用的固有模型组件（writer/review）必须逐个有挂到该任务的费用事实——
+                    # 一笔工具费或只有 writer 的账都不能替缺失的组件作证。原流程任务按设计
+                    # 不用模型，计时即覆盖（PV4 合法通路保留）；补齐费用事实即解除阻断。
                     condition = str(task.get("condition") or condition_key or "")
-                    if condition == C.CONDITION_ASSISTED and not _assisted_task_has_cost_facts(task, receipt):
+                    if condition == C.CONDITION_ASSISTED and _assisted_task_uncovered_components(task, receipt, applicable_components):
                         task_cost_blocked.setdefault(tid, "assisted_task_without_usage_or_cost_evidence")
                     else:
                         task_cost_blocked.pop(tid, None)

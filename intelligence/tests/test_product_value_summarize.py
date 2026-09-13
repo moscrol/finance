@@ -788,3 +788,56 @@ def test_timed_assisted_task_without_usage_facts_does_not_cover_model_cost():
     after = _cost([r1, r2])
     assert after["detail"]["known_cost_by_currency"] == {"CNY": 0.46}
     assert after["detail"]["full_cost_status"] == "unknown"
+
+
+def test_task_scoped_fee_does_not_cover_missing_model_components():
+    """PV9：一笔工具费不能替缺失的模型费用作证——无 run 辅助任务的费用核销按组件逐个核验，
+    writer 有账也不能替缺失的 review 作证；三件套补齐才是合法 known。"""
+    proto = _six_pair_protocol()
+    proto.pop("protocol_hash")
+    proto["criteria"]["cost"] = {"not_applicable_components": sorted(C.COST_COMPONENTS - {"writer_model", "review_model", "tool"})}
+    proto = freeze_protocol(proto)
+    complete, evidence = _clone_complete_pair(1, "p10", proto["protocol_hash"], provenance="imported")
+    second, _ = _clone_complete_pair(2, "p11", proto["protocol_hash"], provenance="imported")
+    reader = InMemoryEvidenceReader.from_json(evidence)
+    r1 = measure_pair(complete, proto, reader)
+    original = [e for e in second if e["event_type"] == "consent_changed" or e.get("assistance_condition") == "original"]
+    assisted = [e for e in second if e.get("assistance_condition") == "assisted" and e["event_type"] in ("assignment_created", "task_started")]
+    template = None
+    for e in second:
+        if e.get("assistance_condition") == "assisted" and e["event_type"] == "task_completed":
+            template = copy.deepcopy(e)
+            template.update(event_type="task_abandoned", event_id=e["event_id"] + "-abandoned", object_refs=[], run_ids=[])
+            template["payload"].update(completion_evidence_refs=[], terminal_reason="abandoned; run and billing records unavailable")
+            assisted.append(template)
+    events = original + assisted
+
+    def _fee(component, amount):
+        e = copy.deepcopy(template)
+        e.update(event_id=f"qc-fee-{component}", event_type="cost_recorded", source_channel="server", object_refs=[], run_ids=[])
+        e["payload"] = {
+            "initiator": template["payload"]["initiator"],
+            "assistance_source": template["payload"]["assistance_source"],
+            "cost_item": {
+                "cost_id": f"qc-cost-{component}", "component": component, "run_id": None, "attempt_id": None, "span_id": None,
+                "coverage_scope": "task", "quantity": 1, "unit": "calls", "amount": amount, "currency": "CNY",
+                "certainty": "known", "evidence_ref": f"invoice:{component}", "rate_version": "qc-rate-v1", "allocation_rule": None,
+            },
+        }
+        return e
+
+    def _measured(extra):
+        evs = events + list(extra)
+        r2 = measure_pair(evs, proto, reader)
+        assert r2["invalid_reasons"] == [] and r2["event_accounting"]["rejected"] == []
+        assert r2["tasks"]["assisted"]["attempts"] == []
+        assignments = [e for e in complete + evs if e["event_type"] == "assignment_created"]
+        summary = summarize([r1, r2], assignments, proto, cohort_events=complete + evs, due_rechecks=[])
+        return next(m for m in summary["metrics"] if m["metric_id"] == "cost_full_status")
+
+    assert _measured([])["detail"]["full_cost_status"] == "unknown"
+    assert _measured([_fee("tool", 0.01)])["detail"]["full_cost_status"] == "unknown"
+    assert _measured([_fee("tool", 0.01), _fee("writer_model", 0.36)])["detail"]["full_cost_status"] == "unknown"
+    full = _measured([_fee("tool", 0.01), _fee("writer_model", 0.36), _fee("review_model", 0.10)])
+    assert full["detail"]["full_cost_status"] == "known"
+    assert full["detail"]["known_cost_by_currency"] == {"CNY": 0.93}
