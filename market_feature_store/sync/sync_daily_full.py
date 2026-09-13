@@ -496,6 +496,7 @@ def _run_daily_full_staged_locked(
         "stale_staging_removed": False,
         "stale_status_removed": False,
         "backup": None,
+        "publish": None,
     }
 
     result["stale_staging_removed"] = _db.remove_stale_staging(staging)
@@ -753,13 +754,28 @@ def _run_daily_full_staged_locked(
         except _db.DatabaseLockedError as exc:
             return _abort(f"排他协调锁: {exc}; 拒绝换名")
     else:
-        # 首次建库：目标不存在 = 没有 inode 可锁，只能靠上面的「同步期间被第三方
-        # 创建」守卫。残留窗口（守卫通过后才被创建）已知未闭合，但此路径下生产库
-        # 本就不存在、无既有数据可丢，且同一 target 的并发轮次已被 run 互斥锁排开。
+        # 首次建库：目标不存在 = 没有 inode 可锁，但**不等于没有数据可丢**。
+        # QC 六轮 P1 否掉了旧理由：守卫通过之后、发布之前，一个普通
+        # duckdb.connect(target) 写者可以建库、提交、关闭（持 DuckDB 自己的 EX
+        # 锁，没绕过任何机制），os.replace 会把它已提交的数据静默覆盖，编排还报
+        # rc=0/swapped=True。run mutex 只排同协议的 staging 编排，排不掉普通
+        # DuckDB 新建库。改用 os.link 发布：目标名已存在就在同一个 syscall 里
+        # 原子拒绝，「守卫通过后才被创建」这段窗口不再是覆盖而是拒绝。
         try:
-            _db.atomic_swap_into_place(staging, target)
+            result["publish"] = _db.publish_new_into_place(staging, target)
+        except _db.SwapTargetCreatedError as exc:
+            # 注意：它是 RuntimeError 的后代，必须排在下面那条之前。
+            return _abort(f"首次建库守卫: {exc}")
         except (RuntimeError, FileNotFoundError, OSError) as exc:
-            return _abort(f"换名失败: {exc}")
+            return _abort(f"首次建库发布失败: {exc}")
+        if not result["publish"]["staging_name_removed"]:
+            # link 已成功 = 已发布。清理失败不得回退成「未换库、生产未动」。
+            print(
+                "[staging] 已发布, 但 staging 名字未删掉: "
+                f"{result['publish']['staging_cleanup_error']}; "
+                "它与 target 同 inode, 删名不伤数据, 下一轮 remove_stale_staging 收掉",
+                flush=True,
+            )
     result["swap_seconds"] = round(time.monotonic() - swap_started, 3)
     result["swapped"] = True
     result["rc"] = child_rc

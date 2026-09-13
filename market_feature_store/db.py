@@ -65,6 +65,22 @@ class SwapTargetReplacedError(DatabaseLockedError):
     """
 
 
+class SwapTargetCreatedError(DatabaseLockedError):
+    """首次建库发布时目标路径已被占用——拒绝发布，不覆盖。
+
+    QC 复审六轮（2026-09-13）P1：目标缺席这条路径此前用 os.replace 发布，理由
+    写的是「生产库本就不存在、无既有数据可丢」。独立探针否掉了这个理由——最终
+    检查通过之后、发布之前，一个**普通的 duckdb.connect(target)** 写者可以建库、
+    建表、插入、提交、关闭（全程持 DuckDB 自己的 EX 锁，没有绕过任何机制，也
+    不是手工 mv/cp），os.replace 照样把它已提交的数据静默覆盖，编排还报
+    rc=0 / swapped=True。run mutex 只排同协议的 staging 编排，排不掉普通
+    DuckDB 新建库；target 不存在时也没有 inode 锁可言。
+
+    继承 DatabaseLockedError 同 SwapTargetReplacedError：拒绝要带出口码，
+    不能靠 traceback。
+    """
+
+
 def is_lock_conflict(exc: BaseException) -> bool:
     """该异常是否为 duckdb 文件锁冲突（可等待重试），而非其他 IO 故障。"""
     return isinstance(exc, duckdb.IOException) and any(
@@ -383,6 +399,64 @@ def atomic_swap_into_place(
     if expect_identity is not None:
         assert_same_target(target, expect_identity, stage="换名前最后一刻")
     os.replace(staging, target)
+
+
+def publish_new_into_place(staging: Path, target: Path) -> dict:
+    """首次建库发布: os.link 给写好的 staging 加上 target 这个名字。
+
+    返回 {method, staging_name_removed, staging_cleanup_error}。
+
+    **为什么不是 os.replace**: replace 无条件覆盖。目标缺席这条路径上,「检查它
+    还不在」与「发布」是两条语句, 中间被第三方建库并提交就被静默吞掉
+    (六轮 P1 复现, 见 SwapTargetCreatedError)。os.link 把判定与建名字做进
+    **同一个 syscall**: 目标名已存在就原子拒绝 (EEXIST), 没有 check-then-act
+    窗口。
+
+    本机实测 (Darwin 25.4 / APFS, 2026-09-13): 目标是普通文件、指向存在文件的
+    软链、**悬空软链**、目录, 四种都是 EEXIST——link 不跟随目标侧软链, 不会顺着
+    一条软链把库写到别处; 目标缺席时成功且两个名字同 inode。
+
+    它解决的只有 absent→present 这一类。既有目标按 inode 条件替换仍然没有 POSIX
+    原语 (见本文件顶部威胁模型), 所以**失败不回退 os.replace**——回退等于把刚
+    拒绝掉的覆盖又做一遍。代价是不支持硬链接的文件系统会 fail closed
+    (本仓 db/ 在 APFS 上), 这是刻意选的方向。
+
+    **link 成功 = 已经发布。** 此后删 staging 名字只是清理: 它与 target 此刻是
+    同一个 inode 的两个名字, 删掉哪个名字都不影响数据。所以清理失败不改变「已
+    发布」这个事实, 本函数在 link 之后不再抛任何异常, 只把清理结果报给调用方;
+    残留的 staging 名字由下一轮 remove_stale_staging 收掉。调用方**不得**因为
+    清理失败就返回「未换库、生产未动」。
+    """
+    if not staging.exists():
+        raise FileNotFoundError(f"staging 副本不存在: {staging}")
+    staging_wal = wal_path(staging)
+    if staging_wal.exists():
+        raise RuntimeError(
+            f"staging 带未 checkpoint 的 WAL ({staging_wal}), 拒绝发布——"
+            "写者未干净关闭"
+        )
+    if wal_path(target).exists():
+        raise RuntimeError(
+            f"生产路径存在 WAL ({wal_path(target)}), 疑似第三方写者, 拒绝发布"
+        )
+    try:
+        os.link(staging, target)
+    except FileExistsError as exc:
+        raise SwapTargetCreatedError(
+            f"首次建库发布: 目标 {target} 在发布时已被占用 (第三方在最终检查"
+            f"之后创建); 拒绝覆盖, 目标与 staging 均保留待人工裁决"
+        ) from exc
+    info: dict = {
+        "method": "link",
+        "staging_name_removed": False,
+        "staging_cleanup_error": None,
+    }
+    try:
+        staging.unlink()
+        info["staging_name_removed"] = True
+    except OSError as exc:
+        info["staging_cleanup_error"] = f"{type(exc).__name__}: {exc}"
+    return info
 
 
 def remove_stale_staging(staging: Path) -> bool:

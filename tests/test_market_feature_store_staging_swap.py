@@ -1084,3 +1084,239 @@ def test_probe_no_active_writer_does_not_mask_other_io_errors(tmp_path):
         db.probe_no_active_writer(corrupt)
     assert not isinstance(excinfo.value, db.DatabaseLockedError)
     assert corrupt.exists()
+
+
+# ---------------------------------------------------------------------------
+# 六轮 P1：首次建库不得覆盖普通 DuckDB 写者已提交的数据。
+#
+# 旧理由是「生产库本就不存在、无既有数据可丢」，独立探针否掉了它：最终检查
+# 之后、发布之前，一个**普通的 duckdb.connect(target)** 写者能建库、插入、
+# 提交、关闭（持 DuckDB 自己的 EX 锁，不是手工 mv/cp），os.replace 照样静默
+# 覆盖，编排还报 rc=0/swapped=True。改用 os.link：EEXIST 与建名字是同一个
+# syscall，没有 check-then-act 窗口。
+# ---------------------------------------------------------------------------
+
+CHILD_BOOTSTRAP = (
+    "import duckdb, json, os, pathlib, sys\n"
+    "path = os.environ['MARKET_FEATURE_STORE_DB']\n"
+    "con = duckdb.connect(path)\n"
+    "con.execute('CREATE TABLE fact_market_daily (trade_date DATE, total_amount DOUBLE)')\n"
+    "con.execute(\"INSERT INTO fact_market_daily VALUES ('2026-08-15', 12345)\")\n"
+    "con.close()\n"
+) + CHILD_WRITE_STATUS + "sys.exit(0)\n"
+
+
+def _commit_third_party_db(path: Path, value: int = 17000) -> None:
+    """普通 duckdb 写者：建库→插入→提交→关闭，再只读读回确认真的提交了。
+
+    「真的提交了」这一步不能省：不读回的话，探针有可能只证明了「我们覆盖了一个
+    空壳」，而那不是要防的东西。
+    """
+    con = duckdb.connect(str(path))
+    try:
+        con.execute("CREATE TABLE committed_by_other_writer (v INTEGER)")
+        con.execute("INSERT INTO committed_by_other_writer VALUES (?)", [value])
+    finally:
+        con.close()
+    con = duckdb.connect(str(path), read_only=True)
+    try:
+        assert con.execute("SELECT v FROM committed_by_other_writer").fetchall() == [
+            (value,)
+        ]
+    finally:
+        con.close()
+
+
+def _rows_of(path: Path, sql: str) -> list:
+    con = duckdb.connect(str(path), read_only=True)
+    try:
+        return con.execute(sql).fetchall()
+    finally:
+        con.close()
+
+
+def test_bootstrap_publish_links_and_leaves_receipt(tmp_path, monkeypatch):
+    """P1 验收①：无竞争时正常发布，收据在场，staging 名字收干净。"""
+    target = tmp_path / "fresh.duckdb"
+    monkeypatch.setattr(db, "DB_PATH", target)
+    monkeypatch.setattr(db, "DB_DIR", target.parent)
+    staging = db.staging_path(target)
+
+    result = sdf.run_daily_full_staged(child_argv=_child(CHILD_BOOTSTRAP))
+
+    assert result["swapped"] is True and result["rc"] == 0, result["reason"]
+    assert result["publish"] == {
+        "method": "link",
+        "staging_name_removed": True,
+        "staging_cleanup_error": None,
+    }
+    assert target.exists() and not staging.exists()
+    assert os.stat(target).st_nlink == 1  # 两个名字之一已删, 只剩 target
+    assert _rows_of(target, "SELECT run_id, kind FROM ops_sync_run") == [
+        (result["run_id"], "daily-full")
+    ]
+
+
+def test_bootstrap_refuses_target_created_after_final_check(tmp_path, monkeypatch):
+    """P1 验收②：最终检查之后第三方建库并提交 → rc=2，其数据保留，staging 留证。
+
+    注入同时挂在 os.replace 与 os.link 上，所以这条测试对新旧两种发布方式都会
+    触达：修复前走 replace（数据被吞 → 红），修复后走 link（EEXIST → 绿）。
+    """
+    target = tmp_path / "fresh.duckdb"
+    monkeypatch.setattr(db, "DB_PATH", target)
+    monkeypatch.setattr(db, "DB_DIR", target.parent)
+    staging = db.staging_path(target)
+    fired: list = []
+
+    def attack(real):
+        def wrapper(src, dst, *args, **kwargs):
+            if Path(src) == staging and Path(dst) == target and not fired:
+                fired.append(real.__name__)
+                _commit_third_party_db(target)
+            return real(src, dst, *args, **kwargs)
+
+        return wrapper
+
+    monkeypatch.setattr(db.os, "replace", attack(os.replace))
+    monkeypatch.setattr(db.os, "link", attack(os.link))
+
+    result = sdf.run_daily_full_staged(child_argv=_child(CHILD_BOOTSTRAP))
+    monkeypatch.undo()
+
+    assert fired, "注入未触达发布 syscall, 窗口没对上"
+    assert result["rc"] == 2 and result["swapped"] is False
+    assert "首次建库守卫" in result["reason"], result["reason"]
+    # 第三方已提交的数据原样保留, 且我们的库没被发布进去
+    assert _rows_of(target, "SELECT v FROM committed_by_other_writer") == [(17000,)]
+    assert "fact_market_daily" not in {
+        row[0] for row in _rows_of(target, "SHOW TABLES")
+    }
+    assert staging.exists()  # staging 留作取证
+
+
+def test_bootstrap_refuses_dangling_symlink_target(tmp_path, monkeypatch):
+    """P1 验收③：目标是悬空软链 → 拒绝，软链本身不被换掉，也不顺着它写过去。
+
+    悬空软链的 exists() 是 False，所以它能一路穿过「同步期间被第三方创建」那道
+    守卫走到发布；修复前 os.replace 会把软链换成库文件。
+    """
+    target = tmp_path / "fresh.duckdb"
+    victim = tmp_path / "nowhere.duckdb"
+    target.symlink_to(victim)
+    monkeypatch.setattr(db, "DB_PATH", target)
+    monkeypatch.setattr(db, "DB_DIR", target.parent)
+    staging = db.staging_path(target)
+    assert not target.exists() and target.is_symlink()  # 确实走首次建库分支
+
+    result = sdf.run_daily_full_staged(child_argv=_child(CHILD_BOOTSTRAP))
+
+    assert result["rc"] == 2 and result["swapped"] is False
+    assert "首次建库守卫" in result["reason"], result["reason"]
+    assert target.is_symlink() and not victim.exists()
+    assert staging.exists()
+
+
+@pytest.mark.parametrize(
+    "shape", ["regular", "symlink_valid", "symlink_dangling", "dir"]
+)
+def test_publish_new_refuses_every_occupied_target_shape(tmp_path, shape):
+    """P1 验收③（原语层）：四种占用形态一律 EEXIST 拒绝, 谁都不被覆盖。
+
+    本机实测 os.link 不跟随目标侧软链——否则「发布」会顺着一条软链把库写到
+    别人的路径上去。
+    """
+    staging = tmp_path / "t.duckdb.staging"
+    staging.write_bytes(b"new-db")
+    target = tmp_path / "t.duckdb"
+    other = tmp_path / "other"
+    other.write_bytes(b"someone-elses-bytes")
+    if shape == "regular":
+        target.write_bytes(b"someone-elses-bytes")
+    elif shape == "symlink_valid":
+        target.symlink_to(other)
+    elif shape == "symlink_dangling":
+        target.symlink_to(tmp_path / "nonexistent")
+    else:
+        target.mkdir()
+
+    with pytest.raises(db.SwapTargetCreatedError):
+        db.publish_new_into_place(staging, target)
+
+    assert staging.read_bytes() == b"new-db"  # staging 留证
+    assert other.read_bytes() == b"someone-elses-bytes"  # 没顺着软链写过去
+    if shape == "dir":
+        assert target.is_dir()
+    elif shape.startswith("symlink"):
+        assert target.is_symlink()
+    else:
+        assert target.read_bytes() == b"someone-elses-bytes"
+
+
+def test_publish_new_keeps_wal_checks_and_never_falls_back_to_replace(
+    tmp_path, monkeypatch
+):
+    """P1 验收④：WAL 前置条件保留；任何拒绝都不得退回 os.replace。
+
+    退回等于把刚拒绝掉的覆盖又做一遍，所以这里直接把 os.replace 换成记账桩，
+    断言它一次都没被调用。
+    """
+    staging = tmp_path / "t.duckdb.staging"
+    staging.write_bytes(b"new-db")
+    target = tmp_path / "t.duckdb"
+    replaced: list = []
+    monkeypatch.setattr(db.os, "replace", lambda *a, **k: replaced.append(a))
+
+    staging_wal = db.wal_path(staging)
+    staging_wal.write_bytes(b"dirty")
+    with pytest.raises(RuntimeError, match="WAL"):
+        db.publish_new_into_place(staging, target)
+    staging_wal.unlink()
+
+    target_wal = db.wal_path(target)
+    target_wal.write_bytes(b"other-writer")
+    with pytest.raises(RuntimeError, match="第三方"):
+        db.publish_new_into_place(staging, target)
+    target_wal.unlink()
+
+    assert not target.exists()
+    assert replaced == [], "WAL 拒绝之后退回了 os.replace"
+
+    info = db.publish_new_into_place(staging, target)  # 前提恢复后照常发布
+    assert info["method"] == "link" and info["staging_name_removed"] is True
+    assert target.read_bytes() == b"new-db" and not staging.exists()
+    assert replaced == []
+
+
+def test_bootstrap_publish_survives_staging_cleanup_failure(tmp_path, monkeypatch):
+    """P1 验收⑤：link 成功 = 已发布；删 staging 名字失败不得报成「生产未动」。
+
+    连带钉住重启清理：残留的 staging 名字与 target 是同一个 inode 的两个名字，
+    下一轮 remove_stale_staging 删掉它不伤数据。
+    """
+    target = tmp_path / "fresh.duckdb"
+    monkeypatch.setattr(db, "DB_PATH", target)
+    monkeypatch.setattr(db, "DB_DIR", target.parent)
+    staging = db.staging_path(target)
+    real_unlink = Path.unlink
+
+    def unlink_fails_for_staging(self, *args, **kwargs):
+        if self == staging:
+            raise OSError(1, "Operation not permitted")
+        return real_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", unlink_fails_for_staging)
+    result = sdf.run_daily_full_staged(child_argv=_child(CHILD_BOOTSTRAP))
+    monkeypatch.undo()
+
+    assert result["swapped"] is True and result["rc"] == 0, result["reason"]
+    assert result["publish"]["staging_name_removed"] is False
+    assert "Operation not permitted" in result["publish"]["staging_cleanup_error"]
+    assert target.exists() and staging.exists()
+    assert os.stat(target).st_ino == os.stat(staging).st_ino  # 同 inode 两个名字
+    assert _rows_of(target, "SELECT total_amount FROM fact_market_daily") == [(12345.0,)]
+
+    # 重启清理: 删掉残留名字, 数据照常在 target 上
+    assert db.remove_stale_staging(staging) is True
+    assert not staging.exists() and target.exists()
+    assert _rows_of(target, "SELECT total_amount FROM fact_market_daily") == [(12345.0,)]
