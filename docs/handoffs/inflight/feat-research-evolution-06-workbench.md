@@ -1,43 +1,45 @@
 # feat/research-evolution-06-workbench 在途交接
 
-最近更新：2026-09-14 · HEAD 99d6e193（+未提交第五轮返修；提交后 HEAD 见 git）· 基于 b481804c
+最近更新：2026-09-14 · HEAD f90e27c5（第六轮返修已提交）· 基于 b481804c
 
-## 当前任务（第六轮 QC 复审等待中）
+## 当前任务（第七轮 QC 复审等待中）
 
-第五轮 P1 返修 V1–V4 已完成、全绿待复审。根因一句话：第四轮把「文本」当身份、「同会话有消息」当因果；
-时钟域分裂下唯一可信归属坐标是**请求实例（item_id + request_event_id）**。
+第六轮 P1×2 + P2 返修完成、全绿待复审。根因：坐标只约束了接受侧与补偿侧，运行中显式登记漏查完整归属；成果侧把「当前唯一 pending」误当因果唯一。
 
-## 本轮改动
+## 本轮改动（相对 c8536482）
 
-- 消息合同 `maintenance_launch {item_id, request_event_id}`（首轮可带）；Message 台账同名字段，revise 保留。
-- continuation 载荷带 `request_event_id`（= rejudge 事件 event_id）；App rejudge 流程回传坐标。
-- `bind_pending_rejudge_run` 只认坐标（`_verify_launch_coordinate` 四条件：rejudge 台账回查会话/项/requested/当前代）；文本匹配（`_is_launch_utterance`/`_request_launch_texts`）**已删除**。
-- V4：运行中登记前查旧代归属，已登记 → 400。R7 合同不变（无消息 running run 可登记）。
-- V1：终态补偿 `_compensate_terminal_link` 只认源消息当前代坐标（同一验证器），时间窗检查弃用。
-- V3：auto-pick 收窄——同会话待复核 >1 必拒（ERR_DEPENDENCY_MISSING+pending_item_ids+hint）；
-  已被其他闭环消费的 judgment 从候选排除。U4 闸（attempts>1/last_failure）保留在前。
-- 产品入口：视图 `maintenance.run_links`（含 run_status）；面板「确认成果」（rejudgment_requested 项：
-  选当前代已完成 run + 成果判断 → link_run 带 new_judgment_ref）。运行中带 ref 会被忽略（文档化，不对运行中开放）。
-- 旧探针 setup 升级带坐标（round-3 T1 / round-4 U2/U3，裁决许可，核心断言不动）；新四针原样。
+- W1/W2：`_link_run_event` 运行中分支写入前查 run 的**完整**既有归属（任何项任何代 → 400）+ 源消息坐标与当前 (项,代际) 一致性核验；R7 裸 run 保留（无来源 ≠ 矛盾来源）。
+- W3：auto-pick 唯一性 = 「本会话有史以来只有本轮一次 rejudge 记录」（不再是当前 pending 数）；Q2 单请求自动关闭不变。已取消同伴的迟到成果不再能关唯一剩余项。
+- P2：确认表单有效选择派生自候选集合（投影刷新即生效），按 item+request_event_id 作 key 换代重置，提交前再验；面板新增 2 条状态转换测试。
+- 仓内新增 W1–W3 镜像回归（test_research_evolution_rework.py）。
 
-## 验证（本机多树并发，收据按 tree 区分）
+## 验证
 
-- 新四针 4/4 原样；组合门禁（5 套件+三轮历史探针）127 passed。
-- 全仓裸 pytest **10051 passed / 0 failed**，收据 `~/.finance-runtime/test-receipts/20260914T033709Z-99d6e193.json`。
-- 前端 92 tests / lint / typecheck / build 全绿；e2e 31 passed / 2 skipped。
-- 勘误：第四轮 10043 全量收据实为 `20260913T202240Z-b481804c`（旧交接 T201520Z 写错）。
+- 新三针 3/3 原样；组合门禁（5 套件 + 四轮历史探针）**130 passed**。
+- **干净候选全量**：HEAD f90e27c5、dirty=false 裸 pytest **10057 passed / 0 failed / 77 skipped**，收据 `~/.finance-runtime/test-receipts/20260914T043357Z-f90e27c5.json`。
+- 沙箱两条（codex_headless）本机绿；评审环境的 `live_root_read=unexpected_success` 是嵌套沙箱环境特异、修前即红，未归因本次返修；详情见 REWORK.md。
+- 前端 94 tests / lint / typecheck / build 全绿；e2e 31 passed / 2 skipped。
 
 ## 细节快照与证据
 
-- `docs/handoffs/2026-09-14-re06-round5-v1-v4.md`（改动矩阵、被否方案）。
-- `docs/verification/re06-ecd90a3c/`：REVIEW.md（裁决原文）+ REWORK.md（返修说明）+ 探针。
+- `docs/handoffs/2026-09-14-re06-round6-w1-w3.md`（决策与被否方案）。
+- `docs/verification/re06-c8536482/`：REVIEW.md（裁决）+ REWORK.md（返修说明）+ test_review_round6.py（探针）。
+- 历轮：re06-0c275716（R3）、re06-957e83f4（R4 U1–U4）、re06-ecd90a3c（R5 V1–V4）。
+
+## 信任阶梯（当前全貌，复审参考）
+
+1. 接受侧绑定：只认消息 `maintenance_launch` 坐标（rejudge 台账回查当前代）。
+2. 运行中登记：同代复用 → 完整归属矛盾检查 → 源消息坐标矛盾检查 → 登记。
+3. 终态折回：当前代登记行；缺失时补偿只认源消息当前代坐标。
+4. 成果归属：显式 new_judgment_ref（过 session/ts/存在/未消费闸）或 auto-pick（会话史唯一请求）。
+5. 终态重放：会话内 + run 会话核验 + 版本闸。
 
 ## 合并顺序（通过后再走，等用户确认）
 
 spec 链 → 主链原序；不合并、不部署、不动其他 worktree。
 
-## 留痕（下轮注意）
+## 留痕
 
-- judgments 写入侧不扩展（登记依赖）；归属只靠坐标+唯一性。
-- 观察器终态收尾无 payload：显式 ref 只走 HTTP link_run。
-- 探针台账：round2 在 ~/.finance-runtime/reviews/research-evolution-06-ba10747d/，round3/4/5 在 docs/verification/re06-*/。
+- judgments 写入侧不扩展（登记依赖）；归属只靠坐标+历史唯一。
+- 运行中 link_run 带 new_judgment_ref 被忽略（终态才读）；面板只对已完成 run 开放确认。
+- 探针台账：round2 在 ~/.finance-runtime/reviews/research-evolution-06-ba10747d/，round3–6 在 docs/verification/re06-*/。
